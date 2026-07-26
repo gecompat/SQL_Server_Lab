@@ -214,6 +214,10 @@ function New-SqlServerLab {
             }
             Set-LabRunState -RunId $runState.RunId -NewState 'DATABASES_CREATED' -Reason 'Datenbanken angelegt' -StateRoot $StateRoot
         }
+        else {
+            # Keine Datenbanken angefordert - State trotzdem durchlaufen
+            Set-LabRunState -RunId $runState.RunId -NewState 'DATABASES_CREATED' -Reason 'Keine Datenbanken angefordert' -StateRoot $StateRoot
+        }
 
         # =====================================================================
         # 8. PostProvision-Skripte
