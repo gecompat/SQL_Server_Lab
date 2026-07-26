@@ -46,13 +46,14 @@ function Clear-SqlServerLab {
         Write-LabInfo 'Suche Lab-Container (Label: sql-server-lab.run-id)...'
 
         # Einfaches Format ohne index-Syntax (Windows PowerShell verschluckt Quotes)
-        $containerIds = docker ps -a -q --filter 'label=sql-server-lab.run-id' 2>$null
+        $rt = Get-ContainerRuntime
+        $containerIds = if ($rt) { & $rt ps -a -q --filter 'label=sql-server-lab.run-id' 2>$null } else { $null }
         if ($LASTEXITCODE -eq 0 -and $containerIds) {
             $containersFound = @($containerIds | ForEach-Object {
                 $id = $_.Trim()
                 if (-not $id) { return }
                 # Details per docker inspect holen
-                $inspectJson = docker inspect $id 2>$null | ConvertFrom-Json
+                $inspectJson = & $rt inspect $id 2>$null | ConvertFrom-Json
                 if ($inspectJson) {
                     $labels = $inspectJson[0].Config.Labels
                     $name = $inspectJson[0].Name.TrimStart('/')
@@ -161,7 +162,7 @@ function Clear-SqlServerLab {
         foreach ($c in $containersFound) {
             Write-LabInfo "Entferne Container: $($c.Name)..."
             try {
-                docker rm -f $c.ContainerId 2>&1 | Out-Null
+                & $rt rm -f $c.ContainerId 2>&1 | Out-Null
                 if ($LASTEXITCODE -eq 0) {
                     Write-LabSuccess "  Entfernt: $($c.Name)"
                     $removed.Containers++

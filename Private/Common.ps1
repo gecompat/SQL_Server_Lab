@@ -199,3 +199,35 @@ function Test-CommandExists {
     param([Parameter(Mandatory)][string]$Command)
     $null -ne (Get-Command $Command -ErrorAction SilentlyContinue)
 }
+
+
+# =============================================================================
+# Container-Runtime-Erkennung
+# =============================================================================
+
+function Get-ContainerRuntime {
+    <#
+    .SYNOPSIS Erkennt welche Container-Runtime verfuegbar ist.
+    .DESCRIPTION Prueft docker und podman, gibt den Befehlsnamen zurueck.
+                 Lifecycle-Cmdlets nutzen dies fuer provider-agnostische Aufrufe.
+    .OUTPUTS String: 'docker', 'podman', oder $null.
+    #>
+    [CmdletBinding()]
+    param(
+        [string]$PreferredRuntime
+    )
+
+    # Wenn explizit gewuenscht, pruefen ob verfuegbar
+    if ($PreferredRuntime -eq 'podman') {
+        if (Test-CommandExists 'podman') { return 'podman' }
+    }
+    if ($PreferredRuntime -eq 'docker') {
+        if (Test-CommandExists 'docker') { return 'docker' }
+    }
+
+    # Auto-Detect: docker bevorzugt (verbreiteter)
+    if (Test-CommandExists 'docker') { return 'docker' }
+    if (Test-CommandExists 'podman') { return 'podman' }
+
+    return $null
+}

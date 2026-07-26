@@ -42,14 +42,15 @@ function Get-SqlServerLab {
             Get-Content $connInfoPath -Raw | ConvertFrom-Json
         } else { $null }
 
-        # Container via Docker-Labels finden (live, zuverlaessig)
-        $containers = docker ps -a -q --filter "label=sql-server-lab.run-id=$($run.runId)" 2>$null
+        # Container via Labels finden (docker oder podman)
+        $rt = Get-ContainerRuntime
+        $containers = if ($rt) { & $rt ps -a -q --filter "label=sql-server-lab.run-id=$($run.runId)" 2>$null } else { $null }
         $containerMap = @{}
         if ($containers) {
             $containers | ForEach-Object {
                 $id = $_.Trim()
                 if (-not $id) { return }
-                $inspectJson = docker inspect $id 2>$null | ConvertFrom-Json
+                $inspectJson = & $rt inspect $id 2>$null | ConvertFrom-Json
                 if ($inspectJson) {
                     $labels = $inspectJson[0].Config.Labels
                     $instId = $labels.'sql-server-lab.instance-id'
