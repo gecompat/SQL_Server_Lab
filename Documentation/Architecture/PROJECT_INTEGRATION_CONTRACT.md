@@ -3,42 +3,46 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `ARCHITECTURE_DECISION_DRAFT` |
-| Vertragsversion | `0.2` |
+| Vertragsversion | `0.3` |
 | Stand | 2026-07-26 |
-| Konsumenten | `SQL_Server_Analyze`, `SQL_PerformanceSchulung`, spätere kompatible Projekte |
-| Maßgebliche Vertiefung | [Erweiterbarer Umgebungs- und Ausführungsvertrag](./EXTENSIBLE_ENVIRONMENT_AND_EXECUTION_CONTRACT.md) |
+| Primärkonsumenten | `SQL_Server_Analyze`, `SQL_PerformanceSchulung` |
+| Hauptzweck | Übergabe SQL-zentrierter Lab Packages |
+| Maßgebliche Scope-Entscheidung | [SQL-Server-zentrierte Scope-Entscheidung](./SQL_SERVER_CENTRIC_SCOPE_DECISION.md) |
 
 ## 1. Zweck
 
-Dieser Vertrag definiert, wie ein konsumierendes Projekt dem Lab mitteilt:
+Dieser Vertrag definiert, wie ein konsumierendes SQL-Server-Projekt dem Lab mitteilt:
 
-- welche Umgebung benötigt wird;
-- welche logischen Komponenten enthalten sein müssen;
-- welche Software und Projektartefakte innerhalb der Komponenten installiert werden;
+- welchen SQL-Server-Zweck der Lauf besitzt;
+- welche SQL-Server-Instanzen oder -Topologien erforderlich sind;
+- welche Supporting Components für diesen SQL-Zweck benötigt werden;
+- welche Projektartefakte installiert werden;
 - wie synthetische Testdaten erzeugt und geprüft werden;
 - welche Workloads, Demos oder Analysekonstellationen auszuführen sind;
-- welche Beobachtungen und Assertions gelten;
+- welche SQL- und Infrastrukturevidenz beobachtet wird;
+- welche Assertions gelten;
 - wie Cleanup, Reset und Recovery erfolgen.
 
-Der Vertrag verhindert zugleich, dass jedes Projekt Provider-, Lifecycle-, State-, Secret- oder Fault-Injection-Logik selbst implementiert.
+Der Vertrag verhindert, dass jedes Projekt Provider-, Lifecycle-, State-, Secret- oder Fault-Injection-Logik selbst implementiert.
 
-## 2. Neue Verantwortungsgrenze
+## 2. Verantwortungsgrenze
 
-**ENTSCHEIDUNG:** Der Project Adapter ist nicht die vollständige Ausführungsschnittstelle. Er dient als stabiler Einstiegspunkt zur Discovery und Bindung versionierter **Lab Packages**.
+Der Project Adapter ist nicht die vollständige Ausführungsschnittstelle. Er entdeckt und bindet versionierte **SQL Server Lab Packages**.
 
 ```text
 Project Adapter
-    ↓ findet und beschreibt
-Lab Package
+    ↓
+SQL Server Lab Package
+    ├─ SqlPurpose
     ├─ Environment Blueprint
+    │   ├─ Primary SQL Components
+    │   └─ Supporting Components
     ├─ Deployment Units
     ├─ DataSets
     ├─ Workflow
-    ├─ Workloads / Probes / Assertions
+    ├─ Probes und Assertions
     └─ Privacy-, Trust-, License- und Cleanup-Policy
 ```
-
-Damit bleibt der Adapter klein und stabil, während neue Szenarien, Technologien und Installationsinhalte als versionierte Packages ergänzt werden können.
 
 ## 3. Eigentumsmodell
 
@@ -46,16 +50,15 @@ Damit bleibt der Adapter klein und stabil, während neue Szenarien, Technologien
 
 Das Lab verantwortet:
 
-- Host-Preflight und Capability-Ermittlung;
+- Host-Preflight;
 - Package-, Schema- und Vertrauensprüfung;
-- Component-Type- und Action-Type-Registry;
-- Expansion logischer Komponenten;
-- Provider- und Placementplanung;
+- SQL- und Supporting-Component-Type-Registry;
+- Hyper-V-, Docker- und Podman-Provider;
+- Topologie- und Placementplanung;
 - Container-, VM-, Netzwerk- und Storage-Lifecycle;
 - lokale State-, Secret- und Binding-Grenzen;
 - Ressourcen- und Fault-Profile;
-- Workflow- und Operation Engine;
-- strukturierte Events;
+- Workflow-, Operation- und Event Engine;
 - generischen Cleanup- und Compensation-Mechanismus;
 - lokale technische Evidence-Hülle und sanitisierte Summary.
 
@@ -63,35 +66,31 @@ Das Lab verantwortet:
 
 Das Projekt verantwortet:
 
-- Project Adapter und Package Catalog;
-- fachliche Environment Blueprints und Szenarien;
+- Project Adapter und SQL Package Catalog;
+- `SqlPurpose`;
+- SQL Environment Blueprints;
 - Installations-, Update- und Konfigurationsartefakte;
 - synthetische DataSet-Definitionen;
 - Workloads und Sessionabläufe;
-- Beobachtungs- und Messschritte;
-- fachliche Assertions und Aussagegrenzen;
-- projektspezifischen Cleanup innerhalb der bereitgestellten Komponenten;
-- Lizenz-, Quellen- und Privacy-Regeln seiner Package-Inhalte.
+- fachliche Probes und Assertions;
+- projektspezifischen Cleanup innerhalb der bereitgestellten SQL-Komponenten;
+- Quellen-, Lizenz- und Privacy-Regeln seiner Inhalte.
 
-### 3.3 Extension Packs
+### 3.3 Supporting Extensions
 
-Technologiespezifische Erweiterungen verantworten:
+Eine Supporting Extension darf neue Component- oder Action Types bereitstellen, beispielsweise:
 
-- neue Component Types;
-- Composite Expander;
-- neue Action Types und Handler;
-- technologiebezogene Health-Probes;
-- technologiebezogene Binding Types;
-- neue Fault Types;
-- eigene Versionen, Capabilities, Trust- und Safety-Verträge.
+- Domain Controller für Windows Authentication oder HA;
+- Hadoop für PolyBase;
+- REST-Testdienst als SQL-Client oder Datenquelle;
+- Load Driver;
+- Network Fault Controller.
 
-Ein Projekt darf ein Extension Pack referenzieren. Es soll neue Infrastrukturtechnologie nicht als verborgenes Skript im Szenario nachbauen.
+Sie darf nur durch ein SQL Package mit dokumentiertem `SqlPurpose` verwendet werden.
 
 ## 4. Aufrufmodelle
 
 ### 4.1 Lokaler Sibling-Checkout
-
-Empfohlener Entwicklungsmodus:
 
 ```text
 <Workspace>/
@@ -100,41 +99,41 @@ Empfohlener Entwicklungsmodus:
 └── SQL_PerformanceSchulung/
 ```
 
-Der lokale Projektroot wird beim Aufruf explizit gebunden. Der versionierte Adapter enthält keinen absoluten Hostpfad.
+Der lokale Projektroot wird beim Aufruf explizit gebunden. Kein absoluter Pfad wird versioniert.
 
 ### 4.2 Freigegebenes Package
 
-Ein Projekt kann ein privacy-geprüftes, versioniertes Package bereitstellen. Das Lab prüft mindestens:
+Ein Projekt kann ein privacy-geprüftes, versioniertes Package bereitstellen. Das Lab prüft:
 
-- Package Contract;
+- Package Contract und SQL Purpose;
 - Hashes;
 - Core-Kompatibilität;
-- erforderliche Component- und Action Types;
+- Required Component und Action Types;
 - Trust Class;
 - Artefaktgrenzen;
 - Lizenz- und Privacy-Policy.
 
 ### 4.3 Lokale Package Registry
 
-Später kann eine lokale Registry Packages und Extension Packs anhand von ID, Version und Hash auflösen. Diese Registry ist lokale Konfiguration und kein Speicherort für Secrets oder reale Umgebungsdaten.
+Eine spätere lokale Registry kann Packages anhand ID, Version und Hash auflösen. Hostbindings und Secrets bleiben lokale Konfiguration.
 
 ### 4.4 Git-Submodule
 
-Git-Submodule sind nicht der Standard. Der Vertrag funktioniert unabhängig davon, ob ein Package aus einem Sibling-Checkout, einem geprüften Archiv oder einer lokalen Registry stammt.
+Git-Submodule sind nicht der Standard. Der Vertrag funktioniert mit Sibling-Checkout, geprüftem Archiv oder lokaler Registry.
 
 ## 5. Project Adapter
 
 ### 5.1 Pflichtinformationen
 
-Der Adapter enthält konzeptionell:
+Konzeptioneller Entwurf:
 
 ```json
 {
-  "AdapterContractVersion": "0.2",
-  "ProjectId": "EXAMPLE_PROJECT",
-  "DisplayName": "Example Project",
+  "AdapterContractVersion": "0.3",
+  "ProjectId": "SQL_EXAMPLE_PROJECT",
+  "DisplayName": "SQL Example Project",
   "SupportedLabCoreVersions": ["0.x"],
-  "PackageCatalogs": ["relative/catalog/path"],
+  "SqlPackageCatalogs": ["relative/catalog/path"],
   "DefaultPackageRefs": [],
   "TrustPolicy": "PROJECT_CONTENT",
   "DataClassification": "SYNTHETIC_ONLY",
@@ -144,100 +143,85 @@ Der Adapter enthält konzeptionell:
 }
 ```
 
-Das Beispiel ist kein endgültiges JSON-Schema.
-
-### 5.2 Der Adapter enthält ausdrücklich nicht
+### 5.2 Der Adapter enthält nicht
 
 - Providerbefehle;
 - reale Endpunkte;
 - Secret-Werte;
-- feste Docker-/Podman-/Hyper-V-Ressourcen;
-- fachliche Setup-, Workload- oder Cleanup-Skripte als lose Entrypointliste;
-- absolute Repository- oder Hostpfade;
-- eine vollständige Kopie des Package-Inhalts.
+- feste Docker-, Podman- oder Hyper-V-Ressourcen;
+- vollständige Setup-, Workload- oder Cleanup-Logik;
+- absolute Hostpfade;
+- unabhängige Nicht-SQL-Packages.
 
 ### 5.3 Pfadregeln
 
-- Katalog- und Packagepfade sind relativ zum explizit gebundenen Projektroot.
+- Katalog- und Packagepfade sind relativ zum gebundenen Projektroot.
 - `..`-Pfadtraversierung ist unzulässig.
 - Symbolische Links oder Junctions außerhalb des Projektroots werden abgelehnt.
 - Artefakte werden gegen Package-Hashes geprüft.
-- Das Lab verändert keine Projektdatei, um lokale Runtimewerte einzutragen.
+- Das Lab verändert keine Projektdatei, um Runtimewerte einzutragen.
 
-## 6. Lab Package als eigentliche Projektschnittstelle
+## 6. SQL Server Lab Package
 
-### 6.1 Environment Blueprint
+### 6.1 `SqlPurpose`
 
-Das Blueprint beschreibt logische Components und Beziehungen.
+Jedes Package deklariert:
 
-Beispiel für eine Performance-Demo:
+- Purpose ID und Class;
+- SQL-Zielversionen;
+- Betriebssystem- und Editionsconstraints;
+- Required SQL Capabilities;
+- Primary SQL Components;
+- Supporting Components mit Begründung;
+- erwartete SQL-Evidenz;
+- Known Limitations.
 
-```text
-mssql.instance sql-primary
-mssql.load-generator load-driver
-connects-to load-driver -> sql-primary
-```
+### 6.2 Environment Blueprint
 
-Beispiel für eine spätere Hadoop-Konstellation:
+Das Blueprint beschreibt:
 
-```text
-mssql.instance sql-source
-hadoop.cluster analytics-cluster
-http.service result-api
+- eine oder mehrere SQL-Server-Komponenten;
+- logische Rollen;
+- Networks und Storage Claims;
+- Relations;
+- optionale Supporting Components;
+- Required Capabilities;
+- Lifecycle Policy.
 
-data-flow sql-source -> analytics-cluster
-calls-http analytics-cluster -> result-api
-```
+### 6.3 Deployment Units
 
-### 6.2 Deployment Units
+Deployment Units installieren oder konfigurieren beispielsweise:
 
-Deployment Units geben an, was innerhalb einer Component auszuführen ist, beispielsweise:
+- SQL_Server_Analyze;
+- Performance-Schulungs-Framework;
+- markierte Testdatenbank;
+- SQL Agent;
+- Service Account und Domain Join;
+- PolyBase-Konfiguration;
+- Workload Driver.
 
-- Framework installieren;
-- Datenbank und Schema erzeugen;
-- Testdienst konfigurieren;
-- SQL-Skripte ausführen;
-- Dateien übertragen;
-- REST-Konfiguration setzen;
-- Hadoop-Jobartefakte bereitstellen.
+### 6.4 DataSets
 
-### 6.3 DataSets
+DataSets definieren:
 
-DataSets beschreiben unabhängig vom Installationsschritt:
-
-- Zielkomponente;
-- Generator oder Fixture;
-- Seed und Skalierung;
-- gewünschte Verteilung;
-- Completion Signal;
+- Ziel-SQL-Komponente;
+- Generator oder synthetische Fixture;
+- Seed, Scale und Distribution;
 - Verifikation;
-- Reset und Cleanup;
-- exportierte Bindings.
+- exportierte Datenbank- oder Objektbindings;
+- Reset und Cleanup.
 
-### 6.4 Workflow
+### 6.5 Workflow
 
-Der Workflow verknüpft Deployment Units, DataSets, Workloads, Probes und Assertions über typisierte Inputs und Outputs.
-
-Die bekannten Phasen bleiben:
-
-```text
-Arrange
-Act
-Observe
-Assert
-Cleanup
-```
-
-Innerhalb der Phasen sind mehrere, abhängige und begrenzt parallele Steps zulässig.
+Der Workflow verknüpft Deployment Units, DataSets, Workloads, Probes, Assertions und Cleanup über typisierte Inputs und Outputs.
 
 ## 7. Runtime Context und Bindings
 
-### 7.1 Run Context
+Der lokale Run Context enthält:
 
-Das Lab erzeugt einen lokalen Run Context mit:
-
-- `LabRunId`;
+- Lab Run ID;
 - Plan-Hash;
+- SQL Purpose;
 - Package- und Vertragsversionen;
 - Component- und Providerzuordnung;
 - Runtime Bindings;
@@ -245,62 +229,48 @@ Das Lab erzeugt einen lokalen Run Context mit:
 - Safety Class;
 - Timeouts;
 - Operation- und Abbruchstatus;
-- lokalen Artefaktroots;
+- lokale Artefaktroots;
 - Cleanup- und Compensation-Stack.
 
-### 7.2 Typisierte Bindings
-
-Statische Packages referenzieren logische Bindings:
+Beispielbindings:
 
 ```text
 binding.sql-primary.endpoint.sql
 binding.sql-primary.credential-ref.admin
-binding.dataset-demo.database.name
-binding.api.endpoint.http-base
+binding.sql-primary.metadata.product-version
+binding.dataset.database.name
+binding.domain.endpoint.dns
 binding.hadoop.endpoint.hdfs
+binding.api.endpoint.http-base
 ```
 
-Konkrete Werte entstehen erst lokal. Secret-Werte werden nicht in normale Bindings oder persistierte Events kopiert.
+Konkrete Werte entstehen erst lokal. Secret-Werte werden nicht in normale Bindings, Events oder Evidence kopiert.
 
-### 7.3 Zielselektoren
+## 8. Installations- und Testreihenfolge
 
-Project Content adressiert Komponenten über logische Selektoren, beispielsweise:
-
-```text
-component-id = sql-primary
-component-type = mssql.instance
-role = primary
-label = demo-target
-```
-
-Es adressiert keine Container-ID, VM-ID oder reale IP-Adresse.
-
-## 8. Projektinterne Installationsreihenfolge
-
-Ein Package kann beispielsweise folgende Abhängigkeiten ausdrücken:
+Ein Package kann beispielsweise ausdrücken:
 
 ```text
-Provision sql-primary
+Provision SQL environment
   -> Wait for SQL readiness
+  -> Provision required Supporting Components
   -> Install project framework
-  -> Create synthetic database
-  -> Generate deterministic DataSet
+  -> Create marked synthetic database
+  -> Generate DataSet
   -> Verify DataSet
-  -> Run baseline
-  -> Start controlled workload
-  -> Observe
-  -> Assert
-  -> Cleanup project data
-  -> Destroy or preserve environment according to Run Request
+  -> Capture baseline
+  -> Run controlled workload
+  -> Observe SQL evidence
+  -> Assert SQL contract
+  -> Cleanup project objects
+  -> Destroy or preserve environment according to request
 ```
 
-Der Provider verantwortet nur Provisionierung und Infrastrukturstatus. Das Project Package verantwortet Framework, Daten, Workload und fachliche Prüfung.
+Der Provider verantwortet Infrastruktur. Das Project Package verantwortet SQL-Inhalte und fachliche Prüfung.
 
 ## 9. Integration `SQL_Server_Analyze`
 
-### 9.1 Packages
-
-Vorgesehene Package-Familien:
+### 9.1 Package-Familien
 
 ```text
 SQL_SERVER_ANALYZE_QUICK
@@ -308,28 +278,23 @@ SQL_SERVER_ANALYZE_DIAGNOSTIC_SCENARIOS
 SQL_SERVER_ANALYZE_INFRASTRUCTURE_SCENARIOS
 ```
 
-### 9.2 Package-Inhalte
+### 9.2 Inhalte
 
-- Environment Blueprints für eine oder mehrere SQL-Server-Instanzen;
-- Framework-Deployment-Units;
+- SQL-Server-Environment;
+- Frameworkinstallation und -update;
 - synthetische DataSets;
 - Blocking-, Wait-, TempDB-, I/O-, Query-Store-, XE- und Infrastrukturworkloads;
 - Analyzer-Probes;
 - Finding-, Status- und Resultset-Assertions;
 - projektspezifischer Cleanup.
 
-### 9.3 Grenzen
+### 9.3 Grenze
 
-- `UpdateFramework` ist eine Deployment Unit und keine Provideraktion.
-- Frameworkupdate darf Topologie und Ressourcenidentität nicht ändern.
-- Analyzer-Evidenz und fachliche Assertions verbleiben im Analyze-Package.
-- Netzwerk- und I/O-Faults werden durch registrierte Lab-Fault-Handler umgesetzt.
+Frameworkupdate ist eine Deployment Unit und keine Provideraktion. Es darf Topologie und Ressourcenidentität nicht ändern.
 
 ## 10. Integration `SQL_PerformanceSchulung`
 
-### 10.1 Packages
-
-Vorgesehene Package-Familien:
+### 10.1 Package-Familien
 
 ```text
 SQL_PERFORMANCE_QUICK_ENVIRONMENT
@@ -339,10 +304,8 @@ SQL_PERFORMANCE_DEMO_INFRASTRUCTURE
 
 ### 10.2 Erhaltener Demo-Vertrag
 
-Die Schulung behält:
-
 - Demo-ID und Lernziel;
-- Preflight der fachlichen Demo;
+- Preflight;
 - Setup;
 - Baseline;
 - Demonstration;
@@ -351,58 +314,57 @@ Die Schulung behält:
 - Comparison;
 - Cleanup;
 - Invarianten und Messrichtungen;
-- Sicherheitsstufe Grün, Gelb und Rot.
+- Sicherheitsstufe Grün, Gelb oder Rot.
 
 ### 10.3 Abbildung
 
 | Schulungsinhalt | Lab-Package-Vertrag |
 |---|---|
-| Testinstanz | Environment Blueprint |
+| SQL-Testinstanz | Primary SQL Component |
 | Demo-Framework | Deployment Units |
-| synthetische Daten | DataSet Definition |
-| Baseline/Demonstration | Workflow Steps und Workload Definition |
-| Observation | Probe Actions |
-| Comparison | Assertions |
-| Rot-/Gelb-Grenzen | Safety Class, Resource Profile und Fault Profile |
+| synthetische Daten | DataSet |
+| Baseline und Demonstration | Workflow und Workload |
+| Observation | Probe |
+| Comparison | Assertion |
+| Gelb/Rot | Safety Class, Resource und Fault Profile |
 | Cleanup | Project Cleanup plus Lab Compensation |
 
-## 11. Zukünftige Technologien
+## 11. SQL Supporting Components
 
-### 11.1 Hadoop oder andere Cluster
+### 11.1 Domain Controller
 
-Ein neues Component-Type Pack registriert beispielsweise:
+Zulässig für:
 
-```text
-hadoop.cluster
-hadoop.namenode
-hadoop.datanode
-hadoop.hdfs.put
-hadoop.job.submit
-hadoop.job.wait
-```
+- Windows Authentication;
+- Kerberos und SPN;
+- Service Accounts;
+- WSFC, AG und FCI;
+- gruppenbasierte Berechtigungen.
 
-Der Project Adapter und das Package-Modell ändern sich nicht. Das Environment Blueprint referenziert den neuen Component Type und der Workflow die neuen Actions.
+### 11.2 Hadoop
 
-### 11.2 REST- und HTTP-Dienste
+Zulässig für:
 
-REST-Zugriff wird über:
+- PolyBase;
+- synthetische externe Daten;
+- SQL-Server-Performance- und Fehlerbeobachtung.
 
-- `http.service` oder `core.external-endpoint`;
-- typisierte HTTP-Bindings;
-- `http.request.execute`;
-- Secret References;
-- Network-/Egress-Policy;
-- Response-Redaction und Assertions
+Nicht Ziel ist ein allgemeines Hadoop-Lab.
 
-modelliert.
+### 11.3 REST-/HTTP-Service
 
-### 11.3 Weitere Datenplattformen
+Zulässig als:
 
-Weitere Systeme werden über eigene namespaced Component- und Action-Type-Packs ergänzt. Der Core erhält keine neuen technologiespezifischen Pflichtfelder.
+- SQL-Server-Client;
+- SQL-Datenquelle oder -ziel;
+- reproduzierbarer Mock-Service;
+- Workload Driver.
+
+Nicht Ziel ist ein allgemeines API-Testframework.
 
 ## 12. Externe Ressourcen
 
-Ein Package kann externe Ressourcen nur mit explizitem Management Mode verwenden:
+Externe Ressourcen verwenden einen expliziten Management Mode:
 
 ```text
 ATTACHED
@@ -413,15 +375,15 @@ EXTERNAL_MUTABLE
 Regeln:
 
 - konkrete Endpunkte werden lokal gebunden;
-- produktive Systeme sind kein zulässiger Standardtarget;
-- `EXTERNAL_MUTABLE` benötigt eine ausdrückliche Freigabe;
+- `SqlPurpose` und Network Policy sind Pflicht;
+- produktive Systeme sind kein Standardtarget;
+- `EXTERNAL_MUTABLE` benötigt ausdrückliche Freigabe;
 - Cleanup- und Reversibility-Vertrag sind Pflicht;
-- Egress und Secret-Zugriff werden im Plan sichtbar;
-- externe Runtimewerte gelangen nicht automatisch in exportierbare Evidence.
+- Runtimewerte gelangen nicht automatisch in exportierbare Evidence.
 
 ## 13. Trust- und Ausführungsregeln
 
-### 13.1 Trust Classes
+Trust Classes:
 
 ```text
 CORE_BUILTIN
@@ -431,53 +393,50 @@ LOCAL_TRUSTED
 UNTRUSTED
 ```
 
-`UNTRUSTED` wird nicht ausgeführt.
-
-### 13.2 Project Content
-
 Project Content darf:
 
-- innerhalb gebundener Components arbeiten;
+- innerhalb gebundener SQL- und Supporting Components arbeiten;
 - synthetische Daten erzeugen;
-- registrierte Action Types verwenden;
+- registrierte Actions verwenden;
 - lokale Evidence produzieren.
 
 Project Content darf nicht:
 
 - Providerressourcen direkt löschen;
-- fremde Komponenten adressieren;
+- fremde Components adressieren;
 - unbekannte Skripte außerhalb des Package-Scopes laden;
 - Secrets persistieren;
-- externe Endpunkte ohne Policy verwenden.
+- externe Endpunkte ohne SQL Purpose und Policy verwenden.
 
-## 14. Safety-Class-Mapping
+## 14. Safety Classes
 
-| Lab-Klasse | Bedeutung |
-|---|---|
-| `SAFE_READ_ONLY` | keine Mutation |
-| `LAB_MUTATION` | synthetische Daten oder Projektobjekte werden verändert |
-| `RESOURCE_PRESSURE` | kontrollierte CPU-, RAM-, I/O-, Log-, TempDB- oder Concurrency-Last |
-| `INSTANCE_CHANGE` | Instanzkonfiguration, Cache, Dienst oder serverweiter Zustand wird verändert |
-| `INFRASTRUCTURE_CHANGE` | VM, Netzwerk, Storage oder Providerzustand wird verändert |
-| `DESTRUCTIVE_DISPOSABLE` | Datenverlust oder beschädigter Zustand ist beabsichtigt; wegwerfbarer Scope erforderlich |
+```text
+SAFE_READ_ONLY
+LAB_MUTATION
+RESOURCE_PRESSURE
+INSTANCE_CHANGE
+INFRASTRUCTURE_CHANGE
+DESTRUCTIVE_DISPOSABLE
+```
 
-Mapping der Schulungsstufen:
+Mapping Schulung:
 
 - Grün → `LAB_MUTATION` oder niedriger;
 - Gelb → `RESOURCE_PRESSURE`;
 - Rot → mindestens `INSTANCE_CHANGE`, häufig `INFRASTRUCTURE_CHANGE` oder `DESTRUCTIVE_DISPOSABLE`.
 
-## 15. Status- und Fehlervertrag
-
-Project-, Package- und Adaptercodes:
+## 15. Status- und Fehlercodes
 
 ```text
 ADAPTER_READY
 ADAPTER_UNSUPPORTED_CONTRACT
+SQL_PURPOSE_REQUIRED
 PACKAGE_NOT_FOUND
 PACKAGE_HASH_MISMATCH
 PACKAGE_UNSUPPORTED_CONTRACT
 PACKAGE_UNTRUSTED
+PRIMARY_SQL_COMPONENT_REQUIRED
+SUPPORTING_COMPONENT_WITHOUT_SQL_PURPOSE
 COMPONENT_TYPE_MISSING
 ACTION_TYPE_MISSING
 BINDING_TYPE_MISMATCH
@@ -490,34 +449,27 @@ PROJECT_SECRET_POLICY_VIOLATION
 PROJECT_PARTIAL_SUCCESS
 ```
 
-Konsolentexte dürfen lokalisiert werden. Codes bleiben unverändert.
+Codes bleiben englisch und sprachunabhängig.
 
 ## 16. Control Plane
 
-Der Project Adapter kann später über CLI, REST oder eine andere Control Plane verwendet werden. Entscheidend ist:
-
-- Requests, Plans, Operations, Events und Results sind serialisierbar;
-- Project Content hängt nicht von `Write-Host`-Text ab;
-- länger laufende Abläufe besitzen Operation IDs;
-- ein externer Controller kann Status und Events abfragen;
-- Provider- und Package-Logik wird nicht in der REST-Schicht dupliziert.
+CLI, spätere REST API oder UI verwenden dieselben serialisierbaren Commands, Plans, Operations, Events und Results. Project Content hängt nicht von `Write-Host`-Text ab.
 
 ## 17. Datenschutzgrenze
 
-- Packages enthalten ausschließlich synthetische oder öffentliche freigegebene Inhalte.
-- Reale lokale Runtimewerte dürfen für den lokalen Test verwendet werden, werden aber nicht automatisch versioniert oder exportiert.
+- Packages enthalten nur synthetische oder öffentliche Inhalte.
+- Reale lokale Runtimewerte werden nicht automatisch versioniert oder exportiert.
 - Secret-Werte sind auch in technischer Evidence unzulässig.
 - Sanitized Summary und Local Technical Evidence sind getrennt.
-- Das Lab verändert keine Projektdateien, um Runtimewerte einzutragen.
-- Externe Responses, SQL-Texte, Pläne und Logs benötigen vor einem Export eine eigene Privacy-Prüfung.
+- Externe Responses, SQL-Texte, Pläne und Logs benötigen vor Export eine eigene Privacy-Prüfung.
 
 ## 18. Vertragsversionierung
 
 Getrennt versioniert werden:
 
 - Project Adapter;
+- SQL Purpose;
 - Lab Package;
-- Environment Blueprint;
 - Component Type;
 - Action Type;
 - DataSet;
@@ -526,21 +478,19 @@ Getrennt versioniert werden:
 - Evidence;
 - Control Plane.
 
-Vor `1.0` sind Breaking Changes mit Migrationshinweis zulässig. `1.0` wird erst nach zwei produktiven SQL-Projektadaptern und mindestens einem technologieoffenen Proof festgeschrieben.
+`1.0` wird erst nach produktiver Abnahme beider Primärprojekte und der drei Kernprovider festgeschrieben.
 
 ## 19. Abnahmekriterien
 
-Der Integrationsvertrag ist umgesetzt, wenn:
-
-1. ein Project Adapter Packages entdecken und versioniert binden kann;
-2. Packages Umgebung, Installation, Testdaten, Workload, Observation, Assertion und Cleanup vollständig beschreiben;
-3. Projekte keine Providerbefehle benötigen;
-4. Testdaten als eigene, verifizierbare und resetbare Verträge geführt werden;
-5. Inputs und Outputs typisiert über Runtime Bindings verbunden werden;
-6. Composite Components expandierbar sind;
-7. SQL Server, HTTP-Dienst und ein Composite-Cluster-Proof denselben Core-Vertrag verwenden;
-8. `SQL_Server_Analyze` und `SQL_PerformanceSchulung` getrennte fachliche Packages, aber denselben Lab-Core nutzen;
-9. externe Ressourcen nur über explizite Management- und Network-Policy eingebunden werden;
-10. unbekannte oder untrusted Erweiterungen abgelehnt werden;
-11. Cleanup und Compensation auch bei Project-Fehlern ausgeführt werden;
-12. CLI und eine spätere REST Control Plane keine unterschiedlichen Projektverträge benötigen.
+- Adapter entdecken SQL Packages;
+- jedes Package besitzt SQL Purpose;
+- Primary SQL Components sind Pflicht;
+- Supporting Components besitzen dokumentierten SQL-Bezug;
+- Umgebung, Installation, Testdaten, Workload, Observation, Assertion und Cleanup sind vollständig beschreibbar;
+- Projekte benötigen keine Providerbefehle;
+- Inputs und Outputs werden typisiert verbunden;
+- Hyper-V, Docker und Podman nutzen denselben übergeordneten Contract;
+- beide Primärprojekte nutzen denselben Lab-Core;
+- unbekannte oder untrusted Erweiterungen werden abgelehnt;
+- Cleanup und Compensation laufen auch bei Project-Fehlern;
+- keine unabhängigen Nicht-SQL-Packages werden akzeptiert.
