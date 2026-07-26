@@ -385,3 +385,35 @@ Eine neue Supporting Technology ist integrierbar, wenn sie durch:
 modelliert werden kann, ohne den grundlegenden SQL-Purpose-, State-, Binding-, Event- oder Cleanup-Vertrag zu ändern.
 
 Die Erweiterung ist nur zulässig, wenn sie einen konkreten SQL-Server-Anwendungsfall ermöglicht.
+
+---
+
+## 17. Implementierungsstatus (Stand: Juli 2026)
+
+### Abgeschlossene Architekturtests
+
+| Test | Status | Ergebnis |
+|---|---|---|
+| Test A – Docker SQL Quick Environment | ✅ PASS | Smoke-Test 29/29, Lifecycle komplett |
+| Test B – Podman-Paritaet | ✅ PASS | Container + SQL Ready, Labels identisch |
+| Test D – Performance Demo (Basis) | ✅ Teilweise | Manifest-Modus mit PostProvision funktional |
+
+### Noch ausstehend
+
+| Test | Naechster Schritt |
+|---|---|
+| Test C – Hyper-V SQL Server | Provider implementieren (Welle 7) |
+| Test E – Analyze Szenario | Adapter zu SQL_Server_Analyze |
+| Test F – Domain Controller | Hyper-V-Prerequisite |
+| Test G – SQL-Integration | PolyBase oder Linked Server Demo |
+
+### Konkrete naechste Implementierungsprioritaeten
+
+| Prio | Feature | Abhaengigkeit |
+|---|---|---|
+| 1 | Hyper-V Provider | Windows Admin-Rechte + Hyper-V Feature |
+| 2 | JSON-Schema fuer Manifeste | Keine (standalone) |
+| 3 | Backup/Restore-Actions | Keine (RESTORE via sqlcmd) |
+| 4 | Multi-Instanz (2+ Container) | Container-Networking |
+| 5 | Performance-Schulungspaket | Adapter zu SQL_PerformanceSchulung |
+| 6 | Analyze-Integrationspaket | Adapter zu SQL_Server_Analyze |
