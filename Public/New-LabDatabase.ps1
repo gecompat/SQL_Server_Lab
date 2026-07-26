@@ -30,7 +30,6 @@ function New-LabDatabase {
 
     # CREATE DATABASE SQL generieren
     $sql = "CREATE DATABASE [$DatabaseName]`n"
-    $sql += "  COLLATE $Collation`n"
     $sql += "ON PRIMARY`n"
 
     # Data Files
@@ -61,7 +60,7 @@ function New-LabDatabase {
         $sql += "    SIZE = ${size}MB,`n"
         $sql += "    FILEGROWTH = ${growth}MB )$comma`n"
     }
-    $sql += ";`n"
+    $sql += "COLLATE $Collation;`n"
 
     # Optionen (ALTER DATABASE)
     $alterStatements = @()
