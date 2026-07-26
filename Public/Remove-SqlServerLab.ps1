@@ -63,12 +63,12 @@ function Remove-SqlServerLab {
 
     # State-Transition
     if ($state.state -notin @('CLEANUP_PENDING', 'CLEANUP_RUNNING', 'CLEANED_UP', 'REMOVED')) {
-        Set-LabRunState -RunId $RunId -NewState 'CLEANUP_PENDING' -Reason 'Benutzer-Entfernung' -StateRoot $StateRoot
+        $null = Set-LabRunState -RunId $RunId -NewState 'CLEANUP_PENDING' -Reason 'Benutzer-Entfernung' -StateRoot $StateRoot
     }
 
     # Cleanup-Plan ausfuehren
     Write-LabInfo 'Cleanup-Plan ausfuehren...'
-    Set-LabRunState -RunId $RunId -NewState 'CLEANUP_RUNNING' -Reason 'Cleanup gestartet' -StateRoot $StateRoot
+    $null = Set-LabRunState -RunId $RunId -NewState 'CLEANUP_RUNNING' -Reason 'Cleanup gestartet' -StateRoot $StateRoot
 
     $cleanupResult = Invoke-CleanupPlan -RunDir $runDir -ScopeId $state.scopeId
 
@@ -79,7 +79,7 @@ function Remove-SqlServerLab {
     foreach ($orphan in $orphans) {
         Write-LabWarning "Orphan-Container gefunden: $($orphan.Name)"
         try {
-            Remove-DockerInstance -ContainerIdOrName $orphan.ContainerId -ExpectedScopeId $state.scopeId
+            $null = Remove-DockerInstance -ContainerIdOrName $orphan.ContainerId -ExpectedScopeId $state.scopeId
         }
         catch {
             Write-LabError "Orphan nicht entfernbar: $_"
@@ -87,11 +87,11 @@ function Remove-SqlServerLab {
     }
 
     # State finalisieren
-    Set-LabRunState -RunId $RunId -NewState 'CLEANED_UP' -Reason $cleanupResult.Status -StateRoot $StateRoot
-    Set-LabRunState -RunId $RunId -NewState 'REMOVED' -Reason 'Vollstaendig entfernt' -StateRoot $StateRoot
+    $null = Set-LabRunState -RunId $RunId -NewState 'CLEANED_UP' -Reason $cleanupResult.Status -StateRoot $StateRoot
+    $null = Set-LabRunState -RunId $RunId -NewState 'REMOVED' -Reason 'Vollstaendig entfernt' -StateRoot $StateRoot
 
     # Secrets loeschen
-    Remove-LabSecrets -Path $runDir
+    $null = Remove-LabSecrets -Path $runDir
 
     Write-LabSuccess "Umgebung entfernt: $RunId"
 
