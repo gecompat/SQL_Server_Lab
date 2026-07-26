@@ -170,6 +170,123 @@ function Set-LabServerConfig {
     $saPlain = $null
 }
 
+function Set-LabDatabaseOptions {
+    <#
+    .SYNOPSIS Wendet Datenbank-Optionen an (Recovery Model, RCSI, Query Store, etc.).
+    .DESCRIPTION Wird nach New-LabDatabase aufgerufen wenn options im Manifest definiert sind.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$DatabaseName,
+        [Parameter(Mandatory)]$Options,
+        [Parameter(Mandatory)][int]$Port,
+        [Parameter(Mandatory)][SecureString]$SaPassword,
+        [string]$HostName = '127.0.0.1'
+    )
+
+    $saPlain = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto(
+        [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword))
+
+    $statements = @()
+
+    # Recovery Model
+    if ($Options.recoveryModel) {
+        $statements += "ALTER DATABASE [$DatabaseName] SET RECOVERY $($Options.recoveryModel);"
+    }
+
+    # Compatibility Level
+    if ($Options.compatibility) {
+        $statements += "ALTER DATABASE [$DatabaseName] SET COMPATIBILITY_LEVEL = $($Options.compatibility);"
+    }
+
+    # AUTO_CLOSE (sollte immer OFF sein)
+    if ($null -ne $Options.autoClose) {
+        $val = if ($Options.autoClose) { 'ON' } else { 'OFF' }
+        $statements += "ALTER DATABASE [$DatabaseName] SET AUTO_CLOSE $val;"
+    }
+
+    # AUTO_SHRINK (sollte immer OFF sein)
+    if ($null -ne $Options.autoShrink) {
+        $val = if ($Options.autoShrink) { 'ON' } else { 'OFF' }
+        $statements += "ALTER DATABASE [$DatabaseName] SET AUTO_SHRINK $val;"
+    }
+
+    # PAGE_VERIFY
+    if ($Options.pageVerify) {
+        $statements += "ALTER DATABASE [$DatabaseName] SET PAGE_VERIFY $($Options.pageVerify);"
+    }
+
+    # READ_COMMITTED_SNAPSHOT
+    if ($Options.rcsi) {
+        $statements += "ALTER DATABASE [$DatabaseName] SET READ_COMMITTED_SNAPSHOT ON;"
+    }
+
+    # ALLOW_SNAPSHOT_ISOLATION
+    if ($Options.snapshotIsolation) {
+        $statements += "ALTER DATABASE [$DatabaseName] SET ALLOW_SNAPSHOT_ISOLATION ON;"
+    }
+
+    # Delayed Durability
+    if ($Options.delayedDurability -and $Options.delayedDurability -ne 'DISABLED') {
+        $statements += "ALTER DATABASE [$DatabaseName] SET DELAYED_DURABILITY = $($Options.delayedDurability);"
+    }
+
+    # Target Recovery Time
+    if ($null -ne $Options.targetRecoveryTime) {
+        $statements += "ALTER DATABASE [$DatabaseName] SET TARGET_RECOVERY_TIME = $($Options.targetRecoveryTime) SECONDS;"
+    }
+
+    # Database-scoped MaxDOP
+    if ($null -ne $Options.maxDop) {
+        $statements += "ALTER DATABASE SCOPED CONFIGURATION SET MAXDOP = $($Options.maxDop);"
+    }
+
+    # Query Store
+    if ($Options.queryStore) {
+        if ($Options.queryStore -is [bool] -and $Options.queryStore) {
+            $statements += "ALTER DATABASE [$DatabaseName] SET QUERY_STORE = ON;"
+        }
+        elseif ($Options.queryStore.enabled -ne $false) {
+            $statements += "ALTER DATABASE [$DatabaseName] SET QUERY_STORE = ON;"
+            $qs = $Options.queryStore
+            if ($qs.operationMode) {
+                $statements += "ALTER DATABASE [$DatabaseName] SET QUERY_STORE (OPERATION_MODE = $($qs.operationMode));"
+            }
+            if ($qs.captureMode) {
+                $statements += "ALTER DATABASE [$DatabaseName] SET QUERY_STORE (QUERY_CAPTURE_MODE = $($qs.captureMode));"
+            }
+            if ($qs.maxSizeMB) {
+                $statements += "ALTER DATABASE [$DatabaseName] SET QUERY_STORE (MAX_STORAGE_SIZE_MB = $($qs.maxSizeMB));"
+            }
+            if ($qs.intervalMinutes) {
+                $statements += "ALTER DATABASE [$DatabaseName] SET QUERY_STORE (INTERVAL_LENGTH_MINUTES = $($qs.intervalMinutes));"
+            }
+            if ($qs.staleQueryThresholdDays) {
+                $statements += "ALTER DATABASE [$DatabaseName] SET QUERY_STORE (CLEANUP_POLICY = (STALE_QUERY_THRESHOLD_DAYS = $($qs.staleQueryThresholdDays)));"
+            }
+            if ($null -ne $qs.waitStatsCapture) {
+                $val = if ($qs.waitStatsCapture) { 'ON' } else { 'OFF' }
+                $statements += "ALTER DATABASE [$DatabaseName] SET QUERY_STORE (WAIT_STATS_CAPTURE_MODE = $val);"
+            }
+        }
+    }
+
+    # Ausfuehren
+    if ($statements.Count -gt 0) {
+        $sql = $statements -join "`n"
+        try {
+            Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $saPlain `
+                -Query $sql -Database 'master' -TimeoutSeconds 30
+            Write-LabInfo "  DB-Optionen fuer [$DatabaseName]: $($statements.Count) Settings"
+        }
+        catch {
+            Write-LabWarning "  DB-Optionen fuer [$DatabaseName] teilweise fehlgeschlagen: $_"
+        }
+    }
+
+    $saPlain = $null
+}
+
 function Resolve-GrowthClause {
     <#
     .SYNOPSIS Konvertiert Growth-String ('64MB' oder '10%') in SQL-Klausel.
