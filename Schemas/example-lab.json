@@ -1,0 +1,43 @@
+{
+  "name": "example-schulung-lab",
+  "description": "Beispiel-Lab: SQL 2025 mit Schulungsdatenbank und Setup-Skript",
+  "instances": [
+    {
+      "id": "primary",
+      "version": "2025",
+      "provider": "docker",
+      "profile": "compact",
+      "databases": [
+        {
+          "name": "SchulungsDB",
+          "collation": "Latin1_General_CI_AS",
+          "files": {
+            "data": [
+              {
+                "name": "Schulung_Data1",
+                "sizeMB": 64
+              },
+              {
+                "name": "Schulung_Data2",
+                "sizeMB": 64
+              }
+            ],
+            "log": [
+              {
+                "name": "Schulung_Log",
+                "sizeMB": 32
+              }
+            ]
+          },
+          "options": {
+            "queryStore": true,
+            "compatibility": 170
+          }
+        }
+      ],
+      "postProvision": [
+        "setup-schulung.sql"
+      ]
+    }
+  ]
+}
