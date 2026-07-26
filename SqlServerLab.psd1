@@ -19,6 +19,7 @@
         'Clear-SqlServerLab'
         'New-LabDatabase'
         'Invoke-LabScript'
+        'Restore-LabDatabase'
         'Install-LabSoftware'
         'Test-LabResources'
         'Invoke-LabCleanup'
