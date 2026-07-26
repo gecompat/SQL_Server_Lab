@@ -13,10 +13,13 @@
 
 Der Hauptzweck ist:
 
-- SQL Server 2019, 2022 und 2025 bereitzustellen;
+- SQL-Server-Versionen über einen erweiterbaren Versionskatalog bereitzustellen;
+- derzeit SQL Server 2019, SQL Server 2022 und SQL Server 2025 aktiv vorzusehen;
 - SQL-Server-Konstellationen reproduzierbar aufzubauen;
 - SQL-Server-Demos, Diagnosefälle, Lastsituationen und Infrastrukturabhängigkeiten nachzustellen;
 - SQL-Server-bezogene Tests kontrolliert auszuführen, zu beobachten, zu validieren und zu bereinigen.
+
+Die derzeitige Versionsliste ist keine dauerhafte Grenze. Neue Versionen werden über Katalogeintrag, Provider-Mapping und Capability Record ergänzt. Alte Versionen können über Statuswerte kontrolliert aus dem aktiven Umfang genommen werden.
 
 Die Architektur darf zusätzliche Technologien unterstützen, jedoch ausschließlich dann, wenn sie für ein SQL-Server-Szenario fachlich oder technisch erforderlich sind.
 
@@ -85,7 +88,7 @@ Geplante Pflichtfelder:
 
 - `PurposeId`;
 - `PurposeClass`;
-- `TargetSqlVersions`;
+- `TargetSqlVersionConstraints`;
 - `TargetOperatingSystems`;
 - `TargetEditions`;
 - `RequiredSqlCapabilities`;
@@ -95,23 +98,35 @@ Geplante Pflichtfelder:
 - `ExpectedSqlEvidence`;
 - `KnownSqlLimitations`.
 
-Vorgesehene `PurposeClass`-Werte:
-
-```text
-QUICK_ENVIRONMENT
-PERFORMANCE_DEMO
-DIAGNOSTIC_SCENARIO
-LOAD_SCENARIO
-AVAILABILITY_SCENARIO
-SECURITY_SCENARIO
-INTEGRATION_SCENARIO
-UPGRADE_COMPATIBILITY_SCENARIO
-CONTRACT_FIXTURE
-```
-
 Ein Package ohne `SqlPurpose` wird nicht als ausführbares SQL-Server-Lab-Package akzeptiert.
 
-## 4. Rolle des generischen Komponentenmodells
+## 4. Versions- und Artifact-Grenze
+
+### 4.1 SQL-Versionen
+
+Core-Schemas dürfen keine feste Liste einzelner Produktjahre enthalten. Version Constraints referenzieren einen separaten SQL Version Catalog.
+
+Vorgesehene Statuswerte:
+
+```text
+EXPERIMENTAL
+SUPPORTED
+DEPRECATED
+RETIRED
+BLOCKED
+```
+
+### 4.2 Datenbankartefakte
+
+Zulässig sind:
+
+- Lab-erzeugte Backups zulässiger Labdatenbanken;
+- öffentliche Demo- und Beispieldatenbanken;
+- ausdrücklich klassifizierte lokale Entwicklungs-, Test- oder Lab-Backups.
+
+Unzulässig sind Produktionsbackups, aus Produktivsystemen extrahierte Daten sowie unbekannte oder unklassifizierte Artefakte.
+
+## 5. Rolle des generischen Komponentenmodells
 
 Das generische Component-, Action-, Binding- und Workflowmodell bleibt bestehen, aber nur als technische Grundlage zur Beschreibung komplexer SQL-Server-Labs.
 
@@ -120,14 +135,14 @@ Es dient dazu:
 - SQL-Server-Topologien providerunabhängig zu modellieren;
 - unterstützende Systeme nicht als Sonderfall in den Orchestrator einzubauen;
 - Hyper-V-, Docker- und Podman-Ressourcen über denselben Lifecycle zu steuern;
-- Installations-, Testdaten-, Workload- und Observation-Schritte typisiert zu verbinden;
-- spätere SQL-Server-Funktionen nicht durch heute zu enge Schemas zu blockieren.
+- Installations-, Artifact-, Testdaten-, Workload- und Observation-Schritte typisiert zu verbinden;
+- spätere SQL-Server-Versionen und Funktionen nicht durch heute zu enge Schemas zu blockieren.
 
 Es dient ausdrücklich nicht dazu, aus `SQL_Server_Lab` eine allgemeine Hadoop-, API-, Kubernetes- oder Multi-Purpose-Labplattform zu machen.
 
-## 5. Gültige zukünftige Erweiterungen
+## 6. Gültige zukünftige Erweiterungen
 
-### 5.1 PolyBase mit Hadoop
+### 6.1 PolyBase mit Hadoop
 
 Gültig:
 
@@ -138,13 +153,9 @@ Gültig:
 - Performance-, Fehler- und Netzwerkbeobachtung;
 - Cleanup beider Seiten.
 
-Nicht Ziel:
+Nicht Ziel sind allgemeine Hadoop-Schulungen, unabhängige Hadoop-Clusterverwaltung oder Hadoop-Benchmarks ohne SQL-Bezug.
 
-- allgemeine Hadoop-Schulung ohne SQL Server;
-- unabhängiger Hadoop-Cluster-Manager;
-- Hadoop-Benchmark ohne SQL-Bezug.
-
-### 5.2 Domain Controller
+### 6.2 Domain Controller
 
 Gültig:
 
@@ -154,37 +165,29 @@ Gültig:
 - Always On, WSFC oder FCI;
 - Gruppen- und Berechtigungsszenarien.
 
-Nicht Ziel:
+Nicht Ziel ist ein allgemeines Active-Directory-Schulungslab ohne SQL Server.
 
-- allgemeines Active-Directory-Schulungslab ohne SQL Server.
-
-### 5.3 REST oder API
+### 6.3 REST oder API
 
 Gültig:
 
 - API als SQL-Server-Client;
 - REST-Datenquelle oder -ziel;
 - API-Workload für Connection Pooling, Retry oder Transaktionen;
-- SQL-Server-2025- oder Integrationstests mit HTTP-Komponente;
+- Integrationstests mit HTTP-Komponente;
 - Mock-Service für reproduzierbare SQL-bezogene Tests.
 
-Nicht Ziel:
+Nicht Ziel ist ein allgemeines API-Testframework ohne SQL-Server-Szenario.
 
-- allgemeines API-Testframework ohne SQL-Server-Szenario.
+### 6.4 Weitere Datenplattformen
 
-### 5.4 Weitere Datenplattformen
-
-Gültig, wenn die Plattform:
-
-- Datenquelle oder Datenziel für SQL Server ist;
-- Replikation, ETL, PolyBase oder Linked-Server-Verhalten unterstützt;
-- als Vergleichs- oder Integrationskomponente eines SQL-Server-Tests dient.
+Gültig, wenn die Plattform Datenquelle oder Datenziel für SQL Server ist, Replikation, ETL, PolyBase oder Linked-Server-Verhalten unterstützt oder als Vergleichskomponente eines SQL-Server-Tests dient.
 
 Nicht Ziel ist eine eigenständige Orchestrierungsplattform für diese Technologie.
 
-## 6. Provider-Scope
+## 7. Provider- und Ressourcen-Scope
 
-Die verbindlichen ersten Provider bleiben:
+Die verbindlichen Kernprovider bleiben:
 
 ```text
 provider.hyperv
@@ -192,23 +195,25 @@ provider.docker
 provider.podman
 ```
 
-Der Providervertrag wird nicht nach Technologieinhalt getrennt. Ein Hadoop- oder Domain-Controller-Supporting-Component kann auf Hyper-V oder Container abgebildet werden, sofern die dafür erforderlichen Capabilities nachgewiesen sind.
+Jeder Provider muss Resource Assessment, Plan, tatsächliche Ressourcen-IDs, Health, Lifecycle, Recovery und Cleanup unterstützen.
 
-Eine Supporting Component darf nicht dazu führen, dass einer der drei Kernprovider architektonisch benachteiligt oder aus dem gemeinsamen Contract herausgedrängt wird.
+CPU, RAM und Storage werden vor Mutation bewertet. Vorhergesagte Unterversorgung kann bewusst bestätigt werden. Unsichere Pfade, fehlende Providerfähigkeit, blockierte SQL-Versionen, unzulässige Daten und ein fehlender Cleanup Plan bleiben nicht übersteuerbar.
 
-## 7. Package-Scope-Regeln
+## 8. Package-Scope-Regeln
 
 Ein ausführbares Package ist gültig, wenn:
 
 1. `SqlPurpose` vorhanden ist;
 2. mindestens eine primäre SQL-Server-Komponente enthalten ist oder ein SQL-Contract-Fixture ausdrücklich ausgewiesen wird;
 3. jede Supporting Component einen dokumentierten SQL-Bezug besitzt;
-4. Workflow, DataSets, Probes und Assertions auf den SQL-Zweck rückführbar sind;
-5. Ressourcen- und Fault-Profile SQL-bezogene Testziele unterstützen;
-6. Cleanup alle primären und unterstützenden Komponenten umfasst;
-7. kein unabhängiges Nicht-SQL-Produktziel entsteht.
+4. Version Constraints gegen den SQL Version Catalog auflösbar sind;
+5. Workflow, DataSets, Database Artifacts, Probes und Assertions auf den SQL-Zweck rückführbar sind;
+6. Ressourcen- und Fault-Profile SQL-bezogene Testziele unterstützen;
+7. vor Mutation ein vollständiger Cleanup Plan existiert;
+8. Cleanup alle primären und unterstützenden Komponenten umfasst;
+9. kein unabhängiges Nicht-SQL-Produktziel entsteht.
 
-## 8. Auswirkungen auf die Forschungsanalyse
+## 9. Auswirkungen auf die Forschungsanalyse
 
 Bestehende Projekte und Standards werden weiterhin untersucht, aber nur unter der Frage:
 
@@ -216,42 +221,37 @@ Bestehende Projekte und Standards werden weiterhin untersucht, aber nur unter de
 
 Die Recherche ist keine Produkt-Roadmap für allgemeine Orchestrierung.
 
-Beispiele:
-
-- AutomatedLab: Rollen, Maschinen, Remoting und Hyper-V-Lifecycle;
-- MSLab: Parent Images und Differencing Disks;
-- Compose: Container-Service-, Network- und Volume-Modell;
-- Test Kitchen: Driver, Transport, Provisioner und Verifier;
-- Molecule: Prepare, Converge, Side Effect, Verify und Cleanup;
-- TOSCA: typisierte Components, Relationships und Capabilities;
-- CNAB/Porter: Packages, Credentials, Outputs und Actions;
-- Ambari: Composite Cluster und Host Groups für einen möglichen PolyBase-Supporting-Cluster.
-
-## 9. Umsetzungspriorität
-
-Die Technologieoffenheit wird erst implementiert, wenn sie für einen konkreten SQL-Server-Anwendungsfall benötigt wird.
+## 10. Umsetzungspriorität
 
 Priorität:
 
 1. einzelne SQL-Server-Instanz;
-2. mehrere SQL-Server-Versionen;
-3. SQL-Server-Demo- und Diagnose-Packages;
-4. SQL-Server-Last- und Fault-Szenarien;
-5. Domain Controller für SQL-Server-Security- und HA-Szenarien;
-6. SQL-Server-Cluster-/Availability-Topologien;
-7. Hadoop- oder REST-Supporting-Components für konkrete SQL-Server-Integrationstests;
-8. weitere Supporting Components nur nach dokumentiertem SQL-Bedarf.
+2. SQL Version Catalog und derzeitige Versionseinträge 2019, 2022 und 2025;
+3. Database-Artifact-, Backup- und Restore-Vertrag;
+4. Resource Assessment, Overcommit, Cleanup und Recovery;
+5. SQL-Server-Demo- und Diagnose-Packages;
+6. SQL-Server-Last- und Fault-Szenarien;
+7. Domain Controller für SQL-Server-Security- und HA-Szenarien;
+8. SQL-Server-Cluster-/Availability-Topologien;
+9. Hadoop- oder REST-Supporting-Components für konkrete SQL-Server-Integrationstests;
+10. weitere Supporting Components nur nach dokumentiertem SQL-Bedarf.
 
 Es wird kein generisches Hadoop-, REST- oder Clusterframework im Voraus implementiert.
 
-## 10. Abnahmekriterien
+## 11. Abnahmekriterien
 
 Die Scope-Entscheidung ist eingehalten, wenn:
 
 - README und Masterplan SQL Server als Hauptzweck nennen;
 - jedes ausführbare Package einen `SqlPurpose` besitzt;
+- Versionsangaben den aktuellen Katalogstand und keine permanente Grenze darstellen;
+- neue oder alte SQL-Versionen ohne Core-Neuentwurf ergänzt oder ausgesteuert werden können;
+- zulässige Lab- und öffentliche Backup-Artefakte unterstützt werden;
+- Produktions- und unbekannte Daten blockiert bleiben;
+- Resource Assessment und bewusster Overcommit vorgesehen sind;
+- vor jeder Mutation ein Cleanup Plan existiert;
+- Cleanup automatisch und wiederaufnehmbar ist;
 - Supporting Components ihren SQL-Bezug deklarieren;
-- Roadmap und Backlog keine unabhängigen Nicht-SQL-Produktziele enthalten;
 - Hyper-V, Docker und Podman weiterhin Kernprovider bleiben;
 - generische Contracts nur der Erweiterbarkeit von SQL-Server-Szenarien dienen;
 - ein Hadoop- oder REST-Proof nur als SQL-Server-Integrationsszenario umgesetzt wird;
