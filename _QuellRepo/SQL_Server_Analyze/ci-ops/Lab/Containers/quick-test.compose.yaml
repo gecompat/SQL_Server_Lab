@@ -1,0 +1,134 @@
+name: ${QTLAB_COMPOSE_PROJECT:?QTLAB_COMPOSE_PROJECT is required}
+
+x-quicktest-healthcheck: &quicktest-healthcheck
+  test:
+    - CMD-SHELL
+    - >-
+      sqlcmd_path="$$(command -v sqlcmd 2>/dev/null || true)";
+      if [ -z "$$sqlcmd_path" ]; then
+      for candidate in /opt/mssql-tools18/bin/sqlcmd /opt/mssql-tools/bin/sqlcmd;
+      do if [ -x "$$candidate" ]; then sqlcmd_path="$$candidate"; break; fi; done;
+      fi;
+      test -n "$$sqlcmd_path" &&
+      SQLCMDPASSWORD="$$MSSQL_SA_PASSWORD" "$$sqlcmd_path" -C -b
+      -S localhost -U sa -Q
+      "SET NOCOUNT ON; SELECT CONVERT(int, SERVERPROPERTY('ProductMajorVersion'));"
+      >/dev/null 2>&1
+  interval: 5s
+  timeout: 5s
+  retries: 60
+  start_period: 20s
+
+x-quicktest-environment: &quicktest-environment
+  - ACCEPT_EULA=Y
+  - MSSQL_PID=Developer
+  - MSSQL_SA_PASSWORD
+  - MSSQL_COLLATION=SQL_Latin1_General_CP1_CS_AS
+  - MSSQL_MEMORY_LIMIT_MB=${QTLAB_SQL_MEMORY_MB:?QTLAB_SQL_MEMORY_MB is required}
+
+services:
+  sql2019:
+    profiles: [sql2019]
+    image: ${QTLAB_SQL2019_IMAGE:-mcr.microsoft.com/mssql/server:2019-latest}
+    container_name: ${QTLAB_SQL2019_CONTAINER:-sql-analyze-quicktest-sql2019}
+    hostname: sql2019
+    environment: *quicktest-environment
+    ports:
+      - target: 1433
+        published: ${QTLAB_SQL2019_PORT:-14331}
+        protocol: tcp
+        mode: host
+    volumes:
+      - type: bind
+        source: ${QTLAB_SQL2019_DATA_DIR:-${QTLAB_RUNTIME_DIR}/unused/2019/data}
+        target: /var/opt/mssql/data
+      - type: bind
+        source: ${QTLAB_SQL2019_LOG_DIR:-${QTLAB_RUNTIME_DIR}/unused/2019/log}
+        target: /var/opt/mssql/log
+      - type: bind
+        source: ${QTLAB_SQL2019_BACKUP_DIR:-${QTLAB_RUNTIME_DIR}/unused/2019/backup}
+        target: /var/opt/mssql/backup
+      - type: bind
+        source: ${QTLAB_RUNTIME_DIR:?QTLAB_RUNTIME_DIR is required}
+        target: /lab/runtime
+    networks: [quicktest-data]
+    labels:
+      qt-lab.owner: SQL_SERVER_ANALYZE
+      qt-lab.scope: ${QTLAB_SCOPE:?QTLAB_SCOPE is required}
+      qt-lab.run-id: ${QTLAB_RUN_ID:?QTLAB_RUN_ID is required}
+      qt-lab.sql-version: "2019"
+    healthcheck: *quicktest-healthcheck
+    restart: "no"
+
+  sql2022:
+    profiles: [sql2022]
+    image: ${QTLAB_SQL2022_IMAGE:-mcr.microsoft.com/mssql/server:2022-latest}
+    container_name: ${QTLAB_SQL2022_CONTAINER:-sql-analyze-quicktest-sql2022}
+    hostname: sql2022
+    environment: *quicktest-environment
+    ports:
+      - target: 1433
+        published: ${QTLAB_SQL2022_PORT:-14332}
+        protocol: tcp
+        mode: host
+    volumes:
+      - type: bind
+        source: ${QTLAB_SQL2022_DATA_DIR:-${QTLAB_RUNTIME_DIR}/unused/2022/data}
+        target: /var/opt/mssql/data
+      - type: bind
+        source: ${QTLAB_SQL2022_LOG_DIR:-${QTLAB_RUNTIME_DIR}/unused/2022/log}
+        target: /var/opt/mssql/log
+      - type: bind
+        source: ${QTLAB_SQL2022_BACKUP_DIR:-${QTLAB_RUNTIME_DIR}/unused/2022/backup}
+        target: /var/opt/mssql/backup
+      - type: bind
+        source: ${QTLAB_RUNTIME_DIR:?QTLAB_RUNTIME_DIR is required}
+        target: /lab/runtime
+    networks: [quicktest-data]
+    labels:
+      qt-lab.owner: SQL_SERVER_ANALYZE
+      qt-lab.scope: ${QTLAB_SCOPE:?QTLAB_SCOPE is required}
+      qt-lab.run-id: ${QTLAB_RUN_ID:?QTLAB_RUN_ID is required}
+      qt-lab.sql-version: "2022"
+    healthcheck: *quicktest-healthcheck
+    restart: "no"
+
+  sql2025:
+    profiles: [sql2025]
+    image: ${QTLAB_SQL2025_IMAGE:-mcr.microsoft.com/mssql/server:2025-latest}
+    container_name: ${QTLAB_SQL2025_CONTAINER:-sql-analyze-quicktest-sql2025}
+    hostname: sql2025
+    environment: *quicktest-environment
+    ports:
+      - target: 1433
+        published: ${QTLAB_SQL2025_PORT:-14335}
+        protocol: tcp
+        mode: host
+    volumes:
+      - type: bind
+        source: ${QTLAB_SQL2025_DATA_DIR:-${QTLAB_RUNTIME_DIR}/unused/2025/data}
+        target: /var/opt/mssql/data
+      - type: bind
+        source: ${QTLAB_SQL2025_LOG_DIR:-${QTLAB_RUNTIME_DIR}/unused/2025/log}
+        target: /var/opt/mssql/log
+      - type: bind
+        source: ${QTLAB_SQL2025_BACKUP_DIR:-${QTLAB_RUNTIME_DIR}/unused/2025/backup}
+        target: /var/opt/mssql/backup
+      - type: bind
+        source: ${QTLAB_RUNTIME_DIR:?QTLAB_RUNTIME_DIR is required}
+        target: /lab/runtime
+    networks: [quicktest-data]
+    labels:
+      qt-lab.owner: SQL_SERVER_ANALYZE
+      qt-lab.scope: ${QTLAB_SCOPE:?QTLAB_SCOPE is required}
+      qt-lab.run-id: ${QTLAB_RUN_ID:?QTLAB_RUN_ID is required}
+      qt-lab.sql-version: "2025"
+    healthcheck: *quicktest-healthcheck
+    restart: "no"
+
+networks:
+  quicktest-data:
+    labels:
+      qt-lab.owner: SQL_SERVER_ANALYZE
+      qt-lab.scope: ${QTLAB_SCOPE:?QTLAB_SCOPE is required}
+      qt-lab.run-id: ${QTLAB_RUN_ID:?QTLAB_RUN_ID is required}

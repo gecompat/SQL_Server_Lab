@@ -1,0 +1,14 @@
+x-quicktest-podman-limits: &quicktest-podman-limits
+  pull_policy: missing
+  mem_limit: ${QTLAB_MEMORY_LIMIT:?QTLAB_MEMORY_LIMIT is required}
+  cpus: ${QTLAB_CPU_LIMIT:?QTLAB_CPU_LIMIT is required}
+  labels:
+    qt-lab.runtime: PODMAN
+
+services:
+  sql2019:
+    <<: *quicktest-podman-limits
+  sql2022:
+    <<: *quicktest-podman-limits
+  sql2025:
+    <<: *quicktest-podman-limits

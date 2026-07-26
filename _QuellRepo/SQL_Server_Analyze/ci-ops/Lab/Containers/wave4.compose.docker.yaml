@@ -1,0 +1,14 @@
+services:
+  sql-primary: &sql-limits
+    pull_policy: never
+    mem_limit: ${LAB_W4_CONTAINER_MEMORY_LIMIT:?LAB_W4_CONTAINER_MEMORY_LIMIT is required}
+    cpus: ${LAB_W4_CONTAINER_CPU_LIMIT:?LAB_W4_CONTAINER_CPU_LIMIT is required}
+    deploy:
+      resources:
+        limits:
+          memory: ${LAB_W4_CONTAINER_MEMORY_LIMIT:?LAB_W4_CONTAINER_MEMORY_LIMIT is required}
+          cpus: ${LAB_W4_CONTAINER_CPU_LIMIT:?LAB_W4_CONTAINER_CPU_LIMIT is required}
+  sql-secondary:
+    <<: *sql-limits
+  sql-tertiary:
+    <<: *sql-limits

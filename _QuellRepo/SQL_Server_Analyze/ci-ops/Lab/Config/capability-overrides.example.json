@@ -1,0 +1,16 @@
+{
+  "SchemaVersion": "1.0",
+  "DataClassification": "SYNTHETIC_EXAMPLE",
+  "Overrides": [
+    {
+      "Capability": "PODMAN_RELEASE_GATE",
+      "Mode": "OPTIONAL",
+      "ReasonCode": "OPTIONAL_COMPATIBILITY_LANE"
+    },
+    {
+      "Capability": "DISTRIBUTED_EXECUTION",
+      "Mode": "DISABLED",
+      "ReasonCode": "EXPLICIT_LOCAL_CONFIGURATION_REQUIRED"
+    }
+  ]
+}

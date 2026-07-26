@@ -1,0 +1,204 @@
+{
+  "SchemaVersion": "1.0",
+  "WaveId": "LAB-001-WAVE5",
+  "ContractStatus": "VALIDATED_FOUNDATION",
+  "RuntimeStatus": "NOT_EXECUTED",
+  "DataClassification": "SYNTHETIC",
+  "BuilderAdapters": [
+    {
+      "AdapterId": "NATIVE_POWERSHELL",
+      "SupportLevel": "REQUIRED",
+      "ExecutionStatus": "NOT_EXECUTED",
+      "LocalExecutableBindingRequired": false
+    },
+    {
+      "AdapterId": "PACKER",
+      "SupportLevel": "OPTIONAL",
+      "ExecutionStatus": "NOT_EXECUTED",
+      "LocalExecutableBindingRequired": true
+    }
+  ],
+  "ParentMatrix": [
+    {
+      "ParentLogicalId": "W5-WINCORE-SQL2019",
+      "SqlVersion": "2019",
+      "SqlMajorVersion": 15,
+      "WindowsMediaLogicalId": "WINDOWS_SERVER_CORE",
+      "SqlMediaLogicalId": "SQL_SERVER_2019_DEVELOPER_WINDOWS",
+      "ParentState": "UNBUILT_EXAMPLE",
+      "ParentImmutable": true,
+      "AllowInPlaceMutation": false,
+      "ChecksumPolicy": "SHA256_REQUIRED",
+      "OutputPolicy": "LOCAL_IGNORED_ONLY",
+      "GuestManagementChannel": "POWERSHELL_DIRECT"
+    },
+    {
+      "ParentLogicalId": "W5-WINCORE-SQL2022",
+      "SqlVersion": "2022",
+      "SqlMajorVersion": 16,
+      "WindowsMediaLogicalId": "WINDOWS_SERVER_CORE",
+      "SqlMediaLogicalId": "SQL_SERVER_2022_DEVELOPER_WINDOWS",
+      "ParentState": "UNBUILT_EXAMPLE",
+      "ParentImmutable": true,
+      "AllowInPlaceMutation": false,
+      "ChecksumPolicy": "SHA256_REQUIRED",
+      "OutputPolicy": "LOCAL_IGNORED_ONLY",
+      "GuestManagementChannel": "POWERSHELL_DIRECT"
+    },
+    {
+      "ParentLogicalId": "W5-WINCORE-SQL2025",
+      "SqlVersion": "2025",
+      "SqlMajorVersion": 17,
+      "WindowsMediaLogicalId": "WINDOWS_SERVER_CORE",
+      "SqlMediaLogicalId": "SQL_SERVER_2025_DEVELOPER_WINDOWS",
+      "ParentState": "UNBUILT_EXAMPLE",
+      "ParentImmutable": true,
+      "AllowInPlaceMutation": false,
+      "ChecksumPolicy": "SHA256_REQUIRED",
+      "OutputPolicy": "LOCAL_IGNORED_ONLY",
+      "GuestManagementChannel": "POWERSHELL_DIRECT"
+    }
+  ],
+  "PipelineStages": [
+    {
+      "Ordinal": 1,
+      "StageId": "RESOLVE_LOCAL_BINDINGS",
+      "MutationClass": "READ_ONLY",
+      "ExecutionStatus": "NOT_EXECUTED",
+      "RequiredGuards": [
+        "LOCAL_CONFIGURATION_REQUIRED",
+        "NO_REPOSITORY_PATH_PERSISTENCE"
+      ]
+    },
+    {
+      "Ordinal": 2,
+      "StageId": "VERIFY_MEDIA_CHECKSUMS",
+      "MutationClass": "READ_ONLY",
+      "ExecutionStatus": "NOT_EXECUTED",
+      "RequiredGuards": [
+        "SHA256_REQUIRED",
+        "CHECKSUM_BEFORE_MOUNT"
+      ]
+    },
+    {
+      "Ordinal": 3,
+      "StageId": "CREATE_BUILD_DISK",
+      "MutationClass": "LOCAL_BUILD_STATE",
+      "ExecutionStatus": "NOT_EXECUTED",
+      "RequiredGuards": [
+        "APPROVED_ACTIVE_VM_TARGET",
+        "REGISTERED_OBJECT_ID_REQUIRED"
+      ]
+    },
+    {
+      "Ordinal": 4,
+      "StageId": "INSTALL_WINDOWS_SERVER_CORE",
+      "MutationClass": "LOCAL_GUEST_STATE",
+      "ExecutionStatus": "NOT_EXECUTED",
+      "RequiredGuards": [
+        "CHECKSUM_VERIFIED_MEDIA_ONLY",
+        "NO_PRODUCT_KEY_PERSISTENCE"
+      ]
+    },
+    {
+      "Ordinal": 5,
+      "StageId": "INSTALL_SQL_SERVER",
+      "MutationClass": "LOCAL_GUEST_STATE",
+      "ExecutionStatus": "NOT_EXECUTED",
+      "RequiredGuards": [
+        "CHECKSUM_VERIFIED_MEDIA_ONLY",
+        "SECRET_PROVIDER_ONLY",
+        "VERSION_BOUND_MEDIA"
+      ]
+    },
+    {
+      "Ordinal": 6,
+      "StageId": "APPLY_SYNTHETIC_GUEST_CONFIGURATION",
+      "MutationClass": "LOCAL_GUEST_STATE",
+      "ExecutionStatus": "NOT_EXECUTED",
+      "RequiredGuards": [
+        "SYNTHETIC_IDENTITIES_ONLY",
+        "NO_ENVIRONMENT_VALUES_IN_REPOSITORY"
+      ]
+    },
+    {
+      "Ordinal": 7,
+      "StageId": "SEAL_PARENT",
+      "MutationClass": "LOCAL_IMAGE_STATE",
+      "ExecutionStatus": "NOT_EXECUTED",
+      "RequiredGuards": [
+        "OPERATOR_APPROVED_WINDOWS_SEAL",
+        "NO_RUNTIME_SECRET_REMAINS"
+      ]
+    },
+    {
+      "Ordinal": 8,
+      "StageId": "REGISTER_IMMUTABLE_PARENT",
+      "MutationClass": "LOCAL_IMAGE_STATE",
+      "ExecutionStatus": "NOT_EXECUTED",
+      "RequiredGuards": [
+        "PARENT_CHECKSUM_REQUIRED",
+        "PARENT_READ_ONLY_REQUIRED",
+        "REGISTERED_OBJECT_ID_REQUIRED"
+      ]
+    },
+    {
+      "Ordinal": 9,
+      "StageId": "CREATE_DIFFERENCING_CHILD",
+      "MutationClass": "LOCAL_CHILD_STATE",
+      "ExecutionStatus": "NOT_EXECUTED",
+      "RequiredGuards": [
+        "READ_ONLY_PARENT_REQUIRED",
+        "NEW_CHILD_PER_RUN",
+        "REGISTERED_OBJECT_ID_REQUIRED"
+      ]
+    },
+    {
+      "Ordinal": 10,
+      "StageId": "VERIFY_POWERSHELL_DIRECT",
+      "MutationClass": "READ_ONLY",
+      "ExecutionStatus": "NOT_EXECUTED",
+      "RequiredGuards": [
+        "POWERSHELL_DIRECT_REQUIRED",
+        "NO_DATA_NETWORK_DEPENDENCY"
+      ]
+    },
+    {
+      "Ordinal": 11,
+      "StageId": "DISPOSE_CHILD",
+      "MutationClass": "LOCAL_CHILD_STATE",
+      "ExecutionStatus": "NOT_EXECUTED",
+      "RequiredGuards": [
+        "STOP_REGISTERED_VM_FIRST",
+        "REGISTERED_OBJECT_IDS_ONLY",
+        "PARENT_PRESERVATION_REQUIRED"
+      ]
+    }
+  ],
+  "ChildResetContract": {
+    "ResetMethod": "NEW_DIFFERENCING_DISK",
+    "ParentReadOnly": true,
+    "AllowParentMutation": false,
+    "AllowCheckpointAsCanonicalReset": false,
+    "RequireRegisteredObjectIds": true,
+    "AllowNameOnlyDeletion": false,
+    "ChildStateClassification": "LOCAL_RUNTIME_STATE",
+    "FailedChildReusePolicy": "DISCARD_AND_RECREATE"
+  },
+  "ExternalEvidenceGates": [
+    {
+      "GateId": "LAB-GATE-WAVE5-PARENT-BUILD",
+      "RequiredPlatform": "HYPER_V_WINDOWS",
+      "RequiredCapability": "HYPER_V_IMAGE_BUILD",
+      "Status": "NOT_EXECUTED",
+      "EvidencePolicy": "SYNTHETIC_SUMMARY_ONLY"
+    },
+    {
+      "GateId": "LAB-GATE-WAVE5-CHILD-RESET",
+      "RequiredPlatform": "HYPER_V_WINDOWS",
+      "RequiredCapability": "HYPER_V_DIFFERENCING_DISK_RESET",
+      "Status": "NOT_EXECUTED",
+      "EvidencePolicy": "SYNTHETIC_SUMMARY_ONLY"
+    }
+  ]
+}

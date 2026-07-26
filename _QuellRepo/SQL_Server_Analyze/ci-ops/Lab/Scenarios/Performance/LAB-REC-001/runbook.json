@@ -1,0 +1,25 @@
+{
+  "SchemaVersion": "1.0",
+  "ScenarioId": "LAB-REC-001",
+  "DataClassification": "SYNTHETIC",
+  "FixedSeed": 1701,
+  "SqlVersions": [
+    2019,
+    2022,
+    2025
+  ],
+  "RuntimeAction": "CONTAINER_RESTART",
+  "PrimaryAnalyzer": "USP_ErrorLogAnalysis",
+  "FindingCode": "RECOVERY_ROLLBACK_OBSERVED",
+  "WorkerCount": 1,
+  "WorkerStartLeadSeconds": 3,
+  "WorkerTimeoutSeconds": 90,
+  "ScenarioTimeoutSeconds": 300,
+  "AllowedWorkerExitCodes": [
+    0,
+    1,
+    137,
+    143
+  ],
+  "ResetPolicy": "EXACT_SYNTHETIC_SCOPE"
+}

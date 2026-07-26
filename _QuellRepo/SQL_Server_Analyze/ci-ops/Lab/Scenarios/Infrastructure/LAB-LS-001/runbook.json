@@ -1,0 +1,22 @@
+{
+  "SchemaVersion": "1.0",
+  "ScenarioId": "LAB-LS-001",
+  "DataClassification": "SYNTHETIC",
+  "FixedSeed": 1701,
+  "SqlVersions": [
+    2019,
+    2022,
+    2025
+  ],
+  "RuntimeAction": "MULTI_CONTAINER_LOG_SHIPPING",
+  "PrimaryAnalyzer": "USP_LogShippingStatus",
+  "FindingCode": "LOG_SHIPPING_LAG_VISIBLE",
+  "WorkerCount": 0,
+  "WorkerStartLeadSeconds": 0,
+  "WorkerTimeoutSeconds": 120,
+  "ScenarioTimeoutSeconds": 600,
+  "AllowedWorkerExitCodes": [
+    0
+  ],
+  "ResetPolicy": "EXACT_SYNTHETIC_SCOPE"
+}

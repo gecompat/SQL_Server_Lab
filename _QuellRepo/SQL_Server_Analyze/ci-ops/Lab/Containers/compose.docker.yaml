@@ -1,0 +1,10 @@
+services:
+  sql:
+    pull_policy: never
+    mem_limit: 3g
+    cpus: 2.0
+    deploy:
+      resources:
+        limits:
+          memory: 3g
+          cpus: "2.0"
