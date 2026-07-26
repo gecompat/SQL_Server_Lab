@@ -82,7 +82,9 @@ __pycache__/
 venv/
 
 # IDE and operating-system files
-.vscode/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
 .idea/
 .vs/
 .DS_Store
