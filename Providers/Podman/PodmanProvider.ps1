@@ -101,7 +101,9 @@ function New-PodmanInstance {
         [int]$Port = 0,
         [Parameter(Mandatory)][SecureString]$SaPassword,
         [ValidateSet('compact','standard','performance')]
-        [string]$Profile = 'standard'
+        [string]$Profile = 'standard',
+
+        [array]$Drives = @()
     )
 
     # Image ermitteln
@@ -121,6 +123,22 @@ function New-PodmanInstance {
 
     # Container-Name
     $containerName = "sql-lab-$InstanceId-$($RunId.Substring(0,8))"
+
+    # Volume-Mounts fuer Drives
+    $volumeArgs = @()
+    foreach ($drv in $Drives) {
+        if ($drv -and $drv.containerPath) {
+            if ($drv.hostPath) {
+                $volumeArgs += '-v'
+                $volumeArgs += "$($drv.hostPath):$($drv.containerPath)"
+            }
+            else {
+                $volName = "sql-lab-${containerName}-$($drv.id)"
+                $volumeArgs += '-v'
+                $volumeArgs += "${volName}:$($drv.containerPath)"
+            }
+        }
+    }
 
     # Podman run (CLI weitgehend Docker-kompatibel)
     $podmanArgs = @(
@@ -142,6 +160,7 @@ function New-PodmanInstance {
         '--health-interval', '5s',
         '--health-timeout', '3s',
         '--health-retries', '30',
+        @volumeArgs
         $image
     )
 

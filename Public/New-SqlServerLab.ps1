@@ -148,7 +148,8 @@ function New-SqlServerLab {
                         -InstanceId $inst.id `
                         -Port $Port `
                         -SaPassword $SaPassword `
-                        -Profile $inst.profile
+                        -Profile $inst.profile `
+                        -Drives $inst.drives
 
                     # Cleanup-Plan aktualisieren
                     $null = Add-CleanupStep -RunDir $runState.RunDir `
@@ -190,7 +191,8 @@ function New-SqlServerLab {
                         -InstanceId $inst.id `
                         -Port $Port `
                         -SaPassword $SaPassword `
-                        -Profile $inst.profile
+                        -Profile $inst.profile `
+                        -Drives $inst.drives
 
                     # Cleanup-Plan aktualisieren
                     $null = Add-CleanupStep -RunDir $runState.RunDir `
@@ -231,6 +233,23 @@ function New-SqlServerLab {
         }
 
         $null = Set-LabRunState -RunId $runState.RunId -NewState 'SQL_READY' -Reason 'Alle Instanzen bereit' -StateRoot $StateRoot
+
+        # =====================================================================
+        # 6b. Server-Konfiguration anwenden (Memory, TempDB, MaxDOP, etc.)
+        # =====================================================================
+        $hasServerConfig = $resolved.instances | Where-Object { $_.serverConfig }
+        if ($hasServerConfig) {
+            foreach ($inst in ($resolved.instances | Where-Object { $_.serverConfig })) {
+                $labInst = $labInstances | Where-Object { $_.Id -eq $inst.id }
+                Write-LabInfo "Server-Konfiguration auf '$($inst.id)' anwenden..."
+                Set-LabServerConfig `
+                    -Config $inst.serverConfig `
+                    -HostName $labInst.Host `
+                    -Port $labInst.Port `
+                    -SaPassword $SaPassword `
+                    -ContainerName $labInst.ContainerName
+            }
+        }
 
         # =====================================================================
         # 7. Datenbanken anlegen

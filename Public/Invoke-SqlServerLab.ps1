@@ -18,6 +18,10 @@ function Invoke-SqlServerLab {
         [string]$Action
     )
 
+    # Modul immer aktuell laden (verhindert veraltete Funktionen nach Code-Aenderungen)
+    $psd1 = Join-Path (Split-Path $PSScriptRoot -Parent) 'SqlServerLab.psd1'
+    if (Test-Path $psd1) { Import-Module $psd1 -Force }
+
     # Direkt-Aktion ohne Menue
     if ($Action) {
         Invoke-LabAction -ActionName $Action
