@@ -1,0 +1,308 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/gecompat/SQL_Server_Lab/raw/main/Schemas/lab-manifest.schema.json",
+  "title": "SQL Server Lab Manifest",
+  "description": "Schema fuer deklarative SQL-Server-Lab-Definitionen. Wird von New-SqlServerLab -Manifest verwendet.",
+  "type": "object",
+  "required": [
+    "name",
+    "instances"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Referenz auf dieses Schema (fuer IDE-Unterstuetzung)"
+    },
+    "name": {
+      "type": "string",
+      "description": "Eindeutiger Name der Lab-Umgebung",
+      "minLength": 1,
+      "examples": [
+        "schulung-performance-2025",
+        "migration-test-2022-to-2025"
+      ]
+    },
+    "description": {
+      "type": "string",
+      "description": "Optionale Beschreibung der Lab-Umgebung"
+    },
+    "instances": {
+      "type": "array",
+      "description": "SQL-Server-Instanzen die erstellt werden",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/definitions/instance"
+      }
+    },
+    "resourceOverrides": {
+      "type": "object",
+      "description": "Optionale Ueberschreibung der Ressourcengrenzen",
+      "properties": {
+        "maxMemoryMB": {
+          "type": "integer",
+          "minimum": 512
+        },
+        "maxCpus": {
+          "type": "number",
+          "minimum": 0.5
+        },
+        "skipAssessment": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "instance": {
+      "type": "object",
+      "required": [
+        "id",
+        "version"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Eindeutige Instanz-ID (z.B. 'primary', 'secondary')",
+          "pattern": "^[a-zA-Z][a-zA-Z0-9_-]*$",
+          "examples": [
+            "primary",
+            "secondary",
+            "witness"
+          ]
+        },
+        "version": {
+          "type": "string",
+          "description": "SQL-Server-Version",
+          "enum": [
+            "2019",
+            "2022",
+            "2025"
+          ]
+        },
+        "provider": {
+          "type": "string",
+          "description": "Container-/VM-Provider (Default: auto-detect)",
+          "enum": [
+            "docker",
+            "podman",
+            "hyperv"
+          ],
+          "default": "docker"
+        },
+        "os": {
+          "type": "string",
+          "description": "Betriebssystem (linux fuer Container, windows fuer HyperV)",
+          "enum": [
+            "linux",
+            "windows"
+          ],
+          "default": "linux"
+        },
+        "profile": {
+          "type": "string",
+          "description": "Ressourcenprofil",
+          "enum": [
+            "compact",
+            "standard",
+            "performance"
+          ],
+          "default": "standard"
+        },
+        "collation": {
+          "type": "string",
+          "description": "Default-Collation fuer Instanz und Datenbanken",
+          "default": "SQL_Latin1_General_CP1_CS_AS",
+          "examples": [
+            "SQL_Latin1_General_CP1_CS_AS",
+            "Latin1_General_CI_AS",
+            "German_PhoneBook_CI_AI"
+          ]
+        },
+        "databases": {
+          "type": "array",
+          "description": "Datenbanken die auf dieser Instanz erstellt/wiederhergestellt werden",
+          "items": {
+            "$ref": "#/definitions/database"
+          }
+        },
+        "software": {
+          "type": "array",
+          "description": "Optionale Software-Installationen (nur HyperV)",
+          "items": {
+            "$ref": "#/definitions/software"
+          }
+        },
+        "postProvision": {
+          "type": "array",
+          "description": "T-SQL-Skripte die nach Provisioning ausgefuehrt werden (relativ zum Manifest-Verzeichnis)",
+          "items": {
+            "type": "string"
+          },
+          "examples": [
+            [
+              "setup-tables.sql",
+              "seed-data.sql"
+            ]
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "database": {
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Datenbankname",
+          "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+        },
+        "collation": {
+          "type": "string",
+          "description": "Collation (ueberschreibt Instanz-Default)"
+        },
+        "files": {
+          "type": "object",
+          "description": "Datenbank-Dateidefinitionen (Data + Log)",
+          "properties": {
+            "data": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/dbFile"
+              }
+            },
+            "log": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/dbFile"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "options": {
+          "type": "object",
+          "description": "Datenbank-Optionen",
+          "properties": {
+            "queryStore": {
+              "type": "boolean",
+              "default": true
+            },
+            "compatibility": {
+              "type": "integer",
+              "description": "Compatibility Level",
+              "enum": [
+                150,
+                160,
+                170
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "restore": {
+          "type": "object",
+          "description": "Backup-Restore statt CREATE DATABASE",
+          "required": [
+            "source"
+          ],
+          "properties": {
+            "source": {
+              "type": "string",
+              "description": "URL oder lokaler Pfad zum .bak-File",
+              "examples": [
+                "https://github.com/Microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorks2022.bak",
+                "C:\\Backups\\MyDB.bak"
+              ]
+            },
+            "type": {
+              "type": "string",
+              "description": "Quelltyp (auto = automatische Erkennung)",
+              "enum": [
+                "url",
+                "file",
+                "auto"
+              ],
+              "default": "auto"
+            },
+            "replace": {
+              "type": "boolean",
+              "description": "WITH REPLACE verwenden (ueberschreibt existierende DB)",
+              "default": true
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "dbFile": {
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Logischer Dateiname"
+        },
+        "sizeMB": {
+          "type": "integer",
+          "description": "Anfangsgroesse in MB",
+          "minimum": 1,
+          "default": 64
+        },
+        "filegrowthMB": {
+          "type": "integer",
+          "description": "Wachstumsschritt in MB",
+          "minimum": 1,
+          "default": 64
+        }
+      },
+      "additionalProperties": false
+    },
+    "software": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Software-ID",
+          "enum": [
+            "ssms",
+            "az-data-studio",
+            "vscode",
+            "sqlpackage",
+            "visual-studio"
+          ]
+        },
+        "source": {
+          "type": "string",
+          "description": "Installationsquelle (winget, dotnet, url)"
+        },
+        "package": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "command": {
+          "type": "string"
+        },
+        "optional": {
+          "type": "boolean",
+          "description": "Fehlschlag stoppt Provisierung nicht",
+          "default": true
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
