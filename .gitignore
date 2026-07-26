@@ -1,0 +1,107 @@
+# Local runtime state
+.state/
+.secrets/
+.artifacts/
+.cache/
+.local/
+
+# Environment and secret files
+.env
+.env.*
+!.env.example
+*.secret
+*.secrets
+*.key
+*.pem
+*.pfx
+*.p12
+*.cer
+*.crt
+*.kdbx
+
+# SQL Server runtime and evidence artifacts
+*.bak
+*.trn
+*.mdf
+*.ndf
+*.ldf
+*.xel
+*.sqlaudit
+*.sqlplan
+*.showplan
+*.dmp
+*.mdmp
+
+# Logs, diagnostic output and temporary files
+*.log
+*.out
+*.trace
+*.etl
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# Virtual machine and image artifacts
+*.vhd
+*.vhdx
+*.avhd
+*.avhdx
+*.iso
+*.qcow
+*.qcow2
+*.img
+*.ova
+*.ovf
+HyperV/Images/output-*/
+Providers/HyperV/**/output-*/
+
+# Container exports and generated provider files
+*.tar
+*.tar.gz
+*.tgz
+*.oci
+**/generated/
+**/.generated/
+
+# Archives are not versioned by default
+*.zip
+*.7z
+*.rar
+
+# PowerShell and test output
+TestResults/
+Coverage/
+*.clixml
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# IDE and operating-system files
+.vscode/
+.idea/
+.vs/
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Local package and media registries
+PackageRegistry/local/
+Media/local/
+Images/local/
+
+# Native tool caches
+.packer.d/
+.terraform/
+terraform.tfstate
+terraform.tfstate.*
+
+# Do not ignore documented synthetic examples
+!**/*.example.json
+!**/*.example.yaml
+!**/*.example.yml
+!**/*.example.psd1
