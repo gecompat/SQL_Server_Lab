@@ -131,10 +131,19 @@ function Invoke-SqlQuery {
         # Fallback: sqlcmd (falls installiert)
         if (Test-CommandExists 'sqlcmd') {
             $output = sqlcmd -S "$HostName,$Port" -U sa -P $SaPlain -Q $Query -h -1 -W 2>&1
-            if ($LASTEXITCODE -eq 0) {
-                # Einfaches Parsing fuer Single-Row-Ergebnisse
-                return [PSCustomObject]@{ RawOutput = ($output -join "`n").Trim() }
+            $outputText = ($output -join "`n").Trim()
+
+            # SQL-Fehler erkennen (auch bei LASTEXITCODE 0)
+            if ($outputText -match 'Msg \d+, Level (1[1-9]|[2-9]\d)') {
+                throw "SQL-Fehler: $outputText"
             }
+            if ($LASTEXITCODE -ne 0) {
+                throw "sqlcmd fehlgeschlagen (Exit $LASTEXITCODE): $outputText"
+            }
+            if ($outputText) {
+                return [PSCustomObject]@{ RawOutput = $outputText }
+            }
+            return $null
         }
         throw $_
     }
