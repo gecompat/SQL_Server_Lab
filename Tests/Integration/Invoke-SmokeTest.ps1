@@ -237,7 +237,77 @@ if (Test-Path $testSqlPath) { Remove-Item $testSqlPath }
 # Test 6: Remove-SqlServerLab
 # =============================================================================
 
-Write-TestHeader 'T6: Remove-SqlServerLab'
+# =============================================================================
+# Test 6: Get-SqlServerLab
+# =============================================================================
+
+Write-TestHeader 'T6: Get-SqlServerLab'
+
+$getResult = Assert-NoThrow 'Lab-Status abfragen' {
+    Get-SqlServerLab -RunId $script:Lab.RunId
+}
+
+if ($getResult) {
+    Assert-True 'State = Running' `
+        ($getResult.State -eq 'RUNNING') `
+        "State: $($getResult.State)"
+
+    Assert-True 'Instanz ContainerUp' `
+        ($getResult.Instances[0].ContainerUp -eq $true) `
+        "ContainerUp: $($getResult.Instances[0].ContainerUp)"
+}
+
+# =============================================================================
+# Test 7: Stop-SqlServerLab
+# =============================================================================
+
+Write-TestHeader 'T7: Stop-SqlServerLab'
+
+$stopResult = Assert-NoThrow 'Lab stoppen' {
+    Stop-SqlServerLab -RunId $script:Lab.RunId -Force
+}
+
+if ($stopResult) {
+    Assert-True 'Stop-Status = STOPPED' `
+        ($stopResult.Status -eq 'STOPPED') `
+        "Status: $($stopResult.Status)"
+
+    # Container soll gestoppt sein
+    Start-Sleep -Seconds 1
+    $containerState = docker inspect $script:Lab.Instances[0].ContainerName --format '{{.State.Status}}' 2>$null
+    Assert-True 'Container exited' `
+        ($containerState -match 'exited') `
+        "Container-State: $containerState"
+}
+
+# =============================================================================
+# Test 8: Start-SqlServerLab
+# =============================================================================
+
+Write-TestHeader 'T8: Start-SqlServerLab'
+
+$startResult = Assert-NoThrow 'Lab starten' {
+    Start-SqlServerLab -RunId $script:Lab.RunId -TimeoutSeconds 60
+}
+
+if ($startResult) {
+    Assert-True 'Start-Status = RUNNING' `
+        ($startResult.Status -eq 'RUNNING') `
+        "Status: $($startResult.Status)"
+
+    # Container soll wieder laufen
+    Start-Sleep -Seconds 1
+    $containerState2 = docker inspect $script:Lab.Instances[0].ContainerName --format '{{.State.Status}}' 2>$null
+    Assert-True 'Container running' `
+        ($containerState2 -match 'running') `
+        "Container-State: $containerState2"
+}
+
+# =============================================================================
+# Test 9: Remove-SqlServerLab
+# =============================================================================
+
+Write-TestHeader 'T9: Remove-SqlServerLab'
 
 $removeResult = Assert-NoThrow 'Lab entfernen' {
     Remove-SqlServerLab -RunId $script:Lab.RunId -Force
