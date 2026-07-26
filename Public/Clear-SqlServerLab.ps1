@@ -45,19 +45,26 @@ function Clear-SqlServerLab {
     if (-not $StateOnly) {
         Write-LabInfo 'Suche Lab-Container (Label: sql-server-lab.run-id)...'
 
-        $format = '{{.ID}}|{{.Names}}|{{.Status}}|{{index .Labels "sql-server-lab.run-id"}}|{{index .Labels "sql-server-lab.version"}}|{{index .Labels "sql-server-lab.instance-id"}}'
-        $output = docker ps -a --filter 'label=sql-server-lab.run-id' --format $format 2>&1
-
-        if ($LASTEXITCODE -eq 0 -and $output) {
-            $containersFound = @($output | ForEach-Object {
-                $parts = $_.Split('|')
-                [PSCustomObject]@{
-                    ContainerId = $parts[0]
-                    Name        = $parts[1]
-                    Status      = $parts[2]
-                    RunId       = $parts[3]
-                    Version     = $parts[4]
-                    InstanceId  = $parts[5]
+        # Einfaches Format ohne index-Syntax (Windows PowerShell verschluckt Quotes)
+        $containerIds = docker ps -a -q --filter 'label=sql-server-lab.run-id' 2>$null
+        if ($LASTEXITCODE -eq 0 -and $containerIds) {
+            $containersFound = @($containerIds | ForEach-Object {
+                $id = $_.Trim()
+                if (-not $id) { return }
+                # Details per docker inspect holen
+                $inspectJson = docker inspect $id 2>$null | ConvertFrom-Json
+                if ($inspectJson) {
+                    $labels = $inspectJson[0].Config.Labels
+                    $name = $inspectJson[0].Name.TrimStart('/')
+                    $status = $inspectJson[0].State.Status
+                    [PSCustomObject]@{
+                        ContainerId = $id.Substring(0, [Math]::Min(12, $id.Length))
+                        Name        = $name
+                        Status      = $status
+                        RunId       = $labels.'sql-server-lab.run-id'
+                        Version     = $labels.'sql-server-lab.version'
+                        InstanceId  = $labels.'sql-server-lab.instance-id'
+                    }
                 }
             })
         }
