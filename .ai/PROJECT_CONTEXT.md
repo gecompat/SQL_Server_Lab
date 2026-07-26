@@ -30,34 +30,70 @@ Docker
 Podman
 ```
 
-Die drei Provider erfüllen denselben übergeordneten Plan-, State-, Binding- und Cleanup-Vertrag. Providerfähigkeiten werden getrennt nachgewiesen.
+Die drei Provider erfüllen denselben übergeordneten Plan-, Resource-Assessment-, State-, Binding-, Recovery- und Cleanup-Vertrag. Providerfähigkeiten werden getrennt nachgewiesen.
 
-## 3. Primärprojekte
+## 3. SQL-Server-Versionen
+
+SQL-Versionen werden über einen versionierten Katalog und Version Constraints aufgelöst. Core-Schemas enthalten kein dauerhaftes Enum einzelner Produktjahre.
+
+Derzeit vorgesehen:
+
+- SQL Server 2019;
+- SQL Server 2022;
+- SQL Server 2025.
+
+Neue Versionen werden über Katalogeintrag, Provider-Mapping, Capability Record und Validierung ergänzt. Alte Versionen werden über `DEPRECATED`, `RETIRED` oder `BLOCKED` aus dem aktiven Umfang genommen, ohne historische Vertragsinformationen zu löschen.
+
+## 4. Primärprojekte
 
 - `gecompat/SQL_Server_Analyze`;
 - `gecompat/SQL_PerformanceSchulung`.
 
-Die Projekte liefern SQL Server Lab Packages. Sie behalten fachliche Installations-, DataSet-, Workload-, Probe-, Assertion- und Cleanup-Inhalte.
+Die Projekte liefern SQL Server Lab Packages. Sie behalten fachliche Installations-, DataSet-, Database-Artifact-, Workload-, Probe-, Assertion- und Cleanup-Inhalte.
 
-## 4. Feste Architekturentscheidungen
+## 5. Feste Architekturentscheidungen
 
 - `SqlPurpose` ist Pflicht.
 - Mindestens eine Primary SQL Component ist erforderlich.
 - Supporting Components benötigen einen dokumentierten SQL-Bezug.
 - Project Adapter entdecken Packages; sie sind keine Universal-Skripte.
-- Packages trennen Environment, Deployment Units, DataSets und Workflow.
+- Packages trennen Environment, Deployment Units, DataSets, Database Artifacts und Workflow.
 - `Arrange`, `Act`, `Observe`, `Assert`, `Cleanup` sind semantische Phasen über einem Workflow DAG.
 - Inputs und Outputs werden über typisierte Runtime Bindings verbunden.
 - konkrete Endpunkte, Pfade und Secretwerte stehen nicht in versionierten Manifesten.
 - vor jeder Mutation wird ein read-only Bound Plan erzeugt.
+- vor jeder Mutation werden CPU, RAM, Storage, Provider-Overhead und Hostreserve bewertet.
+- vorhergesagte Ressourcenunterversorgung kann ausdrücklich übersteuert werden.
+- Resource Override setzt keine Safety-, Scope-, Secret-, Lizenz-, Versions- oder Datenklassifikationsblocker außer Kraft.
+- vor jeder Mutation existiert ein maschinenlesbarer Cleanup Plan.
 - State enthält tatsächliche Ressourcen-IDs.
 - Cleanup verwendet IDs, Owner Marker und Scope, nicht bloß Namen.
+- Fehler lösen standardmäßig automatische Compensation aus.
 - unvollständiges Cleanup ergibt `RECOVERY_REQUIRED`.
+- Cleanup ist idempotent und über `ResumeCleanup`, `RecoverRun` oder `DestroyRun` wiederaufnehmbar.
 - Docker und Podman sind getrennte Provider.
 - Hyper-V kann intern ein optionales AutomatedLab-Backend oder einen nativen Provider verwenden; der öffentliche Contract bleibt gleich.
 - CI/CD ist kein Bestandteil dieses Repositorys.
 
-## 5. Scope
+## 6. Datenbankartefakte
+
+Zulässig:
+
+- im Lab erzeugte Backups zulässiger Labdatenbanken;
+- Wiederverwendung eines Lab-Backups in späteren Runs;
+- öffentliche Demo- und Beispieldatenbanken mit Quelle, Lizenz, Hash und Versionskompatibilität;
+- lokal bereitgestellte Entwicklungs-, Test- oder Lab-Backups mit ausdrücklicher Nicht-Produktionsklassifikation.
+
+Blockiert:
+
+- Produktionsbackups;
+- aus Produktivsystemen extrahierte reale Daten;
+- unbekannte oder unklassifizierte Backups;
+- automatische Übernahme lokaler Backups in Repository, GitHub-Inhalte oder Downloadpakete.
+
+Jedes Datenbankartefakt benötigt Klassifikation, Hash, Größe, erwartete Restore-Größe, Versionskompatibilität, Verifikation, Retention und Cleanup Policy.
+
+## 7. Scope
 
 Gültige Supporting Components:
 
@@ -76,23 +112,24 @@ Nicht Ziel:
 - allgemeines Active-Directory-Lab;
 - allgemeine Multi-Purpose-Orchestrierungsplattform.
 
-## 6. Privacy
+## 8. Privacy
 
 In Repository-, GitHub-, Package- und Downloadartefakten sind verboten:
 
 - reale Personen-, Benutzer-, Kunden-, Firmen- und Organisationsdaten;
 - reale Host-, Netzwerk-, Endpoint- und Pfadinformationen;
-- reale Datenbank- und Objektstrukturen;
+- reale Datenbank- und Objektstrukturen aus Produktivsystemen;
 - Secrets, Tokens, Connection Strings und private Schlüssel;
-- reale Logs, Plans, Responses, Screenshots und Diagnoseexports.
+- reale Logs, Plans, Responses, Screenshots und Diagnoseexports;
+- Produktionsbackups oder unklassifizierte Datenbankartefakte.
 
-Beispiele und Tests sind ausschließlich synthetisch.
+Öffentliche Beispieldatenbanken und ausdrücklich klassifizierte lokale Nicht-Produktionsartefakte sind nicht automatisch Repositoryartefakte. Lokale Artifact Stores bleiben ignoriert und werden nicht automatisch exportiert.
 
 Lokale Runtime States und technische Evidence dürfen notwendige lokale Werte enthalten, bleiben aber ignoriert und werden nicht automatisch exportiert.
 
 Bei unklarer Klassifikation wird vor dem Schreiben oder Git-Vorgang angehalten und eine nicht sensitive Alternative verwendet.
 
-## 7. Sprache
+## 9. Sprache
 
 - Dokumentation: Deutsch.
 - etablierte englische Fachbegriffe bleiben erhalten.
@@ -100,7 +137,7 @@ Bei unklarer Klassifikation wird vor dem Schreiben oder Git-Vorgang angehalten u
 - `LICENCE.md`: englische Masterfassung ist maßgeblich.
 - Statuscodes werden nicht übersetzt.
 
-## 8. Lizenz
+## 10. Lizenz
 
 Das Projekt verwendet eine eigene `Attribution & Non-Commercial Redistribution`-Lizenz und ist nicht Open Source.
 
@@ -110,52 +147,40 @@ Attribution:
 gecompat - Gerhard Pisch
 ```
 
-Drittsoftware und Medien behalten ihre eigenen Lizenzbedingungen. Windows-, SQL-Server-, Container- oder Betriebssystemmedien werden nicht versioniert oder weitergegeben.
+Drittsoftware, öffentliche Beispieldatenbanken und Medien behalten ihre eigenen Lizenzbedingungen. Windows-, SQL-Server-, Container- oder Betriebssystemmedien werden nicht versioniert oder weitergegeben.
 
-## 9. Migration
+## 11. Migration
 
 - generischer Lifecycle aus Analyze `QuickStart` und `Lab/QuickTest` wird konsolidiert;
-- starke State-, Secret-, Ownership- und Cleanup-Verträge aus `Lab/QuickTest` haben Vorrang;
+- starke State-, Secret-, Ownership-, Cleanup- und Recovery-Verträge aus `Lab/QuickTest` haben Vorrang;
 - einfache Benutzerführung aus `QuickStart` bleibt erhalten;
 - Analyze-spezifische Framework- und Findinglogik bleibt im Analyze Package;
 - Schulungs-Demo-Vertrag bleibt im Schulungsrepository;
 - keine Entfernung alter Pfade vor Funktionsparität und Wrapperabnahme.
 
-## 10. Forschung
+## 12. Forschung
 
 Bestehende Projekte werden als Musterquellen untersucht, nicht zu einer Gesamtplattform zusammengebaut.
 
-Relevant:
-
-- AutomatedLab;
-- Microsoft MSLab;
-- Lability;
-- Compose;
-- Testcontainers;
-- Molecule;
-- Test Kitchen;
-- Terraform/Pulumi;
-- TOSCA;
-- CNAB/Porter;
-- Ambari;
-- Toxiproxy/Chaos Mesh.
-
 AutomatedLab wird als mögliches Hyper-V-Backend gegen einen nativen Provider geprüft. Docker und Podman bleiben eigene Provider.
 
-## 11. Umsetzungsreihenfolge
+## 13. Umsetzungsreihenfolge
 
 1. Repository- und Governance-Basis;
 2. SQL Purpose, Package und Contract Schemas;
-3. read-only Planner und State Skeleton;
-4. Docker Quick Environment;
-5. Podman-Parität;
-6. Hyper-V SQL Environment;
-7. Performance-Schulungs-Pilot;
-8. Analyze-Pilot;
-9. Domain Controller als SQL Supporting Component;
-10. SQL HA/Cluster;
-11. PolyBase/Hadoop oder REST nur bei konkretem SQL-Bedarf.
+3. SQL Version Catalog;
+4. Database-Artifact- und Public-Sample-Verträge;
+5. Resource Assessment, Overcommit und Cleanup Plan;
+6. read-only Planner, Run State und Recovery State;
+7. Docker Quick Environment;
+8. Podman-Parität;
+9. Hyper-V SQL Environment;
+10. Performance-Schulungs-Pilot;
+11. Analyze-Pilot;
+12. Domain Controller als SQL Supporting Component;
+13. SQL HA/Cluster;
+14. PolyBase/Hadoop oder REST nur bei konkretem SQL-Bedarf.
 
-## 12. Statuswahrheit
+## 14. Statuswahrheit
 
 Planungsdokumente sind kein Runtime-Nachweis. Eine Funktion darf erst als implementiert oder validiert bezeichnet werden, wenn Code und passende lokale Tests vorhanden sind.
