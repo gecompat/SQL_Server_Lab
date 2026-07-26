@@ -1,0 +1,22 @@
+{
+  "$schema": "./lab-manifest.schema.json",
+  "name": "example-restore-lab",
+  "description": "Lab mit Datenbank-Restore von URL (AdventureWorks)",
+  "instances": [
+    {
+      "id": "primary",
+      "version": "2022",
+      "profile": "standard",
+      "databases": [
+        {
+          "name": "AdventureWorks",
+          "restore": {
+            "source": "https://github.com/Microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorks2022.bak",
+            "type": "url",
+            "replace": true
+          }
+        }
+      ]
+    }
+  ]
+}

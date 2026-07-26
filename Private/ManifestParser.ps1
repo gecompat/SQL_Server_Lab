@@ -90,6 +90,13 @@ function Resolve-ManifestDefaults {
                     collation = if ($db.collation) { $db.collation } else { $resolved.collation }
                     options   = if ($db.options) { $db.options } else { @{ queryStore = $true } }
                     files     = Resolve-DatabaseFiles -DatabaseDef $db
+                    restore   = if ($db.restore) {
+                        [PSCustomObject]@{
+                            source  = $db.restore.source
+                            type    = if ($db.restore.type) { $db.restore.type } else { 'auto' }
+                            replace = if ($null -ne $db.restore.replace) { $db.restore.replace } else { $true }
+                        }
+                    } else { $null }
                 }
                 $resolved.databases += $resolvedDb
             }
