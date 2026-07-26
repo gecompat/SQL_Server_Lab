@@ -3,31 +3,32 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `ARCHITECTURE_DECISION_DRAFT` |
-| Vertragsfamilie | `LAB_CORE_CONTRACTS` |
+| Vertragsfamilie | `SQL_SERVER_LAB_CONTRACTS` |
 | Zielversion | `0.1` |
 | Stand | 2026-07-26 |
-| Maßgebliche Vertiefung | [Erweiterbarer Umgebungs- und Ausführungsvertrag](./EXTENSIBLE_ENVIRONMENT_AND_EXECUTION_CONTRACT.md) |
+| Hauptzweck | SQL-Server-Labs |
+| Maßgebliche Vertiefung | [Erweiterbarer SQL-Server-Umgebungs- und Ausführungsvertrag](./EXTENSIBLE_ENVIRONMENT_AND_EXECUTION_CONTRACT.md) |
 
 ## 1. Ziel
 
-Dieses Dokument definiert die maschinenlesbaren Vertragsarten und ihre Auflösungsreihenfolge. Der Lab Core ist bewusst nicht auf SQL Server, Docker, Hyper-V, PowerShell oder einen linearen Fünf-Phasen-Ablauf festgelegt.
+Dieses Dokument definiert die maschinenlesbaren Verträge und ihre Auflösungsreihenfolge.
 
-SQL Server ist die erste produktive Component-Familie. Weitere Technologien, beispielsweise Hadoop-Cluster, HTTP-/REST-Dienste, zusätzliche Datenplattformen oder externe Testsysteme, werden über registrierte Component Types und Action Types ergänzt.
+SQL Server ist keine bloße erste Beispieltechnologie, sondern verbindlicher Hauptzweck. Supporting Components werden über erweiterbare Typen modelliert, damit SQL-Server-Szenarien wie Windows Authentication, Always On, PolyBase oder REST-Integration nicht durch zu enge Schemas verhindert werden.
 
 ## 2. Architekturprinzipien
 
-1. **Intent vor Implementierung:** Ein Projekt beschreibt den gewünschten fachlichen Zustand und Ablauf.
-2. **Komponenten statt Providerressourcen:** Fachliche Manifeste referenzieren Component Types, keine `docker`, `podman`-, `New-VM`- oder Cloudbefehle.
-3. **Packages statt Universal-Skripte:** Projektinhalte werden als versionierte Lab Packages gebunden.
-4. **Typisierte Actions:** Installation, Testdatenerzeugung, Workload, REST-Zugriff, Beobachtung und Cleanup verwenden registrierte Action Types.
-5. **Runtime Bindings statt statischer Endpunkte:** Konkrete Endpunkte, Pfade und Secret-Referenzen entstehen erst lokal zur Laufzeit.
-6. **Plan vor Mutation:** Jeder gültige Request muss vollständig zu einem read-only Bound Plan auflösbar sein.
-7. **Capabilities statt Annahmen:** Provider- und Technologieunterstützung wird verhandelt und nicht vorgetäuscht.
-8. **Open Type Registry:** Neue Technologien werden namespaced registriert; der Core führt kein festes Enum aller zukünftigen Systeme.
-9. **Strikte Schemas:** `additionalProperties` ist standardmäßig `false`; Erweiterungen besitzen explizite Namespaces und eigene Schemas.
-10. **Keine Secrets oder realen Hostdaten:** Manifeste enthalten nur Referenzen, Constraints und synthetische Beispielwerte.
-11. **Strukturierte Codes und Events:** Konsolentext ist Darstellung, nicht Schnittstelle.
-12. **Cleanup als Kernvertrag:** Jede Mutation wird registriert, kompensiert oder als `RECOVERY_REQUIRED` ausgewiesen.
+1. **SQL Purpose ist Pflicht:** Jeder ausführbare Request und jedes Package besitzt einen SQL-Server-Zweck.
+2. **Primäre SQL Components:** Mindestens eine primäre SQL-Server-Komponente ist erforderlich.
+3. **Supporting Components nur mit SQL-Bezug:** Domain, Hadoop, REST, Client oder Observability sind Hilfssysteme eines SQL-Szenarios.
+4. **Komponenten statt Providerbefehle:** Packages enthalten keine `docker`, `podman`- oder Hyper-V-Befehle.
+5. **Packages statt Universal-Skripte:** Installation, Testdaten, Workload und Prüfung sind getrennte Package-Inhalte.
+6. **Typisierte Actions:** SQL-, Supporting-, Fault-, Probe- und Assertion-Aktionen sind registriert und versioniert.
+7. **Runtime Bindings:** Endpunkte, Pfade und Secret-Referenzen entstehen erst lokal.
+8. **Plan vor Mutation:** Jeder gültige Request wird vollständig zu einem read-only Bound Plan aufgelöst.
+9. **Provider-Capabilities statt Gleichheitsannahmen:** Hyper-V, Docker und Podman werden getrennt nachgewiesen.
+10. **Strikte Schemas:** `additionalProperties` ist standardmäßig `false`.
+11. **Stabile Codes und Events:** Konsolentext ist keine Integrationsschnittstelle.
+12. **Cleanup als Kernvertrag:** Jede Mutation ist registriert, kompensierbar oder führt zu `RECOVERY_REQUIRED`.
 
 ## 3. Vertragsfamilien
 
@@ -35,13 +36,14 @@ SQL Server ist die erste produktive Component-Familie. Weitere Technologien, bei
 
 | Schema | Zweck |
 |---|---|
-| `lab-request.schema.json` | konkrete Benutzer- oder API-Anforderung |
-| `lab-package.schema.json` | selbstbeschreibendes Projekt- oder Erweiterungspaket |
-| `environment-blueprint.schema.json` | logische Komponenten, Beziehungen und Constraints |
+| `sql-lab-request.schema.json` | konkrete SQL-Server-Lab-Anforderung |
+| `sql-purpose.schema.json` | fachlicher SQL-Zweck und Zielgrenzen |
+| `sql-lab-package.schema.json` | Package aus Environment, Content, DataSets und Workflow |
+| `environment-blueprint.schema.json` | primäre SQL Components, Supporting Components und Relations |
 | `workflow.schema.json` | typisierter Ausführungsgraph |
 | `runtime-binding.schema.json` | lokale, typisierte Outputs und Referenzen |
-| `bound-plan.schema.json` | vollständig aufgelöster read-only Mutationsplan |
-| `run-state.schema.json` | tatsächlich erzeugte Ressourcen und Schrittstatus |
+| `bound-plan.schema.json` | vollständig aufgelöster read-only Plan |
+| `run-state.schema.json` | tatsächliche Ressourcen und Schrittstatus |
 | `run-event.schema.json` | strukturierte Zustands- und Fortschrittsereignisse |
 | `evidence.schema.json` | lokale technische Evidenz und sanitisierte Summary |
 
@@ -49,27 +51,57 @@ SQL Server ist die erste produktive Component-Familie. Weitere Technologien, bei
 
 | Schema | Zweck |
 |---|---|
-| `component-type.schema.json` | logischer oder zusammengesetzter Komponententyp |
-| `action-type.schema.json` | ausführbare, typisierte Aktion |
-| `provider.schema.json` | Infrastrukturprovider und unterstützte Ressourcenarten |
+| `component-type.schema.json` | primärer SQL- oder Supporting-Component-Type |
+| `action-type.schema.json` | ausführbare typisierte Aktion |
+| `provider.schema.json` | Hyper-V-, Docker- oder Podman-Provider |
 | `capability.schema.json` | normalisierte Fähigkeit und Nachweisgrenze |
-| `fault-type.schema.json` | kontrollierte Fault-Injection-Art |
-| `control-plane-adapter.schema.json` | CLI-, REST- oder spätere UI-Anbindung |
+| `fault-type.schema.json` | kontrollierte SQL-bezogene Fault Injection |
+| `control-plane-adapter.schema.json` | CLI-, REST- oder UI-Anbindung |
 
 ### 3.3 Content Contracts
 
 | Schema | Zweck |
 |---|---|
-| `dataset.schema.json` | Erzeugung, Verifikation, Reset und Cleanup synthetischer Testdaten |
-| `deployment-unit.schema.json` | Installation oder Konfiguration innerhalb einer Komponente |
-| `workload.schema.json` | kontrollierte Last oder Prozessabfolge |
-| `probe.schema.json` | Beobachtung und Health-/Messabfrage |
+| `deployment-unit.schema.json` | Installation oder Konfiguration innerhalb einer Component |
+| `dataset.schema.json` | Erzeugung, Verifikation, Reset und Cleanup synthetischer Daten |
+| `workload.schema.json` | kontrollierte SQL- oder Client-Last |
+| `probe.schema.json` | SQL-, Infrastruktur- oder Supporting-Observation |
 | `assertion.schema.json` | fachliche oder technische Erwartung |
-| `artifact.schema.json` | hashgebundenes Package-Artefakt und Datenklassifikation |
+| `artifact.schema.json` | hashgebundenes Package-Artefakt |
 
-## 4. `lab-request.schema.json`
+## 4. `sql-purpose.schema.json`
 
-Ein Run Request beschreibt **was** ausgeführt werden soll, nicht wie.
+Pflichtfelder:
+
+- `PurposeId`;
+- `PurposeClass`;
+- `TargetSqlVersions`;
+- `TargetOperatingSystems`;
+- `TargetEditions`;
+- `RequiredSqlCapabilities`;
+- `PrimarySqlComponentRefs`;
+- `SupportingComponentRefs`;
+- `ScenarioRefs`;
+- `ExpectedSqlEvidence`;
+- `KnownSqlLimitations`.
+
+Purpose Classes:
+
+```text
+QUICK_ENVIRONMENT
+PERFORMANCE_DEMO
+DIAGNOSTIC_SCENARIO
+LOAD_SCENARIO
+AVAILABILITY_SCENARIO
+SECURITY_SCENARIO
+INTEGRATION_SCENARIO
+UPGRADE_COMPATIBILITY_SCENARIO
+CONTRACT_FIXTURE
+```
+
+`SupportingComponentRefs` darf leer sein. `PrimarySqlComponentRefs` darf nur für einen ausdrücklich gekennzeichneten `CONTRACT_FIXTURE`-Negativtest leer sein.
+
+## 5. `sql-lab-request.schema.json`
 
 Pflichtfelder:
 
@@ -77,170 +109,144 @@ Pflichtfelder:
 - `RequestId`;
 - `Mode`: `QUICK`, `SCENARIO` oder `CUSTOM`;
 - `PackageRefs`;
+- `SqlPurposeRef` oder Inline-`SqlPurpose`;
 - `EnvironmentRef` oder Inline-Environment;
-- `ScenarioRefs` optional;
 - `ProviderPreferences`;
-- `ResourceProfileRef` optional;
+- `ResourceProfileRef`;
 - `PersistenceMode`;
 - `AllowedOverrides`;
 - `SafetyAcknowledgements`;
 - `OutputPolicy`.
 
-Technologiespezifische Versionswünsche liegen an Components oder Package Constraints. Ein globales Pflichtfeld `SqlVersions` ist deshalb kein Core-Vertrag.
+Ein Request ohne SQL Purpose ist ungültig.
 
-## 5. `lab-package.schema.json`
+## 6. `sql-lab-package.schema.json`
 
-Ein Lab Package bündelt:
+Ein Package enthält:
 
-- Package-Identität und Version;
-- Project- oder Extension-Identität;
+- Package-ID und Version;
+- Project-ID;
+- unterstützte Lab-Core-Versionen;
+- `SqlPurposeCatalog`;
 - Environment-Katalog;
 - Scenario-Katalog;
-- DataSets;
 - Deployment Units;
+- DataSets;
 - Workloads, Probes und Assertions;
-- benötigte Component- und Action Types;
+- Required Component und Action Types;
 - Artefakte und Hashes;
 - Secret Requirements ohne Werte;
 - Trust Class;
-- Lizenz- und Privacy-Policy;
-- Core- und Extension-Version-Constraints.
+- Data Classification;
+- License Notice;
+- Privacy Export Policy;
+- Known Limitations.
 
-Package-Klassen:
+Package Classes:
 
 ```text
-DECLARATIVE
-CONTENT
-TRUSTED_EXTENSION
-PROVIDER_EXTENSION
+SQL_QUICK
+SQL_PROJECT_CONTENT
+SQL_SCENARIO_CATALOG
+SQL_SUPPORTING_EXTENSION
+SQL_PROVIDER_EXTENSION
 ```
 
-## 6. `environment-blueprint.schema.json`
+Ein `SQL_SUPPORTING_EXTENSION` ist nur über ein SQL Package verwendbar und kein eigenständiges Labprodukt.
 
-### 6.1 Component
+## 7. `environment-blueprint.schema.json`
 
-Eine Component enthält mindestens:
+### 7.1 Primary SQL Component
+
+Pflichtfelder:
 
 - `ComponentId`;
 - `ComponentType`;
-- `ComponentTypeVersionConstraint`;
 - `Role`;
-- `ManagementMode`;
-- `VersionConstraint`;
-- `Scale`;
-- `PlacementConstraints`;
+- `SqlVersionConstraint`;
+- `OperatingSystemFamily`;
+- `EditionConstraint`;
+- `AuthenticationRequirements`;
 - `ResourceRequirements`;
-- `CapabilityRequirements`;
-- `Configuration`;
-- `Interfaces`;
 - `StorageClaims`;
+- `NetworkInterfaces`;
+- `RequiredCapabilities`;
 - `Exports`;
-- `Dependencies`;
-- `LifecyclePolicy`;
-- `DataClassification`.
+- `LifecyclePolicy`.
 
-### 6.2 Component Types
+### 7.2 Supporting Component
+
+Zusätzliche Pflichtfelder:
+
+- `SupportsSqlPurpose`;
+- `SqlRelationRefs`;
+- `Justification`;
+- `KnownStatementBoundary`.
 
 Beispiele:
 
 ```text
-core.vm
-core.container
-core.network
-core.storage
-core.external-endpoint
-mssql.instance
-mssql.availability-group
-mssql.load-generator
+identity.domain-controller
 hadoop.cluster
-http.service
 http.mock-service
+client.sql-workload-driver
+core.network-fault-controller
 observability.collector
 ```
 
-Neue Typen werden über die Registry ergänzt. Das Core-Schema enthält kein abschließendes Technologie-Enum.
+### 7.3 Relations
 
-### 6.3 Composite Components
-
-Composite Components werden vor Provider-Mapping expandiert. Ein `hadoop.cluster` kann beispielsweise in Master-, Worker-, Netzwerk- und Storage-Komponenten aufgelöst werden. Die Expansionslogik gehört zur versionierten Component-Type-Definition.
-
-### 6.4 Management Modes
+Beispiele:
 
 ```text
-PROVISIONED
-ATTACHED
-EXTERNAL_READ_ONLY
-EXTERNAL_MUTABLE
-EMULATED
-FIXTURE
+authenticates-against
+joined-to-domain
+connects-to
+replicates-to
+reads-external-data-from
+calls-http
+observes
+fault-targets
 ```
 
-`EXTERNAL_MUTABLE` ist standardmäßig blockiert und benötigt eine konkrete lokale Freigabe.
+Jede Relation besitzt einen SQL-Zweckbezug.
 
-## 7. `component-type.schema.json`
+## 8. `component-type.schema.json`
 
 Eine Component-Type-Definition beschreibt:
 
 - `TypeId` und Version;
+- `Category`: `PRIMARY_SQL` oder `SUPPORTING`;
 - Configuration-Schema;
-- unterstützte Management Modes;
-- erforderliche Capabilities;
-- zulässige Providerklassen;
-- optionale Composite-Expansion;
+- erlaubte Management Modes;
+- Required Capabilities;
+- unterstützte Providerklassen;
+- optionale Composite Expansion;
 - Health- und Readiness-Probes;
 - exportierte Binding Types;
 - erlaubte Actions;
 - Lifecycle- und Cleanup-Vertrag;
 - Safety Class;
-- bekannte Aussagegrenzen.
+- Known Limitations.
 
-Technologiespezifische Felder liegen im Configuration-Schema des Typs und nicht im Lab-Core-Schema.
-
-## 8. `action-type.schema.json`
-
-Action Types sind namespaced.
-
-Beispiele:
+SQL-bezogene Beispiele:
 
 ```text
-core.file.copy
-core.process.execute
-powershell.script.execute
-shell.script.execute
-mssql.script.execute
-mssql.database.create
-mssql.query.execute
-http.request.execute
-http.openapi.validate
-hadoop.hdfs.put
-hadoop.job.submit
-fault.network.apply
-fault.network.remove
+mssql.instance
+mssql.availability-group
+mssql.failover-cluster-instance
+mssql.polybase-instance
+mssql.replication-topology
 ```
 
-Jeder Action Type definiert:
-
-- Input- und Output-Schema;
-- zulässige Target Component Types;
-- erforderliche Capabilities;
-- Side Effects;
-- Safety Class;
-- Secret-Injection-Modi;
-- Idempotenz;
-- Retry- und Cancel-Verhalten;
-- Compensation oder Nicht-Kompensierbarkeit;
-- Log- und Redaction-Regeln.
-
 ## 9. `deployment-unit.schema.json`
-
-Deployment Units beschreiben, was innerhalb von Komponenten installiert oder konfiguriert wird.
 
 Pflichtfelder:
 
 - `UnitId`;
 - `TargetSelector`;
 - `ActionType`;
-- `ArtifactRef` optional;
+- optional `ArtifactRef`;
 - `Parameters`;
 - `SecretRefs`;
 - `DependsOn`;
@@ -252,29 +258,28 @@ Pflichtfelder:
 - `SafetyClass`;
 - `DataClassification`.
 
-Provider stellen Infrastruktur bereit. Deployment Units installieren Technologie- und Projektinhalte.
+Deployment Units installieren beispielsweise SQL_Server_Analyze, das Schulungsframework, SQL Agent-Konfiguration, Domain Join oder PolyBase-Supporting-Inhalte.
 
 ## 10. `dataset.schema.json`
-
-Testdaten sind ein eigener Vertrag und kein unsichtbarer Setup-Nebeneffekt.
 
 Pflichtfelder:
 
 - `DataSetId`;
-- `TargetComponentRef`;
+- `TargetComponentRefs`;
+- `SqlPurposeRef`;
 - `CreationMode`;
-- `GeneratorActionType` oder `FixtureRef`;
-- `DeterministicSeed` oder begründete Abweichung;
-- `ScaleProfile`;
-- `DistributionProfile`;
-- `Preconditions`;
-- `CompletionSignal`;
-- `VerificationActions`;
-- `Exports`;
-- `ResetPolicy`;
-- `CleanupPolicy`;
-- `DataClassification`;
-- `KnownVariability`.
+- Generator oder Fixture;
+- deterministischer Seed oder begründete Abweichung;
+- Scale Profile;
+- Distribution Profile;
+- Preconditions;
+- Completion Signal;
+- Verification Actions;
+- Exports;
+- Reset Policy;
+- Cleanup Policy;
+- Data Classification;
+- Known Variability.
 
 Creation Modes:
 
@@ -288,72 +293,77 @@ STREAM
 
 ## 11. `workflow.schema.json`
 
-### 11.1 Workflow Graph
+Semantische Phasen:
 
-`Arrange`, `Act`, `Observe`, `Assert` und `Cleanup` bleiben semantische Phasen. Technisch besteht ein Szenario aus einem gerichteten, azyklischen Graphen typisierter Steps.
+```text
+ARRANGE
+ACT
+OBSERVE
+ASSERT
+CLEANUP
+```
 
-### 11.2 Step
-
-Pflichtinformationen:
+Ein Step enthält:
 
 - `StepId`;
 - `Phase`;
+- `SqlPurposeRef`;
 - `ActionType`;
 - `TargetRef`;
 - `Inputs`;
 - `SecretRefs`;
 - `DependsOn`;
-- `Condition` optional;
-- `ConcurrencyGroup` optional;
-- `TimeoutSeconds`;
-- `RetryPolicy`;
-- `FailurePolicy`;
-- `IdempotencyMode`;
-- `Produces`;
-- `Compensation`;
+- optional Condition und Concurrency Group;
+- Timeout;
+- Retry und Failure Policy;
+- Idempotency Mode;
+- Outputs;
+- Compensation;
 - `AlwaysRun`;
-- `SafetyClass`.
+- Safety Class.
 
-Unbegrenzte Schleifen sind unzulässig. Wiederholung besitzt harte Attempt- und Zeitgrenzen.
+Ein Supporting-Step ohne SQL-Purpose-Referenz ist ungültig.
 
 ## 12. `runtime-binding.schema.json`
-
-Runtime Bindings verbinden Provider-, Component- und Workflowoutputs.
-
-Ein Binding enthält:
-
-- `BindingId`;
-- `BindingType`;
-- `ProducerRef`;
-- `ValueClass`;
-- `SensitivityClass`;
-- `Scope`;
-- `Lifetime`;
-- `ConsumerAllowlist`;
-- `ExportPolicy`;
-- den tatsächlichen Wert ausschließlich im lokalen Runtime State.
 
 Beispiele:
 
 ```text
 binding.sql-primary.endpoint.sql
 binding.sql-primary.credential-ref.admin
-binding.api.endpoint.http-base
-binding.hadoop.endpoint.hdfs
+binding.sql-primary.metadata.product-version
 binding.dataset.database.name
+binding.domain.endpoint.dns
+binding.hadoop.endpoint.hdfs
+binding.api.endpoint.http-base
 ```
 
-Binding-Referenzen werden typgeprüft. Secret Bindings dürfen nicht in normale Stringoutputs aufgelöst werden.
+Ein Binding enthält:
+
+- Binding ID und Type;
+- Producer;
+- Sensitivity Class;
+- Scope;
+- Lifetime;
+- Consumer Allowlist;
+- Export Policy;
+- tatsächlichen Wert nur im lokalen Runtime State.
 
 ## 13. `provider.schema.json`
 
-Ein Provider beschreibt Infrastrukturmechanik, nicht fachliche Inhalte.
+Verbindliche Provider-IDs:
 
-Pflichtfähigkeiten:
+```text
+provider.hyperv
+provider.docker
+provider.podman
+```
+
+Pflichtoperationen:
 
 - `DetectCapabilities`;
 - `ValidateResourceGraph`;
-- `Plan`;
+- read-only `Plan`;
 - `Provision`;
 - `GetStatus`;
 - `Stop`;
@@ -361,91 +371,80 @@ Pflichtfähigkeiten:
 - `Reset`, soweit unterstützt;
 - `Destroy`;
 - `ExecuteInResource`, soweit unterstützt;
-- Rückgabe tatsächlicher Ressourcen-IDs und Bindings.
+- Rückgabe tatsächlicher IDs und Runtime Bindings.
 
-Provider dürfen keine projektspezifischen Testdaten oder Findings besitzen.
+Docker und Podman besitzen getrennte Capability Records.
 
 ## 14. `capability.schema.json`
-
-Capabilities sind namespaced und erweiterbar.
-
-Ein Capability Record enthält:
-
-- `CapabilityCode`;
-- `CapabilityVersion`;
-- `Status`: `AVAILABLE`, `UNAVAILABLE`, `UNKNOWN`, `BLOCKED`;
-- `Scope`;
-- `ProviderRef` oder `ComponentRef`;
-- lokale `EvidenceSource`;
-- `StatementBoundary`;
-- `Sanitizable`.
 
 Beispiele:
 
 ```text
 provider.docker.compose
+provider.podman.compose
 provider.hyperv.powershell-direct
+mssql.version.2019
+mssql.version.2022
+mssql.version.2025
+mssql.sql-agent
+mssql.windows-authentication
+mssql.polybase
+identity.active-directory
 fault.network.netem
 fault.storage.block-io-throttle
-mssql.version.2025
-mssql.windows-authentication
-hadoop.cluster.expand
-http.client.tls
 ```
+
+Ein Record enthält Version, Status, Scope, Provider oder Component, lokale Evidence Source und Statement Boundary.
 
 ## 15. `bound-plan.schema.json`
 
 Der Bound Plan enthält:
 
-- aufgelöste Vertrags- und Extension-Versionen;
-- Package- und Szenarioidentitäten;
-- expandierten Resource Graph;
+- SQL Purpose;
+- Package- und Vertragsversionen;
+- expandierte SQL-Topologie;
+- Supporting Components mit Begründung;
 - ausgewählte Provider und Handler;
-- konkrete Ressourcenanzahl;
 - Ressourcenbudget und Hostreserve;
-- lokale Bindings in redigierter Darstellung;
-- geplante Deployment Units und Workflow Steps;
+- lokale Bindings in redigierter Form;
+- Deployment Units, DataSets und Workflow Steps;
 - Secret Requirements ohne Werte;
-- External-Egress- und Endpoint-Policy;
 - Faults und harte Grenzen;
 - Side Effects und Safety Classes;
 - Destructive Actions;
 - Cleanup- und Compensation-Plan;
-- Warnungen, `NOT_EXECUTED`-Teile und Aussagegrenzen;
+- `NOT_EXECUTED`-Teile und Aussagegrenzen;
 - Plan-Hash.
-
-Der Plan wird vor jeder Mutation angezeigt oder maschinenlesbar bestätigt.
 
 ## 16. `run-state.schema.json`
 
 Der lokale Run State enthält:
 
-- `LabRunId`;
+- Lab Run ID;
 - Plan-Hash;
+- SQL Purpose;
 - tatsächliche Providerressourcen und vollständige IDs;
-- tatsächliche lokale Endpunkte und Pfade;
-- Secret-Referenzen, keine Secret-Werte im normalen State;
+- lokale Endpunkte und Pfade;
 - Runtime Bindings;
-- Operationen und Stepstatus;
-- erfolgreich abgeschlossene Mutationen;
+- Operations und Stepstatus;
+- abgeschlossene Mutationen;
 - Compensation Stack;
-- Healthstatus;
-- Cleanupstatus;
-- Recoveryinformationen.
+- Health und SQL Readiness;
+- Cleanup und Recovery.
 
-Der State ist nicht exportierbar und bleibt in einem ignorierten lokalen Scope.
+Der State ist nicht exportierbar.
 
 ## 17. `run-event.schema.json`
-
-Strukturierte Events bilden die Control Plane.
 
 Beispiele:
 
 ```text
 PLAN_CREATED
 PLAN_APPROVAL_REQUIRED
-RESOURCE_PROVISIONING_STARTED
-RESOURCE_READY
+SQL_RESOURCE_PROVISIONING_STARTED
+SQL_RESOURCE_READY
+SUPPORTING_RESOURCE_READY
+DATASET_READY
 STEP_STARTED
 STEP_COMPLETED
 STEP_FAILED
@@ -454,77 +453,68 @@ CLEANUP_COMPLETED
 RECOVERY_REQUIRED
 ```
 
-Ein Event enthält Codes, Zeit, Scope, Referenzen und redigierte Metadaten. Secrets oder unkontrollierte Runtime-Payloads sind unzulässig.
+Events enthalten keine Secrets oder unkontrollierten Runtime-Payloads.
 
 ## 18. `evidence.schema.json`
 
-Evidence wird getrennt geführt:
+Evidence Classes:
 
-- `LOCAL_TECHNICAL` für lokale, ignorierte technische Werte;
-- `SANITIZED_SUMMARY` für privacy-geprüfte, exportierbare Zusammenfassungen.
+```text
+LOCAL_TECHNICAL
+SANITIZED_SUMMARY
+```
 
-Gemeinsame Felder:
-
-- Vertrags- und Package-Versionen;
-- Run- und Scenario-ID;
-- Provider- und Component-Klassen;
-- Produktversionen, soweit nicht sensitiv;
-- Phasen- und Stepstatus;
-- aggregierte Messwerte;
-- Assertionsergebnisse;
-- Aussagegrenzen;
-- Cleanupstatus.
-
-Secrets, vollständige Connection Strings, reale Identitäten, ungeprüfte Querytexte, Pläne, Logs und Event-Payloads sind in `SANITIZED_SUMMARY` unzulässig.
+Eine Summary darf SQL-Produktversionen, Statuscodes, aggregierte Messwerte, Assertionsergebnisse und Aussagegrenzen enthalten. Reale Endpunkte, Pfade, Identitäten, Querytexte, Plans, Logs und Responses sind ausgeschlossen.
 
 ## 19. Project Adapter
 
-Der Project Adapter ist kein Universal-Lifecycle-Skript. Er beschreibt:
+Der Adapter beschreibt:
 
-- Project-Identität;
+- Project-ID;
 - kompatible Lab-Core-Versionen;
-- Package-Kataloge oder Package Discovery;
-- lokale Vertrauens- und Lizenzinformationen;
-- optionale Defaultauswahl;
-- Privacy- und Exportpolicy.
+- SQL Package Catalogs;
+- Default Package Refs;
+- Trust Policy;
+- License Notice;
+- Privacy Export Policy.
 
-Installations-, Daten-, Workload-, Observation- und Cleanup-Schritte liegen in Packages und Workflow Steps.
+Installations-, Daten-, Workload-, Observation- und Cleanup-Schritte liegen im Package.
 
 ## 20. Auflösungsreihenfolge
 
-1. Run Request und Vertragsversion validieren;
-2. Project Adapter und Package-Katalog auflösen;
-3. Package-Hashes, Trust Class und Kompatibilität prüfen;
-4. Environment Blueprint laden;
-5. Component Types und Composite Expander auflösen;
-6. Expanded Resource Graph erzeugen;
-7. Deployment Units, DataSets und Workflow laden;
-8. Action Types und Handler auflösen;
-9. Host- und Provider-Capabilities read-only ermitteln;
-10. Provider und Placements auswählen;
-11. lokale Pfad-, Port-, Medien-, Endpoint- und Secret-Bindings prüfen;
-12. Inputs und Outputs typisiert verbinden;
-13. Ressourcen-, Side-Effect-, Safety-, Egress- und Cleanup-Plan erzeugen;
-14. Plan validieren und Hash bilden;
-15. erforderliche Bestätigungen prüfen;
-16. erst danach Mutation zulassen.
+1. Request und Vertragsversion prüfen;
+2. SQL Purpose prüfen;
+3. Project Adapter und Package-Katalog auflösen;
+4. Package-Hashes, Trust und Kompatibilität prüfen;
+5. Environment Blueprint laden;
+6. primäre SQL Components auflösen;
+7. Supporting Components auf SQL-Bezug prüfen;
+8. Composite SQL Components expandieren;
+9. Deployment Units, DataSets und Workflow laden;
+10. Action Types und Handler auflösen;
+11. Host- und Provider-Capabilities read-only ermitteln;
+12. Hyper-V-, Docker- oder Podman-Placement auswählen;
+13. lokale Pfad-, Port-, Media-, Endpoint- und Secret-Bindings prüfen;
+14. Inputs und Outputs typisiert verbinden;
+15. Ressourcen-, Safety-, Egress- und Cleanup-Plan erzeugen;
+16. Plan validieren und Hash bilden;
+17. Bestätigungen prüfen;
+18. erst danach Mutation zulassen.
 
 ## 21. Override-Regeln
 
 | Klasse | Beispiel | Regel |
 |---|---|---|
-| `SAFE_RUNTIME` | lokaler Port oder Zielroot | lokal zulässig, nicht versioniert |
+| `SAFE_RUNTIME` | lokaler Port oder Zielroot | lokal zulässig |
 | `RESOURCE_WITHIN_BOUNDS` | CPU/RAM innerhalb Package- und Hostgrenzen | Planner prüft Reserve |
-| `SEMANTIC` | andere Component-Version | nur bei erfülltem Version Constraint |
-| `SAFETY_RELEVANT` | längere Stressdauer | explizite Bestätigung und harte Package-Grenze |
-| `EXTERNAL_BINDING` | REST-Testendpoint | Management- und Network Policy erforderlich |
+| `SQL_SEMANTIC` | andere SQL-Version | nur bei erfülltem Purpose und Version Constraint |
+| `SAFETY_RELEVANT` | längere Stressdauer | explizite Bestätigung und harte Grenze |
+| `EXTERNAL_SQL_SUPPORT` | Hadoop- oder REST-Testendpoint | SQL Purpose und Network Policy erforderlich |
 | `FORBIDDEN` | Systempfad, produktiver Endpoint, fremde Ressource | immer ablehnen |
 
-Overrides dürfen keine Capability, Trust Class oder Safety-Grenze vortäuschen.
+## 22. Control Plane
 
-## 22. Control-Plane-Vertrag
-
-CLI, spätere REST API und mögliche UI verwenden dieselben serialisierbaren Commands:
+Serialisierbare Commands:
 
 ```text
 GetCapabilities
@@ -543,50 +533,44 @@ DestroyRun
 ExportSanitizedSummary
 ```
 
-Länger laufende Commands liefern `OperationId`, Status und strukturierte Events. Konsolentexte werden nicht geparst.
+CLI und spätere REST-/UI-Adapter verwenden dieselben Commands und Events.
 
-## 23. Versionsdimensionen
+## 23. Vertragsversionierung
 
 Getrennt versioniert werden:
 
-- Lab Core Contract;
-- Package Contract;
-- Project Adapter Contract;
+- SQL Lab Request;
+- SQL Purpose;
+- Lab Package;
 - Component Type;
 - Action Type;
-- Provider;
-- Scenario;
 - DataSet;
+- Workflow;
+- Provider;
 - Evidence;
 - Control Plane.
 
 Unbekannte Major-Versionen werden abgelehnt. Felder werden nicht still ignoriert.
 
-## 24. Architekturbeweise vor Version `1.0`
+## 24. Architekturbeweise vor `1.0`
 
-Vor einem stabilen `1.0`-Vertrag müssen mindestens modelliert und prototypisch aufgelöst werden:
+1. SQL Server Quick Environment auf Docker;
+2. derselbe logische Contract auf Podman;
+3. SQL Server auf Hyper-V;
+4. Performance-Demo mit DataSet und Workflow;
+5. Analyze-Szenario mit Frameworkinstallation und Finding-Assertion;
+6. SQL Server plus Domain Controller;
+7. später SQL Server plus Hadoop für PolyBase oder SQL Server plus REST-Mock-Service.
 
-1. SQL-Server-Quick-Environment;
-2. SQL-Performance-Demo mit eigenem DataSet und Multi-Step-Workflow;
-3. SQL-Analyze-Szenario mit Frameworkinstallation und Finding-Assertion;
-4. nicht rein SQL-basierter Proof, mindestens HTTP-Mock-Service oder Composite-Cluster-Fixture;
-5. Control-Plane-Aufruf über CLI auf neutralen Commands und Events.
+## 25. Abnahmekriterien
 
-Damit wird verhindert, dass ein formal generisches, praktisch aber SQL-zentriertes Schema eingefroren wird.
-
-## 25. Abnahmekriterien für Welle 1
-
-1. Alle Schemas verwenden eine dokumentierte JSON-Schema-Version.
-2. `additionalProperties` ist standardmäßig `false`.
-3. Namespaced Extension Points sind ohne Core-Schemaänderung registrierbar.
-4. Beispiele enthalten keine funktionsfähigen Secrets oder realen Hostwerte.
-5. Ein Package beschreibt Umgebung, Inhalte, Testdaten und Ablauf vollständig.
-6. Ein Run Request wird bis zu einem Bound Plan ohne Mutation aufgelöst.
-7. Inputs und Outputs werden typisiert verbunden.
-8. Composite Components können expandiert werden.
-9. unbekannte oder nicht vertrauenswürdige Handler werden abgelehnt.
-10. Cleanup und Compensation sind Teil des Plans.
-11. externe Endpunkte benötigen explizite Policy.
-12. lokale und exportierbare Evidence sind getrennt.
-13. SQL- und Nicht-SQL-Proofs verwenden denselben Core-Vertrag.
-14. CLI und spätere REST Control Plane können dieselben Commands und Events verwenden.
+- jedes Package besitzt SQL Purpose;
+- primäre SQL Components sind Pflicht;
+- Supporting Components haben einen dokumentierten SQL-Bezug;
+- Hyper-V, Docker und Podman erfüllen denselben übergeordneten Vertrag;
+- Umgebung, Installation, Testdaten und Workflow sind vollständig beschreibbar;
+- Inputs und Outputs sind typisiert;
+- Composite SQL Topologies sind expandierbar;
+- Plan, State, Events und Cleanup sind providerunabhängig;
+- SQL- und Supporting-Evidence sind getrennt und privacy-sicher;
+- keine allgemeine Nicht-SQL-Labplattform entsteht.
