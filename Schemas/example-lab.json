@@ -1,4 +1,5 @@
 {
+  "$schema": "./lab-manifest.schema.json",
   "name": "example-schulung-lab",
   "description": "Beispiel-Lab: SQL 2025 mit Schulungsdatenbank und Setup-Skript",
   "instances": [
