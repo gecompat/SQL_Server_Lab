@@ -1,0 +1,77 @@
+{
+  "SchemaVersion": "1.0",
+  "ScenarioId": "LAB-DEAD-004",
+  "Title": "Parallelism-deadlock contract",
+  "Purpose": "Create a bounded, deterministic, synthetic parallelism-deadlock contract state and verify the assigned framework analyzer without asserting host-dependent durations or exact wait counts.",
+  "EvidenceClass": "CONTRACT_FIXTURE",
+  "Platforms": [
+    "FIXTURE"
+  ],
+  "SqlVersions": [
+    2019,
+    2022,
+    2025
+  ],
+  "TopologyId": "FIXTURE-ONLY",
+  "ResourceProfile": "Compact",
+  "DestructiveClass": "NONE",
+  "RequiredCapabilities": [],
+  "Arrange": {
+    "Action": "Validate the bounded public fixture.",
+    "CompletionSignal": "The fixture schema and explicit non-runtime boundary are valid."
+  },
+  "Act": {
+    "Action": "Evaluate the fixture without claiming a runtime deadlock.",
+    "CompletionSignal": "The fixture produces only contract evidence."
+  },
+  "Observe": {
+    "Analyzers": [
+      "USP_ExtendedEventsDeadlocks"
+    ],
+    "Scope": "Public contract fixture only.",
+    "MeasurementWindowSeconds": 30
+  },
+  "ExpectedFindings": [
+    {
+      "Analyzer": "USP_ExtendedEventsDeadlocks",
+      "ExpectationType": "OUTPUT_CONTRACT",
+      "ExpectedStatuses": [
+        "CONTRACT_FIXTURE"
+      ],
+      "ExpectedFindingCodes": [
+        "PARALLEL_DEADLOCK_FIXTURE_VALID"
+      ],
+      "MinimumConfidence": "HIGH",
+      "AlternativeEvidence": [
+        "A declared alternative state predicate is accepted when scheduler timing changes the transient wait or plan shape."
+      ],
+      "AssertionBoundary": "Exact waits, counters, durations, row ordering, and plan identifiers are never asserted."
+    }
+  ],
+  "AlternativeEvidence": [
+    "Transient waits may differ; the scenario asserts the durable synthetic state and bounded live-session context instead."
+  ],
+  "Timeouts": {
+    "SetupSeconds": 300,
+    "ActSeconds": 120,
+    "ObserveSeconds": 300,
+    "CleanupSeconds": 300
+  },
+  "SafetyGuards": {
+    "RequireSyntheticDatabase": true,
+    "RequireRunId": true,
+    "RequireRegisteredObjectIds": true,
+    "AllowSystemTarget": false,
+    "AllowNameOnlyDeletion": false,
+    "RequireDestructiveApproval": false
+  },
+  "Cleanup": {
+    "Action": "No runtime cleanup is required.",
+    "CompletionSignal": "No runtime state was created."
+  },
+  "DataClassification": "PUBLIC_FIXTURE",
+  "KnownLimitations": [
+    "The scenario is diagnostic evidence, not a benchmark or production sizing result.",
+    "Repository CI validates the action contract; real native-Linux and Hyper-V-Linux evidence remains an external gate."
+  ]
+}

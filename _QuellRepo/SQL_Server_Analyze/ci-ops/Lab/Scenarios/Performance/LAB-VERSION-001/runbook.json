@@ -1,0 +1,22 @@
+{
+  "SchemaVersion": "1.0",
+  "ScenarioId": "LAB-VERSION-001",
+  "DataClassification": "SYNTHETIC",
+  "FixedSeed": 1701,
+  "SqlVersions": [
+    2019,
+    2022,
+    2025
+  ],
+  "RuntimeAction": "SQL_ONLY",
+  "PrimaryAnalyzer": "USP_ServerVersionInformation",
+  "FindingCode": "VERSION_LANE_CONTRACT_OBSERVED",
+  "WorkerCount": 0,
+  "WorkerStartLeadSeconds": 0,
+  "WorkerTimeoutSeconds": 30,
+  "ScenarioTimeoutSeconds": 300,
+  "AllowedWorkerExitCodes": [
+    0
+  ],
+  "ResetPolicy": "EXACT_SYNTHETIC_SCOPE"
+}

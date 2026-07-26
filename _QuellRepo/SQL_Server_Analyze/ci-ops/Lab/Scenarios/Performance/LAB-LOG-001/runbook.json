@@ -1,0 +1,23 @@
+{
+  "SchemaVersion": "1.0",
+  "ScenarioId": "LAB-LOG-001",
+  "DataClassification": "SYNTHETIC",
+  "FixedSeed": 1701,
+  "SqlVersions": [
+    2019,
+    2022,
+    2025
+  ],
+  "RuntimeAction": "SQL_ONLY",
+  "PrimaryAnalyzer": "USP_CurrentLog",
+  "FindingCode": "ACTIVE_TRANSACTION_LOG_REUSE_OBSERVED",
+  "WorkerCount": 1,
+  "WorkerStartLeadSeconds": 3,
+  "WorkerTimeoutSeconds": 90,
+  "ScenarioTimeoutSeconds": 300,
+  "AllowedWorkerExitCodes": [
+    0,
+    1
+  ],
+  "ResetPolicy": "EXACT_SYNTHETIC_SCOPE"
+}

@@ -1,0 +1,89 @@
+{
+  "SchemaVersion": "1.0",
+  "ScenarioId": "LAB-CONC-001",
+  "Title": "Blocking chain with root blocker",
+  "Purpose": "Create a bounded, deterministic, synthetic blocking chain with root blocker state and verify the assigned framework analyzer without asserting host-dependent durations or exact wait counts.",
+  "EvidenceClass": "REAL",
+  "Platforms": [
+    "CONTAINER_LINUX",
+    "HYPER_V_LINUX"
+  ],
+  "SqlVersions": [
+    2019,
+    2022,
+    2025
+  ],
+  "TopologyId": "CTR-SINGLE",
+  "ResourceProfile": "Compact",
+  "DestructiveClass": "LAB_DATA",
+  "RequiredCapabilities": [
+    "DOCKER_ENGINE",
+    "COMPOSE_PROVIDER",
+    "CGROUP_RESOURCE_LIMITS"
+  ],
+  "Arrange": {
+    "Action": "Create only the exact synthetic Lab001Wave3 database and scenario-owned server objects from fixed seed 1701.",
+    "CompletionSignal": "The synthetic objects exist and the clean-state assertion succeeds."
+  },
+  "Act": {
+    "Action": "Execute the bounded LAB-CONC-001 workload with at most 2 concurrent workers.",
+    "CompletionSignal": "The scenario-specific state predicate is observed within the declared timeout."
+  },
+  "Observe": {
+    "Analyzers": [
+      "USP_CurrentRequests",
+      "USP_CurrentBlocking",
+      "USP_CurrentTransactions",
+      "USP_CurrentOverview",
+      "USP_ExtendedEventsBlockedProcesses",
+      "USP_ExtendedEventsAnalysis",
+      "USP_DiagnosticFindings"
+    ],
+    "Scope": "The exact synthetic database, run-token sessions, and explicitly named scenario-owned server objects.",
+    "MeasurementWindowSeconds": 30
+  },
+  "ExpectedFindings": [
+    {
+      "Analyzer": "USP_CurrentBlocking",
+      "ExpectationType": "POSITIVE_FINDING",
+      "ExpectedStatuses": [
+        "AVAILABLE",
+        "AVAILABLE_LIMITED"
+      ],
+      "ExpectedFindingCodes": [
+        "BLOCKING_CHAIN_ROOT_OBSERVED"
+      ],
+      "MinimumConfidence": "HIGH",
+      "AlternativeEvidence": [
+        "A declared alternative state predicate is accepted when scheduler timing changes the transient wait or plan shape."
+      ],
+      "AssertionBoundary": "Exact waits, counters, durations, row ordering, and plan identifiers are never asserted."
+    }
+  ],
+  "AlternativeEvidence": [
+    "Transient waits may differ; the scenario asserts the durable synthetic state and bounded live-session context instead."
+  ],
+  "Timeouts": {
+    "SetupSeconds": 300,
+    "ActSeconds": 120,
+    "ObserveSeconds": 300,
+    "CleanupSeconds": 300
+  },
+  "SafetyGuards": {
+    "RequireSyntheticDatabase": true,
+    "RequireRunId": true,
+    "RequireRegisteredObjectIds": true,
+    "AllowSystemTarget": false,
+    "AllowNameOnlyDeletion": false,
+    "RequireDestructiveApproval": false
+  },
+  "Cleanup": {
+    "Action": "Kill only sessions carrying the exact run token, remove exact Lab001Wave3 server objects, and drop only the synthetic database.",
+    "CompletionSignal": "No run-token session, scenario-owned server object, or Lab001Wave3 database remains."
+  },
+  "DataClassification": "SYNTHETIC",
+  "KnownLimitations": [
+    "The scenario is diagnostic evidence, not a benchmark or production sizing result.",
+    "Repository CI validates the action contract; real native-Linux and Hyper-V-Linux evidence remains an external gate."
+  ]
+}

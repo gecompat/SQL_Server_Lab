@@ -1,0 +1,848 @@
+{
+  "SchemaVersion": "1.0",
+  "ProductStatus": "PARTIAL_PRODUCT_FUNCTION",
+  "Wave0ContractStatus": "IMPLEMENTED_AUTOMATED_GATE",
+  "Wave1ContractStatus": "IMPLEMENTED_AUTOMATED_GATE",
+  "Scenarios": [
+    {
+      "ScenarioId": "LAB-BASE-001",
+      "Title": "Healthy bounded baseline",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 2,
+      "ImplementationStatus": "IMPLEMENTED_EXTERNAL_EVIDENCE_PENDING"
+    },
+    {
+      "ScenarioId": "LAB-BASE-002",
+      "Title": "Restricted permission and metadata visibility",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 2,
+      "ImplementationStatus": "IMPLEMENTED_EXTERNAL_EVIDENCE_PENDING"
+    },
+    {
+      "ScenarioId": "LAB-CPU-001",
+      "Title": "CPU saturation and scheduler-yield evidence",
+      "EvidenceClass": "EMULATED_INFRASTRUCTURE",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 3,
+      "ImplementationStatus": "IMPLEMENTED_ACTIONS_GATE"
+    },
+    {
+      "ScenarioId": "LAB-CPU-002",
+      "Title": "Parallel workload and parallelism-wait context",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 3,
+      "ImplementationStatus": "IMPLEMENTED_ACTIONS_GATE"
+    },
+    {
+      "ScenarioId": "LAB-CPU-003",
+      "Title": "Worker-thread pressure",
+      "EvidenceClass": "EMULATED_INFRASTRUCTURE",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 3,
+      "ImplementationStatus": "IMPLEMENTED_ACTIONS_GATE"
+    },
+    {
+      "ScenarioId": "LAB-MEM-001",
+      "Title": "Competing memory grants",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 3,
+      "ImplementationStatus": "IMPLEMENTED_ACTIONS_GATE"
+    },
+    {
+      "ScenarioId": "LAB-MEM-002",
+      "Title": "Bounded buffer-pool pressure",
+      "EvidenceClass": "EMULATED_INFRASTRUCTURE",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 3,
+      "ImplementationStatus": "IMPLEMENTED_ACTIONS_GATE"
+    },
+    {
+      "ScenarioId": "LAB-MEM-003",
+      "Title": "Resource Governor pool limit",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 3,
+      "ImplementationStatus": "IMPLEMENTED_ACTIONS_GATE"
+    },
+    {
+      "ScenarioId": "LAB-TEMP-001",
+      "Title": "TempDB sort and hash spill",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 3,
+      "ImplementationStatus": "IMPLEMENTED_ACTIONS_GATE"
+    },
+    {
+      "ScenarioId": "LAB-TEMP-002",
+      "Title": "Version-store growth",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 3,
+      "ImplementationStatus": "IMPLEMENTED_ACTIONS_GATE"
+    },
+    {
+      "ScenarioId": "LAB-TEMP-003",
+      "Title": "TempDB allocation contention",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 3,
+      "ImplementationStatus": "IMPLEMENTED_ACTIONS_GATE"
+    },
+    {
+      "ScenarioId": "LAB-TEMP-004",
+      "Title": "Bounded TempDB storage exhaustion",
+      "EvidenceClass": "EMULATED_INFRASTRUCTURE",
+      "PrimaryPlatform": "HYPER_V_WINDOWS",
+      "TopologyId": "HV-WIN-SINGLE",
+      "PlannedWave": 6,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-TEMP-005",
+      "Title": "SQL Server 2025 TempDB Resource Governance",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 3,
+      "ImplementationStatus": "IMPLEMENTED_ACTIONS_GATE"
+    },
+    {
+      "ScenarioId": "LAB-IO-001",
+      "Title": "Bounded data-file IOPS",
+      "EvidenceClass": "EMULATED_INFRASTRUCTURE",
+      "PrimaryPlatform": "HYPER_V_WINDOWS",
+      "TopologyId": "HV-WIN-SINGLE",
+      "PlannedWave": 6,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-IO-002",
+      "Title": "Bounded log IOPS",
+      "EvidenceClass": "EMULATED_INFRASTRUCTURE",
+      "PrimaryPlatform": "HYPER_V_WINDOWS",
+      "TopologyId": "HV-WIN-SINGLE",
+      "PlannedWave": 6,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-IO-003",
+      "Title": "TempDB I/O bottleneck",
+      "EvidenceClass": "EMULATED_INFRASTRUCTURE",
+      "PrimaryPlatform": "HYPER_V_WINDOWS",
+      "TopologyId": "HV-WIN-SINGLE",
+      "PlannedWave": 6,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-IO-004",
+      "Title": "Frequent bounded autogrowth",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 3,
+      "ImplementationStatus": "IMPLEMENTED_ACTIONS_GATE"
+    },
+    {
+      "ScenarioId": "LAB-IO-005",
+      "Title": "Bounded synthetic data-storage exhaustion",
+      "EvidenceClass": "EMULATED_INFRASTRUCTURE",
+      "PrimaryPlatform": "HYPER_V_WINDOWS",
+      "TopologyId": "HV-WIN-SINGLE",
+      "PlannedWave": 6,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-LOG-001",
+      "Title": "Log full from an open transaction",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 3,
+      "ImplementationStatus": "IMPLEMENTED_ACTIONS_GATE"
+    },
+    {
+      "ScenarioId": "LAB-LOG-002",
+      "Title": "VLF and autogrowth configuration",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 3,
+      "ImplementationStatus": "IMPLEMENTED_ACTIONS_GATE"
+    },
+    {
+      "ScenarioId": "LAB-REC-001",
+      "Title": "Container process restart recovery",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 3,
+      "ImplementationStatus": "IMPLEMENTED_ACTIONS_GATE"
+    },
+    {
+      "ScenarioId": "LAB-REC-002",
+      "Title": "Virtual-machine hard-stop recovery",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "HYPER_V_WINDOWS",
+      "TopologyId": "HV-WIN-SINGLE",
+      "PlannedWave": 6,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-CONC-001",
+      "Title": "Blocking chain with root blocker",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 3,
+      "ImplementationStatus": "IMPLEMENTED_ACTIONS_GATE"
+    },
+    {
+      "ScenarioId": "LAB-CONC-002",
+      "Title": "Schema metadata and compile locks",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 3,
+      "ImplementationStatus": "IMPLEMENTED_ACTIONS_GATE"
+    },
+    {
+      "ScenarioId": "LAB-DEAD-001",
+      "Title": "Key deadlock",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 3,
+      "ImplementationStatus": "IMPLEMENTED_ACTIONS_GATE"
+    },
+    {
+      "ScenarioId": "LAB-DEAD-002",
+      "Title": "Conversion deadlock",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 3,
+      "ImplementationStatus": "IMPLEMENTED_ACTIONS_GATE"
+    },
+    {
+      "ScenarioId": "LAB-DEAD-003",
+      "Title": "Range deadlock",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 3,
+      "ImplementationStatus": "IMPLEMENTED_ACTIONS_GATE"
+    },
+    {
+      "ScenarioId": "LAB-DEAD-004",
+      "Title": "Parallelism-deadlock contract",
+      "EvidenceClass": "CONTRACT_FIXTURE",
+      "PrimaryPlatform": "FIXTURE",
+      "TopologyId": "FIXTURE-ONLY",
+      "PlannedWave": 3,
+      "ImplementationStatus": "IMPLEMENTED_CONTRACT_FIXTURE"
+    },
+    {
+      "ScenarioId": "LAB-LATCH-001",
+      "Title": "Last-page insert contention",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 3,
+      "ImplementationStatus": "IMPLEMENTED_ACTIONS_GATE"
+    },
+    {
+      "ScenarioId": "LAB-LATCH-002",
+      "Title": "Sequential-key optimization comparison",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 3,
+      "ImplementationStatus": "IMPLEMENTED_ACTIONS_GATE"
+    },
+    {
+      "ScenarioId": "LAB-LATCH-003",
+      "Title": "Distributed-key and heap comparison",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 3,
+      "ImplementationStatus": "IMPLEMENTED_ACTIONS_GATE"
+    },
+    {
+      "ScenarioId": "LAB-PLAN-001",
+      "Title": "Parameter skew and plan sensitivity",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 3,
+      "ImplementationStatus": "IMPLEMENTED_ACTIONS_GATE"
+    },
+    {
+      "ScenarioId": "LAB-PLAN-002",
+      "Title": "Stale statistics and cardinality error",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 3,
+      "ImplementationStatus": "IMPLEMENTED_ACTIONS_GATE"
+    },
+    {
+      "ScenarioId": "LAB-PLAN-003",
+      "Title": "Ad-hoc plan-cache growth",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 3,
+      "ImplementationStatus": "IMPLEMENTED_ACTIONS_GATE"
+    },
+    {
+      "ScenarioId": "LAB-PLAN-004",
+      "Title": "Compile and recompile pressure",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 3,
+      "ImplementationStatus": "IMPLEMENTED_ACTIONS_GATE"
+    },
+    {
+      "ScenarioId": "LAB-PLAN-005",
+      "Title": "Version-adaptive IQP feedback paths",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 3,
+      "ImplementationStatus": "IMPLEMENTED_ACTIONS_GATE"
+    },
+    {
+      "ScenarioId": "LAB-QS-001",
+      "Title": "Query Store plan regression",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 3,
+      "ImplementationStatus": "IMPLEMENTED_ACTIONS_GATE"
+    },
+    {
+      "ScenarioId": "LAB-QS-002",
+      "Title": "Forced and failed forced plan",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 3,
+      "ImplementationStatus": "IMPLEMENTED_ACTIONS_GATE"
+    },
+    {
+      "ScenarioId": "LAB-IDX-001",
+      "Title": "Index fragmentation and page density",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 3,
+      "ImplementationStatus": "IMPLEMENTED_ACTIONS_GATE"
+    },
+    {
+      "ScenarioId": "LAB-IDX-002",
+      "Title": "Duplicate and overlapping indexes",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 3,
+      "ImplementationStatus": "IMPLEMENTED_ACTIONS_GATE"
+    },
+    {
+      "ScenarioId": "LAB-IDX-003",
+      "Title": "Synthetic missing-index candidate",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 3,
+      "ImplementationStatus": "IMPLEMENTED_ACTIONS_GATE"
+    },
+    {
+      "ScenarioId": "LAB-COL-001",
+      "Title": "Columnstore rowgroup state",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 3,
+      "ImplementationStatus": "IMPLEMENTED_ACTIONS_GATE"
+    },
+    {
+      "ScenarioId": "LAB-AVAIL-001",
+      "Title": "Manual Linux availability-group failover",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-TRIPLE",
+      "PlannedWave": 4,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-AVAIL-002",
+      "Title": "Availability-group suspend queue and seeding error",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-TRIPLE",
+      "PlannedWave": 4,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-AVAIL-003",
+      "Title": "Automatic WSFC availability-group failover",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "HYPER_V_WINDOWS",
+      "TopologyId": "HV-WSFC-AG2",
+      "PlannedWave": 7,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-AVAIL-004",
+      "Title": "Witness and quorum failure",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "HYPER_V_WINDOWS",
+      "TopologyId": "HV-WSFC-AG3",
+      "PlannedWave": 7,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-AVAIL-005",
+      "Title": "FCI failover and shared-storage failure",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "HYPER_V_WINDOWS",
+      "TopologyId": "HV-FCI2",
+      "PlannedWave": 7,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-LS-001",
+      "Title": "Log Shipping backup copy and restore lag",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-PAIR",
+      "PlannedWave": 4,
+      "ImplementationStatus": "IMPLEMENTED_ACTIONS_GATE"
+    },
+    {
+      "ScenarioId": "LAB-LS-002",
+      "Title": "Interrupted Log Shipping transfer",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-PAIR",
+      "PlannedWave": 4,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-REPL-001",
+      "Title": "Transactional-replication backlog",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-TRIPLE",
+      "PlannedWave": 4,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-REPL-002",
+      "Title": "Stopped replication agent",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-TRIPLE",
+      "PlannedWave": 4,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-REPL-003",
+      "Title": "Unavailable subscriber",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-TRIPLE",
+      "PlannedWave": 4,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-BACKUP-001",
+      "Title": "Synthetic backup chain",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 4,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-BACKUP-002",
+      "Title": "Slow or unavailable backup target",
+      "EvidenceClass": "EMULATED_INFRASTRUCTURE",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 4,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-CORR-001",
+      "Title": "Synthetic data-page checksum failure",
+      "EvidenceClass": "RESTORED_ARTIFACT",
+      "PrimaryPlatform": "HYPER_V_WINDOWS",
+      "TopologyId": "HV-WIN-SINGLE",
+      "PlannedWave": 8,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-CORR-002",
+      "Title": "Synthetic nonclustered-index page damage",
+      "EvidenceClass": "RESTORED_ARTIFACT",
+      "PrimaryPlatform": "HYPER_V_WINDOWS",
+      "TopologyId": "HV-WIN-SINGLE",
+      "PlannedWave": 8,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-CORR-003",
+      "Title": "Synthetic allocation or LOB damage",
+      "EvidenceClass": "RESTORED_ARTIFACT",
+      "PrimaryPlatform": "HYPER_V_WINDOWS",
+      "TopologyId": "HV-WIN-SINGLE",
+      "PlannedWave": 8,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-CORR-004",
+      "Title": "Synthetic unreadable page or suspect database",
+      "EvidenceClass": "RESTORED_ARTIFACT",
+      "PrimaryPlatform": "HYPER_V_WINDOWS",
+      "TopologyId": "HV-WIN-SINGLE",
+      "PlannedWave": 8,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-CORR-005",
+      "Title": "Page-restore contract",
+      "EvidenceClass": "RESTORED_ARTIFACT",
+      "PrimaryPlatform": "HYPER_V_WINDOWS",
+      "TopologyId": "HV-WIN-SINGLE",
+      "PlannedWave": 8,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-NET-001",
+      "Title": "Network latency jitter and bandwidth limit",
+      "EvidenceClass": "EMULATED_INFRASTRUCTURE",
+      "PrimaryPlatform": "HYPER_V_LINUX",
+      "TopologyId": "HV-CROSS-PLATFORM",
+      "PlannedWave": 4,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-NET-002",
+      "Title": "Packet loss duplication and reordering",
+      "EvidenceClass": "EMULATED_INFRASTRUCTURE",
+      "PrimaryPlatform": "HYPER_V_LINUX",
+      "TopologyId": "HV-CROSS-PLATFORM",
+      "PlannedWave": 4,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-NET-003",
+      "Title": "Bounded network partition",
+      "EvidenceClass": "EMULATED_INFRASTRUCTURE",
+      "PrimaryPlatform": "HYPER_V_LINUX",
+      "TopologyId": "HV-CROSS-PLATFORM",
+      "PlannedWave": 4,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-NET-004",
+      "Title": "DNS port and TLS failure",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-PAIR",
+      "PlannedWave": 4,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-AGENT-001",
+      "Title": "Failed long and disabled SQL Agent job",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 4,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-XE-001",
+      "Title": "Deadlock and blocked-process Extended Events",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 3,
+      "ImplementationStatus": "IMPLEMENTED_ACTIONS_GATE"
+    },
+    {
+      "ScenarioId": "LAB-BROKER-001",
+      "Title": "Service Broker queue and transmission backlog",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 4,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-DTC-001",
+      "Title": "Successful and interrupted distributed transaction",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-PAIR",
+      "PlannedWave": 4,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-LINK-001",
+      "Title": "Linked Server success timeout and outage",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-PAIR",
+      "PlannedWave": 4,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-RUNTIME-001",
+      "Title": "Successful synthetic external runtime",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-RUNTIME",
+      "PlannedWave": 8,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-RUNTIME-002",
+      "Title": "Unavailable or disabled external runtime",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-RUNTIME",
+      "PlannedWave": 8,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-RUNTIME-003",
+      "Title": "External runtime error hang and resource limit",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-RUNTIME",
+      "PlannedWave": 8,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-CLR-001",
+      "Title": "Synthetic SAFE assembly",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 8,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-CLR-002",
+      "Title": "Windows CLR security context",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "HYPER_V_WINDOWS",
+      "TopologyId": "HV-WIN-SINGLE",
+      "PlannedWave": 8,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-FT-001",
+      "Title": "Full-Text availability and population state",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 8,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-IMOLTP-001",
+      "Title": "In-Memory OLTP hash chains and memory pressure",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 8,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-TEMPORAL-001",
+      "Title": "Temporal history and retention context",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 8,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-CDC-001",
+      "Title": "Data-capture and change-tracking lag",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 8,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-SEC-001",
+      "Title": "Missing DMV permission",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 2,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-SEC-002",
+      "Title": "Restricted metadata and analysis policy",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 2,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-WIN-001",
+      "Title": "Windows counters registry and service context",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "HYPER_V_WINDOWS",
+      "TopologyId": "HV-WIN-SINGLE",
+      "PlannedWave": 6,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-NUMA-001",
+      "Title": "Defined virtual NUMA topology",
+      "EvidenceClass": "EMULATED_INFRASTRUCTURE",
+      "PrimaryPlatform": "HYPER_V_WINDOWS",
+      "TopologyId": "HV-WIN-SINGLE",
+      "PlannedWave": 6,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-VERSION-001",
+      "Title": "Sequential SQL Server version contract",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 3,
+      "ImplementationStatus": "IMPLEMENTED_ACTIONS_GATE"
+    },
+    {
+      "ScenarioId": "LAB-CLOUD-001",
+      "Title": "Azure SQL Managed Instance contract fixture",
+      "EvidenceClass": "CONTRACT_FIXTURE",
+      "PrimaryPlatform": "FIXTURE",
+      "TopologyId": "FIXTURE-ONLY",
+      "PlannedWave": 10,
+      "ImplementationStatus": "PLANNED_FIXTURE_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-HW-001",
+      "Title": "Physical infrastructure failure contract fixture",
+      "EvidenceClass": "CONTRACT_FIXTURE",
+      "PrimaryPlatform": "FIXTURE",
+      "TopologyId": "FIXTURE-ONLY",
+      "PlannedWave": 10,
+      "ImplementationStatus": "PLANNED_FIXTURE_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-CONTRACT-001",
+      "Title": "Public output and parameter contract fixture",
+      "EvidenceClass": "CONTRACT_FIXTURE",
+      "PrimaryPlatform": "FIXTURE",
+      "TopologyId": "FIXTURE-ONLY",
+      "PlannedWave": 0,
+      "ImplementationStatus": "WAVE0_CONTRACT_ONLY"
+    },
+    {
+      "ScenarioId": "LAB-CONTRACT-002",
+      "Title": "Error timeout and partiality contract fixture",
+      "EvidenceClass": "CONTRACT_FIXTURE",
+      "PrimaryPlatform": "FIXTURE",
+      "TopologyId": "FIXTURE-ONLY",
+      "PlannedWave": 0,
+      "ImplementationStatus": "WAVE0_CONTRACT_ONLY"
+    },
+    {
+      "ScenarioId": "LAB-CONTRACT-003",
+      "Title": "Cleanup and repeatability contract fixture",
+      "EvidenceClass": "CONTRACT_FIXTURE",
+      "PrimaryPlatform": "FIXTURE",
+      "TopologyId": "FIXTURE-ONLY",
+      "PlannedWave": 0,
+      "ImplementationStatus": "WAVE0_CONTRACT_ONLY"
+    },
+    {
+      "ScenarioId": "LAB-VECTOR-001",
+      "Title": "SQL Server 2025 vector-index inventory",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 3,
+      "ImplementationStatus": "IMPLEMENTED_ACTIONS_GATE"
+    },
+    {
+      "ScenarioId": "LAB-ENC-001",
+      "Title": "Synthetic encryption configuration inventory",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 8,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-SNAPSHOT-001",
+      "Title": "Snapshot collection retention and purge",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 10,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-EXECPLAN-001",
+      "Title": "Standalone execution-plan analysis",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 3,
+      "ImplementationStatus": "IMPLEMENTED_ACTIONS_GATE"
+    },
+    {
+      "ScenarioId": "LAB-MAINT-001",
+      "Title": "Synthetic maintenance operation state",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 4,
+      "ImplementationStatus": "PLANNED_NOT_IMPLEMENTED"
+    },
+    {
+      "ScenarioId": "LAB-CAP-001",
+      "Title": "Database capacity and bounded growth state",
+      "EvidenceClass": "REAL",
+      "PrimaryPlatform": "CONTAINER_LINUX",
+      "TopologyId": "CTR-SINGLE",
+      "PlannedWave": 3,
+      "ImplementationStatus": "IMPLEMENTED_ACTIONS_GATE"
+    }
+  ],
+  "Wave2ContractStatus": "IMPLEMENTED_ACTIONS_GATE",
+  "Wave3ContractStatus": "IMPLEMENTED_ACTIONS_GATE",
+  "Wave3RuntimeStatus": "IMPLEMENTED_EXTERNAL_EVIDENCE_PENDING"
+}

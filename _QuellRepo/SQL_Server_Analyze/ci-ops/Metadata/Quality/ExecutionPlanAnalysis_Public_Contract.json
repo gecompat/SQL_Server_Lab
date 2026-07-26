@@ -1,0 +1,344 @@
+{
+  "contractId": "PLAN-001-PUBLIC-V3",
+  "contractVersion": 3,
+  "releaseState": "IMPLEMENTED_ACTIONS_GATE",
+  "minimumSqlServerMajorVersion": 15,
+  "targetSqlServerMajorVersions": [15, 16, 17],
+  "releaseEvidence": {
+    "verifiedHeadSha": "6938e813b62634b48106852f8e7954c4bd262698",
+    "verifiedDate": "2026-07-21",
+    "environment": "ACTIONS_SYNTHETIC_LINUX",
+    "targets": [
+      {
+        "majorVersion": 15,
+        "productVersion": "15.0.4480.2",
+        "containerImageDigest": "mcr.microsoft.com/mssql/server@sha256:46f719fd3457d4e7e8e5845fe00c35c20e7bae7ff1e8b9fe595f2a81029f5ba8",
+        "releaseGate": "PASS",
+        "permissionMatrix": "PASS",
+        "runUrl": "https://github.com/gecompat/SQL_Server_Analyze/actions/runs/29851011360"
+      },
+      {
+        "majorVersion": 16,
+        "productVersion": "16.0.4265.3",
+        "containerImageDigest": "mcr.microsoft.com/mssql/server@sha256:ba4c8329f48fb8f02e1416be6a930ebfd71268caee78aa985f3af4315e457c89",
+        "releaseGate": "PASS",
+        "permissionMatrix": "PASS",
+        "runUrl": "https://github.com/gecompat/SQL_Server_Analyze/actions/runs/29851011381"
+      },
+      {
+        "majorVersion": 17,
+        "productVersion": "17.0.4065.4",
+        "containerImageDigest": "mcr.microsoft.com/mssql/server@sha256:86cc6144ef39bb0fbed2329e1ad79b13ee82e7b2e4739213a0db0800e668a74a",
+        "releaseGate": "PASS",
+        "permissionMatrix": "PASS",
+        "regexMatrix": "PASS",
+        "isolatedStandaloneInstaller": "PASS",
+        "runUrl": "https://github.com/gecompat/SQL_Server_Analyze/actions/runs/29850785277"
+      }
+    ],
+    "outputMatrix": {
+      "targetMajorVersions": [15, 16, 17],
+      "status": "PASS",
+      "runUrl": "https://github.com/gecompat/SQL_Server_Analyze/actions/runs/29851011377"
+    }
+  },
+  "canonicalInventories": {
+    "parameters": "Metadata/Inventory/Parameters.csv",
+    "resultSets": "Metadata/Inventory/ResultSets.csv",
+    "dependencies": "Metadata/Inventory/ExecutionPlanAnalysisDependencies.csv",
+    "procedureReference": "Documentation/Reference/Procedure_Reference.md"
+  },
+  "publicProcedures": {
+    "USP_CreateExecutionEvidenceJson": {
+      "sourcePath": "Code/04_PlanCache/052_USP_CreateExecutionEvidenceJson.sql",
+      "parameterCount": 39,
+      "consoleDefaultResult": "captureStatus",
+      "resultSets": [
+        "captureStatus",
+        "statisticsIo",
+        "statisticsTime",
+        "planStatisticsUsage",
+        "objectReferences",
+        "currentStatistics",
+        "histogramSummaries",
+        "histogramSteps",
+        "predicateHistogramMappings",
+        "collectionStatus",
+        "warnings"
+      ],
+      "jsonSchemaVersion": 1,
+      "jsonTopLevelProperties": [
+        "meta",
+        "capture",
+        "sourceEnvironment",
+        "planIdentity",
+        "statisticsIo",
+        "statisticsTime",
+        "statistics",
+        "objectReferences",
+        "predicateHistogramMappings",
+        "collectionStatus",
+        "warnings",
+        "rawInput",
+        "importedEvidence",
+        "additionalEvidence"
+      ]
+    },
+    "USP_ExecutionPlanAnalysis": {
+      "sourcePath": "Code/04_PlanCache/053_USP_ExecutionPlanAnalysis.sql",
+      "parameterCount": 45,
+      "consoleDefaultResult": "findings",
+      "resultSets": [
+        "moduleStatus",
+        "capabilities",
+        "planDocuments",
+        "statements",
+        "operatorTree",
+        "operatorRuntime",
+        "operatorThreadRuntime",
+        "accessPaths",
+        "statisticsUsage",
+        "parametersAndVariants",
+        "parameters",
+        "planWarnings",
+        "optimizerContext",
+        "runtimeFeedback",
+        "queryStoreContext",
+        "feedbackAndVariants",
+        "memoryAndSpills",
+        "executionEvidence",
+        "histogramSummaries",
+        "histogramSteps",
+        "predicateHistogramMappings",
+        "findings"
+      ],
+      "jsonSchemaVersion": 3,
+      "jsonTopLevelProperties": [
+        "meta",
+        "capabilities",
+        "planDocuments",
+        "statements",
+        "operatorTree",
+        "operatorRuntime",
+        "operatorThreadRuntime",
+        "accessPaths",
+        "statisticsUsage",
+        "parametersAndVariants",
+        "parameters",
+        "planWarnings",
+        "optimizerContext",
+        "runtimeFeedback",
+        "queryStoreContext",
+        "feedbackAndVariants",
+        "memoryAndSpills",
+        "executionEvidence",
+        "histogramSummaries",
+        "histogramSteps",
+        "predicateHistogramMappings",
+        "findings"
+      ]
+    }
+  },
+  "diag003ParameterEvidence": {
+    "canonicalResultSet": "parameters",
+    "legacyResultSet": "parametersAndVariants",
+    "schemaVersion": 1,
+    "valueStatuses": [
+      "AVAILABLE",
+      "SQL_NULL",
+      "NOT_COLLECTED",
+      "PLAN_EVICTED",
+      "REQUEST_FINISHED",
+      "LOCAL_VARIABLE_NOT_EXPOSED",
+      "DENIED_PERMISSION",
+      "ERROR_HANDLED"
+    ],
+    "valueSources": [
+      "COMPILE_PLAN",
+      "LIVE_PLAN",
+      "LAST_ACTUAL_PLAN",
+      "QUERY_STORE_PLAN",
+      "IMPORTED_PLAN",
+      "PLAN_CACHE_ATTEMPT"
+    ],
+    "requiredColumns": [
+      "CandidateId",
+      "SessionId",
+      "RequestId",
+      "StatementOrdinal",
+      "StatementId",
+      "StatementQueryHash",
+      "StatementQueryPlanHash",
+      "PlanHandle",
+      "PlanDocumentHash",
+      "ParameterName",
+      "ParameterDataType",
+      "CompiledValuePresent",
+      "RuntimeValuePresent",
+      "CompiledValueIsSqlNull",
+      "RuntimeValueIsSqlNull",
+      "CompiledValueStatus",
+      "RuntimeValueStatus",
+      "ValueStatus",
+      "ValueSource",
+      "SourceObservedAtUtc",
+      "ValueCapturedAtUtc",
+      "IsCurrentExecution",
+      "IsLastKnownExecution",
+      "IsComplete",
+      "EvidenceLimit"
+    ]
+  },
+  "diag005PlanOptimizerContext": {
+    "schemaVersion": 1,
+    "canonicalResultSets": [
+      "planWarnings",
+      "optimizerContext",
+      "runtimeFeedback",
+      "queryStoreContext",
+      "feedbackAndVariants"
+    ],
+    "evidenceStatusCodes": [
+      "AVAILABLE",
+      "PLAN_ONLY",
+      "NOT_APPLICABLE",
+      "NOT_COLLECTED",
+      "PLAN_CACHE_CONTEXT_UNAVAILABLE",
+      "DENIED_PERMISSION",
+      "PARTIAL"
+    ],
+    "evidenceSources": [
+      "PLAN_XML",
+      "PLAN_XML_RUNTIME",
+      "PLAN_CACHE",
+      "QUERY_STORE_RUNTIME_STATS",
+      "QUERY_STORE_PLAN_FEEDBACK",
+      "QUERY_STORE_QUERY_HINTS",
+      "QUERY_STORE_QUERY_VARIANT",
+      "QUERY_STORE_OPTIONAL_SOURCES"
+    ],
+    "privacyRules": {
+      "DERIVED_ONLY": "Feature and hint payloads are omitted.",
+      "STRUCTURE_ONLY": "Feature and hint payloads are omitted while structural feature rows remain.",
+      "TOKENIZED": "Feature and hint payloads are represented only by SHA-256 tokens and lengths.",
+      "RAW": "Feature and hint payloads require SensitiveDataConfirmed=1."
+    },
+    "sourceReadInvariants": [
+      "Each analyzed plan is acquired once before the shared analyzer is invoked.",
+      "Each ShowplanAnalysis candidate reuses the invocation-local cache context captured during candidate selection.",
+      "Query Store plan and query metadata are targeted by plan_id without reading query text.",
+      "SQL Server 2022 and later catalog views are referenced only in version-adaptive dynamic SQL."
+    ],
+    "falsePositiveBoundaries": [
+      "A plan warning is evidence for the captured plan, not proof of the primary workload bottleneck.",
+      "Runtime observations apply only to the declared current, last-known, imported or aggregate scope.",
+      "Optimizer and cache context do not independently prove a regression cause.",
+      "Feedback and variant presence does not independently prove that a feature improved or harmed the workload."
+    ]
+  },
+  "frozenDefaults": {
+    "USP_CreateExecutionEvidenceJson": {
+      "EvidenzDatenschutzModus": "'DERIVED_ONLY'",
+      "IdentifierDatenschutzModus": "'RAW'",
+      "RawTextHandling": "'HASH_ONLY'",
+      "ResultSetArt": "'CONSOLE'",
+      "JsonErzeugen": "1"
+    },
+    "USP_ExecutionPlanAnalysis": {
+      "PlanQuelle": "'AUTO'",
+      "AnalyseTiefe": "'STANDARD'",
+      "EvidenzDatenschutzModus": "'DERIVED_ONLY'",
+      "IdentifierDatenschutzModus": "'RAW'",
+      "MitSqlText": "0",
+      "ResultSetArt": "'CONSOLE'",
+      "JsonErzeugen": "0"
+    }
+  },
+  "directStatusCodes": [
+    "AVAILABLE",
+    "PARTIAL",
+    "INVALID_PARAMETER",
+    "SENSITIVE_DATA_CONFIRMATION_REQUIRED",
+    "SOURCE_ENVIRONMENT_CONFIRMATION_REQUIRED",
+    "HIGH_IMPACT_CONFIRMATION_REQUIRED",
+    "UNAVAILABLE_OBJECT",
+    "DENIED_PERMISSION",
+    "INVALID_EVIDENCE_JSON",
+    "INTERNAL_ERROR",
+    "ERROR_HANDLED"
+  ],
+  "capabilityCodes": [
+    "STATEMENTS",
+    "OPERATOR_TREE",
+    "EXECUTION_EVIDENCE_JSON",
+    "ACTUAL_RUNTIME",
+    "ACTUAL_ROWS_READ",
+    "THREAD_RUNTIME",
+    "PSP_VARIANT",
+    "OPPO_VARIANT"
+  ],
+  "findingCodes": [
+    "OPTIMIZER_TIMEOUT",
+    "OPTIMIZER_EARLY_ABORT",
+    "NO_JOIN_PREDICATE",
+    "PLAN_AFFECTING_CONVERT",
+    "COLUMN_WITHOUT_STATISTICS",
+    "HASH_SPILL",
+    "SORT_SPILL",
+    "EXCHANGE_SPILL",
+    "TEMPDB_SPILL",
+    "CARDINALITY_UNDERESTIMATE",
+    "CARDINALITY_OVERESTIMATE",
+    "ROWS_READ_NOT_RETURNED",
+    "LOOKUP_HIGH_EXECUTIONS",
+    "LARGE_SCAN_HIGH_WORK",
+    "MEMORY_GRANT_WAIT",
+    "MEMORY_GRANT_OVER",
+    "PARALLEL_THREAD_SKEW",
+    "INDEX_ORDER_REVIEW"
+  ],
+  "evidenceWarningCodes": [
+    "AMBIGUOUS_STATEMENT_MAPPING",
+    "INVALID_STATISTICS_EVIDENCE_JSON",
+    "INVALID_OBJECT_METADATA_JSON",
+    "INVALID_ADDITIONAL_EVIDENCE_JSON",
+    "INVALID_EXISTING_EVIDENCE_JSON",
+    "INVALID_STATISTICS_EVIDENCE_SHAPE",
+    "INVALID_OBJECT_METADATA_SHAPE",
+    "CURRENT_METADATA_COLLECTION_LIMITED",
+    "MESSAGE_PARSE_PARTIAL"
+  ],
+  "privacyInvariants": [
+    "DERIVED_ONLY never emits raw parameter, predicate, filter, histogram-boundary or literal values through structured value fields.",
+    "Every supplied evidence JSON document is normalized again before analysis output is produced.",
+    "Identifier TOKENIZED and OMIT are applied after local correlation to all exported histogram and predicate-mapping identifiers.",
+    "RawTextHandling INCLUDE requires SensitiveDataConfirmed and RAW identifier handling.",
+    "MitSqlText requires SensitiveDataConfirmed because statement text can contain literals and proprietary SQL text.",
+    "Query Store hint and plan-feedback payloads are omitted by default, tokenized only in TOKENIZED mode and emitted raw only with SensitiveDataConfirmed.",
+    "Repository tests and fixtures contain synthetic generic values only."
+  ],
+  "standaloneObjects": [
+    "monitor schema",
+    "VW_AnalyseClassCatalog",
+    "VW_AnalyseAccessPolicy",
+    "VW_AnalyseAccessCurrent",
+    "TVF_ParsePipeList",
+    "TVF_ParseBigintList",
+    "InternalCheckAnalysisPath",
+    "InternalWriteResultTable",
+    "InternalPrepareResultTables",
+    "InternalEmitConsoleResult",
+    "PlanAnalysisProfile",
+    "PlanAnalysisRuleThreshold",
+    "PlanAnalysisProfileAssignment",
+    "TVF_ParseStatisticsIoText",
+    "TVF_ParseStatisticsTimeText",
+    "TVF_ExecutionPlanObjectReferences",
+    "TVF_ExecutionPlanStatisticsUsage",
+    "TVF_ExecutionPlanColumnReferences",
+    "InternalCollectExecutionPlanMetadata",
+    "InternalAnalyzeExecutionPlan",
+    "USP_CreateExecutionEvidenceJson",
+    "USP_ExecutionPlanAnalysis"
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "SchemaVersion": "1.0",
+  "ScenarioId": "LAB-LATCH-001",
+  "DataClassification": "SYNTHETIC",
+  "FixedSeed": 1701,
+  "SqlVersions": [
+    2019,
+    2022,
+    2025
+  ],
+  "RuntimeAction": "SQL_ONLY",
+  "PrimaryAnalyzer": "USP_IndexOperationalStats",
+  "FindingCode": "LAST_PAGE_INSERT_ACTIVITY_OBSERVED",
+  "WorkerCount": 4,
+  "WorkerStartLeadSeconds": 3,
+  "WorkerTimeoutSeconds": 90,
+  "ScenarioTimeoutSeconds": 300,
+  "AllowedWorkerExitCodes": [
+    0,
+    1
+  ],
+  "ResetPolicy": "EXACT_SYNTHETIC_SCOPE"
+}

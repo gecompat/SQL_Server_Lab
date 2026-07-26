@@ -1,0 +1,19 @@
+{
+  "SchemaVersion": "1.0",
+  "ScenarioId": "LAB-DEAD-004",
+  "DataClassification": "PUBLIC_FIXTURE",
+  "FixtureType": "NONDETERMINISTIC_PARALLEL_DEADLOCK_BOUNDARY",
+  "RuntimeEvidenceClaim": "NOT_CLAIMED",
+  "RequiredAnalyzer": "USP_ExtendedEventsDeadlocks",
+  "FindingCode": "PARALLEL_DEADLOCK_FIXTURE_VALID",
+  "AcceptedEvidence": [
+    "A real parallelism deadlock captured by the external runtime gate.",
+    "A public synthetic deadlock graph that contains only generic object and session identifiers."
+  ],
+  "RejectedEvidence": [
+    "A fabricated runtime PASS without a captured deadlock graph.",
+    "A graph copied from a real environment.",
+    "A deadlock graph that contains non-synthetic identifiers or SQL text."
+  ],
+  "Status": "IMPLEMENTED_CONTRACT_FIXTURE"
+}
