@@ -37,31 +37,33 @@ function Start-SqlServerLab {
         $runPrefix = $RunId.Substring(0, 8)
         Write-LabInfo "Starte Lab ${runPrefix}... ($($run.metadata.name))"
 
-        # Container starten
+        # Container via Docker-Labels finden und starten
         $errors = 0
         $startedInstances = @()
 
-        foreach ($inst in $run.instances) {
-            if ($inst.containerName) {
+        $containerIds = docker ps -a -q --filter "label=sql-server-lab.run-id=$RunId" 2>$null
+        if (-not $containerIds) {
+            Write-LabError '  Keine Container fuer diesen Run gefunden.'
+            $errors++
+        }
+        else {
+            @($containerIds) | ForEach-Object {
+                $cId = $_.Trim()
+                if (-not $cId) { return }
+                $cName = (docker inspect $cId --format '{{.Name}}' 2>$null).TrimStart('/')
                 try {
-                    $status = Get-DockerInstanceStatus -ContainerIdOrName $inst.containerName
-                    if (-not $status.Exists) {
-                        Write-LabError "  Container nicht gefunden: $($inst.containerName)"
-                        $errors++
-                        continue
-                    }
-
+                    $status = Get-DockerInstanceStatus -ContainerIdOrName $cId
                     if (-not $status.Running) {
-                        Start-DockerInstance -ContainerIdOrName $inst.containerName
-                        Write-LabSuccess "  Gestartet: $($inst.containerName)"
+                        Start-DockerInstance -ContainerIdOrName $cId
+                        Write-LabSuccess "  Gestartet: $cName"
                     }
                     else {
-                        Write-LabInfo "  Laeuft bereits: $($inst.containerName)"
+                        Write-LabInfo "  Laeuft bereits: $cName"
                     }
-                    $startedInstances += $inst
+                    $startedInstances += [PSCustomObject]@{ containerName = $cName; port = $null }
                 }
                 catch {
-                    Write-LabError "  Fehler bei $($inst.containerName): $_"
+                    Write-LabError "  Fehler bei ${cName}: $_"
                     $errors++
                 }
             }
@@ -72,18 +74,21 @@ function Start-SqlServerLab {
             return [PSCustomObject]@{ RunId = $RunId; Status = 'STOPPED'; Action = 'FAILED'; Errors = $errors }
         }
 
-        # SQL-Readiness pruefen
+        # SQL-Readiness pruefen (Port aus connection-info.json)
         if (-not $SkipReadyCheck -and $startedInstances.Count -gt 0) {
-            foreach ($inst in $startedInstances) {
-                if ($inst.port) {
-                    # SA-Passwort aus State lesen
-                    $runDir = Join-Path $stateRoot 'runs' $RunId
-                    try {
-                        $saPassword = Get-LabSecret -Path $runDir -Name 'sa-password'
-                        $null = Wait-SqlReady -Port $inst.port -SaPassword $saPassword -TimeoutSeconds $TimeoutSeconds
-                    }
-                    catch {
-                        Write-LabWarning "  SQL-Readiness-Check fehlgeschlagen: $_ (Container laeuft trotzdem)"
+            $runDir = Join-Path $stateRoot 'runs' $RunId
+            $connInfoPath = Join-Path $runDir 'connection-info.json'
+            if (Test-Path $connInfoPath) {
+                $connInfo = Get-Content $connInfoPath -Raw | ConvertFrom-Json
+                foreach ($inst in $connInfo.instances) {
+                    if ($inst.port) {
+                        try {
+                            $saPassword = Get-LabSecret -Path $runDir -Name 'sa-password'
+                            $null = Wait-SqlReady -Port $inst.port -SaPassword $saPassword -TimeoutSeconds $TimeoutSeconds
+                        }
+                        catch {
+                            Write-LabWarning "  SQL-Readiness-Check fehlgeschlagen: $_ (Container laeuft trotzdem)"
+                        }
                     }
                 }
             }

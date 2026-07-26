@@ -35,23 +35,46 @@ function Get-SqlServerLab {
     $results = @()
 
     foreach ($run in $runs) {
-        # Container-Status live abfragen
+        # Instanz-Daten aus connection-info.json + Docker live-Status
         $instances = @()
-        foreach ($inst in $run.instances) {
-            $containerStatus = $null
-            if ($inst.containerName) {
-                $containerStatus = Get-DockerInstanceStatus -ContainerIdOrName $inst.containerName
-            }
+        $connInfoPath = Join-Path $stateRoot 'runs' $run.runId 'connection-info.json'
+        $connInfo = if (Test-Path $connInfoPath) {
+            Get-Content $connInfoPath -Raw | ConvertFrom-Json
+        } else { $null }
 
+        # Container via Docker-Labels finden (live, zuverlaessig)
+        $containers = docker ps -a -q --filter "label=sql-server-lab.run-id=$($run.runId)" 2>$null
+        $containerMap = @{}
+        if ($containers) {
+            $containers | ForEach-Object {
+                $id = $_.Trim()
+                if (-not $id) { return }
+                $inspectJson = docker inspect $id 2>$null | ConvertFrom-Json
+                if ($inspectJson) {
+                    $labels = $inspectJson[0].Config.Labels
+                    $instId = $labels.'sql-server-lab.instance-id'
+                    $containerMap[$instId] = @{
+                        Name    = $inspectJson[0].Name.TrimStart('/')
+                        Running = $inspectJson[0].State.Status -eq 'running'
+                        Healthy = $inspectJson[0].State.Health.Status -eq 'healthy'
+                    }
+                }
+            }
+        }
+
+        # Instanzen zusammenbauen
+        $instList = if ($connInfo -and $connInfo.instances) { $connInfo.instances } else { @() }
+        foreach ($inst in $instList) {
+            $cInfo = $containerMap[$inst.id]
             $instances += [PSCustomObject]@{
-                Id            = $inst.instanceId
+                Id            = $inst.id
                 Version       = $inst.version
                 Provider      = $inst.provider
                 Host          = $inst.host
                 Port          = $inst.port
-                ContainerName = $inst.containerName
-                ContainerUp   = if ($containerStatus) { $containerStatus.Running } else { $false }
-                Healthy       = if ($containerStatus) { $containerStatus.Healthy } else { $false }
+                ContainerName = if ($cInfo) { $cInfo.Name } else { '' }
+                ContainerUp   = if ($cInfo) { $cInfo.Running } else { $false }
+                Healthy       = if ($cInfo) { $cInfo.Healthy } else { $false }
             }
         }
 
