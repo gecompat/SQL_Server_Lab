@@ -1,0 +1,129 @@
+name: One-time source repository import
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/one-time-import-source-repositories.yml
+
+permissions:
+  contents: write
+
+jobs:
+  import-source-repositories:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout SQL Server Lab
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Import source working trees
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          work_root="$(mktemp -d)"
+          trap 'rm -rf "$work_root"' EXIT
+
+          git clone --depth 1 --branch main https://github.com/gecompat/SQL_Server_Analyze.git "$work_root/SQL_Server_Analyze"
+          git clone --depth 1 --branch main https://github.com/gecompat/SQL_PerformanceSchulung.git "$work_root/SQL_PerformanceSchulung"
+
+          analyze_commit="$(git -C "$work_root/SQL_Server_Analyze" rev-parse HEAD)"
+          training_commit="$(git -C "$work_root/SQL_PerformanceSchulung" rev-parse HEAD)"
+
+          rm -rf "$work_root/SQL_Server_Analyze/.git"
+          rm -rf "$work_root/SQL_PerformanceSchulung/.git"
+
+          rm -rf _QuellRepo
+          mkdir -p _QuellRepo/SQL_Server_Analyze _QuellRepo/SQL_PerformanceSchulung
+
+          cp -a "$work_root/SQL_Server_Analyze/." _QuellRepo/SQL_Server_Analyze/
+          cp -a "$work_root/SQL_PerformanceSchulung/." _QuellRepo/SQL_PerformanceSchulung/
+
+          if find _QuellRepo -type d -name .git -print -quit | grep -q .; then
+            echo 'Nested .git directory detected.' >&2
+            exit 1
+          fi
+
+          oversized_file="$(find _QuellRepo -type f -size +99M -print -quit)"
+          if [[ -n "$oversized_file" ]]; then
+            echo "File exceeds GitHub single-file limit: $oversized_file" >&2
+            exit 1
+          fi
+
+          cat > _QuellRepo/README.md <<EOF
+          # Quellrepository-Snapshots
+
+          Dieser Ordner enthält vollständige Arbeitsbaum-Snapshots der beiden Quellrepositories ohne deren `.git`-Verzeichnisse. Die Kopien dienen als unveränderliche Informations- und Migrationsbasis für `SQL_Server_Lab`.
+
+          | Unterordner | Quelle | Branch | Quell-Commit |
+          |---|---|---|---|
+          | `SQL_Server_Analyze/` | `gecompat/SQL_Server_Analyze` | `main` | `$analyze_commit` |
+          | `SQL_PerformanceSchulung/` | `gecompat/SQL_PerformanceSchulung` | `main` | `$training_commit` |
+
+          Die Inhalte bleiben unter ihren jeweiligen Lizenz- und Attributionsbedingungen. Änderungen an den Snapshots erfolgen nur bewusst und mit aktualisierter Herkunftsdokumentation.
+          EOF
+
+          cat > _QuellRepo/SOURCE_SNAPSHOT.json <<EOF
+          {
+            "SnapshotContractVersion": "1.0",
+            "ImportedFrom": [
+              {
+                "Repository": "gecompat/SQL_Server_Analyze",
+                "Branch": "main",
+                "Commit": "$analyze_commit",
+                "TargetPath": "_QuellRepo/SQL_Server_Analyze"
+              },
+              {
+                "Repository": "gecompat/SQL_PerformanceSchulung",
+                "Branch": "main",
+                "Commit": "$training_commit",
+                "TargetPath": "_QuellRepo/SQL_PerformanceSchulung"
+              }
+            ],
+            "GitMetadataIncluded": false,
+            "Purpose": "Reference and migration source for SQL_Server_Lab"
+          }
+          EOF
+
+      - name: Validate imported scope
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -f _QuellRepo/SQL_Server_Analyze/README.md
+          test -f _QuellRepo/SQL_PerformanceSchulung/README.md
+          test -f _QuellRepo/SOURCE_SNAPSHOT.json
+
+          if find _QuellRepo -type d -name .git -print -quit | grep -q .; then
+            echo 'Nested Git metadata must not be committed.' >&2
+            exit 1
+          fi
+
+          tracked_secret_files="$(find _QuellRepo -type f \( -name '.env' -o -name '*.pfx' -o -name '*.p12' -o -name '*.pem' -o -name '*.key' \) -print)"
+          if [[ -n "$tracked_secret_files" ]]; then
+            echo 'Potential secret-bearing file types detected:' >&2
+            echo "$tracked_secret_files" >&2
+            exit 1
+          fi
+
+      - name: Commit imported snapshots and remove transfer workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -f .github/workflows/one-time-import-source-repositories.yml
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add --all _QuellRepo .github/workflows/one-time-import-source-repositories.yml
+
+          if git diff --cached --quiet; then
+            echo 'No import changes detected.'
+            exit 0
+          fi
+
+          git commit -m 'Import source repository snapshots'
+          git push origin HEAD:main
