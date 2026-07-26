@@ -26,30 +26,33 @@ if (Test-Path $catalogFile) {
 # --- Provider-Funktionen laden (vor Private, da Private sie referenziert) ---
 $script:RegisteredProviders = @{}
 if (Test-Path $script:ProvidersPath) {
+    # Alle .ps1 und .psm1 aus Provider-Unterordnern laden
+    $providerScripts = Get-ChildItem -Path $script:ProvidersPath -Include '*.ps1','*.psm1' -Recurse -File
+    foreach ($pScript in $providerScripts) {
+        try {
+            . $pScript.FullName
+            Write-Verbose "Provider-Skript geladen: $($pScript.Name)"
+        }
+        catch {
+            Write-Warning "Provider-Skript fehlgeschlagen: $($pScript.Name) - $_"
+        }
+    }
+
+    # Provider-Metadaten registrieren
     $providerDirs = Get-ChildItem -Path $script:ProvidersPath -Directory
     foreach ($dir in $providerDirs) {
         $providerJson = Join-Path $dir.FullName 'provider.json'
         if (Test-Path $providerJson) {
             try {
                 $providerDef = Get-Content $providerJson -Raw | ConvertFrom-Json
-                $provModulePath = Join-Path $dir.FullName $providerDef.module
                 $script:RegisteredProviders[$providerDef.name] = @{
                     Definition = $providerDef
                     Path       = $dir.FullName
-                    Module     = $provModulePath
-                    Loaded     = $false
-                }
-                if (Test-Path $provModulePath) {
-                    . $provModulePath
-                    $script:RegisteredProviders[$providerDef.name].Loaded = $true
-                    Write-Verbose "Provider geladen: $($providerDef.name) ($($providerDef.module))"
-                }
-                else {
-                    Write-Warning "Provider-Modul nicht gefunden: $provModulePath"
+                    Loaded     = $true
                 }
             }
             catch {
-                Write-Warning "Provider-Registrierung fehlgeschlagen: $($dir.Name) - $_"
+                Write-Warning "Provider-Metadaten fehlgeschlagen: $($dir.Name) - $_"
             }
         }
     }
@@ -80,6 +83,18 @@ if (Test-Path $publicPath) {
         catch {
             Write-Warning "Fehler beim Laden von $($file.Name): $_"
         }
+    }
+}
+
+# --- Versionskatalog laden ---
+$script:VersionCatalog = $null
+$catalogFile = Join-Path $script:CatalogsPath 'sql-server-versions.json'
+if (Test-Path $catalogFile) {
+    try {
+        $script:VersionCatalog = Get-Content $catalogFile -Raw | ConvertFrom-Json
+    }
+    catch {
+        Write-Warning "Versionskatalog konnte nicht geladen werden: $_"
     }
 }
 
