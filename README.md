@@ -93,7 +93,9 @@ Lokale Secrets, reale Hostinformationen, konkrete Pfade und erzeugte Laufzeitdat
 
 ## Verbindliche Planung
 
+- [Dokumentationsübersicht und Lesereihenfolge](Documentation/README.md)
 - [Master-Umsetzungsplan](Documentation/Project_Planning/MASTER_IMPLEMENTATION_PLAN.md)
+- [Verbindliche Masterplan-Ergänzung](Documentation/Project_Planning/MASTER_IMPLEMENTATION_PLAN_SCOPE_ADDENDUM.md)
 - [SQL-Server-zentrierte Scope-Entscheidung](Documentation/Architecture/SQL_SERVER_CENTRIC_SCOPE_DECISION.md)
 - [Erweiterbarer Umgebungs- und Ausführungsvertrag](Documentation/Architecture/EXTENSIBLE_ENVIRONMENT_AND_EXECUTION_CONTRACT.md)
 - [Zukünftige SQL-Server-Anwendungsfälle und Erweiterungsleitplanken](Documentation/Architecture/FUTURE_USE_CASES_AND_EXTENSION_GUARDRAILS.md)
