@@ -1,0 +1,716 @@
+{
+  "schema_version": "1.0",
+  "work_package": "W2-001",
+  "status": "VALIDATED",
+  "review_date": "2026-07-25",
+  "source_archive": {
+    "repository_path": "Presentations/old/Performance Grundlagen V-2024.zip",
+    "sha256": "78e3d1d708758d1115a066eca1df2c66d6f26ba57903b764c98e901506892041",
+    "expected_examples": 23
+  },
+  "decision_definitions": {
+    "REUSE": "The artifact can be adopted with only contractual wrapping and neutral metadata.",
+    "REFACTOR": "The core statements are reusable, but structure, scope or object placement must be corrected.",
+    "REBUILD": "The learning objective remains, but implementation and evidence must be recreated.",
+    "DIAGNOSTIC_ONLY": "The artifact is a read-only diagnostic source, not a workload demo.",
+    "REMOVE": "The artifact is not migrated into the active curriculum."
+  },
+  "summary": {
+    "REUSE": 0,
+    "REFACTOR": 1,
+    "REBUILD": 14,
+    "DIAGNOSTIC_ONLY": 4,
+    "REMOVE": 4
+  },
+  "global_result": {
+    "direct_reuse_candidates": 0,
+    "reason": "No legacy example satisfies the current demo contract, synthetic-data, scope, cleanup, privacy and version requirements without substantive change.",
+    "historical_sources_modified": false,
+    "runtime_validation_claimed": false
+  },
+  "entries": [
+    {
+      "source_id": "SRC-LEGACY-008",
+      "archive_path": "Performance Grundlagen V-2024/tsql_isolation_demo.sql",
+      "artifact_type": "SQL",
+      "decision": "REBUILD",
+      "primary_demo_id": "CON-003",
+      "related_demo_ids": [
+        "CON-001",
+        "CON-002",
+        "CON-003"
+      ],
+      "migration_wave": "W2-A",
+      "execution_path": "TSQL_TESTDB_MULTI_SESSION",
+      "safety_level": "YELLOW",
+      "subject": "READ COMMITTED blocking, SNAPSHOT update conflict and SERIALIZABLE range locks",
+      "value": "The scenario set covers three central isolation effects and can support the concurrency module.",
+      "findings": [
+        "No deterministic setup, barriers, timeout, recovery or cleanup are provided.",
+        "The SNAPSHOT conflict sequence updates the row in both sessions before the intended conflict point and is not a reliable reproduction of error 3960.",
+        "The database option change is only mentioned as a manual prerequisite and is not restored."
+      ],
+      "required_actions": [
+        "Split the content into the canonical isolation demos and use FWK-006 for session order.",
+        "Create a marker-protected synthetic database and restore database options in cleanup.",
+        "Assert blocking relationships, error 3960 and range-lock behavior separately."
+      ],
+      "sha256": "d639f8697f210a6a40c5380ecae3dc3e2196d61d20aaa37c160e1e2e3fb54310",
+      "bytes": 1452,
+      "runtime_status": "NOT_APPLICABLE_CLASSIFICATION",
+      "source_execution_allowed": false
+    },
+    {
+      "source_id": "SRC-LEGACY-009",
+      "archive_path": "Performance Grundlagen V-2024/Beispiele/Apply.sql",
+      "artifact_type": "SQL",
+      "decision": "REFACTOR",
+      "primary_demo_id": "QRY-010",
+      "related_demo_ids": [
+        "QRY-009",
+        "QRY-010"
+      ],
+      "migration_wave": "W2-C",
+      "execution_path": "TSQL_TESTDB",
+      "safety_level": "GREEN",
+      "subject": "CROSS/OUTER APPLY compared with joins and an inline TVF",
+      "value": "The compact temp-table examples clearly show row-preserving and row-eliminating APPLY semantics.",
+      "findings": [
+        "The script changes context to master and creates a user function there.",
+        "One synthetic row contains an unapproved real first name.",
+        "Semantic equivalence is shown, but no performance question, baseline or cleanup contract is defined."
+      ],
+      "required_actions": [
+        "Move all objects into a marker-protected demo database and use neutral values.",
+        "Separate APPLY semantics from inline-TVF optimization evidence.",
+        "Add result-equivalence assertions and a measured comparison where performance is claimed."
+      ],
+      "sha256": "30bc796a8ce4780fd5bdd4de22ec45bba2aebde5121c282067ca43d53632e654",
+      "bytes": 1666,
+      "runtime_status": "NOT_APPLICABLE_CLASSIFICATION",
+      "source_execution_allowed": false
+    },
+    {
+      "source_id": "SRC-LEGACY-010",
+      "archive_path": "Performance Grundlagen V-2024/Beispiele/BufferPool füllt sich.sql",
+      "artifact_type": "SQL",
+      "decision": "REBUILD",
+      "primary_demo_id": "STL-006",
+      "related_demo_ids": [
+        "STL-006",
+        "DGN-001"
+      ],
+      "migration_wave": "W2-B",
+      "execution_path": "ISOLATED_INSTANCE",
+      "safety_level": "RED",
+      "subject": "Cold and warm cache behavior in the buffer pool",
+      "value": "The intended contrast between first and repeated reads is relevant to storage diagnostics.",
+      "findings": [
+        "The script depends on unavailable application tables.",
+        "It instructs a SQL Server restart and executes DBCC FREEPROCCACHE and DBCC DROPCLEANBUFFERS.",
+        "Only elapsed effects are implied; buffer residency, logical reads and physical reads are not captured through a controlled A/B contract."
+      ],
+      "required_actions": [
+        "Rebuild with deterministic synthetic data and a dedicated isolated instance profile.",
+        "Keep cache-clearing operations red and require explicit confirmation.",
+        "Measure logical/physical reads and buffer residency without treating a single elapsed time as universal."
+      ],
+      "sha256": "f869e205d839cdef07b634a0afd0ac206cc2c28f0813d4520bdc65ecbe47b77a",
+      "bytes": 637,
+      "runtime_status": "NOT_APPLICABLE_CLASSIFICATION",
+      "source_execution_allowed": false
+    },
+    {
+      "source_id": "SRC-LEGACY-011",
+      "archive_path": "Performance Grundlagen V-2024/Beispiele/DMV_Count_Rows_in_Table.txt",
+      "artifact_type": "TXT",
+      "decision": "DIAGNOSTIC_ONLY",
+      "primary_demo_id": "DGN-002",
+      "related_demo_ids": [
+        "DGN-002",
+        "STL-004"
+      ],
+      "migration_wave": "W2-A",
+      "execution_path": "READ_ONLY_DIAGNOSTIC",
+      "safety_level": "GREEN",
+      "subject": "Catalog-based row-count estimate for a heap or clustered table",
+      "value": "The join between sys.partitions, sys.objects and sys.schemas is a useful source query.",
+      "findings": [
+        "The result is metadata-based and must not be described as an exact COUNT_BIG result.",
+        "Schema and object names are hard coded.",
+        "NOLOCK hints are unnecessary for this catalog query and obscure the method."
+      ],
+      "required_actions": [
+        "Publish as a parameterized diagnostic source query with scope and accuracy notes.",
+        "Return heap/clustered row counts without double counting nonclustered indexes.",
+        "Document permissions, partition scope and comparison with an exact count."
+      ],
+      "sha256": "5588ce942df598e0b8f99683d9eef55e2ad610b01e84bcc7c05e129500e82efe",
+      "bytes": 336,
+      "runtime_status": "NOT_APPLICABLE_CLASSIFICATION",
+      "source_execution_allowed": false
+    },
+    {
+      "source_id": "SRC-LEGACY-012",
+      "archive_path": "Performance Grundlagen V-2024/Beispiele/DMV_MemoryGrant.txt",
+      "artifact_type": "TXT",
+      "decision": "DIAGNOSTIC_ONLY",
+      "primary_demo_id": "DGN-002",
+      "related_demo_ids": [
+        "DGN-002",
+        "OPT-014",
+        "RES-004"
+      ],
+      "migration_wave": "W2-A",
+      "execution_path": "READ_ONLY_DIAGNOSTIC",
+      "safety_level": "GREEN",
+      "subject": "Current query memory grants and associated request text",
+      "value": "The query combines memory-grant, request, session, resource-governor and SQL-text evidence.",
+      "findings": [
+        "A hard-coded RAM percentage and the maximum-allocation formula are not portable; the conditional cap logic is not a safe general model.",
+        "Login, program, context information and SQL text can contain sensitive data.",
+        "Permissions and SQL Server 2022+ VIEW SERVER PERFORMANCE STATE requirements are not handled.",
+        "Reading and sorting diagnostic DMVs can itself consume resources and must be bounded."
+      ],
+      "required_actions": [
+        "Rebuild as a bounded diagnostic with explicit permissions, truncation and privacy controls.",
+        "Report requested, required, granted, used and maximum-used memory directly before deriving ratios.",
+        "Separate waiting grants from granted requests and avoid undocumented capacity formulas."
+      ],
+      "sha256": "42a618cc41894c803bf7c938d0b1c6252f1232d92a6dd42cc1ae8ca95daed93e",
+      "bytes": 2923,
+      "runtime_status": "NOT_APPLICABLE_CLASSIFICATION",
+      "source_execution_allowed": false
+    },
+    {
+      "source_id": "SRC-LEGACY-013",
+      "archive_path": "Performance Grundlagen V-2024/Beispiele/DMV_Requests_text.txt",
+      "artifact_type": "TXT",
+      "decision": "DIAGNOSTIC_ONLY",
+      "primary_demo_id": "DGN-002",
+      "related_demo_ids": [
+        "DGN-002"
+      ],
+      "migration_wave": "W2-A",
+      "execution_path": "READ_ONLY_DIAGNOSTIC",
+      "safety_level": "GREEN",
+      "subject": "Current requests with resource counters, blocking and SQL text",
+      "value": "The selected request columns form a useful introductory live-request query.",
+      "findings": [
+        "SQL text, database/user identifiers and plan handles require privacy and permission handling.",
+        "The query has no user-process filter, scope limit, version handling or statement-offset extraction.",
+        "Current waits and accumulated session state are not distinguished."
+      ],
+      "required_actions": [
+        "Add version-aware permissions, filters, row limits and statement-level text extraction.",
+        "Make SQL text optional and clearly mark sensitive columns.",
+        "Link follow-up paths for blocking, waits, plans and memory grants."
+      ],
+      "sha256": "ac0c2f0499a59efad687e90eab6fd681a6a2250da9031062d50a60aade87b233",
+      "bytes": 613,
+      "runtime_status": "NOT_APPLICABLE_CLASSIFICATION",
+      "source_execution_allowed": false
+    },
+    {
+      "source_id": "SRC-LEGACY-014",
+      "archive_path": "Performance Grundlagen V-2024/Beispiele/DMV_WaitStats.txt",
+      "artifact_type": "TXT",
+      "decision": "DIAGNOSTIC_ONLY",
+      "primary_demo_id": "RES-007",
+      "related_demo_ids": [
+        "RES-007",
+        "DGN-002"
+      ],
+      "migration_wave": "W2-A",
+      "execution_path": "READ_ONLY_DIAGNOSTIC",
+      "safety_level": "GREEN",
+      "subject": "Top server-wide waits",
+      "value": "The query introduces resource and signal wait components.",
+      "findings": [
+        "sys.dm_os_wait_stats is cumulative since startup or reset; the script presents absolute totals without a delta window.",
+        "The static exclusion list is incomplete and version-dependent.",
+        "The query does not separate server-wide waits from request/session/task waits."
+      ],
+      "required_actions": [
+        "Use captured deltas and record the measurement interval and server start time.",
+        "Replace the embedded ignore list with documented metadata or an explicit teaching subset.",
+        "Cross-reference session/request wait evidence and avoid clearing server-wide counters."
+      ],
+      "sha256": "f169803a9cf254783f6cd3b00bc85c1d9dc3385905ca5051e26292b720fae252",
+      "bytes": 1230,
+      "runtime_status": "NOT_APPLICABLE_CLASSIFICATION",
+      "source_execution_allowed": false
+    },
+    {
+      "source_id": "SRC-LEGACY-015",
+      "archive_path": "Performance Grundlagen V-2024/Beispiele/for xml path.sql",
+      "artifact_type": "SQL",
+      "decision": "REMOVE",
+      "primary_demo_id": null,
+      "related_demo_ids": [
+        "QRY-012"
+      ],
+      "migration_wave": "NONE",
+      "execution_path": "NONE",
+      "safety_level": "NOT_APPLICABLE",
+      "subject": "FOR XML PATH string concatenation recipe",
+      "value": "The file demonstrates XML escaping and TYPE/value extraction, but primarily as a syntax notebook.",
+      "findings": [
+        "It depends on a public sample database and generates DROP TABLE commands as text.",
+        "It has no controlled performance hypothesis or A/B evidence.",
+        "Modern string aggregation and XML-cost teaching require a different, measured design."
+      ],
+      "required_actions": [
+        "Do not migrate the file.",
+        "Re-author any required XML/string cost comparison inside QRY-012 with synthetic data."
+      ],
+      "sha256": "9f88dc791795390dd0636043c807401651b46932f5ddcd26152f1177472b6e40",
+      "bytes": 1206,
+      "runtime_status": "NOT_APPLICABLE_CLASSIFICATION",
+      "source_execution_allowed": false
+    },
+    {
+      "source_id": "SRC-LEGACY-016",
+      "archive_path": "Performance Grundlagen V-2024/Beispiele/functions_1.sql",
+      "artifact_type": "SQL",
+      "decision": "REMOVE",
+      "primary_demo_id": null,
+      "related_demo_ids": [],
+      "migration_wave": "NONE",
+      "execution_path": "NONE",
+      "safety_level": "NOT_APPLICABLE",
+      "subject": "General T-SQL function notebook",
+      "value": "Individual snippets may be useful as language reference material.",
+      "findings": [
+        "The file mixes unrelated functions, version-specific syntax, dates, partition functions and external sample databases.",
+        "It has no single performance learning objective or reproducible baseline.",
+        "Several examples rely on existing objects and database context."
+      ],
+      "required_actions": [
+        "Do not migrate the notebook as a performance demo.",
+        "Recreate only the specific function needed by a future demo within that demo's setup."
+      ],
+      "sha256": "46a0b4e4e9b04a96bbd4fb498f9d04f06e590cc058a67df026c6ec7e26616f69",
+      "bytes": 4209,
+      "runtime_status": "NOT_APPLICABLE_CLASSIFICATION",
+      "source_execution_allowed": false
+    },
+    {
+      "source_id": "SRC-LEGACY-017",
+      "archive_path": "Performance Grundlagen V-2024/Beispiele/Index_usage_partition.sql",
+      "artifact_type": "SQL",
+      "decision": "REBUILD",
+      "primary_demo_id": "QRY-012",
+      "related_demo_ids": [
+        "QRY-012"
+      ],
+      "migration_wave": "W2-B",
+      "execution_path": "TSQL_TESTDB",
+      "safety_level": "GREEN",
+      "subject": "Partition-aware MAX query and partition elimination",
+      "value": "The file raises a valid issue: a global aggregate on a partitioned index can require work across partitions.",
+      "findings": [
+        "It depends on a separately created database, table and partition function.",
+        "It uses object_id() and NOLOCK and hard-codes the partition-function name.",
+        "The workaround is presented without result-equivalence, plan or read assertions."
+      ],
+      "required_actions": [
+        "Rebuild with deterministic partitioned data and catalog-based object resolution.",
+        "Compare global aggregate, partition-aware alternative and direct partition elimination.",
+        "Measure reads and plan shape without NOLOCK."
+      ],
+      "sha256": "4e730d5c65548d88793946fecc4fd1aae3cac5bfd101c658a94114b784ba7e52",
+      "bytes": 764,
+      "runtime_status": "NOT_APPLICABLE_CLASSIFICATION",
+      "source_execution_allowed": false
+    },
+    {
+      "source_id": "SRC-LEGACY-018",
+      "archive_path": "Performance Grundlagen V-2024/Beispiele/Join Typen.sql",
+      "artifact_type": "SQL",
+      "decision": "REBUILD",
+      "primary_demo_id": "OPT-012",
+      "related_demo_ids": [
+        "OPT-012"
+      ],
+      "migration_wave": "W2-A",
+      "execution_path": "TSQL_TESTDB",
+      "safety_level": "GREEN",
+      "subject": "Nested Loops, Merge, Hash and bitmap filtering examples",
+      "value": "The four operator families align with the optimizer module.",
+      "findings": [
+        "The queries depend on two public sample databases and assume specific plans from a particular data distribution and build.",
+        "SELECT * and DISTINCT change row width and costing without a controlled model.",
+        "The comments treat expected operator selection as fixed rather than cost- and version-dependent."
+      ],
+      "required_actions": [
+        "Rebuild with synthetic inputs that independently vary cardinality, ordering and width.",
+        "Assert eligible plan alternatives and actual row counts rather than a single mandatory icon.",
+        "Separate bitmap filtering from the basic three-join comparison."
+      ],
+      "sha256": "aaee60eed936338c779d5edb5d2f8b0197e956227cee53d4c3d472055e945c0a",
+      "bytes": 1402,
+      "runtime_status": "NOT_APPLICABLE_CLASSIFICATION",
+      "source_execution_allowed": false
+    },
+    {
+      "source_id": "SRC-LEGACY-019",
+      "archive_path": "Performance Grundlagen V-2024/Beispiele/json_parallel.sql",
+      "artifact_type": "SQL",
+      "decision": "REBUILD",
+      "primary_demo_id": "QRY-012",
+      "related_demo_ids": [
+        "QRY-012",
+        "RES-002"
+      ],
+      "migration_wave": "W2-C",
+      "execution_path": "TSQL_TESTDB",
+      "safety_level": "YELLOW",
+      "subject": "JSON scalar extraction and OPENJSON in a join",
+      "value": "The contrast between relational parameters, JSON_VALUE and a JSON rowset can support measurable JSON-cost teaching.",
+      "findings": [
+        "The script depends on an internal database model and random JSON membership.",
+        "No statistics, plan, result-equivalence or parallelism evidence is captured.",
+        "The OPENJSON join compares account-number and account-id concepts ambiguously."
+      ],
+      "required_actions": [
+        "Rebuild with deterministic JSON and relational inputs in a synthetic database.",
+        "Validate identical result sets and measure parse, join, read and CPU effects.",
+        "Treat parallelism as an observed plan property, not as an assumption from the filename."
+      ],
+      "sha256": "dd8d8d50b2c63358dc5036b64ce88f8048d6b575414a2f61d832c8f62980e6d7",
+      "bytes": 1180,
+      "runtime_status": "NOT_APPLICABLE_CLASSIFICATION",
+      "source_execution_allowed": false
+    },
+    {
+      "source_id": "SRC-LEGACY-020",
+      "archive_path": "Performance Grundlagen V-2024/Beispiele/NON-Sargable.sql",
+      "artifact_type": "SQL",
+      "decision": "REBUILD",
+      "primary_demo_id": "QRY-002",
+      "related_demo_ids": [
+        "QRY-001",
+        "QRY-002",
+        "QRY-003",
+        "QRY-004"
+      ],
+      "migration_wave": "W2-A",
+      "execution_path": "TSQL_TESTDB",
+      "safety_level": "GREEN",
+      "subject": "Implicit conversion, functions on columns, optional predicates and non-searchable expressions",
+      "value": "The file contains several high-value query-pattern teaching cases.",
+      "findings": [
+        "It modifies indexes in a public sample database and embeds fixed read counts.",
+        "The end-of-year BETWEEN boundary is not safe for all temporal precisions; the replacement must use a half-open interval.",
+        "Four distinct learning objectives are mixed in one script.",
+        "Optional-parameter behavior is not version-aware for PSP/OPPO."
+      ],
+      "required_actions": [
+        "Split the file across QRY-001, QRY-002, QRY-003 and QRY-004.",
+        "Use deterministic synthetic data and result-equivalence assertions.",
+        "Keep the already validated QRY-001 implementation as the canonical SARGability path."
+      ],
+      "sha256": "c57fc476c08af4dcca75210983965fec832a38a87f46afa32e5eff7fbb2992b6",
+      "bytes": 2977,
+      "runtime_status": "NOT_APPLICABLE_CLASSIFICATION",
+      "source_execution_allowed": false
+    },
+    {
+      "source_id": "SRC-LEGACY-021",
+      "archive_path": "Performance Grundlagen V-2024/Beispiele/Page Größe bzw. Max Spalten.sql",
+      "artifact_type": "SQL",
+      "decision": "REMOVE",
+      "primary_demo_id": null,
+      "related_demo_ids": [
+        "STL-001"
+      ],
+      "migration_wave": "NONE",
+      "execution_path": "NONE",
+      "safety_level": "NOT_APPLICABLE",
+      "subject": "Maximum result/table column counts and oversized rows",
+      "value": "The script records engine-limit experiments related to row and result width.",
+      "findings": [
+        "The 149 KB manually enumerated statement is not maintainable or didactically proportional.",
+        "Most sections test parser/result-set limits rather than SQL Server performance.",
+        "Cursor and 4096-column fragments do not provide a controlled storage or I/O experiment."
+      ],
+      "required_actions": [
+        "Do not migrate the file.",
+        "Cover row width and pages through the smaller STL-001 design; cite engine limits in documentation only when needed."
+      ],
+      "sha256": "390f67fa080758a0ddbf5fd6266e78240a0a5635edabe269b0a227237b784c62",
+      "bytes": 149709,
+      "runtime_status": "NOT_APPLICABLE_CLASSIFICATION",
+      "source_execution_allowed": false
+    },
+    {
+      "source_id": "SRC-LEGACY-022",
+      "archive_path": "Performance Grundlagen V-2024/Beispiele/Parameter Sniffing.sql",
+      "artifact_type": "SQL",
+      "decision": "REBUILD",
+      "primary_demo_id": "OPT-008",
+      "related_demo_ids": [
+        "OPT-008",
+        "OPT-009"
+      ],
+      "migration_wave": "W2-A",
+      "execution_path": "TSQL_TESTDB",
+      "safety_level": "YELLOW",
+      "subject": "Skew-sensitive parameter compilation and plan reuse",
+      "value": "The increasing department distribution is suitable for demonstrating parameter-sensitive plan reuse.",
+      "findings": [
+        "The script creates and drops a fixed database, uses non-deterministic data, system-catalog row sources, high MAXDOP and DBCC FREEPROCCACHE.",
+        "It changes database-scoped PARAMETER_SNIFFING configuration and does not provide a contract-based restore path.",
+        "It is not separated into classic behavior and SQL Server 2022 PSP behavior."
+      ],
+      "required_actions": [
+        "Rebuild deterministic skew with FWK-003 and marker-protected lifecycle.",
+        "Compare classic single-plan behavior with PSP eligibility and controlled skips.",
+        "Use query-local or database-local evidence and avoid clearing the instance plan cache."
+      ],
+      "sha256": "5dfb6db7959e6ef92f72fa09a3397a2963bf10d1492d42154cd69a0191611864",
+      "bytes": 3550,
+      "runtime_status": "NOT_APPLICABLE_CLASSIFICATION",
+      "source_execution_allowed": false
+    },
+    {
+      "source_id": "SRC-LEGACY-023",
+      "archive_path": "Performance Grundlagen V-2024/Beispiele/Partition Elimination.sql",
+      "artifact_type": "SQL",
+      "decision": "REBUILD",
+      "primary_demo_id": "QRY-012",
+      "related_demo_ids": [
+        "QRY-012",
+        "RES-002"
+      ],
+      "migration_wave": "W2-B",
+      "execution_path": "TSQL_TESTDB",
+      "safety_level": "GREEN",
+      "subject": "Partition elimination and actual rows read",
+      "value": "The known-versus-unknown partition predicate is a useful plan-reading exercise.",
+      "findings": [
+        "Setup is partly commented and the script depends on a fixed database state.",
+        "Random generation and system-catalog row sources make the distribution unstable.",
+        "Comments risk implying a one-to-one relationship between partitions and workers, which is not a SQL Server guarantee."
+      ],
+      "required_actions": [
+        "Rebuild deterministic partitions and compare known, unknown and range predicates.",
+        "Assert partitions accessed and actual rows read.",
+        "Keep worker/task interpretation separate from physical partition count."
+      ],
+      "sha256": "8f4d6bc1238300b88a85eba0f8031459f90ac6d756d9a9d6ac429c6e1a32956c",
+      "bytes": 1815,
+      "runtime_status": "NOT_APPLICABLE_CLASSIFICATION",
+      "source_execution_allowed": false
+    },
+    {
+      "source_id": "SRC-LEGACY-024",
+      "archive_path": "Performance Grundlagen V-2024/Beispiele/Partition Views.sql",
+      "artifact_type": "SQL",
+      "decision": "REMOVE",
+      "primary_demo_id": null,
+      "related_demo_ids": [
+        "QRY-012"
+      ],
+      "migration_wave": "NONE",
+      "execution_path": "NONE",
+      "safety_level": "NOT_APPLICABLE",
+      "subject": "Partitioned tables and partitioned UNION ALL views",
+      "value": "Some fragments demonstrate trusted CHECK constraints and branch elimination.",
+      "findings": [
+        "The script mixes two separate partitioning models and a copied supplier example.",
+        "It creates many permanent objects, contains manual session-kill notes and has no complete cleanup.",
+        "Partitioned views are not a current canonical demo bundle and would dilute QRY-012."
+      ],
+      "required_actions": [
+        "Do not migrate the file as a standalone demo.",
+        "Retain only the trusted-constraint concept when designing QRY-012 or OPT-004."
+      ],
+      "sha256": "5d21e5c943155b1bcb6d77bfdbe10afbfbaca36aa72eea583768ceef4dd7ee2b",
+      "bytes": 6107,
+      "runtime_status": "NOT_APPLICABLE_CLASSIFICATION",
+      "source_execution_allowed": false
+    },
+    {
+      "source_id": "SRC-LEGACY-025",
+      "archive_path": "Performance Grundlagen V-2024/Beispiele/perfSubsel.sql",
+      "artifact_type": "SQL",
+      "decision": "REBUILD",
+      "primary_demo_id": "QRY-010",
+      "related_demo_ids": [
+        "QRY-005",
+        "QRY-010"
+      ],
+      "migration_wave": "W2-B",
+      "execution_path": "TSQL_TESTDB",
+      "safety_level": "YELLOW",
+      "subject": "Correlated scalar subquery versus pre-aggregation and set-based rewrite",
+      "value": "The file contains a strong example of repeated work caused by correlation and conditional aggregation.",
+      "findings": [
+        "It assumes a pre-existing database and potentially ten million non-deterministic rows.",
+        "It uses version-specific GENERATE_SERIES, fixed historical timings and optional compatibility-level changes.",
+        "The comparison creates large temp results and lacks a bounded cleanup/result contract."
+      ],
+      "required_actions": [
+        "Rebuild with scalable deterministic profiles and a smaller default dataset.",
+        "Compare correlated, UNION ALL and pre-aggregated forms with identical checksums.",
+        "Express performance expectations as relative reads/CPU and separate compatibility-level variants."
+      ],
+      "sha256": "d6cb421e9dd017659b6bc5ebbfda178dace3d395427fcdfd285cd28d37afc2ac",
+      "bytes": 8718,
+      "runtime_status": "NOT_APPLICABLE_CLASSIFICATION",
+      "source_execution_allowed": false
+    },
+    {
+      "source_id": "SRC-LEGACY-026",
+      "archive_path": "Performance Grundlagen V-2024/Beispiele/schnell ist nicht immer Ressourcen schonend.sql",
+      "artifact_type": "SQL",
+      "decision": "REBUILD",
+      "primary_demo_id": "RES-002",
+      "related_demo_ids": [
+        "RES-002",
+        "QRY-001"
+      ],
+      "migration_wave": "W2-B",
+      "execution_path": "TSQL_TESTDB",
+      "safety_level": "YELLOW",
+      "subject": "Elapsed time versus CPU/resource consumption and predicate placement",
+      "value": "The central message that lower latency can consume more total CPU is important.",
+      "findings": [
+        "The script depends on an internal data model and hard-codes MAXDOP 64 and historical measurements.",
+        "Forced LOOP joins and complex expressions mix parallelism, join choice and SARGability.",
+        "No host capability or concurrency impact is measured."
+      ],
+      "required_actions": [
+        "Split parallel-efficiency evidence from predicate-rewrite evidence.",
+        "Use a bounded DOP derived from the test profile and compare elapsed time, CPU, reads and worker distribution.",
+        "Run only in an isolated yellow profile."
+      ],
+      "sha256": "295df9271e44e9869dfbd6742e114b3a251a325348c61cdc88c4799621205799",
+      "bytes": 1654,
+      "runtime_status": "NOT_APPLICABLE_CLASSIFICATION",
+      "source_execution_allowed": false
+    },
+    {
+      "source_id": "SRC-LEGACY-027",
+      "archive_path": "Performance Grundlagen V-2024/Beispiele/SearchNull.sql",
+      "artifact_type": "SQL",
+      "decision": "REBUILD",
+      "primary_demo_id": "QRY-006",
+      "related_demo_ids": [
+        "QRY-006",
+        "IDX-003"
+      ],
+      "migration_wave": "W2-B",
+      "execution_path": "TSQL_TESTDB",
+      "safety_level": "GREEN",
+      "subject": "NULL predicates, OR/IN combinations and index access",
+      "value": "The file illustrates that NULL values can participate in nonclustered index access.",
+      "findings": [
+        "It creates a fixed database and uses non-deterministic data plus a million-row filler value.",
+        "The comment 'index is used' is workload-specific and not a general guarantee.",
+        "NULL semantics and physical access are mixed without result and plan contracts."
+      ],
+      "required_actions": [
+        "Rebuild deterministic NULL and non-NULL distributions.",
+        "Separate logical NULL semantics from index-access evidence.",
+        "Compare IS NULL, IN, OR and anti-semi patterns with controlled plans and reads."
+      ],
+      "sha256": "7597da803785b628586e5db7eea5918c879508309d75446a47a4c9d86a01fd2a",
+      "bytes": 1605,
+      "runtime_status": "NOT_APPLICABLE_CLASSIFICATION",
+      "source_execution_allowed": false
+    },
+    {
+      "source_id": "SRC-LEGACY-028",
+      "archive_path": "Performance Grundlagen V-2024/Beispiele/Tipping Point AdventureWorks2022.sql",
+      "artifact_type": "SQL",
+      "decision": "REBUILD",
+      "primary_demo_id": "IDX-004",
+      "related_demo_ids": [
+        "IDX-004"
+      ],
+      "migration_wave": "W2-A",
+      "execution_path": "TSQL_TESTDB",
+      "safety_level": "GREEN",
+      "subject": "Lookup-to-scan tipping point",
+      "value": "The two close row counts provide an intuitive starting point for cost-based access changes.",
+      "findings": [
+        "The script depends entirely on one public sample database and its current statistics.",
+        "Specific row counts and operator choices are build-, statistics- and index-dependent.",
+        "No synthetic setup, mitigation, comparison or cleanup exists."
+      ],
+      "required_actions": [
+        "Rebuild with a synthetic wide table and adjustable selectivity.",
+        "Observe the lookup/scan transition as a range, not a universal threshold.",
+        "Measure rows, pages and estimated cost under the same data profile."
+      ],
+      "sha256": "83952cb811e55f6b94c92b2d262b6644cfbbc5378232547784f5d7eb5eee6312",
+      "bytes": 750,
+      "runtime_status": "NOT_APPLICABLE_CLASSIFICATION",
+      "source_execution_allowed": false
+    },
+    {
+      "source_id": "SRC-LEGACY-029",
+      "archive_path": "Performance Grundlagen V-2024/Beispiele/uniquifier.sql",
+      "artifact_type": "SQL",
+      "decision": "REBUILD",
+      "primary_demo_id": "IDX-002",
+      "related_demo_ids": [
+        "IDX-002",
+        "STL-001"
+      ],
+      "migration_wave": "W2-C",
+      "execution_path": "TSQL_TESTDB_ADVANCED",
+      "safety_level": "YELLOW",
+      "subject": "Uniquifier storage and increment behavior for nonunique clustered indexes",
+      "value": "The temp-table comparison and page evidence address a valuable SQL Server storage internal.",
+      "findings": [
+        "The script starts in an internal database and uses system catalogs as row generators.",
+        "It relies on undocumented DBCC PAGE-style output and repeated tempdb page inspection.",
+        "The prepared overflow path targets billions of duplicates and is unsafe for a standard lab."
+      ],
+      "required_actions": [
+        "Rebuild the normal uniquifier comparison with bounded synthetic rows.",
+        "Isolate undocumented page inspection as an optional advanced evidence path with explicit caveats.",
+        "Remove the overflow workload or replace it with a documented conceptual explanation."
+      ],
+      "sha256": "19c5cb0b65a96898a852a3b6652500144a5bea00c25d010d39b5e3d7de2140fb",
+      "bytes": 15582,
+      "runtime_status": "NOT_APPLICABLE_CLASSIFICATION",
+      "source_execution_allowed": false
+    },
+    {
+      "source_id": "SRC-LEGACY-030",
+      "archive_path": "Performance Grundlagen V-2024/Beispiele/Was_weiß_der_Optimizer_TagID.sql",
+      "artifact_type": "SQL",
+      "decision": "REBUILD",
+      "primary_demo_id": "OPT-004",
+      "related_demo_ids": [
+        "OPT-002",
+        "OPT-003",
+        "OPT-004"
+      ],
+      "migration_wave": "W2-B",
+      "execution_path": "TSQL_TESTDB",
+      "safety_level": "YELLOW",
+      "subject": "Optimizer knowledge from indexes, statistics and uniqueness constraints",
+      "value": "The script distinguishes access paths from cardinality knowledge and shows how trusted keys add logical information.",
+      "findings": [
+        "It disables automatic statistics, clears the global plan cache repeatedly and generates several million non-deterministic rows.",
+        "Multiple statistics, index-order and constraint questions are combined into one long scenario.",
+        "Fixed estimates and SAMPLE 0 ROWS behavior are not framed as version/build-dependent evidence."
+      ],
+      "required_actions": [
+        "Split statistics anatomy, sampling and schema-knowledge cases across OPT-002/003/004.",
+        "Use deterministic bounded profiles and query-specific recompilation rather than global cache clearing.",
+        "Restore all database options through the framework lifecycle."
+      ],
+      "sha256": "133da0f29792e501c5a74e758944e1adbf4d657c66cae41fede6201e0d5a6baa",
+      "bytes": 7120,
+      "runtime_status": "NOT_APPLICABLE_CLASSIFICATION",
+      "source_execution_allowed": false
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "contract_version": "1.0",
+  "demo_id": "CON-004",
+  "run_token": "LOCAL",
+  "timeout_seconds": 30,
+  "abort_on_first_failure": true,
+  "sessions": [
+    {
+      "id": "PRODUCER",
+      "script": "10_Producer.sql",
+      "launch_delay_ms": 0
+    },
+    {
+      "id": "CONSUMER",
+      "script": "20_Consumer.sql",
+      "launch_delay_ms": 100
+    }
+  ]
+}

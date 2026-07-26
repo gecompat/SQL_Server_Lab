@@ -1,0 +1,101 @@
+name: Collect statistics release evidence
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/collect-statistics-release-evidence.yml'
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  collect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Collect public technical evidence only
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          import subprocess
+          from pathlib import Path
+
+          targets = [
+              ('SQL2019-LINUX', 29644565510, 88080543965),
+              ('SQL2022-LINUX', 29644565475, 88080543807),
+              ('SQL2025-LINUX', 29644565446, 88080543803),
+          ]
+          token = os.environ['GH_TOKEN']
+          repo = os.environ['GITHUB_REPOSITORY']
+          headers = [
+              '-H', 'Accept: application/vnd.github+json',
+              '-H', f'Authorization: Bearer {token}',
+              '-H', 'X-GitHub-Api-Version: 2022-11-28',
+          ]
+          records = []
+          for target_id, run_id, job_id in targets:
+              run_raw = subprocess.check_output(
+                  ['curl', '-fsSL', *headers,
+                   f'https://api.github.com/repos/{repo}/actions/runs/{run_id}'],
+                  text=True,
+              )
+              run = json.loads(run_raw)
+              log = subprocess.check_output(
+                  ['curl', '-fsSL', *headers,
+                   f'https://api.github.com/repos/{repo}/actions/jobs/{job_id}/logs'],
+                  text=True,
+                  errors='replace',
+              )
+              version_match = re.search(
+                  r'Captured SQL Server product version: ([0-9]+(?:\.[0-9]+){3})', log
+              )
+              digest_match = re.search(
+                  r'Captured container image digest: (mcr\.microsoft\.com/mssql/server@sha256:[0-9a-f]{64})', log
+              )
+              reference_match = re.search(
+                  r"image_reference='(mcr\.microsoft\.com/mssql/server:[^']+)'", log
+              )
+              if not (version_match and digest_match and reference_match):
+                  raise SystemExit(f'Public technical evidence incomplete for {target_id}.')
+              records.append({
+                  'TargetId': target_id,
+                  'RunId': run_id,
+                  'RunUrl': run['html_url'],
+                  'HeadSha': run['head_sha'],
+                  'CreatedAtUtc': run['created_at'],
+                  'UpdatedAtUtc': run['updated_at'],
+                  'Conclusion': run['conclusion'],
+                  'ProductVersion': version_match.group(1),
+                  'ContainerImageReference': reference_match.group(1),
+                  'ContainerImageDigest': digest_match.group(1),
+              })
+
+          output = Path('Metadata/Quality/Statistics_Release_Evidence_Probe.json')
+          output.write_text(json.dumps(records, indent=2) + '\n', encoding='utf-8')
+          PY
+
+      - name: Commit evidence probe and remove one-time workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/collect-statistics-release-evidence.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add Metadata/Quality/Statistics_Release_Evidence_Probe.json \
+                  .github/workflows/collect-statistics-release-evidence.yml
+          git diff --cached --check
+          git commit -m 'test: collect statistics release evidence'
+          git push origin HEAD:main

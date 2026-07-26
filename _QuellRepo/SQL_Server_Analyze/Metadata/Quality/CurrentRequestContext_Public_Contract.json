@@ -1,0 +1,197 @@
+{
+  "contractId": "DIAG-004-CURRENT-REQUEST-CONTEXT",
+  "contractVersion": 1,
+  "implementationStatus": "IMPLEMENTED_ACTIONS_GATE",
+  "ownerProcedure": "monitor.InternalCaptureCurrentStateSnapshot",
+  "publicProcedure": "monitor.USP_CurrentRequests",
+  "overviewProcedure": "monitor.USP_CurrentOverview",
+  "snapshotContractVersion": 2,
+  "jsonSchemaVersion": 4,
+  "legacyCompatibility": {
+    "resultName": "requests",
+    "change": "UNCHANGED_ADDITIVE_EXTENSION"
+  },
+  "canonicalResultSets": [
+    {
+      "resultName": "requestContext",
+      "cardinality": "ZERO_OR_ONE_PER_RETAINED_REQUEST",
+      "identityColumns": [
+        "SnapshotId",
+        "SessionId",
+        "RequestId"
+      ],
+      "timeColumns": [
+        "CapturedAtUtc"
+      ],
+      "statusColumns": [
+        "StatusCode",
+        "IsPartial",
+        "EvidenceBoundary"
+      ],
+      "contextGroups": [
+        "REQUEST",
+        "CONNECTION",
+        "WAIT",
+        "TASK",
+        "SCHEDULER",
+        "TRANSACTION",
+        "MEMORY_GRANT",
+        "TEMPDB",
+        "RESOURCE_GOVERNOR",
+        "QUERY_IDENTITY"
+      ]
+    },
+    {
+      "resultName": "snapshotStatus",
+      "cardinality": "ONE_PER_MATERIALIZED_OR_EXPLICITLY_OMITTED_SOURCE",
+      "identityColumns": [
+        "SnapshotId",
+        "SourceCode"
+      ],
+      "timeColumns": [
+        "CapturedAtUtc",
+        "CompletedAtUtc"
+      ],
+      "statusColumns": [
+        "StatusCode",
+        "IsPartial",
+        "CapturedRowCount",
+        "ErrorNumber",
+        "ErrorMessage"
+      ]
+    },
+    {
+      "resultName": "statements",
+      "cardinality": "ONE_PER_RETAINED_REQUEST",
+      "identityColumns": [
+        "SnapshotId",
+        "SessionId",
+        "RequestId"
+      ],
+      "timeColumns": [
+        "CapturedAtUtc"
+      ],
+      "statusColumns": [
+        "StatusCode",
+        "OmissionReason",
+        "IsTruncated"
+      ],
+      "payloadColumns": [
+        "HasStatementOffsets",
+        "IsStatementOffsetValid",
+        "StartOffsetBytes",
+        "EndOffsetBytes",
+        "StartCharacter",
+        "EndCharacter",
+        "StartLine",
+        "EndLine",
+        "CharacterCount",
+        "Bytes",
+        "Text"
+      ]
+    },
+    {
+      "resultName": "batches",
+      "cardinality": "ONE_PER_RETAINED_REQUEST",
+      "identityColumns": [
+        "SnapshotId",
+        "SessionId",
+        "RequestId"
+      ],
+      "timeColumns": [
+        "CapturedAtUtc"
+      ],
+      "statusColumns": [
+        "StatusCode",
+        "OmissionReason",
+        "IsTruncated"
+      ],
+      "payloadColumns": [
+        "SqlTextDatabaseId",
+        "SqlTextObjectId",
+        "SqlTextObjectNumber",
+        "IsEncrypted",
+        "CharacterCount",
+        "Bytes",
+        "Text"
+      ]
+    },
+    {
+      "resultName": "inputBuffers",
+      "cardinality": "ONE_PER_RETAINED_REQUEST",
+      "identityColumns": [
+        "SnapshotId",
+        "SessionId",
+        "RequestId"
+      ],
+      "timeColumns": [
+        "CapturedAtUtc"
+      ],
+      "statusColumns": [
+        "StatusCode",
+        "OmissionReason",
+        "IsTruncated"
+      ],
+      "payloadColumns": [
+        "EventType",
+        "ParameterCount",
+        "CharacterCount",
+        "Bytes",
+        "Text"
+      ]
+    },
+    {
+      "resultName": "warnings",
+      "cardinality": "ZERO_OR_MORE",
+      "identityColumns": [
+        "SessionId",
+        "RequestId"
+      ],
+      "payloadColumns": [
+        "DatabaseName",
+        "Code",
+        "Message"
+      ]
+    }
+  ],
+  "sourceStatusCodes": [
+    "AVAILABLE",
+    "AVAILABLE_LIMITED",
+    "NOT_COLLECTED",
+    "DENIED_PERMISSION",
+    "TIMEOUT",
+    "ERROR_HANDLED"
+  ],
+  "textEvidenceStatusCodes": [
+    "AVAILABLE",
+    "NOT_COLLECTED",
+    "ENCRYPTED",
+    "INVALID_OFFSETS",
+    "TEXT_UNAVAILABLE",
+    "TEXT_TRUNCATED",
+    "REQUEST_FINISHED",
+    "DENIED_PERMISSION",
+    "TIMEOUT",
+    "ERROR_HANDLED"
+  ],
+  "sharedSnapshotConsumers": [
+    "monitor.USP_CurrentSessions",
+    "monitor.USP_CurrentRequests",
+    "monitor.USP_CurrentBlocking",
+    "monitor.USP_CurrentWaits",
+    "monitor.USP_CurrentTransactions",
+    "monitor.USP_CurrentMemoryGrants",
+    "monitor.USP_CurrentTempDB",
+    "monitor.USP_CurrentIO"
+  ],
+  "invariants": [
+    "USP_CurrentOverview materializes every requested shared source at most once per invocation.",
+    "Every enabled shared consumer receives the same non-null SnapshotId.",
+    "CapturedAtUtc and CompletedAtUtc describe each source separately; the snapshot is not transactionally atomic.",
+    "A standalone consumer invocation materializes fresh local source data and never reuses an earlier parent snapshot.",
+    "Input-buffer evidence is read only after request filtering and row limiting.",
+    "A missing text payload is never presented as proof that an empty SQL value was executed.",
+    "NOT_COLLECTED is an explicit omission state and does not by itself make the invocation partial.",
+    "The framework creates no Extended Events session and changes no server configuration for this contract."
+  ]
+}

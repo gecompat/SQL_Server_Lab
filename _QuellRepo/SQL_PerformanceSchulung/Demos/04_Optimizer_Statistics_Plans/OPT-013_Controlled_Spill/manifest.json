@@ -1,0 +1,18 @@
+{
+  "contract_version":"1.0",
+  "demo_id":"OPT-013",
+  "run_token":"LOCAL",
+  "safety_level":"YELLOW",
+  "timeout_seconds":360,
+  "cleanup_timeout_seconds":90,
+  "phases":[
+    {"id":"PREFLIGHT","kind":"sql","script":"00_Preflight.sql","database":"master","required":true,"require_summary":true},
+    {"id":"SETUP","kind":"sql","script":"10_Setup.sql","database":"master","required":true,"require_summary":true,"timeout_seconds":240},
+    {"id":"BASELINE","kind":"sql","script":"20_Baseline.sql","database":"target","required":true,"require_summary":true,"timeout_seconds":120},
+    {"id":"DEMONSTRATION","kind":"sql","script":"30_Demonstration.sql","database":"target","required":true,"require_summary":true,"timeout_seconds":120},
+    {"id":"OBSERVATION","kind":"sql","script":"40_Observation.sql","database":"target","required":true,"require_summary":true},
+    {"id":"MITIGATION","kind":"sql","script":"50_Mitigation.sql","database":"target","required":true,"require_summary":true,"timeout_seconds":180},
+    {"id":"COMPARISON","kind":"sql","script":"60_Comparison.sql","database":"target","required":true,"require_summary":true,"timeout_seconds":120}
+  ],
+  "cleanup":{"id":"CLEANUP","kind":"sql","script":"90_Cleanup.sql","database":"master","required":true,"require_summary":true,"timeout_seconds":90}
+}

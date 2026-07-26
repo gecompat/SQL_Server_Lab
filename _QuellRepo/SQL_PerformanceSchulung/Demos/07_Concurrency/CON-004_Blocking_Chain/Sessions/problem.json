@@ -1,0 +1,13 @@
+{
+  "contract_version":"1.0",
+  "demo_id":"CON-004",
+  "run_token":"LOCAL",
+  "timeout_seconds":30,
+  "abort_on_first_failure":true,
+  "sessions":[
+    {"id":"HEAD","script":"10_Head.sql","launch_delay_ms":0},
+    {"id":"MIDDLE","script":"20_Middle.sql","launch_delay_ms":50},
+    {"id":"LEAF","script":"30_Leaf.sql","launch_delay_ms":100},
+    {"id":"OBSERVER","script":"40_Observer.sql","launch_delay_ms":150}
+  ]
+}

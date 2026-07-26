@@ -1,0 +1,15 @@
+{
+  "contract_version": "1.0",
+  "demo_id": "QRY-001",
+  "profile": "SMALL",
+  "baseline": {
+    "row_count": 1000,
+    "logical_reads": 1200,
+    "elapsed_ms": 80
+  },
+  "comparison": {
+    "row_count": 999,
+    "logical_reads": 900,
+    "elapsed_ms": 110
+  }
+}

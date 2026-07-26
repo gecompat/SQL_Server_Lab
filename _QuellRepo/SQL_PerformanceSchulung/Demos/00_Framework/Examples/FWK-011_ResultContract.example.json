@@ -1,0 +1,35 @@
+{
+  "contract_version": "1.0",
+  "demo_id": "QRY-001",
+  "profile": "SMALL",
+  "assertions": [
+    {
+      "id": "same_rows",
+      "kind": "EXACT",
+      "phase": "comparison",
+      "metric": "row_count",
+      "expected": 1000,
+      "severity": "FAIL",
+      "on_missing": "FAIL"
+    },
+    {
+      "id": "reads_reduced",
+      "kind": "RATIO_MAX",
+      "baseline_metric": "logical_reads",
+      "comparison_metric": "logical_reads",
+      "maximum_ratio": 0.25,
+      "severity": "FAIL",
+      "on_missing": "FAIL"
+    },
+    {
+      "id": "duration_direction",
+      "kind": "DIRECTION",
+      "baseline_metric": "elapsed_ms",
+      "comparison_metric": "elapsed_ms",
+      "direction": "LESS_OR_EQUAL",
+      "tolerance": 5,
+      "severity": "WARN",
+      "on_missing": "SKIP"
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "status": "PASS",
+  "generatedAtUtc": "2026-07-17T08:36:50Z",
+  "migrationSource": "sanitized comparison with supplied previous project ZIP",
+  "trackedFileCountAfterMigration": 141,
+  "objectCount": 78,
+  "procedureCount": 63,
+  "functionCount": 10,
+  "viewCount": 5,
+  "procedureParameterCount": 930,
+  "systemSourceCount": 135,
+  "forbiddenReferenceFindings": [],
+  "executableDatabasePlaceholderFindings": [],
+  "obsoleteRepositoryPathFindings": [],
+  "installerChecks": [
+    {
+      "installer": "Code/Install/Install_All.sql",
+      "mode": "SQLCMD includes",
+      "sources": 86,
+      "missingSources": [],
+      "synchronized": true
+    }
+  ],
+  "manifestRequired": false,
+  "manifestRemoved": true,
+  "licenseFile": "LICENSE.md",
+  "licenseChangedByMigrationCompletion": false,
+  "rootReadmeLicenseNoticePreserved": true,
+  "researchMigration": {
+    "systemSources": "Metadata/Inventory/SystemSources.csv",
+    "nonSystemDependencies": "Metadata/Inventory/NonSystemDependencies.csv",
+    "permissionsAndFeatures": "Metadata/Inventory/PermissionsAndFeatures.csv",
+    "performanceAndRisk": "Documentation/Quality/Performance_and_Risk_Assessment.md",
+    "systemSourceCatalog": "AI_Metadata/Internal_Documentation/Research/System_Source_Catalog.md"
+  },
+  "notes": [
+    "Historical raw sources and environment-specific identifiers are not stored in the repository.",
+    "The supplied baseline was reported as comprehensively tested after the included corrections.",
+    "Cross-version, edition, platform and permission coverage should be documented separately when additional target environments are certified."
+  ],
+  "runtimeTest": {
+    "status": "PASS_REPORTED_BY_PROJECT_OWNER",
+    "baseline": "supplied complete repository ZIP after comprehensive real-world test and corrections",
+    "scope": "Installation, compilation, smoke and functional behavior were reported as comprehensively tested for the supplied baseline.",
+    "environmentDocumentation": "The exact SQL Server version, edition, platform and permission matrix are not yet stored as a machine-readable test protocol.",
+    "contractTest": "Code/Tests/Integration/165_Filter_Output_Contract.sql"
+  }
+}

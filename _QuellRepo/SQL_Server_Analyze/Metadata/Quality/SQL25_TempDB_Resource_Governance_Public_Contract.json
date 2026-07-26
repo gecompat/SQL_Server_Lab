@@ -1,0 +1,171 @@
+{
+  "contractId": "SQL25-003-PUBLIC-V1",
+  "contractVersion": 1,
+  "workItemId": "SQL25-003",
+  "releaseState": "IMPLEMENTED_ACTIONS_GATE",
+  "frameworkVersion": "1.1.0-special.18",
+  "frameworkContractVersion": "1.22",
+  "minimumFrameworkProductMajorVersion": 15,
+  "featureProductMajorVersion": 17,
+  "dedicatedProcedureAdded": false,
+  "procedures": [
+    "monitor.USP_CurrentTempDB",
+    "monitor.USP_ResourceGovernorAnalysis"
+  ],
+  "orchestrator": "monitor.USP_CurrentOverview",
+  "resultName": "tempdbGovernance",
+  "resultFields": [
+    "GroupId",
+    "GroupName",
+    "PoolId",
+    "PoolName",
+    "ConfiguredGroupMaxTempdbDataMb",
+    "ConfiguredGroupMaxTempdbDataPercent",
+    "TempdbMaximumSizeMb",
+    "EffectiveGroupMaxTempdbDataMb",
+    "EffectiveLimitSource",
+    "IsPercentLimitEffective",
+    "TempdbDataSpaceMb",
+    "PeakTempdbDataSpaceMb",
+    "EffectiveLimitUtilizationPercent",
+    "TotalTempdbDataLimitViolationCount",
+    "HasRecordedLimitViolation",
+    "StatisticsStartTime",
+    "IsResourceGovernorEnabled",
+    "ReconfigurationPending",
+    "SourceStatusCode",
+    "IsPartial",
+    "EvidenceLimit"
+  ],
+  "outputModes": [
+    "CONSOLE",
+    "RAW",
+    "TABLE",
+    "NONE",
+    "JSON"
+  ],
+  "sources": [
+    {
+      "name": "workloadGroupCatalog",
+      "object": "sys.resource_governor_workload_groups",
+      "fields": [
+        "group_max_tempdb_data_mb",
+        "group_max_tempdb_data_percent"
+      ],
+      "minimumProductMajorVersion": 17,
+      "maximumReadsPerInvocationAndProcedure": 1
+    },
+    {
+      "name": "workloadGroupRuntime",
+      "object": "sys.dm_resource_governor_workload_groups",
+      "fields": [
+        "tempdb_data_space_kb",
+        "peak_tempdb_data_space_kb",
+        "total_tempdb_data_limit_violation_count",
+        "statistics_start_time"
+      ],
+      "minimumProductMajorVersion": 17,
+      "maximumReadsPerInvocationAndProcedure": 1
+    },
+    {
+      "name": "resourceGovernorConfiguration",
+      "object": "sys.resource_governor_configuration | sys.dm_resource_governor_configuration",
+      "fields": [
+        "is_enabled",
+        "is_reconfiguration_pending"
+      ],
+      "minimumProductMajorVersion": 15,
+      "maximumReadsPerInvocationAndProcedure": 1
+    },
+    {
+      "name": "tempdbFileConfiguration",
+      "object": "master.sys.master_files",
+      "purpose": "Resolve whether a percent-only limit has a finite effective TempDB maximum.",
+      "readCondition": "At least one visible workload group has a percent limit and no MB limit.",
+      "maximumReadsPerInvocationAndProcedure": 1
+    },
+    {
+      "name": "sessionUsageComparison",
+      "object": "tempdb.sys.dm_db_session_space_usage",
+      "purpose": "Keep session-scoped allocation counters separate from workload-group current and peak counters.",
+      "maximumReadsPerInvocationAndProcedure": 1
+    }
+  ],
+  "effectiveLimitRules": [
+    "A configured MB limit takes precedence over a configured percent limit.",
+    "A percent-only limit is effective only when the visible TempDB data-file configuration yields a supported finite maximum.",
+    "Stored limits are not reported as effective while Resource Governor is disabled or reconfiguration is pending.",
+    "Failure to read TempDB file configuration limits only percent-only workload groups; fixed MB and no-limit rows remain evaluable.",
+    "No configured limit is a valid neutral state and not a finding.",
+    "Current use, peak use, violations, and statistics start time remain runtime evidence even when no limit is configured."
+  ],
+  "effectiveLimitSources": [
+    "NO_LIMIT_CONFIGURED",
+    "FIXED_MB_EFFECTIVE",
+    "PERCENT_EFFECTIVE",
+    "PERCENT_NOT_EFFECTIVE",
+    "RESOURCE_GOVERNOR_DISABLED",
+    "RECONFIGURATION_PENDING",
+    "UNAVAILABLE"
+  ],
+  "sourceStatusCodes": [
+    "AVAILABLE",
+    "AVAILABLE_EMPTY_OR_RESTRICTED",
+    "AVAILABLE_LIMITED",
+    "UNAVAILABLE_VERSION",
+    "UNAVAILABLE_SOURCE_SCHEMA",
+    "DENIED_PERMISSION",
+    "TIMEOUT",
+    "ERROR_HANDLED"
+  ],
+  "resetContract": {
+    "counters": [
+      "peak_tempdb_data_space_kb",
+      "total_tempdb_data_limit_violation_count"
+    ],
+    "windowStartField": "statistics_start_time",
+    "resetEvents": [
+      "SQL Server service start",
+      "ALTER RESOURCE GOVERNOR RESET STATISTICS"
+    ]
+  },
+  "falsePositiveBoundaries": [
+    "No configured TempDB workload-group limit is not an error.",
+    "A violation count proves that enforcement occurred in the statistics window; it does not identify the responsible statement or root cause.",
+    "Workload-group counters are not additive with session allocation counters and may use different scopes.",
+    "Version store and the TempDB transaction log are outside this Resource Governor limit.",
+    "A stored percent limit can be ineffective because of the TempDB data-file configuration.",
+    "A configured value can differ from the active value while Resource Governor reconfiguration is pending.",
+    "Missing access to TempDB file configuration limits percent-only effectiveness evidence and does not invalidate fixed MB limits."
+  ],
+  "privacy": {
+    "persistenceAdded": false,
+    "userTableRowsRead": false,
+    "queryTextCollected": false,
+    "planXmlCollected": false,
+    "sessionIdentityAddedToGovernanceResult": false,
+    "runtimeFixtures": "Synthetic Example* workload groups and users only"
+  },
+  "runtimeMatrix": {
+    "productMajorVersions": [
+      15,
+      16,
+      17
+    ],
+    "requiredCases": [
+      "unavailable-version",
+      "feature-active-or-explicit-source-schema-status",
+      "no-limit-configured",
+      "mb-limit-precedence",
+      "percent-limit-effective-or-explicitly-ineffective",
+      "current-and-peak-usage",
+      "violation-and-reset-window-semantics",
+      "restricted-permission",
+      "named-table-output",
+      "json-output",
+      "current-overview-parent-routing",
+      "lock-timeout-restoration"
+    ]
+  },
+  "documentation": "Documentation/Architecture/SQL_Server_2025_TempDB_Resource_Governance.md"
+}

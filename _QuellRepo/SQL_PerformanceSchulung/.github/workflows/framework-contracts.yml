@@ -1,0 +1,46 @@
+name: Framework contracts
+
+on:
+  pull_request:
+    paths:
+      - 'Demos/00_Framework/**'
+      - 'Tests/Static/**'
+      - '.github/workflows/framework-contracts.yml'
+      - '.ai/DEMO_CONTRACT.md'
+  push:
+    branches:
+      - main
+    paths:
+      - 'Demos/00_Framework/**'
+      - 'Tests/Static/**'
+      - '.github/workflows/framework-contracts.yml'
+      - '.ai/DEMO_CONTRACT.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Validate framework contracts
+        run: python Tests/Static/validate_framework_contracts.py
+
+      - name: Test result contract evaluator
+        run: python Tests/Static/test_result_contract_evaluator.py
+
+      - name: Validate orchestration and runtime contracts
+        run: python Tests/Static/validate_orchestration_runtime.py
+
+      - name: Test orchestration and runtime harness
+        run: python Tests/Static/test_orchestration_runtime.py

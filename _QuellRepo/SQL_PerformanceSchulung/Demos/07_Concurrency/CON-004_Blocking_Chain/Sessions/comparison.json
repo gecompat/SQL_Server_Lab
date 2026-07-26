@@ -1,0 +1,11 @@
+{
+  "contract_version":"1.0",
+  "demo_id":"CON-004",
+  "run_token":"LOCAL",
+  "timeout_seconds":20,
+  "abort_on_first_failure":true,
+  "sessions":[
+    {"id":"FIRST_WRITER","script":"50_FirstWriter.sql","launch_delay_ms":0},
+    {"id":"FOLLOWER","script":"60_Follower.sql","launch_delay_ms":50}
+  ]
+}

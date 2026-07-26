@@ -1,0 +1,40 @@
+name: Presentation refine claims
+
+on:
+  pull_request:
+    paths:
+      - 'Presentations/Performance_Schulung_Chat_2026-07-23_2146_SQL_Server_Performance_Grundlagen.pptx'
+      - 'Documentation/Inventories/SLIDE_STATEMENT_REGISTER.md'
+      - 'Documentation/Reviews/CRITICAL_CLAIMS_REVIEW.md'
+      - 'Documentation/Curriculum/TRACEABILITY_MATRIX.md'
+      - 'Documentation/Project_Planning/W2_007_REFINE_CLAIMS_REVIEW.md'
+      - 'Tests/Static/validate_w2_007_presentation.py'
+      - '.github/workflows/presentation-refine-claims.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'Presentations/Performance_Schulung_Chat_2026-07-23_2146_SQL_Server_Performance_Grundlagen.pptx'
+      - 'Documentation/Inventories/SLIDE_STATEMENT_REGISTER.md'
+      - 'Documentation/Reviews/CRITICAL_CLAIMS_REVIEW.md'
+      - 'Documentation/Curriculum/TRACEABILITY_MATRIX.md'
+      - 'Documentation/Project_Planning/W2_007_REFINE_CLAIMS_REVIEW.md'
+      - 'Tests/Static/validate_w2_007_presentation.py'
+      - '.github/workflows/presentation-refine-claims.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Validate W2-007 presentation
+        run: python Tests/Static/validate_w2_007_presentation.py

@@ -1,0 +1,103 @@
+{
+  "contractId": "SQL25-001-PUBLIC-V1",
+  "contractVersion": 1,
+  "workItemId": "SQL25-001",
+  "releaseState": "IMPLEMENTED_ACTIONS_GATE",
+  "frameworkVersion": "1.1.0-special.16",
+  "frameworkContractVersion": "1.20",
+  "minimumFrameworkProductMajorVersion": 15,
+  "featureProductMajorVersion": 17,
+  "procedure": "monitor.USP_VectorIndexAnalysis",
+  "orchestrator": "monitor.USP_ObjectAnalysis",
+  "resultSets": [
+    "moduleStatus",
+    "vectorIndexes",
+    "maintenance",
+    "findings",
+    "sourceStatus",
+    "warnings"
+  ],
+  "outputModes": [
+    "CONSOLE",
+    "RAW",
+    "TABLE",
+    "NONE",
+    "JSON"
+  ],
+  "sources": [
+    {
+      "name": "vectorCatalog",
+      "object": "sys.vector_indexes",
+      "minimumProductMajorVersion": 17,
+      "permission": "Metadata visibility",
+      "maximumReadsPerDatabaseInvocation": 1
+    },
+    {
+      "name": "vectorRuntime",
+      "object": "sys.dm_db_vector_indexes",
+      "minimumProductMajorVersion": 17,
+      "permission": "VIEW DATABASE STATE",
+      "maximumReadsPerDatabaseInvocation": 1
+    }
+  ],
+  "sourceStatusCodes": [
+    "AVAILABLE",
+    "AVAILABLE_EMPTY",
+    "NOT_ENABLED",
+    "NOT_RETURNED",
+    "NOT_COLLECTED",
+    "UNAVAILABLE_VERSION",
+    "UNAVAILABLE_FEATURE",
+    "UNAVAILABLE_SOURCE_SCHEMA",
+    "UNAVAILABLE_PATTERN_CAPABILITY",
+    "DENIED_PERMISSION",
+    "TIMEOUT",
+    "ERROR_HANDLED"
+  ],
+  "findingCodes": [
+    "VECTOR_INDEX_DISABLED",
+    "VECTOR_BACKGROUND_TASK_FAILED",
+    "VECTOR_STALENESS_REVIEW"
+  ],
+  "privacy": {
+    "vectorValuesCollected": false,
+    "buildParametersCollected": false,
+    "queryTextCollected": false,
+    "planXmlCollected": false,
+    "runtimeErrorMessageScope": "Only the source-provided last background task error for an explicitly visible index"
+  },
+  "falsePositiveBoundaries": [
+    "Approximate staleness is a transient review indicator and never an automatic rebuild recommendation.",
+    "A single background task failure does not prove a persistent maintenance failure.",
+    "An empty metadata result does not prove server-wide feature absence under restricted metadata visibility.",
+    "A missing runtime row does not invalidate visible catalog evidence."
+  ],
+  "runtimeMatrix": {
+    "productMajorVersions": [
+      15,
+      16,
+      17
+    ],
+    "requiredCases": [
+      "unavailable-version",
+      "feature-active-or-explicit-unavailable",
+      "object-analysis-routing",
+      "named-table-output"
+    ],
+    "capabilityConditionalCases": [
+      "feature-active",
+      "maintenance-visible",
+      "empty-filter",
+      "denied-runtime",
+      "bounded-output",
+      "cross-database"
+    ],
+    "activationPrerequisites": [
+      "Compatibility level 170",
+      "PREVIEW_FEATURES enabled",
+      "sys.vector_indexes and sys.dm_db_vector_indexes exposed by the SQL Server 2025 build"
+    ],
+    "fixtures": "Synthetic Example* objects only"
+  },
+  "documentation": "Documentation/Architecture/SQL_Server_2025_Vector_Index_Analysis.md"
+}

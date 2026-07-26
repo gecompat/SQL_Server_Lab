@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LAB-001 finding-expectation contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "Analyzer",
+    "ExpectationType",
+    "ExpectedStatuses",
+    "ExpectedFindingCodes",
+    "MinimumConfidence",
+    "AlternativeEvidence",
+    "AssertionBoundary"
+  ],
+  "properties": {
+    "Analyzer": {
+      "type": "string",
+      "pattern": "^USP_[A-Za-z0-9]+$"
+    },
+    "ExpectationType": {
+      "enum": [
+        "POSITIVE_FINDING",
+        "BASELINE",
+        "PARTIAL_PERMISSION",
+        "UNSUPPORTED",
+        "OUTPUT_CONTRACT",
+        "ERROR_ISOLATION"
+      ]
+    },
+    "ExpectedStatuses": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Z0-9_]+$"
+      }
+    },
+    "ExpectedFindingCodes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Z0-9_-]+$"
+      }
+    },
+    "MinimumConfidence": {
+      "enum": [
+        "NONE",
+        "LOW",
+        "MEDIUM",
+        "HIGH"
+      ]
+    },
+    "AlternativeEvidence": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "AssertionBoundary": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+

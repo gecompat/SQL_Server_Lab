@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LAB-001 topology contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "SchemaVersion",
+    "TopologyId",
+    "Title",
+    "Platforms",
+    "ExecutionModes",
+    "ResourceProfile",
+    "Roles",
+    "Networks",
+    "StorageRoles",
+    "RequiredCapabilities",
+    "CleanupBoundary",
+    "DataClassification"
+  ],
+  "properties": {
+    "SchemaVersion": {
+      "const": "1.0"
+    },
+    "TopologyId": {
+      "type": "string",
+      "pattern": "^(CTR|HV|FIXTURE)-[A-Z0-9-]+$"
+    },
+    "Title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "Platforms": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "CONTAINER_LINUX",
+          "HYPER_V_WINDOWS",
+          "HYPER_V_LINUX",
+          "FIXTURE"
+        ]
+      }
+    },
+    "ExecutionModes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "WINDOWS_SINGLE_HOST",
+          "LINUX_NATIVE",
+          "DISTRIBUTED",
+          "NO_RUNTIME"
+        ]
+      }
+    },
+    "ResourceProfile": {
+      "enum": [
+        "Compact",
+        "Standard",
+        "Stress"
+      ]
+    },
+    "Roles": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Z0-9_]+$"
+      }
+    },
+    "Networks": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^LAB_[A-Z0-9_]+$"
+      }
+    },
+    "StorageRoles": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "IMAGE_CACHE",
+          "ACTIVE_VM",
+          "EPHEMERAL_DATA",
+          "FAULT_TARGET"
+        ]
+      }
+    },
+    "RequiredCapabilities": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Z0-9_]+$"
+      }
+    },
+    "CleanupBoundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "RequireRunId",
+        "RequireRegisteredObjectIds",
+        "AllowNameOnlyDeletion",
+        "AllowUnresolvedGlobs"
+      ],
+      "properties": {
+        "RequireRunId": {
+          "const": true
+        },
+        "RequireRegisteredObjectIds": {
+          "const": true
+        },
+        "AllowNameOnlyDeletion": {
+          "const": false
+        },
+        "AllowUnresolvedGlobs": {
+          "const": false
+        }
+      }
+    },
+    "DataClassification": {
+      "const": "SYNTHETIC"
+    }
+  }
+}
+

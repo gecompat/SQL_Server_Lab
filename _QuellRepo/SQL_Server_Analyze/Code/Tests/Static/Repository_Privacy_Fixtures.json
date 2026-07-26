@@ -1,0 +1,25 @@
+{
+  "contractVersion": "1.0",
+  "cases": [
+    {
+      "caseId": "REPOSITORY_SAFE_GENERIC",
+      "expectedStatus": "PASS"
+    },
+    {
+      "caseId": "REPOSITORY_BLOCK_SENTINEL",
+      "expectedStatus": "BLOCK"
+    },
+    {
+      "caseId": "ZIP_SAFE_ROOT",
+      "expectedStatus": "PASS"
+    },
+    {
+      "caseId": "ZIP_BLOCK_SENTINEL",
+      "expectedStatus": "BLOCK"
+    },
+    {
+      "caseId": "ZIP_INVALID_ROOT",
+      "expectedStatus": "BLOCK"
+    }
+  ]
+}

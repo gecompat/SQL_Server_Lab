@@ -1,0 +1,241 @@
+name: Documentation validation
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/documentation-validation.yml'
+      - 'README.md'
+      - 'Code/**/*.sql'
+      - 'Code/Install/*.ps1'
+      - 'Code/Tests/Static/900_Validate_Analysis_Documentation.ps1'
+      - 'Code/Tests/Static/905_Validate_Analysis_Navigator.py'
+      - 'Code/Tests/Static/915_Validate_Documentation_Style.py'
+      - 'Code/Tests/Static/940_Validate_Wait_Type_Catalog.py'
+      - 'Code/Tests/Static/980_Validate_External_Documentation_Links.py'
+      - 'Code/Tests/Integration/191_Standalone_Installer_Contract.ps1'
+      - 'Code/Tests/Integration/192_ExecutionPlanAnalysis_Installer_Contract.ps1'
+      - 'Code/Tests/Integration/194_SnapshotBaseline_Installer_Contract.ps1'
+      - 'Documentation/**/*.md'
+      - 'AI_Metadata/Internal_Documentation/**/*.md'
+      - 'Metadata/Inventory/Objects.csv'
+      - 'Metadata/Inventory/Parameters.csv'
+      - 'Metadata/Inventory/ResultSets.csv'
+      - 'Metadata/Quality/Wait_Type_Curation_Evidence.json'
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/documentation-validation.yml'
+      - 'README.md'
+      - 'Code/**/*.sql'
+      - 'Code/Install/*.ps1'
+      - 'Code/Tests/Static/900_Validate_Analysis_Documentation.ps1'
+      - 'Code/Tests/Static/905_Validate_Analysis_Navigator.py'
+      - 'Code/Tests/Static/915_Validate_Documentation_Style.py'
+      - 'Code/Tests/Static/940_Validate_Wait_Type_Catalog.py'
+      - 'Code/Tests/Static/980_Validate_External_Documentation_Links.py'
+      - 'Code/Tests/Integration/191_Standalone_Installer_Contract.ps1'
+      - 'Code/Tests/Integration/192_ExecutionPlanAnalysis_Installer_Contract.ps1'
+      - 'Code/Tests/Integration/194_SnapshotBaseline_Installer_Contract.ps1'
+      - 'Documentation/**/*.md'
+      - 'AI_Metadata/Internal_Documentation/**/*.md'
+      - 'Metadata/Inventory/Objects.csv'
+      - 'Metadata/Inventory/Parameters.csv'
+      - 'Metadata/Inventory/ResultSets.csv'
+      - 'Metadata/Quality/Wait_Type_Curation_Evidence.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  statuses: write
+
+concurrency:
+  group: documentation-validation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate impacted documentation contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository history
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          show-progress: false
+
+      - id: impact
+        name: Select impacted documentation checks
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+
+          changed_file="$RUNNER_TEMP/documentation-changed-files.txt"
+          if [ "${{ github.event_name }}" = 'workflow_dispatch' ] || \
+             [[ ! "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] || \
+             [[ "$BASE_SHA" =~ ^0{40}$ ]]; then
+            git ls-files > "$changed_file"
+            manual_full=true
+          else
+            git diff --name-only "$BASE_SHA" "$HEAD_SHA" > "$changed_file"
+            manual_full=false
+          fi
+
+          set_flag() {
+            local name="$1"
+            local pattern="$2"
+            local value=false
+            if grep -Eq "$pattern" "$changed_file"; then
+              value=true
+            fi
+            echo "$name=$value" >> "$GITHUB_OUTPUT"
+          }
+
+          set_flag docs '^(README\.md|Documentation/.*\.md|AI_Metadata/Internal_Documentation/.*\.md|Code/Tests/Static/915_Validate_Documentation_Style\.py|\.github/workflows/documentation-validation\.yml)$'
+          set_flag navigator '^(Code/01_Common/(020_VW_AnalyseClassCatalog|021_VW_AnalysisCatalog|022_VW_AnalysisSearchTerm|023_VW_AnalysisRelation|100_USP_AnalysisNavigator)\.sql|Code/Install/Install_(All|ExecutionPlanAnalysis)\.sql|Code/Tests/Static/905_Validate_Analysis_Navigator\.py|Metadata/Inventory/(Objects|Parameters|ResultSets)\.csv|Documentation/Analysis_Guides/Start_Here\.md|Documentation/Reference/Analysis_Navigator\.md|Documentation/Analysis_Guides/Procedures/USP_AnalysisNavigator\.md)$'
+          set_flag waits '^(Code/01_Common/07[45].*WaitType.*\.sql|Code/Tests/Static/940_Validate_Wait_Type_Catalog\.py|Documentation/Operations/Wait_Type_Catalog\.md|AI_Metadata/Internal_Documentation/Quality/Wait_Type_Curation\.md|Metadata/Quality/Wait_Type_Curation_Evidence\.json)$'
+          set_flag procedures '^(Code/.*\.sql|Documentation/Analysis_Guides/Procedures/.*\.md|Code/Tests/Static/900_Validate_Analysis_Documentation\.ps1)$'
+          set_flag installers '^(Code/Install/.*\.ps1|Code/Tests/Integration/(191_Standalone|192_ExecutionPlanAnalysis|194_SnapshotBaseline)_Installer_Contract\.ps1)$'
+
+          check_network=false
+          if grep -Fxq 'Code/Tests/Static/980_Validate_External_Documentation_Links.py' "$changed_file"; then
+            check_network=true
+          elif [ "$manual_full" = false ] && \
+               git diff --unified=0 "$BASE_SHA" "$HEAD_SHA" -- \
+                 | grep -E '^\+[^+].*https?://' >/dev/null; then
+            check_network=true
+          elif [ "$manual_full" = true ]; then
+            check_network=true
+          fi
+
+          echo "check_network=$check_network" >> "$GITHUB_OUTPUT"
+          echo "manual_full=$manual_full" >> "$GITHUB_OUTPUT"
+
+          {
+            echo '## Documentation validation impact'
+            echo ''
+            echo "- Documentation/style: $(grep -Eq '^(README\.md|Documentation/.*\.md|AI_Metadata/Internal_Documentation/.*\.md|Code/Tests/Static/915_Validate_Documentation_Style\.py|\.github/workflows/documentation-validation\.yml)$' "$changed_file" && echo true || echo false)"
+            echo "- Full contract suite: $manual_full"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Validate documentation style
+        if: steps.impact.outputs.docs == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 ./Code/Tests/Static/915_Validate_Documentation_Style.py --repository-root . --self-test
+          python3 ./Code/Tests/Static/915_Validate_Documentation_Style.py --repository-root .
+
+      - name: Validate Analysis Navigator contract
+        if: steps.impact.outputs.navigator == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 ./Code/Tests/Static/905_Validate_Analysis_Navigator.py --repository-root . --self-test
+          python3 ./Code/Tests/Static/905_Validate_Analysis_Navigator.py --repository-root .
+
+      - name: Validate Wait Type catalog
+        if: steps.impact.outputs.waits == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 ./Code/Tests/Static/940_Validate_Wait_Type_Catalog.py --repository-root . --self-test
+          python3 ./Code/Tests/Static/940_Validate_Wait_Type_Catalog.py --repository-root .
+
+      - name: Validate procedure documentation
+        if: steps.impact.outputs.procedures == 'true'
+        shell: pwsh
+        run: |
+          $logPath = Join-Path $env:RUNNER_TEMP 'analysis-documentation-validation.log'
+          & pwsh -NoLogo -NoProfile -File ./Code/Tests/Static/900_Validate_Analysis_Documentation.ps1 *>&1 |
+              Tee-Object -FilePath $logPath
+          exit $LASTEXITCODE
+
+      - name: Validate installer contracts
+        if: steps.impact.outputs.installers == 'true'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($contract in @(
+              './Code/Tests/Integration/191_Standalone_Installer_Contract.ps1',
+              './Code/Tests/Integration/192_ExecutionPlanAnalysis_Installer_Contract.ps1',
+              './Code/Tests/Integration/194_SnapshotBaseline_Installer_Contract.ps1'
+          )) {
+              & pwsh -NoLogo -NoProfile -File $contract
+              if ($LASTEXITCODE -ne 0) {
+                  throw "Installer contract failed: $contract"
+              }
+          }
+
+      - name: Validate external documentation links
+        if: steps.impact.outputs.check_network == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 ./Code/Tests/Static/980_Validate_External_Documentation_Links.py \
+            --repository-root . \
+            --self-test \
+            --check-network
+
+      - name: Run full documentation and evidence contract suite
+        if: steps.impact.outputs.manual_full == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          self_test_validators=(
+            920_Validate_SQL_Server_2025_Regex.py
+            989_Validate_SQL25_Readable_Secondary_Statistics_Contract.py
+            991_Validate_SQL25_TempDB_Resource_Governance_Contract.py
+            992_Validate_SQL25_JSON_Index_Contract.py
+            993_Validate_Partial_Implementation_Status_and_CurrentState_Snapshot.py
+            994_Validate_SQL25_Vector_Index_Contract.py
+            995_Validate_Wave1_Contracts.py
+            996_Validate_Wave2_Contracts.py
+            997_Validate_ExecutionPlanAnalysis_Public_Contract.py
+            998_Validate_SnapshotBaseline_Public_Contract.py
+            999_Validate_Runtime001_Contracts.py
+          )
+          for validator in "${self_test_validators[@]}"; do
+            python3 "./Code/Tests/Static/$validator" --repository-root . --self-test
+            python3 "./Code/Tests/Static/$validator" --repository-root .
+          done
+
+          python3 ./Code/Tests/Static/950_Validate_Nonblocking_Metadata.py
+          python3 ./Code/Tests/Static/960_Validate_Complete_P1_Evidence.py --repository-root .
+          python3 ./Code/Tests/Static/970_Validate_Complete_P2_Evidence.py --repository-root .
+          python3 ./Code/Tests/Static/990_Validate_Release_Evidence.py --repository-root .
+
+      - name: Upload failed documentation log
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: analysis-documentation-validation-log
+          path: ${{ runner.temp }}/analysis-documentation-validation.log
+          if-no-files-found: ignore
+          retention-days: 1
+
+      - name: Publish documentation validation status
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JOB_STATUS: ${{ job.status }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          state='success'
+          if [ "$JOB_STATUS" != 'success' ]; then
+            state='failure'
+          fi
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
+            -f state="$state" \
+            -f target_url="$RUN_URL" \
+            -f description='Impact-selected documentation validation' \
+            -f context='documentation-validation' >/dev/null

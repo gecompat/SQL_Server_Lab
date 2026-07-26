@@ -1,0 +1,127 @@
+name: Framework SQL matrix
+
+on:
+  pull_request:
+    paths:
+      - 'Demos/00_Framework/**'
+      - 'Tests/Runtime/**'
+      - '.github/workflows/framework-sql-matrix.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'Demos/00_Framework/**'
+      - 'Tests/Runtime/**'
+      - '.github/workflows/framework-sql-matrix.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: framework-sql-matrix-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  runtime:
+    name: SQL Server ${{ matrix.year }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - year: 2019
+            major: 15
+            compatibility: 150
+            image: mcr.microsoft.com/mssql/server:2019-latest
+          - year: 2022
+            major: 16
+            compatibility: 160
+            image: mcr.microsoft.com/mssql/server:2022-latest
+          - year: 2025
+            major: 17
+            compatibility: 170
+            image: mcr.microsoft.com/mssql/server:2025-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Start SQL Server container
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          password="SqlP!${GITHUB_RUN_ID}${GITHUB_RUN_ATTEMPT}${{ matrix.major }}Aa"
+          container="sqlperf-${{ matrix.major }}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+
+          echo "::add-mask::${password}"
+          echo "SQLCMDPASSWORD=${password}" >> "${GITHUB_ENV}"
+          echo "SQLPERF_SQL_CONTAINER=${container}" >> "${GITHUB_ENV}"
+
+          docker pull '${{ matrix.image }}'
+          docker run \
+            --name "${container}" \
+            --hostname "${container}" \
+            -e ACCEPT_EULA=Y \
+            -e MSSQL_PID=Developer \
+            -e "MSSQL_SA_PASSWORD=${password}" \
+            -d \
+            '${{ matrix.image }}'
+
+          ready=0
+          for attempt in $(seq 1 90); do
+            if docker logs "${container}" 2>&1 | grep -q 'SQL Server is now ready for client connections'; then
+              ready=1
+              break
+            fi
+
+            if [ "$(docker inspect -f '{{.State.Running}}' "${container}")" != 'true' ]; then
+              docker logs "${container}" 2>&1 || true
+              exit 1
+            fi
+
+            sleep 2
+          done
+
+          if [ "${ready}" != '1' ]; then
+            docker logs "${container}" 2>&1 || true
+            exit 1
+          fi
+
+      - name: Run framework runtime matrix
+        shell: bash
+        run: |
+          set -uo pipefail
+          chmod +x Tests/Runtime/docker_sqlcmd_proxy.py
+          python Tests/Runtime/run_framework_sql_matrix_staged.py \
+            --container "${SQLPERF_SQL_CONTAINER}" \
+            --expected-major '${{ matrix.major }}' \
+            --compatibility-level '${{ matrix.compatibility }}' \
+            2>&1 | tee "${RUNNER_TEMP}/framework-sql-${{ matrix.major }}.log"
+          exit "${PIPESTATUS[0]}"
+
+      - name: Upload matrix diagnostic
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: framework-sql-${{ matrix.year }}-diagnostic
+          path: ${{ runner.temp }}/framework-sql-${{ matrix.major }}.log
+          if-no-files-found: warn
+          retention-days: 3
+
+      - name: Show SQL Server logs on failure
+        if: failure()
+        shell: bash
+        run: docker logs "${SQLPERF_SQL_CONTAINER}" 2>&1 || true
+
+      - name: Remove SQL Server container
+        if: always()
+        shell: bash
+        run: docker rm -f "${SQLPERF_SQL_CONTAINER}" >/dev/null 2>&1 || true

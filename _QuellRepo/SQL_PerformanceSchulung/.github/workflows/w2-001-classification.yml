@@ -1,0 +1,42 @@
+name: W2-001 legacy example classification
+
+on:
+  pull_request:
+    paths:
+      - 'Documentation/Inventories/legacy_example_classification.json'
+      - 'Documentation/Inventories/LEGACY_EXAMPLE_CLASSIFICATION.md'
+      - 'Documentation/Inventories/SOURCE_MANIFEST.md'
+      - 'Documentation/Project_Planning/W2_001_EXAMPLE_CLASSIFICATION_REVIEW.md'
+      - 'Presentations/old/Performance Grundlagen V-2024.zip'
+      - '.ai/BACKLOG.md'
+      - 'Tests/Static/validate_w2_001_classification.py'
+      - '.github/workflows/w2-001-classification.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'Documentation/Inventories/legacy_example_classification.json'
+      - 'Documentation/Inventories/LEGACY_EXAMPLE_CLASSIFICATION.md'
+      - 'Documentation/Inventories/SOURCE_MANIFEST.md'
+      - 'Documentation/Project_Planning/W2_001_EXAMPLE_CLASSIFICATION_REVIEW.md'
+      - 'Presentations/old/Performance Grundlagen V-2024.zip'
+      - '.ai/BACKLOG.md'
+      - 'Tests/Static/validate_w2_001_classification.py'
+      - '.github/workflows/w2-001-classification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Validate W2-001 classification
+        run: python Tests/Static/validate_w2_001_classification.py
