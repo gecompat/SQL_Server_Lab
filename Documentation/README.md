@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING_INDEX` |
-| Stand | 2026-07-27 |
+| Stand | 2026-07-26 |
 
 ## 1. Verbindliche Lesereihenfolge
 
@@ -82,29 +82,31 @@ Die Forschungsanalyse dient ausschließlich der Auswahl bewährter Muster für d
 | [Projektkontext](../.ai/PROJECT_CONTEXT.md) | dauerhafte Projektentscheidungen, Versions-, Artifact-, Resource- und Recovery-Regeln |
 | [Arbeitsregeln](../.ai/WORKING_RULES.md) | Privacy-, Provider-, Package-, Validierungs- und Git-Regeln |
 
-## 10. Aktueller Status
+## 10. Aktueller Status (Stand: Juli 2026)
 
-### Implementiert und getestet (Stand: Juli 2026)
+### Implementiert und getestet
 
 | Komponente | Status | Dateien |
 |---|---|---|
 | SQL Version Catalog | ✅ implementiert | `Catalogs/sql-server-versions.json` (2019, 2022, 2025) |
-| Lab CLI (Public API) | ✅ 11 Cmdlets | `Public/*.ps1` |
+| Lab CLI (Public API) | ✅ 12 Cmdlets | `Public/*.ps1` |
 | Planner und Resource Assessment | ✅ implementiert | `Private/ResourceAssessment.ps1` |
 | Run State und Cleanup Engine | ✅ implementiert | `Private/StateMachine.ps1`, `Private/CleanupEngine.ps1` |
-| Docker-Provider | ✅ implementiert | `Providers/Docker/DockerProvider.ps1` |
-| Podman-Provider | ✅ implementiert | `Providers/Podman/PodmanProvider.ps1` |
+| Docker-Provider | ✅ Produktiv | `Providers/Docker/DockerProvider.ps1` |
+| Podman-Provider | ✅ Produktiv | `Providers/Podman/PodmanProvider.ps1` |
 | Secret-Management (DPAPI) | ✅ implementiert | `Private/SecretProvider.ps1` |
 | SQL-Engine (3-stufig) | ✅ implementiert | `Private/SqlReadiness.ps1` (Microsoft.Data → System.Data → sqlcmd) |
-| Manifest-Parser | ✅ implementiert | `Private/ManifestParser.ps1` + `Schemas/example-lab.json` |
-| Interaktives Menue | ✅ implementiert | `Public/Invoke-SqlServerLab.ps1` (Provider-Auswahl) |
+| Manifest-Parser + Schema | ✅ implementiert | `Private/ManifestParser.ps1` + `Schemas/lab-manifest.schema.json` |
+| Server-Konfiguration | ✅ implementiert | `Private/ServerConfig.ps1` (Memory, TempDB, MaxDOP, Drives) |
+| Backup/Restore | ✅ implementiert | `Public/Restore-LabDatabase.ps1` (URL-Cache, FILELISTONLY, MOVE) |
+| Interaktives Menue | ✅ implementiert | `Public/Invoke-SqlServerLab.ps1` (Auto-Import, Provider-Auswahl) |
 | Integration-Tests | ✅ runtime-agnostisch | `Tests/Integration/Invoke-SmokeTest.ps1` (docker/podman auto-detect) |
 
 ### Cmdlet-Uebersicht
 
 | Cmdlet | Zweck |
 |---|---|
-| `Invoke-SqlServerLab` | Interaktives Menue mit Provider-Auswahl |
+| `Invoke-SqlServerLab` | Interaktives Menue mit Provider-Auswahl (Auto-Import) |
 | `New-SqlServerLab` | Neue Umgebung erstellen (Ad-hoc oder Manifest) |
 | `Get-SqlServerLab` | Status anzeigen (State + Live-Container-Status) |
 | `Stop-SqlServerLab` | Graceful Stop, Daten bleiben erhalten |
@@ -114,6 +116,7 @@ Die Forschungsanalyse dient ausschließlich der Auswahl bewährter Muster für d
 | `Clear-SqlServerLab` | Alle Lab-Container + State aufraeumen |
 | `New-LabDatabase` | Datenbank mit Multi-File-Specs erstellen |
 | `Invoke-LabScript` | T-SQL-Skript ausfuehren (GO-Batch-Splitting, -KeepConnection) |
+| `Restore-LabDatabase` | RESTORE aus URL/Datei (Cache, FILELISTONLY, WITH MOVE) |
 | `Test-LabResources` | Ressourcen pruefen ohne Mutation |
 
 ### Provider-Unterstuetzung
@@ -124,13 +127,22 @@ Die Forschungsanalyse dient ausschließlich der Auswahl bewährter Muster für d
 | Podman | ✅ Produktiv | `podman` CLI-Befehl |
 | Hyper-V | ⬜ geplant | `Get-VM` Cmdlet |
 
-Auf Dual-Systemen (Docker + Podman) werden beide Provider erkannt und im interaktiven Menue zur Auswahl angeboten. Der Smoke-Test prueft alle installierten Runtimes.
+### Manifest-Features (serverConfig)
+
+| Feature | T-SQL / Methode |
+|---|---|
+| `defaultPaths` (data, log, backup) | xp_instance_regwrite |
+| `memory` (min/max) | sp_configure |
+| `tempdb` (N Files, Pfade, Growth) | ALTER DATABASE tempdb |
+| `maxDop`, `costThreshold` | sp_configure |
+| `traceFlags` | DBCC TRACEON |
+| `drives` (Volume-Mounts) | docker/podman -v |
+| `recoveryModel`, `rcsi`, `queryStore` | ALTER DATABASE SET |
 
 ### Noch nicht implementiert
 
-- JSON-Schemas (Manifest-Validierung);
-- Backup-/Restore-Actions (AdventureWorks per URL);
 - Hyper-V-Provider;
-- Analyze- und Performance-Packages.
+- Analyze- und Performance-Packages;
+- Public Sample Catalog.
 
 Planungsdokumente sind kein Runtime-Nachweis.
