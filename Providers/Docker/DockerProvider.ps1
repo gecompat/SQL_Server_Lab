@@ -145,6 +145,7 @@ function New-DockerInstance {
         '-e', 'ACCEPT_EULA=Y',
         '-e', "MSSQL_SA_PASSWORD=$saPlain",
         '-e', 'MSSQL_PID=Developer',
+        '-e', 'MSSQL_AGENT_ENABLED=true',
         '--memory', $memoryLimit,
         '--cpus', $cpuLimit.ToString(),
         '--label', "sql-server-lab.run-id=$RunId",

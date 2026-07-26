@@ -196,11 +196,17 @@
         },
         "options": {
           "type": "object",
-          "description": "Datenbank-Optionen",
+          "description": "Datenbank-Optionen (ALTER DATABASE SET ...)",
           "properties": {
-            "queryStore": {
-              "type": "boolean",
-              "default": true
+            "recoveryModel": {
+              "type": "string",
+              "description": "Recovery Model (bestimmt Log-Verhalten und Backup-Strategie)",
+              "enum": [
+                "FULL",
+                "SIMPLE",
+                "BULK_LOGGED"
+              ],
+              "default": "FULL"
             },
             "compatibility": {
               "type": "integer",
@@ -210,6 +216,76 @@
                 160,
                 170
               ]
+            },
+            "queryStore": {
+              "oneOf": [
+                {
+                  "type": "boolean",
+                  "description": "Einfach an/aus"
+                },
+                {
+                  "$ref": "#/definitions/queryStoreConfig"
+                }
+              ],
+              "description": "Query Store: true/false oder detaillierte Konfiguration",
+              "default": true
+            },
+            "autoClose": {
+              "type": "boolean",
+              "description": "AUTO_CLOSE (IMMER OFF fuer Server-Betrieb!)",
+              "default": false
+            },
+            "autoShrink": {
+              "type": "boolean",
+              "description": "AUTO_SHRINK (IMMER OFF! Verursacht Fragmentierung)",
+              "default": false
+            },
+            "pageVerify": {
+              "type": "string",
+              "description": "PAGE_VERIFY (Integritaetspruefung)",
+              "enum": [
+                "CHECKSUM",
+                "TORN_PAGE_DETECTION",
+                "NONE"
+              ],
+              "default": "CHECKSUM"
+            },
+            "rcsi": {
+              "type": "boolean",
+              "description": "READ_COMMITTED_SNAPSHOT (verhindert Reader-Blocking)",
+              "default": false
+            },
+            "snapshotIsolation": {
+              "type": "boolean",
+              "description": "ALLOW_SNAPSHOT_ISOLATION",
+              "default": false
+            },
+            "delayedDurability": {
+              "type": "string",
+              "description": "Delayed Durability (Performance vs. Durability Trade-off)",
+              "enum": [
+                "DISABLED",
+                "ALLOWED",
+                "FORCED"
+              ],
+              "default": "DISABLED"
+            },
+            "targetRecoveryTime": {
+              "type": "integer",
+              "description": "TARGET_RECOVERY_TIME in Sekunden (indirekte Checkpoints)",
+              "minimum": 0,
+              "default": 60,
+              "examples": [
+                10,
+                30,
+                60,
+                120
+              ]
+            },
+            "maxDop": {
+              "type": "integer",
+              "description": "Database-scoped MAXDOP (ueberschreibt Server-Setting fuer diese DB)",
+              "minimum": 0
             }
           },
           "additionalProperties": false
@@ -400,6 +476,89 @@
               "remote admin connections": 1
             }
           ]
+        },
+        "defaultPaths": {
+          "type": "object",
+          "description": "Default-Pfade fuer neue Datenbanken und Backups (Registry-Aequivalent)",
+          "properties": {
+            "data": {
+              "type": "string",
+              "description": "Default-Pfad fuer Data-Files",
+              "examples": [
+                "/sqldata",
+                "/var/opt/mssql/data",
+                "D:\\Data"
+              ]
+            },
+            "log": {
+              "type": "string",
+              "description": "Default-Pfad fuer Log-Files",
+              "examples": [
+                "/sqllog",
+                "/var/opt/mssql/log",
+                "L:\\Log"
+              ]
+            },
+            "backup": {
+              "type": "string",
+              "description": "Default-Pfad fuer Backups",
+              "examples": [
+                "/backup",
+                "/var/opt/mssql/backup",
+                "B:\\Backup"
+              ]
+            },
+            "tempdb": {
+              "type": "string",
+              "description": "Default-Pfad fuer TempDB-Files (wenn nicht explizit in tempdb-Config)",
+              "examples": [
+                "/tempdb",
+                "T:\\TempDB"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "sqlAgent": {
+          "type": "boolean",
+          "description": "SQL Server Agent aktivieren (fuer Job-Demos)",
+          "default": false
+        },
+        "clrEnabled": {
+          "type": "boolean",
+          "description": "CLR Integration aktivieren",
+          "default": false
+        },
+        "filestream": {
+          "type": "boolean",
+          "description": "FILESTREAM aktivieren (fuer BLOB-Storage-Demos)",
+          "default": false
+        },
+        "containedDatabases": {
+          "type": "boolean",
+          "description": "Contained Database Authentication aktivieren",
+          "default": false
+        },
+        "authMode": {
+          "type": "string",
+          "description": "Authentifizierungsmodus",
+          "enum": [
+            "mixed",
+            "windows"
+          ],
+          "default": "mixed"
+        },
+        "errorLogRetention": {
+          "type": "integer",
+          "description": "Anzahl SQL-Error-Logs die aufbewahrt werden",
+          "minimum": 1,
+          "maximum": 99,
+          "default": 6
+        },
+        "instantFileInit": {
+          "type": "boolean",
+          "description": "Instant File Initialization (Performance: Data-Files schneller erstellen)",
+          "default": true
         }
       },
       "additionalProperties": false
@@ -577,6 +736,77 @@
           "type": "integer",
           "description": "Maximale Dateigroesse in MB (MAXSIZE). -1 = UNLIMITED.",
           "default": -1
+        }
+      },
+      "additionalProperties": false
+    },
+    "queryStoreConfig": {
+      "type": "object",
+      "description": "Detaillierte Query-Store-Konfiguration",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "operationMode": {
+          "type": "string",
+          "enum": [
+            "READ_WRITE",
+            "READ_ONLY"
+          ],
+          "default": "READ_WRITE"
+        },
+        "captureMode": {
+          "type": "string",
+          "description": "Welche Queries erfasst werden",
+          "enum": [
+            "ALL",
+            "AUTO",
+            "CUSTOM",
+            "NONE"
+          ],
+          "default": "AUTO"
+        },
+        "maxSizeMB": {
+          "type": "integer",
+          "description": "Maximale Groesse des Query Store",
+          "default": 1000,
+          "examples": [
+            100,
+            500,
+            1000,
+            2000
+          ]
+        },
+        "intervalMinutes": {
+          "type": "integer",
+          "description": "Statistik-Aggregationsintervall (Minuten)",
+          "enum": [
+            1,
+            5,
+            10,
+            15,
+            30,
+            60,
+            1440
+          ],
+          "default": 60
+        },
+        "staleQueryThresholdDays": {
+          "type": "integer",
+          "description": "Wie lange Query-Daten aufbewahrt werden (Tage)",
+          "default": 30,
+          "examples": [
+            7,
+            30,
+            60,
+            90
+          ]
+        },
+        "waitStatsCapture": {
+          "type": "boolean",
+          "description": "Wait Statistics im Query Store erfassen",
+          "default": true
         }
       },
       "additionalProperties": false

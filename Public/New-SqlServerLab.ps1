@@ -271,6 +271,16 @@ function New-SqlServerLab {
                         -Options $db.options
 
                     $labInst.Databases += $db.name
+
+                    # DB-Optionen anwenden (Recovery Model, RCSI, Query Store, etc.)
+                    if ($db.options) {
+                        Set-LabDatabaseOptions `
+                            -DatabaseName $db.name `
+                            -Options $db.options `
+                            -HostName $labInst.Host `
+                            -Port $labInst.Port `
+                            -SaPassword $SaPassword
+                    }
                 }
             }
             $null = Set-LabRunState -RunId $runState.RunId -NewState 'DATABASES_CREATED' -Reason 'Datenbanken angelegt' -StateRoot $StateRoot

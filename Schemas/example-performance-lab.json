@@ -74,7 +74,15 @@
         "spConfigure": {
           "optimize for ad hoc workloads": 1,
           "remote admin connections": 1
-        }
+        },
+        "defaultPaths": {
+          "data": "/sqldata",
+          "log": "/sqllog",
+          "backup": "/backup",
+          "tempdb": "/tempdb"
+        },
+        "sqlAgent": true,
+        "errorLogRetention": 12
       },
       "databases": [
         {
@@ -105,8 +113,22 @@
             ]
           },
           "options": {
-            "queryStore": true,
-            "compatibility": 170
+            "queryStore": {
+              "enabled": true,
+              "captureMode": "AUTO",
+              "maxSizeMB": 2000,
+              "intervalMinutes": 5,
+              "staleQueryThresholdDays": 60,
+              "waitStatsCapture": true
+            },
+            "compatibility": 170,
+            "recoveryModel": "FULL",
+            "autoClose": false,
+            "autoShrink": false,
+            "pageVerify": "CHECKSUM",
+            "rcsi": true,
+            "targetRecoveryTime": 30,
+            "delayedDurability": "DISABLED"
           }
         }
       ],
