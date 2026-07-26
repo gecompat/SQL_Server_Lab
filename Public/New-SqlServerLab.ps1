@@ -226,12 +226,18 @@ function New-SqlServerLab {
         if ($hasPostProvision) {
             foreach ($inst in $resolved.instances) {
                 $labInst = $labInstances | Where-Object { $_.Id -eq $inst.id }
+                # Zieldatenbank fuer PostProvision: erste DB der Instanz (oder master)
+                $postDb = if ($inst.databases.Count -gt 0) { $inst.databases[0].name } else { 'master' }
+
                 foreach ($script in $inst.postProvision) {
-                    Write-LabInfo "PostProvision: $(Split-Path $script -Leaf) auf '$($inst.id)'..."
+                    Write-LabInfo "PostProvision: $(Split-Path $script -Leaf) auf '$($inst.id)/$postDb'..."
                     $result = Invoke-LabSqlScript `
                         -ScriptPath $script `
+                        -HostName $labInst.Host `
                         -Port $labInst.Port `
-                        -SaPassword $SaPassword
+                        -SaPassword $SaPassword `
+                        -Database $postDb `
+                        -KeepConnection
 
                     if ($result.Success) {
                         Write-LabSuccess "  $($result.Message) ($($result.Batches) Batches, $($result.Duration.TotalSeconds.ToString('F1'))s)"
