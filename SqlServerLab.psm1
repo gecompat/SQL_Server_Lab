@@ -27,7 +27,7 @@ if (Test-Path $catalogFile) {
 $script:RegisteredProviders = @{}
 if (Test-Path $script:ProvidersPath) {
     # Alle .ps1 und .psm1 aus Provider-Unterordnern laden
-    $providerScripts = Get-ChildItem -Path $script:ProvidersPath -Include '*.ps1','*.psm1' -Recurse -File
+    $providerScripts = Get-ChildItem -Path $script:ProvidersPath -Recurse -File | Where-Object { $_.Extension -in '.ps1', '.psm1' }
     foreach ($pScript in $providerScripts) {
         try {
             . $pScript.FullName
