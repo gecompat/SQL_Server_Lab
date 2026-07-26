@@ -48,11 +48,17 @@ if (Test-Path $script:ProvidersPath) {
         if (Test-Path $providerJson) {
             try {
                 $providerDef = Get-Content $providerJson -Raw | ConvertFrom-Json
+                $modulePath = Join-Path $dir.FullName $providerDef.module
                 $script:RegisteredProviders[$providerDef.name] = @{
                     Definition = $providerDef
                     Path       = $dir.FullName
-                    Module     = Join-Path $dir.FullName $providerDef.module
+                    Module     = $modulePath
                     Loaded     = $false
+                }
+                # Provider-Modul sofort laden
+                if (Test-Path $modulePath) {
+                    . $modulePath
+                    $script:RegisteredProviders[$providerDef.name].Loaded = $true
                 }
             }
             catch {
