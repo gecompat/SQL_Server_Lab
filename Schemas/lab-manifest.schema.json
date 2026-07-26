@@ -586,6 +586,108 @@
           "type": "boolean",
           "description": "Instant File Initialization (Performance: Data-Files schneller erstellen)",
           "default": true
+        },
+        "externalScripts": {
+          "type": "object",
+          "description": "External Scripts / ML Services Konfiguration (sp_execute_external_script)",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "sp_configure 'external scripts enabled', 1 (erfordert Neustart)",
+              "default": false
+            },
+            "languages": {
+              "type": "array",
+              "description": "Zu installierende Sprachen",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "Sprachname",
+                    "enum": [
+                      "R",
+                      "Python",
+                      "Java"
+                    ]
+                  },
+                  "packages": {
+                    "type": "array",
+                    "description": "Zusaetzliche Pakete (R: CRAN, Python: pip, Java: Maven coords)",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "description": "Paketname (z.B. 'tidyverse', 'scikit-learn', 'com.microsoft:mssql-jdbc')"
+                        },
+                        "version": {
+                          "type": "string",
+                          "description": "Optionale Version"
+                        },
+                        "scope": {
+                          "type": "string",
+                          "enum": [
+                            "instance",
+                            "database"
+                          ],
+                          "description": "Installationsscope",
+                          "default": "instance"
+                        }
+                      },
+                      "required": [
+                        "name"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "name"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "resourceGovernor": {
+              "type": "object",
+              "description": "Resource Governor fuer External Scripts (verhindert CPU/RAM-Monopol)",
+              "properties": {
+                "maxMemoryPercent": {
+                  "type": "integer",
+                  "description": "Max % des Server-RAM fuer externe Skripte",
+                  "minimum": 5,
+                  "maximum": 70,
+                  "default": 20
+                },
+                "maxProcesses": {
+                  "type": "integer",
+                  "description": "Max parallele externe Prozesse",
+                  "minimum": 1,
+                  "default": 4
+                }
+              },
+              "additionalProperties": false
+            },
+            "customImage": {
+              "type": "string",
+              "description": "Alternatives Docker-Image MIT ML Services (statt Post-Install). Ueberschreibt das Standard-Image.",
+              "examples": [
+                "mcr.microsoft.com/mssql/server:2022-latest",
+                "myregistry.io/mssql-ml:2022-CU18"
+              ]
+            },
+            "installMethod": {
+              "type": "string",
+              "description": "Wie ML Services installiert werden",
+              "enum": [
+                "post-start",
+                "custom-image",
+                "pre-built"
+              ],
+              "default": "post-start"
+            }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false

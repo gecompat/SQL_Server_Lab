@@ -287,6 +287,175 @@ function Set-LabDatabaseOptions {
     $saPlain = $null
 }
 
+function Install-LabExternalLanguages {
+    <#
+    .SYNOPSIS Installiert ML Services / External Languages im Container.
+    .DESCRIPTION
+        Fuehrt apt-get install fuer die benoetigten mssql-mlservices-Pakete aus,
+        aktiviert sp_configure 'external scripts enabled' und restartert SQL.
+        Unterstuetzt R, Python und Java (Extensibility Framework).
+    .PARAMETER ContainerName Name des laufenden Containers.
+    .PARAMETER Config Das externalScripts-Objekt aus dem Manifest.
+    .PARAMETER Port SQL-Server-Port (fuer sp_configure nach Restart).
+    .PARAMETER SaPassword SA-Passwort als SecureString.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$ContainerName,
+        [Parameter(Mandatory)]$Config,
+        [Parameter(Mandatory)][int]$Port,
+        [Parameter(Mandatory)][SecureString]$SaPassword,
+        [string]$HostName = '127.0.0.1'
+    )
+
+    $rt = Get-ContainerRuntime
+    $saPlain = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto(
+        [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword))
+
+    # =========================================================================
+    # 1. Pakete bestimmen
+    # =========================================================================
+    $aptPackages = @()
+    $languages = @()
+
+    if ($Config.languages) {
+        foreach ($lang in $Config.languages) {
+            switch ($lang.name) {
+                'R' {
+                    $aptPackages += 'mssql-mlservices-mlm-r'
+                    $aptPackages += 'mssql-server-extensibility'
+                    $languages += 'R'
+                }
+                'Python' {
+                    $aptPackages += 'mssql-mlservices-mlm-py'
+                    $aptPackages += 'mssql-server-extensibility'
+                    $languages += 'Python'
+                }
+                'Java' {
+                    $aptPackages += 'mssql-server-extensibility-java'
+                    $languages += 'Java'
+                }
+            }
+        }
+    }
+
+    $aptPackages = $aptPackages | Sort-Object -Unique
+
+    if ($aptPackages.Count -eq 0) {
+        Write-LabWarning "Keine External Languages konfiguriert."
+        return
+    }
+
+    Write-LabInfo "External Languages installieren: $($languages -join ', ')"
+
+    # =========================================================================
+    # 2. Im Container installieren (apt-get)
+    # =========================================================================
+    if ($Config.installMethod -ne 'custom-image') {
+        Write-LabInfo "  apt-get install: $($aptPackages -join ' ')"
+
+        # ACCEPT_EULA fuer mlservices
+        $installCmd = "ACCEPT_EULA=Y apt-get update && ACCEPT_EULA=Y apt-get install -y $($aptPackages -join ' ')"
+        $result = & $rt exec $ContainerName bash -c $installCmd 2>&1
+
+        if ($LASTEXITCODE -ne 0) {
+            $errMsg = ($result | Where-Object { $_ -is [string] }) -join "`n"
+            Write-LabWarning "  ML Services Installation fehlgeschlagen: $errMsg"
+            Write-LabWarning "  Alternative: 'installMethod: custom-image' mit vorgebautem Image verwenden."
+            return
+        }
+
+        Write-LabSuccess "  ML Services Pakete installiert."
+
+        # SQL Server Restart im Container (noetig fuer External Scripts)
+        Write-LabInfo "  SQL Server Restart (fuer External Scripts)..."
+        & $rt exec $ContainerName bash -c "/opt/mssql/bin/mssql-conf set extensibility enabled && systemctl restart mssql-server" 2>$null
+        # Alternativ: Container Restart
+        if ($LASTEXITCODE -ne 0) {
+            & $rt restart $ContainerName 2>$null
+        }
+
+        # Warten bis SQL wieder bereit
+        Start-Sleep -Seconds 5
+        Wait-SqlReady -HostName $HostName -Port $Port -TimeoutSeconds 60
+    }
+
+    # =========================================================================
+    # 3. sp_configure aktivieren
+    # =========================================================================
+    if ($Config.enabled -ne $false) {
+        $sql = @"
+EXEC sp_configure 'show advanced options', 1;
+RECONFIGURE;
+EXEC sp_configure 'external scripts enabled', 1;
+RECONFIGURE;
+"@
+        try {
+            Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $saPlain `
+                -Query $sql -Database 'master' -TimeoutSeconds 30
+            Write-LabSuccess "  External Scripts aktiviert (sp_configure)."
+        }
+        catch {
+            Write-LabWarning "  sp_configure fehlgeschlagen: $_"
+        }
+    }
+
+    # =========================================================================
+    # 4. Resource Governor (optional)
+    # =========================================================================
+    if ($Config.resourceGovernor) {
+        $memPct = if ($Config.resourceGovernor.maxMemoryPercent) { $Config.resourceGovernor.maxMemoryPercent } else { 20 }
+        $sql = @"
+ALTER EXTERNAL RESOURCE POOL [default]
+    WITH (MAX_MEMORY_PERCENT = $memPct);
+ALTER RESOURCE GOVERNOR RECONFIGURE;
+"@
+        try {
+            Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $saPlain `
+                -Query $sql -Database 'master' -TimeoutSeconds 30
+            Write-LabInfo "  Resource Governor: External Pool max $memPct% RAM."
+        }
+        catch {
+            Write-LabWarning "  Resource Governor Konfiguration fehlgeschlagen: $_"
+        }
+    }
+
+    # =========================================================================
+    # 5. Zusaetzliche Pakete installieren (R/Python/Java)
+    # =========================================================================
+    foreach ($lang in $Config.languages) {
+        if (-not $lang.packages -or $lang.packages.Count -eq 0) { continue }
+
+        switch ($lang.name) {
+            'R' {
+                foreach ($pkg in $lang.packages) {
+                    $rCmd = "Rscript -e `"install.packages('$($pkg.name)', repos='https://cran.r-project.org')`""
+                    Write-LabInfo "  R-Paket: $($pkg.name)"
+                    & $rt exec $ContainerName bash -c $rCmd 2>$null
+                }
+            }
+            'Python' {
+                foreach ($pkg in $lang.packages) {
+                    $pipPkg = if ($pkg.version) { "$($pkg.name)==$($pkg.version)" } else { $pkg.name }
+                    Write-LabInfo "  Python-Paket: $pipPkg"
+                    & $rt exec $ContainerName bash -c "pip install $pipPkg" 2>$null
+                }
+            }
+            'Java' {
+                foreach ($pkg in $lang.packages) {
+                    # Java: CREATE EXTERNAL LIBRARY in SQL
+                    Write-LabInfo "  Java-Library: $($pkg.name) (via CREATE EXTERNAL LIBRARY)"
+                    # Muss als .jar bereitgestellt werden - hier nur Hinweis
+                    Write-LabWarning "    Java-JARs muessen manuell via CREATE EXTERNAL LIBRARY registriert werden."
+                }
+            }
+        }
+    }
+
+    $saPlain = $null
+    Write-LabSuccess "External Languages Setup abgeschlossen: $($languages -join ', ')"
+}
+
 function Resolve-GrowthClause {
     <#
     .SYNOPSIS Konvertiert Growth-String ('64MB' oder '10%') in SQL-Klausel.

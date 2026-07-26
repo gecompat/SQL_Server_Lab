@@ -1,0 +1,87 @@
+{
+  "$schema": "../Schemas/lab-manifest.schema.json",
+  "name": "ml-services-lab",
+  "description": "SQL Server mit R, Python und Java fuer In-Database ML und Extensibility",
+  "instances": [
+    {
+      "id": "ml-server",
+      "version": "2022",
+      "provider": "docker",
+      "profile": "performance",
+      "serverConfig": {
+        "memory": {
+          "maxMB": 8192
+        },
+        "maxDop": 4,
+        "externalScripts": {
+          "enabled": true,
+          "installMethod": "post-start",
+          "languages": [
+            {
+              "name": "Python",
+              "packages": [
+                {
+                  "name": "scikit-learn"
+                },
+                {
+                  "name": "pandas"
+                },
+                {
+                  "name": "numpy"
+                },
+                {
+                  "name": "xgboost",
+                  "version": "2.0.0"
+                }
+              ]
+            },
+            {
+              "name": "R",
+              "packages": [
+                {
+                  "name": "tidyverse"
+                },
+                {
+                  "name": "caret"
+                },
+                {
+                  "name": "forecast"
+                }
+              ]
+            },
+            {
+              "name": "Java"
+            }
+          ],
+          "resourceGovernor": {
+            "maxMemoryPercent": 30,
+            "maxProcesses": 8
+          }
+        }
+      },
+      "databases": [
+        {
+          "name": "MLWorkspace",
+          "options": {
+            "recoveryModel": "SIMPLE",
+            "compatibility": 160,
+            "rcsi": true
+          }
+        },
+        {
+          "name": "AdventureWorks2022",
+          "sample": {
+            "id": "adventureworks-2022",
+            "variant": "full"
+          },
+          "options": {
+            "recoveryModel": "SIMPLE"
+          }
+        }
+      ],
+      "postProvision": [
+        "setup-ml-demo.sql"
+      ]
+    }
+  ]
+}

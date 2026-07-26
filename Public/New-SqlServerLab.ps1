@@ -248,6 +248,17 @@ function New-SqlServerLab {
                     -Port $labInst.Port `
                     -SaPassword $SaPassword `
                     -ContainerName $labInst.ContainerName
+
+                # External Languages (R, Python, Java) installieren
+                if ($inst.serverConfig.externalScripts -and $inst.serverConfig.externalScripts.languages) {
+                    Write-LabInfo "External Languages auf '$($inst.id)' installieren..."
+                    Install-LabExternalLanguages `
+                        -ContainerName $labInst.ContainerName `
+                        -Config $inst.serverConfig.externalScripts `
+                        -HostName $labInst.Host `
+                        -Port $labInst.Port `
+                        -SaPassword $SaPassword
+                }
             }
         }
 
