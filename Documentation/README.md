@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING_INDEX` |
-| Stand | 2026-07-26 |
+| Stand | 2026-07-27 |
 
 ## 1. Verbindliche Lesereihenfolge
 
@@ -84,41 +84,53 @@ Die Forschungsanalyse dient ausschließlich der Auswahl bewährter Muster für d
 
 ## 10. Aktueller Status
 
-### Implementiert und getestet (Smoke-Test: 29/29 PASS)
+### Implementiert und getestet (Stand: Juli 2026)
 
 | Komponente | Status | Dateien |
 |---|---|---|
 | SQL Version Catalog | ✅ implementiert | `Catalogs/sql-server-versions.json` (2019, 2022, 2025) |
-| Lab CLI (Public API) | ✅ 9 Cmdlets | `Public/*.ps1` |
+| Lab CLI (Public API) | ✅ 11 Cmdlets | `Public/*.ps1` |
 | Planner und Resource Assessment | ✅ implementiert | `Private/ResourceAssessment.ps1` |
 | Run State und Cleanup Engine | ✅ implementiert | `Private/StateMachine.ps1`, `Private/CleanupEngine.ps1` |
 | Docker-Provider | ✅ implementiert | `Providers/Docker/DockerProvider.ps1` |
+| Podman-Provider | ✅ implementiert | `Providers/Podman/PodmanProvider.ps1` |
 | Secret-Management (DPAPI) | ✅ implementiert | `Private/SecretProvider.ps1` |
-| SQL-Readiness und Query-Engine | ✅ implementiert | `Private/SqlReadiness.ps1` |
-| Integration-Tests | ✅ 29 Assertions | `Tests/Integration/Invoke-SmokeTest.ps1` |
+| SQL-Engine (3-stufig) | ✅ implementiert | `Private/SqlReadiness.ps1` (Microsoft.Data → System.Data → sqlcmd) |
+| Manifest-Parser | ✅ implementiert | `Private/ManifestParser.ps1` + `Schemas/example-lab.json` |
+| Interaktives Menue | ✅ implementiert | `Public/Invoke-SqlServerLab.ps1` (Provider-Auswahl) |
+| Integration-Tests | ✅ runtime-agnostisch | `Tests/Integration/Invoke-SmokeTest.ps1` (docker/podman auto-detect) |
 
 ### Cmdlet-Uebersicht
 
 | Cmdlet | Zweck |
 |---|---|
+| `Invoke-SqlServerLab` | Interaktives Menue mit Provider-Auswahl |
 | `New-SqlServerLab` | Neue Umgebung erstellen (Ad-hoc oder Manifest) |
-| `Get-SqlServerLab` | Status anzeigen (State + Live-Docker-Status) |
+| `Get-SqlServerLab` | Status anzeigen (State + Live-Container-Status) |
 | `Stop-SqlServerLab` | Graceful Stop, Daten bleiben erhalten |
 | `Start-SqlServerLab` | Gestoppte Umgebung starten + SQL-Readiness |
 | `Restart-SqlServerLab` | Stop + Start in einem Aufruf |
 | `Remove-SqlServerLab` | Umgebung entfernen (Scope-validiert) |
 | `Clear-SqlServerLab` | Alle Lab-Container + State aufraeumen |
 | `New-LabDatabase` | Datenbank mit Multi-File-Specs erstellen |
-| `Invoke-LabScript` | T-SQL-Skript ausfuehren (GO-Batch-Splitting) |
+| `Invoke-LabScript` | T-SQL-Skript ausfuehren (GO-Batch-Splitting, -KeepConnection) |
 | `Test-LabResources` | Ressourcen pruefen ohne Mutation |
+
+### Provider-Unterstuetzung
+
+| Provider | Status | Runtime-Erkennung |
+|---|---|---|
+| Docker | ✅ Produktiv | `docker` CLI-Befehl |
+| Podman | ✅ Produktiv | `podman` CLI-Befehl |
+| Hyper-V | ⬜ geplant | `Get-VM` Cmdlet |
+
+Auf Dual-Systemen (Docker + Podman) werden beide Provider erkannt und im interaktiven Menue zur Auswahl angeboten. Der Smoke-Test prueft alle installierten Runtimes.
 
 ### Noch nicht implementiert
 
 - JSON-Schemas (Manifest-Validierung);
-- Public Sample Catalog;
-- Podman- und Hyper-V-Provider;
-- Backup-/Restore-Actions;
-- Analyze- und Performance-Packages;
-- `Invoke-SqlServerLab` (interaktives Menue).
+- Backup-/Restore-Actions (AdventureWorks per URL);
+- Hyper-V-Provider;
+- Analyze- und Performance-Packages.
 
 Planungsdokumente sind kein Runtime-Nachweis.

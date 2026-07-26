@@ -3,7 +3,7 @@
 ## Voraussetzungen
 
 - PowerShell 7.2 oder hoeher (`pwsh`)
-- Docker Desktop oder Docker Engine (laufend)
+- Container-Runtime: **Docker** oder **Podman** (mindestens eines muss laufen)
 - Mindestens 4 GB freier RAM
 - Mindestens 5 GB freier Speicherplatz
 
@@ -14,11 +14,16 @@ $PSVersionTable.PSVersion
 # Erwartet: 7.2 oder hoeher
 ```
 
-### Docker pruefen
+### Container-Runtime pruefen
 
 ```powershell
+# Docker:
 docker info
-# Muss ohne Fehler antworten
+
+# ODER Podman:
+podman info
+
+# Mindestens eines muss ohne Fehler antworten
 ```
 
 ---
@@ -39,25 +44,36 @@ cd E:\GIT\gecomp\publ\SQL_Server_Lab
 Import-Module .\SqlServerLab.psd1 -Force
 ```
 
-Erfolgsmeldung (Verbose):
+Erfolgsmeldung:
 
 ```text
-VERBOSE: SqlServerLab v0.1.0 geladen. Provider: docker
+[LOAD] Provider: DockerProvider.ps1
+[LOAD] Provider: PodmanProvider.ps1
+[LOAD] SqlServerLab geladen. Provider: docker, podman
 ```
+
+(Es werden nur die Provider geladen, deren Verzeichnis unter `Providers/` existiert.)
 
 ---
 
 ## 3. Schnelltest: Eine SQL-Server-Instanz erstellen
 
 ```powershell
-$lab = New-SqlServerLab -Version '2025' -Provider Docker
+# Mit Docker:
+$lab = New-SqlServerLab -Version '2025' -Provider docker
+
+# Mit Podman:
+$lab = New-SqlServerLab -Version '2025' -Provider podman
+
+# Interaktiv (erkennt Provider automatisch, fragt bei mehreren):
+Invoke-SqlServerLab
 ```
 
 Das Cmdlet:
 
-1. Prueft Ressourcen (RAM, Storage, Ports, Docker)
+1. Prueft Ressourcen (RAM, Storage, Ports, Container-Runtime)
 2. Fragt das SA-Passwort ab (Komplexitaetsanforderungen: 8+ Zeichen, Gross/Klein/Zahl/Sonderzeichen)
-3. Erstellt einen Docker-Container mit SQL Server 2025
+3. Erstellt einen Container mit SQL Server 2025
 4. Wartet bis SQL Server antwortet (max 120 Sekunden)
 5. Gibt Verbindungsinformationen aus
 
