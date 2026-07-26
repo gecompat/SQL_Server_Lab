@@ -108,15 +108,26 @@ Assert-True 'New-SqlServerLab verfuegbar' `
     ($null -ne (Get-Command New-SqlServerLab -ErrorAction SilentlyContinue)) `
     'Cmdlet nicht gefunden'
 
-# Alle Provider-Funktionen pruefen (nicht nur den gewaehlten)
+# Alle registrierten Provider dynamisch aus Providers/ ermitteln
+$providersDir = Join-Path $PSScriptRoot '..\..\Providers' | Resolve-Path
+$script:RegisteredProviders = Get-ChildItem -Path $providersDir -Directory | ForEach-Object { $_.Name.ToLower() }
 $script:AvailableRuntimes = @()
-foreach ($rt in @('docker', 'podman')) {
-    $testFn = if ($rt -eq 'podman') { 'Test-PodmanAvailable' } else { 'Test-DockerAvailable' }
+
+Write-Host "    Registrierte Provider: $($script:RegisteredProviders -join ', ')" -ForegroundColor DarkGray
+
+foreach ($rt in $script:RegisteredProviders) {
+    # Provider-Test-Funktion pruefen (Konvention: Test-<Name>Available)
+    $capitalizedRt = $rt.Substring(0,1).ToUpper() + $rt.Substring(1)
+    $testFn = "Test-${capitalizedRt}Available"
     $fnExists = $null -ne (Get-Module SqlServerLab | ForEach-Object { & $_.NewBoundScriptBlock([scriptblock]::Create("Get-Command $testFn -ErrorAction SilentlyContinue")) })
     Assert-True "$testFn intern verfuegbar" $fnExists 'Provider-Funktion nicht im Modul-Scope'
 
-    # Runtime-Befehl installiert?
-    if (Get-Command $rt -ErrorAction SilentlyContinue) {
+    # Runtime-Befehl installiert? (container-basierte: docker, podman; vm-basierte: hyperv -> Get-VM)
+    $runtimeCmd = switch ($rt) {
+        'hyperv' { 'Get-VM' }
+        default  { $rt }
+    }
+    if (Get-Command $runtimeCmd -ErrorAction SilentlyContinue) {
         $script:AvailableRuntimes += $rt
     }
 }
