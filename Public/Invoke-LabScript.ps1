@@ -35,7 +35,11 @@ function Invoke-LabScript {
         [string]$InstanceId = 'primary',
 
         [Parameter(ParameterSetName = 'RunBased')]
-        [string]$StateRoot
+        [string]$StateRoot,
+
+        [Parameter()]
+        [Alias('SingleConnection')]
+        [switch]$KeepConnection
     )
 
     $ErrorActionPreference = 'Stop'
@@ -68,12 +72,16 @@ function Invoke-LabScript {
 
     Write-LabInfo "Skript ausfuehren: $(Split-Path $ScriptPath -Leaf) -> $HostName`:$Port/$Database"
 
-    $result = Invoke-LabSqlScript `
-        -ScriptPath $ScriptPath `
-        -HostName $HostName `
-        -Port $Port `
-        -SaPassword $SaPassword `
-        -Database $Database
+    $scriptParams = @{
+        ScriptPath = $ScriptPath
+        HostName   = $HostName
+        Port       = $Port
+        SaPassword = $SaPassword
+        Database   = $Database
+    }
+    if ($KeepConnection) { $scriptParams['KeepConnection'] = $true }
+
+    $result = Invoke-LabSqlScript @scriptParams
 
     if ($result.Success) {
         Write-LabSuccess "$($result.Message) ($($result.Batches) Batches, $($result.Duration.TotalSeconds.ToString('F1'))s)"
