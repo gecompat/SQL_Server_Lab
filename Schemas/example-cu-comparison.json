@@ -1,0 +1,58 @@
+{
+  "$schema": "../Schemas/lab-manifest.schema.json",
+  "name": "cu-vergleich-2022",
+  "description": "Vergleich zweier CU-Versionen mit identischer Datenbank (Regressionstests)",
+  "instances": [
+    {
+      "id": "cu16",
+      "version": "2022-CU16",
+      "provider": "docker",
+      "profile": "standard",
+      "serverConfig": {
+        "memory": {
+          "maxMB": 2048
+        },
+        "maxDop": 2
+      },
+      "databases": [
+        {
+          "name": "AdventureWorks2022",
+          "sample": {
+            "id": "adventureworks-2022",
+            "variant": "full"
+          },
+          "options": {
+            "queryStore": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "cu18",
+      "version": "2022-CU18",
+      "provider": "docker",
+      "profile": "standard",
+      "serverConfig": {
+        "memory": {
+          "maxMB": 2048
+        },
+        "maxDop": 2
+      },
+      "databases": [
+        {
+          "name": "AdventureWorks2022",
+          "sample": {
+            "id": "adventureworks-2022",
+            "variant": "full"
+          },
+          "options": {
+            "queryStore": true
+          }
+        }
+      ]
+    }
+  ],
+  "postProvision": [
+    "verify-plans.sql"
+  ]
+}
