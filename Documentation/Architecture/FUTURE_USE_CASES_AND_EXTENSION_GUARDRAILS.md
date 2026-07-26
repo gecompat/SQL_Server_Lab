@@ -394,15 +394,28 @@ Die Erweiterung ist nur zulässig, wenn sie einen konkreten SQL-Server-Anwendung
 
 | Test | Status | Ergebnis |
 |---|---|---|
-| Test A – Docker SQL Quick Environment | ✅ PASS | Smoke-Test 29/29, Lifecycle komplett |
-| Test B – Podman-Paritaet | ✅ PASS | Container + SQL Ready, Labels identisch |
-| Test D – Performance Demo (Basis) | ✅ Teilweise | Manifest-Modus mit PostProvision funktional |
+| Test A – Docker SQL Quick Environment | ✅ PASS | Smoke-Test komplett, Lifecycle vollstaendig |
+| Test B – Podman-Paritaet | ✅ PASS | Volle Paritaet: Container, Labels, SQL Ready |
+| Test D – Performance Demo | ✅ PASS | Manifest mit serverConfig (TempDB, Memory, MaxDOP, Drives, Query Store) |
+
+### Implementierte Features (ueber Architekturtests hinaus)
+
+| Feature | Status | Dateien |
+|---|---|---|
+| JSON-Schema fuer Manifeste | ✅ implementiert | `Schemas/lab-manifest.schema.json` (VS Code auto-aktiv) |
+| Backup/Restore-Actions | ✅ implementiert | `Public/Restore-LabDatabase.ps1` (URL-Cache, FILELISTONLY, MOVE) |
+| Server-Konfiguration | ✅ implementiert | `Private/ServerConfig.ps1` (sp_configure, TempDB, Traces) |
+| Datenbank-Optionen | ✅ implementiert | Recovery Model, RCSI, Query Store, Delayed Durability |
+| Volume-Mounts (Drives) | ✅ implementiert | Docker + Podman: Host-Pfad oder Named Volume |
+| Default-Pfade (Backup!) | ✅ implementiert | xp_instance_regwrite + Container-mkdir |
+| SQL Agent | ✅ implementiert | MSSQL_AGENT_ENABLED=true (immer aktiv) |
+| Interaktives Menue | ✅ implementiert | Provider-Auswahl, Auto-Import |
 
 ### Noch ausstehend
 
 | Test | Naechster Schritt |
 |---|---|
-| Test C – Hyper-V SQL Server | Provider implementieren (Welle 7) |
+| Test C – Hyper-V SQL Server | Provider implementieren |
 | Test E – Analyze Szenario | Adapter zu SQL_Server_Analyze |
 | Test F – Domain Controller | Hyper-V-Prerequisite |
 | Test G – SQL-Integration | PolyBase oder Linked Server Demo |
@@ -412,8 +425,7 @@ Die Erweiterung ist nur zulässig, wenn sie einen konkreten SQL-Server-Anwendung
 | Prio | Feature | Abhaengigkeit |
 |---|---|---|
 | 1 | Hyper-V Provider | Windows Admin-Rechte + Hyper-V Feature |
-| 2 | JSON-Schema fuer Manifeste | Keine (standalone) |
-| 3 | Backup/Restore-Actions | Keine (RESTORE via sqlcmd) |
-| 4 | Multi-Instanz (2+ Container) | Container-Networking |
-| 5 | Performance-Schulungspaket | Adapter zu SQL_PerformanceSchulung |
-| 6 | Analyze-Integrationspaket | Adapter zu SQL_Server_Analyze |
+| 2 | Multi-Instanz (2+ Container) | Container-Networking |
+| 3 | Performance-Schulungspaket | Adapter zu SQL_PerformanceSchulung |
+| 4 | Analyze-Integrationspaket | Adapter zu SQL_Server_Analyze |
+| 5 | Public Sample Catalog | AdventureWorks, WideWorldImporters, etc. |

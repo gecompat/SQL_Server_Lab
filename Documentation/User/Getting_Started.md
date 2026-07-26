@@ -189,6 +189,87 @@ $lab = New-SqlServerLab -Manifest '.\mein-lab.json'
 
 ---
 
+## 5b. Erweitertes Manifest (Server-Konfiguration)
+
+Fuer Performance-Szenarien oder Schulungen:
+
+```json
+{
+  "instances": [{
+    "id": "primary",
+    "version": "2025",
+    "drives": [
+      { "id": "data", "containerPath": "/sqldata" },
+      { "id": "tempdb", "containerPath": "/tempdb" },
+      { "id": "backup", "containerPath": "/backup" }
+    ],
+    "serverConfig": {
+      "defaultPaths": { "data": "/sqldata", "log": "/sqldata", "backup": "/backup" },
+      "memory": { "maxMB": 4096 },
+      "maxDop": 4,
+      "costThreshold": 25,
+      "tempdb": {
+        "dataFiles": [
+          { "path": "/tempdb/tempdev1.mdf", "sizeMB": 256, "growth": "64MB" },
+          { "path": "/tempdb/tempdev2.ndf", "sizeMB": 256, "growth": "64MB" }
+        ]
+      },
+      "traceFlags": [3226, 7412],
+      "sqlAgent": true
+    },
+    "databases": [{
+      "name": "PerfDB",
+      "options": {
+        "recoveryModel": "FULL",
+        "rcsi": true,
+        "queryStore": { "captureMode": "AUTO", "maxSizeMB": 2000 }
+      }
+    }]
+  }]
+}
+```
+
+VS Code zeigt automatisch Autocomplete + Validierung dank `Schemas/lab-manifest.schema.json`.
+
+Vollstaendiges Beispiel: `Schemas/example-performance-lab.json`
+
+---
+
+## 5c. Backup/Restore (AdventureWorks etc.)
+
+Datenbank-Restore direkt im Manifest:
+
+```json
+{
+  "instances": [{
+    "id": "primary",
+    "version": "2022",
+    "databases": [{
+      "name": "AdventureWorks2022",
+      "restore": {
+        "source": "https://github.com/Microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorks2022.bak"
+      }
+    }]
+  }]
+}
+```
+
+Oder manuell:
+
+```powershell
+Restore-LabDatabase -RunId $lab.RunId `
+    -BackupUrl 'https://...AdventureWorks2022.bak' `
+    -DatabaseName 'AdventureWorks2022'
+```
+
+Das Cmdlet:
+1. Laedt die .bak-Datei in den lokalen Cache (`<StateRoot>/cache/backups/`)
+2. Kopiert sie in den Container
+3. Liest FILELISTONLY (ermittelt logische Dateinamen)
+4. Fuehrt RESTORE WITH MOVE aus (passt Pfade an Container an)
+
+---
+
 ## 6. Umgebung entfernen
 
 ```powershell
@@ -426,12 +507,15 @@ in einer **eigenen Connection** aus. Das bedeutet:
 
 | Cmdlet | Zweck |
 | --- | --- |
+| `Invoke-SqlServerLab` | **Interaktives Menue** (Einstiegspunkt, Auto-Import, Provider-Auswahl) |
 | `New-SqlServerLab` | Neue Lab-Umgebung erstellen (Ad-hoc oder Manifest) |
-| `Remove-SqlServerLab` | Einzelne Umgebung gezielt entfernen |
+| `Get-SqlServerLab` | Status anzeigen (State + Live-Container-Status) |
+| `Stop-SqlServerLab` | Graceful Stop, Daten bleiben erhalten |
+| `Start-SqlServerLab` | Gestoppte Umgebung starten + SQL-Readiness-Pruefung |
+| `Restart-SqlServerLab` | Stop + Start in einem Aufruf |
+| `Remove-SqlServerLab` | Einzelne Umgebung gezielt entfernen (Scope-validiert) |
 | `Clear-SqlServerLab` | Alle Lab-Container + State aufraeumen |
 | `New-LabDatabase` | Datenbank mit Multi-File-Specs erstellen |
-| `Invoke-LabScript` | T-SQL-Skript ausfuehren (GO-Batch-Splitting) |
+| `Invoke-LabScript` | T-SQL-Skript ausfuehren (GO-Batch-Splitting, -KeepConnection) |
+| `Restore-LabDatabase` | RESTORE aus URL/Datei (Cache, FILELISTONLY, WITH MOVE) |
 | `Test-LabResources` | Ressourcen pruefen ohne Mutation |
-| `Get-SqlServerLab` | *(geplant)* Status anzeigen |
-| `Start-SqlServerLab` | *(geplant)* Gestoppte Umgebung starten |
-| `Stop-SqlServerLab` | *(geplant)* Laufende Umgebung stoppen |
