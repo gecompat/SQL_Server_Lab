@@ -18,14 +18,14 @@ The complete terms are defined in [LICENCE.md](./LICENCE.md).
 
 ## Zweck
 
-`SQL_Server_Lab` wird die gemeinsame, projektunabhängige Bereitstellungs- und Szenarioplattform für reproduzierbare SQL-Server-Testumgebungen.
+`SQL_Server_Lab` wird die gemeinsame, projektunabhängige Bereitstellungs- und Szenarioplattform für reproduzierbare Testumgebungen mit SQL Server als erstem fachlichem Schwerpunkt.
 
 Das Repository ergänzt insbesondere:
 
 - [`gecompat/SQL_Server_Analyze`](https://github.com/gecompat/SQL_Server_Analyze),
 - [`gecompat/SQL_PerformanceSchulung`](https://github.com/gecompat/SQL_PerformanceSchulung).
 
-Es trennt Infrastruktur, Lifecycle, Ressourcensteuerung und Fault Injection von den fachlichen Inhalten der konsumierenden Projekte.
+Es trennt Infrastruktur, Lifecycle, Ressourcensteuerung und Fault Injection von den fachlichen Inhalten der konsumierenden Projekte. Die Core-Verträge werden technologieoffen angelegt, damit spätere Komponenten wie Hadoop-Cluster, REST-Dienste, Clientanwendungen oder weitere Datenplattformen ohne parallele Orchestrierung ergänzt werden können.
 
 ## Drei Nutzungsarten
 
@@ -35,13 +35,21 @@ Eine menügeführte Bereitstellung für Benutzer, die kurzfristig eine isolierte
 
 ### 2. Reproduzierbares Projektszenario
 
-Ein konsumierendes Repository fordert über einen versionierten Adapter und ein Szenariomanifest eine definierte Konstellation an. Das Lab prüft die Hostfähigkeiten, plant die benötigte Topologie und baut nur die tatsächlich erforderlichen Ressourcen auf.
+Ein konsumierendes Repository stellt ein versioniertes **Lab Package** bereit. Dieses beschreibt:
+
+- benötigte logische Komponenten und Beziehungen;
+- Installations- und Konfigurationsinhalte;
+- synthetische Testdaten und deren Verifikation;
+- Workloads, Beobachtungen und Assertions;
+- Ressourcen-, Safety-, Privacy- und Cleanup-Grenzen.
+
+Das Lab prüft Hostfähigkeiten, expandiert zusammengesetzte Komponenten, wählt passende Provider und erzeugt vor jeder Mutation einen vollständigen Plan.
 
 Beispiele:
 
 - Performance-Schulungsdemo mit kontrollierter Datenverteilung, Baseline, Last, Messung, Gegenmaßnahme und Cleanup;
 - Analyse-Szenario mit Blocking Chain, TempDB-Druck, I/O-Engpass, Netzwerkverzögerung oder versionsabhängigem SQL-Server-Verhalten;
-- Last- und Fault-Injection-Szenario mit klaren Ressourcen- und Sicherheitsgrenzen.
+- späteres Cluster- oder Service-Szenario mit SQL-Quelle, Hadoop-Verarbeitung und REST-basierter Ergebnisprüfung.
 
 ### 3. Frei konfigurierbare Labortopologie
 
@@ -56,24 +64,31 @@ Eine menügeführte oder deklarative Konfiguration für beliebige synthetische T
 | Hyper-V mit Windows-Gästen | Windows Authentication, SQL Server Agent, WSFC-/FCI- und Windows-spezifische Szenarien |
 | Hyper-V mit Linux-Gästen | kontrollierte Linux-, Netzwerk- und Storage-Szenarien |
 | Verteilte Ausführung | optionale Kombination eines Hyper-V-Hosts mit einem nativen Linux-Containerhost |
+| spätere Provider Plugins | beispielsweise Kubernetes, Remote Hosts oder andere ausdrücklich freigegebene Plattformen |
 
 Nicht jede Plattform kann jede Aussage gleichwertig nachweisen. Fehlende Capabilities führen zu einem strukturierten `NOT_EXECUTED` oder `UNSUPPORTED`, nicht zu einer vorgetäuschten Simulation.
 
 ## Architekturgrundsatz
 
-Das Lab trennt fünf Vertragsebenen:
+Das Lab trennt folgende Vertragsebenen:
 
-1. **Run Request:** Was soll aufgebaut oder ausgeführt werden?
-2. **Project Adapter:** Welche projektbezogenen Installations-, Beobachtungs- und Validierungsschritte gelten?
-3. **Scenario:** Welche Konstellation wird durch `Arrange`, `Act`, `Observe`, `Assert` und `Cleanup` beschrieben?
-4. **Topology:** Welche Nodes, Netzwerke, Storage-Rollen und SQL-Server-Versionen werden benötigt?
-5. **Provider:** Wie werden diese Ressourcen mit Docker, Podman oder Hyper-V umgesetzt?
+1. **Run Request:** Welche Umgebung oder welches Szenario wird angefordert?
+2. **Project Adapter:** Welche versionierten Lab Packages stellt ein Projekt bereit?
+3. **Lab Package:** Welche Environments, Inhalte, DataSets und Workflows gehören zusammen?
+4. **Environment Blueprint:** Welche logischen Components und Beziehungen werden benötigt?
+5. **Component- und Action-Type Registry:** Wie werden Technologien und Aktionen typisiert erweitert?
+6. **Provider:** Wie werden logische Ressourcen konkret bereitgestellt?
+7. **Runtime Bindings:** Welche lokalen Endpunkte, Secret-Referenzen und Outputs verbinden die Schritte?
+8. **Workflow und State:** Welche Schritte laufen in welcher Reihenfolge, und welche Mutationen müssen bereinigt werden?
+9. **Control Plane:** CLI und spätere REST-/UI-Adapter verwenden dieselben Commands, Operations und Events.
 
 Lokale Secrets, reale Hostinformationen, konkrete Pfade und erzeugte Laufzeitdaten verbleiben ausschließlich in ignorierten lokalen Bereichen.
 
 ## Verbindliche Planung
 
 - [Master-Umsetzungsplan](Documentation/Project_Planning/MASTER_IMPLEMENTATION_PLAN.md)
+- [Erweiterbarer Umgebungs- und Ausführungsvertrag](Documentation/Architecture/EXTENSIBLE_ENVIRONMENT_AND_EXECUTION_CONTRACT.md)
+- [Zukünftige Anwendungsfälle und Erweiterungsleitplanken](Documentation/Architecture/FUTURE_USE_CASES_AND_EXTENSION_GUARDRAILS.md)
 - [Projektintegrationsvertrag](Documentation/Architecture/PROJECT_INTEGRATION_CONTRACT.md)
 - [Manifest- und Schnittstellenarchitektur](Documentation/Architecture/MANIFEST_AND_INTERFACE_ARCHITECTURE.md)
 - [Migrationsinventar und Ablöseplan](Documentation/Migration/MIGRATION_INVENTORY_AND_DECISIONS.md)
@@ -86,8 +101,8 @@ Lokale Secrets, reale Hostinformationen, konkrete Pfade und erzeugte Laufzeitdat
 
 **Status:** `PLANNING_FOUNDATION`
 
-Das Repository enthält zunächst die verbindliche Architektur-, Qualitäts-, Migrations- und Umsetzungsplanung. Die ausführbaren Provider, Manifeste und Orchestrierungsskripte werden anschließend in klar abgegrenzten Wellen implementiert.
+Das Repository enthält zunächst die verbindliche Architektur-, Qualitäts-, Migrations- und Umsetzungsplanung. Vor der Implementierung der Provider werden die Package-, Component-, Action-, Binding-, Workflow- und Control-Plane-Verträge prototypisch gegen zwei SQL-Szenarien und mindestens einen technologieoffenen Proof geprüft.
 
 ## CI/CD-Abgrenzung
 
-CI/CD ist kein Bestandteil dieses Repositories. Qualitätsprüfungen werden lokal und reproduzierbar ausführbar gestaltet. Eine spätere zentrale Automatisierung kann in einem getrennten Repository umgesetzt werden und die öffentlichen CLI- und Manifestverträge konsumieren, ohne die Produkt- und Labarchitektur hier mit Runner- oder Workflowlogik zu vermischen.
+CI/CD ist kein Bestandteil dieses Repositories. Qualitätsprüfungen werden lokal und reproduzierbar ausführbar gestaltet. Eine spätere zentrale Automatisierung kann in einem getrennten Repository umgesetzt werden und die öffentlichen Commands, Packages, Plans und Events konsumieren, ohne die Produkt- und Labarchitektur hier mit Runner- oder Workflowlogik zu vermischen.
