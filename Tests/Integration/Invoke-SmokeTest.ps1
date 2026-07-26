@@ -147,8 +147,7 @@ if ($script:Lab) {
 }
 else {
     Write-Host "    SKIP: Lab nicht erstellt, ueberspringe weitere Tests" -ForegroundColor Yellow
-    # Cleanup und Exit
-    goto Cleanup
+    # Tests abgebrochen - Cleanup am Ende
 }
 
 # =============================================================================
@@ -228,9 +227,11 @@ $tableCheck = sqlcmd -S "127.0.0.1,$($script:Lab.Instances[0].Port)" -U sa -P $s
     -Q "SELECT COUNT(*) AS Cnt FROM SmokeTestDB.dbo.SmokeTest" -h -1 -W 2>&1
 $saPlain = $null
 
+$tableCheckStr = ($tableCheck | Where-Object { $_.Trim() }) -join ' // '
+$rowCount = ($tableCheck | ForEach-Object { $_.Trim() } | Where-Object { $_ -and [int]::TryParse($_, [ref]$null) } | Select-Object -First 1)
 Assert-True 'Tabelle hat 2 Rows' `
-    ($tableCheck -match '^\s*2\s*) `
-    "Output: $($tableCheck -join '; ')"
+    ($rowCount.Trim() -eq '2') `
+    "Output: $tableCheckStr"
 
 # Temp-Datei aufraumen
 if (Test-Path $testSqlPath) { Remove-Item $testSqlPath }
