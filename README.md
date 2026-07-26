@@ -41,17 +41,20 @@ Ein konsumierendes Repository stellt ein versioniertes **Lab Package** bereit. D
 
 - den konkreten SQL-Server-Zweck;
 - benötigte SQL-Server-Komponenten und unterstützende Systeme;
+- SQL-Server-Version Constraints;
 - Installations- und Konfigurationsinhalte;
-- synthetische Testdaten und deren Verifikation;
+- erzeugte Testdaten oder zulässige Datenbankartefakte;
 - Workloads, Beobachtungen und Assertions;
-- Ressourcen-, Safety-, Privacy- und Cleanup-Grenzen.
+- Ressourcen-, Safety-, Privacy-, Recovery- und Cleanup-Grenzen.
 
-Das Lab prüft Hostfähigkeiten, löst die SQL-Server-Topologie auf, ergänzt nur die erforderlichen Supporting Components, wählt passende Provider und erzeugt vor jeder Mutation einen vollständigen Plan.
+Das Lab prüft Hostfähigkeiten, löst SQL-Version und Topologie auf, ergänzt nur die erforderlichen Supporting Components, bewertet die verfügbaren Ressourcen, wählt passende Provider und erzeugt vor jeder Mutation einen vollständigen Plan einschließlich Cleanup Plan.
 
 Beispiele:
 
 - Performance-Schulungsdemo mit kontrollierter Datenverteilung, Baseline, Last, Messung, Gegenmaßnahme und Cleanup;
 - Analyse-Szenario mit Blocking Chain, TempDB-Druck, I/O-Engpass, Netzwerkverzögerung oder versionsabhängigem SQL-Server-Verhalten;
+- Fortsetzung eines Labstands über ein zuvor erzeugtes Lab-Backup;
+- Verwendung einer öffentlichen Demo-Datenbank mit dokumentierter Quelle, Lizenz und Prüfsumme;
 - PolyBase-Szenario mit SQL Server als Primärsystem und einem Hadoop-Cluster als unterstützender Datenquelle;
 - Windows-Authentication- oder Availability-Szenario mit Domain Controller, DNS und mehreren SQL-Server-Knoten.
 
@@ -60,6 +63,33 @@ Beispiele:
 Eine menügeführte oder deklarative Konfiguration für synthetische SQL-Server-Testumgebungen, beispielsweise mehrere SQL-Server-Versionen, Windows- und Linux-Gäste, getrennte Data-/Log-/TempDB-Datenträger, definierte Netzwerkprofile oder unterschiedliche CPU-/RAM-/I/O-Grenzen.
 
 Eine Umgebung ohne SQL-Server-Zweck ist kein Ziel dieses Repositorys.
+
+## SQL-Server-Versionen
+
+**Derzeit** sind SQL Server 2019, SQL Server 2022 und SQL Server 2025 als aktive Versionseinträge vorgesehen.
+
+Die Schnittstellen sind nicht auf diese drei Versionen festgeschrieben. Neue Versionen werden später über einen SQL Version Catalog, Provider-Mappings und Capability Records ergänzt. Alte Versionen können über Statuswerte wie `DEPRECATED`, `RETIRED` oder `BLOCKED` kontrolliert aus dem aktiven Umfang genommen werden.
+
+## Datenbankartefakte und Backups
+
+Zulässig sind:
+
+- im Lab erzeugte Backups zulässiger Labdatenbanken;
+- Wiederverwendung dieser Backups in späteren Runs;
+- öffentliche Demo- und Beispieldatenbanken;
+- ausdrücklich klassifizierte lokale Entwicklungs-, Test- oder Lab-Backups.
+
+Produktionsbackups, aus Produktivsystemen extrahierte Daten sowie unbekannte oder unklassifizierte Artefakte bleiben unzulässig.
+
+Lokale Backups werden nicht automatisch in das Repository, GitHub-Inhalte oder Downloadpakete übernommen.
+
+## Ressourcen und Cleanup
+
+Vor jeder Mutation bewertet das Lab mindestens CPU, RAM, freien Speicher, Provider-Overhead, Images beziehungsweise VHDX, Data, Log, TempDB, Backup-, Download- und Restore-Peak.
+
+Eine vorhergesagte Unterversorgung darf nach ausdrücklicher Bestätigung übersteuert werden. Der Defizitstatus bleibt sichtbar. Unsichere Pfade, fehlende Providerfähigkeiten, blockierte SQL-Versionen, unzulässige Daten und ein fehlender Cleanup Plan sind nicht übersteuerbar.
+
+Vor der ersten Mutation wird ein lokaler Run State samt vollständigem Cleanup Plan angelegt. Fehler lösen standardmäßig automatische Compensation aus. Partielles Cleanup bleibt als `RECOVERY_REQUIRED` sichtbar und kann über einen wiederaufnehmbaren Recovery-/Destroy-Pfad fortgesetzt werden.
 
 ## Zielplattformen
 
@@ -81,13 +111,14 @@ Das Lab trennt folgende Vertragsebenen:
 
 1. **Run Request:** Welche SQL-Server-Umgebung oder welches SQL-Server-Szenario wird angefordert?
 2. **Project Adapter:** Welche versionierten SQL-Server-Lab-Packages stellt ein Projekt bereit?
-3. **Lab Package:** Welcher `SqlPurpose`, welche Environments, Inhalte, DataSets und Workflows gehören zusammen?
+3. **Lab Package:** Welcher `SqlPurpose`, welche Version Constraints, Environments, Inhalte, DataSets, Database Artifacts und Workflows gehören zusammen?
 4. **Environment Blueprint:** Welche primären SQL-Server-Komponenten und Supporting Components werden benötigt?
-5. **Component- und Action-Type Registry:** Wie werden SQL-Server-Rollen und benötigte Hilfstechnologien typisiert erweitert?
+5. **Registries:** Welche SQL-Versionen, Component Types und Action Types sind verfügbar?
 6. **Provider:** Wie werden logische Ressourcen über Hyper-V, Docker oder Podman konkret bereitgestellt?
 7. **Runtime Bindings:** Welche lokalen Endpunkte, Secret-Referenzen und Outputs verbinden die Schritte?
-8. **Workflow und State:** Welche Schritte laufen in welcher Reihenfolge, und welche Mutationen müssen bereinigt werden?
-9. **Control Plane:** CLI und eine spätere REST-/UI-Anbindung verwenden dieselben Commands, Operations und Events.
+8. **Resource Assessment:** Reichen CPU, RAM und Storage aus, oder wird ein bewusster Overcommit benötigt?
+9. **Workflow, State und Recovery:** Welche Schritte laufen in welcher Reihenfolge, und wie werden Mutationen kompensiert und bereinigt?
+10. **Control Plane:** CLI und eine spätere REST-/UI-Anbindung verwenden dieselben Commands, Operations und Events.
 
 Lokale Secrets, reale Hostinformationen, konkrete Pfade und erzeugte Laufzeitdaten verbleiben ausschließlich in ignorierten lokalen Bereichen.
 
@@ -112,7 +143,7 @@ Lokale Secrets, reale Hostinformationen, konkrete Pfade und erzeugte Laufzeitdat
 
 **Status:** `PLANNING_FOUNDATION`
 
-Das Repository enthält zunächst die verbindliche Architektur-, Qualitäts-, Migrations- und Umsetzungsplanung. Vor der Providerimplementierung werden die Package-, Component-, Action-, Binding-, Workflow- und Control-Plane-Verträge gegen konkrete SQL-Server-Szenarien geprüft. Ein Supporting-Component-Proof muss ebenfalls einen klaren SQL-Server-Zweck besitzen, beispielsweise PolyBase mit Hadoop oder Windows Authentication mit Domain Controller.
+Das Repository enthält zunächst die verbindliche Architektur-, Qualitäts-, Migrations- und Umsetzungsplanung. SQL Version Catalog, Schemas, CLI, Planner, Provider, Backup-/Restore-Actions, Resource Assessment und Recovery Engine sind noch nicht implementiert.
 
 ## CI/CD-Abgrenzung
 
