@@ -149,13 +149,19 @@ function New-PodmanInstance {
     $saPlain = $null
 
     Write-LabInfo "Container erstellen: $containerName (Port $Port, Image $image) [Podman]"
-    $containerId = podman @podmanArgs 2>&1
+    $output = podman @podmanArgs 2>&1
 
     if ($LASTEXITCODE -ne 0) {
-        throw "Podman-Container konnte nicht erstellt werden: $containerId"
+        $errMsg = ($output | ForEach-Object { "$_" }) -join "`n"
+        throw "Podman-Container konnte nicht erstellt werden: $errMsg"
     }
 
-    $containerId = $containerId.Trim()
+    # Container-ID: letzter String-Output (Podman gibt Warnings auf stderr aus)
+    $containerId = ($output | ForEach-Object { "$_".Trim() } | Where-Object { $_ -match '^[0-9a-f]{12,}' } | Select-Object -Last 1)
+    if (-not $containerId) {
+        # Fallback: gesamten Output als String nehmen
+        $containerId = ("$output").Trim()
+    }
 
     return [PSCustomObject]@{
         ContainerId   = $containerId
