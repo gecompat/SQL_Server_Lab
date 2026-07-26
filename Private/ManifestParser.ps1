@@ -73,6 +73,8 @@ function Resolve-ManifestDefaults {
             profile    = if ($inst.profile) { $inst.profile } else { 'standard' }
             collation  = if ($inst.collation) { $inst.collation } else { 'SQL_Latin1_General_CP1_CS_AS' }
             databases  = @()
+            drives     = @()
+            serverConfig = $null
             software   = @()
             postProvision = @()
         }
@@ -99,6 +101,41 @@ function Resolve-ManifestDefaults {
                     } else { $null }
                 }
                 $resolved.databases += $resolvedDb
+            }
+        }
+
+        # Drives (Volume-Mounts)
+        if ($inst.drives) {
+            foreach ($drv in $inst.drives) {
+                $resolved.drives += [PSCustomObject]@{
+                    id            = $drv.id
+                    containerPath = $drv.containerPath
+                    hostPath      = $drv.hostPath
+                    sizeLimitGB   = $drv.sizeLimitGB
+                    type          = if ($drv.type) { $drv.type } else { 'auto' }
+                }
+            }
+        }
+
+        # Server-Konfiguration (Memory, TempDB, MaxDOP, etc.)
+        if ($inst.serverConfig) {
+            $cfg = $inst.serverConfig
+            $resolved.serverConfig = [PSCustomObject]@{
+                collation      = $cfg.collation
+                memory         = if ($cfg.memory) {
+                    [PSCustomObject]@{ minMB = $cfg.memory.minMB; maxMB = $cfg.memory.maxMB }
+                } else { $null }
+                tempdb         = if ($cfg.tempdb) {
+                    [PSCustomObject]@{
+                        dataFiles = @($cfg.tempdb.dataFiles)
+                        logFile   = $cfg.tempdb.logFile
+                        equalSize = if ($null -ne $cfg.tempdb.equalSize) { $cfg.tempdb.equalSize } else { $true }
+                    }
+                } else { $null }
+                maxDop         = if ($null -ne $cfg.maxDop) { $cfg.maxDop } else { 0 }
+                costThreshold  = if ($null -ne $cfg.costThreshold) { $cfg.costThreshold } else { 5 }
+                traceFlags     = if ($cfg.traceFlags) { @($cfg.traceFlags) } else { @() }
+                spConfigure    = $cfg.spConfigure
             }
         }
 

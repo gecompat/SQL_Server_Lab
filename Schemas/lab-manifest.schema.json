@@ -146,6 +146,16 @@
               "seed-data.sql"
             ]
           ]
+        },
+        "serverConfig": {
+          "$ref": "#/definitions/serverConfig"
+        },
+        "drives": {
+          "type": "array",
+          "description": "Virtuelle Laufwerke (Container-Volumes oder HyperV-VHDs). Simuliert Multi-Disk-Szenarien.",
+          "items": {
+            "$ref": "#/definitions/drive"
+          }
         }
       },
       "additionalProperties": false
@@ -172,13 +182,13 @@
             "data": {
               "type": "array",
               "items": {
-                "$ref": "#/definitions/dbFile"
+                "$ref": "#/definitions/dbFileExtended"
               }
             },
             "log": {
               "type": "array",
               "items": {
-                "$ref": "#/definitions/dbFile"
+                "$ref": "#/definitions/dbFileExtended"
               }
             }
           },
@@ -300,6 +310,273 @@
           "type": "boolean",
           "description": "Fehlschlag stoppt Provisierung nicht",
           "default": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "serverConfig": {
+      "type": "object",
+      "description": "SQL-Server-Instanzkonfiguration (sp_configure, Collation, Memory)",
+      "properties": {
+        "collation": {
+          "type": "string",
+          "description": "Server-Collation (nur bei Neuinstallation aenderbar, nicht bei Container!)",
+          "examples": [
+            "SQL_Latin1_General_CP1_CS_AS",
+            "Latin1_General_CI_AS"
+          ]
+        },
+        "memory": {
+          "type": "object",
+          "description": "SQL-Server-Speichergrenzen",
+          "properties": {
+            "minMB": {
+              "type": "integer",
+              "description": "min server memory (MB) - sp_configure",
+              "minimum": 0,
+              "default": 0,
+              "examples": [
+                512,
+                1024
+              ]
+            },
+            "maxMB": {
+              "type": "integer",
+              "description": "max server memory (MB) - sp_configure",
+              "minimum": 128,
+              "examples": [
+                2048,
+                4096,
+                8192
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "tempdb": {
+          "$ref": "#/definitions/tempdbConfig"
+        },
+        "maxDop": {
+          "type": "integer",
+          "description": "max degree of parallelism (0 = alle CPUs)",
+          "minimum": 0,
+          "maximum": 128,
+          "default": 0
+        },
+        "costThreshold": {
+          "type": "integer",
+          "description": "cost threshold for parallelism",
+          "minimum": 0,
+          "default": 5,
+          "examples": [
+            5,
+            25,
+            50
+          ]
+        },
+        "traceFlags": {
+          "type": "array",
+          "description": "Globale Trace-Flags (startup)",
+          "items": {
+            "type": "integer"
+          },
+          "examples": [
+            [
+              3226,
+              7412,
+              1118
+            ]
+          ]
+        },
+        "spConfigure": {
+          "type": "object",
+          "description": "Beliebige sp_configure-Einstellungen (Key = Optionsname, Value = Wert)",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "examples": [
+            {
+              "optimize for ad hoc workloads": 1,
+              "remote admin connections": 1
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "tempdbConfig": {
+      "type": "object",
+      "description": "TempDB-Konfiguration (Dateien, Pfade, Groesse, Wachstum)",
+      "properties": {
+        "dataFiles": {
+          "type": "array",
+          "description": "TempDB Data-Dateien (Best Practice: 1 pro CPU-Kern, max 8)",
+          "items": {
+            "$ref": "#/definitions/tempdbFile"
+          },
+          "minItems": 1,
+          "examples": [
+            [
+              {
+                "path": "/tempdb/tempdev1.mdf",
+                "sizeMB": 512,
+                "growth": "64MB"
+              },
+              {
+                "path": "/tempdb/tempdev2.ndf",
+                "sizeMB": 512,
+                "growth": "64MB"
+              }
+            ]
+          ]
+        },
+        "logFile": {
+          "$ref": "#/definitions/tempdbFile",
+          "description": "TempDB Log-Datei"
+        },
+        "equalSize": {
+          "type": "boolean",
+          "description": "Alle Data-Files auf gleiche Groesse setzen (Best Practice)",
+          "default": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "tempdbFile": {
+      "type": "object",
+      "description": "TempDB-Dateidefinition mit Pfad und Wachstum",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Absoluter Pfad im Container/VM (verschiedene Drives moeglich)",
+          "examples": [
+            "/tempdb/tempdev1.mdf",
+            "/data/tempdb/templog.ldf",
+            "T:\\TempDB\\tempdev1.mdf"
+          ]
+        },
+        "sizeMB": {
+          "type": "integer",
+          "description": "Anfangsgroesse in MB",
+          "minimum": 8,
+          "default": 64
+        },
+        "growth": {
+          "type": "string",
+          "description": "Wachstum: 'NMB' (fix in MB) oder 'N%' (prozentual)",
+          "pattern": "^\\d+(MB|%)$",
+          "default": "64MB",
+          "examples": [
+            "64MB",
+            "128MB",
+            "10%"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "drive": {
+      "type": "object",
+      "description": "Virtuelles Laufwerk (Volume-Mount oder VHD)",
+      "required": [
+        "id",
+        "containerPath"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Laufwerks-ID (referenzierbar in Datei-Pfaden)",
+          "examples": [
+            "data",
+            "log",
+            "tempdb",
+            "backup"
+          ]
+        },
+        "containerPath": {
+          "type": "string",
+          "description": "Mount-Pfad im Container/VM",
+          "examples": [
+            "/data",
+            "/log",
+            "/tempdb",
+            "/backup",
+            "D:\\Data",
+            "L:\\Log"
+          ]
+        },
+        "hostPath": {
+          "type": "string",
+          "description": "Optionaler Host-Pfad (Volume-Mount). Wenn leer: Docker Volume.",
+          "examples": [
+            "D:\\SqlData",
+            "/mnt/fast-ssd/sql"
+          ]
+        },
+        "sizeLimitGB": {
+          "type": "number",
+          "description": "Optionales Groessenlimit (fuer Disk-Full-Szenarien)",
+          "minimum": 0.1
+        },
+        "type": {
+          "type": "string",
+          "description": "Laufwerkstyp (beeinflusst I/O-Profil bei HyperV)",
+          "enum": [
+            "ssd",
+            "hdd",
+            "tmpfs",
+            "auto"
+          ],
+          "default": "auto"
+        }
+      },
+      "additionalProperties": false
+    },
+    "dbFileExtended": {
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "description": "Datenbank-Dateidefinition mit optionalem Pfad und flexiblem Wachstum",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Logischer Dateiname"
+        },
+        "path": {
+          "type": "string",
+          "description": "Optionaler absoluter Pfad (ueberschreibt Default-Pfad). Fuer Multi-Disk-Layouts.",
+          "examples": [
+            "/data/MyDB_Data1.mdf",
+            "/fastdisk/MyDB_Data2.ndf"
+          ]
+        },
+        "sizeMB": {
+          "type": "integer",
+          "description": "Anfangsgroesse in MB",
+          "minimum": 1,
+          "default": 64
+        },
+        "filegrowthMB": {
+          "type": "integer",
+          "description": "Wachstum in MB (fix). Mutually exclusive mit filegrowthPercent.",
+          "minimum": 1,
+          "default": 64
+        },
+        "filegrowthPercent": {
+          "type": "integer",
+          "description": "Wachstum in Prozent. Mutually exclusive mit filegrowthMB.",
+          "minimum": 1,
+          "maximum": 100,
+          "examples": [
+            10,
+            20
+          ]
+        },
+        "maxSizeMB": {
+          "type": "integer",
+          "description": "Maximale Dateigroesse in MB (MAXSIZE). -1 = UNLIMITED.",
+          "default": -1
         }
       },
       "additionalProperties": false

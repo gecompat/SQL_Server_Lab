@@ -1,0 +1,118 @@
+{
+  "$schema": "./lab-manifest.schema.json",
+  "name": "performance-schulung-lab",
+  "description": "Lab fuer SQL-Performance-Schulung: TempDB auf separatem Volume, Memory-Grenzen, kontrollierte Parallelitaet",
+  "instances": [
+    {
+      "id": "primary",
+      "version": "2025",
+      "provider": "docker",
+      "profile": "performance",
+      "collation": "Latin1_General_CI_AS",
+      "drives": [
+        {
+          "id": "data",
+          "containerPath": "/sqldata",
+          "type": "ssd"
+        },
+        {
+          "id": "log",
+          "containerPath": "/sqllog",
+          "type": "ssd"
+        },
+        {
+          "id": "tempdb",
+          "containerPath": "/tempdb",
+          "type": "ssd"
+        },
+        {
+          "id": "backup",
+          "containerPath": "/backup"
+        }
+      ],
+      "serverConfig": {
+        "memory": {
+          "minMB": 1024,
+          "maxMB": 4096
+        },
+        "maxDop": 4,
+        "costThreshold": 25,
+        "tempdb": {
+          "dataFiles": [
+            {
+              "path": "/tempdb/tempdev1.mdf",
+              "sizeMB": 256,
+              "growth": "64MB"
+            },
+            {
+              "path": "/tempdb/tempdev2.ndf",
+              "sizeMB": 256,
+              "growth": "64MB"
+            },
+            {
+              "path": "/tempdb/tempdev3.ndf",
+              "sizeMB": 256,
+              "growth": "64MB"
+            },
+            {
+              "path": "/tempdb/tempdev4.ndf",
+              "sizeMB": 256,
+              "growth": "64MB"
+            }
+          ],
+          "logFile": {
+            "path": "/tempdb/templog.ldf",
+            "sizeMB": 128,
+            "growth": "64MB"
+          },
+          "equalSize": true
+        },
+        "traceFlags": [
+          3226,
+          7412
+        ],
+        "spConfigure": {
+          "optimize for ad hoc workloads": 1,
+          "remote admin connections": 1
+        }
+      },
+      "databases": [
+        {
+          "name": "PerfDemo",
+          "collation": "Latin1_General_CI_AS",
+          "files": {
+            "data": [
+              {
+                "name": "PerfDemo_Data1",
+                "path": "/sqldata/PerfDemo_Data1.mdf",
+                "sizeMB": 512,
+                "filegrowthMB": 128
+              },
+              {
+                "name": "PerfDemo_Data2",
+                "path": "/sqldata/PerfDemo_Data2.ndf",
+                "sizeMB": 512,
+                "filegrowthMB": 128
+              }
+            ],
+            "log": [
+              {
+                "name": "PerfDemo_Log",
+                "path": "/sqllog/PerfDemo_Log.ldf",
+                "sizeMB": 256,
+                "filegrowthMB": 128
+              }
+            ]
+          },
+          "options": {
+            "queryStore": true,
+            "compatibility": 170
+          }
+        }
+      ],
+      "postProvision": [
+        "setup-perfdemo.sql"
+      ]
+    }
+  ]
+}
