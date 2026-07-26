@@ -20,7 +20,7 @@ function Stop-SqlServerLab {
     param(
         [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
         [string]$RunId,
-        [int]$TimeoutSeconds = 30,
+        [int]$TimeoutSeconds = 10,
         [switch]$Force
     )
 

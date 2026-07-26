@@ -84,17 +84,41 @@ Die Forschungsanalyse dient ausschließlich der Auswahl bewährter Muster für d
 
 ## 10. Aktueller Status
 
-Der aktuelle Stand ist eine Planungs- und Governance-Basis. Noch nicht implementiert sind:
+### Implementiert und getestet (Smoke-Test: 29/29 PASS)
 
-- JSON-Schemas;
-- SQL Version Catalog;
+| Komponente | Status | Dateien |
+|---|---|---|
+| SQL Version Catalog | ✅ implementiert | `Catalogs/sql-server-versions.json` (2019, 2022, 2025) |
+| Lab CLI (Public API) | ✅ 9 Cmdlets | `Public/*.ps1` |
+| Planner und Resource Assessment | ✅ implementiert | `Private/ResourceAssessment.ps1` |
+| Run State und Cleanup Engine | ✅ implementiert | `Private/StateMachine.ps1`, `Private/CleanupEngine.ps1` |
+| Docker-Provider | ✅ implementiert | `Providers/Docker/DockerProvider.ps1` |
+| Secret-Management (DPAPI) | ✅ implementiert | `Private/SecretProvider.ps1` |
+| SQL-Readiness und Query-Engine | ✅ implementiert | `Private/SqlReadiness.ps1` |
+| Integration-Tests | ✅ 29 Assertions | `Tests/Integration/Invoke-SmokeTest.ps1` |
+
+### Cmdlet-Uebersicht
+
+| Cmdlet | Zweck |
+|---|---|
+| `New-SqlServerLab` | Neue Umgebung erstellen (Ad-hoc oder Manifest) |
+| `Get-SqlServerLab` | Status anzeigen (State + Live-Docker-Status) |
+| `Stop-SqlServerLab` | Graceful Stop, Daten bleiben erhalten |
+| `Start-SqlServerLab` | Gestoppte Umgebung starten + SQL-Readiness |
+| `Restart-SqlServerLab` | Stop + Start in einem Aufruf |
+| `Remove-SqlServerLab` | Umgebung entfernen (Scope-validiert) |
+| `Clear-SqlServerLab` | Alle Lab-Container + State aufraeumen |
+| `New-LabDatabase` | Datenbank mit Multi-File-Specs erstellen |
+| `Invoke-LabScript` | T-SQL-Skript ausfuehren (GO-Batch-Splitting) |
+| `Test-LabResources` | Ressourcen pruefen ohne Mutation |
+
+### Noch nicht implementiert
+
+- JSON-Schemas (Manifest-Validierung);
 - Public Sample Catalog;
-- Lab CLI;
-- Planner und Resource Assessment;
-- Run State, Recovery State und Cleanup Engine;
-- Docker-, Podman- und Hyper-V-Provider;
+- Podman- und Hyper-V-Provider;
 - Backup-/Restore-Actions;
 - Analyze- und Performance-Packages;
-- lokale Testtools.
+- `Invoke-SqlServerLab` (interaktives Menue).
 
 Planungsdokumente sind kein Runtime-Nachweis.

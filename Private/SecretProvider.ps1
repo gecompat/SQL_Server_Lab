@@ -77,7 +77,7 @@ function Get-LabSecret {
     )
     $secretFile = Join-Path $Path 'secrets' "$Name.secret"
     if (-not (Test-Path $secretFile)) { return $null }
-    $content = Get-Content $secretFile -Raw
+    $content = (Get-Content $secretFile -Raw).Trim()
     if ($IsWindows) { return (ConvertTo-SecureString $content) }
     else {
         $plain = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($content.Trim()))
