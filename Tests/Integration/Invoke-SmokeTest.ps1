@@ -4,7 +4,7 @@
     Smoke-Test fuer SQL_Server_Lab End-to-End Lifecycle.
 .DESCRIPTION
     Automatisierter Test: Import -> New-SqlServerLab -> New-LabDatabase ->
-    Invoke-LabScript -> Remove-SqlServerLab. Erfordert Docker.
+    Invoke-LabScript -> Remove-SqlServerLab. Erfordert Docker oder Podman.
 .PARAMETER SaPassword
     SA-Passwort als SecureString. Wird interaktiv abgefragt falls nicht angegeben.
 .PARAMETER Version
@@ -21,6 +21,8 @@
 param(
     [SecureString]$SaPassword,
     [string]$Version = '2025',
+    [ValidateSet('docker', 'podman', 'auto')]
+    [string]$Provider = 'auto',
     [switch]$KeepOnFailure
 )
 
@@ -77,6 +79,15 @@ Write-Host "  Version: $Version | Datum: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss
 $modulePath = Join-Path $PSScriptRoot '..\..\SqlServerLab.psd1' | Resolve-Path
 Import-Module $modulePath -Force
 
+# Provider auto-detect
+if ($Provider -eq 'auto') {
+    if (Get-Command 'docker' -ErrorAction SilentlyContinue) { $Provider = 'docker' }
+    elseif (Get-Command 'podman' -ErrorAction SilentlyContinue) { $Provider = 'podman' }
+    else { throw "Weder docker noch podman gefunden. Smoke-Test benoetigt einen Container-Runtime." }
+}
+$script:ContainerRuntime = $Provider
+Write-Host "  Provider: $Provider (Container-Runtime)" -ForegroundColor DarkGray
+
 # Passwort
 if (-not $SaPassword) {
     $SaPassword = ConvertTo-SecureString 'SmokeTest_Pwd1!' -AsPlainText -Force
@@ -97,8 +108,9 @@ Assert-True 'New-SqlServerLab verfuegbar' `
     ($null -ne (Get-Command New-SqlServerLab -ErrorAction SilentlyContinue)) `
     'Cmdlet nicht gefunden'
 
-Assert-True 'Test-DockerAvailable intern verfuegbar' `
-    ($null -ne (Get-Module SqlServerLab | ForEach-Object { & $_.NewBoundScriptBlock({ Get-Command Test-DockerAvailable -ErrorAction SilentlyContinue }) })) `
+$providerTestFn = if ($Provider -eq 'podman') { 'Test-PodmanAvailable' } else { 'Test-DockerAvailable' }
+Assert-True "$providerTestFn intern verfuegbar" `
+    ($null -ne (Get-Module SqlServerLab | ForEach-Object { & $_.NewBoundScriptBlock([scriptblock]::Create("Get-Command $providerTestFn -ErrorAction SilentlyContinue")) })) `
     'Provider-Funktion nicht im Modul-Scope'
 
 # =============================================================================
@@ -108,11 +120,11 @@ Assert-True 'Test-DockerAvailable intern verfuegbar' `
 Write-TestHeader 'T2: Resource Assessment'
 
 $assessment = Assert-NoThrow 'Test-LabResources laeuft' {
-    Test-LabResources -Provider docker
+    Test-LabResources -Provider $Provider
 }
 
 if ($assessment) {
-    Assert-True 'Docker verfuegbar' `
+    Assert-True "$Provider verfuegbar" `
         ($assessment.Status -ne 'RESOURCE_HARD_BLOCK') `
         "Status: $($assessment.Status)"
 }
@@ -124,7 +136,7 @@ if ($assessment) {
 Write-TestHeader 'T3: New-SqlServerLab'
 
 $script:Lab = Assert-NoThrow 'Lab erstellen' {
-    New-SqlServerLab -Version $Version -Provider docker -SaPassword $SaPassword -SkipAssessment
+    New-SqlServerLab -Version $Version -Provider $Provider -SaPassword $SaPassword -SkipAssessment
 }
 
 if ($script:Lab) {
@@ -140,9 +152,9 @@ if ($script:Lab) {
         ($script:Lab.Instances[0].Port -ge 14330 -and $script:Lab.Instances[0].Port -le 14399) `
         "Port: $($script:Lab.Instances[0].Port)"
 
-    Assert-True 'Container in Docker sichtbar' `
-        ($null -ne (docker ps -q --filter "name=$($script:Lab.Instances[0].ContainerName)")) `
-        'Container nicht in docker ps'
+    Assert-True "Container in $Provider sichtbar" `
+        ($null -ne (& $script:ContainerRuntime ps -q --filter "name=$($script:Lab.Instances[0].ContainerName)")) `
+        "Container nicht in $Provider ps" 
 }
 else {
     Write-Host "    SKIP: Lab nicht erstellt, ueberspringe weitere Tests" -ForegroundColor Yellow
@@ -321,7 +333,7 @@ if ($removeResult) {
 
 # Container weg?
 Start-Sleep -Seconds 1
-$containerCheck = docker ps -a -q --filter "name=$($script:Lab.Instances[0].ContainerName)" 2>$null
+$containerCheck = & $script:ContainerRuntime ps -a -q --filter "name=$($script:Lab.Instances[0].ContainerName)" 2>$null
 Assert-True 'Container nicht mehr vorhanden' `
     ([string]::IsNullOrWhiteSpace($containerCheck)) `
     "Container noch da: $containerCheck"
@@ -360,7 +372,7 @@ if ($script:Lab -and -not $KeepOnFailure) {
     }
     catch {
         Write-Host "  Cleanup fehlgeschlagen: $_" -ForegroundColor Red
-        Write-Host "  Manuell: docker rm -f $($script:Lab.Instances[0].ContainerName)" -ForegroundColor Yellow
+        Write-Host "  Manuell: $script:ContainerRuntime rm -f $($script:Lab.Instances[0].ContainerName)" -ForegroundColor Yellow
     }
 }
 
