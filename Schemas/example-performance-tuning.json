@@ -1,0 +1,91 @@
+{
+  "$schema": "../Schemas/lab-manifest.schema.json",
+  "name": "performance-tuning-lab",
+  "description": "Performance-Lab mit grosser Datenbank (StackOverflow 10GB)",
+  "instances": [
+    {
+      "id": "primary",
+      "version": "2022",
+      "provider": "docker",
+      "profile": "performance",
+      "drives": [
+        {
+          "id": "data",
+          "containerPath": "/sqldata",
+          "type": "ssd"
+        },
+        {
+          "id": "tempdb",
+          "containerPath": "/tempdb",
+          "type": "ssd"
+        },
+        {
+          "id": "backup",
+          "containerPath": "/backup"
+        }
+      ],
+      "serverConfig": {
+        "memory": {
+          "maxMB": 8192
+        },
+        "maxDop": 4,
+        "costThreshold": 25,
+        "defaultPaths": {
+          "data": "/sqldata",
+          "log": "/sqldata",
+          "backup": "/backup",
+          "tempdb": "/tempdb"
+        },
+        "tempdb": {
+          "dataFiles": [
+            {
+              "path": "/tempdb/tempdev1.mdf",
+              "sizeMB": 512,
+              "growth": "64MB"
+            },
+            {
+              "path": "/tempdb/tempdev2.ndf",
+              "sizeMB": 512,
+              "growth": "64MB"
+            },
+            {
+              "path": "/tempdb/tempdev3.ndf",
+              "sizeMB": 512,
+              "growth": "64MB"
+            },
+            {
+              "path": "/tempdb/tempdev4.ndf",
+              "sizeMB": 512,
+              "growth": "64MB"
+            }
+          ]
+        },
+        "traceFlags": [
+          3226,
+          7412
+        ]
+      },
+      "databases": [
+        {
+          "name": "StackOverflow",
+          "sample": {
+            "id": "stackoverflow-50gb",
+            "variant": "10gb"
+          },
+          "options": {
+            "recoveryModel": "SIMPLE",
+            "queryStore": {
+              "enabled": true,
+              "captureMode": "AUTO",
+              "maxSizeMB": 2000,
+              "intervalMinutes": 1,
+              "waitStatsCapture": true
+            },
+            "rcsi": true,
+            "targetRecoveryTime": 10
+          }
+        }
+      ]
+    }
+  ]
+}

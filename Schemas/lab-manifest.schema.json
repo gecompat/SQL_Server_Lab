@@ -74,10 +74,13 @@
         },
         "version": {
           "type": "string",
-          "description": "SQL-Server-Version",
-          "enum": [
+          "description": "SQL-Server-Version. Formate: '2022' (latest), '2022-CU16' (spezifisches CU), '2022-CU16-ubuntu-22.04' (exakter Tag)",
+          "pattern": "^\\d{4}(-CU\\d+(-[a-z0-9.-]+)?)?$",
+          "examples": [
             "2019",
             "2022",
+            "2022-CU16",
+            "2022-CU18",
             "2025"
           ]
         },
@@ -321,6 +324,30 @@
               "default": true
             }
           },
+          "additionalProperties": false
+        },
+        "sample": {
+          "type": "object",
+          "description": "Referenz auf eine Datenbank aus dem Sample-Katalog (Catalogs/sample-databases.json). Alternative zu 'restore' mit expliziter URL.",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "ID aus dem Sample-Katalog",
+              "examples": [
+                "adventureworks-2022",
+                "wideworldimporters",
+                "stackoverflow-50gb"
+              ]
+            },
+            "variant": {
+              "type": "string",
+              "description": "Variante (z.B. 'full', 'lightweight', 'standard', '10gb')",
+              "default": "full"
+            }
+          },
+          "required": [
+            "id"
+          ],
           "additionalProperties": false
         }
       },

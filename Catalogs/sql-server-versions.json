@@ -9,7 +9,27 @@
       "status": "SUPPORTED",
       "docker": {
         "image": "mcr.microsoft.com/mssql/server:2019-latest",
-        "minMemoryMB": 2048
+        "minMemoryMB": 2048,
+        "builds": [
+          {
+            "tag": "2019-CU28-ubuntu-20.04",
+            "cu": "CU28",
+            "kb": "KB5039747",
+            "released": "2024-06-13"
+          },
+          {
+            "tag": "2019-CU27-ubuntu-20.04",
+            "cu": "CU27",
+            "kb": "KB5037331",
+            "released": "2024-03-14"
+          },
+          {
+            "tag": "2019-CU25-ubuntu-20.04",
+            "cu": "CU25",
+            "kb": "KB5033688",
+            "released": "2023-11-15"
+          }
+        ]
       },
       "linux": {
         "aptList": "https://packages.microsoft.com/config/ubuntu/22.04/mssql-server-2019.list"
@@ -24,7 +44,45 @@
       "status": "SUPPORTED",
       "docker": {
         "image": "mcr.microsoft.com/mssql/server:2022-latest",
-        "minMemoryMB": 2048
+        "minMemoryMB": 2048,
+        "builds": [
+          {
+            "tag": "2022-CU18-ubuntu-22.04",
+            "cu": "CU18",
+            "kb": "KB5044865",
+            "released": "2025-02-13"
+          },
+          {
+            "tag": "2022-CU17-ubuntu-22.04",
+            "cu": "CU17",
+            "kb": "KB5042578",
+            "released": "2024-10-10"
+          },
+          {
+            "tag": "2022-CU16-ubuntu-22.04",
+            "cu": "CU16",
+            "kb": "KB5041865",
+            "released": "2024-08-08"
+          },
+          {
+            "tag": "2022-CU15-ubuntu-22.04",
+            "cu": "CU15",
+            "kb": "KB5039731",
+            "released": "2024-06-13"
+          },
+          {
+            "tag": "2022-CU14-ubuntu-22.04",
+            "cu": "CU14",
+            "kb": "KB5038325",
+            "released": "2024-04-11"
+          },
+          {
+            "tag": "2022-CU13-ubuntu-22.04",
+            "cu": "CU13",
+            "kb": "KB5036432",
+            "released": "2024-02-15"
+          }
+        ]
       },
       "linux": {
         "aptList": "https://packages.microsoft.com/config/ubuntu/22.04/mssql-server-2022.list"
@@ -39,7 +97,15 @@
       "status": "SUPPORTED",
       "docker": {
         "image": "mcr.microsoft.com/mssql/server:2025-latest",
-        "minMemoryMB": 2048
+        "minMemoryMB": 2048,
+        "builds": [
+          {
+            "tag": "2025-latest",
+            "cu": "CTP",
+            "kb": null,
+            "released": "2025-05-01"
+          }
+        ]
       },
       "linux": {
         "aptList": "https://packages.microsoft.com/config/ubuntu/24.04/mssql-server-2025.list"
@@ -67,5 +133,6 @@
       "maxMemoryMB": 8192,
       "maxCpus": 8
     }
-  }
+  },
+  "_comment": "Builds: Manifest kann 'version: 2022-CU16' angeben. Aufgeloest ueber builds[].tag"
 }

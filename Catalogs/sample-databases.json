@@ -1,0 +1,220 @@
+{
+  "$schema": "./sample-databases.schema.json",
+  "_comment": "Katalog oeffentlich verfuegbarer Test-Datenbanken. Keine Backups im Repo - nur Metadaten + Download-URLs.",
+  "databases": [
+    {
+      "id": "adventureworks-2022",
+      "name": "AdventureWorks2022",
+      "displayName": "AdventureWorks 2022 (OLTP)",
+      "description": "Microsoft-Beispieldatenbank fuer OLTP-Szenarien (Vertrieb, Produktion, HR)",
+      "category": "microsoft-sample",
+      "license": "MIT",
+      "source": "https://github.com/Microsoft/sql-server-samples",
+      "versions": {
+        "full": {
+          "url": "https://github.com/Microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorks2022.bak",
+          "sizeMB": 209,
+          "sha256": null,
+          "compatibility": 160
+        },
+        "lightweight": {
+          "url": "https://github.com/Microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorksLT2022.bak",
+          "sizeMB": 17,
+          "sha256": null,
+          "compatibility": 160
+        }
+      },
+      "minSqlVersion": "2022",
+      "tags": [
+        "oltp",
+        "vertrieb",
+        "schulung",
+        "joins",
+        "indexing"
+      ]
+    },
+    {
+      "id": "adventureworks-2019",
+      "name": "AdventureWorks2019",
+      "displayName": "AdventureWorks 2019 (OLTP)",
+      "description": "Microsoft-Beispieldatenbank fuer SQL Server 2019",
+      "category": "microsoft-sample",
+      "license": "MIT",
+      "source": "https://github.com/Microsoft/sql-server-samples",
+      "versions": {
+        "full": {
+          "url": "https://github.com/Microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorks2019.bak",
+          "sizeMB": 209,
+          "sha256": null,
+          "compatibility": 150
+        },
+        "lightweight": {
+          "url": "https://github.com/Microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorksLT2019.bak",
+          "sizeMB": 17,
+          "sha256": null,
+          "compatibility": 150
+        }
+      },
+      "minSqlVersion": "2019",
+      "tags": [
+        "oltp",
+        "vertrieb",
+        "schulung"
+      ]
+    },
+    {
+      "id": "adventureworks-dw-2022",
+      "name": "AdventureWorksDW2022",
+      "displayName": "AdventureWorks DW 2022 (Data Warehouse)",
+      "description": "Data-Warehouse-Version mit Star-Schema (Fact/Dimension)",
+      "category": "microsoft-sample",
+      "license": "MIT",
+      "source": "https://github.com/Microsoft/sql-server-samples",
+      "versions": {
+        "full": {
+          "url": "https://github.com/Microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorksDW2022.bak",
+          "sizeMB": 35,
+          "sha256": null,
+          "compatibility": 160
+        }
+      },
+      "minSqlVersion": "2022",
+      "tags": [
+        "dwh",
+        "star-schema",
+        "etl",
+        "reporting"
+      ]
+    },
+    {
+      "id": "wideworldimporters",
+      "name": "WideWorldImporters",
+      "displayName": "Wide World Importers (OLTP)",
+      "description": "Moderne Microsoft-Beispieldatenbank mit In-Memory, Temporal Tables, JSON, Spatial",
+      "category": "microsoft-sample",
+      "license": "MIT",
+      "source": "https://github.com/Microsoft/sql-server-samples",
+      "versions": {
+        "full": {
+          "url": "https://github.com/Microsoft/sql-server-samples/releases/download/wide-world-importers-v1.0/WideWorldImporters-Full.bak",
+          "sizeMB": 121,
+          "sha256": null,
+          "compatibility": 130
+        },
+        "standard": {
+          "url": "https://github.com/Microsoft/sql-server-samples/releases/download/wide-world-importers-v1.0/WideWorldImporters-Standard.bak",
+          "sizeMB": 40,
+          "sha256": null,
+          "compatibility": 130
+        }
+      },
+      "minSqlVersion": "2019",
+      "tags": [
+        "oltp",
+        "in-memory",
+        "temporal",
+        "json",
+        "spatial",
+        "modern"
+      ]
+    },
+    {
+      "id": "wideworldimporters-dw",
+      "name": "WideWorldImportersDW",
+      "displayName": "Wide World Importers DW",
+      "description": "Data-Warehouse-Version mit Columnstore, Partitioning",
+      "category": "microsoft-sample",
+      "license": "MIT",
+      "source": "https://github.com/Microsoft/sql-server-samples",
+      "versions": {
+        "full": {
+          "url": "https://github.com/Microsoft/sql-server-samples/releases/download/wide-world-importers-v1.0/WideWorldImportersDW-Full.bak",
+          "sizeMB": 47,
+          "sha256": null,
+          "compatibility": 130
+        }
+      },
+      "minSqlVersion": "2019",
+      "tags": [
+        "dwh",
+        "columnstore",
+        "partitioning",
+        "etl"
+      ]
+    },
+    {
+      "id": "stackoverflow-50gb",
+      "name": "StackOverflow2013",
+      "displayName": "Stack Overflow 2013 (50 GB)",
+      "description": "Brent Ozar StackOverflow-Dump. Ideal fuer Performance-Tuning (grosse Tabellen, echte Verteilungen)",
+      "category": "community",
+      "license": "CC BY-SA 4.0",
+      "source": "https://www.brentozar.com/archive/2015/10/how-to-download-the-stack-overflow-database-via-bittorrent/",
+      "versions": {
+        "50gb": {
+          "url": "https://downloads.brentozar.com/StackOverflow2013-202302.7z",
+          "sizeMB": 11264,
+          "sha256": null,
+          "compatibility": 120,
+          "note": "7z-Archiv, muss entpackt werden. Attach statt Restore."
+        },
+        "10gb": {
+          "url": "https://downloads.brentozar.com/StackOverflow2010.7z",
+          "sizeMB": 1536,
+          "sha256": null,
+          "compatibility": 120,
+          "note": "Kleinere Version (10GB). 7z-Archiv."
+        }
+      },
+      "minSqlVersion": "2019",
+      "tags": [
+        "performance",
+        "tuning",
+        "blocking",
+        "indexing",
+        "large-dataset",
+        "real-data"
+      ]
+    },
+    {
+      "id": "northwind",
+      "name": "Northwind",
+      "displayName": "Northwind (Klassiker)",
+      "description": "Klassische Microsoft-Beispieldatenbank (klein, einfach, ideal fuer SQL-Grundlagen)",
+      "category": "microsoft-legacy",
+      "license": "MIT",
+      "source": "https://github.com/microsoft/sql-server-samples/tree/master/samples/databases/northwind-pubs",
+      "versions": {
+        "script": {
+          "url": "https://raw.githubusercontent.com/microsoft/sql-server-samples/master/samples/databases/northwind-pubs/instnwnd.sql",
+          "sizeMB": 1,
+          "sha256": null,
+          "compatibility": 100,
+          "type": "sql-script",
+          "note": "T-SQL-Skript (CREATE + INSERT). Kein Backup."
+        }
+      },
+      "minSqlVersion": "2019",
+      "tags": [
+        "grundlagen",
+        "schulung",
+        "klein",
+        "einfach",
+        "klassiker"
+      ]
+    }
+  ],
+  "categories": {
+    "microsoft-sample": "Offizielle Microsoft-Beispieldatenbanken (MIT-Lizenz)",
+    "microsoft-legacy": "Aeltere Microsoft-Beispiele (Northwind, Pubs)",
+    "community": "Community-Datenbanken (verschiedene Lizenzen)",
+    "custom": "Eigene Projekt-Datenbanken (lokal registriert)"
+  },
+  "cachePolicy": {
+    "location": "<StateRoot>/cache/backups/",
+    "strategy": "download-once",
+    "verifyChecksum": true,
+    "maxCacheSizeGB": 50,
+    "cleanupAfterDays": 90
+  }
+}
