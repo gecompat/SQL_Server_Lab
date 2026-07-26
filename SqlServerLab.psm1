@@ -33,9 +33,7 @@ if (Test-Path $script:ProvidersPath) {
         $scripts = Get-ChildItem -Path $dir.FullName -File | Where-Object { $_.Extension -in @('.ps1', '.psm1') }
         foreach ($s in $scripts) {
             try {
-                $content = Get-Content -Path $s.FullName -Raw
-                $scriptBlock = [scriptblock]::Create($content)
-                . $scriptBlock
+                . $s.FullName
                 Write-Host "  [LOAD] Provider: $($s.Name)" -ForegroundColor DarkGray
             }
             catch {
