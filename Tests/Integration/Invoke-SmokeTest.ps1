@@ -230,7 +230,7 @@ $saPlain = $null
 
 Assert-True 'Tabelle hat 2 Rows' `
     ($tableCheck -match '^\s*2\s*) `
-    "Output: $($tableCheck -join '|')"
+    "Output: $($tableCheck -join '; ')"
 
 # Temp-Datei aufraumen
 if (Test-Path $testSqlPath) { Remove-Item $testSqlPath }
