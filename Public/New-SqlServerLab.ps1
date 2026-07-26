@@ -262,6 +262,37 @@ function New-SqlServerLab {
         }
 
         # =====================================================================
+        # 7b. Datenbank-Restores (wenn im Manifest definiert)
+        # =====================================================================
+        $hasRestoreWork = $resolved.instances | Where-Object {
+            $_.databases | Where-Object { $_.restore }
+        }
+        if ($hasRestoreWork) {
+            foreach ($inst in $resolved.instances) {
+                $labInst = $labInstances | Where-Object { $_.Id -eq $inst.id }
+                foreach ($db in $inst.databases) {
+                    if ($db.restore) {
+                        Write-LabInfo "Restore '$($db.name)' auf '$($inst.id)' von: $($db.restore.source)"
+                        $restoreResult = Restore-LabDatabase `
+                            -HostName $labInst.Host `
+                            -Port $labInst.Port `
+                            -SaPassword $SaPassword `
+                            -BackupSource $db.restore.source `
+                            -DatabaseName $db.name `
+                            -ContainerName $labInst.ContainerName `
+                            -Replace:($db.restore.replace) `
+                            -StateRoot $StateRoot
+
+                        if (-not $restoreResult.Success) {
+                            throw "Restore fehlgeschlagen: $($restoreResult.Message)"
+                        }
+                        $labInst.Databases += $db.name
+                    }
+                }
+            }
+        }
+
+        # =====================================================================
         # 8. PostProvision-Skripte
         # =====================================================================
         $hasPostProvision = $resolved.instances | Where-Object { $_.postProvision.Count -gt 0 }
