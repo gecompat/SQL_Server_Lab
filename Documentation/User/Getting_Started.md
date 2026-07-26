@@ -252,3 +252,170 @@ docker ps --filter 'label=sql-server-lab.run-id'
 - Eigene Manifeste fuer wiederkehrende Szenarien erstellen
 - `postProvision`-Skripte fuer automatische Datenbank-Einrichtung nutzen
 - Aus SQL_Server_Analyze oder SQL_PerformanceSchulung per Adapter aufrufen
+
+---
+
+## 11. Alle Lab-Container aufraeumen (Clear-SqlServerLab)
+
+Falls Container von abgebrochenen Tests oder vergessenen Sessions uebrig sind:
+
+```powershell
+# Zeigt alle Lab-Container und fragt nach Bestaetigung:
+Clear-SqlServerLab
+
+# Ohne Rueckfrage (z.B. in Skripten):
+Clear-SqlServerLab -Force
+
+# Nur Container entfernen, State behalten:
+Clear-SqlServerLab -ContainersOnly
+
+# Nur verwaiste State-Eintraege bereinigen:
+Clear-SqlServerLab -StateOnly
+```
+
+Das Cmdlet findet Container ueber das Docker-Label `sql-server-lab.run-id` — damit werden
+ausschliesslich Lab-Container erkannt, keine anderen Docker-Container.
+
+---
+
+## 12. Integration-Tests (Smoke-Test)
+
+Der automatisierte End-to-End-Test prueft den gesamten Lifecycle:
+
+```powershell
+.\Tests\Integration\Invoke-SmokeTest.ps1
+```
+
+Testet: Import -> Assessment -> New-SqlServerLab -> New-LabDatabase ->
+Invoke-LabScript -> Remove-SqlServerLab (20 Assertions, ~20 Sekunden).
+
+### Optionen
+
+| Parameter | Wirkung |
+| --- | --- |
+| `-SaPassword $pw` | Eigenes Passwort (Default: `SmokeTest_Pwd1!`) |
+| `-Version '2022'` | Andere SQL-Server-Version testen |
+| `-KeepOnFailure` | Container bei Fehler stehen lassen (Debugging) |
+
+### Exit-Code
+
+- `0` = alle Tests bestanden
+- `1` = mindestens ein Test fehlgeschlagen
+
+Geeignet fuer CI/CD-Integration.
+
+---
+
+## 13. Debugging
+
+### SA-Passwort aus State lesen
+
+```powershell
+Import-Module .\SqlServerLab.psd1 -Force
+
+# Alle aktiven Runs anzeigen:
+$runs = Get-LabActiveRuns
+$runs | Format-Table runId, state, metadata
+
+# SA-Passwort eines Runs lesen (SecureString):
+$stateRoot = Get-LabStateRoot
+$secret = Get-LabSecret -Path (Join-Path $stateRoot "runs/$($runs[0].runId)") -Name 'sa-password'
+
+# Als Klartext (nur Debugging!):
+[System.Runtime.InteropServices.Marshal]::PtrToStringAuto(
+    [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($secret))
+```
+
+### State-Verzeichnis
+
+Das State-Verzeichnis liegt unter:
+- **Windows:** `$env:LOCALAPPDATA\SqlServerLab` (z.B. `C:\Users\<user>\AppData\Local\SqlServerLab`)
+- **Linux:** `~/.sql-server-lab`
+
+Struktur pro Run:
+```text
+SqlServerLab/
+  runs/
+    <RunId>/
+      run-state.json        # State-Machine-Historie (JSON)
+      cleanup-plan.json     # Was bei Remove entfernt wird
+      connection-info.json  # Host, Port, Container
+      secrets/
+        sa-password.xml     # DPAPI-verschluesselt (nur eigener User lesbar)
+```
+
+### Container-Logs
+
+```powershell
+# Container-Name aus $lab.Instances[0].ContainerName oder:
+docker ps --filter 'label=sql-server-lab.run-id'
+
+# Logs anzeigen:
+docker logs sql-lab-primary-<runid-prefix>
+docker logs sql-lab-primary-<runid-prefix> --tail 50 --follow
+```
+
+### Direkter SQL-Zugang (sqlcmd)
+
+```powershell
+sqlcmd -S 127.0.0.1,14330 -U sa -P "MeinPasswort"
+```
+
+### Manuelles Aufraeumen
+
+```powershell
+# Ueber Modul:
+Remove-SqlServerLab -RunId '<RunId>' -Force
+# Oder alles:
+Clear-SqlServerLab -Force
+
+# Direkt per Docker (Notfall):
+docker rm -f sql-lab-primary-<prefix>
+```
+
+---
+
+## 14. Entwickler-Hinweise
+
+### Import-Module -Force
+
+Bei Code-Aenderungen muss das Modul mit `-Force` neu geladen werden:
+
+```powershell
+Import-Module .\SqlServerLab.psd1 -Force
+```
+
+Ohne `-Force` bleibt die alte Version im Speicher (PowerShell cached Module).
+
+### Bekannte Einschraenkungen
+
+| Thema | Status | Workaround |
+| --- | --- | --- |
+| Major-Version = 0 (statt 17) | Kosmetisch | Kein Workaround noetig, SQL funktioniert |
+| `USE Database` in Invoke-LabScript | Design | `-Database` Parameter verwenden (jeder Batch = neue Connection) |
+| System.Data.SqlClient | Fallback auf sqlcmd | sqlcmd muss installiert sein (im SQL Server Tools enthalten) |
+
+### Invoke-LabScript und GO-Batches
+
+`Invoke-LabScript` splittet SQL-Skripte am `GO`-Befehl und fuehrt jeden Batch
+in einer **eigenen Connection** aus. Das bedeutet:
+
+- `USE DatabaseName` wirkt nur im selben Batch
+- Stattdessen: `-Database 'MeineDB'` als Parameter verwenden
+- Temp-Tabellen (`#tmp`) existieren nur innerhalb eines Batches
+
+---
+
+## 15. Cmdlet-Uebersicht
+
+| Cmdlet | Zweck |
+| --- | --- |
+| `New-SqlServerLab` | Neue Lab-Umgebung erstellen (Ad-hoc oder Manifest) |
+| `Remove-SqlServerLab` | Einzelne Umgebung gezielt entfernen |
+| `Clear-SqlServerLab` | Alle Lab-Container + State aufraeumen |
+| `New-LabDatabase` | Datenbank mit Multi-File-Specs erstellen |
+| `Invoke-LabScript` | T-SQL-Skript ausfuehren (GO-Batch-Splitting) |
+| `Test-LabResources` | Ressourcen pruefen ohne Mutation |
+| `Get-SqlServerLab` | *(geplant)* Status anzeigen |
+| `Start-SqlServerLab` | *(geplant)* Gestoppte Umgebung starten |
+| `Stop-SqlServerLab` | *(geplant)* Laufende Umgebung stoppen |
