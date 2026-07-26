@@ -198,7 +198,10 @@ function Invoke-LabSqlScript {
     .PARAMETER Port SQL-Server-Port.
     .PARAMETER SaPassword SecureString.
     .PARAMETER Database Zieldatenbank.
-    .OUTPUTS PSCustomObject mit Success (bool), Message, Duration.
+    .PARAMETER KeepConnection
+        Alle Batches in EINER Connection ausfuehren (USE, Temp-Tabellen bleiben erhalten).
+        Nutzt sqlcmd -i oder .NET SqlConnection mit Reuse.
+    .OUTPUTS PSCustomObject mit Success (bool), Message, Duration, Batches.
     #>
     [CmdletBinding()]
     param(
@@ -206,7 +209,8 @@ function Invoke-LabSqlScript {
         [string]$HostName = '127.0.0.1',
         [Parameter(Mandatory)][int]$Port,
         [Parameter(Mandatory)][SecureString]$SaPassword,
-        [string]$Database = 'master'
+        [string]$Database = 'master',
+        [switch]$KeepConnection
     )
 
     if (-not (Test-Path $ScriptPath)) {
@@ -216,27 +220,61 @@ function Invoke-LabSqlScript {
     $saPlain = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto(
         [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword))
 
-    $sql = Get-Content $ScriptPath -Raw -Encoding utf8
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
 
     try {
-        # GO-Batches aufteilen
-        # Word-boundary \b statt End-Anchor um Editor-Escape-Problem zu vermeiden
-        $batches = $sql -split '(?mi)^\s*GO\b.*' | Where-Object { $_.Trim() }
+        if ($KeepConnection) {
+            # === SINGLE-CONNECTION-MODUS ===
+            # sqlcmd -i verarbeitet GO-Batches nativ in einer Session
+            # USE, Temp-Tabellen, Variablen bleiben erhalten
+            $resolvedPath = Resolve-Path $ScriptPath
+            $output = sqlcmd -S "$HostName,$Port" -U sa -P $saPlain `
+                -d $Database -i "$resolvedPath" -b 2>&1
+            $outputText = ($output -join "`n").Trim()
 
-        foreach ($batch in $batches) {
-            Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $saPlain `
-                -Query $batch -Database $Database -TimeoutSeconds 300
+            $saPlain = $null
+            $sw.Stop()
+
+            if ($LASTEXITCODE -ne 0 -or $outputText -match 'Msg \d+, Level (1[1-9]|[2-9]\d)') {
+                return [PSCustomObject]@{
+                    Success  = $false
+                    Message  = "Fehler in $(Split-Path $ScriptPath -Leaf): $outputText"
+                    Duration = $sw.Elapsed
+                    Batches  = 0
+                }
+            }
+
+            # Batch-Count schaetzen (aus Datei)
+            $sql = Get-Content $ScriptPath -Raw -Encoding utf8
+            $batchCount = ($sql -split '(?mi)^\s*GO\b' | Where-Object { $_.Trim() }).Count
+
+            return [PSCustomObject]@{
+                Success  = $true
+                Message  = "Skript erfolgreich: $(Split-Path $ScriptPath -Leaf)"
+                Duration = $sw.Elapsed
+                Batches  = $batchCount
+            }
         }
+        else {
+            # === MULTI-CONNECTION-MODUS (Original) ===
+            # Jeder Batch = neue Connection (USE hat keinen Effekt)
+            $sql = Get-Content $ScriptPath -Raw -Encoding utf8
+            $batches = $sql -split '(?mi)^\s*GO\b.*' | Where-Object { $_.Trim() }
 
-        $saPlain = $null
-        $sw.Stop()
+            foreach ($batch in $batches) {
+                Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $saPlain `
+                    -Query $batch -Database $Database -TimeoutSeconds 300
+            }
 
-        return [PSCustomObject]@{
-            Success  = $true
-            Message  = "Skript erfolgreich: $(Split-Path $ScriptPath -Leaf)"
-            Duration = $sw.Elapsed
-            Batches  = $batches.Count
+            $saPlain = $null
+            $sw.Stop()
+
+            return [PSCustomObject]@{
+                Success  = $true
+                Message  = "Skript erfolgreich: $(Split-Path $ScriptPath -Leaf)"
+                Duration = $sw.Elapsed
+                Batches  = $batches.Count
+            }
         }
     }
     catch {

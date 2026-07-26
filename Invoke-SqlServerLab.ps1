@@ -3,47 +3,44 @@
 .SYNOPSIS
     Standalone-Einstiegspunkt fuer SQL_Server_Lab.
 .DESCRIPTION
-    Importiert das Modul automatisch und startet den interaktiven oder
-    manifest-basierten Workflow.
-.PARAMETER Manifest
-    Pfad zu einer Manifest-JSON-Datei. Ohne Angabe startet der interaktive Modus.
+    Importiert das Modul automatisch und startet den interaktiven Modus
+    oder fuehrt eine Direkt-Aktion aus.
 .PARAMETER Action
-    Explizite Aktion: New, Status, Start, Stop, Remove, Cleanup.
+    Optionale Direkt-Aktion: New, Status, Start, Stop, Restart, Remove, Clear, Script, Database.
+    Ohne Angabe startet das interaktive Menue.
+.PARAMETER Manifest
+    Pfad zu einer Manifest-JSON-Datei fuer New-SqlServerLab.
 .EXAMPLE
     ./Invoke-SqlServerLab.ps1
+    # Startet interaktives Menue
+.EXAMPLE
+    ./Invoke-SqlServerLab.ps1 -Action Status
+    # Zeigt direkt den Status aller Labs
+.EXAMPLE
     ./Invoke-SqlServerLab.ps1 -Manifest ./scenarios/my-lab.json
+    # Erstellt Lab aus Manifest
 #>
 [CmdletBinding()]
 param(
-    [Parameter()]
-    [string]$Manifest,
+    [ValidateSet('New', 'Status', 'Start', 'Stop', 'Restart', 'Remove', 'Clear', 'Script', 'Database')]
+    [string]$Action,
 
-    [Parameter()]
-    [ValidateSet('New', 'Status', 'Start', 'Stop', 'Remove', 'Cleanup')]
-    [string]$Action = 'New'
+    [string]$Manifest
 )
 
 $ErrorActionPreference = 'Stop'
 
 # Modul aus demselben Verzeichnis laden
 $modulePath = Join-Path $PSScriptRoot 'SqlServerLab.psd1'
-if (-not (Get-Module SqlServerLab)) {
-    Import-Module $modulePath -Force
-}
+Import-Module $modulePath -Force
 
 # Dispatch
-switch ($Action) {
-    'New' {
-        if ($Manifest) {
-            Invoke-SqlServerLab -Manifest $Manifest
-        }
-        else {
-            Invoke-SqlServerLab
-        }
-    }
-    'Status'  { Get-SqlServerLab }
-    'Start'   { Start-SqlServerLab }
-    'Stop'    { Stop-SqlServerLab }
-    'Remove'  { Remove-SqlServerLab }
-    'Cleanup' { Invoke-LabCleanup }
+if ($Manifest) {
+    New-SqlServerLab -Manifest $Manifest
+}
+elseif ($Action) {
+    Invoke-SqlServerLab -Action $Action
+}
+else {
+    Invoke-SqlServerLab
 }
