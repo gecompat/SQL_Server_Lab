@@ -30,7 +30,8 @@ if (Test-Path $script:ProvidersPath) {
     $providerDirs = Get-ChildItem -Path $script:ProvidersPath -Directory
     foreach ($dir in $providerDirs) {
         # Alle .ps1/.psm1 Dateien im Provider-Ordner laden
-        $scripts = Get-ChildItem -Path $dir.FullName -File | Where-Object { $_.Extension -in @('.ps1', '.psm1') }
+        # NUR .ps1 laden — .psm1 erzeugt Nested-Module-Scope und isoliert Funktionen!
+        $scripts = Get-ChildItem -Path $dir.FullName -Filter '*.ps1' -File
         foreach ($s in $scripts) {
             try {
                 . $s.FullName
