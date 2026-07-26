@@ -1,0 +1,14 @@
+x-quicktest-docker-limits: &quicktest-docker-limits
+  pull_policy: missing
+  mem_limit: ${QTLAB_MEMORY_LIMIT:?QTLAB_MEMORY_LIMIT is required}
+  cpus: ${QTLAB_CPU_LIMIT:?QTLAB_CPU_LIMIT is required}
+  labels:
+    qt-lab.runtime: DOCKER
+
+services:
+  sql2019:
+    <<: *quicktest-docker-limits
+  sql2022:
+    <<: *quicktest-docker-limits
+  sql2025:
+    <<: *quicktest-docker-limits

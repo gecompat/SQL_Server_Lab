@@ -1,0 +1,14 @@
+{
+  "Analyzer": "USP_CurrentOverview",
+  "ExpectationType": "BASELINE",
+  "ExpectedStatuses": [
+    "OK",
+    "NO_DATA"
+  ],
+  "ExpectedFindingCodes": [],
+  "MinimumConfidence": "NONE",
+  "AlternativeEvidence": [
+    "An explicit bounded no-data status is acceptable."
+  ],
+  "AssertionBoundary": "Exact runtime counters are not asserted."
+}

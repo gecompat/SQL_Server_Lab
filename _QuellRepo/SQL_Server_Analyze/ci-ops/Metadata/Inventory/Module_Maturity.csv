@@ -1,0 +1,67 @@
+ModuleArea,PrimaryProcedure,Maturity,CIEvidence2019,CIEvidence2022,CIEvidence2025,LabScenarios,Documentation,Notes
+Current Sessions,USP_CurrentSessions,COMPLETE,YES,YES,YES,LAB-BASE-001,FULL,
+Current Requests,USP_CurrentRequests,COMPLETE,YES,YES,YES,LAB-BASE-001,FULL,
+Current Blocking,USP_CurrentBlocking,COMPLETE,YES,YES,YES,LAB-CONC-001;LAB-CONC-002,FULL,
+Current Waits,USP_CurrentWaits,COMPLETE,YES,YES,YES,LAB-BASE-001,FULL,
+Current Memory Grants,USP_CurrentMemoryGrants,COMPLETE,YES,YES,YES,LAB-MEM-001;LAB-MEM-002;LAB-MEM-003,FULL,
+Current Transactions,USP_CurrentTransactions,COMPLETE,YES,YES,YES,LAB-CONC-001,FULL,
+Current TempDB,USP_CurrentTempDB,COMPLETE,YES,YES,YES,LAB-TEMP-001;LAB-TEMP-002;LAB-TEMP-003;LAB-TEMP-005,FULL,
+Current IO,USP_CurrentIO,COMPLETE,YES,YES,YES,LAB-IO-004,FULL,
+Current Log,USP_CurrentLog,COMPLETE,YES,YES,YES,LAB-LOG-001;LAB-LOG-002,FULL,
+Current Overview,USP_CurrentOverview,COMPLETE,YES,YES,YES,LAB-BASE-001,FULL,Aggregiert Current-State-Module
+Object Analysis,USP_ObjectAnalysis,COMPLETE,YES,YES,YES,LAB-IDX-001;LAB-IDX-002;LAB-IDX-003,FULL,
+Index Usage,USP_IndexUsage,COMPLETE,YES,YES,YES,LAB-IDX-001,FULL,
+Missing Indexes,USP_MissingIndexAnalysis,COMPLETE,YES,YES,YES,LAB-IDX-002,FULL,
+Statistics,USP_StatisticsAnalysis,COMPLETE,YES,YES,YES,LAB-IDX-003,FULL,
+Columnstore,USP_ColumnstoreAnalysis,COMPLETE,YES,YES,YES,LAB-COL-001,FULL,
+Query Stats,USP_QueryStats,COMPLETE,YES,YES,YES,LAB-PLAN-001;LAB-PLAN-002,FULL,
+Plan Cache,USP_PlanCacheAnalysis,COMPLETE,YES,YES,YES,LAB-PLAN-003;LAB-PLAN-004;LAB-PLAN-005,FULL,
+Execution Plan Analysis,USP_ExecutionPlanAnalysis,COMPLETE,YES,YES,YES,LAB-EXECPLAN-001,FULL,
+Showplan,USP_ShowplanAnalysis,COMPLETE,YES,YES,YES,LAB-PLAN-004,FULL,
+Query Store Runtime,USP_QueryStoreRuntime,COMPLETE,YES,YES,YES,LAB-QS-001;LAB-QS-002,FULL,
+Query Store Regressions,USP_QueryStoreRegressions,COMPLETE,YES,YES,YES,LAB-QS-001,FULL,
+Query Store Plan Changes,USP_QueryStorePlanChanges,COMPLETE,YES,YES,YES,LAB-QS-002,FULL,
+Extended Events Sessions,USP_ExtendedEventsAnalysis,COMPLETE,YES,YES,YES,LAB-XE-001,FULL,
+Extended Events Deadlocks,USP_ExtendedEventsDeadlocks,COMPLETE,YES,YES,YES,LAB-DEAD-001;LAB-DEAD-002;LAB-DEAD-003;LAB-DEAD-004,FULL,
+SQL Agent,USP_AgentJobs,COMPLETE,YES,YES,YES,,FULL,
+Resource Governor,USP_ResourceGovernorAnalysis,COMPLETE,YES,YES,YES,,FULL,
+HA/DR Availability,USP_AvailabilityDeepAnalysis,COMPLETE,YES,YES,YES,,FULL,Erfordert AG-Topologie
+Backup Recovery,USP_BackupRecovery,COMPLETE,YES,YES,YES,,FULL,
+Log Shipping,USP_LogShippingAnalysis,COMPLETE,YES,YES,YES,LAB-LS-001,FULL,
+Server Health,USP_ServerHealthAnalysis,COMPLETE,YES,YES,YES,,FULL,
+Server Configuration,USP_ServerConfigurationAnalysis,COMPLETE,YES,YES,YES,,FULL,
+Security Configuration,USP_SecurityConfigurationAnalysis,COMPLETE,YES,YES,YES,,FULL,
+Database Integrity,USP_DatabaseIntegrityAnalysis,COMPLETE,YES,YES,YES,,FULL,
+Database Capacity,USP_DatabaseCapacityAnalysis,COMPLETE,YES,YES,YES,LAB-CAP-001,FULL,
+Performance Counters,USP_PerformanceCounters,COMPLETE,YES,YES,YES,,FULL,
+Critical Engine Events,USP_CriticalEngineEvents,COMPLETE,YES,YES,YES,,FULL,
+Diagnostic Findings,USP_DiagnosticFindings,COMPLETE,YES,YES,YES,,FULL,Aggregiert Child-Module
+IQP Analysis,USP_IntelligentQueryProcessingAnalysis,COMPLETE,YES,YES,YES,,FULL,
+Internal Contention,USP_InternalContentionAnalysis,COMPLETE,YES,YES,YES,LAB-LATCH-001;LAB-LATCH-002;LAB-LATCH-003,FULL,
+Buffer Pool,USP_BufferPoolAnalysis,COMPLETE,YES,YES,YES,,FULL,
+Backup Chain,USP_BackupChainAnalysis,COMPLETE,YES,YES,YES,,FULL,
+Schema Design,USP_SchemaDesignAnalysis,COMPLETE,YES,YES,YES,,FULL,
+Statistics Distribution,USP_StatisticsDistributionAnalysis,COMPLETE,YES,YES,YES,,FULL,
+Agent Monitoring,USP_AgentMonitoringAnalysis,COMPLETE,YES,YES,YES,,FULL,
+Worker Pressure,USP_WorkerPressureAnalysis,COMPLETE,YES,YES,YES,,FULL,
+Database Configuration,USP_DatabaseConfigurationAnalysis,COMPLETE,YES,YES,YES,,FULL,
+Error Log,USP_ErrorLogAnalysis,COMPLETE,YES,YES,YES,,FULL,
+Maintenance Operations,USP_MaintenanceOperations,COMPLETE,YES,YES,YES,,FULL,
+Server Version,USP_ServerVersionInformation,COMPLETE,YES,YES,YES,LAB-VERSION-001,FULL,
+Special Feature Inventory,USP_SpecialFeatureInventory,COMPLETE,YES,YES,YES,,FULL,
+In-Memory OLTP,USP_InMemoryOltpAnalysis,COMPLETE,YES,YES,YES,,FULL,
+Temporal Tables,USP_TemporalAnalysis,COMPLETE,YES,YES,YES,,FULL,
+Service Broker,USP_ServiceBrokerAnalysis,COMPLETE,YES,YES,YES,,FULL,
+Full-Text Search,USP_FullTextAnalysis,COMPLETE,YES,YES,YES,,FULL,
+Data Capture (CDC/CT),USP_DataCaptureDeepAnalysis,COMPLETE,YES,YES,YES,,FULL,
+Encryption,USP_EncryptionAnalysis,COMPLETE,YES,YES,YES,,FULL,
+External Runtime,USP_ExternalRuntimeAnalysis,COMPLETE,YES,YES,YES,,FULL,Erfordert Windows fuer R/Python
+SQL CLR,USP_ClrAnalysis,COMPLETE,YES,YES,YES,,FULL,
+Analysis Navigator,USP_AnalysisNavigator,COMPLETE,YES,YES,YES,,FULL,Zentraler Einstiegspunkt
+Framework Usage,USP_FrameworkUsageFromQueryStore,NEW,NO,NO,NO,,MINIMAL,Neu erstellt 2026-07-25
+Snapshot Baseline,USP_SnapshotBaselineCollect,COMPLETE,YES,YES,YES,,FULL,Optionales Paket
+Vector Index (2025),SQL Server 2025 Vector Index,PLANNED,NO,NO,NO,,ARCHITECTURE,Architekturplan vorhanden
+SSIS Package Analysis,SSIS Execution Analysis,PLANNED,NO,NO,NO,,ARCHITECTURE,Designdokument vorhanden
+Persistenz (SC-023),Persistenzschicht,PLANNED,NO,NO,NO,,NONE,P3 - erfordert Designentscheidung
+Externe Komponente (SC-024),Externe Integration,PLANNED,NO,NO,NO,,NONE,P3 - erfordert externe Abhaengigkeit
+Isolierter Restore (SC-025),Restore-Host-Pruefung,PLANNED,NO,NO,NO,,NONE,P3 - erfordert isolierte Ausfuehrung

@@ -1,0 +1,318 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LAB-001 scenario manifest contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "SchemaVersion",
+    "ScenarioId",
+    "Title",
+    "Purpose",
+    "EvidenceClass",
+    "Platforms",
+    "SqlVersions",
+    "TopologyId",
+    "ResourceProfile",
+    "DestructiveClass",
+    "RequiredCapabilities",
+    "Arrange",
+    "Act",
+    "Observe",
+    "ExpectedFindings",
+    "AlternativeEvidence",
+    "Timeouts",
+    "SafetyGuards",
+    "Cleanup",
+    "DataClassification",
+    "KnownLimitations"
+  ],
+  "properties": {
+    "SchemaVersion": {
+      "const": "1.0"
+    },
+    "ScenarioId": {
+      "type": "string",
+      "pattern": "^LAB-[A-Z0-9]+-[0-9]{3}$"
+    },
+    "Title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "Purpose": {
+      "type": "string",
+      "minLength": 1
+    },
+    "EvidenceClass": {
+      "enum": [
+        "REAL",
+        "EMULATED_INFRASTRUCTURE",
+        "RESTORED_ARTIFACT",
+        "CONTRACT_FIXTURE"
+      ]
+    },
+    "Platforms": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "CONTAINER_LINUX",
+          "HYPER_V_WINDOWS",
+          "HYPER_V_LINUX",
+          "FIXTURE"
+        ]
+      }
+    },
+    "SqlVersions": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          2019,
+          2022,
+          2025
+        ]
+      }
+    },
+    "TopologyId": {
+      "type": "string",
+      "pattern": "^(CTR|HV|FIXTURE)-[A-Z0-9-]+$"
+    },
+    "ResourceProfile": {
+      "enum": [
+        "Compact",
+        "Standard",
+        "Stress"
+      ]
+    },
+    "DestructiveClass": {
+      "enum": [
+        "NONE",
+        "LAB_DATA",
+        "LAB_STORAGE",
+        "LAB_NETWORK",
+        "LAB_VM"
+      ]
+    },
+    "RequiredCapabilities": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Z0-9_]+$"
+      }
+    },
+    "Arrange": {
+      "$ref": "#/$defs/phase"
+    },
+    "Act": {
+      "$ref": "#/$defs/phase"
+    },
+    "Observe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "Analyzers",
+        "Scope",
+        "MeasurementWindowSeconds"
+      ],
+      "properties": {
+        "Analyzers": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^USP_[A-Za-z0-9]+$"
+          }
+        },
+        "Scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "MeasurementWindowSeconds": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "ExpectedFindings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/findingExpectation"
+      }
+    },
+    "AlternativeEvidence": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "Timeouts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "SetupSeconds",
+        "ActSeconds",
+        "ObserveSeconds",
+        "CleanupSeconds"
+      ],
+      "properties": {
+        "SetupSeconds": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "ActSeconds": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "ObserveSeconds": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "CleanupSeconds": {
+          "$ref": "#/$defs/positiveInteger"
+        }
+      }
+    },
+    "SafetyGuards": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "RequireSyntheticDatabase",
+        "RequireRunId",
+        "RequireRegisteredObjectIds",
+        "AllowSystemTarget",
+        "AllowNameOnlyDeletion",
+        "RequireDestructiveApproval"
+      ],
+      "properties": {
+        "RequireSyntheticDatabase": {
+          "const": true
+        },
+        "RequireRunId": {
+          "const": true
+        },
+        "RequireRegisteredObjectIds": {
+          "const": true
+        },
+        "AllowSystemTarget": {
+          "const": false
+        },
+        "AllowNameOnlyDeletion": {
+          "const": false
+        },
+        "RequireDestructiveApproval": {
+          "type": "boolean"
+        }
+      }
+    },
+    "Cleanup": {
+      "$ref": "#/$defs/phase"
+    },
+    "DataClassification": {
+      "enum": [
+        "SYNTHETIC",
+        "PUBLIC_FIXTURE"
+      ]
+    },
+    "KnownLimitations": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "$defs": {
+    "phase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "Action",
+        "CompletionSignal"
+      ],
+      "properties": {
+        "Action": {
+          "type": "string",
+          "minLength": 1
+        },
+        "CompletionSignal": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "positiveInteger": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "findingExpectation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "Analyzer",
+        "ExpectationType",
+        "ExpectedStatuses",
+        "ExpectedFindingCodes",
+        "MinimumConfidence",
+        "AlternativeEvidence",
+        "AssertionBoundary"
+      ],
+      "properties": {
+        "Analyzer": {
+          "type": "string",
+          "pattern": "^USP_[A-Za-z0-9]+$"
+        },
+        "ExpectationType": {
+          "enum": [
+            "POSITIVE_FINDING",
+            "BASELINE",
+            "PARTIAL_PERMISSION",
+            "UNSUPPORTED",
+            "OUTPUT_CONTRACT",
+            "ERROR_ISOLATION"
+          ]
+        },
+        "ExpectedStatuses": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z0-9_]+$"
+          }
+        },
+        "ExpectedFindingCodes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z0-9_-]+$"
+          }
+        },
+        "MinimumConfidence": {
+          "enum": [
+            "NONE",
+            "LOW",
+            "MEDIUM",
+            "HIGH"
+          ]
+        },
+        "AlternativeEvidence": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "AssertionBoundary": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}
+

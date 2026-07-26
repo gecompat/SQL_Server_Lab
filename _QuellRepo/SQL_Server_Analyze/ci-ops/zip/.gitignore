@@ -1,0 +1,7 @@
+*.zip
+# To ignore a set of files, wildcards can be used, as can be seen above.
+# A sole '*' will ignore everything in your folder, including your .gitignore file.
+# To exclude specific files when using wildcards, negate them.
+# So they are excluded from the ignore list:
+!.gitignore 
+*.exe

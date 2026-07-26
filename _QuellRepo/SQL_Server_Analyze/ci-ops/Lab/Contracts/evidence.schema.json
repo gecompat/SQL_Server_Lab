@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LAB-001 publishable evidence-summary contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "SchemaVersion",
+    "DataClassification",
+    "ScenarioId",
+    "SqlServerProductVersion",
+    "PlatformClass",
+    "FrameworkCommit",
+    "Status",
+    "ExpectedFindingCodes",
+    "Limitations",
+    "PrivacyReview"
+  ],
+  "properties": {
+    "SchemaVersion": {
+      "const": "1.0"
+    },
+    "DataClassification": {
+      "const": "SYNTHETIC_SUMMARY"
+    },
+    "ScenarioId": {
+      "type": "string",
+      "pattern": "^LAB-[A-Z0-9]+-[0-9]{3}$"
+    },
+    "SqlServerProductVersion": {
+      "enum": [
+        "2019",
+        "2022",
+        "2025"
+      ]
+    },
+    "PlatformClass": {
+      "enum": [
+        "CONTAINER_LINUX",
+        "HYPER_V_WINDOWS",
+        "HYPER_V_LINUX",
+        "DISTRIBUTED",
+        "FIXTURE"
+      ]
+    },
+    "FrameworkCommit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "Status": {
+      "enum": [
+        "PASS",
+        "FAIL",
+        "NOT_EXECUTED",
+        "SKIPPED_CAPABILITY"
+      ]
+    },
+    "ExpectedFindingCodes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Z0-9_-]+$"
+      }
+    },
+    "ExternalRunReference": {
+      "type": "string",
+      "pattern": "^[A-Z0-9_-]+$"
+    },
+    "Limitations": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "PrivacyReview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "Status",
+        "ContainsRuntimeValues",
+        "ContainsLocalIdentifiers",
+        "ContainsLocalPaths",
+        "ContainsRawSqlText"
+      ],
+      "properties": {
+        "Status": {
+          "const": "PASSED"
+        },
+        "ContainsRuntimeValues": {
+          "const": false
+        },
+        "ContainsLocalIdentifiers": {
+          "const": false
+        },
+        "ContainsLocalPaths": {
+          "const": false
+        },
+        "ContainsRawSqlText": {
+          "const": false
+        }
+      }
+    }
+  }
+}

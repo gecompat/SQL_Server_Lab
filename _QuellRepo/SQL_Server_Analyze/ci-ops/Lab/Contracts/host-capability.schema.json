@@ -1,0 +1,168 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LAB-001 publishable host-capability contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "SchemaVersion",
+    "DataClassification",
+    "HostAdapter",
+    "OperatingSystemFamily",
+    "Architecture",
+    "LogicalProcessorCount",
+    "PhysicalMemoryMiB",
+    "AvailableMemoryMiB",
+    "StorageTargets",
+    "Capabilities",
+    "ResolvedHostClass",
+    "SupportedExecutionModes"
+  ],
+  "properties": {
+    "SchemaVersion": {
+      "const": "1.0"
+    },
+    "DataClassification": {
+      "enum": [
+        "SYNTHETIC_EXAMPLE",
+        "LOCAL_RUNTIME_STATE"
+      ]
+    },
+    "HostAdapter": {
+      "enum": [
+        "WindowsHyperV",
+        "LinuxNative",
+        "RemoteHost"
+      ]
+    },
+    "OperatingSystemFamily": {
+      "enum": [
+        "WINDOWS",
+        "LINUX"
+      ]
+    },
+    "Architecture": {
+      "const": "X86_64"
+    },
+    "LogicalProcessorCount": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "PhysicalMemoryMiB": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "AvailableMemoryMiB": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "StorageTargets": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/storageTarget"
+      }
+    },
+    "Capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "HyperV",
+        "PowerShellDirect",
+        "DockerEngine",
+        "PodmanEngine",
+        "ComposeProvider",
+        "CgroupResourceLimits",
+        "NetworkFaultInjection",
+        "RemoteHost"
+      ],
+      "properties": {
+        "HyperV": {
+          "type": "boolean"
+        },
+        "PowerShellDirect": {
+          "type": "boolean"
+        },
+        "DockerEngine": {
+          "type": "boolean"
+        },
+        "PodmanEngine": {
+          "type": "boolean"
+        },
+        "ComposeProvider": {
+          "type": "boolean"
+        },
+        "CgroupResourceLimits": {
+          "type": "boolean"
+        },
+        "NetworkFaultInjection": {
+          "type": "boolean"
+        },
+        "RemoteHost": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ResolvedHostClass": {
+      "enum": [
+        "HC1_COMPACT",
+        "HC2_STANDARD",
+        "HC3_EXTENDED",
+        "UNCLASSIFIED"
+      ]
+    },
+    "SupportedExecutionModes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "WINDOWS_SINGLE_HOST",
+          "LINUX_NATIVE",
+          "DISTRIBUTED"
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "storageTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "LogicalTargetId",
+        "Roles",
+        "FreeStorageGiB",
+        "IsSystemTarget",
+        "IsApprovedLabTarget"
+      ],
+      "properties": {
+        "LogicalTargetId": {
+          "type": "string",
+          "pattern": "^[A-Z0-9_]+$"
+        },
+        "Roles": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "IMAGE_CACHE",
+              "ACTIVE_VM",
+              "EPHEMERAL_DATA",
+              "FAULT_TARGET"
+            ]
+          }
+        },
+        "FreeStorageGiB": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "IsSystemTarget": {
+          "type": "boolean"
+        },
+        "IsApprovedLabTarget": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}
+

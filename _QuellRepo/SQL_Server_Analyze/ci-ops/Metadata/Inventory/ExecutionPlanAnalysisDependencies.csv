@@ -1,0 +1,25 @@
+InstallOrdinal,ObjectType,ObjectName,SourcePath,StandaloneRequired,FrameworkIntegrationRole
+1,SETUP,monitor schema,Code/00_Setup/000_Preflight_und_Schema.sql,1,shared prerequisite
+2,VIEW,VW_AnalyseClassCatalog,Code/01_Common/020_VW_AnalyseClassCatalog.sql,1,shared authorization helper
+3,VIEW,VW_AnalyseAccessPolicy,Code/01_Common/030_VW_AnalyseAccessPolicy.sql,1,shared authorization helper
+4,VIEW,VW_AnalyseAccessCurrent,Code/01_Common/040_VW_AnalyseAccessCurrent.sql,1,shared authorization helper
+5,FUNCTION,TVF_ParsePipeList,Code/01_Common/078_TVF_ParsePipeList.sql,1,shared list parser
+6,FUNCTION,TVF_ParseBigintList,Code/01_Common/085_TVF_ParseBigintList.sql,1,shared numeric list parser
+7,INTERNAL_PROCEDURE,InternalCheckAnalysisPath,Code/01_Common/083a_USP_InternalCheckAnalysisPath.sql,1,shared authorization helper
+8,INTERNAL_PROCEDURE,InternalWriteResultTable,Code/01_Common/095_USP_InternalWriteResultTable.sql,1,shared output helper
+9,INTERNAL_PROCEDURE,InternalPrepareResultTables,Code/01_Common/096_USP_InternalPrepareResultTables.sql,1,shared output helper
+10,INTERNAL_PROCEDURE,InternalEmitConsoleResult,Code/01_Common/098_USP_InternalEmitConsoleResult.sql,1,shared output helper
+11,TABLE,PlanAnalysisProfile,Code/04_PlanCache/041_PlanAnalysisProfile.sql,1,workload profiles
+12,TABLE,PlanAnalysisRuleThreshold,Code/04_PlanCache/042_PlanAnalysisRuleThreshold.sql,1,rule thresholds
+13,TABLE,PlanAnalysisProfileAssignment,Code/04_PlanCache/043_PlanAnalysisProfileAssignment.sql,1,optional local assignments
+14,FUNCTION,TVF_ParseStatisticsIoText,Code/04_PlanCache/044_TVF_ParseStatisticsIoText.sql,1,evidence parser
+15,FUNCTION,TVF_ParseStatisticsTimeText,Code/04_PlanCache/045_TVF_ParseStatisticsTimeText.sql,1,evidence parser
+16,FUNCTION,TVF_ExecutionPlanObjectReferences,Code/04_PlanCache/046_TVF_ExecutionPlanObjectReferences.sql,1,plan XML extractor
+17,FUNCTION,TVF_ExecutionPlanStatisticsUsage,Code/04_PlanCache/047_TVF_ExecutionPlanStatisticsUsage.sql,1,plan XML extractor
+18,FUNCTION,TVF_ExecutionPlanColumnReferences,Code/04_PlanCache/048_TVF_ExecutionPlanColumnReferences.sql,1,plan XML extractor
+19,INTERNAL_PROCEDURE,InternalCollectExecutionPlanMetadata,Code/04_PlanCache/049_InternalCollectExecutionPlanMetadata.sql,1,optional current metadata collector
+20,INTERNAL_PROCEDURE,InternalAnalyzeExecutionPlan,Code/04_PlanCache/051_InternalAnalyzeExecutionPlan.sql,1,central analysis engine
+21,PROCEDURE,USP_CreateExecutionEvidenceJson,Code/04_PlanCache/052_USP_CreateExecutionEvidenceJson.sql,1,public evidence builder
+22,PROCEDURE,USP_ExecutionPlanAnalysis,Code/04_PlanCache/053_USP_ExecutionPlanAnalysis.sql,1,public standalone entry
+23,PROCEDURE,USP_ShowplanAnalysis,Code/04_PlanCache/050_USP_ShowplanAnalysis.sql,0,multi-plan framework integration
+24,PROCEDURE,USP_PlanCacheAnalysis,Code/04_PlanCache/060_USP_PlanCacheAnalysis.sql,0,framework orchestrator

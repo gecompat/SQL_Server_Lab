@@ -1,0 +1,124 @@
+{
+  "contractId": "SQL25-004-PUBLIC-V1",
+  "contractVersion": 1,
+  "workItemId": "SQL25-004",
+  "releaseState": "IMPLEMENTED_ACTIONS_GATE",
+  "frameworkVersion": "1.1.0-special.19",
+  "frameworkContractVersion": "1.23",
+  "minimumFrameworkProductMajorVersion": 15,
+  "featureProductMajorVersion": 17,
+  "dedicatedProcedureAdded": false,
+  "procedure": "monitor.USP_Statistics",
+  "resultName": "statistics",
+  "schemaVersion": 2,
+  "replicaFields": [
+    "IsTemporary",
+    "CurrentReplicaRole",
+    "CurrentReplicaRoleStatus",
+    "ReplicaRoleId",
+    "ReplicaRoleDesc",
+    "ReplicaName",
+    "ReplicaMetadataStatus"
+  ],
+  "outputModes": [
+    "CONSOLE",
+    "RAW",
+    "TABLE",
+    "NONE",
+    "JSON"
+  ],
+  "sources": [
+    {
+      "name": "statisticsCatalog",
+      "object": "sys.stats",
+      "minimumProductMajorVersion": 15,
+      "replicaFieldsMinimumProductMajorVersion": 17,
+      "permission": "Metadata visibility on the statistics object",
+      "maximumReadsPerDatabaseInvocation": 1
+    },
+    {
+      "name": "replicaColumnCapability",
+      "object": "sys.all_views | sys.all_columns | sys.schemas",
+      "minimumProductMajorVersion": 17,
+      "permission": "System catalog visibility",
+      "maximumReadsPerDatabaseInvocation": 1
+    },
+    {
+      "name": "currentReplicaRole",
+      "object": "sys.fn_hadr_is_primary_replica",
+      "minimumProductMajorVersion": 15,
+      "permission": "VIEW SERVER STATE",
+      "maximumReadsPerDatabaseInvocation": 1
+    }
+  ],
+  "replicaMetadataStatusCodes": [
+    "AVAILABLE",
+    "NOT_RECORDED",
+    "PARTIAL_METADATA",
+    "UNAVAILABLE_VERSION",
+    "UNAVAILABLE_COLUMNS",
+    "DENIED_METADATA",
+    "TIMEOUT",
+    "CAPABILITY_ERROR"
+  ],
+  "currentReplicaRoleCodes": [
+    "HADR_DISABLED",
+    "PRIMARY",
+    "SECONDARY",
+    "NOT_IN_AG_OR_UNKNOWN"
+  ],
+  "currentReplicaRoleStatusCodes": [
+    "AVAILABLE",
+    "NOT_APPLICABLE",
+    "DENIED_PERMISSION",
+    "TIMEOUT",
+    "ERROR_HANDLED"
+  ],
+  "replicaRoleMapping": {
+    "1": "Primary",
+    "2": "Secondary",
+    "3": "Geo Secondary",
+    "4": "Geo HA Secondary"
+  },
+  "privacy": {
+    "userTableRowsRead": false,
+    "histogramValuesCollected": false,
+    "queryTextCollected": false,
+    "planXmlCollected": false,
+    "statisticsDefinitionMetadataCollected": true,
+    "runtimeFixtures": "Synthetic Example* objects, users, replica names, and numeric values only"
+  },
+  "falsePositiveBoundaries": [
+    "ReplicaRoleId, ReplicaRoleDesc, and ReplicaName identify the origin or last update ownership of a statistics object; they do not identify the current connection role or prove that a query used the statistics.",
+    "CurrentReplicaRole describes the database role at collection time and is intentionally separate from the statistics origin.",
+    "A later statistics update on the primary transfers ownership metadata to the primary and does not prove that the statistics were never created on a secondary.",
+    "Temporary and persisted permanent versions can coexist until recompilation or restart; duplicate column coverage is not by itself a defect.",
+    "ReplicaName is expected to be null for primary-origin statistics.",
+    "UNAVAILABLE_VERSION and UNAVAILABLE_COLUMNS describe expected optional feature absence and do not make otherwise complete base statistics partial.",
+    "An empty result can mean an empty filter scope or restricted metadata visibility and is reported as limited evidence, not feature absence."
+  ],
+  "runtimeMatrix": {
+    "productMajorVersions": [
+      15,
+      16,
+      17
+    ],
+    "requiredCases": [
+      "named-table-json",
+      "current-replica-role",
+      "unavailable-version",
+      "sql2025-catalog",
+      "primary-or-not-recorded",
+      "secondary-role-mapping",
+      "partial-metadata-mapping",
+      "bounded-output",
+      "empty-or-restricted-scope",
+      "restricted-metadata",
+      "lock-timeout-restoration"
+    ],
+    "availabilityGroupContainerRequired": false,
+    "availabilityGroupBoundary": "The three-version container gate validates the real SQL Server 2025 catalog path and synthetic role semantics. It does not claim an active readable-secondary topology.",
+    "fixtures": "Synthetic Example* objects, users, replica names, and numeric values only"
+  },
+  "documentation": "Documentation/Architecture/SQL_Server_2025_Readable_Secondary_Statistics.md"
+}

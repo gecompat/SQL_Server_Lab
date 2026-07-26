@@ -1,0 +1,87 @@
+{
+  "SchemaVersion": "1.0",
+  "ScenarioId": "LAB-LS-001",
+  "Title": "Log Shipping backup copy and restore lag",
+  "Purpose": "Create one bounded synthetic Log Shipping configuration on CTR-PAIR, prove one healthy backup-copy-restore cycle, then leave exactly one later log backup pending so the framework can report visible lag without relying on a network fault or exact elapsed time.",
+  "EvidenceClass": "REAL",
+  "Platforms": [
+    "CONTAINER_LINUX"
+  ],
+  "SqlVersions": [
+    2019,
+    2022,
+    2025
+  ],
+  "TopologyId": "CTR-PAIR",
+  "ResourceProfile": "Standard",
+  "DestructiveClass": "LAB_DATA",
+  "RequiredCapabilities": [
+    "DOCKER_ENGINE",
+    "COMPOSE_PROVIDER",
+    "MULTI_CONTAINER_NETWORK",
+    "SQL_AGENT"
+  ],
+  "Arrange": {
+    "Action": "Create only the synthetic LabLs001 database, exact Log Shipping jobs, local monitor rows, and scenario-owned transfer directories on the active CTR-PAIR run.",
+    "CompletionSignal": "The primary and secondary use the same run-owned configuration, the secondary is initialized with NORECOVERY, and every exact job and database identifier is known."
+  },
+  "Act": {
+    "Action": "Run one ordered backup-copy-restore cycle, verify matching file evidence, then run one later backup without executing copy or restore.",
+    "CompletionSignal": "The primary monitor references a newer backup file while the secondary copy and restore monitors still reference the previously verified healthy-cycle file."
+  },
+  "Observe": {
+    "Analyzers": [
+      "USP_LogShippingStatus",
+      "USP_BackupChainAnalysis",
+      "USP_InfrastructureAnalysis"
+    ],
+    "Scope": "Only the synthetic LabLs001 database and exact LAB_LS_001 backup, copy, and restore jobs on the active run-owned primary and secondary containers.",
+    "MeasurementWindowSeconds": 120
+  },
+  "ExpectedFindings": [
+    {
+      "Analyzer": "USP_LogShippingStatus",
+      "ExpectationType": "POSITIVE_FINDING",
+      "ExpectedStatuses": [
+        "AVAILABLE",
+        "AVAILABLE_LIMITED"
+      ],
+      "ExpectedFindingCodes": [
+        "LOG_SHIPPING_HEALTHY_CYCLE_OBSERVED",
+        "LOG_SHIPPING_LAG_VISIBLE",
+        "BACKUP_CHAIN_VISIBLE"
+      ],
+      "MinimumConfidence": "HIGH",
+      "AlternativeEvidence": [
+        "File timestamps and age values may be zero or differ by host timing; ordered monitor-file identity is the portable evidence."
+      ],
+      "AssertionBoundary": "Assert the ordered file relationship and analyzer availability, not an exact lag duration, job runtime, file timestamp, LSN, row ordering, or throughput value."
+    }
+  ],
+  "AlternativeEvidence": [
+    "The primary latest backup leaf name differs from the unchanged secondary copied and restored leaf name after a previously matching healthy cycle."
+  ],
+  "Timeouts": {
+    "SetupSeconds": 600,
+    "ActSeconds": 300,
+    "ObserveSeconds": 300,
+    "CleanupSeconds": 300
+  },
+  "SafetyGuards": {
+    "RequireSyntheticDatabase": true,
+    "RequireRunId": true,
+    "RequireRegisteredObjectIds": true,
+    "AllowSystemTarget": false,
+    "AllowNameOnlyDeletion": false,
+    "RequireDestructiveApproval": false
+  },
+  "Cleanup": {
+    "Action": "Delete only the exact Log Shipping configuration and jobs, drop only LabLs001 on each run-owned container, and remove only the marker-verified LAB-LS-001 transfer directory.",
+    "CompletionSignal": "No exact scenario job, Log Shipping metadata row, synthetic database, or scenario-owned transfer file remains."
+  },
+  "DataClassification": "SYNTHETIC",
+  "KnownLimitations": [
+    "This scenario validates Log Shipping metadata and analyzer behavior; it is not a disaster-recovery timing benchmark.",
+    "Repository CI validates the bounded action contract. Native Docker and SQL Server 2019, 2022, and 2025 evidence remains an external gate."
+  ]
+}

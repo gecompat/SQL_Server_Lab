@@ -1,0 +1,46 @@
+{
+  "SchemaVersion": "1.0",
+  "DataClassification": "SYNTHETIC_EXAMPLE",
+  "HostAdapter": "LinuxNative",
+  "OperatingSystemFamily": "LINUX",
+  "Architecture": "X86_64",
+  "LogicalProcessorCount": 16,
+  "PhysicalMemoryMiB": 98304,
+  "AvailableMemoryMiB": 81920,
+  "StorageTargets": [
+    {
+      "LogicalTargetId": "SYNTHETIC_TARGET_01",
+      "Roles": [
+        "IMAGE_CACHE",
+        "EPHEMERAL_DATA"
+      ],
+      "FreeStorageGiB": 2048,
+      "IsSystemTarget": false,
+      "IsApprovedLabTarget": true
+    },
+    {
+      "LogicalTargetId": "SYNTHETIC_FAULT_TARGET_01",
+      "Roles": [
+        "FAULT_TARGET"
+      ],
+      "FreeStorageGiB": 64,
+      "IsSystemTarget": false,
+      "IsApprovedLabTarget": true
+    }
+  ],
+  "Capabilities": {
+    "HyperV": false,
+    "PowerShellDirect": false,
+    "DockerEngine": true,
+    "PodmanEngine": false,
+    "ComposeProvider": true,
+    "CgroupResourceLimits": true,
+    "NetworkFaultInjection": true,
+    "RemoteHost": false
+  },
+  "ResolvedHostClass": "HC3_EXTENDED",
+  "SupportedExecutionModes": [
+    "LINUX_NATIVE"
+  ]
+}
+

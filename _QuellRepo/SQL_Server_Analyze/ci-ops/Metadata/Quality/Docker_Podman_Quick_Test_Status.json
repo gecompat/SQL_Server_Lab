@@ -1,0 +1,51 @@
+{
+  "SchemaVersion": "1.0",
+  "WorkItemId": "LAB-QUICKTEST-001",
+  "ContractStatus": "IMPLEMENTED_ACTIONS_GATE",
+  "PreflightStatus": "IMPLEMENTED_AUTOMATED_GATE",
+  "RuntimeStatus": "IMPLEMENTED_EXTERNAL_EVIDENCE_PENDING",
+  "DataClassification": "PUBLIC_AND_SYNTHETIC",
+  "DeliveredScope": [
+    "Shared portable Compose core for SQL Server 2019, 2022, and 2025",
+    "Independent per-version Compose profiles and default host ports",
+    "Separate Docker and Podman resource-limit overrides",
+    "Runtime health check that executes a SQL query",
+    "Generic run, scope, owner, runtime, and SQL-version labels",
+    "Separate data, transaction-log, backup, and runtime bind contracts",
+    "Static Docker-based validation of both effective Compose models",
+    "Interactive and non-interactive PowerShell 7 Preflight entrypoint",
+    "Docker or Podman runtime and Compose capability detection",
+    "SQL Server version, host-port, memory, path, image, EULA, and credential-policy checks",
+    "Generic scope-conflict detection without creating or changing runtime resources",
+    "Structured READY or PREFLIGHT_FAILED result with reason codes",
+    "Bounded Install action with sequential per-version start and readiness verification",
+    "Marker-bound local recovery state written before the first runtime mutation",
+    "Full container and network object ID registration and run-label ownership checks",
+    "Optional generic administrative SQL login and framework installation",
+    "Status action with READY STOPPED and DOWN lifecycle verification",
+    "Ordered Stop action with exact owner-validated container IDs and preserved containers, network, data, credentials, and state",
+    "Controlled Restart action that composes Stop and stopped-container Start while preserving Run ID container IDs network data and state",
+    "Temporary-scope Reset action with read-only validation, explicit confirmation, complete exact-scope destruction, fresh installation, and a new run ID",
+    "Persistent-scope Reset protection that blocks data deletion before mutation",
+    "Confirmation-bound Down action with exact runtime-object removal and preserved data, credentials, and state",
+    "State-bound Start action with sequential recreation, existing-credential reuse, readiness verification, and failure cleanup",
+    "Stopped-container Start path without recreation or credential access",
+    "Separate UpdateFramework action with per-instance INSTALLED or UPDATED classification and mandatory FRAMEWORK_READY verification",
+    "Sequential UpdateFramework processing with exact owner validation, major-version checks, per-instance results, and no container recreation",
+    "Confirmation-bound Destroy action with exact runtime and local-scope cleanup",
+    "Synthetic positive and negative Preflight and lifecycle contract tests"
+  ],
+  "OpenScope": [
+    "Native UpdateFramework execution evidence",
+    "Native Docker runtime evidence",
+    "Native Podman runtime evidence",
+    "SQL Server 2019, 2022, and 2025 end-to-end readiness evidence"
+  ],
+  "ExternalEvidenceRequired": [
+    "Native x86-64 Linux Docker Install Status Stop Restart Reset Down Start UpdateFramework and Destroy execution",
+    "Native x86-64 Linux Podman Install Status Stop Restart Reset Down Start UpdateFramework and Destroy execution",
+    "SQL Server 2019, 2022, and 2025 readiness major-version and framework verification",
+    "UpdateFramework INSTALLED UPDATED and FRAMEWORK_READY evidence on each selected version"
+  ],
+  "EvidenceReference": "Documentation/Architecture/Docker_Podman_Quick_Test_System_Requirements.md"
+}

@@ -1,0 +1,35 @@
+{
+  "SchemaVersion": "1.0",
+  "TopologyId": "CTR-SINGLE",
+  "Title": "Synthetic single-container topology",
+  "Platforms": [
+    "CONTAINER_LINUX"
+  ],
+  "ExecutionModes": [
+    "LINUX_NATIVE"
+  ],
+  "ResourceProfile": "Compact",
+  "Roles": [
+    "SQL_PRIMARY",
+    "OBSERVER"
+  ],
+  "Networks": [
+    "LAB_MANAGEMENT",
+    "LAB_DATA"
+  ],
+  "StorageRoles": [
+    "EPHEMERAL_DATA"
+  ],
+  "RequiredCapabilities": [
+    "CONTAINER_ENGINE",
+    "COMPOSE_PROVIDER"
+  ],
+  "CleanupBoundary": {
+    "RequireRunId": true,
+    "RequireRegisteredObjectIds": true,
+    "AllowNameOnlyDeletion": false,
+    "AllowUnresolvedGlobs": false
+  },
+  "DataClassification": "SYNTHETIC"
+}
+

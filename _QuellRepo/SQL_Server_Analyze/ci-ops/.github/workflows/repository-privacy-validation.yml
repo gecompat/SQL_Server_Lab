@@ -1,0 +1,54 @@
+name: Repository privacy validation
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: repository-privacy-validation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate repository and ZIP privacy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Run privacy-gate self-tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 ./Code/Tests/Static/910_Validate_Repository_Privacy.py \
+            --repository-root . \
+            --self-test
+
+      - name: Validate tracked repository files
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 ./Code/Tests/Static/910_Validate_Repository_Privacy.py \
+            --repository-root .
+
+      - name: Build and validate delivery ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive_path="$RUNNER_TEMP/SQL_Server_Analyze.zip"
+          git archive \
+            --format=zip \
+            --prefix=SQL_Server_Analyze/ \
+            --output="$archive_path" \
+            HEAD
+          python3 ./Code/Tests/Static/910_Validate_Repository_Privacy.py \
+            --repository-root . \
+            --archive-path "$archive_path"

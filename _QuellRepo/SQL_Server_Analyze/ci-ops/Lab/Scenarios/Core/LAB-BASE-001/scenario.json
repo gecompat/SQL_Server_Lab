@@ -1,0 +1,81 @@
+{
+  "SchemaVersion": "1.0",
+  "ScenarioId": "LAB-BASE-001",
+  "Title": "Synthetic healthy bounded baseline",
+  "Purpose": "Verify installation, bounded current-state output, measured resource limits, and cleanup without asserting host-dependent counter values.",
+  "EvidenceClass": "REAL",
+  "Platforms": [
+    "CONTAINER_LINUX",
+    "HYPER_V_LINUX"
+  ],
+  "SqlVersions": [
+    2025
+  ],
+  "TopologyId": "CTR-SINGLE",
+  "ResourceProfile": "Compact",
+  "DestructiveClass": "LAB_DATA",
+  "RequiredCapabilities": [
+    "DOCKER_ENGINE",
+    "COMPOSE_PROVIDER",
+    "CGROUP_RESOURCE_LIMITS"
+  ],
+  "Arrange": {
+    "Action": "Install the framework and create a bounded synthetic database in the run-owned SQL Server container.",
+    "CompletionSignal": "The framework and synthetic database are online inside the registered container."
+  },
+  "Act": {
+    "Action": "Execute a deterministic low-volume synthetic transaction.",
+    "CompletionSignal": "The transaction commits and the expected synthetic row count is present."
+  },
+  "Observe": {
+    "Analyzers": [
+      "USP_CurrentOverview"
+    ],
+    "Scope": "Only the registered synthetic database with sampling and deep options disabled.",
+    "MeasurementWindowSeconds": 1
+  },
+  "ExpectedFindings": [
+    {
+      "Analyzer": "USP_CurrentOverview",
+      "ExpectationType": "BASELINE",
+      "ExpectedStatuses": [
+        "AVAILABLE",
+        "AVAILABLE_LIMITED"
+      ],
+      "ExpectedFindingCodes": [
+        "BASELINE_OUTPUT_VALID"
+      ],
+      "MinimumConfidence": "NONE",
+      "AlternativeEvidence": [
+        "AVAILABLE_LIMITED is accepted only when the returned module and warning contracts remain structurally valid."
+      ],
+      "AssertionBoundary": "Exact waits, durations, plans, CPU percentages, memory use, storage use, and row ordering are not asserted."
+    }
+  ],
+  "AlternativeEvidence": [
+    "The Hyper-V Linux lane remains NOT_EXECUTED until an isolated compatible guest is available."
+  ],
+  "Timeouts": {
+    "SetupSeconds": 1800,
+    "ActSeconds": 120,
+    "ObserveSeconds": 300,
+    "CleanupSeconds": 900
+  },
+  "SafetyGuards": {
+    "RequireSyntheticDatabase": true,
+    "RequireRunId": true,
+    "RequireRegisteredObjectIds": true,
+    "AllowSystemTarget": false,
+    "AllowNameOnlyDeletion": false,
+    "RequireDestructiveApproval": false
+  },
+  "Cleanup": {
+    "Action": "Remove only the exact registered container and network after verifying their run labels, then remove the marker-protected run data directory.",
+    "CompletionSignal": "No Docker object carrying the run identifier and no run-owned data directory remains."
+  },
+  "DataClassification": "SYNTHETIC",
+  "KnownLimitations": [
+    "The baseline proves a bounded SQL Server 2025 container path and does not represent production sizing.",
+    "External native-Linux and Hyper-V-Linux runtime evidence is tracked separately from repository validation."
+  ]
+}

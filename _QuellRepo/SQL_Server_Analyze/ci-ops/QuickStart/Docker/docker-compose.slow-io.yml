@@ -1,0 +1,27 @@
+services:
+  sql2019:
+    blkio_config:
+      device_read_bps:
+        - path: ${SLOW_IO_DEVICE:?SLOW_IO_DEVICE is required}
+          rate: ${SLOW_IO_READ_BPS:-20mb}
+      device_write_bps:
+        - path: ${SLOW_IO_DEVICE:?SLOW_IO_DEVICE is required}
+          rate: ${SLOW_IO_WRITE_BPS:-10mb}
+
+  sql2022:
+    blkio_config:
+      device_read_bps:
+        - path: ${SLOW_IO_DEVICE:?SLOW_IO_DEVICE is required}
+          rate: ${SLOW_IO_READ_BPS:-20mb}
+      device_write_bps:
+        - path: ${SLOW_IO_DEVICE:?SLOW_IO_DEVICE is required}
+          rate: ${SLOW_IO_WRITE_BPS:-10mb}
+
+  sql2025:
+    blkio_config:
+      device_read_bps:
+        - path: ${SLOW_IO_DEVICE:?SLOW_IO_DEVICE is required}
+          rate: ${SLOW_IO_READ_BPS:-20mb}
+      device_write_bps:
+        - path: ${SLOW_IO_DEVICE:?SLOW_IO_DEVICE is required}
+          rate: ${SLOW_IO_WRITE_BPS:-10mb}

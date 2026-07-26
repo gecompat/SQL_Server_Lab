@@ -1,0 +1,81 @@
+{
+  "SchemaVersion": "1.0",
+  "ScenarioId": "LAB-BASE-002",
+  "Title": "Synthetic restricted metadata visibility",
+  "Purpose": "Verify that restricted metadata visibility is reported as bounded permission evidence instead of an unhandled analyzer failure.",
+  "EvidenceClass": "REAL",
+  "Platforms": [
+    "CONTAINER_LINUX",
+    "HYPER_V_LINUX"
+  ],
+  "SqlVersions": [
+    2025
+  ],
+  "TopologyId": "CTR-SINGLE",
+  "ResourceProfile": "Compact",
+  "DestructiveClass": "LAB_DATA",
+  "RequiredCapabilities": [
+    "DOCKER_ENGINE",
+    "COMPOSE_PROVIDER",
+    "CGROUP_RESOURCE_LIMITS"
+  ],
+  "Arrange": {
+    "Action": "Create a synthetic database principal without a login and grant only the analyzer execution right.",
+    "CompletionSignal": "The restricted principal exists without server-state permissions."
+  },
+  "Act": {
+    "Action": "Execute the framework capability analyzer under the restricted database-user context.",
+    "CompletionSignal": "The analyzer returns valid structured permission evidence."
+  },
+  "Observe": {
+    "Analyzers": [
+      "USP_CheckFrameworkCapabilities"
+    ],
+    "Scope": "Only the registered synthetic database and one lightweight analysis class.",
+    "MeasurementWindowSeconds": 1
+  },
+  "ExpectedFindings": [
+    {
+      "Analyzer": "USP_CheckFrameworkCapabilities",
+      "ExpectationType": "PARTIAL_PERMISSION",
+      "ExpectedStatuses": [
+        "AVAILABLE",
+        "AVAILABLE_LIMITED"
+      ],
+      "ExpectedFindingCodes": [
+        "PERMISSION_BOUNDARY_OBSERVED"
+      ],
+      "MinimumConfidence": "HIGH",
+      "AlternativeEvidence": [
+        "A capability row with unavailable or unverified permission status is sufficient when the overall JSON contract remains valid."
+      ],
+      "AssertionBoundary": "The exact number and ordering of restricted capabilities are version- and feature-dependent."
+    }
+  ],
+  "AlternativeEvidence": [
+    "The Hyper-V Linux lane remains NOT_EXECUTED until an isolated compatible guest is available."
+  ],
+  "Timeouts": {
+    "SetupSeconds": 300,
+    "ActSeconds": 120,
+    "ObserveSeconds": 300,
+    "CleanupSeconds": 900
+  },
+  "SafetyGuards": {
+    "RequireSyntheticDatabase": true,
+    "RequireRunId": true,
+    "RequireRegisteredObjectIds": true,
+    "AllowSystemTarget": false,
+    "AllowNameOnlyDeletion": false,
+    "RequireDestructiveApproval": false
+  },
+  "Cleanup": {
+    "Action": "Remove the isolated run-owned container and its exact registered resources.",
+    "CompletionSignal": "The restricted principal disappears with the marker-protected run data directory."
+  },
+  "DataClassification": "SYNTHETIC",
+  "KnownLimitations": [
+    "The scenario proves graceful permission handling, not every possible permission combination.",
+    "External native-Linux and Hyper-V-Linux runtime evidence is tracked separately from repository validation."
+  ]
+}

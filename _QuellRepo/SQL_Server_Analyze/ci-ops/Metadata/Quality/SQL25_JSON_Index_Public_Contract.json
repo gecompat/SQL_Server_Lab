@@ -1,0 +1,113 @@
+{
+  "contractId": "SQL25-002-PUBLIC-V1",
+  "contractVersion": 1,
+  "workItemId": "SQL25-002",
+  "releaseState": "IMPLEMENTED_ACTIONS_GATE",
+  "frameworkVersion": "1.1.0-special.17",
+  "frameworkContractVersion": "1.21",
+  "minimumFrameworkProductMajorVersion": 15,
+  "featureProductMajorVersion": 17,
+  "dedicatedProcedureAdded": false,
+  "procedures": [
+    "monitor.USP_ObjectInventory",
+    "monitor.USP_ServerFeatureCapabilities"
+  ],
+  "orchestrator": "monitor.USP_ObjectAnalysis",
+  "objectInventoryFields": [
+    "IsJsonIndex",
+    "OptimizeForArraySearch",
+    "JsonPathCount",
+    "JsonPaths",
+    "JsonIndexStatusCode",
+    "JsonIndexEvidenceLimit"
+  ],
+  "databaseStatusFields": [
+    "JsonIndexStatusCode",
+    "JsonIndexRowCount",
+    "JsonPathRowCount",
+    "JsonIndexErrorNumber",
+    "JsonIndexErrorMessage",
+    "JsonIndexEvidenceLimit"
+  ],
+  "capabilityFeature": "JSON_INDEX_METADATA",
+  "outputModes": [
+    "CONSOLE",
+    "RAW",
+    "TABLE",
+    "NONE",
+    "JSON"
+  ],
+  "sources": [
+    {
+      "name": "jsonIndexCatalog",
+      "object": "sys.json_indexes",
+      "minimumProductMajorVersion": 17,
+      "permission": "Metadata visibility",
+      "maximumReadsPerDatabaseInvocationAndProcedure": 1
+    },
+    {
+      "name": "jsonPathCatalog",
+      "object": "sys.json_index_paths",
+      "minimumProductMajorVersion": 17,
+      "permission": "Metadata visibility",
+      "maximumReadsPerDatabaseInvocationAndProcedure": 1
+    }
+  ],
+  "sourceStatusCodes": [
+    "AVAILABLE",
+    "AVAILABLE_EMPTY_OR_RESTRICTED",
+    "AVAILABLE_LIMITED",
+    "NOT_APPLICABLE",
+    "NOT_COLLECTED",
+    "UNAVAILABLE_VERSION",
+    "UNAVAILABLE_FEATURE",
+    "UNAVAILABLE_SOURCE_SCHEMA",
+    "DENIED_PERMISSION",
+    "TIMEOUT",
+    "ERROR_HANDLED"
+  ],
+  "privacy": {
+    "jsonDocumentValuesCollected": false,
+    "userTableRowsRead": false,
+    "queryTextCollected": false,
+    "planXmlCollected": false,
+    "jsonPathMetadataCollected": true,
+    "runtimeFixtures": "Synthetic Example* objects and path literals only"
+  },
+  "falsePositiveBoundaries": [
+    "A visible JSON index proves only catalog presence; it is not a health, usage, benefit, redundancy, or rebuild finding.",
+    "An empty metadata result does not prove feature absence when metadata visibility is restricted.",
+    "A missing or schema-incompatible SQL Server 2025 preview source is reported explicitly and does not invalidate the general object inventory.",
+    "Path count and OPTIMIZE_FOR_ARRAY_SEARCH describe the current visible definition; they do not prove that the indexed paths match the workload."
+  ],
+  "runtimeMatrix": {
+    "productMajorVersions": [
+      15,
+      16,
+      17
+    ],
+    "requiredCases": [
+      "unavailable-version",
+      "feature-active-or-explicit-unavailable",
+      "object-analysis-routing",
+      "capability-inventory",
+      "special-feature-routing",
+      "named-table-output"
+    ],
+    "capabilityConditionalCases": [
+      "visible-index-and-paths",
+      "empty-visible-scope",
+      "restricted-metadata",
+      "bounded-output",
+      "special-index-inventory"
+    ],
+    "activationPrerequisites": [
+      "Compatibility level 170",
+      "PREVIEW_FEATURES enabled",
+      "sys.json_indexes and sys.json_index_paths exposed with required columns by the SQL Server 2025 build",
+      "native json type available"
+    ],
+    "fixtures": "Synthetic Example* objects and path literals only; no JSON document rows"
+  },
+  "documentation": "Documentation/Architecture/SQL_Server_2025_JSON_Index_Inventory.md"
+}

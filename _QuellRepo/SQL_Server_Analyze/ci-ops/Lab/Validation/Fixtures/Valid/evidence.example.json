@@ -1,0 +1,21 @@
+{
+  "SchemaVersion": "1.0",
+  "DataClassification": "SYNTHETIC_SUMMARY",
+  "ScenarioId": "LAB-BASE-001",
+  "SqlServerProductVersion": "2025",
+  "PlatformClass": "CONTAINER_LINUX",
+  "FrameworkCommit": "0000000000000000000000000000000000000000",
+  "Status": "NOT_EXECUTED",
+  "ExpectedFindingCodes": [],
+  "ExternalRunReference": "SYNTHETIC_REFERENCE",
+  "Limitations": [
+    "This file validates the publishable summary contract and is not runtime evidence."
+  ],
+  "PrivacyReview": {
+    "Status": "PASSED",
+    "ContainsRuntimeValues": false,
+    "ContainsLocalIdentifiers": false,
+    "ContainsLocalPaths": false,
+    "ContainsRawSqlText": false
+  }
+}
