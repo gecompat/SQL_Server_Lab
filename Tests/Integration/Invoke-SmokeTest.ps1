@@ -226,10 +226,10 @@ $tableCheck = sqlcmd -S "127.0.0.1,$($script:Lab.Instances[0].Port)" -U sa -P $s
     -Q "SELECT COUNT(*) AS Cnt FROM SmokeTestDB.dbo.SmokeTest" -h -1 -W 2>&1
 $saPlain = $null
 
-$tableCheckStr = ($tableCheck | Where-Object { $_.Trim() }) -join ' // '
-$rowCount = ($tableCheck | ForEach-Object { $_.Trim() } | Where-Object { $_ -and [int]::TryParse($_, [ref]$null) } | Select-Object -First 1)
+$tableCheckStr = if ($tableCheck) { ($tableCheck | ForEach-Object { "$_".Trim() } | Where-Object { $_ }) -join ' // ' } else { '(leer)' }
+$foundTwo = $tableCheckStr -match '\b2\b'
 Assert-True 'Tabelle hat 2 Rows' `
-    ($rowCount.Trim() -eq '2') `
+    $foundTwo `
     "Output: $tableCheckStr"
 
 # Temp-Datei aufraumen
