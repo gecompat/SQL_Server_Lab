@@ -1,268 +1,300 @@
-# Zukünftige Anwendungsfälle und Erweiterungsleitplanken
+# Zukünftige SQL-Server-Anwendungsfälle und Erweiterungsleitplanken
 
 | Merkmal | Wert |
 |---|---|
 | Status | `ARCHITECTURE_TEST_CATALOG` |
 | Stand | 2026-07-26 |
-| Zweck | Sicherstellen, dass frühe Schnittstellen spätere Anwendungsfälle nicht blockieren |
+| Hauptzweck | SQL-Server-Labs |
+| Zweck | Sicherstellen, dass frühe Schnittstellen spätere SQL-Server-Szenarien nicht blockieren |
+| Maßgebliche Scope-Entscheidung | [SQL-Server-zentrierte Scope-Entscheidung](./SQL_SERVER_CENTRIC_SCOPE_DECISION.md) |
 
 ## 1. Einordnung
 
-Dieses Dokument ist kein Versprechen, alle genannten Technologien kurzfristig zu implementieren. Die Anwendungsfälle dienen als Architekturtests: Die Core-Verträge müssen sie grundsätzlich ausdrücken können, ohne für jede neue Technologie neu entworfen zu werden.
+Dieses Dokument ist kein Versprechen, alle genannten Funktionen kurzfristig zu implementieren. Die Anwendungsfälle dienen als Architekturtests für ein SQL-Server-Lab.
 
-SQL Server bleibt der erste produktive Schwerpunkt. Der Lab Core wird jedoch als allgemeine Umgebungs-, Komponenten-, Workflow-, Binding- und Lifecycle-Plattform modelliert.
+Zusätzliche Technologien sind nur dann relevant, wenn sie eine SQL-Server-Konstellation ermöglichen, beeinflussen oder beobachtbar machen. Es entsteht kein allgemeines Hadoop-, REST-, Active-Directory-, Kubernetes- oder Multi-Purpose-Lab.
 
-## 2. Kategorien zukünftiger Anwendungsfälle
+## 2. Zentrale SQL-Server-Anwendungsfälle
 
-### 2.1 Weitere SQL-Server-Topologien
+### 2.1 Quick Environment
 
-- mehrere unabhängige SQL-Server-Versionen;
-- Availability Groups;
-- WSFC und FCI;
-- Log Shipping und Replication;
-- Windows- und Linux-Kombinationen;
-- Domain-, DNS- und Zertifikatsabhängigkeiten;
-- getrennte Data-, Log-, TempDB- und Backup-Storage-Rollen;
-- Router-, Witness-, Load-Generator- und Observer-Komponenten;
-- Upgrade-, Migration- und Compatibility-Level-Szenarien.
+- SQL Server 2019, 2022 oder 2025;
+- eine oder mehrere Versionen;
+- Linux-Container über Docker oder Podman;
+- Windows- oder Linux-VM über Hyper-V;
+- auswählbare CPU-, RAM- und Storageprofile;
+- persistente oder temporäre Daten;
+- sichere lokale Zugangsdaten;
+- optionale Installation eines Projektpakets;
+- Connection Summary ohne Passwort;
+- Start, Stop, Reset, Down und Destroy.
 
-**Schnittstellenfolge:** Eine SQL-Server-Instanz darf nicht die einzige zulässige Root-Komponente sein. Topologien müssen beliebige Komponentenbeziehungen und zusammengesetzte Rollen unterstützen.
+**Architekturfolge:** Der einfache Menüpfad verwendet denselben Package-, State-, Provider- und Cleanup-Core wie komplexe Szenarien.
 
-### 2.2 Hadoop-, Spark- oder verteilte Datencluster
+### 2.2 Performance-Schulungsdemo
 
-Mögliche spätere Komponenten:
+- deterministische synthetische Daten;
+- Baseline;
+- kontrollierter Effekt;
+- Observation;
+- Gegenmaßnahme;
+- Vorher-/Nachher-Vergleich;
+- mehrere Sessions;
+- definierte CPU-, RAM-, I/O- und Laufzeitgrenzen;
+- Cleanup.
 
-- NameNode und DataNodes;
-- ResourceManager und NodeManager;
-- Spark Master und Worker;
-- HDFS, YARN oder vergleichbare Dienste;
-- SQL-Server-Datenquelle;
-- Datenimport, Jobsubmission, Jobstatus und Ergebnisprüfung;
-- skalierbare Workerzahl;
-- Cluster-Health und Teilkomponentenausfall.
+**Architekturfolge:** DataSet, Workload, Probe und Assertion sind getrennte Verträge.
 
-**Schnittstellenfolge:** Composite Components müssen eine fachliche Clusterdefinition in einen Ressourcenuntergraphen expandieren können. Workflow Actions und Bindings müssen technologiebezogen erweiterbar sein.
+### 2.3 Diagnose- und Analyze-Szenario
 
-### 2.3 REST-, HTTP-, gRPC- oder andere Service-Schnittstellen
+- Frameworkinstallation;
+- gezielte Blocking-, Wait-, TempDB-, Log-, I/O-, Query-Store- oder Extended-Events-Konstellation;
+- Analyzer-Aufrufe;
+- erwartete Finding-, Status- und Resultset-Codes;
+- alternative Evidenz bei fehlender Capability;
+- lokaler technischer Evidence-Scope;
+- vollständiges Cleanup.
 
-Mögliche spätere Szenarien:
+**Architekturfolge:** Das Analyze-Repository besitzt fachliche Assertions; das Lab besitzt Provider, Faults und Lifecycle.
 
-- Test-API als Container oder VM bereitstellen;
-- API gegen eine Lab-SQL-Instanz konfigurieren;
-- synthetische Requests erzeugen;
-- Authentifizierung über Secret Bindings;
-- Responsefelder als Workflowoutputs weiterreichen;
-- Retry-, Timeout-, Rate-Limit- und Fehlerverhalten testen;
-- einen externen Testendpoint read-only einbinden;
-- einen Mock- oder Stub-Service verwenden.
+## 3. SQL-Server-Topologien
 
-**Schnittstellenfolge:** Endpunkte und Protokolle werden als typisierte Interfaces und Bindings modelliert. Ein externer Endpoint ist eine Component mit Management- und Network Policy, kein freier URL-String im Szenario.
+### 3.1 Mehrere unabhängige Instanzen
 
-### 2.4 Clientanwendungen und Treiber
+- verschiedene SQL-Versionen;
+- verschiedene Betriebssysteme;
+- unterschiedliche Collations oder Compatibility Levels;
+- Client- oder Workloadvergleich;
+- Upgrade- und Migrationstests.
 
-Mögliche Komponenten:
+### 3.2 Availability Groups
 
-- ODBC-/JDBC-Client;
-- .NET-, Java-, Python- oder PowerShell-Testclient;
-- Connection-Pooling- und Retry-Szenarien;
-- ORM-spezifische Query Patterns;
-- mehrere Clientversionen;
-- Lastgeneratoren und Sessionkoordinatoren;
-- Netzwerk- und TLS-Konfiguration.
+- primäre und sekundäre SQL-Knoten;
+- Listener;
+- Synchronisations- und Failovermodi;
+- optional Domain Controller, DNS und Witness;
+- Netzwerkprofile;
+- Readable Secondary und Backuppräferenzen;
+- kontrollierter Failover und Recovery.
 
-**Schnittstellenfolge:** Workload Driver werden als eigenständige Components modelliert. Die SQL-Instanz erzeugt ein Endpoint Binding; der Client konsumiert es. Ein Szenario darf nicht voraussetzen, dass alle Aktionen direkt auf dem Orchestratorhost laufen.
+### 3.3 Failover Cluster Instance
 
-### 2.5 Datenpipelines und ETL
+- mehrere Windows-Knoten;
+- Domain/DNS;
+- Shared Storage oder geeignete Labemulation;
+- Cluster- und SQL-Rollen;
+- Dienst- und Storage-Faults;
+- sauberer Resetpfad.
 
-Mögliche Szenarien:
+### 3.4 Replication und Log Shipping
 
-- SSIS-Pakete;
-- Dateiquellen und Dateiziele;
-- REST- oder Queue-basierte Datenzufuhr;
-- SQL Server als Quelle oder Ziel;
-- Hadoop-/Spark-Verarbeitung;
-- Lookup-, Merge-, Fehlerpfad- und Wiederanlaufszenarien;
-- synthetische Batch- und Streamingdaten;
-- Pipelinebeobachtung und Resultatvalidierung.
+- Publisher, Distributor, Subscriber;
+- Primary und Secondary;
+- Backup-, Copy- und Restorepfade;
+- Latenz- und Unterbrechungsszenarien;
+- Rollenbezogene DataSets und Assertions.
 
-**Schnittstellenfolge:** DataSets, Workloads und Artifacts müssen getrennt sein. Ein Workflow muss mehrere Systeme und Datenflüsse verbinden können.
+**Architekturfolge:** Komplexe SQL-Topologien werden als Composite SQL Components expandiert.
 
-### 2.6 Messaging und Streaming
+## 4. SQL-Server-Security und Identity
 
-Mögliche spätere Technologien:
+### 4.1 Domain Controller und DNS
 
-- Kafka oder vergleichbare Broker;
-- Service Broker;
-- Event Hubs oder lokale Emulatoren;
-- Producer, Consumer und Schema Registry;
-- Backpressure, Retry, Duplicate und Ordering-Szenarien;
-- kontrollierte Netzwerkunterbrechung.
+Gültige SQL-Zwecke:
 
-**Schnittstellenfolge:** Link Types wie `publishes-to` und `consumes-from` müssen registrierbar sein. Der Core darf Beziehungen nicht auf SQL-Verbindungen reduzieren.
-
-### 2.7 Object Storage und Dateisysteme
-
-Mögliche Komponenten:
-
-- lokaler File Server;
-- S3-kompatibler Testdienst;
-- Blob-Storage-Emulator;
-- HDFS;
-- SMB- oder NFS-Labfreigabe;
-- Backup-, Export-, Import- und Archive-Szenarien.
-
-**Schnittstellenfolge:** Storage wird als Component beziehungsweise Storage Claim mit Interfaces modelliert. Reale Hostpfade bleiben lokale Bindings.
-
-### 2.8 Observability und Diagnose
-
-Mögliche Komponenten:
-
-- Metrikcollector;
-- Logcollector;
-- Tracecollector;
-- SQL-DMVs, Query Store und Extended Events;
-- Betriebssystemmetriken;
-- Netzwerk- und Storage-Telemetrie;
-- sanitisierte Summary-Renderer.
-
-**Schnittstellenfolge:** Beobachtung ist nicht auf SQL-Procedures beschränkt. Probes und Evidence Renderer sind erweiterbare Typen. Rohdaten und exportierbare Zusammenfassung bleiben getrennt.
-
-### 2.9 Security-, Identity- und Zertifikatsszenarien
-
-Mögliche Komponenten:
-
-- isolierter Domain Controller und DNS;
-- Kerberos- oder Windows-Authentication-Test;
-- lokale Zertifizierungsstelle;
-- TLS-Endpunkte;
+- Windows Authentication;
 - Service Accounts;
-- Secret Rotation innerhalb eines wegwerfbaren Scopes;
+- Kerberos und SPNs;
+- Gruppenbasierte Berechtigungen;
+- WSFC, AG und FCI;
+- constrained delegation oder double-hop-bezogene Tests;
+- Zertifikats- und TLS-Szenarien.
+
+Nicht Ziel:
+
+- allgemeines Active-Directory-Schulungslab ohne SQL Server.
+
+### 4.2 Zertifikate und Secrets
+
+- TDE- oder Backupverschlüsselungs-Testschritte;
+- TLS-Verbindungen;
+- Zertifikatserneuerung in wegwerfbaren Labs;
+- Secret Rotation für synthetische Accounts;
 - Berechtigungs- und Negativtests.
 
-**Schnittstellenfolge:** Identity-, Certificate- und Secret-Referenzen müssen typisiert und lokal bleiben. Ein Package enthält keine realen Accounts oder Schlüssel.
+**Architekturfolge:** Identity-, Certificate- und Secret-Bindings bleiben typisiert und lokal.
 
-### 2.10 Weitere Provider
+## 5. SQL-Server-Integration mit Hadoop oder verteilten Datenplattformen
 
-Mögliche spätere Provider:
+### 5.1 PolyBase
 
-- Kubernetes;
-- andere lokale Hypervisoren;
-- bare-metal-nahe Labhosts;
-- Cloud-IaaS in einem getrennten, ausdrücklich freigegebenen Scope;
-- Remote Hosts;
-- vorhandene Testappliances.
+Mögliche Komponenten:
 
-**Schnittstellenfolge:** Provider sind Plugins hinter demselben Resource-Graph- und State-Vertrag. Project Packages enthalten keine providerspezifische Provisionierung.
+- SQL Server mit PolyBase-Capability;
+- Hadoop-Cluster oder andere unterstützte externe Datenquelle;
+- synthetische Daten im externen System;
+- External Data Source, File Format und External Table;
+- Query, Performance- und Fehlertests;
+- Netzwerk- und Authentifizierungsvarianten;
+- Cleanup beider Seiten.
 
-### 2.11 Verteilte und hybride Ausführung
+**Architekturfolge:** `hadoop.cluster` ist Supporting Component. Der Packagezweck bleibt `INTEGRATION_SCENARIO` für SQL Server.
 
-Mögliche Szenarien:
+### 5.2 Weitere Datenplattformen
 
-- Hyper-V-Windows-Komponenten auf Host A;
-- native Linux-Container auf Host B;
-- Client oder Observer auf Host C;
-- kontrollierte Netzwerkverbindungen zwischen Teilhosts;
-- zentraler Run mit getrennten lokalen Cleanup-Scopes;
-- Teilverfügbarkeit und `NOT_EXECUTED` einzelner Rollen.
+Zulässig, wenn sie:
 
-**Schnittstellenfolge:** Placement und Providerzuordnung sind Teil des Bound Plan. Jeder Host behält einen eigenen lokalen State und registrierte Ressourcen-IDs.
+- SQL-Server-Datenquelle oder -ziel sind;
+- ETL-, Replikations-, Linked-Server- oder PolyBase-Verhalten ermöglichen;
+- als Vergleichssystem eines SQL-Server-Tests dienen.
 
-### 2.12 Lang lebende und gemeinsam genutzte Testbasen
+Nicht Ziel ist die allgemeine Verwaltung dieser Plattform.
 
-Mögliche Betriebsformen:
+## 6. SQL Server und REST-/HTTP-Dienste
+
+Gültige Szenarien:
+
+- API als SQL-Server-Client;
+- API mit Connection Pooling, Retry und Transaktionsverhalten;
+- REST-Datenquelle oder -ziel;
+- Mock-Service für reproduzierbare SQL-Integrationsfälle;
+- HTTP-Workload zur Erzeugung bestimmter SQL-Abfragemuster;
+- Responseprüfung gemeinsam mit SQL-Evidenz.
+
+**Architekturfolge:** Der API-Endpunkt ist Supporting Component oder externer Testendpoint mit expliziter Network Policy. Ein allgemeines API-Testframework ist kein Ziel.
+
+## 7. Client- und Workload-Komponenten
+
+Mögliche SQL-bezogene Clients:
+
+- `sqlcmd`;
+- PowerShell;
+- .NET;
+- Java/JDBC;
+- Python;
+- ODBC;
+- ORM-Testclient;
+- SSIS oder ETL-Driver;
+- kontrollierter Multi-Session-Load Generator.
+
+Szenarien:
+
+- Connection Pooling;
+- Retry;
+- Parameter Sniffing;
+- Transaktionsgrenzen;
+- Blocking und Deadlocks;
+- Batch- und RPC-Unterschiede;
+- Application Name und Toolfilter;
+- Treiber- und TLS-Verhalten.
+
+**Architekturfolge:** Der Client konsumiert typisierte SQL Endpoint- und Credential-Reference-Bindings.
+
+## 8. Storage- und I/O-Szenarien
+
+- getrennte Data-, Log-, TempDB- und Backup-Rollen;
+- verschiedene virtuelle Datenträger;
+- IOPS- und Durchsatzgrenzen;
+- kontrollierte Latenz;
+- Disk-Full auf einem hart begrenzten Fault Target;
+- Autogrowth und Filelayout;
+- Backup- und Restorepfade;
+- Container-Volumes gegenüber Hyper-V-VHDX;
+- Docker-Desktop-Grenzen gegenüber nativer Linux-Engine.
+
+**Architekturfolge:** Storage Claims sind logisch. Reale Pfade und Geräte werden erst lokal gebunden.
+
+## 9. Netzwerk- und Availability-Szenarien
+
+- Latenz, Jitter, Bandbreite und Paketverlust;
+- gerichtete Fehler zwischen SQL-Knoten oder Client und SQL Server;
+- Listener- und DNS-Verhalten;
+- Timeout und Retry;
+- AG-Synchronisation;
+- Log Shipping oder Replication bei unterbrochener Verbindung;
+- Toxiproxy-, `tc/netem`- oder Hyper-V-bezogene Fault Handler.
+
+**Architekturfolge:** Faults sind eigene typisierte Actions mit Dauer, Status, Rücknahme und Verifikation.
+
+## 10. Observability und zusätzliche Evidenz
+
+- SQL-DMVs und Kataloge;
+- Query Store;
+- Extended Events;
+- Execution Plans;
+- SQL Error Log;
+- Windows Performance Counter;
+- Linux- und Containerressourcen;
+- Netzwerk- und Storage-Metriken;
+- externe Collector als Supporting Components.
+
+**Architekturfolge:** Probes sind nicht auf T-SQL beschränkt, aber ihre Verwendung muss dem SQL-Szenario dienen. Rohdaten und sanitisierte Summary bleiben getrennt.
+
+## 11. Persistenz- und Wiederverwendungsmodelle
 
 - vollständig ephemerer Run;
-- persistente Basistopologie mit resetbaren Projektdaten;
-- geteiltes Image- oder Package-Cache;
-- mehrere sequenzielle Szenarien auf derselben validierten Instanz;
-- reservierte Labumgebung mit Lease;
-- Snapshot- oder Child-Disk-basierter Reset.
+- persistente Quick Environment;
+- wiederverwendbares Base Image;
+- Differencing Disk;
+- resetbare SQL-Projektdatenbank;
+- mehrere sequenzielle Szenarien auf validierter Basis;
+- Lease für eine reservierte SQL-Testumgebung;
+- getrennte Image-, Package- und Runtime-Caches.
 
-**Schnittstellenfolge:** `PersistenceMode`, `LifecyclePolicy`, Ownership und Lease müssen getrennt von Szenarioinhalt modelliert werden. Ein Project Package darf eine bestehende Basis nicht still übernehmen.
+**Architekturfolge:** Persistence, Ownership und Reset werden getrennt vom fachlichen SQL-Szenario modelliert.
 
-### 2.13 Externe Orchestrierung und Remote Control
+## 12. Externe Steuerung
 
-Mögliche Konsumenten:
+Mögliche spätere Konsumenten:
 
 - PowerShell CLI;
+- lokales Menü;
 - REST API;
 - Desktop- oder Web-UI;
 - getrenntes Validation-Repository;
 - Schulungssteuerung;
-- Testkatalog oder Scheduler;
-- Entwicklungswerkzeug.
+- Testkatalog oder Scheduler.
 
-**Schnittstellenfolge:** Commands, Plans, Operations, Events und Results sind serialisierbare Verträge. Konsolenausgabe ist keine Integrationsschnittstelle.
+**Architekturfolge:** Commands, Plans, Operations, Events und Results sind serialisierbar. Die Control Plane ändert nicht den SQL-Package-Vertrag.
 
-## 3. Erweiterungsleitplanken
+## 13. Erweiterungsleitplanken
 
-### 3.1 Keine technologiespezifischen Core-Pflichtfelder
+### 13.1 SQL Purpose ist Pflicht
 
-Der Core darf nicht voraussetzen:
+Jedes ausführbare Package deklariert:
 
-- `SqlVersion`;
-- `DatabaseName`;
-- `ContainerImage`;
-- `VmName`;
-- `PowerShellScript`;
-- `ConnectionString`.
+- SQL-Zweck;
+- primäre SQL-Komponenten;
+- Zielversionen und Capabilities;
+- Supporting Components mit SQL-Begründung;
+- erwartete SQL-Evidenz.
 
-Solche Felder gehören in Component-Type-, Action-Type- oder Package-spezifische Schemas.
+### 13.2 Keine unabhängigen Nicht-SQL-Packages
 
-### 3.2 Namespaces
+Unzulässig:
 
-Alle erweiterbaren Typen verwenden stabile Namespaces:
+- allgemeines Hadoop-Lab;
+- allgemeines REST-Testframework;
+- allgemeines Active-Directory-Lab;
+- allgemeines Kubernetes-Lab;
+- allgemeine Clusterplattform ohne SQL-Server-Bezug.
+
+### 13.3 Namespaced Supporting Types
+
+Supporting Types bleiben möglich:
 
 ```text
-core.*
-mssql.*
+identity.*
 hadoop.*
 http.*
+client.*
 observability.*
 fault.*
-<future-namespace>.*
 ```
 
-Ein Typ wird durch ID und Version aufgelöst.
+Sie werden nur für konkrete SQL-Packages implementiert.
 
-### 3.3 Composite Expansion
-
-Cluster, hochverfügbare Systeme und größere Services dürfen als Composite Component beschrieben werden. Expansion geschieht vor Providerplanung und ist versioniert.
-
-### 3.4 Typisierte Interfaces
-
-Komponenten veröffentlichen Interfaces, beispielsweise:
-
-```text
-endpoint.sql
-endpoint.http-base
-endpoint.hdfs
-endpoint.ssh
-endpoint.metrics
-credential-ref.admin
-artifact.local
-```
-
-Consumer deklarieren benötigte Interface Types. Konkrete Werte werden erst lokal gebunden.
-
-### 3.5 Actions statt Interpreterannahme
-
-Der Workflow referenziert Action Types. Ob ein Handler T-SQL, PowerShell, Shell, HTTP, Java oder ein anderes Werkzeug verwendet, ist Handlersemantik und kein Core-Feld.
-
-### 3.6 External Resource Policy
-
-Jede externe Resource besitzt:
-
-- Management Mode;
-- Network-/Egress-Policy;
-- Trust- und Safety-Klasse;
-- Secret Requirements;
-- Cleanup- beziehungsweise Nicht-Cleanup-Grenze;
-- Exportpolicy.
-
-Ein freier externer Endpoint ohne diese Angaben wird abgelehnt.
-
-### 3.7 Keine stille Fallback-Simulation
+### 13.4 Keine stille Fallback-Simulation
 
 Fehlt eine Capability, ist nur zulässig:
 
@@ -271,105 +303,85 @@ Fehlt eine Capability, ist nur zulässig:
 - ausdrücklich definierte `EMULATED`-Alternative;
 - `FIXTURE` mit klarer Aussagegrenze.
 
-Ein Providerwechsel darf keine fachlich andere Topologie vortäuschen.
+### 13.5 Providergleichrangigkeit
 
-### 3.8 Trust Classes
+Hyper-V, Docker und Podman bleiben Kernprovider. Supporting Components dürfen den gemeinsamen Contract nicht einseitig auf nur einen Provider verengen, außer das SQL-Szenario erfordert nachweislich eine spezifische Plattform.
 
-Neue Handler und Provider benötigen eine Trust Class, Version, Hash und lokale Freigabe. Projektinhalte dürfen bekannte Handler nutzen, aber nicht still neue privilegierte Handler einschleusen.
+## 14. Architekturtests vor `1.0`
 
-### 3.9 Core und Control Plane trennen
+### Test A – Docker SQL Quick Environment
 
-Ein neuer REST- oder UI-Adapter darf nur Commands und Events des Core verwenden. Er implementiert weder Providerplanung noch Packageausführung erneut.
+- `mssql.instance`;
+- SQL Server 2022;
+- Resource Profile;
+- Bindings;
+- Lifecycle und Destroy.
 
-### 3.10 State und Evidence trennen
+### Test B – Podman-Parität
 
-Runtime State darf lokale Endpunkte und IDs enthalten. Exportierbare Evidence darf diese Informationen nur nach expliziter Sanitization übernehmen.
+- derselbe logische SQL-Contract;
+- eigener Capability-Nachweis;
+- dokumentierte Providerabweichungen.
 
-## 4. Architekturtests vor `1.0`
+### Test C – Hyper-V SQL Server
 
-### Test A – SQL Quick Environment
+- Windows- oder Linux-VM;
+- Image-/Media-Binding;
+- SQL Readiness;
+- State und Reset.
 
-Nachweis:
+### Test D – Performance Demo
 
-- eine `mssql.instance`-Component;
-- Docker- oder Podman-Provider;
-- Runtime Bindings;
-- Start, Status, Stop und Destroy.
-
-### Test B – SQL Performance Demo
-
-Nachweis:
-
-- eigene DataSet Definition;
-- mehrere Deployment Units;
-- Workflow DAG;
-- Multi-Session-Workload;
-- Observation und Vergleichsassertion;
+- DataSet;
+- Multi-Step-Workflow;
+- Workload;
+- Probe;
+- Assertion;
 - Cleanup.
 
-### Test C – SQL Analyze Szenario
+### Test E – Analyze Szenario
 
-Nachweis:
-
-- Frameworkinstallation als Package Content;
-- synthetische Konstellation;
+- Frameworkinstallation;
+- synthetischer Problemzustand;
 - Analyzer-Probe;
-- Finding- und Statusassertion;
-- providerunabhängiger Fault Controller.
+- Finding-Assertion.
 
-### Test D – HTTP-Service
+### Test F – Supporting Component Domain Controller
 
-Nachweis:
+- SQL Server plus Domain Controller;
+- Windows Authentication oder Kerberos;
+- vollständiger Cleanup.
 
-- `http.service` oder Mock-Service;
-- `endpoint.http-base` Binding;
-- `http.request.execute`;
-- Responseassertion;
-- Secret-Redaction;
-- keine Änderung des Core-Schemas.
+### Test G – Spätere SQL-Integration
 
-### Test E – Composite Cluster
+Mindestens ein konkreter SQL-Integrationsproof, beispielsweise:
 
-Mindestens als Contract Fixture:
+- SQL Server plus Hadoop für PolyBase; oder
+- SQL Server plus REST-Mock-Service.
 
-- `example.cluster` oder `hadoop.cluster`;
-- Expansion in Master und Worker;
-- Scale-Constraint;
-- mehrere exportierte Endpoints;
-- keine SQL-spezifischen Pflichtfelder.
+## 15. Bewusst vertagte Entscheidungen
 
-### Test F – Zweite Control Plane
+Nicht vor konkretem SQL-Bedarf festschreiben:
 
-Mindestens als Contract Test:
-
-- derselbe `CreatePlan`-Command wird von CLI und einem simulierten REST-Adapter serialisiert;
-- Result und Events sind identisch strukturiert;
-- keine Auswertung von Konsolentext.
-
-## 5. Entscheidungen, die bewusst vertagt werden
-
-Vor dem jeweiligen Proof werden nicht festgeschrieben:
-
-- konkrete Hadoop-Distribution;
-- Kubernetes als Provider;
+- Hadoop-Distribution;
+- allgemeiner Clusterprovider;
+- Kubernetes;
 - Cloudprovider;
-- Authentifizierungsmodell einer REST Control Plane;
-- Plugin-Signaturverfahren;
-- universelle Ausdruckssprache für komplexe Bedingungen;
-- Remote-Agent-Protokoll;
-- persistenter zentraler Scheduler.
+- zentrale Schedulerarchitektur;
+- REST-Control-Plane-Authentifizierung;
+- Remote-Agent-Protokoll.
 
-Die Core-Verträge müssen diese Entscheidungen ermöglichen, ohne sie heute vorzutäuschen.
+## 16. Abnahmekriterium für Zukunftsoffenheit
 
-## 6. Abnahmekriterium für Zukunftsoffenheit
+Eine neue Supporting Technology ist integrierbar, wenn sie durch:
 
-Eine neue Technologie gilt als architektonisch integrierbar, wenn sie durch folgende Ergänzungen modelliert werden kann:
-
-1. Component-Type Pack;
+1. Supporting Component Type;
 2. gegebenenfalls Composite Expander;
-3. Action-Type Pack;
-4. Package-Inhalte und Workflow;
-5. erforderliche Capabilities;
-6. optionaler Provider oder vorhandenes Provider-Mapping.
+3. Action Types;
+4. SQL Server Lab Package;
+5. Required Capabilities;
+6. vorhandenes oder ergänztes Provider Mapping
 
-Eine Änderung der grundlegenden Run-, State-, Binding-, Event- oder Cleanup-Verträge darf dafür nicht erforderlich sein. Ist sie dennoch notwendig, muss begründet werden, ob ein bisher fehlendes allgemeines Konzept entdeckt wurde oder die Erweiterung unzulässig technologiespezifisch in den Core drängt.
+modelliert werden kann, ohne den grundlegenden SQL-Purpose-, State-, Binding-, Event- oder Cleanup-Vertrag zu ändern.
+
+Die Erweiterung ist nur zulässig, wenn sie einen konkreten SQL-Server-Anwendungsfall ermöglicht.
