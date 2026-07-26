@@ -26,21 +26,24 @@ if (Test-Path $catalogFile) {
 # --- Provider-Funktionen laden (vor Private, da Private sie referenziert) ---
 $script:RegisteredProviders = @{}
 if (Test-Path $script:ProvidersPath) {
-    # Alle .ps1 und .psm1 aus Provider-Unterordnern laden
-    $providerScripts = Get-ChildItem -Path $script:ProvidersPath -Recurse -File | Where-Object { $_.Extension -in '.ps1', '.psm1' }
-    foreach ($pScript in $providerScripts) {
-        try {
-            . $pScript.FullName
-            Write-Verbose "Provider-Skript geladen: $($pScript.Name)"
-        }
-        catch {
-            Write-Warning "Provider-Skript fehlgeschlagen: $($pScript.Name) - $_"
-        }
-    }
-
-    # Provider-Metadaten registrieren
+    # Provider-Skripte aus Unterordnern laden
     $providerDirs = Get-ChildItem -Path $script:ProvidersPath -Directory
     foreach ($dir in $providerDirs) {
+        # Alle .ps1/.psm1 Dateien im Provider-Ordner laden
+        $scripts = Get-ChildItem -Path $dir.FullName -File | Where-Object { $_.Extension -in @('.ps1', '.psm1') }
+        foreach ($s in $scripts) {
+            try {
+                $content = Get-Content -Path $s.FullName -Raw
+                $scriptBlock = [scriptblock]::Create($content)
+                . $scriptBlock
+                Write-Host "  [LOAD] Provider: $($s.Name)" -ForegroundColor DarkGray
+            }
+            catch {
+                Write-Warning "Provider-Skript fehlgeschlagen: $($s.FullName) - $_"
+            }
+        }
+
+        # Metadaten registrieren
         $providerJson = Join-Path $dir.FullName 'provider.json'
         if (Test-Path $providerJson) {
             try {
@@ -86,16 +89,4 @@ if (Test-Path $publicPath) {
     }
 }
 
-# --- Versionskatalog laden ---
-$script:VersionCatalog = $null
-$catalogFile = Join-Path $script:CatalogsPath 'sql-server-versions.json'
-if (Test-Path $catalogFile) {
-    try {
-        $script:VersionCatalog = Get-Content $catalogFile -Raw | ConvertFrom-Json
-    }
-    catch {
-        Write-Warning "Versionskatalog konnte nicht geladen werden: $_"
-    }
-}
-
-Write-Verbose "SqlServerLab v$((Get-Module SqlServerLab).Version) geladen. Provider: $($script:RegisteredProviders.Keys -join ', ')"
+Write-Host "  [LOAD] SqlServerLab geladen. Provider: $($script:RegisteredProviders.Keys -join ', ')" -ForegroundColor DarkGray

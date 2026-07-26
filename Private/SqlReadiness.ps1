@@ -196,8 +196,63 @@ function Invoke-LabSqlScript {
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
 
     try {
-        # GO-Batches aufteilen
-        $batches = $sql -split '(?m)^\s*GO\s*
+        # GO-Batches aufteilen (Regex: Zeile die nur GO enthaelt)
+        $goPattern = [regex]::new('^\s*GO\s*
+            Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $saPlain `
+                -Query $batch -Database $Database -TimeoutSeconds 300
+        }
+
+        $saPlain = $null
+        $sw.Stop()
+
+        return [PSCustomObject]@{
+            Success  = $true
+            Message  = "Skript erfolgreich: $(Split-Path $ScriptPath -Leaf)"
+            Duration = $sw.Elapsed
+            Batches  = $batches.Count
+        }
+    }
+    catch {
+        $saPlain = $null
+        $sw.Stop()
+        return [PSCustomObject]@{
+            Success  = $false
+            Message  = "Fehler in $(Split-Path $ScriptPath -Leaf): $_"
+            Duration = $sw.Elapsed
+            Batches  = 0
+        }
+    }
+}
+ | Where-Object { $_.Trim() }
+
+        foreach ($batch in $batches) {
+            Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $saPlain `
+                -Query $batch -Database $Database -TimeoutSeconds 300
+        }
+
+        $saPlain = $null
+        $sw.Stop()
+
+        return [PSCustomObject]@{
+            Success  = $true
+            Message  = "Skript erfolgreich: $(Split-Path $ScriptPath -Leaf)"
+            Duration = $sw.Elapsed
+            Batches  = $batches.Count
+        }
+    }
+    catch {
+        $saPlain = $null
+        $sw.Stop()
+        return [PSCustomObject]@{
+            Success  = $false
+            Message  = "Fehler in $(Split-Path $ScriptPath -Leaf): $_"
+            Duration = $sw.Elapsed
+            Batches  = 0
+        }
+    }
+}
+, [System.Text.RegularExpressions.RegexOptions]::Multiline)
+        $batches = $goPattern.Split($sql) | Where-Object { $_.Trim() }
 
         foreach ($batch in $batches) {
             Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $saPlain `
