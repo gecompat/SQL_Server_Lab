@@ -16,6 +16,7 @@
         'Stop-SqlServerLab'
         'Restart-SqlServerLab'
         'Remove-SqlServerLab'
+        'Clear-SqlServerLab'
         'New-LabDatabase'
         'Invoke-LabScript'
         'Install-LabSoftware'
