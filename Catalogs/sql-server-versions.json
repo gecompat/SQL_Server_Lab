@@ -1,0 +1,71 @@
+{
+  "$schema": "./Schemas/version-catalog.schema.json",
+  "versions": [
+    {
+      "id": "2019",
+      "displayName": "SQL Server 2019",
+      "major": 15,
+      "compatibilityLevel": 150,
+      "status": "SUPPORTED",
+      "docker": {
+        "image": "mcr.microsoft.com/mssql/server:2019-latest",
+        "minMemoryMB": 2048
+      },
+      "linux": {
+        "aptList": "https://packages.microsoft.com/config/ubuntu/22.04/mssql-server-2019.list"
+      },
+      "eol": null
+    },
+    {
+      "id": "2022",
+      "displayName": "SQL Server 2022",
+      "major": 16,
+      "compatibilityLevel": 160,
+      "status": "SUPPORTED",
+      "docker": {
+        "image": "mcr.microsoft.com/mssql/server:2022-latest",
+        "minMemoryMB": 2048
+      },
+      "linux": {
+        "aptList": "https://packages.microsoft.com/config/ubuntu/22.04/mssql-server-2022.list"
+      },
+      "eol": null
+    },
+    {
+      "id": "2025",
+      "displayName": "SQL Server 2025",
+      "major": 17,
+      "compatibilityLevel": 170,
+      "status": "SUPPORTED",
+      "docker": {
+        "image": "mcr.microsoft.com/mssql/server:2025-latest",
+        "minMemoryMB": 2048
+      },
+      "linux": {
+        "aptList": "https://packages.microsoft.com/config/ubuntu/24.04/mssql-server-2025.list"
+      },
+      "eol": null
+    }
+  ],
+  "statusValues": [
+    "SUPPORTED",
+    "PREVIEW",
+    "DEPRECATED",
+    "RETIRED",
+    "BLOCKED"
+  ],
+  "profiles": {
+    "compact": {
+      "maxMemoryMB": 2048,
+      "maxCpus": 2
+    },
+    "standard": {
+      "maxMemoryMB": 4096,
+      "maxCpus": 4
+    },
+    "performance": {
+      "maxMemoryMB": 8192,
+      "maxCpus": 8
+    }
+  }
+}

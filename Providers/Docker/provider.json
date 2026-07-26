@@ -1,0 +1,32 @@
+{
+  "name": "docker",
+  "displayName": "Docker Engine / Docker Desktop",
+  "capabilities": [
+    "linux",
+    "multi-instance",
+    "fast-start",
+    "port-mapping",
+    "volume-mounts",
+    "resource-limits"
+  ],
+  "limitations": [
+    "no-gui",
+    "no-windows-os",
+    "limited-io-simulation",
+    "limited-network-simulation"
+  ],
+  "detectionCommand": "docker info",
+  "healthCheck": "docker ps --format '{{.ID}}'",
+  "module": "DockerProvider.psm1",
+  "defaultPort": 14330,
+  "portRange": {
+    "min": 14330,
+    "max": 14399
+  },
+  "labels": {
+    "prefix": "sql-server-lab",
+    "runId": "sql-server-lab.run-id",
+    "scopeId": "sql-server-lab.scope-id",
+    "instanceId": "sql-server-lab.instance-id"
+  }
+}
