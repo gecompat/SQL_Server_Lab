@@ -44,8 +44,23 @@ function Wait-SqlReady {
                 -Query "SELECT SERVERPROPERTY('ProductMajorVersion') AS MajorVersion, @@VERSION AS FullVersion"
 
             if ($result) {
-                $majorVersion = [int]$result.MajorVersion
-                $fullVersion = $result.FullVersion
+                # .NET SqlClient: Properties MajorVersion + FullVersion
+                # sqlcmd Fallback: nur RawOutput (Text)
+                if ($result.MajorVersion) {
+                    $majorVersion = [int]$result.MajorVersion
+                    $fullVersion = $result.FullVersion
+                }
+                elseif ($result.RawOutput) {
+                    # sqlcmd: "17   Microsoft SQL Server 2025..."
+                    if ($result.RawOutput -match '(\d+)') {
+                        $majorVersion = [int]$Matches[1]
+                    } else { $majorVersion = 0 }
+                    $fullVersion = $result.RawOutput
+                }
+                else {
+                    $majorVersion = 0
+                    $fullVersion = 'Unbekannt'
+                }
 
                 # Version pruefen
                 if ($ExpectedMajorVersion -gt 0 -and $majorVersion -ne $ExpectedMajorVersion) {
