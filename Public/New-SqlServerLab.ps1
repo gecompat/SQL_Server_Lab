@@ -123,15 +123,15 @@ function New-SqlServerLab {
     Write-LabStatus -Label 'ScopeId' -Value $runState.ScopeId
 
     # Cleanup-Plan vorbereiten
-    New-CleanupPlan -RunDir $runState.RunDir -RunId $runState.RunId -ScopeId $runState.ScopeId
+    $null = New-CleanupPlan -RunDir $runState.RunDir -RunId $runState.RunId -ScopeId $runState.ScopeId
 
     # SA-Passwort speichern
-    Save-LabSecret -Path $runState.RunDir -Name 'sa-password' -Secret $SaPassword
+    $null = Save-LabSecret -Path $runState.RunDir -Name 'sa-password' -Secret $SaPassword
 
     # =========================================================================
     # 6. Instanzen provisionieren
     # =========================================================================
-    Set-LabRunState -RunId $runState.RunId -NewState 'PROVISIONING' -Reason 'Provider-Start' -StateRoot $StateRoot
+    $null = Set-LabRunState -RunId $runState.RunId -NewState 'PROVISIONING' -Reason 'Provider-Start' -StateRoot $StateRoot
 
     $labInstances = @()
 
@@ -151,7 +151,7 @@ function New-SqlServerLab {
                         -Profile $inst.profile
 
                     # Cleanup-Plan aktualisieren
-                    Add-CleanupStep -RunDir $runState.RunDir `
+                    $null = Add-CleanupStep -RunDir $runState.RunDir `
                         -ResourceType 'container' `
                         -ResourceId $container.ContainerName `
                         -Action 'remove' `
@@ -188,7 +188,7 @@ function New-SqlServerLab {
             }
         }
 
-        Set-LabRunState -RunId $runState.RunId -NewState 'SQL_READY' -Reason 'Alle Instanzen bereit' -StateRoot $StateRoot
+        $null = Set-LabRunState -RunId $runState.RunId -NewState 'SQL_READY' -Reason 'Alle Instanzen bereit' -StateRoot $StateRoot
 
         # =====================================================================
         # 7. Datenbanken anlegen
@@ -212,11 +212,11 @@ function New-SqlServerLab {
                     $labInst.Databases += $db.name
                 }
             }
-            Set-LabRunState -RunId $runState.RunId -NewState 'DATABASES_CREATED' -Reason 'Datenbanken angelegt' -StateRoot $StateRoot
+            $null = Set-LabRunState -RunId $runState.RunId -NewState 'DATABASES_CREATED' -Reason 'Datenbanken angelegt' -StateRoot $StateRoot
         }
         else {
             # Keine Datenbanken angefordert - State trotzdem durchlaufen
-            Set-LabRunState -RunId $runState.RunId -NewState 'DATABASES_CREATED' -Reason 'Keine Datenbanken angefordert' -StateRoot $StateRoot
+            $null = Set-LabRunState -RunId $runState.RunId -NewState 'DATABASES_CREATED' -Reason 'Keine Datenbanken angefordert' -StateRoot $StateRoot
         }
 
         # =====================================================================
@@ -242,13 +242,13 @@ function New-SqlServerLab {
                     }
                 }
             }
-            Set-LabRunState -RunId $runState.RunId -NewState 'POST_PROVISIONED' -Reason 'Skripte ausgefuehrt' -StateRoot $StateRoot
+            $null = Set-LabRunState -RunId $runState.RunId -NewState 'POST_PROVISIONED' -Reason 'Skripte ausgefuehrt' -StateRoot $StateRoot
         }
 
         # =====================================================================
         # 9. Fertig
         # =====================================================================
-        Set-LabRunState -RunId $runState.RunId -NewState 'RUNNING' -Reason 'Umgebung bereit' -StateRoot $StateRoot
+        $null = Set-LabRunState -RunId $runState.RunId -NewState 'RUNNING' -Reason 'Umgebung bereit' -StateRoot $StateRoot
 
         # Connection-Info speichern
         $connectionInfo = @{
@@ -267,7 +267,7 @@ function New-SqlServerLab {
             }
         }
         $connectionInfo | ConvertTo-Json -Depth 10 |
-            Set-Content -Path (Join-Path $runState.RunDir 'connection-info.json') -Encoding utf8
+            Set-Content -Path (Join-Path $runState.RunDir 'connection-info.json') -Encoding utf8 | Out-Null
 
         Write-Host ''
         Write-LabHeader 'Umgebung bereit'
@@ -290,18 +290,18 @@ function New-SqlServerLab {
     catch {
         # Fehler: State + Cleanup
         Write-LabError "Provisionierung fehlgeschlagen: $_"
-        Add-LabRunError -RunId $runState.RunId -Message $_.ToString() -Component 'New-SqlServerLab' -StateRoot $StateRoot
+        $null = Add-LabRunError -RunId $runState.RunId -Message $_.ToString() -Component 'New-SqlServerLab' -StateRoot $StateRoot
 
         try {
-            Set-LabRunState -RunId $runState.RunId -NewState 'PROVISION_FAILED' -Reason $_.ToString() -StateRoot $StateRoot
-            Set-LabRunState -RunId $runState.RunId -NewState 'CLEANUP_PENDING' -Reason 'Auto-Cleanup nach Fehler' -StateRoot $StateRoot
+            $null = Set-LabRunState -RunId $runState.RunId -NewState 'PROVISION_FAILED' -Reason $_.ToString() -StateRoot $StateRoot
+            $null = Set-LabRunState -RunId $runState.RunId -NewState 'CLEANUP_PENDING' -Reason 'Auto-Cleanup nach Fehler' -StateRoot $StateRoot
 
             Write-LabInfo 'Automatischer Cleanup...'
             $cleanupResult = Invoke-CleanupPlan -RunDir $runState.RunDir -ScopeId $runState.ScopeId
             Write-LabStatus -Label 'Cleanup' -Value $cleanupResult.Status
 
-            Set-LabRunState -RunId $runState.RunId -NewState 'CLEANUP_RUNNING' -Reason 'Cleanup gestartet' -StateRoot $StateRoot
-            Set-LabRunState -RunId $runState.RunId -NewState 'CLEANED_UP' -Reason "Cleanup: $($cleanupResult.Status)" -StateRoot $StateRoot
+            $null = Set-LabRunState -RunId $runState.RunId -NewState 'CLEANUP_RUNNING' -Reason 'Cleanup gestartet' -StateRoot $StateRoot
+            $null = Set-LabRunState -RunId $runState.RunId -NewState 'CLEANED_UP' -Reason "Cleanup: $($cleanupResult.Status)" -StateRoot $StateRoot
         }
         catch {
             Write-LabError "Cleanup fehlgeschlagen: $_"
