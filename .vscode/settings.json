@@ -1,0 +1,11 @@
+{
+  "json.schemas": [
+    {
+      "fileMatch": [
+        "Schemas/*.json",
+        "!Schemas/lab-manifest.schema.json"
+      ],
+      "url": "./Schemas/lab-manifest.schema.json"
+    }
+  ]
+}
