@@ -193,8 +193,6 @@ Write-TestHeader 'T5: Invoke-LabScript'
 # Test-SQL erzeugen
 $testSqlPath = Join-Path $PSScriptRoot 'smoke-test-query.sql'
 @"
-USE SmokeTestDB;
-GO
 CREATE TABLE dbo.SmokeTest (
     Id INT IDENTITY(1,1) PRIMARY KEY,
     Name NVARCHAR(100) NOT NULL,
@@ -206,7 +204,7 @@ GO
 "@ | Set-Content $testSqlPath -Encoding utf8
 
 $scriptResult = Assert-NoThrow 'SQL-Skript ausfuehren' {
-    Invoke-LabScript -ScriptPath $testSqlPath -Port $script:Lab.Instances[0].Port -SaPassword $SaPassword
+    Invoke-LabScript -ScriptPath $testSqlPath -Port $script:Lab.Instances[0].Port -SaPassword $SaPassword -Database 'SmokeTestDB'
 }
 
 if ($scriptResult) {
