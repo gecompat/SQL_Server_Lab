@@ -108,10 +108,19 @@ Assert-True 'New-SqlServerLab verfuegbar' `
     ($null -ne (Get-Command New-SqlServerLab -ErrorAction SilentlyContinue)) `
     'Cmdlet nicht gefunden'
 
-$providerTestFn = if ($Provider -eq 'podman') { 'Test-PodmanAvailable' } else { 'Test-DockerAvailable' }
-Assert-True "$providerTestFn intern verfuegbar" `
-    ($null -ne (Get-Module SqlServerLab | ForEach-Object { & $_.NewBoundScriptBlock([scriptblock]::Create("Get-Command $providerTestFn -ErrorAction SilentlyContinue")) })) `
-    'Provider-Funktion nicht im Modul-Scope'
+# Alle Provider-Funktionen pruefen (nicht nur den gewaehlten)
+$script:AvailableRuntimes = @()
+foreach ($rt in @('docker', 'podman')) {
+    $testFn = if ($rt -eq 'podman') { 'Test-PodmanAvailable' } else { 'Test-DockerAvailable' }
+    $fnExists = $null -ne (Get-Module SqlServerLab | ForEach-Object { & $_.NewBoundScriptBlock([scriptblock]::Create("Get-Command $testFn -ErrorAction SilentlyContinue")) })
+    Assert-True "$testFn intern verfuegbar" $fnExists 'Provider-Funktion nicht im Modul-Scope'
+
+    # Runtime-Befehl installiert?
+    if (Get-Command $rt -ErrorAction SilentlyContinue) {
+        $script:AvailableRuntimes += $rt
+    }
+}
+Write-Host "    Installierte Runtimes: $($script:AvailableRuntimes -join ', ')" -ForegroundColor DarkGray
 
 # =============================================================================
 # Test 2: Resource Assessment
@@ -119,14 +128,23 @@ Assert-True "$providerTestFn intern verfuegbar" `
 
 Write-TestHeader 'T2: Resource Assessment'
 
-$assessment = Assert-NoThrow 'Test-LabResources laeuft' {
-    Test-LabResources -Provider $Provider
+# Alle installierten Runtimes einzeln pruefen
+foreach ($rt in $script:AvailableRuntimes) {
+    $rtAssessment = Assert-NoThrow "Test-LabResources ($rt)" {
+        Test-LabResources -Provider $rt
+    }
+    if ($rtAssessment) {
+        Assert-True "$rt verfuegbar" `
+            ($rtAssessment.Status -ne 'RESOURCE_HARD_BLOCK') `
+            "Status: $($rtAssessment.Status)"
+    }
 }
 
-if ($assessment) {
-    Assert-True "$Provider verfuegbar" `
-        ($assessment.Status -ne 'RESOURCE_HARD_BLOCK') `
-        "Status: $($assessment.Status)"
+# Gewaehlten Provider nochmal explizit sicherstellen
+$assessment = Test-LabResources -Provider $Provider
+if ($assessment.Status -eq 'RESOURCE_HARD_BLOCK') {
+    Write-Host "    FATAL: Gewaehlter Provider '$Provider' nicht funktional. Abbruch." -ForegroundColor Red
+    $script:TestResults += @{ Name = "Gewaehlter Provider $Provider funktional"; Pass = $false; Message = $assessment.Details[0].Message }
 }
 
 # =============================================================================
