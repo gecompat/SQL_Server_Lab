@@ -102,8 +102,10 @@ function Wait-SqlReady {
 function Invoke-SqlQuery {
     <#
     .SYNOPSIS Fuehrt eine SQL-Abfrage via .NET SqlClient aus.
-    .DESCRIPTION Verwendet System.Data.SqlClient (Framework) oder
-                 Microsoft.Data.SqlClient (Core). Fallback auf sqlcmd.
+    .DESCRIPTION Fallback-Kette:
+        1. Microsoft.Data.SqlClient (modern, PowerShell 7)
+        2. System.Data.SqlClient (Legacy/.NET Framework)
+        3. sqlcmd (CLI-Fallback)
     #>
     [CmdletBinding()]
     param(
@@ -117,11 +119,69 @@ function Invoke-SqlQuery {
 
     $connStr = "Server=$HostName,$Port;Database=$Database;User Id=sa;Password=$SaPlain;TrustServerCertificate=True;Connection Timeout=$TimeoutSeconds;"
 
-    # .NET SqlClient
+    # --- Versuch 1: Microsoft.Data.SqlClient (bevorzugt) ---
     try {
-        $conn = [System.Data.SqlClient.SqlConnection]::new($connStr)
+        $connType = [Microsoft.Data.SqlClient.SqlConnection]
+        $conn = $connType::new($connStr)
         $conn.Open()
-        $cmd = $conn.CreateCommand()
+        return Invoke-SqlReader -Connection $conn -Query $Query -TimeoutSeconds $TimeoutSeconds
+    }
+    catch [System.Management.Automation.RuntimeException] {
+        # Typ nicht verfuegbar - weiter zu Fallback 2
+    }
+    catch {
+        # Connection-Fehler -> weiter zu sqlcmd
+    }
+
+    # --- Versuch 2: System.Data.SqlClient (Legacy) ---
+    try {
+        $connType = [System.Data.SqlClient.SqlConnection]
+        $conn = $connType::new($connStr)
+        $conn.Open()
+        return Invoke-SqlReader -Connection $conn -Query $Query -TimeoutSeconds $TimeoutSeconds
+    }
+    catch [System.Management.Automation.RuntimeException] {
+        # Typ nicht verfuegbar - weiter zu sqlcmd
+    }
+    catch {
+        # Connection-/SQL-Fehler -> weiter zu sqlcmd
+    }
+
+    # --- Versuch 3: sqlcmd CLI-Fallback ---
+    if (Test-CommandExists 'sqlcmd') {
+        $output = sqlcmd -S "$HostName,$Port" -U sa -P $SaPlain -d $Database -Q $Query -h -1 -W 2>&1
+        $outputText = ($output -join "`n").Trim()
+
+        # SQL-Fehler erkennen
+        if ($outputText -match 'Msg \d+, Level (1[1-9]|[2-9]\d)') {
+            throw "SQL-Fehler: $outputText"
+        }
+        if ($LASTEXITCODE -ne 0) {
+            throw "sqlcmd fehlgeschlagen (Exit $LASTEXITCODE): $outputText"
+        }
+        if ($outputText) {
+            return [PSCustomObject]@{ RawOutput = $outputText }
+        }
+        return $null
+    }
+
+    throw "Keine SQL-Verbindung moeglich: Microsoft.Data.SqlClient, System.Data.SqlClient und sqlcmd nicht verfuegbar."
+}
+
+function Invoke-SqlReader {
+    <#
+    .SYNOPSIS Liest Ergebnisse aus einer offenen SqlConnection.
+    .DESCRIPTION Gemeinsamer Reader fuer Microsoft.Data und System.Data.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Connection,
+        [Parameter(Mandatory)][string]$Query,
+        [int]$TimeoutSeconds = 10
+    )
+
+    try {
+        $cmd = $Connection.CreateCommand()
         $cmd.CommandText = $Query
         $cmd.CommandTimeout = $TimeoutSeconds
         $reader = $cmd.ExecuteReader()
@@ -136,31 +196,15 @@ function Invoke-SqlQuery {
         }
 
         $reader.Close()
-        $conn.Close()
-        $conn.Dispose()
+        $Connection.Close()
+        $Connection.Dispose()
 
         if ($results.Count -eq 1) { return $results[0] }
         return $results
     }
     catch {
-        # Fallback: sqlcmd (falls installiert)
-        if (Test-CommandExists 'sqlcmd') {
-            $output = sqlcmd -S "$HostName,$Port" -U sa -P $SaPlain -Q $Query -h -1 -W 2>&1
-            $outputText = ($output -join "`n").Trim()
-
-            # SQL-Fehler erkennen (auch bei LASTEXITCODE 0)
-            if ($outputText -match 'Msg \d+, Level (1[1-9]|[2-9]\d)') {
-                throw "SQL-Fehler: $outputText"
-            }
-            if ($LASTEXITCODE -ne 0) {
-                throw "sqlcmd fehlgeschlagen (Exit $LASTEXITCODE): $outputText"
-            }
-            if ($outputText) {
-                return [PSCustomObject]@{ RawOutput = $outputText }
-            }
-            return $null
-        }
-        throw $_
+        try { $Connection.Close(); $Connection.Dispose() } catch {}
+        throw
     }
 }
 
