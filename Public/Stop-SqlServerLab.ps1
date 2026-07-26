@@ -42,9 +42,10 @@ function Stop-SqlServerLab {
             return [PSCustomObject]@{ RunId = $RunId; Status = 'RUNNING'; Action = 'CANCELLED' }
         }
 
-        # Container via Docker-Labels finden und stoppen
+        # Container via Labels finden und stoppen (docker/podman)
+        $rt = Get-ContainerRuntime
         $errors = 0
-        $containerIds = docker ps -q --filter "label=sql-server-lab.run-id=$RunId" 2>$null
+        $containerIds = if ($rt) { & $rt ps -q --filter "label=sql-server-lab.run-id=$RunId" 2>$null } else { $null }
         if (-not $containerIds) {
             Write-LabInfo '  Keine laufenden Container gefunden.'
         }
@@ -52,9 +53,10 @@ function Stop-SqlServerLab {
             @($containerIds) | ForEach-Object {
                 $cId = $_.Trim()
                 if (-not $cId) { return }
-                $cName = (docker inspect $cId --format '{{.Name}}' 2>$null).TrimStart('/')
+                $cName = (& $rt inspect $cId --format '{{.Name}}' 2>$null).TrimStart('/')
                 try {
-                    Stop-DockerInstance -ContainerIdOrName $cId -TimeoutSeconds $TimeoutSeconds
+                    & $rt stop -t $TimeoutSeconds $cId | Out-Null
+                    if ($LASTEXITCODE -ne 0) { throw "Container stop fehlgeschlagen: $cId" }
                     Write-LabSuccess "  Gestoppt: $cName"
                 }
                 catch {

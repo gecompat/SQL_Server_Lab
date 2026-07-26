@@ -91,6 +91,23 @@ function Test-ProviderAvailability {
                 Value    = $null
             }
         }
+        'podman' {
+            $check = Test-PodmanAvailable
+            if ($check.Available) {
+                return [PSCustomObject]@{
+                    Category = 'Provider'
+                    Status   = 'RESOURCE_OK'
+                    Message  = "Podman verfuegbar (Version: $($check.Version))"
+                    Value    = $check.Version
+                }
+            }
+            return [PSCustomObject]@{
+                Category = 'Provider'
+                Status   = 'RESOURCE_HARD_BLOCK'
+                Message  = "Podman nicht verfuegbar: $($check.Message)"
+                Value    = $null
+            }
+        }
         default {
             return [PSCustomObject]@{
                 Category = 'Provider'

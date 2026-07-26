@@ -182,6 +182,48 @@ function New-SqlServerLab {
                         Status           = 'Running'
                     }
                 }
+                'podman' {
+                    $container = New-PodmanInstance `
+                        -VersionId $inst.version `
+                        -RunId $runState.RunId `
+                        -ScopeId $runState.ScopeId `
+                        -InstanceId $inst.id `
+                        -Port $Port `
+                        -SaPassword $SaPassword `
+                        -Profile $inst.profile
+
+                    # Cleanup-Plan aktualisieren
+                    $null = Add-CleanupStep -RunDir $runState.RunDir `
+                        -ResourceType 'container' `
+                        -ResourceId $container.ContainerName `
+                        -Action 'remove' `
+                        -Compensation "podman rm -f $($container.ContainerName)"
+
+                    # SQL-Readiness abwarten
+                    $version = Get-SqlServerVersion -VersionId $inst.version
+                    $readiness = Wait-SqlReady `
+                        -Port $container.Port `
+                        -SaPassword $SaPassword `
+                        -TimeoutSeconds 120 `
+                        -ExpectedMajorVersion $version.major
+
+                    if (-not $readiness.Ready) {
+                        throw "SQL Server nicht bereit: $($readiness.Message)"
+                    }
+
+                    $labInstances += [PSCustomObject]@{
+                        Id               = $inst.id
+                        Version          = $inst.version
+                        Provider         = 'podman'
+                        Host             = '127.0.0.1'
+                        Port             = $container.Port
+                        ContainerId      = $container.ContainerId
+                        ContainerName    = $container.ContainerName
+                        ConnectionString = New-SqlConnectionString -Port $container.Port
+                        Databases        = @()
+                        Status           = 'Running'
+                    }
+                }
                 default {
                     throw "Provider '$($inst.provider)' nicht implementiert."
                 }

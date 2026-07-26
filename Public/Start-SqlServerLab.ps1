@@ -37,11 +37,12 @@ function Start-SqlServerLab {
         $runPrefix = $RunId.Substring(0, 8)
         Write-LabInfo "Starte Lab ${runPrefix}... ($($run.metadata.name))"
 
-        # Container via Docker-Labels finden und starten
+        # Container via Labels finden und starten (docker/podman)
+        $rt = Get-ContainerRuntime
         $errors = 0
         $startedInstances = @()
 
-        $containerIds = docker ps -a -q --filter "label=sql-server-lab.run-id=$RunId" 2>$null
+        $containerIds = if ($rt) { & $rt ps -a -q --filter "label=sql-server-lab.run-id=$RunId" 2>$null } else { $null }
         if (-not $containerIds) {
             Write-LabError '  Keine Container fuer diesen Run gefunden.'
             $errors++
@@ -50,11 +51,12 @@ function Start-SqlServerLab {
             @($containerIds) | ForEach-Object {
                 $cId = $_.Trim()
                 if (-not $cId) { return }
-                $cName = (docker inspect $cId --format '{{.Name}}' 2>$null).TrimStart('/')
+                $cName = (& $rt inspect $cId --format '{{.Name}}' 2>$null).TrimStart('/')
                 try {
                     $status = Get-DockerInstanceStatus -ContainerIdOrName $cId
                     if (-not $status.Running) {
-                        Start-DockerInstance -ContainerIdOrName $cId
+                        & $rt start $cId | Out-Null
+                        if ($LASTEXITCODE -ne 0) { throw "Container start fehlgeschlagen: $cId" }
                         Write-LabSuccess "  Gestartet: $cName"
                     }
                     else {

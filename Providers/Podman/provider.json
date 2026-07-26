@@ -1,0 +1,22 @@
+{
+    "name": "podman",
+    "displayName": "Podman (Rootless Containers)",
+    "description": "Container-basierte SQL-Server-Instanzen via Podman (Docker-kompatibel, rootless)",
+    "portRange": {
+        "start": 14330,
+        "end": 14399
+    },
+    "labels": {
+        "prefix": "sql-server-lab"
+    },
+    "requirements": {
+        "command": "podman",
+        "minVersion": "4.0"
+    },
+    "notes": [
+        "Podman laeuft rootless (kein Daemon noetig)",
+        "CLI ist weitgehend Docker-kompatibel",
+        "Fuer SQL Server: podman machine muss auf Windows/Mac laufen",
+        "Labels und Lifecycle identisch zu Docker-Provider"
+    ]
+}
