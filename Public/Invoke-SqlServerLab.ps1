@@ -68,6 +68,15 @@ function Show-LabBanner {
     Write-Host "   Isolierte, reproduzierbare SQL-Server-Testumgebungen" -ForegroundColor DarkGray
     Write-Host "  =====================================================================" -ForegroundColor Cyan
 
+    # Verfuegbare Provider anzeigen
+    $providers = @(Get-AvailableLabProviders)
+    if ($providers.Count -gt 0) {
+        Write-Host "  Provider: $($providers -join ', ')" -ForegroundColor DarkGray
+    }
+    else {
+        Write-Host "  Provider: KEINER VERFUEGBAR" -ForegroundColor Red
+    }
+
     # Aktive Labs kurz anzeigen
     $stateRoot = Get-LabStateRoot
     $runs = @(Get-LabActiveRuns -StateRoot $stateRoot)
@@ -116,14 +125,48 @@ function Invoke-LabAction {
 
     switch ($ActionName) {
         'New' {
+            # Verfuegbare Provider ermitteln
+            $availableProviders = @(Get-AvailableLabProviders)
+
+            if ($availableProviders.Count -eq 0) {
+                Write-LabError "Kein Container-/VM-Provider gefunden (docker, podman, hyperv)."
+                return
+            }
+
+            # Provider-Auswahl (automatisch wenn nur einer)
+            if ($availableProviders.Count -eq 1) {
+                $provider = $availableProviders[0]
+                Write-LabInfo "Provider: $provider (einziger verfuegbarer)"
+            }
+            else {
+                Write-Host "  Verfuegbare Provider:" -ForegroundColor DarkGray
+                for ($i = 0; $i -lt $availableProviders.Count; $i++) {
+                    Write-Host "    [$($i+1)] $($availableProviders[$i])" -ForegroundColor White
+                }
+                $provSel = Read-Host "  Provider [$($availableProviders[0])]"
+                if (-not $provSel) {
+                    $provider = $availableProviders[0]
+                }
+                elseif ($provSel -match '^\d+$' -and [int]$provSel -ge 1 -and [int]$provSel -le $availableProviders.Count) {
+                    $provider = $availableProviders[[int]$provSel - 1]
+                }
+                elseif ($provSel -in $availableProviders) {
+                    $provider = $provSel
+                }
+                else {
+                    Write-LabError "Ungueltige Provider-Auswahl: $provSel"
+                    return
+                }
+            }
+
             # Version abfragen
             Write-Host "  Verfuegbare Versionen: 2019, 2022, 2025" -ForegroundColor DarkGray
             $version = Read-Host "  SQL-Server-Version [2025]"
             if (-not $version) { $version = '2025' }
 
-            $lab = New-SqlServerLab -Version $version -Provider docker
+            $lab = New-SqlServerLab -Version $version -Provider $provider
             Write-Host ""
-            Write-LabSuccess "Lab erstellt. RunId: $($lab.RunId)"
+            Write-LabSuccess "Lab erstellt auf $provider. RunId: $($lab.RunId)"
         }
 
         'Status' {
@@ -237,6 +280,35 @@ function Invoke-LabAction {
             Invoke-LabScript -ScriptPath $scriptPath -Port $port -SaPassword $pw -Database $db
         }
     }
+}
+
+function Get-AvailableLabProviders {
+    <#
+    .SYNOPSIS Ermittelt alle lokal verfuegbaren Provider.
+    .DESCRIPTION Prueft dynamisch welche Container-/VM-Runtimes installiert sind.
+    .OUTPUTS String-Array der verfuegbaren Provider-Namen.
+    #>
+    [CmdletBinding()]
+    param()
+
+    $available = @()
+
+    # Container-basierte Provider
+    if (Get-Command 'docker' -ErrorAction SilentlyContinue) {
+        $dockerCheck = docker version --format '{{.Server.Version}}' 2>&1
+        if ($LASTEXITCODE -eq 0) { $available += 'docker' }
+    }
+    if (Get-Command 'podman' -ErrorAction SilentlyContinue) {
+        $podmanCheck = podman version --format '{{.Client.Version}}' 2>&1
+        if ($LASTEXITCODE -eq 0) { $available += 'podman' }
+    }
+
+    # VM-basierte Provider
+    if (Get-Command 'Get-VM' -ErrorAction SilentlyContinue) {
+        $available += 'hyperv'
+    }
+
+    return $available
 }
 
 function Select-LabRun {
