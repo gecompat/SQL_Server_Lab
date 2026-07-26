@@ -47,7 +47,6 @@ function Assert-True {
         Write-Host "    FAIL: $TestName - $Message" -ForegroundColor Red
         $script:TestResults += @{ Name = $TestName; Pass = $false; Message = $Message }
     }
-    return $Condition
 }
 
 function Assert-NoThrow {
@@ -181,7 +180,7 @@ if ($dbResult) {
     $saPlain = $null
 
     Assert-True 'DB in sys.databases vorhanden' `
-        ($verifyOutput -match 'SmokeTestDB') `
+        ([bool]($verifyOutput -match 'SmokeTestDB')) `
         "Output: $verifyOutput"
 }
 
