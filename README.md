@@ -45,7 +45,8 @@ Fachliche Testszenarien bleiben in den konsumierenden Projekten. `SQL_Server_Lab
 | Backup-Restore | implementiert | `Restore-LabDatabase` |
 | Sample-Datenbanken | teilweise implementiert | direkte `.bak`-Varianten aus `Catalogs/sample-databases.json` |
 | T-SQL-Skriptausführung | implementiert | `Invoke-LabScript` |
-| Integration-Smoke-Test | implementiert | `Tests/Integration/Invoke-SmokeTest.ps1` |
+| Provider-/Versions-/Parallel-Smoke-Test | implementiert | `Tests/Integration/Invoke-SmokeMatrix.ps1` |
+| Einzelprovider-Smoke-Test | implementiert | `Tests/Integration/Invoke-SmokeTest.ps1` |
 | Statische Konsistenzprüfung | implementiert | `Tests/Static/Invoke-DocumentationChecks.ps1` |
 
 Die [bekannten Grenzen](Documentation/Quality/KNOWN_LIMITATIONS.md) sind Teil des öffentlichen Vertrags. Planungsdokumente sind kein Runtime-Nachweis.
@@ -344,25 +345,36 @@ flowchart TD
 
 ## Tests und Validierung
 
-Statische Konsistenzprüfung:
+Statische Konsistenz- und Readiness-Prüfungen:
 
 ```powershell
 .\Tests\Static\Invoke-DocumentationChecks.ps1
+.\Tests\Static\Invoke-ReadinessContractChecks.ps1
 ```
 
-Integrationstest für Docker:
+Einzelprovider-Smoke-Test:
 
 ```powershell
 .\Tests\Integration\Invoke-SmokeTest.ps1 -Provider docker
-```
-
-Integrationstest für Podman:
-
-```powershell
 .\Tests\Integration\Invoke-SmokeTest.ps1 -Provider podman
 ```
 
-`-Provider auto` wählt für den mutierenden Lifecycle genau eine verfügbare Runtime. Resource Assessment wird für alle erkannten Provider ausgeführt.
+Providerübergreifender Lifecycle-Test für alle lokal erreichbaren Provider:
+
+```powershell
+.\Tests\Integration\Invoke-SmokeMatrix.ps1
+```
+
+Vollständige Matrix aus Docker/Podman, SQL Server 2019/2022/2025 und kontrollierten parallelen Runs:
+
+```powershell
+.\Tests\Integration\Invoke-SmokeMatrix.ps1 `
+    -Provider all `
+    -FullMatrix `
+    -IncludeParallel
+```
+
+Nicht erreichbare Provider werden als `SKIP` ausgewiesen. Erreichbare, aber fehlerhafte Provider führen zu `FAIL` und Exitcode `1`. Details zu Testumfang, Parallelitätsvertrag und Remote Runnern stehen in [Tests/README.md](Tests/README.md).
 
 ## Repository-Struktur
 
@@ -374,7 +386,7 @@ Private/         interne Modulbausteine
 Providers/       Docker, Podman und Hyper-V-Planung
 Public/          exportierte Cmdlets
 Schemas/         JSON-Schemas und ausführbare Beispiele
-Tests/           statische Prüfungen und Integration-Smoke-Test
+Tests/           statische Prüfungen sowie Lifecycle-, Matrix- und Paralleltests
 _QuellRepo/      unveränderte Quell-Snapshots anderer Repositories
 ```
 
@@ -387,10 +399,11 @@ _QuellRepo/      unveränderte Quell-Snapshots anderer Repositories
 - [Öffentliche Cmdlets](Public/README.md)
 - [Provider](Providers/README.md)
 - [Tests](Tests/README.md)
+- [Podman unter Windows](Documentation/HowTo/PODMAN_WINDOWS_NETWORKING.md)
 - [KI-Projektkontext](.ai/PROJECT_CONTEXT.md)
 - [Maschinenlesbare Repo-Map](.ai/repo_map.yaml)
 - [Beitragsregeln](CONTRIBUTING.md)
 
 ## CI/CD-Abgrenzung
 
-Die Lab-Provisionierung und die Runtime-Smoke-Tests sind lokal ausführbar. Das Repository benötigt keine GitHub-hosted Runner, um SQL-Server-Labs bereitzustellen. Eine spätere schlanke Automatisierung darf statische Vertragsprüfungen ausführen, soll aber keine lokale Runtime-Funktionalität vortäuschen.
+Lab-Provisionierung bleibt lokal beziehungsweise auf ausdrücklich dafür vorgesehenen Self-hosted Runnern. Runtime-Workflows verwenden die Labels `SQL_Lab` plus `Docker` oder `Podman`; generische Self-hosted Runner werden nicht verwendet. GitHub-hosted Runner sind nur für nicht mutierende, hostunabhängige Prüfungen vorgesehen.
