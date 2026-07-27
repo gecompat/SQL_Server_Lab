@@ -6,6 +6,12 @@ on:
       - main
     paths:
       - .github/workflows/pr3-docker-diagnosis.yml
+  pull_request:
+    branches:
+      - main
+    types:
+      - reopened
+      - synchronize
   workflow_dispatch:
 
 permissions:
