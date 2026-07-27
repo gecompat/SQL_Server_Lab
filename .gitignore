@@ -1,9 +1,19 @@
 # Local runtime state
-.state/
-.secrets/
-.artifacts/
-.cache/
-.local/
+.state/*
+!.state/.gitignore
+!.state/README.md
+.secrets/*
+!.secrets/.gitignore
+!.secrets/README.md
+.artifacts/*
+!.artifacts/.gitignore
+!.artifacts/README.md
+.cache/*
+!.cache/.gitignore
+!.cache/README.md
+.local/*
+!.local/.gitignore
+!.local/README.md
 
 # Environment and secret files
 .env
