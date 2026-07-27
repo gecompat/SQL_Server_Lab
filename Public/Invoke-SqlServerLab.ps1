@@ -18,9 +18,9 @@ function Invoke-SqlServerLab {
         [string]$Action
     )
 
-    # Modul immer aktuell laden (verhindert veraltete Funktionen nach Code-Aenderungen)
-    $psd1 = Join-Path (Split-Path $PSScriptRoot -Parent) 'SqlServerLab.psd1'
-    if (Test-Path $psd1) { Import-Module $psd1 -Force }
+    # Das Modul darf sich waehrend einer laufenden Modul-Funktion nicht selbst
+    # mit -Force neu laden. Dabei werden die aktuelle Funktion und ihre
+    # Hilfsfunktionen aus dem Session-State entfernt.
 
     # Direkt-Aktion ohne Menue
     if ($Action) {
@@ -133,7 +133,7 @@ function Invoke-LabAction {
             $availableProviders = @(Get-AvailableLabProviders)
 
             if ($availableProviders.Count -eq 0) {
-                Write-LabError "Kein Container-/VM-Provider gefunden (docker, podman, hyperv)."
+                Write-LabError "Kein implementierter Container-Provider gefunden (docker, podman)."
                 return
             }
 
@@ -288,8 +288,8 @@ function Invoke-LabAction {
 
 function Get-AvailableLabProviders {
     <#
-    .SYNOPSIS Ermittelt alle lokal verfuegbaren Provider.
-    .DESCRIPTION Prueft dynamisch welche Container-/VM-Runtimes installiert sind.
+    .SYNOPSIS Ermittelt alle lokal verfuegbaren und implementierten Provider.
+    .DESCRIPTION Prueft dynamisch, welche implementierten Container-Runtimes erreichbar sind.
     .OUTPUTS String-Array der verfuegbaren Provider-Namen.
     #>
     [CmdletBinding()]
@@ -297,22 +297,17 @@ function Get-AvailableLabProviders {
 
     $available = @()
 
-    # Container-basierte Provider
     if (Get-Command 'docker' -ErrorAction SilentlyContinue) {
-        $dockerCheck = docker version --format '{{.Server.Version}}' 2>&1
+        $null = docker version --format '{{.Server.Version}}' 2>&1
         if ($LASTEXITCODE -eq 0) { $available += 'docker' }
     }
     if (Get-Command 'podman' -ErrorAction SilentlyContinue) {
-        $podmanCheck = podman version --format '{{.Client.Version}}' 2>&1
+        $null = podman info 2>&1
         if ($LASTEXITCODE -eq 0) { $available += 'podman' }
     }
 
-    # VM-basierte Provider
-    if (Get-Command 'Get-VM' -ErrorAction SilentlyContinue) {
-        $available += 'hyperv'
-    }
-
-    return $available
+    # Hyper-V wird erst angeboten, wenn der Provider implementiert ist.
+    return @($available | Sort-Object -Unique)
 }
 
 function Select-LabRun {
