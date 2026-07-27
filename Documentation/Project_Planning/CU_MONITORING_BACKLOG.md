@@ -24,3 +24,5 @@ Ein späterer Umsetzungsschritt kann folgende Punkte erneut bewerten:
 Die Umsetzung soll später neu vom dann aktuellen `main` aus erfolgen. Vor einer Übernahme sind Quellen, Katalogmodell, Workflow-Berechtigungen, Schreibzugriffe und Fehlerverhalten erneut zu prüfen.
 
 Historischer Kontext: Der frühere Draft-PR `#2` wurde bewusst geschlossen, weil er gegenüber dem aktuellen Runtime-Stand stark divergiert war und nicht zum unmittelbaren Umgebungsbereitstellungsvertrag für `SQL_Server_Analyze` und `SQL_PerformanceSchulung` gehört.
+
+Die Backlog-Notiz bewahrt nur die fachliche Absicht. Sie übernimmt weder den alten Workflow noch den alten Python-Code als aktuellen Implementierungsstand.
