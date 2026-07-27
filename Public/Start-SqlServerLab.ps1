@@ -4,13 +4,13 @@
 .DESCRIPTION
     Startet alle Container der Umgebung mit dem Provider, der in
     connection-info.json fuer den Run gespeichert ist. Danach wird optional
-    die SQL-Bereitschaft geprueft und der State auf RUNNING gesetzt.
+    die SQL- und Datenbank-Bereitschaft geprueft und der State auf RUNNING gesetzt.
 .PARAMETER RunId
     RunId der zu startenden Umgebung.
 .PARAMETER SkipReadyCheck
-    SQL-Readiness-Pruefung ueberspringen.
+    SQL- und Datenbank-Readiness-Pruefung ueberspringen.
 .PARAMETER TimeoutSeconds
-    Maximale Wartezeit fuer SQL-Bereitschaft pro Instanz.
+    Maximale Wartezeit fuer SQL- und Datenbank-Bereitschaft pro Instanz.
 .EXAMPLE
     Start-SqlServerLab -RunId $lab.RunId
 #>
@@ -135,13 +135,32 @@ function Start-SqlServerLab {
                 }
 
                 try {
-                    $null = Wait-SqlReady `
+                    $sqlReadiness = Wait-SqlReady `
+                        -HostName $(if ($instance.host) { $instance.host } else { '127.0.0.1' }) `
                         -Port $instance.port `
                         -SaPassword $saPassword `
                         -TimeoutSeconds $TimeoutSeconds
+
+                    if (-not $sqlReadiness.Ready) {
+                        throw $sqlReadiness.Message
+                    }
+
+                    foreach ($database in @($instance.databases | Where-Object { $_ -and $_ -ne 'master' })) {
+                        $databaseReadiness = Wait-LabDatabaseReady `
+                            -HostName $(if ($instance.host) { $instance.host } else { '127.0.0.1' }) `
+                            -Port $instance.port `
+                            -SaPassword $saPassword `
+                            -Database $database `
+                            -TimeoutSeconds $TimeoutSeconds
+
+                        if (-not $databaseReadiness.Ready) {
+                            throw $databaseReadiness.Message
+                        }
+                    }
                 }
                 catch {
-                    Write-LabWarning "  SQL-Readiness-Check fuer '$($instance.id)' fehlgeschlagen: $_ (Container laeuft trotzdem)"
+                    Write-LabWarning "  Readiness-Check fuer '$($instance.id)' fehlgeschlagen: $_ (Container laeuft trotzdem)"
+                    $errors++
                 }
             }
         }
