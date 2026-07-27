@@ -64,6 +64,7 @@ jobs:
       - name: Docker smoke matrix
         run: |
           $ErrorActionPreference = 'Stop'
+          $logPath = Join-Path $env:RUNNER_TEMP 'docker-smoke-matrix.log'
           $mutexName = if ($IsWindows) { 'Global\SQL_Server_Lab_Runtime_Smoke' } else { 'SQL_Server_Lab_Runtime_Smoke' }
           $mutex = [System.Threading.Mutex]::new($false, $mutexName)
           $acquired = $false
@@ -74,10 +75,20 @@ jobs:
             & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-SmokeMatrix.ps1 `
               -Provider docker `
               -FullMatrix `
-              -IncludeParallel
-            if ($LASTEXITCODE -ne 0) { throw "Docker Smoke Matrix endete mit Exitcode $LASTEXITCODE." }
+              -IncludeParallel 2>&1 | Tee-Object -FilePath $logPath
+            $matrixExitCode = $LASTEXITCODE
+            if ($matrixExitCode -ne 0) { throw "Docker Smoke Matrix endete mit Exitcode $matrixExitCode." }
           }
           finally {
             if ($acquired) { $mutex.ReleaseMutex() }
             $mutex.Dispose()
           }
+
+      - name: Upload Docker smoke log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-smoke-matrix-log
+          path: ${{ runner.temp }}/docker-smoke-matrix.log
+          if-no-files-found: ignore
+          retention-days: 7
