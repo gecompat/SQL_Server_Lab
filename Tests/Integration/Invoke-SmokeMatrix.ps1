@@ -20,7 +20,7 @@
 .PARAMETER FullMatrix
     Fuehrt Provisionierung und Cleanup fuer jede Provider-/Versionskombination aus.
 .PARAMETER IncludeParallel
-    Fuehrt einen Parallelitaetstest mit bis zu drei gleichzeitig laufenden Labs aus.
+    Fuehrt einen Parallelitaetstest mit bis zu vier gleichzeitig laufenden Labs aus.
 .PARAMETER KeepOnFailure
     Laesst fehlgeschlagene Labs zur Diagnose bestehen.
 .EXAMPLE
@@ -28,7 +28,7 @@
 .EXAMPLE
     .\Invoke-SmokeMatrix.ps1 -FullMatrix -IncludeParallel
 .EXAMPLE
-    .\Invoke-SmokeMatrix.ps1 -Provider podman -ReferenceVersion 2022
+    .\Invoke-SmokeMatrix.ps1 -Provider podman -ReferenceVersion 2022 -IncludeParallel
 #>
 [CmdletBinding()]
 param(
@@ -167,6 +167,7 @@ function Invoke-ParallelProbe {
     }
     if ('podman' -in $ProviderNames) {
         $scenarios.Add([pscustomobject]@{ Provider='podman'; Version='2022' })
+        $scenarios.Add([pscustomobject]@{ Provider='podman'; Version='2025' })
     }
     if ($scenarios.Count -lt 2) {
         Add-Result -Category 'Parallel' -Provider ($ProviderNames -join ',') -Version '-' -Status SKIP -Message 'Weniger als zwei geeignete Szenarien.'
