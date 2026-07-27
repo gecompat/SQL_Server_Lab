@@ -2,11 +2,11 @@
 .SYNOPSIS
     Erstellt eine Datenbank auf einer Lab-Instanz.
 .DESCRIPTION
-    Generiert CREATE DATABASE T-SQL mit konfigurierbaren Data- und Log-Dateien,
-    Collation sowie optionalen Query-Store- und Compatibility-Einstellungen.
-    Ein pro Datei angegebenes Feld path wird als Containerpfad verwendet.
+    Erzeugt CREATE DATABASE T-SQL mit konfigurierbaren Data- und Log-Dateien,
+    sicheren einfachen Bezeichnern, Collation und optionalen Basiseinstellungen.
+    Das Feld path wird als absoluter Linux-Containerpfad verwendet.
 .EXAMPLE
-    New-LabDatabase -Port 14330 -SaPassword $pw -DatabaseName 'TestDB' -DataFiles @(@{ name = 'D1'; path = '/sqldata/D1.mdf'; sizeMB = 200 })
+    New-LabDatabase -Port 14330 -SaPassword $pw -DatabaseName 'TestDB'
 #>
 function New-LabDatabase {
     [CmdletBinding()]
@@ -21,10 +21,21 @@ function New-LabDatabase {
         $Options = $null
     )
 
+    if ($DatabaseName -notmatch '^[A-Za-z][A-Za-z0-9_]{0,127}$') {
+        throw "DatabaseName '$DatabaseName' ist fuer den aktuellen Labvertrag ungueltig. Erlaubt sind Buchstaben, Ziffern und Unterstrich; das erste Zeichen muss ein Buchstabe sein."
+    }
+    if ($Collation -notmatch '^[A-Za-z0-9_]+$') {
+        throw "Collation '$Collation' enthaelt unzulaessige Zeichen."
+    }
+    if ($Port -lt 1 -or $Port -gt 65535) {
+        throw "Port '$Port' liegt ausserhalb des gueltigen TCP-Portbereichs."
+    }
+
     if ($DataFiles.Count -eq 0) {
         $DataFiles = @(
-            @{
+            [PSCustomObject]@{
                 name         = "${DatabaseName}_Data"
+                path         = $null
                 sizeMB       = 64
                 filegrowthMB = 64
             }
@@ -33,31 +44,40 @@ function New-LabDatabase {
 
     if ($LogFiles.Count -eq 0) {
         $LogFiles = @(
-            @{
+            [PSCustomObject]@{
                 name         = "${DatabaseName}_Log"
+                path         = $null
                 sizeMB       = 32
                 filegrowthMB = 32
             }
         )
     }
 
-    $escapedDatabaseName = $DatabaseName.Replace(']', ']]')
-    $sql = "CREATE DATABASE [$escapedDatabaseName]`nON PRIMARY`n"
+    $sql = "CREATE DATABASE [$DatabaseName]`nON PRIMARY`n"
 
     for ($index = 0; $index -lt $DataFiles.Count; $index++) {
         $file = $DataFiles[$index]
-        $name = $file.name ?? $file['name']
-        $size = $file.sizeMB ?? $file['sizeMB'] ?? 64
-        $growth = $file.filegrowthMB ?? $file['filegrowthMB'] ?? 64
-        $configuredPath = $file.path ?? $file['path']
+        $name = [string]$file.name
+        $size = if ($null -ne $file.sizeMB) { [int]$file.sizeMB } else { 64 }
+        $growth = if ($null -ne $file.filegrowthMB) { [int]$file.filegrowthMB } else { 64 }
+        $configuredPath = [string]$file.path
+
+        if ($name -notmatch '^[A-Za-z][A-Za-z0-9_]{0,127}$') {
+            throw "Data-File-Name '$name' ist ungueltig."
+        }
+        if ($size -le 0 -or $growth -le 0) {
+            throw "Data-File '$name' benoetigt positive Werte fuer sizeMB und filegrowthMB."
+        }
+        if ($configuredPath -and -not $configuredPath.StartsWith('/')) {
+            throw "Data-File-Pfad '$configuredPath' muss ein absoluter Linux-Containerpfad sein."
+        }
+
         $extension = if ($index -eq 0) { 'mdf' } else { 'ndf' }
         $path = if ($configuredPath) { $configuredPath } else { "/var/opt/mssql/data/${name}.${extension}" }
         $comma = if ($index -lt $DataFiles.Count - 1) { ',' } else { '' }
+        $escapedPath = $path.Replace("'", "''")
 
-        $escapedName = ([string]$name).Replace("'", "''")
-        $escapedPath = ([string]$path).Replace("'", "''")
-
-        $sql += "  ( NAME = N'$escapedName',`n"
+        $sql += "  ( NAME = N'$name',`n"
         $sql += "    FILENAME = N'$escapedPath',`n"
         $sql += "    SIZE = ${size}MB,`n"
         $sql += "    FILEGROWTH = ${growth}MB )$comma`n"
@@ -67,17 +87,26 @@ function New-LabDatabase {
 
     for ($index = 0; $index -lt $LogFiles.Count; $index++) {
         $file = $LogFiles[$index]
-        $name = $file.name ?? $file['name']
-        $size = $file.sizeMB ?? $file['sizeMB'] ?? 32
-        $growth = $file.filegrowthMB ?? $file['filegrowthMB'] ?? 32
-        $configuredPath = $file.path ?? $file['path']
+        $name = [string]$file.name
+        $size = if ($null -ne $file.sizeMB) { [int]$file.sizeMB } else { 32 }
+        $growth = if ($null -ne $file.filegrowthMB) { [int]$file.filegrowthMB } else { 32 }
+        $configuredPath = [string]$file.path
+
+        if ($name -notmatch '^[A-Za-z][A-Za-z0-9_]{0,127}$') {
+            throw "Log-File-Name '$name' ist ungueltig."
+        }
+        if ($size -le 0 -or $growth -le 0) {
+            throw "Log-File '$name' benoetigt positive Werte fuer sizeMB und filegrowthMB."
+        }
+        if ($configuredPath -and -not $configuredPath.StartsWith('/')) {
+            throw "Log-File-Pfad '$configuredPath' muss ein absoluter Linux-Containerpfad sein."
+        }
+
         $path = if ($configuredPath) { $configuredPath } else { "/var/opt/mssql/data/${name}.ldf" }
         $comma = if ($index -lt $LogFiles.Count - 1) { ',' } else { '' }
+        $escapedPath = $path.Replace("'", "''")
 
-        $escapedName = ([string]$name).Replace("'", "''")
-        $escapedPath = ([string]$path).Replace("'", "''")
-
-        $sql += "  ( NAME = N'$escapedName',`n"
+        $sql += "  ( NAME = N'$name',`n"
         $sql += "    FILENAME = N'$escapedPath',`n"
         $sql += "    SIZE = ${size}MB,`n"
         $sql += "    FILEGROWTH = ${growth}MB )$comma`n"
@@ -87,14 +116,15 @@ function New-LabDatabase {
 
     $alterStatements = @()
     if ($Options) {
-        $queryStore = $Options.queryStore ?? $Options['queryStore']
-        if ($queryStore -eq $true) {
-            $alterStatements += "ALTER DATABASE [$escapedDatabaseName] SET QUERY_STORE = ON;"
+        if ($Options.queryStore -eq $true) {
+            $alterStatements += "ALTER DATABASE [$DatabaseName] SET QUERY_STORE = ON;"
         }
-
-        $compatibilityLevel = $Options.compatibility ?? $Options['compatibility']
-        if ($compatibilityLevel) {
-            $alterStatements += "ALTER DATABASE [$escapedDatabaseName] SET COMPATIBILITY_LEVEL = $compatibilityLevel;"
+        if ($Options.compatibility) {
+            $compatibilityLevel = [int]$Options.compatibility
+            if ($compatibilityLevel -notin @(150, 160, 170)) {
+                throw "Compatibility Level '$compatibilityLevel' wird vom aktuellen Labvertrag nicht unterstuetzt."
+            }
+            $alterStatements += "ALTER DATABASE [$DatabaseName] SET COMPATIBILITY_LEVEL = $compatibilityLevel;"
         }
     }
 
@@ -107,7 +137,7 @@ function New-LabDatabase {
     }
 
     try {
-        Invoke-SqlQuery `
+        $null = Invoke-SqlQuery `
             -HostName $HostName `
             -Port $Port `
             -SaPlain $saPlain `
@@ -115,7 +145,7 @@ function New-LabDatabase {
             -TimeoutSeconds 60
 
         foreach ($alterStatement in $alterStatements) {
-            Invoke-SqlQuery `
+            $null = Invoke-SqlQuery `
                 -HostName $HostName `
                 -Port $Port `
                 -SaPlain $saPlain `
@@ -134,7 +164,7 @@ function New-LabDatabase {
         }
     }
     catch {
-        Write-LabError "Datenbank-Erstellung fehlgeschlagen: $_"
+        Write-LabError "Datenbank-Erstellung fehlgeschlagen: $($_.Exception.Message)"
         throw
     }
     finally {
