@@ -42,48 +42,7 @@ function Find-AvailablePort {
         [int]$RangeEnd = 14399
     )
 
-    $usedPorts = @()
-    try {
-        $portLines = docker ps --filter 'label=sql-server-lab.run-id' --format '{{.Ports}}' 2>$null
-        if ($LASTEXITCODE -eq 0) {
-            $usedPorts = @(
-                $portLines | ForEach-Object {
-                    if ([string]$_ -match ':(\d+)->1433') {
-                        [int]$Matches[1]
-                    }
-                }
-            )
-        }
-    }
-    catch {
-        $usedPorts = @()
-    }
-
-    for ($port = $RangeStart; $port -le $RangeEnd; $port++) {
-        if ($port -in $usedPorts) {
-            continue
-        }
-
-        $listener = $null
-        try {
-            $listener = [System.Net.Sockets.TcpListener]::new(
-                [System.Net.IPAddress]::Loopback,
-                $port
-            )
-            $listener.Start()
-            return $port
-        }
-        catch {
-            continue
-        }
-        finally {
-            if ($listener) {
-                $listener.Stop()
-            }
-        }
-    }
-
-    throw "Kein freier Port im Bereich $RangeStart-$RangeEnd gefunden."
+    return Find-LabAvailablePort -RangeStart $RangeStart -RangeEnd $RangeEnd
 }
 
 function New-DockerInstance {
