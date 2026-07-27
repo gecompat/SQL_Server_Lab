@@ -2,18 +2,6 @@ name: Runtime Smoke - Podman
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - 'Catalogs/**'
-      - 'Private/**'
-      - 'Providers/Podman/**'
-      - 'Public/**'
-      - 'Tests/**'
-      - 'SqlServerLab.psd1'
-      - 'SqlServerLab.psm1'
-      - '.github/workflows/runtime-smoke-podman.yml'
   pull_request:
     branches:
       - main
@@ -32,7 +20,7 @@ permissions:
 
 concurrency:
   group: sql-server-lab-runtime-smoke-podman
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   podman-smoke:
