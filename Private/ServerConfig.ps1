@@ -465,7 +465,7 @@ function Install-LabExternalLanguages {
     }
 
     $installCommand = "ACCEPT_EULA=Y apt-get update && ACCEPT_EULA=Y apt-get install -y $($aptPackages -join ' ')"
-    Write-LabInfo "External Languages installieren bei $runtime: $($languages -join ', ')"
+    Write-LabInfo "External Languages installieren bei ${runtime}: $($languages -join ', ')"
     $installationOutput = & $runtime exec --user root $ContainerName bash -lc $installCommand 2>&1
     if ($LASTEXITCODE -ne 0) {
         throw "External-Languages-Pakete konnten nicht installiert werden: $(($installationOutput | Out-String).Trim())"
