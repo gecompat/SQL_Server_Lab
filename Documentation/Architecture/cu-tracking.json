@@ -1,0 +1,33 @@
+{
+  "_comment": "CU-Tracking-State für SQL Server 2019, 2022, 2025. Wird automatisch vom CU Monitor Workflow aktualisiert.",
+  "_last_checked": "2026-07-27T00:00:00Z",
+  "versions": {
+    "2019": {
+      "cu": "CU28",
+      "cu_number": 28,
+      "build": "15.0.4385.2",
+      "kb": "KB5039747",
+      "released": "2024-06-13",
+      "status": "confirmed",
+      "last_checked": "2026-07-27T00:00:00Z"
+    },
+    "2022": {
+      "cu": "CU18",
+      "cu_number": 18,
+      "build": "16.0.4175.1",
+      "kb": "KB5044865",
+      "released": "2025-02-13",
+      "status": "confirmed",
+      "last_checked": "2026-07-27T00:00:00Z"
+    },
+    "2025": {
+      "cu": "CTP",
+      "cu_number": 0,
+      "build": null,
+      "kb": null,
+      "released": "2025-05-01",
+      "status": "preview",
+      "last_checked": "2026-07-27T00:00:00Z"
+    }
+  }
+}

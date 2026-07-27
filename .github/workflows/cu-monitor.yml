@@ -1,0 +1,53 @@
+name: SQL Server CU Monitor
+
+on:
+  schedule:
+    # Erster Tag des Monats, 08:00 UTC
+    - cron: '0 8 1 * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry Run – prüfe Quellen, erstelle KEIN Issue und speichere KEINEN State'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write   # Für State-Datei Commit
+  issues: write     # Für Issue-Erstellung
+
+jobs:
+  check-cu-updates:
+    name: Prüfe auf neue Cumulative Updates
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Python einrichten
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: CU Monitor ausführen
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          DRY_RUN: ${{ inputs.dry_run || 'false' }}
+        run: python tools/cu_monitor.py
+
+      - name: State-Datei committen
+        if: success() && github.event.inputs.dry_run != 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Documentation/Architecture/cu-tracking.json
+          if ! git diff --staged --quiet; then
+            git commit -m "chore: CU-Tracking-State aktualisiert [skip ci]"
+            git push
+          else
+            echo "State-Datei unverändert – kein Commit nötig."
+          fi
