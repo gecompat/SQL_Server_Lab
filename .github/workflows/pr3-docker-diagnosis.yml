@@ -1,0 +1,84 @@
+name: PR3 Docker Diagnosis
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/pr3-docker-diagnosis.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  docker-minimal:
+    name: Docker minimal provisioning
+    runs-on: self-hosted
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/documentation-consistency-repair
+
+      - name: Run focused Docker diagnosis
+        id: diagnosis
+        continue-on-error: true
+        shell: pwsh
+        env:
+          DIAG_LOG: ${{ runner.temp }}/pr3-docker-diagnosis.log
+        run: |
+          $ErrorActionPreference = 'Stop'
+          try {
+              Test-ModuleManifest ./SqlServerLab.psd1 | Out-Null
+              Import-Module ./SqlServerLab.psd1 -Force
+              docker info | Out-Null
+              ./Tests/Integration/Invoke-SmokeTest.ps1 -Provider docker -Version '2022' *>&1 |
+                  Tee-Object -FilePath $env:DIAG_LOG
+          }
+          catch {
+              $_ | Out-String | Tee-Object -FilePath $env:DIAG_LOG -Append
+              throw
+          }
+
+      - name: Report result to PR 3
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          DIAG_LOG: ${{ runner.temp }}/pr3-docker-diagnosis.log
+          DIAG_OUTCOME: ${{ steps.diagnosis.outcome }}
+        with:
+          script: |
+            const fs = require('fs');
+            let text = fs.existsSync(process.env.DIAG_LOG)
+              ? fs.readFileSync(process.env.DIAG_LOG, 'utf8')
+              : 'Keine Diagnoselogdatei erzeugt.';
+            const lines = text.split(/\r?\n/).filter(Boolean);
+            const tail = lines.slice(-100).join('\n');
+            const body = [
+              '## PR3 Docker-Diagnose',
+              '',
+              `Ergebnis: **${process.env.DIAG_OUTCOME.toUpperCase()}**`,
+              '',
+              '<details><summary>Letzte Diagnosezeilen</summary>',
+              '',
+              '```text',
+              tail,
+              '```',
+              '',
+              '</details>'
+            ].join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: 3,
+              body
+            });
+
+      - name: Fail job when diagnosis failed
+        if: steps.diagnosis.outcome == 'failure'
+        shell: pwsh
+        run: throw 'Docker-Diagnose ist fehlgeschlagen. Siehe PR-Kommentar.'
