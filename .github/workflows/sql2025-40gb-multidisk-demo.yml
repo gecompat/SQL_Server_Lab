@@ -24,9 +24,11 @@ on:
 permissions:
   contents: read
 
+# Pro PR beziehungsweise Branch darf nur der neueste Lauf aktiv bleiben.
+# Dadurch blockieren veraltete oder haengende Laeufe keinen aktuellen Test.
 concurrency:
-  group: sql-server-lab-sql2025-40gb-demo
-  cancel-in-progress: false
+  group: sql-server-lab-sql2025-40gb-demo-${{ github.event.pull_request.number || github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
   provision-and-validate:
