@@ -21,9 +21,11 @@ on:
 permissions:
   contents: read
 
+# All resource-intensive Docker workflows for the SQL_Lab host share this queue.
+# This also protects the host if several runner services with identical labels exist.
 concurrency:
-  group: sql-server-lab-runtime-smoke-docker-${{ github.event.pull_request.number || github.ref_name }}
-  cancel-in-progress: true
+  group: sql-server-lab-sql-lab-docker-host
+  cancel-in-progress: false
 
 jobs:
   docker-smoke:
