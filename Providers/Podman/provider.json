@@ -1,22 +1,38 @@
 {
-    "name": "podman",
-    "displayName": "Podman (Rootless Containers)",
-    "description": "Container-basierte SQL-Server-Instanzen via Podman (Docker-kompatibel, rootless)",
-    "portRange": {
-        "start": 14330,
-        "end": 14399
-    },
-    "labels": {
-        "prefix": "sql-server-lab"
-    },
-    "requirements": {
-        "command": "podman",
-        "minVersion": "4.0"
-    },
-    "notes": [
-        "Podman laeuft rootless (kein Daemon noetig)",
-        "CLI ist weitgehend Docker-kompatibel",
-        "Fuer SQL Server: podman machine muss auf Windows/Mac laufen",
-        "Labels und Lifecycle identisch zu Docker-Provider"
-    ]
+  "name": "podman",
+  "displayName": "Podman (Rootless Containers)",
+  "description": "Container-basierte SQL-Server-Instanzen via Podman, einschliesslich rootless Betrieb.",
+  "capabilities": [
+    "linux",
+    "multi-instance",
+    "fast-start",
+    "port-mapping",
+    "volume-mounts",
+    "resource-limits",
+    "rootless"
+  ],
+  "limitations": [
+    "no-gui",
+    "no-windows-os",
+    "limited-io-simulation",
+    "limited-network-simulation"
+  ],
+  "detectionCommand": "podman info",
+  "healthCheck": "podman ps --format '{{.ID}}'",
+  "module": "PodmanProvider.ps1",
+  "defaultPort": 14330,
+  "portRange": {
+    "min": 14330,
+    "max": 14399
+  },
+  "labels": {
+    "prefix": "sql-server-lab",
+    "runId": "sql-server-lab.run-id",
+    "scopeId": "sql-server-lab.scope-id",
+    "instanceId": "sql-server-lab.instance-id"
+  },
+  "requirements": {
+    "command": "podman",
+    "minVersion": "4.0"
+  }
 }

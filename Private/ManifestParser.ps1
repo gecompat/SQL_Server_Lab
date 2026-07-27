@@ -2,43 +2,68 @@
 .SYNOPSIS
     Manifest-Parser fuer SQL_Server_Lab.
 .DESCRIPTION
-    Liest JSON-Manifeste, validiert Pflichtfelder, wendet Defaults an
-    und liefert eine aufgeloeste Instanz-Liste zurueck.
+    Liest JSON-Manifeste, validiert Pflichtfelder, wendet Defaults an und
+    loest relative Pfade sowie unterstuetzte Sample-Datenbanken auf.
 #>
 
 function Read-LabManifest {
     <#
-    .SYNOPSIS Liest und validiert ein Lab-Manifest.
-    .PARAMETER Path Pfad zur Manifest-JSON-Datei.
-    .OUTPUTS PSCustomObject mit aufgeloestem Manifest.
+    .SYNOPSIS
+        Liest und normalisiert ein Lab-Manifest.
+    .PARAMETER Path
+        Pfad zur Manifest-JSON-Datei.
+    .OUTPUTS
+        PSCustomObject mit aufgeloestem Manifest.
     #>
     [CmdletBinding()]
-    param([Parameter(Mandatory)][string]$Path)
+    param(
+        [Parameter(Mandatory)]
+        [string]$Path
+    )
 
-    if (-not (Test-Path $Path)) {
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
         throw "Manifest nicht gefunden: $Path"
     }
 
-    $raw = Get-Content $Path -Raw -Encoding utf8
+    $resolvedPath = (Resolve-Path -LiteralPath $Path).Path
+    $raw = Get-Content -LiteralPath $resolvedPath -Raw -Encoding utf8
+
     try {
-        $manifest = $raw | ConvertFrom-Json -Depth 20
+        $manifest = $raw | ConvertFrom-Json -Depth 30
     }
     catch {
-        throw "Manifest-JSON ungueltig: $Path - $_"
+        throw "Manifest-JSON ungueltig: $resolvedPath - $($_.Exception.Message)"
     }
 
-    # Pflichtfeld-Validierung
     $errors = @()
-    if (-not $manifest.name) { $errors += 'Feld "name" fehlt' }
+    if (-not $manifest.name) {
+        $errors += 'Feld "name" fehlt'
+    }
     if (-not $manifest.instances -or $manifest.instances.Count -eq 0) {
-        $errors += 'Feld "instances" fehlt oder leer'
+        $errors += 'Feld "instances" fehlt oder ist leer'
     }
 
     if ($manifest.instances) {
-        for ($i = 0; $i -lt $manifest.instances.Count; $i++) {
-            $inst = $manifest.instances[$i]
-            if (-not $inst.id) { $errors += "instances[$i]: Feld 'id' fehlt" }
-            if (-not $inst.version) { $errors += "instances[$i]: Feld 'version' fehlt" }
+        for ($index = 0; $index -lt $manifest.instances.Count; $index++) {
+            $instance = $manifest.instances[$index]
+            if (-not $instance.id) {
+                $errors += "instances[$index]: Feld 'id' fehlt"
+            }
+            if (-not $instance.version) {
+                $errors += "instances[$index]: Feld 'version' fehlt"
+            }
+
+            if ($instance.databases) {
+                for ($databaseIndex = 0; $databaseIndex -lt $instance.databases.Count; $databaseIndex++) {
+                    $database = $instance.databases[$databaseIndex]
+                    if (-not $database.name) {
+                        $errors += "instances[$index].databases[$databaseIndex]: Feld 'name' fehlt"
+                    }
+                    if ($database.restore -and $database.sample) {
+                        $errors += "instances[$index].databases[$databaseIndex]: 'restore' und 'sample' duerfen nicht gemeinsam verwendet werden"
+                    }
+                }
+            }
         }
     }
 
@@ -46,122 +71,219 @@ function Read-LabManifest {
         throw "Manifest-Validierung fehlgeschlagen:`n  - $($errors -join "`n  - ")"
     }
 
-    # Defaults anwenden
-    $resolved = Resolve-ManifestDefaults -Manifest $manifest -ManifestPath $Path
-    return $resolved
+    return Resolve-ManifestDefaults -Manifest $manifest -ManifestPath $resolvedPath
+}
+
+function Resolve-LabSampleRestore {
+    <#
+    .SYNOPSIS
+        Loest eine Sample-Referenz in einen unterstuetzten Backup-Restore auf.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        $SampleDefinition,
+        [Parameter(Mandatory)]
+        [string]$SqlVersion
+    )
+
+    $sample = Get-LabSampleDatabase -Id $SampleDefinition.id
+    if (-not $sample) {
+        throw "Sample-Datenbank '$($SampleDefinition.id)' wurde im Katalog nicht gefunden."
+    }
+
+    $baseVersionText = ([string]$SqlVersion -split '-', 2)[0]
+    if ($sample.minSqlVersion -and [int]$baseVersionText -lt [int]$sample.minSqlVersion) {
+        throw "Sample-Datenbank '$($sample.id)' benoetigt mindestens SQL Server $($sample.minSqlVersion)."
+    }
+
+    $variant = if ($SampleDefinition.variant) { [string]$SampleDefinition.variant } else { 'full' }
+    $variantProperty = $sample.versions.PSObject.Properties |
+        Where-Object { $_.Name -eq $variant } |
+        Select-Object -First 1
+
+    if (-not $variantProperty) {
+        $available = $sample.versions.PSObject.Properties.Name -join ', '
+        throw "Variante '$variant' ist fuer Sample '$($sample.id)' nicht vorhanden. Verfuegbar: $available"
+    }
+
+    $variantDefinition = $variantProperty.Value
+    $source = [string]$variantDefinition.url
+    if (-not $source) {
+        throw "Sample '$($sample.id)' Variante '$variant' besitzt keine Download-URL."
+    }
+
+    if ($variantDefinition.type -and $variantDefinition.type -ne 'backup') {
+        throw "Sample '$($sample.id)' Variante '$variant' hat den Typ '$($variantDefinition.type)'. Der Manifestpfad unterstuetzt derzeit nur direkte .bak-Restores."
+    }
+
+    if ($source -notmatch '(?i)\.bak(?:$|\?)') {
+        throw "Sample '$($sample.id)' Variante '$variant' ist kein direktes .bak-Backup und kann derzeit nicht automatisch bereitgestellt werden."
+    }
+
+    return [PSCustomObject]@{
+        source        = $source
+        type          = 'url'
+        replace       = $true
+        sampleId      = $sample.id
+        sampleVariant = $variant
+        license       = $sample.license
+        sourcePage    = $sample.source
+    }
 }
 
 function Resolve-ManifestDefaults {
     <#
-    .SYNOPSIS Wendet Defaults auf alle Instanzen an.
+    .SYNOPSIS
+        Wendet Defaults auf alle Instanzen an und loest Pfade auf.
     #>
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory)]$Manifest,
+        [Parameter(Mandatory)]
+        $Manifest,
         [string]$ManifestPath
     )
 
-    $manifestDir = if ($ManifestPath) { Split-Path $ManifestPath -Parent } else { $PWD.Path }
+    $manifestDirectory = if ($ManifestPath) {
+        Split-Path -Parent $ManifestPath
+    }
+    else {
+        $PWD.Path
+    }
 
     $resolvedInstances = @()
-    foreach ($inst in $Manifest.instances) {
+
+    foreach ($instance in $Manifest.instances) {
         $resolved = [PSCustomObject]@{
-            id         = $inst.id
-            version    = $inst.version
-            provider   = if ($inst.provider) { $inst.provider } else { 'docker' }
-            os         = if ($inst.os) { $inst.os } else { 'linux' }
-            profile    = if ($inst.profile) { $inst.profile } else { 'standard' }
-            collation  = if ($inst.collation) { $inst.collation } else { 'SQL_Latin1_General_CP1_CS_AS' }
-            databases  = @()
-            drives     = @()
-            serverConfig = $null
-            software   = @()
+            id            = $instance.id
+            version       = $instance.version
+            provider      = if ($instance.provider) { $instance.provider } else { 'docker' }
+            os            = if ($instance.os) { $instance.os } else { 'linux' }
+            profile       = if ($instance.profile) { $instance.profile } else { 'standard' }
+            collation     = if ($instance.collation) { $instance.collation } else { 'SQL_Latin1_General_CP1_CS_AS' }
+            databases     = @()
+            drives        = @()
+            serverConfig  = $null
+            software      = @()
             postProvision = @()
         }
 
-        # Provider Auto-Select
-        if (-not $inst.provider) {
-            $resolved.provider = Resolve-ProviderAutoSelect -Instance $inst
+        if (-not $instance.provider) {
+            $resolved.provider = Resolve-ProviderAutoSelect -Instance $instance
         }
 
-        # Datenbanken aufloesen
-        if ($inst.databases) {
-            foreach ($db in $inst.databases) {
-                $resolvedDb = [PSCustomObject]@{
-                    name      = $db.name
-                    collation = if ($db.collation) { $db.collation } else { $resolved.collation }
-                    options   = if ($db.options) { $db.options } else { @{ queryStore = $true } }
-                    files     = Resolve-DatabaseFiles -DatabaseDef $db
-                    restore   = if ($db.restore) {
-                        [PSCustomObject]@{
-                            source  = $db.restore.source
-                            type    = if ($db.restore.type) { $db.restore.type } else { 'auto' }
-                            replace = if ($null -ne $db.restore.replace) { $db.restore.replace } else { $true }
-                        }
-                    } else { $null }
+        if ($instance.databases) {
+            foreach ($database in $instance.databases) {
+                if ($database.restore -and $database.sample) {
+                    throw "Datenbank '$($database.name)': 'restore' und 'sample' sind Alternativen und duerfen nicht gemeinsam angegeben werden."
                 }
-                $resolved.databases += $resolvedDb
-            }
-        }
 
-        # Drives (Volume-Mounts)
-        if ($inst.drives) {
-            foreach ($drv in $inst.drives) {
-                $resolved.drives += [PSCustomObject]@{
-                    id            = $drv.id
-                    containerPath = $drv.containerPath
-                    hostPath      = $drv.hostPath
-                    sizeLimitGB   = $drv.sizeLimitGB
-                    type          = if ($drv.type) { $drv.type } else { 'auto' }
+                $restoreDefinition = $null
+
+                if ($database.sample) {
+                    $restoreDefinition = Resolve-LabSampleRestore `
+                        -SampleDefinition $database.sample `
+                        -SqlVersion $resolved.version
                 }
-            }
-        }
-
-        # Server-Konfiguration (Memory, TempDB, MaxDOP, etc.)
-        if ($inst.serverConfig) {
-            $cfg = $inst.serverConfig
-            $resolved.serverConfig = [PSCustomObject]@{
-                collation      = $cfg.collation
-                memory         = if ($cfg.memory) {
-                    [PSCustomObject]@{ minMB = $cfg.memory.minMB; maxMB = $cfg.memory.maxMB }
-                } else { $null }
-                tempdb         = if ($cfg.tempdb) {
-                    [PSCustomObject]@{
-                        dataFiles = @($cfg.tempdb.dataFiles)
-                        logFile   = $cfg.tempdb.logFile
-                        equalSize = if ($null -ne $cfg.tempdb.equalSize) { $cfg.tempdb.equalSize } else { $true }
+                elseif ($database.restore) {
+                    $source = [string]$database.restore.source
+                    if (-not $source) {
+                        throw "Datenbank '$($database.name)': restore.source fehlt."
                     }
-                } else { $null }
-                maxDop         = if ($null -ne $cfg.maxDop) { $cfg.maxDop } else { 0 }
-                costThreshold  = if ($null -ne $cfg.costThreshold) { $cfg.costThreshold } else { 5 }
-                traceFlags     = if ($cfg.traceFlags) { @($cfg.traceFlags) } else { @() }
-                spConfigure    = $cfg.spConfigure
+
+                    if ($source -notmatch '^https?://' -and -not [System.IO.Path]::IsPathRooted($source)) {
+                        $source = Join-Path $manifestDirectory $source
+                    }
+
+                    $restoreDefinition = [PSCustomObject]@{
+                        source  = $source
+                        type    = if ($database.restore.type) { $database.restore.type } else { 'auto' }
+                        replace = if ($null -ne $database.restore.replace) { [bool]$database.restore.replace } else { $true }
+                    }
+                }
+
+                $resolvedDatabase = [PSCustomObject]@{
+                    name      = $database.name
+                    collation = if ($database.collation) { $database.collation } else { $resolved.collation }
+                    options   = if ($database.options) { $database.options } else { @{ queryStore = $true } }
+                    files     = Resolve-DatabaseFiles -DatabaseDef $database
+                    restore   = $restoreDefinition
+                    sample    = if ($database.sample) { $database.sample } else { $null }
+                }
+
+                $resolved.databases += $resolvedDatabase
             }
         }
 
-        # Software
-        if ($inst.software) {
-            foreach ($sw in $inst.software) {
+        if ($instance.drives) {
+            foreach ($drive in $instance.drives) {
+                $hostPath = $drive.hostPath
+                if ($hostPath -and -not [System.IO.Path]::IsPathRooted($hostPath)) {
+                    $hostPath = Join-Path $manifestDirectory $hostPath
+                }
+
+                $resolved.drives += [PSCustomObject]@{
+                    id            = $drive.id
+                    containerPath = $drive.containerPath
+                    hostPath      = $hostPath
+                    sizeLimitGB   = $drive.sizeLimitGB
+                    type          = if ($drive.type) { $drive.type } else { 'auto' }
+                }
+            }
+        }
+
+        if ($instance.serverConfig) {
+            $config = $instance.serverConfig
+            $resolved.serverConfig = [PSCustomObject]@{
+                memory = if ($config.memory) {
+                    [PSCustomObject]@{
+                        minMB = $config.memory.minMB
+                        maxMB = $config.memory.maxMB
+                    }
+                }
+                else {
+                    $null
+                }
+                tempdb = if ($config.tempdb) {
+                    [PSCustomObject]@{
+                        dataFiles = @($config.tempdb.dataFiles)
+                        logFile   = $config.tempdb.logFile
+                        equalSize = if ($null -ne $config.tempdb.equalSize) { [bool]$config.tempdb.equalSize } else { $true }
+                    }
+                }
+                else {
+                    $null
+                }
+                maxDop           = if ($null -ne $config.maxDop) { $config.maxDop } else { 0 }
+                costThreshold    = if ($null -ne $config.costThreshold) { $config.costThreshold } else { 5 }
+                traceFlags       = if ($config.traceFlags) { @($config.traceFlags) } else { @() }
+                spConfigure      = $config.spConfigure
+                externalScripts = $config.externalScripts
+            }
+        }
+
+        if ($instance.software) {
+            foreach ($softwareItem in $instance.software) {
                 $resolved.software += [PSCustomObject]@{
-                    id       = $sw.id
-                    source   = $sw.source
-                    package  = $sw.package
-                    url      = $sw.url
-                    command  = $sw.command
-                    optional = if ($null -ne $sw.optional) { $sw.optional } else { $true }
+                    id       = $softwareItem.id
+                    source   = $softwareItem.source
+                    package  = $softwareItem.package
+                    url      = $softwareItem.url
+                    command  = $softwareItem.command
+                    optional = if ($null -ne $softwareItem.optional) { [bool]$softwareItem.optional } else { $true }
                 }
             }
         }
 
-        # PostProvision-Pfade relativ zum Manifest aufloesen
-        if ($inst.postProvision) {
-            foreach ($script in $inst.postProvision) {
-                $absPath = if ([System.IO.Path]::IsPathRooted($script)) {
-                    $script
-                } else {
-                    Join-Path $manifestDir $script
+        if ($instance.postProvision) {
+            foreach ($scriptPath in $instance.postProvision) {
+                $absolutePath = if ([System.IO.Path]::IsPathRooted($scriptPath)) {
+                    $scriptPath
                 }
-                $resolved.postProvision += $absPath
+                else {
+                    Join-Path $manifestDirectory $scriptPath
+                }
+                $resolved.postProvision += $absolutePath
             }
         }
 
@@ -178,61 +300,69 @@ function Resolve-ManifestDefaults {
 }
 
 function Resolve-ProviderAutoSelect {
-    <#
-    .SYNOPSIS Waehlt den Provider automatisch basierend auf Anforderungen.
-    #>
     [CmdletBinding()]
     param($Instance)
 
-    # GUI-Software -> HyperV
     if ($Instance.software) {
-        $guiApps = @('ssms', 'vscode', 'az-data-studio', 'visual-studio')
-        $hasGui = $Instance.software | Where-Object { $_.id -in $guiApps }
-        if ($hasGui) { return 'hyperv' }
+        $guiApplications = @('ssms', 'vscode', 'az-data-studio', 'visual-studio')
+        $hasGuiApplication = $Instance.software | Where-Object { $_.id -in $guiApplications }
+        if ($hasGuiApplication) {
+            return 'hyperv'
+        }
     }
 
-    # Windows OS -> HyperV
-    if ($Instance.os -eq 'windows') { return 'hyperv' }
+    if ($Instance.os -eq 'windows') {
+        return 'hyperv'
+    }
 
-    # Default: Docker
     return 'docker'
 }
 
 function Resolve-DatabaseFiles {
-    <#
-    .SYNOPSIS Loest Datenbank-File-Definitionen auf (mit Defaults).
-    #>
     [CmdletBinding()]
     param($DatabaseDef)
 
-    $files = @{ data = @(); log = @() }
+    $files = @{
+        data = @()
+        log  = @()
+    }
 
     if ($DatabaseDef.files -and $DatabaseDef.files.data) {
-        foreach ($f in $DatabaseDef.files.data) {
+        foreach ($file in $DatabaseDef.files.data) {
             $files.data += @{
-                name         = $f.name
-                sizeMB       = if ($f.sizeMB) { $f.sizeMB } else { 64 }
-                filegrowthMB = if ($f.filegrowthMB) { $f.filegrowthMB } else { 64 }
+                name         = $file.name
+                path         = $file.path
+                sizeMB       = if ($file.sizeMB) { $file.sizeMB } else { 64 }
+                filegrowthMB = if ($file.filegrowthMB) { $file.filegrowthMB } else { 64 }
             }
         }
     }
     else {
-        # Default: 1 Data File
-        $files.data += @{ name = "$($DatabaseDef.name)_Data"; sizeMB = 64; filegrowthMB = 64 }
+        $files.data += @{
+            name         = "$($DatabaseDef.name)_Data"
+            path         = $null
+            sizeMB       = 64
+            filegrowthMB = 64
+        }
     }
 
     if ($DatabaseDef.files -and $DatabaseDef.files.log) {
-        foreach ($f in $DatabaseDef.files.log) {
+        foreach ($file in $DatabaseDef.files.log) {
             $files.log += @{
-                name         = $f.name
-                sizeMB       = if ($f.sizeMB) { $f.sizeMB } else { 32 }
-                filegrowthMB = if ($f.filegrowthMB) { $f.filegrowthMB } else { 32 }
+                name         = $file.name
+                path         = $file.path
+                sizeMB       = if ($file.sizeMB) { $file.sizeMB } else { 32 }
+                filegrowthMB = if ($file.filegrowthMB) { $file.filegrowthMB } else { 32 }
             }
         }
     }
     else {
-        # Default: 1 Log File
-        $files.log += @{ name = "$($DatabaseDef.name)_Log"; sizeMB = 32; filegrowthMB = 32 }
+        $files.log += @{
+            name         = "$($DatabaseDef.name)_Log"
+            path         = $null
+            sizeMB       = 32
+            filegrowthMB = 32
+        }
     }
 
     return $files

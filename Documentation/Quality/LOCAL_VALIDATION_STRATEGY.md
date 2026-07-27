@@ -1,272 +1,243 @@
-# Lokale Validierungsstrategie ohne CI/CD
+# Lokale Validierungsstrategie
 
 | Merkmal | Wert |
 |---|---|
-| Status | `REQUIRED` |
-| Stand | 2026-07-26 |
-| CI/CD | nicht Bestandteil dieses Repositorys |
-| Ziel | alle Qualitätsprüfungen lokal reproduzierbar ausführbar |
+| Status | `IMPLEMENTED_WITH_GAPS` |
+| Stand | 2026-07-27 |
+| CI/CD | keine Voraussetzung für die lokale Produktfunktion |
+| Ziel | reproduzierbare lokale Prüfung von Verträgen und Provider-Runtime |
 
-## 1. Entscheidung
+## 1. Grundsatz
 
-`SQL_Server_Lab` enthält keine GitHub-Actions-, Runner- oder CI/CD-Produktlogik.
+`SQL_Server_Lab` stellt seine Qualitätsprüfungen als lokal ausführbare Skripte bereit.
 
-Alle Produkt- und Vertragsprüfungen werden als lokal ausführbare Tools und Tests bereitgestellt. Ein späteres getrenntes Validation-Repository darf diese öffentlichen Befehle aufrufen, ohne hier Provider-, Package- oder Workflowlogik zu duplizieren.
+Die lokale Validierung besteht aktuell aus zwei tatsächlich implementierten Ebenen:
 
-## 2. Prüfungsebenen
+1. statische Vertrags- und Dokumentationsprüfung ohne Labmutation;
+2. mutierender End-to-End-Smoke-Test für genau einen ausgewählten Containerprovider.
 
-### 2.1 Static Validation
+Weitergehende Planner-, Synthetic-, Recovery- und vollständige Versionsmatrixtests bleiben Roadmap. Sie dürfen nicht als bereits vorhanden oder bestanden dargestellt werden.
 
-Prüft ohne Runtime:
+## 2. Aktuelle Einstiegspunkte
 
-- JSON-Schemas und Beispielmanifeste;
-- PowerShell-Syntax;
-- PSScriptAnalyzer-Regeln;
-- verbotene Pfade und Dateitypen;
-- Secrets und Privacy-Muster;
-- Dokumentationslinks;
-- Package-Hashes;
-- IDs, Namespaces und Vertragsversionen;
-- SQL-Purpose-Pflicht;
-- keine festen Produktjahres-Enums in Core-Schemas;
-- SQL-Versionseinträge und Statuswerte;
-- Supporting Components mit SQL-Bezug;
-- Database-Artifact-Klassifikationen;
-- keine `.github/workflows`-Dateien.
-
-### 2.2 Contract Validation
-
-Prüft:
-
-- SQL Lab Request;
-- `SqlPurpose`;
-- SQL Version Catalog;
-- Package;
-- Environment Blueprint;
-- Primary SQL Component;
-- Supporting Component;
-- Deployment Unit;
-- DataSet;
-- Database Artifact;
-- Public Sample Entry;
-- Resource Assessment;
-- Cleanup Plan;
-- Workflow;
-- Runtime Binding;
-- Provider Capability;
-- Bound Plan;
-- Run State und Recovery State;
-- Event und Evidence.
-
-Contract Tests verwenden ausschließlich synthetische Fixtures oder kleine öffentliche Testfixtures mit dokumentierter Herkunft.
-
-### 2.3 Planner Validation
-
-Read-only Prüfung:
-
-- Package- und Extensionauflösung;
-- SQL-Purpose-Validierung;
-- Versionseintrag und Version Constraint;
-- Component Expansion;
-- Providerauswahl;
-- Capability Negotiation;
-- Port-, Pfad-, Media-, Artifact- und Secret Requirements;
-- CPU-, RAM-, Storage- und Provider-Overhead;
-- Hostreserve und Resource Assessment;
-- zulässige und unzulässige Overrides;
-- Side Effects;
-- vollständiger Cleanup- und Compensation-Plan;
-- Plan-Hash.
-
-Planner Tests dürfen keine Container, VMs, Netzwerke, Volumes oder Dateien außerhalb temporärer Testverzeichnisse erzeugen.
-
-### 2.4 Synthetic Provider Tests
-
-Provideroperationen werden gegen synthetische In-Memory- oder Fixture-Backends geprüft:
-
-- Resource Graph;
-- Resource Assessment;
-- tatsächliche Objekt-ID-Rückgabe;
-- Stateübergänge;
-- Stop/Start;
-- Reset;
-- Destroy;
-- Fremdobjektschutz;
-- automatische Compensation nach Teilfehler;
-- wiederholtes `ResumeCleanup`;
-- Recovery nach Prozessabbruch.
-
-Ein grüner Synthetic Test ist kein echter Docker-, Podman- oder Hyper-V-Nachweis.
-
-### 2.5 Native Runtime Tests
-
-Getrennte lokale Nachweise:
-
-- Docker Engine;
-- Podman;
-- Hyper-V;
-- derzeit SQL Server 2019;
-- derzeit SQL Server 2022;
-- derzeit SQL Server 2025;
-- Windows- und Linux-Gastpfade, soweit erforderlich.
-
-Die Versionsmatrix wird aus dem SQL Version Catalog erzeugt. Neue `SUPPORTED`-Einträge erscheinen dadurch ohne Änderung des Testharness in der aktiven Matrix. `DEPRECATED`, `RETIRED` und `BLOCKED` werden gemäß ihrer Policy behandelt.
-
-Jeder Native Test dokumentiert:
-
-- Hostklasse und Provider;
-- Produkt- und Katalogversionen;
-- Contract- und Package-Versionen;
-- SQL Purpose;
-- Resource Assessment und gegebenenfalls Overcommit-Bestätigung;
-- ausgeführte Schritte;
-- Statuscodes;
-- Cleanupstatus;
-- Aussagegrenzen.
-
-Reale Host- oder Umgebungswerte werden nicht in versionierte Evidence übernommen.
-
-## 3. Vorgesehener lokaler Einstieg
-
-Geplant:
+### Statische Prüfung
 
 ```powershell
-./Tests/Invoke-LocalValidation.ps1
+.\Tests\Static\Invoke-DocumentationChecks.ps1
 ```
 
-Vorgesehene Modi:
+### Docker-Smoke-Test
 
 ```powershell
-./Tests/Invoke-LocalValidation.ps1 -Scope Static
-./Tests/Invoke-LocalValidation.ps1 -Scope Contract
-./Tests/Invoke-LocalValidation.ps1 -Scope Planner
-./Tests/Invoke-LocalValidation.ps1 -Scope Synthetic
-./Tests/Invoke-LocalValidation.ps1 -Scope Runtime -Provider Docker
-./Tests/Invoke-LocalValidation.ps1 -Scope Runtime -Provider Podman
-./Tests/Invoke-LocalValidation.ps1 -Scope Runtime -Provider HyperV
-./Tests/Invoke-LocalValidation.ps1 -Scope Artifact
-./Tests/Invoke-LocalValidation.ps1 -Scope Recovery
-./Tests/Invoke-LocalValidation.ps1 -Scope AllLocal
+.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider docker
 ```
 
-Diese Befehle sind geplant und erst nach Implementierung als ausführbar zu dokumentieren.
+### Podman-Smoke-Test
 
-## 4. Provider-Abnahmematrix
+```powershell
+.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider podman
+```
+
+### Auto-Modus
+
+```powershell
+.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider auto
+```
+
+Der Auto-Modus wählt für den mutierenden Lifecycle genau eine Runtime: Docker vor Podman. Er ist kein Ersatz für zwei getrennte Providerläufe.
+
+## 3. Voraussetzungen
+
+### Statische Prüfung
+
+- PowerShell 7.2 oder neuer;
+- lokaler Repository-Checkout;
+- keine laufende Container-Runtime erforderlich.
+
+### Integration-Smoke-Test
+
+- PowerShell 7.2 oder neuer;
+- Docker oder Podman installiert und erreichbar;
+- `sqlcmd` installiert;
+- Zugriff auf das ausgewählte SQL-Server-Container-Image;
+- ausreichend RAM und Storage;
+- ein freier Port im Lab-Bereich.
+
+Ein fehlender Provider oder ein fehlendes `sqlcmd` ist kein bestandener Test. Der Test bricht mit einem nachvollziehbaren Fehler ab.
+
+## 4. Statische Vertragsprüfung
+
+`Tests/Static/Invoke-DocumentationChecks.ps1` prüft derzeit:
+
+### PowerShell
+
+- Syntax aller aktiven `.ps1`, `.psm1` und `.psd1` außerhalb von `_QuellRepo/` und `private_Note/`;
+- Lesbarkeit des Modulmanifests;
+- eindeutige `FunctionsToExport`;
+- Entfernen nicht implementierter Exportplatzhalter;
+- Modulimport, sofern nicht ausdrücklich mit `-SkipModuleImport` übersprungen;
+- Übereinstimmung von Exportliste und tatsächlich exportierten Funktionen.
+
+### JSON und Schemas
+
+- JSON-Syntax unter `Catalogs/` und `Schemas/`;
+- Existenz relativer `$schema`- und `$ref`-Ziele;
+- Existenz der zentralen Katalogschemas;
+- grundlegende Provider-Metadaten;
+- Existenz der in `provider.json` angegebenen Implementierungsdatei.
+
+Die Prüfung validiert noch nicht jedes JSON-Dokument semantisch vollständig gegen Draft-07. Das bleibt eine benannte Lücke.
+
+### Dokumentation
+
+- Existenz der Front-Door- und Governance-Dateien;
+- relative Links in den zentralen Dokumenten;
+- Ausschluss des veralteten Rootstatus `PLANNING_FOUNDATION`;
+- Ausschluss individueller Entwicklerpfade aus Getting Started;
+- Ausschluss der nicht implementierten Environment Variable `SQL_SERVER_LAB_PATH` als Bedienvertrag;
+- Ausschluss veralteter Restore-Beispiele mit `-RunId` oder `-BackupUrl`;
+- korrekte Beschreibung des Smoke-Test-Auto-Modus;
+- Existenz referenzierter `postProvision`-Dateien in Beispielmanifesten.
+
+### Grenzen
+
+Die statische Prüfung ersetzt nicht:
+
+- tatsächlichen Containerstart;
+- SQL-Bereitschaft;
+- Restore einer realen zulässigen `.bak`-Datei;
+- Providerparität;
+- Performance- oder Fault-Szenarien;
+- vollständige Privacy- oder Secret-Erkennung aller denkbaren Inhalte.
+
+## 5. Integration-Smoke-Test
+
+`Tests/Integration/Invoke-SmokeTest.ps1` prüft für den ausgewählten Provider:
+
+1. Modulimport;
+2. Erkennung implementierter Provider über `provider.json` und vorhandene Implementierungsdatei;
+3. Runtime-Erreichbarkeit;
+4. Resource Assessment;
+5. Provisionierung einer SQL-Server-Instanz;
+6. Rückgabe von RunId, Provider und Port;
+7. Sichtbarkeit des Containers in der ausgewählten Runtime;
+8. Erstellung einer Datenbank mit mehreren Data-Files;
+9. Verifikation über `sys.databases`;
+10. Ausführung eines T-SQL-Skripts mit mehreren `GO`-Batches;
+11. Datenverifikation;
+12. `Get-SqlServerLab`;
+13. `Stop-SqlServerLab`;
+14. providergetreue Containerstatusprüfung;
+15. `Start-SqlServerLab`;
+16. `Remove-SqlServerLab`;
+17. Verifikation, dass der Container entfernt wurde;
+18. Cleanup bei Testfehlern, sofern `-KeepOnFailure` nicht gesetzt ist.
+
+Der Test erzeugt ausschließlich synthetische Testobjekte.
+
+## 6. Provider-Abnahme
 
 | Fähigkeit | Docker | Podman | Hyper-V |
 |---|---:|---:|---:|
-| read-only Preflight | erforderlich | erforderlich | erforderlich |
-| Resource Assessment | erforderlich | erforderlich | erforderlich |
-| Plan ohne Mutation | erforderlich | erforderlich | erforderlich |
-| einzelne SQL-Instanz | erforderlich | erforderlich | erforderlich |
-| aktive SQL-Versionseinträge | kataloggetrieben | kataloggetrieben | kataloggetrieben |
-| tatsächliche Objekt-IDs | erforderlich | erforderlich | erforderlich |
-| Health plus SQL Readiness | erforderlich | erforderlich | erforderlich |
-| Stop/Start | erforderlich | erforderlich | erforderlich |
-| Reset | erforderlich, scopeabhängig | erforderlich, scopeabhängig | erforderlich, imageabhängig |
-| Down/Destroy | erforderlich | erforderlich | erforderlich |
-| `ResumeCleanup` | erforderlich | erforderlich | erforderlich |
-| fremde Ressourcen geschützt | erforderlich | erforderlich | erforderlich |
-| Supporting Components | capabilityabhängig | capabilityabhängig | capabilityabhängig |
+| Resource Assessment | implementiert | implementiert | geplant |
+| einzelne SQL-Instanz | implementiert | implementiert | geplant |
+| Health und SQL Readiness | implementiert | implementiert | geplant |
+| Datenbankerstellung | implementiert | implementiert | geplant |
+| T-SQL-Skriptausführung | implementiert | implementiert | geplant |
+| Live-Status | implementiert | implementiert | geplant |
+| Stop und Start | implementiert | implementiert | geplant |
+| Remove | implementiert | implementiert | geplant |
+| eigener Smoke-Test-Aufruf | vorhanden | vorhanden | nicht vorhanden |
+| gemischter Provider-Run | nicht unterstützt | nicht unterstützt | nicht unterstützt |
 
-Eine Providerabnahme gilt nicht automatisch für einen anderen Provider.
+`implementiert` bedeutet, dass Code und Testpfad vorhanden sind. `validiert` darf nur für einen tatsächlich erfolgreich ausgeführten lokalen Lauf verwendet werden.
 
-## 5. SQL-Server-Abnahmeszenarien
+## 7. SQL-Server-Versionen
 
-### P0
+Der Versionskatalog enthält derzeit SQL Server 2019, 2022 und 2025 sowie ausgewählte CU-Buildmetadaten.
 
-1. `QUICK_ENVIRONMENT` mit einem aktiven Standard-Versionseintrag;
-2. derzeit SQL Server 2019, 2022 und 2025 einzeln;
-3. Multi-Version-Quick-Environment;
-4. zusätzlicher synthetischer künftiger Versionseintrag lässt sich ohne Schemaänderung planen;
-5. `RETIRED`- oder `BLOCKED`-Version wird strukturiert abgelehnt;
-6. markierte synthetische Datenbank;
-7. DataSet-Erzeugung und Verifikation;
-8. Packageinstallation;
-9. Stop, Start, Reset und Destroy;
-10. Privacy- und Secret-Gate.
+Der Smoke-Test kann eine Version oder einen katalogisierten CU-Kurzbezeichner erhalten:
 
-### P1
+```powershell
+.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider docker -Version '2019'
+.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider docker -Version '2022'
+.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider docker -Version '2025'
+.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider docker -Version '2022-CU16'
+```
 
-1. Restore eines im Lab erzeugten Backups in einem Folgerun;
-2. Restore mindestens einer öffentlichen Demo-Datenbank;
-3. lokales Nicht-Produktionsbackup mit vollständiger Klassifikation;
-4. Produktions- und unbekanntes Backup werden blockiert;
-5. Restore-Speicherbedarf berücksichtigt wiederhergestellte Dateigrößen;
-6. Performance-Schulungs-Pilotdemo;
-7. Analyze-Pilot mit Finding-Assertion;
-8. Multi-Session-Blocking;
-9. kontrollierter CPU-, Memory-, TempDB- oder I/O-Druck;
-10. Domain-Controller-Supporting-Component;
-11. Windows Authentication oder Kerberos;
-12. Netzwerkfault mit verifizierter Rücknahme.
+Es gibt derzeit kein übergeordnetes Skript, das automatisch die vollständige Version-Provider-Matrix durchläuft. Einzelne Aufrufe sind deshalb getrennt zu dokumentieren.
 
-### P2
+Ein Katalogeintrag oder vorhandener Testparameter beweist nicht, dass ein Image weiterhin verfügbar oder der Katalog aktuell ist.
 
-1. Availability Group;
-2. FCI;
-3. Replication oder Log Shipping;
-4. PolyBase mit Hadoop;
-5. REST-/HTTP-Supporting-Component;
-6. verteilte Hyper-V-/Container-Topologie.
+## 8. Restore-Validierung
 
-## 6. Resource-Assessment-Tests
+Der allgemeine Smoke-Test prüft derzeit keinen Download und keinen Restore einer öffentlichen Sample-Datenbank, um Laufzeit, Netzwerkabhängigkeit und Datenmenge klein zu halten.
 
-Verbindlich:
+Für einen manuellen Restore-Nachweis sind mindestens zu dokumentieren:
 
-- genügend CPU, RAM und Storage ergibt `RESOURCE_OK`;
-- knappe Reserve ergibt `RESOURCE_WARNING`;
-- vorhergesagtes Defizit ergibt `RESOURCE_INSUFFICIENT_OVERRIDABLE`;
-- expliziter Overcommit startet den Run, ohne den Defizitstatus zu verbergen;
-- fehlende Overcommit-Bestätigung verhindert nur den mutierenden Start, nicht Planung und Anzeige;
-- sichere absolute Limits bleiben nicht übersteuerbar;
-- unsicherer Pfad, fehlende Providerfähigkeit, blockierte SQL-Version oder fehlender Cleanup Plan ergibt `RESOURCE_HARD_BLOCK`;
-- Storage Assessment berücksichtigt Download, Cache, Entpacken, Images/VHDX, Data, Log, TempDB, Backup und Restore-Peak;
-- CPU, RAM, Storage und Hostreserve werden getrennt ausgewiesen;
-- Schätzqualität und unbekannte Werte bleiben sichtbar.
+- verwendete synthetische oder öffentliche Quelle;
+- Lizenz und Klassifikation;
+- SQL-Server-Version;
+- Provider;
+- Dateigröße und gegebenenfalls Prüfsumme;
+- Restore-Ergebnis;
+- Datenbankverifikation;
+- Cleanup-Ergebnis.
 
-## 7. Artifact- und Restore-Tests
+Nicht in versionierte Evidence übernehmen:
 
-Verbindlich:
+- lokale Backup-Pfade;
+- Passwörter;
+- Connection Strings;
+- reale Hostwerte;
+- vollständige Backup-Metadaten aus nicht öffentlichen Quellen.
 
-- `LAB_GENERATED` kann erstellt, gehasht, lokal gespeichert und später wiederhergestellt werden;
-- `PUBLIC_SAMPLE` benötigt Quelle, Lizenz, Hash und Versionskompatibilität;
-- `USER_PROVIDED_NON_PRODUCTION` bleibt lokal und benötigt ausdrückliche Klassifikation;
-- `PRODUCTION_DATA` und `UNKNOWN` werden abgelehnt;
-- lokale Backups werden nicht automatisch in Git-, Evidence- oder Downloadartefakte übernommen;
-- Backupmetadaten, File Mapping, Zielpfade und Konfliktpolicy werden vor Restore geprüft;
-- Restore-Verifikation und Cleanup sind Pflicht;
-- Cache- und Backup-Retention sind unabhängig von der wiederhergestellten Datenbank steuerbar.
+## 9. Sample-Katalog-Validierung
 
-## 8. Recovery- und Destructive-Safety-Tests
+Die statische Prüfung verifiziert JSON und Schema-Referenzen. Der Manifestparser prüft zur Laufzeit:
 
-Verbindliche Negativ- und Recovery-Tests:
+- Sample-ID vorhanden;
+- Variante vorhanden;
+- SQL-Mindestversion erfüllt;
+- URL vorhanden;
+- Variante ist eine direkte `.bak`-Quelle.
 
-- Name passt, Owner Marker fehlt;
-- Owner Marker passt, tatsächliche Objekt-ID weicht ab;
-- Pfad liegt außerhalb des registrierten Roots;
-- symbolischer Link oder Junction verlässt den Scope;
-- fremder Container oder fremde VM mit ähnlichem Namen;
-- unerwartetes Netzwerk oder Volume;
-- Prozessabbruch nach erster Mutation;
-- Host- oder Providerfehler während Provisionierung;
-- Restore schlägt nach Anlage der Zieldatenbank fehl;
-- Setupschritt schlägt nach mehreren erfolgreichen Ressourcen fehl;
-- Cleanupteilfehler;
-- wiederholtes `ResumeCleanup`;
-- wiederholter Destroy-Aufruf;
-- `-WhatIf` verändert nichts.
+Archive, Attach-Szenarien und SQL-Skript-Samples müssen mit einer erklärenden Fehlermeldung abgewiesen werden.
 
-Erwartung:
+Ein vollständiger automatischer Download-/Restore-Test pro Sample ist derzeit nicht vorhanden.
 
-- State existiert vor der ersten Mutation;
-- tatsächliche IDs werden fortlaufend registriert;
-- automatische Compensation läuft in umgekehrter Abhängigkeitsreihenfolge;
-- unvollständige Bereinigung ergibt `RECOVERY_REQUIRED`;
-- erneuter Cleanup führt nur offene Schritte aus;
-- fremde Ressourcen bleiben unangetastet.
+## 10. Cleanup- und Recovery-Prüfung
 
-## 9. Ergebnisstatus
+Der Smoke-Test prüft erfolgreichen Remove und versucht Cleanup bei einem Testfehler.
+
+Noch nicht vollständig automatisiert sind unter anderem:
+
+- Prozessabbruch nach einzelnen Mutationsschritten;
+- wiederholtes Cleanup nach Teilfehler;
+- Fremdobjektschutz bei manipulierten Labels;
+- symbolische Links und Junctions außerhalb des Scope;
+- Providerfehler während Restore oder Serverkonfiguration;
+- idempotenter Recoverylauf nach Hostneustart;
+- gemischte Providerressourcen.
+
+Diese Punkte bleiben Roadmap und dürfen nicht als validiert bezeichnet werden.
+
+## 11. Privacy-Validierung
+
+Vor Datei-, Git-, Package- oder Exportoperationen sind zu prüfen:
+
+- Personen-, Firmen-, Kunden- und Organisationsbezüge;
+- Hostnamen, IP-Adressen, Endpunkte und Pfade;
+- Secrets und Connection Strings;
+- reale Datenbank- und Objektstrukturen;
+- Produktions- und unbekannte Backups;
+- Logs, Plans, Responses und Screenshots;
+- lokale State-, Artifact-, Cache- und Secretpfade;
+- unerwartete Binärdateien und Archive.
+
+Die statische Vertragsprüfung ist kein vollständiger Data-Loss-Prevention-Scanner. Verantwortliche Inhaltsprüfung bleibt erforderlich.
+
+## 12. Ergebnisbegriffe
 
 ```text
 PASS
@@ -278,80 +249,65 @@ FAIL
 RECOVERY_REQUIRED
 ```
 
-Priorität:
+Verwendung:
 
-```text
-RECOVERY_REQUIRED > FAIL > NOT_EXECUTED_REQUIRED > WARN > SKIP_OPTIONAL > PASS
+- `PASS`: relevante Prüfung erfolgreich und erforderliches Cleanup abgeschlossen;
+- `WARN`: Prüfung lief, aber eine nicht blockierende Grenze bleibt;
+- `NOT_EXECUTED`: Prüfung wurde nicht ausgeführt;
+- `UNSUPPORTED`: aktueller Vertrag unterstützt den Pfad nicht;
+- `FAIL`: erwarteter Vertrag wurde verletzt;
+- `RECOVERY_REQUIRED`: erzeugte Ressourcen konnten nicht vollständig bereinigt werden.
+
+Ein nicht verfügbarer Provider darf nicht als `PASS` behandelt werden.
+
+## 13. Empfohlene lokale Abnahme vor Merge
+
+### Nur Dokumentation, Schema oder Metadaten
+
+```powershell
+.\Tests\Static\Invoke-DocumentationChecks.ps1
 ```
 
-`PASS` ist nur zulässig, wenn erforderliches Cleanup erfolgreich war oder ein ausdrücklich persistenter Endzustand erreicht wurde.
+### Docker-Runtime betroffen
 
-## 10. Privacy-Validierung
+```powershell
+.\Tests\Static\Invoke-DocumentationChecks.ps1
+.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider docker
+```
 
-Vor Datei-, Package-, Git- oder Exportoperationen werden geprüft:
+### Podman-Runtime betroffen
 
-- Personen-, Firmen-, Kunden- und Organisationsbezüge;
-- Hostnamen, IP-Adressen, Endpunkte und Pfade;
-- Secrets und Connection Strings;
-- reale Datenbank- und Objektstrukturen aus Produktivsystemen;
-- Produktions- und unbekannte Backups;
-- Logs, Plans, Responses und Screenshots;
-- Office- und Dateimetadaten;
-- lokale State-, Artifact-, Cache- und Secretpfade;
-- unerwartete Binärdateien und Archive.
+```powershell
+.\Tests\Static\Invoke-DocumentationChecks.ps1
+.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider podman
+```
 
-Prüfergebnisse enthalten Regelcode, Pfad und Trefferanzahl, aber keine Fundwerte.
+### Gemeinsame Containerlogik betroffen
 
-## 11. Dokumentationsprüfung
+```powershell
+.\Tests\Static\Invoke-DocumentationChecks.ps1
+.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider docker
+.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider podman
+```
 
-- alle Links zeigen auf vorhandene Pfade;
-- Status `DRAFT`, `PLANNED`, `IMPLEMENTED` oder `VALIDATED` ist korrekt;
-- geplante Commands werden nicht als vorhanden dargestellt;
-- SQL Server bleibt Hauptzweck;
-- Versionslisten sind als aktueller Katalogstand und nicht als permanente Grenze formuliert;
-- Supporting Components erscheinen nur mit SQL-Bezug;
-- zulässige und unzulässige Database Artifacts sind getrennt;
-- Resource Override und nicht übersteuerbare Blocker sind dokumentiert;
-- Providerunterschiede und Grenzen sind dokumentiert;
-- Lizenz- und Privacy-Hinweise sind sichtbar;
-- Einsteigerpfad und technische Vertiefung sind getrennt verständlich.
+Nicht verfügbare Native-Tests müssen im Pull Request mit Grund als `NOT_EXECUTED` angegeben werden.
 
-## 12. Evidence-Regel
+## 14. Roadmap
 
-Native Runtime Evidence wird zunächst lokal gehalten. Versioniert werden dürfen nur privacy-geprüfte Summaries mit:
+Priorisierte Ergänzungen:
 
-- Contract-, Package- und SQL-Versionseintrag;
-- synthetischer Scenario-ID;
-- Providerklasse;
-- SQL-Server-Major-Version;
-- Resource-Assessment-Status ohne lokale Kapazitätswerte;
-- Statuscodes;
-- Assertionsergebnis;
-- Cleanupstatus;
-- Aussagegrenzen.
+1. vollständige JSON-Schema-Validierung aller Kataloge und Beispielmanifeste;
+2. PSScriptAnalyzer mit projektspezifischer Baseline;
+3. nicht mutierende Manifest- und Versionsauflösungstests;
+4. automatische, lokal steuerbare Version-Provider-Matrix;
+5. Restore-Test mit kleiner öffentlicher `.bak`-Fixture;
+6. gezielte Cleanup- und Recovery-Fehlertests;
+7. Fremdobjekt- und Pfadsicherheitstests;
+8. Hyper-V-Tests erst nach echter Providerimplementierung;
+9. ein übergeordnetes lokales Testskript erst dann dokumentieren, wenn es tatsächlich existiert.
 
-Nicht versioniert werden:
+## 15. CI/CD-Abgrenzung
 
-- reale Hostnamen;
-- lokale Pfade;
-- Objekt-IDs;
-- Endpunkte;
-- Credentials;
-- lokale Backupinhalte;
-- Querytexte, Plans, Logs oder Responses ohne separate Sanitization.
+Lokale Produktfunktion und Native-Tests dürfen nicht von GitHub-hosted Runnern abhängen.
 
-## 13. Abnahmekriterien
-
-- alle Prüfungen sind lokal ausführbar;
-- CI/CD ist keine Produktvoraussetzung;
-- Static, Contract, Planner, Synthetic und Runtime sind getrennt;
-- Docker, Podman und Hyper-V besitzen eigene Native Nachweise;
-- aktive SQL-Versionen werden kataloggetrieben getestet;
-- derzeitige Versionseinträge 2019, 2022 und 2025 werden getrennt erkannt;
-- neue oder ausgesteuerte Versionen erfordern keine Harnessänderung;
-- Lab-Backups und öffentliche Demo-Datenbanken besitzen positive Tests;
-- Produktions- und unbekannte Backups besitzen Negativtests;
-- Resource Overcommit und nicht übersteuerbare Blocker sind getestet;
-- Safety- und Privacy-Negativtests existieren;
-- Cleanup und Recovery sind Teil jedes Erfolgsvertrags;
-- ein späterer externer Validator kann öffentliche Contracts nutzen.
+Eine spätere schlanke Automatisierung kann statische Prüfungen ausführen. Sie darf jedoch keinen erfolgreichen Docker-, Podman- oder Hyper-V-Nachweis vortäuschen, wenn die entsprechende Runtime nicht tatsächlich verwendet wurde.

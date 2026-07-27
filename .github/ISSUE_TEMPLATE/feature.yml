@@ -1,0 +1,65 @@
+name: Funktion vorschlagen
+description: Neue Lab-, Provider-, Manifest- oder Integrationsfunktion begründet vorschlagen
+title: "[Feature] "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: sql_purpose
+    attributes:
+      label: SQL-Server-Zweck
+      description: Welches konkrete SQL-Server-Test-, Analyse- oder Schulungsszenario benötigt die Funktion?
+    validations:
+      required: true
+  - type: textarea
+    id: gap
+    attributes:
+      label: Aktuelle Lücke
+      description: Warum reichen vorhandene Cmdlets, Manifestfelder oder Provider nicht aus?
+    validations:
+      required: true
+  - type: textarea
+    id: contract
+    attributes:
+      label: Vorgeschlagener Vertrag
+      description: Gewünschte Eingaben, Ausgaben, Seiteneffekte und Fehlerfälle beschreiben.
+    validations:
+      required: true
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Betroffener Provider
+      options:
+        - Providerunabhängig
+        - Docker
+        - Podman
+        - Hyper-V
+        - Gemischte Umgebung
+        - Neuer Provider
+    validations:
+      required: true
+  - type: textarea
+    id: cleanup
+    attributes:
+      label: Cleanup und Wiederherstellung
+      description: Welche Ressourcen werden erzeugt und wie werden sie nach Fehlern vollständig entfernt?
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Abnahmekriterien
+      description: Konkrete, reproduzierbare Erfolgs- und Testkriterien angeben.
+    validations:
+      required: true
+  - type: checkboxes
+    id: boundaries
+    attributes:
+      label: Grenzen
+      options:
+        - label: Der Vorschlag hat einen konkreten SQL-Server-Bezug.
+          required: true
+        - label: Privacy-, Secret- und Datenartefaktgrenzen wurden berücksichtigt.
+          required: true
+        - label: Die bekannte Einschränkungsdokumentation wurde geprüft.
+          required: true

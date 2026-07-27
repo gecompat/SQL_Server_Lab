@@ -5,7 +5,7 @@
     Author            = 'gecompat - Gerhard Pisch'
     CompanyName       = 'gecompat'
     Copyright         = '(c) gecompat - Gerhard Pisch. Alle Rechte vorbehalten.'
-    Description       = 'Isolierte, reproduzierbare SQL-Server-Testumgebungen (Docker, Podman, Hyper-V)'
+    Description       = 'Isolierte, reproduzierbare SQL-Server-Testumgebungen mit Docker und Podman; Hyper-V ist geplant.'
     PowerShellVersion = '7.2'
 
     FunctionsToExport = @(
@@ -20,19 +20,16 @@
         'New-LabDatabase'
         'Invoke-LabScript'
         'Restore-LabDatabase'
-        'Install-LabSoftware'
         'Test-LabResources'
-        'Invoke-LabCleanup'
-        'Invoke-LabRecovery'
     )
 
     CmdletsToExport   = @()
-    VariablesToExport  = @()
-    AliasesToExport    = @()
+    VariablesToExport = @()
+    AliasesToExport   = @()
 
     PrivateData = @{
         PSData = @{
-            Tags       = @('SQL-Server', 'Lab', 'Docker', 'HyperV', 'Testing')
+            Tags       = @('SQL-Server', 'Lab', 'Docker', 'Podman', 'Testing')
             ProjectUri = 'https://github.com/gecompat/SQL_Server_Lab'
         }
     }

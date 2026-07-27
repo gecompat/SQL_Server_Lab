@@ -2,20 +2,14 @@
 .SYNOPSIS
     Cleanup-Engine fuer SQL_Server_Lab.
 .DESCRIPTION
-    Erstellt maschinenlesbare Cleanup-Plaene vor Mutationen und
-    fuehrt Cleanup in umgekehrter Abhaengigkeitsreihenfolge aus.
-    Nur eigene Ressourcen (identifiziert durch RunId/ScopeId) werden beruehrt.
+    Erstellt maschinenlesbare Cleanup-Plaene vor Mutationen und fuehrt
+    ausstehende Schritte in umgekehrter Reihenfolge providergebunden aus.
 #>
-
-# =============================================================================
-# Cleanup-Plan
-# =============================================================================
 
 function New-CleanupPlan {
     <#
-    .SYNOPSIS Erstellt einen Cleanup-Plan fuer einen Run.
-    .DESCRIPTION Wird VOR der ersten Mutation geschrieben, damit bei Fehler
-                 bekannt ist was zu entfernen waere.
+    .SYNOPSIS
+        Erstellt einen leeren Cleanup-Plan fuer einen Run.
     #>
     [CmdletBinding()]
     param(
@@ -33,16 +27,14 @@ function New-CleanupPlan {
     }
 
     $planPath = Join-Path $RunDir 'cleanup-plan.json'
-    $plan | ConvertTo-Json -Depth 10 | Set-Content -Path $planPath -Encoding utf8
-
+    $plan | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $planPath -Encoding utf8
     return $plan
 }
 
 function Add-CleanupStep {
     <#
-    .SYNOPSIS Fuegt einen Schritt zum Cleanup-Plan hinzu.
-    .DESCRIPTION Jeder Cleanup-Schritt beschreibt eine zu entfernende Ressource
-                 mit Kompensationsaktion.
+    .SYNOPSIS
+        Fuegt einen providergebundenen Schritt zum Cleanup-Plan hinzu.
     #>
     [CmdletBinding()]
     param(
@@ -50,42 +42,113 @@ function Add-CleanupStep {
         [Parameter(Mandatory)][string]$ResourceType,
         [Parameter(Mandatory)][string]$ResourceId,
         [Parameter(Mandatory)][string]$Action,
+        [ValidateSet('docker', 'podman', 'hyperv')]
+        [string]$Provider,
         [string]$Compensation = '',
         [string[]]$DependsOn = @()
     )
 
     $planPath = Join-Path $RunDir 'cleanup-plan.json'
-    $plan = Get-Content $planPath -Raw | ConvertFrom-Json -Depth 10
+    if (-not (Test-Path -LiteralPath $planPath -PathType Leaf)) {
+        throw "Cleanup-Plan nicht gefunden: $planPath"
+    }
 
-    $order = $plan.steps.Count + 1
-    $step = @{
+    $plan = Get-Content -LiteralPath $planPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
+    $order = @($plan.steps).Count + 1
+
+    $step = [PSCustomObject]@{
         order        = $order
         resourceType = $ResourceType
         resourceId   = $ResourceId
         action       = $Action
+        provider     = $Provider
         compensation = $Compensation
-        dependsOn    = $DependsOn
+        dependsOn    = @($DependsOn)
         state        = 'PENDING'
         executedAt   = $null
         error        = $null
     }
 
     $plan.steps += $step
-    $plan | ConvertTo-Json -Depth 10 | Set-Content -Path $planPath -Encoding utf8
-
+    $plan | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $planPath -Encoding utf8
     return $step
 }
 
-# =============================================================================
-# Cleanup-Ausfuehrung
-# =============================================================================
+function Get-CleanupStepProvider {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Step,
+        [string[]]$RunProviders = @()
+    )
+
+    if ($Step.provider -in @('docker', 'podman')) {
+        return [string]$Step.provider
+    }
+
+    $compensationText = [string]$Step.compensation
+    if ($compensationText -match '^\s*(docker|podman)\b') {
+        return $Matches[1].ToLowerInvariant()
+    }
+
+    $uniqueProviders = @($RunProviders | Where-Object { $_ } | Sort-Object -Unique)
+    if ($uniqueProviders.Count -eq 1 -and $uniqueProviders[0] -in @('docker', 'podman')) {
+        return [string]$uniqueProviders[0]
+    }
+
+    return $null
+}
+
+function Remove-LabContainerForCleanup {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Provider,
+        [Parameter(Mandatory)][string]$ContainerIdOrName,
+        [Parameter(Mandatory)][string]$ExpectedScopeId
+    )
+
+    switch ($Provider) {
+        'docker' {
+            $null = Remove-DockerInstance `
+                -ContainerIdOrName $ContainerIdOrName `
+                -ExpectedScopeId $ExpectedScopeId
+        }
+        'podman' {
+            $null = Remove-PodmanInstance `
+                -ContainerIdOrName $ContainerIdOrName `
+                -ExpectedScopeId $ExpectedScopeId
+        }
+        default {
+            throw "Cleanup-Provider '$Provider' wird fuer Container nicht unterstuetzt."
+        }
+    }
+}
+
+function Remove-LabRuntimeResourceForCleanup {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][ValidateSet('docker', 'podman')][string]$Provider,
+        [Parameter(Mandatory)][ValidateSet('volume', 'network')][string]$ResourceType,
+        [Parameter(Mandatory)][string]$ResourceId
+    )
+
+    & $Provider $ResourceType inspect $ResourceId 1>$null 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        Write-LabInfo "  Bereits entfernt oder nicht vorhanden: $ResourceType $ResourceId"
+        return
+    }
+
+    & $Provider $ResourceType rm $ResourceId 1>$null 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        throw "$Provider konnte $ResourceType '$ResourceId' nicht entfernen."
+    }
+}
 
 function Invoke-CleanupPlan {
     <#
-    .SYNOPSIS Fuehrt den Cleanup-Plan in umgekehrter Reihenfolge aus.
-    .DESCRIPTION Nur Schritte mit state=PENDING werden ausgefuehrt.
-                 Fehler werden protokolliert, blockieren aber nicht den Rest.
-    .OUTPUTS PSCustomObject mit Status (CLEANUP_SUCCEEDED/PARTIAL/BLOCKED).
+    .SYNOPSIS
+        Fuehrt ausstehende Cleanup-Schritte in umgekehrter Reihenfolge aus.
+    .OUTPUTS
+        PSCustomObject mit Status, Steps, Errors und Total.
     #>
     [CmdletBinding()]
     param(
@@ -94,17 +157,37 @@ function Invoke-CleanupPlan {
     )
 
     $planPath = Join-Path $RunDir 'cleanup-plan.json'
-    if (-not (Test-Path $planPath)) {
-        Write-LabWarning "Kein Cleanup-Plan gefunden."
-        return [PSCustomObject]@{ Status = 'CLEANUP_SUCCEEDED'; Steps = 0; Errors = 0 }
+    if (-not (Test-Path -LiteralPath $planPath -PathType Leaf)) {
+        Write-LabWarning 'Kein Cleanup-Plan gefunden.'
+        return [PSCustomObject]@{
+            Status = 'CLEANUP_SUCCEEDED'
+            Steps  = 0
+            Errors = 0
+            Total  = 0
+        }
     }
 
-    $plan = Get-Content $planPath -Raw | ConvertFrom-Json -Depth 10
+    $plan = Get-Content -LiteralPath $planPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
     $plan.status = 'EXECUTING'
-    $plan | ConvertTo-Json -Depth 10 | Set-Content -Path $planPath -Encoding utf8
+    $plan | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $planPath -Encoding utf8
 
-    # Schritte in umgekehrter Reihenfolge
-    $pendingSteps = @($plan.steps | Where-Object { $_.state -eq 'PENDING' } | Sort-Object order -Descending)
+    $connectionInfoPath = Join-Path $RunDir 'connection-info.json'
+    $runProviders = @()
+    if (Test-Path -LiteralPath $connectionInfoPath -PathType Leaf) {
+        try {
+            $connectionInfo = Get-Content -LiteralPath $connectionInfoPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
+            $runProviders = @($connectionInfo.instances | ForEach-Object { $_.provider })
+        }
+        catch {
+            Write-LabWarning "Connection-Info konnte fuer Cleanup nicht gelesen werden: $($_.Exception.Message)"
+        }
+    }
+
+    $pendingSteps = @(
+        $plan.steps |
+            Where-Object { $_.state -eq 'PENDING' } |
+            Sort-Object order -Descending
+    )
 
     $errors = 0
     $executed = 0
@@ -113,59 +196,89 @@ function Invoke-CleanupPlan {
         Write-LabInfo "Cleanup [$($step.order)]: $($step.action) $($step.resourceType):$($step.resourceId)"
 
         try {
+            $provider = Get-CleanupStepProvider -Step $step -RunProviders $runProviders
+
             switch ($step.resourceType) {
                 'container' {
-                    Remove-DockerInstance -ContainerIdOrName $step.resourceId -ExpectedScopeId $ScopeId
+                    if (-not $provider) {
+                        throw "Provider fuer Container '$($step.resourceId)' ist nicht bestimmbar."
+                    }
+                    Remove-LabContainerForCleanup `
+                        -Provider $provider `
+                        -ContainerIdOrName $step.resourceId `
+                        -ExpectedScopeId $ScopeId
                 }
                 'volume' {
-                    docker volume rm $step.resourceId 2>&1 | Out-Null
+                    if (-not $provider) {
+                        throw "Provider fuer Volume '$($step.resourceId)' ist nicht bestimmbar."
+                    }
+                    Remove-LabRuntimeResourceForCleanup `
+                        -Provider $provider `
+                        -ResourceType 'volume' `
+                        -ResourceId $step.resourceId
                 }
                 'network' {
-                    docker network rm $step.resourceId 2>&1 | Out-Null
+                    if (-not $provider) {
+                        throw "Provider fuer Netzwerk '$($step.resourceId)' ist nicht bestimmbar."
+                    }
+                    Remove-LabRuntimeResourceForCleanup `
+                        -Provider $provider `
+                        -ResourceType 'network' `
+                        -ResourceId $step.resourceId
                 }
                 default {
-                    Write-LabWarning "Unbekannter Ressourcentyp: $($step.resourceType)"
+                    throw "Unbekannter Cleanup-Ressourcentyp: $($step.resourceType)"
                 }
             }
 
             $step.state = 'COMPLETED'
             $step.executedAt = Get-LabTimestamp
+            $step.error = $null
             $executed++
             Write-LabSuccess "  Entfernt: $($step.resourceId)"
         }
         catch {
             $step.state = 'FAILED'
-            $step.error = $_.ToString()
+            $step.error = $_.Exception.Message
             $step.executedAt = Get-LabTimestamp
             $errors++
-            Write-LabError "  Fehlgeschlagen: $($step.resourceId) - $_"
+            Write-LabError "  Fehlgeschlagen: $($step.resourceId) - $($_.Exception.Message)"
         }
+
+        $plan | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $planPath -Encoding utf8
     }
 
-    # Status aktualisieren
     $plan.status = if ($errors -eq 0) { 'COMPLETED' } else { 'PARTIAL' }
-    $plan | ConvertTo-Json -Depth 10 | Set-Content -Path $planPath -Encoding utf8
+    $plan | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $planPath -Encoding utf8
 
-    $overallStatus = if ($errors -eq 0) { 'CLEANUP_SUCCEEDED' }
-                     elseif ($executed -gt 0) { 'CLEANUP_PARTIAL' }
-                     else { 'CLEANUP_BLOCKED' }
+    $overallStatus = if ($errors -eq 0) {
+        'CLEANUP_SUCCEEDED'
+    }
+    elseif ($executed -gt 0) {
+        'CLEANUP_PARTIAL'
+    }
+    else {
+        'CLEANUP_BLOCKED'
+    }
 
     return [PSCustomObject]@{
-        Status   = $overallStatus
-        Steps    = $executed
-        Errors   = $errors
-        Total    = $pendingSteps.Count
+        Status = $overallStatus
+        Steps  = $executed
+        Errors = $errors
+        Total  = $pendingSteps.Count
     }
 }
 
 function Get-CleanupPlan {
-    <#
-    .SYNOPSIS Liest den aktuellen Cleanup-Plan eines Runs.
-    #>
     [CmdletBinding()]
-    param([Parameter(Mandatory)][string]$RunDir)
+    param(
+        [Parameter(Mandatory)][string]$RunDir
+    )
 
     $planPath = Join-Path $RunDir 'cleanup-plan.json'
-    if (-not (Test-Path $planPath)) { return $null }
-    Get-Content $planPath -Raw | ConvertFrom-Json -Depth 10
+    if (-not (Test-Path -LiteralPath $planPath -PathType Leaf)) {
+        return $null
+    }
+
+    return Get-Content -LiteralPath $planPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
 }
