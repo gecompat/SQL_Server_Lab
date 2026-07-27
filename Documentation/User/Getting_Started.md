@@ -1,521 +1,471 @@
 # SQL_Server_Lab – Getting Started
 
-## Voraussetzungen
+## Ziel
 
-- PowerShell 7.2 oder hoeher (`pwsh`)
-- Container-Runtime: **Docker** oder **Podman** (mindestens eines muss laufen)
-- Mindestens 4 GB freier RAM
-- Mindestens 5 GB freier Speicherplatz
+Diese Anleitung führt vom leeren Arbeitsverzeichnis bis zu einer erreichbaren SQL-Server-Testinstanz und anschließend durch Datenbankerstellung, Restore, Skriptausführung und Cleanup.
 
-### PowerShell-Version pruefen
+Für Architektur und Entwicklungsregeln siehe [Dokumentationsübersicht](../README.md). Aktuelle Einschränkungen stehen in [KNOWN_LIMITATIONS.md](../Quality/KNOWN_LIMITATIONS.md).
+
+## 1. Voraussetzungen
+
+Erforderlich:
+
+- PowerShell 7.2 oder neuer
+- Docker oder Podman
+- mindestens 4 GB freier RAM
+- mindestens 5 GB freier Speicherplatz
+- `sqlcmd` für Datenbankoperationen und den vollständigen Smoke-Test
+
+Prüfen:
 
 ```powershell
 $PSVersionTable.PSVersion
-# Erwartet: 7.2 oder hoeher
-```
 
-### Container-Runtime pruefen
-
-```powershell
-# Docker:
 docker info
-
-# ODER Podman:
+# oder
 podman info
 
-# Mindestens eines muss ohne Fehler antworten
+sqlcmd -?
 ```
 
----
+Mindestens eine Container-Runtime muss ohne Fehler antworten.
 
-## 1. Repository clonen (falls noch nicht geschehen)
+## 2. Repository beziehen
 
 ```powershell
-cd E:\GIT\gecomp\publ
 git clone https://github.com/gecompat/SQL_Server_Lab.git
+Set-Location .\SQL_Server_Lab
 ```
 
----
+Es werden keine festen lokalen Laufwerks- oder Benutzerpfade vorausgesetzt.
 
-## 2. Modul importieren
+## 3. Modul importieren
 
 ```powershell
-cd E:\GIT\gecomp\publ\SQL_Server_Lab
 Import-Module .\SqlServerLab.psd1 -Force
 ```
 
-Erfolgsmeldung:
-
-```text
-[LOAD] Provider: DockerProvider.ps1
-[LOAD] Provider: PodmanProvider.ps1
-[LOAD] SqlServerLab geladen. Provider: docker, podman
-```
-
-(Es werden nur die Provider geladen, deren Verzeichnis unter `Providers/` existiert.)
-
----
-
-## 3. Schnelltest: Eine SQL-Server-Instanz erstellen
+Öffentliche Cmdlets prüfen:
 
 ```powershell
-# Mit Docker:
+Get-Command -Module SqlServerLab | Sort-Object Name
+```
+
+Die autoritative Exportliste steht in `SqlServerLab.psd1`.
+
+## 4. Ressourcen prüfen
+
+Docker:
+
+```powershell
+Test-LabResources -Provider docker
+```
+
+Podman:
+
+```powershell
+Test-LabResources -Provider podman
+```
+
+Die Prüfung erzeugt keine Container. Sie bewertet unter anderem Runtime-Verfügbarkeit, RAM, Storage und Ports.
+
+## 5. Erste Instanz erstellen
+
+Docker:
+
+```powershell
 $lab = New-SqlServerLab -Version '2025' -Provider docker
+```
 
-# Mit Podman:
+Podman:
+
+```powershell
 $lab = New-SqlServerLab -Version '2025' -Provider podman
+```
 
-# Interaktiv (erkennt Provider automatisch, fragt bei mehreren):
+Interaktiv:
+
+```powershell
 Invoke-SqlServerLab
 ```
 
 Das Cmdlet:
 
-1. Prueft Ressourcen (RAM, Storage, Ports, Container-Runtime)
-2. Fragt das SA-Passwort ab (Komplexitaetsanforderungen: 8+ Zeichen, Gross/Klein/Zahl/Sonderzeichen)
-3. Erstellt einen Container mit SQL Server 2025
-4. Wartet bis SQL Server antwortet (max 120 Sekunden)
-5. Gibt Verbindungsinformationen aus
+1. löst Version und Ressourcenprofil auf;
+2. führt das Resource Assessment aus;
+3. fragt das SA-Passwort ab, sofern keines übergeben wurde;
+4. erzeugt Run-State und Cleanup-Plan;
+5. startet den Container;
+6. wartet auf SQL-Bereitschaft;
+7. führt optional Server-, Datenbank-, Restore- und Post-Provision-Schritte aus;
+8. speichert `connection-info.json` und liefert ein Ergebnisobjekt zurück.
 
-### Erwartete Ausgabe
-
-```text
-============================================================
-  SQL Server Lab - Neue Umgebung
-============================================================
-
-[INFO]    Umgebung: adhoc-2025-docker (1 Instanz(en))
-[INFO]    Resource Assessment...
-  Provider                RESOURCE_OK: Docker verfuegbar (Version: 27.x)
-  RAM                     RESOURCE_OK: Frei: 12000MB, Benoetigt: 4096MB
-  Storage                 RESOURCE_OK: Frei: 80GB, Geschaetzt: 2GB
-  Ports                   RESOURCE_OK: Verfuegbar: 1, Benoetigt: 1
-[INFO]    SA-Passwort wird benoetigt.
-SA-Passwort: ********
-SA-Passwort bestaetigen: ********
-  RunId                   a1b2c3d4-...
-  ScopeId                 e5f6g7h8-...
-[INFO]    Instanz 'primary' erstellen (2025, docker)...
-[INFO]    Container erstellen: sql-lab-primary-a1b2c3d4 (Port 14330, Image mcr.microsoft.com/mssql/server:2025-latest)
-[INFO]    Warte auf SQL-Bereitschaft (127.0.0.1:14330, Timeout: 120s)...
-[OK]      SQL Server bereit nach 12.3s (Major: 17)
-
-============================================================
-  Umgebung bereit
-============================================================
-
-  RunId                   a1b2c3d4-...
-  primary                 127.0.0.1:14330 (SQL 2025)
-```
-
----
-
-## 4. Mit der Instanz arbeiten
-
-### Verbindung via SSMS, Azure Data Studio oder sqlcmd
-
-```text
-Server:   127.0.0.1,14330
-Login:    sa
-Passwort: (das soeben gesetzte)
-```
-
-### Datenbank anlegen (mit mehreren Data Files)
+## 6. Ergebnisobjekt verstehen
 
 ```powershell
-$pw = $lab  # Passwort nochmal eingeben oder aus Variable
-# Passwort als SecureString:
+$lab | Format-List
+$lab.Instances | Format-List
+```
+
+Wichtige Werte:
+
+```powershell
+$lab.RunId
+$lab.State
+$lab.StateRoot
+$lab.Instances[0].Provider
+$lab.Instances[0].Host
+$lab.Instances[0].Port
+$lab.Instances[0].ContainerName
+$lab.Instances[0].ConnectionString
+```
+
+Der Port wird standardmäßig im Bereich `14330` bis `14399` automatisch vergeben.
+
+## 7. Verbindung mit SSMS
+
+Beispiel:
+
+```text
+Server name: 127.0.0.1,14330
+Authentication: SQL Server Authentication
+Login: sa
+Password: das bei der Erstellung gesetzte Passwort
+Trust server certificate: aktiviert
+```
+
+Verwenden Sie den tatsächlich in `$lab.Instances[0].Port` zurückgegebenen Port.
+
+Mit `sqlcmd`:
+
+```powershell
+sqlcmd -S "127.0.0.1,$($lab.Instances[0].Port)" -U sa -C
+```
+
+Das Passwort wird von `sqlcmd` interaktiv abgefragt, wenn `-P` nicht angegeben wird.
+
+## 8. Datenbank erstellen
+
+```powershell
 $pw = Read-Host 'SA-Passwort' -AsSecureString
 
-New-LabDatabase -Port $lab.Instances[0].Port -SaPassword $pw `
-    -DatabaseName 'MeineTestDB' `
+New-LabDatabase `
+    -Port $lab.Instances[0].Port `
+    -SaPassword $pw `
+    -DatabaseName 'MeineTestDB'
+```
+
+Mehrere Dateien auf dem Standardpfad:
+
+```powershell
+New-LabDatabase `
+    -Port $lab.Instances[0].Port `
+    -SaPassword $pw `
+    -DatabaseName 'MehrdateiDB' `
     -DataFiles @(
-        @{ name = 'Test_Data1'; sizeMB = 100 },
-        @{ name = 'Test_Data2'; sizeMB = 100 }
+        @{ name = 'MehrdateiDB_Data1'; sizeMB = 100; filegrowthMB = 64 },
+        @{ name = 'MehrdateiDB_Data2'; sizeMB = 100; filegrowthMB = 64 }
     ) `
     -LogFiles @(
-        @{ name = 'Test_Log'; sizeMB = 50 }
+        @{ name = 'MehrdateiDB_Log'; sizeMB = 50; filegrowthMB = 32 }
     )
 ```
 
-### T-SQL-Skript ausfuehren
+Dateien auf gemounteten Containerpfaden:
 
 ```powershell
-Invoke-LabScript -ScriptPath '.\mein-skript.sql' `
+New-LabDatabase `
+    -Port $lab.Instances[0].Port `
+    -SaPassword $pw `
+    -DatabaseName 'StorageDemo' `
+    -DataFiles @(
+        @{ name = 'StorageDemo_Data'; path = '/sqldata/StorageDemo_Data.mdf'; sizeMB = 256 }
+    ) `
+    -LogFiles @(
+        @{ name = 'StorageDemo_Log'; path = '/sqllog/StorageDemo_Log.ldf'; sizeMB = 128 }
+    )
+```
+
+Die Pfade müssen über `drives` im Manifest als Volumes bereitgestellt worden sein.
+
+## 9. T-SQL-Skript ausführen
+
+```powershell
+Invoke-LabScript `
+    -ScriptPath '.\setup.sql' `
     -Port $lab.Instances[0].Port `
     -SaPassword $pw `
     -Database 'MeineTestDB'
 ```
 
----
+Das Cmdlet unterstützt `GO`-getrennte Batches.
 
-## 5. Manifest-Modus (deklarativ)
+## 10. Backup wiederherstellen
 
-Erstelle eine Datei `mein-lab.json`:
+### Lokale `.bak`-Datei
+
+```powershell
+Restore-LabDatabase `
+    -Port $lab.Instances[0].Port `
+    -SaPassword $pw `
+    -BackupSource 'C:\Backups\AdventureWorks2022.bak' `
+    -DatabaseName 'AdventureWorks2022' `
+    -ContainerName $lab.Instances[0].ContainerName
+```
+
+### HTTPS-URL
+
+```powershell
+Restore-LabDatabase `
+    -Port $lab.Instances[0].Port `
+    -SaPassword $pw `
+    -BackupSource 'https://example.invalid/database.bak' `
+    -DatabaseName 'RestoreDemo' `
+    -ContainerName $lab.Instances[0].ContainerName
+```
+
+Die Beispiel-URL ist absichtlich nicht ausführbar. Verwenden Sie eine zulässige reale `.bak`-Quelle.
+
+`Restore-LabDatabase` unterstützt die Parameter `Port`, `SaPassword`, `BackupSource`, `DatabaseName` und optional `ContainerName`. Es besitzt keine Parameter `RunId` oder `BackupUrl`.
+
+## 11. Manifest-Modus
+
+Datei `mein-lab.json`:
 
 ```json
 {
+  "$schema": "./Schemas/lab-manifest.schema.json",
   "name": "mein-erstes-lab",
   "instances": [
     {
       "id": "primary",
       "version": "2025",
       "provider": "docker",
+      "profile": "standard",
       "databases": [
         {
           "name": "AppDB",
-          "files": {
-            "data": [
-              { "name": "App_Data1", "sizeMB": 200 },
-              { "name": "App_Data2", "sizeMB": 200 }
-            ],
-            "log": [
-              { "name": "App_Log", "sizeMB": 100 }
-            ]
+          "options": {
+            "recoveryModel": "FULL",
+            "queryStore": true,
+            "rcsi": true
           }
         }
-      ],
-      "postProvision": ["setup.sql"]
+      ]
     }
   ]
 }
 ```
 
-Ausfuehren:
+Ausführen:
 
 ```powershell
 $lab = New-SqlServerLab -Manifest '.\mein-lab.json'
 ```
 
----
+Relative Pfade für lokale Restore-Dateien, `hostPath` und `postProvision` werden relativ zum Manifest-Verzeichnis aufgelöst.
 
-## 5b. Erweitertes Manifest (Server-Konfiguration)
-
-Fuer Performance-Szenarien oder Schulungen:
+## 12. Manifest-Restore
 
 ```json
 {
-  "instances": [{
-    "id": "primary",
-    "version": "2025",
-    "drives": [
-      { "id": "data", "containerPath": "/sqldata" },
-      { "id": "tempdb", "containerPath": "/tempdb" },
-      { "id": "backup", "containerPath": "/backup" }
-    ],
-    "serverConfig": {
-      "defaultPaths": { "data": "/sqldata", "log": "/sqldata", "backup": "/backup" },
-      "memory": { "maxMB": 4096 },
-      "maxDop": 4,
-      "costThreshold": 25,
-      "tempdb": {
-        "dataFiles": [
-          { "path": "/tempdb/tempdev1.mdf", "sizeMB": 256, "growth": "64MB" },
-          { "path": "/tempdb/tempdev2.ndf", "sizeMB": 256, "growth": "64MB" }
-        ]
-      },
-      "traceFlags": [3226, 7412],
-      "sqlAgent": true
-    },
-    "databases": [{
-      "name": "PerfDB",
-      "options": {
-        "recoveryModel": "FULL",
-        "rcsi": true,
-        "queryStore": { "captureMode": "AUTO", "maxSizeMB": 2000 }
-      }
-    }]
-  }]
+  "$schema": "./Schemas/lab-manifest.schema.json",
+  "name": "restore-lab",
+  "instances": [
+    {
+      "id": "primary",
+      "version": "2022",
+      "provider": "docker",
+      "databases": [
+        {
+          "name": "AdventureWorks2022",
+          "restore": {
+            "source": "C:\\Backups\\AdventureWorks2022.bak",
+            "replace": true
+          }
+        }
+      ]
+    }
+  ]
 }
 ```
 
-VS Code zeigt automatisch Autocomplete + Validierung dank `Schemas/lab-manifest.schema.json`.
+Eine Restore-Datenbank wird nicht zuerst per `CREATE DATABASE` angelegt. Nach erfolgreichem Restore werden konfigurierte Datenbankoptionen angewendet.
 
-Vollstaendiges Beispiel: `Schemas/example-performance-lab.json`
-
----
-
-## 5c. Backup/Restore (AdventureWorks etc.)
-
-Datenbank-Restore direkt im Manifest:
+## 13. Sample-Datenbank aus dem Katalog
 
 ```json
 {
-  "instances": [{
-    "id": "primary",
-    "version": "2022",
-    "databases": [{
-      "name": "AdventureWorks2022",
-      "restore": {
-        "source": "https://github.com/Microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorks2022.bak"
-      }
-    }]
-  }]
+  "$schema": "./Schemas/lab-manifest.schema.json",
+  "name": "sample-lab",
+  "instances": [
+    {
+      "id": "primary",
+      "version": "2022",
+      "provider": "docker",
+      "databases": [
+        {
+          "name": "AdventureWorks2022",
+          "sample": {
+            "id": "adventureworks-2022",
+            "variant": "full"
+          }
+        }
+      ]
+    }
+  ]
 }
 ```
 
-Oder manuell:
+Unterstützt werden derzeit nur Katalogvarianten, deren URL direkt auf eine `.bak`-Datei zeigt. `.7z`-Archive, Attach-Verfahren und reine SQL-Skript-Samples werden nicht automatisch verarbeitet.
+
+## 14. Server- und Datenbankkonfiguration
+
+Ausgeführt werden derzeit insbesondere:
+
+- `serverConfig.memory`
+- `serverConfig.tempdb`
+- `serverConfig.maxDop`
+- `serverConfig.costThreshold`
+- `serverConfig.traceFlags`
+- `serverConfig.spConfigure`
+- `serverConfig.externalScripts` mit den dokumentierten Einschränkungen
+- Datenbankoptionen wie Recovery Model, Compatibility Level, Query Store, RCSI und PAGE_VERIFY
+
+Ein ausführbares Performance-Beispiel liegt in `Schemas/example-performance-lab.json`.
+
+Felder, die nur als Zukunftsvertrag vorhanden sind, werden in [KNOWN_LIMITATIONS.md](../Quality/KNOWN_LIMITATIONS.md) aufgeführt.
+
+## 15. Status und Lifecycle
 
 ```powershell
-Restore-LabDatabase -RunId $lab.RunId `
-    -BackupUrl 'https://...AdventureWorks2022.bak' `
-    -DatabaseName 'AdventureWorks2022'
+Get-SqlServerLab
+Get-SqlServerLab -RunId $lab.RunId -Detailed
+
+Stop-SqlServerLab -RunId $lab.RunId
+Start-SqlServerLab -RunId $lab.RunId
+Restart-SqlServerLab -RunId $lab.RunId
 ```
 
-Das Cmdlet:
-1. Laedt die .bak-Datei in den lokalen Cache (`<StateRoot>/cache/backups/`)
-2. Kopiert sie in den Container
-3. Liest FILELISTONLY (ermittelt logische Dateinamen)
-4. Fuehrt RESTORE WITH MOVE aus (passt Pfade an Container an)
+Der gespeicherte Provider wird für Start, Stop und Live-Status verwendet. Bei gleichzeitig installiertem Docker und Podman bleibt der Run an seinen ursprünglichen Provider gebunden.
 
----
-
-## 6. Umgebung entfernen
+## 16. Umgebung entfernen
 
 ```powershell
 Remove-SqlServerLab -RunId $lab.RunId
 ```
 
-Oder ohne RunId (entfernt den letzten aktiven Run):
+Alle erkannten Lab-Reste bereinigen:
 
 ```powershell
-Remove-SqlServerLab
+Clear-SqlServerLab
 ```
 
-Das Cmdlet:
+Vor destruktiven Aktionen wird – abhängig vom Cmdlet und den verwendeten Schaltern – eine Bestätigung verlangt.
 
-1. Zeigt die zu entfernende Umgebung
-2. Fragt nach Bestaetigung
-3. Stoppt und entfernt den Container (nur eigene, Scope-geprueft)
-4. Loescht Secrets sicher
-5. Bereinigt den State
+## 17. State-Verzeichnis
 
----
+Standard:
 
-## 7. Ressourcen-Pruefung (ohne Mutation)
+- Windows: `%LOCALAPPDATA%\SqlServerLab`
+- Linux/macOS: `~/.sql-server-lab`
+
+Override:
 
 ```powershell
-Test-LabResources -Provider docker
+$env:SQL_SERVER_LAB_STATE = 'C:\SqlServerLabState'
 ```
 
-Zeigt an ob genuegend RAM, Storage, Ports und Docker verfuegbar sind — ohne etwas zu veraendern.
+Es gibt keine implementierte Environment Variable `SQL_SERVER_LAB_PATH`.
 
----
+Im State liegen unter anderem:
 
-## 8. Umgebungsvariablen (optional)
+```text
+runs/<RunId>/run-state.json
+runs/<RunId>/cleanup-plan.json
+runs/<RunId>/connection-info.json
+runs/<RunId>/secrets/
+cache/backups/
+```
 
-| Variable | Zweck | Beispiel |
-| --- | --- | --- |
-| `SQL_SERVER_LAB_PATH` | Modul-Pfad fuer Auto-Import | `E:\GIT\gecomp\publ\SQL_Server_Lab` |
-| `SQL_SERVER_LAB_STATE` | State-Verzeichnis (Default: LocalAppData) | `C:\LabState` |
+State, Secrets, konkrete Hostpfade und Connection Information dürfen nicht in Git übernommen werden.
 
----
+## 18. Smoke-Test
 
-## 9. Troubleshooting
+Docker:
 
-### Docker antwortet nicht
+```powershell
+.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider docker
+```
+
+Podman:
+
+```powershell
+.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider podman
+```
+
+Auto-Modus:
+
+```powershell
+.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider auto
+```
+
+Im Auto-Modus wird für den mutierenden Lifecycle genau eine Runtime gewählt: zuerst Docker, sonst Podman. Das Resource Assessment prüft zusätzlich alle erkannten Provider.
+
+## 19. Statische Konsistenzprüfung
+
+```powershell
+.\Tests\Static\Invoke-DocumentationChecks.ps1
+```
+
+Die Prüfung kontrolliert unter anderem Exportliste, Kernlinks, Schema-Referenzen, JSON-Dateien, Provider-Metadaten und bekannte veraltete Dokumentationsbeispiele.
+
+## 20. Troubleshooting
+
+### Modul importiert nicht
+
+```powershell
+Import-Module .\SqlServerLab.psd1 -Force -Verbose
+Get-Error
+```
+
+### Docker oder Podman ist nicht erreichbar
 
 ```powershell
 docker info
-# Falls Fehler: Docker Desktop starten oder Docker-Service neustarten
+podman info
 ```
+
+Unter Windows oder macOS muss bei Podman gegebenenfalls zuerst die Podman Machine gestartet werden.
+
+### SQL Server startet, ist aber nicht erreichbar
+
+```powershell
+docker ps -a --filter 'label=sql-server-lab.run-id'
+docker logs <ContainerName>
+
+# oder
+podman ps -a --filter 'label=sql-server-lab.run-id'
+podman logs <ContainerName>
+```
+
+Prüfen Sie den tatsächlich vergebenen Host-Port aus `$lab.Instances[0].Port`.
 
 ### SA-Passwort wird abgelehnt
 
-SQL Server erfordert mindestens:
-- 8 Zeichen
-- Grossbuchstabe + Kleinbuchstabe + Ziffer + Sonderzeichen
+SQL Server verlangt ein ausreichend komplexes Passwort. Verwenden Sie Groß- und Kleinbuchstaben, Ziffern und Sonderzeichen.
 
-### Container startet aber SQL antwortet nicht
+### Restore findet den falschen Container
 
-```powershell
-# Container-Logs pruefen:
-docker logs sql-lab-primary-<runid-prefix>
-```
+Geben Sie bei manuellen Restores `-ContainerName $lab.Instances[0].ContainerName` explizit an.
 
-### Port bereits belegt
+### Manifestfeld wird nicht angewendet
 
-Das Lab sucht automatisch im Bereich 14330-14399. Falls alle belegt:
+Prüfen Sie zuerst:
 
-```powershell
-# Existierende Lab-Container anzeigen:
-docker ps --filter 'label=sql-server-lab.run-id'
-```
+1. `Schemas/lab-manifest.schema.json`
+2. `Private/ManifestParser.ps1`
+3. die zuständige Ausführungsfunktion
+4. `Documentation/Quality/KNOWN_LIMITATIONS.md`
 
----
-
-## 10. Naechste Schritte
-
-- Eigene Manifeste fuer wiederkehrende Szenarien erstellen
-- `postProvision`-Skripte fuer automatische Datenbank-Einrichtung nutzen
-- Aus SQL_Server_Analyze oder SQL_PerformanceSchulung per Adapter aufrufen
-
----
-
-## 11. Alle Lab-Container aufraeumen (Clear-SqlServerLab)
-
-Falls Container von abgebrochenen Tests oder vergessenen Sessions uebrig sind:
-
-```powershell
-# Zeigt alle Lab-Container und fragt nach Bestaetigung:
-Clear-SqlServerLab
-
-# Ohne Rueckfrage (z.B. in Skripten):
-Clear-SqlServerLab -Force
-
-# Nur Container entfernen, State behalten:
-Clear-SqlServerLab -ContainersOnly
-
-# Nur verwaiste State-Eintraege bereinigen:
-Clear-SqlServerLab -StateOnly
-```
-
-Das Cmdlet findet Container ueber das Docker-Label `sql-server-lab.run-id` — damit werden
-ausschliesslich Lab-Container erkannt, keine anderen Docker-Container.
-
----
-
-## 12. Integration-Tests (Smoke-Test)
-
-Der automatisierte End-to-End-Test prueft den gesamten Lifecycle:
-
-```powershell
-.\Tests\Integration\Invoke-SmokeTest.ps1
-```
-
-Testet: Import -> Assessment -> New-SqlServerLab -> New-LabDatabase ->
-Invoke-LabScript -> Remove-SqlServerLab (20 Assertions, ~20 Sekunden).
-
-### Optionen
-
-| Parameter | Wirkung |
-| --- | --- |
-| `-SaPassword $pw` | Eigenes Passwort (Default: `SmokeTest_Pwd1!`) |
-| `-Version '2022'` | Andere SQL-Server-Version testen |
-| `-KeepOnFailure` | Container bei Fehler stehen lassen (Debugging) |
-
-### Exit-Code
-
-- `0` = alle Tests bestanden
-- `1` = mindestens ein Test fehlgeschlagen
-
-Geeignet fuer CI/CD-Integration.
-
----
-
-## 13. Debugging
-
-### SA-Passwort aus State lesen
-
-```powershell
-Import-Module .\SqlServerLab.psd1 -Force
-
-# Alle aktiven Runs anzeigen:
-$runs = Get-LabActiveRuns
-$runs | Format-Table runId, state, metadata
-
-# SA-Passwort eines Runs lesen (SecureString):
-$stateRoot = Get-LabStateRoot
-$secret = Get-LabSecret -Path (Join-Path $stateRoot "runs/$($runs[0].runId)") -Name 'sa-password'
-
-# Als Klartext (nur Debugging!):
-[System.Runtime.InteropServices.Marshal]::PtrToStringAuto(
-    [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($secret))
-```
-
-### State-Verzeichnis
-
-Das State-Verzeichnis liegt unter:
-- **Windows:** `$env:LOCALAPPDATA\SqlServerLab` (z.B. `C:\Users\<user>\AppData\Local\SqlServerLab`)
-- **Linux:** `~/.sql-server-lab`
-
-Struktur pro Run:
-```text
-SqlServerLab/
-  runs/
-    <RunId>/
-      run-state.json        # State-Machine-Historie (JSON)
-      cleanup-plan.json     # Was bei Remove entfernt wird
-      connection-info.json  # Host, Port, Container
-      secrets/
-        sa-password.xml     # DPAPI-verschluesselt (nur eigener User lesbar)
-```
-
-### Container-Logs
-
-```powershell
-# Container-Name aus $lab.Instances[0].ContainerName oder:
-docker ps --filter 'label=sql-server-lab.run-id'
-
-# Logs anzeigen:
-docker logs sql-lab-primary-<runid-prefix>
-docker logs sql-lab-primary-<runid-prefix> --tail 50 --follow
-```
-
-### Direkter SQL-Zugang (sqlcmd)
-
-```powershell
-sqlcmd -S 127.0.0.1,14330 -U sa -P "MeinPasswort"
-```
-
-### Manuelles Aufraeumen
-
-```powershell
-# Ueber Modul:
-Remove-SqlServerLab -RunId '<RunId>' -Force
-# Oder alles:
-Clear-SqlServerLab -Force
-
-# Direkt per Docker (Notfall):
-docker rm -f sql-lab-primary-<prefix>
-```
-
----
-
-## 14. Entwickler-Hinweise
-
-### Import-Module -Force
-
-Bei Code-Aenderungen muss das Modul mit `-Force` neu geladen werden:
-
-```powershell
-Import-Module .\SqlServerLab.psd1 -Force
-```
-
-Ohne `-Force` bleibt die alte Version im Speicher (PowerShell cached Module).
-
-### Bekannte Einschraenkungen
-
-| Thema | Status | Workaround |
-| --- | --- | --- |
-| Major-Version = 0 (statt 17) | Kosmetisch | Kein Workaround noetig, SQL funktioniert |
-| `USE Database` in Invoke-LabScript | Design | `-Database` Parameter verwenden (jeder Batch = neue Connection) |
-| System.Data.SqlClient | Fallback auf sqlcmd | sqlcmd muss installiert sein (im SQL Server Tools enthalten) |
-
-### Invoke-LabScript und GO-Batches
-
-`Invoke-LabScript` splittet SQL-Skripte am `GO`-Befehl und fuehrt jeden Batch
-in einer **eigenen Connection** aus. Das bedeutet:
-
-- `USE DatabaseName` wirkt nur im selben Batch
-- Stattdessen: `-Database 'MeineDB'` als Parameter verwenden
-- Temp-Tabellen (`#tmp`) existieren nur innerhalb eines Batches
-
----
-
-## 15. Cmdlet-Uebersicht
-
-| Cmdlet | Zweck |
-| --- | --- |
-| `Invoke-SqlServerLab` | **Interaktives Menue** (Einstiegspunkt, Auto-Import, Provider-Auswahl) |
-| `New-SqlServerLab` | Neue Lab-Umgebung erstellen (Ad-hoc oder Manifest) |
-| `Get-SqlServerLab` | Status anzeigen (State + Live-Container-Status) |
-| `Stop-SqlServerLab` | Graceful Stop, Daten bleiben erhalten |
-| `Start-SqlServerLab` | Gestoppte Umgebung starten + SQL-Readiness-Pruefung |
-| `Restart-SqlServerLab` | Stop + Start in einem Aufruf |
-| `Remove-SqlServerLab` | Einzelne Umgebung gezielt entfernen (Scope-validiert) |
-| `Clear-SqlServerLab` | Alle Lab-Container + State aufraeumen |
-| `New-LabDatabase` | Datenbank mit Multi-File-Specs erstellen |
-| `Invoke-LabScript` | T-SQL-Skript ausfuehren (GO-Batch-Splitting, -KeepConnection) |
-| `Restore-LabDatabase` | RESTORE aus URL/Datei (Cache, FILELISTONLY, WITH MOVE) |
-| `Test-LabResources` | Ressourcen pruefen ohne Mutation |
+Das Schema allein ist kein Runtime-Nachweis.

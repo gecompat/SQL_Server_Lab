@@ -1,112 +1,252 @@
 <#
 .SYNOPSIS
-    SQL-Readiness-Pruefung fuer SQL_Server_Lab.
+    SQL-Bereitschafts-, Query- und Skriptfunktionen fuer SQL_Server_Lab.
 .DESCRIPTION
-    Wartet bis SQL Server antwortet, prueft Major-Version und
-    baut Connection-Strings.
+    Kapselt sqlcmd-Aufrufe, Timeouts, Fehlererkennung und die kurzzeitige
+    SecureString-Konvertierung fuer lokale Labverbindungen.
 #>
 
+function Get-PodmanWindowsLocalhostDiagnostic {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][int]$Port
+    )
+
+    if (-not $IsWindows -or -not (Get-Command podman -ErrorAction SilentlyContinue)) {
+        return $null
+    }
+
+    $containerNames = @(
+        podman ps --filter "publish=$Port" --format '{{.Names}}' 2>$null |
+            ForEach-Object { ([string]$_).Trim() } |
+            Where-Object { $_ }
+    )
+
+    if ($LASTEXITCODE -ne 0 -or $containerNames.Count -eq 0) {
+        return $null
+    }
+
+    foreach ($containerName in $containerNames) {
+        $logs = podman logs --tail 200 $containerName 2>&1
+        $logText = ($logs | ForEach-Object { [string]$_ }) -join "`n"
+        if ($logText -notmatch 'SQL Server is now ready for client connections') {
+            continue
+        }
+
+        $wslConfigPath = Join-Path $HOME '.wslconfig'
+        $mirroredConfigured = $false
+        if (Test-Path -LiteralPath $wslConfigPath -PathType Leaf) {
+            $wslConfigText = Get-Content -LiteralPath $wslConfigPath -Raw -ErrorAction SilentlyContinue
+            $mirroredConfigured = $wslConfigText -match '(?im)^\s*networkingMode\s*=\s*mirrored\s*$'
+        }
+
+        $configState = if ($mirroredConfigured) {
+            'WSL mirrored networking ist konfiguriert; pruefen Sie, ob WSL und die Podman-Machine danach vollstaendig neu gestartet wurden.'
+        }
+        else {
+            'WSL mirrored networking ist nicht erkennbar konfiguriert.'
+        }
+
+        return @"
+Podman-Container '$containerName' meldet SQL-Bereitschaft, aber 127.0.0.1:$Port ist vom Windows-Host nicht erreichbar.
+$configState
+
+Empfohlene Konfiguration in %USERPROFILE%\.wslconfig:
+
+[wsl2]
+networkingMode=mirrored
+
+Danach ausfuehren:
+
+podman machine stop
+wsl --shutdown
+podman machine start
+
+Hinweis: --user-mode-networking allein stellt die Localhost-Portweiterleitung nicht auf jedem Host her. Eine dynamische eth0-Adresse der Podman-WSL-Machine ist nur fuer Diagnosezwecke geeignet und kann sich nach einem Neustart aendern.
+"@
+    }
+
+    return $null
+}
+
 function Wait-SqlReady {
-    <#
-    .SYNOPSIS Wartet bis SQL Server auf dem angegebenen Port antwortet.
-    .PARAMETER Host Hostname (Default: 127.0.0.1).
-    .PARAMETER Port SQL-Server-Port.
-    .PARAMETER SaPassword SecureString mit SA-Passwort.
-    .PARAMETER TimeoutSeconds Maximale Wartezeit (Default: 120).
-    .PARAMETER ExpectedMajorVersion Erwartete Major-Version (optional).
-    .OUTPUTS PSCustomObject mit Ready (bool), Version, Message.
-    #>
     [CmdletBinding()]
     param(
         [string]$HostName = '127.0.0.1',
         [Parameter(Mandatory)][int]$Port,
         [Parameter(Mandatory)][SecureString]$SaPassword,
         [int]$TimeoutSeconds = 120,
+        [int]$PollIntervalMilliseconds = 500,
         [int]$ExpectedMajorVersion = 0
     )
 
-    $saPlain = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto(
-        [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword))
-
-    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
-    $interval = 3
-    $attempt = 0
-
-    Write-LabInfo "Warte auf SQL-Bereitschaft ($HostName`:$Port, Timeout: ${TimeoutSeconds}s)..."
-
-    while ($stopwatch.Elapsed.TotalSeconds -lt $TimeoutSeconds) {
-        $attempt++
-        Start-Sleep -Seconds $interval
-
-        try {
-            # Versuche Verbindung via sqlcmd oder .NET
-            $result = Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $saPlain `
-                -Query "SELECT SERVERPROPERTY('ProductMajorVersion') AS MajorVersion, @@VERSION AS FullVersion"
-
-            if ($result) {
-                # .NET SqlClient: Properties MajorVersion + FullVersion
-                # sqlcmd Fallback: nur RawOutput (Text)
-                if ($result.MajorVersion) {
-                    $majorVersion = [int]$result.MajorVersion
-                    $fullVersion = $result.FullVersion
-                }
-                elseif ($result.RawOutput) {
-                    # sqlcmd: "17   Microsoft SQL Server 2025..."
-                    if ($result.RawOutput -match '(\d+)') {
-                        $majorVersion = [int]$Matches[1]
-                    } else { $majorVersion = 0 }
-                    $fullVersion = $result.RawOutput
-                }
-                else {
-                    $majorVersion = 0
-                    $fullVersion = 'Unbekannt'
-                }
-
-                # Version pruefen
-                if ($ExpectedMajorVersion -gt 0 -and $majorVersion -ne $ExpectedMajorVersion) {
-                    $saPlain = $null
-                    return [PSCustomObject]@{
-                        Ready   = $false
-                        Version = $fullVersion
-                        Message = "Version-Mismatch: erwartet Major $ExpectedMajorVersion, erhalten $majorVersion"
-                        ElapsedSeconds = [math]::Round($stopwatch.Elapsed.TotalSeconds, 1)
-                    }
-                }
-
-                $saPlain = $null
-                Write-LabSuccess "SQL Server bereit nach $([math]::Round($stopwatch.Elapsed.TotalSeconds, 1))s (Major: $majorVersion)"
-                return [PSCustomObject]@{
-                    Ready          = $true
-                    Version        = $fullVersion
-                    MajorVersion   = $majorVersion
-                    Message        = ''
-                    ElapsedSeconds = [math]::Round($stopwatch.Elapsed.TotalSeconds, 1)
-                }
-            }
-        }
-        catch {
-            # Noch nicht bereit - weiter warten
-            Write-Verbose "Versuch $attempt fehlgeschlagen: $_"
-        }
+    if (-not (Get-Command sqlcmd -ErrorAction SilentlyContinue)) {
+        throw 'sqlcmd wurde nicht gefunden. Installieren Sie die SQL Server Command Line Tools.'
+    }
+    if ($Port -lt 1 -or $Port -gt 65535) {
+        throw "Port '$Port' liegt ausserhalb des gueltigen TCP-Portbereichs."
+    }
+    if ($TimeoutSeconds -le 0 -or $PollIntervalMilliseconds -le 0) {
+        throw 'TimeoutSeconds und PollIntervalMilliseconds muessen positiv sein.'
     }
 
-    $saPlain = $null
-    return [PSCustomObject]@{
-        Ready          = $false
-        Version        = $null
-        Message        = "Timeout nach ${TimeoutSeconds}s - SQL Server antwortet nicht."
-        ElapsedSeconds = $TimeoutSeconds
+    $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword)
+    try {
+        $saPlain = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+    }
+    finally {
+        [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+    }
+
+    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+    $lastError = ''
+    $podmanDiagnosticChecked = $false
+
+    try {
+        Write-LabInfo "Warte auf SQL-Bereitschaft (${HostName}:$Port, Timeout: ${TimeoutSeconds}s)..."
+
+        while ($stopwatch.Elapsed.TotalSeconds -lt $TimeoutSeconds) {
+            $query = "SET NOCOUNT ON; SELECT CAST(SERVERPROPERTY('ProductMajorVersion') AS varchar(10));"
+            $output = sqlcmd `
+                -S "${HostName},${Port}" `
+                -U sa `
+                -P $saPlain `
+                -C `
+                -b `
+                -l 2 `
+                -Q $query `
+                -h -1 `
+                -W 2>&1
+            $exitCode = $LASTEXITCODE
+            $outputText = ($output | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ }) -join "`n"
+
+            if ($exitCode -eq 0 -and $outputText -match '^\d+$') {
+                $majorVersion = [int]$outputText
+                if ($ExpectedMajorVersion -gt 0 -and $majorVersion -ne $ExpectedMajorVersion) {
+                    $lastError = "Erwartete Major-Version $ExpectedMajorVersion, gefunden $majorVersion."
+                }
+                else {
+                    $stopwatch.Stop()
+                    Write-LabSuccess "SQL Server bereit nach $($stopwatch.Elapsed.TotalSeconds.ToString('F1'))s (Major: $majorVersion)"
+                    return [PSCustomObject]@{
+                        Ready        = $true
+                        MajorVersion = $majorVersion
+                        Duration     = $stopwatch.Elapsed
+                        Message      = 'SQL Server bereit'
+                    }
+                }
+            }
+            else {
+                $lastError = if ($outputText) { $outputText } else { "sqlcmd Exitcode $exitCode" }
+            }
+
+            if (-not $podmanDiagnosticChecked -and $HostName -in @('127.0.0.1', 'localhost') -and $stopwatch.Elapsed.TotalSeconds -ge 5) {
+                $podmanDiagnostic = Get-PodmanWindowsLocalhostDiagnostic -Port $Port
+                if ($podmanDiagnostic) {
+                    $stopwatch.Stop()
+                    Write-LabWarning $podmanDiagnostic
+                    return [PSCustomObject]@{
+                        Ready        = $false
+                        MajorVersion = $null
+                        Duration     = $stopwatch.Elapsed
+                        Message      = $podmanDiagnostic
+                    }
+                }
+                $podmanDiagnosticChecked = $true
+            }
+
+            Start-Sleep -Milliseconds $PollIntervalMilliseconds
+        }
+
+        $stopwatch.Stop()
+        return [PSCustomObject]@{
+            Ready        = $false
+            MajorVersion = $null
+            Duration     = $stopwatch.Elapsed
+            Message      = "SQL Server nach ${TimeoutSeconds}s nicht bereit. Letzter Fehler: $lastError"
+        }
+    }
+    finally {
+        $saPlain = $null
+    }
+}
+
+function Wait-LabDatabaseReady {
+    [CmdletBinding()]
+    param(
+        [string]$HostName = '127.0.0.1',
+        [Parameter(Mandatory)][int]$Port,
+        [Parameter(Mandatory)][SecureString]$SaPassword,
+        [Parameter(Mandatory)][string]$Database,
+        [int]$TimeoutSeconds = 60,
+        [int]$PollIntervalMilliseconds = 500
+    )
+
+    if ($Database -notmatch '^[A-Za-z][A-Za-z0-9_]{0,127}$') {
+        throw "Database '$Database' ist ungueltig."
+    }
+    if ($TimeoutSeconds -le 0 -or $PollIntervalMilliseconds -le 0) {
+        throw 'TimeoutSeconds und PollIntervalMilliseconds muessen positiv sein.'
+    }
+
+    $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword)
+    try {
+        $saPlain = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+    }
+    finally {
+        [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+    }
+
+    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+    $lastError = ''
+
+    try {
+        Write-LabInfo "Warte auf Datenbank-Bereitschaft (${HostName}:$Port/$Database, Timeout: ${TimeoutSeconds}s)..."
+
+        while ($stopwatch.Elapsed.TotalSeconds -lt $TimeoutSeconds) {
+            $output = sqlcmd `
+                -S "${HostName},${Port}" `
+                -U sa `
+                -P $saPlain `
+                -C `
+                -b `
+                -l 2 `
+                -d $Database `
+                -Q 'SET NOCOUNT ON; SELECT 1;' `
+                -h -1 `
+                -W 2>&1
+            $exitCode = $LASTEXITCODE
+            $outputText = ($output | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ }) -join "`n"
+
+            if ($exitCode -eq 0 -and $outputText -eq '1') {
+                $stopwatch.Stop()
+                Write-LabSuccess "Datenbank '$Database' bereit nach $($stopwatch.Elapsed.TotalSeconds.ToString('F1'))s"
+                return [PSCustomObject]@{
+                    Ready    = $true
+                    Database = $Database
+                    Duration = $stopwatch.Elapsed
+                    Message  = 'Datenbank bereit'
+                }
+            }
+
+            $lastError = if ($outputText) { $outputText } else { "sqlcmd Exitcode $exitCode" }
+            Start-Sleep -Milliseconds $PollIntervalMilliseconds
+        }
+
+        $stopwatch.Stop()
+        return [PSCustomObject]@{
+            Ready    = $false
+            Database = $Database
+            Duration = $stopwatch.Elapsed
+            Message  = "Datenbank '$Database' nach ${TimeoutSeconds}s nicht bereit. Letzter Fehler: $lastError"
+        }
+    }
+    finally {
+        $saPlain = $null
     }
 }
 
 function Invoke-SqlQuery {
-    <#
-    .SYNOPSIS Fuehrt eine SQL-Abfrage via .NET SqlClient aus.
-    .DESCRIPTION Fallback-Kette:
-        1. Microsoft.Data.SqlClient (modern, PowerShell 7)
-        2. System.Data.SqlClient (Legacy/.NET Framework)
-        3. sqlcmd (CLI-Fallback)
-    #>
     [CmdletBinding()]
     param(
         [string]$HostName = '127.0.0.1',
@@ -114,103 +254,44 @@ function Invoke-SqlQuery {
         [Parameter(Mandatory)][string]$SaPlain,
         [Parameter(Mandatory)][string]$Query,
         [string]$Database = 'master',
-        [int]$TimeoutSeconds = 10
+        [int]$TimeoutSeconds = 30
     )
 
-    $connStr = "Server=$HostName,$Port;Database=$Database;User Id=sa;Password=$SaPlain;TrustServerCertificate=True;Connection Timeout=$TimeoutSeconds;"
-
-    # --- Versuch 1: Microsoft.Data.SqlClient (bevorzugt) ---
-    try {
-        $connType = [Microsoft.Data.SqlClient.SqlConnection]
-        $conn = $connType::new($connStr)
-        $conn.Open()
-        return Invoke-SqlReader -Connection $conn -Query $Query -TimeoutSeconds $TimeoutSeconds
+    if (-not (Get-Command sqlcmd -ErrorAction SilentlyContinue)) {
+        throw 'sqlcmd wurde nicht gefunden.'
     }
-    catch [System.Management.Automation.RuntimeException] {
-        # Typ nicht verfuegbar - weiter zu Fallback 2
-    }
-    catch {
-        # Connection-Fehler -> weiter zu sqlcmd
+    if ($Database -notmatch '^[A-Za-z][A-Za-z0-9_]{0,127}$') {
+        throw "Database '$Database' ist ungueltig."
     }
 
-    # --- Versuch 2: System.Data.SqlClient (Legacy) ---
-    try {
-        $connType = [System.Data.SqlClient.SqlConnection]
-        $conn = $connType::new($connStr)
-        $conn.Open()
-        return Invoke-SqlReader -Connection $conn -Query $Query -TimeoutSeconds $TimeoutSeconds
-    }
-    catch [System.Management.Automation.RuntimeException] {
-        # Typ nicht verfuegbar - weiter zu sqlcmd
-    }
-    catch {
-        # Connection-/SQL-Fehler -> weiter zu sqlcmd
-    }
+    $output = sqlcmd `
+        -S "${HostName},${Port}" `
+        -U sa `
+        -P $SaPlain `
+        -C `
+        -d $Database `
+        -Q $Query `
+        -b `
+        -t $TimeoutSeconds `
+        -W 2>&1
+    $exitCode = $LASTEXITCODE
+    $outputText = ($output | ForEach-Object { [string]$_ }) -join "`n"
 
-    # --- Versuch 3: sqlcmd CLI-Fallback ---
-    if (Test-CommandExists 'sqlcmd') {
-        $output = sqlcmd -S "$HostName,$Port" -U sa -P $SaPlain -d $Database -Q $Query -h -1 -W 2>&1
-        $outputText = ($output -join "`n").Trim()
-
-        # SQL-Fehler erkennen
-        if ($outputText -match 'Msg \d+, Level (1[1-9]|[2-9]\d)') {
-            throw "SQL-Fehler: $outputText"
-        }
-        if ($LASTEXITCODE -ne 0) {
-            throw "sqlcmd fehlgeschlagen (Exit $LASTEXITCODE): $outputText"
-        }
-        if ($outputText) {
-            return [PSCustomObject]@{ RawOutput = $outputText }
-        }
-        return $null
+    if ($exitCode -ne 0 -or $outputText -match 'Msg \d+, Level (1[1-9]|[2-9]\d)') {
+        throw "SQL-Query fehlgeschlagen: $outputText"
     }
 
-    throw "Keine SQL-Verbindung moeglich: Microsoft.Data.SqlClient, System.Data.SqlClient und sqlcmd nicht verfuegbar."
-}
-
-function Invoke-SqlReader {
-    <#
-    .SYNOPSIS Liest Ergebnisse aus einer offenen SqlConnection.
-    .DESCRIPTION Gemeinsamer Reader fuer Microsoft.Data und System.Data.
-    #>
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]$Connection,
-        [Parameter(Mandatory)][string]$Query,
-        [int]$TimeoutSeconds = 10
-    )
-
-    try {
-        $cmd = $Connection.CreateCommand()
-        $cmd.CommandText = $Query
-        $cmd.CommandTimeout = $TimeoutSeconds
-        $reader = $cmd.ExecuteReader()
-
-        $results = @()
-        while ($reader.Read()) {
-            $row = @{}
-            for ($i = 0; $i -lt $reader.FieldCount; $i++) {
-                $row[$reader.GetName($i)] = $reader.GetValue($i)
-            }
-            $results += [PSCustomObject]$row
-        }
-
-        $reader.Close()
-        $Connection.Close()
-        $Connection.Dispose()
-
-        if ($results.Count -eq 1) { return $results[0] }
-        return $results
-    }
-    catch {
-        try { $Connection.Close(); $Connection.Dispose() } catch {}
-        throw
-    }
+    return $output
 }
 
 function New-SqlConnectionString {
     <#
-    .SYNOPSIS Baut einen ConnectionString (ohne Passwort fuer Ausgabe).
+    .SYNOPSIS
+        Erzeugt einen SQL-Connection-String fuer eine Labinstanz.
+    .DESCRIPTION
+        Gibt standardmaessig nur einen maskierten Passwortplatzhalter aus.
+        Ein Klartextpasswort wird nur bei explizitem -IncludePassword und
+        uebergebenem SecureString kurzzeitig erzeugt.
     #>
     [CmdletBinding()]
     param(
@@ -221,32 +302,33 @@ function New-SqlConnectionString {
         [SecureString]$SaPassword
     )
 
-    $base = "Server=$HostName,$Port;Database=$Database;User Id=sa;TrustServerCertificate=True;"
-
-    if ($IncludePassword -and $SaPassword) {
-        $plain = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto(
-            [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword))
-        $result = "${base}Password=$plain;"
-        $plain = $null
-        return $result
+    if ($Port -lt 1 -or $Port -gt 65535) {
+        throw "Port '$Port' liegt ausserhalb des gueltigen TCP-Portbereichs."
+    }
+    if ($Database -notmatch '^[A-Za-z][A-Za-z0-9_]{0,127}$') {
+        throw "Database '$Database' ist ungueltig."
     }
 
-    return "${base}Password=***;"
+    $base = "Server=${HostName},${Port};Database=${Database};User Id=sa;TrustServerCertificate=True;"
+    if (-not $IncludePassword) {
+        return "${base}Password=***;"
+    }
+    if (-not $SaPassword) {
+        throw '-SaPassword ist erforderlich, wenn -IncludePassword verwendet wird.'
+    }
+
+    $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword)
+    try {
+        $plain = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+        return "${base}Password=${plain};"
+    }
+    finally {
+        $plain = $null
+        [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+    }
 }
 
 function Invoke-LabSqlScript {
-    <#
-    .SYNOPSIS Fuehrt ein T-SQL-Skript gegen eine Lab-Instanz aus.
-    .PARAMETER ScriptPath Pfad zur .sql-Datei.
-    .PARAMETER HostName SQL-Server-Host.
-    .PARAMETER Port SQL-Server-Port.
-    .PARAMETER SaPassword SecureString.
-    .PARAMETER Database Zieldatenbank.
-    .PARAMETER KeepConnection
-        Alle Batches in EINER Connection ausfuehren (USE, Temp-Tabellen bleiben erhalten).
-        Nutzt sqlcmd -i oder .NET SqlConnection mit Reuse.
-    .OUTPUTS PSCustomObject mit Success (bool), Message, Duration, Batches.
-    #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$ScriptPath,
@@ -254,81 +336,90 @@ function Invoke-LabSqlScript {
         [Parameter(Mandatory)][int]$Port,
         [Parameter(Mandatory)][SecureString]$SaPassword,
         [string]$Database = 'master',
-        [switch]$KeepConnection
+        [switch]$KeepConnection,
+        [int]$TimeoutSeconds = 300
     )
 
-    if (-not (Test-Path $ScriptPath)) {
+    if (-not (Test-Path -LiteralPath $ScriptPath -PathType Leaf)) {
         throw "SQL-Skript nicht gefunden: $ScriptPath"
     }
+    if ($Database -notmatch '^[A-Za-z][A-Za-z0-9_]{0,127}$') {
+        throw "Database '$Database' ist ungueltig."
+    }
 
-    $saPlain = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto(
-        [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword))
-
-    $sw = [System.Diagnostics.Stopwatch]::StartNew()
-
-    try {
-        if ($KeepConnection) {
-            # === SINGLE-CONNECTION-MODUS ===
-            # sqlcmd -i verarbeitet GO-Batches nativ in einer Session
-            # USE, Temp-Tabellen, Variablen bleiben erhalten
-            $resolvedPath = Resolve-Path $ScriptPath
-            $output = sqlcmd -S "$HostName,$Port" -U sa -P $saPlain `
-                -d $Database -i "$resolvedPath" -b 2>&1
-            $outputText = ($output -join "`n").Trim()
-
-            $saPlain = $null
-            $sw.Stop()
-
-            if ($LASTEXITCODE -ne 0 -or $outputText -match 'Msg \d+, Level (1[1-9]|[2-9]\d)') {
-                return [PSCustomObject]@{
-                    Success  = $false
-                    Message  = "Fehler in $(Split-Path $ScriptPath -Leaf): $outputText"
-                    Duration = $sw.Elapsed
-                    Batches  = 0
-                }
-            }
-
-            # Batch-Count schaetzen (aus Datei)
-            $sql = Get-Content $ScriptPath -Raw -Encoding utf8
-            $batchCount = ($sql -split '(?mi)^\s*GO\b' | Where-Object { $_.Trim() }).Count
-
+    if ($Database -ne 'master') {
+        $databaseReadiness = Wait-LabDatabaseReady `
+            -HostName $HostName `
+            -Port $Port `
+            -SaPassword $SaPassword `
+            -Database $Database `
+            -TimeoutSeconds ([Math]::Min($TimeoutSeconds, 60))
+        if (-not $databaseReadiness.Ready) {
             return [PSCustomObject]@{
-                Success  = $true
-                Message  = "Skript erfolgreich: $(Split-Path $ScriptPath -Leaf)"
-                Duration = $sw.Elapsed
-                Batches  = $batchCount
+                Success  = $false
+                Batches  = 0
+                Duration = $databaseReadiness.Duration
+                Message  = $databaseReadiness.Message
             }
         }
-        else {
-            # === MULTI-CONNECTION-MODUS (Original) ===
-            # Jeder Batch = neue Connection (USE hat keinen Effekt)
-            $sql = Get-Content $ScriptPath -Raw -Encoding utf8
-            $batches = $sql -split '(?mi)^\s*GO\b.*' | Where-Object { $_.Trim() }
+    }
 
-            foreach ($batch in $batches) {
-                Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $saPlain `
-                    -Query $batch -Database $Database -TimeoutSeconds 300
-            }
+    $scriptContent = Get-Content -LiteralPath $ScriptPath -Raw -Encoding utf8
+    $batches = @(
+        [regex]::Split($scriptContent, '(?im)^\s*GO\s*(?:--.*)?$') |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+    )
 
-            $saPlain = $null
-            $sw.Stop()
+    if ($batches.Count -eq 0) {
+        return [PSCustomObject]@{
+            Success  = $true
+            Batches  = 0
+            Duration = [TimeSpan]::Zero
+            Message  = 'Skript enthaelt keine ausfuehrbaren Batches.'
+        }
+    }
 
-            return [PSCustomObject]@{
-                Success  = $true
-                Message  = "Skript erfolgreich: $(Split-Path $ScriptPath -Leaf)"
-                Duration = $sw.Elapsed
-                Batches  = $batches.Count
-            }
+    $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword)
+    try {
+        $saPlain = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+    }
+    finally {
+        [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+    }
+
+    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+    $executedBatches = 0
+
+    try {
+        foreach ($batch in $batches) {
+            $null = Invoke-SqlQuery `
+                -HostName $HostName `
+                -Port $Port `
+                -SaPlain $saPlain `
+                -Query $batch `
+                -Database $Database `
+                -TimeoutSeconds $TimeoutSeconds
+            $executedBatches++
+        }
+
+        $stopwatch.Stop()
+        return [PSCustomObject]@{
+            Success  = $true
+            Batches  = $executedBatches
+            Duration = $stopwatch.Elapsed
+            Message  = "Skript erfolgreich ausgefuehrt: $(Split-Path $ScriptPath -Leaf)"
         }
     }
     catch {
-        $saPlain = $null
-        $sw.Stop()
+        $stopwatch.Stop()
         return [PSCustomObject]@{
             Success  = $false
-            Message  = "Fehler in $(Split-Path $ScriptPath -Leaf): $_"
-            Duration = $sw.Elapsed
-            Batches  = 0
+            Batches  = $executedBatches
+            Duration = $stopwatch.Elapsed
+            Message  = "Skript fehlgeschlagen in Batch $($executedBatches + 1): $($_.Exception.Message)"
         }
+    }
+    finally {
+        $saPlain = $null
     }
 }

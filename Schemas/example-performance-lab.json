@@ -1,7 +1,7 @@
 {
   "$schema": "./lab-manifest.schema.json",
   "name": "performance-schulung-lab",
-  "description": "Lab fuer SQL-Performance-Schulung: TempDB auf separatem Volume, Memory-Grenzen, kontrollierte Parallelitaet",
+  "description": "Lab fuer SQL-Performance-Schulung mit getrennten Volumes, TempDB-Layout, Memory-Grenzen und kontrollierter Parallelitaet",
   "instances": [
     {
       "id": "primary",
@@ -24,10 +24,6 @@
           "id": "tempdb",
           "containerPath": "/tempdb",
           "type": "ssd"
-        },
-        {
-          "id": "backup",
-          "containerPath": "/backup"
         }
       ],
       "serverConfig": {
@@ -74,15 +70,7 @@
         "spConfigure": {
           "optimize for ad hoc workloads": 1,
           "remote admin connections": 1
-        },
-        "defaultPaths": {
-          "data": "/sqldata",
-          "log": "/sqllog",
-          "backup": "/backup",
-          "tempdb": "/tempdb"
-        },
-        "sqlAgent": true,
-        "errorLogRetention": 12
+        }
       },
       "databases": [
         {
@@ -131,9 +119,6 @@
             "delayedDurability": "DISABLED"
           }
         }
-      ],
-      "postProvision": [
-        "setup-perfdemo.sql"
       ]
     }
   ]

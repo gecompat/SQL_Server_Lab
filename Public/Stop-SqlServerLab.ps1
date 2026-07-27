@@ -2,18 +2,16 @@
 .SYNOPSIS
     Stoppt eine laufende SQL_Server_Lab-Umgebung.
 .DESCRIPTION
-    Stoppt alle Container der Umgebung graceful (SIGTERM + Timeout)
-    und setzt den State auf STOPPED. Daten bleiben erhalten.
+    Stoppt alle Container der Umgebung ueber den im Run gespeicherten Provider
+    und setzt den State auf STOPPED. Persistente Daten und Run-State bleiben erhalten.
 .PARAMETER RunId
-    Die RunId der zu stoppenden Umgebung.
+    RunId der zu stoppenden Umgebung.
 .PARAMETER TimeoutSeconds
-    Graceful-Shutdown-Timeout fuer Docker (Default: 30s).
+    Graceful-Shutdown-Timeout fuer die Container-Runtime.
 .PARAMETER Force
     Keine Bestaetigung abfragen.
 .EXAMPLE
     Stop-SqlServerLab -RunId $lab.RunId
-.EXAMPLE
-    Get-SqlServerLab | Stop-SqlServerLab -Force
 #>
 function Stop-SqlServerLab {
     [CmdletBinding(SupportsShouldProcess)]
@@ -28,53 +26,104 @@ function Stop-SqlServerLab {
         $stateRoot = Get-LabStateRoot
         $run = Get-LabRunState -RunId $RunId -StateRoot $stateRoot
 
-        # Nur RUNNING darf gestoppt werden
         if ($run.state -ne 'RUNNING') {
             Write-LabWarning "Lab '$RunId' ist nicht im Status RUNNING (aktuell: $($run.state)). Nichts zu tun."
-            return [PSCustomObject]@{ RunId = $RunId; Status = $run.state; Action = 'SKIPPED' }
-        }
-
-        $runPrefix = $RunId.Substring(0, 8)
-        Write-LabInfo "Stoppe Lab ${runPrefix}... ($($run.metadata.name))"
-
-        # Bestaetigung
-        if (-not $Force -and -not $PSCmdlet.ShouldProcess($RunId, 'Stop')) {
-            return [PSCustomObject]@{ RunId = $RunId; Status = 'RUNNING'; Action = 'CANCELLED' }
-        }
-
-        # Container via Labels finden und stoppen (docker/podman)
-        $rt = Get-ContainerRuntime
-        $errors = 0
-        $containerIds = if ($rt) { & $rt ps -q --filter "label=sql-server-lab.run-id=$RunId" 2>$null } else { $null }
-        if (-not $containerIds) {
-            Write-LabInfo '  Keine laufenden Container gefunden.'
-        }
-        else {
-            @($containerIds) | ForEach-Object {
-                $cId = $_.Trim()
-                if (-not $cId) { return }
-                $cName = (& $rt inspect $cId --format '{{.Name}}' 2>$null).TrimStart('/')
-                try {
-                    & $rt stop -t $TimeoutSeconds $cId | Out-Null
-                    if ($LASTEXITCODE -ne 0) { throw "Container stop fehlgeschlagen: $cId" }
-                    Write-LabSuccess "  Gestoppt: $cName"
-                }
-                catch {
-                    Write-LabError "  Fehler bei ${cName}: $_"
-                    $errors++
-                }
+            return [PSCustomObject]@{
+                RunId  = $RunId
+                Status = $run.state
+                Action = 'SKIPPED'
             }
         }
 
-        # State-Transition
-        if ($errors -eq 0) {
-            $null = Set-LabRunState -RunId $RunId -NewState 'STOPPED' -Reason 'Stop-SqlServerLab' -StateRoot $stateRoot
-            Write-LabSuccess "Lab gestoppt: ${runPrefix}..."
-            return [PSCustomObject]@{ RunId = $RunId; Status = 'STOPPED'; Action = 'STOPPED' }
+        if (-not $Force -and -not $PSCmdlet.ShouldProcess($RunId, 'Stop')) {
+            return [PSCustomObject]@{
+                RunId  = $RunId
+                Status = 'RUNNING'
+                Action = 'CANCELLED'
+            }
+        }
+
+        $runDirectory = Join-Path (Join-Path $stateRoot 'runs') $RunId
+        $connectionInfoPath = Join-Path $runDirectory 'connection-info.json'
+        $connectionInfo = if (Test-Path -LiteralPath $connectionInfoPath -PathType Leaf) {
+            Get-Content -LiteralPath $connectionInfoPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
         }
         else {
-            Write-LabWarning "Lab gestoppt mit $errors Fehler(n)"
-            return [PSCustomObject]@{ RunId = $RunId; Status = 'STOPPED_WITH_ERRORS'; Action = 'PARTIAL'; Errors = $errors }
+            $null
+        }
+
+        $providers = @(
+            $connectionInfo.instances |
+                ForEach-Object { $_.provider } |
+                Where-Object { $_ } |
+                Sort-Object -Unique
+        )
+
+        if ($providers.Count -gt 1) {
+            throw "Run '$RunId' verwendet mehrere Provider. Der gemeinsame Lifecycle fuer gemischte Provider ist noch nicht implementiert."
+        }
+
+        $preferredRuntime = if ($providers.Count -eq 1) { $providers[0] } else { $null }
+        $runtime = Get-ContainerRuntime -PreferredRuntime $preferredRuntime
+        if (-not $runtime) {
+            throw "Container-Runtime '$preferredRuntime' ist nicht verfuegbar."
+        }
+
+        $runPrefix = $RunId.Substring(0, 8)
+        Write-LabInfo "Stoppe Lab ${runPrefix}... ($($run.metadata.name)) mit $runtime"
+
+        $containerIds = @(
+            & $runtime ps -q --filter "label=sql-server-lab.run-id=$RunId" 2>$null |
+                Where-Object { $_ }
+        )
+
+        if ($containerIds.Count -eq 0) {
+            Write-LabInfo '  Keine laufenden Container gefunden.'
+        }
+
+        $errors = 0
+        foreach ($containerIdValue in $containerIds) {
+            $containerId = ([string]$containerIdValue).Trim()
+            if (-not $containerId) {
+                continue
+            }
+
+            $containerName = ([string](& $runtime inspect $containerId --format '{{.Name}}' 2>$null)).Trim().TrimStart('/')
+
+            try {
+                & $runtime stop -t $TimeoutSeconds $containerId | Out-Null
+                if ($LASTEXITCODE -ne 0) {
+                    throw "Container stop fehlgeschlagen: $containerId"
+                }
+                Write-LabSuccess "  Gestoppt: $containerName"
+            }
+            catch {
+                Write-LabError "  Fehler bei ${containerName}: $_"
+                $errors++
+            }
+        }
+
+        if ($errors -eq 0) {
+            $null = Set-LabRunState `
+                -RunId $RunId `
+                -NewState 'STOPPED' `
+                -Reason 'Stop-SqlServerLab' `
+                -StateRoot $stateRoot
+
+            Write-LabSuccess "Lab gestoppt: ${runPrefix}..."
+            return [PSCustomObject]@{
+                RunId  = $RunId
+                Status = 'STOPPED'
+                Action = 'STOPPED'
+            }
+        }
+
+        Write-LabWarning "Lab gestoppt mit $errors Fehler(n)"
+        return [PSCustomObject]@{
+            RunId  = $RunId
+            Status = 'STOPPED_WITH_ERRORS'
+            Action = 'PARTIAL'
+            Errors = $errors
         }
     }
 }

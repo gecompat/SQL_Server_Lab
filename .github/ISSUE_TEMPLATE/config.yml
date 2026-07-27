@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security Policy
+    url: https://github.com/gecompat/SQL_Server_Lab/blob/main/SECURITY.md
+    about: Keine Secrets oder Exploitdetails öffentlich veröffentlichen. Die Security Policy beschreibt den sicheren Meldeweg.
+  - name: Getting Started
+    url: https://github.com/gecompat/SQL_Server_Lab/blob/main/Documentation/User/Getting_Started.md
+    about: Installation, erster Run, Verbindung, Restore, Manifest und Troubleshooting.

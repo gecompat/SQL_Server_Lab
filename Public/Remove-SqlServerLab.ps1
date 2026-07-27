@@ -1,13 +1,12 @@
 <#
 .SYNOPSIS
-    Entfernt eine SQL-Server-Testumgebung.
+    Entfernt eine SQL_Server_Lab-Umgebung provider- und scopegebunden.
 .DESCRIPTION
-    Scope-gebundenes Entfernen: Prueft Ownership, fuehrt Cleanup-Plan aus,
-    entfernt Secrets und State.
+    Fuehrt den Cleanup-Plan aus, sucht fehlende Container beim aufgezeichneten
+    Provider, entfernt Secrets erst nach vollstaendigem Cleanup und markiert
+    Teilfehler als RECOVERY_REQUIRED.
 .EXAMPLE
-    Remove-SqlServerLab -RunId 'abc12345-...'
-.EXAMPLE
-    Remove-SqlServerLab   # Entfernt den letzten aktiven Run
+    Remove-SqlServerLab -RunId $lab.RunId
 #>
 function Remove-SqlServerLab {
     [CmdletBinding(SupportsShouldProcess)]
@@ -19,79 +18,253 @@ function Remove-SqlServerLab {
 
     $ErrorActionPreference = 'Stop'
 
-    if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
+    if (-not $StateRoot) {
+        $StateRoot = Get-LabStateRoot
+    }
 
-    # Run ermitteln
     if (-not $RunId) {
-        $activeRuns = Get-LabActiveRuns -StateRoot $StateRoot
+        $activeRuns = @(Get-LabActiveRuns -StateRoot $StateRoot)
         if ($activeRuns.Count -eq 0) {
             Write-LabInfo 'Keine aktiven Lab-Umgebungen gefunden.'
-            return
+            return [PSCustomObject]@{
+                RunId   = $null
+                Status  = 'NOT_FOUND'
+                Cleanup = 'NOT_REQUIRED'
+            }
         }
+
         if ($activeRuns.Count -eq 1) {
             $RunId = $activeRuns[0].runId
         }
         else {
             Write-LabInfo "$($activeRuns.Count) aktive Umgebungen gefunden:"
-            for ($i = 0; $i -lt $activeRuns.Count; $i++) {
-                $r = $activeRuns[$i]
-                Write-LabStatus -Label "[$($i + 1)]" -Value "$($r.runId.Substring(0,8))... ($($r.state)) - $($r.metadata.name)"
+            for ($index = 0; $index -lt $activeRuns.Count; $index++) {
+                $run = $activeRuns[$index]
+                Write-LabStatus `
+                    -Label "[$($index + 1)]" `
+                    -Value "$($run.runId.Substring(0, 8))... ($($run.state)) - $($run.metadata.name)"
             }
-            $choice = Read-LabChoice -Options ($activeRuns | ForEach-Object { "$($_.runId.Substring(0,8))... ($($_.state))" }) `
+
+            $choice = Read-LabChoice `
+                -Options ($activeRuns | ForEach-Object { "$($_.runId.Substring(0, 8))... ($($_.state))" }) `
                 -Prompt 'Welche Umgebung entfernen?'
             $RunId = $activeRuns[$choice].runId
         }
     }
 
-    # State laden
     $state = Get-LabRunState -RunId $RunId -StateRoot $StateRoot
-    $runDir = Join-Path $StateRoot 'runs' $RunId
+    $runDirectory = Join-Path (Join-Path $StateRoot 'runs') $RunId
 
     Write-LabHeader "Lab entfernen: $($state.metadata.name)"
     Write-LabStatus -Label 'RunId' -Value $RunId
     Write-LabStatus -Label 'ScopeId' -Value $state.scopeId
     Write-LabStatus -Label 'Status' -Value $state.state
 
-    # Bestaetigung (ausser -Force)
-    if (-not $Force) {
-        $confirm = Read-LabConfirm -Prompt 'Umgebung unwiderruflich entfernen?'
-        if (-not $confirm) {
-            Write-LabInfo 'Abgebrochen.'
-            return
+    if ($state.state -eq 'REMOVED') {
+        Write-LabInfo 'Die Umgebung ist bereits als REMOVED markiert.'
+        return [PSCustomObject]@{
+            RunId   = $RunId
+            Status  = 'REMOVED'
+            Cleanup = 'ALREADY_REMOVED'
         }
     }
 
-    # State-Transition
-    if ($state.state -notin @('CLEANUP_PENDING', 'CLEANUP_RUNNING', 'CLEANED_UP', 'REMOVED')) {
-        $null = Set-LabRunState -RunId $RunId -NewState 'CLEANUP_PENDING' -Reason 'Benutzer-Entfernung' -StateRoot $StateRoot
+    if (-not $PSCmdlet.ShouldProcess($RunId, 'SQL_Server_Lab-Umgebung entfernen')) {
+        return [PSCustomObject]@{
+            RunId   = $RunId
+            Status  = $state.state
+            Cleanup = 'CANCELLED'
+        }
     }
 
-    # Cleanup-Plan ausfuehren
-    Write-LabInfo 'Cleanup-Plan ausfuehren...'
-    $null = Set-LabRunState -RunId $RunId -NewState 'CLEANUP_RUNNING' -Reason 'Cleanup gestartet' -StateRoot $StateRoot
+    if (-not $Force) {
+        $confirmed = Read-LabConfirm -Prompt 'Umgebung unwiderruflich entfernen?'
+        if (-not $confirmed) {
+            Write-LabInfo 'Abgebrochen.'
+            return [PSCustomObject]@{
+                RunId   = $RunId
+                Status  = $state.state
+                Cleanup = 'CANCELLED'
+            }
+        }
+    }
 
-    $cleanupResult = Invoke-CleanupPlan -RunDir $runDir -ScopeId $state.scopeId
+    if ($state.state -eq 'CLEANED_UP') {
+        $null = Set-LabRunState `
+            -RunId $RunId `
+            -NewState 'REMOVED' `
+            -Reason 'Bereits bereinigten Run finalisiert' `
+            -StateRoot $StateRoot
+        $null = Remove-LabSecrets -Path $runDirectory
 
-    Write-LabStatus -Label 'Cleanup' -Value "$($cleanupResult.Status) ($($cleanupResult.Steps) Steps, $($cleanupResult.Errors) Fehler)"
+        return [PSCustomObject]@{
+            RunId   = $RunId
+            Status  = 'REMOVED'
+            Cleanup = 'CLEANUP_SUCCEEDED'
+        }
+    }
 
-    # Auch Container suchen die im Plan fehlen (Sicherheitsnetz)
-    $orphans = Get-DockerLabContainers -RunId $RunId
-    foreach ($orphan in $orphans) {
-        Write-LabWarning "Orphan-Container gefunden: $($orphan.Name)"
+    $cleanupPlanPath = Join-Path $runDirectory 'cleanup-plan.json'
+    if (Test-Path -LiteralPath $cleanupPlanPath -PathType Leaf) {
         try {
-            $null = Remove-DockerInstance -ContainerIdOrName $orphan.ContainerId -ExpectedScopeId $state.scopeId
+            $cleanupPlan = Get-Content -LiteralPath $cleanupPlanPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
+            foreach ($step in @($cleanupPlan.steps | Where-Object { $_.state -eq 'FAILED' })) {
+                $step.state = 'PENDING'
+                $step.error = $null
+                $step.executedAt = $null
+            }
+            $cleanupPlan.status = 'PENDING'
+            $cleanupPlan | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $cleanupPlanPath -Encoding utf8
         }
         catch {
-            Write-LabError "Orphan nicht entfernbar: $_"
+            throw "Cleanup-Plan konnte nicht fuer einen Wiederholungsversuch vorbereitet werden: $($_.Exception.Message)"
         }
     }
 
-    # State finalisieren
-    $null = Set-LabRunState -RunId $RunId -NewState 'CLEANED_UP' -Reason $cleanupResult.Status -StateRoot $StateRoot
-    $null = Set-LabRunState -RunId $RunId -NewState 'REMOVED' -Reason 'Vollstaendig entfernt' -StateRoot $StateRoot
+    $state = Get-LabRunState -RunId $RunId -StateRoot $StateRoot
+    if ($state.state -eq 'RECOVERY_REQUIRED') {
+        $null = Set-LabRunState `
+            -RunId $RunId `
+            -NewState 'CLEANUP_PENDING' `
+            -Reason 'Cleanup-Wiederholungsversuch' `
+            -StateRoot $StateRoot
+    }
+    elseif ($state.state -notin @('CLEANUP_PENDING', 'CLEANUP_RUNNING')) {
+        $null = Set-LabRunState `
+            -RunId $RunId `
+            -NewState 'CLEANUP_PENDING' `
+            -Reason 'Benutzer-Entfernung' `
+            -StateRoot $StateRoot
+    }
 
-    # Secrets loeschen
-    $null = Remove-LabSecrets -Path $runDir
+    $state = Get-LabRunState -RunId $RunId -StateRoot $StateRoot
+    if ($state.state -eq 'CLEANUP_PENDING') {
+        $null = Set-LabRunState `
+            -RunId $RunId `
+            -NewState 'CLEANUP_RUNNING' `
+            -Reason 'Cleanup gestartet' `
+            -StateRoot $StateRoot
+    }
+
+    Write-LabInfo 'Cleanup-Plan ausfuehren...'
+    $cleanupResult = Invoke-CleanupPlan `
+        -RunDir $runDirectory `
+        -ScopeId $state.scopeId
+
+    Write-LabStatus `
+        -Label 'Cleanup' `
+        -Value "$($cleanupResult.Status) ($($cleanupResult.Steps) Steps, $($cleanupResult.Errors) Fehler)"
+
+    $providers = @()
+    $connectionInfoPath = Join-Path $runDirectory 'connection-info.json'
+    if (Test-Path -LiteralPath $connectionInfoPath -PathType Leaf) {
+        try {
+            $connectionInfo = Get-Content -LiteralPath $connectionInfoPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
+            $providers = @($connectionInfo.instances | ForEach-Object { $_.provider })
+        }
+        catch {
+            Write-LabWarning "Connection-Info konnte fuer die Orphan-Suche nicht gelesen werden: $($_.Exception.Message)"
+        }
+    }
+
+    if ($providers.Count -eq 0 -and (Test-Path -LiteralPath $cleanupPlanPath -PathType Leaf)) {
+        try {
+            $cleanupPlan = Get-Content -LiteralPath $cleanupPlanPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
+            $providers = @(
+                $cleanupPlan.steps | ForEach-Object {
+                    if ($_.provider) {
+                        $_.provider
+                    }
+                    elseif ([string]$_.compensation -match '^\s*(docker|podman)\b') {
+                        $Matches[1].ToLowerInvariant()
+                    }
+                }
+            )
+        }
+        catch {
+            Write-LabWarning "Provider konnte nicht aus dem Cleanup-Plan gelesen werden: $($_.Exception.Message)"
+        }
+    }
+
+    $providers = @($providers | Where-Object { $_ -in @('docker', 'podman') } | Sort-Object -Unique)
+    if ($providers.Count -eq 0) {
+        foreach ($candidate in @('docker', 'podman')) {
+            if (Get-Command $candidate -ErrorAction SilentlyContinue) {
+                $providers += $candidate
+            }
+        }
+    }
+
+    $orphanErrors = 0
+    foreach ($provider in $providers) {
+        if (-not (Get-Command $provider -ErrorAction SilentlyContinue)) {
+            Write-LabWarning "Runtime '$provider' ist fuer die Orphan-Suche nicht verfuegbar."
+            $orphanErrors++
+            continue
+        }
+
+        $orphans = switch ($provider) {
+            'docker' { @(Get-DockerLabContainers -RunId $RunId) }
+            'podman' { @(Get-PodmanLabContainers -RunId $RunId) }
+        }
+
+        foreach ($orphan in $orphans) {
+            Write-LabWarning "Orphan-Container bei $provider gefunden: $($orphan.Name)"
+            try {
+                switch ($provider) {
+                    'docker' {
+                        $null = Remove-DockerInstance `
+                            -ContainerIdOrName $orphan.ContainerId `
+                            -ExpectedScopeId $state.scopeId
+                    }
+                    'podman' {
+                        $null = Remove-PodmanInstance `
+                            -ContainerIdOrName $orphan.ContainerId `
+                            -ExpectedScopeId $state.scopeId
+                    }
+                }
+            }
+            catch {
+                $orphanErrors++
+                Write-LabError "Orphan nicht entfernbar: $($_.Exception.Message)"
+            }
+        }
+    }
+
+    $totalErrors = [int]$cleanupResult.Errors + $orphanErrors
+    if ($totalErrors -gt 0) {
+        $message = "Cleanup unvollstaendig: $totalErrors Fehler."
+        $null = Add-LabRunError `
+            -RunId $RunId `
+            -Message $message `
+            -Component 'Remove-SqlServerLab' `
+            -StateRoot $StateRoot
+        $null = Set-LabRunState `
+            -RunId $RunId `
+            -NewState 'RECOVERY_REQUIRED' `
+            -Reason $message `
+            -StateRoot $StateRoot
+
+        Write-LabError "$message Run-State bleibt fuer einen Wiederholungsversuch erhalten."
+        return [PSCustomObject]@{
+            RunId   = $RunId
+            Status  = 'RECOVERY_REQUIRED'
+            Cleanup = if ($cleanupResult.Status -eq 'CLEANUP_SUCCEEDED') { 'ORPHAN_CLEANUP_FAILED' } else { $cleanupResult.Status }
+            Errors  = $totalErrors
+        }
+    }
+
+    $null = Set-LabRunState `
+        -RunId $RunId `
+        -NewState 'CLEANED_UP' `
+        -Reason $cleanupResult.Status `
+        -StateRoot $StateRoot
+    $null = Set-LabRunState `
+        -RunId $RunId `
+        -NewState 'REMOVED' `
+        -Reason 'Vollstaendig entfernt' `
+        -StateRoot $StateRoot
+    $null = Remove-LabSecrets -Path $runDirectory
 
     Write-LabSuccess "Umgebung entfernt: $RunId"
 
@@ -99,5 +272,6 @@ function Remove-SqlServerLab {
         RunId   = $RunId
         Status  = 'REMOVED'
         Cleanup = $cleanupResult.Status
+        Errors  = 0
     }
 }

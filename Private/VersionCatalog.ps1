@@ -1,15 +1,35 @@
 <#
 .SYNOPSIS
-    Versionskatalog-Zugriff fuer SQL_Server_Lab.
+    Katalogzugriff fuer SQL-Server-Versionen, Builds, Ressourcenprofile und Sample-Datenbanken.
 .DESCRIPTION
-    Liest und validiert SQL-Server-Versionen aus dem Katalog.
+    Liest die beim Modulimport geladenen Kataloge und stellt interne Aufloesungsfunktionen bereit.
 #>
 
 function Get-SqlServerVersion {
     [CmdletBinding()]
-    param([Parameter(Mandatory)][string]$VersionId)
-    if (-not $script:VersionCatalog) { throw "Versionskatalog nicht geladen." }
-    $script:VersionCatalog.versions | Where-Object { $_.id -eq $VersionId }
+    param(
+        [Parameter(Mandatory)][string]$VersionId
+    )
+
+    if (-not $script:VersionCatalog) {
+        throw 'Versionskatalog nicht geladen.'
+    }
+
+    $exact = $script:VersionCatalog.versions |
+        Where-Object { $_.id -eq $VersionId } |
+        Select-Object -First 1
+    if ($exact) {
+        return $exact
+    }
+
+    if ($VersionId -match '^(\d{4})-CU\d+(?:-|$)') {
+        $baseVersion = $Matches[1]
+        return $script:VersionCatalog.versions |
+            Where-Object { $_.id -eq $baseVersion } |
+            Select-Object -First 1
+    }
+
+    return $null
 }
 
 function Test-SqlServerVersionSupported {
@@ -19,179 +39,220 @@ function Test-SqlServerVersionSupported {
         [switch]$AllowDeprecated,
         [switch]$AllowRetired
     )
+
     $version = Get-SqlServerVersion -VersionId $VersionId
     if (-not $version) {
-        return [PSCustomObject]@{ Supported = $false; Status = 'UNKNOWN'; Message = "Version '$VersionId' nicht im Katalog." }
+        return [PSCustomObject]@{
+            Supported = $false
+            Status    = 'UNKNOWN'
+            Message   = "Version '$VersionId' nicht im Katalog."
+        }
     }
+
     switch ($version.status) {
-        'SUPPORTED' { return [PSCustomObject]@{ Supported = $true;  Status = 'SUPPORTED'; Message = '' } }
-        'PREVIEW'   { return [PSCustomObject]@{ Supported = $true;  Status = 'PREVIEW';   Message = "Vorabversion." } }
+        'SUPPORTED' {
+            return [PSCustomObject]@{ Supported = $true; Status = 'SUPPORTED'; Message = '' }
+        }
+        'PREVIEW' {
+            return [PSCustomObject]@{ Supported = $true; Status = 'PREVIEW'; Message = 'Vorabversion.' }
+        }
         'DEPRECATED' {
-            $ok = $AllowDeprecated.IsPresent
-            return [PSCustomObject]@{ Supported = $ok; Status = 'DEPRECATED'; Message = "Veraltet.$(if(-not $ok){' -AllowDeprecated verwenden.'})" }
+            $allowed = $AllowDeprecated.IsPresent
+            $message = if ($allowed) {
+                'Veraltete Version wurde ausdruecklich zugelassen.'
+            }
+            else {
+                'Veraltet. -AllowDeprecated verwenden.'
+            }
+            return [PSCustomObject]@{ Supported = $allowed; Status = 'DEPRECATED'; Message = $message }
         }
         'RETIRED' {
-            $ok = $AllowRetired.IsPresent
-            return [PSCustomObject]@{ Supported = $ok; Status = 'RETIRED'; Message = "Nicht mehr gepflegt.$(if(-not $ok){' -AllowRetired verwenden.'})" }
+            $allowed = $AllowRetired.IsPresent
+            $message = if ($allowed) {
+                'Nicht mehr gepflegte Version wurde ausdruecklich zugelassen.'
+            }
+            else {
+                'Nicht mehr gepflegt. -AllowRetired verwenden.'
+            }
+            return [PSCustomObject]@{ Supported = $allowed; Status = 'RETIRED'; Message = $message }
         }
-        'BLOCKED' { return [PSCustomObject]@{ Supported = $false; Status = 'BLOCKED'; Message = "Blockiert (Sicherheitsrisiko)." } }
-        default   { return [PSCustomObject]@{ Supported = $false; Status = $version.status; Message = "Unbekannter Status." } }
+        'BLOCKED' {
+            return [PSCustomObject]@{ Supported = $false; Status = 'BLOCKED'; Message = 'Blockiert (Sicherheitsrisiko).' }
+        }
+        default {
+            return [PSCustomObject]@{ Supported = $false; Status = $version.status; Message = 'Unbekannter Status.' }
+        }
     }
 }
 
 function Get-SqlServerVersions {
     [CmdletBinding()]
     param(
-        [ValidateSet('SUPPORTED','PREVIEW','DEPRECATED','RETIRED','BLOCKED','ALL')]
+        [ValidateSet('SUPPORTED', 'PREVIEW', 'DEPRECATED', 'RETIRED', 'BLOCKED', 'ALL')]
         [string]$Status = 'ALL'
     )
-    if (-not $script:VersionCatalog) { throw "Versionskatalog nicht geladen." }
-    if ($Status -eq 'ALL') { return $script:VersionCatalog.versions }
-    $script:VersionCatalog.versions | Where-Object { $_.status -eq $Status }
+
+    if (-not $script:VersionCatalog) {
+        throw 'Versionskatalog nicht geladen.'
+    }
+
+    if ($Status -eq 'ALL') {
+        return @($script:VersionCatalog.versions)
+    }
+
+    return @($script:VersionCatalog.versions | Where-Object { $_.status -eq $Status })
 }
 
 function Get-SqlServerDockerImage {
     <#
-    .SYNOPSIS Loest Docker-Image-Tag auf (inkl. CU-spezifisch).
-    .DESCRIPTION
-        Unterstuetzte Formate:
-        - '2022'         -> mcr.microsoft.com/mssql/server:2022-latest
-        - '2022-CU16'    -> mcr.microsoft.com/mssql/server:2022-CU16-ubuntu-22.04
-        - '2022-CU16-ubuntu-22.04' -> exakt dieser Tag (passthrough)
-    #>
-    [CmdletBinding()]
-    param([Parameter(Mandatory)][string]$VersionId)
-
-    # Pruefen ob CU-spezifisch (z.B. '2022-CU16')
-    if ($VersionId -match '^(\d{4})-(CU\d+)
-
-function Get-LabResourceProfile {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [ValidateSet('compact','standard','performance')]
-        [string]$Name
-    )
-    if (-not $script:VersionCatalog -or -not $script:VersionCatalog.profiles) {
-        throw "Katalog/Profile nicht geladen."
-    }
-    $profile = $script:VersionCatalog.profiles.$Name
-    if (-not $profile) { throw "Profil '$Name' nicht gefunden." }
-    $profile
-}
-) {
-        $baseVersion = $Matches[1]
-        $cuId = $Matches[2]
-        $version = Get-SqlServerVersion -VersionId $baseVersion
-        if (-not $version -or -not $version.docker) {
-            throw "Kein Docker-Image fuer Basisversion '$baseVersion'."
-        }
-        # Suche im builds-Array
-        $build = $version.docker.builds | Where-Object { $_.cu -eq $cuId }
-        if ($build) {
-            return "mcr.microsoft.com/mssql/server:$($build.tag)"
-        }
-        # Fallback: Standard-Tag-Konvention
-        Write-LabWarning "$cuId nicht im Katalog, verwende Standard-Tag-Konvention."
-        return "mcr.microsoft.com/mssql/server:$VersionId-ubuntu-22.04"
-    }
-
-    # Exakter Tag (Passthrough, z.B. '2022-CU16-ubuntu-22.04')
-    if ($VersionId -match '^\d{4}-CU\d+-') {
-        return "mcr.microsoft.com/mssql/server:$VersionId"
-    }
-
-    # Standard: Basisversion (z.B. '2022' -> latest)
-    $version = Get-SqlServerVersion -VersionId $VersionId
-    if (-not $version -or -not $version.docker) { throw "Kein Docker-Image fuer '$VersionId'." }
-    $version.docker.image
-}
-
-function Get-SqlServerBuilds {
-    <#
-    .SYNOPSIS Listet verfuegbare CU-Builds fuer eine SQL-Server-Version.
+    .SYNOPSIS
+        Loest Basisversion, katalogisierten CU-Kurzbezeichner oder exakten Tag auf.
     #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$VersionId
     )
+
+    if ($VersionId -match '^(\d{4})-CU\d+-.+$') {
+        $baseVersion = $Matches[1]
+        if (-not (Get-SqlServerVersion -VersionId $baseVersion)) {
+            throw "Basisversion '$baseVersion' ist nicht im Versionskatalog enthalten."
+        }
+        return "mcr.microsoft.com/mssql/server:$VersionId"
+    }
+
+    if ($VersionId -match '^(\d{4})-(CU\d+)$') {
+        $baseVersion = $Matches[1]
+        $cuId = $Matches[2]
+        $version = Get-SqlServerVersion -VersionId $baseVersion
+
+        if (-not $version -or -not $version.docker) {
+            throw "Kein Docker-Image fuer Basisversion '$baseVersion'."
+        }
+
+        $build = $version.docker.builds |
+            Where-Object { $_.cu -eq $cuId } |
+            Select-Object -First 1
+        if (-not $build) {
+            throw "Build '$VersionId' ist nicht im Versionskatalog enthalten."
+        }
+
+        return "mcr.microsoft.com/mssql/server:$($build.tag)"
+    }
+
+    if ($VersionId -notmatch '^\d{4}$') {
+        throw "Versionsbezeichner '$VersionId' hat kein unterstuetztes Format."
+    }
+
+    $version = Get-SqlServerVersion -VersionId $VersionId
+    if (-not $version -or -not $version.docker -or -not $version.docker.image) {
+        throw "Kein Docker-Image fuer '$VersionId'."
+    }
+
+    return $version.docker.image
+}
+
+function Get-SqlServerBuilds {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$VersionId
+    )
+
     $version = Get-SqlServerVersion -VersionId $VersionId
     if (-not $version -or -not $version.docker -or -not $version.docker.builds) {
         return @()
     }
-    $version.docker.builds
+
+    return @($version.docker.builds)
 }
 
 function Get-LabSampleDatabase {
     <#
-    .SYNOPSIS Sucht eine Test-Datenbank im Sample-Katalog.
-    .DESCRIPTION
-        Sucht nach ID, Name oder Tags. Gibt Metadaten + Download-URL zurueck.
-    .EXAMPLE
-        Get-LabSampleDatabase -Id 'adventureworks-2022'
-        Get-LabSampleDatabase -Tag 'performance'
-        Get-LabSampleDatabase -Name 'WideWorldImporters'
+    .SYNOPSIS
+        Sucht Eintraege im Sample-Datenbank-Katalog.
     #>
-    [CmdletBinding(DefaultParameterSetName='ById')]
+    [CmdletBinding(DefaultParameterSetName = 'ById')]
     param(
-        [Parameter(ParameterSetName='ById')][string]$Id,
-        [Parameter(ParameterSetName='ByName')][string]$Name,
-        [Parameter(ParameterSetName='ByTag')][string]$Tag,
-        [Parameter(ParameterSetName='ByCategory')][string]$Category
+        [Parameter(ParameterSetName = 'ById')]
+        [string]$Id,
+        [Parameter(ParameterSetName = 'ByName')]
+        [string]$Name,
+        [Parameter(ParameterSetName = 'ByTag')]
+        [string]$Tag,
+        [Parameter(ParameterSetName = 'ByCategory')]
+        [string]$Category
     )
 
     if (-not $script:SampleCatalog) {
-        $catalogPath = Join-Path $PSScriptRoot '..\Catalogs\sample-databases.json'
-        if (Test-Path $catalogPath) {
-            $script:SampleCatalog = Get-Content $catalogPath -Raw | ConvertFrom-Json
-        } else {
+        $catalogPath = Join-Path $script:CatalogsPath 'sample-databases.json'
+        if (-not (Test-Path -LiteralPath $catalogPath -PathType Leaf)) {
             throw "Sample-Katalog nicht gefunden: $catalogPath"
         }
+
+        $script:SampleCatalog = Get-Content -LiteralPath $catalogPath -Raw -Encoding utf8 |
+            ConvertFrom-Json -Depth 20
     }
 
-    $dbs = $script:SampleCatalog.databases
-    if ($Id)       { return $dbs | Where-Object { $_.id -eq $Id } }
-    if ($Name)     { return $dbs | Where-Object { $_.name -like "*$Name*" } }
-    if ($Tag)      { return $dbs | Where-Object { $_.tags -contains $Tag } }
-    if ($Category) { return $dbs | Where-Object { $_.category -eq $Category } }
-    return $dbs
+    $databases = @($script:SampleCatalog.databases)
+
+    if ($Id) {
+        return $databases | Where-Object { $_.id -eq $Id } | Select-Object -First 1
+    }
+    if ($Name) {
+        return @($databases | Where-Object { $_.name -like "*$Name*" })
+    }
+    if ($Tag) {
+        return @($databases | Where-Object { $_.tags -contains $Tag })
+    }
+    if ($Category) {
+        return @($databases | Where-Object { $_.category -eq $Category })
+    }
+
+    return $databases
 }
 
 function Get-LabSampleDatabases {
-    <#
-    .SYNOPSIS Listet alle verfuegbaren Test-Datenbanken.
-    #>
     [CmdletBinding()]
     param(
         [string]$MinVersion
     )
-    $all = Get-LabSampleDatabase
+
+    $all = @(Get-LabSampleDatabase)
     if ($MinVersion) {
-        $all = $all | Where-Object { [int]($_.minSqlVersion) -le [int]$MinVersion }
-    }
-    $all | ForEach-Object {
-        [PSCustomObject]@{
-            Id          = $_.id
-            Name        = $_.name
-            Category    = $_.category
-            Tags        = ($_.tags -join ', ')
-            Variants    = ($_.versions.PSObject.Properties.Name -join ', ')
-            License     = $_.license
+        if ($MinVersion -notmatch '^\d{4}$') {
+            throw "MinVersion '$MinVersion' ist ungueltig."
         }
+        $all = @($all | Where-Object { [int]$_.minSqlVersion -le [int]$MinVersion })
     }
+
+    return @($all | ForEach-Object {
+        [PSCustomObject]@{
+            Id       = $_.id
+            Name     = $_.name
+            Category = $_.category
+            Tags     = ($_.tags -join ', ')
+            Variants = ($_.versions.PSObject.Properties.Name -join ', ')
+            License  = $_.license
+        }
+    })
 }
 
 function Get-LabResourceProfile {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
-        [ValidateSet('compact','standard','performance')]
+        [ValidateSet('compact', 'standard', 'performance')]
         [string]$Name
     )
+
     if (-not $script:VersionCatalog -or -not $script:VersionCatalog.profiles) {
-        throw "Katalog/Profile nicht geladen."
+        throw 'Katalog/Profile nicht geladen.'
     }
+
     $profile = $script:VersionCatalog.profiles.$Name
-    if (-not $profile) { throw "Profil '$Name' nicht gefunden." }
-    $profile
+    if (-not $profile) {
+        throw "Profil '$Name' nicht gefunden."
+    }
+
+    return $profile
 }

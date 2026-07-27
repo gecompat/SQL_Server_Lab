@@ -17,7 +17,7 @@
   ],
   "detectionCommand": "docker info",
   "healthCheck": "docker ps --format '{{.ID}}'",
-  "module": "DockerProvider.psm1",
+  "module": "DockerProvider.ps1",
   "defaultPort": 14330,
   "portRange": {
     "min": 14330,

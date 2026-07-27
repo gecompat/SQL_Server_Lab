@@ -1,27 +1,19 @@
 <#
 .SYNOPSIS
-    Raeumt alle SQL_Server_Lab-Ressourcen auf.
+    Bereinigt bekannte Runs und verwaiste SQL_Server_Lab-Container.
 .DESCRIPTION
-    Findet und entfernt alle Lab-Container (via Label sql-server-lab.run-id),
-    unabhaengig davon ob sie im State-System erfasst sind. Bereinigt
-    zusaetzlich verwaiste State-Eintraege.
-
-    Typische Anwendungsfaelle:
-    - Nach abgebrochenen Tests (Container ohne State)
-    - Vergessene Lab-Umgebungen
-    - Kompletter Reset der Lab-Infrastruktur
+    Bekannte Runs werden ueber Remove-SqlServerLab provider- und scopegebunden
+    entfernt. Anschliessend werden echte Orphan-Container getrennt in Docker
+    und Podman gesucht. State wird bei unvollstaendigem Cleanup nicht als
+    erfolgreich entfernt markiert.
 .PARAMETER Force
-    Keine Bestaetigung abfragen.
+    Keine interaktive Bestaetigung abfragen.
 .PARAMETER StateOnly
-    Nur verwaiste State-Eintraege bereinigen, keine Container anfassen.
+    Nur nachweislich verwaiste State-Eintraege bereinigen.
 .PARAMETER ContainersOnly
-    Nur Container entfernen, State nicht anfassen.
-.EXAMPLE
-    Clear-SqlServerLab
-    # Zeigt alle gefundenen Ressourcen, fragt nach Bestaetigung
+    Nur Container entfernen; vorhandener Run-State bleibt erhalten.
 .EXAMPLE
     Clear-SqlServerLab -Force
-    # Entfernt alles ohne Rueckfrage
 #>
 function Clear-SqlServerLab {
     [CmdletBinding(SupportsShouldProcess)]
@@ -33,196 +25,273 @@ function Clear-SqlServerLab {
 
     $ErrorActionPreference = 'Stop'
 
+    if ($StateOnly -and $ContainersOnly) {
+        throw 'StateOnly und ContainersOnly duerfen nicht gemeinsam verwendet werden.'
+    }
+
     Write-LabHeader 'SQL Server Lab - Cleanup'
 
-    $containersFound = @()
-    $stateRunsFound = @()
-    $removed = @{ Containers = 0; StateRuns = 0; Errors = 0 }
+    $stateRoot = Get-LabStateRoot
+    $activeRuns = @(Get-LabActiveRuns -StateRoot $stateRoot)
+    $knownRunIds = @($activeRuns | ForEach-Object { $_.runId })
+    $runtimeStatus = @{}
+    $allContainers = @()
 
-    # =========================================================================
-    # 1. Container finden
-    # =========================================================================
-    if (-not $StateOnly) {
-        Write-LabInfo 'Suche Lab-Container (Label: sql-server-lab.run-id)...'
-
-        # Einfaches Format ohne index-Syntax (Windows PowerShell verschluckt Quotes)
-        $rt = Get-ContainerRuntime
-        $containerIds = if ($rt) { & $rt ps -a -q --filter 'label=sql-server-lab.run-id' 2>$null } else { $null }
-        if ($LASTEXITCODE -eq 0 -and $containerIds) {
-            $containersFound = @($containerIds | ForEach-Object {
-                $id = $_.Trim()
-                if (-not $id) { return }
-                # Details per docker inspect holen
-                $inspectJson = & $rt inspect $id 2>$null | ConvertFrom-Json
-                if ($inspectJson) {
-                    $labels = $inspectJson[0].Config.Labels
-                    $name = $inspectJson[0].Name.TrimStart('/')
-                    $status = $inspectJson[0].State.Status
-                    [PSCustomObject]@{
-                        ContainerId = $id.Substring(0, [Math]::Min(12, $id.Length))
-                        Name        = $name
-                        Status      = $status
-                        RunId       = $labels.'sql-server-lab.run-id'
-                        Version     = $labels.'sql-server-lab.version'
-                        InstanceId  = $labels.'sql-server-lab.instance-id'
-                    }
-                }
-            })
+    foreach ($runtime in @('docker', 'podman')) {
+        $command = Get-Command $runtime -ErrorAction SilentlyContinue
+        if (-not $command) {
+            $runtimeStatus[$runtime] = 'NOT_INSTALLED'
+            continue
         }
 
-        if ($containersFound.Count -eq 0) {
-            Write-LabInfo 'Keine Lab-Container gefunden.'
+        & $runtime info 1>$null 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            $runtimeStatus[$runtime] = 'UNAVAILABLE'
+            continue
         }
-        else {
-            Write-LabWarning "$($containersFound.Count) Lab-Container gefunden:"
-            foreach ($c in $containersFound) {
-                $runPrefix = if ($c.RunId.Length -ge 8) { $c.RunId.Substring(0,8) } else { $c.RunId }
-                Write-LabStatus -Label "  $($c.Name)" -Value "SQL $($c.Version), Run: ${runPrefix}..., $($c.Status)"
+
+        $runtimeStatus[$runtime] = 'AVAILABLE'
+        $runtimeContainers = switch ($runtime) {
+            'docker' { @(Get-DockerLabContainers) }
+            'podman' { @(Get-PodmanLabContainers) }
+        }
+
+        foreach ($container in $runtimeContainers) {
+            $allContainers += [PSCustomObject]@{
+                Provider    = $runtime
+                ContainerId = $container.ContainerId
+                Name        = $container.Name
+                Status      = $container.Status
+                RunId       = $container.RunId
+                ScopeId     = $container.ScopeId
+                Version     = $container.Version
+                InstanceId  = $container.InstanceId
             }
         }
     }
 
-    # =========================================================================
-    # 2. Verwaiste State-Eintraege finden
-    # =========================================================================
-    if (-not $ContainersOnly) {
-        Write-LabInfo 'Suche State-Eintraege...'
-
-        $stateRoot = Get-LabStateRoot
-        $runsDir = Join-Path $stateRoot 'runs'
-
-        if (Test-Path $runsDir) {
-            $runDirs = Get-ChildItem -Path $runsDir -Directory
-            foreach ($dir in $runDirs) {
-                $stateFile = Join-Path $dir.FullName 'run-state.json'
-                if (Test-Path $stateFile) {
-                    try {
-                        $state = Get-Content $stateFile -Raw | ConvertFrom-Json
-                        $stateRunsFound += [PSCustomObject]@{
-                            RunId   = $dir.Name
-                            State   = $state.state
-                            Name    = $state.metadata.name
-                            Created = $state.createdAt
-                            Path    = $dir.FullName
-                        }
-                    }
-                    catch {
-                        $stateRunsFound += [PSCustomObject]@{
-                            RunId   = $dir.Name
-                            State   = '(CORRUPT)'
-                            Name    = '?'
-                            Created = '?'
-                            Path    = $dir.FullName
-                        }
-                    }
-                }
-            }
+    $orphanContainers = @(
+        $allContainers | Where-Object {
+            -not $_.RunId -or $_.RunId -notin $knownRunIds
         }
+    )
 
-        # Nur nicht-REMOVED anzeigen (REMOVED = bereits aufgeraeumt)
-        $activeStates = $stateRunsFound | Where-Object { $_.State -ne 'REMOVED' }
-
-        if ($activeStates.Count -eq 0) {
-            Write-LabInfo 'Keine aktiven State-Eintraege gefunden.'
-        }
-        else {
-            Write-LabWarning "$($activeStates.Count) aktive State-Eintraege:"
-            foreach ($s in $activeStates) {
-                $runPrefix = if ($s.RunId.Length -ge 8) { $s.RunId.Substring(0,8) } else { $s.RunId }
-                Write-LabStatus -Label "  ${runPrefix}..." -Value "$($s.State) - $($s.Name) ($($s.Created))"
-            }
-        }
+    Write-LabStatus -Label 'Aktive Runs' -Value $activeRuns.Count
+    Write-LabStatus -Label 'Lab-Container' -Value $allContainers.Count
+    Write-LabStatus -Label 'Orphan-Container' -Value $orphanContainers.Count
+    foreach ($runtime in @('docker', 'podman')) {
+        Write-LabStatus -Label "Runtime $runtime" -Value $runtimeStatus[$runtime]
     }
 
-    # =========================================================================
-    # 3. Nichts zu tun?
-    # =========================================================================
-    $totalWork = $containersFound.Count + ($stateRunsFound | Where-Object { $_.State -ne 'REMOVED' }).Count
-    if ($totalWork -eq 0) {
+    $workCount = if ($StateOnly) {
+        $activeRuns.Count
+    }
+    elseif ($ContainersOnly) {
+        $allContainers.Count
+    }
+    else {
+        $activeRuns.Count + $orphanContainers.Count
+    }
+
+    if ($workCount -eq 0) {
         Write-LabSuccess 'Alles sauber. Nichts zu entfernen.'
-        return [PSCustomObject]@{ Containers = 0; StateRuns = 0; Errors = 0; Status = 'CLEAN' }
-    }
-
-    # =========================================================================
-    # 4. Bestaetigung
-    # =========================================================================
-    if (-not $Force) {
-        Write-Host ''
-        $confirm = Read-LabConfirm -Prompt "$($containersFound.Count) Container + $($activeStates.Count) State-Eintraege entfernen?"
-        if (-not $confirm) {
-            Write-LabInfo 'Abgebrochen.'
-            return [PSCustomObject]@{ Containers = 0; StateRuns = 0; Errors = 0; Status = 'CANCELLED' }
+        return [PSCustomObject]@{
+            Containers = 0
+            StateRuns  = 0
+            Errors     = 0
+            Status     = 'CLEAN'
         }
     }
 
-    # =========================================================================
-    # 5. Container entfernen
-    # =========================================================================
-    if (-not $StateOnly) {
-        foreach ($c in $containersFound) {
-            Write-LabInfo "Entferne Container: $($c.Name)..."
+    if (-not $PSCmdlet.ShouldProcess(
+        "$($activeRuns.Count) Run(s), $($allContainers.Count) Container",
+        'SQL_Server_Lab-Bereinigung ausfuehren'
+    )) {
+        return [PSCustomObject]@{
+            Containers = 0
+            StateRuns  = 0
+            Errors     = 0
+            Status     = 'CANCELLED'
+        }
+    }
+
+    if (-not $Force) {
+        $confirmed = Read-LabConfirm -Prompt "$workCount Cleanup-Einheit(en) verarbeiten?"
+        if (-not $confirmed) {
+            Write-LabInfo 'Abgebrochen.'
+            return [PSCustomObject]@{
+                Containers = 0
+                StateRuns  = 0
+                Errors     = 0
+                Status     = 'CANCELLED'
+            }
+        }
+    }
+
+    $removedContainers = 0
+    $removedStateRuns = 0
+    $errors = 0
+
+    if ($StateOnly) {
+        foreach ($run in $activeRuns) {
+            $runDirectory = Join-Path (Join-Path $stateRoot 'runs') $run.runId
+            $connectionInfoPath = Join-Path $runDirectory 'connection-info.json'
+            $expectedProviders = @()
+
+            if (Test-Path -LiteralPath $connectionInfoPath -PathType Leaf) {
+                try {
+                    $connectionInfo = Get-Content -LiteralPath $connectionInfoPath -Raw -Encoding utf8 |
+                        ConvertFrom-Json -Depth 20
+                    $expectedProviders = @(
+                        $connectionInfo.instances |
+                            ForEach-Object { $_.provider } |
+                            Where-Object { $_ } |
+                            Sort-Object -Unique
+                    )
+                }
+                catch {
+                    Write-LabError "Run $($run.runId): Connection-Info unlesbar: $($_.Exception.Message)"
+                    $errors++
+                    continue
+                }
+            }
+
+            if ($expectedProviders.Count -eq 0) {
+                $expectedProviders = @('docker', 'podman')
+            }
+
+            $unverifiableProviders = @(
+                $expectedProviders | Where-Object { $runtimeStatus[$_] -ne 'AVAILABLE' }
+            )
+            if ($unverifiableProviders.Count -gt 0) {
+                Write-LabWarning "Run $($run.runId): State nicht entfernt; Provider nicht pruefbar: $($unverifiableProviders -join ', ')."
+                $errors++
+                continue
+            }
+
+            $containersForRun = @(
+                $allContainers | Where-Object { $_.RunId -eq $run.runId }
+            )
+            if ($containersForRun.Count -gt 0) {
+                Write-LabWarning "Run $($run.runId): State ist nicht verwaist; $($containersForRun.Count) Container vorhanden."
+                $errors++
+                continue
+            }
+
             try {
-                & $rt rm -f $c.ContainerId 2>&1 | Out-Null
-                if ($LASTEXITCODE -eq 0) {
-                    Write-LabSuccess "  Entfernt: $($c.Name)"
-                    $removed.Containers++
+                $current = Get-LabRunState -RunId $run.runId -StateRoot $stateRoot
+                if ($current.state -notin @('CLEANED_UP', 'REMOVED')) {
+                    if ($current.state -eq 'RECOVERY_REQUIRED') {
+                        $null = Set-LabRunState -RunId $run.runId -NewState 'CLEANUP_PENDING' -Reason 'Verwaisten State bereinigen' -StateRoot $stateRoot
+                    }
+                    elseif ($current.state -notin @('CLEANUP_PENDING', 'CLEANUP_RUNNING')) {
+                        $null = Set-LabRunState -RunId $run.runId -NewState 'CLEANUP_PENDING' -Reason 'Verwaisten State bereinigen' -StateRoot $stateRoot
+                    }
+
+                    $current = Get-LabRunState -RunId $run.runId -StateRoot $stateRoot
+                    if ($current.state -eq 'CLEANUP_PENDING') {
+                        $null = Set-LabRunState -RunId $run.runId -NewState 'CLEANUP_RUNNING' -Reason 'Keine Runtime-Ressourcen vorhanden' -StateRoot $stateRoot
+                    }
+
+                    $current = Get-LabRunState -RunId $run.runId -StateRoot $stateRoot
+                    if ($current.state -eq 'CLEANUP_RUNNING') {
+                        $null = Set-LabRunState -RunId $run.runId -NewState 'CLEANED_UP' -Reason 'State war nachweislich verwaist' -StateRoot $stateRoot
+                    }
+                }
+
+                $current = Get-LabRunState -RunId $run.runId -StateRoot $stateRoot
+                if ($current.state -eq 'CLEANED_UP') {
+                    $null = Set-LabRunState -RunId $run.runId -NewState 'REMOVED' -Reason 'Verwaisten State finalisiert' -StateRoot $stateRoot
+                }
+                $null = Remove-LabSecrets -Path $runDirectory
+                $removedStateRuns++
+            }
+            catch {
+                Write-LabError "State $($run.runId) konnte nicht bereinigt werden: $($_.Exception.Message)"
+                $errors++
+            }
+        }
+    }
+    elseif ($ContainersOnly) {
+        foreach ($container in $allContainers) {
+            if (-not $container.ScopeId) {
+                Write-LabError "Container '$($container.Name)' besitzt kein Scope-Label; Entfernung verweigert."
+                $errors++
+                continue
+            }
+
+            try {
+                switch ($container.Provider) {
+                    'docker' {
+                        $null = Remove-DockerInstance -ContainerIdOrName $container.ContainerId -ExpectedScopeId $container.ScopeId
+                    }
+                    'podman' {
+                        $null = Remove-PodmanInstance -ContainerIdOrName $container.ContainerId -ExpectedScopeId $container.ScopeId
+                    }
+                }
+                $removedContainers++
+            }
+            catch {
+                Write-LabError "Container '$($container.Name)' konnte nicht entfernt werden: $($_.Exception.Message)"
+                $errors++
+            }
+        }
+    }
+    else {
+        foreach ($run in $activeRuns) {
+            try {
+                $result = Remove-SqlServerLab -RunId $run.runId -StateRoot $stateRoot -Force
+                if ($result.Status -eq 'REMOVED') {
+                    $removedStateRuns++
+                    $removedContainers += @($allContainers | Where-Object { $_.RunId -eq $run.runId }).Count
                 }
                 else {
-                    Write-LabError "  Fehler bei $($c.Name)"
-                    $removed.Errors++
+                    $errors += [Math]::Max(1, [int]$result.Errors)
                 }
             }
             catch {
-                Write-LabError "  $($c.Name): $_"
-                $removed.Errors++
+                Write-LabError "Run '$($run.runId)' konnte nicht entfernt werden: $($_.Exception.Message)"
+                $errors++
             }
         }
-    }
 
-    # =========================================================================
-    # 6. State-Eintraege bereinigen
-    # =========================================================================
-    if (-not $ContainersOnly) {
-        foreach ($s in $activeStates) {
-            Write-LabInfo "State bereinigen: $($s.RunId.Substring(0,8))... ($($s.State))..."
+        foreach ($container in $orphanContainers) {
+            if (-not $container.ScopeId) {
+                Write-LabError "Orphan '$($container.Name)' besitzt kein Scope-Label; Entfernung verweigert."
+                $errors++
+                continue
+            }
+
             try {
-                # State auf REMOVED setzen
-                $stateFile = Join-Path $s.Path 'run-state.json'
-                $state = Get-Content $stateFile -Raw | ConvertFrom-Json
-                $state.state = 'REMOVED'
-                $state | ConvertTo-Json -Depth 10 | Set-Content $stateFile -Encoding utf8
-
-                # Secrets loeschen
-                $secretsDir = Join-Path $s.Path 'secrets'
-                if (Test-Path $secretsDir) {
-                    Get-ChildItem $secretsDir -File | Remove-Item -Force
+                switch ($container.Provider) {
+                    'docker' {
+                        $null = Remove-DockerInstance -ContainerIdOrName $container.ContainerId -ExpectedScopeId $container.ScopeId
+                    }
+                    'podman' {
+                        $null = Remove-PodmanInstance -ContainerIdOrName $container.ContainerId -ExpectedScopeId $container.ScopeId
+                    }
                 }
-
-                Write-LabSuccess "  Bereinigt: $($s.RunId.Substring(0,8))..."
-                $removed.StateRuns++
+                $removedContainers++
             }
             catch {
-                Write-LabError "  State-Fehler: $_"
-                $removed.Errors++
+                Write-LabError "Orphan '$($container.Name)' konnte nicht entfernt werden: $($_.Exception.Message)"
+                $errors++
             }
         }
     }
 
-    # =========================================================================
-    # 7. Ergebnis
-    # =========================================================================
-    Write-Host ''
+    $status = if ($errors -eq 0) { 'CLEAN' } else { 'PARTIAL' }
     Write-LabHeader 'Cleanup abgeschlossen'
-    Write-LabStatus -Label 'Container entfernt' -Value $removed.Containers -Color 'Green'
-    Write-LabStatus -Label 'State bereinigt' -Value $removed.StateRuns -Color 'Green'
-    if ($removed.Errors -gt 0) {
-        Write-LabStatus -Label 'Fehler' -Value $removed.Errors -Color 'Red'
+    Write-LabStatus -Label 'Container entfernt' -Value $removedContainers -Color 'Green'
+    Write-LabStatus -Label 'State-Runs bereinigt' -Value $removedStateRuns -Color 'Green'
+    if ($errors -gt 0) {
+        Write-LabStatus -Label 'Fehler' -Value $errors -Color 'Red'
     }
 
     return [PSCustomObject]@{
-        Containers = $removed.Containers
-        StateRuns  = $removed.StateRuns
-        Errors     = $removed.Errors
-        Status     = if ($removed.Errors -eq 0) { 'CLEAN' } else { 'PARTIAL' }
+        Containers = $removedContainers
+        StateRuns  = $removedStateRuns
+        Errors     = $errors
+        Status     = $status
     }
 }
