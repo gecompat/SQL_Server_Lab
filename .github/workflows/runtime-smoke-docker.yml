@@ -8,12 +8,9 @@ on:
     paths:
       - 'Catalogs/**'
       - 'Private/**'
-      - '!Private/ZZ_TempDbRestartProvisioning.ps1'
-      - '!Private/ZZZ_TempDbProviderInference.ps1'
       - 'Providers/Docker/**'
       - 'Public/**'
       - 'Tests/**'
-      - '!Tests/Integration/Invoke-Sql2025FortyGbDemo.ps1'
       - 'SqlServerLab.psd1'
       - 'SqlServerLab.psm1'
       - '.github/workflows/runtime-smoke-docker.yml'
@@ -22,7 +19,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: sql-server-lab-runtime-smoke-docker-${{ github.event.pull_request.number || github.ref_name }}
+  group: sql-server-lab-runtime-smoke-docker
   cancel-in-progress: true
 
 jobs:
@@ -56,12 +53,12 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $logPath = Join-Path $env:RUNNER_TEMP 'docker-smoke-matrix.log'
-          $mutexName = if ($IsWindows) { 'Global\SQL_Server_Lab_Docker_Host' } else { 'SQL_Server_Lab_Docker_Host' }
+          $mutexName = if ($IsWindows) { 'Global\SQL_Server_Lab_Runtime_Smoke' } else { 'SQL_Server_Lab_Runtime_Smoke' }
           $mutex = [System.Threading.Mutex]::new($false, $mutexName)
           $acquired = $false
           try {
-            $acquired = $mutex.WaitOne([TimeSpan]::FromMinutes(45))
-            if (-not $acquired) { throw 'Docker-Hostlock konnte innerhalb von 45 Minuten nicht erworben werden.' }
+            $acquired = $mutex.WaitOne([TimeSpan]::FromMinutes(10))
+            if (-not $acquired) { throw 'Runtime-Smoke-Hostlock konnte innerhalb von 10 Minuten nicht erworben werden.' }
 
             & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-SmokeMatrix.ps1 `
               -Provider docker `
