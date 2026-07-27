@@ -92,41 +92,59 @@ function New-DockerInstance {
 
     try {
         return Invoke-LabPortAllocationLock -Action {
-            $selectedPort = if ($Port -eq 0) {
-                Find-AvailablePort
-            }
-            else {
-                $Port
-            }
+            $automaticPort = $Port -eq 0
+            $nextPort = if ($automaticPort) { 14330 } else { $Port }
+            $selectedPort = $null
+            $output = $null
 
-            $dockerArguments = @(
-                'run', '-d',
-                '--name', $containerName,
-                '-p', "${selectedPort}:1433",
-                '-e', 'ACCEPT_EULA=Y',
-                '-e', "MSSQL_SA_PASSWORD=$saPlain",
-                '-e', 'MSSQL_PID=Developer',
-                '-e', 'MSSQL_AGENT_ENABLED=true',
-                '--memory', $memoryLimit,
-                '--cpus', $cpuLimit,
-                '--label', "sql-server-lab.run-id=$RunId",
-                '--label', "sql-server-lab.scope-id=$ScopeId",
-                '--label', "sql-server-lab.instance-id=$InstanceId",
-                '--label', "sql-server-lab.version=$VersionId",
-                '--label', 'sql-server-lab.provider=docker',
-                '--label', "sql-server-lab.created-at=$(Get-LabTimestamp)",
-                '--health-cmd', '/opt/mssql-tools*/bin/sqlcmd -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -Q "SELECT 1" -b',
-                '--health-interval', '5s',
-                '--health-timeout', '3s',
-                '--health-retries', '30',
-                $volumeArguments,
-                $image
-            )
+            while ($true) {
+                $selectedPort = if ($automaticPort) {
+                    Find-AvailablePort -RangeStart $nextPort -RangeEnd 14399
+                }
+                else {
+                    $Port
+                }
 
-            Write-LabInfo "Container erstellen: $containerName (Port $selectedPort, Image $image) [Docker]"
-            $output = docker @dockerArguments 2>&1
-            if ($LASTEXITCODE -ne 0) {
-                throw "Docker-Container konnte nicht erstellt werden: $(($output | Out-String).Trim())"
+                $dockerArguments = @(
+                    'run', '-d',
+                    '--name', $containerName,
+                    '-p', "${selectedPort}:1433",
+                    '-e', 'ACCEPT_EULA=Y',
+                    '-e', "MSSQL_SA_PASSWORD=$saPlain",
+                    '-e', 'MSSQL_PID=Developer',
+                    '-e', 'MSSQL_AGENT_ENABLED=true',
+                    '--memory', $memoryLimit,
+                    '--cpus', $cpuLimit,
+                    '--label', "sql-server-lab.run-id=$RunId",
+                    '--label', "sql-server-lab.scope-id=$ScopeId",
+                    '--label', "sql-server-lab.instance-id=$InstanceId",
+                    '--label', "sql-server-lab.version=$VersionId",
+                    '--label', 'sql-server-lab.provider=docker',
+                    '--label', "sql-server-lab.created-at=$(Get-LabTimestamp)",
+                    '--health-cmd', '/opt/mssql-tools*/bin/sqlcmd -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -Q "SELECT 1" -b',
+                    '--health-interval', '5s',
+                    '--health-timeout', '3s',
+                    '--health-retries', '30',
+                    $volumeArguments,
+                    $image
+                )
+
+                Write-LabInfo "Container erstellen: $containerName (Port $selectedPort, Image $image) [Docker]"
+                $output = docker @dockerArguments 2>&1
+                $exitCode = $LASTEXITCODE
+                if ($exitCode -eq 0) {
+                    break
+                }
+
+                $outputText = ($output | Out-String).Trim()
+                $bindConflict = $outputText -match '(?i)(address already in use|port is already allocated|failed programming external connectivity)'
+                if (-not $automaticPort -or -not $bindConflict -or $selectedPort -ge 14399) {
+                    throw "Docker-Container konnte nicht erstellt werden: $outputText"
+                }
+
+                docker rm -f $containerName 1>$null 2>$null
+                $nextPort = $selectedPort + 1
+                Write-LabWarning "Port $selectedPort wurde beim Runtime-Bindungsschritt belegt. Docker versucht Port $nextPort."
             }
 
             $containerId = $output |
