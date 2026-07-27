@@ -538,7 +538,7 @@ ALTER RESOURCE GOVERNOR RECONFIGURE;
 
             switch ([string]$language.name) {
                 'R' {
-                    $command = "Rscript -e \"install.packages('$packageName', repos='https://cran.r-project.org')\""
+                    $command = 'Rscript -e "install.packages(''{0}'', repos=''https://cran.r-project.org'')"' -f $packageName
                     $packageOutput = & $runtime exec $ContainerName bash -lc $command 2>&1
                 }
                 'Python' {
