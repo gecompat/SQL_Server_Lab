@@ -1,19 +1,110 @@
 <#
 .SYNOPSIS
-    Stellt eine Datenbank aus einem .bak-Backup in einem Lab wieder her.
+    Stellt eine Datenbank aus einer direkten .bak-Datei wieder her.
 .DESCRIPTION
-    Unterstuetzt drei Quellen:
-    - URL: Download + Cache in StateRoot/cache/
-    - Lokaler Pfad: Wird direkt verwendet
-    - Container-Volume: Pfad innerhalb des Containers
-
-    Fuehrt RESTORE DATABASE ... WITH MOVE aus, um Datenbankdateien
-    auf Container-kompatible Pfade umzuleiten.
+    Unterstuetzt lokale Dateien und HTTP(S)-URLs. Das Backup wird in den
+    eindeutig bestimmten Docker- oder Podman-Container kopiert und mit
+    RESTORE FILELISTONLY sowie RESTORE DATABASE ... WITH MOVE verarbeitet.
 .EXAMPLE
-    Restore-LabDatabase -Port 14330 -SaPassword $pw -BackupSource 'https://...' -DatabaseName 'AdventureWorks'
-.EXAMPLE
-    Restore-LabDatabase -Port 14330 -SaPassword $pw -BackupSource 'C:\Backups\AW.bak' -DatabaseName 'AW'
+    Restore-LabDatabase -Provider docker -ContainerName $lab.Instances[0].ContainerName -Port $lab.Instances[0].Port -SaPassword $pw -BackupSource 'C:\Backups\AW.bak' -DatabaseName 'AdventureWorks'
 #>
+
+function Resolve-LabRestoreContainer {
+    [CmdletBinding()]
+    param(
+        [ValidateSet('docker', 'podman')][string]$Provider,
+        [string]$ContainerName,
+        [Parameter(Mandatory)][int]$Port
+    )
+
+    $candidateProviders = if ($Provider) { @($Provider) } else { @('docker', 'podman') }
+    $matches = @()
+
+    foreach ($candidateProvider in $candidateProviders) {
+        if (-not (Get-Command $candidateProvider -ErrorAction SilentlyContinue)) {
+            continue
+        }
+
+        & $candidateProvider info 1>$null 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            continue
+        }
+
+        if ($ContainerName) {
+            $inspect = & $candidateProvider inspect $ContainerName 2>$null |
+                ConvertFrom-Json -Depth 30
+            if ($LASTEXITCODE -eq 0 -and $inspect) {
+                $item = @($inspect)[0]
+                $runId = [string]$item.Config.Labels.'sql-server-lab.run-id'
+                if (-not $runId) {
+                    throw "Container '$ContainerName' bei $candidateProvider ist kein SQL_Server_Lab-Container."
+                }
+                $matches += [PSCustomObject]@{
+                    Provider      = $candidateProvider
+                    ContainerName = ([string]$item.Name).TrimStart('/')
+                    RunId         = $runId
+                    ScopeId       = [string]$item.Config.Labels.'sql-server-lab.scope-id'
+                }
+            }
+            continue
+        }
+
+        $output = & $candidateProvider ps -a `
+            --filter 'label=sql-server-lab.run-id' `
+            --format '{{.Names}}|{{.Ports}}' 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            continue
+        }
+
+        foreach ($line in @($output)) {
+            $parts = ([string]$line).Split('|', 2)
+            if ($parts.Count -ne 2 -or $parts[1] -notmatch ":$Port->1433") {
+                continue
+            }
+
+            $name = $parts[0].Trim()
+            $inspect = & $candidateProvider inspect $name 2>$null |
+                ConvertFrom-Json -Depth 30
+            if ($LASTEXITCODE -ne 0 -or -not $inspect) {
+                continue
+            }
+
+            $item = @($inspect)[0]
+            $matches += [PSCustomObject]@{
+                Provider      = $candidateProvider
+                ContainerName = ([string]$item.Name).TrimStart('/')
+                RunId         = [string]$item.Config.Labels.'sql-server-lab.run-id'
+                ScopeId       = [string]$item.Config.Labels.'sql-server-lab.scope-id'
+            }
+        }
+    }
+
+    $matches = @(
+        $matches |
+            Sort-Object Provider, ContainerName -Unique
+    )
+
+    if ($matches.Count -eq 0) {
+        $targetText = if ($ContainerName) {
+            "Container '$ContainerName'"
+        }
+        else {
+            "Lab-Container fuer Host-Port $Port"
+        }
+        throw "$targetText wurde bei keinem erreichbaren Provider gefunden."
+    }
+
+    if ($matches.Count -gt 1) {
+        $matchText = $matches |
+            ForEach-Object { "$($_.Provider):$($_.ContainerName)" } |
+            Sort-Object |
+            Join-String -Separator ', '
+        throw "Restore-Ziel ist nicht eindeutig: $matchText. Bitte -Provider und -ContainerName angeben."
+    }
+
+    return $matches[0]
+}
+
 function Restore-LabDatabase {
     [CmdletBinding()]
     param(
@@ -22,6 +113,7 @@ function Restore-LabDatabase {
         [Parameter(Mandatory)][SecureString]$SaPassword,
         [Parameter(Mandatory)][string]$BackupSource,
         [Parameter(Mandatory)][string]$DatabaseName,
+        [ValidateSet('docker', 'podman')][string]$Provider,
         [string]$ContainerName,
         [string]$DataPath = '/var/opt/mssql/data',
         [switch]$Replace,
@@ -30,179 +122,204 @@ function Restore-LabDatabase {
 
     $ErrorActionPreference = 'Stop'
 
-    $saPlain = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto(
-        [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword))
+    if ($DatabaseName -notmatch '^[A-Za-z][A-Za-z0-9_]{0,127}$') {
+        throw "DatabaseName '$DatabaseName' ist ungueltig."
+    }
+    if ($Port -lt 1 -or $Port -gt 65535) {
+        throw "Port '$Port' liegt ausserhalb des gueltigen TCP-Portbereichs."
+    }
+    if (-not $DataPath.StartsWith('/')) {
+        throw "DataPath '$DataPath' muss ein absoluter Linux-Containerpfad sein."
+    }
 
-    # =========================================================================
-    # 1. Backup-Datei beschaffen
-    # =========================================================================
-    $backupPath = $null
-
-    if ($BackupSource -match '^https?://') {
-        # URL -> Download + Cache
+    $backupPath = if ($BackupSource -match '^https?://') {
         Write-LabInfo "Download: $BackupSource"
-        $backupPath = Get-LabCachedBackup -Url $BackupSource -StateRoot $StateRoot
-        Write-LabSuccess "Cached: $backupPath"
+        Get-LabCachedBackup -Url $BackupSource -StateRoot $StateRoot
     }
-    elseif (Test-Path $BackupSource) {
-        # Lokaler Pfad
-        $backupPath = Resolve-Path $BackupSource
-        Write-LabInfo "Lokales Backup: $backupPath"
+    elseif (Test-Path -LiteralPath $BackupSource -PathType Leaf) {
+        (Resolve-Path -LiteralPath $BackupSource).Path
     }
     else {
-        throw "Backup-Quelle nicht gefunden: $BackupSource"
+        throw "Backup-Quelle nicht gefunden oder kein direktes File: $BackupSource"
     }
 
-    # =========================================================================
-    # 2. Backup in Container kopieren (falls noetig)
-    # =========================================================================
-    $containerBackupPath = "/var/opt/mssql/backup/$($DatabaseName).bak"
-    $rt = Get-ContainerRuntime
+    $restoreTarget = Resolve-LabRestoreContainer `
+        -Provider $Provider `
+        -ContainerName $ContainerName `
+        -Port $Port
+    $runtime = $restoreTarget.Provider
+    $ContainerName = $restoreTarget.ContainerName
 
-    if ($ContainerName) {
-        Write-LabInfo "Kopiere Backup in Container: $ContainerName"
-        & $rt exec $ContainerName mkdir -p /var/opt/mssql/backup 2>$null
-        & $rt cp $backupPath "${ContainerName}:${containerBackupPath}"
-        if ($LASTEXITCODE -ne 0) { throw "Backup-Kopie in Container fehlgeschlagen." }
+    $containerBackupPath = "/var/opt/mssql/backup/${DatabaseName}.bak"
+    Write-LabInfo "Kopiere Backup nach $runtime/${ContainerName}:${containerBackupPath}"
+
+    & $runtime exec $ContainerName mkdir -p /var/opt/mssql/backup 1>$null 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        throw "Backup-Verzeichnis konnte im $runtime-Container nicht erstellt werden."
     }
-    else {
-        # Container-Name aus Label ermitteln (wenn nicht angegeben)
-        $containers = & $rt ps -q --filter "label=sql-server-lab.run-id" 2>$null
-        if ($containers) {
-            $firstContainer = ($containers | Select-Object -First 1).Trim()
-            $inspectJson = & $rt inspect $firstContainer 2>$null | ConvertFrom-Json
-            $ContainerName = $inspectJson[0].Name.TrimStart('/')
-            Write-LabInfo "Container erkannt: $ContainerName"
-            & $rt exec $ContainerName mkdir -p /var/opt/mssql/backup 2>$null
-            & $rt cp $backupPath "${ContainerName}:${containerBackupPath}"
-            if ($LASTEXITCODE -ne 0) { throw "Backup-Kopie in Container fehlgeschlagen." }
+
+    & $runtime cp $backupPath "${ContainerName}:${containerBackupPath}" 1>$null 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        throw "Backup-Kopie in den $runtime-Container ist fehlgeschlagen."
+    }
+
+    $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword)
+    try {
+        $saPlain = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+    }
+    finally {
+        [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+    }
+
+    try {
+        Write-LabInfo 'Lese Backup-Metadaten mit RESTORE FILELISTONLY...'
+        $escapedContainerBackupPath = $containerBackupPath.Replace("'", "''")
+        $fileListQuery = "RESTORE FILELISTONLY FROM DISK = N'$escapedContainerBackupPath';"
+        $fileListOutput = sqlcmd `
+            -S "$HostName,$Port" `
+            -U sa `
+            -P $saPlain `
+            -C `
+            -b `
+            -Q $fileListQuery `
+            -s '|' `
+            -W `
+            -h 1 2>&1
+        $fileListExitCode = $LASTEXITCODE
+        $fileListText = ($fileListOutput | ForEach-Object { [string]$_ }) -join "`n"
+
+        if ($fileListExitCode -ne 0 -or $fileListText -match 'Msg \d+, Level (1[1-9]|[2-9]\d)') {
+            throw "FILELISTONLY fehlgeschlagen: $fileListText"
         }
-        else {
-            throw "Kein Lab-Container gefunden. Bitte -ContainerName angeben."
-        }
-    }
 
-    # =========================================================================
-    # 3. RESTORE FILELISTONLY (logische Dateinamen ermitteln)
-    # =========================================================================
-    Write-LabInfo "Lese Backup-Metadaten (FILELISTONLY)..."
+        $moveStatements = @()
+        $dataFileIndex = 0
+        $logFileIndex = 0
 
-    $fileListQuery = "RESTORE FILELISTONLY FROM DISK = '$containerBackupPath'"
-    $fileListOutput = sqlcmd -S "$HostName,$Port" -U sa -P $saPlain `
-        -Q $fileListQuery -s '|' -W -h 1 2>&1
-    $fileListText = ($fileListOutput | ForEach-Object { "$_" }) -join "`n"
+        foreach ($lineValue in @($fileListOutput)) {
+            $line = ([string]$lineValue).Trim()
+            if ($line -notmatch '^([^|]+)\|[^|]*\|([DL])(?:\||$)') {
+                continue
+            }
 
-    if ($LASTEXITCODE -ne 0 -or $fileListText -match 'Msg \d+, Level (1[1-9]|[2-9]\d)') {
-        throw "FILELISTONLY fehlgeschlagen: $fileListText"
-    }
-
-    # Parse: LogicalName | Type (D=Data, L=Log)
-    $moveStatements = @()
-    $fileListOutput | ForEach-Object {
-        $line = "$_".Trim()
-        if ($line -match '^([^|]+)\|[^|]*\|([DL])') {
             $logicalName = $Matches[1].Trim()
             $fileType = $Matches[2]
-            $ext = if ($fileType -eq 'D') { '.mdf' } else { '.ldf' }
-            # Erstes Data File -> .mdf, weitere -> .ndf
-            if ($fileType -eq 'D' -and $moveStatements.Count -gt 0 -and ($moveStatements | Where-Object { $_ -match '\.mdf' })) {
-                $ext = '.ndf'
+            $escapedLogicalName = $logicalName.Replace("'", "''")
+
+            if ($fileType -eq 'D') {
+                $dataFileIndex++
+                $extension = if ($dataFileIndex -eq 1) { '.mdf' } else { ".${dataFileIndex}.ndf" }
+                $targetFile = "${DataPath}/${DatabaseName}_Data${dataFileIndex}${extension}"
             }
-            $targetFile = "${DataPath}/${DatabaseName}_${logicalName}${ext}"
-            $moveStatements += "MOVE '$logicalName' TO '$targetFile'"
+            else {
+                $logFileIndex++
+                $targetFile = "${DataPath}/${DatabaseName}_Log${logFileIndex}.ldf"
+            }
+
+            $escapedTargetFile = $targetFile.Replace("'", "''")
+            $moveStatements += "MOVE N'$escapedLogicalName' TO N'$escapedTargetFile'"
         }
-    }
 
-    if ($moveStatements.Count -eq 0) {
-        throw "Keine logischen Dateien im Backup erkannt. FILELISTONLY-Output: $fileListText"
-    }
+        if ($moveStatements.Count -eq 0) {
+            throw "Keine logischen Dateien im Backup erkannt. FILELISTONLY-Output: $fileListText"
+        }
 
-    Write-LabInfo "$($moveStatements.Count) Datei(en) im Backup erkannt."
-
-    # =========================================================================
-    # 4. RESTORE DATABASE ... WITH MOVE
-    # =========================================================================
-    $moveClauses = $moveStatements -join ",`n        "
-    $withClause = if ($Replace) { ", REPLACE" } else { "" }
-
-    $restoreQuery = @"
-RESTORE DATABASE [$DatabaseName]
-    FROM DISK = '$containerBackupPath'
-    WITH $moveClauses$withClause;
+        $escapedDatabaseName = $DatabaseName.Replace(']', ']]')
+        $moveClauses = $moveStatements -join ",`n        "
+        $replaceClause = if ($Replace) { ', REPLACE' } else { '' }
+        $restoreQuery = @"
+RESTORE DATABASE [$escapedDatabaseName]
+    FROM DISK = N'$escapedContainerBackupPath'
+    WITH $moveClauses$replaceClause;
 "@
 
-    Write-LabInfo "RESTORE DATABASE [$DatabaseName]..."
-    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+        Write-LabInfo "RESTORE DATABASE [$DatabaseName]..."
+        $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+        $restoreOutput = sqlcmd `
+            -S "$HostName,$Port" `
+            -U sa `
+            -P $saPlain `
+            -C `
+            -b `
+            -Q $restoreQuery 2>&1
+        $restoreExitCode = $LASTEXITCODE
+        $stopwatch.Stop()
+        $restoreText = ($restoreOutput | ForEach-Object { [string]$_ }) -join "`n"
 
-    $restoreOutput = sqlcmd -S "$HostName,$Port" -U sa -P $saPlain `
-        -Q $restoreQuery -b 2>&1
-    $restoreText = ($restoreOutput | ForEach-Object { "$_" }) -join "`n"
-    $sw.Stop()
+        if ($restoreExitCode -ne 0 -or $restoreText -match 'Msg \d+, Level (1[1-9]|[2-9]\d)') {
+            return [PSCustomObject]@{
+                Success      = $false
+                DatabaseName = $DatabaseName
+                Provider     = $runtime
+                ContainerName = $ContainerName
+                Message      = "RESTORE fehlgeschlagen: $restoreText"
+                Duration     = $stopwatch.Elapsed
+                Files        = $moveStatements.Count
+            }
+        }
 
-    $saPlain = $null
-
-    if ($LASTEXITCODE -ne 0 -or $restoreText -match 'Msg \d+, Level (1[1-9]|[2-9]\d)') {
+        Write-LabSuccess "Datenbank wiederhergestellt: $DatabaseName ($($moveStatements.Count) Dateien, $($stopwatch.Elapsed.TotalSeconds.ToString('F1'))s)"
         return [PSCustomObject]@{
-            Success      = $false
-            DatabaseName = $DatabaseName
-            Message      = "RESTORE fehlgeschlagen: $restoreText"
-            Duration     = $sw.Elapsed
-            Files        = $moveStatements.Count
+            Success       = $true
+            DatabaseName  = $DatabaseName
+            Provider      = $runtime
+            ContainerName = $ContainerName
+            Message       = 'RESTORE erfolgreich'
+            Duration      = $stopwatch.Elapsed
+            Files         = $moveStatements.Count
         }
     }
-
-    Write-LabSuccess "Datenbank wiederhergestellt: $DatabaseName ($($moveStatements.Count) Dateien, $($sw.Elapsed.TotalSeconds.ToString('F1'))s)"
-
-    return [PSCustomObject]@{
-        Success      = $true
-        DatabaseName = $DatabaseName
-        Message      = "RESTORE erfolgreich"
-        Duration     = $sw.Elapsed
-        Files        = $moveStatements.Count
+    finally {
+        $saPlain = $null
     }
 }
 
 function Get-LabCachedBackup {
-    <#
-    .SYNOPSIS Laedt ein Backup von URL herunter und cached es lokal.
-    .DESCRIPTION Prueft ob Datei bereits im Cache liegt (Dateiname + Groesse).
-                 Cache-Verzeichnis: <StateRoot>/cache/backups/
-    #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$Url,
         [string]$StateRoot
     )
 
-    if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
-    $cacheDir = Join-Path $StateRoot 'cache/backups'
-    if (-not (Test-Path $cacheDir)) { New-Item -Path $cacheDir -ItemType Directory -Force | Out-Null }
+    if (-not $StateRoot) {
+        $StateRoot = Get-LabStateRoot
+    }
 
-    # Dateiname aus URL
-    $fileName = [System.IO.Path]::GetFileName([System.Uri]::new($Url).LocalPath)
-    if (-not $fileName) { $fileName = "backup_$(Get-LabTimestamp).bak" }
-    $cachedPath = Join-Path $cacheDir $fileName
+    $cacheDirectory = Join-Path $StateRoot 'cache/backups'
+    if (-not (Test-Path -LiteralPath $cacheDirectory -PathType Container)) {
+        New-Item -Path $cacheDirectory -ItemType Directory -Force | Out-Null
+    }
 
-    # Cache-Hit?
-    if (Test-Path $cachedPath) {
-        $fileSize = (Get-Item $cachedPath).Length
+    $uri = [System.Uri]::new($Url)
+    $fileName = [System.IO.Path]::GetFileName($uri.LocalPath)
+    if (-not $fileName -or $fileName -notmatch '(?i)\.bak$') {
+        throw "Download-URL verweist nicht auf eine direkte .bak-Datei: $Url"
+    }
+
+    $cachedPath = Join-Path $cacheDirectory $fileName
+    if (Test-Path -LiteralPath $cachedPath -PathType Leaf) {
+        $fileSize = (Get-Item -LiteralPath $cachedPath).Length
         Write-LabInfo "Cache-Hit: $fileName ($([Math]::Round($fileSize / 1MB, 1)) MB)"
         return $cachedPath
     }
 
-    # Download
-    Write-LabInfo "Downloading: $fileName ..."
+    Write-LabInfo "Download: $fileName"
+    $previousProgressPreference = $ProgressPreference
     try {
         $ProgressPreference = 'SilentlyContinue'
-        Invoke-WebRequest -Uri $Url -OutFile $cachedPath -UseBasicParsing
-        $ProgressPreference = 'Continue'
+        Invoke-WebRequest -Uri $Url -OutFile $cachedPath
     }
     catch {
-        if (Test-Path $cachedPath) { Remove-Item $cachedPath -Force }
-        throw "Download fehlgeschlagen: $Url - $_"
+        if (Test-Path -LiteralPath $cachedPath) {
+            Remove-Item -LiteralPath $cachedPath -Force
+        }
+        throw "Download fehlgeschlagen: $Url - $($_.Exception.Message)"
+    }
+    finally {
+        $ProgressPreference = $previousProgressPreference
     }
 
-    $fileSize = (Get-Item $cachedPath).Length
+    $fileSize = (Get-Item -LiteralPath $cachedPath).Length
     Write-LabSuccess "Downloaded: $fileName ($([Math]::Round($fileSize / 1MB, 1)) MB)"
     return $cachedPath
 }
