@@ -16,10 +16,14 @@ sources_of_truth:
   sample_databases: Catalogs/sample-databases.json
   state_contract: Private/StateMachine.ps1
   cleanup_contract: Private/CleanupEngine.ps1
+  port_allocation_contract: Private/PortAllocation.ps1
   runtime_limitations: Documentation/Quality/KNOWN_LIMITATIONS.md
   user_entrypoint: README.md
   user_walkthrough: Documentation/User/Getting_Started.md
-  validation_entrypoint: Tests/Static/Invoke-DocumentationChecks.ps1
+  validation_documentation: Tests/Static/Invoke-DocumentationChecks.ps1
+  validation_runtime_contracts: Tests/Static/Invoke-ReadinessContractChecks.ps1
+  validation_runtime_matrix: Tests/Integration/Invoke-SmokeMatrix.ps1
+  latest_validation_result: Documentation/Quality/VALIDATION_RESULT_2026-07-27.md
 
 public_commands:
   - name: Invoke-SqlServerLab
@@ -111,11 +115,18 @@ internal_components:
     responsibilities:
       - "Cleanup-Plan vor Mutation erzeugen"
       - "Compensation-Schritte speichern und ausführen"
+  - name: PortAllocation
+    source: Private/PortAllocation.ps1
+    responsibilities:
+      - "belegte SQL-Hostports aus TCP-Listenern, Docker und Podman ermitteln"
+      - "Portsuche und Runtime-Bindung mit hostweitem, prozessübergreifendem Mutex serialisieren"
+      - "atomare Parallelprovisionierung unterstützen"
   - name: SqlReadiness
     source: Private/SqlReadiness.ps1
     responsibilities:
-      - "SQL-Erreichbarkeit prüfen"
-      - "Version und Bereitschaft ermitteln"
+      - "SQL-Erreichbarkeit und Major-Version prüfen"
+      - "Benutzerdatenbank-Readiness nach Start oder Restart pollen"
+      - "Podman-Windows-Localhostfehler früh diagnostizieren"
   - name: ServerConfig
     source: Private/ServerConfig.ps1
     responsibilities:
@@ -133,11 +144,14 @@ providers:
     implementation: Providers/Docker/DockerProvider.ps1
     metadata: Providers/Docker/provider.json
     command: docker
+    port_binding: "gemeinsame Portermittlung plus Runtime-Retry innerhalb des hostweiten Locks"
   podman:
     status: implemented
     implementation: Providers/Podman/PodmanProvider.ps1
     metadata: Providers/Podman/provider.json
     command: podman
+    windows_networking: Documentation/HowTo/PODMAN_WINDOWS_NETWORKING.md
+    port_binding: "gemeinsame Portermittlung plus Runtime-Retry innerhalb des hostweiten Locks"
   hyperv:
     status: planned
     documentation: Providers/HyperV/README.md
@@ -154,7 +168,7 @@ catalogs:
 
 state_files:
   root_resolution:
-    windows: "%LOCALAPPDATA%\\SqlServerLab"
+    windows: "%LOCALAPPDATA%\SqlServerLab"
     linux_macos: "~/.sql-server-lab"
     override_environment_variable: SQL_SERVER_LAB_STATE
   per_run:
@@ -172,7 +186,9 @@ provisioning_flow:
   - "Test-LabResources"
   - "New-LabRunState"
   - "New-CleanupPlan"
-  - "Provider-Container erstellen"
+  - "Invoke-LabPortAllocationLock"
+  - "Find-LabAvailablePort"
+  - "Provider-Container erstellen und Port runtimeautoritativ binden"
   - "Wait-SqlReady"
   - "Set-LabServerConfig"
   - "New-LabDatabase für Create-Datenbanken"
@@ -183,14 +199,55 @@ provisioning_flow:
   - "State RUNNING"
 
 validation:
-  static:
-    command: ".\\Tests\\Static\\Invoke-DocumentationChecks.ps1"
+  static_documentation:
+    command: ".\Tests\Static\Invoke-DocumentationChecks.ps1"
     source: Tests/Static/Invoke-DocumentationChecks.ps1
-  docker_smoke:
-    command: ".\\Tests\\Integration\\Invoke-SmokeTest.ps1 -Provider docker"
-  podman_smoke:
-    command: ".\\Tests\\Integration\\Invoke-SmokeTest.ps1 -Provider podman"
-  auto_behavior: "Wählt für den mutierenden Lifecycle Docker vor Podman; Resource Assessment prüft alle erkannten Provider"
+  static_runtime_contracts:
+    command: ".\Tests\Static\Invoke-ReadinessContractChecks.ps1"
+    source: Tests/Static/Invoke-ReadinessContractChecks.ps1
+    covers:
+      - readiness
+      - interactive_menu
+      - atomic_port_allocation
+  single_provider_smoke:
+    source: Tests/Integration/Invoke-SmokeTest.ps1
+    docker: ".\Tests\Integration\Invoke-SmokeTest.ps1 -Provider docker"
+    podman: ".\Tests\Integration\Invoke-SmokeTest.ps1 -Provider podman"
+  runtime_matrix:
+    source: Tests/Integration/Invoke-SmokeMatrix.ps1
+    command: ".\Tests\Integration\Invoke-SmokeMatrix.ps1 -Provider all -FullMatrix -IncludeParallel"
+    versions:
+      - "2019"
+      - "2022"
+      - "2025"
+    checks:
+      - full_lifecycle_per_provider
+      - major_version_matrix
+      - parallel_unique_run_and_scope_ids
+      - parallel_unique_ports
+      - isolated_cleanup
+  remote_workflows:
+    docker:
+      source: .github/workflows/runtime-smoke-docker.yml
+      labels:
+        - self-hosted
+        - SQL_Lab
+        - Docker
+    podman:
+      source: .github/workflows/runtime-smoke-podman.yml
+      labels:
+        - self-hosted
+        - SQL_Lab
+        - Podman
+    triggers:
+      - workflow_dispatch
+      - pull_request
+    push_trigger: false
+  last_confirmed_result:
+    date: "2026-07-27"
+    source: Documentation/Quality/VALIDATION_RESULT_2026-07-27.md
+    docker: "PASS – 2019, 2022, 2025 lifecycle and parallel runs"
+    podman: "PASS – 2019, 2022, 2025 lifecycle and parallel runs"
 
 change_coupling:
   public_command_change:
@@ -209,24 +266,29 @@ change_coupling:
     - "mindestens ein example-*.json"
     - Tests/Static/Invoke-DocumentationChecks.ps1
   provider_change:
+    - Private/PortAllocation.ps1
     - Providers/<Provider>/<Provider>Provider.ps1
     - Providers/<Provider>/provider.json
     - Providers/<Provider>/README.md
     - README.md
     - Documentation/Quality/KNOWN_LIMITATIONS.md
+    - Tests/Static/Invoke-ReadinessContractChecks.ps1
     - Tests/Integration/Invoke-SmokeTest.ps1
+    - Tests/Integration/Invoke-SmokeMatrix.ps1
+    - .github/workflows/runtime-smoke-<provider>.yml
   catalog_change:
     - "Catalogs/*.json"
     - "zugehöriges Schema"
     - Catalogs/README.md
     - Private/VersionCatalog.ps1
     - Tests/Static/Invoke-DocumentationChecks.ps1
+    - Tests/Integration/Invoke-SmokeMatrix.ps1
 
 known_limitations:
   binding_document: Documentation/Quality/KNOWN_LIMITATIONS.md
   highlights:
     - "Hyper-V nicht implementiert"
-    - "gemischter Provider-Lifecycle nicht implementiert"
+    - "gemischter Provider-Lifecycle innerhalb eines Runs nicht implementiert"
     - "Sample-Automation nur für direkte .bak-Varianten"
     - "mehrere reservierte serverConfig-Felder noch ohne stabilen Runtimepfad"
     - "Versionskatalog wird nicht automatisch als aktuell garantiert"
@@ -238,3 +300,5 @@ continuation_rules:
   - "Keine realen State-, Secret-, Host- oder Kundendaten committen"
   - "Vor einer Mutation einen Cleanup-Pfad beibehalten"
   - "Docker und Podman getrennt testen"
+  - "Portwahl bei Parallelität immer über Private/PortAllocation.ps1 führen"
+  - "Runtime-Smoke-Workflows nur mit SQL_Lab plus exaktem Capability-Label ausführen"
