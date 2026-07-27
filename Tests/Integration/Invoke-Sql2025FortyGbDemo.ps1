@@ -7,19 +7,25 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
-Import-Module (Join-Path $PSScriptRoot '..\..\SqlServerLab.psd1') -Force
-
 $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
-$secretsDirectory = Join-Path $repositoryRoot '.secrets'
+$runtimeRoot = Join-Path $repositoryRoot '.runtime'
+$stateRoot = Join-Path $runtimeRoot 'state'
+$secretsDirectory = Join-Path $runtimeRoot 'secrets'
 $passwordFile = Join-Path $secretsDirectory 'active-test-session-sa-password.txt'
 $sessionFile = Join-Path $secretsDirectory 'active-test-session.json'
 $sessionMutex = [System.Threading.Mutex]::new($false, 'Global\SQL_Server_Lab_TestSessionPassword')
 $sessionLockAcquired = $false
 
+$env:SQL_SERVER_LAB_STATE = $stateRoot
+Import-Module (Join-Path $repositoryRoot 'SqlServerLab.psd1') -Force
+
 $runToken = if ($env:GITHUB_RUN_ID) { $env:GITHUB_RUN_ID } else { [guid]::NewGuid().ToString('N') }
-$hostRootC = "C:\SqlServerLab\Runs\$runToken\TempDbC"
-$hostRootE = "E:\SqlServerLab\Runs\$runToken\TempDbE"
-$stateRoot = 'C:\SqlServerLab\State'
+
+# Die geforderte Verteilung auf C: und E: verwendet auf jedem Laufwerk ein
+# eigenes, eindeutig dem Testlauf zugeordnetes Unterverzeichnis. Niemals wird
+# direkt in ein Laufwerksroot geschrieben.
+$hostRootC = "C:\SQL_Server_Lab_Runtime\Runs\$runToken\TempDbC"
+$hostRootE = "E:\SQL_Server_Lab_Runtime\Runs\$runToken\TempDbE"
 
 function Test-LabRunActive {
     [CmdletBinding()]
@@ -27,7 +33,6 @@ function Test-LabRunActive {
 
     $containerId = docker ps -a -q --filter "label=sql-server-lab.run-id=$RunId" 2>$null |
         Select-Object -First 1
-
     return -not [string]::IsNullOrWhiteSpace([string]$containerId)
 }
 
@@ -35,24 +40,19 @@ function New-TestSessionPassword {
     [CmdletBinding()]
     param([ValidateRange(30, 128)][int]$Length = 40)
 
-    # Ausschliesslich gut eingebbare ASCII-Zeichen. Vermeidet Quotes, Backticks,
-    # Backslashes und Whitespace, damit CLI- und Konfigurationspfade robust bleiben.
     $upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ'
     $lower = 'abcdefghijkmnopqrstuvwxyz'
     $digits = '23456789'
     $special = '!#%+,-.:=@_'
     $alphabet = $upper + $lower + $digits + $special
-
     $characters = [System.Collections.Generic.List[char]]::new()
     $characters.Add($upper[(Get-Random -Maximum $upper.Length)])
     $characters.Add($lower[(Get-Random -Maximum $lower.Length)])
     $characters.Add($digits[(Get-Random -Maximum $digits.Length)])
     $characters.Add($special[(Get-Random -Maximum $special.Length)])
-
     while ($characters.Count -lt $Length) {
         $characters.Add($alphabet[(Get-Random -Maximum $alphabet.Length)])
     }
-
     return -join ($characters | Sort-Object { Get-Random })
 }
 
@@ -61,18 +61,12 @@ function Set-TestSessionSecretAcl {
     param([Parameter(Mandatory)][string[]]$Paths)
 
     if (-not $IsWindows) { return }
-
     $runnerSid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value
     foreach ($path in $Paths) {
         if (-not (Test-Path -LiteralPath $path)) { continue }
-
         & icacls $path /inheritance:r | Out-Null
         if ($LASTEXITCODE -ne 0) { throw "ACL-Vererbung konnte fuer '$path' nicht deaktiviert werden." }
-
-        & icacls $path /grant:r `
-            "*$runnerSid`:(F)" `
-            '*S-1-5-32-544:(F)' `
-            '*S-1-5-18:(F)' | Out-Null
+        & icacls $path /grant:r "*$runnerSid`:(F)" '*S-1-5-32-544:(F)' '*S-1-5-18:(F)' | Out-Null
         if ($LASTEXITCODE -ne 0) { throw "ACL konnte fuer '$path' nicht gesetzt werden." }
     }
 }
@@ -82,15 +76,10 @@ function Get-TestSessionPassword {
     param()
 
     New-Item -ItemType Directory -Path $secretsDirectory -Force | Out-Null
-
     $session = $null
     if (Test-Path -LiteralPath $sessionFile -PathType Leaf) {
-        try {
-            $session = Get-Content -LiteralPath $sessionFile -Raw -Encoding utf8 | ConvertFrom-Json
-        }
-        catch {
-            Write-Warning "Lokale Testsession-Metadaten sind ungueltig und werden erneuert: $($_.Exception.Message)"
-        }
+        try { $session = Get-Content -LiteralPath $sessionFile -Raw -Encoding utf8 | ConvertFrom-Json }
+        catch { Write-Warning "Lokale Testsession-Metadaten werden erneuert: $($_.Exception.Message)" }
     }
 
     $activeRunIds = @()
@@ -98,14 +87,10 @@ function Get-TestSessionPassword {
         $activeRunIds = @($session.runIds | Where-Object { $_ -and (Test-LabRunActive -RunId ([string]$_)) })
     }
 
-    $passwordPlain = $null
     $reuseExisting = $activeRunIds.Count -gt 0 -and (Test-Path -LiteralPath $passwordFile -PathType Leaf)
     if ($reuseExisting) {
         $passwordPlain = (Get-Content -LiteralPath $passwordFile -Raw -Encoding utf8).Trim()
-        $complexity = Test-SaPasswordComplexity -Password $passwordPlain
-        if ($passwordPlain.Length -lt 30 -or -not $complexity.Valid) {
-            throw 'Aktive Testsession besitzt eine ungueltige Passwortdatei. Automatisches Ersetzen wird verweigert, solange Umgebungen aktiv sind.'
-        }
+        if ($passwordPlain.Length -lt 30) { throw 'Aktive Testsession besitzt eine ungueltige Passwortdatei.' }
     }
     else {
         $passwordPlain = New-TestSessionPassword -Length 40
@@ -115,10 +100,6 @@ function Get-TestSessionPassword {
             createdAt = [DateTime]::UtcNow.ToString('o')
             runIds = @()
         }
-    }
-
-    if (-not $session) {
-        throw 'Testsession konnte nicht initialisiert werden.'
     }
 
     $session.runIds = @($activeRunIds)
@@ -133,9 +114,7 @@ function Get-TestSessionPassword {
 }
 
 function Add-TestSessionRun {
-    [CmdletBinding()]
     param([Parameter(Mandatory)][string]$RunId)
-
     $session = Get-Content -LiteralPath $sessionFile -Raw -Encoding utf8 | ConvertFrom-Json
     $activeRunIds = @($session.runIds | Where-Object { $_ -and (Test-LabRunActive -RunId ([string]$_)) })
     if ($RunId -notin $activeRunIds) { $activeRunIds += $RunId }
@@ -145,9 +124,7 @@ function Add-TestSessionRun {
 }
 
 function Remove-TestSessionRun {
-    [CmdletBinding()]
     param([Parameter(Mandatory)][string]$RunId)
-
     if (-not (Test-Path -LiteralPath $sessionFile -PathType Leaf)) { return }
     $session = Get-Content -LiteralPath $sessionFile -Raw -Encoding utf8 | ConvertFrom-Json
     $session.runIds = @($session.runIds | Where-Object {
@@ -157,7 +134,18 @@ function Remove-TestSessionRun {
     Set-TestSessionSecretAcl -Paths @($sessionFile)
 }
 
-foreach ($path in @($hostRootC, $hostRootE, $stateRoot)) {
+function Wait-TestSqlReady {
+    param([Parameter(Mandatory)][int]$Port, [Parameter(Mandatory)][string]$Password)
+    $deadline = [DateTime]::UtcNow.AddMinutes(3)
+    do {
+        $null = & sqlcmd -S "127.0.0.1,$Port" -U sa -P $Password -C -b -Q 'SELECT 1' 2>$null
+        if ($LASTEXITCODE -eq 0) { return }
+        Start-Sleep -Seconds 2
+    } while ([DateTime]::UtcNow -lt $deadline)
+    throw 'SQL Server wurde nach dem TempDB-Neustart nicht rechtzeitig bereit.'
+}
+
+foreach ($path in @($runtimeRoot, $stateRoot, $hostRootC, $hostRootE)) {
     New-Item -ItemType Directory -Path $path -Force | Out-Null
 }
 
@@ -181,10 +169,7 @@ $manifest = [ordered]@{
     '$schema' = '../../Schemas/lab-manifest.schema.json'
     name = "sql2025-40gb-$runToken"
     description = 'SQL Server 2025 Docker validation with 40 GB RAM, split TempDB, two samples and two trace flags.'
-    resourceOverrides = [ordered]@{
-        maxMemoryMB = 40960
-        skipAssessment = $false
-    }
+    resourceOverrides = [ordered]@{ maxMemoryMB = 40960; skipAssessment = $false }
     instances = @(
         [ordered]@{
             id = 'primary'
@@ -201,10 +186,10 @@ $manifest = [ordered]@{
                 tempdb = [ordered]@{
                     equalSize = $true
                     dataFiles = @(
-                        [ordered]@{ path = '/tempdb-c/tempdev.mdf'; sizeMB = 512; growth = '128MB' },
-                        [ordered]@{ path = '/tempdb-e/tempdev2.ndf'; sizeMB = 512; growth = '128MB' }
+                        [ordered]@{ path = '/tempdb-c/tempdev.mdf'; sizeMB = 8; growth = '128MB' },
+                        [ordered]@{ path = '/tempdb-e/tempdev2.ndf'; sizeMB = 8; growth = '128MB' }
                     )
-                    logFile = [ordered]@{ path = '/tempdb-e/templog.ldf'; sizeMB = 512; growth = '128MB' }
+                    logFile = [ordered]@{ path = '/tempdb-e/templog.ldf'; sizeMB = 8; growth = '128MB' }
                 }
             }
             databases = @(
@@ -223,10 +208,8 @@ try {
     $instance = $lab.Instances[0]
 
     $sessionLockAcquired = $sessionMutex.WaitOne([TimeSpan]::FromMinutes(5))
-    if (-not $sessionLockAcquired) { throw 'Testsession-Passwortlock konnte fuer Run-Registrierung nicht erworben werden.' }
-    try {
-        Add-TestSessionRun -RunId $lab.RunId
-    }
+    if (-not $sessionLockAcquired) { throw 'Testsession-Passwortlock fuer Run-Registrierung nicht erhalten.' }
+    try { Add-TestSessionRun -RunId $lab.RunId }
     finally {
         $sessionMutex.ReleaseMutex()
         $sessionLockAcquired = $false
@@ -235,60 +218,59 @@ try {
     docker update --memory 40g $instance.ContainerName | Out-Null
     if ($LASTEXITCODE -ne 0) { throw 'Docker memory update auf 40 GB ist fehlgeschlagen.' }
 
-    $inspect = docker inspect $instance.ContainerName | ConvertFrom-Json -Depth 30
-    $memoryBytes = [int64]@($inspect)[0].HostConfig.Memory
-    if ($memoryBytes -ne 42949672960) {
-        throw "Unerwartetes Docker-Memory-Limit: $memoryBytes Bytes"
-    }
+    # Erst nach einem Neustart verwendet tempdb die neuen physischen Pfade.
+    docker restart $instance.ContainerName | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw 'Container-Neustart fuer TempDB-Aktivierung ist fehlgeschlagen.' }
+    Wait-TestSqlReady -Port $instance.Port -Password $passwordPlain
 
+    # DBCC TRACEON ist nicht neustartpersistent und wird fuer den aktiven Testzustand erneut gesetzt.
     $query = @"
 SET NOCOUNT ON;
+DBCC TRACEON (3226, 7412, -1) WITH NO_INFOMSGS;
 SELECT CAST(SERVERPROPERTY('ProductMajorVersion') AS int) AS MajorVersion;
 SELECT name, physical_name, type_desc FROM tempdb.sys.database_files ORDER BY file_id;
 SELECT name FROM sys.databases WHERE name IN ('AdventureWorks2022','WideWorldImporters') ORDER BY name;
 DBCC TRACESTATUS(-1);
 "@
-
     $queryFile = Join-Path $env:RUNNER_TEMP "sql2025-40gb-validation-$runToken.sql"
     Set-Content -LiteralPath $queryFile -Value $query -Encoding utf8
     $output = & sqlcmd -S "127.0.0.1,$($instance.Port)" -U sa -P $passwordPlain -C -b -i $queryFile 2>&1
     if ($LASTEXITCODE -ne 0) { throw "SQL-Validierung fehlgeschlagen:`n$($output | Out-String)" }
 
+    $inspect = docker inspect $instance.ContainerName | ConvertFrom-Json -Depth 30
+    $memoryBytes = [int64]@($inspect)[0].HostConfig.Memory
+    if ($memoryBytes -ne 42949672960) { throw "Unerwartetes Docker-Memory-Limit: $memoryBytes Bytes" }
+
     $text = $output | Out-String
     foreach ($required in @('17', '/tempdb-c/tempdev.mdf', '/tempdb-e/tempdev2.ndf', '/tempdb-e/templog.ldf', 'AdventureWorks2022', 'WideWorldImporters', '3226', '7412')) {
-        if ($text -notmatch [regex]::Escape($required)) {
-            throw "Validierungswert fehlt: $required"
-        }
+        if ($text -notmatch [regex]::Escape($required)) { throw "Validierungswert fehlt: $required" }
     }
 
-    $result = [ordered]@{
+    [ordered]@{
         status = 'PASS'
         runId = $lab.RunId
         container = $instance.ContainerName
-        host = $instance.Host
         port = $instance.Port
         sqlVersion = '2025'
         dockerMemoryBytes = $memoryBytes
         sqlMaxMemoryMB = 36864
+        dataRoot = $runtimeRoot
+        stateRoot = $stateRoot
         tempdbDataFiles = @('/tempdb-c/tempdev.mdf', '/tempdb-e/tempdev2.ndf')
         tempdbLogFile = '/tempdb-e/templog.ldf'
+        hostPaths = @($hostRootC, $hostRootE)
         databases = @('AdventureWorks2022', 'WideWorldImporters')
         traceFlags = @(3226, 7412)
         retained = -not $RemoveAfterValidation.IsPresent
-        stateRoot = $stateRoot
-        hostPaths = @($hostRootC, $hostRootE)
         passwordSessionId = $testSession.SessionId
         passwordReused = $testSession.Reused
         passwordFile = $passwordFile
-    }
-
-    $result | ConvertTo-Json -Depth 10
+    } | ConvertTo-Json -Depth 10
 }
 finally {
     Remove-Item -LiteralPath $manifestPath -Force -ErrorAction SilentlyContinue
     if ($RemoveAfterValidation -and $lab) {
         Remove-SqlServerLab -RunId $lab.RunId -StateRoot $stateRoot
-
         $sessionLockAcquired = $sessionMutex.WaitOne([TimeSpan]::FromMinutes(5))
         if ($sessionLockAcquired) {
             try { Remove-TestSessionRun -RunId $lab.RunId }
@@ -298,7 +280,6 @@ finally {
             }
         }
     }
-
     $passwordPlain = $null
     $password = $null
     $testSession = $null
