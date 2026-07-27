@@ -31,7 +31,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: sql-server-lab-runtime-smoke
+  group: sql-server-lab-runtime-smoke-docker
   cancel-in-progress: false
 
 jobs:
@@ -64,7 +64,20 @@ jobs:
       - name: Docker smoke matrix
         run: |
           $ErrorActionPreference = 'Stop'
-          .\Tests\Integration\Invoke-SmokeMatrix.ps1 `
-            -Provider docker `
-            -FullMatrix `
-            -IncludeParallel
+          $mutexName = if ($IsWindows) { 'Global\SQL_Server_Lab_Runtime_Smoke' } else { 'SQL_Server_Lab_Runtime_Smoke' }
+          $mutex = [System.Threading.Mutex]::new($false, $mutexName)
+          $acquired = $false
+          try {
+            $acquired = $mutex.WaitOne([TimeSpan]::FromMinutes(10))
+            if (-not $acquired) { throw 'Runtime-Smoke-Hostlock konnte innerhalb von 10 Minuten nicht erworben werden.' }
+
+            & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-SmokeMatrix.ps1 `
+              -Provider docker `
+              -FullMatrix `
+              -IncludeParallel
+            if ($LASTEXITCODE -ne 0) { throw "Docker Smoke Matrix endete mit Exitcode $LASTEXITCODE." }
+          }
+          finally {
+            if ($acquired) { $mutex.ReleaseMutex() }
+            $mutex.Dispose()
+          }
