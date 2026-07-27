@@ -1,0 +1,101 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/gecompat/SQL_Server_Lab/raw/main/Schemas/version-catalog.schema.json",
+  "title": "SQL Server Lab Version Catalog",
+  "type": "object",
+  "required": ["versions", "statusValues", "profiles"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "versions": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/version" }
+    },
+    "statusValues": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": ["SUPPORTED", "PREVIEW", "DEPRECATED", "RETIRED", "BLOCKED"]
+      }
+    },
+    "profiles": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "$ref": "#/definitions/profile" }
+    },
+    "_comment": { "type": "string" }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "version": {
+      "type": "object",
+      "required": ["id", "displayName", "major", "compatibilityLevel", "status", "docker"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^\\d{4}$" },
+        "displayName": { "type": "string", "minLength": 1 },
+        "major": { "type": "integer", "minimum": 1 },
+        "compatibilityLevel": { "type": "integer", "minimum": 80 },
+        "status": {
+          "type": "string",
+          "enum": ["SUPPORTED", "PREVIEW", "DEPRECATED", "RETIRED", "BLOCKED"]
+        },
+        "docker": { "$ref": "#/definitions/docker" },
+        "linux": { "$ref": "#/definitions/linux" },
+        "eol": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "docker": {
+      "type": "object",
+      "required": ["image", "minMemoryMB", "builds"],
+      "properties": {
+        "image": { "type": "string", "minLength": 1 },
+        "minMemoryMB": { "type": "integer", "minimum": 512 },
+        "builds": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/build" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "build": {
+      "type": "object",
+      "required": ["tag", "cu", "kb", "released"],
+      "properties": {
+        "tag": { "type": "string", "minLength": 1 },
+        "cu": { "type": "string", "minLength": 1 },
+        "kb": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "string", "minLength": 1 }
+          ]
+        },
+        "released": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" }
+      },
+      "additionalProperties": false
+    },
+    "linux": {
+      "type": "object",
+      "properties": {
+        "aptList": { "type": "string", "format": "uri" }
+      },
+      "additionalProperties": false
+    },
+    "profile": {
+      "type": "object",
+      "required": ["maxMemoryMB", "maxCpus"],
+      "properties": {
+        "maxMemoryMB": { "type": "integer", "minimum": 512 },
+        "maxCpus": { "type": "number", "exclusiveMinimum": 0 }
+      },
+      "additionalProperties": false
+    }
+  }
+}
