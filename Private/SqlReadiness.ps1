@@ -129,6 +129,50 @@ function Invoke-SqlQuery {
     return $output
 }
 
+function New-SqlConnectionString {
+    <#
+    .SYNOPSIS
+        Erzeugt einen SQL-Connection-String fuer eine Labinstanz.
+    .DESCRIPTION
+        Gibt standardmaessig nur einen maskierten Passwortplatzhalter aus.
+        Ein Klartextpasswort wird nur bei explizitem -IncludePassword und
+        uebergebenem SecureString kurzzeitig erzeugt.
+    #>
+    [CmdletBinding()]
+    param(
+        [string]$HostName = '127.0.0.1',
+        [Parameter(Mandatory)][int]$Port,
+        [string]$Database = 'master',
+        [switch]$IncludePassword,
+        [SecureString]$SaPassword
+    )
+
+    if ($Port -lt 1 -or $Port -gt 65535) {
+        throw "Port '$Port' liegt ausserhalb des gueltigen TCP-Portbereichs."
+    }
+    if ($Database -notmatch '^[A-Za-z][A-Za-z0-9_]{0,127}$') {
+        throw "Database '$Database' ist ungueltig."
+    }
+
+    $base = "Server=${HostName},${Port};Database=${Database};User Id=sa;TrustServerCertificate=True;"
+    if (-not $IncludePassword) {
+        return "${base}Password=***;"
+    }
+    if (-not $SaPassword) {
+        throw '-SaPassword ist erforderlich, wenn -IncludePassword verwendet wird.'
+    }
+
+    $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword)
+    try {
+        $plain = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+        return "${base}Password=${plain};"
+    }
+    finally {
+        $plain = $null
+        [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+    }
+}
+
 function Invoke-LabSqlScript {
     [CmdletBinding()]
     param(
