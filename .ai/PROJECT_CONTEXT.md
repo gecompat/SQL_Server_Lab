@@ -3,116 +3,218 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING` |
-| Stand | 2026-07-26 |
+| Runtime-Status | `CONTAINER_CORE_IMPLEMENTED` |
+| Stand | 2026-07-27 |
 | Repository | `gecompat/SQL_Server_Lab` |
+| Maschinenlesbare Landkarte | [`repo_map.yaml`](repo_map.yaml) |
 
 ## 1. Ziel
 
-`SQL_Server_Lab` ist eine gemeinsame Plattform für reproduzierbare SQL-Server-Testumgebungen.
+`SQL_Server_Lab` ist die gemeinsame Plattform für lokale, isolierte und reproduzierbare SQL-Server-Testumgebungen.
 
 Hauptanwendungsfälle:
 
-- schnelle SQL-Server-Umgebung;
+- schnelle Ad-hoc-SQL-Server-Umgebung;
+- deklarative Labdefinition per JSON-Manifest;
 - Performance-Schulungsdemos;
 - Analyse- und Diagnosekonstellationen;
 - kontrollierte Last- und Fault-Szenarien;
-- SQL-Server-Availability-, Security- und Integrationsszenarien.
+- langfristig SQL-Server-Availability-, Security- und Integrationsszenarien.
 
 SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, Hadoop-Cluster oder REST-Dienste sind nur zulässig, wenn sie einen dokumentierten SQL-Server-Zweck erfüllen.
 
-## 2. Kernprovider
+## 2. Aktuelle Statuswahrheit
 
-Verbindlich:
+### Implementiert
+
+- PowerShell-Modul und öffentliche Cmdlets;
+- Docker-Provider;
+- Podman-Provider;
+- Ad-hoc- und Manifest-Provisionierung;
+- SQL-Version- und CU-Buildauflösung aus dem Katalog;
+- Resource Assessment;
+- lokaler Run-State und Cleanup-Plan;
+- SQL-Bereitschaft;
+- Server- und Datenbankkonfiguration im dokumentierten Umfang;
+- Datenbankerstellung;
+- direkte `.bak`-Restores aus Datei oder URL;
+- direkte `.bak`-Varianten aus dem Sample-Katalog;
+- Post-Provision-T-SQL;
+- Start, Stop, Restart, Status, Remove und Clear;
+- statische Vertragsprüfung;
+- Docker- und Podman-Smoke-Testpfad.
+
+### Geplant oder unvollständig
+
+- Hyper-V-Provider;
+- gemeinsamer Lifecycle für gemischte Provider innerhalb eines Runs;
+- vollständige Ausführung aller im Schema vorbereiteten `serverConfig`-Felder;
+- automatische Verarbeitung von Sample-Archiven, Attach-Szenarien und SQL-Skript-Samples;
+- konsumierende Analyze- und Schulungs-Lab-Packages;
+- langfristige Planner-, Package- und Supporting-Component-Architektur.
+
+Die verbindliche Detailabgrenzung steht in `Documentation/Quality/KNOWN_LIMITATIONS.md`.
+
+## 3. Provider
+
+### Aktuelle Runtimeprovider
 
 ```text
-Hyper-V
 Docker
 Podman
 ```
 
-Die drei Provider erfüllen denselben übergeordneten Plan-, Resource-Assessment-, State-, Binding-, Recovery- und Cleanup-Vertrag. Providerfähigkeiten werden getrennt nachgewiesen.
+Beide Provider benötigen getrennte Native-Tests. Ein erfolgreicher Docker-Test ist kein Podman-Nachweis und umgekehrt.
 
-## 3. SQL-Server-Versionen
+Der Provider eines Runs wird in `connection-info.json` gespeichert. Lifecycle und Live-Status müssen diese Bindung verwenden und dürfen nicht zufällig eine andere lokal installierte Runtime auswählen.
 
-SQL-Versionen werden über einen versionierten Katalog und Version Constraints aufgelöst. Core-Schemas enthalten kein dauerhaftes Enum einzelner Produktjahre.
+### Roadmapprovider
 
-Derzeit vorgesehen:
+```text
+Hyper-V
+```
+
+Hyper-V ist ein verbindliches langfristiges Ziel, aber kein aktueller Runtime-Nachweis. Ein Verzeichnis oder Planungsdokument reicht nicht, um einen Provider als implementiert zu bezeichnen.
+
+## 4. SQL-Server-Versionen
+
+SQL-Versionen werden über `Catalogs/sql-server-versions.json` aufgelöst.
+
+Aktuelle Katalogeinträge:
 
 - SQL Server 2019;
 - SQL Server 2022;
 - SQL Server 2025.
 
-Neue Versionen werden über Katalogeintrag, Provider-Mapping, Capability Record und Validierung ergänzt. Alte Versionen werden über `DEPRECATED`, `RETIRED` oder `BLOCKED` aus dem aktiven Umfang genommen, ohne historische Vertragsinformationen zu löschen.
+Die Produktjahre sind aktueller Katalogstand, keine dauerhafte Core-Grenze.
 
-## 4. Primärprojekte
+Unterstützte Bezeichner:
+
+- Basisversion, beispielsweise `2022`;
+- katalogisierter CU-Kurzbezeichner, beispielsweise `2022-CU16`;
+- exakter Image-Tag, beispielsweise `2022-CU16-ubuntu-22.04`.
+
+Unbekannte CU-Bezeichner werden nicht durch eine vermutete Tag-Konvention ersetzt.
+
+Statuswerte:
+
+```text
+SUPPORTED
+PREVIEW
+DEPRECATED
+RETIRED
+BLOCKED
+```
+
+Der Katalog wird nicht automatisch als aktuell garantiert. Build- und CU-Angaben benötigen fachliche Verifikation.
+
+## 5. Primärprojekte
 
 - `gecompat/SQL_Server_Analyze`;
 - `gecompat/SQL_PerformanceSchulung`.
 
-Die Projekte liefern SQL Server Lab Packages. Sie behalten fachliche Installations-, DataSet-, Database-Artifact-, Workload-, Probe-, Assertion- und Cleanup-Inhalte.
+Diese Projekte behalten ihre fachlichen Szenarien, Installationsinhalte, Testdaten, Workloads, Beobachtungen und Assertions. `SQL_Server_Lab` stellt den generischen Umgebungs- und Lifecyclepfad bereit.
 
-## 5. Feste Architekturentscheidungen
+Quell-Snapshots unter `_QuellRepo/` dienen nur als eingefrorene Referenz. Sie definieren nicht automatisch die öffentliche API dieses Repositories.
 
-- `SqlPurpose` ist Pflicht.
-- Mindestens eine Primary SQL Component ist erforderlich.
-- Supporting Components benötigen einen dokumentierten SQL-Bezug.
-- Project Adapter entdecken Packages; sie sind keine Universal-Skripte.
-- Packages trennen Environment, Deployment Units, DataSets, Database Artifacts und Workflow.
-- `Arrange`, `Act`, `Observe`, `Assert`, `Cleanup` sind semantische Phasen über einem Workflow DAG.
-- Inputs und Outputs werden über typisierte Runtime Bindings verbunden.
-- konkrete Endpunkte, Pfade und Secretwerte stehen nicht in versionierten Manifesten.
-- vor jeder Mutation wird ein read-only Bound Plan erzeugt.
-- vor jeder Mutation werden CPU, RAM, Storage, Provider-Overhead und Hostreserve bewertet.
-- vorhergesagte Ressourcenunterversorgung kann ausdrücklich übersteuert werden.
-- Resource Override setzt keine Safety-, Scope-, Secret-, Lizenz-, Versions- oder Datenklassifikationsblocker außer Kraft.
-- vor jeder Mutation existiert ein maschinenlesbarer Cleanup Plan.
-- State enthält tatsächliche Ressourcen-IDs.
-- Cleanup verwendet IDs, Owner Marker und Scope, nicht bloß Namen.
-- Fehler lösen standardmäßig automatische Compensation aus.
-- unvollständiges Cleanup ergibt `RECOVERY_REQUIRED`.
-- Cleanup ist idempotent und über `ResumeCleanup`, `RecoverRun` oder `DestroyRun` wiederaufnehmbar.
-- Docker und Podman sind getrennte Provider.
-- Hyper-V kann intern ein optionales AutomatedLab-Backend oder einen nativen Provider verwenden; der öffentliche Contract bleibt gleich.
-- CI/CD ist kein Bestandteil dieses Repositorys.
+## 6. Autoritative Quellen
 
-## 6. Datenbankartefakte
+| Aussage | Quelle |
+|---|---|
+| exportierte Funktionen | `SqlServerLab.psd1` |
+| Modul-Ladevorgang | `SqlServerLab.psm1` |
+| Manifeststruktur | `Schemas/lab-manifest.schema.json` |
+| Manifestauflösung | `Private/ManifestParser.ps1` |
+| SQL-Versionen, Builds und Profile | `Catalogs/sql-server-versions.json` |
+| Sample-Datenbanken | `Catalogs/sample-databases.json` |
+| Providerimplementierung | `Providers/*/*.ps1` |
+| State | `Private/StateMachine.ps1` |
+| Cleanup | `Private/CleanupEngine.ps1` |
+| Runtimegrenzen | `Documentation/Quality/KNOWN_LIMITATIONS.md` |
+| Benutzerfluss | `README.md`, `Documentation/User/Getting_Started.md` |
+| KI-Landkarte | `.ai/repo_map.yaml` |
+| statische Prüfung | `Tests/Static/Invoke-DocumentationChecks.ps1` |
+
+Planungsdokumente sind keine autoritative Quelle für aktuellen Implementierungsstatus.
+
+## 7. Aktueller Provisionierungsfluss
+
+```text
+Manifest oder Ad-hoc-Parameter
+  -> Versionsprüfung
+  -> Resource Assessment
+  -> Run-State
+  -> Cleanup-Plan
+  -> Provider-Provisionierung
+  -> SQL Readiness
+  -> Serverkonfiguration
+  -> CREATE DATABASE oder RESTORE
+  -> Datenbankoptionen
+  -> PostProvision-Skripte
+  -> connection-info.json
+  -> RUNNING
+```
+
+Restore- und Sample-Datenbanken werden nicht vorab per `CREATE DATABASE` angelegt.
+
+## 8. Manifestvertrag
+
+Ein Feld gilt erst als implementiert, wenn folgende Ebenen übereinstimmen:
+
+1. JSON-Schema;
+2. Manifestparser;
+3. Runtimefunktion;
+4. ausführbares Beispiel;
+5. Dokumentation und Known Limitations;
+6. passende Prüfung.
+
+Ein Schemafeld allein ist kein Runtime-Nachweis.
+
+Relative Pfade werden im Manifestparser aufgelöst:
+
+- lokale Restorequelle relativ zum Manifest;
+- `drives[].hostPath` relativ zum Manifest;
+- `postProvision` relativ zum Manifest.
+
+Data-, Log- und TempDB-Dateipfade sind Containerpfade.
+
+## 9. Datenbankartefakte
 
 Zulässig:
 
 - im Lab erzeugte Backups zulässiger Labdatenbanken;
-- Wiederverwendung eines Lab-Backups in späteren Runs;
-- öffentliche Demo- und Beispieldatenbanken mit Quelle, Lizenz, Hash und Versionskompatibilität;
-- lokal bereitgestellte Entwicklungs-, Test- oder Lab-Backups mit ausdrücklicher Nicht-Produktionsklassifikation.
+- öffentliche Demo- und Beispieldatenbanken mit dokumentierter Quelle und Lizenz;
+- ausdrücklich klassifizierte lokale Entwicklungs-, Test- oder Lab-Backups.
 
 Blockiert:
 
 - Produktionsbackups;
 - aus Produktivsystemen extrahierte reale Daten;
 - unbekannte oder unklassifizierte Backups;
-- automatische Übernahme lokaler Backups in Repository, GitHub-Inhalte oder Downloadpakete.
+- automatische Übernahme lokaler Backups in GitHub- oder Downloadartefakte.
 
-Jedes Datenbankartefakt benötigt Klassifikation, Hash, Größe, erwartete Restore-Größe, Versionskompatibilität, Verifikation, Retention und Cleanup Policy.
+Der aktuelle Restorepfad unterstützt direkte `.bak`-Dateien. Archive, Attach-Szenarien und Backupketten benötigen einen eigenen zukünftigen Vertrag.
 
-## 7. Scope
+## 10. State, Secrets und Cleanup
 
-Gültige Supporting Components:
+State liegt außerhalb des Git-Checkouts:
 
-- Domain Controller/DNS für Authentication, Kerberos, WSFC, AG oder FCI;
-- Hadoop für PolyBase;
-- REST-/HTTP-Service als SQL-Client, Datenquelle, Datenziel oder Mock;
-- SQL Workload Driver;
-- Router und Fault Controller;
-- Observability Collector;
-- Storage Service für SQL-bezogene Szenarien.
+- Windows: `%LOCALAPPDATA%\SqlServerLab`;
+- Linux/macOS: `~/.sql-server-lab`;
+- Override: `SQL_SERVER_LAB_STATE`.
 
-Nicht Ziel:
+Pro Run entstehen mindestens:
 
-- allgemeines Hadoop-Lab;
-- allgemeines REST-Testframework;
-- allgemeines Active-Directory-Lab;
-- allgemeine Multi-Purpose-Orchestrierungsplattform.
+- `run-state.json`;
+- `cleanup-plan.json`;
+- `connection-info.json`;
+- lokale Secretdateien.
 
-## 8. Privacy
+Vor der ersten Provider-Mutation müssen State und Cleanup-Plan existieren. Cleanup verwendet Scope, Labels und tatsächliche Ressourceninformationen, nicht bloß Namen.
+
+Runtime-State, Secrets, Connection Information, konkrete Pfade und Cache-Dateien bleiben lokal und dürfen nicht versioniert werden.
+
+## 11. Privacy
 
 In Repository-, GitHub-, Package- und Downloadartefakten sind verboten:
 
@@ -123,64 +225,56 @@ In Repository-, GitHub-, Package- und Downloadartefakten sind verboten:
 - reale Logs, Plans, Responses, Screenshots und Diagnoseexports;
 - Produktionsbackups oder unklassifizierte Datenbankartefakte.
 
-Öffentliche Beispieldatenbanken und ausdrücklich klassifizierte lokale Nicht-Produktionsartefakte sind nicht automatisch Repositoryartefakte. Lokale Artifact Stores bleiben ignoriert und werden nicht automatisch exportiert.
-
-Lokale Runtime States und technische Evidence dürfen notwendige lokale Werte enthalten, bleiben aber ignoriert und werden nicht automatisch exportiert.
-
-Bei unklarer Klassifikation wird vor dem Schreiben oder Git-Vorgang angehalten und eine nicht sensitive Alternative verwendet.
-
-## 9. Sprache
-
-- Dokumentation: Deutsch.
-- etablierte englische Fachbegriffe bleiben erhalten.
-- JSON-Felder, IDs, Codes, PowerShell-Parameter und API-Bezeichner: Englisch.
-- `LICENCE.md`: englische Masterfassung ist maßgeblich.
-- Statuscodes werden nicht übersetzt.
-
-## 10. Lizenz
-
-Das Projekt verwendet eine eigene `Attribution & Non-Commercial Redistribution`-Lizenz und ist nicht Open Source.
-
-Attribution:
+Öffentliche, bereits freigegebene Projekt- und Attributionseinträge bleiben zulässig:
 
 ```text
 gecompat - Gerhard Pisch
 ```
 
-Drittsoftware, öffentliche Beispieldatenbanken und Medien behalten ihre eigenen Lizenzbedingungen. Windows-, SQL-Server-, Container- oder Betriebssystemmedien werden nicht versioniert oder weitergegeben.
+Bei unklarer Klassifikation wird vor Datei- oder Git-Operationen angehalten.
 
-## 11. Migration
+## 12. Sprache und Lizenz
 
-- generischer Lifecycle aus Analyze `QuickStart` und `Lab/QuickTest` wird konsolidiert;
-- starke State-, Secret-, Ownership-, Cleanup- und Recovery-Verträge aus `Lab/QuickTest` haben Vorrang;
-- einfache Benutzerführung aus `QuickStart` bleibt erhalten;
-- Analyze-spezifische Framework- und Findinglogik bleibt im Analyze Package;
-- Schulungs-Demo-Vertrag bleibt im Schulungsrepository;
-- keine Entfernung alter Pfade vor Funktionsparität und Wrapperabnahme.
+- Dokumentation: Deutsch;
+- etablierte englische Fachbegriffe bleiben erhalten;
+- JSON-Felder, IDs, Codes und PowerShell-Parameter: Englisch;
+- `LICENCE.md` ist maßgeblich;
+- das Projekt ist nicht Open Source.
 
-## 12. Forschung
+## 13. Validierung
 
-Bestehende Projekte werden als Musterquellen untersucht, nicht zu einer Gesamtplattform zusammengebaut.
+Statisch:
 
-AutomatedLab wird als mögliches Hyper-V-Backend gegen einen nativen Provider geprüft. Docker und Podman bleiben eigene Provider.
+```powershell
+.\Tests\Static\Invoke-DocumentationChecks.ps1
+```
 
-## 13. Umsetzungsreihenfolge
+Docker:
 
-1. Repository- und Governance-Basis;
-2. SQL Purpose, Package und Contract Schemas;
-3. SQL Version Catalog;
-4. Database-Artifact- und Public-Sample-Verträge;
-5. Resource Assessment, Overcommit und Cleanup Plan;
-6. read-only Planner, Run State und Recovery State;
-7. Docker Quick Environment;
-8. Podman-Parität;
-9. Hyper-V SQL Environment;
-10. Performance-Schulungs-Pilot;
-11. Analyze-Pilot;
-12. Domain Controller als SQL Supporting Component;
-13. SQL HA/Cluster;
-14. PolyBase/Hadoop oder REST nur bei konkretem SQL-Bedarf.
+```powershell
+.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider docker
+```
 
-## 14. Statuswahrheit
+Podman:
 
-Planungsdokumente sind kein Runtime-Nachweis. Eine Funktion darf erst als implementiert oder validiert bezeichnet werden, wenn Code und passende lokale Tests vorhanden sind.
+```powershell
+.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider podman
+```
+
+Nicht ausgeführte Native-Tests werden nicht als bestanden dargestellt.
+
+## 14. Änderungsregel
+
+Bei jeder Änderung sind die gekoppelten Dateien aus `.ai/repo_map.yaml` und `CONTRIBUTING.md` zu prüfen.
+
+Insbesondere:
+
+- keine neue öffentliche Funktion ohne Implementierung, Export, Doku und Test;
+- kein neues Manifestfeld nur im Schema;
+- keine Provideränderung ohne eigenen Provider-Nachweis;
+- keine Katalogänderung ohne Schema- und Auflösungsprüfung;
+- keine Statusaussage ohne Code- und Testnachweis.
+
+## 15. Statuswahrheit
+
+Eine Funktion darf erst als implementiert bezeichnet werden, wenn der Code vorhanden ist und eine passende lokale Prüfung existiert. Eine Funktion darf erst als validiert bezeichnet werden, wenn die relevante Prüfung tatsächlich erfolgreich ausgeführt wurde.
