@@ -59,6 +59,14 @@ jobs:
       - name: Diagnose, provision and validate under Docker host lock
         run: |
           $ErrorActionPreference = 'Stop'
+          $artifactDir = Join-Path $env:RUNNER_TEMP 'sql2025-40gb-diagnostics'
+          New-Item -ItemType Directory -Path $artifactDir -Force | Out-Null
+          $transcriptPath = Join-Path $artifactDir 'workflow-transcript.log'
+          $provisioningPath = Join-Path $artifactDir 'provisioning-output.log'
+          $failurePath = Join-Path $artifactDir 'failure-details.log'
+          $containerListPath = Join-Path $artifactDir 'docker-containers.log'
+          Start-Transcript -Path $transcriptPath -Force | Out-Null
+
           $mutexName = if ($IsWindows) { 'Global\SQL_Server_Lab_Docker_Host' } else { 'SQL_Server_Lab_Docker_Host' }
           $mutex = [System.Threading.Mutex]::new($false, $mutexName)
           $acquired = $false
@@ -109,19 +117,48 @@ jobs:
             }
 
             $remove = '${{ github.event_name == 'workflow_dispatch' && inputs.remove_after_validation || false }}' -eq 'true'
-            & .\Tests\Integration\Invoke-Sql2025FortyGbDemo.ps1 -RemoveAfterValidation:$remove |
-              Tee-Object -FilePath (Join-Path $env:RUNNER_TEMP 'sql2025-40gb-result.json')
+            & .\Tests\Integration\Invoke-Sql2025FortyGbDemo.ps1 -RemoveAfterValidation:$remove *>&1 |
+              Tee-Object -FilePath $provisioningPath
+          }
+          catch {
+            @(
+              "TimestampUtc: $([DateTime]::UtcNow.ToString('o'))"
+              "ExceptionType: $($_.Exception.GetType().FullName)"
+              "Message: $($_.Exception.Message)"
+              "FullyQualifiedErrorId: $($_.FullyQualifiedErrorId)"
+              "CategoryInfo: $($_.CategoryInfo)"
+              "ScriptStackTrace: $($_.ScriptStackTrace)"
+              "PositionMessage: $($_.InvocationInfo.PositionMessage)"
+            ) | Set-Content -LiteralPath $failurePath -Encoding utf8
+
+            docker ps -a --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}' 2>&1 |
+              Set-Content -LiteralPath $containerListPath -Encoding utf8
+
+            $labContainers = @(docker ps -a --filter 'name=sql' --format '{{.Names}}')
+            foreach ($labContainer in $labContainers) {
+              if ([string]::IsNullOrWhiteSpace($labContainer)) { continue }
+              $safeName = $labContainer -replace '[^A-Za-z0-9_.-]', '_'
+              docker inspect $labContainer --format '{{json .State}}' 2>&1 |
+                Set-Content -LiteralPath (Join-Path $artifactDir "$safeName-state.json") -Encoding utf8
+              docker inspect $labContainer --format '{{json .Mounts}}' 2>&1 |
+                Set-Content -LiteralPath (Join-Path $artifactDir "$safeName-mounts.json") -Encoding utf8
+              docker logs --timestamps $labContainer 2>&1 |
+                Set-Content -LiteralPath (Join-Path $artifactDir "$safeName-container.log") -Encoding utf8
+            }
+
+            throw
           }
           finally {
             if ($acquired) { $mutex.ReleaseMutex() }
             $mutex.Dispose()
+            try { Stop-Transcript | Out-Null } catch { }
           }
 
-      - name: Upload validation result
+      - name: Upload SQL 2025 diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: sql2025-40gb-validation
-          path: ${{ runner.temp }}/sql2025-40gb-result.json
-          if-no-files-found: warn
+          name: sql2025-40gb-diagnostics
+          path: ${{ runner.temp }}/sql2025-40gb-diagnostics/**
+          if-no-files-found: error
           retention-days: 14
