@@ -1,0 +1,71 @@
+name: SQL 2025 - 40 GB Multidisk Demo
+
+on:
+  workflow_dispatch:
+    inputs:
+      remove_after_validation:
+        description: Remove the lab after successful validation
+        required: false
+        default: false
+        type: boolean
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'Tests/Integration/Invoke-Sql2025FortyGbDemo.ps1'
+      - '.github/workflows/sql2025-40gb-multidisk-demo.yml'
+      - 'Catalogs/**'
+      - 'Private/**'
+      - 'Providers/Docker/**'
+      - 'Public/**'
+      - 'SqlServerLab.psd1'
+      - 'SqlServerLab.psm1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sql-server-lab-sql2025-40gb-demo
+  cancel-in-progress: false
+
+jobs:
+  provision-and-validate:
+    name: SQL Server 2025, 40 GB, C/E TempDB, samples and trace flags
+    runs-on: [self-hosted, SQL_Analyze, Docker]
+    timeout-minutes: 45
+
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Preflight
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSVersionTable.PSVersion
+          docker info
+          sqlcmd -?
+          foreach ($drive in @('C:', 'E:')) {
+            if (-not (Test-Path $drive)) { throw "Erforderliches Laufwerk fehlt: $drive" }
+          }
+          $totalMemory = (Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory
+          if ($totalMemory -lt 48GB) { throw "Mindestens 48 GB Host-RAM erforderlich; vorhanden: $([math]::Round($totalMemory / 1GB, 2)) GB" }
+
+      - name: Provision and validate
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $remove = '${{ github.event_name == 'workflow_dispatch' && inputs.remove_after_validation || false }}' -eq 'true'
+          & .\Tests\Integration\Invoke-Sql2025FortyGbDemo.ps1 -RemoveAfterValidation:$remove |
+            Tee-Object -FilePath (Join-Path $env:RUNNER_TEMP 'sql2025-40gb-result.json')
+
+      - name: Upload validation result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sql2025-40gb-validation
+          path: ${{ runner.temp }}/sql2025-40gb-result.json
+          if-no-files-found: warn
+          retention-days: 14
