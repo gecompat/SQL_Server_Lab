@@ -65,6 +65,7 @@ jobs:
       - name: Podman smoke matrix
         run: |
           $ErrorActionPreference = 'Stop'
+          $logPath = Join-Path $env:RUNNER_TEMP 'podman-smoke-matrix.log'
           $mutexName = if ($IsWindows) { 'Global\SQL_Server_Lab_Runtime_Smoke' } else { 'SQL_Server_Lab_Runtime_Smoke' }
           $mutex = [System.Threading.Mutex]::new($false, $mutexName)
           $acquired = $false
@@ -75,10 +76,20 @@ jobs:
             & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-SmokeMatrix.ps1 `
               -Provider podman `
               -FullMatrix `
-              -IncludeParallel
-            if ($LASTEXITCODE -ne 0) { throw "Podman Smoke Matrix endete mit Exitcode $LASTEXITCODE." }
+              -IncludeParallel 2>&1 | Tee-Object -FilePath $logPath
+            $matrixExitCode = $LASTEXITCODE
+            if ($matrixExitCode -ne 0) { throw "Podman Smoke Matrix endete mit Exitcode $matrixExitCode." }
           }
           finally {
             if ($acquired) { $mutex.ReleaseMutex() }
             $mutex.Dispose()
           }
+
+      - name: Upload Podman smoke log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: podman-smoke-matrix-log
+          path: ${{ runner.temp }}/podman-smoke-matrix.log
+          if-no-files-found: ignore
+          retention-days: 7
