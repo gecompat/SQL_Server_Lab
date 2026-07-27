@@ -1,4 +1,4 @@
-name: PR3 Podman Port Diagnosis
+name: PR3 Podman Snapshot Diagnosis
 
 on:
   push:
@@ -16,14 +16,15 @@ on:
 
 permissions:
   contents: read
+  pull-requests: write
 
 jobs:
-  podman-port-diagnosis:
-    name: Podman container and port diagnosis
+  podman-snapshot:
+    name: Podman 30-second snapshot
     runs-on:
       - self-hosted
       - SQL_Lab
-    timeout-minutes: 10
+    timeout-minutes: 5
 
     steps:
       - name: Checkout PR branch
@@ -31,11 +32,15 @@ jobs:
         with:
           ref: agent/documentation-consistency-repair
 
-      - name: Diagnose raw Podman SQL container
+      - name: Capture Podman SQL snapshot
+        id: diagnosis
+        continue-on-error: true
         shell: pwsh
+        env:
+          DIAG_RESULT: ${{ runner.temp }}/pr3-podman-snapshot.txt
         run: |
           $ErrorActionPreference = 'Stop'
-          $containerName = "sql-lab-podman-diag-$env:GITHUB_RUN_ID"
+          $containerName = "sql-lab-podman-snapshot-$env:GITHUB_RUN_ID"
           $port = 14330
           $password = "SqlLab_$([guid]::NewGuid().ToString('N'))_Aa1!"
           $image = 'mcr.microsoft.com/mssql/server:2022-latest'
@@ -63,44 +68,86 @@ jobs:
                   '-e', 'MSSQL_PID=Developer',
                   '--memory', '4096m',
                   '--cpus', '4',
-                  '--health-cmd', '/opt/mssql-tools*/bin/sqlcmd -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -Q "SELECT 1" -b',
-                  '--health-interval', '5s',
-                  '--health-timeout', '3s',
-                  '--health-retries', '30',
                   $image
               )
 
-              $containerId = podman @arguments
-              if ($LASTEXITCODE -ne 0) {
-                  throw 'podman run ist fehlgeschlagen.'
+              $containerId = (podman @arguments | Out-String).Trim()
+              if ($LASTEXITCODE -ne 0) { throw 'podman run ist fehlgeschlagen.' }
+              Start-Sleep -Seconds 30
+
+              $state = (podman inspect $containerName --format 'status={{.State.Status}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}} error={{.State.Error}}' 2>&1 | Out-String).Trim()
+              $ports = (podman inspect $containerName --format 'ports={{json .NetworkSettings.Ports}}' 2>&1 | Out-String).Trim()
+              $mapping = (podman port $containerName 1433 2>&1 | Out-String).Trim()
+              $tcpOpen = Test-TcpPort -HostName '127.0.0.1' -Port $port
+              $logs = (podman logs --tail 80 $containerName 2>&1 | Out-String).Trim()
+
+              @(
+                  "containerId=$containerId"
+                  $state
+                  $ports
+                  "mapping=$mapping"
+                  "tcpOpen=$tcpOpen"
+                  '--- SQL container log ---'
+                  $logs
+              ) | Set-Content -LiteralPath $env:DIAG_RESULT -Encoding utf8
+
+              if (-not $tcpOpen) {
+                  throw 'Podman-Hostport ist nach 30 Sekunden nicht erreichbar.'
               }
-              Write-Host "ContainerId=$containerId"
-
-              for ($attempt = 1; $attempt -le 40; $attempt++) {
-                  $state = (podman inspect $containerName --format '{{.State.Status}}|{{.State.ExitCode}}|{{.State.Error}}' 2>&1 | Out-String).Trim()
-                  $mapping = (podman port $containerName 1433 2>&1 | Out-String).Trim()
-                  $tcpOpen = Test-TcpPort -HostName '127.0.0.1' -Port $port
-                  Write-Host "attempt=$attempt state=$state tcpOpen=$tcpOpen mapping=$mapping"
-
-                  if ($tcpOpen) {
-                      $output = sqlcmd -S "127.0.0.1,$port" -U sa -P $password -C -b -Q 'SET NOCOUNT ON; SELECT 1;' -h -1 -W 2>&1
-                      if ($LASTEXITCODE -eq 0) {
-                          Write-Host "sqlcmd=SUCCESS output=$(($output | Out-String).Trim())"
-                          exit 0
-                      }
-                      Write-Host "sqlcmd=NOT_READY output=$(($output | Out-String).Trim())"
-                  }
-
-                  if ($state -match '^(exited|dead)\|') { break }
-                  Start-Sleep -Seconds 3
+          }
+          catch {
+              if (-not (Test-Path -LiteralPath $env:DIAG_RESULT)) {
+                  $_.Exception.Message | Set-Content -LiteralPath $env:DIAG_RESULT -Encoding utf8
               }
-
-              Write-Host '--- podman inspect summary ---'
-              podman inspect $containerName --format 'status={{.State.Status}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}} error={{.State.Error}} ports={{json .NetworkSettings.Ports}}'
-              Write-Host '--- podman logs ---'
-              podman logs --tail 200 $containerName
-              throw 'Podman-Container wurde nicht ueber den Hostport erreichbar.'
+              throw
           }
           finally {
               podman rm -f $containerName 1>$null 2>$null
           }
+
+      - name: Write snapshot into PR body
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          DIAG_RESULT: ${{ runner.temp }}/pr3-podman-snapshot.txt
+          DIAG_OUTCOME: ${{ steps.diagnosis.outcome }}
+        with:
+          script: |
+            const fs = require('fs');
+            const start = '<!-- PR3_PODMAN_SNAPSHOT_START -->';
+            const end = '<!-- PR3_PODMAN_SNAPSHOT_END -->';
+            const text = fs.existsSync(process.env.DIAG_RESULT)
+              ? fs.readFileSync(process.env.DIAG_RESULT, 'utf8')
+              : 'Kein Snapshot erzeugt.';
+            const lines = text.split(/\r?\n/).filter(Boolean).slice(-100);
+            const block = [
+              start,
+              '## Podman 30-Sekunden-Snapshot',
+              '',
+              `Ergebnis: **${process.env.DIAG_OUTCOME.toUpperCase()}**`,
+              '',
+              '```text',
+              lines.join('\n'),
+              '```',
+              end
+            ].join('\n');
+
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: 3
+            });
+            let body = pr.data.body || '';
+            const pattern = new RegExp(`${start}[\\s\\S]*?${end}`, 'm');
+            body = pattern.test(body) ? body.replace(pattern, block) : `${body}\n\n${block}`;
+            await github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: 3,
+              body
+            });
+
+      - name: Fail job when snapshot failed
+        if: steps.diagnosis.outcome == 'failure'
+        shell: pwsh
+        run: throw 'Podman-Snapshot ist fehlgeschlagen. Siehe PR-Text.'
