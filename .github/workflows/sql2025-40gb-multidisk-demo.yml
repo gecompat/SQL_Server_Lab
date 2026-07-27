@@ -31,7 +31,7 @@ concurrency:
 jobs:
   provision-and-validate:
     name: SQL Server 2025, 40 GB, C/E TempDB, samples and trace flags
-    runs-on: [self-hosted, SQL_Analyze, Docker]
+    runs-on: [self-hosted, SQL_Lab, Docker]
     timeout-minutes: 45
 
     defaults:
