@@ -1,4 +1,7 @@
 # Local runtime state
+.runtime/*
+!.runtime/.gitignore
+!.runtime/README.md
 .state/*
 !.state/.gitignore
 !.state/README.md
