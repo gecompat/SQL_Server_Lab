@@ -19,7 +19,9 @@ concurrency:
 jobs:
   docker-minimal:
     name: Docker minimal provisioning
-    runs-on: self-hosted
+    runs-on:
+      - self-hosted
+      - SQL_Lab
     timeout-minutes: 25
 
     steps:
