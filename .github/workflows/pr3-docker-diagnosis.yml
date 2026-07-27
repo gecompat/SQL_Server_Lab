@@ -73,7 +73,7 @@ jobs:
               throw
           }
 
-      - name: Report result to PR 3
+      - name: Write compact result into PR body
         if: always()
         uses: actions/github-script@v7
         env:
@@ -82,32 +82,43 @@ jobs:
         with:
           script: |
             const fs = require('fs');
+            const start = '<!-- PR3_DOCKER_DIAG_START -->';
+            const end = '<!-- PR3_DOCKER_DIAG_END -->';
             let text = fs.existsSync(process.env.DIAG_LOG)
               ? fs.readFileSync(process.env.DIAG_LOG, 'utf8')
               : 'Keine Diagnoselogdatei erzeugt.';
             const lines = text.split(/\r?\n/).filter(Boolean);
-            const tail = lines.slice(-100).join('\n');
-            const body = [
-              '## PR3 Docker-Diagnose',
+            const tail = lines.slice(-35).join('\n');
+            const block = [
+              start,
+              '## Aktuelle Docker-Diagnose',
               '',
               `Ergebnis: **${process.env.DIAG_OUTCOME.toUpperCase()}**`,
-              '',
-              '<details><summary>Letzte Diagnosezeilen</summary>',
               '',
               '```text',
               tail,
               '```',
-              '',
-              '</details>'
+              end
             ].join('\n');
-            await github.rest.issues.createComment({
+
+            const pr = await github.rest.pulls.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: 3,
+              pull_number: 3
+            });
+            let body = pr.data.body || '';
+            const pattern = new RegExp(`${start}[\\s\\S]*?${end}`, 'm');
+            body = pattern.test(body)
+              ? body.replace(pattern, block)
+              : `${body}\n\n${block}`;
+            await github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: 3,
               body
             });
 
       - name: Fail job when diagnosis failed
         if: steps.diagnosis.outcome == 'failure'
         shell: pwsh
-        run: throw 'Docker-Diagnose ist fehlgeschlagen. Siehe PR-Kommentar.'
+        run: throw 'Docker-Diagnose ist fehlgeschlagen. Siehe PR-Text.'
