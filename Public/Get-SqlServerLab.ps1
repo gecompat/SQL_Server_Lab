@@ -4,11 +4,11 @@
 .PARAMETER RunId
     Optional: Nur diese RunId anzeigen.
 .PARAMETER Detailed
-    Erweiterte Informationen (State-History, Fehler).
+    Erweiterte Informationen wie State-History und Fehler anzeigen.
 .EXAMPLE
     Get-SqlServerLab
 .EXAMPLE
-    Get-SqlServerLab -RunId '466cdd08-...' -Detailed
+    Get-SqlServerLab -RunId $lab.RunId -Detailed
 #>
 function Get-SqlServerLab {
     [CmdletBinding()]
@@ -19,12 +19,11 @@ function Get-SqlServerLab {
 
     $stateRoot = Get-LabStateRoot
 
-    # Einzelner Run oder alle aktiven?
-    if ($RunId) {
-        $runs = @(Get-LabRunState -RunId $RunId -StateRoot $stateRoot)
+    $runs = if ($RunId) {
+        @(Get-LabRunState -RunId $RunId -StateRoot $stateRoot)
     }
     else {
-        $runs = @(Get-LabActiveRuns -StateRoot $stateRoot)
+        @(Get-LabActiveRuns -StateRoot $stateRoot)
     }
 
     if ($runs.Count -eq 0) {
@@ -35,58 +34,102 @@ function Get-SqlServerLab {
     $results = @()
 
     foreach ($run in $runs) {
-        # Instanz-Daten aus connection-info.json + Docker live-Status
-        $instances = @()
-        $connInfoPath = Join-Path $stateRoot 'runs' $run.runId 'connection-info.json'
-        $connInfo = if (Test-Path $connInfoPath) {
-            Get-Content $connInfoPath -Raw | ConvertFrom-Json
-        } else { $null }
+        $runDirectory = Join-Path (Join-Path $stateRoot 'runs') $run.runId
+        $connectionInfoPath = Join-Path $runDirectory 'connection-info.json'
+        $connectionInfo = if (Test-Path -LiteralPath $connectionInfoPath -PathType Leaf) {
+            Get-Content -LiteralPath $connectionInfoPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
+        }
+        else {
+            $null
+        }
 
-        # Container via Labels finden (docker oder podman)
-        $rt = Get-ContainerRuntime
-        $containers = if ($rt) { & $rt ps -a -q --filter "label=sql-server-lab.run-id=$($run.runId)" 2>$null } else { $null }
+        $providers = @(
+            $connectionInfo.instances |
+                ForEach-Object { $_.provider } |
+                Where-Object { $_ } |
+                Sort-Object -Unique
+        )
+
         $containerMap = @{}
-        if ($containers) {
-            $containers | ForEach-Object {
-                $id = $_.Trim()
-                if (-not $id) { return }
-                $inspectJson = & $rt inspect $id 2>$null | ConvertFrom-Json
-                if ($inspectJson) {
-                    $labels = $inspectJson[0].Config.Labels
-                    $instId = $labels.'sql-server-lab.instance-id'
-                    $containerMap[$instId] = @{
-                        Name    = $inspectJson[0].Name.TrimStart('/')
-                        Running = $inspectJson[0].State.Status -eq 'running'
-                        Healthy = $inspectJson[0].State.Health.Status -eq 'healthy'
+        $runtimeError = $null
+
+        if ($providers.Count -le 1) {
+            $preferredRuntime = if ($providers.Count -eq 1) { $providers[0] } else { $null }
+            $runtime = Get-ContainerRuntime -PreferredRuntime $preferredRuntime
+
+            if ($runtime) {
+                $containerIds = @(
+                    & $runtime ps -a -q --filter "label=sql-server-lab.run-id=$($run.runId)" 2>$null |
+                        Where-Object { $_ }
+                )
+
+                foreach ($containerIdValue in $containerIds) {
+                    $containerId = ([string]$containerIdValue).Trim()
+                    if (-not $containerId) {
+                        continue
+                    }
+
+                    try {
+                        $inspectJson = & $runtime inspect $containerId 2>$null | ConvertFrom-Json -Depth 30
+                        if (-not $inspectJson) {
+                            continue
+                        }
+
+                        $inspectItem = @($inspectJson)[0]
+                        $labels = $inspectItem.Config.Labels
+                        $instanceId = $labels.'sql-server-lab.instance-id'
+                        $healthStatus = if ($inspectItem.State.Health) { $inspectItem.State.Health.Status } else { $null }
+
+                        $containerMap[$instanceId] = @{
+                            Name    = ([string]$inspectItem.Name).TrimStart('/')
+                            Running = $inspectItem.State.Status -eq 'running'
+                            Healthy = $healthStatus -eq 'healthy'
+                        }
+                    }
+                    catch {
+                        $runtimeError = "Container-Status konnte nicht gelesen werden: $($_.Exception.Message)"
                     }
                 }
             }
+            elseif ($preferredRuntime) {
+                $runtimeError = "Container-Runtime '$preferredRuntime' ist lokal nicht verfuegbar."
+            }
+        }
+        else {
+            $runtimeError = 'Gemischte Provider werden im gemeinsamen Lifecycle noch nicht unterstuetzt.'
         }
 
-        # Instanzen zusammenbauen
-        $instList = if ($connInfo -and $connInfo.instances) { $connInfo.instances } else { @() }
-        foreach ($inst in $instList) {
-            $cInfo = $containerMap[$inst.id]
+        $instances = @()
+        $instanceList = if ($connectionInfo -and $connectionInfo.instances) {
+            @($connectionInfo.instances)
+        }
+        else {
+            @()
+        }
+
+        foreach ($instance in $instanceList) {
+            $containerInfo = $containerMap[$instance.id]
             $instances += [PSCustomObject]@{
-                Id            = $inst.id
-                Version       = $inst.version
-                Provider      = $inst.provider
-                Host          = $inst.host
-                Port          = $inst.port
-                ContainerName = if ($cInfo) { $cInfo.Name } else { '' }
-                ContainerUp   = if ($cInfo) { $cInfo.Running } else { $false }
-                Healthy       = if ($cInfo) { $cInfo.Healthy } else { $false }
+                Id            = $instance.id
+                Version       = $instance.version
+                Provider      = $instance.provider
+                Host          = $instance.host
+                Port          = $instance.port
+                ContainerName = if ($containerInfo) { $containerInfo.Name } else { '' }
+                ContainerUp   = if ($containerInfo) { $containerInfo.Running } else { $false }
+                Healthy       = if ($containerInfo) { $containerInfo.Healthy } else { $false }
             }
         }
 
         $labInfo = [PSCustomObject]@{
-            RunId      = $run.runId
-            ScopeId    = $run.scopeId
-            State      = $run.state
-            Name       = $run.metadata.name
-            CreatedAt  = $run.createdAt
-            UpdatedAt  = $run.updatedAt
-            Instances  = $instances
+            RunId       = $run.runId
+            ScopeId     = $run.scopeId
+            State       = $run.state
+            Name        = $run.metadata.name
+            CreatedAt   = $run.createdAt
+            UpdatedAt   = $run.updatedAt
+            Instances   = $instances
+            RuntimeNote = $runtimeError
         }
 
         if ($Detailed) {
@@ -97,26 +140,30 @@ function Get-SqlServerLab {
         $results += $labInfo
     }
 
-    # Ausgabe
     Write-LabHeader 'SQL Server Lab - Status'
 
     foreach ($lab in $results) {
-        $runPrefix = $lab.RunId.Substring(0, 8)
         Write-Host ''
         Write-LabStatus -Label 'RunId' -Value "$($lab.RunId)  [$($lab.State)]"
         Write-LabStatus -Label 'Name' -Value $lab.Name
         Write-LabStatus -Label 'Erstellt' -Value $lab.CreatedAt
 
-        foreach ($inst in $lab.Instances) {
-            $upIcon = if ($inst.ContainerUp) { '[UP]' } else { '[DOWN]' }
-            $healthIcon = if ($inst.Healthy) { ' healthy' } else { '' }
-            Write-LabStatus -Label "  $($inst.Id)" -Value "$($inst.Host):$($inst.Port) (SQL $($inst.Version)) $upIcon$healthIcon"
+        foreach ($instance in $lab.Instances) {
+            $upText = if ($instance.ContainerUp) { '[UP]' } else { '[DOWN]' }
+            $healthText = if ($instance.Healthy) { ' healthy' } else { '' }
+            Write-LabStatus `
+                -Label "  $($instance.Id)" `
+                -Value "$($instance.Host):$($instance.Port) (SQL $($instance.Version), $($instance.Provider)) $upText$healthText"
+        }
+
+        if ($lab.RuntimeNote) {
+            Write-LabWarning "  $($lab.RuntimeNote)"
         }
 
         if ($Detailed -and $lab.Errors.Count -gt 0) {
             Write-LabWarning "  Fehler: $($lab.Errors.Count)"
-            foreach ($err in $lab.Errors) {
-                Write-Host "    $($err.timestamp): $($err.message)" -ForegroundColor Red
+            foreach ($errorItem in $lab.Errors) {
+                Write-Host "    $($errorItem.timestamp): $($errorItem.message)" -ForegroundColor Red
             }
         }
     }
