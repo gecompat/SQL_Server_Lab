@@ -110,10 +110,6 @@ function New-PodmanInstance {
     )
 
     $image = Get-SqlServerDockerImage -VersionId $VersionId
-    if ($Port -eq 0) {
-        $Port = Find-PodmanAvailablePort
-    }
-
     $profileDefinition = Get-LabResourceProfile -Name $Profile
     $memoryLimit = "$($profileDefinition.maxMemoryMB)m"
     $cpuLimit = [string]$profileDefinition.maxCpus
@@ -145,58 +141,66 @@ function New-PodmanInstance {
     }
 
     try {
-        $podmanArguments = @(
-            'run', '-d',
-            '--name', $containerName,
-            '-p', "${Port}:1433",
-            '-e', 'ACCEPT_EULA=Y',
-            '-e', "MSSQL_SA_PASSWORD=$saPlain",
-            '-e', 'MSSQL_PID=Developer',
-            '-e', 'MSSQL_AGENT_ENABLED=true',
-            '--memory', $memoryLimit,
-            '--cpus', $cpuLimit,
-            '--label', "sql-server-lab.run-id=$RunId",
-            '--label', "sql-server-lab.scope-id=$ScopeId",
-            '--label', "sql-server-lab.instance-id=$InstanceId",
-            '--label', "sql-server-lab.version=$VersionId",
-            '--label', 'sql-server-lab.provider=podman',
-            '--label', "sql-server-lab.created-at=$(Get-LabTimestamp)",
-            '--health-cmd', '/opt/mssql-tools*/bin/sqlcmd -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -Q "SELECT 1" -b',
-            '--health-interval', '5s',
-            '--health-timeout', '3s',
-            '--health-retries', '30',
-            $volumeArguments,
-            $image
-        )
+        return Invoke-LabPortAllocationLock -Action {
+            $selectedPort = if ($Port -eq 0) {
+                Find-PodmanAvailablePort
+            }
+            else {
+                $Port
+            }
 
-        Write-LabInfo "Container erstellen: $containerName (Port $Port, Image $image) [Podman]"
-        $output = podman @podmanArguments 2>&1
-        if ($LASTEXITCODE -ne 0) {
-            throw "Podman-Container konnte nicht erstellt werden: $(($output | Out-String).Trim())"
-        }
+            $podmanArguments = @(
+                'run', '-d',
+                '--name', $containerName,
+                '-p', "${selectedPort}:1433",
+                '-e', 'ACCEPT_EULA=Y',
+                '-e', "MSSQL_SA_PASSWORD=$saPlain",
+                '-e', 'MSSQL_PID=Developer',
+                '-e', 'MSSQL_AGENT_ENABLED=true',
+                '--memory', $memoryLimit,
+                '--cpus', $cpuLimit,
+                '--label', "sql-server-lab.run-id=$RunId",
+                '--label', "sql-server-lab.scope-id=$ScopeId",
+                '--label', "sql-server-lab.instance-id=$InstanceId",
+                '--label', "sql-server-lab.version=$VersionId",
+                '--label', 'sql-server-lab.provider=podman',
+                '--label', "sql-server-lab.created-at=$(Get-LabTimestamp)",
+                '--health-cmd', '/opt/mssql-tools*/bin/sqlcmd -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -Q "SELECT 1" -b',
+                '--health-interval', '5s',
+                '--health-timeout', '3s',
+                '--health-retries', '30',
+                $volumeArguments,
+                $image
+            )
 
-        $containerId = $output |
-            ForEach-Object { ([string]$_).Trim() } |
-            Where-Object { $_ -match '^[0-9a-f]{12,64}$' } |
-            Select-Object -Last 1
-        if (-not $containerId) {
-            throw "Podman lieferte keine gueltige Container-ID: $(($output | Out-String).Trim())"
-        }
+            Write-LabInfo "Container erstellen: $containerName (Port $selectedPort, Image $image) [Podman]"
+            $output = podman @podmanArguments 2>&1
+            if ($LASTEXITCODE -ne 0) {
+                throw "Podman-Container konnte nicht erstellt werden: $(($output | Out-String).Trim())"
+            }
 
-        return [PSCustomObject]@{
-            ContainerId   = $containerId
-            ContainerName = $containerName
-            Port          = $Port
-            InstanceId    = $InstanceId
-            VersionId     = $VersionId
-            Provider      = 'podman'
-            Image         = $image
-            Status        = 'Created'
+            $containerId = $output |
+                ForEach-Object { ([string]$_).Trim() } |
+                Where-Object { $_ -match '^[0-9a-f]{12,64}$' } |
+                Select-Object -Last 1
+            if (-not $containerId) {
+                throw "Podman lieferte keine gueltige Container-ID: $(($output | Out-String).Trim())"
+            }
+
+            [PSCustomObject]@{
+                ContainerId   = $containerId
+                ContainerName = $containerName
+                Port          = $selectedPort
+                InstanceId    = $InstanceId
+                VersionId     = $VersionId
+                Provider      = 'podman'
+                Image         = $image
+                Status        = 'Created'
+            }
         }
     }
     finally {
         $saPlain = $null
-        $podmanArguments = $null
     }
 }
 
