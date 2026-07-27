@@ -1,0 +1,20 @@
+# Default ownership
+* @gecompat
+
+# Public API and module contract
+/SqlServerLab.psd1 @gecompat
+/SqlServerLab.psm1 @gecompat
+/Public/ @gecompat
+
+# Runtime and provider implementations
+/Private/ @gecompat
+/Providers/ @gecompat
+
+# Machine-readable contracts and examples
+/Catalogs/ @gecompat
+/Schemas/ @gecompat
+
+# Documentation, AI context and validation
+/Documentation/ @gecompat
+/.ai/ @gecompat
+/Tests/ @gecompat
