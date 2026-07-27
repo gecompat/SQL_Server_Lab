@@ -4,9 +4,10 @@
 .DESCRIPTION
     Ueberschreibt Set-LabServerConfig nach dem Laden von ServerConfig.ps1.
     TempDB-Pfadwechsel werden in drei Phasen ausgefuehrt:
-    1. Primaere Daten- und Logdatei im Katalog auf Zielpfade setzen.
+    1. Alle bereits vorhandenen benoetigten Dateien im Katalog auf Zielpfade setzen
+       und ueberzaehlige Datendateien entfernen.
     2. Container neu starten und SQL-Bereitschaft abwarten.
-    3. Aktive Dateien dimensionieren, weitere Dateien anlegen und Pfade validieren.
+    3. Aktive Dateien dimensionieren, fehlende Dateien anlegen und Bestand/Pfade validieren.
 #>
 
 function Restart-LabContainerForTempDb {
@@ -52,15 +53,35 @@ function Set-LabTempDbConfigWithRestart {
         throw 'serverConfig.tempdb.dataFiles muss mindestens eine Datendatei enthalten.'
     }
 
-    $primary = $dataFiles[0]
-    $primaryPath = [string]$primary.path
-    Assert-LabContainerPath -Path $primaryPath -Label 'TempDB-Data-File-Pfad'
-    $primaryGrowth = ConvertTo-LabGrowthClause -Growth ([string]$primary.growth)
-    $escapedPrimaryPath = $primaryPath.Replace("'", "''")
+    $desiredLogicalNames = @('tempdev')
+    for ($index = 1; $index -lt $dataFiles.Count; $index++) {
+        $desiredLogicalNames += "temp$($index + 1)"
+    }
+    $escapedDesiredLogicalNames = @($desiredLogicalNames | ForEach-Object { "N'$($_.Replace("'", "''"))'" })
 
-    $catalogStatements = @(
-        "ALTER DATABASE tempdb MODIFY FILE (NAME = N'tempdev', FILENAME = N'$escapedPrimaryPath', FILEGROWTH = $primaryGrowth);"
-    )
+    $catalogStatements = @()
+    for ($index = 0; $index -lt $dataFiles.Count; $index++) {
+        $file = $dataFiles[$index]
+        $path = [string]$file.path
+        Assert-LabContainerPath -Path $path -Label 'TempDB-Data-File-Pfad'
+        $growth = ConvertTo-LabGrowthClause -Growth ([string]$file.growth)
+        $escapedPath = $path.Replace("'", "''")
+        $logicalName = $desiredLogicalNames[$index]
+
+        if ($index -eq 0) {
+            $catalogStatements += "ALTER DATABASE tempdb MODIFY FILE (NAME = N'$logicalName', FILENAME = N'$escapedPath', FILEGROWTH = $growth);"
+        }
+        else {
+            # SQL Server 2025 Container starten standardmaessig mit mehreren TempDB-Dateien.
+            # Existiert die gewuenschte logische Datei bereits, muss ihr Pfad vor dem
+            # Neustart gesetzt werden. Nach dem Neustart darf FILENAME nicht nochmals
+            # geaendert werden, da dies einen weiteren Neustart erfordern wuerde.
+            $catalogStatements += @"
+IF EXISTS (SELECT 1 FROM tempdb.sys.database_files WHERE type_desc = N'ROWS' AND name = N'$logicalName')
+    ALTER DATABASE tempdb MODIFY FILE (NAME = N'$logicalName', FILENAME = N'$escapedPath', FILEGROWTH = $growth);
+"@
+        }
+    }
 
     $logPath = $null
     if ($Config.logFile) {
@@ -71,8 +92,33 @@ function Set-LabTempDbConfigWithRestart {
         $catalogStatements += "ALTER DATABASE tempdb MODIFY FILE (NAME = N'templog', FILENAME = N'$escapedLogPath', FILEGROWTH = $logGrowth);"
     }
 
-    # Noch keine zusaetzliche Datei anlegen und keine Datei vergroessern. Beides
-    # wuerde vor dem notwendigen Neustart sofort auf dem Ziel-Mount initialisieren.
+    # Ueberzaehlige, vom Image automatisch angelegte TempDB-Datendateien muessen
+    # vor dem Neustart entfernt werden. Andernfalls blieben bei SQL Server 2025
+    # beispielsweise temp3 bis temp8 aktiv, obwohl das Manifest nur zwei Dateien
+    # verlangt. EMPTYFILE verschiebt vorhandene Allokationen vor REMOVE FILE.
+    $catalogStatements += @"
+DECLARE @FileName sysname;
+DECLARE ExtraTempDbFiles CURSOR LOCAL FAST_FORWARD FOR
+    SELECT name
+    FROM tempdb.sys.database_files
+    WHERE type_desc = N'ROWS'
+      AND name NOT IN ($($escapedDesiredLogicalNames -join ', '))
+    ORDER BY file_id DESC;
+OPEN ExtraTempDbFiles;
+FETCH NEXT FROM ExtraTempDbFiles INTO @FileName;
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    DECLARE @Sql nvarchar(max);
+    SET @Sql = N'DBCC SHRINKFILE (' + QUOTENAME(@FileName, '''') + N', EMPTYFILE) WITH NO_INFOMSGS;';
+    EXEC sys.sp_executesql @Sql;
+    SET @Sql = N'ALTER DATABASE tempdb REMOVE FILE ' + QUOTENAME(@FileName) + N';';
+    EXEC sys.sp_executesql @Sql;
+    FETCH NEXT FROM ExtraTempDbFiles INTO @FileName;
+END;
+CLOSE ExtraTempDbFiles;
+DEALLOCATE ExtraTempDbFiles;
+"@
+
     Invoke-LabConfigurationQuery `
         -HostName $HostName `
         -Port $Port `
@@ -86,25 +132,26 @@ function Set-LabTempDbConfigWithRestart {
         -SaPassword $SaPassword
 
     $activeStatements = @()
-    $primarySize = if ($primary.sizeMB) { [int]$primary.sizeMB } else { 256 }
-    if ($primarySize -le 0) { throw 'TempDB-Dateigroesse muss positiv sein.' }
-    $activeStatements += "ALTER DATABASE tempdb MODIFY FILE (NAME = N'tempdev', SIZE = ${primarySize}MB, FILEGROWTH = $primaryGrowth);"
-
-    for ($index = 1; $index -lt $dataFiles.Count; $index++) {
+    for ($index = 0; $index -lt $dataFiles.Count; $index++) {
         $file = $dataFiles[$index]
         $path = [string]$file.path
-        Assert-LabContainerPath -Path $path -Label 'TempDB-Data-File-Pfad'
         $size = if ($file.sizeMB) { [int]$file.sizeMB } else { 256 }
         if ($size -le 0) { throw 'TempDB-Dateigroesse muss positiv sein.' }
         $growth = ConvertTo-LabGrowthClause -Growth ([string]$file.growth)
         $escapedPath = $path.Replace("'", "''")
-        $logicalName = "temp$($index + 1)"
-        $activeStatements += @"
-IF EXISTS (SELECT 1 FROM tempdb.sys.database_files WHERE name = N'$logicalName')
-    ALTER DATABASE tempdb MODIFY FILE (NAME = N'$logicalName', FILENAME = N'$escapedPath', SIZE = ${size}MB, FILEGROWTH = $growth);
+        $logicalName = $desiredLogicalNames[$index]
+
+        if ($index -eq 0) {
+            $activeStatements += "ALTER DATABASE tempdb MODIFY FILE (NAME = N'$logicalName', SIZE = ${size}MB, FILEGROWTH = $growth);"
+        }
+        else {
+            $activeStatements += @"
+IF EXISTS (SELECT 1 FROM tempdb.sys.database_files WHERE type_desc = N'ROWS' AND name = N'$logicalName')
+    ALTER DATABASE tempdb MODIFY FILE (NAME = N'$logicalName', SIZE = ${size}MB, FILEGROWTH = $growth);
 ELSE
     ALTER DATABASE tempdb ADD FILE (NAME = N'$logicalName', FILENAME = N'$escapedPath', SIZE = ${size}MB, FILEGROWTH = $growth);
 "@
+        }
     }
 
     if ($Config.logFile) {
@@ -123,18 +170,27 @@ ELSE
     $expectedPaths = @($dataFiles | ForEach-Object { [string]$_.path })
     if ($logPath) { $expectedPaths += $logPath }
     $escapedExpected = @($expectedPaths | ForEach-Object { "N'$($_.Replace("'", "''"))'" })
+    $expectedLogCount = if ($logPath) { 1 } else { 0 }
     $validationQuery = @"
 SET NOCOUNT ON;
-DECLARE @Expected int = $($expectedPaths.Count);
-DECLARE @Actual int = (
+DECLARE @ExpectedDataFiles int = $($dataFiles.Count);
+DECLARE @ExpectedLogFiles int = $expectedLogCount;
+DECLARE @ActualDataFiles int = (SELECT COUNT(*) FROM tempdb.sys.database_files WHERE type_desc = N'ROWS');
+DECLARE @ActualLogFiles int = (SELECT COUNT(*) FROM tempdb.sys.database_files WHERE type_desc = N'LOG');
+DECLARE @ExpectedPaths int = $($expectedPaths.Count);
+DECLARE @ActualPaths int = (
     SELECT COUNT(*)
     FROM tempdb.sys.database_files
     WHERE physical_name IN ($($escapedExpected -join ', '))
 );
-IF @Actual <> @Expected
+IF @ActualDataFiles <> @ExpectedDataFiles
+   OR @ActualLogFiles <> @ExpectedLogFiles
+   OR @ActualPaths <> @ExpectedPaths
 BEGIN
-    SELECT name, physical_name, state_desc FROM tempdb.sys.database_files ORDER BY file_id;
-    THROW 51001, 'TEMPDB_PATH_VALIDATION_FAILED', 1;
+    SELECT file_id, name, physical_name, type_desc, state_desc
+    FROM tempdb.sys.database_files
+    ORDER BY file_id;
+    THROW 51001, 'TEMPDB_LAYOUT_VALIDATION_FAILED', 1;
 END;
 "@
     Invoke-LabConfigurationQuery -HostName $HostName -Port $Port -SaPassword $SaPassword -Query $validationQuery
