@@ -122,13 +122,13 @@ function Resolve-LabSampleRestore {
     }
 
     return [PSCustomObject]@{
-        source       = $source
-        type         = 'url'
-        replace      = $true
-        sampleId     = $sample.id
+        source        = $source
+        type          = 'url'
+        replace       = $true
+        sampleId      = $sample.id
         sampleVariant = $variant
-        license      = $sample.license
-        sourcePage   = $sample.source
+        license       = $sample.license
+        sourcePage    = $sample.source
     }
 }
 
@@ -254,10 +254,10 @@ function Resolve-ManifestDefaults {
                 else {
                     $null
                 }
-                maxDop          = if ($null -ne $config.maxDop) { $config.maxDop } else { 0 }
-                costThreshold   = if ($null -ne $config.costThreshold) { $config.costThreshold } else { 5 }
-                traceFlags      = if ($config.traceFlags) { @($config.traceFlags) } else { @() }
-                spConfigure     = $config.spConfigure
+                maxDop           = if ($null -ne $config.maxDop) { $config.maxDop } else { 0 }
+                costThreshold    = if ($null -ne $config.costThreshold) { $config.costThreshold } else { 5 }
+                traceFlags       = if ($config.traceFlags) { @($config.traceFlags) } else { @() }
+                spConfigure      = $config.spConfigure
                 externalScripts = $config.externalScripts
             }
         }
@@ -331,6 +331,7 @@ function Resolve-DatabaseFiles {
         foreach ($file in $DatabaseDef.files.data) {
             $files.data += @{
                 name         = $file.name
+                path         = $file.path
                 sizeMB       = if ($file.sizeMB) { $file.sizeMB } else { 64 }
                 filegrowthMB = if ($file.filegrowthMB) { $file.filegrowthMB } else { 64 }
             }
@@ -339,6 +340,7 @@ function Resolve-DatabaseFiles {
     else {
         $files.data += @{
             name         = "$($DatabaseDef.name)_Data"
+            path         = $null
             sizeMB       = 64
             filegrowthMB = 64
         }
@@ -348,6 +350,7 @@ function Resolve-DatabaseFiles {
         foreach ($file in $DatabaseDef.files.log) {
             $files.log += @{
                 name         = $file.name
+                path         = $file.path
                 sizeMB       = if ($file.sizeMB) { $file.sizeMB } else { 32 }
                 filegrowthMB = if ($file.filegrowthMB) { $file.filegrowthMB } else { 32 }
             }
@@ -356,6 +359,7 @@ function Resolve-DatabaseFiles {
     else {
         $files.log += @{
             name         = "$($DatabaseDef.name)_Log"
+            path         = $null
             sizeMB       = 32
             filegrowthMB = 32
         }
