@@ -3,146 +3,163 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING_INDEX` |
-| Stand | 2026-07-26 |
+| Stand | 2026-07-27 |
 
-## 1. Verbindliche Lesereihenfolge
+Diese Datei ist der verbindliche Dokumentationsindex. Die Root-[README](../README.md) ist der operative Einstieg. Bei Widersprüchen zwischen Planungsdokumenten und implementiertem Verhalten gelten Code, Schemas, Kataloge, Tests und die dokumentierten bekannten Grenzen als Ist-Nachweis.
+
+## 1. Einstieg nach Zielgruppe
+
+### Lab verwenden
+
+1. [Getting Started](User/Getting_Started.md)
+2. [Root-README](../README.md)
+3. [Manifest-Schemas und Beispiele](../Schemas/README.md)
+4. [Öffentliche Cmdlets](../Public/README.md)
+5. [Bekannte Grenzen](Quality/KNOWN_LIMITATIONS.md)
+6. [Tests](../Tests/README.md)
+
+### Projekt weiterentwickeln
+
+1. [KI-Projektkontext](../.ai/PROJECT_CONTEXT.md)
+2. [Arbeitsregeln](../.ai/WORKING_RULES.md)
+3. [Maschinenlesbare Repo-Map](../.ai/repo_map.yaml)
+4. [Beitragsregeln](../CONTRIBUTING.md)
+5. [Lokale Validierungsstrategie](Quality/LOCAL_VALIDATION_STRATEGY.md)
+6. [Bekannte Grenzen](Quality/KNOWN_LIMITATIONS.md)
+
+### Architektur und langfristige Planung verstehen
 
 1. [SQL-Server-zentrierte Scope-Entscheidung](Architecture/SQL_SERVER_CENTRIC_SCOPE_DECISION.md)
-2. [Master-Umsetzungsplan](Project_Planning/MASTER_IMPLEMENTATION_PLAN.md)
-3. [Verbindliche Masterplan-Ergänzung](Project_Planning/MASTER_IMPLEMENTATION_PLAN_SCOPE_ADDENDUM.md)
-4. [Erweiterbarer SQL-Server-Umgebungs- und Ausführungsvertrag](Architecture/EXTENSIBLE_ENVIRONMENT_AND_EXECUTION_CONTRACT.md)
-5. [Manifest- und Schnittstellenarchitektur](Architecture/MANIFEST_AND_INTERFACE_ARCHITECTURE.md)
-6. [Projektintegrationsvertrag](Architecture/PROJECT_INTEGRATION_CONTRACT.md)
-7. [Zukünftige SQL-Server-Anwendungsfälle](Architecture/FUTURE_USE_CASES_AND_EXTENSION_GUARDRAILS.md)
+2. [Erweiterbarer Umgebungs- und Ausführungsvertrag](Architecture/EXTENSIBLE_ENVIRONMENT_AND_EXECUTION_CONTRACT.md)
+3. [Manifest- und Schnittstellenarchitektur](Architecture/MANIFEST_AND_INTERFACE_ARCHITECTURE.md)
+4. [Projektintegrationsvertrag](Architecture/PROJECT_INTEGRATION_CONTRACT.md)
+5. [Master-Umsetzungsplan](Project_Planning/MASTER_IMPLEMENTATION_PLAN.md)
+6. [Masterplan-Ergänzung](Project_Planning/MASTER_IMPLEMENTATION_PLAN_SCOPE_ADDENDUM.md)
+7. [Zukünftige Anwendungsfälle](Architecture/FUTURE_USE_CASES_AND_EXTENSION_GUARDRAILS.md)
 
-Bei widersprüchlichen älteren Formulierungen haben Scope-Entscheidung und Masterplan-Ergänzung Vorrang.
+Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ein Feature bereits ausgeführt werden kann.
 
-## 2. Architektur
+## 2. Aktueller Runtime-Status
+
+| Komponente | Status | Autoritative Dateien |
+|---|---|---|
+| PowerShell-Modul | implementiert | `SqlServerLab.psd1`, `SqlServerLab.psm1` |
+| Öffentliche API | 12 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
+| Docker | implementiert | `Providers/Docker/DockerProvider.ps1` |
+| Podman | implementiert | `Providers/Podman/PodmanProvider.ps1` |
+| Hyper-V | geplant | `Providers/HyperV/README.md` |
+| Versions- und Buildauflösung | implementiert | `Catalogs/sql-server-versions.json`, `Private/VersionCatalog.ps1` |
+| Sample-Katalog | direkte `.bak`-Varianten implementiert | `Catalogs/sample-databases.json`, `Private/ManifestParser.ps1` |
+| Manifestparser | implementiert | `Private/ManifestParser.ps1` |
+| Resource Assessment | implementiert | `Private/ResourceAssessment.ps1` |
+| State und Cleanup | implementiert | `Private/StateMachine.ps1`, `Private/CleanupEngine.ps1` |
+| SQL Readiness | implementiert | `Private/SqlReadiness.ps1` |
+| Serverkonfiguration | teilweise implementiert | `Private/ServerConfig.ps1`, `Quality/KNOWN_LIMITATIONS.md` |
+| Datenbankerstellung | implementiert | `Public/New-LabDatabase.ps1` |
+| Restore | direkte `.bak`-Dateien implementiert | `Public/Restore-LabDatabase.ps1` |
+| Skriptausführung | implementiert | `Public/Invoke-LabScript.ps1` |
+| Integrationstest | implementiert | `Tests/Integration/Invoke-SmokeTest.ps1` |
+| Statische Vertragsprüfung | implementiert | `Tests/Static/Invoke-DocumentationChecks.ps1` |
+
+## 3. Öffentliche Cmdlets
+
+| Cmdlet | Zweck |
+|---|---|
+| `Invoke-SqlServerLab` | Interaktives Menü |
+| `New-SqlServerLab` | Umgebung ad hoc oder per Manifest erstellen |
+| `Get-SqlServerLab` | State und Live-Status anzeigen |
+| `Start-SqlServerLab` | Gestoppte Umgebung starten |
+| `Stop-SqlServerLab` | Laufende Umgebung stoppen |
+| `Restart-SqlServerLab` | Stop und Start kombinieren |
+| `Remove-SqlServerLab` | Einzelnen Run entfernen |
+| `Clear-SqlServerLab` | Lab-Container und/oder State bereinigen |
+| `New-LabDatabase` | Datenbank erzeugen |
+| `Restore-LabDatabase` | `.bak` aus Datei oder URL wiederherstellen |
+| `Invoke-LabScript` | T-SQL-Skript ausführen |
+| `Test-LabResources` | Provider, RAM, Storage und Ports prüfen |
+
+Die Liste in `SqlServerLab.psd1` ist autoritativ.
+
+## 4. Manifest und Kataloge
+
+| Artefakt | Zweck |
+|---|---|
+| `Schemas/lab-manifest.schema.json` | Struktur deklarativer Labs |
+| `Schemas/version-catalog.schema.json` | Struktur des SQL-Version-Katalogs |
+| `Schemas/sample-databases.schema.json` | Struktur des Sample-Katalogs |
+| `Catalogs/sql-server-versions.json` | Versionen, Images, Builds und Profile |
+| `Catalogs/sample-databases.json` | Öffentliche Testdatenbank-Metadaten |
+| `Schemas/example-*.json` | ausführbare oder ausdrücklich begrenzte Beispiele |
+
+Für Manifestfelder gilt:
+
+1. JSON-Schema beschreibt die zulässige Struktur.
+2. `Private/ManifestParser.ps1` normalisiert und löst Referenzen auf.
+3. Die zuständige Runtimefunktion führt das Feld aus.
+4. [KNOWN_LIMITATIONS.md](Quality/KNOWN_LIMITATIONS.md) beschreibt Abweichungen und reservierte Felder.
+
+Nur wenn alle Ebenen zusammenpassen, ist ein Feld als vollständig implementiert anzusehen.
+
+## 5. Architektur
 
 | Dokument | Inhalt |
 |---|---|
 | [SQL-Server-zentrierte Scope-Entscheidung](Architecture/SQL_SERVER_CENTRIC_SCOPE_DECISION.md) | SQL Server als Hauptzweck; Supporting Components nur mit SQL-Bezug |
-| [Erweiterbarer Umgebungs- und Ausführungsvertrag](Architecture/EXTENSIBLE_ENVIRONMENT_AND_EXECUTION_CONTRACT.md) | Package, Versionskatalog, Components, DataSets, Backups, Resource Assessment, Workflow, Provider, Recovery und Cleanup |
-| [Manifest- und Schnittstellenarchitektur](Architecture/MANIFEST_AND_INTERFACE_ARCHITECTURE.md) | geplante maschinenlesbare Schemas, Version Constraints, Database Artifacts, Resource Override und Auflösungsreihenfolge |
-| [Projektintegrationsvertrag](Architecture/PROJECT_INTEGRATION_CONTRACT.md) | Anbindung von Analyze und Performance-Schulung |
-| [Zukünftige Anwendungsfälle](Architecture/FUTURE_USE_CASES_AND_EXTENSION_GUARDRAILS.md) | SQL-Server-Roadmap und Grenzen für Supporting Components |
+| [Erweiterbarer Umgebungs- und Ausführungsvertrag](Architecture/EXTENSIBLE_ENVIRONMENT_AND_EXECUTION_CONTRACT.md) | Packages, Kataloge, Komponenten, Ressourcen, Workflow, Provider, Recovery und Cleanup |
+| [Manifest- und Schnittstellenarchitektur](Architecture/MANIFEST_AND_INTERFACE_ARCHITECTURE.md) | langfristiger deklarativer Vertrag und Auflösungsreihenfolge |
+| [Projektintegrationsvertrag](Architecture/PROJECT_INTEGRATION_CONTRACT.md) | Anbindung konsumierender Projekte |
+| [Zukünftige Anwendungsfälle](Architecture/FUTURE_USE_CASES_AND_EXTENSION_GUARDRAILS.md) | Roadmap und Grenzen für Supporting Components |
 
-## 3. Verbindliche Querschnittsregeln
-
-### SQL-Server-Versionen
-
-Derzeit sind SQL Server 2019, 2022 und 2025 als aktive Katalogeinträge vorgesehen. Die Schnittstellen sind versionsoffen: neue Versionen werden über Katalog, Provider-Mapping und Capabilities ergänzt; alte Versionen über Status kontrolliert ausgesteuert.
-
-### Datenbankartefakte
-
-Zulässig sind Lab-erzeugte Backups, öffentliche Demo-Datenbanken und ausdrücklich klassifizierte lokale Nicht-Produktionsbackups. Produktions- und unbekannte Daten bleiben blockiert.
-
-### Ressourcen und Cleanup
-
-CPU, RAM, freier Speicher, Provider-Overhead und Restore-Peak werden vor Mutation bewertet. Vorhergesagte Unterversorgung kann ausdrücklich übersteuert werden. Ohne vollständigen Cleanup Plan ist keine Mutation zulässig; Fehler lösen automatische und wiederaufnehmbare Compensation aus.
-
-## 4. Projektplanung
-
-| Dokument | Inhalt |
-|---|---|
-| [Master-Umsetzungsplan](Project_Planning/MASTER_IMPLEMENTATION_PLAN.md) | Gesamtziel, Provider, Lifecycle, Wellen und Abnahmekriterien |
-| [Masterplan-Ergänzung](Project_Planning/MASTER_IMPLEMENTATION_PLAN_SCOPE_ADDENDUM.md) | vorrangige Regeln zu SQL-Scope, Versionskatalog, Backups, Ressourcenübersteuerung und Recovery |
-
-## 5. Migration
-
-| Dokument | Inhalt |
-|---|---|
-| [Migrationsinventar und Ablöseentscheidungen](Migration/MIGRATION_INVENTORY_AND_DECISIONS.md) | Übernahme aus Analyze QuickStart, Analyze Lab/QuickTest und Performance-Schulung |
-
-## 6. Qualität und Sicherheit
+## 6. Qualität, Privacy und Sicherheit
 
 | Dokument | Inhalt |
 |---|---|
 | [Privacy- und Artefaktsicherheitsvertrag](Quality/PRIVACY_AND_ARTIFACT_SECURITY.md) | Trennung lokaler Runtimewerte und versionierter Artefakte |
-| [Lokale Validierungsstrategie](Quality/LOCAL_VALIDATION_STRATEGY.md) | Static-, Contract-, Planner-, Artifact-, Resource-, Recovery- und Native-Tests ohne CI/CD |
+| [Lokale Validierungsstrategie](Quality/LOCAL_VALIDATION_STRATEGY.md) | reproduzierbare lokale Prüfungen |
+| [Bekannte Grenzen](Quality/KNOWN_LIMITATIONS.md) | verbindliche Einschränkungen des aktuellen Runtimepfads |
+| [Security Policy](../SECURITY.md) | Meldung sicherheitsrelevanter Probleme ohne Secrets oder reale Daten |
 
-## 7. Standards
+## 7. Migration und Quell-Snapshots
+
+| Dokument oder Pfad | Inhalt |
+|---|---|
+| [Migrationsinventar](Migration/MIGRATION_INVENTORY_AND_DECISIONS.md) | Übernahme- und Ablöseentscheidungen |
+| `_QuellRepo/SQL_Server_Analyze/` | eingefrorener Quell-Snapshot ohne eigenes `.git` |
+| `_QuellRepo/SQL_PerformanceSchulung/` | eingefrorener Quell-Snapshot ohne eigenes `.git` |
+
+Inhalte unter `_QuellRepo/` sind Referenzmaterial. Sie definieren nicht automatisch die öffentliche API von `SQL_Server_Lab`.
+
+## 8. Standards
 
 | Dokument | Inhalt |
 |---|---|
-| [Sprach-, Übersetzungs- und Schreibstandard](Standards/LANGUAGE_TRANSLATION_AND_STYLE_STANDARD.md) | Deutsch als Dokumentationssprache, englische Codes und Übersetzungsparität |
+| [Sprach-, Übersetzungs- und Schreibstandard](Standards/LANGUAGE_TRANSLATION_AND_STYLE_STANDARD.md) | Deutsch als Dokumentationssprache; etablierte englische Fachbegriffe bleiben erhalten |
+| [CONTRIBUTING.md](../CONTRIBUTING.md) | Coding-, Test-, Doku- und Pull-Request-Regeln |
+| [CHANGELOG.md](../CHANGELOG.md) | nachvollziehbare Änderungen am öffentlichen Vertrag |
 
-## 8. Forschung
-
-| Dokument | Inhalt |
-|---|---|
-| [Analyse bestehender Lab- und Orchestrierungsprojekte](Research/EXISTING_LAB_AND_ORCHESTRATION_PROJECTS_REVIEW.md) | AutomatedLab, MSLab, Compose und weitere Musterquellen |
-
-Die Forschungsanalyse dient ausschließlich der Auswahl bewährter Muster für das SQL-Server-Lab. Sie ist keine Entscheidung, alle untersuchten Produkte zu kombinieren.
-
-## 9. KI- und Arbeitskontext
+## 9. Forschung
 
 | Dokument | Inhalt |
 |---|---|
-| [Projektkontext](../.ai/PROJECT_CONTEXT.md) | dauerhafte Projektentscheidungen, Versions-, Artifact-, Resource- und Recovery-Regeln |
-| [Arbeitsregeln](../.ai/WORKING_RULES.md) | Privacy-, Provider-, Package-, Validierungs- und Git-Regeln |
+| [Analyse bestehender Lab- und Orchestrierungsprojekte](Research/EXISTING_LAB_AND_ORCHESTRATION_PROJECTS_REVIEW.md) | Musterquellen wie AutomatedLab, MSLab und Compose |
 
-## 10. Aktueller Status (Stand: Juli 2026)
+Forschungsunterlagen dienen der Auswahl von Mustern. Sie sind keine automatische Implementierungsentscheidung.
 
-### Implementiert und getestet
+## 10. KI-Weiterarbeit
 
-| Komponente | Status | Dateien |
-|---|---|---|
-| SQL Version Catalog | ✅ implementiert | `Catalogs/sql-server-versions.json` (2019, 2022, 2025) |
-| Lab CLI (Public API) | ✅ 12 Cmdlets | `Public/*.ps1` |
-| Planner und Resource Assessment | ✅ implementiert | `Private/ResourceAssessment.ps1` |
-| Run State und Cleanup Engine | ✅ implementiert | `Private/StateMachine.ps1`, `Private/CleanupEngine.ps1` |
-| Docker-Provider | ✅ Produktiv | `Providers/Docker/DockerProvider.ps1` |
-| Podman-Provider | ✅ Produktiv | `Providers/Podman/PodmanProvider.ps1` |
-| Secret-Management (DPAPI) | ✅ implementiert | `Private/SecretProvider.ps1` |
-| SQL-Engine (3-stufig) | ✅ implementiert | `Private/SqlReadiness.ps1` (Microsoft.Data → System.Data → sqlcmd) |
-| Manifest-Parser + Schema | ✅ implementiert | `Private/ManifestParser.ps1` + `Schemas/lab-manifest.schema.json` |
-| Server-Konfiguration | ✅ implementiert | `Private/ServerConfig.ps1` (Memory, TempDB, MaxDOP, Drives) |
-| Backup/Restore | ✅ implementiert | `Public/Restore-LabDatabase.ps1` (URL-Cache, FILELISTONLY, MOVE) |
-| Interaktives Menue | ✅ implementiert | `Public/Invoke-SqlServerLab.ps1` (Auto-Import, Provider-Auswahl) |
-| Integration-Tests | ✅ runtime-agnostisch | `Tests/Integration/Invoke-SmokeTest.ps1` (docker/podman auto-detect) |
+Eine generische KI soll den Projektstand in dieser Reihenfolge ermitteln:
 
-### Cmdlet-Uebersicht
+1. `README.md`
+2. `.ai/repo_map.yaml`
+3. `SqlServerLab.psd1`
+4. `Schemas/` und `Catalogs/`
+5. `Public/`, `Private/`, `Providers/`
+6. `Tests/`
+7. `Documentation/Quality/KNOWN_LIMITATIONS.md`
+8. Planungsdokumente erst danach
 
-| Cmdlet | Zweck |
-|---|---|
-| `Invoke-SqlServerLab` | Interaktives Menue mit Provider-Auswahl (Auto-Import) |
-| `New-SqlServerLab` | Neue Umgebung erstellen (Ad-hoc oder Manifest) |
-| `Get-SqlServerLab` | Status anzeigen (State + Live-Container-Status) |
-| `Stop-SqlServerLab` | Graceful Stop, Daten bleiben erhalten |
-| `Start-SqlServerLab` | Gestoppte Umgebung starten + SQL-Readiness |
-| `Restart-SqlServerLab` | Stop + Start in einem Aufruf |
-| `Remove-SqlServerLab` | Umgebung entfernen (Scope-validiert) |
-| `Clear-SqlServerLab` | Alle Lab-Container + State aufraeumen |
-| `New-LabDatabase` | Datenbank mit Multi-File-Specs erstellen |
-| `Invoke-LabScript` | T-SQL-Skript ausfuehren (GO-Batch-Splitting, -KeepConnection) |
-| `Restore-LabDatabase` | RESTORE aus URL/Datei (Cache, FILELISTONLY, WITH MOVE) |
-| `Test-LabResources` | Ressourcen pruefen ohne Mutation |
+Bei jeder Änderung müssen Code, Beispiel, Dokumentation und Test gemeinsam geprüft werden. Die statische Prüfung ist über folgenden Befehl ausführbar:
 
-### Provider-Unterstuetzung
-
-| Provider | Status | Runtime-Erkennung |
-|---|---|---|
-| Docker | ✅ Produktiv | `docker` CLI-Befehl |
-| Podman | ✅ Produktiv | `podman` CLI-Befehl |
-| Hyper-V | ⬜ geplant | `Get-VM` Cmdlet |
-
-### Manifest-Features (serverConfig)
-
-| Feature | T-SQL / Methode |
-|---|---|
-| `defaultPaths` (data, log, backup) | xp_instance_regwrite |
-| `memory` (min/max) | sp_configure |
-| `tempdb` (N Files, Pfade, Growth) | ALTER DATABASE tempdb |
-| `maxDop`, `costThreshold` | sp_configure |
-| `traceFlags` | DBCC TRACEON |
-| `drives` (Volume-Mounts) | docker/podman -v |
-| `recoveryModel`, `rcsi`, `queryStore` | ALTER DATABASE SET |
-
-### Noch nicht implementiert
-
-- Hyper-V-Provider;
-- Analyze- und Performance-Packages;
-- Public Sample Catalog.
-
-Planungsdokumente sind kein Runtime-Nachweis.
+```powershell
+.\Tests\Static\Invoke-DocumentationChecks.ps1
+```
