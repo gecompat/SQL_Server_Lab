@@ -1,0 +1,50 @@
+name: Dokumentationsfehler melden
+description: Falsche, widersprüchliche, fehlende oder nicht ausführbare Dokumentation melden
+title: "[Doku] "
+labels:
+  - documentation
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Dokumentationsmeldungen sollen den Widerspruch zwischen Aussage und tatsächlichem Repositoryvertrag präzise benennen. Keine sensiblen Laufzeitdaten oder vollständigen Logs einfügen.
+  - type: input
+    id: document
+    attributes:
+      label: Betroffene Datei oder Seite
+      placeholder: Documentation/User/Getting_Started.md
+    validations:
+      required: true
+  - type: textarea
+    id: statement
+    attributes:
+      label: Problematische Aussage oder fehlender Inhalt
+      description: Kurzen Ausschnitt oder genaue Abschnittsüberschrift angeben.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Technischer Nachweis
+      description: Welche Funktion, welches Schema, welcher Katalog oder welcher Test widerspricht der Dokumentation?
+      placeholder: Public/Restore-LabDatabase.ps1 verwendet den Parameter BackupSource statt BackupUrl.
+    validations:
+      required: true
+  - type: textarea
+    id: correction
+    attributes:
+      label: Erwartete Korrektur
+      description: Konkrete fachliche Korrektur oder Ergänzung beschreiben.
+    validations:
+      required: true
+  - type: checkboxes
+    id: verification
+    attributes:
+      label: Vorprüfung
+      options:
+        - label: Ich habe den aktuellen `main` geprüft.
+          required: true
+        - label: Ich habe `Documentation/Quality/KNOWN_LIMITATIONS.md` berücksichtigt.
+          required: true
+        - label: Die Meldung enthält keine Secrets oder realen Umgebungsdaten.
+          required: true
