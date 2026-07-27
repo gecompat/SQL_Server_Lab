@@ -18,133 +18,379 @@ The complete terms are defined in [LICENCE.md](./LICENCE.md).
 
 ## Zweck
 
-`SQL_Server_Lab` ist die gemeinsame Bereitstellungs- und Szenarioplattform für reproduzierbare **SQL-Server-Testumgebungen**.
+`SQL_Server_Lab` erstellt lokale, isolierte und reproduzierbare SQL-Server-Testumgebungen. Das PowerShell-Modul kapselt Provisionierung, Ressourcenprüfung, Container-Lifecycle, SQL-Bereitschaft, Datenbankerstellung, Restore, Skriptausführung, lokalen Run-State und Cleanup.
 
-Das Repository ergänzt insbesondere:
+Das Repository dient insbesondere als gemeinsame Ausführungsbasis für:
 
-- [`gecompat/SQL_Server_Analyze`](https://github.com/gecompat/SQL_Server_Analyze),
-- [`gecompat/SQL_PerformanceSchulung`](https://github.com/gecompat/SQL_PerformanceSchulung).
+- [`gecompat/SQL_Server_Analyze`](https://github.com/gecompat/SQL_Server_Analyze)
+- [`gecompat/SQL_PerformanceSchulung`](https://github.com/gecompat/SQL_PerformanceSchulung)
 
-SQL Server steht immer im Zentrum. Zusätzliche Komponenten wie Domain Controller, Hadoop-Cluster, REST-Dienste, Clientanwendungen, Router oder Observability-Systeme werden nur dann vorgesehen, wenn sie für ein konkretes SQL-Server-Szenario benötigt werden, beispielsweise für Windows Authentication, Always On, PolyBase, ETL, externe Datenquellen oder kontrollierte Netzwerkfehler.
+Fachliche Testszenarien bleiben in den konsumierenden Projekten. `SQL_Server_Lab` stellt dafür die benötigte Umgebung bereit.
 
-Das Repository trennt Infrastruktur, Lifecycle, Ressourcensteuerung und Fault Injection von den fachlichen Inhalten der konsumierenden Projekte.
+## Aktueller Status
 
-## Drei Nutzungsarten
+**Status:** `CONTAINER_CORE_IMPLEMENTED`
 
-### 1. Schnelle SQL-Server-Umgebung
+| Bereich | Status | Nachweis |
+|---|---|---|
+| PowerShell-Modul | implementiert | `SqlServerLab.psd1`, `SqlServerLab.psm1` |
+| Docker-Provider | implementiert | `Providers/Docker/DockerProvider.ps1` |
+| Podman-Provider | implementiert | `Providers/Podman/PodmanProvider.ps1` |
+| Hyper-V-Provider | geplant | `Providers/HyperV/README.md` |
+| Ad-hoc-Provisionierung | implementiert | `New-SqlServerLab -Version ... -Provider ...` |
+| Manifest-Provisionierung | implementiert | `Schemas/lab-manifest.schema.json` |
+| Resource Assessment | implementiert | `Test-LabResources` |
+| Run-State und Cleanup-Plan | implementiert | `Private/StateMachine.ps1`, `Private/CleanupEngine.ps1` |
+| Datenbankerstellung | implementiert | `New-LabDatabase` |
+| Backup-Restore | implementiert | `Restore-LabDatabase` |
+| Sample-Datenbanken | teilweise implementiert | direkte `.bak`-Varianten aus `Catalogs/sample-databases.json` |
+| T-SQL-Skriptausführung | implementiert | `Invoke-LabScript` |
+| Integration-Smoke-Test | implementiert | `Tests/Integration/Invoke-SmokeTest.ps1` |
+| Statische Konsistenzprüfung | implementiert | `Tests/Static/Invoke-DocumentationChecks.ps1` |
 
-Eine menügeführte Bereitstellung für Benutzer, die kurzfristig eine isolierte SQL-Server-Instanz benötigen. Auswählbar sind unter anderem SQL-Server-Version, Container- oder VM-Plattform, CPU, RAM, Storage, Ports, Persistenz und optionale Zusatzfunktionen.
+Die [bekannten Grenzen](Documentation/Quality/KNOWN_LIMITATIONS.md) sind Teil des öffentlichen Vertrags. Planungsdokumente sind kein Runtime-Nachweis.
 
-### 2. Reproduzierbares SQL-Server-Projektszenario
+## Voraussetzungen
 
-Ein konsumierendes Repository stellt ein versioniertes **Lab Package** bereit. Dieses beschreibt:
+Mindestens erforderlich:
 
-- den konkreten SQL-Server-Zweck;
-- benötigte SQL-Server-Komponenten und unterstützende Systeme;
-- SQL-Server-Version Constraints;
-- Installations- und Konfigurationsinhalte;
-- erzeugte Testdaten oder zulässige Datenbankartefakte;
-- Workloads, Beobachtungen und Assertions;
-- Ressourcen-, Safety-, Privacy-, Recovery- und Cleanup-Grenzen.
+- PowerShell 7.2 oder neuer
+- Docker oder Podman
+- mindestens 4 GB freier RAM für ein kleines Lab
+- mindestens 5 GB freier Speicherplatz
+- `sqlcmd` für Datenbankerstellung, Restore, Skriptausführung und den vollständigen Smoke-Test
 
-Das Lab prüft Hostfähigkeiten, löst SQL-Version und Topologie auf, ergänzt nur die erforderlichen Supporting Components, bewertet die verfügbaren Ressourcen, wählt passende Provider und erzeugt vor jeder Mutation einen vollständigen Plan einschließlich Cleanup Plan.
+Runtime prüfen:
 
-Beispiele:
+```powershell
+$PSVersionTable.PSVersion
+docker info
+# oder
+podman info
 
-- Performance-Schulungsdemo mit kontrollierter Datenverteilung, Baseline, Last, Messung, Gegenmaßnahme und Cleanup;
-- Analyse-Szenario mit Blocking Chain, TempDB-Druck, I/O-Engpass, Netzwerkverzögerung oder versionsabhängigem SQL-Server-Verhalten;
-- Fortsetzung eines Labstands über ein zuvor erzeugtes Lab-Backup;
-- Verwendung einer öffentlichen Demo-Datenbank mit dokumentierter Quelle, Lizenz und Prüfsumme;
-- PolyBase-Szenario mit SQL Server als Primärsystem und einem Hadoop-Cluster als unterstützender Datenquelle;
-- Windows-Authentication- oder Availability-Szenario mit Domain Controller, DNS und mehreren SQL-Server-Knoten.
+sqlcmd -?
+```
 
-### 3. Frei konfigurierbare SQL-Server-Labortopologie
+## Schnellstart
 
-Eine menügeführte oder deklarative Konfiguration für synthetische SQL-Server-Testumgebungen, beispielsweise mehrere SQL-Server-Versionen, Windows- und Linux-Gäste, getrennte Data-/Log-/TempDB-Datenträger, definierte Netzwerkprofile oder unterschiedliche CPU-/RAM-/I/O-Grenzen.
+Repository klonen und Modul importieren:
 
-Eine Umgebung ohne SQL-Server-Zweck ist kein Ziel dieses Repositorys.
+```powershell
+git clone https://github.com/gecompat/SQL_Server_Lab.git
+Set-Location .\SQL_Server_Lab
+Import-Module .\SqlServerLab.psd1 -Force
+```
 
-## SQL-Server-Versionen
+Ressourcen prüfen, ohne etwas zu verändern:
 
-**Derzeit** sind SQL Server 2019, SQL Server 2022 und SQL Server 2025 als aktive Versionseinträge vorgesehen.
+```powershell
+Test-LabResources -Provider docker
+# oder
+Test-LabResources -Provider podman
+```
 
-Die Schnittstellen sind nicht auf diese drei Versionen festgeschrieben. Neue Versionen werden später über einen SQL Version Catalog, Provider-Mappings und Capability Records ergänzt. Alte Versionen können über Statuswerte wie `DEPRECATED`, `RETIRED` oder `BLOCKED` kontrolliert aus dem aktiven Umfang genommen werden.
+Eine SQL-Server-2025-Umgebung erstellen:
 
-## Datenbankartefakte und Backups
+```powershell
+$lab = New-SqlServerLab -Version '2025' -Provider docker
+```
 
-Zulässig sind:
+Mit Podman:
 
-- im Lab erzeugte Backups zulässiger Labdatenbanken;
-- Wiederverwendung dieser Backups in späteren Runs;
-- öffentliche Demo- und Beispieldatenbanken;
-- ausdrücklich klassifizierte lokale Entwicklungs-, Test- oder Lab-Backups.
+```powershell
+$lab = New-SqlServerLab -Version '2025' -Provider podman
+```
 
-Produktionsbackups, aus Produktivsystemen extrahierte Daten sowie unbekannte oder unklassifizierte Artefakte bleiben unzulässig.
+Interaktive Bedienung:
 
-Lokale Backups werden nicht automatisch in das Repository, GitHub-Inhalte oder Downloadpakete übernommen.
+```powershell
+Invoke-SqlServerLab
+```
 
-## Ressourcen und Cleanup
+Status anzeigen:
 
-Vor jeder Mutation bewertet das Lab mindestens CPU, RAM, freien Speicher, Provider-Overhead, Images beziehungsweise VHDX, Data, Log, TempDB, Backup-, Download- und Restore-Peak.
+```powershell
+Get-SqlServerLab
+```
 
-Eine vorhergesagte Unterversorgung darf nach ausdrücklicher Bestätigung übersteuert werden. Der Defizitstatus bleibt sichtbar. Unsichere Pfade, fehlende Providerfähigkeiten, blockierte SQL-Versionen, unzulässige Daten und ein fehlender Cleanup Plan sind nicht übersteuerbar.
+## Verbindung herstellen
 
-Vor der ersten Mutation wird ein lokaler Run State samt vollständigem Cleanup Plan angelegt. Fehler lösen standardmäßig automatische Compensation aus. Partielles Cleanup bleibt als `RECOVERY_REQUIRED` sichtbar und kann über einen wiederaufnehmbaren Recovery-/Destroy-Pfad fortgesetzt werden.
+`New-SqlServerLab` liefert pro Instanz Host, Port und Connection String zurück.
 
-## Zielplattformen
+```powershell
+$instance = $lab.Instances[0]
+$instance.Host
+$instance.Port
+$instance.ConnectionString
+```
 
-| Provider | Zielrolle |
+Beispiel für SSMS:
+
+```text
+Server name: 127.0.0.1,14330
+Authentication: SQL Server Authentication
+Login: sa
+Password: das bei der Erstellung gesetzte SA-Passwort
+Trust server certificate: aktiviert
+```
+
+Der konkrete Port wird dynamisch im Bereich `14330` bis `14399` vergeben, sofern kein Port vorgegeben wurde.
+
+## Datenbank erstellen
+
+```powershell
+$pw = Read-Host 'SA-Passwort' -AsSecureString
+
+New-LabDatabase `
+    -Port $lab.Instances[0].Port `
+    -SaPassword $pw `
+    -DatabaseName 'MeineTestDB'
+```
+
+Dateien können auf gemountete Containerpfade gelegt werden:
+
+```powershell
+New-LabDatabase `
+    -Port $lab.Instances[0].Port `
+    -SaPassword $pw `
+    -DatabaseName 'PerfDB' `
+    -DataFiles @(
+        @{ name = 'PerfDB_Data1'; path = '/sqldata/PerfDB_Data1.mdf'; sizeMB = 512 },
+        @{ name = 'PerfDB_Data2'; path = '/sqldata/PerfDB_Data2.ndf'; sizeMB = 512 }
+    ) `
+    -LogFiles @(
+        @{ name = 'PerfDB_Log'; path = '/sqllog/PerfDB_Log.ldf'; sizeMB = 256 }
+    )
+```
+
+Die Zielpfade müssen als `drives` beziehungsweise Volumes in der Labdefinition bereitgestellt sein.
+
+## T-SQL-Skript ausführen
+
+```powershell
+Invoke-LabScript `
+    -ScriptPath '.\setup.sql' `
+    -Port $lab.Instances[0].Port `
+    -SaPassword $pw `
+    -Database 'MeineTestDB'
+```
+
+Relative `postProvision`-Pfade in Manifesten werden relativ zum Manifest-Verzeichnis aufgelöst.
+
+## Backup wiederherstellen
+
+Manueller Restore:
+
+```powershell
+Restore-LabDatabase `
+    -Port $lab.Instances[0].Port `
+    -SaPassword $pw `
+    -BackupSource 'C:\Backups\AdventureWorks2022.bak' `
+    -DatabaseName 'AdventureWorks2022' `
+    -ContainerName $lab.Instances[0].ContainerName
+```
+
+Eine HTTPS-URL kann ebenfalls als `BackupSource` verwendet werden. Das Backup wird dann im lokalen State-Cache abgelegt.
+
+## Manifest-Modus
+
+```json
+{
+  "$schema": "./Schemas/lab-manifest.schema.json",
+  "name": "mein-erstes-lab",
+  "instances": [
+    {
+      "id": "primary",
+      "version": "2025",
+      "provider": "docker",
+      "profile": "standard",
+      "databases": [
+        {
+          "name": "AppDB",
+          "options": {
+            "recoveryModel": "FULL",
+            "queryStore": true
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+Ausführen:
+
+```powershell
+$lab = New-SqlServerLab -Manifest '.\mein-lab.json'
+```
+
+Vollständige Beispiele liegen unter [`Schemas/`](Schemas/README.md).
+
+## Sample-Datenbanken
+
+Direkte `.bak`-Varianten des Sample-Katalogs können deklarativ verwendet werden:
+
+```json
+{
+  "name": "adventureworks-lab",
+  "instances": [
+    {
+      "id": "primary",
+      "version": "2022",
+      "provider": "docker",
+      "databases": [
+        {
+          "name": "AdventureWorks2022",
+          "sample": {
+            "id": "adventureworks-2022",
+            "variant": "full"
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+Archive, Attach-Szenarien und SQL-Skript-Samples werden nicht automatisch in einen Restore umgedeutet. Sie führen mit einer klaren Fehlermeldung zum Abbruch.
+
+## Lifecycle
+
+```powershell
+Stop-SqlServerLab -RunId $lab.RunId
+Start-SqlServerLab -RunId $lab.RunId
+Restart-SqlServerLab -RunId $lab.RunId
+Remove-SqlServerLab -RunId $lab.RunId
+```
+
+Der Lifecycle verwendet den im Run gespeicherten Provider. Eine Podman-Umgebung wird daher auch dann über Podman verwaltet, wenn Docker zusätzlich installiert ist.
+
+Alle erkannten Lab-Reste bereinigen:
+
+```powershell
+Clear-SqlServerLab
+```
+
+## Öffentliche Cmdlets
+
+| Cmdlet | Zweck |
 |---|---|
-| Docker Engine | primäre portable Linux-Container-Lane |
-| Podman | kompatible alternative Container-Lane |
-| Hyper-V mit Windows-Gästen | Windows Authentication, SQL Server Agent, WSFC-/FCI- und Windows-spezifische Szenarien |
-| Hyper-V mit Linux-Gästen | kontrollierte Linux-, Netzwerk-, Storage- und PolyBase-Supporting-Szenarien |
-| Verteilte Ausführung | optionale Kombination eines Hyper-V-Hosts mit einem nativen Linux-Containerhost |
+| `Invoke-SqlServerLab` | Interaktives Menü |
+| `New-SqlServerLab` | Umgebung ad hoc oder per Manifest erstellen |
+| `Get-SqlServerLab` | State und Live-Status anzeigen |
+| `Start-SqlServerLab` | Gestoppte Umgebung starten |
+| `Stop-SqlServerLab` | Laufende Umgebung stoppen |
+| `Restart-SqlServerLab` | Stop und Start kombinieren |
+| `Remove-SqlServerLab` | Einzelnen Run entfernen |
+| `Clear-SqlServerLab` | Lab-Container und/oder State bereinigen |
+| `New-LabDatabase` | Datenbank erstellen |
+| `Restore-LabDatabase` | `.bak` aus Datei oder URL wiederherstellen |
+| `Invoke-LabScript` | T-SQL-Skript ausführen |
+| `Test-LabResources` | Provider, RAM, Storage und Ports prüfen |
 
-Hyper-V, Docker und Podman sind verbindliche Kernprovider. Weitere Provider können später ergänzt werden, sind aber kein aktueller Hauptzweck.
+`SqlServerLab.psd1` ist die autoritative Liste der exportierten Funktionen.
 
-Nicht jede Plattform kann jede Aussage gleichwertig nachweisen. Fehlende Capabilities führen zu einem strukturierten `NOT_EXECUTED` oder `UNSUPPORTED`, nicht zu einer vorgetäuschten Simulation.
+## State und lokale Daten
 
-## Architekturgrundsatz
+Run-State liegt außerhalb des Git-Checkouts:
 
-Das Lab trennt folgende Vertragsebenen:
+- Windows: `%LOCALAPPDATA%\SqlServerLab`
+- Linux/macOS: `~/.sql-server-lab`
+- Override: Environment Variable `SQL_SERVER_LAB_STATE`
 
-1. **Run Request:** Welche SQL-Server-Umgebung oder welches SQL-Server-Szenario wird angefordert?
-2. **Project Adapter:** Welche versionierten SQL-Server-Lab-Packages stellt ein Projekt bereit?
-3. **Lab Package:** Welcher `SqlPurpose`, welche Version Constraints, Environments, Inhalte, DataSets, Database Artifacts und Workflows gehören zusammen?
-4. **Environment Blueprint:** Welche primären SQL-Server-Komponenten und Supporting Components werden benötigt?
-5. **Registries:** Welche SQL-Versionen, Component Types und Action Types sind verfügbar?
-6. **Provider:** Wie werden logische Ressourcen über Hyper-V, Docker oder Podman konkret bereitgestellt?
-7. **Runtime Bindings:** Welche lokalen Endpunkte, Secret-Referenzen und Outputs verbinden die Schritte?
-8. **Resource Assessment:** Reichen CPU, RAM und Storage aus, oder wird ein bewusster Overcommit benötigt?
-9. **Workflow, State und Recovery:** Welche Schritte laufen in welcher Reihenfolge, und wie werden Mutationen kompensiert und bereinigt?
-10. **Control Plane:** CLI und eine spätere REST-/UI-Anbindung verwenden dieselben Commands, Operations und Events.
+Pro Run entstehen unter anderem:
 
-Lokale Secrets, reale Hostinformationen, konkrete Pfade und erzeugte Laufzeitdaten verbleiben ausschließlich in ignorierten lokalen Bereichen.
+- `run-state.json`
+- `cleanup-plan.json`
+- `connection-info.json`
+- lokale Secret-Dateien
 
-## Verbindliche Planung
+Diese Dateien enthalten konkrete Laufzeitinformationen und gehören nicht in Git.
 
-- [Dokumentationsübersicht und Lesereihenfolge](Documentation/README.md)
-- [Master-Umsetzungsplan](Documentation/Project_Planning/MASTER_IMPLEMENTATION_PLAN.md)
-- [Verbindliche Masterplan-Ergänzung](Documentation/Project_Planning/MASTER_IMPLEMENTATION_PLAN_SCOPE_ADDENDUM.md)
-- [SQL-Server-zentrierte Scope-Entscheidung](Documentation/Architecture/SQL_SERVER_CENTRIC_SCOPE_DECISION.md)
-- [Erweiterbarer Umgebungs- und Ausführungsvertrag](Documentation/Architecture/EXTENSIBLE_ENVIRONMENT_AND_EXECUTION_CONTRACT.md)
-- [Zukünftige SQL-Server-Anwendungsfälle und Erweiterungsleitplanken](Documentation/Architecture/FUTURE_USE_CASES_AND_EXTENSION_GUARDRAILS.md)
-- [Projektintegrationsvertrag](Documentation/Architecture/PROJECT_INTEGRATION_CONTRACT.md)
-- [Manifest- und Schnittstellenarchitektur](Documentation/Architecture/MANIFEST_AND_INTERFACE_ARCHITECTURE.md)
-- [Analyse bestehender Lab- und Orchestrierungsprojekte](Documentation/Research/EXISTING_LAB_AND_ORCHESTRATION_PROJECTS_REVIEW.md)
-- [Migrationsinventar und Ablöseplan](Documentation/Migration/MIGRATION_INVENTORY_AND_DECISIONS.md)
-- [Privacy- und Artefaktsicherheitsvertrag](Documentation/Quality/PRIVACY_AND_ARTIFACT_SECURITY.md)
-- [Sprach-, Übersetzungs- und Schreibstandard](Documentation/Standards/LANGUAGE_TRANSLATION_AND_STYLE_STANDARD.md)
-- [Lokale Validierungsstrategie ohne CI/CD](Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md)
+## Architekturüberblick
+
+```mermaid
+flowchart TD
+    A[New-SqlServerLab] --> B[Manifest oder Ad-hoc Parameter]
+    B --> C[Version Catalog]
+    B --> D[Resource Assessment]
+    D --> E[Run State + Cleanup Plan]
+    E --> F{Provider}
+    F --> G[Docker]
+    F --> H[Podman]
+    G --> I[SQL Readiness]
+    H --> I
+    I --> J[Server Configuration]
+    J --> K[Create oder Restore Database]
+    K --> L[PostProvision Scripts]
+    L --> M[connection-info.json]
+```
+
+## Quellen der Wahrheit
+
+| Aussage | Autoritative Quelle |
+|---|---|
+| Exportierte Cmdlets | `SqlServerLab.psd1` |
+| Modul-Ladevorgang | `SqlServerLab.psm1` |
+| Manifestfelder | `Schemas/lab-manifest.schema.json` plus `Private/ManifestParser.ps1` |
+| SQL-Versionen und Images | `Catalogs/sql-server-versions.json` |
+| Sample-Datenbanken | `Catalogs/sample-databases.json` |
+| Provider-Funktion | `Providers/*/*.ps1` |
+| Provider-Metadaten | `Providers/*/provider.json` |
+| State und Übergänge | `Private/StateMachine.ps1` |
+| Cleanup-Verhalten | `Private/CleanupEngine.ps1` |
+| Aktuelle Einschränkungen | `Documentation/Quality/KNOWN_LIMITATIONS.md` |
+| KI-Landkarte | `.ai/repo_map.yaml` |
+
+## Tests und Validierung
+
+Statische Konsistenzprüfung:
+
+```powershell
+.\Tests\Static\Invoke-DocumentationChecks.ps1
+```
+
+Integrationstest für Docker:
+
+```powershell
+.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider docker
+```
+
+Integrationstest für Podman:
+
+```powershell
+.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider podman
+```
+
+`-Provider auto` wählt für den mutierenden Lifecycle genau eine verfügbare Runtime. Resource Assessment wird für alle erkannten Provider ausgeführt.
+
+## Repository-Struktur
+
+```text
+.ai/             KI-Kontext, Arbeitsregeln und Repo-Map
+Catalogs/        SQL-Versionen und Sample-Datenbank-Metadaten
+Documentation/   Benutzer-, Architektur-, Qualitäts- und Planungsdokumentation
+Private/         interne Modulbausteine
+Providers/       Docker, Podman und Hyper-V-Planung
+Public/          exportierte Cmdlets
+Schemas/         JSON-Schemas und ausführbare Beispiele
+Tests/           statische Prüfungen und Integration-Smoke-Test
+_QuellRepo/      unveränderte Quell-Snapshots anderer Repositories
+```
+
+## Weiterführende Dokumentation
+
+- [Getting Started](Documentation/User/Getting_Started.md)
+- [Dokumentationsübersicht](Documentation/README.md)
+- [Bekannte Grenzen](Documentation/Quality/KNOWN_LIMITATIONS.md)
+- [Manifest-Schemas und Beispiele](Schemas/README.md)
+- [Öffentliche Cmdlets](Public/README.md)
+- [Provider](Providers/README.md)
+- [Tests](Tests/README.md)
 - [KI-Projektkontext](.ai/PROJECT_CONTEXT.md)
-
-## Status
-
-**Status:** `PLANNING_FOUNDATION`
-
-Das Repository enthält zunächst die verbindliche Architektur-, Qualitäts-, Migrations- und Umsetzungsplanung. SQL Version Catalog, Schemas, CLI, Planner, Provider, Backup-/Restore-Actions, Resource Assessment und Recovery Engine sind noch nicht implementiert.
+- [Maschinenlesbare Repo-Map](.ai/repo_map.yaml)
+- [Beitragsregeln](CONTRIBUTING.md)
 
 ## CI/CD-Abgrenzung
 
-CI/CD ist kein Bestandteil dieses Repositories. Qualitätsprüfungen werden lokal und reproduzierbar ausführbar gestaltet. Eine spätere zentrale Automatisierung kann in einem getrennten Repository umgesetzt werden und die öffentlichen Commands, Packages, Plans und Events konsumieren, ohne die Produkt- und Labarchitektur hier mit Runner- oder Workflowlogik zu vermischen.
+Die Lab-Provisionierung und die Runtime-Smoke-Tests sind lokal ausführbar. Das Repository benötigt keine GitHub-hosted Runner, um SQL-Server-Labs bereitzustellen. Eine spätere schlanke Automatisierung darf statische Vertragsprüfungen ausführen, soll aber keine lokale Runtime-Funktionalität vortäuschen.
