@@ -1,0 +1,79 @@
+name: Fehler melden
+description: Reproduzierbaren Fehler im Lab, Modul, Provider oder Manifest melden
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Verwenden Sie ausschließlich synthetische Testdaten. Keine Secrets, realen Passwörter, Kundendaten, Produktionsbackups, vollständigen State-Dateien oder nicht freigegebenen Hostinformationen einfügen.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Betroffener Bereich
+      options:
+        - Modulimport oder öffentliche Cmdlets
+        - Docker-Provider
+        - Podman-Provider
+        - Manifest oder Schema
+        - Datenbankerstellung
+        - Restore oder Sample-Datenbank
+        - State, Cleanup oder Recovery
+        - Dokumentation oder Tests
+        - Anderer Bereich
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Verwendeter Commit oder Stand
+      placeholder: Commit-SHA, Branch oder Datum
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimale Reproduktion
+      description: Schritte und synthetische Eingaben, mit denen der Fehler reproduzierbar ist.
+      placeholder: |
+        1. Import-Module ...
+        2. New-SqlServerLab ...
+        3. Beobachtung ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Erwartetes Verhalten
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Tatsächliches Verhalten
+      description: Ausgaben auf das notwendige Minimum reduzieren und sensible Werte entfernen.
+    validations:
+      required: true
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Provider
+      options:
+        - Docker
+        - Podman
+        - Kein Provider erforderlich
+        - Nicht eindeutig
+    validations:
+      required: true
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy-Prüfung
+      options:
+        - label: Ich habe alle Secrets und realen Umgebungsdaten entfernt.
+          required: true
+        - label: Die Reproduktion verwendet keine Produktions- oder Kundendaten.
+          required: true
+        - label: Ich habe `Documentation/Quality/KNOWN_LIMITATIONS.md` geprüft.
+          required: true
