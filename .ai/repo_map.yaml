@@ -1,0 +1,240 @@
+schema_version: 1
+project:
+  name: SQL_Server_Lab
+  purpose: "Lokale, isolierte und reproduzierbare SQL-Server-Testumgebungen"
+  default_branch: main
+  module_manifest: SqlServerLab.psd1
+  module_loader: SqlServerLab.psm1
+  runtime_status: CONTAINER_CORE_IMPLEMENTED
+
+sources_of_truth:
+  exported_commands: SqlServerLab.psd1
+  module_loading: SqlServerLab.psm1
+  manifest_structure: Schemas/lab-manifest.schema.json
+  manifest_resolution: Private/ManifestParser.ps1
+  sql_versions: Catalogs/sql-server-versions.json
+  sample_databases: Catalogs/sample-databases.json
+  state_contract: Private/StateMachine.ps1
+  cleanup_contract: Private/CleanupEngine.ps1
+  runtime_limitations: Documentation/Quality/KNOWN_LIMITATIONS.md
+  user_entrypoint: README.md
+  user_walkthrough: Documentation/User/Getting_Started.md
+  validation_entrypoint: Tests/Static/Invoke-DocumentationChecks.ps1
+
+public_commands:
+  - name: Invoke-SqlServerLab
+    source: Public/Invoke-SqlServerLab.ps1
+    purpose: "Interaktives Menü"
+    mutates_host: true
+  - name: New-SqlServerLab
+    source: Public/New-SqlServerLab.ps1
+    purpose: "Lab ad hoc oder per Manifest erstellen"
+    mutates_host: true
+    returns:
+      - RunId
+      - ScopeId
+      - State
+      - Name
+      - Instances
+      - StateRoot
+  - name: Get-SqlServerLab
+    source: Public/Get-SqlServerLab.ps1
+    purpose: "State und Live-Status lesen"
+    mutates_host: false
+  - name: Start-SqlServerLab
+    source: Public/Start-SqlServerLab.ps1
+    purpose: "Gestoppten Run über den gespeicherten Provider starten"
+    mutates_host: true
+  - name: Stop-SqlServerLab
+    source: Public/Stop-SqlServerLab.ps1
+    purpose: "Laufenden Run über den gespeicherten Provider stoppen"
+    mutates_host: true
+  - name: Restart-SqlServerLab
+    source: Public/Restart-SqlServerLab.ps1
+    purpose: "Stop und Start kombinieren"
+    mutates_host: true
+  - name: Remove-SqlServerLab
+    source: Public/Remove-SqlServerLab.ps1
+    purpose: "Einzelnen Run scope-validiert entfernen"
+    mutates_host: true
+  - name: Clear-SqlServerLab
+    source: Public/Clear-SqlServerLab.ps1
+    purpose: "Lab-Container und/oder State bereinigen"
+    mutates_host: true
+  - name: New-LabDatabase
+    source: Public/New-LabDatabase.ps1
+    purpose: "Datenbank mit konfigurierbaren Dateien und Containerpfaden erstellen"
+    mutates_sql: true
+  - name: Restore-LabDatabase
+    source: Public/Restore-LabDatabase.ps1
+    purpose: "Direkte .bak-Datei aus lokalem Pfad oder URL wiederherstellen"
+    mutates_sql: true
+    external_dependencies:
+      - sqlcmd
+  - name: Invoke-LabScript
+    source: Public/Invoke-LabScript.ps1
+    purpose: "T-SQL-Skript ausführen"
+    mutates_sql: true
+  - name: Test-LabResources
+    source: Private/ResourceAssessment.ps1
+    purpose: "Provider, RAM, Storage und Ports ohne Mutation prüfen"
+    mutates_host: false
+
+internal_components:
+  - name: ManifestParser
+    source: Private/ManifestParser.ps1
+    responsibilities:
+      - "Manifest lesen und Pflichtfelder prüfen"
+      - "Defaults anwenden"
+      - "relative Pfade auflösen"
+      - "direkte .bak-Sample-Varianten in Restoredefinitionen umwandeln"
+  - name: VersionCatalog
+    source: Private/VersionCatalog.ps1
+    responsibilities:
+      - "Basisversionen und CU-Builds auflösen"
+      - "Container-Images bestimmen"
+      - "Ressourcenprofile liefern"
+      - "Sample-Katalog lesen"
+  - name: ResourceAssessment
+    source: Private/ResourceAssessment.ps1
+    responsibilities:
+      - "Runtime-Verfügbarkeit prüfen"
+      - "RAM, Storage und Ports bewerten"
+  - name: StateMachine
+    source: Private/StateMachine.ps1
+    responsibilities:
+      - "State-Root bestimmen"
+      - "Run-State persistieren"
+      - "State-Transitions und Fehlerhistorie verwalten"
+  - name: CleanupEngine
+    source: Private/CleanupEngine.ps1
+    responsibilities:
+      - "Cleanup-Plan vor Mutation erzeugen"
+      - "Compensation-Schritte speichern und ausführen"
+  - name: SqlReadiness
+    source: Private/SqlReadiness.ps1
+    responsibilities:
+      - "SQL-Erreichbarkeit prüfen"
+      - "Version und Bereitschaft ermitteln"
+  - name: ServerConfig
+    source: Private/ServerConfig.ps1
+    responsibilities:
+      - "Memory, TempDB, MaxDOP und sp_configure anwenden"
+      - "Datenbankoptionen anwenden"
+      - "External Languages vorbereiten"
+  - name: SecretProvider
+    source: Private/SecretProvider.ps1
+    responsibilities:
+      - "SA-Passwort im lokalen Run-Verzeichnis speichern und lesen"
+
+providers:
+  docker:
+    status: implemented
+    implementation: Providers/Docker/DockerProvider.ps1
+    metadata: Providers/Docker/provider.json
+    command: docker
+  podman:
+    status: implemented
+    implementation: Providers/Podman/PodmanProvider.ps1
+    metadata: Providers/Podman/provider.json
+    command: podman
+  hyperv:
+    status: planned
+    documentation: Providers/HyperV/README.md
+    command: Get-VM
+
+catalogs:
+  sql_versions:
+    data: Catalogs/sql-server-versions.json
+    schema: Schemas/version-catalog.schema.json
+  sample_databases:
+    data: Catalogs/sample-databases.json
+    schema: Schemas/sample-databases.schema.json
+    executable_variants: "Nur direkte .bak-URLs"
+
+state_files:
+  root_resolution:
+    windows: "%LOCALAPPDATA%\\SqlServerLab"
+    linux_macos: "~/.sql-server-lab"
+    override_environment_variable: SQL_SERVER_LAB_STATE
+  per_run:
+    - run-state.json
+    - cleanup-plan.json
+    - connection-info.json
+    - secrets/
+  cache:
+    - cache/backups/
+  repository_policy: "State, Secrets, Connection Information und konkrete Hostpfade nie versionieren"
+
+provisioning_flow:
+  - "Read-LabManifest oder Ad-hoc-Normalisierung"
+  - "Test-SqlServerVersionSupported"
+  - "Test-LabResources"
+  - "New-LabRunState"
+  - "New-CleanupPlan"
+  - "Provider-Container erstellen"
+  - "Wait-SqlReady"
+  - "Set-LabServerConfig"
+  - "New-LabDatabase für Create-Datenbanken"
+  - "Restore-LabDatabase für Restore- und Sample-Datenbanken"
+  - "Set-LabDatabaseOptions"
+  - "Invoke-LabSqlScript für postProvision"
+  - "connection-info.json schreiben"
+  - "State RUNNING"
+
+validation:
+  static:
+    command: ".\\Tests\\Static\\Invoke-DocumentationChecks.ps1"
+    source: Tests/Static/Invoke-DocumentationChecks.ps1
+  docker_smoke:
+    command: ".\\Tests\\Integration\\Invoke-SmokeTest.ps1 -Provider docker"
+  podman_smoke:
+    command: ".\\Tests\\Integration\\Invoke-SmokeTest.ps1 -Provider podman"
+  auto_behavior: "Wählt für den mutierenden Lifecycle Docker vor Podman; Resource Assessment prüft alle erkannten Provider"
+
+change_coupling:
+  public_command_change:
+    - SqlServerLab.psd1
+    - Public/README.md
+    - README.md
+    - Documentation/User/Getting_Started.md
+    - .ai/repo_map.yaml
+    - Tests/Static/Invoke-DocumentationChecks.ps1
+  manifest_field_change:
+    - Schemas/lab-manifest.schema.json
+    - Private/ManifestParser.ps1
+    - "zuständige Runtimefunktion"
+    - Schemas/README.md
+    - Documentation/Quality/KNOWN_LIMITATIONS.md
+    - "mindestens ein example-*.json"
+    - Tests/Static/Invoke-DocumentationChecks.ps1
+  provider_change:
+    - Providers/<Provider>/<Provider>Provider.ps1
+    - Providers/<Provider>/provider.json
+    - Providers/<Provider>/README.md
+    - README.md
+    - Documentation/Quality/KNOWN_LIMITATIONS.md
+    - Tests/Integration/Invoke-SmokeTest.ps1
+  catalog_change:
+    - "Catalogs/*.json"
+    - "zugehöriges Schema"
+    - Catalogs/README.md
+    - Private/VersionCatalog.ps1
+    - Tests/Static/Invoke-DocumentationChecks.ps1
+
+known_limitations:
+  binding_document: Documentation/Quality/KNOWN_LIMITATIONS.md
+  highlights:
+    - "Hyper-V nicht implementiert"
+    - "gemischter Provider-Lifecycle nicht implementiert"
+    - "Sample-Automation nur für direkte .bak-Varianten"
+    - "mehrere reservierte serverConfig-Felder noch ohne stabilen Runtimepfad"
+    - "Versionskatalog wird nicht automatisch als aktuell garantiert"
+
+continuation_rules:
+  - "Planungsdokumente nie als Runtime-Nachweis behandeln"
+  - "Keine neuen Exportnamen ohne implementierte Funktion und Test"
+  - "Keine Manifestfelder nur im Schema ergänzen"
+  - "Keine realen State-, Secret-, Host- oder Kundendaten committen"
+  - "Vor einer Mutation einen Cleanup-Pfad beibehalten"
+  - "Docker und Podman getrennt testen"
