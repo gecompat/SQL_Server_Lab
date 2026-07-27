@@ -1,477 +1,575 @@
 <#
 .SYNOPSIS
-    Wendet Server-Konfiguration auf eine Lab-Instanz an.
+    Server-, TempDB-, Datenbank- und External-Languages-Konfiguration.
 .DESCRIPTION
-    Setzt sp_configure-Optionen, Memory-Grenzen, MaxDOP, TempDB-Layout,
-    Trace Flags und benutzerdefinierte Einstellungen via T-SQL.
-    Wird nach SQL_READY und vor Datenbank-Erstellung ausgefuehrt.
+    Fuehrt nur validierte Konfigurationswerte aus. Angeforderte Konfigurationen
+    schlagen bei Fehlern hart fehl, damit kein teilweise konfiguriertes Lab als
+    erfolgreich bereitgestellt gemeldet wird.
 #>
 
+function ConvertFrom-LabSecureString {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][SecureString]$SecureString
+    )
+
+    $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecureString)
+    try {
+        return [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+    }
+    finally {
+        [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+    }
+}
+
+function Assert-LabSqlIdentifier {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Value,
+        [string]$Label = 'Identifier'
+    )
+
+    if ($Value -notmatch '^[A-Za-z][A-Za-z0-9_]{0,127}$') {
+        throw "$Label '$Value' ist ungueltig."
+    }
+}
+
+function Assert-LabContainerPath {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [string]$Label = 'Containerpfad'
+    )
+
+    if (-not $Path.StartsWith('/') -or $Path -match "['\r\n]") {
+        throw "$Label '$Path' ist kein sicherer absoluter Linux-Containerpfad."
+    }
+}
+
+function Resolve-LabContainerProvider {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$ContainerName,
+        [ValidateSet('docker', 'podman')][string]$PreferredProvider
+    )
+
+    $providers = if ($PreferredProvider) { @($PreferredProvider) } else { @('docker', 'podman') }
+    $matches = @()
+
+    foreach ($provider in $providers) {
+        if (-not (Get-Command $provider -ErrorAction SilentlyContinue)) {
+            continue
+        }
+
+        & $provider inspect $ContainerName 1>$null 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            $matches += $provider
+        }
+    }
+
+    $matches = @($matches | Sort-Object -Unique)
+    if ($matches.Count -eq 0) {
+        throw "Container '$ContainerName' wurde bei keinem erreichbaren Provider gefunden."
+    }
+    if ($matches.Count -gt 1) {
+        throw "Container '$ContainerName' ist bei mehreren Providern vorhanden. PreferredProvider ist erforderlich."
+    }
+
+    return $matches[0]
+}
+
+function Invoke-LabConfigurationQuery {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$HostName,
+        [Parameter(Mandatory)][int]$Port,
+        [Parameter(Mandatory)][SecureString]$SaPassword,
+        [Parameter(Mandatory)][string]$Query,
+        [string]$Database = 'master',
+        [int]$TimeoutSeconds = 60
+    )
+
+    $saPlain = ConvertFrom-LabSecureString -SecureString $SaPassword
+    try {
+        $null = Invoke-SqlQuery `
+            -HostName $HostName `
+            -Port $Port `
+            -SaPlain $saPlain `
+            -Query $Query `
+            -Database $Database `
+            -TimeoutSeconds $TimeoutSeconds
+    }
+    finally {
+        $saPlain = $null
+    }
+}
+
+function ConvertTo-LabGrowthClause {
+    [CmdletBinding()]
+    param(
+        [string]$Growth
+    )
+
+    if (-not $Growth) {
+        return '64MB'
+    }
+    if ($Growth -match '^(\d+)(MB|%)$') {
+        $value = [int]$Matches[1]
+        if ($value -le 0) {
+            throw "FILEGROWTH '$Growth' muss groesser als null sein."
+        }
+        return "$value$($Matches[2])"
+    }
+
+    throw "FILEGROWTH '$Growth' ist ungueltig. Erlaubt sind beispielsweise 64MB oder 10%."
+}
+
 function Set-LabServerConfig {
-    <#
-    .SYNOPSIS Wendet serverConfig aus dem Manifest auf eine Instanz an.
-    .PARAMETER Config PSCustomObject mit Memory, TempDB, MaxDOP etc.
-    .PARAMETER Port SQL-Server-Port.
-    .PARAMETER SaPassword SecureString.
-    .PARAMETER HostName Default 127.0.0.1.
-    .PARAMETER ContainerName Fuer TempDB-Pfad-Erstellung im Container.
-    #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]$Config,
+        [string]$HostName = '127.0.0.1',
         [Parameter(Mandatory)][int]$Port,
         [Parameter(Mandatory)][SecureString]$SaPassword,
-        [string]$HostName = '127.0.0.1',
-        [string]$ContainerName
+        [string]$ContainerName,
+        [ValidateSet('docker', 'podman')][string]$Provider
     )
 
-    $saPlain = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto(
-        [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword))
+    $configurationStatements = @(
+        "EXEC sp_configure N'show advanced options', 1;",
+        'RECONFIGURE;'
+    )
+
+    if ($Config.memory) {
+        if ($Config.memory.minMB) {
+            $minimumMemory = [int]$Config.memory.minMB
+            if ($minimumMemory -lt 0) {
+                throw 'serverConfig.memory.minMB darf nicht negativ sein.'
+            }
+            $configurationStatements += "EXEC sp_configure N'min server memory (MB)', $minimumMemory;"
+            $configurationStatements += 'RECONFIGURE;'
+        }
+        if ($Config.memory.maxMB) {
+            $maximumMemory = [int]$Config.memory.maxMB
+            if ($maximumMemory -lt 128) {
+                throw 'serverConfig.memory.maxMB muss mindestens 128 MB betragen.'
+            }
+            if ($Config.memory.minMB -and $maximumMemory -lt [int]$Config.memory.minMB) {
+                throw 'serverConfig.memory.maxMB darf nicht kleiner als minMB sein.'
+            }
+            $configurationStatements += "EXEC sp_configure N'max server memory (MB)', $maximumMemory;"
+            $configurationStatements += 'RECONFIGURE;'
+        }
+    }
+
+    if ($null -ne $Config.maxDop) {
+        $maxDop = [int]$Config.maxDop
+        if ($maxDop -lt 0 -or $maxDop -gt 64) {
+            throw 'serverConfig.maxDop muss zwischen 0 und 64 liegen.'
+        }
+        $configurationStatements += "EXEC sp_configure N'max degree of parallelism', $maxDop;"
+        $configurationStatements += 'RECONFIGURE;'
+    }
+
+    if ($null -ne $Config.costThreshold) {
+        $costThreshold = [int]$Config.costThreshold
+        if ($costThreshold -lt 0 -or $costThreshold -gt 32767) {
+            throw 'serverConfig.costThreshold muss zwischen 0 und 32767 liegen.'
+        }
+        $configurationStatements += "EXEC sp_configure N'cost threshold for parallelism', $costThreshold;"
+        $configurationStatements += 'RECONFIGURE;'
+    }
+
+    if ($Config.spConfigure) {
+        foreach ($property in $Config.spConfigure.PSObject.Properties) {
+            $configurationName = [string]$property.Name
+            if ($configurationName -notmatch '^[A-Za-z0-9 ()_-]+$') {
+                throw "sp_configure-Name '$configurationName' enthaelt unzulaessige Zeichen."
+            }
+            $configurationValue = [int]$property.Value
+            $escapedConfigurationName = $configurationName.Replace("'", "''")
+            $configurationStatements += "EXEC sp_configure N'$escapedConfigurationName', $configurationValue;"
+            $configurationStatements += 'RECONFIGURE;'
+        }
+    }
+
+    if ($Config.traceFlags -and @($Config.traceFlags).Count -gt 0) {
+        $traceFlags = @($Config.traceFlags | ForEach-Object { [int]$_ })
+        if ($traceFlags | Where-Object { $_ -le 0 }) {
+            throw 'Trace-Flag-Nummern muessen positiv sein.'
+        }
+        $configurationStatements += "DBCC TRACEON ($($traceFlags -join ', '), -1) WITH NO_INFOMSGS;"
+    }
+
+    Invoke-LabConfigurationQuery `
+        -HostName $HostName `
+        -Port $Port `
+        -SaPassword $SaPassword `
+        -Query ($configurationStatements -join "`n")
+
+    if ($Config.tempdb) {
+        Set-LabTempDbConfig `
+            -Config $Config.tempdb `
+            -HostName $HostName `
+            -Port $Port `
+            -SaPassword $SaPassword
+    }
+
+    return [PSCustomObject]@{
+        Success       = $true
+        MemoryApplied = [bool]$Config.memory
+        TempDbApplied = [bool]$Config.tempdb
+        MaxDop        = $Config.maxDop
+        CostThreshold = $Config.costThreshold
+        TraceFlags    = @($Config.traceFlags)
+    }
+}
+
+function Set-LabTempDbConfig {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Config,
+        [string]$HostName = '127.0.0.1',
+        [Parameter(Mandatory)][int]$Port,
+        [Parameter(Mandatory)][SecureString]$SaPassword
+    )
 
     $statements = @()
+    $dataFiles = @($Config.dataFiles)
 
-    # =========================================================================
-    # 1. sp_configure: show advanced options
-    # =========================================================================
-    $statements += "EXEC sp_configure 'show advanced options', 1;"
-    $statements += "RECONFIGURE;"
+    for ($index = 0; $index -lt $dataFiles.Count; $index++) {
+        $file = $dataFiles[$index]
+        $path = [string]$file.path
+        Assert-LabContainerPath -Path $path -Label 'TempDB-Data-File-Pfad'
 
-    # =========================================================================
-    # 2. Memory-Grenzen
-    # =========================================================================
-    if ($Config.memory) {
-        if ($Config.memory.maxMB) {
-            $statements += "EXEC sp_configure 'max server memory (MB)', $($Config.memory.maxMB);"
-            Write-LabInfo "  Memory: max = $($Config.memory.maxMB) MB"
+        $size = if ($file.sizeMB) { [int]$file.sizeMB } else { 256 }
+        if ($size -le 0) {
+            throw 'TempDB-Dateigroesse muss positiv sein.'
         }
-        if ($Config.memory.minMB) {
-            $statements += "EXEC sp_configure 'min server memory (MB)', $($Config.memory.minMB);"
-            Write-LabInfo "  Memory: min = $($Config.memory.minMB) MB"
+        $growth = ConvertTo-LabGrowthClause -Growth ([string]$file.growth)
+        $escapedPath = $path.Replace("'", "''")
+        $logicalName = if ($index -eq 0) { 'tempdev' } else { "temp$($index + 1)" }
+
+        if ($index -eq 0) {
+            $statements += "ALTER DATABASE tempdb MODIFY FILE (NAME = N'tempdev', FILENAME = N'$escapedPath', SIZE = ${size}MB, FILEGROWTH = $growth);"
         }
-    }
-
-    # =========================================================================
-    # 3. MaxDOP + Cost Threshold
-    # =========================================================================
-    if ($null -ne $Config.maxDop -and $Config.maxDop -ge 0) {
-        $statements += "EXEC sp_configure 'max degree of parallelism', $($Config.maxDop);"
-        Write-LabInfo "  MaxDOP: $($Config.maxDop)"
-    }
-    if ($null -ne $Config.costThreshold -and $Config.costThreshold -ne 5) {
-        $statements += "EXEC sp_configure 'cost threshold for parallelism', $($Config.costThreshold);"
-        Write-LabInfo "  Cost Threshold: $($Config.costThreshold)"
-    }
-
-    # =========================================================================
-    # 4. Benutzerdefinierte sp_configure
-    # =========================================================================
-    if ($Config.spConfigure) {
-        $Config.spConfigure.PSObject.Properties | ForEach-Object {
-            $statements += "EXEC sp_configure '$($_.Name)', $($_.Value);"
-            Write-LabInfo "  sp_configure: $($_.Name) = $($_.Value)"
+        else {
+            $statements += @"
+IF EXISTS (SELECT 1 FROM tempdb.sys.database_files WHERE name = N'$logicalName')
+    ALTER DATABASE tempdb MODIFY FILE (NAME = N'$logicalName', FILENAME = N'$escapedPath', SIZE = ${size}MB, FILEGROWTH = $growth);
+ELSE
+    ALTER DATABASE tempdb ADD FILE (NAME = N'$logicalName', FILENAME = N'$escapedPath', SIZE = ${size}MB, FILEGROWTH = $growth);
+"@
         }
     }
 
-    # RECONFIGURE nach allen sp_configure-Aenderungen
-    $statements += "RECONFIGURE;"
-
-    # =========================================================================
-    # 5. TempDB-Konfiguration
-    # =========================================================================
-    if ($Config.tempdb -and $Config.tempdb.dataFiles) {
-        $rt = Get-ContainerRuntime
-
-        # Verzeichnisse im Container anlegen
-        $paths = @()
-        foreach ($f in $Config.tempdb.dataFiles) {
-            if ($f.path) { $paths += Split-Path $f.path -Parent }
+    if ($Config.logFile) {
+        $logPath = [string]$Config.logFile.path
+        Assert-LabContainerPath -Path $logPath -Label 'TempDB-Log-File-Pfad'
+        $logSize = if ($Config.logFile.sizeMB) { [int]$Config.logFile.sizeMB } else { 128 }
+        if ($logSize -le 0) {
+            throw 'TempDB-Loggroesse muss positiv sein.'
         }
-        if ($Config.tempdb.logFile -and $Config.tempdb.logFile.path) {
-            $paths += Split-Path $Config.tempdb.logFile.path -Parent
-        }
-        $uniquePaths = $paths | Sort-Object -Unique
-        foreach ($p in $uniquePaths) {
-            if ($ContainerName -and $rt) {
-                & $rt exec $ContainerName mkdir -p $p 2>$null
-                & $rt exec $ContainerName chown mssql:root $p 2>$null
-            }
-        }
-
-        # Bestehende TempDB-Dateien ermitteln
-        $existingFiles = Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $saPlain `
-            -Query "SELECT file_id, name, physical_name, type FROM sys.master_files WHERE database_id = 2 ORDER BY file_id" `
-            -Database 'master'
-        if ($existingFiles -isnot [array]) { $existingFiles = @($existingFiles) }
-
-        $dataFileCount = ($existingFiles | Where-Object { $_.type -eq 0 }).Count
-        $targetCount = $Config.tempdb.dataFiles.Count
-
-        # Bestehende Data-Files anpassen (MODIFY FILE)
-        for ($i = 0; $i -lt [Math]::Min($dataFileCount, $targetCount); $i++) {
-            $f = $Config.tempdb.dataFiles[$i]
-            $existing = ($existingFiles | Where-Object { $_.type -eq 0 })[$i]
-            $sizeMB = if ($f.sizeMB) { $f.sizeMB } else { 64 }
-            $growth = Resolve-GrowthClause -GrowthString $f.growth
-            $filePath = if ($f.path) { $f.path } else { $existing.physical_name }
-
-            $statements += "ALTER DATABASE tempdb MODIFY FILE (NAME = '$($existing.name)', FILENAME = '$filePath', SIZE = ${sizeMB}MB$growth);"
-        }
-
-        # Zusaetzliche Data-Files hinzufuegen (ADD FILE)
-        for ($i = $dataFileCount; $i -lt $targetCount; $i++) {
-            $f = $Config.tempdb.dataFiles[$i]
-            $sizeMB = if ($f.sizeMB) { $f.sizeMB } else { 64 }
-            $growth = Resolve-GrowthClause -GrowthString $f.growth
-            $fileName = "tempdev$($i + 1)"
-            $filePath = if ($f.path) { $f.path } else { "/var/opt/mssql/data/${fileName}.ndf" }
-
-            $statements += "ALTER DATABASE tempdb ADD FILE (NAME = '$fileName', FILENAME = '$filePath', SIZE = ${sizeMB}MB$growth);"
-        }
-
-        # Log-File anpassen
-        if ($Config.tempdb.logFile) {
-            $logF = $Config.tempdb.logFile
-            $existingLog = $existingFiles | Where-Object { $_.type -eq 1 } | Select-Object -First 1
-            if ($existingLog) {
-                $sizeMB = if ($logF.sizeMB) { $logF.sizeMB } else { 32 }
-                $growth = Resolve-GrowthClause -GrowthString $logF.growth
-                $filePath = if ($logF.path) { $logF.path } else { $existingLog.physical_name }
-                $statements += "ALTER DATABASE tempdb MODIFY FILE (NAME = '$($existingLog.name)', FILENAME = '$filePath', SIZE = ${sizeMB}MB$growth);"
-            }
-        }
-
-        Write-LabInfo "  TempDB: $targetCount Data-Files konfiguriert"
+        $logGrowth = ConvertTo-LabGrowthClause -Growth ([string]$Config.logFile.growth)
+        $escapedLogPath = $logPath.Replace("'", "''")
+        $statements += "ALTER DATABASE tempdb MODIFY FILE (NAME = N'templog', FILENAME = N'$escapedLogPath', SIZE = ${logSize}MB, FILEGROWTH = $logGrowth);"
     }
 
-    # =========================================================================
-    # 6. Trace Flags
-    # =========================================================================
-    if ($Config.traceFlags -and $Config.traceFlags.Count -gt 0) {
-        $flagList = $Config.traceFlags -join ', '
-        $statements += "DBCC TRACEON($flagList, -1);"
-        Write-LabInfo "  Trace Flags: $flagList"
+    if ($statements.Count -eq 0) {
+        return
     }
 
-    # =========================================================================
-    # Ausfuehren
-    # =========================================================================
-    if ($statements.Count -gt 2) {  # Mehr als nur show advanced + reconfigure
-        $sql = $statements -join "`n"
-        try {
-            Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $saPlain `
-                -Query $sql -Database 'master' -TimeoutSeconds 30
-            Write-LabSuccess "Server-Konfiguration angewendet ($($statements.Count) Statements)"
-        }
-        catch {
-            Write-LabWarning "Server-Konfiguration teilweise fehlgeschlagen: $_"
-        }
-    }
-
-    $saPlain = $null
+    Invoke-LabConfigurationQuery `
+        -HostName $HostName `
+        -Port $Port `
+        -SaPassword $SaPassword `
+        -Query ($statements -join "`n")
 }
 
 function Set-LabDatabaseOptions {
-    <#
-    .SYNOPSIS Wendet Datenbank-Optionen an (Recovery Model, RCSI, Query Store, etc.).
-    .DESCRIPTION Wird nach New-LabDatabase aufgerufen wenn options im Manifest definiert sind.
-    #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$DatabaseName,
         [Parameter(Mandatory)]$Options,
+        [string]$HostName = '127.0.0.1',
         [Parameter(Mandatory)][int]$Port,
-        [Parameter(Mandatory)][SecureString]$SaPassword,
-        [string]$HostName = '127.0.0.1'
+        [Parameter(Mandatory)][SecureString]$SaPassword
     )
 
-    $saPlain = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto(
-        [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword))
-
+    Assert-LabSqlIdentifier -Value $DatabaseName -Label 'DatabaseName'
     $statements = @()
 
-    # Recovery Model
     if ($Options.recoveryModel) {
-        $statements += "ALTER DATABASE [$DatabaseName] SET RECOVERY $($Options.recoveryModel);"
+        $recoveryModel = [string]$Options.recoveryModel
+        if ($recoveryModel -notin @('FULL', 'SIMPLE', 'BULK_LOGGED')) {
+            throw "Recovery Model '$recoveryModel' ist ungueltig."
+        }
+        $statements += "ALTER DATABASE [$DatabaseName] SET RECOVERY $recoveryModel;"
     }
 
-    # Compatibility Level
     if ($Options.compatibility) {
-        $statements += "ALTER DATABASE [$DatabaseName] SET COMPATIBILITY_LEVEL = $($Options.compatibility);"
+        $compatibilityLevel = [int]$Options.compatibility
+        if ($compatibilityLevel -notin @(150, 160, 170)) {
+            throw "Compatibility Level '$compatibilityLevel' ist ungueltig."
+        }
+        $statements += "ALTER DATABASE [$DatabaseName] SET COMPATIBILITY_LEVEL = $compatibilityLevel;"
     }
 
-    # AUTO_CLOSE (sollte immer OFF sein)
-    if ($null -ne $Options.autoClose) {
-        $val = if ($Options.autoClose) { 'ON' } else { 'OFF' }
-        $statements += "ALTER DATABASE [$DatabaseName] SET AUTO_CLOSE $val;"
+    foreach ($booleanOption in @(
+        @{ Property = 'autoClose'; Sql = 'AUTO_CLOSE' },
+        @{ Property = 'autoShrink'; Sql = 'AUTO_SHRINK' },
+        @{ Property = 'rcsi'; Sql = 'READ_COMMITTED_SNAPSHOT' },
+        @{ Property = 'snapshotIsolation'; Sql = 'ALLOW_SNAPSHOT_ISOLATION' }
+    )) {
+        $property = $Options.PSObject.Properties[$booleanOption.Property]
+        if ($null -ne $property) {
+            $valueText = if ([bool]$property.Value) { 'ON' } else { 'OFF' }
+            $statements += "ALTER DATABASE [$DatabaseName] SET $($booleanOption.Sql) $valueText;"
+        }
     }
 
-    # AUTO_SHRINK (sollte immer OFF sein)
-    if ($null -ne $Options.autoShrink) {
-        $val = if ($Options.autoShrink) { 'ON' } else { 'OFF' }
-        $statements += "ALTER DATABASE [$DatabaseName] SET AUTO_SHRINK $val;"
-    }
-
-    # PAGE_VERIFY
     if ($Options.pageVerify) {
-        $statements += "ALTER DATABASE [$DatabaseName] SET PAGE_VERIFY $($Options.pageVerify);"
+        $pageVerify = [string]$Options.pageVerify
+        if ($pageVerify -notin @('CHECKSUM', 'TORN_PAGE_DETECTION', 'NONE')) {
+            throw "PAGE_VERIFY '$pageVerify' ist ungueltig."
+        }
+        $statements += "ALTER DATABASE [$DatabaseName] SET PAGE_VERIFY $pageVerify;"
     }
 
-    # READ_COMMITTED_SNAPSHOT
-    if ($Options.rcsi) {
-        $statements += "ALTER DATABASE [$DatabaseName] SET READ_COMMITTED_SNAPSHOT ON;"
+    if ($Options.delayedDurability) {
+        $delayedDurability = [string]$Options.delayedDurability
+        if ($delayedDurability -notin @('DISABLED', 'ALLOWED', 'FORCED')) {
+            throw "DELAYED_DURABILITY '$delayedDurability' ist ungueltig."
+        }
+        $statements += "ALTER DATABASE [$DatabaseName] SET DELAYED_DURABILITY = $delayedDurability;"
     }
 
-    # ALLOW_SNAPSHOT_ISOLATION
-    if ($Options.snapshotIsolation) {
-        $statements += "ALTER DATABASE [$DatabaseName] SET ALLOW_SNAPSHOT_ISOLATION ON;"
-    }
-
-    # Delayed Durability
-    if ($Options.delayedDurability -and $Options.delayedDurability -ne 'DISABLED') {
-        $statements += "ALTER DATABASE [$DatabaseName] SET DELAYED_DURABILITY = $($Options.delayedDurability);"
-    }
-
-    # Target Recovery Time
     if ($null -ne $Options.targetRecoveryTime) {
-        $statements += "ALTER DATABASE [$DatabaseName] SET TARGET_RECOVERY_TIME = $($Options.targetRecoveryTime) SECONDS;"
+        $targetRecoveryTime = [int]$Options.targetRecoveryTime
+        if ($targetRecoveryTime -lt 0) {
+            throw 'targetRecoveryTime darf nicht negativ sein.'
+        }
+        $statements += "ALTER DATABASE [$DatabaseName] SET TARGET_RECOVERY_TIME = $targetRecoveryTime SECONDS;"
     }
 
-    # Database-scoped MaxDOP
     if ($null -ne $Options.maxDop) {
-        $statements += "ALTER DATABASE SCOPED CONFIGURATION SET MAXDOP = $($Options.maxDop);"
+        $databaseMaxDop = [int]$Options.maxDop
+        if ($databaseMaxDop -lt 0 -or $databaseMaxDop -gt 64) {
+            throw 'Database-scoped MAXDOP muss zwischen 0 und 64 liegen.'
+        }
+        $statements += "ALTER DATABASE SCOPED CONFIGURATION SET MAXDOP = $databaseMaxDop;"
     }
 
-    # Query Store
-    if ($Options.queryStore) {
-        if ($Options.queryStore -is [bool] -and $Options.queryStore) {
-            $statements += "ALTER DATABASE [$DatabaseName] SET QUERY_STORE = ON;"
+    $queryStoreProperty = $Options.PSObject.Properties['queryStore']
+    if ($null -ne $queryStoreProperty) {
+        $queryStore = $queryStoreProperty.Value
+        if ($queryStore -is [bool]) {
+            $queryStoreState = if ($queryStore) { 'ON' } else { 'OFF' }
+            $statements += "ALTER DATABASE [$DatabaseName] SET QUERY_STORE = $queryStoreState;"
         }
-        elseif ($Options.queryStore.enabled -ne $false) {
-            $statements += "ALTER DATABASE [$DatabaseName] SET QUERY_STORE = ON;"
-            $qs = $Options.queryStore
-            if ($qs.operationMode) {
-                $statements += "ALTER DATABASE [$DatabaseName] SET QUERY_STORE (OPERATION_MODE = $($qs.operationMode));"
+        else {
+            $enabled = if ($null -ne $queryStore.enabled) { [bool]$queryStore.enabled } else { $true }
+            if (-not $enabled) {
+                $statements += "ALTER DATABASE [$DatabaseName] SET QUERY_STORE = OFF;"
             }
-            if ($qs.captureMode) {
-                $statements += "ALTER DATABASE [$DatabaseName] SET QUERY_STORE (QUERY_CAPTURE_MODE = $($qs.captureMode));"
-            }
-            if ($qs.maxSizeMB) {
-                $statements += "ALTER DATABASE [$DatabaseName] SET QUERY_STORE (MAX_STORAGE_SIZE_MB = $($qs.maxSizeMB));"
-            }
-            if ($qs.intervalMinutes) {
-                $statements += "ALTER DATABASE [$DatabaseName] SET QUERY_STORE (INTERVAL_LENGTH_MINUTES = $($qs.intervalMinutes));"
-            }
-            if ($qs.staleQueryThresholdDays) {
-                $statements += "ALTER DATABASE [$DatabaseName] SET QUERY_STORE (CLEANUP_POLICY = (STALE_QUERY_THRESHOLD_DAYS = $($qs.staleQueryThresholdDays)));"
-            }
-            if ($null -ne $qs.waitStatsCapture) {
-                $val = if ($qs.waitStatsCapture) { 'ON' } else { 'OFF' }
-                $statements += "ALTER DATABASE [$DatabaseName] SET QUERY_STORE (WAIT_STATS_CAPTURE_MODE = $val);"
+            else {
+                $captureMode = if ($queryStore.captureMode) { [string]$queryStore.captureMode } else { 'AUTO' }
+                if ($captureMode -notin @('ALL', 'AUTO', 'NONE', 'CUSTOM')) {
+                    throw "Query Store Capture Mode '$captureMode' ist ungueltig."
+                }
+
+                $queryStoreOptions = @("QUERY_CAPTURE_MODE = $captureMode")
+                if ($queryStore.maxSizeMB) {
+                    $queryStoreOptions += "MAX_STORAGE_SIZE_MB = $([int]$queryStore.maxSizeMB)"
+                }
+                if ($queryStore.intervalMinutes) {
+                    $queryStoreOptions += "INTERVAL_LENGTH_MINUTES = $([int]$queryStore.intervalMinutes)"
+                }
+                if ($queryStore.staleQueryThresholdDays) {
+                    $queryStoreOptions += "CLEANUP_POLICY = (STALE_QUERY_THRESHOLD_DAYS = $([int]$queryStore.staleQueryThresholdDays))"
+                }
+                if ($null -ne $queryStore.waitStatsCapture) {
+                    $waitStatsMode = if ([bool]$queryStore.waitStatsCapture) { 'ON' } else { 'OFF' }
+                    $queryStoreOptions += "WAIT_STATS_CAPTURE_MODE = $waitStatsMode"
+                }
+
+                $statements += "ALTER DATABASE [$DatabaseName] SET QUERY_STORE = ON ($($queryStoreOptions -join ', '));"
             }
         }
     }
 
-    # Ausfuehren
-    if ($statements.Count -gt 0) {
-        $sql = $statements -join "`n"
-        try {
-            Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $saPlain `
-                -Query $sql -Database 'master' -TimeoutSeconds 30
-            Write-LabInfo "  DB-Optionen fuer [$DatabaseName]: $($statements.Count) Settings"
-        }
-        catch {
-            Write-LabWarning "  DB-Optionen fuer [$DatabaseName] teilweise fehlgeschlagen: $_"
-        }
+    if ($statements.Count -eq 0) {
+        return [PSCustomObject]@{ Success = $true; DatabaseName = $DatabaseName; Applied = 0 }
     }
 
-    $saPlain = $null
+    Invoke-LabConfigurationQuery `
+        -HostName $HostName `
+        -Port $Port `
+        -SaPassword $SaPassword `
+        -Query ($statements -join "`n")
+
+    return [PSCustomObject]@{
+        Success      = $true
+        DatabaseName = $DatabaseName
+        Applied      = $statements.Count
+    }
 }
 
 function Install-LabExternalLanguages {
-    <#
-    .SYNOPSIS Installiert ML Services / External Languages im Container.
-    .DESCRIPTION
-        Fuehrt apt-get install fuer die benoetigten mssql-mlservices-Pakete aus,
-        aktiviert sp_configure 'external scripts enabled' und restartert SQL.
-        Unterstuetzt R, Python und Java (Extensibility Framework).
-    .PARAMETER ContainerName Name des laufenden Containers.
-    .PARAMETER Config Das externalScripts-Objekt aus dem Manifest.
-    .PARAMETER Port SQL-Server-Port (fuer sp_configure nach Restart).
-    .PARAMETER SaPassword SA-Passwort als SecureString.
-    #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$ContainerName,
         [Parameter(Mandatory)]$Config,
         [Parameter(Mandatory)][int]$Port,
         [Parameter(Mandatory)][SecureString]$SaPassword,
-        [string]$HostName = '127.0.0.1'
+        [string]$HostName = '127.0.0.1',
+        [ValidateSet('docker', 'podman')][string]$Provider
     )
 
-    $rt = Get-ContainerRuntime
-    $saPlain = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto(
-        [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword))
+    if ($Config.enabled -eq $false) {
+        return [PSCustomObject]@{ Success = $true; Applied = $false; Reason = 'Disabled' }
+    }
+    if ($Config.installMethod -in @('custom-image', 'pre-built') -or $Config.customImage) {
+        throw 'Custom-Image- und Pre-Built-External-Languages sind noch nicht in die Provider-Imageauswahl integriert.'
+    }
 
-    # =========================================================================
-    # 1. Pakete bestimmen
-    # =========================================================================
+    $runtime = Resolve-LabContainerProvider `
+        -ContainerName $ContainerName `
+        -PreferredProvider $Provider
+
     $aptPackages = @()
     $languages = @()
-
-    if ($Config.languages) {
-        foreach ($lang in $Config.languages) {
-            switch ($lang.name) {
-                'R' {
-                    $aptPackages += 'mssql-mlservices-mlm-r'
-                    $aptPackages += 'mssql-server-extensibility'
-                    $languages += 'R'
-                }
-                'Python' {
-                    $aptPackages += 'mssql-mlservices-mlm-py'
-                    $aptPackages += 'mssql-server-extensibility'
-                    $languages += 'Python'
-                }
-                'Java' {
-                    $aptPackages += 'mssql-server-extensibility-java'
-                    $languages += 'Java'
-                }
-            }
-        }
-    }
-
-    $aptPackages = $aptPackages | Sort-Object -Unique
-
-    if ($aptPackages.Count -eq 0) {
-        Write-LabWarning "Keine External Languages konfiguriert."
-        return
-    }
-
-    Write-LabInfo "External Languages installieren: $($languages -join ', ')"
-
-    # =========================================================================
-    # 2. Im Container installieren (apt-get)
-    # =========================================================================
-    if ($Config.installMethod -ne 'custom-image') {
-        Write-LabInfo "  apt-get install: $($aptPackages -join ' ')"
-
-        # ACCEPT_EULA fuer mlservices
-        $installCmd = "ACCEPT_EULA=Y apt-get update && ACCEPT_EULA=Y apt-get install -y $($aptPackages -join ' ')"
-        $result = & $rt exec $ContainerName bash -c $installCmd 2>&1
-
-        if ($LASTEXITCODE -ne 0) {
-            $errMsg = ($result | Where-Object { $_ -is [string] }) -join "`n"
-            Write-LabWarning "  ML Services Installation fehlgeschlagen: $errMsg"
-            Write-LabWarning "  Alternative: 'installMethod: custom-image' mit vorgebautem Image verwenden."
-            return
-        }
-
-        Write-LabSuccess "  ML Services Pakete installiert."
-
-        # SQL Server Restart im Container (noetig fuer External Scripts)
-        Write-LabInfo "  SQL Server Restart (fuer External Scripts)..."
-        & $rt exec $ContainerName bash -c "/opt/mssql/bin/mssql-conf set extensibility enabled && systemctl restart mssql-server" 2>$null
-        # Alternativ: Container Restart
-        if ($LASTEXITCODE -ne 0) {
-            & $rt restart $ContainerName 2>$null
-        }
-
-        # Warten bis SQL wieder bereit
-        Start-Sleep -Seconds 5
-        Wait-SqlReady -HostName $HostName -Port $Port -TimeoutSeconds 60
-    }
-
-    # =========================================================================
-    # 3. sp_configure aktivieren
-    # =========================================================================
-    if ($Config.enabled -ne $false) {
-        $sql = @"
-EXEC sp_configure 'show advanced options', 1;
-RECONFIGURE;
-EXEC sp_configure 'external scripts enabled', 1;
-RECONFIGURE;
-"@
-        try {
-            Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $saPlain `
-                -Query $sql -Database 'master' -TimeoutSeconds 30
-            Write-LabSuccess "  External Scripts aktiviert (sp_configure)."
-        }
-        catch {
-            Write-LabWarning "  sp_configure fehlgeschlagen: $_"
-        }
-    }
-
-    # =========================================================================
-    # 4. Resource Governor (optional)
-    # =========================================================================
-    if ($Config.resourceGovernor) {
-        $memPct = if ($Config.resourceGovernor.maxMemoryPercent) { $Config.resourceGovernor.maxMemoryPercent } else { 20 }
-        $sql = @"
-ALTER EXTERNAL RESOURCE POOL [default]
-    WITH (MAX_MEMORY_PERCENT = $memPct);
-ALTER RESOURCE GOVERNOR RECONFIGURE;
-"@
-        try {
-            Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $saPlain `
-                -Query $sql -Database 'master' -TimeoutSeconds 30
-            Write-LabInfo "  Resource Governor: External Pool max $memPct% RAM."
-        }
-        catch {
-            Write-LabWarning "  Resource Governor Konfiguration fehlgeschlagen: $_"
-        }
-    }
-
-    # =========================================================================
-    # 5. Zusaetzliche Pakete installieren (R/Python/Java)
-    # =========================================================================
-    foreach ($lang in $Config.languages) {
-        if (-not $lang.packages -or $lang.packages.Count -eq 0) { continue }
-
-        switch ($lang.name) {
+    foreach ($language in @($Config.languages)) {
+        switch ([string]$language.name) {
             'R' {
-                foreach ($pkg in $lang.packages) {
-                    $rCmd = "Rscript -e `"install.packages('$($pkg.name)', repos='https://cran.r-project.org')`""
-                    Write-LabInfo "  R-Paket: $($pkg.name)"
-                    & $rt exec $ContainerName bash -c $rCmd 2>$null
-                }
+                $aptPackages += @('mssql-mlservices-mlm-r', 'mssql-server-extensibility')
+                $languages += 'R'
             }
             'Python' {
-                foreach ($pkg in $lang.packages) {
-                    $pipPkg = if ($pkg.version) { "$($pkg.name)==$($pkg.version)" } else { $pkg.name }
-                    Write-LabInfo "  Python-Paket: $pipPkg"
-                    & $rt exec $ContainerName bash -c "pip install $pipPkg" 2>$null
-                }
+                $aptPackages += @('mssql-mlservices-mlm-py', 'mssql-server-extensibility')
+                $languages += 'Python'
             }
             'Java' {
-                foreach ($pkg in $lang.packages) {
-                    # Java: CREATE EXTERNAL LIBRARY in SQL
-                    Write-LabInfo "  Java-Library: $($pkg.name) (via CREATE EXTERNAL LIBRARY)"
-                    # Muss als .jar bereitgestellt werden - hier nur Hinweis
-                    Write-LabWarning "    Java-JARs muessen manuell via CREATE EXTERNAL LIBRARY registriert werden."
-                }
+                $aptPackages += 'mssql-server-extensibility-java'
+                $languages += 'Java'
+            }
+            default {
+                throw "External Language '$($language.name)' wird nicht unterstuetzt."
             }
         }
     }
 
-    $saPlain = $null
-    Write-LabSuccess "External Languages Setup abgeschlossen: $($languages -join ', ')"
-}
-
-function Resolve-GrowthClause {
-    <#
-    .SYNOPSIS Konvertiert Growth-String ('64MB' oder '10%') in SQL-Klausel.
-    #>
-    [CmdletBinding()]
-    param([string]$GrowthString)
-
-    if (-not $GrowthString) { return ', FILEGROWTH = 64MB' }
-
-    if ($GrowthString -match '^(\d+)MB$') {
-        return ", FILEGROWTH = $($Matches[1])MB"
+    $aptPackages = @($aptPackages | Sort-Object -Unique)
+    if ($aptPackages.Count -eq 0) {
+        throw 'Keine External Languages konfiguriert.'
     }
-    elseif ($GrowthString -match '^(\d+)%$') {
-        return ", FILEGROWTH = $($Matches[1])%"
+
+    $installCommand = "ACCEPT_EULA=Y apt-get update && ACCEPT_EULA=Y apt-get install -y $($aptPackages -join ' ')"
+    Write-LabInfo "External Languages installieren bei $runtime: $($languages -join ', ')"
+    $installationOutput = & $runtime exec --user root $ContainerName bash -lc $installCommand 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw "External-Languages-Pakete konnten nicht installiert werden: $(($installationOutput | Out-String).Trim())"
     }
-    else {
-        return ", FILEGROWTH = 64MB"
+
+    $configOutput = & $runtime exec --user root $ContainerName `
+        /opt/mssql/bin/mssql-conf set extensibility enabled 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw "mssql-conf konnte Extensibility nicht aktivieren: $(($configOutput | Out-String).Trim())"
+    }
+
+    & $runtime restart $ContainerName 1>$null 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        throw "$runtime konnte den Container nach der Extensibility-Konfiguration nicht neu starten."
+    }
+
+    $readiness = Wait-SqlReady `
+        -HostName $HostName `
+        -Port $Port `
+        -SaPassword $SaPassword `
+        -TimeoutSeconds 120
+    if (-not $readiness.Ready) {
+        throw "SQL Server wurde nach External-Languages-Installation nicht bereit: $($readiness.Message)"
+    }
+
+    $activationQuery = @"
+EXEC sp_configure N'show advanced options', 1;
+RECONFIGURE;
+EXEC sp_configure N'external scripts enabled', 1;
+RECONFIGURE;
+"@
+    Invoke-LabConfigurationQuery `
+        -HostName $HostName `
+        -Port $Port `
+        -SaPassword $SaPassword `
+        -Query $activationQuery
+
+    if ($Config.resourceGovernor) {
+        $memoryPercent = if ($Config.resourceGovernor.maxMemoryPercent) {
+            [int]$Config.resourceGovernor.maxMemoryPercent
+        }
+        else {
+            20
+        }
+        if ($memoryPercent -lt 1 -or $memoryPercent -gt 100) {
+            throw 'externalScripts.resourceGovernor.maxMemoryPercent muss zwischen 1 und 100 liegen.'
+        }
+
+        $resourceQuery = @"
+ALTER EXTERNAL RESOURCE POOL [default]
+    WITH (MAX_MEMORY_PERCENT = $memoryPercent);
+ALTER RESOURCE GOVERNOR RECONFIGURE;
+"@
+        Invoke-LabConfigurationQuery `
+            -HostName $HostName `
+            -Port $Port `
+            -SaPassword $SaPassword `
+            -Query $resourceQuery
+    }
+
+    foreach ($language in @($Config.languages)) {
+        foreach ($package in @($language.packages)) {
+            if (-not $package) {
+                continue
+            }
+            $packageName = [string]$package.name
+            if ($packageName -notmatch '^[A-Za-z0-9_.-]+$') {
+                throw "Paketname '$packageName' enthaelt unzulaessige Zeichen."
+            }
+
+            switch ([string]$language.name) {
+                'R' {
+                    $command = "Rscript -e \"install.packages('$packageName', repos='https://cran.r-project.org')\""
+                    $packageOutput = & $runtime exec $ContainerName bash -lc $command 2>&1
+                }
+                'Python' {
+                    $versionSuffix = if ($package.version) {
+                        $version = [string]$package.version
+                        if ($version -notmatch '^[A-Za-z0-9_.+-]+$') {
+                            throw "Python-Paketversion '$version' enthaelt unzulaessige Zeichen."
+                        }
+                        "==$version"
+                    }
+                    else {
+                        ''
+                    }
+                    $packageOutput = & $runtime exec $ContainerName `
+                        bash -lc "python3 -m pip install ${packageName}${versionSuffix}" 2>&1
+                }
+                'Java' {
+                    throw 'Java-JAR-Registrierung benoetigt einen eigenen CREATE-EXTERNAL-LIBRARY-Vertrag und ist noch nicht automatisiert.'
+                }
+            }
+
+            if ($LASTEXITCODE -ne 0) {
+                throw "Zusatzpaket '$packageName' konnte nicht installiert werden: $(($packageOutput | Out-String).Trim())"
+            }
+        }
+    }
+
+    return [PSCustomObject]@{
+        Success   = $true
+        Applied   = $true
+        Provider  = $runtime
+        Languages = $languages
     }
 }
