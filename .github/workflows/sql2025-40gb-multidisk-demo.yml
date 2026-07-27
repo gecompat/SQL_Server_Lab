@@ -24,8 +24,6 @@ on:
 permissions:
   contents: read
 
-# Pro PR beziehungsweise Branch darf nur der neueste Lauf aktiv bleiben.
-# Dadurch blockieren veraltete oder haengende Laeufe keinen aktuellen Test.
 concurrency:
   group: sql-server-lab-sql2025-40gb-demo-${{ github.event.pull_request.number || github.ref_name }}
   cancel-in-progress: true
@@ -44,8 +42,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          # Die lokale .secrets-Datei ist absichtlich nicht versioniert und muss
-          # zwischen Testlaeufen erhalten bleiben, solange Umgebungen aktiv sind.
           clean: false
 
       - name: Preflight
@@ -60,13 +56,50 @@ jobs:
           $totalMemory = (Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory
           if ($totalMemory -lt 48GB) { throw "Mindestens 48 GB Host-RAM erforderlich; vorhanden: $([math]::Round($totalMemory / 1GB, 2)) GB" }
 
-      - name: Prepare conservative TempDB initial size
+      - name: Diagnose C and E bind mounts
         run: |
           $ErrorActionPreference = 'Stop'
-          $scriptPath = '.\Tests\Integration\Invoke-Sql2025FortyGbDemo.ps1'
-          $content = Get-Content -LiteralPath $scriptPath -Raw -Encoding utf8
-          $content = $content.Replace("sizeMB = 512; growth = '128MB'", "sizeMB = 8; growth = '64MB'")
-          Set-Content -LiteralPath $scriptPath -Value $content -Encoding utf8 -NoNewline
+          $token = '${{ github.run_id }}'
+          $container = "sql-lab-mount-diagnostic-$token"
+          $hostC = "C:\SQL_Server_Lab_Runtime\Diagnostics\$token\TempDbC"
+          $hostE = "E:\SQL_Server_Lab_Runtime\Diagnostics\$token\TempDbE"
+
+          foreach ($path in @($hostC, $hostE)) {
+            New-Item -ItemType Directory -Path $path -Force | Out-Null
+          }
+
+          try {
+            $id = docker run -d --name $container `
+              -v "${hostC}:/tempdb-c" `
+              -v "${hostE}:/tempdb-e" `
+              mcr.microsoft.com/mssql/server:2025-latest `
+              /bin/bash -c 'sleep 300'
+            if ($LASTEXITCODE -ne 0) { throw "Diagnosecontainer konnte nicht gestartet werden: $($id | Out-String)" }
+
+            Write-Host '--- docker inspect mounts ---'
+            docker inspect $container --format '{{json .Mounts}}'
+            if ($LASTEXITCODE -ne 0) { throw 'Docker-Mount-Inspection fehlgeschlagen.' }
+
+            Write-Host '--- process identity and directory metadata ---'
+            docker exec --user mssql $container /bin/bash -c 'id; stat -c "%n mode=%a uid=%u gid=%g type=%F" /tempdb-c /tempdb-e; mount | grep -E "(/tempdb-c|/tempdb-e)" || true'
+            if ($LASTEXITCODE -ne 0) { throw 'Mount-Metadaten konnten als mssql nicht gelesen werden.' }
+
+            Write-Host '--- mssql write, fsync and delete test ---'
+            docker exec --user mssql $container /bin/bash -c 'set -e; printf c-test > /tempdb-c/.sql-server-lab-write-test; sync; printf e-test > /tempdb-e/.sql-server-lab-write-test; sync; ls -ln /tempdb-c/.sql-server-lab-write-test /tempdb-e/.sql-server-lab-write-test; rm -f /tempdb-c/.sql-server-lab-write-test /tempdb-e/.sql-server-lab-write-test'
+            if ($LASTEXITCODE -ne 0) { throw 'MOUNT_WRITE_TEST_FAILED: Der Benutzer mssql kann nicht auf beide Bind-Mounts schreiben.' }
+
+            foreach ($path in @($hostC, $hostE)) {
+              if (Get-ChildItem -LiteralPath $path -Force -ErrorAction Stop) {
+                throw "Diagnoseverzeichnis ist nach dem Schreibtest nicht leer: $path"
+              }
+            }
+          }
+          finally {
+            docker rm -f $container 1>$null 2>$null
+            foreach ($path in @($hostC, $hostE)) {
+              if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Recurse -Force }
+            }
+          }
 
       - name: Provision and validate
         run: |
@@ -84,7 +117,7 @@ jobs:
           $jsonMatch = [regex]::Match($raw, '(?s)(\{\s*"status"\s*:\s*"PASS".*\})\s*$')
           if (-not $jsonMatch.Success) { throw 'PASS-Ergebnis konnte nicht aus der Testausgabe gelesen werden.' }
           $result = $jsonMatch.Groups[1].Value | ConvertFrom-Json
-          $password = (Get-Content -LiteralPath '.\.secrets\active-test-session-sa-password.txt' -Raw -Encoding utf8).Trim()
+          $password = (Get-Content -LiteralPath '.\.runtime\secrets\active-test-session-sa-password.txt' -Raw -Encoding utf8).Trim()
 
           docker restart $result.container | Out-Null
           if ($LASTEXITCODE -ne 0) { throw 'Container-Neustart fuer aktive TempDB-Validierung fehlgeschlagen.' }
