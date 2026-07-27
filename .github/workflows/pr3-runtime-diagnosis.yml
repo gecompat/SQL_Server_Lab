@@ -1,6 +1,9 @@
 name: PR3 Runtime Diagnosis
 
 on:
+  push:
+    branches:
+      - agent/documentation-consistency-repair
   pull_request:
     branches:
       - main
