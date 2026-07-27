@@ -24,9 +24,12 @@ on:
 permissions:
   contents: read
 
+# Shared with every resource-intensive Docker workflow for this SQL_Lab host.
+# Jobs wait instead of cancelling each other and remain serialized even when
+# several runner services have the same labels on the same machine.
 concurrency:
-  group: sql-server-lab-sql2025-40gb-demo-${{ github.event.pull_request.number || github.ref_name }}
-  cancel-in-progress: true
+  group: sql-server-lab-sql-lab-docker-host
+  cancel-in-progress: false
 
 jobs:
   provision-and-validate:
