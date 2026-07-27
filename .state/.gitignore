@@ -1,0 +1,4 @@
+# Alles Lokale ignorieren; nur Schutz- und Dokumentationsdateien versionieren.
+*
+!.gitignore
+!README.md
