@@ -2,14 +2,83 @@
 .SYNOPSIS
     Erstellt eine neue SQL-Server-Testumgebung.
 .DESCRIPTION
-    End-to-End Cmdlet: Resource Assessment -> State -> Provider -> SQL-Ready ->
-    Server-Konfiguration -> Datenbanken/Restore -> PostProvision.
-    Unterstuetzt Ad-hoc-Parameter und Manifest-Modus.
+    End-to-End Cmdlet: Aufloesung -> Assessment -> State und Cleanup-Plan ->
+    Provider -> SQL Readiness -> Konfiguration -> Create/Restore -> PostProvision.
 .EXAMPLE
     $lab = New-SqlServerLab -Version '2025' -Provider docker
 .EXAMPLE
-    $lab = New-SqlServerLab -Manifest './Schemas/example-lab.json'
+    $lab = New-SqlServerLab -Manifest './Schemas/example-performance-lab.json'
 #>
+
+function Add-LabInstanceCleanupPlan {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Instance,
+        [Parameter(Mandatory)]$RunState
+    )
+
+    $containerName = "sql-lab-$($Instance.id)-$($RunState.RunId.Substring(0, 8))"
+
+    foreach ($drive in @($Instance.drives | Where-Object { $_ -and $_.containerPath -and -not $_.hostPath })) {
+        $volumeName = "sql-lab-${containerName}-$($drive.id)"
+        $null = Add-CleanupStep `
+            -RunDir $RunState.RunDir `
+            -ResourceType 'volume' `
+            -ResourceId $volumeName `
+            -Action 'remove' `
+            -Provider $Instance.provider `
+            -Compensation "$($Instance.provider) volume rm $volumeName"
+    }
+
+    # Der Container wird nach den Volumes eingetragen, damit die umgekehrte
+    # Cleanup-Reihenfolge zuerst den Container und danach seine Volumes entfernt.
+    $null = Add-CleanupStep `
+        -RunDir $RunState.RunDir `
+        -ResourceType 'container' `
+        -ResourceId $containerName `
+        -Action 'remove' `
+        -Provider $Instance.provider `
+        -Compensation "$($Instance.provider) rm -f $containerName"
+}
+
+function New-LabProviderContainer {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Instance,
+        [Parameter(Mandatory)]$RunState,
+        [Parameter(Mandatory)][SecureString]$SaPassword,
+        [int]$Port = 0
+    )
+
+    switch ($Instance.provider) {
+        'docker' {
+            return New-DockerInstance `
+                -VersionId $Instance.version `
+                -RunId $RunState.RunId `
+                -ScopeId $RunState.ScopeId `
+                -InstanceId $Instance.id `
+                -Port $Port `
+                -SaPassword $SaPassword `
+                -Profile $Instance.profile `
+                -Drives $Instance.drives
+        }
+        'podman' {
+            return New-PodmanInstance `
+                -VersionId $Instance.version `
+                -RunId $RunState.RunId `
+                -ScopeId $RunState.ScopeId `
+                -InstanceId $Instance.id `
+                -Port $Port `
+                -SaPassword $SaPassword `
+                -Profile $Instance.profile `
+                -Drives $Instance.drives
+        }
+        default {
+            throw "Provider '$($Instance.provider)' ist noch nicht implementiert."
+        }
+    }
+}
+
 function New-SqlServerLab {
     [CmdletBinding(DefaultParameterSetName = 'AdHoc')]
     param(
@@ -41,9 +110,6 @@ function New-SqlServerLab {
     $ErrorActionPreference = 'Stop'
     Write-LabHeader 'SQL Server Lab - Neue Umgebung'
 
-    # =========================================================================
-    # 1. Manifest oder Ad-hoc-Parameter aufloesen
-    # =========================================================================
     if ($PSCmdlet.ParameterSetName -eq 'Manifest') {
         Write-LabInfo "Manifest: $Manifest"
         $resolved = Read-LabManifest -Path $Manifest
@@ -73,9 +139,14 @@ function New-SqlServerLab {
 
     Write-LabInfo "Umgebung: $($resolved.name) ($($resolved.instances.Count) Instanz(en))"
 
-    # =========================================================================
-    # 2. Versions-Pruefung
-    # =========================================================================
+    $providers = @($resolved.instances | ForEach-Object { $_.provider } | Sort-Object -Unique)
+    if ($providers.Count -ne 1) {
+        throw 'Gemischte Provider innerhalb eines Runs sind noch nicht implementiert.'
+    }
+    if ($providers[0] -notin @('docker', 'podman')) {
+        throw "Provider '$($providers[0])' ist geplant, aber noch nicht implementiert."
+    }
+
     foreach ($instance in $resolved.instances) {
         $versionCheck = Test-SqlServerVersionSupported -VersionId $instance.version
         if (-not $versionCheck.Supported) {
@@ -84,16 +155,19 @@ function New-SqlServerLab {
         if ($versionCheck.Message) {
             Write-LabWarning $versionCheck.Message
         }
+
+        # Imageauflösung vor State und Mutation verifizieren.
+        $null = Get-SqlServerDockerImage -VersionId $instance.version
     }
 
-    # =========================================================================
-    # 3. Resource Assessment
-    # =========================================================================
-    if (-not $SkipAssessment) {
+    $skipAssessmentEffective = $SkipAssessment.IsPresent -or
+        ($resolved.resourceOverrides -and $resolved.resourceOverrides.skipAssessment -eq $true)
+
+    if (-not $skipAssessmentEffective) {
         Write-LabInfo 'Resource Assessment...'
         $assessment = Test-LabResources `
             -Instances $resolved.instances `
-            -Provider $resolved.instances[0].provider
+            -Provider $providers[0]
 
         foreach ($detail in $assessment.Details) {
             $color = switch ($detail.Status) {
@@ -112,138 +186,74 @@ function New-SqlServerLab {
         }
     }
 
-    # =========================================================================
-    # 4. SA-Passwort
-    # =========================================================================
     if (-not $SaPassword) {
         Write-LabInfo 'SA-Passwort wird benoetigt.'
         $SaPassword = Read-SaPassword
     }
 
-    # =========================================================================
-    # 5. State und Cleanup-Plan initialisieren
-    # =========================================================================
     $runState = New-LabRunState `
         -StateRoot $StateRoot `
         -Metadata @{ name = $resolved.name }
+    $effectiveStateRoot = $runState.StateRoot
+    $cleanupStatus = 'NOT_STARTED'
 
     Write-LabStatus -Label 'RunId' -Value $runState.RunId
     Write-LabStatus -Label 'ScopeId' -Value $runState.ScopeId
 
-    $null = New-CleanupPlan `
-        -RunDir $runState.RunDir `
-        -RunId $runState.RunId `
-        -ScopeId $runState.ScopeId
-
-    $null = Save-LabSecret `
-        -Path $runState.RunDir `
-        -Name 'sa-password' `
-        -Secret $SaPassword
-
-    $null = Set-LabRunState `
-        -RunId $runState.RunId `
-        -NewState 'PROVISIONING' `
-        -Reason 'Provider-Start' `
-        -StateRoot $StateRoot
-
-    $labInstances = @()
-    $cleanupStatus = 'NOT_STARTED'
-
     try {
-        # =====================================================================
-        # 6. Instanzen provisionieren
-        # =====================================================================
+        $null = New-CleanupPlan `
+            -RunDir $runState.RunDir `
+            -RunId $runState.RunId `
+            -ScopeId $runState.ScopeId
+
+        foreach ($instance in $resolved.instances) {
+            Add-LabInstanceCleanupPlan -Instance $instance -RunState $runState
+        }
+
+        $null = Save-LabSecret `
+            -Path $runState.RunDir `
+            -Name 'sa-password' `
+            -Secret $SaPassword
+
+        $null = Set-LabRunState `
+            -RunId $runState.RunId `
+            -NewState 'PROVISIONING' `
+            -Reason 'Provider-Start' `
+            -StateRoot $effectiveStateRoot
+
+        $labInstances = @()
+
         foreach ($instance in $resolved.instances) {
             Write-LabInfo "Instanz '$($instance.id)' erstellen ($($instance.version), $($instance.provider))..."
 
-            switch ($instance.provider) {
-                'docker' {
-                    $container = New-DockerInstance `
-                        -VersionId $instance.version `
-                        -RunId $runState.RunId `
-                        -ScopeId $runState.ScopeId `
-                        -InstanceId $instance.id `
-                        -Port $Port `
-                        -SaPassword $SaPassword `
-                        -Profile $instance.profile `
-                        -Drives $instance.drives
+            $container = New-LabProviderContainer `
+                -Instance $instance `
+                -RunState $runState `
+                -SaPassword $SaPassword `
+                -Port $Port
 
-                    $null = Add-CleanupStep `
-                        -RunDir $runState.RunDir `
-                        -ResourceType 'container' `
-                        -ResourceId $container.ContainerName `
-                        -Action 'remove' `
-                        -Compensation "docker rm -f $($container.ContainerName)"
+            $versionDefinition = Get-SqlServerVersion -VersionId $instance.version
+            $readiness = Wait-SqlReady `
+                -Port $container.Port `
+                -SaPassword $SaPassword `
+                -TimeoutSeconds 120 `
+                -ExpectedMajorVersion $versionDefinition.major
 
-                    $versionDefinition = Get-SqlServerVersion -VersionId $instance.version
-                    $readiness = Wait-SqlReady `
-                        -Port $container.Port `
-                        -SaPassword $SaPassword `
-                        -TimeoutSeconds 120 `
-                        -ExpectedMajorVersion $versionDefinition.major
+            if (-not $readiness.Ready) {
+                throw "SQL Server nicht bereit: $($readiness.Message)"
+            }
 
-                    if (-not $readiness.Ready) {
-                        throw "SQL Server nicht bereit: $($readiness.Message)"
-                    }
-
-                    $labInstances += [PSCustomObject]@{
-                        Id               = $instance.id
-                        Version          = $instance.version
-                        Provider         = 'docker'
-                        Host             = '127.0.0.1'
-                        Port             = $container.Port
-                        ContainerId      = $container.ContainerId
-                        ContainerName    = $container.ContainerName
-                        ConnectionString = New-SqlConnectionString -Port $container.Port
-                        Databases        = @()
-                        Status           = 'Running'
-                    }
-                }
-                'podman' {
-                    $container = New-PodmanInstance `
-                        -VersionId $instance.version `
-                        -RunId $runState.RunId `
-                        -ScopeId $runState.ScopeId `
-                        -InstanceId $instance.id `
-                        -Port $Port `
-                        -SaPassword $SaPassword `
-                        -Profile $instance.profile `
-                        -Drives $instance.drives
-
-                    $null = Add-CleanupStep `
-                        -RunDir $runState.RunDir `
-                        -ResourceType 'container' `
-                        -ResourceId $container.ContainerName `
-                        -Action 'remove' `
-                        -Compensation "podman rm -f $($container.ContainerName)"
-
-                    $versionDefinition = Get-SqlServerVersion -VersionId $instance.version
-                    $readiness = Wait-SqlReady `
-                        -Port $container.Port `
-                        -SaPassword $SaPassword `
-                        -TimeoutSeconds 120 `
-                        -ExpectedMajorVersion $versionDefinition.major
-
-                    if (-not $readiness.Ready) {
-                        throw "SQL Server nicht bereit: $($readiness.Message)"
-                    }
-
-                    $labInstances += [PSCustomObject]@{
-                        Id               = $instance.id
-                        Version          = $instance.version
-                        Provider         = 'podman'
-                        Host             = '127.0.0.1'
-                        Port             = $container.Port
-                        ContainerId      = $container.ContainerId
-                        ContainerName    = $container.ContainerName
-                        ConnectionString = New-SqlConnectionString -Port $container.Port
-                        Databases        = @()
-                        Status           = 'Running'
-                    }
-                }
-                default {
-                    throw "Provider '$($instance.provider)' ist noch nicht implementiert."
-                }
+            $labInstances += [PSCustomObject]@{
+                Id               = $instance.id
+                Version          = $instance.version
+                Provider         = $instance.provider
+                Host             = '127.0.0.1'
+                Port             = $container.Port
+                ContainerId      = $container.ContainerId
+                ContainerName    = $container.ContainerName
+                ConnectionString = New-SqlConnectionString -Port $container.Port
+                Databases        = @()
+                Status           = 'Running'
             }
         }
 
@@ -251,16 +261,15 @@ function New-SqlServerLab {
             -RunId $runState.RunId `
             -NewState 'SQL_READY' `
             -Reason 'Alle Instanzen bereit' `
-            -StateRoot $StateRoot
+            -StateRoot $effectiveStateRoot
 
-        # =====================================================================
-        # 6b. Server-Konfiguration
-        # =====================================================================
         foreach ($instance in ($resolved.instances | Where-Object { $_.serverConfig })) {
-            $labInstance = $labInstances | Where-Object { $_.Id -eq $instance.id } | Select-Object -First 1
-            Write-LabInfo "Server-Konfiguration auf '$($instance.id)' anwenden..."
+            $labInstance = $labInstances |
+                Where-Object { $_.Id -eq $instance.id } |
+                Select-Object -First 1
 
-            Set-LabServerConfig `
+            Write-LabInfo "Server-Konfiguration auf '$($instance.id)' anwenden..."
+            $null = Set-LabServerConfig `
                 -Config $instance.serverConfig `
                 -HostName $labInstance.Host `
                 -Port $labInstance.Port `
@@ -269,7 +278,7 @@ function New-SqlServerLab {
 
             if ($instance.serverConfig.externalScripts -and $instance.serverConfig.externalScripts.languages) {
                 Write-LabInfo "External Languages auf '$($instance.id)' installieren..."
-                Install-LabExternalLanguages `
+                $null = Install-LabExternalLanguages `
                     -ContainerName $labInstance.ContainerName `
                     -Config $instance.serverConfig.externalScripts `
                     -HostName $labInstance.Host `
@@ -278,16 +287,13 @@ function New-SqlServerLab {
             }
         }
 
-        # =====================================================================
-        # 7. Neue Datenbanken anlegen
-        # Restore- und Sample-Datenbanken werden hier bewusst uebersprungen.
-        # =====================================================================
         $createdDatabaseCount = 0
-
         foreach ($instance in $resolved.instances) {
-            $labInstance = $labInstances | Where-Object { $_.Id -eq $instance.id } | Select-Object -First 1
+            $labInstance = $labInstances |
+                Where-Object { $_.Id -eq $instance.id } |
+                Select-Object -First 1
 
-            foreach ($database in ($instance.databases | Where-Object { -not $_.restore })) {
+            foreach ($database in @($instance.databases | Where-Object { -not $_.restore })) {
                 Write-LabInfo "Datenbank '$($database.name)' auf '$($instance.id)' anlegen..."
 
                 $databaseResult = New-LabDatabase `
@@ -305,7 +311,7 @@ function New-SqlServerLab {
                 }
 
                 if ($database.options) {
-                    Set-LabDatabaseOptions `
+                    $null = Set-LabDatabaseOptions `
                         -DatabaseName $database.name `
                         -Options $database.options `
                         -HostName $labInstance.Host `
@@ -331,15 +337,14 @@ function New-SqlServerLab {
             -RunId $runState.RunId `
             -NewState 'DATABASES_CREATED' `
             -Reason $createReason `
-            -StateRoot $StateRoot
+            -StateRoot $effectiveStateRoot
 
-        # =====================================================================
-        # 7b. Datenbank-Restores
-        # =====================================================================
         foreach ($instance in $resolved.instances) {
-            $labInstance = $labInstances | Where-Object { $_.Id -eq $instance.id } | Select-Object -First 1
+            $labInstance = $labInstances |
+                Where-Object { $_.Id -eq $instance.id } |
+                Select-Object -First 1
 
-            foreach ($database in ($instance.databases | Where-Object { $_.restore })) {
+            foreach ($database in @($instance.databases | Where-Object { $_.restore })) {
                 Write-LabInfo "Restore '$($database.name)' auf '$($instance.id)' von: $($database.restore.source)"
 
                 $restoreResult = Restore-LabDatabase `
@@ -350,14 +355,14 @@ function New-SqlServerLab {
                     -DatabaseName $database.name `
                     -ContainerName $labInstance.ContainerName `
                     -Replace:($database.restore.replace) `
-                    -StateRoot $StateRoot
+                    -StateRoot $effectiveStateRoot
 
                 if (-not $restoreResult.Success) {
                     throw "Restore fehlgeschlagen: $($restoreResult.Message)"
                 }
 
                 if ($database.options) {
-                    Set-LabDatabaseOptions `
+                    $null = Set-LabDatabaseOptions `
                         -DatabaseName $database.name `
                         -Options $database.options `
                         -HostName $labInstance.Host `
@@ -371,18 +376,22 @@ function New-SqlServerLab {
             }
         }
 
-        # =====================================================================
-        # 8. PostProvision-Skripte
-        # =====================================================================
-        $hasPostProvision = $resolved.instances | Where-Object { $_.postProvision.Count -gt 0 }
+        $hasPostProvision = $resolved.instances |
+            Where-Object { $_.postProvision.Count -gt 0 }
         if ($hasPostProvision) {
             foreach ($instance in $resolved.instances) {
-                $labInstance = $labInstances | Where-Object { $_.Id -eq $instance.id } | Select-Object -First 1
-                $postDatabase = if ($instance.databases.Count -gt 0) { $instance.databases[0].name } else { 'master' }
+                $labInstance = $labInstances |
+                    Where-Object { $_.Id -eq $instance.id } |
+                    Select-Object -First 1
+                $postDatabase = if ($instance.databases.Count -gt 0) {
+                    $instance.databases[0].name
+                }
+                else {
+                    'master'
+                }
 
                 foreach ($scriptPath in $instance.postProvision) {
                     Write-LabInfo "PostProvision: $(Split-Path $scriptPath -Leaf) auf '$($instance.id)/$postDatabase'..."
-
                     $scriptResult = Invoke-LabSqlScript `
                         -ScriptPath $scriptPath `
                         -HostName $labInstance.Host `
@@ -392,7 +401,6 @@ function New-SqlServerLab {
                         -KeepConnection
 
                     if (-not $scriptResult.Success) {
-                        Write-LabError "  $($scriptResult.Message)"
                         throw $scriptResult.Message
                     }
 
@@ -404,37 +412,36 @@ function New-SqlServerLab {
                 -RunId $runState.RunId `
                 -NewState 'POST_PROVISIONED' `
                 -Reason 'Skripte ausgefuehrt' `
-                -StateRoot $StateRoot
+                -StateRoot $effectiveStateRoot
         }
 
-        # =====================================================================
-        # 9. Ergebnis speichern und ausgeben
-        # =====================================================================
-        $null = Set-LabRunState `
-            -RunId $runState.RunId `
-            -NewState 'RUNNING' `
-            -Reason 'Umgebung bereit' `
-            -StateRoot $StateRoot
-
-        $connectionInfo = @{
+        $connectionInfo = [PSCustomObject]@{
             runId     = $runState.RunId
             scopeId   = $runState.ScopeId
-            instances = $labInstances | ForEach-Object {
-                @{
+            instances = @($labInstances | ForEach-Object {
+                [PSCustomObject]@{
                     id               = $_.Id
                     host             = $_.Host
                     port             = $_.Port
                     version          = $_.Version
                     provider         = $_.Provider
+                    containerId      = $_.ContainerId
+                    containerName    = $_.ContainerName
                     connectionString = $_.ConnectionString
-                    databases        = $_.Databases
+                    databases        = @($_.Databases)
                 }
-            }
+            })
         }
 
         $connectionInfo |
-            ConvertTo-Json -Depth 10 |
-            Set-Content -Path (Join-Path $runState.RunDir 'connection-info.json') -Encoding utf8
+            ConvertTo-Json -Depth 20 |
+            Set-Content -LiteralPath (Join-Path $runState.RunDir 'connection-info.json') -Encoding utf8
+
+        $null = Set-LabRunState `
+            -RunId $runState.RunId `
+            -NewState 'RUNNING' `
+            -Reason 'Umgebung bereit' `
+            -StateRoot $effectiveStateRoot
 
         Write-Host ''
         Write-LabHeader 'Umgebung bereit'
@@ -442,7 +449,7 @@ function New-SqlServerLab {
         foreach ($labInstance in $labInstances) {
             Write-LabStatus `
                 -Label $labInstance.Id `
-                -Value "$($labInstance.Host):$($labInstance.Port) (SQL $($labInstance.Version))" `
+                -Value "$($labInstance.Host):$($labInstance.Port) (SQL $($labInstance.Version), $($labInstance.Provider))" `
                 -Color 'Green'
         }
         Write-Host ''
@@ -453,55 +460,94 @@ function New-SqlServerLab {
             State     = 'Running'
             Name      = $resolved.name
             Instances = $labInstances
-            StateRoot = $runState.StateRoot
+            StateRoot = $effectiveStateRoot
         }
     }
     catch {
         $provisioningError = $_
-        Write-LabError "Provisionierung fehlgeschlagen: $provisioningError"
-
-        $null = Add-LabRunError `
-            -RunId $runState.RunId `
-            -Message $provisioningError.ToString() `
-            -Component 'New-SqlServerLab' `
-            -StateRoot $StateRoot
+        Write-LabError "Provisionierung fehlgeschlagen: $($provisioningError.Exception.Message)"
 
         try {
-            $null = Set-LabRunState `
+            $null = Add-LabRunError `
                 -RunId $runState.RunId `
-                -NewState 'PROVISION_FAILED' `
-                -Reason $provisioningError.ToString() `
-                -StateRoot $StateRoot
+                -Message $provisioningError.Exception.Message `
+                -Component 'New-SqlServerLab' `
+                -StateRoot $effectiveStateRoot
 
-            $null = Set-LabRunState `
+            $currentState = Get-LabRunState `
                 -RunId $runState.RunId `
-                -NewState 'CLEANUP_PENDING' `
-                -Reason 'Auto-Cleanup nach Fehler' `
-                -StateRoot $StateRoot
+                -StateRoot $effectiveStateRoot
+
+            if ($currentState.state -notin @('PROVISION_FAILED', 'CLEANUP_PENDING', 'CLEANUP_RUNNING', 'CLEANED_UP', 'RECOVERY_REQUIRED', 'REMOVED')) {
+                $null = Set-LabRunState `
+                    -RunId $runState.RunId `
+                    -NewState 'PROVISION_FAILED' `
+                    -Reason $provisioningError.Exception.Message `
+                    -StateRoot $effectiveStateRoot
+            }
+
+            $currentState = Get-LabRunState -RunId $runState.RunId -StateRoot $effectiveStateRoot
+            if ($currentState.state -eq 'PROVISION_FAILED') {
+                $null = Set-LabRunState `
+                    -RunId $runState.RunId `
+                    -NewState 'CLEANUP_PENDING' `
+                    -Reason 'Auto-Cleanup nach Fehler' `
+                    -StateRoot $effectiveStateRoot
+            }
+
+            $currentState = Get-LabRunState -RunId $runState.RunId -StateRoot $effectiveStateRoot
+            if ($currentState.state -eq 'CLEANUP_PENDING') {
+                $null = Set-LabRunState `
+                    -RunId $runState.RunId `
+                    -NewState 'CLEANUP_RUNNING' `
+                    -Reason 'Auto-Cleanup gestartet' `
+                    -StateRoot $effectiveStateRoot
+            }
 
             Write-LabInfo 'Automatischer Cleanup...'
             $cleanupResult = Invoke-CleanupPlan `
                 -RunDir $runState.RunDir `
                 -ScopeId $runState.ScopeId
-
             $cleanupStatus = $cleanupResult.Status
             Write-LabStatus -Label 'Cleanup' -Value $cleanupStatus
 
-            $null = Set-LabRunState `
-                -RunId $runState.RunId `
-                -NewState 'CLEANUP_RUNNING' `
-                -Reason 'Cleanup gestartet' `
-                -StateRoot $StateRoot
-
-            $null = Set-LabRunState `
-                -RunId $runState.RunId `
-                -NewState 'CLEANED_UP' `
-                -Reason "Cleanup: $cleanupStatus" `
-                -StateRoot $StateRoot
+            if ($cleanupResult.Errors -eq 0) {
+                $null = Set-LabRunState `
+                    -RunId $runState.RunId `
+                    -NewState 'CLEANED_UP' `
+                    -Reason "Cleanup: $cleanupStatus" `
+                    -StateRoot $effectiveStateRoot
+                $null = Remove-LabSecrets -Path $runState.RunDir
+            }
+            else {
+                $null = Set-LabRunState `
+                    -RunId $runState.RunId `
+                    -NewState 'RECOVERY_REQUIRED' `
+                    -Reason "Cleanup: $cleanupStatus" `
+                    -StateRoot $effectiveStateRoot
+                $cleanupStatus = 'RECOVERY_REQUIRED'
+            }
         }
         catch {
+            $cleanupFailure = $_
             $cleanupStatus = 'RECOVERY_REQUIRED'
-            Write-LabError "Cleanup fehlgeschlagen: $_"
+            Write-LabError "Cleanup fehlgeschlagen: $($cleanupFailure.Exception.Message)"
+
+            try {
+                $cleanupState = Get-LabRunState `
+                    -RunId $runState.RunId `
+                    -StateRoot $effectiveStateRoot
+                if ($cleanupState.state -eq 'CLEANUP_RUNNING') {
+                    $null = Set-LabRunState `
+                        -RunId $runState.RunId `
+                        -NewState 'RECOVERY_REQUIRED' `
+                        -Reason $cleanupFailure.Exception.Message `
+                        -StateRoot $effectiveStateRoot
+                }
+            }
+            catch {
+                Write-LabError "Recovery-State konnte nicht gespeichert werden: $($_.Exception.Message)"
+            }
         }
 
         throw "Lab-Erstellung fehlgeschlagen. Cleanup-Status: $cleanupStatus. Ursache: $($provisioningError.Exception.Message)"
