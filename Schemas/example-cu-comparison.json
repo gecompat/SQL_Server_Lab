@@ -1,7 +1,7 @@
 {
-  "$schema": "../Schemas/lab-manifest.schema.json",
+  "$schema": "./lab-manifest.schema.json",
   "name": "cu-vergleich-2022",
-  "description": "Vergleich zweier CU-Versionen mit identischer Datenbank (Regressionstests)",
+  "description": "Vergleich zweier CU-Versionen mit identischer AdventureWorks-Datenbank",
   "instances": [
     {
       "id": "cu16",
@@ -51,8 +51,5 @@
         }
       ]
     }
-  ],
-  "postProvision": [
-    "verify-plans.sql"
   ]
 }
