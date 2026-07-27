@@ -2,10 +2,11 @@
 .SYNOPSIS
     Erstellt eine Datenbank auf einer Lab-Instanz.
 .DESCRIPTION
-    Generiert CREATE DATABASE T-SQL mit konfigurierbaren Data/Log Files,
-    Filegroups, Collation und Optionen (Query Store, Compatibility Level).
+    Generiert CREATE DATABASE T-SQL mit konfigurierbaren Data- und Log-Dateien,
+    Collation sowie optionalen Query-Store- und Compatibility-Einstellungen.
+    Ein pro Datei angegebenes Feld path wird als Containerpfad verwendet.
 .EXAMPLE
-    New-LabDatabase -Port 14330 -SaPassword $pw -DatabaseName 'TestDB' -DataFiles @(@{name='D1';sizeMB=200})
+    New-LabDatabase -Port 14330 -SaPassword $pw -DatabaseName 'TestDB' -DataFiles @(@{ name = 'D1'; path = '/sqldata/D1.mdf'; sizeMB = 200 })
 #>
 function New-LabDatabase {
     [CmdletBinding()]
@@ -20,84 +21,108 @@ function New-LabDatabase {
         $Options = $null
     )
 
-    # Defaults
     if ($DataFiles.Count -eq 0) {
-        $DataFiles = @(@{ name = "${DatabaseName}_Data"; sizeMB = 64; filegrowthMB = 64 })
+        $DataFiles = @(
+            @{
+                name         = "${DatabaseName}_Data"
+                sizeMB       = 64
+                filegrowthMB = 64
+            }
+        )
     }
+
     if ($LogFiles.Count -eq 0) {
-        $LogFiles = @(@{ name = "${DatabaseName}_Log"; sizeMB = 32; filegrowthMB = 32 })
+        $LogFiles = @(
+            @{
+                name         = "${DatabaseName}_Log"
+                sizeMB       = 32
+                filegrowthMB = 32
+            }
+        )
     }
 
-    # CREATE DATABASE SQL generieren
-    $sql = "CREATE DATABASE [$DatabaseName]`n"
-    $sql += "ON PRIMARY`n"
+    $escapedDatabaseName = $DatabaseName.Replace(']', ']]')
+    $sql = "CREATE DATABASE [$escapedDatabaseName]`nON PRIMARY`n"
 
-    # Data Files
-    for ($i = 0; $i -lt $DataFiles.Count; $i++) {
-        $df = $DataFiles[$i]
-        $name = $df.name ?? $df['name']
-        $size = $df.sizeMB ?? $df['sizeMB'] ?? 64
-        $growth = $df.filegrowthMB ?? $df['filegrowthMB'] ?? 64
-        $comma = if ($i -lt $DataFiles.Count - 1) { ',' } else { '' }
+    for ($index = 0; $index -lt $DataFiles.Count; $index++) {
+        $file = $DataFiles[$index]
+        $name = $file.name ?? $file['name']
+        $size = $file.sizeMB ?? $file['sizeMB'] ?? 64
+        $growth = $file.filegrowthMB ?? $file['filegrowthMB'] ?? 64
+        $configuredPath = $file.path ?? $file['path']
+        $extension = if ($index -eq 0) { 'mdf' } else { 'ndf' }
+        $path = if ($configuredPath) { $configuredPath } else { "/var/opt/mssql/data/${name}.${extension}" }
+        $comma = if ($index -lt $DataFiles.Count - 1) { ',' } else { '' }
 
-        $sql += "  ( NAME = N'$name',`n"
-        $sql += "    FILENAME = N'/var/opt/mssql/data/${name}.mdf',`n"
+        $escapedName = ([string]$name).Replace("'", "''")
+        $escapedPath = ([string]$path).Replace("'", "''")
+
+        $sql += "  ( NAME = N'$escapedName',`n"
+        $sql += "    FILENAME = N'$escapedPath',`n"
         $sql += "    SIZE = ${size}MB,`n"
         $sql += "    FILEGROWTH = ${growth}MB )$comma`n"
     }
 
-    # Log Files
     $sql += "LOG ON`n"
-    for ($i = 0; $i -lt $LogFiles.Count; $i++) {
-        $lf = $LogFiles[$i]
-        $name = $lf.name ?? $lf['name']
-        $size = $lf.sizeMB ?? $lf['sizeMB'] ?? 32
-        $growth = $lf.filegrowthMB ?? $lf['filegrowthMB'] ?? 32
-        $comma = if ($i -lt $LogFiles.Count - 1) { ',' } else { '' }
 
-        $sql += "  ( NAME = N'$name',`n"
-        $sql += "    FILENAME = N'/var/opt/mssql/data/${name}.ldf',`n"
+    for ($index = 0; $index -lt $LogFiles.Count; $index++) {
+        $file = $LogFiles[$index]
+        $name = $file.name ?? $file['name']
+        $size = $file.sizeMB ?? $file['sizeMB'] ?? 32
+        $growth = $file.filegrowthMB ?? $file['filegrowthMB'] ?? 32
+        $configuredPath = $file.path ?? $file['path']
+        $path = if ($configuredPath) { $configuredPath } else { "/var/opt/mssql/data/${name}.ldf" }
+        $comma = if ($index -lt $LogFiles.Count - 1) { ',' } else { '' }
+
+        $escapedName = ([string]$name).Replace("'", "''")
+        $escapedPath = ([string]$path).Replace("'", "''")
+
+        $sql += "  ( NAME = N'$escapedName',`n"
+        $sql += "    FILENAME = N'$escapedPath',`n"
         $sql += "    SIZE = ${size}MB,`n"
         $sql += "    FILEGROWTH = ${growth}MB )$comma`n"
     }
+
     $sql += "COLLATE $Collation;`n"
 
-    # Optionen (ALTER DATABASE)
     $alterStatements = @()
-
     if ($Options) {
         $queryStore = $Options.queryStore ?? $Options['queryStore']
         if ($queryStore -eq $true) {
-            $alterStatements += "ALTER DATABASE [$DatabaseName] SET QUERY_STORE = ON;"
+            $alterStatements += "ALTER DATABASE [$escapedDatabaseName] SET QUERY_STORE = ON;"
         }
 
-        $compat = $Options.compatibility ?? $Options['compatibility']
-        if ($compat) {
-            $alterStatements += "ALTER DATABASE [$DatabaseName] SET COMPATIBILITY_LEVEL = $compat;"
+        $compatibilityLevel = $Options.compatibility ?? $Options['compatibility']
+        if ($compatibilityLevel) {
+            $alterStatements += "ALTER DATABASE [$escapedDatabaseName] SET COMPATIBILITY_LEVEL = $compatibilityLevel;"
         }
     }
 
-    # Zusammenbauen
-    $fullSql = $sql
-    if ($alterStatements.Count -gt 0) {
-        $fullSql += "`nGO`n`n"
-        $fullSql += $alterStatements -join "`n"
+    $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword)
+    try {
+        $saPlain = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
     }
-
-    # Ausfuehren
-    $saPlain = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto(
-        [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword))
+    finally {
+        [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+    }
 
     try {
-        # CREATE DATABASE (darf kein GO enthalten)
-        Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $saPlain -Query $sql -TimeoutSeconds 60
+        Invoke-SqlQuery `
+            -HostName $HostName `
+            -Port $Port `
+            -SaPlain $saPlain `
+            -Query $sql `
+            -TimeoutSeconds 60
 
-        # ALTER-Statements einzeln
-        foreach ($alter in $alterStatements) {
-            Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $saPlain -Query $alter -TimeoutSeconds 30
+        foreach ($alterStatement in $alterStatements) {
+            Invoke-SqlQuery `
+                -HostName $HostName `
+                -Port $Port `
+                -SaPlain $saPlain `
+                -Query $alterStatement `
+                -TimeoutSeconds 30
         }
 
-        $saPlain = $null
         Write-LabSuccess "Datenbank erstellt: $DatabaseName ($($DataFiles.Count) Data, $($LogFiles.Count) Log Files)"
 
         return [PSCustomObject]@{
@@ -109,8 +134,10 @@ function New-LabDatabase {
         }
     }
     catch {
-        $saPlain = $null
         Write-LabError "Datenbank-Erstellung fehlgeschlagen: $_"
         throw
+    }
+    finally {
+        $saPlain = $null
     }
 }
