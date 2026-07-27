@@ -165,7 +165,7 @@ function New-PodmanInstance {
             '--health-interval', '5s',
             '--health-timeout', '3s',
             '--health-retries', '30',
-            @volumeArguments,
+            $volumeArguments,
             $image
         )
 
