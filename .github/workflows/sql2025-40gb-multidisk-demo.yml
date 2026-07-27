@@ -41,6 +41,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Die lokale .secrets-Datei ist absichtlich nicht versioniert und muss
+          # zwischen Testlaeufen erhalten bleiben, solange Umgebungen aktiv sind.
+          clean: false
 
       - name: Preflight
         run: |
