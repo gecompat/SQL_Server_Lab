@@ -11,6 +11,13 @@ $script:CatalogsPath = Join-Path $script:ModuleRoot 'Catalogs'
 $script:ProvidersPath = Join-Path $script:ModuleRoot 'Providers'
 $script:SchemasPath = Join-Path $script:ModuleRoot 'Schemas'
 
+# Einheitlicher lokaler Laufzeitbereich. Dies gilt unveraendert fuer normale
+# Aufrufe und GitHub Actions Runner, weil der Modul-Root dem Checkout entspricht.
+# Eine explizite Einstellung des Benutzers hat weiterhin Vorrang.
+if (-not $env:SQL_SERVER_LAB_STATE) {
+    $env:SQL_SERVER_LAB_STATE = Join-Path (Join-Path $script:ModuleRoot '.runtime') 'state'
+}
+
 # --- Versionskatalog laden (wird von Providern und Private benoetigt) ---
 $script:VersionCatalog = $null
 $catalogFile = Join-Path $script:CatalogsPath 'sql-server-versions.json'
