@@ -60,12 +60,67 @@ jobs:
           $totalMemory = (Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory
           if ($totalMemory -lt 48GB) { throw "Mindestens 48 GB Host-RAM erforderlich; vorhanden: $([math]::Round($totalMemory / 1GB, 2)) GB" }
 
+      - name: Prepare conservative TempDB initial size
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $scriptPath = '.\Tests\Integration\Invoke-Sql2025FortyGbDemo.ps1'
+          $content = Get-Content -LiteralPath $scriptPath -Raw -Encoding utf8
+          $content = $content.Replace("sizeMB = 512; growth = '128MB'", "sizeMB = 8; growth = '64MB'")
+          Set-Content -LiteralPath $scriptPath -Value $content -Encoding utf8 -NoNewline
+
       - name: Provision and validate
         run: |
           $ErrorActionPreference = 'Stop'
           $remove = '${{ github.event_name == 'workflow_dispatch' && inputs.remove_after_validation || false }}' -eq 'true'
           & .\Tests\Integration\Invoke-Sql2025FortyGbDemo.ps1 -RemoveAfterValidation:$remove |
             Tee-Object -FilePath (Join-Path $env:RUNNER_TEMP 'sql2025-40gb-result.json')
+
+      - name: Restart and validate active TempDB files
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.remove_after_validation) }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $resultPath = Join-Path $env:RUNNER_TEMP 'sql2025-40gb-result.json'
+          $raw = Get-Content -LiteralPath $resultPath -Raw -Encoding utf8
+          $jsonMatch = [regex]::Match($raw, '(?s)(\{\s*"status"\s*:\s*"PASS".*\})\s*$')
+          if (-not $jsonMatch.Success) { throw 'PASS-Ergebnis konnte nicht aus der Testausgabe gelesen werden.' }
+          $result = $jsonMatch.Groups[1].Value | ConvertFrom-Json
+          $password = (Get-Content -LiteralPath '.\.secrets\active-test-session-sa-password.txt' -Raw -Encoding utf8).Trim()
+
+          docker restart $result.container | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw 'Container-Neustart fuer aktive TempDB-Validierung fehlgeschlagen.' }
+
+          $deadline = [DateTime]::UtcNow.AddMinutes(3)
+          do {
+            Start-Sleep -Seconds 3
+            $ready = & sqlcmd -S "127.0.0.1,$($result.port)" -U sa -P $password -C -b -Q 'SET NOCOUNT ON; SELECT 1;' 2>&1
+            if ($LASTEXITCODE -eq 0) { break }
+          } while ([DateTime]::UtcNow -lt $deadline)
+          if ($LASTEXITCODE -ne 0) { throw "SQL Server wurde nach dem Neustart nicht bereit: $($ready | Out-String)" }
+
+          $postRestartQuery = @"
+          SET NOCOUNT ON;
+          DBCC TRACEON (3226, 7412, -1) WITH NO_INFOMSGS;
+          SELECT name, physical_name, type_desc FROM tempdb.sys.database_files ORDER BY file_id;
+          SELECT name FROM sys.databases WHERE name IN ('AdventureWorks2022','WideWorldImporters') ORDER BY name;
+          DBCC TRACESTATUS(-1);
+          "@
+          $postRestartOutput = & sqlcmd -S "127.0.0.1,$($result.port)" -U sa -P $password -C -b -Q $postRestartQuery 2>&1
+          if ($LASTEXITCODE -ne 0) { throw "Validierung nach Neustart fehlgeschlagen: $($postRestartOutput | Out-String)" }
+
+          $text = $postRestartOutput | Out-String
+          foreach ($required in @('/tempdb-c/tempdev.mdf', '/tempdb-e/tempdev2.ndf', '/tempdb-e/templog.ldf', 'AdventureWorks2022', 'WideWorldImporters', '3226', '7412')) {
+            if ($text -notmatch [regex]::Escape($required)) { throw "Nach Neustart fehlt: $required" }
+          }
+
+          foreach ($hostFile in @(
+            (Join-Path $result.hostPaths[0] 'tempdev.mdf'),
+            (Join-Path $result.hostPaths[1] 'tempdev2.ndf'),
+            (Join-Path $result.hostPaths[1] 'templog.ldf')
+          )) {
+            if (-not (Test-Path -LiteralPath $hostFile -PathType Leaf)) { throw "Aktive TempDB-Datei fehlt auf dem Host: $hostFile" }
+          }
+
+          Write-Host 'Aktive TempDB-Verteilung auf C: und E: nach Container-Neustart erfolgreich validiert.'
 
       - name: Upload validation result
         if: always()
