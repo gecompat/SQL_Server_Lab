@@ -1,4 +1,4 @@
-name: PR3 Docker Diagnosis
+name: PR3 Podman Diagnosis
 
 on:
   push:
@@ -15,12 +15,12 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   pull-requests: write
 
 jobs:
-  docker-minimal:
-    name: Docker minimal provisioning
+  podman-minimal:
+    name: Podman minimal provisioning
     runs-on:
       - self-hosted
       - SQL_Lab
@@ -32,42 +32,19 @@ jobs:
         with:
           ref: agent/documentation-consistency-repair
 
-      - name: Apply confirmed ServerConfig parser fix
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $path = 'Private/ServerConfig.ps1'
-          $content = [System.IO.File]::ReadAllText($path)
-          $updated = $content.Replace('bei $runtime:', 'bei ${runtime}:')
-          if ($updated -eq $content) {
-              Write-Host 'ServerConfig parser fix already present.'
-              exit 0
-          }
-
-          [System.IO.File]::WriteAllText(
-              $path,
-              $updated,
-              [System.Text.UTF8Encoding]::new($false)
-          )
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -- $path
-          git commit -m 'Fix ServerConfig variable interpolation'
-          git push origin HEAD:agent/documentation-consistency-repair
-
-      - name: Run focused Docker diagnosis
+      - name: Run focused Podman diagnosis
         id: diagnosis
         continue-on-error: true
         shell: pwsh
         env:
-          DIAG_LOG: ${{ runner.temp }}/pr3-docker-diagnosis.log
+          DIAG_LOG: ${{ runner.temp }}/pr3-podman-diagnosis.log
         run: |
           $ErrorActionPreference = 'Stop'
           try {
               Test-ModuleManifest ./SqlServerLab.psd1 | Out-Null
               Import-Module ./SqlServerLab.psd1 -Force
-              docker info | Out-Null
-              ./Tests/Integration/Invoke-SmokeTest.ps1 -Provider docker -Version '2022' *>&1 |
+              podman info | Out-Null
+              ./Tests/Integration/Invoke-SmokeTest.ps1 -Provider podman -Version '2022' *>&1 |
                   Tee-Object -FilePath $env:DIAG_LOG
           }
           catch {
@@ -79,13 +56,13 @@ jobs:
         if: always()
         uses: actions/github-script@v7
         env:
-          DIAG_LOG: ${{ runner.temp }}/pr3-docker-diagnosis.log
+          DIAG_LOG: ${{ runner.temp }}/pr3-podman-diagnosis.log
           DIAG_OUTCOME: ${{ steps.diagnosis.outcome }}
         with:
           script: |
             const fs = require('fs');
-            const start = '<!-- PR3_DOCKER_DIAG_START -->';
-            const end = '<!-- PR3_DOCKER_DIAG_END -->';
+            const start = '<!-- PR3_PODMAN_DIAG_START -->';
+            const end = '<!-- PR3_PODMAN_DIAG_END -->';
             let text = fs.existsSync(process.env.DIAG_LOG)
               ? fs.readFileSync(process.env.DIAG_LOG, 'utf8')
               : 'Keine Diagnoselogdatei erzeugt.';
@@ -93,7 +70,7 @@ jobs:
             const tail = lines.slice(-35).join('\n');
             const block = [
               start,
-              '## Aktuelle Docker-Diagnose',
+              '## Aktuelle Podman-Diagnose',
               '',
               `Ergebnis: **${process.env.DIAG_OUTCOME.toUpperCase()}**`,
               '',
@@ -123,4 +100,4 @@ jobs:
       - name: Fail job when diagnosis failed
         if: steps.diagnosis.outcome == 'failure'
         shell: pwsh
-        run: throw 'Docker-Diagnose ist fehlgeschlagen. Siehe PR-Text.'
+        run: throw 'Podman-Diagnose ist fehlgeschlagen. Siehe PR-Text.'
