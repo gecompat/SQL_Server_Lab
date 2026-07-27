@@ -4,8 +4,11 @@ param()
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $sqlReadinessPath = Join-Path $repoRoot 'Private\SqlReadiness.ps1'
+$portAllocationPath = Join-Path $repoRoot 'Private\PortAllocation.ps1'
 $startPath = Join-Path $repoRoot 'Public\Start-SqlServerLab.ps1'
 $menuPath = Join-Path $repoRoot 'Public\Invoke-SqlServerLab.ps1'
+$dockerProviderPath = Join-Path $repoRoot 'Providers\Docker\DockerProvider.ps1'
+$podmanProviderPath = Join-Path $repoRoot 'Providers\Podman\PodmanProvider.ps1'
 $documentationPath = Join-Path $repoRoot 'Documentation\HowTo\PODMAN_WINDOWS_NETWORKING.md'
 
 $failures = [System.Collections.Generic.List[string]]::new()
@@ -34,7 +37,15 @@ function Assert-NotContains {
     }
 }
 
-foreach ($path in @($sqlReadinessPath, $startPath, $menuPath, $documentationPath)) {
+foreach ($path in @(
+    $sqlReadinessPath,
+    $portAllocationPath,
+    $startPath,
+    $menuPath,
+    $dockerProviderPath,
+    $podmanProviderPath,
+    $documentationPath
+)) {
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
         $failures.Add("Datei fehlt: $path")
     }
@@ -42,8 +53,11 @@ foreach ($path in @($sqlReadinessPath, $startPath, $menuPath, $documentationPath
 
 if ($failures.Count -eq 0) {
     $sqlReadiness = Get-Content -LiteralPath $sqlReadinessPath -Raw -Encoding utf8
+    $portAllocation = Get-Content -LiteralPath $portAllocationPath -Raw -Encoding utf8
     $start = Get-Content -LiteralPath $startPath -Raw -Encoding utf8
     $menu = Get-Content -LiteralPath $menuPath -Raw -Encoding utf8
+    $dockerProvider = Get-Content -LiteralPath $dockerProviderPath -Raw -Encoding utf8
+    $podmanProvider = Get-Content -LiteralPath $podmanProviderPath -Raw -Encoding utf8
     $documentation = Get-Content -LiteralPath $documentationPath -Raw -Encoding utf8
 
     Assert-Contains $sqlReadiness 'function\s+Get-PodmanWindowsLocalhostDiagnostic' 'Podman-Windows-Diagnosefunktion fehlt.'
@@ -52,6 +66,16 @@ if ($failures.Count -eq 0) {
     Assert-Contains $sqlReadiness 'Start-Sleep\s+-Milliseconds' 'Readiness verwendet kein kurzes Millisekunden-Polling.'
     Assert-Contains $sqlReadiness 'function\s+Wait-LabDatabaseReady' 'Datenbank-Readiness-Funktion fehlt.'
     Assert-Contains $sqlReadiness 'Wait-LabDatabaseReady[\s\S]+Invoke-LabSqlScript' 'Skriptausfuehrung ist nicht gegen Datenbank-Readiness abgesichert.'
+
+    Assert-Contains $portAllocation 'function\s+Get-LabReservedSqlPorts' 'Runtimeuebergreifende Portermittlung fehlt.'
+    Assert-Contains $portAllocation 'function\s+Find-LabAvailablePort' 'Gemeinsame freie Portsuche fehlt.'
+    Assert-Contains $portAllocation 'function\s+Invoke-LabPortAllocationLock' 'Hostweiter Port-Lock fehlt.'
+    Assert-Contains $portAllocation 'Global\\SQL_Server_Lab_Port_Allocation' 'Windows-Port-Lock ist nicht global benannt.'
+    Assert-Contains $portAllocation "@\('docker',\s*'podman'\)" 'Portermittlung prueft Docker und Podman nicht gemeinsam.'
+    Assert-Contains $dockerProvider 'Invoke-LabPortAllocationLock[\s\S]+docker\s+@dockerArguments' 'Docker bindet den Port nicht innerhalb des atomaren Locks.'
+    Assert-Contains $dockerProvider 'Find-LabAvailablePort' 'Docker verwendet nicht die gemeinsame Portermittlung.'
+    Assert-Contains $podmanProvider 'Invoke-LabPortAllocationLock[\s\S]+podman\s+@podmanArguments' 'Podman bindet den Port nicht innerhalb des atomaren Locks.'
+    Assert-Contains $podmanProvider 'Find-LabAvailablePort' 'Podman verwendet nicht die gemeinsame Portermittlung.'
 
     Assert-Contains $start 'Wait-SqlReady' 'Start-SqlServerLab prueft die SQL-Readiness nicht.'
     Assert-Contains $start 'Wait-LabDatabaseReady' 'Start-SqlServerLab wartet nicht auf gespeicherte Benutzerdatenbanken.'
@@ -68,10 +92,10 @@ if ($failures.Count -eq 0) {
 }
 
 if ($failures.Count -gt 0) {
-    Write-Host 'READINESS AND MENU CONTRACT CHECK: FAIL' -ForegroundColor Red
+    Write-Host 'READINESS MENU AND PORT CONTRACT CHECK: FAIL' -ForegroundColor Red
     $failures | ForEach-Object { Write-Host "  - $_" -ForegroundColor Red }
     exit 1
 }
 
-Write-Host 'READINESS AND MENU CONTRACT CHECK: PASS' -ForegroundColor Green
+Write-Host 'READINESS MENU AND PORT CONTRACT CHECK: PASS' -ForegroundColor Green
 exit 0
