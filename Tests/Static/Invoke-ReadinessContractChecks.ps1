@@ -5,6 +5,7 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $sqlReadinessPath = Join-Path $repoRoot 'Private\SqlReadiness.ps1'
 $startPath = Join-Path $repoRoot 'Public\Start-SqlServerLab.ps1'
+$menuPath = Join-Path $repoRoot 'Public\Invoke-SqlServerLab.ps1'
 $documentationPath = Join-Path $repoRoot 'Documentation\HowTo\PODMAN_WINDOWS_NETWORKING.md'
 
 $failures = [System.Collections.Generic.List[string]]::new()
@@ -21,7 +22,19 @@ function Assert-Contains {
     }
 }
 
-foreach ($path in @($sqlReadinessPath, $startPath, $documentationPath)) {
+function Assert-NotContains {
+    param(
+        [Parameter(Mandatory)][string]$Content,
+        [Parameter(Mandatory)][string]$Pattern,
+        [Parameter(Mandatory)][string]$Description
+    )
+
+    if ($Content -match $Pattern) {
+        $failures.Add($Description)
+    }
+}
+
+foreach ($path in @($sqlReadinessPath, $startPath, $menuPath, $documentationPath)) {
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
         $failures.Add("Datei fehlt: $path")
     }
@@ -30,6 +43,7 @@ foreach ($path in @($sqlReadinessPath, $startPath, $documentationPath)) {
 if ($failures.Count -eq 0) {
     $sqlReadiness = Get-Content -LiteralPath $sqlReadinessPath -Raw -Encoding utf8
     $start = Get-Content -LiteralPath $startPath -Raw -Encoding utf8
+    $menu = Get-Content -LiteralPath $menuPath -Raw -Encoding utf8
     $documentation = Get-Content -LiteralPath $documentationPath -Raw -Encoding utf8
 
     Assert-Contains $sqlReadiness 'function\s+Get-PodmanWindowsLocalhostDiagnostic' 'Podman-Windows-Diagnosefunktion fehlt.'
@@ -43,15 +57,21 @@ if ($failures.Count -eq 0) {
     Assert-Contains $start 'Wait-LabDatabaseReady' 'Start-SqlServerLab wartet nicht auf gespeicherte Benutzerdatenbanken.'
     Assert-Contains $start '\$instance\.databases' 'Start-SqlServerLab verwendet die gespeicherten Datenbanken nicht.'
 
+    Assert-Contains $menu 'function\s+Invoke-SqlServerLab' 'Interaktiver Einstiegspunkt fehlt.'
+    Assert-Contains $menu 'Show-LabBanner' 'Menuebanner wird nicht aufgerufen.'
+    Assert-Contains $menu 'Show-LabMenu' 'Menueauswahl wird nicht aufgerufen.'
+    Assert-NotContains $menu 'function\s+Invoke-SqlServerLab[\s\S]{0,2500}Import-Module[\s\S]{0,100}-Force' 'Invoke-SqlServerLab darf das laufende Modul nicht selbst mit -Force neu laden.'
+    Assert-NotContains $menu '\$available\s*\+=\s*["'']hyperv["'']' 'Das Menue darf Hyper-V nicht allein aufgrund von Get-VM als implementierten Provider anbieten.'
+
     Assert-Contains $documentation 'networkingMode=mirrored' 'Podman-Windows-How-to dokumentiert mirrored networking nicht.'
     Assert-Contains $documentation 'eth0' 'Diagnose-Fallback ueber eth0 fehlt in der Dokumentation.'
 }
 
 if ($failures.Count -gt 0) {
-    Write-Host 'READINESS CONTRACT CHECK: FAIL' -ForegroundColor Red
+    Write-Host 'READINESS AND MENU CONTRACT CHECK: FAIL' -ForegroundColor Red
     $failures | ForEach-Object { Write-Host "  - $_" -ForegroundColor Red }
     exit 1
 }
 
-Write-Host 'READINESS CONTRACT CHECK: PASS' -ForegroundColor Green
+Write-Host 'READINESS AND MENU CONTRACT CHECK: PASS' -ForegroundColor Green
 exit 0
