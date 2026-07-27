@@ -1,21 +1,23 @@
 #Requires -Version 7.2
 <#
 .SYNOPSIS
-    Smoke-Test fuer SQL_Server_Lab End-to-End Lifecycle.
+    End-to-End-Smoke-Test fuer einen implementierten SQL_Server_Lab-Provider.
 .DESCRIPTION
-    Automatisierter Test: Import -> New-SqlServerLab -> New-LabDatabase ->
-    Invoke-LabScript -> Remove-SqlServerLab. Erfordert Docker oder Podman.
+    Testet Modulimport, Provider-Metadaten, Resource Assessment, Provisionierung,
+    Datenbankerstellung, Skriptausfuehrung, Status, Stop, Start und Remove.
+    Der mutierende Lifecycle verwendet genau den mit -Provider ausgewaehlten Provider.
 .PARAMETER SaPassword
-    SA-Passwort als SecureString. Wird interaktiv abgefragt falls nicht angegeben.
+    Optionales synthetisches SA-Testpasswort als SecureString.
 .PARAMETER Version
-    SQL-Server-Version (Default: 2025).
+    SQL-Server-Version oder katalogisierter CU-Bezeichner. Default: 2025.
+.PARAMETER Provider
+    docker, podman oder auto. Auto waehlt Docker vor Podman.
 .PARAMETER KeepOnFailure
-    Container bei Fehler NICHT entfernen (fuer Debugging).
+    Lab bei einem Fehler zur lokalen Diagnose nicht automatisch entfernen.
 .EXAMPLE
-    .\Invoke-SmokeTest.ps1
+    .\Invoke-SmokeTest.ps1 -Provider docker
 .EXAMPLE
-    $pw = ConvertTo-SecureString 'Test1234!' -AsPlainText -Force
-    .\Invoke-SmokeTest.ps1 -SaPassword $pw -Version '2022'
+    .\Invoke-SmokeTest.ps1 -Provider podman -Version '2022'
 #>
 [CmdletBinding()]
 param(
@@ -27,384 +29,483 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$script:TestResults = @()
+$script:TestResults = [System.Collections.Generic.List[object]]::new()
 $script:Lab = $null
 $script:StartTime = Get-Date
+$script:ContainerRuntime = $null
+$script:TemporarySqlPath = $null
 
-# =============================================================================
-# Test-Infrastruktur
-# =============================================================================
-
-function Write-TestHeader { param([string]$Name)
+function Write-TestHeader {
+    param([Parameter(Mandatory)][string]$Name)
     Write-Host "`n  [$Name]" -ForegroundColor Cyan
 }
 
-function Assert-True {
-    param([string]$TestName, [bool]$Condition, [string]$Message = '')
-    if ($Condition) {
-        Write-Host "    PASS: $TestName" -ForegroundColor Green
-        $script:TestResults += @{ Name = $TestName; Pass = $true; Message = '' }
+function Add-TestResult {
+    param(
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)][bool]$Passed,
+        [string]$Message = ''
+    )
+
+    $script:TestResults.Add([PSCustomObject]@{
+        Name    = $Name
+        Pass    = $Passed
+        Message = $Message
+    })
+
+    if ($Passed) {
+        Write-Host "    PASS: $Name" -ForegroundColor Green
     }
     else {
-        Write-Host "    FAIL: $TestName - $Message" -ForegroundColor Red
-        $script:TestResults += @{ Name = $TestName; Pass = $false; Message = $Message }
+        Write-Host "    FAIL: $Name - $Message" -ForegroundColor Red
     }
 }
 
-function Assert-NoThrow {
-    param([string]$TestName, [scriptblock]$Block)
+function Assert-True {
+    param(
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)][bool]$Condition,
+        [string]$Message = ''
+    )
+
+    Add-TestResult -Name $Name -Passed $Condition -Message $Message
+}
+
+function Invoke-TestStep {
+    param(
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)][scriptblock]$Action
+    )
+
     try {
-        $result = & $Block
-        Write-Host "    PASS: $TestName" -ForegroundColor Green
-        $script:TestResults += @{ Name = $TestName; Pass = $true; Message = '' }
+        $result = & $Action
+        Add-TestResult -Name $Name -Passed $true
         return $result
     }
     catch {
-        Write-Host "    FAIL: $TestName - $_" -ForegroundColor Red
-        $script:TestResults += @{ Name = $TestName; Pass = $false; Message = $_.ToString() }
+        Add-TestResult -Name $Name -Passed $false -Message $_.Exception.Message
         return $null
     }
 }
 
-# =============================================================================
-# Setup
-# =============================================================================
+function ConvertFrom-TestSecureString {
+    param([Parameter(Mandatory)][SecureString]$SecureString)
+
+    $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecureString)
+    try {
+        return [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+    }
+    finally {
+        [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+    }
+}
+
+function Test-RuntimeCommand {
+    param([Parameter(Mandatory)][string]$Name)
+
+    if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
+        return $false
+    }
+
+    & $Name info 1>$null 2>$null
+    return $LASTEXITCODE -eq 0
+}
 
 Write-Host "`n====================================================================" -ForegroundColor White
-Write-Host "  SQL_Server_Lab Smoke Test" -ForegroundColor White
-Write-Host "====================================================================" -ForegroundColor White
+Write-Host '  SQL_Server_Lab Smoke Test' -ForegroundColor White
+Write-Host '====================================================================' -ForegroundColor White
 Write-Host "  Version: $Version | Datum: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
 
-# Modul laden
-$modulePath = Join-Path $PSScriptRoot '..\..\SqlServerLab.psd1' | Resolve-Path
-Import-Module $modulePath -Force
+$modulePath = (Resolve-Path (Join-Path $PSScriptRoot '..\..\SqlServerLab.psd1')).Path
+$providersRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..\Providers')).Path
 
-# Provider auto-detect
-if ($Provider -eq 'auto') {
-    if (Get-Command 'docker' -ErrorAction SilentlyContinue) { $Provider = 'docker' }
-    elseif (Get-Command 'podman' -ErrorAction SilentlyContinue) { $Provider = 'podman' }
-    else { throw "Weder docker noch podman gefunden. Smoke-Test benoetigt einen Container-Runtime." }
-}
-$script:ContainerRuntime = $Provider
-Write-Host "  Provider: $Provider (Container-Runtime)" -ForegroundColor DarkGray
+try {
+    # =========================================================================
+    # T1: Modul und implementierte Provider
+    # =========================================================================
+    Write-TestHeader 'T1: Modul und Provider'
 
-# Passwort
-if (-not $SaPassword) {
-    $SaPassword = ConvertTo-SecureString 'SmokeTest_Pwd1!' -AsPlainText -Force
-    Write-Host "  SA-Passwort: (Default fuer Test)" -ForegroundColor DarkGray
-}
-
-# =============================================================================
-# Test 1: Modul-Import
-# =============================================================================
-
-Write-TestHeader 'T1: Modul-Import'
-
-Assert-True 'Modul geladen' `
-    ($null -ne (Get-Module SqlServerLab)) `
-    'Get-Module SqlServerLab liefert $null'
-
-Assert-True 'New-SqlServerLab verfuegbar' `
-    ($null -ne (Get-Command New-SqlServerLab -ErrorAction SilentlyContinue)) `
-    'Cmdlet nicht gefunden'
-
-# Alle registrierten Provider dynamisch aus Providers/ ermitteln
-$providersDir = Join-Path $PSScriptRoot '..\..\Providers' | Resolve-Path
-$script:RegisteredProviders = Get-ChildItem -Path $providersDir -Directory | ForEach-Object { $_.Name.ToLower() }
-$script:AvailableRuntimes = @()
-
-Write-Host "    Registrierte Provider: $($script:RegisteredProviders -join ', ')" -ForegroundColor DarkGray
-
-foreach ($rt in $script:RegisteredProviders) {
-    # Provider-Test-Funktion pruefen (Konvention: Test-<Name>Available)
-    $capitalizedRt = $rt.Substring(0,1).ToUpper() + $rt.Substring(1)
-    $testFn = "Test-${capitalizedRt}Available"
-    $fnExists = $null -ne (Get-Module SqlServerLab | ForEach-Object { & $_.NewBoundScriptBlock([scriptblock]::Create("Get-Command $testFn -ErrorAction SilentlyContinue")) })
-    Assert-True "$testFn intern verfuegbar" $fnExists 'Provider-Funktion nicht im Modul-Scope'
-
-    # Runtime-Befehl installiert? (container-basierte: docker, podman; vm-basierte: hyperv -> Get-VM)
-    $runtimeCmd = switch ($rt) {
-        'hyperv' { 'Get-VM' }
-        default  { $rt }
+    $module = Invoke-TestStep -Name 'Modul importieren' -Action {
+        Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
+        Import-Module $modulePath -Force -PassThru
     }
-    if (Get-Command $runtimeCmd -ErrorAction SilentlyContinue) {
-        $script:AvailableRuntimes += $rt
+
+    if (-not $module) {
+        throw 'Modulimport fehlgeschlagen; weitere Tests sind nicht sinnvoll.'
     }
-}
-Write-Host "    Installierte Runtimes: $($script:AvailableRuntimes -join ', ')" -ForegroundColor DarkGray
 
-# =============================================================================
-# Test 2: Resource Assessment
-# =============================================================================
+    Assert-True `
+        -Name 'New-SqlServerLab exportiert' `
+        -Condition ($null -ne (Get-Command New-SqlServerLab -ErrorAction SilentlyContinue)) `
+        -Message 'Cmdlet nicht gefunden'
 
-Write-TestHeader 'T2: Resource Assessment'
+    $implementedProviders = @()
+    foreach ($providerDirectory in Get-ChildItem -LiteralPath $providersRoot -Directory) {
+        $definitionPath = Join-Path $providerDirectory.FullName 'provider.json'
+        if (-not (Test-Path -LiteralPath $definitionPath -PathType Leaf)) {
+            continue
+        }
 
-# Alle installierten Runtimes einzeln pruefen
-foreach ($rt in $script:AvailableRuntimes) {
-    $rtAssessment = Assert-NoThrow "Test-LabResources ($rt)" {
-        Test-LabResources -Provider $rt
+        $definition = Get-Content -LiteralPath $definitionPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
+        if (-not $definition.module) {
+            continue
+        }
+
+        $implementationPath = Join-Path $providerDirectory.FullName $definition.module
+        if (Test-Path -LiteralPath $implementationPath -PathType Leaf) {
+            $implementedProviders += [string]$definition.name
+        }
     }
-    if ($rtAssessment) {
-        Assert-True "$rt verfuegbar" `
-            ($rtAssessment.Status -ne 'RESOURCE_HARD_BLOCK') `
-            "Status: $($rtAssessment.Status)"
+
+    $implementedProviders = @($implementedProviders | Sort-Object -Unique)
+    Write-Host "    Implementierte Provider: $($implementedProviders -join ', ')" -ForegroundColor DarkGray
+
+    Assert-True `
+        -Name 'Docker-Provider registriert' `
+        -Condition ('docker' -in $implementedProviders) `
+        -Message 'Providers/Docker/provider.json oder Implementierung fehlt'
+
+    Assert-True `
+        -Name 'Podman-Provider registriert' `
+        -Condition ('podman' -in $implementedProviders) `
+        -Message 'Providers/Podman/provider.json oder Implementierung fehlt'
+
+    if ($Provider -eq 'auto') {
+        if (Test-RuntimeCommand -Name 'docker') {
+            $Provider = 'docker'
+        }
+        elseif (Test-RuntimeCommand -Name 'podman') {
+            $Provider = 'podman'
+        }
+        else {
+            throw 'Weder Docker noch Podman ist installiert und erreichbar.'
+        }
     }
-}
 
-# Gewaehlten Provider nochmal explizit sicherstellen
-$assessment = Test-LabResources -Provider $Provider
-if ($assessment.Status -eq 'RESOURCE_HARD_BLOCK') {
-    Write-Host "    FATAL: Gewaehlter Provider '$Provider' nicht funktional. Abbruch." -ForegroundColor Red
-    $script:TestResults += @{ Name = "Gewaehlter Provider $Provider funktional"; Pass = $false; Message = $assessment.Details[0].Message }
-}
+    if ($Provider -notin $implementedProviders) {
+        throw "Provider '$Provider' besitzt keinen vollständigen Providervertrag."
+    }
 
-# =============================================================================
-# Test 3: New-SqlServerLab
-# =============================================================================
+    if (-not (Test-RuntimeCommand -Name $Provider)) {
+        throw "Runtime '$Provider' ist nicht erreichbar."
+    }
 
-Write-TestHeader 'T3: New-SqlServerLab'
+    $script:ContainerRuntime = $Provider
+    Write-Host "    Gewaehlter Provider: $Provider" -ForegroundColor DarkGray
 
-$script:Lab = Assert-NoThrow 'Lab erstellen' {
-    New-SqlServerLab -Version $Version -Provider $Provider -SaPassword $SaPassword -SkipAssessment
-}
+    if (-not $SaPassword) {
+        $SaPassword = ConvertTo-SecureString 'SmokeTest_Pwd1!' -AsPlainText -Force
+        Write-Host '    SA-Passwort: synthetischer Testwert' -ForegroundColor DarkGray
+    }
 
-if ($script:Lab) {
-    Assert-True 'Lab State = Running' `
-        ($script:Lab.State -eq 'Running') `
-        "State: $($script:Lab.State)"
+    # =========================================================================
+    # T2: Resource Assessment
+    # =========================================================================
+    Write-TestHeader 'T2: Resource Assessment'
 
-    Assert-True 'RunId ist GUID' `
-        ($script:Lab.RunId -match '^[0-9a-f]{8}-') `
-        "RunId: $($script:Lab.RunId)"
+    foreach ($implementedProvider in $implementedProviders) {
+        if (-not (Test-RuntimeCommand -Name $implementedProvider)) {
+            Write-Host "    SKIP: $implementedProvider ist nicht erreichbar" -ForegroundColor Yellow
+            continue
+        }
 
-    Assert-True 'Port im Lab-Bereich' `
-        ($script:Lab.Instances[0].Port -ge 14330 -and $script:Lab.Instances[0].Port -le 14399) `
-        "Port: $($script:Lab.Instances[0].Port)"
+        $assessment = Invoke-TestStep -Name "Test-LabResources ($implementedProvider)" -Action {
+            Test-LabResources -Provider $implementedProvider
+        }
 
-    Assert-True "Container in $Provider sichtbar" `
-        ($null -ne (& $script:ContainerRuntime ps -q --filter "name=$($script:Lab.Instances[0].ContainerName)")) `
-        "Container nicht in $Provider ps" 
-}
-else {
-    Write-Host "    SKIP: Lab nicht erstellt, ueberspringe weitere Tests" -ForegroundColor Yellow
-    # Tests abgebrochen - Cleanup am Ende
-}
+        if ($assessment) {
+            Assert-True `
+                -Name "$implementedProvider nicht HARD_BLOCK" `
+                -Condition ($assessment.Status -ne 'RESOURCE_HARD_BLOCK') `
+                -Message "Status: $($assessment.Status)"
+        }
+    }
 
-# =============================================================================
-# Test 4: New-LabDatabase
-# =============================================================================
+    $selectedAssessment = Test-LabResources -Provider $Provider
+    if ($selectedAssessment.Status -eq 'RESOURCE_HARD_BLOCK') {
+        throw "Gewaehlter Provider '$Provider' ist im Resource Assessment blockiert."
+    }
 
-Write-TestHeader 'T4: New-LabDatabase'
+    # =========================================================================
+    # T3: Provisionierung
+    # =========================================================================
+    Write-TestHeader 'T3: New-SqlServerLab'
 
-$dbResult = Assert-NoThrow 'Datenbank mit 2 Data Files erstellen' {
-    New-LabDatabase -Port $script:Lab.Instances[0].Port -SaPassword $SaPassword `
-        -DatabaseName 'SmokeTestDB' `
-        -DataFiles @(
-            @{ name = 'Smoke_Data1'; sizeMB = 16 },
-            @{ name = 'Smoke_Data2'; sizeMB = 16 }
-        ) `
-        -LogFiles @(
-            @{ name = 'Smoke_Log'; sizeMB = 8 }
-        )
-}
+    $script:Lab = Invoke-TestStep -Name 'Lab erstellen' -Action {
+        New-SqlServerLab `
+            -Version $Version `
+            -Provider $Provider `
+            -SaPassword $SaPassword `
+            -SkipAssessment
+    }
 
-if ($dbResult) {
-    Assert-True 'DB-Ergebnis Success' `
-        ($dbResult.Success -eq $true) `
-        "Success: $($dbResult.Success)"
+    if (-not $script:Lab) {
+        throw 'Lab konnte nicht erstellt werden; weitere Runtime-Tests werden abgebrochen.'
+    }
 
-    # Datenbank via Query verifizieren
-    $saPlain = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto(
-        [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword))
-    $verifyOutput = sqlcmd -S "127.0.0.1,$($script:Lab.Instances[0].Port)" -U sa -P $saPlain `
-        -Q "SELECT name FROM sys.databases WHERE name = 'SmokeTestDB'" -h -1 -W 2>&1
-    $saPlain = $null
+    Assert-True `
+        -Name 'Lab State = Running' `
+        -Condition ($script:Lab.State -eq 'Running') `
+        -Message "State: $($script:Lab.State)"
 
-    Assert-True 'DB in sys.databases vorhanden' `
-        ([bool]($verifyOutput -match 'SmokeTestDB')) `
-        "Output: $verifyOutput"
-}
+    Assert-True `
+        -Name 'RunId ist GUID' `
+        -Condition ($script:Lab.RunId -match '^[0-9a-fA-F]{8}-') `
+        -Message "RunId: $($script:Lab.RunId)"
 
-# =============================================================================
-# Test 5: Invoke-LabScript
-# =============================================================================
+    Assert-True `
+        -Name 'Provider im Ergebnis stimmt' `
+        -Condition ($script:Lab.Instances[0].Provider -eq $Provider) `
+        -Message "Ergebnis: $($script:Lab.Instances[0].Provider)"
 
-Write-TestHeader 'T5: Invoke-LabScript'
+    Assert-True `
+        -Name 'Port im Lab-Bereich' `
+        -Condition ($script:Lab.Instances[0].Port -ge 14330 -and $script:Lab.Instances[0].Port -le 14399) `
+        -Message "Port: $($script:Lab.Instances[0].Port)"
 
-# Test-SQL erzeugen
-$testSqlPath = Join-Path $PSScriptRoot 'smoke-test-query.sql'
-@"
+    $visibleContainer = & $script:ContainerRuntime ps -q --filter "name=$($script:Lab.Instances[0].ContainerName)" 2>$null
+    Assert-True `
+        -Name "Container in $Provider sichtbar" `
+        -Condition (-not [string]::IsNullOrWhiteSpace(($visibleContainer | Out-String))) `
+        -Message "Container nicht in '$Provider ps' gefunden"
+
+    # =========================================================================
+    # T4: Datenbankerstellung
+    # =========================================================================
+    Write-TestHeader 'T4: New-LabDatabase'
+
+    $databaseResult = Invoke-TestStep -Name 'Datenbank mit zwei Data-Files erstellen' -Action {
+        New-LabDatabase `
+            -Port $script:Lab.Instances[0].Port `
+            -SaPassword $SaPassword `
+            -DatabaseName 'SmokeTestDB' `
+            -DataFiles @(
+                @{ name = 'Smoke_Data1'; sizeMB = 16; filegrowthMB = 16 },
+                @{ name = 'Smoke_Data2'; sizeMB = 16; filegrowthMB = 16 }
+            ) `
+            -LogFiles @(
+                @{ name = 'Smoke_Log'; sizeMB = 8; filegrowthMB = 8 }
+            )
+    }
+
+    if ($databaseResult) {
+        Assert-True `
+            -Name 'DB-Ergebnis Success' `
+            -Condition ($databaseResult.Success -eq $true) `
+            -Message "Success: $($databaseResult.Success)"
+    }
+
+    $saPlain = ConvertFrom-TestSecureString -SecureString $SaPassword
+    try {
+        $databaseCheck = sqlcmd `
+            -S "127.0.0.1,$($script:Lab.Instances[0].Port)" `
+            -U sa `
+            -P $saPlain `
+            -C `
+            -Q "SELECT name FROM sys.databases WHERE name = 'SmokeTestDB'" `
+            -h -1 -W 2>&1
+    }
+    finally {
+        $saPlain = $null
+    }
+
+    Assert-True `
+        -Name 'Datenbank in sys.databases vorhanden' `
+        -Condition ([bool](($databaseCheck | Out-String) -match 'SmokeTestDB')) `
+        -Message "Output: $(($databaseCheck | Out-String).Trim())"
+
+    # =========================================================================
+    # T5: Skriptausfuehrung
+    # =========================================================================
+    Write-TestHeader 'T5: Invoke-LabScript'
+
+    $script:TemporarySqlPath = Join-Path $PSScriptRoot 'smoke-test-query.generated.sql'
+    @"
 CREATE TABLE dbo.SmokeTest (
     Id INT IDENTITY(1,1) PRIMARY KEY,
     Name NVARCHAR(100) NOT NULL,
-    Created DATETIME2 DEFAULT GETDATE()
+    Created DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
 );
 GO
-INSERT INTO dbo.SmokeTest (Name) VALUES ('Erster Eintrag'), ('Zweiter Eintrag');
+INSERT INTO dbo.SmokeTest (Name) VALUES (N'Erster Eintrag'), (N'Zweiter Eintrag');
 GO
-"@ | Set-Content $testSqlPath -Encoding utf8
+"@ | Set-Content -LiteralPath $script:TemporarySqlPath -Encoding utf8
 
-$scriptResult = Assert-NoThrow 'SQL-Skript ausfuehren' {
-    Invoke-LabScript -ScriptPath $testSqlPath -Port $script:Lab.Instances[0].Port -SaPassword $SaPassword -Database 'SmokeTestDB'
-}
+    $scriptResult = Invoke-TestStep -Name 'SQL-Skript ausfuehren' -Action {
+        Invoke-LabScript `
+            -ScriptPath $script:TemporarySqlPath `
+            -Port $script:Lab.Instances[0].Port `
+            -SaPassword $SaPassword `
+            -Database 'SmokeTestDB'
+    }
 
-if ($scriptResult) {
-    Assert-True 'Skript-Ergebnis Success' `
-        ($scriptResult.Success -eq $true) `
-        "Message: $($scriptResult.Message)"
+    if ($scriptResult) {
+        Assert-True `
+            -Name 'Skript-Ergebnis Success' `
+            -Condition ($scriptResult.Success -eq $true) `
+            -Message "Message: $($scriptResult.Message)"
 
-    Assert-True 'Mehrere Batches verarbeitet' `
-        ($scriptResult.Batches -ge 2) `
-        "Batches: $($scriptResult.Batches)"
-}
+        Assert-True `
+            -Name 'Mehrere Batches verarbeitet' `
+            -Condition ($scriptResult.Batches -ge 2) `
+            -Message "Batches: $($scriptResult.Batches)"
+    }
 
-# Tabelle verifizieren
-$saPlain = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto(
-    [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword))
-$tableCheck = sqlcmd -S "127.0.0.1,$($script:Lab.Instances[0].Port)" -U sa -P $saPlain `
-    -Q "SELECT COUNT(*) AS Cnt FROM SmokeTestDB.dbo.SmokeTest" -h -1 -W 2>&1
-$saPlain = $null
+    $saPlain = ConvertFrom-TestSecureString -SecureString $SaPassword
+    try {
+        $tableCheck = sqlcmd `
+            -S "127.0.0.1,$($script:Lab.Instances[0].Port)" `
+            -U sa `
+            -P $saPlain `
+            -C `
+            -Q 'SET NOCOUNT ON; SELECT COUNT(*) FROM SmokeTestDB.dbo.SmokeTest;' `
+            -h -1 -W 2>&1
+    }
+    finally {
+        $saPlain = $null
+    }
 
-$tableCheckStr = if ($tableCheck) { ($tableCheck | ForEach-Object { "$_".Trim() } | Where-Object { $_ }) -join ' // ' } else { '(leer)' }
-$foundTwo = $tableCheckStr -match '\b2\b'
-Assert-True 'Tabelle hat 2 Rows' `
-    $foundTwo `
-    "Output: $tableCheckStr"
+    $tableCheckText = ($tableCheck | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ }) -join ' '
+    Assert-True `
+        -Name 'Tabelle hat zwei Rows' `
+        -Condition ($tableCheckText -match '(^|\s)2(\s|$)') `
+        -Message "Output: $tableCheckText"
 
-# Temp-Datei aufraumen
-if (Test-Path $testSqlPath) { Remove-Item $testSqlPath }
+    # =========================================================================
+    # T6: Status
+    # =========================================================================
+    Write-TestHeader 'T6: Get-SqlServerLab'
 
-# =============================================================================
-# Test 6: Remove-SqlServerLab
-# =============================================================================
+    $statusResult = Invoke-TestStep -Name 'Lab-Status abfragen' -Action {
+        Get-SqlServerLab -RunId $script:Lab.RunId
+    }
 
-# =============================================================================
-# Test 6: Get-SqlServerLab
-# =============================================================================
+    if ($statusResult) {
+        Assert-True `
+            -Name 'State = RUNNING' `
+            -Condition ($statusResult.State -eq 'RUNNING') `
+            -Message "State: $($statusResult.State)"
 
-Write-TestHeader 'T6: Get-SqlServerLab'
+        Assert-True `
+            -Name 'Instanz ContainerUp' `
+            -Condition ($statusResult.Instances[0].ContainerUp -eq $true) `
+            -Message "ContainerUp: $($statusResult.Instances[0].ContainerUp)"
+    }
 
-$getResult = Assert-NoThrow 'Lab-Status abfragen' {
-    Get-SqlServerLab -RunId $script:Lab.RunId
-}
+    # =========================================================================
+    # T7: Stop
+    # =========================================================================
+    Write-TestHeader 'T7: Stop-SqlServerLab'
 
-if ($getResult) {
-    Assert-True 'State = Running' `
-        ($getResult.State -eq 'RUNNING') `
-        "State: $($getResult.State)"
+    $stopResult = Invoke-TestStep -Name 'Lab stoppen' -Action {
+        Stop-SqlServerLab -RunId $script:Lab.RunId -Force
+    }
 
-    Assert-True 'Instanz ContainerUp' `
-        ($getResult.Instances[0].ContainerUp -eq $true) `
-        "ContainerUp: $($getResult.Instances[0].ContainerUp)"
-}
+    if ($stopResult) {
+        Assert-True `
+            -Name 'Stop-Status = STOPPED' `
+            -Condition ($stopResult.Status -eq 'STOPPED') `
+            -Message "Status: $($stopResult.Status)"
 
-# =============================================================================
-# Test 7: Stop-SqlServerLab
-# =============================================================================
+        Start-Sleep -Seconds 1
+        $containerState = & $script:ContainerRuntime inspect `
+            $script:Lab.Instances[0].ContainerName `
+            --format '{{.State.Status}}' 2>$null
 
-Write-TestHeader 'T7: Stop-SqlServerLab'
+        Assert-True `
+            -Name "Container in $Provider gestoppt" `
+            -Condition (($containerState | Out-String) -match 'exited|stopped') `
+            -Message "Container-State: $(($containerState | Out-String).Trim())"
+    }
 
-$stopResult = Assert-NoThrow 'Lab stoppen' {
-    Stop-SqlServerLab -RunId $script:Lab.RunId -Force
-}
+    # =========================================================================
+    # T8: Start
+    # =========================================================================
+    Write-TestHeader 'T8: Start-SqlServerLab'
 
-if ($stopResult) {
-    Assert-True 'Stop-Status = STOPPED' `
-        ($stopResult.Status -eq 'STOPPED') `
-        "Status: $($stopResult.Status)"
+    $startResult = Invoke-TestStep -Name 'Lab starten' -Action {
+        Start-SqlServerLab -RunId $script:Lab.RunId -TimeoutSeconds 60
+    }
 
-    # Container soll gestoppt sein
+    if ($startResult) {
+        Assert-True `
+            -Name 'Start-Status = RUNNING' `
+            -Condition ($startResult.Status -eq 'RUNNING') `
+            -Message "Status: $($startResult.Status)"
+
+        Start-Sleep -Seconds 1
+        $containerState = & $script:ContainerRuntime inspect `
+            $script:Lab.Instances[0].ContainerName `
+            --format '{{.State.Status}}' 2>$null
+
+        Assert-True `
+            -Name "Container in $Provider wieder running" `
+            -Condition (($containerState | Out-String) -match 'running') `
+            -Message "Container-State: $(($containerState | Out-String).Trim())"
+    }
+
+    # =========================================================================
+    # T9: Remove
+    # =========================================================================
+    Write-TestHeader 'T9: Remove-SqlServerLab'
+
+    $removeResult = Invoke-TestStep -Name 'Lab entfernen' -Action {
+        Remove-SqlServerLab -RunId $script:Lab.RunId -Force
+    }
+
+    if ($removeResult) {
+        Assert-True `
+            -Name 'Status = REMOVED' `
+            -Condition ($removeResult.Status -eq 'REMOVED') `
+            -Message "Status: $($removeResult.Status)"
+    }
+
     Start-Sleep -Seconds 1
-    $containerState = docker inspect $script:Lab.Instances[0].ContainerName --format '{{.State.Status}}' 2>$null
-    Assert-True 'Container exited' `
-        ($containerState -match 'exited') `
-        "Container-State: $containerState"
+    $containerCheck = & $script:ContainerRuntime ps -a -q `
+        --filter "name=$($script:Lab.Instances[0].ContainerName)" 2>$null
+
+    Assert-True `
+        -Name 'Container nicht mehr vorhanden' `
+        -Condition ([string]::IsNullOrWhiteSpace(($containerCheck | Out-String))) `
+        -Message "Container noch vorhanden: $(($containerCheck | Out-String).Trim())"
+
+    $script:Lab = $null
 }
-
-# =============================================================================
-# Test 8: Start-SqlServerLab
-# =============================================================================
-
-Write-TestHeader 'T8: Start-SqlServerLab'
-
-$startResult = Assert-NoThrow 'Lab starten' {
-    Start-SqlServerLab -RunId $script:Lab.RunId -TimeoutSeconds 60
+catch {
+    Add-TestResult -Name 'Smoke-Test Ablauf' -Passed $false -Message $_.Exception.Message
 }
+finally {
+    if ($script:TemporarySqlPath -and (Test-Path -LiteralPath $script:TemporarySqlPath)) {
+        Remove-Item -LiteralPath $script:TemporarySqlPath -Force -ErrorAction SilentlyContinue
+    }
 
-if ($startResult) {
-    Assert-True 'Start-Status = RUNNING' `
-        ($startResult.Status -eq 'RUNNING') `
-        "Status: $($startResult.Status)"
-
-    # Container soll wieder laufen
-    Start-Sleep -Seconds 1
-    $containerState2 = docker inspect $script:Lab.Instances[0].ContainerName --format '{{.State.Status}}' 2>$null
-    Assert-True 'Container running' `
-        ($containerState2 -match 'running') `
-        "Container-State: $containerState2"
+    if ($script:Lab -and -not $KeepOnFailure) {
+        Write-Host "`n  Cleanup: Entferne uebrig gebliebenes Lab..." -ForegroundColor Yellow
+        try {
+            Remove-SqlServerLab -RunId $script:Lab.RunId -Force | Out-Null
+        }
+        catch {
+            Add-TestResult -Name 'Cleanup nach Fehler' -Passed $false -Message $_.Exception.Message
+        }
+    }
 }
-
-# =============================================================================
-# Test 9: Remove-SqlServerLab
-# =============================================================================
-
-Write-TestHeader 'T9: Remove-SqlServerLab'
-
-$removeResult = Assert-NoThrow 'Lab entfernen' {
-    Remove-SqlServerLab -RunId $script:Lab.RunId -Force
-}
-
-if ($removeResult) {
-    Assert-True 'Status = REMOVED' `
-        ($removeResult.Status -eq 'REMOVED') `
-        "Status: $($removeResult.Status)"
-}
-
-# Container weg?
-Start-Sleep -Seconds 1
-$containerCheck = & $script:ContainerRuntime ps -a -q --filter "name=$($script:Lab.Instances[0].ContainerName)" 2>$null
-Assert-True 'Container nicht mehr vorhanden' `
-    ([string]::IsNullOrWhiteSpace($containerCheck)) `
-    "Container noch da: $containerCheck"
-
-$script:Lab = $null  # Cleanup nicht nochmal ausfuehren
-
-# =============================================================================
-# Ergebnis
-# =============================================================================
 
 $elapsed = (Get-Date) - $script:StartTime
-$passed = ($script:TestResults | Where-Object { $_.Pass }).Count
-$failed = ($script:TestResults | Where-Object { -not $_.Pass }).Count
+$passed = @($script:TestResults | Where-Object { $_.Pass }).Count
+$failed = @($script:TestResults | Where-Object { -not $_.Pass }).Count
 $total = $script:TestResults.Count
 
 Write-Host "`n====================================================================" -ForegroundColor White
 Write-Host "  ERGEBNIS: $passed/$total PASS, $failed FAIL ($($elapsed.TotalSeconds.ToString('F1'))s)" `
     -ForegroundColor $(if ($failed -eq 0) { 'Green' } else { 'Red' })
-Write-Host "====================================================================" -ForegroundColor White
+Write-Host '====================================================================' -ForegroundColor White
 
 if ($failed -gt 0) {
     Write-Host "`n  Fehlgeschlagene Tests:" -ForegroundColor Red
-    $script:TestResults | Where-Object { -not $_.Pass } | ForEach-Object {
-        Write-Host "    - $($_.Name): $($_.Message)" -ForegroundColor Red
+    foreach ($failedResult in $script:TestResults | Where-Object { -not $_.Pass }) {
+        Write-Host "    - $($failedResult.Name): $($failedResult.Message)" -ForegroundColor Red
     }
+    exit 1
 }
 
-# =============================================================================
-# Cleanup bei Fehler
-# =============================================================================
-
-if ($script:Lab -and -not $KeepOnFailure) {
-    Write-Host "`n  Cleanup: Entferne uebrig gebliebenes Lab..." -ForegroundColor Yellow
-    try {
-        Remove-SqlServerLab -RunId $script:Lab.RunId -Force
-    }
-    catch {
-        Write-Host "  Cleanup fehlgeschlagen: $_" -ForegroundColor Red
-        Write-Host "  Manuell: $script:ContainerRuntime rm -f $($script:Lab.Instances[0].ContainerName)" -ForegroundColor Yellow
-    }
-}
-
-# Exit-Code
-if ($failed -gt 0) { exit 1 }
 exit 0
