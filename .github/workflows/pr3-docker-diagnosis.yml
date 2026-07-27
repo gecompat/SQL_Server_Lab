@@ -1,4 +1,4 @@
-name: PR3 Podman Snapshot Diagnosis
+name: PR3 Podman Route Diagnosis
 
 on:
   push:
@@ -19,12 +19,12 @@ permissions:
   pull-requests: write
 
 jobs:
-  podman-snapshot:
-    name: Podman 30-second snapshot
+  podman-route:
+    name: Podman machine route diagnosis
     runs-on:
       - self-hosted
       - SQL_Lab
-    timeout-minutes: 5
+    timeout-minutes: 6
 
     steps:
       - name: Checkout PR branch
@@ -32,15 +32,15 @@ jobs:
         with:
           ref: agent/documentation-consistency-repair
 
-      - name: Capture Podman SQL snapshot
+      - name: Test localhost and machine routes
         id: diagnosis
         continue-on-error: true
         shell: pwsh
         env:
-          DIAG_RESULT: ${{ runner.temp }}/pr3-podman-snapshot.txt
+          DIAG_RESULT: ${{ runner.temp }}/pr3-podman-route.txt
         run: |
           $ErrorActionPreference = 'Stop'
-          $containerName = "sql-lab-podman-snapshot-$env:GITHUB_RUN_ID"
+          $containerName = "sql-lab-podman-route-$env:GITHUB_RUN_ID"
           $port = 14330
           $password = "SqlLab_$([guid]::NewGuid().ToString('N'))_Aa1!"
           $image = 'mcr.microsoft.com/mssql/server:2022-latest'
@@ -59,6 +59,10 @@ jobs:
 
           try {
               podman info | Out-Null
+              $machineAddressText = (podman machine ssh -- hostname -I 2>$null | Out-String).Trim()
+              $machineAddress = [regex]::Match($machineAddressText, '(?<!\d)(?:\d{1,3}\.){3}\d{1,3}(?!\d)').Value
+              $machineDetected = -not [string]::IsNullOrWhiteSpace($machineAddress)
+
               $arguments = @(
                   'run', '-d',
                   '--name', $containerName,
@@ -70,29 +74,38 @@ jobs:
                   '--cpus', '4',
                   $image
               )
-
-              $containerId = (podman @arguments | Out-String).Trim()
+              $null = podman @arguments
               if ($LASTEXITCODE -ne 0) { throw 'podman run ist fehlgeschlagen.' }
-              Start-Sleep -Seconds 30
 
-              $state = (podman inspect $containerName --format 'status={{.State.Status}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}} error={{.State.Error}}' 2>&1 | Out-String).Trim()
-              $ports = (podman inspect $containerName --format 'ports={{json .NetworkSettings.Ports}}' 2>&1 | Out-String).Trim()
-              $mapping = (podman port $containerName 1433 2>&1 | Out-String).Trim()
-              $tcpOpen = Test-TcpPort -HostName '127.0.0.1' -Port $port
-              $logs = (podman logs --tail 80 $containerName 2>&1 | Out-String).Trim()
+              $localhostTcp = $false
+              $machineTcp = $false
+              $sqlViaMachine = $false
+              for ($attempt = 1; $attempt -le 40; $attempt++) {
+                  $localhostTcp = Test-TcpPort -HostName '127.0.0.1' -Port $port
+                  if ($machineDetected) {
+                      $machineTcp = Test-TcpPort -HostName $machineAddress -Port $port
+                  }
+
+                  if ($machineTcp) {
+                      $output = sqlcmd -S "${machineAddress},${port}" -U sa -P $password -C -b -Q 'SET NOCOUNT ON; SELECT 1;' -h -1 -W 2>&1
+                      if ($LASTEXITCODE -eq 0) {
+                          $sqlViaMachine = $true
+                          break
+                      }
+                  }
+                  if ($localhostTcp) { break }
+                  Start-Sleep -Seconds 3
+              }
 
               @(
-                  "containerId=$containerId"
-                  $state
-                  $ports
-                  "mapping=$mapping"
-                  "tcpOpen=$tcpOpen"
-                  '--- SQL container log ---'
-                  $logs
+                  "machineAddressDetected=$machineDetected"
+                  "localhostTcp=$localhostTcp"
+                  "machineTcp=$machineTcp"
+                  "sqlViaMachine=$sqlViaMachine"
               ) | Set-Content -LiteralPath $env:DIAG_RESULT -Encoding utf8
 
-              if (-not $tcpOpen) {
-                  throw 'Podman-Hostport ist nach 30 Sekunden nicht erreichbar.'
+              if (-not $localhostTcp -and -not $sqlViaMachine) {
+                  throw 'Weder localhost noch die Podman-Machine-Route ist fuer SQL erreichbar.'
               }
           }
           catch {
@@ -105,29 +118,28 @@ jobs:
               podman rm -f $containerName 1>$null 2>$null
           }
 
-      - name: Write snapshot into PR body
+      - name: Write route result into PR body
         if: always()
         uses: actions/github-script@v7
         env:
-          DIAG_RESULT: ${{ runner.temp }}/pr3-podman-snapshot.txt
+          DIAG_RESULT: ${{ runner.temp }}/pr3-podman-route.txt
           DIAG_OUTCOME: ${{ steps.diagnosis.outcome }}
         with:
           script: |
             const fs = require('fs');
-            const start = '<!-- PR3_PODMAN_SNAPSHOT_START -->';
-            const end = '<!-- PR3_PODMAN_SNAPSHOT_END -->';
+            const start = '<!-- PR3_PODMAN_ROUTE_START -->';
+            const end = '<!-- PR3_PODMAN_ROUTE_END -->';
             const text = fs.existsSync(process.env.DIAG_RESULT)
-              ? fs.readFileSync(process.env.DIAG_RESULT, 'utf8')
-              : 'Kein Snapshot erzeugt.';
-            const lines = text.split(/\r?\n/).filter(Boolean).slice(-100);
+              ? fs.readFileSync(process.env.DIAG_RESULT, 'utf8').trim()
+              : 'Kein Routenergebnis erzeugt.';
             const block = [
               start,
-              '## Podman 30-Sekunden-Snapshot',
+              '## Podman-Routendiagnose',
               '',
               `Ergebnis: **${process.env.DIAG_OUTCOME.toUpperCase()}**`,
               '',
               '```text',
-              lines.join('\n'),
+              text,
               '```',
               end
             ].join('\n');
@@ -147,7 +159,7 @@ jobs:
               body
             });
 
-      - name: Fail job when snapshot failed
+      - name: Fail when no route works
         if: steps.diagnosis.outcome == 'failure'
         shell: pwsh
-        run: throw 'Podman-Snapshot ist fehlgeschlagen. Siehe PR-Text.'
+        run: throw 'Podman-Routendiagnose ist fehlgeschlagen. Siehe PR-Text.'
