@@ -1,4 +1,4 @@
-name: PR3 Podman Diagnosis
+name: PR3 Podman Port Diagnosis
 
 on:
   push:
@@ -16,15 +16,14 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
 
 jobs:
-  podman-minimal:
-    name: Podman minimal provisioning
+  podman-port-diagnosis:
+    name: Podman container and port diagnosis
     runs-on:
       - self-hosted
       - SQL_Lab
-    timeout-minutes: 25
+    timeout-minutes: 10
 
     steps:
       - name: Checkout PR branch
@@ -32,72 +31,76 @@ jobs:
         with:
           ref: agent/documentation-consistency-repair
 
-      - name: Run focused Podman diagnosis
-        id: diagnosis
-        continue-on-error: true
+      - name: Diagnose raw Podman SQL container
         shell: pwsh
-        env:
-          DIAG_LOG: ${{ runner.temp }}/pr3-podman-diagnosis.log
         run: |
           $ErrorActionPreference = 'Stop'
+          $containerName = "sql-lab-podman-diag-$env:GITHUB_RUN_ID"
+          $port = 14330
+          $password = "SqlLab_$([guid]::NewGuid().ToString('N'))_Aa1!"
+          $image = 'mcr.microsoft.com/mssql/server:2022-latest'
+
+          function Test-TcpPort {
+              param([string]$HostName, [int]$Port)
+              $client = [System.Net.Sockets.TcpClient]::new()
+              try {
+                  $task = $client.ConnectAsync($HostName, $Port)
+                  if (-not $task.Wait(1000)) { return $false }
+                  return $client.Connected
+              }
+              catch { return $false }
+              finally { $client.Dispose() }
+          }
+
           try {
-              Test-ModuleManifest ./SqlServerLab.psd1 | Out-Null
-              Import-Module ./SqlServerLab.psd1 -Force
               podman info | Out-Null
-              ./Tests/Integration/Invoke-SmokeTest.ps1 -Provider podman -Version '2022' *>&1 |
-                  Tee-Object -FilePath $env:DIAG_LOG
+              $arguments = @(
+                  'run', '-d',
+                  '--name', $containerName,
+                  '-p', "${port}:1433",
+                  '-e', 'ACCEPT_EULA=Y',
+                  '-e', "MSSQL_SA_PASSWORD=$password",
+                  '-e', 'MSSQL_PID=Developer',
+                  '--memory', '4096m',
+                  '--cpus', '4',
+                  '--health-cmd', '/opt/mssql-tools*/bin/sqlcmd -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -Q "SELECT 1" -b',
+                  '--health-interval', '5s',
+                  '--health-timeout', '3s',
+                  '--health-retries', '30',
+                  $image
+              )
+
+              $containerId = podman @arguments
+              if ($LASTEXITCODE -ne 0) {
+                  throw 'podman run ist fehlgeschlagen.'
+              }
+              Write-Host "ContainerId=$containerId"
+
+              for ($attempt = 1; $attempt -le 40; $attempt++) {
+                  $state = (podman inspect $containerName --format '{{.State.Status}}|{{.State.ExitCode}}|{{.State.Error}}' 2>&1 | Out-String).Trim()
+                  $mapping = (podman port $containerName 1433 2>&1 | Out-String).Trim()
+                  $tcpOpen = Test-TcpPort -HostName '127.0.0.1' -Port $port
+                  Write-Host "attempt=$attempt state=$state tcpOpen=$tcpOpen mapping=$mapping"
+
+                  if ($tcpOpen) {
+                      $output = sqlcmd -S "127.0.0.1,$port" -U sa -P $password -C -b -Q 'SET NOCOUNT ON; SELECT 1;' -h -1 -W 2>&1
+                      if ($LASTEXITCODE -eq 0) {
+                          Write-Host "sqlcmd=SUCCESS output=$(($output | Out-String).Trim())"
+                          exit 0
+                      }
+                      Write-Host "sqlcmd=NOT_READY output=$(($output | Out-String).Trim())"
+                  }
+
+                  if ($state -match '^(exited|dead)\|') { break }
+                  Start-Sleep -Seconds 3
+              }
+
+              Write-Host '--- podman inspect summary ---'
+              podman inspect $containerName --format 'status={{.State.Status}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}} error={{.State.Error}} ports={{json .NetworkSettings.Ports}}'
+              Write-Host '--- podman logs ---'
+              podman logs --tail 200 $containerName
+              throw 'Podman-Container wurde nicht ueber den Hostport erreichbar.'
           }
-          catch {
-              $_ | Out-String | Tee-Object -FilePath $env:DIAG_LOG -Append
-              throw
+          finally {
+              podman rm -f $containerName 1>$null 2>$null
           }
-
-      - name: Write compact result into PR body
-        if: always()
-        uses: actions/github-script@v7
-        env:
-          DIAG_LOG: ${{ runner.temp }}/pr3-podman-diagnosis.log
-          DIAG_OUTCOME: ${{ steps.diagnosis.outcome }}
-        with:
-          script: |
-            const fs = require('fs');
-            const start = '<!-- PR3_PODMAN_DIAG_START -->';
-            const end = '<!-- PR3_PODMAN_DIAG_END -->';
-            let text = fs.existsSync(process.env.DIAG_LOG)
-              ? fs.readFileSync(process.env.DIAG_LOG, 'utf8')
-              : 'Keine Diagnoselogdatei erzeugt.';
-            const lines = text.split(/\r?\n/).filter(Boolean);
-            const tail = lines.slice(-35).join('\n');
-            const block = [
-              start,
-              '## Aktuelle Podman-Diagnose',
-              '',
-              `Ergebnis: **${process.env.DIAG_OUTCOME.toUpperCase()}**`,
-              '',
-              '```text',
-              tail,
-              '```',
-              end
-            ].join('\n');
-
-            const pr = await github.rest.pulls.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: 3
-            });
-            let body = pr.data.body || '';
-            const pattern = new RegExp(`${start}[\\s\\S]*?${end}`, 'm');
-            body = pattern.test(body)
-              ? body.replace(pattern, block)
-              : `${body}\n\n${block}`;
-            await github.rest.pulls.update({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: 3,
-              body
-            });
-
-      - name: Fail job when diagnosis failed
-        if: steps.diagnosis.outcome == 'failure'
-        shell: pwsh
-        run: throw 'Podman-Diagnose ist fehlgeschlagen. Siehe PR-Text.'
