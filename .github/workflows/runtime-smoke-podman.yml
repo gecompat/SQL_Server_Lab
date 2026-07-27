@@ -1,0 +1,59 @@
+name: Runtime Smoke - Podman
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'Catalogs/**'
+      - 'Private/**'
+      - 'Providers/Podman/**'
+      - 'Public/**'
+      - 'Tests/**'
+      - 'SqlServerLab.psd1'
+      - 'SqlServerLab.psm1'
+      - '.github/workflows/runtime-smoke-podman.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sql-server-lab-runtime-smoke
+  cancel-in-progress: false
+
+jobs:
+  podman-smoke:
+    name: Podman provider, versions and parallel runs
+    runs-on: [self-hosted, SQL_Lab, Podman]
+    timeout-minutes: 25
+
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Runtime preflight
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSVersionTable.PSVersion
+          podman info
+          podman machine list
+          sqlcmd -?
+
+      - name: Static contracts
+        run: |
+          $ErrorActionPreference = 'Stop'
+          .\Tests\Static\Invoke-DocumentationChecks.ps1
+          .\Tests\Static\Invoke-ReadinessContractChecks.ps1
+
+      - name: Podman smoke matrix
+        run: |
+          $ErrorActionPreference = 'Stop'
+          .\Tests\Integration\Invoke-SmokeMatrix.ps1 `
+            -Provider podman `
+            -FullMatrix `
+            -IncludeParallel
