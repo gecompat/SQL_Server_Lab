@@ -1,0 +1,58 @@
+name: Runtime Smoke - Docker
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'Catalogs/**'
+      - 'Private/**'
+      - 'Providers/Docker/**'
+      - 'Public/**'
+      - 'Tests/**'
+      - 'SqlServerLab.psd1'
+      - 'SqlServerLab.psm1'
+      - '.github/workflows/runtime-smoke-docker.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sql-server-lab-runtime-smoke
+  cancel-in-progress: false
+
+jobs:
+  docker-smoke:
+    name: Docker provider, versions and parallel runs
+    runs-on: [self-hosted, SQL_Lab, Docker]
+    timeout-minutes: 25
+
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Runtime preflight
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSVersionTable.PSVersion
+          docker info
+          sqlcmd -?
+
+      - name: Static contracts
+        run: |
+          $ErrorActionPreference = 'Stop'
+          .\Tests\Static\Invoke-DocumentationChecks.ps1
+          .\Tests\Static\Invoke-ReadinessContractChecks.ps1
+
+      - name: Docker smoke matrix
+        run: |
+          $ErrorActionPreference = 'Stop'
+          .\Tests\Integration\Invoke-SmokeMatrix.ps1 `
+            -Provider docker `
+            -FullMatrix `
+            -IncludeParallel
