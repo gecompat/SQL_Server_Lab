@@ -72,10 +72,16 @@ if ($failures.Count -eq 0) {
     Assert-Contains $portAllocation 'function\s+Invoke-LabPortAllocationLock' 'Hostweiter Port-Lock fehlt.'
     Assert-Contains $portAllocation 'Global\\SQL_Server_Lab_Port_Allocation' 'Windows-Port-Lock ist nicht global benannt.'
     Assert-Contains $portAllocation "@\('docker',\s*'podman'\)" 'Portermittlung prueft Docker und Podman nicht gemeinsam.'
+
     Assert-Contains $dockerProvider 'Invoke-LabPortAllocationLock[\s\S]+docker\s+@dockerArguments' 'Docker bindet den Port nicht innerhalb des atomaren Locks.'
     Assert-Contains $dockerProvider 'Find-LabAvailablePort' 'Docker verwendet nicht die gemeinsame Portermittlung.'
+    Assert-Contains $dockerProvider 'address already in use[\s\S]+\$nextPort\s*=\s*\$selectedPort\s*\+\s*1' 'Docker wiederholt automatische Portbindungskonflikte nicht mit dem naechsten Port.'
+    Assert-Contains $dockerProvider 'docker\s+rm\s+-f\s+\$containerName' 'Docker entfernt einen bei Bindungsfehler teilweise angelegten Container nicht vor dem Retry.'
+
     Assert-Contains $podmanProvider 'Invoke-LabPortAllocationLock[\s\S]+podman\s+@podmanArguments' 'Podman bindet den Port nicht innerhalb des atomaren Locks.'
     Assert-Contains $podmanProvider 'Find-LabAvailablePort' 'Podman verwendet nicht die gemeinsame Portermittlung.'
+    Assert-Contains $podmanProvider 'cannot bind tcp port[\s\S]+\$nextPort\s*=\s*\$selectedPort\s*\+\s*1' 'Podman wiederholt automatische Portbindungskonflikte nicht mit dem naechsten Port.'
+    Assert-Contains $podmanProvider 'podman\s+rm\s+-f\s+\$containerName' 'Podman entfernt einen bei Bindungsfehler teilweise angelegten Container nicht vor dem Retry.'
 
     Assert-Contains $start 'Wait-SqlReady' 'Start-SqlServerLab prueft die SQL-Readiness nicht.'
     Assert-Contains $start 'Wait-LabDatabaseReady' 'Start-SqlServerLab wartet nicht auf gespeicherte Benutzerdatenbanken.'
