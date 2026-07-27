@@ -1,99 +1,154 @@
-# Tests/ – Lokale Validierung
+# Tests/ – lokale und Remote-Validierung
 
 ## Verzeichnisse
 
 | Verzeichnis | Inhalt |
 |---|---|
-| `Static/` | Import-, Export-, JSON-, Schema-, Metadaten-, Link- und Dokumentationskonsistenz |
-| `Integration/` | mutierender End-to-End-Smoke-Test für genau einen gewählten Provider |
+| `Static/` | Import-, Export-, JSON-, Schema-, Metadaten-, Link-, Menü- und Dokumentationskonsistenz |
+| `Integration/` | mutierende Lifecycle-, Provider-, Versions- und Parallelitäts-Smoke-Tests |
 
-## Statische Prüfung
+## Statische Prüfungen
 
 ```powershell
 .\Tests\Static\Invoke-DocumentationChecks.ps1
+.\Tests\Static\Invoke-ReadinessContractChecks.ps1
 ```
 
-Die Prüfung benötigt keine laufende SQL-Server-Instanz. Sie kontrolliert unter anderem:
+Die statischen Prüfungen benötigen keine laufende SQL-Server-Instanz. Sie kontrollieren unter anderem:
 
-- JSON-Syntax der Kataloge, Schemas und Beispiele
-- Existenz referenzierter Schema-Dateien
-- Import des Modulmanifests
-- Übereinstimmung von `FunctionsToExport` und tatsächlich verfügbaren Funktionen
-- Existenz der in Provider-Metadaten angegebenen Module
-- zentrale Dokumentationslinks
-- Ausschluss bekannter veralteter Beispiele wie `Restore-LabDatabase -RunId` oder `-BackupUrl`
-- Ausschluss des veralteten Status `PLANNING_FOUNDATION` in der Root-README
+- JSON-Syntax der Kataloge, Schemas und Beispiele;
+- Existenz referenzierter Schema-Dateien;
+- Import des Modulmanifests;
+- Übereinstimmung von `FunctionsToExport` und tatsächlich verfügbaren Funktionen;
+- Existenz der in Provider-Metadaten angegebenen Module;
+- zentrale Dokumentationslinks;
+- SQL- und Datenbank-Readiness-Verträge;
+- Ausschluss bekannter veralteter Beispiele und Statusangaben.
 
-## Integration-Smoke-Test
+Der interaktive Menüpfad darf das bereits laufende Modul nicht innerhalb von `Invoke-SqlServerLab` erneut mit `Import-Module -Force` laden. Eine Selbst-Neuladung entfernt die gerade verwendeten Hilfsfunktionen aus dem Funktionskontext.
 
-Docker:
+## Einzelprovider-Smoke-Test
 
-```powershell
-.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider docker
-```
-
-Podman:
-
-```powershell
-.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider podman
-```
-
-Auto-Modus:
-
-```powershell
-.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider auto
-```
-
-### Tatsächliches Auto-Verhalten
-
-Im Auto-Modus wird für den mutierenden Lifecycle genau eine Runtime gewählt:
-
-1. Docker, wenn der Befehl `docker` vorhanden ist;
-2. sonst Podman, wenn der Befehl `podman` vorhanden ist;
-3. sonst Abbruch.
-
-Der Test führt Resource Assessment zusätzlich für alle erkannten Provider aus. Er provisioniert aber nicht automatisch nacheinander auf allen installierten Providern.
-
-## Voraussetzungen des Smoke-Tests
-
-- PowerShell 7.2 oder neuer
-- laufendes Docker oder Podman
-- `sqlcmd`
-- genügend RAM, Storage und freier Port
-- Zugriff auf das konfigurierte SQL-Server-Container-Image
-
-## Getrennte Provider-Abnahme
-
-Für eine belastbare lokale Abnahme sind Docker und Podman ausdrücklich getrennt aufzurufen:
+Der bestehende Test prüft einen explizit gewählten Provider vollständig:
 
 ```powershell
 .\Tests\Integration\Invoke-SmokeTest.ps1 -Provider docker
 .\Tests\Integration\Invoke-SmokeTest.ps1 -Provider podman
 ```
 
-Ein erfolgreicher Docker-Lauf ist kein Nachweis für Podman und umgekehrt.
+`-Provider auto` wählt weiterhin genau einen erreichbaren Provider, bevorzugt Docker vor Podman. Ein erfolgreicher Docker-Lauf ist kein Nachweis für Podman und umgekehrt.
+
+## Provider- und Versionsmatrix
+
+Der bevorzugte übergreifende Test ist:
+
+```powershell
+.\Tests\Integration\Invoke-SmokeMatrix.ps1
+```
+
+Ohne weitere Parameter werden alle implementierten und lokal erreichbaren Provider erkannt. Pro Provider wird ein vollständiger Lifecycle mit der Referenzversion ausgeführt:
+
+```text
+Provisionierung
+→ Datenbank
+→ SQL-Skript
+→ Restart
+→ Persistenzprüfung
+→ Stop
+→ Start
+→ Cleanup
+```
+
+Nicht erreichbare Provider werden als `SKIP` ausgewiesen. Ein erreichbarer, aber fehlerhafter Provider führt zu `FAIL` und Exitcode `1`.
+
+### Vollständige Versionsmatrix
+
+```powershell
+.\Tests\Integration\Invoke-SmokeMatrix.ps1 `
+    -Provider all `
+    -FullMatrix
+```
+
+Dabei werden die SQL-Server-Versionen 2019, 2022 und 2025 pro erreichbarem Provider provisioniert, gegen die tatsächliche Major-Version geprüft und wieder entfernt. Die Referenzversion erhält zusätzlich den vollständigen Lifecycle-Test.
+
+### Parallelitätsprüfung
+
+```powershell
+.\Tests\Integration\Invoke-SmokeMatrix.ps1 `
+    -Provider all `
+    -IncludeParallel
+```
+
+Der Paralleltest prüft gleichzeitig laufende Labs je verfügbarem Provider. Aktuell werden bis zu vier Szenarien verwendet:
+
+- Docker / SQL Server 2022;
+- Docker / SQL Server 2025;
+- Podman / SQL Server 2022;
+- Podman / SQL Server 2025.
+
+Geprüft werden:
+
+- eindeutige RunIds und ScopeIds;
+- eindeutige Hostports;
+- voneinander getrennte Run-States;
+- isolierter Cleanup eines Runs;
+- Fortbestand der übrigen Runs;
+- vollständiger abschließender Cleanup.
+
+### Vollständige lokale Abnahme
+
+```powershell
+.\Tests\Integration\Invoke-SmokeMatrix.ps1 `
+    -Provider all `
+    -FullMatrix `
+    -IncludeParallel
+```
+
+## Remote Runner
+
+Die Runtime-Tests verwenden ausschließlich dafür gekennzeichnete Self-hosted Runner:
+
+| Workflow | Erforderliche Labels |
+|---|---|
+| Docker Runtime Smoke | `self-hosted`, `SQL_Lab`, `Docker` |
+| Podman Runtime Smoke | `self-hosted`, `SQL_Lab`, `Podman` |
+
+Die Workflows werden bewusst nicht auf einem generischen `self-hosted`-Runner ausgeführt. Docker- und Podman-Läufe verwenden dieselbe Workflow-Concurrency-Gruppe, damit zwei Runtime-Tests nicht unbeabsichtigt gleichzeitig auf demselben Host kollidieren. Die Parallelität wird innerhalb des jeweiligen Smoke-Tests kontrolliert erzeugt.
+
+Remote-Läufe befinden sich unter:
+
+```text
+.github/workflows/runtime-smoke-docker.yml
+.github/workflows/runtime-smoke-podman.yml
+```
+
+## Voraussetzungen
+
+- PowerShell 7.2 oder neuer;
+- laufendes Docker oder Podman;
+- `sqlcmd`;
+- genügend RAM, Storage und freie Ports im Bereich 14330 bis 14399;
+- Zugriff auf die konfigurierten SQL-Server-Container-Images;
+- für Podman unter Windows eine funktionierende Localhost-Weiterleitung, siehe `Documentation/HowTo/PODMAN_WINDOWS_NETWORKING.md`.
 
 ## Fehlerdiagnose
 
-Container bei einem fehlgeschlagenen Test behalten:
+Fehlgeschlagene Labs für eine lokale Diagnose behalten:
 
 ```powershell
-.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider docker -KeepOnFailure
+.\Tests\Integration\Invoke-SmokeMatrix.ps1 `
+    -Provider docker `
+    -KeepOnFailure
 ```
 
 Danach:
 
 ```powershell
 Get-SqlServerLab -Detailed
-```
 
-Runtime-Logs:
-
-```powershell
 docker ps -a --filter 'label=sql-server-lab.run-id'
-docker logs <ContainerName>
-
 # oder
 podman ps -a --filter 'label=sql-server-lab.run-id'
-podman logs <ContainerName>
 ```
+
+Die Remote-Workflows verwenden `KeepOnFailure` nicht. Sie versuchen den normalen testseitigen Cleanup und beenden den Job bei einem Fehler mit Exitcode `1`.
