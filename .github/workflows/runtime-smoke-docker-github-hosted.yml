@@ -1,0 +1,153 @@
+name: Runtime Smoke - Docker (GitHub-hosted)
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'Catalogs/**'
+      - 'Providers/Docker/**'
+      - '.github/workflows/runtime-smoke-docker-github-hosted.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sql-server-lab-runtime-smoke-docker-hosted-${{ github.event.pull_request.number || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  docker-hosted-smoke:
+    name: SQL Server container lifecycle on ubuntu-latest
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Docker preflight
+        run: |
+          set -euo pipefail
+          docker version
+          docker info
+          df -h
+          free -h
+
+      - name: Run serial SQL Server smoke tests
+        shell: bash
+        env:
+          ACCEPT_EULA: Y
+          MSSQL_PID: Developer
+        run: |
+          set -euo pipefail
+
+          password='HostedSmoke_2026!Aa9#Qx7'
+          versions=(2019 2022 2025)
+
+          cleanup() {
+            docker ps -aq --filter 'name=sql-lab-hosted-' | xargs -r docker rm -f >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+          cleanup
+
+          for version in "${versions[@]}"; do
+            name="sql-lab-hosted-${version}"
+            image="mcr.microsoft.com/mssql/server:${version}-latest"
+            port=$((15000 + version - 2000))
+
+            echo "=== SQL Server ${version}: pull ==="
+            docker pull "$image"
+
+            echo "=== SQL Server ${version}: start ==="
+            docker run -d \
+              --name "$name" \
+              --memory 3g \
+              -e ACCEPT_EULA="$ACCEPT_EULA" \
+              -e MSSQL_PID="$MSSQL_PID" \
+              -e MSSQL_SA_PASSWORD="$password" \
+              -p "${port}:1433" \
+              "$image"
+
+            ready=0
+            for attempt in $(seq 1 90); do
+              if docker exec "$name" bash -lc '
+                tool=""
+                for candidate in /opt/mssql-tools18/bin/sqlcmd /opt/mssql-tools/bin/sqlcmd; do
+                  if [ -x "$candidate" ]; then tool="$candidate"; break; fi
+                done
+                [ -n "$tool" ] || exit 127
+                "$tool" -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -C -b -Q "SET NOCOUNT ON; SELECT 1;" >/dev/null
+              '; then
+                ready=1
+                break
+              fi
+              sleep 2
+            done
+
+            if [ "$ready" -ne 1 ]; then
+              echo "SQL Server ${version} wurde nicht rechtzeitig bereit."
+              docker logs "$name" || true
+              exit 1
+            fi
+
+            echo "=== SQL Server ${version}: query and lifecycle ==="
+            docker exec "$name" bash -lc '
+              tool=""
+              for candidate in /opt/mssql-tools18/bin/sqlcmd /opt/mssql-tools/bin/sqlcmd; do
+                if [ -x "$candidate" ]; then tool="$candidate"; break; fi
+              done
+              "$tool" -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -C -b -Q "SET NOCOUNT ON; SELECT CAST(SERVERPROPERTY('"'"'ProductMajorVersion'"'"') AS int); CREATE DATABASE HostedSmoke; ALTER DATABASE HostedSmoke SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE HostedSmoke;"
+            '
+
+            docker stop "$name"
+            docker start "$name"
+
+            ready=0
+            for attempt in $(seq 1 90); do
+              if docker exec "$name" bash -lc '
+                tool=""
+                for candidate in /opt/mssql-tools18/bin/sqlcmd /opt/mssql-tools/bin/sqlcmd; do
+                  if [ -x "$candidate" ]; then tool="$candidate"; break; fi
+                done
+                [ -n "$tool" ] || exit 127
+                "$tool" -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -C -b -Q "SET NOCOUNT ON; SELECT 1;" >/dev/null
+              '; then
+                ready=1
+                break
+              fi
+              sleep 2
+            done
+
+            if [ "$ready" -ne 1 ]; then
+              echo "SQL Server ${version} wurde nach dem Neustart nicht bereit."
+              docker logs "$name" || true
+              exit 1
+            fi
+
+            docker rm -f "$name"
+            echo "=== SQL Server ${version}: PASS ==="
+            df -h
+            docker system df
+          done
+
+      - name: Upload failure diagnostics
+        if: failure()
+        run: |
+          mkdir -p "$RUNNER_TEMP/docker-hosted-diagnostics"
+          docker ps -a > "$RUNNER_TEMP/docker-hosted-diagnostics/docker-ps.txt" || true
+          docker system df > "$RUNNER_TEMP/docker-hosted-diagnostics/docker-system-df.txt" || true
+          for container in $(docker ps -aq --filter 'name=sql-lab-hosted-'); do
+            docker inspect "$container" > "$RUNNER_TEMP/docker-hosted-diagnostics/${container}-inspect.json" || true
+            docker logs "$container" > "$RUNNER_TEMP/docker-hosted-diagnostics/${container}-logs.txt" 2>&1 || true
+          done
+
+      - name: Publish failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-hosted-smoke-diagnostics
+          path: ${{ runner.temp }}/docker-hosted-diagnostics
+          if-no-files-found: ignore
+          retention-days: 7
