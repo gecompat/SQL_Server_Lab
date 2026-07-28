@@ -1,0 +1,136 @@
+TOPIC
+    about_SqlServerLab
+
+SYNOPSIS
+    Uebersicht, Namenskonzept und typische Arbeitsablaeufe des Moduls
+    SqlServerLab.
+
+LONG DESCRIPTION
+    SqlServerLab erstellt und verwaltet isolierte SQL-Server-Testumgebungen mit
+    Docker oder Podman. Das Modul unterstuetzt direkte Ad-hoc-Aufrufe und
+    deklarative JSON-Manifeste.
+
+    Alle oeffentlichen Befehle verwenden das PowerShell-Schema
+    Verb-SingularNoun. Der Modulname ist SqlServerLab. Alle oeffentlichen Nomen
+    beginnen mit SqlServerLab und bezeichnen Ressourcen dieses Moduls.
+
+COMMAND DISCOVERY
+    Alle exportierten Befehle mit Modulzuordnung anzeigen:
+
+        Get-Command -Module SqlServerLab | Sort-Object Name
+
+    Namen und Kurzbeschreibungen anzeigen:
+
+        Get-Command -Module SqlServerLab | Sort-Object Name |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name     = $_.Name
+                    Synopsis = (Get-Help $_.Name).Synopsis
+                }
+            } | Format-Table -AutoSize -Wrap
+
+    Vollstaendige Hilfe oder einzelne Parameter anzeigen:
+
+        Get-Help New-SqlServerLab -Full
+        Get-Help Test-SqlServerLabManifest -Parameter Path
+        Get-Help Restore-SqlServerLabDatabase -Examples
+
+    Bei einem Namenskonflikt kann ein Befehl modulqualifiziert aufgerufen
+    werden:
+
+        SqlServerLab\New-SqlServerLabDatabase
+
+COMMANDS
+    Einstieg und Provisionierung
+
+    Invoke-SqlServerLab
+        Oeffnet das interaktive Menue oder fuehrt eine Menueaktion direkt aus.
+
+    New-SqlServerLab
+        Erstellt eine Labumgebung aus Parametern oder einem Manifest.
+
+    Manifest
+
+    New-SqlServerLabManifest
+        Erstellt und speichert ein schema-validiertes JSON-Manifest.
+
+    Test-SqlServerLabManifest
+        Prueft Manifestdateien oder Manifestobjekte ohne Provisionierung.
+
+    Status und Lifecycle
+
+    Get-SqlServerLab
+        Zeigt gespeicherten und, soweit verfuegbar, aktuellen Runtime-Status.
+
+    Start-SqlServerLab
+        Startet eine gestoppte Labumgebung.
+
+    Stop-SqlServerLab
+        Stoppt eine laufende Labumgebung ohne sie zu entfernen.
+
+    Restart-SqlServerLab
+        Stoppt und startet eine Labumgebung in einem Arbeitsgang.
+
+    Remove-SqlServerLab
+        Entfernt einen Run anhand seines Cleanup-Plans.
+
+    Clear-SqlServerLab
+        Bereinigt mehrere Runs und verwaiste Labcontainer.
+
+    SQL-Operationen
+
+    New-SqlServerLabDatabase
+        Erstellt eine Datenbank mit optionalen Datei- und Datenbankoptionen.
+
+    Restore-SqlServerLabDatabase
+        Stellt eine Datenbank aus einer lokalen oder entfernten .bak-Datei her.
+
+    Invoke-SqlServerLabScript
+        Fuehrt ein T-SQL-Skript mit Unterstuetzung fuer GO-Batches aus.
+
+    Pruefung
+
+    Test-SqlServerLabPrerequisite
+        Prueft Provider, RAM, Storage, Ports und Pfadsicherheit ohne Mutation.
+
+NAMING AND OWNERSHIP
+    PowerShell ordnet jeden exportierten Befehl ueber die Source- und
+    ModuleName-Eigenschaften dem Modul SqlServerLab zu:
+
+        Get-Command New-SqlServerLabDatabase | Select-Object Name, ModuleName, Source
+
+    Alle oeffentlichen Nomen beginnen mit SqlServerLab. Die frueheren
+    generischen Lab-Namen wurden vor Version 1.0 ohne Kompatibilitaetsaliasse
+    und ohne Deprecation-Zeitraum ersetzt.
+
+    Import-Module -Prefix kann bei lokalen Namenskonflikten einen zusaetzlichen
+    Praefix an alle importierten Nomen setzen. Es veraendert das Modul nicht:
+
+        Import-Module .\SqlServerLab.psd1 -Prefix Company
+        Get-Command -Module SqlServerLab
+
+TYPICAL WORKFLOW
+    Modul importieren und Ressourcen pruefen:
+
+        Import-Module .\SqlServerLab.psd1 -Force
+        Test-SqlServerLabPrerequisite -Provider docker
+
+    Manifest erstellen, pruefen und provisionieren:
+
+        New-SqlServerLabManifest -Path .\mein-lab.json
+        Test-SqlServerLabManifest -Path .\mein-lab.json
+        $lab = New-SqlServerLab -Manifest .\mein-lab.json
+
+    Status abfragen und Umgebung entfernen:
+
+        Get-SqlServerLab -RunId $lab.RunId -Detailed
+        Remove-SqlServerLab -RunId $lab.RunId
+
+SEE ALSO
+    Get-Help
+    Get-Command
+    Get-Module
+    Import-Module
+    about_Modules
+    about_Command_Syntax
+    about_CommonParameters

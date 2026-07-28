@@ -403,7 +403,7 @@ Die Erweiterung ist nur zulässig, wenn sie einen konkreten SQL-Server-Anwendung
 | Feature | Status | Dateien |
 |---|---|---|
 | JSON-Schema fuer Manifeste | ✅ implementiert | `Schemas/lab-manifest.schema.json` (VS Code auto-aktiv) |
-| Backup/Restore-Actions | ✅ implementiert | `Public/Restore-LabDatabase.ps1` (URL-Cache, FILELISTONLY, MOVE) |
+| Backup/Restore-Actions | ✅ implementiert | `Public/Restore-SqlServerLabDatabase.ps1` (URL-Cache, FILELISTONLY, MOVE) |
 | Server-Konfiguration | ✅ implementiert | `Private/ServerConfig.ps1` (sp_configure, TempDB, Traces) |
 | Datenbank-Optionen | ✅ implementiert | Recovery Model, RCSI, Query Store, Delayed Durability |
 | Volume-Mounts (Drives) | ✅ implementiert | Docker + Podman: Host-Pfad oder Named Volume |

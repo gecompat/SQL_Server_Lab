@@ -11,6 +11,12 @@
     SQL- und Datenbank-Readiness-Pruefung ueberspringen.
 .PARAMETER TimeoutSeconds
     Maximale Wartezeit fuer SQL- und Datenbank-Bereitschaft pro Instanz.
+.INPUTS
+    System.Object. Objekte mit einer RunId-Eigenschaft koennen ueber die
+    Pipeline gebunden werden.
+.OUTPUTS
+    System.Management.Automation.PSCustomObject. Liefert RunId, Status, Action
+    und bei Fehlern deren Anzahl.
 .EXAMPLE
     Start-SqlServerLab -RunId $lab.RunId
 #>

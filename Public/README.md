@@ -7,6 +7,8 @@ Dieses Verzeichnis enthält die öffentlichen PowerShell-Funktionen des Moduls. 
 | Cmdlet | Datei oder Definition | Zweck |
 |---|---|---|
 | `Invoke-SqlServerLab` | `Invoke-SqlServerLab.ps1` | Interaktives Menü |
+| `New-SqlServerLabManifest` | `New-SqlServerLabManifest.ps1` | Schema-gesteuertes Manifest interaktiv oder aus einem Objekt erstellen |
+| `Test-SqlServerLabManifest` | `New-SqlServerLabManifest.ps1` | Schema, Kataloge und Runtime-Grenzen ohne Provisionierung prüfen |
 | `New-SqlServerLab` | `New-SqlServerLab.ps1` | Neue Umgebung ad hoc oder per Manifest erstellen |
 | `Get-SqlServerLab` | `Get-SqlServerLab.ps1` | State und Live-Containerstatus anzeigen |
 | `Start-SqlServerLab` | `Start-SqlServerLab.ps1` | Gestoppte Umgebung über den gespeicherten Provider starten |
@@ -14,12 +16,30 @@ Dieses Verzeichnis enthält die öffentlichen PowerShell-Funktionen des Moduls. 
 | `Restart-SqlServerLab` | `Restart-SqlServerLab.ps1` | Stop und Start kombinieren |
 | `Remove-SqlServerLab` | `Remove-SqlServerLab.ps1` | Einzelnen Run scope-validiert entfernen |
 | `Clear-SqlServerLab` | `Clear-SqlServerLab.ps1` | Lab-Container und/oder State bereinigen |
-| `New-LabDatabase` | `New-LabDatabase.ps1` | Datenbank mit konfigurierbaren Dateien und Pfaden erstellen |
-| `Invoke-LabScript` | `Invoke-LabScript.ps1` | T-SQL-Skript mit `GO`-Batchtrennung ausführen |
-| `Restore-LabDatabase` | `Restore-LabDatabase.ps1` | Direkte `.bak`-Datei aus lokalem Pfad oder URL wiederherstellen |
-| `Test-LabResources` | `Private/ResourceAssessment.ps1` | Provider, RAM, Storage und Ports ohne Mutation prüfen |
+| `New-SqlServerLabDatabase` | `New-SqlServerLabDatabase.ps1` | Datenbank mit konfigurierbaren Dateien und Pfaden erstellen |
+| `Invoke-SqlServerLabScript` | `Invoke-SqlServerLabScript.ps1` | T-SQL-Skript mit `GO`-Batchtrennung ausführen |
+| `Restore-SqlServerLabDatabase` | `Restore-SqlServerLabDatabase.ps1` | Direkte `.bak`-Datei aus lokalem Pfad oder URL wiederherstellen |
+| `Test-SqlServerLabPrerequisite` | `Private/ResourceAssessment.ps1` | Provider, RAM, Storage und Ports ohne Mutation prüfen |
 
-`Test-LabResources` ist öffentlich exportiert, obwohl seine Definition im internen Resource-Assessment-Baustein liegt. Der Ablageort allein bestimmt nicht die Sichtbarkeit; maßgeblich ist `FunctionsToExport` im Modulmanifest.
+`Test-SqlServerLabPrerequisite` ist öffentlich exportiert, obwohl seine Definition im internen Resource-Assessment-Baustein liegt. Der Ablageort allein bestimmt nicht die Sichtbarkeit; maßgeblich ist `FunctionsToExport` im Modulmanifest.
+
+## Hilfe, Discovery und Modulzuordnung
+
+PowerShell stellt die öffentliche API über die Standardmechanismen bereit:
+
+```powershell
+Get-Command -Module SqlServerLab | Sort-Object Name
+Get-Help about_SqlServerLab
+Get-Help New-SqlServerLab -Full
+```
+
+`ModuleName` und `Source` ordnen jeden Export eindeutig `SqlServerLab` zu. Bei
+Namenskonflikten kann ein Command modulqualifiziert aufgerufen werden, zum
+Beispiel `SqlServerLab\New-SqlServerLabDatabase`.
+
+Die verbindlichen Regeln für zugelassene Verben, spezifische Nomen,
+Comment-based Help und mögliche spätere Namensmigrationen stehen im
+[PowerShell Command and Help Standard](../Documentation/Standards/POWERSHELL_COMMAND_AND_HELP_STANDARD.md).
 
 ## Öffentliche und interne Verträge
 

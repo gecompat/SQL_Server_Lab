@@ -10,6 +10,7 @@
 ## Statische Prüfungen
 
 ```powershell
+.\Tests\Static\Invoke-ManifestBuilderChecks.ps1
 .\Tests\Static\Invoke-DocumentationChecks.ps1
 .\Tests\Static\Invoke-ReadinessContractChecks.ps1
 ```
@@ -20,6 +21,8 @@ Die statischen Prüfungen benötigen keine laufende SQL-Server-Instanz. Sie kont
 - Existenz referenzierter Schema-Dateien;
 - Import des Modulmanifests;
 - Übereinstimmung von `FunctionsToExport` und tatsächlich verfügbaren Funktionen;
+- schema- und fachgerechte Manifest-Erstellung ohne Provisionierung;
+- Ablehnung unbekannter Felder, doppelter IDs, Providerkonflikte und inkompatibler Datenbankoptionen;
 - Existenz der in Provider-Metadaten angegebenen Module;
 - zentrale Dokumentationslinks;
 - SQL- und Datenbank-Readiness-Verträge;

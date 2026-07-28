@@ -10,6 +10,8 @@
 
     FunctionsToExport = @(
         'Invoke-SqlServerLab'
+        'New-SqlServerLabManifest'
+        'Test-SqlServerLabManifest'
         'New-SqlServerLab'
         'Get-SqlServerLab'
         'Start-SqlServerLab'
@@ -17,10 +19,10 @@
         'Restart-SqlServerLab'
         'Remove-SqlServerLab'
         'Clear-SqlServerLab'
-        'New-LabDatabase'
-        'Invoke-LabScript'
-        'Restore-LabDatabase'
-        'Test-LabResources'
+        'New-SqlServerLabDatabase'
+        'Invoke-SqlServerLabScript'
+        'Restore-SqlServerLabDatabase'
+        'Test-SqlServerLabPrerequisite'
     )
 
     CmdletsToExport   = @()

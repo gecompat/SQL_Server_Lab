@@ -26,6 +26,7 @@ Diese Datei ist der verbindliche Dokumentationsindex. Die Root-[README](../READM
 4. [Beitragsregeln](../CONTRIBUTING.md)
 5. [Lokale Validierungsstrategie](Quality/LOCAL_VALIDATION_STRATEGY.md)
 6. [Bekannte Grenzen](Quality/KNOWN_LIMITATIONS.md)
+7. [PowerShell Command and Help Standard](Standards/POWERSHELL_COMMAND_AND_HELP_STANDARD.md)
 
 ### Architektur und langfristige Planung verstehen
 
@@ -44,7 +45,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | Komponente | Status | Autoritative Dateien |
 |---|---|---|
 | PowerShell-Modul | implementiert | `SqlServerLab.psd1`, `SqlServerLab.psm1` |
-| Öffentliche API | 12 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
+| Öffentliche API | 14 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
 | Docker | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman | implementiert | `Providers/Podman/PodmanProvider.ps1` |
 | Hyper-V | geplant | `Providers/HyperV/README.md` |
@@ -55,10 +56,11 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | State und Cleanup | implementiert | `Private/StateMachine.ps1`, `Private/CleanupEngine.ps1` |
 | SQL Readiness | implementiert | `Private/SqlReadiness.ps1` |
 | Serverkonfiguration | teilweise implementiert | `Private/ServerConfig.ps1`, `Quality/KNOWN_LIMITATIONS.md` |
-| Datenbankerstellung | implementiert | `Public/New-LabDatabase.ps1` |
-| Restore | direkte `.bak`-Dateien implementiert | `Public/Restore-LabDatabase.ps1` |
-| Skriptausführung | implementiert | `Public/Invoke-LabScript.ps1` |
+| Datenbankerstellung | implementiert | `Public/New-SqlServerLabDatabase.ps1` |
+| Restore | direkte `.bak`-Dateien implementiert | `Public/Restore-SqlServerLabDatabase.ps1` |
+| Skriptausführung | implementiert | `Public/Invoke-SqlServerLabScript.ps1` |
 | Integrationstest | implementiert | `Tests/Integration/Invoke-SmokeTest.ps1` |
+| Manifest-Builder und -Fachprüfung | implementiert | `Private/ManifestBuilder.ps1`, `Tests/Static/Invoke-ManifestBuilderChecks.ps1` |
 | Statische Vertragsprüfung | implementiert | `Tests/Static/Invoke-DocumentationChecks.ps1` |
 
 ## 3. Öffentliche Cmdlets
@@ -66,6 +68,8 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | Cmdlet | Zweck |
 |---|---|
 | `Invoke-SqlServerLab` | Interaktives Menü |
+| `New-SqlServerLabManifest` | Manifest schema-gesteuert erstellen |
+| `Test-SqlServerLabManifest` | Manifest ohne Provisionierung prüfen |
 | `New-SqlServerLab` | Umgebung ad hoc oder per Manifest erstellen |
 | `Get-SqlServerLab` | State und Live-Status anzeigen |
 | `Start-SqlServerLab` | Gestoppte Umgebung starten |
@@ -73,10 +77,10 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `Restart-SqlServerLab` | Stop und Start kombinieren |
 | `Remove-SqlServerLab` | Einzelnen Run entfernen |
 | `Clear-SqlServerLab` | Lab-Container und/oder State bereinigen |
-| `New-LabDatabase` | Datenbank erzeugen |
-| `Restore-LabDatabase` | `.bak` aus Datei oder URL wiederherstellen |
-| `Invoke-LabScript` | T-SQL-Skript ausführen |
-| `Test-LabResources` | Provider, RAM, Storage und Ports prüfen |
+| `New-SqlServerLabDatabase` | Datenbank erzeugen |
+| `Restore-SqlServerLabDatabase` | `.bak` aus Datei oder URL wiederherstellen |
+| `Invoke-SqlServerLabScript` | T-SQL-Skript ausführen |
+| `Test-SqlServerLabPrerequisite` | Provider, RAM, Storage und Ports prüfen |
 
 Die Liste in `SqlServerLab.psd1` ist autoritativ.
 
@@ -161,5 +165,6 @@ Eine generische KI soll den Projektstand in dieser Reihenfolge ermitteln:
 Bei jeder Änderung müssen Code, Beispiel, Dokumentation und Test gemeinsam geprüft werden. Die statische Prüfung ist über folgenden Befehl ausführbar:
 
 ```powershell
+.\Tests\Static\Invoke-ManifestBuilderChecks.ps1
 .\Tests\Static\Invoke-DocumentationChecks.ps1
 ```

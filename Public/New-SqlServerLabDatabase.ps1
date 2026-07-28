@@ -5,10 +5,34 @@
     Erzeugt CREATE DATABASE T-SQL mit konfigurierbaren Data- und Log-Dateien,
     sicheren einfachen Bezeichnern, Collation und optionalen Basiseinstellungen.
     Das Feld path wird als absoluter Linux-Containerpfad verwendet.
+.PARAMETER HostName
+    Hostname oder IP-Adresse des SQL Servers. Standard ist 127.0.0.1.
+.PARAMETER Port
+    Host-Port der SQL-Server-Instanz.
+.PARAMETER SaPassword
+    SA-Passwort als SecureString.
+.PARAMETER DatabaseName
+    Name der neuen Datenbank. Erlaubt sind Buchstaben, Ziffern und Unterstriche;
+    das erste Zeichen muss ein Buchstabe sein.
+.PARAMETER Collation
+    Collation der neuen Datenbank. Standard ist
+    SQL_Latin1_General_CP1_CS_AS.
+.PARAMETER DataFiles
+    Array von Data-File-Definitionen mit name sowie optional path, sizeMB und
+    filegrowthMB. Ohne Angabe wird eine Data-Datei erzeugt.
+.PARAMETER LogFiles
+    Array von Log-File-Definitionen mit name sowie optional path, sizeMB und
+    filegrowthMB. Ohne Angabe wird eine Log-Datei erzeugt.
+.PARAMETER Options
+    Optionales Objekt mit Datenbankoptionen, die nach CREATE DATABASE
+    angewendet werden.
+.OUTPUTS
+    System.Management.Automation.PSCustomObject. Liefert das Ergebnis der
+    ausgefuehrten SQL-Batches.
 .EXAMPLE
-    New-LabDatabase -Port 14330 -SaPassword $pw -DatabaseName 'TestDB'
+    New-SqlServerLabDatabase -Port 14330 -SaPassword $pw -DatabaseName 'TestDB'
 #>
-function New-LabDatabase {
+function New-SqlServerLabDatabase {
     [CmdletBinding()]
     param(
         [string]$HostName = '127.0.0.1',

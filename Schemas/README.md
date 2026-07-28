@@ -89,12 +89,21 @@ Der Manifestparser akzeptiert automatisch nur Varianten mit direkter `.bak`-URL.
 
 ```powershell
 Import-Module .\SqlServerLab.psd1 -Force
+New-SqlServerLabManifest -Path .\mein-lab.json
+Test-SqlServerLabManifest -Path .\mein-lab.json
 New-SqlServerLab -Manifest .\Schemas\example-performance-lab.json
 ```
+
+`New-SqlServerLabManifest` liest den gesamten Eingabebaum aus
+`lab-manifest.schema.json`; neue Schemafelder werden dadurch automatisch im
+Konsolen-Wizard angeboten. Die anschliessende Fachvalidierung prueft zusaetzlich
+unter anderem Versionskatalog, Compatibility Level, Providerkombinationen,
+Samplevarianten und lokale Dateipfade.
 
 ## Validierung
 
 ```powershell
+.\Tests\Static\Invoke-ManifestBuilderChecks.ps1
 .\Tests\Static\Invoke-DocumentationChecks.ps1
 ```
 

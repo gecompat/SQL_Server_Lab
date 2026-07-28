@@ -4,12 +4,36 @@
 .DESCRIPTION
     Public Wrapper um Invoke-LabSqlScript. Unterstuetzt Pfad oder RunId-basierte
     Instanz-Aufloesung. GO-Batches werden korrekt getrennt.
+.PARAMETER ScriptPath
+    Pfad zu einer vorhandenen lokalen T-SQL-Datei.
+.PARAMETER HostName
+    Hostname oder IP-Adresse im direkten Verbindungsmodus. Standard ist
+    127.0.0.1.
+.PARAMETER Port
+    Host-Port der SQL-Server-Instanz im direkten Verbindungsmodus.
+.PARAMETER SaPassword
+    SA-Passwort als SecureString.
+.PARAMETER Database
+    Zieldatenbank fuer die Skriptausfuehrung. Standard ist master.
+.PARAMETER RunId
+    RunId einer gespeicherten Labumgebung. Host und Port werden aus deren
+    connection-info.json gelesen.
+.PARAMETER InstanceId
+    Instanz-ID innerhalb des Runs. Standard ist primary.
+.PARAMETER StateRoot
+    Optionales State-Stammverzeichnis fuer die RunId-basierte Aufloesung.
+.PARAMETER KeepConnection
+    Fuehrt alle GO-Batches ueber dieselbe sqlcmd-Verbindung aus. Der Alias
+    SingleConnection ist ebenfalls zulaessig.
+.OUTPUTS
+    System.Management.Automation.PSCustomObject. Liefert Success, Message,
+    Batches und Duration der Skriptausfuehrung.
 .EXAMPLE
-    Invoke-LabScript -ScriptPath './setup.sql' -Port 14330 -SaPassword $pw
+    Invoke-SqlServerLabScript -ScriptPath './setup.sql' -Port 14330 -SaPassword $pw
 .EXAMPLE
-    Invoke-LabScript -ScriptPath './setup.sql' -RunId $lab.RunId -InstanceId 'primary'
+    Invoke-SqlServerLabScript -ScriptPath './setup.sql' -RunId $lab.RunId -InstanceId 'primary'
 #>
-function Invoke-LabScript {
+function Invoke-SqlServerLabScript {
     [CmdletBinding(DefaultParameterSetName = 'Direct')]
     param(
         [Parameter(Mandatory)]

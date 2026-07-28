@@ -10,6 +10,12 @@
     Graceful-Shutdown-Timeout fuer die Container-Runtime.
 .PARAMETER Force
     Keine Bestaetigung abfragen.
+.INPUTS
+    System.Object. Objekte mit einer RunId-Eigenschaft koennen ueber die
+    Pipeline gebunden werden.
+.OUTPUTS
+    System.Management.Automation.PSCustomObject. Liefert RunId, Status, Action
+    und bei Fehlern deren Anzahl.
 .EXAMPLE
     Stop-SqlServerLab -RunId $lab.RunId
 #>

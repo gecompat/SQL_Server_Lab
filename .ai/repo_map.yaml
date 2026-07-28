@@ -12,6 +12,7 @@ sources_of_truth:
   module_loading: SqlServerLab.psm1
   manifest_structure: Schemas/lab-manifest.schema.json
   manifest_resolution: Private/ManifestParser.ps1
+  manifest_builder_validation: Private/ManifestBuilder.ps1
   sql_versions: Catalogs/sql-server-versions.json
   sample_databases: Catalogs/sample-databases.json
   state_contract: Private/StateMachine.ps1
@@ -22,6 +23,7 @@ sources_of_truth:
   user_walkthrough: Documentation/User/Getting_Started.md
   validation_documentation: Tests/Static/Invoke-DocumentationChecks.ps1
   validation_runtime_contracts: Tests/Static/Invoke-ReadinessContractChecks.ps1
+  validation_manifest_builder: Tests/Static/Invoke-ManifestBuilderChecks.ps1
   validation_runtime_matrix: Tests/Integration/Invoke-SmokeMatrix.ps1
   latest_validation_result: Documentation/Quality/VALIDATION_RESULT_2026-07-27.md
 
@@ -30,6 +32,15 @@ public_commands:
     source: Public/Invoke-SqlServerLab.ps1
     purpose: "Interaktives Menü"
     mutates_host: true
+  - name: New-SqlServerLabManifest
+    source: Public/New-SqlServerLabManifest.ps1
+    purpose: "Schema-gesteuertes Manifest interaktiv oder aus einem Objekt erstellen"
+    mutates_host: true
+    writes_files: true
+  - name: Test-SqlServerLabManifest
+    source: Public/New-SqlServerLabManifest.ps1
+    purpose: "Manifest gegen Schema, Kataloge und Runtime-Grenzen prüfen"
+    mutates_host: false
   - name: New-SqlServerLab
     source: Public/New-SqlServerLab.ps1
     purpose: "Lab ad hoc oder per Manifest erstellen"
@@ -65,26 +76,32 @@ public_commands:
     source: Public/Clear-SqlServerLab.ps1
     purpose: "Lab-Container und/oder State bereinigen"
     mutates_host: true
-  - name: New-LabDatabase
-    source: Public/New-LabDatabase.ps1
+  - name: New-SqlServerLabDatabase
+    source: Public/New-SqlServerLabDatabase.ps1
     purpose: "Datenbank mit konfigurierbaren Dateien und Containerpfaden erstellen"
     mutates_sql: true
-  - name: Restore-LabDatabase
-    source: Public/Restore-LabDatabase.ps1
+  - name: Restore-SqlServerLabDatabase
+    source: Public/Restore-SqlServerLabDatabase.ps1
     purpose: "Direkte .bak-Datei aus lokalem Pfad oder URL wiederherstellen"
     mutates_sql: true
     external_dependencies:
       - sqlcmd
-  - name: Invoke-LabScript
-    source: Public/Invoke-LabScript.ps1
+  - name: Invoke-SqlServerLabScript
+    source: Public/Invoke-SqlServerLabScript.ps1
     purpose: "T-SQL-Skript ausführen"
     mutates_sql: true
-  - name: Test-LabResources
+  - name: Test-SqlServerLabPrerequisite
     source: Private/ResourceAssessment.ps1
     purpose: "Provider, RAM, Storage und Ports ohne Mutation prüfen"
     mutates_host: false
 
 internal_components:
+  - name: ManifestBuilder
+    source: Private/ManifestBuilder.ps1
+    responsibilities:
+      - "alle Manifestfelder dynamisch aus dem JSON-Schema erfassen"
+      - "Schema-, Katalog- und Runtime-Grenzen vor dem Speichern prüfen"
+      - "Warnungen für vorbereitete oder riskante Konfigurationen erzeugen"
   - name: ManifestParser
     source: Private/ManifestParser.ps1
     responsibilities:
@@ -183,7 +200,7 @@ state_files:
 provisioning_flow:
   - "Read-LabManifest oder Ad-hoc-Normalisierung"
   - "Test-SqlServerVersionSupported"
-  - "Test-LabResources"
+  - "Test-SqlServerLabPrerequisite"
   - "New-LabRunState"
   - "New-CleanupPlan"
   - "Invoke-LabPortAllocationLock"
@@ -191,14 +208,21 @@ provisioning_flow:
   - "Provider-Container erstellen und Port runtimeautoritativ binden"
   - "Wait-SqlReady"
   - "Set-LabServerConfig"
-  - "New-LabDatabase für Create-Datenbanken"
-  - "Restore-LabDatabase für Restore- und Sample-Datenbanken"
+  - "New-SqlServerLabDatabase für Create-Datenbanken"
+  - "Restore-SqlServerLabDatabase für Restore- und Sample-Datenbanken"
   - "Set-LabDatabaseOptions"
   - "Invoke-LabSqlScript für postProvision"
   - "connection-info.json schreiben"
   - "State RUNNING"
 
 validation:
+  static_manifest_builder:
+    command: ".\Tests\Static\Invoke-ManifestBuilderChecks.ps1"
+    source: Tests/Static/Invoke-ManifestBuilderChecks.ps1
+    covers:
+      - schema_validation
+      - semantic_validation
+      - atomic_manifest_write
   static_documentation:
     command: ".\Tests\Static\Invoke-DocumentationChecks.ps1"
     source: Tests/Static/Invoke-DocumentationChecks.ps1

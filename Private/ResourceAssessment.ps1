@@ -1,18 +1,28 @@
-<#
-.SYNOPSIS
-    Resource-Assessment fuer SQL_Server_Lab.
-.DESCRIPTION
-    Read-only Pruefung von RAM, Storage, Ports, Provider-Verfuegbarkeit
-    und Pfadsicherheit VOR jeder Mutation.
-#>
-
-function Test-LabResources {
+function Test-SqlServerLabPrerequisite {
     <#
-    .SYNOPSIS Fuehrt ein vollstaendiges Resource-Assessment durch.
-    .PARAMETER Instances Array von Instanz-Definitionen (aus Manifest).
-    .PARAMETER Provider Gewaehlter Provider-Name.
-    .PARAMETER TargetPath Zielpfad fuer Daten (optional).
-    .OUTPUTS PSCustomObject mit Status, Details pro Kategorie.
+    .SYNOPSIS
+        Fuehrt ein vollstaendiges Resource-Assessment durch.
+    .DESCRIPTION
+        Prueft Provider-Verfuegbarkeit, RAM, Storage, Ports und optional die
+        Sicherheit eines Zielpfads, ohne Labressourcen zu erstellen oder zu
+        veraendern.
+    .PARAMETER Instances
+        Array von Instanzdefinitionen, typischerweise aus einem aufgeloesten
+        Manifest. Ohne Angabe werden hostweite Basispruefungen ausgefuehrt.
+    .PARAMETER Provider
+        Zu pruefender Provider. Standard ist docker.
+    .PARAMETER TargetPath
+        Optionaler Zielpfad fuer Storage- und Pfadsicherheitspruefungen.
+    .PARAMETER RepositoryRoot
+        Optionales Repository-Stammverzeichnis. Wird zur Bewertung verwendet,
+        ob TargetPath gefaehrlich innerhalb des Quellrepositorys liegt.
+    .OUTPUTS
+        System.Management.Automation.PSCustomObject. Liefert Status, Timestamp
+        und Details pro Pruefkategorie.
+    .EXAMPLE
+        Test-SqlServerLabPrerequisite -Provider docker
+
+        Prueft Docker sowie die verfuegbaren Hostressourcen ohne Mutation.
     #>
     [CmdletBinding()]
     param(

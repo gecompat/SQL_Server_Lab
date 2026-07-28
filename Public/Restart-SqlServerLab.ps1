@@ -10,6 +10,12 @@
     Maximale Wartezeit fuer SQL-Bereitschaft nach Neustart (Default: 60s).
 .PARAMETER Force
     Keine Bestaetigung abfragen.
+.INPUTS
+    System.Object. Objekte mit einer RunId-Eigenschaft koennen ueber die
+    Pipeline gebunden werden.
+.OUTPUTS
+    System.Management.Automation.PSCustomObject. Liefert das Ergebnis des
+    anschliessenden Startvorgangs oder den uebersprungenen Status.
 .EXAMPLE
     Restart-SqlServerLab -RunId $lab.RunId
 #>

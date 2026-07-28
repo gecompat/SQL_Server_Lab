@@ -1,14 +1,3 @@
-<#
-.SYNOPSIS
-    Stellt eine Datenbank aus einer direkten .bak-Datei wieder her.
-.DESCRIPTION
-    Unterstuetzt lokale Dateien und HTTP(S)-URLs. Das Backup wird in den
-    eindeutig bestimmten Docker- oder Podman-Container kopiert und mit
-    RESTORE FILELISTONLY sowie RESTORE DATABASE ... WITH MOVE verarbeitet.
-.EXAMPLE
-    Restore-LabDatabase -Provider docker -ContainerName $lab.Instances[0].ContainerName -Port $lab.Instances[0].Port -SaPassword $pw -BackupSource 'C:\Backups\AW.bak' -DatabaseName 'AdventureWorks'
-#>
-
 function Resolve-LabRestoreContainer {
     [CmdletBinding()]
     param(
@@ -105,7 +94,57 @@ function Resolve-LabRestoreContainer {
     return $matches[0]
 }
 
-function Restore-LabDatabase {
+function Restore-SqlServerLabDatabase {
+    <#
+    .SYNOPSIS
+        Stellt eine Datenbank aus einer direkten .bak-Datei wieder her.
+    .DESCRIPTION
+        Verarbeitet eine lokale Backup-Datei oder eine HTTP(S)-URL. Das Backup
+        wird in den eindeutig bestimmten Docker- oder Podman-Labcontainer kopiert
+        und mit RESTORE FILELISTONLY sowie RESTORE DATABASE WITH MOVE
+        wiederhergestellt.
+    .PARAMETER HostName
+        Hostname oder IP-Adresse des SQL Servers. Standard ist 127.0.0.1.
+    .PARAMETER Port
+        Host-Port der SQL-Server-Instanz. Der Port dient auch zur automatischen
+        Zuordnung des Labcontainers, wenn ContainerName nicht angegeben ist.
+    .PARAMETER SaPassword
+        SA-Passwort als SecureString.
+    .PARAMETER BackupSource
+        Pfad zu einer vorhandenen lokalen .bak-Datei oder direkte HTTP(S)-URL.
+        URLs werden vor dem Restore in den State-Cache heruntergeladen.
+    .PARAMETER DatabaseName
+        Name der Zieldatenbank. Erlaubt sind Buchstaben, Ziffern und Unterstriche;
+        das erste Zeichen muss ein Buchstabe sein.
+    .PARAMETER Provider
+        Optionaler Containerprovider docker oder podman. Schrankt die Suche nach
+        dem Zielcontainer ein.
+    .PARAMETER ContainerName
+        Optionaler Name des SQL_Server_Lab-Containers. Die explizite Angabe
+        verhindert Mehrdeutigkeit bei mehreren passenden Instanzen.
+    .PARAMETER DataPath
+        Absoluter Linux-Pfad fur die wiederhergestellten Daten- und Logdateien im
+        Container. Standard ist /var/opt/mssql/data.
+    .PARAMETER Replace
+        Fuegt der Wiederherstellung WITH REPLACE hinzu und erlaubt das
+        Ueberschreiben einer vorhandenen Zieldatenbank.
+    .PARAMETER StateRoot
+        Optionales State-Stammverzeichnis fur den Download-Cache. Ohne Angabe
+        wird der Framework-Default verwendet.
+    .OUTPUTS
+        System.Management.Automation.PSCustomObject. Liefert das Ergebnis der
+        Wiederherstellung einschliesslich Ziel- und Backupinformationen.
+    .EXAMPLE
+        Restore-SqlServerLabDatabase -Provider docker -ContainerName $lab.Instances[0].ContainerName -Port $lab.Instances[0].Port -SaPassword $pw -BackupSource 'C:\Backups\AW.bak' -DatabaseName 'AdventureWorks'
+
+        Stellt eine lokale Backup-Datei in einem explizit benannten Container
+        wieder her.
+    .EXAMPLE
+        Restore-SqlServerLabDatabase -Port 14330 -SaPassword $pw -BackupSource 'https://example.invalid/database.bak' -DatabaseName 'RestoreDemo'
+
+        Ladt ein Backup in den State-Cache und ermittelt den Container anhand des
+        Host-Ports.
+    #>
     [CmdletBinding()]
     param(
         [string]$HostName = '127.0.0.1',

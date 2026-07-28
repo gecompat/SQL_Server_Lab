@@ -6,6 +6,9 @@
     alle Operationen ueber nummerierte Auswahl an.
 .PARAMETER Action
     Optionale Direkt-Aktion (ueberspringt das Menue).
+.OUTPUTS
+    Keine. Die Funktion ist eine interaktive Benutzeroberflaeche und delegiert
+    die gewaehlte Aktion an die entsprechenden SqlServerLab-Commands.
 .EXAMPLE
     Invoke-SqlServerLab
 .EXAMPLE
@@ -14,7 +17,7 @@
 function Invoke-SqlServerLab {
     [CmdletBinding()]
     param(
-        [ValidateSet('New', 'Status', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'Script', 'Database')]
+        [ValidateSet('New', 'Manifest', 'Status', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'Script', 'Database')]
         [string]$Action
     )
 
@@ -36,6 +39,7 @@ function Invoke-SqlServerLab {
 
         switch ($choice) {
             '1' { Invoke-LabAction -ActionName 'New' }
+            'm' { Invoke-LabAction -ActionName 'Manifest' }
             '2' { Invoke-LabAction -ActionName 'Status' }
             '3' { Invoke-LabAction -ActionName 'Stop' }
             '4' { Invoke-LabAction -ActionName 'Start' }
@@ -106,6 +110,7 @@ function Show-LabMenu {
     Write-Host "  Aktionen:" -ForegroundColor White
     Write-Host ""
     Write-Host "    [1] Neue Umgebung erstellen" -ForegroundColor Yellow
+    Write-Host "    [m] Manifest erstellen und pruefen" -ForegroundColor Yellow
     Write-Host "    [2] Status anzeigen" -ForegroundColor White
     Write-Host "    [3] Umgebung stoppen" -ForegroundColor White
     Write-Host "    [4] Umgebung starten" -ForegroundColor White
@@ -128,6 +133,19 @@ function Invoke-LabAction {
     Write-Host ""
 
     switch ($ActionName) {
+        'Manifest' {
+            $manifestPath = Read-Host '  Manifest-Zielpfad [.\lab-manifest.json]'
+            if (-not $manifestPath) {
+                $manifestPath = '.\lab-manifest.json'
+            }
+
+            $null = New-SqlServerLabManifest -Path $manifestPath
+            if ((Test-Path -LiteralPath $manifestPath -PathType Leaf) -and
+                (Read-LabConfirm -Prompt 'Umgebung jetzt aus diesem Manifest erstellen?' -Default $false)) {
+                $lab = New-SqlServerLab -Manifest $manifestPath
+                Write-LabSuccess "Lab erstellt. RunId: $($lab.RunId)"
+            }
+        }
         'New' {
             # Verfuegbare Provider ermitteln
             $availableProviders = @(Get-AvailableLabProviders)
@@ -253,7 +271,7 @@ function Invoke-LabAction {
             if (-not $dbName) { return }
 
             $pw = Read-Host "  SA-Passwort" -AsSecureString
-            New-LabDatabase -Port $port -SaPassword $pw -DatabaseName $dbName
+            New-SqlServerLabDatabase -Port $port -SaPassword $pw -DatabaseName $dbName
         }
 
         'Script' {
@@ -281,7 +299,7 @@ function Invoke-LabAction {
             if (-not $db) { $db = 'master' }
 
             $pw = Read-Host "  SA-Passwort" -AsSecureString
-            Invoke-LabScript -ScriptPath $scriptPath -Port $port -SaPassword $pw -Database $db
+            Invoke-SqlServerLabScript -ScriptPath $scriptPath -Port $port -SaPassword $pw -Database $db
         }
     }
 }
