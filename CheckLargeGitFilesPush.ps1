@@ -269,7 +269,7 @@ try {
 
     if ($relativePaths.Count -gt 0) {
         if ($useParallel) {
-            $matches = $relativePaths | ForEach-Object -Parallel {
+            $largeFiles = $relativePaths | ForEach-Object -Parallel {
                 $relativePath = $_
                 $fullPath = Join-Path $Using:GitRoot $relativePath
 
@@ -288,7 +288,7 @@ try {
             } -ThrottleLimit $ParallelThrottleLimit
         }
         else {
-            $matches = foreach ($relativePath in $relativePaths) {
+            $largeFiles = foreach ($relativePath in $relativePaths) {
                 $fullPath = Join-Path $GitRoot $relativePath
 
                 if (Test-Path -LiteralPath $fullPath -PathType Leaf) {
@@ -307,17 +307,17 @@ try {
         }
     }
     else {
-        $matches = @()
+        $largeFiles = @()
     }
 
-    $matches = @($matches) |
+    $largeFiles = @($largeFiles) |
         Where-Object { $null -ne $_ } |
         Sort-Object @(
             @{ Expression = 'SizeBytes'; Descending = $true }
             @{ Expression = 'RelativePath'; Descending = $false }
         )
 
-    if ($matches.Count -gt 0) {
+    if ($largeFiles.Count -gt 0) {
         if (-not [string]::IsNullOrWhiteSpace($LogDirectory)) {
             $null = New-Item -ItemType Directory -Path $LogDirectory -Force
         }
@@ -336,7 +336,7 @@ try {
             ''
         )
 
-        foreach ($item in $matches) {
+        foreach ($item in $largeFiles) {
             $logLines += "{0}`t{1:N2} MB" -f $item.RelativePath, $item.SizeMB
         }
 
@@ -345,7 +345,7 @@ try {
         Write-ScriptMessage -Message '---------------------------' -Color DarkCyan -BlankLineBefore
         Write-ScriptMessage -Message ("Folgende Files größer als {0} MB wurden gefunden:" -f $LimitMB) -Color Red -BlankLineAfter
 
-        foreach ($item in $matches) {
+        foreach ($item in $largeFiles) {
             Write-ScriptMessage -Message ("{0}`t{1:N2} MB" -f $item.FullPath, $item.SizeMB) -Color Red
         }
 

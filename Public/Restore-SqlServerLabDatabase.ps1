@@ -7,7 +7,7 @@ function Resolve-LabRestoreContainer {
     )
 
     $candidateProviders = if ($Provider) { @($Provider) } else { @('docker', 'podman') }
-    $matches = @()
+    $containerCandidates = @()
 
     foreach ($candidateProvider in $candidateProviders) {
         if (-not (Get-Command $candidateProvider -ErrorAction SilentlyContinue)) {
@@ -28,7 +28,7 @@ function Resolve-LabRestoreContainer {
                 if (-not $runId) {
                     throw "Container '$ContainerName' bei $candidateProvider ist kein SQL_Server_Lab-Container."
                 }
-                $matches += [PSCustomObject]@{
+                $containerCandidates += [PSCustomObject]@{
                     Provider      = $candidateProvider
                     ContainerName = ([string]$item.Name).TrimStart('/')
                     RunId         = $runId
@@ -59,7 +59,7 @@ function Resolve-LabRestoreContainer {
             }
 
             $item = @($inspect)[0]
-            $matches += [PSCustomObject]@{
+            $containerCandidates += [PSCustomObject]@{
                 Provider      = $candidateProvider
                 ContainerName = ([string]$item.Name).TrimStart('/')
                 RunId         = [string]$item.Config.Labels.'sql-server-lab.run-id'
@@ -68,12 +68,12 @@ function Resolve-LabRestoreContainer {
         }
     }
 
-    $matches = @(
-        $matches |
+    $containerCandidates = @(
+        $containerCandidates |
             Sort-Object Provider, ContainerName -Unique
     )
 
-    if ($matches.Count -eq 0) {
+    if ($containerCandidates.Count -eq 0) {
         $targetText = if ($ContainerName) {
             "Container '$ContainerName'"
         }
@@ -83,15 +83,15 @@ function Resolve-LabRestoreContainer {
         throw "$targetText wurde bei keinem erreichbaren Provider gefunden."
     }
 
-    if ($matches.Count -gt 1) {
-        $matchText = $matches |
+    if ($containerCandidates.Count -gt 1) {
+        $matchText = $containerCandidates |
             ForEach-Object { "$($_.Provider):$($_.ContainerName)" } |
             Sort-Object |
             Join-String -Separator ', '
         throw "Restore-Ziel ist nicht eindeutig: $matchText. Bitte -Provider und -ContainerName angeben."
     }
 
-    return $matches[0]
+    return $containerCandidates[0]
 }
 
 function Restore-SqlServerLabDatabase {
