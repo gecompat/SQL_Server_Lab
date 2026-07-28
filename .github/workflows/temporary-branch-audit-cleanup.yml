@@ -1,0 +1,156 @@
+name: Temporary branch audit and cleanup
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  audit-cleanup:
+    if: github.head_ref == 'automation/branch-audit-cleanup-20260728'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Audit and delete provably obsolete branches
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          DEFAULT_BRANCH: main
+          AUDIT_BRANCH: automation/branch-audit-cleanup-20260728
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          import sys
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+
+          token = os.environ['GH_TOKEN']
+          repository = os.environ['REPOSITORY']
+          owner, repo = repository.split('/', 1)
+          default_branch = os.environ['DEFAULT_BRANCH']
+          audit_branch = os.environ['AUDIT_BRANCH']
+          api_root = f'https://api.github.com/repos/{repository}'
+
+          def request(path, method='GET'):
+              url = path if path.startswith('https://') else api_root + path
+              req = urllib.request.Request(
+                  url,
+                  method=method,
+                  headers={
+                      'Authorization': f'Bearer {token}',
+                      'Accept': 'application/vnd.github+json',
+                      'X-GitHub-Api-Version': '2022-11-28',
+                      'User-Agent': 'sql-server-lab-branch-audit',
+                  },
+              )
+              try:
+                  with urllib.request.urlopen(req, timeout=30) as response:
+                      body = response.read()
+                      return json.loads(body) if body else None, response.headers
+              except urllib.error.HTTPError as exc:
+                  detail = exc.read().decode('utf-8', errors='replace')
+                  raise RuntimeError(f'{method} {url} failed: HTTP {exc.code}: {detail}') from exc
+
+          def paged(path):
+              page = 1
+              items = []
+              while True:
+                  separator = '&' if '?' in path else '?'
+                  batch, _ = request(f'{path}{separator}per_page=100&page={page}')
+                  if not batch:
+                      return items
+                  items.extend(batch)
+                  if len(batch) < 100:
+                      return items
+                  page += 1
+
+          branches = paged('/branches')
+          report = []
+
+          for item in branches:
+              branch = item['name']
+              if branch in {default_branch, audit_branch}:
+                  continue
+
+              encoded_compare = urllib.parse.quote(f'{default_branch}...{branch}', safe='.../')
+              comparison, _ = request(f'/compare/{encoded_compare}')
+              ahead = int(comparison.get('ahead_by', 0))
+              behind = int(comparison.get('behind_by', 0))
+              status = comparison.get('status', 'unknown')
+
+              encoded_head = urllib.parse.quote(f'{owner}:{branch}', safe=':')
+              pull_requests = paged(f'/pulls?state=all&head={encoded_head}')
+              open_prs = [pr['number'] for pr in pull_requests if pr.get('state') == 'open']
+              merged_prs = [pr['number'] for pr in pull_requests if pr.get('merged_at')]
+
+              encoded_branch = urllib.parse.quote(branch, safe='/')
+              branch_commit, _ = request(f'/commits/{encoded_branch}')
+              default_commit, _ = request(f'/commits/{urllib.parse.quote(default_branch)}')
+              same_tree = branch_commit['commit']['tree']['sha'] == default_commit['commit']['tree']['sha']
+
+              action = 'KEEP_UNIQUE_CHANGES'
+              reason = 'unique commits require content review before merge or deletion'
+              should_delete = False
+
+              if open_prs:
+                  action = 'KEEP_OPEN_PR'
+                  reason = f'open pull request(s): {open_prs}'
+              elif ahead == 0:
+                  action = 'DELETE_NO_UNIQUE_COMMITS'
+                  reason = 'branch has no commits ahead of main'
+                  should_delete = True
+              elif same_tree:
+                  action = 'DELETE_TREE_IDENTICAL'
+                  reason = 'branch tree is identical to main'
+                  should_delete = True
+              elif merged_prs:
+                  action = 'DELETE_MERGED_PR'
+                  reason = f'branch has merged pull request(s): {merged_prs}'
+                  should_delete = True
+              elif branch.startswith('test/'):
+                  action = 'DELETE_TEMP_TEST'
+                  reason = 'temporary test branch without open pull request'
+                  should_delete = True
+
+              deleted = False
+              if should_delete:
+                  request(f'/git/refs/heads/{encoded_branch}', method='DELETE')
+                  deleted = True
+
+              record = {
+                  'branch': branch,
+                  'action': action,
+                  'reason': reason,
+                  'ahead_by': ahead,
+                  'behind_by': behind,
+                  'status': status,
+                  'open_prs': open_prs,
+                  'merged_prs': merged_prs,
+                  'deleted': deleted,
+                  'head_sha': item['commit']['sha'],
+              }
+              report.append(record)
+              print('AUDIT\t' + json.dumps(record, ensure_ascii=False, sort_keys=True))
+
+          summary_path = os.environ.get('GITHUB_STEP_SUMMARY')
+          if summary_path:
+              with open(summary_path, 'a', encoding='utf-8') as summary:
+                  summary.write('# Branch audit and cleanup\n\n')
+                  summary.write('| Branch | Decision | Ahead | Behind | Deleted | Reason |\n')
+                  summary.write('|---|---:|---:|---:|---:|---|\n')
+                  for record in report:
+                      reason = record['reason'].replace('|', '\\|')
+                      summary.write(
+                          f"| `{record['branch']}` | `{record['action']}` | {record['ahead_by']} | "
+                          f"{record['behind_by']} | {record['deleted']} | {reason} |\n"
+                      )
+
+          if any(record['action'] == 'KEEP_UNIQUE_CHANGES' for record in report):
+              print('Unique branches remain and require explicit review.', file=sys.stderr)
+          PY
