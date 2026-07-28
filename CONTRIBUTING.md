@@ -37,7 +37,7 @@ Bei Unsicherheit muss die Verarbeitung vor dem Schreiben oder Committen angehalt
 
 ## Commit-Nachrichten
 
-Commit-Nachrichten sollen knapp und fachlich eindeutig sein.
+Commit-Nachrichten sollen knapp und fachlich eindeutig sein. Die bestehende Projektkonvention verwendet englische Commit Messages; diese eigenständige Konvention ist kein Verstoß gegen die deutsche Dokumentationssprache.
 
 Für von einer KI erzeugte Änderungen muss die Commit-Nachricht mit dem Namen der tatsächlich ausführenden KI und einem Doppelpunkt beginnen. Die KI verwendet dabei ihre eigene Produkt- oder Agentenbezeichnung und nicht pauschal einen gemeinsamen Sammelbegriff.
 
@@ -148,14 +148,26 @@ Bei Runtimeänderungen zusätzlich:
 
 Nur verfügbare Provider können lokal getestet werden. Ein nicht ausgeführter Test muss im Pull Request ausdrücklich genannt werden.
 
-## Dokumentationsstandard
+## Sprachstil und Übersetzungen
 
-- Dokumentationssprache ist Deutsch; etablierte englische Fachbegriffe bleiben erhalten.
-- Beispiele verwenden keine individuellen Entwicklerpfade.
-- Befehle müssen den tatsächlich vorhandenen Parametern entsprechen.
+- Die Primärsprache der aktiven Projektdokumentation ist Deutsch.
+- Jedes Dokument und jeder zusammenhängende Text verwendet grundsätzlich eine klare Hauptsprache. Unbeabsichtigte Mischsprache ist zu vermeiden.
+- Technische Fachbegriffe, Produktnamen, Programmiersprachen, SQL-Befehle, API-Namen, Dateinamen, Parameter, Cmdlets, Klassen-, Funktions- und Variablennamen werden nicht übersetzt.
+- Etablierte englische IT-Begriffe wie `Repository`, `Branch`, `Commit`, `Pull Request`, `Workflow`, `Provider`, `Runtime`, `State`, `Cleanup` oder `Smoke Test` dürfen in deutscher Dokumentation verwendet werden, wenn eine deutsche Übersetzung ungebräuchlich oder missverständlich wäre.
+- Künstliche oder neu erfundene Übersetzungen technischer Begriffe sind nicht zulässig.
+- Gleiche Fachbegriffe werden projektweit konsistent verwendet; synonyme Wechsel wie `Provider`/`Anbieter` oder `Branch`/`Zweig` sind zu vermeiden.
+- Bestehende Dokumentation wird nicht allein zur sprachlichen Vereinheitlichung vollständig übersetzt. Übersetzungen erfolgen nur auf ausdrücklichen Auftrag, zur Behebung eines konkreten Konsistenzproblems oder für ausdrücklich gepflegte Sprachversionen.
+- Neue Texte orientieren sich am Sprachstil des jeweiligen Dokuments und fügen sich unauffällig in die vorhandene hochwertige Dokumentation ein.
+- Kommentare in Quellcode folgen der im jeweiligen File bereits vorherrschenden Sprache. Bestehende Kommentare werden nicht ohne fachlichen Grund übersetzt.
+- Texte sind sachlich, eindeutig, technisch präzise, gut lesbar und möglichst zeitlos zu formulieren.
+- Marketing-Sprache, übertriebene Werbung, unnötige Füllwörter, emotionale Wertungen, Spekulationen und unbegründete Behauptungen sind zu vermeiden.
+- Aktive Formulierungen sind zu bevorzugen, sofern sie klarer sind als passive Formulierungen.
+- Code, Befehle, Konfigurationswerte und Beispiele bleiben technisch unverändert und müssen der tatsächlichen Implementierung entsprechen; sie werden nicht sinngemäß übersetzt.
+- Ist-Stand, Planung, Entscheidung und Vermutung sind sprachlich klar zu trennen.
 - Nicht implementierte oder teilweise implementierte Funktionen werden ausdrücklich gekennzeichnet.
+- Beispiele verwenden keine individuellen Entwicklerpfade.
 - Relative Links und referenzierte Dateien müssen existieren.
-- Planungsdokumente werden klar von aktuellem Runtimeverhalten getrennt.
+- Projekt- oder artefaktspezifische Sprachkonventionen, etwa englische Commit Messages, bleiben erhalten und werden ausdrücklich dokumentiert.
 
 ## Pull-Request-Abnahme
 
