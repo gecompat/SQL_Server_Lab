@@ -121,19 +121,31 @@ Restore, Attach, Archiv, SQL-Skript und Backupkette sind unterschiedliche Vertr�
 - lokale Secretdateien nur unter ignoriertem Run-Scope;
 - Cleanup entfernt temporäre Secretdateien.
 
-## 11. Dokumentation
+## 11. Sprachstil, Dokumentation und Übersetzungen
 
-- Deutsch;
-- etablierte englische Fachbegriffe bleiben erhalten;
-- vollständige und überprüfbare Sätze;
-- Ist-Stand, Planung, Entscheidung und Vermutung trennen;
-- SQL-Version, Provider und Capability-Grenze nennen;
-- geplante Commands nicht als implementiert darstellen;
-- Beispiele verwenden keine individuellen Entwicklerpfade;
-- dokumentierte Parameter müssen tatsächlich existieren;
-- relative Links und Dateiverweise müssen funktionieren;
-- Supporting Technologies immer über ihren SQL-Zweck erklären;
+- Primärsprache der aktiven Projektdokumentation ist Deutsch.
+- Jedes Dokument und jeder zusammenhängende Text verwendet grundsätzlich eine klare Hauptsprache; unbeabsichtigte Mischsprache ist zu vermeiden.
+- Etablierte englische Fachbegriffe bleiben erhalten, wenn eine Übersetzung ungebräuchlich, künstlich oder missverständlich wäre.
+- Produktnamen, Programmiersprachen, SQL-Befehle, APIs, Dateinamen, Parameter, Cmdlets, Klassen-, Funktions- und Variablennamen werden nicht übersetzt.
+- Gleiche Fachbegriffe werden projektweit konsistent verwendet; keine wechselnden Varianten wie `Provider`/`Anbieter`, `Branch`/`Zweig` oder `Commit`/`Einspielung`.
+- Keine neuen technischen Fachbegriffe oder künstlichen Übersetzungen erfinden.
+- Bestehende Dokumentation nicht allein wegen ihrer Sprache übersetzen. Übersetzungen nur auf ausdrücklichen Auftrag, zur Behebung eines konkreten Konsistenzproblems oder für ausdrücklich gepflegte Sprachversionen.
+- Neue Texte an den Sprachstil des jeweiligen Dokuments anpassen.
+- Kommentare im Quellcode folgen der im jeweiligen File vorherrschenden Sprache; bestehende Kommentare nicht ohne fachlichen Grund übersetzen.
+- Sachlich, eindeutig, technisch präzise, gut lesbar und möglichst zeitlos formulieren.
+- Marketing-Sprache, übertriebene Werbung, unnötige Füllwörter, emotionale Wertungen, Spekulationen und unbegründete Behauptungen vermeiden.
+- Aktive Formulierungen bevorzugen, wenn sie klarer sind.
+- Vollständige und überprüfbare Sätze verwenden.
+- Ist-Stand, Planung, Entscheidung und Vermutung trennen.
+- SQL-Version, Provider und Capability-Grenze nennen.
+- Geplante Commands nicht als implementiert darstellen.
+- Beispiele verwenden keine individuellen Entwicklerpfade.
+- Dokumentierte Parameter müssen tatsächlich existieren.
+- Code, Befehle, Konfigurationswerte und Beispiele nicht sinngemäß übersetzen oder technisch verändern.
+- Relative Links und Dateiverweise müssen funktionieren.
+- Supporting Technologies immer über ihren SQL-Zweck erklären.
 - Root-README, Getting Started, Known Limitations und Repo-Map bilden gemeinsam die Front Door.
+- Artefaktspezifische Sprachkonventionen bleiben erhalten; insbesondere verwendet das Projekt weiterhin englische Commit Messages mit dem vorgeschriebenen KI-Präfix.
 
 ## 12. Validierung
 
@@ -177,6 +189,7 @@ CI/CD ist keine Voraussetzung für lokale Produktfunktion. Statische Checks dür
 - vorhandene parallele PRs respektieren;
 - Branches nach Abschluss mergen oder löschen;
 - Commit- und PR-Beschreibung nennen Scope, Auswirkungen und Validierung;
+- Commit Messages verwenden gemäß Projektkonvention Englisch;
 - von einer KI erzeugte Änderungen erhalten in der ersten Zeile der Commit-Nachricht zwingend das Präfix `<KI-Name>: `; die KI verwendet ihre tatsächliche Produkt- oder Agentenbezeichnung, zum Beispiel `ChatGPT:`, `Codex:` oder `Genie:`;
 - bei direkten KI-Commits ist ein zusätzlicher mehrzeiliger Commit-Body zulässig; nur die erste Zeile benötigt das Präfix;
 - liefert eine KI wegen fehlendem Repositoryzugriff Dateien, Patches oder Downloadartefakte zur manuellen Übernahme, stellt sie zusätzlich eine vollständige einzeilige Commit-Nachricht mit ihrem Präfix in einem separat kopierbaren Textblock bereit;
