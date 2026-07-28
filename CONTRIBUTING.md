@@ -37,15 +37,35 @@ Bei Unsicherheit muss die Verarbeitung vor dem Schreiben oder Committen angehalt
 
 ## Commit-Nachrichten
 
-Commit-Nachrichten sollen knapp und fachlich eindeutig sein. Bei einem einzelnen logischen Schritt genügt eine einzeilige Nachricht.
+Commit-Nachrichten sollen knapp und fachlich eindeutig sein.
+
+Für von einer KI erzeugte Änderungen muss die Commit-Nachricht mit dem Namen der tatsächlich ausführenden KI und einem Doppelpunkt beginnen. Die KI verwendet dabei ihre eigene Produkt- oder Agentenbezeichnung und nicht pauschal einen gemeinsamen Sammelbegriff.
+
+Format:
+
+```text
+<KI-Name>: <Commit-Nachricht>
+```
 
 Beispiele:
 
 ```text
-Correct Podman lifecycle provider selection
-Add sample catalog schema validation
-Align Getting Started with implemented restore parameters
+ChatGPT: Correct Podman lifecycle provider selection
+Codex: Add sample catalog schema validation
+Genie: Align Getting Started with implemented restore parameters
 ```
+
+Bei einem direkten Commit durch die KI darf die Commit-Nachricht zusätzlich einen mehrzeiligen Body enthalten, wenn dies für Scope, Auswirkungen oder Validierung sinnvoll ist. Das Präfix ist nur in der ersten Zeile erforderlich.
+
+Kann die KI nicht direkt auf das Repository zugreifen und liefert stattdessen Dateien, einen Patch oder ein Downloadartefakt zur manuellen Übernahme, muss sie zusätzlich eine vollständige einzeilige Commit-Nachricht in einem separat kopierbaren Textblock bereitstellen. Auch diese Nachricht verwendet das KI-Präfix.
+
+Beispiel für eine manuelle Übernahme:
+
+```text
+ChatGPT: Add GitHub-hosted Docker smoke
+```
+
+Für ausschließlich von Menschen erstellte Änderungen ist kein KI-Präfix erforderlich.
 
 ## PowerShell-Regeln
 
