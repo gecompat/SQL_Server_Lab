@@ -135,9 +135,9 @@ function Test-RamAvailability {
 
     $requiredMB = 0
     foreach ($inst in $Instances) {
-        $profile = if ($inst.profile) { $inst.profile } else { 'standard' }
+        $resourceProfileName = if ($inst.profile) { $inst.profile } else { 'standard' }
         try {
-            $profileDef = Get-LabResourceProfile -Name $profile
+            $profileDef = Get-LabResourceProfile -Name $resourceProfileName
             $requiredMB += $profileDef.maxMemoryMB
         } catch {
             $requiredMB += 4096  # Default
