@@ -209,8 +209,8 @@ try {
             continue
         }
 
-        $assessment = Invoke-TestStep -Name "Test-LabResources ($implementedProvider)" -Action {
-            Test-LabResources -Provider $implementedProvider
+        $assessment = Invoke-TestStep -Name "Test-SqlServerLabPrerequisite ($implementedProvider)" -Action {
+            Test-SqlServerLabPrerequisite -Provider $implementedProvider
         }
 
         if ($assessment) {
@@ -221,7 +221,7 @@ try {
         }
     }
 
-    $selectedAssessment = Test-LabResources -Provider $Provider
+    $selectedAssessment = Test-SqlServerLabPrerequisite -Provider $Provider
     if ($selectedAssessment.Status -eq 'RESOURCE_HARD_BLOCK') {
         throw "Gewaehlter Provider '$Provider' ist im Resource Assessment blockiert."
     }
@@ -272,10 +272,10 @@ try {
     # =========================================================================
     # T4: Datenbankerstellung
     # =========================================================================
-    Write-TestHeader 'T4: New-LabDatabase'
+    Write-TestHeader 'T4: New-SqlServerLabDatabase'
 
     $databaseResult = Invoke-TestStep -Name 'Datenbank mit zwei Data-Files erstellen' -Action {
-        New-LabDatabase `
+        New-SqlServerLabDatabase `
             -Port $script:Lab.Instances[0].Port `
             -SaPassword $SaPassword `
             -DatabaseName 'SmokeTestDB' `
@@ -317,7 +317,7 @@ try {
     # =========================================================================
     # T5: Skriptausfuehrung
     # =========================================================================
-    Write-TestHeader 'T5: Invoke-LabScript'
+    Write-TestHeader 'T5: Invoke-SqlServerLabScript'
 
     $script:TemporarySqlPath = Join-Path $PSScriptRoot 'smoke-test-query.generated.sql'
     @"
@@ -332,7 +332,7 @@ GO
 "@ | Set-Content -LiteralPath $script:TemporarySqlPath -Encoding utf8
 
     $scriptResult = Invoke-TestStep -Name 'SQL-Skript ausfuehren' -Action {
-        Invoke-LabScript `
+        Invoke-SqlServerLabScript `
             -ScriptPath $script:TemporarySqlPath `
             -Port $script:Lab.Instances[0].Port `
             -SaPassword $SaPassword `

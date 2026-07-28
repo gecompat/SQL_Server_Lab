@@ -6,6 +6,35 @@
     loest relative Pfade sowie unterstuetzte Sample-Datenbanken auf.
 #>
 
+function Test-LabManifestSchema {
+    <#
+    .SYNOPSIS
+        Validiert Manifest-JSON gegen das autoritative JSON-Schema.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Json
+    )
+
+    $schemaPath = Join-Path $script:SchemasPath 'lab-manifest.schema.json'
+    if (-not (Test-Path -LiteralPath $schemaPath -PathType Leaf)) {
+        throw "Manifest-Schema nicht gefunden: $schemaPath"
+    }
+
+    $schemaErrors = @()
+    $isValid = Test-Json `
+        -Json $Json `
+        -SchemaFile $schemaPath `
+        -ErrorAction SilentlyContinue `
+        -ErrorVariable schemaErrors
+
+    return [PSCustomObject]@{
+        IsValid = [bool]$isValid
+        Errors  = @($schemaErrors | ForEach-Object { $_.Exception.Message } | Select-Object -Unique)
+    }
+}
+
 function Read-LabManifest {
     <#
     .SYNOPSIS
@@ -33,6 +62,17 @@ function Read-LabManifest {
     }
     catch {
         throw "Manifest-JSON ungueltig: $resolvedPath - $($_.Exception.Message)"
+    }
+
+    $schemaResult = Test-LabManifestSchema -Json $raw
+    if (-not $schemaResult.IsValid) {
+        $details = if ($schemaResult.Errors.Count -gt 0) {
+            $schemaResult.Errors -join "`n  - "
+        }
+        else {
+            'Unbekannter Schemafehler'
+        }
+        throw "Manifest-Schema-Validierung fehlgeschlagen:`n  - $details"
     }
 
     $errors = @()
@@ -69,6 +109,17 @@ function Read-LabManifest {
 
     if ($errors.Count -gt 0) {
         throw "Manifest-Validierung fehlgeschlagen:`n  - $($errors -join "`n  - ")"
+    }
+
+    $semanticResult = Get-LabManifestValidationResult `
+        -Manifest $manifest `
+        -Json $raw `
+        -ManifestPath $resolvedPath
+    foreach ($warning in $semanticResult.Warnings) {
+        Write-LabWarning $warning
+    }
+    if (-not $semanticResult.IsValid) {
+        throw "Manifest-Fachvalidierung fehlgeschlagen:`n  - $($semanticResult.Errors -join "`n  - ")"
     }
 
     return Resolve-ManifestDefaults -Manifest $manifest -ManifestPath $resolvedPath

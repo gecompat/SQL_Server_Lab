@@ -51,20 +51,31 @@ Import-Module .\SqlServerLab.psd1 -Force
 Get-Command -Module SqlServerLab | Sort-Object Name
 ```
 
-Die autoritative Exportliste steht in `SqlServerLab.psd1`.
+Modulübersicht und Hilfe zu einzelnen Cmdlets:
+
+```powershell
+Get-Help about_SqlServerLab
+Get-Help New-SqlServerLab -Full
+Get-Help Test-SqlServerLabManifest -Parameter Path
+```
+
+Die autoritative Exportliste steht in `SqlServerLab.psd1`. `Get-Command` zeigt
+für jeden Export in `ModuleName` und `Source` die Zuordnung zu `SqlServerLab`.
+Bei einem Namenskonflikt ist der modulqualifizierte Aufruf eindeutig, zum
+Beispiel `SqlServerLab\New-SqlServerLabDatabase`.
 
 ## 4. Ressourcen prüfen
 
 Docker:
 
 ```powershell
-Test-LabResources -Provider docker
+Test-SqlServerLabPrerequisite -Provider docker
 ```
 
 Podman:
 
 ```powershell
-Test-LabResources -Provider podman
+Test-SqlServerLabPrerequisite -Provider podman
 ```
 
 Die Prüfung erzeugt keine Container. Sie bewertet unter anderem Runtime-Verfügbarkeit, RAM, Storage und Ports.
@@ -149,7 +160,7 @@ Das Passwort wird von `sqlcmd` interaktiv abgefragt, wenn `-P` nicht angegeben w
 ```powershell
 $pw = Read-Host 'SA-Passwort' -AsSecureString
 
-New-LabDatabase `
+New-SqlServerLabDatabase `
     -Port $lab.Instances[0].Port `
     -SaPassword $pw `
     -DatabaseName 'MeineTestDB'
@@ -158,7 +169,7 @@ New-LabDatabase `
 Mehrere Dateien auf dem Standardpfad:
 
 ```powershell
-New-LabDatabase `
+New-SqlServerLabDatabase `
     -Port $lab.Instances[0].Port `
     -SaPassword $pw `
     -DatabaseName 'MehrdateiDB' `
@@ -174,7 +185,7 @@ New-LabDatabase `
 Dateien auf gemounteten Containerpfaden:
 
 ```powershell
-New-LabDatabase `
+New-SqlServerLabDatabase `
     -Port $lab.Instances[0].Port `
     -SaPassword $pw `
     -DatabaseName 'StorageDemo' `
@@ -191,7 +202,7 @@ Die Pfade müssen über `drives` im Manifest als Volumes bereitgestellt worden s
 ## 9. T-SQL-Skript ausführen
 
 ```powershell
-Invoke-LabScript `
+Invoke-SqlServerLabScript `
     -ScriptPath '.\setup.sql' `
     -Port $lab.Instances[0].Port `
     -SaPassword $pw `
@@ -205,7 +216,7 @@ Das Cmdlet unterstützt `GO`-getrennte Batches.
 ### Lokale `.bak`-Datei
 
 ```powershell
-Restore-LabDatabase `
+Restore-SqlServerLabDatabase `
     -Port $lab.Instances[0].Port `
     -SaPassword $pw `
     -BackupSource 'C:\Backups\AdventureWorks2022.bak' `
@@ -216,7 +227,7 @@ Restore-LabDatabase `
 ### HTTPS-URL
 
 ```powershell
-Restore-LabDatabase `
+Restore-SqlServerLabDatabase `
     -Port $lab.Instances[0].Port `
     -SaPassword $pw `
     -BackupSource 'https://example.invalid/database.bak' `
@@ -226,9 +237,222 @@ Restore-LabDatabase `
 
 Die Beispiel-URL ist absichtlich nicht ausführbar. Verwenden Sie eine zulässige reale `.bak`-Quelle.
 
-`Restore-LabDatabase` unterstützt die Parameter `Port`, `SaPassword`, `BackupSource`, `DatabaseName` und optional `ContainerName`. Es besitzt keine Parameter `RunId` oder `BackupUrl`.
+`Restore-SqlServerLabDatabase` unterstützt die Parameter `Port`, `SaPassword`, `BackupSource`, `DatabaseName` und optional `ContainerName`. Es besitzt keine Parameter `RunId` oder `BackupUrl`.
 
 ## 11. Manifest-Modus
+
+### Manifest interaktiv erstellen
+
+```powershell
+New-SqlServerLabManifest -Path '.\mein-lab.json'
+```
+
+Der Konsolen-Wizard basiert direkt auf `Schemas/lab-manifest.schema.json`. Er
+ermöglicht damit auch verschachtelte Optionen, Arrays, freie
+`spConfigure`-Schlüssel und die detaillierte Query-Store-Konfiguration. Typen,
+Enums, Muster und Wertebereiche werden bereits bei der Eingabe geprüft.
+
+Der gleiche Einstieg ist im Hauptmenü über `m` verfügbar:
+
+```powershell
+Invoke-SqlServerLab -Action Manifest
+```
+
+Ein Manifest separat prüfen:
+
+```powershell
+$validation = Test-SqlServerLabManifest -Path '.\mein-lab.json'
+$validation | Format-List
+```
+
+### `Test-SqlServerLabManifest` im Detail
+
+Das Cmdlet besitzt zwei alternative Eingabewege:
+
+```powershell
+Test-SqlServerLabManifest [-Path] <String> [-Quiet]
+Test-SqlServerLabManifest -InputObject <Object> [-Quiet]
+```
+
+Allgemeine PowerShell-Parameter wie `-Verbose`, `-Debug` und
+`-ErrorAction` stehen zusätzlich zur Verfügung.
+
+#### Parameter `Path`
+
+`-Path` bezeichnet **genau eine bereits vorhandene Manifestdatei**. Der
+Parameter ist im Parametersatz `Path` obligatorisch, akzeptiert einen String
+und kann wegen `Position = 0` auch ohne Parameternamen angegeben werden:
+
+```powershell
+Test-SqlServerLabManifest '.\mein-lab.json'
+```
+
+Für den Pfad gelten folgende Regeln:
+
+- Relative Pfade werden gegen das aktuelle PowerShell-Verzeichnis (`$PWD`)
+  aufgelöst.
+- Absolute Pfade sind zulässig, beispielsweise
+  `C:\Lab Manifeste\vergleich.json`.
+- Der Pfad wird mit `-LiteralPath` behandelt. Zeichen wie `*`, `?` und `[` sind
+  daher Bestandteil des Dateinamens und keine Wildcards.
+- Der Pfad muss auf eine Datei zeigen. Verzeichnisse, URLs und mehrere Pfade
+  werden nicht akzeptiert.
+- Eine bestimmte Dateiendung wird technisch nicht verlangt. Der Dateiinhalt
+  muss jedoch gültiges UTF-8-JSON sein und dem Lab-Manifest-Schema entsprechen.
+- `-Path` besitzt keinen Default. Ohne `-Path` muss `-InputObject` verwendet
+  werden.
+
+Der Speicherort der Manifestdatei bestimmt außerdem den Bezugspunkt für lokale
+relative Pfade **im Manifest**:
+
+```json
+{
+  "name": "relative-pfade",
+  "instances": [
+    {
+      "id": "primary",
+      "version": "2025",
+      "databases": [
+        {
+          "name": "AppDB",
+          "restore": { "source": ".\\backups\\AppDB.bak" }
+        }
+      ],
+      "postProvision": [".\\sql\\setup.sql"]
+    }
+  ]
+}
+```
+
+Liegt dieses Manifest unter `C:\Labs\mein-lab.json`, prüft das Cmdlet die
+Dateien `C:\Labs\backups\AppDB.bak` und `C:\Labs\sql\setup.sql`. Ein relativer
+`hostPath` wird bei der späteren Manifestauflösung ebenfalls auf dieses
+Verzeichnis bezogen, seine Existenz wird von `Test-SqlServerLabManifest` derzeit jedoch
+nicht geprüft.
+
+#### Parameter `InputObject`
+
+`-InputObject` prüft einen Manifestentwurf ohne vorherige Datei. Zulässig sind
+beispielsweise Hashtables, geordnete Hashtables und `PSCustomObject`-Instanzen:
+
+```powershell
+$draft = [ordered]@{
+    name = 'minimal'
+    instances = @(
+        [ordered]@{
+            id = 'primary'
+            version = '2025'
+        }
+    )
+}
+
+$validation = $draft | Test-SqlServerLabManifest
+```
+
+Der Parameter ist obligatorisch, akzeptiert Pipelineeingaben und gehört zu
+einem eigenen Parametersatz. `-Path` und `-InputObject` können daher nicht
+gemeinsam verwendet werden. Das Objekt wird zur Prüfung über JSON normalisiert;
+das Originalobjekt wird nicht verändert. Da kein Manifestverzeichnis existiert,
+werden lokale relative Restore- und Skriptpfade gegen `$PWD` geprüft.
+
+#### Parameter `Quiet`
+
+Ohne `-Quiet` gibt das Cmdlet ein Ergebnisobjekt zurück:
+
+| Eigenschaft | Typ | Bedeutung |
+|---|---|---|
+| `IsValid` | `Boolean` | `True`, wenn keine Validierungsfehler gefunden wurden |
+| `Errors` | `String[]` | Schema-, Katalog-, Pfad- und fachliche Fehler |
+| `Warnings` | `String[]` | Risiken oder akzeptierte Felder mit eingeschränkter Runtime-Unterstützung |
+
+Mit `-Quiet` wird ausschließlich `True` oder `False` zurückgegeben. Der Switch
+ist standardmäßig ausgeschaltet:
+
+```powershell
+if (-not (Test-SqlServerLabManifest -Path '.\mein-lab.json' -Quiet)) {
+    throw 'Das Lab-Manifest ist ungültig.'
+}
+```
+
+Warnungen allein machen ein Manifest nicht ungültig. `IsValid = False`
+verhindert dagegen die Verwendung durch den Manifest-Provisionierungspfad.
+
+#### Was wird geprüft?
+
+Die Prüfung erzeugt keine Container, VMs, Datenbanken oder State-Dateien. Sie
+umfasst derzeit:
+
+1. JSON-Syntax und Validierung gegen `Schemas/lab-manifest.schema.json`;
+2. Pflichtfelder, Datentypen, Enums, Muster, Wertebereiche und unbekannte
+   Eigenschaften;
+3. eindeutige Instanz-IDs, Datenbanknamen, Drive-IDs und logische Dateinamen;
+4. SQL-Versionen und zugehörige Container-Images aus dem Versionskatalog;
+5. Providergrenzen, Betriebssystemkombinationen und gemischte Provider;
+6. Compatibility Level im Verhältnis zur SQL-Server-Version;
+7. lokale Restore-Dateien, Restore-Typen und Sample-Katalogvarianten;
+8. vorhandene `postProvision`-Skripte;
+9. fachliche Beziehungen wie `minMB <= maxMB` und alternative
+   Dateiwachstumsangaben;
+10. riskante SQL-Optionen und Schemafelder, die von der Runtime noch nicht
+    zuverlässig oder vollständig angewendet werden.
+
+Nicht geprüft werden unter anderem Runtime-Erreichbarkeit, freie Ports,
+Kennwörter, Hostressourcen, Download-Erfolg, SQL-Berechtigungen und der Erfolg
+der späteren T-SQL-Ausführung. Dafür sind Resource Assessment,
+Provisionierung und Smoke-Test zuständig.
+
+#### Defaults und Normalisierung
+
+`Test-SqlServerLabManifest` ergänzt **keine** fehlenden Manifestwerte. Ein `default` im
+JSON-Schema ist zunächst Schema- und Wizard-Metadatum; die JSON-Schema-Prüfung
+materialisiert diesen Wert nicht. Auch das Ergebnisobjekt enthält kein
+normalisiertes Manifest.
+
+Erst `New-SqlServerLab -Manifest` liest ein gültiges Manifest ein und löst die
+aktuell implementierten Runtime-Defaults auf. Zu den wichtigsten gehören:
+
+| Manifestfeld | Effektiver Framework-Default bei fehlender Angabe |
+|---|---|
+| `instances[].provider` | automatische Auswahl: normalerweise `docker`; bei Windows oder GUI-Software wäre `hyperv` erforderlich, ist aber noch nicht implementiert |
+| `instances[].os` | `linux` |
+| `instances[].profile` | `standard` |
+| `instances[].collation` | `SQL_Latin1_General_CP1_CS_AS` |
+| `databases[].collation` | Collation der Instanz |
+| gesamtes `databases[].options` fehlt | `{ "queryStore": true }` |
+| gesamte Dateidefinition fehlt | eine Data-Datei mit 64/64 MB und eine Log-Datei mit 32/32 MB für Größe/Wachstum |
+| Werte einer expliziten Datei fehlen | `sizeMB = 64`, `filegrowthMB = 64` |
+| `databases[].restore.type` | `auto` |
+| `databases[].restore.replace` | `true` |
+| `databases[].sample.variant` | `full` |
+| `drives[].type` | `auto` |
+| `serverConfig.maxDop` | `0`, sofern `serverConfig` vorhanden ist |
+| `serverConfig.costThreshold` | `5`, sofern `serverConfig` vorhanden ist |
+| `serverConfig.tempdb.equalSize` | `true`, sofern `tempdb` vorhanden ist |
+| `software[].optional` | `true` |
+
+Wichtig: Ist `databases[].options` vorhanden, werden fehlende Unterfelder nicht
+pauschal aus allen `default`-Angaben des Schemas ergänzt. Es werden nur
+tatsächlich gelieferte Optionen ausgeführt. Schema-Defaults für vorbereitete,
+aber noch nicht zuverlässig implementierte Felder sind ebenfalls keine
+Runtime-Zusage; `Warnings` macht solche Fälle sichtbar.
+
+#### Fehlerverhalten
+
+Ein nicht vorhandener `-Path` oder ein Pfad auf ein Verzeichnis erzeugt einen
+terminierenden PowerShell-Fehler. Syntaktisch ungültiges JSON wird dagegen als
+reguläres ungültiges Prüfergebnis zurückgegeben: `IsValid = False` und ein mit
+`JSON:` beginnender Eintrag in `Errors`; mit `-Quiet` lautet das Ergebnis
+`False`. Schema- und Fachfehler werden gesammelt, soweit die vorherige
+Prüfstufe eine weitere Analyse erlaubt.
+
+Die vollständige, direkt aus PowerShell abrufbare Parameterhilfe zeigt:
+
+```powershell
+Get-Help Test-SqlServerLabManifest -Full
+Get-Command Test-SqlServerLabManifest -Syntax
+```
+
+### Manifest manuell schreiben
 
 Datei `mein-lab.json`:
 

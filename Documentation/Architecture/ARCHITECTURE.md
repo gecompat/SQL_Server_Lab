@@ -62,16 +62,19 @@ Start-SqlServerLab                     # Starten
 Stop-SqlServerLab                      # Stoppen
 Restart-SqlServerLab                   # Neustart
 Remove-SqlServerLab                    # Entfernen
+Clear-SqlServerLab                     # Alle verwalteten Umgebungen entfernen
+
+# Manifeste
+New-SqlServerLabManifest              # Manifest erstellen
+Test-SqlServerLabManifest             # Manifest ohne Provisionierung pruefen
 
 # Datenbank und Skripte
-New-LabDatabase                        # Datenbank anlegen (mit File-Layout)
-Invoke-LabScript                       # T-SQL-Skript ausfuehren
+New-SqlServerLabDatabase              # Datenbank anlegen (mit File-Layout)
+Restore-SqlServerLabDatabase          # Datenbank aus .bak wiederherstellen
+Invoke-SqlServerLabScript             # T-SQL-Skript ausfuehren
 
-# Erweiterungen
-Install-LabSoftware                    # Software auf VM installieren
-Test-LabResources                      # Ressourcenpruefung (read-only)
-Invoke-LabCleanup                      # Scope-gebundener Cleanup
-Invoke-LabRecovery                     # Wiederaufnahme nach Fehler
+# Pruefung
+Test-SqlServerLabPrerequisite         # Ressourcenpruefung (read-only)
 ```
 
 ### 2.4 Rueckgabe-Objekt
@@ -473,7 +476,7 @@ Bei Fehler: Cleanup rueckwaerts ab fehlgeschlagenem Schritt.
 7. Cleanup-Engine (Plan + Execution)
 8. `New-SqlServerLab` + `Remove-SqlServerLab` funktional
 9. Manifest-Parser (Basis-Felder)
-10. `New-LabDatabase` + `Invoke-LabScript`
+10. `New-SqlServerLabDatabase` + `Invoke-SqlServerLabScript`
 11. Interaktiver Einstieg (`Invoke-SqlServerLab`)
 12. Getting-Started-Dokumentation
 

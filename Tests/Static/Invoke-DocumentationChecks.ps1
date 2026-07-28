@@ -5,7 +5,7 @@
 .DESCRIPTION
     Die Pruefung mutiert keine Labressourcen. Sie validiert PowerShell-Syntax,
     Modul-Exports, JSON-Dateien, relative Schema-Referenzen, Provider-Metadaten,
-    zentrale Dokumentationslinks und bekannte veraltete Beispiele.
+    Command-Hilfe, zentrale Dokumentationslinks und bekannte veraltete Beispiele.
 #>
 [CmdletBinding()]
 param(
@@ -144,6 +144,26 @@ try {
             -Success ($removedPlaceholder -notin $expectedFunctions)
     }
 
+    foreach ($locale in @('de-DE', 'en-US')) {
+        $aboutHelpPath = Join-Path $repoRoot $locale 'about_SqlServerLab.help.txt'
+        $aboutHelpExists = Test-Path -LiteralPath $aboutHelpPath -PathType Leaf
+        Add-ValidationResult `
+            -Name "Modulhilfe vorhanden: $locale/about_SqlServerLab" `
+            -Success $aboutHelpExists
+
+        if ($aboutHelpExists) {
+            $aboutHelpText = Get-Content -LiteralPath $aboutHelpPath -Raw -Encoding utf8
+            $missingAboutCommands = @(
+                $expectedFunctions |
+                    Where-Object { $aboutHelpText -notmatch [regex]::Escape($_) }
+            )
+            Add-ValidationResult `
+                -Name "Modulhilfe listet alle Exporte: $locale" `
+                -Success ($missingAboutCommands.Count -eq 0) `
+                -Message ($missingAboutCommands -join ', ')
+        }
+    }
+
     if (-not $SkipModuleImport) {
         Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
         Import-Module $moduleManifestPath -Force -ErrorAction Stop
@@ -165,6 +185,55 @@ try {
             -Name 'Keine unerwarteten Funktionen exportiert' `
             -Success ($unexpectedFunctions.Count -eq 0) `
             -Message ($unexpectedFunctions -join ', ')
+
+        $approvedVerbs = @(Get-Verb | Select-Object -ExpandProperty Verb)
+        $commonParameters = @([System.Management.Automation.PSCmdlet]::CommonParameters) +
+            @([System.Management.Automation.PSCmdlet]::OptionalCommonParameters)
+
+        foreach ($commandName in $expectedFunctions) {
+            $command = Get-Command $commandName -Module SqlServerLab -ErrorAction Stop
+            $help = Get-Help $commandName -Full -ErrorAction Stop
+            $verb = ($commandName -split '-', 2)[0]
+            $noun = ($commandName -split '-', 2)[1]
+            $synopsis = ([string]$help.Synopsis -replace '\s+', ' ').Trim()
+            $description = @($help.description | ForEach-Object { $_.Text }) -join ' '
+            $outputTypes = @($help.returnValues.returnValue.type.name) -join ', '
+            $missingParameterHelp = @()
+
+            foreach ($parameterName in @($command.Parameters.Keys | Where-Object { $_ -notin $commonParameters })) {
+                $parameterHelp = $help.parameters.parameter |
+                    Where-Object { $_.Name -eq $parameterName } |
+                    Select-Object -First 1
+                $parameterDescription = @($parameterHelp.description | ForEach-Object { $_.Text }) -join ' '
+                if ([string]::IsNullOrWhiteSpace($parameterDescription)) {
+                    $missingParameterHelp += $parameterName
+                }
+            }
+
+            $helpProblems = @()
+            if ($verb -notin $approvedVerbs) { $helpProblems += "Verb '$verb' ist nicht zugelassen" }
+            if ($noun -notmatch '^SqlServerLab') { $helpProblems += "Nomen '$noun' beginnt nicht mit SqlServerLab" }
+            if ($command.Source -ne 'SqlServerLab') { $helpProblems += "Source ist '$($command.Source)'" }
+            if ([string]::IsNullOrWhiteSpace($synopsis) -or $synopsis -match "^$([regex]::Escape($commandName)) \[") {
+                $helpProblems += 'Synopsis fehlt oder ist automatisch erzeugt'
+            }
+            if ([string]::IsNullOrWhiteSpace($description)) { $helpProblems += 'Description fehlt' }
+            if (@($help.examples.example).Count -eq 0) { $helpProblems += 'Example fehlt' }
+            if ([string]::IsNullOrWhiteSpace($outputTypes)) { $helpProblems += 'Outputs fehlt' }
+            if ($missingParameterHelp.Count -gt 0) {
+                $helpProblems += "Parameterhilfe fehlt: $($missingParameterHelp -join ', ')"
+            }
+
+            Add-ValidationResult `
+                -Name "Command-Hilfe und Benennung: $commandName" `
+                -Success ($helpProblems.Count -eq 0) `
+                -Message ($helpProblems -join '; ')
+        }
+
+        $moduleHelp = Get-Help about_SqlServerLab -ErrorAction SilentlyContinue
+        Add-ValidationResult `
+            -Name 'Get-Help about_SqlServerLab ist verfuegbar' `
+            -Success ($null -ne $moduleHelp -and $moduleHelp.Name -eq 'about_SqlServerLab')
     }
 }
 catch {
@@ -212,6 +281,8 @@ Write-Host "`n[5] Zentrale Dokumentation" -ForegroundColor Cyan
 $coreFiles = @(
     'README.md'
     'Documentation/README.md'
+    'Documentation/Architecture/ARCHITECTURE.md'
+    'Documentation/Standards/POWERSHELL_COMMAND_AND_HELP_STANDARD.md'
     'Documentation/User/Getting_Started.md'
     'Documentation/Quality/KNOWN_LIMITATIONS.md'
     'Catalogs/README.md'
@@ -264,6 +335,25 @@ foreach ($markdownFile in $coreMarkdownFiles) {
     }
 }
 
+$apiIndexFiles = @(
+    'README.md'
+    'Documentation/README.md'
+    'Documentation/Architecture/ARCHITECTURE.md'
+    'Public/README.md'
+)
+
+foreach ($relativePath in $apiIndexFiles) {
+    $apiIndexText = Get-Content -LiteralPath (Join-Path $repoRoot $relativePath) -Raw -Encoding utf8
+    $missingExports = @(
+        $expectedFunctions |
+            Where-Object { $apiIndexText -notmatch [regex]::Escape($_) }
+    )
+    Add-ValidationResult `
+        -Name "API-Index listet alle Exporte: $relativePath" `
+        -Success ($missingExports.Count -eq 0) `
+        -Message ($missingExports -join ', ')
+}
+
 # =============================================================================
 # 6. Bekannte veraltete Aussagen
 # =============================================================================
@@ -272,6 +362,44 @@ Write-Host "`n[6] Veraltete Aussagen und Beispiele" -ForegroundColor Cyan
 $rootReadme = Get-Content -LiteralPath (Join-Path $repoRoot 'README.md') -Raw -Encoding utf8
 $gettingStarted = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\User\Getting_Started.md') -Raw -Encoding utf8
 $testsReadme = Get-Content -LiteralPath (Join-Path $repoRoot 'Tests\README.md') -Raw -Encoding utf8
+
+$legacyPublicCommands = @(
+    'New-LabManifest'
+    'Test-LabManifest'
+    'New-LabDatabase'
+    'Restore-LabDatabase'
+    'Invoke-LabScript'
+    'Test-LabResources'
+)
+$legacyCommandAllowlist = @(
+    'CHANGELOG.md'
+    'Documentation\Standards\POWERSHELL_COMMAND_AND_HELP_STANDARD.md'
+    'Tests\Static\Invoke-DocumentationChecks.ps1'
+)
+$legacyCommandHits = @(
+    Get-ChildItem -LiteralPath $repoRoot -Recurse -File |
+        Where-Object {
+            $relativePath = [System.IO.Path]::GetRelativePath($repoRoot, $_.FullName)
+            $_.Extension -in @('.md', '.txt', '.ps1', '.psm1', '.psd1', '.json', '.yaml', '.yml') -and
+                $relativePath -notmatch '^(?:_QuellRepo|private_Note)[\\/]' -and
+                $relativePath -notin $legacyCommandAllowlist
+        } |
+        ForEach-Object {
+            $relativePath = [System.IO.Path]::GetRelativePath($repoRoot, $_.FullName)
+            $text = Get-Content -LiteralPath $_.FullName -Raw -Encoding utf8
+            foreach ($legacyCommand in $legacyPublicCommands) {
+                $pattern = '(?<![A-Za-z0-9_-])' + [regex]::Escape($legacyCommand) + '(?![A-Za-z0-9_-])'
+                if ($text -match $pattern) {
+                    "$relativePath`: $legacyCommand"
+                }
+            }
+        }
+)
+
+Add-ValidationResult `
+    -Name 'Keine alten Public-Command-Namen in aktiven Dateien' `
+    -Success ($legacyCommandHits.Count -eq 0) `
+    -Message ($legacyCommandHits -join '; ')
 
 Add-ValidationResult `
     -Name 'Root-README ist nicht mehr PLANNING_FOUNDATION' `
@@ -287,11 +415,11 @@ Add-ValidationResult `
 
 Add-ValidationResult `
     -Name 'Kein veraltetes Restore-Beispiel mit -RunId' `
-    -Success ($gettingStarted -notmatch '(?is)```powershell.*?Restore-LabDatabase\s+-RunId')
+    -Success ($gettingStarted -notmatch '(?is)```powershell.*?Restore-SqlServerLabDatabase\s+-RunId')
 
 Add-ValidationResult `
     -Name 'Kein veraltetes Restore-Beispiel mit -BackupUrl' `
-    -Success ($gettingStarted -notmatch '(?is)```powershell.*?Restore-LabDatabase.*?-BackupUrl')
+    -Success ($gettingStarted -notmatch '(?is)```powershell.*?Restore-SqlServerLabDatabase.*?-BackupUrl')
 
 Add-ValidationResult `
     -Name 'Smoke-Test behauptet nicht alle Provider zu provisionieren' `

@@ -1,10 +1,18 @@
 <#
 .SYNOPSIS
     Zeigt Status aller oder einzelner SQL_Server_Lab-Umgebungen.
+.DESCRIPTION
+    Liest den gespeicherten Run-State und ergaenzt ihn, soweit moeglich, um den
+    Live-Status der zugeordneten Docker- oder Podman-Container. Das Cmdlet
+    veraendert weder Run-State noch Container.
 .PARAMETER RunId
     Optional: Nur diese RunId anzeigen.
 .PARAMETER Detailed
     Erweiterte Informationen wie State-History und Fehler anzeigen.
+.OUTPUTS
+    System.Management.Automation.PSCustomObject. Liefert pro Run Status,
+    Metadaten und Instanzinformationen; ohne gefundene Runs wird nichts
+    ausgegeben.
 .EXAMPLE
     Get-SqlServerLab
 .EXAMPLE

@@ -1,0 +1,134 @@
+TOPIC
+    about_SqlServerLab
+
+SYNOPSIS
+    Overview, naming model, and common workflows for the SqlServerLab module.
+
+LONG DESCRIPTION
+    SqlServerLab creates and manages isolated SQL Server test environments with
+    Docker or Podman. The module supports direct ad-hoc calls and declarative
+    JSON manifests.
+
+    All public commands use the PowerShell Verb-SingularNoun pattern. The
+    module name is SqlServerLab. All public nouns start with SqlServerLab and
+    identify resources owned by this module.
+
+COMMAND DISCOVERY
+    List all exported commands and their module ownership:
+
+        Get-Command -Module SqlServerLab | Sort-Object Name
+
+    List names and short descriptions:
+
+        Get-Command -Module SqlServerLab | Sort-Object Name |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name     = $_.Name
+                    Synopsis = (Get-Help $_.Name).Synopsis
+                }
+            } | Format-Table -AutoSize -Wrap
+
+    Display full, parameter, or example help:
+
+        Get-Help New-SqlServerLab -Full
+        Get-Help Test-SqlServerLabManifest -Parameter Path
+        Get-Help Restore-SqlServerLabDatabase -Examples
+
+    Use a module-qualified name if another command has the same name:
+
+        SqlServerLab\New-SqlServerLabDatabase
+
+COMMANDS
+    Entry point and provisioning
+
+    Invoke-SqlServerLab
+        Opens the interactive menu or runs one menu action directly.
+
+    New-SqlServerLab
+        Creates a lab environment from parameters or a manifest.
+
+    Manifest
+
+    New-SqlServerLabManifest
+        Creates and saves a schema-validated JSON manifest.
+
+    Test-SqlServerLabManifest
+        Validates a manifest file or object without provisioning.
+
+    Status and lifecycle
+
+    Get-SqlServerLab
+        Shows saved state and, when available, live runtime status.
+
+    Start-SqlServerLab
+        Starts a stopped lab environment.
+
+    Stop-SqlServerLab
+        Stops a running environment without removing it.
+
+    Restart-SqlServerLab
+        Stops and starts a lab environment in one operation.
+
+    Remove-SqlServerLab
+        Removes one run by executing its cleanup plan.
+
+    Clear-SqlServerLab
+        Cleans multiple runs and orphaned lab containers.
+
+    SQL operations
+
+    New-SqlServerLabDatabase
+        Creates a database with optional file and database settings.
+
+    Restore-SqlServerLabDatabase
+        Restores a database from a local or remote .bak file.
+
+    Invoke-SqlServerLabScript
+        Executes a T-SQL script with GO batch support.
+
+    Validation
+
+    Test-SqlServerLabPrerequisite
+        Tests provider, RAM, storage, ports, and path safety without mutation.
+
+NAMING AND OWNERSHIP
+    PowerShell associates each exported command with SqlServerLab through the
+    Source and ModuleName properties:
+
+        Get-Command New-SqlServerLabDatabase | Select-Object Name, ModuleName, Source
+
+    All public nouns start with SqlServerLab. The former generic Lab-prefixed
+    names were replaced before version 1.0 without compatibility aliases or a
+    deprecation period.
+
+    Import-Module -Prefix can add a session-local prefix if name conflicts must
+    be avoided. It does not modify the module:
+
+        Import-Module .\SqlServerLab.psd1 -Prefix Company
+        Get-Command -Module SqlServerLab
+
+TYPICAL WORKFLOW
+    Import the module and test resources:
+
+        Import-Module .\SqlServerLab.psd1 -Force
+        Test-SqlServerLabPrerequisite -Provider docker
+
+    Create, validate, and provision a manifest:
+
+        New-SqlServerLabManifest -Path .\my-lab.json
+        Test-SqlServerLabManifest -Path .\my-lab.json
+        $lab = New-SqlServerLab -Manifest .\my-lab.json
+
+    Query status and remove the environment:
+
+        Get-SqlServerLab -RunId $lab.RunId -Detailed
+        Remove-SqlServerLab -RunId $lab.RunId
+
+SEE ALSO
+    Get-Help
+    Get-Command
+    Get-Module
+    Import-Module
+    about_Modules
+    about_Command_Syntax
+    about_CommonParameters

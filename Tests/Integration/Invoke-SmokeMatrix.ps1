@@ -118,7 +118,7 @@ function Invoke-FullLifecycle {
         $lab = New-SqlServerLab -Version $VersionName -Provider $ProviderName -Profile compact -SaPassword $SaPassword -SkipAssessment
         $instance = $lab.Instances | Select-Object -First 1
         $dbName = "Smoke_${ProviderName}_${VersionName}" -replace '[^A-Za-z0-9_]', '_'
-        $db = New-LabDatabase -HostName $instance.Host -Port $instance.Port -SaPassword $SaPassword -DatabaseName $dbName
+        $db = New-SqlServerLabDatabase -HostName $instance.Host -Port $instance.Port -SaPassword $SaPassword -DatabaseName $dbName
         if (-not $db.Success) { throw 'Datenbankerstellung meldet Success=False.' }
 
         @"
@@ -128,7 +128,7 @@ INSERT dbo.SmokeEvidence(Id, Marker) VALUES (1, N'$ProviderName-$VersionName');
 GO
 "@ | Set-Content -LiteralPath $sqlPath -Encoding utf8
 
-        $scriptResult = Invoke-LabScript -RunId $lab.RunId -ScriptPath $sqlPath -Database $dbName -SaPassword $SaPassword
+        $scriptResult = Invoke-SqlServerLabScript -RunId $lab.RunId -ScriptPath $sqlPath -Database $dbName -SaPassword $SaPassword
         if (-not $scriptResult.Success) { throw $scriptResult.Message }
 
         $restart = Restart-SqlServerLab -RunId $lab.RunId -TimeoutSeconds 60 -Force

@@ -12,6 +12,9 @@
     Nur nachweislich verwaiste State-Eintraege bereinigen.
 .PARAMETER ContainersOnly
     Nur Container entfernen; vorhandener Run-State bleibt erhalten.
+.OUTPUTS
+    System.Management.Automation.PSCustomObject. Liefert eine Zusammenfassung
+    der erkannten und bereinigten Container und State-Runs.
 .EXAMPLE
     Clear-SqlServerLab -Force
 #>

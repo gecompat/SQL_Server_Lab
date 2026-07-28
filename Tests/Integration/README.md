@@ -16,8 +16,8 @@ End-to-End-Test des gesamten Lab-Lifecycles.
 1. Modul-Import + Provider-Funktionen
 2. Resource Assessment (ALLE installierten Runtimes)
 3. New-SqlServerLab
-4. New-LabDatabase (2 Data Files)
-5. Invoke-LabScript (GO-Batches)
+4. New-SqlServerLabDatabase (2 Data Files)
+5. Invoke-SqlServerLabScript (GO-Batches)
 6. Get-SqlServerLab (Live-Status)
 7. Stop-SqlServerLab
 8. Start-SqlServerLab

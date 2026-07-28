@@ -39,12 +39,12 @@ Fachliche Testszenarien bleiben in den konsumierenden Projekten. `SQL_Server_Lab
 | Hyper-V-Provider | geplant | `Providers/HyperV/README.md` |
 | Ad-hoc-Provisionierung | implementiert | `New-SqlServerLab -Version ... -Provider ...` |
 | Manifest-Provisionierung | implementiert | `Schemas/lab-manifest.schema.json` |
-| Resource Assessment | implementiert | `Test-LabResources` |
+| Resource Assessment | implementiert | `Test-SqlServerLabPrerequisite` |
 | Run-State und Cleanup-Plan | implementiert | `Private/StateMachine.ps1`, `Private/CleanupEngine.ps1` |
-| Datenbankerstellung | implementiert | `New-LabDatabase` |
-| Backup-Restore | implementiert | `Restore-LabDatabase` |
+| Datenbankerstellung | implementiert | `New-SqlServerLabDatabase` |
+| Backup-Restore | implementiert | `Restore-SqlServerLabDatabase` |
 | Sample-Datenbanken | teilweise implementiert | direkte `.bak`-Varianten aus `Catalogs/sample-databases.json` |
-| T-SQL-Skriptausführung | implementiert | `Invoke-LabScript` |
+| T-SQL-Skriptausführung | implementiert | `Invoke-SqlServerLabScript` |
 | Provider-/Versions-/Parallel-Smoke-Test | implementiert | `Tests/Integration/Invoke-SmokeMatrix.ps1` |
 | Einzelprovider-Smoke-Test | implementiert | `Tests/Integration/Invoke-SmokeTest.ps1` |
 | Statische Konsistenzprüfung | implementiert | `Tests/Static/Invoke-DocumentationChecks.ps1` |
@@ -85,9 +85,9 @@ Import-Module .\SqlServerLab.psd1 -Force
 Ressourcen prüfen, ohne etwas zu verändern:
 
 ```powershell
-Test-LabResources -Provider docker
+Test-SqlServerLabPrerequisite -Provider docker
 # oder
-Test-LabResources -Provider podman
+Test-SqlServerLabPrerequisite -Provider podman
 ```
 
 Eine SQL-Server-2025-Umgebung erstellen:
@@ -142,7 +142,7 @@ Der konkrete Port wird dynamisch im Bereich `14330` bis `14399` vergeben, sofern
 ```powershell
 $pw = Read-Host 'SA-Passwort' -AsSecureString
 
-New-LabDatabase `
+New-SqlServerLabDatabase `
     -Port $lab.Instances[0].Port `
     -SaPassword $pw `
     -DatabaseName 'MeineTestDB'
@@ -151,7 +151,7 @@ New-LabDatabase `
 Dateien können auf gemountete Containerpfade gelegt werden:
 
 ```powershell
-New-LabDatabase `
+New-SqlServerLabDatabase `
     -Port $lab.Instances[0].Port `
     -SaPassword $pw `
     -DatabaseName 'PerfDB' `
@@ -169,7 +169,7 @@ Die Zielpfade müssen als `drives` beziehungsweise Volumes in der Labdefinition 
 ## T-SQL-Skript ausführen
 
 ```powershell
-Invoke-LabScript `
+Invoke-SqlServerLabScript `
     -ScriptPath '.\setup.sql' `
     -Port $lab.Instances[0].Port `
     -SaPassword $pw `
@@ -183,7 +183,7 @@ Relative `postProvision`-Pfade in Manifesten werden relativ zum Manifest-Verzeic
 Manueller Restore:
 
 ```powershell
-Restore-LabDatabase `
+Restore-SqlServerLabDatabase `
     -Port $lab.Instances[0].Port `
     -SaPassword $pw `
     -BackupSource 'C:\Backups\AdventureWorks2022.bak' `
@@ -194,6 +194,32 @@ Restore-LabDatabase `
 Eine HTTPS-URL kann ebenfalls als `BackupSource` verwendet werden. Das Backup wird dann im lokalen State-Cache abgelegt.
 
 ## Manifest-Modus
+
+Ein Manifest kann vollstaendig in der Konsole erstellt werden. Der Wizard liest
+Pflichtfelder, optionale Felder, Typen, Wertebereiche und Auswahlwerte direkt
+aus dem JSON-Schema:
+
+```powershell
+New-SqlServerLabManifest -Path '.\mein-lab.json'
+```
+
+Alternativ steht im Hauptmenue die Aktion `m` zur Verfuegung:
+
+```powershell
+Invoke-SqlServerLab -Action Manifest
+```
+
+Ein vorhandenes Manifest kann ohne Provisionierung geprueft werden:
+
+```powershell
+$result = Test-SqlServerLabManifest -Path '.\mein-lab.json'
+$result.Errors
+$result.Warnings
+```
+
+Fehler verhindern das Speichern beziehungsweise Provisionieren. Warnungen
+kennzeichnen unter anderem vorbereitete Schemafelder ohne stabilen Runtimepfad
+und riskante SQL-Konfigurationen.
 
 ```json
 {
@@ -277,6 +303,8 @@ Clear-SqlServerLab
 | Cmdlet | Zweck |
 |---|---|
 | `Invoke-SqlServerLab` | Interaktives Menü |
+| `New-SqlServerLabManifest` | Schema-gesteuertes Manifest in der Konsole erstellen |
+| `Test-SqlServerLabManifest` | Manifest ohne Provisionierung strukturell und fachlich prüfen |
 | `New-SqlServerLab` | Umgebung ad hoc oder per Manifest erstellen |
 | `Get-SqlServerLab` | State und Live-Status anzeigen |
 | `Start-SqlServerLab` | Gestoppte Umgebung starten |
@@ -284,10 +312,10 @@ Clear-SqlServerLab
 | `Restart-SqlServerLab` | Stop und Start kombinieren |
 | `Remove-SqlServerLab` | Einzelnen Run entfernen |
 | `Clear-SqlServerLab` | Lab-Container und/oder State bereinigen |
-| `New-LabDatabase` | Datenbank erstellen |
-| `Restore-LabDatabase` | `.bak` aus Datei oder URL wiederherstellen |
-| `Invoke-LabScript` | T-SQL-Skript ausführen |
-| `Test-LabResources` | Provider, RAM, Storage und Ports prüfen |
+| `New-SqlServerLabDatabase` | Datenbank erstellen |
+| `Restore-SqlServerLabDatabase` | `.bak` aus Datei oder URL wiederherstellen |
+| `Invoke-SqlServerLabScript` | T-SQL-Skript ausführen |
+| `Test-SqlServerLabPrerequisite` | Provider, RAM, Storage und Ports prüfen |
 
 `SqlServerLab.psd1` ist die autoritative Liste der exportierten Funktionen.
 
@@ -333,7 +361,8 @@ flowchart TD
 |---|---|
 | Exportierte Cmdlets | `SqlServerLab.psd1` |
 | Modul-Ladevorgang | `SqlServerLab.psm1` |
-| Manifestfelder | `Schemas/lab-manifest.schema.json` plus `Private/ManifestParser.ps1` |
+| Manifestfelder | `Schemas/lab-manifest.schema.json` |
+| Manifest-Eingabe und Fachvalidierung | `Private/ManifestBuilder.ps1` plus `Private/ManifestParser.ps1` |
 | SQL-Versionen und Images | `Catalogs/sql-server-versions.json` |
 | Sample-Datenbanken | `Catalogs/sample-databases.json` |
 | Provider-Funktion | `Providers/*/*.ps1` |
@@ -348,6 +377,7 @@ flowchart TD
 Statische Konsistenz- und Readiness-Prüfungen:
 
 ```powershell
+.\Tests\Static\Invoke-ManifestBuilderChecks.ps1
 .\Tests\Static\Invoke-DocumentationChecks.ps1
 .\Tests\Static\Invoke-ReadinessContractChecks.ps1
 ```

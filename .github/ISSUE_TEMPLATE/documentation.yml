@@ -27,7 +27,7 @@ body:
     attributes:
       label: Technischer Nachweis
       description: Welche Funktion, welches Schema, welcher Katalog oder welcher Test widerspricht der Dokumentation?
-      placeholder: Public/Restore-LabDatabase.ps1 verwendet den Parameter BackupSource statt BackupUrl.
+      placeholder: Public/Restore-SqlServerLabDatabase.ps1 verwendet den Parameter BackupSource statt BackupUrl.
     validations:
       required: true
   - type: textarea

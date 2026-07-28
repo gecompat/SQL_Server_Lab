@@ -5,6 +5,18 @@
     Fuehrt den Cleanup-Plan aus, sucht fehlende Container beim aufgezeichneten
     Provider, entfernt Secrets erst nach vollstaendigem Cleanup und markiert
     Teilfehler als RECOVERY_REQUIRED.
+.PARAMETER RunId
+    RunId der zu entfernenden Umgebung. Ohne Angabe wird eine vorhandene
+    Umgebung automatisch gewaehlt oder interaktiv abgefragt.
+.PARAMETER StateRoot
+    Optionales State-Stammverzeichnis. Ohne Angabe wird der Framework-Default
+    verwendet.
+.PARAMETER Force
+    Ueberspringt die zusaetzliche interaktive Bestaetigung. WhatIf und Confirm
+    stehen weiterhin ueber SupportsShouldProcess zur Verfuegung.
+.OUTPUTS
+    System.Management.Automation.PSCustomObject. Liefert RunId, Status und das
+    Cleanup-Ergebnis.
 .EXAMPLE
     Remove-SqlServerLab -RunId $lab.RunId
 #>

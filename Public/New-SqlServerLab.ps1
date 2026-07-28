@@ -1,15 +1,3 @@
-<#
-.SYNOPSIS
-    Erstellt eine neue SQL-Server-Testumgebung.
-.DESCRIPTION
-    End-to-End Cmdlet: Aufloesung -> Assessment -> State und Cleanup-Plan ->
-    Provider -> SQL Readiness -> Konfiguration -> Create/Restore -> PostProvision.
-.EXAMPLE
-    $lab = New-SqlServerLab -Version '2025' -Provider docker
-.EXAMPLE
-    $lab = New-SqlServerLab -Manifest './Schemas/example-performance-lab.json'
-#>
-
 function Add-LabInstanceCleanupPlan {
     [CmdletBinding()]
     param(
@@ -80,6 +68,57 @@ function New-LabProviderContainer {
 }
 
 function New-SqlServerLab {
+    <#
+    .SYNOPSIS
+        Erstellt eine neue SQL-Server-Testumgebung.
+    .DESCRIPTION
+        Provisioniert eine reproduzierbare SQL-Server-Labumgebung entweder aus
+        direkten Parametern oder aus einer Manifestdatei. Das Cmdlet prueft
+        Ressourcen, erzeugt Run-State und Cleanup-Plan, startet die Instanzen,
+        wartet auf SQL-Bereitschaft und fuehrt konfigurierte Datenbank-, Restore-
+        und Post-Provision-Schritte aus.
+    .PARAMETER Version
+        SQL-Server-Version aus dem Versionskatalog. Standard ist 2025. Zulassige
+        Formate umfassen beispielsweise 2022, 2022-CU16 und exakte Katalog-Tags.
+    .PARAMETER Provider
+        Ausfuehrungsprovider. Standard ist docker. Docker und Podman sind
+        implementiert; Hyper-V ist als Vertragswert vorbereitet.
+    .PARAMETER Profile
+        Ressourcenprofil compact, standard oder performance. Standard ist
+        standard.
+    .PARAMETER Port
+        Host-Port der Ad-hoc-Instanz. Der Wert 0, zugleich der Standard, aktiviert
+        die automatische Vergabe im konfigurierten Lab-Portbereich.
+    .PARAMETER InstanceId
+        Eindeutige ID der Ad-hoc-Instanz. Standard ist primary.
+    .PARAMETER Manifest
+        Pfad zu einer vorhandenen JSON-Manifestdatei. Relative lokale Pfade im
+        Manifest werden relativ zu deren Verzeichnis aufgeloest.
+    .PARAMETER SaPassword
+        SA-Passwort als SecureString. Ohne Angabe wird es interaktiv abgefragt.
+    .PARAMETER StateRoot
+        Optionales State-Stammverzeichnis. Ohne Angabe wird der Framework-Default
+        fuer das aktuelle Betriebssystem verwendet.
+    .PARAMETER SkipAssessment
+        Ueberspringt das Resource Assessment vor der Provisionierung. Die
+        spaeteren Provider- und SQL-Pruefungen bleiben aktiv.
+    .OUTPUTS
+        System.Management.Automation.PSCustomObject. Liefert RunId, State,
+        StateRoot und die aufgeloesten Instanz- und Verbindungsinformationen.
+    .EXAMPLE
+        $lab = New-SqlServerLab -Version '2025' -Provider docker
+
+        Erstellt eine einzelne Ad-hoc-Instanz mit den Standardwerten fuer Profil,
+        Instanz-ID und automatische Portvergabe.
+    .EXAMPLE
+        $lab = New-SqlServerLab -Manifest './Schemas/example-performance-lab.json'
+
+        Validiert und provisioniert die im Manifest beschriebene Umgebung.
+    .NOTES
+        Das Cmdlet veraendert Container-Runtime, Dateisystem und SQL Server. Der
+        zurueckgegebene Run kann mit den SqlServerLab-Lifecycle-Commands verwaltet
+        und mit Remove-SqlServerLab wieder entfernt werden.
+    #>
     [CmdletBinding(DefaultParameterSetName = 'AdHoc')]
     param(
         [Parameter(ParameterSetName = 'AdHoc')]
@@ -165,7 +204,7 @@ function New-SqlServerLab {
 
     if (-not $skipAssessmentEffective) {
         Write-LabInfo 'Resource Assessment...'
-        $assessment = Test-LabResources `
+        $assessment = Test-SqlServerLabPrerequisite `
             -Instances $resolved.instances `
             -Provider $providers[0]
 
@@ -296,7 +335,7 @@ function New-SqlServerLab {
             foreach ($database in @($instance.databases | Where-Object { -not $_.restore })) {
                 Write-LabInfo "Datenbank '$($database.name)' auf '$($instance.id)' anlegen..."
 
-                $databaseResult = New-LabDatabase `
+                $databaseResult = New-SqlServerLabDatabase `
                     -HostName $labInstance.Host `
                     -Port $labInstance.Port `
                     -SaPassword $SaPassword `
@@ -347,7 +386,7 @@ function New-SqlServerLab {
             foreach ($database in @($instance.databases | Where-Object { $_.restore })) {
                 Write-LabInfo "Restore '$($database.name)' auf '$($instance.id)' von: $($database.restore.source)"
 
-                $restoreResult = Restore-LabDatabase `
+                $restoreResult = Restore-SqlServerLabDatabase `
                     -HostName $labInstance.Host `
                     -Port $labInstance.Port `
                     -SaPassword $SaPassword `
