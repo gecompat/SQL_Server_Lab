@@ -87,3 +87,21 @@ for branch_info in paged('/branches'):
         print('AUDIT\t' + json.dumps({'branch': branch, 'decision': 'DEFAULT_BRANCH'}, sort_keys=True))
         continue
     print('AUDIT\t' + json.dumps(classify(branch), sort_keys=True))
+
+for event in request('/events?per_page=100') or []:
+    payload = event.get('payload') or {}
+    if event.get('type') != 'DeleteEvent' or payload.get('ref_type') != 'branch':
+        continue
+    if not str(event.get('created_at', '')).startswith('2026-07-28'):
+        continue
+    print(
+        'DELETE_EVENT\t'
+        + json.dumps(
+            {
+                'branch': payload.get('ref'),
+                'created_at': event.get('created_at'),
+                'actor': (event.get('actor') or {}).get('login'),
+            },
+            sort_keys=True,
+        )
+    )
