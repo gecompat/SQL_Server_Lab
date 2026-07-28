@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING` |
-| Stand | 2026-07-27 |
+| Stand | 2026-07-28 |
 
 ## 1. Scope
 
@@ -177,6 +177,10 @@ CI/CD ist keine Voraussetzung für lokale Produktfunktion. Statische Checks dür
 - vorhandene parallele PRs respektieren;
 - Branches nach Abschluss mergen oder löschen;
 - Commit- und PR-Beschreibung nennen Scope, Auswirkungen und Validierung;
+- von einer KI erzeugte Änderungen erhalten in der ersten Zeile der Commit-Nachricht zwingend das Präfix `<KI-Name>: `; die KI verwendet ihre tatsächliche Produkt- oder Agentenbezeichnung, zum Beispiel `ChatGPT:`, `Codex:` oder `Genie:`;
+- bei direkten KI-Commits ist ein zusätzlicher mehrzeiliger Commit-Body zulässig; nur die erste Zeile benötigt das Präfix;
+- liefert eine KI wegen fehlendem Repositoryzugriff Dateien, Patches oder Downloadartefakte zur manuellen Übernahme, stellt sie zusätzlich eine vollständige einzeilige Commit-Nachricht mit ihrem Präfix in einem separat kopierbaren Textblock bereit;
+- ausschließlich von Menschen erstellte Änderungen benötigen kein KI-Präfix;
 - keine Runtime-, Secret-, Cache- oder Evidence-Rohdaten committen;
 - vor dem Merge den vollständigen Branch-Diff prüfen;
 - bei nicht ausgeführten Native-Tests die Einschränkung offen nennen.
