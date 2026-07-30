@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING_LIMITATIONS` |
-| Stand | 2026-07-27 |
+| Stand | 2026-07-30 |
 
 Dieses Dokument beschreibt bekannte Grenzen des aktuell implementierten Runtimepfads. Es ist Teil des öffentlichen Projektvertrags. Ein Feld im JSON-Schema oder ein Planungsdokument gilt nicht automatisch als Implementierungsnachweis.
 
@@ -94,6 +94,14 @@ erklärenden Fehlermeldung abgewiesen.
 Die im Katalog enthaltenen Prüfsummen können bei beschreibenden Varianten
 `null` sein. Solche Varianten gelten nicht als produktiv ausführbar.
 
+Noch nicht implementiert sind die einmalige interaktive Vertrauensfreigabe bei
+fehlender Prüfsumme, der persistente Trust Store, ein Manifest Lock, der
+inhaltsadressierte Artifact Cache, die Mehrfachauswahl im Ad-hoc-Menü,
+SQL-Skript-/Script-Bundle-Handler und `LAB_GENERATED`-Baselines.
+
+Der verbindliche, ausdrücklich noch nicht implementierte Zielvertrag steht in
+[Testdatenbank-Provisionierung und menügeführte Manifest-Erstellung](../Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md).
+
 ## SQL Server Builds und CUs
 
 Der Versionskatalog enthält ausdrücklich versionierte Buildmetadaten. Diese Daten sind nicht automatisch aktuell. Ein vorhandener Katalogeintrag bedeutet nicht, dass er das neueste verfügbare CU darstellt.
@@ -121,5 +129,7 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
 ## Priorisierte nächste technische Schritte
 
 1. Providerübergreifenden Lifecycle für gemischte Runs definieren.
-2. Hyper-V-Provider erst nach einem eigenständigen Implementierungs- und Testvertrag ergänzen.
-3. Katalogaktualität und Prüfsummen kontrolliert pflegen.
+2. Artifact Acquisition, Trust Store, Manifest Lock und inhaltsadressierten Cache gemäß Zielvertrag implementieren.
+3. Mehrfachauswahl sowie Backup-, SQL-Skript- und Script-Bundle-Handler mit Verification und Cleanup ergänzen.
+4. Hyper-V-Provider erst nach einem eigenständigen Implementierungs- und Testvertrag ergänzen.
+5. Katalogaktualität, Prüfsummen und Baseline-Kompatibilität kontrolliert pflegen.
