@@ -131,7 +131,7 @@ Die Runtime-Tests verwenden ausschließlich dafür gekennzeichnete Self-hosted R
 | Podman Runtime Smoke | `self-hosted`, `SQL_Lab`, `Podman` |
 | Mixed Provider Runtime Smoke | `self-hosted`, `SQL_Lab`, `Docker`, `Podman` |
 
-Die Workflows werden bewusst nicht auf einem generischen `self-hosted`-Runner ausgeführt. Docker- und Podman-Läufe verwenden dieselbe Workflow-Concurrency-Gruppe, damit zwei Runtime-Tests nicht unbeabsichtigt gleichzeitig auf demselben Host kollidieren. Die Parallelität wird innerhalb des jeweiligen Smoke-Tests kontrolliert erzeugt.
+Die Workflows werden bewusst nicht auf einem generischen `self-hosted`-Runner ausgeführt. Der mutierende Teil jedes Docker-, Podman- und Mixed-Provider-Smoke-Tests hält einen gemeinsamen hostweiten Mutex. Dadurch können auf demselben Runner keine zwei Runtime-Lifecycle-Tests gleichzeitig Ressourcen erzeugen oder entfernen, ohne dass GitHub wartende Workflow-Läufe verwerfen muss. Die Parallelität wird innerhalb des jeweiligen Smoke-Tests kontrolliert erzeugt.
 
 Remote-Läufe befinden sich unter:
 

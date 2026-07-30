@@ -20,7 +20,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: sql-server-lab-runtime-smoke
+  group: sql-server-lab-runtime-smoke-mixed-providers
   cancel-in-progress: false
 
 jobs:

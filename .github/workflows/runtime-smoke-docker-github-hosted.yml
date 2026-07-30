@@ -14,8 +14,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: sql-server-lab-runtime-smoke
-  cancel-in-progress: false
+  group: sql-server-lab-runtime-smoke-docker-hosted-${{ github.event.pull_request.number || github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
   docker-hosted-smoke:

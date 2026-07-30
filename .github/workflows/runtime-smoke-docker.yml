@@ -19,7 +19,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: sql-server-lab-runtime-smoke
+  group: sql-server-lab-runtime-smoke-docker
   cancel-in-progress: false
 
 jobs:
