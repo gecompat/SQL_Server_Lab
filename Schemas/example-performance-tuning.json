@@ -30,12 +30,6 @@
         },
         "maxDop": 4,
         "costThreshold": 25,
-        "defaultPaths": {
-          "data": "/sqldata",
-          "log": "/sqldata",
-          "backup": "/backup",
-          "tempdb": "/tempdb"
-        },
         "tempdb": {
           "dataFiles": [
             {
