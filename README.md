@@ -210,7 +210,9 @@ Eine HTTPS-URL kann ebenfalls als `BackupSource` verwendet werden. Das Backup wi
 
 Ein Manifest kann vollstaendig in der Konsole erstellt werden. Der Wizard liest
 Pflichtfelder, optionale Felder, Typen, Wertebereiche und Auswahlwerte direkt
-aus dem JSON-Schema:
+aus dem JSON-Schema. Pfade zeigen dabei ihren Host-/Gast-/SQL-Server-Scope,
+ihre Bezugsbasis, Default- und Erzeugungsregel sowie bei relativen Hostwerten
+eine aufgelöste Vorschau:
 
 ```powershell
 New-SqlServerLabManifest -Path '.\mein-lab.json'
@@ -268,9 +270,12 @@ Vollständige Beispiele liegen unter [`Schemas/`](Schemas/README.md).
 
 ## Sample-Datenbanken
 
-Sample-Referenzen können deklarativ beschrieben werden. Automatisch ausgeführt
-werden sie nur mit `runtimeStatus: executable` und verifizierter SHA-256-Pruefsumme;
-die aktuellen Katalogvarianten sind bis zu dieser Verifikation beschreibend:
+Sample-Referenzen können deklarativ beschrieben werden. Der Katalog führt sie
+bereits als typisierte Artifacts mit erwarteten Outputs, Installation-Metadaten
+und Trust Policy. Automatisch ausgeführt werden sie weiterhin nur mit dem
+bereits implementierten Backup-Handler, `runtimeStatus: executable` und
+verifizierter SHA-256-Pruefsumme; die aktuellen Katalogvarianten sind bis zu
+dieser Verifikation beschreibend:
 
 ```json
 {

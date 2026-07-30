@@ -100,20 +100,68 @@
     "variant": {
       "type": "object",
       "required": [
+        "artifactType",
+        "handlerContractVersion",
         "url",
-        "sizeMB",
+        "downloadSizeMB",
+        "estimatedInstallSizeMB",
+        "resourceEstimateStatus",
         "sha256",
+        "integrityOrigin",
+        "trustPolicy",
         "compatibility",
+        "expectedOutputs",
+        "installation",
         "runtimeStatus"
       ],
       "properties": {
+        "artifactType": {
+          "type": "string",
+          "enum": [
+            "backup",
+            "sql-script",
+            "script-bundle",
+            "bacpac",
+            "archive-backup",
+            "attach"
+          ],
+          "description": "Typisierter Artifact Type. Unbekannte Typen duerfen nicht anhand einer Dateiendung geraten werden."
+        },
+        "handlerContractVersion": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$",
+          "description": "Version des gemeinsamen Artifact-Handler-Vertrags."
+        },
         "url": {
           "type": "string",
-          "format": "uri"
+          "format": "uri",
+          "description": "Konkrete oeffentliche Acquisition-URL des Artifacts."
         },
-        "sizeMB": {
+        "downloadSizeMB": {
           "type": "number",
-          "minimum": 0
+          "minimum": 0,
+          "description": "Erwartete Downloadgroesse in MB."
+        },
+        "estimatedInstallSizeMB": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "number",
+              "minimum": 0
+            }
+          ],
+          "description": "Bekannte oder konservative Installationsgroesse in MB; null bei fehlender belastbarer Quelle."
+        },
+        "resourceEstimateStatus": {
+          "type": "string",
+          "enum": [
+            "publisher-provided",
+            "catalog-estimated",
+            "unknown"
+          ],
+          "description": "Herkunft der Installationsgroesse; unknown darf nicht als belastbare Kapazitaetszusage verwendet werden."
         },
         "sha256": {
           "oneOf": [
@@ -126,12 +174,63 @@
             }
           ]
         },
+        "integrityOrigin": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "enum": [
+                "publisher-verified",
+                "catalog-verified",
+                "user-trusted-generated"
+              ]
+            }
+          ],
+          "description": "Herkunft einer bekannten SHA-256-Pruefsumme."
+        },
+        "trustPolicy": {
+          "type": "string",
+          "enum": [
+            "catalog-only",
+            "interactive-once"
+          ],
+          "description": "Zulaessiger Vertrauenspfad bei fehlender Katalogpruefsumme. Nichtinteraktive Laeufe duerfen interactive-once nicht bestaetigen."
+        },
         "compatibility": {
           "type": "integer",
           "minimum": 80
         },
-        "type": {
-          "type": "string"
+        "expectedOutputs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/definitions/expectedOutput"
+          },
+          "description": "Datenbankausgaben, die vor Apply sichtbar sein und nach Apply verifiziert werden muessen."
+        },
+        "installation": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/backupInstallation"
+            },
+            {
+              "$ref": "#/definitions/sqlScriptInstallation"
+            },
+            {
+              "$ref": "#/definitions/scriptBundleInstallation"
+            },
+            {
+              "$ref": "#/definitions/bacpacInstallation"
+            },
+            {
+              "$ref": "#/definitions/archiveBackupInstallation"
+            },
+            {
+              "$ref": "#/definitions/attachInstallation"
+            }
+          ]
         },
         "note": {
           "type": "string"
@@ -145,7 +244,387 @@
           "description": "Nur executable-Varianten duerfen vom Runtimepfad automatisch verarbeitet werden."
         }
       },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "sha256": {
+                "type": "null"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "integrityOrigin": {
+                "type": "null"
+              },
+              "trustPolicy": {
+                "const": "interactive-once"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "integrityOrigin": {
+                "type": "string"
+              },
+              "trustPolicy": {
+                "const": "catalog-only"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "runtimeStatus": {
+                "const": "executable"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "sha256": {
+                "type": "string"
+              },
+              "integrityOrigin": {
+                "type": "string"
+              },
+              "trustPolicy": {
+                "const": "catalog-only"
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "artifactType": { "const": "backup" } } },
+          "then": { "properties": { "installation": { "$ref": "#/definitions/backupInstallation" } } }
+        },
+        {
+          "if": { "properties": { "artifactType": { "const": "sql-script" } } },
+          "then": { "properties": { "installation": { "$ref": "#/definitions/sqlScriptInstallation" } } }
+        },
+        {
+          "if": { "properties": { "artifactType": { "const": "script-bundle" } } },
+          "then": { "properties": { "installation": { "$ref": "#/definitions/scriptBundleInstallation" } } }
+        },
+        {
+          "if": { "properties": { "artifactType": { "const": "bacpac" } } },
+          "then": { "properties": { "installation": { "$ref": "#/definitions/bacpacInstallation" } } }
+        },
+        {
+          "if": { "properties": { "artifactType": { "const": "archive-backup" } } },
+          "then": { "properties": { "installation": { "$ref": "#/definitions/archiveBackupInstallation" } } }
+        },
+        {
+          "if": { "properties": { "artifactType": { "const": "attach" } } },
+          "then": { "properties": { "installation": { "$ref": "#/definitions/attachInstallation" } } }
+        }
+      ]
+    },
+    "expectedOutput": {
+      "type": "object",
+      "required": [
+        "name",
+        "kind"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "database"
+          ]
+        }
+      },
       "additionalProperties": false
+    },
+    "backupInstallation": {
+      "type": "object",
+      "required": [
+        "kind",
+        "restoreMode",
+        "idempotencyMode",
+        "baselinePolicy"
+      ],
+      "properties": {
+        "kind": {
+          "const": "backup"
+        },
+        "restoreMode": {
+          "const": "direct-backup"
+        },
+        "idempotencyMode": {
+          "$ref": "#/definitions/idempotencyMode"
+        },
+        "baselinePolicy": {
+          "$ref": "#/definitions/baselinePolicy"
+        }
+      },
+      "additionalProperties": false
+    },
+    "sqlScriptInstallation": {
+      "type": "object",
+      "required": [
+        "kind",
+        "entrypoint",
+        "workingDirectory",
+        "executionMode",
+        "allowedSqlcmdFeatures",
+        "timeoutSeconds",
+        "idempotencyMode",
+        "partialFailurePolicy",
+        "baselinePolicy"
+      ],
+      "properties": {
+        "kind": {
+          "const": "sql-script"
+        },
+        "entrypoint": {
+          "type": "string",
+          "minLength": 1
+        },
+        "workingDirectory": {
+          "type": "string",
+          "minLength": 1
+        },
+        "executionMode": {
+          "type": "string",
+          "enum": [
+            "master",
+            "existing-database",
+            "self-creates-databases"
+          ]
+        },
+        "targetDatabase": {
+          "type": "string",
+          "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+        },
+        "allowedSqlcmdFeatures": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "go",
+              "include",
+              "setvar"
+            ]
+          }
+        },
+        "timeoutSeconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "idempotencyMode": {
+          "$ref": "#/definitions/idempotencyMode"
+        },
+        "partialFailurePolicy": {
+          "type": "string",
+          "enum": [
+            "recovery-required"
+          ]
+        },
+        "baselinePolicy": {
+          "$ref": "#/definitions/baselinePolicy"
+        }
+      },
+      "additionalProperties": false
+    },
+    "scriptBundleInstallation": {
+      "type": "object",
+      "required": [
+        "kind",
+        "entrypoint",
+        "workingDirectory",
+        "executionMode",
+        "allowedSqlcmdFeatures",
+        "timeoutSeconds",
+        "idempotencyMode",
+        "partialFailurePolicy",
+        "baselinePolicy"
+      ],
+      "properties": {
+        "kind": {
+          "const": "script-bundle"
+        },
+        "entrypoint": {
+          "type": "string",
+          "minLength": 1
+        },
+        "workingDirectory": {
+          "type": "string",
+          "minLength": 1
+        },
+        "executionMode": {
+          "type": "string",
+          "enum": [
+            "master",
+            "existing-database",
+            "self-creates-databases"
+          ]
+        },
+        "targetDatabase": {
+          "type": "string",
+          "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+        },
+        "allowedSqlcmdFeatures": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "go",
+              "include",
+              "setvar"
+            ]
+          }
+        },
+        "timeoutSeconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "idempotencyMode": {
+          "$ref": "#/definitions/idempotencyMode"
+        },
+        "partialFailurePolicy": {
+          "type": "string",
+          "enum": [
+            "recovery-required"
+          ]
+        },
+        "baselinePolicy": {
+          "$ref": "#/definitions/baselinePolicy"
+        }
+      },
+      "additionalProperties": false
+    },
+    "bacpacInstallation": {
+      "type": "object",
+      "required": [
+        "kind",
+        "importMode",
+        "idempotencyMode",
+        "baselinePolicy"
+      ],
+      "properties": {
+        "kind": {
+          "const": "bacpac"
+        },
+        "importMode": {
+          "const": "sqlpackage"
+        },
+        "idempotencyMode": {
+          "$ref": "#/definitions/idempotencyMode"
+        },
+        "baselinePolicy": {
+          "$ref": "#/definitions/baselinePolicy"
+        }
+      },
+      "additionalProperties": false
+    },
+    "archiveBackupInstallation": {
+      "type": "object",
+      "required": [
+        "kind",
+        "archiveFormat",
+        "payloadPath",
+        "idempotencyMode",
+        "baselinePolicy"
+      ],
+      "properties": {
+        "kind": {
+          "const": "archive-backup"
+        },
+        "archiveFormat": {
+          "type": "string",
+          "enum": [
+            "zip",
+            "7z"
+          ]
+        },
+        "payloadPath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "idempotencyMode": {
+          "$ref": "#/definitions/idempotencyMode"
+        },
+        "baselinePolicy": {
+          "$ref": "#/definitions/baselinePolicy"
+        }
+      },
+      "additionalProperties": false
+    },
+    "attachInstallation": {
+      "type": "object",
+      "required": [
+        "kind",
+        "sourceLayout",
+        "archiveFormat",
+        "payloadSelection",
+        "idempotencyMode",
+        "baselinePolicy"
+      ],
+      "properties": {
+        "kind": {
+          "const": "attach"
+        },
+        "sourceLayout": {
+          "type": "string",
+          "enum": [
+            "attach-files",
+            "archive-with-attach-files"
+          ]
+        },
+        "archiveFormat": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "enum": [
+                "zip",
+                "7z"
+              ]
+            }
+          ]
+        },
+        "payloadSelection": {
+          "type": "string",
+          "enum": [
+            "catalog-path",
+            "manual-required"
+          ]
+        },
+        "idempotencyMode": {
+          "$ref": "#/definitions/idempotencyMode"
+        },
+        "baselinePolicy": {
+          "$ref": "#/definitions/baselinePolicy"
+        }
+      },
+      "additionalProperties": false
+    },
+    "idempotencyMode": {
+      "type": "string",
+      "enum": [
+        "fail-if-exists",
+        "reuse-if-verified",
+        "recreate-owned"
+      ]
+    },
+    "baselinePolicy": {
+      "type": "string",
+      "enum": [
+        "eligible-after-verification",
+        "not-eligible"
+      ]
     },
     "cachePolicy": {
       "type": "object",

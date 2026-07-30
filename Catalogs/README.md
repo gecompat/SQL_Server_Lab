@@ -68,8 +68,11 @@ Jeder Eintrag enthält:
 - Datenbankname und Anzeigename
 - Beschreibung und Kategorie
 - Lizenz und Quellseite
-- eine oder mehrere Varianten
-- Download-URL, Größe und Compatibility Level
+- eine oder mehrere typisierte Artifact-Varianten
+- konkreten Artifact Type, Handler-Contract-Version und typspezifische Installation-Metadaten
+- Download- und, soweit belastbar, Installationsgröße
+- erwartete Datenbankausgaben, Integrity Origin und Trust Policy
+- Download-URL und Compatibility Level
 - Mindestversion von SQL Server
 - Tags
 
@@ -81,11 +84,26 @@ Beispiel:
   "name": "AdventureWorks2022",
   "versions": {
     "full": {
+      "artifactType": "backup",
+      "handlerContractVersion": "1",
       "url": "https://.../AdventureWorks2022.bak",
-      "sizeMB": 209,
+      "downloadSizeMB": 209,
+      "estimatedInstallSizeMB": null,
+      "resourceEstimateStatus": "unknown",
       "sha256": null,
+      "integrityOrigin": null,
+      "trustPolicy": "interactive-once",
       "runtimeStatus": "descriptive",
-      "compatibility": 160
+      "compatibility": 160,
+      "expectedOutputs": [
+        { "name": "AdventureWorks2022", "kind": "database" }
+      ],
+      "installation": {
+        "kind": "backup",
+        "restoreMode": "direct-backup",
+        "idempotencyMode": "fail-if-exists",
+        "baselinePolicy": "eligible-after-verification"
+      }
     }
   },
   "minSqlVersion": "2022"
@@ -94,9 +112,10 @@ Beispiel:
 
 ### Runtimeunterstützung
 
-Der Manifestparser kann Varianten automatisch bereitstellen, wenn ihre URL
-direkt auf eine `.bak`-Datei zeigt, `runtimeStatus` den Wert `executable` hat und
-eine verifizierte SHA-256-Pruefsumme hinterlegt ist.
+Der Katalog wird bereits in den gemeinsamen Artifact-Vertrag aufgelöst.
+Automatisch bereitstellen kann der aktuelle Runtimepfad aber weiterhin nur den
+Backup-Handler: Die Variante muss `artifactType: backup`,
+`runtimeStatus: executable` und eine verifizierte SHA-256-Pruefsumme besitzen.
 
 Nicht automatisch ausführbar sind unter anderem:
 
@@ -111,11 +130,11 @@ Der verbindliche Zielvertrag für zusätzliche Artifact Types, einmalige Vertrau
 ### Prüfsummen
 
 `sha256: null` bedeutet, dass keine kryptografische Prüfsumme hinterlegt ist.
-Eine solche Variante muss `runtimeStatus: descriptive` tragen und wird nicht
-automatisch ausgefuehrt. Die derzeit katalogisierten Downloads sind deshalb
-beschreibend, bis ihre Artefakte ueber einen kontrollierten Download verifiziert
-und mit SHA-256 freigegeben wurden. `cachePolicy.verifyChecksum` allein erzeugt
-keine Prüfsumme.
+In diesem Fall muss `integrityOrigin: null`, `trustPolicy: interactive-once`
+und `runtimeStatus: descriptive` gesetzt sein. Die derzeit katalogisierten
+Downloads sind deshalb beschreibend. Der spätere Trust Store darf nach einer
+ausdrücklichen Entscheidung nur lokal einen erwarteten Hash registrieren;
+`cachePolicy.verifyChecksum` allein erzeugt keine Prüfsumme.
 
 ## Validierung
 
