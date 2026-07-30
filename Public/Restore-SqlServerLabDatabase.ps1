@@ -161,6 +161,9 @@ function Restore-SqlServerLabDatabase {
     .PARAMETER ExpectedSha256
         Optional erwartete SHA-256-Pruefsumme. Eine Abweichung bricht vor dem
         Restore ab.
+    .PARAMETER NonInteractive
+        Unterbindet jede Rueckfrage. Fehlt eine bekannte Pruefsumme, wird kein
+        Download gestartet und der Aufruf endet mit TRUST_REQUIRED.
     .PARAMETER Provider
         Optionaler Containerprovider docker oder podman. Schrankt die Suche nach
         dem Zielcontainer ein.
@@ -179,8 +182,12 @@ function Restore-SqlServerLabDatabase {
         Fuegt der Wiederherstellung WITH REPLACE hinzu und erlaubt das
         Ueberschreiben einer vorhandenen Zieldatenbank.
     .PARAMETER StateRoot
-        Optionales State-Stammverzeichnis fur den Download-Cache. Ohne Angabe
-        wird der Framework-Default verwendet.
+        Optionales State-Stammverzeichnis fuer Trust Store, inhaltsadressierten
+        Artifact Cache und Quarantaene. Ohne Angabe wird der Framework-Default
+        verwendet.
+    .PARAMETER RunDirectory
+        Optionales Verzeichnis eines bereits angelegten Lab-Runs. Der verifizierte
+        Artifact-Vertrag wird dort vor dem Restore in manifest.lock.json abgelegt.
     .OUTPUTS
         System.Management.Automation.PSCustomObject. Liefert das Ergebnis der
         Wiederherstellung einschliesslich Ziel- und Backupinformationen.
@@ -207,6 +214,7 @@ function Restore-SqlServerLabDatabase {
         [Parameter(Mandatory)][string]$BackupSource,
         [Parameter(Mandatory)][string]$DatabaseName,
         [ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$ExpectedSha256,
+        [switch]$NonInteractive,
         [Parameter(ParameterSetName = 'Direct')]
         [ValidateSet('docker', 'podman')][string]$Provider,
         [Parameter(ParameterSetName = 'Direct')][string]$ContainerName,
@@ -214,7 +222,8 @@ function Restore-SqlServerLabDatabase {
         [Parameter(ParameterSetName = 'RunBased')][string]$InstanceId = 'primary',
         [string]$DataPath = '/var/opt/mssql/data',
         [switch]$Replace,
-        [string]$StateRoot
+        [string]$StateRoot,
+        [string]$RunDirectory
     )
 
     $ErrorActionPreference = 'Stop'
@@ -228,6 +237,10 @@ function Restore-SqlServerLabDatabase {
         $Port = $runTarget.Port
         $Provider = $runTarget.Provider
         $ContainerName = $runTarget.ContainerName
+        if (-not $RunDirectory) {
+            $effectiveStateRoot = if ($StateRoot) { $StateRoot } else { Get-LabStateRoot }
+            $RunDirectory = Join-Path (Join-Path $effectiveStateRoot 'runs') $RunId
+        }
     }
 
     if ($Port -lt 1 -or $Port -gt 65535) {
@@ -237,9 +250,27 @@ function Restore-SqlServerLabDatabase {
         throw "DataPath '$DataPath' muss ein absoluter Linux-Containerpfad sein."
     }
 
+    $artifactResolution = $null
     $backupPath = if ($BackupSource -match '^https?://') {
-        Write-LabInfo "Download: $BackupSource"
-        Get-LabCachedBackup -Url $BackupSource -ExpectedSha256 $ExpectedSha256 -StateRoot $StateRoot
+        $artifactResolution = Resolve-LabArtifact `
+            -Source $BackupSource `
+            -ArtifactType backup `
+            -ExpectedSha256 $ExpectedSha256 `
+            -TrustPolicy interactive-once `
+            -NonInteractive:$NonInteractive `
+            -RunDirectory $RunDirectory `
+            -StateRoot $StateRoot
+
+        if ($artifactResolution.Status -ne 'ARTIFACT_READY') {
+            $integrityDetails = if ($artifactResolution.Status -eq 'ARTIFACT_INTEGRITY_MISMATCH') {
+                " Erwartet: $($artifactResolution.ExpectedSha256); beobachtet: $($artifactResolution.ObservedSha256)."
+            }
+            else {
+                ''
+            }
+            throw "$($artifactResolution.Status): $($artifactResolution.Message)$integrityDetails"
+        }
+        $artifactResolution.Path
     }
     elseif (Test-Path -LiteralPath $BackupSource -PathType Leaf) {
         (Resolve-Path -LiteralPath $BackupSource).Path
@@ -248,9 +279,9 @@ function Restore-SqlServerLabDatabase {
         throw "Backup-Quelle nicht gefunden oder kein direktes File: $BackupSource"
     }
 
-    if ($ExpectedSha256) {
-        $actualSha256 = (Get-FileHash -LiteralPath $backupPath -Algorithm SHA256).Hash
-        if ($actualSha256 -ne $ExpectedSha256) {
+    if ($ExpectedSha256 -and -not $artifactResolution) {
+        $actualSha256 = (Get-FileHash -LiteralPath $backupPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($actualSha256 -ne $ExpectedSha256.ToLowerInvariant()) {
             throw "SHA-256-Pruefung fuer Backup '$BackupSource' fehlgeschlagen."
         }
     }
@@ -379,73 +410,10 @@ RESTORE DATABASE [$escapedDatabaseName]
             Message       = 'RESTORE erfolgreich'
             Duration      = $stopwatch.Elapsed
             Files         = $moveStatements.Count
+            Artifact      = $artifactResolution
         }
     }
     finally {
         $saPlain = $null
     }
-}
-
-function Get-LabCachedBackup {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)][string]$Url,
-        [ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$ExpectedSha256,
-        [string]$StateRoot
-    )
-
-    if (-not $StateRoot) {
-        $StateRoot = Get-LabStateRoot
-    }
-
-    $cacheDirectory = Join-Path $StateRoot 'cache/backups'
-    if (-not (Test-Path -LiteralPath $cacheDirectory -PathType Container)) {
-        New-Item -Path $cacheDirectory -ItemType Directory -Force | Out-Null
-    }
-
-    $uri = [System.Uri]::new($Url)
-    $fileName = [System.IO.Path]::GetFileName($uri.LocalPath)
-    if (-not $fileName -or $fileName -notmatch '(?i)\.bak$') {
-        throw "Download-URL verweist nicht auf eine direkte .bak-Datei: $Url"
-    }
-
-    $cachedPath = Join-Path $cacheDirectory $fileName
-    if (Test-Path -LiteralPath $cachedPath -PathType Leaf) {
-        if ($ExpectedSha256) {
-            $actualSha256 = (Get-FileHash -LiteralPath $cachedPath -Algorithm SHA256).Hash
-            if ($actualSha256 -ne $ExpectedSha256) {
-                Remove-Item -LiteralPath $cachedPath -Force
-                throw "SHA-256-Pruefung fuer Cache-Datei '$fileName' fehlgeschlagen."
-            }
-        }
-        $fileSize = (Get-Item -LiteralPath $cachedPath).Length
-        Write-LabInfo "Cache-Hit: $fileName ($([Math]::Round($fileSize / 1MB, 1)) MB)"
-        return $cachedPath
-    }
-
-    Write-LabInfo "Download: $fileName"
-    $previousProgressPreference = $ProgressPreference
-    try {
-        $ProgressPreference = 'SilentlyContinue'
-        Invoke-WebRequest -Uri $Url -OutFile $cachedPath
-        if ($ExpectedSha256) {
-            $actualSha256 = (Get-FileHash -LiteralPath $cachedPath -Algorithm SHA256).Hash
-            if ($actualSha256 -ne $ExpectedSha256) {
-                throw "SHA-256-Pruefung fuer Download '$fileName' fehlgeschlagen."
-            }
-        }
-    }
-    catch {
-        if (Test-Path -LiteralPath $cachedPath) {
-            Remove-Item -LiteralPath $cachedPath -Force
-        }
-        throw "Download fehlgeschlagen: $Url - $($_.Exception.Message)"
-    }
-    finally {
-        $ProgressPreference = $previousProgressPreference
-    }
-
-    $fileSize = (Get-Item -LiteralPath $cachedPath).Length
-    Write-LabSuccess "Downloaded: $fileName ($([Math]::Round($fileSize / 1MB, 1)) MB)"
-    return $cachedPath
 }

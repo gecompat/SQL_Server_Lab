@@ -43,7 +43,7 @@ Fachliche Testszenarien bleiben in den konsumierenden Projekten. `SQL_Server_Lab
 | Resource Assessment | implementiert | `Test-SqlServerLabPrerequisite` |
 | Run-State und Cleanup-Plan | implementiert | `Private/StateMachine.ps1`, `Private/CleanupEngine.ps1` |
 | Datenbankerstellung | implementiert | `New-SqlServerLabDatabase` |
-| Backup-Restore | implementiert | `Restore-SqlServerLabDatabase` |
+| Backup-Restore mit Artifact Resolver | implementiert | `Restore-SqlServerLabDatabase`, `Private/ArtifactResolver.ps1` |
 | Sample-Datenbanken | vorbereitet | nur direkte `.bak`-Varianten mit `runtimeStatus: executable` und SHA-256; aktuelle Eintraege sind beschreibend |
 | T-SQL-Skriptausführung | implementiert | `Invoke-SqlServerLabScript` |
 | Provider-/Versions-/Parallel-Smoke-Test | implementiert | `Tests/Integration/Invoke-SmokeMatrix.ps1` |
@@ -204,7 +204,12 @@ Restore-SqlServerLabDatabase `
     -DatabaseName 'AdventureWorks2022'
 ```
 
-Eine HTTPS-URL kann ebenfalls als `BackupSource` verwendet werden. Das Backup wird dann im lokalen State-Cache abgelegt.
+Eine HTTPS-URL kann ebenfalls als `BackupSource` verwendet werden. Sie wird
+zuerst in einen lokalen Staging-Bereich geladen, per SHA-256 geprüft und danach
+unter diesem Digest im inhaltsadressierten State-Cache gespeichert. Fehlt eine
+bekannte Prüfsumme, fragt ein interaktiver Aufruf einmalig nach Vertrauen und
+registriert den berechneten Hash lokal. Mit `-NonInteractive` endet derselbe
+Fall ohne Download mit `TRUST_REQUIRED`.
 
 ## Manifest-Modus
 
@@ -303,11 +308,12 @@ Unverifizierte Downloads, Archive, Attach-Szenarien und SQL-Skript-Samples
 werden nicht automatisch in einen Restore umgedeutet. Sie führen mit einer
 klaren Fehlermeldung zum Abbruch.
 
-Der verbindliche Zielvertrag für mehrere auswählbare Samples, einmalige
-Vertrauensfreigabe mit dauerhaftem SHA-256, SQL-Skript-/Bundle-Handler,
-kontextreiche Pfadführung und `LAB_GENERATED`-Baselines ist in
+Der verbindliche Zielvertrag für mehrere auswählbare Samples, SQL-Skript-/
+Bundle-Handler, kontextreiche Pfadführung und `LAB_GENERATED`-Baselines ist in
 [Testdatenbank-Provisionierung und menügeführte Manifest-Erstellung](Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md)
-dokumentiert. Diese Funktionen sind noch nicht implementiert.
+dokumentiert. Trust Store, inhaltsadressierter Cache und Run Lock sind für
+direkte Backup-Acquisition implementiert; der Sample-Backup-Handler und die
+Menüauswahl folgen erst in Welle 3.
 
 ## Lifecycle
 
@@ -364,6 +370,10 @@ Pro Run entstehen unter anderem:
 - `cleanup-plan.json`
 - `connection-info.json`
 - lokale Secret-Dateien
+- `trust/sample-artifacts.json`
+- `cache/artifacts/sha256/<sha256>/`
+- `cache/quarantine/`
+- `runs/<RunId>/manifest.lock.json` bei URL-basierten Artifacts
 
 Diese Dateien enthalten konkrete Laufzeitinformationen und gehören nicht in Git.
 

@@ -111,10 +111,14 @@ erklärenden Fehlermeldung abgewiesen.
 Die im Katalog enthaltenen Prüfsummen können bei beschreibenden Varianten
 `null` sein. Solche Varianten gelten nicht als produktiv ausführbar.
 
-Noch nicht implementiert sind die einmalige interaktive Vertrauensfreigabe bei
-fehlender Prüfsumme, der persistente Trust Store, ein Manifest Lock, der
-inhaltsadressierte Artifact Cache, die Mehrfachauswahl im Ad-hoc-Menü,
-SQL-Skript-/Script-Bundle-Handler und `LAB_GENERATED`-Baselines.
+Für direkte HTTP(S)-Backups sind die einmalige interaktive
+Vertrauensfreigabe, ein persistenter Trust Store, ein inhaltsadressierter Cache,
+Quarantäne bei Hash-Mismatch und ein Run Lock implementiert. Ein nicht
+interaktiver Aufruf ohne bekannte Prüfsumme endet mit `TRUST_REQUIRED`.
+
+Noch nicht implementiert sind die Nutzung dieses Unterbaus durch den
+Sample-Backup-Handler, die Mehrfachauswahl im Ad-hoc-Menü, SQL-Skript- und
+Script-Bundle-Handler sowie `LAB_GENERATED`-Baselines.
 
 Der Wizard zeigt für die festgelegten Manifestpfade bereits Scope,
 Bezugsbasis und aufgelöste Hostvorschau. Eine spezialisierte Sample-Auswahl,
@@ -156,9 +160,8 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
 
 ## Priorisierte nächste technische Schritte
 
-1. Artifact Acquisition, Trust Store, Manifest Lock und inhaltsadressierten Cache gemäß Zielvertrag implementieren.
-2. Mehrfachauswahl sowie Backup-, SQL-Skript- und Script-Bundle-Handler mit Verification und Cleanup ergänzen.
-3. Providerneutrale Drive-, Network-, Software- und Reconcile-Verträge gemäß Hyper-V-Zielvertrag umsetzen.
-4. Artifact Registry, Refresh/Rebuild und Evaluierungsablauf implementieren.
-5. Hyper-V anschließend in den dokumentierten, getrennt testbaren Wellen implementieren.
-6. Katalogaktualität, Prüfsummen und Baseline-Kompatibilität kontrolliert pflegen.
+1. Mehrfachauswahl sowie Backup-, SQL-Skript- und Script-Bundle-Handler mit Verification und Cleanup ergänzen.
+2. Providerneutrale Drive-, Network-, Software- und Reconcile-Verträge gemäß Hyper-V-Zielvertrag umsetzen.
+3. Artifact Registry, Refresh/Rebuild und Evaluierungsablauf implementieren.
+4. Hyper-V anschließend in den dokumentierten, getrennt testbaren Wellen implementieren.
+5. Katalogaktualität, Prüfsummen und Baseline-Kompatibilität kontrolliert pflegen.

@@ -14,6 +14,7 @@
 .\Tests\Static\Invoke-DocumentationChecks.ps1
 .\Tests\Static\Invoke-ReadinessContractChecks.ps1
 .\Tests\Static\Invoke-MixedProviderLifecycleChecks.ps1
+.\Tests\Static\Invoke-ArtifactResolverChecks.ps1
 ```
 
 Die statischen Prüfungen benötigen keine laufende SQL-Server-Instanz. Sie kontrollieren unter anderem:
@@ -29,6 +30,7 @@ Die statischen Prüfungen benötigen keine laufende SQL-Server-Instanz. Sie kont
 - SQL- und Datenbank-Readiness-Verträge;
 - Ausschluss bekannter veralteter Beispiele und Statusangaben.
 - ProviderSubRuns, Mixed-Provider-Beispiel und Cleanup-Zuordnung.
+- Trust Store, inhaltsadressierten Artifact Cache, Quarantäne und sanitisiertes Run Lock mit ausschliesslich synthetischen Testbytes.
 
 Der interaktive Menüpfad darf das bereits laufende Modul nicht innerhalb von `Invoke-SqlServerLab` erneut mit `Import-Module -Force` laden. Eine Selbst-Neuladung entfernt die gerade verwendeten Hilfsfunktionen aus dem Funktionskontext.
 

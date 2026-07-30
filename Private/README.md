@@ -13,6 +13,7 @@ Der Pfad `Private/` beschreibt primär die interne Architektur. Die tatsächlich
 | `SecretProvider.ps1` | lokales Speichern, Lesen und Entfernen von Secrets |
 | `VersionCatalog.ps1` | Versionen, CU-Builds, Images, Ressourcenprofile und Sample-Katalogzugriff |
 | `StateMachine.ps1` | State-Root, Run-State, ProviderSubRuns, Übergänge, Historie und aktive Runs |
+| `ArtifactResolver.ps1` | HTTP(S)-Backup-Acquisition, lokaler Trust Store, inhaltsadressierter Cache, Quarantäne und sanitisiertes Run Lock |
 | `SqlReadiness.ps1` | SQL-Bereitschaft, Queries und interne Skriptausführung |
 | `ResourceAssessment.ps1` | Prüfung aller verwendeten Provider sowie runweiter RAM-, Storage- und Portkapazität; definiert das exportierte `Test-SqlServerLabPrerequisite` |
 | `CleanupEngine.ps1` | Cleanup-Plan, ProviderSubRuns, Schritte und Compensation |
@@ -67,6 +68,7 @@ Für öffentliche Bedienung sind die in `SqlServerLab.psd1` exportierten Funktio
 ```powershell
 .\Tests\Static\Invoke-ManifestBuilderChecks.ps1
 .\Tests\Static\Invoke-DocumentationChecks.ps1
+.\Tests\Static\Invoke-ArtifactResolverChecks.ps1
 .\Tests\Static\Invoke-MixedProviderLifecycleChecks.ps1
 ```
 

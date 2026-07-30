@@ -24,10 +24,11 @@ Execution Handler verwenden, müssen aber dieselben Sicherheits-, Integritäts-,
 State-, Verification- und Cleanup-Regeln erfüllen.
 
 Dieses Dokument ist **kein vollständiger Runtime-Nachweis**. Der aktuelle Parser führt nur
-direkte `.bak`-Varianten mit `runtimeStatus: executable` und vorhandener
-SHA-256-Prüfsumme aus. SQL-Skript-Samples, Trust Store, Manifest Lock,
-Mehrfachauswahl im Ad-hoc-Menü und Baseline-Erzeugung sind noch nicht
-implementiert.
+direkte `.bak`-Varianten mit `runtimeStatus: executable` aus. Für direkte
+HTTP(S)-Backups sind Acquisition, Trust Store, Manifest Lock und
+inhaltsadressierter Cache implementiert. Der Sample-Backup-Handler verwendet
+diesen Unterbau noch nicht; SQL-Skript-Samples, Mehrfachauswahl im Ad-hoc-Menü
+und Baseline-Erzeugung sind ebenfalls noch nicht implementiert.
 
 Der gemeinsame Katalogvertrag für Artifact Type, Installation, erwartete
 Outputs, Trust Policy und Größenmetadaten ist implementiert. Für die
@@ -72,7 +73,8 @@ Installation Handler aus.
 | SQL-Skriptausführung | für einzelne T-SQL-Dateien vorhanden |
 | SQL-Skript-Sample als Artifact Handler | nicht implementiert |
 | mehrere Samples im Ad-hoc-Menü auswählen | nicht implementiert |
-| persistenter Trust Store und Manifest Lock | nicht implementiert |
+| persistenter Trust Store und Manifest Lock | für direkte HTTP(S)-Backups implementiert; Sample-Handler-Bindung folgt |
+| inhaltsadressierter Artifact Cache und Quarantäne | für direkte HTTP(S)-Backups implementiert |
 | `LAB_GENERATED`-Baseline-Auswahl | nicht implementiert |
 | kontextbezogene Manifest-Menüführung | nur teilweise vorhanden |
 
@@ -592,6 +594,15 @@ Backup-Restore streng gegen den erwarteten Katalognamen geprüft.
 - Run Lock und sanitisiertes portables Lock;
 - Hash-Mismatch- und Quarantänepfad;
 - nicht interaktiver Status `TRUST_REQUIRED`.
+
+**Implementiert am 2026-07-30:** Der gemeinsame Backup-Resolver lädt in einen
+lokalen Staging-Bereich, berechnet SHA-256, verwaltet versionierte lokale
+Trust-Records und verschiebt verifizierte Bytes in einen inhaltsadressierten
+Cache. Abweichende Bytes werden quarantänisiert. `manifest.lock.json` enthält
+nur sanitisierte Artifact-Identität und Integritätsmetadaten; ein portables Lock
+kann aus diesem Inhalt erzeugt werden. Der Resolver ist zunächst mit direkten
+HTTP(S)-Backups verbunden. Die Katalogvarianten bleiben bis Welle 3
+`descriptive` und werden dadurch nicht vorzeitig ausführbar.
 
 ### Welle 3 – Backup-Samples und Mehrfachauswahl
 
