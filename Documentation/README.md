@@ -53,7 +53,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | Podman | implementiert | `Providers/Podman/PodmanProvider.ps1` |
 | Hyper-V | geplant | `Providers/HyperV/README.md` |
 | Versions- und Buildauflösung | implementiert | `Catalogs/sql-server-versions.json`, `Private/VersionCatalog.ps1` |
-| Sample-Katalog | direkte `.bak`-Varianten implementiert | `Catalogs/sample-databases.json`, `Private/ManifestParser.ps1` |
+| Sample-Katalog | typisierter Artifact-Vertrag implementiert; Runtime weiterhin nur für ausführbare Backup-Varianten | `Catalogs/sample-databases.json`, `Schemas/sample-databases.schema.json`, `Private/ManifestParser.ps1` |
 | Manifestparser | implementiert | `Private/ManifestParser.ps1` |
 | Resource Assessment | implementiert | `Private/ResourceAssessment.ps1` |
 | State und Cleanup | implementiert | `Private/StateMachine.ps1`, `Private/CleanupEngine.ps1` |
@@ -64,7 +64,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | Restore | direkte `.bak`-Dateien implementiert | `Public/Restore-SqlServerLabDatabase.ps1` |
 | Skriptausführung | implementiert | `Public/Invoke-SqlServerLabScript.ps1` |
 | Integrationstest | implementiert | `Tests/Integration/Invoke-SmokeTest.ps1` |
-| Manifest-Builder und -Fachprüfung | implementiert | `Private/ManifestBuilder.ps1`, `Tests/Static/Invoke-ManifestBuilderChecks.ps1` |
+| Manifest-Builder und -Fachprüfung | implementiert, einschließlich `x-ui`-Pfadkontext und Hostvorschau | `Private/ManifestBuilder.ps1`, `Tests/Static/Invoke-ManifestBuilderChecks.ps1` |
 | Statische Vertragsprüfung | implementiert | `Tests/Static/Invoke-DocumentationChecks.ps1` |
 
 ## 3. Öffentliche Cmdlets

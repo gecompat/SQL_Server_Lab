@@ -16,6 +16,169 @@ function Get-LabManifestSchema {
         ConvertFrom-Json -Depth 100
 }
 
+function Get-LabManifestInputContextLines {
+    <#
+    .SYNOPSIS
+        Erzeugt die kontextbezogenen Hinweise fuer einen Wizard-Eingabeknoten.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Node,
+        [Parameter(Mandatory)]$RootSchema,
+        [Parameter(Mandatory)][string]$Path,
+        [bool]$IsRequired,
+        [string]$ManifestDirectory
+    )
+
+    $resolvedNode = Resolve-LabManifestSchemaNode -Node $Node -RootSchema $RootSchema
+    $lines = [System.Collections.Generic.List[string]]::new()
+    $uiProperty = $resolvedNode.PSObject.Properties['x-ui']
+    $ui = if ($uiProperty) { $uiProperty.Value } else { $null }
+
+    if ($ui -and $ui.label) {
+        $lines.Add("Eingabe: $($ui.label)")
+    }
+    if ($ui -and $ui.help) {
+        $lines.Add([string]$ui.help)
+    }
+    elseif ($resolvedNode.description) {
+        $lines.Add([string]$resolvedNode.description)
+    }
+
+    $lines.Add((if ($IsRequired) { 'Pflichtfeld.' } else { 'Optionales Feld.' }))
+
+    if ($null -ne $resolvedNode.PSObject.Properties['default']) {
+        $lines.Add("Default: $($resolvedNode.default)")
+    }
+    else {
+        $lines.Add('Default: keiner.')
+    }
+
+    if ($ui -and $ui.defaultReason) {
+        $lines.Add("Default-Begruendung: $($ui.defaultReason)")
+    }
+
+    if ($ui -and $ui.pathKind) {
+        $lines.Add("Pfadart: $($ui.pathKind); Scope: $($ui.pathScope).")
+        $lines.Add("Bezugsbasis relativer Werte: $($ui.pathBase).")
+        $lines.Add("Beim Plan vorhanden: $($ui.mustExistAtPlan); Erzeugung: $($ui.createdByRuntime).")
+    }
+
+    if ($ui -and $ui.sideEffects) {
+        $lines.Add("Auswirkung: $($ui.sideEffects)")
+    }
+
+    $examples = @($resolvedNode.examples | Where-Object { $null -ne $_ })
+    if ($examples.Count -gt 0) {
+        $lines.Add("Beispiel: $($examples[0])")
+    }
+
+    return @($lines)
+}
+
+function Write-LabManifestInputContext {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Node,
+        [Parameter(Mandatory)]$RootSchema,
+        [Parameter(Mandatory)][string]$Path,
+        [bool]$IsRequired,
+        [string]$ManifestDirectory
+    )
+
+    foreach ($line in @(Get-LabManifestInputContextLines `
+            -Node $Node `
+            -RootSchema $RootSchema `
+            -Path $Path `
+            -IsRequired:$IsRequired `
+            -ManifestDirectory $ManifestDirectory)) {
+        Write-Host "  $line" -ForegroundColor DarkGray
+    }
+}
+
+function Write-LabManifestPathPreview {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Node,
+        [Parameter(Mandatory)][string]$Value,
+        [string]$ManifestDirectory
+    )
+
+    $uiProperty = $Node.PSObject.Properties['x-ui']
+    if (-not $uiProperty -or -not $uiProperty.Value.pathKind) {
+        return
+    }
+
+    $ui = $uiProperty.Value
+    if ($Value -match '^https?://') {
+        Write-Host "  Aufgeloeste Vorschau: Remote-Artifact $Value" -ForegroundColor DarkGray
+        return
+    }
+
+    if ($ui.pathBase -notmatch '^manifest-directory') {
+        Write-Host "  Aufgeloeste Vorschau: Wert wird im Scope '$($ui.pathScope)' verwendet." -ForegroundColor DarkGray
+        return
+    }
+
+    $basePath = if ($ManifestDirectory) { $ManifestDirectory } else { $PWD.Path }
+    try {
+        $preview = if ([System.IO.Path]::IsPathRooted($Value)) {
+            [System.IO.Path]::GetFullPath($Value)
+        }
+        else {
+            [System.IO.Path]::GetFullPath((Join-Path $basePath $Value))
+        }
+        Write-Host "  Aufgeloeste Vorschau: $preview" -ForegroundColor DarkGray
+    }
+    catch {
+        Write-LabWarning "Pfadvorschau konnte nicht aufgeloest werden: $($_.Exception.Message)"
+    }
+}
+
+function Test-LabManifestPathUiMetadata {
+    <#
+    .SYNOPSIS
+        Prueft die verbindlichen x-ui-Pfadsemantiken des Manifest-Schemas.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$RootSchema
+    )
+
+    $nodes = [ordered]@{
+        'instances[].postProvision[]' = $RootSchema.definitions.instance.properties.postProvision.items
+        'databases[].restore.source' = $RootSchema.definitions.database.properties.restore.properties.source
+        'serverConfig.defaultPaths.data' = $RootSchema.definitions.serverConfig.properties.defaultPaths.properties.data
+        'serverConfig.defaultPaths.log' = $RootSchema.definitions.serverConfig.properties.defaultPaths.properties.log
+        'serverConfig.defaultPaths.backup' = $RootSchema.definitions.serverConfig.properties.defaultPaths.properties.backup
+        'serverConfig.defaultPaths.tempdb' = $RootSchema.definitions.serverConfig.properties.defaultPaths.properties.tempdb
+        'tempdbFile.path' = $RootSchema.definitions.tempdbFile.properties.path
+        'drive.containerPath' = $RootSchema.definitions.drive.properties.containerPath
+        'drive.hostPath' = $RootSchema.definitions.drive.properties.hostPath
+        'dbFileExtended.path' = $RootSchema.definitions.dbFileExtended.properties.path
+    }
+    $requiredProperties = @('pathKind', 'pathBase', 'pathScope', 'mustExistAtPlan', 'createdByRuntime')
+    $errors = [System.Collections.Generic.List[string]]::new()
+
+    foreach ($entry in $nodes.GetEnumerator()) {
+        $uiProperty = $entry.Value.PSObject.Properties['x-ui']
+        if (-not $uiProperty) {
+            $errors.Add("$($entry.Key): x-ui fehlt.")
+            continue
+        }
+        foreach ($propertyName in $requiredProperties) {
+            if ($null -eq $uiProperty.Value.PSObject.Properties[$propertyName]) {
+                $errors.Add("$($entry.Key): x-ui.$propertyName fehlt.")
+            }
+        }
+    }
+
+    return [PSCustomObject]@{
+        IsValid = $errors.Count -eq 0
+        Errors  = @($errors)
+    }
+}
+
 function Resolve-LabManifestSchemaNode {
     [CmdletBinding()]
     param(
@@ -105,7 +268,8 @@ function Read-LabManifestScalar {
     param(
         [Parameter(Mandatory)]$Node,
         [Parameter(Mandatory)][string]$Path,
-        [Parameter(Mandatory)][ValidateSet('string', 'integer', 'number')]$Type
+        [Parameter(Mandatory)][ValidateSet('string', 'integer', 'number')]$Type,
+        [string]$ManifestDirectory
     )
 
     $hasDefault = $null -ne $Node.PSObject.Properties['default']
@@ -130,6 +294,7 @@ function Read-LabManifestScalar {
                     continue
                 }
             }
+            Write-LabManifestPathPreview -Node $Node -Value $raw -ManifestDirectory $ManifestDirectory
             return $raw
         }
 
@@ -180,12 +345,21 @@ function Read-LabManifestSchemaValue {
         [Parameter(Mandatory)]$Node,
         [Parameter(Mandatory)]$RootSchema,
         [Parameter(Mandatory)][string]$Path,
-        [string[]]$ExcludedProperties = @()
+        [string[]]$ExcludedProperties = @(),
+        [string]$ManifestDirectory,
+        [switch]$SuppressInputContext
     )
 
     $Node = Resolve-LabManifestSchemaNode -Node $Node -RootSchema $RootSchema
 
     if ($Node.oneOf) {
+        if (-not $SuppressInputContext) {
+            Write-LabManifestInputContext `
+                -Node $Node `
+                -RootSchema $RootSchema `
+                -Path $Path `
+                -ManifestDirectory $ManifestDirectory
+        }
         $alternatives = @($Node.oneOf)
         $labels = @($alternatives | ForEach-Object {
             $alternative = Resolve-LabManifestSchemaNode -Node $_ -RootSchema $RootSchema
@@ -199,11 +373,19 @@ function Read-LabManifestSchemaValue {
         return Read-LabManifestSchemaValue `
             -Node $alternatives[$selected] `
             -RootSchema $RootSchema `
-            -Path $Path
+            -Path $Path `
+            -ManifestDirectory $ManifestDirectory
     }
 
     $enumValues = @($Node.enum | Where-Object { $null -ne $_ })
     if ($enumValues.Count -gt 0) {
+        if (-not $SuppressInputContext) {
+            Write-LabManifestInputContext `
+                -Node $Node `
+                -RootSchema $RootSchema `
+                -Path $Path `
+                -ManifestDirectory $ManifestDirectory
+        }
         $defaultIndex = 1
         if ($null -ne $Node.PSObject.Properties['default']) {
             $matchedIndex = [array]::IndexOf($enumValues, $Node.default)
@@ -232,16 +414,12 @@ function Read-LabManifestSchemaValue {
                 $isRequired = $property.Name -in $requiredNames
                 $include = $isRequired
                 if (-not $isRequired) {
-                    $description = [string]$property.Value.description
-                    if (-not $description) {
-                        $resolvedProperty = Resolve-LabManifestSchemaNode `
-                            -Node $property.Value `
-                            -RootSchema $RootSchema
-                        $description = [string]$resolvedProperty.description
-                    }
-                    if ($description) {
-                        Write-Host "  $description" -ForegroundColor DarkGray
-                    }
+                    Write-LabManifestInputContext `
+                        -Node $property.Value `
+                        -RootSchema $RootSchema `
+                        -Path $propertyPath `
+                        -IsRequired:$false `
+                        -ManifestDirectory $ManifestDirectory
                     $include = Read-LabConfirm -Prompt "Optionales Feld '$propertyPath' erfassen?" -Default $false
                 }
 
@@ -249,7 +427,9 @@ function Read-LabManifestSchemaValue {
                     $result[$property.Name] = Read-LabManifestSchemaValue `
                         -Node $property.Value `
                         -RootSchema $RootSchema `
-                        -Path $propertyPath
+                        -Path $propertyPath `
+                        -ManifestDirectory $ManifestDirectory `
+                        -SuppressInputContext:(!$isRequired)
                 }
             }
 
@@ -267,7 +447,8 @@ function Read-LabManifestSchemaValue {
                     $result[$key] = Read-LabManifestSchemaValue `
                         -Node $additionalSchema `
                         -RootSchema $RootSchema `
-                        -Path "$Path.$key"
+                        -Path "$Path.$key" `
+                        -ManifestDirectory $ManifestDirectory
                 }
             }
             return $result
@@ -281,7 +462,8 @@ function Read-LabManifestSchemaValue {
                 $items.Add((Read-LabManifestSchemaValue `
                     -Node $Node.items `
                     -RootSchema $RootSchema `
-                    -Path "$Path[$itemNumber]"))
+                    -Path "$Path[$itemNumber]" `
+                    -ManifestDirectory $ManifestDirectory))
 
                 $addAnother = Read-LabConfirm -Prompt "Weiteren Eintrag zu '$Path' hinzufuegen?" -Default $false
             } while ($items.Count -lt $minimumItems -or $addAnother)
@@ -290,6 +472,13 @@ function Read-LabManifestSchemaValue {
             return
         }
         'boolean' {
+            if (-not $SuppressInputContext) {
+                Write-LabManifestInputContext `
+                    -Node $Node `
+                    -RootSchema $RootSchema `
+                    -Path $Path `
+                    -ManifestDirectory $ManifestDirectory
+            }
             $default = if ($null -ne $Node.PSObject.Properties['default']) {
                 [bool]$Node.default
             }
@@ -299,13 +488,22 @@ function Read-LabManifestSchemaValue {
             return Read-LabConfirm -Prompt $Path -Default $default
         }
         'integer' {
-            return Read-LabManifestScalar -Node $Node -Path $Path -Type integer
+            if (-not $SuppressInputContext) {
+                Write-LabManifestInputContext -Node $Node -RootSchema $RootSchema -Path $Path -ManifestDirectory $ManifestDirectory
+            }
+            return Read-LabManifestScalar -Node $Node -Path $Path -Type integer -ManifestDirectory $ManifestDirectory
         }
         'number' {
-            return Read-LabManifestScalar -Node $Node -Path $Path -Type number
+            if (-not $SuppressInputContext) {
+                Write-LabManifestInputContext -Node $Node -RootSchema $RootSchema -Path $Path -ManifestDirectory $ManifestDirectory
+            }
+            return Read-LabManifestScalar -Node $Node -Path $Path -Type number -ManifestDirectory $ManifestDirectory
         }
         'string' {
-            return Read-LabManifestScalar -Node $Node -Path $Path -Type string
+            if (-not $SuppressInputContext) {
+                Write-LabManifestInputContext -Node $Node -RootSchema $RootSchema -Path $Path -ManifestDirectory $ManifestDirectory
+            }
+            return Read-LabManifestScalar -Node $Node -Path $Path -Type string -ManifestDirectory $ManifestDirectory
         }
         default {
             throw "Nicht unterstuetzter Schematyp '$($Node.type)' bei $Path."
@@ -316,7 +514,8 @@ function Read-LabManifestSchemaValue {
 function New-LabManifestDraft {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory)][string]$SchemaReference
+        [Parameter(Mandatory)][string]$SchemaReference,
+        [string]$ManifestDirectory = $PWD.Path
     )
 
     $schema = Get-LabManifestSchema
@@ -329,7 +528,8 @@ function New-LabManifestDraft {
         -Node $schema `
         -RootSchema $schema `
         -Path 'manifest' `
-        -ExcludedProperties @('$schema')
+        -ExcludedProperties @('$schema') `
+        -ManifestDirectory $ManifestDirectory
 
     $manifest = [ordered]@{ '$schema' = $SchemaReference }
     foreach ($key in $entered.Keys) {
@@ -488,7 +688,8 @@ function Get-LabManifestValidationResult {
                 try {
                     $null = Resolve-LabSampleRestore `
                         -SampleDefinition $database.sample `
-                        -SqlVersion $instance.version
+                        -SqlVersion $instance.version `
+                        -TargetDatabaseName $database.name
                 }
                 catch {
                     $errors.Add("$databasePath.sample: $($_.Exception.Message)")

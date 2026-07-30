@@ -83,6 +83,12 @@ Relative Pfade werden wie folgt behandelt:
 - `drives[].hostPath`: relativ zum Manifest-Verzeichnis
 - Datenbank- und TempDB-Dateipfade: Containerpfade, keine Hostpfade
 
+Die genannten Pfadfelder besitzen direkt im Schema `x-ui`-Metadaten. Der
+Wizard zeigt damit Bedeutung, Zielscope, Default, Bezugsbasis, Erzeugungsregel,
+Auswirkungen und ein Beispiel. Bei relativen Hostpfaden zeigt er während der
+Eingabe zusätzlich die aufgelöste lokale Vorschau. Diese Anzeige schreibt keine
+Hostpfade in versionierte Artefakte.
+
 ## Sample-Datenbanken
 
 Beispiel:
@@ -110,7 +116,8 @@ New-SqlServerLab -Manifest .\Schemas\example-performance-lab.json
 
 `New-SqlServerLabManifest` liest den gesamten Eingabebaum aus
 `lab-manifest.schema.json`; neue Schemafelder werden dadurch automatisch im
-Konsolen-Wizard angeboten. Die anschliessende Fachvalidierung prueft zusaetzlich
+Konsolen-Wizard angeboten. `x-ui`-Metadaten ergänzen die generische Eingabe um
+kontextreiche Hinweise. Die anschliessende Fachvalidierung prueft zusaetzlich
 unter anderem Versionskatalog, Compatibility Level, Providerkombinationen,
 Samplevarianten und lokale Dateipfade.
 

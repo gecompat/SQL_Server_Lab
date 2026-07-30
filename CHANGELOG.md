@@ -8,6 +8,12 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- typisierter Sample-Artifact-Vertrag mit Artifact Type, Installation,
+  erwarteten Outputs, Größenmetadaten sowie Integrity Origin und Trust Policy;
+- `x-ui`-Pfadsemantik im Manifest-Schema und kontextreiche Wizard-Ausgabe mit
+  Scope, Bezugsbasis und Vorschau relativer Hostpfade;
+- statische Prüfungen für den Artifact-Vertrag und die vollständigen
+  `x-ui`-Metadaten aller festgelegten Manifestpfade;
 - gemischter Docker-/Podman-Lifecycle mit `ProviderSubRuns` im Run-State und Cleanup-Plan;
 - statischer und nativer Smoke-Test für einen gemeinsamen Docker-/Podman-Run;
 - ausführbares Beispielmanifest für zwei kompakte Containerinstanzen mit unterschiedlichen Providern;
@@ -18,6 +24,8 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Geaendert
 
+- Sample-Referenzen werden zuerst in den gemeinsamen Artifact-Vertrag
+  aufgelöst; nur der bestehende ausführbare Backup-Handler bleibt aktiv;
 - Resource Assessment prüft alle in einem Run verwendeten Containerprovider, während RAM, Storage und Ports runweit bewertet werden;
 - Status, Start, Stop, Remove und automatischer Fehler-Cleanup arbeiten providergebunden; ein unvollständiger Start wird zurückgerollt oder in `CLEANUP_PENDING` überführt;
 - unverifizierte Sample-Varianten sind explizit `descriptive` und werden nicht

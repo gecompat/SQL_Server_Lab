@@ -103,6 +103,7 @@ internal_components:
     source: Private/ManifestBuilder.ps1
     responsibilities:
       - "alle Manifestfelder dynamisch aus dem JSON-Schema erfassen"
+      - "x-ui-Pfadsemantik, Scope und aufgeloeste Hostvorschau im Wizard anzeigen"
       - "Schema-, Katalog- und Runtime-Grenzen vor dem Speichern prüfen"
       - "Warnungen für vorbereitete oder riskante Konfigurationen erzeugen"
   - name: ManifestParser
@@ -111,7 +112,8 @@ internal_components:
       - "Manifest lesen und Pflichtfelder prüfen"
       - "Defaults anwenden"
       - "relative Pfade auflösen"
-      - "direkte .bak-Sample-Varianten in Restoredefinitionen umwandeln"
+      - "Sample-Referenzen in den typisierten Artifact-Vertrag auflösen"
+      - "nur ausführbare Backup-Varianten in Restoredefinitionen umwandeln"
   - name: VersionCatalog
     source: Private/VersionCatalog.ps1
     responsibilities:
@@ -184,14 +186,17 @@ catalogs:
   sample_databases:
     data: Catalogs/sample-databases.json
     schema: Schemas/sample-databases.schema.json
-    executable_variants: "Nur direkte .bak-URLs mit runtimeStatus executable und verifizierter SHA-256-Pruefsumme; aktueller Katalog ist beschreibend"
+    artifact_contract: "Artifact Type, Installation, erwartete Outputs, Groessen- und Integrity-/Trust-Metadaten sind maschinenlesbar"
+    executable_variants: "Nur artifactType backup mit runtimeStatus executable und verifizierter SHA-256-Pruefsumme; aktueller Katalog ist beschreibend"
 
 planning_contracts:
   sample_artifact_and_manifest_wizard:
     source: Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md
     status: BINDING_IMPLEMENTATION_TARGET
-    runtime_status: NOT_IMPLEMENTED
+    runtime_status: PARTIALLY_IMPLEMENTED_FOUNDATION
     covers:
+      - typed_artifact_contract
+      - contextual_manifest_path_guidance
       - multiple_sample_selection
       - artifact_handlers
       - persistent_trust_store
@@ -387,7 +392,7 @@ known_limitations:
     - "providerneutrale Network Intents, Exposure Policy und Reconcile nicht implementiert"
     - "Artifact Refresh und Rebuild für Medien, VHDX und Derived Images nicht implementiert"
     - "kein provideruebergreifendes Docker-/Podman-Netzwerk oder Hyper-V-SubRun"
-    - "Sample-Automation nur für direkte .bak-Varianten"
+    - "Sample-Automation nur für executable Backup-Varianten; aktueller Katalog ist beschreibend"
     - "Trust Store, Manifest Lock, Mehrfachauswahl und Script Handler noch nicht implementiert"
     - "LAB_GENERATED-Baselines und beste kompatible Aufsetzpunkte noch nicht implementiert"
     - "mehrere reservierte serverConfig-Felder noch ohne stabilen Runtimepfad"

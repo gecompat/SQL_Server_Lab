@@ -256,6 +256,13 @@ ermöglicht damit auch verschachtelte Optionen, Arrays, freie
 `spConfigure`-Schlüssel und die detaillierte Query-Store-Konfiguration. Typen,
 Enums, Muster und Wertebereiche werden bereits bei der Eingabe geprüft.
 
+Bei Pfadfeldern zeigt der Wizard zusätzlich die fachliche Bedeutung,
+Host-/Gast-/SQL-Server-Scope, die Bezugsbasis relativer Werte, Default und
+Seiteneffekt. Relative Hostpfade werden gegen das Verzeichnis der Ziel-
+Manifestdatei aufgelöst und als Vorschau nur in der laufenden Konsole angezeigt.
+Der Wizard schreibt keine konkreten lokalen Pfade in Projektdateien, außer sie
+werden ausdrücklich als Manifestwert eingegeben.
+
 Der gleiche Einstieg ist im Hauptmenü über `m` verfügbar:
 
 ```powershell

@@ -51,6 +51,28 @@ Add-CheckResult `
     -Success $schemaSupport.IsSupported `
     -Message ($schemaSupport.Errors -join '; ')
 
+$pathUiContract = & $module {
+    Test-LabManifestPathUiMetadata -RootSchema (Get-LabManifestSchema)
+}
+Add-CheckResult `
+    -Name 'Alle Manifestpfade besitzen vollstaendige x-ui-Semantik' `
+    -Success $pathUiContract.IsValid `
+    -Message ($pathUiContract.Errors -join '; ')
+
+$artifactContract = & $module {
+    Resolve-LabSampleArtifact `
+        -SampleDefinition ([PSCustomObject]@{ id = 'adventureworks-2022'; variant = 'full' }) `
+        -SqlVersion '2022'
+}
+Add-CheckResult `
+    -Name 'Sample-Katalog wird als typisierter Artifact-Vertrag aufgeloest' `
+    -Success ($artifactContract.artifactType -eq 'backup' -and
+        $artifactContract.handlerContractVersion -eq '1' -and
+        $artifactContract.expectedOutputs.Count -eq 1 -and
+        $artifactContract.expectedOutputs[0].name -eq 'AdventureWorks2022' -and
+        $artifactContract.trustPolicy -eq 'interactive-once') `
+    -Message "Artifact Type: $($artifactContract.artifactType); Outputs: $($artifactContract.expectedOutputs.name -join ', ')"
+
 $wizardDraft = & $module {
     $originalString = (Get-Command Read-LabString).ScriptBlock
     $originalConfirm = (Get-Command Read-LabConfirm).ScriptBlock
@@ -227,7 +249,7 @@ $unsupportedSample = [ordered]@{
 $sampleResult = Test-SqlServerLabManifest -InputObject $unsupportedSample
 Add-CheckResult `
     -Name 'Nicht provisionierbare Samplevarianten werden abgelehnt' `
-    -Success (-not $sampleResult.IsValid -and $sampleResult.Errors -match 'kein direktes .bak-Backup') `
+    -Success (-not $sampleResult.IsValid -and $sampleResult.Errors -match 'beschreibend katalogisiert') `
     -Message ($sampleResult.Errors -join '; ')
 
 $temporaryDirectory = Join-Path ([System.IO.Path]::GetTempPath()) "sql-lab-manifest-check-$([guid]::NewGuid().ToString('N'))"

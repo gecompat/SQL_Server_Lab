@@ -193,11 +193,33 @@ Add-ValidationResult `
 $sampleCatalog = Get-Content -LiteralPath (Join-Path $repoRoot 'Catalogs/sample-databases.json') -Raw -Encoding utf8 |
     ConvertFrom-Json -Depth 100
 $invalidExecutableSamples = @()
+$invalidArtifactContracts = @()
 foreach ($sample in @($sampleCatalog.databases)) {
     foreach ($variant in $sample.versions.PSObject.Properties) {
+        $definition = $variant.Value
         if ($variant.Value.runtimeStatus -eq 'executable' -and
             [string]$variant.Value.sha256 -notmatch '^[A-Fa-f0-9]{64}$') {
             $invalidExecutableSamples += "$($sample.id):$($variant.Name)"
+        }
+        if ([string]::IsNullOrWhiteSpace([string]$definition.artifactType) -or
+            [string]::IsNullOrWhiteSpace([string]$definition.handlerContractVersion) -or
+            @($definition.expectedOutputs).Count -eq 0 -or
+            [string]$definition.installation.kind -ne [string]$definition.artifactType) {
+            $invalidArtifactContracts += "$($sample.id):$($variant.Name)"
+            continue
+        }
+
+        $outputNames = @($definition.expectedOutputs | ForEach-Object { [string]$_.name })
+        if (@($outputNames | Group-Object | Where-Object Count -gt 1).Count -gt 0) {
+            $invalidArtifactContracts += "$($sample.id):$($variant.Name) (doppelte Outputs)"
+        }
+
+        $hasHash = [string]$definition.sha256 -match '^[A-Fa-f0-9]{64}$'
+        if (($hasHash -and ([string]::IsNullOrWhiteSpace([string]$definition.integrityOrigin) -or
+                    $definition.trustPolicy -ne 'catalog-only')) -or
+            (-not $hasHash -and ($null -ne $definition.integrityOrigin -or
+                    $definition.trustPolicy -ne 'interactive-once'))) {
+            $invalidArtifactContracts += "$($sample.id):$($variant.Name) (Integrity/Trust)"
         }
     }
 }
@@ -205,6 +227,10 @@ Add-ValidationResult `
     -Name 'Ausfuehrbare Sample-Varianten besitzen SHA-256' `
     -Success ($invalidExecutableSamples.Count -eq 0) `
     -Message ($invalidExecutableSamples -join ', ')
+Add-ValidationResult `
+    -Name 'Sample-Varianten folgen dem typisierten Artifact-Vertrag' `
+    -Success ($invalidArtifactContracts.Count -eq 0) `
+    -Message ($invalidArtifactContracts -join ', ')
 
 # =============================================================================
 # 3. Modulmanifest und Exporte

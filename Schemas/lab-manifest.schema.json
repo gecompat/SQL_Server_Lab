@@ -140,8 +140,26 @@
         "postProvision": {
           "type": "array",
           "description": "T-SQL-Skripte die nach Provisioning ausgefuehrt werden (relativ zum Manifest-Verzeichnis)",
+          "x-ui": {
+            "label": "Post-Provisioning-Skripte",
+            "help": "Diese T-SQL-Skripte werden nach der Instanz- und Datenbankbereitstellung ausgefuehrt.",
+            "pathKind": "file",
+            "pathBase": "manifest-directory",
+            "pathScope": "host",
+            "mustExistAtPlan": true,
+            "createdByRuntime": false,
+            "defaultReason": "Kein Default; Skripte werden nur auf ausdrueckliche Anforderung ausgefuehrt.",
+            "sideEffects": "Jedes Skript veraendert die Zielinstanz und muss vor dem Plan vorhanden sein."
+          },
           "items": {
-            "type": "string"
+            "type": "string",
+            "x-ui": {
+              "pathKind": "file",
+              "pathBase": "manifest-directory",
+              "pathScope": "host",
+              "mustExistAtPlan": true,
+              "createdByRuntime": false
+            }
           },
           "examples": [
             [
@@ -300,9 +318,20 @@
             "source"
           ],
           "properties": {
-            "source": {
-              "type": "string",
-              "description": "URL oder lokaler Pfad zum .bak-File",
+          "source": {
+            "type": "string",
+            "description": "HTTPS-URL oder lokaler Pfad zu einem direkten .bak-Backup",
+            "x-ui": {
+              "label": "Restorequelle",
+              "help": "HTTP(S)-Werte werden als Downloadquelle verwendet. Lokale relative Pfade beziehen sich auf das Verzeichnis der Manifestdatei.",
+              "pathKind": "file-or-url",
+              "pathBase": "manifest-directory-for-local-files",
+              "pathScope": "host-or-remote-artifact",
+              "mustExistAtPlan": "local-file-only",
+              "createdByRuntime": false,
+              "defaultReason": "Kein Default; ein Restore benoetigt immer eine explizite Quelle.",
+              "sideEffects": "Lokale Dateien werden gelesen; URLs werden erst durch den Restorepfad geladen und gegen eine bekannte Pruefsumme verifiziert, sofern vorhanden."
+            },
               "examples": [
                 "https://github.com/Microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorks2022.bak",
                 "C:\\Backups\\MyDB.bak"
@@ -518,6 +547,17 @@
             "data": {
               "type": "string",
               "description": "Default-Pfad fuer Data-Files",
+              "x-ui": {
+                "label": "Standardpfad fuer Data-Files",
+                "help": "Absoluter Zielpfad im SQL-Server-Dateisystem; diese vorbereitete Einstellung wird aktuell nicht ausgefuehrt.",
+                "pathKind": "directory",
+                "pathBase": "none-absolute-target-path",
+                "pathScope": "sql-server-filesystem",
+                "mustExistAtPlan": false,
+                "createdByRuntime": "not-implemented",
+                "defaultReason": "Kein Default im Manifest; ohne Angabe bleibt der SQL-Server-Standard erhalten.",
+                "sideEffects": "Reserviertes Feld ohne aktuellen Runtimepfad."
+              },
               "examples": [
                 "/sqldata",
                 "/var/opt/mssql/data",
@@ -527,6 +567,17 @@
             "log": {
               "type": "string",
               "description": "Default-Pfad fuer Log-Files",
+              "x-ui": {
+                "label": "Standardpfad fuer Log-Files",
+                "help": "Absoluter Zielpfad im SQL-Server-Dateisystem; diese vorbereitete Einstellung wird aktuell nicht ausgefuehrt.",
+                "pathKind": "directory",
+                "pathBase": "none-absolute-target-path",
+                "pathScope": "sql-server-filesystem",
+                "mustExistAtPlan": false,
+                "createdByRuntime": "not-implemented",
+                "defaultReason": "Kein Default im Manifest; ohne Angabe bleibt der SQL-Server-Standard erhalten.",
+                "sideEffects": "Reserviertes Feld ohne aktuellen Runtimepfad."
+              },
               "examples": [
                 "/sqllog",
                 "/var/opt/mssql/log",
@@ -536,6 +587,17 @@
             "backup": {
               "type": "string",
               "description": "Default-Pfad fuer Backups",
+              "x-ui": {
+                "label": "Standardpfad fuer Backups",
+                "help": "Absoluter Zielpfad im SQL-Server-Dateisystem; diese vorbereitete Einstellung wird aktuell nicht ausgefuehrt.",
+                "pathKind": "directory",
+                "pathBase": "none-absolute-target-path",
+                "pathScope": "sql-server-filesystem",
+                "mustExistAtPlan": false,
+                "createdByRuntime": "not-implemented",
+                "defaultReason": "Kein Default im Manifest; ohne Angabe bleibt der SQL-Server-Standard erhalten.",
+                "sideEffects": "Reserviertes Feld ohne aktuellen Runtimepfad."
+              },
               "examples": [
                 "/backup",
                 "/var/opt/mssql/backup",
@@ -545,6 +607,17 @@
             "tempdb": {
               "type": "string",
               "description": "Default-Pfad fuer TempDB-Files (wenn nicht explizit in tempdb-Config)",
+              "x-ui": {
+                "label": "Standardpfad fuer TempDB",
+                "help": "Absoluter Zielpfad im SQL-Server-Dateisystem; diese vorbereitete Einstellung wird aktuell nicht ausgefuehrt.",
+                "pathKind": "directory",
+                "pathBase": "none-absolute-target-path",
+                "pathScope": "sql-server-filesystem",
+                "mustExistAtPlan": false,
+                "createdByRuntime": "not-implemented",
+                "defaultReason": "Kein Default im Manifest; ohne Angabe bleibt der SQL-Server-Standard erhalten.",
+                "sideEffects": "Reserviertes Feld ohne aktuellen Runtimepfad."
+              },
               "examples": [
                 "/tempdb",
                 "T:\\TempDB"
@@ -758,6 +831,17 @@
         "path": {
           "type": "string",
           "description": "Absoluter Pfad im Container/VM (verschiedene Drives moeglich)",
+          "x-ui": {
+            "label": "TempDB-Dateipfad",
+            "help": "Absoluter Dateipfad im Container oder VM-Gast, nicht auf dem Host.",
+            "pathKind": "file",
+            "pathBase": "none-absolute-target-path",
+            "pathScope": "container-or-vm-guest",
+            "mustExistAtPlan": false,
+            "createdByRuntime": "provider-and-sql-runtime",
+            "defaultReason": "Kein Default; ohne Angabe verwendet SQL Server den konfigurierten TempDB-Standardpfad.",
+            "sideEffects": "Der Zielordner muss vor der SQL-Server-Konfiguration im Zielsystem bereitstehen."
+          },
           "examples": [
             "/tempdb/tempdev1.mdf",
             "/data/tempdb/templog.ldf",
@@ -805,6 +889,17 @@
         "containerPath": {
           "type": "string",
           "description": "Mount-Pfad im Container/VM",
+          "x-ui": {
+            "label": "Zielpfad im Gast",
+            "help": "Absoluter Mount-Pfad im Container oder VM-Gast. Dies ist niemals ein Hostpfad.",
+            "pathKind": "directory",
+            "pathBase": "none-absolute-target-path",
+            "pathScope": "container-or-vm-guest",
+            "mustExistAtPlan": false,
+            "createdByRuntime": "provider",
+            "defaultReason": "Kein Default; jedes Drive-Mapping benoetigt einen eindeutigen Zielpfad.",
+            "sideEffects": "Der Provider stellt den Mount bereit; derselbe Zielpfad darf nicht mehreren Drives derselben Instanz zugeordnet werden."
+          },
           "examples": [
             "/data",
             "/log",
@@ -817,6 +912,17 @@
         "hostPath": {
           "type": "string",
           "description": "Optionaler Host-Pfad (Volume-Mount). Wenn leer: Docker Volume.",
+          "x-ui": {
+            "label": "Host-Mount-Pfad",
+            "help": "Optionales Verzeichnis auf dem ausfuehrenden Host. Relative Werte beziehen sich auf das Verzeichnis der Manifestdatei.",
+            "pathKind": "directory",
+            "pathBase": "manifest-directory",
+            "pathScope": "host",
+            "mustExistAtPlan": false,
+            "createdByRuntime": "provider-policy",
+            "defaultReason": "Ohne hostPath verwendet der Container-Provider ein verwaltetes Volume statt eines Host-Mounts.",
+            "sideEffects": "Ein vorhandener oder zu erstellender Hostordner wird an containerPath gemountet; der genaue Erstellungszeitpunkt ist providerabhaengig."
+          },
           "examples": [
             "D:\\SqlData",
             "/mnt/fast-ssd/sql"
@@ -855,6 +961,17 @@
         "path": {
           "type": "string",
           "description": "Optionaler absoluter Pfad (ueberschreibt Default-Pfad). Fuer Multi-Disk-Layouts.",
+          "x-ui": {
+            "label": "SQL-Server-Dateipfad",
+            "help": "Absoluter Daten- oder Logdateipfad im SQL-Server-Dateisystem. Dies ist kein Pfad zum Manifest und kein Hostpfad.",
+            "pathKind": "file",
+            "pathBase": "none-absolute-target-path",
+            "pathScope": "sql-server-filesystem",
+            "mustExistAtPlan": false,
+            "createdByRuntime": "sql-server",
+            "defaultReason": "Ohne Angabe verwendet die Runtime den SQL-Server-Standardpfad beziehungsweise die Provider-Defaults.",
+            "sideEffects": "Der Zielordner muss vor CREATE DATABASE erreichbar sein und zu einem bereitgestellten Storage-Mapping passen."
+          },
           "examples": [
             "/data/MyDB_Data1.mdf",
             "/fastdisk/MyDB_Data2.ndf"
