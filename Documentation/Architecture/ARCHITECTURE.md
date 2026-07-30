@@ -1,7 +1,12 @@
 # SQL_Server_Lab – Architektur
 
 **Stand:** 2026-07-26
-**Status:** Entwurf (vor Implementierung)
+**Status:** Historische Planungsbasis; kein aktueller Runtime-Nachweis
+
+> Der verbindliche aktuelle Hyper-V-, Image-, Netzwerk-, Software-, Reconcile-
+> und Refresh-Zielvertrag steht in
+> [HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md](HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md).
+> Bei Abweichungen hat der neuere Zielvertrag Vorrang.
 
 ---
 
@@ -15,7 +20,7 @@ Das Repository verwaltet:
 - Provider-Abstraktion (Docker, Podman, Hyper-V)
 - Ressourcenpruefung und -profile
 - Datenbank-Layout-Provisionierung (Filegroups, Files, Collation)
-- Software-Provisioning auf VMs (winget, apt, PowerShell-Module)
+- providerneutrales Software-Provisioning für VMs und Container
 - State-, Scope- und Cleanup-Management
 - Deklarative Manifeste fuer wiederholbare Umgebungen
 
@@ -241,9 +246,9 @@ Wait-ProviderSqlReady        -> ConnectionInfo
 
 ### 4.2 Auto-Select-Logik
 
-1. `software` mit GUI-Apps → Hyper-V
-2. `os: windows` → Hyper-V
-3. Sonst → Docker (schnellster Start)
+1. GUI- oder andere VM-only Capabilities → Hyper-V
+2. `os: windows` → Hyper-V, solange kein kompatibler Windows-Containerpfad implementiert ist
+3. Sonst → bester kompatibler implementierter Containerprovider
 
 ### 4.3 Neue Provider
 
@@ -343,7 +348,11 @@ Ergebnis: `CLEANUP_SUCCEEDED | CLEANUP_PARTIAL | RECOVERY_REQUIRED | CLEANUP_BLO
 
 ### 9.1 Anwendbarkeit
 
-Software-Installation ist primaer auf VMs (Hyper-V) relevant. Container erhalten Software ueber das Basis-Image oder Dockerfile-Layer.
+Software ist providerneutral. VMs dürfen Pakete kontrolliert im Gast
+installieren. Docker und Podman verwenden für reproduzierbare Installationen
+bevorzugt versionierte Derived Images. Python, R und Java sind nicht auf
+Hyper-V oder Windows beschränkt; die konkrete SQL-, OS- und
+Provider-Supportmatrix ist maßgeblich.
 
 ### 9.2 Quellen
 
@@ -495,10 +504,10 @@ Bei Fehler: Cleanup rueckwaerts ab fehlgeschlagenem Schritt.
 
 ### Phase 3: Hyper-V
 
-18. Hyper-V-Provider (Windows + Linux VMs)
-19. Software-Provisioning (winget, apt)
-20. Netzwerk-/I/O-Simulation
-21. Base-Image-Management
+Die frühere Grobreihenfolge wird durch die neun Wellen in
+[HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md](HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md)
+präzisiert. Providerneutralisierung und Artifact-/Medienverwaltung gehen dem
+Native Hyper-V Vertical Slice voraus.
 
 ### Phase 4: Podman + Erweitert
 

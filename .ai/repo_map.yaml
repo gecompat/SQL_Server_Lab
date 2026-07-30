@@ -20,6 +20,7 @@ sources_of_truth:
   port_allocation_contract: Private/PortAllocation.ps1
   runtime_limitations: Documentation/Quality/KNOWN_LIMITATIONS.md
   sample_artifact_and_manifest_wizard_target: Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md
+  hyperv_image_provisioning_network_target: Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md
   user_entrypoint: README.md
   user_walkthrough: Documentation/User/Getting_Started.md
   validation_documentation: Tests/Static/Invoke-DocumentationChecks.ps1
@@ -199,10 +200,25 @@ planning_contracts:
       - contextual_path_guidance
       - lab_generated_baselines
       - hyperv_baseline_bindings
+  hyperv_image_provisioning_network:
+    source: Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md
+    status: BINDING_IMPLEMENTATION_TARGET
+    runtime_status: NOT_IMPLEMENTED
+    covers:
+      - sealed_os_and_sql_images
+      - media_license_and_evaluation_lifecycle
+      - best_available_artifact_resolution
+      - hyperv_vm_and_drive_lifecycle
+      - provider_neutral_network_intents
+      - exposure_policy
+      - provider_neutral_software_and_external_runtimes
+      - manual_action_and_resume
+      - environment_reconcile
+      - artifact_refresh_and_rebuild
 
 state_files:
   root_resolution:
-    windows: "%LOCALAPPDATA%\SqlServerLab"
+    windows: '%LOCALAPPDATA%\SqlServerLab'
     linux_macos: "~/.sql-server-lab"
     override_environment_variable: SQL_SERVER_LAB_STATE
   per_run:
@@ -234,17 +250,17 @@ provisioning_flow:
 
 validation:
   static_manifest_builder:
-    command: ".\Tests\Static\Invoke-ManifestBuilderChecks.ps1"
+    command: '.\Tests\Static\Invoke-ManifestBuilderChecks.ps1'
     source: Tests/Static/Invoke-ManifestBuilderChecks.ps1
     covers:
       - schema_validation
       - semantic_validation
       - atomic_manifest_write
   static_documentation:
-    command: ".\Tests\Static\Invoke-DocumentationChecks.ps1"
+    command: '.\Tests\Static\Invoke-DocumentationChecks.ps1'
     source: Tests/Static/Invoke-DocumentationChecks.ps1
   static_runtime_contracts:
-    command: ".\Tests\Static\Invoke-ReadinessContractChecks.ps1"
+    command: '.\Tests\Static\Invoke-ReadinessContractChecks.ps1'
     source: Tests/Static/Invoke-ReadinessContractChecks.ps1
     covers:
       - readiness
@@ -252,11 +268,11 @@ validation:
       - atomic_port_allocation
   single_provider_smoke:
     source: Tests/Integration/Invoke-SmokeTest.ps1
-    docker: ".\Tests\Integration\Invoke-SmokeTest.ps1 -Provider docker"
-    podman: ".\Tests\Integration\Invoke-SmokeTest.ps1 -Provider podman"
+    docker: '.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider docker'
+    podman: '.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider podman'
   runtime_matrix:
     source: Tests/Integration/Invoke-SmokeMatrix.ps1
-    command: ".\Tests\Integration\Invoke-SmokeMatrix.ps1 -Provider all -FullMatrix -IncludeParallel"
+    command: '.\Tests\Integration\Invoke-SmokeMatrix.ps1 -Provider all -FullMatrix -IncludeParallel'
     versions:
       - "2019"
       - "2022"
@@ -328,7 +344,9 @@ change_coupling:
 known_limitations:
   binding_document: Documentation/Quality/KNOWN_LIMITATIONS.md
   highlights:
-    - "Hyper-V nicht implementiert"
+    - "Hyper-V, sealed VHDX, OS-/SQL-Image-Pipeline und Resume nicht implementiert"
+    - "providerneutrale Network Intents, Exposure Policy und Reconcile nicht implementiert"
+    - "Artifact Refresh und Rebuild für Medien, VHDX und Derived Images nicht implementiert"
     - "gemischter Provider-Lifecycle innerhalb eines Runs nicht implementiert"
     - "Sample-Automation nur für direkte .bak-Varianten"
     - "Trust Store, Manifest Lock, Mehrfachauswahl und Script Handler noch nicht implementiert"
@@ -339,6 +357,7 @@ known_limitations:
 continuation_rules:
   - "Planungsdokumente nie als Runtime-Nachweis behandeln"
   - "Testdatenbank-, Trust-, Wizard- und Baseline-Entscheidungen am verbindlichen Zielvertrag ausrichten"
+  - "Hyper-V-, Image-, Netzwerk-, Software-, Reconcile- und Refresh-Entscheidungen am verbindlichen Hyper-V-Zielvertrag ausrichten"
   - "Keine neuen Exportnamen ohne implementierte Funktion und Test"
   - "Keine Manifestfelder nur im Schema ergänzen"
   - "Keine realen State-, Secret-, Host- oder Kundendaten committen"

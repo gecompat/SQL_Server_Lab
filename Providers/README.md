@@ -17,6 +17,11 @@ Ein Verzeichnis allein registriert keinen implementierten Provider.
 | [Podman](Podman/) | implementiert | `podman info` | `Podman/PodmanProvider.ps1` |
 | [Hyper-V](HyperV/) | geplant | später `Get-VM` | noch keine Providerimplementierung |
 
+Der verbindliche, noch nicht implementierte Zielvertrag für Hyper-V, sealed
+Images, Drives, Network Intents, Software, Reconcile und Artifact Refresh steht
+in
+[HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md](../Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md).
+
 ## Provider-Interface
 
 Die Containerprovider folgen derzeit dieser Namenskonvention:

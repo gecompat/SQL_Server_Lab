@@ -1,46 +1,68 @@
-# Providers/HyperV/ – Hyper-V-Provider (geplant)
+# Providers/HyperV/ – Hyper-V-Provider
 
-Status: **Noch nicht implementiert.**
+| Merkmal | Wert |
+|---|---|
+| Status | `PLANNED` |
+| Runtime-Status | `NOT_IMPLEMENTED` |
+| Verbindlicher Zielvertrag | [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](../../Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md) |
+| Artifact-Ergänzung | [Testdatenbank-Provisionierung und Manifest-Wizard](../../Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md) |
 
-Geplant fuer Szenarien die einen Windows-Gast erfordern:
-- Windows Authentication (Domain Controller)
-- SQL Server Agent (nativer Windows-Dienst)
-- WSFC / Failover Cluster Instances
-- Availability Groups
+## Zweck
 
-### Voraussetzungen
+Der Hyper-V-Provider stellt langfristig Windows- und Linux-VMs für
+SQL-Server-Labs bereit. Er ist insbesondere für Konstellationen vorgesehen, die
+eine vollständige VM, Windows Authentication, native Windows-Dienste,
+zusätzliche virtuelle Drives, mehrere NICs, WSFC, Availability Groups oder
+plattformgebundene SQL-Features benötigen.
 
-- Windows 10/11 Pro oder Windows Server
-- Hyper-V Feature aktiviert (`Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V`)
-- Admin-Rechte
+Ein Verzeichnis oder Planungsdokument ist kein Runtime-Nachweis. Aktuell
+existieren keine ausführbaren Hyper-V-Providerfunktionen.
 
-### Interface (geplant)
+## Geplanter Providerumfang
 
-- `Test-HyperVAvailable` → Get-VM verfuegbar?
-- `New-HyperVInstance` → VM + SQL Server installieren
-- `Get-HyperVInstanceStatus` → VM + SQL Ready?
-- `Start/Stop/Remove-HyperVInstance`
+- Capability- und Prerequisite-Prüfung;
+- VM-Erstellung aus verifizierten sealed Parent-VHDX;
+- Generation 2 und Secure Boot als Default;
+- Windows Guest Management über PowerShell Direct;
+- Linux Guest Management über cloud-init und SSH;
+- Start, Stop, Restart, Status, Remove und scope-sicherer Cleanup;
+- zusätzliche VHDX und providerneutrale Drive-Rollen;
+- Management- und Lab-Netze;
+- resumierbare OS- und SQL-Server-Installation;
+- Manual Fallback mit Postcondition-Prüfung;
+- SQL Readiness, Software, External Runtimes und Testdatenbanken;
+- Diff-/Reconcile-Ablauf für nachträgliche Änderungen.
 
-### Aufsetzpunkte und Testdatenbanken
+## Verbindliche Aufsetzpunkte
 
-Hyper-V verwendet den providerübergreifenden Artifact-, Trust-, Verification-
-und Baseline-Vertrag aus
-[`SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md`](../../Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md).
-Die dort beschriebenen Funktionen sind noch nicht implementiert.
+1. `MEDIA_VERIFIED`;
+2. `OS_SEALED`;
+3. `SQL_PREPARED_SEALED`;
+4. run-lokal `SQL_READY_RUN`;
+5. run-lokal `EXTENSIONS_READY_RUN`;
+6. optional run-lokal `DATABASES_READY_RUN`.
 
-Geplante wiederverwendbare Aufsetzpunkte:
+Globale Baselines müssen generalisiert, immutable, SHA-256-verifiziert und
+vollständig auf ihre Quellen zurückführbar sein. Checkpoints sind run-lokale
+Recovery Points und keine allgemeinen Golden Images.
 
-1. generalisierte OS-Evaluation als Parent-VHDX;
-2. konfiguriertes Gastbetriebssystem mit Integration und Baseline-Patches;
-3. SQL Server in definierter Version, Edition und Featuremenge;
-4. verifizierte SQL-Konfiguration als Lab-Basis;
-5. Szenariozustand nur bei klarem Wiederherstellungsnutzen und eindeutiger
-   Invalidierungsregel.
+## Software, External Runtimes und Datenbanken
 
-Testdatenbanken und zusätzliche Software werden nach Möglichkeit als getrennte
-Deployment- beziehungsweise Database-Artifacts angewendet. Testdatenbanken
-werden standardmäßig nicht dauerhaft in ein allgemeines OS-Parent-Image
-eingebettet. Das Manifest beziehungsweise der Bound Plan wählt deterministisch
-die beste kompatible, verifizierte Ausgangsbasis; fehlt sie, beginnt der Ablauf
-beim nächsttieferen gültigen Aufsetzpunkt.
+Software ist nicht auf Hyper-V beschränkt. Python, R, Java und andere Pakete
+werden über einen providerneutralen Capability- und Artifact-Vertrag für
+Hyper-V, Docker und Podman geplant. Für Container sind versionierte Derived
+Images der reproduzierbare Default.
 
+Testdatenbanken bleiben vom OS- und SQL-Image getrennt und verwenden den
+gemeinsamen Sample-, Trust-, Verification- und `LAB_GENERATED`-Baseline-
+Vertrag.
+
+## Voraussetzungen für den ersten Vertical Slice
+
+- freigegebener Windows-Host mit Hyper-V;
+- Runner-Labels `SQL_Lab` und `Hyper-V`;
+- verifizierte, rechtlich zulässige OS- und SQL-Medien;
+- State und Cleanup Plan vor erster Mutation;
+- sequenzielle VM-Builds;
+- kein External-Switch-Test ohne ausdrückliche Runner-Freigabe;
+- vollständige statische Contract Tests vor Native Smoke Tests.
