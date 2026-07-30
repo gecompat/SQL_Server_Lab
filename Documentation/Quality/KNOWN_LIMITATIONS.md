@@ -11,11 +11,18 @@ Dieses Dokument beschreibt bekannte Grenzen des aktuell implementierten Runtimep
 
 ### Docker und Podman
 
-Docker und Podman sind implementiert. Start, Stop und Live-Status verwenden den Provider, der in `connection-info.json` für den Run gespeichert wurde.
+Docker und Podman sind implementiert. Start, Stop und Live-Status verwenden den
+pro Instanz in `connection-info.json` gespeicherten Provider.
 
-### Gemischte Provider in einem Run
+### Gemischte Containerprovider in einem Run
 
-Ein Manifest kann strukturell mehrere Provider enthalten. Der gemeinsame Lifecycle für einen einzelnen Run mit gemischten Providern ist jedoch noch nicht implementiert. `Get-SqlServerLab`, `Start-SqlServerLab` und `Stop-SqlServerLab` melden diese Situation ausdrücklich.
+Ein Run kann Docker- und Podman-Instanzen enthalten. State, Status, Start, Stop
+und Cleanup verwenden dafür getrennte `ProviderSubRuns`. Der implementierte
+Umfang und die Recovery-Regeln stehen im
+[Gemischten Container-Provider-Lifecycle](../Architecture/MIXED_PROVIDER_LIFECYCLE.md).
+
+Nicht enthalten sind ein gemeinsames providerübergreifendes Containernetzwerk,
+Cluster- oder Failoversemantik sowie Hyper-V-SubRuns.
 
 ### Hyper-V
 
@@ -140,10 +147,9 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
 
 ## Priorisierte nächste technische Schritte
 
-1. Providerübergreifenden Lifecycle für gemischte Runs definieren.
-2. Artifact Acquisition, Trust Store, Manifest Lock und inhaltsadressierten Cache gemäß Zielvertrag implementieren.
-3. Mehrfachauswahl sowie Backup-, SQL-Skript- und Script-Bundle-Handler mit Verification und Cleanup ergänzen.
-4. Providerneutrale Drive-, Network-, Software- und Reconcile-Verträge gemäß Hyper-V-Zielvertrag umsetzen.
-5. Artifact Registry, Refresh/Rebuild und Evaluierungsablauf implementieren.
-6. Hyper-V anschließend in den dokumentierten, getrennt testbaren Wellen implementieren.
-7. Katalogaktualität, Prüfsummen und Baseline-Kompatibilität kontrolliert pflegen.
+1. Artifact Acquisition, Trust Store, Manifest Lock und inhaltsadressierten Cache gemäß Zielvertrag implementieren.
+2. Mehrfachauswahl sowie Backup-, SQL-Skript- und Script-Bundle-Handler mit Verification und Cleanup ergänzen.
+3. Providerneutrale Drive-, Network-, Software- und Reconcile-Verträge gemäß Hyper-V-Zielvertrag umsetzen.
+4. Artifact Registry, Refresh/Rebuild und Evaluierungsablauf implementieren.
+5. Hyper-V anschließend in den dokumentierten, getrennt testbaren Wellen implementieren.
+6. Katalogaktualität, Prüfsummen und Baseline-Kompatibilität kontrolliert pflegen.

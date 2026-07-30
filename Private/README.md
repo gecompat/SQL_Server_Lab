@@ -12,10 +12,10 @@ Der Pfad `Private/` beschreibt primär die interne Architektur. Die tatsächlich
 | `PathSafety.ps1` | geschützte Pfade, Scope-Prüfung und Scope-Marker |
 | `SecretProvider.ps1` | lokales Speichern, Lesen und Entfernen von Secrets |
 | `VersionCatalog.ps1` | Versionen, CU-Builds, Images, Ressourcenprofile und Sample-Katalogzugriff |
-| `StateMachine.ps1` | State-Root, Run-State, Übergänge, Historie und aktive Runs |
+| `StateMachine.ps1` | State-Root, Run-State, ProviderSubRuns, Übergänge, Historie und aktive Runs |
 | `SqlReadiness.ps1` | SQL-Bereitschaft, Queries und interne Skriptausführung |
-| `ResourceAssessment.ps1` | Provider-, RAM-, Storage- und Portprüfung; definiert das exportierte `Test-SqlServerLabPrerequisite` |
-| `CleanupEngine.ps1` | Cleanup-Plan, Schritte und Compensation |
+| `ResourceAssessment.ps1` | Prüfung aller verwendeten Provider sowie runweiter RAM-, Storage- und Portkapazität; definiert das exportierte `Test-SqlServerLabPrerequisite` |
+| `CleanupEngine.ps1` | Cleanup-Plan, ProviderSubRuns, Schritte und Compensation |
 | `ManifestBuilder.ps1` | Schema-gesteuerte Eingabe sowie Schema-, Katalog- und Runtime-Fachprüfung |
 | `ManifestParser.ps1` | Manifestvalidierung, Defaults, relative Pfade und Sample-Auflösung |
 | `ServerConfig.ps1` | Server- und Datenbankoptionen sowie External Languages |
@@ -28,6 +28,7 @@ New-SqlServerLab
   -> Test-SqlServerVersionSupported
   -> Test-SqlServerLabPrerequisite
   -> New-LabRunState
+  -> ProviderSubRuns
   -> New-CleanupPlan
   -> Provider-Provisionierung
   -> Wait-SqlReady
@@ -66,6 +67,7 @@ Für öffentliche Bedienung sind die in `SqlServerLab.psd1` exportierten Funktio
 ```powershell
 .\Tests\Static\Invoke-ManifestBuilderChecks.ps1
 .\Tests\Static\Invoke-DocumentationChecks.ps1
+.\Tests\Static\Invoke-MixedProviderLifecycleChecks.ps1
 ```
 
 Bei Runtimeänderungen zusätzlich den betroffenen Provider getrennt testen.

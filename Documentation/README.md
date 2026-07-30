@@ -34,11 +34,12 @@ Diese Datei ist der verbindliche Dokumentationsindex. Die Root-[README](../READM
 2. [Erweiterbarer Umgebungs- und Ausführungsvertrag](Architecture/EXTENSIBLE_ENVIRONMENT_AND_EXECUTION_CONTRACT.md)
 3. [Manifest- und Schnittstellenarchitektur](Architecture/MANIFEST_AND_INTERFACE_ARCHITECTURE.md)
 4. [Testdatenbank-Provisionierung und menügeführte Manifest-Erstellung](Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md)
-5. [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md)
-6. [Projektintegrationsvertrag](Architecture/PROJECT_INTEGRATION_CONTRACT.md)
-7. [Master-Umsetzungsplan](Project_Planning/MASTER_IMPLEMENTATION_PLAN.md)
-8. [Masterplan-Ergänzung](Project_Planning/MASTER_IMPLEMENTATION_PLAN_SCOPE_ADDENDUM.md)
-9. [Zukünftige Anwendungsfälle](Architecture/FUTURE_USE_CASES_AND_EXTENSION_GUARDRAILS.md)
+5. [Gemischter Container-Provider-Lifecycle](Architecture/MIXED_PROVIDER_LIFECYCLE.md)
+6. [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md)
+7. [Projektintegrationsvertrag](Architecture/PROJECT_INTEGRATION_CONTRACT.md)
+8. [Master-Umsetzungsplan](Project_Planning/MASTER_IMPLEMENTATION_PLAN.md)
+9. [Masterplan-Ergänzung](Project_Planning/MASTER_IMPLEMENTATION_PLAN_SCOPE_ADDENDUM.md)
+10. [Zukünftige Anwendungsfälle](Architecture/FUTURE_USE_CASES_AND_EXTENSION_GUARDRAILS.md)
 
 Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ein Feature bereits ausgeführt werden kann.
 
@@ -56,6 +57,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | Manifestparser | implementiert | `Private/ManifestParser.ps1` |
 | Resource Assessment | implementiert | `Private/ResourceAssessment.ps1` |
 | State und Cleanup | implementiert | `Private/StateMachine.ps1`, `Private/CleanupEngine.ps1` |
+| Gemischter Docker-/Podman-Lifecycle | implementiert | `Documentation/Architecture/MIXED_PROVIDER_LIFECYCLE.md` |
 | SQL Readiness | implementiert | `Private/SqlReadiness.ps1` |
 | Serverkonfiguration | teilweise implementiert | `Private/ServerConfig.ps1`, `Quality/KNOWN_LIMITATIONS.md` |
 | Datenbankerstellung | implementiert | `Public/New-SqlServerLabDatabase.ps1` |
@@ -114,6 +116,7 @@ Nur wenn alle Ebenen zusammenpassen, ist ein Feld als vollständig implementiert
 | [Erweiterbarer Umgebungs- und Ausführungsvertrag](Architecture/EXTENSIBLE_ENVIRONMENT_AND_EXECUTION_CONTRACT.md) | Packages, Kataloge, Komponenten, Ressourcen, Workflow, Provider, Recovery und Cleanup |
 | [Manifest- und Schnittstellenarchitektur](Architecture/MANIFEST_AND_INTERFACE_ARCHITECTURE.md) | langfristiger deklarativer Vertrag und Auflösungsreihenfolge |
 | [Testdatenbank-Provisionierung und menügeführte Manifest-Erstellung](Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md) | verbindlicher Zielvertrag für Artifact Handler, Trust/Hash, Mehrfachauswahl, Pfadführung und Baselines; noch kein Runtime-Nachweis |
+| [Gemischter Container-Provider-Lifecycle](Architecture/MIXED_PROVIDER_LIFECYCLE.md) | implementierter Docker-/Podman-Lifecycle mit ProviderSubRuns, Start-Rollback und providergebundenem Cleanup |
 | [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md) | verbindlicher Zielvertrag für Hyper-V, sealed Images, Netzwerke, Software, Reconcile und Refresh; noch kein Runtime-Nachweis |
 | [Projektintegrationsvertrag](Architecture/PROJECT_INTEGRATION_CONTRACT.md) | Anbindung konsumierender Projekte |
 | [Zukünftige Anwendungsfälle](Architecture/FUTURE_USE_CASES_AND_EXTENSION_GUARDRAILS.md) | Roadmap und Grenzen für Supporting Components |
@@ -171,4 +174,5 @@ Bei jeder Änderung müssen Code, Beispiel, Dokumentation und Test gemeinsam gep
 ```powershell
 .\Tests\Static\Invoke-ManifestBuilderChecks.ps1
 .\Tests\Static\Invoke-DocumentationChecks.ps1
+.\Tests\Static\Invoke-MixedProviderLifecycleChecks.ps1
 ```

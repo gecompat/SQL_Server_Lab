@@ -2,9 +2,9 @@
 .SYNOPSIS
     Startet eine gestoppte SQL_Server_Lab-Umgebung.
 .DESCRIPTION
-    Startet alle Container der Umgebung mit dem Provider, der in
-    connection-info.json fuer den Run gespeichert ist. Danach wird optional
-    die SQL- und Datenbank-Bereitschaft geprueft und der State auf RUNNING gesetzt.
+    Startet alle Container der Umgebung je ProviderSubRun. Danach wird optional
+    die SQL- und Datenbank-Bereitschaft geprueft und der globale State erst dann
+    auf RUNNING gesetzt, wenn jeder ProviderSubRun gestartet werden konnte.
 .PARAMETER RunId
     RunId der zu startenden Umgebung.
 .PARAMETER SkipReadyCheck
@@ -51,76 +51,100 @@ function Start-SqlServerLab {
             $null
         }
 
-        $providers = @(
+        $providerGroups = @(
             $connectionInfo.instances |
-                ForEach-Object { $_.provider } |
-                Where-Object { $_ } |
-                Sort-Object -Unique
+                Where-Object { $_.provider } |
+                Group-Object -Property provider |
+                Sort-Object Name
         )
-
-        if ($providers.Count -gt 1) {
-            throw "Run '$RunId' verwendet mehrere Provider. Der gemeinsame Lifecycle fuer gemischte Provider ist noch nicht implementiert."
-        }
-
-        $preferredRuntime = if ($providers.Count -eq 1) { $providers[0] } else { $null }
-        $runtime = Get-ContainerRuntime -PreferredRuntime $preferredRuntime
-        if (-not $runtime) {
-            throw "Container-Runtime '$preferredRuntime' ist nicht verfuegbar."
+        if ($providerGroups.Count -eq 0) {
+            throw "Connection-Info fuer Run '$RunId' enthaelt keine verwaltbaren Providerinstanzen."
         }
 
         $runPrefix = $RunId.Substring(0, 8)
-        Write-LabInfo "Starte Lab ${runPrefix}... ($($run.metadata.name)) mit $runtime"
+        Write-LabInfo "Starte Lab ${runPrefix}... ($($run.metadata.name))"
 
-        $containerIds = @(
-            & $runtime ps -a -q --filter "label=sql-server-lab.run-id=$RunId" 2>$null |
-                Where-Object { $_ }
-        )
-
-        if ($containerIds.Count -eq 0) {
-            Write-LabError '  Keine Container fuer diesen Run gefunden.'
-            return [PSCustomObject]@{
-                RunId  = $RunId
-                Status = 'STOPPED'
-                Action = 'FAILED'
-                Errors = 1
-            }
-        }
-
+        $providerResults = @()
         $errors = 0
         $startedCount = 0
 
-        foreach ($containerIdValue in $containerIds) {
-            $containerId = ([string]$containerIdValue).Trim()
-            if (-not $containerId) {
+        foreach ($providerGroup in $providerGroups) {
+            $provider = ([string]$providerGroup.Name).ToLowerInvariant()
+            $providerErrors = 0
+            $providerStarted = 0
+            $runtime = Get-ContainerRuntime -PreferredRuntime $provider
+            if (-not $runtime) {
+                Write-LabError "  Runtime '$provider' ist fuer den ProviderSubRun nicht verfuegbar."
+                $providerResults += [PSCustomObject]@{
+                    Provider = $provider
+                    Status   = 'FAILED'
+                    Started  = 0
+                    Errors   = 1
+                }
+                $errors++
                 continue
             }
 
-            $containerName = ([string](& $runtime inspect $containerId --format '{{.Name}}' 2>$null)).Trim().TrimStart('/')
+            Write-LabInfo "  ProviderSubRun '$provider' mit $runtime starten..."
+            $containerIds = @(
+                & $runtime ps -a -q --filter "label=sql-server-lab.run-id=$RunId" 2>$null |
+                    Where-Object { $_ }
+            )
+            if ($containerIds.Count -lt $providerGroup.Count) {
+                Write-LabError "  ProviderSubRun '$provider': Erwartet $($providerGroup.Count) Container, gefunden: $($containerIds.Count)."
+                $providerErrors++
+            }
 
-            try {
-                $runningText = [string](& $runtime inspect $containerId --format '{{.State.Running}}' 2>$null)
-                if ($LASTEXITCODE -ne 0) {
-                    throw "Container-Status konnte nicht gelesen werden: $containerId"
+            foreach ($containerIdValue in $containerIds) {
+                $containerId = ([string]$containerIdValue).Trim()
+                if (-not $containerId) {
+                    continue
                 }
 
-                $isRunning = $runningText.Trim().ToLowerInvariant() -eq 'true'
-                if (-not $isRunning) {
-                    & $runtime start $containerId | Out-Null
+                $containerName = ([string](& $runtime inspect $containerId --format '{{.Name}}' 2>$null)).Trim().TrimStart('/')
+                try {
+                    $runningText = [string](& $runtime inspect $containerId --format '{{.State.Running}}' 2>$null)
                     if ($LASTEXITCODE -ne 0) {
-                        throw "Container start fehlgeschlagen: $containerId"
+                        throw "Container-Status konnte nicht gelesen werden: $containerId"
                     }
-                    Write-LabSuccess "  Gestartet: $containerName"
-                }
-                else {
-                    Write-LabInfo "  Laeuft bereits: $containerName"
-                }
 
-                $startedCount++
+                    $isRunning = $runningText.Trim().ToLowerInvariant() -eq 'true'
+                    if (-not $isRunning) {
+                        & $runtime start $containerId | Out-Null
+                        if ($LASTEXITCODE -ne 0) {
+                            throw "Container start fehlgeschlagen: $containerId"
+                        }
+                        Write-LabSuccess "    Gestartet: $containerName"
+                    }
+                    else {
+                        Write-LabInfo "    Laeuft bereits: $containerName"
+                    }
+
+                    $providerStarted++
+                    $startedCount++
+                }
+                catch {
+                    Write-LabError "    Fehler bei ${containerName}: $_"
+                    $providerErrors++
+                }
             }
-            catch {
-                Write-LabError "  Fehler bei ${containerName}: $_"
-                $errors++
+
+            $providerStatus = if ($providerErrors -eq 0 -and $providerStarted -ge $providerGroup.Count) { 'STARTED' } else { 'FAILED' }
+            if ($providerStatus -eq 'STARTED') {
+                Set-LabProviderSubRunState `
+                    -RunId $RunId `
+                    -Provider $provider `
+                    -NewState 'RUNNING' `
+                    -Reason 'Start-SqlServerLab' `
+                    -StateRoot $stateRoot
             }
+            $providerResults += [PSCustomObject]@{
+                Provider = $provider
+                Status   = $providerStatus
+                Started  = $providerStarted
+                Errors   = $providerErrors
+            }
+            $errors += $providerErrors
         }
 
         if ($startedCount -eq 0) {
@@ -130,6 +154,80 @@ function Start-SqlServerLab {
                 Status = 'STOPPED'
                 Action = 'FAILED'
                 Errors = $errors
+                ProviderSubRuns = $providerResults
+            }
+        }
+
+        if ($errors -gt 0) {
+            Write-LabWarning "Lab wurde nur teilweise gestartet ($errors Fehler). Bereits gestartete ProviderSubRuns werden zurueckgerollt."
+            $rollbackErrors = 0
+            foreach ($providerResult in @($providerResults | Where-Object { $_.Status -eq 'STARTED' })) {
+                $providerRollbackErrors = 0
+                $runtime = Get-ContainerRuntime -PreferredRuntime $providerResult.Provider
+                if (-not $runtime) {
+                    $rollbackErrors++
+                    continue
+                }
+
+                $containerIds = @(
+                    & $runtime ps -q --filter "label=sql-server-lab.run-id=$RunId" 2>$null |
+                        Where-Object { $_ }
+                )
+                foreach ($containerIdValue in $containerIds) {
+                    $containerId = ([string]$containerIdValue).Trim()
+                    if (-not $containerId) {
+                        continue
+                    }
+                    & $runtime stop $containerId 1>$null 2>$null
+                    if ($LASTEXITCODE -ne 0) {
+                        $providerRollbackErrors++
+                        $rollbackErrors++
+                    }
+                }
+
+                if ($providerRollbackErrors -eq 0) {
+                    Set-LabProviderSubRunState `
+                        -RunId $RunId `
+                        -Provider $providerResult.Provider `
+                        -NewState 'STOPPED' `
+                        -Reason 'Start-SqlServerLab Rollback' `
+                        -StateRoot $stateRoot
+                    $providerResult.Status = 'ROLLED_BACK'
+                }
+            }
+
+            $errors += $rollbackErrors
+            if ($rollbackErrors -gt 0) {
+                $null = Set-LabRunState `
+                    -RunId $RunId `
+                    -NewState 'CLEANUP_PENDING' `
+                    -Reason 'Start-Rollback unvollstaendig' `
+                    -StateRoot $stateRoot
+                foreach ($providerSubRun in @(Get-LabProviderSubRuns -RunId $RunId -StateRoot $stateRoot)) {
+                    if ($providerSubRun.state -notin @('CLEANUP_PENDING', 'CLEANUP_RUNNING', 'CLEANED_UP', 'REMOVED')) {
+                        Set-LabProviderSubRunState `
+                            -RunId $RunId `
+                            -Provider $providerSubRun.provider `
+                            -NewState 'CLEANUP_PENDING' `
+                            -Reason 'Start-Rollback unvollstaendig' `
+                            -StateRoot $stateRoot
+                    }
+                }
+                return [PSCustomObject]@{
+                    RunId  = $RunId
+                    Status = 'RECOVERY_REQUIRED'
+                    Action = 'PARTIAL'
+                    Errors = $errors
+                    ProviderSubRuns = $providerResults
+                }
+            }
+
+            return [PSCustomObject]@{
+                RunId  = $RunId
+                Status = 'STOPPED_WITH_ERRORS'
+                Action = 'PARTIAL'
+                Errors = $errors
+                ProviderSubRuns = $providerResults
             }
         }
 
@@ -184,6 +282,7 @@ function Start-SqlServerLab {
             Status = 'RUNNING'
             Action = 'STARTED'
             Errors = $errors
+            ProviderSubRuns = $providerResults
         }
     }
 }

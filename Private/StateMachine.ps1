@@ -65,7 +65,8 @@ function New-LabRunState {
     param(
         [string]$StateRoot,
         [string]$ScopeId,
-        [hashtable]$Metadata = @{}
+        [hashtable]$Metadata = @{},
+        [array]$ProviderSubRuns = @()
     )
 
     if (-not $StateRoot) {
@@ -84,6 +85,36 @@ function New-LabRunState {
     New-Item -Path (Join-Path $runDirectory 'log') -ItemType Directory -Force | Out-Null
 
     $timestamp = Get-LabTimestamp
+    $normalizedProviderSubRuns = @()
+    $knownProviders = @{}
+    foreach ($providerSubRun in @($ProviderSubRuns)) {
+        $provider = ([string]$providerSubRun.provider).ToLowerInvariant()
+        if ([string]::IsNullOrWhiteSpace($provider)) {
+            throw 'ProviderSubRun besitzt keinen Provider.'
+        }
+        if ($knownProviders.ContainsKey($provider)) {
+            throw "ProviderSubRun fuer '$provider' wurde mehrfach angegeben."
+        }
+        $knownProviders[$provider] = $true
+
+        $normalizedProviderSubRuns += [PSCustomObject]@{
+            id            = if ($providerSubRun.id) { [string]$providerSubRun.id } else { "provider-$provider" }
+            provider      = $provider
+            instanceIds   = @($providerSubRun.instanceIds | Where-Object { $_ } | ForEach-Object { [string]$_ })
+            state         = 'INITIALIZING'
+            stateHistory  = @(
+                [PSCustomObject]@{
+                    state     = 'INITIALIZING'
+                    timestamp = $timestamp
+                    reason    = 'ProviderSubRun erstellt'
+                }
+            )
+            createdAt     = $timestamp
+            updatedAt     = $timestamp
+            errors        = @()
+        }
+    }
+
     $state = [PSCustomObject]@{
         runId        = $runId
         scopeId      = $ScopeId
@@ -98,6 +129,7 @@ function New-LabRunState {
         createdAt    = $timestamp
         updatedAt    = $timestamp
         instances    = @()
+        providerSubRuns = $normalizedProviderSubRuns
         metadata     = $Metadata
         errors       = @()
     }
@@ -151,6 +183,145 @@ function Get-LabRunState {
     return Get-Content -LiteralPath $statePath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
 }
 
+function Get-LabProviderSubRuns {
+    <#
+    .SYNOPSIS
+        Liest die providergebundenen Teil-Lifecycles eines Runs.
+    .DESCRIPTION
+        Aeltere Run-State-Dateien besitzen keine ProviderSubRuns. Sie bleiben
+        lesbar und liefern dann ein leeres Array.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RunId,
+        [string]$StateRoot
+    )
+
+    $state = Get-LabRunState -RunId $RunId -StateRoot $StateRoot
+    if (-not $state.PSObject.Properties['providerSubRuns']) {
+        return @()
+    }
+
+    return @($state.providerSubRuns)
+}
+
+function Get-LabStateTransitionMap {
+    [CmdletBinding()]
+    param()
+
+    return @{
+        INITIALIZING      = @('PROVISIONING', 'PROVISION_FAILED', 'CLEANUP_PENDING')
+        PROVISIONING      = @('SQL_READY', 'PROVISION_FAILED', 'CLEANUP_PENDING')
+        SQL_READY         = @('DATABASES_CREATED', 'PROVISION_FAILED', 'CLEANUP_PENDING')
+        DATABASES_CREATED = @('POST_PROVISIONED', 'RUNNING', 'PROVISION_FAILED', 'CLEANUP_PENDING')
+        POST_PROVISIONED  = @('RUNNING', 'PROVISION_FAILED', 'CLEANUP_PENDING')
+        RUNNING           = @('STOPPED', 'CLEANUP_PENDING', 'REMOVED')
+        STOPPED           = @('RUNNING', 'CLEANUP_PENDING', 'REMOVED')
+        PROVISION_FAILED  = @('CLEANUP_PENDING')
+        CLEANUP_PENDING   = @('CLEANUP_RUNNING')
+        CLEANUP_RUNNING   = @('CLEANED_UP', 'RECOVERY_REQUIRED', 'REMOVED')
+        CLEANED_UP        = @('RECOVERY_REQUIRED', 'REMOVED')
+        RECOVERY_REQUIRED = @('CLEANUP_PENDING', 'REMOVED')
+    }
+}
+
+function Set-LabProviderSubRunState {
+    <#
+    .SYNOPSIS
+        Setzt den State eines providergebundenen Teil-Lifecycles.
+    .DESCRIPTION
+        Ein ProviderSubRun ist eine interne Gruppierung aller Instanzen eines
+        Providers innerhalb desselben Run. Der globale Run-State bleibt fuer
+        die Benutzeroberflaeche massgeblich; die Teilstates erlauben Status,
+        Lifecycle und Recovery ohne eine zufaellig gewaehlte Container-Runtime.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RunId,
+        [Parameter(Mandatory)][ValidateSet('docker', 'podman', 'hyperv')][string]$Provider,
+        [Parameter(Mandatory)]
+        [ValidateSet(
+            'INITIALIZING',
+            'PROVISIONING',
+            'SQL_READY',
+            'DATABASES_CREATED',
+            'POST_PROVISIONED',
+            'RUNNING',
+            'STOPPED',
+            'PROVISION_FAILED',
+            'CLEANUP_PENDING',
+            'CLEANUP_RUNNING',
+            'CLEANED_UP',
+            'RECOVERY_REQUIRED',
+            'REMOVED'
+        )]
+        [string]$NewState,
+        [string]$Reason = '',
+        [string]$StateRoot
+    )
+
+    if (-not $StateRoot) {
+        $StateRoot = Get-LabStateRoot
+    }
+
+    $statePath = Join-Path (Join-Path (Join-Path $StateRoot 'runs') $RunId) 'run-state.json'
+    $current = Get-Content -LiteralPath $statePath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
+    if (-not $current.PSObject.Properties['providerSubRuns']) {
+        return
+    }
+
+    $providerSubRun = @(
+        $current.providerSubRuns |
+            Where-Object { ([string]$_.provider).Equals($Provider, [System.StringComparison]::OrdinalIgnoreCase) }
+    ) | Select-Object -First 1
+    if (-not $providerSubRun) {
+        throw "ProviderSubRun fuer '$Provider' nicht gefunden."
+    }
+
+    if ($providerSubRun.state -eq $NewState) {
+        return
+    }
+
+    $validTransitions = Get-LabStateTransitionMap
+    $allowed = $validTransitions[$providerSubRun.state]
+    if (-not $allowed -or $NewState -notin $allowed) {
+        $allowedText = if ($allowed) { $allowed -join ', ' } else { '(keine)' }
+        throw "Ungueltiger ProviderSubRun-State-Uebergang ($Provider): $($providerSubRun.state) -> $NewState. Erlaubt: $allowedText"
+    }
+
+    $timestamp = Get-LabTimestamp
+    $providerSubRun.state = $NewState
+    $providerSubRun.updatedAt = $timestamp
+    $providerSubRun.stateHistory += [PSCustomObject]@{
+        state     = $NewState
+        timestamp = $timestamp
+        reason    = $Reason
+    }
+
+    $current.updatedAt = $timestamp
+    $current | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $statePath -Encoding utf8
+}
+
+function Set-LabProviderSubRunsState {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RunId,
+        [Parameter(Mandatory)][string[]]$Providers,
+        [Parameter(Mandatory)][string]$NewState,
+        [string]$Reason = '',
+        [string]$StateRoot
+    )
+
+    foreach ($provider in @($Providers | Where-Object { $_ } | Sort-Object -Unique)) {
+        Set-LabProviderSubRunState `
+            -RunId $RunId `
+            -Provider $provider `
+            -NewState $NewState `
+            -Reason $Reason `
+            -StateRoot $StateRoot
+    }
+}
+
 function Set-LabRunState {
     [CmdletBinding()]
     param(
@@ -183,20 +354,7 @@ function Set-LabRunState {
     $statePath = Join-Path (Join-Path (Join-Path $StateRoot 'runs') $RunId) 'run-state.json'
     $current = Get-Content -LiteralPath $statePath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
 
-    $validTransitions = @{
-        INITIALIZING      = @('PROVISIONING', 'PROVISION_FAILED', 'CLEANUP_PENDING')
-        PROVISIONING      = @('SQL_READY', 'PROVISION_FAILED', 'CLEANUP_PENDING')
-        SQL_READY         = @('DATABASES_CREATED', 'PROVISION_FAILED', 'CLEANUP_PENDING')
-        DATABASES_CREATED = @('POST_PROVISIONED', 'RUNNING', 'PROVISION_FAILED', 'CLEANUP_PENDING')
-        POST_PROVISIONED  = @('RUNNING', 'PROVISION_FAILED', 'CLEANUP_PENDING')
-        RUNNING           = @('STOPPED', 'CLEANUP_PENDING', 'REMOVED')
-        STOPPED           = @('RUNNING', 'CLEANUP_PENDING', 'REMOVED')
-        PROVISION_FAILED  = @('CLEANUP_PENDING')
-        CLEANUP_PENDING   = @('CLEANUP_RUNNING')
-        CLEANUP_RUNNING   = @('CLEANED_UP', 'RECOVERY_REQUIRED', 'REMOVED')
-        CLEANED_UP        = @('REMOVED')
-        RECOVERY_REQUIRED = @('CLEANUP_PENDING', 'REMOVED')
-    }
+    $validTransitions = Get-LabStateTransitionMap
 
     if ($current.state -eq $NewState) {
         return

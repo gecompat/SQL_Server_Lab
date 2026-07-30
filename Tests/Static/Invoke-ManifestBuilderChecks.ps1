@@ -165,8 +165,8 @@ $mixedProviders = [ordered]@{
 }
 $mixedResult = Test-SqlServerLabManifest -InputObject $mixedProviders
 Add-CheckResult `
-    -Name 'Gemischte Provider werden vor Provisionierung abgelehnt' `
-    -Success (-not $mixedResult.IsValid -and $mixedResult.Errors -match 'Gemischte Provider') `
+    -Name 'Gemischte Docker-/Podman-Provider werden akzeptiert' `
+    -Success $mixedResult.IsValid `
     -Message ($mixedResult.Errors -join '; ')
 
 $incompatibleDatabase = [ordered]@{
