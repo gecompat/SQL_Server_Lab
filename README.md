@@ -297,6 +297,12 @@ Unverifizierte Downloads, Archive, Attach-Szenarien und SQL-Skript-Samples
 werden nicht automatisch in einen Restore umgedeutet. Sie führen mit einer
 klaren Fehlermeldung zum Abbruch.
 
+Der verbindliche Zielvertrag für mehrere auswählbare Samples, einmalige
+Vertrauensfreigabe mit dauerhaftem SHA-256, SQL-Skript-/Bundle-Handler,
+kontextreiche Pfadführung und `LAB_GENERATED`-Baselines ist in
+[Testdatenbank-Provisionierung und menügeführte Manifest-Erstellung](Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md)
+dokumentiert. Diese Funktionen sind noch nicht implementiert.
+
 ## Lifecycle
 
 ```powershell
@@ -442,6 +448,7 @@ _QuellRepo/      unveränderte Quell-Snapshots anderer Repositories
 - [Dokumentationsübersicht](Documentation/README.md)
 - [Bekannte Grenzen](Documentation/Quality/KNOWN_LIMITATIONS.md)
 - [Manifest-Schemas und Beispiele](Schemas/README.md)
+- [Testdatenbank-Provisionierung und menügeführte Manifest-Erstellung](Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md)
 - [Öffentliche Cmdlets](Public/README.md)
 - [Provider](Providers/README.md)
 - [Tests](Tests/README.md)

@@ -4,7 +4,7 @@
 |---|---|
 | Status | `BINDING` |
 | Runtime-Status | `CONTAINER_CORE_IMPLEMENTED` |
-| Stand | 2026-07-27 |
+| Stand | 2026-07-30 |
 | Repository | `gecompat/SQL_Server_Lab` |
 | Maschinenlesbare Landkarte | [`repo_map.yaml`](repo_map.yaml) |
 
@@ -50,6 +50,10 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 - gemeinsamer Lifecycle für gemischte Provider innerhalb eines Runs;
 - vollständige Ausführung aller im Schema vorbereiteten `serverConfig`-Felder;
 - automatische Verarbeitung von Sample-Archiven, Attach-Szenarien und SQL-Skript-Samples;
+- persistenter Artifact Trust Store, Manifest Lock und inhaltsadressierter Cache;
+- Mehrfachauswahl von Testdatenbanken im Ad-hoc-Menü;
+- kontextreiche Manifest-Menüführung mit verbindlicher Pfadsemantik;
+- `LAB_GENERATED`-Baselines und deterministische Wahl des besten kompatiblen Aufsetzpunkts;
 - konsumierende Analyze- und Schulungs-Lab-Packages;
 - langfristige Planner-, Package- und Supporting-Component-Architektur.
 
@@ -131,6 +135,7 @@ Quell-Snapshots unter `_QuellRepo/` dienen nur als eingefrorene Referenz. Sie de
 | State | `Private/StateMachine.ps1` |
 | Cleanup | `Private/CleanupEngine.ps1` |
 | Runtimegrenzen | `Documentation/Quality/KNOWN_LIMITATIONS.md` |
+| Zielvertrag für Testdatenbank-Artefakte und Manifest-Wizard | `Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md` |
 | Benutzerfluss | `README.md`, `Documentation/User/Getting_Started.md` |
 | KI-Landkarte | `.ai/repo_map.yaml` |
 | statische Prüfung | `Tests/Static/Invoke-DocumentationChecks.ps1` |
@@ -194,6 +199,8 @@ Blockiert:
 - automatische Übernahme lokaler Backups in GitHub- oder Downloadartefakte.
 
 Der aktuelle Restorepfad unterstützt direkte `.bak`-Dateien. Archive, Attach-Szenarien und Backupketten benötigen einen eigenen zukünftigen Vertrag.
+
+Der verbindliche Zielvertrag für mehrere auswählbare Samples, SQL-Skript-/Bundle-Installationen, einmalige Vertrauensfreigabe mit dauerhaftem SHA-256, portable sanitisierten Locks und `LAB_GENERATED`-Baselines steht in `Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md`. Diese Funktionen sind noch nicht implementiert.
 
 ## 10. State, Secrets und Cleanup
 

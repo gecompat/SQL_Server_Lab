@@ -19,6 +19,14 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   automatisch ausgefuehrt;
 - statische Test- und Architektur-Dokumentation bildet den aktuellen Stand ab.
 
+### Dokumentiert
+
+- verbindlicher, noch nicht implementierter Zielvertrag für mehrere auswählbare
+  Testdatenbanken, typisierte Artifact Handler, einmalige Vertrauensfreigabe mit
+  dauerhaftem SHA-256, Trust Store, Manifest Lock und inhaltsadressierten Cache;
+- Zielvertrag für SQL-Skript-/Script-Bundle-Installationen, kontextreiche
+  Manifest- und Pfadführung, `LAB_GENERATED`-Baselines sowie Hyper-V-Aufsetzpunkte.
+
 ## 2026-07-28
 
 ### Hinzugefügt

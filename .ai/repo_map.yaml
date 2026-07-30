@@ -19,6 +19,7 @@ sources_of_truth:
   cleanup_contract: Private/CleanupEngine.ps1
   port_allocation_contract: Private/PortAllocation.ps1
   runtime_limitations: Documentation/Quality/KNOWN_LIMITATIONS.md
+  sample_artifact_and_manifest_wizard_target: Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md
   user_entrypoint: README.md
   user_walkthrough: Documentation/User/Getting_Started.md
   validation_documentation: Tests/Static/Invoke-DocumentationChecks.ps1
@@ -183,6 +184,22 @@ catalogs:
     schema: Schemas/sample-databases.schema.json
     executable_variants: "Nur direkte .bak-URLs mit runtimeStatus executable und verifizierter SHA-256-Pruefsumme; aktueller Katalog ist beschreibend"
 
+planning_contracts:
+  sample_artifact_and_manifest_wizard:
+    source: Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md
+    status: BINDING_IMPLEMENTATION_TARGET
+    runtime_status: NOT_IMPLEMENTED
+    covers:
+      - multiple_sample_selection
+      - artifact_handlers
+      - persistent_trust_store
+      - manifest_lock
+      - content_addressed_cache
+      - sql_script_and_bundle_installation
+      - contextual_path_guidance
+      - lab_generated_baselines
+      - hyperv_baseline_bindings
+
 state_files:
   root_resolution:
     windows: "%LOCALAPPDATA%\SqlServerLab"
@@ -314,11 +331,14 @@ known_limitations:
     - "Hyper-V nicht implementiert"
     - "gemischter Provider-Lifecycle innerhalb eines Runs nicht implementiert"
     - "Sample-Automation nur für direkte .bak-Varianten"
+    - "Trust Store, Manifest Lock, Mehrfachauswahl und Script Handler noch nicht implementiert"
+    - "LAB_GENERATED-Baselines und beste kompatible Aufsetzpunkte noch nicht implementiert"
     - "mehrere reservierte serverConfig-Felder noch ohne stabilen Runtimepfad"
     - "Versionskatalog wird nicht automatisch als aktuell garantiert"
 
 continuation_rules:
   - "Planungsdokumente nie als Runtime-Nachweis behandeln"
+  - "Testdatenbank-, Trust-, Wizard- und Baseline-Entscheidungen am verbindlichen Zielvertrag ausrichten"
   - "Keine neuen Exportnamen ohne implementierte Funktion und Test"
   - "Keine Manifestfelder nur im Schema ergänzen"
   - "Keine realen State-, Secret-, Host- oder Kundendaten committen"
