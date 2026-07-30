@@ -235,7 +235,7 @@ Restore-SqlServerLabDatabase `
     -ContainerName $lab.Instances[0].ContainerName
 ```
 
-Die Beispiel-URL ist absichtlich nicht ausführbar. Verwenden Sie eine zulässige reale `.bak`-Quelle.
+Die Beispiel-URL ist absichtlich nicht ausführbar. Verwenden Sie eine zulässige reale `.bak`-Quelle. Bei einer URL ohne bekannte SHA-256 wird im interaktiven Ablauf einmalig die Vertrauensfreigabe abgefragt. Nach erfolgreichem Download speichert der lokale Trust Store den berechneten Digest und der inhaltsadressierte Cache verwendet ihn bei späteren Aufrufen. Mit `-NonInteractive` wird ohne bekannte Prüfsumme nicht geladen; der Aufruf endet mit `TRUST_REQUIRED`.
 
 `Restore-SqlServerLabDatabase` unterstützt bevorzugt `RunId` und optional
 `InstanceId`; Provider, Container, Host und Port werden aus dem lokalen
@@ -628,8 +628,11 @@ Im State liegen unter anderem:
 runs/<RunId>/run-state.json
 runs/<RunId>/cleanup-plan.json
 runs/<RunId>/connection-info.json
+runs/<RunId>/manifest.lock.json
 runs/<RunId>/secrets/
-cache/backups/
+trust/sample-artifacts.json
+cache/artifacts/sha256/<sha256>/
+cache/quarantine/
 ```
 
 State, Secrets, konkrete Hostpfade und Connection Information dürfen nicht in Git übernommen werden.

@@ -125,16 +125,16 @@ Nicht automatisch ausführbar sind unter anderem:
 
 Diese Einträge dürfen trotzdem als Planungs- und Quellenkatalog enthalten sein. Der Runtimepfad lehnt sie mit einer erklärenden Fehlermeldung ab.
 
-Der verbindliche Zielvertrag für zusätzliche Artifact Types, einmalige Vertrauensfreigabe, persistenten Trust Store, Manifest Lock, Mehrfachauswahl und Baselines steht in [Testdatenbank-Provisionierung und menügeführte Manifest-Erstellung](../Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md). Er beschreibt geplantes Verhalten und ist kein aktueller Runtime-Nachweis.
+Der verbindliche Zielvertrag für zusätzliche Artifact Types, Mehrfachauswahl und Baselines steht in [Testdatenbank-Provisionierung und menügeführte Manifest-Erstellung](../Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md). Der lokale Trust Store, der inhaltsadressierte Cache und der Run Lock sind für direkte Backup-Acquisition implementiert, aktivieren aber keinen weiteren Sample-Handler.
 
 ### Prüfsummen
 
 `sha256: null` bedeutet, dass keine kryptografische Prüfsumme hinterlegt ist.
 In diesem Fall muss `integrityOrigin: null`, `trustPolicy: interactive-once`
 und `runtimeStatus: descriptive` gesetzt sein. Die derzeit katalogisierten
-Downloads sind deshalb beschreibend. Der spätere Trust Store darf nach einer
-ausdrücklichen Entscheidung nur lokal einen erwarteten Hash registrieren;
-`cachePolicy.verifyChecksum` allein erzeugt keine Prüfsumme.
+Downloads sind deshalb beschreibend. Der implementierte Trust Store darf nach
+einer ausdrücklichen interaktiven Entscheidung nur lokal einen erwarteten Hash
+registrieren; `cachePolicy.verifyChecksum` allein erzeugt keine Prüfsumme.
 
 ## Validierung
 

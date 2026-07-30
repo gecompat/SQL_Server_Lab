@@ -61,7 +61,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | SQL Readiness | implementiert | `Private/SqlReadiness.ps1` |
 | Serverkonfiguration | teilweise implementiert | `Private/ServerConfig.ps1`, `Quality/KNOWN_LIMITATIONS.md` |
 | Datenbankerstellung | implementiert | `Public/New-SqlServerLabDatabase.ps1` |
-| Restore | direkte `.bak`-Dateien implementiert | `Public/Restore-SqlServerLabDatabase.ps1` |
+| Restore | direkte `.bak`-Dateien einschließlich Trust-, SHA-256-, Cache- und Lock-Pfad implementiert | `Public/Restore-SqlServerLabDatabase.ps1`, `Private/ArtifactResolver.ps1` |
 | Skriptausführung | implementiert | `Public/Invoke-SqlServerLabScript.ps1` |
 | Integrationstest | implementiert | `Tests/Integration/Invoke-SmokeTest.ps1` |
 | Manifest-Builder und -Fachprüfung | implementiert, einschließlich `x-ui`-Pfadkontext und Hostvorschau | `Private/ManifestBuilder.ps1`, `Tests/Static/Invoke-ManifestBuilderChecks.ps1` |

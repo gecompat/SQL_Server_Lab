@@ -38,6 +38,8 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 - Server- und Datenbankkonfiguration im dokumentierten Umfang;
 - Datenbankerstellung;
 - direkte `.bak`-Restores aus Datei oder URL;
+- einmalige Trust-Auflösung, persistenter lokaler Trust Store,
+  inhaltsadressierter Backup-Cache, Quarantäne und Run Lock für URL-Backups;
 - direkte `.bak`-Varianten aus dem Sample-Katalog;
 - Post-Provision-T-SQL;
 - Start, Stop, Restart, Status, Remove und Clear;
@@ -51,7 +53,6 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 - gemeinsamer Lifecycle für gemischte Provider innerhalb eines Runs;
 - vollständige Ausführung aller im Schema vorbereiteten `serverConfig`-Felder;
 - automatische Verarbeitung von Sample-Archiven, Attach-Szenarien und SQL-Skript-Samples;
-- persistenter Artifact Trust Store, Manifest Lock und inhaltsadressierter Cache;
 - Mehrfachauswahl von Testdatenbanken im Ad-hoc-Menü;
 - kontextreiche Manifest-Menüführung mit verbindlicher Pfadsemantik;
 - `LAB_GENERATED`-Baselines und deterministische Wahl des besten kompatiblen Aufsetzpunkts;

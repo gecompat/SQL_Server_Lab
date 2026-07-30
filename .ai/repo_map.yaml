@@ -85,7 +85,7 @@ public_commands:
     mutates_sql: true
   - name: Restore-SqlServerLabDatabase
     source: Public/Restore-SqlServerLabDatabase.ps1
-    purpose: "Direkte .bak-Datei aus lokalem Pfad oder URL wiederherstellen; Ziel bevorzugt per RunId aufloesen"
+    purpose: "Direkte .bak-Datei aus lokalem Pfad oder URL wiederherstellen; URL-Acquisition mit Trust, SHA-256, Cache und Run Lock; Ziel bevorzugt per RunId aufloesen"
     mutates_sql: true
     external_dependencies:
       - sqlcmd
@@ -132,6 +132,13 @@ internal_components:
       - "State-Root bestimmen"
       - "Run-State und ProviderSubRuns persistieren"
       - "State-Transitions und Fehlerhistorie verwalten"
+  - name: ArtifactResolver
+    source: Private/ArtifactResolver.ps1
+    responsibilities:
+      - "HTTP(S)-Backup-Acquisition in einen lokalen Staging-Bereich"
+      - "einmaligen Trust mit versionierten lokalen SHA-256-Records verwalten"
+      - "inhaltsadressierten Cache und Quarantaene bei Hash-Mismatch verwalten"
+      - "sanitisiertes manifest.lock.json vor dem Restore schreiben"
   - name: CleanupEngine
     source: Private/CleanupEngine.ps1
     responsibilities:
@@ -246,9 +253,12 @@ state_files:
     - run-state.json
     - cleanup-plan.json
     - connection-info.json
+    - manifest.lock.json
     - secrets/
   cache:
-    - cache/backups/
+    - trust/sample-artifacts.json
+    - cache/artifacts/sha256/<sha256>/
+    - cache/quarantine/
   repository_policy: "State, Secrets, Connection Information und konkrete Hostpfade nie versionieren"
 
 provisioning_flow:
@@ -393,7 +403,7 @@ known_limitations:
     - "Artifact Refresh und Rebuild für Medien, VHDX und Derived Images nicht implementiert"
     - "kein provideruebergreifendes Docker-/Podman-Netzwerk oder Hyper-V-SubRun"
     - "Sample-Automation nur für executable Backup-Varianten; aktueller Katalog ist beschreibend"
-    - "Trust Store, Manifest Lock, Mehrfachauswahl und Script Handler noch nicht implementiert"
+    - "Sample-Backup-Handler, Mehrfachauswahl und Script Handler noch nicht implementiert; Trust Store, Cache und Run Lock sind fuer direkte Backup-URLs implementiert"
     - "LAB_GENERATED-Baselines und beste kompatible Aufsetzpunkte noch nicht implementiert"
     - "mehrere reservierte serverConfig-Felder noch ohne stabilen Runtimepfad"
     - "Versionskatalog wird nicht automatisch als aktuell garantiert"
