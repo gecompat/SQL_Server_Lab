@@ -25,7 +25,11 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   Testdatenbanken, typisierte Artifact Handler, einmalige Vertrauensfreigabe mit
   dauerhaftem SHA-256, Trust Store, Manifest Lock und inhaltsadressierten Cache;
 - Zielvertrag für SQL-Skript-/Script-Bundle-Installationen, kontextreiche
-  Manifest- und Pfadführung, `LAB_GENERATED`-Baselines sowie Hyper-V-Aufsetzpunkte.
+  Manifest- und Pfadführung, `LAB_GENERATED`-Baselines sowie Hyper-V-Aufsetzpunkte;
+- verbindlicher Zielvertrag für Hyper-V, sealed OS-/SQL-Images,
+  `PrepareImage`/`CompleteImage`, Drives, Network Intents, providerneutrale
+  Software und External Runtimes, Manual Resume, Reconcile sowie Artifact
+  Refresh und Rebuild.
 
 ## 2026-07-28
 
