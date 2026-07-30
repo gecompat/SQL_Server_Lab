@@ -54,8 +54,12 @@ function New-SqlServerLabManifest {
 
         $draft = if ($PSCmdlet.ParameterSetName -eq 'Interactive') {
             Write-LabHeader 'SQL Server Lab - Manifest erstellen'
-            Write-LabInfo 'Optionale Felder koennen einzeln aktiviert werden. Eingaben werden sofort typgeprueft.'
-            New-LabManifestDraft -SchemaReference $relativeSchemaPath
+            Write-LabInfo 'Optionale Felder koennen einzeln aktiviert werden. Eingaben werden sofort typgeprueft und Pfadangaben zeigen Scope, Bezugsbasis und Vorschau.'
+            Write-LabInfo "Manifest-Ziel: $fullPath"
+            Write-LabInfo "Relative Hostpfade beziehen sich auf: $parentPath"
+            New-LabManifestDraft `
+                -SchemaReference $relativeSchemaPath `
+                -ManifestDirectory $parentPath
         }
         else {
             $InputObject

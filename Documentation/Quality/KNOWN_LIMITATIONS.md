@@ -98,6 +98,10 @@ Bei manuellen Restores ist `-RunId` mit optionaler `-InstanceId` die bevorzugte 
 
 `sample`-Referenzen werden auf den Katalog `Catalogs/sample-databases.json` aufgelöst.
 
+Der Katalog besitzt bereits einen typisierten Artifact-Vertrag mit Artifact
+Type, Handler-Contract-Version, erwarteten Outputs, Installation-Metadaten und
+Trust Policy. Diese Metadaten aktivieren noch keinen zusätzlichen Handler.
+
 Automatisch ausführbar sind nur Varianten mit einer direkten `.bak`-URL,
 `runtimeStatus: executable` und hinterlegtem SHA-256. Katalogeinträge ohne
 verifizierte Prüfsumme sowie Eintraege fuer SQL-Skripte, Archive oder
@@ -111,6 +115,11 @@ Noch nicht implementiert sind die einmalige interaktive Vertrauensfreigabe bei
 fehlender Prüfsumme, der persistente Trust Store, ein Manifest Lock, der
 inhaltsadressierte Artifact Cache, die Mehrfachauswahl im Ad-hoc-Menü,
 SQL-Skript-/Script-Bundle-Handler und `LAB_GENERATED`-Baselines.
+
+Der Wizard zeigt für die festgelegten Manifestpfade bereits Scope,
+Bezugsbasis und aufgelöste Hostvorschau. Eine spezialisierte Sample-Auswahl,
+Navigation mit Zurück/Planvorschau und eine vollständige Kollisionsprüfung der
+zukünftigen Mehrfachauswahl sind noch nicht implementiert.
 
 Der verbindliche, ausdrücklich noch nicht implementierte Zielvertrag steht in
 [Testdatenbank-Provisionierung und menügeführte Manifest-Erstellung](../Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md).

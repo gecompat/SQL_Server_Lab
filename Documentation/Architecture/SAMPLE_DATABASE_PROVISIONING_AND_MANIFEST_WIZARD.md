@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING_IMPLEMENTATION_TARGET` |
-| Runtime-Status | `NOT_IMPLEMENTED` |
+| Runtime-Status | `PARTIALLY_IMPLEMENTED` |
 | Stand | 2026-07-30 |
 | Geltungsbereich | Docker, Podman und Hyper-V |
 | Aktueller Ist-Nachweis | [`KNOWN_LIMITATIONS.md`](../Quality/KNOWN_LIMITATIONS.md) |
@@ -23,11 +23,18 @@ Der Vertrag gilt providerübergreifend. Provider dürfen eigene Acquisition- ode
 Execution Handler verwenden, müssen aber dieselben Sicherheits-, Integritäts-,
 State-, Verification- und Cleanup-Regeln erfüllen.
 
-Dieses Dokument ist **kein Runtime-Nachweis**. Der aktuelle Parser führt nur
+Dieses Dokument ist **kein vollständiger Runtime-Nachweis**. Der aktuelle Parser führt nur
 direkte `.bak`-Varianten mit `runtimeStatus: executable` und vorhandener
 SHA-256-Prüfsumme aus. SQL-Skript-Samples, Trust Store, Manifest Lock,
 Mehrfachauswahl im Ad-hoc-Menü und Baseline-Erzeugung sind noch nicht
 implementiert.
+
+Der gemeinsame Katalogvertrag für Artifact Type, Installation, erwartete
+Outputs, Trust Policy und Größenmetadaten ist implementiert. Für die
+festgelegten Manifestpfade sind `x-ui`-Semantik und kontextreiche
+Wizard-Anzeigen einschließlich einer lokalen Vorschau relativer Hostpfade
+implementiert. Diese Grundlagen führen weder eine Acquisition noch einen neuen
+Installation Handler aus.
 
 ## 2. Verbindliche Entscheidungen
 
@@ -564,12 +571,17 @@ Konsolentext.
 
 ## 13. Implementierungswellen
 
-### Welle 1 – Vertrag und Menümetadaten
+### Welle 1 – Vertrag und Menümetadaten (`IMPLEMENTED_FOUNDATION`)
 
 - Sample-Schema um typisierte Artifact- und Installation-Metadaten erweitern;
 - `x-ui`-Metadaten und vollständige Pfadsemantik ergänzen;
-- Manifest-Fachprüfung für Mehrfachauswahl, Outputs und Kollisionen;
-- statische Vertrags- und Dokumentationschecks.
+- generische Sample-Auflösung auf den gemeinsamen Artifact-Vertrag umstellen;
+- statische Vertrags- und Dokumentationschecks ergänzen.
+
+Die Mehrfachauswahl selbst, mehrere Outputs aus einer Installation und ihre
+Kollisionsprüfung benötigen das neue Manifest-/Bound-Plan-Modell. Sie bleiben
+deshalb Bestandteil von Welle 3; bis dahin wird der aktuelle einzelne
+Backup-Restore streng gegen den erwarteten Katalognamen geprüft.
 
 ### Welle 2 – Acquisition, Trust und Cache
 
@@ -642,4 +654,3 @@ Der Zielvertrag ist implementiert, wenn:
     verwenden;
 13. Statusdokumentation und Tests den tatsächlichen Runtimeumfang korrekt
     ausweisen.
-

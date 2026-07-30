@@ -125,10 +125,15 @@ function Read-LabManifest {
     return Resolve-ManifestDefaults -Manifest $manifest -ManifestPath $resolvedPath
 }
 
-function Resolve-LabSampleRestore {
+function Resolve-LabSampleArtifact {
     <#
     .SYNOPSIS
-        Loest eine Sample-Referenz in einen unterstuetzten Backup-Restore auf.
+        Loest eine Sample-Referenz in den gemeinsamen Artifact-Vertrag auf.
+
+    .DESCRIPTION
+        Diese Funktion liest ausschliesslich Katalogmetadaten und startet keine
+        Acquisition oder Installation. Spezifische Handler muessen den
+        Artifact Type sowie runtimeStatus anschliessend selbst pruefen.
     #>
     [CmdletBinding()]
     param(
@@ -159,34 +164,86 @@ function Resolve-LabSampleRestore {
     }
 
     $variantDefinition = $variantProperty.Value
-    if ($variantDefinition.runtimeStatus -ne 'executable') {
-        throw "Sample '$($sample.id)' Variante '$variant' ist nur beschreibend katalogisiert und nicht fuer die automatische Ausfuehrung freigegeben."
-    }
-    if ([string]::IsNullOrWhiteSpace([string]$variantDefinition.sha256)) {
-        throw "Sample '$($sample.id)' Variante '$variant' besitzt keine verifizierte SHA-256-Pruefsumme."
-    }
     $source = [string]$variantDefinition.url
     if (-not $source) {
         throw "Sample '$($sample.id)' Variante '$variant' besitzt keine Download-URL."
     }
 
-    if ($variantDefinition.type -and $variantDefinition.type -ne 'backup') {
-        throw "Sample '$($sample.id)' Variante '$variant' hat den Typ '$($variantDefinition.type)'. Der Manifestpfad unterstuetzt derzeit nur direkte .bak-Restores."
+    return [PSCustomObject]@{
+        sampleId                = [string]$sample.id
+        sampleVariant           = $variant
+        artifactType            = [string]$variantDefinition.artifactType
+        handlerContractVersion  = [string]$variantDefinition.handlerContractVersion
+        source                  = $source
+        sourcePage              = [string]$sample.source
+        license                 = [string]$sample.license
+        downloadSizeMB          = $variantDefinition.downloadSizeMB
+        estimatedInstallSizeMB  = $variantDefinition.estimatedInstallSizeMB
+        resourceEstimateStatus  = [string]$variantDefinition.resourceEstimateStatus
+        expectedSha256          = if ($variantDefinition.sha256) { ([string]$variantDefinition.sha256).ToLowerInvariant() } else { $null }
+        integrityOrigin         = $variantDefinition.integrityOrigin
+        trustPolicy             = [string]$variantDefinition.trustPolicy
+        compatibility           = $variantDefinition.compatibility
+        expectedOutputs         = @($variantDefinition.expectedOutputs | ForEach-Object {
+            [PSCustomObject]@{
+                name = [string]$_.name
+                kind = [string]$_.kind
+            }
+        })
+        installation            = $variantDefinition.installation
+        runtimeStatus           = [string]$variantDefinition.runtimeStatus
     }
+}
 
-    if ($source -notmatch '(?i)\.bak(?:$|\?)') {
-        throw "Sample '$($sample.id)' Variante '$variant' ist kein direktes .bak-Backup und kann derzeit nicht automatisch bereitgestellt werden."
+function Resolve-LabSampleRestore {
+    <#
+    .SYNOPSIS
+        Loest eine Sample-Referenz in einen aktuell unterstuetzten Backup-Restore auf.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        $SampleDefinition,
+        [Parameter(Mandatory)]
+        [string]$SqlVersion,
+        [Parameter(Mandatory)]
+        [string]$TargetDatabaseName
+    )
+
+    $artifact = Resolve-LabSampleArtifact `
+        -SampleDefinition $SampleDefinition `
+        -SqlVersion $SqlVersion
+
+    if ($artifact.runtimeStatus -ne 'executable') {
+        throw "Sample '$($artifact.sampleId)' Variante '$($artifact.sampleVariant)' ist nur beschreibend katalogisiert und nicht fuer die automatische Ausfuehrung freigegeben."
+    }
+    if ([string]::IsNullOrWhiteSpace($artifact.expectedSha256)) {
+        throw "Sample '$($artifact.sampleId)' Variante '$($artifact.sampleVariant)' besitzt keine verifizierte SHA-256-Pruefsumme."
+    }
+    if ($artifact.artifactType -ne 'backup' -or $artifact.installation.kind -ne 'backup') {
+        throw "Sample '$($artifact.sampleId)' Variante '$($artifact.sampleVariant)' hat Artifact Type '$($artifact.artifactType)'. Der Manifestpfad unterstuetzt derzeit nur den Backup-Handler."
+    }
+    if ($artifact.expectedOutputs.Count -ne 1 -or $artifact.expectedOutputs[0].kind -ne 'database') {
+        throw "Sample '$($artifact.sampleId)' Variante '$($artifact.sampleVariant)' kann nicht als einzelner Backup-Restore verwendet werden, weil die erwarteten Ausgaben nicht eindeutig sind."
+    }
+    if ($artifact.expectedOutputs[0].name -ne $TargetDatabaseName) {
+        throw "Sample '$($artifact.sampleId)' Variante '$($artifact.sampleVariant)' erwartet die Datenbank '$($artifact.expectedOutputs[0].name)', nicht '$TargetDatabaseName'."
     }
 
     return [PSCustomObject]@{
-        source        = $source
-        type          = 'url'
-        replace       = $true
-        sampleId      = $sample.id
-        sampleVariant = $variant
-        license       = $sample.license
-        sourcePage    = $sample.source
-        expectedSha256 = ([string]$variantDefinition.sha256).ToLowerInvariant()
+        source                  = $artifact.source
+        type                    = 'url'
+        replace                 = $true
+        sampleId                = $artifact.sampleId
+        sampleVariant           = $artifact.sampleVariant
+        artifactType            = $artifact.artifactType
+        handlerContractVersion  = $artifact.handlerContractVersion
+        license                 = $artifact.license
+        sourcePage              = $artifact.sourcePage
+        expectedOutputs         = $artifact.expectedOutputs
+        expectedSha256          = $artifact.expectedSha256
+        integrityOrigin         = $artifact.integrityOrigin
+        trustPolicy             = $artifact.trustPolicy
     }
 }
 
@@ -241,7 +298,8 @@ function Resolve-ManifestDefaults {
                 if ($database.sample) {
                     $restoreDefinition = Resolve-LabSampleRestore `
                         -SampleDefinition $database.sample `
-                        -SqlVersion $resolved.version
+                        -SqlVersion $resolved.version `
+                        -TargetDatabaseName $database.name
                 }
                 elseif ($database.restore) {
                     $source = [string]$database.restore.source

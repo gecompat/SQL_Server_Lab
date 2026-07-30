@@ -1,218 +1,351 @@
 {
   "$schema": "./sample-databases.schema.json",
-  "_comment": "Katalog oeffentlich verfuegbarer Test-Datenbanken. Keine Backups im Repo - nur Metadaten + Download-URLs.",
+  "_comment": "Katalog oeffentlich verfuegbarer Test-Datenbanken. Keine Backups im Repository; URLs und Metadaten sind kein Runtime-Nachweis.",
   "databases": [
     {
       "id": "adventureworks-2022",
       "name": "AdventureWorks2022",
       "displayName": "AdventureWorks 2022 (OLTP)",
-      "description": "Microsoft-Beispieldatenbank fuer OLTP-Szenarien (Vertrieb, Produktion, HR)",
+      "description": "Microsoft-Beispieldatenbank fuer OLTP-Szenarien (Vertrieb, Produktion, HR).",
       "category": "microsoft-sample",
       "license": "MIT",
       "source": "https://github.com/Microsoft/sql-server-samples",
       "versions": {
         "full": {
+          "artifactType": "backup",
+          "handlerContractVersion": "1",
           "url": "https://github.com/Microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorks2022.bak",
-          "sizeMB": 209,
+          "downloadSizeMB": 209,
+          "estimatedInstallSizeMB": null,
+          "resourceEstimateStatus": "unknown",
           "sha256": null,
+          "integrityOrigin": null,
+          "trustPolicy": "interactive-once",
           "compatibility": 160,
+          "expectedOutputs": [
+            { "name": "AdventureWorks2022", "kind": "database" }
+          ],
+          "installation": {
+            "kind": "backup",
+            "restoreMode": "direct-backup",
+            "idempotencyMode": "fail-if-exists",
+            "baselinePolicy": "eligible-after-verification"
+          },
           "runtimeStatus": "descriptive"
         },
         "lightweight": {
+          "artifactType": "backup",
+          "handlerContractVersion": "1",
           "url": "https://github.com/Microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorksLT2022.bak",
-          "sizeMB": 17,
+          "downloadSizeMB": 17,
+          "estimatedInstallSizeMB": null,
+          "resourceEstimateStatus": "unknown",
           "sha256": null,
+          "integrityOrigin": null,
+          "trustPolicy": "interactive-once",
           "compatibility": 160,
+          "expectedOutputs": [
+            { "name": "AdventureWorksLT2022", "kind": "database" }
+          ],
+          "installation": {
+            "kind": "backup",
+            "restoreMode": "direct-backup",
+            "idempotencyMode": "fail-if-exists",
+            "baselinePolicy": "eligible-after-verification"
+          },
           "runtimeStatus": "descriptive"
         }
       },
       "minSqlVersion": "2022",
-      "tags": [
-        "oltp",
-        "vertrieb",
-        "schulung",
-        "joins",
-        "indexing"
-      ]
+      "tags": ["oltp", "vertrieb", "schulung", "joins", "indexing"]
     },
     {
       "id": "adventureworks-2019",
       "name": "AdventureWorks2019",
       "displayName": "AdventureWorks 2019 (OLTP)",
-      "description": "Microsoft-Beispieldatenbank fuer SQL Server 2019",
+      "description": "Microsoft-Beispieldatenbank fuer SQL Server 2019.",
       "category": "microsoft-sample",
       "license": "MIT",
       "source": "https://github.com/Microsoft/sql-server-samples",
       "versions": {
         "full": {
+          "artifactType": "backup",
+          "handlerContractVersion": "1",
           "url": "https://github.com/Microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorks2019.bak",
-          "sizeMB": 209,
+          "downloadSizeMB": 209,
+          "estimatedInstallSizeMB": null,
+          "resourceEstimateStatus": "unknown",
           "sha256": null,
+          "integrityOrigin": null,
+          "trustPolicy": "interactive-once",
           "compatibility": 150,
+          "expectedOutputs": [
+            { "name": "AdventureWorks2019", "kind": "database" }
+          ],
+          "installation": {
+            "kind": "backup",
+            "restoreMode": "direct-backup",
+            "idempotencyMode": "fail-if-exists",
+            "baselinePolicy": "eligible-after-verification"
+          },
           "runtimeStatus": "descriptive"
         },
         "lightweight": {
+          "artifactType": "backup",
+          "handlerContractVersion": "1",
           "url": "https://github.com/Microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorksLT2019.bak",
-          "sizeMB": 17,
+          "downloadSizeMB": 17,
+          "estimatedInstallSizeMB": null,
+          "resourceEstimateStatus": "unknown",
           "sha256": null,
+          "integrityOrigin": null,
+          "trustPolicy": "interactive-once",
           "compatibility": 150,
+          "expectedOutputs": [
+            { "name": "AdventureWorksLT2019", "kind": "database" }
+          ],
+          "installation": {
+            "kind": "backup",
+            "restoreMode": "direct-backup",
+            "idempotencyMode": "fail-if-exists",
+            "baselinePolicy": "eligible-after-verification"
+          },
           "runtimeStatus": "descriptive"
         }
       },
       "minSqlVersion": "2019",
-      "tags": [
-        "oltp",
-        "vertrieb",
-        "schulung"
-      ]
+      "tags": ["oltp", "vertrieb", "schulung"]
     },
     {
       "id": "adventureworks-dw-2022",
       "name": "AdventureWorksDW2022",
       "displayName": "AdventureWorks DW 2022 (Data Warehouse)",
-      "description": "Data-Warehouse-Version mit Star-Schema (Fact/Dimension)",
+      "description": "Microsoft-Beispieldatenbank fuer Data-Warehouse-Szenarien mit Star-Schema.",
       "category": "microsoft-sample",
       "license": "MIT",
       "source": "https://github.com/Microsoft/sql-server-samples",
       "versions": {
         "full": {
+          "artifactType": "backup",
+          "handlerContractVersion": "1",
           "url": "https://github.com/Microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorksDW2022.bak",
-          "sizeMB": 35,
+          "downloadSizeMB": 35,
+          "estimatedInstallSizeMB": null,
+          "resourceEstimateStatus": "unknown",
           "sha256": null,
+          "integrityOrigin": null,
+          "trustPolicy": "interactive-once",
           "compatibility": 160,
+          "expectedOutputs": [
+            { "name": "AdventureWorksDW2022", "kind": "database" }
+          ],
+          "installation": {
+            "kind": "backup",
+            "restoreMode": "direct-backup",
+            "idempotencyMode": "fail-if-exists",
+            "baselinePolicy": "eligible-after-verification"
+          },
           "runtimeStatus": "descriptive"
         }
       },
       "minSqlVersion": "2022",
-      "tags": [
-        "dwh",
-        "star-schema",
-        "etl",
-        "reporting"
-      ]
+      "tags": ["dwh", "star-schema", "etl", "reporting"]
     },
     {
       "id": "wideworldimporters",
       "name": "WideWorldImporters",
       "displayName": "Wide World Importers (OLTP)",
-      "description": "Moderne Microsoft-Beispieldatenbank mit In-Memory, Temporal Tables, JSON, Spatial",
+      "description": "Microsoft-Beispieldatenbank mit In-Memory, Temporal Tables, JSON und Spatial.",
       "category": "microsoft-sample",
       "license": "MIT",
       "source": "https://github.com/Microsoft/sql-server-samples",
       "versions": {
         "full": {
+          "artifactType": "backup",
+          "handlerContractVersion": "1",
           "url": "https://github.com/Microsoft/sql-server-samples/releases/download/wide-world-importers-v1.0/WideWorldImporters-Full.bak",
-          "sizeMB": 121,
+          "downloadSizeMB": 121,
+          "estimatedInstallSizeMB": null,
+          "resourceEstimateStatus": "unknown",
           "sha256": null,
+          "integrityOrigin": null,
+          "trustPolicy": "interactive-once",
           "compatibility": 130,
+          "expectedOutputs": [
+            { "name": "WideWorldImporters", "kind": "database" }
+          ],
+          "installation": {
+            "kind": "backup",
+            "restoreMode": "direct-backup",
+            "idempotencyMode": "fail-if-exists",
+            "baselinePolicy": "eligible-after-verification"
+          },
           "runtimeStatus": "descriptive"
         },
         "standard": {
+          "artifactType": "backup",
+          "handlerContractVersion": "1",
           "url": "https://github.com/Microsoft/sql-server-samples/releases/download/wide-world-importers-v1.0/WideWorldImporters-Standard.bak",
-          "sizeMB": 40,
+          "downloadSizeMB": 40,
+          "estimatedInstallSizeMB": null,
+          "resourceEstimateStatus": "unknown",
           "sha256": null,
+          "integrityOrigin": null,
+          "trustPolicy": "interactive-once",
           "compatibility": 130,
+          "expectedOutputs": [
+            { "name": "WideWorldImporters", "kind": "database" }
+          ],
+          "installation": {
+            "kind": "backup",
+            "restoreMode": "direct-backup",
+            "idempotencyMode": "fail-if-exists",
+            "baselinePolicy": "eligible-after-verification"
+          },
           "runtimeStatus": "descriptive"
         }
       },
       "minSqlVersion": "2019",
-      "tags": [
-        "oltp",
-        "in-memory",
-        "temporal",
-        "json",
-        "spatial",
-        "modern"
-      ]
+      "tags": ["oltp", "in-memory", "temporal", "json", "spatial", "modern"]
     },
     {
       "id": "wideworldimporters-dw",
       "name": "WideWorldImportersDW",
       "displayName": "Wide World Importers DW",
-      "description": "Data-Warehouse-Version mit Columnstore, Partitioning",
+      "description": "Microsoft-Beispieldatenbank fuer Data-Warehouse-Szenarien mit Columnstore und Partitioning.",
       "category": "microsoft-sample",
       "license": "MIT",
       "source": "https://github.com/Microsoft/sql-server-samples",
       "versions": {
         "full": {
+          "artifactType": "backup",
+          "handlerContractVersion": "1",
           "url": "https://github.com/Microsoft/sql-server-samples/releases/download/wide-world-importers-v1.0/WideWorldImportersDW-Full.bak",
-          "sizeMB": 47,
+          "downloadSizeMB": 47,
+          "estimatedInstallSizeMB": null,
+          "resourceEstimateStatus": "unknown",
           "sha256": null,
+          "integrityOrigin": null,
+          "trustPolicy": "interactive-once",
           "compatibility": 130,
+          "expectedOutputs": [
+            { "name": "WideWorldImportersDW", "kind": "database" }
+          ],
+          "installation": {
+            "kind": "backup",
+            "restoreMode": "direct-backup",
+            "idempotencyMode": "fail-if-exists",
+            "baselinePolicy": "eligible-after-verification"
+          },
           "runtimeStatus": "descriptive"
         }
       },
       "minSqlVersion": "2019",
-      "tags": [
-        "dwh",
-        "columnstore",
-        "partitioning",
-        "etl"
-      ]
+      "tags": ["dwh", "columnstore", "partitioning", "etl"]
     },
     {
       "id": "stackoverflow-50gb",
       "name": "StackOverflow2013",
       "displayName": "Stack Overflow 2013 (50 GB)",
-      "description": "Brent Ozar StackOverflow-Dump. Ideal fuer Performance-Tuning (grosse Tabellen, echte Verteilungen)",
+      "description": "Community-Datenbank fuer Performance- und Tuning-Szenarien; die Varianten sind Archive mit Attach-Dateien.",
       "category": "community",
       "license": "CC BY-SA 4.0",
       "source": "https://www.brentozar.com/archive/2015/10/how-to-download-the-stack-overflow-database-via-bittorrent/",
       "versions": {
         "50gb": {
+          "artifactType": "attach",
+          "handlerContractVersion": "1",
           "url": "https://downloads.brentozar.com/StackOverflow2013-202302.7z",
-          "sizeMB": 11264,
+          "downloadSizeMB": 11264,
+          "estimatedInstallSizeMB": null,
+          "resourceEstimateStatus": "unknown",
           "sha256": null,
+          "integrityOrigin": null,
+          "trustPolicy": "interactive-once",
           "compatibility": 120,
-          "note": "7z-Archiv, muss entpackt werden. Attach statt Restore.",
+          "expectedOutputs": [
+            { "name": "StackOverflow2013", "kind": "database" }
+          ],
+          "installation": {
+            "kind": "attach",
+            "sourceLayout": "archive-with-attach-files",
+            "archiveFormat": "7z",
+            "payloadSelection": "manual-required",
+            "idempotencyMode": "fail-if-exists",
+            "baselinePolicy": "not-eligible"
+          },
+          "note": "7z-Archiv; ein Attach-Handler ist noch nicht implementiert.",
           "runtimeStatus": "descriptive"
         },
         "10gb": {
+          "artifactType": "attach",
+          "handlerContractVersion": "1",
           "url": "https://downloads.brentozar.com/StackOverflow2010.7z",
-          "sizeMB": 1536,
+          "downloadSizeMB": 1536,
+          "estimatedInstallSizeMB": null,
+          "resourceEstimateStatus": "unknown",
           "sha256": null,
+          "integrityOrigin": null,
+          "trustPolicy": "interactive-once",
           "compatibility": 120,
-          "note": "Kleinere Version (10GB). 7z-Archiv.",
+          "expectedOutputs": [
+            { "name": "StackOverflow2010", "kind": "database" }
+          ],
+          "installation": {
+            "kind": "attach",
+            "sourceLayout": "archive-with-attach-files",
+            "archiveFormat": "7z",
+            "payloadSelection": "manual-required",
+            "idempotencyMode": "fail-if-exists",
+            "baselinePolicy": "not-eligible"
+          },
+          "note": "7z-Archiv; ein Attach-Handler ist noch nicht implementiert.",
           "runtimeStatus": "descriptive"
         }
       },
       "minSqlVersion": "2019",
-      "tags": [
-        "performance",
-        "tuning",
-        "blocking",
-        "indexing",
-        "large-dataset",
-        "real-data"
-      ]
+      "tags": ["performance", "tuning", "blocking", "indexing", "large-dataset", "real-data"]
     },
     {
       "id": "northwind",
       "name": "Northwind",
       "displayName": "Northwind (Klassiker)",
-      "description": "Klassische Microsoft-Beispieldatenbank (klein, einfach, ideal fuer SQL-Grundlagen)",
+      "description": "Klassische Microsoft-Beispieldatenbank fuer SQL-Grundlagen.",
       "category": "microsoft-legacy",
       "license": "MIT",
       "source": "https://github.com/microsoft/sql-server-samples/tree/master/samples/databases/northwind-pubs",
       "versions": {
         "script": {
+          "artifactType": "sql-script",
+          "handlerContractVersion": "1",
           "url": "https://raw.githubusercontent.com/microsoft/sql-server-samples/master/samples/databases/northwind-pubs/instnwnd.sql",
-          "sizeMB": 1,
+          "downloadSizeMB": 1,
+          "estimatedInstallSizeMB": null,
+          "resourceEstimateStatus": "unknown",
           "sha256": null,
+          "integrityOrigin": null,
+          "trustPolicy": "interactive-once",
           "compatibility": 100,
-          "type": "sql-script",
-          "note": "T-SQL-Skript (CREATE + INSERT). Kein Backup.",
+          "expectedOutputs": [
+            { "name": "Northwind", "kind": "database" }
+          ],
+          "installation": {
+            "kind": "sql-script",
+            "entrypoint": "instnwnd.sql",
+            "workingDirectory": ".",
+            "executionMode": "self-creates-databases",
+            "allowedSqlcmdFeatures": ["go"],
+            "timeoutSeconds": 300,
+            "idempotencyMode": "fail-if-exists",
+            "partialFailurePolicy": "recovery-required",
+            "baselinePolicy": "eligible-after-verification"
+          },
+          "note": "T-SQL-Skript; ein SQL-Skript-Handler ist noch nicht implementiert.",
           "runtimeStatus": "descriptive"
         }
       },
       "minSqlVersion": "2019",
-      "tags": [
-        "grundlagen",
-        "schulung",
-        "klein",
-        "einfach",
-        "klassiker"
-      ]
+      "tags": ["grundlagen", "schulung", "klein", "einfach", "klassiker"]
     }
   ],
   "categories": {
