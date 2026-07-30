@@ -44,6 +44,7 @@ function Get-RepositoryFiles {
         Where-Object {
             $_.FullName -notmatch '[\\/]_QuellRepo[\\/]' -and
             $_.FullName -notmatch '[\\/]private_Note[\\/]' -and
+            $_.FullName -notmatch '[\\/]\.secrets[\\/]' -and
             $_.Extension -in $Extensions
         }
 }
@@ -462,7 +463,7 @@ $legacyCommandHits = @(
         Where-Object {
             $relativePath = [System.IO.Path]::GetRelativePath($repoRoot, $_.FullName)
             $_.Extension -in @('.md', '.txt', '.ps1', '.psm1', '.psd1', '.json', '.yaml', '.yml') -and
-                $relativePath -notmatch '^(?:_QuellRepo|private_Note)[\\/]' -and
+                $relativePath -notmatch '^(?:_QuellRepo|private_Note|\.secrets)[\\/]' -and
                 $relativePath -notin $legacyCommandAllowlist
         } |
         ForEach-Object {

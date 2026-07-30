@@ -106,6 +106,8 @@ Nicht automatisch ausführbar sind unter anderem:
 
 Diese Einträge dürfen trotzdem als Planungs- und Quellenkatalog enthalten sein. Der Runtimepfad lehnt sie mit einer erklärenden Fehlermeldung ab.
 
+Der verbindliche Zielvertrag für zusätzliche Artifact Types, einmalige Vertrauensfreigabe, persistenten Trust Store, Manifest Lock, Mehrfachauswahl und Baselines steht in [Testdatenbank-Provisionierung und menügeführte Manifest-Erstellung](../Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md). Er beschreibt geplantes Verhalten und ist kein aktueller Runtime-Nachweis.
+
 ### Prüfsummen
 
 `sha256: null` bedeutet, dass keine kryptografische Prüfsumme hinterlegt ist.
