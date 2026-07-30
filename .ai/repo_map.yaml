@@ -218,7 +218,7 @@ planning_contracts:
 
 state_files:
   root_resolution:
-    windows: "%LOCALAPPDATA%\SqlServerLab"
+    windows: '%LOCALAPPDATA%\SqlServerLab'
     linux_macos: "~/.sql-server-lab"
     override_environment_variable: SQL_SERVER_LAB_STATE
   per_run:
@@ -250,17 +250,17 @@ provisioning_flow:
 
 validation:
   static_manifest_builder:
-    command: ".\Tests\Static\Invoke-ManifestBuilderChecks.ps1"
+    command: '.\Tests\Static\Invoke-ManifestBuilderChecks.ps1'
     source: Tests/Static/Invoke-ManifestBuilderChecks.ps1
     covers:
       - schema_validation
       - semantic_validation
       - atomic_manifest_write
   static_documentation:
-    command: ".\Tests\Static\Invoke-DocumentationChecks.ps1"
+    command: '.\Tests\Static\Invoke-DocumentationChecks.ps1'
     source: Tests/Static/Invoke-DocumentationChecks.ps1
   static_runtime_contracts:
-    command: ".\Tests\Static\Invoke-ReadinessContractChecks.ps1"
+    command: '.\Tests\Static\Invoke-ReadinessContractChecks.ps1'
     source: Tests/Static/Invoke-ReadinessContractChecks.ps1
     covers:
       - readiness
@@ -268,11 +268,11 @@ validation:
       - atomic_port_allocation
   single_provider_smoke:
     source: Tests/Integration/Invoke-SmokeTest.ps1
-    docker: ".\Tests\Integration\Invoke-SmokeTest.ps1 -Provider docker"
-    podman: ".\Tests\Integration\Invoke-SmokeTest.ps1 -Provider podman"
+    docker: '.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider docker'
+    podman: '.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider podman'
   runtime_matrix:
     source: Tests/Integration/Invoke-SmokeMatrix.ps1
-    command: ".\Tests\Integration\Invoke-SmokeMatrix.ps1 -Provider all -FullMatrix -IncludeParallel"
+    command: '.\Tests\Integration\Invoke-SmokeMatrix.ps1 -Provider all -FullMatrix -IncludeParallel'
     versions:
       - "2019"
       - "2022"
