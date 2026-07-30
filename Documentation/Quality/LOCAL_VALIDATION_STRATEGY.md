@@ -209,6 +209,9 @@ Ein vollständiger automatischer Download-/Restore-Test pro Sample ist derzeit n
 ## 10. Cleanup- und Recovery-Prüfung
 
 Der Smoke-Test prüft erfolgreichen Remove und versucht Cleanup bei einem Testfehler.
+Der separate Mixed-Provider-Smoke-Test prüft zusätzlich Provisionierung,
+Status, Stop, Start und Remove für genau einen Docker- und einen
+Podman-ProviderSubRun.
 
 Noch nicht vollständig automatisiert sind unter anderem:
 
@@ -218,7 +221,7 @@ Noch nicht vollständig automatisiert sind unter anderem:
 - symbolische Links und Junctions außerhalb des Scope;
 - Providerfehler während Restore oder Serverkonfiguration;
 - idempotenter Recoverylauf nach Hostneustart;
-- gemischte Providerressourcen.
+- gezielt induzierte Teilfehler in einem gemischten Provider-Lifecycle.
 
 Diese Punkte bleiben Roadmap und dürfen nicht als validiert bezeichnet werden.
 

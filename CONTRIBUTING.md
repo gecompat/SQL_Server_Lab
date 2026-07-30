@@ -137,6 +137,7 @@ Mindestens ausführen:
 
 ```powershell
 .\Tests\Static\Invoke-DocumentationChecks.ps1
+.\Tests\Static\Invoke-MixedProviderLifecycleChecks.ps1
 ```
 
 Bei Runtimeänderungen zusätzlich:
@@ -144,6 +145,7 @@ Bei Runtimeänderungen zusätzlich:
 ```powershell
 .\Tests\Integration\Invoke-SmokeTest.ps1 -Provider docker
 .\Tests\Integration\Invoke-SmokeTest.ps1 -Provider podman
+.\Tests\Integration\Invoke-MixedProviderSmokeTest.ps1
 ```
 
 Nur verfügbare Provider können lokal getestet werden. Ein nicht ausgeführter Test muss im Pull Request ausdrücklich genannt werden.

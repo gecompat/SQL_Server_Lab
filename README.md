@@ -36,6 +36,7 @@ Fachliche Testszenarien bleiben in den konsumierenden Projekten. `SQL_Server_Lab
 | PowerShell-Modul | implementiert | `SqlServerLab.psd1`, `SqlServerLab.psm1` |
 | Docker-Provider | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman-Provider | implementiert | `Providers/Podman/PodmanProvider.ps1` |
+| Gemischter Docker-/Podman-Lifecycle | implementiert | `Documentation/Architecture/MIXED_PROVIDER_LIFECYCLE.md` |
 | Hyper-V-Provider | geplant | `Providers/HyperV/README.md` |
 | Ad-hoc-Provisionierung | implementiert | `New-SqlServerLab -Version ... -Provider ...` |
 | Manifest-Provisionierung | implementiert | `Schemas/lab-manifest.schema.json` |
@@ -312,7 +313,10 @@ Restart-SqlServerLab -RunId $lab.RunId
 Remove-SqlServerLab -RunId $lab.RunId
 ```
 
-Der Lifecycle verwendet den im Run gespeicherten Provider. Eine Podman-Umgebung wird daher auch dann über Podman verwaltet, wenn Docker zusätzlich installiert ist.
+Der Lifecycle verwendet den pro Instanz gespeicherten Provider. Eine Podman-
+Instanz wird daher auch dann über Podman verwaltet, wenn Docker zusätzlich
+installiert ist. Ein Manifest kann Docker- und Podman-Instanzen in einem Run
+kombinieren; Status, Start, Stop und Cleanup arbeiten dafür je ProviderSubRun.
 
 Alle erkannten Lab-Reste bereinigen:
 
@@ -402,6 +406,7 @@ Statische Konsistenz- und Readiness-Prüfungen:
 .\Tests\Static\Invoke-ManifestBuilderChecks.ps1
 .\Tests\Static\Invoke-DocumentationChecks.ps1
 .\Tests\Static\Invoke-ReadinessContractChecks.ps1
+.\Tests\Static\Invoke-MixedProviderLifecycleChecks.ps1
 ```
 
 Einzelprovider-Smoke-Test:
@@ -409,6 +414,7 @@ Einzelprovider-Smoke-Test:
 ```powershell
 .\Tests\Integration\Invoke-SmokeTest.ps1 -Provider docker
 .\Tests\Integration\Invoke-SmokeTest.ps1 -Provider podman
+.\Tests\Integration\Invoke-MixedProviderSmokeTest.ps1
 ```
 
 Providerübergreifender Lifecycle-Test für alle lokal erreichbaren Provider:
@@ -449,6 +455,7 @@ _QuellRepo/      unveränderte Quell-Snapshots anderer Repositories
 - [Bekannte Grenzen](Documentation/Quality/KNOWN_LIMITATIONS.md)
 - [Manifest-Schemas und Beispiele](Schemas/README.md)
 - [Testdatenbank-Provisionierung und menügeführte Manifest-Erstellung](Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md)
+- [Gemischter Container-Provider-Lifecycle](Documentation/Architecture/MIXED_PROVIDER_LIFECYCLE.md)
 - [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md)
 - [Öffentliche Cmdlets](Public/README.md)
 - [Provider](Providers/README.md)

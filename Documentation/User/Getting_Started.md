@@ -580,7 +580,11 @@ Start-SqlServerLab -RunId $lab.RunId
 Restart-SqlServerLab -RunId $lab.RunId
 ```
 
-Der gespeicherte Provider wird für Start, Stop und Live-Status verwendet. Bei gleichzeitig installiertem Docker und Podman bleibt der Run an seinen ursprünglichen Provider gebunden.
+Der gespeicherte Provider wird für Start, Stop und Live-Status verwendet. Bei
+gleichzeitig installiertem Docker und Podman bleibt jede Instanz an ihren
+ursprünglichen Provider gebunden. Ein Manifest kann beide Containerprovider in
+einem Run kombinieren; Details und Grenzen stehen im
+[Gemischten Container-Provider-Lifecycle](../Architecture/MIXED_PROVIDER_LIFECYCLE.md).
 
 ## 16. Umgebung entfernen
 

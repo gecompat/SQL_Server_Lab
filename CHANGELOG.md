@@ -8,6 +8,9 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- gemischter Docker-/Podman-Lifecycle mit `ProviderSubRuns` im Run-State und Cleanup-Plan;
+- statischer und nativer Smoke-Test für einen gemeinsamen Docker-/Podman-Run;
+- ausführbares Beispielmanifest für zwei kompakte Containerinstanzen mit unterschiedlichen Providern;
 - maschinenlesbare `x-runtimeStatus`-Klassifikation fuer `serverConfig`-Felder;
 - vollstaendige Schema-Validierung der Kataloge und Beispielmanifeste im statischen Check;
 - RunId-basierte Restore-Zielaufloesung mit optionaler Instanz-ID;
@@ -15,6 +18,8 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Geaendert
 
+- Resource Assessment prüft alle in einem Run verwendeten Containerprovider, während RAM, Storage und Ports runweit bewertet werden;
+- Status, Start, Stop, Remove und automatischer Fehler-Cleanup arbeiten providergebunden; ein unvollständiger Start wird zurückgerollt oder in `CLEANUP_PENDING` überführt;
 - unverifizierte Sample-Varianten sind explizit `descriptive` und werden nicht
   automatisch ausgefuehrt;
 - statische Test- und Architektur-Dokumentation bildet den aktuellen Stand ab;

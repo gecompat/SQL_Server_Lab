@@ -81,6 +81,39 @@ function ConvertFrom-TestSecureString {
     finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
 }
 
+function Wait-TestDatabaseReady {
+    param(
+        [string]$HostName,
+        [int]$Port,
+        [SecureString]$Password,
+        [string]$Database,
+        [int]$TimeoutSeconds = 60
+    )
+
+    $plain = ConvertFrom-TestSecureString $Password
+    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+    $lastError = ''
+    try {
+        while ($stopwatch.Elapsed.TotalSeconds -lt $TimeoutSeconds) {
+            $result = & sqlcmd -S "${HostName},${Port}" -U sa -P $plain -C -b -l 2 -h -1 -W -d $Database -Q 'SET NOCOUNT ON; SELECT 1;' 2>&1
+            $exitCode = $LASTEXITCODE
+            $resultText = ($result | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ }) -join ' '
+
+            if ($exitCode -eq 0 -and $resultText -match '(^|\s)1(\s|$)') {
+                return
+            }
+
+            $lastError = if ($resultText) { $resultText } else { "sqlcmd Exitcode $exitCode" }
+            Start-Sleep -Milliseconds 500
+        }
+
+        throw "Datenbank '$Database' wurde nach ${TimeoutSeconds}s nicht bereit. Letzter Fehler: $lastError"
+    }
+    finally {
+        $plain = $null
+    }
+}
+
 function Remove-TestLabSafely {
     param($Lab)
     if (-not $Lab -or -not $Lab.RunId) { return }
@@ -133,6 +166,13 @@ GO
 
         $restart = Restart-SqlServerLab -RunId $lab.RunId -TimeoutSeconds 60 -Force
         if ($restart.Status -ne 'RUNNING' -or $restart.Errors -ne 0) { throw 'Restart fehlgeschlagen.' }
+
+        Wait-TestDatabaseReady `
+            -HostName $instance.Host `
+            -Port $instance.Port `
+            -Password $SaPassword `
+            -Database $dbName `
+            -TimeoutSeconds 60
 
         $plain = ConvertFrom-TestSecureString $SaPassword
         try {

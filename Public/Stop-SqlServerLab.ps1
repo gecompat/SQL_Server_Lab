@@ -2,8 +2,9 @@
 .SYNOPSIS
     Stoppt eine laufende SQL_Server_Lab-Umgebung.
 .DESCRIPTION
-    Stoppt alle Container der Umgebung ueber den im Run gespeicherten Provider
-    und setzt den State auf STOPPED. Persistente Daten und Run-State bleiben erhalten.
+    Stoppt alle Container der Umgebung je ProviderSubRun und setzt den globalen
+    State erst nach einem vollstaendigen Stop auf STOPPED. Persistente Daten und
+    Run-State bleiben erhalten.
 .PARAMETER RunId
     RunId der zu stoppenden Umgebung.
 .PARAMETER TimeoutSeconds
@@ -58,55 +59,84 @@ function Stop-SqlServerLab {
             $null
         }
 
-        $providers = @(
+        $providerGroups = @(
             $connectionInfo.instances |
-                ForEach-Object { $_.provider } |
-                Where-Object { $_ } |
-                Sort-Object -Unique
+                Where-Object { $_.provider } |
+                Group-Object -Property provider |
+                Sort-Object Name
         )
-
-        if ($providers.Count -gt 1) {
-            throw "Run '$RunId' verwendet mehrere Provider. Der gemeinsame Lifecycle fuer gemischte Provider ist noch nicht implementiert."
-        }
-
-        $preferredRuntime = if ($providers.Count -eq 1) { $providers[0] } else { $null }
-        $runtime = Get-ContainerRuntime -PreferredRuntime $preferredRuntime
-        if (-not $runtime) {
-            throw "Container-Runtime '$preferredRuntime' ist nicht verfuegbar."
+        if ($providerGroups.Count -eq 0) {
+            throw "Connection-Info fuer Run '$RunId' enthaelt keine verwaltbaren Providerinstanzen."
         }
 
         $runPrefix = $RunId.Substring(0, 8)
-        Write-LabInfo "Stoppe Lab ${runPrefix}... ($($run.metadata.name)) mit $runtime"
+        Write-LabInfo "Stoppe Lab ${runPrefix}... ($($run.metadata.name))"
 
-        $containerIds = @(
-            & $runtime ps -q --filter "label=sql-server-lab.run-id=$RunId" 2>$null |
-                Where-Object { $_ }
-        )
-
-        if ($containerIds.Count -eq 0) {
-            Write-LabInfo '  Keine laufenden Container gefunden.'
-        }
-
+        $providerResults = @()
         $errors = 0
-        foreach ($containerIdValue in $containerIds) {
-            $containerId = ([string]$containerIdValue).Trim()
-            if (-not $containerId) {
+        foreach ($providerGroup in $providerGroups) {
+            $provider = ([string]$providerGroup.Name).ToLowerInvariant()
+            $providerErrors = 0
+            $stoppedCount = 0
+            $runtime = Get-ContainerRuntime -PreferredRuntime $provider
+            if (-not $runtime) {
+                Write-LabError "  Runtime '$provider' ist fuer den ProviderSubRun nicht verfuegbar."
+                $providerResults += [PSCustomObject]@{
+                    Provider = $provider
+                    Status   = 'FAILED'
+                    Stopped  = 0
+                    Errors   = 1
+                }
+                $errors++
                 continue
             }
 
-            $containerName = ([string](& $runtime inspect $containerId --format '{{.Name}}' 2>$null)).Trim().TrimStart('/')
+            Write-LabInfo "  ProviderSubRun '$provider' mit $runtime stoppen..."
+            $containerIds = @(
+                & $runtime ps -q --filter "label=sql-server-lab.run-id=$RunId" 2>$null |
+                    Where-Object { $_ }
+            )
+            if ($containerIds.Count -eq 0) {
+                Write-LabInfo "    Keine laufenden Container bei '$provider' gefunden."
+            }
 
-            try {
-                & $runtime stop -t $TimeoutSeconds $containerId | Out-Null
-                if ($LASTEXITCODE -ne 0) {
-                    throw "Container stop fehlgeschlagen: $containerId"
+            foreach ($containerIdValue in $containerIds) {
+                $containerId = ([string]$containerIdValue).Trim()
+                if (-not $containerId) {
+                    continue
                 }
-                Write-LabSuccess "  Gestoppt: $containerName"
+
+                $containerName = ([string](& $runtime inspect $containerId --format '{{.Name}}' 2>$null)).Trim().TrimStart('/')
+                try {
+                    & $runtime stop -t $TimeoutSeconds $containerId | Out-Null
+                    if ($LASTEXITCODE -ne 0) {
+                        throw "Container stop fehlgeschlagen: $containerId"
+                    }
+                    Write-LabSuccess "    Gestoppt: $containerName"
+                    $stoppedCount++
+                }
+                catch {
+                    Write-LabError "    Fehler bei ${containerName}: $_"
+                    $providerErrors++
+                }
             }
-            catch {
-                Write-LabError "  Fehler bei ${containerName}: $_"
-                $errors++
+
+            $providerStatus = if ($providerErrors -eq 0) { 'STOPPED' } else { 'FAILED' }
+            if ($providerStatus -eq 'STOPPED') {
+                Set-LabProviderSubRunState `
+                    -RunId $RunId `
+                    -Provider $provider `
+                    -NewState 'STOPPED' `
+                    -Reason 'Stop-SqlServerLab' `
+                    -StateRoot $stateRoot
             }
+            $providerResults += [PSCustomObject]@{
+                Provider = $provider
+                Status   = $providerStatus
+                Stopped  = $stoppedCount
+                Errors   = $providerErrors
+            }
+            $errors += $providerErrors
         }
 
         if ($errors -eq 0) {
@@ -121,6 +151,7 @@ function Stop-SqlServerLab {
                 RunId  = $RunId
                 Status = 'STOPPED'
                 Action = 'STOPPED'
+                ProviderSubRuns = $providerResults
             }
         }
 
@@ -130,6 +161,7 @@ function Stop-SqlServerLab {
             Status = 'STOPPED_WITH_ERRORS'
             Action = 'PARTIAL'
             Errors = $errors
+            ProviderSubRuns = $providerResults
         }
     }
 }

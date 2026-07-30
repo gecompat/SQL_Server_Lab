@@ -20,6 +20,7 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 | `example-cu-comparison.json` | zwei katalogisierte SQL-2022-CU-Stände mit identischer Sample-Datenbank | vorbereitet; aktuelle Sample-Variante ist beschreibend |
 | `example-ml-services.json` | External-Languages-Konfiguration mit Sample-Referenz | vorbereitet und umgebungsabhängig; aktuelle Sample-Variante ist beschreibend |
 | `example-performance-tuning.json` | Performance-Konfiguration mit Sample-Referenz | vorbereitet; aktuelle Sample-Variante ist beschreibend |
+| `example-mixed-provider-lab.json` | zwei kompakte Instanzen mit Docker und Podman in einem Run | ausführbar, wenn beide Runtimes erreichbar sind; keine gemeinsame Netzwerktopologie |
 
 Weitere `example-*.json`-Dateien können spezialisierte oder vorbereitete Szenarien enthalten. Ein Beispiel ist nur dann als End-to-End ausführbar anzusehen, wenn alle referenzierten Skripte und Quellen existieren und keine Grenze aus `Documentation/Quality/KNOWN_LIMITATIONS.md` verletzt wird.
 

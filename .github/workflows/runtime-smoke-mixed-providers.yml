@@ -1,4 +1,4 @@
-name: Runtime Smoke - Podman
+name: Runtime Smoke - Mixed Providers
 
 on:
   workflow_dispatch:
@@ -6,27 +6,28 @@ on:
     branches:
       - main
     paths:
-      - 'Catalogs/**'
       - 'Private/**'
+      - 'Providers/Docker/**'
       - 'Providers/Podman/**'
       - 'Public/**'
+      - 'Schemas/**'
       - 'Tests/**'
       - 'SqlServerLab.psd1'
       - 'SqlServerLab.psm1'
-      - '.github/workflows/runtime-smoke-podman.yml'
+      - '.github/workflows/runtime-smoke-mixed-providers.yml'
 
 permissions:
   contents: read
 
 concurrency:
-  group: sql-server-lab-runtime-smoke-podman
+  group: sql-server-lab-runtime-smoke-mixed-providers
   cancel-in-progress: false
 
 jobs:
-  podman-smoke:
-    name: Podman provider, versions and parallel runs
-    runs-on: [self-hosted, SQL_Lab, Podman]
-    timeout-minutes: 25
+  mixed-provider-smoke:
+    name: Docker and Podman in one lifecycle
+    runs-on: [self-hosted, SQL_Lab, Docker, Podman]
+    timeout-minutes: 20
 
     defaults:
       run:
@@ -40,8 +41,8 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $PSVersionTable.PSVersion
+          docker info
           podman info
-          podman machine list
           sqlcmd -?
 
       - name: Static contracts
@@ -51,10 +52,10 @@ jobs:
           .\Tests\Static\Invoke-ReadinessContractChecks.ps1
           .\Tests\Static\Invoke-MixedProviderLifecycleChecks.ps1
 
-      - name: Podman smoke matrix
+      - name: Mixed provider smoke test
         run: |
           $ErrorActionPreference = 'Stop'
-          $logPath = Join-Path $env:RUNNER_TEMP 'podman-smoke-matrix.log'
+          $logPath = Join-Path $env:RUNNER_TEMP 'mixed-provider-smoke.log'
           $mutexName = if ($IsWindows) { 'Global\SQL_Server_Lab_Runtime_Smoke' } else { 'SQL_Server_Lab_Runtime_Smoke' }
           $mutex = [System.Threading.Mutex]::new($false, $mutexName)
           $acquired = $false
@@ -62,23 +63,20 @@ jobs:
             $acquired = $mutex.WaitOne([TimeSpan]::FromMinutes(10))
             if (-not $acquired) { throw 'Runtime-Smoke-Hostlock konnte innerhalb von 10 Minuten nicht erworben werden.' }
 
-            & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-SmokeMatrix.ps1 `
-              -Provider podman `
-              -FullMatrix `
-              -IncludeParallel 2>&1 | Tee-Object -FilePath $logPath
-            $matrixExitCode = $LASTEXITCODE
-            if ($matrixExitCode -ne 0) { throw "Podman Smoke Matrix endete mit Exitcode $matrixExitCode." }
+            & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-MixedProviderSmokeTest.ps1 2>&1 | Tee-Object -FilePath $logPath
+            $smokeExitCode = $LASTEXITCODE
+            if ($smokeExitCode -ne 0) { throw "Mixed-Provider-Smoke-Test endete mit Exitcode $smokeExitCode." }
           }
           finally {
             if ($acquired) { $mutex.ReleaseMutex() }
             $mutex.Dispose()
           }
 
-      - name: Upload Podman smoke log
+      - name: Upload mixed provider smoke log
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: podman-smoke-matrix-log
-          path: ${{ runner.temp }}/podman-smoke-matrix.log
+          name: mixed-provider-smoke-log
+          path: ${{ runner.temp }}/mixed-provider-smoke.log
           if-no-files-found: ignore
           retention-days: 7

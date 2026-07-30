@@ -10,7 +10,9 @@ function Test-SqlServerLabPrerequisite {
         Array von Instanzdefinitionen, typischerweise aus einem aufgeloesten
         Manifest. Ohne Angabe werden hostweite Basispruefungen ausgefuehrt.
     .PARAMETER Provider
-        Zu pruefender Provider. Standard ist docker.
+        Zu pruefende Provider. Bei mehreren Providern prueft das Assessment jede
+        verwendete Runtime, waehrend RAM, Storage und Ports runweit nur einmal
+        bewertet werden. Standard ist docker.
     .PARAMETER TargetPath
         Optionaler Zielpfad fuer Storage- und Pfadsicherheitspruefungen.
     .PARAMETER RepositoryRoot
@@ -27,7 +29,7 @@ function Test-SqlServerLabPrerequisite {
     [CmdletBinding()]
     param(
         [array]$Instances = @(),
-        [string]$Provider = 'docker',
+        [string[]]$Provider = @('docker'),
         [string]$TargetPath,
         [string]$RepositoryRoot
     )
@@ -36,9 +38,24 @@ function Test-SqlServerLabPrerequisite {
     $overallStatus = 'RESOURCE_OK'
 
     # --- Provider-Verfuegbarkeit ---
-    $providerCheck = Test-ProviderAvailability -Provider $Provider
-    $results += $providerCheck
-    if ($providerCheck.Status -eq 'RESOURCE_HARD_BLOCK') { $overallStatus = 'RESOURCE_HARD_BLOCK' }
+    $providers = @($Provider | Where-Object { $_ } | ForEach-Object { $_.ToLowerInvariant() } | Sort-Object -Unique)
+    if ($providers.Count -eq 0) {
+        $providers = @('docker')
+    }
+
+    foreach ($providerName in $providers) {
+        $providerCheck = Test-ProviderAvailability -Provider $providerName
+        if ($providers.Count -gt 1) {
+            $providerCheck = [PSCustomObject]@{
+                Category = "Provider/$providerName"
+                Status   = $providerCheck.Status
+                Message  = $providerCheck.Message
+                Value    = $providerCheck.Value
+            }
+        }
+        $results += $providerCheck
+        if ($providerCheck.Status -eq 'RESOURCE_HARD_BLOCK') { $overallStatus = 'RESOURCE_HARD_BLOCK' }
+    }
 
     # --- RAM ---
     $ramCheck = Test-RamAvailability -Instances $Instances

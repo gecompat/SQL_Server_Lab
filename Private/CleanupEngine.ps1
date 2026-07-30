@@ -15,13 +15,33 @@ function New-CleanupPlan {
     param(
         [Parameter(Mandatory)][string]$RunDir,
         [Parameter(Mandatory)][string]$RunId,
-        [Parameter(Mandatory)][string]$ScopeId
+        [Parameter(Mandatory)][string]$ScopeId,
+        [array]$ProviderSubRuns = @()
+    )
+
+    $cleanupSubRuns = @(
+        foreach ($providerSubRun in @($ProviderSubRuns)) {
+            $provider = ([string]$providerSubRun.provider).ToLowerInvariant()
+            if (-not $provider) {
+                throw 'Cleanup-ProviderSubRun besitzt keinen Provider.'
+            }
+
+            [PSCustomObject]@{
+                id          = if ($providerSubRun.id) { [string]$providerSubRun.id } else { "provider-$provider" }
+                provider    = $provider
+                stepOrders  = @()
+                state       = 'PENDING'
+                updatedAt   = Get-LabTimestamp
+                errors      = 0
+            }
+        }
     )
 
     $plan = [PSCustomObject]@{
         runId     = $RunId
         scopeId   = $ScopeId
         createdAt = Get-LabTimestamp
+        providerSubRuns = $cleanupSubRuns
         steps     = @()
         status    = 'PENDING'
     }
@@ -44,6 +64,7 @@ function Add-CleanupStep {
         [Parameter(Mandatory)][string]$Action,
         [ValidateSet('docker', 'podman', 'hyperv')]
         [string]$Provider,
+        [string]$ProviderSubRunId,
         [string]$Compensation = '',
         [string[]]$DependsOn = @()
     )
@@ -70,6 +91,18 @@ function Add-CleanupStep {
     }
 
     $plan.steps += $step
+
+    if ($ProviderSubRunId -and $plan.PSObject.Properties['providerSubRuns']) {
+        $providerSubRun = @(
+            $plan.providerSubRuns | Where-Object { $_.id -eq $ProviderSubRunId }
+        ) | Select-Object -First 1
+        if (-not $providerSubRun) {
+            throw "Cleanup-ProviderSubRun '$ProviderSubRunId' nicht gefunden."
+        }
+        $providerSubRun.stepOrders += $order
+        $providerSubRun.updatedAt = Get-LabTimestamp
+    }
+
     $plan | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $planPath -Encoding utf8
     return $step
 }
@@ -191,12 +224,34 @@ function Invoke-CleanupPlan {
 
     $errors = 0
     $executed = 0
+    $providerResults = @{}
+
+    foreach ($providerSubRun in @($plan.providerSubRuns)) {
+        if ($providerSubRun.state -eq 'PENDING') {
+            $providerSubRun.state = 'RUNNING'
+            $providerSubRun.updatedAt = Get-LabTimestamp
+        }
+    }
+    $plan | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $planPath -Encoding utf8
 
     foreach ($step in $pendingSteps) {
         Write-LabInfo "Cleanup [$($step.order)]: $($step.action) $($step.resourceType):$($step.resourceId)"
 
+        $provider = $null
         try {
             $provider = Get-CleanupStepProvider -Step $step -RunProviders $runProviders
+            if ($provider -and -not $providerResults.ContainsKey($provider)) {
+                $providerResults[$provider] = [PSCustomObject]@{
+                    Provider = $provider
+                    Steps    = 0
+                    Errors   = 0
+                    Total    = 0
+                    Status   = 'PENDING'
+                }
+            }
+            if ($provider) {
+                $providerResults[$provider].Total++
+            }
 
             switch ($step.resourceType) {
                 'container' {
@@ -235,6 +290,9 @@ function Invoke-CleanupPlan {
             $step.executedAt = Get-LabTimestamp
             $step.error = $null
             $executed++
+            if ($provider) {
+                $providerResults[$provider].Steps++
+            }
             Write-LabSuccess "  Entfernt: $($step.resourceId)"
         }
         catch {
@@ -242,6 +300,9 @@ function Invoke-CleanupPlan {
             $step.error = $_.Exception.Message
             $step.executedAt = Get-LabTimestamp
             $errors++
+            if ($provider) {
+                $providerResults[$provider].Errors++
+            }
             Write-LabError "  Fehlgeschlagen: $($step.resourceId) - $($_.Exception.Message)"
         }
 
@@ -249,6 +310,25 @@ function Invoke-CleanupPlan {
     }
 
     $plan.status = if ($errors -eq 0) { 'COMPLETED' } else { 'PARTIAL' }
+    foreach ($providerResult in @($providerResults.Values)) {
+        $providerResult.Status = if ($providerResult.Errors -eq 0) { 'CLEANUP_SUCCEEDED' } else { 'CLEANUP_PARTIAL' }
+    }
+
+    foreach ($providerSubRun in @($plan.providerSubRuns)) {
+        $providerResult = $providerResults[[string]$providerSubRun.provider]
+        if ($providerResult) {
+            $providerSubRun.errors = $providerResult.Errors
+            $providerSubRun.state = if ($providerResult.Errors -eq 0) { 'COMPLETED' } else { 'PARTIAL' }
+        }
+        elseif (@($providerSubRun.stepOrders).Count -eq 0) {
+            $providerSubRun.state = 'COMPLETED'
+        }
+        else {
+            $providerSubRun.state = 'BLOCKED'
+            $providerSubRun.errors = 1
+        }
+        $providerSubRun.updatedAt = Get-LabTimestamp
+    }
     $plan | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $planPath -Encoding utf8
 
     $overallStatus = if ($errors -eq 0) {
@@ -266,6 +346,7 @@ function Invoke-CleanupPlan {
         Steps  = $executed
         Errors = $errors
         Total  = $pendingSteps.Count
+        ProviderSubRuns = @($providerResults.Values | Sort-Object Provider)
     }
 }
 

@@ -20,6 +20,7 @@ sources_of_truth:
   port_allocation_contract: Private/PortAllocation.ps1
   runtime_limitations: Documentation/Quality/KNOWN_LIMITATIONS.md
   sample_artifact_and_manifest_wizard_target: Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md
+  mixed_provider_lifecycle: Documentation/Architecture/MIXED_PROVIDER_LIFECYCLE.md
   hyperv_image_provisioning_network_target: Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md
   user_entrypoint: README.md
   user_walkthrough: Documentation/User/Getting_Started.md
@@ -56,15 +57,15 @@ public_commands:
       - StateRoot
   - name: Get-SqlServerLab
     source: Public/Get-SqlServerLab.ps1
-    purpose: "State und Live-Status lesen"
+    purpose: "State und Live-Status je ProviderSubRun lesen"
     mutates_host: false
   - name: Start-SqlServerLab
     source: Public/Start-SqlServerLab.ps1
-    purpose: "Gestoppten Run über den gespeicherten Provider starten"
+    purpose: "Gestoppten Run über alle gespeicherten ProviderSubRuns starten"
     mutates_host: true
   - name: Stop-SqlServerLab
     source: Public/Stop-SqlServerLab.ps1
-    purpose: "Laufenden Run über den gespeicherten Provider stoppen"
+    purpose: "Laufenden Run über alle gespeicherten ProviderSubRuns stoppen"
     mutates_host: true
   - name: Restart-SqlServerLab
     source: Public/Restart-SqlServerLab.ps1
@@ -121,19 +122,19 @@ internal_components:
   - name: ResourceAssessment
     source: Private/ResourceAssessment.ps1
     responsibilities:
-      - "Runtime-Verfügbarkeit prüfen"
+      - "Runtime-Verfügbarkeit für alle verwendeten Provider prüfen"
       - "RAM, Storage und Ports bewerten"
   - name: StateMachine
     source: Private/StateMachine.ps1
     responsibilities:
       - "State-Root bestimmen"
-      - "Run-State persistieren"
+      - "Run-State und ProviderSubRuns persistieren"
       - "State-Transitions und Fehlerhistorie verwalten"
   - name: CleanupEngine
     source: Private/CleanupEngine.ps1
     responsibilities:
-      - "Cleanup-Plan vor Mutation erzeugen"
-      - "Compensation-Schritte speichern und ausführen"
+      - "Cleanup-Plan und providergebundene Cleanup-SubRuns vor Mutation erzeugen"
+      - "Compensation-Schritte je Provider speichern und ausführen"
   - name: PortAllocation
     source: Private/PortAllocation.ps1
     responsibilities:
@@ -215,6 +216,21 @@ planning_contracts:
       - manual_action_and_resume
       - environment_reconcile
       - artifact_refresh_and_rebuild
+  mixed_provider_lifecycle:
+    source: Documentation/Architecture/MIXED_PROVIDER_LIFECYCLE.md
+    status: IMPLEMENTED_CONTAINER_SCOPE
+    providers:
+      - docker
+      - podman
+    covers:
+      - provider_subrun_state
+      - provider_bound_status_start_stop_cleanup
+      - startup_rollback
+      - mixed_provider_smoke_test
+    excludes:
+      - hyperv
+      - cross_provider_networking
+      - reconcile
 
 state_files:
   root_resolution:
@@ -235,6 +251,7 @@ provisioning_flow:
   - "Test-SqlServerVersionSupported"
   - "Test-SqlServerLabPrerequisite"
   - "New-LabRunState"
+  - "ProviderSubRuns anlegen"
   - "New-CleanupPlan"
   - "Invoke-LabPortAllocationLock"
   - "Find-LabAvailablePort"
@@ -266,6 +283,13 @@ validation:
       - readiness
       - interactive_menu
       - atomic_port_allocation
+  static_mixed_provider_contracts:
+    command: '.\Tests\Static\Invoke-MixedProviderLifecycleChecks.ps1'
+    source: Tests/Static/Invoke-MixedProviderLifecycleChecks.ps1
+    covers:
+      - provider_subrun_state
+      - mixed_provider_example
+      - grouped_lifecycle_and_cleanup
   single_provider_smoke:
     source: Tests/Integration/Invoke-SmokeTest.ps1
     docker: '.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider docker'
@@ -283,6 +307,14 @@ validation:
       - parallel_unique_run_and_scope_ids
       - parallel_unique_ports
       - isolated_cleanup
+  mixed_provider_smoke:
+    source: Tests/Integration/Invoke-MixedProviderSmokeTest.ps1
+    command: '.\Tests\Integration\Invoke-MixedProviderSmokeTest.ps1'
+    checks:
+      - docker_and_podman_in_one_run
+      - provider_subrun_status
+      - grouped_stop_start
+      - grouped_cleanup
   remote_workflows:
     docker:
       source: .github/workflows/runtime-smoke-docker.yml
@@ -295,6 +327,13 @@ validation:
       labels:
         - self-hosted
         - SQL_Lab
+        - Podman
+    mixed_providers:
+      source: .github/workflows/runtime-smoke-mixed-providers.yml
+      labels:
+        - self-hosted
+        - SQL_Lab
+        - Docker
         - Podman
     triggers:
       - workflow_dispatch
@@ -347,7 +386,7 @@ known_limitations:
     - "Hyper-V, sealed VHDX, OS-/SQL-Image-Pipeline und Resume nicht implementiert"
     - "providerneutrale Network Intents, Exposure Policy und Reconcile nicht implementiert"
     - "Artifact Refresh und Rebuild für Medien, VHDX und Derived Images nicht implementiert"
-    - "gemischter Provider-Lifecycle innerhalb eines Runs nicht implementiert"
+    - "kein provideruebergreifendes Docker-/Podman-Netzwerk oder Hyper-V-SubRun"
     - "Sample-Automation nur für direkte .bak-Varianten"
     - "Trust Store, Manifest Lock, Mehrfachauswahl und Script Handler noch nicht implementiert"
     - "LAB_GENERATED-Baselines und beste kompatible Aufsetzpunkte noch nicht implementiert"

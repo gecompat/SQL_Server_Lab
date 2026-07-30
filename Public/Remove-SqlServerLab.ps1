@@ -107,6 +107,16 @@ function Remove-SqlServerLab {
             -NewState 'REMOVED' `
             -Reason 'Bereits bereinigten Run finalisiert' `
             -StateRoot $StateRoot
+        foreach ($providerSubRun in @(Get-LabProviderSubRuns -RunId $RunId -StateRoot $StateRoot)) {
+            if ($providerSubRun.state -eq 'CLEANED_UP') {
+                Set-LabProviderSubRunState `
+                    -RunId $RunId `
+                    -Provider $providerSubRun.provider `
+                    -NewState 'REMOVED' `
+                    -Reason 'Bereits bereinigten Run finalisiert' `
+                    -StateRoot $StateRoot
+            }
+        }
         $null = Remove-LabSecrets -Path $runDirectory
 
         return [PSCustomObject]@{
@@ -149,6 +159,17 @@ function Remove-SqlServerLab {
             -StateRoot $StateRoot
     }
 
+    foreach ($providerSubRun in @(Get-LabProviderSubRuns -RunId $RunId -StateRoot $StateRoot)) {
+        if ($providerSubRun.state -notin @('CLEANED_UP', 'REMOVED', 'CLEANUP_PENDING', 'CLEANUP_RUNNING')) {
+            Set-LabProviderSubRunState `
+                -RunId $RunId `
+                -Provider $providerSubRun.provider `
+                -NewState 'CLEANUP_PENDING' `
+                -Reason 'Benutzer-Entfernung' `
+                -StateRoot $StateRoot
+        }
+    }
+
     $state = Get-LabRunState -RunId $RunId -StateRoot $StateRoot
     if ($state.state -eq 'CLEANUP_PENDING') {
         $null = Set-LabRunState `
@@ -156,6 +177,16 @@ function Remove-SqlServerLab {
             -NewState 'CLEANUP_RUNNING' `
             -Reason 'Cleanup gestartet' `
             -StateRoot $StateRoot
+        foreach ($providerSubRun in @(Get-LabProviderSubRuns -RunId $RunId -StateRoot $StateRoot)) {
+            if ($providerSubRun.state -eq 'CLEANUP_PENDING') {
+                Set-LabProviderSubRunState `
+                    -RunId $RunId `
+                    -Provider $providerSubRun.provider `
+                    -NewState 'CLEANUP_RUNNING' `
+                    -Reason 'Cleanup gestartet' `
+                    -StateRoot $StateRoot
+            }
+        }
     }
 
     Write-LabInfo 'Cleanup-Plan ausfuehren...'
@@ -166,6 +197,16 @@ function Remove-SqlServerLab {
     Write-LabStatus `
         -Label 'Cleanup' `
         -Value "$($cleanupResult.Status) ($($cleanupResult.Steps) Steps, $($cleanupResult.Errors) Fehler)"
+
+    foreach ($providerCleanup in @($cleanupResult.ProviderSubRuns)) {
+        $providerState = if ($providerCleanup.Errors -eq 0) { 'CLEANED_UP' } else { 'RECOVERY_REQUIRED' }
+        Set-LabProviderSubRunState `
+            -RunId $RunId `
+            -Provider $providerCleanup.Provider `
+            -NewState $providerState `
+            -Reason "Cleanup: $($providerCleanup.Status)" `
+            -StateRoot $StateRoot
+    }
 
     $providers = @()
     $connectionInfoPath = Join-Path $runDirectory 'connection-info.json'
@@ -256,6 +297,16 @@ function Remove-SqlServerLab {
             -NewState 'RECOVERY_REQUIRED' `
             -Reason $message `
             -StateRoot $StateRoot
+        foreach ($providerSubRun in @(Get-LabProviderSubRuns -RunId $RunId -StateRoot $StateRoot)) {
+            if ($providerSubRun.state -in @('CLEANUP_RUNNING', 'CLEANED_UP')) {
+                Set-LabProviderSubRunState `
+                    -RunId $RunId `
+                    -Provider $providerSubRun.provider `
+                    -NewState 'RECOVERY_REQUIRED' `
+                    -Reason $message `
+                    -StateRoot $StateRoot
+            }
+        }
 
         Write-LabError "$message Run-State bleibt fuer einen Wiederholungsversuch erhalten."
         return [PSCustomObject]@{
@@ -271,11 +322,31 @@ function Remove-SqlServerLab {
         -NewState 'CLEANED_UP' `
         -Reason $cleanupResult.Status `
         -StateRoot $StateRoot
+    foreach ($providerSubRun in @(Get-LabProviderSubRuns -RunId $RunId -StateRoot $StateRoot)) {
+        if ($providerSubRun.state -eq 'CLEANUP_RUNNING') {
+            Set-LabProviderSubRunState `
+                -RunId $RunId `
+                -Provider $providerSubRun.provider `
+                -NewState 'CLEANED_UP' `
+                -Reason $cleanupResult.Status `
+                -StateRoot $StateRoot
+        }
+    }
     $null = Set-LabRunState `
         -RunId $RunId `
         -NewState 'REMOVED' `
         -Reason 'Vollstaendig entfernt' `
         -StateRoot $StateRoot
+    foreach ($providerSubRun in @(Get-LabProviderSubRuns -RunId $RunId -StateRoot $StateRoot)) {
+        if ($providerSubRun.state -eq 'CLEANED_UP') {
+            Set-LabProviderSubRunState `
+                -RunId $RunId `
+                -Provider $providerSubRun.provider `
+                -NewState 'REMOVED' `
+                -Reason 'Vollstaendig entfernt' `
+                -StateRoot $StateRoot
+        }
+    }
     $null = Remove-LabSecrets -Path $runDirectory
 
     Write-LabSuccess "Umgebung entfernt: $RunId"

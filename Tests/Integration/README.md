@@ -27,3 +27,14 @@ End-to-End-Test des gesamten Lab-Lifecycles.
 
 `smoke-test-query.sql` wird waehrend des Tests erzeugt und geloescht.
 Bei Abbruch bleibt sie liegen → .gitignore verhindert Commit.
+
+## Invoke-MixedProviderSmokeTest.ps1
+
+Der Mixed-Provider-Smoke-Test benötigt gleichzeitig erreichbares Docker und
+Podman. Er provisioniert das Beispiel `example-mixed-provider-lab.json` mit
+zwei kompakten SQL-Server-Instanzen, prüft Status, Stop, Start und Cleanup.
+State und synthetisches SA-Passwort werden ausschließlich temporär erzeugt.
+
+```powershell
+.\Tests\Integration\Invoke-MixedProviderSmokeTest.ps1
+```
