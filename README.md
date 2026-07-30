@@ -449,6 +449,7 @@ _QuellRepo/      unveränderte Quell-Snapshots anderer Repositories
 - [Bekannte Grenzen](Documentation/Quality/KNOWN_LIMITATIONS.md)
 - [Manifest-Schemas und Beispiele](Schemas/README.md)
 - [Testdatenbank-Provisionierung und menügeführte Manifest-Erstellung](Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md)
+- [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md)
 - [Öffentliche Cmdlets](Public/README.md)
 - [Provider](Providers/README.md)
 - [Tests](Tests/README.md)
