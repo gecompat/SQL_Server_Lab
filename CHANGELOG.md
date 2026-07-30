@@ -17,7 +17,9 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 - unverifizierte Sample-Varianten sind explizit `descriptive` und werden nicht
   automatisch ausgefuehrt;
-- statische Test- und Architektur-Dokumentation bildet den aktuellen Stand ab.
+- statische Test- und Architektur-Dokumentation bildet den aktuellen Stand ab;
+- Windows-Pfade und PowerShell-Testbefehle in `.ai/repo_map.yaml` sind als
+  gültige YAML-Scalars quotiert.
 
 ### Dokumentiert
 
