@@ -134,6 +134,14 @@ GO
         $restart = Restart-SqlServerLab -RunId $lab.RunId -TimeoutSeconds 60 -Force
         if ($restart.Status -ne 'RUNNING' -or $restart.Errors -ne 0) { throw 'Restart fehlgeschlagen.' }
 
+        $databaseReadiness = Wait-LabDatabaseReady `
+            -HostName $instance.Host `
+            -Port $instance.Port `
+            -SaPassword $SaPassword `
+            -Database $dbName `
+            -TimeoutSeconds 60
+        if (-not $databaseReadiness.Ready) { throw $databaseReadiness.Message }
+
         $plain = ConvertFrom-TestSecureString $SaPassword
         try {
             $marker = & sqlcmd -S "$($instance.Host),$($instance.Port)" -U sa -P $plain -C -b -h -1 -W -d $dbName -Q 'SET NOCOUNT ON; SELECT Marker FROM dbo.SmokeEvidence WHERE Id=1;' 2>&1
