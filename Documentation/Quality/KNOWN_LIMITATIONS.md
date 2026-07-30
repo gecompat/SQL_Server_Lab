@@ -21,6 +21,12 @@ Ein Manifest kann strukturell mehrere Provider enthalten. Der gemeinsame Lifecyc
 
 Hyper-V ist geplant, aber nicht implementiert. Manifeste mit Windows-Betriebssystem oder GUI-Software können bei der Provider-Auflösung zu `hyperv` führen; die Provisionierung bricht anschließend mit einer klaren Meldung ab.
 
+Nicht implementiert sind insbesondere die OS-/SQL-Image-Pipeline, sealed
+Parent-VHDX, `PrepareImage`/`CompleteImage`, zusätzliche VM-Drives,
+Network Intents, IPAM, Manual Resume, Reconcile und Artifact Refresh. Der
+verbindliche Zielvertrag steht in
+[Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](../Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md).
+
 ## Manifest und Schema
 
 ### Schema ist kein Runtime-Nachweis
@@ -110,9 +116,15 @@ Kurzbezeichner wie `2022-CU16` werden nur akzeptiert, wenn der Build im Katalog 
 
 ## External Languages
 
-Die Installation von R, Python oder Java ist von den Paketquellen und der Linux-Distribution im verwendeten SQL-Server-Image abhängig. Paketnamen oder Installationswege können sich ändern.
+Die Installation von R, Python oder Java ist von SQL-Version, Betriebssystem,
+Distribution, Provider, Paketquellen und der jeweiligen Supportmatrix abhängig.
+Python ist ausdrücklich auch unter Linux und in Containern vorgesehen; es ist
+nicht auf Hyper-V beschränkt.
 
-`customImage` wird derzeit nicht in die Provider-Imageauswahl übernommen. Java-JARs werden nicht automatisch registriert.
+Das aktuelle `software`-Schema und der External-Scripts-Pfad bilden diesen
+providerneutralen Zielvertrag noch nicht vollständig ab. `customImage` wird
+derzeit nicht in die Provider-Imageauswahl übernommen. Derived Container Images,
+Custom Runtimes und Java-JAR-Registrierung sind nicht automatisiert.
 
 ## Tests
 
@@ -131,5 +143,7 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
 1. Providerübergreifenden Lifecycle für gemischte Runs definieren.
 2. Artifact Acquisition, Trust Store, Manifest Lock und inhaltsadressierten Cache gemäß Zielvertrag implementieren.
 3. Mehrfachauswahl sowie Backup-, SQL-Skript- und Script-Bundle-Handler mit Verification und Cleanup ergänzen.
-4. Hyper-V-Provider erst nach einem eigenständigen Implementierungs- und Testvertrag ergänzen.
-5. Katalogaktualität, Prüfsummen und Baseline-Kompatibilität kontrolliert pflegen.
+4. Providerneutrale Drive-, Network-, Software- und Reconcile-Verträge gemäß Hyper-V-Zielvertrag umsetzen.
+5. Artifact Registry, Refresh/Rebuild und Evaluierungsablauf implementieren.
+6. Hyper-V anschließend in den dokumentierten, getrennt testbaren Wellen implementieren.
+7. Katalogaktualität, Prüfsummen und Baseline-Kompatibilität kontrolliert pflegen.
