@@ -428,7 +428,8 @@ function New-SqlServerLab {
                     -DatabaseName $database.name `
                     -ContainerName $labInstance.ContainerName `
                     -Replace:($database.restore.replace) `
-                    -StateRoot $effectiveStateRoot
+                    -StateRoot $effectiveStateRoot `
+                    -RunDirectory $runState.RunDir
 
                 if (-not $restoreResult.Success) {
                     throw "Restore fehlgeschlagen: $($restoreResult.Message)"

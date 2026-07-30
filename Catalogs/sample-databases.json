@@ -355,8 +355,8 @@
     "custom": "Eigene Projekt-Datenbanken (lokal registriert)"
   },
   "cachePolicy": {
-    "location": "<StateRoot>/cache/backups/",
-    "strategy": "download-once",
+    "location": "<StateRoot>/cache/artifacts/sha256/",
+    "strategy": "content-addressed",
     "verifyChecksum": true,
     "maxCacheSizeGB": 50,
     "cleanupAfterDays": 90

@@ -49,6 +49,7 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           .\Tests\Static\Invoke-DocumentationChecks.ps1
+          .\Tests\Static\Invoke-ArtifactResolverChecks.ps1
           .\Tests\Static\Invoke-ReadinessContractChecks.ps1
           .\Tests\Static\Invoke-MixedProviderLifecycleChecks.ps1
 
