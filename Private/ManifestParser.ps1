@@ -159,6 +159,12 @@ function Resolve-LabSampleRestore {
     }
 
     $variantDefinition = $variantProperty.Value
+    if ($variantDefinition.runtimeStatus -ne 'executable') {
+        throw "Sample '$($sample.id)' Variante '$variant' ist nur beschreibend katalogisiert und nicht fuer die automatische Ausfuehrung freigegeben."
+    }
+    if ([string]::IsNullOrWhiteSpace([string]$variantDefinition.sha256)) {
+        throw "Sample '$($sample.id)' Variante '$variant' besitzt keine verifizierte SHA-256-Pruefsumme."
+    }
     $source = [string]$variantDefinition.url
     if (-not $source) {
         throw "Sample '$($sample.id)' Variante '$variant' besitzt keine Download-URL."
@@ -180,6 +186,7 @@ function Resolve-LabSampleRestore {
         sampleVariant = $variant
         license       = $sample.license
         sourcePage    = $sample.source
+        expectedSha256 = ([string]$variantDefinition.sha256).ToLowerInvariant()
     }
 }
 
@@ -250,6 +257,7 @@ function Resolve-ManifestDefaults {
                         source  = $source
                         type    = if ($database.restore.type) { $database.restore.type } else { 'auto' }
                         replace = if ($null -ne $database.restore.replace) { [bool]$database.restore.replace } else { $true }
+                        expectedSha256 = $null
                     }
                 }
 

@@ -217,11 +217,11 @@ Das Cmdlet unterstützt `GO`-getrennte Batches.
 
 ```powershell
 Restore-SqlServerLabDatabase `
-    -Port $lab.Instances[0].Port `
+    -RunId $lab.RunId `
+    -InstanceId 'primary' `
     -SaPassword $pw `
     -BackupSource 'C:\Backups\AdventureWorks2022.bak' `
-    -DatabaseName 'AdventureWorks2022' `
-    -ContainerName $lab.Instances[0].ContainerName
+    -DatabaseName 'AdventureWorks2022'
 ```
 
 ### HTTPS-URL
@@ -237,7 +237,11 @@ Restore-SqlServerLabDatabase `
 
 Die Beispiel-URL ist absichtlich nicht ausführbar. Verwenden Sie eine zulässige reale `.bak`-Quelle.
 
-`Restore-SqlServerLabDatabase` unterstützt die Parameter `Port`, `SaPassword`, `BackupSource`, `DatabaseName` und optional `ContainerName`. Es besitzt keine Parameter `RunId` oder `BackupUrl`.
+`Restore-SqlServerLabDatabase` unterstützt bevorzugt `RunId` und optional
+`InstanceId`; Provider, Container, Host und Port werden aus dem lokalen
+Run-State gelesen. Alternativ bleibt der direkte Modus mit `Port` und optional
+`Provider` sowie `ContainerName` verfügbar. Einen Parameter `BackupUrl` gibt es
+nicht; URLs werden über `BackupSource` angegeben.
 
 ## 11. Manifest-Modus
 
@@ -541,7 +545,12 @@ Eine Restore-Datenbank wird nicht zuerst per `CREATE DATABASE` angelegt. Nach er
 }
 ```
 
-Unterstützt werden derzeit nur Katalogvarianten, deren URL direkt auf eine `.bak`-Datei zeigt. `.7z`-Archive, Attach-Verfahren und reine SQL-Skript-Samples werden nicht automatisch verarbeitet.
+Automatisch unterstützt werden nur Katalogvarianten, deren URL direkt auf eine
+`.bak`-Datei zeigt, die `runtimeStatus: executable` tragen und eine verifizierte
+SHA-256-Pruefsumme besitzen. Die aktuellen Varianten sind bis zu einer
+kontrollierten Artefaktverifikation beschreibend. `.7z`-Archive,
+Attach-Verfahren und reine SQL-Skript-Samples werden ebenfalls nicht automatisch
+verarbeitet.
 
 ## 14. Server- und Datenbankkonfiguration
 

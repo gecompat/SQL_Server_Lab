@@ -17,8 +17,9 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 | `example-lab.json` | einfache Instanz mit Datenbank und Post-Provision | ausführbar, sofern referenzierte SQL-Datei vorhanden ist |
 | `example-restore-lab.json` | Restore einer `.bak`-Quelle | ausführbar bei erreichbarer Quelle |
 | `example-performance-lab.json` | Volumes, Data-/Log-Pfade, TempDB, Memory, MaxDOP und DB-Optionen | ausführbar mit ausreichenden Ressourcen |
-| `example-cu-comparison.json` | zwei katalogisierte SQL-2022-CU-Stände mit identischer Sample-Datenbank | ausführbar, wenn die Image-Tags und Downloadquelle verfügbar sind |
-| `example-ml-services.json` | External-Languages-Konfiguration | umgebungsabhängig; siehe Known Limitations |
+| `example-cu-comparison.json` | zwei katalogisierte SQL-2022-CU-Stände mit identischer Sample-Datenbank | vorbereitet; aktuelle Sample-Variante ist beschreibend |
+| `example-ml-services.json` | External-Languages-Konfiguration mit Sample-Referenz | vorbereitet und umgebungsabhängig; aktuelle Sample-Variante ist beschreibend |
+| `example-performance-tuning.json` | Performance-Konfiguration mit Sample-Referenz | vorbereitet; aktuelle Sample-Variante ist beschreibend |
 
 Weitere `example-*.json`-Dateien können spezialisierte oder vorbereitete Szenarien enthalten. Ein Beispiel ist nur dann als End-to-End ausführbar anzusehen, wenn alle referenzierten Skripte und Quellen existieren und keine Grenze aus `Documentation/Quality/KNOWN_LIMITATIONS.md` verletzt wird.
 
@@ -59,6 +60,18 @@ Weitere `example-*.json`-Dateien können spezialisierte oder vorbereitete Szenar
 - `externalScripts` mit den dokumentierten Einschränkungen
 
 Das Schema enthält teilweise vorbereitete Erweiterungsfelder. Die verbindlichen Grenzen stehen in [`KNOWN_LIMITATIONS.md`](../Documentation/Quality/KNOWN_LIMITATIONS.md).
+
+Jede direkte Eigenschaft unter `serverConfig` ist deshalb maschinenlesbar mit
+`x-runtimeStatus` klassifiziert:
+
+- `executable`: Parser und Runtime wenden das Feld an;
+- `reserved`: das Feld bleibt fuer die Vertragsentwicklung sichtbar, wird aber
+  nicht als Runtime-Capability zugesagt;
+- `partially-executable`: nur die in der Beschreibung genannten Werte besitzen
+  einen Runtimepfad.
+
+Ausfuehrbare Beispielmanifeste duerfen keine als `reserved` markierten Felder
+verwenden. Bei `externalScripts.installMethod` ist `pre-built` reserviert.
 
 ## Pfadauflösung
 

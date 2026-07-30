@@ -453,13 +453,18 @@ Bei Fehler: Cleanup rueckwaerts ab fehlgeschlagenem Schritt.
 
 ## 14. Offene Entscheidungen
 
+> **Statushinweis:** Die folgende Tabelle und Implementierungsreihenfolge sind
+> eine historische Planungsbasis. Der verbindliche aktuelle Runtimevertrag steht
+> in [`../Quality/KNOWN_LIMITATIONS.md`](../Quality/KNOWN_LIMITATIONS.md). Direkte
+> `.bak`-Restores sowie Docker und Podman sind inzwischen implementiert.
+
 | ID | Frage | Status |
 | --- | --- | --- |
 | OE-01 | Parallele vs. sequenzielle Instanz-Erzeugung | Sequenziell Default |
 | OE-02 | Secret-Verschluesselung (DPAPI vs. AES vs. ACL) | Offen |
 | OE-03 | Podman-Rootless-Besonderheiten | Spaetere Phase |
 | OE-04 | Multi-Host-Support | Nur lokal im ersten Slice |
-| OE-05 | Backup/Restore-Integration | Spaetere Phase |
+| OE-05 | Erweiterte Restore-Szenarien jenseits direkter `.bak`-Dateien | Spaetere Phase |
 
 ---
 
@@ -500,4 +505,4 @@ Bei Fehler: Cleanup rueckwaerts ab fehlgeschlagenem Schritt.
 22. Podman-Provider
 23. Hook-System
 24. Multi-Instanz-Topologien (Abhaengigkeiten zwischen Instanzen)
-25. Backup/Restore-Integration
+25. Erweiterte Restore-Szenarien (Archive, Attach und Backupketten)

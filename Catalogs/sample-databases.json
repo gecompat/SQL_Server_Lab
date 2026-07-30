@@ -15,13 +15,15 @@
           "url": "https://github.com/Microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorks2022.bak",
           "sizeMB": 209,
           "sha256": null,
-          "compatibility": 160
+          "compatibility": 160,
+          "runtimeStatus": "descriptive"
         },
         "lightweight": {
           "url": "https://github.com/Microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorksLT2022.bak",
           "sizeMB": 17,
           "sha256": null,
-          "compatibility": 160
+          "compatibility": 160,
+          "runtimeStatus": "descriptive"
         }
       },
       "minSqlVersion": "2022",
@@ -46,13 +48,15 @@
           "url": "https://github.com/Microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorks2019.bak",
           "sizeMB": 209,
           "sha256": null,
-          "compatibility": 150
+          "compatibility": 150,
+          "runtimeStatus": "descriptive"
         },
         "lightweight": {
           "url": "https://github.com/Microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorksLT2019.bak",
           "sizeMB": 17,
           "sha256": null,
-          "compatibility": 150
+          "compatibility": 150,
+          "runtimeStatus": "descriptive"
         }
       },
       "minSqlVersion": "2019",
@@ -75,7 +79,8 @@
           "url": "https://github.com/Microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorksDW2022.bak",
           "sizeMB": 35,
           "sha256": null,
-          "compatibility": 160
+          "compatibility": 160,
+          "runtimeStatus": "descriptive"
         }
       },
       "minSqlVersion": "2022",
@@ -99,13 +104,15 @@
           "url": "https://github.com/Microsoft/sql-server-samples/releases/download/wide-world-importers-v1.0/WideWorldImporters-Full.bak",
           "sizeMB": 121,
           "sha256": null,
-          "compatibility": 130
+          "compatibility": 130,
+          "runtimeStatus": "descriptive"
         },
         "standard": {
           "url": "https://github.com/Microsoft/sql-server-samples/releases/download/wide-world-importers-v1.0/WideWorldImporters-Standard.bak",
           "sizeMB": 40,
           "sha256": null,
-          "compatibility": 130
+          "compatibility": 130,
+          "runtimeStatus": "descriptive"
         }
       },
       "minSqlVersion": "2019",
@@ -131,7 +138,8 @@
           "url": "https://github.com/Microsoft/sql-server-samples/releases/download/wide-world-importers-v1.0/WideWorldImportersDW-Full.bak",
           "sizeMB": 47,
           "sha256": null,
-          "compatibility": 130
+          "compatibility": 130,
+          "runtimeStatus": "descriptive"
         }
       },
       "minSqlVersion": "2019",
@@ -156,14 +164,16 @@
           "sizeMB": 11264,
           "sha256": null,
           "compatibility": 120,
-          "note": "7z-Archiv, muss entpackt werden. Attach statt Restore."
+          "note": "7z-Archiv, muss entpackt werden. Attach statt Restore.",
+          "runtimeStatus": "descriptive"
         },
         "10gb": {
           "url": "https://downloads.brentozar.com/StackOverflow2010.7z",
           "sizeMB": 1536,
           "sha256": null,
           "compatibility": 120,
-          "note": "Kleinere Version (10GB). 7z-Archiv."
+          "note": "Kleinere Version (10GB). 7z-Archiv.",
+          "runtimeStatus": "descriptive"
         }
       },
       "minSqlVersion": "2019",
@@ -191,7 +201,8 @@
           "sha256": null,
           "compatibility": 100,
           "type": "sql-script",
-          "note": "T-SQL-Skript (CREATE + INSERT). Kein Backup."
+          "note": "T-SQL-Skript (CREATE + INSERT). Kein Backup.",
+          "runtimeStatus": "descriptive"
         }
       },
       "minSqlVersion": "2019",

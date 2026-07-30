@@ -4,6 +4,21 @@ Dieses Changelog dokumentiert Änderungen am öffentlichen Verhalten, an maschin
 
 Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher nach Datum geführt. Neue Einträge werden oben ergänzt.
 
+## 2026-07-30
+
+### Hinzugefügt
+
+- maschinenlesbare `x-runtimeStatus`-Klassifikation fuer `serverConfig`-Felder;
+- vollstaendige Schema-Validierung der Kataloge und Beispielmanifeste im statischen Check;
+- RunId-basierte Restore-Zielaufloesung mit optionaler Instanz-ID;
+- SHA-256-Pruefung fuer freigegebene Sample-Downloads und lokale Backups.
+
+### Geaendert
+
+- unverifizierte Sample-Varianten sind explizit `descriptive` und werden nicht
+  automatisch ausgefuehrt;
+- statische Test- und Architektur-Dokumentation bildet den aktuellen Stand ab.
+
 ## 2026-07-28
 
 ### Hinzugefügt

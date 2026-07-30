@@ -82,7 +82,7 @@ public_commands:
     mutates_sql: true
   - name: Restore-SqlServerLabDatabase
     source: Public/Restore-SqlServerLabDatabase.ps1
-    purpose: "Direkte .bak-Datei aus lokalem Pfad oder URL wiederherstellen"
+    purpose: "Direkte .bak-Datei aus lokalem Pfad oder URL wiederherstellen; Ziel bevorzugt per RunId aufloesen"
     mutates_sql: true
     external_dependencies:
       - sqlcmd
@@ -181,7 +181,7 @@ catalogs:
   sample_databases:
     data: Catalogs/sample-databases.json
     schema: Schemas/sample-databases.schema.json
-    executable_variants: "Nur direkte .bak-URLs"
+    executable_variants: "Nur direkte .bak-URLs mit runtimeStatus executable und verifizierter SHA-256-Pruefsumme; aktueller Katalog ist beschreibend"
 
 state_files:
   root_resolution:

@@ -391,6 +391,7 @@ function New-SqlServerLab {
                     -Port $labInstance.Port `
                     -SaPassword $SaPassword `
                     -BackupSource $database.restore.source `
+                    -ExpectedSha256 $database.restore.expectedSha256 `
                     -DatabaseName $database.name `
                     -ContainerName $labInstance.ContainerName `
                     -Replace:($database.restore.replace) `

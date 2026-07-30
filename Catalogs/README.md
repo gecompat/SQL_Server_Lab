@@ -84,6 +84,7 @@ Beispiel:
       "url": "https://.../AdventureWorks2022.bak",
       "sizeMB": 209,
       "sha256": null,
+      "runtimeStatus": "descriptive",
       "compatibility": 160
     }
   },
@@ -93,7 +94,9 @@ Beispiel:
 
 ### Runtimeunterstützung
 
-Der Manifestparser kann derzeit Varianten automatisch bereitstellen, deren URL direkt auf eine `.bak`-Datei zeigt.
+Der Manifestparser kann Varianten automatisch bereitstellen, wenn ihre URL
+direkt auf eine `.bak`-Datei zeigt, `runtimeStatus` den Wert `executable` hat und
+eine verifizierte SHA-256-Pruefsumme hinterlegt ist.
 
 Nicht automatisch ausführbar sind unter anderem:
 
@@ -105,7 +108,12 @@ Diese Einträge dürfen trotzdem als Planungs- und Quellenkatalog enthalten sein
 
 ### Prüfsummen
 
-`sha256: null` bedeutet, dass keine kryptografische Prüfsumme hinterlegt ist. `cachePolicy.verifyChecksum` allein erzeugt keine Prüfsumme und ist ohne konkreten SHA-256-Wert nicht durchsetzbar.
+`sha256: null` bedeutet, dass keine kryptografische Prüfsumme hinterlegt ist.
+Eine solche Variante muss `runtimeStatus: descriptive` tragen und wird nicht
+automatisch ausgefuehrt. Die derzeit katalogisierten Downloads sind deshalb
+beschreibend, bis ihre Artefakte ueber einen kontrollierten Download verifiziert
+und mit SHA-256 freigegeben wurden. `cachePolicy.verifyChecksum` allein erzeugt
+keine Prüfsumme.
 
 ## Validierung
 

@@ -423,11 +423,12 @@
       "properties": {
         "collation": {
           "type": "string",
-          "description": "Server-Collation (nur bei Neuinstallation aenderbar, nicht bei Container!)",
+          "description": "RESERVIERT (nicht ausgefuehrt): Server-Collation (nur bei Neuinstallation aenderbar, nicht bei Container!)",
           "examples": [
             "SQL_Latin1_General_CP1_CS_AS",
             "Latin1_General_CI_AS"
-          ]
+          ],
+          "x-runtimeStatus": "reserved"
         },
         "memory": {
           "type": "object",
@@ -454,17 +455,20 @@
               ]
             }
           },
-          "additionalProperties": false
+          "additionalProperties": false,
+          "x-runtimeStatus": "executable"
         },
         "tempdb": {
-          "$ref": "#/definitions/tempdbConfig"
+          "$ref": "#/definitions/tempdbConfig",
+          "x-runtimeStatus": "executable"
         },
         "maxDop": {
           "type": "integer",
           "description": "max degree of parallelism (0 = alle CPUs)",
           "minimum": 0,
           "maximum": 128,
-          "default": 0
+          "default": 0,
+          "x-runtimeStatus": "executable"
         },
         "costThreshold": {
           "type": "integer",
@@ -475,7 +479,8 @@
             5,
             25,
             50
-          ]
+          ],
+          "x-runtimeStatus": "executable"
         },
         "traceFlags": {
           "type": "array",
@@ -489,7 +494,8 @@
               7412,
               1118
             ]
-          ]
+          ],
+          "x-runtimeStatus": "executable"
         },
         "spConfigure": {
           "type": "object",
@@ -502,11 +508,12 @@
               "optimize for ad hoc workloads": 1,
               "remote admin connections": 1
             }
-          ]
+          ],
+          "x-runtimeStatus": "executable"
         },
         "defaultPaths": {
           "type": "object",
-          "description": "Default-Pfade fuer neue Datenbanken und Backups (Registry-Aequivalent)",
+          "description": "RESERVIERT (nicht ausgefuehrt): Default-Pfade fuer neue Datenbanken und Backups (Registry-Aequivalent)",
           "properties": {
             "data": {
               "type": "string",
@@ -544,48 +551,56 @@
               ]
             }
           },
-          "additionalProperties": false
+          "additionalProperties": false,
+          "x-runtimeStatus": "reserved"
         },
         "sqlAgent": {
           "type": "boolean",
-          "description": "SQL Server Agent aktivieren (fuer Job-Demos)",
-          "default": false
+          "description": "RESERVIERT (nicht ausgefuehrt): SQL Server Agent aktivieren (fuer Job-Demos)",
+          "default": false,
+          "x-runtimeStatus": "reserved"
         },
         "clrEnabled": {
           "type": "boolean",
-          "description": "CLR Integration aktivieren",
-          "default": false
+          "description": "RESERVIERT (nicht ausgefuehrt): CLR Integration aktivieren",
+          "default": false,
+          "x-runtimeStatus": "reserved"
         },
         "filestream": {
           "type": "boolean",
-          "description": "FILESTREAM aktivieren (fuer BLOB-Storage-Demos)",
-          "default": false
+          "description": "RESERVIERT (nicht ausgefuehrt): FILESTREAM aktivieren (fuer BLOB-Storage-Demos)",
+          "default": false,
+          "x-runtimeStatus": "reserved"
         },
         "containedDatabases": {
           "type": "boolean",
-          "description": "Contained Database Authentication aktivieren",
-          "default": false
+          "description": "RESERVIERT (nicht ausgefuehrt): Contained Database Authentication aktivieren",
+          "default": false,
+          "x-runtimeStatus": "reserved"
         },
         "authMode": {
           "type": "string",
-          "description": "Authentifizierungsmodus",
+          "description": "RESERVIERT (nicht ausgefuehrt): Authentifizierungsmodus",
           "enum": [
             "mixed",
             "windows"
           ],
-          "default": "mixed"
+          "default": "mixed",
+          "x-runtimeStatus": "reserved"
         },
         "errorLogRetention": {
           "type": "integer",
-          "description": "Anzahl SQL-Error-Logs die aufbewahrt werden",
+          "description": "RESERVIERT (nicht ausgefuehrt): Anzahl SQL-Error-Logs die aufbewahrt werden",
           "minimum": 1,
           "maximum": 99,
-          "default": 6
+          "default": 6,
+          "x-runtimeStatus": "reserved"
         },
         "instantFileInit": {
           "type": "boolean",
-          "description": "Instant File Initialization (Performance: Data-Files schneller erstellen)",
-          "default": true
+          "description": "RESERVIERT (nicht ausgefuehrt): Instant File Initialization (Performance: Data-Files schneller erstellen)",
+          "default": true,
+          "x-runtimeStatus": "reserved"
         },
         "externalScripts": {
           "type": "object",
@@ -594,7 +609,8 @@
             "enabled": {
               "type": "boolean",
               "description": "sp_configure 'external scripts enabled', 1 (erfordert Neustart)",
-              "default": false
+              "default": false,
+              "x-runtimeStatus": "executable"
             },
             "languages": {
               "type": "array",
@@ -646,7 +662,8 @@
                   "name"
                 ],
                 "additionalProperties": false
-              }
+              },
+              "x-runtimeStatus": "executable"
             },
             "resourceGovernor": {
               "type": "object",
@@ -666,7 +683,8 @@
                   "default": 4
                 }
               },
-              "additionalProperties": false
+              "additionalProperties": false,
+              "x-runtimeStatus": "executable"
             },
             "customImage": {
               "type": "string",
@@ -674,20 +692,23 @@
               "examples": [
                 "mcr.microsoft.com/mssql/server:2022-latest",
                 "myregistry.io/mssql-ml:2022-CU18"
-              ]
+              ],
+              "x-runtimeStatus": "reserved"
             },
             "installMethod": {
               "type": "string",
-              "description": "Wie ML Services installiert werden",
+              "description": "Wie ML Services installiert werden; 'pre-built' ist reserviert und wird nicht ausgefuehrt.",
               "enum": [
                 "post-start",
                 "custom-image",
                 "pre-built"
               ],
-              "default": "post-start"
+              "default": "post-start",
+              "x-runtimeStatus": "partially-executable"
             }
           },
-          "additionalProperties": false
+          "additionalProperties": false,
+          "x-runtimeStatus": "partially-executable"
         }
       },
       "additionalProperties": false
