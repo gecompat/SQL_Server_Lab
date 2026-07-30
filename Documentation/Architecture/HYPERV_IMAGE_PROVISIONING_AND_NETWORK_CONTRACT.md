@@ -549,7 +549,7 @@ RECOVERY_REQUIRED
 ```
 
 Konsumenten werten strukturierte Codes und Results aus, nicht übersetzten
-Konsoltext. Reboots von Gast oder Host dürfen den letzten erfolgreich
+Konsolentext. Reboots von Gast oder Host dürfen den letzten erfolgreich
 verifizierten Step nicht verlieren.
 
 ## 16. Resource Assessment
