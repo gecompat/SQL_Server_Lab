@@ -94,6 +94,48 @@ function Resolve-LabRestoreContainer {
     return $containerCandidates[0]
 }
 
+function Resolve-LabRestoreRunTarget {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RunId,
+        [string]$InstanceId = 'primary',
+        [string]$StateRoot
+    )
+
+    if (-not $StateRoot) {
+        $StateRoot = Get-LabStateRoot
+    }
+
+    $connectionInfoPath = Join-Path (Join-Path (Join-Path $StateRoot 'runs') $RunId) 'connection-info.json'
+    if (-not (Test-Path -LiteralPath $connectionInfoPath -PathType Leaf)) {
+        throw "Connection-Info nicht gefunden fuer Run '$RunId'."
+    }
+
+    $connectionInfo = Get-Content -LiteralPath $connectionInfoPath -Raw -Encoding utf8 |
+        ConvertFrom-Json -Depth 20
+    $instances = @($connectionInfo.instances | Where-Object { $_.id -eq $InstanceId })
+    if ($instances.Count -eq 0) {
+        throw "Instanz '$InstanceId' nicht in Run '$RunId' gefunden."
+    }
+    if ($instances.Count -gt 1) {
+        throw "Instanz-ID '$InstanceId' ist in Run '$RunId' nicht eindeutig."
+    }
+
+    $instance = $instances[0]
+    if ([string]::IsNullOrWhiteSpace([string]$instance.provider) -or
+        [string]::IsNullOrWhiteSpace([string]$instance.containerName) -or
+        -not $instance.port) {
+        throw "Connection-Info fuer Instanz '$InstanceId' in Run '$RunId' ist unvollstaendig."
+    }
+
+    return [PSCustomObject]@{
+        HostName      = if ($instance.host) { [string]$instance.host } else { '127.0.0.1' }
+        Port          = [int]$instance.port
+        Provider      = [string]$instance.provider
+        ContainerName = [string]$instance.containerName
+    }
+}
+
 function Restore-SqlServerLabDatabase {
     <#
     .SYNOPSIS
@@ -106,8 +148,8 @@ function Restore-SqlServerLabDatabase {
     .PARAMETER HostName
         Hostname oder IP-Adresse des SQL Servers. Standard ist 127.0.0.1.
     .PARAMETER Port
-        Host-Port der SQL-Server-Instanz. Der Port dient auch zur automatischen
-        Zuordnung des Labcontainers, wenn ContainerName nicht angegeben ist.
+        Host-Port der SQL-Server-Instanz im direkten Modus. Der Port dient auch
+        zur automatischen Zuordnung, wenn ContainerName nicht angegeben ist.
     .PARAMETER SaPassword
         SA-Passwort als SecureString.
     .PARAMETER BackupSource
@@ -116,12 +158,20 @@ function Restore-SqlServerLabDatabase {
     .PARAMETER DatabaseName
         Name der Zieldatenbank. Erlaubt sind Buchstaben, Ziffern und Unterstriche;
         das erste Zeichen muss ein Buchstabe sein.
+    .PARAMETER ExpectedSha256
+        Optional erwartete SHA-256-Pruefsumme. Eine Abweichung bricht vor dem
+        Restore ab.
     .PARAMETER Provider
         Optionaler Containerprovider docker oder podman. Schrankt die Suche nach
         dem Zielcontainer ein.
     .PARAMETER ContainerName
         Optionaler Name des SQL_Server_Lab-Containers. Die explizite Angabe
         verhindert Mehrdeutigkeit bei mehreren passenden Instanzen.
+    .PARAMETER RunId
+        Bevorzugte Identitaet einer gespeicherten Labumgebung. Provider,
+        Container, Host und Port werden aus connection-info.json aufgeloest.
+    .PARAMETER InstanceId
+        Instanz-ID innerhalb des Runs. Standard ist primary.
     .PARAMETER DataPath
         Absoluter Linux-Pfad fur die wiederhergestellten Daten- und Logdateien im
         Container. Standard ist /var/opt/mssql/data.
@@ -135,6 +185,10 @@ function Restore-SqlServerLabDatabase {
         System.Management.Automation.PSCustomObject. Liefert das Ergebnis der
         Wiederherstellung einschliesslich Ziel- und Backupinformationen.
     .EXAMPLE
+        Restore-SqlServerLabDatabase -RunId $lab.RunId -InstanceId 'primary' -SaPassword $pw -BackupSource 'C:\Backups\AW.bak' -DatabaseName 'AdventureWorks'
+
+        Loest das Restore-Ziel eindeutig aus dem gespeicherten Run-State auf.
+    .EXAMPLE
         Restore-SqlServerLabDatabase -Provider docker -ContainerName $lab.Instances[0].ContainerName -Port $lab.Instances[0].Port -SaPassword $pw -BackupSource 'C:\Backups\AW.bak' -DatabaseName 'AdventureWorks'
 
         Stellt eine lokale Backup-Datei in einem explizit benannten Container
@@ -145,15 +199,19 @@ function Restore-SqlServerLabDatabase {
         Ladt ein Backup in den State-Cache und ermittelt den Container anhand des
         Host-Ports.
     #>
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParameterSetName = 'Direct')]
     param(
-        [string]$HostName = '127.0.0.1',
-        [Parameter(Mandatory)][int]$Port,
+        [Parameter(ParameterSetName = 'Direct')][string]$HostName = '127.0.0.1',
+        [Parameter(ParameterSetName = 'Direct', Mandatory)][int]$Port,
         [Parameter(Mandatory)][SecureString]$SaPassword,
         [Parameter(Mandatory)][string]$BackupSource,
         [Parameter(Mandatory)][string]$DatabaseName,
+        [ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$ExpectedSha256,
+        [Parameter(ParameterSetName = 'Direct')]
         [ValidateSet('docker', 'podman')][string]$Provider,
-        [string]$ContainerName,
+        [Parameter(ParameterSetName = 'Direct')][string]$ContainerName,
+        [Parameter(ParameterSetName = 'RunBased', Mandatory)][string]$RunId,
+        [Parameter(ParameterSetName = 'RunBased')][string]$InstanceId = 'primary',
         [string]$DataPath = '/var/opt/mssql/data',
         [switch]$Replace,
         [string]$StateRoot
@@ -164,6 +222,14 @@ function Restore-SqlServerLabDatabase {
     if ($DatabaseName -notmatch '^[A-Za-z][A-Za-z0-9_]{0,127}$') {
         throw "DatabaseName '$DatabaseName' ist ungueltig."
     }
+    if ($PSCmdlet.ParameterSetName -eq 'RunBased') {
+        $runTarget = Resolve-LabRestoreRunTarget -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
+        $HostName = $runTarget.HostName
+        $Port = $runTarget.Port
+        $Provider = $runTarget.Provider
+        $ContainerName = $runTarget.ContainerName
+    }
+
     if ($Port -lt 1 -or $Port -gt 65535) {
         throw "Port '$Port' liegt ausserhalb des gueltigen TCP-Portbereichs."
     }
@@ -173,13 +239,20 @@ function Restore-SqlServerLabDatabase {
 
     $backupPath = if ($BackupSource -match '^https?://') {
         Write-LabInfo "Download: $BackupSource"
-        Get-LabCachedBackup -Url $BackupSource -StateRoot $StateRoot
+        Get-LabCachedBackup -Url $BackupSource -ExpectedSha256 $ExpectedSha256 -StateRoot $StateRoot
     }
     elseif (Test-Path -LiteralPath $BackupSource -PathType Leaf) {
         (Resolve-Path -LiteralPath $BackupSource).Path
     }
     else {
         throw "Backup-Quelle nicht gefunden oder kein direktes File: $BackupSource"
+    }
+
+    if ($ExpectedSha256) {
+        $actualSha256 = (Get-FileHash -LiteralPath $backupPath -Algorithm SHA256).Hash
+        if ($actualSha256 -ne $ExpectedSha256) {
+            throw "SHA-256-Pruefung fuer Backup '$BackupSource' fehlgeschlagen."
+        }
     }
 
     $restoreTarget = Resolve-LabRestoreContainer `
@@ -317,6 +390,7 @@ function Get-LabCachedBackup {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$Url,
+        [ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$ExpectedSha256,
         [string]$StateRoot
     )
 
@@ -337,6 +411,13 @@ function Get-LabCachedBackup {
 
     $cachedPath = Join-Path $cacheDirectory $fileName
     if (Test-Path -LiteralPath $cachedPath -PathType Leaf) {
+        if ($ExpectedSha256) {
+            $actualSha256 = (Get-FileHash -LiteralPath $cachedPath -Algorithm SHA256).Hash
+            if ($actualSha256 -ne $ExpectedSha256) {
+                Remove-Item -LiteralPath $cachedPath -Force
+                throw "SHA-256-Pruefung fuer Cache-Datei '$fileName' fehlgeschlagen."
+            }
+        }
         $fileSize = (Get-Item -LiteralPath $cachedPath).Length
         Write-LabInfo "Cache-Hit: $fileName ($([Math]::Round($fileSize / 1MB, 1)) MB)"
         return $cachedPath
@@ -347,6 +428,12 @@ function Get-LabCachedBackup {
     try {
         $ProgressPreference = 'SilentlyContinue'
         Invoke-WebRequest -Uri $Url -OutFile $cachedPath
+        if ($ExpectedSha256) {
+            $actualSha256 = (Get-FileHash -LiteralPath $cachedPath -Algorithm SHA256).Hash
+            if ($actualSha256 -ne $ExpectedSha256) {
+                throw "SHA-256-Pruefung fuer Download '$fileName' fehlgeschlagen."
+            }
+        }
     }
     catch {
         if (Test-Path -LiteralPath $cachedPath) {

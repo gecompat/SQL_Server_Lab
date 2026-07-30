@@ -43,7 +43,7 @@ Fachliche Testszenarien bleiben in den konsumierenden Projekten. `SQL_Server_Lab
 | Run-State und Cleanup-Plan | implementiert | `Private/StateMachine.ps1`, `Private/CleanupEngine.ps1` |
 | Datenbankerstellung | implementiert | `New-SqlServerLabDatabase` |
 | Backup-Restore | implementiert | `Restore-SqlServerLabDatabase` |
-| Sample-Datenbanken | teilweise implementiert | direkte `.bak`-Varianten aus `Catalogs/sample-databases.json` |
+| Sample-Datenbanken | vorbereitet | nur direkte `.bak`-Varianten mit `runtimeStatus: executable` und SHA-256; aktuelle Eintraege sind beschreibend |
 | T-SQL-Skriptausführung | implementiert | `Invoke-SqlServerLabScript` |
 | Provider-/Versions-/Parallel-Smoke-Test | implementiert | `Tests/Integration/Invoke-SmokeMatrix.ps1` |
 | Einzelprovider-Smoke-Test | implementiert | `Tests/Integration/Invoke-SmokeTest.ps1` |
@@ -191,6 +191,18 @@ Restore-SqlServerLabDatabase `
     -ContainerName $lab.Instances[0].ContainerName
 ```
 
+Fuer einen bereits provisionierten Run ist die RunId-basierte Aufloesung
+bevorzugt; sie liest Provider, Container, Host und Port aus dem lokalen State:
+
+```powershell
+Restore-SqlServerLabDatabase `
+    -RunId $lab.RunId `
+    -InstanceId 'primary' `
+    -SaPassword $pw `
+    -BackupSource 'C:\Backups\AdventureWorks2022.bak' `
+    -DatabaseName 'AdventureWorks2022'
+```
+
 Eine HTTPS-URL kann ebenfalls als `BackupSource` verwendet werden. Das Backup wird dann im lokalen State-Cache abgelegt.
 
 ## Manifest-Modus
@@ -255,7 +267,9 @@ Vollständige Beispiele liegen unter [`Schemas/`](Schemas/README.md).
 
 ## Sample-Datenbanken
 
-Direkte `.bak`-Varianten des Sample-Katalogs können deklarativ verwendet werden:
+Sample-Referenzen können deklarativ beschrieben werden. Automatisch ausgeführt
+werden sie nur mit `runtimeStatus: executable` und verifizierter SHA-256-Pruefsumme;
+die aktuellen Katalogvarianten sind bis zu dieser Verifikation beschreibend:
 
 ```json
 {
@@ -279,7 +293,9 @@ Direkte `.bak`-Varianten des Sample-Katalogs können deklarativ verwendet werden
 }
 ```
 
-Archive, Attach-Szenarien und SQL-Skript-Samples werden nicht automatisch in einen Restore umgedeutet. Sie führen mit einer klaren Fehlermeldung zum Abbruch.
+Unverifizierte Downloads, Archive, Attach-Szenarien und SQL-Skript-Samples
+werden nicht automatisch in einen Restore umgedeutet. Sie führen mit einer
+klaren Fehlermeldung zum Abbruch.
 
 ## Lifecycle
 

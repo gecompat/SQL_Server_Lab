@@ -124,6 +124,87 @@ foreach ($file in $jsonFiles) {
     }
 }
 
+$schemaValidationTargets = @(
+    @{ Data = 'Catalogs/sql-server-versions.json'; Schema = 'Schemas/version-catalog.schema.json' }
+    @{ Data = 'Catalogs/sample-databases.json'; Schema = 'Schemas/sample-databases.schema.json' }
+) + @(
+    Get-ChildItem -LiteralPath (Join-Path $repoRoot 'Schemas') -Filter 'example-*.json' -File |
+        ForEach-Object {
+            @{ Data = [System.IO.Path]::GetRelativePath($repoRoot, $_.FullName); Schema = 'Schemas/lab-manifest.schema.json' }
+        }
+)
+
+foreach ($target in $schemaValidationTargets) {
+    $dataPath = Join-Path $repoRoot $target.Data
+    $schemaPath = Join-Path $repoRoot $target.Schema
+    try {
+        $valid = Get-Content -LiteralPath $dataPath -Raw -Encoding utf8 |
+            Test-Json -SchemaFile $schemaPath -ErrorAction Stop
+        Add-ValidationResult `
+            -Name "Schema: $($target.Data)" `
+            -Success $valid `
+            -Message "Entspricht nicht $($target.Schema)"
+    }
+    catch {
+        Add-ValidationResult `
+            -Name "Schema: $($target.Data)" `
+            -Success $false `
+            -Message $_.Exception.Message
+    }
+}
+
+$manifestSchema = Get-Content -LiteralPath (Join-Path $repoRoot 'Schemas/lab-manifest.schema.json') -Raw -Encoding utf8 |
+    ConvertFrom-Json -Depth 100
+$serverConfigProperties = $manifestSchema.definitions.serverConfig.properties.PSObject.Properties
+$unclassifiedServerConfig = @(
+    $serverConfigProperties | Where-Object {
+        $_.Value.'x-runtimeStatus' -notin @('executable', 'reserved', 'partially-executable')
+    } | Select-Object -ExpandProperty Name
+)
+Add-ValidationResult `
+    -Name 'Alle serverConfig-Felder besitzen x-runtimeStatus' `
+    -Success ($unclassifiedServerConfig.Count -eq 0) `
+    -Message ($unclassifiedServerConfig -join ', ')
+
+$reservedServerConfig = @(
+    $serverConfigProperties | Where-Object { $_.Value.'x-runtimeStatus' -eq 'reserved' } |
+        Select-Object -ExpandProperty Name
+)
+$reservedExampleHits = @()
+foreach ($manifestFile in Get-ChildItem -LiteralPath (Join-Path $repoRoot 'Schemas') -Filter 'example-*.json' -File) {
+    $manifest = Get-Content -LiteralPath $manifestFile.FullName -Raw -Encoding utf8 | ConvertFrom-Json -Depth 100
+    foreach ($instance in @($manifest.instances)) {
+        foreach ($fieldName in $reservedServerConfig) {
+            if ($instance.serverConfig -and $instance.serverConfig.PSObject.Properties.Name -contains $fieldName) {
+                $reservedExampleHits += "$($manifestFile.Name):$fieldName"
+            }
+        }
+        if ($instance.serverConfig.externalScripts.installMethod -eq 'pre-built') {
+            $reservedExampleHits += "$($manifestFile.Name):externalScripts.installMethod=pre-built"
+        }
+    }
+}
+Add-ValidationResult `
+    -Name 'Beispielmanifeste verwenden keine reservierten serverConfig-Felder' `
+    -Success ($reservedExampleHits.Count -eq 0) `
+    -Message ($reservedExampleHits -join ', ')
+
+$sampleCatalog = Get-Content -LiteralPath (Join-Path $repoRoot 'Catalogs/sample-databases.json') -Raw -Encoding utf8 |
+    ConvertFrom-Json -Depth 100
+$invalidExecutableSamples = @()
+foreach ($sample in @($sampleCatalog.databases)) {
+    foreach ($variant in $sample.versions.PSObject.Properties) {
+        if ($variant.Value.runtimeStatus -eq 'executable' -and
+            [string]$variant.Value.sha256 -notmatch '^[A-Fa-f0-9]{64}$') {
+            $invalidExecutableSamples += "$($sample.id):$($variant.Name)"
+        }
+    }
+}
+Add-ValidationResult `
+    -Name 'Ausfuehrbare Sample-Varianten besitzen SHA-256' `
+    -Success ($invalidExecutableSamples.Count -eq 0) `
+    -Message ($invalidExecutableSamples -join ', ')
+
 # =============================================================================
 # 3. Modulmanifest und Exporte
 # =============================================================================
@@ -414,8 +495,8 @@ Add-ValidationResult `
     -Success ($gettingStarted -notmatch '\|\s*`SQL_SERVER_LAB_PATH`\s*\|')
 
 Add-ValidationResult `
-    -Name 'Kein veraltetes Restore-Beispiel mit -RunId' `
-    -Success ($gettingStarted -notmatch '(?is)```powershell.*?Restore-SqlServerLabDatabase\s+-RunId')
+    -Name 'Getting Started dokumentiert RunId-basierten Restore' `
+    -Success ($gettingStarted -match '(?is)Restore-SqlServerLabDatabase\s+.*?-RunId')
 
 Add-ValidationResult `
     -Name 'Kein veraltetes Restore-Beispiel mit -BackupUrl' `

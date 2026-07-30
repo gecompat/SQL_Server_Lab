@@ -25,7 +25,7 @@ Hyper-V ist geplant, aber nicht implementiert. Manifeste mit Windows-Betriebssys
 
 ### Schema ist kein Runtime-Nachweis
 
-`Schemas/lab-manifest.schema.json` enthält neben ausführbaren Feldern auch teilweise vorbereitete Erweiterungsfelder. Für die tatsächliche Ausführung sind zusätzlich `Private/ManifestParser.ps1` und die zuständige Runtimefunktion maßgeblich.
+`Schemas/lab-manifest.schema.json` enthält neben ausführbaren Feldern auch teilweise vorbereitete Erweiterungsfelder. Direkte `serverConfig`-Eigenschaften sind mit `x-runtimeStatus` als `executable`, `reserved` oder `partially-executable` klassifiziert. Für die tatsächliche Ausführung sind zusätzlich `Private/ManifestParser.ps1` und die zuständige Runtimefunktion maßgeblich.
 
 ### Ausgeführte `serverConfig`-Bereiche
 
@@ -79,15 +79,20 @@ Nicht automatisch unterstützt werden:
 - verschlüsselte Backups mit externen Zertifikaten
 - komplexe Mehrfach-Backup-Sets
 
-Bei manuellen Restores sollte `-ContainerName` explizit angegeben werden. Ohne diesen Parameter wird nur ein einfacher Fallback zur Containererkennung verwendet.
+Bei manuellen Restores ist `-RunId` mit optionaler `-InstanceId` die bevorzugte Identitaet. Provider, Container, Host und Port werden dabei aus der gespeicherten `connection-info.json` aufgeloest. Der direkte Modus mit `-Port` bleibt fuer externe Aufrufer erhalten; ohne `-ContainerName` verwendet er die portbasierte Containererkennung.
 
 ## Sample-Datenbanken
 
 `sample`-Referenzen werden auf den Katalog `Catalogs/sample-databases.json` aufgelöst.
 
-Automatisch ausführbar sind nur Varianten mit einer direkten `.bak`-URL. Katalogeinträge für SQL-Skripte, Archive oder Attach-Verfahren bleiben sichtbar, werden aber mit einer erklärenden Fehlermeldung abgewiesen.
+Automatisch ausführbar sind nur Varianten mit einer direkten `.bak`-URL,
+`runtimeStatus: executable` und hinterlegtem SHA-256. Katalogeinträge ohne
+verifizierte Prüfsumme sowie Eintraege fuer SQL-Skripte, Archive oder
+Attach-Verfahren bleiben als `descriptive` sichtbar und werden mit einer
+erklärenden Fehlermeldung abgewiesen.
 
-Die im Katalog enthaltenen Prüfsummen können `null` sein. Eine kryptografische Downloadprüfung ist dann nicht möglich.
+Die im Katalog enthaltenen Prüfsummen können bei beschreibenden Varianten
+`null` sein. Solche Varianten gelten nicht als produktiv ausführbar.
 
 ## SQL Server Builds und CUs
 
@@ -115,8 +120,6 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
 
 ## Priorisierte nächste technische Schritte
 
-1. Runtimevertrag des Manifest-Schemas auf ausschließlich implementierte Felder reduzieren oder reservierte Felder formal kennzeichnen.
-2. Providerübergreifenden Lifecycle für gemischte Runs definieren.
-3. Hyper-V-Provider erst nach einem eigenständigen Implementierungs- und Testvertrag ergänzen.
-4. Restore-Erkennung für manuelle Aufrufe an RunId oder Port binden.
-5. Katalogaktualität und Prüfsummen kontrolliert pflegen.
+1. Providerübergreifenden Lifecycle für gemischte Runs definieren.
+2. Hyper-V-Provider erst nach einem eigenständigen Implementierungs- und Testvertrag ergänzen.
+3. Katalogaktualität und Prüfsummen kontrolliert pflegen.
