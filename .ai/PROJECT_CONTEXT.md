@@ -46,7 +46,8 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 
 ### Geplant oder unvollständig
 
-- Hyper-V-Provider;
+- Hyper-V-Provider mit resumierbarer OS-/SQL-Image-Pipeline, sealed
+  Parent-VHDX, zusätzlichen Drives und providerneutralen Netzwerken;
 - gemeinsamer Lifecycle für gemischte Provider innerhalb eines Runs;
 - vollständige Ausführung aller im Schema vorbereiteten `serverConfig`-Felder;
 - automatische Verarbeitung von Sample-Archiven, Attach-Szenarien und SQL-Skript-Samples;
@@ -54,6 +55,10 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 - Mehrfachauswahl von Testdatenbanken im Ad-hoc-Menü;
 - kontextreiche Manifest-Menüführung mit verbindlicher Pfadsemantik;
 - `LAB_GENERATED`-Baselines und deterministische Wahl des besten kompatiblen Aufsetzpunkts;
+- providerneutrale Software und External Runtimes einschließlich Python unter
+  Linux sowie Derived Container Images;
+- kontrollierte nachträgliche Änderungen über Diff und Reconcile;
+- versionierter Refresh-/Rebuild-Lifecycle für Medien, VHDX und Container-Images;
 - konsumierende Analyze- und Schulungs-Lab-Packages;
 - langfristige Planner-, Package- und Supporting-Component-Architektur.
 
@@ -79,6 +84,11 @@ Hyper-V
 ```
 
 Hyper-V ist ein verbindliches langfristiges Ziel, aber kein aktueller Runtime-Nachweis. Ein Verzeichnis oder Planungsdokument reicht nicht, um einen Provider als implementiert zu bezeichnen.
+
+Der verbindliche Implementierungsvertrag steht in
+`Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md`.
+Er definiert unter anderem sealed Images, SQL `PrepareImage`/`CompleteImage`,
+Drives, Network Intents, Software, Manual Resume, Reconcile und Artifact Refresh.
 
 ## 4. SQL-Server-Versionen
 
@@ -136,6 +146,7 @@ Quell-Snapshots unter `_QuellRepo/` dienen nur als eingefrorene Referenz. Sie de
 | Cleanup | `Private/CleanupEngine.ps1` |
 | Runtimegrenzen | `Documentation/Quality/KNOWN_LIMITATIONS.md` |
 | Zielvertrag für Testdatenbank-Artefakte und Manifest-Wizard | `Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md` |
+| Zielvertrag für Hyper-V, Images, Netzwerke und Reconcile | `Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md` |
 | Benutzerfluss | `README.md`, `Documentation/User/Getting_Started.md` |
 | KI-Landkarte | `.ai/repo_map.yaml` |
 | statische Prüfung | `Tests/Static/Invoke-DocumentationChecks.ps1` |

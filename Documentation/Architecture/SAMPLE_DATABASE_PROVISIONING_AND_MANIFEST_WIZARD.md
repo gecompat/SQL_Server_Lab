@@ -482,6 +482,10 @@ zurückgefallen.
 
 ### 10.4 Plattformbezogene Zustände
 
+Der detaillierte Hyper-V-, OS-/SQL-Image-, Drive-, Netzwerk-, Software-,
+Reconcile- und Refresh-Vertrag steht in
+[Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md).
+
 Providerübergreifend werden Datenbankartefakte bevorzugt von
 Infrastrukturzuständen getrennt:
 
