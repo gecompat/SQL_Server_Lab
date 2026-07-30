@@ -15,6 +15,7 @@ function Add-LabInstanceCleanupPlan {
             -ResourceId $volumeName `
             -Action 'remove' `
             -Provider $Instance.provider `
+            -ProviderSubRunId "provider-$($Instance.provider)" `
             -Compensation "$($Instance.provider) volume rm $volumeName"
     }
 
@@ -26,6 +27,7 @@ function Add-LabInstanceCleanupPlan {
         -ResourceId $containerName `
         -Action 'remove' `
         -Provider $Instance.provider `
+        -ProviderSubRunId "provider-$($Instance.provider)" `
         -Compensation "$($Instance.provider) rm -f $containerName"
 }
 
@@ -179,11 +181,9 @@ function New-SqlServerLab {
     Write-LabInfo "Umgebung: $($resolved.name) ($($resolved.instances.Count) Instanz(en))"
 
     $providers = @($resolved.instances | ForEach-Object { $_.provider } | Sort-Object -Unique)
-    if ($providers.Count -ne 1) {
-        throw 'Gemischte Provider innerhalb eines Runs sind noch nicht implementiert.'
-    }
-    if ($providers[0] -notin @('docker', 'podman')) {
-        throw "Provider '$($providers[0])' ist geplant, aber noch nicht implementiert."
+    $notImplementedProviders = @($providers | Where-Object { $_ -notin @('docker', 'podman') })
+    if ($notImplementedProviders.Count -gt 0) {
+        throw "Provider nicht implementiert: $($notImplementedProviders -join ', ')."
     }
 
     foreach ($instance in $resolved.instances) {
@@ -206,7 +206,7 @@ function New-SqlServerLab {
         Write-LabInfo 'Resource Assessment...'
         $assessment = Test-SqlServerLabPrerequisite `
             -Instances $resolved.instances `
-            -Provider $providers[0]
+            -Provider $providers
 
         foreach ($detail in $assessment.Details) {
             $color = switch ($detail.Status) {
@@ -230,9 +230,23 @@ function New-SqlServerLab {
         $SaPassword = Read-SaPassword
     }
 
+    $providerSubRuns = @(
+        $resolved.instances |
+            Group-Object -Property provider |
+            Sort-Object Name |
+            ForEach-Object {
+                [PSCustomObject]@{
+                    id          = "provider-$($_.Name)"
+                    provider    = $_.Name
+                    instanceIds = @($_.Group | ForEach-Object { $_.id })
+                }
+            }
+    )
+
     $runState = New-LabRunState `
         -StateRoot $StateRoot `
-        -Metadata @{ name = $resolved.name }
+        -Metadata @{ name = $resolved.name } `
+        -ProviderSubRuns $providerSubRuns
     $effectiveStateRoot = $runState.StateRoot
     $cleanupStatus = 'NOT_STARTED'
 
@@ -243,7 +257,8 @@ function New-SqlServerLab {
         $null = New-CleanupPlan `
             -RunDir $runState.RunDir `
             -RunId $runState.RunId `
-            -ScopeId $runState.ScopeId
+            -ScopeId $runState.ScopeId `
+            -ProviderSubRuns $providerSubRuns
 
         foreach ($instance in $resolved.instances) {
             Add-LabInstanceCleanupPlan -Instance $instance -RunState $runState
@@ -256,6 +271,12 @@ function New-SqlServerLab {
 
         $null = Set-LabRunState `
             -RunId $runState.RunId `
+            -NewState 'PROVISIONING' `
+            -Reason 'Provider-Start' `
+            -StateRoot $effectiveStateRoot
+        Set-LabProviderSubRunsState `
+            -RunId $runState.RunId `
+            -Providers $providers `
             -NewState 'PROVISIONING' `
             -Reason 'Provider-Start' `
             -StateRoot $effectiveStateRoot
@@ -298,6 +319,12 @@ function New-SqlServerLab {
 
         $null = Set-LabRunState `
             -RunId $runState.RunId `
+            -NewState 'SQL_READY' `
+            -Reason 'Alle Instanzen bereit' `
+            -StateRoot $effectiveStateRoot
+        Set-LabProviderSubRunsState `
+            -RunId $runState.RunId `
+            -Providers $providers `
             -NewState 'SQL_READY' `
             -Reason 'Alle Instanzen bereit' `
             -StateRoot $effectiveStateRoot
@@ -377,6 +404,12 @@ function New-SqlServerLab {
             -NewState 'DATABASES_CREATED' `
             -Reason $createReason `
             -StateRoot $effectiveStateRoot
+        Set-LabProviderSubRunsState `
+            -RunId $runState.RunId `
+            -Providers $providers `
+            -NewState 'DATABASES_CREATED' `
+            -Reason $createReason `
+            -StateRoot $effectiveStateRoot
 
         foreach ($instance in $resolved.instances) {
             $labInstance = $labInstances |
@@ -453,6 +486,12 @@ function New-SqlServerLab {
                 -NewState 'POST_PROVISIONED' `
                 -Reason 'Skripte ausgefuehrt' `
                 -StateRoot $effectiveStateRoot
+            Set-LabProviderSubRunsState `
+                -RunId $runState.RunId `
+                -Providers $providers `
+                -NewState 'POST_PROVISIONED' `
+                -Reason 'Skripte ausgefuehrt' `
+                -StateRoot $effectiveStateRoot
         }
 
         $connectionInfo = [PSCustomObject]@{
@@ -479,6 +518,12 @@ function New-SqlServerLab {
 
         $null = Set-LabRunState `
             -RunId $runState.RunId `
+            -NewState 'RUNNING' `
+            -Reason 'Umgebung bereit' `
+            -StateRoot $effectiveStateRoot
+        Set-LabProviderSubRunsState `
+            -RunId $runState.RunId `
+            -Providers $providers `
             -NewState 'RUNNING' `
             -Reason 'Umgebung bereit' `
             -StateRoot $effectiveStateRoot
@@ -524,6 +569,17 @@ function New-SqlServerLab {
                     -NewState 'PROVISION_FAILED' `
                     -Reason $provisioningError.Exception.Message `
                     -StateRoot $effectiveStateRoot
+
+                foreach ($providerSubRun in @(Get-LabProviderSubRuns -RunId $runState.RunId -StateRoot $effectiveStateRoot)) {
+                    if ($providerSubRun.state -notin @('PROVISION_FAILED', 'CLEANUP_PENDING', 'CLEANUP_RUNNING', 'CLEANED_UP', 'RECOVERY_REQUIRED', 'REMOVED')) {
+                        Set-LabProviderSubRunState `
+                            -RunId $runState.RunId `
+                            -Provider $providerSubRun.provider `
+                            -NewState 'PROVISION_FAILED' `
+                            -Reason $provisioningError.Exception.Message `
+                            -StateRoot $effectiveStateRoot
+                    }
+                }
             }
 
             $currentState = Get-LabRunState -RunId $runState.RunId -StateRoot $effectiveStateRoot
@@ -533,12 +589,24 @@ function New-SqlServerLab {
                     -NewState 'CLEANUP_PENDING' `
                     -Reason 'Auto-Cleanup nach Fehler' `
                     -StateRoot $effectiveStateRoot
+                Set-LabProviderSubRunsState `
+                    -RunId $runState.RunId `
+                    -Providers $providers `
+                    -NewState 'CLEANUP_PENDING' `
+                    -Reason 'Auto-Cleanup nach Fehler' `
+                    -StateRoot $effectiveStateRoot
             }
 
             $currentState = Get-LabRunState -RunId $runState.RunId -StateRoot $effectiveStateRoot
             if ($currentState.state -eq 'CLEANUP_PENDING') {
                 $null = Set-LabRunState `
                     -RunId $runState.RunId `
+                    -NewState 'CLEANUP_RUNNING' `
+                    -Reason 'Auto-Cleanup gestartet' `
+                    -StateRoot $effectiveStateRoot
+                Set-LabProviderSubRunsState `
+                    -RunId $runState.RunId `
+                    -Providers $providers `
                     -NewState 'CLEANUP_RUNNING' `
                     -Reason 'Auto-Cleanup gestartet' `
                     -StateRoot $effectiveStateRoot
@@ -557,6 +625,12 @@ function New-SqlServerLab {
                     -NewState 'CLEANED_UP' `
                     -Reason "Cleanup: $cleanupStatus" `
                     -StateRoot $effectiveStateRoot
+                Set-LabProviderSubRunsState `
+                    -RunId $runState.RunId `
+                    -Providers $providers `
+                    -NewState 'CLEANED_UP' `
+                    -Reason "Cleanup: $cleanupStatus" `
+                    -StateRoot $effectiveStateRoot
                 $null = Remove-LabSecrets -Path $runState.RunDir
             }
             else {
@@ -565,6 +639,15 @@ function New-SqlServerLab {
                     -NewState 'RECOVERY_REQUIRED' `
                     -Reason "Cleanup: $cleanupStatus" `
                     -StateRoot $effectiveStateRoot
+                foreach ($providerCleanup in @($cleanupResult.ProviderSubRuns)) {
+                    $providerState = if ($providerCleanup.Errors -eq 0) { 'CLEANED_UP' } else { 'RECOVERY_REQUIRED' }
+                    Set-LabProviderSubRunState `
+                        -RunId $runState.RunId `
+                        -Provider $providerCleanup.Provider `
+                        -NewState $providerState `
+                        -Reason "Cleanup: $($providerCleanup.Status)" `
+                        -StateRoot $effectiveStateRoot
+                }
                 $cleanupStatus = 'RECOVERY_REQUIRED'
             }
         }

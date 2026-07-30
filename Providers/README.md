@@ -40,13 +40,18 @@ Der Modul-Loader lädt ausschließlich `.ps1`-Dateien aus Providerverzeichnissen
 
 `New-SqlServerLab` speichert den Provider jeder Instanz in `connection-info.json`.
 
-`Get-SqlServerLab`, `Start-SqlServerLab` und `Stop-SqlServerLab` verwenden diese gespeicherte Information. Dadurch wird eine Podman-Umgebung nicht versehentlich über Docker verwaltet, wenn beide Runtimes installiert sind.
+`Get-SqlServerLab`, `Start-SqlServerLab` und `Stop-SqlServerLab` verwenden
+diese gespeicherte Information. Dadurch wird eine Podman-Instanz nicht
+versehentlich über Docker verwaltet, wenn beide Runtimes installiert sind.
 
 ## Gemischte Provider
 
-Mehrere Provider innerhalb eines Runs sind im langfristigen Architekturvertrag vorgesehen, im gemeinsamen Lifecycle aber noch nicht implementiert. Solche Runs werden nicht stillschweigend über eine zufällig gefundene Runtime verwaltet.
+Ein Run darf Docker- und Podman-Instanzen kombinieren. Jeder Provider bildet
+einen eigenen `ProviderSubRun` mit separatem State und Cleanup-Zuordnung. Die
+Runtimes werden nie gegeneinander ausgetauscht oder zufällig gewählt.
 
-Siehe [`Documentation/Quality/KNOWN_LIMITATIONS.md`](../Documentation/Quality/KNOWN_LIMITATIONS.md).
+Der genaue Umfang sowie Start-Rollback und Recovery stehen im
+[Gemischten Container-Provider-Lifecycle](../Documentation/Architecture/MIXED_PROVIDER_LIFECYCLE.md).
 
 ## Auto-Erkennung
 

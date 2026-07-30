@@ -19,8 +19,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: sql-server-lab-runtime-smoke-docker
-  cancel-in-progress: true
+  group: sql-server-lab-runtime-smoke
+  cancel-in-progress: false
 
 jobs:
   docker-smoke:
@@ -48,6 +48,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           .\Tests\Static\Invoke-DocumentationChecks.ps1
           .\Tests\Static\Invoke-ReadinessContractChecks.ps1
+          .\Tests\Static\Invoke-MixedProviderLifecycleChecks.ps1
 
       - name: Docker smoke matrix
         run: |

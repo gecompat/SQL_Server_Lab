@@ -10,9 +10,9 @@ Dieses Verzeichnis enthält die öffentlichen PowerShell-Funktionen des Moduls. 
 | `New-SqlServerLabManifest` | `New-SqlServerLabManifest.ps1` | Schema-gesteuertes Manifest interaktiv oder aus einem Objekt erstellen |
 | `Test-SqlServerLabManifest` | `New-SqlServerLabManifest.ps1` | Schema, Kataloge und Runtime-Grenzen ohne Provisionierung prüfen |
 | `New-SqlServerLab` | `New-SqlServerLab.ps1` | Neue Umgebung ad hoc oder per Manifest erstellen |
-| `Get-SqlServerLab` | `Get-SqlServerLab.ps1` | State und Live-Containerstatus anzeigen |
-| `Start-SqlServerLab` | `Start-SqlServerLab.ps1` | Gestoppte Umgebung über den gespeicherten Provider starten |
-| `Stop-SqlServerLab` | `Stop-SqlServerLab.ps1` | Laufende Umgebung über den gespeicherten Provider stoppen |
+| `Get-SqlServerLab` | `Get-SqlServerLab.ps1` | State und Live-Containerstatus je Provider anzeigen |
+| `Start-SqlServerLab` | `Start-SqlServerLab.ps1` | Gestoppte Umgebung je gespeicherten Provider starten |
+| `Stop-SqlServerLab` | `Stop-SqlServerLab.ps1` | Laufende Umgebung je gespeicherten Provider stoppen |
 | `Restart-SqlServerLab` | `Restart-SqlServerLab.ps1` | Stop und Start kombinieren |
 | `Remove-SqlServerLab` | `Remove-SqlServerLab.ps1` | Einzelnen Run scope-validiert entfernen |
 | `Clear-SqlServerLab` | `Clear-SqlServerLab.ps1` | Lab-Container und/oder State bereinigen |

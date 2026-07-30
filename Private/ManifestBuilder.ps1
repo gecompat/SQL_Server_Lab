@@ -560,9 +560,6 @@ function Get-LabManifestValidationResult {
         }
     }
 
-    if (@($effectiveProviders | Sort-Object -Unique).Count -gt 1) {
-        $errors.Add('Gemischte Provider innerhalb eines Runs sind noch nicht implementiert.')
-    }
     if ($Manifest.resourceOverrides.maxMemoryMB -or $Manifest.resourceOverrides.maxCpus) {
         $warnings.Add('resourceOverrides.maxMemoryMB/maxCpus werden derzeit nicht in Provider-Limits uebernommen.')
     }

@@ -13,6 +13,7 @@
 .\Tests\Static\Invoke-ManifestBuilderChecks.ps1
 .\Tests\Static\Invoke-DocumentationChecks.ps1
 .\Tests\Static\Invoke-ReadinessContractChecks.ps1
+.\Tests\Static\Invoke-MixedProviderLifecycleChecks.ps1
 ```
 
 Die statischen Prüfungen benötigen keine laufende SQL-Server-Instanz. Sie kontrollieren unter anderem:
@@ -27,6 +28,7 @@ Die statischen Prüfungen benötigen keine laufende SQL-Server-Instanz. Sie kont
 - zentrale Dokumentationslinks;
 - SQL- und Datenbank-Readiness-Verträge;
 - Ausschluss bekannter veralteter Beispiele und Statusangaben.
+- ProviderSubRuns, Mixed-Provider-Beispiel und Cleanup-Zuordnung.
 
 Der interaktive Menüpfad darf das bereits laufende Modul nicht innerhalb von `Invoke-SqlServerLab` erneut mit `Import-Module -Force` laden. Eine Selbst-Neuladung entfernt die gerade verwendeten Hilfsfunktionen aus dem Funktionskontext.
 
@@ -40,6 +42,18 @@ Der bestehende Test prüft einen explizit gewählten Provider vollständig:
 ```
 
 `-Provider auto` wählt weiterhin genau einen erreichbaren Provider, bevorzugt Docker vor Podman. Ein erfolgreicher Docker-Lauf ist kein Nachweis für Podman und umgekehrt.
+
+## Gemischter Container-Provider-Smoke-Test
+
+Der folgende Test prüft Docker und Podman innerhalb eines gemeinsamen Runs:
+
+```powershell
+.\Tests\Integration\Invoke-MixedProviderSmokeTest.ps1
+```
+
+Er benötigt einen Runner, auf dem beide Runtimes erreichbar sind. Die beiden
+Instanzen gehören zu einem einzelnen Lab und werden im Lifecycle nicht parallel
+als unabhängige Jobs provisioniert.
 
 ## Provider- und Versionsmatrix
 
@@ -115,6 +129,7 @@ Die Runtime-Tests verwenden ausschließlich dafür gekennzeichnete Self-hosted R
 |---|---|
 | Docker Runtime Smoke | `self-hosted`, `SQL_Lab`, `Docker` |
 | Podman Runtime Smoke | `self-hosted`, `SQL_Lab`, `Podman` |
+| Mixed Provider Runtime Smoke | `self-hosted`, `SQL_Lab`, `Docker`, `Podman` |
 
 Die Workflows werden bewusst nicht auf einem generischen `self-hosted`-Runner ausgeführt. Docker- und Podman-Läufe verwenden dieselbe Workflow-Concurrency-Gruppe, damit zwei Runtime-Tests nicht unbeabsichtigt gleichzeitig auf demselben Host kollidieren. Die Parallelität wird innerhalb des jeweiligen Smoke-Tests kontrolliert erzeugt.
 
@@ -123,6 +138,7 @@ Remote-Läufe befinden sich unter:
 ```text
 .github/workflows/runtime-smoke-docker.yml
 .github/workflows/runtime-smoke-podman.yml
+.github/workflows/runtime-smoke-mixed-providers.yml
 ```
 
 ## Voraussetzungen

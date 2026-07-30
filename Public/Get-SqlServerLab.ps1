@@ -3,8 +3,9 @@
     Zeigt Status aller oder einzelner SQL_Server_Lab-Umgebungen.
 .DESCRIPTION
     Liest den gespeicherten Run-State und ergaenzt ihn, soweit moeglich, um den
-    Live-Status der zugeordneten Docker- oder Podman-Container. Das Cmdlet
-    veraendert weder Run-State noch Container.
+    Live-Status der zugeordneten Docker- oder Podman-Container. Mehrere
+    Provider innerhalb eines Runs werden als getrennte ProviderSubRuns
+    abgefragt. Das Cmdlet veraendert weder Run-State noch Container.
 .PARAMETER RunId
     Optional: Nur diese RunId anzeigen.
 .PARAMETER Detailed
@@ -51,60 +52,55 @@ function Get-SqlServerLab {
             $null
         }
 
-        $providers = @(
+        $containerMap = @{}
+        $runtimeNotes = @()
+        $providerGroups = @(
             $connectionInfo.instances |
-                ForEach-Object { $_.provider } |
-                Where-Object { $_ } |
-                Sort-Object -Unique
+                Where-Object { $_.provider } |
+                Group-Object -Property provider |
+                Sort-Object Name
         )
 
-        $containerMap = @{}
-        $runtimeError = $null
+        foreach ($providerGroup in $providerGroups) {
+            $provider = ([string]$providerGroup.Name).ToLowerInvariant()
+            $runtime = Get-ContainerRuntime -PreferredRuntime $provider
+            if (-not $runtime) {
+                $runtimeNotes += "Container-Runtime '$provider' ist lokal nicht verfuegbar."
+                continue
+            }
 
-        if ($providers.Count -le 1) {
-            $preferredRuntime = if ($providers.Count -eq 1) { $providers[0] } else { $null }
-            $runtime = Get-ContainerRuntime -PreferredRuntime $preferredRuntime
+            $containerIds = @(
+                & $runtime ps -a -q --filter "label=sql-server-lab.run-id=$($run.runId)" 2>$null |
+                    Where-Object { $_ }
+            )
 
-            if ($runtime) {
-                $containerIds = @(
-                    & $runtime ps -a -q --filter "label=sql-server-lab.run-id=$($run.runId)" 2>$null |
-                        Where-Object { $_ }
-                )
+            foreach ($containerIdValue in $containerIds) {
+                $containerId = ([string]$containerIdValue).Trim()
+                if (-not $containerId) {
+                    continue
+                }
 
-                foreach ($containerIdValue in $containerIds) {
-                    $containerId = ([string]$containerIdValue).Trim()
-                    if (-not $containerId) {
+                try {
+                    $inspectJson = & $runtime inspect $containerId 2>$null | ConvertFrom-Json -Depth 30
+                    if (-not $inspectJson) {
                         continue
                     }
 
-                    try {
-                        $inspectJson = & $runtime inspect $containerId 2>$null | ConvertFrom-Json -Depth 30
-                        if (-not $inspectJson) {
-                            continue
-                        }
+                    $inspectItem = @($inspectJson)[0]
+                    $labels = $inspectItem.Config.Labels
+                    $instanceId = $labels.'sql-server-lab.instance-id'
+                    $healthStatus = if ($inspectItem.State.Health) { $inspectItem.State.Health.Status } else { $null }
 
-                        $inspectItem = @($inspectJson)[0]
-                        $labels = $inspectItem.Config.Labels
-                        $instanceId = $labels.'sql-server-lab.instance-id'
-                        $healthStatus = if ($inspectItem.State.Health) { $inspectItem.State.Health.Status } else { $null }
-
-                        $containerMap[$instanceId] = @{
-                            Name    = ([string]$inspectItem.Name).TrimStart('/')
-                            Running = $inspectItem.State.Status -eq 'running'
-                            Healthy = $healthStatus -eq 'healthy'
-                        }
-                    }
-                    catch {
-                        $runtimeError = "Container-Status konnte nicht gelesen werden: $($_.Exception.Message)"
+                    $containerMap[$instanceId] = @{
+                        Name    = ([string]$inspectItem.Name).TrimStart('/')
+                        Running = $inspectItem.State.Status -eq 'running'
+                        Healthy = $healthStatus -eq 'healthy'
                     }
                 }
+                catch {
+                    $runtimeNotes += "Container-Status fuer Provider '$provider' konnte nicht gelesen werden: $($_.Exception.Message)"
+                }
             }
-            elseif ($preferredRuntime) {
-                $runtimeError = "Container-Runtime '$preferredRuntime' ist lokal nicht verfuegbar."
-            }
-        }
-        else {
-            $runtimeError = 'Gemischte Provider werden im gemeinsamen Lifecycle noch nicht unterstuetzt.'
         }
 
         $instances = @()
@@ -137,12 +133,13 @@ function Get-SqlServerLab {
             CreatedAt   = $run.createdAt
             UpdatedAt   = $run.updatedAt
             Instances   = $instances
-            RuntimeNote = $runtimeError
+            RuntimeNote = ($runtimeNotes -join ' ')
         }
 
         if ($Detailed) {
             $labInfo | Add-Member -NotePropertyName 'StateHistory' -NotePropertyValue $run.stateHistory
             $labInfo | Add-Member -NotePropertyName 'Errors' -NotePropertyValue $run.errors
+            $labInfo | Add-Member -NotePropertyName 'ProviderSubRuns' -NotePropertyValue @(Get-LabProviderSubRuns -RunId $run.runId -StateRoot $stateRoot)
         }
 
         $results += $labInfo
