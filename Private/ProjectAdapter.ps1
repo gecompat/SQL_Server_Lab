@@ -91,8 +91,11 @@ function Read-LabProjectAdapter {
         $majorText = ([string]$adapter.adapterContractVersion).Split('.', 2)[0]
         $majorVersion = 0
         if (-not [int]::TryParse($majorText, [ref]$majorVersion)) {
-            # Formatfehler meldet bereits die Schemapruefung; hier nur den
-            # Status absichern statt eine Cast-Exception zu werfen.
+            # Werte, die dem Schema-Pattern ^\d+\.\d+$ genuegen, aber Int32
+            # ueberlaufen (z. B. '99999999999.0'), erreichen diesen Zweig ohne
+            # Schemafehler. Ohne eigene Meldung bliebe Errors leer und der
+            # Aufrufer meldete eine Ablehnung ohne Begruendung.
+            $errors.Add("Adapter-Vertragsversion '$($adapter.adapterContractVersion)' konnte nicht als Major-Version interpretiert werden.")
             if ($status -eq 'ADAPTER_READY') {
                 $status = 'ADAPTER_INVALID'
             }
@@ -190,15 +193,20 @@ function Test-LabProjectAdapterRunCompatibility {
     param(
         [Parameter(Mandatory)]$Adapter,
         [Parameter(Mandatory)]$RunTarget,
-        [Parameter(Mandatory)][string]$InstanceVersion
+        [Parameter(Mandatory)][AllowEmptyString()][string]$InstanceVersion
     )
 
     $errors = [System.Collections.Generic.List[string]]::new()
 
     $declaredSqlVersions = @($Adapter.supportedSqlVersions | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
     $baseVersion = ([string]$InstanceVersion -split '-', 2)[0]
-    if ($declaredSqlVersions.Count -gt 0 -and $declaredSqlVersions -notcontains $baseVersion) {
-        $errors.Add("Instanzversion $InstanceVersion wird vom Adapter nicht unterstuetzt (deklariert: $($declaredSqlVersions -join ', ')).")
+    if ($declaredSqlVersions.Count -gt 0) {
+        if ([string]::IsNullOrWhiteSpace($baseVersion)) {
+            $errors.Add("Instanzversion ist unbekannt; der Adapter deklariert unterstuetzte Versionen ($($declaredSqlVersions -join ', ')).")
+        }
+        elseif ($declaredSqlVersions -notcontains $baseVersion) {
+            $errors.Add("Instanzversion $InstanceVersion wird vom Adapter nicht unterstuetzt (deklariert: $($declaredSqlVersions -join ', ')).")
+        }
     }
 
     foreach ($capability in @($Adapter.requiredCapabilities | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })) {

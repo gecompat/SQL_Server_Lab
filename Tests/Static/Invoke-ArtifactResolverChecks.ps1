@@ -15,23 +15,7 @@ $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
 $failures = [System.Collections.Generic.List[string]]::new()
 $passed = 0
 
-function Add-CheckResult {
-    param(
-        [Parameter(Mandatory)][string]$Name,
-        [Parameter(Mandatory)][bool]$Success,
-        [string]$Message
-    )
-
-    if ($Success) {
-        $script:passed++
-        Write-Host "  PASS  $Name" -ForegroundColor Green
-        return
-    }
-
-    $failure = if ($Message) { "$Name - $Message" } else { $Name }
-    $script:failures.Add($failure)
-    Write-Host "  FAIL  $failure" -ForegroundColor Red
-}
+. (Join-Path $PSScriptRoot '..' 'Common' 'CheckResult.ps1')
 
 Write-Host ''
 Write-Host 'SQL_Server_Lab - Artifact Resolver Checks' -ForegroundColor Cyan

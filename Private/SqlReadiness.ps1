@@ -246,6 +246,25 @@ function Wait-LabDatabaseReady {
     }
 }
 
+function Test-LabSqlcmdFailure {
+    <#
+    .SYNOPSIS
+        Einheitliche Fehlererkennung fuer sqlcmd-Aufrufe.
+    .DESCRIPTION
+        Ein Aufruf gilt als fehlgeschlagen, wenn der Exitcode ungleich 0 ist
+        (durch -b bei Fehlerschwere > 10) oder die Ausgabe eine Fehlerschwere
+        >= 11 meldet. Beide sqlcmd-Pfade (Query und Single-Connection-Skript)
+        verwenden dieselbe Regel, damit sie nicht auseinanderlaufen.
+    #>
+    [CmdletBinding()]
+    param(
+        [int]$ExitCode,
+        [string]$OutputText
+    )
+
+    return ($ExitCode -ne 0 -or $OutputText -match 'Msg \d+, Level (1[1-9]|[2-9]\d)')
+}
+
 function Invoke-SqlQuery {
     [CmdletBinding()]
     param(
@@ -277,7 +296,7 @@ function Invoke-SqlQuery {
     $exitCode = $LASTEXITCODE
     $outputText = ($output | ForEach-Object { [string]$_ }) -join "`n"
 
-    if ($exitCode -ne 0 -or $outputText -match 'Msg \d+, Level (1[1-9]|[2-9]\d)') {
+    if (Test-LabSqlcmdFailure -ExitCode $exitCode -OutputText $outputText) {
         throw "SQL-Query fehlgeschlagen: $outputText"
     }
 
@@ -390,27 +409,46 @@ function Invoke-LabSqlScript {
 
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
     $executedBatches = 0
+    $tempScriptPath = $null
 
     try {
         if ($KeepConnection) {
             # Gesamtes Skript in einem sqlcmd-Prozess: alle GO-Batches teilen
             # sich dieselbe Session (USE, temporaere Objekte und SET-Optionen
             # bleiben ueber GO hinweg erhalten). -t wirkt pro Statement.
+            #
+            # Der Adaptervertrag fuehrt ausschliesslich reines T-SQL aus. Die
+            # sqlcmd-Skriptebene wird daher vollstaendig deaktiviert:
+            #   -X1  deaktiviert :!!, :r, :ed und den Zugriff auf Host-Umgebungs-
+            #        variablen und bricht ab, sobald ein solcher Befehl auftritt
+            #        (verhindert Shell-Ausfuehrung und das Einbinden von Dateien
+            #        ausserhalb des Adapter-Roots, die der Resolver nie sieht);
+            #   -x   deaktiviert die $(var)-Substitution, damit T-SQL mit '$('
+            #        literal an den Server geht statt als Skriptvariable.
+            # Das Skript wird zusaetzlich als UTF-8 mit BOM in eine temporaere
+            # Datei geschrieben, damit sqlcmd den Inhalt plattformunabhaengig als
+            # UTF-8 erkennt (ohne BOM nimmt der ODBC-Client unter Windows die
+            # ANSI-Codepage an und verstuemmelt Nicht-ASCII-Zeichen).
+            $tempScriptPath = [System.IO.Path]::GetTempFileName()
+            [System.IO.File]::WriteAllText($tempScriptPath, $scriptContent, [System.Text.UTF8Encoding]::new($true))
+
             $output = sqlcmd `
                 -S "${HostName},${Port}" `
                 -U sa `
                 -P $saPlain `
                 -C `
                 -d $Database `
-                -i $ScriptPath `
+                -i $tempScriptPath `
                 -b `
+                -X1 `
+                -x `
                 -t $TimeoutSeconds `
                 -W 2>&1
             $exitCode = $LASTEXITCODE
             $outputText = ($output | ForEach-Object { [string]$_ }) -join "`n"
             $stopwatch.Stop()
 
-            if ($exitCode -ne 0 -or $outputText -match 'Msg \d+, Level (1[1-9]|[2-9]\d)') {
+            if (Test-LabSqlcmdFailure -ExitCode $exitCode -OutputText $outputText) {
                 return [PSCustomObject]@{
                     Success  = $false
                     Batches  = 0
@@ -463,6 +501,9 @@ function Invoke-LabSqlScript {
     }
     finally {
         $saPlain = $null
+        if ($tempScriptPath -and (Test-Path -LiteralPath $tempScriptPath)) {
+            Remove-Item -LiteralPath $tempScriptPath -Force -ErrorAction SilentlyContinue
+        }
     }
 }
 
@@ -479,18 +520,9 @@ function Test-LabDatabaseExists {
         [Parameter(Mandatory)][string]$Database
     )
 
-    if ($Database -notmatch '^[A-Za-z][A-Za-z0-9_]{0,127}$') {
-        throw "Database '$Database' ist ungueltig."
-    }
+    Assert-LabSqlIdentifier -Value $Database -Label 'Database'
 
-    $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword)
-    try {
-        $saPlain = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
-    }
-    finally {
-        [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
-    }
-
+    $saPlain = ConvertFrom-LabSecureString -SecureString $SaPassword
     try {
         $output = Invoke-SqlQuery `
             -HostName $HostName `
