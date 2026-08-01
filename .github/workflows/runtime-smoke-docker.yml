@@ -50,6 +50,9 @@ jobs:
           .\Tests\Static\Invoke-ArtifactResolverChecks.ps1
           .\Tests\Static\Invoke-ReadinessContractChecks.ps1
           .\Tests\Static\Invoke-MixedProviderLifecycleChecks.ps1
+          .\Tests\Static\Invoke-ProjectAdapterChecks.ps1
+          .\Tests\Static\Invoke-SampleHandlerChecks.ps1
+          .\Tests\Static\Invoke-ManifestBuilderChecks.ps1
 
       - name: Docker smoke matrix
         run: |

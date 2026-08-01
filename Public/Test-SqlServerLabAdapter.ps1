@@ -8,7 +8,10 @@ function Test-SqlServerLabAdapter {
         T-SQL-Entrypoints innerhalb des Adapter-Roots, keine Pfad-Traversierung,
         keine Reparse Points, Ablehnung unbekannter Major-Vertragsversionen.
         Optional werden die Anforderungen gegen eine konkrete Run-Instanz
-        geprueft. Der Aufruf mutiert nichts.
+        geprueft. Schlaegt die Run-Aufloesung fehl (unbekannte RunId oder
+        InstanceId), wird das als strukturierter Fehler mit Status
+        ADAPTER_INVALID gemeldet, nicht als Exception. Der Aufruf mutiert
+        nichts.
     .PARAMETER Path
         Adapterverzeichnis oder direkter Pfad zur adapter.json.
     .PARAMETER RunId
@@ -50,18 +53,26 @@ function Test-SqlServerLabAdapter {
     $status = $resolution.Status
 
     if ($RunId -and $resolution.Adapter) {
-        $runTarget = Resolve-LabAdapterRunTarget `
-            -RunId $RunId `
-            -InstanceId $InstanceId `
-            -StateRoot $StateRoot
-        $compatibility = Test-LabProjectAdapterRunCompatibility `
-            -Adapter $resolution.Adapter `
-            -RunTarget $runTarget `
-            -InstanceVersion $runTarget.Version
-        if (-not $compatibility.IsCompatible) {
-            $errors.AddRange([string[]]@($compatibility.Errors))
+        try {
+            $runTarget = Resolve-LabRunInstance `
+                -RunId $RunId `
+                -InstanceId $InstanceId `
+                -StateRoot $StateRoot
+            $compatibility = Test-LabProjectAdapterRunCompatibility `
+                -Adapter $resolution.Adapter `
+                -RunTarget $runTarget `
+                -InstanceVersion $runTarget.Version
+            if (-not $compatibility.IsCompatible) {
+                $errors.AddRange([string[]]@($compatibility.Errors))
+                if ($status -eq 'ADAPTER_READY') {
+                    $status = 'ADAPTER_UNSUPPORTED_CONTRACT'
+                }
+            }
+        }
+        catch {
+            $errors.Add("Run-Aufloesung fehlgeschlagen: $($_.Exception.Message)")
             if ($status -eq 'ADAPTER_READY') {
-                $status = 'ADAPTER_UNSUPPORTED_CONTRACT'
+                $status = 'ADAPTER_INVALID'
             }
         }
     }

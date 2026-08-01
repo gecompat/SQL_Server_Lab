@@ -147,6 +147,10 @@ sind:
 - eine automatische Erfolgskontrolle über die Rückgabe der Entrypoints hinaus;
   `validate` meldet Fehler als `PROJECT_ASSERTION_FAILED`.
 
+Die Entrypoints `update`, `validate` und `cleanup` setzen eine existierende
+`targetDatabase` voraus; nur `install` darf sie im master-Kontext selbst
+erzeugen. Das sqlcmd-Timeout wirkt pro Statement, nicht pro Skript.
+
 Als Capabilities werden derzeit nur `sqlcmd` und `container-linux` geprüft.
 Die produktiven Adapter für `SQL_Server_Analyze` und `SQL_PerformanceSchulung`
 sind noch nicht umgesetzt; die Reihenfolge steht in der
