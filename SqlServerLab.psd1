@@ -23,6 +23,8 @@
         'Invoke-SqlServerLabScript'
         'Restore-SqlServerLabDatabase'
         'Test-SqlServerLabPrerequisite'
+        'Test-SqlServerLabAdapter'
+        'Install-SqlServerLabAdapter'
     )
 
     CmdletsToExport   = @()

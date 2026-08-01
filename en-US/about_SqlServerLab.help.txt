@@ -91,6 +91,16 @@ COMMANDS
     Test-SqlServerLabPrerequisite
         Tests provider, RAM, storage, ports, and path safety without mutation.
 
+    Project adapters
+
+    Test-SqlServerLabAdapter
+        Validates a project adapter against schema and path boundaries, and
+        optionally against a concrete run instance, without any mutation.
+
+    Install-SqlServerLabAdapter
+        Applies a validated adapter entrypoint (install, update, validate,
+        cleanup) to a running instance; no lifecycle side effects.
+
 NAMING AND OWNERSHIP
     PowerShell associates each exported command with SqlServerLab through the
     Source and ModuleName properties:

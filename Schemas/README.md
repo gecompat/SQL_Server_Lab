@@ -9,6 +9,7 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 | `lab-manifest.schema.json` | Struktur deklarativer Labdefinitionen |
 | `version-catalog.schema.json` | Struktur von `Catalogs/sql-server-versions.json` |
 | `sample-databases.schema.json` | Struktur von `Catalogs/sample-databases.json` |
+| `project-adapter.schema.json` | Adaptervertrag konsumierender Projekte (`Adapters/`), Version `0.1-draft` |
 
 ## Beispiele
 

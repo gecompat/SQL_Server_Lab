@@ -129,6 +129,29 @@ Datenbanken erzeugt, wird vom aktuellen Backup-Handler nicht unterstützt.
 Der verbleibende Zielvertrag steht in
 [Testdatenbank-Provisionierung und menügeführte Manifest-Erstellung](../Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md).
 
+## Project Adapter
+
+Der Adaptervertrag `Schemas/project-adapter.schema.json` ist in Version
+`0.1-draft` implementiert (`Test-SqlServerLabAdapter`,
+`Install-SqlServerLabAdapter`).
+
+Ausgeführt werden ausschließlich relative T-SQL-Entrypoints (`.sql`) innerhalb
+des Adapter-Roots gegen eine per RunId aufgelöste Instanz. Nicht enthalten
+sind:
+
+- PowerShell-, Binär- oder Setup-Entrypoints (benötigen einen getrennten
+  Deployment-Unit-Vertrag);
+- die Package-Architektur des Projektintegrationsvertrags: `sqlPackageCatalogs`
+  und `defaultPackageRefs` sind reservierte Schemafelder ohne Runtimepfad;
+- Observe-/Evidence-Entrypoints, Szenarien und Fault Injection;
+- eine automatische Erfolgskontrolle über die Rückgabe der Entrypoints hinaus;
+  `validate` meldet Fehler als `PROJECT_ASSERTION_FAILED`.
+
+Als Capabilities werden derzeit nur `sqlcmd` und `container-linux` geprüft.
+Die produktiven Adapter für `SQL_Server_Analyze` und `SQL_PerformanceSchulung`
+sind noch nicht umgesetzt; die Reihenfolge steht in der
+[Project-Adapter-Priorisierung](../Project_Planning/PROJECT_ADAPTER_PRIORITIZATION.md).
+
 ## SQL Server Builds und CUs
 
 Der Versionskatalog enthält ausdrücklich versionierte Buildmetadaten. Diese Daten sind nicht automatisch aktuell. Ein vorhandener Katalogeintrag bedeutet nicht, dass er das neueste verfügbare CU darstellt.

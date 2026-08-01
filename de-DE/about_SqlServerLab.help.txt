@@ -93,6 +93,16 @@ COMMANDS
     Test-SqlServerLabPrerequisite
         Prueft Provider, RAM, Storage, Ports und Pfadsicherheit ohne Mutation.
 
+    Project Adapter
+
+    Test-SqlServerLabAdapter
+        Prueft einen Project Adapter gegen Schema, Pfadgrenzen und optional
+        gegen eine konkrete Run-Instanz, ohne etwas zu veraendern.
+
+    Install-SqlServerLabAdapter
+        Wendet einen validierten Adapter-Entrypoint (install, update, validate,
+        cleanup) auf eine laufende Instanz an; ohne Lifecycle-Seiteneffekt.
+
 NAMING AND OWNERSHIP
     PowerShell ordnet jeden exportierten Befehl ueber die Source- und
     ModuleName-Eigenschaften dem Modul SqlServerLab zu:

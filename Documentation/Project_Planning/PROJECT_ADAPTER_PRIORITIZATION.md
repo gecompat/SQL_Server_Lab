@@ -32,13 +32,13 @@ Reconcile), soweit sie das Adapterdesign beeinflussen.
 
 ## 3. Arbeitspakete
 
-| ID | Arbeitspaket | Inhalt | Abnahme |
-|---|---|---|---|
-| `ADP-001` | Adapterschema | `Schemas/project-adapter.schema.json` mit den Feldern aus Master-Plan Abschnitt 8.3 (`ContractVersion`, `ProjectId`, `Entrypoints.*`, `SecretInputs` ohne Werte, `DataClassification`, ...), Version `0.1-draft` | ein synthetischer Beispieladapter validiert; unbekannte Major-Version wird abgelehnt |
-| `ADP-002` | Adapter-Resolver und ApplyAdapter | Adapter lokal binden (Checkout oder Paket), read-only Preflight-Entrypoint, `ApplyAdapter` ohne Lifecycle-Seiteneffekt | Frameworkupdate startet oder ersetzt keine Runtime-Ressource |
-| `ADP-003` | Pilot `SQL_PerformanceSchulung` | eine grüne Pilotdemo über Adapter-Entrypoints auf einem Container-Lab (Master-Plan Welle 6, vertikaler Slice) | Demo läuft end-to-end; Demo-Cleanup bleibt im Schulungsrepository |
-| `ADP-004` | Pilot `SQL_Server_Analyze` | Frameworkinstallation und ein Quick-Szenario über Adapter (Master-Plan Welle 7, vertikaler Slice) | Analyzer-Evidenz bleibt im Analyze-Repository; keine duplizierte Lifecycle-Logik |
-| `ADP-005` | Statische Adapter-Checks | Schema-, Beispiel- und Statuscode-Prüfungen unter `Tests/Static/` | Checks laufen lokal ohne Runtime |
+| ID | Arbeitspaket | Inhalt | Abnahme | Stand |
+|---|---|---|---|---|
+| `ADP-001` | Adapterschema | `Schemas/project-adapter.schema.json` mit den Feldern aus Master-Plan Abschnitt 8.3 (`ContractVersion`, `ProjectId`, `Entrypoints.*`, `SecretInputs` ohne Werte, `DataClassification`, ...), Version `0.1-draft` | ein synthetischer Beispieladapter validiert; unbekannte Major-Version wird abgelehnt | umgesetzt 2026-08-01 (`Adapters/Examples/synthetic-demo/`) |
+| `ADP-002` | Adapter-Resolver und ApplyAdapter | Adapter lokal binden (Checkout oder Paket), read-only Preflight-Entrypoint, `ApplyAdapter` ohne Lifecycle-Seiteneffekt | Frameworkupdate startet oder ersetzt keine Runtime-Ressource | umgesetzt 2026-08-01 (`Test-SqlServerLabAdapter`, `Install-SqlServerLabAdapter`; nur T-SQL-Entrypoints) |
+| `ADP-003` | Pilot `SQL_PerformanceSchulung` | eine grüne Pilotdemo über Adapter-Entrypoints auf einem Container-Lab (Master-Plan Welle 6, vertikaler Slice) | Demo läuft end-to-end; Demo-Cleanup bleibt im Schulungsrepository | offen; benötigt Arbeit im Schulungsrepository |
+| `ADP-004` | Pilot `SQL_Server_Analyze` | Frameworkinstallation und ein Quick-Szenario über Adapter (Master-Plan Welle 7, vertikaler Slice) | Analyzer-Evidenz bleibt im Analyze-Repository; keine duplizierte Lifecycle-Logik | offen; benötigt Arbeit im Analyze-Repository |
+| `ADP-005` | Statische Adapter-Checks | Schema-, Beispiel- und Statuscode-Prüfungen unter `Tests/Static/` | Checks laufen lokal ohne Runtime | umgesetzt 2026-08-01 (`Invoke-ProjectAdapterChecks.ps1`) |
 
 Die Reihenfolge ist verbindlich: erst Vertrag (`ADP-001`/`ADP-002`), dann je ein
 kleiner Pilot pro Quellprojekt. Eine vollständige Migration der Quellprojekte

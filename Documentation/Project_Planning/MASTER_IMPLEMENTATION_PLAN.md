@@ -913,13 +913,13 @@ Jedes Dokument führt seine eigene Wellenzählung.
 | Master-Plan-Welle | Stand | Anmerkung |
 |---|---|---|
 | Welle 0 – Repository- und Governance-Basis | abgeschlossen | README, Lizenz, Privacy-, Sprach- und Validierungsverträge, KI-Kontext vorhanden |
-| Welle 1 – Verträge und CLI-Skelett | teilweise, mit bewusster Abweichung | Statt getrennter Run-Request-/Adapter-/Scenario-/Topology-Schemas existiert `Schemas/lab-manifest.schema.json` mit Wizard und Fachvalidierung; Preflight ist `Test-SqlServerLabPrerequisite`. Adapter-, Scenario- und Capability-Schemas sind offen |
+| Welle 1 – Verträge und CLI-Skelett | teilweise, mit bewusster Abweichung | Statt getrennter Run-Request-/Scenario-/Topology-Schemas existiert `Schemas/lab-manifest.schema.json` mit Wizard und Fachvalidierung; Preflight ist `Test-SqlServerLabPrerequisite`; der Adaptervertrag ist als `Schemas/project-adapter.schema.json` (`0.1-draft`) implementiert. Scenario- und Capability-Schemas sind offen |
 | Welle 2 – Container Quick Environment | umgesetzt | Docker und Podman über direkte Provider-Adapter (kein Compose-Core), Menü und nicht interaktive Parameter, Profile, Health-/SQL-/Versionsprüfung, Lifecycle, scope-gebundener Cleanup; zusätzlich implementiert: gemischter Docker-/Podman-Run, Sample-Backup-Handler mit Trust Store und inhaltsadressiertem Cache |
 | Welle 3 – Migration des Analyze-QuickTest-Lifecycle | teilweise | Übergangszustände vor Mutation, Recovery-Status, Run-ID-/Scope-Validierung und lokale Secret-Verwaltung sind im Core vorhanden; Reset-Vertrag, Apply-Adapter und Compatibility Wrapper für `SQL_Server_Analyze` sind offen |
 | Welle 4 – Hyper-V Provider | nicht begonnen | verbindlicher Zielvertrag dokumentiert; Provisionierung bricht kontrolliert ab |
 | Welle 5 – Scenario Engine und Fault Injection | nicht begonnen | |
-| Welle 6 – Adapter `SQL_PerformanceSchulung` | nicht begonnen | als nächstes großes Thema priorisiert, siehe [Project-Adapter-Priorisierung](PROJECT_ADAPTER_PRIORITIZATION.md) |
-| Welle 7 – Adapter `SQL_Server_Analyze` | nicht begonnen | ebenfalls Teil der Adapter-Priorisierung |
+| Welle 6 – Adapter `SQL_PerformanceSchulung` | begonnen | Adaptervertrag, Resolver, `Test-/Install-SqlServerLabAdapter` und synthetischer Beispieladapter sind implementiert (`ADP-001`/`ADP-002`/`ADP-005`); der Pilot im Schulungsrepository ist offen, siehe [Project-Adapter-Priorisierung](PROJECT_ADAPTER_PRIORITIZATION.md) |
+| Welle 7 – Adapter `SQL_Server_Analyze` | begonnen | gleiche Adapterbasis; der Pilot im Analyze-Repository ist offen |
 | Welle 8 – Ablösung und Repositorybereinigung | nicht begonnen | setzt Wellen 6 und 7 voraus |
 | Welle 9 – Release-Härtung ohne CI/CD | teilweise | statische Contract-Checks und lokale Validierungsstrategie existieren; Pester-Paket, Privacy-Scanner und Releaseprozess sind offen |
 
