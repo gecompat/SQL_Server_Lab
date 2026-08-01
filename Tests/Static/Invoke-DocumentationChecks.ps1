@@ -197,9 +197,15 @@ $invalidArtifactContracts = @()
 foreach ($sample in @($sampleCatalog.databases)) {
     foreach ($variant in $sample.versions.PSObject.Properties) {
         $definition = $variant.Value
-        if ($variant.Value.runtimeStatus -eq 'executable' -and
-            [string]$variant.Value.sha256 -notmatch '^[A-Fa-f0-9]{64}$') {
-            $invalidExecutableSamples += "$($sample.id):$($variant.Name)"
+        if ($definition.runtimeStatus -eq 'executable') {
+            $hasIntegrityPath = ([string]$definition.sha256 -match '^[A-Fa-f0-9]{64}$') -or
+                $definition.trustPolicy -eq 'interactive-once'
+            if ($definition.artifactType -ne 'backup' -or
+                [string]$definition.installation.kind -ne 'backup' -or
+                [string]$definition.url -notmatch '(?i)\.bak$' -or
+                -not $hasIntegrityPath) {
+                $invalidExecutableSamples += "$($sample.id):$($variant.Name)"
+            }
         }
         if ([string]::IsNullOrWhiteSpace([string]$definition.artifactType) -or
             [string]::IsNullOrWhiteSpace([string]$definition.handlerContractVersion) -or
@@ -224,7 +230,7 @@ foreach ($sample in @($sampleCatalog.databases)) {
     }
 }
 Add-ValidationResult `
-    -Name 'Ausfuehrbare Sample-Varianten besitzen SHA-256' `
+    -Name 'Ausfuehrbare Sample-Varianten sind Backup-Handler mit SHA-256 oder Trust-Pfad' `
     -Success ($invalidExecutableSamples.Count -eq 0) `
     -Message ($invalidExecutableSamples -join ', ')
 Add-ValidationResult `

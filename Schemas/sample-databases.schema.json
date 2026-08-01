@@ -285,14 +285,8 @@
           },
           "then": {
             "properties": {
-              "sha256": {
-                "type": "string"
-              },
-              "integrityOrigin": {
-                "type": "string"
-              },
-              "trustPolicy": {
-                "const": "catalog-only"
+              "artifactType": {
+                "const": "backup"
               }
             }
           }

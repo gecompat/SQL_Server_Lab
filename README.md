@@ -44,7 +44,7 @@ Fachliche Testszenarien bleiben in den konsumierenden Projekten. `SQL_Server_Lab
 | Run-State und Cleanup-Plan | implementiert | `Private/StateMachine.ps1`, `Private/CleanupEngine.ps1` |
 | Datenbankerstellung | implementiert | `New-SqlServerLabDatabase` |
 | Backup-Restore mit Artifact Resolver | implementiert | `Restore-SqlServerLabDatabase`, `Private/ArtifactResolver.ps1` |
-| Sample-Datenbanken | vorbereitet | nur direkte `.bak`-Varianten mit `runtimeStatus: executable` und SHA-256; aktuelle Eintraege sind beschreibend |
+| Sample-Datenbanken (Backup) | implementiert | `Private/SampleArtifactHandlers.ps1`; direkte `.bak`-Varianten über Trust-/Hash-Pfad, Mehrfachauswahl im Menü und `New-SqlServerLab -Sample` |
 | T-SQL-Skriptausführung | implementiert | `Invoke-SqlServerLabScript` |
 | Provider-/Versions-/Parallel-Smoke-Test | implementiert | `Tests/Integration/Invoke-SmokeMatrix.ps1` |
 | Einzelprovider-Smoke-Test | implementiert | `Tests/Integration/Invoke-SmokeTest.ps1` |
@@ -275,12 +275,31 @@ Vollständige Beispiele liegen unter [`Schemas/`](Schemas/README.md).
 
 ## Sample-Datenbanken
 
-Sample-Referenzen können deklarativ beschrieben werden. Der Katalog führt sie
-bereits als typisierte Artifacts mit erwarteten Outputs, Installation-Metadaten
-und Trust Policy. Automatisch ausgeführt werden sie weiterhin nur mit dem
-bereits implementierten Backup-Handler, `runtimeStatus: executable` und
-verifizierter SHA-256-Pruefsumme; die aktuellen Katalogvarianten sind bis zu
-dieser Verifikation beschreibend:
+Katalogisierte Testdatenbanken mit direkter `.bak`-URL und
+`runtimeStatus: executable` werden automatisch über den Sample-Backup-Handler
+installiert. Die Integrität sichert der Artifact Resolver: Eine im Katalog
+hinterlegte SHA-256 wird erzwungen; fehlt sie, fragt ein interaktiver Lauf
+einmalig nach Vertrauen (`interactive-once`), registriert den berechneten Hash
+im lokalen Trust Store und legt das Artefakt im inhaltsadressierten Cache ab.
+Nicht interaktive Läufe enden ohne bekannten Hash mit `TRUST_REQUIRED`.
+
+Ad-hoc können mehrere Samples pro Instanz gewählt werden – im Menü von
+`Invoke-SqlServerLab` über den Schritt `Testdatenbanken` oder direkt:
+
+```powershell
+$lab = New-SqlServerLab `
+    -Version '2022' `
+    -Provider docker `
+    -Sample 'adventureworks-2022:lightweight', 'wideworldimporters:standard'
+```
+
+Die Zieldatenbanknamen ergeben sich aus den erwarteten Katalog-Outputs.
+Kollidierende Ausgaben werden als `SAMPLE_OUTPUT_CONFLICT` abgewiesen. Nach der
+Installation verifiziert der Handler die erwartete Datenbank als `ONLINE`
+(`DATASET_READY`); eine bereits vorhandene Zieldatenbank blockiert die
+Installation gemäß `fail-if-exists`.
+
+Im Manifest bleibt die deklarative Referenz unverändert:
 
 ```json
 {
@@ -304,16 +323,14 @@ dieser Verifikation beschreibend:
 }
 ```
 
-Unverifizierte Downloads, Archive, Attach-Szenarien und SQL-Skript-Samples
-werden nicht automatisch in einen Restore umgedeutet. Sie führen mit einer
-klaren Fehlermeldung zum Abbruch.
+Archive, Attach-Szenarien und SQL-Skript-Samples werden nicht automatisch in
+einen Restore umgedeutet. Sie führen mit einer klaren Fehlermeldung zum
+Abbruch.
 
-Der verbindliche Zielvertrag für mehrere auswählbare Samples, SQL-Skript-/
-Bundle-Handler, kontextreiche Pfadführung und `LAB_GENERATED`-Baselines ist in
+Der verbindliche Zielvertrag für SQL-Skript-/Bundle-Handler, kontextreiche
+Pfadführung und `LAB_GENERATED`-Baselines ist in
 [Testdatenbank-Provisionierung und menügeführte Manifest-Erstellung](Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md)
-dokumentiert. Trust Store, inhaltsadressierter Cache und Run Lock sind für
-direkte Backup-Acquisition implementiert; der Sample-Backup-Handler und die
-Menüauswahl folgen erst in Welle 3.
+dokumentiert; diese Teile folgen in den Wellen 4 und 5.
 
 ## Lifecycle
 
@@ -422,6 +439,8 @@ Statische Konsistenz- und Readiness-Prüfungen:
 .\Tests\Static\Invoke-DocumentationChecks.ps1
 .\Tests\Static\Invoke-ReadinessContractChecks.ps1
 .\Tests\Static\Invoke-MixedProviderLifecycleChecks.ps1
+.\Tests\Static\Invoke-ArtifactResolverChecks.ps1
+.\Tests\Static\Invoke-SampleHandlerChecks.ps1
 ```
 
 Einzelprovider-Smoke-Test:

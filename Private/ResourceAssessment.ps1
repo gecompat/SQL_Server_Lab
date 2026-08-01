@@ -202,6 +202,25 @@ function Test-StorageAvailability {
     # Geschaetzter Bedarf: 2GB pro Instanz (Image + Data)
     $requiredGB = [math]::Max($Instances.Count * 2, 2)
 
+    # Artifact-Bedarf aufgeloester Sample-/URL-Restores: Download (Cache)
+    # plus erwartete Installationsgroesse. Fehlt die Installationsschaetzung,
+    # wird der vierfache Downloadwert als konservative Heuristik angesetzt.
+    $artifactMB = 0
+    foreach ($instance in $Instances) {
+        foreach ($database in @($instance.databases | Where-Object { $_ -and $_.restore })) {
+            $downloadMB = if ($database.restore.downloadSizeMB) { [double]$database.restore.downloadSizeMB } else { 0 }
+            $installMB = if ($database.restore.estimatedInstallSizeMB) {
+                [double]$database.restore.estimatedInstallSizeMB
+            }
+            else {
+                $downloadMB * 4
+            }
+            $artifactMB += $downloadMB + $installMB
+        }
+    }
+    $artifactGB = [math]::Ceiling($artifactMB / 1024)
+    $requiredGB += $artifactGB
+
     $freeGB = 0
     try {
         if ($IsWindows) {
@@ -219,12 +238,13 @@ function Test-StorageAvailability {
     }
 
     $status = if ($freeGB -lt $requiredGB) { 'RESOURCE_WARNING' } else { 'RESOURCE_OK' }
+    $artifactNote = if ($artifactGB -gt 0) { " (davon ${artifactGB}GB fuer Sample-/Restore-Artifacts)" } else { '' }
 
     return [PSCustomObject]@{
         Category = 'Storage'
         Status   = $status
-        Message  = "Frei: ${freeGB}GB, Geschaetzt benoetigt: ${requiredGB}GB"
-        Value    = @{ FreeGB = $freeGB; RequiredGB = $requiredGB }
+        Message  = "Frei: ${freeGB}GB, Geschaetzt benoetigt: ${requiredGB}GB$artifactNote"
+        Value    = @{ FreeGB = $freeGB; RequiredGB = $requiredGB; ArtifactGB = $artifactGB }
     }
 }
 

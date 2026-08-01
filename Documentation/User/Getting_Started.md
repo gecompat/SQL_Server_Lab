@@ -552,11 +552,14 @@ Eine Restore-Datenbank wird nicht zuerst per `CREATE DATABASE` angelegt. Nach er
 }
 ```
 
-Automatisch unterstützt werden nur Katalogvarianten, deren URL direkt auf eine
-`.bak`-Datei zeigt, die `runtimeStatus: executable` tragen und eine verifizierte
-SHA-256-Pruefsumme besitzen. Die aktuellen Varianten sind bis zu einer
-kontrollierten Artefaktverifikation beschreibend. `.7z`-Archive,
-Attach-Verfahren und reine SQL-Skript-Samples werden ebenfalls nicht automatisch
+Automatisch unterstützt werden Katalogvarianten, deren URL direkt auf eine
+`.bak`-Datei zeigt und die `runtimeStatus: executable` tragen. Eine im Katalog
+hinterlegte SHA-256 wird erzwungen; fehlt sie, fragt ein interaktiver Lauf
+einmalig nach Vertrauen und registriert den berechneten Hash im lokalen Trust
+Store. Mehrere Samples pro Instanz können ad-hoc über
+`New-SqlServerLab -Sample 'adventureworks-2022:lightweight', 'wideworldimporters:standard'`
+oder den Menüschritt `Testdatenbanken` gewählt werden. `.7z`-Archive,
+Attach-Verfahren und reine SQL-Skript-Samples werden nicht automatisch
 verarbeitet.
 
 ## 14. Server- und Datenbankkonfiguration

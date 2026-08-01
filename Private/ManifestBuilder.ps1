@@ -45,7 +45,7 @@ function Get-LabManifestInputContextLines {
         $lines.Add([string]$resolvedNode.description)
     }
 
-    $lines.Add((if ($IsRequired) { 'Pflichtfeld.' } else { 'Optionales Feld.' }))
+    $lines.Add($(if ($IsRequired) { 'Pflichtfeld.' } else { 'Optionales Feld.' }))
 
     if ($null -ne $resolvedNode.PSObject.Properties['default']) {
         $lines.Add("Default: $($resolvedNode.default)")
@@ -263,6 +263,47 @@ function Test-LabManifestSchemaInputSupport {
     }
 }
 
+function Select-LabManifestSampleReference {
+    <#
+    .SYNOPSIS
+        Katalogauswahl fuer eine Sample-Referenz im Manifest-Wizard.
+    .DESCRIPTION
+        Zeigt alle mit dem Backup-Handler installierbaren Varianten mit
+        erwarteter Datenbank, Groesse und Lizenz. Der Rueckgabewert enthaelt
+        nur ID und Variante; Source und SHA-256 werden erst beim Provisionieren
+        aufgeloest und im Run Lock festgehalten.
+    #>
+    [CmdletBinding()]
+    param(
+        [string]$Path = 'sample'
+    )
+
+    $variants = @(Get-LabExecutableSampleVariant)
+    if ($variants.Count -eq 0) {
+        return $null
+    }
+
+    $options = @($variants | ForEach-Object {
+        "$($_.DisplayName) [$($_.SampleId):$($_.Variant)] -> Datenbank $($_.ExpectedDatabase), $($_.DownloadSizeMB) MB, Lizenz $($_.License)"
+    }) + 'Sample-ID manuell eingeben'
+
+    $selected = Read-LabChoice -Options $options -Prompt "$Path - Katalogauswahl"
+    if ($selected -ge $variants.Count) {
+        return $null
+    }
+
+    $variant = $variants[$selected]
+    Write-Host "  Hinweis: Der Datenbankname dieser Instanz muss '$($variant.ExpectedDatabase)' lauten." -ForegroundColor DarkGray
+    if (-not $variant.ExpectedSha256) {
+        Write-Host '  Hinweis: Ohne Katalog-SHA-256 fragt die Provisionierung einmalig nach Vertrauen (interactive-once).' -ForegroundColor DarkGray
+    }
+
+    return [ordered]@{
+        id      = $variant.SampleId
+        variant = $variant.Variant
+    }
+}
+
 function Read-LabManifestScalar {
     [CmdletBinding()]
     param(
@@ -402,6 +443,13 @@ function Read-LabManifestSchemaValue {
 
     switch ($Node.type) {
         'object' {
+            if ($Path -match '\.sample$') {
+                $sampleReference = Select-LabManifestSampleReference -Path $Path
+                if ($sampleReference) {
+                    return $sampleReference
+                }
+            }
+
             $result = [ordered]@{}
             $requiredNames = @($Node.required)
 

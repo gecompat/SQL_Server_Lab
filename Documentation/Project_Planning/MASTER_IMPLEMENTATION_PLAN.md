@@ -3,8 +3,9 @@
 | Merkmal | Wert |
 |---|---|
 | Projekt | `SQL_Server_Lab` |
-| Status | `PLANNING_FOUNDATION` |
-| Stand | 2026-07-26 |
+| Status | `PLANNING_BASELINE_WITH_STATUS_TRACKING` |
+| Stand | 2026-08-01 |
+| Umsetzungsstand | Abschnitt 17a; Runtime-Nachweis ausschließlich über `Documentation/Quality/KNOWN_LIMITATIONS.md` |
 | Zielversion der Verträge | `0.1-draft` |
 | Primärsprache | Deutsch; etablierte englische Fachbegriffe bleiben erhalten |
 | CI/CD | ausdrücklich nicht Bestandteil dieses Repositories |
@@ -896,6 +897,39 @@ Abnahme:
 - Releaseartefakte enthalten keine lokalen States, Secrets oder Umgebungsdaten;
 - ein externer Validator könnte ausschließlich über veröffentlichte Verträge arbeiten.
 
+## 17a. Umsetzungsstand der Wellen (Stand 2026-08-01)
+
+Dieser Abschnitt gleicht den Plan mit dem tatsächlich implementierten Stand ab.
+Er ist eine Statusübersicht, kein Runtime-Nachweis; verbindlich bleibt
+`Documentation/Quality/KNOWN_LIMITATIONS.md`.
+
+**Begriffsklärung:** Die Wellen dieses Master-Plans sind nicht identisch mit
+den „Sample-Wellen“ in
+[Testdatenbank-Provisionierung und menügeführte Manifest-Erstellung](../Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md)
+und den Hyper-V-Wellen im
+[Hyper-V-Zielvertrag](../Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md).
+Jedes Dokument führt seine eigene Wellenzählung.
+
+| Master-Plan-Welle | Stand | Anmerkung |
+|---|---|---|
+| Welle 0 – Repository- und Governance-Basis | abgeschlossen | README, Lizenz, Privacy-, Sprach- und Validierungsverträge, KI-Kontext vorhanden |
+| Welle 1 – Verträge und CLI-Skelett | teilweise, mit bewusster Abweichung | Statt getrennter Run-Request-/Adapter-/Scenario-/Topology-Schemas existiert `Schemas/lab-manifest.schema.json` mit Wizard und Fachvalidierung; Preflight ist `Test-SqlServerLabPrerequisite`. Adapter-, Scenario- und Capability-Schemas sind offen |
+| Welle 2 – Container Quick Environment | umgesetzt | Docker und Podman über direkte Provider-Adapter (kein Compose-Core), Menü und nicht interaktive Parameter, Profile, Health-/SQL-/Versionsprüfung, Lifecycle, scope-gebundener Cleanup; zusätzlich implementiert: gemischter Docker-/Podman-Run, Sample-Backup-Handler mit Trust Store und inhaltsadressiertem Cache |
+| Welle 3 – Migration des Analyze-QuickTest-Lifecycle | teilweise | Übergangszustände vor Mutation, Recovery-Status, Run-ID-/Scope-Validierung und lokale Secret-Verwaltung sind im Core vorhanden; Reset-Vertrag, Apply-Adapter und Compatibility Wrapper für `SQL_Server_Analyze` sind offen |
+| Welle 4 – Hyper-V Provider | nicht begonnen | verbindlicher Zielvertrag dokumentiert; Provisionierung bricht kontrolliert ab |
+| Welle 5 – Scenario Engine und Fault Injection | nicht begonnen | |
+| Welle 6 – Adapter `SQL_PerformanceSchulung` | nicht begonnen | als nächstes großes Thema priorisiert, siehe [Project-Adapter-Priorisierung](PROJECT_ADAPTER_PRIORITIZATION.md) |
+| Welle 7 – Adapter `SQL_Server_Analyze` | nicht begonnen | ebenfalls Teil der Adapter-Priorisierung |
+| Welle 8 – Ablösung und Repositorybereinigung | nicht begonnen | setzt Wellen 6 und 7 voraus |
+| Welle 9 – Release-Härtung ohne CI/CD | teilweise | statische Contract-Checks und lokale Validierungsstrategie existieren; Pester-Paket, Privacy-Scanner und Releaseprozess sind offen |
+
+**Strukturabweichung:** Die Zielstruktur aus Abschnitt 16 (`Contracts/`,
+`Catalog/`, `Orchestration/`, `Scenarios/`, `Adapters/`, `Tools/`) wurde nicht
+angelegt. Die implementierte Struktur verwendet `Public/`, `Private/`,
+`Providers/`, `Catalogs/`, `Schemas/` und `Tests/` im Repository-Stamm. Die
+Zielstruktur bleibt Orientierung für die Adapter- und Scenario-Wellen; Ordner
+entstehen weiterhin erst mit dem ersten kanonischen Artefakt.
+
 ## 18. Priorisierte Pilotkonstellationen
 
 ### P0
@@ -971,4 +1005,22 @@ Das Vorhaben gilt als funktional abgeschlossen, wenn:
 
 ## 22. Nächster sinnvoller Verarbeitungsschritt
 
-Nach Abnahme dieser Planungsbasis beginnt **Welle 1** mit den versionierten JSON-Schemas und dem rein lesenden CLI-Skelett. Vor der Übernahme ausführbarer Dateien aus den Quellrepositories wird das Migrationsinventar pro Datei vervollständigt und jede Funktion als `MIGRATE`, `REIMPLEMENT`, `KEEP_PROJECT_SPECIFIC`, `WRAP_TEMPORARILY` oder `RETIRE_AFTER_ACCEPTANCE` klassifiziert.
+Der Container-Core (Welle 2) ist umgesetzt; der Sample-Backup-Handler mit
+Trust-Pfad und Mehrfachauswahl ist implementiert (Sample-Welle 3 des
+Sample-Zielvertrags). Die nächsten Schritte sind:
+
+1. Sample-Wellen 4 und 5 (SQL-Skript-/Bundle-Handler, `LAB_GENERATED`-Baselines)
+   gemäß Sample-Zielvertrag abschließen, soweit sie für die Adapter benötigt
+   werden;
+2. **Project Adapter priorisieren:** Adaptervertrag als versioniertes
+   JSON-Schema festschreiben und die Wellen 6 und 7 mit je einer Pilotdemo
+   beginnen. Details und Reihenfolge stehen in
+   [Project-Adapter-Priorisierung](PROJECT_ADAPTER_PRIORITIZATION.md);
+3. Hyper-V (Welle 4) folgt nach den Adaptern; vorbereitend werden nur die
+   providerneutralen Drive-, Network-, Software- und Reconcile-Verträge
+   geschärft.
+
+Vor der Übernahme ausführbarer Dateien aus den Quellrepositories wird das
+Migrationsinventar pro Datei vervollständigt und jede Funktion als `MIGRATE`,
+`REIMPLEMENT`, `KEEP_PROJECT_SPECIFIC`, `WRAP_TEMPORARILY` oder
+`RETIRE_AFTER_ACCEPTANCE` klassifiziert.

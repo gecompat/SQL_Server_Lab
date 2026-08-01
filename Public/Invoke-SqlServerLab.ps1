@@ -186,7 +186,18 @@ function Invoke-LabAction {
             $version = Read-Host "  SQL-Server-Version [2025]"
             if (-not $version) { $version = '2025' }
 
-            $lab = New-SqlServerLab -Version $version -Provider $provider
+            # Testdatenbanken (optional, Mehrfachauswahl)
+            $selectedSamples = @(Select-LabSampleSelection -SqlVersion $version)
+
+            $newLabArguments = @{
+                Version  = $version
+                Provider = $provider
+            }
+            if ($selectedSamples.Count -gt 0) {
+                $newLabArguments.Sample = $selectedSamples
+            }
+
+            $lab = New-SqlServerLab @newLabArguments
             Write-Host ""
             Write-LabSuccess "Lab erstellt auf $provider. RunId: $($lab.RunId)"
         }
@@ -302,6 +313,125 @@ function Invoke-LabAction {
             Invoke-SqlServerLabScript -ScriptPath $scriptPath -Port $port -SaPassword $pw -Database $db
         }
     }
+}
+
+function Select-LabSampleSelection {
+    <#
+    .SYNOPSIS Menuegefuehrte Mehrfachauswahl katalogisierter Testdatenbanken.
+    .DESCRIPTION Zeigt alle mit dem Backup-Handler installierbaren Varianten
+                 einschliesslich Groesse, Lizenz, Trust- und Cache-Status und
+                 verhindert kollidierende Zieldatenbanken.
+    .OUTPUTS String-Array im Format 'sampleId:variante' fuer New-SqlServerLab -Sample.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$SqlVersion
+    )
+
+    $variants = @(Get-LabExecutableSampleVariant -SqlVersion $SqlVersion)
+    if ($variants.Count -eq 0) {
+        return @()
+    }
+    if (-not (Read-LabConfirm -Prompt '  Testdatenbanken aus dem Katalog hinzufuegen?' -Default $false)) {
+        return @()
+    }
+
+    # Trust- und Cache-Status einmalig ermitteln; die Cache-Pruefung hasht
+    # vorhandene Artefakte und ist fuer grosse Backups nicht kostenlos.
+    $localStatus = @{}
+    foreach ($variant in $variants) {
+        $key = "$($variant.SampleId):$($variant.Variant)"
+        $localStatus[$key] = Get-LabSampleArtifactLocalStatus `
+            -Source $variant.Source `
+            -SampleId $variant.SampleId `
+            -SampleVariant $variant.Variant `
+            -ExpectedSha256 $variant.ExpectedSha256
+    }
+
+    $selection = [System.Collections.Generic.List[string]]::new()
+    while ($true) {
+        Write-Host ''
+        Write-Host '  Testdatenbanken (Backup-Handler):' -ForegroundColor White
+        for ($i = 0; $i -lt $variants.Count; $i++) {
+            $variant = $variants[$i]
+            $key = "$($variant.SampleId):$($variant.Variant)"
+            $marker = if ($selection.Contains($key)) { '[x]' } else { '[ ]' }
+            $status = $localStatus[$key]
+            Write-Host ("    {0} [{1,2}] {2} ({3})" -f $marker, ($i + 1), $variant.DisplayName, $variant.Variant) -ForegroundColor White
+            Write-Host ("           DB: {0} | Download: {1} MB | Lizenz: {2} | Trust: {3} | Cache: {4}" -f `
+                $variant.ExpectedDatabase, $variant.DownloadSizeMB, $variant.License, $status.TrustStatus, $status.CacheStatus) -ForegroundColor DarkGray
+        }
+        Write-Host ''
+        Write-Host '    [Nummer] Auswahl umschalten, [d Nummer] Details, [Enter] uebernehmen, [0] keine Testdatenbank' -ForegroundColor DarkGray
+        $choice = Read-Host '  Auswahl'
+
+        if ([string]::IsNullOrWhiteSpace($choice)) {
+            break
+        }
+        if ($choice.Trim() -eq '0') {
+            return @()
+        }
+
+        if ($choice -match '^[dD]\s*(\d+)$') {
+            $detailIndex = [int]$Matches[1] - 1
+            if ($detailIndex -lt 0 -or $detailIndex -ge $variants.Count) {
+                Write-LabWarning 'Ungueltige Nummer.'
+                continue
+            }
+            $variant = $variants[$detailIndex]
+            $status = $localStatus["$($variant.SampleId):$($variant.Variant)"]
+            Write-Host ''
+            Write-Host "  $($variant.DisplayName) ($($variant.SampleId):$($variant.Variant))" -ForegroundColor White
+            Write-Host "    $($variant.Description)" -ForegroundColor DarkGray
+            Write-Host "    Erwartete Datenbank:   $($variant.ExpectedDatabase)" -ForegroundColor DarkGray
+            Write-Host "    Quellseite:            $($variant.SourcePage)" -ForegroundColor DarkGray
+            Write-Host "    Artifact-URL:          $($variant.Source)" -ForegroundColor DarkGray
+            Write-Host "    Download:              $($variant.DownloadSizeMB) MB" -ForegroundColor DarkGray
+            Write-Host "    Lizenz:                $($variant.License)" -ForegroundColor DarkGray
+            Write-Host "    Mindest-SQL-Version:   $($variant.MinSqlVersion)" -ForegroundColor DarkGray
+            Write-Host "    Trust-Status:          $($status.TrustStatus)" -ForegroundColor DarkGray
+            Write-Host "    Cache-Status:          $($status.CacheStatus)" -ForegroundColor DarkGray
+            if ($status.TrustStatus -eq 'TRUST_REQUIRED') {
+                Write-Host '    Hinweis: Ohne bekannte SHA-256 fragt die Provisionierung einmalig nach Vertrauen.' -ForegroundColor Yellow
+            }
+            continue
+        }
+
+        if ($choice -notmatch '^\d+$') {
+            Write-LabWarning "Ungueltige Eingabe: $choice"
+            continue
+        }
+
+        $index = [int]$choice - 1
+        if ($index -lt 0 -or $index -ge $variants.Count) {
+            Write-LabWarning 'Ungueltige Nummer.'
+            continue
+        }
+
+        $variant = $variants[$index]
+        $key = "$($variant.SampleId):$($variant.Variant)"
+        if ($selection.Contains($key)) {
+            $null = $selection.Remove($key)
+            continue
+        }
+
+        $conflict = $null
+        foreach ($selectedKey in $selection) {
+            $selectedVariant = $variants | Where-Object { "$($_.SampleId):$($_.Variant)" -eq $selectedKey } | Select-Object -First 1
+            if ($selectedVariant -and $selectedVariant.ExpectedDatabase -eq $variant.ExpectedDatabase) {
+                $conflict = $selectedKey
+                break
+            }
+        }
+        if ($conflict) {
+            Write-LabWarning "SAMPLE_OUTPUT_CONFLICT: '$key' und '$conflict' erzeugen beide die Datenbank '$($variant.ExpectedDatabase)'."
+            continue
+        }
+
+        $selection.Add($key)
+    }
+
+    return @($selection)
 }
 
 function Get-AvailableLabProviders {

@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING_LIMITATIONS` |
-| Stand | 2026-07-30 |
+| Stand | 2026-08-01 |
 
 Dieses Dokument beschreibt bekannte Grenzen des aktuell implementierten Runtimepfads. Es ist Teil des öffentlichen Projektvertrags. Ein Feld im JSON-Schema oder ein Planungsdokument gilt nicht automatisch als Implementierungsnachweis.
 
@@ -98,34 +98,35 @@ Bei manuellen Restores ist `-RunId` mit optionaler `-InstanceId` die bevorzugte 
 
 `sample`-Referenzen werden auf den Katalog `Catalogs/sample-databases.json` aufgelöst.
 
-Der Katalog besitzt bereits einen typisierten Artifact-Vertrag mit Artifact
-Type, Handler-Contract-Version, erwarteten Outputs, Installation-Metadaten und
-Trust Policy. Diese Metadaten aktivieren noch keinen zusätzlichen Handler.
+Automatisch ausführbar sind Varianten mit direkter `.bak`-URL,
+`artifactType: backup` und `runtimeStatus: executable`. Die Installation läuft
+über den Sample-Backup-Handler (`Private/SampleArtifactHandlers.ps1`), der die
+Sample-Identität an Trust Store, Cache und Run Lock bindet, die Idempotenzregel
+`fail-if-exists` durchsetzt und die erwartete Datenbank nach dem Restore als
+`ONLINE` verifiziert (`DATASET_READY`).
 
-Automatisch ausführbar sind nur Varianten mit einer direkten `.bak`-URL,
-`runtimeStatus: executable` und hinterlegtem SHA-256. Katalogeinträge ohne
-verifizierte Prüfsumme sowie Eintraege fuer SQL-Skripte, Archive oder
-Attach-Verfahren bleiben als `descriptive` sichtbar und werden mit einer
-erklärenden Fehlermeldung abgewiesen.
+Die Integrität sichert der Artifact Resolver: Eine Katalog-SHA-256 wird
+erzwungen; fehlt sie, gilt der Trust-Pfad `interactive-once` mit einmaliger
+interaktiver Freigabe, persistentem Trust Store, inhaltsadressiertem Cache und
+Quarantäne bei Hash-Mismatch. Ein nicht interaktiver Aufruf ohne bekannte
+Prüfsumme endet mit `TRUST_REQUIRED`. Die im Katalog hinterlegten Prüfsummen
+können bei Trust-Pfad-Varianten `null` sein.
 
-Die im Katalog enthaltenen Prüfsummen können bei beschreibenden Varianten
-`null` sein. Solche Varianten gelten nicht als produktiv ausführbar.
+Mehrere Samples pro Instanz sind ad-hoc über `New-SqlServerLab -Sample` und den
+Menüschritt `Testdatenbanken` wählbar; kollidierende erwartete Ausgaben werden
+als `SAMPLE_OUTPUT_CONFLICT` abgewiesen. Der Manifest-Wizard bietet für
+`sample`-Felder eine Katalogauswahl mit erwarteter Datenbank, Größe und Lizenz.
 
-Für direkte HTTP(S)-Backups sind die einmalige interaktive
-Vertrauensfreigabe, ein persistenter Trust Store, ein inhaltsadressierter Cache,
-Quarantäne bei Hash-Mismatch und ein Run Lock implementiert. Ein nicht
-interaktiver Aufruf ohne bekannte Prüfsumme endet mit `TRUST_REQUIRED`.
+Einträge für SQL-Skripte, Archive oder Attach-Verfahren bleiben `descriptive`
+und werden mit einer erklärenden Fehlermeldung abgewiesen; sie werden nicht in
+einen Restore umgedeutet.
 
-Noch nicht implementiert sind die Nutzung dieses Unterbaus durch den
-Sample-Backup-Handler, die Mehrfachauswahl im Ad-hoc-Menü, SQL-Skript- und
-Script-Bundle-Handler sowie `LAB_GENERATED`-Baselines.
+Noch nicht implementiert sind SQL-Skript- und Script-Bundle-Handler,
+`LAB_GENERATED`-Baselines, das Überschreiben der erwarteten Zieldatenbanknamen
+sowie die Wizard-Navigation mit Zurück/Planvorschau. Ein Sample, das mehrere
+Datenbanken erzeugt, wird vom aktuellen Backup-Handler nicht unterstützt.
 
-Der Wizard zeigt für die festgelegten Manifestpfade bereits Scope,
-Bezugsbasis und aufgelöste Hostvorschau. Eine spezialisierte Sample-Auswahl,
-Navigation mit Zurück/Planvorschau und eine vollständige Kollisionsprüfung der
-zukünftigen Mehrfachauswahl sind noch nicht implementiert.
-
-Der verbindliche, ausdrücklich noch nicht implementierte Zielvertrag steht in
+Der verbleibende Zielvertrag steht in
 [Testdatenbank-Provisionierung und menügeführte Manifest-Erstellung](../Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md).
 
 ## SQL Server Builds und CUs
@@ -160,8 +161,9 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
 
 ## Priorisierte nächste technische Schritte
 
-1. Mehrfachauswahl sowie Backup-, SQL-Skript- und Script-Bundle-Handler mit Verification und Cleanup ergänzen.
-2. Providerneutrale Drive-, Network-, Software- und Reconcile-Verträge gemäß Hyper-V-Zielvertrag umsetzen.
-3. Artifact Registry, Refresh/Rebuild und Evaluierungsablauf implementieren.
-4. Hyper-V anschließend in den dokumentierten, getrennt testbaren Wellen implementieren.
-5. Katalogaktualität, Prüfsummen und Baseline-Kompatibilität kontrolliert pflegen.
+1. SQL-Skript- und Script-Bundle-Handler mit Verification und Cleanup ergänzen (Sample-Welle 4).
+2. `LAB_GENERATED`-Baselines mit Registry, Key und deterministischer Auswahl umsetzen (Sample-Welle 5).
+3. Providerneutrale Drive-, Network-, Software- und Reconcile-Verträge gemäß Hyper-V-Zielvertrag umsetzen.
+4. Artifact Registry, Refresh/Rebuild und Evaluierungsablauf implementieren.
+5. Hyper-V anschließend in den dokumentierten, getrennt testbaren Wellen implementieren.
+6. Katalogaktualität, verifizierte Prüfsummen (`catalog-verified`) und Baseline-Kompatibilität kontrolliert pflegen.
