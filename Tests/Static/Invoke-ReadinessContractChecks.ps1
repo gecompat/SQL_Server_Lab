@@ -66,6 +66,7 @@ if ($failures.Count -eq 0) {
     Assert-Contains $sqlReadiness 'Start-Sleep\s+-Milliseconds' 'Readiness verwendet kein kurzes Millisekunden-Polling.'
     Assert-Contains $sqlReadiness 'function\s+Wait-LabDatabaseReady' 'Datenbank-Readiness-Funktion fehlt.'
     Assert-Contains $sqlReadiness 'Wait-LabDatabaseReady[\s\S]+Invoke-LabSqlScript' 'Skriptausfuehrung ist nicht gegen Datenbank-Readiness abgesichert.'
+    Assert-Contains $sqlReadiness 'if\s+\(\$KeepConnection\)[\s\S]+-i\s+\$ScriptPath' 'KeepConnection fuehrt das Skript nicht in einem einzelnen sqlcmd-Prozess aus.'
 
     Assert-Contains $portAllocation 'function\s+Get-LabReservedSqlPorts' 'Runtimeuebergreifende Portermittlung fehlt.'
     Assert-Contains $portAllocation 'function\s+Find-LabAvailablePort' 'Gemeinsame freie Portsuche fehlt.'

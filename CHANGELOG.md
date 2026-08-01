@@ -36,6 +36,23 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Geändert
 
+- `Invoke-LabSqlScript -KeepConnection` führt das gesamte Skript in einem
+  einzigen sqlcmd-Prozess aus (`-i`); `USE`, temporäre Objekte und
+  SET-Optionen bleiben damit über `GO`-Batches hinweg erhalten. Betrifft
+  Adapter-Entrypoints und postProvision-Skripte von `New-SqlServerLab`;
+- `Install-SqlServerLabAdapter` führt den Entrypoint `install` im
+  master-Kontext aus, wenn die deklarierte `targetDatabase` noch nicht
+  existiert; das Skript darf sie selbst erzeugen. `update`/`validate`/
+  `cleanup` setzen eine existierende `targetDatabase` voraus;
+- Schema-Pattern für Adapter-Entrypoints prüft nur noch die Form (relativ,
+  `.sql`); Pfadsicherheit erzwingt ausschließlich der Resolver
+  (eine Quelle der Wahrheit statt divergierender Regeln);
+- gemeinsamer Run-Resolver `Resolve-LabRunInstance` (`Private/RunResolution.ps1`)
+  ersetzt die lokalen Kopien in `Restore-SqlServerLabDatabase` und dem
+  Project-Adapter-Pfad;
+- die statischen Checks `Invoke-ProjectAdapterChecks`, `Invoke-SampleHandlerChecks`
+  und `Invoke-ManifestBuilderChecks` laufen jetzt im Static-contracts-Step der
+  drei Runtime-Smoke-Workflows;
 - direkte `.bak`-Backup-Varianten des Sample-Katalogs sind `executable`; die
   Integrität sichert eine Katalog-SHA-256 oder der Trust-Pfad
   `interactive-once` (nicht interaktiv: `TRUST_REQUIRED`);
@@ -46,6 +63,19 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Behoben
 
+- Adapter-Resolver: Verzeichnis-Junctions/-Symlinks innerhalb des Adapter-Roots
+  umgingen die Pfadgrenze (Reparse-Prüfung nur auf der Zieldatei); jetzt wird
+  jede Pfadkomponente geprüft (`Test-LabPathWithinRoot` in
+  `Private/PathSafety.ps1`);
+- Adapter-Resolver: fehlerhafte `adapterContractVersion` oder fehlende/
+  fehlerhafte `supportedLabCoreVersions` führten zu einer unbehandelten
+  Cast-Exception statt `ADAPTER_INVALID` mit strukturierten Fehlern;
+- Adapter-Resolver: die Warnung zu reservierten Package-Feldern erschien
+  fälschlich bei jedem Adapter ohne diese Felder;
+- `Test-LabProjectAdapterRunCompatibility`: fehlende `requiredCapabilities`/
+  `supportedSqlVersions` erzeugten irreführende Fehler (`Capability ''`);
+- `Test-SqlServerLabAdapter -RunId`: unbekannte RunId/InstanceId wird als
+  strukturierter Fehler (`ADAPTER_INVALID`) gemeldet statt als Exception;
 - Wizard-Kontextausgabe (`Get-LabManifestInputContextLines`) brach bei jedem
   optionalen Feld mit einem Laufzeitfehler ab (`(if ...)` statt `$(if ...)`).
 

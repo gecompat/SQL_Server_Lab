@@ -337,6 +337,7 @@ function Invoke-LabSqlScript {
         [Parameter(Mandatory)][SecureString]$SaPassword,
         [string]$Database = 'master',
         [switch]$KeepConnection,
+        [switch]$SkipDatabaseReadyCheck,
         [int]$TimeoutSeconds = 300
     )
 
@@ -347,7 +348,7 @@ function Invoke-LabSqlScript {
         throw "Database '$Database' ist ungueltig."
     }
 
-    if ($Database -ne 'master') {
+    if ($Database -ne 'master' -and -not $SkipDatabaseReadyCheck) {
         $databaseReadiness = Wait-LabDatabaseReady `
             -HostName $HostName `
             -Port $Port `
@@ -391,6 +392,41 @@ function Invoke-LabSqlScript {
     $executedBatches = 0
 
     try {
+        if ($KeepConnection) {
+            # Gesamtes Skript in einem sqlcmd-Prozess: alle GO-Batches teilen
+            # sich dieselbe Session (USE, temporaere Objekte und SET-Optionen
+            # bleiben ueber GO hinweg erhalten). -t wirkt pro Statement.
+            $output = sqlcmd `
+                -S "${HostName},${Port}" `
+                -U sa `
+                -P $saPlain `
+                -C `
+                -d $Database `
+                -i $ScriptPath `
+                -b `
+                -t $TimeoutSeconds `
+                -W 2>&1
+            $exitCode = $LASTEXITCODE
+            $outputText = ($output | ForEach-Object { [string]$_ }) -join "`n"
+            $stopwatch.Stop()
+
+            if ($exitCode -ne 0 -or $outputText -match 'Msg \d+, Level (1[1-9]|[2-9]\d)') {
+                return [PSCustomObject]@{
+                    Success  = $false
+                    Batches  = 0
+                    Duration = $stopwatch.Elapsed
+                    Message  = "Skript fehlgeschlagen (Single-Connection): $outputText"
+                }
+            }
+
+            return [PSCustomObject]@{
+                Success  = $true
+                Batches  = $batches.Count
+                Duration = $stopwatch.Elapsed
+                Message  = "Skript erfolgreich ausgefuehrt: $(Split-Path $ScriptPath -Leaf)"
+            }
+        }
+
         foreach ($batch in $batches) {
             $null = Invoke-SqlQuery `
                 -HostName $HostName `
@@ -412,12 +448,57 @@ function Invoke-LabSqlScript {
     }
     catch {
         $stopwatch.Stop()
+        $failureContext = if ($KeepConnection) {
+            'Skript fehlgeschlagen (Single-Connection)'
+        }
+        else {
+            "Skript fehlgeschlagen in Batch $($executedBatches + 1)"
+        }
         return [PSCustomObject]@{
             Success  = $false
             Batches  = $executedBatches
             Duration = $stopwatch.Elapsed
-            Message  = "Skript fehlgeschlagen in Batch $($executedBatches + 1): $($_.Exception.Message)"
+            Message  = "${failureContext}: $($_.Exception.Message)"
         }
+    }
+    finally {
+        $saPlain = $null
+    }
+}
+
+function Test-LabDatabaseExists {
+    <#
+    .SYNOPSIS
+        Prueft read-only ob eine Datenbank auf der Zielinstanz existiert.
+    #>
+    [CmdletBinding()]
+    param(
+        [string]$HostName = '127.0.0.1',
+        [Parameter(Mandatory)][int]$Port,
+        [Parameter(Mandatory)][SecureString]$SaPassword,
+        [Parameter(Mandatory)][string]$Database
+    )
+
+    if ($Database -notmatch '^[A-Za-z][A-Za-z0-9_]{0,127}$') {
+        throw "Database '$Database' ist ungueltig."
+    }
+
+    $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword)
+    try {
+        $saPlain = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+    }
+    finally {
+        [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+    }
+
+    try {
+        $output = Invoke-SqlQuery `
+            -HostName $HostName `
+            -Port $Port `
+            -SaPlain $saPlain `
+            -Query "SET NOCOUNT ON; SELECT CASE WHEN DB_ID(N'$Database') IS NULL THEN 0 ELSE 1 END;" `
+            -Database 'master'
+        return (($output | ForEach-Object { ([string]$_).Trim() }) -contains '1')
     }
     finally {
         $saPlain = $null

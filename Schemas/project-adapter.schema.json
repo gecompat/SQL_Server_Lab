@@ -199,7 +199,8 @@
     "sqlEntrypoint": {
       "type": "string",
       "minLength": 1,
-      "pattern": "^(?!/)(?![A-Za-z]:)(?!\\\\)(?!.*\\.\\.).+\\.sql$",
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!\\\\).+\\.sql$",
+      "description": "Relativer Pfad zu einer .sql-Datei. Das Schema prueft nur die Form (relativ, .sql-Endung); Pfadsicherheit (keine Traversierung, keine Reparse Points, Containment im Adapter-Root) erzwingt der Resolver.",
       "x-ui": {
         "pathKind": "file",
         "pathBase": "adapter-root",
