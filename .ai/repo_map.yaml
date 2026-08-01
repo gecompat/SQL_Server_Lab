@@ -97,6 +97,16 @@ public_commands:
     source: Private/ResourceAssessment.ps1
     purpose: "Provider, RAM, Storage und Ports ohne Mutation prüfen"
     mutates_host: false
+  - name: Test-SqlServerLabAdapter
+    source: Public/Test-SqlServerLabAdapter.ps1
+    purpose: "Project Adapter gegen Schema, Pfadgrenzen und optional einen Run pruefen"
+    mutates_host: false
+  - name: Install-SqlServerLabAdapter
+    source: Public/Install-SqlServerLabAdapter.ps1
+    purpose: "Validierten Adapter-Entrypoint ohne Lifecycle-Seiteneffekt auf eine Instanz anwenden"
+    mutates_sql: true
+    external_dependencies:
+      - sqlcmd
 
 internal_components:
   - name: ManifestBuilder
@@ -146,6 +156,13 @@ internal_components:
       - "Trust- und Cache-Status je Variante read-only melden"
       - "Backup-Samples ueber Resolver, Idempotenzregel und Restore installieren"
       - "erwartete Datenbank als ONLINE verifizieren und DATASET_READY melden"
+  - name: ProjectAdapter
+    source: Private/ProjectAdapter.ps1
+    responsibilities:
+      - "adapter.json gegen Schemas/project-adapter.schema.json validieren"
+      - "Pfadgrenzen des Adapter-Roots und Reparse Points erzwingen"
+      - "unbekannte Major-Vertrags- und Core-Versionen ablehnen"
+      - "Versions- und Capability-Gates gegen eine Run-Instanz pruefen"
   - name: CleanupEngine
     source: Private/CleanupEngine.ps1
     responsibilities:
@@ -202,6 +219,16 @@ catalogs:
     schema: Schemas/sample-databases.schema.json
     artifact_contract: "Artifact Type, Installation, erwartete Outputs, Groessen- und Integrity-/Trust-Metadaten sind maschinenlesbar"
     executable_variants: "Nur artifactType backup mit direkter .bak-URL und runtimeStatus executable; Integritaet ueber Katalog-SHA-256 oder Trust-Pfad interactive-once"
+
+project_adapters:
+  schema: Schemas/project-adapter.schema.json
+  contract_version: "0.1-draft"
+  example: Adapters/Examples/synthetic-demo/adapter.json
+  runtime: "Nur relative T-SQL-Entrypoints innerhalb des Adapter-Roots; ApplyAdapter ohne Lifecycle-Seiteneffekt"
+  reserved_fields:
+    - sqlPackageCatalogs
+    - defaultPackageRefs
+  prioritization: Documentation/Project_Planning/PROJECT_ADAPTER_PRIORITIZATION.md
 
 planning_contracts:
   sample_artifact_and_manifest_wizard:
@@ -329,6 +356,14 @@ validation:
       - sample_restore_resolution
       - idempotency_and_trust_contract
       - trust_required_non_interactive
+  static_project_adapter:
+    command: '.\Tests\Static\Invoke-ProjectAdapterChecks.ps1'
+    source: Tests/Static/Invoke-ProjectAdapterChecks.ps1
+    covers:
+      - adapter_schema_validation
+      - contract_and_core_version_gate
+      - adapter_root_path_boundary
+      - capability_and_sql_version_gate
   single_provider_smoke:
     source: Tests/Integration/Invoke-SmokeTest.ps1
     docker: '.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider docker'

@@ -45,6 +45,7 @@ Fachliche Testszenarien bleiben in den konsumierenden Projekten. `SQL_Server_Lab
 | Datenbankerstellung | implementiert | `New-SqlServerLabDatabase` |
 | Backup-Restore mit Artifact Resolver | implementiert | `Restore-SqlServerLabDatabase`, `Private/ArtifactResolver.ps1` |
 | Sample-Datenbanken (Backup) | implementiert | `Private/SampleArtifactHandlers.ps1`; direkte `.bak`-Varianten über Trust-/Hash-Pfad, Mehrfachauswahl im Menü und `New-SqlServerLab -Sample` |
+| Project Adapter (v0.1) | implementiert | `Schemas/project-adapter.schema.json`, `Test-SqlServerLabAdapter`, `Install-SqlServerLabAdapter`; T-SQL-Entrypoints ohne Lifecycle-Seiteneffekt |
 | T-SQL-Skriptausführung | implementiert | `Invoke-SqlServerLabScript` |
 | Provider-/Versions-/Parallel-Smoke-Test | implementiert | `Tests/Integration/Invoke-SmokeMatrix.ps1` |
 | Einzelprovider-Smoke-Test | implementiert | `Tests/Integration/Invoke-SmokeTest.ps1` |
@@ -332,6 +333,29 @@ Pfadführung und `LAB_GENERATED`-Baselines ist in
 [Testdatenbank-Provisionierung und menügeführte Manifest-Erstellung](Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md)
 dokumentiert; diese Teile folgen in den Wellen 4 und 5.
 
+## Project Adapter
+
+Konsumierende Projekte koppeln sich über einen versionierten Adaptervertrag an
+den Lab-Core (`Schemas/project-adapter.schema.json`, Version `0.1-draft`).
+Version 0.1 führt ausschließlich relative T-SQL-Entrypoints innerhalb des
+Adapter-Roots aus; Pfad-Traversierung, absolute Pfade und unbekannte
+Major-Vertragsversionen werden abgelehnt.
+
+```powershell
+Test-SqlServerLabAdapter -Path '.\Adapters\Examples\synthetic-demo'
+
+Install-SqlServerLabAdapter `
+    -Path '.\Adapters\Examples\synthetic-demo' `
+    -RunId $lab.RunId `
+    -SaPassword $pw
+```
+
+`Install-SqlServerLabAdapter` hat keinen Lifecycle-Seiteneffekt: Container,
+Volumes und Run-State bleiben unverändert; es laufen nur die deklarierten
+SQL-Entrypoints (`preflight`, `install`, `update`, `validate`, `cleanup`).
+Details stehen in [Adapters/README.md](Adapters/README.md), die Roadmap in der
+[Project-Adapter-Priorisierung](Documentation/Project_Planning/PROJECT_ADAPTER_PRIORITIZATION.md).
+
 ## Lifecycle
 
 ```powershell
@@ -370,6 +394,8 @@ Clear-SqlServerLab
 | `Restore-SqlServerLabDatabase` | `.bak` aus Datei oder URL wiederherstellen |
 | `Invoke-SqlServerLabScript` | T-SQL-Skript ausführen |
 | `Test-SqlServerLabPrerequisite` | Provider, RAM, Storage und Ports prüfen |
+| `Test-SqlServerLabAdapter` | Project Adapter gegen Schema, Pfadgrenzen und optional einen Run prüfen |
+| `Install-SqlServerLabAdapter` | Validierten Adapter-Entrypoint ohne Lifecycle-Seiteneffekt anwenden |
 
 `SqlServerLab.psd1` ist die autoritative Liste der exportierten Funktionen.
 
@@ -441,6 +467,7 @@ Statische Konsistenz- und Readiness-Prüfungen:
 .\Tests\Static\Invoke-MixedProviderLifecycleChecks.ps1
 .\Tests\Static\Invoke-ArtifactResolverChecks.ps1
 .\Tests\Static\Invoke-SampleHandlerChecks.ps1
+.\Tests\Static\Invoke-ProjectAdapterChecks.ps1
 ```
 
 Einzelprovider-Smoke-Test:
@@ -472,6 +499,7 @@ Nicht erreichbare Provider werden als `SKIP` ausgewiesen. Erreichbare, aber fehl
 
 ```text
 .ai/             KI-Kontext, Arbeitsregeln und Repo-Map
+Adapters/        Project-Adapter-Vertrag und synthetische Beispiele
 Catalogs/        SQL-Versionen und Sample-Datenbank-Metadaten
 Documentation/   Benutzer-, Architektur-, Qualitäts- und Planungsdokumentation
 Private/         interne Modulbausteine
@@ -492,6 +520,7 @@ _QuellRepo/      unveränderte Quell-Snapshots anderer Repositories
 - [Gemischter Container-Provider-Lifecycle](Documentation/Architecture/MIXED_PROVIDER_LIFECYCLE.md)
 - [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md)
 - [Öffentliche Cmdlets](Public/README.md)
+- [Project Adapter](Adapters/README.md)
 - [Provider](Providers/README.md)
 - [Tests](Tests/README.md)
 - [Podman unter Windows](Documentation/HowTo/PODMAN_WINDOWS_NETWORKING.md)

@@ -80,6 +80,10 @@ Invoke-SqlServerLabScript             # T-SQL-Skript ausfuehren
 
 # Pruefung
 Test-SqlServerLabPrerequisite         # Ressourcenpruefung (read-only)
+
+# Project Adapter
+Test-SqlServerLabAdapter              # Adapter gegen Schema und Pfadgrenzen pruefen (read-only)
+Install-SqlServerLabAdapter           # Adapter-Entrypoint ohne Lifecycle-Seiteneffekt anwenden
 ```
 
 ### 2.4 Rueckgabe-Objekt

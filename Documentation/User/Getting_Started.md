@@ -562,6 +562,23 @@ oder den Menüschritt `Testdatenbanken` gewählt werden. `.7z`-Archive,
 Attach-Verfahren und reine SQL-Skript-Samples werden nicht automatisch
 verarbeitet.
 
+## 13a. Project Adapter anwenden
+
+Konsumierende Projekte liefern einen Adapter gemäß
+`Schemas/project-adapter.schema.json`. Prüfung und Anwendung:
+
+```powershell
+Test-SqlServerLabAdapter -Path '.\Adapters\Examples\synthetic-demo'
+
+Install-SqlServerLabAdapter `
+    -Path '.\Adapters\Examples\synthetic-demo' `
+    -RunId $lab.RunId `
+    -SaPassword $pw
+```
+
+Es laufen ausschließlich die deklarierten T-SQL-Entrypoints; Container,
+Volumes und Run-State bleiben unverändert.
+
 ## 14. Server- und Datenbankkonfiguration
 
 Ausgeführt werden derzeit insbesondere:

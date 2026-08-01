@@ -1,0 +1,27 @@
+{
+  "$schema": "../../../Schemas/project-adapter.schema.json",
+  "adapterContractVersion": "0.1",
+  "projectId": "synthetic-demo",
+  "displayName": "Synthetic Demo Adapter",
+  "description": "Synthetischer Beispieladapter fuer Vertrags- und Regressionstests. Er installiert eine markierte, vollstaendig synthetische Demo-Datenbank.",
+  "supportedLabCoreVersions": ["0.x"],
+  "requiredCapabilities": ["container-linux", "sqlcmd"],
+  "supportedSqlVersions": ["2019", "2022", "2025"],
+  "entrypoints": {
+    "preflight": "sql/preflight.sql",
+    "install": "sql/install.sql",
+    "validate": "sql/validate.sql",
+    "cleanup": "sql/cleanup.sql"
+  },
+  "targetDatabase": "master",
+  "secretInputs": [],
+  "producedLocalArtifacts": [
+    "Datenbank SyntheticDemo mit Markertabelle dbo.AdapterMarker"
+  ],
+  "dataClassification": "SYNTHETIC",
+  "privacyExportPolicy": "NO_AUTOMATIC_EXPORT",
+  "licenseNotice": "Synthetischer Repository-Inhalt; es gilt die LICENCE.md von SQL_Server_Lab.",
+  "knownLimitations": [
+    "Nur fuer Vertrags- und Regressionstests gedacht; kein fachlicher Inhalt."
+  ]
+}

@@ -8,6 +8,16 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- Project-Adapter-Vertrag `0.1-draft`: `Schemas/project-adapter.schema.json`,
+  Resolver mit Pfadgrenzen des Adapter-Roots (keine Traversierung, keine
+  Reparse Points) und Ablehnung unbekannter Major-Vertrags- und
+  Core-Versionen (`ADAPTER_UNSUPPORTED_CONTRACT`,
+  `PROJECT_ARTIFACT_SCOPE_VIOLATION`);
+- neue Cmdlets `Test-SqlServerLabAdapter` (read-only Prüfung, optional gegen
+  eine Run-Instanz) und `Install-SqlServerLabAdapter` (T-SQL-Entrypoints
+  `install`/`update`/`validate`/`cleanup` ohne Lifecycle-Seiteneffekt);
+- synthetischer Beispieladapter `Adapters/Examples/synthetic-demo/` und
+  statischer Check `Tests/Static/Invoke-ProjectAdapterChecks.ps1`;
 - Sample-Backup-Handler (`Private/SampleArtifactHandlers.ps1`): Acquisition und
   Integrität über den Artifact Resolver mit vollständiger Sample-Identität in
   Trust Store und Run Lock, Idempotenzregel `fail-if-exists` und
