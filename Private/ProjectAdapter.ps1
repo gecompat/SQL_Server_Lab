@@ -88,8 +88,16 @@ function Read-LabProjectAdapter {
     }
 
     if ($adapter.adapterContractVersion) {
-        $majorVersion = [int](([string]$adapter.adapterContractVersion).Split('.', 2)[0])
-        if ($majorVersion -ne 0) {
+        $majorText = ([string]$adapter.adapterContractVersion).Split('.', 2)[0]
+        $majorVersion = 0
+        if (-not [int]::TryParse($majorText, [ref]$majorVersion)) {
+            # Formatfehler meldet bereits die Schemapruefung; hier nur den
+            # Status absichern statt eine Cast-Exception zu werfen.
+            if ($status -eq 'ADAPTER_READY') {
+                $status = 'ADAPTER_INVALID'
+            }
+        }
+        elseif ($majorVersion -ne 0) {
             $errors.Add("Adapter-Vertragsversion '$($adapter.adapterContractVersion)' wird nicht unterstuetzt; der Runtimepfad akzeptiert Major-Version 0.")
             $status = 'ADAPTER_UNSUPPORTED_CONTRACT'
         }
@@ -97,25 +105,31 @@ function Read-LabProjectAdapter {
 
     $coreVersion = [version]$script:LabVersion
     $coreSupported = $false
-    foreach ($supportedCore in @($adapter.supportedLabCoreVersions)) {
+    $declaredCoreVersions = @($adapter.supportedLabCoreVersions | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
+    foreach ($supportedCore in $declaredCoreVersions) {
         $parts = ([string]$supportedCore).Split('.', 2)
-        if ([int]$parts[0] -ne $coreVersion.Major) {
+        $coreMajor = 0
+        if ($parts.Count -lt 2 -or -not [int]::TryParse($parts[0], [ref]$coreMajor)) {
+            # Formatfehler meldet bereits die Schemapruefung.
             continue
         }
-        if ($parts[1] -eq 'x' -or [int]$parts[1] -eq $coreVersion.Minor) {
+        if ($coreMajor -ne $coreVersion.Major) {
+            continue
+        }
+        $coreMinor = 0
+        if ($parts[1] -eq 'x' -or ([int]::TryParse($parts[1], [ref]$coreMinor) -and $coreMinor -eq $coreVersion.Minor)) {
             $coreSupported = $true
             break
         }
     }
-    if (-not $coreSupported -and $adapter.supportedLabCoreVersions) {
-        $errors.Add("Adapter unterstuetzt die Lab-Core-Version $($script:LabVersion) nicht (deklariert: $(@($adapter.supportedLabCoreVersions) -join ', ')).")
+    if (-not $coreSupported -and $declaredCoreVersions.Count -gt 0) {
+        $errors.Add("Adapter unterstuetzt die Lab-Core-Version $($script:LabVersion) nicht (deklariert: $($declaredCoreVersions -join ', ')).")
         if ($status -eq 'ADAPTER_READY') {
             $status = 'ADAPTER_UNSUPPORTED_CONTRACT'
         }
     }
 
     $resolvedEntrypoints = [ordered]@{}
-    $normalizedRoot = [System.IO.Path]::GetFullPath($adapterRoot).TrimEnd([System.IO.Path]::DirectorySeparatorChar)
     foreach ($entrypointProperty in @($adapter.entrypoints.PSObject.Properties)) {
         $entrypointName = $entrypointProperty.Name
         $relativeValue = [string]$entrypointProperty.Value
@@ -131,8 +145,9 @@ function Read-LabProjectAdapter {
         }
 
         $fullPath = [System.IO.Path]::GetFullPath((Join-Path $adapterRoot $relativeValue))
-        if (-not $fullPath.StartsWith($normalizedRoot + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase)) {
-            $errors.Add("Entrypoint '$entrypointName' liegt ausserhalb des Adapter-Roots: $relativeValue")
+        $boundary = Test-LabPathWithinRoot -Root $adapterRoot -Path $fullPath
+        if (-not $boundary.Valid) {
+            $errors.Add("Entrypoint '$entrypointName' verletzt die Pfadgrenze des Adapter-Roots ($($boundary.Reason)): $relativeValue")
             $status = 'PROJECT_ARTIFACT_SCOPE_VIOLATION'
             continue
         }
@@ -145,18 +160,11 @@ function Read-LabProjectAdapter {
             continue
         }
 
-        $fileItem = Get-Item -LiteralPath $fullPath
-        if ($fileItem.Attributes.HasFlag([System.IO.FileAttributes]::ReparsePoint)) {
-            $errors.Add("Entrypoint '$entrypointName' ist ein Reparse Point und wird abgelehnt: $relativeValue")
-            $status = 'PROJECT_ARTIFACT_SCOPE_VIOLATION'
-            continue
-        }
-
         $resolvedEntrypoints[$entrypointName] = $fullPath
     }
 
     foreach ($reservedField in @('sqlPackageCatalogs', 'defaultPackageRefs')) {
-        if (@($adapter.$reservedField).Count -gt 0) {
+        if ($null -ne $adapter.$reservedField -and @($adapter.$reservedField).Count -gt 0) {
             $warnings.Add("$reservedField ist fuer den Projektintegrationsvertrag reserviert und wird noch nicht ausgewertet.")
         }
     }
@@ -170,43 +178,6 @@ function Read-LabProjectAdapter {
         DefinitionPath = $definitionPath
         Entrypoints    = $resolvedEntrypoints
         TargetDatabase = if ($adapter.targetDatabase) { [string]$adapter.targetDatabase } else { 'master' }
-    }
-}
-
-function Resolve-LabAdapterRunTarget {
-    <#
-    .SYNOPSIS
-        Loest RunId und InstanceId in Host, Port, Provider und Version auf.
-    #>
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)][string]$RunId,
-        [string]$InstanceId = 'primary',
-        [string]$StateRoot
-    )
-
-    if (-not $StateRoot) {
-        $StateRoot = Get-LabStateRoot
-    }
-
-    $connectionInfoPath = Join-Path (Join-Path (Join-Path $StateRoot 'runs') $RunId) 'connection-info.json'
-    if (-not (Test-Path -LiteralPath $connectionInfoPath -PathType Leaf)) {
-        throw "Connection-Info nicht gefunden fuer Run '$RunId'."
-    }
-
-    $connectionInfo = Get-Content -LiteralPath $connectionInfoPath -Raw -Encoding utf8 |
-        ConvertFrom-Json -Depth 20
-    $instance = @($connectionInfo.instances | Where-Object { $_.id -eq $InstanceId }) | Select-Object -First 1
-    if (-not $instance) {
-        throw "Instanz '$InstanceId' nicht in Run '$RunId' gefunden."
-    }
-
-    return [PSCustomObject]@{
-        HostName      = if ($instance.host) { [string]$instance.host } else { '127.0.0.1' }
-        Port          = [int]$instance.port
-        Provider      = [string]$instance.provider
-        ContainerName = [string]$instance.containerName
-        Version       = [string]$instance.version
     }
 }
 
@@ -224,12 +195,13 @@ function Test-LabProjectAdapterRunCompatibility {
 
     $errors = [System.Collections.Generic.List[string]]::new()
 
+    $declaredSqlVersions = @($Adapter.supportedSqlVersions | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
     $baseVersion = ([string]$InstanceVersion -split '-', 2)[0]
-    if (@($Adapter.supportedSqlVersions) -notcontains $baseVersion) {
-        $errors.Add("Instanzversion $InstanceVersion wird vom Adapter nicht unterstuetzt (deklariert: $(@($Adapter.supportedSqlVersions) -join ', ')).")
+    if ($declaredSqlVersions.Count -gt 0 -and $declaredSqlVersions -notcontains $baseVersion) {
+        $errors.Add("Instanzversion $InstanceVersion wird vom Adapter nicht unterstuetzt (deklariert: $($declaredSqlVersions -join ', ')).")
     }
 
-    foreach ($capability in @($Adapter.requiredCapabilities)) {
+    foreach ($capability in @($Adapter.requiredCapabilities | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })) {
         switch ($capability) {
             'sqlcmd' {
                 if (-not (Get-Command sqlcmd -ErrorAction SilentlyContinue)) {
