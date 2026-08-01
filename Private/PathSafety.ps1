@@ -171,6 +171,52 @@ function Test-PathSafe {
     return $result
 }
 
+function Test-LabPathWithinRoot {
+    <#
+    .SYNOPSIS
+        Prueft ob ein Pfad vollstaendig innerhalb eines Root-Verzeichnisses liegt.
+    .DESCRIPTION
+        Neben dem Prefix-Containment wird jede Pfadkomponente vom Root bis zum
+        Blatt auf Reparse Points (Symlinks, Junctions) geprueft, damit auch
+        verlinkte Zwischenverzeichnisse die Pfadgrenze nicht umgehen koennen.
+        Nicht existierende Komponenten werden uebersprungen; die Existenz des
+        Ziels meldet der Aufrufer separat.
+    .OUTPUTS
+        PSCustomObject mit Valid (bool), Reason (string).
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Root,
+        [Parameter(Mandatory)][string]$Path
+    )
+
+    $result = [PSCustomObject]@{ Valid = $true; Reason = '' }
+
+    $normalizedRoot = [System.IO.Path]::GetFullPath($Root).TrimEnd([IO.Path]::DirectorySeparatorChar)
+    $fullPath = [System.IO.Path]::GetFullPath($Path)
+
+    if (-not $fullPath.StartsWith($normalizedRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
+        $result.Valid = $false
+        $result.Reason = 'liegt ausserhalb des Roots'
+        return $result
+    }
+
+    $relative = $fullPath.Substring($normalizedRoot.Length + 1)
+    $current = $normalizedRoot
+    foreach ($segment in ($relative -split '[\\/]')) {
+        if ([string]::IsNullOrEmpty($segment)) { continue }
+        $current = Join-Path $current $segment
+        $item = Get-Item -LiteralPath $current -Force -ErrorAction SilentlyContinue
+        if ($item -and ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+            $result.Valid = $false
+            $result.Reason = "enthaelt einen Reparse Point (Symlink/Junction): $current"
+            return $result
+        }
+    }
+
+    return $result
+}
+
 function Assert-PathSafe {
     <#
     .SYNOPSIS

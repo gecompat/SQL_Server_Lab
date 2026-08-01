@@ -63,6 +63,10 @@ try {
             $ready.ProjectId -eq 'synthetic-demo' -and
             $ready.Entrypoints.Keys.Count -eq 4) `
         -Message ("Status: {0}; Errors: {1}" -f $ready.Status, ($ready.Errors -join '; '))
+    Add-CheckResult `
+        -Name 'Adapter ohne reservierte Felder erzeugt keine Reserviert-Warnung' `
+        -Success ((@($ready.Warnings) -match 'reserviert').Count -eq 0) `
+        -Message ("Warnings: {0}" -f ($ready.Warnings -join '; '))
 
     # Manipulierte Kopien vorbereiten
     New-Item -Path $temporaryRoot -ItemType Directory -Force | Out-Null
@@ -126,6 +130,91 @@ try {
     Add-CheckResult `
         -Name 'Reservierte Package-Felder erzeugen eine Warnung, bleiben aber gueltig' `
         -Success ($reserved.IsReady -and (@($reserved.Warnings) -match 'reserviert').Count -gt 0)
+
+    $malformedVersionPath = Copy-AdapterVariant -Name 'malformed-contract-version' -Mutate {
+        param($adapter)
+        $adapter.adapterContractVersion = 'v1.0'
+    }
+    $malformedVersion = $null
+    $malformedVersionError = $null
+    try {
+        $malformedVersion = Test-SqlServerLabAdapter -Path $malformedVersionPath
+    }
+    catch {
+        $malformedVersionError = $_.Exception.Message
+    }
+    Add-CheckResult `
+        -Name 'Fehlerhafte Vertragsversion liefert ADAPTER_INVALID statt Exception' `
+        -Success ($null -eq $malformedVersionError -and
+            $malformedVersion.Status -eq 'ADAPTER_INVALID' -and -not $malformedVersion.IsReady) `
+        -Message ($malformedVersionError ?? ("Status: {0}" -f $malformedVersion.Status))
+
+    $missingCorePath = Copy-AdapterVariant -Name 'missing-core-versions' -Mutate {
+        param($adapter)
+        $adapter.PSObject.Properties.Remove('supportedLabCoreVersions')
+    }
+    $missingCore = $null
+    $missingCoreError = $null
+    try {
+        $missingCore = Test-SqlServerLabAdapter -Path $missingCorePath
+    }
+    catch {
+        $missingCoreError = $_.Exception.Message
+    }
+    Add-CheckResult `
+        -Name 'Fehlendes supportedLabCoreVersions crasht nicht und meldet ADAPTER_INVALID' `
+        -Success ($null -eq $missingCoreError -and
+            $missingCore.Status -eq 'ADAPTER_INVALID' -and
+            (@($missingCore.Errors) -match 'Lab-Core-Version').Count -eq 0) `
+        -Message ($missingCoreError ?? ("Status: {0}; Errors: {1}" -f $missingCore.Status, ($missingCore.Errors -join '; ')))
+
+    $unknownRun = $null
+    $unknownRunError = $null
+    try {
+        $unknownRun = Test-SqlServerLabAdapter -Path $exampleAdapterPath -RunId 'no-such-run' -StateRoot $temporaryRoot
+    }
+    catch {
+        $unknownRunError = $_.Exception.Message
+    }
+    Add-CheckResult `
+        -Name 'Unbekannte RunId liefert strukturierte Fehler statt Exception' `
+        -Success ($null -eq $unknownRunError -and -not $unknownRun.IsReady -and
+            (@($unknownRun.Errors) -match 'Run-Aufloesung').Count -gt 0) `
+        -Message ($unknownRunError ?? ("Errors: {0}" -f ($unknownRun.Errors -join '; ')))
+
+    $nullListCompatibility = & $module {
+        Test-LabProjectAdapterRunCompatibility `
+            -Adapter ([PSCustomObject]@{ supportedSqlVersions = $null; requiredCapabilities = $null }) `
+            -RunTarget ([PSCustomObject]@{ Provider = 'docker' }) `
+            -InstanceVersion '2022'
+    }
+    Add-CheckResult `
+        -Name 'Fehlende Versions- und Capability-Listen erzeugen keine Scheinfehler' `
+        -Success ($nullListCompatibility.IsCompatible -and $nullListCompatibility.Errors.Count -eq 0) `
+        -Message ("Errors: {0}" -f ($nullListCompatibility.Errors -join '; '))
+
+    if ($IsWindows) {
+        $junctionTargetPath = Join-Path $temporaryRoot 'junction-target'
+        Copy-Item -LiteralPath (Join-Path $exampleAdapterPath 'sql') -Destination $junctionTargetPath -Recurse
+        $junctionAdapterPath = Join-Path $temporaryRoot 'junction-adapter'
+        New-Item -Path $junctionAdapterPath -ItemType Directory -Force | Out-Null
+        Copy-Item -LiteralPath (Join-Path $exampleAdapterPath 'adapter.json') -Destination (Join-Path $junctionAdapterPath 'adapter.json')
+        New-Item -ItemType Junction -Path (Join-Path $junctionAdapterPath 'sql') -Target $junctionTargetPath | Out-Null
+        try {
+            $junction = Test-SqlServerLabAdapter -Path $junctionAdapterPath
+            Add-CheckResult `
+                -Name 'Junction im Adapter-Root verletzt die Pfadgrenze' `
+                -Success ($junction.Status -eq 'PROJECT_ARTIFACT_SCOPE_VIOLATION' -and -not $junction.IsReady) `
+                -Message ("Status: {0}" -f $junction.Status)
+        }
+        finally {
+            # Junction vor dem rekursiven Cleanup entfernen, ohne dem Ziel zu folgen.
+            (Get-Item -LiteralPath (Join-Path $junctionAdapterPath 'sql') -Force).Delete()
+        }
+    }
+    else {
+        Write-Host '  SKIP  Junction-Pruefung (nur unter Windows)' -ForegroundColor Yellow
+    }
 
     $compatibility = & $module {
         $adapter = [PSCustomObject]@{

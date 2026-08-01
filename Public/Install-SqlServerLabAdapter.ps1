@@ -5,12 +5,18 @@ function Install-SqlServerLabAdapter {
     .DESCRIPTION
         Fuehrt den gewaehlten T-SQL-Entrypoint eines validierten Adapters gegen
         die per RunId aufgeloeste Instanz aus. Ein deklarierter
-        Preflight-Entrypoint laeuft zuerst. Der Aufruf hat keinen
-        Lifecycle-Seiteneffekt: Container, Volumes, Ports und Run-State werden
-        weder erzeugt noch veraendert; es werden ausschliesslich
-        SQL-Anweisungen des Adapters ausgefuehrt. Fehler werden mit stabilen
-        Statusklassen gemeldet (PROJECT_CONTENT_FAILED,
-        PROJECT_ASSERTION_FAILED, PROJECT_CLEANUP_FAILED).
+        Preflight-Entrypoint laeuft zuerst. Alle GO-Batches eines Entrypoints
+        laufen in einer gemeinsamen sqlcmd-Session; USE, temporaere Objekte
+        und SET-Optionen bleiben ueber GO hinweg erhalten. Existiert die
+        deklarierte targetDatabase beim Entrypoint install noch nicht, laeuft
+        das Skript im master-Kontext und darf die Datenbank selbst erzeugen;
+        update, validate und cleanup setzen eine existierende targetDatabase
+        voraus. Der Aufruf hat keinen Lifecycle-Seiteneffekt: Container,
+        Volumes, Ports und Run-State werden weder erzeugt noch veraendert; es
+        werden ausschliesslich SQL-Anweisungen des Adapters ausgefuehrt.
+        Fehler werden mit stabilen Statusklassen gemeldet
+        (PROJECT_CONTENT_FAILED, PROJECT_ASSERTION_FAILED,
+        PROJECT_CLEANUP_FAILED).
     .PARAMETER Path
         Adapterverzeichnis oder direkter Pfad zur adapter.json.
     .PARAMETER RunId
@@ -73,7 +79,7 @@ function Install-SqlServerLabAdapter {
         throw "ADAPTER_INVALID: Adapter '$($resolution.Adapter.projectId)' deklariert keinen Entrypoint '$Entrypoint'."
     }
 
-    $runTarget = Resolve-LabAdapterRunTarget `
+    $runTarget = Resolve-LabRunInstance `
         -RunId $RunId `
         -InstanceId $InstanceId `
         -StateRoot $StateRoot
@@ -87,6 +93,18 @@ function Install-SqlServerLabAdapter {
     }
 
     $projectId = [string]$resolution.Adapter.projectId
+
+    # Bei install darf die Zieldatenbank noch fehlen: das Skript erzeugt sie
+    # selbst (CREATE DATABASE + USE in einer Session dank -KeepConnection).
+    # Dann laeuft der Entrypoint im master-Kontext statt auf das Readiness-
+    # Timeout der nicht existierenden Datenbank zu laufen.
+    $executionDatabase = $resolution.TargetDatabase
+    if ($Entrypoint -eq 'install' -and $executionDatabase -ne 'master' -and
+        -not (Test-LabDatabaseExists -HostName $runTarget.HostName -Port $runTarget.Port -SaPassword $SaPassword -Database $executionDatabase)) {
+        Write-LabInfo "Zieldatenbank '$executionDatabase' existiert noch nicht; Entrypoint 'install' laeuft im master-Kontext."
+        $executionDatabase = 'master'
+    }
+
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
     $messages = [System.Collections.Generic.List[string]]::new()
 
@@ -103,7 +121,7 @@ function Install-SqlServerLabAdapter {
             -HostName $runTarget.HostName `
             -Port $runTarget.Port `
             -SaPassword $SaPassword `
-            -Database $resolution.TargetDatabase `
+            -Database $executionDatabase `
             -KeepConnection
         if (-not $preflightResult.Success) {
             return [PSCustomObject]@{
@@ -126,7 +144,7 @@ function Install-SqlServerLabAdapter {
         -HostName $runTarget.HostName `
         -Port $runTarget.Port `
         -SaPassword $SaPassword `
-        -Database $resolution.TargetDatabase `
+        -Database $executionDatabase `
         -KeepConnection
     $stopwatch.Stop()
 
