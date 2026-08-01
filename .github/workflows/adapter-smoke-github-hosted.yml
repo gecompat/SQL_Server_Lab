@@ -2,9 +2,9 @@ name: Adapter Smoke - Docker (GitHub-hosted)
 
 on:
   workflow_dispatch:
-  push:
+  pull_request:
     branches:
-      - agents/projektueberblick-und-planung
+      - main
     paths:
       - 'Adapters/**'
       - 'Private/ProjectAdapter.ps1'
