@@ -76,6 +76,30 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   `supportedSqlVersions` erzeugten irreführende Fehler (`Capability ''`);
 - `Test-SqlServerLabAdapter -RunId`: unbekannte RunId/InstanceId wird als
   strukturierter Fehler (`ADAPTER_INVALID`) gemeldet statt als Exception;
+- Adapter-Entrypoints (`Invoke-LabSqlScript -KeepConnection`) werden mit
+  deaktivierter sqlcmd-Skriptebene (`-X1 -x`) ausgeführt: `:r`, `:!!` und
+  `$(var)`-Substitution sind blockiert, damit ein Entrypoint keine Host-Shell
+  aufrufen oder Dateien außerhalb des Adapter-Roots einbinden kann;
+- Adapter-Entrypoints werden als UTF-8 mit BOM an sqlcmd übergeben; BOM-lose
+  Skripte mit Umlauten werden nicht mehr in der ANSI-Codepage verstümmelt;
+- `Install-SqlServerLabAdapter`: die Existenzprüfung der Zieldatenbank wartet
+  zuerst auf Serverbereitschaft und bricht bei transienten Verbindungsfehlern
+  nicht mehr mit einer rohen Exception ab; die Datenbankbereitschaft wird nur
+  noch einmal geprüft (`-SkipDatabaseReadyCheck` statt doppelter Wartezyklen);
+- `Test-SqlServerLabAdapter`: eine Ausnahme der Kompatibilitätsprüfung wird
+  nicht mehr als „Run-Auflösung fehlgeschlagen“ fehlgemeldet; eine leere
+  Instanzversion stuft einen validen Adapter nicht mehr auf `ADAPTER_INVALID`
+  herab;
+- Adapter-Resolver: eine schema-konforme, aber Int32-überlaufende
+  `adapterContractVersion` wird jetzt mit einer Begründung abgelehnt statt mit
+  leerer Fehlerliste;
+- `Test-LabPathWithinRoot` prüft das Containment auf case-sensitiven
+  Dateisystemen (Linux) case-sensitiv, sodass ein nur in der Groß-/
+  Kleinschreibung abweichender Pfad nicht mehr als innerhalb des Roots gilt;
+- Schema-Pattern für Adapter-Entrypoints lehnt `..`-Traversierung wieder bereits
+  offline ab (Defense-in-Depth zusätzlich zum Resolver);
+- Adapter-Smoke-Test: ein Fehler beim Lab-Cleanup im `finally` maskiert nicht
+  mehr die Ergebnis-/Exit-Auswertung;
 - Wizard-Kontextausgabe (`Get-LabManifestInputContextLines`) brach bei jedem
   optionalen Feld mit einem Laufzeitfehler ab (`(if ...)` statt `$(if ...)`).
 

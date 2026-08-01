@@ -94,6 +94,38 @@ function Install-SqlServerLabAdapter {
 
     $projectId = [string]$resolution.Adapter.projectId
 
+    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+    $messages = [System.Collections.Generic.List[string]]::new()
+
+    $failureStatus = switch ($Entrypoint) {
+        'validate' { 'PROJECT_ASSERTION_FAILED' }
+        'cleanup'  { 'PROJECT_CLEANUP_FAILED' }
+        default    { 'PROJECT_CONTENT_FAILED' }
+    }
+
+    # Serverbereitschaft einmalig sicherstellen. Ohne diesen Schritt wuerde die
+    # Existenzpruefung der Zieldatenbank direkt nach Containerstart an einem
+    # transienten Verbindungsfehler mit einer rohen Exception abbrechen statt
+    # ueber eine strukturierte Statusklasse zu melden.
+    $serverReady = Wait-SqlReady `
+        -HostName $runTarget.HostName `
+        -Port $runTarget.Port `
+        -SaPassword $SaPassword `
+        -TimeoutSeconds 60
+    if (-not $serverReady.Ready) {
+        $stopwatch.Stop()
+        return [PSCustomObject]@{
+            Status     = $failureStatus
+            Success    = $false
+            ProjectId  = $projectId
+            Entrypoint = $Entrypoint
+            RunId      = $RunId
+            InstanceId = $InstanceId
+            Message    = "SQL-Instanz nicht bereit: $($serverReady.Message)"
+            Duration   = $stopwatch.Elapsed
+        }
+    }
+
     # Bei install darf die Zieldatenbank noch fehlen: das Skript erzeugt sie
     # selbst (CREATE DATABASE + USE in einer Session dank -KeepConnection).
     # Dann laeuft der Entrypoint im master-Kontext statt auf das Readiness-
@@ -105,13 +137,29 @@ function Install-SqlServerLabAdapter {
         $executionDatabase = 'master'
     }
 
-    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
-    $messages = [System.Collections.Generic.List[string]]::new()
-
-    $failureStatus = switch ($Entrypoint) {
-        'validate' { 'PROJECT_ASSERTION_FAILED' }
-        'cleanup'  { 'PROJECT_CLEANUP_FAILED' }
-        default    { 'PROJECT_CONTENT_FAILED' }
+    # Datenbankbereitschaft genau einmal pruefen (nicht in master, das immer
+    # existiert). Danach ueberspringen die Entrypoint-Aufrufe die erneute
+    # Wait-LabDatabaseReady-Runde ueber -SkipDatabaseReadyCheck.
+    if ($executionDatabase -ne 'master') {
+        $databaseReady = Wait-LabDatabaseReady `
+            -HostName $runTarget.HostName `
+            -Port $runTarget.Port `
+            -SaPassword $SaPassword `
+            -Database $executionDatabase `
+            -TimeoutSeconds 60
+        if (-not $databaseReady.Ready) {
+            $stopwatch.Stop()
+            return [PSCustomObject]@{
+                Status     = $failureStatus
+                Success    = $false
+                ProjectId  = $projectId
+                Entrypoint = $Entrypoint
+                RunId      = $RunId
+                InstanceId = $InstanceId
+                Message    = $databaseReady.Message
+                Duration   = $stopwatch.Elapsed
+            }
+        }
     }
 
     if (-not $SkipPreflight -and $resolution.Entrypoints.Contains('preflight')) {
@@ -122,7 +170,8 @@ function Install-SqlServerLabAdapter {
             -Port $runTarget.Port `
             -SaPassword $SaPassword `
             -Database $executionDatabase `
-            -KeepConnection
+            -KeepConnection `
+            -SkipDatabaseReadyCheck
         if (-not $preflightResult.Success) {
             return [PSCustomObject]@{
                 Status     = 'PROJECT_CONTENT_FAILED'
@@ -145,7 +194,8 @@ function Install-SqlServerLabAdapter {
         -Port $runTarget.Port `
         -SaPassword $SaPassword `
         -Database $executionDatabase `
-        -KeepConnection
+        -KeepConnection `
+        -SkipDatabaseReadyCheck
     $stopwatch.Stop()
 
     if (-not $entrypointResult.Success) {
