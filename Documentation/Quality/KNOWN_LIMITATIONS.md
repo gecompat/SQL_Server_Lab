@@ -151,6 +151,21 @@ Die Entrypoints `update`, `validate` und `cleanup` setzen eine existierende
 `targetDatabase` voraus; nur `install` darf sie im master-Kontext selbst
 erzeugen. Das sqlcmd-Timeout wirkt pro Statement, nicht pro Skript.
 
+Entrypoints werden als reines T-SQL ausgeführt. Die sqlcmd-Skriptebene ist im
+Single-Connection-Modus vollständig deaktiviert (`-X1 -x`): `:r`, `:!!`, `:ed`,
+der Zugriff auf Host-Umgebungsvariablen und die `$(var)`-Substitution sind nicht
+verfügbar. Ein Entrypoint, der eine solche Direktive enthält, bricht mit
+`PROJECT_CONTENT_FAILED` ab. Ein künftiger Adapter darf daher keine über `:r`
+eingebundenen Zusatzskripte voraussetzen; alle ausgeführten Anweisungen müssen im
+Entrypoint selbst stehen (Pfadgrenze des Adapter-Roots). Die Skripte werden vor
+der Ausführung als UTF-8 mit BOM übergeben, damit Nicht-ASCII-Zeichen
+plattformunabhängig korrekt dekodiert werden; BOM-lose Dateien werden dadurch
+nicht mehr in der ANSI-Codepage fehlinterpretiert.
+
+Die Pfadgrenze wird zweifach abgesichert: Das JSON-Schema lehnt bereits offline
+Entrypoints mit `..` oder absoluten Pfaden ab, der Resolver erzwingt zusätzlich
+Containment im Adapter-Root und lehnt Reparse Points ab.
+
 Als Capabilities werden derzeit nur `sqlcmd` und `container-linux` geprüft.
 Die produktiven Adapter für `SQL_Server_Analyze` und `SQL_PerformanceSchulung`
 sind noch nicht umgesetzt; die Reihenfolge steht in der
