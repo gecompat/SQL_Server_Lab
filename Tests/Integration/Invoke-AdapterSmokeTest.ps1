@@ -22,23 +22,7 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $failures = [System.Collections.Generic.List[string]]::new()
 $passed = 0
 
-function Add-CheckResult {
-    param(
-        [Parameter(Mandatory)][string]$Name,
-        [Parameter(Mandatory)][bool]$Success,
-        [string]$Message
-    )
-
-    if ($Success) {
-        $script:passed++
-        Write-Host "  PASS  $Name" -ForegroundColor Green
-        return
-    }
-
-    $failure = if ($Message) { "$Name - $Message" } else { $Name }
-    $script:failures.Add($failure)
-    Write-Host "  FAIL  $failure" -ForegroundColor Red
-}
+. (Join-Path $PSScriptRoot '..' 'Common' 'CheckResult.ps1')
 
 function Invoke-SmokeQuery {
     param(
@@ -160,7 +144,14 @@ finally {
     }
     if ($lab) {
         Write-Host '  Lab wird entfernt...' -ForegroundColor DarkGray
-        Remove-SqlServerLab -RunId $lab.RunId -Force | Out-Null
+        try {
+            Remove-SqlServerLab -RunId $lab.RunId -Force | Out-Null
+        }
+        catch {
+            # Ein Cleanup-Fehler darf die Ergebnis-/Exit-Auswertung unterhalb des
+            # finally nicht ueberspringen und keine echte Testabweichung maskieren.
+            Write-Host "  WARN  Lab-Cleanup fehlgeschlagen: $($_.Exception.Message)" -ForegroundColor Yellow
+        }
     }
 }
 

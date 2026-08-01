@@ -195,7 +195,13 @@ function Test-LabPathWithinRoot {
     $normalizedRoot = [System.IO.Path]::GetFullPath($Root).TrimEnd([IO.Path]::DirectorySeparatorChar)
     $fullPath = [System.IO.Path]::GetFullPath($Path)
 
-    if (-not $fullPath.StartsWith($normalizedRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
+    # Auf case-sensitiven Dateisystemen (Linux, u. a. die Adapter-Smoke-Runner)
+    # darf das Containment nicht per OrdinalIgnoreCase pruefen: sonst gilt
+    # '/Labs/Adapter/x' als innerhalb von '/labs/adapter', obwohl es ein anderes
+    # Verzeichnis ist. Windows-Dateisysteme bleiben case-insensitiv.
+    $pathComparison = if ($IsWindows) { [StringComparison]::OrdinalIgnoreCase } else { [StringComparison]::Ordinal }
+
+    if (-not $fullPath.StartsWith($normalizedRoot + [IO.Path]::DirectorySeparatorChar, $pathComparison)) {
         $result.Valid = $false
         $result.Reason = 'liegt ausserhalb des Roots'
         return $result

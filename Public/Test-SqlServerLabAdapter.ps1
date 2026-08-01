@@ -53,11 +53,25 @@ function Test-SqlServerLabAdapter {
     $status = $resolution.Status
 
     if ($RunId -and $resolution.Adapter) {
+        $runTarget = $null
         try {
             $runTarget = Resolve-LabRunInstance `
                 -RunId $RunId `
                 -InstanceId $InstanceId `
                 -StateRoot $StateRoot
+        }
+        catch {
+            $errors.Add("Run-Aufloesung fehlgeschlagen: $($_.Exception.Message)")
+            if ($status -eq 'ADAPTER_READY') {
+                $status = 'ADAPTER_INVALID'
+            }
+        }
+
+        # Kompatibilitaetspruefung ausserhalb des Resolver-catch: ein Fehler hier
+        # ist kein Run-Aufloesungsfehler und darf nicht als solcher fehlgemeldet
+        # oder ein valider Adapter faelschlich auf ADAPTER_INVALID herabgestuft
+        # werden.
+        if ($runTarget) {
             $compatibility = Test-LabProjectAdapterRunCompatibility `
                 -Adapter $resolution.Adapter `
                 -RunTarget $runTarget `
@@ -67,12 +81,6 @@ function Test-SqlServerLabAdapter {
                 if ($status -eq 'ADAPTER_READY') {
                     $status = 'ADAPTER_UNSUPPORTED_CONTRACT'
                 }
-            }
-        }
-        catch {
-            $errors.Add("Run-Aufloesung fehlgeschlagen: $($_.Exception.Message)")
-            if ($status -eq 'ADAPTER_READY') {
-                $status = 'ADAPTER_INVALID'
             }
         }
     }
