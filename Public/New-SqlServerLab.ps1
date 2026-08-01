@@ -93,6 +93,12 @@ function New-SqlServerLab {
         die automatische Vergabe im konfigurierten Lab-Portbereich.
     .PARAMETER InstanceId
         Eindeutige ID der Ad-hoc-Instanz. Standard ist primary.
+    .PARAMETER Sample
+        Optionale Liste katalogisierter Testdatenbanken fuer die Ad-hoc-Instanz.
+        Jeder Eintrag verwendet das Format 'sampleId' oder 'sampleId:variante',
+        beispielsweise 'adventureworks-2022:lightweight'. Nur executable
+        Backup-Varianten aus Catalogs/sample-databases.json sind zulaessig; die
+        Zieldatenbanknamen ergeben sich aus den erwarteten Katalog-Outputs.
     .PARAMETER Manifest
         Pfad zu einer vorhandenen JSON-Manifestdatei. Relative lokale Pfade im
         Manifest werden relativ zu deren Verzeichnis aufgeloest.
@@ -112,6 +118,12 @@ function New-SqlServerLab {
 
         Erstellt eine einzelne Ad-hoc-Instanz mit den Standardwerten fuer Profil,
         Instanz-ID und automatische Portvergabe.
+    .EXAMPLE
+        $lab = New-SqlServerLab -Version '2022' -Provider docker -Sample 'adventureworks-2022:lightweight', 'wideworldimporters:standard'
+
+        Erstellt eine Ad-hoc-Instanz und installiert zwei katalogisierte
+        Testdatenbanken ueber den Backup-Handler. Fehlt eine bekannte
+        SHA-256-Pruefsumme, fragt der Lauf einmalig nach Vertrauen.
     .EXAMPLE
         $lab = New-SqlServerLab -Manifest './Schemas/example-performance-lab.json'
 
@@ -140,6 +152,9 @@ function New-SqlServerLab {
         [Parameter(ParameterSetName = 'AdHoc')]
         [string]$InstanceId = 'primary',
 
+        [Parameter(ParameterSetName = 'AdHoc')]
+        [string[]]$Sample = @(),
+
         [Parameter(ParameterSetName = 'Manifest', Mandatory)]
         [string]$Manifest,
 
@@ -156,6 +171,36 @@ function New-SqlServerLab {
         $resolved = Read-LabManifest -Path $Manifest
     }
     else {
+        $sampleDatabases = @()
+        foreach ($sampleSpec in @($Sample | Where-Object { $_ })) {
+            $specParts = ([string]$sampleSpec).Split(':', 2)
+            $sampleDefinition = [PSCustomObject]@{
+                id      = $specParts[0].Trim()
+                variant = if ($specParts.Count -gt 1 -and $specParts[1].Trim()) { $specParts[1].Trim() } else { 'full' }
+            }
+
+            $sampleArtifact = Resolve-LabSampleArtifact `
+                -SampleDefinition $sampleDefinition `
+                -SqlVersion $Version
+            $targetDatabaseName = [string]$sampleArtifact.expectedOutputs[0].name
+
+            if (@($sampleDatabases | Where-Object { $_.name -eq $targetDatabaseName }).Count -gt 0) {
+                throw "SAMPLE_OUTPUT_CONFLICT: Die Auswahl erzeugt die Datenbank '$targetDatabaseName' mehrfach."
+            }
+
+            $sampleDatabases += [PSCustomObject]@{
+                name      = $targetDatabaseName
+                collation = 'SQL_Latin1_General_CP1_CS_AS'
+                options   = $null
+                files     = $null
+                restore   = Resolve-LabSampleRestore `
+                    -SampleDefinition $sampleDefinition `
+                    -SqlVersion $Version `
+                    -TargetDatabaseName $targetDatabaseName
+                sample    = $sampleDefinition
+            }
+        }
+
         $resolved = [PSCustomObject]@{
             name      = "adhoc-$Version-$Provider"
             instances = @(
@@ -166,7 +211,7 @@ function New-SqlServerLab {
                     os            = 'linux'
                     profile       = $Profile
                     collation     = 'SQL_Latin1_General_CP1_CS_AS'
-                    databases     = @()
+                    databases     = $sampleDatabases
                     drives        = @()
                     serverConfig  = $null
                     software      = @()
@@ -417,22 +462,41 @@ function New-SqlServerLab {
                 Select-Object -First 1
 
             foreach ($database in @($instance.databases | Where-Object { $_.restore })) {
-                Write-LabInfo "Restore '$($database.name)' auf '$($instance.id)' von: $($database.restore.source)"
+                if ($database.restore.sampleId) {
+                    Write-LabInfo "Sample '$($database.restore.sampleId):$($database.restore.sampleVariant)' auf '$($instance.id)' installieren..."
 
-                $restoreResult = Restore-SqlServerLabDatabase `
-                    -HostName $labInstance.Host `
-                    -Port $labInstance.Port `
-                    -SaPassword $SaPassword `
-                    -BackupSource $database.restore.source `
-                    -ExpectedSha256 $database.restore.expectedSha256 `
-                    -DatabaseName $database.name `
-                    -ContainerName $labInstance.ContainerName `
-                    -Replace:($database.restore.replace) `
-                    -StateRoot $effectiveStateRoot `
-                    -RunDirectory $runState.RunDir
+                    $sampleResult = Install-LabSampleDatabase `
+                        -HostName $labInstance.Host `
+                        -Port $labInstance.Port `
+                        -SaPassword $SaPassword `
+                        -ContainerName $labInstance.ContainerName `
+                        -RestoreDefinition $database.restore `
+                        -RunDirectory $runState.RunDir `
+                        -StateRoot $effectiveStateRoot
 
-                if (-not $restoreResult.Success) {
-                    throw "Restore fehlgeschlagen: $($restoreResult.Message)"
+                    if (-not $sampleResult.Success) {
+                        throw "Sample-Installation fehlgeschlagen ($($sampleResult.Status)): $($sampleResult.Message)"
+                    }
+                    Write-LabSuccess "  $($sampleResult.Status): $($sampleResult.Message)"
+                }
+                else {
+                    Write-LabInfo "Restore '$($database.name)' auf '$($instance.id)' von: $($database.restore.source)"
+
+                    $restoreResult = Restore-SqlServerLabDatabase `
+                        -HostName $labInstance.Host `
+                        -Port $labInstance.Port `
+                        -SaPassword $SaPassword `
+                        -BackupSource $database.restore.source `
+                        -ExpectedSha256 $database.restore.expectedSha256 `
+                        -DatabaseName $database.name `
+                        -ContainerName $labInstance.ContainerName `
+                        -Replace:($database.restore.replace) `
+                        -StateRoot $effectiveStateRoot `
+                        -RunDirectory $runState.RunDir
+
+                    if (-not $restoreResult.Success) {
+                        throw "Restore fehlgeschlagen: $($restoreResult.Message)"
+                    }
                 }
 
                 if ($database.options) {

@@ -4,7 +4,7 @@
 |---|---|
 | Status | `BINDING_IMPLEMENTATION_TARGET` |
 | Runtime-Status | `PARTIALLY_IMPLEMENTED` |
-| Stand | 2026-07-30 |
+| Stand | 2026-08-01 |
 | Geltungsbereich | Docker, Podman und Hyper-V |
 | Aktueller Ist-Nachweis | [`KNOWN_LIMITATIONS.md`](../Quality/KNOWN_LIMITATIONS.md) |
 
@@ -23,12 +23,13 @@ Der Vertrag gilt providerübergreifend. Provider dürfen eigene Acquisition- ode
 Execution Handler verwenden, müssen aber dieselben Sicherheits-, Integritäts-,
 State-, Verification- und Cleanup-Regeln erfüllen.
 
-Dieses Dokument ist **kein vollständiger Runtime-Nachweis**. Der aktuelle Parser führt nur
-direkte `.bak`-Varianten mit `runtimeStatus: executable` aus. Für direkte
-HTTP(S)-Backups sind Acquisition, Trust Store, Manifest Lock und
-inhaltsadressierter Cache implementiert. Der Sample-Backup-Handler verwendet
-diesen Unterbau noch nicht; SQL-Skript-Samples, Mehrfachauswahl im Ad-hoc-Menü
-und Baseline-Erzeugung sind ebenfalls noch nicht implementiert.
+Dieses Dokument ist **kein vollständiger Runtime-Nachweis**. Implementiert sind
+der Backup-Handler für executable `.bak`-Varianten einschließlich Trust-Pfad,
+Sample-Identität in Trust Store und Run Lock, Idempotenz- und
+Output-Verification, die Mehrfachauswahl im Ad-hoc-Menü und per
+`New-SqlServerLab -Sample` sowie eine Katalogauswahl im Manifest-Wizard.
+SQL-Skript-Samples, Script Bundles, mehrere Outputs pro Installation und
+Baseline-Erzeugung sind noch nicht implementiert.
 
 Der gemeinsame Katalogvertrag für Artifact Type, Installation, erwartete
 Outputs, Trust Policy und Größenmetadaten ist implementiert. Für die
@@ -69,14 +70,15 @@ Installation Handler aus.
 | mehrere `instances[].databases[]` | strukturell und im Manifestpfad vorhanden |
 | Restore lokaler oder entfernter `.bak`-Dateien | implementiert |
 | SHA-256-Prüfung gegen eine bekannte Prüfsumme | implementiert |
-| Sample-Katalog | vorhanden; aktuelle Varianten überwiegend `descriptive` |
+| Sample-Katalog | vorhanden; direkte `.bak`-Backup-Varianten sind `executable` |
+| Sample-Backup-Handler mit Trust-Pfad und Verification | implementiert (`Private/SampleArtifactHandlers.ps1`) |
 | SQL-Skriptausführung | für einzelne T-SQL-Dateien vorhanden |
 | SQL-Skript-Sample als Artifact Handler | nicht implementiert |
-| mehrere Samples im Ad-hoc-Menü auswählen | nicht implementiert |
-| persistenter Trust Store und Manifest Lock | für direkte HTTP(S)-Backups implementiert; Sample-Handler-Bindung folgt |
-| inhaltsadressierter Artifact Cache und Quarantäne | für direkte HTTP(S)-Backups implementiert |
+| mehrere Samples im Ad-hoc-Menü auswählen | implementiert (`Invoke-SqlServerLab`, `New-SqlServerLab -Sample`) |
+| persistenter Trust Store und Manifest Lock | implementiert; Sample-Identität wird mitgeführt |
+| inhaltsadressierter Artifact Cache und Quarantäne | implementiert |
 | `LAB_GENERATED`-Baseline-Auswahl | nicht implementiert |
-| kontextbezogene Manifest-Menüführung | nur teilweise vorhanden |
+| kontextbezogene Manifest-Menüführung | Pfadsemantik und Sample-Katalogauswahl vorhanden; Navigation/Planvorschau offen |
 
 ## 4. Gemeinsamer Artifact-Vertrag
 
@@ -581,9 +583,9 @@ Konsolentext.
 - statische Vertrags- und Dokumentationschecks ergänzen.
 
 Die Mehrfachauswahl selbst, mehrere Outputs aus einer Installation und ihre
-Kollisionsprüfung benötigen das neue Manifest-/Bound-Plan-Modell. Sie bleiben
-deshalb Bestandteil von Welle 3; bis dahin wird der aktuelle einzelne
-Backup-Restore streng gegen den erwarteten Katalognamen geprüft.
+Kollisionsprüfung benötigen das neue Manifest-/Bound-Plan-Modell. Sie waren
+deshalb Bestandteil von Welle 3; der einzelne Backup-Restore wird weiterhin
+streng gegen den erwarteten Katalognamen geprüft.
 
 ### Welle 2 – Acquisition, Trust und Cache
 
@@ -600,9 +602,7 @@ lokalen Staging-Bereich, berechnet SHA-256, verwaltet versionierte lokale
 Trust-Records und verschiebt verifizierte Bytes in einen inhaltsadressierten
 Cache. Abweichende Bytes werden quarantänisiert. `manifest.lock.json` enthält
 nur sanitisierte Artifact-Identität und Integritätsmetadaten; ein portables Lock
-kann aus diesem Inhalt erzeugt werden. Der Resolver ist zunächst mit direkten
-HTTP(S)-Backups verbunden. Die Katalogvarianten bleiben bis Welle 3
-`descriptive` und werden dadurch nicht vorzeitig ausführbar.
+kann aus diesem Inhalt erzeugt werden.
 
 ### Welle 3 – Backup-Samples und Mehrfachauswahl
 
@@ -612,6 +612,19 @@ HTTP(S)-Backups verbunden. Die Katalogvarianten bleiben bis Welle 3
 - AdventureWorks- und WideWorldImporters-Varianten nach erfolgreichem
   Trust-/Hash-Pfad ausführbar machen;
 - Resource Assessment um Artifact-Bedarf ergänzen.
+
+**Implementiert am 2026-08-01:** Der Sample-Backup-Handler
+(`Private/SampleArtifactHandlers.ps1`) bindet die Sample-Identität an Trust
+Store, Cache und Run Lock, setzt `fail-if-exists` durch und verifiziert die
+erwartete Datenbank als `ONLINE` (`DATASET_READY`). Direkte
+`.bak`-Backup-Varianten des Katalogs sind `executable`; ohne Katalog-SHA-256
+gilt der Trust-Pfad `interactive-once`, nicht interaktiv endet die Aufloesung
+mit `TRUST_REQUIRED`. Mehrfachauswahl ist im Ad-hoc-Menü und über
+`New-SqlServerLab -Sample` verfügbar; Kollisionen erwarteter Outputs werden als
+`SAMPLE_OUTPUT_CONFLICT` abgewiesen. Der Manifest-Wizard bietet für
+`sample`-Felder eine Katalogauswahl. Das Storage-Assessment rechnet Download-
+und geschätzte Installationsgrößen ein. Das Überschreiben erwarteter
+Zieldatenbanknamen und mehrere Outputs pro Installation bleiben offen.
 
 ### Welle 4 – SQL-Skripte und Bundles
 

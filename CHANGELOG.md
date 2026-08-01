@@ -4,6 +4,49 @@ Dieses Changelog dokumentiert Änderungen am öffentlichen Verhalten, an maschin
 
 Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher nach Datum geführt. Neue Einträge werden oben ergänzt.
 
+## 2026-08-01
+
+### Hinzugefügt
+
+- Sample-Backup-Handler (`Private/SampleArtifactHandlers.ps1`): Acquisition und
+  Integrität über den Artifact Resolver mit vollständiger Sample-Identität in
+  Trust Store und Run Lock, Idempotenzregel `fail-if-exists` und
+  ONLINE-Verification der erwarteten Datenbank (`DATASET_READY`);
+- Mehrfachauswahl von Testdatenbanken: neuer Parameter
+  `New-SqlServerLab -Sample 'id[:variante]'` sowie Menüschritt
+  `Testdatenbanken` mit Größen-, Lizenz-, Trust- und Cache-Anzeige und
+  Kollisionsprüfung (`SAMPLE_OUTPUT_CONFLICT`);
+- Katalogauswahl für `sample`-Felder im Manifest-Wizard mit erwarteter
+  Datenbank, Downloadgröße und Lizenz;
+- Storage-Assessment berücksichtigt Download- und geschätzte
+  Installationsgrößen aufgelöster Sample-/URL-Restores;
+- statischer Check `Tests/Static/Invoke-SampleHandlerChecks.ps1` für
+  Katalogfilterung, Sample-Auflösung, Idempotenz-/Trust-Vertrag und den nicht
+  interaktiven `TRUST_REQUIRED`-Pfad.
+
+### Geändert
+
+- direkte `.bak`-Backup-Varianten des Sample-Katalogs sind `executable`; die
+  Integrität sichert eine Katalog-SHA-256 oder der Trust-Pfad
+  `interactive-once` (nicht interaktiv: `TRUST_REQUIRED`);
+- Sample-Restores verwenden nicht mehr `WITH REPLACE`; eine vorhandene
+  Zieldatenbank blockiert die Installation gemäß `fail-if-exists`;
+- Schema- und Doku-Checks koppeln `runtimeStatus: executable` an den
+  Backup-Handler statt hart an eine Katalogprüfsumme.
+
+### Behoben
+
+- Wizard-Kontextausgabe (`Get-LabManifestInputContextLines`) brach bei jedem
+  optionalen Feld mit einem Laufzeitfehler ab (`(if ...)` statt `$(if ...)`).
+
+### Dokumentiert
+
+- Master-Umsetzungsplan um einen Statusabgleich der Wellen (Abschnitt 17a),
+  die Klärung der Wellenzählungen und aktualisierte nächste Schritte ergänzt;
+- neue Planungsentscheidung
+  `Documentation/Project_Planning/PROJECT_ADAPTER_PRIORITIZATION.md`:
+  Project Adapter (Wellen 6/7) werden vor Hyper-V (Welle 4) umgesetzt.
+
 ## 2026-07-30
 
 ### Hinzugefügt

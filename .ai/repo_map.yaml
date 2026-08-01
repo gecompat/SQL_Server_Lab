@@ -139,6 +139,13 @@ internal_components:
       - "einmaligen Trust mit versionierten lokalen SHA-256-Records verwalten"
       - "inhaltsadressierten Cache und Quarantaene bei Hash-Mismatch verwalten"
       - "sanitisiertes manifest.lock.json vor dem Restore schreiben"
+  - name: SampleArtifactHandlers
+    source: Private/SampleArtifactHandlers.ps1
+    responsibilities:
+      - "executable Backup-Varianten des Sample-Katalogs auflisten und filtern"
+      - "Trust- und Cache-Status je Variante read-only melden"
+      - "Backup-Samples ueber Resolver, Idempotenzregel und Restore installieren"
+      - "erwartete Datenbank als ONLINE verifizieren und DATASET_READY melden"
   - name: CleanupEngine
     source: Private/CleanupEngine.ps1
     responsibilities:
@@ -194,7 +201,7 @@ catalogs:
     data: Catalogs/sample-databases.json
     schema: Schemas/sample-databases.schema.json
     artifact_contract: "Artifact Type, Installation, erwartete Outputs, Groessen- und Integrity-/Trust-Metadaten sind maschinenlesbar"
-    executable_variants: "Nur artifactType backup mit runtimeStatus executable und verifizierter SHA-256-Pruefsumme; aktueller Katalog ist beschreibend"
+    executable_variants: "Nur artifactType backup mit direkter .bak-URL und runtimeStatus executable; Integritaet ueber Katalog-SHA-256 oder Trust-Pfad interactive-once"
 
 planning_contracts:
   sample_artifact_and_manifest_wizard:
@@ -274,7 +281,8 @@ provisioning_flow:
   - "Wait-SqlReady"
   - "Set-LabServerConfig"
   - "New-SqlServerLabDatabase für Create-Datenbanken"
-  - "Restore-SqlServerLabDatabase für Restore- und Sample-Datenbanken"
+  - "Install-LabSampleDatabase für Sample-Datenbanken (Trust, Cache, Restore, Verification)"
+  - "Restore-SqlServerLabDatabase für direkte Restore-Datenbanken"
   - "Set-LabDatabaseOptions"
   - "Invoke-LabSqlScript für postProvision"
   - "connection-info.json schreiben"
@@ -305,6 +313,22 @@ validation:
       - provider_subrun_state
       - mixed_provider_example
       - grouped_lifecycle_and_cleanup
+  static_artifact_resolver:
+    command: '.\Tests\Static\Invoke-ArtifactResolverChecks.ps1'
+    source: Tests/Static/Invoke-ArtifactResolverChecks.ps1
+    covers:
+      - trust_store
+      - content_addressed_cache
+      - manifest_lock
+      - trust_required_non_interactive
+  static_sample_handler:
+    command: '.\Tests\Static\Invoke-SampleHandlerChecks.ps1'
+    source: Tests/Static/Invoke-SampleHandlerChecks.ps1
+    covers:
+      - executable_variant_listing
+      - sample_restore_resolution
+      - idempotency_and_trust_contract
+      - trust_required_non_interactive
   single_provider_smoke:
     source: Tests/Integration/Invoke-SmokeTest.ps1
     docker: '.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider docker'
@@ -402,8 +426,8 @@ known_limitations:
     - "providerneutrale Network Intents, Exposure Policy und Reconcile nicht implementiert"
     - "Artifact Refresh und Rebuild für Medien, VHDX und Derived Images nicht implementiert"
     - "kein provideruebergreifendes Docker-/Podman-Netzwerk oder Hyper-V-SubRun"
-    - "Sample-Automation nur für executable Backup-Varianten; aktueller Katalog ist beschreibend"
-    - "Sample-Backup-Handler, Mehrfachauswahl und Script Handler noch nicht implementiert; Trust Store, Cache und Run Lock sind fuer direkte Backup-URLs implementiert"
+    - "Sample-Automation nur fuer executable Backup-Varianten; SQL-Skript-, Bundle-, Archiv- und Attach-Handler noch nicht implementiert"
+    - "Sample-Backup-Handler mit Trust-Pfad, Mehrfachauswahl im Menue und New-SqlServerLab -Sample sind implementiert"
     - "LAB_GENERATED-Baselines und beste kompatible Aufsetzpunkte noch nicht implementiert"
     - "mehrere reservierte serverConfig-Felder noch ohne stabilen Runtimepfad"
     - "Versionskatalog wird nicht automatisch als aktuell garantiert"

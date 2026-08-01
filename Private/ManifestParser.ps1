@@ -199,6 +199,13 @@ function Resolve-LabSampleRestore {
     <#
     .SYNOPSIS
         Loest eine Sample-Referenz in einen aktuell unterstuetzten Backup-Restore auf.
+
+    .DESCRIPTION
+        Nur executable Backup-Varianten mit direkter .bak-URL werden aufgeloest.
+        Eine fehlende Katalogpruefsumme ist zulaessig; die Integritaet wird dann
+        zur Laufzeit ueber den Trust-Pfad (interactive-once) des Artifact
+        Resolvers gesichert. Nicht interaktive Laeufe enden dort mit
+        TRUST_REQUIRED.
     #>
     [CmdletBinding()]
     param(
@@ -217,11 +224,11 @@ function Resolve-LabSampleRestore {
     if ($artifact.runtimeStatus -ne 'executable') {
         throw "Sample '$($artifact.sampleId)' Variante '$($artifact.sampleVariant)' ist nur beschreibend katalogisiert und nicht fuer die automatische Ausfuehrung freigegeben."
     }
-    if ([string]::IsNullOrWhiteSpace($artifact.expectedSha256)) {
-        throw "Sample '$($artifact.sampleId)' Variante '$($artifact.sampleVariant)' besitzt keine verifizierte SHA-256-Pruefsumme."
-    }
     if ($artifact.artifactType -ne 'backup' -or $artifact.installation.kind -ne 'backup') {
         throw "Sample '$($artifact.sampleId)' Variante '$($artifact.sampleVariant)' hat Artifact Type '$($artifact.artifactType)'. Der Manifestpfad unterstuetzt derzeit nur den Backup-Handler."
+    }
+    if ([string]::IsNullOrWhiteSpace($artifact.expectedSha256) -and $artifact.trustPolicy -ne 'interactive-once') {
+        throw "Sample '$($artifact.sampleId)' Variante '$($artifact.sampleVariant)' besitzt weder eine verifizierte SHA-256-Pruefsumme noch einen interaktiven Trust-Pfad."
     }
     if ($artifact.expectedOutputs.Count -ne 1 -or $artifact.expectedOutputs[0].kind -ne 'database') {
         throw "Sample '$($artifact.sampleId)' Variante '$($artifact.sampleVariant)' kann nicht als einzelner Backup-Restore verwendet werden, weil die erwarteten Ausgaben nicht eindeutig sind."
@@ -233,7 +240,7 @@ function Resolve-LabSampleRestore {
     return [PSCustomObject]@{
         source                  = $artifact.source
         type                    = 'url'
-        replace                 = $true
+        replace                 = $false
         sampleId                = $artifact.sampleId
         sampleVariant           = $artifact.sampleVariant
         artifactType            = $artifact.artifactType
@@ -244,6 +251,10 @@ function Resolve-LabSampleRestore {
         expectedSha256          = $artifact.expectedSha256
         integrityOrigin         = $artifact.integrityOrigin
         trustPolicy             = $artifact.trustPolicy
+        compatibility           = $artifact.compatibility
+        idempotencyMode         = [string]$artifact.installation.idempotencyMode
+        downloadSizeMB          = $artifact.downloadSizeMB
+        estimatedInstallSizeMB  = $artifact.estimatedInstallSizeMB
     }
 }
 
