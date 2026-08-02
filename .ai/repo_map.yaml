@@ -348,6 +348,27 @@ validation:
       - content_addressed_cache
       - manifest_lock
       - trust_required_non_interactive
+  static_cleanup_recovery:
+    command: '.\Tests\Static\Invoke-CleanupRecoveryChecks.ps1'
+    source: Tests/Static/Invoke-CleanupRecoveryChecks.ps1
+    covers:
+      - provider_remove_failure
+      - recovery_required_state
+      - persisted_failure_cause
+      - successful_cleanup_retry
+      - deferred_secret_removal
+  static_podman_bootstrap:
+    command: '.\Tests\Static\Invoke-PodmanBootstrapChecks.ps1'
+    source: Tests/Static/Invoke-PodmanBootstrapChecks.ps1
+    covers:
+      - already_ready
+      - stopped_default_machine
+      - unique_custom_machine
+      - no_machine
+      - ambiguous_machines
+      - start_failure
+      - readiness_timeout
+      - concurrent_start_lock
   static_sample_handler:
     command: '.\Tests\Static\Invoke-SampleHandlerChecks.ps1'
     source: Tests/Static/Invoke-SampleHandlerChecks.ps1
@@ -389,6 +410,17 @@ validation:
       - provider_subrun_status
       - grouped_stop_start
       - grouped_cleanup
+  restore_smoke:
+    source: Tests/Integration/Invoke-RestoreSmokeTest.ps1
+    docker: '.\Tests\Integration\Invoke-RestoreSmokeTest.ps1 -Provider docker'
+    podman: '.\Tests\Integration\Invoke-RestoreSmokeTest.ps1 -Provider podman'
+    checks:
+      - synthetic_backup_fixture
+      - local_sha256_guard
+      - run_based_provider_resolution
+      - restore_filelistonly_and_move
+      - restored_database_online_and_content
+      - full_cleanup
   remote_workflows:
     docker:
       source: .github/workflows/runtime-smoke-docker.yml

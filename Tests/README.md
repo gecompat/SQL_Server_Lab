@@ -10,6 +10,7 @@
 ## Statische Prüfungen
 
 ```powershell
+.\Tests\Static\Invoke-AllChecks.ps1
 .\Tests\Static\Invoke-ManifestBuilderChecks.ps1
 .\Tests\Static\Invoke-DocumentationChecks.ps1
 .\Tests\Static\Invoke-ReadinessContractChecks.ps1
@@ -17,6 +18,8 @@
 .\Tests\Static\Invoke-ArtifactResolverChecks.ps1
 .\Tests\Static\Invoke-SampleHandlerChecks.ps1
 .\Tests\Static\Invoke-ProjectAdapterChecks.ps1
+.\Tests\Static\Invoke-CleanupRecoveryChecks.ps1
+.\Tests\Static\Invoke-PodmanBootstrapChecks.ps1
 ```
 
 Die statischen Prüfungen benötigen keine laufende SQL-Server-Instanz. Sie kontrollieren unter anderem:
@@ -35,6 +38,10 @@ Die statischen Prüfungen benötigen keine laufende SQL-Server-Instanz. Sie kont
 - Trust Store, inhaltsadressierten Artifact Cache, Quarantäne und sanitisiertes Run Lock mit ausschliesslich synthetischen Testbytes.
 - Sample-Backup-Handler-Vertrag: Katalogfilterung, Auflösung, Idempotenz- und Trust-Metadaten sowie den nicht interaktiven `TRUST_REQUIRED`-Pfad ohne Netzwerk oder Container.
 - Project-Adapter-Vertrag: Schema, Versions- und Capability-Gates sowie die Pfadgrenzen des Adapter-Roots anhand manipulierter Kopien.
+- Cleanup-/Recovery-Vertrag: sichtbarer Providerfehler, persistierter
+  `RECOVERY_REQUIRED`-State, Fehlerhistorie und erfolgreicher Wiederholungsversuch.
+- Podman-Bootstrap: bereits erreichbare Runtime, eindeutige Machine-Auswahl,
+  Startfehler, Timeout und hostweit serialisierter Parallelstart.
 
 Der interaktive Menüpfad darf das bereits laufende Modul nicht innerhalb von `Invoke-SqlServerLab` erneut mit `Import-Module -Force` laden. Eine Selbst-Neuladung entfernt die gerade verwendeten Hilfsfunktionen aus dem Funktionskontext.
 
@@ -64,6 +71,20 @@ als unabhängige Jobs provisioniert.
 Eine vorhandene, gestoppte Podman-Machine wird vor Podman- und Mixed-Smokes
 durch `Tests/Integration/Initialize-PodmanRuntime.ps1` automatisch gestartet.
 Podman muss installiert und mindestens eine Machine bereits angelegt sein.
+
+## Backup-/Restore-Smoke-Test
+
+Der echte Restore-Test verwendet ausschliesslich eine zur Laufzeit erzeugte
+synthetische Datenbank. Er erzeugt ein temporaeres `.bak`, prueft dessen
+SHA-256 und stellt es ueber die gespeicherte Run-/Providerbindung wieder her:
+
+```powershell
+.\Tests\Integration\Invoke-RestoreSmokeTest.ps1 -Provider docker
+.\Tests\Integration\Invoke-RestoreSmokeTest.ps1 -Provider podman
+```
+
+Die Remote-Workflows fuehren den Test nach der jeweiligen vollstaendigen
+Docker- beziehungsweise Podman-Matrix unter demselben hostweiten Mutex aus.
 
 ## Provider- und Versionsmatrix
 

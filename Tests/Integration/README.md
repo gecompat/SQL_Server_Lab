@@ -43,3 +43,16 @@ und ändert keine Connection-Auswahl.
 ```powershell
 .\Tests\Integration\Invoke-MixedProviderSmokeTest.ps1
 ```
+
+## Invoke-RestoreSmokeTest.ps1
+
+Der Restore-Smoke-Test erzeugt im Lab eine kleine synthetische Datenbank mit
+drei Datensaetzen, erstellt daraus ein temporaeres `.bak` und stellt es ueber
+`Restore-SqlServerLabDatabase -RunId` unter neuem Namen wieder her. Er prueft
+SHA-256-Ablehnung, `RESTORE FILELISTONLY`, `WITH MOVE`, Providerbindung,
+ONLINE-Status, Inhalt und Cleanup. Es werden keine externen Backups verwendet.
+
+```powershell
+.\Tests\Integration\Invoke-RestoreSmokeTest.ps1 -Provider docker
+.\Tests\Integration\Invoke-RestoreSmokeTest.ps1 -Provider podman
+```

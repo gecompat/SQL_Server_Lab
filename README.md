@@ -476,6 +476,8 @@ Einzelprovider-Smoke-Test:
 .\Tests\Integration\Invoke-SmokeTest.ps1 -Provider docker
 .\Tests\Integration\Invoke-SmokeTest.ps1 -Provider podman
 .\Tests\Integration\Invoke-MixedProviderSmokeTest.ps1
+.\Tests\Integration\Invoke-RestoreSmokeTest.ps1 -Provider docker
+.\Tests\Integration\Invoke-RestoreSmokeTest.ps1 -Provider podman
 ```
 
 Providerübergreifender Lifecycle-Test für alle lokal erreichbaren Provider:

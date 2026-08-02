@@ -22,7 +22,7 @@
 #>
 [CmdletBinding()]
 param(
-    [ValidateRange(10, 600)]
+    [ValidateRange(1, 600)]
     [int]$TimeoutSeconds = 90,
 
     [ValidateRange(1, 30)]

@@ -67,6 +67,11 @@ jobs:
               -IncludeParallel 2>&1 | Tee-Object -FilePath $logPath
             $matrixExitCode = $LASTEXITCODE
             if ($matrixExitCode -ne 0) { throw "Docker Smoke Matrix endete mit Exitcode $matrixExitCode." }
+
+            & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-RestoreSmokeTest.ps1 `
+              -Provider docker 2>&1 | Tee-Object -FilePath $logPath -Append
+            $restoreExitCode = $LASTEXITCODE
+            if ($restoreExitCode -ne 0) { throw "Docker Restore Smoke Test endete mit Exitcode $restoreExitCode." }
           }
           finally {
             if ($acquired) { $mutex.ReleaseMutex() }
