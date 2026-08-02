@@ -9,6 +9,7 @@ $startPath = Join-Path $repoRoot 'Public\Start-SqlServerLab.ps1'
 $menuPath = Join-Path $repoRoot 'Public\Invoke-SqlServerLab.ps1'
 $dockerProviderPath = Join-Path $repoRoot 'Providers\Docker\DockerProvider.ps1'
 $podmanProviderPath = Join-Path $repoRoot 'Providers\Podman\PodmanProvider.ps1'
+$podmanBootstrapPath = Join-Path $repoRoot 'Tests\Integration\Initialize-PodmanRuntime.ps1'
 $documentationPath = Join-Path $repoRoot 'Documentation\HowTo\PODMAN_WINDOWS_NETWORKING.md'
 
 $failures = [System.Collections.Generic.List[string]]::new()
@@ -44,6 +45,7 @@ foreach ($path in @(
     $menuPath,
     $dockerProviderPath,
     $podmanProviderPath,
+    $podmanBootstrapPath,
     $documentationPath
 )) {
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
@@ -58,6 +60,7 @@ if ($failures.Count -eq 0) {
     $menu = Get-Content -LiteralPath $menuPath -Raw -Encoding utf8
     $dockerProvider = Get-Content -LiteralPath $dockerProviderPath -Raw -Encoding utf8
     $podmanProvider = Get-Content -LiteralPath $podmanProviderPath -Raw -Encoding utf8
+    $podmanBootstrap = Get-Content -LiteralPath $podmanBootstrapPath -Raw -Encoding utf8
     $documentation = Get-Content -LiteralPath $documentationPath -Raw -Encoding utf8
 
     Assert-Contains $sqlReadiness 'function\s+Get-PodmanWindowsLocalhostDiagnostic' 'Podman-Windows-Diagnosefunktion fehlt.'
@@ -66,7 +69,9 @@ if ($failures.Count -eq 0) {
     Assert-Contains $sqlReadiness 'Start-Sleep\s+-Milliseconds' 'Readiness verwendet kein kurzes Millisekunden-Polling.'
     Assert-Contains $sqlReadiness 'function\s+Wait-LabDatabaseReady' 'Datenbank-Readiness-Funktion fehlt.'
     Assert-Contains $sqlReadiness 'Wait-LabDatabaseReady[\s\S]+Invoke-LabSqlScript' 'Skriptausfuehrung ist nicht gegen Datenbank-Readiness abgesichert.'
-    Assert-Contains $sqlReadiness 'if\s+\(\$KeepConnection\)[\s\S]+-i\s+\$ScriptPath' 'KeepConnection fuehrt das Skript nicht in einem einzelnen sqlcmd-Prozess aus.'
+    Assert-Contains $sqlReadiness 'if\s+\(\$KeepConnection\)[\s\S]+-i\s+\$tempScriptPath' 'KeepConnection fuehrt das Skript nicht in einem einzelnen sqlcmd-Prozess aus.'
+    Assert-Contains $sqlReadiness 'WriteAllText\([\s\S]+UTF8Encoding\]::new\(\$true\)' 'KeepConnection erzeugt keine explizite UTF-8-BOM-Eingabedatei.'
+    Assert-Contains $sqlReadiness '-X1[\s\S]+-x' 'KeepConnection deaktiviert die sqlcmd-Skriptebene nicht vollstaendig.'
 
     Assert-Contains $portAllocation 'function\s+Get-LabReservedSqlPorts' 'Runtimeuebergreifende Portermittlung fehlt.'
     Assert-Contains $portAllocation 'function\s+Find-LabAvailablePort' 'Gemeinsame freie Portsuche fehlt.'
@@ -83,6 +88,12 @@ if ($failures.Count -eq 0) {
     Assert-Contains $podmanProvider 'Find-LabAvailablePort' 'Podman verwendet nicht die gemeinsame Portermittlung.'
     Assert-Contains $podmanProvider 'cannot bind tcp port[\s\S]+\$nextPort\s*=\s*\$selectedPort\s*\+\s*1' 'Podman wiederholt automatische Portbindungskonflikte nicht mit dem naechsten Port.'
     Assert-Contains $podmanProvider 'podman\s+rm\s+-f\s+\$containerName' 'Podman entfernt einen bei Bindungsfehler teilweise angelegten Container nicht vor dem Retry.'
+
+    Assert-Contains $podmanBootstrap 'function\s+Test-PodmanRuntimeReady' 'Podman-Bootstrap prueft die Runtime-Erreichbarkeit nicht.'
+    Assert-Contains $podmanBootstrap 'podman\s+machine\s+list\s+--format\s+json' 'Podman-Bootstrap ermittelt vorhandene Machines nicht strukturiert.'
+    Assert-Contains $podmanBootstrap 'podman\s+machine\s+start\s+\$targetName' 'Podman-Bootstrap startet eine gestoppte Machine nicht.'
+    Assert-Contains $podmanBootstrap 'SQL_Server_Lab_Podman_Bootstrap' 'Podman-Bootstrap besitzt keinen hostweiten Start-Lock.'
+    Assert-Contains $podmanBootstrap 'Elapsed\.TotalSeconds\s+-lt\s+\$TimeoutSeconds' 'Podman-Bootstrap wartet nicht begrenzt auf Erreichbarkeit.'
 
     Assert-Contains $start 'Wait-SqlReady' 'Start-SqlServerLab prueft die SQL-Readiness nicht.'
     Assert-Contains $start 'Wait-LabDatabaseReady' 'Start-SqlServerLab wartet nicht auf gespeicherte Benutzerdatenbanken.'

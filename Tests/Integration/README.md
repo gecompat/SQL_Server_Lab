@@ -35,6 +35,11 @@ Podman. Er provisioniert das Beispiel `example-mixed-provider-lab.json` mit
 zwei kompakten SQL-Server-Instanzen, prüft Status, Stop, Start und Cleanup.
 State und synthetisches SA-Passwort werden ausschließlich temporär erzeugt.
 
+Ist Podman installiert, aber seine Machine gestoppt, startet
+`Initialize-PodmanRuntime.ps1` bevorzugt `podman-machine-default` automatisch
+und wartet begrenzt auf `podman info`. Das Skript erzeugt keine neue Machine
+und ändert keine Connection-Auswahl.
+
 ```powershell
 .\Tests\Integration\Invoke-MixedProviderSmokeTest.ps1
 ```
