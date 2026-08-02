@@ -133,9 +133,10 @@ BACKUP DATABASE [RestoreSmokeSource]
     WITH INIT, CHECKSUM;
 "@
 
-    & $Provider cp "${instance.ContainerName}:$containerBackupPath" $hostBackupPath 1>$null 2>$null
-    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $hostBackupPath -PathType Leaf)) {
-        throw 'Synthetisches Backup konnte nicht auf den Host kopiert werden.'
+    $copyOutput = @(& $Provider cp "$($instance.ContainerName):$containerBackupPath" $hostBackupPath 2>&1)
+    $copyExitCode = $LASTEXITCODE
+    if ($copyExitCode -ne 0 -or -not (Test-Path -LiteralPath $hostBackupPath -PathType Leaf)) {
+        throw "Synthetisches Backup konnte nicht auf den Host kopiert werden: $($copyOutput -join "`n")"
     }
     Assert-True -Condition ((Get-Item -LiteralPath $hostBackupPath).Length -gt 0) -Description 'Synthetisches Backup ist nicht leer'
 
