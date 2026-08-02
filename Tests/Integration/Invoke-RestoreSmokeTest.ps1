@@ -114,21 +114,24 @@ try {
         throw 'Temporaeres Backup-Verzeichnis konnte nicht angelegt werden.'
     }
 
-    $setupQuery = @"
-CREATE DATABASE [RestoreSmokeSource];
-ALTER DATABASE [RestoreSmokeSource] SET RECOVERY SIMPLE;
-USE [RestoreSmokeSource];
+    # CREATE DATABASE und der erste Zugriff auf die neue Datenbank muessen in
+    # getrennten Batches laufen: SQL Server kompiliert USE sonst, bevor die
+    # vorherige CREATE-Anweisung ausgefuehrt wurde.
+    $null = Invoke-SyntheticSqlcmd -Query 'CREATE DATABASE [RestoreSmokeSource];'
+    $null = Invoke-SyntheticSqlcmd -Query 'ALTER DATABASE [RestoreSmokeSource] SET RECOVERY SIMPLE;'
+    $null = Invoke-SyntheticSqlcmd -Database 'RestoreSmokeSource' -Query @'
 CREATE TABLE dbo.SyntheticRows (
     Id int NOT NULL PRIMARY KEY,
     Payload nvarchar(100) NOT NULL
 );
 INSERT INTO dbo.SyntheticRows (Id, Payload)
 VALUES (1, N'alpha'), (2, N'beta'), (3, N'gamma');
+'@
+    $null = Invoke-SyntheticSqlcmd -Query @"
 BACKUP DATABASE [RestoreSmokeSource]
     TO DISK = N'$containerBackupPath'
     WITH INIT, CHECKSUM;
 "@
-    $null = Invoke-SyntheticSqlcmd -Query $setupQuery
 
     & $Provider cp "${instance.ContainerName}:$containerBackupPath" $hostBackupPath 1>$null 2>$null
     if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $hostBackupPath -PathType Leaf)) {
