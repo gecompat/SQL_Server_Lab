@@ -61,6 +61,10 @@ Er benötigt einen Runner, auf dem beide Runtimes erreichbar sind. Die beiden
 Instanzen gehören zu einem einzelnen Lab und werden im Lifecycle nicht parallel
 als unabhängige Jobs provisioniert.
 
+Eine vorhandene, gestoppte Podman-Machine wird vor Podman- und Mixed-Smokes
+durch `Tests/Integration/Initialize-PodmanRuntime.ps1` automatisch gestartet.
+Podman muss installiert und mindestens eine Machine bereits angelegt sein.
+
 ## Provider- und Versionsmatrix
 
 Der bevorzugte übergreifende Test ist:
@@ -150,7 +154,8 @@ Remote-Läufe befinden sich unter:
 ## Voraussetzungen
 
 - PowerShell 7.2 oder neuer;
-- laufendes Docker oder Podman;
+- laufendes Docker; Podman muss installiert sein, eine vorhandene gestoppte
+  Podman-Machine wird automatisch gestartet;
 - `sqlcmd`;
 - genügend RAM, Storage und freie Ports im Bereich 14330 bis 14399;
 - Zugriff auf die konfigurierten SQL-Server-Container-Images;
