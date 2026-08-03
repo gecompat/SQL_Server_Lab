@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING` |
-| Runtime-Status | `CONTAINER_CORE_IMPLEMENTED_HYPERV_IMAGE_SEALING_RESUME` |
+| Runtime-Status | `CONTAINER_CORE_IMPLEMENTED_HYPERV_POWERSHELL_DIRECT_SYSPREP` |
 | Stand | 2026-08-03 |
 | Repository | `gecompat/SQL_Server_Lab` |
 | Maschinenlesbare Landkarte | [`repo_map.yaml`](repo_map.yaml) |
@@ -56,6 +56,9 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   Generation 2, Secure Boot, DVD-Boot und Manual-Action-Gate;
 - buildgebundene Generalisierungsevidenz mit Challenge, VM-/Checkpoint-
   Postconditions und kontrollierter immutable Registry-Publikation;
+- automatisches Windows-Sysprep ueber PowerShell Direct mit Microsoft-
+  ImageState-Pruefung, resumierbarer Shutdown-Beobachtung und ohne persistierte
+  Gast-Credentials;
 
 ### Geplant oder unvollständig
 

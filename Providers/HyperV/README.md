@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `PARTIALLY_IMPLEMENTED` |
-| Runtime-Status | `IMAGE_SEALING_RESUME` |
+| Runtime-Status | `POWERSHELL_DIRECT_SYSPREP_RESUME` |
 | Verbindlicher Zielvertrag | [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](../../Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md) |
 | Artifact-Ergänzung | [Testdatenbank-Provisionierung und Manifest-Wizard](../../Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md) |
 
@@ -35,12 +35,16 @@ und synthetische Test-Artefakte aus und begründet verworfene Kandidaten.
 `Private/HyperVImageBuilder.ps1` plant einen Build aus einem lokal
 SHA-256- und ISO-9660-verifizierten Windows-Medium, persistiert Resume-State und
 erzeugt einen isolierten Generation-2-Builder mit Secure Boot, OS-VHDX und
-DVD-Boot. OS-Installation und Generalisierung enden zunächst bewusst in
-`MANUAL_ACTION_REQUIRED`. Die Fortsetzung akzeptiert nur SHA-256-verifizierte,
-an BuildId, ScopeId und eine zufällige Challenge gebundene Evidenz. Vor der
-Publikation prüft sie VM-Auszustand, VM-Identität, fehlende Checkpoints und die
-VHDX-Pfadgrenze. Reale Medien werden erst danach als immutable `OS_SEALED`
-registriert; synthetische CI-Medien bleiben zwingend `LIFECYCLE_TEST_ONLY`.
+DVD-Boot. Die OS-Installation endet zunächst bewusst in
+`MANUAL_ACTION_REQUIRED`. Nach der manuellen OS-Installation kann die Runtime
+Sysprep ueber PowerShell Direct ausfuehren, den Microsoft-ImageState pruefen,
+den Gast-Shutdown beobachten und die an BuildId, ScopeId und Challenge
+gebundene Evidenz automatisch erzeugen. Der Zwischenzustand `REBOOT_REQUIRED`
+ist ohne erneute Credential-Eingabe resumierbar; Gast-Credentials werden nicht
+persistiert. Vor der Publikation prüft die Runtime außerdem VM-Identität,
+fehlende Checkpoints und die VHDX-Pfadgrenze. Reale Medien werden erst danach
+als immutable `OS_SEALED` registriert; synthetische CI-Medien bleiben zwingend
+`LIFECYCLE_TEST_ONLY` und duerfen den Sysprep-Pfad nicht ausfuehren.
 
 Der Slice ist kein SQL-Runtime-Nachweis. `New-SqlServerLab` provisioniert noch
 keine Hyper-V-Instanz und die Provider-Metadaten setzen `sqlProvisioning` daher
@@ -48,16 +52,15 @@ explizit auf `false`.
 
 ## Verbleibender Providerumfang
 
-- unattended OS-Build, Rebootsteuerung und automatische Evidenzgewinnung;
-- Windows-Specialization und validierte PowerShell-Direct-Ausführung im Gast;
+- unattended OS-Build und Rebootsteuerung waehrend der Installation;
+- Windows-Specialization nach Verwendung eines sealed Images;
 - Linux Guest Management über cloud-init und SSH;
 - Restart und Einbindung in die öffentlichen Run-Lifecycle-Cmdlets;
 - zusätzliche VHDX und providerneutrale Drive-Rollen;
 - Management- und Lab-Netze;
 - resumierbare OS- und SQL-Server-Installation;
-- automatische Gast-Postcondition-Prüfung über PowerShell Direct oder
-  Offline-Inspection; der aktuelle Slice validiert die eingereichte Evidenz und
-  Host-Postconditions, erzeugt die Gast-Evidenz aber noch nicht selbst;
+- echter End-to-End-Sysprep-Nachweis in einem Windows-Gast; der Native-Smoke
+  verwendet weiterhin bewusst nur synthetische leere Testmedien;
 - SQL Readiness, Software, External Runtimes und Testdatenbanken;
 - Diff-/Reconcile-Ablauf für nachträgliche Änderungen.
 

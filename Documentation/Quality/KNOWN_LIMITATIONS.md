@@ -40,15 +40,17 @@ generalisiert diese Images nicht selbst.
 
 Die Windows-Image-Builder-Grundlage verifiziert ein lokales ISO, erstellt einen
 persistenten Build-Plan und kann den isolierten Generation-2-Builder samt
-Cleanup erzeugen. Installation, Reboots und Generalisierungsausführung sind
-noch nicht automatisiert und werden als `MANUAL_ACTION_REQUIRED` ausgewiesen.
-Ein Resume akzeptiert SHA-256-verifizierte Evidenz nur mit passender BuildId,
-ScopeId und zufälliger Build-Challenge. VM-Auszustand, SQL_Server_Lab-Identität,
-fehlende Checkpoints und VHDX-Pfadgrenze werden vor einer immutable Registry-
-Publikation geprüft. Die Gast-Evidenz selbst muss derzeit noch über PowerShell
-Direct oder Offline-Inspection erzeugt werden; die Runtime führt Sysprep noch
-nicht eigenständig aus. Synthetische CI-Builds können ausschließlich
-`LIFECYCLE_TEST_ONLY`, niemals `OS_SEALED`, veröffentlichen.
+Cleanup erzeugen. Die OS-Installation bleibt manuell und wird als
+`MANUAL_ACTION_REQUIRED` ausgewiesen. Danach kann die Runtime Sysprep ueber
+PowerShell Direct ausfuehren, den erfolgreichen Microsoft-ImageState pruefen,
+einen resumierbaren `REBOOT_REQUIRED`-State persistieren, den Gast-Shutdown
+beobachten und die buildgebundene Evidenz automatisch erzeugen. Gast-
+Credentials werden dabei nicht gespeichert. VM-Auszustand, SQL_Server_Lab-
+Identität, fehlende Checkpoints und VHDX-Pfadgrenze werden vor einer immutable
+Registry-Publikation geprüft. Der Native-Smoke verwendet keine echte Windows-
+Installation und beweist daher kein Gast-Sysprep. Synthetische CI-Builds koennen
+ausschließlich `LIFECYCLE_TEST_ONLY`, niemals `OS_SEALED`, veröffentlichen und
+duerfen den automatischen Sysprep-Pfad nicht ausfuehren.
 
 Manifeste mit Windows-Betriebssystem oder GUI-Software können bei der Provider-
 Auflösung zu `hyperv` führen; `New-SqlServerLab` bricht weiterhin mit einer
@@ -56,7 +58,7 @@ klaren Meldung ab, weil die Hyper-V-SQL-Provisionierung noch fehlt.
 
 Nicht implementiert sind insbesondere der unattended OS-/SQL-Image-Build,
 `PrepareImage`/`CompleteImage`, zusätzliche VM-Drives,
-Network Intents, IPAM, Manual Resume, Reconcile und Artifact Refresh. Der
+Network Intents, IPAM, Reconcile und Artifact Refresh. Der
 verbindliche Zielvertrag steht in
 [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](../Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md).
 
