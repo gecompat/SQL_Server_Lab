@@ -4,9 +4,10 @@
     Native-Smoke-Test fuer die Hyper-V-Lifecycle-Grundlage.
 .DESCRIPTION
     Erzeugt eine kleine synthetische read-only Parent-VHDX und prueft daraus
-    eine Generation-2-VM mit Differencing Child, Secure Boot, Status, Start,
-    Stop und scopegebundenem Cleanup. Der Test installiert weder ein
-    Betriebssystem noch SQL Server und verwendet kein Netzwerk.
+    eine Generation-2-VM mit Differencing Child, zusätzlichen SQL-Data-/Log-
+    VHDX, Secure Boot, Status, Start, Stop und scopegebundenem Cleanup. Der Test
+    installiert weder ein Betriebssystem noch SQL Server und verwendet kein
+    Netzwerk.
 .PARAMETER KeepOnFailure
     Behaelt Testressourcen fuer eine lokale Diagnose. Nicht fuer CI verwenden.
 #>
@@ -95,23 +96,37 @@ try {
             -ScopeId $ScopeId `
             -InstanceId 'lifecycle-smoke' `
             -MemoryStartupBytes 512MB `
-            -ProcessorCount 1
+            -ProcessorCount 1 `
+            -AdditionalDrives @(
+                [PSCustomObject]@{ id = 'data'; role = 'sqlData'; sizeBytes = 32MB; vhdType = 'dynamic' },
+                [PSCustomObject]@{ id = 'log'; role = 'sqlLog'; sizeBytes = 32MB; vhdType = 'dynamic' }
+            )
     } $runDirectory $runId $scopeId $imageArtifact.artifactId $stateRoot
 
     Assert-HyperVSmoke -Condition ($instance.Provider -eq 'hyperv') -Description 'Providerbindung ist hyperv'
     Assert-HyperVSmoke -Condition (-not $instance.SqlReady) -Description 'Lifecycle-Slice behauptet keine SQL-Bereitschaft'
     Assert-HyperVSmoke -Condition (Test-Path -LiteralPath $instance.ChildVhdxPath -PathType Leaf) -Description 'Differencing Child-VHDX wurde erzeugt'
+    Assert-HyperVSmoke -Condition (@($instance.AdditionalDrives).Count -eq 2) -Description 'Zwei rollenbasierte Zusatz-VHDX wurden geplant'
+    foreach ($drive in @($instance.AdditionalDrives)) {
+        Assert-HyperVSmoke -Condition (Test-Path -LiteralPath $drive.Path -PathType Leaf) -Description "Zusatz-VHDX $($drive.Id) wurde erzeugt"
+    }
 
     $createdStatus = & $module {
         param($VMName, $RunId, $ScopeId)
         Get-HyperVInstanceStatus -VMName $VMName -ExpectedRunId $RunId -ExpectedScopeId $ScopeId
     } $instance.VMName $runId $scopeId
     Assert-HyperVSmoke -Condition ($createdStatus.Exists -and $createdStatus.State -eq 'Off') -Description 'Generation-2-VM ist initial ausgeschaltet'
+    Assert-HyperVSmoke -Condition (@($createdStatus.AdditionalVhdxPaths).Count -eq 2) -Description 'VM-Status bewahrt die Zusatz-VHDX-Bindung'
 
     $vm = Get-VM -Name $instance.VMName -ErrorAction Stop
     Assert-HyperVSmoke -Condition ($vm.Generation -eq 2) -Description 'VM verwendet Generation 2'
     $firmware = Get-VMFirmware -VM $vm -ErrorAction Stop
     Assert-HyperVSmoke -Condition ($firmware.SecureBoot -eq 'On') -Description 'Secure Boot ist aktiviert'
+    $attachedPaths = @(Get-VMHardDiskDrive -VM $vm -ErrorAction Stop | ForEach-Object { [System.IO.Path]::GetFullPath([string]$_.Path) })
+    Assert-HyperVSmoke -Condition ($attachedPaths.Count -eq 3) -Description 'OS-Child und zwei Zusatz-VHDX sind an die VM gebunden'
+    foreach ($drive in @($instance.AdditionalDrives)) {
+        Assert-HyperVSmoke -Condition ($attachedPaths -contains [System.IO.Path]::GetFullPath($drive.Path)) -Description "Zusatz-VHDX $($drive.Id) ist per SCSI angebunden"
+    }
     Assert-HyperVSmoke -Condition (@(Get-VMNetworkAdapter -VM $vm).Count -eq 0) -Description 'Smoke-VM besitzt keine Netzwerkverbindung'
 
     $started = & $module {
@@ -133,6 +148,9 @@ try {
     Assert-HyperVSmoke -Condition ($cleanup.Status -eq 'CLEANUP_SUCCEEDED') -Description 'Scopegebundener Cleanup war erfolgreich'
     Assert-HyperVSmoke -Condition (-not (Get-VM -Name $instance.VMName -ErrorAction SilentlyContinue)) -Description 'VM wurde entfernt'
     Assert-HyperVSmoke -Condition (-not (Test-Path -LiteralPath $instance.ChildVhdxPath)) -Description 'Child-VHDX wurde entfernt'
+    foreach ($drive in @($instance.AdditionalDrives)) {
+        Assert-HyperVSmoke -Condition (-not (Test-Path -LiteralPath $drive.Path)) -Description "Zusatz-VHDX $($drive.Id) wurde entfernt"
+    }
     Assert-HyperVSmoke -Condition (Test-Path -LiteralPath $parentPath -PathType Leaf) -Description 'Parent-VHDX blieb erhalten'
     Assert-HyperVSmoke -Condition (Test-Path -LiteralPath $imageArtifact.Path -PathType Leaf) -Description 'Registriertes Image-Artifact blieb erhalten'
     $manifestLock = Get-Content -LiteralPath (Join-Path $runDirectory 'manifest.lock.json') -Raw | ConvertFrom-Json -Depth 20

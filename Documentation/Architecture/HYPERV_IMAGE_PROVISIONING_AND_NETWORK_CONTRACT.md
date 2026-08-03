@@ -3,8 +3,8 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING_IMPLEMENTATION_TARGET` |
-| Runtime-Status | `PARTIALLY_IMPLEMENTED_WINDOWS_IMAGE_BUILDER_FOUNDATION` |
-| Stand | 2026-07-30 |
+| Runtime-Status | `PARTIALLY_IMPLEMENTED_ADDITIONAL_VHDX` |
+| Stand | 2026-08-03 |
 | Geltungsbereich | Hyper-V sowie providerneutrale Anteile für Docker und Podman |
 | Aktueller Ist-Nachweis | [`KNOWN_LIMITATIONS.md`](../Quality/KNOWN_LIMITATIONS.md) |
 | Ergänzender Artifact-Vertrag | [Testdatenbank-Provisionierung und Manifest-Wizard](SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md) |
@@ -694,6 +694,11 @@ End-to-End-Nachweis und die spätere Specialization bleiben offen.
 - `SQL_PREPARED_SEALED`;
 - SQL Readiness und Configuration.
 
+Stand 2026-08-03: Run-lokale dynamische und feste Zusatz-VHDX mit validierten
+SQL-bezogenen Rollen, SCSI-Anbindung, VM-Identitätsbindung und scope-sicherem
+Cleanup sind implementiert. Gastinitialisierung, stabile Disk-ID-Zuordnung,
+Manifest-Binding und alle SQL-Setup-Schritte bleiben offen.
+
 ### Welle 6 – Netzwerkabstraktion
 
 - `isolated`, `hostOnly`, `nat` und `lan`;
@@ -764,6 +769,8 @@ erneut prüfen. Grundlage dieses Zielvertrags sind:
 - Microsoft (2025): [Sysprep Command-Line Options](https://learn.microsoft.com/en-us/windows-hardware/manufacture/desktop/sysprep-command-line-options?view=windows-11).
 - Microsoft (2025): [Windows Setup States](https://learn.microsoft.com/en-us/windows-hardware/manufacture/desktop/windows-setup-states?view=windows-11).
 - Microsoft (2025): [PowerShell Direct](https://learn.microsoft.com/en-us/windows-server/virtualization/hyper-v/powershell-direct).
+- Microsoft (2025): [`New-VHD`](https://learn.microsoft.com/en-us/powershell/module/hyper-v/new-vhd?view=windowsserver2025-ps).
+- Microsoft (2025): [`Add-VMHardDiskDrive`](https://learn.microsoft.com/en-us/powershell/module/hyper-v/add-vmharddiskdrive?view=windowsserver2025-ps).
 - Microsoft (2025): [Generation 2 virtual machine security](https://learn.microsoft.com/en-us/windows-server/virtualization/hyper-v/generation-2-virtual-machine-security-features).
 - Microsoft (2025): [Dynamic Memory](https://learn.microsoft.com/en-us/windows-server/virtualization/hyper-v/dynamic-memory).
 - Microsoft (2026): [Plan for Hyper-V networking](https://learn.microsoft.com/en-us/windows-server/virtualization/hyper-v/plan/plan-hyper-v-networking-in-windows-server).

@@ -3,9 +3,9 @@
     Hyper-V-Lifecycle-Grundlage fuer SQL_Server_Lab.
 .DESCRIPTION
     Implementiert Verfuegbarkeit, Generation-2-VM-Erstellung aus einer
-    verifizierten read-only Parent-VHDX, Status, Start, Stop, PowerShell Direct
-    und scopegebundenen Cleanup. SQL- und Gast-Provisionierung sind noch nicht
-    Bestandteil dieses Vertical Slice.
+    verifizierten read-only Parent-VHDX, Status, Start, Stop, PowerShell Direct,
+    zusätzliche run-lokale VHDX und scopegebundenen Cleanup. SQL- und Gast-
+    Provisionierung sind noch nicht Bestandteil dieses Vertical Slice.
 #>
 
 $script:HyperVLabNotesPrefix = 'SQL_SERVER_LAB:'
@@ -23,8 +23,10 @@ function Test-HyperVAvailable {
     }
 
     $requiredCommands = @(
+        'Add-VMHardDiskDrive',
         'Add-VMDvdDrive',
         'Get-VM',
+        'Get-VMHardDiskDrive',
         'Get-VMHost',
         'Get-VMNetworkAdapter',
         'Get-VMSnapshot',
@@ -73,18 +75,80 @@ function ConvertTo-HyperVLabNotes {
         [Parameter(Mandatory)][string]$RunId,
         [Parameter(Mandatory)][string]$ScopeId,
         [Parameter(Mandatory)][string]$InstanceId,
-        [Parameter(Mandatory)][string]$ChildVhdxPath
+        [Parameter(Mandatory)][string]$ChildVhdxPath,
+        [string[]]$AdditionalVhdxPaths = @()
     )
 
     $identity = [ordered]@{
-        contractVersion = '0.1'
+        contractVersion = '0.2'
         provider        = 'hyperv'
         runId           = $RunId
         scopeId         = $ScopeId
         instanceId      = $InstanceId
         childVhdxPath   = [System.IO.Path]::GetFullPath($ChildVhdxPath)
+        additionalVhdxPaths = @(
+            $AdditionalVhdxPaths | ForEach-Object { [System.IO.Path]::GetFullPath($_) }
+        )
     }
     return $script:HyperVLabNotesPrefix + ($identity | ConvertTo-Json -Compress)
+}
+
+function Resolve-HyperVAdditionalDrivePlan {
+    [CmdletBinding()]
+    param(
+        [object[]]$AdditionalDrives = @(),
+        [Parameter(Mandatory)][string]$ResourceRoot,
+        [Parameter(Mandatory)][string]$VMName,
+        [Parameter(Mandatory)][string]$RunDirectory
+    )
+
+    if (@($AdditionalDrives).Count -gt 16) {
+        throw 'HYPERV_ADDITIONAL_DRIVE_LIMIT_EXCEEDED'
+    }
+
+    $seenIds = [System.Collections.Generic.HashSet[string]]::new(
+        [System.StringComparer]::OrdinalIgnoreCase
+    )
+    $plan = @()
+    foreach ($drive in @($AdditionalDrives)) {
+        $id = [string]$drive.id
+        if ($id -notmatch '^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$') {
+            throw "HYPERV_ADDITIONAL_DRIVE_ID_INVALID: $id"
+        }
+        if (-not $seenIds.Add($id)) {
+            throw "HYPERV_ADDITIONAL_DRIVE_ID_DUPLICATE: $id"
+        }
+
+        $role = if ($drive.role) { [string]$drive.role } else { 'general' }
+        if ($role -notin @('sqlData', 'sqlLog', 'tempdb', 'backup', 'general')) {
+            throw "HYPERV_ADDITIONAL_DRIVE_ROLE_INVALID: $role"
+        }
+        $sizeBytes = [long]$drive.sizeBytes
+        if ($sizeBytes -lt 32MB -or $sizeBytes -gt 64TB) {
+            throw "HYPERV_ADDITIONAL_DRIVE_SIZE_INVALID: $id"
+        }
+        $vhdType = if ($drive.vhdType) { [string]$drive.vhdType } else { 'dynamic' }
+        if ($vhdType -notin @('dynamic', 'fixed')) {
+            throw "HYPERV_ADDITIONAL_DRIVE_TYPE_INVALID: $vhdType"
+        }
+
+        $safeId = $id -replace '_', '-'
+        $path = Join-Path $ResourceRoot "$VMName-$safeId.vhdx"
+        if (-not (Test-HyperVPathWithinRunDirectory -Path $path -RunDirectory $RunDirectory)) {
+            throw 'HYPERV_RESOURCE_SCOPE_VIOLATION'
+        }
+        if (Test-Path -LiteralPath $path) {
+            throw "Hyper-V-Zusatz-VHDX existiert bereits: $path"
+        }
+        $plan += [PSCustomObject]@{
+            Id = $id
+            Role = $role
+            SizeBytes = $sizeBytes
+            VhdType = $vhdType
+            Path = [System.IO.Path]::GetFullPath($path)
+        }
+    }
+    return @($plan)
 }
 
 function ConvertFrom-HyperVLabNotes {
@@ -182,7 +246,8 @@ function New-HyperVInstance {
         [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$')][string]$InstanceId,
         [ValidateRange(512MB, 1TB)][long]$MemoryStartupBytes = 2GB,
         [ValidateRange(1, 64)][int]$ProcessorCount = 2,
-        [string]$SwitchName
+        [string]$SwitchName,
+        [object[]]$AdditionalDrives = @()
     )
 
     $availability = Test-HyperVAvailable
@@ -247,9 +312,16 @@ function New-HyperVInstance {
     if (Test-Path -LiteralPath $childVhdxPath) {
         throw "Hyper-V-Child-VHDX existiert bereits: $childVhdxPath"
     }
+    $additionalDrivePlan = @(
+        Resolve-HyperVAdditionalDrivePlan `
+            -AdditionalDrives $AdditionalDrives `
+            -ResourceRoot $resourceRoot `
+            -VMName $vmName `
+            -RunDirectory $resolvedRunDirectory
+    )
 
     # Der Cleanup-Plan wird vor der ersten Provider-Mutation vervollstaendigt.
-    # Die umgekehrte Ausfuehrung entfernt zuerst die VM und danach die Child-VHDX.
+    # Die umgekehrte Ausfuehrung entfernt zuerst die VM und danach alle run-lokalen VHDX.
     $null = Add-CleanupStep `
         -RunDir $resolvedRunDirectory `
         -ResourceType 'vhdx' `
@@ -258,6 +330,16 @@ function New-HyperVInstance {
         -Provider 'hyperv' `
         -ProviderSubRunId 'provider-hyperv' `
         -Compensation "Remove Hyper-V child VHDX for $vmName"
+    foreach ($drive in $additionalDrivePlan) {
+        $null = Add-CleanupStep `
+            -RunDir $resolvedRunDirectory `
+            -ResourceType 'vhdx' `
+            -ResourceId $drive.Path `
+            -Action 'remove' `
+            -Provider 'hyperv' `
+            -ProviderSubRunId 'provider-hyperv' `
+            -Compensation "Remove Hyper-V $($drive.Role) VHDX $($drive.Id) for $vmName"
+    }
     $null = Add-CleanupStep `
         -RunDir $resolvedRunDirectory `
         -ResourceType 'vm' `
@@ -269,6 +351,20 @@ function New-HyperVInstance {
 
     $null = New-Item -ItemType Directory -Path $resourceRoot -Force
     $null = New-VHD -Path $childVhdxPath -ParentPath $resolvedParent -Differencing -ErrorAction Stop
+    foreach ($drive in $additionalDrivePlan) {
+        $newVhdParameters = @{
+            Path = $drive.Path
+            SizeBytes = $drive.SizeBytes
+            ErrorAction = 'Stop'
+        }
+        if ($drive.VhdType -eq 'fixed') {
+            $newVhdParameters.Fixed = $true
+        }
+        else {
+            $newVhdParameters.Dynamic = $true
+        }
+        $null = New-VHD @newVhdParameters
+    }
 
     $newVmParameters = @{
         Name               = $vmName
@@ -282,6 +378,13 @@ function New-HyperVInstance {
         $newVmParameters.SwitchName = $SwitchName
     }
     $vm = New-VM @newVmParameters
+    $notes = ConvertTo-HyperVLabNotes `
+        -RunId $RunId `
+        -ScopeId $ScopeId `
+        -InstanceId $InstanceId `
+        -ChildVhdxPath $childVhdxPath `
+        -AdditionalVhdxPaths @($additionalDrivePlan | ForEach-Object { $_.Path })
+    $null = Set-VM -VM $vm -Notes $notes -ErrorAction Stop
     if (-not $SwitchName) {
         # New-VM erzeugt hostabhaengig auch ohne SwitchName einen getrennten
         # Standardadapter. Dieser Slice besitzt noch keinen Netzwerkvertrag und
@@ -289,19 +392,20 @@ function New-HyperVInstance {
         @($vm | Get-VMNetworkAdapter -ErrorAction Stop) |
             Remove-VMNetworkAdapter -ErrorAction Stop
     }
+    foreach ($drive in $additionalDrivePlan) {
+        $null = Add-VMHardDiskDrive `
+            -VM $vm `
+            -ControllerType SCSI `
+            -ControllerNumber 0 `
+            -Path $drive.Path `
+            -ErrorAction Stop
+    }
     $null = Set-VMProcessor -VM $vm -Count $ProcessorCount -ErrorAction Stop
     $null = Set-VMFirmware `
         -VM $vm `
         -EnableSecureBoot On `
         -SecureBootTemplate MicrosoftWindows `
         -ErrorAction Stop
-    $notes = ConvertTo-HyperVLabNotes `
-        -RunId $RunId `
-        -ScopeId $ScopeId `
-        -InstanceId $InstanceId `
-        -ChildVhdxPath $childVhdxPath
-    $null = Set-VM -VM $vm -Notes $notes -ErrorAction Stop
-
     return [PSCustomObject]@{
         Provider      = 'hyperv'
         VMId          = [string]$vm.Id
@@ -310,6 +414,7 @@ function New-HyperVInstance {
         RunId         = $RunId
         ScopeId       = $ScopeId
         ChildVhdxPath = $childVhdxPath
+        AdditionalDrives = @($additionalDrivePlan)
         State         = [string]$vm.State
         SqlReady      = $false
     }
@@ -345,6 +450,7 @@ function Get-HyperVInstanceStatus {
         RunId      = [string]$managed.Identity.runId
         ScopeId    = [string]$managed.Identity.scopeId
         InstanceId = [string]$managed.Identity.instanceId
+        AdditionalVhdxPaths = @($managed.Identity.additionalVhdxPaths | ForEach-Object { [string]$_ })
         SqlReady   = $false
     }
 }
@@ -427,9 +533,13 @@ function Remove-HyperVInstance {
         return [PSCustomObject]@{ Removed = $false; AlreadyAbsent = $true; VMName = $VMName }
     }
 
-    $childVhdxPath = [string]$managed.Identity.childVhdxPath
-    if (-not (Test-HyperVPathWithinRunDirectory -Path $childVhdxPath -RunDirectory $ExpectedRunDirectory)) {
-        throw 'HYPERV_RESOURCE_SCOPE_VIOLATION'
+    $vhdxPaths = @([string]$managed.Identity.childVhdxPath) + @(
+        $managed.Identity.additionalVhdxPaths | ForEach-Object { [string]$_ }
+    )
+    foreach ($vhdxPath in $vhdxPaths) {
+        if (-not (Test-HyperVPathWithinRunDirectory -Path $vhdxPath -RunDirectory $ExpectedRunDirectory)) {
+            throw 'HYPERV_RESOURCE_SCOPE_VIOLATION'
+        }
     }
 
     if ([string]$managed.VM.State -ne 'Off') {
@@ -439,7 +549,9 @@ function Remove-HyperVInstance {
     $null = Remove-VM -VM $managed.VM -Force -ErrorAction Stop
 
     if (-not $PreserveVhdx) {
-        $null = Remove-HyperVVhdxForCleanup -Path $childVhdxPath -ExpectedRunDirectory $ExpectedRunDirectory
+        foreach ($vhdxPath in $vhdxPaths) {
+            $null = Remove-HyperVVhdxForCleanup -Path $vhdxPath -ExpectedRunDirectory $ExpectedRunDirectory
+        }
     }
 
     return [PSCustomObject]@{ Removed = $true; AlreadyAbsent = $false; VMName = $VMName }
@@ -457,7 +569,7 @@ function Remove-HyperVVhdxForCleanup {
         throw 'HYPERV_RESOURCE_SCOPE_VIOLATION'
     }
     if ([System.IO.Path]::GetExtension($resolvedPath) -ne '.vhdx') {
-        throw 'Nur scopegebundene Child-VHDX duerfen entfernt werden.'
+        throw 'Nur scopegebundene run-lokale VHDX duerfen entfernt werden.'
     }
     if (-not (Test-Path -LiteralPath $resolvedPath -PathType Leaf)) {
         return [PSCustomObject]@{ Removed = $false; AlreadyAbsent = $true; Path = $resolvedPath }
@@ -474,7 +586,7 @@ function Remove-HyperVVhdxForCleanup {
             }
     )
     if ($attached.Count -gt 0) {
-        throw "Child-VHDX ist noch an eine VM gebunden: $resolvedPath"
+        throw "Run-lokale VHDX ist noch an eine VM gebunden: $resolvedPath"
     }
 
     Remove-Item -LiteralPath $resolvedPath -Force

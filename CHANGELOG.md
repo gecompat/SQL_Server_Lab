@@ -37,6 +37,10 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   validiert danach den Microsoft-ImageState, persistiert einen resumierbaren
   `REBOOT_REQUIRED`-State, beobachtet den Gast-Shutdown und erzeugt die
   buildgebundene Evidenz automatisch; Gast-Credentials werden nicht gespeichert.
+- Der Hyper-V-Lifecycle erstellt bis zu 16 validierte run-lokale Zusatz-VHDX
+  als `dynamic` oder `fixed`, bindet SQL-bezogene Rollen und SCSI-Attachments
+  an die VM-Identität und entfernt alle Disks scope-sicher über den Cleanup-
+  Plan. Gastinitialisierung und Manifest-Binding bleiben ausdrücklich offen.
 
 ### Geändert
 

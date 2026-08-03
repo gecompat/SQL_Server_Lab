@@ -62,7 +62,8 @@ ONLINE-Status, Inhalt und Cleanup. Es werden keine externen Backups verwendet.
 Der Hyper-V-Smoke-Test prüft Image-Registry und Lifecycle-Grundlage auf einem
 Windows-Host mit Hyper-V. Er registriert eine kleine synthetische read-only
 Parent-VHDX, erzeugt eine Generation-2-VM mit Differencing Child und Secure
-Boot, startet und stoppt sie und prüft den scopegebundenen Cleanup. Zusätzlich
+Boot sowie zwei run-lokalen SCSI-Zusatz-VHDX für SQL-Data und SQL-Log, startet
+und stoppt sie und prüft den scopegebundenen Cleanup. Zusätzlich
 prüft er einen synthetischen Windows-Image-Build-Plan samt Generation-2-/DVD-
 Builder, buildgebundener Generalisierungsevidenz, Resume, immutable Registry-
 Publikation als `LIFECYCLE_TEST_ONLY` und Cleanup. Er beweist zusätzlich, dass

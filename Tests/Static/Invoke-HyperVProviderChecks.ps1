@@ -4,8 +4,9 @@
     Prueft den statischen Vertrag der Hyper-V-Lifecycle-Grundlage.
 .DESCRIPTION
     Validiert Metadaten, Funktionsoberflaeche, Parent-Integritaet, Generation 2,
-    Secure Boot, scopegebundenen Cleanup und die ausdrueckliche Grenze zur noch
-    nicht implementierten SQL-Provisionierung ohne Hyper-V-Ressourcen zu aendern.
+    Secure Boot, zusätzliche VHDX, scopegebundenen Cleanup und die ausdrueckliche
+    Grenze zur noch nicht implementierten SQL-Provisionierung ohne Hyper-V-
+    Ressourcen zu aendern.
 #>
 [CmdletBinding()]
 param()
@@ -41,13 +42,14 @@ try {
     Add-CheckResult -Name 'Metadaten registrieren hyperv' -Success ($metadata.name -eq 'hyperv')
     Add-CheckResult `
         -Name 'SQL-Provisionierung bleibt explizit deaktiviert' `
-        -Success ($metadata.runtimeStatus -eq 'powershell-direct-sysprep-resume' -and $metadata.sqlProvisioning -eq $false)
+        -Success ($metadata.runtimeStatus -eq 'additional-vhdx-lifecycle' -and $metadata.sqlProvisioning -eq $false)
     Add-CheckResult `
         -Name 'Runner-Labels sind capability-spezifisch' `
         -Success ((@($metadata.requirements.runnerLabels) -join ',') -eq 'self-hosted,SQL_Lab,Hyper-V')
 
     foreach ($functionName in @(
         'Test-HyperVAvailable',
+        'Resolve-HyperVAdditionalDrivePlan',
         'New-HyperVInstance',
         'Get-HyperVInstanceStatus',
         'Start-HyperVInstance',
@@ -83,6 +85,14 @@ try {
         -Text $provider `
         -Pattern 'EnableSecureBoot\s+On[\s\S]+SecureBootTemplate\s+MicrosoftWindows'
     Add-TextContract `
+        -Name 'Zusatz-VHDX werden explizit per SCSI angebunden' `
+        -Text $provider `
+        -Pattern 'Add-VMHardDiskDrive[\s\S]+ControllerType\s+SCSI[\s\S]+ControllerNumber\s+0'
+    Add-TextContract `
+        -Name 'Zusatz-VHDX erhalten Cleanup vor ihrer Erstellung' `
+        -Text $provider `
+        -Pattern 'foreach\s*\(\$drive in \$additionalDrivePlan\)[\s\S]+Add-CleanupStep[\s\S]+foreach\s*\(\$drive in \$additionalDrivePlan\)[\s\S]+New-VHD'
+    Add-TextContract `
         -Name 'Lifecycle ohne Switch entfernt implizite Netzwerkadapter' `
         -Text $provider `
         -Pattern 'if\s*\(-not\s+\$SwitchName\)[\s\S]+Get-VMNetworkAdapter[\s\S]+Remove-VMNetworkAdapter'
@@ -98,11 +108,13 @@ try {
     Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
     $module = Import-Module $modulePath -Force -PassThru
     $roundTrip = & $module {
+        $additionalPath = Join-Path ([System.IO.Path]::GetTempPath()) 'synthetic-data.vhdx'
         $notes = ConvertTo-HyperVLabNotes `
             -RunId '00000000-0000-0000-0000-000000000001' `
             -ScopeId '00000000-0000-0000-0000-000000000002' `
             -InstanceId 'static-check' `
-            -ChildVhdxPath (Join-Path ([System.IO.Path]::GetTempPath()) 'synthetic.vhdx')
+            -ChildVhdxPath (Join-Path ([System.IO.Path]::GetTempPath()) 'synthetic.vhdx') `
+            -AdditionalVhdxPaths @($additionalPath)
         ConvertFrom-HyperVLabNotes -Notes $notes
     }
     Add-CheckResult `
@@ -110,7 +122,36 @@ try {
         -Success (
             $roundTrip.runId -eq '00000000-0000-0000-0000-000000000001' -and
             $roundTrip.scopeId -eq '00000000-0000-0000-0000-000000000002' -and
-            $roundTrip.instanceId -eq 'static-check'
+            $roundTrip.instanceId -eq 'static-check' -and
+            @($roundTrip.additionalVhdxPaths).Count -eq 1
+        )
+
+    $driveContract = & $module {
+        $runDirectory = Join-Path ([System.IO.Path]::GetTempPath()) 'sql-lab-hyperv-drive-static-run'
+        $resourceRoot = Join-Path (Join-Path $runDirectory 'resources') 'hyperv'
+        $plan = Resolve-HyperVAdditionalDrivePlan -RunDirectory $runDirectory `
+            -ResourceRoot $resourceRoot -VMName 'sql-lab-static' -AdditionalDrives @(
+                [PSCustomObject]@{ id = 'data'; role = 'sqlData'; sizeBytes = 64MB; vhdType = 'dynamic' },
+                [PSCustomObject]@{ id = 'log'; role = 'sqlLog'; sizeBytes = 32MB; vhdType = 'fixed' }
+            )
+        $duplicateRejected = $false
+        try {
+            $null = Resolve-HyperVAdditionalDrivePlan -RunDirectory $runDirectory `
+                -ResourceRoot $resourceRoot -VMName 'sql-lab-static' -AdditionalDrives @(
+                    [PSCustomObject]@{ id = 'data'; role = 'sqlData'; sizeBytes = 32MB },
+                    [PSCustomObject]@{ id = 'DATA'; role = 'sqlLog'; sizeBytes = 32MB }
+                )
+        }
+        catch { $duplicateRejected = $_.Exception.Message -like 'HYPERV_ADDITIONAL_DRIVE_ID_DUPLICATE*' }
+        [PSCustomObject]@{ Plan = $plan; DuplicateRejected = $duplicateRejected }
+    }
+    Add-CheckResult `
+        -Name 'Drive-Plan validiert Rollen, Typen und IDs vor Mutation' `
+        -Success (
+            @($driveContract.Plan).Count -eq 2 -and
+            $driveContract.Plan[0].Role -eq 'sqlData' -and
+            $driveContract.Plan[1].VhdType -eq 'fixed' -and
+            $driveContract.DuplicateRejected
         )
 
     $pathContract = & $module {
