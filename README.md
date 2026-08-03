@@ -29,7 +29,7 @@ Fachliche Testszenarien bleiben in den konsumierenden Projekten. `SQL_Server_Lab
 
 ## Aktueller Status
 
-**Status:** `CONTAINER_CORE_IMPLEMENTED_HYPERV_GUEST_DRIVE_ORCHESTRATION`
+**Status:** `CONTAINER_CORE_IMPLEMENTED_HYPERV_SPECIALIZATION_READINESS_ORCHESTRATION`
 
 | Bereich | Status | Nachweis |
 |---|---|---|
@@ -37,7 +37,7 @@ Fachliche Testszenarien bleiben in den konsumierenden Projekten. `SQL_Server_Lab
 | Docker-Provider | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman-Provider | implementiert | `Providers/Podman/PodmanProvider.ps1` |
 | Gemischter Docker-/Podman-Lifecycle | implementiert | `Documentation/Architecture/MIXED_PROVIDER_LIFECYCLE.md` |
-| Hyper-V-Provider | Lifecycle einschließlich stabil identifizierter Zusatz-VHDX und PowerShell-Direct-Gastinitialisierung, Image-Registry und Windows-Builder implementiert; echter Windows-Gast-/SQL-End-to-End-Nachweis noch offen | `Providers/HyperV/HyperVProvider.ps1`, `Private/HyperVImageBuilder.ps1` |
+| Hyper-V-Provider | Lifecycle einschließlich Gast-Drives, Windows-Specialization mit Reboot/Reconnect und SQL-Readiness-Orchestrierung, Image-Registry und Windows-Builder implementiert; echter Windows-Gast-/SQL-End-to-End-Nachweis noch offen | `Providers/HyperV/HyperVProvider.ps1`, `Private/HyperVImageBuilder.ps1` |
 | Ad-hoc-Provisionierung | implementiert | `New-SqlServerLab -Version ... -Provider ...` |
 | Manifest-Provisionierung | implementiert | `Schemas/lab-manifest.schema.json` |
 | Resource Assessment | implementiert | `Test-SqlServerLabPrerequisite` |
@@ -55,7 +55,8 @@ Die [bekannten Grenzen](Documentation/Quality/KNOWN_LIMITATIONS.md) sind Teil de
 
 `Invoke-SqlServerLab` und `New-SqlServerLab` bieten Hyper-V noch nicht als
 ausführbaren Menü-/SQL-Runtimepfad an. Der Provider bleibt intern, bis
-Windows-Specialization, Manifest-Binding und SQL Readiness vollständig sind.
+`CompleteImage`, Manifest-/Netzwerk-Binding und ein echter Windows-/SQL-
+End-to-End-Nachweis vollständig sind.
 
 ## Voraussetzungen
 

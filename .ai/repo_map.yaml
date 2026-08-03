@@ -5,7 +5,7 @@ project:
   default_branch: main
   module_manifest: SqlServerLab.psd1
   module_loader: SqlServerLab.psm1
-  runtime_status: CONTAINER_CORE_IMPLEMENTED_HYPERV_GUEST_DRIVE_ORCHESTRATION
+  runtime_status: CONTAINER_CORE_IMPLEMENTED_HYPERV_SPECIALIZATION_READINESS_ORCHESTRATION
 
 sources_of_truth:
   exported_commands: SqlServerLab.psd1
@@ -206,7 +206,7 @@ providers:
     windows_networking: Documentation/HowTo/PODMAN_WINDOWS_NETWORKING.md
     port_binding: "gemeinsame Portermittlung plus Runtime-Retry innerhalb des hostweiten Locks"
   hyperv:
-    status: partial_image_sealing_resume
+    status: partial_specialization_readiness_orchestration
     implementation: Providers/HyperV/HyperVProvider.ps1
     image_registry: Private/HyperVImageRegistry.ps1
     image_builder: Private/HyperVImageBuilder.ps1
@@ -258,7 +258,7 @@ planning_contracts:
   hyperv_image_provisioning_network:
     source: Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md
     status: BINDING_IMPLEMENTATION_TARGET
-    runtime_status: PARTIALLY_IMPLEMENTED_GUEST_DRIVE_ORCHESTRATION
+    runtime_status: PARTIALLY_IMPLEMENTED_WINDOWS_SPECIALIZATION_SQL_READINESS
     covers:
       - sealed_os_and_sql_images
       - media_license_and_evaluation_lifecycle

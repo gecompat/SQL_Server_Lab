@@ -47,6 +47,12 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   GPT/NTFS mit expliziter Allocation Unit und persistiert ausschließlich
   sanitierte Receipts. Ein echter Windows-Gast-CI-Nachweis und die Menü-/
   Manifest-Freigabe bleiben offen.
+- Die Hyper-V-Gastspezialisierung setzt einen eindeutigen Windows-Computernamen,
+  persistiert den Reboot-Zustand vor dem Neustart und wartet begrenzt auf den
+  PowerShell-Direct-Reconnect. Die anschließende SQL-Readiness-Orchestrierung
+  prüft SQL-Dienst, Major-Version und die vier Online-Systemdatenbanken und
+  speichert ausschließlich sanitierte `SQL_READY_RUN`-Evidenz. Ohne reale
+  sealed Baseline bleibt der End-to-End-Nachweis ausdrücklich offen.
 
 ### Geändert
 

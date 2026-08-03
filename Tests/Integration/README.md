@@ -65,7 +65,8 @@ Parent-VHDX, erzeugt eine Generation-2-VM mit Differencing Child und Secure
 Boot sowie zwei run-lokalen SCSI-Zusatz-VHDX für SQL-Data und SQL-Log, startet
 und stoppt sie und prüft DiskIdentifier sowie scopegebundenen Cleanup. Da die
 synthetische VM kein Windows enthält, führt der Test keine Gastformatierung aus;
-diese Orchestrierung wird in den statischen Providerchecks gemockt. Zusätzlich
+diese Orchestrierung wird in den statischen Providerchecks gemockt. Dasselbe
+gilt für Windows-Specialization, Reboot/Reconnect und SQL-Readiness. Zusätzlich
 prüft er einen synthetischen Windows-Image-Build-Plan samt Generation-2-/DVD-
 Builder, buildgebundener Generalisierungsevidenz, Resume, immutable Registry-
 Publikation als `LIFECYCLE_TEST_ONLY` und Cleanup. Er beweist zusätzlich, dass

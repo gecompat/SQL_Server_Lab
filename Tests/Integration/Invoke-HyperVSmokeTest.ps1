@@ -119,6 +119,8 @@ try {
     Assert-HyperVSmoke -Condition ($createdStatus.Exists -and $createdStatus.State -eq 'Off') -Description 'Generation-2-VM ist initial ausgeschaltet'
     Assert-HyperVSmoke -Condition (@($createdStatus.AdditionalVhdxPaths).Count -eq 2) -Description 'VM-Status bewahrt die Zusatz-VHDX-Bindung'
     Assert-HyperVSmoke -Condition (-not $createdStatus.GuestDrivesReady) -Description 'Host-Smoke behauptet ohne Windows-Gast keine initialisierten Volumes'
+    Assert-HyperVSmoke -Condition (-not $createdStatus.WindowsSpecialized) -Description 'Host-Smoke behauptet ohne Windows-Gast keine Specialization'
+    Assert-HyperVSmoke -Condition (-not $createdStatus.SqlReady -and -not $createdStatus.LastSqlReadinessStatus) -Description 'Host-Smoke behauptet ohne SQL-Gast keine Readiness'
 
     $vm = Get-VM -Name $instance.VMName -ErrorAction Stop
     Assert-HyperVSmoke -Condition ($vm.Generation -eq 2) -Description 'VM verwendet Generation 2'

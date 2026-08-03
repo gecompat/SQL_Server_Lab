@@ -20,8 +20,9 @@ Ein Verzeichnis allein registriert keinen implementierten Provider.
 Die implementierte Hyper-V-Grundlage umfasst eine immutable Image-Registry,
 deterministische Baseline-Auswahl, Generation 2, Secure Boot,
 verifizierte read-only Parent-VHDX, Differencing Child, stabil identifizierte
-run-lokale Zusatz-VHDX, PowerShell-Direct-Gastinitialisierung, Status, Start,
-Stop und scopegebundenen Cleanup. Der weiterführende Zielvertrag
+run-lokale Zusatz-VHDX, PowerShell-Direct-Gastinitialisierung, Windows-
+Specialization mit Reboot/Reconnect, SQL-Readiness-Orchestrierung, Status,
+Start, Stop und scopegebundenen Cleanup. Der weiterführende Zielvertrag
 für OS-/SQL-Provisionierung, Drives, Network Intents, Software, Reconcile und
 Artifact Refresh steht in
 [HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md](../Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md).
@@ -78,4 +79,5 @@ Gemeinsam zu pflegen sind:
 8. eigener Native-Smoke-Test.
 
 Die Hyper-V-Lifecycle-Grundlage darf nicht als SQL-fertiger Hyper-V-Provider
-bezeichnet werden, solange OS-/SQL-Provisionierung und SQL Readiness fehlen.
+bezeichnet werden, solange `CompleteImage`, Netz-/Manifest-Binding und ein
+echter Windows-/SQL-End-to-End-Nachweis fehlen.

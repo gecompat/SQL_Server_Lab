@@ -520,6 +520,14 @@ function Get-HyperVInstanceStatus {
             @($managed.Identity.guestDriveInitialization).Count -eq
                 @($managed.Identity.additionalDrives | Where-Object guestPath).Count
         )
+        WindowsSpecialized = [bool](
+            [string]$managed.Identity.windowsSpecialization.status -eq 'WINDOWS_SPECIALIZED'
+        )
+        LastSqlReadinessStatus = [string]$managed.Identity.sqlReadiness.status
+        LastSqlReadinessAt = [string]$managed.Identity.sqlReadiness.observedAt
+        # Ohne erneut bereitgestellte Credentials ist hier kein Live-SQL-Probe
+        # moeglich. Der gespeicherte Receipt bleibt deshalb Historie, nicht
+        # aktuelle Bereitschaft.
         SqlReady   = $false
     }
 }
@@ -585,6 +593,414 @@ function Invoke-HyperVPowerShellDirect {
         -ScriptBlock $ScriptBlock `
         -ArgumentList $ArgumentList `
         -ErrorAction Stop
+}
+
+function Set-HyperVManagedVMIdentityProperty {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$ManagedVM,
+        [Parameter(Mandatory)][string]$PropertyName,
+        [Parameter(Mandatory)]$Value,
+        [Parameter(Mandatory)][string]$ContractVersion
+    )
+
+    $ManagedVM.Identity | Add-Member `
+        -NotePropertyName contractVersion `
+        -NotePropertyValue $ContractVersion `
+        -Force
+    $ManagedVM.Identity | Add-Member `
+        -NotePropertyName $PropertyName `
+        -NotePropertyValue $Value `
+        -Force
+    $notes = $script:HyperVLabNotesPrefix + (
+        $ManagedVM.Identity | ConvertTo-Json -Compress -Depth 10
+    )
+    $null = Set-VM -VM $ManagedVM.VM -Notes $notes -ErrorAction Stop
+    return $notes
+}
+
+function Wait-HyperVPowerShellDirect {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$VMName,
+        [Parameter(Mandatory)][string]$ExpectedRunId,
+        [Parameter(Mandatory)][string]$ExpectedScopeId,
+        [Parameter(Mandatory)][PSCredential]$Credential,
+        [string]$ExpectedComputerName,
+        [ValidateRange(1, 3600)][int]$TimeoutSeconds = 300,
+        [ValidateRange(100, 60000)][int]$PollIntervalMilliseconds = 2000
+    )
+
+    $managed = Get-HyperVManagedVM `
+        -VMName $VMName `
+        -ExpectedRunId $ExpectedRunId `
+        -ExpectedScopeId $ExpectedScopeId
+    if (-not $managed) { throw "Hyper-V-VM nicht gefunden: $VMName" }
+
+    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+    $lastError = ''
+    while ($stopwatch.Elapsed.TotalSeconds -lt $TimeoutSeconds) {
+        try {
+            $probe = Invoke-Command `
+                -VMName $VMName `
+                -Credential $Credential `
+                -ScriptBlock {
+                    [PSCustomObject]@{
+                        computerName = [Environment]::MachineName
+                        imageState = [string](Get-ItemPropertyValue `
+                            -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State' `
+                            -Name ImageState `
+                            -ErrorAction Stop)
+                    }
+                } `
+                -ErrorAction Stop
+            $probe = @($probe)[0]
+            if ((-not $ExpectedComputerName -or
+                    [string]$probe.computerName -eq $ExpectedComputerName) -and
+                [string]$probe.imageState -eq 'IMAGE_STATE_COMPLETE') {
+                $stopwatch.Stop()
+                return [PSCustomObject]@{
+                    Ready = $true
+                    ComputerName = [string]$probe.computerName
+                    ImageState = [string]$probe.imageState
+                    Duration = $stopwatch.Elapsed
+                    Message = 'PowerShell Direct ist bereit.'
+                }
+            }
+            $lastError = "ComputerName=$($probe.computerName), ImageState=$($probe.imageState)"
+        }
+        catch {
+            $lastError = $_.Exception.Message
+        }
+        Start-Sleep -Milliseconds $PollIntervalMilliseconds
+    }
+
+    $stopwatch.Stop()
+    return [PSCustomObject]@{
+        Ready = $false
+        ComputerName = $null
+        ImageState = $null
+        Duration = $stopwatch.Elapsed
+        Message = "PowerShell Direct Timeout: $lastError"
+    }
+}
+
+function Set-HyperVWindowsGuestSpecialization {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$VMName,
+        [Parameter(Mandatory)][string]$ExpectedRunId,
+        [Parameter(Mandatory)][string]$ExpectedScopeId,
+        [Parameter(Mandatory)][PSCredential]$Credential,
+        [Parameter(Mandatory)][ValidatePattern('^(?![0-9]+$)[A-Za-z0-9](?:[A-Za-z0-9-]{0,13}[A-Za-z0-9])?$')][string]$ComputerName,
+        [ValidateRange(1, 3600)][int]$TimeoutSeconds = 300
+    )
+
+    $targetComputerName = $ComputerName.ToUpperInvariant()
+    $managed = Get-HyperVManagedVM `
+        -VMName $VMName `
+        -ExpectedRunId $ExpectedRunId `
+        -ExpectedScopeId $ExpectedScopeId
+    if (-not $managed) { throw "Hyper-V-VM nicht gefunden: $VMName" }
+    if ([string]$managed.VM.State -ne 'Running') {
+        throw "Windows-Specialization erfordert eine laufende VM: $VMName"
+    }
+
+    $observed = Invoke-HyperVPowerShellDirect `
+        -VMName $VMName `
+        -ExpectedRunId $ExpectedRunId `
+        -ExpectedScopeId $ExpectedScopeId `
+        -Credential $Credential `
+        -ScriptBlock {
+            $pendingName = [string](Get-ItemPropertyValue `
+                -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName' `
+                -Name ComputerName `
+                -ErrorAction Stop)
+            [PSCustomObject]@{
+                computerName = [Environment]::MachineName
+                pendingComputerName = $pendingName
+                imageState = [string](Get-ItemPropertyValue `
+                    -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State' `
+                    -Name ImageState `
+                    -ErrorAction Stop)
+            }
+        }
+    $observed = @($observed)[0]
+    if ([string]$observed.imageState -ne 'IMAGE_STATE_COMPLETE') {
+        throw "HYPERV_WINDOWS_SPECIALIZATION_IMAGE_STATE_NOT_COMPLETE: $($observed.imageState)"
+    }
+    if ([string]$observed.pendingComputerName -and
+        [string]$observed.pendingComputerName -ne [string]$observed.computerName -and
+        [string]$observed.pendingComputerName -ne $targetComputerName) {
+        throw "HYPERV_WINDOWS_SPECIALIZATION_RENAME_CONFLICT: $($observed.pendingComputerName)"
+    }
+
+    $needsRestart = [string]$observed.computerName -ne $targetComputerName
+    if ($needsRestart) {
+        $intent = [PSCustomObject]@{
+            status = 'RENAME_PLANNED'
+            computerName = $targetComputerName
+            previousComputerName = [string]$observed.computerName
+            observedAt = [datetime]::UtcNow.ToString('o')
+        }
+        $null = Set-HyperVManagedVMIdentityProperty `
+            -ManagedVM $managed `
+            -PropertyName windowsSpecialization `
+            -Value $intent `
+            -ContractVersion '0.5'
+
+        $null = Invoke-HyperVPowerShellDirect `
+            -VMName $VMName `
+            -ExpectedRunId $ExpectedRunId `
+            -ExpectedScopeId $ExpectedScopeId `
+            -Credential $Credential `
+            -ArgumentList @($targetComputerName) `
+            -ScriptBlock {
+                param($TargetComputerName)
+                $null = Rename-Computer `
+                    -NewName $TargetComputerName `
+                    -Force `
+                    -ErrorAction Stop
+                return 'RENAME_APPLIED'
+            }
+
+        $intent.status = 'REBOOT_REQUIRED'
+        $null = Set-HyperVManagedVMIdentityProperty `
+            -ManagedVM $managed `
+            -PropertyName windowsSpecialization `
+            -Value $intent `
+            -ContractVersion '0.5'
+
+        $null = Invoke-HyperVPowerShellDirect `
+            -VMName $VMName `
+            -ExpectedRunId $ExpectedRunId `
+            -ExpectedScopeId $ExpectedScopeId `
+            -Credential $Credential `
+            -ScriptBlock {
+                $shutdown = Join-Path $env:SystemRoot 'System32\shutdown.exe'
+                $null = Start-Process `
+                    -FilePath $shutdown `
+                    -ArgumentList '/r /t 0 /d p:4:1' `
+                    -WindowStyle Hidden `
+                    -PassThru
+                return 'RESTART_REQUESTED'
+            }
+
+        $ready = Wait-HyperVPowerShellDirect `
+            -VMName $VMName `
+            -ExpectedRunId $ExpectedRunId `
+            -ExpectedScopeId $ExpectedScopeId `
+            -Credential $Credential `
+            -ExpectedComputerName $targetComputerName `
+            -TimeoutSeconds $TimeoutSeconds
+        if (-not $ready.Ready) {
+            throw "HYPERV_WINDOWS_SPECIALIZATION_TIMEOUT: $($ready.Message)"
+        }
+    }
+
+    $verified = Invoke-HyperVPowerShellDirect `
+        -VMName $VMName `
+        -ExpectedRunId $ExpectedRunId `
+        -ExpectedScopeId $ExpectedScopeId `
+        -Credential $Credential `
+        -ScriptBlock {
+            [PSCustomObject]@{
+                computerName = [Environment]::MachineName
+                imageState = [string](Get-ItemPropertyValue `
+                    -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State' `
+                    -Name ImageState `
+                    -ErrorAction Stop)
+                windowsVersion = [Environment]::OSVersion.Version.ToString()
+            }
+        }
+    $verified = @($verified)[0]
+    if ([string]$verified.computerName -ne $targetComputerName -or
+        [string]$verified.imageState -ne 'IMAGE_STATE_COMPLETE') {
+        throw 'HYPERV_WINDOWS_SPECIALIZATION_POSTCONDITION_FAILED'
+    }
+
+    $receipt = [PSCustomObject]@{
+        status = 'WINDOWS_SPECIALIZED'
+        computerName = $targetComputerName
+        imageState = [string]$verified.imageState
+        windowsVersion = [string]$verified.windowsVersion
+        rebooted = [bool]$needsRestart
+        observedAt = [datetime]::UtcNow.ToString('o')
+    }
+    $null = Set-HyperVManagedVMIdentityProperty `
+        -ManagedVM $managed `
+        -PropertyName windowsSpecialization `
+        -Value $receipt `
+        -ContractVersion '0.5'
+
+    return [PSCustomObject]@{
+        Provider = 'hyperv'
+        VMName = $VMName
+        RunId = $ExpectedRunId
+        ScopeId = $ExpectedScopeId
+        Status = 'WINDOWS_SPECIALIZED'
+        ComputerName = $targetComputerName
+        Rebooted = [bool]$needsRestart
+    }
+}
+
+function Wait-HyperVGuestSqlReady {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$VMName,
+        [Parameter(Mandatory)][string]$ExpectedRunId,
+        [Parameter(Mandatory)][string]$ExpectedScopeId,
+        [Parameter(Mandatory)][PSCredential]$Credential,
+        [Parameter(Mandatory)][SecureString]$SaPassword,
+        [ValidatePattern('^[A-Za-z][A-Za-z0-9_$-]{0,127}$')][string]$InstanceName = 'MSSQLSERVER',
+        [ValidateRange(0, 99)][int]$ExpectedMajorVersion = 0,
+        [ValidateRange(1, 3600)][int]$TimeoutSeconds = 300,
+        [ValidateRange(100, 60000)][int]$PollIntervalMilliseconds = 2000
+    )
+
+    $managed = Get-HyperVManagedVM `
+        -VMName $VMName `
+        -ExpectedRunId $ExpectedRunId `
+        -ExpectedScopeId $ExpectedScopeId
+    if (-not $managed) { throw "Hyper-V-VM nicht gefunden: $VMName" }
+    if ([string]$managed.VM.State -ne 'Running') {
+        throw "SQL-Readiness erfordert eine laufende VM: $VMName"
+    }
+    if ([string]$managed.Identity.windowsSpecialization.status -ne 'WINDOWS_SPECIALIZED') {
+        throw 'HYPERV_SQL_READINESS_REQUIRES_WINDOWS_SPECIALIZATION'
+    }
+
+    $receipt = Invoke-HyperVPowerShellDirect `
+        -VMName $VMName `
+        -ExpectedRunId $ExpectedRunId `
+        -ExpectedScopeId $ExpectedScopeId `
+        -Credential $Credential `
+        -ArgumentList @($InstanceName, $SaPassword, $ExpectedMajorVersion, $TimeoutSeconds, $PollIntervalMilliseconds) `
+        -ScriptBlock {
+            param($SqlInstanceName, $SqlSaPassword, $ExpectedMajor, $Timeout, $PollInterval)
+            $ErrorActionPreference = 'Stop'
+            Add-Type -AssemblyName System.Data
+            $serviceName = if ($SqlInstanceName -eq 'MSSQLSERVER') {
+                'MSSQLSERVER'
+            }
+            else { "MSSQL`$$SqlInstanceName" }
+            $serverName = if ($SqlInstanceName -eq 'MSSQLSERVER') {
+                'localhost'
+            }
+            else { "localhost\$SqlInstanceName" }
+
+            $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SqlSaPassword)
+            $plainPassword = $null
+            $builder = $null
+            try {
+                $plainPassword = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+                $builder = [System.Data.SqlClient.SqlConnectionStringBuilder]::new()
+                $builder.DataSource = $serverName
+                $builder.InitialCatalog = 'master'
+                $builder.UserID = 'sa'
+                $builder.Password = $plainPassword
+                $builder.Encrypt = $true
+                $builder.TrustServerCertificate = $true
+                $builder.ConnectTimeout = [Math]::Min(15, [Math]::Max(1, [int]$Timeout))
+
+                $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+                $lastError = ''
+                while ($stopwatch.Elapsed.TotalSeconds -lt [int]$Timeout) {
+                    try {
+                        $service = Get-Service -Name $serviceName -ErrorAction Stop
+                        if ([string]$service.Status -ne 'Running') {
+                            $lastError = "SQL service state: $($service.Status)"
+                            Start-Sleep -Milliseconds ([int]$PollInterval)
+                            continue
+                        }
+
+                        $connection = [System.Data.SqlClient.SqlConnection]::new($builder.ConnectionString)
+                        $command = $null
+                        $reader = $null
+                        try {
+                            $connection.Open()
+                            $command = $connection.CreateCommand()
+                            $command.CommandTimeout = [Math]::Min(30, [Math]::Max(1, [int]$Timeout))
+                            $command.CommandText = @'
+SET NOCOUNT ON;
+SELECT
+    CAST(SERVERPROPERTY('ProductMajorVersion') AS int) AS MajorVersion,
+    CAST(SERVERPROPERTY('ProductVersion') AS nvarchar(128)) AS ProductVersion,
+    CAST(SERVERPROPERTY('Edition') AS nvarchar(128)) AS Edition,
+    CAST(SERVERPROPERTY('MachineName') AS nvarchar(128)) AS MachineName,
+    CAST(SERVERPROPERTY('ServiceName') AS nvarchar(128)) AS ServiceName,
+    (SELECT COUNT(*) FROM sys.databases WHERE name IN ('master','tempdb','model','msdb') AND state_desc = 'ONLINE') AS OnlineSystemDatabases;
+'@
+                            $reader = $command.ExecuteReader()
+                            if (-not $reader.Read()) { throw 'SQL readiness query returned no row.' }
+                            $major = [int]$reader['MajorVersion']
+                            $onlineSystemDatabases = [int]$reader['OnlineSystemDatabases']
+                            if ([int]$ExpectedMajor -gt 0 -and $major -ne [int]$ExpectedMajor) {
+                                throw "SQL major version mismatch: expected $ExpectedMajor, observed $major"
+                            }
+                            if ($onlineSystemDatabases -ne 4) {
+                                throw "SQL system database readiness mismatch: $onlineSystemDatabases/4 online"
+                            }
+                            $stopwatch.Stop()
+                            return [PSCustomObject]@{
+                                status = 'SQL_READY_RUN'
+                                instanceName = [string]$SqlInstanceName
+                                serviceName = $serviceName
+                                majorVersion = $major
+                                productVersion = [string]$reader['ProductVersion']
+                                edition = [string]$reader['Edition']
+                                machineName = [string]$reader['MachineName']
+                                sqlServiceName = [string]$reader['ServiceName']
+                                onlineSystemDatabases = $onlineSystemDatabases
+                                observedAt = [datetime]::UtcNow.ToString('o')
+                            }
+                        }
+                        finally {
+                            if ($reader) { $reader.Dispose() }
+                            if ($command) { $command.Dispose() }
+                            if ($connection) { $connection.Dispose() }
+                        }
+                    }
+                    catch {
+                        $lastError = $_.Exception.Message
+                    }
+                    Start-Sleep -Milliseconds ([int]$PollInterval)
+                }
+                throw "SQL readiness timeout: $lastError"
+            }
+            finally {
+                if ($builder) { $builder.Clear() }
+                $plainPassword = $null
+                [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+            }
+        }
+
+    $receipt = @($receipt)[0]
+    if ([string]$receipt.status -ne 'SQL_READY_RUN' -or
+        [string]$receipt.instanceName -ne $InstanceName -or
+        [int]$receipt.onlineSystemDatabases -ne 4 -or
+        ($ExpectedMajorVersion -gt 0 -and [int]$receipt.majorVersion -ne $ExpectedMajorVersion)) {
+        throw 'HYPERV_SQL_READINESS_RECEIPT_INVALID'
+    }
+    $null = Set-HyperVManagedVMIdentityProperty `
+        -ManagedVM $managed `
+        -PropertyName sqlReadiness `
+        -Value $receipt `
+        -ContractVersion '0.6'
+
+    return [PSCustomObject]@{
+        Provider = 'hyperv'
+        VMName = $VMName
+        RunId = $ExpectedRunId
+        ScopeId = $ExpectedScopeId
+        Status = 'SQL_READY_RUN'
+        Ready = $true
+        InstanceName = [string]$receipt.instanceName
+        MajorVersion = [int]$receipt.majorVersion
+        ProductVersion = [string]$receipt.productVersion
+        Edition = [string]$receipt.edition
+        ObservedAt = [string]$receipt.observedAt
+    }
 }
 
 function Initialize-HyperVWindowsGuestDrives {
@@ -743,18 +1159,11 @@ function Initialize-HyperVWindowsGuestDrives {
         }
     }
 
-    $managed.Identity | Add-Member `
-        -NotePropertyName contractVersion `
-        -NotePropertyValue '0.4' `
-        -Force
-    $managed.Identity | Add-Member `
-        -NotePropertyName guestDriveInitialization `
-        -NotePropertyValue @($receipt) `
-        -Force
-    $notes = $script:HyperVLabNotesPrefix + (
-        $managed.Identity | ConvertTo-Json -Compress -Depth 10
-    )
-    $null = Set-VM -VM $managed.VM -Notes $notes -ErrorAction Stop
+    $null = Set-HyperVManagedVMIdentityProperty `
+        -ManagedVM $managed `
+        -PropertyName guestDriveInitialization `
+        -Value @($receipt) `
+        -ContractVersion '0.4'
 
     return [PSCustomObject]@{
         Provider = 'hyperv'
