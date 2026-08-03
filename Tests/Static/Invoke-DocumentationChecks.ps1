@@ -487,19 +487,19 @@ $legacyPublicCommands = @(
 )
 $legacyCommandAllowlist = @(
     'CHANGELOG.md'
-    'Documentation\Standards\POWERSHELL_COMMAND_AND_HELP_STANDARD.md'
-    'Tests\Static\Invoke-DocumentationChecks.ps1'
+    'Documentation/Standards/POWERSHELL_COMMAND_AND_HELP_STANDARD.md'
+    'Tests/Static/Invoke-DocumentationChecks.ps1'
 )
 $legacyCommandHits = @(
     Get-ChildItem -LiteralPath $repoRoot -Recurse -File |
         Where-Object {
-            $relativePath = [System.IO.Path]::GetRelativePath($repoRoot, $_.FullName)
+            $relativePath = [System.IO.Path]::GetRelativePath($repoRoot, $_.FullName) -replace '\\', '/'
             $_.Extension -in @('.md', '.txt', '.ps1', '.psm1', '.psd1', '.json', '.yaml', '.yml') -and
                 $relativePath -notmatch '^(?:_QuellRepo|private_Note|\.secrets)[\\/]' -and
                 $relativePath -notin $legacyCommandAllowlist
         } |
         ForEach-Object {
-            $relativePath = [System.IO.Path]::GetRelativePath($repoRoot, $_.FullName)
+            $relativePath = [System.IO.Path]::GetRelativePath($repoRoot, $_.FullName) -replace '\\', '/'
             $text = Get-Content -LiteralPath $_.FullName -Raw -Encoding utf8
             foreach ($legacyCommand in $legacyPublicCommands) {
                 $pattern = '(?<![A-Za-z0-9_-])' + [regex]::Escape($legacyCommand) + '(?![A-Za-z0-9_-])'

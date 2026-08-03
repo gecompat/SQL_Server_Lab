@@ -35,7 +35,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Runtime preflight
         run: |
@@ -74,7 +74,7 @@ jobs:
 
       - name: Upload mixed provider smoke log
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mixed-provider-smoke-log
           path: ${{ runner.temp }}/mixed-provider-smoke.log
