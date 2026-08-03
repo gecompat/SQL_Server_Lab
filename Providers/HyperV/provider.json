@@ -2,7 +2,7 @@
   "name": "hyperv",
   "displayName": "Microsoft Hyper-V",
   "description": "Generation-2-VM-Lifecycle aus einer verifizierten read-only Parent-VHDX.",
-  "runtimeStatus": "windows-image-builder-foundation",
+  "runtimeStatus": "image-sealing-resume",
   "sqlProvisioning": false,
   "capabilities": [
     "windows-host",
@@ -13,11 +13,14 @@
     "scope-bound-cleanup",
     "sealed-image-registry",
     "deterministic-baseline-selection",
-    "resumable-windows-image-builder"
+    "resumable-windows-image-builder",
+    "build-bound-generalization-evidence",
+    "sealed-image-publication"
   ],
   "limitations": [
     "no-unattended-os-build",
-    "manual-os-installation-and-generalization",
+    "manual-os-installation-and-generalization-execution",
+    "no-automatic-generalization-evidence-acquisition",
     "no-guest-specialization",
     "no-sql-provisioning",
     "no-network-binding",
@@ -29,12 +32,15 @@
   "requirements": {
     "os": "windows",
     "commands": [
+      "Add-VMDvdDrive",
       "Get-VM",
       "Get-VMHost",
       "Get-VMNetworkAdapter",
+      "Get-VMSnapshot",
       "New-VM",
       "New-VHD",
-      "Remove-VMNetworkAdapter"
+      "Remove-VMNetworkAdapter",
+      "Set-VMFirmware"
     ],
     "runnerLabels": [
       "self-hosted",

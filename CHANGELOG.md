@@ -28,6 +28,10 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   persistente Resume-States und einen Generation-2-/Secure-Boot-/DVD-Builder;
   nicht automatisierte Installation und Generalisierung bleiben explizit
   `MANUAL_ACTION_REQUIRED`.
+- Die Image-Builder-Fortsetzung bindet Generalisierungsevidenz per SHA-256 an
+  BuildId, ScopeId und Challenge, prüft VM-Auszustand, Identität sowie fehlende
+  Checkpoints und veröffentlicht erst danach immutable Registry-Artefakte;
+  synthetische CI-Builds bleiben zwingend `LIFECYCLE_TEST_ONLY`.
 
 ### Geändert
 

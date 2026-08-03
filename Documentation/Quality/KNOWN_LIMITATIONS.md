@@ -40,8 +40,15 @@ generalisiert diese Images nicht selbst.
 
 Die Windows-Image-Builder-Grundlage verifiziert ein lokales ISO, erstellt einen
 persistenten Build-Plan und kann den isolierten Generation-2-Builder samt
-Cleanup erzeugen. Installation, Reboots und Generalisierung sind noch nicht
-automatisiert und werden als `MANUAL_ACTION_REQUIRED` ausgewiesen.
+Cleanup erzeugen. Installation, Reboots und Generalisierungsausführung sind
+noch nicht automatisiert und werden als `MANUAL_ACTION_REQUIRED` ausgewiesen.
+Ein Resume akzeptiert SHA-256-verifizierte Evidenz nur mit passender BuildId,
+ScopeId und zufälliger Build-Challenge. VM-Auszustand, SQL_Server_Lab-Identität,
+fehlende Checkpoints und VHDX-Pfadgrenze werden vor einer immutable Registry-
+Publikation geprüft. Die Gast-Evidenz selbst muss derzeit noch über PowerShell
+Direct oder Offline-Inspection erzeugt werden; die Runtime führt Sysprep noch
+nicht eigenständig aus. Synthetische CI-Builds können ausschließlich
+`LIFECYCLE_TEST_ONLY`, niemals `OS_SEALED`, veröffentlichen.
 
 Manifeste mit Windows-Betriebssystem oder GUI-Software können bei der Provider-
 Auflösung zu `hyperv` führen; `New-SqlServerLab` bricht weiterhin mit einer

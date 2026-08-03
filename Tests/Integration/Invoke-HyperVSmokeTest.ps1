@@ -21,11 +21,14 @@ $runDirectory = Join-Path $testRoot 'run'
 $stateRoot = Join-Path $testRoot 'state'
 $parentPath = Join-Path $testRoot 'synthetic-parent.vhdx'
 $isoPath = Join-Path $testRoot 'synthetic-windows.iso'
+$evidencePath = Join-Path $testRoot 'synthetic-generalization-evidence.json'
 $runId = [guid]::NewGuid().ToString()
 $scopeId = [guid]::NewGuid().ToString()
 $instance = $null
+$builder = $null
 $module = $null
 $cleanupComplete = $false
+$builderCleanupComplete = $false
 $mutexName = 'Global\SQL_Server_Lab_Runtime_Smoke'
 $mutex = [System.Threading.Mutex]::new($false, $mutexName)
 $mutexAcquired = $false
@@ -152,13 +155,41 @@ try {
     Assert-HyperVSmoke -Condition (@(Get-VMDvdDrive -VM $builderVm).Count -eq 1) -Description 'Verifiziertes Installationsmedium ist eingebunden'
     $manual = & $module { param($BuildId, $StateRoot) Set-HyperVImageBuildManualAction -BuildId $BuildId -StateRoot $StateRoot } $builder.buildId $stateRoot
     Assert-HyperVSmoke -Condition ($manual.state -eq 'MANUAL_ACTION_REQUIRED') -Description 'Nicht automatisierte OS-Installation wird ehrlich persistiert'
-    $builderCleanup = & $module { param($Dir, $Scope) Invoke-CleanupPlan -RunDir $Dir -ScopeId $Scope } $builder.BuildDirectory $builder.scopeId
-    Assert-HyperVSmoke -Condition ($builderCleanup.Status -eq 'CLEANUP_SUCCEEDED') -Description 'Image-Builder-Cleanup war erfolgreich'
+    $evidence = [PSCustomObject]@{
+        contractVersion = '1'; buildId = $manual.buildId; scopeId = $manual.scopeId
+        challenge = $manual.manualAction.challenge; kind = 'synthetic-ci-generalize'; source = 'synthetic-test'
+        completedAt = [datetime]::UtcNow.ToString('o')
+        checks = [PSCustomObject]@{ sysprepGeneralizeSucceeded = $true; oobeReady = $true; shutdownObserved = $true }
+    }
+    $evidence | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $evidencePath -Encoding utf8
+    $evidenceHash = (Get-FileHash -LiteralPath $evidencePath -Algorithm SHA256).Hash
+    $resume = & $module {
+        param($BuildId, $EvidencePath, $EvidenceHash, $StateRoot)
+        Submit-HyperVImageGeneralizationEvidence -BuildId $BuildId -EvidencePath $EvidencePath `
+            -ExpectedSha256 $EvidenceHash -StateRoot $StateRoot
+    } $builder.buildId $evidencePath $evidenceHash $stateRoot
+    Assert-HyperVSmoke -Condition ($resume.state -eq 'RESUME_PENDING') -Description 'Buildgebundene Evidenz aktiviert Resume'
+    $published = & $module {
+        param($BuildId, $StateRoot)
+        Publish-HyperVWindowsImageBuild -BuildId $BuildId -StateRoot $StateRoot
+    } $builder.buildId $stateRoot
+    Assert-HyperVSmoke -Condition ($published.Status -eq 'TEST_ARTIFACT_PUBLISHED') -Description 'Synthetischer Build bleibt explizit test-only'
+    Assert-HyperVSmoke -Condition ($published.Artifact.artifactState -eq 'LIFECYCLE_TEST_ONLY') -Description 'CI-Build kann nicht zu OS_SEALED eskalieren'
+    Assert-HyperVSmoke -Condition (Test-Path -LiteralPath $published.Artifact.Path -PathType Leaf) -Description 'Versiegeltes Test-Artifact liegt immutable in der Registry'
+    Assert-HyperVSmoke -Condition ($published.Cleanup.Status -eq 'CLEANUP_SUCCEEDED') -Description 'Image-Builder-Cleanup war erfolgreich'
     Assert-HyperVSmoke -Condition (-not (Get-VM -Name $builder.builder.vmName -ErrorAction SilentlyContinue)) -Description 'Image-Builder-VM wurde entfernt'
+    Assert-HyperVSmoke -Condition (-not (Test-Path -LiteralPath (Join-Path $builder.BuildDirectory $builder.builder.osDiskRelativePath))) -Description 'Builder-VHDX wurde nach Registry-Publikation entfernt'
+    $builderCleanupComplete = $true
     $cleanupComplete = $true
 }
 finally {
     if (-not $KeepOnFailure) {
+        if ($module -and $builder -and -not $builderCleanupComplete -and (Test-Path -LiteralPath (Join-Path $builder.BuildDirectory 'cleanup-plan.json'))) {
+            try {
+                $null = & $module { param($Dir,$Scope) Invoke-CleanupPlan -RunDir $Dir -ScopeId $Scope } $builder.BuildDirectory $builder.scopeId
+            }
+            catch { Write-Warning "Hyper-V-Builder-Smoke-Cleanup fehlgeschlagen: $($_.Exception.Message)" }
+        }
         if ($module -and -not $cleanupComplete -and (Test-Path -LiteralPath (Join-Path $runDirectory 'cleanup-plan.json'))) {
             try {
                 $null = & $module {

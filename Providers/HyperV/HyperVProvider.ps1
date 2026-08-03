@@ -27,6 +27,7 @@ function Test-HyperVAvailable {
         'Get-VM',
         'Get-VMHost',
         'Get-VMNetworkAdapter',
+        'Get-VMSnapshot',
         'New-VM',
         'New-VHD',
         'Remove-VMNetworkAdapter',
@@ -417,7 +418,8 @@ function Remove-HyperVInstance {
         [Parameter(Mandatory)][string]$VMName,
         [Parameter(Mandatory)][string]$ExpectedScopeId,
         [Parameter(Mandatory)][string]$ExpectedRunDirectory,
-        [switch]$PreserveVhdx
+        [switch]$PreserveVhdx,
+        [switch]$RequireOff
     )
 
     $managed = Get-HyperVManagedVM -VMName $VMName -ExpectedScopeId $ExpectedScopeId
@@ -431,6 +433,7 @@ function Remove-HyperVInstance {
     }
 
     if ([string]$managed.VM.State -ne 'Off') {
+        if ($RequireOff) { throw 'HYPERV_VM_MUST_BE_OFF' }
         $null = Stop-VM -VM $managed.VM -TurnOff -Force -ErrorAction Stop
     }
     $null = Remove-VM -VM $managed.VM -Force -ErrorAction Stop
