@@ -29,7 +29,7 @@ Fachliche Testszenarien bleiben in den konsumierenden Projekten. `SQL_Server_Lab
 
 ## Aktueller Status
 
-**Status:** `CONTAINER_CORE_IMPLEMENTED_HYPERV_IMAGE_REGISTRY_FOUNDATION`
+**Status:** `CONTAINER_CORE_IMPLEMENTED_HYPERV_WINDOWS_IMAGE_BUILDER_FOUNDATION`
 
 | Bereich | Status | Nachweis |
 |---|---|---|
@@ -37,7 +37,7 @@ Fachliche Testszenarien bleiben in den konsumierenden Projekten. `SQL_Server_Lab
 | Docker-Provider | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman-Provider | implementiert | `Providers/Podman/PodmanProvider.ps1` |
 | Gemischter Docker-/Podman-Lifecycle | implementiert | `Documentation/Architecture/MIXED_PROVIDER_LIFECYCLE.md` |
-| Hyper-V-Provider | Lifecycle und immutable Image-Registry implementiert; kein unattended OS-/SQL-Build | `Private/HyperVImageRegistry.ps1`, `Providers/HyperV/HyperVProvider.ps1` |
+| Hyper-V-Provider | Lifecycle, Image-Registry und Windows-Builder-Grundlage implementiert; Installation/Generalisierung noch manuell | `Private/HyperVImageBuilder.ps1`, `Private/HyperVImageRegistry.ps1` |
 | Ad-hoc-Provisionierung | implementiert | `New-SqlServerLab -Version ... -Provider ...` |
 | Manifest-Provisionierung | implementiert | `Schemas/lab-manifest.schema.json` |
 | Resource Assessment | implementiert | `Test-SqlServerLabPrerequisite` |

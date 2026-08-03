@@ -24,6 +24,7 @@ $checks = @(
     'Invoke-PodmanBootstrapChecks.ps1',
     'Invoke-HyperVProviderChecks.ps1',
     'Invoke-HyperVImageRegistryChecks.ps1',
+    'Invoke-HyperVImageBuilderChecks.ps1',
     'Invoke-ReadinessContractChecks.ps1',
     'Invoke-MixedProviderLifecycleChecks.ps1',
     'Invoke-ProjectAdapterChecks.ps1',

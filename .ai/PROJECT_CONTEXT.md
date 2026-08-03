@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING` |
-| Runtime-Status | `CONTAINER_CORE_IMPLEMENTED_HYPERV_IMAGE_REGISTRY_FOUNDATION` |
+| Runtime-Status | `CONTAINER_CORE_IMPLEMENTED_HYPERV_WINDOWS_IMAGE_BUILDER_FOUNDATION` |
 | Stand | 2026-07-30 |
 | Repository | `gecompat/SQL_Server_Lab` |
 | Maschinenlesbare Landkarte | [`repo_map.yaml`](repo_map.yaml) |
@@ -52,6 +52,8 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   Parent-/Child-VHDX, Status, Start, Stop und scopegebundenem Cleanup;
 - immutable Hyper-V-Image-Registry mit SHA-256, sealed-Evidence,
   deterministischer Auswahl und portablem Manifest Lock;
+- Windows-Image-Builder-Grundlage mit ISO-Integrity, persistentem Resume-State,
+  Generation 2, Secure Boot, DVD-Boot und Manual-Action-Gate;
 
 ### Geplant oder unvollständig
 
