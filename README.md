@@ -37,7 +37,7 @@ Fachliche Testszenarien bleiben in den konsumierenden Projekten. `SQL_Server_Lab
 | Docker-Provider | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman-Provider | implementiert | `Providers/Podman/PodmanProvider.ps1` |
 | Gemischter Docker-/Podman-Lifecycle | implementiert | `Documentation/Architecture/MIXED_PROVIDER_LIFECYCLE.md` |
-| Hyper-V-Provider | Lifecycle einschließlich Gast-Drives, Windows-Specialization mit Reboot/Reconnect, SQL-Readiness-Orchestrierung, Image-Registry und Windows-Builder implementiert; realer Windows-2025-VHDX-Boot verifiziert, echter SQL-End-to-End-Nachweis noch offen | `Providers/HyperV/HyperVProvider.ps1`, `Private/HyperVImageBuilder.ps1` |
+| Hyper-V-Provider | Lifecycle einschließlich Gast-Drives, Windows-Specialization, SQL-Readiness, Image-Registry, Windows-Builder und resumierbarem SQL-`PrepareImage`-Builder implementiert; realer Windows-2025-VHDX-Boot verifiziert, echter SQL-End-to-End-Nachweis noch offen | `Providers/HyperV/HyperVProvider.ps1`, `Private/HyperVImageBuilder.ps1`, `Private/HyperVSqlImageBuilder.ps1` |
 | Ad-hoc-Provisionierung | implementiert | `New-SqlServerLab -Version ... -Provider ...` |
 | Manifest-Provisionierung | implementiert | `Schemas/lab-manifest.schema.json` |
 | Resource Assessment | implementiert | `Test-SqlServerLabPrerequisite` |
@@ -81,6 +81,10 @@ nicht im Repository.
 Die reale Windows-OS-Baseline wird über die
 [Hyper-V-Image-Build-Anleitung](Documentation/HowTo/HYPERV_WINDOWS_IMAGE_BUILD.md)
 aus der verifizierten ISO erstellt.
+SQL Server 2019, 2022 und 2025 werden aus derselben OS-Baseline gemäß der
+[SQL-Prepared-Image-Anleitung](Documentation/HowTo/HYPERV_SQL_PREPARED_IMAGE.md)
+vorbereitet. Austauschbare Evaluation-Images und langlebige Daten trennt der
+[Data-Root- und Refresh-Vertrag](Documentation/HowTo/PERSISTENT_DATA_AND_EVALUATION_REFRESH.md).
 Die zusätzlichen Voraussetzungen für Entwicklung, Provider-Smoke-Tests,
 Self-hosted Runner und Hyper-V beschreibt die
 [Entwicklungs- und Testumgebung](Documentation/Development/DEVELOPMENT_AND_TEST_SETUP_WINDOWS.md).

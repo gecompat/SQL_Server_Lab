@@ -1,0 +1,133 @@
+#Requires -Version 7.2
+<#
+.SYNOPSIS
+    Erstellt den zentralen persistenten Daten-Root fuer SQL_Server_Lab.
+.DESCRIPTION
+    Trennt langlebige Datenbank-Backups und versionsgebundene Datendateien von
+    austauschbaren Evaluation-Images, Run-State und Git-Checkout. Das Skript
+    ist idempotent und ueberschreibt keine abweichenden README-Dateien.
+.PARAMETER RootPath
+    Verpflichtender Root ausserhalb des Repository. Beispiel: D:\Lab_Data
+.PARAMETER LabId
+    Optionaler stabiler logischer Lab-Name. Erzeugt die zugehoerige
+    versionsgetrennte Daten- und Backupstruktur.
+.EXAMPLE
+    .\Tools\Initialize-SqlServerLabDataRoot.ps1 -RootPath 'D:\Lab_Data' -LabId 'training'
+#>
+[CmdletBinding(SupportsShouldProcess)]
+param(
+    [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$RootPath,
+    [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$')][string]$LabId
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+function Test-DataPathWithin {
+    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][string]$ParentPath)
+    $comparison = if ($IsWindows) { [System.StringComparison]::OrdinalIgnoreCase } else { [System.StringComparison]::Ordinal }
+    $candidate = [System.IO.Path]::GetFullPath($Path)
+    $parent = [System.IO.Path]::GetFullPath($ParentPath).TrimEnd('\', '/')
+    return $candidate.Equals($parent, $comparison) -or
+        $candidate.StartsWith($parent + [System.IO.Path]::DirectorySeparatorChar, $comparison)
+}
+
+function Add-DataRootReadme {
+    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][string]$Content)
+    $body = "<!-- SQL_SERVER_LAB_DATA_ROOT_README v1 -->`n`n$($Content.Trim())`n"
+    if (Test-Path -LiteralPath $Path -PathType Leaf) {
+        if ((Get-Content -LiteralPath $Path -Raw -Encoding utf8) -ne $body) {
+            $script:skippedReadmes.Add($Path)
+        }
+        return
+    }
+    if ($PSCmdlet.ShouldProcess($Path, 'Daten-Root-README erstellen')) {
+        Set-Content -LiteralPath $Path -Value $body -Encoding utf8NoBOM -NoNewline
+        $script:createdReadmes.Add($Path)
+    }
+}
+
+$dataRoot = [System.IO.Path]::GetFullPath($RootPath)
+$volumeRoot = [System.IO.Path]::GetPathRoot($dataRoot)
+if ($dataRoot.TrimEnd('\', '/') -eq $volumeRoot.TrimEnd('\', '/')) {
+    throw 'DATA_ROOT_TOO_BROAD: Ein Laufwerks- oder Dateisystemroot ist nicht zulaessig.'
+}
+$repositoryRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+if (Test-DataPathWithin -Path $dataRoot -ParentPath $repositoryRoot) {
+    throw 'DATA_ROOT_INSIDE_REPOSITORY: Daten muessen ausserhalb des Git-Checkouts liegen.'
+}
+
+$relativeDirectories = @('Backups/Incoming', 'Backups/Verified', 'Labs', 'Catalog', 'Exports')
+if ($LabId) {
+    $relativeDirectories += @(
+        "Labs/$LabId/Backups/Full", "Labs/$LabId/Backups/Differential", "Labs/$LabId/Backups/Log",
+        "Labs/$LabId/Manifests", "Labs/$LabId/Transfer"
+    )
+    foreach ($version in @('2019', '2022', '2025')) {
+        $relativeDirectories += @(
+            "Labs/$LabId/Versions/$version/Data",
+            "Labs/$LabId/Versions/$version/Log",
+            "Labs/$LabId/Versions/$version/TempDb"
+        )
+    }
+}
+
+$createdDirectories = [System.Collections.Generic.List[string]]::new()
+$createdReadmes = [System.Collections.Generic.List[string]]::new()
+$skippedReadmes = [System.Collections.Generic.List[string]]::new()
+foreach ($path in @($dataRoot) + @($relativeDirectories | ForEach-Object { Join-Path $dataRoot $_ })) {
+    if (-not (Test-Path -LiteralPath $path -PathType Container) -and $PSCmdlet.ShouldProcess($path, 'Verzeichnis erstellen')) {
+        New-Item -Path $path -ItemType Directory -Force | Out-Null
+        $createdDirectories.Add($path)
+    }
+}
+
+$rootReadme = @"
+# SQL_Server_Lab Data Root
+
+Dieser Ordner enthaelt langlebige Daten ausserhalb von Git, Run-State und austauschbaren Evaluation-Images.
+
+Konfigurierter Root: ``$dataRoot``
+
+- ``Backups\Verified``: gepruefte, instanzunabhaengige SQL-Backups.
+- ``Labs\<LabId>\Backups``: Full-, Differential- und Log-Backups pro logischem Lab.
+- ``Labs\<LabId>\Versions\<Version>``: versionsgebundene Data-, Log- und TempDb-Dateien.
+- ``Transfer``: kontrollierte Uebergabe beim Neuaufbau.
+- ``Catalog``: kuenftige maschinenlesbare Backup-Receipts; keine Secrets.
+
+## Evaluation und Neuaufbau
+
+Evaluation-OS und Evaluation-SQL duerfen ablaufen. Vor dem Ablauf wird ein verifiziertes Full-Backup erzeugt. Danach wird die austauschbare VM aus aktuellen Medien neu aufgebaut und das Backup in dieselbe oder eine neuere SQL-Hauptversion restauriert.
+
+MDF/LDF-Dateien werden nicht als versionsneutrale Sicherung behandelt. Nach einem Upgrade auf eine neuere SQL-Version ist ein Downgrade durch Attach oder Restore nicht unterstuetzt. Fuer jede SQL-Hauptversion existiert deshalb ein getrennter Dateibereich; ``Backups`` ist die kanonische Uebergabeebene.
+
+Kennwoerter, PATs, Zertifikat-Private-Keys und Lizenzschluessel gehoeren nicht in diesen Root.
+"@
+Add-DataRootReadme -Path (Join-Path $dataRoot 'README.md') -Content $rootReadme
+
+if ($LabId) {
+    $labReadme = @"
+# Lab $LabId
+
+Stabile logische Identitaet: ``$LabId``
+
+1. Vor einem Image-Refresh Full-Backup nach ``Backups\Full`` schreiben.
+2. Backup mit ``RESTORE VERIFYONLY`` und SHA-256 pruefen.
+3. Neue Evaluation-VM aus einem gueltigen Image erstellen.
+4. In dieselbe oder eine neuere SQL-Version restaurieren.
+5. Anwendungstest ausfuehren; alte VM erst danach entfernen.
+
+``Versions`` enthaelt bewusst getrennte Dateibereiche fuer SQL Server 2019, 2022 und 2025. ``TempDb`` ist fluechtig und wird nicht migriert.
+"@
+    Add-DataRootReadme -Path (Join-Path $dataRoot "Labs/$LabId/README.md") -Content $labReadme
+}
+
+[PSCustomObject]@{
+    ContractVersion = '1'
+    DataRoot = $dataRoot
+    LabId = if ($LabId) { $LabId } else { $null }
+    CreatedDirectories = @($createdDirectories)
+    CreatedReadmeFiles = @($createdReadmes)
+    SkippedReadmeFiles = @($skippedReadmes)
+    RebuildModel = 'verified-backup-restore'
+}
