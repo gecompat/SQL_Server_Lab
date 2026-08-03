@@ -4,6 +4,23 @@ Dieses Changelog dokumentiert Änderungen am öffentlichen Verhalten, an maschin
 
 Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher nach Datum geführt. Neue Einträge werden oben ergänzt.
 
+## 2026-08-02
+
+### Hinzugefügt
+
+- `Tests/Integration/Initialize-PodmanRuntime.ps1` startet eine vorhandene,
+  gestoppte Podman-Machine vor Podman-/Mixed-Smoke-Tests automatisch und wartet
+  mit hostweitem Lock begrenzt auf Erreichbarkeit;
+- `Tests/Static/Invoke-AllChecks.ps1` führt statische Suites in getrennten
+  PowerShell-Prozessen aus und erzwingt deren Exitcodes.
+
+### Behoben
+
+- der Readiness-Contract-Check erkennt den gehaerteten Single-Connection-Pfad
+  mit temporaerer UTF-8-BOM-Datei (`-i $tempScriptPath`, `-X1 -x`);
+- Runtime-Workflows maskieren fehlschlagende statische Suites und native
+  Preflight-Fehler nicht mehr.
+
 ## 2026-08-01
 
 ### Hinzugefügt

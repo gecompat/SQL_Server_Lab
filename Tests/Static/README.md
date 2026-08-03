@@ -5,6 +5,7 @@ Container, Datenbanken oder Run-States.
 
 | Skript | Scope | Aufruf |
 |---|---|---|
+| `Invoke-AllChecks.ps1` | Fuehrt alle statischen Suites isoliert aus und erzwingt deren Exitcodes | `.\Tests\Static\Invoke-AllChecks.ps1` |
 | `Invoke-DocumentationChecks.ps1` | PowerShell-Syntax, Exporte und Help, JSON-Schemas, Kataloge, Beispielmanifeste, Provider-Metadaten, Links und Statusaussagen | `.\Tests\Static\Invoke-DocumentationChecks.ps1` |
 | `Invoke-ManifestBuilderChecks.ps1` | Schema-gesteuerter Builder, semantische Manifestpruefung und atomisches Schreiben | `.\Tests\Static\Invoke-ManifestBuilderChecks.ps1` |
 | `Invoke-ReadinessContractChecks.ps1` | SQL-Readiness, interaktives Menue und atomare Portallokation ohne Provider-Mutation | `.\Tests\Static\Invoke-ReadinessContractChecks.ps1` |
@@ -13,6 +14,10 @@ Container, Datenbanken oder Run-States.
 Alle Skripte beenden sich bei einem fehlgeschlagenen Vertrag mit einem Exitcode
 ungleich null. Native Docker-/Podman-Lifecycle-Tests liegen getrennt unter
 [`../Integration/`](../Integration/README.md).
+
+CI-Workflows verwenden `Invoke-AllChecks.ps1`, damit der Exitcode einer
+fehlgeschlagenen Suite nicht durch eine spaetere erfolgreiche Suite maskiert
+wird.
 
 PSScriptAnalyzer mit einer projektspezifischen Baseline und eigenstaendige
 Provider-Interface-Contract-Tests bleiben Erweiterungspunkte; sie sind nicht mit

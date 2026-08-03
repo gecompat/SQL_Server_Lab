@@ -55,6 +55,7 @@ function Test-RuntimeCommand {
 
 try {
     Write-Host 'Mixed-Provider-Smoke-Test: Docker + Podman' -ForegroundColor Cyan
+    $null = & (Join-Path $PSScriptRoot 'Initialize-PodmanRuntime.ps1')
     foreach ($provider in @('docker', 'podman')) {
         Assert-True `
             -Condition (Test-RuntimeCommand -Name $provider) `
