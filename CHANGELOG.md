@@ -24,6 +24,10 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   Manifest Lock;
 - der Hyper-V-Native-Smoke erzeugt die VM aus einem registrierten Test-Artifact
   und beweist, dass Run-Cleanup das globale Parent erhält.
+- `Private/HyperVImageBuilder.ps1` ergänzt verifizierte Windows-ISO-Build-Pläne,
+  persistente Resume-States und einen Generation-2-/Secure-Boot-/DVD-Builder;
+  nicht automatisierte Installation und Generalisierung bleiben explizit
+  `MANUAL_ACTION_REQUIRED`.
 
 ### Geändert
 

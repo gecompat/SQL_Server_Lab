@@ -2,7 +2,7 @@
   "name": "hyperv",
   "displayName": "Microsoft Hyper-V",
   "description": "Generation-2-VM-Lifecycle aus einer verifizierten read-only Parent-VHDX.",
-  "runtimeStatus": "image-registry-foundation",
+  "runtimeStatus": "windows-image-builder-foundation",
   "sqlProvisioning": false,
   "capabilities": [
     "windows-host",
@@ -12,10 +12,12 @@
     "powershell-direct",
     "scope-bound-cleanup",
     "sealed-image-registry",
-    "deterministic-baseline-selection"
+    "deterministic-baseline-selection",
+    "resumable-windows-image-builder"
   ],
   "limitations": [
     "no-unattended-os-build",
+    "manual-os-installation-and-generalization",
     "no-guest-specialization",
     "no-sql-provisioning",
     "no-network-binding",

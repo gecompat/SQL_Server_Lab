@@ -38,6 +38,11 @@ lokalen Registry abgelegt, deterministisch ausgewählt und per portablem
 Manifest Lock an einen Run gebunden werden. Die Registry erzeugt oder
 generalisiert diese Images nicht selbst.
 
+Die Windows-Image-Builder-Grundlage verifiziert ein lokales ISO, erstellt einen
+persistenten Build-Plan und kann den isolierten Generation-2-Builder samt
+Cleanup erzeugen. Installation, Reboots und Generalisierung sind noch nicht
+automatisiert und werden als `MANUAL_ACTION_REQUIRED` ausgewiesen.
+
 Manifeste mit Windows-Betriebssystem oder GUI-Software können bei der Provider-
 Auflösung zu `hyperv` führen; `New-SqlServerLab` bricht weiterhin mit einer
 klaren Meldung ab, weil die Hyper-V-SQL-Provisionierung noch fehlt.

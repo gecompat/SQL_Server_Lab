@@ -20,6 +20,7 @@ $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) "sql-lab-hyperv-smoke-$(
 $runDirectory = Join-Path $testRoot 'run'
 $stateRoot = Join-Path $testRoot 'state'
 $parentPath = Join-Path $testRoot 'synthetic-parent.vhdx'
+$isoPath = Join-Path $testRoot 'synthetic-windows.iso'
 $runId = [guid]::NewGuid().ToString()
 $scopeId = [guid]::NewGuid().ToString()
 $instance = $null
@@ -133,6 +134,27 @@ try {
     Assert-HyperVSmoke -Condition (Test-Path -LiteralPath $imageArtifact.Path -PathType Leaf) -Description 'Registriertes Image-Artifact blieb erhalten'
     $manifestLock = Get-Content -LiteralPath (Join-Path $runDirectory 'manifest.lock.json') -Raw | ConvertFrom-Json -Depth 20
     Assert-HyperVSmoke -Condition ($manifestLock.artifacts[0].artifactId -eq $imageArtifact.artifactId) -Description 'Manifest Lock referenziert Artifact-ID ohne Hostpfad'
+
+    $isoBytes = [byte[]]::new(65536)
+    [System.Text.Encoding]::ASCII.GetBytes('CD001').CopyTo($isoBytes, 32769)
+    [System.IO.File]::WriteAllBytes($isoPath, $isoBytes)
+    $isoHash = (Get-FileHash -LiteralPath $isoPath -Algorithm SHA256).Hash
+    $builder = & $module {
+        param($IsoPath, $IsoHash, $StateRoot)
+        $plan = New-HyperVWindowsImageBuildPlan -IsoPath $IsoPath -ExpectedSha256 $IsoHash `
+            -OperatingSystemId synthetic-ci -Edition none -InstallationType synthetic `
+            -LicenseType test-only -OsDiskSizeBytes 64MB -StateRoot $StateRoot
+        New-HyperVWindowsImageBuilder -BuildId $plan.buildId -MemoryStartupBytes 512MB -ProcessorCount 1 -StateRoot $StateRoot
+    } $isoPath $isoHash $stateRoot
+    Assert-HyperVSmoke -Condition ($builder.state -eq 'BUILDER_READY') -Description 'Windows-Image-Builder ist resumierbar bereit'
+    $builderVm = Get-VM -Name $builder.builder.vmName -ErrorAction Stop
+    Assert-HyperVSmoke -Condition ($builderVm.Generation -eq 2) -Description 'Image-Builder verwendet Generation 2'
+    Assert-HyperVSmoke -Condition (@(Get-VMDvdDrive -VM $builderVm).Count -eq 1) -Description 'Verifiziertes Installationsmedium ist eingebunden'
+    $manual = & $module { param($BuildId, $StateRoot) Set-HyperVImageBuildManualAction -BuildId $BuildId -StateRoot $StateRoot } $builder.buildId $stateRoot
+    Assert-HyperVSmoke -Condition ($manual.state -eq 'MANUAL_ACTION_REQUIRED') -Description 'Nicht automatisierte OS-Installation wird ehrlich persistiert'
+    $builderCleanup = & $module { param($Dir, $Scope) Invoke-CleanupPlan -RunDir $Dir -ScopeId $Scope } $builder.BuildDirectory $builder.scopeId
+    Assert-HyperVSmoke -Condition ($builderCleanup.Status -eq 'CLEANUP_SUCCEEDED') -Description 'Image-Builder-Cleanup war erfolgreich'
+    Assert-HyperVSmoke -Condition (-not (Get-VM -Name $builder.builder.vmName -ErrorAction SilentlyContinue)) -Description 'Image-Builder-VM wurde entfernt'
     $cleanupComplete = $true
 }
 finally {

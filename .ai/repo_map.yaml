@@ -206,9 +206,10 @@ providers:
     windows_networking: Documentation/HowTo/PODMAN_WINDOWS_NETWORKING.md
     port_binding: "gemeinsame Portermittlung plus Runtime-Retry innerhalb des hostweiten Locks"
   hyperv:
-    status: partial_image_registry_foundation
+    status: partial_windows_image_builder_foundation
     implementation: Providers/HyperV/HyperVProvider.ps1
     image_registry: Private/HyperVImageRegistry.ps1
+    image_builder: Private/HyperVImageBuilder.ps1
     metadata: Providers/HyperV/provider.json
     documentation: Providers/HyperV/README.md
     command: Get-VMHost
