@@ -260,6 +260,19 @@ Write-Host "`n==================================================================
 Write-Host ' SQL_Server_Lab Smoke Matrix'
 Write-Host '===================================================================='
 
+$podmanBootstrapPath = Join-Path $PSScriptRoot 'Initialize-PodmanRuntime.ps1'
+if ($Provider -eq 'podman') {
+    $null = & $podmanBootstrapPath
+}
+elseif ($Provider -eq 'all' -and (Get-Command podman -ErrorAction SilentlyContinue)) {
+    try {
+        $null = & $podmanBootstrapPath
+    }
+    catch {
+        Write-Warning "Installierte Podman-Runtime konnte nicht automatisch gestartet werden: $($_.Exception.Message)"
+    }
+}
+
 Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
 Import-Module $modulePath -Force
 if (-not $SaPassword) { $SaPassword = ConvertTo-SecureString 'SmokeTest_Pwd1!' -AsPlainText -Force }

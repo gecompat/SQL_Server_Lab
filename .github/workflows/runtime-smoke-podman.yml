@@ -40,20 +40,14 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $PSVersionTable.PSVersion
-          podman info
-          podman machine list
+          .\Tests\Integration\Initialize-PodmanRuntime.ps1
           sqlcmd -?
+          if ($LASTEXITCODE -ne 0) { throw 'sqlcmd ist nicht verwendbar.' }
 
       - name: Static contracts
         run: |
           $ErrorActionPreference = 'Stop'
-          .\Tests\Static\Invoke-DocumentationChecks.ps1
-          .\Tests\Static\Invoke-ArtifactResolverChecks.ps1
-          .\Tests\Static\Invoke-ReadinessContractChecks.ps1
-          .\Tests\Static\Invoke-MixedProviderLifecycleChecks.ps1
-          .\Tests\Static\Invoke-ProjectAdapterChecks.ps1
-          .\Tests\Static\Invoke-SampleHandlerChecks.ps1
-          .\Tests\Static\Invoke-ManifestBuilderChecks.ps1
+          .\Tests\Static\Invoke-AllChecks.ps1
 
       - name: Podman smoke matrix
         run: |
