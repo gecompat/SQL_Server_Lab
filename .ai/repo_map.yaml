@@ -422,6 +422,18 @@ validation:
       - restored_database_online_and_content
       - full_cleanup
   remote_workflows:
+    static_contracts:
+      source: .github/workflows/static-contracts.yml
+      runners:
+        - windows-latest
+        - ubuntu-latest
+      required_pull_request_checks: true
+    adapter_github_hosted:
+      source: .github/workflows/adapter-smoke-github-hosted.yml
+      runner: ubuntu-latest
+    docker_github_hosted:
+      source: .github/workflows/runtime-smoke-docker-github-hosted.yml
+      runner: ubuntu-latest
     docker:
       source: .github/workflows/runtime-smoke-docker.yml
       labels:
@@ -444,7 +456,8 @@ validation:
     triggers:
       - workflow_dispatch
       - pull_request
-    push_trigger: false
+    static_push_trigger: true
+    runtime_push_trigger: false
   last_confirmed_result:
     date: "2026-07-27"
     source: Documentation/Quality/VALIDATION_RESULT_2026-07-27.md
