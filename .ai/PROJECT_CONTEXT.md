@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING` |
-| Runtime-Status | `CONTAINER_CORE_IMPLEMENTED_HYPERV_POWERSHELL_DIRECT_SYSPREP` |
+| Runtime-Status | `CONTAINER_CORE_IMPLEMENTED_HYPERV_ADDITIONAL_VHDX` |
 | Stand | 2026-08-03 |
 | Repository | `gecompat/SQL_Server_Lab` |
 | Maschinenlesbare Landkarte | [`repo_map.yaml`](repo_map.yaml) |
@@ -59,11 +59,13 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 - automatisches Windows-Sysprep ueber PowerShell Direct mit Microsoft-
   ImageState-Pruefung, resumierbarer Shutdown-Beobachtung und ohne persistierte
   Gast-Credentials;
+- run-lokale dynamische oder feste Zusatz-VHDX mit SQL-bezogenen Drive-Rollen,
+  SCSI-Anbindung, VM-Identitätsbindung und scope-validiertem Cleanup;
 
 ### Geplant oder unvollständig
 
 - vollständiger Hyper-V-Provider mit resumierbarem OS-/SQL-Image-Build,
-  zusätzlichen Drives und
+  Gastinitialisierung zusätzlicher Drives und
   providerneutralen Netzwerken;
 - gemeinsamer Lifecycle für gemischte Provider innerhalb eines Runs;
 - vollständige Ausführung aller im Schema vorbereiteten `serverConfig`-Felder;

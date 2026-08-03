@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `PARTIALLY_IMPLEMENTED` |
-| Runtime-Status | `POWERSHELL_DIRECT_SYSPREP_RESUME` |
+| Runtime-Status | `ADDITIONAL_VHDX_LIFECYCLE` |
 | Verbindlicher Zielvertrag | [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](../../Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md) |
 | Artifact-Ergänzung | [Testdatenbank-Provisionierung und Manifest-Wizard](../../Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md) |
 
@@ -20,6 +20,8 @@ plattformgebundene SQL-Features benötigen.
 - read-only Parent-VHDX mit expliziter SHA-256-Prüfung;
 - Differencing Child innerhalb des Run-Verzeichnisses;
 - Generation 2 und Secure Boot mit Windows-Template;
+- bis zu 16 run-lokale dynamische oder feste Zusatz-VHDX mit Rollen
+  `sqlData`, `sqlLog`, `tempdb`, `backup` oder `general` und SCSI-Anbindung;
 - Status, Start, Stop, Remove und PowerShell Direct;
 - VM-Identität über RunId, ScopeId und InstanceId;
 - Cleanup-Plan vor der ersten Provider-Mutation;
@@ -56,7 +58,8 @@ explizit auf `false`.
 - Windows-Specialization nach Verwendung eines sealed Images;
 - Linux Guest Management über cloud-init und SSH;
 - Restart und Einbindung in die öffentlichen Run-Lifecycle-Cmdlets;
-- zusätzliche VHDX und providerneutrale Drive-Rollen;
+- Initialisierung, Formatierung und stabile Identifikation der Drives im Gast;
+- Bindung des bestehenden providerneutralen Manifest-Drive-Vertrags;
 - Management- und Lab-Netze;
 - resumierbare OS- und SQL-Server-Installation;
 - echter End-to-End-Sysprep-Nachweis in einem Windows-Gast; der Native-Smoke

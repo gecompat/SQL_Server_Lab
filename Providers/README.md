@@ -19,8 +19,8 @@ Ein Verzeichnis allein registriert keinen implementierten Provider.
 
 Die implementierte Hyper-V-Grundlage umfasst eine immutable Image-Registry,
 deterministische Baseline-Auswahl, Generation 2, Secure Boot,
-verifizierte read-only Parent-VHDX, Differencing Child, Status, Start, Stop,
-PowerShell Direct und scopegebundenen Cleanup. Der weiterführende Zielvertrag
+verifizierte read-only Parent-VHDX, Differencing Child, run-lokale Zusatz-VHDX,
+Status, Start, Stop, PowerShell Direct und scopegebundenen Cleanup. Der weiterführende Zielvertrag
 für OS-/SQL-Provisionierung, Drives, Network Intents, Software, Reconcile und
 Artifact Refresh steht in
 [HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md](../Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md).

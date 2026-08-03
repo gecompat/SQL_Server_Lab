@@ -2,7 +2,7 @@
   "name": "hyperv",
   "displayName": "Microsoft Hyper-V",
   "description": "Generation-2-VM-Lifecycle aus einer verifizierten read-only Parent-VHDX.",
-  "runtimeStatus": "powershell-direct-sysprep-resume",
+  "runtimeStatus": "additional-vhdx-lifecycle",
   "sqlProvisioning": false,
   "capabilities": [
     "windows-host",
@@ -17,6 +17,8 @@
     "build-bound-generalization-evidence",
     "powershell-direct-sysprep",
     "automatic-generalization-evidence",
+    "run-local-additional-vhdx",
+    "scsi-drive-attachment",
     "sealed-image-publication"
   ],
   "limitations": [
@@ -26,7 +28,8 @@
     "no-guest-specialization",
     "no-sql-provisioning",
     "no-network-binding",
-    "no-additional-drives"
+    "no-guest-drive-initialization",
+    "no-drive-manifest-binding"
   ],
   "detectionCommand": "Get-VMHost",
   "healthCheck": "Get-VMHost",
@@ -34,8 +37,10 @@
   "requirements": {
     "os": "windows",
     "commands": [
+      "Add-VMHardDiskDrive",
       "Add-VMDvdDrive",
       "Get-VM",
+      "Get-VMHardDiskDrive",
       "Get-VMHost",
       "Get-VMNetworkAdapter",
       "Get-VMSnapshot",
