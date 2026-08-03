@@ -42,7 +42,7 @@ try {
     Add-CheckResult -Name 'Metadaten registrieren hyperv' -Success ($metadata.name -eq 'hyperv')
     Add-CheckResult `
         -Name 'SQL-Provisionierung bleibt explizit deaktiviert' `
-        -Success ($metadata.runtimeStatus -eq 'additional-vhdx-lifecycle' -and $metadata.sqlProvisioning -eq $false)
+        -Success ($metadata.runtimeStatus -eq 'guest-drive-initialization-orchestration' -and $metadata.sqlProvisioning -eq $false)
     Add-CheckResult `
         -Name 'Runner-Labels sind capability-spezifisch' `
         -Success ((@($metadata.requirements.runnerLabels) -join ',') -eq 'self-hosted,SQL_Lab,Hyper-V')
@@ -55,6 +55,7 @@ try {
         'Start-HyperVInstance',
         'Stop-HyperVInstance',
         'Invoke-HyperVPowerShellDirect',
+        'Initialize-HyperVWindowsGuestDrives',
         'Remove-HyperVInstance',
         'Get-HyperVLabVMs'
     )) {
@@ -93,6 +94,18 @@ try {
         -Text $provider `
         -Pattern 'foreach\s*\(\$drive in \$additionalDrivePlan\)[\s\S]+Add-CleanupStep[\s\S]+foreach\s*\(\$drive in \$additionalDrivePlan\)[\s\S]+New-VHD'
     Add-TextContract `
+        -Name 'Gast-Disk wird ueber VHD-Identifier statt Groesse zugeordnet' `
+        -Text $provider `
+        -Pattern 'Get-VHD[\s\S]+DiskIdentifier[\s\S]+Get-Disk[\s\S]+UniqueId'
+    Add-TextContract `
+        -Name 'Gastinitialisierung verwendet GPT, NTFS und explizite Allocation Unit' `
+        -Text $provider `
+        -Pattern 'Initialize-Disk[\s\S]+PartitionStyle\s+GPT[\s\S]+New-Partition[\s\S]+Format-Volume[\s\S]+FileSystem\s+NTFS[\s\S]+AllocationUnitSize'
+    Add-TextContract `
+        -Name 'Bestehende Volumes werden nur verifiziert und nicht neu formatiert' `
+        -Text $provider `
+        -Pattern "PartitionStyle\s+-eq\s+'RAW'[\s\S]+else\s*\{[\s\S]+GUEST_DRIVE_PARTITION_NOT_IDEMPOTENT"
+    Add-TextContract `
         -Name 'Lifecycle ohne Switch entfernt implizite Netzwerkadapter' `
         -Text $provider `
         -Pattern 'if\s*\(-not\s+\$SwitchName\)[\s\S]+Get-VMNetworkAdapter[\s\S]+Remove-VMNetworkAdapter'
@@ -114,7 +127,14 @@ try {
             -ScopeId '00000000-0000-0000-0000-000000000002' `
             -InstanceId 'static-check' `
             -ChildVhdxPath (Join-Path ([System.IO.Path]::GetTempPath()) 'synthetic.vhdx') `
-            -AdditionalVhdxPaths @($additionalPath)
+            -AdditionalDrives @(
+                [PSCustomObject]@{
+                    Id = 'data'; Role = 'sqlData'; SizeBytes = 64MB; VhdType = 'dynamic'
+                    Path = $additionalPath; DiskIdentifier = '11111111-1111-1111-1111-111111111111'
+                    GuestPath = 'D:\SqlData'; DriveLetter = 'D'; FileSystem = 'NTFS'
+                    AllocationUnitKB = 64; VolumeLabel = 'SQLLAB_DATA'
+                }
+            )
         ConvertFrom-HyperVLabNotes -Notes $notes
     }
     Add-CheckResult `
@@ -123,7 +143,8 @@ try {
             $roundTrip.runId -eq '00000000-0000-0000-0000-000000000001' -and
             $roundTrip.scopeId -eq '00000000-0000-0000-0000-000000000002' -and
             $roundTrip.instanceId -eq 'static-check' -and
-            @($roundTrip.additionalVhdxPaths).Count -eq 1
+            @($roundTrip.additionalVhdxPaths).Count -eq 1 -and
+            $roundTrip.additionalDrives[0].guestPath -eq 'D:\SqlData'
         )
 
     $driveContract = & $module {
@@ -131,8 +152,8 @@ try {
         $resourceRoot = Join-Path (Join-Path $runDirectory 'resources') 'hyperv'
         $plan = Resolve-HyperVAdditionalDrivePlan -RunDirectory $runDirectory `
             -ResourceRoot $resourceRoot -VMName 'sql-lab-static' -AdditionalDrives @(
-                [PSCustomObject]@{ id = 'data'; role = 'sqlData'; sizeBytes = 64MB; vhdType = 'dynamic' },
-                [PSCustomObject]@{ id = 'log'; role = 'sqlLog'; sizeBytes = 32MB; vhdType = 'fixed' }
+                [PSCustomObject]@{ id = 'data'; role = 'sqlData'; sizeBytes = 64MB; vhdType = 'dynamic'; guestPath = 'D:\SqlData' },
+                [PSCustomObject]@{ id = 'log'; role = 'sqlLog'; sizeBytes = 32MB; vhdType = 'fixed'; guestPath = 'L:\SqlLog' }
             )
         $duplicateRejected = $false
         try {
@@ -150,8 +171,55 @@ try {
         -Success (
             @($driveContract.Plan).Count -eq 2 -and
             $driveContract.Plan[0].Role -eq 'sqlData' -and
+            $driveContract.Plan[0].DriveLetter -eq 'D' -and
+            $driveContract.Plan[0].AllocationUnitKB -eq 64 -and
             $driveContract.Plan[1].VhdType -eq 'fixed' -and
             $driveContract.DuplicateRejected
+        )
+
+    $testUser = 'sql-lab-guest-drive-test'
+    $testPassword = 'NotPersisted_2!'
+    $testCredential = [PSCredential]::new(
+        $testUser,
+        (ConvertTo-SecureString $testPassword -AsPlainText -Force)
+    )
+    $guestContract = & $module {
+        param($Credential)
+        $identity = [PSCustomObject]@{
+            contractVersion = '0.3'; provider = 'hyperv'; runId = 'run-static'; scopeId = 'scope-static'
+            instanceId = 'static'; childVhdxPath = 'C:\synthetic\os.vhdx'
+            additionalVhdxPaths = @('C:\synthetic\data.vhdx')
+            additionalDrives = @([PSCustomObject]@{
+                id = 'data'; role = 'sqlData'; sizeBytes = 64MB; vhdType = 'dynamic'
+                path = 'C:\synthetic\data.vhdx'; diskIdentifier = '22222222-2222-2222-2222-222222222222'
+                guestPath = 'D:\SqlData'; driveLetter = 'D'; fileSystem = 'NTFS'
+                allocationUnitKB = 64; volumeLabel = 'SQLLAB_DATA'
+            })
+        }
+        $vm = [PSCustomObject]@{ State = 'Running'; Notes = '' }
+        $script:CapturedGuestDriveNotes = ''
+        function Get-HyperVManagedVM { [PSCustomObject]@{ VM = $vm; Identity = $identity } }
+        function Invoke-HyperVPowerShellDirect {
+            [PSCustomObject]@{
+                id = 'data'; diskIdentifier = '22222222-2222-2222-2222-222222222222'
+                diskNumber = 1; guestPath = 'D:\SqlData'; driveLetter = 'D'; fileSystem = 'NTFS'
+                allocationUnitSize = 65536; volumeLabel = 'SQLLAB_DATA'; status = 'INITIALIZED'
+                observedAt = [datetime]::UtcNow.ToString('o')
+            }
+        }
+        function Set-VM { param($VM,$Notes,$ErrorAction); $script:CapturedGuestDriveNotes = $Notes }
+        $result = Initialize-HyperVWindowsGuestDrives -VMName 'sql-lab-static' `
+            -ExpectedRunId 'run-static' -ExpectedScopeId 'scope-static' -Credential $Credential
+        [PSCustomObject]@{ Result = $result; Notes = $script:CapturedGuestDriveNotes }
+    } $testCredential
+    Add-CheckResult `
+        -Name 'PowerShell-Direct-Receipt persistiert GUEST_DRIVES_READY ohne Credentials' `
+        -Success (
+            $guestContract.Result.Status -eq 'GUEST_DRIVES_READY' -and
+            $guestContract.Result.Drives[0].guestPath -eq 'D:\SqlData' -and
+            $guestContract.Notes -match 'guestDriveInitialization' -and
+            $guestContract.Notes -notmatch [regex]::Escape($testUser) -and
+            $guestContract.Notes -notmatch [regex]::Escape($testPassword)
         )
 
     $pathContract = & $module {

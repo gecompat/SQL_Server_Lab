@@ -98,8 +98,8 @@ try {
             -MemoryStartupBytes 512MB `
             -ProcessorCount 1 `
             -AdditionalDrives @(
-                [PSCustomObject]@{ id = 'data'; role = 'sqlData'; sizeBytes = 32MB; vhdType = 'dynamic' },
-                [PSCustomObject]@{ id = 'log'; role = 'sqlLog'; sizeBytes = 32MB; vhdType = 'dynamic' }
+                [PSCustomObject]@{ id = 'data'; role = 'sqlData'; sizeBytes = 32MB; vhdType = 'dynamic'; guestPath = 'D:\SqlData' },
+                [PSCustomObject]@{ id = 'log'; role = 'sqlLog'; sizeBytes = 32MB; vhdType = 'dynamic'; guestPath = 'L:\SqlLog' }
             )
     } $runDirectory $runId $scopeId $imageArtifact.artifactId $stateRoot
 
@@ -109,6 +109,7 @@ try {
     Assert-HyperVSmoke -Condition (@($instance.AdditionalDrives).Count -eq 2) -Description 'Zwei rollenbasierte Zusatz-VHDX wurden geplant'
     foreach ($drive in @($instance.AdditionalDrives)) {
         Assert-HyperVSmoke -Condition (Test-Path -LiteralPath $drive.Path -PathType Leaf) -Description "Zusatz-VHDX $($drive.Id) wurde erzeugt"
+        Assert-HyperVSmoke -Condition ($drive.DiskIdentifier -match '^[A-F0-9-]{36}$') -Description "Zusatz-VHDX $($drive.Id) besitzt einen stabilen DiskIdentifier"
     }
 
     $createdStatus = & $module {
@@ -117,6 +118,7 @@ try {
     } $instance.VMName $runId $scopeId
     Assert-HyperVSmoke -Condition ($createdStatus.Exists -and $createdStatus.State -eq 'Off') -Description 'Generation-2-VM ist initial ausgeschaltet'
     Assert-HyperVSmoke -Condition (@($createdStatus.AdditionalVhdxPaths).Count -eq 2) -Description 'VM-Status bewahrt die Zusatz-VHDX-Bindung'
+    Assert-HyperVSmoke -Condition (-not $createdStatus.GuestDrivesReady) -Description 'Host-Smoke behauptet ohne Windows-Gast keine initialisierten Volumes'
 
     $vm = Get-VM -Name $instance.VMName -ErrorAction Stop
     Assert-HyperVSmoke -Condition ($vm.Generation -eq 2) -Description 'VM verwendet Generation 2'
