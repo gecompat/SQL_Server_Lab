@@ -8,6 +8,7 @@ Container, Datenbanken oder Run-States.
 | `Invoke-AllChecks.ps1` | Fuehrt alle statischen Suites isoliert aus und erzwingt deren Exitcodes | `.\Tests\Static\Invoke-AllChecks.ps1` |
 | `Invoke-CleanupRecoveryChecks.ps1` | Simulierter Providerfehler, `RECOVERY_REQUIRED`, persistierte Fehlerursache und erfolgreicher Cleanup-Retry | `.\Tests\Static\Invoke-CleanupRecoveryChecks.ps1` |
 | `Invoke-PodmanBootstrapChecks.ps1` | Ready-, Start-, Fehler-, Timeout- und Parallelpfade des Podman-Bootstraps ohne echte Runtime | `.\Tests\Static\Invoke-PodmanBootstrapChecks.ps1` |
+| `Invoke-MediaRootLayoutChecks.ps1` | Externe Media-Root-Struktur, sichere Einsortierung, SHA-256-Sidecars, Idempotenz und Repository-Pfadgrenze | `.\Tests\Static\Invoke-MediaRootLayoutChecks.ps1` |
 | `Invoke-HyperVProviderChecks.ps1` | Hyper-V-Metadaten, Lifecycle-Oberfläche, stabile Zusatz-VHDX-Identität sowie gemockte Gastinitialisierung, Windows-Specialization/Reconnect und SQL-Readiness ohne Credential-Persistenz | `.\Tests\Static\Invoke-HyperVProviderChecks.ps1` |
 | `Invoke-HyperVImageRegistryChecks.ps1` | Inhaltsadressierter VHDX-Import, Idempotenz, Generalisierungs-Gate, Auswahl und portables Manifest Lock | `.\Tests\Static\Invoke-HyperVImageRegistryChecks.ps1` |
 | `Invoke-HyperVImageBuilderChecks.ps1` | ISO-Integrity, persistenter Build-State, PowerShell-Direct-Sysprep, Credential-Nichtpersistenz, Challenge-gebundene Evidenz und test-only/OS_SEALED-Grenze | `.\Tests\Static\Invoke-HyperVImageBuilderChecks.ps1` |

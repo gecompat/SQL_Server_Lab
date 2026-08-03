@@ -24,8 +24,11 @@ sources_of_truth:
   hyperv_image_provisioning_network_target: Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md
   user_entrypoint: README.md
   user_installation_windows: Documentation/User/INSTALLATION_WINDOWS.md
+  user_installation_linux: Documentation/User/INSTALLATION_LINUX.md
   user_walkthrough: Documentation/User/Getting_Started.md
   development_test_setup_windows: Documentation/Development/DEVELOPMENT_AND_TEST_SETUP_WINDOWS.md
+  development_test_setup_linux: Documentation/Development/DEVELOPMENT_AND_TEST_SETUP_LINUX.md
+  external_media_root: Documentation/HowTo/MEDIA_ROOT_LAYOUT.md
   validation_documentation: Tests/Static/Invoke-DocumentationChecks.ps1
   validation_runtime_contracts: Tests/Static/Invoke-ReadinessContractChecks.ps1
   validation_manifest_builder: Tests/Static/Invoke-ManifestBuilderChecks.ps1

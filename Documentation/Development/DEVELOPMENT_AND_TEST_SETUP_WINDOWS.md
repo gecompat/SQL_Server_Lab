@@ -14,6 +14,9 @@ minimalen Rechner für die Nutzung eines Labs. Entwicklung und Tests benötigen
 nur dann zusätzliche Software, wenn der geänderte Bereich diese Runtime
 tatsächlich betrifft.
 
+Operatorseitige ISO-, VHDX- und SQL-Medien werden über einen verpflichtend
+angegebenen [externen Media Root](../HowTo/MEDIA_ROOT_LAYOUT.md) bereitgestellt.
+
 | Änderung | Zusätzlich erforderliche Software oder Ressource |
 |---|---|
 | Dokumentation, Schema, Katalog oder reine PowerShell-Logik | keine Container-Runtime erforderlich |

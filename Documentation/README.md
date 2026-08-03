@@ -12,23 +12,26 @@ Diese Datei ist der verbindliche Dokumentationsindex. Die Root-[README](../READM
 ### Lab verwenden
 
 1. [Installation für AnwenderInnen unter Windows](User/INSTALLATION_WINDOWS.md)
-2. [Getting Started](User/Getting_Started.md)
-3. [Root-README](../README.md)
-4. [Manifest-Schemas und Beispiele](../Schemas/README.md)
-5. [Öffentliche Cmdlets](../Public/README.md)
-6. [Bekannte Grenzen](Quality/KNOWN_LIMITATIONS.md)
-7. [Tests](../Tests/README.md)
+2. [Installation für AnwenderInnen unter Linux](User/INSTALLATION_LINUX.md)
+3. [Externer Media Root](HowTo/MEDIA_ROOT_LAYOUT.md)
+4. [Getting Started](User/Getting_Started.md)
+5. [Root-README](../README.md)
+6. [Manifest-Schemas und Beispiele](../Schemas/README.md)
+7. [Öffentliche Cmdlets](../Public/README.md)
+8. [Bekannte Grenzen](Quality/KNOWN_LIMITATIONS.md)
+9. [Tests](../Tests/README.md)
 
 ### Projekt weiterentwickeln
 
 1. [Entwicklungs- und Testumgebung unter Windows](Development/DEVELOPMENT_AND_TEST_SETUP_WINDOWS.md)
-2. [KI-Projektkontext](../.ai/PROJECT_CONTEXT.md)
-3. [Arbeitsregeln](../.ai/WORKING_RULES.md)
-4. [Maschinenlesbare Repo-Map](../.ai/repo_map.yaml)
-5. [Beitragsregeln](../CONTRIBUTING.md)
-6. [Lokale Validierungsstrategie](Quality/LOCAL_VALIDATION_STRATEGY.md)
-7. [Bekannte Grenzen](Quality/KNOWN_LIMITATIONS.md)
-8. [PowerShell Command and Help Standard](Standards/POWERSHELL_COMMAND_AND_HELP_STANDARD.md)
+2. [Entwicklungs- und Testumgebung unter Linux](Development/DEVELOPMENT_AND_TEST_SETUP_LINUX.md)
+3. [KI-Projektkontext](../.ai/PROJECT_CONTEXT.md)
+4. [Arbeitsregeln](../.ai/WORKING_RULES.md)
+5. [Maschinenlesbare Repo-Map](../.ai/repo_map.yaml)
+6. [Beitragsregeln](../CONTRIBUTING.md)
+7. [Lokale Validierungsstrategie](Quality/LOCAL_VALIDATION_STRATEGY.md)
+8. [Bekannte Grenzen](Quality/KNOWN_LIMITATIONS.md)
+9. [PowerShell Command and Help Standard](Standards/POWERSHELL_COMMAND_AND_HELP_STANDARD.md)
 
 ### Architektur und langfristige Planung verstehen
 

@@ -8,6 +8,17 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- die Ubuntu-Installationsanleitung trennt Anwender- und Entwicklungsbedarf und
+  beschreibt PowerShell, Docker Engine, Podman, `mssql-tools18`, State und
+  Self-hosted Runner aus offiziellen Paketquellen;
+- `Initialize-SqlServerLabMediaRoot.ps1` erzeugt aus einem verpflichtenden
+  externen Root die kanonische ISO-/VHDX-/SQL-Struktur, sortiert vorhandene
+  Medien optional überschreibungsfrei ein und kann SHA-256-Sidecars erzeugen;
+- der Media-Root-Initializer erzeugt im Root und in allen Medienzielen
+  geschützte lokale `README.md`-Anleitungen mit offiziellen Downloadquellen,
+  Ablagepfaden, Auswahlkriterien und Verwendungshinweisen;
+- der Media-Root-Vertrag dokumentiert Windows-, Linux- und SQL-Medien,
+  Pathgrenzen, Hashes und die noch interne Übergabe an den Hyper-V-Builder;
 - getrennte Schritt-für-Schritt-Anleitungen richten die Windows-Umgebung für
   AnwenderInnen beziehungsweise für Entwicklung, Native-Tests und Self-hosted
   Runner ein und verlinken ausschließlich offizielle Bezugsquellen;
