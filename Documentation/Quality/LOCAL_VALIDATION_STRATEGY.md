@@ -276,6 +276,7 @@ Ein nicht verfügbarer Provider darf nicht als `PASS` behandelt werden.
 ```powershell
 .\Tests\Static\Invoke-DocumentationChecks.ps1
 .\Tests\Integration\Invoke-SmokeTest.ps1 -Provider docker
+.\Tests\Integration\Invoke-RestoreSmokeTest.ps1 -Provider docker
 ```
 
 ### Podman-Runtime betroffen
@@ -283,6 +284,7 @@ Ein nicht verfügbarer Provider darf nicht als `PASS` behandelt werden.
 ```powershell
 .\Tests\Static\Invoke-DocumentationChecks.ps1
 .\Tests\Integration\Invoke-SmokeTest.ps1 -Provider podman
+.\Tests\Integration\Invoke-RestoreSmokeTest.ps1 -Provider podman
 ```
 
 ### Gemeinsame Containerlogik betroffen
@@ -291,23 +293,27 @@ Ein nicht verfügbarer Provider darf nicht als `PASS` behandelt werden.
 .\Tests\Static\Invoke-DocumentationChecks.ps1
 .\Tests\Integration\Invoke-SmokeTest.ps1 -Provider docker
 .\Tests\Integration\Invoke-SmokeTest.ps1 -Provider podman
+.\Tests\Integration\Invoke-RestoreSmokeTest.ps1 -Provider docker
+.\Tests\Integration\Invoke-RestoreSmokeTest.ps1 -Provider podman
 ```
 
 Nicht verfügbare Native-Tests müssen im Pull Request mit Grund als `NOT_EXECUTED` angegeben werden.
 
 ## 14. Roadmap
 
-Priorisierte Ergänzungen:
+Verbleibende priorisierte Ergänzungen:
 
-1. vollständige JSON-Schema-Validierung aller Kataloge und Beispielmanifeste;
-2. PSScriptAnalyzer mit projektspezifischer Baseline;
-3. nicht mutierende Manifest- und Versionsauflösungstests;
-4. automatische, lokal steuerbare Version-Provider-Matrix;
-5. Restore-Test mit kleiner öffentlicher `.bak`-Fixture;
-6. gezielte Cleanup- und Recovery-Fehlertests;
-7. Fremdobjekt- und Pfadsicherheitstests;
-8. Hyper-V-Tests erst nach echter Providerimplementierung;
-9. ein übergeordnetes lokales Testskript erst dann dokumentieren, wenn es tatsächlich existiert.
+1. PSScriptAnalyzer mit projektspezifischer Baseline;
+2. zusätzliche nicht mutierende Versionsauflösungstests;
+3. weitere Fault-Injection-Pfade für Portbindung, Runtimeabbruch und
+   teilweise Orphan-Bereinigung;
+4. zusätzliche Fremdobjekt- und Pfadsicherheitstests;
+5. Hyper-V-Tests erst nach echter Providerimplementierung.
+
+Bereits umgesetzt sind vollständige Schema-Prüfungen, die lokal steuerbare
+Version-/Provider-Matrix, ein synthetischer echter Backup-/Restore-Test, ein
+deterministischer Cleanup-/Recovery-Fehlertest und das übergeordnete statische
+Testskript `Tests/Static/Invoke-AllChecks.ps1`.
 
 ## 15. CI/CD-Abgrenzung
 

@@ -12,7 +12,13 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   gestoppte Podman-Machine vor Podman-/Mixed-Smoke-Tests automatisch und wartet
   mit hostweitem Lock begrenzt auf Erreichbarkeit;
 - `Tests/Static/Invoke-AllChecks.ps1` führt statische Suites in getrennten
-  PowerShell-Prozessen aus und erzwingt deren Exitcodes.
+  PowerShell-Prozessen aus und erzwingt deren Exitcodes;
+- `Tests/Integration/Invoke-RestoreSmokeTest.ps1` prueft einen echten
+  synthetischen Backup-/Restore-Lifecycle samt SHA-256, `FILELISTONLY`,
+  Providerbindung, Inhalt und Cleanup fuer Docker und Podman;
+- neue deterministische Vertragspruefungen decken Cleanupfehler mit
+  `RECOVERY_REQUIRED`, erfolgreichen Retry sowie Ready-, Start-, Fehler-,
+  Timeout- und Parallelpfade des Podman-Bootstraps ab.
 
 ### Behoben
 
