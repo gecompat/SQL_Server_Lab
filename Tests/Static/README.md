@@ -10,7 +10,7 @@ Container, Datenbanken oder Run-States.
 | `Invoke-PodmanBootstrapChecks.ps1` | Ready-, Start-, Fehler-, Timeout- und Parallelpfade des Podman-Bootstraps ohne echte Runtime | `.\Tests\Static\Invoke-PodmanBootstrapChecks.ps1` |
 | `Invoke-HyperVProviderChecks.ps1` | Hyper-V-Metadaten, Lifecycle-Oberfläche, Parent-Integrität, Generation 2, Secure Boot und scopegebundener Cleanup ohne Provider-Mutation | `.\Tests\Static\Invoke-HyperVProviderChecks.ps1` |
 | `Invoke-HyperVImageRegistryChecks.ps1` | Inhaltsadressierter VHDX-Import, Idempotenz, Generalisierungs-Gate, Auswahl und portables Manifest Lock | `.\Tests\Static\Invoke-HyperVImageRegistryChecks.ps1` |
-| `Invoke-HyperVImageBuilderChecks.ps1` | ISO-Integrity, persistenter Build-State, Cleanup-Reihenfolge, Generation 2, Secure Boot, Challenge-gebundene Evidenz und test-only/OS_SEALED-Grenze | `.\Tests\Static\Invoke-HyperVImageBuilderChecks.ps1` |
+| `Invoke-HyperVImageBuilderChecks.ps1` | ISO-Integrity, persistenter Build-State, PowerShell-Direct-Sysprep, Credential-Nichtpersistenz, Challenge-gebundene Evidenz und test-only/OS_SEALED-Grenze | `.\Tests\Static\Invoke-HyperVImageBuilderChecks.ps1` |
 | `Invoke-DocumentationChecks.ps1` | PowerShell-Syntax, Exporte und Help, JSON-Schemas, Kataloge, Beispielmanifeste, Provider-Metadaten, Links und Statusaussagen | `.\Tests\Static\Invoke-DocumentationChecks.ps1` |
 | `Invoke-ManifestBuilderChecks.ps1` | Schema-gesteuerter Builder, semantische Manifestpruefung und atomisches Schreiben | `.\Tests\Static\Invoke-ManifestBuilderChecks.ps1` |
 | `Invoke-ReadinessContractChecks.ps1` | SQL-Readiness, interaktives Menue und atomare Portallokation ohne Provider-Mutation | `.\Tests\Static\Invoke-ReadinessContractChecks.ps1` |

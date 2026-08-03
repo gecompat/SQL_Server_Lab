@@ -57,6 +57,45 @@ try {
     Add-CheckResult -Name 'Evidenz-State enthaelt keinen Quell-Hostpfad' -Success ($portableState -notmatch [regex]::Escape($evidencePath))
     Add-CheckResult -Name 'Reale Publikation bleibt OS_SEALED, CI bleibt test-only' -Success ($builderText -match 'if \(\$synthetic\) \{ ''LIFECYCLE_TEST_ONLY'' \} else \{ ''OS_SEALED'' \}')
     Add-CheckResult -Name 'Sealing darf laufende VM nicht hart ausschalten' -Success ($builderText -match 'Remove-HyperVInstance[^\r\n]+[\s\S]{0,180}-PreserveVhdx\s+-RequireOff')
+    Add-CheckResult -Name 'Sysprep verwendet Generalize, OOBE, VM-Mode und Quit' -Success ($builderText -match "'/generalize',[^\r\n]+'/oobe',[^\r\n]+'/mode:vm',[^\r\n]+'/quit',[^\r\n]+'/quiet'")
+    Add-CheckResult -Name 'Sysprep prueft Microsoft ImageState vor Shutdown' -Success ($builderText -match 'IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE[\s\S]+shutdown\.exe')
+    Add-CheckResult -Name 'Automatische Generalisierung persistiert REBOOT_REQUIRED' -Success ($builderText -match 'Set-HyperVImageBuildState[^\r\n]+-State REBOOT_REQUIRED')
+    Add-CheckResult -Name 'Automatisches Sysprep ist fuer Testmedien gesperrt' -Success ($builderText -match 'HYPERV_SYSPREP_NOT_ALLOWED_FOR_TEST_MEDIA')
+
+    $autoRoot = Join-Path $temporaryRoot 'auto-state'
+    $autoPlan = & $module {
+        param($Iso,$Sha,$Root)
+        $plan = New-HyperVWindowsImageBuildPlan -IsoPath $Iso -ExpectedSha256 $Sha `
+            -OperatingSystemId windows-server-2025 -Edition evaluation -InstallationType core `
+            -LicenseType evaluation -OsDiskSizeBytes 64MB -StateRoot $Root
+        $plan = Set-HyperVImageBuildState -BuildId $plan.buildId -State BUILDER_READY -Reason test -StateRoot $Root
+        $plan.builder = [PSCustomObject]@{ vmName = 'mock-sysprep-vm'; osDiskRelativePath = 'resources/hyperv/mock.vhdx'; generation = 2; secureBoot = $true }
+        Write-HyperVImageBuildState -BuildDirectory $plan.BuildDirectory -State $plan
+        Set-HyperVImageBuildManualAction -BuildId $plan.buildId -StateRoot $Root
+    } $isoPath $sha $autoRoot
+    $testUser = 'sql-lab-sysprep-test'
+    $testCredential = [PSCredential]::new($testUser, (ConvertTo-SecureString 'NotPersisted_1!' -AsPlainText -Force))
+    $autoResult = & $module {
+        param($BuildId,$Root,$Credential)
+        function Test-HyperVAvailable { [PSCustomObject]@{ Available = $true; Message = '' } }
+        function Invoke-HyperVPowerShellDirect {
+            param($VMName,$ExpectedRunId,$ExpectedScopeId,$Credential,$ScriptBlock,$ArgumentList)
+            [PSCustomObject]@{
+                contractVersion = '1'; buildId = $ArgumentList[0]; scopeId = $ArgumentList[1]
+                challenge = $ArgumentList[2]; imageState = 'IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE'
+                sysprepExitCode = 0; guestComputerName = 'MOCK-GUEST'
+                guestObservedAt = [datetime]::UtcNow.ToString('o'); shutdownDelaySeconds = 30
+            }
+        }
+        function Get-HyperVManagedVM {
+            param($VMName,$ExpectedRunId,$ExpectedScopeId)
+            [PSCustomObject]@{ VM = [PSCustomObject]@{ State = 'Off' }; Identity = [PSCustomObject]@{} }
+        }
+        Invoke-HyperVWindowsImageGeneralization -BuildId $BuildId -Credential $Credential -StateRoot $Root
+    } $autoPlan.buildId $autoRoot $testCredential
+    Add-CheckResult -Name 'PowerShell-Direct-Receipt fuehrt automatisch zu RESUME_PENDING' -Success ($autoResult.state -eq 'RESUME_PENDING' -and $autoResult.generalizationEvidence.source -eq 'powershell-direct')
+    $autoRawState = Get-Content -LiteralPath (Join-Path $autoResult.BuildDirectory 'build-state.json') -Raw
+    Add-CheckResult -Name 'Gast-Credentials werden nicht im Build-State persistiert' -Success ($autoRawState -notmatch [regex]::Escape($testUser) -and $autoRawState -notmatch 'NotPersisted_1!')
 } catch { Add-CheckResult -Name 'Image-Builder-Testausfuehrung' -Success $false -Message $_.Exception.Message }
 finally { Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue; if(Test-Path $temporaryRoot){Remove-Item $temporaryRoot -Recurse -Force} }
 Write-Host ''; Write-Host "Ergebnis: $passed PASS, $($failures.Count) FAIL" -ForegroundColor Cyan

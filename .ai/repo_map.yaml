@@ -5,7 +5,7 @@ project:
   default_branch: main
   module_manifest: SqlServerLab.psd1
   module_loader: SqlServerLab.psm1
-  runtime_status: CONTAINER_CORE_IMPLEMENTED_HYPERV_IMAGE_SEALING_RESUME
+  runtime_status: CONTAINER_CORE_IMPLEMENTED_HYPERV_POWERSHELL_DIRECT_SYSPREP
 
 sources_of_truth:
   exported_commands: SqlServerLab.psd1
@@ -258,7 +258,7 @@ planning_contracts:
   hyperv_image_provisioning_network:
     source: Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md
     status: BINDING_IMPLEMENTATION_TARGET
-    runtime_status: PARTIALLY_IMPLEMENTED_IMAGE_SEALING_RESUME
+    runtime_status: PARTIALLY_IMPLEMENTED_POWERSHELL_DIRECT_SYSPREP
     covers:
       - sealed_os_and_sql_images
       - media_license_and_evaluation_lifecycle

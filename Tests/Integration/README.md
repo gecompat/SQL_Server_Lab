@@ -67,7 +67,10 @@ prüft er einen synthetischen Windows-Image-Build-Plan samt Generation-2-/DVD-
 Builder, buildgebundener Generalisierungsevidenz, Resume, immutable Registry-
 Publikation als `LIFECYCLE_TEST_ONLY` und Cleanup. Er beweist zusätzlich, dass
 synthetische Medien nicht zu `OS_SEALED` eskalieren können. Er installiert weder
-Betriebssystem noch SQL Server und verwendet kein Netzwerk.
+Betriebssystem noch SQL Server und verwendet kein Netzwerk. Weil der native
+Test eine leere synthetische VHDX nutzt, fuehrt er kein echtes Gast-Sysprep aus;
+diese Orchestrierung wird durch die statischen Mock-Vertraege geprueft und ist
+fuer synthetische Medien in der Runtime explizit gesperrt.
 
 ```powershell
 .\Tests\Integration\Invoke-HyperVSmokeTest.ps1
