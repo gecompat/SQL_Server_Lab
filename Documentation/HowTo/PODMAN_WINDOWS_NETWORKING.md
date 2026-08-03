@@ -18,9 +18,24 @@ networkingMode=mirrored
 Danach WSL und die Podman-Machine vollstaendig neu starten:
 
 ```powershell
-podman machine stop
+podman machine stop podman-machine-default
 wsl --shutdown
-podman machine start
+podman machine start podman-machine-default
+```
+
+Nach einem Hostneustart oder einer bewusst gestoppten Machine wird die
+Standard-Machine manuell so gestartet:
+
+```powershell
+podman machine start podman-machine-default
+podman info
+```
+
+Existiert die Standard-Machine noch nicht, muss sie einmalig angelegt werden:
+
+```powershell
+podman machine init podman-machine-default
+podman machine start podman-machine-default
 ```
 
 Anschliessend kann die Weiterleitung geprueft werden:

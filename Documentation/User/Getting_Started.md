@@ -8,6 +8,10 @@ Für Architektur und Entwicklungsregeln siehe [Dokumentationsübersicht](../READ
 
 ## 1. Voraussetzungen
 
+Die schrittweise Installation mit offiziellen Downloadlinks und getrennter
+Abgrenzung zur Entwicklungsumgebung steht in
+[Installation für AnwenderInnen unter Windows](INSTALLATION_WINDOWS.md).
+
 Erforderlich:
 
 - PowerShell 7.2 oder neuer
@@ -703,7 +707,19 @@ docker info
 podman info
 ```
 
-Unter Windows oder macOS muss bei Podman gegebenenfalls zuerst die Podman Machine gestartet werden.
+Unter Windows oder macOS muss bei Podman gegebenenfalls zuerst die Podman
+Machine gestartet werden. Für die Standard-Machine unter Windows:
+
+```powershell
+podman machine start podman-machine-default
+podman info
+```
+
+Die Repository-Integrationstests können eine vorhandene gestoppte Machine über
+`Tests/Integration/Initialize-PodmanRuntime.ps1` automatisch starten. Das
+Skript erstellt keine fehlende Machine. Einrichtung und Localhost-Netzwerk sind
+in der [Windows-Installationsanleitung](INSTALLATION_WINDOWS.md#variante-b--podman-desktop)
+beschrieben.
 
 ### SQL Server startet, ist aber nicht erreichbar
 
