@@ -27,8 +27,10 @@
     "commands": [
       "Get-VM",
       "Get-VMHost",
+      "Get-VMNetworkAdapter",
       "New-VM",
-      "New-VHD"
+      "New-VHD",
+      "Remove-VMNetworkAdapter"
     ],
     "runnerLabels": [
       "self-hosted",

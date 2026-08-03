@@ -25,8 +25,10 @@ function Test-HyperVAvailable {
     $requiredCommands = @(
         'Get-VM',
         'Get-VMHost',
+        'Get-VMNetworkAdapter',
         'New-VM',
         'New-VHD',
+        'Remove-VMNetworkAdapter',
         'Start-VM',
         'Stop-VM',
         'Remove-VM'
@@ -260,6 +262,13 @@ function New-HyperVInstance {
         $newVmParameters.SwitchName = $SwitchName
     }
     $vm = New-VM @newVmParameters
+    if (-not $SwitchName) {
+        # New-VM erzeugt hostabhaengig auch ohne SwitchName einen getrennten
+        # Standardadapter. Dieser Slice besitzt noch keinen Netzwerkvertrag und
+        # entfernt deshalb jeden impliziten Adapter deterministisch.
+        @($vm | Get-VMNetworkAdapter -ErrorAction Stop) |
+            Remove-VMNetworkAdapter -ErrorAction Stop
+    }
     $null = Set-VMProcessor -VM $vm -Count $ProcessorCount -ErrorAction Stop
     $null = Set-VMFirmware `
         -VM $vm `

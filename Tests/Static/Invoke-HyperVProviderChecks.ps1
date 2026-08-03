@@ -83,6 +83,10 @@ try {
         -Text $provider `
         -Pattern 'EnableSecureBoot\s+On[\s\S]+SecureBootTemplate\s+MicrosoftWindows'
     Add-TextContract `
+        -Name 'Lifecycle ohne Switch entfernt implizite Netzwerkadapter' `
+        -Text $provider `
+        -Pattern 'if\s*\(-not\s+\$SwitchName\)[\s\S]+Get-VMNetworkAdapter[\s\S]+Remove-VMNetworkAdapter'
+    Add-TextContract `
         -Name 'Child-VHDX-Loeschung prueft die Run-Pfadgrenze' `
         -Text $provider `
         -Pattern 'Remove-HyperVVhdxForCleanup[\s\S]+Test-HyperVPathWithinRunDirectory'
