@@ -329,7 +329,9 @@ function Export-LabPortableArtifactLock {
     }
     $lock = Get-Content -LiteralPath $lockPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 30
     foreach ($artifact in @($lock.artifacts)) {
-        $null = Get-LabCanonicalArtifactSource -Source $artifact.source
+        if ($artifact.source) {
+            $null = Get-LabCanonicalArtifactSource -Source $artifact.source
+        }
     }
     Write-LabArtifactJsonAtomic -Path $Path -InputObject $lock
     return $Path

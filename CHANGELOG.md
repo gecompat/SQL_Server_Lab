@@ -18,6 +18,12 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 - der getrennte Native-Smoke-Test `Invoke-HyperVSmokeTest.ps1` und der Workflow
   `Runtime Smoke - Hyper-V Lifecycle` prüfen VM-/VHDX-Erstellung und Cleanup
   ohne Betriebssystem-, Netzwerk- oder SQL-Provisionierung.
+- `Private/HyperVImageRegistry.ps1` importiert operatorseitig bereitgestellte
+  sealed VHDX immutable und inhaltsadressiert, prüft SHA-256 und Evidence,
+  wählt kompatible Baselines deterministisch und bindet sie hostpfadfrei an das
+  Manifest Lock;
+- der Hyper-V-Native-Smoke erzeugt die VM aus einem registrierten Test-Artifact
+  und beweist, dass Run-Cleanup das globale Parent erhält.
 
 ### Geändert
 

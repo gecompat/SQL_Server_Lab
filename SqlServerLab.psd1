@@ -5,7 +5,7 @@
     Author            = 'gecompat - Gerhard Pisch'
     CompanyName       = 'gecompat'
     Copyright         = '(c) gecompat - Gerhard Pisch. Alle Rechte vorbehalten.'
-    Description       = 'Isolierte, reproduzierbare SQL-Server-Testumgebungen mit Docker und Podman; Hyper-V ist geplant.'
+    Description       = 'Isolierte SQL-Server-Testumgebungen mit Docker und Podman sowie Hyper-V-Lifecycle- und Image-Registry-Grundlage.'
     PowerShellVersion = '7.2'
 
     FunctionsToExport = @(
