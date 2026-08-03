@@ -17,6 +17,34 @@ function Write-HyperVImageBuildState {
     Write-LabArtifactJsonAtomic -Path (Join-Path $BuildDirectory 'build-state.json') -InputObject $serializable
 }
 
+function ConvertTo-HyperVImageDateTimeOffset {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Value,
+        [string]$ErrorId = 'HYPERV_IMAGE_TIMESTAMP_INVALID'
+    )
+
+    try {
+        if ($Value -is [datetimeoffset]) {
+            return [datetimeoffset]$Value
+        }
+        if ($Value -is [datetime]) {
+            $dateTime = [datetime]$Value
+            if ($dateTime.Kind -eq [DateTimeKind]::Unspecified) {
+                $dateTime = [datetime]::SpecifyKind($dateTime, [DateTimeKind]::Utc)
+            }
+            return [datetimeoffset]::new($dateTime)
+        }
+        if ($Value -isnot [string] -or [string]::IsNullOrWhiteSpace([string]$Value)) {
+            throw 'timestamp value is empty or has an unsupported type'
+        }
+        return [System.Xml.XmlConvert]::ToDateTimeOffset([string]$Value)
+    }
+    catch {
+        throw $ErrorId
+    }
+}
+
 function Get-HyperVImageBuildPlan {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$BuildId, [string]$StateRoot)
@@ -137,7 +165,7 @@ function New-HyperVWindowsImageBuilder {
     $vm = New-VM -Name $vmName -Generation 2 -MemoryStartupBytes $MemoryStartupBytes -VHDPath $diskPath -ErrorAction Stop
     # Mark the VM immediately so cleanup can identify it even when later setup fails.
     $notes = ConvertTo-HyperVLabNotes -RunId $BuildId -ScopeId $build.scopeId -InstanceId image-builder -ChildVhdxPath $diskPath
-    $null = Set-VM -VM $vm -Notes $notes -ErrorAction Stop
+    $null = Set-VM -VM $vm -Notes $notes -AutomaticCheckpointsEnabled $false -ErrorAction Stop
     @($vm | Get-VMNetworkAdapter -ErrorAction Stop) | Remove-VMNetworkAdapter -ErrorAction Stop
     $null = Set-VMProcessor -VM $vm -Count $ProcessorCount -ErrorAction Stop
     $null = Set-VMFirmware -VM $vm -EnableSecureBoot On -SecureBootTemplate MicrosoftWindows -ErrorAction Stop
@@ -214,10 +242,11 @@ function Submit-HyperVImageGeneralizationEvidence {
         $evidence.checks.shutdownObserved -ne $true) {
         throw 'HYPERV_GENERALIZATION_EVIDENCE_POSTCONDITION_FAILED'
     }
-    $completedAt = [datetimeoffset]::MinValue
-    $requestedAt = [datetimeoffset]::Parse([string]$build.manualAction.requestedAt)
-    if (-not [datetimeoffset]::TryParse([string]$evidence.completedAt, [ref]$completedAt) -or
-        $completedAt.UtcDateTime -gt [datetime]::UtcNow.AddMinutes(5) -or
+    $completedAt = ConvertTo-HyperVImageDateTimeOffset -Value $evidence.completedAt `
+        -ErrorId 'HYPERV_GENERALIZATION_EVIDENCE_TIMESTAMP_INVALID'
+    $requestedAt = ConvertTo-HyperVImageDateTimeOffset -Value $build.manualAction.requestedAt `
+        -ErrorId 'HYPERV_GENERALIZATION_EVIDENCE_TIMESTAMP_INVALID'
+    if ($completedAt.UtcDateTime -gt [datetime]::UtcNow.AddMinutes(5) -or
         $completedAt.UtcDateTime -lt $requestedAt.UtcDateTime.AddMinutes(-5)) {
         throw 'HYPERV_GENERALIZATION_EVIDENCE_TIMESTAMP_INVALID'
     }
@@ -246,6 +275,55 @@ function Submit-HyperVImageGeneralizationEvidence {
         -Reason 'Buildgebundene Generalisierungsevidenz akzeptiert; Host-Postconditions stehen aus' -StateRoot $StateRoot
 }
 
+function Submit-HyperVPowerShellDirectGeneralizationEvidence {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Build,
+        [string]$StateRoot
+    )
+
+    if (-not $Build.generalizationRequest -or
+        [string]$Build.generalizationRequest.challenge -ne [string]$Build.manualAction.challenge -or
+        [string]$Build.generalizationRequest.sysprepExitCode -ne '0' -or
+        [string]$Build.generalizationRequest.imageState -ne 'IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE') {
+        throw 'HYPERV_SYSPREP_REQUEST_NOT_RESUMABLE'
+    }
+    $completedAt = ConvertTo-HyperVImageDateTimeOffset -Value $Build.generalizationRequest.completedAt `
+        -ErrorId 'HYPERV_GENERALIZATION_EVIDENCE_TIMESTAMP_INVALID'
+    $evidenceDirectory = Join-Path $Build.BuildDirectory 'evidence'
+    New-Item -Path $evidenceDirectory -ItemType Directory -Force | Out-Null
+    $submissionPath = Join-Path $evidenceDirectory 'powershell-direct-submission.json'
+    $submission = [PSCustomObject]@{
+        contractVersion = '1'; buildId = [string]$Build.buildId; scopeId = [string]$Build.scopeId
+        challenge = [string]$Build.manualAction.challenge; kind = 'windows-sysprep-generalize'
+        source = 'powershell-direct'; completedAt = $completedAt.ToUniversalTime().ToString('o')
+        checks = [PSCustomObject]@{
+            sysprepGeneralizeSucceeded = $true; oobeReady = $true; shutdownObserved = $true
+        }
+    }
+    Write-LabArtifactJsonAtomic -Path $submissionPath -InputObject $submission
+    $submissionSha256 = (Get-FileHash -LiteralPath $submissionPath -Algorithm SHA256).Hash
+    return Submit-HyperVImageGeneralizationEvidence -BuildId ([string]$Build.buildId) `
+        -EvidencePath $submissionPath -ExpectedSha256 $submissionSha256 -StateRoot $StateRoot
+}
+
+function Repair-HyperVWindowsImageGeneralizationEvidence {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$BuildId,
+        [string]$StateRoot
+    )
+
+    $build = Get-HyperVImageBuildPlan -BuildId $BuildId -StateRoot $StateRoot
+    if (-not $build) { throw 'HYPERV_IMAGE_BUILD_NOT_FOUND' }
+    if ($build.state -ne 'RESUME_PENDING' -or
+        -not $build.generalizationEvidence -or
+        [string]$build.generalizationEvidence.source -ne 'powershell-direct') {
+        throw 'HYPERV_GENERALIZATION_EVIDENCE_NOT_REPAIRABLE'
+    }
+    return Submit-HyperVPowerShellDirectGeneralizationEvidence -Build $build -StateRoot $StateRoot
+}
+
 function Invoke-HyperVWindowsImageGeneralization {
     [CmdletBinding()]
     param(
@@ -261,6 +339,12 @@ function Invoke-HyperVWindowsImageGeneralization {
     if (-not $build) { throw 'HYPERV_IMAGE_BUILD_NOT_FOUND' }
     if ([string]$build.operatingSystem.id -eq 'synthetic-ci') {
         throw 'HYPERV_SYSPREP_NOT_ALLOWED_FOR_TEST_MEDIA'
+    }
+    if (-not $build.PSObject.Properties['installationEvidence'] -or
+        -not $build.installationEvidence -or
+        $build.installationEvidence.verified -ne $true -or
+        [string]$build.installationEvidence.installationType -ne [string]$build.operatingSystem.installationType) {
+        throw 'HYPERV_IMAGE_INSTALLATION_NOT_VERIFIED'
     }
     if ($build.state -notin @('MANUAL_ACTION_REQUIRED', 'REBOOT_REQUIRED')) {
         throw 'HYPERV_IMAGE_BUILD_NOT_READY_FOR_SYSPREP'
@@ -342,21 +426,7 @@ function Invoke-HyperVWindowsImageGeneralization {
     } while ([datetime]::UtcNow -lt $deadline)
     if ([string]$managed.VM.State -ne 'Off') { throw 'HYPERV_IMAGE_BUILD_SHUTDOWN_TIMEOUT' }
 
-    $evidenceDirectory = Join-Path $build.BuildDirectory 'evidence'
-    New-Item -Path $evidenceDirectory -ItemType Directory -Force | Out-Null
-    $submissionPath = Join-Path $evidenceDirectory 'powershell-direct-submission.json'
-    $submission = [PSCustomObject]@{
-        contractVersion = '1'; buildId = [string]$build.buildId; scopeId = [string]$build.scopeId
-        challenge = [string]$build.manualAction.challenge; kind = 'windows-sysprep-generalize'
-        source = 'powershell-direct'; completedAt = [string]$build.generalizationRequest.completedAt
-        checks = [PSCustomObject]@{
-            sysprepGeneralizeSucceeded = $true; oobeReady = $true; shutdownObserved = $true
-        }
-    }
-    Write-LabArtifactJsonAtomic -Path $submissionPath -InputObject $submission
-    $submissionSha256 = (Get-FileHash -LiteralPath $submissionPath -Algorithm SHA256).Hash
-    return Submit-HyperVImageGeneralizationEvidence -BuildId $BuildId -EvidencePath $submissionPath `
-        -ExpectedSha256 $submissionSha256 -StateRoot $StateRoot
+    return Submit-HyperVPowerShellDirectGeneralizationEvidence -Build $build -StateRoot $StateRoot
 }
 
 function Publish-HyperVWindowsImageBuild {
@@ -421,9 +491,6 @@ function Publish-HyperVWindowsImageBuild {
         }
         $build | Add-Member -NotePropertyName sealPostconditions -NotePropertyValue $postconditions -Force
         Write-HyperVImageBuildState -BuildDirectory $build.BuildDirectory -State $build
-        $null = Remove-HyperVInstance -VMName ([string]$build.builder.vmName) `
-            -ExpectedScopeId ([string]$build.scopeId) -ExpectedRunDirectory $build.BuildDirectory `
-            -PreserveVhdx -RequireOff
     }
     elseif (-not $build.sealPostconditions -or
         $build.sealPostconditions.identityValidated -ne $true -or
@@ -446,6 +513,21 @@ function Publish-HyperVWindowsImageBuild {
     }
     if (-not $synthetic) { $importParameters.Generalized = $true }
     $artifact = Import-HyperVImageArtifact @importParameters
+    if (-not $artifact -or
+        [string]::IsNullOrWhiteSpace([string]$artifact.artifactId) -or
+        [string]$artifact.sha256 -ne $sha256.ToLowerInvariant() -or
+        [string]$artifact.artifactState -ne [string]$importParameters.ArtifactState) {
+        throw 'HYPERV_IMAGE_ARTIFACT_PUBLICATION_FAILED'
+    }
+    # The immutable registry copy is complete and hash-verified before the
+    # builder VM or its source VHDX can be removed.
+    $managed = Get-HyperVManagedVM -VMName ([string]$build.builder.vmName) `
+        -ExpectedRunId $BuildId -ExpectedScopeId ([string]$build.scopeId)
+    if ($managed) {
+        $null = Remove-HyperVInstance -VMName ([string]$build.builder.vmName) `
+            -ExpectedScopeId ([string]$build.scopeId) -ExpectedRunDirectory $build.BuildDirectory `
+            -PreserveVhdx -RequireOff
+    }
     $artifactSummary = [PSCustomObject]@{
         artifactId = [string]$artifact.artifactId; artifactState = [string]$artifact.artifactState
         sha256 = [string]$artifact.sha256; publishedAt = Get-LabTimestamp

@@ -17,6 +17,13 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 - der Media-Root-Initializer erzeugt im Root und in allen Medienzielen
   geschützte lokale `README.md`-Anleitungen mit offiziellen Downloadquellen,
   Ablagepfaden, Auswahlkriterien und Verwendungshinweisen;
+- die Image-Aktion im `Invoke-SqlServerLab`-Menü löst Windows-ISOs aus dem
+  Media Root eindeutig auf, erzeugt auf Bestätigung ein einzelnes
+  SHA-256-Sidecar und führt durch Builder, VMConnect, Sysprep, Publikation und
+  scopegebundenen Cleanup;
+- vor realem Sysprep verifiziert PowerShell Direct Produkt, Edition,
+  Windows-Build und tatsächlichen Installationstyp; abweichende Core-/Desktop-
+  Metadaten werden nur nach ausdrücklicher Bestätigung korrigiert;
 - der Media-Root-Vertrag dokumentiert Windows-, Linux- und SQL-Medien,
   Pathgrenzen, Hashes und die noch interne Übergabe an den Hyper-V-Builder;
 - getrennte Schritt-für-Schritt-Anleitungen richten die Windows-Umgebung für
@@ -70,6 +77,9 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   prüft SQL-Dienst, Major-Version und die vier Online-Systemdatenbanken und
   speichert ausschließlich sanitierte `SQL_READY_RUN`-Evidenz. Ohne reale
   sealed Baseline bleibt der End-to-End-Nachweis ausdrücklich offen.
+- Image-Builder und reguläre Hyper-V-Lab-VMs deaktivieren automatische
+  Checkpoints; dadurch bleibt die gebundene Basis-/Child-VHDX der tatsächlich
+  angeschlossene Datenträger und es entstehen keine unbeobachteten AVHDX.
 
 ### Geändert
 
@@ -79,6 +89,18 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Behoben
 
+- das Hyper-V-Image-Menü öffnet VMConnect vor dem ersten VM-Start und wartet
+  kurz, damit die Tastaturfreigabe zum Booten der Windows-ISO nicht verpasst
+  wird;
+- ISO-Zeitstempel aus `ConvertFrom-Json` werden typ- und kulturinvariant
+  normalisiert; ein Datum wie `2026-08-03` kann dadurch nicht mehr als
+  `2026-03-08` in die Sysprep-Evidenz gelangen;
+- Evaluation-Ablaufdaten werden ohne fehlerhaften Zugriff auf `Nullable.Value`
+  in Registry-Metadaten geschrieben und bei idempotenten Imports verglichen;
+- die Image-Publikation erstellt und verifiziert die immutable Registry-Kopie
+  vollständig, bevor Builder-VM oder Quell-VHDX entfernt werden. Ein leeres
+  oder widersprüchliches Artifact kann den Build nicht mehr auf `OS_SEALED`
+  setzen;
 - der Legacy-Command-Dokumentationscheck normalisiert relative Pfade und wendet
   seine Allowlist dadurch unter Windows und Linux identisch an.
 

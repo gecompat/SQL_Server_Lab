@@ -126,6 +126,7 @@ try {
     Assert-HyperVSmoke -Condition ($vm.Generation -eq 2) -Description 'VM verwendet Generation 2'
     $firmware = Get-VMFirmware -VM $vm -ErrorAction Stop
     Assert-HyperVSmoke -Condition ($firmware.SecureBoot -eq 'On') -Description 'Secure Boot ist aktiviert'
+    Assert-HyperVSmoke -Condition (-not $vm.AutomaticCheckpointsEnabled) -Description 'Automatische Checkpoints sind fuer Lab-VM deaktiviert'
     $attachedPaths = @(Get-VMHardDiskDrive -VM $vm -ErrorAction Stop | ForEach-Object { [System.IO.Path]::GetFullPath([string]$_.Path) })
     Assert-HyperVSmoke -Condition ($attachedPaths.Count -eq 3) -Description 'OS-Child und zwei Zusatz-VHDX sind an die VM gebunden'
     foreach ($drive in @($instance.AdditionalDrives)) {
@@ -174,6 +175,7 @@ try {
     Assert-HyperVSmoke -Condition ($builder.state -eq 'BUILDER_READY') -Description 'Windows-Image-Builder ist resumierbar bereit'
     $builderVm = Get-VM -Name $builder.builder.vmName -ErrorAction Stop
     Assert-HyperVSmoke -Condition ($builderVm.Generation -eq 2) -Description 'Image-Builder verwendet Generation 2'
+    Assert-HyperVSmoke -Condition (-not $builderVm.AutomaticCheckpointsEnabled) -Description 'Automatische Checkpoints sind fuer Image-Builder deaktiviert'
     Assert-HyperVSmoke -Condition (@(Get-VMDvdDrive -VM $builderVm).Count -eq 1) -Description 'Verifiziertes Installationsmedium ist eingebunden'
     $manual = & $module { param($BuildId, $StateRoot) Set-HyperVImageBuildManualAction -BuildId $BuildId -StateRoot $StateRoot } $builder.buildId $stateRoot
     Assert-HyperVSmoke -Condition ($manual.state -eq 'MANUAL_ACTION_REQUIRED') -Description 'Nicht automatisierte OS-Installation wird ehrlich persistiert'

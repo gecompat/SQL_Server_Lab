@@ -33,6 +33,11 @@ Start, Stop, PowerShell Direct und scopegebundener Cleanup. Der Native-
 Smoke-Test verwendet bewusst eine synthetische leere Parent-VHDX und beweist
 weder Betriebssystem- noch SQL-Bereitschaft.
 
+Builder und reguläre Lab-VMs deaktivieren automatische Hyper-V-Checkpoints.
+Die Publikation bleibt fail-closed, wenn dennoch ein Checkpoint vorhanden ist,
+und übernimmt eine VHDX erst nach erfolgreicher, hashverifizierter Registry-
+Kopie. Erst danach dürfen Builder-VM und buildlokale Quelle entfernt werden.
+
 Operatorseitig bereitgestellte, bereits generalisierte `OS_SEALED`- und
 `SQL_PREPARED_SEALED`-VHDX können immutable und SHA-256-verifiziert in einer
 lokalen Registry abgelegt, deterministisch ausgewählt und per portablem
@@ -41,7 +46,10 @@ generalisiert diese Images nicht selbst.
 
 Die Windows-Image-Builder-Grundlage verifiziert ein lokales ISO, erstellt einen
 persistenten Build-Plan und kann den isolierten Generation-2-Builder samt
-Cleanup erzeugen. Die OS-Installation bleibt manuell und wird als
+Cleanup erzeugen. Der Operatorpfad ist über die Image-Aktion des
+`Invoke-SqlServerLab`-Menüs erreichbar, löst die ISO aus dem kanonischen Media
+Root auf und bindet sie an ein einzelnes SHA-256-Sidecar. Die OS-Installation
+bleibt manuell und wird als
 `MANUAL_ACTION_REQUIRED` ausgewiesen. Danach kann die Runtime Sysprep ueber
 PowerShell Direct ausfuehren, den erfolgreichen Microsoft-ImageState pruefen,
 einen resumierbaren `REBOOT_REQUIRED`-State persistieren, den Gast-Shutdown
@@ -52,6 +60,23 @@ Registry-Publikation geprüft. Der Native-Smoke verwendet keine echte Windows-
 Installation und beweist daher kein Gast-Sysprep. Synthetische CI-Builds koennen
 ausschließlich `LIFECYCLE_TEST_ONLY`, niemals `OS_SEALED`, veröffentlichen und
 duerfen den automatischen Sysprep-Pfad nicht ausfuehren.
+
+Ein realer Windows-Server-2025-Standard-Evaluation-Core-Gast wurde aus ISO
+installiert, per PowerShell Direct verifiziert und erfolgreich generalisiert.
+Die dabei entdeckten Fehler in kulturabhängigen Evidenz-Zeitstempeln,
+automatischen Checkpoints und Evaluation-Metadaten sind korrigiert und durch
+Regressionstests gebunden. Der konkrete ISO-Build endete wegen des damals noch
+fehlerhaften Publikations-Cleanups korrekt als `FAILED`; er ist deshalb kein
+positiver End-to-End-Publikationsnachweis.
+
+Eine separat bereitgestellte Windows-Server-2025-Datacenter-Evaluation-VHDX
+wurde dagegen SHA-256-verifiziert als reale `OS_SEALED`-Baseline importiert und
+über eine isolierte Differencing-VM mit Hyper-V-Heartbeat `OK` gebootet. Dieser
+hostlokale Nachweis wird nicht mit dem Repository ausgeliefert und ersetzt
+weder einen reproduzierbaren Unattended-ISO-Build noch Gast-Specialization und
+SQL-Readiness. Der Ablauf ist unter
+[Windows-Server-Baseline aus ISO](../HowTo/HYPERV_WINDOWS_IMAGE_BUILD.md)
+dokumentiert.
 
 Manifeste mit Windows-Betriebssystem oder GUI-Software können bei der Provider-
 Auflösung zu `hyperv` führen; `New-SqlServerLab` bricht weiterhin mit einer
@@ -76,9 +101,10 @@ VM-Notizen oder Evidence gespeichert. Der credentialfreie allgemeine Status
 zeigt nur die letzte Readiness-Evidenz und setzt `SqlReady` bewusst nicht aus
 einem möglicherweise veralteten Receipt auf `true`.
 
-Da lokal keine reale sealed Windows-/SQL-Baseline registriert ist, sind
-Specialization, Reboot/Reconnect und SQL-Readiness nur statisch mit Mocks
-abgedeckt. Der synthetische Native-Smoke beweist diese Gastpfade nicht.
+Windows-Specialization, Reboot/Reconnect und SQL-Readiness sind weiterhin nur
+statisch mit Mocks abgedeckt. Die reale Datacenter-VHDX wurde ohne bekannte
+Gast-Credentials ausschließlich bis zum Hyper-V-Heartbeat gebootet; der
+synthetische Native-Smoke beweist diese Gastpfade ebenfalls nicht.
 Noch nicht implementiert ist die Bindung an den bestehenden Manifest-Drive-
 Vertrag. Ebenfalls offen bleiben der unattended OS-/SQL-Image-Build,
 `PrepareImage`/`CompleteImage`, Network Intents, IPAM, Reconcile und Artifact Refresh. Der
