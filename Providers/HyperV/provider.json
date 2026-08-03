@@ -2,7 +2,7 @@
   "name": "hyperv",
   "displayName": "Microsoft Hyper-V",
   "description": "Generation-2-VM-Lifecycle aus einer verifizierten read-only Parent-VHDX.",
-  "runtimeStatus": "guest-drive-initialization-orchestration",
+  "runtimeStatus": "windows-specialization-sql-readiness-orchestration",
   "sqlProvisioning": false,
   "capabilities": [
     "windows-host",
@@ -21,16 +21,19 @@
     "scsi-drive-attachment",
     "stable-vhdx-disk-identity",
     "powershell-direct-guest-drive-initialization",
+    "windows-guest-specialization",
+    "powershell-direct-reboot-reconnect",
+    "in-guest-sql-readiness",
     "sealed-image-publication"
   ],
   "limitations": [
     "no-unattended-os-build",
     "manual-os-installation",
     "no-real-windows-guest-sysprep-ci",
-    "no-guest-specialization",
     "no-sql-provisioning",
     "no-network-binding",
-    "no-real-windows-guest-drive-ci",
+    "no-real-windows-guest-specialization-ci",
+    "no-sql-complete-image-runtime",
     "no-drive-manifest-binding"
   ],
   "detectionCommand": "Get-VMHost",

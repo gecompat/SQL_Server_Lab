@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `PARTIALLY_IMPLEMENTED` |
-| Runtime-Status | `GUEST_DRIVE_INITIALIZATION_ORCHESTRATION` |
+| Runtime-Status | `WINDOWS_SPECIALIZATION_SQL_READINESS_ORCHESTRATION` |
 | Verbindlicher Zielvertrag | [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](../../Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md) |
 | Artifact-Ergänzung | [Testdatenbank-Provisionierung und Manifest-Wizard](../../Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md) |
 
@@ -25,6 +25,11 @@ plattformgebundene SQL-Features benötigen.
 - stabile Host-/Gast-Zuordnung über den VHDX-DiskIdentifier sowie idempotente
   GPT-/NTFS-Initialisierung mit expliziter Allocation Unit, Volume Label und
   Gastpfad über PowerShell Direct;
+- Windows-Specialization mit validiertem Computernamen, vor dem Gastneustart
+  persistiertem `REBOOT_REQUIRED` und begrenztem PowerShell-Direct-Reconnect;
+- SQL-Readiness im Gast mit SQL-Dienst-, Major-Version- und Online-Prüfung der
+  vier Systemdatenbanken; nur sanitierte `SQL_READY_RUN`-Evidenz wird in den
+  VM-Notizen gespeichert;
 - Status, Start, Stop, Remove und PowerShell Direct;
 - VM-Identität über RunId, ScopeId und InstanceId;
 - Cleanup-Plan vor der ersten Provider-Mutation;
@@ -57,12 +62,11 @@ explizit auf `false`.
 
 Entsprechend erscheint Hyper-V noch nicht als ausführbarer Provider im
 `Invoke-SqlServerLab`-Menü. Eine Freigabe folgt erst nach Manifest-Binding,
-Windows-Specialization und SQL Readiness.
+SQL-`CompleteImage`, Netzwerkzugriff und echtem Windows-/SQL-End-to-End-Test.
 
 ## Verbleibender Providerumfang
 
 - unattended OS-Build und Rebootsteuerung waehrend der Installation;
-- Windows-Specialization nach Verwendung eines sealed Images;
 - Linux Guest Management über cloud-init und SSH;
 - Restart und Einbindung in die öffentlichen Run-Lifecycle-Cmdlets;
 - echter End-to-End-Nachweis der Initialisierung in einem Windows-Gast;
@@ -71,7 +75,7 @@ Windows-Specialization und SQL Readiness.
 - resumierbare OS- und SQL-Server-Installation;
 - echter End-to-End-Sysprep-Nachweis in einem Windows-Gast; der Native-Smoke
   verwendet weiterhin bewusst nur synthetische leere Testmedien;
-- SQL Readiness, Software, External Runtimes und Testdatenbanken;
+- SQL `PrepareImage`/`CompleteImage`, Software, External Runtimes und Testdatenbanken;
 - Diff-/Reconcile-Ablauf für nachträgliche Änderungen.
 
 ## Verbindliche Aufsetzpunkte

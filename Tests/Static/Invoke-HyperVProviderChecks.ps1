@@ -41,8 +41,8 @@ try {
 
     Add-CheckResult -Name 'Metadaten registrieren hyperv' -Success ($metadata.name -eq 'hyperv')
     Add-CheckResult `
-        -Name 'SQL-Provisionierung bleibt explizit deaktiviert' `
-        -Success ($metadata.runtimeStatus -eq 'guest-drive-initialization-orchestration' -and $metadata.sqlProvisioning -eq $false)
+        -Name 'SQL-Provisionierung bleibt bis zum echten Gastnachweis explizit deaktiviert' `
+        -Success ($metadata.runtimeStatus -eq 'windows-specialization-sql-readiness-orchestration' -and $metadata.sqlProvisioning -eq $false)
     Add-CheckResult `
         -Name 'Runner-Labels sind capability-spezifisch' `
         -Success ((@($metadata.requirements.runnerLabels) -join ',') -eq 'self-hosted,SQL_Lab,Hyper-V')
@@ -55,6 +55,9 @@ try {
         'Start-HyperVInstance',
         'Stop-HyperVInstance',
         'Invoke-HyperVPowerShellDirect',
+        'Wait-HyperVPowerShellDirect',
+        'Set-HyperVWindowsGuestSpecialization',
+        'Wait-HyperVGuestSqlReady',
         'Initialize-HyperVWindowsGuestDrives',
         'Remove-HyperVInstance',
         'Get-HyperVLabVMs'
@@ -105,6 +108,18 @@ try {
         -Name 'Bestehende Volumes werden nur verifiziert und nicht neu formatiert' `
         -Text $provider `
         -Pattern "PartitionStyle\s+-eq\s+'RAW'[\s\S]+else\s*\{[\s\S]+GUEST_DRIVE_PARTITION_NOT_IDEMPOTENT"
+    Add-TextContract `
+        -Name 'Windows-Specialization benennt den Gast um und wartet nach Reboot auf Reconnect' `
+        -Text $provider `
+        -Pattern 'Rename-Computer[\s\S]+REBOOT_REQUIRED[\s\S]+shutdown\.exe[\s\S]+Wait-HyperVPowerShellDirect'
+    Add-TextContract `
+        -Name 'SQL-Readiness prueft Dienst, Version und alle Systemdatenbanken im Gast' `
+        -Text $provider `
+        -Pattern 'System\.Data\.SqlClient[\s\S]+Get-Service[\s\S]+ProductMajorVersion[\s\S]+OnlineSystemDatabases[\s\S]+SQL_READY_RUN'
+    Add-TextContract `
+        -Name 'Status trennt historische SQL-Evidenz von aktueller Live-Bereitschaft' `
+        -Text $provider `
+        -Pattern 'LastSqlReadinessStatus[\s\S]+LastSqlReadinessAt[\s\S]+SqlReady\s*=\s*\$false'
     Add-TextContract `
         -Name 'Lifecycle ohne Switch entfernt implizite Netzwerkadapter' `
         -Text $provider `
@@ -220,6 +235,133 @@ try {
             $guestContract.Notes -match 'guestDriveInitialization' -and
             $guestContract.Notes -notmatch [regex]::Escape($testUser) -and
             $guestContract.Notes -notmatch [regex]::Escape($testPassword)
+        )
+
+    $specializationUser = 'sql-lab-specialization-test'
+    $specializationPassword = 'NotPersisted_Specialization_3!'
+    $specializationCredential = [PSCredential]::new(
+        $specializationUser,
+        (ConvertTo-SecureString $specializationPassword -AsPlainText -Force)
+    )
+    $specializationContract = & $module {
+        param($Credential)
+        $identity = [PSCustomObject]@{
+            contractVersion = '0.4'; provider = 'hyperv'; runId = 'run-specialize'; scopeId = 'scope-specialize'
+            instanceId = 'specialize'; childVhdxPath = 'C:\synthetic\os.vhdx'
+            additionalVhdxPaths = @(); additionalDrives = @()
+        }
+        $vm = [PSCustomObject]@{ State = 'Running'; Notes = '' }
+        $script:CapturedSpecializationNotes = ''
+        $script:SpecializationDirectCall = 0
+        function Get-HyperVManagedVM { [PSCustomObject]@{ VM = $vm; Identity = $identity } }
+        function Invoke-HyperVPowerShellDirect {
+            $script:SpecializationDirectCall++
+            switch ($script:SpecializationDirectCall) {
+                1 { [PSCustomObject]@{ computerName = 'TEMPLATE'; pendingComputerName = 'TEMPLATE'; imageState = 'IMAGE_STATE_COMPLETE' } }
+                2 { 'RENAME_APPLIED' }
+                3 { 'RESTART_REQUESTED' }
+                default { [PSCustomObject]@{ computerName = 'SQLLAB01'; imageState = 'IMAGE_STATE_COMPLETE'; windowsVersion = '10.0.26100.0' } }
+            }
+        }
+        function Wait-HyperVPowerShellDirect {
+            [PSCustomObject]@{ Ready = $true; ComputerName = 'SQLLAB01'; ImageState = 'IMAGE_STATE_COMPLETE' }
+        }
+        function Set-VM { param($VM,$Notes,$ErrorAction); $script:CapturedSpecializationNotes = $Notes }
+        $result = Set-HyperVWindowsGuestSpecialization `
+            -VMName 'sql-lab-specialize' `
+            -ExpectedRunId 'run-specialize' `
+            -ExpectedScopeId 'scope-specialize' `
+            -Credential $Credential `
+            -ComputerName 'sqllab01'
+        [PSCustomObject]@{ Result = $result; Notes = $script:CapturedSpecializationNotes }
+    } $specializationCredential
+    Add-CheckResult `
+        -Name 'Windows-Specialization persistiert nur sanitierte Reboot- und Postcondition-Evidenz' `
+        -Success (
+            $specializationContract.Result.Status -eq 'WINDOWS_SPECIALIZED' -and
+            $specializationContract.Result.ComputerName -eq 'SQLLAB01' -and
+            $specializationContract.Result.Rebooted -and
+            $specializationContract.Notes -match 'WINDOWS_SPECIALIZED' -and
+            $specializationContract.Notes -notmatch [regex]::Escape($specializationUser) -and
+            $specializationContract.Notes -notmatch [regex]::Escape($specializationPassword)
+        )
+
+    $idempotentSpecialization = & $module {
+        param($Credential)
+        $identity = [PSCustomObject]@{
+            contractVersion = '0.5'; provider = 'hyperv'; runId = 'run-specialize'; scopeId = 'scope-specialize'
+            instanceId = 'specialize'; childVhdxPath = 'C:\synthetic\os.vhdx'
+            additionalVhdxPaths = @(); additionalDrives = @()
+            windowsSpecialization = [PSCustomObject]@{ status = 'WINDOWS_SPECIALIZED'; computerName = 'SQLLAB01' }
+        }
+        $vm = [PSCustomObject]@{ State = 'Running'; Notes = '' }
+        $script:IdempotentDirectCall = 0
+        function Get-HyperVManagedVM { [PSCustomObject]@{ VM = $vm; Identity = $identity } }
+        function Invoke-HyperVPowerShellDirect {
+            $script:IdempotentDirectCall++
+            if ($script:IdempotentDirectCall -eq 1) {
+                [PSCustomObject]@{ computerName = 'SQLLAB01'; pendingComputerName = 'SQLLAB01'; imageState = 'IMAGE_STATE_COMPLETE' }
+            }
+            else {
+                [PSCustomObject]@{ computerName = 'SQLLAB01'; imageState = 'IMAGE_STATE_COMPLETE'; windowsVersion = '10.0.26100.0' }
+            }
+        }
+        function Wait-HyperVPowerShellDirect { throw 'Reconnect darf im idempotenten Pfad nicht aufgerufen werden.' }
+        function Set-VM { param($VM,$Notes,$ErrorAction) }
+        Set-HyperVWindowsGuestSpecialization `
+            -VMName 'sql-lab-specialize' `
+            -ExpectedRunId 'run-specialize' `
+            -ExpectedScopeId 'scope-specialize' `
+            -Credential $Credential `
+            -ComputerName 'SQLLAB01'
+    } $specializationCredential
+    Add-CheckResult `
+        -Name 'Bereits spezialisierter Windows-Gast wird ohne weiteren Reboot verifiziert' `
+        -Success (
+            $idempotentSpecialization.Status -eq 'WINDOWS_SPECIALIZED' -and
+            -not $idempotentSpecialization.Rebooted
+        )
+
+    $sqlSaPasswordText = 'NotPersisted_SqlReadiness_4!'
+    $sqlSaPassword = ConvertTo-SecureString $sqlSaPasswordText -AsPlainText -Force
+    $sqlReadinessContract = & $module {
+        param($Credential, $SaPassword)
+        $identity = [PSCustomObject]@{
+            contractVersion = '0.5'; provider = 'hyperv'; runId = 'run-sql'; scopeId = 'scope-sql'
+            instanceId = 'sql'; childVhdxPath = 'C:\synthetic\os.vhdx'
+            additionalVhdxPaths = @(); additionalDrives = @()
+            windowsSpecialization = [PSCustomObject]@{ status = 'WINDOWS_SPECIALIZED'; computerName = 'SQLLAB01' }
+        }
+        $vm = [PSCustomObject]@{ State = 'Running'; Notes = '' }
+        $script:CapturedSqlReadinessNotes = ''
+        function Get-HyperVManagedVM { [PSCustomObject]@{ VM = $vm; Identity = $identity } }
+        function Invoke-HyperVPowerShellDirect {
+            [PSCustomObject]@{
+                status = 'SQL_READY_RUN'; instanceName = 'MSSQLSERVER'; serviceName = 'MSSQLSERVER'
+                majorVersion = 16; productVersion = '16.0.1000.6'; edition = 'Developer Edition'
+                machineName = 'SQLLAB01'; sqlServiceName = 'MSSQLSERVER'; onlineSystemDatabases = 4
+                observedAt = [datetime]::UtcNow.ToString('o')
+            }
+        }
+        function Set-VM { param($VM,$Notes,$ErrorAction); $script:CapturedSqlReadinessNotes = $Notes }
+        $result = Wait-HyperVGuestSqlReady `
+            -VMName 'sql-lab-sql' `
+            -ExpectedRunId 'run-sql' `
+            -ExpectedScopeId 'scope-sql' `
+            -Credential $Credential `
+            -SaPassword $SaPassword `
+            -ExpectedMajorVersion 16
+        [PSCustomObject]@{ Result = $result; Notes = $script:CapturedSqlReadinessNotes }
+    } $specializationCredential $sqlSaPassword
+    Add-CheckResult `
+        -Name 'SQL-Readiness persistiert Versionsevidenz, aber weder Gast- noch SA-Credentials' `
+        -Success (
+            $sqlReadinessContract.Result.Ready -and
+            $sqlReadinessContract.Result.Status -eq 'SQL_READY_RUN' -and
+            $sqlReadinessContract.Result.MajorVersion -eq 16 -and
+            $sqlReadinessContract.Notes -match 'SQL_READY_RUN' -and
+            $sqlReadinessContract.Notes -notmatch [regex]::Escape($specializationPassword) -and
+            $sqlReadinessContract.Notes -notmatch [regex]::Escape($sqlSaPasswordText)
         )
 
     $pathContract = & $module {

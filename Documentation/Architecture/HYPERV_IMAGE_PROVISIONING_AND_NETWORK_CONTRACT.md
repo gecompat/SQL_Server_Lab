@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING_IMPLEMENTATION_TARGET` |
-| Runtime-Status | `PARTIALLY_IMPLEMENTED_GUEST_DRIVE_ORCHESTRATION` |
+| Runtime-Status | `PARTIALLY_IMPLEMENTED_WINDOWS_SPECIALIZATION_SQL_READINESS` |
 | Stand | 2026-08-03 |
 | Geltungsbereich | Hyper-V sowie providerneutrale Anteile für Docker und Podman |
 | Aktueller Ist-Nachweis | [`KNOWN_LIMITATIONS.md`](../Quality/KNOWN_LIMITATIONS.md) |
@@ -25,15 +25,16 @@ Dieses Dokument definiert den verbindlichen Zielvertrag für:
 - providerneutrale Netzwerk-, Software-, Resource- und Reconcile-Verträge für
   Hyper-V, Docker und Podman.
 
-Dieses Dokument ist **kein vollständiger Runtime-Nachweis**. Implementiert ist
-die isolierte Lifecycle-Grundlage aus Welle 4 sowie die Registry-Grundlage aus
-Welle 2: Generation 2, Secure Boot,
-verifizierte Parent-/Child-VHDX, Status, Start, Stop, PowerShell-Direct-Primitiv
-und scopegebundener Cleanup mit eigenem Native-Smoke-Test. OS-Specialization,
-immutable, SHA-256-verifizierte sealed VHDX, deterministische Auswahl und
-Manifest Lock. Unattended Image Build, Specialization und SQL-Provisionierung
-sind noch nicht implementiert. Die
-bestehenden Containerpfade bleiben für SQL-fertige Labs unverändert maßgeblich.
+Dieses Dokument ist **kein vollständiger Runtime-Nachweis**. Implementiert sind
+die isolierte Lifecycle-Grundlage aus Welle 4, die Registry-Grundlage aus Welle
+2 sowie Teile aus Welle 5: Generation 2, Secure Boot, verifizierte Parent-/
+Child-VHDX, Status, Start, Stop, PowerShell Direct, scopegebundener Cleanup,
+immutable sealed VHDX, deterministische Auswahl, Manifest Lock, zusätzliche
+Gast-Drives, Windows-Specialization mit Reboot/Reconnect und eine interne SQL-
+Readiness-Orchestrierung. Unattended Image Build, SQL `CompleteImage`, Netzwerk-
+und Manifest-Binding sowie der echte Windows-/SQL-End-to-End-Nachweis sind noch
+nicht implementiert. Die bestehenden Containerpfade bleiben für SQL-fertige
+Labs unverändert maßgeblich.
 
 ## 2. Verbindliche Grundentscheidungen
 
@@ -684,7 +685,10 @@ offen und führen zunächst zu `MANUAL_ACTION_REQUIRED`.
 Stand 2026-08-03: Die Lifecycle-Grundlage und der synthetische Native-Smoke-Test
 sind implementiert. Die PowerShell-Direct-Sysprep-Orchestrierung und ihre
 technischen Postconditions sind statisch abgedeckt; ein echter Windows-Gast-
-End-to-End-Nachweis und die spätere Specialization bleiben offen.
+End-to-End-Nachweis bleibt offen. Die run-lokale Windows-Specialization setzt
+einen validierten Computernamen, persistiert ihren Reboot-Zustand und wartet
+begrenzt auf den PowerShell-Direct-Reconnect; auch dieser Pfad ist mangels einer
+realen sealed Baseline bislang nur statisch abgedeckt.
 
 ### Welle 5 – Drives und SQL Server
 
@@ -698,8 +702,10 @@ Stand 2026-08-03: Run-lokale dynamische und feste Zusatz-VHDX mit validierten
 SQL-bezogenen Rollen, SCSI-Anbindung, VM-Identitätsbindung und scope-sicherem
 Cleanup sind implementiert. Der VHDX-DiskIdentifier bindet Host und Gast;
 PowerShell Direct orchestriert idempotente GPT-/NTFS-Initialisierung,
-Allocation Unit, Volume Label und Gastpfad. Ein echter Windows-Gast-
-End-to-End-Nachweis, Manifest-Binding und alle SQL-Setup-Schritte bleiben offen.
+Allocation Unit, Volume Label und Gastpfad. Eine interne SQL-Readiness-Prüfung
+validiert Dienst, Major-Version und die Online-Systemdatenbanken und persistiert
+sanitierte `SQL_READY_RUN`-Evidenz. Ein echter Windows-Gast-End-to-End-Nachweis,
+Manifest-Binding und alle SQL-Setup-/`CompleteImage`-Schritte bleiben offen.
 
 ### Welle 6 – Netzwerkabstraktion
 
