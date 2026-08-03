@@ -34,7 +34,7 @@ function Set-HyperVImageBuildState {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$BuildId,
-        [Parameter(Mandatory)][ValidateSet('BUILDER_READY', 'MANUAL_ACTION_REQUIRED', 'RESUME_PENDING', 'OS_SEALED', 'TEST_ARTIFACT_PUBLISHED', 'FAILED')][string]$State,
+        [Parameter(Mandatory)][ValidateSet('BUILDER_READY', 'MANUAL_ACTION_REQUIRED', 'REBOOT_REQUIRED', 'RESUME_PENDING', 'OS_SEALED', 'TEST_ARTIFACT_PUBLISHED', 'FAILED')][string]$State,
         [Parameter(Mandatory)][string]$Reason,
         [string]$StateRoot
     )
@@ -102,7 +102,7 @@ function New-HyperVWindowsImageBuildPlan {
         operatingSystem = [PSCustomObject]@{ id = $OperatingSystemId; edition = $Edition; installationType = $InstallationType; language = $Language; architecture = 'x64' }
         license = [PSCustomObject]@{ type = $LicenseType }
         resources = [PSCustomObject]@{ osDiskSizeBytes = $OsDiskSizeBytes }
-        builder = $null; manualAction = $null; generalizationEvidence = $null
+        builder = $null; manualAction = $null; generalizationRequest = $null; generalizationEvidence = $null
         sealPostconditions = $null; artifact = $null; cleanupStatus = $null
         createdAt = $timestamp; updatedAt = $timestamp
     }
@@ -160,7 +160,7 @@ function Set-HyperVImageBuildManualAction {
         stepId = 'install-and-generalize-windows'
         challenge = New-LabGuid
         requiredPostconditions = @('sysprep-generalize-succeeded', 'oobe-ready', 'vm-shutdown-observed')
-        allowedNextActions = @('submit-generalization-evidence', 'cleanup')
+        allowedNextActions = @('invoke-powershell-direct-sysprep', 'submit-generalization-evidence', 'cleanup')
         requestedAt = Get-LabTimestamp
     }
     $build | Add-Member -NotePropertyName manualAction -NotePropertyValue $manualAction -Force
@@ -180,7 +180,7 @@ function Submit-HyperVImageGeneralizationEvidence {
 
     $build = Get-HyperVImageBuildPlan -BuildId $BuildId -StateRoot $StateRoot
     if (-not $build) { throw 'HYPERV_IMAGE_BUILD_NOT_FOUND' }
-    if ($build.state -notin @('MANUAL_ACTION_REQUIRED', 'RESUME_PENDING')) {
+    if ($build.state -notin @('MANUAL_ACTION_REQUIRED', 'REBOOT_REQUIRED', 'RESUME_PENDING')) {
         throw 'HYPERV_IMAGE_BUILD_NOT_WAITING_FOR_EVIDENCE'
     }
     if (-not $build.manualAction -or -not $build.manualAction.challenge) {
@@ -244,6 +244,119 @@ function Submit-HyperVImageGeneralizationEvidence {
     Write-HyperVImageBuildState -BuildDirectory $build.BuildDirectory -State $build
     return Set-HyperVImageBuildState -BuildId $BuildId -State RESUME_PENDING `
         -Reason 'Buildgebundene Generalisierungsevidenz akzeptiert; Host-Postconditions stehen aus' -StateRoot $StateRoot
+}
+
+function Invoke-HyperVWindowsImageGeneralization {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$BuildId,
+        [PSCredential]$Credential,
+        [ValidateRange(30, 1800)][int]$ShutdownTimeoutSeconds = 300,
+        [string]$StateRoot
+    )
+
+    $availability = Test-HyperVAvailable
+    if (-not $availability.Available) { throw "Hyper-V nicht verfuegbar: $($availability.Message)" }
+    $build = Get-HyperVImageBuildPlan -BuildId $BuildId -StateRoot $StateRoot
+    if (-not $build) { throw 'HYPERV_IMAGE_BUILD_NOT_FOUND' }
+    if ([string]$build.operatingSystem.id -eq 'synthetic-ci') {
+        throw 'HYPERV_SYSPREP_NOT_ALLOWED_FOR_TEST_MEDIA'
+    }
+    if ($build.state -notin @('MANUAL_ACTION_REQUIRED', 'REBOOT_REQUIRED')) {
+        throw 'HYPERV_IMAGE_BUILD_NOT_READY_FOR_SYSPREP'
+    }
+
+    if ($build.state -eq 'MANUAL_ACTION_REQUIRED') {
+        if (-not $Credential) { throw 'HYPERV_GUEST_CREDENTIAL_REQUIRED' }
+        $vmName = [string]$build.builder.vmName
+        $receipt = Invoke-HyperVPowerShellDirect -VMName $vmName -ExpectedRunId $BuildId `
+            -ExpectedScopeId ([string]$build.scopeId) -Credential $Credential -ArgumentList @(
+                [string]$build.buildId,
+                [string]$build.scopeId,
+                [string]$build.manualAction.challenge
+            ) -ScriptBlock {
+                param($ExpectedBuildId, $ExpectedScopeId, $ExpectedChallenge)
+                $ErrorActionPreference = 'Stop'
+                $sysprepPath = Join-Path $env:WINDIR 'System32\Sysprep\Sysprep.exe'
+                if (-not (Test-Path -LiteralPath $sysprepPath -PathType Leaf)) {
+                    throw 'SYSPREP_EXECUTABLE_NOT_FOUND'
+                }
+                $process = Start-Process -FilePath $sysprepPath `
+                    -ArgumentList @('/generalize', '/oobe', '/mode:vm', '/quit', '/quiet') `
+                    -Wait -PassThru -ErrorAction Stop
+                if ($process.ExitCode -ne 0) { throw "SYSPREP_EXIT_CODE_$($process.ExitCode)" }
+                $imageState = [string](Get-ItemProperty `
+                    -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State' `
+                    -Name ImageState -ErrorAction Stop).ImageState
+                if ($imageState -ne 'IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE') {
+                    throw "SYSPREP_IMAGE_STATE_INVALID_$imageState"
+                }
+                & (Join-Path $env:WINDIR 'System32\shutdown.exe') /s /t 30 /f /d p:4:1 /c 'SQL_Server_Lab image sealing'
+                if ($LASTEXITCODE -ne 0) { throw "SYSPREP_SHUTDOWN_SCHEDULE_FAILED_$LASTEXITCODE" }
+                [PSCustomObject]@{
+                    contractVersion = '1'; buildId = $ExpectedBuildId; scopeId = $ExpectedScopeId
+                    challenge = $ExpectedChallenge; imageState = $imageState; sysprepExitCode = $process.ExitCode
+                    guestComputerName = $env:COMPUTERNAME; guestObservedAt = [datetime]::UtcNow.ToString('o')
+                    shutdownDelaySeconds = 30
+                }
+            }
+        $receipt = @($receipt)[-1]
+        if (-not $receipt -or
+            [string]$receipt.contractVersion -ne '1' -or
+            [string]$receipt.buildId -ne [string]$build.buildId -or
+            [string]$receipt.scopeId -ne [string]$build.scopeId -or
+            [string]$receipt.challenge -ne [string]$build.manualAction.challenge -or
+            [string]$receipt.sysprepExitCode -ne '0' -or
+            [string]$receipt.imageState -ne 'IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE' -or
+            -not [string]$receipt.guestComputerName -or
+            -not [string]$receipt.guestObservedAt) {
+            throw 'HYPERV_SYSPREP_RECEIPT_INVALID'
+        }
+        $request = [PSCustomObject]@{
+            contractVersion = '1'; challenge = [string]$receipt.challenge
+            imageState = [string]$receipt.imageState; sysprepExitCode = [int]$receipt.sysprepExitCode
+            guestComputerName = [string]$receipt.guestComputerName
+            guestObservedAt = [string]$receipt.guestObservedAt; completedAt = Get-LabTimestamp
+            shutdownDelaySeconds = [int]$receipt.shutdownDelaySeconds; status = 'SHUTDOWN_PENDING'
+        }
+        $build | Add-Member -NotePropertyName generalizationRequest -NotePropertyValue $request -Force
+        Write-HyperVImageBuildState -BuildDirectory $build.BuildDirectory -State $build
+        $build = Set-HyperVImageBuildState -BuildId $BuildId -State REBOOT_REQUIRED `
+            -Reason 'Sysprep-Generalize erfolgreich; geplanter Gast-Shutdown wird beobachtet' -StateRoot $StateRoot
+    }
+
+    if (-not $build.generalizationRequest -or
+        [string]$build.generalizationRequest.challenge -ne [string]$build.manualAction.challenge -or
+        [string]$build.generalizationRequest.sysprepExitCode -ne '0' -or
+        [string]$build.generalizationRequest.imageState -ne 'IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE') {
+        throw 'HYPERV_SYSPREP_REQUEST_NOT_RESUMABLE'
+    }
+
+    $deadline = [datetime]::UtcNow.AddSeconds($ShutdownTimeoutSeconds)
+    do {
+        $managed = Get-HyperVManagedVM -VMName ([string]$build.builder.vmName) `
+            -ExpectedRunId $BuildId -ExpectedScopeId ([string]$build.scopeId)
+        if (-not $managed) { throw 'HYPERV_IMAGE_BUILD_VM_MISSING_DURING_SHUTDOWN' }
+        if ([string]$managed.VM.State -eq 'Off') { break }
+        Start-Sleep -Seconds 2
+    } while ([datetime]::UtcNow -lt $deadline)
+    if ([string]$managed.VM.State -ne 'Off') { throw 'HYPERV_IMAGE_BUILD_SHUTDOWN_TIMEOUT' }
+
+    $evidenceDirectory = Join-Path $build.BuildDirectory 'evidence'
+    New-Item -Path $evidenceDirectory -ItemType Directory -Force | Out-Null
+    $submissionPath = Join-Path $evidenceDirectory 'powershell-direct-submission.json'
+    $submission = [PSCustomObject]@{
+        contractVersion = '1'; buildId = [string]$build.buildId; scopeId = [string]$build.scopeId
+        challenge = [string]$build.manualAction.challenge; kind = 'windows-sysprep-generalize'
+        source = 'powershell-direct'; completedAt = [string]$build.generalizationRequest.completedAt
+        checks = [PSCustomObject]@{
+            sysprepGeneralizeSucceeded = $true; oobeReady = $true; shutdownObserved = $true
+        }
+    }
+    Write-LabArtifactJsonAtomic -Path $submissionPath -InputObject $submission
+    $submissionSha256 = (Get-FileHash -LiteralPath $submissionPath -Algorithm SHA256).Hash
+    return Submit-HyperVImageGeneralizationEvidence -BuildId $BuildId -EvidencePath $submissionPath `
+        -ExpectedSha256 $submissionSha256 -StateRoot $StateRoot
 }
 
 function Publish-HyperVWindowsImageBuild {

@@ -32,6 +32,11 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   BuildId, ScopeId und Challenge, prüft VM-Auszustand, Identität sowie fehlende
   Checkpoints und veröffentlicht erst danach immutable Registry-Artefakte;
   synthetische CI-Builds bleiben zwingend `LIFECYCLE_TEST_ONLY`.
+- Die Hyper-V-Image-Pipeline kann Windows-Sysprep mit `/generalize`, `/oobe`,
+  `/mode:vm`, `/quit` und `/quiet` ueber PowerShell Direct ausfuehren. Sie
+  validiert danach den Microsoft-ImageState, persistiert einen resumierbaren
+  `REBOOT_REQUIRED`-State, beobachtet den Gast-Shutdown und erzeugt die
+  buildgebundene Evidenz automatisch; Gast-Credentials werden nicht gespeichert.
 
 ### Geändert
 

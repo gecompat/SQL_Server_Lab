@@ -666,9 +666,12 @@ Generation-2-Builder, Secure Boot, DVD-Boot, Cleanup sowie Challenge-gebundene
 Generalisierungsevidenz sind implementiert. Die Resume-Publikation prüft
 VM-Auszustand, Identität, fehlende Checkpoints und VHDX-Pfadgrenze, bevor ein
 reales Image immutable als `OS_SEALED` registriert wird; synthetische Medien
-bleiben `LIFECYCLE_TEST_ONLY`. Unattended Setup, Reboot-Orchestrierung,
-Sysprep-Ausführung und automatische Gast-Evidenzgewinnung bleiben offen und
-führen zunächst zu `MANUAL_ACTION_REQUIRED`.
+bleiben `LIFECYCLE_TEST_ONLY`. Nach manueller OS-Installation fuehrt die Runtime
+Sysprep ueber PowerShell Direct aus, validiert
+`IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE`, persistiert `REBOOT_REQUIRED`,
+beobachtet den Gast-Shutdown und erzeugt die buildgebundene Evidenz automatisch.
+Unattended Setup und Reboot-Orchestrierung waehrend der Installation bleiben
+offen und führen zunächst zu `MANUAL_ACTION_REQUIRED`.
 
 ### Welle 4 – Hyper-V Vertical Slice
 
@@ -679,8 +682,9 @@ führen zunächst zu `MANUAL_ACTION_REQUIRED`.
 - eigener Smoke Test auf `SQL_Lab` plus `Hyper-V`.
 
 Stand 2026-08-03: Die Lifecycle-Grundlage und der synthetische Native-Smoke-Test
-sind implementiert. Eine echte Windows-Gast-Specialization und die technische
-Postcondition für PowerShell Direct bleiben vor Abschluss dieser Welle offen.
+sind implementiert. Die PowerShell-Direct-Sysprep-Orchestrierung und ihre
+technischen Postconditions sind statisch abgedeckt; ein echter Windows-Gast-
+End-to-End-Nachweis und die spätere Specialization bleiben offen.
 
 ### Welle 5 – Drives und SQL Server
 
@@ -757,6 +761,8 @@ Die technische Detailimplementierung muss die jeweils aktuelle Primärquelle
 erneut prüfen. Grundlage dieses Zielvertrags sind:
 
 - Microsoft (2026): [Install SQL Server using SysPrep](https://learn.microsoft.com/en-us/sql/database-engine/install-windows/install-sql-server-using-sysprep?view=sql-server-ver17).
+- Microsoft (2025): [Sysprep Command-Line Options](https://learn.microsoft.com/en-us/windows-hardware/manufacture/desktop/sysprep-command-line-options?view=windows-11).
+- Microsoft (2025): [Windows Setup States](https://learn.microsoft.com/en-us/windows-hardware/manufacture/desktop/windows-setup-states?view=windows-11).
 - Microsoft (2025): [PowerShell Direct](https://learn.microsoft.com/en-us/windows-server/virtualization/hyper-v/powershell-direct).
 - Microsoft (2025): [Generation 2 virtual machine security](https://learn.microsoft.com/en-us/windows-server/virtualization/hyper-v/generation-2-virtual-machine-security-features).
 - Microsoft (2025): [Dynamic Memory](https://learn.microsoft.com/en-us/windows-server/virtualization/hyper-v/dynamic-memory).

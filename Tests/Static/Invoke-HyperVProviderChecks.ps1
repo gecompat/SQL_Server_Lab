@@ -41,7 +41,7 @@ try {
     Add-CheckResult -Name 'Metadaten registrieren hyperv' -Success ($metadata.name -eq 'hyperv')
     Add-CheckResult `
         -Name 'SQL-Provisionierung bleibt explizit deaktiviert' `
-        -Success ($metadata.runtimeStatus -eq 'image-sealing-resume' -and $metadata.sqlProvisioning -eq $false)
+        -Success ($metadata.runtimeStatus -eq 'powershell-direct-sysprep-resume' -and $metadata.sqlProvisioning -eq $false)
     Add-CheckResult `
         -Name 'Runner-Labels sind capability-spezifisch' `
         -Success ((@($metadata.requirements.runnerLabels) -join ',') -eq 'self-hosted,SQL_Lab,Hyper-V')

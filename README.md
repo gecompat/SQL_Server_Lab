@@ -29,7 +29,7 @@ Fachliche Testszenarien bleiben in den konsumierenden Projekten. `SQL_Server_Lab
 
 ## Aktueller Status
 
-**Status:** `CONTAINER_CORE_IMPLEMENTED_HYPERV_IMAGE_SEALING_RESUME`
+**Status:** `CONTAINER_CORE_IMPLEMENTED_HYPERV_POWERSHELL_DIRECT_SYSPREP`
 
 | Bereich | Status | Nachweis |
 |---|---|---|
@@ -37,7 +37,7 @@ Fachliche Testszenarien bleiben in den konsumierenden Projekten. `SQL_Server_Lab
 | Docker-Provider | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman-Provider | implementiert | `Providers/Podman/PodmanProvider.ps1` |
 | Gemischter Docker-/Podman-Lifecycle | implementiert | `Documentation/Architecture/MIXED_PROVIDER_LIFECYCLE.md` |
-| Hyper-V-Provider | Lifecycle, Image-Registry, Windows-Builder sowie buildgebundene Sealing-/Resume-Publikation implementiert; Installation/Generalisierung noch manuell | `Private/HyperVImageBuilder.ps1`, `Private/HyperVImageRegistry.ps1` |
+| Hyper-V-Provider | Lifecycle, Image-Registry, Windows-Builder sowie PowerShell-Direct-Sysprep mit automatischer Evidenz-/Resume-Publikation implementiert; OS-Installation noch manuell | `Private/HyperVImageBuilder.ps1`, `Private/HyperVImageRegistry.ps1` |
 | Ad-hoc-Provisionierung | implementiert | `New-SqlServerLab -Version ... -Provider ...` |
 | Manifest-Provisionierung | implementiert | `Schemas/lab-manifest.schema.json` |
 | Resource Assessment | implementiert | `Test-SqlServerLabPrerequisite` |
