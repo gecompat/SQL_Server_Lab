@@ -526,6 +526,31 @@ Der Resume-Vertrag speichert Step-ID, Preconditions, Postconditions,
 Artifact-IDs, Reboot-Status, Recovery Point und erlaubte nächste Aktionen.
 Secrets werden nicht in Anleitung oder State-Events geschrieben.
 
+Die aktuell akzeptierte Generalisierungsevidenz ist ein kleines JSON-Artefakt,
+dessen SHA-256 vor dem Einlesen bekannt sein muss. Es bindet sich an genau einen
+Build und enthält keine Credentials:
+
+```json
+{
+  "contractVersion": "1",
+  "buildId": "<build-guid>",
+  "scopeId": "<scope-guid>",
+  "challenge": "<challenge-aus-build-state>",
+  "kind": "windows-sysprep-generalize",
+  "source": "powershell-direct",
+  "completedAt": "2026-08-03T10:00:00Z",
+  "checks": {
+    "sysprepGeneralizeSucceeded": true,
+    "oobeReady": true,
+    "shutdownObserved": true
+  }
+}
+```
+
+Für reale Builds sind nur `powershell-direct` und `offline-inspection` als
+Quelle zulässig. `synthetic-test` ist ausschließlich mit `synthetic-ci`
+zulässig und kann nur ein `LIFECYCLE_TEST_ONLY`-Artifact erzeugen.
+
 ## 15. State-, Fehler- und Statusvertrag
 
 Zusätzlich zum allgemeinen Lifecycle werden mindestens folgende Statusklassen
@@ -637,9 +662,13 @@ Herstellerquellen, Referenzzählung, Refresh und Retire bleiben offen.
 - `OS_SEALED`.
 
 Stand 2026-08-03: Medienintegrität, persistenter Build-/Resume-State,
-Generation-2-Builder, Secure Boot, DVD-Boot und Cleanup sind implementiert.
-Unattended Setup, Reboot-Orchestrierung, Generalisierung und OS_SEALED-
-Postcondition bleiben offen und führen bis dahin zu `MANUAL_ACTION_REQUIRED`.
+Generation-2-Builder, Secure Boot, DVD-Boot, Cleanup sowie Challenge-gebundene
+Generalisierungsevidenz sind implementiert. Die Resume-Publikation prüft
+VM-Auszustand, Identität, fehlende Checkpoints und VHDX-Pfadgrenze, bevor ein
+reales Image immutable als `OS_SEALED` registriert wird; synthetische Medien
+bleiben `LIFECYCLE_TEST_ONLY`. Unattended Setup, Reboot-Orchestrierung,
+Sysprep-Ausführung und automatische Gast-Evidenzgewinnung bleiben offen und
+führen zunächst zu `MANUAL_ACTION_REQUIRED`.
 
 ### Welle 4 – Hyper-V Vertical Slice
 

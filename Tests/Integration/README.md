@@ -64,8 +64,10 @@ Windows-Host mit Hyper-V. Er registriert eine kleine synthetische read-only
 Parent-VHDX, erzeugt eine Generation-2-VM mit Differencing Child und Secure
 Boot, startet und stoppt sie und prüft den scopegebundenen Cleanup. Zusätzlich
 prüft er einen synthetischen Windows-Image-Build-Plan samt Generation-2-/DVD-
-Builder und Cleanup. Er installiert weder Betriebssystem noch SQL Server und
-verwendet kein Netzwerk.
+Builder, buildgebundener Generalisierungsevidenz, Resume, immutable Registry-
+Publikation als `LIFECYCLE_TEST_ONLY` und Cleanup. Er beweist zusätzlich, dass
+synthetische Medien nicht zu `OS_SEALED` eskalieren können. Er installiert weder
+Betriebssystem noch SQL Server und verwendet kein Netzwerk.
 
 ```powershell
 .\Tests\Integration\Invoke-HyperVSmokeTest.ps1
