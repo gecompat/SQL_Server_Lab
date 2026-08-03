@@ -28,7 +28,8 @@ Cluster- oder Failoversemantik sowie Hyper-V-SubRuns.
 
 Hyper-V besitzt eine ausführbare Lifecycle-Grundlage für eine Generation-2-VM
 aus einer verifizierten read-only Parent-VHDX: Differencing Child, Secure Boot,
-Status, Start, Stop, PowerShell Direct und scopegebundener Cleanup. Der Native-
+run-lokale dynamische oder feste Zusatz-VHDX mit SQL-bezogenen Rollen, Status,
+Start, Stop, PowerShell Direct und scopegebundener Cleanup. Der Native-
 Smoke-Test verwendet bewusst eine synthetische leere Parent-VHDX und beweist
 weder Betriebssystem- noch SQL-Bereitschaft.
 
@@ -56,9 +57,12 @@ Manifeste mit Windows-Betriebssystem oder GUI-Software können bei der Provider-
 Auflösung zu `hyperv` führen; `New-SqlServerLab` bricht weiterhin mit einer
 klaren Meldung ab, weil die Hyper-V-SQL-Provisionierung noch fehlt.
 
-Nicht implementiert sind insbesondere der unattended OS-/SQL-Image-Build,
-`PrepareImage`/`CompleteImage`, zusätzliche VM-Drives,
-Network Intents, IPAM, Reconcile und Artifact Refresh. Der
+Zusatz-VHDX werden auf dem Host vor der VM-Mutation validiert, unterhalb des
+Run-Verzeichnisses erzeugt, per SCSI angebunden und durch VM-Identität sowie
+Cleanup-Plan gebunden. Noch nicht implementiert sind ihre Initialisierung und
+Formatierung im Gast sowie die Bindung an den bestehenden Manifest-Drive-
+Vertrag. Ebenfalls offen bleiben der unattended OS-/SQL-Image-Build,
+`PrepareImage`/`CompleteImage`, Network Intents, IPAM, Reconcile und Artifact Refresh. Der
 verbindliche Zielvertrag steht in
 [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](../Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md).
 
