@@ -406,6 +406,7 @@ $coreFiles = @(
     'Documentation/Development/DEVELOPMENT_AND_TEST_SETUP_LINUX.md'
     'Documentation/HowTo/PODMAN_WINDOWS_NETWORKING.md'
     'Documentation/HowTo/MEDIA_ROOT_LAYOUT.md'
+    'Documentation/HowTo/HYPERV_WINDOWS_IMAGE_BUILD.md'
     'Documentation/Quality/KNOWN_LIMITATIONS.md'
     'Catalogs/README.md'
     'Public/README.md'

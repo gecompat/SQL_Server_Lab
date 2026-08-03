@@ -6,7 +6,7 @@
     Importiert das Modul automatisch und startet den interaktiven Modus
     oder fuehrt eine Direkt-Aktion aus.
 .PARAMETER Action
-    Optionale Direkt-Aktion: New, Status, Start, Stop, Restart, Remove, Clear, Script, Database.
+    Optionale Direkt-Aktion: New, Status, Start, Stop, Restart, Remove, Clear, Script, Database, Image.
     Ohne Angabe startet das interaktive Menue.
 .PARAMETER Manifest
     Pfad zu einer Manifest-JSON-Datei fuer New-SqlServerLab.
@@ -22,7 +22,7 @@
 #>
 [CmdletBinding()]
 param(
-    [ValidateSet('New', 'Status', 'Start', 'Stop', 'Restart', 'Remove', 'Clear', 'Script', 'Database')]
+    [ValidateSet('New', 'Status', 'Start', 'Stop', 'Restart', 'Remove', 'Clear', 'Script', 'Database', 'Image')]
     [string]$Action,
 
     [string]$Manifest

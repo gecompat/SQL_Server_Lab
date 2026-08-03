@@ -89,6 +89,10 @@ try {
         -Text $provider `
         -Pattern 'EnableSecureBoot\s+On[\s\S]+SecureBootTemplate\s+MicrosoftWindows'
     Add-TextContract `
+        -Name 'Normale Lab-VMs deaktivieren automatische Hyper-V-Checkpoints' `
+        -Text $provider `
+        -Pattern 'Set-VM[^\r\n]+AutomaticCheckpointsEnabled\s+\$false'
+    Add-TextContract `
         -Name 'Zusatz-VHDX werden explizit per SCSI angebunden' `
         -Text $provider `
         -Pattern 'Add-VMHardDiskDrive[\s\S]+ControllerType\s+SCSI[\s\S]+ControllerNumber\s+0'
@@ -222,7 +226,7 @@ try {
                 observedAt = [datetime]::UtcNow.ToString('o')
             }
         }
-        function Set-VM { param($VM,$Notes,$ErrorAction); $script:CapturedGuestDriveNotes = $Notes }
+        function Set-VM { param($VM,$Notes,$AutomaticCheckpointsEnabled,$ErrorAction); $script:CapturedGuestDriveNotes = $Notes }
         $result = Initialize-HyperVWindowsGuestDrives -VMName 'sql-lab-static' `
             -ExpectedRunId 'run-static' -ExpectedScopeId 'scope-static' -Credential $Credential
         [PSCustomObject]@{ Result = $result; Notes = $script:CapturedGuestDriveNotes }
@@ -266,7 +270,7 @@ try {
         function Wait-HyperVPowerShellDirect {
             [PSCustomObject]@{ Ready = $true; ComputerName = 'SQLLAB01'; ImageState = 'IMAGE_STATE_COMPLETE' }
         }
-        function Set-VM { param($VM,$Notes,$ErrorAction); $script:CapturedSpecializationNotes = $Notes }
+        function Set-VM { param($VM,$Notes,$AutomaticCheckpointsEnabled,$ErrorAction); $script:CapturedSpecializationNotes = $Notes }
         $result = Set-HyperVWindowsGuestSpecialization `
             -VMName 'sql-lab-specialize' `
             -ExpectedRunId 'run-specialize' `
@@ -307,7 +311,7 @@ try {
             }
         }
         function Wait-HyperVPowerShellDirect { throw 'Reconnect darf im idempotenten Pfad nicht aufgerufen werden.' }
-        function Set-VM { param($VM,$Notes,$ErrorAction) }
+        function Set-VM { param($VM,$Notes,$AutomaticCheckpointsEnabled,$ErrorAction) }
         Set-HyperVWindowsGuestSpecialization `
             -VMName 'sql-lab-specialize' `
             -ExpectedRunId 'run-specialize' `
@@ -343,7 +347,7 @@ try {
                 observedAt = [datetime]::UtcNow.ToString('o')
             }
         }
-        function Set-VM { param($VM,$Notes,$ErrorAction); $script:CapturedSqlReadinessNotes = $Notes }
+        function Set-VM { param($VM,$Notes,$AutomaticCheckpointsEnabled,$ErrorAction); $script:CapturedSqlReadinessNotes = $Notes }
         $result = Wait-HyperVGuestSqlReady `
             -VMName 'sql-lab-sql' `
             -ExpectedRunId 'run-sql' `
