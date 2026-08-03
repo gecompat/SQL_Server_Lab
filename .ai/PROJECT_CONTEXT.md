@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING` |
-| Runtime-Status | `CONTAINER_CORE_IMPLEMENTED_HYPERV_GUEST_DRIVE_ORCHESTRATION` |
+| Runtime-Status | `CONTAINER_CORE_IMPLEMENTED_HYPERV_SPECIALIZATION_READINESS_ORCHESTRATION` |
 | Stand | 2026-08-03 |
 | Repository | `gecompat/SQL_Server_Lab` |
 | Maschinenlesbare Landkarte | [`repo_map.yaml`](repo_map.yaml) |
@@ -63,12 +63,16 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   SCSI-Anbindung, VM-Identitätsbindung und scope-validiertem Cleanup;
 - stabile Zuordnung per VHDX-DiskIdentifier sowie resumierbare GPT-/NTFS-
   Initialisierungsorchestrierung im Windows-Gast über PowerShell Direct;
+- Windows-Gastspezialisierung mit eindeutigem Computernamen, persistiertem
+  Reboot-Zustand und begrenztem PowerShell-Direct-Reconnect;
+- SQL-Readiness-Orchestrierung im Gast mit Dienst-, Major-Version- und
+  Systemdatenbankprüfung sowie sanitierter `SQL_READY_RUN`-Evidenz;
 
 ### Geplant oder unvollständig
 
 - vollständiger Hyper-V-Provider mit resumierbarem OS-/SQL-Image-Build,
-  realem Gast-End-to-End-Nachweis, Manifest-Binding zusätzlicher Drives und
-  providerneutralen Netzwerken;
+  SQL-`CompleteImage`, realem Gast-End-to-End-Nachweis, Manifest-Binding
+  zusätzlicher Drives und providerneutralen Netzwerken;
 - gemeinsamer Lifecycle für gemischte Provider innerhalb eines Runs;
 - vollständige Ausführung aller im Schema vorbereiteten `serverConfig`-Felder;
 - automatische Verarbeitung von Sample-Archiven, Attach-Szenarien und SQL-Skript-Samples;

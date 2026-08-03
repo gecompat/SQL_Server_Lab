@@ -65,6 +65,20 @@ GPT-/NTFS-Initialisierung samt Allocation Unit, Volume Label und Gastpfad.
 Credentials werden nicht persistiert. Der Native-Smoke besitzt jedoch kein
 installiertes Windows und beweist deshalb nur DiskIdentifier, Host-Attach und
 Cleanup; die tatsächliche Gastformatierung ist statisch mit Mocks abgedeckt.
+
+Die Runtime orchestriert außerdem eine idempotente Windows-Specialization. Sie
+validiert den Ziel-Computernamen, persistiert den Rename-/Reboot-Zustand vor der
+jeweiligen Gastmutation und wartet mit festem Timeout auf PowerShell Direct und
+`IMAGE_STATE_COMPLETE`. Danach kann sie SQL Server im Gast über eine lokale,
+verschlüsselte Verbindung auf laufenden Dienst, erwartete Major-Version und die
+vier Online-Systemdatenbanken prüfen. Gast- und SA-Credentials werden nicht in
+VM-Notizen oder Evidence gespeichert. Der credentialfreie allgemeine Status
+zeigt nur die letzte Readiness-Evidenz und setzt `SqlReady` bewusst nicht aus
+einem möglicherweise veralteten Receipt auf `true`.
+
+Da lokal keine reale sealed Windows-/SQL-Baseline registriert ist, sind
+Specialization, Reboot/Reconnect und SQL-Readiness nur statisch mit Mocks
+abgedeckt. Der synthetische Native-Smoke beweist diese Gastpfade nicht.
 Noch nicht implementiert ist die Bindung an den bestehenden Manifest-Drive-
 Vertrag. Ebenfalls offen bleiben der unattended OS-/SQL-Image-Build,
 `PrepareImage`/`CompleteImage`, Network Intents, IPAM, Reconcile und Artifact Refresh. Der
