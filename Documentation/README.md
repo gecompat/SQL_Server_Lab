@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING_INDEX` |
-| Stand | 2026-07-30 |
+| Stand | 2026-08-03 |
 
 Diese Datei ist der verbindliche Dokumentationsindex. Die Root-[README](../README.md) ist der operative Einstieg. Bei Widersprüchen zwischen Planungsdokumenten und implementiertem Verhalten gelten Code, Schemas, Kataloge, Tests und die dokumentierten bekannten Grenzen als Ist-Nachweis.
 
@@ -11,22 +11,24 @@ Diese Datei ist der verbindliche Dokumentationsindex. Die Root-[README](../READM
 
 ### Lab verwenden
 
-1. [Getting Started](User/Getting_Started.md)
-2. [Root-README](../README.md)
-3. [Manifest-Schemas und Beispiele](../Schemas/README.md)
-4. [Öffentliche Cmdlets](../Public/README.md)
-5. [Bekannte Grenzen](Quality/KNOWN_LIMITATIONS.md)
-6. [Tests](../Tests/README.md)
+1. [Installation für AnwenderInnen unter Windows](User/INSTALLATION_WINDOWS.md)
+2. [Getting Started](User/Getting_Started.md)
+3. [Root-README](../README.md)
+4. [Manifest-Schemas und Beispiele](../Schemas/README.md)
+5. [Öffentliche Cmdlets](../Public/README.md)
+6. [Bekannte Grenzen](Quality/KNOWN_LIMITATIONS.md)
+7. [Tests](../Tests/README.md)
 
 ### Projekt weiterentwickeln
 
-1. [KI-Projektkontext](../.ai/PROJECT_CONTEXT.md)
-2. [Arbeitsregeln](../.ai/WORKING_RULES.md)
-3. [Maschinenlesbare Repo-Map](../.ai/repo_map.yaml)
-4. [Beitragsregeln](../CONTRIBUTING.md)
-5. [Lokale Validierungsstrategie](Quality/LOCAL_VALIDATION_STRATEGY.md)
-6. [Bekannte Grenzen](Quality/KNOWN_LIMITATIONS.md)
-7. [PowerShell Command and Help Standard](Standards/POWERSHELL_COMMAND_AND_HELP_STANDARD.md)
+1. [Entwicklungs- und Testumgebung unter Windows](Development/DEVELOPMENT_AND_TEST_SETUP_WINDOWS.md)
+2. [KI-Projektkontext](../.ai/PROJECT_CONTEXT.md)
+3. [Arbeitsregeln](../.ai/WORKING_RULES.md)
+4. [Maschinenlesbare Repo-Map](../.ai/repo_map.yaml)
+5. [Beitragsregeln](../CONTRIBUTING.md)
+6. [Lokale Validierungsstrategie](Quality/LOCAL_VALIDATION_STRATEGY.md)
+7. [Bekannte Grenzen](Quality/KNOWN_LIMITATIONS.md)
+8. [PowerShell Command and Help Standard](Standards/POWERSHELL_COMMAND_AND_HELP_STANDARD.md)
 
 ### Architektur und langfristige Planung verstehen
 

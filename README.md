@@ -64,9 +64,18 @@ Mindestens erforderlich:
 
 - PowerShell 7.2 oder neuer
 - Docker oder Podman
+- WSL 2 und aktivierte Hardwarevirtualisierung bei Windows-Containerruntimes
 - mindestens 4 GB freier RAM für ein kleines Lab
 - mindestens 5 GB freier Speicherplatz
 - `sqlcmd` für Datenbankerstellung, Restore, Skriptausführung und den vollständigen Smoke-Test
+- Git für Klonen und Aktualisieren des Repository; bei ZIP-Bezug optional
+
+Die vollständige Einrichtung mit offiziellen Downloadlinks, Installationsbefehlen,
+Docker-/Podman-Auswahl und `podman machine start podman-machine-default` steht in
+der [Windows-Installationsanleitung für AnwenderInnen](Documentation/User/INSTALLATION_WINDOWS.md).
+Die zusätzlichen Voraussetzungen für Entwicklung, Provider-Smoke-Tests,
+Self-hosted Runner und Hyper-V beschreibt die
+[Entwicklungs- und Testumgebung](Documentation/Development/DEVELOPMENT_AND_TEST_SETUP_WINDOWS.md).
 
 Runtime prüfen:
 

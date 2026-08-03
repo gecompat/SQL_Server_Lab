@@ -23,7 +23,9 @@ sources_of_truth:
   mixed_provider_lifecycle: Documentation/Architecture/MIXED_PROVIDER_LIFECYCLE.md
   hyperv_image_provisioning_network_target: Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md
   user_entrypoint: README.md
+  user_installation_windows: Documentation/User/INSTALLATION_WINDOWS.md
   user_walkthrough: Documentation/User/Getting_Started.md
+  development_test_setup_windows: Documentation/Development/DEVELOPMENT_AND_TEST_SETUP_WINDOWS.md
   validation_documentation: Tests/Static/Invoke-DocumentationChecks.ps1
   validation_runtime_contracts: Tests/Static/Invoke-ReadinessContractChecks.ps1
   validation_manifest_builder: Tests/Static/Invoke-ManifestBuilderChecks.ps1

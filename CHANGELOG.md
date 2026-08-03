@@ -8,6 +8,12 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- getrennte Schritt-für-Schritt-Anleitungen richten die Windows-Umgebung für
+  AnwenderInnen beziehungsweise für Entwicklung, Native-Tests und Self-hosted
+  Runner ein und verlinken ausschließlich offizielle Bezugsquellen;
+- die Podman-Dokumentation beschreibt Initialisierung, manuellen Start mit
+  `podman machine start podman-machine-default`, automatischen Test-Bootstrap
+  und die benutzergebundene Runner-Konfiguration;
 - der GitHub-hosted Workflow `Static Contracts` führt die vollständige statische
   Suite auf Windows und Ubuntu aus und stellt stabile Pull-Request-Checks für
   die Branch-Protection bereit;
