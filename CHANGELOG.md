@@ -18,6 +18,11 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   `actions/upload-artifact@v7` mit der Node-24-Runtime; der Self-hosted Runner
   `2.336.0` erfüllt die Mindestanforderung.
 
+### Behoben
+
+- der Legacy-Command-Dokumentationscheck normalisiert relative Pfade und wendet
+  seine Allowlist dadurch unter Windows und Linux identisch an.
+
 ## 2026-08-02
 
 ### Hinzugefügt
