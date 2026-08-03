@@ -195,7 +195,8 @@ von Runtimes, Images und den gekennzeichneten Self-hosted Runnern abhängt.
 - genügend RAM, Storage und freie Ports im Bereich 14330 bis 14399;
 - Zugriff auf die konfigurierten SQL-Server-Container-Images;
 - für den Hyper-V-Lifecycle-Smoke einen freigegebenen Windows-Host mit Hyper-V;
-  der Test erzeugt nur eine synthetische Parent-/Child-VHDX und keine SQL-VM;
+  der Test registriert nur eine synthetische Parent-VHDX, erzeugt ein Child und
+  keine OS-/SQL-VM;
 - für Podman unter Windows eine funktionierende Localhost-Weiterleitung, siehe `Documentation/HowTo/PODMAN_WINDOWS_NETWORKING.md`.
 
 ## Fehlerdiagnose

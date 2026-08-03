@@ -424,7 +424,7 @@ aktuell implementierten Runtime-Defaults auf. Zu den wichtigsten gehören:
 
 | Manifestfeld | Effektiver Framework-Default bei fehlender Angabe |
 |---|---|
-| `instances[].provider` | automatische Auswahl: normalerweise `docker`; bei Windows oder GUI-Software wäre `hyperv` erforderlich, ist aber noch nicht implementiert |
+| `instances[].provider` | automatische Auswahl: normalerweise `docker`; `hyperv` besitzt Lifecycle und Image-Registry, wird aber noch nicht als SQL-fertiger Manifestpfad provisioniert |
 | `instances[].os` | `linux` |
 | `instances[].profile` | `standard` |
 | `instances[].collation` | `SQL_Latin1_General_CP1_CS_AS` |

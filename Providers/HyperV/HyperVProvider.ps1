@@ -168,8 +168,11 @@ function Get-HyperVManagedVM {
 function New-HyperVInstance {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory)][string]$ParentVhdxPath,
-        [Parameter(Mandatory)][ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$ParentSha256,
+        [Parameter(Mandatory, ParameterSetName = 'Path')][string]$ParentVhdxPath,
+        [Parameter(Mandatory, ParameterSetName = 'Path')][ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$ParentSha256,
+        [Parameter(Mandatory, ParameterSetName = 'Artifact')][string]$ImageArtifactId,
+        [Parameter(ParameterSetName = 'Artifact')][string]$StateRoot,
+        [Parameter(ParameterSetName = 'Artifact')][switch]$AllowLifecycleTestArtifact,
         [Parameter(Mandatory)][string]$RunDirectory,
         [Parameter(Mandatory)][string]$RunId,
         [Parameter(Mandatory)][string]$ScopeId,
@@ -193,6 +196,20 @@ function New-HyperVInstance {
         ConvertFrom-Json -Depth 20
     if ($cleanupPlan.runId -ne $RunId -or $cleanupPlan.scopeId -ne $ScopeId) {
         throw 'Cleanup-Plan stimmt nicht mit RunId und ScopeId ueberein.'
+    }
+
+    if ($PSCmdlet.ParameterSetName -eq 'Artifact') {
+        $imageArtifact = Get-HyperVImageArtifact -ArtifactId $ImageArtifactId -StateRoot $StateRoot
+        if (-not $imageArtifact) { throw "HYPERV_ARTIFACT_NOT_FOUND: $ImageArtifactId" }
+        if ($imageArtifact.artifactState -eq 'LIFECYCLE_TEST_ONLY' -and -not $AllowLifecycleTestArtifact) {
+            throw 'HYPERV_TEST_ARTIFACT_NOT_ALLOWED'
+        }
+        if ($imageArtifact.artifactState -notin @('OS_SEALED', 'SQL_PREPARED_SEALED', 'LIFECYCLE_TEST_ONLY')) {
+            throw 'BASELINE_NOT_COMPATIBLE'
+        }
+        $ParentVhdxPath = [string]$imageArtifact.Path
+        $ParentSha256 = [string]$imageArtifact.sha256
+        $null = Add-HyperVImageManifestLockEntry -RunDirectory $resolvedRunDirectory -Artifact $imageArtifact
     }
 
     $resolvedParent = (Resolve-Path -LiteralPath $ParentVhdxPath -ErrorAction Stop).Path

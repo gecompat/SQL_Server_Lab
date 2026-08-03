@@ -206,13 +206,15 @@ providers:
     windows_networking: Documentation/HowTo/PODMAN_WINDOWS_NETWORKING.md
     port_binding: "gemeinsame Portermittlung plus Runtime-Retry innerhalb des hostweiten Locks"
   hyperv:
-    status: partial_lifecycle_foundation
+    status: partial_image_registry_foundation
     implementation: Providers/HyperV/HyperVProvider.ps1
+    image_registry: Private/HyperVImageRegistry.ps1
     metadata: Providers/HyperV/provider.json
     documentation: Providers/HyperV/README.md
     command: Get-VMHost
     sql_provisioning: false
     native_smoke: Tests/Integration/Invoke-HyperVSmokeTest.ps1
+    registry_static_checks: Tests/Static/Invoke-HyperVImageRegistryChecks.ps1
 
 catalogs:
   sql_versions:
@@ -254,7 +256,7 @@ planning_contracts:
   hyperv_image_provisioning_network:
     source: Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md
     status: BINDING_IMPLEMENTATION_TARGET
-    runtime_status: PARTIALLY_IMPLEMENTED_LIFECYCLE_FOUNDATION
+    runtime_status: PARTIALLY_IMPLEMENTED_IMAGE_REGISTRY_FOUNDATION
     covers:
       - sealed_os_and_sql_images
       - media_license_and_evaluation_lifecycle
@@ -506,7 +508,7 @@ change_coupling:
 known_limitations:
   binding_document: Documentation/Quality/KNOWN_LIMITATIONS.md
   highlights:
-    - "Hyper-V, sealed VHDX, OS-/SQL-Image-Pipeline und Resume nicht implementiert"
+    - "Hyper-V sealed VHDX Registry implementiert; unattended OS-/SQL-Image-Build und Resume nicht implementiert"
     - "providerneutrale Network Intents, Exposure Policy und Reconcile nicht implementiert"
     - "Artifact Refresh und Rebuild für Medien, VHDX und Derived Images nicht implementiert"
     - "kein provideruebergreifendes Docker-/Podman-Netzwerk oder Hyper-V-SubRun"
