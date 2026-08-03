@@ -32,12 +32,18 @@ Status, Start, Stop, PowerShell Direct und scopegebundener Cleanup. Der Native-
 Smoke-Test verwendet bewusst eine synthetische leere Parent-VHDX und beweist
 weder Betriebssystem- noch SQL-Bereitschaft.
 
+Operatorseitig bereitgestellte, bereits generalisierte `OS_SEALED`- und
+`SQL_PREPARED_SEALED`-VHDX können immutable und SHA-256-verifiziert in einer
+lokalen Registry abgelegt, deterministisch ausgewählt und per portablem
+Manifest Lock an einen Run gebunden werden. Die Registry erzeugt oder
+generalisiert diese Images nicht selbst.
+
 Manifeste mit Windows-Betriebssystem oder GUI-Software können bei der Provider-
 Auflösung zu `hyperv` führen; `New-SqlServerLab` bricht weiterhin mit einer
 klaren Meldung ab, weil die Hyper-V-SQL-Provisionierung noch fehlt.
 
-Nicht implementiert sind insbesondere die OS-/SQL-Image-Pipeline, die Artifact-
-Registry für sealed Parent-VHDX, `PrepareImage`/`CompleteImage`, zusätzliche VM-Drives,
+Nicht implementiert sind insbesondere der unattended OS-/SQL-Image-Build,
+`PrepareImage`/`CompleteImage`, zusätzliche VM-Drives,
 Network Intents, IPAM, Manual Resume, Reconcile und Artifact Refresh. Der
 verbindliche Zielvertrag steht in
 [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](../Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md).

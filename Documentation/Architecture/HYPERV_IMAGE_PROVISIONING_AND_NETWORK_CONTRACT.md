@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING_IMPLEMENTATION_TARGET` |
-| Runtime-Status | `PARTIALLY_IMPLEMENTED_LIFECYCLE_FOUNDATION` |
+| Runtime-Status | `PARTIALLY_IMPLEMENTED_IMAGE_REGISTRY_FOUNDATION` |
 | Stand | 2026-07-30 |
 | Geltungsbereich | Hyper-V sowie providerneutrale Anteile für Docker und Podman |
 | Aktueller Ist-Nachweis | [`KNOWN_LIMITATIONS.md`](../Quality/KNOWN_LIMITATIONS.md) |
@@ -26,10 +26,13 @@ Dieses Dokument definiert den verbindlichen Zielvertrag für:
   Hyper-V, Docker und Podman.
 
 Dieses Dokument ist **kein vollständiger Runtime-Nachweis**. Implementiert ist
-die isolierte Lifecycle-Grundlage aus Welle 4: Generation 2, Secure Boot,
+die isolierte Lifecycle-Grundlage aus Welle 4 sowie die Registry-Grundlage aus
+Welle 2: Generation 2, Secure Boot,
 verifizierte Parent-/Child-VHDX, Status, Start, Stop, PowerShell-Direct-Primitiv
 und scopegebundener Cleanup mit eigenem Native-Smoke-Test. OS-Specialization,
-SQL-Provisionierung und die übrigen Wellen sind noch nicht implementiert. Die
+immutable, SHA-256-verifizierte sealed VHDX, deterministische Auswahl und
+Manifest Lock. Unattended Image Build, Specialization und SQL-Provisionierung
+sind noch nicht implementiert. Die
 bestehenden Containerpfade bleiben für SQL-fertige Labs unverändert maßgeblich.
 
 ## 2. Verbindliche Grundentscheidungen
@@ -73,7 +76,7 @@ bestehenden Containerpfade bleiben für SQL-fertige Labs unverändert maßgeblic
 
 | Bereich | Aktueller Stand | Ziel |
 |---|---|---|
-| Hyper-V | Provider-Platzhalter | vollständiger, getesteter Lifecycle |
+| Hyper-V | Lifecycle- und Image-Registry-Grundlage | vollständiger, getesteter Lifecycle |
 | Betriebssystem | nur `windows` oder `linux` | Version, Edition, Sprache, Architektur, Installationsart und Lizenzstatus |
 | Drives | `containerPath` und `tmpfs` geprägt | providerneutrale Rolle, `guestPath` und Provider-Binding |
 | Netzwerke | nicht im Manifest modelliert | Intent, IPAM, DNS und Exposure Policy |
@@ -620,6 +623,10 @@ Die Planvorschau begründet insbesondere:
 - Trust, SHA-256, Manifest Lock, Ablaufdaten und Herkunft;
 - immutable Registry, Referenzzählung, Refresh und Retire;
 - Planvorschau ohne Mutation.
+
+Stand 2026-08-03: Der immutable lokale VHDX-Registry-Kern, Integrity-Prüfung,
+Baseline-Auswahl und portables Run-Lock sind implementiert. Acquisition aus
+Herstellerquellen, Referenzzählung, Refresh und Retire bleiben offen.
 
 ### Welle 3 – Windows-OS-Image-Pipeline
 

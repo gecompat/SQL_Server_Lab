@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `PARTIALLY_IMPLEMENTED` |
-| Runtime-Status | `LIFECYCLE_FOUNDATION` |
+| Runtime-Status | `IMAGE_REGISTRY_FOUNDATION` |
 | Verbindlicher Zielvertrag | [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](../../Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md) |
 | Artifact-Ergänzung | [Testdatenbank-Provisionierung und Manifest-Wizard](../../Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md) |
 
@@ -25,13 +25,20 @@ plattformgebundene SQL-Features benötigen.
 - Cleanup-Plan vor der ersten Provider-Mutation;
 - eigener synthetischer Native-Smoke-Test ohne Betriebssystem, Netzwerk oder SQL.
 
+`Private/HyperVImageRegistry.ps1` ergänzt eine immutable, inhaltsadressierte
+Registry für operatorseitig bereitgestellte `OS_SEALED`- und
+`SQL_PREPARED_SEALED`-VHDX. Der Import prüft read-only, VHDX-Signatur,
+SHA-256, Generalisierungs- beziehungsweise SQL-Prepare-Evidence und persistiert
+keine Hostpfade im Manifest Lock. Der Resolver schließt ablaufende Evaluationen
+und synthetische Test-Artefakte aus und begründet verworfene Kandidaten.
+
 Der Slice ist kein SQL-Runtime-Nachweis. `New-SqlServerLab` provisioniert noch
 keine Hyper-V-Instanz und die Provider-Metadaten setzen `sqlProvisioning` daher
 explizit auf `false`.
 
 ## Verbleibender Providerumfang
 
-- OS-Artifact-Registry und resumierbare Image-Pipeline;
+- unattended OS-Build und resumierbare Image-Pipeline;
 - Windows-Specialization und validierte PowerShell-Direct-Ausführung im Gast;
 - Linux Guest Management über cloud-init und SSH;
 - Restart und Einbindung in die öffentlichen Run-Lifecycle-Cmdlets;

@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING` |
-| Runtime-Status | `CONTAINER_CORE_IMPLEMENTED_HYPERV_LIFECYCLE_FOUNDATION` |
+| Runtime-Status | `CONTAINER_CORE_IMPLEMENTED_HYPERV_IMAGE_REGISTRY_FOUNDATION` |
 | Stand | 2026-07-30 |
 | Repository | `gecompat/SQL_Server_Lab` |
 | Maschinenlesbare Landkarte | [`repo_map.yaml`](repo_map.yaml) |
@@ -50,11 +50,13 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 - Docker- und Podman-Smoke-Testpfad.
 - Hyper-V-Lifecycle-Grundlage mit Generation 2, Secure Boot, verifizierter
   Parent-/Child-VHDX, Status, Start, Stop und scopegebundenem Cleanup;
+- immutable Hyper-V-Image-Registry mit SHA-256, sealed-Evidence,
+  deterministischer Auswahl und portablem Manifest Lock;
 
 ### Geplant oder unvollständig
 
-- vollständiger Hyper-V-Provider mit resumierbarer OS-/SQL-Image-Pipeline,
-  Artifact-Registry für sealed Parent-VHDX, zusätzlichen Drives und
+- vollständiger Hyper-V-Provider mit resumierbarem OS-/SQL-Image-Build,
+  zusätzlichen Drives und
   providerneutralen Netzwerken;
 - gemeinsamer Lifecycle für gemischte Provider innerhalb eines Runs;
 - vollständige Ausführung aller im Schema vorbereiteten `serverConfig`-Felder;

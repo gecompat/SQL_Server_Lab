@@ -140,6 +140,7 @@ Der Test erzeugt ausschließlich synthetische Testobjekte.
 | Fähigkeit | Docker | Podman | Hyper-V |
 |---|---:|---:|---:|
 | Resource Assessment | implementiert | implementiert | Lifecycle-Verfügbarkeit implementiert |
+| sealed Image-Registry | nicht zutreffend | nicht zutreffend | Import, Integrity, Auswahl und Run Lock implementiert |
 | einzelne SQL-Instanz | implementiert | implementiert | geplant |
 | Health und SQL Readiness | implementiert | implementiert | geplant |
 | Datenbankerstellung | implementiert | implementiert | geplant |
@@ -304,7 +305,7 @@ Ein nicht verfügbarer Provider darf nicht als `PASS` behandelt werden.
 .\Tests\Integration\Invoke-HyperVSmokeTest.ps1
 ```
 
-Der Hyper-V-Smoke-Test ist nur ein VM-/VHDX-Lifecycle-Nachweis. Ein erfolgreicher
+Der Hyper-V-Smoke-Test ist ein Image-Registry- und VM-/VHDX-Lifecycle-Nachweis. Ein erfolgreicher
 Lauf ist kein Betriebssystem-, PowerShell-Direct-Postcondition- oder SQL-Nachweis.
 
 Nicht verfügbare Native-Tests müssen im Pull Request mit Grund als `NOT_EXECUTED` angegeben werden.

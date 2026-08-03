@@ -18,6 +18,7 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
 $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) "sql-lab-hyperv-smoke-$([guid]::NewGuid().ToString('N'))"
 $runDirectory = Join-Path $testRoot 'run'
+$stateRoot = Join-Path $testRoot 'state'
 $parentPath = Join-Path $testRoot 'synthetic-parent.vhdx'
 $runId = [guid]::NewGuid().ToString()
 $scopeId = [guid]::NewGuid().ToString()
@@ -56,8 +57,25 @@ try {
     (Get-Item -LiteralPath $parentPath).IsReadOnly = $true
     $parentHash = (Get-FileHash -LiteralPath $parentPath -Algorithm SHA256).Hash
 
+    $imageArtifact = & $module {
+        param($ParentPath, $ParentHash, $StateRoot)
+        Import-HyperVImageArtifact `
+            -VhdxPath $ParentPath `
+            -ExpectedSha256 $ParentHash `
+            -ArtifactState 'LIFECYCLE_TEST_ONLY' `
+            -OperatingSystemId 'synthetic-ci' `
+            -OperatingSystemVersion '1' `
+            -Edition 'none' `
+            -InstallationType 'synthetic' `
+            -LicenseType 'test-only' `
+            -IntegrityOrigin 'synthetic-test' `
+            -StateRoot $StateRoot
+    } $parentPath $parentHash $stateRoot
+    Assert-HyperVSmoke -Condition ($imageArtifact.artifactState -eq 'LIFECYCLE_TEST_ONLY') -Description 'Synthetische VHDX wurde als Test-Artifact registriert'
+    Assert-HyperVSmoke -Condition ((Get-Item -LiteralPath $imageArtifact.Path).IsReadOnly) -Description 'Registrierte Parent-VHDX ist immutable'
+
     $instance = & $module {
-        param($RunDirectory, $RunId, $ScopeId, $ParentPath, $ParentHash)
+        param($RunDirectory, $RunId, $ScopeId, $ArtifactId, $StateRoot)
         $providerSubRuns = @([PSCustomObject]@{ id = 'provider-hyperv'; provider = 'hyperv' })
         $null = New-CleanupPlan `
             -RunDir $RunDirectory `
@@ -65,15 +83,16 @@ try {
             -ScopeId $ScopeId `
             -ProviderSubRuns $providerSubRuns
         New-HyperVInstance `
-            -ParentVhdxPath $ParentPath `
-            -ParentSha256 $ParentHash `
+            -ImageArtifactId $ArtifactId `
+            -StateRoot $StateRoot `
+            -AllowLifecycleTestArtifact `
             -RunDirectory $RunDirectory `
             -RunId $RunId `
             -ScopeId $ScopeId `
             -InstanceId 'lifecycle-smoke' `
             -MemoryStartupBytes 512MB `
             -ProcessorCount 1
-    } $runDirectory $runId $scopeId $parentPath $parentHash
+    } $runDirectory $runId $scopeId $imageArtifact.artifactId $stateRoot
 
     Assert-HyperVSmoke -Condition ($instance.Provider -eq 'hyperv') -Description 'Providerbindung ist hyperv'
     Assert-HyperVSmoke -Condition (-not $instance.SqlReady) -Description 'Lifecycle-Slice behauptet keine SQL-Bereitschaft'
@@ -111,6 +130,9 @@ try {
     Assert-HyperVSmoke -Condition (-not (Get-VM -Name $instance.VMName -ErrorAction SilentlyContinue)) -Description 'VM wurde entfernt'
     Assert-HyperVSmoke -Condition (-not (Test-Path -LiteralPath $instance.ChildVhdxPath)) -Description 'Child-VHDX wurde entfernt'
     Assert-HyperVSmoke -Condition (Test-Path -LiteralPath $parentPath -PathType Leaf) -Description 'Parent-VHDX blieb erhalten'
+    Assert-HyperVSmoke -Condition (Test-Path -LiteralPath $imageArtifact.Path -PathType Leaf) -Description 'Registriertes Image-Artifact blieb erhalten'
+    $manifestLock = Get-Content -LiteralPath (Join-Path $runDirectory 'manifest.lock.json') -Raw | ConvertFrom-Json -Depth 20
+    Assert-HyperVSmoke -Condition ($manifestLock.artifacts[0].artifactId -eq $imageArtifact.artifactId) -Description 'Manifest Lock referenziert Artifact-ID ohne Hostpfad'
     $cleanupComplete = $true
 }
 finally {

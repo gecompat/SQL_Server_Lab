@@ -59,8 +59,8 @@ ONLINE-Status, Inhalt und Cleanup. Es werden keine externen Backups verwendet.
 
 ## Invoke-HyperVSmokeTest.ps1
 
-Der Hyper-V-Smoke-Test prüft die isolierte Lifecycle-Grundlage auf einem
-Windows-Host mit Hyper-V. Er erzeugt eine kleine synthetische read-only Parent-
+Der Hyper-V-Smoke-Test prüft Image-Registry und Lifecycle-Grundlage auf einem
+Windows-Host mit Hyper-V. Er registriert eine kleine synthetische read-only Parent-
 VHDX, eine Generation-2-VM mit Differencing Child und Secure Boot, startet und
 stoppt sie und prüft den scopegebundenen Cleanup. Er installiert weder ein
 Betriebssystem noch SQL Server und verwendet kein Netzwerk.

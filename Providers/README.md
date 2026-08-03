@@ -15,9 +15,10 @@ Ein Verzeichnis allein registriert keinen implementierten Provider.
 |---|---|---|---|
 | [Docker](Docker/) | implementiert | `docker info` | `Docker/DockerProvider.ps1` |
 | [Podman](Podman/) | implementiert | `podman info` | `Podman/PodmanProvider.ps1` |
-| [Hyper-V](HyperV/) | Lifecycle-Grundlage | `Get-VMHost` | `HyperV/HyperVProvider.ps1`; noch keine SQL-Provisionierung |
+| [Hyper-V](HyperV/) | Lifecycle- und Image-Registry-Grundlage | `Get-VMHost` | `HyperV/HyperVProvider.ps1`; noch kein unattended OS-/SQL-Build |
 
-Die implementierte Hyper-V-Grundlage umfasst Generation 2, Secure Boot,
+Die implementierte Hyper-V-Grundlage umfasst eine immutable Image-Registry,
+deterministische Baseline-Auswahl, Generation 2, Secure Boot,
 verifizierte read-only Parent-VHDX, Differencing Child, Status, Start, Stop,
 PowerShell Direct und scopegebundenen Cleanup. Der weiterführende Zielvertrag
 für OS-/SQL-Provisionierung, Drives, Network Intents, Software, Reconcile und
