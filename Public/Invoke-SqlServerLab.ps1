@@ -17,7 +17,7 @@
 function Invoke-SqlServerLab {
     [CmdletBinding()]
     param(
-        [ValidateSet('New', 'Manifest', 'Status', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'Script', 'Database')]
+        [ValidateSet('New', 'Manifest', 'Status', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'Script', 'Database', 'Image')]
         [string]$Action
     )
 
@@ -48,6 +48,7 @@ function Invoke-SqlServerLab {
             '7' { Invoke-LabAction -ActionName 'Clear' }
             '8' { Invoke-LabAction -ActionName 'Database' }
             '9' { Invoke-LabAction -ActionName 'Script' }
+            'i' { Invoke-LabAction -ActionName 'Image' }
             '0' { $exit = $true }
             'q' { $exit = $true }
             default { Write-Host "  Ungueltige Auswahl: $choice" -ForegroundColor Red }
@@ -119,6 +120,7 @@ function Show-LabMenu {
     Write-Host "    [7] Alles aufraeumen" -ForegroundColor Red
     Write-Host "    [8] Datenbank anlegen" -ForegroundColor White
     Write-Host "    [9] SQL-Skript ausfuehren" -ForegroundColor White
+    Write-Host "    [i] Hyper-V Windows-Image verwalten" -ForegroundColor Yellow
     Write-Host ""
     Write-Host "    [0/q] Beenden" -ForegroundColor DarkGray
     Write-Host ""
@@ -312,7 +314,324 @@ function Invoke-LabAction {
             $pw = Read-Host "  SA-Passwort" -AsSecureString
             Invoke-SqlServerLabScript -ScriptPath $scriptPath -Port $port -SaPassword $pw -Database $db
         }
+
+        'Image' {
+            Invoke-LabHyperVImageAction
+        }
     }
+}
+
+function Invoke-LabHyperVImageAction {
+    [CmdletBinding()]
+    param()
+
+    $availability = Test-HyperVAvailable
+    if (-not $availability.Available) {
+        Write-LabError "Hyper-V nicht verfuegbar: $($availability.Message)"
+        return
+    }
+
+    Write-Host '  Hyper-V Windows-Image:' -ForegroundColor White
+    Write-Host ''
+    Write-Host '    [1] Neuen Builder aus Media Root vorbereiten' -ForegroundColor Yellow
+    Write-Host '    [2] Build-Status anzeigen' -ForegroundColor White
+    Write-Host '    [3] Builder-VM starten und VMConnect oeffnen' -ForegroundColor White
+    Write-Host '    [4] Installiertes Windows generalisieren' -ForegroundColor White
+    Write-Host '    [5] Generalisiertes Image veroeffentlichen' -ForegroundColor White
+    Write-Host '    [6] Unfertigen Builder aufraeumen' -ForegroundColor Red
+    Write-Host '    [0] Zurueck' -ForegroundColor DarkGray
+    Write-Host ''
+    $choice = Read-Host '  Auswahl'
+
+    switch ($choice) {
+        '0' { return }
+        '1' { New-LabHyperVImageBuildInteractive }
+        '2' { Show-LabHyperVImageBuilds }
+        '3' { Start-LabHyperVImageBuildInteractive }
+        '4' { Invoke-LabHyperVImageGeneralizationInteractive }
+        '5' { Publish-LabHyperVImageBuildInteractive }
+        '6' { Remove-LabHyperVImageBuildInteractive }
+        default { Write-LabWarning "Ungueltige Auswahl: $choice" }
+    }
+}
+
+function Show-LabHyperVImageBuilds {
+    [CmdletBinding()]
+    param()
+
+    $builds = @(Get-HyperVImageBuildPlans)
+    if ($builds.Count -eq 0) {
+        Write-LabInfo 'Keine Hyper-V-Image-Builds vorhanden.'
+        return @()
+    }
+
+    Write-Host ''
+    Write-Host '  Image-Builds:' -ForegroundColor White
+    for ($i = 0; $i -lt $builds.Count; $i++) {
+        $build = $builds[$i]
+        $vmName = if ($build.builder -and $build.builder.vmName) { [string]$build.builder.vmName } else { '-' }
+        Write-Host ("    [{0}] {1}  {2}" -f ($i + 1), $build.buildId, $build.state) -ForegroundColor White
+        Write-Host ("        OS: {0} | Edition: {1} | Typ: {2} | VM: {3}" -f `
+            $build.operatingSystem.id, $build.operatingSystem.edition, $build.operatingSystem.installationType, $vmName) -ForegroundColor DarkGray
+    }
+    return $builds
+}
+
+function Select-LabHyperVImageBuild {
+    [CmdletBinding()]
+    param([string[]]$AllowedStates = @())
+
+    $builds = @(Get-HyperVImageBuildPlans)
+    if ($AllowedStates.Count -gt 0) {
+        $builds = @($builds | Where-Object { $_.state -in $AllowedStates })
+    }
+    if ($builds.Count -eq 0) {
+        Write-LabInfo 'Kein passender Image-Build vorhanden.'
+        return $null
+    }
+    if ($builds.Count -eq 1) {
+        Write-LabInfo "Build: $($builds[0].buildId) [$($builds[0].state)]"
+        return $builds[0]
+    }
+
+    Write-Host ''
+    for ($i = 0; $i -lt $builds.Count; $i++) {
+        Write-Host "    [$($i + 1)] $($builds[$i].buildId) [$($builds[$i].state)]" -ForegroundColor White
+    }
+    $selection = Read-Host '  Build (Nummer)'
+    if ($selection -notmatch '^\d+$') {
+        Write-LabWarning 'Ungueltige Auswahl.'
+        return $null
+    }
+    $index = [int]$selection - 1
+    if ($index -lt 0 -or $index -ge $builds.Count) {
+        Write-LabWarning 'Ungueltige Auswahl.'
+        return $null
+    }
+    return $builds[$index]
+}
+
+function New-LabHyperVImageBuildInteractive {
+    [CmdletBinding()]
+    param()
+
+    $defaultRoot = [string][Environment]::GetEnvironmentVariable('SQL_SERVER_LAB_MEDIA_ROOT')
+    $rootPrompt = if ($defaultRoot) { "  Media Root [$defaultRoot]" } else { '  Media Root' }
+    $mediaRoot = Read-Host $rootPrompt
+    if (-not $mediaRoot) { $mediaRoot = $defaultRoot }
+    if (-not $mediaRoot) {
+        Write-LabError 'Media Root ist erforderlich.'
+        return
+    }
+
+    $version = Read-Host '  Windows Server Version [2025]'
+    if (-not $version) { $version = '2025' }
+    if ($version -notin @('2022', '2025')) {
+        Write-LabError "Nicht unterstuetzte Windows-Server-Version: $version"
+        return
+    }
+    $operatingSystemId = "windows-server-$version"
+    $edition = Read-Host '  Edition [standard-evaluation]'
+    if (-not $edition) { $edition = 'standard-evaluation' }
+    $installationType = Read-Host '  Installationstyp: core oder desktop-experience [desktop-experience]'
+    if (-not $installationType) { $installationType = 'desktop-experience' }
+    if ($installationType -notin @('core', 'desktop-experience')) {
+        Write-LabError "Ungueltiger Installationstyp: $installationType"
+        return
+    }
+
+    try {
+        $media = Resolve-HyperVWindowsInstallationMedia `
+            -MediaRoot $mediaRoot `
+            -OperatingSystemId $operatingSystemId
+        if ($media.HashStatus -eq 'MISSING') {
+            Write-LabWarning 'Fuer die ISO existiert noch kein SHA-256-Sidecar.'
+            Write-Host "  ISO: $($media.IsoPath)" -ForegroundColor DarkGray
+            if (-not (Read-LabConfirm -Prompt '  SHA-256 jetzt berechnen und lokal festschreiben?' -Default $false)) {
+                Write-LabInfo 'Ohne SHA-256 wurde kein Build angelegt.'
+                return
+            }
+            Write-LabInfo 'SHA-256 wird berechnet; grosse ISOs benoetigen mehrere Minuten.'
+            $media = New-HyperVWindowsMediaHashSidecar `
+                -MediaRoot $mediaRoot `
+                -OperatingSystemId $operatingSystemId
+        }
+
+        Write-Host ''
+        Write-Host "  ISO:       $($media.IsoPath)" -ForegroundColor DarkGray
+        Write-Host "  SHA-256:   $($media.ExpectedSha256)" -ForegroundColor DarkGray
+        Write-Host "  Ziel:      $operatingSystemId / $edition / $installationType" -ForegroundColor DarkGray
+        Write-Host '  Ressourcen: 80 GB dynamische OS-VHDX, 4 GB RAM, 4 vCPU' -ForegroundColor DarkGray
+        if (-not (Read-LabConfirm -Prompt '  Resumierbaren Hyper-V-Builder jetzt erzeugen?' -Default $false)) {
+            return
+        }
+
+        $build = Initialize-HyperVWindowsImageBuild `
+            -MediaRoot $mediaRoot `
+            -OperatingSystemId $operatingSystemId `
+            -Edition $edition `
+            -InstallationType $installationType `
+            -LicenseType evaluation
+        Write-LabSuccess "Builder erstellt. BuildId: $($build.buildId)"
+        Show-LabHyperVManualInstallInstructions -Build $build
+
+        if (Read-LabConfirm -Prompt '  Builder starten und VMConnect oeffnen?' -Default $true) {
+            Open-LabHyperVImageBuildConsole -Build $build
+            Start-Sleep -Milliseconds 1500
+            $null = Start-HyperVWindowsImageBuildVM -BuildId $build.buildId
+        }
+    }
+    catch {
+        Write-LabError $_.Exception.Message
+    }
+}
+
+function Show-LabHyperVManualInstallInstructions {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Build)
+
+    Write-Host ''
+    Write-Host '  Manuelle Windows-Installation:' -ForegroundColor Yellow
+    Write-Host "    1. VM '$($Build.builder.vmName)' in VMConnect oeffnen." -ForegroundColor White
+    Write-Host "    2. $($Build.operatingSystem.edition) mit '$($Build.operatingSystem.installationType)' auswaehlen." -ForegroundColor White
+    Write-Host '    3. Benutzerdefinierte Installation auf die einzige leere OS-Disk ausfuehren.' -ForegroundColor White
+    Write-Host '    4. Ein lokales Administrator-Passwort setzen und sicher verwahren.' -ForegroundColor White
+    Write-Host '    5. Nach dem ersten vollstaendigen Login zum Image-Menue zurueckkehren.' -ForegroundColor White
+    Write-Host '  Der Builder besitzt absichtlich keinen Netzwerkadapter.' -ForegroundColor DarkGray
+}
+
+function Open-LabHyperVImageBuildConsole {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Build)
+
+    $vmConnect = Join-Path $env:SystemRoot 'System32/vmconnect.exe'
+    if (-not (Test-Path -LiteralPath $vmConnect -PathType Leaf)) {
+        Write-LabWarning "VMConnect nicht gefunden. Manuell verbinden mit VM: $($Build.builder.vmName)"
+        return
+    }
+    Start-Process -FilePath $vmConnect `
+        -ArgumentList @($env:COMPUTERNAME, [string]$Build.builder.vmName)
+}
+
+function Start-LabHyperVImageBuildInteractive {
+    [CmdletBinding()]
+    param()
+
+    $build = Select-LabHyperVImageBuild -AllowedStates @('BUILDER_READY', 'MANUAL_ACTION_REQUIRED')
+    if (-not $build) { return }
+    try {
+        Show-LabHyperVManualInstallInstructions -Build $build
+        Open-LabHyperVImageBuildConsole -Build $build
+        Start-Sleep -Milliseconds 1500
+        $null = Start-HyperVWindowsImageBuildVM -BuildId $build.buildId
+    }
+    catch { Write-LabError $_.Exception.Message }
+}
+
+function Invoke-LabHyperVImageGeneralizationInteractive {
+    [CmdletBinding()]
+    param()
+
+    $build = Select-LabHyperVImageBuild -AllowedStates @('MANUAL_ACTION_REQUIRED', 'REBOOT_REQUIRED')
+    if (-not $build) { return }
+    $credential = $null
+    if ($build.state -eq 'MANUAL_ACTION_REQUIRED') {
+        $userName = Read-Host '  Lokaler Gast-Administrator [Administrator]'
+        if (-not $userName) { $userName = 'Administrator' }
+        $password = Read-Host '  Gastpasswort' -AsSecureString
+        $credential = [PSCredential]::new($userName, $password)
+        try {
+            $build = Confirm-HyperVWindowsImageInstallation `
+                -BuildId $build.buildId `
+                -Credential $credential
+        }
+        catch {
+            if ($_.Exception.Message -notmatch '^HYPERV_IMAGE_INSTALLATION_TYPE_MISMATCH:') {
+                Write-LabError $_.Exception.Message
+                return
+            }
+            Write-LabWarning $_.Exception.Message
+            if (-not (Read-LabConfirm -Prompt '  Erkannten Installationstyp fuer diesen Build uebernehmen?' -Default $false)) {
+                return
+            }
+            try {
+                $build = Confirm-HyperVWindowsImageInstallation `
+                    -BuildId $build.buildId `
+                    -Credential $credential `
+                    -AcceptDetectedInstallationType
+            }
+            catch {
+                Write-LabError $_.Exception.Message
+                return
+            }
+        }
+        Write-LabSuccess ("Windows verifiziert: {0}, {1}, Build {2}" -f `
+            $build.installationEvidence.editionId,
+            $build.installationEvidence.installationType,
+            $build.installationEvidence.currentBuild)
+    }
+    if (-not (Read-LabConfirm -Prompt '  Sysprep /generalize ausfuehren und Gast herunterfahren?' -Default $false)) {
+        return
+    }
+    try {
+        $result = Invoke-HyperVWindowsImageGeneralization `
+            -BuildId $build.buildId `
+            -Credential $credential
+        Write-LabSuccess "Generalisierung verifiziert. State: $($result.state)"
+    }
+    catch { Write-LabError $_.Exception.Message }
+}
+
+function Publish-LabHyperVImageBuildInteractive {
+    [CmdletBinding()]
+    param()
+
+    $build = Select-LabHyperVImageBuild -AllowedStates @('RESUME_PENDING')
+    if (-not $build) { return }
+    $expiry = $null
+    if ($build.license.type -eq 'evaluation') {
+        $defaultExpiry = (Get-Date).Date.AddDays(180).ToString('yyyy-MM-dd')
+        $expiryInput = Read-Host "  Evaluation endet am [$defaultExpiry]"
+        if (-not $expiryInput) { $expiryInput = $defaultExpiry }
+        $parsedExpiry = [datetime]::MinValue
+        if (-not [datetime]::TryParseExact($expiryInput, 'yyyy-MM-dd', $null, 'AssumeLocal', [ref]$parsedExpiry)) {
+            Write-LabError 'Datum muss YYYY-MM-DD entsprechen.'
+            return
+        }
+        $expiry = $parsedExpiry
+    }
+    if (-not (Read-LabConfirm -Prompt '  Generalisierte VHDX immutable in der Registry veroeffentlichen?' -Default $false)) {
+        return
+    }
+    try {
+        $result = Publish-HyperVWindowsImageBuild `
+            -BuildId $build.buildId `
+            -EvaluationExpiresAt $expiry
+        Write-LabSuccess "Image veroeffentlicht. ArtifactId: $($result.Artifact.artifactId)"
+    }
+    catch { Write-LabError $_.Exception.Message }
+}
+
+function Remove-LabHyperVImageBuildInteractive {
+    [CmdletBinding()]
+    param()
+
+    $build = Select-LabHyperVImageBuild -AllowedStates @(
+        'MEDIA_VERIFIED', 'BUILDER_READY', 'MANUAL_ACTION_REQUIRED', 'REBOOT_REQUIRED', 'RESUME_PENDING', 'FAILED'
+    )
+    if (-not $build) { return }
+    Write-LabWarning "VM und buildlokale VHDX von '$($build.buildId)' werden entfernt."
+    if (-not (Read-LabConfirm -Prompt '  Builder wirklich aufraeumen?' -Default $false)) { return }
+    try {
+        $result = Remove-HyperVWindowsImageBuild -BuildId $build.buildId
+        if ($result.Status -eq 'CLEANUP_SUCCEEDED') {
+            Write-LabSuccess 'Builder-Ressourcen wurden entfernt.'
+        }
+        else {
+            Write-LabError "Cleanup-Status: $($result.Status)"
+        }
+    }
+    catch { Write-LabError $_.Exception.Message }
 }
 
 function Select-LabSampleSelection {

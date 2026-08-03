@@ -213,11 +213,13 @@ Offizielle Quelle: [Ubuntu Server](https://ubuntu.com/download/server).
 
 ## 9. Übergabe an den Image-Builder
 
-Der interne Windows-Builder erhält später den vollständigen ISO-Pfad und den
-erwarteten SHA-256-Wert. Er prüft Dateiendung, ISO-9660-Signatur und Hash. Der
+Die Image-Aktion von `Invoke-SqlServerLab` löst den vollständigen ISO-Pfad und
+das zugehörige SHA-256-Sidecar aus der kanonischen Struktur auf. Der Builder
+prüft Dateiendung, ISO-9660-Signatur und Hash. Der
 konkrete Hostpfad wird ausschließlich im lokalen Build-State gespeichert und
 nicht in portable Locks oder Git übernommen.
 
-Die Funktionen sind noch intern und kein freigegebener Anwenderpfad. Der Media
-Root bereitet die operatorseitige Übergabe vor, ersetzt aber nicht den noch
-offenen Windows-/SQL-End-to-End-Nachweis.
+Der bedienbare Ablauf steht unter
+[Windows-Server-Baseline aus ISO mit Hyper-V erstellen](HYPERV_WINDOWS_IMAGE_BUILD.md).
+Der Media Root und der Operatorpfad ersetzen nicht den noch offenen
+Windows-/SQL-End-to-End-Nachweis; die OS-Installation bleibt derzeit manuell.

@@ -129,6 +129,10 @@ function Import-HyperVImageArtifact {
         ($LicenseType -ne 'test-only' -or $IntegrityOrigin -ne 'synthetic-test')) {
         throw 'HYPERV_TEST_ARTIFACT_METADATA_INVALID'
     }
+    $evaluationExpiresAtUtc = if ($EvaluationExpiresAt) {
+        ([datetime]$EvaluationExpiresAt).ToUniversalTime().ToString('o')
+    }
+    else { $null }
 
     $stateToken = $ArtifactState.ToLowerInvariant().Replace('_', '-')
     $artifactId = "hyperv-$stateToken-$sha256"
@@ -144,6 +148,7 @@ function Import-HyperVImageArtifact {
                 [string]$existing.operatingSystem.language -eq $Language -and
                 [string]$existing.operatingSystem.architecture -eq $Architecture -and
                 [string]$existing.license.type -eq $LicenseType -and
+                [string]$existing.license.evaluationExpiresAt -eq [string]$evaluationExpiresAtUtc -and
                 [bool]$existing.generalized -eq [bool]$Generalized -and
                 [bool]$existing.sqlPrepared -eq [bool]$SqlPrepared -and
                 [string]$existing.sql.version -eq [string]$SqlVersion -and
@@ -181,7 +186,7 @@ function Import-HyperVImageArtifact {
                 }} else { $null }
                 license               = [PSCustomObject]@{
                     type = $LicenseType
-                    evaluationExpiresAt = if ($EvaluationExpiresAt) { $EvaluationExpiresAt.Value.ToUniversalTime().ToString('o') } else { $null }
+                    evaluationExpiresAt = $evaluationExpiresAtUtc
                 }
             }
             Write-LabArtifactJsonAtomic -Path (Join-Path $stagingDirectory 'metadata.json') -InputObject $metadata

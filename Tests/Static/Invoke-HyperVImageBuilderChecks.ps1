@@ -28,6 +28,7 @@ try {
     Add-CheckResult -Name 'Builder-Identitaet wird vor weiterer VM-Konfiguration gesetzt' -Success ($notesIndex -ge 0 -and $dvdIndex -gt $notesIndex)
     Add-CheckResult -Name 'VM-Konfiguration verwendet keinen tiefen Build-State-Pfad' -Success ($builderText -notmatch 'New-VM[^\r\n]+-Path\s+\$resourceRoot')
     Add-CheckResult -Name 'Builder ist Generation 2 mit Secure Boot' -Success ($builderText -match 'Generation\s+2[\s\S]+EnableSecureBoot\s+On')
+    Add-CheckResult -Name 'Builder deaktiviert automatische Hyper-V-Checkpoints' -Success ($builderText -match 'Set-VM[^\r\n]+AutomaticCheckpointsEnabled\s+\$false')
     Add-CheckResult -Name 'Builder bindet ISO als DVD ein' -Success ($builderText -match 'Add-VMDvdDrive[\s\S]+FirstBootDevice')
     Add-CheckResult -Name 'Manual Action wird persistent modelliert' -Success ($builderText -match 'MANUAL_ACTION_REQUIRED')
     $ready = & $module { param($Id,$Root) Set-HyperVImageBuildState -BuildId $Id -State BUILDER_READY -Reason test -StateRoot $Root } $plan.buildId $temporaryRoot
@@ -57,6 +58,14 @@ try {
     Add-CheckResult -Name 'Evidenz-State enthaelt keinen Quell-Hostpfad' -Success ($portableState -notmatch [regex]::Escape($evidencePath))
     Add-CheckResult -Name 'Reale Publikation bleibt OS_SEALED, CI bleibt test-only' -Success ($builderText -match 'if \(\$synthetic\) \{ ''LIFECYCLE_TEST_ONLY'' \} else \{ ''OS_SEALED'' \}')
     Add-CheckResult -Name 'Sealing darf laufende VM nicht hart ausschalten' -Success ($builderText -match 'Remove-HyperVInstance[^\r\n]+[\s\S]{0,180}-PreserveVhdx\s+-RequireOff')
+    $importIndex = $builderText.IndexOf('$artifact = Import-HyperVImageArtifact')
+    $removeIndex = $builderText.LastIndexOf('$null = Remove-HyperVInstance')
+    $sealedIndex = $builderText.IndexOf('$build = Set-HyperVImageBuildState -BuildId $BuildId -State $finalState')
+    Add-CheckResult -Name 'Registry-Import wird vor Builder-Loeschung abgeschlossen' -Success ($importIndex -ge 0 -and $removeIndex -gt $importIndex)
+    Add-CheckResult -Name 'Leeres Artifact kann Build nicht als versiegelt markieren' -Success (
+        $builderText -match 'HYPERV_IMAGE_ARTIFACT_PUBLICATION_FAILED' -and
+        $sealedIndex -gt $removeIndex
+    )
     Add-CheckResult -Name 'Sysprep verwendet Generalize, OOBE, VM-Mode und Quit' -Success ($builderText -match "'/generalize',[^\r\n]+'/oobe',[^\r\n]+'/mode:vm',[^\r\n]+'/quit',[^\r\n]+'/quiet'")
     Add-CheckResult -Name 'Sysprep prueft Microsoft ImageState vor Shutdown' -Success ($builderText -match 'IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE[\s\S]+shutdown\.exe')
     Add-CheckResult -Name 'Automatische Generalisierung persistiert REBOOT_REQUIRED' -Success ($builderText -match 'Set-HyperVImageBuildState[^\r\n]+-State REBOOT_REQUIRED')
@@ -71,7 +80,13 @@ try {
         $plan = Set-HyperVImageBuildState -BuildId $plan.buildId -State BUILDER_READY -Reason test -StateRoot $Root
         $plan.builder = [PSCustomObject]@{ vmName = 'mock-sysprep-vm'; osDiskRelativePath = 'resources/hyperv/mock.vhdx'; generation = 2; secureBoot = $true }
         Write-HyperVImageBuildState -BuildDirectory $plan.BuildDirectory -State $plan
-        Set-HyperVImageBuildManualAction -BuildId $plan.buildId -StateRoot $Root
+        $manual = Set-HyperVImageBuildManualAction -BuildId $plan.buildId -StateRoot $Root
+        $manual | Add-Member -NotePropertyName installationEvidence -NotePropertyValue ([PSCustomObject]@{
+            contractVersion = '1'; verified = $true; installationType = 'core'
+            editionId = 'ServerStandardEval'; currentBuild = '26100'
+        }) -Force
+        Write-HyperVImageBuildState -BuildDirectory $manual.BuildDirectory -State $manual
+        Get-HyperVImageBuildPlan -BuildId $manual.buildId -StateRoot $Root
     } $isoPath $sha $autoRoot
     $testUser = 'sql-lab-sysprep-test'
     $testCredential = [PSCredential]::new($testUser, (ConvertTo-SecureString 'NotPersisted_1!' -AsPlainText -Force))
@@ -94,8 +109,23 @@ try {
         Invoke-HyperVWindowsImageGeneralization -BuildId $BuildId -Credential $Credential -StateRoot $Root
     } $autoPlan.buildId $autoRoot $testCredential
     Add-CheckResult -Name 'PowerShell-Direct-Receipt fuehrt automatisch zu RESUME_PENDING' -Success ($autoResult.state -eq 'RESUME_PENDING' -and $autoResult.generalizationEvidence.source -eq 'powershell-direct')
+    $jsonDate = ('{"value":"2026-08-03T18:33:14Z"}' | ConvertFrom-Json).value
+    $normalizedDate = & $module {
+        param($Value)
+        (ConvertTo-HyperVImageDateTimeOffset -Value $Value).ToUniversalTime().ToString('o')
+    } $jsonDate
+    Add-CheckResult -Name 'JSON-DateTime bleibt kulturinvariant am 3. August' -Success ($normalizedDate -eq '2026-08-03T18:33:14.0000000+00:00')
+    $repairResult = & $module {
+        param($BuildId,$Root)
+        Repair-HyperVWindowsImageGeneralizationEvidence -BuildId $BuildId -StateRoot $Root
+    } $autoResult.buildId $autoRoot
+    Add-CheckResult -Name 'PowerShell-Direct-Evidenz kann ohne erneutes Sysprep repariert werden' -Success (
+        $repairResult.state -eq 'RESUME_PENDING' -and
+        $repairResult.generalizationEvidence.source -eq 'powershell-direct'
+    )
     $autoRawState = Get-Content -LiteralPath (Join-Path $autoResult.BuildDirectory 'build-state.json') -Raw
     Add-CheckResult -Name 'Gast-Credentials werden nicht im Build-State persistiert' -Success ($autoRawState -notmatch [regex]::Escape($testUser) -and $autoRawState -notmatch 'NotPersisted_1!')
+    Add-CheckResult -Name 'Realer Sysprep-Pfad verlangt verifizierte Installationsmetadaten' -Success ($builderText -match 'HYPERV_IMAGE_INSTALLATION_NOT_VERIFIED')
 } catch { Add-CheckResult -Name 'Image-Builder-Testausfuehrung' -Success $false -Message $_.Exception.Message }
 finally { Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue; if(Test-Path $temporaryRoot){Remove-Item $temporaryRoot -Recurse -Force} }
 Write-Host ''; Write-Host "Ergebnis: $passed PASS, $($failures.Count) FAIL" -ForegroundColor Cyan

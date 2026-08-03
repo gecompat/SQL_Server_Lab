@@ -14,12 +14,13 @@ Diese Datei ist der verbindliche Dokumentationsindex. Die Root-[README](../READM
 1. [Installation für AnwenderInnen unter Windows](User/INSTALLATION_WINDOWS.md)
 2. [Installation für AnwenderInnen unter Linux](User/INSTALLATION_LINUX.md)
 3. [Externer Media Root](HowTo/MEDIA_ROOT_LAYOUT.md)
-4. [Getting Started](User/Getting_Started.md)
-5. [Root-README](../README.md)
-6. [Manifest-Schemas und Beispiele](../Schemas/README.md)
-7. [Öffentliche Cmdlets](../Public/README.md)
-8. [Bekannte Grenzen](Quality/KNOWN_LIMITATIONS.md)
-9. [Tests](../Tests/README.md)
+4. [Windows-Server-Baseline aus ISO mit Hyper-V erstellen](HowTo/HYPERV_WINDOWS_IMAGE_BUILD.md)
+5. [Getting Started](User/Getting_Started.md)
+6. [Root-README](../README.md)
+7. [Manifest-Schemas und Beispiele](../Schemas/README.md)
+8. [Öffentliche Cmdlets](../Public/README.md)
+9. [Bekannte Grenzen](Quality/KNOWN_LIMITATIONS.md)
+10. [Tests](../Tests/README.md)
 
 ### Projekt weiterentwickeln
 

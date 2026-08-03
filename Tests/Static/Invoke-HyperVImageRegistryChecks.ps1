@@ -70,6 +70,20 @@ try {
     } catch { $generalizationRejected = $_.Exception.Message -match 'HYPERV_ARTIFACT_NOT_GENERALIZED' }
     Add-CheckResult -Name 'OS_SEALED erfordert Generalisierungsnachweis' -Success $generalizationRejected
 
+    $evaluationExpiry = [datetime]::SpecifyKind([datetime]'2027-01-30T00:00:00', [DateTimeKind]::Utc)
+    $evaluationArtifact = & $module {
+        param($SourcePath, $Sha256, $StateRoot, $Expiry)
+        Import-HyperVImageArtifact -VhdxPath $SourcePath -ExpectedSha256 $Sha256 `
+            -ArtifactState OS_SEALED -OperatingSystemId windows-server-2025 `
+            -OperatingSystemVersion 2025 -Edition standard-evaluation -InstallationType core `
+            -LicenseType evaluation -IntegrityOrigin generated-by-runtime -Generalized `
+            -EvaluationExpiresAt $Expiry -StateRoot $StateRoot
+    } $sourcePath $sha256 (Join-Path $temporaryRoot 'evaluation-state') $evaluationExpiry
+    Add-CheckResult -Name 'Evaluation-Ablaufdatum wird ohne Nullable-Laufzeitfehler registriert' -Success (
+        $evaluationArtifact.artifactId -and
+        $evaluationArtifact.license.evaluationExpiresAt.ToUniversalTime().ToString('o') -eq '2027-01-30T00:00:00.0000000Z'
+    )
+
     $metadataConflictRejected = $false
     try {
         & $module {

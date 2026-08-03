@@ -447,7 +447,7 @@ function New-HyperVInstance {
         -InstanceId $InstanceId `
         -ChildVhdxPath $childVhdxPath `
         -AdditionalDrives $additionalDrivePlan
-    $null = Set-VM -VM $vm -Notes $notes -ErrorAction Stop
+    $null = Set-VM -VM $vm -Notes $notes -AutomaticCheckpointsEnabled $false -ErrorAction Stop
     if (-not $SwitchName) {
         # New-VM erzeugt hostabhaengig auch ohne SwitchName einen getrennten
         # Standardadapter. Dieser Slice besitzt noch keinen Netzwerkvertrag und
