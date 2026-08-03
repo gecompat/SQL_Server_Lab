@@ -4,6 +4,20 @@ Dieses Changelog dokumentiert Änderungen am öffentlichen Verhalten, an maschin
 
 Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher nach Datum geführt. Neue Einträge werden oben ergänzt.
 
+## 2026-08-03
+
+### Hinzugefügt
+
+- der GitHub-hosted Workflow `Static Contracts` führt die vollständige statische
+  Suite auf Windows und Ubuntu aus und stellt stabile Pull-Request-Checks für
+  die Branch-Protection bereit.
+
+### Geändert
+
+- GitHub Actions verwenden `actions/checkout@v7` und
+  `actions/upload-artifact@v7` mit der Node-24-Runtime; der Self-hosted Runner
+  `2.336.0` erfüllt die Mindestanforderung.
+
 ## 2026-08-02
 
 ### Hinzugefügt

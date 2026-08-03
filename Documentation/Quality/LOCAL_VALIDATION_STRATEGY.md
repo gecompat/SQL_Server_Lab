@@ -319,4 +319,7 @@ Testskript `Tests/Static/Invoke-AllChecks.ps1`.
 
 Lokale Produktfunktion und Native-Tests dürfen nicht von GitHub-hosted Runnern abhängen.
 
-Eine spätere schlanke Automatisierung kann statische Prüfungen ausführen. Sie darf jedoch keinen erfolgreichen Docker-, Podman- oder Hyper-V-Nachweis vortäuschen, wenn die entsprechende Runtime nicht tatsächlich verwendet wurde.
+Der GitHub-hosted Workflow `Static Contracts` führt die statischen Prüfungen auf
+Windows und Ubuntu aus. Er ist von den getrennten Runtime-Workflows abgegrenzt
+und stellt keinen erfolgreichen Docker-, Podman- oder Hyper-V-Nachweis dar, wenn
+die entsprechende Runtime nicht tatsächlich verwendet wurde.
