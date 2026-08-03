@@ -166,6 +166,7 @@ Die Runtime-Tests verwenden ausschließlich dafür gekennzeichnete Self-hosted R
 | Docker Runtime Smoke | `self-hosted`, `SQL_Lab`, `Docker` |
 | Podman Runtime Smoke | `self-hosted`, `SQL_Lab`, `Podman` |
 | Mixed Provider Runtime Smoke | `self-hosted`, `SQL_Lab`, `Docker`, `Podman` |
+| Hyper-V Lifecycle Smoke | `self-hosted`, `SQL_Lab`, `Hyper-V` |
 
 Die Workflows werden bewusst nicht auf einem generischen `self-hosted`-Runner ausgeführt. Der mutierende Teil jedes Docker-, Podman- und Mixed-Provider-Smoke-Tests hält einen gemeinsamen hostweiten Mutex. Dadurch können auf demselben Runner keine zwei Runtime-Lifecycle-Tests gleichzeitig Ressourcen erzeugen oder entfernen, ohne dass GitHub wartende Workflow-Läufe verwerfen muss. Die Parallelität wird innerhalb des jeweiligen Smoke-Tests kontrolliert erzeugt.
 
@@ -178,6 +179,7 @@ Remote-Läufe befinden sich unter:
 .github/workflows/runtime-smoke-docker.yml
 .github/workflows/runtime-smoke-podman.yml
 .github/workflows/runtime-smoke-mixed-providers.yml
+.github/workflows/runtime-smoke-hyperv.yml
 ```
 
 Die Runtime-Workflows liefern echte Provider- und Restore-Nachweise. Sie sind
@@ -192,6 +194,8 @@ von Runtimes, Images und den gekennzeichneten Self-hosted Runnern abhängt.
 - `sqlcmd`;
 - genügend RAM, Storage und freie Ports im Bereich 14330 bis 14399;
 - Zugriff auf die konfigurierten SQL-Server-Container-Images;
+- für den Hyper-V-Lifecycle-Smoke einen freigegebenen Windows-Host mit Hyper-V;
+  der Test erzeugt nur eine synthetische Parent-/Child-VHDX und keine SQL-VM;
 - für Podman unter Windows eine funktionierende Localhost-Weiterleitung, siehe `Documentation/HowTo/PODMAN_WINDOWS_NETWORKING.md`.
 
 ## Fehlerdiagnose
@@ -212,6 +216,8 @@ Get-SqlServerLab -Detailed
 docker ps -a --filter 'label=sql-server-lab.run-id'
 # oder
 podman ps -a --filter 'label=sql-server-lab.run-id'
+# oder fuer den isolierten Hyper-V-Lifecycle
+Get-VM | Where-Object Notes -Like 'SQL_SERVER_LAB:*'
 ```
 
 Die Remote-Workflows verwenden `KeepOnFailure` nicht. Sie versuchen den normalen testseitigen Cleanup und beenden den Job bei einem Fehler mit Exitcode `1`.

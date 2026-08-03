@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING_LIMITATIONS` |
-| Stand | 2026-08-01 |
+| Stand | 2026-08-03 |
 
 Dieses Dokument beschreibt bekannte Grenzen des aktuell implementierten Runtimepfads. Es ist Teil des öffentlichen Projektvertrags. Ein Feld im JSON-Schema oder ein Planungsdokument gilt nicht automatisch als Implementierungsnachweis.
 
@@ -26,10 +26,18 @@ Cluster- oder Failoversemantik sowie Hyper-V-SubRuns.
 
 ### Hyper-V
 
-Hyper-V ist geplant, aber nicht implementiert. Manifeste mit Windows-Betriebssystem oder GUI-Software können bei der Provider-Auflösung zu `hyperv` führen; die Provisionierung bricht anschließend mit einer klaren Meldung ab.
+Hyper-V besitzt eine ausführbare Lifecycle-Grundlage für eine Generation-2-VM
+aus einer verifizierten read-only Parent-VHDX: Differencing Child, Secure Boot,
+Status, Start, Stop, PowerShell Direct und scopegebundener Cleanup. Der Native-
+Smoke-Test verwendet bewusst eine synthetische leere Parent-VHDX und beweist
+weder Betriebssystem- noch SQL-Bereitschaft.
 
-Nicht implementiert sind insbesondere die OS-/SQL-Image-Pipeline, sealed
-Parent-VHDX, `PrepareImage`/`CompleteImage`, zusätzliche VM-Drives,
+Manifeste mit Windows-Betriebssystem oder GUI-Software können bei der Provider-
+Auflösung zu `hyperv` führen; `New-SqlServerLab` bricht weiterhin mit einer
+klaren Meldung ab, weil die Hyper-V-SQL-Provisionierung noch fehlt.
+
+Nicht implementiert sind insbesondere die OS-/SQL-Image-Pipeline, die Artifact-
+Registry für sealed Parent-VHDX, `PrepareImage`/`CompleteImage`, zusätzliche VM-Drives,
 Network Intents, IPAM, Manual Resume, Reconcile und Artifact Refresh. Der
 verbindliche Zielvertrag steht in
 [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](../Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md).

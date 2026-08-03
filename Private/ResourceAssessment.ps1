@@ -135,6 +135,23 @@ function Test-ProviderAvailability {
                 Value    = $null
             }
         }
+        'hyperv' {
+            $check = Test-HyperVAvailable
+            if ($check.Available) {
+                return [PSCustomObject]@{
+                    Category = 'Provider'
+                    Status   = 'RESOURCE_OK'
+                    Message  = "Hyper-V-Lifecycle verfuegbar (Modul: $($check.Version)); SQL-Provisionierung noch nicht implementiert."
+                    Value    = $check.Version
+                }
+            }
+            return [PSCustomObject]@{
+                Category = 'Provider'
+                Status   = 'RESOURCE_HARD_BLOCK'
+                Message  = "Hyper-V nicht verfuegbar: $($check.Message)"
+                Value    = $null
+            }
+        }
         default {
             return [PSCustomObject]@{
                 Category = 'Provider'

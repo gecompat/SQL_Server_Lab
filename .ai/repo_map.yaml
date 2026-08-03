@@ -206,9 +206,13 @@ providers:
     windows_networking: Documentation/HowTo/PODMAN_WINDOWS_NETWORKING.md
     port_binding: "gemeinsame Portermittlung plus Runtime-Retry innerhalb des hostweiten Locks"
   hyperv:
-    status: planned
+    status: partial_lifecycle_foundation
+    implementation: Providers/HyperV/HyperVProvider.ps1
+    metadata: Providers/HyperV/provider.json
     documentation: Providers/HyperV/README.md
-    command: Get-VM
+    command: Get-VMHost
+    sql_provisioning: false
+    native_smoke: Tests/Integration/Invoke-HyperVSmokeTest.ps1
 
 catalogs:
   sql_versions:
@@ -250,7 +254,7 @@ planning_contracts:
   hyperv_image_provisioning_network:
     source: Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md
     status: BINDING_IMPLEMENTATION_TARGET
-    runtime_status: NOT_IMPLEMENTED
+    runtime_status: PARTIALLY_IMPLEMENTED_LIFECYCLE_FOUNDATION
     covers:
       - sealed_os_and_sql_images
       - media_license_and_evaluation_lifecycle

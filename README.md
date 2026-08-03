@@ -29,7 +29,7 @@ Fachliche Testszenarien bleiben in den konsumierenden Projekten. `SQL_Server_Lab
 
 ## Aktueller Status
 
-**Status:** `CONTAINER_CORE_IMPLEMENTED`
+**Status:** `CONTAINER_CORE_IMPLEMENTED_HYPERV_LIFECYCLE_FOUNDATION`
 
 | Bereich | Status | Nachweis |
 |---|---|---|
@@ -37,7 +37,7 @@ Fachliche Testszenarien bleiben in den konsumierenden Projekten. `SQL_Server_Lab
 | Docker-Provider | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman-Provider | implementiert | `Providers/Podman/PodmanProvider.ps1` |
 | Gemischter Docker-/Podman-Lifecycle | implementiert | `Documentation/Architecture/MIXED_PROVIDER_LIFECYCLE.md` |
-| Hyper-V-Provider | geplant | `Providers/HyperV/README.md` |
+| Hyper-V-Provider | Lifecycle-Grundlage implementiert; keine SQL-Provisionierung | `Providers/HyperV/HyperVProvider.ps1`, `Tests/Integration/Invoke-HyperVSmokeTest.ps1` |
 | Ad-hoc-Provisionierung | implementiert | `New-SqlServerLab -Version ... -Provider ...` |
 | Manifest-Provisionierung | implementiert | `Schemas/lab-manifest.schema.json` |
 | Resource Assessment | implementiert | `Test-SqlServerLabPrerequisite` |

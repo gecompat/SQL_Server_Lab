@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING_IMPLEMENTATION_TARGET` |
-| Runtime-Status | `NOT_IMPLEMENTED` |
+| Runtime-Status | `PARTIALLY_IMPLEMENTED_LIFECYCLE_FOUNDATION` |
 | Stand | 2026-07-30 |
 | Geltungsbereich | Hyper-V sowie providerneutrale Anteile für Docker und Podman |
 | Aktueller Ist-Nachweis | [`KNOWN_LIMITATIONS.md`](../Quality/KNOWN_LIMITATIONS.md) |
@@ -25,10 +25,12 @@ Dieses Dokument definiert den verbindlichen Zielvertrag für:
 - providerneutrale Netzwerk-, Software-, Resource- und Reconcile-Verträge für
   Hyper-V, Docker und Podman.
 
-Dieses Dokument ist **kein Runtime-Nachweis**. Hyper-V ist derzeit nicht
-implementiert. Die bestehenden Containerpfade bleiben unverändert maßgeblich,
-bis einzelne Implementierungswellen Schema, Parser, Runtime, Beispiele,
-Dokumentation und Tests gemeinsam erweitern.
+Dieses Dokument ist **kein vollständiger Runtime-Nachweis**. Implementiert ist
+die isolierte Lifecycle-Grundlage aus Welle 4: Generation 2, Secure Boot,
+verifizierte Parent-/Child-VHDX, Status, Start, Stop, PowerShell-Direct-Primitiv
+und scopegebundener Cleanup mit eigenem Native-Smoke-Test. OS-Specialization,
+SQL-Provisionierung und die übrigen Wellen sind noch nicht implementiert. Die
+bestehenden Containerpfade bleiben für SQL-fertige Labs unverändert maßgeblich.
 
 ## 2. Verbindliche Grundentscheidungen
 
@@ -634,6 +636,10 @@ Die Planvorschau begründet insbesondere:
 - PowerShell Direct;
 - Start, Stop, Status, Remove und scope-sicherer Cleanup;
 - eigener Smoke Test auf `SQL_Lab` plus `Hyper-V`.
+
+Stand 2026-08-03: Die Lifecycle-Grundlage und der synthetische Native-Smoke-Test
+sind implementiert. Eine echte Windows-Gast-Specialization und die technische
+Postcondition für PowerShell Direct bleiben vor Abschluss dieser Welle offen.
 
 ### Welle 5 – Drives und SQL Server
 

@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING` |
-| Runtime-Status | `CONTAINER_CORE_IMPLEMENTED` |
+| Runtime-Status | `CONTAINER_CORE_IMPLEMENTED_HYPERV_LIFECYCLE_FOUNDATION` |
 | Stand | 2026-07-30 |
 | Repository | `gecompat/SQL_Server_Lab` |
 | Maschinenlesbare Landkarte | [`repo_map.yaml`](repo_map.yaml) |
@@ -48,11 +48,14 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 - Start, Stop, Restart, Status, Remove und Clear;
 - statische Vertragsprüfung;
 - Docker- und Podman-Smoke-Testpfad.
+- Hyper-V-Lifecycle-Grundlage mit Generation 2, Secure Boot, verifizierter
+  Parent-/Child-VHDX, Status, Start, Stop und scopegebundenem Cleanup;
 
 ### Geplant oder unvollständig
 
-- Hyper-V-Provider mit resumierbarer OS-/SQL-Image-Pipeline, sealed
-  Parent-VHDX, zusätzlichen Drives und providerneutralen Netzwerken;
+- vollständiger Hyper-V-Provider mit resumierbarer OS-/SQL-Image-Pipeline,
+  Artifact-Registry für sealed Parent-VHDX, zusätzlichen Drives und
+  providerneutralen Netzwerken;
 - gemeinsamer Lifecycle für gemischte Provider innerhalb eines Runs;
 - vollständige Ausführung aller im Schema vorbereiteten `serverConfig`-Felder;
 - automatische Verarbeitung von Sample-Archiven, Attach-Szenarien und SQL-Skript-Samples;
@@ -80,13 +83,15 @@ Beide Provider benötigen getrennte Native-Tests. Ein erfolgreicher Docker-Test 
 
 Der Provider eines Runs wird in `connection-info.json` gespeichert. Lifecycle und Live-Status müssen diese Bindung verwenden und dürfen nicht zufällig eine andere lokal installierte Runtime auswählen.
 
-### Roadmapprovider
+### Partieller Runtimeprovider
 
 ```text
 Hyper-V
 ```
 
-Hyper-V ist ein verbindliches langfristiges Ziel, aber kein aktueller Runtime-Nachweis. Ein Verzeichnis oder Planungsdokument reicht nicht, um einen Provider als implementiert zu bezeichnen.
+Hyper-V besitzt einen getrennten VM-Lifecycle-Nachweis, aber noch keinen SQL-
+Runtime-Nachweis. Der Provider wird deshalb nicht von `New-SqlServerLab`
+provisioniert und nicht als SQL-bereit angeboten.
 
 Der verbindliche Implementierungsvertrag steht in
 `Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md`.

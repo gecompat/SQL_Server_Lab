@@ -10,7 +10,7 @@
 - SQL Server ist Hauptzweck jeder Funktion und jedes zukünftigen Packages.
 - Supporting Components sind nur mit dokumentiertem SQL-Bezug zulässig.
 - Docker und Podman sind aktuell implementierte Kernprovider.
-- Hyper-V ist ein verbindliches Roadmapziel, aber noch kein Runtimeprovider.
+- Hyper-V besitzt eine isolierte Lifecycle-Grundlage, ist aber noch kein SQL-fertiger Runtimeprovider.
 - Keine allgemeine Nicht-SQL-Labplattform entwickeln.
 
 ## 2. Vor jeder Änderung
@@ -67,7 +67,7 @@ Relative Pfade müssen zentral und nachvollziehbar aufgelöst werden. Unbekannte
 - Gemeinsame Docker-kompatible Lifecycleoperationen dürfen zentral ausgeführt werden, müssen aber den im Run gespeicherten Provider verwenden.
 - Ein globaler Auto-Detect darf keine bestehende Providerbindung überschreiben.
 - Docker-Tests gelten nicht automatisch für Podman.
-- Hyper-V-Planung gilt nicht als Runtime-Nachweis.
+- Nur der eigene Hyper-V-Native-Smoke-Test gilt als Lifecycle-Nachweis; Planung und statische Checks sind kein Runtime-Nachweis.
 - Ein Providerverzeichnis allein bedeutet nicht, dass der Provider implementiert ist.
 - Gemischte Provider in einem Run werden bis zu einem eigenen Vertrag ausdrücklich abgelehnt.
 - tatsächliche Ressourceninformationen werden im lokalen State registriert.

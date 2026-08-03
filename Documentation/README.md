@@ -52,7 +52,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | Öffentliche API | 14 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
 | Docker | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman | implementiert | `Providers/Podman/PodmanProvider.ps1` |
-| Hyper-V | geplant | `Providers/HyperV/README.md` |
+| Hyper-V | Lifecycle-Grundlage; keine SQL-Provisionierung | `Providers/HyperV/HyperVProvider.ps1`, `Providers/HyperV/README.md` |
 | Versions- und Buildauflösung | implementiert | `Catalogs/sql-server-versions.json`, `Private/VersionCatalog.ps1` |
 | Sample-Katalog | typisierter Artifact-Vertrag implementiert; Runtime weiterhin nur für ausführbare Backup-Varianten | `Catalogs/sample-databases.json`, `Schemas/sample-databases.schema.json`, `Private/ManifestParser.ps1` |
 | Manifestparser | implementiert | `Private/ManifestParser.ps1` |
