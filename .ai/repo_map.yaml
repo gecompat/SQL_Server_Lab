@@ -5,7 +5,7 @@ project:
   default_branch: main
   module_manifest: SqlServerLab.psd1
   module_loader: SqlServerLab.psm1
-  runtime_status: CONTAINER_CORE_IMPLEMENTED
+  runtime_status: CONTAINER_CORE_IMPLEMENTED_HYPERV_IMAGE_SEALING_RESUME
 
 sources_of_truth:
   exported_commands: SqlServerLab.psd1
@@ -206,7 +206,7 @@ providers:
     windows_networking: Documentation/HowTo/PODMAN_WINDOWS_NETWORKING.md
     port_binding: "gemeinsame Portermittlung plus Runtime-Retry innerhalb des hostweiten Locks"
   hyperv:
-    status: partial_windows_image_builder_foundation
+    status: partial_image_sealing_resume
     implementation: Providers/HyperV/HyperVProvider.ps1
     image_registry: Private/HyperVImageRegistry.ps1
     image_builder: Private/HyperVImageBuilder.ps1
@@ -216,6 +216,7 @@ providers:
     sql_provisioning: false
     native_smoke: Tests/Integration/Invoke-HyperVSmokeTest.ps1
     registry_static_checks: Tests/Static/Invoke-HyperVImageRegistryChecks.ps1
+    builder_static_checks: Tests/Static/Invoke-HyperVImageBuilderChecks.ps1
 
 catalogs:
   sql_versions:
@@ -257,7 +258,7 @@ planning_contracts:
   hyperv_image_provisioning_network:
     source: Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md
     status: BINDING_IMPLEMENTATION_TARGET
-    runtime_status: PARTIALLY_IMPLEMENTED_IMAGE_REGISTRY_FOUNDATION
+    runtime_status: PARTIALLY_IMPLEMENTED_IMAGE_SEALING_RESUME
     covers:
       - sealed_os_and_sql_images
       - media_license_and_evaluation_lifecycle

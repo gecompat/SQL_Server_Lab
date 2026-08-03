@@ -3,8 +3,8 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING` |
-| Runtime-Status | `CONTAINER_CORE_IMPLEMENTED_HYPERV_WINDOWS_IMAGE_BUILDER_FOUNDATION` |
-| Stand | 2026-07-30 |
+| Runtime-Status | `CONTAINER_CORE_IMPLEMENTED_HYPERV_IMAGE_SEALING_RESUME` |
+| Stand | 2026-08-03 |
 | Repository | `gecompat/SQL_Server_Lab` |
 | Maschinenlesbare Landkarte | [`repo_map.yaml`](repo_map.yaml) |
 
@@ -54,6 +54,8 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   deterministischer Auswahl und portablem Manifest Lock;
 - Windows-Image-Builder-Grundlage mit ISO-Integrity, persistentem Resume-State,
   Generation 2, Secure Boot, DVD-Boot und Manual-Action-Gate;
+- buildgebundene Generalisierungsevidenz mit Challenge, VM-/Checkpoint-
+  Postconditions und kontrollierter immutable Registry-Publikation;
 
 ### Geplant oder unvollständig
 

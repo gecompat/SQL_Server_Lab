@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `PARTIALLY_IMPLEMENTED` |
-| Runtime-Status | `WINDOWS_IMAGE_BUILDER_FOUNDATION` |
+| Runtime-Status | `IMAGE_SEALING_RESUME` |
 | Verbindlicher Zielvertrag | [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](../../Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md) |
 | Artifact-Ergänzung | [Testdatenbank-Provisionierung und Manifest-Wizard](../../Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md) |
 
@@ -35,9 +35,12 @@ und synthetische Test-Artefakte aus und begründet verworfene Kandidaten.
 `Private/HyperVImageBuilder.ps1` plant einen Build aus einem lokal
 SHA-256- und ISO-9660-verifizierten Windows-Medium, persistiert Resume-State und
 erzeugt einen isolierten Generation-2-Builder mit Secure Boot, OS-VHDX und
-DVD-Boot. OS-Installation und Generalisierung enden derzeit bewusst in
-`MANUAL_ACTION_REQUIRED`; ohne technische Postcondition wird kein `OS_SEALED`
-veröffentlicht.
+DVD-Boot. OS-Installation und Generalisierung enden zunächst bewusst in
+`MANUAL_ACTION_REQUIRED`. Die Fortsetzung akzeptiert nur SHA-256-verifizierte,
+an BuildId, ScopeId und eine zufällige Challenge gebundene Evidenz. Vor der
+Publikation prüft sie VM-Auszustand, VM-Identität, fehlende Checkpoints und die
+VHDX-Pfadgrenze. Reale Medien werden erst danach als immutable `OS_SEALED`
+registriert; synthetische CI-Medien bleiben zwingend `LIFECYCLE_TEST_ONLY`.
 
 Der Slice ist kein SQL-Runtime-Nachweis. `New-SqlServerLab` provisioniert noch
 keine Hyper-V-Instanz und die Provider-Metadaten setzen `sqlProvisioning` daher
@@ -45,14 +48,16 @@ explizit auf `false`.
 
 ## Verbleibender Providerumfang
 
-- unattended OS-Build und resumierbare Image-Pipeline;
+- unattended OS-Build, Rebootsteuerung und automatische Evidenzgewinnung;
 - Windows-Specialization und validierte PowerShell-Direct-Ausführung im Gast;
 - Linux Guest Management über cloud-init und SSH;
 - Restart und Einbindung in die öffentlichen Run-Lifecycle-Cmdlets;
 - zusätzliche VHDX und providerneutrale Drive-Rollen;
 - Management- und Lab-Netze;
 - resumierbare OS- und SQL-Server-Installation;
-- Manual Fallback mit Postcondition-Prüfung;
+- automatische Gast-Postcondition-Prüfung über PowerShell Direct oder
+  Offline-Inspection; der aktuelle Slice validiert die eingereichte Evidenz und
+  Host-Postconditions, erzeugt die Gast-Evidenz aber noch nicht selbst;
 - SQL Readiness, Software, External Runtimes und Testdatenbanken;
 - Diff-/Reconcile-Ablauf für nachträgliche Änderungen.
 
