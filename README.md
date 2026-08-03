@@ -73,6 +73,11 @@ Mindestens erforderlich:
 Die vollständige Einrichtung mit offiziellen Downloadlinks, Installationsbefehlen,
 Docker-/Podman-Auswahl und `podman machine start podman-machine-default` steht in
 der [Windows-Installationsanleitung für AnwenderInnen](Documentation/User/INSTALLATION_WINDOWS.md).
+Der native Ubuntu-Pfad ist getrennt in der
+[Linux-Installationsanleitung](Documentation/User/INSTALLATION_LINUX.md)
+beschrieben. ISO-, VHDX- und SQL-Installationsmedien liegen in einem
+operatorseitig angegebenen [externen Media Root](Documentation/HowTo/MEDIA_ROOT_LAYOUT.md),
+nicht im Repository.
 Die zusätzlichen Voraussetzungen für Entwicklung, Provider-Smoke-Tests,
 Self-hosted Runner und Hyper-V beschreibt die
 [Entwicklungs- und Testumgebung](Documentation/Development/DEVELOPMENT_AND_TEST_SETUP_WINDOWS.md).

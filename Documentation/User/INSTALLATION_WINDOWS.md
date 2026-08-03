@@ -19,6 +19,10 @@ gehört nicht zur Anwenderinstallation. Sie ist in der
 [Entwicklungs- und Testumgebung](../Development/DEVELOPMENT_AND_TEST_SETUP_WINDOWS.md)
 beschrieben.
 
+ISO-, VHDX- und SQL-Installationsmedien werden nicht unterhalb des Repository
+abgelegt. Die kanonische, automatisch erzeugbare Struktur steht unter
+[Externer Media Root](../HowTo/MEDIA_ROOT_LAYOUT.md).
+
 ## 2. Benötigte Komponenten
 
 | Komponente | Erforderlich | Zweck | Offizielle Quelle |
