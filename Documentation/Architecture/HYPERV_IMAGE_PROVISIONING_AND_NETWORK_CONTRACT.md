@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING_IMPLEMENTATION_TARGET` |
-| Runtime-Status | `PARTIALLY_IMPLEMENTED_IMAGE_REGISTRY_FOUNDATION` |
+| Runtime-Status | `PARTIALLY_IMPLEMENTED_WINDOWS_IMAGE_BUILDER_FOUNDATION` |
 | Stand | 2026-07-30 |
 | Geltungsbereich | Hyper-V sowie providerneutrale Anteile für Docker und Podman |
 | Aktueller Ist-Nachweis | [`KNOWN_LIMITATIONS.md`](../Quality/KNOWN_LIMITATIONS.md) |
@@ -635,6 +635,11 @@ Herstellerquellen, Referenzzählung, Refresh und Retire bleiben offen.
 - unattended Build, Reboots und Resume;
 - Manual Fallback;
 - `OS_SEALED`.
+
+Stand 2026-08-03: Medienintegrität, persistenter Build-/Resume-State,
+Generation-2-Builder, Secure Boot, DVD-Boot und Cleanup sind implementiert.
+Unattended Setup, Reboot-Orchestrierung, Generalisierung und OS_SEALED-
+Postcondition bleiben offen und führen bis dahin zu `MANUAL_ACTION_REQUIRED`.
 
 ### Welle 4 – Hyper-V Vertical Slice
 

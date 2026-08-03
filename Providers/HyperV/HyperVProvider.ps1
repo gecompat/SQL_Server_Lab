@@ -23,12 +23,14 @@ function Test-HyperVAvailable {
     }
 
     $requiredCommands = @(
+        'Add-VMDvdDrive',
         'Get-VM',
         'Get-VMHost',
         'Get-VMNetworkAdapter',
         'New-VM',
         'New-VHD',
         'Remove-VMNetworkAdapter',
+        'Set-VMFirmware',
         'Start-VM',
         'Stop-VM',
         'Remove-VM'

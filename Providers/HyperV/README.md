@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `PARTIALLY_IMPLEMENTED` |
-| Runtime-Status | `IMAGE_REGISTRY_FOUNDATION` |
+| Runtime-Status | `WINDOWS_IMAGE_BUILDER_FOUNDATION` |
 | Verbindlicher Zielvertrag | [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](../../Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md) |
 | Artifact-Ergänzung | [Testdatenbank-Provisionierung und Manifest-Wizard](../../Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md) |
 
@@ -31,6 +31,13 @@ Registry für operatorseitig bereitgestellte `OS_SEALED`- und
 SHA-256, Generalisierungs- beziehungsweise SQL-Prepare-Evidence und persistiert
 keine Hostpfade im Manifest Lock. Der Resolver schließt ablaufende Evaluationen
 und synthetische Test-Artefakte aus und begründet verworfene Kandidaten.
+
+`Private/HyperVImageBuilder.ps1` plant einen Build aus einem lokal
+SHA-256- und ISO-9660-verifizierten Windows-Medium, persistiert Resume-State und
+erzeugt einen isolierten Generation-2-Builder mit Secure Boot, OS-VHDX und
+DVD-Boot. OS-Installation und Generalisierung enden derzeit bewusst in
+`MANUAL_ACTION_REQUIRED`; ohne technische Postcondition wird kein `OS_SEALED`
+veröffentlicht.
 
 Der Slice ist kein SQL-Runtime-Nachweis. `New-SqlServerLab` provisioniert noch
 keine Hyper-V-Instanz und die Provider-Metadaten setzen `sqlProvisioning` daher
