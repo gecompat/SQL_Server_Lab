@@ -25,6 +25,7 @@ try {
     $notesIndex = $builderText.IndexOf('ConvertTo-HyperVLabNotes')
     $dvdIndex = $builderText.IndexOf('Add-VMDvdDrive')
     Add-CheckResult -Name 'Builder-Identitaet wird vor weiterer VM-Konfiguration gesetzt' -Success ($notesIndex -ge 0 -and $dvdIndex -gt $notesIndex)
+    Add-CheckResult -Name 'VM-Konfiguration verwendet keinen tiefen Build-State-Pfad' -Success ($builderText -notmatch 'New-VM[^\r\n]+-Path\s+\$resourceRoot')
     Add-CheckResult -Name 'Builder ist Generation 2 mit Secure Boot' -Success ($builderText -match 'Generation\s+2[\s\S]+EnableSecureBoot\s+On')
     Add-CheckResult -Name 'Builder bindet ISO als DVD ein' -Success ($builderText -match 'Add-VMDvdDrive[\s\S]+FirstBootDevice')
     Add-CheckResult -Name 'Manual Action wird persistent modelliert' -Success ($builderText -match 'MANUAL_ACTION_REQUIRED')

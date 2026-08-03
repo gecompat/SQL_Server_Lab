@@ -128,7 +128,10 @@ function New-HyperVWindowsImageBuilder {
     $null = Add-CleanupStep -RunDir $build.BuildDirectory -ResourceType vm -ResourceId $vmName -Action remove -Provider hyperv -ProviderSubRunId provider-hyperv-builder -Compensation 'Remove Hyper-V image builder'
     New-Item -Path $resourceRoot -ItemType Directory -Force | Out-Null
     $null = New-VHD -Path $diskPath -Dynamic -SizeBytes ([long]$build.resources.osDiskSizeBytes) -ErrorAction Stop
-    $vm = New-VM -Name $vmName -Generation 2 -MemoryStartupBytes $MemoryStartupBytes -VHDPath $diskPath -Path $resourceRoot -ErrorAction Stop
+    # Use the host's default VM configuration root. The build directory can be
+    # deeply nested and Hyper-V rejects long Smart Paging paths before the VM
+    # can be tagged for deterministic cleanup.
+    $vm = New-VM -Name $vmName -Generation 2 -MemoryStartupBytes $MemoryStartupBytes -VHDPath $diskPath -ErrorAction Stop
     # Mark the VM immediately so cleanup can identify it even when later setup fails.
     $notes = ConvertTo-HyperVLabNotes -RunId $BuildId -ScopeId $build.scopeId -InstanceId image-builder -ChildVhdxPath $diskPath
     $null = Set-VM -VM $vm -Notes $notes -ErrorAction Stop
