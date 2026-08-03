@@ -20,6 +20,8 @@ $pwshCommand = Get-Command pwsh -ErrorAction Stop
 $checks = @(
     'Invoke-DocumentationChecks.ps1',
     'Invoke-ArtifactResolverChecks.ps1',
+    'Invoke-CleanupRecoveryChecks.ps1',
+    'Invoke-PodmanBootstrapChecks.ps1',
     'Invoke-ReadinessContractChecks.ps1',
     'Invoke-MixedProviderLifecycleChecks.ps1',
     'Invoke-ProjectAdapterChecks.ps1',
