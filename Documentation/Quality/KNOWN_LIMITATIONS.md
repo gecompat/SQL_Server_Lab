@@ -59,8 +59,13 @@ klaren Meldung ab, weil die Hyper-V-SQL-Provisionierung noch fehlt.
 
 Zusatz-VHDX werden auf dem Host vor der VM-Mutation validiert, unterhalb des
 Run-Verzeichnisses erzeugt, per SCSI angebunden und durch VM-Identität sowie
-Cleanup-Plan gebunden. Noch nicht implementiert sind ihre Initialisierung und
-Formatierung im Gast sowie die Bindung an den bestehenden Manifest-Drive-
+Cleanup-Plan gebunden. Die Runtime ordnet sie über den VHDX-DiskIdentifier im
+Gast eindeutig zu und orchestriert über PowerShell Direct eine idempotente
+GPT-/NTFS-Initialisierung samt Allocation Unit, Volume Label und Gastpfad.
+Credentials werden nicht persistiert. Der Native-Smoke besitzt jedoch kein
+installiertes Windows und beweist deshalb nur DiskIdentifier, Host-Attach und
+Cleanup; die tatsächliche Gastformatierung ist statisch mit Mocks abgedeckt.
+Noch nicht implementiert ist die Bindung an den bestehenden Manifest-Drive-
 Vertrag. Ebenfalls offen bleiben der unattended OS-/SQL-Image-Build,
 `PrepareImage`/`CompleteImage`, Network Intents, IPAM, Reconcile und Artifact Refresh. Der
 verbindliche Zielvertrag steht in

@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `PARTIALLY_IMPLEMENTED` |
-| Runtime-Status | `ADDITIONAL_VHDX_LIFECYCLE` |
+| Runtime-Status | `GUEST_DRIVE_INITIALIZATION_ORCHESTRATION` |
 | Verbindlicher Zielvertrag | [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](../../Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md) |
 | Artifact-Ergänzung | [Testdatenbank-Provisionierung und Manifest-Wizard](../../Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md) |
 
@@ -22,6 +22,9 @@ plattformgebundene SQL-Features benötigen.
 - Generation 2 und Secure Boot mit Windows-Template;
 - bis zu 16 run-lokale dynamische oder feste Zusatz-VHDX mit Rollen
   `sqlData`, `sqlLog`, `tempdb`, `backup` oder `general` und SCSI-Anbindung;
+- stabile Host-/Gast-Zuordnung über den VHDX-DiskIdentifier sowie idempotente
+  GPT-/NTFS-Initialisierung mit expliziter Allocation Unit, Volume Label und
+  Gastpfad über PowerShell Direct;
 - Status, Start, Stop, Remove und PowerShell Direct;
 - VM-Identität über RunId, ScopeId und InstanceId;
 - Cleanup-Plan vor der ersten Provider-Mutation;
@@ -52,13 +55,17 @@ Der Slice ist kein SQL-Runtime-Nachweis. `New-SqlServerLab` provisioniert noch
 keine Hyper-V-Instanz und die Provider-Metadaten setzen `sqlProvisioning` daher
 explizit auf `false`.
 
+Entsprechend erscheint Hyper-V noch nicht als ausführbarer Provider im
+`Invoke-SqlServerLab`-Menü. Eine Freigabe folgt erst nach Manifest-Binding,
+Windows-Specialization und SQL Readiness.
+
 ## Verbleibender Providerumfang
 
 - unattended OS-Build und Rebootsteuerung waehrend der Installation;
 - Windows-Specialization nach Verwendung eines sealed Images;
 - Linux Guest Management über cloud-init und SSH;
 - Restart und Einbindung in die öffentlichen Run-Lifecycle-Cmdlets;
-- Initialisierung, Formatierung und stabile Identifikation der Drives im Gast;
+- echter End-to-End-Nachweis der Initialisierung in einem Windows-Gast;
 - Bindung des bestehenden providerneutralen Manifest-Drive-Vertrags;
 - Management- und Lab-Netze;
 - resumierbare OS- und SQL-Server-Installation;

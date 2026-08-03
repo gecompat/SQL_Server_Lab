@@ -30,6 +30,7 @@ function Test-HyperVAvailable {
         'Get-VMHost',
         'Get-VMNetworkAdapter',
         'Get-VMSnapshot',
+        'Get-VHD',
         'New-VM',
         'New-VHD',
         'Remove-VMNetworkAdapter',
@@ -76,21 +77,38 @@ function ConvertTo-HyperVLabNotes {
         [Parameter(Mandatory)][string]$ScopeId,
         [Parameter(Mandatory)][string]$InstanceId,
         [Parameter(Mandatory)][string]$ChildVhdxPath,
-        [string[]]$AdditionalVhdxPaths = @()
+        [object[]]$AdditionalDrives = @()
     )
 
     $identity = [ordered]@{
-        contractVersion = '0.2'
+        contractVersion = '0.3'
         provider        = 'hyperv'
         runId           = $RunId
         scopeId         = $ScopeId
         instanceId      = $InstanceId
         childVhdxPath   = [System.IO.Path]::GetFullPath($ChildVhdxPath)
         additionalVhdxPaths = @(
-            $AdditionalVhdxPaths | ForEach-Object { [System.IO.Path]::GetFullPath($_) }
+            $AdditionalDrives | ForEach-Object { [System.IO.Path]::GetFullPath([string]$_.Path) }
+        )
+        additionalDrives = @(
+            $AdditionalDrives | ForEach-Object {
+                [ordered]@{
+                    id = [string]$_.Id
+                    role = [string]$_.Role
+                    sizeBytes = [long]$_.SizeBytes
+                    vhdType = [string]$_.VhdType
+                    path = [System.IO.Path]::GetFullPath([string]$_.Path)
+                    diskIdentifier = [string]$_.DiskIdentifier
+                    guestPath = if ($_.GuestPath) { [string]$_.GuestPath } else { $null }
+                    driveLetter = if ($_.DriveLetter) { [string]$_.DriveLetter } else { $null }
+                    fileSystem = [string]$_.FileSystem
+                    allocationUnitKB = [int]$_.AllocationUnitKB
+                    volumeLabel = [string]$_.VolumeLabel
+                }
+            }
         )
     }
-    return $script:HyperVLabNotesPrefix + ($identity | ConvertTo-Json -Compress)
+    return $script:HyperVLabNotesPrefix + ($identity | ConvertTo-Json -Compress -Depth 10)
 }
 
 function Resolve-HyperVAdditionalDrivePlan {
@@ -107,6 +125,9 @@ function Resolve-HyperVAdditionalDrivePlan {
     }
 
     $seenIds = [System.Collections.Generic.HashSet[string]]::new(
+        [System.StringComparer]::OrdinalIgnoreCase
+    )
+    $seenDriveLetters = [System.Collections.Generic.HashSet[string]]::new(
         [System.StringComparer]::OrdinalIgnoreCase
     )
     $plan = @()
@@ -132,6 +153,36 @@ function Resolve-HyperVAdditionalDrivePlan {
             throw "HYPERV_ADDITIONAL_DRIVE_TYPE_INVALID: $vhdType"
         }
 
+        $guestPath = if ($drive.guestPath) { [string]$drive.guestPath } else { $null }
+        $driveLetter = $null
+        if ($guestPath) {
+            if ($guestPath -notmatch '^[D-Zd-z]:\\(?:[^<>:"/|?*\r\n]+(?:\\[^<>:"/|?*\r\n]+)*)?$') {
+                throw "HYPERV_ADDITIONAL_DRIVE_GUEST_PATH_INVALID: $id"
+            }
+            $driveLetter = $guestPath.Substring(0, 1).ToUpperInvariant()
+            if (-not $seenDriveLetters.Add($driveLetter)) {
+                throw "HYPERV_ADDITIONAL_DRIVE_LETTER_DUPLICATE: $driveLetter"
+            }
+            $guestPath = $driveLetter + $guestPath.Substring(1)
+        }
+        $allocationUnitKB = if ($drive.allocationUnitKB) { [int]$drive.allocationUnitKB } else { 64 }
+        if ($allocationUnitKB -notin @(4, 8, 16, 32, 64)) {
+            throw "HYPERV_ADDITIONAL_DRIVE_ALLOCATION_UNIT_INVALID: $id"
+        }
+        $fileSystem = if ($drive.fileSystem) { [string]$drive.fileSystem } else { 'NTFS' }
+        if ($fileSystem -ne 'NTFS') {
+            throw "HYPERV_ADDITIONAL_DRIVE_FILE_SYSTEM_INVALID: $id"
+        }
+        $volumeLabel = if ($drive.volumeLabel) {
+            [string]$drive.volumeLabel
+        }
+        else {
+            ('SQLLAB_' + ($id -replace '[^A-Za-z0-9_-]', '_')).ToUpperInvariant()
+        }
+        if ($volumeLabel -notmatch '^[A-Za-z0-9][A-Za-z0-9 _-]{0,31}$') {
+            throw "HYPERV_ADDITIONAL_DRIVE_VOLUME_LABEL_INVALID: $id"
+        }
+
         $safeId = $id -replace '_', '-'
         $path = Join-Path $ResourceRoot "$VMName-$safeId.vhdx"
         if (-not (Test-HyperVPathWithinRunDirectory -Path $path -RunDirectory $RunDirectory)) {
@@ -146,6 +197,12 @@ function Resolve-HyperVAdditionalDrivePlan {
             SizeBytes = $sizeBytes
             VhdType = $vhdType
             Path = [System.IO.Path]::GetFullPath($path)
+            DiskIdentifier = $null
+            GuestPath = $guestPath
+            DriveLetter = $driveLetter
+            FileSystem = 'NTFS'
+            AllocationUnitKB = $allocationUnitKB
+            VolumeLabel = $volumeLabel
         }
     }
     return @($plan)
@@ -364,6 +421,12 @@ function New-HyperVInstance {
             $newVhdParameters.Dynamic = $true
         }
         $null = New-VHD @newVhdParameters
+        $vhd = Get-VHD -Path $drive.Path -ErrorAction Stop
+        $diskIdentifier = [string]$vhd.DiskIdentifier
+        if ($diskIdentifier -notmatch '^[A-Fa-f0-9]{8}(?:-[A-Fa-f0-9]{4}){3}-[A-Fa-f0-9]{12}$') {
+            throw "HYPERV_ADDITIONAL_DRIVE_IDENTIFIER_INVALID: $($drive.Id)"
+        }
+        $drive.DiskIdentifier = $diskIdentifier.ToUpperInvariant()
     }
 
     $newVmParameters = @{
@@ -383,7 +446,7 @@ function New-HyperVInstance {
         -ScopeId $ScopeId `
         -InstanceId $InstanceId `
         -ChildVhdxPath $childVhdxPath `
-        -AdditionalVhdxPaths @($additionalDrivePlan | ForEach-Object { $_.Path })
+        -AdditionalDrives $additionalDrivePlan
     $null = Set-VM -VM $vm -Notes $notes -ErrorAction Stop
     if (-not $SwitchName) {
         # New-VM erzeugt hostabhaengig auch ohne SwitchName einen getrennten
@@ -451,6 +514,12 @@ function Get-HyperVInstanceStatus {
         ScopeId    = [string]$managed.Identity.scopeId
         InstanceId = [string]$managed.Identity.instanceId
         AdditionalVhdxPaths = @($managed.Identity.additionalVhdxPaths | ForEach-Object { [string]$_ })
+        AdditionalDrives = @($managed.Identity.additionalDrives)
+        GuestDrivesReady = [bool](
+            @($managed.Identity.additionalDrives | Where-Object guestPath).Count -gt 0 -and
+            @($managed.Identity.guestDriveInitialization).Count -eq
+                @($managed.Identity.additionalDrives | Where-Object guestPath).Count
+        )
         SqlReady   = $false
     }
 }
@@ -516,6 +585,185 @@ function Invoke-HyperVPowerShellDirect {
         -ScriptBlock $ScriptBlock `
         -ArgumentList $ArgumentList `
         -ErrorAction Stop
+}
+
+function Initialize-HyperVWindowsGuestDrives {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$VMName,
+        [Parameter(Mandatory)][string]$ExpectedRunId,
+        [Parameter(Mandatory)][string]$ExpectedScopeId,
+        [Parameter(Mandatory)][PSCredential]$Credential
+    )
+
+    $managed = Get-HyperVManagedVM `
+        -VMName $VMName `
+        -ExpectedRunId $ExpectedRunId `
+        -ExpectedScopeId $ExpectedScopeId
+    if (-not $managed) { throw "Hyper-V-VM nicht gefunden: $VMName" }
+
+    $drivePlan = @($managed.Identity.additionalDrives | Where-Object guestPath)
+    if ($drivePlan.Count -eq 0) { throw 'HYPERV_GUEST_DRIVE_PLAN_MISSING' }
+    foreach ($drive in $drivePlan) {
+        if ([string]$drive.diskIdentifier -notmatch '^[A-Fa-f0-9]{8}(?:-[A-Fa-f0-9]{4}){3}-[A-Fa-f0-9]{12}$' -or
+            [string]$drive.guestPath -notmatch '^[D-Zd-z]:\\') {
+            throw "HYPERV_GUEST_DRIVE_PLAN_INVALID: $($drive.id)"
+        }
+    }
+
+    $portablePlan = @(
+        $drivePlan | ForEach-Object {
+            [PSCustomObject]@{
+                id = [string]$_.id
+                diskIdentifier = [string]$_.diskIdentifier
+                guestPath = [string]$_.guestPath
+                driveLetter = [string]$_.driveLetter
+                fileSystem = [string]$_.fileSystem
+                allocationUnitKB = [int]$_.allocationUnitKB
+                volumeLabel = [string]$_.volumeLabel
+            }
+        }
+    )
+    $planJson = $portablePlan | ConvertTo-Json -Compress -Depth 10
+    $receipt = Invoke-HyperVPowerShellDirect `
+        -VMName $VMName `
+        -ExpectedRunId $ExpectedRunId `
+        -ExpectedScopeId $ExpectedScopeId `
+        -Credential $Credential `
+        -ArgumentList @($planJson) `
+        -ScriptBlock {
+            param($DrivePlanJson)
+            $ErrorActionPreference = 'Stop'
+            $specifications = @($DrivePlanJson | ConvertFrom-Json -Depth 10)
+
+            function ConvertTo-NormalizedDiskIdentifier {
+                param([string]$Value)
+                return ($Value -replace '[^A-Fa-f0-9]', '').ToUpperInvariant()
+            }
+
+            $null = Update-HostStorageCache
+            $allDisks = @(Get-Disk)
+            $results = @()
+            foreach ($specification in $specifications) {
+                $expectedIdentifier = ConvertTo-NormalizedDiskIdentifier $specification.diskIdentifier
+                $matches = @(
+                    $allDisks | Where-Object {
+                        (ConvertTo-NormalizedDiskIdentifier ([string]$_.UniqueId)) -eq $expectedIdentifier
+                    }
+                )
+                if ($matches.Count -ne 1) {
+                    throw "GUEST_DISK_IDENTIFIER_MATCH_COUNT_$($specification.id)_$($matches.Count)"
+                }
+
+                $disk = $matches[0]
+                if ($disk.IsOffline) {
+                    Set-Disk -Number $disk.Number -IsOffline $false -ErrorAction Stop
+                }
+                if ($disk.IsReadOnly) {
+                    Set-Disk -Number $disk.Number -IsReadOnly $false -ErrorAction Stop
+                }
+                $disk = Get-Disk -Number $disk.Number -ErrorAction Stop
+                $driveLetter = [char]([string]$specification.driveLetter)
+                $status = 'VERIFIED'
+
+                if ([string]$disk.PartitionStyle -eq 'RAW') {
+                    if (Get-Volume -DriveLetter $driveLetter -ErrorAction SilentlyContinue) {
+                        throw "GUEST_DRIVE_LETTER_IN_USE_$driveLetter"
+                    }
+                    $null = Initialize-Disk `
+                        -Number $disk.Number `
+                        -PartitionStyle GPT `
+                        -ErrorAction Stop
+                    $partition = New-Partition `
+                        -DiskNumber $disk.Number `
+                        -UseMaximumSize `
+                        -DriveLetter $driveLetter `
+                        -ErrorAction Stop
+                    $volume = Format-Volume `
+                        -Partition $partition `
+                        -FileSystem NTFS `
+                        -NewFileSystemLabel ([string]$specification.volumeLabel) `
+                        -AllocationUnitSize ([int64]$specification.allocationUnitKB * 1KB) `
+                        -Confirm:$false `
+                        -Force `
+                        -ErrorAction Stop
+                    $status = 'INITIALIZED'
+                }
+                else {
+                    $partitions = @(
+                        Get-Partition -DiskNumber $disk.Number -ErrorAction Stop |
+                            Where-Object DriveLetter -EQ $driveLetter
+                    )
+                    if ($partitions.Count -ne 1) {
+                        throw "GUEST_DRIVE_PARTITION_NOT_IDEMPOTENT_$($specification.id)"
+                    }
+                    $volume = Get-Volume -Partition $partitions[0] -ErrorAction Stop
+                }
+
+                $expectedAllocationUnitSize = [int64]$specification.allocationUnitKB * 1KB
+                if ([string]$volume.FileSystem -ne 'NTFS' -or
+                    [int64]$volume.AllocationUnitSize -ne $expectedAllocationUnitSize -or
+                    [string]$volume.FileSystemLabel -ne [string]$specification.volumeLabel) {
+                    throw "GUEST_DRIVE_VOLUME_CONTRACT_MISMATCH_$($specification.id)"
+                }
+                if (-not (Test-Path -LiteralPath ([string]$specification.guestPath))) {
+                    $null = New-Item `
+                        -Path ([string]$specification.guestPath) `
+                        -ItemType Directory `
+                        -Force `
+                        -ErrorAction Stop
+                }
+
+                $results += [PSCustomObject]@{
+                    id = [string]$specification.id
+                    diskIdentifier = [string]$specification.diskIdentifier
+                    diskNumber = [int]$disk.Number
+                    guestPath = [string]$specification.guestPath
+                    driveLetter = [string]$driveLetter
+                    fileSystem = [string]$volume.FileSystem
+                    allocationUnitSize = [int64]$volume.AllocationUnitSize
+                    volumeLabel = [string]$volume.FileSystemLabel
+                    status = $status
+                    observedAt = [datetime]::UtcNow.ToString('o')
+                }
+            }
+            return @($results)
+        }
+
+    $receipt = @($receipt)
+    if ($receipt.Count -ne $portablePlan.Count) { throw 'HYPERV_GUEST_DRIVE_RECEIPT_COUNT_INVALID' }
+    foreach ($expected in $portablePlan) {
+        $actual = @($receipt | Where-Object id -EQ $expected.id)
+        if ($actual.Count -ne 1 -or
+            [string]$actual[0].diskIdentifier -ne [string]$expected.diskIdentifier -or
+            [string]$actual[0].guestPath -ne [string]$expected.guestPath -or
+            [string]$actual[0].fileSystem -ne 'NTFS' -or
+            [string]$actual[0].status -notin @('INITIALIZED', 'VERIFIED')) {
+            throw "HYPERV_GUEST_DRIVE_RECEIPT_INVALID: $($expected.id)"
+        }
+    }
+
+    $managed.Identity | Add-Member `
+        -NotePropertyName contractVersion `
+        -NotePropertyValue '0.4' `
+        -Force
+    $managed.Identity | Add-Member `
+        -NotePropertyName guestDriveInitialization `
+        -NotePropertyValue @($receipt) `
+        -Force
+    $notes = $script:HyperVLabNotesPrefix + (
+        $managed.Identity | ConvertTo-Json -Compress -Depth 10
+    )
+    $null = Set-VM -VM $managed.VM -Notes $notes -ErrorAction Stop
+
+    return [PSCustomObject]@{
+        Provider = 'hyperv'
+        VMName = $VMName
+        RunId = $ExpectedRunId
+        ScopeId = $ExpectedScopeId
+        Status = 'GUEST_DRIVES_READY'
+        Drives = @($receipt)
+    }
 }
 
 function Remove-HyperVInstance {

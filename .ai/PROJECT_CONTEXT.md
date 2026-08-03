@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING` |
-| Runtime-Status | `CONTAINER_CORE_IMPLEMENTED_HYPERV_ADDITIONAL_VHDX` |
+| Runtime-Status | `CONTAINER_CORE_IMPLEMENTED_HYPERV_GUEST_DRIVE_ORCHESTRATION` |
 | Stand | 2026-08-03 |
 | Repository | `gecompat/SQL_Server_Lab` |
 | Maschinenlesbare Landkarte | [`repo_map.yaml`](repo_map.yaml) |
@@ -61,11 +61,13 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   Gast-Credentials;
 - run-lokale dynamische oder feste Zusatz-VHDX mit SQL-bezogenen Drive-Rollen,
   SCSI-Anbindung, VM-Identitätsbindung und scope-validiertem Cleanup;
+- stabile Zuordnung per VHDX-DiskIdentifier sowie resumierbare GPT-/NTFS-
+  Initialisierungsorchestrierung im Windows-Gast über PowerShell Direct;
 
 ### Geplant oder unvollständig
 
 - vollständiger Hyper-V-Provider mit resumierbarem OS-/SQL-Image-Build,
-  Gastinitialisierung zusätzlicher Drives und
+  realem Gast-End-to-End-Nachweis, Manifest-Binding zusätzlicher Drives und
   providerneutralen Netzwerken;
 - gemeinsamer Lifecycle für gemischte Provider innerhalb eines Runs;
 - vollständige Ausführung aller im Schema vorbereiteten `serverConfig`-Felder;
