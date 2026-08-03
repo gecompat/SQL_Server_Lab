@@ -40,7 +40,13 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 - Der Hyper-V-Lifecycle erstellt bis zu 16 validierte run-lokale Zusatz-VHDX
   als `dynamic` oder `fixed`, bindet SQL-bezogene Rollen und SCSI-Attachments
   an die VM-Identität und entfernt alle Disks scope-sicher über den Cleanup-
-  Plan. Gastinitialisierung und Manifest-Binding bleiben ausdrücklich offen.
+  Plan. Gastinitialisierungs-E2E-Nachweis und Manifest-Binding bleiben
+  ausdrücklich offen.
+- Die Windows-Gast-Disk-Orchestrierung ordnet Zusatz-VHDX über ihren SCSI-VPD-
+  DiskIdentifier eindeutig `Get-Disk` zu, initialisiert RAW-Disks idempotent als
+  GPT/NTFS mit expliziter Allocation Unit und persistiert ausschließlich
+  sanitierte Receipts. Ein echter Windows-Gast-CI-Nachweis und die Menü-/
+  Manifest-Freigabe bleiben offen.
 
 ### Geändert
 

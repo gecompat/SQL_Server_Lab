@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING_IMPLEMENTATION_TARGET` |
-| Runtime-Status | `PARTIALLY_IMPLEMENTED_ADDITIONAL_VHDX` |
+| Runtime-Status | `PARTIALLY_IMPLEMENTED_GUEST_DRIVE_ORCHESTRATION` |
 | Stand | 2026-08-03 |
 | Geltungsbereich | Hyper-V sowie providerneutrale Anteile für Docker und Podman |
 | Aktueller Ist-Nachweis | [`KNOWN_LIMITATIONS.md`](../Quality/KNOWN_LIMITATIONS.md) |
@@ -696,8 +696,10 @@ End-to-End-Nachweis und die spätere Specialization bleiben offen.
 
 Stand 2026-08-03: Run-lokale dynamische und feste Zusatz-VHDX mit validierten
 SQL-bezogenen Rollen, SCSI-Anbindung, VM-Identitätsbindung und scope-sicherem
-Cleanup sind implementiert. Gastinitialisierung, stabile Disk-ID-Zuordnung,
-Manifest-Binding und alle SQL-Setup-Schritte bleiben offen.
+Cleanup sind implementiert. Der VHDX-DiskIdentifier bindet Host und Gast;
+PowerShell Direct orchestriert idempotente GPT-/NTFS-Initialisierung,
+Allocation Unit, Volume Label und Gastpfad. Ein echter Windows-Gast-
+End-to-End-Nachweis, Manifest-Binding und alle SQL-Setup-Schritte bleiben offen.
 
 ### Welle 6 – Netzwerkabstraktion
 
@@ -771,6 +773,11 @@ erneut prüfen. Grundlage dieses Zielvertrags sind:
 - Microsoft (2025): [PowerShell Direct](https://learn.microsoft.com/en-us/windows-server/virtualization/hyper-v/powershell-direct).
 - Microsoft (2025): [`New-VHD`](https://learn.microsoft.com/en-us/powershell/module/hyper-v/new-vhd?view=windowsserver2025-ps).
 - Microsoft (2025): [`Add-VMHardDiskDrive`](https://learn.microsoft.com/en-us/powershell/module/hyper-v/add-vmharddiskdrive?view=windowsserver2025-ps).
+- Microsoft (2025): [`Get-VHD`](https://learn.microsoft.com/en-us/powershell/module/hyper-v/get-vhd?view=windowsserver2025-ps).
+- Microsoft (2025): [`Get-Disk`](https://learn.microsoft.com/en-us/powershell/module/storage/get-disk?view=windowsserver2025-ps).
+- Microsoft (2025): [`Initialize-Disk`](https://learn.microsoft.com/en-us/powershell/module/storage/initialize-disk?view=windowsserver2025-ps).
+- Microsoft (2025): [`New-Partition`](https://learn.microsoft.com/en-us/powershell/module/storage/new-partition?view=windowsserver2025-ps).
+- Microsoft (2025): [`Format-Volume`](https://learn.microsoft.com/en-us/powershell/module/storage/format-volume?view=windowsserver2025-ps).
 - Microsoft (2025): [Generation 2 virtual machine security](https://learn.microsoft.com/en-us/windows-server/virtualization/hyper-v/generation-2-virtual-machine-security-features).
 - Microsoft (2025): [Dynamic Memory](https://learn.microsoft.com/en-us/windows-server/virtualization/hyper-v/dynamic-memory).
 - Microsoft (2026): [Plan for Hyper-V networking](https://learn.microsoft.com/en-us/windows-server/virtualization/hyper-v/plan/plan-hyper-v-networking-in-windows-server).

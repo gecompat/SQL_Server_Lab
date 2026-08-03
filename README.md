@@ -29,7 +29,7 @@ Fachliche Testszenarien bleiben in den konsumierenden Projekten. `SQL_Server_Lab
 
 ## Aktueller Status
 
-**Status:** `CONTAINER_CORE_IMPLEMENTED_HYPERV_ADDITIONAL_VHDX`
+**Status:** `CONTAINER_CORE_IMPLEMENTED_HYPERV_GUEST_DRIVE_ORCHESTRATION`
 
 | Bereich | Status | Nachweis |
 |---|---|---|
@@ -37,7 +37,7 @@ Fachliche Testszenarien bleiben in den konsumierenden Projekten. `SQL_Server_Lab
 | Docker-Provider | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman-Provider | implementiert | `Providers/Podman/PodmanProvider.ps1` |
 | Gemischter Docker-/Podman-Lifecycle | implementiert | `Documentation/Architecture/MIXED_PROVIDER_LIFECYCLE.md` |
-| Hyper-V-Provider | Lifecycle einschließlich run-lokaler Zusatz-VHDX, Image-Registry, Windows-Builder sowie PowerShell-Direct-Sysprep implementiert; Gastinitialisierung und OS-/SQL-Installation noch unvollständig | `Providers/HyperV/HyperVProvider.ps1`, `Private/HyperVImageBuilder.ps1` |
+| Hyper-V-Provider | Lifecycle einschließlich stabil identifizierter Zusatz-VHDX und PowerShell-Direct-Gastinitialisierung, Image-Registry und Windows-Builder implementiert; echter Windows-Gast-/SQL-End-to-End-Nachweis noch offen | `Providers/HyperV/HyperVProvider.ps1`, `Private/HyperVImageBuilder.ps1` |
 | Ad-hoc-Provisionierung | implementiert | `New-SqlServerLab -Version ... -Provider ...` |
 | Manifest-Provisionierung | implementiert | `Schemas/lab-manifest.schema.json` |
 | Resource Assessment | implementiert | `Test-SqlServerLabPrerequisite` |
@@ -52,6 +52,10 @@ Fachliche Testszenarien bleiben in den konsumierenden Projekten. `SQL_Server_Lab
 | Statische Konsistenzprüfung | implementiert | `Tests/Static/Invoke-DocumentationChecks.ps1` |
 
 Die [bekannten Grenzen](Documentation/Quality/KNOWN_LIMITATIONS.md) sind Teil des öffentlichen Vertrags. Planungsdokumente sind kein Runtime-Nachweis.
+
+`Invoke-SqlServerLab` und `New-SqlServerLab` bieten Hyper-V noch nicht als
+ausführbaren Menü-/SQL-Runtimepfad an. Der Provider bleibt intern, bis
+Windows-Specialization, Manifest-Binding und SQL Readiness vollständig sind.
 
 ## Voraussetzungen
 
