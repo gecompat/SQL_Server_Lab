@@ -154,6 +154,11 @@ Geprüft werden:
 
 ## Remote Runner
 
+Der Workflow `Static Contracts` führt `Tests/Static/Invoke-AllChecks.ps1` bei
+jeder Änderung an `main` und bei jedem Pull Request gegen `main` auf
+`windows-latest` und `ubuntu-latest` aus. Beide Matrix-Jobs sind als
+plattformübergreifende Pflichtchecks für Pull Requests vorgesehen.
+
 Die Runtime-Tests verwenden ausschließlich dafür gekennzeichnete Self-hosted Runner:
 
 | Workflow | Erforderliche Labels |
@@ -167,10 +172,17 @@ Die Workflows werden bewusst nicht auf einem generischen `self-hosted`-Runner au
 Remote-Läufe befinden sich unter:
 
 ```text
+.github/workflows/static-contracts.yml
+.github/workflows/adapter-smoke-github-hosted.yml
+.github/workflows/runtime-smoke-docker-github-hosted.yml
 .github/workflows/runtime-smoke-docker.yml
 .github/workflows/runtime-smoke-podman.yml
 .github/workflows/runtime-smoke-mixed-providers.yml
 ```
+
+Die Runtime-Workflows liefern echte Provider- und Restore-Nachweise. Sie sind
+nicht als verpflichtende Pull-Request-Checks konzipiert, weil ihre Verfügbarkeit
+von Runtimes, Images und den gekennzeichneten Self-hosted Runnern abhängt.
 
 ## Voraussetzungen
 
