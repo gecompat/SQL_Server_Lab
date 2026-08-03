@@ -331,14 +331,23 @@ function Invoke-LabHyperVImageAction {
         return
     }
 
-    Write-Host '  Hyper-V Windows-Image:' -ForegroundColor White
+    Write-Host '  Hyper-V Image-Lifecycle:' -ForegroundColor White
     Write-Host ''
-    Write-Host '    [1] Neuen Builder aus Media Root vorbereiten' -ForegroundColor Yellow
-    Write-Host '    [2] Build-Status anzeigen' -ForegroundColor White
-    Write-Host '    [3] Builder-VM starten und VMConnect oeffnen' -ForegroundColor White
+    Write-Host '    Windows-OS-Baseline' -ForegroundColor DarkGray
+    Write-Host '    [1] Neuen Windows-Builder aus Media Root vorbereiten' -ForegroundColor Yellow
+    Write-Host '    [2] Windows-Build-Status anzeigen' -ForegroundColor White
+    Write-Host '    [3] Windows-Builder starten und VMConnect oeffnen' -ForegroundColor White
     Write-Host '    [4] Installiertes Windows generalisieren' -ForegroundColor White
-    Write-Host '    [5] Generalisiertes Image veroeffentlichen' -ForegroundColor White
-    Write-Host '    [6] Unfertigen Builder aufraeumen' -ForegroundColor Red
+    Write-Host '    [5] Windows-Image veroeffentlichen' -ForegroundColor White
+    Write-Host '    [6] Unfertigen Windows-Builder aufraeumen' -ForegroundColor Red
+    Write-Host ''
+    Write-Host '    SQL-PrepareImage aus vorhandener OS-Baseline' -ForegroundColor DarkGray
+    Write-Host '    [7] Neuen SQL-Image-Builder vorbereiten' -ForegroundColor Yellow
+    Write-Host '    [8] SQL-Image-Build-Status anzeigen' -ForegroundColor White
+    Write-Host '    [9] SQL-Builder starten und VMConnect oeffnen' -ForegroundColor White
+    Write-Host '    [10] SQL PrepareImage und Windows-Sysprep ausfuehren' -ForegroundColor White
+    Write-Host '    [11] SQL-Prepared-Image veroeffentlichen' -ForegroundColor White
+    Write-Host '    [12] Unfertigen SQL-Builder aufraeumen' -ForegroundColor Red
     Write-Host '    [0] Zurueck' -ForegroundColor DarkGray
     Write-Host ''
     $choice = Read-Host '  Auswahl'
@@ -351,6 +360,12 @@ function Invoke-LabHyperVImageAction {
         '4' { Invoke-LabHyperVImageGeneralizationInteractive }
         '5' { Publish-LabHyperVImageBuildInteractive }
         '6' { Remove-LabHyperVImageBuildInteractive }
+        '7' { New-LabHyperVSqlImageBuildInteractive }
+        '8' { Show-LabHyperVSqlImageBuilds }
+        '9' { Start-LabHyperVSqlImageBuildInteractive }
+        '10' { Invoke-LabHyperVSqlPrepareInteractive }
+        '11' { Publish-LabHyperVSqlImageBuildInteractive }
+        '12' { Remove-LabHyperVSqlImageBuildInteractive }
         default { Write-LabWarning "Ungueltige Auswahl: $choice" }
     }
 }
@@ -630,6 +645,182 @@ function Remove-LabHyperVImageBuildInteractive {
         else {
             Write-LabError "Cleanup-Status: $($result.Status)"
         }
+    }
+    catch { Write-LabError $_.Exception.Message }
+}
+
+function Show-LabHyperVSqlImageBuilds {
+    [CmdletBinding()]
+    param()
+
+    $builds = @(Get-HyperVSqlImageBuildPlans)
+    if ($builds.Count -eq 0) {
+        Write-LabInfo 'Keine Hyper-V-SQL-Image-Builds vorhanden.'
+        return @()
+    }
+    Write-Host ''
+    Write-Host '  SQL-Image-Builds:' -ForegroundColor White
+    for ($i = 0; $i -lt $builds.Count; $i++) {
+        $build = $builds[$i]
+        $vmName = if ($build.builder) { [string]$build.builder.vmName } else { '-' }
+        Write-Host ("    [{0}] {1}  {2}" -f ($i + 1), $build.buildId, $build.state) -ForegroundColor White
+        Write-Host ("        SQL {0} {1} | VM: {2} | Parent: {3}" -f `
+            $build.sql.version, $build.sql.edition, $vmName, $build.parentArtifact.artifactId) -ForegroundColor DarkGray
+    }
+    return $builds
+}
+
+function Select-LabHyperVSqlImageBuild {
+    [CmdletBinding()]
+    param([string[]]$AllowedStates = @())
+
+    $builds = @(Get-HyperVSqlImageBuildPlans)
+    if ($AllowedStates.Count -gt 0) { $builds = @($builds | Where-Object state -In $AllowedStates) }
+    if ($builds.Count -eq 0) { Write-LabInfo 'Kein passender SQL-Image-Build vorhanden.'; return $null }
+    if ($builds.Count -eq 1) { return $builds[0] }
+    Write-Host ''
+    for ($i = 0; $i -lt $builds.Count; $i++) {
+        Write-Host "    [$($i + 1)] SQL $($builds[$i].sql.version) [$($builds[$i].state)] $($builds[$i].buildId)" -ForegroundColor White
+    }
+    $selection = Read-Host '  Build (Nummer)'
+    if ($selection -notmatch '^\d+$' -or [int]$selection -lt 1 -or [int]$selection -gt $builds.Count) {
+        Write-LabWarning 'Ungueltige Auswahl.'; return $null
+    }
+    return $builds[[int]$selection - 1]
+}
+
+function Select-LabHyperVOsArtifact {
+    [CmdletBinding()]
+    param()
+
+    $artifacts = @(Get-HyperVImageArtifact -SkipIntegrityCheck | Where-Object {
+        $_.artifactState -eq 'OS_SEALED' -and $_.operatingSystem.id -eq 'windows-server-2025'
+    })
+    if ($artifacts.Count -eq 0) { Write-LabError 'Keine Windows-Server-2025-OS_SEALED-Baseline vorhanden.'; return $null }
+    if ($artifacts.Count -eq 1) { return $artifacts[0] }
+    Write-Host ''
+    for ($i = 0; $i -lt $artifacts.Count; $i++) {
+        Write-Host "    [$($i + 1)] $($artifacts[$i].operatingSystem.edition) / $($artifacts[$i].operatingSystem.installationType)" -ForegroundColor White
+        Write-Host "        $($artifacts[$i].artifactId)" -ForegroundColor DarkGray
+    }
+    $selection = Read-Host '  OS-Baseline (Nummer)'
+    if ($selection -notmatch '^\d+$' -or [int]$selection -lt 1 -or [int]$selection -gt $artifacts.Count) {
+        Write-LabWarning 'Ungueltige Auswahl.'; return $null
+    }
+    return $artifacts[[int]$selection - 1]
+}
+
+function Show-LabHyperVSqlManualInstructions {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Build)
+
+    Write-Host ''
+    Write-Host '  Einmaliger Windows-OOBE-Schritt:' -ForegroundColor Yellow
+    Write-Host "    1. VM '$($Build.builder.vmName)' starten und in VMConnect oeffnen." -ForegroundColor White
+    Write-Host '    2. Ein lokales Administratorpasswort festlegen und einmal anmelden.' -ForegroundColor White
+    Write-Host '    3. Danach im Image-Menue Aktion 10 ausfuehren.' -ForegroundColor White
+    Write-Host '  SQL-Setup und Sysprep laufen danach ohne weitere GUI-Interaktion.' -ForegroundColor DarkGray
+    Write-Host '  Das Passwort wird weder im Repository noch im Build-State gespeichert.' -ForegroundColor DarkGray
+}
+
+function New-LabHyperVSqlImageBuildInteractive {
+    [CmdletBinding()]
+    param()
+
+    $defaultRoot = [string][Environment]::GetEnvironmentVariable('SQL_SERVER_LAB_MEDIA_ROOT')
+    $mediaRoot = Read-Host $(if ($defaultRoot) { "  Media Root [$defaultRoot]" } else { '  Media Root' })
+    if (-not $mediaRoot) { $mediaRoot = $defaultRoot }
+    if (-not $mediaRoot) { Write-LabError 'Media Root ist erforderlich.'; return }
+    $sqlVersion = Read-Host '  SQL Server Version: 2019, 2022 oder 2025 [2019]'
+    if (-not $sqlVersion) { $sqlVersion = '2019' }
+    if ($sqlVersion -notin @('2019', '2022', '2025')) { Write-LabError 'SQL-Version ist ungueltig.'; return }
+    $defaultEdition = if ($sqlVersion -eq '2025') { 'Enterprise' } else { 'Eval' }
+    $mediaEdition = Read-Host "  Medien-Edition [$defaultEdition]"
+    if (-not $mediaEdition) { $mediaEdition = $defaultEdition }
+    if ($mediaEdition -notin @('Eval', 'Enterprise', 'Standard')) { Write-LabError 'Medien-Edition ist ungueltig.'; return }
+    $artifact = Select-LabHyperVOsArtifact
+    if (-not $artifact) { return }
+
+    try {
+        $media = Resolve-HyperVSqlInstallationMedia -MediaRoot $mediaRoot -SqlVersion $sqlVersion -MediaEdition $mediaEdition
+        if ($media.HashStatus -eq 'MISSING') {
+            Write-LabWarning 'Fuer die SQL-ISO existiert noch kein SHA-256-Sidecar.'
+            Write-Host "  ISO: $($media.IsoPath)" -ForegroundColor DarkGray
+            if (-not (Read-LabConfirm -Prompt '  SHA-256 jetzt berechnen und lokal festschreiben?' -Default $false)) { return }
+            $media = New-HyperVSqlMediaHashSidecar -MediaRoot $mediaRoot -SqlVersion $sqlVersion -MediaEdition $mediaEdition
+        }
+        Write-Host "  Parent: $($artifact.artifactId)" -ForegroundColor DarkGray
+        Write-Host "  SQL:    $sqlVersion $mediaEdition; SQLENGINE, FULLTEXT, REPLICATION" -ForegroundColor DarkGray
+        Write-Host '  Die Evaluation-Ablaufzeit der OS-Baseline wird in das neue Artifact uebernommen.' -ForegroundColor DarkGray
+        if (-not (Read-LabConfirm -Prompt '  SQL-Image-Builder jetzt erzeugen?' -Default $false)) { return }
+        $build = Initialize-HyperVSqlPreparedImageBuild -MediaRoot $mediaRoot -ImageArtifactId $artifact.artifactId `
+            -SqlVersion $sqlVersion -MediaEdition $mediaEdition
+        Write-LabSuccess "SQL-Builder erstellt. BuildId: $($build.buildId)"
+        Show-LabHyperVSqlManualInstructions -Build $build
+        if (Read-LabConfirm -Prompt '  Builder starten und VMConnect oeffnen?' -Default $true) {
+            Open-LabHyperVImageBuildConsole -Build $build
+            Start-Sleep -Milliseconds 1500
+            $null = Start-HyperVSqlImageBuildVM -BuildId $build.buildId
+        }
+    }
+    catch { Write-LabError $_.Exception.Message }
+}
+
+function Start-LabHyperVSqlImageBuildInteractive {
+    [CmdletBinding()]
+    param()
+    $build = Select-LabHyperVSqlImageBuild -AllowedStates @('MANUAL_ACTION_REQUIRED', 'REBOOT_REQUIRED')
+    if (-not $build) { return }
+    Show-LabHyperVSqlManualInstructions -Build $build
+    Open-LabHyperVImageBuildConsole -Build $build
+    Start-Sleep -Milliseconds 1500
+    try { $null = Start-HyperVSqlImageBuildVM -BuildId $build.buildId } catch { Write-LabError $_.Exception.Message }
+}
+
+function Invoke-LabHyperVSqlPrepareInteractive {
+    [CmdletBinding()]
+    param()
+    $build = Select-LabHyperVSqlImageBuild -AllowedStates @('MANUAL_ACTION_REQUIRED', 'REBOOT_REQUIRED')
+    if (-not $build) { return }
+    $userName = Read-Host '  Lokaler Gast-Administrator [Administrator]'
+    if (-not $userName) { $userName = 'Administrator' }
+    $password = Read-Host '  Gastpasswort' -AsSecureString
+    $credential = [PSCredential]::new($userName, $password)
+    if (-not (Read-LabConfirm -Prompt '  SQL PrepareImage und anschliessend Windows-Sysprep ausfuehren?' -Default $false)) { return }
+    try {
+        $result = Invoke-HyperVSqlPrepareAndGeneralize -BuildId $build.buildId -Credential $credential
+        if ($result.state -eq 'REBOOT_REQUIRED') {
+            Write-LabInfo 'SQL Setup hat einen Neustart angefordert. Nach dem Neustart Aktion 10 erneut ausfuehren.'
+        }
+        else { Write-LabSuccess "SQL PrepareImage und Generalisierung verifiziert. State: $($result.state)" }
+    }
+    catch { Write-LabError $_.Exception.Message }
+}
+
+function Publish-LabHyperVSqlImageBuildInteractive {
+    [CmdletBinding()]
+    param()
+    $build = Select-LabHyperVSqlImageBuild -AllowedStates @('RESUME_PENDING')
+    if (-not $build) { return }
+    if (-not (Read-LabConfirm -Prompt '  SQL-Prepared-Image flatten und immutable veroeffentlichen?' -Default $false)) { return }
+    try {
+        $result = Publish-HyperVSqlPreparedImageBuild -BuildId $build.buildId
+        Write-LabSuccess "SQL-Prepared-Image veroeffentlicht: $($result.Artifact.artifactId)"
+    }
+    catch { Write-LabError $_.Exception.Message }
+}
+
+function Remove-LabHyperVSqlImageBuildInteractive {
+    [CmdletBinding()]
+    param()
+    $build = Select-LabHyperVSqlImageBuild -AllowedStates @('MEDIA_VERIFIED', 'MANUAL_ACTION_REQUIRED', 'REBOOT_REQUIRED', 'RESUME_PENDING', 'FAILED')
+    if (-not $build) { return }
+    Write-LabWarning "VM und buildlokale VHDX von '$($build.buildId)' werden entfernt."
+    if (-not (Read-LabConfirm -Prompt '  SQL-Builder wirklich aufraeumen?' -Default $false)) { return }
+    try {
+        $result = Remove-HyperVSqlImageBuild -BuildId $build.buildId
+        if ($result.Status -eq 'CLEANUP_SUCCEEDED') { Write-LabSuccess 'SQL-Builder-Ressourcen wurden entfernt.' }
+        else { Write-LabError "Cleanup-Status: $($result.Status)" }
     }
     catch { Write-LabError $_.Exception.Message }
 }

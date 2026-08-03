@@ -77,7 +77,7 @@ Labs unverändert maßgeblich.
 
 | Bereich | Aktueller Stand | Ziel |
 |---|---|---|
-| Hyper-V | Lifecycle- und Image-Registry-Grundlage | vollständiger, getesteter Lifecycle |
+| Hyper-V | Lifecycle, Image-Registry, OS-Builder und SQL-PrepareImage-Builder | vollständiger, getesteter regulärer Lab-Lifecycle |
 | Betriebssystem | nur `windows` oder `linux` | Version, Edition, Sprache, Architektur, Installationsart und Lizenzstatus |
 | Drives | `containerPath` und `tmpfs` geprägt | providerneutrale Rolle, `guestPath` und Provider-Binding |
 | Netzwerke | nicht im Manifest modelliert | Intent, IPAM, DNS und Exposure Policy |
@@ -246,6 +246,13 @@ Regeln:
 - ein neuer Evaluierungszeitraum beginnt ausschließlich durch zulässige
   Neuinstallation aus einem aktuellen Medium;
 - Referenzen verhindern die Bereinigung.
+
+Langlebige Daten werden von Media Root, Artifact Registry und Run-State
+getrennt. Ein ausdrücklich angegebener Data Root hält versionsgebundene
+Data-/Log-Bereiche und versionsübergreifende, verifizierte Backup-Übergaben.
+Ein Image-Refresh darf diesen Root nicht durch normalen Run-Cleanup entfernen.
+Die kanonische Übernahme erfolgt über Backup/Restore, nicht durch blindes
+Verschieben bereits aktualisierter MDF/LDF-Dateien zu einer älteren Version.
 
 Beispiel für den späteren Zielvertrag:
 

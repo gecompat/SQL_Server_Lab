@@ -84,6 +84,23 @@ try {
         $evaluationArtifact.license.evaluationExpiresAt.ToUniversalTime().ToString('o') -eq '2027-01-30T00:00:00.0000000Z'
     )
 
+    $sqlEvaluationArtifact = & $module {
+        param($SourcePath, $Sha256, $StateRoot, $Expiry)
+        Import-HyperVImageArtifact -VhdxPath $SourcePath -ExpectedSha256 $Sha256 `
+            -ArtifactState SQL_PREPARED_SEALED -OperatingSystemId windows-server-2025 `
+            -OperatingSystemVersion 2025 -Edition datacenter-evaluation -InstallationType core `
+            -LicenseType evaluation -IntegrityOrigin generated-by-runtime -Generalized -SqlPrepared `
+            -SqlVersion 2019 -SqlEdition Evaluation -SqlBuild 15.0.2000.5 `
+            -SqlFeatures SQLENGINE,FULLTEXT,REPLICATION -SqlLicenseType evaluation `
+            -EvaluationExpiresAt $Expiry -StateRoot $StateRoot
+    } $sourcePath $sha256 (Join-Path $temporaryRoot 'sql-evaluation-state') $evaluationExpiry
+    Add-CheckResult -Name 'SQL- und OS-Evaluation werden getrennt registriert' -Success (
+        $sqlEvaluationArtifact.license.evaluationExpiresAt -and
+        $sqlEvaluationArtifact.sql.license.type -eq 'evaluation' -and
+        $sqlEvaluationArtifact.sql.license.evaluationStartsAt -eq 'complete-image' -and
+        -not $sqlEvaluationArtifact.sql.license.evaluationExpiresAt
+    )
+
     $metadataConflictRejected = $false
     try {
         & $module {

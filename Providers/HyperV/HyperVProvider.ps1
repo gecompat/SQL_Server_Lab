@@ -25,6 +25,7 @@ function Test-HyperVAvailable {
     $requiredCommands = @(
         'Add-VMHardDiskDrive',
         'Add-VMDvdDrive',
+        'Convert-VHD',
         'Get-VM',
         'Get-VMHardDiskDrive',
         'Get-VMHost',

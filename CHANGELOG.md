@@ -8,6 +8,19 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- `Private/HyperVSqlImageBuilder.ps1` erzeugt aus einer vorhandenen
+  Windows-Server-2025-`OS_SEALED`-Baseline getrennte, resumierbare Builder für
+  SQL Server 2019, 2022 und 2025, führt `PrepareImage` und Windows-Sysprep über
+  PowerShell Direct aus und veröffentlicht erst nach `Convert-VHD` eine
+  eigenständige `SQL_PREPARED_SEALED`-VHDX;
+- Windows- und SQL-Evaluation werden getrennt modelliert. Bei SQL SysPrep wird
+  der 180-Tage-Zeitraum erst mit `CompleteImage` festgelegt; Developer-Medien
+  bleiben als nicht produktionsberechtigt markiert;
+- `Initialize-SqlServerLabDataRoot.ps1` erzeugt einen getrennten zentralen
+  Daten-Root mit Backup-Übergabeebene und versionsgebundenen Data-/Log-/TempDb-
+  Bereichen für SQL Server 2019, 2022 und 2025;
+- das Image-Menü bietet den SQL-PrepareImage-Lifecycle einschließlich
+  Medienhash, OOBE-Hinweis, Resume nach Setup-Neustart, Publikation und Cleanup;
 - die Ubuntu-Installationsanleitung trennt Anwender- und Entwicklungsbedarf und
   beschreibt PowerShell, Docker Engine, Podman, `mssql-tools18`, State und
   Self-hosted Runner aus offiziellen Paketquellen;

@@ -199,9 +199,13 @@ Heruntergeladene ISOs liegen nach Version und Edition unter `SQL`.
 Offizielle Quelle:
 [SQL Server Downloads](https://www.microsoft.com/en-us/sql-server/sql-server-downloads).
 
-Der aktuelle öffentliche Hyper-V-Pfad provisioniert SQL Server noch nicht
-automatisch. Die Medien werden für die nächste Image- und Provisionierungswelle
-operatorseitig bereitgehalten, aber nicht automatisch ausgeführt.
+Der Hyper-V-Image-Pfad kann diese Medien SHA-256-verifiziert an einen
+resumierbaren SQL-`PrepareImage`-Builder binden. Der Ablauf steht unter
+[SQL Server aus einer gemeinsamen Windows-Baseline](HYPERV_SQL_PREPARED_IMAGE.md).
+
+Datenbanken und Backups gehören nicht in den Media Root. Dafür wird ein
+getrennter [persistenter Data Root](PERSISTENT_DATA_AND_EVALUATION_REFRESH.md)
+verwendet.
 
 ## 8. Linux-Medien
 

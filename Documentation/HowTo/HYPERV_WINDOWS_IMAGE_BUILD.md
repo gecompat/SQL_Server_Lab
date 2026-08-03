@@ -204,7 +204,7 @@ des freigegebenen End-to-End-Pfads sind:
 
 - unattended Windows-Installation;
 - Updates während des Builds;
-- SQL Server `PrepareImage` und `CompleteImage`;
+- SQL Server `CompleteImage` und reguläre SQL-Lab-Runs;
 - Netzwerk, IPAM und regulärer Hyper-V-Lab-Run aus einem Manifest;
 - automatische SQL-Readiness auf einer realen Baseline.
 
@@ -227,7 +227,9 @@ Der ISO-Lauf deckte dabei einen Transaktionsfehler im Evaluation-Metadatum auf;
 dieser konkrete Build wurde korrekt als `FAILED` erhalten. Der korrigierte
 Publikationspfad wird durch Registry-, Builder- und Native-Lifecycle-Tests
 abgesichert. Ein vollständiger wiederholbarer ISO-Unattended-Build und der
-reale SQL-Server-Gastnachweis bleiben offen.
+reale SQL-Server-Gastnachweis bleiben offen. Der inzwischen implementierte
+SQL-`PrepareImage`-Builder ist unter
+[Hyper-V SQL-Prepared-Image](HYPERV_SQL_PREPARED_IMAGE.md) beschrieben.
 
 Die Grenzen werden zentral unter
 [Bekannte Einschränkungen](../Quality/KNOWN_LIMITATIONS.md) geführt.

@@ -105,6 +105,8 @@ function Import-HyperVImageArtifact {
         [string]$SqlEdition,
         [string]$SqlBuild,
         [string[]]$SqlFeatures = @(),
+        [ValidateSet('licensed', 'evaluation', 'developer')][string]$SqlLicenseType,
+        [Nullable[datetime]]$SqlEvaluationExpiresAt,
         [Nullable[datetime]]$EvaluationExpiresAt,
         [string]$StateRoot
     )
@@ -122,7 +124,7 @@ function Import-HyperVImageArtifact {
         throw 'HYPERV_ARTIFACT_NOT_GENERALIZED'
     }
     if ($ArtifactState -eq 'SQL_PREPARED_SEALED' -and
-        (-not $SqlPrepared -or -not $SqlVersion -or -not $SqlEdition)) {
+        (-not $SqlPrepared -or -not $SqlVersion -or -not $SqlEdition -or -not $SqlLicenseType)) {
         throw 'HYPERV_SQL_PREPARED_EVIDENCE_REQUIRED'
     }
     if ($ArtifactState -eq 'LIFECYCLE_TEST_ONLY' -and
@@ -133,6 +135,14 @@ function Import-HyperVImageArtifact {
         ([datetime]$EvaluationExpiresAt).ToUniversalTime().ToString('o')
     }
     else { $null }
+    $sqlEvaluationExpiresAtUtc = if ($SqlEvaluationExpiresAt) {
+        ([datetime]$SqlEvaluationExpiresAt).ToUniversalTime().ToString('o')
+    }
+    else { $null }
+    if ($SqlLicenseType -eq 'evaluation' -and $SqlEvaluationExpiresAt -and
+        ([datetime]$SqlEvaluationExpiresAt).ToUniversalTime() -le [datetime]::UtcNow) {
+        throw 'HYPERV_SQL_EVALUATION_EXPIRED'
+    }
 
     $stateToken = $ArtifactState.ToLowerInvariant().Replace('_', '-')
     $artifactId = "hyperv-$stateToken-$sha256"
@@ -153,6 +163,8 @@ function Import-HyperVImageArtifact {
                 [bool]$existing.sqlPrepared -eq [bool]$SqlPrepared -and
                 [string]$existing.sql.version -eq [string]$SqlVersion -and
                 [string]$existing.sql.edition -eq [string]$SqlEdition -and
+                [string]$existing.sql.license.type -eq [string]$SqlLicenseType -and
+                [string]$existing.sql.license.evaluationExpiresAt -eq [string]$sqlEvaluationExpiresAtUtc -and
                 (@($existing.sql.features | Sort-Object -Unique) -join '|') -eq (@($SqlFeatures | Sort-Object -Unique) -join '|')
             if (-not $metadataCompatible) { throw 'HYPERV_ARTIFACT_METADATA_CONFLICT' }
             return $existing
@@ -183,6 +195,11 @@ function Import-HyperVImageArtifact {
                 }
                 sql                   = if ($SqlVersion) { [PSCustomObject]@{
                     version = $SqlVersion; edition = $SqlEdition; build = $SqlBuild; features = @($SqlFeatures | Sort-Object -Unique)
+                    license = [PSCustomObject]@{
+                        type = $SqlLicenseType
+                        evaluationStartsAt = if ($SqlLicenseType -eq 'evaluation' -and -not $sqlEvaluationExpiresAtUtc) { 'complete-image' } else { $null }
+                        evaluationExpiresAt = $sqlEvaluationExpiresAtUtc
+                    }
                 }} else { $null }
                 license               = [PSCustomObject]@{
                     type = $LicenseType
