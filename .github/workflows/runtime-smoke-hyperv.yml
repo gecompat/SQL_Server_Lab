@@ -1,0 +1,53 @@
+name: Runtime Smoke - Hyper-V Lifecycle
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'Private/CleanupEngine.ps1'
+      - 'Private/ResourceAssessment.ps1'
+      - 'Providers/HyperV/**'
+      - 'Tests/Integration/Invoke-HyperVSmokeTest.ps1'
+      - 'Tests/Static/Invoke-HyperVProviderChecks.ps1'
+      - 'Tests/Static/Invoke-AllChecks.ps1'
+      - '.github/workflows/runtime-smoke-hyperv.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sql-server-lab-runtime-smoke-hyperv
+  cancel-in-progress: false
+
+jobs:
+  hyperv-lifecycle-smoke:
+    name: Hyper-V Generation 2 lifecycle foundation
+    runs-on: [self-hosted, SQL_Lab, Hyper-V]
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Hyper-V preflight
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSVersionTable.PSVersion
+          $null = Get-VMHost -ErrorAction Stop
+          Get-Command New-VM, New-VHD, Get-VMFirmware -ErrorAction Stop
+
+      - name: Static contracts
+        run: |
+          $ErrorActionPreference = 'Stop'
+          .\Tests\Static\Invoke-AllChecks.ps1
+
+      - name: Hyper-V lifecycle smoke
+        run: |
+          $ErrorActionPreference = 'Stop'
+          .\Tests\Integration\Invoke-HyperVSmokeTest.ps1

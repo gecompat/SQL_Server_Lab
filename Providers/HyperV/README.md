@@ -2,8 +2,8 @@
 
 | Merkmal | Wert |
 |---|---|
-| Status | `PLANNED` |
-| Runtime-Status | `NOT_IMPLEMENTED` |
+| Status | `PARTIALLY_IMPLEMENTED` |
+| Runtime-Status | `LIFECYCLE_FOUNDATION` |
 | Verbindlicher Zielvertrag | [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](../../Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md) |
 | Artifact-Ergänzung | [Testdatenbank-Provisionierung und Manifest-Wizard](../../Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md) |
 
@@ -15,17 +15,26 @@ eine vollständige VM, Windows Authentication, native Windows-Dienste,
 zusätzliche virtuelle Drives, mehrere NICs, WSFC, Availability Groups oder
 plattformgebundene SQL-Features benötigen.
 
-Ein Verzeichnis oder Planungsdokument ist kein Runtime-Nachweis. Aktuell
-existieren keine ausführbaren Hyper-V-Providerfunktionen.
+`HyperVProvider.ps1` implementiert die erste ausführbare Lifecycle-Grundlage:
 
-## Geplanter Providerumfang
+- read-only Parent-VHDX mit expliziter SHA-256-Prüfung;
+- Differencing Child innerhalb des Run-Verzeichnisses;
+- Generation 2 und Secure Boot mit Windows-Template;
+- Status, Start, Stop, Remove und PowerShell Direct;
+- VM-Identität über RunId, ScopeId und InstanceId;
+- Cleanup-Plan vor der ersten Provider-Mutation;
+- eigener synthetischer Native-Smoke-Test ohne Betriebssystem, Netzwerk oder SQL.
 
-- Capability- und Prerequisite-Prüfung;
-- VM-Erstellung aus verifizierten sealed Parent-VHDX;
-- Generation 2 und Secure Boot als Default;
-- Windows Guest Management über PowerShell Direct;
+Der Slice ist kein SQL-Runtime-Nachweis. `New-SqlServerLab` provisioniert noch
+keine Hyper-V-Instanz und die Provider-Metadaten setzen `sqlProvisioning` daher
+explizit auf `false`.
+
+## Verbleibender Providerumfang
+
+- OS-Artifact-Registry und resumierbare Image-Pipeline;
+- Windows-Specialization und validierte PowerShell-Direct-Ausführung im Gast;
 - Linux Guest Management über cloud-init und SSH;
-- Start, Stop, Restart, Status, Remove und scope-sicherer Cleanup;
+- Restart und Einbindung in die öffentlichen Run-Lifecycle-Cmdlets;
 - zusätzliche VHDX und providerneutrale Drive-Rollen;
 - Management- und Lab-Netze;
 - resumierbare OS- und SQL-Server-Installation;

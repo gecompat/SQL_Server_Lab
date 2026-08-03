@@ -1,0 +1,41 @@
+{
+  "name": "hyperv",
+  "displayName": "Microsoft Hyper-V",
+  "description": "Generation-2-VM-Lifecycle aus einer verifizierten read-only Parent-VHDX.",
+  "runtimeStatus": "lifecycle-foundation",
+  "sqlProvisioning": false,
+  "capabilities": [
+    "windows-host",
+    "generation-2",
+    "secure-boot",
+    "differencing-disk",
+    "powershell-direct",
+    "scope-bound-cleanup"
+  ],
+  "limitations": [
+    "no-os-image-pipeline",
+    "no-guest-specialization",
+    "no-sql-provisioning",
+    "no-network-binding",
+    "no-additional-drives"
+  ],
+  "detectionCommand": "Get-VMHost",
+  "healthCheck": "Get-VMHost",
+  "module": "HyperVProvider.ps1",
+  "requirements": {
+    "os": "windows",
+    "commands": [
+      "Get-VM",
+      "Get-VMHost",
+      "Get-VMNetworkAdapter",
+      "New-VM",
+      "New-VHD",
+      "Remove-VMNetworkAdapter"
+    ],
+    "runnerLabels": [
+      "self-hosted",
+      "SQL_Lab",
+      "Hyper-V"
+    ]
+  }
+}

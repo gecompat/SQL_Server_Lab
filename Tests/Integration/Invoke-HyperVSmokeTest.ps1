@@ -1,0 +1,151 @@
+#Requires -Version 7.2
+<#
+.SYNOPSIS
+    Native-Smoke-Test fuer die Hyper-V-Lifecycle-Grundlage.
+.DESCRIPTION
+    Erzeugt eine kleine synthetische read-only Parent-VHDX und prueft daraus
+    eine Generation-2-VM mit Differencing Child, Secure Boot, Status, Start,
+    Stop und scopegebundenem Cleanup. Der Test installiert weder ein
+    Betriebssystem noch SQL Server und verwendet kein Netzwerk.
+.PARAMETER KeepOnFailure
+    Behaelt Testressourcen fuer eine lokale Diagnose. Nicht fuer CI verwenden.
+#>
+[CmdletBinding()]
+param([switch]$KeepOnFailure)
+
+$ErrorActionPreference = 'Stop'
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+$modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
+$testRoot = Join-Path ([System.IO.Path]::GetTempPath()) "sql-lab-hyperv-smoke-$([guid]::NewGuid().ToString('N'))"
+$runDirectory = Join-Path $testRoot 'run'
+$parentPath = Join-Path $testRoot 'synthetic-parent.vhdx'
+$runId = [guid]::NewGuid().ToString()
+$scopeId = [guid]::NewGuid().ToString()
+$instance = $null
+$module = $null
+$cleanupComplete = $false
+$mutexName = 'Global\SQL_Server_Lab_Runtime_Smoke'
+$mutex = [System.Threading.Mutex]::new($false, $mutexName)
+$mutexAcquired = $false
+
+function Assert-HyperVSmoke {
+    param(
+        [Parameter(Mandatory)][bool]$Condition,
+        [Parameter(Mandatory)][string]$Description
+    )
+    if (-not $Condition) {
+        throw $Description
+    }
+    Write-Host "PASS: $Description" -ForegroundColor Green
+}
+
+try {
+    $mutexAcquired = $mutex.WaitOne([TimeSpan]::FromMinutes(10))
+    if (-not $mutexAcquired) {
+        throw 'Runtime-Smoke-Hostlock konnte innerhalb von 10 Minuten nicht erworben werden.'
+    }
+
+    New-Item -Path $runDirectory -ItemType Directory -Force | Out-Null
+    Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
+    $module = Import-Module $modulePath -Force -PassThru
+
+    $availability = & $module { Test-HyperVAvailable }
+    Assert-HyperVSmoke -Condition $availability.Available -Description 'Hyper-V-Host ist erreichbar'
+
+    $null = New-VHD -Path $parentPath -Dynamic -SizeBytes 64MB -ErrorAction Stop
+    (Get-Item -LiteralPath $parentPath).IsReadOnly = $true
+    $parentHash = (Get-FileHash -LiteralPath $parentPath -Algorithm SHA256).Hash
+
+    $instance = & $module {
+        param($RunDirectory, $RunId, $ScopeId, $ParentPath, $ParentHash)
+        $providerSubRuns = @([PSCustomObject]@{ id = 'provider-hyperv'; provider = 'hyperv' })
+        $null = New-CleanupPlan `
+            -RunDir $RunDirectory `
+            -RunId $RunId `
+            -ScopeId $ScopeId `
+            -ProviderSubRuns $providerSubRuns
+        New-HyperVInstance `
+            -ParentVhdxPath $ParentPath `
+            -ParentSha256 $ParentHash `
+            -RunDirectory $RunDirectory `
+            -RunId $RunId `
+            -ScopeId $ScopeId `
+            -InstanceId 'lifecycle-smoke' `
+            -MemoryStartupBytes 512MB `
+            -ProcessorCount 1
+    } $runDirectory $runId $scopeId $parentPath $parentHash
+
+    Assert-HyperVSmoke -Condition ($instance.Provider -eq 'hyperv') -Description 'Providerbindung ist hyperv'
+    Assert-HyperVSmoke -Condition (-not $instance.SqlReady) -Description 'Lifecycle-Slice behauptet keine SQL-Bereitschaft'
+    Assert-HyperVSmoke -Condition (Test-Path -LiteralPath $instance.ChildVhdxPath -PathType Leaf) -Description 'Differencing Child-VHDX wurde erzeugt'
+
+    $createdStatus = & $module {
+        param($VMName, $RunId, $ScopeId)
+        Get-HyperVInstanceStatus -VMName $VMName -ExpectedRunId $RunId -ExpectedScopeId $ScopeId
+    } $instance.VMName $runId $scopeId
+    Assert-HyperVSmoke -Condition ($createdStatus.Exists -and $createdStatus.State -eq 'Off') -Description 'Generation-2-VM ist initial ausgeschaltet'
+
+    $vm = Get-VM -Name $instance.VMName -ErrorAction Stop
+    Assert-HyperVSmoke -Condition ($vm.Generation -eq 2) -Description 'VM verwendet Generation 2'
+    $firmware = Get-VMFirmware -VM $vm -ErrorAction Stop
+    Assert-HyperVSmoke -Condition ($firmware.SecureBoot -eq 'On') -Description 'Secure Boot ist aktiviert'
+    Assert-HyperVSmoke -Condition (@(Get-VMNetworkAdapter -VM $vm).Count -eq 0) -Description 'Smoke-VM besitzt keine Netzwerkverbindung'
+
+    $started = & $module {
+        param($VMName, $RunId, $ScopeId)
+        Start-HyperVInstance -VMName $VMName -ExpectedRunId $RunId -ExpectedScopeId $ScopeId
+    } $instance.VMName $runId $scopeId
+    Assert-HyperVSmoke -Condition ($started.State -eq 'Running') -Description 'VM wurde gestartet'
+
+    $stopped = & $module {
+        param($VMName, $RunId, $ScopeId)
+        Stop-HyperVInstance -VMName $VMName -ExpectedRunId $RunId -ExpectedScopeId $ScopeId
+    } $instance.VMName $runId $scopeId
+    Assert-HyperVSmoke -Condition ($stopped.State -eq 'Off') -Description 'VM wurde gestoppt'
+
+    $cleanup = & $module {
+        param($RunDirectory, $ScopeId)
+        Invoke-CleanupPlan -RunDir $RunDirectory -ScopeId $ScopeId
+    } $runDirectory $scopeId
+    Assert-HyperVSmoke -Condition ($cleanup.Status -eq 'CLEANUP_SUCCEEDED') -Description 'Scopegebundener Cleanup war erfolgreich'
+    Assert-HyperVSmoke -Condition (-not (Get-VM -Name $instance.VMName -ErrorAction SilentlyContinue)) -Description 'VM wurde entfernt'
+    Assert-HyperVSmoke -Condition (-not (Test-Path -LiteralPath $instance.ChildVhdxPath)) -Description 'Child-VHDX wurde entfernt'
+    Assert-HyperVSmoke -Condition (Test-Path -LiteralPath $parentPath -PathType Leaf) -Description 'Parent-VHDX blieb erhalten'
+    $cleanupComplete = $true
+}
+finally {
+    if (-not $KeepOnFailure) {
+        if ($module -and -not $cleanupComplete -and (Test-Path -LiteralPath (Join-Path $runDirectory 'cleanup-plan.json'))) {
+            try {
+                $null = & $module {
+                    param($RunDirectory, $ScopeId)
+                    Invoke-CleanupPlan -RunDir $RunDirectory -ScopeId $ScopeId
+                } $runDirectory $scopeId
+            }
+            catch {
+                Write-Warning "Hyper-V-Smoke-Cleanup fehlgeschlagen: $($_.Exception.Message)"
+            }
+        }
+
+        if (Test-Path -LiteralPath $parentPath -PathType Leaf) {
+            (Get-Item -LiteralPath $parentPath).IsReadOnly = $false
+        }
+        $safeTempRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath())
+        $resolvedTestRoot = [System.IO.Path]::GetFullPath($testRoot)
+        if (
+            $resolvedTestRoot.StartsWith($safeTempRoot, [System.StringComparison]::OrdinalIgnoreCase) -and
+            (Split-Path -Leaf $resolvedTestRoot) -like 'sql-lab-hyperv-smoke-*' -and
+            (Test-Path -LiteralPath $resolvedTestRoot -PathType Container)
+        ) {
+            Remove-Item -LiteralPath $resolvedTestRoot -Recurse -Force
+        }
+    }
+
+    Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
+    if ($mutexAcquired) {
+        $mutex.ReleaseMutex()
+    }
+    $mutex.Dispose()
+}
+
+Write-Host 'Hyper-V-Lifecycle-Smoke-Test erfolgreich.' -ForegroundColor Green

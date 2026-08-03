@@ -114,17 +114,17 @@ function Get-CleanupStepProvider {
         [string[]]$RunProviders = @()
     )
 
-    if ($Step.provider -in @('docker', 'podman')) {
+    if ($Step.provider -in @('docker', 'podman', 'hyperv')) {
         return [string]$Step.provider
     }
 
     $compensationText = [string]$Step.compensation
-    if ($compensationText -match '^\s*(docker|podman)\b') {
+    if ($compensationText -match '^\s*(docker|podman|hyperv)\b') {
         return $Matches[1].ToLowerInvariant()
     }
 
     $uniqueProviders = @($RunProviders | Where-Object { $_ } | Sort-Object -Unique)
-    if ($uniqueProviders.Count -eq 1 -and $uniqueProviders[0] -in @('docker', 'podman')) {
+    if ($uniqueProviders.Count -eq 1 -and $uniqueProviders[0] -in @('docker', 'podman', 'hyperv')) {
         return [string]$uniqueProviders[0]
     }
 
@@ -173,6 +173,31 @@ function Remove-LabRuntimeResourceForCleanup {
     & $Provider $ResourceType rm $ResourceId 1>$null 2>$null
     if ($LASTEXITCODE -ne 0) {
         throw "$Provider konnte $ResourceType '$ResourceId' nicht entfernen."
+    }
+}
+
+function Remove-LabHyperVResourceForCleanup {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][ValidateSet('vm', 'vhdx')][string]$ResourceType,
+        [Parameter(Mandatory)][string]$ResourceId,
+        [Parameter(Mandatory)][string]$ExpectedScopeId,
+        [Parameter(Mandatory)][string]$RunDir
+    )
+
+    switch ($ResourceType) {
+        'vm' {
+            $null = Remove-HyperVInstance `
+                -VMName $ResourceId `
+                -ExpectedScopeId $ExpectedScopeId `
+                -ExpectedRunDirectory $RunDir `
+                -PreserveVhdx
+        }
+        'vhdx' {
+            $null = Remove-HyperVVhdxForCleanup `
+                -Path $ResourceId `
+                -ExpectedRunDirectory $RunDir
+        }
     }
 }
 
@@ -280,6 +305,26 @@ function Invoke-CleanupPlan {
                         -Provider $provider `
                         -ResourceType 'network' `
                         -ResourceId $step.resourceId
+                }
+                'vm' {
+                    if ($provider -ne 'hyperv') {
+                        throw "VM-Cleanup erfordert den Provider 'hyperv'."
+                    }
+                    Remove-LabHyperVResourceForCleanup `
+                        -ResourceType 'vm' `
+                        -ResourceId $step.resourceId `
+                        -ExpectedScopeId $ScopeId `
+                        -RunDir $RunDir
+                }
+                'vhdx' {
+                    if ($provider -ne 'hyperv') {
+                        throw "VHDX-Cleanup erfordert den Provider 'hyperv'."
+                    }
+                    Remove-LabHyperVResourceForCleanup `
+                        -ResourceType 'vhdx' `
+                        -ResourceId $step.resourceId `
+                        -ExpectedScopeId $ScopeId `
+                        -RunDir $RunDir
                 }
                 default {
                     throw "Unbekannter Cleanup-Ressourcentyp: $($step.resourceType)"

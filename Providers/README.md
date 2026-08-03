@@ -15,11 +15,13 @@ Ein Verzeichnis allein registriert keinen implementierten Provider.
 |---|---|---|---|
 | [Docker](Docker/) | implementiert | `docker info` | `Docker/DockerProvider.ps1` |
 | [Podman](Podman/) | implementiert | `podman info` | `Podman/PodmanProvider.ps1` |
-| [Hyper-V](HyperV/) | geplant | später `Get-VM` | noch keine Providerimplementierung |
+| [Hyper-V](HyperV/) | Lifecycle-Grundlage | `Get-VMHost` | `HyperV/HyperVProvider.ps1`; noch keine SQL-Provisionierung |
 
-Der verbindliche, noch nicht implementierte Zielvertrag für Hyper-V, sealed
-Images, Drives, Network Intents, Software, Reconcile und Artifact Refresh steht
-in
+Die implementierte Hyper-V-Grundlage umfasst Generation 2, Secure Boot,
+verifizierte read-only Parent-VHDX, Differencing Child, Status, Start, Stop,
+PowerShell Direct und scopegebundenen Cleanup. Der weiterführende Zielvertrag
+für OS-/SQL-Provisionierung, Drives, Network Intents, Software, Reconcile und
+Artifact Refresh steht in
 [HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md](../Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md).
 
 ## Provider-Interface
@@ -73,4 +75,5 @@ Gemeinsam zu pflegen sind:
 7. statische Prüfung;
 8. eigener Native-Smoke-Test.
 
-Hyper-V darf erst als implementiert bezeichnet werden, wenn eine echte Providerdatei und ein reproduzierbarer lokaler Test vorhanden sind.
+Die Hyper-V-Lifecycle-Grundlage darf nicht als SQL-fertiger Hyper-V-Provider
+bezeichnet werden, solange OS-/SQL-Provisionierung und SQL Readiness fehlen.

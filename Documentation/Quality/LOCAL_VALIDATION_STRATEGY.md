@@ -139,15 +139,15 @@ Der Test erzeugt ausschließlich synthetische Testobjekte.
 
 | Fähigkeit | Docker | Podman | Hyper-V |
 |---|---:|---:|---:|
-| Resource Assessment | implementiert | implementiert | geplant |
+| Resource Assessment | implementiert | implementiert | Lifecycle-Verfügbarkeit implementiert |
 | einzelne SQL-Instanz | implementiert | implementiert | geplant |
 | Health und SQL Readiness | implementiert | implementiert | geplant |
 | Datenbankerstellung | implementiert | implementiert | geplant |
 | T-SQL-Skriptausführung | implementiert | implementiert | geplant |
-| Live-Status | implementiert | implementiert | geplant |
-| Stop und Start | implementiert | implementiert | geplant |
-| Remove | implementiert | implementiert | geplant |
-| eigener Smoke-Test-Aufruf | vorhanden | vorhanden | nicht vorhanden |
+| Live-Status | implementiert | implementiert | Lifecycle-Grundlage implementiert |
+| Stop und Start | implementiert | implementiert | Lifecycle-Grundlage implementiert |
+| Remove | implementiert | implementiert | scopegebundene Grundlage implementiert |
+| eigener Smoke-Test-Aufruf | vorhanden | vorhanden | vorhanden, ohne OS/SQL |
 | gemischter Provider-Run | nicht unterstützt | nicht unterstützt | nicht unterstützt |
 
 `implementiert` bedeutet, dass Code und Testpfad vorhanden sind. `validiert` darf nur für einen tatsächlich erfolgreich ausgeführten lokalen Lauf verwendet werden.
@@ -297,6 +297,16 @@ Ein nicht verfügbarer Provider darf nicht als `PASS` behandelt werden.
 .\Tests\Integration\Invoke-RestoreSmokeTest.ps1 -Provider podman
 ```
 
+### Hyper-V-Lifecycle betroffen
+
+```powershell
+.\Tests\Static\Invoke-AllChecks.ps1
+.\Tests\Integration\Invoke-HyperVSmokeTest.ps1
+```
+
+Der Hyper-V-Smoke-Test ist nur ein VM-/VHDX-Lifecycle-Nachweis. Ein erfolgreicher
+Lauf ist kein Betriebssystem-, PowerShell-Direct-Postcondition- oder SQL-Nachweis.
+
 Nicht verfügbare Native-Tests müssen im Pull Request mit Grund als `NOT_EXECUTED` angegeben werden.
 
 ## 14. Roadmap
@@ -308,7 +318,8 @@ Verbleibende priorisierte Ergänzungen:
 3. weitere Fault-Injection-Pfade für Portbindung, Runtimeabbruch und
    teilweise Orphan-Bereinigung;
 4. zusätzliche Fremdobjekt- und Pfadsicherheitstests;
-5. Hyper-V-Tests erst nach echter Providerimplementierung.
+5. Hyper-V-Windows-Specialization, PowerShell-Direct-Postcondition und
+   SQL-Provisionierung nach der validierten Lifecycle-Grundlage.
 
 Bereits umgesetzt sind vollständige Schema-Prüfungen, die lokal steuerbare
 Version-/Provider-Matrix, ein synthetischer echter Backup-/Restore-Test, ein

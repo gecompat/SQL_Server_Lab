@@ -10,7 +10,14 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 - der GitHub-hosted Workflow `Static Contracts` führt die vollständige statische
   Suite auf Windows und Ubuntu aus und stellt stabile Pull-Request-Checks für
-  die Branch-Protection bereit.
+  die Branch-Protection bereit;
+- `Providers/HyperV/HyperVProvider.ps1` implementiert die erste Hyper-V-
+  Lifecycle-Grundlage mit verifizierter read-only Parent-VHDX, Differencing
+  Child, Generation 2, Secure Boot, Status, Start, Stop, PowerShell Direct und
+  scopegebundenem Cleanup;
+- der getrennte Native-Smoke-Test `Invoke-HyperVSmokeTest.ps1` und der Workflow
+  `Runtime Smoke - Hyper-V Lifecycle` prüfen VM-/VHDX-Erstellung und Cleanup
+  ohne Betriebssystem-, Netzwerk- oder SQL-Provisionierung.
 
 ### Geändert
 
