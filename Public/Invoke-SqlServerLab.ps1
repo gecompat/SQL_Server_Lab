@@ -376,6 +376,7 @@ function Invoke-LabHyperVImageAction {
     Write-Host '    [14] SQL-Abnahmetest ausfuehren' -ForegroundColor White
     Write-Host '    [15] SQL-2019/2022/2025-Abnahmematrix anzeigen' -ForegroundColor White
     Write-Host '    [16] OOBE manuell abgeschlossen: uebernehmen und vollstaendiges SQL installieren' -ForegroundColor White
+    Write-Host '    [17] Nach Sysprep ohne Gastpasswort offline pruefen und Prepared-Image fortsetzen' -ForegroundColor Yellow
     Write-Host '    [0] Zurueck' -ForegroundColor DarkGray
     Write-Host ''
     $choice = Read-Host '  Auswahl'
@@ -398,6 +399,7 @@ function Invoke-LabHyperVImageAction {
         '14' { Test-LabHyperVSqlAcceptanceInteractive }
         '15' { Show-LabHyperVSqlAcceptanceMatrix }
         '16' { Invoke-LabHyperVSqlManualOobeAcceptanceInstallInteractive }
+        '17' { Resume-LabHyperVSqlPreparedImageGeneralizationInteractive }
         default { Write-LabWarning "Ungueltige Auswahl: $choice" }
     }
 }
@@ -876,6 +878,26 @@ function Remove-LabHyperVSqlImageBuildInteractive {
         $result = Remove-HyperVSqlImageBuild -BuildId $build.buildId
         if ($result.Status -eq 'CLEANUP_SUCCEEDED') { Write-LabSuccess 'SQL-Builder-Ressourcen wurden entfernt.' }
         else { Write-LabError "Cleanup-Status: $($result.Status)" }
+    }
+    catch { Write-LabError $_.Exception.Message }
+}
+
+function Resume-LabHyperVSqlPreparedImageGeneralizationInteractive {
+    [CmdletBinding()]
+    param()
+
+    $build = Select-LabHyperVSqlImageBuild -AllowedStates @('MANUAL_ACTION_REQUIRED') -RequireExistingVm
+    if (-not $build) { return }
+    if (-not $build.setupEvidence -or [string]$build.setupEvidence.action -ne 'PrepareImage') {
+        Write-LabInfo 'Dieser Builder besitzt noch kein erfolgreiches SQL-PrepareImage und kann nicht offline uebernommen werden.'
+        return
+    }
+    Write-LabWarning "Die VM '$($build.builder.vmName)' wird ausgeschaltet und ihr Windows-ImageState offline geprueft."
+    Write-Host '  Diese Aktion ist nur fuer eine unterbrochene Wiederaufnahme nach SQL PrepareImage/Sysprep gedacht.' -ForegroundColor DarkGray
+    if (-not (Read-LabConfirm -Prompt '  Offline-Wiederaufnahme jetzt ausfuehren?' -Default $false)) { return }
+    try {
+        $result = Resume-HyperVSqlPreparedImageGeneralization -BuildId $build.buildId
+        Write-LabSuccess "Generalisierung offline verifiziert. State: $($result.state). Als Naechstes Aktion 11 waehlen."
     }
     catch { Write-LabError $_.Exception.Message }
 }
