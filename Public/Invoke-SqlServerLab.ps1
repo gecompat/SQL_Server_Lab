@@ -352,6 +352,9 @@ function Invoke-LabHyperVImageAction {
 
     Write-Host '  Hyper-V Image-Lifecycle:' -ForegroundColor White
     Write-Host ''
+    Write-Host '    Hinweis: Je Builder genau einen der unten beschriebenen Pfade verwenden.' -ForegroundColor Yellow
+    Write-Host '    Prepared Image: 7 -> 9 (OOBE manuell) -> 10 -> 11 | Abnahme-VM: 7 -> 13 -> 14' -ForegroundColor DarkGray
+    Write-Host ''
     Write-Host '    Windows-OS-Baseline' -ForegroundColor DarkGray
     Write-Host '    [1] Neuen Windows-Builder aus Media Root vorbereiten' -ForegroundColor Yellow
     Write-Host '    [2] Windows-Build-Status anzeigen' -ForegroundColor White
@@ -363,16 +366,16 @@ function Invoke-LabHyperVImageAction {
     Write-Host '    SQL-PrepareImage aus vorhandener OS-Baseline' -ForegroundColor DarkGray
     Write-Host '    [7] Neuen SQL-Image-Builder vorbereiten' -ForegroundColor Yellow
     Write-Host '    [8] SQL-Image-Build-Status anzeigen' -ForegroundColor White
-    Write-Host '    [9] SQL-Builder starten und VMConnect oeffnen' -ForegroundColor White
-    Write-Host '    [10] SQL PrepareImage und Windows-Sysprep ausfuehren' -ForegroundColor White
+    Write-Host '    [9] SQL-Builder starten; OOBE fuer Prepared-Image manuell abschliessen' -ForegroundColor White
+    Write-Host '    [10] SQL PrepareImage automatisch installieren und Windows-Sysprep ausfuehren' -ForegroundColor White
     Write-Host '    [11] SQL-Prepared-Image veroeffentlichen' -ForegroundColor White
     Write-Host '    [12] Unfertigen SQL-Builder aufraeumen' -ForegroundColor Red
     Write-Host ''
-    Write-Host '    Windows-SQL-Abnahmeumgebungen' -ForegroundColor DarkGray
-    Write-Host '    [13] OOBE und SQL vollautomatisch installieren' -ForegroundColor Yellow
+    Write-Host '    Run-lokale Windows-SQL-Abnahmeumgebung (Alternative zu 9 -> 10 -> 11)' -ForegroundColor DarkGray
+    Write-Host '    [13] OOBE und vollstaendiges SQL automatisch installieren' -ForegroundColor Yellow
     Write-Host '    [14] SQL-Abnahmetest ausfuehren' -ForegroundColor White
     Write-Host '    [15] SQL-2019/2022/2025-Abnahmematrix anzeigen' -ForegroundColor White
-    Write-Host '    [16] Manuell abgeschlossene OOBE uebernehmen und SQL installieren' -ForegroundColor White
+    Write-Host '    [16] OOBE manuell abgeschlossen: uebernehmen und vollstaendiges SQL installieren' -ForegroundColor White
     Write-Host '    [0] Zurueck' -ForegroundColor DarkGray
     Write-Host ''
     $choice = Read-Host '  Auswahl'
@@ -703,10 +706,26 @@ function Show-LabHyperVSqlImageBuilds {
 
 function Select-LabHyperVSqlImageBuild {
     [CmdletBinding()]
-    param([string[]]$AllowedStates = @())
+    param(
+        [string[]]$AllowedStates = @(),
+        [switch]$RequireExistingVm
+    )
 
     $builds = @(Get-HyperVSqlImageBuildPlans)
     if ($AllowedStates.Count -gt 0) { $builds = @($builds | Where-Object state -In $AllowedStates) }
+    if ($RequireExistingVm) {
+        $availableBuilds = [System.Collections.Generic.List[object]]::new()
+        foreach ($candidate in $builds) {
+            if (-not $candidate.builder -or -not [string]$candidate.builder.vmName) { continue }
+            try {
+                $managed = Get-HyperVManagedVM -VMName ([string]$candidate.builder.vmName) `
+                    -ExpectedRunId ([string]$candidate.buildId) -ExpectedScopeId ([string]$candidate.scopeId)
+                if ($managed) { $availableBuilds.Add($candidate) }
+            }
+            catch { }
+        }
+        $builds = @($availableBuilds)
+    }
     if ($builds.Count -eq 0) { Write-LabInfo 'Kein passender SQL-Image-Build vorhanden.'; return $null }
     if ($builds.Count -eq 1) { return $builds[0] }
     Write-Host ''
@@ -802,7 +821,7 @@ function New-LabHyperVSqlImageBuildInteractive {
 function Start-LabHyperVSqlImageBuildInteractive {
     [CmdletBinding()]
     param()
-    $build = Select-LabHyperVSqlImageBuild -AllowedStates @('MANUAL_ACTION_REQUIRED', 'REBOOT_REQUIRED')
+    $build = Select-LabHyperVSqlImageBuild -AllowedStates @('MANUAL_ACTION_REQUIRED', 'REBOOT_REQUIRED') -RequireExistingVm
     if (-not $build) { return }
     Show-LabHyperVSqlManualInstructions -Build $build
     Open-LabHyperVImageBuildConsole -Build $build
@@ -813,7 +832,7 @@ function Start-LabHyperVSqlImageBuildInteractive {
 function Invoke-LabHyperVSqlPrepareInteractive {
     [CmdletBinding()]
     param()
-    $build = Select-LabHyperVSqlImageBuild -AllowedStates @('MANUAL_ACTION_REQUIRED', 'REBOOT_REQUIRED')
+    $build = Select-LabHyperVSqlImageBuild -AllowedStates @('MANUAL_ACTION_REQUIRED', 'REBOOT_REQUIRED') -RequireExistingVm
     if (-not $build) { return }
     $userName = Read-Host '  Lokaler Gast-Administrator [Administrator]'
     if (-not $userName) { $userName = 'Administrator' }
@@ -833,7 +852,7 @@ function Invoke-LabHyperVSqlPrepareInteractive {
 function Publish-LabHyperVSqlImageBuildInteractive {
     [CmdletBinding()]
     param()
-    $build = Select-LabHyperVSqlImageBuild -AllowedStates @('RESUME_PENDING')
+    $build = Select-LabHyperVSqlImageBuild -AllowedStates @('RESUME_PENDING') -RequireExistingVm
     if (-not $build) { return }
     if (-not (Read-LabConfirm -Prompt '  SQL-Prepared-Image flatten und immutable veroeffentlichen?' -Default $false)) { return }
     try {
@@ -868,7 +887,7 @@ function Invoke-LabHyperVSqlAcceptanceInstallInteractive {
     $build = Select-LabHyperVSqlImageBuild -AllowedStates @(
         'MANUAL_ACTION_REQUIRED', 'OOBE_AUTOMATION_RUNNING', 'OOBE_COMPLETED',
         'SQL_INSTALL_RUNNING', 'SQL_INSTALL_REBOOT_REQUIRED', 'SQL_READY_RUN', 'TESTS_PASSED'
-    )
+    ) -RequireExistingVm
     if (-not $build) { return }
     Write-Host ("  Ziel: SQL {0} | VM {1}" -f $build.sql.version, $build.builder.vmName) -ForegroundColor White
     Write-Host '  Windows: Region Deutschland, UI en-US, Tastatur Deutsch, Zeitzone Wien/Berlin.' -ForegroundColor DarkGray
@@ -896,7 +915,7 @@ function Test-LabHyperVSqlAcceptanceInteractive {
     [CmdletBinding()]
     param()
 
-    $build = Select-LabHyperVSqlImageBuild -AllowedStates @('SQL_READY_RUN', 'TESTS_PASSED')
+    $build = Select-LabHyperVSqlImageBuild -AllowedStates @('SQL_READY_RUN', 'TESTS_PASSED') -RequireExistingVm
     if (-not $build) { return }
     if (-not (Read-LabConfirm -Prompt '  Create/Insert/Backup/Restore-Verify/Drop-Abnahmetest ausfuehren?' -Default $true)) { return }
     try {
@@ -911,7 +930,7 @@ function Invoke-LabHyperVSqlManualOobeAcceptanceInstallInteractive {
     [CmdletBinding()]
     param()
 
-    $build = Select-LabHyperVSqlImageBuild -AllowedStates @('MANUAL_ACTION_REQUIRED')
+    $build = Select-LabHyperVSqlImageBuild -AllowedStates @('MANUAL_ACTION_REQUIRED') -RequireExistingVm
     if (-not $build) { return }
     $userName = Read-Host '  Lokaler Gast-Administrator [Administrator]'
     if (-not $userName) { $userName = 'Administrator' }

@@ -8,7 +8,28 @@
 | SQL-Features | Database Engine, Full-Text, Replication |
 | Netzwerk während Build | internes `SQL_LAB_HYPERV`, kein Egress |
 
-## 1. Warum eine Windows-Baseline genügt
+## 1. Zuerst den passenden Weg wählen
+
+Die Einträge `7` bis `16` enthalten **zwei getrennte Workflows**. Sie werden
+nicht hintereinander auf demselben Builder ausgeführt.
+
+| Ziel | Menüfolge | Ergebnis |
+|---|---|---|
+| Wiederverwendbares SQL-Grundimage | `7 → 9 → 10 → 11` | immutable `SQL_PREPARED_SEALED`; SQL ist nur mit `PrepareImage` vorbereitet |
+| Laufende Test- und Abnahme-VM | `7 → 13 → 14` | run-lokale VM mit vollständig installierter SQL-Instanz |
+| Laufende Abnahme-VM, falls OOBE manuell erledigt wurde | `7 → 9 → 16 → 14` | wie der vorherige Pfad, nur mit manuell abgeschlossenem OOBE |
+
+`13` ist somit **keine** Vorbereitung für `10`: Aktion 13 installiert eine
+vollständige, konkrete SQL-Instanz für Tests. Aktion 10 installiert dagegen
+`PrepareImage` und generalisiert Windows erneut, damit daraus ein portables
+Grundimage entstehen kann. Nach `13` wird daher nicht `10` ausgeführt.
+
+Auch beim Prepared-Image wird Windows nicht neu installiert: Die von Aktion 7
+erzeugte VM ist eine Differencing-VM auf der vorhandenen `OS_SEALED`-VHDX. Die
+einmalige OOBE erzeugt lediglich die neue Gastidentität und das lokale
+Administratorpasswort.
+
+## 2. Warum eine Windows-Baseline genügt
 
 Die vorhandene Windows-Server-2025-Baseline ist der gemeinsame OS-Parent für
 SQL Server 2019, 2022 und 2025. Für jede SQL-Version wird eine eigene
@@ -27,7 +48,7 @@ Offizielle Referenzen:
 - [SQL Server über die Eingabeaufforderung installieren](https://learn.microsoft.com/en-us/sql/database-engine/install-windows/install-sql-server-from-the-command-prompt)
 - [SQL Server mit SysPrep vorbereiten](https://learn.microsoft.com/en-us/sql/database-engine/install-windows/considerations-for-installing-sql-server-using-sysprep)
 
-## 2. Medien im zentralen Media Root
+## 3. Medien im zentralen Media Root
 
 Beispielroot: `D:\Lab_Base`
 
@@ -43,7 +64,7 @@ Die Struktur wird mit
 erzeugt. Genau eine ISO darf im ausgewählten Versions-/Editionsordner liegen.
 Vor der ersten VM-Mutation bindet ein SHA-256-Sidecar Digest und relativen Pfad.
 
-## 3. Builder über das Menü erzeugen
+## 4. Builder über das Menü erzeugen
 
 ```powershell
 $env:SQL_SERVER_LAB_MEDIA_ROOT = 'D:\Lab_Base'
@@ -63,10 +84,10 @@ deaktivierten automatischen Checkpoints und dem internen `SQL_LAB_HYPERV`-
 Switch. Die SQL-ISO wird als DVD eingebunden. Der OS-Parent bleibt unverändert
 und read-only; ein externer Netzwerkzugang wird nicht bereitgestellt.
 
-## 4. Windows-OOBE: automatisch oder kontrollierter Fallback
+## 5. OOBE für den Abnahme-VM-Pfad: automatisch oder kontrollierter Fallback
 
-Ein generalisiertes Windows-Image startet absichtlich in OOBE. Aktion 13 kann
-den Schritt vollständig automatisieren. Sie erzeugt ein Zufallspasswort,
+Ein generalisiertes Windows-Image startet absichtlich in OOBE. Im
+**Abnahme-VM-Pfad** kann Aktion 13 den Schritt vollständig automatisieren. Sie erzeugt ein Zufallspasswort,
 speichert es nur lokal per Windows-DPAPI, stoppt die VM, schreibt eine
 `Unattend.xml` offline in `Windows\Panther` und startet die VM wieder. Der
 verifizierte Zielzustand lautet:
@@ -94,12 +115,17 @@ Build-Verzeichnis. Klartext erscheint weder im Build-State noch in Evidenz,
 VM-Notizen oder Git. Die Antwortdatei wird nach positivem OOBE-Receipt aus dem
 Gast entfernt.
 
+Für den **Prepared-Image-Pfad** ist Aktion 9 der bewusste manuelle OOBE-Schritt:
+lokales Administratorpasswort setzen, einmal anmelden und danach Aktion 10
+mit genau diesen Zugangsdaten ausführen. Aktion 10 führt die SQL-Installation
+ohne weitere VMConnect-Interaktion aus.
+
 Offizielle Referenzen:
 
 - [Mount-VHD](https://learn.microsoft.com/en-us/powershell/module/hyper-v/mount-vhd)
 - [Windows-Antwortdateien](https://learn.microsoft.com/en-us/windows-hardware/manufacture/desktop/update-windows-settings-and-scripts-create-your-own-answer-file-sxs)
 
-## 5. SQL vorbereiten und Windows generalisieren
+## 6. SQL vorbereiten und Windows generalisieren
 
 Aktion 10 führt ohne weitere Setup-GUI aus:
 
@@ -122,7 +148,7 @@ Sysprep.exe /generalize /oobe /mode:vm /quit /quiet
 Nur der Microsoft-State `IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE` und ein
 beobachteter Gast-Shutdown führen zu `RESUME_PENDING`.
 
-## 6. Immutable SQL-Baseline veröffentlichen
+## 7. Immutable SQL-Baseline veröffentlichen
 
 Aktion 11 prüft VM-Identität, Auszustand, fehlende Checkpoints und den
 buildlokalen VHDX-Pfad. Weil der Arbeitsdatenträger eine Differencing-VHDX ist,
@@ -135,7 +161,7 @@ Das Ergebnis ist ein `SQL_PREPARED_SEALED`-Artifact. Eine spätere Lab-VM muss
 noch SQL `CompleteImage` ausführen und Instanzkonto, Administratoren,
 Authentifizierung und Pfade konfigurieren.
 
-## 7. Evaluation und Developer
+## 8. Evaluation und Developer
 
 Windows- und SQL-Lizenzstatus werden getrennt gespeichert:
 
@@ -151,7 +177,7 @@ Datenbanken liegen nicht im austauschbaren Image. Der Refresh- und
 Backupvertrag steht unter
 [Persistente Daten und Evaluation-Refresh](PERSISTENT_DATA_AND_EVALUATION_REFRESH.md).
 
-## 8. Direkte Windows-SQL-Abnahmeumgebungen
+## 9. Direkte Windows-SQL-Abnahmeumgebungen
 
 Neben `PrepareImage` bietet das Menü einen run-lokalen Abnahmepfad:
 
@@ -165,7 +191,7 @@ Die drei erwarteten SQL-Major-Versionen sind 15, 16 und 17. Ein System erhält
 erst nach Dienst-, Versions- und Systemdatenbankprüfung `SQL_READY_RUN`; erst
 der vollständige Datenbank-/Backup-Test führt zu `TESTS_PASSED`.
 
-## 9. Aktueller Nachweisstand
+## 10. Aktueller Nachweisstand
 
 Der Host-Lifecycle, Medienresolver, resumierbare Receipts, Secret-Freiheit,
 Flatten-before-import und Menüpfad sind automatisiert getestet. Der reale

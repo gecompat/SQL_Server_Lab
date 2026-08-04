@@ -350,6 +350,7 @@ function Invoke-HyperVSqlTestEnvironmentInstall {
     if (-not $SaPassword) { throw 'HYPERV_SQL_TEST_ENVIRONMENT_SA_PASSWORD_REQUIRED' }
     Save-LabSecret -Path $build.BuildDirectory -Name 'guest-administrator-password' -Secret $Credential.Password
     Save-LabSecret -Path $build.BuildDirectory -Name 'sa-password' -Secret $SaPassword
+    $setupVersionPattern = Get-HyperVSqlSetupVersionPattern -SqlVersion $build.sql.version
 
     if ($build.state -in @('MANUAL_ACTION_REQUIRED', 'OOBE_COMPLETED')) {
         Write-LabInfo "SQL Setup: starte SQL Server $($build.sql.version) im Gast $vmName"
@@ -360,10 +361,10 @@ function Invoke-HyperVSqlTestEnvironmentInstall {
                 -ExpectedScopeId $build.scopeId -Credential $Credential -FallbackAddress $fallbackAddress `
                 -ArgumentList @(
                     $build.buildId, $build.scopeId, $build.manualAction.challenge, $build.sql.version,
-                    ($build.sql.features -join ','), $SaPassword, $SetupTimeoutSeconds
+                    $setupVersionPattern, ($build.sql.features -join ','), $SaPassword, $SetupTimeoutSeconds
                 ) `
                 -ScriptBlock {
-                    param($ExpectedBuildId, $ExpectedScopeId, $Challenge, $ExpectedSqlVersion, $FeaturesCsv, $SqlSaPassword, $TimeoutSeconds)
+                    param($ExpectedBuildId, $ExpectedScopeId, $Challenge, $ExpectedSqlVersion, $ExpectedSetupVersionPattern, $FeaturesCsv, $SqlSaPassword, $TimeoutSeconds)
                     $ErrorActionPreference = 'Stop'
                     $setup = @(Get-CimInstance Win32_LogicalDisk -Filter 'DriveType=5' | ForEach-Object {
                         $candidate = Join-Path ([string]$_.DeviceID + '\') 'setup.exe'
@@ -373,7 +374,7 @@ function Invoke-HyperVSqlTestEnvironmentInstall {
                     $expectedMajor = switch ($ExpectedSqlVersion) { '2019' { 15 }; '2022' { 16 }; '2025' { 17 } }
                     $setupVersion = [string]$setup[0].VersionInfo.ProductVersion
                     if (-not $setupVersion) { $setupVersion = [string]$setup[0].VersionInfo.FileVersion }
-                    if ($setupVersion -notmatch "(^|[^0-9])$expectedMajor\.") {
+                    if ([string]::IsNullOrWhiteSpace($setupVersion) -or $setupVersion -notmatch $ExpectedSetupVersionPattern) {
                         throw "SQL_SETUP_VERSION_MISMATCH: erwartet $ExpectedSqlVersion, erkannt $setupVersion"
                     }
                     $features = @([string]$FeaturesCsv -split ',' | Where-Object { $_ })
