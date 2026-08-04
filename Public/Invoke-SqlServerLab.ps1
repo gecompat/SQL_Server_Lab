@@ -79,8 +79,14 @@ function Show-LabBanner {
 
     # Verfuegbare Provider anzeigen
     $providers = @(Get-AvailableLabProviders)
-    if ($providers.Count -gt 0) {
-        Write-Host "  Provider: $($providers -join ', ')" -ForegroundColor DarkGray
+    $hyperVInstalled = $IsWindows -and $null -ne (Get-Command Get-VM -ErrorAction SilentlyContinue)
+    $providerLabel = if ($providers.Count -gt 0) { $providers -join ', ' } else { 'KEIN Container-Provider' }
+    if ($hyperVInstalled) {
+        $hyperV = Test-HyperVAvailable
+        $providerLabel += if ($hyperV.Available) { ', hyperv' } else { ', hyperv (UAC erforderlich)' }
+    }
+    if ($providers.Count -gt 0 -or $hyperVInstalled) {
+        Write-Host "  Provider: $providerLabel" -ForegroundColor DarkGray
     }
     else {
         Write-Host "  Provider: KEINER VERFUEGBAR" -ForegroundColor Red
@@ -453,7 +459,7 @@ function New-LabHyperVImageBuildInteractive {
     [CmdletBinding()]
     param()
 
-    $defaultRoot = [string][Environment]::GetEnvironmentVariable('SQL_SERVER_LAB_MEDIA_ROOT')
+    $defaultRoot = Get-LabMediaRootDefault
     $rootPrompt = if ($defaultRoot) { "  Media Root [$defaultRoot]" } else { '  Media Root' }
     $mediaRoot = Read-Host $rootPrompt
     if (-not $mediaRoot) { $mediaRoot = $defaultRoot }
@@ -461,6 +467,8 @@ function New-LabHyperVImageBuildInteractive {
         Write-LabError 'Media Root ist erforderlich.'
         return
     }
+    try { $mediaRoot = Set-LabMediaRootDefault -MediaRoot $mediaRoot }
+    catch { Write-LabError "Media Root ist ungueltig: $($_.Exception.Message)"; return }
 
     $version = Read-Host '  Windows Server Version [2025]'
     if (-not $version) { $version = '2025' }
@@ -750,10 +758,12 @@ function New-LabHyperVSqlImageBuildInteractive {
     [CmdletBinding()]
     param()
 
-    $defaultRoot = [string][Environment]::GetEnvironmentVariable('SQL_SERVER_LAB_MEDIA_ROOT')
+    $defaultRoot = Get-LabMediaRootDefault
     $mediaRoot = Read-Host $(if ($defaultRoot) { "  Media Root [$defaultRoot]" } else { '  Media Root' })
     if (-not $mediaRoot) { $mediaRoot = $defaultRoot }
     if (-not $mediaRoot) { Write-LabError 'Media Root ist erforderlich.'; return }
+    try { $mediaRoot = Set-LabMediaRootDefault -MediaRoot $mediaRoot }
+    catch { Write-LabError "Media Root ist ungueltig: $($_.Exception.Message)"; return }
     $sqlVersion = Read-Host '  SQL Server Version: 2019, 2022 oder 2025 [2019]'
     if (-not $sqlVersion) { $sqlVersion = '2019' }
     if ($sqlVersion -notin @('2019', '2022', '2025')) { Write-LabError 'SQL-Version ist ungueltig.'; return }
