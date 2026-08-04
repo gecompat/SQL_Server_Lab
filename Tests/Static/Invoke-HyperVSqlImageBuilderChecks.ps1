@@ -100,6 +100,9 @@ try {
     Add-CheckResult -Name 'SQL Setup besitzt ein hartes Timeout' -Success (
         $builderText -match 'WaitForExit\(\$TimeoutSeconds \* 1000\)' -and $builderText -match 'SQL_SETUP_PREPARE_IMAGE_TIMEOUT'
     )
+    Add-CheckResult -Name 'Wiederholung nach Sysprep-Fehler startet PrepareImage nicht erneut' -Success (
+        $builderText -match 'MANUAL_ACTION_REQUIRED'' -and -not \$build\.setupEvidence'
+    )
     Add-CheckResult -Name 'Sysprep wartet nach /quit auf den finalen Generalize-ImageState' -Success (
         $builderText -match 'stateDeadline = \[datetime\]::UtcNow\.AddSeconds\(120\)' -and
         $builderText -match "IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE'\) \{ break \}" -and

@@ -322,7 +322,10 @@ function Invoke-HyperVSqlPrepareAndGeneralize {
     if (-not $managed -or [string]$managed.VM.State -ne 'Running') { throw 'HYPERV_SQL_IMAGE_BUILD_VM_MUST_BE_RUNNING' }
     $setupVersionPattern = Get-HyperVSqlSetupVersionPattern -SqlVersion $build.sql.version
 
-    if ($build.state -eq 'MANUAL_ACTION_REQUIRED') {
+    # Nach erfolgreichem PrepareImage wird dessen Receipt unmittelbar
+    # persistiert. Scheitert erst das anschliessende Sysprep, darf ein
+    # Wiederholungsaufruf SQL Setup nicht ein zweites Mal ausfuehren.
+    if ($build.state -eq 'MANUAL_ACTION_REQUIRED' -and -not $build.setupEvidence) {
         $receipt = Invoke-HyperVPowerShellDirect -VMName $vmName -ExpectedRunId $build.buildId `
             -ExpectedScopeId $build.scopeId -Credential $Credential `
             -ArgumentList @($build.buildId, $build.scopeId, $build.manualAction.challenge, $build.sql.version, $setupVersionPattern, ($build.sql.features -join ','), $SetupTimeoutSeconds) `
