@@ -348,13 +348,30 @@ function Invoke-HyperVSqlPrepareAndGeneralize {
                     Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
                     throw "SQL_SETUP_PREPARE_IMAGE_TIMEOUT: $TimeoutSeconds"
                 }
-                if ($process.ExitCode -notin @(0, 3010)) { throw "SQL_SETUP_PREPARE_IMAGE_FAILED: $($process.ExitCode)" }
-                if ($process.ExitCode -eq 3010) { $null = & shutdown.exe /r /t 15 /f /d p:4:1 }
+                $exitCode = $null
+                try { $exitCode = [int]$process.ExitCode } catch { }
+                if ($exitCode -notin @(0, 3010)) {
+                    $logRoot = Join-Path $env:ProgramFiles 'Microsoft SQL Server'
+                    $summary = @(Get-ChildItem -LiteralPath $logRoot -Filter 'Summary.txt' -File -Recurse -ErrorAction SilentlyContinue |
+                        Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1)[0]
+                    $detail = 'Summary.txt nicht gefunden'
+                    if ($summary) {
+                        $lines = @(Get-Content -LiteralPath $summary.FullName -Tail 80 -ErrorAction SilentlyContinue)
+                        $relevant = @($lines | Where-Object { $_ -match '(?i)error|failed|failure|exit code|result' } | Select-Object -Last 8)
+                        if ($relevant.Count -eq 0) { $relevant = @($lines | Select-Object -Last 8) }
+                        $detail = (($relevant -join ' ') -replace '\s+', ' ').Trim()
+                        if ($detail.Length -gt 1200) { $detail = $detail.Substring(0, 1200) }
+                        $detail = "Summary=$($summary.FullName); Detail=$detail"
+                    }
+                    $reportedExitCode = if ($null -eq $exitCode) { 'unbekannt' } else { [string]$exitCode }
+                    throw "SQL_SETUP_PREPARE_IMAGE_FAILED: ExitCode=$reportedExitCode; $detail"
+                }
+                if ($exitCode -eq 3010) { $null = & shutdown.exe /r /t 15 /f /d p:4:1 }
                 [PSCustomObject]@{
                     contractVersion = '1'; buildId = $ExpectedBuildId; scopeId = $ExpectedScopeId
                     challenge = $Challenge; action = 'PrepareImage'; sqlVersion = $ExpectedSqlVersion
-                    setupFileVersion = $setupVersion; features = @($Features); exitCode = [int]$process.ExitCode
-                    rebootScheduled = ($process.ExitCode -eq 3010); completedAt = [datetime]::UtcNow.ToString('o')
+                    setupFileVersion = $setupVersion; features = @($Features); exitCode = $exitCode
+                    rebootScheduled = ($exitCode -eq 3010); completedAt = [datetime]::UtcNow.ToString('o')
                 }
             }
         $receipt = @($receipt)[-1]
