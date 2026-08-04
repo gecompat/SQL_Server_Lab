@@ -57,7 +57,11 @@ function Set-HyperVSqlImageBuildState {
     param(
         [Parameter(Mandatory)][string]$BuildId,
         [Parameter(Mandatory)]
-        [ValidateSet('MEDIA_VERIFIED', 'MANUAL_ACTION_REQUIRED', 'REBOOT_REQUIRED', 'RESUME_PENDING', 'SQL_PREPARED_SEALED', 'FAILED')]
+        [ValidateSet(
+            'MEDIA_VERIFIED', 'MANUAL_ACTION_REQUIRED', 'OOBE_AUTOMATION_RUNNING', 'OOBE_COMPLETED',
+            'REBOOT_REQUIRED', 'RESUME_PENDING', 'SQL_PREPARED_SEALED',
+            'SQL_INSTALL_RUNNING', 'SQL_INSTALL_REBOOT_REQUIRED', 'SQL_READY_RUN', 'TESTS_PASSED', 'FAILED'
+        )]
         [string]$State,
         [Parameter(Mandatory)][string]$Reason,
         [string]$StateRoot
@@ -235,20 +239,23 @@ function Initialize-HyperVSqlPreparedImageBuild {
 
     $media = Resolve-HyperVSqlInstallationMedia -MediaRoot $MediaRoot -SqlVersion $SqlVersion -MediaEdition $MediaEdition
     if ($media.HashStatus -ne 'SIDECAR_READY') { throw "HYPERV_SQL_MEDIA_HASH_REQUIRED: $($media.HashPath)" }
+    $labNetwork = Ensure-LabHyperVNetwork
     $plan = New-HyperVSqlImageBuildPlan -ImageArtifactId $ImageArtifactId -IsoPath $media.IsoPath `
         -ExpectedSha256 $media.ExpectedSha256 -SqlVersion $SqlVersion -SqlEdition $MediaEdition `
         -SqlFeatures $SqlFeatures -StateRoot $StateRoot
     try {
         $instance = New-HyperVInstance -ImageArtifactId $ImageArtifactId -StateRoot $StateRoot `
             -RunDirectory $plan.BuildDirectory -RunId $plan.buildId -ScopeId $plan.scopeId `
-            -InstanceId "sql-image-$SqlVersion" -MemoryStartupBytes $MemoryStartupBytes -ProcessorCount $ProcessorCount
+            -InstanceId "sql-image-$SqlVersion" -MemoryStartupBytes $MemoryStartupBytes -ProcessorCount $ProcessorCount `
+            -SwitchName $labNetwork.Name
         $managed = Get-HyperVManagedVM -VMName $instance.VMName -ExpectedRunId $plan.buildId -ExpectedScopeId $plan.scopeId
         $null = Add-VMDvdDrive -VM $managed.VM -Path $media.IsoPath -ErrorAction Stop
         $plan.builder = [PSCustomObject]@{
             vmName = [string]$instance.VMName
             osDiskRelativePath = [System.IO.Path]::GetRelativePath($plan.BuildDirectory, $instance.ChildVhdxPath).Replace('\', '/')
-            generation = 2; secureBoot = $true; networkAttached = $false
+            generation = 2; secureBoot = $true; networkAttached = $true
         }
+        $plan | Add-Member -NotePropertyName labNetwork -NotePropertyValue $labNetwork -Force
         $plan.manualAction = [PSCustomObject]@{
             stepId = 'complete-windows-oobe'; challenge = New-LabGuid
             instruction = 'VM starten, lokales Administratorpasswort setzen und einmal anmelden'
@@ -484,5 +491,6 @@ function Remove-HyperVSqlImageBuild {
     $build = Get-HyperVSqlImageBuildPlan -BuildId $BuildId -StateRoot $StateRoot
     $build.cleanupStatus = [string]$cleanup.Status
     Write-HyperVSqlImageBuildState -BuildDirectory $build.BuildDirectory -State $build
+    if ([string]$cleanup.Status -eq 'CLEANUP_SUCCEEDED') { Remove-LabSecrets -Path $build.BuildDirectory }
     return [PSCustomObject]@{ BuildId = $BuildId; Status = [string]$cleanup.Status; Cleanup = $cleanup; Build = $build }
 }

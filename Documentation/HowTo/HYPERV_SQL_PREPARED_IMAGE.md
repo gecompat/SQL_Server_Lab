@@ -6,7 +6,7 @@
 | Einstieg | `Invoke-SqlServerLab.ps1 -Action Image` |
 | Ziel | ein immutable `SQL_PREPARED_SEALED`-Artifact je SQL-Hauptversion |
 | SQL-Features | Database Engine, Full-Text, Replication |
-| Netzwerk während Build | keines |
+| Netzwerk während Build | internes `SQL_LAB_HYPERV`, kein Egress |
 
 ## 1. Warum eine Windows-Baseline genügt
 
@@ -59,22 +59,45 @@ Im Image-Menü Aktion 7 wählen. Danach:
 5. Builder bestätigen.
 
 Der Builder erzeugt eine Generation-2-Differencing-VM mit Secure Boot,
-deaktivierten automatischen Checkpoints und ohne Netzwerk. Die SQL-ISO wird als
-DVD eingebunden. Der OS-Parent bleibt unverändert und read-only.
+deaktivierten automatischen Checkpoints und dem internen `SQL_LAB_HYPERV`-
+Switch. Die SQL-ISO wird als DVD eingebunden. Der OS-Parent bleibt unverändert
+und read-only; ein externer Netzwerkzugang wird nicht bereitgestellt.
 
-## 4. Einmaliger OOBE-Schritt
+## 4. Windows-OOBE: automatisch oder kontrollierter Fallback
 
-Ein generalisiertes Windows-Image startet absichtlich in OOBE. Deshalb ist je
-neuem SQL-Image genau ein kurzer manueller Schritt nötig:
+Ein generalisiertes Windows-Image startet absichtlich in OOBE. Aktion 13 kann
+den Schritt vollständig automatisieren. Sie erzeugt ein Zufallspasswort,
+speichert es nur lokal per Windows-DPAPI, stoppt die VM, schreibt eine
+`Unattend.xml` offline in `Windows\Panther` und startet die VM wieder. Der
+verifizierte Zielzustand lautet:
+
+- Region und Systemlocale: Deutschland / `de-DE`;
+- UI-Sprache: `en-US`;
+- Tastatur: Deutsch / `0407:00000407`;
+- Zeitzone: `W. Europe Standard Time`;
+- Windows-State: `IMAGE_STATE_COMPLETE`.
+
+Das Offline-Einbinden einer VHDX verlangt unter Windows ein erhöhtes Token mit
+dem erforderlichen Volume-Recht. Mitgliedschaft in der Gruppe
+`Hyper-V-Administratoren` allein genügt dafür nicht. Läuft der Remote Runner
+nicht erhöht, meldet die Runtime
+`HYPERV_SQL_OOBE_OFFLINE_MOUNT_REQUIRES_ELEVATED_RUNNER`, ohne den Parent zu
+verändern. Dann gilt der kontrollierte Fallback:
 
 1. VMConnect öffnen;
-2. lokales Administratorpasswort festlegen;
-3. einmal anmelden;
-4. zum Image-Menü zurückkehren.
+2. Germany, English (United States) und German auswählen;
+3. lokales Administratorpasswort festlegen und einmal anmelden;
+4. im Image-Menü Aktion 16 wählen und das Passwort als SecureString eingeben.
 
-Das Passwort muss bis zur Veröffentlichung bekannt bleiben. Es wird nur als
-PowerShell-Direct-Credential im Arbeitsspeicher verwendet und weder im
-Build-State noch in Evidenz, VM-Notizen oder Git gespeichert.
+Aktion 16 speichert Gast- und SA-Passwort nur lokal verschlüsselt im
+Build-Verzeichnis. Klartext erscheint weder im Build-State noch in Evidenz,
+VM-Notizen oder Git. Die Antwortdatei wird nach positivem OOBE-Receipt aus dem
+Gast entfernt.
+
+Offizielle Referenzen:
+
+- [Mount-VHD](https://learn.microsoft.com/en-us/powershell/module/hyper-v/mount-vhd)
+- [Windows-Antwortdateien](https://learn.microsoft.com/en-us/windows-hardware/manufacture/desktop/update-windows-settings-and-scripts-create-your-own-answer-file-sxs)
 
 ## 5. SQL vorbereiten und Windows generalisieren
 
@@ -128,11 +151,26 @@ Datenbanken liegen nicht im austauschbaren Image. Der Refresh- und
 Backupvertrag steht unter
 [Persistente Daten und Evaluation-Refresh](PERSISTENT_DATA_AND_EVALUATION_REFRESH.md).
 
-## 8. Aktueller Nachweisstand
+## 8. Direkte Windows-SQL-Abnahmeumgebungen
+
+Neben `PrepareImage` bietet das Menü einen run-lokalen Abnahmepfad:
+
+- Aktion 13: OOBE und vollständiges SQL Setup automatisch ausführen;
+- Aktion 16: manuell abgeschlossene OOBE übernehmen und SQL Setup ausführen;
+- Aktion 14: Create/Insert/Select, Backup mit `CHECKSUM`, `RESTORE VERIFYONLY`
+  und Cleanup testen;
+- Aktion 15: Matrix für SQL 2019, 2022 und 2025 anzeigen.
+
+Die drei erwarteten SQL-Major-Versionen sind 15, 16 und 17. Ein System erhält
+erst nach Dienst-, Versions- und Systemdatenbankprüfung `SQL_READY_RUN`; erst
+der vollständige Datenbank-/Backup-Test führt zu `TESTS_PASSED`.
+
+## 9. Aktueller Nachweisstand
 
 Der Host-Lifecycle, Medienresolver, resumierbare Receipts, Secret-Freiheit,
 Flatten-before-import und Menüpfad sind automatisiert getestet. Der reale
-`PrepareImage`-Lauf mit den bereitgestellten Microsoft-ISOs ist als nächster
-nativer Schritt vorgesehen und benötigt einmalig den OOBE-/Passwortschritt pro
-SQL-Version. `CompleteImage`, automatisches Backup/Restore und produktive
-Hyper-V-Netzwerke sind noch nicht Teil dieses Nachweises.
+`PrepareImage`-Lauf mit den bereitgestellten Microsoft-ISOs und die direkte
+SQL-2019/2022/2025-Abnahmematrix sind die nächsten nativen Schritte. Auf einem
+nicht erhöhten Runner bleibt der dokumentierte OOBE-Fallback einmalig nötig.
+Der feste interne Hyper-V-Hostzugriff ist implementiert; runtimeübergreifende
+Netze und kontrollierter Internet-Egress sind nicht Teil dieses Nachweises.
