@@ -147,6 +147,69 @@ function Get-HyperVSqlSetupVersionPattern {
     }
 }
 
+function Get-HyperVSqlOfflineImageState {
+    <#
+    .SYNOPSIS
+        Liest den Windows-ImageState aus einer ausgeschalteten Builder-VHDX.
+    .DESCRIPTION
+        Wird ausschliesslich fuer die Wiederaufnahme verwendet, falls Sysprep
+        das integrierte Administratorpasswort bereits zurueckgesetzt hat und
+        damit PowerShell Direct absichtlich nicht mehr moeglich ist.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$VhdxPath,
+        [Parameter(Mandatory)][string]$MountRoot
+    )
+
+    New-Item -Path $MountRoot -ItemType Directory -Force | Out-Null
+    $mounted = $null; $partition = $null; $accessPathAdded = $false
+    $hiveName = "SQL_Server_Lab_Offline_$([guid]::NewGuid().ToString('N'))"; $hiveLoaded = $false
+    try {
+        try { $mounted = Mount-VHD -Path $VhdxPath -PassThru -ErrorAction Stop }
+        catch {
+            if ($_.Exception.Message -match '0x80070522|erforderliches Recht|required privilege') {
+                throw 'HYPERV_SQL_OFFLINE_INSPECTION_REQUIRES_ELEVATED_RUNNER'
+            }
+            throw
+        }
+        $disk = $mounted | Get-Disk -ErrorAction Stop
+        foreach ($candidate in @($disk | Get-Partition -ErrorAction Stop | Where-Object Size -GT 4GB)) {
+            $candidateRoot = if ($candidate.DriveLetter) { "$($candidate.DriveLetter):\" } else { $null }
+            if (-not $candidateRoot) {
+                Add-PartitionAccessPath -DiskNumber $candidate.DiskNumber -PartitionNumber $candidate.PartitionNumber `
+                    -AccessPath ($MountRoot.TrimEnd('\') + '\') -ErrorAction Stop
+                $candidateRoot = $MountRoot.TrimEnd('\') + '\'; $accessPathAdded = $true
+            }
+            $softwareHive = Join-Path $candidateRoot 'Windows/System32/Config/SOFTWARE'
+            if (Test-Path -LiteralPath $softwareHive -PathType Leaf) {
+                $partition = $candidate
+                & reg.exe load "HKLM\$hiveName" $softwareHive | Out-Null
+                if ($LASTEXITCODE -ne 0) { throw 'HYPERV_SQL_OFFLINE_SOFTWARE_HIVE_LOAD_FAILED' }
+                $hiveLoaded = $true
+                return [string](Get-ItemPropertyValue `
+                    -LiteralPath "Registry::HKEY_LOCAL_MACHINE\$hiveName\Microsoft\Windows\CurrentVersion\Setup\State" `
+                    -Name ImageState -ErrorAction Stop)
+            }
+            if ($accessPathAdded) {
+                Remove-PartitionAccessPath -DiskNumber $candidate.DiskNumber -PartitionNumber $candidate.PartitionNumber `
+                    -AccessPath ($MountRoot.TrimEnd('\') + '\') -ErrorAction Stop
+                $accessPathAdded = $false
+            }
+        }
+        throw 'HYPERV_SQL_OFFLINE_WINDOWS_PARTITION_NOT_FOUND'
+    }
+    finally {
+        if ($hiveLoaded) { & reg.exe unload "HKLM\$hiveName" | Out-Null }
+        if ($accessPathAdded -and $partition) {
+            Remove-PartitionAccessPath -DiskNumber $partition.DiskNumber -PartitionNumber $partition.PartitionNumber `
+                -AccessPath ($MountRoot.TrimEnd('\') + '\') -ErrorAction SilentlyContinue
+        }
+        if ($mounted) { Dismount-VHD -Path $VhdxPath -ErrorAction SilentlyContinue }
+        Remove-Item -LiteralPath $MountRoot -Force -ErrorAction SilentlyContinue
+    }
+}
+
 function New-HyperVSqlMediaHashSidecar {
     [CmdletBinding(SupportsShouldProcess)]
     param(
@@ -462,6 +525,47 @@ function Invoke-HyperVSqlPrepareAndGeneralize {
     Write-HyperVSqlImageBuildState -BuildDirectory $build.BuildDirectory -State $build
     return Set-HyperVSqlImageBuildState -BuildId $BuildId -State RESUME_PENDING `
         -Reason 'SQL PrepareImage, Windows-Generalize und Gast-Shutdown technisch verifiziert' -StateRoot $StateRoot
+}
+
+function Resume-HyperVSqlPreparedImageGeneralization {
+    <#
+    .SYNOPSIS
+        Uebernimmt einen nach Sysprep bereits generalisierten SQL-Builder.
+    .DESCRIPTION
+        Der Recovery-Pfad ist nur fuer Builds vorgesehen, deren SQL
+        PrepareImage-Receipt bereits persistiert wurde. Er faehrt die VM nach
+        expliziter Menue-Bestaetigung aus und validiert den finalen Windows
+        ImageState offline, ohne ein zurueckgesetztes Gastpasswort zu benötigen.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$BuildId, [string]$StateRoot)
+
+    $build = Get-HyperVSqlImageBuildPlan -BuildId $BuildId -StateRoot $StateRoot
+    if (-not $build -or $build.state -ne 'MANUAL_ACTION_REQUIRED' -or
+        -not $build.setupEvidence -or [string]$build.setupEvidence.action -ne 'PrepareImage') {
+        throw 'HYPERV_SQL_IMAGE_GENERALIZATION_RECOVERY_NOT_READY'
+    }
+    $managed = Get-HyperVManagedVM -VMName ([string]$build.builder.vmName) `
+        -ExpectedRunId ([string]$build.buildId) -ExpectedScopeId ([string]$build.scopeId)
+    if (-not $managed) { throw 'HYPERV_SQL_IMAGE_GENERALIZATION_RECOVERY_VM_MISSING' }
+    if ([string]$managed.VM.State -ne 'Off') {
+        $null = Stop-HyperVInstance -VMName ([string]$build.builder.vmName) `
+            -ExpectedRunId ([string]$build.buildId) -ExpectedScopeId ([string]$build.scopeId)
+    }
+    $vhdxPath = Join-Path $build.BuildDirectory ([string]$build.builder.osDiskRelativePath)
+    $imageState = Get-HyperVSqlOfflineImageState -VhdxPath $vhdxPath `
+        -MountRoot (Join-Path $build.BuildDirectory 'offline-generalization-inspection')
+    if ($imageState -ne 'IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE') {
+        throw "HYPERV_SQL_IMAGE_GENERALIZATION_RECOVERY_INVALID_STATE: $imageState"
+    }
+    $build.generalizationEvidence = [PSCustomObject]@{
+        source = 'offline-inspection'; challenge = [string]$build.manualAction.challenge
+        imageState = $imageState; sysprepExitCode = $null; shutdownObserved = $true
+        completedAt = Get-LabTimestamp; acceptedAt = Get-LabTimestamp
+    }
+    Write-HyperVSqlImageBuildState -BuildDirectory $build.BuildDirectory -State $build
+    return Set-HyperVSqlImageBuildState -BuildId $BuildId -State RESUME_PENDING `
+        -Reason 'Bereits generalisierter SQL-Builder nach Offline-ImageState-Pruefung uebernommen' -StateRoot $StateRoot
 }
 
 function Publish-HyperVSqlPreparedImageBuild {

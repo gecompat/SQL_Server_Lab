@@ -94,6 +94,7 @@ try {
     )
 
     $builderText = Get-Content -LiteralPath $builderPath -Raw -Encoding utf8
+    $menuText = Get-Content -LiteralPath $menuPath -Raw -Encoding utf8
     Add-CheckResult -Name 'SQL Setup verwendet PrepareImage quiet und akzeptiert Lizenzbedingungen' -Success (
         $builderText -match '/ACTION=PrepareImage' -and $builderText -match '/IACCEPTSQLSERVERLICENSETERMS'
     )
@@ -102,6 +103,12 @@ try {
     )
     Add-CheckResult -Name 'Wiederholung nach Sysprep-Fehler startet PrepareImage nicht erneut' -Success (
         $builderText -match 'MANUAL_ACTION_REQUIRED'' -and -not \$build\.setupEvidence'
+    )
+    Add-CheckResult -Name 'Sysprep-Recovery prueft ausgeschaltete Builder-VHDX offline ohne Gastpasswort' -Success (
+        $builderText -match 'function Get-HyperVSqlOfflineImageState' -and
+        $builderText -match 'function Resume-HyperVSqlPreparedImageGeneralization' -and
+        $builderText -match 'HYPERV_SQL_IMAGE_GENERALIZATION_RECOVERY_INVALID_STATE' -and
+        $menuText -match "'17' \{ Resume-LabHyperVSqlPreparedImageGeneralizationInteractive \}"
     )
     Add-CheckResult -Name 'Sysprep wartet nach /quit auf den finalen Generalize-ImageState' -Success (
         $builderText -match 'stateDeadline = \[datetime\]::UtcNow\.AddSeconds\(120\)' -and
@@ -133,7 +140,6 @@ try {
         $builderText -match '-SqlVersion \$build\.sql\.version' -and $builderText -match '-SqlEdition \$build\.sql\.edition' -and
         $builderText -match '-SqlBuild \$build\.sql\.setupBuild' -and $builderText -match '-SqlFeatures @\(\$build\.sql\.features\)'
     )
-    $menuText = Get-Content -LiteralPath $menuPath -Raw -Encoding utf8
     Add-CheckResult -Name 'Invoke-SqlServerLab-Image-Menue bietet den SQL-Image-Lifecycle' -Success (
         $menuText -match 'Initialize-HyperVSqlPreparedImageBuild' -and $menuText -match 'Invoke-HyperVSqlPrepareAndGeneralize' -and
         $menuText -match 'Publish-HyperVSqlPreparedImageBuild'
