@@ -108,6 +108,7 @@ try {
         $builderText -match 'function Get-HyperVSqlOfflineImageState' -and
         $builderText -match 'function Resume-HyperVSqlPreparedImageGeneralization' -and
         $builderText -match 'HYPERV_SQL_IMAGE_GENERALIZATION_RECOVERY_INVALID_STATE' -and
+        $builderText -match 'SysprepDetail' -and
         $menuText -match "'17' \{ Resume-LabHyperVSqlPreparedImageGeneralizationInteractive \}"
     )
     Add-CheckResult -Name 'Sysprep wartet nach /quit auf den finalen Generalize-ImageState' -Success (

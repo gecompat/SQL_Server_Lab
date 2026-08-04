@@ -187,9 +187,23 @@ function Get-HyperVSqlOfflineImageState {
                 & reg.exe load "HKLM\$hiveName" $softwareHive | Out-Null
                 if ($LASTEXITCODE -ne 0) { throw 'HYPERV_SQL_OFFLINE_SOFTWARE_HIVE_LOAD_FAILED' }
                 $hiveLoaded = $true
-                return [string](Get-ItemPropertyValue `
+                $imageState = [string](Get-ItemPropertyValue `
                     -LiteralPath "Registry::HKEY_LOCAL_MACHINE\$hiveName\Microsoft\Windows\CurrentVersion\Setup\State" `
                     -Name ImageState -ErrorAction Stop)
+                $sysprepErrorPath = Join-Path $candidateRoot 'Windows/System32/Sysprep/Panther/setuperr.log'
+                $sysprepActionPath = Join-Path $candidateRoot 'Windows/System32/Sysprep/Panther/setupact.log'
+                $logLines = @()
+                foreach ($logPath in @($sysprepErrorPath, $sysprepActionPath) | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf }) {
+                    $lines = @(Get-Content -LiteralPath $logPath -Tail 100 -ErrorAction SilentlyContinue)
+                    $relevant = @($lines | Where-Object { $_ -match '(?i)error|failed|failure|fatal|package|sysprep' } | Select-Object -Last 12)
+                    if ($relevant.Count -gt 0) { $logLines += $relevant }
+                }
+                $sysprepDetail = (($logLines -join ' ') -replace '\s+', ' ').Trim()
+                if ($sysprepDetail.Length -gt 1600) { $sysprepDetail = $sysprepDetail.Substring(0, 1600) }
+                return [PSCustomObject]@{
+                    ImageState = $imageState
+                    SysprepDetail = $sysprepDetail
+                }
             }
             if ($accessPathAdded) {
                 Remove-PartitionAccessPath -DiskNumber $candidate.DiskNumber -PartitionNumber $candidate.PartitionNumber `
@@ -553,10 +567,16 @@ function Resume-HyperVSqlPreparedImageGeneralization {
             -ExpectedRunId ([string]$build.buildId) -ExpectedScopeId ([string]$build.scopeId)
     }
     $vhdxPath = Join-Path $build.BuildDirectory ([string]$build.builder.osDiskRelativePath)
-    $imageState = Get-HyperVSqlOfflineImageState -VhdxPath $vhdxPath `
+    $inspection = Get-HyperVSqlOfflineImageState -VhdxPath $vhdxPath `
         -MountRoot (Join-Path $build.BuildDirectory 'offline-generalization-inspection')
+    $imageState = [string]$inspection.ImageState
     if ($imageState -ne 'IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE') {
-        throw "HYPERV_SQL_IMAGE_GENERALIZATION_RECOVERY_INVALID_STATE: $imageState"
+        $detail = if ($inspection.SysprepDetail) { "; Sysprep=$($inspection.SysprepDetail)" } else { '' }
+        $reason = "HYPERV_SQL_IMAGE_GENERALIZATION_RECOVERY_INVALID_STATE: $imageState$detail"
+        $build | Add-Member -NotePropertyName lastError -NotePropertyValue $reason -Force
+        Write-HyperVSqlImageBuildState -BuildDirectory $build.BuildDirectory -State $build
+        $null = Set-HyperVSqlImageBuildState -BuildId $BuildId -State FAILED -Reason $reason -StateRoot $StateRoot
+        throw $reason
     }
     $build.generalizationEvidence = [PSCustomObject]@{
         source = 'offline-inspection'; challenge = [string]$build.manualAction.challenge
