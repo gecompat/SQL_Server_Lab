@@ -17,6 +17,14 @@ jeweiligen Runtime. Hyper-V verwendet einen internen vSwitch. Nach OOBE erhält
 ein SQL-Abnahmegast eine deterministische Lab-IP; TCP 1433 wird nur im
 Gast-Labnetz freigegeben.
 
+Für den ersten OOBE-Start eines Windows-SQL-Abnahmegasts richtet das Framework
+die deterministische Gast-IP außerdem direkt per Unattend-Bootstrap ein. Es
+aktiviert WinRM ausschließlich für die Hostadresse im Hyper-V-Labnetz. Der
+Abnahmelauf bevorzugt weiterhin PowerShell Direct; ist die Gastintegration in
+der OOBE noch nicht verfügbar, nutzt er vorübergehend diesen isolierten
+Host-zu-Gast-Kanal. Der temporäre `TrustedHosts`-Eintrag auf dem Host wird nach
+jedem Aufruf auf seinen vorherigen Wert zurückgesetzt.
+
 ## Kollisionsschutz
 
 Vor der erstmaligen Anlage prüft die Runtime die IPv4-Hostrouten und die

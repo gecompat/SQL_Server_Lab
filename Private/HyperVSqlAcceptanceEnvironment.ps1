@@ -45,15 +45,68 @@ function Get-HyperVSqlGuestCredential {
     return [PSCredential]::new('Administrator', $password)
 }
 
+function New-HyperVSqlGuestNetworkBootstrapScript {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Network,
+        [Parameter(Mandatory)][string]$Address
+    )
+
+    $prefixLength = [int]$Network.PrefixLength
+    $hostAddress = [string]$Network.HostAddress
+    return @"
+`$ErrorActionPreference = 'Stop'
+`$adapter = @(Get-NetAdapter | Where-Object { `$_.Status -eq 'Up' } | Sort-Object ifIndex | Select-Object -First 1)[0]
+if (-not `$adapter) { throw 'SQL_LAB_OOBE_NETWORK_ADAPTER_NOT_FOUND' }
+`$existing = @(Get-NetIPAddress -InterfaceIndex `$adapter.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+    Where-Object { `$_.IPAddress -notlike '169.254.*' -and `$_.IPAddress -ne '127.0.0.1' })
+if (-not @(`$existing | Where-Object { `$_.IPAddress -eq '$Address' -and `$_.PrefixLength -eq $prefixLength })) {
+    `$existing | Remove-NetIPAddress -Confirm:`$false -ErrorAction SilentlyContinue
+    New-NetIPAddress -InterfaceIndex `$adapter.ifIndex -IPAddress '$Address' -PrefixLength $prefixLength -ErrorAction Stop | Out-Null
+}
+Set-NetConnectionProfile -InterfaceIndex `$adapter.ifIndex -NetworkCategory Private -ErrorAction SilentlyContinue
+Set-Service -Name WinRM -StartupType Automatic -ErrorAction Stop
+Enable-PSRemoting -Force -SkipNetworkProfileCheck -ErrorAction Stop
+`$ruleName = 'SQL_Server_Lab WinRM Host'
+if (-not (Get-NetFirewallRule -DisplayName `$ruleName -ErrorAction SilentlyContinue)) {
+    New-NetFirewallRule -DisplayName `$ruleName -Direction Inbound -Action Allow -Protocol TCP -LocalPort 5985 -RemoteAddress '$hostAddress' | Out-Null
+}
+`$receiptDirectory = Join-Path `$env:ProgramData 'SqlServerLab'
+New-Item -Path `$receiptDirectory -ItemType Directory -Force | Out-Null
+[PSCustomObject]@{ contractVersion = '1'; network = '$($Network.Name)'; address = '$Address'; prefixLength = $prefixLength; hostAddress = '$hostAddress'; observedAt = [datetime]::UtcNow.ToString('o') } |
+    ConvertTo-Json -Compress | Set-Content -LiteralPath (Join-Path `$receiptDirectory 'oobe-network.json') -Encoding utf8NoBOM
+"@
+}
+
 function New-HyperVSqlOobeUnattendXml {
     [CmdletBinding()]
-    param([Parameter(Mandatory)][SecureString]$AdministratorPassword)
+    param(
+        [Parameter(Mandatory)][SecureString]$AdministratorPassword,
+        $Network,
+        [string]$Identity
+    )
 
     $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($AdministratorPassword)
     $plain = $null
     try {
         $plain = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
         $escapedPassword = [System.Security.SecurityElement]::Escape($plain)
+        $firstLogonCommands = ''
+        if ($Network) {
+            if (-not $Identity) { throw 'HYPERV_SQL_OOBE_NETWORK_IDENTITY_REQUIRED' }
+            $address = Get-LabNetworkGuestAddress -Network $Network -Identity $Identity
+            $bootstrap = New-HyperVSqlGuestNetworkBootstrapScript -Network $Network -Address $address
+            $encodedBootstrap = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($bootstrap))
+            $firstLogonCommands = @"
+      <FirstLogonCommands>
+        <SynchronousCommand wcm:action="add">
+          <Order>1</Order>
+          <Description>SQL Server Lab network bootstrap</Description>
+          <CommandLine>powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encodedBootstrap</CommandLine>
+        </SynchronousCommand>
+      </FirstLogonCommands>
+"@
+        }
         return @"
 <?xml version="1.0" encoding="utf-8"?>
 <unattend xmlns="urn:schemas-microsoft-com:unattend">
@@ -70,6 +123,7 @@ function New-HyperVSqlOobeUnattendXml {
       <AutoLogon><Password><Value>$escapedPassword</Value><PlainText>true</PlainText></Password><Enabled>true</Enabled><LogonCount>1</LogonCount><Username>Administrator</Username></AutoLogon>
       <RegisteredOwner>SQL_Server_Lab</RegisteredOwner>
       <TimeZone>W. Europe Standard Time</TimeZone>
+$firstLogonCommands
       <OOBE>
         <HideEULAPage>true</HideEULAPage>
         <HideLocalAccountScreen>true</HideLocalAccountScreen>
@@ -122,6 +176,9 @@ function Set-HyperVSqlOfflineUnattend {
                 $panther = Join-Path $candidateRoot 'Windows/Panther'
                 New-Item -Path $panther -ItemType Directory -Force | Out-Null
                 Set-Content -LiteralPath (Join-Path $panther 'Unattend.xml') -Value $UnattendXml -Encoding utf8NoBOM
+                $unattendDirectory = Join-Path $panther 'Unattend'
+                New-Item -Path $unattendDirectory -ItemType Directory -Force | Out-Null
+                Set-Content -LiteralPath (Join-Path $unattendDirectory 'Unattend.xml') -Value $UnattendXml -Encoding utf8NoBOM
                 return
             }
             if ($accessPathAdded) {
@@ -165,11 +222,17 @@ function Invoke-HyperVSqlUnattendedOobe {
     $credential = [PSCredential]::new('Administrator', $AdministratorPassword)
     $vmName = [string]$build.builder.vmName
 
-    if ($build.state -eq 'MANUAL_ACTION_REQUIRED') {
-        Write-LabInfo "OOBE: stoppe $vmName und injiziere Unattend.xml"
+    $fallbackAddress = if ($build.labNetwork) {
+        Get-LabNetworkGuestAddress -Network $build.labNetwork -Identity $build.buildId
+    }
+    $requiresBootstrapInjection = $build.state -eq 'MANUAL_ACTION_REQUIRED' -or
+        [string]$build.oobeAutomation.bootstrapVersion -ne 'network-winrm-v1'
+    if ($requiresBootstrapInjection) {
+        Write-LabInfo "OOBE: stoppe $vmName und injiziere Unattend.xml mit Labnetz-Bootstrap"
         $null = Stop-HyperVInstance -VMName $vmName -ExpectedRunId $build.buildId -ExpectedScopeId $build.scopeId
         $vhdxPath = Join-Path $build.BuildDirectory ([string]$build.builder.osDiskRelativePath)
-        $unattend = New-HyperVSqlOobeUnattendXml -AdministratorPassword $AdministratorPassword
+        $unattend = New-HyperVSqlOobeUnattendXml -AdministratorPassword $AdministratorPassword `
+            -Network $build.labNetwork -Identity $build.buildId
         try {
             Set-HyperVSqlOfflineUnattend -VhdxPath $vhdxPath `
                 -MountRoot (Join-Path $build.BuildDirectory 'offline-mount') -UnattendXml $unattend
@@ -178,21 +241,22 @@ function Invoke-HyperVSqlUnattendedOobe {
         $build | Add-Member -NotePropertyName oobeAutomation -NotePropertyValue ([PSCustomObject]@{
             status = 'RUNNING'; region = 'DE'; systemLocale = 'de-DE'; uiLanguage = 'en-US'
             inputLocale = '0407:00000407'; timeZone = 'W. Europe Standard Time'
-            passwordStorage = 'host-dpapi'; answerMedia = 'offline-vhdx'; startedAt = Get-LabTimestamp
+            passwordStorage = 'host-dpapi'; answerMedia = 'offline-vhdx'; bootstrapVersion = 'network-winrm-v1'
+            labAddress = $fallbackAddress; startedAt = Get-LabTimestamp
         }) -Force
         Write-HyperVSqlImageBuildState -BuildDirectory $build.BuildDirectory -State $build
         $build = Set-HyperVSqlImageBuildState -BuildId $BuildId -State OOBE_AUTOMATION_RUNNING `
             -Reason 'Unattend.xml offline injiziert; Windows-OOBE wird unbeaufsichtigt abgeschlossen' -StateRoot $StateRoot
-        Write-LabInfo "OOBE: starte $vmName und warte maximal $TimeoutSeconds Sekunden auf PowerShell Direct"
+        Write-LabInfo "OOBE: starte $vmName und warte maximal $TimeoutSeconds Sekunden auf PowerShell Direct oder Lab-WinRM ($fallbackAddress)"
         $null = Start-HyperVInstance -VMName $vmName -ExpectedRunId $build.buildId -ExpectedScopeId $build.scopeId
     }
 
-    Write-LabInfo "OOBE: pruefe Windows-Readiness per PowerShell Direct"
+    Write-LabInfo "OOBE: pruefe Windows-Readiness per PowerShell Direct oder Lab-WinRM"
     $ready = Wait-HyperVPowerShellDirect -VMName $vmName -ExpectedRunId $build.buildId `
-        -ExpectedScopeId $build.scopeId -Credential $credential -TimeoutSeconds $TimeoutSeconds
+        -ExpectedScopeId $build.scopeId -Credential $credential -FallbackAddress $fallbackAddress -TimeoutSeconds $TimeoutSeconds
     if (-not $ready.Ready) { throw "HYPERV_SQL_OOBE_TIMEOUT: $($ready.Message)" }
     $receipt = Invoke-HyperVPowerShellDirect -VMName $vmName -ExpectedRunId $build.buildId `
-        -ExpectedScopeId $build.scopeId -Credential $credential -ScriptBlock {
+        -ExpectedScopeId $build.scopeId -Credential $credential -FallbackAddress $fallbackAddress -ScriptBlock {
             $ErrorActionPreference = 'Stop'
             Set-WinHomeLocation -GeoId 94
             Set-WinSystemLocale -SystemLocale 'de-DE'
@@ -219,7 +283,8 @@ function Invoke-HyperVSqlUnattendedOobe {
     $build | Add-Member -NotePropertyName oobeAutomation -NotePropertyValue ([PSCustomObject]@{
         status = 'COMPLETED'; region = 'DE'; systemLocale = 'de-DE'; uiLanguage = 'en-US'
         inputLocale = '0407:00000407'; timeZone = 'W. Europe Standard Time'
-        passwordStorage = 'host-dpapi'; answerMedia = 'guest-scrubbed'; completedAt = [string]$receipt.observedAt
+        passwordStorage = 'host-dpapi'; answerMedia = 'guest-scrubbed'; bootstrapVersion = 'network-winrm-v1'
+        labAddress = $fallbackAddress; transport = 'powershell-direct-or-lab-winrm'; completedAt = [string]$receipt.observedAt
     }) -Force
     Write-HyperVSqlImageBuildState -BuildDirectory $build.BuildDirectory -State $build
     return Set-HyperVSqlImageBuildState -BuildId $BuildId -State OOBE_COMPLETED `
@@ -285,6 +350,9 @@ function Invoke-HyperVSqlTestEnvironmentInstall {
     )) { throw 'HYPERV_SQL_TEST_ENVIRONMENT_NOT_READY' }
     if ($build.state -in @('SQL_READY_RUN', 'TESTS_PASSED')) { return $build }
     $vmName = [string]$build.builder.vmName
+    $fallbackAddress = if ($build.labNetwork) {
+        Get-LabNetworkGuestAddress -Network $build.labNetwork -Identity $build.buildId
+    }
     $managed = Get-HyperVManagedVM -VMName $vmName -ExpectedRunId $build.buildId -ExpectedScopeId $build.scopeId
     if (-not $managed -or [string]$managed.VM.State -ne 'Running') {
         throw 'HYPERV_SQL_TEST_ENVIRONMENT_VM_MUST_BE_RUNNING'
@@ -301,7 +369,7 @@ function Invoke-HyperVSqlTestEnvironmentInstall {
             -Reason 'Vollstaendige SQL-Installation fuer run-lokale Windows-Abnahme gestartet' -StateRoot $StateRoot
         try {
             $receipt = Invoke-HyperVPowerShellDirect -VMName $vmName -ExpectedRunId $build.buildId `
-                -ExpectedScopeId $build.scopeId -Credential $Credential `
+                -ExpectedScopeId $build.scopeId -Credential $Credential -FallbackAddress $fallbackAddress `
                 -ArgumentList @(
                     $build.buildId, $build.scopeId, $build.manualAction.challenge, $build.sql.version,
                     ($build.sql.features -join ','), $SaPassword, $SetupTimeoutSeconds
@@ -386,7 +454,8 @@ function Invoke-HyperVSqlTestEnvironmentInstall {
 
     if ($build.state -eq 'SQL_INSTALL_REBOOT_REQUIRED') {
         $ready = Wait-HyperVPowerShellDirect -VMName $vmName -ExpectedRunId $build.buildId `
-            -ExpectedScopeId $build.scopeId -Credential $Credential -TimeoutSeconds $ReadinessTimeoutSeconds
+            -ExpectedScopeId $build.scopeId -Credential $Credential -FallbackAddress $fallbackAddress `
+            -TimeoutSeconds $ReadinessTimeoutSeconds
         if (-not $ready.Ready) { throw "HYPERV_SQL_INSTALL_RECONNECT_TIMEOUT: $($ready.Message)" }
     }
     elseif ($build.state -eq 'SQL_INSTALL_RUNNING' -and -not $build.installationEvidence) {
@@ -397,16 +466,18 @@ function Invoke-HyperVSqlTestEnvironmentInstall {
     Write-LabInfo "SQL Setup: spezialisiere Windows-Gast als $computerName"
     $null = Set-HyperVWindowsGuestSpecialization -VMName $vmName -ExpectedRunId $build.buildId `
         -ExpectedScopeId $build.scopeId -Credential $Credential -ComputerName $computerName `
+        -FallbackAddress $fallbackAddress `
         -TimeoutSeconds $ReadinessTimeoutSeconds
     $labNetworkReceipt = $null
     if ($build.labNetwork) {
         Write-LabInfo "Netzwerk: konfiguriere Gastadresse im Netz $($build.labNetwork.Name)"
         $labNetworkReceipt = Initialize-HyperVGuestLabNetwork -VMName $vmName `
             -ExpectedRunId $build.buildId -ExpectedScopeId $build.scopeId -Credential $Credential `
-            -Network $build.labNetwork -Identity $build.buildId
+            -Network $build.labNetwork -Identity $build.buildId -FallbackAddress $fallbackAddress
     }
     $readiness = Wait-HyperVGuestSqlReady -VMName $vmName -ExpectedRunId $build.buildId `
         -ExpectedScopeId $build.scopeId -Credential $Credential -SaPassword $SaPassword `
+        -FallbackAddress $fallbackAddress `
         -ExpectedMajorVersion (Get-HyperVSqlMajorVersion -SqlVersion $build.sql.version) `
         -TimeoutSeconds $ReadinessTimeoutSeconds
     if (-not $readiness.Ready) { throw 'HYPERV_SQL_TEST_ENVIRONMENT_READINESS_FAILED' }
@@ -442,8 +513,11 @@ function Test-HyperVSqlAcceptanceEnvironment {
     if (-not $SaPassword) { $SaPassword = Get-LabSecret -Path $build.BuildDirectory -Name 'sa-password' }
     if (-not $SaPassword) { throw 'HYPERV_SQL_ACCEPTANCE_SA_PASSWORD_REQUIRED' }
     $expectedMajor = Get-HyperVSqlMajorVersion -SqlVersion $build.sql.version
+    $fallbackAddress = if ($build.labNetwork) {
+        Get-LabNetworkGuestAddress -Network $build.labNetwork -Identity $build.buildId
+    }
     $receipt = Invoke-HyperVPowerShellDirect -VMName $build.builder.vmName -ExpectedRunId $build.buildId `
-        -ExpectedScopeId $build.scopeId -Credential $Credential `
+        -ExpectedScopeId $build.scopeId -Credential $Credential -FallbackAddress $fallbackAddress `
         -ArgumentList @($build.buildId, $build.scopeId, $build.sql.version, $expectedMajor, $SaPassword, $TimeoutSeconds) `
         -ScriptBlock {
             param($ExpectedBuildId, $ExpectedScopeId, $ExpectedSqlVersion, $ExpectedMajor, $SqlSaPassword, $Timeout)
