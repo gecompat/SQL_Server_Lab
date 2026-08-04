@@ -1,8 +1,8 @@
-# SQL Server 2019, 2022 und 2025 aus einer gemeinsamen Windows-Baseline
+# SQL Server 2019, 2022 und 2025 als frische, einmalig generalisierte Images
 
 | Merkmal | Wert |
 |---|---|
-| Betriebssystem | Windows Server 2025 Core oder Desktop Experience |
+| Betriebssystem | Windows Server 2025 Core oder Desktop Experience, je SQL-Image frisch installiert |
 | Einstieg | `Invoke-SqlServerLab.ps1 -Action Image` |
 | Ziel | ein immutable `SQL_PREPARED_SEALED`-Artifact je SQL-Hauptversion |
 | SQL-Features | Database Engine, Full-Text, Replication |
@@ -15,26 +15,29 @@ nicht hintereinander auf demselben Builder ausgeführt.
 
 | Ziel | Menüfolge | Ergebnis |
 |---|---|---|
-| Wiederverwendbares SQL-Grundimage | `7 → 9 → 10 → 11` | immutable `SQL_PREPARED_SEALED`; SQL ist nur mit `PrepareImage` vorbereitet |
-| Laufende Test- und Abnahme-VM | `7 → 13 → 14` | run-lokale VM mit vollständig installierter SQL-Instanz |
-| Laufende Abnahme-VM, falls OOBE manuell erledigt wurde | `7 → 9 → 16 → 14` | wie der vorherige Pfad, nur mit manuell abgeschlossenem OOBE |
+| Wiederverwendbares SQL-Grundimage | `7 → 9 → 10 → 11` | Windows frisch aus ISO, SQL `PrepareImage`, genau ein finaler Sysprep |
+| Legacy-Abnahme-VM aus gemeinsamer OS-Baseline | `a → 13 → 14` | run-lokale VM mit vollständig installierter SQL-Instanz |
 
-`13` ist somit **keine** Vorbereitung für `10`: Aktion 13 installiert eine
+`13` ist **keine** Vorbereitung für `10`: Aktion 13 installiert eine
 vollständige, konkrete SQL-Instanz für Tests. Aktion 10 installiert dagegen
-`PrepareImage` und generalisiert Windows erneut, damit daraus ein portables
-Grundimage entstehen kann. Nach `13` wird daher nicht `10` ausgeführt.
+`PrepareImage` und versiegelt anschließend das portable Grundimage. Nach `13`
+wird daher nicht `10` ausgeführt.
 
-Auch beim Prepared-Image wird Windows nicht neu installiert: Die von Aktion 7
-erzeugte VM ist eine Differencing-VM auf der vorhandenen `OS_SEALED`-VHDX. Die
-einmalige OOBE erzeugt lediglich die neue Gastidentität und das lokale
-Administratorpasswort.
+Beim Prepared-Image wird Windows bewusst neu installiert: Aktion 7 erstellt
+eine leere VHDX, bindet Windows- und SQL-ISO ein und startet von der
+Windows-ISO. Damit erfolgt pro SQL-Image nur eine Generalisierung, ganz am
+Ende nach SQL `PrepareImage`.
 
-## 2. Warum eine Windows-Baseline genügt
+## 2. Warum Prepared-Images ohne OS-Baseline gebaut werden
 
-Die vorhandene Windows-Server-2025-Baseline ist der gemeinsame OS-Parent für
-SQL Server 2019, 2022 und 2025. Für jede SQL-Version wird eine eigene
-Differencing-VM erzeugt. Das Betriebssystem wird deshalb nicht dreimal manuell
-installiert.
+Ein geteilter, bereits generalisierter OS-Parent erfordert für jedes
+SQL-Prepared-Image eine zweite Generalisierung. Der empfohlene Builder
+installiert deshalb Windows und SQL in einer frischen VHDX und generalisiert
+erst danach einmal. Das benötigt je SQL-Version eine Windows-Installation,
+vermeidet aber Sysprep-Rearm-Probleme und ist deutlich robuster.
+
+Bestehende `OS_SEALED`-Baselines bleiben für normale Laufzeit- und
+Abnahme-VMs nutzbar. Dafür dient im Menü die explizite Legacy-Aktion `a`.
 
 Windows Server Core ist dafür gültig. Microsoft unterstützt dort unter anderem
 Database Engine, Replication und Full-Text. Die grafische Setup-Oberfläche ist
@@ -73,16 +76,15 @@ $env:SQL_SERVER_LAB_MEDIA_ROOT = 'D:\Lab_Base'
 
 Im Image-Menü Aktion 7 wählen. Danach:
 
-1. SQL-Version auswählen;
-2. Medien-Edition auswählen;
-3. vorhandenes `OS_SEALED`-Artifact auswählen;
-4. fehlendes SHA-256-Sidecar nach Sichtprüfung erzeugen;
-5. Builder bestätigen.
+1. Windows-Edition und -Typ auswählen;
+2. SQL-Version und Medien-Edition auswählen;
+3. fehlende SHA-256-Sidecars nach Sichtprüfung erzeugen;
+4. Builder bestätigen.
 
-Der Builder erzeugt eine Generation-2-Differencing-VM mit Secure Boot,
-deaktivierten automatischen Checkpoints und dem internen `SQL_LAB_HYPERV`-
-Switch. Die SQL-ISO wird als DVD eingebunden. Der OS-Parent bleibt unverändert
-und read-only; ein externer Netzwerkzugang wird nicht bereitgestellt.
+Der Builder erzeugt eine Generation-2-VM mit einer neuen dynamischen OS-VHDX,
+Secure Boot, deaktivierten automatischen Checkpoints und dem internen
+`SQL_LAB_HYPERV`-Switch. Windows-ISO und SQL-ISO werden als DVDs eingebunden;
+ein externer Netzwerkzugang wird nicht bereitgestellt.
 
 ## 5. OOBE für den Abnahme-VM-Pfad: automatisch oder kontrollierter Fallback
 
@@ -115,10 +117,11 @@ Build-Verzeichnis. Klartext erscheint weder im Build-State noch in Evidenz,
 VM-Notizen oder Git. Die Antwortdatei wird nach positivem OOBE-Receipt aus dem
 Gast entfernt.
 
-Für den **Prepared-Image-Pfad** ist Aktion 9 der bewusste manuelle OOBE-Schritt:
-lokales Administratorpasswort setzen, einmal anmelden und danach Aktion 10
-mit genau diesen Zugangsdaten ausführen. Aktion 10 führt die SQL-Installation
-ohne weitere VMConnect-Interaktion aus.
+Für den **Prepared-Image-Pfad** ist Aktion 9 die bewusste Windows-Installation:
+gewünschte Edition und Typ auswählen, auf der leeren OS-Disk installieren,
+lokales Administratorpasswort setzen und einmal anmelden. Danach Aktion 10
+mit genau diesen Zugangsdaten ausführen. Aktion 10 führt SQL `PrepareImage`
+und den einzigen finalen Windows-Sysprep ohne weitere VMConnect-Interaktion aus.
 
 Offizielle Referenzen:
 
@@ -154,13 +157,10 @@ Windows kann ein einzelnes Image nur begrenzt lizenzseitig rearmen. Meldet
 Sysprep `SLReArmWindows` mit `0xC004D307`, ist dies keine SQL-Installation und
 auch kein Passwortfehler: Die zulässige Anzahl wurde für genau diese
 VHDX-Kette bereits überschritten. Das betroffene SQL-Prepared-Image kann nicht
-fertiggestellt werden. Aus derselben `OS_SEALED`-Baseline kann auch kein neues
-Prepared-Image erstellt werden, weil dessen Kind-VHDX nochmals generalisiert
-werden müsste. **Normale Lab-VMs aus der Baseline bleiben dagegen nutzbar**,
-solange sie nicht erneut mit Sysprep generalisiert werden. Aktion 12 räumt den
-fehlgeschlagenen SQL-Builder auf; für weitere SQL-Prepared-Images wird aus der
-originalen Windows-ISO eine neue OS-Baseline über `1 → 3 → 4 → 5` erzeugt.
-Erst danach folgt wieder `7 → 9 → 10 → 11`.
+fertiggestellt werden. Aktion 12 räumt den fehlgeschlagenen Builder auf;
+anschließend beginnt Aktion 7 wieder mit einer frischen VHDX aus den
+Originalmedien. **Normale Lab-VMs aus einer bestehenden Baseline bleiben
+weiter nutzbar**, solange sie nicht erneut mit Sysprep generalisiert werden.
 
 Die Details stehen nach Aktion 17 im Build-State als
 `sysprepFailureDetail`; die Menümeldung nennt die notwendige Maßnahme direkt.
