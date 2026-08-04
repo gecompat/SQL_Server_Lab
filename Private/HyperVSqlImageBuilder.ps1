@@ -409,16 +409,23 @@ function Invoke-HyperVSqlPrepareAndGeneralize {
         -ScriptBlock {
             param($ExpectedBuildId, $ExpectedScopeId, $Challenge)
             $ErrorActionPreference = 'Stop'
-            $sysprepPath = Join-Path $env:SystemRoot 'System32\Sysprep\Sysprep.exe'
-            $process = Start-Process -FilePath $sysprepPath `
-                -ArgumentList @('/generalize', '/oobe', '/mode:vm', '/quit', '/quiet') -Wait -PassThru
-            if ($process.ExitCode -ne 0) { throw "WINDOWS_SYSPREP_FAILED: $($process.ExitCode)" }
+            $imageState = [string](Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State').ImageState
+            # Ein zuvor gestartetes Sysprep kann nach der Rueckkehr von /quit
+            # noch den Zwischenzustand UNDEPLOYABLE zeigen. In diesem Fall
+            # keinesfalls ein zweites Sysprep starten, sondern dessen Abschluss
+            # abwarten. Ein bereits final generalisiertes Image wird ebenfalls
+            # nur noch in den kontrollierten Shutdown ueberfuehrt.
+            if ($imageState -notin @('IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE', 'IMAGE_STATE_UNDEPLOYABLE')) {
+                $sysprepPath = Join-Path $env:SystemRoot 'System32\Sysprep\Sysprep.exe'
+                $process = Start-Process -FilePath $sysprepPath `
+                    -ArgumentList @('/generalize', '/oobe', '/mode:vm', '/quit', '/quiet') -Wait -PassThru
+                if ($process.ExitCode -ne 0) { throw "WINDOWS_SYSPREP_FAILED: $($process.ExitCode)" }
+            }
             # Sysprep /quit beendet den Prozess, bevor Windows Setup seinen
             # ImageState zwingend auf den finalen Generalize-Zustand geschrieben
             # hat. IMAGE_STATE_UNDEPLOYABLE ist in diesem kurzen Intervall kein
             # belastbarer Endzustand; deshalb begrenzt auf den dokumentierten
             # Zielzustand warten statt unmittelbar nach dem Prozessende lesen.
-            $imageState = $null
             $stateDeadline = [datetime]::UtcNow.AddSeconds(120)
             do {
                 $imageState = [string](Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State').ImageState
