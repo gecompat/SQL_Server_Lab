@@ -1,13 +1,11 @@
 <#
 .SYNOPSIS
-    Resumierbarer SQL-PrepareImage-Builder auf einer Hyper-V-OS-Baseline.
+    Resumierbarer SQL-PrepareImage-Builder fuer Hyper-V.
 .DESCRIPTION
-    Erzeugt aus einem immutable OS_SEALED-Artifact eine isolierte
-    Differencing-VM, bindet ein SHA-256-verifiziertes SQL-Server-Medium ein und
-    fuehrt SQL Server PrepareImage sowie Windows Sysprep ueber PowerShell Direct
-    aus. Credentials und konkrete Hostpfade werden nicht im portablen State
-    gespeichert. Vor der Publikation wird die Differencing-Kette in eine
-    eigenstaendige VHDX konvertiert.
+    Der empfohlene Pfad erzeugt eine neue VM direkt aus der Windows-ISO,
+    installiert danach SQL Server PrepareImage und fuehrt genau einen finalen
+    Windows-Sysprep aus. Der historische Baseline-Pfad bleibt nur fuer
+    run-lokale Abnahme-VMs erhalten.
 #>
 
 function Write-HyperVSqlImageBuildState {
@@ -241,7 +239,7 @@ function Get-HyperVSqlSysprepFailureReason {
     )
 
     if ($SysprepDetail -match '(?i)SLReArmWindows|0xC004D307') {
-        return 'WINDOWS_SYSPREP_REARM_LIMIT_REACHED: Die maximale Anzahl von Windows-Lizenz-Rearms wurde erreicht. Aus dieser OS_SEALED-Baseline kann kein weiteres SQL-Prepared-Image erzeugt werden, weil dessen Kind-VHDX nochmals generalisiert werden muss. Normale Lab-VMs ohne erneutes Sysprep bleiben davon unberuehrt. SQL-Builder mit Aktion 12 aufraeumen und fuer SQL-Prepared-Images eine neue Windows-Baseline aus der Original-Windows-ISO mit Aktionen 1 bis 5 erzeugen.'
+        return 'WINDOWS_SYSPREP_REARM_LIMIT_REACHED: Die maximale Anzahl von Windows-Lizenz-Rearms wurde erreicht. Diesen Builder mit Aktion 12 aufraeumen und ein frisches SQL-Prepared-Image mit Aktion 7 neu beginnen. Der neue Pfad installiert Windows und SQL in derselben VM und verwendet nur einen finalen Sysprep.'
     }
     $detail = if ($SysprepDetail) { "; Sysprep=$SysprepDetail" } else { '' }
     return "HYPERV_SQL_IMAGE_GENERALIZATION_RECOVERY_INVALID_STATE: $ImageState$detail"
@@ -344,6 +342,78 @@ function New-HyperVSqlImageBuildPlan {
     return Get-HyperVSqlImageBuildPlan -BuildId $buildId -StateRoot $StateRoot
 }
 
+function New-HyperVSqlFreshImageBuildPlan {
+    <#
+    .SYNOPSIS
+        Erstellt den Plan fuer ein SQL-Prepared-Image aus zwei Originalmedien.
+    .DESCRIPTION
+        Windows und SQL werden in derselben frischen VHDX installiert. Erst
+        danach wird Windows einmalig generalisiert und das Image versiegelt.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$WindowsIsoPath,
+        [Parameter(Mandatory)][ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$ExpectedWindowsSha256,
+        [Parameter(Mandatory)][ValidateSet('windows-server-2025')][string]$OperatingSystemId,
+        [Parameter(Mandatory)][ValidateSet('standard-evaluation', 'datacenter-evaluation')][string]$WindowsEdition,
+        [Parameter(Mandatory)][ValidateSet('core', 'desktop-experience')][string]$InstallationType,
+        [Parameter(Mandatory)][string]$SqlIsoPath,
+        [Parameter(Mandatory)][ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$ExpectedSqlSha256,
+        [Parameter(Mandatory)][ValidateSet('2019', '2022', '2025')][string]$SqlVersion,
+        [Parameter(Mandatory)][ValidateSet('Eval', 'Enterprise', 'Standard')][string]$SqlEdition,
+        [string[]]$SqlFeatures = @('SQLENGINE', 'FULLTEXT', 'REPLICATION'),
+        [ValidateRange(32GB, 1TB)][long]$OsDiskSizeBytes = 80GB,
+        [string]$StateRoot
+    )
+
+    if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
+    $windowsIso = (Resolve-Path -LiteralPath $WindowsIsoPath -ErrorAction Stop).Path
+    $sqlIso = (Resolve-Path -LiteralPath $SqlIsoPath -ErrorAction Stop).Path
+    if (-not (Test-WindowsInstallationIso -Path $windowsIso)) { throw 'HYPERV_SQL_WINDOWS_MEDIA_INVALID_ISO' }
+    if (-not (Test-WindowsInstallationIso -Path $sqlIso)) { throw 'HYPERV_SQL_MEDIA_INVALID_ISO' }
+    $windowsSha256 = (Get-FileHash -LiteralPath $windowsIso -Algorithm SHA256).Hash.ToLowerInvariant()
+    $sqlSha256 = (Get-FileHash -LiteralPath $sqlIso -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($windowsSha256 -ne $ExpectedWindowsSha256.ToLowerInvariant()) { throw 'HYPERV_SQL_WINDOWS_MEDIA_INTEGRITY_MISMATCH' }
+    if ($sqlSha256 -ne $ExpectedSqlSha256.ToLowerInvariant()) { throw 'HYPERV_SQL_MEDIA_INTEGRITY_MISMATCH' }
+    $features = @($SqlFeatures | ForEach-Object { ([string]$_).ToUpperInvariant() } | Sort-Object -Unique)
+    if ($features.Count -eq 0 -or @($features | Where-Object { $_ -notin @('SQLENGINE', 'FULLTEXT', 'REPLICATION') }).Count -gt 0) {
+        throw 'HYPERV_SQL_FEATURES_UNSUPPORTED'
+    }
+
+    $buildId = New-LabGuid; $scopeId = New-LabGuid
+    $buildDirectory = Join-Path (Join-Path $StateRoot 'image-builds/hyperv-sql') $buildId
+    New-Item -Path $buildDirectory -ItemType Directory -Force | Out-Null
+    $null = New-CleanupPlan -RunDir $buildDirectory -RunId $buildId -ScopeId $scopeId `
+        -ProviderSubRuns @([PSCustomObject]@{ id = 'provider-hyperv'; provider = 'hyperv' })
+    Write-LabArtifactJsonAtomic -Path (Join-Path $buildDirectory 'build-local.json') -InputObject ([PSCustomObject]@{
+        windowsIsoPath = $windowsIso; sqlIsoPath = $sqlIso
+    })
+    $operatingSystem = [PSCustomObject]@{
+        id = $OperatingSystemId; version = '2025'; edition = $WindowsEdition
+        installationType = $InstallationType; language = 'en-US'; architecture = 'x64'
+    }
+    $license = [PSCustomObject]@{ type = 'evaluation'; evaluationExpiresAt = $null }
+    $timestamp = Get-LabTimestamp
+    $state = [PSCustomObject]@{
+        contractVersion = '2'; buildKind = 'hyperv-sql-prepare-image-fresh-windows'; buildId = $buildId; scopeId = $scopeId
+        provisioningMode = 'fresh-windows-media'; state = 'MEDIA_VERIFIED'
+        stateHistory = @([PSCustomObject]@{ state = 'MEDIA_VERIFIED'; timestamp = $timestamp; reason = 'Windows- und SQL-ISO SHA-256 verifiziert; ein finaler Sysprep vorgesehen' })
+        operatingSystem = $operatingSystem; license = $license; windowsMedia = [PSCustomObject]@{ sha256 = $windowsSha256 }
+        parentArtifact = [PSCustomObject]@{ artifactId = $null; source = 'fresh-windows-media'; operatingSystem = $operatingSystem; license = $license }
+        resources = [PSCustomObject]@{ osDiskSizeBytes = $OsDiskSizeBytes }
+        sql = [PSCustomObject]@{
+            version = $SqlVersion; mediaEdition = $SqlEdition
+            edition = switch ($SqlEdition) { 'Eval' { 'Evaluation' }; 'Enterprise' { 'EnterpriseDeveloper' }; 'Standard' { 'StandardDeveloper' } }
+            license = [PSCustomObject]@{ type = if ($SqlEdition -eq 'Eval') { 'evaluation' } else { 'developer' }; evaluationStartsAt = if ($SqlEdition -eq 'Eval') { 'complete-image' } else { $null }; evaluationExpiresAt = $null; productionUseAllowed = $false }
+            features = $features; mediaSha256 = $sqlSha256; setupBuild = $null
+        }
+        builder = $null; manualAction = $null; installationEvidence = $null; setupEvidence = $null; generalizationEvidence = $null
+        sealPostconditions = $null; artifact = $null; cleanupStatus = $null; createdAt = $timestamp; updatedAt = $timestamp
+    }
+    Write-HyperVSqlImageBuildState -BuildDirectory $buildDirectory -State $state
+    return Get-HyperVSqlImageBuildPlan -BuildId $buildId -StateRoot $StateRoot
+}
+
 function Initialize-HyperVSqlPreparedImageBuild {
     [CmdletBinding()]
     param(
@@ -391,6 +461,72 @@ function Initialize-HyperVSqlPreparedImageBuild {
     }
 }
 
+function Initialize-HyperVSqlFreshPreparedImageBuild {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$MediaRoot,
+        [Parameter(Mandatory)][ValidateSet('windows-server-2025')][string]$OperatingSystemId,
+        [Parameter(Mandatory)][ValidateSet('standard-evaluation', 'datacenter-evaluation')][string]$WindowsEdition,
+        [Parameter(Mandatory)][ValidateSet('core', 'desktop-experience')][string]$InstallationType,
+        [Parameter(Mandatory)][ValidateSet('2019', '2022', '2025')][string]$SqlVersion,
+        [ValidateSet('Eval', 'Enterprise', 'Standard')][string]$MediaEdition = 'Eval',
+        [string[]]$SqlFeatures = @('SQLENGINE', 'FULLTEXT', 'REPLICATION'),
+        [ValidateRange(32GB, 1TB)][long]$OsDiskSizeBytes = 80GB,
+        [ValidateRange(2GB, 1TB)][long]$MemoryStartupBytes = 4GB,
+        [ValidateRange(1, 64)][int]$ProcessorCount = 4,
+        [string]$StateRoot
+    )
+
+    $windowsMedia = Resolve-HyperVWindowsInstallationMedia -MediaRoot $MediaRoot -OperatingSystemId $OperatingSystemId
+    if ($windowsMedia.HashStatus -ne 'SIDECAR_READY') { throw "HYPERV_SQL_WINDOWS_MEDIA_HASH_REQUIRED: $($windowsMedia.HashPath)" }
+    $sqlMedia = Resolve-HyperVSqlInstallationMedia -MediaRoot $MediaRoot -SqlVersion $SqlVersion -MediaEdition $MediaEdition
+    if ($sqlMedia.HashStatus -ne 'SIDECAR_READY') { throw "HYPERV_SQL_MEDIA_HASH_REQUIRED: $($sqlMedia.HashPath)" }
+    $labNetwork = Ensure-LabHyperVNetwork
+    $plan = New-HyperVSqlFreshImageBuildPlan -WindowsIsoPath $windowsMedia.IsoPath `
+        -ExpectedWindowsSha256 $windowsMedia.ExpectedSha256 -OperatingSystemId $OperatingSystemId `
+        -WindowsEdition $WindowsEdition -InstallationType $InstallationType -SqlIsoPath $sqlMedia.IsoPath `
+        -ExpectedSqlSha256 $sqlMedia.ExpectedSha256 -SqlVersion $SqlVersion -SqlEdition $MediaEdition `
+        -SqlFeatures $SqlFeatures -OsDiskSizeBytes $OsDiskSizeBytes -StateRoot $StateRoot
+    try {
+        $resourceRoot = Join-Path $plan.BuildDirectory 'resources/hyperv'
+        $runPrefix = $plan.buildId.Replace('-', '').Substring(0, 8).ToLowerInvariant()
+        $vmName = "sql-lab-sql-image-$SqlVersion-$runPrefix"
+        $diskPath = Join-Path $resourceRoot "$vmName.vhdx"
+        $null = Add-CleanupStep -RunDir $plan.BuildDirectory -ResourceType vhdx -ResourceId $diskPath -Action remove `
+            -Provider hyperv -ProviderSubRunId provider-hyperv -Compensation 'Remove fresh Windows SQL image VHDX'
+        $null = Add-CleanupStep -RunDir $plan.BuildDirectory -ResourceType vm -ResourceId $vmName -Action remove `
+            -Provider hyperv -ProviderSubRunId provider-hyperv -Compensation 'Remove fresh Windows SQL image builder VM'
+        New-Item -Path $resourceRoot -ItemType Directory -Force | Out-Null
+        $null = New-VHD -Path $diskPath -Dynamic -SizeBytes $OsDiskSizeBytes -ErrorAction Stop
+        $vm = New-VM -Name $vmName -Generation 2 -MemoryStartupBytes $MemoryStartupBytes -VHDPath $diskPath `
+            -Path $resourceRoot -SwitchName $labNetwork.Name -ErrorAction Stop
+        $notes = ConvertTo-HyperVLabNotes -RunId $plan.buildId -ScopeId $plan.scopeId -InstanceId "sql-image-$SqlVersion" -ChildVhdxPath $diskPath
+        $null = Set-VM -VM $vm -Notes $notes -AutomaticCheckpointsEnabled $false -ErrorAction Stop
+        $null = Set-VMProcessor -VM $vm -Count $ProcessorCount -ErrorAction Stop
+        $null = Set-VMFirmware -VM $vm -EnableSecureBoot On -SecureBootTemplate MicrosoftWindows -ErrorAction Stop
+        $windowsDvd = Add-VMDvdDrive -VM $vm -Path $windowsMedia.IsoPath -Passthru -ErrorAction Stop
+        $null = Add-VMDvdDrive -VM $vm -Path $sqlMedia.IsoPath -ErrorAction Stop
+        $null = Set-VMFirmware -VM $vm -FirstBootDevice $windowsDvd -ErrorAction Stop
+        $plan.builder = [PSCustomObject]@{
+            vmName = $vmName; osDiskRelativePath = "resources/hyperv/$vmName.vhdx"
+            generation = 2; secureBoot = $true; networkAttached = $true; diskKind = 'fresh-dynamic'
+        }
+        $plan | Add-Member -NotePropertyName labNetwork -NotePropertyValue $labNetwork -Force
+        $plan.manualAction = [PSCustomObject]@{
+            stepId = 'install-fresh-windows-then-prepare-sql'; challenge = New-LabGuid
+            instruction = 'Windows aus der DVD installieren, OOBE abschliessen und einmal lokal als Administrator anmelden'
+            requestedAt = Get-LabTimestamp
+        }
+        Write-HyperVSqlImageBuildState -BuildDirectory $plan.BuildDirectory -State $plan
+        return Set-HyperVSqlImageBuildState -BuildId $plan.buildId -State MANUAL_ACTION_REQUIRED `
+            -Reason 'Frische Windows-VM mit Windows- und SQL-ISO bereit; ein finaler Sysprep nach SQL PrepareImage vorgesehen' -StateRoot $StateRoot
+    }
+    catch {
+        try { $null = Set-HyperVSqlImageBuildState -BuildId $plan.buildId -State FAILED -Reason $_.Exception.Message -StateRoot $StateRoot } catch { }
+        throw
+    }
+}
+
 function Start-HyperVSqlImageBuildVM {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$BuildId, [string]$StateRoot)
@@ -401,6 +537,40 @@ function Start-HyperVSqlImageBuildVM {
     }
     return Start-HyperVInstance -VMName ([string]$build.builder.vmName) `
         -ExpectedRunId $build.buildId -ExpectedScopeId $build.scopeId
+}
+
+function Confirm-HyperVSqlFreshWindowsInstallation {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Build, [Parameter(Mandatory)][PSCredential]$Credential, [string]$StateRoot)
+
+    if ([string]$Build.provisioningMode -ne 'fresh-windows-media' -or $Build.installationEvidence) { return $Build }
+    $receipt = Invoke-HyperVPowerShellDirect -VMName ([string]$Build.builder.vmName) `
+        -ExpectedRunId ([string]$Build.buildId) -ExpectedScopeId ([string]$Build.scopeId) -Credential $Credential `
+        -ArgumentList @([string]$Build.buildId, [string]$Build.scopeId) -ScriptBlock {
+            param($ExpectedBuildId, $ExpectedScopeId)
+            $current = Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -ErrorAction Stop
+            [PSCustomObject]@{
+                contractVersion = '1'; buildId = $ExpectedBuildId; scopeId = $ExpectedScopeId
+                productName = [string]$current.ProductName; editionId = [string]$current.EditionID
+                installationType = [string]$current.InstallationType; currentBuild = [string]$current.CurrentBuild
+            }
+        }
+    $receipt = @($receipt)[-1]
+    if (-not $receipt -or [string]$receipt.contractVersion -ne '1' -or
+        [string]$receipt.buildId -ne [string]$Build.buildId -or [string]$receipt.scopeId -ne [string]$Build.scopeId) {
+        throw 'HYPERV_SQL_WINDOWS_INSTALLATION_RECEIPT_INVALID'
+    }
+    if ([string]$receipt.productName -notmatch '2025') { throw "HYPERV_SQL_WINDOWS_INSTALLATION_VERSION_MISMATCH: erkannt $($receipt.productName)" }
+    $editionPattern = if ([string]$Build.operatingSystem.edition -eq 'standard-evaluation') { '^ServerStandardEval' } else { '^ServerDatacenterEval' }
+    if ([string]$receipt.editionId -notmatch $editionPattern) { throw "HYPERV_SQL_WINDOWS_INSTALLATION_EDITION_MISMATCH: erwartet $($Build.operatingSystem.edition), erkannt $($receipt.editionId)" }
+    $actualType = switch ([string]$receipt.installationType) { 'Server Core' { 'core' }; 'Server' { 'desktop-experience' }; default { 'unknown' } }
+    if ($actualType -ne [string]$Build.operatingSystem.installationType) { throw "HYPERV_SQL_WINDOWS_INSTALLATION_TYPE_MISMATCH: erwartet $($Build.operatingSystem.installationType), erkannt $actualType" }
+    $Build | Add-Member -NotePropertyName installationEvidence -NotePropertyValue ([PSCustomObject]@{
+        verified = $true; productName = [string]$receipt.productName; editionId = [string]$receipt.editionId
+        installationType = $actualType; currentBuild = [string]$receipt.currentBuild; acceptedAt = Get-LabTimestamp
+    }) -Force
+    Write-HyperVSqlImageBuildState -BuildDirectory $Build.BuildDirectory -State $Build
+    return Get-HyperVSqlImageBuildPlan -BuildId ([string]$Build.buildId) -StateRoot $StateRoot
 }
 
 function Invoke-HyperVSqlPrepareAndGeneralize {
@@ -420,6 +590,7 @@ function Invoke-HyperVSqlPrepareAndGeneralize {
     $vmName = [string]$build.builder.vmName
     $managed = Get-HyperVManagedVM -VMName $vmName -ExpectedRunId $build.buildId -ExpectedScopeId $build.scopeId
     if (-not $managed -or [string]$managed.VM.State -ne 'Running') { throw 'HYPERV_SQL_IMAGE_BUILD_VM_MUST_BE_RUNNING' }
+    $build = Confirm-HyperVSqlFreshWindowsInstallation -Build $build -Credential $Credential -StateRoot $StateRoot
     $setupVersionPattern = Get-HyperVSqlSetupVersionPattern -SqlVersion $build.sql.version
 
     # Nach erfolgreichem PrepareImage wird dessen Receipt unmittelbar
@@ -433,15 +604,19 @@ function Invoke-HyperVSqlPrepareAndGeneralize {
                 param($ExpectedBuildId, $ExpectedScopeId, $Challenge, $ExpectedSqlVersion, $ExpectedSetupVersionPattern, $FeaturesCsv, $TimeoutSeconds)
                 $ErrorActionPreference = 'Stop'
                 $Features = @([string]$FeaturesCsv -split ',' | Where-Object { $_ })
-                $setup = @(Get-CimInstance Win32_LogicalDisk -Filter 'DriveType=5' | ForEach-Object {
+                $allSetup = @(Get-CimInstance Win32_LogicalDisk -Filter 'DriveType=5' | ForEach-Object {
                     $candidate = Join-Path ([string]$_.DeviceID + '\') 'setup.exe'
                     if (Test-Path -LiteralPath $candidate -PathType Leaf) { Get-Item -LiteralPath $candidate }
                 })
-                if ($setup.Count -ne 1) { throw "SQL_SETUP_MEDIA_NOT_UNIQUE: $($setup.Count)" }
-                $setupVersion = [string]$setup[0].VersionInfo.FileVersion
-                if ([string]::IsNullOrWhiteSpace($setupVersion) -or $setupVersion -notmatch $ExpectedSetupVersionPattern) {
-                    throw "SQL_SETUP_VERSION_MISMATCH: erwartet $ExpectedSqlVersion, erkannt $setupVersion"
+                $setup = @($allSetup | Where-Object {
+                    -not [string]::IsNullOrWhiteSpace([string]$_.VersionInfo.FileVersion) -and
+                    [string]$_.VersionInfo.FileVersion -match $ExpectedSetupVersionPattern
+                })
+                if ($setup.Count -ne 1) {
+                    $observed = @($allSetup | ForEach-Object { "$($_.FullName)=$($_.VersionInfo.FileVersion)" }) -join '; '
+                    throw "SQL_SETUP_MEDIA_NOT_UNIQUE: passendeSQLSetups=$($setup.Count); gefunden=$observed"
                 }
+                $setupVersion = [string]$setup[0].VersionInfo.FileVersion
                 $arguments = @(
                     '/Q', '/ACTION=PrepareImage', "/FEATURES=$(@($Features) -join ',')",
                     '/INSTANCEID=MSSQLSERVER', '/ENU=True', '/IACCEPTSQLSERVERLICENSETERMS', '/INDICATEPROGRESS'
@@ -613,7 +788,11 @@ function Resume-HyperVSqlPreparedImageGeneralization {
 
 function Publish-HyperVSqlPreparedImageBuild {
     [CmdletBinding()]
-    param([Parameter(Mandatory)][string]$BuildId, [string]$StateRoot)
+    param(
+        [Parameter(Mandatory)][string]$BuildId,
+        [Nullable[datetime]]$EvaluationExpiresAt,
+        [string]$StateRoot
+    )
 
     $build = Get-HyperVSqlImageBuildPlan -BuildId $BuildId -StateRoot $StateRoot
     if (-not $build) { throw 'HYPERV_SQL_IMAGE_BUILD_NOT_FOUND' }
@@ -652,7 +831,8 @@ function Publish-HyperVSqlPreparedImageBuild {
     (Get-Item -LiteralPath $flatPath -Force).IsReadOnly = $true
     $sha256 = (Get-FileHash -LiteralPath $flatPath -Algorithm SHA256).Hash
     $parent = $build.parentArtifact
-    $expiry = if ($parent.license.evaluationExpiresAt) { [datetime]$parent.license.evaluationExpiresAt } else { $null }
+    $expiry = if ($EvaluationExpiresAt) { $EvaluationExpiresAt } elseif ($parent.license.evaluationExpiresAt) { [datetime]$parent.license.evaluationExpiresAt } else { $null }
+    if ([string]$parent.license.type -eq 'evaluation' -and -not $expiry) { throw 'HYPERV_SQL_IMAGE_EVALUATION_EXPIRY_REQUIRED' }
     $artifact = Import-HyperVImageArtifact -VhdxPath $flatPath -ExpectedSha256 $sha256 `
         -ArtifactState SQL_PREPARED_SEALED -OperatingSystemId $parent.operatingSystem.id `
         -OperatingSystemVersion $parent.operatingSystem.version -Edition $parent.operatingSystem.edition `

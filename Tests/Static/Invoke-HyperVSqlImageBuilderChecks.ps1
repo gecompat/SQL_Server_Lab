@@ -52,6 +52,18 @@ try {
     Add-CheckResult -Name 'Evaluation-Ablaufmetadaten werden vom OS-Parent uebernommen' -Success (
         -not [string]::IsNullOrWhiteSpace([string]$plan.parentArtifact.license.evaluationExpiresAt)
     )
+    $freshPlan = & $module {
+        param($Iso,$Sha,$Root)
+        New-HyperVSqlFreshImageBuildPlan -WindowsIsoPath $Iso -ExpectedWindowsSha256 $Sha `
+            -OperatingSystemId windows-server-2025 -WindowsEdition standard-evaluation `
+            -InstallationType desktop-experience -SqlIsoPath $Iso -ExpectedSqlSha256 $Sha `
+            -SqlVersion 2019 -SqlEdition Eval -StateRoot $Root
+    } $isoPath $hashed.ExpectedSha256 $stateRoot
+    Add-CheckResult -Name 'Fresh-Prepared-Plan startet ohne OS_SEALED-Parent und mit genau einem finalen Sysprep' -Success (
+        $freshPlan.provisioningMode -eq 'fresh-windows-media' -and
+        $freshPlan.parentArtifact.source -eq 'fresh-windows-media' -and
+        $freshPlan.operatingSystem.installationType -eq 'desktop-experience'
+    )
 
     $credentialUser = 'sql-image-test-user'; $credentialPassword = 'NeverPersist_SQL_42!'
     $credential = [PSCredential]::new($credentialUser, (ConvertTo-SecureString $credentialPassword -AsPlainText -Force))
@@ -133,6 +145,15 @@ try {
         $builderText -notmatch "'2025' \{ '17\.' \}"
     )
     Add-CheckResult -Name 'SQL-Prepared-Publikation flacht Differencing-Kette ab' -Success ($builderText -match 'Convert-VHD[\s\S]+-VHDType Dynamic')
+    Add-CheckResult -Name 'Empfohlener Prepared-Image-Pfad erstellt frische Windows-VHDX und bindet beide ISOs ein' -Success (
+        $builderText -match 'function Initialize-HyperVSqlFreshPreparedImageBuild' -and
+        $builderText -match 'New-HyperVSqlFreshImageBuildPlan' -and
+        $builderText -match 'New-VHD -Path \$diskPath -Dynamic' -and
+        $builderText -match 'Add-VMDvdDrive -VM \$vm -Path \$windowsMedia\.IsoPath' -and
+        $builderText -match 'Add-VMDvdDrive -VM \$vm -Path \$sqlMedia\.IsoPath' -and
+        $menuText -match "'7' \{ New-LabHyperVSqlImageBuildInteractive \}" -and
+        $menuText -match 'ein finaler Sysprep'
+    )
     $convertIndex = $builderText.IndexOf('Convert-VHD -Path $childPath')
     $importIndex = $builderText.IndexOf('$artifact = Import-HyperVImageArtifact')
     $removeIndex = $builderText.IndexOf('$null = Remove-HyperVInstance', $importIndex)
@@ -144,7 +165,7 @@ try {
         $builderText -match '-SqlBuild \$build\.sql\.setupBuild' -and $builderText -match '-SqlFeatures @\(\$build\.sql\.features\)'
     )
     Add-CheckResult -Name 'Invoke-SqlServerLab-Image-Menue bietet den SQL-Image-Lifecycle' -Success (
-        $menuText -match 'Initialize-HyperVSqlPreparedImageBuild' -and $menuText -match 'Invoke-HyperVSqlPrepareAndGeneralize' -and
+        $menuText -match 'Initialize-HyperVSqlFreshPreparedImageBuild' -and $menuText -match 'Invoke-HyperVSqlPrepareAndGeneralize' -and
         $menuText -match 'Publish-HyperVSqlPreparedImageBuild'
     )
 }
