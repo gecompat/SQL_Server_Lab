@@ -148,6 +148,24 @@ Sysprep.exe /generalize /oobe /mode:vm /quit /quiet
 Nur der Microsoft-State `IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE` und ein
 beobachteter Gast-Shutdown führen zu `RESUME_PENDING`.
 
+### Grenzen von Windows Sysprep
+
+Windows kann ein einzelnes Image nur begrenzt lizenzseitig rearmen. Meldet
+Sysprep `SLReArmWindows` mit `0xC004D307`, ist dies keine SQL-Installation und
+auch kein Passwortfehler: Die zulässige Anzahl wurde für genau diese
+VHDX-Kette bereits überschritten. Das betroffene SQL-Image und seine
+`OS_SEALED`-Baseline dürfen dann nicht wiederverwendet werden. Aktion 12 räumt
+den fehlgeschlagenen SQL-Builder auf; anschließend wird aus der originalen
+Windows-ISO eine neue OS-Baseline über `1 → 3 → 4 → 5` erzeugt. Erst danach
+folgt wieder `7 → 9 → 10 → 11`.
+
+Die Details stehen nach Aktion 17 im Build-State als
+`sysprepFailureDetail`; die Menümeldung nennt die notwendige Maßnahme direkt.
+Microsoft dokumentiert für `0xC004D307` ebenfalls den Neuaufbau des
+Windows-Images als Lösung.
+
+- [Sysprep /generalize: Fehler 0xC004D307](https://learn.microsoft.com/en-us/troubleshoot/windows-client/setup-upgrade-and-drivers/error-occurs-when-running-sysprep-generalize)
+
 ## 7. Immutable SQL-Baseline veröffentlichen
 
 Aktion 11 prüft VM-Identität, Auszustand, fehlende Checkpoints und den

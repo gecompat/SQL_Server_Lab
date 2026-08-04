@@ -224,6 +224,29 @@ function Get-HyperVSqlOfflineImageState {
     }
 }
 
+function Get-HyperVSqlSysprepFailureReason {
+    <#
+    .SYNOPSIS
+        Uebersetzt bekannte Sysprep-Abbrueche in eine handlungsfaehige Meldung.
+    .DESCRIPTION
+        Die Sysprep-Panther-Logs bleiben im Build-Verzeichnis als Detail
+        erhalten. Die Menueausgabe soll aber nicht durch einen langen Logtail
+        unlesbar werden und insbesondere den nicht reparierbaren Rearm-Fall
+        eindeutig von einem SQL- oder Gastzugriffsproblem abgrenzen.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$ImageState,
+        [string]$SysprepDetail
+    )
+
+    if ($SysprepDetail -match '(?i)SLReArmWindows|0xC004D307') {
+        return 'WINDOWS_SYSPREP_REARM_LIMIT_REACHED: Die maximale Anzahl von Windows-Lizenz-Rearms wurde erreicht. Dieser Builder und seine OS_SEALED-Baseline koennen nicht weiter generalisiert werden. SQL-Builder mit Aktion 12 aufraeumen und eine neue Windows-Baseline aus der Original-Windows-ISO mit Aktionen 1 bis 5 erzeugen.'
+    }
+    $detail = if ($SysprepDetail) { "; Sysprep=$SysprepDetail" } else { '' }
+    return "HYPERV_SQL_IMAGE_GENERALIZATION_RECOVERY_INVALID_STATE: $ImageState$detail"
+}
+
 function New-HyperVSqlMediaHashSidecar {
     [CmdletBinding(SupportsShouldProcess)]
     param(
@@ -571,9 +594,9 @@ function Resume-HyperVSqlPreparedImageGeneralization {
         -MountRoot (Join-Path $build.BuildDirectory 'offline-generalization-inspection')
     $imageState = [string]$inspection.ImageState
     if ($imageState -ne 'IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE') {
-        $detail = if ($inspection.SysprepDetail) { "; Sysprep=$($inspection.SysprepDetail)" } else { '' }
-        $reason = "HYPERV_SQL_IMAGE_GENERALIZATION_RECOVERY_INVALID_STATE: $imageState$detail"
+        $reason = Get-HyperVSqlSysprepFailureReason -ImageState $imageState -SysprepDetail ([string]$inspection.SysprepDetail)
         $build | Add-Member -NotePropertyName lastError -NotePropertyValue $reason -Force
+        $build | Add-Member -NotePropertyName sysprepFailureDetail -NotePropertyValue ([string]$inspection.SysprepDetail) -Force
         Write-HyperVSqlImageBuildState -BuildDirectory $build.BuildDirectory -State $build
         $null = Set-HyperVSqlImageBuildState -BuildId $BuildId -State FAILED -Reason $reason -StateRoot $StateRoot
         throw $reason

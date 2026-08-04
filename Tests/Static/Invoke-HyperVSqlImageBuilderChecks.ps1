@@ -106,8 +106,10 @@ try {
     )
     Add-CheckResult -Name 'Sysprep-Recovery prueft ausgeschaltete Builder-VHDX offline ohne Gastpasswort' -Success (
         $builderText -match 'function Get-HyperVSqlOfflineImageState' -and
+        $builderText -match 'function Get-HyperVSqlSysprepFailureReason' -and
         $builderText -match 'function Resume-HyperVSqlPreparedImageGeneralization' -and
         $builderText -match 'HYPERV_SQL_IMAGE_GENERALIZATION_RECOVERY_INVALID_STATE' -and
+        $builderText -match 'WINDOWS_SYSPREP_REARM_LIMIT_REACHED' -and
         $builderText -match 'SysprepDetail' -and
         $menuText -match "'17' \{ Resume-LabHyperVSqlPreparedImageGeneralizationInteractive \}"
     )
