@@ -1,0 +1,42 @@
+name: Runtime Smoke - Hyper-V SQL Acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_id:
+        description: Bestehende Hyper-V-SQL-BuildId auf dem Self-hosted Runner
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sql-server-lab-runtime-smoke-hyperv-sql-acceptance
+  cancel-in-progress: false
+
+jobs:
+  hyperv-sql-acceptance:
+    name: Real Windows SQL acceptance and host reachability
+    runs-on: [self-hosted, SQL_Lab, Hyper-V]
+    timeout-minutes: 180
+
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Elevated Hyper-V preflight
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $principal = [Security.Principal.WindowsPrincipal]::new([Security.Principal.WindowsIdentity]::GetCurrent())
+          if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { throw 'RUNNER_NOT_ELEVATED' }
+          Get-VMHost -ErrorAction Stop
+          Get-Command Mount-VHD, New-VMSwitch, sqlcmd -ErrorAction Stop
+
+      - name: Resume OOBE, install SQL and validate host reachability
+        run: |
+          $ErrorActionPreference = 'Stop'
+          .\Tests\Integration\Invoke-HyperVSqlAcceptanceRun.ps1 -BuildId '${{ inputs.build_id }}'

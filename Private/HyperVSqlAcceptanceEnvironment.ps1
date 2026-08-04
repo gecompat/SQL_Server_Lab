@@ -156,6 +156,7 @@ function Invoke-HyperVSqlUnattendedOobe {
         throw 'HYPERV_SQL_OOBE_NOT_READY'
     }
     if ($build.state -eq 'OOBE_COMPLETED') { return $build }
+    $build = Ensure-HyperVSqlBuildLabNetwork -Build $build -StateRoot $StateRoot
     if (-not $AdministratorPassword) {
         $AdministratorPassword = Get-LabSecret -Path $build.BuildDirectory -Name 'guest-administrator-password'
     }
@@ -220,6 +221,32 @@ function Invoke-HyperVSqlUnattendedOobe {
     Write-HyperVSqlImageBuildState -BuildDirectory $build.BuildDirectory -State $build
     return Set-HyperVSqlImageBuildState -BuildId $BuildId -State OOBE_COMPLETED `
         -Reason 'Windows-OOBE, Region Deutschland, UI en-US und deutsche Tastatur verifiziert' -StateRoot $StateRoot
+}
+
+function Ensure-HyperVSqlBuildLabNetwork {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Build,
+        [string]$StateRoot
+    )
+
+    $network = if ($Build.labNetwork) { $Build.labNetwork } else { Ensure-LabHyperVNetwork }
+    $vmName = [string]$Build.builder.vmName
+    $managed = Get-HyperVManagedVM -VMName $vmName -ExpectedRunId $Build.buildId -ExpectedScopeId $Build.scopeId
+    if (-not $managed) { throw 'HYPERV_SQL_NETWORK_VM_NOT_FOUND' }
+
+    $attached = @(
+        Get-VMNetworkAdapter -VMName $vmName -ErrorAction Stop |
+            Where-Object { [string]$_.SwitchName -eq [string]$network.Name }
+    )
+    if ($attached.Count -eq 0) {
+        Add-VMNetworkAdapter -VMName $vmName -SwitchName $network.Name -Name 'SQL_LAB_HYPERV' -ErrorAction Stop | Out-Null
+    }
+
+    $Build | Add-Member -NotePropertyName labNetwork -NotePropertyValue $network -Force
+    $Build.builder | Add-Member -NotePropertyName networkAttached -NotePropertyValue $true -Force
+    Write-HyperVSqlImageBuildState -BuildDirectory $Build.BuildDirectory -State $Build
+    return Get-HyperVSqlImageBuildPlan -BuildId $Build.buildId -StateRoot $StateRoot
 }
 
 function Get-HyperVSqlMajorVersion {

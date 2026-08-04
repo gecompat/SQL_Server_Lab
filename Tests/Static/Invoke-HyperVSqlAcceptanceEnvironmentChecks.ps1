@@ -46,6 +46,7 @@ try {
 
     $oobeResult = & $module {
         param($BuildId,$Root,$Password)
+        function Ensure-HyperVSqlBuildLabNetwork { param($Build,$StateRoot) $Build }
         function Stop-HyperVInstance { [PSCustomObject]@{ State = 'Off' } }
         function Set-HyperVSqlOfflineUnattend {
             param($VhdxPath,$MountRoot,$UnattendXml)
