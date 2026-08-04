@@ -100,6 +100,11 @@ try {
     Add-CheckResult -Name 'SQL Setup besitzt ein hartes Timeout' -Success (
         $builderText -match 'WaitForExit\(\$TimeoutSeconds \* 1000\)' -and $builderText -match 'SQL_SETUP_PREPARE_IMAGE_TIMEOUT'
     )
+    Add-CheckResult -Name 'Sysprep wartet nach /quit auf den finalen Generalize-ImageState' -Success (
+        $builderText -match 'stateDeadline = \[datetime\]::UtcNow\.AddSeconds\(120\)' -and
+        $builderText -match "IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE'\) \{ break \}" -and
+        $builderText -match 'Start-Sleep -Seconds 2'
+    )
     Add-CheckResult -Name 'PrepareImage-Fehler nennt Exitcode und aktuelle SQL-Setup-Summary' -Success (
         $builderText -match 'SQL_SETUP_PREPARE_IMAGE_FAILED: ExitCode=' -and
         $builderText -match "-Filter 'Summary\.txt'" -and $builderText -match 'Summary=\$\(\$summary\.FullName\)'
