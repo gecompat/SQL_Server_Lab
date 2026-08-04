@@ -100,6 +100,10 @@ try {
     Add-CheckResult -Name 'SQL Setup besitzt ein hartes Timeout' -Success (
         $builderText -match 'WaitForExit\(\$TimeoutSeconds \* 1000\)' -and $builderText -match 'SQL_SETUP_PREPARE_IMAGE_TIMEOUT'
     )
+    Add-CheckResult -Name 'PrepareImage-Fehler nennt Exitcode und aktuelle SQL-Setup-Summary' -Success (
+        $builderText -match 'SQL_SETUP_PREPARE_IMAGE_FAILED: ExitCode=' -and
+        $builderText -match "-Filter 'Summary\.txt'" -and $builderText -match 'Summary=\$\(\$summary\.FullName\)'
+    )
     $sql2025SetupVersionAccepted = & $module {
         $pattern = Get-HyperVSqlSetupVersionPattern -SqlVersion 2025
         '2025.0170.1000.07 (sql2025_rtm).251021-1808' -match $pattern -and
