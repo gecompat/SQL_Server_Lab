@@ -241,7 +241,7 @@ function Get-HyperVSqlSysprepFailureReason {
     )
 
     if ($SysprepDetail -match '(?i)SLReArmWindows|0xC004D307') {
-        return 'WINDOWS_SYSPREP_REARM_LIMIT_REACHED: Die maximale Anzahl von Windows-Lizenz-Rearms wurde erreicht. Dieser Builder und seine OS_SEALED-Baseline koennen nicht weiter generalisiert werden. SQL-Builder mit Aktion 12 aufraeumen und eine neue Windows-Baseline aus der Original-Windows-ISO mit Aktionen 1 bis 5 erzeugen.'
+        return 'WINDOWS_SYSPREP_REARM_LIMIT_REACHED: Die maximale Anzahl von Windows-Lizenz-Rearms wurde erreicht. Aus dieser OS_SEALED-Baseline kann kein weiteres SQL-Prepared-Image erzeugt werden, weil dessen Kind-VHDX nochmals generalisiert werden muss. Normale Lab-VMs ohne erneutes Sysprep bleiben davon unberuehrt. SQL-Builder mit Aktion 12 aufraeumen und fuer SQL-Prepared-Images eine neue Windows-Baseline aus der Original-Windows-ISO mit Aktionen 1 bis 5 erzeugen.'
     }
     $detail = if ($SysprepDetail) { "; Sysprep=$SysprepDetail" } else { '' }
     return "HYPERV_SQL_IMAGE_GENERALIZATION_RECOVERY_INVALID_STATE: $ImageState$detail"

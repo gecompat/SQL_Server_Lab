@@ -153,11 +153,14 @@ beobachteter Gast-Shutdown führen zu `RESUME_PENDING`.
 Windows kann ein einzelnes Image nur begrenzt lizenzseitig rearmen. Meldet
 Sysprep `SLReArmWindows` mit `0xC004D307`, ist dies keine SQL-Installation und
 auch kein Passwortfehler: Die zulässige Anzahl wurde für genau diese
-VHDX-Kette bereits überschritten. Das betroffene SQL-Image und seine
-`OS_SEALED`-Baseline dürfen dann nicht wiederverwendet werden. Aktion 12 räumt
-den fehlgeschlagenen SQL-Builder auf; anschließend wird aus der originalen
-Windows-ISO eine neue OS-Baseline über `1 → 3 → 4 → 5` erzeugt. Erst danach
-folgt wieder `7 → 9 → 10 → 11`.
+VHDX-Kette bereits überschritten. Das betroffene SQL-Prepared-Image kann nicht
+fertiggestellt werden. Aus derselben `OS_SEALED`-Baseline kann auch kein neues
+Prepared-Image erstellt werden, weil dessen Kind-VHDX nochmals generalisiert
+werden müsste. **Normale Lab-VMs aus der Baseline bleiben dagegen nutzbar**,
+solange sie nicht erneut mit Sysprep generalisiert werden. Aktion 12 räumt den
+fehlgeschlagenen SQL-Builder auf; für weitere SQL-Prepared-Images wird aus der
+originalen Windows-ISO eine neue OS-Baseline über `1 → 3 → 4 → 5` erzeugt.
+Erst danach folgt wieder `7 → 9 → 10 → 11`.
 
 Die Details stehen nach Aktion 17 im Build-State als
 `sysprepFailureDetail`; die Menümeldung nennt die notwendige Maßnahme direkt.
