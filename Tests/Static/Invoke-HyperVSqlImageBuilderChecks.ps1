@@ -73,7 +73,7 @@ try {
                 return [PSCustomObject]@{
                     contractVersion = '1'; buildId = $ArgumentList[0]; scopeId = $ArgumentList[1]; challenge = $ArgumentList[2]
                     action = 'PrepareImage'; sqlVersion = '2019'; setupFileVersion = '15.0.2000.5'
-                    features = @([string]$ArgumentList[4] -split ','); exitCode = 0; rebootScheduled = $false
+                    features = @([string]$ArgumentList[5] -split ','); exitCode = 0; rebootScheduled = $false
                     completedAt = [datetime]::UtcNow.ToString('o')
                 }
             }
@@ -99,6 +99,16 @@ try {
     )
     Add-CheckResult -Name 'SQL Setup besitzt ein hartes Timeout' -Success (
         $builderText -match 'WaitForExit\(\$TimeoutSeconds \* 1000\)' -and $builderText -match 'SQL_SETUP_PREPARE_IMAGE_TIMEOUT'
+    )
+    $sql2025SetupVersionAccepted = & $module {
+        $pattern = Get-HyperVSqlSetupVersionPattern -SqlVersion 2025
+        '2025.0170.1000.07 (sql2025_rtm).251021-1808' -match $pattern -and
+        '16.0.1000.6' -notmatch $pattern
+    }
+    Add-CheckResult -Name 'SQL-2025-RTM-Jahresversion wird als SQL-2025-Medium erkannt' -Success (
+        $sql2025SetupVersionAccepted -and
+        $builderText -match 'ExpectedSetupVersionPattern' -and
+        $builderText -notmatch "'2025' \{ '17\.' \}"
     )
     Add-CheckResult -Name 'SQL-Prepared-Publikation flacht Differencing-Kette ab' -Success ($builderText -match 'Convert-VHD[\s\S]+-VHDType Dynamic')
     $convertIndex = $builderText.IndexOf('Convert-VHD -Path $childPath')

@@ -127,6 +127,26 @@ function Resolve-HyperVSqlInstallationMedia {
     }
 }
 
+function Get-HyperVSqlSetupVersionPattern {
+    <#
+    .SYNOPSIS
+        Liefert das erwartete Versionsmuster einer SQL-Setup-Datei.
+    .DESCRIPTION
+        SQL Server 2019 und 2022 verwenden die Produkt-Major-Version in den
+        Dateiversionen. SQL Server 2025 RTM verwendet dagegen die
+        Jahreskennzeichnung `2025.0170...`; neuere Medien können auch `17...`
+        melden. Beide Kennzeichnungen gehören zum selben SQL-2025-Medium.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][ValidateSet('2019', '2022', '2025')][string]$SqlVersion)
+
+    switch ($SqlVersion) {
+        '2019' { return '(?<!\d)15\.' }
+        '2022' { return '(?<!\d)16\.' }
+        '2025' { return '(?<!\d)(?:17|2025\.0170)\.' }
+    }
+}
+
 function New-HyperVSqlMediaHashSidecar {
     [CmdletBinding(SupportsShouldProcess)]
     param(
@@ -300,13 +320,14 @@ function Invoke-HyperVSqlPrepareAndGeneralize {
     $vmName = [string]$build.builder.vmName
     $managed = Get-HyperVManagedVM -VMName $vmName -ExpectedRunId $build.buildId -ExpectedScopeId $build.scopeId
     if (-not $managed -or [string]$managed.VM.State -ne 'Running') { throw 'HYPERV_SQL_IMAGE_BUILD_VM_MUST_BE_RUNNING' }
+    $setupVersionPattern = Get-HyperVSqlSetupVersionPattern -SqlVersion $build.sql.version
 
     if ($build.state -eq 'MANUAL_ACTION_REQUIRED') {
         $receipt = Invoke-HyperVPowerShellDirect -VMName $vmName -ExpectedRunId $build.buildId `
             -ExpectedScopeId $build.scopeId -Credential $Credential `
-            -ArgumentList @($build.buildId, $build.scopeId, $build.manualAction.challenge, $build.sql.version, ($build.sql.features -join ','), $SetupTimeoutSeconds) `
+            -ArgumentList @($build.buildId, $build.scopeId, $build.manualAction.challenge, $build.sql.version, $setupVersionPattern, ($build.sql.features -join ','), $SetupTimeoutSeconds) `
             -ScriptBlock {
-                param($ExpectedBuildId, $ExpectedScopeId, $Challenge, $ExpectedSqlVersion, $FeaturesCsv, $TimeoutSeconds)
+                param($ExpectedBuildId, $ExpectedScopeId, $Challenge, $ExpectedSqlVersion, $ExpectedSetupVersionPattern, $FeaturesCsv, $TimeoutSeconds)
                 $ErrorActionPreference = 'Stop'
                 $Features = @([string]$FeaturesCsv -split ',' | Where-Object { $_ })
                 $setup = @(Get-CimInstance Win32_LogicalDisk -Filter 'DriveType=5' | ForEach-Object {
@@ -315,8 +336,7 @@ function Invoke-HyperVSqlPrepareAndGeneralize {
                 })
                 if ($setup.Count -ne 1) { throw "SQL_SETUP_MEDIA_NOT_UNIQUE: $($setup.Count)" }
                 $setupVersion = [string]$setup[0].VersionInfo.FileVersion
-                $major = switch ($ExpectedSqlVersion) { '2019' { '15.' }; '2022' { '16.' }; '2025' { '17.' } }
-                if (-not $setupVersion.StartsWith($major, [System.StringComparison]::OrdinalIgnoreCase)) {
+                if ([string]::IsNullOrWhiteSpace($setupVersion) -or $setupVersion -notmatch $ExpectedSetupVersionPattern) {
                     throw "SQL_SETUP_VERSION_MISMATCH: erwartet $ExpectedSqlVersion, erkannt $setupVersion"
                 }
                 $arguments = @(
