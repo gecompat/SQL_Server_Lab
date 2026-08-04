@@ -577,6 +577,32 @@ function Stop-HyperVInstance {
     return Get-HyperVInstanceStatus -VMName $VMName -ExpectedRunId $ExpectedRunId -ExpectedScopeId $ExpectedScopeId
 }
 
+function Initialize-HyperVLabWinRmClient {
+    <#
+    .SYNOPSIS
+        Stellt ausschliesslich den lokalen WinRM-Client fuer das Lab bereit.
+    .DESCRIPTION
+        Der Host wird dabei nicht als Remote-Server konfiguriert: Es wird weder
+        ein Listener erstellt noch eine Host-Firewallregel geoeffnet. Der
+        laufende WinRM-Dienst stellt lediglich den WSMan-Clientkonfigurations-
+        pfad fuer den kurzzeitigen, IP-genauen TrustedHost bereit.
+    #>
+    [CmdletBinding()]
+    param()
+
+    Import-Module Microsoft.WSMan.Management -ErrorAction Stop
+    $service = Get-Service -Name WinRM -ErrorAction Stop
+    if ($service.Status -ne 'Running') {
+        try { Start-Service -Name WinRM -ErrorAction Stop }
+        catch { throw "HYPERV_LAB_WINRM_CLIENT_START_FAILED: $($_.Exception.Message)" }
+    }
+    $trustedHostsPath = 'WSMan:\localhost\Client\TrustedHosts'
+    if (-not (Test-Path -LiteralPath $trustedHostsPath)) {
+        throw 'HYPERV_LAB_WINRM_CLIENT_CONFIGURATION_UNAVAILABLE'
+    }
+    return $trustedHostsPath
+}
+
 function Invoke-HyperVWinRmFallback {
     <#
     .SYNOPSIS
@@ -596,8 +622,7 @@ function Invoke-HyperVWinRmFallback {
         [object[]]$ArgumentList = @()
     )
 
-    Import-Module Microsoft.WSMan.Management -ErrorAction Stop
-    $trustedHostsPath = 'WSMan:\localhost\Client\TrustedHosts'
+    $trustedHostsPath = Initialize-HyperVLabWinRmClient
     $originalTrustedHosts = [string](Get-Item -Path $trustedHostsPath -ErrorAction Stop).Value
     $trustedHosts = @($originalTrustedHosts -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
     $alreadyTrusted = $trustedHosts -contains '*' -or $trustedHosts -contains $Address

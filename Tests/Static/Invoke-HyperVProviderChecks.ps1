@@ -54,6 +54,7 @@ try {
         'Get-HyperVInstanceStatus',
         'Start-HyperVInstance',
         'Stop-HyperVInstance',
+        'Initialize-HyperVLabWinRmClient',
         'Invoke-HyperVWinRmFallback',
         'Invoke-HyperVPowerShellDirect',
         'Wait-HyperVPowerShellDirect',
@@ -121,6 +122,10 @@ try {
         -Name 'Gastremoting faellt nur auf eine temporaere Lab-WinRM-Vertrauensbeziehung zurueck' `
         -Text $provider `
         -Pattern 'TrustedHosts[\s\S]+Invoke-Command\s+-ComputerName[\s\S]+finally[\s\S]+originalTrustedHosts'
+    Add-TextContract `
+        -Name 'WinRM-Fallback startet nur den Host-Client und erstellt keinen Host-Listener' `
+        -Text $provider `
+        -Pattern 'Start-Service\s+-Name\s+WinRM[\s\S]+HYPERV_LAB_WINRM_CLIENT_CONFIGURATION_UNAVAILABLE'
     Add-TextContract `
         -Name 'SQL-Readiness prueft Dienst, Version und alle Systemdatenbanken im Gast' `
         -Text $provider `
