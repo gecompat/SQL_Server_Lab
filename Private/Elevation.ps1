@@ -37,7 +37,10 @@ function Start-LabElevatedAction {
     if (-not (Test-Path -LiteralPath $modulePath -PathType Leaf)) { throw 'LAB_ELEVATION_MODULE_NOT_FOUND' }
 
     $escapedModulePath = $modulePath.Replace("'", "''")
-    $command = "Import-Module -LiteralPath '$escapedModulePath' -Force; Invoke-SqlServerLab -Action $Action"
+    # Import-Module besitzt keinen -LiteralPath-Parameter. Der einzeln
+    # quotierte, zuvor maskierte Pfad verhindert weiterhin eine Auswertung
+    # von Leerzeichen oder Sonderzeichen im Modulpfad.
+    $command = "Import-Module '$escapedModulePath' -Force; Invoke-SqlServerLab -Action $Action"
     $encodedCommand = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
     Start-Process -FilePath $pwsh.Source -Verb RunAs -ArgumentList @('-NoProfile', '-NoExit', '-EncodedCommand', $encodedCommand) -ErrorAction Stop
     return [PSCustomObject]@{ Started = $true; Reason = 'UAC_PROMPTED'; Action = $Action }
