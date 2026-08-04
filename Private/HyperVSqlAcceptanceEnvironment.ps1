@@ -91,39 +91,15 @@ function New-HyperVSqlOobeUnattendXml {
     try {
         $plain = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
         $escapedPassword = [System.Security.SecurityElement]::Escape($plain)
-        $firstLogonCommands = ''
-        if ($Network) {
-            if (-not $Identity) { throw 'HYPERV_SQL_OOBE_NETWORK_IDENTITY_REQUIRED' }
-            $address = Get-LabNetworkGuestAddress -Network $Network -Identity $Identity
-            $bootstrap = New-HyperVSqlGuestNetworkBootstrapScript -Network $Network -Address $address
-            $encodedBootstrap = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($bootstrap))
-            $firstLogonCommands = @"
-      <FirstLogonCommands>
-        <SynchronousCommand wcm:action="add">
-          <Order>1</Order>
-          <Description>SQL Server Lab network bootstrap</Description>
-          <CommandLine>powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encodedBootstrap</CommandLine>
-        </SynchronousCommand>
-      </FirstLogonCommands>
-"@
-        }
         return @"
 <?xml version="1.0" encoding="utf-8"?>
 <unattend xmlns="urn:schemas-microsoft-com:unattend">
   <settings pass="oobeSystem">
-    <component name="Microsoft-Windows-International-Core" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-      <InputLocale>0407:00000407</InputLocale>
-      <SystemLocale>de-DE</SystemLocale>
-      <UILanguage>en-US</UILanguage>
-      <UILanguageFallback>en-US</UILanguageFallback>
-      <UserLocale>de-DE</UserLocale>
-    </component>
     <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
       <AdministratorPassword><Value>$escapedPassword</Value><PlainText>true</PlainText></AdministratorPassword>
       <AutoLogon><Password><Value>$escapedPassword</Value><PlainText>true</PlainText></Password><Enabled>true</Enabled><LogonCount>1</LogonCount><Username>Administrator</Username></AutoLogon>
       <RegisteredOwner>SQL_Server_Lab</RegisteredOwner>
       <TimeZone>W. Europe Standard Time</TimeZone>
-$firstLogonCommands
       <OOBE>
         <HideEULAPage>true</HideEULAPage>
         <HideLocalAccountScreen>true</HideLocalAccountScreen>
@@ -149,7 +125,8 @@ function Set-HyperVSqlOfflineUnattend {
     param(
         [Parameter(Mandatory)][string]$VhdxPath,
         [Parameter(Mandatory)][string]$MountRoot,
-        [Parameter(Mandatory)][string]$UnattendXml
+        [Parameter(Mandatory)][string]$UnattendXml,
+        [string]$BootstrapScript
     )
 
     New-Item -Path $MountRoot -ItemType Directory -Force | Out-Null
@@ -179,6 +156,16 @@ function Set-HyperVSqlOfflineUnattend {
                 $unattendDirectory = Join-Path $panther 'Unattend'
                 New-Item -Path $unattendDirectory -ItemType Directory -Force | Out-Null
                 Set-Content -LiteralPath (Join-Path $unattendDirectory 'Unattend.xml') -Value $UnattendXml -Encoding utf8NoBOM
+                if ($BootstrapScript) {
+                    $setupScripts = Join-Path $candidateRoot 'Windows/Setup/Scripts'
+                    New-Item -Path $setupScripts -ItemType Directory -Force | Out-Null
+                    Set-Content -LiteralPath (Join-Path $setupScripts 'SqlServerLabBootstrap.ps1') -Value $BootstrapScript -Encoding utf8NoBOM
+                    Set-Content -LiteralPath (Join-Path $setupScripts 'SetupComplete.cmd') -Encoding ascii -Value @"
+@echo off
+powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "%WINDIR%\Setup\Scripts\SqlServerLabBootstrap.ps1" >> "%WINDIR%\Panther\SqlServerLabBootstrap.log" 2>&1
+exit /b 0
+"@
+                }
                 return
             }
             if ($accessPathAdded) {
@@ -233,11 +220,12 @@ function Invoke-HyperVSqlUnattendedOobe {
         $vhdxPath = Join-Path $build.BuildDirectory ([string]$build.builder.osDiskRelativePath)
         $unattend = New-HyperVSqlOobeUnattendXml -AdministratorPassword $AdministratorPassword `
             -Network $build.labNetwork -Identity $build.buildId
+        $bootstrap = New-HyperVSqlGuestNetworkBootstrapScript -Network $build.labNetwork -Address $fallbackAddress
         try {
             Set-HyperVSqlOfflineUnattend -VhdxPath $vhdxPath `
-                -MountRoot (Join-Path $build.BuildDirectory 'offline-mount') -UnattendXml $unattend
+                -MountRoot (Join-Path $build.BuildDirectory 'offline-mount') -UnattendXml $unattend -BootstrapScript $bootstrap
         }
-        finally { $unattend = $null }
+        finally { $unattend = $null; $bootstrap = $null }
         $build | Add-Member -NotePropertyName oobeAutomation -NotePropertyValue ([PSCustomObject]@{
             status = 'RUNNING'; region = 'DE'; systemLocale = 'de-DE'; uiLanguage = 'en-US'
             inputLocale = '0407:00000407'; timeZone = 'W. Europe Standard Time'
