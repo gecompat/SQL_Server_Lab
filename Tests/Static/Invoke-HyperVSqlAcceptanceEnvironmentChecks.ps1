@@ -19,10 +19,8 @@ try {
     $unattend = & $module { param($Password) New-HyperVSqlOobeUnattendXml -AdministratorPassword $Password } $securePassword
     [xml]$unattendDocument = $unattend
     Add-CheckResult -Name 'Unattend.xml ist wohlgeformtes XML' -Success ($null -ne $unattendDocument.unattend.settings)
-    Add-CheckResult -Name 'OOBE setzt Deutschland, englische UI und deutsche Tastatur' -Success (
-        $unattend -match '<SystemLocale>de-DE</SystemLocale>' -and
-        $unattend -match '<UILanguage>en-US</UILanguage>' -and
-        $unattend -match '<InputLocale>0407:00000407</InputLocale>' -and
+    Add-CheckResult -Name 'Minimaler OOBE-Antwortsatz setzt Zeitzone ohne Sprachpaketabhaengigkeit' -Success (
+        $unattend -notmatch 'Microsoft-Windows-International-Core' -and
         $unattend -match '<TimeZone>W\. Europe Standard Time</TimeZone>'
     )
     Add-CheckResult -Name 'OOBE blendet interaktive Seiten aus und aktiviert genau einen AutoLogon' -Success (
@@ -31,16 +29,12 @@ try {
         $unattend -match '<LogonCount>1</LogonCount>'
     )
     $labNetwork = [PSCustomObject]@{ Name = 'SQL_LAB_HYPERV'; Subnet = '172.28.0.0/24'; PrefixLength = 24; HostAddress = '172.28.0.1' }
-    $networkUnattend = & $module {
+    $bootstrap = & $module {
         param($Password,$Network)
-        New-HyperVSqlOobeUnattendXml -AdministratorPassword $Password -Network $Network -Identity 'test-build'
+        New-HyperVSqlGuestNetworkBootstrapScript -Network $Network -Address '172.28.0.42'
     } $securePassword $labNetwork
-    [xml]$networkUnattendDocument = $networkUnattend
-    $encodedBootstrap = [string]$networkUnattendDocument.unattend.settings.component[1].FirstLogonCommands.SynchronousCommand.CommandLine
-    $encodedBootstrap = ($encodedBootstrap -split '-EncodedCommand ', 2)[1]
-    $bootstrap = [Text.Encoding]::Unicode.GetString([Convert]::FromBase64String($encodedBootstrap))
-    Add-CheckResult -Name 'OOBE bootstrappt eine feste Lab-IP und Host-beschraenktes WinRM' -Success (
-        $bootstrap -match "IPAddress '172\.28\.0\." -and
+    Add-CheckResult -Name 'SetupComplete bootstrappt eine feste Lab-IP und Host-beschraenktes WinRM' -Success (
+        $bootstrap -match "IPAddress '172\.28\.0\.42'" -and
         $bootstrap -match 'Enable-PSRemoting' -and
         $bootstrap -match "RemoteAddress '172\.28\.0\.1'" -and
         $bootstrap -notmatch [regex]::Escape($knownPassword)
@@ -61,11 +55,15 @@ try {
 
     $oobeResult = & $module {
         param($BuildId,$Root,$Password)
-        function Ensure-HyperVSqlBuildLabNetwork { param($Build,$StateRoot) $Build }
+        function Ensure-HyperVSqlBuildLabNetwork {
+            param($Build,$StateRoot)
+            $Build | Add-Member -NotePropertyName labNetwork -NotePropertyValue ([PSCustomObject]@{ Name = 'SQL_LAB_HYPERV'; Subnet = '172.28.0.0/24'; PrefixLength = 24; HostAddress = '172.28.0.1' }) -Force
+            $Build
+        }
         function Stop-HyperVInstance { [PSCustomObject]@{ State = 'Off' } }
         function Set-HyperVSqlOfflineUnattend {
-            param($VhdxPath,$MountRoot,$UnattendXml)
-            if ($UnattendXml -notmatch '<SystemLocale>de-DE</SystemLocale>') { throw 'UNATTEND_MOCK_INVALID' }
+            param($VhdxPath,$MountRoot,$UnattendXml,$BootstrapScript)
+            if ($UnattendXml -match 'Microsoft-Windows-International-Core' -or $BootstrapScript -notmatch 'Enable-PSRemoting') { throw 'UNATTEND_MOCK_INVALID' }
         }
         function Start-HyperVInstance { [PSCustomObject]@{ State = 'Running' } }
         function Wait-HyperVPowerShellDirect { [PSCustomObject]@{ Ready = $true; Message = 'ready' } }
@@ -101,6 +99,7 @@ try {
             }
         }
         function Set-HyperVWindowsGuestSpecialization { [PSCustomObject]@{ status = 'WINDOWS_SPECIALIZED' } }
+        function Initialize-HyperVGuestLabNetwork { [PSCustomObject]@{ Network = 'SQL_LAB_HYPERV'; Address = '172.28.0.58'; PrefixLength = 24; ObservedAt = [datetime]::UtcNow.ToString('o') } }
         function Wait-HyperVGuestSqlReady {
             [PSCustomObject]@{ Ready = $true; MajorVersion = 16; ProductVersion = '16.0.1000.6'; Edition = 'Enterprise Evaluation'; ObservedAt = [datetime]::UtcNow.ToString('o') }
         }
