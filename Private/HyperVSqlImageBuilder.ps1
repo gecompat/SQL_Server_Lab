@@ -410,7 +410,18 @@ function Invoke-HyperVSqlPrepareAndGeneralize {
             $process = Start-Process -FilePath $sysprepPath `
                 -ArgumentList @('/generalize', '/oobe', '/mode:vm', '/quit', '/quiet') -Wait -PassThru
             if ($process.ExitCode -ne 0) { throw "WINDOWS_SYSPREP_FAILED: $($process.ExitCode)" }
-            $imageState = [string](Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State').ImageState
+            # Sysprep /quit beendet den Prozess, bevor Windows Setup seinen
+            # ImageState zwingend auf den finalen Generalize-Zustand geschrieben
+            # hat. IMAGE_STATE_UNDEPLOYABLE ist in diesem kurzen Intervall kein
+            # belastbarer Endzustand; deshalb begrenzt auf den dokumentierten
+            # Zielzustand warten statt unmittelbar nach dem Prozessende lesen.
+            $imageState = $null
+            $stateDeadline = [datetime]::UtcNow.AddSeconds(120)
+            do {
+                $imageState = [string](Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State').ImageState
+                if ($imageState -eq 'IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE') { break }
+                Start-Sleep -Seconds 2
+            } while ([datetime]::UtcNow -lt $stateDeadline)
             if ($imageState -ne 'IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE') { throw "WINDOWS_SYSPREP_STATE_INVALID: $imageState" }
             $null = & shutdown.exe /s /t 15 /f /d p:4:1
             [PSCustomObject]@{
