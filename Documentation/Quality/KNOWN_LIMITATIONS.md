@@ -111,11 +111,17 @@ SQL-2025-Medien. Er führt `PrepareImage` und Windows-Sysprep über PowerShell
 Direct aus, speichert keine Gast-Credentials und flacht die Differencing-Kette
 vor der transaktionalen Publikation als `SQL_PREPARED_SEALED` ab. Dieser Pfad
 ist statisch getestet; ein positiver realer Lauf mit jedem bereitgestellten
-SQL-Medium steht noch aus.
+SQL-Medium steht noch aus. Die OOBE-Automatisierung kann `Unattend.xml` offline
+in die Child-VHDX schreiben, benötigt dafür aber einen erhöht gestarteten
+Windows-Runner. Ein nur der Gruppe `Hyper-V-Administratoren` angehörender,
+nicht erhöhter Prozess kann VMs verwalten, besitzt jedoch nicht zwingend das
+für `Mount-VHD` benötigte Volume-Recht. In diesem Fall bleibt genau der
+dokumentierte OOBE-/Passwortschritt manuell; SQL Setup und Abnahme laufen
+danach weiter unbeaufsichtigt.
 
 Noch nicht implementiert ist die Bindung an den bestehenden Manifest-Drive-
 Vertrag. Ebenfalls offen bleiben der unattended OS-Build, `CompleteImage`,
-Network Intents, IPAM, Reconcile und der automatische Artifact Refresh. Der
+runtimeübergreifende Network Intents, zentraler IPAM, Reconcile und der automatische Artifact Refresh. Der
 verbindliche Zielvertrag steht in
 [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](../Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md).
 

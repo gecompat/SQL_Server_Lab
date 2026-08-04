@@ -22,6 +22,14 @@ function Test-HyperVAvailable {
         }
     }
 
+    if (-not (Test-LabAdministrator)) {
+        return [PSCustomObject]@{
+            Available = $false
+            Version   = $null
+            Message   = 'Hyper-V-Aktionen benoetigen eine erhöhte PowerShell-Sitzung.'
+        }
+    }
+
     $requiredCommands = @(
         'Add-VMHardDiskDrive',
         'Add-VMDvdDrive',

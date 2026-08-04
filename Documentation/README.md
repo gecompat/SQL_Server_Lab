@@ -44,6 +44,7 @@ Diese Datei ist der verbindliche Dokumentationsindex. Die Root-[README](../READM
 4. [Testdatenbank-Provisionierung und menügeführte Manifest-Erstellung](Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md)
 5. [Gemischter Container-Provider-Lifecycle](Architecture/MIXED_PROVIDER_LIFECYCLE.md)
 6. [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md)
+7. [Feste isolierte Labnetze](HowTo/LAB_NETWORKS.md)
 7. [Projektintegrationsvertrag](Architecture/PROJECT_INTEGRATION_CONTRACT.md)
 8. [Master-Umsetzungsplan](Project_Planning/MASTER_IMPLEMENTATION_PLAN.md)
 9. [Masterplan-Ergänzung](Project_Planning/MASTER_IMPLEMENTATION_PLAN_SCOPE_ADDENDUM.md)

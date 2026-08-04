@@ -3,7 +3,9 @@
     Secret-Management fuer SQL_Server_Lab.
 .DESCRIPTION
     SA-Passwort interaktiv abfragen, validieren, speichern und lesen.
-    Windows: DPAPI. Linux: Base64 + chmod 600.
+    Windows: DPAPI CurrentUser, bei nicht geladenem Runner-Profil DPAPI
+    LocalMachine unter dem bestehenden Dateisystem-ACL. Linux: Base64 +
+    chmod 600.
 #>
 
 function Test-SaPasswordComplexity {
@@ -57,7 +59,26 @@ function Save-LabSecret {
     if (-not (Test-Path $secretDir)) { New-Item -Path $secretDir -ItemType Directory -Force | Out-Null }
     $secretFile = Join-Path $secretDir "$Name.secret"
     if ($IsWindows) {
-        $encrypted = ConvertFrom-SecureString $Secret
+        try {
+            $encrypted = 'dpapi-currentuser-v1:' + (ConvertFrom-SecureString $Secret -ErrorAction Stop)
+        }
+        catch {
+            $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($Secret)
+            $plain = $null; $plainBytes = $null; $protectedBytes = $null
+            try {
+                $plain = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+                $plainBytes = [Text.Encoding]::UTF8.GetBytes($plain)
+                $protectedBytes = [Security.Cryptography.ProtectedData]::Protect(
+                    $plainBytes, $null, [Security.Cryptography.DataProtectionScope]::LocalMachine)
+                $encrypted = 'dpapi-localmachine-v1:' + [Convert]::ToBase64String($protectedBytes)
+            }
+            finally {
+                $plain = $null
+                if ($plainBytes) { [Array]::Clear($plainBytes, 0, $plainBytes.Length) }
+                if ($protectedBytes) { [Array]::Clear($protectedBytes, 0, $protectedBytes.Length) }
+                [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+            }
+        }
         Set-Content -Path $secretFile -Value $encrypted -Encoding utf8
     } else {
         $plain = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto(
@@ -78,7 +99,28 @@ function Get-LabSecret {
     $secretFile = Join-Path $Path 'secrets' "$Name.secret"
     if (-not (Test-Path $secretFile)) { return $null }
     $content = (Get-Content $secretFile -Raw).Trim()
-    if ($IsWindows) { return (ConvertTo-SecureString $content) }
+    if ($IsWindows) {
+        if ($content.StartsWith('dpapi-currentuser-v1:', [System.StringComparison]::Ordinal)) {
+            return ConvertTo-SecureString $content.Substring('dpapi-currentuser-v1:'.Length)
+        }
+        if ($content.StartsWith('dpapi-localmachine-v1:', [System.StringComparison]::Ordinal)) {
+            $protectedBytes = [Convert]::FromBase64String($content.Substring('dpapi-localmachine-v1:'.Length))
+            $plainBytes = $null; $plain = $null
+            try {
+                $plainBytes = [Security.Cryptography.ProtectedData]::Unprotect(
+                    $protectedBytes, $null, [Security.Cryptography.DataProtectionScope]::LocalMachine)
+                $plain = [Text.Encoding]::UTF8.GetString($plainBytes)
+                return ConvertTo-SecureString $plain -AsPlainText -Force
+            }
+            finally {
+                $plain = $null
+                if ($plainBytes) { [Array]::Clear($plainBytes, 0, $plainBytes.Length) }
+                if ($protectedBytes) { [Array]::Clear($protectedBytes, 0, $protectedBytes.Length) }
+            }
+        }
+        # Rueckwaertskompatibilitaet fuer Dateien vor contractVersion v1.
+        return ConvertTo-SecureString $content
+    }
     else {
         $plain = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($content.Trim()))
         $secure = ConvertTo-SecureString $plain -AsPlainText -Force

@@ -56,7 +56,8 @@ function New-DockerInstance {
         [Parameter(Mandatory)][SecureString]$SaPassword,
         [ValidateSet('compact', 'standard', 'performance')]
         [string]$Profile = 'standard',
-        [array]$Drives = @()
+        [array]$Drives = @(),
+        [string]$NetworkName
     )
 
     $image = Get-SqlServerDockerImage -VersionId $VersionId
@@ -64,6 +65,7 @@ function New-DockerInstance {
     $memoryLimit = "$($profileDefinition.maxMemoryMB)m"
     $cpuLimit = [string]$profileDefinition.maxCpus
     $containerName = "sql-lab-$InstanceId-$($RunId.Substring(0, 8))"
+    $labNetwork = Ensure-LabDockerNetwork -Name $NetworkName
 
     $volumeArguments = @()
     foreach ($drive in @($Drives)) {
@@ -108,6 +110,7 @@ function New-DockerInstance {
                 $dockerArguments = @(
                     'run', '-d',
                     '--name', $containerName,
+                    '--network', $labNetwork.Name,
                     '-p', "${selectedPort}:1433",
                     '-e', 'ACCEPT_EULA=Y',
                     '-e', "MSSQL_SA_PASSWORD=$saPlain",

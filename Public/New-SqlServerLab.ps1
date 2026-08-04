@@ -50,7 +50,8 @@ function New-LabProviderContainer {
                 -Port $Port `
                 -SaPassword $SaPassword `
                 -Profile $Instance.profile `
-                -Drives $Instance.drives
+                -Drives $Instance.drives `
+                -NetworkName $Instance.networkName
         }
         'podman' {
             return New-PodmanInstance `
@@ -61,7 +62,8 @@ function New-LabProviderContainer {
                 -Port $Port `
                 -SaPassword $SaPassword `
                 -Profile $Instance.profile `
-                -Drives $Instance.drives
+                -Drives $Instance.drives `
+                -NetworkName $Instance.networkName
         }
         default {
             throw "Provider '$($Instance.provider)' ist noch nicht implementiert."

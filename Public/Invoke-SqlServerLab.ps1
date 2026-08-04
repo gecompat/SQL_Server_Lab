@@ -325,6 +325,19 @@ function Invoke-LabHyperVImageAction {
     [CmdletBinding()]
     param()
 
+    if (-not (Test-LabAdministrator)) {
+        try {
+            $elevation = Start-LabElevatedAction -Action Image
+            if ($elevation.Started) {
+                Write-LabInfo 'Hyper-V-Aktion wird in einem erhoehten PowerShell-Fenster fortgesetzt.'
+            }
+        }
+        catch {
+            Write-LabError "Hyper-V-Aktion benoetigt Administratorrechte: $($_.Exception.Message)"
+        }
+        return
+    }
+
     $availability = Test-HyperVAvailable
     if (-not $availability.Available) {
         Write-LabError "Hyper-V nicht verfuegbar: $($availability.Message)"
@@ -348,6 +361,12 @@ function Invoke-LabHyperVImageAction {
     Write-Host '    [10] SQL PrepareImage und Windows-Sysprep ausfuehren' -ForegroundColor White
     Write-Host '    [11] SQL-Prepared-Image veroeffentlichen' -ForegroundColor White
     Write-Host '    [12] Unfertigen SQL-Builder aufraeumen' -ForegroundColor Red
+    Write-Host ''
+    Write-Host '    Windows-SQL-Abnahmeumgebungen' -ForegroundColor DarkGray
+    Write-Host '    [13] OOBE und SQL vollautomatisch installieren' -ForegroundColor Yellow
+    Write-Host '    [14] SQL-Abnahmetest ausfuehren' -ForegroundColor White
+    Write-Host '    [15] SQL-2019/2022/2025-Abnahmematrix anzeigen' -ForegroundColor White
+    Write-Host '    [16] Manuell abgeschlossene OOBE uebernehmen und SQL installieren' -ForegroundColor White
     Write-Host '    [0] Zurueck' -ForegroundColor DarkGray
     Write-Host ''
     $choice = Read-Host '  Auswahl'
@@ -366,6 +385,10 @@ function Invoke-LabHyperVImageAction {
         '10' { Invoke-LabHyperVSqlPrepareInteractive }
         '11' { Publish-LabHyperVSqlImageBuildInteractive }
         '12' { Remove-LabHyperVSqlImageBuildInteractive }
+        '13' { Invoke-LabHyperVSqlAcceptanceInstallInteractive }
+        '14' { Test-LabHyperVSqlAcceptanceInteractive }
+        '15' { Show-LabHyperVSqlAcceptanceMatrix }
+        '16' { Invoke-LabHyperVSqlManualOobeAcceptanceInstallInteractive }
         default { Write-LabWarning "Ungueltige Auswahl: $choice" }
     }
 }
@@ -715,12 +738,12 @@ function Show-LabHyperVSqlManualInstructions {
     param([Parameter(Mandatory)]$Build)
 
     Write-Host ''
-    Write-Host '  Einmaliger Windows-OOBE-Schritt:' -ForegroundColor Yellow
-    Write-Host "    1. VM '$($Build.builder.vmName)' starten und in VMConnect oeffnen." -ForegroundColor White
-    Write-Host '    2. Ein lokales Administratorpasswort festlegen und einmal anmelden.' -ForegroundColor White
-    Write-Host '    3. Danach im Image-Menue Aktion 10 ausfuehren.' -ForegroundColor White
-    Write-Host '  SQL-Setup und Sysprep laufen danach ohne weitere GUI-Interaktion.' -ForegroundColor DarkGray
-    Write-Host '  Das Passwort wird weder im Repository noch im Build-State gespeichert.' -ForegroundColor DarkGray
+    Write-Host '  Unbeaufsichtigter Windows-OOBE-Schritt:' -ForegroundColor Yellow
+    Write-Host "    VM: $($Build.builder.vmName)" -ForegroundColor White
+    Write-Host '    Aktion 13 setzt Region Deutschland, UI en-US und deutsche Tastatur.' -ForegroundColor White
+    Write-Host '    Danach wird SQL Server ohne weitere GUI-Interaktion installiert.' -ForegroundColor White
+    Write-Host '  Zufallspasswoerter liegen nur lokal und DPAPI-geschuetzt im Build-Verzeichnis.' -ForegroundColor DarkGray
+    Write-Host '  Die temporaere Unattend.xml wird nach erfolgreichem OOBE aus dem Gast entfernt.' -ForegroundColor DarkGray
 }
 
 function New-LabHyperVSqlImageBuildInteractive {
@@ -813,7 +836,10 @@ function Publish-LabHyperVSqlImageBuildInteractive {
 function Remove-LabHyperVSqlImageBuildInteractive {
     [CmdletBinding()]
     param()
-    $build = Select-LabHyperVSqlImageBuild -AllowedStates @('MEDIA_VERIFIED', 'MANUAL_ACTION_REQUIRED', 'REBOOT_REQUIRED', 'RESUME_PENDING', 'FAILED')
+    $build = Select-LabHyperVSqlImageBuild -AllowedStates @(
+        'MEDIA_VERIFIED', 'MANUAL_ACTION_REQUIRED', 'OOBE_AUTOMATION_RUNNING', 'OOBE_COMPLETED',
+        'REBOOT_REQUIRED', 'RESUME_PENDING', 'SQL_INSTALL_RUNNING', 'SQL_INSTALL_REBOOT_REQUIRED', 'FAILED'
+    )
     if (-not $build) { return }
     Write-LabWarning "VM und buildlokale VHDX von '$($build.buildId)' werden entfernt."
     if (-not (Read-LabConfirm -Prompt '  SQL-Builder wirklich aufraeumen?' -Default $false)) { return }
@@ -823,6 +849,95 @@ function Remove-LabHyperVSqlImageBuildInteractive {
         else { Write-LabError "Cleanup-Status: $($result.Status)" }
     }
     catch { Write-LabError $_.Exception.Message }
+}
+
+function Invoke-LabHyperVSqlAcceptanceInstallInteractive {
+    [CmdletBinding()]
+    param()
+
+    $build = Select-LabHyperVSqlImageBuild -AllowedStates @(
+        'MANUAL_ACTION_REQUIRED', 'OOBE_AUTOMATION_RUNNING', 'OOBE_COMPLETED',
+        'SQL_INSTALL_RUNNING', 'SQL_INSTALL_REBOOT_REQUIRED', 'SQL_READY_RUN', 'TESTS_PASSED'
+    )
+    if (-not $build) { return }
+    Write-Host ("  Ziel: SQL {0} | VM {1}" -f $build.sql.version, $build.builder.vmName) -ForegroundColor White
+    Write-Host '  Windows: Region Deutschland, UI en-US, Tastatur Deutsch, Zeitzone Wien/Berlin.' -ForegroundColor DarkGray
+    Write-Host '  Netzwerk bleibt getrennt; Setup wird ausschliesslich vom eingebundenen ISO ausgefuehrt.' -ForegroundColor DarkGray
+    if (-not (Read-LabConfirm -Prompt '  OOBE und SQL-Installation jetzt unbeaufsichtigt ausfuehren?' -Default $false)) { return }
+    try {
+        if ($build.state -in @('MANUAL_ACTION_REQUIRED', 'OOBE_AUTOMATION_RUNNING')) {
+            $build = Invoke-HyperVSqlUnattendedOobe -BuildId $build.buildId
+            Write-LabSuccess "Windows-OOBE verifiziert. State: $($build.state)"
+        }
+        $credential = Get-HyperVSqlGuestCredential -Build $build
+        $saPassword = Get-LabSecret -Path $build.BuildDirectory -Name 'sa-password'
+        if (-not $saPassword) { $saPassword = New-HyperVSqlUnattendedPassword }
+        $result = Invoke-HyperVSqlTestEnvironmentInstall -BuildId $build.buildId `
+            -Credential $credential -SaPassword $saPassword
+        if ($result.state -eq 'SQL_INSTALL_REBOOT_REQUIRED') {
+            Write-LabInfo 'SQL Setup hat einen Neustart angefordert. Aktion 13 nach dem Gast-Neustart erneut ausfuehren.'
+        }
+        else { Write-LabSuccess "Windows-SQL-Testumgebung ist bereit. State: $($result.state)" }
+    }
+    catch { Write-LabError $_.Exception.Message }
+}
+
+function Test-LabHyperVSqlAcceptanceInteractive {
+    [CmdletBinding()]
+    param()
+
+    $build = Select-LabHyperVSqlImageBuild -AllowedStates @('SQL_READY_RUN', 'TESTS_PASSED')
+    if (-not $build) { return }
+    if (-not (Read-LabConfirm -Prompt '  Create/Insert/Backup/Restore-Verify/Drop-Abnahmetest ausfuehren?' -Default $true)) { return }
+    try {
+        $credential = Get-HyperVSqlGuestCredential -Build $build
+        $result = Test-HyperVSqlAcceptanceEnvironment -BuildId $build.buildId -Credential $credential
+        Write-LabSuccess "SQL $($result.sql.version) wurde abgenommen. State: $($result.state)"
+    }
+    catch { Write-LabError $_.Exception.Message }
+}
+
+function Invoke-LabHyperVSqlManualOobeAcceptanceInstallInteractive {
+    [CmdletBinding()]
+    param()
+
+    $build = Select-LabHyperVSqlImageBuild -AllowedStates @('MANUAL_ACTION_REQUIRED')
+    if (-not $build) { return }
+    $userName = Read-Host '  Lokaler Gast-Administrator [Administrator]'
+    if (-not $userName) { $userName = 'Administrator' }
+    $guestPassword = Read-Host '  Gastpasswort' -AsSecureString
+    $credential = [PSCredential]::new($userName, $guestPassword)
+    $saPassword = Get-LabSecret -Path $build.BuildDirectory -Name 'sa-password'
+    if (-not $saPassword) { $saPassword = New-HyperVSqlUnattendedPassword }
+    if (-not (Read-LabConfirm -Prompt '  OOBE ist abgeschlossen; SQL jetzt unbeaufsichtigt installieren?' -Default $false)) { return }
+    try {
+        $result = Invoke-HyperVSqlTestEnvironmentInstall -BuildId $build.buildId `
+            -Credential $credential -SaPassword $saPassword
+        if ($result.state -eq 'SQL_INSTALL_REBOOT_REQUIRED') {
+            Write-LabInfo 'SQL Setup hat einen Neustart angefordert. Danach Aktion 13 erneut ausfuehren.'
+        }
+        else { Write-LabSuccess "Windows-SQL-Testumgebung ist bereit. State: $($result.state)" }
+    }
+    catch { Write-LabError $_.Exception.Message }
+}
+
+function Show-LabHyperVSqlAcceptanceMatrix {
+    [CmdletBinding()]
+    param()
+
+    $matrix = @(Get-HyperVSqlAcceptanceMatrix)
+    if ($matrix.Count -eq 0) { Write-LabInfo 'Keine SQL-Abnahmeumgebungen vorhanden.'; return @() }
+    Write-Host ''
+    Write-Host '  Windows-SQL-Abnahmematrix:' -ForegroundColor White
+    foreach ($entry in $matrix) {
+        $marker = if ($entry.TestsPassed) { '[PASS]' } elseif ($entry.Ready) { '[READY]' } else { '[----]' }
+        $color = if ($entry.TestsPassed) { 'Green' } elseif ($entry.Ready) { 'Yellow' } else { 'DarkGray' }
+        Write-Host ("    {0} SQL {1} | {2} | {3}" -f $marker, $entry.SqlVersion, $entry.State, $entry.VMName) -ForegroundColor $color
+        if ($entry.ProductVersion) {
+            Write-Host ("           {0} | {1} | Computer: {2}" -f $entry.ProductVersion, $entry.Edition, $entry.ComputerName) -ForegroundColor DarkGray
+        }
+    }
+    return $matrix
 }
 
 function Select-LabSampleSelection {
