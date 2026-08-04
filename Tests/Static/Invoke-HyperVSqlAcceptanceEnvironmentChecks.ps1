@@ -30,6 +30,21 @@ try {
         $unattend -match '<HideLocalAccountScreen>true</HideLocalAccountScreen>' -and
         $unattend -match '<LogonCount>1</LogonCount>'
     )
+    $labNetwork = [PSCustomObject]@{ Name = 'SQL_LAB_HYPERV'; Subnet = '172.28.0.0/24'; PrefixLength = 24; HostAddress = '172.28.0.1' }
+    $networkUnattend = & $module {
+        param($Password,$Network)
+        New-HyperVSqlOobeUnattendXml -AdministratorPassword $Password -Network $Network -Identity 'test-build'
+    } $securePassword $labNetwork
+    [xml]$networkUnattendDocument = $networkUnattend
+    $encodedBootstrap = [string]$networkUnattendDocument.unattend.settings.component[1].FirstLogonCommands.SynchronousCommand.CommandLine
+    $encodedBootstrap = ($encodedBootstrap -split '-EncodedCommand ', 2)[1]
+    $bootstrap = [Text.Encoding]::Unicode.GetString([Convert]::FromBase64String($encodedBootstrap))
+    Add-CheckResult -Name 'OOBE bootstrappt eine feste Lab-IP und Host-beschraenktes WinRM' -Success (
+        $bootstrap -match "IPAddress '172\.28\.0\." -and
+        $bootstrap -match 'Enable-PSRemoting' -and
+        $bootstrap -match "RemoteAddress '172\.28\.0\.1'" -and
+        $bootstrap -notmatch [regex]::Escape($knownPassword)
+    )
 
     $buildId = [guid]::NewGuid().ToString(); $scopeId = [guid]::NewGuid().ToString()
     $buildDirectory = Join-Path $temporaryRoot "image-builds/hyperv-sql/$buildId"
@@ -123,6 +138,10 @@ try {
     )
     Add-CheckResult -Name 'Gast-Unattend wird nach OOBE entfernt' -Success (
         $acceptanceText -match 'Panther\\Unattend\.xml[\s\S]+Remove-Item'
+    )
+    Add-CheckResult -Name 'OOBE nutzt bei ausgefallenem PowerShell Direct das Hyper-V-Labnetz' -Success (
+        $acceptanceText -match 'bootstrapVersion.*network-winrm-v1' -and
+        $acceptanceText -match 'FallbackAddress\s+\$fallbackAddress'
     )
     $menuText = Get-Content -LiteralPath $menuPath -Raw -Encoding utf8
     Add-CheckResult -Name 'InvokeLab-Menue bietet Installation, Abnahmetest und Matrix' -Success (

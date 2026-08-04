@@ -577,6 +577,44 @@ function Stop-HyperVInstance {
     return Get-HyperVInstanceStatus -VMName $VMName -ExpectedRunId $ExpectedRunId -ExpectedScopeId $ExpectedScopeId
 }
 
+function Invoke-HyperVWinRmFallback {
+    <#
+    .SYNOPSIS
+        Fuehrt einen Gastbefehl ueber das isolierte Hyper-V-Labnetz aus.
+    .DESCRIPTION
+        PowerShell Direct ist der bevorzugte Kanal. Bei einer noch nicht
+        verfuegbaren Gastintegration kann ein durch die OOBE eingerichteter
+        WinRM-Endpunkt im internen Labnetz verwendet werden. Der konkrete
+        Zielhost wird nur fuer den einzelnen Aufruf temporär als TrustedHost
+        eingetragen und der vorherige Wert danach wiederhergestellt.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][ValidatePattern('^(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])(?:\.(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])){3}$')][string]$Address,
+        [Parameter(Mandatory)][PSCredential]$Credential,
+        [Parameter(Mandatory)][scriptblock]$ScriptBlock,
+        [object[]]$ArgumentList = @()
+    )
+
+    Import-Module Microsoft.WSMan.Management -ErrorAction Stop
+    $trustedHostsPath = 'WSMan:\localhost\Client\TrustedHosts'
+    $originalTrustedHosts = [string](Get-Item -Path $trustedHostsPath -ErrorAction Stop).Value
+    $trustedHosts = @($originalTrustedHosts -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+    $alreadyTrusted = $trustedHosts -contains '*' -or $trustedHosts -contains $Address
+    try {
+        if (-not $alreadyTrusted) {
+            Set-Item -Path $trustedHostsPath -Value (@($trustedHosts + $Address) -join ',') -Force -ErrorAction Stop
+        }
+        return Invoke-Command -ComputerName $Address -Credential $Credential -Authentication Negotiate `
+            -ScriptBlock $ScriptBlock -ArgumentList $ArgumentList -ErrorAction Stop
+    }
+    finally {
+        if (-not $alreadyTrusted) {
+            Set-Item -Path $trustedHostsPath -Value $originalTrustedHosts -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
 function Invoke-HyperVPowerShellDirect {
     [CmdletBinding()]
     param(
@@ -585,7 +623,8 @@ function Invoke-HyperVPowerShellDirect {
         [Parameter(Mandatory)][string]$ExpectedScopeId,
         [Parameter(Mandatory)][PSCredential]$Credential,
         [Parameter(Mandatory)][scriptblock]$ScriptBlock,
-        [object[]]$ArgumentList = @()
+        [object[]]$ArgumentList = @(),
+        [ValidatePattern('^(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])(?:\.(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])){3}$')][string]$FallbackAddress
     )
 
     $managed = Get-HyperVManagedVM -VMName $VMName -ExpectedRunId $ExpectedRunId -ExpectedScopeId $ExpectedScopeId
@@ -596,12 +635,20 @@ function Invoke-HyperVPowerShellDirect {
         throw "PowerShell Direct erfordert eine laufende VM: $VMName"
     }
 
-    return Invoke-Command `
-        -VMName $VMName `
-        -Credential $Credential `
-        -ScriptBlock $ScriptBlock `
-        -ArgumentList $ArgumentList `
-        -ErrorAction Stop
+    try {
+        return Invoke-Command `
+            -VMName $VMName `
+            -Credential $Credential `
+            -ScriptBlock $ScriptBlock `
+            -ArgumentList $ArgumentList `
+            -ErrorAction Stop
+    }
+    catch {
+        if (-not $FallbackAddress) { throw }
+        Write-LabInfo "PowerShell Direct fuer $VMName nicht verfuegbar; nutze WinRM im Labnetz ($FallbackAddress)."
+        return Invoke-HyperVWinRmFallback -Address $FallbackAddress -Credential $Credential `
+            -ScriptBlock $ScriptBlock -ArgumentList $ArgumentList
+    }
 }
 
 function Set-HyperVManagedVMIdentityProperty {
@@ -636,6 +683,7 @@ function Wait-HyperVPowerShellDirect {
         [Parameter(Mandatory)][string]$ExpectedScopeId,
         [Parameter(Mandatory)][PSCredential]$Credential,
         [string]$ExpectedComputerName,
+        [ValidatePattern('^(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])(?:\.(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])){3}$')][string]$FallbackAddress,
         [ValidateRange(1, 3600)][int]$TimeoutSeconds = 300,
         [ValidateRange(100, 60000)][int]$PollIntervalMilliseconds = 2000
     )
@@ -655,10 +703,9 @@ function Wait-HyperVPowerShellDirect {
             Write-LabInfo "PowerShell Direct: warte auf $VMName ($([int]$stopwatch.Elapsed.TotalSeconds)s/$TimeoutSeconds, letzter Status: $lastError)"
         }
         try {
-            $probe = Invoke-Command `
-                -VMName $VMName `
-                -Credential $Credential `
-                -ScriptBlock {
+            $probe = Invoke-HyperVPowerShellDirect `
+                -VMName $VMName -ExpectedRunId $ExpectedRunId -ExpectedScopeId $ExpectedScopeId `
+                -Credential $Credential -FallbackAddress $FallbackAddress -ScriptBlock {
                     [PSCustomObject]@{
                         computerName = [Environment]::MachineName
                         imageState = [string](Get-ItemPropertyValue `
@@ -707,6 +754,7 @@ function Set-HyperVWindowsGuestSpecialization {
         [Parameter(Mandatory)][string]$ExpectedScopeId,
         [Parameter(Mandatory)][PSCredential]$Credential,
         [Parameter(Mandatory)][ValidatePattern('^(?![0-9]+$)[A-Za-z0-9](?:[A-Za-z0-9-]{0,13}[A-Za-z0-9])?$')][string]$ComputerName,
+        [ValidatePattern('^(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])(?:\.(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])){3}$')][string]$FallbackAddress,
         [ValidateRange(1, 3600)][int]$TimeoutSeconds = 300
     )
 
@@ -725,6 +773,7 @@ function Set-HyperVWindowsGuestSpecialization {
         -ExpectedRunId $ExpectedRunId `
         -ExpectedScopeId $ExpectedScopeId `
         -Credential $Credential `
+        -FallbackAddress $FallbackAddress `
         -ScriptBlock {
             $pendingName = [string](Get-ItemPropertyValue `
                 -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName' `
@@ -768,6 +817,7 @@ function Set-HyperVWindowsGuestSpecialization {
             -ExpectedRunId $ExpectedRunId `
             -ExpectedScopeId $ExpectedScopeId `
             -Credential $Credential `
+            -FallbackAddress $FallbackAddress `
             -ArgumentList @($targetComputerName) `
             -ScriptBlock {
                 param($TargetComputerName)
@@ -790,6 +840,7 @@ function Set-HyperVWindowsGuestSpecialization {
             -ExpectedRunId $ExpectedRunId `
             -ExpectedScopeId $ExpectedScopeId `
             -Credential $Credential `
+            -FallbackAddress $FallbackAddress `
             -ScriptBlock {
                 $shutdown = Join-Path $env:SystemRoot 'System32\shutdown.exe'
                 $null = Start-Process `
@@ -806,6 +857,7 @@ function Set-HyperVWindowsGuestSpecialization {
             -ExpectedScopeId $ExpectedScopeId `
             -Credential $Credential `
             -ExpectedComputerName $targetComputerName `
+            -FallbackAddress $FallbackAddress `
             -TimeoutSeconds $TimeoutSeconds
         if (-not $ready.Ready) {
             throw "HYPERV_WINDOWS_SPECIALIZATION_TIMEOUT: $($ready.Message)"
@@ -817,6 +869,7 @@ function Set-HyperVWindowsGuestSpecialization {
         -ExpectedRunId $ExpectedRunId `
         -ExpectedScopeId $ExpectedScopeId `
         -Credential $Credential `
+        -FallbackAddress $FallbackAddress `
         -ScriptBlock {
             [PSCustomObject]@{
                 computerName = [Environment]::MachineName
@@ -866,6 +919,7 @@ function Wait-HyperVGuestSqlReady {
         [Parameter(Mandatory)][string]$ExpectedScopeId,
         [Parameter(Mandatory)][PSCredential]$Credential,
         [Parameter(Mandatory)][SecureString]$SaPassword,
+        [ValidatePattern('^(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])(?:\.(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])){3}$')][string]$FallbackAddress,
         [ValidatePattern('^[A-Za-z][A-Za-z0-9_$-]{0,127}$')][string]$InstanceName = 'MSSQLSERVER',
         [ValidateRange(0, 99)][int]$ExpectedMajorVersion = 0,
         [ValidateRange(1, 3600)][int]$TimeoutSeconds = 300,
@@ -889,6 +943,7 @@ function Wait-HyperVGuestSqlReady {
         -ExpectedRunId $ExpectedRunId `
         -ExpectedScopeId $ExpectedScopeId `
         -Credential $Credential `
+        -FallbackAddress $FallbackAddress `
         -ArgumentList @($InstanceName, $SaPassword, $ExpectedMajorVersion, $TimeoutSeconds, $PollIntervalMilliseconds) `
         -ScriptBlock {
             param($SqlInstanceName, $SqlSaPassword, $ExpectedMajor, $Timeout, $PollInterval)

@@ -54,6 +54,7 @@ try {
         'Get-HyperVInstanceStatus',
         'Start-HyperVInstance',
         'Stop-HyperVInstance',
+        'Invoke-HyperVWinRmFallback',
         'Invoke-HyperVPowerShellDirect',
         'Wait-HyperVPowerShellDirect',
         'Set-HyperVWindowsGuestSpecialization',
@@ -116,6 +117,10 @@ try {
         -Name 'Windows-Specialization benennt den Gast um und wartet nach Reboot auf Reconnect' `
         -Text $provider `
         -Pattern 'Rename-Computer[\s\S]+REBOOT_REQUIRED[\s\S]+shutdown\.exe[\s\S]+Wait-HyperVPowerShellDirect'
+    Add-TextContract `
+        -Name 'Gastremoting faellt nur auf eine temporaere Lab-WinRM-Vertrauensbeziehung zurueck' `
+        -Text $provider `
+        -Pattern 'TrustedHosts[\s\S]+Invoke-Command\s+-ComputerName[\s\S]+finally[\s\S]+originalTrustedHosts'
     Add-TextContract `
         -Name 'SQL-Readiness prueft Dienst, Version und alle Systemdatenbanken im Gast' `
         -Text $provider `
