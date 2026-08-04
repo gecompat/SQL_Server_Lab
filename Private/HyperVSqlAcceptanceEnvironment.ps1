@@ -166,6 +166,7 @@ function Invoke-HyperVSqlUnattendedOobe {
     $vmName = [string]$build.builder.vmName
 
     if ($build.state -eq 'MANUAL_ACTION_REQUIRED') {
+        Write-LabInfo "OOBE: stoppe $vmName und injiziere Unattend.xml"
         $null = Stop-HyperVInstance -VMName $vmName -ExpectedRunId $build.buildId -ExpectedScopeId $build.scopeId
         $vhdxPath = Join-Path $build.BuildDirectory ([string]$build.builder.osDiskRelativePath)
         $unattend = New-HyperVSqlOobeUnattendXml -AdministratorPassword $AdministratorPassword
@@ -182,9 +183,11 @@ function Invoke-HyperVSqlUnattendedOobe {
         Write-HyperVSqlImageBuildState -BuildDirectory $build.BuildDirectory -State $build
         $build = Set-HyperVSqlImageBuildState -BuildId $BuildId -State OOBE_AUTOMATION_RUNNING `
             -Reason 'Unattend.xml offline injiziert; Windows-OOBE wird unbeaufsichtigt abgeschlossen' -StateRoot $StateRoot
+        Write-LabInfo "OOBE: starte $vmName und warte maximal $TimeoutSeconds Sekunden auf PowerShell Direct"
         $null = Start-HyperVInstance -VMName $vmName -ExpectedRunId $build.buildId -ExpectedScopeId $build.scopeId
     }
 
+    Write-LabInfo "OOBE: pruefe Windows-Readiness per PowerShell Direct"
     $ready = Wait-HyperVPowerShellDirect -VMName $vmName -ExpectedRunId $build.buildId `
         -ExpectedScopeId $build.scopeId -Credential $credential -TimeoutSeconds $TimeoutSeconds
     if (-not $ready.Ready) { throw "HYPERV_SQL_OOBE_TIMEOUT: $($ready.Message)" }
@@ -293,6 +296,7 @@ function Invoke-HyperVSqlTestEnvironmentInstall {
     Save-LabSecret -Path $build.BuildDirectory -Name 'sa-password' -Secret $SaPassword
 
     if ($build.state -in @('MANUAL_ACTION_REQUIRED', 'OOBE_COMPLETED')) {
+        Write-LabInfo "SQL Setup: starte SQL Server $($build.sql.version) im Gast $vmName"
         $build = Set-HyperVSqlImageBuildState -BuildId $BuildId -State SQL_INSTALL_RUNNING `
             -Reason 'Vollstaendige SQL-Installation fuer run-lokale Windows-Abnahme gestartet' -StateRoot $StateRoot
         try {
@@ -390,11 +394,13 @@ function Invoke-HyperVSqlTestEnvironmentInstall {
     }
 
     $computerName = Get-HyperVSqlAcceptanceComputerName -SqlVersion $build.sql.version
+    Write-LabInfo "SQL Setup: spezialisiere Windows-Gast als $computerName"
     $null = Set-HyperVWindowsGuestSpecialization -VMName $vmName -ExpectedRunId $build.buildId `
         -ExpectedScopeId $build.scopeId -Credential $Credential -ComputerName $computerName `
         -TimeoutSeconds $ReadinessTimeoutSeconds
     $labNetworkReceipt = $null
     if ($build.labNetwork) {
+        Write-LabInfo "Netzwerk: konfiguriere Gastadresse im Netz $($build.labNetwork.Name)"
         $labNetworkReceipt = Initialize-HyperVGuestLabNetwork -VMName $vmName `
             -ExpectedRunId $build.buildId -ExpectedScopeId $build.scopeId -Credential $Credential `
             -Network $build.labNetwork -Identity $build.buildId

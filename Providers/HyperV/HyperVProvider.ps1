@@ -648,7 +648,12 @@ function Wait-HyperVPowerShellDirect {
 
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
     $lastError = ''
+    $lastProgressSeconds = -30
     while ($stopwatch.Elapsed.TotalSeconds -lt $TimeoutSeconds) {
+        if (($stopwatch.Elapsed.TotalSeconds - $lastProgressSeconds) -ge 30) {
+            $lastProgressSeconds = $stopwatch.Elapsed.TotalSeconds
+            Write-LabInfo "PowerShell Direct: warte auf $VMName ($([int]$stopwatch.Elapsed.TotalSeconds)s/$TimeoutSeconds, letzter Status: $lastError)"
+        }
         try {
             $probe = Invoke-Command `
                 -VMName $VMName `

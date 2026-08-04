@@ -21,11 +21,17 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $module = Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -PassThru
 
+function Write-AcceptanceProgress {
+    param([Parameter(Mandatory)][string]$Message)
+    Write-Host ("[{0}] [HYPERV-SQL] {1}" -f ([datetime]::UtcNow.ToString('o')), $Message)
+}
+
 function Invoke-PrivateLabCommand {
     param([Parameter(Mandatory)][scriptblock]$ScriptBlock, [object[]]$Arguments = @())
     return & $module $ScriptBlock @Arguments
 }
 
+Write-AcceptanceProgress "Build $BuildId laden; OOBE bei Bedarf fortsetzen."
 $build = Invoke-PrivateLabCommand {
     param($Id,$Root,$OobeTimeout)
     $current = Get-HyperVSqlImageBuildPlan -BuildId $Id -StateRoot $Root
@@ -40,6 +46,7 @@ if ($build.state -notin @('OOBE_COMPLETED', 'SQL_INSTALL_REBOOT_REQUIRED', 'SQL_
     throw "HYPERV_SQL_ACCEPTANCE_OOBE_INCOMPLETE: $($build.state)"
 }
 
+Write-AcceptanceProgress "OOBE abgeschlossen; Gast- und SA-Secret aufloesen."
 $secrets = Invoke-PrivateLabCommand {
     param($Build)
     $credential = Get-HyperVSqlGuestCredential -Build $Build
@@ -51,6 +58,7 @@ $secrets = Invoke-PrivateLabCommand {
     [PSCustomObject]@{ Credential = $credential; SaPassword = $saPassword }
 } @($build)
 
+Write-AcceptanceProgress "SQL-Installation, Windows-Spezialisierung und SQL-Readiness starten."
 $build = Invoke-PrivateLabCommand {
     param($Id,$Credential,$SaPassword,$Root,$SetupTimeout,$ReadinessTimeout)
     $result = Invoke-HyperVSqlTestEnvironmentInstall -BuildId $Id -Credential $Credential -SaPassword $SaPassword `
@@ -66,6 +74,7 @@ if ($build.state -notin @('SQL_READY_RUN', 'TESTS_PASSED')) {
     throw "HYPERV_SQL_ACCEPTANCE_SQL_INCOMPLETE: $($build.state)"
 }
 
+Write-AcceptanceProgress "SQL-Abnahme im Gast ausfuehren (Create/Insert/Backup/Verify/Drop)."
 $build = Invoke-PrivateLabCommand {
     param($Id,$Credential,$SaPassword,$Root)
     Test-HyperVSqlAcceptanceEnvironment -BuildId $Id -Credential $Credential -SaPassword $SaPassword -StateRoot $Root
@@ -73,6 +82,7 @@ $build = Invoke-PrivateLabCommand {
 
 $address = [string]$build.testEnvironment.address
 if ([string]::IsNullOrWhiteSpace($address)) { throw 'HYPERV_SQL_ACCEPTANCE_HOST_ADDRESS_MISSING' }
+Write-AcceptanceProgress "Hostzugriff auf ${address}:1433 per TCP und sqlcmd pruefen."
 $tcp = Test-NetConnection -ComputerName $address -Port 1433 -WarningAction SilentlyContinue
 if (-not $tcp.TcpTestSucceeded) { throw "HYPERV_SQL_ACCEPTANCE_HOST_TCP_FAILED: $address`:,1433" }
 
@@ -94,3 +104,4 @@ finally {
     HostAddress = $address; HostTcpReachable = $true; HostSqlMajorVersion = ($major | Out-String).Trim()
     ObservedAt = [datetime]::UtcNow.ToString('o')
 } | ConvertTo-Json -Depth 4
+Write-AcceptanceProgress "Abnahme erfolgreich abgeschlossen."
