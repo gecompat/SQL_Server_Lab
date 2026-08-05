@@ -163,6 +163,11 @@ try {
     Add-CheckResult -Name 'VMConnect wird vor dem ersten VM-Start geoeffnet' -Success (
         $menuText -match 'Open-LabHyperVImageBuildConsole[\s\S]{0,180}Start-Sleep[\s\S]{0,180}Start-HyperVWindowsImageBuildVM'
     )
+    Add-CheckResult -Name 'Image-Untermenue bleibt nach Aktionen geoeffnet und verlaesst sich nur mit 0' -Success (
+        $menuText -match '\$exitImageMenu = \$false' -and
+        $menuText -match 'while \(-not \$exitImageMenu\)' -and
+        $menuText -match '''0''\s*\{\s*\$exitImageMenu\s*=\s*\$true\s*\}'
+    )
 }
 catch {
     Add-CheckResult -Name 'Image-Operator-Testausfuehrung' -Success $false -Message $_.Exception.Message

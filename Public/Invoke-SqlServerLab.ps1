@@ -369,6 +369,8 @@ function Invoke-LabHyperVImageAction {
         return
     }
 
+    $exitImageMenu = $false
+    while (-not $exitImageMenu) {
     Write-Host '  Hyper-V Image-Lifecycle:' -ForegroundColor White
     Write-Host ''
     Write-Host '    Empfohlener Prepared-Image-Pfad: 7 -> 9 (Windows installieren) -> 10 -> 11.' -ForegroundColor Yellow
@@ -402,7 +404,7 @@ function Invoke-LabHyperVImageAction {
     $choice = Read-Host '  Auswahl'
 
     switch ($choice) {
-        '0' { return }
+        '0' { $exitImageMenu = $true }
         '1' { New-LabHyperVImageBuildInteractive }
         '2' { Show-LabHyperVImageBuilds }
         '3' { Start-LabHyperVImageBuildInteractive }
@@ -422,6 +424,7 @@ function Invoke-LabHyperVImageAction {
         '17' { Resume-LabHyperVSqlPreparedImageGeneralizationInteractive }
         'a' { New-LabHyperVSqlAcceptanceBuildInteractive }
         default { Write-LabWarning "Ungueltige Auswahl: $choice" }
+    }
     }
 }
 
