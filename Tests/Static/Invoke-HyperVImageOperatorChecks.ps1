@@ -152,6 +152,14 @@ try {
         $menuText -match 'Invoke-HyperVWindowsImageGeneralization' -and
         $menuText -match 'Publish-HyperVWindowsImageBuild'
     )
+    $prerequisiteText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVPrerequisites.ps1') -Raw -Encoding utf8
+    Add-CheckResult -Name 'Image-Einstieg bietet sichere Hyper-V-Installation inklusive Tools und Reboot-Hinweis' -Success (
+        $menuText -match 'Install-LabHyperVPrerequisites' -and
+        $menuText -match 'RestartRequired' -and
+        $prerequisiteText -match 'Install-WindowsFeature -Name Hyper-V -IncludeManagementTools' -and
+        $prerequisiteText -match 'Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V-All' -and
+        $prerequisiteText -match '-NoRestart'
+    )
     Add-CheckResult -Name 'VMConnect wird vor dem ersten VM-Start geoeffnet' -Success (
         $menuText -match 'Open-LabHyperVImageBuildConsole[\s\S]{0,180}Start-Sleep[\s\S]{0,180}Start-HyperVWindowsImageBuildVM'
     )

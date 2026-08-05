@@ -346,6 +346,25 @@ function Invoke-LabHyperVImageAction {
 
     $availability = Test-HyperVAvailable
     if (-not $availability.Available) {
+        $installCapability = Test-LabHyperVInstallCapability
+        if ($installCapability.Supported) {
+            Write-LabWarning "Hyper-V ist noch nicht bereit: $($availability.Message)"
+            Write-Host '  Die Installation umfasst Hyper-V-Plattform, PowerShell-Modul und Verwaltungstools; ein Neustart kann erforderlich sein.' -ForegroundColor DarkGray
+            if (Read-LabConfirm -Prompt '  Fehlende Hyper-V-Komponenten jetzt installieren?' -Default $false) {
+                try {
+                    $install = Install-LabHyperVPrerequisites
+                    if (-not $install.Succeeded) { Write-LabError 'Die Hyper-V-Installation wurde nicht erfolgreich abgeschlossen.'; return }
+                    if ($install.RestartRequired) {
+                        Write-LabWarning 'Hyper-V wurde installiert. Windows jetzt neu starten und danach den Image-Menuepunkt erneut waehlen.'
+                        return
+                    }
+                    $availability = Test-HyperVAvailable
+                }
+                catch { Write-LabError "Hyper-V-Installation fehlgeschlagen: $($_.Exception.Message)"; return }
+            }
+        }
+    }
+    if (-not $availability.Available) {
         Write-LabError "Hyper-V nicht verfuegbar: $($availability.Message)"
         return
     }

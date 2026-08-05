@@ -109,7 +109,7 @@ gemeinsam bereitstehen.
 | Zustand | Global wiederverwendbar | Inhalt | Nächster Schritt |
 |---|---:|---|---|
 | `MEDIA_VERIFIED` | ja | OS-/SQL-/Software-Medium, SHA-256, Lizenz- und Herkunftsmetadaten | Image Build |
-| `OS_SEALED` | ja | installiertes, aktualisiertes und generalisiertes OS | SQL vorbereiten oder installieren |
+| `OS_SEALED` | ja | installiertes, aktualisiertes und generalisiertes OS | reguläre Lab- oder Legacy-Abnahme-VM erzeugen |
 | `SQL_PREPARED_SEALED` | ja | SQL Server mit `PrepareImage`, noch keine konfigurierte Instanz | Child erstellen und `CompleteImage` |
 | `SQL_READY_RUN` | nur gleicher Run | konkrete SQL-Instanz vollständig konfiguriert | Software und Datenbanken |
 | `EXTENSIONS_READY_RUN` | nur gleicher Run | External Runtimes und Zusatzsoftware validiert | Datenbanken |
@@ -267,21 +267,21 @@ artifacts:
 
 ## 7. Erstmaliger Image Build
 
-1. OS-Auswahl und Lizenzpfad auflösen.
-2. Medium erwerben und SHA-256 verifizieren.
-3. Temporäre Builder-VM mit genau einer OS-VHDX erzeugen.
-4. Betriebssystem unattended über die unterstützte Installationsmethode
-   installieren.
+1. OS-, SQL- und Lizenzpfad auflösen.
+2. Windows- und SQL-Medium erwerben und SHA-256 verifizieren.
+3. Temporäre Builder-VM mit genau einer frischen OS-VHDX erzeugen.
+4. Betriebssystem über die unterstützte Installationsmethode installieren.
 5. Guest Management einrichten:
    - Windows bevorzugt über PowerShell Direct;
    - Linux bevorzugt über cloud-init und SSH.
 6. Gewählte Servicing Policy anwenden.
 7. Reboots resumierbar ausführen und Health Checks wiederholen.
-8. OS generalisieren und herunterfahren.
-9. Eigenständige, immutable `OS_SEALED`-VHDX veröffentlichen.
-10. Optional SQL Server über `PrepareImage` vorbereiten.
-11. Erneut generalisieren, verifizieren und `SQL_PREPARED_SEALED`
-    veröffentlichen.
+8. SQL Server mit `PrepareImage` vorbereiten.
+9. Windows einmalig generalisieren, herunterfahren, verifizieren und die
+   eigenständige `SQL_PREPARED_SEALED`-VHDX veröffentlichen.
+
+Eine optionale `OS_SEALED`-Baseline wird separat gebaut und ist für reguläre
+Lab-VMs bestimmt. Sie ist nicht der Parent des empfohlenen Prepared-Image-Pfads.
 
 Default für Hyper-V:
 
@@ -328,7 +328,8 @@ Ein zukünftiges Drive-Objekt enthält mindestens:
 
 Defaults:
 
-- OS: Differencing Disk von sealed Parent;
+- regulärer Lab-Run: OS-Differencing-Disk von sealed Parent;
+- SQL-Prepared-Image: frische dynamische OS-VHDX aus Windows-ISO;
 - funktionales Lab: dynamische zusätzliche VHDX;
 - Performance-Lab: feste zusätzliche VHDX;
 - keine tiefe Differencing-Kette;
@@ -756,7 +757,8 @@ Der Vertrag ist implementiert, wenn:
 
 1. mindestens ein Windows- und ein Linux-Gast aus katalogisierten, verifizierten
    Medien erstellt werden kann;
-2. die Erstinstallation eine immutable `OS_SEALED`-Baseline erzeugt;
+2. die Erstinstallation entweder eine immutable `OS_SEALED`-Baseline für
+   reguläre Lab-VMs oder ein frisch gebautes Prepared-Image erzeugt;
 3. SQL Developer bevorzugt und Evaluation nur als Fallback gewählt wird;
 4. `SQL_PREPARED_SEALED` deterministisch erzeugt und verwendet werden kann;
 5. OS-Drive und zusätzliche Drives getrennt modelliert und validiert werden;

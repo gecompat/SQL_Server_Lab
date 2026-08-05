@@ -201,7 +201,7 @@ Offizielle Quelle:
 
 Der Hyper-V-Image-Pfad kann diese Medien SHA-256-verifiziert an einen
 resumierbaren SQL-`PrepareImage`-Builder binden. Der Ablauf steht unter
-[SQL Server aus einer gemeinsamen Windows-Baseline](HYPERV_SQL_PREPARED_IMAGE.md).
+[SQL Server als frisches, einmalig generalisiertes Image](HYPERV_SQL_PREPARED_IMAGE.md).
 
 Datenbanken und Backups gehören nicht in den Media Root. Dafür wird ein
 getrennter [persistenter Data Root](PERSISTENT_DATA_AND_EVALUATION_REFRESH.md)

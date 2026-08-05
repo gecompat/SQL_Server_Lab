@@ -141,7 +141,7 @@ function Test-ProviderAvailability {
                 return [PSCustomObject]@{
                     Category = 'Provider'
                     Status   = 'RESOURCE_OK'
-                    Message  = "Hyper-V-Lifecycle verfuegbar (Modul: $($check.Version)); SQL-Provisionierung noch nicht implementiert."
+                    Message  = "Hyper-V-Lifecycle verfuegbar (Modul: $($check.Version)); SQL-Prepared-Image-Pfad verfuegbar."
                     Value    = $check.Version
                 }
             }
