@@ -17,12 +17,13 @@ Diese Datei ist der verbindliche Dokumentationsindex. Die Root-[README](../READM
 4. [Windows-Server-Baseline aus ISO mit Hyper-V erstellen](HowTo/HYPERV_WINDOWS_IMAGE_BUILD.md)
 5. [SQL-Prepared-Images aus frischer Windows-Installation](HowTo/HYPERV_SQL_PREPARED_IMAGE.md)
 6. [Persistente Daten und Evaluation-Refresh](HowTo/PERSISTENT_DATA_AND_EVALUATION_REFRESH.md)
-7. [Getting Started](User/Getting_Started.md)
-8. [Root-README](../README.md)
-9. [Manifest-Schemas und Beispiele](../Schemas/README.md)
-10. [Öffentliche Cmdlets](../Public/README.md)
-11. [Bekannte Grenzen](Quality/KNOWN_LIMITATIONS.md)
-12. [Tests](../Tests/README.md)
+7. [Lokale Workflow-Oberfläche](HowTo/WORKFLOW_UI.md)
+8. [Getting Started](User/Getting_Started.md)
+9. [Root-README](../README.md)
+10. [Manifest-Schemas und Beispiele](../Schemas/README.md)
+11. [Öffentliche Cmdlets](../Public/README.md)
+12. [Bekannte Grenzen](Quality/KNOWN_LIMITATIONS.md)
+13. [Tests](../Tests/README.md)
 
 ### Projekt weiterentwickeln
 
@@ -58,7 +59,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | Komponente | Status | Autoritative Dateien |
 |---|---|---|
 | PowerShell-Modul | implementiert | `SqlServerLab.psd1`, `SqlServerLab.psm1` |
-| Öffentliche API | 14 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
+| Öffentliche API | 16 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
 | Docker | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman | implementiert | `Providers/Podman/PodmanProvider.ps1` |
 | Hyper-V | Lifecycle-Grundlage; keine SQL-Provisionierung | `Providers/HyperV/HyperVProvider.ps1`, `Providers/HyperV/README.md` |
@@ -82,6 +83,8 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | Cmdlet | Zweck |
 |---|---|
 | `Invoke-SqlServerLab` | Interaktives Menü |
+| `Get-SqlServerLabWorkflow` | Konsolidierte Workflow- und Imageübersicht ohne Geheimnisse |
+| `Invoke-SqlServerLabWorkflowAction` | Nicht interaktive UI-Aktion für einen Hyper-V-Workflow-Schritt |
 | `New-SqlServerLabManifest` | Manifest schema-gesteuert erstellen |
 | `Test-SqlServerLabManifest` | Manifest ohne Provisionierung prüfen |
 | `New-SqlServerLab` | Umgebung ad hoc oder per Manifest erstellen |

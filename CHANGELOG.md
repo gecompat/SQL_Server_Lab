@@ -4,6 +4,18 @@ Dieses Changelog dokumentiert Änderungen am öffentlichen Verhalten, an maschin
 
 Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher nach Datum geführt. Neue Einträge werden oben ergänzt.
 
+## 2026-08-05
+
+### Hinzugefügt
+
+- lokale Browser-Workflow-Oberfläche für den Loopback-Host mit Übersicht über
+  Windows-Baselines, SQL-Prepared-Images, offene Build-Schritte,
+  Hintergrundaktionen und Live-Log;
+- öffentliche, nicht interaktive Workflow-Sicht und schmaler Aktionsadapter für
+  die Oberfläche; Gastpasswörter bleiben flüchtig;
+- Backlog für die spätere, explizit konfigurierte Steuerung eines entfernten
+  Windows-Hyper-V-Hosts.
+
 ## 2026-08-03
 
 ### Hinzugefügt

@@ -10,6 +10,8 @@
 
     FunctionsToExport = @(
         'Invoke-SqlServerLab'
+        'Get-SqlServerLabWorkflow'
+        'Invoke-SqlServerLabWorkflowAction'
         'New-SqlServerLabManifest'
         'Test-SqlServerLabManifest'
         'New-SqlServerLab'
