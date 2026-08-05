@@ -1007,6 +1007,9 @@ function Invoke-LabHyperVSqlPrepareInteractive {
     param()
     $build = Select-LabHyperVSqlImageBuild -AllowedStates @('MANUAL_ACTION_REQUIRED', 'REBOOT_REQUIRED') -RequireExistingVm
     if (-not $build) { return }
+    Write-Host ''
+    Write-Host ("  Ziel-Builder: SQL {0} {1} | VM: {2}" -f $build.sql.version, $build.sql.edition, $build.builder.vmName) -ForegroundColor Yellow
+    Write-Host ("  Build-ID: {0}" -f $build.buildId) -ForegroundColor DarkGray
     $userName = Read-Host '  Lokaler Gast-Administrator [Administrator]'
     if (-not $userName) { $userName = 'Administrator' }
     $password = Read-Host '  Gastpasswort' -AsSecureString
