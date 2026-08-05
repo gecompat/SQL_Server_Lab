@@ -64,6 +64,22 @@ try {
         $freshPlan.parentArtifact.source -eq 'fresh-windows-media' -and
         $freshPlan.operatingSystem.installationType -eq 'desktop-experience'
     )
+    $cleanedUp = & $module {
+        param($BuildId,$Root)
+        function Invoke-CleanupPlan {
+            param($RunDir,$ScopeId)
+            [PSCustomObject]@{ Status = 'CLEANUP_SUCCEEDED' }
+        }
+        function Remove-LabSecrets { param($Path) }
+        Remove-HyperVSqlImageBuild -BuildId $BuildId -StateRoot $Root
+    } $freshPlan.buildId $stateRoot
+    $visiblePlans = & $module { param($Root) @(Get-HyperVSqlImageBuildPlans -StateRoot $Root) } $stateRoot
+    $allPlans = & $module { param($Root) @(Get-HyperVSqlImageBuildPlans -StateRoot $Root -IncludeCleanedUp) } $stateRoot
+    Add-CheckResult -Name 'Cleanup markiert SQL-Builder terminal und blendet ihn aus der Standardauswahl aus' -Success (
+        $cleanedUp.Build.state -eq 'CLEANED_UP' -and
+        @($visiblePlans | Where-Object buildId -eq $freshPlan.buildId).Count -eq 0 -and
+        @($allPlans | Where-Object { $_.buildId -eq $freshPlan.buildId -and $_.state -eq 'CLEANED_UP' }).Count -eq 1
+    )
 
     $credentialUser = 'sql-image-test-user'; $credentialPassword = 'NeverPersist_SQL_42!'
     $credential = [PSCredential]::new($credentialUser, (ConvertTo-SecureString $credentialPassword -AsPlainText -Force))
@@ -167,6 +183,11 @@ try {
     Add-CheckResult -Name 'Invoke-SqlServerLab-Image-Menue bietet den SQL-Image-Lifecycle' -Success (
         $menuText -match 'Initialize-HyperVSqlFreshPreparedImageBuild' -and $menuText -match 'Invoke-HyperVSqlPrepareAndGeneralize' -and
         $menuText -match 'Publish-HyperVSqlPreparedImageBuild'
+    )
+    Add-CheckResult -Name 'SQL-Builder-Cleanup bietet ALL mit eigener Gesamtbestaetigung' -Success (
+        $menuText -match '\[ALL\] Alle \$\(\$builds\.Count\) angezeigten unfertigen SQL-Builder aufraeumen' -and
+        $menuText -match 'WIRKLICH ALLE SQL-Builder aufraeumen' -and
+        $menuText -match 'Cleanup \$\(\$succeeded \+ \$failed \+ 1\)/\$\(\$builds\.Count\)'
     )
 }
 catch { Add-CheckResult -Name 'Hyper-V-SQL-Image-Testausfuehrung' -Success $false -Message $_.Exception.Message }

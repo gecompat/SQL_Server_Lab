@@ -33,7 +33,10 @@ function Get-HyperVSqlImageBuildPlan {
 
 function Get-HyperVSqlImageBuildPlans {
     [CmdletBinding()]
-    param([string]$StateRoot)
+    param(
+        [string]$StateRoot,
+        [switch]$IncludeCleanedUp
+    )
 
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
     $buildRoot = Join-Path $StateRoot 'image-builds/hyperv-sql'
@@ -46,7 +49,9 @@ function Get-HyperVSqlImageBuildPlans {
                     Get-HyperVSqlImageBuildPlan -BuildId $_.Name -StateRoot $StateRoot
                 }
             } |
-            Where-Object { $null -ne $_ }
+            Where-Object {
+                $null -ne $_ -and ($IncludeCleanedUp -or [string]$_.state -ne 'CLEANED_UP')
+            }
     )
 }
 
@@ -58,7 +63,8 @@ function Set-HyperVSqlImageBuildState {
         [ValidateSet(
             'MEDIA_VERIFIED', 'MANUAL_ACTION_REQUIRED', 'OOBE_AUTOMATION_RUNNING', 'OOBE_COMPLETED',
             'REBOOT_REQUIRED', 'RESUME_PENDING', 'SQL_PREPARED_SEALED',
-            'SQL_INSTALL_RUNNING', 'SQL_INSTALL_REBOOT_REQUIRED', 'SQL_READY_RUN', 'TESTS_PASSED', 'FAILED'
+            'SQL_INSTALL_RUNNING', 'SQL_INSTALL_REBOOT_REQUIRED', 'SQL_READY_RUN', 'TESTS_PASSED', 'FAILED',
+            'CLEANED_UP'
         )]
         [string]$State,
         [Parameter(Mandatory)][string]$Reason,
@@ -876,6 +882,9 @@ function Remove-HyperVSqlImageBuild {
     $build = Get-HyperVSqlImageBuildPlan -BuildId $BuildId -StateRoot $StateRoot
     $build.cleanupStatus = [string]$cleanup.Status
     Write-HyperVSqlImageBuildState -BuildDirectory $build.BuildDirectory -State $build
-    if ([string]$cleanup.Status -eq 'CLEANUP_SUCCEEDED') { Remove-LabSecrets -Path $build.BuildDirectory }
+    if ([string]$cleanup.Status -eq 'CLEANUP_SUCCEEDED') {
+        Remove-LabSecrets -Path $build.BuildDirectory
+        $build = Set-HyperVSqlImageBuildState -BuildId $BuildId -State CLEANED_UP -Reason 'Unfertiger SQL-Builder samt VM und buildlokaler VHDX aufgeraeumt' -StateRoot $StateRoot
+    }
     return [PSCustomObject]@{ BuildId = $BuildId; Status = [string]$cleanup.Status; Cleanup = $cleanup; Build = $build }
 }

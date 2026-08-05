@@ -968,16 +968,45 @@ function Publish-LabHyperVSqlImageBuildInteractive {
 function Remove-LabHyperVSqlImageBuildInteractive {
     [CmdletBinding()]
     param()
-    $build = Select-LabHyperVSqlImageBuild -AllowedStates @(
+    $allowedStates = @(
         'MEDIA_VERIFIED', 'MANUAL_ACTION_REQUIRED', 'OOBE_AUTOMATION_RUNNING', 'OOBE_COMPLETED',
         'REBOOT_REQUIRED', 'RESUME_PENDING', 'SQL_INSTALL_RUNNING', 'SQL_INSTALL_REBOOT_REQUIRED', 'FAILED'
     )
-    if (-not $build) { return }
+    $builds = @(Get-HyperVSqlImageBuildPlans | Where-Object state -In $allowedStates)
+    if ($builds.Count -eq 0) { Write-LabInfo 'Kein unfertiger SQL-Image-Builder vorhanden.'; return }
+
+    Write-Host ''
+    for ($i = 0; $i -lt $builds.Count; $i++) {
+        Write-Host "    [$($i + 1)] SQL $($builds[$i].sql.version) [$($builds[$i].state)] $($builds[$i].buildId)" -ForegroundColor White
+    }
+    Write-Host "    [ALL] Alle $($builds.Count) angezeigten unfertigen SQL-Builder aufraeumen" -ForegroundColor Yellow
+    $selection = Read-Host '  Build (Nummer oder ALL)'
+    if ($selection -ieq 'ALL') {
+        Write-LabWarning "Alle $($builds.Count) angezeigten Builder inklusive VMs und buildlokaler VHDX werden entfernt."
+        if (-not (Read-LabConfirm -Prompt '  WIRKLICH ALLE SQL-Builder aufraeumen?' -Default $false)) { return }
+        $succeeded = 0; $failed = 0
+        foreach ($build in $builds) {
+            Write-LabInfo "Cleanup $($succeeded + $failed + 1)/$($builds.Count): $($build.buildId)"
+            try {
+                $result = Remove-HyperVSqlImageBuild -BuildId $build.buildId
+                if ($result.Status -eq 'CLEANUP_SUCCEEDED') { $succeeded++ }
+                else { $failed++; Write-LabError "$($build.buildId): Cleanup-Status $($result.Status)" }
+            }
+            catch { $failed++; Write-LabError "$($build.buildId): $($_.Exception.Message)" }
+        }
+        if ($failed -eq 0) { Write-LabSuccess "Alle $succeeded SQL-Builder-Ressourcen wurden entfernt." }
+        else { Write-LabWarning "Cleanup abgeschlossen: $succeeded erfolgreich, $failed fehlgeschlagen." }
+        return
+    }
+    if ($selection -notmatch '^\d+$' -or [int]$selection -lt 1 -or [int]$selection -gt $builds.Count) {
+        Write-LabWarning 'Ungueltige Auswahl.'; return
+    }
+    $build = $builds[[int]$selection - 1]
     Write-LabWarning "VM und buildlokale VHDX von '$($build.buildId)' werden entfernt."
     if (-not (Read-LabConfirm -Prompt '  SQL-Builder wirklich aufraeumen?' -Default $false)) { return }
     try {
         $result = Remove-HyperVSqlImageBuild -BuildId $build.buildId
-        if ($result.Status -eq 'CLEANUP_SUCCEEDED') { Write-LabSuccess 'SQL-Builder-Ressourcen wurden entfernt.' }
+        if ($result.Status -eq 'CLEANUP_SUCCEEDED') { Write-LabSuccess 'SQL-Builder-Ressourcen wurden entfernt und aus der offenen Liste ausgeblendet.' }
         else { Write-LabError "Cleanup-Status: $($result.Status)" }
     }
     catch { Write-LabError $_.Exception.Message }
