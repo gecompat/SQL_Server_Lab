@@ -25,6 +25,23 @@ den Root ausdrücklich angeben:
 Ein Laufwerksroot wie `D:\` und jeder Pfad innerhalb des Repository werden
 abgelehnt.
 
+### Lokaler Standard für dieses Projekt
+
+Sobald ein Media Root im Image-Menü erstmals ausgewählt wurde, speichert das
+Lab ihn zusätzlich projektlokal unter
+`.local/preferences.json`. Diese Datei ist absichtlich in Git ignoriert: Sie
+enthält einen lokalen Hostpfad und gehört weder in Commits noch in ein Manifest.
+Sie bleibt über neue Terminals, UAC-erhöhte Prozesse und Neustarts erhalten.
+
+Die Reihenfolge für den angezeigten Default ist:
+
+1. explizite Prozessvariable `SQL_SERVER_LAB_MEDIA_ROOT`;
+2. `.local/preferences.json` dieses Checkouts;
+3. die bisherige benutzerbezogene Umgebungsvariable als Kompatibilitätsfallback.
+
+Punkt `12` (Builder aufräumen) verändert diese Einstellung nicht. Ein nicht
+mehr existierender lokaler Pfad wird nicht als Default angeboten.
+
 ## 2. Kanonische Struktur
 
 ```text

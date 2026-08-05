@@ -39,7 +39,13 @@ try {
     Add-CheckResult -Name 'Hyper-V-Gast erhaelt nach OOBE eine Lab-IP und SQL-Firewallfreigabe' -Success ($acceptance -match 'Initialize-HyperVGuestLabNetwork' -and $networkSource -match 'New-NetFirewallRule[\s\S]+LocalPort 1433')
     Add-CheckResult -Name 'Interaktiver Hyper-V-Pfad fordert UAC automatisch an' -Success ($elevationSource -match 'Start-Process[\s\S]+-Verb RunAs' -and $menuSource -match 'Start-LabElevatedAction')
     Add-CheckResult -Name 'UAC-Prozess importiert das Modul mit gueltigem Import-Module-Aufruf' -Success ($elevationSource -match 'Import-Module\s+''\$escapedModulePath''\s+-Force' -and $elevationSource -notmatch 'Import-Module -LiteralPath')
-    Add-CheckResult -Name 'Zuletzt gewaehlter Media Root wird benutzerbezogen gespeichert und vorbelegt' -Success ($preferencesSource -match 'SetEnvironmentVariable\(''SQL_SERVER_LAB_MEDIA_ROOT''.+''User''' -and $menuSource -match 'Get-LabMediaRootDefault' -and $menuSource -match 'Set-LabMediaRootDefault')
+    Add-CheckResult -Name 'Zuletzt gewaehlter Media Root wird projektlokal gespeichert und vorbelegt' -Success (
+        $preferencesSource -match "\.local'\) 'preferences\.json'" -and
+        $preferencesSource -match 'Get-LabProjectMediaRootDefault' -and
+        $preferencesSource -match 'Write-LabArtifactJsonAtomic -Path \$preferencePath' -and
+        $preferencesSource -match 'SetEnvironmentVariable\(''SQL_SERVER_LAB_MEDIA_ROOT''.+''User''' -and
+        $menuSource -match 'Get-LabMediaRootDefault' -and $menuSource -match 'Set-LabMediaRootDefault'
+    )
 }
 catch { Add-CheckResult -Name 'Labnetz-Testausfuehrung' -Success $false -Message $_.Exception.Message }
 finally { Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue }
