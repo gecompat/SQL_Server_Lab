@@ -14,10 +14,9 @@ Für den normalen Betrieb wird genau eine Container-Runtime benötigt: Docker
 **oder** Podman. Beide Runtimes sind nur für Entwicklung und den gemischten
 Provider-Test erforderlich.
 
-Die Einrichtung von GitHub Actions, Self-hosted Runnern und Hyper-V-Native-Tests
-gehört nicht zur Anwenderinstallation. Sie ist in der
-[Entwicklungs- und Testumgebung](../Development/DEVELOPMENT_AND_TEST_SETUP_WINDOWS.md)
-beschrieben.
+GitHub Actions und Self-hosted Runner gehören nicht zur Anwenderinstallation.
+Hyper-V ist dagegen optional verfügbar, wenn Windows-SQL-Images oder
+Windows-Lab-VMs verwendet werden sollen.
 
 ISO-, VHDX- und SQL-Installationsmedien werden nicht unterhalb des Repository
 abgelegt. Die kanonische, automatisch erzeugbare Struktur steht unter
@@ -32,6 +31,7 @@ abgelegt. Die kanonische, automatisch erzeugbare Struktur steht unter
 | WSL 2 und Hardwarevirtualisierung | bei Windows-Containerruntimes | Linux-VM für Docker beziehungsweise Podman | [WSL installieren](https://learn.microsoft.com/en-us/windows/wsl/install) |
 | `sqlcmd` | ja für Datenbank-, Restore-, Skript- und vollständige Smoke-Test-Pfade | SQL Server prüfen und T-SQL ausführen | [sqlcmd herunterladen und installieren](https://learn.microsoft.com/en-us/sql/tools/sqlcmd/sqlcmd-download-install) |
 | Git | empfohlen | Repository klonen und aktualisieren | [Git for Windows](https://git-scm.com/install/windows) |
+| Hyper-V-Plattform und Verwaltungstools | für Windows-VMs | lokale Hyper-V-Images und VMConnect | [Hyper-V installieren](https://learn.microsoft.com/en-us/windows-server/virtualization/hyper-v/get-started/Install-Hyper-V) |
 
 Zusätzlich benötigt ein kleines Lab laut Projektvertrag mindestens 4 GB freien
 RAM und 5 GB freien Speicher. Für mehrere parallele SQL-Server-Container ist
@@ -43,6 +43,21 @@ Docker Desktop ist für unterstützte Windows-Clientversionen vorgesehen, nicht
 für Windows Server. Vor einer geschäftlichen Nutzung sind außerdem die aktuellen
 [Docker-Desktop-Lizenzbedingungen](https://docs.docker.com/subscription/desktop-license/)
 zu prüfen.
+
+## Hyper-V für Windows-SQL-Images
+
+Beim ersten Aufruf von `Invoke-SqlServerLab.ps1 -Action Image` erkennt das Lab
+fehlende Hyper-V-Komponenten und bietet deren Installation an. Nach der
+Bestätigung installiert es auf Windows Server die Rolle `Hyper-V` samt
+Management Tools; auf Windows 10/11 die Komponente `Microsoft-Hyper-V-All`.
+Die Installation benötigt ein Administrator-Terminal und kann einen Neustart
+erfordern. Der Neustart wird **nicht** automatisch ausgelöst, damit ein
+laufender Runner nicht unterbrochen wird.
+
+Nach einem geforderten Neustart den Image-Einstieg erneut starten. Das
+PowerShell-Modul und die Verwaltungstools stehen dann zur Verfügung. Auf
+Windows Server Core installiert Microsoft dabei nur die PowerShell-Tools; für
+VMConnect wird ein Desktop-Host mit Hyper-V-Verwaltungstools benötigt.
 
 ## 3. Schritt 1 – Hardwarevirtualisierung und WSL 2 vorbereiten
 

@@ -78,11 +78,12 @@ Der native Ubuntu-Pfad ist getrennt in der
 beschrieben. ISO-, VHDX- und SQL-Installationsmedien liegen in einem
 operatorseitig angegebenen [externen Media Root](Documentation/HowTo/MEDIA_ROOT_LAYOUT.md),
 nicht im Repository.
-Die reale Windows-OS-Baseline wird über die
+Eine optionale Windows-OS-Baseline wird über die
 [Hyper-V-Image-Build-Anleitung](Documentation/HowTo/HYPERV_WINDOWS_IMAGE_BUILD.md)
-aus der verifizierten ISO erstellt.
-SQL Server 2019, 2022 und 2025 werden aus derselben OS-Baseline gemäß der
+aus der verifizierten ISO erstellt. Wiederverwendbare SQL-Prepared-Images
+werden gemäß der
 [SQL-Prepared-Image-Anleitung](Documentation/HowTo/HYPERV_SQL_PREPARED_IMAGE.md)
+jeweils aus einer frischen Windows-Installation mit genau einem finalen Sysprep
 vorbereitet. Austauschbare Evaluation-Images und langlebige Daten trennt der
 [Data-Root- und Refresh-Vertrag](Documentation/HowTo/PERSISTENT_DATA_AND_EVALUATION_REFRESH.md).
 Die zusätzlichen Voraussetzungen für Entwicklung, Provider-Smoke-Tests,

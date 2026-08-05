@@ -172,11 +172,11 @@ Windows-Images als Lösung.
 ## 7. Immutable SQL-Baseline veröffentlichen
 
 Aktion 11 prüft VM-Identität, Auszustand, fehlende Checkpoints und den
-buildlokalen VHDX-Pfad. Weil der Arbeitsdatenträger eine Differencing-VHDX ist,
-wird die vollständige Kette zuerst mit `Convert-VHD` in eine eigenständige
-dynamische VHDX überführt. Erst danach erfolgen SHA-256, Registry-Import und
-Metadatenprüfung. VM und lokale Build-VHDX werden erst nach erfolgreichem
-Registry-Import entfernt.
+buildlokalen VHDX-Pfad. Die frische Builder-VHDX wird mit `Convert-VHD` in eine
+eigenständige dynamische VHDX überführt; damit gilt derselbe sichere
+Publikationsschritt auch für künftige Disk-Typen. Erst danach erfolgen
+SHA-256, Registry-Import und Metadatenprüfung. VM und lokale Build-VHDX werden
+erst nach erfolgreichem Registry-Import entfernt.
 
 Das Ergebnis ist ein `SQL_PREPARED_SEALED`-Artifact. Eine spätere Lab-VM muss
 noch SQL `CompleteImage` ausführen und Instanzkonto, Administratoren,
@@ -186,7 +186,7 @@ Authentifizierung und Pfade konfigurieren.
 
 Windows- und SQL-Lizenzstatus werden getrennt gespeichert:
 
-- das Ablaufdatum einer Windows-Evaluation wird vom OS-Parent übernommen;
+- das Ablaufdatum einer Windows-Evaluation wird bei der Publikation erfasst;
 - ein SQL-Evaluation-Image vermerkt, dass seine Evaluation erst bei
   `CompleteImage` beginnt; ein erfundenes Ablaufdatum wird nicht gespeichert;
 - Enterprise Developer und Standard Developer sind nicht für Produktion
@@ -200,7 +200,8 @@ Backupvertrag steht unter
 
 ## 9. Direkte Windows-SQL-Abnahmeumgebungen
 
-Neben `PrepareImage` bietet das Menü einen run-lokalen Abnahmepfad:
+Neben `PrepareImage` bietet das Menü über die Legacy-Aktion `a` einen
+run-lokalen Abnahmepfad aus einer vorhandenen `OS_SEALED`-Baseline:
 
 - Aktion 13: OOBE und vollständiges SQL Setup automatisch ausführen;
 - Aktion 16: manuell abgeschlossene OOBE übernehmen und SQL Setup ausführen;
@@ -215,7 +216,7 @@ der vollständige Datenbank-/Backup-Test führt zu `TESTS_PASSED`.
 ## 10. Aktueller Nachweisstand
 
 Der Host-Lifecycle, Medienresolver, resumierbare Receipts, Secret-Freiheit,
-Flatten-before-import und Menüpfad sind automatisiert getestet. Der reale
+Publikation nach VHDX-Konvertierung und Menüpfad sind automatisiert getestet. Der reale
 `PrepareImage`-Lauf mit den bereitgestellten Microsoft-ISOs und die direkte
 SQL-2019/2022/2025-Abnahmematrix sind die nächsten nativen Schritte. Auf einem
 nicht erhöhten Runner bleibt der dokumentierte OOBE-Fallback einmalig nötig.

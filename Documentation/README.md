@@ -15,7 +15,7 @@ Diese Datei ist der verbindliche Dokumentationsindex. Die Root-[README](../READM
 2. [Installation für AnwenderInnen unter Linux](User/INSTALLATION_LINUX.md)
 3. [Externer Media Root](HowTo/MEDIA_ROOT_LAYOUT.md)
 4. [Windows-Server-Baseline aus ISO mit Hyper-V erstellen](HowTo/HYPERV_WINDOWS_IMAGE_BUILD.md)
-5. [SQL-Prepared-Images aus der Windows-Baseline](HowTo/HYPERV_SQL_PREPARED_IMAGE.md)
+5. [SQL-Prepared-Images aus frischer Windows-Installation](HowTo/HYPERV_SQL_PREPARED_IMAGE.md)
 6. [Persistente Daten und Evaluation-Refresh](HowTo/PERSISTENT_DATA_AND_EVALUATION_REFRESH.md)
 7. [Getting Started](User/Getting_Started.md)
 8. [Root-README](../README.md)

@@ -105,11 +105,12 @@ Windows-Specialization, Reboot/Reconnect und SQL-Readiness sind weiterhin nur
 statisch mit Mocks abgedeckt. Die reale Datacenter-VHDX wurde ohne bekannte
 Gast-Credentials ausschließlich bis zum Hyper-V-Heartbeat gebootet; der
 synthetische Native-Smoke beweist diese Gastpfade ebenfalls nicht.
-Ein resumierbarer SQL-Image-Builder bindet inzwischen die vorhandene
-Windows-Server-2025-OS-Baseline an SHA-256-geprüfte SQL-2019-, SQL-2022- und
-SQL-2025-Medien. Er führt `PrepareImage` und Windows-Sysprep über PowerShell
-Direct aus, speichert keine Gast-Credentials und flacht die Differencing-Kette
-vor der transaktionalen Publikation als `SQL_PREPARED_SEALED` ab. Dieser Pfad
+Ein resumierbarer SQL-Image-Builder erstellt inzwischen je Prepared-Image eine
+frische Windows-Server-2025-VHDX und bindet SHA-256-geprüfte Windows- sowie
+SQL-2019-, SQL-2022- oder SQL-2025-Medien ein. Er führt `PrepareImage` und
+genau einen finalen Windows-Sysprep über PowerShell Direct aus, speichert keine
+Gast-Credentials und veröffentlicht die VHDX transaktional als
+`SQL_PREPARED_SEALED`. Dieser Pfad
 ist statisch getestet; ein positiver realer Lauf mit jedem bereitgestellten
 SQL-Medium steht noch aus. Die OOBE-Automatisierung kann `Unattend.xml` offline
 in die Child-VHDX schreiben, benötigt dafür aber einen erhöht gestarteten
