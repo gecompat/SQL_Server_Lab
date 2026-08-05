@@ -62,7 +62,7 @@ function Set-HyperVImageBuildState {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$BuildId,
-        [Parameter(Mandatory)][ValidateSet('BUILDER_READY', 'MANUAL_ACTION_REQUIRED', 'REBOOT_REQUIRED', 'RESUME_PENDING', 'OS_SEALED', 'TEST_ARTIFACT_PUBLISHED', 'FAILED')][string]$State,
+        [Parameter(Mandatory)][ValidateSet('BUILDER_READY', 'MANUAL_ACTION_REQUIRED', 'REBOOT_REQUIRED', 'RESUME_PENDING', 'OS_SEALED', 'TEST_ARTIFACT_PUBLISHED', 'FAILED', 'CLEANED_UP')][string]$State,
         [Parameter(Mandatory)][string]$Reason,
         [string]$StateRoot
     )

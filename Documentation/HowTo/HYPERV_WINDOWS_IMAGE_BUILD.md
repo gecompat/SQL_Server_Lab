@@ -194,6 +194,13 @@ Bei einem Fehler:
 4. nur wenn der Build verworfen werden soll, Aktion 6 zum scopegebundenen
    Cleanup verwenden.
 
+Aktion 6 bietet neben einer einzelnen Nummer auch die Eingabe ALL. Diese Auswahl
+entfernt alle angezeigten unfertigen Windows-Builder samt VMs und buildlokalen
+VHDX, verlangt eine zweite Gesamtbestätigung und zeigt den Fortschritt. Bereits
+als OS_SEALED veröffentlichte Images sind davon ausgeschlossen. Ein erfolgreicher
+Cleanup wird als CLEANED_UP markiert und nicht erneut als offener Builder
+angeboten.
+
 Ein manuelles Löschen von VM, VHDX oder Build-State kann die gebundene
 Recovery-Information zerstören und ist nicht der normale Ablauf.
 

@@ -692,16 +692,45 @@ function Remove-LabHyperVImageBuildInteractive {
     [CmdletBinding()]
     param()
 
-    $build = Select-LabHyperVImageBuild -AllowedStates @(
+    $allowedStates = @(
         'MEDIA_VERIFIED', 'BUILDER_READY', 'MANUAL_ACTION_REQUIRED', 'REBOOT_REQUIRED', 'RESUME_PENDING', 'FAILED'
     )
-    if (-not $build) { return }
+    $builds = @(Get-HyperVImageBuildPlans | Where-Object state -In $allowedStates)
+    if ($builds.Count -eq 0) { Write-LabInfo 'Kein unfertiger Windows-Image-Builder vorhanden.'; return }
+
+    Write-Host ''
+    for ($i = 0; $i -lt $builds.Count; $i++) {
+        Write-Host "    [$($i + 1)] Windows [$($builds[$i].state)] $($builds[$i].buildId)" -ForegroundColor White
+    }
+    Write-Host "    [ALL] Alle $($builds.Count) angezeigten unfertigen Windows-Builder aufraeumen" -ForegroundColor Yellow
+    $selection = Read-Host '  Build (Nummer oder ALL)'
+    if ($selection -ieq 'ALL') {
+        Write-LabWarning "Alle $($builds.Count) angezeigten Builder inklusive VMs und buildlokaler VHDX werden entfernt."
+        if (-not (Read-LabConfirm -Prompt '  WIRKLICH ALLE Windows-Builder aufraeumen?' -Default $false)) { return }
+        $succeeded = 0; $failed = 0
+        foreach ($candidate in $builds) {
+            Write-LabInfo "Cleanup $($succeeded + $failed + 1)/$($builds.Count): $($candidate.buildId)"
+            try {
+                $result = Remove-HyperVWindowsImageBuild -BuildId $candidate.buildId
+                if ($result.Status -eq 'CLEANUP_SUCCEEDED') { $succeeded++ }
+                else { $failed++; Write-LabError "$($candidate.buildId): Cleanup-Status $($result.Status)" }
+            }
+            catch { $failed++; Write-LabError "$($candidate.buildId): $($_.Exception.Message)" }
+        }
+        if ($failed -eq 0) { Write-LabSuccess "Alle $succeeded Windows-Builder-Ressourcen wurden entfernt." }
+        else { Write-LabWarning "Cleanup abgeschlossen: $succeeded erfolgreich, $failed fehlgeschlagen." }
+        return
+    }
+    if ($selection -notmatch '^\d+$' -or [int]$selection -lt 1 -or [int]$selection -gt $builds.Count) {
+        Write-LabWarning 'Ungueltige Auswahl.'; return
+    }
+    $build = $builds[[int]$selection - 1]
     Write-LabWarning "VM und buildlokale VHDX von '$($build.buildId)' werden entfernt."
     if (-not (Read-LabConfirm -Prompt '  Builder wirklich aufraeumen?' -Default $false)) { return }
     try {
         $result = Remove-HyperVWindowsImageBuild -BuildId $build.buildId
         if ($result.Status -eq 'CLEANUP_SUCCEEDED') {
-            Write-LabSuccess 'Builder-Ressourcen wurden entfernt.'
+            Write-LabSuccess 'Builder-Ressourcen wurden entfernt und aus der offenen Liste ausgeblendet.'
         }
         else {
             Write-LabError "Cleanup-Status: $($result.Status)"

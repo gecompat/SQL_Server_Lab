@@ -53,6 +53,25 @@ try {
     } $isoPath $hashed.ExpectedSha256 $stateRoot
     $plans = @(& $module { param($Root) Get-HyperVImageBuildPlans -StateRoot $Root } $stateRoot)
     Add-CheckResult -Name 'Persistente Build-Plaene werden aufgelistet' -Success ($plans.Count -eq 1 -and $plans[0].buildId -eq $plan.buildId)
+    $cleanupPlan = & $module {
+        param($Iso, $Sha, $Root)
+        New-HyperVWindowsImageBuildPlan -IsoPath $Iso -ExpectedSha256 $Sha -OperatingSystemId windows-server-2025 -Edition standard-evaluation -InstallationType desktop-experience -LicenseType evaluation -OsDiskSizeBytes 64MB -StateRoot $Root
+    } $isoPath $hashed.ExpectedSha256 $stateRoot
+    $cleanedUp = & $module {
+        param($BuildId, $Root)
+        function Invoke-CleanupPlan {
+            param($RunDir, $ScopeId)
+            [PSCustomObject]@{ Status = 'CLEANUP_SUCCEEDED' }
+        }
+        Remove-HyperVWindowsImageBuild -BuildId $BuildId -StateRoot $Root
+    } $cleanupPlan.buildId $stateRoot
+    $visiblePlans = @(& $module { param($Root) Get-HyperVImageBuildPlans -StateRoot $Root } $stateRoot)
+    $allPlans = @(& $module { param($Root) Get-HyperVImageBuildPlans -StateRoot $Root -IncludeCleanedUp } $stateRoot)
+    Add-CheckResult -Name 'Windows-Builder-Cleanup markiert terminal und blendet ihn aus der Standardauswahl aus' -Success (
+        $cleanedUp.Build.state -eq 'CLEANED_UP' -and
+        @($visiblePlans | Where-Object buildId -eq $cleanupPlan.buildId).Count -eq 0 -and
+        @($allPlans | Where-Object { $_.buildId -eq $cleanupPlan.buildId -and $_.state -eq 'CLEANED_UP' }).Count -eq 1
+    )
 
     $manual = & $module {
         param($BuildId, $Root)
@@ -167,6 +186,11 @@ try {
         $menuText -match '\$exitImageMenu = \$false' -and
         $menuText -match 'while \(-not \$exitImageMenu\)' -and
         $menuText -match '''0''\s*\{\s*\$exitImageMenu\s*=\s*\$true\s*\}'
+    )
+    Add-CheckResult -Name 'Windows-Builder-Cleanup bietet ALL mit eigener Gesamtbestaetigung' -Success (
+        $menuText -match '\[ALL\] Alle \$\(\$builds\.Count\) angezeigten unfertigen Windows-Builder aufraeumen' -and
+        $menuText -match 'WIRKLICH ALLE Windows-Builder aufraeumen' -and
+        $menuText -match 'Remove-HyperVWindowsImageBuild -BuildId \$candidate\.buildId'
     )
 }
 catch {
