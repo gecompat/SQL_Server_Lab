@@ -40,15 +40,31 @@ Add-CheckResult -Name 'Workflow fasst Baselines, SQL-Images und offene Builds zu
 )
 Add-CheckResult -Name 'UI-Aktionen halten Gastpasswoerter nur fluechtig' -Success (
     $actionText.Contains('[SecureString]$GuestPassword') -and
+    $actionText.Contains('[SecureString]$SaPassword') -and
     $serverText -match 'ConvertTo-SecureString' -and
-    $serverText -notmatch 'Write-Output.*GuestPassword'
+    $serverText -notmatch 'Write-Output.*GuestPassword' -and
+    $serverText -notmatch 'Write-Output.*SaPassword'
 )
 Add-CheckResult -Name 'Browser-Oberflaeche zeigt Workflow und Live-Log' -Success (
     $htmlText -match 'GEFÜHRTER WORKFLOW' -and
     $htmlText -match 'Live-Log' -and
     $scriptText -match 'Nächster Schritt' -and
     $scriptText -match 'refreshJobs' -and
-    $scriptText -match 'SQL-PrepareImage fortsetzen'
+    $scriptText -match 'SQL-PrepareImage fortsetzen' -and
+    $htmlText -match 'Neue Container-Umgebung' -and
+    $scriptText -match 'CreateContainerDatabase' -and
+    $scriptText -match 'dateToGerman'
+)
+Add-CheckResult -Name 'Evaluationdatum ist lesbar vorausgefüllt und Abbruch bleibt möglich' -Success (
+    $htmlText -match 'type="text"' -and
+    $htmlText -match 'TT\.MM\.JJJJ' -and
+    $scriptText -match "event\.submitter\?\.value === 'cancel'" -and
+    $scriptText -match 'parseGermanDate'
+)
+Add-CheckResult -Name 'UI-Jobs unterdrücken Modul-Ladeausgaben und zeigen Laufzeit' -Success (
+    $serverText -match "InformationPreference = 'SilentlyContinue'" -and
+    $serverText -match 'ElapsedSeconds' -and
+    $scriptText -match 'job-progress'
 )
 
 Write-Host ''
