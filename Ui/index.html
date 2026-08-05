@@ -32,6 +32,7 @@
       <div class="workflow-actions">
         <button class="button secondary" data-open-build="windows">Neue Windows-Baseline</button>
         <button class="button primary" data-open-build="sql">Neues SQL-Prepared-Image</button>
+        <button id="new-container" class="button secondary">Neue Container-Umgebung</button>
       </div>
     </section>
 
@@ -142,9 +143,38 @@
     <form id="publish-form" method="dialog">
       <div class="dialog-heading"><div><p class="eyebrow">VERÖFFENTLICHEN</p><h2>Evaluation-Ablaufdatum</h2></div><button class="icon-button" value="cancel" aria-label="Schließen">×</button></div>
       <input id="publish-action" type="hidden"><input id="publish-build" type="hidden">
-      <label>Ablaufdatum der Evaluation<input id="evaluation-expiry" type="date" required></label>
-      <p class="form-note">Das Datum wird als Metadatum des unveränderlichen Images gespeichert.</p>
+      <label>Ablaufdatum der Evaluation<input id="evaluation-expiry" type="text" inputmode="numeric" autocomplete="off" placeholder="TT.MM.JJJJ" aria-describedby="evaluation-expiry-note"></label>
+      <p id="evaluation-expiry-note" class="form-note">Vorschlag: 180 Tage ab heute. Das Datum wird als Metadatum des unveränderlichen Images gespeichert.</p>
       <div class="dialog-actions"><button class="button secondary" value="cancel">Abbrechen</button><button class="button primary" value="default">Image veröffentlichen</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="container-dialog">
+    <form id="container-form" method="dialog">
+      <div class="dialog-heading"><div><p class="eyebrow">CONTAINER-LAB</p><h2>Neue SQL-Umgebung</h2></div><button class="icon-button" value="cancel" aria-label="Schließen">×</button></div>
+      <div class="form-grid">
+        <label>Provider<select id="container-provider"><option value="docker">Docker</option><option value="podman">Podman</option></select></label>
+        <label>SQL Server<select id="container-version"><option value="2022">SQL Server 2022</option><option value="2019">SQL Server 2019</option><option value="2025">SQL Server 2025</option></select></label>
+        <label>Profil<select id="container-profile"><option value="standard">Standard</option><option value="compact">Kompakt</option><option value="performance">Performance</option></select></label>
+        <label>Instanzname<input id="container-instance" value="primary" pattern="[A-Za-z0-9_-]{1,64}" required></label>
+      </div>
+      <label>SA-Passwort<input id="container-password" type="password" autocomplete="new-password" required></label>
+      <label>SA-Passwort wiederholen<input id="container-password-repeat" type="password" autocomplete="new-password" required></label>
+      <p class="form-note">Das Passwort wird ausschließlich an den gestarteten Job übergeben, nicht gespeichert und nicht im Live-Log ausgegeben.</p>
+      <div class="dialog-actions"><button class="button secondary" value="cancel">Abbrechen</button><button class="button primary" value="default">Umgebung erstellen</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="container-operation-dialog">
+    <form id="container-operation-form" method="dialog">
+      <div class="dialog-heading"><div><p class="eyebrow">CONTAINER-AKTION</p><h2 id="container-operation-title">Aktion ausführen</h2></div><button class="icon-button" value="cancel" aria-label="Schließen">×</button></div>
+      <input id="container-operation-action" type="hidden"><input id="container-operation-run" type="hidden"><input id="container-operation-port" type="hidden">
+      <label id="container-database-field">Datenbankname<input id="container-database-name" pattern="[A-Za-z0-9_]{1,128}"></label>
+      <label id="container-script-field">Absoluter Pfad zum SQL-Skript<input id="container-script-path"></label>
+      <label id="container-script-database-field">Zieldatenbank<input id="container-script-database" value="master" pattern="[A-Za-z0-9_]{1,128}"></label>
+      <label>SA-Passwort<input id="container-operation-password" type="password" autocomplete="current-password" required></label>
+      <p class="form-note">Das Passwort wird nicht gespeichert oder im Log angezeigt.</p>
+      <div class="dialog-actions"><button class="button secondary" value="cancel">Abbrechen</button><button class="button primary" value="default">Aktion starten</button></div>
     </form>
   </dialog>
 

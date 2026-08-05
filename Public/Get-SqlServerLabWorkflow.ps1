@@ -75,6 +75,7 @@ function Get-SqlServerLabWorkflow {
             VMName = if ($_.builder) { [string]$_.builder.vmName } else { $null }
             ArtifactId = if ($_.artifact) { [string]$_.artifact.artifactId } else { $null }
             InstallationVerified = [bool]($_.installationEvidence -and $_.installationEvidence.verified)
+            SuggestedEvaluationExpiresAt = ((Get-Date).Date.AddDays(180)).ToString('yyyy-MM-dd')
             NextStep = $next
         }
     })
@@ -103,6 +104,7 @@ function Get-SqlServerLabWorkflow {
             SqlVersion = [string]$_.sql.version; SqlEdition = [string]$_.sql.edition
             VMName = if ($_.builder) { [string]$_.builder.vmName } else { $null }
             ArtifactId = if ($_.artifact) { [string]$_.artifact.artifactId } else { $null }
+            SuggestedEvaluationExpiresAt = ((Get-Date).Date.AddDays(180)).ToString('yyyy-MM-dd')
             NextStep = $next
         }
     })
@@ -142,8 +144,22 @@ function Get-SqlServerLabWorkflow {
         SqlBuilds = $sqlItems
         AcceptanceEnvironments = @($acceptance)
         ActiveLabs = @($activeRuns | ForEach-Object {
+            $connectionInfo = $null
+            try {
+                $connectionPath = Join-Path (Join-Path (Join-Path $stateRoot 'runs') ([string]$_.runId)) 'connection-info.json'
+                if (Test-Path -LiteralPath $connectionPath -PathType Leaf) {
+                    $connectionInfo = Get-Content -LiteralPath $connectionPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 8
+                }
+            }
+            catch { }
             [PSCustomObject]@{
                 RunId = [string]$_.runId; Name = [string]$_.metadata.name; State = [string]$_.state
+                Instances = @($connectionInfo.instances | ForEach-Object {
+                    [PSCustomObject]@{
+                        Id = [string]$_.id; Provider = [string]$_.provider; Host = [string]$_.host
+                        Port = $_.port; SqlVersion = [string]$_.sqlVersion
+                    }
+                })
             }
         })
     }

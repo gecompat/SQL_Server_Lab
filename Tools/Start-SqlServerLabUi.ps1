@@ -18,7 +18,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $uiRoot = Join-Path $PSScriptRoot '..\Ui'
 $modulePath = Join-Path $PSScriptRoot '..\SqlServerLab.psd1'
-Import-Module $modulePath -Force
+Import-Module $modulePath -Force 6>$null
 
 function Write-UiResponse {
     param(
@@ -57,6 +57,7 @@ function Get-UiJobSnapshot {
         Action = $Record.Action
         State = $state
         StartedAt = $Record.StartedAt
+        ElapsedSeconds = [math]::Max(0, [math]::Floor(((Get-Date).ToUniversalTime() - [datetime]$Record.StartedAt).TotalSeconds))
         Lines = $lines
     }
 }
@@ -71,10 +72,12 @@ function Start-UiWorkflowJob {
     $job = Start-ThreadJob -Name "sql-lab-ui-$id" -ArgumentList $modulePath, $Action, $Parameters -ScriptBlock {
         param($JobModulePath, $JobAction, $JobParameters)
         $ErrorActionPreference = 'Stop'
-        $InformationPreference = 'Continue'
-        $WarningPreference = 'Continue'
+        # Die Modul-Lader geben bewusst Information-Records aus. In einem
+        # Hintergrundjob würden sie sonst bei jedem Poll im Host-Terminal landen.
+        $InformationPreference = 'SilentlyContinue'
+        $WarningPreference = 'SilentlyContinue'
         try {
-            Import-Module $JobModulePath -Force
+            Import-Module $JobModulePath -Force 6>$null
             $invokeParameters = @{}
             foreach ($key in $JobParameters.Keys) { $invokeParameters[$key] = $JobParameters[$key] }
             if ($invokeParameters.ContainsKey('GuestPassword')) {
@@ -82,9 +85,14 @@ function Start-UiWorkflowJob {
                 $invokeParameters.Remove('GuestPassword')
                 $invokeParameters['GuestPassword'] = ConvertTo-SecureString -String $plainPassword -AsPlainText -Force
             }
+            if ($invokeParameters.ContainsKey('SaPassword')) {
+                $plainPassword = [string]$invokeParameters['SaPassword']
+                $invokeParameters.Remove('SaPassword')
+                $invokeParameters['SaPassword'] = ConvertTo-SecureString -String $plainPassword -AsPlainText -Force
+            }
             Write-Output "[START] $JobAction"
-            $result = Invoke-SqlServerLabWorkflowAction -Action $JobAction @invokeParameters
-            Write-Output ('[OK] ' + ($result | ConvertTo-Json -Depth 12 -Compress))
+            $null = Invoke-SqlServerLabWorkflowAction -Action $JobAction @invokeParameters
+            Write-Output '[OK] Aktion erfolgreich abgeschlossen. Die Workflow-Ansicht wird aktualisiert.'
         }
         catch {
             Write-Output "[FEHLER] $($_.Exception.Message)"
@@ -135,13 +143,21 @@ try {
                 $parameters = @{}
                 if ($request.parameters) {
                     foreach ($property in $request.parameters.PSObject.Properties) {
-                        if ($property.Name -notin @('Action', 'GuestPassword')) {
+                        if ($property.Name -notin @('Action', 'GuestPassword', 'SaPassword')) {
                             $parameters[$property.Name] = $property.Value
                         }
                     }
                     if ($request.parameters.PSObject.Properties.Name -contains 'GuestPassword') {
                         $parameters['GuestPassword'] = [string]$request.parameters.GuestPassword
                     }
+                    if ($request.parameters.PSObject.Properties.Name -contains 'SaPassword') {
+                        $parameters['SaPassword'] = [string]$request.parameters.SaPassword
+                    }
+                }
+                $running = @($jobs.Values | Where-Object { $_.Job.State -in @('Running', 'NotStarted') })
+                if ($running.Count -gt 0) {
+                    Write-UiResponse -Context $context -Body 'Eine Hintergrundaktion läuft bereits. Bitte ihren Abschluss abwarten.' -StatusCode 409
+                    continue
                 }
                 $record = Start-UiWorkflowJob -Action $action -Parameters $parameters
                 $jobs[$record.Id] = $record
