@@ -403,6 +403,13 @@ function Invoke-LabHyperVImageAction {
     Write-Host '    [0] Zurueck' -ForegroundColor DarkGray
     Write-Host ''
     $choice = Read-Host '  Auswahl'
+    if ($choice -ne '0') {
+        Clear-Host
+        Write-Host ''
+        Write-Host "  Hyper-V Image-Lifecycle – Auswahl: $choice" -ForegroundColor Cyan
+        Write-Host '  ---------------------------------------------------------------------' -ForegroundColor DarkCyan
+        Write-Host ''
+    }
 
     switch ($choice) {
         '0' { $exitImageMenu = $true }

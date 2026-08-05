@@ -187,6 +187,13 @@ try {
         $menuText -match 'while \(-not \$exitImageMenu\)' -and
         $menuText -match '''0''\s*\{\s*\$exitImageMenu\s*=\s*\$true\s*\}'
     )
+    $selectionIndex = $menuText.IndexOf('$choice = Read-Host ''  Auswahl''')
+    $clearIndex = $menuText.IndexOf('Clear-Host', $selectionIndex)
+    $actionHeaderIndex = $menuText.IndexOf('Hyper-V Image-Lifecycle – Auswahl: $choice', $clearIndex)
+    Add-CheckResult -Name 'Image-Aktionen leeren die Konsole vor ihrer Ausgabe, nicht danach' -Success (
+        $selectionIndex -ge 0 -and $clearIndex -gt $selectionIndex -and
+        $actionHeaderIndex -gt $clearIndex -and $menuText -match '''0''\s*\{\s*\$exitImageMenu\s*=\s*\$true\s*\}'
+    )
     Add-CheckResult -Name 'Windows-Builder-Cleanup bietet ALL mit eigener Gesamtbestaetigung' -Success (
         $menuText -match '\[ALL\] Alle \$\(\$builds\.Count\) angezeigten unfertigen Windows-Builder aufraeumen' -and
         $menuText -match 'WIRKLICH ALLE Windows-Builder aufraeumen' -and
