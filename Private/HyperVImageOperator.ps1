@@ -9,7 +9,10 @@
 
 function Get-HyperVImageBuildPlans {
     [CmdletBinding()]
-    param([string]$StateRoot)
+    param(
+        [string]$StateRoot,
+        [switch]$IncludeCleanedUp
+    )
 
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
     $buildRoot = Join-Path $StateRoot 'image-builds/hyperv'
@@ -24,7 +27,9 @@ function Get-HyperVImageBuildPlans {
                 if ($_.Name -notmatch '^[a-f0-9-]{36}$') { return }
                 Get-HyperVImageBuildPlan -BuildId $_.Name -StateRoot $StateRoot
             } |
-            Where-Object { $null -ne $_ }
+            Where-Object {
+                $null -ne $_ -and ($IncludeCleanedUp -or [string]$_.state -ne 'CLEANED_UP')
+            }
     )
 }
 
@@ -342,10 +347,13 @@ function Remove-HyperVWindowsImageBuild {
     $build = Get-HyperVImageBuildPlan -BuildId $BuildId -StateRoot $StateRoot
     $build | Add-Member -NotePropertyName cleanupStatus -NotePropertyValue ([string]$cleanup.Status) -Force
     Write-HyperVImageBuildState -BuildDirectory $build.BuildDirectory -State $build
+    if ([string]$cleanup.Status -eq 'CLEANUP_SUCCEEDED') {
+        $build = Set-HyperVImageBuildState -BuildId $BuildId -State CLEANED_UP -Reason 'Unfertiger Windows-Builder samt VM und buildlokaler VHDX aufgeraeumt' -StateRoot $StateRoot
+    }
     return [PSCustomObject]@{
         BuildId = $BuildId
         Status  = [string]$cleanup.Status
         Cleanup = $cleanup
-        Build   = Get-HyperVImageBuildPlan -BuildId $BuildId -StateRoot $StateRoot
+        Build   = $build
     }
 }
