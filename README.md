@@ -89,6 +89,8 @@ vorbereitet. Austauschbare Evaluation-Images und langlebige Daten trennt der
 Die zusätzlichen Voraussetzungen für Entwicklung, Provider-Smoke-Tests,
 Self-hosted Runner und Hyper-V beschreibt die
 [Entwicklungs- und Testumgebung](Documentation/Development/DEVELOPMENT_AND_TEST_SETUP_WINDOWS.md).
+Für einen geführten Überblick über Windows-Baselines, SQL-Prepared-Images und
+offene Schritte steht außerdem die [lokale Workflow-Oberfläche](Documentation/HowTo/WORKFLOW_UI.md) bereit.
 
 Runtime prüfen:
 
@@ -408,6 +410,8 @@ Clear-SqlServerLab
 | Cmdlet | Zweck |
 |---|---|
 | `Invoke-SqlServerLab` | Interaktives Menü |
+| `Get-SqlServerLabWorkflow` | Konsolidierte Workflow-, Image- und Kombinationsübersicht ohne Geheimnisse |
+| `Invoke-SqlServerLabWorkflowAction` | Nicht interaktive Hyper-V-Workflow-Aktion für die lokale Oberfläche |
 | `New-SqlServerLabManifest` | Schema-gesteuertes Manifest in der Konsole erstellen |
 | `Test-SqlServerLabManifest` | Manifest ohne Provisionierung strukturell und fachlich prüfen |
 | `New-SqlServerLab` | Umgebung ad hoc oder per Manifest erstellen |

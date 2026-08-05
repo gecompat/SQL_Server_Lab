@@ -104,6 +104,10 @@ Interaktiv:
 Invoke-SqlServerLab
 ```
 
+Für eine geführte Übersicht mit OS-Baselines, SQL-Prepared-Images,
+Hintergrundaktionen und Live-Log kann die
+[lokale Workflow-Oberfläche](../HowTo/WORKFLOW_UI.md) gestartet werden.
+
 Das Cmdlet:
 
 1. löst Version und Ressourcenprofil auf;

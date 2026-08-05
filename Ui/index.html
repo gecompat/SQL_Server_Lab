@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SQL Server Lab – Workflow</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">LOKALES COCKPIT</p>
+      <h1>SQL Server Lab</h1>
+      <p class="subtitle">Vorbereitung, Status und nächste Schritte an einem Ort.</p>
+    </div>
+    <div class="topbar-actions">
+      <span id="host-status" class="chip neutral">Host wird geprüft</span>
+      <button id="refresh" class="button secondary">Aktualisieren</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="notice" class="notice" hidden></section>
+    <section id="summary" class="summary-grid" aria-label="Übersicht"></section>
+
+    <section class="workflow-intro">
+      <div>
+        <p class="eyebrow">GEFÜHRTER WORKFLOW</p>
+        <h2>Von der ISO zum verwendbaren SQL-Image</h2>
+        <p>Jede Karte zeigt den tatsächlichen Stand und ausschließlich den nächsten zulässigen Schritt.</p>
+      </div>
+      <div class="workflow-actions">
+        <button class="button secondary" data-open-build="windows">Neue Windows-Baseline</button>
+        <button class="button primary" data-open-build="sql">Neues SQL-Prepared-Image</button>
+      </div>
+    </section>
+
+    <section class="workflow-track" aria-label="Vorbereitungsworkflow">
+      <article class="workflow-stage">
+        <span class="stage-number">1</span>
+        <h3>Windows-Baseline</h3>
+        <p>Windows installieren, prüfen, generalisieren und veröffentlichen.</p>
+      </article>
+      <span class="workflow-arrow">→</span>
+      <article class="workflow-stage">
+        <span class="stage-number">2</span>
+        <h3>SQL-Prepared-Image</h3>
+        <p>Frisches Windows, SQL PrepareImage, ein finaler Sysprep.</p>
+      </article>
+      <span class="workflow-arrow">→</span>
+      <article class="workflow-stage">
+        <span class="stage-number">3</span>
+        <h3>Abnahme</h3>
+        <p>Run-lokale VM starten und SQL-Funktionen testen.</p>
+      </article>
+    </section>
+
+    <section class="panel">
+      <div class="section-heading">
+        <div><p class="eyebrow">IN ARBEIT</p><h2>Windows-OS-Builds</h2></div>
+        <span id="windows-count" class="count"></span>
+      </div>
+      <div id="windows-builds" class="cards"></div>
+    </section>
+
+    <section class="panel">
+      <div class="section-heading">
+        <div><p class="eyebrow">IN ARBEIT</p><h2>SQL-Image-Builds</h2></div>
+        <span id="sql-count" class="count"></span>
+      </div>
+      <div id="sql-builds" class="cards"></div>
+    </section>
+
+    <section class="split-grid">
+      <section class="panel compact">
+        <div class="section-heading"><div><p class="eyebrow">FERTIG</p><h2>OS-Baselines</h2></div></div>
+        <div id="windows-baselines" class="list"></div>
+      </section>
+      <section class="panel compact">
+        <div class="section-heading"><div><p class="eyebrow">FERTIG</p><h2>SQL-Prepared-Images</h2></div></div>
+        <div id="sql-images" class="list"></div>
+      </section>
+    </section>
+
+    <section class="split-grid">
+      <section class="panel compact">
+        <div class="section-heading"><div><p class="eyebrow">ABNAHME</p><h2>Windows-/SQL-Kombinationen</h2></div></div>
+        <div id="acceptance" class="list"></div>
+      </section>
+      <section class="panel compact">
+        <div class="section-heading"><div><p class="eyebrow">CONTAINER</p><h2>Aktive Lab-Umgebungen</h2></div></div>
+        <div id="active-labs" class="list"></div>
+      </section>
+    </section>
+
+    <section class="panel log-panel">
+      <div class="section-heading">
+        <div><p class="eyebrow">HINTERGRUNDAKTIONEN</p><h2>Live-Log</h2></div>
+        <span id="job-count" class="count"></span>
+      </div>
+      <div id="jobs" class="jobs"></div>
+    </section>
+  </main>
+
+  <dialog id="build-dialog">
+    <form id="build-form" method="dialog">
+      <div class="dialog-heading">
+        <div><p class="eyebrow" id="build-kind">NEUER BUILD</p><h2 id="build-title">Vorbereitung starten</h2></div>
+        <button class="icon-button" value="cancel" aria-label="Schließen">×</button>
+      </div>
+      <input id="build-type" type="hidden">
+      <label>Media Root<input id="media-root" name="mediaRoot" required></label>
+      <div class="form-grid">
+        <label>Windows Server<select id="os-id"><option value="windows-server-2025">Windows Server 2025</option><option value="windows-server-2022">Windows Server 2022</option></select></label>
+        <label>Windows-Edition<select id="windows-edition"><option value="standard-evaluation">Standard Evaluation</option><option value="datacenter-evaluation">Datacenter Evaluation</option></select></label>
+        <label>Installationstyp<select id="installation-type"><option value="desktop-experience">Desktop Experience</option><option value="core">Core</option></select></label>
+        <label>Startspeicher (MB)<input id="memory-mb" type="number" min="2048" value="4096"></label>
+        <label>vCPU<input id="processor-count" type="number" min="1" max="64" value="4"></label>
+        <label>Systemdisk (GB)<input id="disk-gb" type="number" min="32" value="80"></label>
+      </div>
+      <div id="sql-fields" class="form-grid">
+        <label>SQL Server<select id="sql-version"><option value="2022">SQL Server 2022</option><option value="2019">SQL Server 2019</option><option value="2025">SQL Server 2025</option></select></label>
+        <label>SQL-Medienedition<select id="sql-edition"><option value="Eval">Evaluation</option><option value="Enterprise">Enterprise Developer</option><option value="Standard">Standard Developer</option></select></label>
+      </div>
+      <p class="form-note">Die Medien werden vor der VM-Erstellung geprüft. Das gewählte Media Root wird als lokaler Standard gespeichert.</p>
+      <div class="dialog-actions"><button class="button secondary" value="cancel">Abbrechen</button><button id="build-submit" class="button primary" value="default">Build im Hintergrund starten</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="credential-dialog">
+    <form id="credential-form" method="dialog">
+      <div class="dialog-heading"><div><p class="eyebrow">GASTZUGANG</p><h2 id="credential-title">Anmelden</h2></div><button class="icon-button" value="cancel" aria-label="Schließen">×</button></div>
+      <input id="credential-action" type="hidden"><input id="credential-build" type="hidden">
+      <label>Lokaler Benutzer<input id="guest-user" value="Administrator" required></label>
+      <label>Gastpasswort<input id="guest-password" type="password" autocomplete="current-password" required></label>
+      <p class="form-note">Das Passwort wird nur für diese Aktion verwendet und nicht gespeichert oder protokolliert.</p>
+      <div class="dialog-actions"><button class="button secondary" value="cancel">Abbrechen</button><button class="button primary" value="default">Aktion starten</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="publish-dialog">
+    <form id="publish-form" method="dialog">
+      <div class="dialog-heading"><div><p class="eyebrow">VERÖFFENTLICHEN</p><h2>Evaluation-Ablaufdatum</h2></div><button class="icon-button" value="cancel" aria-label="Schließen">×</button></div>
+      <input id="publish-action" type="hidden"><input id="publish-build" type="hidden">
+      <label>Ablaufdatum der Evaluation<input id="evaluation-expiry" type="date" required></label>
+      <p class="form-note">Das Datum wird als Metadatum des unveränderlichen Images gespeichert.</p>
+      <div class="dialog-actions"><button class="button secondary" value="cancel">Abbrechen</button><button class="button primary" value="default">Image veröffentlichen</button></div>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>

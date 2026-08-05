@@ -46,6 +46,14 @@ COMMANDS
     Invoke-SqlServerLab
         Oeffnet das interaktive Menue oder fuehrt eine Menueaktion direkt aus.
 
+    Get-SqlServerLabWorkflow
+        Liefert die zusammengefasste Workflow-Sicht fuer lokale Labs,
+        Windows-Baselines, SQL-Prepared-Images und Abnahmeumgebungen.
+
+    Invoke-SqlServerLabWorkflowAction
+        Fuehrt eine explizite, nicht interaktive Hyper-V-Workflow-Aktion fuer
+        die lokale Browser-Oberflaeche aus.
+
     New-SqlServerLab
         Erstellt eine Labumgebung aus Parametern oder einem Manifest.
 

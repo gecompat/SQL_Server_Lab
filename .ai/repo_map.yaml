@@ -30,6 +30,8 @@ sources_of_truth:
   development_test_setup_linux: Documentation/Development/DEVELOPMENT_AND_TEST_SETUP_LINUX.md
   external_media_root: Documentation/HowTo/MEDIA_ROOT_LAYOUT.md
   hyperv_windows_image_build: Documentation/HowTo/HYPERV_WINDOWS_IMAGE_BUILD.md
+  workflow_ui: Documentation/HowTo/WORKFLOW_UI.md
+  remote_hyperv_host_backlog: Documentation/Project_Planning/HYPERV_REMOTE_HOST_BACKLOG.md
   validation_documentation: Tests/Static/Invoke-DocumentationChecks.ps1
   validation_runtime_contracts: Tests/Static/Invoke-ReadinessContractChecks.ps1
   validation_manifest_builder: Tests/Static/Invoke-ManifestBuilderChecks.ps1
@@ -40,6 +42,14 @@ public_commands:
   - name: Invoke-SqlServerLab
     source: Public/Invoke-SqlServerLab.ps1
     purpose: "Interaktives Menü"
+    mutates_host: true
+  - name: Get-SqlServerLabWorkflow
+    source: Public/Get-SqlServerLabWorkflow.ps1
+    purpose: "Konsolidierte, geheimnisfreie Workflow- und Imageübersicht"
+    mutates_host: false
+  - name: Invoke-SqlServerLabWorkflowAction
+    source: Public/Invoke-SqlServerLabWorkflowAction.ps1
+    purpose: "Nicht interaktive UI-Aktion für einen zulässigen Hyper-V-Workflow-Schritt"
     mutates_host: true
   - name: New-SqlServerLabManifest
     source: Public/New-SqlServerLabManifest.ps1
