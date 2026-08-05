@@ -189,6 +189,18 @@ try {
         $menuText -match 'WIRKLICH ALLE SQL-Builder aufraeumen' -and
         $menuText -match 'Cleanup \$\(\$succeeded \+ \$failed \+ 1\)/\$\(\$builds\.Count\)'
     )
+    $nextActionGuidance = & $module {
+        @(
+            Get-LabHyperVSqlImageNextStep -Build ([PSCustomObject]@{ state = 'RESUME_PENDING'; provisioningMode = 'fresh-windows-media' })
+            Get-LabHyperVSqlImageNextStep -Build ([PSCustomObject]@{ state = 'REBOOT_REQUIRED'; provisioningMode = 'fresh-windows-media' })
+        )
+    }
+    Add-CheckResult -Name 'SQL-Image-Status nennt den konkreten naechsten Menuepunkt ohne interne State-Kenntnis' -Success (
+        $nextActionGuidance[0] -eq '[11] SQL-Prepared-Image jetzt veroeffentlichen.' -and
+        $nextActionGuidance[1] -eq '[9] VM starten, vollstaendig booten lassen; danach [10] erneut ausfuehren.' -and
+        $menuText -match '''8''\s*\{\s*\$null\s*=\s*Show-LabHyperVSqlImageBuilds\s*\}' -and
+        $menuText -match 'Show-LabHyperVSqlNextActions'
+    )
 }
 catch { Add-CheckResult -Name 'Hyper-V-SQL-Image-Testausfuehrung' -Success $false -Message $_.Exception.Message }
 finally {

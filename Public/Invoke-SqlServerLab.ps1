@@ -375,6 +375,7 @@ function Invoke-LabHyperVImageAction {
     Write-Host ''
     Write-Host '    Empfohlener Prepared-Image-Pfad: 7 -> 9 (Windows installieren) -> 10 -> 11.' -ForegroundColor Yellow
     Write-Host '    Er installiert Windows und SQL in einer frischen VM und verwendet genau einen finalen Sysprep.' -ForegroundColor DarkGray
+    Show-LabHyperVSqlNextActions
     Write-Host ''
     Write-Host '    Windows-OS-Baseline' -ForegroundColor DarkGray
     Write-Host '    [1] Neuen Windows-Builder aus Media Root vorbereiten' -ForegroundColor Yellow
@@ -406,13 +407,13 @@ function Invoke-LabHyperVImageAction {
     switch ($choice) {
         '0' { $exitImageMenu = $true }
         '1' { New-LabHyperVImageBuildInteractive }
-        '2' { Show-LabHyperVImageBuilds }
+        '2' { $null = Show-LabHyperVImageBuilds }
         '3' { Start-LabHyperVImageBuildInteractive }
         '4' { Invoke-LabHyperVImageGeneralizationInteractive }
         '5' { Publish-LabHyperVImageBuildInteractive }
         '6' { Remove-LabHyperVImageBuildInteractive }
         '7' { New-LabHyperVSqlImageBuildInteractive }
-        '8' { Show-LabHyperVSqlImageBuilds }
+        '8' { $null = Show-LabHyperVSqlImageBuilds }
         '9' { Start-LabHyperVSqlImageBuildInteractive }
         '10' { Invoke-LabHyperVSqlPrepareInteractive }
         '11' { Publish-LabHyperVSqlImageBuildInteractive }
@@ -726,8 +727,49 @@ function Show-LabHyperVSqlImageBuilds {
         Write-Host ("    [{0}] {1}  {2}" -f ($i + 1), $build.buildId, $build.state) -ForegroundColor White
         Write-Host ("        SQL {0} {1} | VM: {2} | Parent: {3}" -f `
             $build.sql.version, $build.sql.edition, $vmName, $build.parentArtifact.artifactId) -ForegroundColor DarkGray
+        Write-Host ("        Naechster Schritt: {0}" -f (Get-LabHyperVSqlImageNextStep -Build $build)) -ForegroundColor Yellow
     }
     return $builds
+}
+
+function Get-LabHyperVSqlImageNextStep {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Build)
+
+    $isFreshPreparedImage = [string]$Build.provisioningMode -eq 'fresh-windows-media'
+    switch ([string]$Build.state) {
+        'MANUAL_ACTION_REQUIRED' {
+            if ($isFreshPreparedImage) { return '[9] VMConnect oeffnen, Windows installieren und einmal als Administrator anmelden.' }
+            return '[13] OOBE und vollstaendiges SQL automatisch installieren.'
+        }
+        'OOBE_AUTOMATION_RUNNING' { return '[13] fortsetzen; die OOBE-Automatisierung wird geprueft.' }
+        'OOBE_COMPLETED' { return '[13] vollstaendiges SQL installieren.' }
+        'REBOOT_REQUIRED' { return '[9] VM starten, vollstaendig booten lassen; danach [10] erneut ausfuehren.' }
+        'RESUME_PENDING' { return '[11] SQL-Prepared-Image jetzt veroeffentlichen.' }
+        'SQL_INSTALL_RUNNING' { return '[13] erneut aufrufen; der Installationsfortschritt wird fortgesetzt.' }
+        'SQL_INSTALL_REBOOT_REQUIRED' { return '[9] VM booten; danach [13] erneut aufrufen.' }
+        'SQL_READY_RUN' { return '[14] SQL-Abnahmetest ausfuehren.' }
+        'TESTS_PASSED' { return 'Fertig. Bei Bedarf mit [12] die run-lokale Abnahme-VM aufraeumen.' }
+        'SQL_PREPARED_SEALED' { return 'Fertig. Das immutable Prepared-Image wurde veroeffentlicht.' }
+        'FAILED' { return 'Fehler pruefen; nach fehlgeschlagenem Sysprep [17], andernfalls [12] zum Aufraeumen.' }
+        default { return '[8] Status erneut pruefen oder den zuletzt ausgegebenen Hinweis befolgen.' }
+    }
+}
+
+function Show-LabHyperVSqlNextActions {
+    [CmdletBinding()]
+    param()
+
+    $builds = @(Get-HyperVSqlImageBuildPlans | Where-Object {
+        [string]$_.state -notin @('SQL_PREPARED_SEALED', 'TESTS_PASSED')
+    })
+    if ($builds.Count -eq 0) { return }
+    Write-Host ''
+    Write-Host '    Offene SQL-Builder – naechster Schritt:' -ForegroundColor Cyan
+    foreach ($build in $builds) {
+        $shortId = ([string]$build.buildId).Substring(0, 8)
+        Write-Host ("      SQL {0} ({1}...): {2}" -f $build.sql.version, $shortId, (Get-LabHyperVSqlImageNextStep -Build $build)) -ForegroundColor Yellow
+    }
 }
 
 function Select-LabHyperVSqlImageBuild {
@@ -937,9 +979,12 @@ function Invoke-LabHyperVSqlPrepareInteractive {
     try {
         $result = Invoke-HyperVSqlPrepareAndGeneralize -BuildId $build.buildId -Credential $credential
         if ($result.state -eq 'REBOOT_REQUIRED') {
-            Write-LabInfo 'SQL Setup hat einen Neustart angefordert. Nach dem Neustart Aktion 10 erneut ausfuehren.'
+            Write-LabInfo 'SQL Setup hat einen Neustart angefordert. Naechster Schritt: [9] booten, danach [10] erneut ausfuehren.'
         }
-        else { Write-LabSuccess "SQL PrepareImage und Generalisierung verifiziert. State: $($result.state)" }
+        elseif ($result.state -eq 'RESUME_PENDING') {
+            Write-LabSuccess 'SQL PrepareImage und Sysprep sind fertig. Naechster Schritt: [11] Prepared-Image veroeffentlichen.'
+        }
+        else { Write-LabInfo "SQL-Schritt beendet. Naechster Schritt: $(Get-LabHyperVSqlImageNextStep -Build $result)" }
     }
     catch { Write-LabError $_.Exception.Message }
 }
