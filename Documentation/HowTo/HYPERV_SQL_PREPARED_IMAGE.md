@@ -28,6 +28,125 @@ eine leere VHDX, bindet Windows- und SQL-ISO ein und startet von der
 Windows-ISO. Damit erfolgt pro SQL-Image nur eine Generalisierung, ganz am
 Ende nach SQL `PrepareImage`.
 
+## Schnellstart: erster realer SQL-2025-Prepared-Image-Lauf
+
+Diese Anleitung ist für den neuen Standardpfad bestimmt. Sie erstellt ein
+`SQL_PREPARED_SEALED`-Image mit Windows Server 2025 Standard Evaluation,
+Desktop Experience und SQL Server 2025 Enterprise Developer. Ein vorhandenes
+`OS_SEALED`-Image wird dafür **nicht** ausgewählt oder verändert.
+
+### Vor dem Start
+
+1. Ein erhöhtes PowerShell-Terminal öffnen und das Repository aktualisieren:
+
+   ```powershell
+   git pull --ff-only
+   .\Invoke-SqlServerLab.ps1 -Action Image
+   ```
+
+2. Falls der Einstieg fehlende Hyper-V-Komponenten meldet, die angebotene
+   Installation bestätigen. Bei der Meldung `Neustart erforderlich` Windows
+   neu starten und diesen Schritt erneut ausführen.
+
+3. Sicherstellen, dass genau eine Windows-ISO und genau eine SQL-ISO vorhanden
+   sind, beispielsweise:
+
+   ```text
+   D:\Lab_Base\WindowsServer\2025\Eval\ISO\Windows_Server_2025.iso
+   D:\Lab_Base\SQL\2025\Enterprise\ISO\SQLServer2025-x64-ENU-EntDev.iso
+   ```
+
+### Builder erstellen und Windows installieren
+
+1. Im Image-Menü `7` wählen.
+2. Als Media Root `D:\Lab_Base` eingeben oder den angebotenen Default mit
+   Enter übernehmen.
+3. Bei Windows-Edition `standard-evaluation` und bei Windows-Typ
+   `desktop-experience` bestätigen.
+4. Bei SQL-Version `2025` und SQL-Medien-Edition `Enterprise` bestätigen.
+5. Fehlt ein SHA-256-Sidecar, dessen Berechnung bestätigen. Der Builder ändert
+   dabei keine ISO, sondern schreibt nur die Prüfsumme unter `Hashes`.
+6. Den Builder erzeugen und VMConnect öffnen lassen.
+7. Im Windows-Setup **Windows Server 2025 Standard Evaluation (Desktop
+   Experience)** auswählen, `Benutzerdefiniert` wählen und die einzige leere
+   OS-Disk als Ziel verwenden.
+8. OOBE abschließen, das lokale Passwort für `Administrator` setzen und sich
+   einmal vollständig anmelden. Das Passwort nur für den unmittelbar folgenden
+   Schritt merken; es wird nicht im Build-State oder Git gespeichert.
+
+Erwarteter Zustand: Die VM läuft, Windows ist angemeldet und der
+SQL-Image-Build steht im Menü bei `MANUAL_ACTION_REQUIRED`.
+
+### SQL vorbereiten und einmalig versiegeln
+
+1. Zurück im Image-Menü `10` wählen.
+2. `Administrator` und das soeben gesetzte Passwort eingeben.
+3. Die Bestätigung für `SQL PrepareImage und anschliessend Windows-Sysprep`
+   mit `j` geben.
+4. Warten, bis der Ablauf `RESUME_PENDING` meldet. SQL Setup kann je nach
+   Storage und ISO mehrere Minuten dauern. Falls Setup einen Neustart verlangt,
+   wird `REBOOT_REQUIRED` gemeldet: die VM erneut mit Aktion `9` starten,
+   vollständig booten lassen und Aktion `10` nochmals wählen. `PrepareImage`
+   wird dabei nicht doppelt ausgeführt.
+
+Erwarteter Endzustand: Die VM ist ausgeschaltet und der Build hat den Status
+`RESUME_PENDING`. Ein nach Sysprep zurückgesetztes Administratorpasswort ist
+normal und wird nicht mehr benötigt.
+
+### Image veröffentlichen
+
+1. Aktion `11` wählen.
+2. Für die Windows Evaluation das angezeigte Ablaufdatum prüfen oder eingeben.
+3. Die Veröffentlichung bestätigen.
+
+Erwartetes Ergebnis: `SQL_PREPARED_SEALED` mit einer Artifact-ID. Erst eine
+spätere Laufzeit-VM führt SQL `CompleteImage` aus und erhält konkrete
+Instanz-, Administrator- und Netzwerkdaten.
+
+### Die drei Image-Versionen real prüfen
+
+Die Images werden nacheinander gebaut, nie parallel. Zwischen zwei Läufen
+zuerst die Veröffentlichung aus dem vorigen Lauf abwarten und das Ergebnis
+in Aktion `8` kontrollieren.
+
+| Reihenfolge | Auswahl in Aktion `7` | Nachweis |
+|---|---|---|
+| 1 | Windows Server 2025 Standard Evaluation, Desktop Experience; SQL 2025 Enterprise | Status `SQL_PREPARED_SEALED`, Artifact-ID und Evaluation-Ende festhalten |
+| 2 | dieselbe Windows-Auswahl; SQL 2022 und passende Medien-Edition | eigener Builder und eigene Artifact-ID |
+| 3 | dieselbe Windows-Auswahl; SQL 2019 und passende Medien-Edition | eigener Builder und eigene Artifact-ID |
+
+Für jeden Lauf gilt exakt `7 → 9 → 10 → 11`. Nur die SQL-Version und
+die dazugehörige ISO ändern sich. Ein fehlgeschlagener Builder darf nicht mit
+einem anderen Menüpfad weiterverwendet werden: Aktion `12` räumt ihn auf,
+danach wird Aktion `7` neu begonnen. Der Fehlertext und die
+`C:\\Windows\\System32\\Sysprep\\Panther`-Logs der betroffenen VM sind
+vor dem Aufräumen zu sichern.
+
+### Was erst nach den drei Images folgt
+
+Die nächste Ausbaustufe ist eine Laufzeit-VM, die ein veröffentlichtes
+`SQL_PREPARED_SEALED`-Image klont und darin SQL `CompleteImage` ausführt.
+Dieser Runtimepfad, seine Instanzkonfiguration sowie der automatische
+SSMS-Zugriff vom Host sind noch nicht implementiert. Deshalb gibt es dafür
+heute bewusst keine scheinbare Menüanleitung.
+
+Danach werden diese Arbeiten in der angegebenen Reihenfolge umgesetzt und
+abgenommen:
+
+1. Laufzeit-VM aus einem veröffentlichten Image erstellen und SQL
+   `CompleteImage` mit einem neuen, dokumentierten SQL-Sysadmin-Passwort
+   ausführen.
+2. Hostzugriff mit SSMS auf die feste IP beziehungsweise den DNS-Namen der
+   Laufzeit-VM nachweisen.
+3. Ressourcenprofile ergänzen: Start-, Mindest- und Höchstspeicher sowie CPU
+   müssen im Image- und Runtimeauftrag sichtbar begrenzt sein.
+4. Sprechende Namen für Builds und VMs als optionalen Eingabewert ergänzen;
+   ohne Eingabe bleibt die GUID der sichere Fallback.
+5. Erst danach die providerübergreifende Netzkommunikation und einen
+   optionalen, standardmäßig gesperrten Internet-Egress planen. pfSense ist
+   dafür eine mögliche spätere Option, aber kein Bestandteil des aktuellen
+   Hyper-V-Imagebaus.
+
 ## 2. Warum Prepared-Images ohne OS-Baseline gebaut werden
 
 Ein geteilter, bereits generalisierter OS-Parent erfordert für jedes
