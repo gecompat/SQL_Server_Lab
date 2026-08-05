@@ -150,15 +150,24 @@ try {
         $builderText -match 'SQL_SETUP_PREPARE_IMAGE_FAILED: ExitCode=' -and
         $builderText -match "-Filter 'Summary\.txt'" -and $builderText -match 'Summary=\$\(\$summary\.FullName\)'
     )
-    $sql2025SetupVersionAccepted = & $module {
-        $pattern = Get-HyperVSqlSetupVersionPattern -SqlVersion 2025
-        '2025.0170.1000.07 (sql2025_rtm).251021-1808' -match $pattern -and
-        '16.0.1000.6' -notmatch $pattern
+    $sqlSetupVersionsAccepted = & $module {
+        $sql2022Pattern = Get-HyperVSqlSetupVersionPattern -SqlVersion 2022
+        $sql2025Pattern = Get-HyperVSqlSetupVersionPattern -SqlVersion 2025
+        '2022.0160.1000.06 (SQL22_RTM).221008-0913' -match $sql2022Pattern -and
+        '16.0.1000.6' -match $sql2022Pattern -and
+        '2025.0170.1000.07 (sql2025_rtm).251021-1808' -match $sql2025Pattern -and
+        '2022.0160.1000.06' -notmatch $sql2025Pattern
     }
-    Add-CheckResult -Name 'SQL-2025-RTM-Jahresversion wird als SQL-2025-Medium erkannt' -Success (
-        $sql2025SetupVersionAccepted -and
+    Add-CheckResult -Name 'SQL-2022- und SQL-2025-Jahresversionen werden als passende Medien erkannt' -Success (
+        $sqlSetupVersionsAccepted -and
         $builderText -match 'ExpectedSetupVersionPattern' -and
-        $builderText -notmatch "'2025' \{ '17\.' \}"
+        $builderText -match "'2022' \{ return '\(\?<!\\d\)\(\?:16\|2022\\\.0160\)\\\.' \}"
+    )
+    Add-CheckResult -Name 'SQL-ISO wird vor der VM-Erstellung gegen die gewaehlte SQL-Version geprueft' -Success (
+        $builderText -match 'function Confirm-HyperVSqlInstallationMediaVersion' -and
+        $builderText -match 'HYPERV_SQL_MEDIA_VERSION_MISMATCH' -and
+        $builderText -match 'Confirm-HyperVSqlInstallationMediaVersion -IsoPath \$sqlMedia\.IsoPath -SqlVersion \$SqlVersion' -and
+        $builderText.IndexOf('Confirm-HyperVSqlInstallationMediaVersion -IsoPath $sqlMedia.IsoPath') -lt $builderText.IndexOf('New-VHD -Path $diskPath')
     )
     Add-CheckResult -Name 'SQL-Prepared-Publikation flacht Differencing-Kette ab' -Success ($builderText -match 'Convert-VHD[\s\S]+-VHDType Dynamic')
     Add-CheckResult -Name 'Empfohlener Prepared-Image-Pfad erstellt frische Windows-VHDX und bindet beide ISOs ein' -Success (
@@ -200,6 +209,13 @@ try {
         $nextActionGuidance[1] -eq '[9] VM starten, vollstaendig booten lassen; danach [10] erneut ausfuehren.' -and
         $menuText -match '''8''\s*\{\s*\$null\s*=\s*Show-LabHyperVSqlImageBuilds\s*\}' -and
         $menuText -match 'Show-LabHyperVSqlNextActions'
+    )
+    $prepareFunctionIndex = $menuText.IndexOf('function Invoke-LabHyperVSqlPrepareInteractive')
+    $targetBuilderIndex = $menuText.IndexOf('Ziel-Builder: SQL {0} {1} | VM: {2}', $prepareFunctionIndex)
+    $credentialPromptIndex = $menuText.IndexOf('Read-Host ''  Lokaler Gast-Administrator [Administrator]''', $prepareFunctionIndex)
+    Add-CheckResult -Name 'PrepareImage zeigt vor dem Passwort den fest verdrahteten SQL-Zielbuilder' -Success (
+        $prepareFunctionIndex -ge 0 -and $targetBuilderIndex -gt $prepareFunctionIndex -and
+        $credentialPromptIndex -gt $targetBuilderIndex -and $menuText -match 'Build-ID: \{0\}'
     )
 }
 catch { Add-CheckResult -Name 'Hyper-V-SQL-Image-Testausfuehrung' -Success $false -Message $_.Exception.Message }
