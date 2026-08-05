@@ -31,6 +31,10 @@ function Write-LabInfo {
     #>
     [CmdletBinding()]
     param([Parameter(Mandatory, Position = 0)][string]$Message)
+    if ($global:SqlServerLabUiCaptureOutput) {
+        Write-Output "[INFO]    $Message"
+        return
+    }
     Write-Host "[INFO]    $Message" -ForegroundColor $script:Colors.Info
 }
 
@@ -40,6 +44,10 @@ function Write-LabSuccess {
     #>
     [CmdletBinding()]
     param([Parameter(Mandatory, Position = 0)][string]$Message)
+    if ($global:SqlServerLabUiCaptureOutput) {
+        Write-Output "[OK]      $Message"
+        return
+    }
     Write-Host "[OK]      $Message" -ForegroundColor $script:Colors.Success
 }
 
@@ -49,6 +57,10 @@ function Write-LabWarning {
     #>
     [CmdletBinding()]
     param([Parameter(Mandatory, Position = 0)][string]$Message)
+    if ($global:SqlServerLabUiCaptureOutput) {
+        Write-Output "[WARNUNG] $Message"
+        return
+    }
     Write-Host "[WARNUNG] $Message" -ForegroundColor $script:Colors.Warning
 }
 
@@ -58,6 +70,10 @@ function Write-LabError {
     #>
     [CmdletBinding()]
     param([Parameter(Mandatory, Position = 0)][string]$Message)
+    if ($global:SqlServerLabUiCaptureOutput) {
+        Write-Output "[FEHLER]  $Message"
+        return
+    }
     Write-Host "[FEHLER]  $Message" -ForegroundColor $script:Colors.Error
 }
 

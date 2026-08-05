@@ -78,6 +78,10 @@ function Start-UiWorkflowJob {
         $WarningPreference = 'SilentlyContinue'
         try {
             Import-Module $JobModulePath -Force 6>$null
+            # Thread-Jobs teilen sich den Host mit der UI. Die zentralen
+            # Lab-Ausgaben werden deshalb in Job-Pipeline-Records umgeleitet,
+            # nicht in das Terminal des UI-Servers geschrieben.
+            $global:SqlServerLabUiCaptureOutput = $true
             $invokeParameters = @{}
             foreach ($key in $JobParameters.Keys) { $invokeParameters[$key] = $JobParameters[$key] }
             if ($invokeParameters.ContainsKey('GuestPassword')) {
@@ -97,6 +101,9 @@ function Start-UiWorkflowJob {
         catch {
             Write-Output "[FEHLER] $($_.Exception.Message)"
             throw
+        }
+        finally {
+            Remove-Variable -Name SqlServerLabUiCaptureOutput -Scope Global -ErrorAction SilentlyContinue
         }
     }
     return [PSCustomObject]@{

@@ -5,6 +5,8 @@ param()
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $serverPath = Join-Path $repoRoot 'Tools/Start-SqlServerLabUi.ps1'
+$moduleLoaderPath = Join-Path $repoRoot 'SqlServerLab.psm1'
+$commonPath = Join-Path $repoRoot 'Private/Common.ps1'
 $workflowPath = Join-Path $repoRoot 'Public/Get-SqlServerLabWorkflow.ps1'
 $actionPath = Join-Path $repoRoot 'Public/Invoke-SqlServerLabWorkflowAction.ps1'
 $htmlPath = Join-Path $repoRoot 'Ui/index.html'
@@ -17,6 +19,8 @@ Write-Host ''
 Write-Host 'SQL_Server_Lab - Workflow UI Checks' -ForegroundColor Cyan
 
 $serverText = Get-Content -LiteralPath $serverPath -Raw -Encoding utf8
+$moduleLoaderText = Get-Content -LiteralPath $moduleLoaderPath -Raw -Encoding utf8
+$commonText = Get-Content -LiteralPath $commonPath -Raw -Encoding utf8
 $workflowText = Get-Content -LiteralPath $workflowPath -Raw -Encoding utf8
 $actionText = Get-Content -LiteralPath $actionPath -Raw -Encoding utf8
 $htmlText = Get-Content -LiteralPath $htmlPath -Raw -Encoding utf8
@@ -65,6 +69,11 @@ Add-CheckResult -Name 'UI-Jobs unterdrücken Modul-Ladeausgaben und zeigen Laufz
     $serverText -match "InformationPreference = 'SilentlyContinue'" -and
     $serverText -match 'ElapsedSeconds' -and
     $scriptText -match 'job-progress'
+)
+Add-CheckResult -Name 'UI-Jobs leiten Labmeldungen ins Live-Log statt ins Terminal' -Success (
+    $serverText -match 'SqlServerLabUiCaptureOutput' -and
+    $commonText -match 'Write-Output "\[INFO\]' -and
+    $moduleLoaderText -match 'Write-Verbose "\[LOAD\]'
 )
 
 Write-Host ''
