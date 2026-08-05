@@ -35,7 +35,7 @@ if (Test-Path $script:ProvidersPath) {
         foreach ($s in $scripts) {
             try {
                 . $s.FullName
-                Write-Host "  [LOAD] Provider: $($s.Name)" -ForegroundColor DarkGray
+                Write-Verbose "[LOAD] Provider: $($s.Name)"
             }
             catch {
                 Write-Warning "Provider-Skript fehlgeschlagen: $($s.FullName) - $_"
@@ -88,4 +88,4 @@ if (Test-Path $publicPath) {
     }
 }
 
-Write-Host "  [LOAD] SqlServerLab geladen. Provider: $($script:RegisteredProviders.Keys -join ', ')" -ForegroundColor DarkGray
+Write-Verbose "[LOAD] SqlServerLab geladen. Provider: $($script:RegisteredProviders.Keys -join ', ')"
