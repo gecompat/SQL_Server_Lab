@@ -122,6 +122,11 @@ danach wird Aktion `7` neu begonnen. Der Fehlertext und die
 `C:\\Windows\\System32\\Sysprep\\Panther`-Logs der betroffenen VM sind
 vor dem Aufräumen zu sichern.
 
+Aktion `12` bietet neben einer einzelnen Nummer auch `ALL`. Diese Auswahl
+entfernt **alle angezeigten unfertigen** SQL-Builder samt VMs und buildlokalen
+VHDX, verlangt eine zweite Gesamtbestätigung und zeigt den Fortschritt. Bereits
+veröffentlichte `SQL_PREPARED_SEALED`-Images sind davon ausgeschlossen.
+
 ### Was erst nach den drei Images folgt
 
 Die nächste Ausbaustufe ist eine Laufzeit-VM, die ein veröffentlichtes
