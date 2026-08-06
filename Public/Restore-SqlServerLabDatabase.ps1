@@ -244,10 +244,15 @@ function Restore-SqlServerLabDatabase {
         }
     }
 
-    $restoreTarget = Resolve-LabRestoreContainer `
-        -Provider $Provider `
-        -ContainerName $ContainerName `
-        -Port $Port
+    # Ein nicht gesetzter Provider bedeutet bewusste Auto-Erkennung. Er darf
+    # nicht als leerer String an ValidateSet weitergereicht werden, weil dann
+    # die Auswahl noch vor docker/podman-Discovery fehlschlägt.
+    $restoreTargetArguments = @{
+        ContainerName = $ContainerName
+        Port          = $Port
+    }
+    if ($Provider) { $restoreTargetArguments.Provider = $Provider }
+    $restoreTarget = Resolve-LabRestoreContainer @restoreTargetArguments
     $runtime = $restoreTarget.Provider
     $ContainerName = $restoreTarget.ContainerName
 

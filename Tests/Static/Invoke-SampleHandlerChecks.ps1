@@ -14,6 +14,7 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
 $consolePath = Join-Path $repoRoot 'Public/Invoke-SqlServerLab.ps1'
+$restorePath = Join-Path $repoRoot 'Public/Restore-SqlServerLabDatabase.ps1'
 $failures = [System.Collections.Generic.List[string]]::new()
 $passed = 0
 
@@ -23,6 +24,7 @@ Write-Host ''
 Write-Host 'SQL_Server_Lab - Sample Handler Checks' -ForegroundColor Cyan
 
 $consoleText = Get-Content -LiteralPath $consolePath -Raw -Encoding utf8
+$restoreText = Get-Content -LiteralPath $restorePath -Raw -Encoding utf8
 
 $temporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) "sql-lab-sample-check-$([guid]::NewGuid().ToString('N'))"
 try {
@@ -122,6 +124,11 @@ try {
         $consoleText -match 'Select-LabSampleSelection -SqlVersion \$target.Version -SkipInitialConfirm' -and
         $consoleText -match 'Install-LabSampleDatabase -HostName \$target.HostName' -and
         $consoleText -match '\[switch\]\$SkipInitialConfirm'
+    )
+    Add-CheckResult -Name 'Restore erkennt docker oder podman ohne leeren Provider-Parameter automatisch' -Success (
+        $restoreText -match '\$restoreTargetArguments = @\{' -and
+        $restoreText -match 'if \(\$Provider\) \{ \$restoreTargetArguments.Provider = \$Provider \}' -and
+        $restoreText -match 'Resolve-LabRestoreContainer @restoreTargetArguments'
     )
 }
 catch {
