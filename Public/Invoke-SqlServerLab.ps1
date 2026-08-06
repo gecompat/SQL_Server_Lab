@@ -276,21 +276,44 @@ function Invoke-LabAction {
             $runId = Select-LabRun -Runs $runs -Prompt "Datenbank anlegen auf"
             if (-not $runId) { return }
 
-            # Port aus connection-info lesen
             $stateRoot = Get-LabStateRoot
-            $connInfoPath = Join-Path $stateRoot "runs/$runId/connection-info.json"
-            if (-not (Test-Path $connInfoPath)) {
-                Write-LabError "Connection-Info nicht gefunden."
+            $connectionInfoPath = Join-Path (Join-Path (Join-Path $stateRoot 'runs') $runId) 'connection-info.json'
+            if (-not (Test-Path -LiteralPath $connectionInfoPath -PathType Leaf)) { Write-LabError 'Connection-Info nicht gefunden.'; return }
+            $connectionInfo = Get-Content -LiteralPath $connectionInfoPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
+            $instanceId = [string](@($connectionInfo.instances | Select-Object -First 1)[0].id)
+            if (-not $instanceId) { Write-LabError 'Keine Container-Instanz im Run gespeichert.'; return }
+            try { $target = Resolve-LabRunInstance -RunId $runId -InstanceId $instanceId -StateRoot $stateRoot }
+            catch { Write-LabError $_.Exception.Message; return }
+
+            if (Read-LabConfirm -Prompt '  Testdatenbank aus dem Katalog wiederherstellen?' -Default $false) {
+                $selectedSamples = @(Select-LabSampleSelection -SqlVersion $target.Version -SkipInitialConfirm)
+                if ($selectedSamples.Count -eq 0) { return }
+                $pw = Read-Host '  SA-Passwort' -AsSecureString
+                $runDirectory = Join-Path (Join-Path $stateRoot 'runs') $runId
+                foreach ($sampleSpec in $selectedSamples) {
+                    $parts = ([string]$sampleSpec).Split(':', 2)
+                    $sample = Get-LabSampleDatabase -Id $parts[0]
+                    $variantName = if ($parts.Count -gt 1 -and $parts[1]) { $parts[1] } else { 'full' }
+                    if (-not $sample) { Write-LabError "Sample nicht gefunden: $sampleSpec"; continue }
+                    $variant = @($sample.versions.PSObject.Properties | Where-Object Name -eq $variantName | Select-Object -First 1)
+                    if ($variant.Count -ne 1) { Write-LabError "Sample-Variante nicht gefunden: $sampleSpec"; continue }
+                    $outputs = @($variant[0].Value.expectedOutputs)
+                    if ($outputs.Count -ne 1 -or -not $outputs[0].name) { Write-LabError "Sample besitzt keinen eindeutigen Datenbank-Output: $sampleSpec"; continue }
+                    try {
+                        $restoreDefinition = Resolve-LabSampleRestore -SampleDefinition ([PSCustomObject]@{ id = $parts[0]; variant = $variantName }) -SqlVersion $target.Version -TargetDatabaseName ([string]$outputs[0].name)
+                        $result = Install-LabSampleDatabase -HostName $target.HostName -Port $target.Port -SaPassword $pw -ContainerName $target.ContainerName -RestoreDefinition $restoreDefinition -RunDirectory $runDirectory -StateRoot $stateRoot
+                        if ($result.Success) { Write-LabSuccess $result.Message } else { Write-LabError "$($result.Status): $($result.Message)" }
+                    }
+                    catch { Write-LabError $_.Exception.Message }
+                }
                 return
             }
-            $connInfo = Get-Content $connInfoPath -Raw | ConvertFrom-Json
-            $port = $connInfo.instances[0].port
 
             $dbName = Read-Host "  Datenbankname"
             if (-not $dbName) { return }
 
             $pw = Read-Host "  SA-Passwort" -AsSecureString
-            New-SqlServerLabDatabase -Port $port -SaPassword $pw -DatabaseName $dbName
+            New-SqlServerLabDatabase -HostName $target.HostName -Port $target.Port -SaPassword $pw -DatabaseName $dbName
         }
 
         'Script' {
@@ -399,6 +422,10 @@ function Invoke-LabHyperVImageAction {
     Write-Host '    [15] SQL-2019/2022/2025-Abnahmematrix anzeigen' -ForegroundColor White
     Write-Host '    [16] OOBE manuell abgeschlossen: uebernehmen und vollstaendiges SQL installieren' -ForegroundColor White
     Write-Host '    [17] Nach Sysprep ohne Gastpasswort offline pruefen und Prepared-Image fortsetzen' -ForegroundColor Yellow
+    Write-Host '    [18] Reguläre Hyper-V-Umgebung aus SQL-Prepared-Image erstellen' -ForegroundColor Yellow
+    Write-Host '    [19] Reguläre Hyper-V-Umgebungen verwalten (Start, VMConnect, Stopp, Entfernen)' -ForegroundColor White
+    Write-Host '    [20] Namen veröffentlichter OS- und SQL-Images ändern' -ForegroundColor White
+    Write-Host '    [21] Reguläre Hyper-V-Umgebung aus vorhandener ausgeschalteter Windows-VM erstellen' -ForegroundColor Yellow
     Write-Host '    [a] Legacy: SQL-Abnahme-Builder aus vorhandener OS-Baseline erzeugen' -ForegroundColor DarkGray
     Write-Host '    [0] Zurueck' -ForegroundColor DarkGray
     Write-Host ''
@@ -430,6 +457,10 @@ function Invoke-LabHyperVImageAction {
         '15' { Show-LabHyperVSqlAcceptanceMatrix }
         '16' { Invoke-LabHyperVSqlManualOobeAcceptanceInstallInteractive }
         '17' { Resume-LabHyperVSqlPreparedImageGeneralizationInteractive }
+        '18' { New-LabHyperVEnvironmentInteractive }
+        '19' { Manage-LabHyperVEnvironmentInteractive }
+        '20' { Rename-LabHyperVImageArtifactInteractive }
+        '21' { New-LabHyperVEnvironmentFromExistingVmInteractive }
         'a' { New-LabHyperVSqlAcceptanceBuildInteractive }
         default { Write-LabWarning "Ungueltige Auswahl: $choice" }
     }
@@ -507,26 +538,32 @@ function New-LabHyperVImageBuildInteractive {
     try { $mediaRoot = Set-LabMediaRootDefault -MediaRoot $mediaRoot }
     catch { Write-LabError "Media Root ist ungueltig: $($_.Exception.Message)"; return }
 
-    $version = Read-Host '  Windows Server Version [2025]'
-    if (-not $version) { $version = '2025' }
-    if ($version -notin @('2022', '2025')) {
-        Write-LabError "Nicht unterstuetzte Windows-Server-Version: $version"
+    $candidates = @(Get-HyperVWindowsInstallationMediaCandidates -MediaRoot $mediaRoot | Where-Object { $_.State -eq 'READY' })
+    if ($candidates.Count -eq 0) {
+        Write-LabError 'Kein erkennbares Windows-Evaluation-Installationsmedium im Media Root gefunden.'
         return
     }
-    $operatingSystemId = "windows-server-$version"
-    $edition = Read-Host '  Edition [standard-evaluation]'
-    if (-not $edition) { $edition = 'standard-evaluation' }
-    $installationType = Read-Host '  Installationstyp: core oder desktop-experience [desktop-experience]'
-    if (-not $installationType) { $installationType = 'desktop-experience' }
-    if ($installationType -notin @('core', 'desktop-experience')) {
-        Write-LabError "Ungueltiger Installationstyp: $installationType"
+    Write-Host '  Erkannte Windows-Installationsmedien:' -ForegroundColor White
+    for ($i = 0; $i -lt $candidates.Count; $i++) {
+        $candidate = $candidates[$i]
+        Write-Host ("    [{0}] {1} · {2} · {3}" -f ($i + 1), $candidate.ImageName, $candidate.WindowsEdition, $candidate.MediaId) -ForegroundColor White
+    }
+    $selection = Read-Host '  Windows-Installationsmedium (Nummer) [1]'
+    if (-not $selection) { $selection = '1' }
+    if ($selection -notmatch '^\d+$' -or [int]$selection -lt 1 -or [int]$selection -gt $candidates.Count) {
+        Write-LabError 'Ungültige Medienauswahl.'
         return
     }
+    $selectedMedia = $candidates[[int]$selection - 1]
+    $operatingSystemId = [string]$selectedMedia.OperatingSystemId
+    $edition = [string]$selectedMedia.WindowsEdition
+    $installationType = [string]$selectedMedia.InstallationType
+    $windowsMediaPath = [string]$selectedMedia.MediaId
 
     try {
         $media = Resolve-HyperVWindowsInstallationMedia `
             -MediaRoot $mediaRoot `
-            -OperatingSystemId $operatingSystemId
+            -OperatingSystemId $operatingSystemId -WindowsEdition $edition -InstallationType $installationType -WindowsMediaPath $windowsMediaPath
         if ($media.HashStatus -eq 'MISSING') {
             Write-LabWarning 'Fuer die ISO existiert noch kein SHA-256-Sidecar.'
             Write-Host "  ISO: $($media.IsoPath)" -ForegroundColor DarkGray
@@ -537,7 +574,7 @@ function New-LabHyperVImageBuildInteractive {
             Write-LabInfo 'SHA-256 wird berechnet; grosse ISOs benoetigen mehrere Minuten.'
             $media = New-HyperVWindowsMediaHashSidecar `
                 -MediaRoot $mediaRoot `
-                -OperatingSystemId $operatingSystemId
+                -OperatingSystemId $operatingSystemId -WindowsEdition $edition -InstallationType $installationType -WindowsMediaPath $windowsMediaPath
         }
 
         Write-Host ''
@@ -554,6 +591,7 @@ function New-LabHyperVImageBuildInteractive {
             -OperatingSystemId $operatingSystemId `
             -Edition $edition `
             -InstallationType $installationType `
+            -WindowsMediaPath $windowsMediaPath `
             -LicenseType evaluation
         Write-LabSuccess "Builder erstellt. BuildId: $($build.buildId)"
         Show-LabHyperVManualInstallInstructions -Build $build
@@ -843,6 +881,42 @@ function Select-LabHyperVSqlImageBuild {
     return $builds[[int]$selection - 1]
 }
 
+function Rename-LabHyperVImageArtifactInteractive {
+    [CmdletBinding()]
+    param()
+
+    $artifacts = @(Get-HyperVImageArtifact | Where-Object { $_.artifactState -in @('OS_SEALED', 'SQL_PREPARED_SEALED') })
+    if ($artifacts.Count -eq 0) {
+        Write-LabInfo 'Keine veröffentlichten OS- oder SQL-Images vorhanden.'
+        return
+    }
+    Write-Host '  Veröffentlichte Images:' -ForegroundColor White
+    for ($i = 0; $i -lt $artifacts.Count; $i++) {
+        $artifact = $artifacts[$i]
+        $fallback = if ($artifact.artifactState -eq 'SQL_PREPARED_SEALED') {
+            "SQL Server $($artifact.sql.version) · $($artifact.sql.edition)"
+        } else {
+            "$($artifact.operatingSystem.id) · $($artifact.operatingSystem.edition)"
+        }
+        $name = if ($artifact.displayName) { [string]$artifact.displayName } else { $fallback }
+        Write-Host ("    [{0}] {1}" -f ($i + 1), $name) -ForegroundColor White
+        Write-Host ("        {0}" -f $artifact.artifactId) -ForegroundColor DarkGray
+    }
+    $selection = Read-Host '  Image (Nummer)'
+    if ($selection -notmatch '^\d+$' -or [int]$selection -lt 1 -or [int]$selection -gt $artifacts.Count) {
+        Write-LabWarning 'Keine gültige Image-Auswahl.'
+        return
+    }
+    $newName = Read-Host '  Neuer Anzeigename'
+    if ([string]::IsNullOrWhiteSpace($newName)) { Write-LabWarning 'Ein Name ist erforderlich.'; return }
+    if ($newName.Trim().Length -gt 80) { Write-LabWarning 'Der Name darf höchstens 80 Zeichen enthalten.'; return }
+    try {
+        $renamed = Rename-HyperVImageArtifact -ArtifactId $artifacts[[int]$selection - 1].artifactId -DisplayName $newName
+        Write-LabSuccess "Image-Name gespeichert: $($renamed.displayName)"
+    }
+    catch { Write-LabError $_.Exception.Message }
+}
+
 function Select-LabHyperVOsArtifact {
     [CmdletBinding()]
     param()
@@ -912,6 +986,8 @@ function New-LabHyperVSqlImageBuildInteractive {
     $mediaEdition = Read-Host "  SQL-Medien-Edition [$defaultEdition]"
     if (-not $mediaEdition) { $mediaEdition = $defaultEdition }
     if ($mediaEdition -notin @('Eval', 'Enterprise', 'Standard')) { Write-LabError 'SQL-Medien-Edition ist ungueltig.'; return }
+    $imageName = Read-Host '  Frei wählbarer Image-Name (optional)'
+    if ($imageName -and $imageName.Trim().Length -gt 80) { Write-LabError 'Der Image-Name darf höchstens 80 Zeichen enthalten.'; return }
 
     try {
         $windowsMedia = Resolve-HyperVWindowsInstallationMedia -MediaRoot $mediaRoot -OperatingSystemId windows-server-2025
@@ -934,7 +1010,7 @@ function New-LabHyperVSqlImageBuildInteractive {
         Write-Host '  Ablauf: Windows installieren -> SQL PrepareImage -> ein finaler Sysprep.' -ForegroundColor Yellow
         if (-not (Read-LabConfirm -Prompt '  Frischen SQL-Prepared-Image-Builder jetzt erzeugen?' -Default $false)) { return }
         $build = Initialize-HyperVSqlFreshPreparedImageBuild -MediaRoot $mediaRoot -OperatingSystemId windows-server-2025 `
-            -WindowsEdition $windowsEdition -InstallationType $installationType -SqlVersion $sqlVersion -MediaEdition $mediaEdition
+            -WindowsEdition $windowsEdition -InstallationType $installationType -SqlVersion $sqlVersion -MediaEdition $mediaEdition -ImageName $imageName
         Write-LabSuccess "Frischer SQL-Builder erstellt. BuildId: $($build.buildId)"
         Show-LabHyperVSqlManualInstructions -Build $build
         if (Read-LabConfirm -Prompt '  Builder starten und VMConnect oeffnen?' -Default $true) {
@@ -1222,14 +1298,15 @@ function Select-LabSampleSelection {
     #>
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory)][string]$SqlVersion
+        [Parameter(Mandatory)][string]$SqlVersion,
+        [switch]$SkipInitialConfirm
     )
 
     $variants = @(Get-LabExecutableSampleVariant -SqlVersion $SqlVersion)
     if ($variants.Count -eq 0) {
         return @()
     }
-    if (-not (Read-LabConfirm -Prompt '  Testdatenbanken aus dem Katalog hinzufuegen?' -Default $false)) {
+    if (-not $SkipInitialConfirm -and -not (Read-LabConfirm -Prompt '  Testdatenbanken aus dem Katalog hinzufuegen?' -Default $false)) {
         return @()
     }
 
@@ -1329,6 +1406,118 @@ function Select-LabSampleSelection {
     }
 
     return @($selection)
+}
+
+function Select-LabHyperVPreparedArtifact {
+    [CmdletBinding()]
+    param()
+
+    $artifacts = @(Get-HyperVImageArtifact | Where-Object { $_.artifactState -eq 'SQL_PREPARED_SEALED' })
+    if ($artifacts.Count -eq 0) { Write-LabInfo 'Kein veröffentlichtes SQL-Prepared-Image vorhanden.'; return $null }
+    for ($i = 0; $i -lt $artifacts.Count; $i++) {
+        $artifact = $artifacts[$i]
+        Write-Host ("    [{0}] Windows {1} · SQL Server {2} {3} · {4}" -f ($i + 1), $artifact.operatingSystem.id, $artifact.sql.version, $artifact.sql.edition, $artifact.artifactId) -ForegroundColor White
+    }
+    $selection = Read-Host '  Prepared-Image auswählen [1]'
+    if (-not $selection) { $selection = '1' }
+    if ($selection -notmatch '^\d+$' -or [int]$selection -lt 1 -or [int]$selection -gt $artifacts.Count) { Write-LabWarning 'Ungültige Auswahl.'; return $null }
+    return $artifacts[[int]$selection - 1]
+}
+
+function New-LabHyperVEnvironmentInteractive {
+    [CmdletBinding()]
+    param()
+
+    $artifact = Select-LabHyperVPreparedArtifact
+    if (-not $artifact) { return }
+    $name = Read-Host '  Labname [hyperv-sql-lab]'
+    if (-not $name) { $name = 'hyperv-sql-lab' }
+    $instanceId = Read-Host '  Instanzname [primary]'
+    if (-not $instanceId) { $instanceId = 'primary' }
+    $switchName = Read-Host '  Virtueller Switch (leer = isoliert)'
+    Write-Host "  Image: $($artifact.artifactId)" -ForegroundColor DarkGray
+    Write-Host '  Es wird eine ausgeschaltete differenzierende VM erstellt. Start und VMConnect bleiben getrennte Schritte.' -ForegroundColor DarkGray
+    if (-not (Read-LabConfirm -Prompt '  Hyper-V-Umgebung jetzt erstellen?' -Default $false)) { return }
+    try {
+        $lab = New-HyperVLabEnvironment -ArtifactId $artifact.artifactId -LabName $name -InstanceId $instanceId -SwitchName $switchName
+        Write-LabSuccess "Hyper-V-Umgebung erstellt: $($lab.VMName) (Run $($lab.RunId))"
+        Write-LabInfo 'Nächster Schritt: [19] wählen, VM starten und VMConnect öffnen.'
+    }
+    catch { Write-LabError $_.Exception.Message }
+}
+
+function New-LabHyperVEnvironmentFromExistingVmInteractive {
+    [CmdletBinding()]
+    param()
+
+    $sources = @(Get-HyperVExistingVmLabSource)
+    if ($sources.Count -eq 0) {
+        Write-LabInfo 'Keine kompatible Quell-VM gefunden. Erforderlich: ausgeschaltet, Generation 2, nicht durch SQL_Server_Lab verwaltet und genau eine System-VHDX.'
+        return
+    }
+    Write-Host ''
+    Write-Host '  Sichere vorhandene Windows-VM als Basis:' -ForegroundColor White
+    for ($i = 0; $i -lt $sources.Count; $i++) {
+        $source = $sources[$i]
+        Write-Host ("    [{0}] {1} · {2} MB · {3} vCPU" -f ($i + 1), $source.VMName, $source.MemoryStartupMB, $source.ProcessorCount) -ForegroundColor White
+        Write-Host ("        {0}" -f $source.LicenseNotice) -ForegroundColor DarkYellow
+    }
+    $selection = Read-Host '  Quell-VM auswählen [1]'
+    if (-not $selection) { $selection = '1' }
+    if ($selection -notmatch '^\d+$' -or [int]$selection -lt 1 -or [int]$selection -gt $sources.Count) { Write-LabWarning 'Ungültige Auswahl.'; return }
+    $source = $sources[[int]$selection - 1]
+    $name = Read-Host '  Labname [windows-dev-lab]'
+    if (-not $name) { $name = 'windows-dev-lab' }
+    $instanceId = Read-Host '  Instanzname [primary]'
+    if (-not $instanceId) { $instanceId = 'primary' }
+    $memory = Read-Host "  Startspeicher MB [$($source.MemoryStartupMB)]"
+    if (-not $memory) { $memory = $source.MemoryStartupMB }
+    $cpu = Read-Host "  vCPU [$($source.ProcessorCount)]"
+    if (-not $cpu) { $cpu = $source.ProcessorCount }
+    $switchName = Read-Host '  Virtueller Switch (leer = isoliert)'
+    Write-LabWarning 'Die Original-VM und ihre VHDX bleiben unverändert. Es wird eine eigene, schreibgeschützte Arbeitskopie als Parent erstellt.'
+    if (-not (Read-LabConfirm -Prompt '  Lizenz- und Ablaufstatus der Quell-VM geprüft und Lab-VM erstellen?' -Default $false)) { return }
+    try {
+        $lab = New-HyperVLabEnvironmentFromExistingVm -SourceVMName $source.VMName -LabName $name -InstanceId $instanceId -MemoryStartupMB ([int]$memory) -ProcessorCount ([int]$cpu) -SwitchName $switchName -ConfirmSourceLicense
+        Write-LabSuccess "Hyper-V-Umgebung erstellt: $($lab.VMName) (Run $($lab.RunId)); Quelle '$($lab.SourceVMName)' blieb unverändert."
+        Write-LabInfo 'Nächster Schritt: [19] wählen, VM starten und VMConnect öffnen.'
+    }
+    catch { Write-LabError $_.Exception.Message }
+}
+
+function Manage-LabHyperVEnvironmentInteractive {
+    [CmdletBinding()]
+    param()
+
+    $runs = @(Get-LabActiveRuns | Where-Object { [string]$_.metadata.workflowKind -eq 'hyperv-lab' })
+    if ($runs.Count -eq 0) { Write-LabInfo 'Keine regulären Hyper-V-Umgebungen vorhanden.'; return }
+    for ($i = 0; $i -lt $runs.Count; $i++) {
+        try {
+            $lab = Get-HyperVLabWorkflowRun -RunId $runs[$i].runId
+            $status = Get-HyperVInstanceStatus -VMName $lab.Instance.vmName -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
+            Write-Host ("    [{0}] {1} · {2} · VM {3}: {4}" -f ($i + 1), $runs[$i].metadata.name, $runs[$i].state, $lab.Instance.vmName, $status.State) -ForegroundColor White
+        }
+        catch { Write-Host ("    [{0}] {1} · {2}" -f ($i + 1), $runs[$i].metadata.name, $runs[$i].state) -ForegroundColor Yellow }
+    }
+    $selection = Read-Host '  Umgebung auswählen'
+    if ($selection -notmatch '^\d+$' -or [int]$selection -lt 1 -or [int]$selection -gt $runs.Count) { Write-LabWarning 'Ungültige Auswahl.'; return }
+    $runId = [string]$runs[[int]$selection - 1].runId
+    $action = Read-Host '  Aktion: [s]tarten, [v]mconnect, sto[p]pen, [e]ntfernen'
+    try {
+        switch ($action) {
+            's' { $result = Start-HyperVLabEnvironment -RunId $runId; Write-LabSuccess "VM gestartet: $($result.VMName)" }
+            'v' { $result = Open-HyperVLabEnvironmentConsole -RunId $runId; Write-LabInfo "VMConnect geöffnet: $($result.VMName)" }
+            'p' { $result = Stop-HyperVLabEnvironment -RunId $runId; Write-LabSuccess "VM gestoppt: $($result.VMName)" }
+            'e' {
+                if (Read-LabConfirm -Prompt '  VM und run-lokale differenzierende VHDX wirklich entfernen?' -Default $false) {
+                    $result = Remove-SqlServerLab -RunId $runId -Force -Confirm:$false
+                    Write-LabSuccess "Entfernt: $($result.RunId)"
+                }
+            }
+            default { Write-LabWarning 'Ungültige Aktion.' }
+        }
+    }
+    catch { Write-LabError $_.Exception.Message }
 }
 
 function Get-AvailableLabProviders {

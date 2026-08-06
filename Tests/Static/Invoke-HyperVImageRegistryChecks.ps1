@@ -40,17 +40,23 @@ try {
             -OperatingSystemId synthetic-ci -OperatingSystemVersion 1 -Edition none `
             -InstallationType synthetic -LicenseType test-only -IntegrityOrigin synthetic-test `
             -StateRoot $StateRoot
+        $renamed = Rename-HyperVImageArtifact -ArtifactId $artifact.artifactId -DisplayName 'Umbenanntes Testimage' -StateRoot $StateRoot
         $selection = Resolve-HyperVImageArtifact `
             -OperatingSystemId synthetic-ci -OperatingSystemVersion 1 -Edition none `
             -InstallationType synthetic -StateRoot $StateRoot
         $lockPath = Add-HyperVImageManifestLockEntry -RunDirectory $RunDirectory -Artifact $artifact
-        [PSCustomObject]@{ Artifact = $artifact; Again = $again; Selection = $selection; LockPath = $lockPath }
+        [PSCustomObject]@{ Artifact = $artifact; Again = $again; Renamed = $renamed; Selection = $selection; LockPath = $lockPath }
     } $sourcePath $sha256 $stateRoot $runDirectory
 
     Add-CheckResult -Name 'Artifact-ID ist inhaltsadressiert' -Success ($result.Artifact.artifactId -match $sha256.ToLowerInvariant())
     Add-CheckResult -Name 'Registry kopiert Parent in lokalen Store' -Success (Test-Path -LiteralPath $result.Artifact.Path -PathType Leaf)
     Add-CheckResult -Name 'Registry-Parent ist read-only' -Success ((Get-Item -LiteralPath $result.Artifact.Path).IsReadOnly)
     Add-CheckResult -Name 'Import ist idempotent' -Success ($result.Again.artifactId -eq $result.Artifact.artifactId)
+    Add-CheckResult -Name 'Anzeigename ist nachträglich änderbar, ohne die Artifact-ID zu ändern' -Success (
+        $result.Renamed.displayName -eq 'Umbenanntes Testimage' -and
+        $result.Renamed.artifactId -eq $result.Artifact.artifactId -and
+        $result.Renamed.sha256 -eq $result.Artifact.sha256
+    )
     Add-CheckResult -Name 'Test-Artifact wird nie als reale Baseline gewaehlt' -Success ($result.Selection.Status -eq 'BASELINE_NOT_COMPATIBLE')
     Add-CheckResult -Name 'Resolver begruendet Test-Ausschluss' -Success ($result.Selection.Rejected[0].Reasons -contains 'test-only')
 
@@ -112,6 +118,34 @@ try {
         } $sourcePath $sha256 $stateRoot | Out-Null
     } catch { $metadataConflictRejected = $_.Exception.Message -match 'HYPERV_ARTIFACT_METADATA_CONFLICT' }
     Add-CheckResult -Name 'Gleiche Bytes mit widerspruechlichen Metadaten werden abgelehnt' -Success $metadataConflictRejected
+
+    $referenceBuildId = [guid]::NewGuid().ToString()
+    $referenceDirectory = Join-Path (Join-Path (Join-Path $stateRoot 'image-builds') 'hyperv') $referenceBuildId
+    New-Item -Path $referenceDirectory -ItemType Directory -Force | Out-Null
+    [PSCustomObject]@{ buildId = $referenceBuildId; state = 'OS_SEALED'; artifact = [PSCustomObject]@{ artifactId = $result.Artifact.artifactId } } |
+        ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $referenceDirectory 'build-state.json') -Encoding utf8
+    $inUseRejected = $false
+    try {
+        & $module {
+            param($ArtifactId, $StateRoot)
+            Remove-HyperVImageArtifact -ArtifactId $ArtifactId -StateRoot $StateRoot
+        } $result.Artifact.artifactId $stateRoot | Out-Null
+    } catch { $inUseRejected = $_.Exception.Message -match 'HYPERV_ARTIFACT_IN_USE' }
+    Add-CheckResult -Name 'Referenziertes Artifact wird nicht geloescht' -Success $inUseRejected
+    Remove-Item -LiteralPath $referenceDirectory -Recurse -Force
+
+    $removal = & $module {
+        param($ArtifactId, $StateRoot)
+        Remove-HyperVImageArtifact -ArtifactId $ArtifactId -StateRoot $StateRoot
+    } $result.Artifact.artifactId $stateRoot
+    Add-CheckResult -Name 'Explizites Artifact-Loeschen entfernt Registry-VHDX und Metadaten gemeinsam' -Success (
+        $removal.Status -eq 'REMOVED' -and -not (Test-Path -LiteralPath $result.Artifact.Path)
+    )
+    $missingArtifact = & $module {
+        param($ArtifactId, $StateRoot)
+        Get-HyperVImageArtifact -ArtifactId $ArtifactId -StateRoot $StateRoot -SkipIntegrityCheck
+    } $result.Artifact.artifactId $stateRoot
+    Add-CheckResult -Name 'Geloeschtes Artifact ist nicht mehr aufloesbar' -Success (-not $missingArtifact)
 }
 catch {
     Add-CheckResult -Name 'Hyper-V-Image-Registry-Testausfuehrung' -Success $false -Message $_.Exception.Message

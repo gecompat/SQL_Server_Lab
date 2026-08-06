@@ -9,6 +9,10 @@ $moduleLoaderPath = Join-Path $repoRoot 'SqlServerLab.psm1'
 $commonPath = Join-Path $repoRoot 'Private/Common.ps1'
 $workflowPath = Join-Path $repoRoot 'Public/Get-SqlServerLabWorkflow.ps1'
 $actionPath = Join-Path $repoRoot 'Public/Invoke-SqlServerLabWorkflowAction.ps1'
+$consolePath = Join-Path $repoRoot 'Public/Invoke-SqlServerLab.ps1'
+$vmConnectPath = Join-Path $repoRoot 'Private/HyperVVmConnect.ps1'
+$hyperVLabPath = Join-Path $repoRoot 'Private/HyperVLabEnvironment.ps1'
+$mediaSourcePath = Join-Path $repoRoot 'Private/MediaSourceCatalog.ps1'
 $htmlPath = Join-Path $repoRoot 'Ui/index.html'
 $scriptPath = Join-Path $repoRoot 'Ui/app.js'
 $failures = [System.Collections.Generic.List[string]]::new()
@@ -23,6 +27,10 @@ $moduleLoaderText = Get-Content -LiteralPath $moduleLoaderPath -Raw -Encoding ut
 $commonText = Get-Content -LiteralPath $commonPath -Raw -Encoding utf8
 $workflowText = Get-Content -LiteralPath $workflowPath -Raw -Encoding utf8
 $actionText = Get-Content -LiteralPath $actionPath -Raw -Encoding utf8
+$consoleText = Get-Content -LiteralPath $consolePath -Raw -Encoding utf8
+$vmConnectText = Get-Content -LiteralPath $vmConnectPath -Raw -Encoding utf8
+$hyperVLabText = Get-Content -LiteralPath $hyperVLabPath -Raw -Encoding utf8
+$mediaSourceText = Get-Content -LiteralPath $mediaSourcePath -Raw -Encoding utf8
 $htmlText = Get-Content -LiteralPath $htmlPath -Raw -Encoding utf8
 $scriptText = Get-Content -LiteralPath $scriptPath -Raw -Encoding utf8
 
@@ -49,6 +57,19 @@ Add-CheckResult -Name 'UI-Aktionen halten Gastpasswoerter nur fluechtig' -Succes
     $serverText -notmatch 'Write-Output.*GuestPassword' -and
     $serverText -notmatch 'Write-Output.*SaPassword'
 )
+Add-CheckResult -Name 'VMConnect erhält lokalen Hyper-V-Host und VM-Namen' -Success (
+    $actionText -match 'Start-LabVmConnect -VMName' -and
+    $vmConnectText -match 'function Start-LabVmConnect' -and
+    $vmConnectText -match 'System32\\vmconnect\.exe' -and
+    $vmConnectText -match 'ArgumentList @\(\$hostName, \$VMName\)' -and
+    $vmConnectText -match 'function Show-LabVmConnectWindow' -and
+    $vmConnectText -match 'SetForegroundWindow' -and
+    $vmConnectText -match 'SetWindowPos' -and
+    $vmConnectText -match 'BringWindowToTop' -and
+    $vmConnectText -match 'Reused = \$reused' -and
+    $actionText -match 'OpenWindowsConsole' -and
+    $actionText -match 'OpenSqlConsole'
+)
 Add-CheckResult -Name 'Browser-Oberflaeche zeigt Workflow und Live-Log' -Success (
     $htmlText -match 'GEFÜHRTER WORKFLOW' -and
     $htmlText -match 'Live-Log' -and
@@ -59,20 +80,168 @@ Add-CheckResult -Name 'Browser-Oberflaeche zeigt Workflow und Live-Log' -Success
     $scriptText -match 'CreateContainerDatabase' -and
     $scriptText -match 'dateToGerman'
 )
+Add-CheckResult -Name 'UI bietet erkannte Windows- und SQL-Medien ohne manuelle Editionsauswahl an' -Success (
+    $workflowText -match 'WindowsInstallationMedia' -and
+    $htmlText -match 'id="windows-media"' -and
+    $htmlText -match 'Erkannte SQL-Medienedition' -and
+    $htmlText -notmatch '<select id="sql-edition"' -and
+    $scriptText -match 'renderWindowsInstallationMedia' -and
+    $scriptText -match 'WindowsMediaPath' -and
+    $scriptText -match "OperatingSystemId === 'windows-server-2025'"
+)
+Add-CheckResult -Name 'UI prüft und speichert explizit eingegebene ISO-Hashes vor dem Build' -Success (
+    $actionText -match 'SetWindowsMediaHash' -and
+    $actionText -match 'SetSqlMediaHash' -and
+    $actionText -match 'WindowsMediaSha256' -and
+    $actionText -match 'SqlMediaSha256' -and
+    $htmlText -match 'id="windows-media-sha256"' -and
+    $htmlText -match 'id="sql-media-sha256"' -and
+    $htmlText -match 'id="set-windows-media-hash"' -and
+    $htmlText -match 'id="set-sql-media-hash"' -and
+    $scriptText -match 'SetWindowsMediaHash' -and
+    $scriptText -match 'SetSqlMediaHash'
+)
+Add-CheckResult -Name 'Media Root und Quellen trennen Portalseiten von Bootstrapper-ISOs' -Success (
+    $workflowText -match 'MediaSources = \$mediaSources' -and
+    $actionText -match 'SetMediaRoot' -and
+    $mediaSourceText -match 'BOOTSTRAPPER_MANUAL_ISO' -and
+    $mediaSourceText -match 'DOWNLOAD_ON_INSTALL' -and
+    $htmlText -match 'id="media-sources"' -and
+    $htmlText -match 'id="sources-media-root"' -and
+    $scriptText -match 'renderMediaSources' -and
+    $scriptText -match 'sourceMediaRoot\.value = data\.Defaults\.MediaRoot' -and
+    $scriptText -match 'safeExternalUrl'
+)
+Add-CheckResult -Name 'Datenbankdialog bietet katalogisierte Testdatenbanken mit explizitem Trust an' -Success (
+    $workflowText -match 'SampleDatabases = \$sampleDatabases' -and
+    $workflowText -match 'Get-LabExecutableSampleVariant' -and
+    $actionText -match 'InstallContainerSampleDatabase' -and
+    $actionText -match 'Resolve-LabRunInstance' -and
+    $actionText -match 'CONTAINER_WORKFLOW_SAMPLE_TRUST_REQUIRED' -and
+    $htmlText -match 'id="container-sample"' -and
+    $htmlText -match 'id="container-sample-trust"' -and
+    $htmlText -match 'id="container-sample-sha256"' -and
+    $actionText -match '\[string\]\$SampleSha256' -and
+    $scriptText -match 'renderContainerSampleOptions' -and
+    $scriptText -match 'TrustUnknownSample' -and
+    $scriptText -match 'SampleSha256' -and
+    $scriptText -match "container-sample-trust'\)\.checked = false"
+)
 Add-CheckResult -Name 'Evaluationdatum ist lesbar vorausgefüllt und Abbruch bleibt möglich' -Success (
     $htmlText -match 'type="text"' -and
     $htmlText -match 'TT\.MM\.JJJJ' -and
+    $htmlText -match 'type="button".*formnovalidate' -and
     $scriptText -match "event\.submitter\?\.value === 'cancel'" -and
+    $scriptText -match 'closest' -and
+    $scriptText -match 'value="cancel"' -and
     $scriptText -match 'parseGermanDate'
+)
+Add-CheckResult -Name 'Container-Labs zeigen alle Instanzen inklusive Provider' -Success (
+    $scriptText -match 'container-instance' -and
+    $scriptText -match 'instance\.Provider' -and
+    $workflowText -match 'if \(\$_\.sqlVersion\)' -and
+    $workflowText -match '\[string\]\$_.version' -and
+    $scriptText -notmatch '\(item\.Instances \|\| \[\]\)\[0\]'
+)
+Add-CheckResult -Name 'UI bildet Hyper-V-SQL-Abnahmeschritte zustandsgeführt ab' -Success (
+    $workflowText -match 'AcceptanceEnvironments = \$acceptanceItems' -and
+    $workflowText -match 'ProvisioningMode' -and
+    $actionText -match 'RunSqlAcceptanceSetup' -and
+    $actionText -match 'RunSqlAcceptanceTests' -and
+    $scriptText -match 'renderAcceptance' -and
+    $scriptText -match 'SQL-Abnahme ausführen' -and
+    $scriptText -match "\[data-open-build\], \[data-action\]"
+)
+Add-CheckResult -Name 'UI erstellt reguläre Hyper-V-Labs nur aus SQL-Prepared-Images' -Success (
+    $hyperVLabText -match 'SQL_PREPARED_SEALED' -and
+    $hyperVLabText -match 'New-HyperVInstance' -and
+    $hyperVLabText -match 'Start-HyperVLabEnvironment' -and
+    $hyperVLabText -match 'Complete-HyperVLabSqlImage' -and
+    $hyperVLabText -match '/ACTION=CompleteImage' -and
+    $hyperVLabText -match 'Open-HyperVLabEnvironmentConsole' -and
+    $actionText -match 'NewHyperVLab' -and
+    $actionText -match 'CompleteHyperVLabSql' -and
+    $actionText -match 'RemoveHyperVLab' -and
+    $workflowText -match 'HyperVLabs = \$hyperVLabs' -and
+    $workflowText -match 'HyperVSwitches = \$hyperVSwitches' -and
+    $htmlText -match 'id="new-hyperv-lab"' -and
+    $htmlText -match 'id="hyperv-artifact"' -and
+    $scriptText -match 'renderHyperVLabs' -and
+    $scriptText -match 'SQL CompleteImage ausführen' -and
+    $scriptText -match 'data-hyperv-remove'
+)
+Add-CheckResult -Name 'UI bietet einen getrennten, sicheren Schnellstart aus vorhandener Windows-VM' -Success (
+    $hyperVLabText -match 'Get-HyperVExistingVmLabSource' -and
+    $hyperVLabText -match 'New-HyperVLabEnvironmentFromExistingVm' -and
+    $hyperVLabText -match 'Convert-VHD' -and
+    $hyperVLabText -match 'HYPERV_EXISTING_VM_LICENSE_CONFIRMATION_REQUIRED' -and
+    $actionText -match 'NewHyperVLabFromExistingVm' -and
+    $workflowText -match 'HyperVExistingVmSources' -and
+    $htmlText -match 'id="new-hyperv-existing-vm-lab"' -and
+    $htmlText -match 'id="hyperv-existing-vm-source"' -and
+    $htmlText -match 'id="hyperv-existing-vm-license-confirm"' -and
+    $scriptText -match 'renderHyperVExistingVmSourceOptions' -and
+    $scriptText -match 'ConfirmSourceLicense' -and
+    $consoleText -match 'New-LabHyperVEnvironmentFromExistingVmInteractive' -and
+    $consoleText -match 'ConfirmSourceLicense'
+)
+Add-CheckResult -Name 'Prepared-Images erhalten lesbare Namen und zeigen vollständige Auswahl-Details' -Success (
+    $actionText -match '\[string\]\$ImageName' -and
+    $actionText -match 'RenameHyperVImageArtifact' -and
+    $htmlText -match 'id="sql-image-name"' -and
+    $htmlText -match 'id="hyperv-artifact-details"' -and
+    $htmlText -match 'id="artifact-name-dialog"' -and
+    $htmlText -match 'id="artifact-current-name"' -and
+    $scriptText -match 'renderHyperVArtifactDetails' -and
+    $scriptText -match 'data-artifact-rename' -and
+    $scriptText -match 'artifact-current-name' -and
+    $scriptText -match 'DisplayName' -and
+    $scriptText -match 'ArtifactId:'
+)
+Add-CheckResult -Name 'Hyper-V-Switches und sofortige Browser-Rückmeldung sind sichtbar' -Success (
+    $htmlText -match 'id="hyperv-switch"' -and
+    $scriptText -match 'renderHyperVSwitchOptions' -and
+    $htmlText -match 'id="action-feedback"' -and
+    $scriptText -match '\[ANFORDERUNG\]' -and
+    $scriptText -match '\[HEARTBEAT\]' -and
+    $serverText -notmatch 'Eine Hintergrundaktion läuft bereits'
+)
+Add-CheckResult -Name 'Windows-Generalisierung fordert sichtbar das Gastpasswort an' -Success (
+    $scriptText -match 'Windows generalisieren · Gastpasswort erforderlich' -and
+    $scriptText -match "action === 'GeneralizeWindowsBuild'" -and
+    $scriptText -match "\$\('#credential-note'\)" -and
+    $htmlText -match 'id="credential-note"'
+)
+Add-CheckResult -Name 'UI räumt offene Hyper-V-Builder nur nach Bestätigung auf' -Success (
+    $actionText -match 'CleanupWindowsBuild' -and
+    $actionText -match 'CleanupSqlBuild' -and
+    $actionText -match 'Remove-HyperVWindowsImageBuild' -and
+    $actionText -match 'Remove-HyperVSqlImageBuild' -and
+    $scriptText -match 'data-build-cleanup' -and
+    $scriptText -match 'Build-Verlauf entfernen' -and
+    $scriptText -match 'data-artifact-remove' -and
+    $actionText -match 'RemoveHyperVImageArtifact' -and
+    $scriptText -match 'Image löschen' -and
+    $scriptText -match 'wirklich aufräumen' -and
+    $scriptText -match 'Veröffentlichte Images bleiben unverändert' -and
+    $htmlText -match 'confirmation-dialog' -and
+    $scriptText -match 'openConfirmation' -and
+    $scriptText -notmatch 'window\.confirm'
 )
 Add-CheckResult -Name 'UI-Jobs unterdrücken Modul-Ladeausgaben und zeigen Laufzeit' -Success (
     $serverText -match "InformationPreference = 'SilentlyContinue'" -and
     $serverText -match 'ElapsedSeconds' -and
-    $scriptText -match 'job-progress'
+    $serverText -match 'DateTimeOffset\]::Parse' -and
+    $serverText -match 'RoundtripKind' -and
+    $scriptText -match 'job-progress' -and
+    $scriptText -match 'Array\.isArray\(payload\)'
 )
 Add-CheckResult -Name 'UI-Jobs leiten Labmeldungen ins Live-Log statt ins Terminal' -Success (
     $serverText -match 'SqlServerLabUiCaptureOutput' -and
-    $commonText -match 'Write-Output "\[INFO\]' -and
+    $serverText -match '6>&1' -and
+    $commonText -match 'Write-Information "\[INFO\]' -and
+    $commonText -match 'Write-Information "\[AKTION\]' -and
+    $commonText -match 'Write-Information "\[STATUS\]' -and
     $moduleLoaderText -match 'Write-Verbose "\[LOAD\]'
 )
 

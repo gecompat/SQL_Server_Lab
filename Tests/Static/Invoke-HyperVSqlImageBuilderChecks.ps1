@@ -28,6 +28,13 @@ try {
         $hashed.HashStatus -eq 'SIDECAR_READY' -and $hashed.ExpectedSha256 -match '^[a-f0-9]{64}$' -and
         (Get-Content -LiteralPath $hashed.HashPath -Raw) -match 'SQL/2019/Eval/ISO/SQLServer2019-test\.iso'
     )
+    $manualHash = & $module {
+        param($Root, $Sha)
+        Set-HyperVSqlMediaHashSidecar -MediaRoot $Root -SqlVersion 2019 -MediaEdition Eval -ExpectedSha256 $Sha
+    } $mediaRoot $hashed.ExpectedSha256
+    Add-CheckResult -Name 'Offiziell eingegebener SQL-Hash wird vor dem Sidecar-Schreiben lokal geprüft' -Success (
+        $manualHash.HashStatus -eq 'SIDECAR_READY' -and $manualHash.ExpectedSha256 -eq $hashed.ExpectedSha256
+    )
 
     $artifactId = 'hyperv-os-sealed-' + ('a' * 64)
     $plan = & $module {
@@ -57,12 +64,13 @@ try {
         New-HyperVSqlFreshImageBuildPlan -WindowsIsoPath $Iso -ExpectedWindowsSha256 $Sha `
             -OperatingSystemId windows-server-2025 -WindowsEdition standard-evaluation `
             -InstallationType desktop-experience -SqlIsoPath $Iso -ExpectedSqlSha256 $Sha `
-            -SqlVersion 2019 -SqlEdition Eval -StateRoot $Root
+            -SqlVersion 2019 -SqlEdition Eval -ImageName 'Testbild SQL 2019' -StateRoot $Root
     } $isoPath $hashed.ExpectedSha256 $stateRoot
     Add-CheckResult -Name 'Fresh-Prepared-Plan startet ohne OS_SEALED-Parent und mit genau einem finalen Sysprep' -Success (
         $freshPlan.provisioningMode -eq 'fresh-windows-media' -and
         $freshPlan.parentArtifact.source -eq 'fresh-windows-media' -and
-        $freshPlan.operatingSystem.installationType -eq 'desktop-experience'
+        $freshPlan.operatingSystem.installationType -eq 'desktop-experience' -and
+        $freshPlan.displayName -eq 'Testbild SQL 2019'
     )
     $cleanedUp = & $module {
         param($BuildId,$Root)
@@ -161,8 +169,20 @@ try {
     Add-CheckResult -Name 'SQL-2022- und SQL-2025-Jahresversionen werden als passende Medien erkannt' -Success (
         $sqlSetupVersionsAccepted -and
         $builderText -match 'ExpectedSetupVersionPattern' -and
-        $builderText -match "'2022' \{ return '\(\?<!\\d\)\(\?:16\|2022\\\.0160\)\\\.' \}"
+        $builderText -match 'function Get-HyperVSqlVersionFromMajor' -and
+        $builderText -match 'function Get-HyperVSqlInstallationMediaCandidates'
     )
+    $dynamicVersionMapping = & $module {
+        (Get-HyperVSqlVersionFromMajor -MajorVersion 14) -eq '2017' -and
+        (Get-HyperVSqlMajorVersionFromVersion -SqlVersion 2016) -eq 13 -and
+        ('13.0.1601.5' -match (Get-HyperVSqlSetupVersionPattern -SqlVersion 2016))
+    }
+    Add-CheckResult -Name 'Weitere SQL-Versionen werden ueber die aus ISO gelesene Hauptversion dynamisch zugeordnet' -Success $dynamicVersionMapping
+    $dynamicEditionMapping = & $module {
+        (Get-HyperVSqlMediaEditionFromPath -Path 'SQL/2025/Standard_Developer/ISO/sql.iso') -eq 'Standard' -and
+        (Get-HyperVSqlMediaEditionFromPath -Path 'SQL/2022/Developer/ISO/sql.iso') -eq 'Enterprise'
+    }
+    Add-CheckResult -Name 'Automatische Medienedition bevorzugt Standard vor dem Developer-Zusatz' -Success $dynamicEditionMapping
     Add-CheckResult -Name 'SQL-ISO wird vor der VM-Erstellung gegen die gewaehlte SQL-Version geprueft' -Success (
         $builderText -match 'function Confirm-HyperVSqlInstallationMediaVersion' -and
         $builderText -match 'HYPERV_SQL_MEDIA_VERSION_MISMATCH' -and

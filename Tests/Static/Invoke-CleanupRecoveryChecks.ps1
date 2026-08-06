@@ -111,6 +111,21 @@ try {
             -Provider docker `
             -ProviderSubRunId 'provider-docker'
 
+        # Simuliert einen vor dem providerbezogenen Cleanup-Statusformat
+        # gespeicherten Plan. Der Recovery-Pfad muss ihn ohne Hostmutation
+        # aktualisieren und den eigentlichen Providerfehler erreichen.
+        $legacyPlan = [pscustomobject]@{
+            runId = $run.RunId; scopeId = $scopeId; createdAt = Get-LabTimestamp; status = 'PENDING'
+            providerSubRuns = @([pscustomobject]@{ id = 'provider-docker'; provider = 'docker' })
+            steps = @([pscustomobject]@{
+                order = 1; resourceType = 'container'; resourceId = 'sql-lab-synthetic-recovery'
+                action = 'remove'; provider = 'docker'; compensation = ''; dependsOn = @()
+            })
+        }
+        $legacyPlan |
+            ConvertTo-Json -Depth 20 |
+            Set-Content -LiteralPath (Join-Path $run.RunDir 'cleanup-plan.json') -Encoding utf8
+
         $secretDirectory = Join-Path $run.RunDir 'secrets'
         New-Item -Path $secretDirectory -ItemType Directory -Force | Out-Null
         Set-Content -LiteralPath (Join-Path $secretDirectory 'synthetic.secret') -Value 'synthetic-only' -Encoding utf8
@@ -139,6 +154,8 @@ try {
             FailedStepPreserved          = @($planAfterFailure.steps).Count -eq 1 -and
                                            $planAfterFailure.steps[0].state -eq 'FAILED' -and
                                            $planAfterFailure.steps[0].error -match 'SYNTHETIC_PROVIDER_REMOVE_FAILURE'
+            LegacyPlanUpgraded           = $planAfterFailure.providerSubRuns[0].state -eq 'PARTIAL' -and
+                                           $planAfterFailure.providerSubRuns[0].errors -eq 1
             ErrorHistoryPreserved        = @($stateAfterFailure.errors | Where-Object {
                                                $_.component -eq 'Remove-SqlServerLab'
                                            }).Count -eq 1
@@ -158,6 +175,7 @@ try {
     Add-CheckResult -Name 'Vollstaendig blockierter Cleanup bleibt sichtbar' -Success $result.FirstAttemptBlocked
     Add-CheckResult -Name 'Run-State bleibt nach Fehler fuer Recovery erhalten' -Success $result.FailureStatePreserved
     Add-CheckResult -Name 'Fehlgeschlagener Cleanup-Schritt behaelt Ursache' -Success $result.FailedStepPreserved
+    Add-CheckResult -Name 'Aelterer Cleanup-Plan wird vor Recovery kompatibel aktualisiert' -Success $result.LegacyPlanUpgraded
     Add-CheckResult -Name 'Run-Fehlerhistorie dokumentiert Cleanupfehler' -Success $result.ErrorHistoryPreserved
     Add-CheckResult -Name 'Wiederholungsversuch entfernt die Umgebung' -Success $result.RetryRemoved
     Add-CheckResult -Name 'Erfolgreicher Retry endet in REMOVED' -Success $result.RetryStateFinal

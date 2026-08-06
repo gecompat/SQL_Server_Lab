@@ -307,18 +307,14 @@ function Ensure-HyperVSqlBuildLabNetwork {
 
 function Get-HyperVSqlMajorVersion {
     [CmdletBinding()]
-    param([Parameter(Mandatory)][ValidateSet('2019', '2022', '2025')][string]$SqlVersion)
-    switch ($SqlVersion) {
-        '2019' { return 15 }
-        '2022' { return 16 }
-        '2025' { return 17 }
-    }
+    param([Parameter(Mandatory)][string]$SqlVersion)
+    return Get-HyperVSqlMajorVersionFromVersion -SqlVersion $SqlVersion
 }
 
 function Get-HyperVSqlAcceptanceComputerName {
     [CmdletBinding()]
-    param([Parameter(Mandatory)][ValidateSet('2019', '2022', '2025')][string]$SqlVersion)
-    return "SQLWIN$SqlVersion"
+    param([Parameter(Mandatory)][string]$SqlVersion)
+    return ("SQLWIN$SqlVersion" -replace '[^A-Za-z0-9-]', '').Substring(0, [Math]::Min(15, ("SQLWIN$SqlVersion" -replace '[^A-Za-z0-9-]', '').Length))
 }
 
 function Invoke-HyperVSqlTestEnvironmentInstall {
@@ -371,7 +367,7 @@ function Invoke-HyperVSqlTestEnvironmentInstall {
                         if (Test-Path -LiteralPath $candidate -PathType Leaf) { Get-Item -LiteralPath $candidate }
                     })
                     if ($setup.Count -ne 1) { throw "SQL_SETUP_MEDIA_NOT_UNIQUE: $($setup.Count)" }
-                    $expectedMajor = switch ($ExpectedSqlVersion) { '2019' { 15 }; '2022' { 16 }; '2025' { 17 } }
+                    $expectedMajor = if ($ExpectedSqlVersion -match '^major-(\d+)$') { [int]$Matches[1] } else { @{ '2012' = 11; '2014' = 12; '2016' = 13; '2017' = 14; '2019' = 15; '2022' = 16; '2025' = 17 }[$ExpectedSqlVersion] }
                     $setupVersion = [string]$setup[0].VersionInfo.ProductVersion
                     if (-not $setupVersion) { $setupVersion = [string]$setup[0].VersionInfo.FileVersion }
                     if ([string]::IsNullOrWhiteSpace($setupVersion) -or $setupVersion -notmatch $ExpectedSetupVersionPattern) {

@@ -13,6 +13,7 @@ param()
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
+$consolePath = Join-Path $repoRoot 'Public/Invoke-SqlServerLab.ps1'
 $failures = [System.Collections.Generic.List[string]]::new()
 $passed = 0
 
@@ -20,6 +21,8 @@ $passed = 0
 
 Write-Host ''
 Write-Host 'SQL_Server_Lab - Sample Handler Checks' -ForegroundColor Cyan
+
+$consoleText = Get-Content -LiteralPath $consolePath -Raw -Encoding utf8
 
 $temporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) "sql-lab-sample-check-$([guid]::NewGuid().ToString('N'))"
 try {
@@ -114,6 +117,12 @@ try {
     Add-CheckResult -Name 'SQL-Skript-Samples werden nicht als Restore umgedeutet' -Success $result.ScriptRejected
     Add-CheckResult -Name 'Nicht interaktiver Handler ohne Trust endet mit TRUST_REQUIRED' -Success $result.TrustRequired
     Add-CheckResult -Name 'Lokaler Trust-/Cache-Status wird read-only gemeldet' -Success $result.LocalStatusUntrusted
+    Add-CheckResult -Name 'Konsolenaktion Datenbank anlegen bietet den Sample-Katalog an' -Success (
+        $consoleText -match "Testdatenbank aus dem Katalog wiederherstellen" -and
+        $consoleText -match 'Select-LabSampleSelection -SqlVersion \$target.Version -SkipInitialConfirm' -and
+        $consoleText -match 'Install-LabSampleDatabase -HostName \$target.HostName' -and
+        $consoleText -match '\[switch\]\$SkipInitialConfirm'
+    )
 }
 catch {
     Add-CheckResult -Name 'Sample Handler Testausfuehrung' -Success $false -Message $_.Exception.Message

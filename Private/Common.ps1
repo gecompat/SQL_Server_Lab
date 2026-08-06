@@ -32,7 +32,11 @@ function Write-LabInfo {
     [CmdletBinding()]
     param([Parameter(Mandatory, Position = 0)][string]$Message)
     if ($global:SqlServerLabUiCaptureOutput) {
-        Write-Output "[INFO]    $Message"
+        # Information-Records bleiben auch dann sofort sichtbar, wenn der
+        # aufrufende Fachbefehl sein Erfolgsobjekt intern zwischenspeichert.
+        # Das ist fuer die UI wichtig: Write-Output wuerde erst am Ende eines
+        # langen Aufrufs im Live-Log ankommen.
+        Write-Information "[INFO]    $Message" -Tags 'SqlServerLabUi' -InformationAction Continue
         return
     }
     Write-Host "[INFO]    $Message" -ForegroundColor $script:Colors.Info
@@ -45,7 +49,7 @@ function Write-LabSuccess {
     [CmdletBinding()]
     param([Parameter(Mandatory, Position = 0)][string]$Message)
     if ($global:SqlServerLabUiCaptureOutput) {
-        Write-Output "[OK]      $Message"
+        Write-Information "[OK]      $Message" -Tags 'SqlServerLabUi' -InformationAction Continue
         return
     }
     Write-Host "[OK]      $Message" -ForegroundColor $script:Colors.Success
@@ -58,7 +62,7 @@ function Write-LabWarning {
     [CmdletBinding()]
     param([Parameter(Mandatory, Position = 0)][string]$Message)
     if ($global:SqlServerLabUiCaptureOutput) {
-        Write-Output "[WARNUNG] $Message"
+        Write-Information "[WARNUNG] $Message" -Tags 'SqlServerLabUi' -InformationAction Continue
         return
     }
     Write-Host "[WARNUNG] $Message" -ForegroundColor $script:Colors.Warning
@@ -71,7 +75,7 @@ function Write-LabError {
     [CmdletBinding()]
     param([Parameter(Mandatory, Position = 0)][string]$Message)
     if ($global:SqlServerLabUiCaptureOutput) {
-        Write-Output "[FEHLER]  $Message"
+        Write-Information "[FEHLER]  $Message" -Tags 'SqlServerLabUi' -InformationAction Continue
         return
     }
     Write-Host "[FEHLER]  $Message" -ForegroundColor $script:Colors.Error
@@ -83,6 +87,10 @@ function Write-LabHeader {
     #>
     [CmdletBinding()]
     param([Parameter(Mandatory, Position = 0)][string]$Title)
+    if ($global:SqlServerLabUiCaptureOutput) {
+        Write-Information "[AKTION] $Title" -Tags 'SqlServerLabUi' -InformationAction Continue
+        return
+    }
     $line = '=' * 60
     Write-Host ""
     Write-Host $line -ForegroundColor $script:Colors.Header
@@ -101,6 +109,10 @@ function Write-LabStatus {
         [Parameter(Mandatory)][string]$Value,
         [string]$Color = 'White'
     )
+    if ($global:SqlServerLabUiCaptureOutput) {
+        Write-Information "[STATUS] ${Label}: $Value" -Tags 'SqlServerLabUi' -InformationAction Continue
+        return
+    }
     Write-Host "  $($Label.PadRight(24))" -NoNewline -ForegroundColor $script:Colors.Muted
     Write-Host $Value -ForegroundColor $Color
 }

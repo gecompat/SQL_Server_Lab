@@ -358,6 +358,7 @@ function Resolve-LabArtifact {
         [int]$Compatibility,
         [array]$ExpectedOutputs = @(),
         [switch]$NonInteractive,
+        [switch]$TrustUnknownArtifact,
         [string]$RunDirectory,
         [string]$StateRoot
     )
@@ -408,7 +409,7 @@ function Resolve-LabArtifact {
             Source  = $canonicalSource
         }
     }
-    elseif (-not (Read-LabConfirm -Prompt "Artifact ohne bekannte SHA-256 von '$canonicalSource' einmalig vertrauen und lokal pruefen?" -Default $false)) {
+    elseif (-not $TrustUnknownArtifact -and -not (Read-LabConfirm -Prompt "Artifact ohne bekannte SHA-256 von '$canonicalSource' einmalig vertrauen und lokal pruefen?" -Default $false)) {
         return [PSCustomObject]@{
             Status  = 'TRUST_REQUIRED'
             Message = 'Benutzer hat keine Vertrauensfreigabe erteilt.'
