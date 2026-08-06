@@ -508,10 +508,7 @@ function renderContainerSampleOptions(sqlVersion) {
     return;
   }
   const samples = catalog.filter((sample) => !sample.MinSqlVersion || Number(sample.MinSqlVersion) <= version);
-  const placeholder = samples.length
-    ? 'Eigene leere Datenbank anlegen'
-    : 'Keine kompatible Testdatenbank für SQL Server ' + (sqlVersion || '–') + ' vorhanden';
-  select.innerHTML = '<option value="">' + escapeHtml(placeholder) + '</option>' + samples.map((sample) => {
+  select.innerHTML = samples.map((sample) => {
     const trustRequired = sample.TrustStatus === 'TRUST_REQUIRED';
     const size = sample.DownloadSizeMB ? ' · ' + sample.DownloadSizeMB + ' MB' : '';
     return '<option value="' + escapeHtml(sample.SampleId + ':' + sample.Variant) + '" data-database="' + escapeHtml(sample.ExpectedDatabase) + '" data-trust-required="' + trustRequired + '" data-sha256="' + escapeHtml(sample.ExpectedSha256 || '') + '">' + escapeHtml(sample.DisplayName) + ' · ' + escapeHtml(sample.Variant) + ' → ' + escapeHtml(sample.ExpectedDatabase) + size + '</option>';
@@ -520,16 +517,22 @@ function renderContainerSampleOptions(sqlVersion) {
 }
 
 function updateContainerSampleSelection() {
-  const option = $('#container-sample').selectedOptions[0];
-  const selectedSample = Boolean($('#container-sample').value);
-  const trustRequired = selectedSample && option?.dataset?.trustRequired === 'true';
+  const options = [...$('#container-sample').selectedOptions].filter((option) => option.value);
+  const option = options[0];
+  const selectedSample = options.length > 0;
+  const trustRequired = options.some((item) => item.dataset?.trustRequired === 'true');
+  const multipleSamples = options.length > 1;
   $('#container-database-name').disabled = selectedSample;
-  if (selectedSample) $('#container-database-name').value = option?.dataset?.database || '';
+  if (selectedSample) $('#container-database-name').value = multipleSamples ? options.length + ' Testdatenbanken ausgewählt' : (option?.dataset?.database || '');
+  else $('#container-database-name').value = '';
+  $('#container-sample-note').textContent = selectedSample
+    ? (multipleSamples ? options.length + ' Testdatenbanken werden nacheinander installiert und verifiziert.' : 'Die Zieldatenbank wird vom Katalog festgelegt.')
+    : 'Ohne Auswahl wird die oben angegebene leere Datenbank angelegt.';
   const expectedSha = option?.dataset?.sha256 || '';
-  $('#container-sample-hash-field').hidden = !selectedSample;
-  $('#container-sample-sha256').value = expectedSha;
-  $('#container-sample-sha256').disabled = Boolean(expectedSha);
-  $('#container-sample-trust-field').hidden = !trustRequired || Boolean(expectedSha);
+  $('#container-sample-hash-field').hidden = !selectedSample || multipleSamples;
+  $('#container-sample-sha256').value = multipleSamples ? '' : expectedSha;
+  $('#container-sample-sha256').disabled = multipleSamples || Boolean(expectedSha);
+  $('#container-sample-trust-field').hidden = !trustRequired || (!multipleSamples && Boolean(expectedSha));
   // Eine Freigabe ist nur für die aktuell ausgewählte Variante gültig und
   // darf niemals aus einer vorherigen Dialognutzung übernommen werden.
   $('#container-sample-trust').checked = false;
@@ -751,6 +754,14 @@ $('#publish-form').addEventListener('submit', async (event) => {
 
 $('#new-container').addEventListener('click', () => $('#container-dialog').showModal());
 
+$('#new-manifest').addEventListener('click', () => $('#manifest-dialog').showModal());
+
+$('#run-manifest').addEventListener('click', () => $('#manifest-run-dialog').showModal());
+
+$('#clear-all-labs').addEventListener('click', () => {
+  openConfirmation('Alles aufräumen', 'Alle bekannten SQL Server Lab-Runs sowie nachweislich verwaiste SQL_Server_Lab-Container werden nach ihren Cleanup-Plänen bereinigt. Persistente Data-Root-Inhalte und veröffentlichte Hyper-V-Images bleiben erhalten.', 'ClearAllLabs', {}, 'Alles aufräumen');
+});
+
 $('#new-hyperv-lab').addEventListener('click', () => {
   renderHyperVArtifactOptions(workflow?.SqlPreparedImages || []);
   renderHyperVSwitchOptions(workflow?.HyperVSwitches || []);
@@ -841,22 +852,53 @@ $('#container-form').addEventListener('submit', async (event) => {
   } catch (error) { showError(error); }
 });
 
+$('#manifest-form').addEventListener('submit', async (event) => {
+  if (event.submitter?.value === 'cancel') return;
+  event.preventDefault();
+  try {
+    await startAction('CreateContainerManifest', {
+      ManifestPath: $('#manifest-path').value.trim(),
+      LabName: $('#manifest-name').value.trim(),
+      ManifestDescription: $('#manifest-description').value.trim(),
+      Provider: $('#manifest-provider').value,
+      SqlVersion: $('#manifest-version').value,
+      Profile: $('#manifest-profile').value,
+      InstanceId: $('#manifest-instance').value.trim()
+    });
+    $('#manifest-dialog').close();
+  } catch (error) { showError(error); }
+});
+
+$('#manifest-run-form').addEventListener('submit', async (event) => {
+  if (event.submitter?.value === 'cancel') return;
+  event.preventDefault();
+  try {
+    await startAction('NewContainerLabFromManifest', { ManifestPath: $('#manifest-run-path').value.trim(), SaPassword: $('#manifest-run-password').value });
+    $('#manifest-run-password').value = '';
+    $('#manifest-run-dialog').close();
+  } catch (error) { showError(error); }
+});
+
 $('#container-operation-form').addEventListener('submit', async (event) => {
   if (event.submitter?.value === 'cancel') return;
   event.preventDefault();
   let action = $('#container-operation-action').value;
   const parameters = { BuildId: $('#container-operation-run').value, InstanceId: $('#container-operation-instance').value, Port: Number($('#container-operation-port').value), SaPassword: $('#container-operation-password').value };
   if (action === 'CreateContainerDatabase') {
-    const sample = $('#container-sample').value;
-    if (sample) {
-      const [SampleId, SampleVariant] = sample.split(':', 2);
+    const samples = [...$('#container-sample').selectedOptions].map((option) => option.value).filter(Boolean);
+    if (samples.length) {
       const sampleSha256 = $('#container-sample-sha256').value.trim();
       if (sampleSha256 && !/^[a-fA-F0-9]{64}$/.test(sampleSha256)) { showError(new Error('Der SHA-256 der Testdatenbank muss 64 Hex-Zeichen enthalten.')); return; }
       if ($('#container-sample-trust-field').hidden === false && !sampleSha256 && !$('#container-sample-trust').checked) { showError(new Error('Bitte einen offiziellen SHA-256 eintragen oder die einmalige Vertrauensfreigabe bestätigen.')); return; }
-      action = 'InstallContainerSampleDatabase';
-      parameters.SampleId = SampleId;
-      parameters.SampleVariant = SampleVariant;
-      if (sampleSha256) parameters.SampleSha256 = sampleSha256;
+      action = samples.length === 1 ? 'InstallContainerSampleDatabase' : 'InstallContainerSampleDatabases';
+      if (samples.length === 1) {
+        const [SampleId, SampleVariant] = samples[0].split(':', 2);
+        parameters.SampleId = SampleId;
+        parameters.SampleVariant = SampleVariant;
+        if (sampleSha256) parameters.SampleSha256 = sampleSha256;
+      } else {
+        parameters.SampleSelections = samples;
+      }
       parameters.TrustUnknownSample = $('#container-sample-trust').checked;
     } else {
       parameters.DatabaseName = $('#container-database-name').value;

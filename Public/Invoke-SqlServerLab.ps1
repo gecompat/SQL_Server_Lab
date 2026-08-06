@@ -231,12 +231,26 @@ function Invoke-LabAction {
             $version = Read-Host "  SQL-Server-Version [2025]"
             if (-not $version) { $version = '2025' }
 
+            $profile = Read-Host '  Ressourcenprofil: compact, standard, performance [standard]'
+            if (-not $profile) { $profile = 'standard' }
+            if ($profile -notin @('compact', 'standard', 'performance')) {
+                Write-LabError "Ungueltiges Ressourcenprofil: $profile"
+                return
+            }
+            $labName = Read-Host "  Labname [adhoc-$version-$provider]"
+            if (-not $labName) { $labName = "adhoc-$version-$provider" }
+            $instanceId = Read-Host '  Instanzname [primary]'
+            if (-not $instanceId) { $instanceId = 'primary' }
+
             # Testdatenbanken (optional, Mehrfachauswahl)
             $selectedSamples = @(Select-LabSampleSelection -SqlVersion $version)
 
             $newLabArguments = @{
                 Version  = $version
                 Provider = $provider
+                Profile = $profile
+                LabName = $labName
+                InstanceId = $instanceId
             }
             $defaultDataRoot = Get-LabDataRootDefault
             if ($defaultDataRoot) {
@@ -1570,14 +1584,32 @@ function New-LabHyperVEnvironmentInteractive {
     if (-not $name) { $name = 'hyperv-sql-lab' }
     $instanceId = Read-Host '  Instanzname [primary]'
     if (-not $instanceId) { $instanceId = 'primary' }
+    $memory = Read-Host '  Startspeicher MB [4096]'
+    if (-not $memory) { $memory = 4096 }
+    $cpu = Read-Host '  vCPU [4]'
+    if (-not $cpu) { $cpu = 4 }
     $switchName = Read-Host '  Virtueller Switch (leer = isoliert)'
+    $persistentData = $false
+    $dataRoot = Get-LabDataRootDefault
+    $persistentDataDiskGB = 128
+    if ($dataRoot) {
+        Write-LabInfo "Optionaler Data Root verfügbar: $dataRoot"
+        $persistentData = Read-LabConfirm -Prompt '  Langlebige Daten-VHDX im Data Root anhängen?' -Default $false
+        if ($persistentData) {
+            $persistentDataDiskGB = Read-Host '  Größe Daten-VHDX in GB [128]'
+            if (-not $persistentDataDiskGB) { $persistentDataDiskGB = 128 }
+        }
+    }
     Write-Host "  Image: $($artifact.artifactId)" -ForegroundColor DarkGray
     Write-Host '  Es wird eine ausgeschaltete differenzierende VM erstellt. Start und VMConnect bleiben getrennte Schritte.' -ForegroundColor DarkGray
     if (-not (Read-LabConfirm -Prompt '  Hyper-V-Umgebung jetzt erstellen?' -Default $false)) { return }
     try {
-        $lab = New-HyperVLabEnvironment -ArtifactId $artifact.artifactId -LabName $name -InstanceId $instanceId -SwitchName $switchName
+        $lab = New-HyperVLabEnvironment -ArtifactId $artifact.artifactId -LabName $name -InstanceId $instanceId -MemoryStartupMB ([int]$memory) -ProcessorCount ([int]$cpu) -SwitchName $switchName
+        if ($persistentData) {
+            $null = Enable-HyperVLabPersistentData -RunId $lab.RunId -DataRoot $dataRoot -SizeGB ([int]$persistentDataDiskGB)
+        }
         Write-LabSuccess "Hyper-V-Umgebung erstellt: $($lab.VMName) (Run $($lab.RunId))"
-        Write-LabInfo 'Nächster Schritt: [19] wählen, VM starten und VMConnect öffnen.'
+        Write-LabInfo (if ($persistentData) { 'Nächster Schritt: [19] wählen, VM starten und die Daten-VHDX initialisieren.' } else { 'Nächster Schritt: [19] wählen, VM starten und VMConnect öffnen.' })
     }
     catch { Write-LabError $_.Exception.Message }
 }
@@ -1611,10 +1643,24 @@ function New-LabHyperVEnvironmentFromExistingVmInteractive {
     $cpu = Read-Host "  vCPU [$($source.ProcessorCount)]"
     if (-not $cpu) { $cpu = $source.ProcessorCount }
     $switchName = Read-Host '  Virtueller Switch (leer = isoliert)'
+    $persistentData = $false
+    $dataRoot = Get-LabDataRootDefault
+    $persistentDataDiskGB = 128
+    if ($dataRoot) {
+        Write-LabInfo "Optionaler Data Root verfügbar: $dataRoot"
+        $persistentData = Read-LabConfirm -Prompt '  Langlebige Daten-VHDX im Data Root anhängen?' -Default $false
+        if ($persistentData) {
+            $persistentDataDiskGB = Read-Host '  Größe Daten-VHDX in GB [128]'
+            if (-not $persistentDataDiskGB) { $persistentDataDiskGB = 128 }
+        }
+    }
     Write-LabWarning 'Die Original-VM und ihre VHDX bleiben unverändert. Es wird eine eigene, schreibgeschützte Arbeitskopie als Parent erstellt.'
     if (-not (Read-LabConfirm -Prompt '  Lizenz- und Ablaufstatus der Quell-VM geprüft und Lab-VM erstellen?' -Default $false)) { return }
     try {
         $lab = New-HyperVLabEnvironmentFromExistingVm -SourceVMName $source.VMName -LabName $name -InstanceId $instanceId -MemoryStartupMB ([int]$memory) -ProcessorCount ([int]$cpu) -SwitchName $switchName -ConfirmSourceLicense
+        if ($persistentData) {
+            $null = Enable-HyperVLabPersistentData -RunId $lab.RunId -DataRoot $dataRoot -SizeGB ([int]$persistentDataDiskGB)
+        }
         Write-LabSuccess "Hyper-V-Umgebung erstellt: $($lab.VMName) (Run $($lab.RunId)); Quelle '$($lab.SourceVMName)' blieb unverändert."
         Write-LabInfo 'Nächster Schritt: [19] wählen, VM starten und VMConnect öffnen.'
     }
@@ -1632,18 +1678,52 @@ function Manage-LabHyperVEnvironmentInteractive {
             $lab = Get-HyperVLabWorkflowRun -RunId $runs[$i].runId
             $status = Get-HyperVInstanceStatus -VMName $lab.Instance.vmName -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
             Write-Host ("    [{0}] {1} · {2} · VM {3}: {4}" -f ($i + 1), $runs[$i].metadata.name, $runs[$i].state, $lab.Instance.vmName, $status.State) -ForegroundColor White
+            if ($lab.Instance.connectionString) { Write-Host "        Connection String (in VM): $($lab.Instance.connectionString)" -ForegroundColor DarkGray }
+            if ($lab.Instance.persistentStorage) { Write-Host "        Persistente Daten: $($lab.Instance.persistentStorage.hostPath) [$($lab.Instance.persistentStorage.state)]" -ForegroundColor DarkGray }
         }
         catch { Write-Host ("    [{0}] {1} · {2}" -f ($i + 1), $runs[$i].metadata.name, $runs[$i].state) -ForegroundColor Yellow }
     }
     $selection = Read-Host '  Umgebung auswählen'
     if ($selection -notmatch '^\d+$' -or [int]$selection -lt 1 -or [int]$selection -gt $runs.Count) { Write-LabWarning 'Ungültige Auswahl.'; return }
     $runId = [string]$runs[[int]$selection - 1].runId
-    $action = Read-Host '  Aktion: [s]tarten, [v]mconnect, sto[p]pen, [e]ntfernen'
+    $action = Read-Host '  Aktion: [s]tarten, [v]mconnect, sto[p]pen, [d]aten-VHDX, [i]nitialisieren, [c]ompleteimage, SQL-[q] prüfen, [e]ntfernen'
     try {
         switch ($action) {
             's' { $result = Start-HyperVLabEnvironment -RunId $runId; Write-LabSuccess "VM gestartet: $($result.VMName)" }
             'v' { $result = Open-HyperVLabEnvironmentConsole -RunId $runId; Write-LabInfo "VMConnect geöffnet: $($result.VMName)" }
             'p' { $result = Stop-HyperVLabEnvironment -RunId $runId; Write-LabSuccess "VM gestoppt: $($result.VMName)" }
+            'd' {
+                $dataRoot = Get-LabDataRootDefault
+                if (-not $dataRoot) { Write-LabError 'Kein Data Root gespeichert. Zuerst Hauptmenü [d] konfigurieren.'; return }
+                $sizeGB = Read-Host '  Größe Daten-VHDX in GB [128]'
+                if (-not $sizeGB) { $sizeGB = 128 }
+                $storage = Enable-HyperVLabPersistentData -RunId $runId -DataRoot $dataRoot -SizeGB ([int]$sizeGB)
+                Write-LabSuccess "Daten-VHDX angehängt: $($storage.hostPath)"
+            }
+            'i' {
+                $userName = Read-Host '  Lokaler Gast-Administrator [Administrator]'
+                if (-not $userName) { $userName = 'Administrator' }
+                $credential = [PSCredential]::new($userName, (Read-Host '  Gastpasswort' -AsSecureString))
+                $null = Initialize-HyperVLabPersistentData -RunId $runId -Credential $credential
+                Write-LabSuccess 'Daten-VHDX wurde im Gast als D:\SQLData initialisiert.'
+            }
+            'c' {
+                $userName = Read-Host '  Lokaler Gast-Administrator [Administrator]'
+                if (-not $userName) { $userName = 'Administrator' }
+                $credential = [PSCredential]::new($userName, (Read-Host '  Gastpasswort' -AsSecureString))
+                $result = Complete-HyperVLabSqlImage -RunId $runId -Credential $credential
+                Write-LabSuccess "SQL CompleteImage abgeschlossen. State: $($result.State)"
+            }
+            'q' {
+                $userName = Read-Host '  Lokaler Gast-Administrator [Administrator]'
+                if (-not $userName) { $userName = 'Administrator' }
+                $credential = [PSCredential]::new($userName, (Read-Host '  Gastpasswort' -AsSecureString))
+                $instances = @(Inspect-HyperVLabSqlInstances -RunId $runId -Credential $credential)
+                foreach ($instance in $instances) {
+                    Write-Host ("    {0} · Dienst {1} · TCP {2}" -f $instance.Name, $instance.ServiceStatus, $instance.TcpPort) -ForegroundColor White
+                    Write-Host "      Connection String (in VM): $($instance.ConnectionString)" -ForegroundColor DarkGray
+                }
+            }
             'e' {
                 if (Read-LabConfirm -Prompt '  VM und run-lokale differenzierende VHDX wirklich entfernen?' -Default $false) {
                     $result = Remove-SqlServerLab -RunId $runId -Force -Confirm:$false

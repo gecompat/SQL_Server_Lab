@@ -36,8 +36,11 @@
         <button class="button primary" data-open-build="sql">Neues SQL-Prepared-Image</button>
         <button class="button secondary" data-open-build="sql-fresh">Frischer SQL-Build aus ISOs</button>
         <button id="new-container" class="button secondary">Neue Container-Umgebung</button>
+        <button id="new-manifest" class="button secondary">Container-Manifest erstellen</button>
+        <button id="run-manifest" class="button secondary">Container-Manifest ausführen</button>
         <button id="new-hyperv-lab" class="button secondary">Neue Hyper-V-Umgebung</button>
         <button id="new-hyperv-existing-vm-lab" class="button secondary">Windows-VM als Hyper-V-Basis</button>
+        <button id="clear-all-labs" class="button danger">Alles aufräumen</button>
       </div>
     </section>
 
@@ -247,7 +250,8 @@
       <div class="dialog-heading"><div><p class="eyebrow">CONTAINER-AKTION</p><h2 id="container-operation-title">Aktion ausführen</h2></div><button type="button" class="icon-button" value="cancel" formnovalidate aria-label="Schließen">×</button></div>
       <input id="container-operation-action" type="hidden"><input id="container-operation-run" type="hidden"><input id="container-operation-port" type="hidden"><input id="container-operation-instance" type="hidden">
       <label id="container-database-field">Datenbankname<input id="container-database-name" pattern="[A-Za-z0-9_]{1,128}"></label>
-      <label id="container-sample-field">Testdatenbank aus Katalog (optional)<select id="container-sample"><option value="">Eigene leere Datenbank anlegen</option></select></label>
+      <label id="container-sample-field">Testdatenbanken aus Katalog (optional, Mehrfachauswahl mit Strg/Shift)<select id="container-sample" multiple size="6"></select></label>
+      <p id="container-sample-note" class="form-note">Ohne Auswahl wird die oben angegebene leere Datenbank angelegt.</p>
       <label id="container-sample-hash-field" hidden>Offizieller SHA-256 der Testdatenbank (optional)<input id="container-sample-sha256" inputmode="text" autocomplete="off" maxlength="64" placeholder="64 Hex-Zeichen"></label>
       <label id="container-sample-trust-field" hidden><input id="container-sample-trust" type="checkbox"> Ich vertraue dieser Quelle einmalig: Die heruntergeladene Datei wird mit SHA-256 geprüft und der Fingerprint lokal für diese Katalogvariante gespeichert.</label>
       <label id="container-script-field">Absoluter Pfad zum SQL-Skript<input id="container-script-path"></label>
@@ -255,6 +259,33 @@
       <label>SA-Passwort<input id="container-operation-password" type="password" autocomplete="current-password" required></label>
       <p class="form-note">Das Passwort wird nicht gespeichert oder im Log angezeigt.</p>
       <div class="dialog-actions"><button type="button" class="button secondary" value="cancel" formnovalidate>Abbrechen</button><button class="button primary" value="default">Aktion starten</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="manifest-dialog">
+    <form id="manifest-form" method="dialog">
+      <div class="dialog-heading"><div><p class="eyebrow">CONTAINER-MANIFEST</p><h2>Manifest erstellen und prüfen</h2></div><button type="button" class="icon-button" value="cancel" formnovalidate aria-label="Schließen">×</button></div>
+      <div class="form-grid">
+        <label>Zielpfad<input id="manifest-path" placeholder="D:\\Lab\\mein-lab.json" required></label>
+        <label>Labname<input id="manifest-name" value="container-lab" pattern="[A-Za-z0-9][A-Za-z0-9 _-]{0,63}" required></label>
+        <label>Provider<select id="manifest-provider"><option value="docker">Docker</option><option value="podman">Podman</option></select></label>
+        <label>SQL Server<select id="manifest-version"><option value="2025">SQL Server 2025</option><option value="2022">SQL Server 2022</option><option value="2019">SQL Server 2019</option></select></label>
+        <label>Profil<select id="manifest-profile"><option value="standard">Standard</option><option value="compact">Kompakt</option><option value="performance">Performance</option></select></label>
+        <label>Instanzname<input id="manifest-instance" value="primary" pattern="[A-Za-z0-9_-]{1,64}" required></label>
+      </div>
+      <label>Beschreibung (optional)<input id="manifest-description"></label>
+      <p class="form-note">Das Manifest wird vor dem Speichern validiert. Eine bestehende Datei wird nicht überschrieben.</p>
+      <div class="dialog-actions"><button type="button" class="button secondary" value="cancel" formnovalidate>Abbrechen</button><button class="button primary" value="default">Manifest speichern</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="manifest-run-dialog">
+    <form id="manifest-run-form" method="dialog">
+      <div class="dialog-heading"><div><p class="eyebrow">CONTAINER-MANIFEST</p><h2>Umgebung aus Manifest erstellen</h2></div><button type="button" class="icon-button" value="cancel" formnovalidate aria-label="Schließen">×</button></div>
+      <label>Manifestpfad<input id="manifest-run-path" placeholder="D:\\Lab\\mein-lab.json" required></label>
+      <label>SA-Passwort<input id="manifest-run-password" type="password" autocomplete="new-password" required></label>
+      <p class="form-note">Das Manifest wird vor der Erstellung vollständig validiert. Das Passwort wird weder gespeichert noch im Live-Log angezeigt.</p>
+      <div class="dialog-actions"><button type="button" class="button secondary" value="cancel" formnovalidate>Abbrechen</button><button class="button primary" value="default">Umgebung erstellen</button></div>
     </form>
   </dialog>
 

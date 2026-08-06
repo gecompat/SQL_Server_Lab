@@ -37,6 +37,17 @@ Gastpasswörter werden nur für den jeweiligen PowerShell-Direct-Aufruf
 entgegengenommen. Sie werden nicht im Build-State, Browser-Speicher oder
 Live-Log gespeichert.
 
+## Container und Bereinigung
+
+Container-Labs lassen sich ad hoc, aus einem gespeicherten Manifest oder über
+die konsistente Mehrfachauswahl von katalogisierten Testdatenbanken erstellen.
+Die Datenbankauswahl arbeitet eine ausgewählte Liste nacheinander ab und
+fordert für Quellen ohne hinterlegten SHA-256 eine explizite einmalige
+Vertrauensfreigabe. Der Menüpunkt **Alles aufräumen** zeigt vor dem Start eine
+Bestätigung und führt ausschließlich die hinterlegten Cleanup-Pläne aus;
+persistente Data-Root-Inhalte und veröffentlichte Hyper-V-Images bleiben
+erhalten.
+
 ## Plattformen
 
 Die Oberfläche kann mit PowerShell 7 unter Windows und Linux gestartet werden.

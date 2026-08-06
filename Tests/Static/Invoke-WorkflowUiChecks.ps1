@@ -143,6 +143,23 @@ Add-CheckResult -Name 'Datenbankdialog bietet katalogisierte Testdatenbanken mit
     $scriptText -match 'SampleSha256' -and
     $scriptText -match "container-sample-trust'\)\.checked = false"
 )
+Add-CheckResult -Name 'UI und Workflow unterstützen Mehrfachauswahl von Testdatenbanken' -Success (
+    $actionText -match 'InstallContainerSampleDatabases' -and
+    $actionText -match '\[string\[\]\]\$SampleSelections' -and
+    $htmlText -match 'id="container-sample" multiple' -and
+    $scriptText -match 'SampleSelections = samples'
+)
+Add-CheckResult -Name 'UI bietet bestätigten globalen Cleanup und Manifest-Erstellung' -Success (
+    $actionText -match 'ClearAllLabs' -and
+    $actionText -match 'CreateContainerManifest' -and
+    $actionText -match 'NewContainerLabFromManifest' -and
+    $actionText -match 'New-SqlServerLabManifest -Path \$ManifestPath -InputObject \$draft' -and
+    $htmlText -match 'id="clear-all-labs"' -and
+    $htmlText -match 'id="manifest-dialog"' -and
+    $htmlText -match 'id="manifest-run-dialog"' -and
+    $scriptText -match "'ClearAllLabs'" -and
+    $scriptText -match "'CreateContainerManifest'"
+)
 Add-CheckResult -Name 'Evaluationdatum ist lesbar vorausgefüllt und Abbruch bleibt möglich' -Success (
     $htmlText -match 'type="text"' -and
     $htmlText -match 'TT\.MM\.JJJJ' -and
@@ -200,6 +217,13 @@ Add-CheckResult -Name 'UI erstellt reguläre Hyper-V-Labs nur aus SQL-Prepared-I
     $scriptText -match 'SQL-Instanzen prüfen' -and
     $scriptText -match 'Connection String' -and
     $scriptText -match 'data-hyperv-remove'
+)
+Add-CheckResult -Name 'Konsole spiegelt Data-VHDX, SQL-CompleteImage und SQL-Instanzprüfung für reguläre Hyper-V-Labs' -Success (
+    $consoleText -match 'Enable-HyperVLabPersistentData' -and
+    $consoleText -match 'Initialize-HyperVLabPersistentData' -and
+    $consoleText -match 'Complete-HyperVLabSqlImage' -and
+    $consoleText -match 'Inspect-HyperVLabSqlInstances' -and
+    $consoleText -match 'Connection String \(in VM\)'
 )
 Add-CheckResult -Name 'UI bietet einen getrennten, sicheren Schnellstart aus vorhandener Windows-VM' -Success (
     $hyperVLabText -match 'Get-HyperVExistingVmLabSource' -and
