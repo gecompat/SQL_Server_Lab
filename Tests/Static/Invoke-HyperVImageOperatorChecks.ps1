@@ -72,6 +72,58 @@ try {
         @($visiblePlans | Where-Object buildId -eq $cleanupPlan.buildId).Count -eq 0 -and
         @($allPlans | Where-Object { $_.buildId -eq $cleanupPlan.buildId -and $_.state -eq 'CLEANED_UP' }).Count -eq 1
     )
+    $manualHash = & $module {
+        param($Root, $Sha)
+        Set-HyperVWindowsMediaHashSidecar -MediaRoot $Root -OperatingSystemId windows-server-2025 -ExpectedSha256 $Sha
+    } $mediaRoot $hashed.ExpectedSha256
+    Add-CheckResult -Name 'Offiziell eingegebener Windows-Hash wird vor dem Sidecar-Schreiben lokal geprüft' -Success (
+        $manualHash.HashStatus -eq 'SIDECAR_READY' -and $manualHash.ExpectedSha256 -eq $hashed.ExpectedSha256
+    )
+
+    $discoveryDirectory = Join-Path $mediaRoot 'OperatingSystems/Client/11/ISO'
+    $discoveryIsoPath = Join-Path $discoveryDirectory 'windows-11-auto.iso'
+    New-Item -Path $discoveryDirectory -ItemType Directory -Force | Out-Null
+    [System.IO.File]::WriteAllBytes($discoveryIsoPath, $bytes)
+    $discovered = & $module {
+        param($Root, $DiscoveryIso)
+        function Get-HyperVWindowsInstallationMediaInfo {
+            param($IsoPath)
+            if ($IsoPath -eq $DiscoveryIso) {
+                return [PSCustomObject]@{ OperatingSystemId = 'windows-11'; WindowsEdition = 'enterprise-evaluation'; InstallationType = 'desktop-experience'; ImageName = 'Windows 11 Enterprise Evaluation'; ImageIndex = 2 }
+            }
+            throw 'test medium ignored'
+        }
+        @(Get-HyperVWindowsInstallationMediaCandidates -MediaRoot $Root)
+    } $mediaRoot $discoveryIsoPath
+    Add-CheckResult -Name 'Windows-ISOs werden unabhängig von der Ordnerstruktur dynamisch angeboten' -Success (
+        @($discovered | Where-Object { $_.MediaId -eq 'OperatingSystems/Client/11/ISO/windows-11-auto.iso' -and $_.OperatingSystemId -eq 'windows-11' -and $_.WindowsEdition -eq 'enterprise-evaluation' -and $_.InstallationType -eq 'desktop-experience' -and $_.State -eq 'READY' }).Count -eq 1
+    )
+
+    $parsedMedia = & $module {
+        param($Iso)
+        function Get-DiskImage { [PSCustomObject]@{ Attached = $false } }
+        function Mount-DiskImage { [PSCustomObject]@{ Attached = $true } }
+        function Get-Volume { [PSCustomObject]@{ DriveLetter = 'X' } }
+        function Test-Path {
+            param($LiteralPath, $PathType)
+            $LiteralPath -like '*install.wim'
+        }
+        function Get-Item { [PSCustomObject]@{ FullName = 'X:\sources\install.wim' } }
+        function Get-WindowsImage {
+            @(
+                [PSCustomObject]@{ ImageName = 'Windows Server 2025 Standard Evaluation (Desktop Experience)'; ImageIndex = 2 },
+                [PSCustomObject]@{ ImageName = 'Windows Server 2025 Datacenter Evaluation'; ImageIndex = 3 },
+                [PSCustomObject]@{ ImageName = 'Windows 11 Enterprise Evaluation'; ImageIndex = 4 }
+            )
+        }
+        function Dismount-DiskImage { }
+        @(Get-HyperVWindowsInstallationMediaInfo -IsoPath $Iso)
+    } $discoveryIsoPath
+    Add-CheckResult -Name 'Windows-Server-Version bleibt trotz Editions- und Typ-Erkennung erhalten' -Success (
+        @($parsedMedia | Where-Object { $_.OperatingSystemId -eq 'windows-server-2025' -and $_.WindowsEdition -eq 'standard-evaluation' -and $_.InstallationType -eq 'desktop-experience' }).Count -eq 1 -and
+        @($parsedMedia | Where-Object { $_.OperatingSystemId -eq 'windows-server-2025' -and $_.WindowsEdition -eq 'datacenter-evaluation' -and $_.InstallationType -eq 'core' }).Count -eq 1 -and
+        @($parsedMedia | Where-Object { $_.OperatingSystemId -eq 'windows-11' -and $_.WindowsEdition -eq 'enterprise-evaluation' -and $_.InstallationType -eq 'desktop-experience' }).Count -eq 1
+    )
 
     $manual = & $module {
         param($BuildId, $Root)
@@ -186,6 +238,13 @@ try {
         $menuText -match '\$exitImageMenu = \$false' -and
         $menuText -match 'while \(-not \$exitImageMenu\)' -and
         $menuText -match '''0''\s*\{\s*\$exitImageMenu\s*=\s*\$true\s*\}'
+    )
+    Add-CheckResult -Name 'Image-Menue bietet reguläre Hyper-V-Labs aus Prepared-Images an' -Success (
+        $menuText -match '\[18\] Reguläre Hyper-V-Umgebung aus SQL-Prepared-Image erstellen' -and
+        $menuText -match 'New-LabHyperVEnvironmentInteractive' -and
+        $menuText -match 'Manage-LabHyperVEnvironmentInteractive' -and
+        $menuText -match 'New-HyperVLabEnvironment' -and
+        $menuText -match 'Open-HyperVLabEnvironmentConsole'
     )
     $selectionIndex = $menuText.IndexOf('$choice = Read-Host ''  Auswahl''')
     $clearIndex = $menuText.IndexOf('Clear-Host', $selectionIndex)

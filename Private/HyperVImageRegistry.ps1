@@ -108,6 +108,7 @@ function Import-HyperVImageArtifact {
         [ValidateSet('licensed', 'evaluation', 'developer')][string]$SqlLicenseType,
         [Nullable[datetime]]$SqlEvaluationExpiresAt,
         [Nullable[datetime]]$EvaluationExpiresAt,
+        [ValidateLength(1, 80)][string]$DisplayName,
         [string]$StateRoot
     )
 
@@ -183,6 +184,10 @@ function Import-HyperVImageArtifact {
             $metadata = [PSCustomObject]@{
                 contractVersion       = '1'
                 artifactId            = $artifactId
+                # Ein optionaler, benutzervergebener Name erleichtert die
+                # Auswahl in der Oberfläche; die technische ArtifactId bleibt
+                # weiterhin ausschließlich hashbasiert und unveränderlich.
+                displayName           = $DisplayName
                 artifactState         = $ArtifactState
                 sha256                = $sha256
                 integrityOrigin       = $IntegrityOrigin
@@ -213,6 +218,91 @@ function Import-HyperVImageArtifact {
             if (Test-Path -LiteralPath $stagingDirectory) { Remove-Item -LiteralPath $stagingDirectory -Recurse -Force }
         }
         return Get-HyperVImageArtifact -ArtifactId $artifactId -StateRoot $StateRoot
+    }
+}
+
+function Remove-HyperVImageArtifact {
+    <#
+    .SYNOPSIS
+        Entfernt ein veroeffentlichtes Hyper-V-Image nur ohne aktive Build-Referenz.
+    .DESCRIPTION
+        Der Registry-Eintrag und die immutable VHDX werden als Einheit entfernt.
+        Aktive Windows- oder SQL-Builds muessen vorher aufgeraeumt werden, damit
+        kein Workflow auf ein geloeschtes Image verweist.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$ArtifactId,
+        [string]$StateRoot
+    )
+
+    if ($ArtifactId -notmatch '^hyperv-[a-z0-9-]+-[a-f0-9]{64}$') { throw 'HYPERV_ARTIFACT_ID_INVALID' }
+    if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
+
+    return Invoke-LabArtifactStoreLock -StateRoot $StateRoot -ScriptBlock {
+        $paths = Initialize-HyperVImageStore -StateRoot $StateRoot
+        $artifact = Get-HyperVImageArtifact -ArtifactId $ArtifactId -StateRoot $StateRoot -SkipIntegrityCheck
+        if (-not $artifact) { throw 'HYPERV_ARTIFACT_NOT_FOUND' }
+
+        $references = @()
+        foreach ($build in @(Get-HyperVImageBuildPlans -StateRoot $StateRoot)) {
+            if ([string]$build.artifact.artifactId -eq $ArtifactId) { $references += "Windows-Build $($build.buildId)" }
+        }
+        foreach ($build in @(Get-HyperVSqlImageBuildPlans -StateRoot $StateRoot)) {
+            if ([string]$build.artifact.artifactId -eq $ArtifactId -or [string]$build.parentArtifact.artifactId -eq $ArtifactId) {
+                $references += "SQL-Build $($build.buildId)"
+            }
+        }
+        if ($references.Count -gt 0) {
+            throw "HYPERV_ARTIFACT_IN_USE: $($references -join ', '). Bereinigen Sie zuerst den zugehörigen Build-Verlauf."
+        }
+
+        $targetDirectory = Join-Path $paths.RegistryRoot $ArtifactId
+        $resolvedRegistry = (Resolve-Path -LiteralPath $paths.RegistryRoot -ErrorAction Stop).Path.TrimEnd('\\')
+        $resolvedTarget = (Resolve-Path -LiteralPath $targetDirectory -ErrorAction Stop).Path
+        if (-not $resolvedTarget.StartsWith($resolvedRegistry + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
+            throw 'HYPERV_ARTIFACT_DELETE_OUTSIDE_REGISTRY'
+        }
+        $vhdxPath = Join-Path $resolvedTarget 'parent.vhdx'
+        if (Test-Path -LiteralPath $vhdxPath -PathType Leaf) { (Get-Item -LiteralPath $vhdxPath -Force).IsReadOnly = $false }
+        Remove-Item -LiteralPath $resolvedTarget -Recurse -Force -ErrorAction Stop
+        return [PSCustomObject]@{ ArtifactId = $ArtifactId; Status = 'REMOVED' }
+    }
+}
+
+function Rename-HyperVImageArtifact {
+    <#
+    .SYNOPSIS
+        Ändert ausschließlich den Anzeigenamen eines Registry-Images.
+    .DESCRIPTION
+        Die inhaltsadressierte Artifact-ID, der verifizierte Hash und die
+        schreibgeschützte Parent-VHDX bleiben unverändert. Nur die frei
+        wählbare UI-Metadatenbeschriftung wird unter derselben Store-Sperre
+        wie Import und Löschen aktualisiert.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$ArtifactId,
+        [Parameter(Mandatory)][ValidateLength(1, 80)][string]$DisplayName,
+        [string]$StateRoot
+    )
+
+    if ($ArtifactId -notmatch '^hyperv-[a-z0-9-]+-[a-f0-9]{64}$') { throw 'HYPERV_ARTIFACT_ID_INVALID' }
+    $DisplayName = $DisplayName.Trim()
+    if ([string]::IsNullOrWhiteSpace($DisplayName)) { throw 'HYPERV_ARTIFACT_DISPLAY_NAME_REQUIRED' }
+    if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
+
+    return Invoke-LabArtifactStoreLock -StateRoot $StateRoot -ScriptBlock {
+        $paths = Initialize-HyperVImageStore -StateRoot $StateRoot
+        $artifact = Get-HyperVImageArtifact -ArtifactId $ArtifactId -StateRoot $StateRoot
+        if (-not $artifact) { throw 'HYPERV_ARTIFACT_NOT_FOUND' }
+        $metadataPath = Join-Path (Join-Path $paths.RegistryRoot $ArtifactId) 'metadata.json'
+        if (-not (Test-Path -LiteralPath $metadataPath -PathType Leaf)) { throw 'HYPERV_ARTIFACT_METADATA_NOT_FOUND' }
+        $metadata = Get-Content -LiteralPath $metadataPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 30
+        $metadata | Add-Member -NotePropertyName displayName -NotePropertyValue $DisplayName -Force
+        $metadata | Add-Member -NotePropertyName displayNameUpdatedAt -NotePropertyValue (Get-LabTimestamp) -Force
+        Write-LabArtifactJsonAtomic -Path $metadataPath -InputObject $metadata
+        return Get-HyperVImageArtifact -ArtifactId $ArtifactId -StateRoot $StateRoot
     }
 }
 

@@ -41,7 +41,10 @@ function Get-UiJobSnapshot {
 
     $output = @()
     try {
-        $output = @(Receive-Job -Job $Record.Job -Keep -ErrorAction SilentlyContinue 2>&1)
+        # Die UI-Meldungen sind Information-Records, damit sie nicht in der
+        # Ergebnisvariable eines langen Fachbefehls verschwinden. Hier werden
+        # sie bewusst in den Snapshot aufgenommen.
+        $output = @(Receive-Job -Job $Record.Job -Keep -ErrorAction SilentlyContinue 2>&1 6>&1)
     }
     catch { $output = @($_) }
     $lines = @($output | ForEach-Object {
@@ -49,15 +52,25 @@ function Get-UiJobSnapshot {
         if ($line) { $line }
     })
     $state = [string]$Record.Job.State
+    $startedAt = [datetimeoffset]::Parse(
+        [string]$Record.StartedAt,
+        [Globalization.CultureInfo]::InvariantCulture,
+        [Globalization.DateTimeStyles]::RoundtripKind
+    ).UtcDateTime
     if ($state -eq 'Failed' -and $lines.Count -eq 0) {
         $lines = @('[FEHLER] Hintergrundaktion wurde abgebrochen.')
+    }
+    if ($Record.LastObservedLineCount -lt $lines.Count) {
+        $Record.LastObservedLineCount = $lines.Count
+        $Record.LastActivityAt = (Get-Date).ToUniversalTime().ToString('o')
     }
     [PSCustomObject]@{
         Id = $Record.Id
         Action = $Record.Action
         State = $state
         StartedAt = $Record.StartedAt
-        ElapsedSeconds = [math]::Max(0, [math]::Floor(((Get-Date).ToUniversalTime() - [datetime]$Record.StartedAt).TotalSeconds))
+        ElapsedSeconds = [math]::Max(0, [math]::Floor(((Get-Date).ToUniversalTime() - $startedAt).TotalSeconds))
+        LastActivityAt = $Record.LastActivityAt
         Lines = $lines
     }
 }
@@ -107,7 +120,8 @@ function Start-UiWorkflowJob {
         }
     }
     return [PSCustomObject]@{
-        Id = $id; Action = $Action; StartedAt = (Get-Date).ToUniversalTime().ToString('o'); Job = $job
+        Id = $id; Action = $Action; StartedAt = (Get-Date).ToUniversalTime().ToString('o')
+        LastActivityAt = (Get-Date).ToUniversalTime().ToString('o'); LastObservedLineCount = 0; Job = $job
     }
 }
 
@@ -135,7 +149,8 @@ try {
 
             $path = $context.Request.Url.AbsolutePath
             if ($path -eq '/api/workflow' -and $context.Request.HttpMethod -eq 'GET') {
-                Write-UiResponse -Context $context -Body (Get-SqlServerLabWorkflow | ConvertTo-Json -Depth 12) -ContentType 'application/json; charset=utf-8'
+                $mediaRoot = [string]$context.Request.QueryString['mediaRoot']
+                Write-UiResponse -Context $context -Body (Get-SqlServerLabWorkflow -MediaRoot $mediaRoot | ConvertTo-Json -Depth 12) -ContentType 'application/json; charset=utf-8'
                 continue
             }
             if ($path -eq '/api/jobs' -and $context.Request.HttpMethod -eq 'GET') {
@@ -161,11 +176,9 @@ try {
                         $parameters['SaPassword'] = [string]$request.parameters.SaPassword
                     }
                 }
-                $running = @($jobs.Values | Where-Object { $_.Job.State -in @('Running', 'NotStarted') })
-                if ($running.Count -gt 0) {
-                    Write-UiResponse -Context $context -Body 'Eine Hintergrundaktion läuft bereits. Bitte ihren Abschluss abwarten.' -StatusCode 409
-                    continue
-                }
+                # Unabhängige Workflows (etwa Image-Build und Container-Lab)
+                # dürfen parallel gestartet werden. Fachbefehle prüfen ihre
+                # jeweiligen Ressourcen weiterhin selbst.
                 $record = Start-UiWorkflowJob -Action $action -Parameters $parameters
                 $jobs[$record.Id] = $record
                 Write-UiResponse -Context $context -Body (@{ id = $record.Id; action = $action } | ConvertTo-Json -Compress) -ContentType 'application/json; charset=utf-8' -StatusCode 202

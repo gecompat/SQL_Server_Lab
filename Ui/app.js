@@ -1,9 +1,11 @@
 let workflow = null;
 let activeJobCount = 0;
+let optimisticJobs = [];
 
 const $ = (selector) => document.querySelector(selector);
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 const shortId = (value) => value ? String(value).slice(0, 12) + '…' : '–';
+const safeExternalUrl = (value) => /^https:\/\//i.test(String(value || '')) ? String(value) : '';
 
 function statusClass(state) {
   if (['OS_SEALED', 'SQL_PREPARED_SEALED', 'TESTS_PASSED'].includes(state)) return 'done';
@@ -34,15 +36,16 @@ function actionsFor(kind, item) {
     if (['BUILDER_READY', 'MANUAL_ACTION_REQUIRED'].includes(state)) {
       const result = [{ label: 'VMConnect öffnen', action: 'OpenWindowsConsole' }];
       result.push(item.InstallationVerified
-        ? { label: 'Windows generalisieren', action: 'GeneralizeWindowsBuild', credential: true }
+        ? { label: 'Windows generalisieren · Gastpasswort erforderlich', action: 'GeneralizeWindowsBuild', credential: true }
         : { label: 'Windows bestätigen', action: 'ConfirmWindowsInstall', credential: true });
-      return result;
+      return result.concat(cleanupActionFor(kind, item));
     }
-    if (state === 'REBOOT_REQUIRED') return [{ label: 'Generalisierung fortsetzen', action: 'GeneralizeWindowsBuild', credential: false }];
-    if (state === 'RESUME_PENDING') return [{ label: 'Image veröffentlichen', action: 'PublishWindowsBuild', publish: true }];
-    if (state === 'MANUAL_ACTION_REQUIRED') return [{ label: 'Generalisieren', action: 'GeneralizeWindowsBuild', credential: true }];
+    if (state === 'REBOOT_REQUIRED') return [{ label: 'Generalisierung fortsetzen', action: 'GeneralizeWindowsBuild', credential: false }].concat(cleanupActionFor(kind, item));
+    if (state === 'RESUME_PENDING') return [{ label: 'Image veröffentlichen', action: 'PublishWindowsBuild', publish: true }].concat(cleanupActionFor(kind, item));
+    return cleanupActionFor(kind, item);
   }
   if (kind === 'sql') {
+    if (item.ProvisioningMode !== 'fresh-windows-media') return cleanupActionFor(kind, item);
     if (['MANUAL_ACTION_REQUIRED', 'REBOOT_REQUIRED'].includes(state)) {
       const result = [{ label: 'VMConnect öffnen', action: 'OpenSqlConsole' }];
       result.push({
@@ -50,11 +53,32 @@ function actionsFor(kind, item) {
         action: 'PrepareSqlImage',
         credential: true
       });
-      return result;
+      return result.concat(cleanupActionFor(kind, item));
     }
-    if (state === 'RESUME_PENDING') return [{ label: 'Prepared-Image veröffentlichen', action: 'PublishSqlImage', publish: true }];
-    if (state === 'FAILED') return [{ label: 'Offline-Recovery versuchen', action: 'ResumeSqlImage' }];
+    if (state === 'RESUME_PENDING') return [{ label: 'Prepared-Image veröffentlichen', action: 'PublishSqlImage', publish: true }].concat(cleanupActionFor(kind, item));
+    if (state === 'FAILED') return [{ label: 'Offline-Recovery versuchen', action: 'ResumeSqlImage' }].concat(cleanupActionFor(kind, item));
+    return cleanupActionFor(kind, item);
   }
+  return [];
+}
+
+function cleanupActionFor(kind, item) {
+  if (item.State === 'CLEANED_UP') return [];
+  const published = kind === 'windows' ? item.State === 'OS_SEALED' : item.State === 'SQL_PREPARED_SEALED';
+  if (published) return [{ label: 'Build-Verlauf entfernen', action: kind === 'windows' ? 'CleanupWindowsBuild' : 'CleanupSqlBuild', cleanup: true, published: true }];
+  return [{ label: 'Builder aufräumen', action: kind === 'windows' ? 'CleanupWindowsBuild' : 'CleanupSqlBuild', cleanup: true }];
+}
+
+function acceptanceActions(item) {
+  if (item.State === 'SQL_PREPARED_SEALED') return [{ label: 'Build-Verlauf entfernen', action: 'CleanupSqlBuild', cleanup: true, published: true }];
+  if (item.ProvisioningMode === 'fresh-windows-media') return [];
+  if (['MANUAL_ACTION_REQUIRED', 'OOBE_AUTOMATION_RUNNING', 'OOBE_COMPLETED', 'SQL_INSTALL_REBOOT_REQUIRED'].includes(item.State)) {
+    return [
+      { label: 'VMConnect öffnen', action: 'OpenSqlConsole' },
+      { label: item.State === 'SQL_INSTALL_REBOOT_REQUIRED' ? 'SQL-Setup fortsetzen' : 'OOBE + SQL-Setup ausführen', action: 'RunSqlAcceptanceSetup' }
+    ];
+  }
+  if (item.State === 'SQL_READY_RUN') return [{ label: 'SQL-Abnahme ausführen', action: 'RunSqlAcceptanceTests' }];
   return [];
 }
 
@@ -66,8 +90,9 @@ function renderBuilds(target, kind, items) {
     const metadata = kind === 'sql'
       ? escapeHtml(item.WindowsEdition + ' · ' + item.InstallationType + ' · ' + item.SqlEdition)
       : escapeHtml(item.Edition + ' · ' + item.InstallationType);
-    const buttons = actionsFor(kind, item).map((button) =>
-      '<button class="button ' + (button.publish ? 'primary' : 'secondary') + '" data-action="' + button.action + '" data-build="' + escapeHtml(item.BuildId) + '" data-credential="' + Boolean(button.credential) + '" data-publish="' + Boolean(button.publish) + '">' + escapeHtml(button.label) + '</button>'
+    const buttons = actionsFor(kind, item).map((button) => button.cleanup
+      ? '<button class="button danger" data-build-cleanup="' + button.action + '" data-build="' + escapeHtml(item.BuildId) + '" data-build-kind="' + kind + '" data-build-published="' + Boolean(button.published) + '">' + escapeHtml(button.label) + '</button>'
+      : '<button class="button ' + (button.publish ? 'primary' : 'secondary') + '" data-action="' + button.action + '" data-build="' + escapeHtml(item.BuildId) + '" data-credential="' + Boolean(button.credential) + '" data-publish="' + Boolean(button.publish) + '">' + escapeHtml(button.label) + '</button>'
     ).join('');
     return '<article class="build-card"><div class="build-card-top"><div><div class="build-title">' + title + '</div><div class="build-meta">' + metadata + ' · VM: ' + escapeHtml(item.VMName || 'noch nicht erstellt') + '</div></div><span class="status ' + statusClass(item.State) + '">' + escapeHtml(item.State) + '</span></div><p class="build-next"><strong>Nächster Schritt:</strong> ' + escapeHtml(item.NextStep) + '</p><div class="build-actions">' + buttons + '</div><div class="build-meta">Build: ' + escapeHtml(shortId(item.BuildId)) + '</div></article>';
   }).join('') : empty('Keine offenen Builds vorhanden.');
@@ -81,8 +106,131 @@ function listItem(title, detail) {
   return '<div class="list-item"><strong>' + escapeHtml(title) + '</strong><span>' + escapeHtml(detail) + '</span></div>';
 }
 
+function renderArtifactList(target, items, kind, title, detail) {
+  $(target).innerHTML = items.length ? items.map((item) =>
+    '<div class="list-item"><div><strong>' + escapeHtml(title(item)) + '</strong><span>' + escapeHtml(detail(item)) + '</span></div><div class="build-actions"><button class="button secondary" data-artifact-rename="true" data-artifact="' + escapeHtml(item.ArtifactId) + '" data-artifact-name="' + escapeHtml(item.DisplayName || title(item)) + '" data-artifact-kind="' + escapeHtml(kind) + '">Name ändern</button><button class="button danger" data-artifact-remove="true" data-artifact="' + escapeHtml(item.ArtifactId) + '" data-artifact-kind="' + escapeHtml(kind) + '">Löschen</button></div></div>'
+  ).join('') : empty('Noch keine Einträge vorhanden.');
+}
+
+function renderHyperVArtifactOptions(items) {
+  const select = $('#hyperv-artifact');
+  const previous = select.value;
+  select.innerHTML = '<option value="">SQL-Prepared-Image auswählen …</option>' + (items || []).map((item) =>
+    '<option value="' + escapeHtml(item.ArtifactId) + '">' + escapeHtml(item.DisplayName || ('SQL Server ' + item.SqlVersion + ' · ' + item.SqlEdition)) + '</option>'
+  ).join('');
+  if ((items || []).some((item) => item.ArtifactId === previous)) select.value = previous;
+  renderHyperVArtifactDetails(items || []);
+}
+
+function renderHyperVArtifactDetails(items) {
+  const selected = (items || []).find((item) => item.ArtifactId === $('#hyperv-artifact').value);
+  const target = $('#hyperv-artifact-details');
+  if (!selected) {
+    target.textContent = 'Wählen Sie ein Prepared-Image; alle technischen Details werden hier angezeigt.';
+    return;
+  }
+  const title = selected.DisplayName || ('SQL Server ' + selected.SqlVersion + ' · ' + selected.SqlEdition);
+  target.innerHTML = '<strong>' + escapeHtml(title) + '</strong><span>Windows: ' + escapeHtml(selected.OperatingSystem) + ' · ' + escapeHtml(selected.WindowsEdition) + ' · ' + escapeHtml(selected.InstallationType) + '</span><span>SQL Server ' + escapeHtml(selected.SqlVersion) + ' · ' + escapeHtml(selected.SqlEdition) + (selected.SqlBuild ? ' · Build ' + escapeHtml(selected.SqlBuild) : '') + '</span><code>ArtifactId: ' + escapeHtml(selected.ArtifactId) + '</code>';
+}
+
+function renderHyperVSwitchOptions(items) {
+  const select = $('#hyperv-switch');
+  const previous = select.value;
+  select.innerHTML = '<option value="">Kein Switch = isoliert</option>' + (items || []).map((item) =>
+    '<option value="' + escapeHtml(item.Name) + '">' + escapeHtml(item.Name) + (item.Type ? ' · ' + escapeHtml(item.Type) : '') + '</option>'
+  ).join('');
+  if ((items || []).some((item) => item.Name === previous)) select.value = previous;
+  const existingVmSelect = $('#hyperv-existing-vm-switch');
+  if (existingVmSelect) {
+    const existingPrevious = existingVmSelect.value;
+    existingVmSelect.innerHTML = '<option value="">Kein Switch = isoliert</option>' + (items || []).map((item) =>
+      '<option value="' + escapeHtml(item.Name) + '">' + escapeHtml(item.Name) + (item.Type ? ' · ' + escapeHtml(item.Type) : '') + '</option>'
+    ).join('');
+    if ((items || []).some((item) => item.Name === existingPrevious)) existingVmSelect.value = existingPrevious;
+  }
+}
+
+function renderHyperVExistingVmSourceOptions(items) {
+  const select = $('#hyperv-existing-vm-source');
+  const previous = select.value;
+  select.innerHTML = '<option value="">Ausgeschaltete vorhandene Windows-VM auswählen …</option>' + (items || []).map((item) =>
+    '<option value="' + escapeHtml(item.VMName) + '">' + escapeHtml(item.VMName) + (item.IsDeveloperEnvironment ? ' · Entwicklungsumgebung erkannt' : '') + '</option>'
+  ).join('');
+  if ((items || []).some((item) => item.VMName === previous)) select.value = previous;
+  renderHyperVExistingVmSourceDetails(items || []);
+}
+
+function renderHyperVExistingVmSourceDetails(items) {
+  const selected = (items || []).find((item) => item.VMName === $('#hyperv-existing-vm-source').value);
+  const target = $('#hyperv-existing-vm-details');
+  if (!selected) {
+    target.textContent = 'Nur ausgeschaltete Generation-2-VMs mit genau einer System-VHDX werden angeboten. Die Quell-VM bleibt unverändert.';
+    return;
+  }
+  target.innerHTML = '<strong>' + escapeHtml(selected.VMName) + '</strong><span>Generation ' + escapeHtml(selected.Generation) + ' · Quelle: ' + escapeHtml(selected.SourceDiskType || 'VHDX') + '</span><span>' + escapeHtml(selected.LicenseNotice || 'Lizenz- und Ablaufstatus in Windows prüfen.') + '</span><code>Quell-VHDX: ' + escapeHtml(selected.SourceVhdxPath) + '</code>';
+  if (selected.MemoryStartupMB) $('#hyperv-existing-vm-memory').value = selected.MemoryStartupMB;
+  if (selected.ProcessorCount) $('#hyperv-existing-vm-processors').value = selected.ProcessorCount;
+}
+
+function renderMediaSources(items) {
+  $('#media-source-list').innerHTML = (items || []).map((item) => {
+    const url = safeExternalUrl(item.Url);
+    const link = url ? '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer">Offizielle Quelle öffnen</a>' : '';
+    return '<article class="source-item"><strong>' + escapeHtml(item.Category) + ' · ' + escapeHtml(item.DisplayName) + '</strong><span>' + escapeHtml(item.Acquisition) + ' · Ziel: ' + escapeHtml(item.TargetRelativePath) + '</span><span>' + escapeHtml(item.Note) + '</span>' + link + '</article>';
+  }).join('') || empty('Keine Quelleninformationen verfügbar.');
+}
+
+function renderSqlInstallationMedia(items) {
+  const select = $('#sql-media');
+  const previous = select.value;
+  const ready = (items || []).filter((item) => item.State === 'READY');
+  select.innerHTML = '<option value="">SQL-Installationsmedium auswählen …</option>' + ready.map((item) => {
+    const edition = item.MediaEdition || 'Edition bitte wählen';
+    const hashLabel = item.HashStatus === 'SIDECAR_READY' ? ' · Hash gesetzt' : ' · Hash fehlt';
+    return '<option value="' + escapeHtml(item.MediaId) + '" data-version="' + escapeHtml(item.SqlVersion) + '" data-edition="' + escapeHtml(item.MediaEdition || '') + '" data-hash-status="' + escapeHtml(item.HashStatus || 'MISSING') + '" data-hash="' + escapeHtml(item.ExpectedSha256 || '') + '">SQL Server ' + escapeHtml(item.SqlVersion) + ' · ' + escapeHtml(edition) + hashLabel + ' · ' + escapeHtml(item.MediaId) + '</option>';
+  }).join('');
+  if (ready.some((item) => item.MediaId === previous)) select.value = previous;
+  updateSqlMediaSelection();
+}
+
+function renderWindowsInstallationMedia(items, sqlCompatibleOnly = false) {
+  const select = $('#windows-media');
+  const previous = select.value;
+  const ready = (items || []).filter((item) => item.State === 'READY' && (!sqlCompatibleOnly || item.OperatingSystemId === 'windows-server-2025'));
+  select.innerHTML = '<option value="">Windows-Installationsmedium auswählen …</option>' + ready.map((item) =>
+    '<option value="' + escapeHtml(item.MediaId) + '" data-os="' + escapeHtml(item.OperatingSystemId) + '" data-edition="' + escapeHtml(item.WindowsEdition) + '" data-installation="' + escapeHtml(item.InstallationType) + '" data-hash-status="' + escapeHtml(item.HashStatus || 'MISSING') + '" data-hash="' + escapeHtml(item.ExpectedSha256 || '') + '">'
+      + escapeHtml(item.ImageName || (item.OperatingSystemId + ' · ' + item.WindowsEdition + ' · ' + item.InstallationType)) + (item.HashStatus === 'SIDECAR_READY' ? ' · Hash gesetzt' : ' · Hash fehlt') + ' · ' + escapeHtml(item.MediaId) + '</option>'
+  ).join('');
+  if (ready.some((item) => item.MediaId === previous)) select.value = previous;
+  updateWindowsMediaSelection();
+}
+
+function updateWindowsMediaSelection() {
+  const option = $('#windows-media').selectedOptions[0];
+  $('#os-id').value = option?.dataset?.os || '';
+  $('#windows-edition').value = option?.dataset?.edition || '';
+  $('#installation-type').value = option?.dataset?.installation || '';
+  $('#windows-media-sha256').value = option?.dataset?.hash || '';
+  $('#windows-media-hash-status').textContent = option?.value ? ('Windows-Hash: ' + (option.dataset?.hashStatus === 'SIDECAR_READY' ? 'gesetzt und verifiziert' : 'fehlt – offiziellen SHA-256 eintragen')) : 'Windows-Hash: Medium auswählen';
+}
+
+function updateSqlMediaSelection() {
+  const option = $('#sql-media').selectedOptions[0];
+  $('#sql-version').value = option?.dataset?.version || '';
+  $('#sql-edition').value = option?.dataset?.edition || '';
+  $('#sql-media-sha256').value = option?.dataset?.hash || '';
+  $('#sql-media-hash-status').textContent = option?.value ? ('SQL-Hash: ' + (option.dataset?.hashStatus === 'SIDECAR_READY' ? 'gesetzt und verifiziert' : 'fehlt – offiziellen SHA-256 eintragen')) : 'SQL-Hash: Medium auswählen';
+}
+
 function renderWorkflow(data) {
   workflow = data;
+  // Der Quellen-Dialog kann vor dem ersten API-Refresh geöffnet werden. In
+  // diesem Fall das anfangs leere Feld nachträglich füllen, aber eine bereits
+  // vom Benutzer eingegebene Pfadänderung niemals überschreiben.
+  const sourceMediaRoot = $('#sources-media-root');
+  if (sourceMediaRoot && !sourceMediaRoot.value && data.Defaults?.MediaRoot) {
+    sourceMediaRoot.value = data.Defaults.MediaRoot;
+  }
   const host = data.Host;
   const hostChip = $('#host-status');
   if (!host.HyperV.Supported) {
@@ -105,61 +253,133 @@ function renderWorkflow(data) {
   renderBuilds('#sql-builds', 'sql', data.SqlBuilds);
   $('#windows-count').textContent = data.WindowsBuilds.length + ' Build(s)';
   $('#sql-count').textContent = data.SqlBuilds.length + ' Build(s)';
-  renderList('#windows-baselines', data.WindowsBaselines, (item) => listItem(item.OperatingSystem + ' · ' + item.Edition, item.InstallationType + ' · ' + shortId(item.ArtifactId)));
-  renderList('#sql-images', data.SqlPreparedImages, (item) => listItem(item.OperatingSystem + ' · SQL Server ' + item.SqlVersion, item.WindowsEdition + ' · ' + item.SqlEdition + ' · ' + shortId(item.ArtifactId)));
-  renderList('#acceptance', data.AcceptanceEnvironments, (item) => listItem('SQL Server ' + item.SqlVersion + ' · ' + item.State, (item.VMName || '–') + ' · ' + (item.Edition || '')));
+  renderArtifactList('#windows-baselines', data.WindowsBaselines, 'OS-Baseline', (item) => item.DisplayName || (item.OperatingSystem + ' · ' + item.Edition), (item) => item.InstallationType + ' · ' + shortId(item.ArtifactId));
+  renderArtifactList('#sql-images', data.SqlPreparedImages, 'SQL-Prepared-Image', (item) => item.DisplayName || (item.OperatingSystem + ' · SQL Server ' + item.SqlVersion), (item) => item.WindowsEdition + ' · ' + item.SqlEdition + ' · ' + shortId(item.ArtifactId));
+  renderAcceptance(data.AcceptanceEnvironments);
   renderActiveLabs(data.ActiveLabs);
+  renderHyperVLabs(data.HyperVLabs || []);
+  renderHyperVArtifactOptions(data.SqlPreparedImages || []);
+  renderHyperVSwitchOptions(data.HyperVSwitches || []);
+  renderHyperVExistingVmSourceOptions(data.HyperVExistingVmSources || []);
+  renderMediaSources(data.MediaSources || []);
+  renderSqlInstallationMedia(data.SqlInstallationMedia);
+  const sqlBuildDialogOpen = $('#build-dialog')?.open && $('#build-type')?.value === 'sql';
+  renderWindowsInstallationMedia(data.WindowsInstallationMedia, sqlBuildDialogOpen);
   const disabled = !host.HyperV.Supported || !host.HyperV.Available || !host.IsElevated;
-  document.querySelectorAll('[data-open-build]').forEach((button) => { button.disabled = disabled; });
+  document.querySelectorAll('[data-open-build], [data-action], [data-build-cleanup], [data-artifact-rename], [data-artifact-remove], [data-hyperv-action], #new-hyperv-lab, #new-hyperv-existing-vm-lab').forEach((button) => { button.disabled = disabled; });
 }
 
 function renderActiveLabs(items) {
   $('#active-labs').innerHTML = items.length ? items.map((item) => {
     const running = item.State === 'RUNNING';
-    const instance = (item.Instances || [])[0] || {};
-    const connection = instance.Port ? ' · ' + (instance.Host || '127.0.0.1') + ':' + instance.Port : '';
-    const actions = [
+    const lifecycleActions = [
       '<button class="button secondary" data-container-action="' + (running ? 'StopContainerLab' : 'StartContainerLab') + '" data-run="' + escapeHtml(item.RunId) + '">' + (running ? 'Stoppen' : 'Starten') + '</button>',
       running ? '<button class="button secondary" data-container-action="RestartContainerLab" data-run="' + escapeHtml(item.RunId) + '">Neustarten</button>' : '',
-      running && instance.Port ? '<button class="button secondary" data-container-operation="CreateContainerDatabase" data-run="' + escapeHtml(item.RunId) + '" data-port="' + escapeHtml(instance.Port) + '">Datenbank anlegen</button>' : '',
-      running && instance.Port ? '<button class="button secondary" data-container-operation="ExecuteContainerScript" data-run="' + escapeHtml(item.RunId) + '" data-port="' + escapeHtml(instance.Port) + '">SQL-Skript ausführen</button>' : '',
       '<button class="button secondary" data-container-remove="true" data-run="' + escapeHtml(item.RunId) + '" data-name="' + escapeHtml(item.Name || item.RunId) + '">Entfernen</button>'
     ].join('');
-    return '<article class="build-card"><div class="build-card-top"><div><div class="build-title">' + escapeHtml(item.Name || shortId(item.RunId)) + '</div><div class="build-meta">' + escapeHtml(item.State + connection) + '</div></div><span class="status ' + statusClass(item.State === 'RUNNING' ? 'TESTS_PASSED' : item.State) + '">' + escapeHtml(item.State) + '</span></div><div class="build-actions">' + actions + '</div><div class="build-meta">Run: ' + escapeHtml(shortId(item.RunId)) + '</div></article>';
+    const instances = (item.Instances || []).map((instance) => {
+      const provider = instance.Provider || 'unbekannter Provider';
+      const connection = instance.Port ? (instance.Host || '127.0.0.1') + ':' + instance.Port : 'kein Host-Port';
+      const operations = running && instance.Port ? [
+        '<button class="button secondary" data-container-operation="CreateContainerDatabase" data-run="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(instance.Id) + '" data-sql-version="' + escapeHtml(instance.SqlVersion) + '" data-port="' + escapeHtml(instance.Port) + '">Datenbank anlegen</button>',
+        '<button class="button secondary" data-container-operation="ExecuteContainerScript" data-run="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(instance.Id) + '" data-port="' + escapeHtml(instance.Port) + '">SQL-Skript ausführen</button>'
+      ].join('') : '';
+      return '<div class="container-instance"><div class="build-meta">' + escapeHtml(provider) + ' · SQL Server ' + escapeHtml(instance.SqlVersion || '–') + ' · ' + escapeHtml(connection) + '</div><div class="build-actions">' + operations + '</div></div>';
+    }).join('') || '<p class="empty">Keine Instanzen im Run gespeichert.</p>';
+    return '<article class="build-card"><div class="build-card-top"><div><div class="build-title">' + escapeHtml(item.Name || shortId(item.RunId)) + '</div><div class="build-meta">' + escapeHtml(item.State) + '</div></div><span class="status ' + statusClass(item.State === 'RUNNING' ? 'TESTS_PASSED' : item.State) + '">' + escapeHtml(item.State) + '</span></div><div class="build-actions">' + lifecycleActions + '</div>' + instances + '<div class="build-meta">Run: ' + escapeHtml(shortId(item.RunId)) + '</div></article>';
   }).join('') : empty('Noch keine Container-Labs vorhanden.');
 }
 
-async function refresh() {
-  const response = await fetch('/api/workflow');
+function renderHyperVLabs(items) {
+  $('#hyperv-labs').innerHTML = items.length ? items.map((item) => {
+    const running = item.State === 'RUNNING' && item.VMState === 'Running';
+    const sqlNeedsCompletion = Boolean(item.ArtifactId) && item.SqlCompletionState === 'PENDING_COMPLETE_IMAGE';
+    const actions = [
+      '<button class="button secondary" data-hyperv-action="' + (running ? 'StopHyperVLab' : 'StartHyperVLab') + '" data-run="' + escapeHtml(item.RunId) + '">' + (running ? 'Stoppen' : 'Starten') + '</button>',
+      sqlNeedsCompletion ? '<button class="button primary" data-hyperv-action="CompleteHyperVLabSql" data-run="' + escapeHtml(item.RunId) + '">SQL CompleteImage ausführen</button>' : '',
+      '<button class="button secondary" data-hyperv-action="OpenHyperVConsole" data-run="' + escapeHtml(item.RunId) + '">VMConnect öffnen</button>',
+      '<button class="button danger" data-hyperv-remove="true" data-run="' + escapeHtml(item.RunId) + '" data-name="' + escapeHtml(item.Name || item.RunId) + '">Entfernen</button>'
+    ].join('');
+    const sourceBased = item.BaseKind === 'existing-vm';
+    const detail = ['VM: ' + (item.VMName || '–'), 'VM-Status: ' + (item.VMState || '–'), sourceBased ? 'Basis: ' + (item.SourceVMName || 'bestehende VM') : 'SQL Server ' + (item.SqlVersion || '–')].join(' · ');
+    const baseDetail = sourceBased ? 'Quelle: ' + (item.SourceVMName || '–') + ' · Original unverändert' : 'Image: ' + shortId(item.ArtifactId);
+    const nextStep = sqlNeedsCompletion ? (running ? 'SQL CompleteImage ausführen; erst danach ist MSSQLSERVER verfügbar.' : 'VM starten; danach SQL CompleteImage ausführen.') : (item.SqlCompletionState === 'REBOOT_REQUIRED' ? 'SQL Setup fordert einen Neustart; VM nach dem Shutdown erneut starten.' : (running ? 'VM läuft; bei Bedarf über VMConnect bedienen.' : 'VM starten und anschließend VMConnect öffnen.'));
+    return '<article class="build-card"><div class="build-card-top"><div><div class="build-title">' + escapeHtml(item.Name || shortId(item.RunId)) + '</div><div class="build-meta">' + escapeHtml(detail) + '</div></div><span class="status ' + statusClass(running ? 'TESTS_PASSED' : item.State) + '">' + escapeHtml(item.State) + '</span></div><p class="build-next"><strong>Nächster Schritt:</strong> ' + escapeHtml(nextStep) + '</p><div class="build-actions">' + actions + '</div><div class="build-meta">Run: ' + escapeHtml(shortId(item.RunId)) + ' · ' + escapeHtml(baseDetail) + '</div></article>';
+  }).join('') : empty('Noch keine regulären Hyper-V-Umgebungen vorhanden.');
+}
+
+function renderAcceptance(items) {
+  $('#acceptance').innerHTML = items.length ? items.map((item) => {
+    const actions = acceptanceActions(item).map((button) => button.cleanup
+      ? '<button class="button danger" data-build-cleanup="' + button.action + '" data-build="' + escapeHtml(item.BuildId) + '" data-build-kind="sql" data-build-published="' + Boolean(button.published) + '">' + escapeHtml(button.label) + '</button>'
+      : '<button class="button ' + (button.action === 'RunSqlAcceptanceTests' ? 'primary' : 'secondary') + '" data-action="' + button.action + '" data-build="' + escapeHtml(item.BuildId) + '" data-credential="false" data-publish="false">' + escapeHtml(button.label) + '</button>'
+    ).join('');
+    const detail = [item.VMName || '–', item.Edition || '', item.ProductVersion || ''].filter(Boolean).join(' · ');
+    return '<article class="build-card"><div class="build-card-top"><div><div class="build-title">SQL Server ' + escapeHtml(item.SqlVersion) + '</div><div class="build-meta">' + escapeHtml(detail) + '</div></div><span class="status ' + statusClass(item.State) + '">' + escapeHtml(item.State) + '</span></div><p class="build-next"><strong>Nächster Schritt:</strong> ' + escapeHtml(item.NextStep || 'Status prüfen.') + '</p><div class="build-actions">' + actions + '</div></article>';
+  }).join('') : empty('Noch keine Abnahmeumgebungen vorhanden.');
+}
+
+async function refresh(mediaRoot) {
+  const suffix = mediaRoot ? '?mediaRoot=' + encodeURIComponent(mediaRoot) : '';
+  const response = await fetch('/api/workflow' + suffix);
   if (!response.ok) throw new Error(await response.text());
   renderWorkflow(await response.json());
+}
+
+function renderJobs(serverJobs) {
+  const known = new Set((serverJobs || []).map((job) => job.Id));
+  optimisticJobs = optimisticJobs.filter((job) => !known.has(job.Id));
+  const jobs = [...optimisticJobs, ...(serverJobs || [])];
+  activeJobCount = jobs.filter((job) => ['Running', 'NotStarted', 'Submitting'].includes(job.State)).length;
+  const anyRunning = activeJobCount > 0;
+  $('#job-count').textContent = jobs.length + ' Aktion(en)';
+  $('#jobs').innerHTML = jobs.length ? jobs.map((job) => {
+    const running = ['Running', 'NotStarted', 'Submitting'].includes(job.State);
+    const elapsed = Number(job.ElapsedSeconds || Math.max(0, Math.floor((Date.now() - Date.parse(job.StartedAt || new Date().toISOString())) / 1000)) || 0);
+    const runtime = running ? ' · läuft seit ' + elapsed + ' s' : '';
+    const activityAge = job.LastActivityAt ? Math.max(0, Math.floor((Date.now() - Date.parse(job.LastActivityAt)) / 1000)) : null;
+    const heartbeat = running ? '[HEARTBEAT] Job aktiv · Laufzeit ' + elapsed + ' s' + (activityAge === null ? ' · Auftrag wird an den lokalen Server übergeben.' : ' · letzte Servermeldung vor ' + activityAge + ' s.') : '';
+    const lines = [...(job.Lines || []), ...(heartbeat ? [heartbeat] : [])].join('\n') || 'Aktion läuft …';
+    return '<article class="job"><div class="job-header"><strong>' + escapeHtml(job.Action + runtime) + '</strong><span class="status ' + (job.State === 'Failed' ? 'failed' : job.State === 'Completed' ? 'done' : 'pending') + '">' + escapeHtml(job.State) + '</span></div>' + (running ? '<div class="job-progress" aria-label="Aktion läuft"></div>' : '') + '<pre class="log">' + escapeHtml(lines) + '</pre></article>';
+  }).join('') : empty('Noch keine Aktion wurde aus der Oberfläche gestartet.');
+  const feedback = $('#action-feedback');
+  if (!anyRunning) feedback.hidden = true;
 }
 
 async function refreshJobs() {
   const response = await fetch('/api/jobs');
   if (!response.ok) return;
-  const jobs = await response.json();
-  activeJobCount = jobs.filter((job) => ['Running', 'NotStarted'].includes(job.State)).length;
-  $('#job-count').textContent = jobs.length + ' Aktion(en)';
-  $('#jobs').innerHTML = jobs.length ? jobs.map((job) => {
-    const lines = job.Lines.length ? job.Lines.join('\n') : 'Aktion läuft …';
-    const running = ['Running', 'NotStarted'].includes(job.State);
-    const elapsed = Number(job.ElapsedSeconds || 0);
-    const runtime = running ? ' · läuft seit ' + elapsed + ' s' : '';
-    return '<article class="job"><div class="job-header"><strong>' + escapeHtml(job.Action + runtime) + '</strong><span class="status ' + (job.State === 'Failed' ? 'failed' : job.State === 'Completed' ? 'done' : 'pending') + '">' + escapeHtml(job.State) + '</span></div>' + (running ? '<div class="job-progress" aria-label="Aktion läuft"></div>' : '') + '<pre class="log">' + escapeHtml(lines) + '</pre></article>';
-  }).join('') : empty('Noch keine Aktion wurde aus der Oberfläche gestartet.');
+  const payload = await response.json();
+  renderJobs(Array.isArray(payload) ? payload : (payload ? [payload] : []));
 }
 
 async function startAction(action, parameters) {
-  const response = await fetch('/api/actions', {
+  const optimistic = { Id: 'pending-' + Date.now(), Action: action, State: 'Submitting', StartedAt: new Date().toISOString(), Lines: ['[ANFORDERUNG] ' + action + ' wurde im Browser ausgelöst.', '[WARTEN] Auftrag wird an den lokalen Workflow-Server übergeben.'] };
+  optimisticJobs.push(optimistic);
+  renderJobs([]);
+  const feedback = $('#action-feedback');
+  feedback.textContent = 'Aktion gestartet: ' + action + ' – Auftrag wird verarbeitet.';
+  feedback.hidden = false;
+  let response;
+  try {
+    response = await fetch('/api/actions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action, parameters })
-  });
-  if (!response.ok) throw new Error(await response.text());
-  activeJobCount = 1;
-  await refreshJobs();
-  window.setTimeout(() => refresh().catch(showError), 800);
+    });
+    if (!response.ok) throw new Error(await response.text());
+    const accepted = await response.json();
+    optimistic.Id = accepted.id || optimistic.Id;
+    optimistic.State = 'Running';
+    optimistic.Lines.push('[AKZEPTIERT] Hintergrundjob ' + optimistic.Id + ' wurde gestartet.');
+    renderJobs([]);
+    await refreshJobs();
+    window.setTimeout(() => refresh().catch(showError), 800);
+  } catch (error) {
+    optimisticJobs = optimisticJobs.filter((job) => job !== optimistic);
+    renderJobs([]);
+    throw error;
+  }
 }
 
 function showError(error) {
@@ -173,9 +393,12 @@ function openBuild(kind) {
   $('#build-kind').textContent = kind === 'sql' ? 'SQL-PREPARED-IMAGE' : 'WINDOWS-OS-BASELINE';
   $('#build-title').textContent = kind === 'sql' ? 'Neues SQL-Prepared-Image' : 'Neue Windows-OS-Baseline';
   $('#sql-fields').hidden = kind !== 'sql';
-  $('#os-id').disabled = kind === 'sql';
-  $('#os-id').value = kind === 'sql' ? 'windows-server-2025' : 'windows-server-2025';
+  $('#sql-hash-fields').hidden = kind !== 'sql';
+  $('#sql-image-name-field').hidden = kind !== 'sql';
+  $('#sql-image-name').value = '';
   $('#media-root').value = workflow?.Defaults?.MediaRoot || '';
+  renderWindowsInstallationMedia(workflow?.WindowsInstallationMedia || [], kind === 'sql');
+  if (kind === 'sql') renderSqlInstallationMedia(workflow?.SqlInstallationMedia || []);
   $('#build-dialog').showModal();
 }
 
@@ -196,16 +419,69 @@ function parseGermanDate(value) {
   return iso;
 }
 
-function openContainerOperation(action, runId, port) {
+function renderContainerSampleOptions(sqlVersion) {
+  const select = $('#container-sample');
+  const version = Number(String(sqlVersion || '').match(/^\d{4}/)?.[0] || 0);
+  const catalog = workflow?.SampleDatabases;
+  if (!Array.isArray(catalog)) {
+    select.innerHTML = '<option value="">Testdatenbank-Katalog wird erst nach einem Neustart des UI-Servers geladen …</option>';
+    updateContainerSampleSelection();
+    return;
+  }
+  const samples = catalog.filter((sample) => !sample.MinSqlVersion || Number(sample.MinSqlVersion) <= version);
+  const placeholder = samples.length
+    ? 'Eigene leere Datenbank anlegen'
+    : 'Keine kompatible Testdatenbank für SQL Server ' + (sqlVersion || '–') + ' vorhanden';
+  select.innerHTML = '<option value="">' + escapeHtml(placeholder) + '</option>' + samples.map((sample) => {
+    const trustRequired = sample.TrustStatus === 'TRUST_REQUIRED';
+    const size = sample.DownloadSizeMB ? ' · ' + sample.DownloadSizeMB + ' MB' : '';
+    return '<option value="' + escapeHtml(sample.SampleId + ':' + sample.Variant) + '" data-database="' + escapeHtml(sample.ExpectedDatabase) + '" data-trust-required="' + trustRequired + '" data-sha256="' + escapeHtml(sample.ExpectedSha256 || '') + '">' + escapeHtml(sample.DisplayName) + ' · ' + escapeHtml(sample.Variant) + ' → ' + escapeHtml(sample.ExpectedDatabase) + size + '</option>';
+  }).join('');
+  updateContainerSampleSelection();
+}
+
+function updateContainerSampleSelection() {
+  const option = $('#container-sample').selectedOptions[0];
+  const selectedSample = Boolean($('#container-sample').value);
+  const trustRequired = selectedSample && option?.dataset?.trustRequired === 'true';
+  $('#container-database-name').disabled = selectedSample;
+  if (selectedSample) $('#container-database-name').value = option?.dataset?.database || '';
+  const expectedSha = option?.dataset?.sha256 || '';
+  $('#container-sample-hash-field').hidden = !selectedSample;
+  $('#container-sample-sha256').value = expectedSha;
+  $('#container-sample-sha256').disabled = Boolean(expectedSha);
+  $('#container-sample-trust-field').hidden = !trustRequired || Boolean(expectedSha);
+  // Eine Freigabe ist nur für die aktuell ausgewählte Variante gültig und
+  // darf niemals aus einer vorherigen Dialognutzung übernommen werden.
+  $('#container-sample-trust').checked = false;
+}
+
+function openContainerOperation(action, runId, port, instanceId, sqlVersion) {
   const databaseAction = action === 'CreateContainerDatabase';
   $('#container-operation-action').value = action;
   $('#container-operation-run').value = runId;
   $('#container-operation-port').value = port;
+  $('#container-operation-instance').value = instanceId || 'primary';
   $('#container-operation-title').textContent = databaseAction ? 'Datenbank anlegen' : 'SQL-Skript ausführen';
   $('#container-database-field').hidden = !databaseAction;
+  $('#container-sample-field').hidden = !databaseAction;
+  $('#container-sample-hash-field').hidden = true;
+  $('#container-sample-trust-field').hidden = true;
+  $('#container-sample-sha256').value = '';
+  $('#container-sample-trust').checked = false;
   $('#container-script-field').hidden = databaseAction;
   $('#container-script-database-field').hidden = databaseAction;
+  if (databaseAction) renderContainerSampleOptions(sqlVersion);
   $('#container-operation-dialog').showModal();
+}
+
+let pendingConfirmation = null;
+function openConfirmation(title, message, action, parameters, submitLabel = 'Entfernen') {
+  pendingConfirmation = { action, parameters };
+  $('#confirmation-title').textContent = title;
+  $('#confirmation-message').textContent = message;
+  $('#confirmation-submit').textContent = submitLabel;
+  $('#confirmation-dialog').showModal();
 }
 
 document.addEventListener('click', async (event) => {
@@ -216,13 +492,54 @@ document.addEventListener('click', async (event) => {
     try { await startAction(containerAction.dataset.containerAction, { BuildId: containerAction.dataset.run }); } catch (error) { showError(error); }
     return;
   }
+  const hypervAction = event.target.closest('[data-hyperv-action]');
+  if (hypervAction) {
+    if (hypervAction.dataset.hypervAction === 'CompleteHyperVLabSql') {
+      $('#credential-action').value = 'CompleteHyperVLabSql';
+      $('#credential-build').value = hypervAction.dataset.run;
+      $('#credential-title').textContent = 'SQL CompleteImage';
+      $('#credential-note').textContent = 'Das lokale Administratorpasswort wird einmalig benötigt, um SQL Server in dieser laufenden Lab-VM zu vervollständigen.';
+      $('#credential-dialog').showModal();
+      return;
+    }
+    try { await startAction(hypervAction.dataset.hypervAction, { BuildId: hypervAction.dataset.run }); } catch (error) { showError(error); }
+    return;
+  }
   const operation = event.target.closest('[data-container-operation]');
-  if (operation) { openContainerOperation(operation.dataset.containerOperation, operation.dataset.run, operation.dataset.port); return; }
+  if (operation) { openContainerOperation(operation.dataset.containerOperation, operation.dataset.run, operation.dataset.port, operation.dataset.instance, operation.dataset.sqlVersion); return; }
   const remove = event.target.closest('[data-container-remove]');
   if (remove) {
-    if (window.confirm('Container-Lab „' + remove.dataset.name + '“ wirklich entfernen?')) {
-      try { await startAction('RemoveContainerLab', { BuildId: remove.dataset.run }); } catch (error) { showError(error); }
-    }
+    openConfirmation('Container-Lab entfernen', 'Container-Lab „' + remove.dataset.name + '“ wirklich entfernen? Der Container und sein Workflow-Run werden bereinigt.', 'RemoveContainerLab', { BuildId: remove.dataset.run });
+    return;
+  }
+  const hypervRemove = event.target.closest('[data-hyperv-remove]');
+  if (hypervRemove) {
+    openConfirmation('Hyper-V-Umgebung entfernen', 'Hyper-V-Umgebung „' + hypervRemove.dataset.name + '“ wirklich entfernen? Die VM und ihre differenzierenden run-lokalen VHDX werden gelöscht. Das Prepared-Image bleibt unverändert.', 'RemoveHyperVLab', { BuildId: hypervRemove.dataset.run });
+    return;
+  }
+  const buildCleanup = event.target.closest('[data-build-cleanup]');
+  if (buildCleanup) {
+    const kind = buildCleanup.dataset.buildKind === 'windows' ? 'Windows-Builder' : 'SQL-Builder';
+    const published = buildCleanup.dataset.buildPublished === 'true';
+    const message = published
+      ? kind + ' „' + buildCleanup.dataset.build + '“ aus der Workflow-Ansicht entfernen? Das veröffentlichte Image bleibt erhalten und kann anschließend separat gelöscht werden.'
+      : kind + ' „' + buildCleanup.dataset.build + '“ wirklich aufräumen? Die zugehörige VM und buildlokale VHDX werden entfernt. Veröffentlichte Images bleiben unverändert.';
+    openConfirmation(published ? 'Versiegelten Build entfernen' : kind + ' aufräumen', message, buildCleanup.dataset.buildCleanup, { BuildId: buildCleanup.dataset.build }, published ? 'Build entfernen' : 'Aufräumen');
+    return;
+  }
+  const artifactRemove = event.target.closest('[data-artifact-remove]');
+  if (artifactRemove) {
+    const kind = artifactRemove.dataset.artifactKind;
+    openConfirmation(kind + ' löschen', kind + ' „' + artifactRemove.dataset.artifact + '“ wirklich löschen? Die registrierte immutable VHDX und ihre Metadaten werden entfernt. Falls ein aktiver Build das Image noch verwendet, wird das Löschen sicher blockiert.', 'RemoveHyperVImageArtifact', { ArtifactId: artifactRemove.dataset.artifact }, 'Image löschen');
+    return;
+  }
+  const artifactRename = event.target.closest('[data-artifact-rename]');
+  if (artifactRename) {
+    $('#artifact-name-id').value = artifactRename.dataset.artifact;
+    const currentName = artifactRename.dataset.artifactName || '–';
+    $('#artifact-current-name').textContent = currentName;
+    $('#artifact-display-name').value = currentName === '–' ? '' : currentName;
+    $('#artifact-name-dialog').showModal();
     return;
   }
   const button = event.target.closest('[data-action]');
@@ -232,7 +549,13 @@ document.addEventListener('click', async (event) => {
   if (button.dataset.credential === 'true') {
     $('#credential-action').value = action;
     $('#credential-build').value = buildId;
-    $('#credential-title').textContent = action === 'PrepareSqlImage' ? 'SQL PrepareImage und Sysprep' : 'Windows-Installation bestätigen';
+    const credentialText = action === 'PrepareSqlImage'
+      ? { title: 'SQL PrepareImage und Sysprep', note: 'Das lokale Administratorpasswort wird benötigt, um SQL PrepareImage und den abschließenden Sysprep in dieser VM auszuführen.' }
+      : action === 'GeneralizeWindowsBuild'
+        ? { title: 'Windows generalisieren', note: 'Das lokale Administratorpasswort wird benötigt, um Sysprep in dieser VM auszuführen. Die VM fährt danach automatisch herunter.' }
+        : { title: 'Windows-Installation bestätigen', note: 'Das lokale Administratorpasswort wird nur für die Prüfung der installierten Windows-Edition verwendet.' };
+    $('#credential-title').textContent = credentialText.title;
+    $('#credential-note').textContent = credentialText.note;
     $('#credential-dialog').showModal();
     return;
   }
@@ -254,6 +577,7 @@ $('#build-form').addEventListener('submit', async (event) => {
   const kind = $('#build-type').value;
   const parameters = {
     MediaRoot: $('#media-root').value,
+    WindowsMediaPath: $('#windows-media').value,
     OperatingSystemId: $('#os-id').value,
     WindowsEdition: $('#windows-edition').value,
     InstallationType: $('#installation-type').value,
@@ -261,12 +585,49 @@ $('#build-form').addEventListener('submit', async (event) => {
     ProcessorCount: Number($('#processor-count').value),
     OsDiskSizeGB: Number($('#disk-gb').value),
     SqlVersion: $('#sql-version').value,
-    SqlEdition: $('#sql-edition').value
+    SqlEdition: $('#sql-edition').value,
+    SqlMediaPath: $('#sql-media').value,
+    WindowsMediaSha256: $('#windows-media-sha256').value.trim(),
+    SqlMediaSha256: $('#sql-media-sha256').value.trim(),
+    ImageName: $('#sql-image-name').value.trim()
   };
+  if (!parameters.ImageName) delete parameters.ImageName;
+  if (!parameters.WindowsMediaSha256) delete parameters.WindowsMediaSha256;
+  if (!parameters.SqlMediaSha256) delete parameters.SqlMediaSha256;
+  if (!parameters.WindowsMediaPath || !parameters.OperatingSystemId || !parameters.WindowsEdition || !parameters.InstallationType) { showError(new Error('Bitte ein erkanntes Windows-Installationsmedium auswählen.')); return; }
+  if (kind === 'sql' && (!parameters.SqlMediaPath || !parameters.SqlVersion || !parameters.SqlEdition)) { showError(new Error('Bitte ein SQL-Installationsmedium mit erkannter Edition auswählen.')); return; }
   try {
     await startAction(kind === 'sql' ? 'NewSqlBuild' : 'NewWindowsBuild', parameters);
     $('#build-dialog').close();
   } catch (error) { showError(error); }
+});
+
+$('#sql-media').addEventListener('change', updateSqlMediaSelection);
+$('#windows-media').addEventListener('change', updateWindowsMediaSelection);
+$('#set-windows-media-hash').addEventListener('click', async () => {
+  const sha = $('#windows-media-sha256').value.trim();
+  if (!$('#windows-media').value || (sha && !/^[a-fA-F0-9]{64}$/.test(sha))) { showError(new Error('Windows-ISO auswählen; ein optionaler SHA-256 muss 64 Hex-Zeichen enthalten.')); return; }
+  try {
+    const parameters = { MediaRoot: $('#media-root').value.trim(), WindowsMediaPath: $('#windows-media').value, OperatingSystemId: $('#os-id').value, WindowsEdition: $('#windows-edition').value, InstallationType: $('#installation-type').value };
+    if (sha) parameters.WindowsMediaSha256 = sha;
+    await startAction('SetWindowsMediaHash', parameters);
+    await refresh($('#media-root').value.trim());
+  } catch (error) { showError(error); }
+});
+$('#set-sql-media-hash').addEventListener('click', async () => {
+  const sha = $('#sql-media-sha256').value.trim();
+  if (!$('#sql-media').value || (sha && !/^[a-fA-F0-9]{64}$/.test(sha))) { showError(new Error('SQL-ISO auswählen; ein optionaler SHA-256 muss 64 Hex-Zeichen enthalten.')); return; }
+  try {
+    const parameters = { MediaRoot: $('#media-root').value.trim(), SqlMediaPath: $('#sql-media').value, SqlVersion: $('#sql-version').value, SqlEdition: $('#sql-edition').value };
+    if (sha) parameters.SqlMediaSha256 = sha;
+    await startAction('SetSqlMediaHash', parameters);
+    await refresh($('#media-root').value.trim());
+  } catch (error) { showError(error); }
+});
+$('#scan-media').addEventListener('click', async () => {
+  const mediaRoot = $('#media-root').value.trim();
+  if (!mediaRoot) { showError(new Error('Bitte zuerst den Media Root angeben.')); return; }
+  try { await refresh(mediaRoot); } catch (error) { showError(error); }
 });
 
 $('#credential-form').addEventListener('submit', async (event) => {
@@ -291,6 +652,76 @@ $('#publish-form').addEventListener('submit', async (event) => {
 
 $('#new-container').addEventListener('click', () => $('#container-dialog').showModal());
 
+$('#new-hyperv-lab').addEventListener('click', () => {
+  renderHyperVArtifactOptions(workflow?.SqlPreparedImages || []);
+  renderHyperVSwitchOptions(workflow?.HyperVSwitches || []);
+  $('#hyperv-lab-dialog').showModal();
+});
+
+$('#new-hyperv-existing-vm-lab').addEventListener('click', () => {
+  renderHyperVExistingVmSourceOptions(workflow?.HyperVExistingVmSources || []);
+  renderHyperVSwitchOptions(workflow?.HyperVSwitches || []);
+  $('#hyperv-existing-vm-lab-dialog').showModal();
+});
+
+$('#hyperv-artifact').addEventListener('change', () => renderHyperVArtifactDetails(workflow?.SqlPreparedImages || []));
+$('#hyperv-existing-vm-source').addEventListener('change', () => renderHyperVExistingVmSourceDetails(workflow?.HyperVExistingVmSources || []));
+
+$('#hyperv-lab-form').addEventListener('submit', async (event) => {
+  if (event.submitter?.value === 'cancel') return;
+  event.preventDefault();
+  if (!$('#hyperv-artifact').value) { showError(new Error('Bitte ein veröffentlichtes SQL-Prepared-Image auswählen.')); return; }
+  try {
+    await startAction('NewHyperVLab', {
+      ArtifactId: $('#hyperv-artifact').value,
+      LabName: $('#hyperv-lab-name').value.trim(),
+      InstanceId: $('#hyperv-instance').value.trim(),
+      MemoryStartupMB: Number($('#hyperv-memory').value),
+      ProcessorCount: Number($('#hyperv-processors').value),
+      SwitchName: $('#hyperv-switch').value.trim()
+    });
+    $('#hyperv-lab-dialog').close();
+  } catch (error) { showError(error); }
+});
+
+$('#hyperv-existing-vm-lab-form').addEventListener('submit', async (event) => {
+  if (event.submitter?.value === 'cancel') return;
+  event.preventDefault();
+  if (!$('#hyperv-existing-vm-source').value) { showError(new Error('Bitte eine ausgeschaltete vorhandene Windows-VM auswählen.')); return; }
+  if (!$('#hyperv-existing-vm-license-confirm').checked) { showError(new Error('Bitte Lizenz- und Ablaufhinweis für die Quell-VM bestätigen.')); return; }
+  try {
+    await startAction('NewHyperVLabFromExistingVm', {
+      SourceVMName: $('#hyperv-existing-vm-source').value,
+      LabName: $('#hyperv-existing-vm-lab-name').value.trim(),
+      InstanceId: $('#hyperv-existing-vm-instance').value.trim(),
+      MemoryStartupMB: Number($('#hyperv-existing-vm-memory').value),
+      ProcessorCount: Number($('#hyperv-existing-vm-processors').value),
+      SwitchName: $('#hyperv-existing-vm-switch').value.trim(),
+      ConfirmSourceLicense: true
+    });
+    $('#hyperv-existing-vm-license-confirm').checked = false;
+    $('#hyperv-existing-vm-lab-dialog').close();
+  } catch (error) { showError(error); }
+});
+
+$('#media-sources').addEventListener('click', () => {
+  $('#sources-media-root').value = workflow?.Defaults?.MediaRoot || '';
+  renderMediaSources(workflow?.MediaSources || []);
+  $('#media-sources-dialog').showModal();
+});
+
+$('#media-sources-form').addEventListener('submit', async (event) => {
+  if (event.submitter?.value === 'cancel') return;
+  event.preventDefault();
+  const mediaRoot = $('#sources-media-root').value.trim();
+  if (!mediaRoot) { showError(new Error('Bitte einen vorhandenen Media Root angeben.')); return; }
+  try {
+    await startAction('SetMediaRoot', { MediaRoot: mediaRoot });
+    await refresh(mediaRoot);
+    $('#media-sources-dialog').close();
+  } catch (error) { showError(error); }
+});
+
 $('#container-form').addEventListener('submit', async (event) => {
   if (event.submitter?.value === 'cancel') return;
   event.preventDefault();
@@ -304,13 +735,59 @@ $('#container-form').addEventListener('submit', async (event) => {
 $('#container-operation-form').addEventListener('submit', async (event) => {
   if (event.submitter?.value === 'cancel') return;
   event.preventDefault();
-  const action = $('#container-operation-action').value;
-  const parameters = { BuildId: $('#container-operation-run').value, Port: Number($('#container-operation-port').value), SaPassword: $('#container-operation-password').value };
-  if (action === 'CreateContainerDatabase') parameters.DatabaseName = $('#container-database-name').value;
+  let action = $('#container-operation-action').value;
+  const parameters = { BuildId: $('#container-operation-run').value, InstanceId: $('#container-operation-instance').value, Port: Number($('#container-operation-port').value), SaPassword: $('#container-operation-password').value };
+  if (action === 'CreateContainerDatabase') {
+    const sample = $('#container-sample').value;
+    if (sample) {
+      const [SampleId, SampleVariant] = sample.split(':', 2);
+      const sampleSha256 = $('#container-sample-sha256').value.trim();
+      if (sampleSha256 && !/^[a-fA-F0-9]{64}$/.test(sampleSha256)) { showError(new Error('Der SHA-256 der Testdatenbank muss 64 Hex-Zeichen enthalten.')); return; }
+      if ($('#container-sample-trust-field').hidden === false && !sampleSha256 && !$('#container-sample-trust').checked) { showError(new Error('Bitte einen offiziellen SHA-256 eintragen oder die einmalige Vertrauensfreigabe bestätigen.')); return; }
+      action = 'InstallContainerSampleDatabase';
+      parameters.SampleId = SampleId;
+      parameters.SampleVariant = SampleVariant;
+      if (sampleSha256) parameters.SampleSha256 = sampleSha256;
+      parameters.TrustUnknownSample = $('#container-sample-trust').checked;
+    } else {
+      parameters.DatabaseName = $('#container-database-name').value;
+    }
+  }
   else { parameters.ScriptPath = $('#container-script-path').value; parameters.Database = $('#container-script-database').value; }
   try {
     await startAction(action, parameters);
     $('#container-operation-password').value = ''; $('#container-operation-dialog').close();
+  } catch (error) { showError(error); }
+});
+
+$('#container-sample').addEventListener('change', updateContainerSampleSelection);
+
+document.addEventListener('click', (event) => {
+  const cancel = event.target.closest('[value="cancel"], [data-confirmation-cancel]');
+  if (!cancel) return;
+  if (cancel.hasAttribute('data-confirmation-cancel')) pendingConfirmation = null;
+  cancel.closest('dialog')?.close();
+});
+
+$('#confirmation-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const confirmation = pendingConfirmation;
+  if (!confirmation) { $('#confirmation-dialog').close(); return; }
+  try {
+    await startAction(confirmation.action, confirmation.parameters);
+    pendingConfirmation = null;
+    $('#confirmation-dialog').close();
+  } catch (error) { showError(error); }
+});
+
+$('#artifact-name-form').addEventListener('submit', async (event) => {
+  if (event.submitter?.value === 'cancel') return;
+  event.preventDefault();
+  const displayName = $('#artifact-display-name').value.trim();
+  if (!displayName) { showError(new Error('Bitte einen Namen eingeben.')); return; }
+  try {
+    await startAction('RenameHyperVImageArtifact', { ArtifactId: $('#artifact-name-id').value, DisplayName: displayName });
+    $('#artifact-name-dialog').close();
   } catch (error) { showError(error); }
 });
 

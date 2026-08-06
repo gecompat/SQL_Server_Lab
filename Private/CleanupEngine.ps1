@@ -226,6 +226,37 @@ function Invoke-CleanupPlan {
     }
 
     $plan = Get-Content -LiteralPath $planPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
+    # Aeltere Cleanup-Plaene hatten noch keine providerbezogenen Statusfelder.
+    # Vor dem Wiederholungsversuch werden sie verlustfrei auf den aktuellen
+    # Vertrag angehoben, damit ein vorhandener Container trotzdem bereinigt wird.
+    if (-not $plan.PSObject.Properties['providerSubRuns']) {
+        $plan | Add-Member -NotePropertyName providerSubRuns -NotePropertyValue @()
+    }
+    foreach ($providerSubRun in @($plan.providerSubRuns)) {
+        if (-not $providerSubRun.PSObject.Properties['state']) {
+            $providerSubRun | Add-Member -NotePropertyName state -NotePropertyValue 'PENDING'
+        }
+        if (-not $providerSubRun.PSObject.Properties['stepOrders']) {
+            $providerSubRun | Add-Member -NotePropertyName stepOrders -NotePropertyValue @()
+        }
+        if (-not $providerSubRun.PSObject.Properties['errors']) {
+            $providerSubRun | Add-Member -NotePropertyName errors -NotePropertyValue 0
+        }
+        if (-not $providerSubRun.PSObject.Properties['updatedAt']) {
+            $providerSubRun | Add-Member -NotePropertyName updatedAt -NotePropertyValue (Get-LabTimestamp)
+        }
+    }
+    foreach ($step in @($plan.steps)) {
+        if (-not $step.PSObject.Properties['state']) {
+            $step | Add-Member -NotePropertyName state -NotePropertyValue 'PENDING'
+        }
+        if (-not $step.PSObject.Properties['executedAt']) {
+            $step | Add-Member -NotePropertyName executedAt -NotePropertyValue $null
+        }
+        if (-not $step.PSObject.Properties['error']) {
+            $step | Add-Member -NotePropertyName error -NotePropertyValue $null
+        }
+    }
     $plan.status = 'EXECUTING'
     $plan | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $planPath -Encoding utf8
 

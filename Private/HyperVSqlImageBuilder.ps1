@@ -81,30 +81,138 @@ function Set-HyperVSqlImageBuildState {
     return Get-HyperVSqlImageBuildPlan -BuildId $BuildId -StateRoot $StateRoot
 }
 
+function Get-HyperVSqlVersionFromMajor {
+    <# .SYNOPSIS Ordnet die von SQL Setup gemeldete Hauptversion einer Produktversion zu. #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][int]$MajorVersion)
+
+    $known = @{ 11 = '2012'; 12 = '2014'; 13 = '2016'; 14 = '2017'; 15 = '2019'; 16 = '2022'; 17 = '2025' }
+    if ($known.ContainsKey($MajorVersion)) { return $known[$MajorVersion] }
+    return "major-$MajorVersion"
+}
+
+function Get-HyperVSqlMajorVersionFromVersion {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$SqlVersion)
+
+    if ($SqlVersion -match '^major-(?<major>\d+)$') { return [int]$Matches.major }
+    $known = @{ '2012' = 11; '2014' = 12; '2016' = 13; '2017' = 14; '2019' = 15; '2022' = 16; '2025' = 17 }
+    if ($known.ContainsKey($SqlVersion)) { return [int]$known[$SqlVersion] }
+    throw "HYPERV_SQL_MEDIA_VERSION_UNKNOWN: $SqlVersion"
+}
+
+function Get-HyperVSqlMediaEditionFromPath {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Path)
+
+    if ($Path -match '(?i)(?:^|[\\/_\-.])standard(?:$|[\\/_\-.])') { return 'Standard' }
+    if ($Path -match '(?i)(?:^|[\\/_\-.])(?:eval|evaluation)(?:$|[\\/_\-.])') { return 'Eval' }
+    if ($Path -match '(?i)(?:^|[\\/_\-.])(?:enterprise|developer)(?:$|[\\/_\-.])') { return 'Enterprise' }
+    return $null
+}
+
+function Get-HyperVSqlInstallationMediaInfo {
+    <# .SYNOPSIS Erkennt SQL Server direkt aus setup.exe einer ISO. #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$IsoPath)
+
+    if (-not $IsWindows) { throw 'HYPERV_SQL_MEDIA_DISCOVERY_WINDOWS_ONLY' }
+    $resolvedIso = (Resolve-Path -LiteralPath $IsoPath -ErrorAction Stop).Path
+    $diskImage = Get-DiskImage -ImagePath $resolvedIso -ErrorAction Stop
+    $wasAttached = [bool]$diskImage.Attached
+    try {
+        if (-not $wasAttached) { $diskImage = Mount-DiskImage -ImagePath $resolvedIso -PassThru -ErrorAction Stop }
+        $setupFiles = @($diskImage | Get-Volume -ErrorAction Stop | Where-Object { $_.DriveLetter } | ForEach-Object {
+            $candidate = ('{0}:\\setup.exe' -f [string]$_.DriveLetter)
+            if (Test-Path -LiteralPath $candidate -PathType Leaf) { Get-Item -LiteralPath $candidate }
+        })
+        if ($setupFiles.Count -ne 1) { throw "HYPERV_SQL_MEDIA_SETUP_NOT_UNIQUE: ISO=$([IO.Path]::GetFileName($resolvedIso)); setup.exe=$($setupFiles.Count)" }
+        $setupVersion = [string]$setupFiles[0].VersionInfo.ProductVersion
+        if (-not $setupVersion) { $setupVersion = [string]$setupFiles[0].VersionInfo.FileVersion }
+        if ($setupVersion -notmatch '(?<!\d)(?<major>\d{2})\.') { throw "HYPERV_SQL_MEDIA_VERSION_UNREADABLE: $setupVersion" }
+        $major = [int]$Matches.major
+        return [PSCustomObject]@{ SqlVersion = Get-HyperVSqlVersionFromMajor -MajorVersion $major; MajorVersion = $major; SetupVersion = $setupVersion }
+    }
+    finally {
+        if (-not $wasAttached) { $null = Dismount-DiskImage -ImagePath $resolvedIso -ErrorAction SilentlyContinue }
+    }
+}
+
+function Get-HyperVSqlInstallationMediaCandidates {
+    <#
+    .SYNOPSIS Findet und erkennt alle SQL-ISOs unter dem Media Root.
+    .DESCRIPTION Neue oder geaenderte Dateien werden beim naechsten Scan automatisch erkannt.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$MediaRoot)
+
+    $resolvedRoot = (Resolve-Path -LiteralPath $MediaRoot -ErrorAction Stop).Path
+    $sqlRoot = Join-Path $resolvedRoot 'SQL'
+    if (-not (Test-Path -LiteralPath $sqlRoot -PathType Container)) { return @() }
+    if (-not $script:HyperVSqlMediaScanCache) { $script:HyperVSqlMediaScanCache = @{} }
+    $items = @(Get-ChildItem -LiteralPath $sqlRoot -File -Recurse -Force | Where-Object { $_.Extension -ieq '.iso' })
+    $knownPaths = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($item in $items) {
+        $null = $knownPaths.Add($item.FullName)
+        $fingerprint = "$($item.Length):$($item.LastWriteTimeUtc.Ticks)"
+        $cached = $script:HyperVSqlMediaScanCache[$item.FullName]
+        if (-not $cached -or $cached.Fingerprint -ne $fingerprint) {
+        $relativePath = [IO.Path]::GetRelativePath($resolvedRoot, $item.FullName).Replace('\', '/')
+            try {
+                $info = Get-HyperVSqlInstallationMediaInfo -IsoPath $item.FullName
+                $edition = Get-HyperVSqlMediaEditionFromPath -Path $relativePath
+                $cached = [PSCustomObject]@{ Fingerprint = $fingerprint; MediaId = $relativePath; SqlVersion = $info.SqlVersion; MajorVersion = $info.MajorVersion; SetupVersion = $info.SetupVersion; MediaEdition = $edition; EditionDetected = [bool]$edition; State = 'READY'; Message = 'SQL Setup wurde direkt aus der ISO erkannt.' }
+            }
+            catch {
+                $cached = [PSCustomObject]@{ Fingerprint = $fingerprint; MediaId = $relativePath; SqlVersion = $null; MajorVersion = $null; SetupVersion = $null; MediaEdition = (Get-HyperVSqlMediaEditionFromPath -Path $relativePath); EditionDetected = $false; State = 'UNRECOGNIZED'; Message = $_.Exception.Message }
+            }
+            $script:HyperVSqlMediaScanCache[$item.FullName] = $cached
+        }
+    }
+    foreach ($path in @($script:HyperVSqlMediaScanCache.Keys)) { if (-not $knownPaths.Contains($path)) { $script:HyperVSqlMediaScanCache.Remove($path) } }
+    return @($script:HyperVSqlMediaScanCache.Values | ForEach-Object {
+        $summary = Get-HyperVMediaHashSidecarSummary -MediaRoot $resolvedRoot -RelativePath $_.MediaId
+        $_ | Add-Member -NotePropertyName HashPath -NotePropertyValue $summary.HashPath -Force
+        $_ | Add-Member -NotePropertyName HashStatus -NotePropertyValue $summary.HashStatus -Force
+        $_ | Add-Member -NotePropertyName ExpectedSha256 -NotePropertyValue $summary.ExpectedSha256 -Force
+        $_
+    } | Sort-Object SqlVersion, MediaId)
+}
+
 function Resolve-HyperVSqlInstallationMedia {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$MediaRoot,
-        [Parameter(Mandatory)][ValidateSet('2019', '2022', '2025')][string]$SqlVersion,
-        [ValidateSet('Eval', 'Enterprise', 'Standard')][string]$MediaEdition = 'Eval'
+        [Parameter(Mandatory)][string]$SqlVersion,
+        [ValidateSet('Eval', 'Enterprise', 'Standard')][string]$MediaEdition = 'Eval',
+        [string]$SqlMediaPath
     )
 
-    if ($SqlVersion -in @('2019', '2022') -and $MediaEdition -ne 'Eval') {
-        throw "HYPERV_SQL_MEDIA_EDITION_UNSUPPORTED: SQL $SqlVersion verwendet im kanonischen Root Eval"
-    }
     $resolvedRoot = (Resolve-Path -LiteralPath $MediaRoot -ErrorAction Stop).Path
     if (-not (Test-Path -LiteralPath $resolvedRoot -PathType Container)) {
         throw 'HYPERV_MEDIA_ROOT_NOT_FOUND'
     }
-    $isoDirectory = Join-Path $resolvedRoot "SQL/$SqlVersion/$MediaEdition/ISO"
-    if (-not (Test-Path -LiteralPath $isoDirectory -PathType Container)) {
-        throw "HYPERV_SQL_MEDIA_DIRECTORY_NOT_FOUND: $isoDirectory"
+    if ($SqlMediaPath) {
+        if ([IO.Path]::IsPathRooted($SqlMediaPath) -or $SqlMediaPath -match '(^|[\\/])\.\.([\\/]|$)') { throw 'HYPERV_SQL_MEDIA_PATH_INVALID' }
+        $candidatePath = Join-Path $resolvedRoot ($SqlMediaPath.Replace('/', '\'))
+        $iso = Get-Item -LiteralPath $candidatePath -ErrorAction Stop
+        $sqlRoot = (Resolve-Path -LiteralPath (Join-Path $resolvedRoot 'SQL') -ErrorAction Stop).Path
+        $sqlRootPrefix = $sqlRoot.TrimEnd('\') + '\'
+        if ($iso.Extension -ine '.iso' -or -not $iso.FullName.StartsWith($sqlRootPrefix, [System.StringComparison]::OrdinalIgnoreCase)) { throw 'HYPERV_SQL_MEDIA_PATH_INVALID' }
+        $detected = Get-HyperVSqlInstallationMediaInfo -IsoPath $iso.FullName
+        if ($detected.SqlVersion -ne $SqlVersion) { throw "HYPERV_SQL_MEDIA_VERSION_MISMATCH: erwartet SQL $SqlVersion; erkannt $($detected.SqlVersion)" }
+        $detectedEdition = Get-HyperVSqlMediaEditionFromPath -Path $SqlMediaPath
+        if (-not $detectedEdition) { throw "HYPERV_SQL_MEDIA_EDITION_UNRECOGNIZED: $SqlMediaPath" }
+        if ($detectedEdition -ne $MediaEdition) { throw "HYPERV_SQL_MEDIA_EDITION_MISMATCH: erwartet $MediaEdition; erkannt $detectedEdition" }
     }
-    $isoFiles = @(Get-ChildItem -LiteralPath $isoDirectory -File -Force | Where-Object Extension -IEQ '.iso')
-    if ($isoFiles.Count -eq 0) { throw "HYPERV_SQL_MEDIA_NOT_FOUND: $isoDirectory" }
-    if ($isoFiles.Count -gt 1) { throw "HYPERV_SQL_MEDIA_AMBIGUOUS: $($isoFiles.Name -join ', ')" }
-
-    $iso = $isoFiles[0]
+    else {
+        $isoDirectory = Join-Path $resolvedRoot "SQL/$SqlVersion/$MediaEdition/ISO"
+        if (-not (Test-Path -LiteralPath $isoDirectory -PathType Container)) { throw "HYPERV_SQL_MEDIA_DIRECTORY_NOT_FOUND: $isoDirectory" }
+        $isoFiles = @(Get-ChildItem -LiteralPath $isoDirectory -File -Force | Where-Object Extension -IEQ '.iso')
+        if ($isoFiles.Count -eq 0) { throw "HYPERV_SQL_MEDIA_NOT_FOUND: $isoDirectory" }
+        if ($isoFiles.Count -gt 1) { throw "HYPERV_SQL_MEDIA_AMBIGUOUS: $($isoFiles.Name -join ', ')" }
+        $iso = $isoFiles[0]
+    }
     if (-not (Test-WindowsInstallationIso -Path $iso.FullName)) { throw 'HYPERV_SQL_MEDIA_INVALID_ISO' }
     $relativePath = [System.IO.Path]::GetRelativePath($resolvedRoot, $iso.FullName)
     if ($relativePath.StartsWith('..')) { throw 'HYPERV_SQL_MEDIA_OUTSIDE_ROOT' }
@@ -141,13 +249,12 @@ function Get-HyperVSqlSetupVersionPattern {
         melden. Beide Kennzeichnungen gehören jeweils zum selben SQL-Medium.
     #>
     [CmdletBinding()]
-    param([Parameter(Mandatory)][ValidateSet('2019', '2022', '2025')][string]$SqlVersion)
+    param([Parameter(Mandatory)][string]$SqlVersion)
 
-    switch ($SqlVersion) {
-        '2019' { return '(?<!\d)(?:15|2019\.0150)\.' }
-        '2022' { return '(?<!\d)(?:16|2022\.0160)\.' }
-        '2025' { return '(?<!\d)(?:17|2025\.0170)\.' }
-    }
+    $major = Get-HyperVSqlMajorVersionFromVersion -SqlVersion $SqlVersion
+    if ($SqlVersion -match '^major-\d+$') { return "(?<!\d)$major\." }
+    $yearMarker = '{0:d4}' -f ($major * 10)
+    return "(?<!\d)(?:$major|$SqlVersion\.$yearMarker)\."
 }
 
 function Confirm-HyperVSqlInstallationMediaVersion {
@@ -158,7 +265,7 @@ function Confirm-HyperVSqlInstallationMediaVersion {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$IsoPath,
-        [Parameter(Mandatory)][ValidateSet('2019', '2022', '2025')][string]$SqlVersion
+        [Parameter(Mandatory)][string]$SqlVersion
     )
 
     if (-not $IsWindows) { throw 'HYPERV_SQL_MEDIA_VERSION_CHECK_WINDOWS_ONLY' }
@@ -169,22 +276,9 @@ function Confirm-HyperVSqlInstallationMediaVersion {
         if (-not $wasAttached) {
             $diskImage = Mount-DiskImage -ImagePath $resolvedIso -PassThru -ErrorAction Stop
         }
-        $setupFiles = @(
-            $diskImage | Get-Volume -ErrorAction Stop |
-                Where-Object { $_.DriveLetter } |
-                ForEach-Object {
-                    $candidate = ('{0}:\setup.exe' -f [string]$_.DriveLetter)
-                    if (Test-Path -LiteralPath $candidate -PathType Leaf) { Get-Item -LiteralPath $candidate }
-                }
-        )
-        if ($setupFiles.Count -ne 1) {
-            throw "HYPERV_SQL_MEDIA_SETUP_NOT_UNIQUE: ISO=$([IO.Path]::GetFileName($resolvedIso)); setup.exe=$($setupFiles.Count)"
-        }
-        $setupVersion = [string]$setupFiles[0].VersionInfo.FileVersion
-        $expectedPattern = Get-HyperVSqlSetupVersionPattern -SqlVersion $SqlVersion
-        if ([string]::IsNullOrWhiteSpace($setupVersion) -or $setupVersion -notmatch $expectedPattern) {
-            throw "HYPERV_SQL_MEDIA_VERSION_MISMATCH: erwartet SQL $SqlVersion; erkannt $setupVersion; ISO=$([IO.Path]::GetFileName($resolvedIso))"
-        }
+        $info = Get-HyperVSqlInstallationMediaInfo -IsoPath $resolvedIso
+        $setupVersion = $info.SetupVersion
+        if ($info.SqlVersion -ne $SqlVersion) { throw "HYPERV_SQL_MEDIA_VERSION_MISMATCH: erwartet SQL $SqlVersion; erkannt $($info.SqlVersion) ($setupVersion); ISO=$([IO.Path]::GetFileName($resolvedIso))" }
         return [PSCustomObject]@{
             SqlVersion = $SqlVersion
             SetupVersion = $setupVersion
@@ -302,11 +396,12 @@ function New-HyperVSqlMediaHashSidecar {
     [CmdletBinding(SupportsShouldProcess)]
     param(
         [Parameter(Mandatory)][string]$MediaRoot,
-        [Parameter(Mandatory)][ValidateSet('2019', '2022', '2025')][string]$SqlVersion,
-        [ValidateSet('Eval', 'Enterprise', 'Standard')][string]$MediaEdition = 'Eval'
+        [Parameter(Mandatory)][string]$SqlVersion,
+        [ValidateSet('Eval', 'Enterprise', 'Standard')][string]$MediaEdition = 'Eval',
+        [string]$SqlMediaPath
     )
 
-    $media = Resolve-HyperVSqlInstallationMedia -MediaRoot $MediaRoot -SqlVersion $SqlVersion -MediaEdition $MediaEdition
+    $media = Resolve-HyperVSqlInstallationMedia -MediaRoot $MediaRoot -SqlVersion $SqlVersion -MediaEdition $MediaEdition -SqlMediaPath $SqlMediaPath
     if ($media.HashStatus -eq 'SIDECAR_READY') { return $media }
     $digest = (Get-FileHash -LiteralPath $media.IsoPath -Algorithm SHA256).Hash.ToLowerInvariant()
     if ($PSCmdlet.ShouldProcess($media.HashPath, 'SHA-256-Sidecar fuer SQL-Server-ISO schreiben')) {
@@ -317,7 +412,7 @@ function New-HyperVSqlMediaHashSidecar {
         $media.HashStatus = 'WHAT_IF'; $media.ExpectedSha256 = $digest
         return $media
     }
-    return Resolve-HyperVSqlInstallationMedia -MediaRoot $MediaRoot -SqlVersion $SqlVersion -MediaEdition $MediaEdition
+    return Resolve-HyperVSqlInstallationMedia -MediaRoot $MediaRoot -SqlVersion $SqlVersion -MediaEdition $MediaEdition -SqlMediaPath $SqlMediaPath
 }
 
 function New-HyperVSqlImageBuildPlan {
@@ -326,7 +421,7 @@ function New-HyperVSqlImageBuildPlan {
         [Parameter(Mandatory)][string]$ImageArtifactId,
         [Parameter(Mandatory)][string]$IsoPath,
         [Parameter(Mandatory)][ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$ExpectedSha256,
-        [Parameter(Mandatory)][ValidateSet('2019', '2022', '2025')][string]$SqlVersion,
+        [Parameter(Mandatory)][string]$SqlVersion,
         [Parameter(Mandatory)][ValidateSet('Eval', 'Enterprise', 'Standard')][string]$SqlEdition,
         [string[]]$SqlFeatures = @('SQLENGINE', 'FULLTEXT', 'REPLICATION'),
         [string]$StateRoot
@@ -412,9 +507,10 @@ function New-HyperVSqlFreshImageBuildPlan {
         [Parameter(Mandatory)][ValidateSet('core', 'desktop-experience')][string]$InstallationType,
         [Parameter(Mandatory)][string]$SqlIsoPath,
         [Parameter(Mandatory)][ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$ExpectedSqlSha256,
-        [Parameter(Mandatory)][ValidateSet('2019', '2022', '2025')][string]$SqlVersion,
+        [Parameter(Mandatory)][string]$SqlVersion,
         [Parameter(Mandatory)][ValidateSet('Eval', 'Enterprise', 'Standard')][string]$SqlEdition,
         [string[]]$SqlFeatures = @('SQLENGINE', 'FULLTEXT', 'REPLICATION'),
+        [ValidateLength(1, 80)][string]$ImageName,
         [ValidateRange(32GB, 1TB)][long]$OsDiskSizeBytes = 80GB,
         [string]$StateRoot
     )
@@ -449,7 +545,7 @@ function New-HyperVSqlFreshImageBuildPlan {
     $timestamp = Get-LabTimestamp
     $state = [PSCustomObject]@{
         contractVersion = '2'; buildKind = 'hyperv-sql-prepare-image-fresh-windows'; buildId = $buildId; scopeId = $scopeId
-        provisioningMode = 'fresh-windows-media'; state = 'MEDIA_VERIFIED'
+        provisioningMode = 'fresh-windows-media'; displayName = $ImageName; state = 'MEDIA_VERIFIED'
         stateHistory = @([PSCustomObject]@{ state = 'MEDIA_VERIFIED'; timestamp = $timestamp; reason = 'Windows- und SQL-ISO SHA-256 verifiziert; ein finaler Sysprep vorgesehen' })
         operatingSystem = $operatingSystem; license = $license; windowsMedia = [PSCustomObject]@{ sha256 = $windowsSha256 }
         parentArtifact = [PSCustomObject]@{ artifactId = $null; source = 'fresh-windows-media'; operatingSystem = $operatingSystem; license = $license }
@@ -467,20 +563,39 @@ function New-HyperVSqlFreshImageBuildPlan {
     return Get-HyperVSqlImageBuildPlan -BuildId $buildId -StateRoot $StateRoot
 }
 
+function Set-HyperVSqlMediaHashSidecar {
+    <# .SYNOPSIS Prüft einen eingegebenen offiziellen SQL-ISO-SHA-256 und speichert ihn als Sidecar. #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$MediaRoot,
+        [Parameter(Mandatory)][string]$SqlVersion,
+        [Parameter(Mandatory)][ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$ExpectedSha256,
+        [ValidateSet('Eval', 'Enterprise', 'Standard')][string]$MediaEdition = 'Eval',
+        [string]$SqlMediaPath
+    )
+    $media = Resolve-HyperVSqlInstallationMedia -MediaRoot $MediaRoot -SqlVersion $SqlVersion -MediaEdition $MediaEdition -SqlMediaPath $SqlMediaPath
+    $actual = (Get-FileHash -LiteralPath $media.IsoPath -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()
+    if ($actual -ne $ExpectedSha256.ToLowerInvariant()) { throw "HYPERV_SQL_MEDIA_HASH_MISMATCH: ISO=$($media.RelativePath)" }
+    New-Item -Path (Split-Path -Parent $media.HashPath) -ItemType Directory -Force | Out-Null
+    Set-Content -LiteralPath $media.HashPath -Value "$actual  $($media.RelativePath)" -Encoding utf8NoBOM
+    return Resolve-HyperVSqlInstallationMedia -MediaRoot $MediaRoot -SqlVersion $SqlVersion -MediaEdition $MediaEdition -SqlMediaPath $SqlMediaPath
+}
+
 function Initialize-HyperVSqlPreparedImageBuild {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$MediaRoot,
         [Parameter(Mandatory)][string]$ImageArtifactId,
-        [Parameter(Mandatory)][ValidateSet('2019', '2022', '2025')][string]$SqlVersion,
+        [Parameter(Mandatory)][string]$SqlVersion,
         [ValidateSet('Eval', 'Enterprise', 'Standard')][string]$MediaEdition = 'Eval',
+        [string]$SqlMediaPath,
         [string[]]$SqlFeatures = @('SQLENGINE', 'FULLTEXT', 'REPLICATION'),
         [ValidateRange(2GB, 1TB)][long]$MemoryStartupBytes = 4GB,
         [ValidateRange(1, 64)][int]$ProcessorCount = 4,
         [string]$StateRoot
     )
 
-    $media = Resolve-HyperVSqlInstallationMedia -MediaRoot $MediaRoot -SqlVersion $SqlVersion -MediaEdition $MediaEdition
+    $media = Resolve-HyperVSqlInstallationMedia -MediaRoot $MediaRoot -SqlVersion $SqlVersion -MediaEdition $MediaEdition -SqlMediaPath $SqlMediaPath
     if ($media.HashStatus -ne 'SIDECAR_READY') { throw "HYPERV_SQL_MEDIA_HASH_REQUIRED: $($media.HashPath)" }
     $null = Confirm-HyperVSqlInstallationMediaVersion -IsoPath $media.IsoPath -SqlVersion $SqlVersion
     $labNetwork = Ensure-LabHyperVNetwork
@@ -522,18 +637,21 @@ function Initialize-HyperVSqlFreshPreparedImageBuild {
         [Parameter(Mandatory)][ValidateSet('windows-server-2025')][string]$OperatingSystemId,
         [Parameter(Mandatory)][ValidateSet('standard-evaluation', 'datacenter-evaluation')][string]$WindowsEdition,
         [Parameter(Mandatory)][ValidateSet('core', 'desktop-experience')][string]$InstallationType,
-        [Parameter(Mandatory)][ValidateSet('2019', '2022', '2025')][string]$SqlVersion,
+        [string]$WindowsMediaPath,
+        [Parameter(Mandatory)][string]$SqlVersion,
         [ValidateSet('Eval', 'Enterprise', 'Standard')][string]$MediaEdition = 'Eval',
+        [string]$SqlMediaPath,
         [string[]]$SqlFeatures = @('SQLENGINE', 'FULLTEXT', 'REPLICATION'),
+        [ValidateLength(1, 80)][string]$ImageName,
         [ValidateRange(32GB, 1TB)][long]$OsDiskSizeBytes = 80GB,
         [ValidateRange(2GB, 1TB)][long]$MemoryStartupBytes = 4GB,
         [ValidateRange(1, 64)][int]$ProcessorCount = 4,
         [string]$StateRoot
     )
 
-    $windowsMedia = Resolve-HyperVWindowsInstallationMedia -MediaRoot $MediaRoot -OperatingSystemId $OperatingSystemId
+    $windowsMedia = Resolve-HyperVWindowsInstallationMedia -MediaRoot $MediaRoot -OperatingSystemId $OperatingSystemId -WindowsMediaPath $WindowsMediaPath -WindowsEdition $WindowsEdition -InstallationType $InstallationType
     if ($windowsMedia.HashStatus -ne 'SIDECAR_READY') { throw "HYPERV_SQL_WINDOWS_MEDIA_HASH_REQUIRED: $($windowsMedia.HashPath)" }
-    $sqlMedia = Resolve-HyperVSqlInstallationMedia -MediaRoot $MediaRoot -SqlVersion $SqlVersion -MediaEdition $MediaEdition
+    $sqlMedia = Resolve-HyperVSqlInstallationMedia -MediaRoot $MediaRoot -SqlVersion $SqlVersion -MediaEdition $MediaEdition -SqlMediaPath $SqlMediaPath
     if ($sqlMedia.HashStatus -ne 'SIDECAR_READY') { throw "HYPERV_SQL_MEDIA_HASH_REQUIRED: $($sqlMedia.HashPath)" }
     $null = Confirm-HyperVSqlInstallationMediaVersion -IsoPath $sqlMedia.IsoPath -SqlVersion $SqlVersion
     $labNetwork = Ensure-LabHyperVNetwork
@@ -541,7 +659,7 @@ function Initialize-HyperVSqlFreshPreparedImageBuild {
         -ExpectedWindowsSha256 $windowsMedia.ExpectedSha256 -OperatingSystemId $OperatingSystemId `
         -WindowsEdition $WindowsEdition -InstallationType $InstallationType -SqlIsoPath $sqlMedia.IsoPath `
         -ExpectedSqlSha256 $sqlMedia.ExpectedSha256 -SqlVersion $SqlVersion -SqlEdition $MediaEdition `
-        -SqlFeatures $SqlFeatures -OsDiskSizeBytes $OsDiskSizeBytes -StateRoot $StateRoot
+        -SqlFeatures $SqlFeatures -ImageName $ImageName -OsDiskSizeBytes $OsDiskSizeBytes -StateRoot $StateRoot
     try {
         $resourceRoot = Join-Path $plan.BuildDirectory 'resources/hyperv'
         $runPrefix = $plan.buildId.Replace('-', '').Substring(0, 8).ToLowerInvariant()
@@ -895,7 +1013,7 @@ function Publish-HyperVSqlPreparedImageBuild {
         -LicenseType $parent.license.type -IntegrityOrigin generated-by-runtime -Generalized -SqlPrepared `
         -SqlVersion $build.sql.version -SqlEdition $build.sql.edition -SqlBuild $build.sql.setupBuild `
         -SqlFeatures @($build.sql.features) -SqlLicenseType $build.sql.license.type `
-        -EvaluationExpiresAt $expiry -StateRoot $StateRoot
+        -EvaluationExpiresAt $expiry -DisplayName ([string]$build.displayName) -StateRoot $StateRoot
     if (-not $artifact -or $artifact.artifactState -ne 'SQL_PREPARED_SEALED' -or $artifact.sha256 -ne $sha256.ToLowerInvariant()) {
         throw 'HYPERV_SQL_IMAGE_ARTIFACT_PUBLICATION_FAILED'
     }

@@ -139,6 +139,7 @@ function Install-LabSampleDatabase {
         [Parameter(Mandatory)][string]$ContainerName,
         [Parameter(Mandatory)]$RestoreDefinition,
         [switch]$NonInteractive,
+        [switch]$TrustUnknownArtifact,
         [string]$RunDirectory,
         [string]$StateRoot
     )
@@ -163,6 +164,7 @@ function Install-LabSampleDatabase {
         HandlerContractVersion = [string]$RestoreDefinition.handlerContractVersion
         ExpectedOutputs        = @($RestoreDefinition.expectedOutputs)
         NonInteractive         = $NonInteractive
+        TrustUnknownArtifact   = $TrustUnknownArtifact
         RunDirectory           = $RunDirectory
         StateRoot              = $StateRoot
     }

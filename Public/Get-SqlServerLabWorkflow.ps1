@@ -11,12 +11,17 @@
     Workflow-Status, veröffentlichte Images, Abnahmeumgebungen und aktive Labs.
 .EXAMPLE
     Get-SqlServerLabWorkflow
+.PARAMETER MediaRoot
+    Optionaler lokaler Medienordner, dessen SQL-ISOs für die dynamische
+    Erkennung untersucht werden. Ohne Angabe wird der gespeicherte Standard
+    verwendet.
 #>
 function Get-SqlServerLabWorkflow {
     [CmdletBinding()]
-    param()
+    param([string]$MediaRoot)
 
     $stateRoot = Get-LabStateRoot
+    if (-not $MediaRoot) { $MediaRoot = Get-LabMediaRootDefault }
     $isElevated = $false
     if ($IsWindows) {
         try {
@@ -48,13 +53,84 @@ function Get-SqlServerLabWorkflow {
     $artifacts = @()
     $acceptance = @()
     $activeRuns = @()
+    $sqlInstallationMedia = @()
+    $windowsInstallationMedia = @()
+    $sampleDatabases = @()
+    $mediaSources = @()
+    $hyperVLabs = @()
+    $hyperVSwitches = @()
+    $hyperVExistingVmSources = @()
+    $activeContainerRuns = @()
     if ($hyperV.Supported) {
         try { $windowsBuilds = @(Get-HyperVImageBuildPlans 2>$null) } catch { }
         try { $sqlBuilds = @(Get-HyperVSqlImageBuildPlans 2>$null) } catch { }
         try { $artifacts = @(Get-HyperVImageArtifact -SkipIntegrityCheck 2>$null) } catch { }
         try { $acceptance = @(Get-HyperVSqlAcceptanceMatrix 2>$null) } catch { }
+        if ($hyperV.Available) {
+            try {
+                $hyperVSwitches = @(Get-VMSwitch -ErrorAction Stop | Sort-Object Name | ForEach-Object {
+                    [PSCustomObject]@{ Name = [string]$_.Name; Type = [string]$_.SwitchType }
+                })
+            }
+            catch { }
+            try { $hyperVExistingVmSources = @(Get-HyperVExistingVmLabSource) } catch { }
+        }
     }
     try { $activeRuns = @(Get-LabActiveRuns -StateRoot $stateRoot 2>$null) } catch { }
+    $activeContainerRuns = @($activeRuns | Where-Object { [string]$_.metadata.workflowKind -ne 'hyperv-lab' })
+    if ($hyperV.Supported) {
+        $hyperVLabs = @($activeRuns | Where-Object { [string]$_.metadata.workflowKind -eq 'hyperv-lab' } | ForEach-Object {
+            $run = $_
+            $connectionInfo = $null
+            try {
+                $connectionPath = Join-Path (Join-Path (Join-Path $stateRoot 'runs') ([string]$run.runId)) 'connection-info.json'
+                if (Test-Path -LiteralPath $connectionPath -PathType Leaf) {
+                    $connectionInfo = Get-Content -LiteralPath $connectionPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 8
+                }
+            }
+            catch { }
+            $instance = @($connectionInfo.instances | Where-Object { $_.provider -eq 'hyperv' }) | Select-Object -First 1
+            $vmState = 'Unknown'
+            $exists = $false
+            if ($instance -and $instance.vmName) {
+                try {
+                    $status = Get-HyperVInstanceStatus -VMName ([string]$instance.vmName) -ExpectedRunId ([string]$run.runId) -ExpectedScopeId ([string]$run.scopeId)
+                    $vmState = [string]$status.State; $exists = [bool]$status.Exists
+                }
+                catch { $vmState = 'Unavailable' }
+            }
+            [PSCustomObject]@{
+                RunId = [string]$run.runId; Name = [string]$run.metadata.name; State = [string]$run.state
+                VMName = if ($instance) { [string]$instance.vmName } else { $null }; VMState = $vmState; Exists = $exists
+                InstanceId = if ($instance) { [string]$instance.id } else { $null }
+                SqlVersion = if ($instance) { [string]$instance.sqlVersion } else { $null }
+                SqlEdition = if ($instance) { [string]$instance.sqlEdition } else { $null }
+                SqlCompleted = [bool]($instance -and $instance.sqlCompletion -and [string]$instance.sqlCompletion.state -eq 'COMPLETE')
+                SqlCompletionState = if ($instance -and $instance.sqlCompletion) { [string]$instance.sqlCompletion.state } else { 'PENDING_COMPLETE_IMAGE' }
+                ArtifactId = [string]$run.metadata.imageArtifactId
+                BaseKind = [string]$run.metadata.baseKind
+                SourceVMName = [string]$run.metadata.sourceVMName
+                SourceLicenseNotice = [string]$run.metadata.sourceLicenseNotice
+            }
+        })
+    }
+    try {
+        $sampleDatabases = @(Get-LabExecutableSampleVariant | ForEach-Object {
+            [PSCustomObject]@{
+                SampleId = $_.SampleId; Variant = $_.Variant; DisplayName = $_.DisplayName
+                Description = $_.Description; ExpectedDatabase = $_.ExpectedDatabase
+                DownloadSizeMB = $_.DownloadSizeMB; MinSqlVersion = $_.MinSqlVersion
+                TrustStatus = if ($_.ExpectedSha256) { 'catalog-verified' } else { 'TRUST_REQUIRED' }
+                CacheStatus = 'UNKNOWN'
+            }
+        })
+    }
+    catch { }
+    try { $mediaSources = @(Get-LabMediaSourceCatalog -MediaRoot $MediaRoot) } catch { }
+    if ($MediaRoot -and $IsWindows) {
+        try { $sqlInstallationMedia = @(Get-HyperVSqlInstallationMediaCandidates -MediaRoot $MediaRoot) } catch { }
+        try { $windowsInstallationMedia = @(Get-HyperVWindowsInstallationMediaCandidates -MediaRoot $MediaRoot) } catch { }
+    }
 
     $windowsItems = @($windowsBuilds | ForEach-Object {
         $state = [string]$_.state
@@ -102,10 +178,36 @@ function Get-SqlServerLabWorkflow {
             WindowsEdition = [string]$_.operatingSystem.edition
             InstallationType = [string]$_.operatingSystem.installationType
             SqlVersion = [string]$_.sql.version; SqlEdition = [string]$_.sql.edition
+            ProvisioningMode = [string]$_.provisioningMode
             VMName = if ($_.builder) { [string]$_.builder.vmName } else { $null }
             ArtifactId = if ($_.artifact) { [string]$_.artifact.artifactId } else { $null }
             SuggestedEvaluationExpiresAt = ((Get-Date).Date.AddDays(180)).ToString('yyyy-MM-dd')
             NextStep = $next
+        }
+    })
+
+    $acceptanceItems = @($acceptance | ForEach-Object {
+        $entry = $_
+        $build = @($sqlBuilds | Where-Object { [string]$_.buildId -eq [string]$entry.BuildId }) | Select-Object -First 1
+        $provisioningMode = if ($build) { [string]$build.provisioningMode } else { $null }
+        $next = switch ([string]$entry.State) {
+            'MANUAL_ACTION_REQUIRED' { 'VM starten, danach OOBE und SQL-Setup ausführen.' }
+            'OOBE_AUTOMATION_RUNNING' { 'OOBE und SQL-Setup fortsetzen.' }
+            'OOBE_COMPLETED' { 'SQL-Setup ausführen.' }
+            'SQL_INSTALL_REBOOT_REQUIRED' { 'Gast vollständig booten lassen, danach SQL-Setup fortsetzen.' }
+            'SQL_READY_RUN' { 'SQL-Abnahme mit Create, Backup, Restore-Prüfung und Cleanup ausführen.' }
+            'TESTS_PASSED' { 'Fertig: Die SQL-Abnahme ist bestanden.' }
+            'RESUME_PENDING' { 'Prepared-Image veröffentlichen; eine Abnahmeumgebung wird separat aus einem Test-Build betrieben.' }
+            'SQL_PREPARED_SEALED' { 'Prepared-Image ist final; für die Abnahme eine run-lokale Testumgebung verwenden.' }
+            default { 'Status prüfen.' }
+        }
+        [PSCustomObject]@{
+            BuildId = [string]$entry.BuildId; SqlVersion = [string]$entry.SqlVersion
+            Edition = [string]$entry.Edition; ProductVersion = [string]$entry.ProductVersion
+            VMName = [string]$entry.VMName; ComputerName = [string]$entry.ComputerName
+            State = [string]$entry.State; Ready = [bool]$entry.Ready; TestsPassed = [bool]$entry.TestsPassed
+            NetworkAttached = [bool]$entry.NetworkAttached; AcceptanceAt = [string]$entry.AcceptanceAt
+            ProvisioningMode = $provisioningMode; NextStep = $next
         }
     })
 
@@ -117,11 +219,18 @@ function Get-SqlServerLabWorkflow {
             HyperV = $hyperV
             Providers = @(Get-AvailableLabProviders | Sort-Object)
         }
-        Defaults = [PSCustomObject]@{ MediaRoot = Get-LabMediaRootDefault }
+        Defaults = [PSCustomObject]@{ MediaRoot = $MediaRoot }
+        SqlInstallationMedia = $sqlInstallationMedia
+        WindowsInstallationMedia = $windowsInstallationMedia
+        SampleDatabases = $sampleDatabases
+        MediaSources = $mediaSources
+        HyperVLabs = $hyperVLabs
+        HyperVSwitches = $hyperVSwitches
+        HyperVExistingVmSources = $hyperVExistingVmSources
         Summary = [PSCustomObject]@{
             WindowsBaselines = @($artifacts | Where-Object artifactState -eq 'OS_SEALED').Count
             SqlPreparedImages = @($artifacts | Where-Object artifactState -eq 'SQL_PREPARED_SEALED').Count
-            ActiveContainerLabs = $activeRuns.Count
+            ActiveContainerLabs = $activeContainerRuns.Count
             PendingWindowsBuilds = @($windowsItems | Where-Object State -notin @('OS_SEALED', 'TEST_ARTIFACT_PUBLISHED')).Count
             PendingSqlBuilds = @($sqlItems | Where-Object State -notin @('SQL_PREPARED_SEALED', 'TESTS_PASSED')).Count
         }
@@ -129,7 +238,7 @@ function Get-SqlServerLabWorkflow {
             [PSCustomObject]@{
                 ArtifactId = [string]$_.artifactId; OperatingSystem = [string]$_.operatingSystem.id
                 Version = [string]$_.operatingSystem.version; Edition = [string]$_.operatingSystem.edition
-                InstallationType = [string]$_.operatingSystem.installationType; PublishedAt = [string]$_.registeredAt
+                InstallationType = [string]$_.operatingSystem.installationType; DisplayName = [string]$_.displayName; PublishedAt = [string]$_.registeredAt
             }
         })
         SqlPreparedImages = @($artifacts | Where-Object artifactState -eq 'SQL_PREPARED_SEALED' | ForEach-Object {
@@ -137,13 +246,13 @@ function Get-SqlServerLabWorkflow {
                 ArtifactId = [string]$_.artifactId; OperatingSystem = [string]$_.operatingSystem.id
                 WindowsEdition = [string]$_.operatingSystem.edition; InstallationType = [string]$_.operatingSystem.installationType
                 SqlVersion = [string]$_.sql.version; SqlEdition = [string]$_.sql.edition
-                SqlBuild = [string]$_.sql.build; PublishedAt = [string]$_.registeredAt
+                SqlBuild = [string]$_.sql.build; DisplayName = [string]$_.displayName; PublishedAt = [string]$_.registeredAt
             }
         })
         WindowsBuilds = $windowsItems
         SqlBuilds = $sqlItems
-        AcceptanceEnvironments = @($acceptance)
-        ActiveLabs = @($activeRuns | ForEach-Object {
+        AcceptanceEnvironments = $acceptanceItems
+        ActiveLabs = @($activeContainerRuns | ForEach-Object {
             $connectionInfo = $null
             try {
                 $connectionPath = Join-Path (Join-Path (Join-Path $stateRoot 'runs') ([string]$_.runId)) 'connection-info.json'
@@ -157,7 +266,7 @@ function Get-SqlServerLabWorkflow {
                 Instances = @($connectionInfo.instances | ForEach-Object {
                     [PSCustomObject]@{
                         Id = [string]$_.id; Provider = [string]$_.provider; Host = [string]$_.host
-                        Port = $_.port; SqlVersion = [string]$_.sqlVersion
+                        Port = $_.port; SqlVersion = if ($_.sqlVersion) { [string]$_.sqlVersion } else { [string]$_.version }
                     }
                 })
             }

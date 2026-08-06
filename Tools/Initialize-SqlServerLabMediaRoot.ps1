@@ -130,6 +130,7 @@ $relativeDirectories = @(
     'WindowsServer/2022/Eval/VHDX',
     'WindowsServer/2025/Eval/ISO',
     'WindowsServer/2025/Eval/VHDX',
+    'WindowsClient/11/Eval/ISO',
     'Hashes',
     'Evidence',
     'Exports'
@@ -174,6 +175,7 @@ Konfigurierter Root: `{{ROOT_PATH}}`
 - `SQL\<Version>\<Edition>\ISO` – vollständige SQL-Server-Installationsmedien.
 - `WindowsServer\<Version>\Eval\ISO` – Windows-Server-Installationsmedien.
 - `WindowsServer\<Version>\Eval\VHDX` – von Microsoft gelieferte oder vorbereitete virtuelle Datenträger.
+- `WindowsClient\11\Eval\ISO` – Windows-11-Evaluation-Installationsmedien; die automatische Erkennung akzeptiert auch andere Unterordner.
 - `Incoming` – noch nicht klassifizierte Medien.
 - `Hashes` – automatisch erzeugte SHA-256-Sidecars.
 - `Evidence` – lokale Build- und Generalisierungsnachweise.

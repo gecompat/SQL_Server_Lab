@@ -25,6 +25,7 @@ $checks = @(
     'Invoke-LabNetworkChecks.ps1',
     'Invoke-MediaRootLayoutChecks.ps1',
     'Invoke-HyperVProviderChecks.ps1',
+    'Invoke-HyperVLabEnvironmentChecks.ps1',
     'Invoke-HyperVImageRegistryChecks.ps1',
     'Invoke-HyperVImageBuilderChecks.ps1',
     'Invoke-HyperVImageOperatorChecks.ps1',

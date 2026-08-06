@@ -94,7 +94,7 @@ function New-HyperVWindowsImageBuildPlan {
     param(
         [Parameter(Mandatory)][string]$IsoPath,
         [Parameter(Mandatory)][ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$ExpectedSha256,
-        [Parameter(Mandatory)][ValidateSet('windows-server-2022', 'windows-server-2025', 'synthetic-ci')][string]$OperatingSystemId,
+        [Parameter(Mandatory)][string]$OperatingSystemId,
         [Parameter(Mandatory)][string]$Edition,
         [ValidateSet('core', 'desktop-experience', 'synthetic')][string]$InstallationType = 'core',
         [string]$Language = 'en-US',
@@ -501,7 +501,7 @@ function Publish-HyperVWindowsImageBuild {
 
     (Get-Item -LiteralPath $diskPath -Force).IsReadOnly = $true
     $sha256 = (Get-FileHash -LiteralPath $diskPath -Algorithm SHA256).Hash
-    $osVersion = if ($synthetic) { '1' } else { ([string]$build.operatingSystem.id -replace '^windows-server-', '') }
+    $osVersion = if ($synthetic) { '1' } else { ([string]$build.operatingSystem.id -replace '^windows-(server-)?', '') }
     $importParameters = @{
         VhdxPath = $diskPath; ExpectedSha256 = $sha256
         ArtifactState = if ($synthetic) { 'LIFECYCLE_TEST_ONLY' } else { 'OS_SEALED' }
