@@ -94,6 +94,66 @@ function Resolve-LabRestoreContainer {
     return $containerCandidates[0]
 }
 
+function New-LabRestoreMoveStatements {
+    <#
+    .SYNOPSIS Erzeugt WITH-MOVE-Klauseln für alle FILELISTONLY-Dateitypen.
+    .DESCRIPTION S-Dateien sind FILESTREAM-, FileTable- oder In-Memory-OLTP-
+    Container und müssen ebenso wie Daten- und Logdateien auf einen
+    containerlokalen Pfad umgeleitet werden.
+    #>
+    [OutputType([string[]])]
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string[]]$FileListOutput,
+        [Parameter(Mandatory)][string]$DataPath,
+        [Parameter(Mandatory)][string]$DatabaseName
+    )
+
+    $moveStatements = @()
+    $dataFileIndex = 0
+    $logFileIndex = 0
+    $specialContainerIndex = 0
+    $fullTextIndex = 0
+
+    foreach ($lineValue in $FileListOutput) {
+        $line = ([string]$lineValue).Trim()
+        if ($line -notmatch '^([^|]+)\|[^|]*\|([DLFS])(?:\||$)') {
+            continue
+        }
+
+        $logicalName = $Matches[1].Trim()
+        $fileType = $Matches[2]
+        $escapedLogicalName = $logicalName.Replace("'", "''")
+
+        switch ($fileType) {
+            'D' {
+                $dataFileIndex++
+                $extension = if ($dataFileIndex -eq 1) { '.mdf' } else { ".${dataFileIndex}.ndf" }
+                $targetFile = "${DataPath}/${DatabaseName}_Data${dataFileIndex}${extension}"
+            }
+            'L' {
+                $logFileIndex++
+                $targetFile = "${DataPath}/${DatabaseName}_Log${logFileIndex}.ldf"
+            }
+            'S' {
+                $specialContainerIndex++
+                # Kein Dateisuffix: SQL Server erstellt den FILESTREAM- bzw.
+                # In-Memory-OLTP-Container an diesem Verzeichnis selbst.
+                $targetFile = "${DataPath}/${DatabaseName}_SpecialData${specialContainerIndex}"
+            }
+            'F' {
+                $fullTextIndex++
+                $targetFile = "${DataPath}/${DatabaseName}_FullText${fullTextIndex}"
+            }
+        }
+
+        $escapedTargetFile = $targetFile.Replace("'", "''")
+        $moveStatements += "MOVE N'$escapedLogicalName' TO N'$escapedTargetFile'"
+    }
+
+    return @($moveStatements)
+}
+
 function Restore-SqlServerLabDatabase {
     <#
     .SYNOPSIS
@@ -298,33 +358,7 @@ function Restore-SqlServerLabDatabase {
             throw "FILELISTONLY fehlgeschlagen: $fileListText"
         }
 
-        $moveStatements = @()
-        $dataFileIndex = 0
-        $logFileIndex = 0
-
-        foreach ($lineValue in @($fileListOutput)) {
-            $line = ([string]$lineValue).Trim()
-            if ($line -notmatch '^([^|]+)\|[^|]*\|([DL])(?:\||$)') {
-                continue
-            }
-
-            $logicalName = $Matches[1].Trim()
-            $fileType = $Matches[2]
-            $escapedLogicalName = $logicalName.Replace("'", "''")
-
-            if ($fileType -eq 'D') {
-                $dataFileIndex++
-                $extension = if ($dataFileIndex -eq 1) { '.mdf' } else { ".${dataFileIndex}.ndf" }
-                $targetFile = "${DataPath}/${DatabaseName}_Data${dataFileIndex}${extension}"
-            }
-            else {
-                $logFileIndex++
-                $targetFile = "${DataPath}/${DatabaseName}_Log${logFileIndex}.ldf"
-            }
-
-            $escapedTargetFile = $targetFile.Replace("'", "''")
-            $moveStatements += "MOVE N'$escapedLogicalName' TO N'$escapedTargetFile'"
-        }
+        $moveStatements = @(New-LabRestoreMoveStatements -FileListOutput @($fileListOutput) -DataPath $DataPath -DatabaseName $DatabaseName)
 
         if ($moveStatements.Count -eq 0) {
             throw "Keine logischen Dateien im Backup erkannt. FILELISTONLY-Output: $fileListText"
