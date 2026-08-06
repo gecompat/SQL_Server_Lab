@@ -1080,6 +1080,71 @@ function Show-LabHyperVSqlManualInstructions {
     Write-Host '  Windows wird nicht erneut installiert: Die OS-Baseline bleibt unverändert, der Builder verwendet nur eine eigene differenzierende VHDX.' -ForegroundColor DarkGray
 }
 
+function Select-LabSqlInstallationMedia {
+    <#
+    .SYNOPSIS
+        Wählt ein tatsächlich vorhandenes SQL-Installationsmedium aus dem Media Root.
+    .DESCRIPTION
+        Die Auswahl leitet Version und Medienedition direkt aus dem Pfad der ISO
+        ab. Damit funktionieren auch Developer-, Enterprise_Developer- und
+        Standard_Developer-Ordner, ohne dass der Benutzer einen künstlichen
+        Verzeichnisnamen eingeben muss.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$MediaRoot)
+
+    $sqlRoot = Join-Path $MediaRoot 'SQL'
+    if (-not (Test-Path -LiteralPath $sqlRoot -PathType Container)) {
+        Write-LabError "SQL-Medienverzeichnis nicht gefunden: $sqlRoot"
+        return $null
+    }
+
+    $choices = @(
+        Get-ChildItem -LiteralPath $sqlRoot -File -Recurse -Filter '*.iso' -ErrorAction SilentlyContinue |
+            ForEach-Object {
+                $mediaId = [IO.Path]::GetRelativePath($MediaRoot, $_.FullName).Replace('\', '/')
+                if ($mediaId -notmatch '^SQL/(?<version>\d{4})/') { return }
+                $edition = Get-HyperVSqlMediaEditionFromPath -Path $mediaId
+                if (-not $edition) { return }
+                [PSCustomObject]@{
+                    SqlVersion = $Matches.version
+                    MediaEdition = $edition
+                    MediaId = $mediaId
+                    FileName = $_.Name
+                }
+            } |
+            Sort-Object @{ Expression = { [int]$_.SqlVersion }; Descending = $true }, MediaEdition, FileName
+    )
+    if ($choices.Count -eq 0) {
+        Write-LabError "Keine SQL-ISOs unter $sqlRoot gefunden. Erwartet werden z. B. SQL/2025/Enterprise_Developer/ISO/*.iso."
+        return $null
+    }
+
+    $versions = @($choices.SqlVersion | Select-Object -Unique | Sort-Object { [int]$_ } -Descending)
+    $defaultVersion = $versions[0]
+    Write-Host "  Verfügbare SQL Server Versionen: $($versions -join ', ')" -ForegroundColor White
+    $sqlVersion = Read-Host "  SQL Server Version [$defaultVersion]"
+    if (-not $sqlVersion) { $sqlVersion = $defaultVersion }
+    if ($sqlVersion -notin $versions) {
+        Write-LabError "SQL-Version ist nicht als ISO verfügbar: $sqlVersion"
+        return $null
+    }
+
+    $versionChoices = @($choices | Where-Object SqlVersion -eq $sqlVersion)
+    Write-Host '  Verfügbare SQL-Installationsmedien:' -ForegroundColor White
+    for ($i = 0; $i -lt $versionChoices.Count; $i++) {
+        $choice = $versionChoices[$i]
+        Write-Host ("    [{0}] {1} · {2}" -f ($i + 1), $choice.MediaEdition, $choice.MediaId) -ForegroundColor White
+    }
+    $selection = Read-Host '  SQL-Installationsmedium (Nummer) [1]'
+    if (-not $selection) { $selection = '1' }
+    if ($selection -notmatch '^\d+$' -or [int]$selection -lt 1 -or [int]$selection -gt $versionChoices.Count) {
+        Write-LabError 'Ungültige SQL-Medienauswahl.'
+        return $null
+    }
+    return $versionChoices[[int]$selection - 1]
+}
+
 function New-LabHyperVSqlImageBuildInteractive {
     [CmdletBinding()]
     param()
@@ -1105,13 +1170,11 @@ function New-LabHyperVSqlImageBuildInteractive {
     $windowsEdition = [string]$selectedWindowsMedia.WindowsEdition
     $installationType = [string]$selectedWindowsMedia.InstallationType
     $windowsMediaPath = [string]$selectedWindowsMedia.MediaId
-    $sqlVersion = Read-Host '  SQL Server Version: 2019, 2022 oder 2025 [2025]'
-    if (-not $sqlVersion) { $sqlVersion = '2025' }
-    if ($sqlVersion -notin @('2019', '2022', '2025')) { Write-LabError 'SQL-Version ist ungueltig.'; return }
-    $defaultEdition = if ($sqlVersion -eq '2025') { 'Enterprise' } else { 'Eval' }
-    $mediaEdition = Read-Host "  SQL-Medien-Edition [$defaultEdition]"
-    if (-not $mediaEdition) { $mediaEdition = $defaultEdition }
-    if ($mediaEdition -notin @('Eval', 'Enterprise', 'Standard')) { Write-LabError 'SQL-Medien-Edition ist ungueltig.'; return }
+    $selectedSqlMedia = Select-LabSqlInstallationMedia -MediaRoot $mediaRoot
+    if (-not $selectedSqlMedia) { return }
+    $sqlVersion = [string]$selectedSqlMedia.SqlVersion
+    $mediaEdition = [string]$selectedSqlMedia.MediaEdition
+    $sqlMediaPath = [string]$selectedSqlMedia.MediaId
     $imageName = Read-Host '  Frei wählbarer Image-Name (optional)'
     if ($imageName -and $imageName.Trim().Length -gt 80) { Write-LabError 'Der Image-Name darf höchstens 80 Zeichen enthalten.'; return }
 
@@ -1123,12 +1186,12 @@ function New-LabHyperVSqlImageBuildInteractive {
             Write-LabInfo 'Windows-SHA-256 wird berechnet; grosse ISOs benoetigen mehrere Minuten.'
             $windowsMedia = New-HyperVWindowsMediaHashSidecar -MediaRoot $mediaRoot -OperatingSystemId windows-server-2025 -WindowsMediaPath $windowsMediaPath -WindowsEdition $windowsEdition -InstallationType $installationType
         }
-        $sqlMedia = Resolve-HyperVSqlInstallationMedia -MediaRoot $mediaRoot -SqlVersion $sqlVersion -MediaEdition $mediaEdition
+        $sqlMedia = Resolve-HyperVSqlInstallationMedia -MediaRoot $mediaRoot -SqlVersion $sqlVersion -MediaEdition $mediaEdition -SqlMediaPath $sqlMediaPath
         if ($sqlMedia.HashStatus -eq 'MISSING') {
             Write-LabWarning 'Fuer die SQL-ISO existiert noch kein SHA-256-Sidecar.'
             if (-not (Read-LabConfirm -Prompt '  SQL-SHA-256 jetzt berechnen und lokal festschreiben?' -Default $false)) { return }
             Write-LabInfo 'SQL-SHA-256 wird berechnet; grosse ISOs benoetigen mehrere Minuten.'
-            $sqlMedia = New-HyperVSqlMediaHashSidecar -MediaRoot $mediaRoot -SqlVersion $sqlVersion -MediaEdition $mediaEdition
+            $sqlMedia = New-HyperVSqlMediaHashSidecar -MediaRoot $mediaRoot -SqlVersion $sqlVersion -MediaEdition $mediaEdition -SqlMediaPath $sqlMediaPath
         }
         Write-Host ''
         Write-Host "  Windows: Windows Server 2025 / $windowsEdition / $installationType" -ForegroundColor DarkGray
@@ -1136,7 +1199,7 @@ function New-LabHyperVSqlImageBuildInteractive {
         Write-Host '  Ablauf: Windows installieren -> SQL PrepareImage -> ein finaler Sysprep.' -ForegroundColor Yellow
         if (-not (Read-LabConfirm -Prompt '  Frischen SQL-Prepared-Image-Builder jetzt erzeugen?' -Default $false)) { return }
         $build = Initialize-HyperVSqlFreshPreparedImageBuild -MediaRoot $mediaRoot -OperatingSystemId windows-server-2025 `
-            -WindowsEdition $windowsEdition -InstallationType $installationType -WindowsMediaPath $windowsMediaPath -SqlVersion $sqlVersion -MediaEdition $mediaEdition -ImageName $imageName
+            -WindowsEdition $windowsEdition -InstallationType $installationType -WindowsMediaPath $windowsMediaPath -SqlVersion $sqlVersion -MediaEdition $mediaEdition -SqlMediaPath $sqlMediaPath -ImageName $imageName
         Write-LabSuccess "Frischer SQL-Builder erstellt. BuildId: $($build.buildId)"
         Show-LabHyperVSqlManualInstructions -Build $build
         if (Read-LabConfirm -Prompt '  Builder starten und VMConnect oeffnen?' -Default $true) {
@@ -1158,25 +1221,23 @@ function New-LabHyperVSqlAcceptanceBuildInteractive {
     if (-not $mediaRoot) { Write-LabError 'Media Root ist erforderlich.'; return }
     try { $mediaRoot = Set-LabMediaRootDefault -MediaRoot $mediaRoot }
     catch { Write-LabError "Media Root ist ungueltig: $($_.Exception.Message)"; return }
-    $sqlVersion = Read-Host '  SQL Server Version: 2019, 2022 oder 2025 [2019]'
-    if (-not $sqlVersion) { $sqlVersion = '2019' }
-    if ($sqlVersion -notin @('2019', '2022', '2025')) { Write-LabError 'SQL-Version ist ungueltig.'; return }
-    $defaultEdition = if ($sqlVersion -eq '2025') { 'Enterprise' } else { 'Eval' }
-    $mediaEdition = Read-Host "  Medien-Edition [$defaultEdition]"
-    if (-not $mediaEdition) { $mediaEdition = $defaultEdition }
-    if ($mediaEdition -notin @('Eval', 'Enterprise', 'Standard')) { Write-LabError 'Medien-Edition ist ungueltig.'; return }
+    $selectedSqlMedia = Select-LabSqlInstallationMedia -MediaRoot $mediaRoot
+    if (-not $selectedSqlMedia) { return }
+    $sqlVersion = [string]$selectedSqlMedia.SqlVersion
+    $mediaEdition = [string]$selectedSqlMedia.MediaEdition
+    $sqlMediaPath = [string]$selectedSqlMedia.MediaId
     $artifact = Select-LabHyperVOsArtifact
     if (-not $artifact) { return }
     $imageName = Read-Host '  Frei wählbarer Image-Name (optional)'
     if ($imageName -and $imageName.Trim().Length -gt 80) { Write-LabError 'Der Image-Name darf höchstens 80 Zeichen enthalten.'; return }
 
     try {
-        $media = Resolve-HyperVSqlInstallationMedia -MediaRoot $mediaRoot -SqlVersion $sqlVersion -MediaEdition $mediaEdition
+        $media = Resolve-HyperVSqlInstallationMedia -MediaRoot $mediaRoot -SqlVersion $sqlVersion -MediaEdition $mediaEdition -SqlMediaPath $sqlMediaPath
         if ($media.HashStatus -eq 'MISSING') {
             Write-LabWarning 'Fuer die SQL-ISO existiert noch kein SHA-256-Sidecar.'
             Write-Host "  ISO: $($media.IsoPath)" -ForegroundColor DarkGray
             if (-not (Read-LabConfirm -Prompt '  SHA-256 jetzt berechnen und lokal festschreiben?' -Default $false)) { return }
-            $media = New-HyperVSqlMediaHashSidecar -MediaRoot $mediaRoot -SqlVersion $sqlVersion -MediaEdition $mediaEdition
+            $media = New-HyperVSqlMediaHashSidecar -MediaRoot $mediaRoot -SqlVersion $sqlVersion -MediaEdition $mediaEdition -SqlMediaPath $sqlMediaPath
         }
         Write-Host "  Parent: $($artifact.artifactId)" -ForegroundColor DarkGray
         Write-Host "  SQL:    $sqlVersion $mediaEdition; SQLENGINE, FULLTEXT, REPLICATION" -ForegroundColor DarkGray
@@ -1184,7 +1245,7 @@ function New-LabHyperVSqlAcceptanceBuildInteractive {
         Write-Host '  Die Evaluation-Ablaufzeit der OS-Baseline wird in das neue Artifact übernommen.' -ForegroundColor DarkGray
         if (-not (Read-LabConfirm -Prompt '  SQL-Prepared-Image-Builder aus OS-Baseline jetzt erzeugen?' -Default $false)) { return }
         $build = Initialize-HyperVSqlPreparedImageBuild -MediaRoot $mediaRoot -ImageArtifactId $artifact.artifactId `
-            -SqlVersion $sqlVersion -MediaEdition $mediaEdition -ImageName $imageName
+            -SqlVersion $sqlVersion -MediaEdition $mediaEdition -SqlMediaPath $sqlMediaPath -ImageName $imageName
         Write-LabSuccess "SQL-Prepared-Image-Builder aus OS-Baseline erstellt. BuildId: $($build.buildId)"
         Show-LabHyperVSqlManualInstructions -Build $build
         if (Read-LabConfirm -Prompt '  Builder starten und VMConnect oeffnen?' -Default $true) {
