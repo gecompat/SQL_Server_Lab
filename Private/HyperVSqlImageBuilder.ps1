@@ -900,7 +900,11 @@ function Invoke-HyperVSqlPrepareAndGeneralize {
             # hat. IMAGE_STATE_UNDEPLOYABLE ist in diesem kurzen Intervall kein
             # belastbarer Endzustand; deshalb begrenzt auf den dokumentierten
             # Zielzustand warten statt unmittelbar nach dem Prozessende lesen.
-            $stateDeadline = [datetime]::UtcNow.AddSeconds(120)
+            # Auf realen Systemen kann die Nachbereitung von Sysprep deutlich
+            # laenger als der Sysprep-Prozess selbst dauern. Zehn Minuten sind
+            # weiterhin begrenzt, vermeiden aber einen falschen Fehler, wenn
+            # IMAGE_STATE_UNDEPLOYABLE noch berechtigt im Uebergang steht.
+            $stateDeadline = [datetime]::UtcNow.AddSeconds(600)
             do {
                 $imageState = [string](Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State').ImageState
                 if ($imageState -eq 'IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE') { break }

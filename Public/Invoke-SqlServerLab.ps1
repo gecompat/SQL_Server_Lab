@@ -17,7 +17,7 @@
 function Invoke-SqlServerLab {
     [CmdletBinding()]
     param(
-        [ValidateSet('New', 'Manifest', 'Status', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'Script', 'Database', 'Image', 'MediaRoot', 'DataRoot')]
+        [ValidateSet('New', 'Manifest', 'Status', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'Script', 'Database', 'Image', 'MediaRoot', 'DataRoot', 'Rename')]
         [string]$Action
     )
 
@@ -48,6 +48,7 @@ function Invoke-SqlServerLab {
             '7' { Invoke-LabAction -ActionName 'Clear' }
             '8' { Invoke-LabAction -ActionName 'Database' }
             '9' { Invoke-LabAction -ActionName 'Script' }
+            'n' { Invoke-LabAction -ActionName 'Rename' }
             'i' { Invoke-LabAction -ActionName 'Image' }
             'r' { Invoke-LabAction -ActionName 'MediaRoot' }
             'd' { Invoke-LabAction -ActionName 'DataRoot' }
@@ -128,6 +129,7 @@ function Show-LabMenu {
     Write-Host "    [7] Alles aufraeumen" -ForegroundColor Red
     Write-Host "    [8] Datenbank anlegen" -ForegroundColor White
     Write-Host "    [9] SQL-Skript ausfuehren" -ForegroundColor White
+    Write-Host "    [n] Umgebung umbenennen" -ForegroundColor White
     Write-Host "    [i] Hyper-V Windows-Image verwalten" -ForegroundColor Yellow
     Write-Host "    [r] Media Root konfigurieren" -ForegroundColor White
     Write-Host "    [d] Persistenten Data Root konfigurieren" -ForegroundColor White
@@ -191,6 +193,7 @@ function Invoke-LabAction {
                 Write-LabSuccess "Lab erstellt. RunId: $($lab.RunId)"
             }
         }
+        'Rename' { Rename-LabEnvironmentInteractive }
         'New' {
             # Verfuegbare Provider ermitteln
             $availableProviders = @(Get-AvailableLabProviders)
@@ -1312,7 +1315,12 @@ function Invoke-LabHyperVSqlPrepareInteractive {
         }
         else { Write-LabInfo "SQL-Schritt beendet. Naechster Schritt: $(Get-LabHyperVSqlImageNextStep -Build $result)" }
     }
-    catch { Write-LabError $_.Exception.Message }
+    catch {
+        Write-LabError $_.Exception.Message
+        if ($_.Exception.Message -match '^WINDOWS_SYSPREP_STATE_INVALID: IMAGE_STATE_UNDEPLOYABLE') {
+            Write-LabWarning 'Sysprep hat innerhalb des Wartefensters keinen finalen Zustand gemeldet. Aktion [17] prueft den ausgeschalteten Builder offline und zeigt gegebenenfalls die konkrete Sysprep-Ursache an. Den Builder davor nicht erneut starten.'
+        }
+    }
 }
 
 function Publish-LabHyperVSqlImageBuildInteractive {
@@ -1848,4 +1856,32 @@ function Select-LabRun {
 
     Write-LabWarning "Ungueltige Auswahl."
     return $null
+}
+
+function Rename-LabEnvironmentInteractive {
+    <#
+    .SYNOPSIS
+        Ändert den Anzeigenamen einer laufenden oder gestoppten Lab-Umgebung.
+    .DESCRIPTION
+        Gilt für Docker-, Podman- und Hyper-V-Labs. Es werden ausschließlich
+        Metadaten im Run-State geändert; Runtime-Objekte und persistente Daten
+        bleiben unverändert.
+    #>
+    [CmdletBinding()]
+    param()
+
+    $runs = @(Get-LabActiveRuns)
+    if ($runs.Count -eq 0) { Write-LabInfo 'Keine aktiven Lab-Umgebungen vorhanden.'; return }
+    $runId = Select-LabRun -Runs $runs -Prompt 'Umgebung zum Umbenennen'
+    if (-not $runId) { return }
+    $run = Get-LabRunState -RunId $runId
+    $currentName = [string]$run.metadata.name
+    $newName = Read-Host "  Neuer Anzeigename [$currentName]"
+    if (-not $newName) { Write-LabInfo 'Name unverändert.'; return }
+    try {
+        $renamed = Rename-LabRunDisplayName -RunId $runId -DisplayName $newName
+        if ($renamed.Changed) { Write-LabSuccess "Umgebung umbenannt: $($renamed.PreviousName) -> $($renamed.Name)" }
+        else { Write-LabInfo 'Name unverändert.' }
+    }
+    catch { Write-LabError $_.Exception.Message }
 }

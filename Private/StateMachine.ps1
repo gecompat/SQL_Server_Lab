@@ -405,6 +405,47 @@ function Add-LabRunError {
     $current | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $statePath -Encoding utf8
 }
 
+function Rename-LabRunDisplayName {
+    <#
+    .SYNOPSIS
+        Ändert ausschließlich den Anzeigenamen eines vorhandenen Lab-Runs.
+    .DESCRIPTION
+        Die Operation verändert weder Container, virtuelle Maschinen, Ports,
+        persistenten Speicher noch die Run- oder Scope-ID. Der Name ist reine
+        Bedienmetadaten und wird mit einer nachvollziehbaren Historie im
+        Run-State gespeichert.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RunId,
+        [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9][A-Za-z0-9 _-]{0,63}$')][string]$DisplayName,
+        [string]$StateRoot
+    )
+
+    if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
+    $statePath = Join-Path (Join-Path (Join-Path $StateRoot 'runs') $RunId) 'run-state.json'
+    if (-not (Test-Path -LiteralPath $statePath -PathType Leaf)) { throw "LAB_RUN_NOT_FOUND: $RunId" }
+    $current = Get-Content -LiteralPath $statePath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
+    if ([string]$current.state -in @('REMOVED', 'CLEANED_UP')) { throw "LAB_RUN_NOT_RENAMEABLE: $RunId" }
+
+    $DisplayName = $DisplayName.Trim()
+    if ([string]::IsNullOrWhiteSpace($DisplayName)) { throw 'LAB_RUN_DISPLAY_NAME_REQUIRED' }
+    $previousName = [string]$current.metadata.name
+    if ($previousName -eq $DisplayName) {
+        return [PSCustomObject]@{ RunId = $RunId; PreviousName = $previousName; Name = $DisplayName; Changed = $false }
+    }
+
+    if (-not $current.metadata) { $current | Add-Member -NotePropertyName metadata -NotePropertyValue ([PSCustomObject]@{}) -Force }
+    $current.metadata | Add-Member -NotePropertyName name -NotePropertyValue $DisplayName -Force
+    $history = if ($current.metadata.PSObject.Properties['nameHistory']) { @($current.metadata.nameHistory) } else { @() }
+    $current.metadata | Add-Member -NotePropertyName nameHistory -NotePropertyValue @($history + [PSCustomObject]@{
+        previousName = $previousName; name = $DisplayName; changedAt = Get-LabTimestamp
+    }) -Force
+    $current.updatedAt = Get-LabTimestamp
+    $current | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $statePath -Encoding utf8
+    return [PSCustomObject]@{ RunId = $RunId; PreviousName = $previousName; Name = $DisplayName; Changed = $true }
+}
+
 function Get-LabActiveRuns {
     [CmdletBinding()]
     param(

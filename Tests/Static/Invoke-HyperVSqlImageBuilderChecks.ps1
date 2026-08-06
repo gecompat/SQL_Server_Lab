@@ -150,7 +150,7 @@ try {
         $menuText -match "'17' \{ Resume-LabHyperVSqlPreparedImageGeneralizationInteractive \}"
     )
     Add-CheckResult -Name 'Sysprep wartet nach /quit auf den finalen Generalize-ImageState' -Success (
-        $builderText -match 'stateDeadline = \[datetime\]::UtcNow\.AddSeconds\(120\)' -and
+        $builderText -match 'stateDeadline = \[datetime\]::UtcNow\.AddSeconds\(600\)' -and
         $builderText -match "IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE'\) \{ break \}" -and
         $builderText -match 'Start-Sleep -Seconds 2'
     )
