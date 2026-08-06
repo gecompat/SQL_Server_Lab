@@ -4,6 +4,7 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $toolPath = Join-Path $repoRoot 'Tools/Initialize-SqlServerLabDataRoot.ps1'
 $consolePath = Join-Path $repoRoot 'Public/Invoke-SqlServerLab.ps1'
+$modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
 $temporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) "sql-lab-data-root-$([guid]::NewGuid().ToString('N'))"
 $failures = [System.Collections.Generic.List[string]]::new(); $passed = 0
 . (Join-Path $PSScriptRoot '..' 'Common' 'CheckResult.ps1')
@@ -36,6 +37,25 @@ try {
         $consoleText -match '\[d\] Persistenten Data Root konfigurieren' -and
         $consoleText -match "'d' \{ Invoke-LabAction -ActionName 'DataRoot' \}" -and
         $consoleText -match 'Set-LabDataRootDefault -DataRoot \$candidate'
+    )
+    $module = Import-Module $modulePath -Force -PassThru -ErrorAction Stop
+    $persistentDriveContract = & $module {
+        param($root)
+        $storage = Get-LabPersistentInstanceStorage -DataRoot $root -LabName 'persistent-test' -Provider docker -InstanceId primary -SqlVersion 2025 -Create
+        $instance = [PSCustomObject]@{ drives = @() }
+        $null = Add-LabPersistentContainerDrive -Instance $instance -Storage $storage
+        return $instance.drives
+    } $temporaryRoot
+    $sqlSystemDrive = @($persistentDriveContract | Where-Object id -eq 'persistent-mssql')[0]
+    $backupDrive = @($persistentDriveContract | Where-Object id -eq 'persistent-backups')[0]
+    Add-CheckResult -Name 'Container-SQL-System nutzt ein stabiles Runtime-Volume statt eines NTFS-Bind-Mounts' -Success (
+        $sqlSystemDrive -and $sqlSystemDrive.containerPath -eq '/var/opt/mssql' -and
+        $sqlSystemDrive.volumeName -match '^sql-lab-persistent-' -and -not $sqlSystemDrive.hostPath -and
+        $sqlSystemDrive.persistence -eq 'data-root-runtime-volume'
+    )
+    Add-CheckResult -Name 'Container-Backups bleiben im sichtbaren Data Root eingebunden' -Success (
+        $backupDrive -and $backupDrive.containerPath -eq '/var/opt/mssql/backup' -and
+        $backupDrive.hostPath -eq (Join-Path $temporaryRoot 'Labs/persistent-test/Instances/docker/primary/SqlServer/2025/backups')
     )
 }
 catch { Add-CheckResult -Name 'Data-Root-Testausfuehrung' -Success $false -Message $_.Exception.Message }

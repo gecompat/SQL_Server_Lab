@@ -7,8 +7,10 @@ function Add-LabInstanceCleanupPlan {
 
     $containerName = "sql-lab-$($Instance.id)-$($RunState.RunId.Substring(0, 8))"
 
-    foreach ($drive in @($Instance.drives | Where-Object { $_ -and $_.containerPath -and -not $_.hostPath })) {
-        $volumeName = "sql-lab-${containerName}-$($drive.id)"
+    foreach ($drive in @($Instance.drives | Where-Object {
+        $_ -and $_.containerPath -and -not $_.hostPath -and $_.persistence -ne 'data-root-runtime-volume'
+    })) {
+        $volumeName = if ($drive.volumeName) { [string]$drive.volumeName } else { "sql-lab-${containerName}-$($drive.id)" }
         $null = Add-CleanupStep `
             -RunDir $RunState.RunDir `
             -ResourceType 'volume' `
@@ -335,7 +337,9 @@ function New-SqlServerLab {
                 $storage = Get-LabPersistentInstanceStorage -DataRoot $DataRoot -LabName $resolved.name -Provider $instance.provider -InstanceId $instance.id -SqlVersion $instance.version -Create
                 $null = Add-LabPersistentContainerDrive -Instance $instance -Storage $storage
                 $instance | Add-Member -NotePropertyName persistentStorage -NotePropertyValue ([PSCustomObject]@{
-                    mode = 'data-root-bind-mount'; root = [string]$storage.SqlRoot; hostPath = [string]$storage.ContainerMssqlRoot
+                    mode = 'data-root-runtime-volume'; root = [string]$storage.SqlRoot
+                    containerVolume = [string](($instance.drives | Where-Object { $_.id -eq 'persistent-mssql' } | Select-Object -First 1).volumeName)
+                    backupHostPath = [string]$storage.BackupRoot
                 }) -Force
             }
             Write-LabInfo "Persistenter Data Root wird eingebunden: $DataRoot"

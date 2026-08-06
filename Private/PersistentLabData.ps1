@@ -59,9 +59,22 @@ function Add-LabPersistentContainerDrive {
 
     $existing = @($Instance.drives | Where-Object { $_ -and $_.containerPath -eq '/var/opt/mssql' })
     if ($existing.Count -gt 0) { throw 'LAB_DATA_CONTAINER_MSSQL_MOUNT_ALREADY_CONFIGURED' }
+
+    # SQL Server 2025 kann auf Docker Desktop unter Windows beim direkten
+    # Bind-Mount eines NTFS-Ordners auf /var/opt/mssql abstuerzen. Das
+    # SQL-System bleibt deshalb in einem stabil benannten Runtime-Volume.
+    # Der Data Root bleibt fuer BAK-Dateien sichtbar und der Volume-Name wird
+    # als Metadatum im Run gespeichert. Damit ueberlebt der SQL-Systemzustand
+    # auch das Entfernen eines einzelnen Containers, ohne den Windows-Mount als
+    # Linux-Systemdateisystem zu missbrauchen.
+    $volumeName = "sql-lab-persistent-$($Storage.LabId)-$($Storage.Provider)-$($Storage.InstanceId)-sql$($Storage.SqlVersion)"
     $Instance.drives += [PSCustomObject]@{
-        id = 'persistent-mssql'; containerPath = '/var/opt/mssql'; hostPath = [string]$Storage.ContainerMssqlRoot
-        persistence = 'data-root'
+        id = 'persistent-mssql'; containerPath = '/var/opt/mssql'; volumeName = $volumeName
+        persistence = 'data-root-runtime-volume'
+    }
+    $Instance.drives += [PSCustomObject]@{
+        id = 'persistent-backups'; containerPath = '/var/opt/mssql/backup'; hostPath = [string]$Storage.BackupRoot
+        persistence = 'data-root-backup-bind'
     }
     return $Instance
 }
