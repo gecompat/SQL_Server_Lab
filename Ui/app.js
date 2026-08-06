@@ -681,6 +681,15 @@ $('#build-form').addEventListener('submit', async (event) => {
   if (!parameters.ImageName) delete parameters.ImageName;
   if (!parameters.WindowsMediaSha256) delete parameters.WindowsMediaSha256;
   if (!parameters.SqlMediaSha256) delete parameters.SqlMediaSha256;
+  if (kind !== 'sql' && kind !== 'sql-fresh') {
+    // Ein reiner Windows-Build hat keine SQL-Medien. Ein leeres, aber an die
+    // API übergebenes SqlEdition-Feld würde deren ValidateSet noch vor der
+    // eigentlichen Windows-Aktion ablehnen.
+    delete parameters.SqlVersion;
+    delete parameters.SqlEdition;
+    delete parameters.SqlMediaPath;
+    delete parameters.SqlMediaSha256;
+  }
   if (kind !== 'sql' && (!parameters.WindowsMediaPath || !parameters.OperatingSystemId || !parameters.WindowsEdition || !parameters.InstallationType)) { showError(new Error('Bitte ein erkanntes Windows-Installationsmedium auswählen.')); return; }
   if ((kind === 'sql' || kind === 'sql-fresh') && (!parameters.SqlMediaPath || !parameters.SqlVersion || !parameters.SqlEdition)) { showError(new Error('Bitte ein SQL-Installationsmedium mit erkannter Edition auswählen.')); return; }
   if (kind === 'sql' && !$('#sql-parent-artifact').value) { showError(new Error('Bitte eine veröffentlichte OS-Baseline auswählen.')); return; }

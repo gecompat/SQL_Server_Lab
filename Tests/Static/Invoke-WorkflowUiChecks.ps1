@@ -90,6 +90,7 @@ Add-CheckResult -Name 'UI bietet erkannte Windows- und SQL-Medien ohne manuelle 
     $scriptText -match 'data-media-id' -and
     $scriptText -match 'function selectedWindowsMediaPath' -and
     $scriptText -match 'WindowsMediaPath' -and
+    $scriptText -match 'delete parameters\.SqlEdition' -and
     $scriptText -match "OperatingSystemId === 'windows-server-2025'"
 )
 Add-CheckResult -Name 'SQL-Prepared-Images verwenden standardmäßig eine veröffentlichte OS-Baseline' -Success (
