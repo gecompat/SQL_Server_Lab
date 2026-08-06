@@ -92,6 +92,15 @@ try {
             -SampleVariant $resolved.sampleVariant `
             -StateRoot $StateRoot
 
+        $wideWorldMoves = @(New-LabRestoreMoveStatements `
+            -FileListOutput @(
+                'WWI_Primary|D:\\Program Files\\Microsoft SQL Server\\MSSQL13.SQL16\\MSSQL\\DATA\\WideWorldImporters.mdf|D|PRIMARY',
+                'WWI_Log|D:\\Program Files\\Microsoft SQL Server\\MSSQL13.SQL16\\MSSQL\\DATA\\WideWorldImporters.ldf|L|NULL',
+                'WWI_InMemory_Data_1|D:\\Program Files\\Microsoft SQL Server\\MSSQL13.SQL16\\MSSQL\\DATA\\WideWorldImporters_InMemory_Data_1|S|WWI_InMemory_Data'
+            ) `
+            -DataPath '/var/opt/mssql/data' `
+            -DatabaseName 'WideWorldImporters')
+
         [PSCustomObject]@{
             AllBackupExecutable   = @($allVariants | Where-Object { $_.ArtifactType -ne 'backup' }).Count -eq 0
             NoDescriptiveVariants = @($allVariants | Where-Object { $_.SampleId -in @('stackoverflow-50gb', 'northwind') }).Count -eq 0
@@ -107,6 +116,8 @@ try {
             ScriptRejected        = $scriptRejected
             TrustRequired         = $handlerResult.Status -eq 'TRUST_REQUIRED' -and -not $handlerResult.Success
             LocalStatusUntrusted  = $status.TrustStatus -eq 'TRUST_REQUIRED' -and $status.CacheStatus -eq 'MISS'
+            InMemoryMoveWorks     = $wideWorldMoves.Count -eq 3 -and
+                $wideWorldMoves -contains "MOVE N'WWI_InMemory_Data_1' TO N'/var/opt/mssql/data/WideWorldImporters_SpecialData1'"
         }
     } $temporaryRoot
 
@@ -119,6 +130,7 @@ try {
     Add-CheckResult -Name 'SQL-Skript-Samples werden nicht als Restore umgedeutet' -Success $result.ScriptRejected
     Add-CheckResult -Name 'Nicht interaktiver Handler ohne Trust endet mit TRUST_REQUIRED' -Success $result.TrustRequired
     Add-CheckResult -Name 'Lokaler Trust-/Cache-Status wird read-only gemeldet' -Success $result.LocalStatusUntrusted
+    Add-CheckResult -Name 'In-Memory-OLTP-Container wird beim Restore per MOVE in den Linux-Datenpfad umgeleitet' -Success $result.InMemoryMoveWorks
     Add-CheckResult -Name 'Konsolenaktion Datenbank anlegen bietet den Sample-Katalog an' -Success (
         $consoleText -match "Testdatenbank aus dem Katalog wiederherstellen" -and
         $consoleText -match 'Select-LabSampleSelection -SqlVersion \$target.Version -SkipInitialConfirm' -and
