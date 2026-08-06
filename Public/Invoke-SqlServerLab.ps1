@@ -201,6 +201,17 @@ function Invoke-LabAction {
                 Version  = $version
                 Provider = $provider
             }
+            $defaultDataRoot = Get-LabDataRootDefault
+            if ($defaultDataRoot) {
+                Write-LabInfo "Optionaler Data Root verfügbar: $defaultDataRoot"
+                if (Read-LabConfirm -Prompt '  SQL-System- und Datenbanken persistent im Data Root einbinden?' -Default $false) {
+                    $newLabArguments.PersistentData = $true
+                    $newLabArguments.DataRoot = $defaultDataRoot
+                }
+            }
+            else {
+                Write-LabInfo 'Kein initialisierter Data Root gespeichert; die Containerdaten bleiben run-lokal und werden beim Cleanup entfernt.'
+            }
             if ($selectedSamples.Count -gt 0) {
                 $newLabArguments.Sample = $selectedSamples
             }
