@@ -232,6 +232,15 @@ try {
         $menuText -match 'Initialize-HyperVSqlFreshPreparedImageBuild' -and $menuText -match 'Invoke-HyperVSqlPrepareAndGeneralize' -and
         $menuText -match 'Publish-HyperVSqlPreparedImageBuild'
     )
+    $imageDeleteFunctionIndex = $menuText.IndexOf('function Remove-LabHyperVImageArtifactInteractive')
+    $nextImageMenuFunctionIndex = $menuText.IndexOf('function Select-LabHyperVOsArtifact', $imageDeleteFunctionIndex)
+    $imageDeleteFunctionText = if ($imageDeleteFunctionIndex -ge 0 -and $nextImageMenuFunctionIndex -gt $imageDeleteFunctionIndex) {
+        $menuText.Substring($imageDeleteFunctionIndex, $nextImageMenuFunctionIndex - $imageDeleteFunctionIndex)
+    } else { '' }
+    Add-CheckResult -Name 'Image-Loeschauswahl liest die Registry ohne VHDX-Hashing' -Success (
+        $imageDeleteFunctionText -match 'Get-HyperVImageArtifact -SkipIntegrityCheck' -and
+        $imageDeleteFunctionText -match 'Remove-HyperVImageArtifact'
+    )
     Add-CheckResult -Name 'SQL-Builder-Cleanup bietet ALL mit eigener Gesamtbestaetigung' -Success (
         $menuText -match '\[ALL\] Alle \$\(\$builds\.Count\) angezeigten unfertigen SQL-Builder aufraeumen' -and
         $menuText -match 'WIRKLICH ALLE SQL-Builder aufraeumen' -and

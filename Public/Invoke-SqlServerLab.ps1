@@ -428,6 +428,7 @@ function Invoke-LabHyperVImageAction {
     Write-Host '    [19] Reguläre Hyper-V-Umgebungen verwalten (Start, VMConnect, Stopp, Entfernen)' -ForegroundColor White
     Write-Host '    [20] Namen veröffentlichter OS- und SQL-Images ändern' -ForegroundColor White
     Write-Host '    [21] Reguläre Hyper-V-Umgebung aus vorhandener ausgeschalteter Windows-VM erstellen' -ForegroundColor Yellow
+    Write-Host '    [22] Veröffentlichte OS- und SQL-Images löschen' -ForegroundColor Red
     Write-Host '    [0] Zurueck' -ForegroundColor DarkGray
     Write-Host ''
     $choice = Read-Host '  Auswahl'
@@ -464,6 +465,7 @@ function Invoke-LabHyperVImageAction {
         '19' { Manage-LabHyperVEnvironmentInteractive }
         '20' { Rename-LabHyperVImageArtifactInteractive }
         '21' { New-LabHyperVEnvironmentFromExistingVmInteractive }
+        '22' { Remove-LabHyperVImageArtifactInteractive }
         default { Write-LabWarning "Ungueltige Auswahl: $choice" }
     }
     }
@@ -887,7 +889,10 @@ function Rename-LabHyperVImageArtifactInteractive {
     [CmdletBinding()]
     param()
 
-    $artifacts = @(Get-HyperVImageArtifact | Where-Object { $_.artifactState -in @('OS_SEALED', 'SQL_PREPARED_SEALED') })
+    # Die Auswahl darf nicht jede große Parent-VHDX erneut hashen. Die
+    # referenzgeprüfte Entfernung validiert Besitz und Ziel anschließend
+    # selbst; für die Anzeige reicht die lokale Registry.
+    $artifacts = @(Get-HyperVImageArtifact -SkipIntegrityCheck | Where-Object { $_.artifactState -in @('OS_SEALED', 'SQL_PREPARED_SEALED') })
     if ($artifacts.Count -eq 0) {
         Write-LabInfo 'Keine veröffentlichten OS- oder SQL-Images vorhanden.'
         return
@@ -917,6 +922,55 @@ function Rename-LabHyperVImageArtifactInteractive {
         Write-LabSuccess "Image-Name gespeichert: $($renamed.displayName)"
     }
     catch { Write-LabError $_.Exception.Message }
+}
+
+function Remove-LabHyperVImageArtifactInteractive {
+    <#
+    .SYNOPSIS Entfernt ein veröffentlichtes Hyper-V-Image nach expliziter Auswahl.
+    .DESCRIPTION Die Registry verweigert die Entfernung weiterhin, solange ein
+    aktiver Builder oder Lab-Run das immutable Parent-Image referenziert.
+    #>
+    [CmdletBinding()]
+    param()
+
+    # Die Auswahl darf nicht jede große Parent-VHDX erneut hashen. Die
+    # referenzgeprüfte Entfernung validiert Besitz und Ziel anschließend
+    # selbst; für die Anzeige reicht die lokale Registry.
+    $artifacts = @(Get-HyperVImageArtifact -SkipIntegrityCheck | Where-Object { $_.artifactState -in @('OS_SEALED', 'SQL_PREPARED_SEALED') })
+    if ($artifacts.Count -eq 0) {
+        Write-LabInfo 'Keine veröffentlichten OS- oder SQL-Images vorhanden.'
+        return
+    }
+    Write-Host '  Veröffentlichte Images:' -ForegroundColor White
+    for ($i = 0; $i -lt $artifacts.Count; $i++) {
+        $artifact = $artifacts[$i]
+        $label = if ($artifact.displayName) { [string]$artifact.displayName } else { [string]$artifact.artifactId }
+        Write-Host ("    [{0}] {1} · {2} · {3}" -f ($i + 1), $artifact.artifactState, $label, $artifact.artifactId) -ForegroundColor White
+    }
+    Write-Host '    [ALL] Alle oben angezeigten Images löschen' -ForegroundColor Red
+    $selection = Read-Host '  Image auswählen'
+    if ([string]::IsNullOrWhiteSpace($selection)) { return }
+    $selected = if ($selection -ieq 'ALL') { @($artifacts) }
+    elseif ($selection -match '^\d+$' -and [int]$selection -ge 1 -and [int]$selection -le $artifacts.Count) { @($artifacts[[int]$selection - 1]) }
+    else { Write-LabWarning 'Ungültige Auswahl.'; return }
+
+    $countText = if ($selected.Count -eq 1) { 'dieses Image' } else { "alle $($selected.Count) Images" }
+    Write-LabWarning "Es werden $countText inklusive ihrer schreibgeschützten Parent-VHDX entfernt. Referenzierte Images werden sicher übersprungen."
+    if (-not (Read-LabConfirm -Prompt '  Wirklich löschen?' -Default $false)) { return }
+    $removed = 0; $blocked = 0
+    foreach ($artifact in $selected) {
+        try {
+            Remove-HyperVImageArtifact -ArtifactId ([string]$artifact.artifactId) | Out-Null
+            $removed++
+            Write-LabSuccess "Image entfernt: $($artifact.artifactId)"
+        }
+        catch {
+            $blocked++
+            Write-LabWarning "Image nicht entfernt: $($artifact.artifactId) – $($_.Exception.Message)"
+        }
+    }
+    if ($blocked -eq 0) { Write-LabSuccess "$removed Image(s) entfernt." }
+    else { Write-LabWarning "Löschen abgeschlossen: $removed entfernt, $blocked nicht entfernt." }
 }
 
 function Select-LabHyperVOsArtifact {
