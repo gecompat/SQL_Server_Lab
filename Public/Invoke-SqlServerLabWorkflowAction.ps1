@@ -15,6 +15,10 @@ vorheriger Prüfung auf aktive Build-Referenzen entfernt werden soll.
 .PARAMETER LabName
 Sprechender Name einer regulären Hyper-V-Umgebung, die aus einem SQL-Prepared-
 Image erzeugt wird.
+.PARAMETER ManifestPath
+Absoluter Zielpfad eines über die Workflow-UI zu erstellenden Container-Manifests.
+.PARAMETER ManifestDescription
+Optionale Beschreibung des über die Workflow-UI erstellten Container-Manifests.
 .PARAMETER SourceVMName
 Name einer vorhandenen, ausgeschalteten Hyper-V-VM. Sie wird nur als
 unveränderte Quelle für eine run-lokale Arbeitskopie verwendet.
@@ -73,6 +77,9 @@ lokale Datei geprüft.
     Katalog-ID einer ausgewählten Testdatenbank für einen Container-Run.
 .PARAMETER SampleVariant
     Ausführbare Katalogvariante der ausgewählten Testdatenbank.
+.PARAMETER SampleSelections
+    Mehrere Katalogvarianten im Format `sampleId:variant`, die nacheinander in
+    eine bereits laufende Container-Instanz installiert werden.
 .PARAMETER TrustUnknownSample
     Bestätigt einmalig den Download einer Katalogvariante ohne bekannte
     SHA-256. Der ermittelte Fingerprint wird danach lokal an die Variante
@@ -113,8 +120,8 @@ function Invoke-SqlServerLabWorkflowAction {
         [ValidateSet(
             'Refresh',
             'SetMediaRoot', 'SetDataRoot',
-            'NewContainerLab', 'StartContainerLab', 'StopContainerLab', 'RestartContainerLab', 'RemoveContainerLab',
-            'CreateContainerDatabase', 'InstallContainerSampleDatabase', 'ExecuteContainerScript',
+            'NewContainerLab', 'CreateContainerManifest', 'NewContainerLabFromManifest', 'StartContainerLab', 'StopContainerLab', 'RestartContainerLab', 'RemoveContainerLab', 'ClearAllLabs',
+            'CreateContainerDatabase', 'InstallContainerSampleDatabase', 'InstallContainerSampleDatabases', 'ExecuteContainerScript',
             'NewHyperVLab', 'NewHyperVLabFromExistingVm', 'StartHyperVLab', 'StopHyperVLab', 'EnableHyperVLabPersistentData', 'InitializeHyperVLabPersistentData', 'CompleteHyperVLabSql', 'InspectHyperVLabSqlInstances', 'OpenHyperVConsole', 'RemoveHyperVLab',
             'NewWindowsBuild', 'SetWindowsMediaHash', 'OpenWindowsConsole', 'ConfirmWindowsInstall', 'GeneralizeWindowsBuild', 'PublishWindowsBuild',
             'NewSqlBuild', 'NewSqlBuildFromBaseline', 'SetSqlMediaHash', 'OpenSqlConsole', 'ConfirmSqlWindowsInstall', 'PrepareSqlImage', 'ResumeSqlImage', 'PublishSqlImage',
@@ -125,6 +132,8 @@ function Invoke-SqlServerLabWorkflowAction {
         [string]$BuildId,
         [string]$ArtifactId,
         [string]$LabName,
+        [string]$ManifestPath,
+        [string]$ManifestDescription,
         [string]$SourceVMName,
         [string]$SwitchName,
         [string]$MediaRoot,
@@ -151,6 +160,7 @@ function Invoke-SqlServerLabWorkflowAction {
         [string]$DatabaseName,
         [string]$SampleId,
         [string]$SampleVariant,
+        [string[]]$SampleSelections,
         [ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$SampleSha256,
         [switch]$TrustUnknownSample,
         [string]$ScriptPath,
@@ -195,8 +205,8 @@ function Invoke-SqlServerLabWorkflowAction {
     }
 
     $containerActions = @(
-        'NewContainerLab', 'StartContainerLab', 'StopContainerLab', 'RestartContainerLab', 'RemoveContainerLab',
-        'CreateContainerDatabase', 'InstallContainerSampleDatabase', 'ExecuteContainerScript'
+        'NewContainerLab', 'CreateContainerManifest', 'NewContainerLabFromManifest', 'StartContainerLab', 'StopContainerLab', 'RestartContainerLab', 'RemoveContainerLab',
+        'ClearAllLabs', 'CreateContainerDatabase', 'InstallContainerSampleDatabase', 'InstallContainerSampleDatabases', 'ExecuteContainerScript'
     )
     if ($Action -notin $containerActions) {
         if (-not $IsWindows) { throw 'HYPERV_WORKFLOW_WINDOWS_HOST_REQUIRED' }
@@ -214,7 +224,7 @@ function Invoke-SqlServerLabWorkflowAction {
         if (-not $GuestPassword) { throw 'HYPERV_WORKFLOW_GUEST_PASSWORD_REQUIRED' }
         $credential = [PSCredential]::new($GuestUserName, $GuestPassword)
     }
-    if ($Action -in @('NewContainerLab', 'CreateContainerDatabase', 'InstallContainerSampleDatabase', 'ExecuteContainerScript') -and -not $SaPassword) {
+    if ($Action -in @('NewContainerLab', 'NewContainerLabFromManifest', 'CreateContainerDatabase', 'InstallContainerSampleDatabase', 'InstallContainerSampleDatabases', 'ExecuteContainerScript') -and -not $SaPassword) {
         throw 'CONTAINER_WORKFLOW_SA_PASSWORD_REQUIRED'
     }
     if ($Action -eq 'RemoveHyperVImageArtifact' -and [string]::IsNullOrWhiteSpace($ArtifactId)) {
@@ -265,6 +275,20 @@ function Invoke-SqlServerLabWorkflowAction {
         'NewContainerLab' {
             New-SqlServerLab -Version $SqlVersion -Provider $Provider -Profile $Profile -InstanceId $InstanceId -LabName $LabName -DataRoot $DataRoot -PersistentData:$PersistentData -SaPassword $SaPassword
         }
+        'CreateContainerManifest' {
+            if ([string]::IsNullOrWhiteSpace($ManifestPath) -or [string]::IsNullOrWhiteSpace($LabName)) { throw 'CONTAINER_WORKFLOW_MANIFEST_PATH_AND_NAME_REQUIRED' }
+            $draft = [ordered]@{
+                name = $LabName
+                description = if ($ManifestDescription) { $ManifestDescription } else { 'Über die lokale SQL Server Lab Workflow-UI erstellt.' }
+                instances = @([ordered]@{ id = $InstanceId; version = $SqlVersion; provider = $Provider; profile = $Profile })
+            }
+            $manifest = New-SqlServerLabManifest -Path $ManifestPath -InputObject $draft -PassThru
+            [PSCustomObject]@{ Path = [IO.Path]::GetFullPath($ManifestPath); Name = $manifest.name; InstanceCount = @($manifest.instances).Count }
+        }
+        'NewContainerLabFromManifest' {
+            if ([string]::IsNullOrWhiteSpace($ManifestPath) -or -not (Test-Path -LiteralPath $ManifestPath -PathType Leaf)) { throw 'CONTAINER_WORKFLOW_MANIFEST_PATH_REQUIRED' }
+            New-SqlServerLab -Manifest $ManifestPath -SaPassword $SaPassword
+        }
         'NewHyperVLab' {
             $lab = New-HyperVLabEnvironment -ArtifactId $ArtifactId -LabName $LabName -InstanceId $InstanceId -MemoryStartupMB $MemoryStartupMB -ProcessorCount $ProcessorCount -SwitchName $SwitchName
             if ($PersistentData) { $null = Enable-HyperVLabPersistentData -RunId $lab.RunId -DataRoot $DataRoot -SizeGB $PersistentDataDiskGB }
@@ -287,6 +311,7 @@ function Invoke-SqlServerLabWorkflowAction {
         'StopContainerLab' { Stop-SqlServerLab -RunId $BuildId -Force -Confirm:$false }
         'RestartContainerLab' { Restart-SqlServerLab -RunId $BuildId -Force -Confirm:$false }
         'RemoveContainerLab' { Remove-SqlServerLab -RunId $BuildId -Force -Confirm:$false }
+        'ClearAllLabs' { Clear-SqlServerLab -Force }
         'CreateContainerDatabase' {
             if ($Port -lt 1 -or -not $DatabaseName) { throw 'CONTAINER_WORKFLOW_DATABASE_TARGET_REQUIRED' }
             New-SqlServerLabDatabase -HostName $HostName -Port $Port -SaPassword $SaPassword -DatabaseName $DatabaseName
@@ -308,6 +333,29 @@ function Invoke-SqlServerLabWorkflowAction {
             $sampleResult = Install-LabSampleDatabase -HostName $target.HostName -Port $target.Port -SaPassword $SaPassword -ContainerName $target.ContainerName -RestoreDefinition $restoreDefinition -TrustUnknownArtifact:$TrustUnknownSample -RunDirectory $runDirectory
             if (-not $sampleResult.Success) { throw "CONTAINER_WORKFLOW_SAMPLE_INSTALLATION_FAILED ($($sampleResult.Status)): $($sampleResult.Message)" }
             $sampleResult
+        }
+        'InstallContainerSampleDatabases' {
+            if (-not $BuildId -or @($SampleSelections | Where-Object { $_ }).Count -eq 0) { throw 'CONTAINER_WORKFLOW_SAMPLE_TARGET_REQUIRED' }
+            $target = Resolve-LabRunInstance -RunId $BuildId -InstanceId $InstanceId
+            $runDirectory = Join-Path (Join-Path (Get-LabStateRoot) 'runs') $BuildId
+            $results = @()
+            foreach ($selection in @($SampleSelections | Where-Object { $_ })) {
+                $parts = ([string]$selection).Split(':', 2)
+                if ($parts.Count -ne 2 -or -not $parts[0] -or -not $parts[1]) { throw "CONTAINER_WORKFLOW_SAMPLE_SELECTION_INVALID: $selection" }
+                $sample = Get-LabSampleDatabase -Id $parts[0]
+                if (-not $sample) { throw "CONTAINER_WORKFLOW_SAMPLE_NOT_FOUND: $($parts[0])" }
+                $variant = @($sample.versions.PSObject.Properties | Where-Object Name -eq $parts[1] | Select-Object -First 1)
+                if ($variant.Count -ne 1) { throw "CONTAINER_WORKFLOW_SAMPLE_VARIANT_NOT_FOUND: $selection" }
+                $expectedOutputs = @($variant[0].Value.expectedOutputs)
+                if ($expectedOutputs.Count -ne 1 -or -not $expectedOutputs[0].name) { throw "CONTAINER_WORKFLOW_SAMPLE_OUTPUT_INVALID: $selection" }
+                $restoreDefinition = Resolve-LabSampleRestore -SampleDefinition ([PSCustomObject]@{ id = $parts[0]; variant = $parts[1] }) -SqlVersion $target.Version -TargetDatabaseName ([string]$expectedOutputs[0].name)
+                $localStatus = Get-LabSampleArtifactLocalStatus -Source $restoreDefinition.source -SampleId $restoreDefinition.sampleId -SampleVariant $restoreDefinition.sampleVariant -ExpectedSha256 $restoreDefinition.expectedSha256
+                if (-not $localStatus.KnownSha256 -and -not $TrustUnknownSample) { throw "CONTAINER_WORKFLOW_SAMPLE_TRUST_REQUIRED: $selection" }
+                $sampleResult = Install-LabSampleDatabase -HostName $target.HostName -Port $target.Port -SaPassword $SaPassword -ContainerName $target.ContainerName -RestoreDefinition $restoreDefinition -TrustUnknownArtifact:$TrustUnknownSample -RunDirectory $runDirectory
+                if (-not $sampleResult.Success) { throw "CONTAINER_WORKFLOW_SAMPLE_INSTALLATION_FAILED ($($sampleResult.Status)): $($sampleResult.Message)" }
+                $results += $sampleResult
+            }
+            @($results)
         }
         'ExecuteContainerScript' {
             if ($Port -lt 1 -or -not $ScriptPath) { throw 'CONTAINER_WORKFLOW_SCRIPT_TARGET_REQUIRED' }
