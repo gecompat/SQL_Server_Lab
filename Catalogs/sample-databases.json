@@ -3,6 +3,63 @@
   "_comment": "Katalog oeffentlich verfuegbarer Test-Datenbanken. Keine Backups im Repository; URLs und Metadaten sind kein Runtime-Nachweis.",
   "databases": [
     {
+      "id": "adventureworks-2025",
+      "name": "AdventureWorks2025",
+      "displayName": "AdventureWorks 2025 (OLTP)",
+      "description": "Aktuelle Microsoft-Beispieldatenbank fuer OLTP-Szenarien mit SQL-Server-2025-Funktionen.",
+      "category": "microsoft-sample",
+      "license": "MIT",
+      "source": "https://learn.microsoft.com/sql/samples/adventureworks-install-configure",
+      "versions": {
+        "full": {
+          "artifactType": "backup",
+          "handlerContractVersion": "1",
+          "url": "https://github.com/microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorks2025.bak",
+          "downloadSizeMB": 48,
+          "estimatedInstallSizeMB": null,
+          "resourceEstimateStatus": "unknown",
+          "sha256": null,
+          "integrityOrigin": null,
+          "trustPolicy": "interactive-once",
+          "compatibility": 170,
+          "expectedOutputs": [
+            { "name": "AdventureWorks2025", "kind": "database" }
+          ],
+          "installation": {
+            "kind": "backup",
+            "restoreMode": "direct-backup",
+            "idempotencyMode": "fail-if-exists",
+            "baselinePolicy": "eligible-after-verification"
+          },
+          "runtimeStatus": "executable"
+        },
+        "lightweight": {
+          "artifactType": "backup",
+          "handlerContractVersion": "1",
+          "url": "https://github.com/microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorksLT2025.bak",
+          "downloadSizeMB": 1.7,
+          "estimatedInstallSizeMB": null,
+          "resourceEstimateStatus": "unknown",
+          "sha256": null,
+          "integrityOrigin": null,
+          "trustPolicy": "interactive-once",
+          "compatibility": 170,
+          "expectedOutputs": [
+            { "name": "AdventureWorksLT2025", "kind": "database" }
+          ],
+          "installation": {
+            "kind": "backup",
+            "restoreMode": "direct-backup",
+            "idempotencyMode": "fail-if-exists",
+            "baselinePolicy": "eligible-after-verification"
+          },
+          "runtimeStatus": "executable"
+        }
+      },
+      "minSqlVersion": "2025",
+      "tags": ["oltp", "vertrieb", "schulung", "sql-server-2025", "query-store"]
+    },
+    {
       "id": "adventureworks-2022",
       "name": "AdventureWorks2022",
       "displayName": "AdventureWorks 2022 (OLTP)",
@@ -117,6 +174,41 @@
       "tags": ["oltp", "vertrieb", "schulung"]
     },
     {
+      "id": "adventureworks-dw-2025",
+      "name": "AdventureWorksDW2025",
+      "displayName": "AdventureWorks DW 2025 (Data Warehouse)",
+      "description": "Aktuelles Microsoft-Data-Warehouse-Beispiel fuer SQL Server 2025 mit Star-Schema.",
+      "category": "microsoft-sample",
+      "license": "MIT",
+      "source": "https://learn.microsoft.com/sql/samples/adventureworks-install-configure",
+      "versions": {
+        "full": {
+          "artifactType": "backup",
+          "handlerContractVersion": "1",
+          "url": "https://github.com/microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorksDW2025.bak",
+          "downloadSizeMB": 24,
+          "estimatedInstallSizeMB": null,
+          "resourceEstimateStatus": "unknown",
+          "sha256": null,
+          "integrityOrigin": null,
+          "trustPolicy": "interactive-once",
+          "compatibility": 170,
+          "expectedOutputs": [
+            { "name": "AdventureWorksDW2025", "kind": "database" }
+          ],
+          "installation": {
+            "kind": "backup",
+            "restoreMode": "direct-backup",
+            "idempotencyMode": "fail-if-exists",
+            "baselinePolicy": "eligible-after-verification"
+          },
+          "runtimeStatus": "executable"
+        }
+      },
+      "minSqlVersion": "2025",
+      "tags": ["dwh", "star-schema", "etl", "reporting", "sql-server-2025"]
+    },
+    {
       "id": "adventureworks-dw-2022",
       "name": "AdventureWorksDW2022",
       "displayName": "AdventureWorks DW 2022 (Data Warehouse)",
@@ -150,6 +242,41 @@
       },
       "minSqlVersion": "2022",
       "tags": ["dwh", "star-schema", "etl", "reporting"]
+    },
+    {
+      "id": "adventureworks-dw-2019",
+      "name": "AdventureWorksDW2019",
+      "displayName": "AdventureWorks DW 2019 (Data Warehouse)",
+      "description": "Microsoft-Data-Warehouse-Beispiel fuer SQL Server 2019 mit Star-Schema.",
+      "category": "microsoft-sample",
+      "license": "MIT",
+      "source": "https://learn.microsoft.com/sql/samples/adventureworks-install-configure",
+      "versions": {
+        "full": {
+          "artifactType": "backup",
+          "handlerContractVersion": "1",
+          "url": "https://github.com/microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorksDW2019.bak",
+          "downloadSizeMB": 97,
+          "estimatedInstallSizeMB": null,
+          "resourceEstimateStatus": "unknown",
+          "sha256": null,
+          "integrityOrigin": null,
+          "trustPolicy": "interactive-once",
+          "compatibility": 150,
+          "expectedOutputs": [
+            { "name": "AdventureWorksDW2019", "kind": "database" }
+          ],
+          "installation": {
+            "kind": "backup",
+            "restoreMode": "direct-backup",
+            "idempotencyMode": "fail-if-exists",
+            "baselinePolicy": "eligible-after-verification"
+          },
+          "runtimeStatus": "executable"
+        }
+      },
+      "minSqlVersion": "2019",
+      "tags": ["dwh", "star-schema", "etl", "reporting", "sql-server-2019"]
     },
     {
       "id": "wideworldimporters",
