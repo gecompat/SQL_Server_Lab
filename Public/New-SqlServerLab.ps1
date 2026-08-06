@@ -109,6 +109,15 @@ function New-SqlServerLab {
     .PARAMETER StateRoot
         Optionales State-Stammverzeichnis. Ohne Angabe wird der Framework-Default
         fuer das aktuelle Betriebssystem verwendet.
+    .PARAMETER LabName
+        Stabiler logischer Name eines Ad-hoc-Labs. Er bestimmt bei aktivierten
+        persistenten Daten den Unterordner im Data Root.
+    .PARAMETER DataRoot
+        Optionaler, zuvor initialisierter langlebiger Data Root. Er wird nur
+        bei PersistentData verwendet und nie vom normalen Run-Cleanup gelöscht.
+    .PARAMETER PersistentData
+        Bindet /var/opt/mssql der neu erstellten Docker- oder Podman-Instanz
+        als Host-Bind-Mount im Data Root ein.
     .PARAMETER SkipAssessment
         Ueberspringt das Resource Assessment vor der Provisionierung. Die
         spaeteren Provider- und SQL-Pruefungen bleiben aktiv.
@@ -130,6 +139,11 @@ function New-SqlServerLab {
         $lab = New-SqlServerLab -Manifest './Schemas/example-performance-lab.json'
 
         Validiert und provisioniert die im Manifest beschriebene Umgebung.
+    .EXAMPLE
+        $lab = New-SqlServerLab -Version '2025' -Provider docker -LabName 'training' -PersistentData -DataRoot 'D:\Lab_Data'
+
+        Erstellt ein Container-Lab, dessen SQL-System- und Datenbanken nach
+        Entfernen des Container-Runs im Data Root erhalten bleiben.
     .NOTES
         Das Cmdlet veraendert Container-Runtime, Dateisystem und SQL Server. Der
         zurueckgegebene Run kann mit den SqlServerLab-Lifecycle-Commands verwaltet
@@ -162,6 +176,9 @@ function New-SqlServerLab {
 
         [SecureString]$SaPassword,
         [string]$StateRoot,
+        [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9 _-]{0,63}$')][string]$LabName,
+        [string]$DataRoot,
+        [switch]$PersistentData,
         [switch]$SkipAssessment
     )
 
@@ -204,7 +221,7 @@ function New-SqlServerLab {
         }
 
         $resolved = [PSCustomObject]@{
-            name      = "adhoc-$Version-$Provider"
+            name      = if ($LabName) { $LabName } else { "adhoc-$Version-$Provider" }
             instances = @(
                 [PSCustomObject]@{
                     id            = $InstanceId
@@ -223,6 +240,12 @@ function New-SqlServerLab {
             resourceOverrides = $null
             manifestPath      = $null
         }
+    }
+
+    if ($PersistentData) {
+        if (-not $DataRoot) { $DataRoot = Get-LabDataRootDefault }
+        if (-not $DataRoot) { throw 'LAB_DATA_ROOT_REQUIRED: PersistentData benötigt einen konfigurierten Data Root.' }
+        $DataRoot = Set-LabDataRootDefault -DataRoot $DataRoot
     }
 
     Write-LabInfo "Umgebung: $($resolved.name) ($($resolved.instances.Count) Instanz(en))"
@@ -292,7 +315,7 @@ function New-SqlServerLab {
 
     $runState = New-LabRunState `
         -StateRoot $StateRoot `
-        -Metadata @{ name = $resolved.name } `
+        -Metadata @{ name = $resolved.name; persistentData = [bool]$PersistentData; dataRoot = if ($PersistentData) { $DataRoot } else { $null } } `
         -ProviderSubRuns $providerSubRuns
     $effectiveStateRoot = $runState.StateRoot
     $cleanupStatus = 'NOT_STARTED'
@@ -306,6 +329,17 @@ function New-SqlServerLab {
             -RunId $runState.RunId `
             -ScopeId $runState.ScopeId `
             -ProviderSubRuns $providerSubRuns
+
+        if ($PersistentData) {
+            foreach ($instance in $resolved.instances) {
+                $storage = Get-LabPersistentInstanceStorage -DataRoot $DataRoot -LabName $resolved.name -Provider $instance.provider -InstanceId $instance.id -SqlVersion $instance.version -Create
+                $null = Add-LabPersistentContainerDrive -Instance $instance -Storage $storage
+                $instance | Add-Member -NotePropertyName persistentStorage -NotePropertyValue ([PSCustomObject]@{
+                    mode = 'data-root-bind-mount'; root = [string]$storage.SqlRoot; hostPath = [string]$storage.ContainerMssqlRoot
+                }) -Force
+            }
+            Write-LabInfo "Persistenter Data Root wird eingebunden: $DataRoot"
+        }
 
         foreach ($instance in $resolved.instances) {
             Add-LabInstanceCleanupPlan -Instance $instance -RunState $runState
@@ -575,6 +609,7 @@ function New-SqlServerLab {
                     containerName    = $_.ContainerName
                     connectionString = $_.ConnectionString
                     databases        = @($_.Databases)
+                    persistentStorage = $_.PersistentStorage
                 }
             })
         }
@@ -613,6 +648,7 @@ function New-SqlServerLab {
             Name      = $resolved.name
             Instances = $labInstances
             StateRoot = $effectiveStateRoot
+            DataRoot = if ($PersistentData) { $DataRoot } else { $null }
         }
     }
     catch {

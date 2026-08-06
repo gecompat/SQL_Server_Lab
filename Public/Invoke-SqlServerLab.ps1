@@ -396,8 +396,8 @@ function Invoke-LabHyperVImageAction {
     while (-not $exitImageMenu) {
     Write-Host '  Hyper-V Image-Lifecycle:' -ForegroundColor White
     Write-Host ''
-    Write-Host '    Empfohlener Prepared-Image-Pfad: 7 -> 9 (Windows installieren) -> 10 -> 11.' -ForegroundColor Yellow
-    Write-Host '    Er installiert Windows und SQL in einer frischen VM und verwendet genau einen finalen Sysprep.' -ForegroundColor DarkGray
+    Write-Host '    Empfohlener Prepared-Image-Pfad: 1 -> 3 -> 4 -> 5, danach 7 -> 9 (OOBE) -> 10 -> 11.' -ForegroundColor Yellow
+    Write-Host '    Die veröffentlichte OS-Baseline wird wiederverwendet; nur der SQL-Builder erhält eine differenzierende VHDX.' -ForegroundColor DarkGray
     Show-LabHyperVSqlNextActions
     Write-Host ''
     Write-Host '    Windows-OS-Baseline' -ForegroundColor DarkGray
@@ -409,12 +409,14 @@ function Invoke-LabHyperVImageAction {
     Write-Host '    [6] Unfertigen Windows-Builder aufraeumen' -ForegroundColor Red
     Write-Host ''
     Write-Host '    SQL-Prepared-Image aus frischer Windows-ISO' -ForegroundColor DarkGray
-    Write-Host '    [7] Frischen SQL-Image-Builder vorbereiten (Windows + SQL, ein Sysprep)' -ForegroundColor Yellow
+    Write-Host '    [7] SQL-Prepared-Image aus veröffentlichter OS-Baseline vorbereiten' -ForegroundColor Yellow
     Write-Host '    [8] SQL-Image-Build-Status anzeigen' -ForegroundColor White
     Write-Host '    [9] SQL-Builder starten und Windows-Installation in VMConnect abschliessen' -ForegroundColor White
+    Write-Host '    [b] Installierte Windows-Edition vor SQL-Setup prüfen' -ForegroundColor White
     Write-Host '    [10] SQL PrepareImage automatisch installieren und Windows-Sysprep ausfuehren' -ForegroundColor White
     Write-Host '    [11] SQL-Prepared-Image veroeffentlichen' -ForegroundColor White
     Write-Host '    [12] Unfertigen SQL-Builder aufraeumen' -ForegroundColor Red
+    Write-Host '    [f] Sonderfall: frischen SQL-Builder aus Windows- und SQL-ISO vorbereiten' -ForegroundColor DarkGray
     Write-Host ''
     Write-Host '    Run-lokale Windows-SQL-Abnahmeumgebung (Alternative zu 9 -> 10 -> 11)' -ForegroundColor DarkGray
     Write-Host '    [13] OOBE und vollstaendiges SQL automatisch installieren' -ForegroundColor Yellow
@@ -426,7 +428,6 @@ function Invoke-LabHyperVImageAction {
     Write-Host '    [19] Reguläre Hyper-V-Umgebungen verwalten (Start, VMConnect, Stopp, Entfernen)' -ForegroundColor White
     Write-Host '    [20] Namen veröffentlichter OS- und SQL-Images ändern' -ForegroundColor White
     Write-Host '    [21] Reguläre Hyper-V-Umgebung aus vorhandener ausgeschalteter Windows-VM erstellen' -ForegroundColor Yellow
-    Write-Host '    [a] Legacy: SQL-Abnahme-Builder aus vorhandener OS-Baseline erzeugen' -ForegroundColor DarkGray
     Write-Host '    [0] Zurueck' -ForegroundColor DarkGray
     Write-Host ''
     $choice = Read-Host '  Auswahl'
@@ -446,12 +447,14 @@ function Invoke-LabHyperVImageAction {
         '4' { Invoke-LabHyperVImageGeneralizationInteractive }
         '5' { Publish-LabHyperVImageBuildInteractive }
         '6' { Remove-LabHyperVImageBuildInteractive }
-        '7' { New-LabHyperVSqlImageBuildInteractive }
+        '7' { New-LabHyperVSqlAcceptanceBuildInteractive }
         '8' { $null = Show-LabHyperVSqlImageBuilds }
         '9' { Start-LabHyperVSqlImageBuildInteractive }
+        'b' { Confirm-LabHyperVSqlWindowsInstallationInteractive }
         '10' { Invoke-LabHyperVSqlPrepareInteractive }
         '11' { Publish-LabHyperVSqlImageBuildInteractive }
         '12' { Remove-LabHyperVSqlImageBuildInteractive }
+        'f' { New-LabHyperVSqlImageBuildInteractive }
         '13' { Invoke-LabHyperVSqlAcceptanceInstallInteractive }
         '14' { Test-LabHyperVSqlAcceptanceInteractive }
         '15' { Show-LabHyperVSqlAcceptanceMatrix }
@@ -461,7 +464,6 @@ function Invoke-LabHyperVImageAction {
         '19' { Manage-LabHyperVEnvironmentInteractive }
         '20' { Rename-LabHyperVImageArtifactInteractive }
         '21' { New-LabHyperVEnvironmentFromExistingVmInteractive }
-        'a' { New-LabHyperVSqlAcceptanceBuildInteractive }
         default { Write-LabWarning "Ungueltige Auswahl: $choice" }
     }
     }
@@ -814,7 +816,7 @@ function Get-LabHyperVSqlImageNextStep {
     switch ([string]$Build.state) {
         'MANUAL_ACTION_REQUIRED' {
             if ($isFreshPreparedImage) { return '[9] VMConnect oeffnen, Windows installieren und einmal als Administrator anmelden.' }
-            return '[13] OOBE und vollstaendiges SQL automatisch installieren.'
+            return '[9] VMConnect oeffnen, OOBE der OS-Baseline abschliessen und lokales Administratorpasswort setzen; danach [10] SQL PrepareImage ausfuehren.'
         }
         'OOBE_AUTOMATION_RUNNING' { return '[13] fortsetzen; die OOBE-Automatisierung wird geprueft.' }
         'OOBE_COMPLETED' { return '[13] vollstaendiges SQL installieren.' }
@@ -947,18 +949,19 @@ function Show-LabHyperVSqlManualInstructions {
         Write-Host '  Frische Windows-Installation fuer das SQL-Prepared-Image:' -ForegroundColor Yellow
         Write-Host "    VM: $($Build.builder.vmName)" -ForegroundColor White
         Write-Host '    1. Windows Server 2025 in VMConnect auf der leeren OS-Disk installieren.' -ForegroundColor White
-        Write-Host '    2. Gewuenschte Edition und Desktop Experience/Core waehlen, OOBE abschliessen.' -ForegroundColor White
+        $editionLabel = if ([string]$Build.operatingSystem.edition -eq 'standard-evaluation') { 'Windows Server 2025 Standard Evaluation' } else { 'Windows Server 2025 Datacenter Evaluation' }
+        $typeLabel = if ([string]$Build.operatingSystem.installationType -eq 'core') { 'Server Core Installation' } else { 'Desktop Experience' }
+        Write-Host "    2. Im Windows-Setup exakt '$editionLabel ($typeLabel)' auswählen und OOBE abschließen." -ForegroundColor White
         Write-Host '    3. Lokales Administratorpasswort setzen und einmal anmelden.' -ForegroundColor White
         Write-Host '    4. Zurueck im Image-Menue Aktion 10 waehlen: SQL PrepareImage und genau ein finaler Windows-Sysprep.' -ForegroundColor White
         Write-Host '  Die zweite DVD enthaelt bereits die verifizierte SQL-ISO; sie wird von Aktion 10 verwendet.' -ForegroundColor DarkGray
         return
     }
-    Write-Host '  Unbeaufsichtigter Windows-OOBE-Schritt:' -ForegroundColor Yellow
+    Write-Host '  SQL-Prepared-Image aus OS-Baseline:' -ForegroundColor Yellow
     Write-Host "    VM: $($Build.builder.vmName)" -ForegroundColor White
-    Write-Host '    Aktion 13 setzt Region Deutschland, UI en-US und deutsche Tastatur.' -ForegroundColor White
-    Write-Host '    Danach wird SQL Server ohne weitere GUI-Interaktion installiert.' -ForegroundColor White
-    Write-Host '  Zufallspasswoerter liegen nur lokal und DPAPI-geschuetzt im Build-Verzeichnis.' -ForegroundColor DarkGray
-    Write-Host '  Die temporaere Unattend.xml wird nach erfolgreichem OOBE aus dem Gast entfernt.' -ForegroundColor DarkGray
+    Write-Host '    1. VMConnect öffnen, die kurze OOBE der OS-Baseline abschließen und lokales Administratorpasswort setzen.' -ForegroundColor White
+    Write-Host '    2. Zurück im Image-Menü Aktion 10 wählen: SQL PrepareImage und genau ein finaler Windows-Sysprep.' -ForegroundColor White
+    Write-Host '  Windows wird nicht erneut installiert: Die OS-Baseline bleibt unverändert, der Builder verwendet nur eine eigene differenzierende VHDX.' -ForegroundColor DarkGray
 }
 
 function New-LabHyperVSqlImageBuildInteractive {
@@ -972,13 +975,20 @@ function New-LabHyperVSqlImageBuildInteractive {
     try { $mediaRoot = Set-LabMediaRootDefault -MediaRoot $mediaRoot }
     catch { Write-LabError "Media Root ist ungueltig: $($_.Exception.Message)"; return }
 
-    $windowsEdition = Read-Host '  Windows-Edition [standard-evaluation]'
-    if (-not $windowsEdition) { $windowsEdition = 'standard-evaluation' }
-    $installationType = Read-Host '  Windows-Typ: core oder desktop-experience [desktop-experience]'
-    if (-not $installationType) { $installationType = 'desktop-experience' }
-    if ($windowsEdition -notin @('standard-evaluation', 'datacenter-evaluation') -or $installationType -notin @('core', 'desktop-experience')) {
-        Write-LabError 'Windows-Edition oder Installationstyp ist ungueltig.'; return
+    $windowsCandidates = @(Get-HyperVWindowsInstallationMediaCandidates -MediaRoot $mediaRoot | Where-Object { $_.State -eq 'READY' -and $_.OperatingSystemId -eq 'windows-server-2025' })
+    if ($windowsCandidates.Count -eq 0) { Write-LabError 'Kein erkanntes Windows Server 2025-Installationsmedium vorhanden.'; return }
+    Write-Host '  Erkannte Windows-Installationsvarianten:' -ForegroundColor White
+    for ($i = 0; $i -lt $windowsCandidates.Count; $i++) {
+        $candidate = $windowsCandidates[$i]
+        Write-Host ("    [{0}] {1} · {2} · {3}" -f ($i + 1), $candidate.ImageName, $candidate.WindowsEdition, $candidate.MediaId) -ForegroundColor White
     }
+    $windowsSelection = Read-Host '  Windows-Variante (Nummer) [1]'
+    if (-not $windowsSelection) { $windowsSelection = '1' }
+    if ($windowsSelection -notmatch '^\d+$' -or [int]$windowsSelection -lt 1 -or [int]$windowsSelection -gt $windowsCandidates.Count) { Write-LabError 'Ungültige Windows-Medienauswahl.'; return }
+    $selectedWindowsMedia = $windowsCandidates[[int]$windowsSelection - 1]
+    $windowsEdition = [string]$selectedWindowsMedia.WindowsEdition
+    $installationType = [string]$selectedWindowsMedia.InstallationType
+    $windowsMediaPath = [string]$selectedWindowsMedia.MediaId
     $sqlVersion = Read-Host '  SQL Server Version: 2019, 2022 oder 2025 [2025]'
     if (-not $sqlVersion) { $sqlVersion = '2025' }
     if ($sqlVersion -notin @('2019', '2022', '2025')) { Write-LabError 'SQL-Version ist ungueltig.'; return }
@@ -990,12 +1000,12 @@ function New-LabHyperVSqlImageBuildInteractive {
     if ($imageName -and $imageName.Trim().Length -gt 80) { Write-LabError 'Der Image-Name darf höchstens 80 Zeichen enthalten.'; return }
 
     try {
-        $windowsMedia = Resolve-HyperVWindowsInstallationMedia -MediaRoot $mediaRoot -OperatingSystemId windows-server-2025
+        $windowsMedia = Resolve-HyperVWindowsInstallationMedia -MediaRoot $mediaRoot -OperatingSystemId windows-server-2025 -WindowsMediaPath $windowsMediaPath -WindowsEdition $windowsEdition -InstallationType $installationType
         if ($windowsMedia.HashStatus -eq 'MISSING') {
             Write-LabWarning 'Fuer die Windows-ISO existiert noch kein SHA-256-Sidecar.'
             if (-not (Read-LabConfirm -Prompt '  Windows-SHA-256 jetzt berechnen und lokal festschreiben?' -Default $false)) { return }
             Write-LabInfo 'Windows-SHA-256 wird berechnet; grosse ISOs benoetigen mehrere Minuten.'
-            $windowsMedia = New-HyperVWindowsMediaHashSidecar -MediaRoot $mediaRoot -OperatingSystemId windows-server-2025
+            $windowsMedia = New-HyperVWindowsMediaHashSidecar -MediaRoot $mediaRoot -OperatingSystemId windows-server-2025 -WindowsMediaPath $windowsMediaPath -WindowsEdition $windowsEdition -InstallationType $installationType
         }
         $sqlMedia = Resolve-HyperVSqlInstallationMedia -MediaRoot $mediaRoot -SqlVersion $sqlVersion -MediaEdition $mediaEdition
         if ($sqlMedia.HashStatus -eq 'MISSING') {
@@ -1010,7 +1020,7 @@ function New-LabHyperVSqlImageBuildInteractive {
         Write-Host '  Ablauf: Windows installieren -> SQL PrepareImage -> ein finaler Sysprep.' -ForegroundColor Yellow
         if (-not (Read-LabConfirm -Prompt '  Frischen SQL-Prepared-Image-Builder jetzt erzeugen?' -Default $false)) { return }
         $build = Initialize-HyperVSqlFreshPreparedImageBuild -MediaRoot $mediaRoot -OperatingSystemId windows-server-2025 `
-            -WindowsEdition $windowsEdition -InstallationType $installationType -SqlVersion $sqlVersion -MediaEdition $mediaEdition -ImageName $imageName
+            -WindowsEdition $windowsEdition -InstallationType $installationType -WindowsMediaPath $windowsMediaPath -SqlVersion $sqlVersion -MediaEdition $mediaEdition -ImageName $imageName
         Write-LabSuccess "Frischer SQL-Builder erstellt. BuildId: $($build.buildId)"
         Show-LabHyperVSqlManualInstructions -Build $build
         if (Read-LabConfirm -Prompt '  Builder starten und VMConnect oeffnen?' -Default $true) {
@@ -1041,6 +1051,8 @@ function New-LabHyperVSqlAcceptanceBuildInteractive {
     if ($mediaEdition -notin @('Eval', 'Enterprise', 'Standard')) { Write-LabError 'Medien-Edition ist ungueltig.'; return }
     $artifact = Select-LabHyperVOsArtifact
     if (-not $artifact) { return }
+    $imageName = Read-Host '  Frei wählbarer Image-Name (optional)'
+    if ($imageName -and $imageName.Trim().Length -gt 80) { Write-LabError 'Der Image-Name darf höchstens 80 Zeichen enthalten.'; return }
 
     try {
         $media = Resolve-HyperVSqlInstallationMedia -MediaRoot $mediaRoot -SqlVersion $sqlVersion -MediaEdition $mediaEdition
@@ -1052,11 +1064,12 @@ function New-LabHyperVSqlAcceptanceBuildInteractive {
         }
         Write-Host "  Parent: $($artifact.artifactId)" -ForegroundColor DarkGray
         Write-Host "  SQL:    $sqlVersion $mediaEdition; SQLENGINE, FULLTEXT, REPLICATION" -ForegroundColor DarkGray
-        Write-Host '  Die Evaluation-Ablaufzeit der OS-Baseline wird in das neue Artifact uebernommen.' -ForegroundColor DarkGray
-        if (-not (Read-LabConfirm -Prompt '  SQL-Image-Builder jetzt erzeugen?' -Default $false)) { return }
+        Write-Host '  Die OS-Baseline bleibt unverändert; Windows wird nicht erneut installiert.' -ForegroundColor DarkGray
+        Write-Host '  Die Evaluation-Ablaufzeit der OS-Baseline wird in das neue Artifact übernommen.' -ForegroundColor DarkGray
+        if (-not (Read-LabConfirm -Prompt '  SQL-Prepared-Image-Builder aus OS-Baseline jetzt erzeugen?' -Default $false)) { return }
         $build = Initialize-HyperVSqlPreparedImageBuild -MediaRoot $mediaRoot -ImageArtifactId $artifact.artifactId `
-            -SqlVersion $sqlVersion -MediaEdition $mediaEdition
-        Write-LabSuccess "SQL-Builder erstellt. BuildId: $($build.buildId)"
+            -SqlVersion $sqlVersion -MediaEdition $mediaEdition -ImageName $imageName
+        Write-LabSuccess "SQL-Prepared-Image-Builder aus OS-Baseline erstellt. BuildId: $($build.buildId)"
         Show-LabHyperVSqlManualInstructions -Build $build
         if (Read-LabConfirm -Prompt '  Builder starten und VMConnect oeffnen?' -Default $true) {
             Open-LabHyperVImageBuildConsole -Build $build
@@ -1076,6 +1089,27 @@ function Start-LabHyperVSqlImageBuildInteractive {
     Open-LabHyperVImageBuildConsole -Build $build
     Start-Sleep -Milliseconds 1500
     try { $null = Start-HyperVSqlImageBuildVM -BuildId $build.buildId } catch { Write-LabError $_.Exception.Message }
+}
+
+function Confirm-LabHyperVSqlWindowsInstallationInteractive {
+    [CmdletBinding()]
+    param()
+
+    $build = Select-LabHyperVSqlImageBuild -AllowedStates @('MANUAL_ACTION_REQUIRED') -RequireExistingVm
+    if (-not $build) { return }
+    if ([string]$build.provisioningMode -ne 'fresh-windows-media') {
+        Write-LabInfo 'Diese Prüfung ist nur für frische Windows-ISO-basierte SQL-Prepared-Image-Builds erforderlich.'
+        return
+    }
+    $userName = Read-Host '  Lokaler Gast-Administrator [Administrator]'
+    if (-not $userName) { $userName = 'Administrator' }
+    $password = Read-Host '  Gastpasswort' -AsSecureString
+    $credential = [PSCredential]::new($userName, $password)
+    try {
+        $confirmed = Confirm-HyperVSqlFreshWindowsInstallation -Build $build -Credential $credential
+        Write-LabSuccess ("Windows bestätigt: {0} / {1}. Jetzt Aktion 10 für SQL PrepareImage wählen." -f $confirmed.operatingSystem.edition, $confirmed.operatingSystem.installationType)
+    }
+    catch { Write-LabError $_.Exception.Message }
 }
 
 function Invoke-LabHyperVSqlPrepareInteractive {

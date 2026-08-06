@@ -1,8 +1,8 @@
-# SQL Server 2019, 2022 und 2025 als frische, einmalig generalisierte Images
+# SQL Server 2019, 2022 und 2025 aus einer wiederverwendbaren OS-Baseline
 
 | Merkmal | Wert |
 |---|---|
-| Betriebssystem | Windows Server 2025 Core oder Desktop Experience, je SQL-Image frisch installiert |
+| Betriebssystem | veröffentlichte Windows-Server-2025-OS-Baseline, je SQL-Image als differenzierender Child-Datenträger |
 | Einstieg | `Invoke-SqlServerLab.ps1 -Action Image` |
 | Ziel | ein immutable `SQL_PREPARED_SEALED`-Artifact je SQL-Hauptversion |
 | SQL-Features | Database Engine, Full-Text, Replication |
@@ -15,25 +15,26 @@ nicht hintereinander auf demselben Builder ausgeführt.
 
 | Ziel | Menüfolge | Ergebnis |
 |---|---|---|
-| Wiederverwendbares SQL-Grundimage | `7 → 9 → 10 → 11` | Windows frisch aus ISO, SQL `PrepareImage`, genau ein finaler Sysprep |
-| Legacy-Abnahme-VM aus gemeinsamer OS-Baseline | `a → 13 → 14` | run-lokale VM mit vollständig installierter SQL-Instanz |
+| Wiederverwendbares SQL-Grundimage | `1 → 3 → 4 → 5`, danach `7 → 9 → 10 → 11` | OS-Baseline einmal erstellen, SQL-Builder als differenzierende VM, SQL `PrepareImage`, finaler Sysprep |
+| Frischer ISO-Sonderfall | `f → 9 → 10 → 11` | Windows und SQL nur bei Bedarf gemeinsam aus Originalmedien installieren |
 
 `13` ist **keine** Vorbereitung für `10`: Aktion 13 installiert eine
 vollständige, konkrete SQL-Instanz für Tests. Aktion 10 installiert dagegen
 `PrepareImage` und versiegelt anschließend das portable Grundimage. Nach `13`
 wird daher nicht `10` ausgeführt.
 
-Beim Prepared-Image wird Windows bewusst neu installiert: Aktion 7 erstellt
-eine leere VHDX, bindet Windows- und SQL-ISO ein und startet von der
-Windows-ISO. Damit erfolgt pro SQL-Image nur eine Generalisierung, ganz am
-Ende nach SQL `PrepareImage`.
+Der Standardweg verwendet eine veröffentlichte `OS_SEALED`-Baseline als
+schreibgeschützten Parent. Aktion 7 erzeugt dafür ausschließlich eine neue,
+run-lokale differenzierende VHDX und bindet die SQL-ISO ein. Die OS-Baseline
+wird weder gestartet noch verändert; je SQL-Version entfällt deshalb die
+Windows-Neuinstallation.
 
 ## Schnellstart: erster realer SQL-2025-Prepared-Image-Lauf
 
 Diese Anleitung ist für den neuen Standardpfad bestimmt. Sie erstellt ein
-`SQL_PREPARED_SEALED`-Image mit Windows Server 2025 Standard Evaluation,
-Desktop Experience und SQL Server 2025 Enterprise Developer. Ein vorhandenes
-`OS_SEALED`-Image wird dafür **nicht** ausgewählt oder verändert.
+`SQL_PREPARED_SEALED`-Image mit einer bereits veröffentlichten Windows Server
+2025 Standard Evaluation, Desktop Experience und SQL Server 2025 Enterprise
+Developer. Das ausgewählte `OS_SEALED`-Image bleibt unverändert.
 
 ### Vor dem Start
 
@@ -48,29 +49,27 @@ Desktop Experience und SQL Server 2025 Enterprise Developer. Ein vorhandenes
    Installation bestätigen. Bei der Meldung `Neustart erforderlich` Windows
    neu starten und diesen Schritt erneut ausführen.
 
-3. Sicherstellen, dass genau eine Windows-ISO und genau eine SQL-ISO vorhanden
-   sind, beispielsweise:
+3. Eine veröffentlichte Windows-OS-Baseline und eine passende SQL-ISO
+   bereitstellen, beispielsweise:
 
    ```text
    D:\Lab_Base\WindowsServer\2025\Eval\ISO\Windows_Server_2025.iso
    D:\Lab_Base\SQL\2025\Enterprise\ISO\SQLServer2025-x64-ENU-EntDev.iso
    ```
 
-### Builder erstellen und Windows installieren
+### Builder aus OS-Baseline erstellen
 
 1. Im Image-Menü `7` wählen.
 2. Als Media Root `D:\Lab_Base` eingeben oder den angebotenen Default mit
    Enter übernehmen.
-3. Bei Windows-Edition `standard-evaluation` und bei Windows-Typ
-   `desktop-experience` bestätigen.
+3. Die veröffentlichte Windows Server 2025 Standard Evaluation / Desktop
+   Experience OS-Baseline auswählen.
 4. Bei SQL-Version `2025` und SQL-Medien-Edition `Enterprise` bestätigen.
-5. Fehlt ein SHA-256-Sidecar, dessen Berechnung bestätigen. Der Builder ändert
+5. Optional einen sprechenden Namen vergeben. Fehlt ein SHA-256-Sidecar,
+   dessen Berechnung bestätigen. Der Builder ändert
    dabei keine ISO, sondern schreibt nur die Prüfsumme unter `Hashes`.
 6. Den Builder erzeugen und VMConnect öffnen lassen.
-7. Im Windows-Setup **Windows Server 2025 Standard Evaluation (Desktop
-   Experience)** auswählen, `Benutzerdefiniert` wählen und die einzige leere
-   OS-Disk als Ziel verwenden.
-8. OOBE abschließen, das lokale Passwort für `Administrator` setzen und sich
+7. Die kurze OOBE abschließen, das lokale Passwort für `Administrator` setzen und sich
    einmal vollständig anmelden. Das Passwort nur für den unmittelbar folgenden
    Schritt merken; es wird nicht im Build-State oder Git gespeichert.
 
@@ -111,9 +110,9 @@ in Aktion `8` kontrollieren.
 
 | Reihenfolge | Auswahl in Aktion `7` | Nachweis |
 |---|---|---|
-| 1 | Windows Server 2025 Standard Evaluation, Desktop Experience; SQL 2025 Enterprise | Status `SQL_PREPARED_SEALED`, Artifact-ID und Evaluation-Ende festhalten |
-| 2 | dieselbe Windows-Auswahl; SQL 2022 und passende Medien-Edition | eigener Builder und eigene Artifact-ID |
-| 3 | dieselbe Windows-Auswahl; SQL 2019 und passende Medien-Edition | eigener Builder und eigene Artifact-ID |
+| 1 | dieselbe OS-Baseline; SQL 2025 Enterprise | Status `SQL_PREPARED_SEALED`, Artifact-ID und Evaluation-Ende festhalten |
+| 2 | dieselbe OS-Baseline; SQL 2022 und passende Medien-Edition | eigener Builder und eigene Artifact-ID |
+| 3 | dieselbe OS-Baseline; SQL 2019 und passende Medien-Edition | eigener Builder und eigene Artifact-ID |
 
 Für jeden Lauf gilt exakt `7 → 9 → 10 → 11`. Nur die SQL-Version und
 die dazugehörige ISO ändern sich. Ein fehlgeschlagener Builder darf nicht mit
@@ -127,41 +126,23 @@ entfernt **alle angezeigten unfertigen** SQL-Builder samt VMs und buildlokalen
 VHDX, verlangt eine zweite Gesamtbestätigung und zeigt den Fortschritt. Bereits
 veröffentlichte `SQL_PREPARED_SEALED`-Images sind davon ausgeschlossen.
 
-### Was erst nach den drei Images folgt
+### Laufzeit-VM und SQL CompleteImage
 
-Die nächste Ausbaustufe ist eine Laufzeit-VM, die ein veröffentlichtes
-`SQL_PREPARED_SEALED`-Image klont und darin SQL `CompleteImage` ausführt.
-Dieser Runtimepfad, seine Instanzkonfiguration sowie der automatische
-SSMS-Zugriff vom Host sind noch nicht implementiert. Deshalb gibt es dafür
-heute bewusst keine scheinbare Menüanleitung.
+Die lokale Oberfläche erzeugt reguläre Hyper-V-Labs aus einem veröffentlichten
+`SQL_PREPARED_SEALED`-Image. Nach dem expliziten VM-Start führt die Aktion
+**SQL CompleteImage ausführen** das passende, verifizierte SQL-Medium in der
+run-eigenen VM aus und startet `MSSQLSERVER`. Dieser Schritt verändert weder
+das Prepared-Image noch die OS-Baseline.
 
-Danach werden diese Arbeiten in der angegebenen Reihenfolge umgesetzt und
-abgenommen:
+## 2. Warum der Standardweg eine OS-Baseline verwendet
 
-1. Laufzeit-VM aus einem veröffentlichten Image erstellen und SQL
-   `CompleteImage` mit einem neuen, dokumentierten SQL-Sysadmin-Passwort
-   ausführen.
-2. Hostzugriff mit SSMS auf die feste IP beziehungsweise den DNS-Namen der
-   Laufzeit-VM nachweisen.
-3. Ressourcenprofile ergänzen: Start-, Mindest- und Höchstspeicher sowie CPU
-   müssen im Image- und Runtimeauftrag sichtbar begrenzt sein.
-4. Sprechende Namen für Builds und VMs als optionalen Eingabewert ergänzen;
-   ohne Eingabe bleibt die GUID der sichere Fallback.
-5. Erst danach die providerübergreifende Netzkommunikation und einen
-   optionalen, standardmäßig gesperrten Internet-Egress planen. pfSense ist
-   dafür eine mögliche spätere Option, aber kein Bestandteil des aktuellen
-   Hyper-V-Imagebaus.
-
-## 2. Warum Prepared-Images ohne OS-Baseline gebaut werden
-
-Ein geteilter, bereits generalisierter OS-Parent erfordert für jedes
-SQL-Prepared-Image eine zweite Generalisierung. Der empfohlene Builder
-installiert deshalb Windows und SQL in einer frischen VHDX und generalisiert
-erst danach einmal. Das benötigt je SQL-Version eine Windows-Installation,
-vermeidet aber Sysprep-Rearm-Probleme und ist deutlich robuster.
-
-Bestehende `OS_SEALED`-Baselines bleiben für normale Laufzeit- und
-Abnahme-VMs nutzbar. Dafür dient im Menü die explizite Legacy-Aktion `a`.
+Ein SQL-Prepared-Image braucht nach `PrepareImage` einen finalen Sysprep.
+Der wiederverwendbare Windows-Parent wurde bereits einmal generalisiert; die
+SQL-Child-VM wird danach ein zweites Mal generalisiert. Für Windows Server
+2025 ist das innerhalb der dokumentierten Sysprep-Grenze. Der Vorteil ist
+erheblich: Windows wird einmal installiert und jede SQL-Version verwendet
+eine schnelle differenzierende Kopie. Der frische ISO-Weg `f` bleibt für eine
+absichtlich unabhängige neue Windows-Image-Linie verfügbar.
 
 Windows Server Core ist dafür gültig. Microsoft unterstützt dort unter anderem
 Database Engine, Replication und Full-Text. Die grafische Setup-Oberfläche ist
@@ -200,15 +181,15 @@ $env:SQL_SERVER_LAB_MEDIA_ROOT = 'D:\Lab_Base'
 
 Im Image-Menü Aktion 7 wählen. Danach:
 
-1. Windows-Edition und -Typ auswählen;
+1. veröffentlichte OS-Baseline auswählen;
 2. SQL-Version und Medien-Edition auswählen;
 3. fehlende SHA-256-Sidecars nach Sichtprüfung erzeugen;
 4. Builder bestätigen.
 
-Der Builder erzeugt eine Generation-2-VM mit einer neuen dynamischen OS-VHDX,
-Secure Boot, deaktivierten automatischen Checkpoints und dem internen
-`SQL_LAB_HYPERV`-Switch. Windows-ISO und SQL-ISO werden als DVDs eingebunden;
-ein externer Netzwerkzugang wird nicht bereitgestellt.
+Der Builder erzeugt eine Generation-2-VM mit einer neuen differenzierenden
+VHDX, Secure Boot, deaktivierten automatischen Checkpoints und dem internen
+`SQL_LAB_HYPERV`-Switch. Nur die SQL-ISO wird eingebunden; ein externer
+Netzwerkzugang wird nicht bereitgestellt.
 
 ## 5. OOBE für den Abnahme-VM-Pfad: automatisch oder kontrollierter Fallback
 
@@ -241,11 +222,10 @@ Build-Verzeichnis. Klartext erscheint weder im Build-State noch in Evidenz,
 VM-Notizen oder Git. Die Antwortdatei wird nach positivem OOBE-Receipt aus dem
 Gast entfernt.
 
-Für den **Prepared-Image-Pfad** ist Aktion 9 die bewusste Windows-Installation:
-gewünschte Edition und Typ auswählen, auf der leeren OS-Disk installieren,
+Für den **Prepared-Image-Pfad** ist Aktion 9 die kurze OOBE der OS-Baseline:
 lokales Administratorpasswort setzen und einmal anmelden. Danach Aktion 10
 mit genau diesen Zugangsdaten ausführen. Aktion 10 führt SQL `PrepareImage`
-und den einzigen finalen Windows-Sysprep ohne weitere VMConnect-Interaktion aus.
+und den finalen Windows-Sysprep ohne weitere VMConnect-Interaktion aus.
 
 Offizielle Referenzen:
 
@@ -282,9 +262,10 @@ Sysprep `SLReArmWindows` mit `0xC004D307`, ist dies keine SQL-Installation und
 auch kein Passwortfehler: Die zulässige Anzahl wurde für genau diese
 VHDX-Kette bereits überschritten. Das betroffene SQL-Prepared-Image kann nicht
 fertiggestellt werden. Aktion 12 räumt den fehlgeschlagenen Builder auf;
-anschließend beginnt Aktion 7 wieder mit einer frischen VHDX aus den
-Originalmedien. **Normale Lab-VMs aus einer bestehenden Baseline bleiben
-weiter nutzbar**, solange sie nicht erneut mit Sysprep generalisiert werden.
+anschließend wird die betroffene SQL-Child-VM aufgeräumt und Aktion 7 aus der
+unveränderten OS-Baseline erneut begonnen. **Normale Lab-VMs aus einer
+bestehenden Baseline bleiben weiter nutzbar**, solange sie nicht erneut mit
+Sysprep generalisiert werden.
 
 Die Details stehen nach Aktion 17 im Build-State als
 `sysprepFailureDetail`; die Menümeldung nennt die notwendige Maßnahme direkt.
@@ -296,7 +277,7 @@ Windows-Images als Lösung.
 ## 7. Immutable SQL-Baseline veröffentlichen
 
 Aktion 11 prüft VM-Identität, Auszustand, fehlende Checkpoints und den
-buildlokalen VHDX-Pfad. Die frische Builder-VHDX wird mit `Convert-VHD` in eine
+buildlokalen VHDX-Pfad. Die differenzierende Builder-VHDX wird mit `Convert-VHD` in eine
 eigenständige dynamische VHDX überführt; damit gilt derselbe sichere
 Publikationsschritt auch für künftige Disk-Typen. Erst danach erfolgen
 SHA-256, Registry-Import und Metadatenprüfung. VM und lokale Build-VHDX werden
@@ -324,8 +305,8 @@ Backupvertrag steht unter
 
 ## 9. Direkte Windows-SQL-Abnahmeumgebungen
 
-Neben `PrepareImage` bietet das Menü über die Legacy-Aktion `a` einen
-run-lokalen Abnahmepfad aus einer vorhandenen `OS_SEALED`-Baseline:
+Neben dem Prepared-Image-Lifecycle können vorhandene run-lokale
+Abnahmeumgebungen vollständig installiert und getestet werden:
 
 - Aktion 13: OOBE und vollständiges SQL Setup automatisch ausführen;
 - Aktion 16: manuell abgeschlossene OOBE übernehmen und SQL Setup ausführen;

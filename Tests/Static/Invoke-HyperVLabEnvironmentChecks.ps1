@@ -89,6 +89,31 @@ try {
     $stoppedState = & $module { param($RunId, $Root) Get-LabRunState -RunId $RunId -StateRoot $Root } $created.RunId $temporaryRoot
     Add-CheckResult -Name 'Hyper-V-Lab-Stopp bewahrt den Run und setzt STOPPED' -Success ($stopped.State -eq 'Off' -and $stoppedState.state -eq 'STOPPED')
 
+    $inspected = & $module {
+        param($RunId, $Root)
+        function Get-HyperVManagedVM { [PSCustomObject]@{ VM = [PSCustomObject]@{ State = 'Running' } } }
+        function Invoke-HyperVPowerShellDirect {
+            param($VMName, $ExpectedRunId, $ExpectedScopeId, $Credential, $ArgumentList, $ScriptBlock)
+            [PSCustomObject]@{
+                runId = $ArgumentList[0]; scopeId = $ArgumentList[1]; inspectedAt = '2026-08-06T12:00:00.0000000Z'
+                instances = @(
+                    [PSCustomObject]@{ name = 'MSSQLSERVER'; instanceId = 'MSSQL16.MSSQLSERVER'; isDefault = $true; serviceName = 'MSSQLSERVER'; serviceStatus = 'Running'; tcpPort = 1433 },
+                    [PSCustomObject]@{ name = 'REPORTING'; instanceId = 'MSSQL16.REPORTING'; isDefault = $false; serviceName = 'MSSQL$REPORTING'; serviceStatus = 'Stopped'; tcpPort = 51433 }
+                )
+            }
+        }
+        $password = ConvertTo-SecureString 'NotARealPassword1!' -AsPlainText -Force
+        Inspect-HyperVLabSqlInstances -RunId $RunId -Credential ([PSCredential]::new('Administrator', $password)) -StateRoot $Root
+    } $created.RunId $temporaryRoot
+    $inspectedConnection = Get-Content -LiteralPath (Join-Path (Join-Path (Join-Path $temporaryRoot 'runs') $created.RunId) 'connection-info.json') -Raw | ConvertFrom-Json -Depth 10
+    Add-CheckResult -Name 'Hyper-V prüft mehrere SQL-Instanzen nur lesend und speichert sichere In-VM-Connection-Strings' -Success (
+        @($inspected).Count -eq 2 -and
+        $inspectedConnection.instances[0].sqlInstances.Count -eq 2 -and
+        $inspectedConnection.instances[0].sqlInstances[0].ConnectionString -match 'Server=localhost,1433;' -and
+        $inspectedConnection.instances[0].sqlInstances[1].ConnectionString -match 'Server=localhost,51433;' -and
+        $inspectedConnection.instances[0].connectionString -match 'Integrated Security=True'
+    )
+
     $opened = & $module {
         param($RunId, $Root)
         function Get-HyperVInstanceStatus { [PSCustomObject]@{ VMName = 'sql-lab-primary-mock'; State = 'Off'; Exists = $true } }

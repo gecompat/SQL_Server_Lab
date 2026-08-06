@@ -79,12 +79,23 @@ Bei TDE oder verschlüsselten Backups müssen Zertifikat und Private Key getrenn
 verschlüsselt und vor dem Entfernen der alten Instanz testweise restauriert
 werden.
 
-## 5. Implementierungsstand
+## 5. Optionale Runtime-Anbindung
 
-Die zentrale Struktur, Idempotenz, lokale Anleitung und versionsgetrennte
-Ablage sind implementiert und statisch getestet. Automatisches SQL
-`BACKUP`/`RESTORE VERIFYONLY`, SHA-256-Receipts, TDE-Schlüsseltransfer und das
-Anbinden persistenter VHDX an reguläre Hyper-V-Runs folgen mit dem
-`CompleteImage`-/Daten-Lifecycle. Bis dahin ist der obige Backup-/Restore-Ablauf
-ein verbindlicher Operatorprozess, kein bereits vollständig automatisierter
-Runtimepfad.
+Der Data Root wird in der Workflow-Oberfläche unter **Medienquellen** einmalig
+als lokaler Standard gespeichert. Beim Erstellen einer neuen Docker- oder
+Podman-Umgebung aktiviert die Option **Daten dauerhaft im konfigurierten Data
+Root speichern** einen Bind-Mount von `/var/opt/mssql`. Der entsprechende
+Ordner bleibt beim Entfernen der Umgebung erhalten.
+
+Für reguläre Hyper-V-Umgebungen kann beim Erstellen oder nachträglich im
+ausgeschalteten Zustand eine langlebige Daten-VHDX angehängt werden. Nach dem
+Start initialisiert die UI sie mit einer bestätigten Gastanmeldung als
+`D:\SQLData`. Auch diese VHDX liegt außerhalb des Run-State und wird nicht vom
+normalen Cleanup entfernt.
+
+Bereits bestehende Container lassen sich technisch nicht um einen Mount
+erweitern. Eine Übernahme ihrer bestehenden Daten erfordert daher einen
+kontrollierten Neuaufbau per Backup/Restore; sie wird nicht stillschweigend
+durch einen physischen Dateikopier-Versuch ausgeführt. Automatisches SQL
+`BACKUP`/`RESTORE VERIFYONLY`, SHA-256-Receipts und TDE-Schlüsseltransfer
+bleiben separate weitere Schritte.

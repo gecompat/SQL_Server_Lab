@@ -45,9 +45,16 @@ function actionsFor(kind, item) {
     return cleanupActionFor(kind, item);
   }
   if (kind === 'sql') {
-    if (item.ProvisioningMode !== 'fresh-windows-media') return cleanupActionFor(kind, item);
     if (['MANUAL_ACTION_REQUIRED', 'REBOOT_REQUIRED'].includes(state)) {
       const result = [{ label: 'VMConnect öffnen', action: 'OpenSqlConsole' }];
+      if (state === 'MANUAL_ACTION_REQUIRED' && item.ProvisioningMode === 'fresh-windows-media' && !item.InstallationVerified) {
+        result.push({
+          label: 'Windows-Edition prüfen · Gastpasswort erforderlich',
+          action: 'ConfirmSqlWindowsInstall',
+          credential: true
+        });
+        return result.concat(cleanupActionFor(kind, item));
+      }
       result.push({
         label: state === 'MANUAL_ACTION_REQUIRED' ? 'SQL vorbereiten + Sysprep' : 'SQL-PrepareImage fortsetzen',
         action: 'PrepareSqlImage',
@@ -84,9 +91,10 @@ function acceptanceActions(item) {
 
 function renderBuilds(target, kind, items) {
   $(target).innerHTML = items.length ? items.map((item) => {
-    const title = kind === 'sql'
+    const generatedTitle = kind === 'sql'
       ? 'Windows ' + escapeHtml(item.OperatingSystem.replace('windows-server-', 'Server ')) + ' · SQL Server ' + escapeHtml(item.SqlVersion)
       : escapeHtml(item.OperatingSystem.replace('windows-server-', 'Windows Server '));
+    const title = item.DisplayName ? escapeHtml(item.DisplayName) : generatedTitle;
     const metadata = kind === 'sql'
       ? escapeHtml(item.WindowsEdition + ' · ' + item.InstallationType + ' · ' + item.SqlEdition)
       : escapeHtml(item.Edition + ' · ' + item.InstallationType);
@@ -120,6 +128,25 @@ function renderHyperVArtifactOptions(items) {
   ).join('');
   if ((items || []).some((item) => item.ArtifactId === previous)) select.value = previous;
   renderHyperVArtifactDetails(items || []);
+}
+
+function renderSqlParentOptions(items) {
+  const select = $('#sql-parent-artifact');
+  const previous = select.value;
+  const compatible = (items || []).filter((item) => item.OperatingSystem === 'windows-server-2025');
+  select.innerHTML = '<option value="">OS-Baseline auswählen …</option>' + compatible.map((item) =>
+    '<option value="' + escapeHtml(item.ArtifactId) + '">' + escapeHtml(item.DisplayName || ('Windows Server 2025 · ' + item.Edition + ' · ' + item.InstallationType)) + ' · ' + escapeHtml(shortId(item.ArtifactId)) + '</option>'
+  ).join('');
+  if (compatible.some((item) => item.ArtifactId === previous)) select.value = previous;
+  renderSqlParentDetails(compatible);
+}
+
+function renderSqlParentDetails(items) {
+  const selected = (items || []).find((item) => item.ArtifactId === $('#sql-parent-artifact').value);
+  const target = $('#sql-parent-details');
+  target.textContent = selected
+    ? 'Windows Server 2025 · ' + selected.Edition + ' · ' + selected.InstallationType + ' · Parent bleibt unverändert · Artifact: ' + selected.ArtifactId
+    : 'Die OS-Baseline bleibt unverändert; der SQL-Builder erhält eine eigene differenzierende VHDX.';
 }
 
 function renderHyperVArtifactDetails(items) {
@@ -231,6 +258,10 @@ function renderWorkflow(data) {
   if (sourceMediaRoot && !sourceMediaRoot.value && data.Defaults?.MediaRoot) {
     sourceMediaRoot.value = data.Defaults.MediaRoot;
   }
+  const sourceDataRoot = $('#sources-data-root');
+  if (sourceDataRoot && !sourceDataRoot.value && data.Defaults?.DataRoot) {
+    sourceDataRoot.value = data.Defaults.DataRoot;
+  }
   const host = data.Host;
   const hostChip = $('#host-status');
   if (!host.HyperV.Supported) {
@@ -259,12 +290,13 @@ function renderWorkflow(data) {
   renderActiveLabs(data.ActiveLabs);
   renderHyperVLabs(data.HyperVLabs || []);
   renderHyperVArtifactOptions(data.SqlPreparedImages || []);
+  renderSqlParentOptions(data.WindowsBaselines || []);
   renderHyperVSwitchOptions(data.HyperVSwitches || []);
   renderHyperVExistingVmSourceOptions(data.HyperVExistingVmSources || []);
   renderMediaSources(data.MediaSources || []);
   renderSqlInstallationMedia(data.SqlInstallationMedia);
-  const sqlBuildDialogOpen = $('#build-dialog')?.open && $('#build-type')?.value === 'sql';
-  renderWindowsInstallationMedia(data.WindowsInstallationMedia, sqlBuildDialogOpen);
+  const sqlFreshBuildDialogOpen = $('#build-dialog')?.open && $('#build-type')?.value === 'sql-fresh';
+  renderWindowsInstallationMedia(data.WindowsInstallationMedia, sqlFreshBuildDialogOpen);
   const disabled = !host.HyperV.Supported || !host.HyperV.Available || !host.IsElevated;
   document.querySelectorAll('[data-open-build], [data-action], [data-build-cleanup], [data-artifact-rename], [data-artifact-remove], [data-hyperv-action], #new-hyperv-lab, #new-hyperv-existing-vm-lab').forEach((button) => { button.disabled = disabled; });
 }
@@ -280,11 +312,17 @@ function renderActiveLabs(items) {
     const instances = (item.Instances || []).map((instance) => {
       const provider = instance.Provider || 'unbekannter Provider';
       const connection = instance.Port ? (instance.Host || '127.0.0.1') + ':' + instance.Port : 'kein Host-Port';
+      const connectionString = instance.ConnectionString
+        ? '<div class="build-meta connection-string"><strong>Connection String:</strong> <code>' + escapeHtml(instance.ConnectionString) + '</code></div>'
+        : '';
+      const persistentStorage = instance.PersistentStorage?.hostPath
+        ? '<div class="build-meta"><strong>Persistente Daten:</strong> ' + escapeHtml(instance.PersistentStorage.hostPath) + '</div>'
+        : '';
       const operations = running && instance.Port ? [
         '<button class="button secondary" data-container-operation="CreateContainerDatabase" data-run="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(instance.Id) + '" data-sql-version="' + escapeHtml(instance.SqlVersion) + '" data-port="' + escapeHtml(instance.Port) + '">Datenbank anlegen</button>',
         '<button class="button secondary" data-container-operation="ExecuteContainerScript" data-run="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(instance.Id) + '" data-port="' + escapeHtml(instance.Port) + '">SQL-Skript ausführen</button>'
       ].join('') : '';
-      return '<div class="container-instance"><div class="build-meta">' + escapeHtml(provider) + ' · SQL Server ' + escapeHtml(instance.SqlVersion || '–') + ' · ' + escapeHtml(connection) + '</div><div class="build-actions">' + operations + '</div></div>';
+      return '<div class="container-instance"><div class="build-meta">' + escapeHtml(provider) + ' · SQL Server ' + escapeHtml(instance.SqlVersion || '–') + ' · ' + escapeHtml(connection) + '</div>' + connectionString + persistentStorage + '<div class="build-actions">' + operations + '</div></div>';
     }).join('') || '<p class="empty">Keine Instanzen im Run gespeichert.</p>';
     return '<article class="build-card"><div class="build-card-top"><div><div class="build-title">' + escapeHtml(item.Name || shortId(item.RunId)) + '</div><div class="build-meta">' + escapeHtml(item.State) + '</div></div><span class="status ' + statusClass(item.State === 'RUNNING' ? 'TESTS_PASSED' : item.State) + '">' + escapeHtml(item.State) + '</span></div><div class="build-actions">' + lifecycleActions + '</div>' + instances + '<div class="build-meta">Run: ' + escapeHtml(shortId(item.RunId)) + '</div></article>';
   }).join('') : empty('Noch keine Container-Labs vorhanden.');
@@ -294,17 +332,33 @@ function renderHyperVLabs(items) {
   $('#hyperv-labs').innerHTML = items.length ? items.map((item) => {
     const running = item.State === 'RUNNING' && item.VMState === 'Running';
     const sqlNeedsCompletion = Boolean(item.ArtifactId) && item.SqlCompletionState === 'PENDING_COMPLETE_IMAGE';
+    const persistent = item.PersistentStorage;
+    const sqlInstances = item.SqlInstances || [];
+    const instanceDetails = sqlInstances.length
+      ? '<div class="container-instance"><div class="build-meta"><strong>SQL-Instanzen in der VM</strong> · geprüft ' + escapeHtml(item.SqlInstancesInspectedAt || '–') + '</div>' + sqlInstances.map((instance) => {
+        const endpoint = instance.ConnectionString ? '<div class="build-meta connection-string"><strong>Connection String (in VM):</strong> <code>' + escapeHtml(instance.ConnectionString) + '</code></div>' : '';
+        const port = instance.TcpPort ? ' · TCP ' + escapeHtml(instance.TcpPort) : '';
+        return '<div class="build-meta">' + escapeHtml(instance.Name || instance.ServiceName || '–') + ' · Dienst ' + escapeHtml(instance.ServiceStatus || '–') + port + '</div>' + endpoint;
+      }).join('') + '</div>'
+      : '';
+    const primaryConnection = item.ConnectionString && !sqlInstances.length
+      ? '<div class="build-meta connection-string"><strong>Connection String (in VM):</strong> <code>' + escapeHtml(item.ConnectionString) + '</code></div>'
+      : '';
     const actions = [
       '<button class="button secondary" data-hyperv-action="' + (running ? 'StopHyperVLab' : 'StartHyperVLab') + '" data-run="' + escapeHtml(item.RunId) + '">' + (running ? 'Stoppen' : 'Starten') + '</button>',
+      (!running && !persistent) ? '<button class="button secondary" data-hyperv-action="EnableHyperVLabPersistentData" data-run="' + escapeHtml(item.RunId) + '">Daten-VHDX anhängen</button>' : '',
+      (running && persistent?.state === 'ATTACHED_PENDING_INITIALIZATION') ? '<button class="button primary" data-hyperv-action="InitializeHyperVLabPersistentData" data-run="' + escapeHtml(item.RunId) + '">Daten-VHDX initialisieren</button>' : '',
       sqlNeedsCompletion ? '<button class="button primary" data-hyperv-action="CompleteHyperVLabSql" data-run="' + escapeHtml(item.RunId) + '">SQL CompleteImage ausführen</button>' : '',
+      running ? '<button class="button secondary" data-hyperv-action="InspectHyperVLabSqlInstances" data-run="' + escapeHtml(item.RunId) + '">SQL-Instanzen prüfen</button>' : '',
       '<button class="button secondary" data-hyperv-action="OpenHyperVConsole" data-run="' + escapeHtml(item.RunId) + '">VMConnect öffnen</button>',
       '<button class="button danger" data-hyperv-remove="true" data-run="' + escapeHtml(item.RunId) + '" data-name="' + escapeHtml(item.Name || item.RunId) + '">Entfernen</button>'
     ].join('');
     const sourceBased = item.BaseKind === 'existing-vm';
     const detail = ['VM: ' + (item.VMName || '–'), 'VM-Status: ' + (item.VMState || '–'), sourceBased ? 'Basis: ' + (item.SourceVMName || 'bestehende VM') : 'SQL Server ' + (item.SqlVersion || '–')].join(' · ');
     const baseDetail = sourceBased ? 'Quelle: ' + (item.SourceVMName || '–') + ' · Original unverändert' : 'Image: ' + shortId(item.ArtifactId);
+    const persistentDetail = persistent ? '<div class="build-meta"><strong>Persistente Daten:</strong> ' + escapeHtml(persistent.hostPath || persistent.root || '–') + ' · ' + escapeHtml(persistent.state || 'eingebunden') + '</div>' : '';
     const nextStep = sqlNeedsCompletion ? (running ? 'SQL CompleteImage ausführen; erst danach ist MSSQLSERVER verfügbar.' : 'VM starten; danach SQL CompleteImage ausführen.') : (item.SqlCompletionState === 'REBOOT_REQUIRED' ? 'SQL Setup fordert einen Neustart; VM nach dem Shutdown erneut starten.' : (running ? 'VM läuft; bei Bedarf über VMConnect bedienen.' : 'VM starten und anschließend VMConnect öffnen.'));
-    return '<article class="build-card"><div class="build-card-top"><div><div class="build-title">' + escapeHtml(item.Name || shortId(item.RunId)) + '</div><div class="build-meta">' + escapeHtml(detail) + '</div></div><span class="status ' + statusClass(running ? 'TESTS_PASSED' : item.State) + '">' + escapeHtml(item.State) + '</span></div><p class="build-next"><strong>Nächster Schritt:</strong> ' + escapeHtml(nextStep) + '</p><div class="build-actions">' + actions + '</div><div class="build-meta">Run: ' + escapeHtml(shortId(item.RunId)) + ' · ' + escapeHtml(baseDetail) + '</div></article>';
+    return '<article class="build-card"><div class="build-card-top"><div><div class="build-title">' + escapeHtml(item.Name || shortId(item.RunId)) + '</div><div class="build-meta">' + escapeHtml(detail) + '</div></div><span class="status ' + statusClass(running ? 'TESTS_PASSED' : item.State) + '">' + escapeHtml(item.State) + '</span></div><p class="build-next"><strong>Nächster Schritt:</strong> ' + escapeHtml(nextStep) + '</p><div class="build-actions">' + actions + '</div>' + persistentDetail + instanceDetails + primaryConnection + '<div class="build-meta">Run: ' + escapeHtml(shortId(item.RunId)) + ' · ' + escapeHtml(baseDetail) + '</div></article>';
   }).join('') : empty('Noch keine regulären Hyper-V-Umgebungen vorhanden.');
 }
 
@@ -389,16 +443,30 @@ function showError(error) {
 }
 
 function openBuild(kind) {
+  const sqlBuild = kind === 'sql' || kind === 'sql-fresh';
+  const freshSqlBuild = kind === 'sql-fresh';
   $('#build-type').value = kind;
-  $('#build-kind').textContent = kind === 'sql' ? 'SQL-PREPARED-IMAGE' : 'WINDOWS-OS-BASELINE';
-  $('#build-title').textContent = kind === 'sql' ? 'Neues SQL-Prepared-Image' : 'Neue Windows-OS-Baseline';
-  $('#sql-fields').hidden = kind !== 'sql';
-  $('#sql-hash-fields').hidden = kind !== 'sql';
-  $('#sql-image-name-field').hidden = kind !== 'sql';
+  $('#build-kind').textContent = sqlBuild ? 'SQL-PREPARED-IMAGE' : 'WINDOWS-OS-BASELINE';
+  $('#build-title').textContent = kind === 'sql' ? 'Neues SQL-Prepared-Image aus OS-Baseline' : freshSqlBuild ? 'Frisches SQL-Prepared-Image aus ISOs' : 'Neue Windows-OS-Baseline';
+  $('#sql-fields').hidden = !sqlBuild;
+  $('#sql-hash-fields').hidden = !sqlBuild;
+  $('#sql-image-name-field').hidden = !sqlBuild;
+  $('#sql-parent-field').hidden = kind !== 'sql';
+  $('#sql-parent-details').hidden = kind !== 'sql';
+  $('#windows-fields').hidden = kind === 'sql';
+  $('#windows-hash-fields').hidden = kind === 'sql';
+  $('#windows-media').disabled = kind === 'sql';
+  $('#sql-media').disabled = !sqlBuild;
+  $('#build-note').textContent = kind === 'sql'
+    ? 'Aus der gewählten unveränderlichen OS-Baseline wird eine eigene differenzierende VHDX erstellt. Windows muss nicht erneut installiert werden; nur OOBE und SQL PrepareImage erfolgen in der neuen Build-VM.'
+    : freshSqlBuild
+      ? 'Sonderfall: Windows und SQL werden gemeinsam aus den Original-ISOs installiert. Für wiederholte SQL-Versionen ist der Weg über eine veröffentlichte OS-Baseline schneller.'
+      : 'Windows-ISOs können in beliebigen Unterordnern des Media Root liegen. Vor dem Build muss der SHA-256 der ausgewählten ISO geprüft und gespeichert sein.';
   $('#sql-image-name').value = '';
   $('#media-root').value = workflow?.Defaults?.MediaRoot || '';
-  renderWindowsInstallationMedia(workflow?.WindowsInstallationMedia || [], kind === 'sql');
-  if (kind === 'sql') renderSqlInstallationMedia(workflow?.SqlInstallationMedia || []);
+  renderWindowsInstallationMedia(workflow?.WindowsInstallationMedia || [], freshSqlBuild);
+  if (sqlBuild) renderSqlInstallationMedia(workflow?.SqlInstallationMedia || []);
+  if (kind === 'sql') renderSqlParentOptions(workflow?.WindowsBaselines || []);
   $('#build-dialog').showModal();
 }
 
@@ -494,11 +562,17 @@ document.addEventListener('click', async (event) => {
   }
   const hypervAction = event.target.closest('[data-hyperv-action]');
   if (hypervAction) {
-    if (hypervAction.dataset.hypervAction === 'CompleteHyperVLabSql') {
-      $('#credential-action').value = 'CompleteHyperVLabSql';
+    if (['CompleteHyperVLabSql', 'InspectHyperVLabSqlInstances', 'InitializeHyperVLabPersistentData'].includes(hypervAction.dataset.hypervAction)) {
+      const inspect = hypervAction.dataset.hypervAction === 'InspectHyperVLabSqlInstances';
+      const initializePersistentData = hypervAction.dataset.hypervAction === 'InitializeHyperVLabPersistentData';
+      $('#credential-action').value = hypervAction.dataset.hypervAction;
       $('#credential-build').value = hypervAction.dataset.run;
-      $('#credential-title').textContent = 'SQL CompleteImage';
-      $('#credential-note').textContent = 'Das lokale Administratorpasswort wird einmalig benötigt, um SQL Server in dieser laufenden Lab-VM zu vervollständigen.';
+      $('#credential-title').textContent = initializePersistentData ? 'Daten-VHDX initialisieren' : (inspect ? 'SQL-Instanzen prüfen' : 'SQL CompleteImage');
+      $('#credential-note').textContent = initializePersistentData
+        ? 'Das lokale Administratorpasswort wird einmalig benötigt, um ausschließlich den neu angehängten Lab-Datenträger als D:\\SQLData zu formatieren und einzubinden.'
+        : inspect
+        ? 'Das lokale Administratorpasswort wird einmalig für eine ausschließlich lesende Prüfung von SQL-Instanzen, Diensten und TCP-Ports in dieser laufenden Lab-VM benötigt.'
+        : 'Das lokale Administratorpasswort wird einmalig benötigt, um SQL Server in dieser laufenden Lab-VM zu vervollständigen.';
       $('#credential-dialog').showModal();
       return;
     }
@@ -551,6 +625,8 @@ document.addEventListener('click', async (event) => {
     $('#credential-build').value = buildId;
     const credentialText = action === 'PrepareSqlImage'
       ? { title: 'SQL PrepareImage und Sysprep', note: 'Das lokale Administratorpasswort wird benötigt, um SQL PrepareImage und den abschließenden Sysprep in dieser VM auszuführen.' }
+      : action === 'ConfirmSqlWindowsInstall'
+        ? { title: 'Windows-Edition für SQL-Image prüfen', note: 'Das lokale Administratorpasswort wird nur zum Abgleich von Windows Server, Edition und Installationsart verwendet. SQL-Setup und Sysprep werden dabei nicht gestartet.' }
       : action === 'GeneralizeWindowsBuild'
         ? { title: 'Windows generalisieren', note: 'Das lokale Administratorpasswort wird benötigt, um Sysprep in dieser VM auszuführen. Die VM fährt danach automatisch herunter.' }
         : { title: 'Windows-Installation bestätigen', note: 'Das lokale Administratorpasswort wird nur für die Prüfung der installierten Windows-Edition verwendet.' };
@@ -594,16 +670,19 @@ $('#build-form').addEventListener('submit', async (event) => {
   if (!parameters.ImageName) delete parameters.ImageName;
   if (!parameters.WindowsMediaSha256) delete parameters.WindowsMediaSha256;
   if (!parameters.SqlMediaSha256) delete parameters.SqlMediaSha256;
-  if (!parameters.WindowsMediaPath || !parameters.OperatingSystemId || !parameters.WindowsEdition || !parameters.InstallationType) { showError(new Error('Bitte ein erkanntes Windows-Installationsmedium auswählen.')); return; }
-  if (kind === 'sql' && (!parameters.SqlMediaPath || !parameters.SqlVersion || !parameters.SqlEdition)) { showError(new Error('Bitte ein SQL-Installationsmedium mit erkannter Edition auswählen.')); return; }
+  if (kind !== 'sql' && (!parameters.WindowsMediaPath || !parameters.OperatingSystemId || !parameters.WindowsEdition || !parameters.InstallationType)) { showError(new Error('Bitte ein erkanntes Windows-Installationsmedium auswählen.')); return; }
+  if ((kind === 'sql' || kind === 'sql-fresh') && (!parameters.SqlMediaPath || !parameters.SqlVersion || !parameters.SqlEdition)) { showError(new Error('Bitte ein SQL-Installationsmedium mit erkannter Edition auswählen.')); return; }
+  if (kind === 'sql' && !$('#sql-parent-artifact').value) { showError(new Error('Bitte eine veröffentlichte OS-Baseline auswählen.')); return; }
+  if (kind === 'sql') parameters.ArtifactId = $('#sql-parent-artifact').value;
   try {
-    await startAction(kind === 'sql' ? 'NewSqlBuild' : 'NewWindowsBuild', parameters);
+    await startAction(kind === 'sql' ? 'NewSqlBuildFromBaseline' : kind === 'sql-fresh' ? 'NewSqlBuild' : 'NewWindowsBuild', parameters);
     $('#build-dialog').close();
   } catch (error) { showError(error); }
 });
 
 $('#sql-media').addEventListener('change', updateSqlMediaSelection);
 $('#windows-media').addEventListener('change', updateWindowsMediaSelection);
+$('#sql-parent-artifact').addEventListener('change', () => renderSqlParentDetails(workflow?.WindowsBaselines || []));
 $('#set-windows-media-hash').addEventListener('click', async () => {
   const sha = $('#windows-media-sha256').value.trim();
   if (!$('#windows-media').value || (sha && !/^[a-fA-F0-9]{64}$/.test(sha))) { showError(new Error('Windows-ISO auswählen; ein optionaler SHA-256 muss 64 Hex-Zeichen enthalten.')); return; }
@@ -678,7 +757,9 @@ $('#hyperv-lab-form').addEventListener('submit', async (event) => {
       InstanceId: $('#hyperv-instance').value.trim(),
       MemoryStartupMB: Number($('#hyperv-memory').value),
       ProcessorCount: Number($('#hyperv-processors').value),
-      SwitchName: $('#hyperv-switch').value.trim()
+      SwitchName: $('#hyperv-switch').value.trim(),
+      PersistentData: $('#hyperv-persistent-data').checked,
+      DataRoot: $('#hyperv-persistent-data').checked ? (workflow?.Defaults?.DataRoot || '') : ''
     });
     $('#hyperv-lab-dialog').close();
   } catch (error) { showError(error); }
@@ -697,7 +778,9 @@ $('#hyperv-existing-vm-lab-form').addEventListener('submit', async (event) => {
       MemoryStartupMB: Number($('#hyperv-existing-vm-memory').value),
       ProcessorCount: Number($('#hyperv-existing-vm-processors').value),
       SwitchName: $('#hyperv-existing-vm-switch').value.trim(),
-      ConfirmSourceLicense: true
+      ConfirmSourceLicense: true,
+      PersistentData: $('#hyperv-existing-vm-persistent-data').checked,
+      DataRoot: $('#hyperv-existing-vm-persistent-data').checked ? (workflow?.Defaults?.DataRoot || '') : ''
     });
     $('#hyperv-existing-vm-license-confirm').checked = false;
     $('#hyperv-existing-vm-lab-dialog').close();
@@ -706,6 +789,7 @@ $('#hyperv-existing-vm-lab-form').addEventListener('submit', async (event) => {
 
 $('#media-sources').addEventListener('click', () => {
   $('#sources-media-root').value = workflow?.Defaults?.MediaRoot || '';
+  $('#sources-data-root').value = workflow?.Defaults?.DataRoot || '';
   renderMediaSources(workflow?.MediaSources || []);
   $('#media-sources-dialog').showModal();
 });
@@ -717,6 +801,8 @@ $('#media-sources-form').addEventListener('submit', async (event) => {
   if (!mediaRoot) { showError(new Error('Bitte einen vorhandenen Media Root angeben.')); return; }
   try {
     await startAction('SetMediaRoot', { MediaRoot: mediaRoot });
+    const dataRoot = $('#sources-data-root').value.trim();
+    if (dataRoot) await startAction('SetDataRoot', { DataRoot: dataRoot });
     await refresh(mediaRoot);
     $('#media-sources-dialog').close();
   } catch (error) { showError(error); }
@@ -727,7 +813,10 @@ $('#container-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   if ($('#container-password').value !== $('#container-password-repeat').value) { showError(new Error('Die beiden SA-Passwörter stimmen nicht überein.')); return; }
   try {
-    await startAction('NewContainerLab', { Provider: $('#container-provider').value, SqlVersion: $('#container-version').value, Profile: $('#container-profile').value, InstanceId: $('#container-instance').value, SaPassword: $('#container-password').value });
+    const persistentData = $('#container-persistent-data').checked;
+    const parameters = { Provider: $('#container-provider').value, SqlVersion: $('#container-version').value, Profile: $('#container-profile').value, InstanceId: $('#container-instance').value, LabName: $('#container-lab-name').value, PersistentData: persistentData, SaPassword: $('#container-password').value };
+    if (persistentData) parameters.DataRoot = workflow?.Defaults?.DataRoot || '';
+    await startAction('NewContainerLab', parameters);
     $('#container-password').value = ''; $('#container-password-repeat').value = ''; $('#container-dialog').close();
   } catch (error) { showError(error); }
 });

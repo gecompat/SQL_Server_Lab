@@ -89,6 +89,18 @@ Add-CheckResult -Name 'UI bietet erkannte Windows- und SQL-Medien ohne manuelle 
     $scriptText -match 'WindowsMediaPath' -and
     $scriptText -match "OperatingSystemId === 'windows-server-2025'"
 )
+Add-CheckResult -Name 'SQL-Prepared-Images verwenden standardmäßig eine veröffentlichte OS-Baseline' -Success (
+    $actionText -match 'NewSqlBuildFromBaseline' -and
+    $actionText -match 'Initialize-HyperVSqlPreparedImageBuild' -and
+    $workflowText -match 'WindowsBaselines = @\(' -and
+    $workflowText -match 'ProvisioningMode = \[string\]\$_.provisioningMode' -and
+    $htmlText -match 'id="sql-parent-artifact"' -and
+    $htmlText -match 'data-open-build="sql-fresh"' -and
+    $scriptText -match 'renderSqlParentOptions' -and
+    $scriptText -match 'NewSqlBuildFromBaseline' -and
+    $scriptText -match "kind === 'sql-fresh'" -and
+    $scriptText -match "ProvisioningMode === 'fresh-windows-media'"
+)
 Add-CheckResult -Name 'UI prüft und speichert explizit eingegebene ISO-Hashes vor dem Build' -Success (
     $actionText -match 'SetWindowsMediaHash' -and
     $actionText -match 'SetSqlMediaHash' -and
@@ -152,15 +164,28 @@ Add-CheckResult -Name 'UI bildet Hyper-V-SQL-Abnahmeschritte zustandsgeführt ab
     $scriptText -match 'SQL-Abnahme ausführen' -and
     $scriptText -match "\[data-open-build\], \[data-action\]"
 )
+Add-CheckResult -Name 'Frische SQL-Images prüfen Windows-Edition vor PrepareImage und Sysprep' -Success (
+    $actionText -match 'ConfirmSqlWindowsInstall' -and
+    $actionText -match 'Confirm-HyperVSqlFreshWindowsInstallation' -and
+    $workflowText -match 'InstallationVerified = \[bool\]\(\$_\.installationEvidence' -and
+    $scriptText -match 'Windows-Edition prüfen' -and
+    $scriptText -match "action === 'ConfirmSqlWindowsInstall'" -and
+    $consoleText -match 'Confirm-LabHyperVSqlWindowsInstallationInteractive' -and
+    $consoleText -match "'b' \{ Confirm-LabHyperVSqlWindowsInstallationInteractive \}"
+)
 Add-CheckResult -Name 'UI erstellt reguläre Hyper-V-Labs nur aus SQL-Prepared-Images' -Success (
     $hyperVLabText -match 'SQL_PREPARED_SEALED' -and
     $hyperVLabText -match 'New-HyperVInstance' -and
     $hyperVLabText -match 'Start-HyperVLabEnvironment' -and
     $hyperVLabText -match 'Complete-HyperVLabSqlImage' -and
     $hyperVLabText -match '/ACTION=CompleteImage' -and
+    $hyperVLabText -match 'ConvertTo-HyperVSqlMediaEdition' -and
+    $hyperVLabText -match 'Get-HyperVSqlInstallationMediaCandidates' -and
+    $hyperVLabText -match 'HYPERV_LAB_SQL_COMPLETE_MEDIA_AMBIGUOUS' -and
     $hyperVLabText -match 'Open-HyperVLabEnvironmentConsole' -and
     $actionText -match 'NewHyperVLab' -and
     $actionText -match 'CompleteHyperVLabSql' -and
+    $actionText -match 'InspectHyperVLabSqlInstances' -and
     $actionText -match 'RemoveHyperVLab' -and
     $workflowText -match 'HyperVLabs = \$hyperVLabs' -and
     $workflowText -match 'HyperVSwitches = \$hyperVSwitches' -and
@@ -168,6 +193,8 @@ Add-CheckResult -Name 'UI erstellt reguläre Hyper-V-Labs nur aus SQL-Prepared-I
     $htmlText -match 'id="hyperv-artifact"' -and
     $scriptText -match 'renderHyperVLabs' -and
     $scriptText -match 'SQL CompleteImage ausführen' -and
+    $scriptText -match 'SQL-Instanzen prüfen' -and
+    $scriptText -match 'Connection String' -and
     $scriptText -match 'data-hyperv-remove'
 )
 Add-CheckResult -Name 'UI bietet einen getrennten, sicheren Schnellstart aus vorhandener Windows-VM' -Success (
