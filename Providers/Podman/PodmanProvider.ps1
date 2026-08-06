@@ -85,6 +85,9 @@ function New-PodmanInstance {
         $volumeSource = if ($drive.hostPath) {
             [string]$drive.hostPath
         }
+        elseif ($drive.volumeName) {
+            [string]$drive.volumeName
+        }
         else {
             "sql-lab-${containerName}-$($drive.id)"
         }

@@ -3,7 +3,7 @@
 | Ebene | Beispiel | Lebensdauer |
 |---|---|---|
 | Media Root | `D:\Lab_Base` | Installationsquellen |
-| Data Root | `D:\Lab_Data` | Datenbank-Backups und versionsgebundene Daten |
+| Data Root | `D:\Lab_Data` | Datenbank-Backups, Metadaten und versionsgebundene Daten |
 | State Root | `%LOCALAPPDATA%\SqlServerLab` | Runs, Image-Registry, Receipts |
 | Git-Checkout | `D:\r\pu\SQL_Server_Lab` | Quellcode und Dokumentation |
 
@@ -84,8 +84,12 @@ werden.
 Der Data Root wird in der Workflow-Oberfläche unter **Medienquellen** einmalig
 als lokaler Standard gespeichert. Beim Erstellen einer neuen Docker- oder
 Podman-Umgebung aktiviert die Option **Daten dauerhaft im konfigurierten Data
-Root speichern** einen Bind-Mount von `/var/opt/mssql`. Der entsprechende
-Ordner bleibt beim Entfernen der Umgebung erhalten.
+Root speichern** ein stabil benanntes Runtime-Volume fuer `/var/opt/mssql`
+und bindet dessen Backup-Verzeichnis in den Data Root ein. Das ist bewusst:
+Ein direkter NTFS-Bind-Mount auf `/var/opt/mssql` kann mit SQL Server 2025 in
+Docker Desktop unter Windows abstuerzen. Das Runtime-Volume und der Data Root
+bleiben beim Entfernen der Umgebung erhalten; die Verknuepfung ist im
+Run-Metadatum sichtbar.
 
 Für reguläre Hyper-V-Umgebungen kann beim Erstellen oder nachträglich im
 ausgeschalteten Zustand eine langlebige Daten-VHDX angehängt werden. Nach dem
