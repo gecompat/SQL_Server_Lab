@@ -38,6 +38,7 @@ try {
         $allVariants = @(Get-LabExecutableSampleVariant)
         $variants2019 = @(Get-LabExecutableSampleVariant -SqlVersion '2019')
         $variants2022 = @(Get-LabExecutableSampleVariant -SqlVersion '2022-CU16')
+        $variants2025 = @(Get-LabExecutableSampleVariant -SqlVersion '2025')
 
         $resolved = Resolve-LabSampleRestore `
             -SampleDefinition ([PSCustomObject]@{ id = 'adventureworks-2022'; variant = 'lightweight' }) `
@@ -106,6 +107,11 @@ try {
             NoDescriptiveVariants = @($allVariants | Where-Object { $_.SampleId -in @('stackoverflow-50gb', 'northwind') }).Count -eq 0
             VersionFilterWorks    = @($variants2019 | Where-Object { $_.MinSqlVersion -eq '2022' }).Count -eq 0 -and
                 @($variants2022 | Where-Object { $_.SampleId -eq 'adventureworks-2022' }).Count -gt 0
+            CurrentMicrosoftBackups = @($variants2025 | Where-Object {
+                $_.SampleId -in @('adventureworks-2025', 'adventureworks-dw-2025') -and
+                $_.Source -match '^https://github\.com/microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorks'
+            }).Count -eq 3 -and
+                @($variants2019 | Where-Object { $_.SampleId -eq 'adventureworks-dw-2019' }).Count -eq 1
             ResolvedContract      = $resolved.replace -eq $false -and
                 $resolved.idempotencyMode -eq 'fail-if-exists' -and
                 $resolved.trustPolicy -eq 'interactive-once' -and
@@ -124,6 +130,7 @@ try {
     Add-CheckResult -Name 'Katalogliste enthaelt nur Backup-Handler-Varianten' -Success $result.AllBackupExecutable
     Add-CheckResult -Name 'Beschreibende Varianten (Attach/SQL-Skript) bleiben ausgeschlossen' -Success $result.NoDescriptiveVariants
     Add-CheckResult -Name 'Versionsfilter beruecksichtigt minSqlVersion und CU-Bezeichner' -Success $result.VersionFilterWorks
+    Add-CheckResult -Name 'Aktuelle Microsoft-Backups fuer AdventureWorks und Data Warehouse sind katalogisiert' -Success $result.CurrentMicrosoftBackups
     Add-CheckResult -Name 'Sample-Aufloesung liefert Trust-, Idempotenz- und Groessenvertrag' -Success $result.ResolvedContract
     Add-CheckResult -Name 'Abweichender Zieldatenbankname wird abgelehnt' -Success $result.WrongNameRejected
     Add-CheckResult -Name 'Beschreibende Varianten werden nicht ausgefuehrt' -Success $result.DescriptiveRejected
