@@ -86,6 +86,9 @@ Add-CheckResult -Name 'UI bietet erkannte Windows- und SQL-Medien ohne manuelle 
     $htmlText -match 'Erkannte SQL-Medienedition' -and
     $htmlText -notmatch '<select id="sql-edition"' -and
     $scriptText -match 'renderWindowsInstallationMedia' -and
+    $scriptText -match 'function windowsMediaSelectionKey' -and
+    $scriptText -match 'data-media-id' -and
+    $scriptText -match 'function selectedWindowsMediaPath' -and
     $scriptText -match 'WindowsMediaPath' -and
     $scriptText -match "OperatingSystemId === 'windows-server-2025'"
 )

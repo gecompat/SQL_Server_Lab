@@ -225,11 +225,22 @@ function renderWindowsInstallationMedia(items, sqlCompatibleOnly = false) {
   const previous = select.value;
   const ready = (items || []).filter((item) => item.State === 'READY' && (!sqlCompatibleOnly || item.OperatingSystemId === 'windows-server-2025'));
   select.innerHTML = '<option value="">Windows-Installationsmedium auswählen …</option>' + ready.map((item) =>
-    '<option value="' + escapeHtml(item.MediaId) + '" data-os="' + escapeHtml(item.OperatingSystemId) + '" data-edition="' + escapeHtml(item.WindowsEdition) + '" data-installation="' + escapeHtml(item.InstallationType) + '" data-hash-status="' + escapeHtml(item.HashStatus || 'MISSING') + '" data-hash="' + escapeHtml(item.ExpectedSha256 || '') + '">'
+    '<option value="' + escapeHtml(windowsMediaSelectionKey(item)) + '" data-media-id="' + escapeHtml(item.MediaId) + '" data-os="' + escapeHtml(item.OperatingSystemId) + '" data-edition="' + escapeHtml(item.WindowsEdition) + '" data-installation="' + escapeHtml(item.InstallationType) + '" data-hash-status="' + escapeHtml(item.HashStatus || 'MISSING') + '" data-hash="' + escapeHtml(item.ExpectedSha256 || '') + '">'
       + escapeHtml(item.ImageName || (item.OperatingSystemId + ' · ' + item.WindowsEdition + ' · ' + item.InstallationType)) + (item.HashStatus === 'SIDECAR_READY' ? ' · Hash gesetzt' : ' · Hash fehlt') + ' · ' + escapeHtml(item.MediaId) + '</option>'
   ).join('');
-  if (ready.some((item) => item.MediaId === previous)) select.value = previous;
+  if (ready.some((item) => windowsMediaSelectionKey(item) === previous)) select.value = previous;
   updateWindowsMediaSelection();
+}
+
+function windowsMediaSelectionKey(item) {
+  // Eine ISO kann Standard, Datacenter sowie Core/Desktop als getrennte
+  // install.wim-Images enthalten. Der ISO-Pfad allein ist daher kein
+  // eindeutiger Auswahlwert und würde beim Refresh die erste Edition wählen.
+  return [item.MediaId, item.ImageIndex || '', item.WindowsEdition || '', item.InstallationType || ''].join('::');
+}
+
+function selectedWindowsMediaPath() {
+  return $('#windows-media').selectedOptions[0]?.dataset?.mediaId || '';
 }
 
 function updateWindowsMediaSelection() {
@@ -653,7 +664,7 @@ $('#build-form').addEventListener('submit', async (event) => {
   const kind = $('#build-type').value;
   const parameters = {
     MediaRoot: $('#media-root').value,
-    WindowsMediaPath: $('#windows-media').value,
+    WindowsMediaPath: selectedWindowsMediaPath(),
     OperatingSystemId: $('#os-id').value,
     WindowsEdition: $('#windows-edition').value,
     InstallationType: $('#installation-type').value,
@@ -687,7 +698,7 @@ $('#set-windows-media-hash').addEventListener('click', async () => {
   const sha = $('#windows-media-sha256').value.trim();
   if (!$('#windows-media').value || (sha && !/^[a-fA-F0-9]{64}$/.test(sha))) { showError(new Error('Windows-ISO auswählen; ein optionaler SHA-256 muss 64 Hex-Zeichen enthalten.')); return; }
   try {
-    const parameters = { MediaRoot: $('#media-root').value.trim(), WindowsMediaPath: $('#windows-media').value, OperatingSystemId: $('#os-id').value, WindowsEdition: $('#windows-edition').value, InstallationType: $('#installation-type').value };
+    const parameters = { MediaRoot: $('#media-root').value.trim(), WindowsMediaPath: selectedWindowsMediaPath(), OperatingSystemId: $('#os-id').value, WindowsEdition: $('#windows-edition').value, InstallationType: $('#installation-type').value };
     if (sha) parameters.WindowsMediaSha256 = sha;
     await startAction('SetWindowsMediaHash', parameters);
     await refresh($('#media-root').value.trim());
