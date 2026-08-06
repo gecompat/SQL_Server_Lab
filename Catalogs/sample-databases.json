@@ -371,6 +371,107 @@
       "tags": ["dwh", "columnstore", "partitioning", "etl"]
     },
     {
+      "id": "contoso-data-generator",
+      "name": "Contoso",
+      "displayName": "Contoso Data Warehouse (SQLBI)",
+      "description": "Direkt restaurierbare, MIT-lizenzierte Contoso-Backups fuer Data-Warehouse-, Power-BI- und Abfrage-Szenarien in vier Groessen.",
+      "category": "community",
+      "license": "MIT",
+      "source": "https://github.com/sql-bi/Contoso-Data-Generator",
+      "versions": {
+        "10k": {
+          "artifactType": "backup",
+          "handlerContractVersion": "1",
+          "url": "https://github.com/sql-bi/Contoso-Data-Generator/releases/download/v1.0.0/Contoso.10K.bak",
+          "downloadSizeMB": 4.2,
+          "estimatedInstallSizeMB": null,
+          "resourceEstimateStatus": "unknown",
+          "sha256": null,
+          "integrityOrigin": null,
+          "trustPolicy": "interactive-once",
+          "compatibility": 100,
+          "expectedOutputs": [
+            { "name": "Contoso10K", "kind": "database" }
+          ],
+          "installation": {
+            "kind": "backup",
+            "restoreMode": "direct-backup",
+            "idempotencyMode": "fail-if-exists",
+            "baselinePolicy": "eligible-after-verification"
+          },
+          "runtimeStatus": "executable"
+        },
+        "100k": {
+          "artifactType": "backup",
+          "handlerContractVersion": "1",
+          "url": "https://github.com/sql-bi/Contoso-Data-Generator/releases/download/v1.0.0/Contoso.100K.bak",
+          "downloadSizeMB": 8.7,
+          "estimatedInstallSizeMB": null,
+          "resourceEstimateStatus": "unknown",
+          "sha256": null,
+          "integrityOrigin": null,
+          "trustPolicy": "interactive-once",
+          "compatibility": 100,
+          "expectedOutputs": [
+            { "name": "Contoso100K", "kind": "database" }
+          ],
+          "installation": {
+            "kind": "backup",
+            "restoreMode": "direct-backup",
+            "idempotencyMode": "fail-if-exists",
+            "baselinePolicy": "eligible-after-verification"
+          },
+          "runtimeStatus": "executable"
+        },
+        "1m": {
+          "artifactType": "backup",
+          "handlerContractVersion": "1",
+          "url": "https://github.com/sql-bi/Contoso-Data-Generator/releases/download/v1.0.0/Contoso.1M.bak",
+          "downloadSizeMB": 36.8,
+          "estimatedInstallSizeMB": null,
+          "resourceEstimateStatus": "unknown",
+          "sha256": null,
+          "integrityOrigin": null,
+          "trustPolicy": "interactive-once",
+          "compatibility": 100,
+          "expectedOutputs": [
+            { "name": "Contoso1M", "kind": "database" }
+          ],
+          "installation": {
+            "kind": "backup",
+            "restoreMode": "direct-backup",
+            "idempotencyMode": "fail-if-exists",
+            "baselinePolicy": "eligible-after-verification"
+          },
+          "runtimeStatus": "executable"
+        },
+        "10m": {
+          "artifactType": "backup",
+          "handlerContractVersion": "1",
+          "url": "https://github.com/sql-bi/Contoso-Data-Generator/releases/download/v1.0.0/Contoso.10M.bak",
+          "downloadSizeMB": 201.7,
+          "estimatedInstallSizeMB": null,
+          "resourceEstimateStatus": "unknown",
+          "sha256": null,
+          "integrityOrigin": null,
+          "trustPolicy": "interactive-once",
+          "compatibility": 100,
+          "expectedOutputs": [
+            { "name": "Contoso10M", "kind": "database" }
+          ],
+          "installation": {
+            "kind": "backup",
+            "restoreMode": "direct-backup",
+            "idempotencyMode": "fail-if-exists",
+            "baselinePolicy": "eligible-after-verification"
+          },
+          "runtimeStatus": "executable"
+        }
+      },
+      "minSqlVersion": "2019",
+      "tags": ["dwh", "bi", "power-bi", "star-schema", "reporting", "scalable"]
+    },
+    {
       "id": "stackoverflow-50gb",
       "name": "StackOverflow2013",
       "displayName": "Stack Overflow 2013 (50 GB)",

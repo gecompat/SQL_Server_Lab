@@ -112,6 +112,11 @@ try {
                 $_.Source -match '^https://github\.com/microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorks'
             }).Count -eq 3 -and
                 @($variants2019 | Where-Object { $_.SampleId -eq 'adventureworks-dw-2019' }).Count -eq 1
+            ContosoBackups = @($variants2019 | Where-Object {
+                $_.SampleId -eq 'contoso-data-generator' -and
+                $_.Source -match '^https://github\.com/sql-bi/Contoso-Data-Generator/releases/download/v1\.0\.0/Contoso\.(10K|100K|1M|10M)\.bak$' -and
+                $_.ExpectedDatabase -match '^Contoso(10K|100K|1M|10M)$'
+            }).Count -eq 4
             ResolvedContract      = $resolved.replace -eq $false -and
                 $resolved.idempotencyMode -eq 'fail-if-exists' -and
                 $resolved.trustPolicy -eq 'interactive-once' -and
@@ -131,6 +136,7 @@ try {
     Add-CheckResult -Name 'Beschreibende Varianten (Attach/SQL-Skript) bleiben ausgeschlossen' -Success $result.NoDescriptiveVariants
     Add-CheckResult -Name 'Versionsfilter beruecksichtigt minSqlVersion und CU-Bezeichner' -Success $result.VersionFilterWorks
     Add-CheckResult -Name 'Aktuelle Microsoft-Backups fuer AdventureWorks und Data Warehouse sind katalogisiert' -Success $result.CurrentMicrosoftBackups
+    Add-CheckResult -Name 'Contoso-Backups sind als direkt restaurierbare Groessenvarianten katalogisiert' -Success $result.ContosoBackups
     Add-CheckResult -Name 'Sample-Aufloesung liefert Trust-, Idempotenz- und Groessenvertrag' -Success $result.ResolvedContract
     Add-CheckResult -Name 'Abweichender Zieldatenbankname wird abgelehnt' -Success $result.WrongNameRejected
     Add-CheckResult -Name 'Beschreibende Varianten werden nicht ausgefuehrt' -Success $result.DescriptiveRejected
