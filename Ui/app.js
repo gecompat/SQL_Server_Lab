@@ -318,6 +318,7 @@ function renderActiveLabs(items) {
     const lifecycleActions = [
       '<button class="button secondary" data-container-action="' + (running ? 'StopContainerLab' : 'StartContainerLab') + '" data-run="' + escapeHtml(item.RunId) + '">' + (running ? 'Stoppen' : 'Starten') + '</button>',
       running ? '<button class="button secondary" data-container-action="RestartContainerLab" data-run="' + escapeHtml(item.RunId) + '">Neustarten</button>' : '',
+      '<button class="button secondary" data-lab-rename="true" data-run="' + escapeHtml(item.RunId) + '" data-name="' + escapeHtml(item.Name || item.RunId) + '">Name ändern</button>',
       '<button class="button secondary" data-container-remove="true" data-run="' + escapeHtml(item.RunId) + '" data-name="' + escapeHtml(item.Name || item.RunId) + '">Entfernen</button>'
     ].join('');
     const instances = (item.Instances || []).map((instance) => {
@@ -362,6 +363,7 @@ function renderHyperVLabs(items) {
       sqlNeedsCompletion ? '<button class="button primary" data-hyperv-action="CompleteHyperVLabSql" data-run="' + escapeHtml(item.RunId) + '">SQL CompleteImage ausführen</button>' : '',
       running ? '<button class="button secondary" data-hyperv-action="InspectHyperVLabSqlInstances" data-run="' + escapeHtml(item.RunId) + '">SQL-Instanzen prüfen</button>' : '',
       '<button class="button secondary" data-hyperv-action="OpenHyperVConsole" data-run="' + escapeHtml(item.RunId) + '">VMConnect öffnen</button>',
+      '<button class="button secondary" data-lab-rename="true" data-run="' + escapeHtml(item.RunId) + '" data-name="' + escapeHtml(item.Name || item.RunId) + '">Name ändern</button>',
       '<button class="button danger" data-hyperv-remove="true" data-run="' + escapeHtml(item.RunId) + '" data-name="' + escapeHtml(item.Name || item.RunId) + '">Entfernen</button>'
     ].join('');
     const sourceBased = item.BaseKind === 'existing-vm';
@@ -595,6 +597,15 @@ document.addEventListener('click', async (event) => {
   }
   const operation = event.target.closest('[data-container-operation]');
   if (operation) { openContainerOperation(operation.dataset.containerOperation, operation.dataset.run, operation.dataset.port, operation.dataset.instance, operation.dataset.sqlVersion); return; }
+  const labRename = event.target.closest('[data-lab-rename]');
+  if (labRename) {
+    const currentName = labRename.dataset.name || '–';
+    $('#lab-name-run').value = labRename.dataset.run;
+    $('#lab-current-name').textContent = currentName;
+    $('#lab-display-name').value = currentName === '–' ? '' : currentName;
+    $('#lab-name-dialog').showModal();
+    return;
+  }
   const remove = event.target.closest('[data-container-remove]');
   if (remove) {
     openConfirmation('Container-Lab entfernen', 'Container-Lab „' + remove.dataset.name + '“ wirklich entfernen? Der Container und sein Workflow-Run werden bereinigt.', 'RemoveContainerLab', { BuildId: remove.dataset.run });
@@ -939,6 +950,17 @@ $('#artifact-name-form').addEventListener('submit', async (event) => {
   try {
     await startAction('RenameHyperVImageArtifact', { ArtifactId: $('#artifact-name-id').value, DisplayName: displayName });
     $('#artifact-name-dialog').close();
+  } catch (error) { showError(error); }
+});
+
+$('#lab-name-form').addEventListener('submit', async (event) => {
+  if (event.submitter?.value === 'cancel') return;
+  event.preventDefault();
+  const labName = $('#lab-display-name').value.trim();
+  if (!labName) { showError(new Error('Bitte einen Namen angeben.')); return; }
+  try {
+    await startAction('RenameLab', { BuildId: $('#lab-name-run').value, LabName: labName });
+    $('#lab-name-dialog').close();
   } catch (error) { showError(error); }
 });
 

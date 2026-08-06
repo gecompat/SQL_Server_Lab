@@ -120,7 +120,7 @@ function Invoke-SqlServerLabWorkflowAction {
         [ValidateSet(
             'Refresh',
             'SetMediaRoot', 'SetDataRoot',
-            'NewContainerLab', 'CreateContainerManifest', 'NewContainerLabFromManifest', 'StartContainerLab', 'StopContainerLab', 'RestartContainerLab', 'RemoveContainerLab', 'ClearAllLabs',
+            'NewContainerLab', 'CreateContainerManifest', 'NewContainerLabFromManifest', 'RenameLab', 'StartContainerLab', 'StopContainerLab', 'RestartContainerLab', 'RemoveContainerLab', 'ClearAllLabs',
             'CreateContainerDatabase', 'InstallContainerSampleDatabase', 'InstallContainerSampleDatabases', 'ExecuteContainerScript',
             'NewHyperVLab', 'NewHyperVLabFromExistingVm', 'StartHyperVLab', 'StopHyperVLab', 'EnableHyperVLabPersistentData', 'InitializeHyperVLabPersistentData', 'CompleteHyperVLabSql', 'InspectHyperVLabSqlInstances', 'OpenHyperVConsole', 'RemoveHyperVLab',
             'NewWindowsBuild', 'SetWindowsMediaHash', 'OpenWindowsConsole', 'ConfirmWindowsInstall', 'GeneralizeWindowsBuild', 'PublishWindowsBuild',
@@ -205,7 +205,7 @@ function Invoke-SqlServerLabWorkflowAction {
     }
 
     $containerActions = @(
-        'NewContainerLab', 'CreateContainerManifest', 'NewContainerLabFromManifest', 'StartContainerLab', 'StopContainerLab', 'RestartContainerLab', 'RemoveContainerLab',
+        'NewContainerLab', 'CreateContainerManifest', 'NewContainerLabFromManifest', 'RenameLab', 'StartContainerLab', 'StopContainerLab', 'RestartContainerLab', 'RemoveContainerLab',
         'ClearAllLabs', 'CreateContainerDatabase', 'InstallContainerSampleDatabase', 'InstallContainerSampleDatabases', 'ExecuteContainerScript'
     )
     if ($Action -notin $containerActions) {
@@ -232,6 +232,9 @@ function Invoke-SqlServerLabWorkflowAction {
     }
     if ($Action -eq 'RenameHyperVImageArtifact' -and ([string]::IsNullOrWhiteSpace($ArtifactId) -or [string]::IsNullOrWhiteSpace($DisplayName))) {
         throw 'HYPERV_WORKFLOW_ARTIFACT_AND_DISPLAY_NAME_REQUIRED'
+    }
+    if ($Action -eq 'RenameLab' -and ([string]::IsNullOrWhiteSpace($BuildId) -or [string]::IsNullOrWhiteSpace($LabName))) {
+        throw 'LAB_WORKFLOW_RUN_AND_NAME_REQUIRED'
     }
     if ($Action -eq 'NewHyperVLab' -and ([string]::IsNullOrWhiteSpace($ArtifactId) -or [string]::IsNullOrWhiteSpace($LabName))) {
         throw 'HYPERV_LAB_ARTIFACT_AND_NAME_REQUIRED'
@@ -289,6 +292,7 @@ function Invoke-SqlServerLabWorkflowAction {
             if ([string]::IsNullOrWhiteSpace($ManifestPath) -or -not (Test-Path -LiteralPath $ManifestPath -PathType Leaf)) { throw 'CONTAINER_WORKFLOW_MANIFEST_PATH_REQUIRED' }
             New-SqlServerLab -Manifest $ManifestPath -SaPassword $SaPassword
         }
+        'RenameLab' { Rename-LabRunDisplayName -RunId $BuildId -DisplayName $LabName }
         'NewHyperVLab' {
             $lab = New-HyperVLabEnvironment -ArtifactId $ArtifactId -LabName $LabName -InstanceId $InstanceId -MemoryStartupMB $MemoryStartupMB -ProcessorCount $ProcessorCount -SwitchName $SwitchName
             if ($PersistentData) { $null = Enable-HyperVLabPersistentData -RunId $lab.RunId -DataRoot $DataRoot -SizeGB $PersistentDataDiskGB }
