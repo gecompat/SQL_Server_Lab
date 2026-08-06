@@ -17,7 +17,7 @@
 function Invoke-SqlServerLab {
     [CmdletBinding()]
     param(
-        [ValidateSet('New', 'Manifest', 'Status', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'Script', 'Database', 'Image')]
+        [ValidateSet('New', 'Manifest', 'Status', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'Script', 'Database', 'Image', 'DataRoot')]
         [string]$Action
     )
 
@@ -49,6 +49,7 @@ function Invoke-SqlServerLab {
             '8' { Invoke-LabAction -ActionName 'Database' }
             '9' { Invoke-LabAction -ActionName 'Script' }
             'i' { Invoke-LabAction -ActionName 'Image' }
+            'd' { Invoke-LabAction -ActionName 'DataRoot' }
             '0' { $exit = $true }
             'q' { $exit = $true }
             default { Write-Host "  Ungueltige Auswahl: $choice" -ForegroundColor Red }
@@ -127,6 +128,7 @@ function Show-LabMenu {
     Write-Host "    [8] Datenbank anlegen" -ForegroundColor White
     Write-Host "    [9] SQL-Skript ausfuehren" -ForegroundColor White
     Write-Host "    [i] Hyper-V Windows-Image verwalten" -ForegroundColor Yellow
+    Write-Host "    [d] Persistenten Data Root konfigurieren" -ForegroundColor White
     Write-Host ""
     Write-Host "    [0/q] Beenden" -ForegroundColor DarkGray
     Write-Host ""
@@ -141,6 +143,23 @@ function Invoke-LabAction {
     Write-Host ""
 
     switch ($ActionName) {
+        'DataRoot' {
+            $currentDataRoot = Get-LabDataRootDefault
+            $prompt = if ($currentDataRoot) { "  Neuer Data Root [$currentDataRoot]" } else { '  Neuer Data Root' }
+            $candidate = Read-Host $prompt
+            if ([string]::IsNullOrWhiteSpace($candidate)) {
+                Write-LabInfo 'Data Root unverändert.'
+                return
+            }
+            try {
+                $savedDataRoot = Set-LabDataRootDefault -DataRoot $candidate
+                Write-LabSuccess "Data Root gespeichert: $savedDataRoot"
+            }
+            catch {
+                Write-LabError "Data Root konnte nicht gespeichert werden: $($_.Exception.Message)"
+                Write-Host '  Der Ordner muss vorher mit .\Tools\Initialize-SqlServerLabDataRoot.ps1 initialisiert werden.' -ForegroundColor DarkGray
+            }
+        }
         'Manifest' {
             $manifestPath = Read-Host '  Manifest-Zielpfad [.\lab-manifest.json]'
             if (-not $manifestPath) {
