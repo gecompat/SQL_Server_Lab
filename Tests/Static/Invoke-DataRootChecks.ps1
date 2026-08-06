@@ -3,6 +3,7 @@
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $toolPath = Join-Path $repoRoot 'Tools/Initialize-SqlServerLabDataRoot.ps1'
+$consolePath = Join-Path $repoRoot 'Public/Invoke-SqlServerLab.ps1'
 $temporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) "sql-lab-data-root-$([guid]::NewGuid().ToString('N'))"
 $failures = [System.Collections.Generic.List[string]]::new(); $passed = 0
 . (Join-Path $PSScriptRoot '..' 'Common' 'CheckResult.ps1')
@@ -25,6 +26,13 @@ try {
     $second = & $toolPath -RootPath $temporaryRoot -LabId evaluation-refresh
     Add-CheckResult -Name 'Data-Root-Initialisierung ist idempotent' -Success (
         @($second.CreatedDirectories).Count -eq 0 -and @($second.SkippedReadmeFiles).Count -eq 0
+    )
+    $consoleText = Get-Content -LiteralPath $consolePath -Raw -Encoding utf8
+    Add-CheckResult -Name 'Konsolen-Neuanlage bietet den gespeicherten Data Root optional an' -Success (
+        $consoleText -match 'Get-LabDataRootDefault' -and
+        $consoleText -match 'SQL-System- und Datenbanken persistent im Data Root einbinden' -and
+        $consoleText -match '\$newLabArguments\.PersistentData = \$true' -and
+        $consoleText -match '\$newLabArguments\.DataRoot = \$defaultDataRoot'
     )
 }
 catch { Add-CheckResult -Name 'Data-Root-Testausfuehrung' -Success $false -Message $_.Exception.Message }
