@@ -183,6 +183,14 @@ try {
         ('13.0.1601.5' -match (Get-HyperVSqlSetupVersionPattern -SqlVersion 2016))
     }
     Add-CheckResult -Name 'Weitere SQL-Versionen werden ueber die aus ISO gelesene Hauptversion dynamisch zugeordnet' -Success $dynamicVersionMapping
+    Add-CheckResult -Name 'Konsolen-Lifecycle bietet vorhandene SQL-Versionen und Editionsmedien dynamisch an' -Success (
+        $menuText.Contains('function Select-LabSqlInstallationMedia') -and
+        $menuText.Contains("Get-ChildItem -LiteralPath `$sqlRoot -File -Recurse -Filter '*.iso'") -and
+        $menuText.Contains('Verfügbare SQL Server Versionen') -and
+        $menuText.Contains('Verfügbare SQL-Installationsmedien') -and
+        $menuText.Contains('Descending = $true') -and
+        $menuText.Contains('-SqlMediaPath $sqlMediaPath')
+    )
     $dynamicEditionMapping = & $module {
         (Get-HyperVSqlMediaEditionFromPath -Path 'SQL/2025/Standard_Developer/ISO/sql.iso') -eq 'Standard' -and
         (Get-HyperVSqlMediaEditionFromPath -Path 'SQL/2022/Developer/ISO/sql.iso') -eq 'Enterprise'
