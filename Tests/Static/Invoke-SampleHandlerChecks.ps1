@@ -142,6 +142,12 @@ try {
         $restoreText -match 'if \(\$Provider\) \{ \$restoreTargetArguments.Provider = \$Provider \}' -and
         $restoreText -match 'Resolve-LabRestoreContainer @restoreTargetArguments'
     )
+    Add-CheckResult -Name 'FILELISTONLY verwirft sqlcmd-Leerzeilen vor der MOVE-Erzeugung' -Success (
+        $restoreText -match "-h -1" -and
+        $restoreText -match '\$fileListLines = @\(' -and
+        $restoreText -match 'FILELISTONLY lieferte keine Dateizeilen' -and
+        $restoreText -match 'New-LabRestoreMoveStatements -FileListOutput \$fileListLines'
+    )
 }
 catch {
     Add-CheckResult -Name 'Sample Handler Testausfuehrung' -Success $false -Message $_.Exception.Message

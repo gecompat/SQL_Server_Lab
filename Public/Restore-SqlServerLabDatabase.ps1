@@ -350,7 +350,7 @@ function Restore-SqlServerLabDatabase {
             -Q $fileListQuery `
             -s '|' `
             -W `
-            -h 1 2>&1
+            -h -1 2>&1
         $fileListExitCode = $LASTEXITCODE
         $fileListText = ($fileListOutput | ForEach-Object { [string]$_ }) -join "`n"
 
@@ -358,7 +358,20 @@ function Restore-SqlServerLabDatabase {
             throw "FILELISTONLY fehlgeschlagen: $fileListText"
         }
 
-        $moveStatements = @(New-LabRestoreMoveStatements -FileListOutput @($fileListOutput) -DataPath $DataPath -DatabaseName $DatabaseName)
+        # sqlcmd kann bei einem Resultset ohne sichtbare Zeilen einen einzelnen
+        # Leerstring zurueckgeben. Der darf nicht an den Mandatory-String[]-
+        # Vertrag der MOVE-Erzeugung weitergereicht werden; sonst maskiert ein
+        # Bindungsfehler die eigentliche FILELISTONLY-Diagnose.
+        $fileListLines = @(
+            $fileListOutput |
+                ForEach-Object { ([string]$_).Trim() } |
+                Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+        )
+        if ($fileListLines.Count -eq 0) {
+            throw "FILELISTONLY lieferte keine Dateizeilen. Backup: $containerBackupPath. sqlcmd-Output: $fileListText"
+        }
+
+        $moveStatements = @(New-LabRestoreMoveStatements -FileListOutput $fileListLines -DataPath $DataPath -DatabaseName $DatabaseName)
 
         if ($moveStatements.Count -eq 0) {
             throw "Keine logischen Dateien im Backup erkannt. FILELISTONLY-Output: $fileListText"
