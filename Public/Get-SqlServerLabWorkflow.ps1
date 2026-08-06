@@ -107,6 +107,16 @@ function Get-SqlServerLabWorkflow {
                 SqlEdition = if ($instance) { [string]$instance.sqlEdition } else { $null }
                 SqlCompleted = [bool]($instance -and $instance.sqlCompletion -and [string]$instance.sqlCompletion.state -eq 'COMPLETE')
                 SqlCompletionState = if ($instance -and $instance.sqlCompletion) { [string]$instance.sqlCompletion.state } else { 'PENDING_COMPLETE_IMAGE' }
+                ConnectionString = if ($instance) { [string]$instance.connectionString } else { $null }
+                SqlInstances = @($instance.sqlInstances | ForEach-Object {
+                    [PSCustomObject]@{
+                        Name = [string]$_.Name; InstanceId = [string]$_.InstanceId; IsDefault = [bool]$_.IsDefault
+                        ServiceName = [string]$_.ServiceName; ServiceStatus = [string]$_.ServiceStatus; TcpPort = $_.TcpPort
+                        ConnectionString = [string]$_.ConnectionString
+                    }
+                })
+                SqlInstancesInspectedAt = if ($instance) { [string]$instance.sqlInstancesInspectedAt } else { $null }
+                PersistentStorage = if ($instance) { $instance.persistentStorage } else { $null }
                 ArtifactId = [string]$run.metadata.imageArtifactId
                 BaseKind = [string]$run.metadata.baseKind
                 SourceVMName = [string]$run.metadata.sourceVMName
@@ -161,8 +171,11 @@ function Get-SqlServerLabWorkflow {
         $fresh = [string]$_.provisioningMode -eq 'fresh-windows-media'
         $next = switch ($state) {
             'MANUAL_ACTION_REQUIRED' {
-                if ($fresh) { 'VM starten, Windows installieren und einmal als Administrator anmelden.' }
-                else { 'OOBE abschliessen und die SQL-Installation starten.' }
+                if ($fresh -and -not ($_.installationEvidence -and $_.installationEvidence.verified)) {
+                    "Windows Server 2025 $($_.operatingSystem.edition) / $($_.operatingSystem.installationType) installieren, anmelden und anschließend die Edition prüfen."
+                }
+                elseif ($fresh) { 'Windows-Edition bestätigt: SQL PrepareImage und finalen Sysprep ausführen.' }
+                else { 'VM starten, OOBE der OS-Baseline abschließen und lokales Administratorpasswort setzen; danach SQL PrepareImage ausführen.' }
             }
             'REBOOT_REQUIRED' { 'VM starten, vollstaendig booten lassen; danach SQL PrepareImage fortsetzen.' }
             'RESUME_PENDING' { 'Prepared-Image veroeffentlichen.' }
@@ -179,6 +192,8 @@ function Get-SqlServerLabWorkflow {
             InstallationType = [string]$_.operatingSystem.installationType
             SqlVersion = [string]$_.sql.version; SqlEdition = [string]$_.sql.edition
             ProvisioningMode = [string]$_.provisioningMode
+            DisplayName = [string]$_.displayName
+            InstallationVerified = [bool]($_.installationEvidence -and $_.installationEvidence.verified)
             VMName = if ($_.builder) { [string]$_.builder.vmName } else { $null }
             ArtifactId = if ($_.artifact) { [string]$_.artifact.artifactId } else { $null }
             SuggestedEvaluationExpiresAt = ((Get-Date).Date.AddDays(180)).ToString('yyyy-MM-dd')
@@ -219,7 +234,7 @@ function Get-SqlServerLabWorkflow {
             HyperV = $hyperV
             Providers = @(Get-AvailableLabProviders | Sort-Object)
         }
-        Defaults = [PSCustomObject]@{ MediaRoot = $MediaRoot }
+        Defaults = [PSCustomObject]@{ MediaRoot = $MediaRoot; DataRoot = Get-LabDataRootDefault }
         SqlInstallationMedia = $sqlInstallationMedia
         WindowsInstallationMedia = $windowsInstallationMedia
         SampleDatabases = $sampleDatabases
@@ -267,6 +282,8 @@ function Get-SqlServerLabWorkflow {
                     [PSCustomObject]@{
                         Id = [string]$_.id; Provider = [string]$_.provider; Host = [string]$_.host
                         Port = $_.port; SqlVersion = if ($_.sqlVersion) { [string]$_.sqlVersion } else { [string]$_.version }
+                        ConnectionString = [string]$_.connectionString
+                        PersistentStorage = $_.persistentStorage
                     }
                 })
             }

@@ -158,6 +158,11 @@ try {
         $builderText -match 'SQL_SETUP_PREPARE_IMAGE_FAILED: ExitCode=' -and
         $builderText -match "-Filter 'Summary\.txt'" -and $builderText -match 'Summary=\$\(\$summary\.FullName\)'
     )
+    Add-CheckResult -Name 'Editionsmismatch nennt die im Windows-Setup auszuwählende Zielvariante' -Success (
+        $builderText -match 'Windows Server 2025 Datacenter Evaluation' -and
+        $builderText -match 'Server Core Installation' -and
+        $builderText -match 'neu installieren und'
+    )
     $sqlSetupVersionsAccepted = & $module {
         $sql2022Pattern = Get-HyperVSqlSetupVersionPattern -SqlVersion 2022
         $sql2025Pattern = Get-HyperVSqlSetupVersionPattern -SqlVersion 2025
@@ -183,6 +188,12 @@ try {
         (Get-HyperVSqlMediaEditionFromPath -Path 'SQL/2022/Developer/ISO/sql.iso') -eq 'Enterprise'
     }
     Add-CheckResult -Name 'Automatische Medienedition bevorzugt Standard vor dem Developer-Zusatz' -Success $dynamicEditionMapping
+    $artifactEditionMapping = & $module {
+        (ConvertTo-HyperVSqlMediaEdition -SqlEdition EnterpriseDeveloper) -eq 'Enterprise' -and
+        (ConvertTo-HyperVSqlMediaEdition -SqlEdition StandardDeveloper) -eq 'Standard' -and
+        (ConvertTo-HyperVSqlMediaEdition -SqlEdition Evaluation) -eq 'Eval'
+    }
+    Add-CheckResult -Name 'Artifact-Produkteditionen werden für die ISO-Suche rückwärtskompatibel abgebildet' -Success $artifactEditionMapping
     Add-CheckResult -Name 'SQL-ISO wird vor der VM-Erstellung gegen die gewaehlte SQL-Version geprueft' -Success (
         $builderText -match 'function Confirm-HyperVSqlInstallationMediaVersion' -and
         $builderText -match 'HYPERV_SQL_MEDIA_VERSION_MISMATCH' -and
@@ -190,14 +201,22 @@ try {
         $builderText.IndexOf('Confirm-HyperVSqlInstallationMediaVersion -IsoPath $sqlMedia.IsoPath') -lt $builderText.IndexOf('New-VHD -Path $diskPath')
     )
     Add-CheckResult -Name 'SQL-Prepared-Publikation flacht Differencing-Kette ab' -Success ($builderText -match 'Convert-VHD[\s\S]+-VHDType Dynamic')
-    Add-CheckResult -Name 'Empfohlener Prepared-Image-Pfad erstellt frische Windows-VHDX und bindet beide ISOs ein' -Success (
+    Add-CheckResult -Name 'Sonderpfad für frische ISOs erstellt Windows-VHDX und bindet beide ISOs ein' -Success (
         $builderText -match 'function Initialize-HyperVSqlFreshPreparedImageBuild' -and
         $builderText -match 'New-HyperVSqlFreshImageBuildPlan' -and
         $builderText -match 'New-VHD -Path \$diskPath -Dynamic' -and
         $builderText -match 'Add-VMDvdDrive -VM \$vm -Path \$windowsMedia\.IsoPath' -and
         $builderText -match 'Add-VMDvdDrive -VM \$vm -Path \$sqlMedia\.IsoPath' -and
-        $menuText -match "'7' \{ New-LabHyperVSqlImageBuildInteractive \}" -and
+        $menuText -match "'f' \{ New-LabHyperVSqlImageBuildInteractive \}" -and
         $menuText -match 'ein finaler Sysprep'
+    )
+    Add-CheckResult -Name 'Empfohlener Prepared-Image-Pfad verwendet eine veröffentlichte OS-Baseline als unveränderten Parent' -Success (
+        $builderText -match "provisioningMode = 'sealed-os-baseline'" -and
+        $builderText -match 'function Initialize-HyperVSqlPreparedImageBuild' -and
+        $builderText -match 'New-HyperVInstance -ImageArtifactId \$ImageArtifactId' -and
+        $builderText -match '\[ValidateLength\(1, 80\)\]\[string\]\$ImageName' -and
+        $menuText -match "'7' \{ New-LabHyperVSqlAcceptanceBuildInteractive \}" -and
+        $menuText -match 'OS-Baseline wird wiederverwendet'
     )
     $convertIndex = $builderText.IndexOf('Convert-VHD -Path $childPath')
     $importIndex = $builderText.IndexOf('$artifact = Import-HyperVImageArtifact')

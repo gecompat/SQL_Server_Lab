@@ -34,6 +34,7 @@
         <button id="media-sources" class="button secondary">Medienquellen</button>
         <button class="button secondary" data-open-build="windows">Neue Windows-Baseline</button>
         <button class="button primary" data-open-build="sql">Neues SQL-Prepared-Image</button>
+        <button class="button secondary" data-open-build="sql-fresh">Frischer SQL-Build aus ISOs</button>
         <button id="new-container" class="button secondary">Neue Container-Umgebung</button>
         <button id="new-hyperv-lab" class="button secondary">Neue Hyper-V-Umgebung</button>
         <button id="new-hyperv-existing-vm-lab" class="button secondary">Windows-VM als Hyper-V-Basis</button>
@@ -121,8 +122,10 @@
       <input id="build-type" type="hidden">
       <label>Media Root<input id="media-root" name="mediaRoot" required></label>
       <button id="scan-media" type="button" class="button secondary">Windows- und SQL-ISOs erkennen</button>
+      <label id="sql-parent-field" hidden>Veröffentlichte OS-Baseline<select id="sql-parent-artifact"><option value="">OS-Baseline auswählen …</option></select></label>
+      <div id="sql-parent-details" class="selection-details" hidden>Die OS-Baseline bleibt unverändert; der SQL-Builder erhält eine eigene differenzierende VHDX.</div>
       <label id="sql-image-name-field" hidden>Frei wählbarer Image-Name (optional)<input id="sql-image-name" maxlength="80" placeholder="z. B. WS2025-SQL2025-Entwicklung"></label>
-      <div class="form-grid">
+      <div id="windows-fields" class="form-grid">
         <label>Erkanntes Windows-Installationsmedium<select id="windows-media" required><option value="">Media Root scannen …</option></select></label>
         <label>Windows Server<input id="os-id" readonly></label>
         <label>Windows-Edition<input id="windows-edition" readonly></label>
@@ -131,7 +134,7 @@
         <label>vCPU<input id="processor-count" type="number" min="1" max="64" value="4"></label>
         <label>Systemdisk (GB)<input id="disk-gb" type="number" min="32" value="80"></label>
       </div>
-      <div class="form-grid media-hash-grid">
+      <div id="windows-hash-fields" class="form-grid media-hash-grid">
         <label>Offizieller Windows-ISO SHA-256<input id="windows-media-sha256" inputmode="text" autocomplete="off" maxlength="64" placeholder="64 Hex-Zeichen"></label>
         <div><span id="windows-media-hash-status" class="form-note">Windows-Hash: Medium auswählen</span><button id="set-windows-media-hash" type="button" class="button secondary">Windows-Hash berechnen / prüfen</button></div>
       </div>
@@ -144,7 +147,7 @@
         <label>Offizieller SQL-ISO SHA-256<input id="sql-media-sha256" inputmode="text" autocomplete="off" maxlength="64" placeholder="64 Hex-Zeichen"></label>
         <div><span id="sql-media-hash-status" class="form-note">SQL-Hash: Medium auswählen</span><button id="set-sql-media-hash" type="button" class="button secondary">SQL-Hash berechnen / prüfen</button></div>
       </div>
-      <p class="form-note">Ohne Eingabe berechnet der Knopf den lokalen SHA-256 und speichert ihn als Sidecar. Mit einem offiziellen SHA-256 aus der Downloadquelle prüft er die lokale ISO strikt gegen diesen Wert. Windows-ISOs können in beliebigen Unterordnern des Media Root liegen; SQL-ISOs bleiben unter <code>SQL</code>.</p>
+      <p id="build-note" class="form-note">Aus der gewählten unveränderlichen OS-Baseline wird eine eigene differenzierende VHDX erstellt. Windows muss nicht erneut installiert werden; nur OOBE und SQL PrepareImage erfolgen in der neuen Build-VM.</p>
       <div class="dialog-actions"><button type="button" class="button secondary" value="cancel" formnovalidate>Abbrechen</button><button id="build-submit" class="button primary" value="default">Build im Hintergrund starten</button></div>
     </form>
   </dialog>
@@ -178,7 +181,10 @@
         <label>SQL Server<select id="container-version"><option value="2022">SQL Server 2022</option><option value="2019">SQL Server 2019</option><option value="2025">SQL Server 2025</option></select></label>
         <label>Profil<select id="container-profile"><option value="standard">Standard</option><option value="compact">Kompakt</option><option value="performance">Performance</option></select></label>
         <label>Instanzname<input id="container-instance" value="primary" pattern="[A-Za-z0-9_-]{1,64}" required></label>
+        <label>Labname<input id="container-lab-name" value="container-lab" pattern="[A-Za-z0-9][A-Za-z0-9 _-]{0,63}" required></label>
       </div>
+      <label class="form-check"><input id="container-persistent-data" type="checkbox"> Daten dauerhaft im konfigurierten Data Root speichern</label>
+      <p class="form-note">Bei Aktivierung wird <code>/var/opt/mssql</code> als Host-Bind-Mount unter dem Data Root geführt. „Umgebung entfernen“ entfernt diesen Datenbereich nicht.</p>
       <label>SA-Passwort<input id="container-password" type="password" autocomplete="new-password" required></label>
       <label>SA-Passwort wiederholen<input id="container-password-repeat" type="password" autocomplete="new-password" required></label>
       <p class="form-note">Das Passwort wird ausschließlich an den gestarteten Job übergeben, nicht gespeichert und nicht im Live-Log ausgegeben.</p>
@@ -198,6 +204,8 @@
         <label>vCPU<input id="hyperv-processors" type="number" min="1" max="64" value="4" required></label>
         <label>Virtueller Switch (optional)<select id="hyperv-switch"><option value="">Kein Switch = isoliert</option></select></label>
       </div>
+      <label class="form-check"><input id="hyperv-persistent-data" type="checkbox"> Langlebige Daten-VHDX im Data Root anhängen</label>
+      <p class="form-note">Die Daten-VHDX wird nicht bei „Entfernen“ gelöscht. Nach dem ersten VM-Start wird sie einmalig als <code>D:\SQLData</code> initialisiert.</p>
       <p class="form-note">Erstellt eine ausgeschaltete, differenzierende VM aus dem ausgewählten unveränderlichen SQL-Prepared-Image. Start und VMConnect erfolgen danach ausdrücklich separat.</p>
       <div class="dialog-actions"><button type="button" class="button secondary" value="cancel" formnovalidate>Abbrechen</button><button class="button primary" value="default">Umgebung erstellen</button></div>
     </form>
@@ -215,6 +223,7 @@
         <label>vCPU<input id="hyperv-existing-vm-processors" type="number" min="1" max="64" value="4" required></label>
         <label>Virtueller Switch (optional)<select id="hyperv-existing-vm-switch"><option value="">Kein Switch = isoliert</option></select></label>
       </div>
+      <label class="form-check"><input id="hyperv-existing-vm-persistent-data" type="checkbox"> Langlebige Daten-VHDX im Data Root anhängen</label>
       <label class="form-check"><input id="hyperv-existing-vm-license-confirm" type="checkbox" required> Ich bestätige, dass Lizenz- und Ablaufstatus der Quell-VM geprüft werden. Eine Entwicklungs-/Evaluierungsumgebung kann zeitlich befristet sein.</label>
       <p class="form-note">Die Original-VM und ihre VHDX werden nicht verändert. SQL Server Lab erstellt zuerst eine eigene Arbeitskopie der Systemdisk und verwendet nur diese als schreibgeschützten Parent der neuen differenzierenden, ausgeschalteten Lab-VM.</p>
       <div class="dialog-actions"><button type="button" class="button secondary" value="cancel" formnovalidate>Abbrechen</button><button class="button primary" value="default">Umgebung erstellen</button></div>
@@ -226,6 +235,8 @@
       <div class="dialog-heading"><div><p class="eyebrow">MEDIENQUELLEN</p><h2>Media Root und offizielle Quellen</h2></div><button type="button" class="icon-button" value="cancel" formnovalidate aria-label="Schließen">×</button></div>
       <label>Media Root<input id="sources-media-root" required></label>
       <p class="form-note">Der Pfad wird lokal als Standard gespeichert. Bei einer Änderung werden die Medien beim nächsten Erkennen am neuen Ort gesucht.</p>
+      <label>Data Root (optional)<input id="sources-data-root" placeholder="z. B. D:\Lab_Data"></label>
+      <p class="form-note">Der Data Root enthält optionale langlebige Daten. Er muss zuvor mit <code>Initialize-SqlServerLabDataRoot.ps1</code> initialisiert worden sein.</p>
       <div id="media-source-list" class="source-list"></div>
       <div class="dialog-actions"><button type="button" class="button secondary" value="cancel" formnovalidate>Schließen</button><button class="button primary" value="default">Media Root speichern</button></div>
     </form>

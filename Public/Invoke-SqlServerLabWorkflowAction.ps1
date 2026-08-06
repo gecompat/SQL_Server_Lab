@@ -23,6 +23,13 @@ Optionaler vorhandener virtueller Hyper-V-Switch für eine reguläre Hyper-V-
 Umgebung. Ohne Angabe bleibt die VM bewusst isoliert.
 .PARAMETER MediaRoot
     Externer Media Root für eine neue Windows- oder SQL-Vorbereitung.
+.PARAMETER DataRoot
+    Vorher initialisierter Data Root für optionale langlebige SQL-Daten.
+.PARAMETER PersistentData
+    Aktiviert die optionale Data-Root-Anbindung beim Erstellen einer Container-
+    oder Hyper-V-Umgebung.
+.PARAMETER PersistentDataDiskGB
+    Größe der optionalen, langlebigen Hyper-V-Daten-VHDX in GB.
 .PARAMETER OperatingSystemId
     Windows-Server-Version eines neu anzulegenden Builds.
 .PARAMETER WindowsMediaPath
@@ -105,12 +112,12 @@ function Invoke-SqlServerLabWorkflowAction {
         [Parameter(Mandatory)]
         [ValidateSet(
             'Refresh',
-            'SetMediaRoot',
+            'SetMediaRoot', 'SetDataRoot',
             'NewContainerLab', 'StartContainerLab', 'StopContainerLab', 'RestartContainerLab', 'RemoveContainerLab',
             'CreateContainerDatabase', 'InstallContainerSampleDatabase', 'ExecuteContainerScript',
-            'NewHyperVLab', 'NewHyperVLabFromExistingVm', 'StartHyperVLab', 'StopHyperVLab', 'CompleteHyperVLabSql', 'OpenHyperVConsole', 'RemoveHyperVLab',
+            'NewHyperVLab', 'NewHyperVLabFromExistingVm', 'StartHyperVLab', 'StopHyperVLab', 'EnableHyperVLabPersistentData', 'InitializeHyperVLabPersistentData', 'CompleteHyperVLabSql', 'InspectHyperVLabSqlInstances', 'OpenHyperVConsole', 'RemoveHyperVLab',
             'NewWindowsBuild', 'SetWindowsMediaHash', 'OpenWindowsConsole', 'ConfirmWindowsInstall', 'GeneralizeWindowsBuild', 'PublishWindowsBuild',
-            'NewSqlBuild', 'SetSqlMediaHash', 'OpenSqlConsole', 'PrepareSqlImage', 'ResumeSqlImage', 'PublishSqlImage',
+            'NewSqlBuild', 'NewSqlBuildFromBaseline', 'SetSqlMediaHash', 'OpenSqlConsole', 'ConfirmSqlWindowsInstall', 'PrepareSqlImage', 'ResumeSqlImage', 'PublishSqlImage',
             'RunSqlAcceptanceSetup', 'RunSqlAcceptanceTests',
             'CleanupWindowsBuild', 'CleanupSqlBuild', 'RenameHyperVImageArtifact', 'RemoveHyperVImageArtifact'
         )]
@@ -121,6 +128,9 @@ function Invoke-SqlServerLabWorkflowAction {
         [string]$SourceVMName,
         [string]$SwitchName,
         [string]$MediaRoot,
+        [string]$DataRoot,
+        [switch]$PersistentData,
+        [ValidateRange(32, 4096)][int]$PersistentDataDiskGB = 128,
         [ValidatePattern('^windows-(server-)?[0-9]+$')][string]$OperatingSystemId = 'windows-server-2025',
         [string]$WindowsMediaPath,
         [ValidatePattern('^[a-z0-9-]+$')][string]$WindowsEdition = 'standard-evaluation',
@@ -173,6 +183,17 @@ function Invoke-SqlServerLabWorkflowAction {
         }
     }
 
+    if ($Action -eq 'SetDataRoot') {
+        if (-not $DataRoot -or -not (Test-Path -LiteralPath $DataRoot -PathType Container)) {
+            throw 'LAB_DATA_ROOT_REQUIRED'
+        }
+        return [PSCustomObject]@{
+            Action = $Action
+            CompletedAt = (Get-Date).ToUniversalTime().ToString('o')
+            Result = [PSCustomObject]@{ DataRoot = (Set-LabDataRootDefault -DataRoot $DataRoot) }
+        }
+    }
+
     $containerActions = @(
         'NewContainerLab', 'StartContainerLab', 'StopContainerLab', 'RestartContainerLab', 'RemoveContainerLab',
         'CreateContainerDatabase', 'InstallContainerSampleDatabase', 'ExecuteContainerScript'
@@ -184,7 +205,7 @@ function Invoke-SqlServerLabWorkflowAction {
     }
 
     $credential = $null
-    $credentialRequired = $Action -in @('ConfirmWindowsInstall', 'PrepareSqlImage', 'CompleteHyperVLabSql')
+    $credentialRequired = $Action -in @('ConfirmWindowsInstall', 'ConfirmSqlWindowsInstall', 'PrepareSqlImage', 'CompleteHyperVLabSql', 'InspectHyperVLabSqlInstances', 'InitializeHyperVLabPersistentData')
     if ($Action -eq 'GeneralizeWindowsBuild') {
         $existingWindowsBuild = Get-HyperVImageBuildPlan -BuildId $BuildId
         $credentialRequired = $existingWindowsBuild -and [string]$existingWindowsBuild.state -eq 'MANUAL_ACTION_REQUIRED'
@@ -209,7 +230,13 @@ function Invoke-SqlServerLabWorkflowAction {
         throw 'HYPERV_EXISTING_VM_SOURCE_AND_NAME_REQUIRED'
     }
 
-    if ($Action -in @('NewWindowsBuild', 'NewSqlBuild', 'SetWindowsMediaHash', 'SetSqlMediaHash')) {
+    if (($PersistentData -and $Action -in @('NewHyperVLab', 'NewHyperVLabFromExistingVm')) -or $Action -eq 'EnableHyperVLabPersistentData') {
+        if (-not $DataRoot) { $DataRoot = Get-LabDataRootDefault }
+        if (-not $DataRoot) { throw 'LAB_DATA_ROOT_REQUIRED: Persistente Hyper-V-Daten benötigen einen konfigurierten Data Root.' }
+        $DataRoot = Set-LabDataRootDefault -DataRoot $DataRoot
+    }
+
+    if ($Action -in @('NewWindowsBuild', 'NewSqlBuild', 'NewSqlBuildFromBaseline', 'SetWindowsMediaHash', 'SetSqlMediaHash')) {
         if (-not $MediaRoot) { $MediaRoot = Get-LabMediaRootDefault }
         if (-not $MediaRoot) { throw 'HYPERV_WORKFLOW_MEDIA_ROOT_REQUIRED' }
         $MediaRoot = Set-LabMediaRootDefault -MediaRoot $MediaRoot
@@ -222,7 +249,12 @@ function Invoke-SqlServerLabWorkflowAction {
         'StopHyperVLab' { 'Der saubere Stopp der Hyper-V-VM wird vorbereitet.' }
         'OpenHyperVConsole' { 'VMConnect wird vorbereitet.' }
         'CompleteHyperVLabSql' { 'SQL Server wird mit CompleteImage in der laufenden Lab-VM vervollständigt.' }
+        'EnableHyperVLabPersistentData' { 'Eine langlebige Daten-VHDX wird für die ausgeschaltete Lab-VM vorbereitet.' }
+        'InitializeHyperVLabPersistentData' { 'Der langlebige Daten-VHDX wird einmalig im laufenden Gast initialisiert.' }
+        'InspectHyperVLabSqlInstances' { 'SQL-Instanzen, Dienste und TCP-Ports werden ausschließlich lesend in der laufenden Lab-VM geprüft.' }
+        'ConfirmSqlWindowsInstall' { 'Die manuell installierte Windows-Edition wird vor dem SQL-Setup geprüft.' }
         'NewSqlBuild' { 'Windows- und SQL-Medien werden für den Build geprüft.' }
+        'NewSqlBuildFromBaseline' { 'OS-Baseline und SQL-Medium werden für einen differenzierenden SQL-Builder geprüft.' }
         'SetWindowsMediaHash' { 'Der eingegebene Windows-ISO-Hash wird geprüft und gespeichert.' }
         'SetSqlMediaHash' { 'Der eingegebene SQL-ISO-Hash wird geprüft und gespeichert.' }
         'NewWindowsBuild' { 'Windows-Installationsmedium wird für den Build geprüft.' }
@@ -231,17 +263,24 @@ function Invoke-SqlServerLabWorkflowAction {
     Write-LabInfo "Auftrag angenommen: $progress"
     $result = switch ($Action) {
         'NewContainerLab' {
-            New-SqlServerLab -Version $SqlVersion -Provider $Provider -Profile $Profile -InstanceId $InstanceId -SaPassword $SaPassword
+            New-SqlServerLab -Version $SqlVersion -Provider $Provider -Profile $Profile -InstanceId $InstanceId -LabName $LabName -DataRoot $DataRoot -PersistentData:$PersistentData -SaPassword $SaPassword
         }
         'NewHyperVLab' {
-            New-HyperVLabEnvironment -ArtifactId $ArtifactId -LabName $LabName -InstanceId $InstanceId -MemoryStartupMB $MemoryStartupMB -ProcessorCount $ProcessorCount -SwitchName $SwitchName
+            $lab = New-HyperVLabEnvironment -ArtifactId $ArtifactId -LabName $LabName -InstanceId $InstanceId -MemoryStartupMB $MemoryStartupMB -ProcessorCount $ProcessorCount -SwitchName $SwitchName
+            if ($PersistentData) { $null = Enable-HyperVLabPersistentData -RunId $lab.RunId -DataRoot $DataRoot -SizeGB $PersistentDataDiskGB }
+            $lab
         }
         'NewHyperVLabFromExistingVm' {
-            New-HyperVLabEnvironmentFromExistingVm -SourceVMName $SourceVMName -LabName $LabName -InstanceId $InstanceId -MemoryStartupMB $MemoryStartupMB -ProcessorCount $ProcessorCount -SwitchName $SwitchName -ConfirmSourceLicense:$ConfirmSourceLicense
+            $lab = New-HyperVLabEnvironmentFromExistingVm -SourceVMName $SourceVMName -LabName $LabName -InstanceId $InstanceId -MemoryStartupMB $MemoryStartupMB -ProcessorCount $ProcessorCount -SwitchName $SwitchName -ConfirmSourceLicense:$ConfirmSourceLicense
+            if ($PersistentData) { $null = Enable-HyperVLabPersistentData -RunId $lab.RunId -DataRoot $DataRoot -SizeGB $PersistentDataDiskGB }
+            $lab
         }
         'StartHyperVLab' { Start-HyperVLabEnvironment -RunId $BuildId }
         'StopHyperVLab' { Stop-HyperVLabEnvironment -RunId $BuildId }
+        'EnableHyperVLabPersistentData' { Enable-HyperVLabPersistentData -RunId $BuildId -DataRoot $DataRoot -SizeGB $PersistentDataDiskGB }
+        'InitializeHyperVLabPersistentData' { Initialize-HyperVLabPersistentData -RunId $BuildId -Credential $credential }
         'CompleteHyperVLabSql' { Complete-HyperVLabSqlImage -RunId $BuildId -Credential $credential }
+        'InspectHyperVLabSqlInstances' { Inspect-HyperVLabSqlInstances -RunId $BuildId -Credential $credential }
         'OpenHyperVConsole' { Open-HyperVLabEnvironmentConsole -RunId $BuildId }
         'RemoveHyperVLab' { Remove-SqlServerLab -RunId $BuildId -Force -Confirm:$false }
         'StartContainerLab' { Start-SqlServerLab -RunId $BuildId }
@@ -309,6 +348,13 @@ function Invoke-SqlServerLabWorkflowAction {
             if ($sqlMedia.HashStatus -ne 'SIDECAR_READY' -and $SqlMediaSha256) { $null = Set-HyperVSqlMediaHashSidecar -MediaRoot $MediaRoot -SqlVersion $SqlVersion -MediaEdition $SqlEdition -SqlMediaPath $SqlMediaPath -ExpectedSha256 $SqlMediaSha256 }
             Initialize-HyperVSqlFreshPreparedImageBuild -MediaRoot $MediaRoot -OperatingSystemId $OperatingSystemId -WindowsEdition $WindowsEdition -InstallationType $InstallationType -WindowsMediaPath $WindowsMediaPath -SqlVersion $SqlVersion -MediaEdition $SqlEdition -SqlMediaPath $SqlMediaPath -ImageName $ImageName -MemoryStartupBytes ($MemoryStartupMB * 1MB) -ProcessorCount $ProcessorCount -OsDiskSizeBytes ($OsDiskSizeGB * 1GB)
         }
+        'NewSqlBuildFromBaseline' {
+            if (-not $ArtifactId) { throw 'HYPERV_WORKFLOW_OS_BASELINE_REQUIRED' }
+            if (-not $SqlMediaPath) { throw 'HYPERV_WORKFLOW_SQL_MEDIA_REQUIRED' }
+            $sqlMedia = Resolve-HyperVSqlInstallationMedia -MediaRoot $MediaRoot -SqlVersion $SqlVersion -MediaEdition $SqlEdition -SqlMediaPath $SqlMediaPath
+            if ($sqlMedia.HashStatus -ne 'SIDECAR_READY' -and $SqlMediaSha256) { $null = Set-HyperVSqlMediaHashSidecar -MediaRoot $MediaRoot -SqlVersion $SqlVersion -MediaEdition $SqlEdition -SqlMediaPath $SqlMediaPath -ExpectedSha256 $SqlMediaSha256 }
+            Initialize-HyperVSqlPreparedImageBuild -MediaRoot $MediaRoot -ImageArtifactId $ArtifactId -SqlVersion $SqlVersion -MediaEdition $SqlEdition -SqlMediaPath $SqlMediaPath -ImageName $ImageName -MemoryStartupBytes ($MemoryStartupMB * 1MB) -ProcessorCount $ProcessorCount
+        }
         'SetSqlMediaHash' {
             if (-not $SqlMediaPath) { throw 'HYPERV_WORKFLOW_SQL_MEDIA_REQUIRED' }
             if ($SqlMediaSha256) {
@@ -325,6 +371,11 @@ function Invoke-SqlServerLabWorkflowAction {
                 $null = Start-HyperVSqlImageBuildVM -BuildId $BuildId
             }
             Start-LabVmConnect -VMName ([string]$build.builder.vmName)
+        }
+        'ConfirmSqlWindowsInstall' {
+            $build = Get-HyperVSqlImageBuildPlan -BuildId $BuildId
+            if (-not $build) { throw 'HYPERV_SQL_IMAGE_BUILD_NOT_FOUND' }
+            Confirm-HyperVSqlFreshWindowsInstallation -Build $build -Credential $credential
         }
         'PrepareSqlImage' { Invoke-HyperVSqlPrepareAndGeneralize -BuildId $BuildId -Credential $credential }
         'ResumeSqlImage' { Resume-HyperVSqlPreparedImageGeneralization -BuildId $BuildId }

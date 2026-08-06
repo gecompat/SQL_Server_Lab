@@ -111,6 +111,25 @@ function Get-HyperVSqlMediaEditionFromPath {
     return $null
 }
 
+function ConvertTo-HyperVSqlMediaEdition {
+    <#
+    .SYNOPSIS Übersetzt die im Artifact gespeicherte SQL-Produktedition in den Medien-Schlüssel.
+    .DESCRIPTION Artifacts speichern die von SQL Setup verwendete Produktedition
+    (z. B. EnterpriseDeveloper), die Medienverwaltung hingegen die kurze
+    Verzeichnis-/Auswahlbezeichnung (Enterprise). Beide Formen müssen für
+    bereits veröffentlichte Images dauerhaft kompatibel bleiben.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$SqlEdition)
+
+    switch -Regex ($SqlEdition.Trim()) {
+        '^(Eval|Evaluation)$' { return 'Eval' }
+        '^(Enterprise|EnterpriseDeveloper)$' { return 'Enterprise' }
+        '^(Standard|StandardDeveloper)$' { return 'Standard' }
+        default { throw "HYPERV_SQL_MEDIA_EDITION_UNSUPPORTED: $SqlEdition" }
+    }
+}
+
 function Get-HyperVSqlInstallationMediaInfo {
     <# .SYNOPSIS Erkennt SQL Server direkt aus setup.exe einer ISO. #>
     [CmdletBinding()]
@@ -424,6 +443,7 @@ function New-HyperVSqlImageBuildPlan {
         [Parameter(Mandatory)][string]$SqlVersion,
         [Parameter(Mandatory)][ValidateSet('Eval', 'Enterprise', 'Standard')][string]$SqlEdition,
         [string[]]$SqlFeatures = @('SQLENGINE', 'FULLTEXT', 'REPLICATION'),
+        [ValidateLength(1, 80)][string]$ImageName,
         [string]$StateRoot
     )
 
@@ -457,7 +477,8 @@ function New-HyperVSqlImageBuildPlan {
     })
     $timestamp = Get-LabTimestamp
     $state = [PSCustomObject]@{
-        contractVersion = '1'; buildKind = 'hyperv-sql-prepare-image'; buildId = $buildId; scopeId = $scopeId
+        contractVersion = '2'; buildKind = 'hyperv-sql-prepare-image'; buildId = $buildId; scopeId = $scopeId
+        provisioningMode = 'sealed-os-baseline'; displayName = $ImageName
         state = 'MEDIA_VERIFIED'; stateHistory = @([PSCustomObject]@{
             state = 'MEDIA_VERIFIED'; timestamp = $timestamp; reason = 'OS-Artifact und SQL-ISO SHA-256 verifiziert'
         })
@@ -590,6 +611,7 @@ function Initialize-HyperVSqlPreparedImageBuild {
         [ValidateSet('Eval', 'Enterprise', 'Standard')][string]$MediaEdition = 'Eval',
         [string]$SqlMediaPath,
         [string[]]$SqlFeatures = @('SQLENGINE', 'FULLTEXT', 'REPLICATION'),
+        [ValidateLength(1, 80)][string]$ImageName,
         [ValidateRange(2GB, 1TB)][long]$MemoryStartupBytes = 4GB,
         [ValidateRange(1, 64)][int]$ProcessorCount = 4,
         [string]$StateRoot
@@ -601,7 +623,7 @@ function Initialize-HyperVSqlPreparedImageBuild {
     $labNetwork = Ensure-LabHyperVNetwork
     $plan = New-HyperVSqlImageBuildPlan -ImageArtifactId $ImageArtifactId -IsoPath $media.IsoPath `
         -ExpectedSha256 $media.ExpectedSha256 -SqlVersion $SqlVersion -SqlEdition $MediaEdition `
-        -SqlFeatures $SqlFeatures -StateRoot $StateRoot
+        -SqlFeatures $SqlFeatures -ImageName $ImageName -StateRoot $StateRoot
     try {
         $instance = New-HyperVInstance -ImageArtifactId $ImageArtifactId -StateRoot $StateRoot `
             -RunDirectory $plan.BuildDirectory -RunId $plan.buildId -ScopeId $plan.scopeId `
@@ -735,7 +757,11 @@ function Confirm-HyperVSqlFreshWindowsInstallation {
     }
     if ([string]$receipt.productName -notmatch '2025') { throw "HYPERV_SQL_WINDOWS_INSTALLATION_VERSION_MISMATCH: erkannt $($receipt.productName)" }
     $editionPattern = if ([string]$Build.operatingSystem.edition -eq 'standard-evaluation') { '^ServerStandardEval' } else { '^ServerDatacenterEval' }
-    if ([string]$receipt.editionId -notmatch $editionPattern) { throw "HYPERV_SQL_WINDOWS_INSTALLATION_EDITION_MISMATCH: erwartet $($Build.operatingSystem.edition), erkannt $($receipt.editionId)" }
+    if ([string]$receipt.editionId -notmatch $editionPattern) {
+        $expectedLabel = if ([string]$Build.operatingSystem.edition -eq 'standard-evaluation') { 'Windows Server 2025 Standard Evaluation' } else { 'Windows Server 2025 Datacenter Evaluation' }
+        $typeLabel = if ([string]$Build.operatingSystem.installationType -eq 'core') { 'Server Core Installation' } else { 'Desktop Experience' }
+        throw "HYPERV_SQL_WINDOWS_INSTALLATION_EDITION_MISMATCH: erwartet $($Build.operatingSystem.edition), erkannt $($receipt.editionId). In VMConnect Windows vor SQL-Setup neu installieren und '$expectedLabel ($typeLabel)' auswählen."
+    }
     $actualType = switch ([string]$receipt.installationType) { 'Server Core' { 'core' }; 'Server' { 'desktop-experience' }; default { 'unknown' } }
     if ($actualType -ne [string]$Build.operatingSystem.installationType) { throw "HYPERV_SQL_WINDOWS_INSTALLATION_TYPE_MISMATCH: erwartet $($Build.operatingSystem.installationType), erkannt $actualType" }
     $Build | Add-Member -NotePropertyName installationEvidence -NotePropertyValue ([PSCustomObject]@{

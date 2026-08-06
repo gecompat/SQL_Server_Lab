@@ -83,8 +83,9 @@ Eine optionale Windows-OS-Baseline wird über die
 aus der verifizierten ISO erstellt. Wiederverwendbare SQL-Prepared-Images
 werden gemäß der
 [SQL-Prepared-Image-Anleitung](Documentation/HowTo/HYPERV_SQL_PREPARED_IMAGE.md)
-jeweils aus einer frischen Windows-Installation mit genau einem finalen Sysprep
-vorbereitet. Austauschbare Evaluation-Images und langlebige Daten trennt der
+standardmäßig als differenzierende VMs aus einer veröffentlichten OS-Baseline
+erstellt; dadurch entfällt die Windows-Neuinstallation je SQL-Version.
+Austauschbare Evaluation-Images und langlebige Daten trennt der
 [Data-Root- und Refresh-Vertrag](Documentation/HowTo/PERSISTENT_DATA_AND_EVALUATION_REFRESH.md).
 Die zusätzlichen Voraussetzungen für Entwicklung, Provider-Smoke-Tests,
 Self-hosted Runner und Hyper-V beschreibt die

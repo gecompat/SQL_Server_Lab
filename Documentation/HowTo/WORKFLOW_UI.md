@@ -25,9 +25,11 @@ ausgeführt werden sollen.
 
 1. Windows-OS-Baseline: Build anlegen, VMConnect öffnen, Windows installieren,
    Installation bestätigen, generalisieren und veröffentlichen.
-2. SQL-Prepared-Image: frischen Build mit Windows- und SQL-Medium anlegen,
-   Windows in VMConnect abschließen, SQL PrepareImage und finalen Sysprep
-   ausführen, Image veröffentlichen.
+2. SQL-Prepared-Image: eine veröffentlichte OS-Baseline und das SQL-Medium
+   auswählen. Der Builder erzeugt eine differenzierende VHDX; Windows wird
+   nicht erneut installiert. Nach der kurzen OOBE folgen SQL PrepareImage,
+   finaler Sysprep und Veröffentlichung. Der frische Windows+SQL-ISO-Weg ist
+   als Sonderfall separat verfügbar.
 3. Abnahme: Die Übersicht listet run-lokale Windows-/SQL-Abnahmeumgebungen
    samt ihrem Testzustand.
 

@@ -238,6 +238,139 @@ function Start-HyperVLabEnvironment {
     return $status
 }
 
+function Enable-HyperVLabPersistentData {
+    <# .SYNOPSIS Hängt eine langlebige Daten-VHDX aus dem Data Root an eine ausgeschaltete Lab-VM an. #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RunId,
+        [Parameter(Mandatory)][string]$DataRoot,
+        [ValidateRange(32, 4096)][int]$SizeGB = 128,
+        [string]$StateRoot
+    )
+
+    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
+    $managed = Get-HyperVManagedVM -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
+    if (-not $managed -or [string]$managed.VM.State -ne 'Off') { throw 'HYPERV_LAB_PERSISTENT_DATA_VM_MUST_BE_OFF' }
+    if ($lab.Instance.persistentStorage) { throw 'HYPERV_LAB_PERSISTENT_DATA_ALREADY_ENABLED' }
+    $sqlVersion = if ($lab.Instance.sqlVersion) { [string]$lab.Instance.sqlVersion } else { 'windows' }
+    $storage = Get-LabPersistentInstanceStorage -DataRoot $DataRoot -LabName ([string]$lab.Run.metadata.name) -Provider hyperv -InstanceId ([string]$lab.Instance.id) -SqlVersion $sqlVersion -Create
+    if (Test-Path -LiteralPath $storage.HyperVVhdxPath -PathType Leaf) { throw 'HYPERV_LAB_PERSISTENT_DATA_VHDX_ALREADY_EXISTS' }
+    $null = New-VHD -Path $storage.HyperVVhdxPath -Dynamic -SizeBytes ([long]$SizeGB * 1GB) -ErrorAction Stop
+    $vhd = Get-VHD -Path $storage.HyperVVhdxPath -ErrorAction Stop
+    $drive = [PSCustomObject]@{
+        Id = 'persistent-sql-data'; Role = 'sqlData'; SizeBytes = [long]$SizeGB * 1GB; VhdType = 'dynamic'
+        Path = [string]$storage.HyperVVhdxPath; DiskIdentifier = ([string]$vhd.DiskIdentifier).ToUpperInvariant()
+        GuestPath = 'D:\SQLData'; DriveLetter = 'D'; FileSystem = 'NTFS'; AllocationUnitKB = 64; VolumeLabel = 'SQLLAB_DATA'
+    }
+    $allDrives = @($managed.Identity.additionalDrives) + @($drive)
+    $notes = ConvertTo-HyperVLabNotes -RunId $lab.Run.runId -ScopeId $lab.Run.scopeId -InstanceId ([string]$lab.Instance.id) -ChildVhdxPath ([string]$managed.Identity.childVhdxPath) -AdditionalDrives $allDrives
+    $null = Add-VMHardDiskDrive -VMName $lab.Instance.vmName -ControllerType SCSI -ControllerNumber 0 -Path $storage.HyperVVhdxPath -ErrorAction Stop
+    $null = Set-VM -VMName $lab.Instance.vmName -Notes $notes -AutomaticCheckpointsEnabled $false -ErrorAction Stop
+    $lab.Instance | Add-Member -NotePropertyName persistentStorage -NotePropertyValue ([PSCustomObject]@{ mode = 'data-root-vhdx'; root = [string]$storage.SqlRoot; hostPath = [string]$storage.HyperVVhdxPath; guestPath = 'D:\SQLData'; state = 'ATTACHED_PENDING_INITIALIZATION' }) -Force
+    Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
+    Write-LabSuccess "Persistente Daten-VHDX angehängt: $($storage.HyperVVhdxPath). Nach dem VM-Start einmal initialisieren."
+    return $lab.Instance.persistentStorage
+}
+
+function Initialize-HyperVLabPersistentData {
+    <# .SYNOPSIS Formatiert den zuvor angehängten persistenten Lab-Datenträger im laufenden Gast. #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$RunId, [Parameter(Mandatory)][PSCredential]$Credential, [string]$StateRoot)
+
+    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
+    if (-not $lab.Instance.persistentStorage -or [string]$lab.Instance.persistentStorage.state -ne 'ATTACHED_PENDING_INITIALIZATION') { throw 'HYPERV_LAB_PERSISTENT_DATA_INITIALIZATION_NOT_PENDING' }
+    $receipt = Initialize-HyperVWindowsGuestDrives -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $Credential
+    $lab.Instance.persistentStorage.state = 'READY'
+    $lab.Instance.persistentStorage.initializedAt = Get-LabTimestamp
+    Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
+    Write-LabSuccess 'Persistenter Hyper-V-Datenträger ist im Gast als D:\SQLData bereit.'
+    return $receipt
+}
+
+function Get-HyperVLabSqlInstanceReceipt {
+    <#
+    .SYNOPSIS Liest alle lokal registrierten SQL-Server-Instanzen im verwalteten Gast aus.
+    .DESCRIPTION Die Prüfung ist ausschließlich lesend. Sie verwendet PowerShell
+    Direct und erfasst Instanzname, Dienstzustand sowie – sofern festgelegt –
+    den TCP-Port. Kennwörter und sonstige Geheimnisse werden nicht gelesen.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Lab, [Parameter(Mandatory)][PSCredential]$Credential)
+
+    $managed = Get-HyperVManagedVM -VMName ([string]$Lab.Instance.vmName) -ExpectedRunId $Lab.Run.runId -ExpectedScopeId $Lab.Run.scopeId
+    if (-not $managed -or [string]$managed.VM.State -ne 'Running') { throw 'HYPERV_LAB_SQL_INSPECTION_VM_MUST_BE_RUNNING' }
+    $receipt = Invoke-HyperVPowerShellDirect -VMName $Lab.Instance.vmName -ExpectedRunId $Lab.Run.runId -ExpectedScopeId $Lab.Run.scopeId -Credential $Credential -ArgumentList @([string]$Lab.Run.runId, [string]$Lab.Run.scopeId) -ScriptBlock {
+        param($ExpectedRunId, $ExpectedScopeId)
+        $root = 'HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\Instance Names\SQL'
+        $instances = @()
+        if (Test-Path -LiteralPath $root) {
+            $properties = Get-ItemProperty -LiteralPath $root -ErrorAction Stop
+            foreach ($property in @($properties.PSObject.Properties | Where-Object { $_.Name -notmatch '^PS' })) {
+                $name = [string]$property.Name
+                $instanceId = [string]$property.Value
+                $serviceName = if ($name -eq 'MSSQLSERVER') { 'MSSQLSERVER' } else { 'MSSQL$' + $name }
+                $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+                $tcpPath = "HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\$instanceId\MSSQLServer\SuperSocketNetLib\Tcp\IPAll"
+                $port = $null
+                if (Test-Path -LiteralPath $tcpPath) {
+                    $tcp = Get-ItemProperty -LiteralPath $tcpPath -ErrorAction Stop
+                    $candidate = [string]$tcp.TcpPort
+                    if (-not $candidate) { $candidate = [string]$tcp.TcpDynamicPorts }
+                    if ($candidate -match '^\d{1,5}$') { $port = [int]$candidate }
+                }
+                $instances += [PSCustomObject]@{
+                    name = $name; instanceId = $instanceId; isDefault = ($name -eq 'MSSQLSERVER')
+                    serviceName = $serviceName; serviceStatus = if ($service) { [string]$service.Status } else { 'NOT_FOUND' }
+                    tcpPort = $port
+                }
+            }
+        }
+        [PSCustomObject]@{ runId = $ExpectedRunId; scopeId = $ExpectedScopeId; instances = @($instances); inspectedAt = [datetime]::UtcNow.ToString('o') }
+    }
+    $receipt = @($receipt)[-1]
+    if (-not $receipt -or [string]$receipt.runId -ne [string]$Lab.Run.runId -or [string]$receipt.scopeId -ne [string]$Lab.Run.scopeId) {
+        throw 'HYPERV_LAB_SQL_INSPECTION_RECEIPT_INVALID'
+    }
+    return $receipt
+}
+
+function Save-HyperVLabSqlInstanceReceipt {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Lab, [Parameter(Mandatory)]$Receipt)
+
+    $instances = @($Receipt.instances | ForEach-Object {
+        $server = if ($_.isDefault) {
+            if ($_.tcpPort) { "localhost,$($_.tcpPort)" } else { 'localhost' }
+        }
+        elseif ($_.tcpPort) { "localhost,$($_.tcpPort)" }
+        else { "localhost\$($_.name)" }
+        [PSCustomObject]@{
+            Name = [string]$_.name; InstanceId = [string]$_.instanceId; IsDefault = [bool]$_.isDefault
+            ServiceName = [string]$_.serviceName; ServiceStatus = [string]$_.serviceStatus; TcpPort = $_.tcpPort
+            ConnectionString = "Server=$server;Database=master;Integrated Security=True;Encrypt=True;TrustServerCertificate=True;"
+        }
+    })
+    $Lab.Instance | Add-Member -NotePropertyName sqlInstances -NotePropertyValue $instances -Force
+    $Lab.Instance | Add-Member -NotePropertyName sqlInstancesInspectedAt -NotePropertyValue ([string]$Receipt.inspectedAt) -Force
+    $running = @($instances | Where-Object { $_.ServiceStatus -eq 'Running' })
+    $primaryConnectionString = if ($running.Count -eq 1) { [string]$running[0].ConnectionString } else { $null }
+    $Lab.Instance | Add-Member -NotePropertyName connectionString -NotePropertyValue $primaryConnectionString -Force
+    Write-LabArtifactJsonAtomic -Path (Join-Path $Lab.RunDirectory 'connection-info.json') -InputObject $Lab.Connection
+    return $instances
+}
+
+function Inspect-HyperVLabSqlInstances {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$RunId, [Parameter(Mandatory)][PSCredential]$Credential, [string]$StateRoot)
+
+    Write-LabInfo 'Schritt 1/2: SQL-Instanzen werden ausschließlich lesend im laufenden Gast geprüft.'
+    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
+    $receipt = Get-HyperVLabSqlInstanceReceipt -Lab $lab -Credential $Credential
+    $instances = Save-HyperVLabSqlInstanceReceipt -Lab $lab -Receipt $receipt
+    Write-LabSuccess "Schritt 2/2: $($instances.Count) SQL-Instanz(en) geprüft und Verbindungsdaten aktualisiert."
+    return $instances
+}
+
 function Complete-HyperVLabSqlImage {
     <#
     .SYNOPSIS Vervollständigt SQL Server in einer geklonten Prepared-Image-VM.
@@ -254,7 +387,21 @@ function Complete-HyperVLabSqlImage {
     if (-not $artifact -or [string]$artifact.artifactState -ne 'SQL_PREPARED_SEALED') { throw 'HYPERV_LAB_SQL_PREPARED_IMAGE_REQUIRED' }
     if (-not $MediaRoot) { $MediaRoot = Get-LabMediaRootDefault }
     if (-not $MediaRoot) { throw 'HYPERV_WORKFLOW_MEDIA_ROOT_REQUIRED' }
-    $media = Resolve-HyperVSqlInstallationMedia -MediaRoot $MediaRoot -SqlVersion ([string]$artifact.sql.version) -MediaEdition ([string]$artifact.sql.edition)
+    # Das Artifact speichert die SQL-Setup-Produktedition (etwa
+    # EnterpriseDeveloper); für die ISO-Suche wird daraus der stabile
+    # Medien-Schlüssel Enterprise/Eval/Standard abgeleitet.
+    $mediaEdition = ConvertTo-HyperVSqlMediaEdition -SqlEdition ([string]$artifact.sql.edition)
+    # Nicht nur den historischen kanonischen Pfad verwenden: Die UI erkennt
+    # Medien dynamisch in frei organisierten Unterordnern, daher muss
+    # CompleteImage dieselbe Auswahlregel nutzen.
+    $mediaCandidates = @(Get-HyperVSqlInstallationMediaCandidates -MediaRoot $MediaRoot | Where-Object {
+        $_.State -eq 'READY' -and
+        [string]$_.SqlVersion -eq [string]$artifact.sql.version -and
+        [string]$_.MediaEdition -eq $mediaEdition
+    })
+    if ($mediaCandidates.Count -eq 0) { throw "HYPERV_LAB_SQL_COMPLETE_MEDIA_NOT_FOUND: SQL $($artifact.sql.version) / $mediaEdition" }
+    if ($mediaCandidates.Count -gt 1) { throw "HYPERV_LAB_SQL_COMPLETE_MEDIA_AMBIGUOUS: $($mediaCandidates.MediaId -join ', ')" }
+    $media = Resolve-HyperVSqlInstallationMedia -MediaRoot $MediaRoot -SqlVersion ([string]$artifact.sql.version) -MediaEdition $mediaEdition -SqlMediaPath ([string]$mediaCandidates[0].MediaId)
     if ($media.HashStatus -ne 'SIDECAR_READY') { throw "HYPERV_LAB_SQL_MEDIA_HASH_REQUIRED: $($media.HashPath)" }
     $managed = Get-HyperVManagedVM -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
     if (-not $managed -or [string]$managed.VM.State -ne 'Running') { throw 'HYPERV_LAB_SQL_COMPLETE_VM_MUST_BE_RUNNING' }
@@ -286,7 +433,13 @@ function Complete-HyperVLabSqlImage {
     if (-not $receipt -or [string]$receipt.runId -ne [string]$lab.Run.runId -or [int]$receipt.exitCode -notin @(0, 3010) -or (([int]$receipt.exitCode -eq 0) -and $receipt.serviceName -ne 'MSSQLSERVER')) { throw 'HYPERV_LAB_SQL_COMPLETE_RECEIPT_INVALID' }
     Write-LabInfo 'Schritt 2/3: SQL CompleteImage wurde bestätigt; Verbindungsdaten werden aktualisiert.'
     $lab.Instance | Add-Member -NotePropertyName sqlCompletion -NotePropertyValue ([PSCustomObject]@{ state = if ([int]$receipt.exitCode -eq 3010) { 'REBOOT_REQUIRED' } else { 'COMPLETE' }; serviceStatus = [string]$receipt.serviceStatus; completedAt = [string]$receipt.completedAt }) -Force
-    Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
+    if ([int]$receipt.exitCode -eq 0) {
+        $instanceReceipt = Get-HyperVLabSqlInstanceReceipt -Lab $lab -Credential $Credential
+        $null = Save-HyperVLabSqlInstanceReceipt -Lab $lab -Receipt $instanceReceipt
+    }
+    else {
+        Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
+    }
     Write-LabSuccess 'Schritt 3/3: SQL Server CompleteImage ist ausgeführt; MSSQLSERVER ist in dieser Lab-VM eingerichtet.'
     return $lab.Instance.sqlCompletion
 }

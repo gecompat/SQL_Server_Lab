@@ -41,6 +41,7 @@ dialog form { display: grid; gap: 14px; padding: 22px; overflow: auto; max-heigh
 label { display: grid; gap: 6px; min-width: 0; color: var(--muted); font-size: .9rem; } input, select { width: 100%; min-width: 0; padding: 10px 12px; color: var(--ink); border: 1px solid var(--line); border-radius: 8px; background: #081525; } select { text-overflow: ellipsis; }
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }.dialog-actions { justify-content: end; margin-top: 4px; }
 .selection-details { display: grid; gap: 3px; padding: 12px; border: 1px solid #315879; border-radius: 9px; color: var(--muted); background: #091828; font-size: .86rem; overflow-wrap: anywhere; }.selection-details strong { color: var(--ink); }.selection-details code { color: #8ab6de; font-size: .78rem; white-space: normal; }
+.connection-string { overflow-wrap: anywhere; word-break: break-word; }.connection-string code { color: #8ab6de; font-size: .78rem; white-space: normal; }
 .action-feedback { position: fixed; z-index: 20; right: 22px; bottom: 22px; max-width: min(520px, calc(100vw - 44px)); padding: 12px 16px; border: 1px solid #2a928d; border-radius: 10px; color: #d9ffff; background: #0d3037; box-shadow: 0 10px 32px rgba(0, 0, 0, .45); font-weight: 700; }
 @keyframes job-progress { from { transform: translateX(-110%); } to { transform: translateX(290%); } }
 [hidden] { display: none !important; }
