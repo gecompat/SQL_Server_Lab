@@ -32,7 +32,10 @@ try {
         $consoleText -match 'Get-LabDataRootDefault' -and
         $consoleText -match 'SQL-System- und Datenbanken persistent im Data Root einbinden' -and
         $consoleText -match '\$newLabArguments\.PersistentData = \$true' -and
-        $consoleText -match '\$newLabArguments\.DataRoot = \$defaultDataRoot'
+        $consoleText -match '\$newLabArguments\.DataRoot = \$defaultDataRoot' -and
+        $consoleText -match '\[d\] Persistenten Data Root konfigurieren' -and
+        $consoleText -match "'d' \{ Invoke-LabAction -ActionName 'DataRoot' \}" -and
+        $consoleText -match 'Set-LabDataRootDefault -DataRoot \$candidate'
     )
 }
 catch { Add-CheckResult -Name 'Data-Root-Testausfuehrung' -Success $false -Message $_.Exception.Message }
