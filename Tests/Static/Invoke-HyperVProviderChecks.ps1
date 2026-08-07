@@ -280,6 +280,13 @@ try {
             $provider -match 'NotePropertyName guestPath' -and
             $provider -match 'Der Buchstabe eines Host-Data-Roots hat keinerlei'
         )
+    Add-CheckResult `
+        -Name 'Hyper-V-Cleanup bewahrt externe Data-Root-VHDX und entfernt nur run-lokale VHDX' `
+        -Success (
+            $provider -match 'HYPERV_EXTERNAL_VHDX_REQUIRES_PRESERVE' -and
+            $provider -match 'Eine optionale Data-Root-VHDX gehört absichtlich nicht zum Run-Verzeichnis' -and
+            $provider -match '\$childVhdxPath = \[string\]\$managed\.Identity\.childVhdxPath'
+        )
 
     $specializationUser = 'sql-lab-specialization-test'
     $specializationPassword = 'NotPersisted_Specialization_3!'
