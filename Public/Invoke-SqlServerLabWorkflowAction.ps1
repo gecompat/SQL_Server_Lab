@@ -96,6 +96,15 @@ Ist er angegeben, wird der Download strikt dagegen verifiziert.
 .PARAMETER GuestPassword
     Nicht persistiertes Gastpasswort für PowerShell Direct, etwa beim SQL
     CompleteImage in einer laufenden Hyper-V-Lab-VM.
+.PARAMETER GuestPasswordSource
+    Kennzeichnet, ob das Gastpasswort vom Benutzer gesetzt oder für diesen
+    einzelnen Bereitstellungsvorgang zufällig erzeugt wurde. Der Wert dient
+    ausschließlich der Run-Metadatenanzeige; das Passwort selbst wird nie im
+    Klartext gespeichert.
+.PARAMETER ProvisionUnattended
+    Führt bei einer neuen Hyper-V-Lab-VM die Windows-OOBE, optionale
+    Data-Root-Initialisierung und SQL CompleteImage unbeaufsichtigt aus. Das
+    Unattend-Dokument wird nur in die differenzierende Child-VHDX geschrieben.
 .PARAMETER EvaluationExpiresAt
     Ablaufdatum, das beim Veröffentlichen eines Evaluation-Images gespeichert wird.
 .PARAMETER MemoryStartupMB
@@ -167,6 +176,8 @@ function Invoke-SqlServerLabWorkflowAction {
         [string]$Database = 'master',
         [string]$GuestUserName = 'Administrator',
         [SecureString]$GuestPassword,
+        [ValidateSet('user', 'generated')][string]$GuestPasswordSource = 'user',
+        [switch]$ProvisionUnattended,
         [Nullable[datetime]]$EvaluationExpiresAt,
         [ValidateRange(2, 1048576)][int]$MemoryStartupMB = 4096,
         [ValidateRange(1, 64)][int]$ProcessorCount = 4,
@@ -239,6 +250,9 @@ function Invoke-SqlServerLabWorkflowAction {
     if ($Action -eq 'NewHyperVLab' -and ([string]::IsNullOrWhiteSpace($ArtifactId) -or [string]::IsNullOrWhiteSpace($LabName))) {
         throw 'HYPERV_LAB_ARTIFACT_AND_NAME_REQUIRED'
     }
+    if ($Action -eq 'NewHyperVLab' -and $ProvisionUnattended -and -not $GuestPassword) {
+        throw 'HYPERV_LAB_UNATTENDED_GUEST_PASSWORD_REQUIRED'
+    }
     if ($Action -eq 'NewHyperVLabFromExistingVm' -and ([string]::IsNullOrWhiteSpace($SourceVMName) -or [string]::IsNullOrWhiteSpace($LabName))) {
         throw 'HYPERV_EXISTING_VM_SOURCE_AND_NAME_REQUIRED'
     }
@@ -256,7 +270,7 @@ function Invoke-SqlServerLabWorkflowAction {
     }
 
     $progress = switch ($Action) {
-        'NewHyperVLab' { 'Validierung und Erstellung der Hyper-V-Umgebung werden vorbereitet.' }
+        'NewHyperVLab' { if ($ProvisionUnattended) { 'Klon, unbeaufsichtigte Windows-OOBE und SQL CompleteImage werden vorbereitet.' } else { 'Validierung und Erstellung der Hyper-V-Umgebung werden vorbereitet.' } }
         'NewHyperVLabFromExistingVm' { 'Die Quell-VM wird geprüft; danach wird eine geschützte Arbeitskopie für die neue Lab-VM erstellt.' }
         'StartHyperVLab' { 'Der sichtbare Start der Hyper-V-VM wird vorbereitet.' }
         'StopHyperVLab' { 'Der saubere Stopp der Hyper-V-VM wird vorbereitet.' }
@@ -304,6 +318,10 @@ function Invoke-SqlServerLabWorkflowAction {
         'NewHyperVLab' {
             $lab = New-HyperVLabEnvironment -ArtifactId $ArtifactId -LabName $LabName -InstanceId $InstanceId -MemoryStartupMB $MemoryStartupMB -ProcessorCount $ProcessorCount -SwitchName $SwitchName
             if ($PersistentData) { $null = Enable-HyperVLabPersistentData -RunId $lab.RunId -DataRoot $DataRoot -SizeGB $PersistentDataDiskGB }
+            if ($ProvisionUnattended) {
+                $provisioning = Invoke-HyperVLabUnattendedProvision -RunId $lab.RunId -AdministratorPassword $GuestPassword -PasswordSource $GuestPasswordSource -MediaRoot $MediaRoot
+                $lab | Add-Member -NotePropertyName provisioning -NotePropertyValue $provisioning -Force
+            }
             $lab
         }
         'NewHyperVLabFromExistingVm' {

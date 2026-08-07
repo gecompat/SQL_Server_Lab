@@ -1833,21 +1833,44 @@ function New-LabHyperVEnvironmentInteractive {
             if (-not $persistentDataDiskGB) { $persistentDataDiskGB = 128 }
         }
     }
+    Write-Host '  Gastpasswort: [1] selbst festlegen, [2] zufällig erzeugen und anzeigen [2]' -ForegroundColor White
+    $passwordMode = Read-Host '  Auswahl'
+    if (-not $passwordMode) { $passwordMode = '2' }
+    if ($passwordMode -notin @('1', '2')) { Write-LabWarning 'Ungültige Auswahl.'; return }
+    $passwordSource = if ($passwordMode -eq '2') { 'generated' } else { 'user' }
+    if ($passwordSource -eq 'generated') {
+        $guestPassword = New-HyperVSqlUnattendedPassword
+        $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($guestPassword)
+        try { Write-Host ("  Einmaliges Administratorpasswort (jetzt kopieren): {0}" -f [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)) -ForegroundColor Yellow }
+        finally { [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
+    }
+    else {
+        $guestPassword = Read-Host '  Lokales Administratorpasswort' -AsSecureString
+        $confirmation = Read-Host '  Passwort bestätigen' -AsSecureString
+        $firstBstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($guestPassword)
+        $secondBstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($confirmation)
+        try {
+            if ([System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($firstBstr) -ne [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($secondBstr)) {
+                Write-LabWarning 'Passwörter stimmen nicht überein.'
+                return
+            }
+        }
+        finally {
+            [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($firstBstr)
+            [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($secondBstr)
+        }
+    }
     Write-Host "  Image: $($artifact.artifactId)" -ForegroundColor DarkGray
-    Write-Host '  Es wird eine ausgeschaltete differenzierende VM erstellt. Start und VMConnect bleiben getrennte Schritte.' -ForegroundColor DarkGray
+    Write-Host '  Es wird eine differenzierende VM erstellt, automatisch per Unattend.xml eingerichtet und anschließend mit SQL CompleteImage vervollständigt.' -ForegroundColor DarkGray
     if (-not (Read-LabConfirm -Prompt '  Hyper-V-Umgebung jetzt erstellen?' -Default $false)) { return }
     try {
         $lab = New-HyperVLabEnvironment -ArtifactId $artifact.artifactId -LabName $name -InstanceId $instanceId -MemoryStartupMB ([int]$memory) -ProcessorCount ([int]$cpu) -SwitchName $switchName
         if ($persistentData) {
             $null = Enable-HyperVLabPersistentData -RunId $lab.RunId -DataRoot $dataRoot -SizeGB ([int]$persistentDataDiskGB)
         }
-        Write-LabSuccess "Hyper-V-Umgebung erstellt: $($lab.VMName) (Run $($lab.RunId))"
-        if ($persistentData) {
-            Write-LabInfo 'Nächster Schritt: [19] wählen, VM starten und die Daten-VHDX initialisieren.'
-        }
-        else {
-            Write-LabInfo 'Nächster Schritt: [19] wählen, VM starten und VMConnect öffnen.'
-        }
+        $null = Invoke-HyperVLabUnattendedProvision -RunId $lab.RunId -AdministratorPassword $guestPassword -PasswordSource $passwordSource
+        Write-LabSuccess "Hyper-V-Umgebung bereitgestellt: $($lab.VMName) (Run $($lab.RunId))"
+        Write-LabInfo 'Die OOBE, SQL CompleteImage und eine optionale Daten-VHDX-Initialisierung wurden automatisch ausgeführt.'
     }
     catch { Write-LabError $_.Exception.Message }
 }

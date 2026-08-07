@@ -375,6 +375,29 @@ function renderHyperVLabs(items) {
   }).join('') : empty('Noch keine regulären Hyper-V-Umgebungen vorhanden.');
 }
 
+function generateHyperVGuestPassword() {
+  const groups = ['ABCDEFGHJKLMNPQRSTUVWXYZ', 'abcdefghijkmnopqrstuvwxyz', '23456789', '!#%+-_@'];
+  const all = groups.join('');
+  const randomIndex = (max) => crypto.getRandomValues(new Uint32Array(1))[0] % max;
+  const characters = groups.map((group) => group[randomIndex(group.length)]);
+  while (characters.length < 32) characters.push(all[randomIndex(all.length)]);
+  for (let index = characters.length - 1; index > 0; index -= 1) {
+    const swapIndex = randomIndex(index + 1);
+    [characters[index], characters[swapIndex]] = [characters[swapIndex], characters[index]];
+  }
+  return characters.join('');
+}
+
+function updateHyperVGuestPasswordMode() {
+  const generated = $('#hyperv-password-mode').value === 'generated';
+  $('#hyperv-guest-password').type = generated ? 'text' : 'password';
+  $('#hyperv-guest-password-repeat-label').hidden = generated;
+  $('#hyperv-guest-password-repeat').required = !generated;
+  $('#hyperv-generate-password').hidden = !generated;
+  $('#hyperv-copy-password').hidden = !generated;
+  if (generated && !$('#hyperv-guest-password').value) $('#hyperv-guest-password').value = generateHyperVGuestPassword();
+}
+
 function renderAcceptance(items) {
   $('#acceptance').innerHTML = items.length ? items.map((item) => {
     const actions = acceptanceActions(item).map((button) => button.cleanup
@@ -776,6 +799,7 @@ $('#clear-all-labs').addEventListener('click', () => {
 $('#new-hyperv-lab').addEventListener('click', () => {
   renderHyperVArtifactOptions(workflow?.SqlPreparedImages || []);
   renderHyperVSwitchOptions(workflow?.HyperVSwitches || []);
+  updateHyperVGuestPasswordMode();
   $('#hyperv-lab-dialog').showModal();
 });
 
@@ -787,11 +811,21 @@ $('#new-hyperv-existing-vm-lab').addEventListener('click', () => {
 
 $('#hyperv-artifact').addEventListener('change', () => renderHyperVArtifactDetails(workflow?.SqlPreparedImages || []));
 $('#hyperv-existing-vm-source').addEventListener('change', () => renderHyperVExistingVmSourceDetails(workflow?.HyperVExistingVmSources || []));
+$('#hyperv-password-mode').addEventListener('change', updateHyperVGuestPasswordMode);
+$('#hyperv-generate-password').addEventListener('click', () => { $('#hyperv-guest-password').value = generateHyperVGuestPassword(); });
+$('#hyperv-copy-password').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText($('#hyperv-guest-password').value); }
+  catch (error) { showError(new Error('Passwort konnte nicht in die Zwischenablage kopiert werden.')); }
+});
 
 $('#hyperv-lab-form').addEventListener('submit', async (event) => {
   if (event.submitter?.value === 'cancel') return;
   event.preventDefault();
   if (!$('#hyperv-artifact').value) { showError(new Error('Bitte ein veröffentlichtes SQL-Prepared-Image auswählen.')); return; }
+  const passwordMode = $('#hyperv-password-mode').value;
+  const guestPassword = $('#hyperv-guest-password').value;
+  if (!guestPassword) { showError(new Error('Bitte ein lokales Administratorpasswort erzeugen oder eingeben.')); return; }
+  if (passwordMode === 'user' && guestPassword !== $('#hyperv-guest-password-repeat').value) { showError(new Error('Die eingegebenen Passwörter stimmen nicht überein.')); return; }
   try {
     await startAction('NewHyperVLab', {
       ArtifactId: $('#hyperv-artifact').value,
@@ -801,8 +835,13 @@ $('#hyperv-lab-form').addEventListener('submit', async (event) => {
       ProcessorCount: Number($('#hyperv-processors').value),
       SwitchName: $('#hyperv-switch').value.trim(),
       PersistentData: $('#hyperv-persistent-data').checked,
-      DataRoot: $('#hyperv-persistent-data').checked ? (workflow?.Defaults?.DataRoot || '') : ''
+      DataRoot: $('#hyperv-persistent-data').checked ? (workflow?.Defaults?.DataRoot || '') : '',
+      ProvisionUnattended: true,
+      GuestPasswordSource: passwordMode,
+      GuestPassword: guestPassword
     });
+    $('#hyperv-guest-password').value = '';
+    $('#hyperv-guest-password-repeat').value = '';
     $('#hyperv-lab-dialog').close();
   } catch (error) { showError(error); }
 });
