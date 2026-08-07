@@ -147,8 +147,10 @@ ein anderer vorhandener Switch kann bewusst gewählt werden. Netzwerkadapter
 sind Hyper-V-Hardware und werden deshalb nicht aus der Vorlage übernommen.
 Der Standardweg setzt eine deterministische Gast-IP, SQL-TCP auf 1433 und eine
 Firewallregel ausschließlich für den Host. Damit kann SSMS auf dem Host den
-ausgegebenen Connection String nutzen; das SA-Passwort ist das beim Anlegen
-gewählte Gast-Administratorpasswort und wird nicht im Klartext gespeichert.
+ausgegebenen Connection String nutzen. Das SA-Passwort kann beim Anlegen oder
+bei **Host-SSMS einrichten** bewusst separat vergeben werden; bleibt es leer,
+übernimmt SQL sicher das gewählte Gast-Administratorpasswort. Kein Klartext-
+Passwort wird gespeichert oder protokolliert.
 Eine optionale Data-Root-Daten-VHDX wird je Lab neu angelegt und separat an die
 VM angebunden. Sie wird nicht mit anderen Klonen oder dem Prepared-Image
 geteilt und bleibt beim Entfernen des Lab-Runs erhalten.

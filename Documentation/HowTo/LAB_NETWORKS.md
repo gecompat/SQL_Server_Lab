@@ -79,4 +79,6 @@ nicht im Connection String oder Run-State im Klartext gespeichert.
 Für ältere, bereits vorhandene VMs steht in Konsole und lokaler UI die Aktion
 **Host-SSMS einrichten** bereit. Sie verlangt das lokale Gast-Administrator-
 passwort, bindet bei Bedarf den Standard-Switch an, setzt die Gast-IP und
-konfiguriert SQL-TCP, Firewall sowie SQL-Authentifizierung nachträglich.
+konfiguriert SQL-TCP, Firewall sowie SQL-Authentifizierung nachträglich. Ein
+separates SA-Passwort kann dabei gesetzt werden; ohne Angabe bleibt das
+Gastpasswort das SA-Passwort.

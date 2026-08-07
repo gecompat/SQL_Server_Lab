@@ -1850,6 +1850,33 @@ function Select-LabHyperVVirtualSwitch {
     return [PSCustomObject]@{ SwitchName = [string]$switches[[int]$selection - 1].Name; Isolated = $false }
 }
 
+function Read-LabHyperVSqlSaPassword {
+    <# Liest bewusst ein separates SA-Passwort oder übernimmt das Gastpasswort. #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][SecureString]$GuestPassword)
+
+    Write-Host '  SQL-SA-Passwort: [Enter] = Gastpasswort verwenden, [s] separat festlegen' -ForegroundColor White
+    $choice = Read-Host '  Auswahl [Enter]'
+    if (-not $choice) { return $GuestPassword }
+    if ($choice -notin @('s', 'S')) { Write-LabWarning 'Ungültige Auswahl.'; return $null }
+
+    $saPassword = Read-Host '  Eigenes SQL-SA-Passwort' -AsSecureString
+    $confirmation = Read-Host '  SQL-SA-Passwort bestätigen' -AsSecureString
+    $firstBstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($saPassword)
+    $secondBstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($confirmation)
+    try {
+        if ([System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($firstBstr) -ne [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($secondBstr)) {
+            Write-LabWarning 'SQL-SA-Passwörter stimmen nicht überein.'
+            return $null
+        }
+        return $saPassword
+    }
+    finally {
+        [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($firstBstr)
+        [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($secondBstr)
+    }
+}
+
 function New-LabHyperVEnvironmentInteractive {
     [CmdletBinding()]
     param()
@@ -1904,6 +1931,8 @@ function New-LabHyperVEnvironmentInteractive {
             [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($secondBstr)
         }
     }
+    $sqlSaPassword = Read-LabHyperVSqlSaPassword -GuestPassword $guestPassword
+    if (-not $sqlSaPassword) { return }
     Write-Host "  Image: $($artifact.artifactId)" -ForegroundColor DarkGray
     Write-Host '  Es wird eine differenzierende VM erstellt, automatisch per Unattend.xml eingerichtet und anschließend mit SQL CompleteImage vervollständigt.' -ForegroundColor DarkGray
     if (-not (Read-LabConfirm -Prompt '  Hyper-V-Umgebung jetzt erstellen?' -Default $false)) { return }
@@ -1912,7 +1941,7 @@ function New-LabHyperVEnvironmentInteractive {
         if ($persistentData) {
             $null = Enable-HyperVLabPersistentData -RunId $lab.RunId -DataRoot $dataRoot -SizeGB ([int]$persistentDataDiskGB)
         }
-        $null = Invoke-HyperVLabUnattendedProvision -RunId $lab.RunId -AdministratorPassword $guestPassword -PasswordSource $passwordSource
+        $null = Invoke-HyperVLabUnattendedProvision -RunId $lab.RunId -AdministratorPassword $guestPassword -SqlSaPassword $sqlSaPassword -PasswordSource $passwordSource
         Write-LabSuccess "Hyper-V-Umgebung bereitgestellt: $($lab.VMName) (Run $($lab.RunId))"
         Write-LabInfo 'Die OOBE, SQL CompleteImage und eine optionale Daten-VHDX-Initialisierung wurden automatisch ausgeführt.'
     }
@@ -2017,17 +2046,21 @@ function Manage-LabHyperVEnvironmentInteractive {
                 $userName = Read-Host '  Lokaler Gast-Administrator [Administrator]'
                 if (-not $userName) { $userName = 'Administrator' }
                 $credential = [PSCredential]::new($userName, (Read-Host '  Gastpasswort' -AsSecureString))
-                $result = Complete-HyperVLabSqlImage -RunId $runId -Credential $credential -SqlSaPassword $credential.Password
+                $sqlSaPassword = Read-LabHyperVSqlSaPassword -GuestPassword $credential.Password
+                if (-not $sqlSaPassword) { return }
+                $result = Complete-HyperVLabSqlImage -RunId $runId -Credential $credential -SqlSaPassword $sqlSaPassword
                 Write-LabSuccess "SQL CompleteImage abgeschlossen. State: $($result.State)"
             }
             'h' {
                 $userName = Read-Host '  Lokaler Gast-Administrator [Administrator]'
                 if (-not $userName) { $userName = 'Administrator' }
-                $credential = [PSCredential]::new($userName, (Read-Host '  Gastpasswort (wird auch als neues SA-Passwort verwendet)' -AsSecureString))
+                $credential = [PSCredential]::new($userName, (Read-Host '  Gastpasswort' -AsSecureString))
+                $sqlSaPassword = Read-LabHyperVSqlSaPassword -GuestPassword $credential.Password
+                if (-not $sqlSaPassword) { return }
                 $switch = Select-LabHyperVVirtualSwitch
                 if (-not $switch) { return }
                 if ($switch.Isolated) { throw 'HYPERV_LAB_HOST_SQL_REQUIRES_NETWORK' }
-                $result = Enable-HyperVLabHostSqlAccess -RunId $runId -Credential $credential -SqlSaPassword $credential.Password -SwitchName $switch.SwitchName
+                $result = Enable-HyperVLabHostSqlAccess -RunId $runId -Credential $credential -SqlSaPassword $sqlSaPassword -SwitchName $switch.SwitchName
                 Write-LabSuccess "Host-SSMS bereit: $($result.ConnectionString)"
             }
             'q' {
