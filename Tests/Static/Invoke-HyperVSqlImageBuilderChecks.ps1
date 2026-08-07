@@ -56,6 +56,8 @@ try {
     Add-CheckResult -Name 'Cleanup-Plan existiert vor Hyper-V-Mutation' -Success (Test-Path (Join-Path $plan.BuildDirectory 'cleanup-plan.json'))
     $rawState = Get-Content -LiteralPath (Join-Path $plan.BuildDirectory 'build-state.json') -Raw
     Add-CheckResult -Name 'Portabler SQL-Build-State enthaelt keinen ISO-Hostpfad' -Success ($rawState -notmatch [regex]::Escape($isoPath))
+    $builderText = Get-Content -LiteralPath $builderPath -Raw
+    Add-CheckResult -Name 'SQL-Builder begrenzt dynamischen Speicher auf den Startwert' -Success ($builderText -match 'Set-VMMemory[\s\S]+DynamicMemoryEnabled\s+\$true[\s\S]+MinimumBytes\s+512MB[\s\S]+MaximumBytes\s+\$MemoryStartupBytes')
     Add-CheckResult -Name 'Evaluation-Ablaufmetadaten werden vom OS-Parent uebernommen' -Success (
         -not [string]::IsNullOrWhiteSpace([string]$plan.parentArtifact.license.evaluationExpiresAt)
     )

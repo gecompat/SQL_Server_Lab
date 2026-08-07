@@ -695,6 +695,9 @@ function Initialize-HyperVSqlFreshPreparedImageBuild {
         $null = New-VHD -Path $diskPath -Dynamic -SizeBytes $OsDiskSizeBytes -ErrorAction Stop
         $vm = New-VM -Name $vmName -Generation 2 -MemoryStartupBytes $MemoryStartupBytes -VHDPath $diskPath `
             -Path $resourceRoot -SwitchName $labNetwork.Name -ErrorAction Stop
+        # Do not inherit Hyper-V's unbounded dynamic-memory default (commonly 1 TB).
+        $null = Set-VMMemory -VM $vm -DynamicMemoryEnabled $true -MinimumBytes 512MB `
+            -StartupBytes $MemoryStartupBytes -MaximumBytes $MemoryStartupBytes -ErrorAction Stop
         $notes = ConvertTo-HyperVLabNotes -RunId $plan.buildId -ScopeId $plan.scopeId -InstanceId "sql-image-$SqlVersion" -ChildVhdxPath $diskPath
         $null = Set-VM -VM $vm -Notes $notes -AutomaticCheckpointsEnabled $false -ErrorAction Stop
         $null = Set-VMProcessor -VM $vm -Count $ProcessorCount -ErrorAction Stop
