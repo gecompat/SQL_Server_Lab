@@ -453,6 +453,10 @@ function New-HyperVInstance {
         $newVmParameters.SwitchName = $SwitchName
     }
     $vm = New-VM @newVmParameters
+    # Hyper-V otherwise assigns a host-wide default maximum (commonly 1 TB).
+    # Keep dynamic memory bounded by the value selected for this lab.
+    $null = Set-VMMemory -VM $vm -DynamicMemoryEnabled $true -MinimumBytes 512MB `
+        -StartupBytes $MemoryStartupBytes -MaximumBytes $MemoryStartupBytes -ErrorAction Stop
     $notes = ConvertTo-HyperVLabNotes `
         -RunId $RunId `
         -ScopeId $ScopeId `
