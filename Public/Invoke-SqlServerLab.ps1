@@ -1326,7 +1326,9 @@ function Show-LabHyperVSqlManualInstructions {
         Write-Host '  Frische Windows-Installation fuer das SQL-Prepared-Image:' -ForegroundColor Yellow
         Write-Host "    VM: $($Build.builder.vmName)" -ForegroundColor White
         Write-Host '    1. Windows Server 2025 in VMConnect auf der leeren OS-Disk installieren.' -ForegroundColor White
-        $editionLabel = if ([string]$Build.operatingSystem.edition -eq 'standard-evaluation') { 'Windows Server 2025 Standard Evaluation' } else { 'Windows Server 2025 Datacenter Evaluation' }
+        $editionBase = ([string]$Build.operatingSystem.edition -replace '-evaluation$', '')
+        $editionLabel = "Windows Server 2025 $((Get-Culture).TextInfo.ToTitleCase($editionBase))"
+        if ([string]$Build.license.type -eq 'evaluation') { $editionLabel += ' Evaluation' }
         $typeLabel = if ([string]$Build.operatingSystem.installationType -eq 'core') { 'Server Core Installation' } else { 'Desktop Experience' }
         Write-Host "    2. Im Windows-Setup exakt '$editionLabel ($typeLabel)' auswählen und OOBE abschließen." -ForegroundColor White
         Write-Host '    3. Lokales Administratorpasswort setzen und einmal anmelden.' -ForegroundColor White
@@ -1466,7 +1468,8 @@ function New-LabHyperVSqlImageBuildInteractive {
             $sqlMedia = New-HyperVSqlMediaHashSidecar -MediaRoot $mediaRoot -SqlVersion $sqlVersion -MediaEdition $mediaEdition -SqlMediaPath $sqlMediaPath
         }
         Write-Host ''
-        Write-Host "  Windows: Windows Server 2025 / $windowsEdition / $installationType" -ForegroundColor DarkGray
+        $windowsLicenseType = Get-HyperVWindowsMediaLicenseType -WindowsEdition $windowsEdition
+        Write-Host "  Windows: Windows Server 2025 / $windowsEdition / $installationType / $windowsLicenseType" -ForegroundColor DarkGray
         Write-Host "  SQL:     $sqlVersion $mediaEdition; SQLENGINE, FULLTEXT, REPLICATION" -ForegroundColor DarkGray
         Write-Host '  Ablauf: Windows installieren -> SQL PrepareImage -> ein finaler Sysprep.' -ForegroundColor Yellow
         if (-not (Read-LabConfirm -Prompt '  Frischen SQL-Prepared-Image-Builder jetzt erzeugen?' -Default $false)) { return }

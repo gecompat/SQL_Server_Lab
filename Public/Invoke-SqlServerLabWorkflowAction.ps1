@@ -40,7 +40,7 @@ SQL_Server_Lab-Internal-Switch verwendet.
 .PARAMETER WindowsMediaPath
     Relativer Pfad einer automatisch erkannten Windows-ISO innerhalb von MediaRoot.
 .PARAMETER WindowsEdition
-    Gewünschte Windows-Evaluation-Edition für einen neuen Build.
+    Direkt aus der ISO erkannte Windows-Edition für einen neuen Build.
 .PARAMETER InstallationType
     Core oder Desktop Experience für einen neuen Build.
 .PARAMETER SqlVersion

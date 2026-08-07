@@ -74,6 +74,18 @@ try {
         $freshPlan.operatingSystem.installationType -eq 'desktop-experience' -and
         $freshPlan.displayName -eq 'Testbild SQL 2019'
     )
+    $freshLicensedPlan = & $module {
+        param($Iso,$Sha,$Root)
+        New-HyperVSqlFreshImageBuildPlan -WindowsIsoPath $Iso -ExpectedWindowsSha256 $Sha `
+            -OperatingSystemId windows-server-2025 -WindowsEdition standard `
+            -InstallationType desktop-experience -SqlIsoPath $Iso -ExpectedSqlSha256 $Sha `
+            -SqlVersion 2025 -SqlEdition Enterprise -ImageName 'Lizenziertes Testbild SQL 2025' -StateRoot $Root
+    } $isoPath $hashed.ExpectedSha256 $stateRoot
+    Add-CheckResult -Name 'Frischer SQL-Builder akzeptiert lizenzierte Windows-Server-Editionen und speichert keinen Evaluationstyp' -Success (
+        [string]$freshLicensedPlan.operatingSystem.edition -eq 'standard' -and
+        [string]$freshLicensedPlan.license.type -eq 'licensed' -and
+        -not $freshLicensedPlan.license.evaluationExpiresAt
+    )
     $cleanedUp = & $module {
         param($BuildId,$Root)
         function Invoke-CleanupPlan {
@@ -160,8 +172,10 @@ try {
         $builderText -match 'SQL_SETUP_PREPARE_IMAGE_FAILED: ExitCode=' -and
         $builderText -match "-Filter 'Summary\.txt'" -and $builderText -match 'Summary=\$\(\$summary\.FullName\)'
     )
-    Add-CheckResult -Name 'Editionsmismatch nennt die im Windows-Setup auszuwählende Zielvariante' -Success (
-        $builderText -match 'Windows Server 2025 Datacenter Evaluation' -and
+    Add-CheckResult -Name 'Editionsmismatch leitet Evaluation und lizenzierte Zielvariante aus dem gewählten Medium ab' -Success (
+        $builderText -match 'editionPattern' -and
+        $builderText -match 'Build\.license\.type' -and
+        $builderText -match 'Windows Server 2025' -and
         $builderText -match 'Server Core Installation' -and
         $builderText -match 'neu installieren und'
     )

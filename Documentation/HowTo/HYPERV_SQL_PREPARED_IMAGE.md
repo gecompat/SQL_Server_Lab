@@ -64,7 +64,9 @@ Developer. Windows und SQL werden dabei in derselben Builder-VM installiert.
 2. Als Media Root `D:\Lab_Base` eingeben oder den angebotenen Default mit
    Enter übernehmen.
 3. Die erkannte Windows-ISO auswählen. Der aktuelle SQL-Prepared-Builder lässt
-   Windows Server 2025 zu; andere erkannte Windows-Medien bleiben sichtbar und
+   Windows Server 2025 zu – sowohl reguläre Standard-/Datacenter-Medien als
+   auch deren Evaluation-Varianten. Nur bei Evaluation wird später ein
+   Ablaufdatum abgefragt. Andere erkannte Windows-Medien bleiben sichtbar und
    können direkt für eine OS-Baseline verwendet werden.
 4. Bei SQL-Version `2025` und SQL-Medien-Edition `Enterprise` bestätigen.
 5. Optional einen sprechenden Namen vergeben. Fehlt ein SHA-256-Sidecar,
