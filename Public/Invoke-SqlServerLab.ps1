@@ -1720,7 +1720,12 @@ function New-LabHyperVEnvironmentInteractive {
             $null = Enable-HyperVLabPersistentData -RunId $lab.RunId -DataRoot $dataRoot -SizeGB ([int]$persistentDataDiskGB)
         }
         Write-LabSuccess "Hyper-V-Umgebung erstellt: $($lab.VMName) (Run $($lab.RunId))"
-        Write-LabInfo (if ($persistentData) { 'Nächster Schritt: [19] wählen, VM starten und die Daten-VHDX initialisieren.' } else { 'Nächster Schritt: [19] wählen, VM starten und VMConnect öffnen.' })
+        if ($persistentData) {
+            Write-LabInfo 'Nächster Schritt: [19] wählen, VM starten und die Daten-VHDX initialisieren.'
+        }
+        else {
+            Write-LabInfo 'Nächster Schritt: [19] wählen, VM starten und VMConnect öffnen.'
+        }
     }
     catch { Write-LabError $_.Exception.Message }
 }

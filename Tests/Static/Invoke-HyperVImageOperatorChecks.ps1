@@ -252,6 +252,9 @@ try {
         $menuText -match '\[0\] Kein Switch = isoliert' -and
         @($menuText | Select-String -Pattern 'Select-LabHyperVVirtualSwitch' -AllMatches).Matches.Count -ge 3
     )
+    Add-CheckResult -Name 'Erfolgreiche Hyper-V-Laberstellung meldet den nächsten Schritt ohne ungültigen Inline-if-Aufruf' -Success (
+        $menuText -notmatch 'Write-LabInfo\s+\(if\s*\('
+    )
     $selectionIndex = $menuText.IndexOf('$choice = Read-Host ''  Auswahl''')
     $clearIndex = $menuText.IndexOf('Clear-Host', $selectionIndex)
     $actionHeaderIndex = $menuText.IndexOf('Hyper-V Image-Lifecycle – Auswahl: $choice', $clearIndex)
