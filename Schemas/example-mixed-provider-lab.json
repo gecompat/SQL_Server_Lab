@@ -2,6 +2,12 @@
   "$schema": "./lab-manifest.schema.json",
   "name": "mixed-container-providers",
   "description": "Zwei unabhaengige SQL-Server-Instanzen in einem Run mit Docker und Podman.",
+  "automation": {
+    "mode": "unattended",
+    "secrets": {
+      "saPassword": "SQL_SERVER_LAB_SECRET_SA_PASSWORD"
+    }
+  },
   "instances": [
     {
       "id": "docker-primary",

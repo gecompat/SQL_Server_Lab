@@ -48,6 +48,37 @@ function Read-SaPassword {
     throw "SA-Passwort konnte nach $MaxAttempts Versuchen nicht gesetzt werden."
 }
 
+function Get-LabManifestEnvironmentSecret {
+    <#
+    .SYNOPSIS
+        Liest ein Manifest-Secret ausschließlich aus dem aufrufenden Prozess.
+    .DESCRIPTION
+        Manifestdateien dürfen niemals Kennwörter enthalten. Für CI/CD und
+        automatisierte Setups darf ein Manifest deshalb nur eine eng benannte
+        Prozess-Umgebungsvariable referenzieren. Der Name wird vor dem Zugriff
+        validiert; der Wert wird nicht protokolliert oder in State-Dateien
+        übernommen.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidatePattern('^SQL_SERVER_LAB_SECRET_[A-Z0-9_]+$')]
+        [string]$Name
+    )
+
+    $value = [Environment]::GetEnvironmentVariable($Name)
+    if ([string]::IsNullOrWhiteSpace($value)) {
+        throw "LAB_MANIFEST_SECRET_ENVIRONMENT_MISSING: Die Prozess-Umgebungsvariable '$Name' ist nicht gesetzt."
+    }
+
+    try {
+        return ConvertTo-SecureString -String $value -AsPlainText -Force
+    }
+    finally {
+        $value = $null
+    }
+}
+
 function Save-LabSecret {
     [CmdletBinding()]
     param(

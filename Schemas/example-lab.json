@@ -2,6 +2,12 @@
   "$schema": "./lab-manifest.schema.json",
   "name": "example-schulung-lab",
   "description": "Beispiel-Lab: SQL 2025 mit Schulungsdatenbank und Setup-Skript",
+  "automation": {
+    "mode": "unattended",
+    "secrets": {
+      "saPassword": "SQL_SERVER_LAB_SECRET_SA_PASSWORD"
+    }
+  },
   "instances": [
     {
       "id": "primary",

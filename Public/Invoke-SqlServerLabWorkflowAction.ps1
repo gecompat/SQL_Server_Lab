@@ -323,7 +323,7 @@ function Invoke-SqlServerLabWorkflowAction {
         }
         'NewContainerLabFromManifest' {
             if ([string]::IsNullOrWhiteSpace($ManifestPath) -or -not (Test-Path -LiteralPath $ManifestPath -PathType Leaf)) { throw 'CONTAINER_WORKFLOW_MANIFEST_PATH_REQUIRED' }
-            New-SqlServerLab -Manifest $ManifestPath -SaPassword $SaPassword
+            New-SqlServerLab -Manifest $ManifestPath -SaPassword $SaPassword -NonInteractive
         }
         'RenameLab' {
             $run = Get-LabRunState -RunId $BuildId

@@ -132,6 +132,122 @@ Add-CheckResult `
     -Success $minimalResult.IsValid `
     -Message ($minimalResult.Errors -join '; ')
 
+$automatedManifest = [ordered]@{
+    name = 'automated-manifest-check'
+    automation = [ordered]@{
+        mode = 'unattended'
+        secrets = [ordered]@{ saPassword = 'SQL_SERVER_LAB_SECRET_SA_PASSWORD' }
+    }
+    instances = @(
+        [ordered]@{ id = 'primary'; version = '2025'; provider = 'docker' }
+    )
+}
+$automatedManifestResult = Test-SqlServerLabManifest -InputObject $automatedManifest
+Add-CheckResult `
+    -Name 'Automationsmanifest referenziert nur eine eng benannte externe Secret-Variable' `
+    -Success $automatedManifestResult.IsValid `
+    -Message ($automatedManifestResult.Errors -join '; ')
+
+$plainSecretManifest = [ordered]@{
+    name = 'plain-secret-rejected'
+    automation = [ordered]@{
+        secrets = [ordered]@{ saPassword = 'NotASecretEnvironmentVariable' }
+    }
+    instances = @(
+        [ordered]@{ id = 'primary'; version = '2025'; provider = 'docker' }
+    )
+}
+$plainSecretManifestResult = Test-SqlServerLabManifest -InputObject $plainSecretManifest
+Add-CheckResult `
+    -Name 'Manifest lehnt Klartext-Secretwerte ab' `
+    -Success (-not $plainSecretManifestResult.IsValid -and $plainSecretManifestResult.Errors -match 'Schema:') `
+    -Message ($plainSecretManifestResult.Errors -join '; ')
+
+$unsafeHostWriteManifest = [ordered]@{
+    name = 'unsafe-host-write-rejected'
+    instances = @(
+        [ordered]@{
+            id = 'primary'; version = '2025'; provider = 'docker'
+            drives = @([ordered]@{ id = 'external'; containerPath = '/external'; hostPath = 'C:\\external'; accessMode = 'readWrite' })
+        }
+    )
+}
+$unsafeHostWriteManifestResult = Test-SqlServerLabManifest -InputObject $unsafeHostWriteManifest
+Add-CheckResult `
+    -Name 'Schreibende beliebige Host-Mounts werden ohne Expertenfreigabe abgelehnt' `
+    -Success (-not $unsafeHostWriteManifestResult.IsValid -and $unsafeHostWriteManifestResult.Errors -match 'expertActions.hostWriteMounts') `
+    -Message ($unsafeHostWriteManifestResult.Errors -join '; ')
+
+$explicitHostWriteManifest = [ordered]@{
+    name = 'explicit-host-write-expert'
+    expertActions = [ordered]@{ hostWriteMounts = $true }
+    instances = @(
+        [ordered]@{
+            id = 'primary'; version = '2025'; provider = 'docker'
+            drives = @([ordered]@{ id = 'external'; containerPath = '/external'; hostPath = 'C:\\external'; accessMode = 'readWrite' })
+        }
+    )
+}
+$explicitHostWriteManifestResult = Test-SqlServerLabManifest -InputObject $explicitHostWriteManifest
+$dockerProviderSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Providers/Docker/DockerProvider.ps1') -Raw -Encoding utf8
+$podmanProviderSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Providers/Podman/PodmanProvider.ps1') -Raw -Encoding utf8
+$mountProjection = & $module {
+    $manifest = [PSCustomObject]@{
+        name = 'mount-projection'
+        instances = @([PSCustomObject]@{
+            id = 'primary'; version = '2025'; provider = 'docker'; os = 'linux'; profile = 'standard'; collation = $null
+            databases = @(); software = @(); postProvision = @(); serverConfig = $null; hyperv = $null
+            drives = @(
+                [PSCustomObject]@{ id = 'host'; containerPath = '/reference'; hostPath = 'reference'; accessMode = $null; sizeLimitGB = $null; type = 'auto' },
+                [PSCustomObject]@{ id = 'volume'; containerPath = '/data'; hostPath = $null; accessMode = $null; sizeLimitGB = $null; type = 'auto' }
+            )
+        })
+        persistentData = $null; resourceOverrides = $null; automation = $null; expertActions = $null
+    }
+    (Resolve-ManifestDefaults -Manifest $manifest -ManifestPath (Join-Path $PWD 'in-memory.json')).instances[0].drives
+}
+Add-CheckResult `
+    -Name 'Host-Mounts sind standardmäßig read-only und Containerprovider geben den Modus weiter' `
+    -Success ($explicitHostWriteManifestResult.IsValid -and
+        $dockerProviderSource -match '\$drive\.hostPath -and \$drive\.readOnly -eq \$true' -and $dockerProviderSource -match '\$\{volumeTarget\}:ro' -and
+        $podmanProviderSource -match '\$drive\.hostPath -and \$drive\.readOnly -eq \$true' -and $podmanProviderSource -match '\$\{volumeTarget\}:ro' -and
+        @($mountProjection | Where-Object id -eq 'host')[0].readOnly -and
+        -not @($mountProjection | Where-Object id -eq 'volume')[0].readOnly) `
+    -Message (($explicitHostWriteManifestResult.Errors + $explicitHostWriteManifestResult.Warnings) -join '; ')
+
+$remoteRestoreWithoutHash = [ordered]@{
+    name = 'remote-restore-warning'
+    instances = @(
+        [ordered]@{
+            id = 'primary'; version = '2025'; provider = 'docker'
+            databases = @([ordered]@{ name = 'Demo'; restore = [ordered]@{ source = 'https://example.invalid/Demo.bak' } })
+        }
+    )
+}
+$remoteRestoreWithoutHashResult = Test-SqlServerLabManifest -InputObject $remoteRestoreWithoutHash
+Add-CheckResult `
+    -Name 'Ungehashter Remote-Restore wird vor unbeaufsichtigter Ausführung sichtbar gewarnt' `
+    -Success ($remoteRestoreWithoutHashResult.IsValid -and $remoteRestoreWithoutHashResult.Warnings -match 'TRUST_REQUIRED') `
+    -Message (($remoteRestoreWithoutHashResult.Errors + $remoteRestoreWithoutHashResult.Warnings) -join '; ')
+
+$environmentSecretResult = $null
+try {
+    [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_SECRET_MANIFEST_TEST', 'Manifest_Automation_42!', 'Process')
+    $environmentSecretResult = & $module {
+        $secret = Get-LabManifestEnvironmentSecret -Name 'SQL_SERVER_LAB_SECRET_MANIFEST_TEST'
+        $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($secret)
+        try { Test-SaPasswordComplexity -Password ([System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)) }
+        finally { [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
+    }
+}
+finally {
+    [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_SECRET_MANIFEST_TEST', $null, 'Process')
+}
+Add-CheckResult `
+    -Name 'Extern bereitgestelltes Manifest-Secret wird als SecureString verarbeitet' `
+    -Success ($environmentSecretResult -and $environmentSecretResult.Valid) `
+    -Message $(if ($environmentSecretResult) { $environmentSecretResult.Reasons -join '; ' } else { 'Secret konnte nicht aufgelöst werden.' })
+
 $unknownField = [ordered]@{
     name      = 'unknown-field'
     instances = @(

@@ -108,7 +108,9 @@ function New-SqlServerLab {
         ergeben sich aus den erwarteten Katalog-Outputs.
     .PARAMETER Manifest
         Pfad zu einer vorhandenen JSON-Manifestdatei. Relative lokale Pfade im
-        Manifest werden relativ zu deren Verzeichnis aufgeloest.
+        Manifest werden relativ zu deren Verzeichnis aufgeloest. Manifeste
+        laufen standardmäßig unbeaufsichtigt; Passwörter werden über SecureString
+        oder eng benannte externe Prozess-Umgebungsvariablen bereitgestellt.
     .PARAMETER SaPassword
         SA-Passwort als SecureString. Ohne Angabe wird es interaktiv abgefragt.
     .PARAMETER StateRoot
@@ -134,6 +136,11 @@ function New-SqlServerLab {
         Unterbindet Kennwortabfragen. Fehlende, erforderliche Secrets werden
         stattdessen mit einem klaren Fehler abgelehnt; gedacht für CI/CD und
         deklarative Manifestbereitstellungen.
+    .PARAMETER AllowExpertHostWriteMounts
+        Zweite, absichtliche Freigabe für im Manifest deklarierte schreibende
+        beliebige Host-Mounts. Standard-Manifeste verwenden ausschließlich
+        schreibgeschützte Host-Mounts, verwaltete Wegwerf-Volumes oder den
+        expliziten Data Root.
     .PARAMETER SkipAssessment
         Ueberspringt das Resource Assessment vor der Provisionierung. Die
         spaeteren Provider- und SQL-Pruefungen bleiben aktiv.
@@ -152,9 +159,12 @@ function New-SqlServerLab {
         Testdatenbanken ueber den typisierten Sample-Handler. Fehlt eine bekannte
         SHA-256-Pruefsumme, fragt der Lauf einmalig nach Vertrauen.
     .EXAMPLE
+        $env:SQL_SERVER_LAB_SECRET_SA_PASSWORD = '<aus Secret Store oder CI-Injection>'
         $lab = New-SqlServerLab -Manifest './Schemas/example-performance-lab.json'
 
-        Validiert und provisioniert die im Manifest beschriebene Umgebung.
+        Validiert und provisioniert die im Manifest beschriebene Umgebung ohne
+        Passwortabfrage. Das Manifest referenziert nur den Variablennamen, nie
+        den Passwortwert.
     .EXAMPLE
         $lab = New-SqlServerLab -Version '2025' -Provider docker -LabName 'training' -PersistentData -DataRoot 'D:\Lab_Data'
 
@@ -198,6 +208,7 @@ function New-SqlServerLab {
         [SecureString]$GuestPassword,
         [SecureString]$SqlSaPassword,
         [switch]$NonInteractive,
+        [switch]$AllowExpertHostWriteMounts,
         [switch]$SkipAssessment
     )
 
@@ -207,6 +218,15 @@ function New-SqlServerLab {
     if ($PSCmdlet.ParameterSetName -eq 'Manifest') {
         Write-LabInfo "Manifest: $Manifest"
         $resolved = Read-LabManifest -Path $Manifest
+
+        $writeHostMounts = @(
+            $resolved.instances | ForEach-Object {
+                @($_.drives | Where-Object { $_.hostPath -and $_.readOnly -ne $true })
+            }
+        )
+        if ($writeHostMounts.Count -gt 0 -and -not $AllowExpertHostWriteMounts) {
+            throw 'LAB_MANIFEST_HOST_WRITE_EXPERT_ACTION_REQUIRED: Schreibende Host-Mounts benötigen zusätzlich -AllowExpertHostWriteMounts.'
+        }
     }
     else {
         $sampleDatabases = @()
@@ -261,6 +281,23 @@ function New-SqlServerLab {
         }
     }
 
+    # Manifeste sind der primäre Automationspfad. Sie laufen standardmäßig
+    # unbeaufsichtigt und akzeptieren Geheimnisse nur über sichere externe
+    # Übergabewege – nie aus dem JSON oder einem Lock/State.
+    $effectiveNonInteractive = $NonInteractive.IsPresent
+    if ($PSCmdlet.ParameterSetName -eq 'Manifest') {
+        if ($resolved.automation.mode -eq 'unattended') { $effectiveNonInteractive = $true }
+        if (-not $SaPassword -and $resolved.automation.saPasswordEnvironmentVariable) {
+            $SaPassword = Get-LabManifestEnvironmentSecret -Name $resolved.automation.saPasswordEnvironmentVariable
+        }
+        if (-not $GuestPassword -and $resolved.automation.guestPasswordEnvironmentVariable) {
+            $GuestPassword = Get-LabManifestEnvironmentSecret -Name $resolved.automation.guestPasswordEnvironmentVariable
+        }
+        if (-not $SqlSaPassword -and $resolved.automation.sqlSaPasswordEnvironmentVariable) {
+            $SqlSaPassword = Get-LabManifestEnvironmentSecret -Name $resolved.automation.sqlSaPasswordEnvironmentVariable
+        }
+    }
+
     if ($PSCmdlet.ParameterSetName -eq 'Manifest' -and $resolved.persistentData.enabled) {
         $PersistentData = $true
         if (-not $DataRoot -and $resolved.persistentData.dataRoot) { $DataRoot = $resolved.persistentData.dataRoot }
@@ -292,6 +329,7 @@ function New-SqlServerLab {
 
         $passwordSource = if ($GuestPassword) { 'user' } elseif ([string]$instance.hyperv.guestPasswordMode -eq 'prompt') { 'user' } else { 'generated' }
         if (-not $GuestPassword -and $passwordSource -eq 'generated') {
+            if ($effectiveNonInteractive) { throw 'HYPERV_MANIFEST_GUEST_PASSWORD_REQUIRED_NONINTERACTIVE' }
             $GuestPassword = New-HyperVSqlUnattendedPassword
             $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($GuestPassword)
             try {
@@ -300,7 +338,7 @@ function New-SqlServerLab {
             finally { [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
         }
         elseif (-not $GuestPassword) {
-            if ($NonInteractive) { throw 'HYPERV_MANIFEST_GUEST_PASSWORD_REQUIRED_NONINTERACTIVE' }
+            if ($effectiveNonInteractive) { throw 'HYPERV_MANIFEST_GUEST_PASSWORD_REQUIRED_NONINTERACTIVE' }
             $first = Read-Host '  Gastpasswort für Administrator' -AsSecureString
             $second = Read-Host '  Gastpasswort bestätigen' -AsSecureString
             $firstBstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($first)
@@ -376,7 +414,7 @@ function New-SqlServerLab {
     }
 
     if (-not $SaPassword) {
-        if ($NonInteractive) { throw 'SA_PASSWORD_REQUIRED_NONINTERACTIVE' }
+        if ($effectiveNonInteractive) { throw 'SA_PASSWORD_REQUIRED_NONINTERACTIVE' }
         Write-LabInfo 'SA-Passwort wird benoetigt.'
         $SaPassword = Read-SaPassword
     }
@@ -590,6 +628,7 @@ function New-SqlServerLab {
                         -SaPassword $SaPassword `
                         -ContainerName $labInstance.ContainerName `
                         -RestoreDefinition $database.restore `
+                        -NonInteractive:$effectiveNonInteractive `
                         -RunDirectory $runState.RunDir `
                         -StateRoot $effectiveStateRoot
 
@@ -610,6 +649,7 @@ function New-SqlServerLab {
                         -DatabaseName $database.name `
                         -ContainerName $labInstance.ContainerName `
                         -Replace:($database.restore.replace) `
+                        -NonInteractive:$effectiveNonInteractive `
                         -StateRoot $effectiveStateRoot `
                         -RunDirectory $runState.RunDir
 

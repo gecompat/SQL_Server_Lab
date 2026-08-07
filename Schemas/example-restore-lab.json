@@ -2,6 +2,9 @@
   "$schema": "./lab-manifest.schema.json",
   "name": "example-restore-lab",
   "description": "Lab mit Datenbank-Restore von URL (AdventureWorks)",
+  "automation": {
+    "mode": "interactive"
+  },
   "instances": [
     {
       "id": "primary",

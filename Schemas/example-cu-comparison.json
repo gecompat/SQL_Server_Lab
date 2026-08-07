@@ -2,6 +2,9 @@
   "$schema": "./lab-manifest.schema.json",
   "name": "cu-vergleich-2022",
   "description": "Vergleich zweier CU-Versionen mit identischer AdventureWorks-Datenbank",
+  "automation": {
+    "mode": "interactive"
+  },
   "instances": [
     {
       "id": "cu16",

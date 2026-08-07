@@ -45,12 +45,13 @@ Diese Datei ist der verbindliche Dokumentationsindex. Die Root-[README](../READM
 4. [Testdatenbank-Provisionierung und menügeführte Manifest-Erstellung](Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md)
 5. [Gemischter Container-Provider-Lifecycle](Architecture/MIXED_PROVIDER_LIFECYCLE.md)
 6. [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md)
-7. [Feste isolierte Labnetze](HowTo/LAB_NETWORKS.md)
-7. [Projektintegrationsvertrag](Architecture/PROJECT_INTEGRATION_CONTRACT.md)
-8. [Master-Umsetzungsplan](Project_Planning/MASTER_IMPLEMENTATION_PLAN.md)
-9. [Masterplan-Ergänzung](Project_Planning/MASTER_IMPLEMENTATION_PLAN_SCOPE_ADDENDUM.md)
-10. [Project-Adapter-Priorisierung](Project_Planning/PROJECT_ADAPTER_PRIORITIZATION.md)
-11. [Zukünftige Anwendungsfälle](Architecture/FUTURE_USE_CASES_AND_EXTENSION_GUARDRAILS.md)
+7. [Vorlagenpool und automatisierte Manifeste](Architecture/TEMPLATE_POOL_AND_AUTOMATED_MANIFESTS.md)
+8. [Feste isolierte Labnetze](HowTo/LAB_NETWORKS.md)
+9. [Projektintegrationsvertrag](Architecture/PROJECT_INTEGRATION_CONTRACT.md)
+10. [Master-Umsetzungsplan](Project_Planning/MASTER_IMPLEMENTATION_PLAN.md)
+11. [Masterplan-Ergänzung](Project_Planning/MASTER_IMPLEMENTATION_PLAN_SCOPE_ADDENDUM.md)
+12. [Project-Adapter-Priorisierung](Project_Planning/PROJECT_ADAPTER_PRIORITIZATION.md)
+13. [Zukünftige Anwendungsfälle](Architecture/FUTURE_USE_CASES_AND_EXTENSION_GUARDRAILS.md)
 
 Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ein Feature bereits ausgeführt werden kann.
 
@@ -62,7 +63,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | Öffentliche API | 17 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
 | Docker | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman | implementiert | `Providers/Podman/PodmanProvider.ps1` |
-| Hyper-V | Lifecycle-Grundlage; keine SQL-Provisionierung | `Providers/HyperV/HyperVProvider.ps1`, `Providers/HyperV/README.md` |
+| Hyper-V | Lifecycle, sealed Registry und enger Manifestpfad aus SQL-Prepared-Image; echter SQL-End-to-End-Nachweis bleibt offen | `Providers/HyperV/HyperVProvider.ps1`, `Private/HyperVImageRegistry.ps1` |
 | Versions- und Buildauflösung | implementiert | `Catalogs/sql-server-versions.json`, `Private/VersionCatalog.ps1` |
 | Sample-Katalog | typisierter Artifact-Vertrag; direkte Backups, sichere ZIP-Backups und gepinnte Einzelskripte ausführbar | `Catalogs/sample-databases.json`, `Schemas/sample-databases.schema.json`, `Private/SampleArtifactHandlers.ps1` |
 | Manifestparser | implementiert | `Private/ManifestParser.ps1` |
@@ -76,6 +77,8 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | Skriptausführung | implementiert | `Public/Invoke-SqlServerLabScript.ps1` |
 | Integrationstest | implementiert | `Tests/Integration/Invoke-SmokeTest.ps1` |
 | Manifest-Builder und -Fachprüfung | implementiert, einschließlich `x-ui`-Pfadkontext und Hostvorschau | `Private/ManifestBuilder.ps1`, `Tests/Static/Invoke-ManifestBuilderChecks.ps1` |
+| Unbeaufsichtigtes Manifest | implementiert für Container; externe Secret-Referenzen, SHA-256-Restore und sichere Host-Mount-Defaults | `Schemas/lab-manifest.schema.json`, `Public/New-SqlServerLab.ps1` |
+| Vorlagenpool | implementiert: maximal 20 immutable OS-/SQL-Prepared-Images, rungebundener Löschschutz | `Private/HyperVImageRegistry.ps1`, `Public/Get-SqlServerLabWorkflow.ps1` |
 | Statische Vertragsprüfung | implementiert | `Tests/Static/Invoke-DocumentationChecks.ps1` |
 
 ## 3. Öffentliche Cmdlets
@@ -134,6 +137,7 @@ Nur wenn alle Ebenen zusammenpassen, ist ein Feld als vollständig implementiert
 | [Testdatenbank-Provisionierung und menügeführte Manifest-Erstellung](Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md) | Zielvertrag für Artifact Handler, Trust/Hash, Mehrfachauswahl, Pfadführung und Baselines; direkte Backups, sichere ZIP-Backups, Einzelskripte, Trust-Pfad und Mehrfachauswahl sind implementiert |
 | [Gemischter Container-Provider-Lifecycle](Architecture/MIXED_PROVIDER_LIFECYCLE.md) | implementierter Docker-/Podman-Lifecycle mit ProviderSubRuns, Start-Rollback und providergebundenem Cleanup |
 | [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md) | verbindlicher Zielvertrag für Hyper-V, sealed Images, Netzwerke, Software, Reconcile und Refresh; noch kein Runtime-Nachweis |
+| [Vorlagenpool und automatisierte Manifeste](Architecture/TEMPLATE_POOL_AND_AUTOMATED_MANIFESTS.md) | implementierter Standardpfad, Eigentumsgrenzen und aktueller Hyper-V-Umfang |
 | [Projektintegrationsvertrag](Architecture/PROJECT_INTEGRATION_CONTRACT.md) | Anbindung konsumierender Projekte |
 | [Zukünftige Anwendungsfälle](Architecture/FUTURE_USE_CASES_AND_EXTENSION_GUARDRAILS.md) | Roadmap und Grenzen für Supporting Components |
 

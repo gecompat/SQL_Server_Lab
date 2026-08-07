@@ -34,6 +34,45 @@ function Initialize-HyperVImageStore {
     return $paths
 }
 
+function Get-HyperVTemplatePoolStatus {
+    <#
+    .SYNOPSIS
+        Liefert den begrenzten, unveränderlichen Vorlagenpool für Hyper-V-Labs.
+    .DESCRIPTION
+        Der Pool enthält ausschließlich veröffentlichte OS- und SQL-Prepared-
+        Images. Run-lokale Children, Builder und synthetische Testartefakte
+        zählen bewusst nicht. Die Obergrenze begrenzt den dauerhaft zu
+        wartenden Imagebestand; ein volles Pool erfordert eine explizite,
+        referenzsichere Bereinigung über die Expertenaktion.
+    #>
+    [CmdletBinding()]
+    param(
+        [string]$StateRoot,
+        [ValidateRange(1, 100)][int]$MaximumTemplates = 20,
+        [array]$Artifacts
+    )
+
+    if (-not $PSBoundParameters.ContainsKey('Artifacts')) {
+        $Artifacts = @(Get-HyperVImageArtifact -StateRoot $StateRoot -SkipIntegrityCheck)
+    }
+
+    $templates = @($Artifacts | Where-Object {
+        $_ -and [string]$_.artifactState -in @('OS_SEALED', 'SQL_PREPARED_SEALED')
+    } | Sort-Object artifactState, registeredAt, artifactId)
+    $windowsBaselines = @($templates | Where-Object { $_.artifactState -eq 'OS_SEALED' })
+    $sqlPreparedImages = @($templates | Where-Object { $_.artifactState -eq 'SQL_PREPARED_SEALED' })
+
+    return [PSCustomObject]@{
+        MaximumTemplates = $MaximumTemplates
+        UsedTemplates = $templates.Count
+        AvailableTemplates = [Math]::Max(0, $MaximumTemplates - $templates.Count)
+        IsAtCapacity = $templates.Count -ge $MaximumTemplates
+        WindowsBaselines = $windowsBaselines.Count
+        SqlPreparedImages = $sqlPreparedImages.Count
+        Templates = $templates
+    }
+}
+
 function Test-HyperVVhdxSignature {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$Path)
@@ -171,6 +210,13 @@ function Import-HyperVImageArtifact {
             return $existing
         }
 
+        if ($ArtifactState -in @('OS_SEALED', 'SQL_PREPARED_SEALED')) {
+            $pool = Get-HyperVTemplatePoolStatus -StateRoot $StateRoot
+            if ($pool.IsAtCapacity) {
+                throw "HYPERV_TEMPLATE_POOL_CAPACITY_EXCEEDED: Der Vorlagenpool enthält bereits $($pool.UsedTemplates) von maximal $($pool.MaximumTemplates) veröffentlichten OS-/SQL-Prepared-Images. Entfernen Sie zuerst bewusst eine nicht referenzierte Vorlage."
+            }
+        }
+
         $stagingDirectory = Join-Path $paths.StagingRoot (New-LabGuid)
         $targetDirectory = Join-Path $paths.RegistryRoot $artifactId
         New-Item -Path $stagingDirectory -ItemType Directory -Force | Out-Null
@@ -253,8 +299,13 @@ function Remove-HyperVImageArtifact {
                 $references += "SQL-Build $($build.buildId)"
             }
         }
+        foreach ($run in @(Get-LabActiveRuns -StateRoot $StateRoot)) {
+            if ([string]$run.metadata.imageArtifactId -eq $ArtifactId) {
+                $references += "Lab-Run $($run.runId)"
+            }
+        }
         if ($references.Count -gt 0) {
-            throw "HYPERV_ARTIFACT_IN_USE: $($references -join ', '). Bereinigen Sie zuerst den zugehörigen Build-Verlauf."
+            throw "HYPERV_ARTIFACT_IN_USE: $($references -join ', '). Bereinigen Sie zuerst den zugehörigen Build oder Lab-Run."
         }
 
         $targetDirectory = Join-Path $paths.RegistryRoot $ArtifactId

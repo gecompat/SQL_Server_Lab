@@ -2,6 +2,12 @@
   "$schema": "./lab-manifest.schema.json",
   "name": "performance-schulung-lab",
   "description": "Lab fuer SQL-Performance-Schulung mit getrennten Volumes, TempDB-Layout, Memory-Grenzen und kontrollierter Parallelitaet",
+  "automation": {
+    "mode": "unattended",
+    "secrets": {
+      "saPassword": "SQL_SERVER_LAB_SECRET_SA_PASSWORD"
+    }
+  },
   "instances": [
     {
       "id": "primary",

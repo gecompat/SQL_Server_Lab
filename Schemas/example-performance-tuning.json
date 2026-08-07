@@ -2,6 +2,9 @@
   "$schema": "../Schemas/lab-manifest.schema.json",
   "name": "performance-tuning-lab",
   "description": "Performance-Lab mit grosser Datenbank (StackOverflow 10GB)",
+  "automation": {
+    "mode": "interactive"
+  },
   "instances": [
     {
       "id": "primary",

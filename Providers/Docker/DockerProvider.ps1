@@ -85,7 +85,11 @@ function New-DockerInstance {
         }
 
         $volumeArguments += '-v'
-        $volumeArguments += "${volumeSource}:$($drive.containerPath)"
+        $volumeTarget = "${volumeSource}:$($drive.containerPath)"
+        if ($drive.hostPath -and $drive.readOnly -eq $true) {
+            $volumeTarget = "${volumeTarget}:ro"
+        }
+        $volumeArguments += $volumeTarget
     }
 
     $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword)

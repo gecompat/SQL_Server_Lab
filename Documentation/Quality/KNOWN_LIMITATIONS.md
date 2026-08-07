@@ -78,9 +78,11 @@ SQL-Readiness. Der Ablauf ist unter
 [Windows-Server-Baseline aus ISO](../HowTo/HYPERV_WINDOWS_IMAGE_BUILD.md)
 dokumentiert.
 
-Manifeste mit Windows-Betriebssystem oder GUI-Software können bei der Provider-
-Auflösung zu `hyperv` führen; `New-SqlServerLab` bricht weiterhin mit einer
-klaren Meldung ab, weil die Hyper-V-SQL-Provisionierung noch fehlt.
+`New-SqlServerLab -Manifest` kann genau eine veröffentlichte
+`SQL_PREPARED_SEALED`-Vorlage als differenzierenden Hyper-V-Lab-Klon starten und
+die vorhandene Unattended-Provisionierung verwenden. Der Aufruf braucht dafür
+im Standardmodus externe Guest- und gegebenenfalls SQL-SA-Secrets. Dieser Pfad
+hat noch keinen positiven realen SQL-End-to-End-Nachweis für alle Medien.
 
 Zusatz-VHDX werden auf dem Host vor der VM-Mutation validiert, unterhalb des
 Run-Verzeichnisses erzeugt, per SCSI angebunden und durch VM-Identität sowie
@@ -120,9 +122,10 @@ für `Mount-VHD` benötigte Volume-Recht. In diesem Fall bleibt genau der
 dokumentierte OOBE-/Passwortschritt manuell; SQL Setup und Abnahme laufen
 danach weiter unbeaufsichtigt.
 
-Noch nicht implementiert ist die Bindung an den bestehenden Manifest-Drive-
-Vertrag. Ebenfalls offen bleiben der unattended OS-Build, `CompleteImage`,
-runtimeübergreifende Network Intents, zentraler IPAM, Reconcile und der automatische Artifact Refresh. Der
+Noch nicht implementiert ist die deklarative Hyper-V-Bindung an den bestehenden
+Manifest-Drive-, Datenbank-, Post-Provisioning- und Netzwerkvertrag. Ebenfalls
+offen bleiben der unattended OS-Build, `CompleteImage`, runtimeübergreifende
+Network Intents, zentraler IPAM, Reconcile und der automatische Artifact Refresh. Der
 verbindliche Zielvertrag steht in
 [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](../Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md).
 
@@ -172,6 +175,13 @@ Die Instanzdefinition enthält eine Collation, die als Default für neu angelegt
 
 Das Feld `sizeLimitGB` bei Drives ist derzeit Metadatum; Docker- oder Podman-Volumes werden dadurch nicht physisch auf diese Größe begrenzt.
 
+Beliebige `drives[].hostPath`-Mounts aus einem Manifest sind standardmäßig
+read-only. Ein schreibender Host-Mount ist kein Standard- oder Persistenzpfad:
+Er verlangt `accessMode: readWrite`, `expertActions.hostWriteMounts: true` und
+zusätzlich den Aufrufschalter `-AllowExpertHostWriteMounts`. Dieser Schutz
+ersetzt keine Host-Sandbox; ein ausdrücklich freigegebener Expertenmount kann
+weiterhin in das gewählte Hostverzeichnis schreiben.
+
 Für Evaluation-Refresh existiert ein externer, idempotent initialisierbarer
 Data Root mit versionsgetrennten Data-/Log-Bereichen und einer gemeinsamen
 Backup-Übergabeebene. Automatisches Backup, `RESTORE VERIFYONLY`, Restore,
@@ -182,6 +192,25 @@ operatorgeführt.
 ## Restore
 
 Unterstützt werden direkte `.bak`-Dateien aus lokalen Pfaden oder HTTP(S)-URLs.
+Ein HTTP(S)-Restore ohne `restore.sha256` kann im interaktiven Trust-Pfad
+verwendet werden, beendet einen unbeaufsichtigten Manifestlauf jedoch mit
+`TRUST_REQUIRED`.
+
+## Automatisierte Manifeste und Vorlagenpool
+
+`automation.mode: unattended` ist der Manifeststandard. Passwörter dürfen nur
+über eng benannte Prozess-Umgebungsvariablen (`SQL_SERVER_LAB_SECRET_*`) oder
+als `SecureString`-Parameter übergeben werden. Der Containerpfad ist für
+automatisierte Tests und schnelle Setups der vollständige primäre Runtimepfad;
+das explizite `interactive` bleibt Kompatibilitätsmodus.
+
+Die lokale Hyper-V-Registry fasst höchstens 20 veröffentlichte `OS_SEALED`-
+und `SQL_PREPARED_SEALED`-Vorlagen. Die Grenze ist absichtlich keine
+automatische Lösch- oder Auswahlstrategie: Der Operator muss eine nicht mehr
+benötigte, nicht referenzierte Vorlage bewusst entfernen. Ein aktiver Lab-Run
+oder Image-Build blockiert das Entfernen seines Parents. Der noch offene
+Ausbauumfang steht im
+[Vorlagen- und Manifestvertrag](../Architecture/TEMPLATE_POOL_AND_AUTOMATED_MANIFESTS.md).
 
 Nicht automatisch unterstützt werden:
 
