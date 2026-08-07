@@ -239,8 +239,8 @@ try {
         $menuText -match 'while \(-not \$exitImageMenu\)' -and
         $menuText -match '''0''\s*\{\s*\$exitImageMenu\s*=\s*\$true\s*\}'
     )
-    Add-CheckResult -Name 'Image-Menue bietet reguläre Hyper-V-Labs aus Prepared-Images an' -Success (
-        $menuText -match '\[18\] Reguläre Hyper-V-Umgebung aus SQL-Prepared-Image erstellen' -and
+    Add-CheckResult -Name 'Kompaktes Hyper-V-Hauptmenü bietet reguläre Labs aus Prepared-Images an' -Success (
+        $menuText -match '\[3\] Neue Hyper-V-Umgebung aus Prepared-Image erstellen' -and
         $menuText -match 'New-LabHyperVEnvironmentInteractive' -and
         $menuText -match 'Manage-LabHyperVEnvironmentInteractive' -and
         $menuText -match 'New-HyperVLabEnvironment' -and
@@ -255,12 +255,10 @@ try {
     Add-CheckResult -Name 'Erfolgreiche Hyper-V-Laberstellung meldet den nächsten Schritt ohne ungültigen Inline-if-Aufruf' -Success (
         $menuText -notmatch 'Write-LabInfo\s+\(if\s*\('
     )
-    $selectionIndex = $menuText.IndexOf('$choice = Read-Host ''  Auswahl''')
-    $clearIndex = $menuText.IndexOf('Clear-Host', $selectionIndex)
-    $actionHeaderIndex = $menuText.IndexOf('Hyper-V Image-Lifecycle – Auswahl: $choice', $clearIndex)
-    Add-CheckResult -Name 'Image-Aktionen leeren die Konsole vor ihrer Ausgabe, nicht danach' -Success (
-        $selectionIndex -ge 0 -and $clearIndex -gt $selectionIndex -and
-        $actionHeaderIndex -gt $clearIndex -and $menuText -match '''0''\s*\{\s*\$exitImageMenu\s*=\s*\$true\s*\}'
+    Add-CheckResult -Name 'Untermenü-Aktionen leeren die Konsole vor ihrer Ausgabe' -Success (
+        $menuText -match 'function Show-LabHyperVMenuActionHeader' -and
+        $menuText -match 'Show-LabHyperVMenuActionHeader[\s\S]{0,180}Clear-Host' -and
+        $menuText -match "'1' \{ Show-LabHyperVMenuActionHeader -Title 'Neues SQL-Prepared-Image'"
     )
     Add-CheckResult -Name 'Windows-Builder-Cleanup bietet ALL mit eigener Gesamtbestaetigung' -Success (
         $menuText -match '\[ALL\] Alle \$\(\$builds\.Count\) angezeigten unfertigen Windows-Builder aufraeumen' -and

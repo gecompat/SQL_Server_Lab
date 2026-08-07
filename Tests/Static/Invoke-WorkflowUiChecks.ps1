@@ -93,13 +93,14 @@ Add-CheckResult -Name 'UI bietet erkannte Windows- und SQL-Medien ohne manuelle 
     $scriptText -match 'delete parameters\.SqlEdition' -and
     $scriptText -match "OperatingSystemId === 'windows-server-2025'"
 )
-Add-CheckResult -Name 'SQL-Prepared-Images verwenden standardmäßig eine veröffentlichte OS-Baseline' -Success (
-    $actionText -match 'NewSqlBuildFromBaseline' -and
-    $actionText -match 'Initialize-HyperVSqlPreparedImageBuild' -and
+Add-CheckResult -Name 'SQL-Prepared-Images verwenden standardmäßig frische Windows- und SQL-ISOs' -Success (
+    $actionText -match 'NewSqlBuild' -and
+    $actionText -match 'Initialize-HyperVSqlFreshPreparedImageBuild' -and
     $workflowText -match 'WindowsBaselines = @\(' -and
     $workflowText -match 'ProvisioningMode = \[string\]\$_.provisioningMode' -and
+    $htmlText -match 'data-open-build="sql-fresh">Neues SQL-Prepared-Image' -and
     $htmlText -match 'id="sql-parent-artifact"' -and
-    $htmlText -match 'data-open-build="sql-fresh"' -and
+    $htmlText -match 'Erweitert: SQL-Builder aus OS-Baseline' -and
     $scriptText -match 'renderSqlParentOptions' -and
     $scriptText -match 'NewSqlBuildFromBaseline' -and
     $scriptText -match "kind === 'sql-fresh'" -and
@@ -192,7 +193,7 @@ Add-CheckResult -Name 'Frische SQL-Images prüfen Windows-Edition vor PrepareIma
     $scriptText -match 'Windows-Edition prüfen' -and
     $scriptText -match "action === 'ConfirmSqlWindowsInstall'" -and
     $consoleText -match 'Confirm-LabHyperVSqlWindowsInstallationInteractive' -and
-    $consoleText -match "'b' \{ Confirm-LabHyperVSqlWindowsInstallationInteractive \}"
+    $consoleText -match "'2' \{ Show-LabHyperVMenuActionHeader -Title 'Windows-Installation bestätigen'; Confirm-LabHyperVSqlWindowsInstallationInteractive \}"
 )
 Add-CheckResult -Name 'UI erstellt reguläre Hyper-V-Labs nur aus SQL-Prepared-Images' -Success (
     $hyperVLabText -match 'SQL_PREPARED_SEALED' -and

@@ -23,13 +23,11 @@ ausgeführt werden sollen.
 
 ## Workflow
 
-1. Windows-OS-Baseline: Build anlegen, VMConnect öffnen, Windows installieren,
-   Installation bestätigen, generalisieren und veröffentlichen.
-2. SQL-Prepared-Image: eine veröffentlichte OS-Baseline und das SQL-Medium
-   auswählen. Der Builder erzeugt eine differenzierende VHDX; Windows wird
-   nicht erneut installiert. Nach der kurzen OOBE folgen SQL PrepareImage,
-   finaler Sysprep und Veröffentlichung. Der frische Windows+SQL-ISO-Weg ist
-   als Sonderfall separat verfügbar.
+1. SQL-Prepared-Image: Windows- und SQL-ISO auswählen, Windows in einer
+   frischen Builder-VM installieren, SQL `PrepareImage` ausführen, einmal
+   final syspreppen und veröffentlichen.
+2. OS-Baselines, Abnahme-VMs und Sysprep-Recovery sind getrennte
+   Experten-/Reparaturfunktionen.
 3. Abnahme: Die Übersicht listet run-lokale Windows-/SQL-Abnahmeumgebungen
    samt ihrem Testzustand.
 

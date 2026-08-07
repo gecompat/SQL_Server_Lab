@@ -32,9 +32,9 @@
       </div>
       <div class="workflow-actions">
         <button id="media-sources" class="button secondary">Medienquellen</button>
-        <button class="button secondary" data-open-build="windows">Neue Windows-Baseline</button>
-        <button class="button primary" data-open-build="sql">Neues SQL-Prepared-Image</button>
-        <button class="button secondary" data-open-build="sql-fresh">Frischer SQL-Build aus ISOs</button>
+        <button class="button primary" data-open-build="sql-fresh">Neues SQL-Prepared-Image</button>
+        <button class="button secondary" data-open-build="windows">Erweitert: Windows-OS-Baseline</button>
+        <button class="button secondary" data-open-build="sql">Erweitert: SQL-Builder aus OS-Baseline</button>
         <button id="new-container" class="button secondary">Neue Container-Umgebung</button>
         <button id="new-manifest" class="button secondary">Container-Manifest erstellen</button>
         <button id="run-manifest" class="button secondary">Container-Manifest ausführen</button>
@@ -47,20 +47,20 @@
     <section class="workflow-track" aria-label="Vorbereitungsworkflow">
       <article class="workflow-stage">
         <span class="stage-number">1</span>
-        <h3>Windows-Baseline</h3>
-        <p>Windows installieren, prüfen, generalisieren und veröffentlichen.</p>
+        <h3>Frischer Builder</h3>
+        <p>Windows- und SQL-ISO auswählen und Windows installieren.</p>
       </article>
       <span class="workflow-arrow">→</span>
       <article class="workflow-stage">
         <span class="stage-number">2</span>
         <h3>SQL-Prepared-Image</h3>
-        <p>Frisches Windows, SQL PrepareImage, ein finaler Sysprep.</p>
+        <p>Windows prüfen, SQL PrepareImage ausführen und einmal final syspreppen.</p>
       </article>
       <span class="workflow-arrow">→</span>
       <article class="workflow-stage">
         <span class="stage-number">3</span>
-        <h3>Abnahme</h3>
-        <p>Run-lokale VM starten und SQL-Funktionen testen.</p>
+        <h3>Lab-Umgebung</h3>
+        <p>Prepared-Image veröffentlichen und daraus eine Lab-VM erstellen.</p>
       </article>
     </section>
 
@@ -150,7 +150,7 @@
         <label>Offizieller SQL-ISO SHA-256<input id="sql-media-sha256" inputmode="text" autocomplete="off" maxlength="64" placeholder="64 Hex-Zeichen"></label>
         <div><span id="sql-media-hash-status" class="form-note">SQL-Hash: Medium auswählen</span><button id="set-sql-media-hash" type="button" class="button secondary">SQL-Hash berechnen / prüfen</button></div>
       </div>
-      <p id="build-note" class="form-note">Aus der gewählten unveränderlichen OS-Baseline wird eine eigene differenzierende VHDX erstellt. Windows muss nicht erneut installiert werden; nur OOBE und SQL PrepareImage erfolgen in der neuen Build-VM.</p>
+      <p id="build-note" class="form-note">Der Standardpfad installiert Windows und SQL aus den ausgewählten Original-ISOs und führt anschließend genau einen finalen Sysprep aus.</p>
       <div class="dialog-actions"><button type="button" class="button secondary" value="cancel" formnovalidate>Abbrechen</button><button id="build-submit" class="button primary" value="default">Build im Hintergrund starten</button></div>
     </form>
   </dialog>
