@@ -1643,6 +1643,48 @@ function Select-LabHyperVPreparedArtifact {
     return $artifacts[[int]$selection - 1]
 }
 
+function Select-LabHyperVVirtualSwitch {
+    <#
+    .SYNOPSIS
+        Wählt einen vorhandenen Hyper-V-Switch oder bewusst keine Anbindung.
+    .DESCRIPTION
+        Die Switch-Liste wird erst unmittelbar vor der Lab-Erstellung gelesen,
+        damit zwischenzeitlich neu angelegte oder entfernte Switches korrekt
+        berücksichtigt werden. Eine leere Auswahl bedeutet weiterhin eine
+        isolierte VM ohne Netzwerkadapter.
+    #>
+    [CmdletBinding()]
+    param()
+
+    try {
+        $switches = @(Get-VMSwitch -ErrorAction Stop | Sort-Object Name)
+    }
+    catch {
+        Write-LabWarning "Virtuelle Hyper-V-Switches konnten nicht gelesen werden: $($_.Exception.Message)"
+        return $null
+    }
+
+    if ($switches.Count -eq 0) {
+        Write-LabInfo 'Keine virtuellen Hyper-V-Switches vorhanden. Die VM bleibt isoliert.'
+        return $null
+    }
+
+    Write-Host ''
+    Write-Host '  Virtueller Switch:' -ForegroundColor White
+    Write-Host '    [0] Kein Switch = isoliert' -ForegroundColor DarkGray
+    for ($i = 0; $i -lt $switches.Count; $i++) {
+        $switch = $switches[$i]
+        Write-Host ("    [{0}] {1} · {2}" -f ($i + 1), $switch.Name, $switch.SwitchType) -ForegroundColor White
+    }
+    $selection = Read-Host '  Virtuellen Switch auswählen [0]'
+    if (-not $selection -or $selection -eq '0') { return $null }
+    if ($selection -notmatch '^\d+$' -or [int]$selection -lt 1 -or [int]$selection -gt $switches.Count) {
+        Write-LabWarning 'Ungültige Auswahl. Die VM bleibt isoliert.'
+        return $null
+    }
+    return [string]$switches[[int]$selection - 1].Name
+}
+
 function New-LabHyperVEnvironmentInteractive {
     [CmdletBinding()]
     param()
@@ -1657,7 +1699,7 @@ function New-LabHyperVEnvironmentInteractive {
     if (-not $memory) { $memory = 4096 }
     $cpu = Read-Host '  vCPU [4]'
     if (-not $cpu) { $cpu = 4 }
-    $switchName = Read-Host '  Virtueller Switch (leer = isoliert)'
+    $switchName = Select-LabHyperVVirtualSwitch
     $persistentData = $false
     $dataRoot = Get-LabDataRootDefault
     $persistentDataDiskGB = 128
@@ -1711,7 +1753,7 @@ function New-LabHyperVEnvironmentFromExistingVmInteractive {
     if (-not $memory) { $memory = $source.MemoryStartupMB }
     $cpu = Read-Host "  vCPU [$($source.ProcessorCount)]"
     if (-not $cpu) { $cpu = $source.ProcessorCount }
-    $switchName = Read-Host '  Virtueller Switch (leer = isoliert)'
+    $switchName = Select-LabHyperVVirtualSwitch
     $persistentData = $false
     $dataRoot = Get-LabDataRootDefault
     $persistentDataDiskGB = 128
