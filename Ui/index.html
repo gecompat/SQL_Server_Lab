@@ -38,7 +38,7 @@
         <button id="new-container" class="button secondary">Neue Container-Umgebung</button>
         <button id="new-manifest" class="button secondary">Container-Manifest erstellen</button>
         <button id="run-manifest" class="button secondary">Container-Manifest ausführen</button>
-        <button id="new-hyperv-lab" class="button secondary">Neue Hyper-V-Umgebung</button>
+        <button id="new-hyperv-lab" class="button secondary">Neue Windows-/SQL-Hyper-V-Umgebung</button>
         <button id="new-hyperv-existing-vm-lab" class="button secondary">Windows-VM als Hyper-V-Basis</button>
         <button id="clear-all-labs" class="button danger">Alles aufräumen</button>
       </div>
@@ -60,7 +60,7 @@
       <article class="workflow-stage">
         <span class="stage-number">3</span>
         <h3>Lab-Umgebung</h3>
-        <p>Aus dem Prepared-Image wird eine Lab-VM mit WMI, SQL-TCP und Hostzugriff eingerichtet.</p>
+        <p>OS-Baselines ergeben reine Windows-VMs; SQL-Prepared-Images richten zusätzlich WMI, SQL-TCP und Hostzugriff ein.</p>
       </article>
     </section>
 
@@ -198,9 +198,9 @@
 
   <dialog id="hyperv-lab-dialog" class="dialog-wide">
     <form id="hyperv-lab-form" method="dialog">
-      <div class="dialog-heading"><div><p class="eyebrow">HYPER-V-LAB</p><h2>Neue SQL-Umgebung aus Prepared-Image</h2></div><button type="button" class="icon-button" value="cancel" formnovalidate aria-label="Schließen">×</button></div>
-      <label>SQL-Prepared-Image<select id="hyperv-artifact" required><option value="">Kein veröffentlichtes Prepared-Image vorhanden</option></select></label>
-      <div id="hyperv-artifact-details" class="selection-details" aria-live="polite">Wählen Sie ein Prepared-Image; alle technischen Details werden hier angezeigt.</div>
+      <div class="dialog-heading"><div><p class="eyebrow">HYPER-V-LAB</p><h2>Neue Windows- oder SQL-Umgebung aus Vorlage</h2></div><button type="button" class="icon-button" value="cancel" formnovalidate aria-label="Schließen">×</button></div>
+      <label>Windows-OS-Baseline oder SQL-Prepared-Image<select id="hyperv-artifact" required><option value="">Keine veröffentlichte Vorlage vorhanden</option></select></label>
+      <div id="hyperv-artifact-details" class="selection-details" aria-live="polite">Wählen Sie eine Vorlage; alle technischen Details werden hier angezeigt.</div>
       <div class="form-grid">
         <label>Labname<input id="hyperv-lab-name" value="hyperv-sql-lab" pattern="[A-Za-z0-9][A-Za-z0-9 _-]{0,63}" required></label>
         <label>Instanzname<input id="hyperv-instance" value="primary" pattern="[A-Za-z0-9][A-Za-z0-9_-]{0,63}" required></label>
@@ -208,16 +208,16 @@
         <label>vCPU<input id="hyperv-processors" type="number" min="1" max="64" value="4" required></label>
         <label>Virtueller Switch<select id="hyperv-switch"><option value="">SQL_Server_Lab-Standard (Host-SSMS möglich)</option></select></label>
       </div>
-      <label class="form-check"><input id="hyperv-persistent-data" type="checkbox"> Langlebige Daten-VHDX im Data Root anhängen</label>
+      <label id="hyperv-persistent-field" class="form-check"><input id="hyperv-persistent-data" type="checkbox"> Langlebige Daten-VHDX im Data Root anhängen</label>
       <p class="form-note">Die Daten-VHDX wird je Lab neu im Data Root angelegt, nicht mit der Vorlage geteilt und bei „Entfernen“ nicht gelöscht. Im Gast wird ein freier Datenbuchstabe verwendet (bevorzugt <code>S:\SQLData</code>).</p>
       <label>Gastpasswort<select id="hyperv-password-mode"><option value="generated">Zufällig erzeugen und zum Kopieren anzeigen</option><option value="user">Eigenes Passwort verwenden</option></select></label>
       <label>Lokales Administratorpasswort<input id="hyperv-guest-password" type="text" autocomplete="new-password" required></label>
       <label id="hyperv-guest-password-repeat-label">Passwort wiederholen<input id="hyperv-guest-password-repeat" type="password" autocomplete="new-password"></label>
       <div class="build-actions"><button id="hyperv-generate-password" type="button" class="button secondary">Passwort erzeugen</button><button id="hyperv-copy-password" type="button" class="button secondary">Passwort kopieren</button></div>
-      <label>SQL Server SA-Passwort <span class="muted">(optional; leer = lokales Administratorpasswort)</span><input id="hyperv-sa-password" type="password" autocomplete="new-password"></label>
+      <label id="hyperv-sa-field">SQL Server SA-Passwort <span class="muted">(optional; leer = lokales Administratorpasswort)</span><input id="hyperv-sa-password" type="password" autocomplete="new-password"></label>
       <label id="hyperv-sa-password-repeat-label" hidden>SQL-SA-Passwort wiederholen<input id="hyperv-sa-password-repeat" type="password" autocomplete="new-password"></label>
-      <p class="form-note">Die Antwortdatei wird nur in die differenzierende Klon-VHDX geschrieben und nach OOBE im Gast entfernt. Das Gastpasswort wird ausschließlich für diesen Run DPAPI-geschützt abgelegt; das Prepared-Image bleibt unverändert. Standardmäßig erhält die VM einen verwalteten Internal-Switch, eine feste Lab-IP sowie SQL-TCP für SSMS auf diesem Host. Ein separates SQL-SA-Passwort ist optional.</p>
-      <div class="dialog-actions"><button type="button" class="button secondary" value="cancel" formnovalidate>Abbrechen</button><button class="button primary" value="default">Schnell bereitstellen</button></div>
+      <p id="hyperv-lab-note" class="form-note">Die Antwortdatei wird nur in die differenzierende Klon-VHDX geschrieben und nach OOBE im Gast entfernt. Das Gastpasswort wird ausschließlich für diesen Run DPAPI-geschützt abgelegt. Bei einer SQL-Vorlage richtet die Bereitstellung zusätzlich SQL CompleteImage, WMI und TCP/IP für den Hostzugriff ein.</p>
+      <div class="dialog-actions"><button type="button" class="button secondary" value="cancel" formnovalidate>Abbrechen</button><button id="hyperv-lab-submit" class="button primary" value="default">Umgebung bereitstellen</button></div>
     </form>
   </dialog>
 

@@ -29,10 +29,12 @@ D:\Lab_Base\WindowsServer\2025\Eval\ISO\<Originaldateiname>.iso
 
 ## 2. Image-Menü starten
 
-Windows-OS-Baselines sind ein Expertenpfad. Im Hyper-V-Hauptmenü zuerst `e`
-und danach **Windows-OS-Baselines verwalten** wählen. Für ein reguläres
-SQL-Prepared-Image ist stattdessen der frische Windows+SQL-Pfad im Hauptmenü
-vorgesehen.
+Windows-OS-Baselines werden im Menü unter `e` → **Windows-OS-Baselines
+verwalten** erstellt. Der Build selbst bleibt ein bewusster administrativer
+Schritt, weil Windows einmal installiert und generalisiert werden muss. Die
+veröffentlichte `OS_SEALED`-Baseline ist danach jedoch der Standard für
+schnelle, reine Windows-Klone. Für ein SQL-Prepared-Image ist weiterhin der
+frische Windows+SQL-Pfad im Hauptmenü vorgesehen.
 
 ```powershell
 Set-Location D:\r\pu\SQL_Server_Lab
@@ -179,7 +181,26 @@ Checkpoint vorhanden ist. Die AVHDX darf nicht manuell gelöscht werden; der
 Checkpoint muss bei ausgeschalteter VM über Hyper-V entfernt und die
 Zusammenführung in die Basis-VHDX abgewartet werden.
 
-## 8. Status und Recovery
+## 8. Reine Windows-VM aus einer OS-Baseline bereitstellen
+
+Nach der Veröffentlichung im Hyper-V-Hauptmenü **Neue Hyper-V-Umgebung aus
+Windows- oder SQL-Vorlage erstellen** wählen. Die Auswahl unterscheidet
+sichtbar:
+
+- **Windows-OS-Baseline**: Klont eine reine Windows-VM. Die OOBE mit dem
+  gewählten Administratorpasswort, Region, Sprache und Tastatur wird in der
+  run-eigenen Child-VHDX automatisiert. SQL Server, SQL-WMI, SQL-TCP und
+  Connection Strings werden dabei bewusst nicht angefasst.
+- **SQL-Prepared-Image**: Klont Windows mit vorbereitetem SQL Server und
+  vervollständigt SQL, WMI und TCP/IP für Anwendungen auf dem Host.
+
+Die Parent-VHDX bleibt in beiden Fällen unveränderlich. Jeder Klon besitzt
+eine eigene differenzierende Child-VHDX und kann ohne Einfluss auf die
+Baseline oder andere Windows-Labs entfernt werden. Eine vorhandene,
+ausgeschaltete Windows-VM kann alternativ ebenfalls als geschützte, eigene
+Arbeitskopie als Klonquelle verwendet werden.
+
+## 9. Status und Recovery
 
 Build-State liegt standardmäßig unter:
 

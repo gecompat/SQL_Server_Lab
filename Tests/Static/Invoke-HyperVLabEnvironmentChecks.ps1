@@ -33,10 +33,40 @@ try {
     } $temporaryRoot
     $state = & $module { param($RunId, $Root) Get-LabRunState -RunId $RunId -StateRoot $Root } $created.RunId $temporaryRoot
     $connection = Get-Content -LiteralPath (Join-Path (Join-Path (Join-Path $temporaryRoot 'runs') $created.RunId) 'connection-info.json') -Raw | ConvertFrom-Json -Depth 10
-    Add-CheckResult -Name 'Reguläres Hyper-V-Lab bindet ausschließlich ein Prepared-Image und bleibt ausgeschaltet' -Success (
+    Add-CheckResult -Name 'Reguläres SQL-Hyper-V-Lab bindet ein Prepared-Image und bleibt ausgeschaltet' -Success (
         $created.State -eq 'STOPPED' -and $state.state -eq 'STOPPED' -and
         $connection.instances.Count -eq 1 -and $connection.instances[0].provider -eq 'hyperv' -and
-        $connection.instances[0].imageArtifactId -eq 'sql-prepared-test'
+        $connection.instances[0].imageArtifactId -eq 'sql-prepared-test' -and $connection.instances[0].workload -eq 'sql'
+    )
+    $windowsOnly = & $module {
+        param($Root)
+        function Test-HyperVAvailable { [PSCustomObject]@{ Available = $true; Message = 'mock' } }
+        function Get-HyperVImageArtifact {
+            [PSCustomObject]@{ artifactId = 'windows-baseline-test'; artifactState = 'OS_SEALED'; sql = $null }
+        }
+        function Resolve-LabHyperVNetwork { [PSCustomObject]@{ Name = 'SQL_LAB_HYPERV'; Subnet = '172.28.0.0/24'; PrefixLength = 24; HostAddress = '172.28.0.1' } }
+        function Get-HyperVLabVMs { [PSCustomObject]@{ VMName = 'windows-primary-mock'; VMId = 'windows-vm-id'; State = 'Off' } }
+        function New-HyperVInstance { [PSCustomObject]@{ VMName = 'windows-primary-mock'; VMId = 'windows-vm-id' } }
+        $created = New-HyperVLabEnvironment -ArtifactId 'windows-baseline-test' -LabName 'Windows Mock' -InstanceId primary -StateRoot $Root
+        $child = Join-Path $Root 'windows-only-child.vhdx'
+        $null = New-Item -Path $child -ItemType File -Force
+        function Get-HyperVManagedVM { [PSCustomObject]@{ VM = [PSCustomObject]@{ State = 'Off' }; Identity = [PSCustomObject]@{ childVhdxPath = $child } } }
+        function Set-HyperVSqlOfflineUnattend { param($VhdxPath, $MountRoot, $UnattendXml, $BootstrapScript) if ($VhdxPath -ne $child) { throw 'WINDOWS_UNATTEND_INJECTION_INVALID' } }
+        function Start-HyperVLabEnvironment { [PSCustomObject]@{ State = 'Running' } }
+        function Wait-HyperVPowerShellDirect { [PSCustomObject]@{ Ready = $true; Message = 'ready' } }
+        function Invoke-HyperVPowerShellDirect { param($ArgumentList) [PSCustomObject]@{ runId = $ArgumentList[0]; imageState = 'IMAGE_STATE_COMPLETE'; observedAt = '2026-08-07T12:00:00.0000000Z' } }
+        function Complete-HyperVLabSqlImage { throw 'SQL_MUST_NOT_RUN_FOR_WINDOWS_ONLY' }
+        $password = ConvertTo-SecureString 'Windows_Administrator_42!' -AsPlainText -Force
+        $result = Invoke-HyperVLabUnattendedProvision -RunId $created.RunId -AdministratorPassword $password -PasswordSource generated -StateRoot $Root
+        $connection = Get-Content -LiteralPath (Join-Path (Join-Path (Join-Path $Root 'runs') $created.RunId) 'connection-info.json') -Raw | ConvertFrom-Json -Depth 10
+        [PSCustomObject]@{ Created = $created; Result = $result; Connection = $connection }
+    } $temporaryRoot
+    Add-CheckResult -Name 'Windows-OS-Baseline erzeugt eine automatische reine Windows-VM ohne SQL-Aktionen' -Success (
+        $windowsOnly.Created.Workload -eq 'windows' -and
+        $windowsOnly.Connection.instances[0].workload -eq 'windows' -and
+        $windowsOnly.Result.WindowsOnly -and
+        $windowsOnly.Connection.instances[0].windowsProvisioning.state -eq 'COMPLETE' -and
+        -not $windowsOnly.Connection.instances[0].sqlCompletion
     )
     $unattended = & $module {
         param($RunId, $Root)

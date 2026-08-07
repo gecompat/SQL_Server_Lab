@@ -127,14 +127,24 @@ function renderArtifactList(target, items, kind, title, detail) {
   ).join('') : empty('Noch keine Einträge vorhanden.');
 }
 
-function renderHyperVArtifactOptions(items) {
+function getHyperVArtifactCandidates(sqlItems = workflow?.SqlPreparedImages || [], windowsItems = workflow?.WindowsBaselines || []) {
+  return [
+    ...(sqlItems || []).map((item) => ({ ...item, Workload: 'sql' })),
+    ...(windowsItems || []).map((item) => ({ ...item, Workload: 'windows' }))
+  ];
+}
+
+function renderHyperVArtifactOptions(sqlItems, windowsItems) {
   const select = $('#hyperv-artifact');
   const previous = select.value;
-  select.innerHTML = '<option value="">SQL-Prepared-Image auswählen …</option>' + (items || []).map((item) =>
-    '<option value="' + escapeHtml(item.ArtifactId) + '">' + escapeHtml(item.DisplayName || ('SQL Server ' + item.SqlVersion + ' · ' + item.SqlEdition)) + '</option>'
+  const items = getHyperVArtifactCandidates(sqlItems, windowsItems);
+  select.innerHTML = '<option value="">Windows- oder SQL-Vorlage auswählen …</option>' + items.map((item) =>
+    '<option value="' + escapeHtml(item.ArtifactId) + '">' + escapeHtml(item.Workload === 'sql'
+      ? ('SQL: ' + (item.DisplayName || ('SQL Server ' + item.SqlVersion + ' · ' + item.SqlEdition)))
+      : ('Windows: ' + (item.DisplayName || (formatOperatingSystem(item.OperatingSystem) + ' · ' + item.Edition + ' · ' + item.InstallationType)))) + '</option>'
   ).join('');
-  if ((items || []).some((item) => item.ArtifactId === previous)) select.value = previous;
-  renderHyperVArtifactDetails(items || []);
+  if (items.some((item) => item.ArtifactId === previous)) select.value = previous;
+  renderHyperVArtifactDetails(items);
 }
 
 function renderSqlParentOptions(items) {
@@ -160,11 +170,30 @@ function renderHyperVArtifactDetails(items) {
   const selected = (items || []).find((item) => item.ArtifactId === $('#hyperv-artifact').value);
   const target = $('#hyperv-artifact-details');
   if (!selected) {
-    target.textContent = 'Wählen Sie ein Prepared-Image; alle technischen Details werden hier angezeigt.';
+    target.textContent = 'Wählen Sie eine Windows- oder SQL-Vorlage; alle technischen Details werden hier angezeigt.';
+    updateHyperVLabWorkload(null);
     return;
   }
-  const title = selected.DisplayName || ('SQL Server ' + selected.SqlVersion + ' · ' + selected.SqlEdition);
-  target.innerHTML = '<strong>' + escapeHtml(title) + '</strong><span>Windows: ' + escapeHtml(selected.OperatingSystem) + ' · ' + escapeHtml(selected.WindowsEdition) + ' · ' + escapeHtml(selected.InstallationType) + '</span><span>SQL Server ' + escapeHtml(selected.SqlVersion) + ' · ' + escapeHtml(selected.SqlEdition) + (selected.SqlBuild ? ' · Build ' + escapeHtml(selected.SqlBuild) : '') + '</span><code>ArtifactId: ' + escapeHtml(selected.ArtifactId) + '</code>';
+  const isSql = selected.Workload === 'sql';
+  const title = selected.DisplayName || (isSql ? ('SQL Server ' + selected.SqlVersion + ' · ' + selected.SqlEdition) : (formatOperatingSystem(selected.OperatingSystem) + ' · ' + selected.Edition));
+  const windowsEdition = selected.WindowsEdition || selected.Edition;
+  const workload = isSql
+    ? '<span>SQL Server ' + escapeHtml(selected.SqlVersion) + ' · ' + escapeHtml(selected.SqlEdition) + (selected.SqlBuild ? ' · Build ' + escapeHtml(selected.SqlBuild) : '') + '</span>'
+    : '<span>Reine Windows-VM: OOBE wird automatisch eingerichtet; SQL, WMI und SQL-TCP bleiben unangetastet.</span>';
+  target.innerHTML = '<strong>' + escapeHtml(title) + '</strong><span>Windows: ' + escapeHtml(selected.OperatingSystem) + ' · ' + escapeHtml(windowsEdition) + ' · ' + escapeHtml(selected.InstallationType) + '</span>' + workload + '<code>ArtifactId: ' + escapeHtml(selected.ArtifactId) + '</code>';
+  updateHyperVLabWorkload(selected);
+}
+
+function updateHyperVLabWorkload(selected) {
+  const windowsOnly = selected?.Workload === 'windows';
+  $('#hyperv-sa-field').hidden = windowsOnly;
+  $('#hyperv-sa-password-repeat-label').hidden = windowsOnly || !$('#hyperv-sa-password').value;
+  $('#hyperv-persistent-field').hidden = windowsOnly;
+  if (windowsOnly) $('#hyperv-persistent-data').checked = false;
+  $('#hyperv-lab-note').textContent = windowsOnly
+    ? 'Die Antwortdatei wird nur in die differenzierende Klon-VHDX geschrieben und nach OOBE im Gast entfernt. Das Gastpasswort wird ausschließlich für diesen Run DPAPI-geschützt abgelegt. Diese Vorlage erstellt eine reine Windows-VM; SQL, WMI und SQL-TCP werden bewusst nicht konfiguriert.'
+    : 'Die Antwortdatei wird nur in die differenzierende Klon-VHDX geschrieben und nach OOBE im Gast entfernt. Das Gastpasswort wird ausschließlich für diesen Run DPAPI-geschützt abgelegt. Bei einer SQL-Vorlage richtet die Bereitstellung zusätzlich SQL CompleteImage, WMI und TCP/IP für den Hostzugriff ein.';
+  $('#hyperv-lab-submit').textContent = windowsOnly ? 'Windows-VM bereitstellen' : 'SQL-Umgebung bereitstellen';
 }
 
 function renderHyperVSwitchOptions(items) {
@@ -348,7 +377,7 @@ function renderWorkflow(data) {
   renderAcceptance(data.AcceptanceEnvironments);
   renderActiveLabs(data.ActiveLabs);
   renderHyperVLabs(data.HyperVLabs || []);
-  renderHyperVArtifactOptions(data.SqlPreparedImages || []);
+  renderHyperVArtifactOptions(data.SqlPreparedImages || [], data.WindowsBaselines || []);
   renderSqlParentOptions(data.WindowsBaselines || []);
   renderHyperVSwitchOptions(data.HyperVSwitches || []);
   renderHyperVExistingVmSourceOptions(data.HyperVExistingVmSources || []);
@@ -391,7 +420,8 @@ function renderActiveLabs(items) {
 function renderHyperVLabs(items) {
   $('#hyperv-labs').innerHTML = items.length ? items.map((item) => {
     const running = item.State === 'RUNNING' && item.VMState === 'Running';
-    const sqlNeedsCompletion = Boolean(item.ArtifactId) && item.SqlCompletionState === 'PENDING_COMPLETE_IMAGE';
+    const isSqlLab = item.Workload !== 'windows';
+    const sqlNeedsCompletion = isSqlLab && Boolean(item.ArtifactId) && item.SqlCompletionState === 'PENDING_COMPLETE_IMAGE';
     const persistent = item.PersistentStorage;
     const sqlInstances = item.SqlInstances || [];
     const instanceDetails = sqlInstances.length
@@ -409,17 +439,19 @@ function renderHyperVLabs(items) {
       (!running && !persistent) ? '<button class="button secondary" data-hyperv-action="EnableHyperVLabPersistentData" data-run="' + escapeHtml(item.RunId) + '">Daten-VHDX anhängen</button>' : '',
       (running && persistent?.state === 'ATTACHED_PENDING_INITIALIZATION') ? '<button class="button primary" data-hyperv-action="InitializeHyperVLabPersistentData" data-run="' + escapeHtml(item.RunId) + '">Daten-VHDX initialisieren</button>' : '',
       sqlNeedsCompletion ? '<button class="button primary" data-hyperv-action="CompleteHyperVLabSql" data-run="' + escapeHtml(item.RunId) + '">SQL, WMI und TCP/IP automatisch einrichten</button>' : '',
-      (running && !sqlNeedsCompletion) ? '<button class="button primary" data-hyperv-action="EnableHyperVLabHostSqlAccess" data-run="' + escapeHtml(item.RunId) + '">Hostzugriff reparieren</button>' : '',
-      running ? '<button class="button secondary" data-hyperv-action="InspectHyperVLabSqlInstances" data-run="' + escapeHtml(item.RunId) + '">SQL-Instanzen prüfen</button>' : '',
+      (running && isSqlLab && !sqlNeedsCompletion) ? '<button class="button primary" data-hyperv-action="EnableHyperVLabHostSqlAccess" data-run="' + escapeHtml(item.RunId) + '">Hostzugriff reparieren</button>' : '',
+      (running && isSqlLab) ? '<button class="button secondary" data-hyperv-action="InspectHyperVLabSqlInstances" data-run="' + escapeHtml(item.RunId) + '">SQL-Instanzen prüfen</button>' : '',
       '<button class="button secondary" data-hyperv-action="OpenHyperVConsole" data-run="' + escapeHtml(item.RunId) + '">VMConnect öffnen</button>',
       '<button class="button secondary" data-lab-rename="true" data-run="' + escapeHtml(item.RunId) + '" data-name="' + escapeHtml(item.Name || item.RunId) + '">Name ändern</button>',
       '<button class="button danger" data-hyperv-remove="true" data-run="' + escapeHtml(item.RunId) + '" data-name="' + escapeHtml(item.Name || item.RunId) + '">Entfernen</button>'
     ].join('');
     const sourceBased = item.BaseKind === 'existing-vm';
-    const detail = ['VM: ' + (item.VMName || '–'), 'VM-Status: ' + (item.VMState || '–'), sourceBased ? 'Basis: ' + (item.SourceVMName || 'bestehende VM') : 'SQL Server ' + (item.SqlVersion || '–')].join(' · ');
-    const baseDetail = sourceBased ? 'Quelle: ' + (item.SourceVMName || '–') + ' · Original unverändert' : 'Image: ' + shortId(item.ArtifactId);
+    const detail = ['VM: ' + (item.VMName || '–'), 'VM-Status: ' + (item.VMState || '–'), sourceBased ? 'Basis: ' + (item.SourceVMName || 'bestehende VM') : (isSqlLab ? 'SQL Server ' + (item.SqlVersion || '–') : 'Reine Windows-VM')].join(' · ');
+    const baseDetail = sourceBased ? 'Quelle: ' + (item.SourceVMName || '–') + ' · Original unverändert' : 'Vorlage: ' + shortId(item.ArtifactId);
     const persistentDetail = persistent ? '<div class="build-meta"><strong>Persistente Daten:</strong> Host ' + escapeHtml(persistent.hostPath || persistent.root || '–') + (persistent.guestPath ? ' → Gast ' + escapeHtml(persistent.guestPath) : '') + ' · ' + escapeHtml(persistent.state || 'eingebunden') + '</div>' : '';
-    const nextStep = sqlNeedsCompletion ? (running ? 'SQL, WMI und TCP/IP automatisch einrichten; danach ist die VM vom Host aus erreichbar.' : 'VM starten; danach SQL, WMI und TCP/IP automatisch einrichten.') : (item.SqlCompletionState === 'REBOOT_REQUIRED' ? 'SQL Setup startet automatisch neu; der laufende Job wartet auf die anschließende WMI- und TCP/IP-Konfiguration.' : (running ? 'VM läuft und ist bei erfolgreicher Bereitstellung über ihren Connection String vom Host erreichbar.' : 'VM starten und anschließend VMConnect öffnen.'));
+    const nextStep = !isSqlLab
+      ? (running ? 'Die reine Windows-VM läuft. VMConnect öffnen und Windows verwenden.' : 'VM starten und anschließend VMConnect öffnen.')
+      : sqlNeedsCompletion ? (running ? 'SQL, WMI und TCP/IP automatisch einrichten; danach ist die VM vom Host aus erreichbar.' : 'VM starten; danach SQL, WMI und TCP/IP automatisch einrichten.') : (item.SqlCompletionState === 'REBOOT_REQUIRED' ? 'SQL Setup startet automatisch neu; der laufende Job wartet auf die anschließende WMI- und TCP/IP-Konfiguration.' : (running ? 'VM läuft und ist bei erfolgreicher Bereitstellung über ihren Connection String vom Host erreichbar.' : 'VM starten und anschließend VMConnect öffnen.'));
     return '<article class="build-card"><div class="build-card-top"><div><div class="build-title">' + escapeHtml(item.Name || shortId(item.RunId)) + '</div><div class="build-meta">' + escapeHtml(detail) + '</div></div><span class="status ' + statusClass(running ? 'TESTS_PASSED' : item.State) + '">' + escapeHtml(item.State) + '</span></div><p class="build-next"><strong>Nächster Schritt:</strong> ' + escapeHtml(nextStep) + '</p><div class="build-actions">' + actions + '</div>' + persistentDetail + instanceDetails + primaryConnection + '<div class="build-meta">Run: ' + escapeHtml(shortId(item.RunId)) + ' · ' + escapeHtml(baseDetail) + '</div></article>';
   }).join('') : empty('Noch keine regulären Hyper-V-Umgebungen vorhanden.');
 }
@@ -865,7 +897,7 @@ $('#clear-all-labs').addEventListener('click', () => {
 });
 
 $('#new-hyperv-lab').addEventListener('click', () => {
-  renderHyperVArtifactOptions(workflow?.SqlPreparedImages || []);
+  renderHyperVArtifactOptions(workflow?.SqlPreparedImages || [], workflow?.WindowsBaselines || []);
   renderHyperVSwitchOptions(workflow?.HyperVSwitches || []);
   updateHyperVGuestPasswordMode();
   updateHyperVSaPasswordMode();
@@ -878,7 +910,7 @@ $('#new-hyperv-existing-vm-lab').addEventListener('click', () => {
   $('#hyperv-existing-vm-lab-dialog').showModal();
 });
 
-$('#hyperv-artifact').addEventListener('change', () => renderHyperVArtifactDetails(workflow?.SqlPreparedImages || []));
+$('#hyperv-artifact').addEventListener('change', () => renderHyperVArtifactDetails(getHyperVArtifactCandidates()));
 $('#hyperv-existing-vm-source').addEventListener('change', () => renderHyperVExistingVmSourceDetails(workflow?.HyperVExistingVmSources || []));
 $('#hyperv-password-mode').addEventListener('change', updateHyperVGuestPasswordMode);
 $('#hyperv-sa-password').addEventListener('input', updateHyperVSaPasswordMode);
@@ -891,10 +923,11 @@ $('#hyperv-copy-password').addEventListener('click', async () => {
 $('#hyperv-lab-form').addEventListener('submit', async (event) => {
   if (event.submitter?.value === 'cancel') return;
   event.preventDefault();
-  if (!$('#hyperv-artifact').value) { showError(new Error('Bitte ein veröffentlichtes SQL-Prepared-Image auswählen.')); return; }
+  const selectedArtifact = getHyperVArtifactCandidates().find((item) => item.ArtifactId === $('#hyperv-artifact').value);
+  if (!selectedArtifact) { showError(new Error('Bitte eine veröffentlichte Windows- oder SQL-Vorlage auswählen.')); return; }
   const passwordMode = $('#hyperv-password-mode').value;
   const guestPassword = $('#hyperv-guest-password').value;
-  const saPassword = $('#hyperv-sa-password').value;
+  const saPassword = selectedArtifact.Workload === 'sql' ? $('#hyperv-sa-password').value : '';
   if (!guestPassword) { showError(new Error('Bitte ein lokales Administratorpasswort erzeugen oder eingeben.')); return; }
   if (passwordMode === 'user' && guestPassword !== $('#hyperv-guest-password-repeat').value) { showError(new Error('Die eingegebenen Passwörter stimmen nicht überein.')); return; }
   if (saPassword && saPassword !== $('#hyperv-sa-password-repeat').value) { showError(new Error('Die beiden SQL-SA-Passwörter stimmen nicht überein.')); return; }
@@ -906,8 +939,8 @@ $('#hyperv-lab-form').addEventListener('submit', async (event) => {
       MemoryStartupMB: Number($('#hyperv-memory').value),
       ProcessorCount: Number($('#hyperv-processors').value),
       SwitchName: $('#hyperv-switch').value.trim(),
-      PersistentData: $('#hyperv-persistent-data').checked,
-      DataRoot: $('#hyperv-persistent-data').checked ? (workflow?.Defaults?.DataRoot || '') : '',
+      PersistentData: selectedArtifact.Workload === 'sql' && $('#hyperv-persistent-data').checked,
+      DataRoot: selectedArtifact.Workload === 'sql' && $('#hyperv-persistent-data').checked ? (workflow?.Defaults?.DataRoot || '') : '',
       ProvisionUnattended: true,
       GuestPasswordSource: passwordMode,
       GuestPassword: guestPassword

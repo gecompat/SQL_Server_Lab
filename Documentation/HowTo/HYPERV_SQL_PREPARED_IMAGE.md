@@ -28,6 +28,11 @@ zum Beispiel `win-sql2025-6a2e8828`. Der Projektname ist damit im Hyper-V-
 Manager direkt wiederzuerkennen und bleibt durch das Präfix eindeutig. Wird ein
 Hyper-V-Lab später umbenannt, wird die ausgeschaltete VM mit umbenannt.
 
+Der gleiche Bereitstellungsdialog nimmt außerdem veröffentlichte
+`OS_SEALED`-Baselines an. Diese erzeugen **reine Windows-VMs** mit automatischer
+OOBE, jedoch ohne SQL `CompleteImage`, SQL-WMI oder SQL-TCP. Dadurch bleibt der
+Windows-Workflow unabhängig vom deutlich anspruchsvolleren SQL-Lifecycle.
+
 Eine run-lokale Abnahmeumgebung ist **kein** Prepared-Image-Schritt. Sie
 installiert eine vollständige, konkrete SQL-Instanz für Tests; `PrepareImage`
 ist ausschließlich für die portable Vorlage vorgesehen.
