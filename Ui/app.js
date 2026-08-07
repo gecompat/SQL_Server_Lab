@@ -624,7 +624,7 @@ document.addEventListener('click', async (event) => {
         : inspect
         ? 'Das lokale Administratorpasswort wird einmalig für eine ausschließlich lesende Prüfung von SQL-Instanzen, Diensten und TCP-Ports in dieser laufenden Lab-VM benötigt.'
         : hostSql
-        ? 'Der laufenden VM wird ein verbindlicher Lab-Switch, eine feste Gast-IP, SQL-TCP und eine auf diesen Host beschränkte Firewallregel eingerichtet. Optional kann ein eigenständiges SA-Passwort gesetzt werden; leer übernimmt das Gastpasswort. Kein Passwort wird protokolliert.'
+        ? 'Der laufenden VM wird ein verbindlicher Lab-Switch, eine feste Gast-IP, SQL-TCP und eine auf diesen Host beschränkte Firewallregel eingerichtet. Optional kann ein eigenständiges SA-Passwort gesetzt werden; leer übernimmt das Gastpasswort. Fehlt der SQL-Dienst, zuerst „SQL CompleteImage ausführen“ wählen. Kein Passwort wird protokolliert.'
         : 'Das lokale Administratorpasswort wird einmalig benötigt, um SQL Server in dieser laufenden Lab-VM zu vervollständigen. Optional kann ein eigenständiges SA-Passwort gesetzt werden; leer übernimmt das Gastpasswort.';
       $('#credential-dialog').showModal();
       return;

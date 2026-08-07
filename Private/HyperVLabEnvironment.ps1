@@ -529,7 +529,7 @@ function Save-HyperVLabSqlInstanceReceipt {
         else { "localhost\$($_.name)" }
         $hostServer = if ($Lab.Instance.host -and $_.tcpPort) { "$($Lab.Instance.host),$($_.tcpPort)" } else { $null }
         $hostConnection = if ($hostServer) {
-            "Server=$hostServer;Database=master;User ID=sa;Password=<Gast-Administratorpasswort>;Encrypt=True;TrustServerCertificate=True;"
+            "Server=$hostServer;Database=master;User ID=sa;Password=<SQL-SA-Passwort>;Encrypt=True;TrustServerCertificate=True;"
         }
         else { $null }
         [PSCustomObject]@{
@@ -554,8 +554,9 @@ function Enable-HyperVLabHostSqlAccess {
     .SYNOPSIS Richtet Host-SSMS-Zugriff für einen regulären Hyper-V-Lab-Klon ein.
     .DESCRIPTION Bindet die VM an den verbindlichen internen Lab-Switch, setzt
     eine run-stabile Gast-IP, aktiviert SQL-TCP auf 1433, beschränkt die
-    Gastfirewall auf den Hyper-V-Host und setzt SQL-Authentifizierung mit dem
-    bereits bekannten Gast-Administratorpasswort als SA-Passwort.
+    Gastfirewall auf den Hyper-V-Host und setzt SQL-Authentifizierung. Das
+    SA-Passwort kann unabhängig vom Gast-Administratorpasswort übergeben
+    werden; ohne Angabe bleibt der sichere Gleichheits-Standard erhalten.
     #>
     [CmdletBinding()]
     param(
@@ -569,6 +570,7 @@ function Enable-HyperVLabHostSqlAccess {
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
     $managed = Get-HyperVManagedVM -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
     if (-not $managed -or [string]$managed.VM.State -ne 'Running') { throw 'HYPERV_LAB_HOST_SQL_VM_MUST_BE_RUNNING' }
+    $usesSeparateSaPassword = $null -ne $SqlSaPassword
     if (-not $SqlSaPassword) { $SqlSaPassword = $Credential.Password }
 
     $preferredSwitch = if ($SwitchName) { $SwitchName } elseif ($lab.Instance.labNetwork -and $lab.Instance.labNetwork.name) { [string]$lab.Instance.labNetwork.name } else {
@@ -614,7 +616,10 @@ function Enable-HyperVLabHostSqlAccess {
                     }
                     $serverRoot = "HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\$instanceId\MSSQLServer"
                     Set-ItemProperty -LiteralPath $serverRoot -Name LoginMode -Value 2 -Type DWord -ErrorAction Stop
-                    $service = Get-Service -Name $serviceName -ErrorAction Stop
+                    $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+                    if (-not $service) {
+                        throw "HYPERV_LAB_SQL_COMPLETEIMAGE_REQUIRED: SQL-Dienst '$serviceName' fehlt. Zuerst 'SQL CompleteImage ausführen' für diese VM ausführen."
+                    }
                     if ($service.Status -eq 'Running') { Restart-Service -Name $serviceName -Force -ErrorAction Stop } else { Start-Service -Name $serviceName -ErrorAction Stop }
                     $configured += [PSCustomObject]@{ name = $name; serviceName = $serviceName; port = $port }
                 }
@@ -650,10 +655,11 @@ function Enable-HyperVLabHostSqlAccess {
     $lab.Instance | Add-Member -NotePropertyName labNetwork -NotePropertyValue ([PSCustomObject]@{ name = $networkReceipt.Network; address = $networkReceipt.Address; prefixLength = $networkReceipt.PrefixLength; hostAddress = $network.HostAddress }) -Force
     $lab.Instance | Add-Member -NotePropertyName host -NotePropertyValue ([string]$networkReceipt.Address) -Force
     $lab.Instance | Add-Member -NotePropertyName port -NotePropertyValue 1433 -Force
-    $lab.Instance | Add-Member -NotePropertyName hostSqlAccess -NotePropertyValue ([PSCustomObject]@{ state = 'READY'; authentication = 'sql-authentication'; login = 'sa'; passwordHint = 'Gast-Administratorpasswort'; configuredAt = [string]$receipt.observedAt }) -Force
+    $passwordHint = if ($usesSeparateSaPassword) { 'Separat festgelegtes SQL-SA-Passwort' } else { 'Gast-Administratorpasswort' }
+    $lab.Instance | Add-Member -NotePropertyName hostSqlAccess -NotePropertyValue ([PSCustomObject]@{ state = 'READY'; authentication = 'sql-authentication'; login = 'sa'; passwordHint = $passwordHint; configuredAt = [string]$receipt.observedAt }) -Force
     $instanceReceipt = Get-HyperVLabSqlInstanceReceipt -Lab $lab -Credential $Credential
     $null = Save-HyperVLabSqlInstanceReceipt -Lab $lab -Receipt $instanceReceipt
-    Write-LabSuccess "Hostzugriff bereit: $($lab.Instance.host),1433 (SQL-Login sa; Passwort = Gast-Administratorpasswort)."
+    Write-LabSuccess "Hostzugriff bereit: $($lab.Instance.host),1433 (SQL-Login sa; Passwort: $passwordHint)."
     return [PSCustomObject]@{ Network = $networkReceipt; Sql = $receipt; ConnectionString = [string]$lab.Instance.connectionString }
 }
 
