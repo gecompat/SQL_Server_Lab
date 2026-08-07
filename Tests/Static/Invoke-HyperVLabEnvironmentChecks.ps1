@@ -37,6 +37,29 @@ try {
         $connection.instances.Count -eq 1 -and $connection.instances[0].provider -eq 'hyperv' -and
         $connection.instances[0].imageArtifactId -eq 'sql-prepared-test'
     )
+    $unattended = & $module {
+        param($RunId, $Root)
+        $child = Join-Path $Root 'unattended-child.vhdx'
+        $null = New-Item -Path $child -ItemType File -Force
+        function Get-HyperVLabVMs { [PSCustomObject]@{ VMName = 'sql-lab-primary-mock'; VMId = 'mock-vm-id'; State = 'Off' } }
+        function Get-HyperVManagedVM { [PSCustomObject]@{ VM = [PSCustomObject]@{ State = 'Off' }; Identity = [PSCustomObject]@{ childVhdxPath = $child } } }
+        function Set-HyperVSqlOfflineUnattend { param($VhdxPath, $MountRoot, $UnattendXml) if ($VhdxPath -ne $child -or $UnattendXml -notmatch 'AdministratorPassword') { throw 'UNATTEND_INJECTION_INVALID' } }
+        function Start-HyperVLabEnvironment { [PSCustomObject]@{ State = 'Running' } }
+        function Wait-HyperVPowerShellDirect { [PSCustomObject]@{ Ready = $true; Message = 'ready' } }
+        function Invoke-HyperVPowerShellDirect { param($ArgumentList) [PSCustomObject]@{ runId = $ArgumentList[0]; imageState = 'IMAGE_STATE_COMPLETE'; observedAt = '2026-08-07T12:00:00.0000000Z' } }
+        function Complete-HyperVLabSqlImage { [PSCustomObject]@{ state = 'COMPLETE'; serviceStatus = 'Running' } }
+        $password = ConvertTo-SecureString 'Generated_Administrator_42!' -AsPlainText -Force
+        Invoke-HyperVLabUnattendedProvision -RunId $RunId -AdministratorPassword $password -PasswordSource generated -StateRoot $Root
+    } $created.RunId $temporaryRoot
+    $unattendedConnection = Get-Content -LiteralPath (Join-Path (Join-Path (Join-Path $temporaryRoot 'runs') $created.RunId) 'connection-info.json') -Raw | ConvertFrom-Json -Depth 10
+    $unattendedSecret = Join-Path (Join-Path (Join-Path (Join-Path $temporaryRoot 'runs') $created.RunId) 'secrets') 'guest-administrator-password.secret'
+    Add-CheckResult -Name 'Prepared-Image-Klon injiziert OOBE nur in die Child-VHDX und speichert das Gastpasswort DPAPI-geschützt' -Success (
+        $unattended.OobeState -eq 'COMPLETED' -and
+        $unattendedConnection.instances[0].oobeAutomation.passwordSource -eq 'generated' -and
+        $unattendedConnection.instances[0].oobeAutomation.answerMedia -eq 'guest-scrubbed' -and
+        (Test-Path -LiteralPath $unattendedSecret) -and
+        (Get-Content -LiteralPath $unattendedSecret -Raw) -notmatch 'Generated_Administrator_42!'
+    )
     $runtimeName = & $module { Get-HyperVLabRuntimeName -LabName 'Mein SQL Lab' -RunId '12345678-0000-0000-0000-000000000000' }
     Add-CheckResult -Name 'Hyper-V-Runtime-Name zeigt Projektnamen und eindeutiges Run-Präfix' -Success ($runtimeName -eq 'Mein SQL Lab-12345678')
     $reconciledVm = & $module {

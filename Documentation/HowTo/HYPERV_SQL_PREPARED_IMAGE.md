@@ -131,10 +131,22 @@ veröffentlichte `SQL_PREPARED_SEALED`-Images sind davon ausgeschlossen.
 ### Laufzeit-VM und SQL CompleteImage
 
 Die lokale Oberfläche erzeugt reguläre Hyper-V-Labs aus einem veröffentlichten
-`SQL_PREPARED_SEALED`-Image. Nach dem expliziten VM-Start führt die Aktion
-**SQL CompleteImage ausführen** das passende, verifizierte SQL-Medium in der
-run-eigenen VM aus und startet `MSSQLSERVER`. Dieser Schritt verändert weder
-das Prepared-Image noch die OS-Baseline.
+`SQL_PREPARED_SEALED`-Image. **Schnell bereitstellen** erzeugt nur eine
+run-eigene differenzierende VHDX, schreibt eine Antwortdatei ausschließlich in
+diese Child-VHDX und startet die VM. OOBE, Region Deutschland, UI-Sprache
+en-US, deutsche Tastatur und SQL `CompleteImage` laufen danach ohne VMConnect.
+
+Beim Anlegen kann ein eigenes lokales Administratorpasswort gesetzt oder ein
+zufälliges Passwort erzeugt und vor dem Start kopiert werden. Das Kennwort
+liegt nur für diesen Run DPAPI-geschützt auf dem Host. Es wird weder im
+Prepared-Image noch in dessen Parent-VHDX gespeichert; die Antwortdatei wird
+nach erfolgreicher OOBE im Gast entfernt.
+
+Die VM erhält nur den beim Anlegen gewählten virtuellen Switch. Netzwerkadapter
+sind Hyper-V-Hardware und werden deshalb nicht aus der Vorlage übernommen.
+Eine optionale Data-Root-Daten-VHDX wird je Lab neu angelegt und separat an die
+VM angebunden. Sie wird nicht mit anderen Klonen oder dem Prepared-Image
+geteilt und bleibt beim Entfernen des Lab-Runs erhalten.
 
 ## 2. Erweitert: OS-Baseline und Abnahme-VMs
 

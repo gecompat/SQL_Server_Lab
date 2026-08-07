@@ -250,6 +250,101 @@ function New-HyperVLabEnvironment {
     }
 }
 
+function Invoke-HyperVLabUnattendedProvision {
+    <#
+    .SYNOPSIS
+        Startet einen Prepared-Image-Klon ohne interaktive Windows-OOBE.
+    .DESCRIPTION
+        Die Antwortdatei wird ausschließlich in die differenzierende Child-VHDX
+        des konkreten Runs injiziert. Das immutable Prepared-Image erhält weder
+        Kennwort noch Gastkonfiguration. Das Kennwort liegt nur DPAPI-geschützt
+        im Run und die Antwortdatei wird nach der erfolgreichen OOBE entfernt.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RunId,
+        [Parameter(Mandatory)][SecureString]$AdministratorPassword,
+        [ValidateSet('user', 'generated')][string]$PasswordSource = 'user',
+        [ValidateRange(60, 3600)][int]$TimeoutSeconds = 900,
+        [string]$MediaRoot,
+        [string]$StateRoot
+    )
+
+    Write-LabInfo 'Schritt 1/6: Prepared-Image-Klon und isolierte Child-VHDX werden geprüft.'
+    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
+    if (-not $lab.Instance.imageArtifactId) { throw 'HYPERV_LAB_UNATTENDED_REQUIRES_PREPARED_IMAGE' }
+    if ($lab.Instance.oobeAutomation -and [string]$lab.Instance.oobeAutomation.status -eq 'COMPLETED') {
+        throw 'HYPERV_LAB_UNATTENDED_ALREADY_COMPLETED'
+    }
+    $managed = Get-HyperVManagedVM -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
+    if (-not $managed -or [string]$managed.VM.State -ne 'Off') { throw 'HYPERV_LAB_UNATTENDED_VM_MUST_BE_OFF' }
+    $vhdxPath = [string]$managed.Identity.childVhdxPath
+    if (-not $vhdxPath -or -not (Test-Path -LiteralPath $vhdxPath -PathType Leaf)) { throw 'HYPERV_LAB_UNATTENDED_CHILD_VHDX_NOT_FOUND' }
+
+    Write-LabInfo 'Schritt 2/6: Gastpasswort wird nur für diesen Run DPAPI-geschützt abgelegt.'
+    Save-LabSecret -Path $lab.RunDirectory -Name 'guest-administrator-password' -Secret $AdministratorPassword
+    $credential = [PSCredential]::new('Administrator', $AdministratorPassword)
+    $unattend = $null
+    try {
+        $unattend = New-HyperVSqlOobeUnattendXml -AdministratorPassword $AdministratorPassword
+        Write-LabInfo 'Schritt 3/6: Unattend.xml wird ausschließlich in die Child-VHDX injiziert.'
+        Set-HyperVSqlOfflineUnattend -VhdxPath $vhdxPath -MountRoot (Join-Path $lab.RunDirectory 'offline-oobe-mount') -UnattendXml $unattend
+    }
+    finally { $unattend = $null }
+
+    $lab.Instance | Add-Member -NotePropertyName oobeAutomation -NotePropertyValue ([PSCustomObject]@{
+        status = 'RUNNING'; passwordSource = $PasswordSource; passwordStorage = 'host-dpapi'
+        answerMedia = 'run-child-vhdx'; startedAt = Get-LabTimestamp
+    }) -Force
+    Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
+
+    Write-LabInfo 'Schritt 4/6: VM wird gestartet; OOBE, Sprache, Region und Tastatur laufen unbeaufsichtigt.'
+    $null = Start-HyperVLabEnvironment -RunId $RunId -StateRoot $lab.StateRoot
+    $ready = Wait-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId `
+        -ExpectedScopeId $lab.Run.scopeId -Credential $credential -TimeoutSeconds $TimeoutSeconds
+    if (-not $ready.Ready) { throw "HYPERV_LAB_UNATTENDED_OOBE_TIMEOUT: $($ready.Message)" }
+
+    Write-LabInfo 'Schritt 5/6: OOBE-Artefakte werden im Gast entfernt und die regionale Konfiguration wird geprüft.'
+    $receipt = Invoke-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId `
+        -ExpectedScopeId $lab.Run.scopeId -Credential $credential -ArgumentList @([string]$lab.Run.runId) -ScriptBlock {
+            param($ExpectedRunId)
+            $ErrorActionPreference = 'Stop'
+            Set-WinHomeLocation -GeoId 94
+            Set-WinSystemLocale -SystemLocale 'de-DE'
+            Set-Culture -CultureInfo 'de-DE'
+            Set-WinUILanguageOverride -Language 'en-US'
+            Set-WinDefaultInputMethodOverride -InputTip '0407:00000407'
+            Set-TimeZone -Id 'W. Europe Standard Time'
+            Remove-Item -LiteralPath "$env:WINDIR\Panther\Unattend.xml" -Force -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath "$env:WINDIR\Panther\Unattend\Unattend.xml" -Force -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath "$env:WINDIR\Setup\Scripts\SetupComplete.cmd" -Force -ErrorAction SilentlyContinue
+            [PSCustomObject]@{
+                runId = $ExpectedRunId
+                imageState = [string](Get-ItemPropertyValue -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State' -Name ImageState)
+                observedAt = [datetime]::UtcNow.ToString('o')
+            }
+        }
+    $receipt = @($receipt)[-1]
+    if (-not $receipt -or [string]$receipt.runId -ne [string]$lab.Run.runId -or [string]$receipt.imageState -ne 'IMAGE_STATE_COMPLETE') {
+        throw 'HYPERV_LAB_UNATTENDED_OOBE_RECEIPT_INVALID'
+    }
+    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
+    $lab.Instance | Add-Member -NotePropertyName oobeAutomation -NotePropertyValue ([PSCustomObject]@{
+        status = 'COMPLETED'; passwordSource = $PasswordSource; passwordStorage = 'host-dpapi'
+        answerMedia = 'guest-scrubbed'; completedAt = [string]$receipt.observedAt
+    }) -Force
+    Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
+
+    if ($lab.Instance.persistentStorage -and [string]$lab.Instance.persistentStorage.state -eq 'ATTACHED_PENDING_INITIALIZATION') {
+        Write-LabInfo 'Schritt 6/6a: Eigene Data-Root-VHDX wird im Gast initialisiert.'
+        $null = Initialize-HyperVLabPersistentData -RunId $RunId -Credential $credential -StateRoot $lab.StateRoot
+    }
+    Write-LabInfo 'Schritt 6/6b: SQL CompleteImage wird in der laufenden Klon-VM ausgeführt.'
+    $sqlCompletion = Complete-HyperVLabSqlImage -RunId $RunId -Credential $credential -MediaRoot $MediaRoot -StateRoot $lab.StateRoot
+    Write-LabSuccess 'Unbeaufsichtigte OOBE ist abgeschlossen; der Prepared-Image-Klon ist für SQL CompleteImage eingerichtet.'
+    return [PSCustomObject]@{ RunId = $RunId; OobeState = 'COMPLETED'; SqlCompletion = $sqlCompletion; PasswordSource = $PasswordSource }
+}
+
 function Rename-HyperVLabEnvironment {
     <#
     .SYNOPSIS
