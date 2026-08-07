@@ -98,6 +98,15 @@ try {
     Add-CheckResult -Name 'Windows-ISOs werden unabhängig von der Ordnerstruktur dynamisch angeboten' -Success (
         @($discovered | Where-Object { $_.MediaId -eq 'OperatingSystems/Client/11/ISO/windows-11-auto.iso' -and $_.OperatingSystemId -eq 'windows-11' -and $_.WindowsEdition -eq 'enterprise-evaluation' -and $_.InstallationType -eq 'desktop-experience' -and $_.State -eq 'READY' }).Count -eq 1
     )
+    $sqlPreparedCompatibility = & $module {
+        [PSCustomObject]@{
+            Server2025 = (Test-HyperVSqlPreparedWindowsMediaCompatibility -OperatingSystemId 'windows-server-2025').Compatible
+            Windows11 = (Test-HyperVSqlPreparedWindowsMediaCompatibility -OperatingSystemId 'windows-11').Compatible
+        }
+    }
+    Add-CheckResult -Name 'SQL-Prepared-Kompatibilität trennt sichtbare Medien von freigegebenen Kombinationen' -Success (
+        $sqlPreparedCompatibility.Server2025 -and -not $sqlPreparedCompatibility.Windows11
+    )
 
     if ($IsWindows) {
         $parsedMedia = & $module {
@@ -114,7 +123,9 @@ try {
                 @(
                     [PSCustomObject]@{ ImageName = 'Windows Server 2025 Standard Evaluation (Desktop Experience)'; ImageIndex = 2 },
                     [PSCustomObject]@{ ImageName = 'Windows Server 2025 Datacenter Evaluation'; ImageIndex = 3 },
-                    [PSCustomObject]@{ ImageName = 'Windows 11 Enterprise Evaluation'; ImageIndex = 4 }
+                    [PSCustomObject]@{ ImageName = 'Windows 11 Enterprise Evaluation'; ImageIndex = 4 },
+                    [PSCustomObject]@{ ImageName = 'Windows Server 2016 SERVERSTANDARD'; ImageIndex = 5 },
+                    [PSCustomObject]@{ ImageName = 'Windows 11 Enterprise LTSC Evaluation'; ImageIndex = 6 }
                 )
             }
             function Dismount-DiskImage { }
@@ -123,7 +134,9 @@ try {
         Add-CheckResult -Name 'Windows-Server-Version bleibt trotz Editions- und Typ-Erkennung erhalten' -Success (
             @($parsedMedia | Where-Object { $_.OperatingSystemId -eq 'windows-server-2025' -and $_.WindowsEdition -eq 'standard-evaluation' -and $_.InstallationType -eq 'desktop-experience' }).Count -eq 1 -and
             @($parsedMedia | Where-Object { $_.OperatingSystemId -eq 'windows-server-2025' -and $_.WindowsEdition -eq 'datacenter-evaluation' -and $_.InstallationType -eq 'core' }).Count -eq 1 -and
-            @($parsedMedia | Where-Object { $_.OperatingSystemId -eq 'windows-11' -and $_.WindowsEdition -eq 'enterprise-evaluation' -and $_.InstallationType -eq 'desktop-experience' }).Count -eq 1
+            @($parsedMedia | Where-Object { $_.OperatingSystemId -eq 'windows-11' -and $_.WindowsEdition -eq 'enterprise-evaluation' -and $_.InstallationType -eq 'desktop-experience' }).Count -eq 1 -and
+            @($parsedMedia | Where-Object { $_.OperatingSystemId -eq 'windows-server-2016' -and $_.WindowsEdition -eq 'standard' -and $_.InstallationType -eq 'desktop-experience' }).Count -eq 1 -and
+            @($parsedMedia | Where-Object { $_.OperatingSystemId -eq 'windows-11' -and $_.WindowsEdition -eq 'enterprise-ltsc-evaluation' }).Count -eq 1
         )
     }
     else {

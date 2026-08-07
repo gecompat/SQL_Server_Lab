@@ -78,13 +78,24 @@ function Get-HyperVWindowsInstallationMediaInfo {
                 if ($name -match '(?i)Windows Server (?<year>20\d{2})') {
                     $year = [string]$Matches.year
                     $operatingSystemId = "windows-server-$year"
-                    $edition = if ($name -match '(?i)Datacenter.*Evaluation') { 'datacenter-evaluation' } elseif ($name -match '(?i)Standard.*Evaluation') { 'standard-evaluation' } else { $null }
-                    $installationType = if ($name -match '(?i)Desktop Experience') { 'desktop-experience' } else { 'core' }
+                    $editionBase = if ($name -match '(?i)Datacenter') { 'datacenter' } elseif ($name -match '(?i)Standard') { 'standard' } elseif ($name -match '(?i)Azure Edition') { 'azure-edition' } else { $null }
+                    if ($editionBase) {
+                        $edition = if ($name -match '(?i)(evaluation|eval)') { "$editionBase-evaluation" } else { $editionBase }
+                    }
+                    # Windows Server 2016/2019 nennen Desktop Experience nicht
+                    # immer aus. Ihre Core-Abbilder tragen dafür üblicherweise
+                    # CORE im Image-Namen; aktuelle Medien verwenden den
+                    # expliziten Desktop-Experience-Zusatz.
+                    $installationType = if ($name -match '(?i)Desktop Experience' -or ($year -le '2019' -and $name -notmatch '(?i)CORE')) { 'desktop-experience' } else { 'core' }
                 }
                 elseif ($name -match '(?i)Windows (?<major>10|11)') {
                     $major = [string]$Matches.major
                     $operatingSystemId = "windows-$major"
-                    $edition = if ($name -match '(?i)Enterprise.*Evaluation') { 'enterprise-evaluation' } else { $null }
+                    $editionBase = if ($name -match '(?i)Enterprise') { 'enterprise' } elseif ($name -match '(?i)Education') { 'education' } elseif ($name -match '(?i)Pro(fessional)?') { 'professional' } elseif ($name -match '(?i)Home') { 'home' } else { $null }
+                    if ($editionBase) {
+                        if ($name -match '(?i)LTSC') { $editionBase += '-ltsc' }
+                        $edition = if ($name -match '(?i)(evaluation|eval)') { "$editionBase-evaluation" } else { $editionBase }
+                    }
                 }
                 if (-not $operatingSystemId -or -not $edition) { return }
                 [PSCustomObject]@{
@@ -100,6 +111,38 @@ function Get-HyperVWindowsInstallationMediaInfo {
     }
     finally {
         if (-not $wasAttached) { $null = Dismount-DiskImage -ImagePath $resolvedIso -ErrorAction SilentlyContinue }
+    }
+}
+
+function Get-HyperVWindowsMediaLicenseType {
+    <# .SYNOPSIS Leitet den Lizenztyp aus der direkt erkannten Windows-Edition ab. #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$WindowsEdition)
+
+    if ($WindowsEdition -match '(?i)(^|-)evaluation$') { return 'evaluation' }
+    return 'licensed'
+}
+
+function Test-HyperVSqlPreparedWindowsMediaCompatibility {
+    <#
+    .SYNOPSIS
+        Kennzeichnet Medien, die der aktuelle frische SQL-Prepared-Builder
+        verwenden darf.
+    .DESCRIPTION
+        Die Medienerkennung ist absichtlich offen und dateisystemdynamisch.
+        Die SQL-Prepared-Kette ist dagegen noch auf Windows Server 2025
+        abgesichert; andere gefundene Medien bleiben sichtbar und können für
+        OS-Baselines verwendet werden.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$OperatingSystemId)
+
+    if ($OperatingSystemId -eq 'windows-server-2025') {
+        return [PSCustomObject]@{ Compatible = $true; Reason = 'Kompatibel mit dem aktuellen SQL-Prepared-Builder.' }
+    }
+    return [PSCustomObject]@{
+        Compatible = $false
+        Reason = "Erkannt und für OS-Baselines verwendbar; der aktuelle SQL-Prepared-Builder unterstützt noch Windows Server 2025, nicht '$OperatingSystemId'."
     }
 }
 
