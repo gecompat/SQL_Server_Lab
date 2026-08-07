@@ -86,6 +86,18 @@ try {
         [string]$freshLicensedPlan.license.type -eq 'licensed' -and
         -not $freshLicensedPlan.license.evaluationExpiresAt
     )
+    $freshWindows11Plan = & $module {
+        param($Iso,$Sha,$Root)
+        New-HyperVSqlFreshImageBuildPlan -WindowsIsoPath $Iso -ExpectedWindowsSha256 $Sha `
+            -OperatingSystemId windows-11 -WindowsEdition enterprise-evaluation `
+            -InstallationType desktop-experience -SqlIsoPath $Iso -ExpectedSqlSha256 $Sha `
+            -SqlVersion 2025 -SqlEdition Enterprise -ImageName 'Windows 11 SQL 2025' -StateRoot $Root
+    } $isoPath $hashed.ExpectedSha256 $stateRoot
+    Add-CheckResult -Name 'Frischer SQL-Builder akzeptiert ein erkanntes Windows-11-Medium ohne Versionssperre' -Success (
+        [string]$freshWindows11Plan.operatingSystem.id -eq 'windows-11' -and
+        [string]$freshWindows11Plan.operatingSystem.version -eq '11' -and
+        [string]$freshWindows11Plan.license.type -eq 'evaluation'
+    )
     $cleanedUp = & $module {
         param($BuildId,$Root)
         function Invoke-CleanupPlan {
@@ -175,7 +187,8 @@ try {
     Add-CheckResult -Name 'Editionsmismatch leitet Evaluation und lizenzierte Zielvariante aus dem gewählten Medium ab' -Success (
         $builderText -match 'editionPattern' -and
         $builderText -match 'Build\.license\.type' -and
-        $builderText -match 'Windows Server 2025' -and
+        $builderText -match 'expectedOperatingSystemId' -and
+        $builderText -match "'Client' \{ 'desktop-experience' \}" -and
         $builderText -match 'Server Core Installation' -and
         $builderText -match 'neu installieren und'
     )

@@ -106,8 +106,8 @@ try {
             Windows11 = (Test-HyperVSqlPreparedWindowsMediaCompatibility -OperatingSystemId 'windows-11').Compatible
         }
     }
-    Add-CheckResult -Name 'SQL-Prepared-Kompatibilität trennt sichtbare Medien von freigegebenen Kombinationen' -Success (
-        $sqlPreparedCompatibility.Server2025 -and -not $sqlPreparedCompatibility.Windows11
+    Add-CheckResult -Name 'SQL-Prepared-Workflow überlässt erkannte Windows-Server- und Client-Kombinationen dem Benutzer' -Success (
+        $sqlPreparedCompatibility.Server2025 -and $sqlPreparedCompatibility.Windows11
     )
 
     if ($IsWindows) {

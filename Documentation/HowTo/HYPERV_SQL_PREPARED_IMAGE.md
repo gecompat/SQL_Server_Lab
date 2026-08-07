@@ -63,11 +63,12 @@ Developer. Windows und SQL werden dabei in derselben Builder-VM installiert.
 1. Im Hyper-V-Hauptmenü `1` wählen.
 2. Als Media Root `D:\Lab_Base` eingeben oder den angebotenen Default mit
    Enter übernehmen.
-3. Die erkannte Windows-ISO auswählen. Der aktuelle SQL-Prepared-Builder lässt
-   Windows Server 2025 zu – sowohl reguläre Standard-/Datacenter-Medien als
-   auch deren Evaluation-Varianten. Nur bei Evaluation wird später ein
-   Ablaufdatum abgefragt. Andere erkannte Windows-Medien bleiben sichtbar und
-   können direkt für eine OS-Baseline verwendet werden.
+3. Die erkannte Windows-ISO auswählen. Alle erkannten Windows-Server- und
+   Windows-Client-Medien sind auswählbar; die Entscheidung über die
+   Windows-/SQL-Kombination liegt beim Benutzer. Nur bei Evaluation wird später
+   ein Ablaufdatum abgefragt. Falls Windows-Installation, SQL-Setup oder Sysprep
+   eine Kombination nicht unterstützen, endet der Build mit dessen konkreter
+   Diagnose statt mit einer pauschalen Vorauswahl-Sperre.
 4. Bei SQL-Version `2025` und SQL-Medien-Edition `Enterprise` bestätigen.
 5. Optional einen sprechenden Namen vergeben. Fehlt ein SHA-256-Sidecar,
    dessen Berechnung bestätigen. Der Builder ändert

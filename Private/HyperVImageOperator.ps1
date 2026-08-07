@@ -143,23 +143,20 @@ function Get-HyperVWindowsMediaLicenseType {
 function Test-HyperVSqlPreparedWindowsMediaCompatibility {
     <#
     .SYNOPSIS
-        Kennzeichnet Medien, die der aktuelle frische SQL-Prepared-Builder
-        verwenden darf.
+        Kennzeichnet erkannte Windows-Medien für den SQL-Prepared-Workflow.
     .DESCRIPTION
-        Die Medienerkennung ist absichtlich offen und dateisystemdynamisch.
-        Die SQL-Prepared-Kette ist dagegen noch auf Windows Server 2025
-        abgesichert; andere gefundene Medien bleiben sichtbar und können für
-        OS-Baselines verwendet werden.
+        Der Benutzer entscheidet über die erkannte Windows-/SQL-Kombination.
+        Die Funktion sperrt keine gültig erkannten Windows-Server- oder
+        Windows-Client-Medien vorab; echte Installations-, SQL-Setup- oder
+        Sysprep-Fehler bleiben dagegen sichtbar und terminal.
     #>
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$OperatingSystemId)
 
-    if ($OperatingSystemId -eq 'windows-server-2025') {
-        return [PSCustomObject]@{ Compatible = $true; Reason = 'Kompatibel mit dem aktuellen SQL-Prepared-Builder.' }
-    }
+    $recognizedWindows = $OperatingSystemId -match '^windows-(server-)?[0-9]+$'
     return [PSCustomObject]@{
-        Compatible = $false
-        Reason = "Erkannt und für OS-Baselines verwendbar; der aktuelle SQL-Prepared-Builder unterstützt noch Windows Server 2025, nicht '$OperatingSystemId'."
+        Compatible = $recognizedWindows
+        Reason = if ($recognizedWindows) { 'Erkanntes Windows-Medium; die Windows-/SQL-Kombination wird auf Benutzerwunsch ausgeführt.' } else { "Kein unterstütztes Windows-Medienformat: '$OperatingSystemId'." }
     }
 }
 

@@ -92,6 +92,8 @@ Add-CheckResult -Name 'UI bietet erkannte Windows- und SQL-Medien ohne manuelle 
     $scriptText -match 'WindowsMediaPath' -and
     $scriptText -match 'delete parameters\.SqlEdition' -and
     $scriptText -match 'function isSqlPreparedCompatibleWindowsMedia' -and
+    $scriptText -match 'windows-\(server-\)\?\\d\+' -and
+    $scriptText -match 'function formatOperatingSystem' -and
     $scriptText -match 'Erkannt – für SQL-Prepared derzeit nicht unterstützt' -and
     $scriptText -match 'Nicht auswertbar – nicht verwendbar' -and
     $scriptText -match 'function windowsMediaGroup' -and
@@ -106,9 +108,14 @@ Add-CheckResult -Name 'SQL-Prepared-Images verwenden standardmäßig frische Win
     $htmlText -match 'id="sql-parent-artifact"' -and
     $htmlText -match 'Erweitert: SQL-Builder aus OS-Baseline' -and
     $scriptText -match 'renderSqlParentOptions' -and
+    $scriptText -match 'formatOperatingSystem\(item\.OperatingSystem\)' -and
     $scriptText -match 'NewSqlBuildFromBaseline' -and
     $scriptText -match "kind === 'sql-fresh'" -and
     $scriptText -match "ProvisioningMode === 'fresh-windows-media'"
+)
+Add-CheckResult -Name 'UI und Konsole erlauben jede veröffentlichte erkannte Windows-OS-Baseline' -Success (
+    $consoleText -match "artifactState -eq 'OS_SEALED'.*windows-\(server-\)\?\[0-9\]\+" -and
+    $workflowText -match 'Windows \$\(\$_\.operatingSystem\.version\)'
 )
 Add-CheckResult -Name 'UI prüft und speichert explizit eingegebene ISO-Hashes vor dem Build' -Success (
     $actionText -match 'SetWindowsMediaHash' -and

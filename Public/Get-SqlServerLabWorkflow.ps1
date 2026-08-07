@@ -172,7 +172,7 @@ function Get-SqlServerLabWorkflow {
         $next = switch ($state) {
             'MANUAL_ACTION_REQUIRED' {
                 if ($fresh -and -not ($_.installationEvidence -and $_.installationEvidence.verified)) {
-                    "Windows Server 2025 $($_.operatingSystem.edition) / $($_.operatingSystem.installationType) installieren, anmelden und anschließend die Edition prüfen."
+                    "Windows $($_.operatingSystem.version) $($_.operatingSystem.edition) / $($_.operatingSystem.installationType) installieren, anmelden und anschließend die Edition prüfen."
                 }
                 elseif ($fresh) { 'Windows-Edition bestätigt: SQL PrepareImage und finalen Sysprep ausführen.' }
                 else { 'VM starten, OOBE der OS-Baseline abschließen und lokales Administratorpasswort setzen; danach SQL PrepareImage ausführen.' }
