@@ -794,7 +794,7 @@ function New-LabHyperVImageBuildInteractive {
 
     $candidates = @(Get-HyperVWindowsInstallationMediaCandidates -MediaRoot $mediaRoot | Where-Object { $_.State -eq 'READY' })
     if ($candidates.Count -eq 0) {
-        Write-LabError 'Kein erkennbares Windows-Evaluation-Installationsmedium im Media Root gefunden.'
+        Write-LabError 'Kein erkennbares Windows-Installationsmedium im Media Root gefunden.'
         return
     }
     Write-Host '  Erkannte Windows-Installationsmedien:' -ForegroundColor White
@@ -846,7 +846,7 @@ function New-LabHyperVImageBuildInteractive {
             -Edition $edition `
             -InstallationType $installationType `
             -WindowsMediaPath $windowsMediaPath `
-            -LicenseType evaluation
+            -LicenseType (Get-HyperVWindowsMediaLicenseType -WindowsEdition $edition)
         Write-LabSuccess "Builder erstellt. BuildId: $($build.buildId)"
         Show-LabHyperVManualInstallInstructions -Build $build
 
@@ -1344,12 +1344,20 @@ function New-LabHyperVSqlImageBuildInteractive {
     try { $mediaRoot = Set-LabMediaRootDefault -MediaRoot $mediaRoot }
     catch { Write-LabError "Media Root ist ungueltig: $($_.Exception.Message)"; return }
 
-    $windowsCandidates = @(Get-HyperVWindowsInstallationMediaCandidates -MediaRoot $mediaRoot | Where-Object { $_.State -eq 'READY' -and $_.OperatingSystemId -eq 'windows-server-2025' })
+    $allWindowsCandidates = @(Get-HyperVWindowsInstallationMediaCandidates -MediaRoot $mediaRoot | Where-Object { $_.State -eq 'READY' })
+    $windowsCandidates = @($allWindowsCandidates | Where-Object { (Test-HyperVSqlPreparedWindowsMediaCompatibility -OperatingSystemId ([string]$_.OperatingSystemId)).Compatible })
     if ($windowsCandidates.Count -eq 0) { Write-LabError 'Kein erkanntes Windows Server 2025-Installationsmedium vorhanden.'; return }
     Write-Host '  Erkannte Windows-Installationsvarianten:' -ForegroundColor White
     for ($i = 0; $i -lt $windowsCandidates.Count; $i++) {
         $candidate = $windowsCandidates[$i]
         Write-Host ("    [{0}] {1} · {2} · {3}" -f ($i + 1), $candidate.ImageName, $candidate.WindowsEdition, $candidate.MediaId) -ForegroundColor White
+    }
+    $otherWindowsCandidates = @($allWindowsCandidates | Where-Object { -not (Test-HyperVSqlPreparedWindowsMediaCompatibility -OperatingSystemId ([string]$_.OperatingSystemId)).Compatible })
+    if ($otherWindowsCandidates.Count -gt 0) {
+        Write-Host '  Weitere Windows-Medien erkannt (für OS-Baselines verfügbar, noch nicht für SQL-Prepared):' -ForegroundColor DarkGray
+        foreach ($candidate in $otherWindowsCandidates) {
+            Write-Host ("    - {0} · {1} · {2}" -f $candidate.ImageName, $candidate.WindowsEdition, $candidate.MediaId) -ForegroundColor DarkGray
+        }
     }
     $windowsSelection = Read-Host '  Windows-Variante (Nummer) [1]'
     if (-not $windowsSelection) { $windowsSelection = '1' }

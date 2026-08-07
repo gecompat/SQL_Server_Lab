@@ -400,7 +400,8 @@ function Invoke-SqlServerLabWorkflowAction {
             if (-not $WindowsMediaPath) { throw 'HYPERV_WORKFLOW_WINDOWS_MEDIA_REQUIRED' }
             $windowsMedia = Resolve-HyperVWindowsInstallationMedia -MediaRoot $MediaRoot -OperatingSystemId $OperatingSystemId -WindowsMediaPath $WindowsMediaPath -WindowsEdition $WindowsEdition -InstallationType $InstallationType
             if ($windowsMedia.HashStatus -ne 'SIDECAR_READY' -and $WindowsMediaSha256) { $null = Set-HyperVWindowsMediaHashSidecar -MediaRoot $MediaRoot -OperatingSystemId $OperatingSystemId -WindowsMediaPath $WindowsMediaPath -WindowsEdition $WindowsEdition -InstallationType $InstallationType -ExpectedSha256 $WindowsMediaSha256 }
-            Initialize-HyperVWindowsImageBuild -MediaRoot $MediaRoot -OperatingSystemId $OperatingSystemId -Edition $WindowsEdition -InstallationType $InstallationType -WindowsMediaPath $WindowsMediaPath -LicenseType evaluation -MemoryStartupBytes ($MemoryStartupMB * 1MB) -ProcessorCount $ProcessorCount -OsDiskSizeBytes ($OsDiskSizeGB * 1GB)
+            $licenseType = Get-HyperVWindowsMediaLicenseType -WindowsEdition $WindowsEdition
+            Initialize-HyperVWindowsImageBuild -MediaRoot $MediaRoot -OperatingSystemId $OperatingSystemId -Edition $WindowsEdition -InstallationType $InstallationType -WindowsMediaPath $WindowsMediaPath -LicenseType $licenseType -MemoryStartupBytes ($MemoryStartupMB * 1MB) -ProcessorCount $ProcessorCount -OsDiskSizeBytes ($OsDiskSizeGB * 1GB)
         }
         'SetWindowsMediaHash' {
             if (-not $WindowsMediaPath) { throw 'HYPERV_WORKFLOW_WINDOWS_MEDIA_REQUIRED' }
@@ -423,7 +424,8 @@ function Invoke-SqlServerLabWorkflowAction {
         'GeneralizeWindowsBuild' { Invoke-HyperVWindowsImageGeneralization -BuildId $BuildId -Credential $credential }
         'PublishWindowsBuild' { Publish-HyperVWindowsImageBuild -BuildId $BuildId -EvaluationExpiresAt $EvaluationExpiresAt }
         'NewSqlBuild' {
-            if ($OperatingSystemId -ne 'windows-server-2025') { throw 'HYPERV_WORKFLOW_SQL_PREPARED_REQUIRES_WINDOWS_SERVER_2025' }
+            $sqlPreparedCompatibility = Test-HyperVSqlPreparedWindowsMediaCompatibility -OperatingSystemId $OperatingSystemId
+            if (-not $sqlPreparedCompatibility.Compatible) { throw "HYPERV_WORKFLOW_SQL_PREPARED_WINDOWS_UNSUPPORTED: $($sqlPreparedCompatibility.Reason)" }
             if (-not $SqlMediaPath) { throw 'HYPERV_WORKFLOW_SQL_MEDIA_REQUIRED' }
             $windowsMedia = Resolve-HyperVWindowsInstallationMedia -MediaRoot $MediaRoot -OperatingSystemId $OperatingSystemId -WindowsMediaPath $WindowsMediaPath -WindowsEdition $WindowsEdition -InstallationType $InstallationType
             if ($windowsMedia.HashStatus -ne 'SIDECAR_READY' -and $WindowsMediaSha256) { $null = Set-HyperVWindowsMediaHashSidecar -MediaRoot $MediaRoot -OperatingSystemId $OperatingSystemId -WindowsMediaPath $WindowsMediaPath -WindowsEdition $WindowsEdition -InstallationType $InstallationType -ExpectedSha256 $WindowsMediaSha256 }

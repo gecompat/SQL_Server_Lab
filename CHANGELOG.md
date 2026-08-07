@@ -8,6 +8,11 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- dynamische Windows-ISO-Erkennung für Windows Server und Windows-Client aus
+  `install.wim`/`install.esd`, einschließlich lizenzierter und
+  Evaluation-Editionen. Neue und entfernte Medien werden beim nächsten Scan
+  automatisch berücksichtigt; der SQL-Prepared-Dialog zeigt nicht kompatible
+  Medien sichtbar statt sie zu verbergen;
 - optionale 7-Zip-Unterstützung für katalogisierte `.7z`-Archive mit exakt
   einer `.bak`-Payload. Fehlt 7-Zip, wird es nie automatisch nachinstalliert;
   die Konsole bietet dafür nach ausdrücklicher Bestätigung eine lokale

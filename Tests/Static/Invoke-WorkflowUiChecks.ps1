@@ -91,7 +91,8 @@ Add-CheckResult -Name 'UI bietet erkannte Windows- und SQL-Medien ohne manuelle 
     $scriptText -match 'function selectedWindowsMediaPath' -and
     $scriptText -match 'WindowsMediaPath' -and
     $scriptText -match 'delete parameters\.SqlEdition' -and
-    $scriptText -match "OperatingSystemId === 'windows-server-2025'"
+    $scriptText -match 'function isSqlPreparedCompatibleWindowsMedia' -and
+    $scriptText -match 'Erkannt – für SQL-Prepared derzeit nicht unterstützt'
 )
 Add-CheckResult -Name 'SQL-Prepared-Images verwenden standardmäßig frische Windows- und SQL-ISOs' -Success (
     $actionText -match 'NewSqlBuild' -and

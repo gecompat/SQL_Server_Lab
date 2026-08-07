@@ -63,7 +63,9 @@ Developer. Windows und SQL werden dabei in derselben Builder-VM installiert.
 1. Im Hyper-V-Hauptmenü `1` wählen.
 2. Als Media Root `D:\Lab_Base` eingeben oder den angebotenen Default mit
    Enter übernehmen.
-3. Die Windows Server 2025 Standard Evaluation / Desktop Experience ISO auswählen.
+3. Die erkannte Windows-ISO auswählen. Der aktuelle SQL-Prepared-Builder lässt
+   Windows Server 2025 zu; andere erkannte Windows-Medien bleiben sichtbar und
+   können direkt für eine OS-Baseline verwendet werden.
 4. Bei SQL-Version `2025` und SQL-Medien-Edition `Enterprise` bestätigen.
 5. Optional einen sprechenden Namen vergeben. Fehlt ein SHA-256-Sidecar,
    dessen Berechnung bestätigen. Der Builder ändert
@@ -179,6 +181,19 @@ Offizielle Referenzen:
 - [SQL Server mit SysPrep vorbereiten](https://learn.microsoft.com/en-us/sql/database-engine/install-windows/considerations-for-installing-sql-server-using-sysprep)
 
 ## 3. Medien im zentralen Media Root
+
+Die Medienerkennung ist dateisystemdynamisch: Bei jedem Öffnen des
+Image-Workflows wird der Media Root erneut nach ISO-Dateien außerhalb von
+`SQL`, `Hashes`, `Evidence` und `Exports` durchsucht. Neue oder entfernte
+ISOs erscheinen beziehungsweise verschwinden daher ohne Katalog- oder
+Verzeichnisänderung. Version, Edition und Installationsart stammen aus
+`install.wim` beziehungsweise `install.esd`, nicht aus dem Ordnernamen.
+
+Im SQL-Prepared-Dialog werden erkannte, aber aktuell nicht kompatible
+Windows-Medien bewusst als solche angezeigt. Sie werden nicht still
+ausgeblendet; mit ihnen kann eine OS-Baseline erstellt werden. Die frische
+SQL-Prepared-Kette ist derzeit auf Windows Server 2025 begrenzt, damit keine
+unbestätigten Windows-/SQL-Kombinationen erstellt werden.
 
 Beispielroot: `D:\Lab_Base`
 
