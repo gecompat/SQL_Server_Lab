@@ -272,6 +272,14 @@ try {
             $provider -match '\[string\]\$_.PartitionStyle -eq ''RAW''' -and
             $provider -match 'GUEST_DISK_IDENTIFIER_MATCH_COUNT'
         )
+    Add-CheckResult `
+        -Name 'Gast-Datendisk verwendet bei belegtem Wunschbuchstaben einen freien Buchstaben und persistiert ihn' `
+        -Success (
+            $provider -match "@\('S','T','U','V','W','X','Y','Z'" -and
+            $provider -match 'GUEST_DRIVE_LETTER_NO_FREE_DATA_LETTER' -and
+            $provider -match 'NotePropertyName guestPath' -and
+            $provider -match 'Der Buchstabe eines Host-Data-Roots hat keinerlei'
+        )
 
     $specializationUser = 'sql-lab-specialization-test'
     $specializationPassword = 'NotPersisted_Specialization_3!'

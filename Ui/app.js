@@ -328,7 +328,7 @@ function renderActiveLabs(items) {
         ? '<div class="build-meta connection-string"><strong>Connection String:</strong> <code>' + escapeHtml(instance.ConnectionString) + '</code></div>'
         : '';
       const persistentStorage = instance.PersistentStorage?.hostPath
-        ? '<div class="build-meta"><strong>Persistente Daten:</strong> ' + escapeHtml(instance.PersistentStorage.hostPath) + '</div>'
+        ? '<div class="build-meta"><strong>Persistente Daten:</strong> Host ' + escapeHtml(instance.PersistentStorage.hostPath) + (instance.PersistentStorage.guestPath ? ' → Gast ' + escapeHtml(instance.PersistentStorage.guestPath) : '') + ' [' + escapeHtml(instance.PersistentStorage.state || '–') + ']</div>'
         : '';
       const operations = running && instance.Port ? [
         '<button class="button secondary" data-container-operation="CreateContainerDatabase" data-run="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(instance.Id) + '" data-sql-version="' + escapeHtml(instance.SqlVersion) + '" data-port="' + escapeHtml(instance.Port) + '">Datenbank anlegen</button>',
@@ -370,7 +370,7 @@ function renderHyperVLabs(items) {
     const sourceBased = item.BaseKind === 'existing-vm';
     const detail = ['VM: ' + (item.VMName || '–'), 'VM-Status: ' + (item.VMState || '–'), sourceBased ? 'Basis: ' + (item.SourceVMName || 'bestehende VM') : 'SQL Server ' + (item.SqlVersion || '–')].join(' · ');
     const baseDetail = sourceBased ? 'Quelle: ' + (item.SourceVMName || '–') + ' · Original unverändert' : 'Image: ' + shortId(item.ArtifactId);
-    const persistentDetail = persistent ? '<div class="build-meta"><strong>Persistente Daten:</strong> ' + escapeHtml(persistent.hostPath || persistent.root || '–') + ' · ' + escapeHtml(persistent.state || 'eingebunden') + '</div>' : '';
+    const persistentDetail = persistent ? '<div class="build-meta"><strong>Persistente Daten:</strong> Host ' + escapeHtml(persistent.hostPath || persistent.root || '–') + (persistent.guestPath ? ' → Gast ' + escapeHtml(persistent.guestPath) : '') + ' · ' + escapeHtml(persistent.state || 'eingebunden') + '</div>' : '';
     const nextStep = sqlNeedsCompletion ? (running ? 'SQL CompleteImage ausführen; erst danach ist MSSQLSERVER verfügbar.' : 'VM starten; danach SQL CompleteImage ausführen.') : (item.SqlCompletionState === 'REBOOT_REQUIRED' ? 'SQL Setup fordert einen Neustart; VM nach dem Shutdown erneut starten.' : (running ? 'VM läuft; bei Bedarf über VMConnect bedienen.' : 'VM starten und anschließend VMConnect öffnen.'));
     return '<article class="build-card"><div class="build-card-top"><div><div class="build-title">' + escapeHtml(item.Name || shortId(item.RunId)) + '</div><div class="build-meta">' + escapeHtml(detail) + '</div></div><span class="status ' + statusClass(running ? 'TESTS_PASSED' : item.State) + '">' + escapeHtml(item.State) + '</span></div><p class="build-next"><strong>Nächster Schritt:</strong> ' + escapeHtml(nextStep) + '</p><div class="build-actions">' + actions + '</div>' + persistentDetail + instanceDetails + primaryConnection + '<div class="build-meta">Run: ' + escapeHtml(shortId(item.RunId)) + ' · ' + escapeHtml(baseDetail) + '</div></article>';
   }).join('') : empty('Noch keine regulären Hyper-V-Umgebungen vorhanden.');
@@ -620,7 +620,7 @@ document.addEventListener('click', async (event) => {
       $('#credential-sa-password').value = '';
       $('#credential-title').textContent = initializePersistentData ? 'Daten-VHDX initialisieren' : (inspect ? 'SQL-Instanzen prüfen' : (hostSql ? 'Host-SSMS einrichten' : 'SQL CompleteImage'));
       $('#credential-note').textContent = initializePersistentData
-        ? 'Das lokale Administratorpasswort wird einmalig benötigt, um ausschließlich den neu angehängten Lab-Datenträger als D:\\SQLData zu formatieren und einzubinden.'
+        ? 'Das lokale Administratorpasswort wird einmalig benötigt, um ausschließlich den neu angehängten Lab-Datenträger zu formatieren und unter einem freien Gastbuchstaben einzubinden (bevorzugt S:\\SQLData).'
         : inspect
         ? 'Das lokale Administratorpasswort wird einmalig für eine ausschließlich lesende Prüfung von SQL-Instanzen, Diensten und TCP-Ports in dieser laufenden Lab-VM benötigt.'
         : hostSql

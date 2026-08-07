@@ -1209,8 +1209,19 @@ function Initialize-HyperVWindowsGuestDrives {
                 $status = 'VERIFIED'
 
                 if ([string]$disk.PartitionStyle -eq 'RAW') {
+                    # Der Buchstabe eines Host-Data-Roots hat keinerlei
+                    # Beziehung zum Gast. D: ist in Windows-VMs oft bereits
+                    # das DVD-Laufwerk. Der Plan ist deshalb eine Präferenz:
+                    # wenn sie belegt ist, verwenden wir einen freien,
+                    # datenfreundlichen Buchstaben und quittieren ihn zurück.
                     if (Get-Volume -DriveLetter $driveLetter -ErrorAction SilentlyContinue) {
-                        throw "GUEST_DRIVE_LETTER_IN_USE_$driveLetter"
+                        $freeLetter = @('S','T','U','V','W','X','Y','Z','E','F','G','H','I','J','K','L','M','N','O','P','Q','R') |
+                            Where-Object { -not (Get-Volume -DriveLetter ([char]$_) -ErrorAction SilentlyContinue) } |
+                            Select-Object -First 1
+                        if (-not $freeLetter) {
+                            throw "GUEST_DRIVE_LETTER_NO_FREE_DATA_LETTER_$($specification.id)"
+                        }
+                        $driveLetter = [char][string]$freeLetter
                     }
                     $null = Initialize-Disk `
                         -Number $disk.Number `
@@ -1248,9 +1259,10 @@ function Initialize-HyperVWindowsGuestDrives {
                     [string]$volume.FileSystemLabel -ne [string]$specification.volumeLabel) {
                     throw "GUEST_DRIVE_VOLUME_CONTRACT_MISMATCH_$($specification.id)"
                 }
-                if (-not (Test-Path -LiteralPath ([string]$specification.guestPath))) {
+                $guestPath = ([string]$driveLetter) + ([string]$specification.guestPath).Substring(1)
+                if (-not (Test-Path -LiteralPath $guestPath)) {
                     $null = New-Item `
-                        -Path ([string]$specification.guestPath) `
+                        -Path $guestPath `
                         -ItemType Directory `
                         -Force `
                         -ErrorAction Stop
@@ -1260,7 +1272,7 @@ function Initialize-HyperVWindowsGuestDrives {
                     id = [string]$specification.id
                     diskIdentifier = [string]$specification.diskIdentifier
                     diskNumber = [int]$disk.Number
-                    guestPath = [string]$specification.guestPath
+                    guestPath = $guestPath
                     driveLetter = [string]$driveLetter
                     fileSystem = [string]$volume.FileSystem
                     allocationUnitSize = [int64]$volume.AllocationUnitSize
@@ -1280,10 +1292,22 @@ function Initialize-HyperVWindowsGuestDrives {
         $actual = @($receipt | Where-Object id -EQ $expected.id)
         if ($actual.Count -ne 1 -or
             [string]$actual[0].diskIdentifier -ne [string]$expected.diskIdentifier -or
-            [string]$actual[0].guestPath -ne [string]$expected.guestPath -or
+            [string]$actual[0].guestPath -notmatch '^[D-Z]:\\' -or
+            ([string]$actual[0].guestPath).Substring(1) -ne ([string]$expected.guestPath).Substring(1) -or
             [string]$actual[0].fileSystem -ne 'NTFS' -or
             [string]$actual[0].status -notin @('INITIALIZED', 'VERIFIED')) {
             throw "HYPERV_GUEST_DRIVE_RECEIPT_INVALID: $($expected.id)"
+        }
+    }
+
+    # Den tatsächlich gewählten Gastpfad in den VM-Notes festhalten. Dadurch
+    # ist der zweite Aufruf idempotent und die Konsole/UI zeigt nicht länger
+    # irreführend einen Host- oder Wunsch-Laufwerksbuchstaben.
+    foreach ($actual in $receipt) {
+        $plannedDrive = @($managed.Identity.additionalDrives | Where-Object id -EQ $actual.id)
+        if ($plannedDrive.Count -eq 1) {
+            $plannedDrive[0] | Add-Member -NotePropertyName guestPath -NotePropertyValue ([string]$actual.guestPath) -Force
+            $plannedDrive[0] | Add-Member -NotePropertyName driveLetter -NotePropertyValue ([string]$actual.driveLetter) -Force
         }
     }
 

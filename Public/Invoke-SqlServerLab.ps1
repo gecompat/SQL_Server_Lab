@@ -2014,13 +2014,16 @@ function Manage-LabHyperVEnvironmentInteractive {
             $status = Get-HyperVInstanceStatus -VMName $lab.Instance.vmName -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
             Write-Host ("    [{0}] {1} · Live: {2} · Workflow: {3} · VM {4}" -f ($i + 1), $runs[$i].metadata.name, $status.State, $runs[$i].state, $lab.Instance.vmName) -ForegroundColor White
             if ($lab.Instance.connectionString) { Write-Host "        Connection String (Host-SSMS): $($lab.Instance.connectionString)" -ForegroundColor DarkGray }
-            if ($lab.Instance.persistentStorage) { Write-Host "        Persistente Daten: $($lab.Instance.persistentStorage.hostPath) [$($lab.Instance.persistentStorage.state)]" -ForegroundColor DarkGray }
+            if ($lab.Instance.persistentStorage) { Write-Host "        Persistente Daten: Host $($lab.Instance.persistentStorage.hostPath) -> Gast $($lab.Instance.persistentStorage.guestPath) [$($lab.Instance.persistentStorage.state)]" -ForegroundColor DarkGray }
         }
         catch { Write-Host ("    [{0}] {1} · {2}" -f ($i + 1), $runs[$i].metadata.name, $runs[$i].state) -ForegroundColor Yellow }
     }
     $selection = Read-Host '  Umgebung auswählen'
     if ($selection -notmatch '^\d+$' -or [int]$selection -lt 1 -or [int]$selection -gt $runs.Count) { Write-LabWarning 'Ungültige Auswahl.'; return }
     $runId = [string]$runs[[int]$selection - 1].runId
+    $selectedLab = Get-HyperVLabWorkflowRun -RunId $runId
+    $persistentStorage = $selectedLab.Instance.persistentStorage
+    $persistentStoragePending = $persistentStorage -and [string]$persistentStorage.state -eq 'ATTACHED_PENDING_INITIALIZATION'
     Write-Host ''
     Write-Host '  Aktion auswählen:' -ForegroundColor White
     Write-Host '    [s] VM starten' -ForegroundColor Yellow
@@ -2029,10 +2032,17 @@ function Manage-LabHyperVEnvironmentInteractive {
     Write-Host '        Öffnet die lokale VM-Konsole für sichtbare Windows-Arbeiten.' -ForegroundColor DarkGray
     Write-Host '    [p] VM stoppen' -ForegroundColor White
     Write-Host '        Fährt die Lab-VM sauber herunter; Image und Daten bleiben erhalten.' -ForegroundColor DarkGray
-    Write-Host '    [d] Daten-VHDX anhängen' -ForegroundColor White
-    Write-Host '        Erstellt eine eigene langlebige Datenplatte im Data Root und hängt sie an.' -ForegroundColor DarkGray
-    Write-Host '    [i] Daten-VHDX initialisieren' -ForegroundColor White
-    Write-Host '        Formatiert ausschließlich die neu angehängte Lab-Datenplatte als D:\SQLData.' -ForegroundColor DarkGray
+    if (-not $persistentStorage) {
+        Write-Host '    [d] Daten-VHDX anhängen' -ForegroundColor White
+        Write-Host '        Optional: Erstellt eine eigene langlebige Datenplatte im Data Root und hängt sie an.' -ForegroundColor DarkGray
+    }
+    elseif ($persistentStoragePending) {
+        Write-Host '    [i] Daten-VHDX initialisieren' -ForegroundColor White
+        Write-Host '        Formatiert ausschließlich die neu angehängte Lab-Datenplatte; nutzt einen freien Gastbuchstaben (bevorzugt S:\SQLData).' -ForegroundColor DarkGray
+    }
+    else {
+        Write-Host "        Persistente Daten sind bereit: $($persistentStorage.guestPath)" -ForegroundColor DarkGray
+    }
     Write-Host '    [c] SQL CompleteImage ausführen' -ForegroundColor Yellow
     Write-Host '        Vervollständigt SQL Server im Klon. Erforderlich, wenn MSSQLSERVER noch fehlt.' -ForegroundColor DarkGray
     Write-Host '    [h] Host-SSMS einrichten' -ForegroundColor Yellow
@@ -2050,6 +2060,7 @@ function Manage-LabHyperVEnvironmentInteractive {
             'v' { $result = Open-HyperVLabEnvironmentConsole -RunId $runId; Write-LabInfo "VMConnect geöffnet: $($result.VMName)" }
             'p' { $result = Stop-HyperVLabEnvironment -RunId $runId; Write-LabSuccess "VM gestoppt: $($result.VMName)" }
             'd' {
+                if ($persistentStorage) { Write-LabWarning 'Für diese Umgebung ist bereits eine Daten-VHDX angehängt.'; return }
                 $dataRoot = Get-LabDataRootDefault
                 if (-not $dataRoot) { Write-LabError 'Kein Data Root gespeichert. Zuerst Hauptmenü [d] konfigurieren.'; return }
                 $sizeGB = Read-Host '  Größe Daten-VHDX in GB [128]'
@@ -2058,11 +2069,13 @@ function Manage-LabHyperVEnvironmentInteractive {
                 Write-LabSuccess "Daten-VHDX angehängt: $($storage.hostPath)"
             }
             'i' {
+                if (-not $persistentStoragePending) { Write-LabWarning 'Keine neu angehängte Daten-VHDX wartet auf Initialisierung.'; return }
                 $userName = Read-Host '  Lokaler Gast-Administrator [Administrator]'
                 if (-not $userName) { $userName = 'Administrator' }
                 $credential = [PSCredential]::new($userName, (Read-Host '  Gastpasswort' -AsSecureString))
-                $null = Initialize-HyperVLabPersistentData -RunId $runId -Credential $credential
-                Write-LabSuccess 'Daten-VHDX wurde im Gast als D:\SQLData initialisiert.'
+                $result = Initialize-HyperVLabPersistentData -RunId $runId -Credential $credential
+                $dataDrive = @($result.Drives | Where-Object id -EQ 'persistent-sql-data') | Select-Object -First 1
+                Write-LabSuccess "Daten-VHDX wurde im Gast als $($dataDrive.guestPath) initialisiert."
             }
             'c' {
                 $userName = Read-Host '  Lokaler Gast-Administrator [Administrator]'

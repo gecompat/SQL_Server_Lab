@@ -443,13 +443,16 @@ function Enable-HyperVLabPersistentData {
     $drive = [PSCustomObject]@{
         Id = 'persistent-sql-data'; Role = 'sqlData'; SizeBytes = [long]$SizeGB * 1GB; VhdType = 'dynamic'
         Path = [string]$storage.HyperVVhdxPath; DiskIdentifier = ([string]$vhd.DiskIdentifier).ToUpperInvariant()
-        GuestPath = 'D:\SQLData'; DriveLetter = 'D'; FileSystem = 'NTFS'; AllocationUnitKB = 64; VolumeLabel = 'SQLLAB_DATA'
+        # S: ist bewusst gewählt: D: ist in vielen Gastinstallationen das
+        # DVD-Laufwerk. Der Gast wählt bei einem Konflikt selbst einen freien
+        # Datenbuchstaben und speichert ihn anschließend in den VM-Notes.
+        GuestPath = 'S:\SQLData'; DriveLetter = 'S'; FileSystem = 'NTFS'; AllocationUnitKB = 64; VolumeLabel = 'SQLLAB_DATA'
     }
     $allDrives = @($managed.Identity.additionalDrives) + @($drive)
     $notes = ConvertTo-HyperVLabNotes -RunId $lab.Run.runId -ScopeId $lab.Run.scopeId -InstanceId ([string]$lab.Instance.id) -ChildVhdxPath ([string]$managed.Identity.childVhdxPath) -AdditionalDrives $allDrives
     $null = Add-VMHardDiskDrive -VMName $lab.Instance.vmName -ControllerType SCSI -ControllerNumber 0 -Path $storage.HyperVVhdxPath -ErrorAction Stop
     $null = Set-VM -VMName $lab.Instance.vmName -Notes $notes -AutomaticCheckpointsEnabled $false -ErrorAction Stop
-    $lab.Instance | Add-Member -NotePropertyName persistentStorage -NotePropertyValue ([PSCustomObject]@{ mode = 'data-root-vhdx'; root = [string]$storage.SqlRoot; hostPath = [string]$storage.HyperVVhdxPath; guestPath = 'D:\SQLData'; state = 'ATTACHED_PENDING_INITIALIZATION' }) -Force
+    $lab.Instance | Add-Member -NotePropertyName persistentStorage -NotePropertyValue ([PSCustomObject]@{ mode = 'data-root-vhdx'; root = [string]$storage.SqlRoot; hostPath = [string]$storage.HyperVVhdxPath; guestPath = 'S:\SQLData'; state = 'ATTACHED_PENDING_INITIALIZATION' }) -Force
     Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
     Write-LabSuccess "Persistente Daten-VHDX angehängt: $($storage.HyperVVhdxPath). Nach dem VM-Start einmal initialisieren."
     return $lab.Instance.persistentStorage
@@ -463,10 +466,13 @@ function Initialize-HyperVLabPersistentData {
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
     if (-not $lab.Instance.persistentStorage -or [string]$lab.Instance.persistentStorage.state -ne 'ATTACHED_PENDING_INITIALIZATION') { throw 'HYPERV_LAB_PERSISTENT_DATA_INITIALIZATION_NOT_PENDING' }
     $receipt = Initialize-HyperVWindowsGuestDrives -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $Credential
+    $dataDrive = @($receipt.Drives | Where-Object id -EQ 'persistent-sql-data') | Select-Object -First 1
+    if (-not $dataDrive -or -not $dataDrive.guestPath) { throw 'HYPERV_LAB_PERSISTENT_DATA_RECEIPT_MISSING' }
+    $lab.Instance.persistentStorage.guestPath = [string]$dataDrive.guestPath
     $lab.Instance.persistentStorage.state = 'READY'
     $lab.Instance.persistentStorage.initializedAt = Get-LabTimestamp
     Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
-    Write-LabSuccess 'Persistenter Hyper-V-Datenträger ist im Gast als D:\SQLData bereit.'
+    Write-LabSuccess "Persistenter Hyper-V-Datenträger ist im Gast als $($lab.Instance.persistentStorage.guestPath) bereit."
     return $receipt
 }
 
