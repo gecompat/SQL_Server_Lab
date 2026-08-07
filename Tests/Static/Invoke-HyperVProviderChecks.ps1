@@ -264,6 +264,14 @@ try {
             $provider.Contains('$DrivePlanJson | ConvertFrom-Json)') -and
             -not $provider.Contains('$DrivePlanJson | ConvertFrom-Json -Depth')
         )
+    Add-CheckResult `
+        -Name 'Frische Daten-VHDX nutzt nur bei genau einer RAW-Nicht-Systemdisk einen sicheren Fallback' `
+        -Success (
+            $provider -match '\$matchingMethod = ''single-raw-disk-fallback''' -and
+            $provider -match '\$rawCandidates\.Count -eq 1' -and
+            $provider -match '\[string\]\$_.PartitionStyle -eq ''RAW''' -and
+            $provider -match 'GUEST_DISK_IDENTIFIER_MATCH_COUNT'
+        )
 
     $specializationUser = 'sql-lab-specialization-test'
     $specializationPassword = 'NotPersisted_Specialization_3!'

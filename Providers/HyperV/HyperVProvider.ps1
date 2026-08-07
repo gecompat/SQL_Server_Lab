@@ -1174,6 +1174,25 @@ function Initialize-HyperVWindowsGuestDrives {
                         (ConvertTo-NormalizedDiskIdentifier ([string]$_.UniqueId)) -eq $expectedIdentifier
                     }
                 )
+                $matchingMethod = 'disk-identifier'
+                # Frische VHDX-Dateien besitzen vor der ersten GPT-
+                # Initialisierung im Gast je nach Windows-/Hyper-V-Version
+                # keinen zu Get-VHD passenden UniqueId-Wert. Als kontrollierte
+                # Rückfallregel ist ausschließlich genau eine nicht-System-RAW-
+                # Disk zulässig; mehrere Kandidaten bleiben ein harter Fehler.
+                if ($matches.Count -eq 0) {
+                    $rawCandidates = @(
+                        $allDisks | Where-Object {
+                            [string]$_.PartitionStyle -eq 'RAW' -and
+                            -not [bool]$_.IsBoot -and
+                            -not [bool]$_.IsSystem
+                        }
+                    )
+                    if ($rawCandidates.Count -eq 1) {
+                        $matches = $rawCandidates
+                        $matchingMethod = 'single-raw-disk-fallback'
+                    }
+                }
                 if ($matches.Count -ne 1) {
                     throw "GUEST_DISK_IDENTIFIER_MATCH_COUNT_$($specification.id)_$($matches.Count)"
                 }
@@ -1247,6 +1266,8 @@ function Initialize-HyperVWindowsGuestDrives {
                     allocationUnitSize = [int64]$volume.AllocationUnitSize
                     volumeLabel = [string]$volume.FileSystemLabel
                     status = $status
+                    matchingMethod = $matchingMethod
+                    observedDiskUniqueId = [string]$disk.UniqueId
                     observedAt = [datetime]::UtcNow.ToString('o')
                 }
             }
