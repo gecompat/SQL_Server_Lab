@@ -33,6 +33,7 @@ function Start-SqlServerLab {
     process {
         $stateRoot = Get-LabStateRoot
         $run = Get-LabRunState -RunId $RunId -StateRoot $stateRoot
+        $run = (Sync-LabRunRuntimeState -Run $run -StateRoot $stateRoot).Run
 
         # Reguläre Hyper-V-Labs besitzen ebenfalls einen ProviderSubRun. Dieser
         # ist aber ausdrücklich keine Container-Runtime. Die generische

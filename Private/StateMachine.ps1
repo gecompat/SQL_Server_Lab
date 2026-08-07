@@ -633,6 +633,46 @@ function Get-LabRunRuntimeStatus {
     return [PSCustomObject]@{ State = $state; Source = 'Runtime'; Instances = $instances }
 }
 
+function Sync-LabRunRuntimeState {
+    <#
+    .SYNOPSIS
+        Gleicht den sichtbaren RUNNING-/STOPPED-Status mit der echten Runtime ab.
+    .DESCRIPTION
+        Der Workflow-State ist für Recovery und Audit nötig, darf jedoch nach
+        einem manuellen Start/Stopp in Hyper-V, Docker oder Podman nicht die
+        Benutzeraktionen blockieren. Nur eindeutige, vollständige Runtime-
+        Zustände werden zurück in den State geschrieben; MISSING, PARTIAL und
+        UNAVAILABLE bleiben absichtlich Diagnosezustände ohne Mutation.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Run,
+        [string]$StateRoot
+    )
+
+    if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
+    $runtime = Get-LabRunRuntimeStatus -Run $Run -StateRoot $StateRoot
+    $targetState = [string]$runtime.State
+    $currentState = [string]$Run.state
+    $synchronized = $false
+
+    if ($targetState -in @('RUNNING', 'STOPPED') -and $currentState -in @('RUNNING', 'STOPPED') -and $currentState -ne $targetState) {
+        $null = Set-LabRunState -RunId ([string]$Run.runId) -NewState $targetState -Reason "Runtime-Abgleich: $targetState" -StateRoot $StateRoot
+        foreach ($providerSubRun in @(Get-LabProviderSubRuns -RunId ([string]$Run.runId) -StateRoot $StateRoot)) {
+            if ([string]$providerSubRun.state -in @('RUNNING', 'STOPPED') -and [string]$providerSubRun.state -ne $targetState) {
+                Set-LabProviderSubRunState -RunId ([string]$Run.runId) -Provider ([string]$providerSubRun.provider) -NewState $targetState -Reason "Runtime-Abgleich: $targetState" -StateRoot $StateRoot
+            }
+        }
+        $synchronized = $true
+    }
+
+    return [PSCustomObject]@{
+        Run          = Get-LabRunState -RunId ([string]$Run.runId) -StateRoot $StateRoot
+        Runtime      = $runtime
+        Synchronized = $synchronized
+    }
+}
+
 function Remove-LabRunState {
     [CmdletBinding()]
     param(

@@ -105,8 +105,16 @@ function Show-LabBanner {
         foreach ($run in $runs) {
             $prefix = $run.runId.Substring(0, 8)
             $name = $run.metadata.name
-            $runtime = Get-LabRunRuntimeStatus -Run $run -StateRoot $stateRoot
-            Write-Host "    [Live: $($runtime.State.PadRight(11))] ${prefix}... - $name  (Workflow: $($run.state))" -ForegroundColor Gray
+            $synced = Sync-LabRunRuntimeState -Run $run -StateRoot $stateRoot
+            $runtime = $synced.Runtime
+            Write-Host "    [$(($runtime.State).PadRight(11))] ${prefix}... - $name" -ForegroundColor Gray
+            $connections = @(Get-LabRunConnectionStrings -RunId $run.runId -StateRoot $stateRoot)
+            if ($connections.Count -eq 0) {
+                Write-Host '        SQL: Connection String noch nicht ermittelt.' -ForegroundColor DarkGray
+            }
+            foreach ($connection in $connections) {
+                Write-Host "        SQL ($($connection.Provider)/$($connection.InstanceId)): $($connection.Value)" -ForegroundColor DarkGray
+            }
         }
     }
     else {
@@ -114,6 +122,44 @@ function Show-LabBanner {
         Write-Host "  Keine aktiven Umgebungen." -ForegroundColor DarkGray
     }
     Write-Host ""
+}
+
+function Get-LabRunConnectionStrings {
+    <# .SYNOPSIS Liefert die passwortmaskierten SQL-Connection-Strings eines Runs. #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$RunId, [string]$StateRoot)
+
+    if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
+    $connectionInfoPath = Join-Path (Join-Path (Join-Path $StateRoot 'runs') $RunId) 'connection-info.json'
+    if (-not (Test-Path -LiteralPath $connectionInfoPath -PathType Leaf)) { return @() }
+    try { $connectionInfo = Get-Content -LiteralPath $connectionInfoPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20 }
+    catch { return @() }
+
+    $result = @()
+    foreach ($instance in @($connectionInfo.instances)) {
+        $value = [string]$instance.connectionString
+        if (-not $value -and [string]$instance.provider -in @('docker', 'podman') -and $instance.port) {
+            $value = New-SqlConnectionString -HostName $(if ($instance.host) { [string]$instance.host } else { '127.0.0.1' }) -Port ([int]$instance.port)
+        }
+        if ($value) {
+            $result += [PSCustomObject]@{ Provider = [string]$instance.provider; InstanceId = [string]$instance.id; Value = $value }
+        }
+    }
+    return @($result)
+}
+
+function Get-LabRunsByRuntimeState {
+    <# .SYNOPSIS Wählt aktive Runs anhand des echten Runtime-Status aus. #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string[]]$State, [string]$StateRoot)
+
+    if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
+    $matches = @()
+    foreach ($run in @(Get-LabActiveRuns -StateRoot $StateRoot)) {
+        $synced = Sync-LabRunRuntimeState -Run $run -StateRoot $StateRoot
+        if ([string]$synced.Runtime.State -in $State) { $matches += $synced.Run }
+    }
+    return @($matches)
 }
 
 function Show-LabMenu {
@@ -287,7 +333,7 @@ function Invoke-LabAction {
         }
 
         'Stop' {
-            $runs = @(Get-LabActiveRuns) | Where-Object { $_.state -eq 'RUNNING' }
+            $runs = @(Get-LabRunsByRuntimeState -State 'RUNNING')
             if ($runs.Count -eq 0) {
                 Write-LabInfo "Keine laufenden Labs."
                 return
@@ -297,7 +343,7 @@ function Invoke-LabAction {
         }
 
         'Start' {
-            $runs = @(Get-LabActiveRuns) | Where-Object { $_.state -eq 'STOPPED' }
+            $runs = @(Get-LabRunsByRuntimeState -State 'STOPPED')
             if ($runs.Count -eq 0) {
                 Write-LabInfo "Keine gestoppten Labs."
                 return
@@ -307,7 +353,7 @@ function Invoke-LabAction {
         }
 
         'Restart' {
-            $runs = @(Get-LabActiveRuns) | Where-Object { $_.state -in @('RUNNING','STOPPED') }
+            $runs = @(Get-LabRunsByRuntimeState -State @('RUNNING', 'STOPPED'))
             if ($runs.Count -eq 0) {
                 Write-LabInfo "Keine Labs zum Neustarten."
                 return
@@ -334,7 +380,7 @@ function Invoke-LabAction {
         }
 
         'Database' {
-            $runs = @(Get-LabActiveRuns) | Where-Object { $_.state -eq 'RUNNING' }
+            $runs = @(Get-LabRunsByRuntimeState -State 'RUNNING')
             if ($runs.Count -eq 0) {
                 Write-LabInfo "Keine laufenden Labs."
                 return
@@ -383,7 +429,7 @@ function Invoke-LabAction {
         }
 
         'Script' {
-            $runs = @(Get-LabActiveRuns) | Where-Object { $_.state -eq 'RUNNING' }
+            $runs = @(Get-LabRunsByRuntimeState -State 'RUNNING')
             if ($runs.Count -eq 0) {
                 Write-LabInfo "Keine laufenden Labs."
                 return
@@ -2036,8 +2082,9 @@ function Select-LabRun {
     Write-Host ""
     for ($i = 0; $i -lt $Runs.Count; $i++) {
         $prefix = $Runs[$i].runId.Substring(0, 8)
-        $runtime = Get-LabRunRuntimeStatus -Run $Runs[$i]
-        Write-Host "    [$($i+1)] ${prefix}... - $($Runs[$i].metadata.name) [Live: $($runtime.State); Workflow: $($Runs[$i].state)]" -ForegroundColor White
+        $synced = Sync-LabRunRuntimeState -Run $Runs[$i]
+        $runtime = $synced.Runtime
+        Write-Host "    [$($i+1)] ${prefix}... - $($Runs[$i].metadata.name) [$($runtime.State)]" -ForegroundColor White
     }
     Write-Host ""
     $sel = Read-Host "  $Prompt (Nummer)"

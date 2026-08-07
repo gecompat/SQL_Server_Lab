@@ -32,6 +32,7 @@ function Stop-SqlServerLab {
     process {
         $stateRoot = Get-LabStateRoot
         $run = Get-LabRunState -RunId $RunId -StateRoot $stateRoot
+        $run = (Sync-LabRunRuntimeState -Run $run -StateRoot $stateRoot).Run
 
         if ([string]$run.metadata.workflowKind -eq 'hyperv-lab') {
             if ($run.state -ne 'RUNNING') {
