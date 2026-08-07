@@ -1993,7 +1993,7 @@ function Manage-LabHyperVEnvironmentInteractive {
     $selection = Read-Host '  Umgebung auswählen'
     if ($selection -notmatch '^\d+$' -or [int]$selection -lt 1 -or [int]$selection -gt $runs.Count) { Write-LabWarning 'Ungültige Auswahl.'; return }
     $runId = [string]$runs[[int]$selection - 1].runId
-    $action = Read-Host '  Aktion: [s]tarten, [v]mconnect, sto[p]pen, [d]aten-VHDX, [i]nitialisieren, [c]ompleteimage, SQL-[q] prüfen, [e]ntfernen'
+    $action = Read-Host '  Aktion: [s]tarten, [v]mconnect, sto[p]pen, [d]aten-VHDX, [i]nitialisieren, [c]ompleteimage, SQL-[q] prüfen, [w]mi reparieren, [e]ntfernen'
     try {
         switch ($action) {
             's' { $result = Start-HyperVLabEnvironment -RunId $runId; Write-LabSuccess "VM gestartet: $($result.VMName)" }
@@ -2030,6 +2030,13 @@ function Manage-LabHyperVEnvironmentInteractive {
                     Write-Host ("    {0} · Dienst {1} · TCP {2}" -f $instance.Name, $instance.ServiceStatus, $instance.TcpPort) -ForegroundColor White
                     Write-Host "      Connection String (in VM): $($instance.ConnectionString)" -ForegroundColor DarkGray
                 }
+            }
+            'w' {
+                $userName = Read-Host '  Lokaler Gast-Administrator [Administrator]'
+                if (-not $userName) { $userName = 'Administrator' }
+                $credential = [PSCredential]::new($userName, (Read-Host '  Gastpasswort' -AsSecureString))
+                $result = Repair-HyperVLabSqlWmiProvider -RunId $runId -Credential $credential
+                Write-LabSuccess "SQL-WMI-Provider geprüft. Repariert: $($result.repaired)"
             }
             'e' {
                 if (Read-LabConfirm -Prompt '  VM und run-lokale differenzierende VHDX wirklich entfernen?' -Default $false) {

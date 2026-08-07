@@ -233,11 +233,12 @@ Add-CheckResult -Name 'Prepared-Image-Klone bieten eigenes oder kopierbares Zufa
     $scriptText -match 'generateHyperVGuestPassword' -and
     $scriptText -match 'navigator\.clipboard'
 )
-Add-CheckResult -Name 'Konsole spiegelt Data-VHDX, SQL-CompleteImage und SQL-Instanzprüfung für reguläre Hyper-V-Labs' -Success (
+Add-CheckResult -Name 'Konsole spiegelt Data-VHDX, SQL-CompleteImage, WMI-Reparatur und SQL-Instanzprüfung für reguläre Hyper-V-Labs' -Success (
     $consoleText -match 'Enable-HyperVLabPersistentData' -and
     $consoleText -match 'Initialize-HyperVLabPersistentData' -and
     $consoleText -match 'Complete-HyperVLabSqlImage' -and
     $consoleText -match 'Inspect-HyperVLabSqlInstances' -and
+    $consoleText -match 'Repair-HyperVLabSqlWmiProvider' -and
     $consoleText -match 'Connection String \(in VM\)'
 )
 Add-CheckResult -Name 'UI bietet einen getrennten, sicheren Schnellstart aus vorhandener Windows-VM' -Success (

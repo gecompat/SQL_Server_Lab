@@ -632,14 +632,28 @@ function Get-LabManifestValidationResult {
         }
         $effectiveProviders.Add($effectiveProvider)
 
-        if ($effectiveProvider -notin @('docker', 'podman')) {
-            $errors.Add("${instancePath}: Provider '$effectiveProvider' ist noch nicht implementiert.")
+        if ($effectiveProvider -notin @('docker', 'podman', 'hyperv')) {
+            $errors.Add("${instancePath}: Provider '$effectiveProvider' ist nicht implementiert.")
         }
         if ($effectiveProvider -in @('docker', 'podman') -and $instance.os -eq 'windows') {
             $errors.Add("${instancePath}: Windows wird vom Provider '$effectiveProvider' nicht unterstuetzt.")
         }
-        if ($instance.software) {
-            $errors.Add("$instancePath.software: Software-Installationen benoetigen den noch nicht implementierten Hyper-V-Provider.")
+        if ($effectiveProvider -eq 'hyperv') {
+            if ($instance.os -and $instance.os -ne 'windows') {
+                $errors.Add("${instancePath}.os: Hyper-V-Prepared-Images benötigen os 'windows'.")
+            }
+            if (-not $instance.hyperv -or -not $instance.hyperv.preparedImageId) {
+                $errors.Add("${instancePath}.hyperv.preparedImageId: Ein veröffentlichtes SQL-Prepared-Image ist erforderlich.")
+            }
+            if (@($instance.databases | Where-Object { $null -ne $_ }).Count -gt 0 -or
+                @($instance.postProvision | Where-Object { $null -ne $_ }).Count -gt 0 -or
+                @($instance.software | Where-Object { $null -ne $_ }).Count -gt 0 -or
+                @($instance.drives | Where-Object { $null -ne $_ }).Count -gt 0) {
+                $errors.Add("${instancePath}: Datenbanken, Software, freie Drives und Post-Provision-Skripte sind für den Hyper-V-Manifestpfad noch nicht atomar implementiert.")
+            }
+        }
+        elseif ($instance.software) {
+            $errors.Add("$instancePath.software: Software-Installationen benötigen den Hyper-V-Manifestpfad.")
         }
 
         $versionCheck = Test-SqlServerVersionSupported -VersionId $instance.version
@@ -650,11 +664,13 @@ function Get-LabManifestValidationResult {
             $warnings.Add("$instancePath.version: $($versionCheck.Message)")
         }
 
-        try {
-            $null = Get-SqlServerDockerImage -VersionId $instance.version
-        }
-        catch {
-            $errors.Add("$instancePath.version: $($_.Exception.Message)")
+        if ($effectiveProvider -in @('docker', 'podman')) {
+            try {
+                $null = Get-SqlServerDockerImage -VersionId $instance.version
+            }
+            catch {
+                $errors.Add("$instancePath.version: $($_.Exception.Message)")
+            }
         }
 
         $versionDefinition = Get-SqlServerVersion -VersionId $instance.version
@@ -807,6 +823,18 @@ function Get-LabManifestValidationResult {
                 $errors.Add("$instancePath.postProvision: SQL-Skript nicht gefunden: $absoluteScriptPath")
             }
         }
+    }
+
+    $hyperVInstances = @($Manifest.instances | Where-Object {
+        $candidateProvider = if ($_.provider) { [string]$_.provider } else { Resolve-ProviderAutoSelect -Instance $_ }
+        $candidateProvider -eq 'hyperv'
+    })
+    if ($hyperVInstances.Count -gt 0 -and $Manifest.instances.Count -ne 1) {
+        $errors.Add('Hyper-V-Manifestbereitstellung unterstützt genau eine Hyper-V-Instanz und keine Mischung mit Container-Instanzen.')
+    }
+    if ($Manifest.persistentData -and $Manifest.persistentData.enabled -eq $true -and $Manifest.persistentData.dataRoot -and
+        -not [System.IO.Path]::IsPathRooted([string]$Manifest.persistentData.dataRoot)) {
+        $warnings.Add('persistentData.dataRoot wird relativ zum Manifest-Verzeichnis aufgelöst.')
     }
 
     if ($Manifest.resourceOverrides.maxMemoryMB -or $Manifest.resourceOverrides.maxCpus) {

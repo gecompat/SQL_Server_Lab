@@ -51,6 +51,38 @@
         }
       },
       "additionalProperties": false
+    },
+    "persistentData": {
+      "type": "object",
+      "description": "Optionale langlebige SQL-Daten je Instanz. Container verwenden ein Data-Root-Runtime-Volume; Hyper-V eine eigene Daten-VHDX.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "dataRoot": {
+          "type": "string",
+          "description": "Optionaler initialisierter Data Root. Ohne Wert wird der lokal gespeicherte Standard verwendet.",
+          "x-ui": {
+            "label": "Persistenter Data Root",
+            "help": "Lokaler, zuvor initialisierter Data Root. Relative Pfade beziehen sich auf das Manifest-Verzeichnis.",
+            "pathKind": "directory",
+            "pathBase": "manifest-directory",
+            "pathScope": "host",
+            "mustExistAtPlan": false,
+            "createdByRuntime": false,
+            "defaultReason": "Ohne Wert wird der gespeicherte lokale Data Root verwendet."
+          }
+        },
+        "dataDiskGB": {
+          "type": "integer",
+          "minimum": 32,
+          "maximum": 4096,
+          "default": 128,
+          "description": "Größe der Daten-VHDX für Hyper-V; bei Containern nur Dokumentation der gewünschten Datenkapazität."
+        }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false,
@@ -177,6 +209,46 @@
           "items": {
             "$ref": "#/definitions/drive"
           }
+        },
+        "hyperv": {
+          "type": "object",
+          "description": "Hyper-V-spezifische Bereitstellung aus einem veröffentlichten SQL-Prepared-Image. Passwörter gehören nie in das Manifest.",
+          "properties": {
+            "preparedImageId": {
+              "type": "string",
+              "pattern": "^hyperv-sql-prepared-sealed-[a-f0-9]{64}$",
+              "description": "Artifact-ID eines lokal veröffentlichten SQL_PREPARED_SEALED-Images."
+            },
+            "switchName": {
+              "type": "string",
+              "description": "Optionaler vorhandener Hyper-V-Switch; ohne Wert bleibt die VM isoliert."
+            },
+            "memoryStartupMB": {
+              "type": "integer",
+              "minimum": 512,
+              "maximum": 1048576,
+              "default": 4096
+            },
+            "processorCount": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 64,
+              "default": 4
+            },
+            "guestPasswordMode": {
+              "type": "string",
+              "enum": [
+                "generated",
+                "prompt"
+              ],
+              "default": "generated",
+              "description": "Zufälliges Einmalpasswort anzeigen oder beim Start sicher abfragen. Das Passwort wird nicht gespeichert."
+            }
+          },
+          "required": [
+            "preparedImageId"
+          ],
+          "additionalProperties": false
         }
       },
       "additionalProperties": false

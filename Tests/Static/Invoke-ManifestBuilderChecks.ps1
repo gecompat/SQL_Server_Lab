@@ -175,6 +175,35 @@ Add-CheckResult `
     -Success $mixedResult.IsValid `
     -Message ($mixedResult.Errors -join '; ')
 
+$hyperVManifest = [ordered]@{
+    name = 'hyperv-manifest-check'
+    persistentData = [ordered]@{ enabled = $true; dataDiskGB = 128 }
+    instances = @(
+        [ordered]@{
+            id = 'primary'; version = '2025'; provider = 'hyperv'; os = 'windows'
+            hyperv = [ordered]@{ preparedImageId = ('hyperv-sql-prepared-sealed-' + ('a' * 64)); memoryStartupMB = 4096; processorCount = 4; guestPasswordMode = 'generated' }
+        }
+    )
+}
+$hyperVManifestResult = Test-SqlServerLabManifest -InputObject $hyperVManifest
+Add-CheckResult `
+    -Name 'Hyper-V-Manifest referenziert ein Prepared-Image ohne Klartextpasswort' `
+    -Success $hyperVManifestResult.IsValid `
+    -Message ($hyperVManifestResult.Errors -join '; ')
+
+$mixedHyperVManifest = [ordered]@{
+    name = 'mixed-hyperv-container'
+    instances = @(
+        $hyperVManifest.instances[0],
+        [ordered]@{ id = 'container'; version = '2025'; provider = 'docker' }
+    )
+}
+$mixedHyperVManifestResult = Test-SqlServerLabManifest -InputObject $mixedHyperVManifest
+Add-CheckResult `
+    -Name 'Hyper-V-Manifest lehnt nicht atomare Mischläufe klar ab' `
+    -Success (-not $mixedHyperVManifestResult.IsValid -and $mixedHyperVManifestResult.Errors -match 'genau eine Hyper-V-Instanz') `
+    -Message ($mixedHyperVManifestResult.Errors -join '; ')
+
 $incompatibleDatabase = [ordered]@{
     name      = 'compatibility-check'
     instances = @(

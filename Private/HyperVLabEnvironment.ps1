@@ -541,6 +541,61 @@ function Inspect-HyperVLabSqlInstances {
     return $instances
 }
 
+function Repair-HyperVLabSqlWmiProvider {
+    <#
+    .SYNOPSIS Prüft und repariert den SQL-WMI-Provider im verwalteten Gast.
+    .DESCRIPTION Der SQL Server Configuration Manager benötigt die WMI-Klasse
+    SqlService. Nach PrepareImage/CompleteImage kann die MOF-Registrierung
+    fehlen; in diesem Fall wird ausschließlich die passende lokale SQL-MOF
+    kompiliert und der WMI-Dienst im Gast neu gestartet.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$RunId, [Parameter(Mandatory)][PSCredential]$Credential, [string]$StateRoot)
+
+    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
+    $managed = Get-HyperVManagedVM -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
+    if (-not $managed -or [string]$managed.VM.State -ne 'Running') { throw 'HYPERV_LAB_SQL_WMI_VM_MUST_BE_RUNNING' }
+
+    $receipt = Invoke-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $Credential `
+        -ArgumentList @([string]$lab.Run.runId, [string]$lab.Run.scopeId) -ScriptBlock {
+            param($ExpectedRunId, $ExpectedScopeId)
+            $ErrorActionPreference = 'Stop'
+            $instanceMap = Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\Instance Names\SQL' -ErrorAction Stop
+            $instanceId = [string]$instanceMap.MSSQLSERVER
+            if ($instanceId -notmatch '^MSSQL(\d+)\.') { throw 'HYPERV_LAB_SQL_WMI_INSTANCE_VERSION_NOT_FOUND' }
+            $major = [int]$Matches[1]
+            $namespace = "root\Microsoft\SqlServer\ComputerManagement$major"
+            $wasReady = $true
+            try { $null = Get-CimClass -Namespace $namespace -ClassName 'SqlService' -ErrorAction Stop }
+            catch { $wasReady = $false }
+            $mofPath = $null
+            if (-not $wasReady) {
+                $root = Join-Path ${env:ProgramFiles(x86)} 'Microsoft SQL Server'
+                $versionDirectory = Join-Path $root ("{0}0" -f $major)
+                $candidates = @(
+                    (Join-Path $versionDirectory 'Shared\sqlmgmprovider.mof'),
+                    (Join-Path $versionDirectory 'Shared\sqlmgmproviderxpsp2up.mof')
+                )
+                $mofPath = @($candidates | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1)[0]
+                if (-not $mofPath) { throw "HYPERV_LAB_SQL_WMI_MOF_NOT_FOUND: $versionDirectory" }
+                & "$env:WINDIR\System32\wbem\mofcomp.exe" $mofPath | Out-Null
+                if ($LASTEXITCODE -ne 0) { throw "HYPERV_LAB_SQL_WMI_MOFCOMP_FAILED: ExitCode=$LASTEXITCODE" }
+                Restart-Service -Name winmgmt -Force -ErrorAction Stop
+                Start-Sleep -Seconds 2
+                $null = Get-CimClass -Namespace $namespace -ClassName 'SqlService' -ErrorAction Stop
+            }
+            [PSCustomObject]@{ runId = $ExpectedRunId; scopeId = $ExpectedScopeId; namespace = $namespace; repaired = (-not $wasReady); mofPath = $mofPath; observedAt = [datetime]::UtcNow.ToString('o') }
+        }
+    $receipt = @($receipt)[-1]
+    if (-not $receipt -or [string]$receipt.runId -ne [string]$lab.Run.runId -or [string]$receipt.scopeId -ne [string]$lab.Run.scopeId) {
+        throw 'HYPERV_LAB_SQL_WMI_RECEIPT_INVALID'
+    }
+    $lab.Instance | Add-Member -NotePropertyName sqlWmiProvider -NotePropertyValue $receipt -Force
+    Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
+    Write-LabSuccess $(if ($receipt.repaired) { 'SQL-WMI-Provider wurde repariert.' } else { 'SQL-WMI-Provider ist bereits verfügbar.' })
+    return $receipt
+}
+
 function Complete-HyperVLabSqlImage {
     <#
     .SYNOPSIS Vervollständigt SQL Server in einer geklonten Prepared-Image-VM.
@@ -604,6 +659,7 @@ function Complete-HyperVLabSqlImage {
     Write-LabInfo 'Schritt 2/3: SQL CompleteImage wurde bestätigt; Verbindungsdaten werden aktualisiert.'
     $lab.Instance | Add-Member -NotePropertyName sqlCompletion -NotePropertyValue ([PSCustomObject]@{ state = if ([int]$receipt.exitCode -eq 3010) { 'REBOOT_REQUIRED' } else { 'COMPLETE' }; serviceStatus = [string]$receipt.serviceStatus; completedAt = [string]$receipt.completedAt }) -Force
     if ([int]$receipt.exitCode -eq 0) {
+        $null = Repair-HyperVLabSqlWmiProvider -RunId $RunId -Credential $Credential -StateRoot $lab.StateRoot
         $instanceReceipt = Get-HyperVLabSqlInstanceReceipt -Lab $lab -Credential $Credential
         $null = Save-HyperVLabSqlInstanceReceipt -Lab $lab -Receipt $instanceReceipt
     }
