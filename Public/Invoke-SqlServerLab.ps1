@@ -149,6 +149,82 @@ function Get-LabRunConnectionStrings {
     return @($result)
 }
 
+function Get-LabWindowsMediaOperatingSystemLabel {
+    <# .SYNOPSIS Erzeugt eine lesbare, versionsdynamische Windows-Gruppenüberschrift. #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$OperatingSystemId)
+
+    if ($OperatingSystemId -match '^windows-server-(?<version>[0-9]+)$') {
+        return "Windows Server $($Matches.version)"
+    }
+    if ($OperatingSystemId -match '^windows-(?<version>[0-9]+)$') {
+        return "Windows $($Matches.version)"
+    }
+    return $OperatingSystemId
+}
+
+function Get-LabWindowsMediaOperatingSystemSortKey {
+    <# .SYNOPSIS Sortiert Server vor Clients und jüngere Versionen vor älteren. #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$OperatingSystemId)
+
+    if ($OperatingSystemId -match '^windows-server-(?<version>[0-9]+)$') {
+        return ('0-{0:D4}' -f (9999 - [int]$Matches.version))
+    }
+    if ($OperatingSystemId -match '^windows-(?<version>[0-9]+)$') {
+        return ('1-{0:D4}' -f (9999 - [int]$Matches.version))
+    }
+    return "9-$OperatingSystemId"
+}
+
+function ConvertTo-LabWindowsMediaDisplayText {
+    <# .SYNOPSIS Formatiert dynamisch erkannte Editions- und Installationswerte lesbar. #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Value)
+
+    $normalized = (($Value -replace '-evaluation$', '') -replace '-', ' ')
+    $words = $normalized.Split(' ', [System.StringSplitOptions]::RemoveEmptyEntries) |
+        ForEach-Object {
+            if ($_ -in @('ltsc', 'n')) { $_.ToUpperInvariant() }
+            else { $_.Substring(0, 1).ToUpperInvariant() + $_.Substring(1).ToLowerInvariant() }
+        }
+    return ($words -join ' ')
+}
+
+function Write-LabWindowsMediaSelectionGroups {
+    <# .SYNOPSIS Gibt erkannte Windows-Medien automatisch nach OS und Lizenztyp gruppiert aus. #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][object[]]$Candidates,
+        [switch]$Numbered,
+        [string]$ItemPrefix = '    ',
+        [ConsoleColor]$Color = [ConsoleColor]::White
+    )
+
+    $numberByMedia = @{}
+    for ($index = 0; $index -lt $Candidates.Count; $index++) {
+        $numberByMedia[[string]$Candidates[$index].MediaId + '|' + [string]$Candidates[$index].ImageIndex] = $index + 1
+    }
+    foreach ($osGroup in @($Candidates | Group-Object OperatingSystemId | Sort-Object { Get-LabWindowsMediaOperatingSystemSortKey -OperatingSystemId ([string]$_.Name) })) {
+        $osLabel = Get-LabWindowsMediaOperatingSystemLabel -OperatingSystemId ([string]$osGroup.Name)
+        Write-Host ("{0}{1}" -f $ItemPrefix, $osLabel) -ForegroundColor Cyan
+        foreach ($licenseGroup in @(
+            [PSCustomObject]@{ Label = 'Reguläre Medien'; Items = @($osGroup.Group | Where-Object { [string]$_.WindowsEdition -notmatch '-evaluation$' }) },
+            [PSCustomObject]@{ Label = 'Evaluation'; Items = @($osGroup.Group | Where-Object { [string]$_.WindowsEdition -match '-evaluation$' }) }
+        )) {
+            if ($licenseGroup.Items.Count -eq 0) { continue }
+            Write-Host ("{0}  {1}" -f $ItemPrefix, $licenseGroup.Label) -ForegroundColor DarkGray
+            foreach ($candidate in $licenseGroup.Items) {
+                $edition = ConvertTo-LabWindowsMediaDisplayText -Value ([string]$candidate.WindowsEdition)
+                $installation = ConvertTo-LabWindowsMediaDisplayText -Value ([string]$candidate.InstallationType)
+                $number = $numberByMedia[[string]$candidate.MediaId + '|' + [string]$candidate.ImageIndex]
+                $selectionPrefix = if ($Numbered) { ('[{0}] ' -f $number) } else { '- ' }
+                Write-Host ("{0}    {1}{2} · {3} · {4}" -f $ItemPrefix, $selectionPrefix, $edition, $installation, $candidate.MediaId) -ForegroundColor $Color
+            }
+        }
+    }
+}
+
 function Get-LabRunsByRuntimeState {
     <# .SYNOPSIS Wählt aktive Runs anhand des echten Runtime-Status aus. #>
     [CmdletBinding()]
@@ -798,10 +874,7 @@ function New-LabHyperVImageBuildInteractive {
         return
     }
     Write-Host '  Erkannte Windows-Installationsmedien:' -ForegroundColor White
-    for ($i = 0; $i -lt $candidates.Count; $i++) {
-        $candidate = $candidates[$i]
-        Write-Host ("    [{0}] {1} · {2} · {3}" -f ($i + 1), $candidate.ImageName, $candidate.WindowsEdition, $candidate.MediaId) -ForegroundColor White
-    }
+    Write-LabWindowsMediaSelectionGroups -Candidates $candidates -Numbered
     $selection = Read-Host '  Windows-Installationsmedium (Nummer) [1]'
     if (-not $selection) { $selection = '1' }
     if ($selection -notmatch '^\d+$' -or [int]$selection -lt 1 -or [int]$selection -gt $candidates.Count) {
@@ -1349,16 +1422,11 @@ function New-LabHyperVSqlImageBuildInteractive {
     $windowsCandidates = @($allWindowsCandidates | Where-Object { (Test-HyperVSqlPreparedWindowsMediaCompatibility -OperatingSystemId ([string]$_.OperatingSystemId)).Compatible })
     if ($windowsCandidates.Count -eq 0) { Write-LabError 'Kein erkanntes Windows Server 2025-Installationsmedium vorhanden.'; return }
     Write-Host '  Erkannte Windows-Installationsvarianten:' -ForegroundColor White
-    for ($i = 0; $i -lt $windowsCandidates.Count; $i++) {
-        $candidate = $windowsCandidates[$i]
-        Write-Host ("    [{0}] {1} · {2} · {3}" -f ($i + 1), $candidate.ImageName, $candidate.WindowsEdition, $candidate.MediaId) -ForegroundColor White
-    }
+    Write-LabWindowsMediaSelectionGroups -Candidates $windowsCandidates -Numbered
     $otherWindowsCandidates = @($allWindowsCandidates | Where-Object { -not (Test-HyperVSqlPreparedWindowsMediaCompatibility -OperatingSystemId ([string]$_.OperatingSystemId)).Compatible })
     if ($otherWindowsCandidates.Count -gt 0) {
         Write-Host '  Weitere Windows-Medien erkannt (für OS-Baselines verfügbar, noch nicht für SQL-Prepared):' -ForegroundColor DarkGray
-        foreach ($candidate in $otherWindowsCandidates) {
-            Write-Host ("    - {0} · {1} · {2}" -f $candidate.ImageName, $candidate.WindowsEdition, $candidate.MediaId) -ForegroundColor DarkGray
-        }
+        Write-LabWindowsMediaSelectionGroups -Candidates $otherWindowsCandidates -ItemPrefix '    ' -Color DarkGray
     }
     $unrecognizedWindowsMedia = @($allWindowsMedia | Where-Object { $_.State -ne 'READY' })
     if ($unrecognizedWindowsMedia.Count -gt 0) {

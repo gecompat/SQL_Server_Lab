@@ -193,6 +193,12 @@ ihre DISM-Edition und den ISO-Dateinamen aufgelöst, weil ihr Image-Name die
 Serverjahresversion nicht enthält. Kann ein Medium nicht ausgewertet werden,
 wird es mit dem konkreten Grund angezeigt statt still ignoriert.
 
+Konsole und UI gruppieren die Ergebnisse automatisch zuerst nach der
+Betriebssystemfamilie (Windows Server vor Windows Client, jeweils absteigend
+nach Version) und anschließend nach **Reguläre Medien** beziehungsweise
+**Evaluation**. Dadurch vermischen sich Evaluation- und nicht-Evaluation-ISOs
+nicht, auch wenn künftig weitere Medien hinzukommen.
+
 Im SQL-Prepared-Dialog werden erkannte, aber aktuell nicht kompatible
 Windows-Medien bewusst als solche angezeigt. Sie werden nicht still
 ausgeblendet; mit ihnen kann eine OS-Baseline erstellt werden. Die frische
