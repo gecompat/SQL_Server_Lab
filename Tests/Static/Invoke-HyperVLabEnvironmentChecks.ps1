@@ -183,6 +183,14 @@ try {
         $genericStart.State -eq 'Running' -and $genericStop.State -eq 'Off'
     )
 
+    $reconciledRuntimeState = & $module {
+        param($RunId, $Root)
+        function Get-LabRunRuntimeStatus { [PSCustomObject]@{ State = 'RUNNING'; Source = 'mock'; Instances = @() } }
+        $run = Get-LabRunState -RunId $RunId -StateRoot $Root
+        (Sync-LabRunRuntimeState -Run $run -StateRoot $Root).Run.state
+    } $created.RunId $temporaryRoot
+    Add-CheckResult -Name 'Live-Runtime-Status korrigiert einen abweichenden gespeicherten Workflow-Status' -Success ($reconciledRuntimeState -eq 'RUNNING')
+
     $inspected = & $module {
         param($RunId, $Root)
         function Get-HyperVManagedVM { [PSCustomObject]@{ VM = [PSCustomObject]@{ State = 'Running' } } }

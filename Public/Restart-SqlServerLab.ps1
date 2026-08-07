@@ -32,6 +32,7 @@ function Restart-SqlServerLab {
     process {
         $stateRoot = Get-LabStateRoot
         $run = Get-LabRunState -RunId $RunId -StateRoot $stateRoot
+        $run = (Sync-LabRunRuntimeState -Run $run -StateRoot $stateRoot).Run
         $runPrefix = $RunId.Substring(0, 8)
 
         if ($run.state -notin @('RUNNING', 'STOPPED')) {
