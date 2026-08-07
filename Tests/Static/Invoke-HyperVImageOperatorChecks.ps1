@@ -246,6 +246,12 @@ try {
         $menuText -match 'New-HyperVLabEnvironment' -and
         $menuText -match 'Open-HyperVLabEnvironmentConsole'
     )
+    Add-CheckResult -Name 'Reguläre Hyper-V-Labs bieten verfügbare Switches mit isolierter Auswahl an' -Success (
+        $menuText -match 'function Select-LabHyperVVirtualSwitch' -and
+        $menuText -match 'Get-VMSwitch -ErrorAction Stop' -and
+        $menuText -match '\[0\] Kein Switch = isoliert' -and
+        @($menuText | Select-String -Pattern 'Select-LabHyperVVirtualSwitch' -AllMatches).Matches.Count -ge 3
+    )
     $selectionIndex = $menuText.IndexOf('$choice = Read-Host ''  Auswahl''')
     $clearIndex = $menuText.IndexOf('Clear-Host', $selectionIndex)
     $actionHeaderIndex = $menuText.IndexOf('Hyper-V Image-Lifecycle – Auswahl: $choice', $clearIndex)
