@@ -239,7 +239,8 @@ Add-CheckResult -Name 'Konsole spiegelt Data-VHDX, SQL-CompleteImage, WMI-Repara
     $consoleText -match 'Complete-HyperVLabSqlImage' -and
     $consoleText -match 'Inspect-HyperVLabSqlInstances' -and
     $consoleText -match 'Repair-HyperVLabSqlWmiProvider' -and
-    $consoleText -match 'Connection String \(in VM\)'
+    $consoleText -match 'Enable-HyperVLabHostSqlAccess' -and
+    $consoleText -match 'Connection String \(Host-SSMS\)'
 )
 Add-CheckResult -Name 'UI bietet einen getrennten, sicheren Schnellstart aus vorhandener Windows-VM' -Success (
     $hyperVLabText -match 'Get-HyperVExistingVmLabSource' -and

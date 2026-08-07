@@ -122,3 +122,35 @@ function Set-LabDataRootDefault {
     Set-LabProjectPreferenceValue -Name dataRoot -Value $resolved
     return $resolved
 }
+
+function Get-LabHyperVSwitchDefault {
+    <# Liefert den zuletzt bewusst gewählten Hyper-V-Lab-Switch. #>
+    [CmdletBinding()]
+    param()
+
+    $candidates = @(
+        [string]$env:SQL_SERVER_LAB_HYPERV_NETWORK,
+        (Get-LabProjectPreferenceValue -Name hyperVSwitch),
+        [string][Environment]::GetEnvironmentVariable('SQL_SERVER_LAB_HYPERV_NETWORK', 'User')
+    ) | Where-Object { $_ }
+    foreach ($candidate in $candidates) {
+        if (Get-Command Get-VMSwitch -ErrorAction SilentlyContinue) {
+            if (Get-VMSwitch -Name $candidate -ErrorAction SilentlyContinue) { return $candidate }
+        }
+    }
+    return $null
+}
+
+function Set-LabHyperVSwitchDefault {
+    <# Speichert einen vorhandenen Switch als Standard für neue Host-SSMS-fähige Labs. #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$SwitchName)
+
+    if (-not (Get-Command Get-VMSwitch -ErrorAction SilentlyContinue) -or -not (Get-VMSwitch -Name $SwitchName -ErrorAction SilentlyContinue)) {
+        throw "HYPERV_SWITCH_NOT_FOUND: $SwitchName"
+    }
+    $env:SQL_SERVER_LAB_HYPERV_NETWORK = $SwitchName
+    [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_HYPERV_NETWORK', $SwitchName, 'User')
+    Set-LabProjectPreferenceValue -Name hyperVSwitch -Value $SwitchName
+    return $SwitchName
+}

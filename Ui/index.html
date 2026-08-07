@@ -205,7 +205,7 @@
         <label>Instanzname<input id="hyperv-instance" value="primary" pattern="[A-Za-z0-9][A-Za-z0-9_-]{0,63}" required></label>
         <label>Startspeicher (MB)<input id="hyperv-memory" type="number" min="512" value="4096" required></label>
         <label>vCPU<input id="hyperv-processors" type="number" min="1" max="64" value="4" required></label>
-        <label>Virtueller Switch (optional)<select id="hyperv-switch"><option value="">Kein Switch = isoliert</option></select></label>
+        <label>Virtueller Switch<select id="hyperv-switch"><option value="">SQL_Server_Lab-Standard (Host-SSMS möglich)</option></select></label>
       </div>
       <label class="form-check"><input id="hyperv-persistent-data" type="checkbox"> Langlebige Daten-VHDX im Data Root anhängen</label>
       <p class="form-note">Die Daten-VHDX wird je Lab neu im Data Root angelegt, nicht mit der Vorlage geteilt und bei „Entfernen“ nicht gelöscht. Sie wird automatisch als <code>D:\SQLData</code> initialisiert.</p>
@@ -213,7 +213,7 @@
       <label>Lokales Administratorpasswort<input id="hyperv-guest-password" type="text" autocomplete="new-password" required></label>
       <label id="hyperv-guest-password-repeat-label">Passwort wiederholen<input id="hyperv-guest-password-repeat" type="password" autocomplete="new-password"></label>
       <div class="build-actions"><button id="hyperv-generate-password" type="button" class="button secondary">Passwort erzeugen</button><button id="hyperv-copy-password" type="button" class="button secondary">Passwort kopieren</button></div>
-      <p class="form-note">Die Antwortdatei wird nur in die differenzierende Klon-VHDX geschrieben und nach OOBE im Gast entfernt. Das Passwort wird ausschließlich für diesen Run DPAPI-geschützt abgelegt; das Prepared-Image bleibt unverändert. Die VM erhält nur den hier gewählten Switch – Adapter aus der Vorlage werden nicht kopiert.</p>
+      <p class="form-note">Die Antwortdatei wird nur in die differenzierende Klon-VHDX geschrieben und nach OOBE im Gast entfernt. Das Passwort wird ausschließlich für diesen Run DPAPI-geschützt abgelegt; das Prepared-Image bleibt unverändert. Standardmäßig erhält die VM einen verwalteten Internal-Switch, eine feste Lab-IP sowie SQL-TCP für SSMS auf diesem Host. Das Gastpasswort ist zugleich das SA-Passwort.</p>
       <div class="dialog-actions"><button type="button" class="button secondary" value="cancel" formnovalidate>Abbrechen</button><button class="button primary" value="default">Schnell bereitstellen</button></div>
     </form>
   </dialog>
@@ -228,7 +228,7 @@
         <label>Instanzname<input id="hyperv-existing-vm-instance" value="primary" pattern="[A-Za-z0-9][A-Za-z0-9_-]{0,63}" required></label>
         <label>Startspeicher (MB)<input id="hyperv-existing-vm-memory" type="number" min="512" value="4096" required></label>
         <label>vCPU<input id="hyperv-existing-vm-processors" type="number" min="1" max="64" value="4" required></label>
-        <label>Virtueller Switch (optional)<select id="hyperv-existing-vm-switch"><option value="">Kein Switch = isoliert</option></select></label>
+        <label>Virtueller Switch<select id="hyperv-existing-vm-switch"><option value="">SQL_Server_Lab-Standard (Host-SSMS möglich)</option></select></label>
       </div>
       <label class="form-check"><input id="hyperv-existing-vm-persistent-data" type="checkbox"> Langlebige Daten-VHDX im Data Root anhängen</label>
       <label class="form-check"><input id="hyperv-existing-vm-license-confirm" type="checkbox" required> Ich bestätige, dass Lizenz- und Ablaufstatus der Quell-VM geprüft werden. Eine Entwicklungs-/Evaluierungsumgebung kann zeitlich befristet sein.</label>

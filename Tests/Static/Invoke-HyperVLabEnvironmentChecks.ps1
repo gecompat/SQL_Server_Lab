@@ -24,6 +24,7 @@ try {
                 sql = [PSCustomObject]@{ version = '2025'; edition = 'Enterprise' }
             }
         }
+        function Resolve-LabHyperVNetwork { [PSCustomObject]@{ Name = 'SQL_LAB_HYPERV'; Subnet = '172.28.0.0/24'; PrefixLength = 24; HostAddress = '172.28.0.1' } }
         function Get-HyperVLabVMs { @() }
         function New-HyperVInstance {
             [PSCustomObject]@{ VMName = 'sql-lab-primary-mock'; VMId = 'mock-vm-id' }
@@ -48,6 +49,7 @@ try {
         function Wait-HyperVPowerShellDirect { [PSCustomObject]@{ Ready = $true; Message = 'ready' } }
         function Invoke-HyperVPowerShellDirect { param($ArgumentList) [PSCustomObject]@{ runId = $ArgumentList[0]; imageState = 'IMAGE_STATE_COMPLETE'; observedAt = '2026-08-07T12:00:00.0000000Z' } }
         function Complete-HyperVLabSqlImage { [PSCustomObject]@{ state = 'COMPLETE'; serviceStatus = 'Running' } }
+        function Enable-HyperVLabHostSqlAccess { [PSCustomObject]@{ ConnectionString = 'Server=172.28.0.58,1433;Database=master;User ID=sa;Password=<Gast-Administratorpasswort>;' } }
         $password = ConvertTo-SecureString 'Generated_Administrator_42!' -AsPlainText -Force
         Invoke-HyperVLabUnattendedProvision -RunId $RunId -AdministratorPassword $password -PasswordSource generated -StateRoot $Root
     } $created.RunId $temporaryRoot
@@ -130,6 +132,7 @@ try {
             $null = New-Item -ItemType File -Path $DestinationPath -Force
         }
         function Get-FileHash { [PSCustomObject]@{ Hash = ('a' * 64) } }
+        function Resolve-LabHyperVNetwork { [PSCustomObject]@{ Name = 'SQL_LAB_HYPERV'; Subnet = '172.28.0.0/24'; PrefixLength = 24; HostAddress = '172.28.0.1' } }
         function New-HyperVInstance { [PSCustomObject]@{ VMName = 'sql-lab-primary-existing'; VMId = 'existing-vm-id' } }
         $created = New-HyperVLabEnvironmentFromExistingVm -SourceVMName 'Windows 11 Dev Environment' -LabName 'Windows Dev Lab' -InstanceId primary -ConfirmSourceLicense -StateRoot $Root
         [PSCustomObject]@{ Created = $created; ConvertedFrom = $script:convertedFrom; Source = $script:sourceDisk }

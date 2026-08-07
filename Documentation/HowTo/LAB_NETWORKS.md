@@ -13,9 +13,11 @@ Netzwerkgrundlage sicher teilen koennen.
 Docker- und Podman-Netze werden als eigene Bridge angelegt. Sie erlauben
 Kommunikation zwischen Containern derselben Runtime und den vorgesehenen
 Host-Portzugriff. Der Container-Egress folgt dabei dem NAT-Verhalten der
-jeweiligen Runtime. Hyper-V verwendet einen internen vSwitch. Nach OOBE erhält
-ein SQL-Abnahmegast eine deterministische Lab-IP; TCP 1433 wird nur im
-Gast-Labnetz freigegeben.
+jeweiligen Runtime. Hyper-V verwendet für neue reguläre Labs standardmäßig
+einen internen vSwitch. Nach OOBE erhält jeder SQL-Gast eine deterministische
+Lab-IP; TCP 1433 wird ausschließlich für die Hostadresse im Gast-Labnetz
+freigegeben. Dadurch ist SSMS auf dem Host erreichbar, ohne das Lab ins
+physische Netzwerk zu exponieren.
 
 Für den ersten OOBE-Start eines Windows-SQL-Abnahmegasts richtet das Framework
 die deterministische Gast-IP außerdem direkt per Unattend-Bootstrap ein. Es
@@ -60,3 +62,21 @@ PowerShell-Fenster fort. Dort legt das Framework den internen Switch und die
 Hostadresse automatisch an. Ein Anwender muss deshalb keinen separaten
 `New-NetIPAddress`-Befehl eingeben. Automatisierte Läufe benötigen denselben
 Mechanismus nicht, wenn der Runner bereits erhöht läuft.
+
+## Reguläre Hyper-V-Labs und Host-SSMS
+
+Eine leere Switch-Auswahl bedeutet bei neuen regulären Hyper-V-Labs nicht mehr
+„isoliert“, sondern den gespeicherten oder automatisch verwalteten
+SQL_Server_Lab-Internal-Switch. Eine bewusste Isolation ist weiterhin möglich,
+ist dann aber nicht vom Host-SSMS erreichbar.
+
+Der vollständige Hostvertrag lautet: VM-Netzadapter am Internal-Switch,
+deterministische Gast-IP, SQL-TCP auf 1433, Firewall nur von der Host-IP und
+SQL-Authentifizierung. Der Connection String verwendet deshalb `sa` und das
+bei der Erstellung gewählte Gast-Administratorpasswort. Dieses Passwort wird
+nicht im Connection String oder Run-State im Klartext gespeichert.
+
+Für ältere, bereits vorhandene VMs steht in Konsole und lokaler UI die Aktion
+**Host-SSMS einrichten** bereit. Sie verlangt das lokale Gast-Administrator-
+passwort, bindet bei Bedarf den Standard-Switch an, setzt die Gast-IP und
+konfiguriert SQL-TCP, Firewall sowie SQL-Authentifizierung nachträglich.

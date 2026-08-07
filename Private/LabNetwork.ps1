@@ -71,6 +71,7 @@ function Get-LabRuntimeNetwork {
     $definition = $defaults[$Provider]
     $prefix = "SQL_SERVER_LAB_$($definition.EnvironmentPrefix)"
     $name = [string][Environment]::GetEnvironmentVariable("${prefix}_NETWORK")
+    if ($Provider -eq 'hyperv' -and [string]::IsNullOrWhiteSpace($name)) { $name = Get-LabHyperVSwitchDefault }
     $subnet = [string][Environment]::GetEnvironmentVariable("${prefix}_SUBNET")
     if ([string]::IsNullOrWhiteSpace($name)) { $name = [string]$definition.Name }
     if ([string]::IsNullOrWhiteSpace($subnet)) { $subnet = [string]$definition.Subnet }
@@ -187,6 +188,46 @@ function Ensure-LabHyperVNetwork {
     return $network
 }
 
+function Resolve-LabHyperVNetwork {
+    <#
+    .SYNOPSIS Liefert den verbindlichen Switch für reguläre Hyper-V-Labs.
+    .DESCRIPTION Ohne ausdrückliche Isolation wird immer ein Internal-Switch
+    mit Host-IP bereitgestellt. Bevor ein zweiter Standardswitch erstellt wird,
+    wird ein vorhandener Switch mit dem Lab-Subnetz wiederverwendet.
+    #>
+    [CmdletBinding()]
+    param([string]$SwitchName, [switch]$Isolated)
+
+    if ($Isolated) { return $null }
+    if ($SwitchName) {
+        $network = Ensure-LabHyperVNetwork -Name $SwitchName
+        $null = Set-LabHyperVSwitchDefault -SwitchName $network.Name
+        return $network
+    }
+
+    $configured = Get-LabHyperVSwitchDefault
+    if ($configured) { return Ensure-LabHyperVNetwork -Name $configured }
+
+    $expected = Get-LabRuntimeNetwork -Provider hyperv
+    $matching = @(
+        Get-VMSwitch -SwitchType Internal -ErrorAction SilentlyContinue | Where-Object {
+            $alias = "vEthernet ($($_.Name))"
+            $address = Get-NetIPAddress -InterfaceAlias $alias -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+                Where-Object { $_.IPAddress -eq $expected.HostAddress -and $_.PrefixLength -eq $expected.PrefixLength } |
+                Select-Object -First 1
+            $null -ne $address
+        }
+    )
+    if ($matching.Count -eq 1) {
+        $network = Ensure-LabHyperVNetwork -Name ([string]$matching[0].Name)
+        $null = Set-LabHyperVSwitchDefault -SwitchName $network.Name
+        return $network
+    }
+    $network = Ensure-LabHyperVNetwork
+    $null = Set-LabHyperVSwitchDefault -SwitchName $network.Name
+    return $network
+}
+
 function Get-LabNetworkGuestAddress {
     [CmdletBinding()]
     param([Parameter(Mandatory)]$Network, [Parameter(Mandatory)][string]$Identity)
@@ -215,9 +256,9 @@ function Initialize-HyperVGuestLabNetwork {
     $receipt = Invoke-HyperVPowerShellDirect -VMName $VMName -ExpectedRunId $ExpectedRunId `
         -ExpectedScopeId $ExpectedScopeId -Credential $Credential `
         -FallbackAddress $(if ($FallbackAddress) { $FallbackAddress } else { $address }) `
-        -ArgumentList @($address, [int]$Network.PrefixLength, [string]$Network.Name) `
+        -ArgumentList @($address, [int]$Network.PrefixLength, [string]$Network.Name, [string]$Network.HostAddress) `
         -ScriptBlock {
-            param($Address, $PrefixLength, $NetworkName)
+            param($Address, $PrefixLength, $NetworkName, $HostAddress)
             $ErrorActionPreference = 'Stop'
             $adapter = @(Get-NetAdapter | Where-Object { $_.Status -eq 'Up' } | Sort-Object ifIndex | Select-Object -First 1)[0]
             if (-not $adapter) { throw 'LAB_NETWORK_GUEST_ADAPTER_NOT_FOUND' }
@@ -227,9 +268,9 @@ function Initialize-HyperVGuestLabNetwork {
                 $existing | Remove-NetIPAddress -Confirm:$false -ErrorAction SilentlyContinue
                 New-NetIPAddress -InterfaceIndex $adapter.ifIndex -IPAddress $Address -PrefixLength $PrefixLength -ErrorAction Stop | Out-Null
             }
-            $ruleName = 'SQL_Server_Lab SQL TCP 1433'
+            $ruleName = 'SQL_Server_Lab SQL TCP Host'
             if (-not (Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue)) {
-                New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -Action Allow -Protocol TCP -LocalPort 1433 | Out-Null
+                New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -Action Allow -Protocol TCP -LocalPort 1433 -RemoteAddress $HostAddress | Out-Null
             }
             [PSCustomObject]@{ contractVersion = '1'; network = $NetworkName; address = $Address; prefixLength = $PrefixLength; observedAt = [datetime]::UtcNow.ToString('o') }
         }

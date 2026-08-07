@@ -142,8 +142,13 @@ liegt nur für diesen Run DPAPI-geschützt auf dem Host. Es wird weder im
 Prepared-Image noch in dessen Parent-VHDX gespeichert; die Antwortdatei wird
 nach erfolgreicher OOBE im Gast entfernt.
 
-Die VM erhält nur den beim Anlegen gewählten virtuellen Switch. Netzwerkadapter
+Die VM erhält standardmäßig den verwalteten SQL_Server_Lab-Internal-Switch;
+ein anderer vorhandener Switch kann bewusst gewählt werden. Netzwerkadapter
 sind Hyper-V-Hardware und werden deshalb nicht aus der Vorlage übernommen.
+Der Standardweg setzt eine deterministische Gast-IP, SQL-TCP auf 1433 und eine
+Firewallregel ausschließlich für den Host. Damit kann SSMS auf dem Host den
+ausgegebenen Connection String nutzen; das SA-Passwort ist das beim Anlegen
+gewählte Gast-Administratorpasswort und wird nicht im Klartext gespeichert.
 Eine optionale Data-Root-Daten-VHDX wird je Lab neu angelegt und separat an die
 VM angebunden. Sie wird nicht mit anderen Klonen oder dem Prepared-Image
 geteilt und bleibt beim Entfernen des Lab-Runs erhalten.
