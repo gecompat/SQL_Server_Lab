@@ -791,14 +791,17 @@ function Complete-HyperVLabSqlImage {
             $arguments = @('/Q', '/ACTION=CompleteImage', '/INSTANCEID=MSSQLSERVER', '/INSTANCENAME=MSSQLSERVER', '/SQLSYSADMINACCOUNTS="BUILTIN\Administrators"', '/SECURITYMODE=SQL', "/SAPWD=$plainPassword", '/TCPENABLED=1', '/IACCEPTSQLSERVERLICENSETERMS', '/INDICATEPROGRESS')
             $process = Start-Process -FilePath $setup[0].FullName -ArgumentList $arguments -PassThru -NoNewWindow
             if (-not $process.WaitForExit(5400000)) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue; throw 'HYPERV_LAB_SQL_COMPLETE_TIMEOUT' }
-            if ($process.ExitCode -notin @(0, 3010)) { throw "HYPERV_LAB_SQL_COMPLETE_FAILED: ExitCode=$($process.ExitCode)" }
-            if ($process.ExitCode -eq 3010) { & shutdown.exe /r /t 10 /f | Out-Null }
+            # Setup liefert den Code in älteren Gast-PowerShell-Versionen nicht
+            # immer als typisierten Integer. Vor jeder Auswertung normalisieren.
+            $exitCode = [int]$process.ExitCode
+            if ($exitCode -ne 0 -and $exitCode -ne 3010) { throw "HYPERV_LAB_SQL_COMPLETE_FAILED: ExitCode=$exitCode" }
+            if ($exitCode -eq 3010) { & shutdown.exe /r /t 10 /f | Out-Null }
             $service = Get-Service -Name MSSQLSERVER -ErrorAction SilentlyContinue
-            if ($service -and $process.ExitCode -eq 0 -and $service.Status -ne 'Running') {
+            if ($service -and $exitCode -eq 0 -and $service.Status -ne 'Running') {
                 Start-Service -Name MSSQLSERVER -ErrorAction Stop
                 $service = Get-Service -Name MSSQLSERVER -ErrorAction Stop
             }
-            [PSCustomObject]@{ runId = $ExpectedRunId; scopeId = $ExpectedScopeId; exitCode = $process.ExitCode; serviceName = if ($service) { $service.Name } else { $null }; serviceStatus = if ($service) { [string]$service.Status } else { $null }; completedAt = [datetime]::UtcNow.ToString('o') }
+            [PSCustomObject]@{ runId = $ExpectedRunId; scopeId = $ExpectedScopeId; exitCode = $exitCode; serviceName = if ($service) { $service.Name } else { $null }; serviceStatus = if ($service) { [string]$service.Status } else { $null }; completedAt = [datetime]::UtcNow.ToString('o') }
         }
         finally {
             $plainPassword = $null
