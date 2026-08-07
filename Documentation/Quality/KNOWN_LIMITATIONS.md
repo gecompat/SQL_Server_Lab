@@ -185,7 +185,7 @@ Unterstützt werden direkte `.bak`-Dateien aus lokalen Pfaden oder HTTP(S)-URLs.
 
 Nicht automatisch unterstützt werden:
 
-- `.7z`-Archive oder andere nicht katalogisierte Archive
+- nicht katalogisierte Archive
 - Attach-Szenarien mit vorhandenen MDF/LDF-Dateien
 - Differential- oder Log-Backup-Ketten
 - verschlüsselte Backups mit externen Zertifikaten
@@ -198,12 +198,12 @@ Bei manuellen Restores ist `-RunId` mit optionaler `-InstanceId` die bevorzugte 
 `sample`-Referenzen werden auf den Katalog `Catalogs/sample-databases.json` aufgelöst.
 
 Automatisch ausführbar sind Varianten mit `runtimeStatus: executable` und den
-Handler-Typen `backup`, `archive-backup` (ausschließlich ZIP mit einer exakten,
+Handler-Typen `backup`, `archive-backup` (ZIP oder 7z mit einer exakten,
 katalogisierten `.bak`-Payload) oder `sql-script` (einzelnes katalogisiertes
 T-SQL-Skript). Die Installation läuft über
 `Private/SampleArtifactHandlers.ps1`, bindet die Sample-Identität an Trust
 Store, Cache und Run Lock, setzt `fail-if-exists` durch und verifiziert die
-erwartete Datenbank abschließend als `ONLINE` (`DATASET_READY`). ZIP-Payloads
+erwartete Datenbank abschließend als `ONLINE` (`DATASET_READY`). Archiv-Payloads
 werden nur temporär unter dem Run- bzw. Temp-Arbeitsbereich extrahiert und nach
 dem Restore entfernt.
 
@@ -221,11 +221,12 @@ als `SAMPLE_OUTPUT_CONFLICT` abgewiesen. Der Manifest-Wizard bietet für
 
 `Northwind` und `Chinook` sind als fest gepinnte, SHA-256-verifizierte
 Einzelskripte katalogisiert: Northwind erhält zuerst eine leere Zieldatenbank,
-Chinook legt seine Datenbank selbst an. Große Stack-Overflow-`.7z`-Archive und
-Attach-Szenarien bleiben bewusst `descriptive`; sie werden nicht als Backup
-oder ZIP umgedeutet.
+Chinook legt seine Datenbank selbst an. Große Stack-Overflow-`.7z`-Archive
+bleiben bewusst `descriptive`, weil sie MDF/LDF-Dateien für einen noch nicht
+implementierten Attach-Handler enthalten – sie werden nicht als `.bak`
+umgedeutet.
 
-Noch nicht implementiert sind Script-Bundles, `.7z`- und Attach-Handler,
+Noch nicht implementiert sind Script-Bundles und Attach-Handler,
 `LAB_GENERATED`-Baselines, das Überschreiben der erwarteten Zieldatenbanknamen
 sowie die Wizard-Navigation mit Zurück/Planvorschau. Ein Sample, das mehrere
 Datenbanken erzeugt, wird weiterhin nicht automatisch installiert.

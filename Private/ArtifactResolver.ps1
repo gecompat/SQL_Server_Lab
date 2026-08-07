@@ -367,7 +367,7 @@ function Resolve-LabArtifact {
     $sourceUri = [System.Uri]::new($canonicalSource)
     $expectedExtension = switch ($ArtifactType) {
         'backup' { '\.bak$' }
-        'archive-backup' { '\.zip$' }
+        'archive-backup' { '\.(zip|7z)$' }
         'sql-script' { '\.sql$' }
     }
     if ($sourceUri.AbsolutePath -notmatch "(?i)$expectedExtension") {

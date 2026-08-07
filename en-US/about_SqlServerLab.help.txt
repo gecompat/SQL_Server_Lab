@@ -109,6 +109,10 @@ COMMANDS
         Applies a validated adapter entrypoint (install, update, validate,
         cleanup) to a running instance; no lifecycle side effects.
 
+    Install-SqlServerLab7Zip
+        Optionally installs 7-Zip through winget after explicit confirmation for
+        catalogued .7z backups with a .bak payload.
+
 NAMING AND OWNERSHIP
     PowerShell associates each exported command with SqlServerLab through the
     Source and ModuleName properties:

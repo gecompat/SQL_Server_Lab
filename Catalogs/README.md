@@ -114,17 +114,20 @@ Beispiel:
 
 Der Katalog wird in den gemeinsamen Artifact-Vertrag aufgelöst. Automatisch
 bereitstellen kann der aktuelle Runtimepfad direkte Backups (`backup` und
-`.bak`), sichere ZIP-Backups (`archive-backup` und `.zip`) sowie einzelne
-T-SQL-Skripte (`sql-script` und `.sql`), jeweils mit `runtimeStatus:
-executable`. ZIP-Backups benötigen eine exakte `installation.payloadPath`-
-Angabe und werden nur temporär entpackt. Die Integrität sichert entweder eine
+`.bak`), sichere Archiv-Backups (`archive-backup` mit `.zip` oder `.7z`) sowie
+einzelne T-SQL-Skripte (`sql-script` und `.sql`), jeweils mit
+`runtimeStatus: executable`. Archiv-Backups benötigen eine exakte
+`installation.payloadPath`-Angabe und werden nur temporär entpackt. Für `.7z`
+muss die lokale 7-Zip-Kommandozeile verfügbar sein; sie kann nach expliziter
+Bestätigung mit `Install-SqlServerLab7Zip` bzw. über den Konsolenmenüpunkt
+`[z]` installiert werden. Die Integrität sichert entweder eine
 Katalog-SHA-256 (`trustPolicy: catalog-only`) oder der Trust-Pfad
 `interactive-once` mit einmaliger interaktiver Freigabe; nicht interaktive
 Läufe enden ohne bekannten Hash mit `TRUST_REQUIRED`.
 
 Nicht automatisch ausführbar sind unter anderem:
 
-- Archive wie `.7z` oder nicht katalogisierte ZIP-Dateien
+- nicht katalogisierte Archive
 - Attach-Szenarien
 - Script-Bundles und SQL-Skripte mit `:r`, `:setvar`, `:connect` oder
   Shell-Escapes

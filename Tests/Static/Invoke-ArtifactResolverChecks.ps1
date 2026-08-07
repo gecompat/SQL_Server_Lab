@@ -86,6 +86,11 @@ try {
             -SampleVariant 'unit' `
             -NonInteractive `
             -StateRoot $StateRoot
+        $sevenZipTrust = Resolve-LabArtifact `
+            -Source 'https://example.invalid/samples/unknown.7z' `
+            -ArtifactType 'archive-backup' `
+            -NonInteractive `
+            -StateRoot $StateRoot
 
         [PSCustomObject]@{
             StoreCreated = (Test-Path -LiteralPath $paths.TrustStorePath -PathType Leaf)
@@ -95,6 +100,7 @@ try {
             PortableLockSafe = $portableLock -notmatch '(?i)(stateRoot|runDirectory|connectionString|password|hostPath)'
             TrustRequired = $nonInteractive.Status -eq 'TRUST_REQUIRED'
             CacheResolutionReady = $cachedResolution.Status -eq 'ARTIFACT_READY' -and $cachedResolution.CacheStatus -eq 'HIT'
+            SevenZipTrustRequired = $sevenZipTrust.Status -eq 'TRUST_REQUIRED'
         }
     } $temporaryRoot
 
@@ -105,6 +111,7 @@ try {
     Add-CheckResult -Name 'Portables Lock enthaelt keine Runtime- oder Secretfelder' -Success $result.PortableLockSafe
     Add-CheckResult -Name 'Nicht interaktive Aufloesung ohne Hash endet mit TRUST_REQUIRED' -Success $result.TrustRequired
     Add-CheckResult -Name 'Bekannter Trust nutzt den verifizierten Content Cache' -Success $result.CacheResolutionReady
+    Add-CheckResult -Name 'Katalogisierte .7z-Archive passieren den sicheren Artifact-Vertrag' -Success $result.SevenZipTrustRequired
 }
 catch {
     Add-CheckResult -Name 'Artifact Resolver Testausfuehrung' -Success $false -Message $_.Exception.Message

@@ -3,7 +3,7 @@
     Sample-Artifact-Handler fuer den gemeinsamen Installations-Lifecycle.
 .DESCRIPTION
     Implementiert die freigegebenen Sample-Handler aus dem Sample-Zielvertrag:
-    direkte Backups, ZIP-Archive mit genau einem katalogisierten Backup und
+    direkte Backups, ZIP-/7z-Archive mit genau einem katalogisierten Backup und
     einzelne T-SQL-Skripte. Acquisition und Integritaet laufen ueber den
     Artifact Resolver (Trust Store, Cache, Quarantaene, Run Lock), danach
     folgen Idempotenzpruefung, Apply und Output-Verification. Alle Ergebnisse verwenden stabile Statusklassen
@@ -17,7 +17,7 @@ function Get-LabExecutableSampleVariant {
         Listet automatisch installierbare Sample-Varianten des Katalogs auf.
     .DESCRIPTION
         Liefert nur Varianten, fuer die ein freigegebener Runtime-Handler
-        vorhanden ist: direkte Backups, ZIP-Backups und einzelne T-SQL-Skripte.
+        vorhanden ist: direkte Backups, ZIP-/7z-Backups und einzelne T-SQL-Skripte.
         Jede Variante muss genau eine erwartete Datenbank definieren. Optional
         wird nach SQL-Version gefiltert.
     #>
@@ -125,16 +125,18 @@ function Get-LabSampleArtifactLocalStatus {
 function Get-LabArchiveBackupPayload {
     <#
     .SYNOPSIS
-        Extrahiert ein katalogisiertes .bak aus einem verifizierten ZIP temporär.
+        Extrahiert ein katalogisiertes .bak aus einem verifizierten ZIP- oder
+        7z-Archiv temporär.
     .DESCRIPTION
         Es wird ausschliesslich der exakte, im Katalog vereinbarte Payload-Pfad
-        extrahiert. Das verhindert Mehrdeutigkeit sowie Zip-Slip-Pfade; das
+        extrahiert. Das verhindert Mehrdeutigkeit sowie Archivpfad-Traversal; das
         Arbeitsverzeichnis wird vom aufrufenden Handler immer wieder entfernt.
     #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$ArchivePath,
         [Parameter(Mandatory)][string]$PayloadPath,
+        [Parameter(Mandatory)][ValidateSet('zip', '7z')][string]$ArchiveFormat,
         [string]$RunDirectory
     )
 
@@ -160,33 +162,71 @@ function Get-LabArchiveBackupPayload {
     New-Item -Path $workingDirectory -ItemType Directory -Force | Out-Null
 
     try {
-        Add-Type -AssemblyName System.IO.Compression -ErrorAction Stop
-        $archive = [System.IO.Compression.ZipFile]::OpenRead($ArchivePath)
-        try {
-            $matches = @($archive.Entries | Where-Object {
-                $_.FullName.Replace('\\', '/') -ieq $normalizedPayload
-            })
-            if ($matches.Count -ne 1 -or $matches[0].Length -le 0) {
-                throw "SAMPLE_ARCHIVE_PAYLOAD_NOT_FOUND: ZIP muss genau die katalogisierte Backup-Payload '$normalizedPayload' enthalten."
-            }
+        if ($ArchiveFormat -eq 'zip') {
+            Add-Type -AssemblyName System.IO.Compression -ErrorAction Stop
+            $archive = [System.IO.Compression.ZipFile]::OpenRead($ArchivePath)
+            try {
+                $matches = @($archive.Entries | Where-Object {
+                    $_.FullName.Replace('\\', '/') -ieq $normalizedPayload
+                })
+                if ($matches.Count -ne 1 -or $matches[0].Length -le 0) {
+                    throw "SAMPLE_ARCHIVE_PAYLOAD_NOT_FOUND: ZIP muss genau die katalogisierte Backup-Payload '$normalizedPayload' enthalten."
+                }
 
-            $targetPath = Join-Path $workingDirectory ($normalizedPayload -replace '/', [System.IO.Path]::DirectorySeparatorChar)
-            $targetRoot = [System.IO.Path]::GetFullPath($workingDirectory + [System.IO.Path]::DirectorySeparatorChar)
-            $fullTargetPath = [System.IO.Path]::GetFullPath($targetPath)
-            if (-not $fullTargetPath.StartsWith($targetRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
-                throw "SAMPLE_ARCHIVE_PAYLOAD_INVALID: ZIP-Payload verlaesst das temporaere Arbeitsverzeichnis."
-            }
+                $targetPath = Join-Path $workingDirectory ($normalizedPayload -replace '/', [System.IO.Path]::DirectorySeparatorChar)
+                $targetRoot = [System.IO.Path]::GetFullPath($workingDirectory + [System.IO.Path]::DirectorySeparatorChar)
+                $fullTargetPath = [System.IO.Path]::GetFullPath($targetPath)
+                if (-not $fullTargetPath.StartsWith($targetRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+                    throw "SAMPLE_ARCHIVE_PAYLOAD_INVALID: ZIP-Payload verlaesst das temporaere Arbeitsverzeichnis."
+                }
 
-            $targetDirectory = Split-Path -Parent $fullTargetPath
-            New-Item -Path $targetDirectory -ItemType Directory -Force | Out-Null
-            [System.IO.Compression.ZipFileExtensions]::ExtractToFile($matches[0], $fullTargetPath, $false)
-            return [PSCustomObject]@{
-                Path             = $fullTargetPath
-                WorkingDirectory = $workingDirectory
+                $targetDirectory = Split-Path -Parent $fullTargetPath
+                New-Item -Path $targetDirectory -ItemType Directory -Force | Out-Null
+                [System.IO.Compression.ZipFileExtensions]::ExtractToFile($matches[0], $fullTargetPath, $false)
+                return [PSCustomObject]@{
+                    Path             = $fullTargetPath
+                    WorkingDirectory = $workingDirectory
+                }
+            }
+            finally {
+                $archive.Dispose()
             }
         }
-        finally {
-            $archive.Dispose()
+
+        $sevenZip = Get-Lab7ZipExecutable
+        if (-not $sevenZip) {
+            throw 'SAMPLE_ARCHIVE_7ZIP_UNAVAILABLE: Für katalogisierte .7z-Backups wird 7-Zip benötigt. Optional installieren: Install-SqlServerLab7Zip.'
+        }
+        $sevenZipPath = [string]$sevenZip.Path
+
+        $listing = @(& $sevenZipPath l -slt $ArchivePath $normalizedPayload 2>&1)
+        if ($LASTEXITCODE -ne 0) {
+            throw "SAMPLE_ARCHIVE_INSPECTION_FAILED: 7-Zip konnte '$normalizedPayload' nicht prüfen (ExitCode $LASTEXITCODE): $($listing -join ' ')"
+        }
+        $payloadMatches = @($listing | Where-Object {
+            $line = ([string]$_).Trim()
+            if ($line -notmatch '^Path\s*=\s*(.+)$') { return $false }
+            (($Matches[1] -replace '\\', '/') -ieq $normalizedPayload)
+        })
+        if ($payloadMatches.Count -ne 1) {
+            throw "SAMPLE_ARCHIVE_PAYLOAD_NOT_FOUND: 7z muss genau die katalogisierte Backup-Payload '$normalizedPayload' enthalten."
+        }
+
+        # "e" entpackt ohne Archivpfade. Damit kann ein Archiveintrag nie aus
+        # dem Arbeitsverzeichnis ausbrechen; der sichere Katalogpfad wählt die
+        # einzige erlaubte Payload eindeutig aus.
+        $targetFileName = [System.IO.Path]::GetFileName($normalizedPayload)
+        $output = @(& $sevenZipPath e $ArchivePath ("-o{0}" -f $workingDirectory) '-y' $normalizedPayload 2>&1)
+        if ($LASTEXITCODE -ne 0) {
+            throw "SAMPLE_ARCHIVE_EXTRACTION_FAILED: 7-Zip konnte '$normalizedPayload' nicht extrahieren (ExitCode $LASTEXITCODE): $($output -join ' ')"
+        }
+        $fullTargetPath = Join-Path $workingDirectory $targetFileName
+        if (-not (Test-Path -LiteralPath $fullTargetPath -PathType Leaf) -or (Get-Item -LiteralPath $fullTargetPath).Length -le 0) {
+            throw "SAMPLE_ARCHIVE_PAYLOAD_NOT_FOUND: 7z muss genau die katalogisierte Backup-Payload '$normalizedPayload' enthalten."
+        }
+        return [PSCustomObject]@{
+            Path             = $fullTargetPath
+            WorkingDirectory = $workingDirectory
         }
     }
     catch {
@@ -303,12 +343,14 @@ function Install-LabSampleDatabase {
                 }
             }
             'archive-backup' {
-                if ([string]$RestoreDefinition.installation.archiveFormat -ne 'zip') {
+                $archiveFormat = [string]$RestoreDefinition.installation.archiveFormat
+                if ($archiveFormat -notin @('zip', '7z')) {
                     throw "SAMPLE_ARCHIVE_FORMAT_UNSUPPORTED: '$($RestoreDefinition.installation.archiveFormat)'"
                 }
                 $temporaryArchivePayload = Get-LabArchiveBackupPayload `
                     -ArchivePath $artifactResolution.Path `
                     -PayloadPath ([string]$RestoreDefinition.installation.payloadPath) `
+                    -ArchiveFormat $archiveFormat `
                     -RunDirectory $RunDirectory
                 $restoreResult = Restore-SqlServerLabDatabase `
                     -HostName $HostName `
