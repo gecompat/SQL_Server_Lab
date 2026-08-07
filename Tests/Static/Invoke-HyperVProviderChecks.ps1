@@ -258,6 +258,12 @@ try {
             $guestContract.Notes -notmatch [regex]::Escape($testUser) -and
             $guestContract.Notes -notmatch [regex]::Escape($testPassword)
         )
+    Add-CheckResult `
+        -Name 'Daten-VHDX-Initialisierung bleibt mit Windows PowerShell 5.1 im Gast kompatibel' `
+        -Success (
+            $provider.Contains('$DrivePlanJson | ConvertFrom-Json)') -and
+            -not $provider.Contains('$DrivePlanJson | ConvertFrom-Json -Depth')
+        )
 
     $specializationUser = 'sql-lab-specialization-test'
     $specializationPassword = 'NotPersisted_Specialization_3!'

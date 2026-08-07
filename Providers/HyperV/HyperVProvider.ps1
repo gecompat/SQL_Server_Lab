@@ -1154,7 +1154,10 @@ function Initialize-HyperVWindowsGuestDrives {
         -ScriptBlock {
             param($DrivePlanJson)
             $ErrorActionPreference = 'Stop'
-            $specifications = @($DrivePlanJson | ConvertFrom-Json -Depth 10)
+            # Der Gast bringt je nach Windows-Version noch Windows PowerShell
+            # 5.1 mit; dessen ConvertFrom-Json kennt keinen -Depth-Parameter.
+            # Der Plan ist bewusst flach und benötigt keine spezielle Tiefe.
+            $specifications = @($DrivePlanJson | ConvertFrom-Json)
 
             function ConvertTo-NormalizedDiskIdentifier {
                 param([string]$Value)
