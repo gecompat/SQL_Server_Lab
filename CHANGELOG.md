@@ -18,6 +18,10 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 - dynamische Medienauswahl gruppiert Windows Server und Windows Client nach
   Produktfamilie, Version und Lizenztyp; Evaluation-Medien erscheinen getrennt
   von regulären Medien in Konsole und Workflow-UI;
+- der frische SQL-Prepared-Builder übernimmt Windows Server 2025 Standard und
+  Datacenter aus regulären wie Evaluation-ISOs. Der Lizenztyp wird aus dem
+  ausgewählten Medium abgeleitet; ein Evaluation-Ablaufdatum wird nur dafür
+  verlangt.
 - optionale 7-Zip-Unterstützung für katalogisierte `.7z`-Archive mit exakt
   einer `.bak`-Payload. Fehlt 7-Zip, wird es nie automatisch nachinstalliert;
   die Konsole bietet dafür nach ausdrücklicher Bestätigung eine lokale

@@ -524,7 +524,7 @@ function New-HyperVSqlFreshImageBuildPlan {
         [Parameter(Mandatory)][string]$WindowsIsoPath,
         [Parameter(Mandatory)][ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$ExpectedWindowsSha256,
         [Parameter(Mandatory)][ValidateSet('windows-server-2025')][string]$OperatingSystemId,
-        [Parameter(Mandatory)][ValidateSet('standard-evaluation', 'datacenter-evaluation')][string]$WindowsEdition,
+        [Parameter(Mandatory)][ValidatePattern('^(standard|datacenter)(-evaluation)?$')][string]$WindowsEdition,
         [Parameter(Mandatory)][ValidateSet('core', 'desktop-experience')][string]$InstallationType,
         [Parameter(Mandatory)][string]$SqlIsoPath,
         [Parameter(Mandatory)][ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$ExpectedSqlSha256,
@@ -562,7 +562,7 @@ function New-HyperVSqlFreshImageBuildPlan {
         id = $OperatingSystemId; version = '2025'; edition = $WindowsEdition
         installationType = $InstallationType; language = 'en-US'; architecture = 'x64'
     }
-    $license = [PSCustomObject]@{ type = 'evaluation'; evaluationExpiresAt = $null }
+    $license = [PSCustomObject]@{ type = (Get-HyperVWindowsMediaLicenseType -WindowsEdition $WindowsEdition); evaluationExpiresAt = $null }
     $timestamp = Get-LabTimestamp
     $state = [PSCustomObject]@{
         contractVersion = '2'; buildKind = 'hyperv-sql-prepare-image-fresh-windows'; buildId = $buildId; scopeId = $scopeId
@@ -657,7 +657,7 @@ function Initialize-HyperVSqlFreshPreparedImageBuild {
     param(
         [Parameter(Mandatory)][string]$MediaRoot,
         [Parameter(Mandatory)][ValidateSet('windows-server-2025')][string]$OperatingSystemId,
-        [Parameter(Mandatory)][ValidateSet('standard-evaluation', 'datacenter-evaluation')][string]$WindowsEdition,
+        [Parameter(Mandatory)][ValidatePattern('^(standard|datacenter)(-evaluation)?$')][string]$WindowsEdition,
         [Parameter(Mandatory)][ValidateSet('core', 'desktop-experience')][string]$InstallationType,
         [string]$WindowsMediaPath,
         [Parameter(Mandatory)][string]$SqlVersion,
@@ -761,9 +761,12 @@ function Confirm-HyperVSqlFreshWindowsInstallation {
         throw 'HYPERV_SQL_WINDOWS_INSTALLATION_RECEIPT_INVALID'
     }
     if ([string]$receipt.productName -notmatch '2025') { throw "HYPERV_SQL_WINDOWS_INSTALLATION_VERSION_MISMATCH: erkannt $($receipt.productName)" }
-    $editionPattern = if ([string]$Build.operatingSystem.edition -eq 'standard-evaluation') { '^ServerStandardEval' } else { '^ServerDatacenterEval' }
+    $editionBase = ([string]$Build.operatingSystem.edition -replace '-evaluation$', '')
+    $editionId = if ($editionBase -eq 'standard') { 'ServerStandard' } else { 'ServerDatacenter' }
+    $editionPattern = if ([string]$Build.license.type -eq 'evaluation') { "^$editionId`Eval$" } else { "^$editionId$" }
     if ([string]$receipt.editionId -notmatch $editionPattern) {
-        $expectedLabel = if ([string]$Build.operatingSystem.edition -eq 'standard-evaluation') { 'Windows Server 2025 Standard Evaluation' } else { 'Windows Server 2025 Datacenter Evaluation' }
+        $expectedLabel = "Windows Server 2025 $((Get-Culture).TextInfo.ToTitleCase($editionBase))"
+        if ([string]$Build.license.type -eq 'evaluation') { $expectedLabel += ' Evaluation' }
         $typeLabel = if ([string]$Build.operatingSystem.installationType -eq 'core') { 'Server Core Installation' } else { 'Desktop Experience' }
         throw "HYPERV_SQL_WINDOWS_INSTALLATION_EDITION_MISMATCH: erwartet $($Build.operatingSystem.edition), erkannt $($receipt.editionId). In VMConnect Windows vor SQL-Setup neu installieren und '$expectedLabel ($typeLabel)' auswählen."
     }
