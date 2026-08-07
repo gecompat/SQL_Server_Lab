@@ -23,13 +23,19 @@ ausgeführt werden sollen.
 
 ## Workflow
 
-1. SQL-Prepared-Image: Windows- und SQL-ISO auswählen, Windows in einer
-   frischen Builder-VM installieren, SQL `PrepareImage` ausführen, einmal
-   final syspreppen und veröffentlichen.
+1. SQL-Prepared-Image: Windows- und SQL-ISO auswählen und Windows einmal in
+   einer frischen Builder-VM installieren. Nach der sichtbaren Bestätigung der
+   Windows-Installation führt die Oberfläche SQL `PrepareImage`, benötigte
+   Neustarts, finalen Sysprep und die Veröffentlichung automatisch aus.
 2. OS-Baselines, Abnahme-VMs und Sysprep-Recovery sind getrennte
    Experten-/Reparaturfunktionen.
 3. Abnahme: Die Übersicht listet run-lokale Windows-/SQL-Abnahmeumgebungen
    samt ihrem Testzustand.
+4. Reguläre Hyper-V-Klone konfigurieren nach SQL `CompleteImage` automatisch
+   den SQL-WMI-Provider, eine feste IP im gewählten Lab-Switch, SQL-TCP und
+   eine auf den Host begrenzte Firewallregel. Der ausgegebene Connection String
+   ist damit für SSMS und Host-Anwendungen nutzbar. Bewusst isolierte VMs
+   bleiben davon ausgenommen.
 
 Gastpasswörter werden nur für den jeweiligen PowerShell-Direct-Aufruf
 entgegengenommen. Sie werden nicht im Build-State, Browser-Speicher oder

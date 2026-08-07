@@ -56,20 +56,20 @@ function actionsFor(kind, item) {
       const result = [{ label: 'VMConnect öffnen', action: 'OpenSqlConsole' }];
       if (state === 'MANUAL_ACTION_REQUIRED' && item.ProvisioningMode === 'fresh-windows-media' && !item.InstallationVerified) {
         result.push({
-          label: 'Windows-Edition prüfen · Gastpasswort erforderlich',
+          label: 'Windows prüfen und Image automatisch fertigstellen · Gastpasswort erforderlich',
           action: 'ConfirmSqlWindowsInstall',
           credential: true
         });
         return result.concat(cleanupActionFor(kind, item));
       }
       result.push({
-        label: state === 'MANUAL_ACTION_REQUIRED' ? 'SQL vorbereiten + Sysprep' : 'SQL-PrepareImage fortsetzen',
+        label: 'Automatischen Image-Abschluss fortsetzen',
         action: 'PrepareSqlImage',
         credential: true
       });
       return result.concat(cleanupActionFor(kind, item));
     }
-    if (state === 'RESUME_PENDING') return [{ label: 'Prepared-Image veröffentlichen', action: 'PublishSqlImage', publish: true }].concat(cleanupActionFor(kind, item));
+    if (state === 'RESUME_PENDING') return [{ label: 'Prepared-Image manuell veröffentlichen (Diagnose)', action: 'PublishSqlImage', publish: true }].concat(cleanupActionFor(kind, item));
     if (state === 'FAILED') return [{ label: 'Offline-Recovery versuchen', action: 'ResumeSqlImage' }].concat(cleanupActionFor(kind, item));
     return cleanupActionFor(kind, item);
   }
@@ -408,8 +408,8 @@ function renderHyperVLabs(items) {
       '<button class="button secondary" data-hyperv-action="' + (running ? 'StopHyperVLab' : 'StartHyperVLab') + '" data-run="' + escapeHtml(item.RunId) + '">' + (running ? 'Stoppen' : 'Starten') + '</button>',
       (!running && !persistent) ? '<button class="button secondary" data-hyperv-action="EnableHyperVLabPersistentData" data-run="' + escapeHtml(item.RunId) + '">Daten-VHDX anhängen</button>' : '',
       (running && persistent?.state === 'ATTACHED_PENDING_INITIALIZATION') ? '<button class="button primary" data-hyperv-action="InitializeHyperVLabPersistentData" data-run="' + escapeHtml(item.RunId) + '">Daten-VHDX initialisieren</button>' : '',
-      sqlNeedsCompletion ? '<button class="button primary" data-hyperv-action="CompleteHyperVLabSql" data-run="' + escapeHtml(item.RunId) + '">SQL CompleteImage ausführen</button>' : '',
-      running ? '<button class="button primary" data-hyperv-action="EnableHyperVLabHostSqlAccess" data-run="' + escapeHtml(item.RunId) + '">Host-SSMS einrichten</button>' : '',
+      sqlNeedsCompletion ? '<button class="button primary" data-hyperv-action="CompleteHyperVLabSql" data-run="' + escapeHtml(item.RunId) + '">SQL, WMI und TCP/IP automatisch einrichten</button>' : '',
+      (running && !sqlNeedsCompletion) ? '<button class="button primary" data-hyperv-action="EnableHyperVLabHostSqlAccess" data-run="' + escapeHtml(item.RunId) + '">Hostzugriff reparieren</button>' : '',
       running ? '<button class="button secondary" data-hyperv-action="InspectHyperVLabSqlInstances" data-run="' + escapeHtml(item.RunId) + '">SQL-Instanzen prüfen</button>' : '',
       '<button class="button secondary" data-hyperv-action="OpenHyperVConsole" data-run="' + escapeHtml(item.RunId) + '">VMConnect öffnen</button>',
       '<button class="button secondary" data-lab-rename="true" data-run="' + escapeHtml(item.RunId) + '" data-name="' + escapeHtml(item.Name || item.RunId) + '">Name ändern</button>',
@@ -419,7 +419,7 @@ function renderHyperVLabs(items) {
     const detail = ['VM: ' + (item.VMName || '–'), 'VM-Status: ' + (item.VMState || '–'), sourceBased ? 'Basis: ' + (item.SourceVMName || 'bestehende VM') : 'SQL Server ' + (item.SqlVersion || '–')].join(' · ');
     const baseDetail = sourceBased ? 'Quelle: ' + (item.SourceVMName || '–') + ' · Original unverändert' : 'Image: ' + shortId(item.ArtifactId);
     const persistentDetail = persistent ? '<div class="build-meta"><strong>Persistente Daten:</strong> Host ' + escapeHtml(persistent.hostPath || persistent.root || '–') + (persistent.guestPath ? ' → Gast ' + escapeHtml(persistent.guestPath) : '') + ' · ' + escapeHtml(persistent.state || 'eingebunden') + '</div>' : '';
-    const nextStep = sqlNeedsCompletion ? (running ? 'SQL CompleteImage ausführen; erst danach ist MSSQLSERVER verfügbar.' : 'VM starten; danach SQL CompleteImage ausführen.') : (item.SqlCompletionState === 'REBOOT_REQUIRED' ? 'SQL Setup fordert einen Neustart; VM nach dem Shutdown erneut starten.' : (running ? 'VM läuft; bei Bedarf über VMConnect bedienen.' : 'VM starten und anschließend VMConnect öffnen.'));
+    const nextStep = sqlNeedsCompletion ? (running ? 'SQL, WMI und TCP/IP automatisch einrichten; danach ist die VM vom Host aus erreichbar.' : 'VM starten; danach SQL, WMI und TCP/IP automatisch einrichten.') : (item.SqlCompletionState === 'REBOOT_REQUIRED' ? 'SQL Setup startet automatisch neu; der laufende Job wartet auf die anschließende WMI- und TCP/IP-Konfiguration.' : (running ? 'VM läuft und ist bei erfolgreicher Bereitstellung über ihren Connection String vom Host erreichbar.' : 'VM starten und anschließend VMConnect öffnen.'));
     return '<article class="build-card"><div class="build-card-top"><div><div class="build-title">' + escapeHtml(item.Name || shortId(item.RunId)) + '</div><div class="build-meta">' + escapeHtml(detail) + '</div></div><span class="status ' + statusClass(running ? 'TESTS_PASSED' : item.State) + '">' + escapeHtml(item.State) + '</span></div><p class="build-next"><strong>Nächster Schritt:</strong> ' + escapeHtml(nextStep) + '</p><div class="build-actions">' + actions + '</div>' + persistentDetail + instanceDetails + primaryConnection + '<div class="build-meta">Run: ' + escapeHtml(shortId(item.RunId)) + ' · ' + escapeHtml(baseDetail) + '</div></article>';
   }).join('') : empty('Noch keine regulären Hyper-V-Umgebungen vorhanden.');
 }
@@ -675,7 +675,7 @@ document.addEventListener('click', async (event) => {
         ? 'Das lokale Administratorpasswort wird einmalig für eine ausschließlich lesende Prüfung von SQL-Instanzen, Diensten und TCP-Ports in dieser laufenden Lab-VM benötigt.'
         : hostSql
         ? 'Der laufenden VM wird ein verbindlicher Lab-Switch, eine feste Gast-IP, SQL-TCP und eine auf diesen Host beschränkte Firewallregel eingerichtet. Optional kann ein eigenständiges SA-Passwort gesetzt werden; leer übernimmt das Gastpasswort. Fehlt der SQL-Dienst, zuerst „SQL CompleteImage ausführen“ wählen. Kein Passwort wird protokolliert.'
-        : 'Das lokale Administratorpasswort wird einmalig benötigt, um SQL Server in dieser laufenden Lab-VM zu vervollständigen. Optional kann ein eigenständiges SA-Passwort gesetzt werden; leer übernimmt das Gastpasswort.';
+        : 'Das lokale Administratorpasswort wird einmalig benötigt, um SQL Server in dieser laufenden Lab-VM zu vervollständigen. Danach werden ein möglicher SQL-Setup-Neustart abgewartet, der SQL-WMI-Provider geprüft beziehungsweise repariert sowie feste Lab-IP, SQL-TCP und die auf den Host beschränkte Firewallregel eingerichtet. Optional kann ein eigenständiges SA-Passwort gesetzt werden; leer übernimmt das Gastpasswort.';
       $('#credential-dialog').showModal();
       return;
     }
@@ -736,9 +736,9 @@ document.addEventListener('click', async (event) => {
     $('#credential-action').value = action;
     $('#credential-build').value = buildId;
     const credentialText = action === 'PrepareSqlImage'
-      ? { title: 'SQL PrepareImage und Sysprep', note: 'Das lokale Administratorpasswort wird benötigt, um SQL PrepareImage und den abschließenden Sysprep in dieser VM auszuführen.' }
+      ? { title: 'Automatischen Image-Abschluss fortsetzen', note: 'Das lokale Administratorpasswort wird benötigt. Der Ablauf führt SQL PrepareImage, notwendige Neustarts, Sysprep sowie die immutable Veröffentlichung automatisch aus.' }
       : action === 'ConfirmSqlWindowsInstall'
-        ? { title: 'Windows-Edition für SQL-Image prüfen', note: 'Das lokale Administratorpasswort wird nur zum Abgleich von Windows Server, Edition und Installationsart verwendet. SQL-Setup und Sysprep werden dabei nicht gestartet.' }
+        ? { title: 'Windows prüfen und Image automatisch fertigstellen', note: 'Das lokale Administratorpasswort wird zuerst zum Abgleich von Windows, Edition und Installationsart verwendet. Anschließend laufen SQL PrepareImage, notwendige Neustarts, Sysprep und die Veröffentlichung ohne weitere Klicks.' }
       : action === 'GeneralizeWindowsBuild'
         ? { title: 'Windows generalisieren', note: 'Das lokale Administratorpasswort wird benötigt, um Sysprep in dieser VM auszuführen. Die VM fährt danach automatisch herunter.' }
         : { title: 'Windows-Installation bestätigen', note: 'Das lokale Administratorpasswort wird nur für die Prüfung der installierten Windows-Edition verwendet.' };

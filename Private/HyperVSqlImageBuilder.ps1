@@ -815,6 +815,57 @@ function Confirm-HyperVSqlFreshWindowsInstallation {
     return Get-HyperVSqlImageBuildPlan -BuildId ([string]$Build.buildId) -StateRoot $StateRoot
 }
 
+function Wait-HyperVSqlImageBuildGuestRestart {
+    <#
+    .SYNOPSIS Wartet nach einem von SQL Setup angeforderten Neustart auf den neuen Gast-Boot.
+    .DESCRIPTION Ein bloßes PowerShell-Direct-Readiness-Probe kann unmittelbar nach
+    `shutdown /r` noch die alte Sitzung treffen. Deshalb wird die Bootzeit vor
+    dem SQL-Setup-Reset mit der anschließend beobachteten Bootzeit verglichen.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Build,
+        [Parameter(Mandatory)][PSCredential]$Credential,
+        [Parameter(Mandatory)][string]$PreviousBootTime,
+        [ValidateRange(30, 1800)][int]$TimeoutSeconds = 600
+    )
+
+    $fallbackAddress = if ($Build.labNetwork) {
+        Get-LabNetworkGuestAddress -Network $Build.labNetwork -Identity ([string]$Build.buildId)
+    }
+    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+    $lastStatus = 'Neustart noch nicht beobachtet.'
+    $lastProgressSeconds = -30
+    while ($stopwatch.Elapsed.TotalSeconds -lt $TimeoutSeconds) {
+        if (($stopwatch.Elapsed.TotalSeconds - $lastProgressSeconds) -ge 30) {
+            $lastProgressSeconds = $stopwatch.Elapsed.TotalSeconds
+            Write-LabInfo "SQL Setup: warte auf Gast-Neustart ($([int]$stopwatch.Elapsed.TotalSeconds)s/$TimeoutSeconds, $lastStatus)"
+        }
+        try {
+            $probe = Invoke-HyperVPowerShellDirect -VMName ([string]$Build.builder.vmName) `
+                -ExpectedRunId ([string]$Build.buildId) -ExpectedScopeId ([string]$Build.scopeId) `
+                -Credential $Credential -FallbackAddress $fallbackAddress -ScriptBlock {
+                    [PSCustomObject]@{
+                        bootTime = (Get-CimInstance Win32_OperatingSystem -ErrorAction Stop).LastBootUpTime.ToUniversalTime().ToString('o')
+                        imageState = [string](Get-ItemPropertyValue -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State' -Name ImageState -ErrorAction Stop)
+                    }
+                }
+            $probe = @($probe)[-1]
+            if ($probe -and [string]$probe.bootTime -ne $PreviousBootTime -and [string]$probe.imageState -eq 'IMAGE_STATE_COMPLETE') {
+                $stopwatch.Stop()
+                return [PSCustomObject]@{ Ready = $true; BootTime = [string]$probe.bootTime; Duration = $stopwatch.Elapsed; Message = 'SQL-Setup-Neustart abgeschlossen.' }
+            }
+            $lastStatus = if ($probe) { "Bootzeit noch unverändert ($($probe.bootTime))." } else { 'Kein PowerShell-Direct-Resultat.' }
+        }
+        catch {
+            $lastStatus = $_.Exception.Message
+        }
+        Start-Sleep -Seconds 2
+    }
+    $stopwatch.Stop()
+    return [PSCustomObject]@{ Ready = $false; BootTime = $null; Duration = $stopwatch.Elapsed; Message = "SQL-Setup-Neustart Timeout: $lastStatus" }
+}
+
 function Invoke-HyperVSqlPrepareAndGeneralize {
     [CmdletBinding()]
     param(
@@ -886,12 +937,13 @@ function Invoke-HyperVSqlPrepareAndGeneralize {
                     $reportedExitCode = if ($null -eq $exitCode) { 'unbekannt' } else { [string]$exitCode }
                     throw "SQL_SETUP_PREPARE_IMAGE_FAILED: ExitCode=$reportedExitCode; $detail"
                 }
+                $bootTimeBeforeRestart = (Get-CimInstance Win32_OperatingSystem -ErrorAction Stop).LastBootUpTime.ToUniversalTime().ToString('o')
                 if ($exitCode -eq 3010) { $null = & shutdown.exe /r /t 15 /f /d p:4:1 }
                 [PSCustomObject]@{
                     contractVersion = '1'; buildId = $ExpectedBuildId; scopeId = $ExpectedScopeId
                     challenge = $Challenge; action = 'PrepareImage'; sqlVersion = $ExpectedSqlVersion
                     setupFileVersion = $setupVersion; features = @($Features); exitCode = $exitCode
-                    rebootScheduled = ($exitCode -eq 3010); completedAt = [datetime]::UtcNow.ToString('o')
+                    rebootScheduled = ($exitCode -eq 3010); bootTimeBeforeRestart = $bootTimeBeforeRestart; completedAt = [datetime]::UtcNow.ToString('o')
                 }
             }
         $receipt = @($receipt)[-1]
@@ -911,10 +963,15 @@ function Invoke-HyperVSqlPrepareAndGeneralize {
         $build.sql.setupBuild = [string]$receipt.setupFileVersion
         Write-HyperVSqlImageBuildState -BuildDirectory $build.BuildDirectory -State $build
         if ([int]$receipt.exitCode -eq 3010) {
-            return Set-HyperVSqlImageBuildState -BuildId $BuildId -State REBOOT_REQUIRED `
+            $build = Set-HyperVSqlImageBuildState -BuildId $BuildId -State REBOOT_REQUIRED `
                 -Reason 'SQL PrepareImage erfolgreich; von Setup angeforderter Neustart laeuft' -StateRoot $StateRoot
+            Write-LabInfo 'SQL PrepareImage hat einen Neustart angefordert; der automatische Ablauf wartet auf den neuen Gast-Boot.'
+            $restarted = Wait-HyperVSqlImageBuildGuestRestart -Build $build -Credential $Credential `
+                -PreviousBootTime ([string]$receipt.bootTimeBeforeRestart) -TimeoutSeconds $ShutdownTimeoutSeconds
+            if (-not $restarted.Ready) { throw "HYPERV_SQL_IMAGE_REBOOT_RECONNECT_TIMEOUT: $($restarted.Message)" }
+            $build = Get-HyperVSqlImageBuildPlan -BuildId $BuildId -StateRoot $StateRoot
         }
-        $build = Get-HyperVSqlImageBuildPlan -BuildId $BuildId -StateRoot $StateRoot
+        else { $build = Get-HyperVSqlImageBuildPlan -BuildId $BuildId -StateRoot $StateRoot }
     }
 
     if (-not $build.setupEvidence -or [string]$build.setupEvidence.action -ne 'PrepareImage') {
@@ -983,6 +1040,46 @@ function Invoke-HyperVSqlPrepareAndGeneralize {
     Write-HyperVSqlImageBuildState -BuildDirectory $build.BuildDirectory -State $build
     return Set-HyperVSqlImageBuildState -BuildId $BuildId -State RESUME_PENDING `
         -Reason 'SQL PrepareImage, Windows-Generalize und Gast-Shutdown technisch verifiziert' -StateRoot $StateRoot
+}
+
+function Complete-HyperVSqlPreparedImageBuild {
+    <#
+    .SYNOPSIS Führt nach der einmaligen Windows-Installation den vollständigen Prepared-Image-Abschluss aus.
+    .DESCRIPTION Der reguläre Pfad umfasst SQL PrepareImage, einen eventuell
+    erforderlichen SQL-Setup-Neustart, den finalen Windows-Sysprep, das
+    Herunterfahren, Hashen und die immutable Veröffentlichung. Manuelle
+    Einzelaktionen bleiben ausschließlich für Diagnose und Recovery bestehen.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$BuildId,
+        [Parameter(Mandatory)][PSCredential]$Credential,
+        [ValidateRange(60, 10800)][int]$SetupTimeoutSeconds = 7200,
+        [ValidateRange(30, 1800)][int]$ShutdownTimeoutSeconds = 600,
+        [Nullable[datetime]]$EvaluationExpiresAt,
+        [string]$StateRoot
+    )
+
+    $build = Get-HyperVSqlImageBuildPlan -BuildId $BuildId -StateRoot $StateRoot
+    if (-not $build) { throw 'HYPERV_SQL_IMAGE_BUILD_NOT_FOUND' }
+    if ([string]$build.state -in @('MANUAL_ACTION_REQUIRED', 'REBOOT_REQUIRED')) {
+        Write-LabInfo 'Automatischer Abschluss 1/3: SQL PrepareImage, notwendige Neustarts und finaler Sysprep werden ausgeführt.'
+        $build = Invoke-HyperVSqlPrepareAndGeneralize -BuildId $BuildId -Credential $Credential `
+            -SetupTimeoutSeconds $SetupTimeoutSeconds -ShutdownTimeoutSeconds $ShutdownTimeoutSeconds -StateRoot $StateRoot
+    }
+    if ([string]$build.state -ne 'RESUME_PENDING') {
+        throw "HYPERV_SQL_IMAGE_AUTOMATION_NOT_READY: $($build.state)"
+    }
+
+    if (-not $EvaluationExpiresAt -and [string]$build.license.type -eq 'evaluation' -and -not $build.parentArtifact.license.evaluationExpiresAt) {
+        # Der Wert ist nur Metadatum zum Evaluation-Medium. Er vermeidet im
+        # unbeaufsichtigten Ablauf einen sonst nicht automatisierbaren Prompt.
+        $EvaluationExpiresAt = (Get-Date).Date.AddDays(180)
+    }
+    Write-LabInfo 'Automatischer Abschluss 2/3: SQL-Prepared-VHDX wird verifiziert, abgeflacht und unveränderlich veröffentlicht.'
+    $published = Publish-HyperVSqlPreparedImageBuild -BuildId $BuildId -EvaluationExpiresAt $EvaluationExpiresAt -StateRoot $StateRoot
+    Write-LabSuccess 'Automatischer Abschluss 3/3: SQL-Prepared-Image ist veröffentlicht und für neue Klone bereit.'
+    return $published
 }
 
 function Resume-HyperVSqlPreparedImageGeneralization {

@@ -287,17 +287,18 @@ function Invoke-SqlServerLabWorkflowAction {
     }
 
     $progress = switch ($Action) {
-        'NewHyperVLab' { if ($ProvisionUnattended) { 'Klon, unbeaufsichtigte Windows-OOBE und SQL CompleteImage werden vorbereitet.' } else { 'Validierung und Erstellung der Hyper-V-Umgebung werden vorbereitet.' } }
+        'NewHyperVLab' { if ($ProvisionUnattended) { 'Klon, unbeaufsichtigte Windows-OOBE, SQL CompleteImage, WMI-Prüfung und TCP/IP-Hostzugriff werden vorbereitet.' } else { 'Validierung und Erstellung der Hyper-V-Umgebung werden vorbereitet.' } }
         'NewHyperVLabFromExistingVm' { 'Die Quell-VM wird geprüft; danach wird eine geschützte Arbeitskopie für die neue Lab-VM erstellt.' }
         'StartHyperVLab' { 'Der sichtbare Start der Hyper-V-VM wird vorbereitet.' }
         'StopHyperVLab' { 'Der saubere Stopp der Hyper-V-VM wird vorbereitet.' }
         'OpenHyperVConsole' { 'VMConnect wird vorbereitet.' }
-        'CompleteHyperVLabSql' { 'SQL Server wird mit CompleteImage in der laufenden Lab-VM vervollständigt.' }
+        'CompleteHyperVLabSql' { 'SQL Server, möglicher Setup-Neustart, SQL-WMI-Provider sowie TCP/IP-Hostzugriff werden automatisch eingerichtet.' }
         'EnableHyperVLabHostSqlAccess' { 'Hyper-V-Netz, SQL-TCP und die Host-SSMS-Verbindung werden eingerichtet und geprüft.' }
         'EnableHyperVLabPersistentData' { 'Eine langlebige Daten-VHDX wird für die ausgeschaltete Lab-VM vorbereitet.' }
         'InitializeHyperVLabPersistentData' { 'Der langlebige Daten-VHDX wird einmalig im laufenden Gast initialisiert.' }
         'InspectHyperVLabSqlInstances' { 'SQL-Instanzen, Dienste und TCP-Ports werden ausschließlich lesend in der laufenden Lab-VM geprüft.' }
-        'ConfirmSqlWindowsInstall' { 'Die manuell installierte Windows-Edition wird vor dem SQL-Setup geprüft.' }
+        'ConfirmSqlWindowsInstall' { 'Die manuell installierte Windows-Edition wird geprüft; anschließend laufen SQL PrepareImage, Neustarts, Sysprep und Veröffentlichung automatisch.' }
+        'PrepareSqlImage' { 'Der automatische Abschluss mit SQL PrepareImage, Neustarts, Sysprep und Veröffentlichung wird fortgesetzt.' }
         'NewSqlBuild' { 'Windows- und SQL-Medien werden für den Build geprüft.' }
         'NewSqlBuildFromBaseline' { 'OS-Baseline und SQL-Medium werden für einen differenzierenden SQL-Builder geprüft.' }
         'SetWindowsMediaHash' { 'Der eingegebene Windows-ISO-Hash wird geprüft und gespeichert.' }
@@ -474,9 +475,12 @@ function Invoke-SqlServerLabWorkflowAction {
         'ConfirmSqlWindowsInstall' {
             $build = Get-HyperVSqlImageBuildPlan -BuildId $BuildId
             if (-not $build) { throw 'HYPERV_SQL_IMAGE_BUILD_NOT_FOUND' }
-            Confirm-HyperVSqlFreshWindowsInstallation -Build $build -Credential $credential
+            if ([string]$build.provisioningMode -eq 'fresh-windows-media') {
+                $build = Confirm-HyperVSqlFreshWindowsInstallation -Build $build -Credential $credential
+            }
+            Complete-HyperVSqlPreparedImageBuild -BuildId $build.buildId -Credential $credential -EvaluationExpiresAt $EvaluationExpiresAt
         }
-        'PrepareSqlImage' { Invoke-HyperVSqlPrepareAndGeneralize -BuildId $BuildId -Credential $credential }
+        'PrepareSqlImage' { Complete-HyperVSqlPreparedImageBuild -BuildId $BuildId -Credential $credential -EvaluationExpiresAt $EvaluationExpiresAt }
         'ResumeSqlImage' { Resume-HyperVSqlPreparedImageGeneralization -BuildId $BuildId }
         'PublishSqlImage' { Publish-HyperVSqlPreparedImageBuild -BuildId $BuildId -EvaluationExpiresAt $EvaluationExpiresAt }
         'RunSqlAcceptanceSetup' {
