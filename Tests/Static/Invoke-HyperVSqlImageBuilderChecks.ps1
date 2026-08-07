@@ -147,7 +147,7 @@ try {
         $builderText -match 'HYPERV_SQL_IMAGE_GENERALIZATION_RECOVERY_INVALID_STATE' -and
         $builderText -match 'WINDOWS_SYSPREP_REARM_LIMIT_REACHED' -and
         $builderText -match 'SysprepDetail' -and
-        $menuText -match "'r' \{ Show-LabHyperVMenuActionHeader -Title 'Sysprep-Recovery'; Resume-LabHyperVSqlPreparedImageGeneralizationInteractive \}"
+        $menuText -match "'r' \{ Invoke-LabHyperVMenuAction -Title 'Sysprep-Recovery' -Action \{ Resume-LabHyperVSqlPreparedImageGeneralizationInteractive \} \}"
     )
     Add-CheckResult -Name 'Sysprep wartet nach /quit auf den finalen Generalize-ImageState' -Success (
         $builderText -match 'stateDeadline = \[datetime\]::UtcNow\.AddSeconds\(600\)' -and
@@ -215,7 +215,7 @@ try {
         $builderText -match 'New-VHD -Path \$diskPath -Dynamic' -and
         $builderText -match 'Add-VMDvdDrive -VM \$vm -Path \$windowsMedia\.IsoPath' -and
         $builderText -match 'Add-VMDvdDrive -VM \$vm -Path \$sqlMedia\.IsoPath' -and
-        $menuText -match "'1' \{ Show-LabHyperVMenuActionHeader -Title 'Neues SQL-Prepared-Image'; New-LabHyperVSqlImageBuildInteractive \}" -and
+        $menuText -match "'1' \{ Invoke-LabHyperVMenuAction -Title 'Neues SQL-Prepared-Image' -Action \{ New-LabHyperVSqlImageBuildInteractive \} \}" -and
         $menuText -match 'ein finaler Sysprep'
     )
     Add-CheckResult -Name 'Optionaler Expertenpfad verwendet eine veröffentlichte OS-Baseline als unveränderten Parent' -Success (
@@ -224,7 +224,7 @@ try {
         $builderText -match 'New-HyperVInstance -ImageArtifactId \$ImageArtifactId' -and
         $builderText -match '\[ValidateLength\(1, 80\)\]\[string\]\$ImageName' -and
         $menuText -match 'function Invoke-LabHyperVAdvancedMenu' -and
-        $menuText -match "'2' \{ Show-LabHyperVMenuActionHeader -Title 'SQL-Builder aus OS-Baseline'; New-LabHyperVSqlAcceptanceBuildInteractive \}" -and
+        $menuText -match "'2' \{ Invoke-LabHyperVMenuAction -Title 'SQL-Builder aus OS-Baseline' -Action \{ New-LabHyperVSqlAcceptanceBuildInteractive \} \}" -and
         $menuText -match 'OS-Baselines verwalten \(Expertenpfad\)'
     )
     $convertIndex = $builderText.IndexOf('Convert-VHD -Path $childPath')
@@ -264,7 +264,7 @@ try {
     Add-CheckResult -Name 'SQL-Image-Status nennt den konkreten Untermenü-Schritt ohne interne State-Kenntnis' -Success (
         $nextActionGuidance[0] -eq 'Prepared-Image-Builder fortsetzen: Prepared-Image jetzt veröffentlichen.' -and
         $nextActionGuidance[1] -eq 'Prepared-Image-Builder fortsetzen: VM booten; danach SQL PrepareImage erneut ausführen.' -and
-        $menuText -match "Show-LabHyperVMenuActionHeader -Title 'Builder-Status'" -and
+        $menuText -match "Invoke-LabHyperVMenuAction -Title 'Builder-Status'" -and
         $menuText -match 'Show-LabHyperVSqlImageBuilds' -and
         $menuText -match 'Show-LabHyperVSqlNextActions'
     )

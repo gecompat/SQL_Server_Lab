@@ -459,6 +459,7 @@ function Invoke-LabHyperVImageAction {
 
     $exitImageMenu = $false
     while (-not $exitImageMenu) {
+        Clear-Host
         Write-Host '  Hyper-V' -ForegroundColor White
         Write-Host ''
         Write-Host '    Standardpfad: Windows + SQL aus ISO installieren, einmal Sysprep, als Prepared-Image veröffentlichen.' -ForegroundColor Yellow
@@ -475,10 +476,10 @@ function Invoke-LabHyperVImageAction {
         $choice = Read-Host '  Auswahl'
         switch ($choice) {
             '0' { $exitImageMenu = $true }
-            '1' { Show-LabHyperVMenuActionHeader -Title 'Neues SQL-Prepared-Image'; New-LabHyperVSqlImageBuildInteractive }
+            '1' { Invoke-LabHyperVMenuAction -Title 'Neues SQL-Prepared-Image' -Action { New-LabHyperVSqlImageBuildInteractive } }
             '2' { Invoke-LabHyperVPreparedImageWorkflowMenu }
-            '3' { Show-LabHyperVMenuActionHeader -Title 'Neue Hyper-V-Umgebung'; New-LabHyperVEnvironmentInteractive }
-            '4' { Show-LabHyperVMenuActionHeader -Title 'Hyper-V-Umgebungen verwalten'; Manage-LabHyperVEnvironmentInteractive }
+            '3' { Invoke-LabHyperVMenuAction -Title 'Neue Hyper-V-Umgebung' -Action { New-LabHyperVEnvironmentInteractive } }
+            '4' { Invoke-LabHyperVMenuAction -Title 'Hyper-V-Umgebungen verwalten' -Action { Manage-LabHyperVEnvironmentInteractive } }
             '5' { Invoke-LabHyperVPublishedImageMenu }
             'e' { Invoke-LabHyperVAdvancedMenu }
             default { Write-LabWarning "Ungueltige Auswahl: $choice" }
@@ -497,12 +498,30 @@ function Show-LabHyperVMenuActionHeader {
     Write-Host ''
 }
 
+function Invoke-LabHyperVMenuAction {
+    <#
+    .SYNOPSIS
+        Führt eine Hyper-V-Menüaktion sichtbar aus und kehrt erst nach Enter
+        zu einem anschließend bereinigten Menü zurück.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Title,
+        [Parameter(Mandatory)][scriptblock]$Action
+    )
+
+    Show-LabHyperVMenuActionHeader -Title $Title
+    & $Action
+    $null = Read-Host '  [Enter] für Menü ...'
+}
+
 function Invoke-LabHyperVPreparedImageWorkflowMenu {
     [CmdletBinding()]
     param()
 
     $exitMenu = $false
     while (-not $exitMenu) {
+        Clear-Host
         Write-Host ''
         Write-Host '  Prepared-Image-Builder fortsetzen' -ForegroundColor White
         Write-Host '    Folge: Windows installieren -> SQL PrepareImage -> finaler Sysprep -> veröffentlichen.' -ForegroundColor Yellow
@@ -519,13 +538,13 @@ function Invoke-LabHyperVPreparedImageWorkflowMenu {
         $choice = Read-Host '  Auswahl'
         switch ($choice) {
             '0' { $exitMenu = $true }
-            '1' { Show-LabHyperVMenuActionHeader -Title 'Builder starten'; Start-LabHyperVSqlImageBuildInteractive }
-            '2' { Show-LabHyperVMenuActionHeader -Title 'Windows-Installation bestätigen'; Confirm-LabHyperVSqlWindowsInstallationInteractive }
-            '3' { Show-LabHyperVMenuActionHeader -Title 'SQL PrepareImage und Sysprep'; Invoke-LabHyperVSqlPrepareInteractive }
-            '4' { Show-LabHyperVMenuActionHeader -Title 'Prepared-Image veröffentlichen'; Publish-LabHyperVSqlImageBuildInteractive }
-            '5' { Show-LabHyperVMenuActionHeader -Title 'Builder-Status'; $null = Show-LabHyperVSqlImageBuilds }
-            'r' { Show-LabHyperVMenuActionHeader -Title 'Sysprep-Recovery'; Resume-LabHyperVSqlPreparedImageGeneralizationInteractive }
-            'c' { Show-LabHyperVMenuActionHeader -Title 'Unfertigen Builder aufräumen'; Remove-LabHyperVSqlImageBuildInteractive }
+            '1' { Invoke-LabHyperVMenuAction -Title 'Builder starten' -Action { Start-LabHyperVSqlImageBuildInteractive } }
+            '2' { Invoke-LabHyperVMenuAction -Title 'Windows-Installation bestätigen' -Action { Confirm-LabHyperVSqlWindowsInstallationInteractive } }
+            '3' { Invoke-LabHyperVMenuAction -Title 'SQL PrepareImage und Sysprep' -Action { Invoke-LabHyperVSqlPrepareInteractive } }
+            '4' { Invoke-LabHyperVMenuAction -Title 'Prepared-Image veröffentlichen' -Action { Publish-LabHyperVSqlImageBuildInteractive } }
+            '5' { Invoke-LabHyperVMenuAction -Title 'Builder-Status' -Action { $null = Show-LabHyperVSqlImageBuilds } }
+            'r' { Invoke-LabHyperVMenuAction -Title 'Sysprep-Recovery' -Action { Resume-LabHyperVSqlPreparedImageGeneralizationInteractive } }
+            'c' { Invoke-LabHyperVMenuAction -Title 'Unfertigen Builder aufräumen' -Action { Remove-LabHyperVSqlImageBuildInteractive } }
             default { Write-LabWarning "Ungueltige Auswahl: $choice" }
         }
     }
@@ -537,6 +556,7 @@ function Invoke-LabHyperVPublishedImageMenu {
 
     $exitMenu = $false
     while (-not $exitMenu) {
+        Clear-Host
         Write-Host ''
         Write-Host '  Veröffentlichte Images verwalten' -ForegroundColor White
         Write-Host '    [1] Namen ändern' -ForegroundColor White
@@ -545,8 +565,8 @@ function Invoke-LabHyperVPublishedImageMenu {
         $choice = Read-Host '  Auswahl'
         switch ($choice) {
             '0' { $exitMenu = $true }
-            '1' { Show-LabHyperVMenuActionHeader -Title 'Image-Namen ändern'; Rename-LabHyperVImageArtifactInteractive }
-            '2' { Show-LabHyperVMenuActionHeader -Title 'Image löschen'; Remove-LabHyperVImageArtifactInteractive }
+            '1' { Invoke-LabHyperVMenuAction -Title 'Image-Namen ändern' -Action { Rename-LabHyperVImageArtifactInteractive } }
+            '2' { Invoke-LabHyperVMenuAction -Title 'Image löschen' -Action { Remove-LabHyperVImageArtifactInteractive } }
             default { Write-LabWarning "Ungueltige Auswahl: $choice" }
         }
     }
@@ -558,6 +578,7 @@ function Invoke-LabHyperVAdvancedMenu {
 
     $exitMenu = $false
     while (-not $exitMenu) {
+        Clear-Host
         Write-Host ''
         Write-Host '  Hyper-V – Erweitert / Reparatur' -ForegroundColor DarkYellow
         Write-Host '    [1] Windows-OS-Baselines verwalten (Expertenpfad)' -ForegroundColor DarkGray
@@ -570,10 +591,10 @@ function Invoke-LabHyperVAdvancedMenu {
         switch ($choice) {
             '0' { $exitMenu = $true }
             '1' { Invoke-LabHyperVWindowsBaselineMenu }
-            '2' { Show-LabHyperVMenuActionHeader -Title 'SQL-Builder aus OS-Baseline'; New-LabHyperVSqlAcceptanceBuildInteractive }
+            '2' { Invoke-LabHyperVMenuAction -Title 'SQL-Builder aus OS-Baseline' -Action { New-LabHyperVSqlAcceptanceBuildInteractive } }
             '3' { Invoke-LabHyperVSqlAcceptanceMenu }
-            '4' { Show-LabHyperVMenuActionHeader -Title 'Sysprep-Recovery'; Resume-LabHyperVSqlPreparedImageGeneralizationInteractive }
-            '5' { Show-LabHyperVMenuActionHeader -Title 'Neue Umgebung aus vorhandener Windows-VM'; New-LabHyperVEnvironmentFromExistingVmInteractive }
+            '4' { Invoke-LabHyperVMenuAction -Title 'Sysprep-Recovery' -Action { Resume-LabHyperVSqlPreparedImageGeneralizationInteractive } }
+            '5' { Invoke-LabHyperVMenuAction -Title 'Neue Umgebung aus vorhandener Windows-VM' -Action { New-LabHyperVEnvironmentFromExistingVmInteractive } }
             default { Write-LabWarning "Ungueltige Auswahl: $choice" }
         }
     }
@@ -585,6 +606,7 @@ function Invoke-LabHyperVWindowsBaselineMenu {
 
     $exitMenu = $false
     while (-not $exitMenu) {
+        Clear-Host
         Write-Host ''
         Write-Host '  Windows-OS-Baselines – Expertenpfad' -ForegroundColor DarkYellow
         Write-Host '    [1] Windows-Builder aus Media Root vorbereiten' -ForegroundColor White
@@ -597,12 +619,12 @@ function Invoke-LabHyperVWindowsBaselineMenu {
         $choice = Read-Host '  Auswahl'
         switch ($choice) {
             '0' { $exitMenu = $true }
-            '1' { Show-LabHyperVMenuActionHeader -Title 'Windows-Builder vorbereiten'; New-LabHyperVImageBuildInteractive }
-            '2' { Show-LabHyperVMenuActionHeader -Title 'Windows-Build-Status'; $null = Show-LabHyperVImageBuilds }
-            '3' { Show-LabHyperVMenuActionHeader -Title 'Windows-Builder starten'; Start-LabHyperVImageBuildInteractive }
-            '4' { Show-LabHyperVMenuActionHeader -Title 'Windows generalisieren'; Invoke-LabHyperVImageGeneralizationInteractive }
-            '5' { Show-LabHyperVMenuActionHeader -Title 'Windows-Image veröffentlichen'; Publish-LabHyperVImageBuildInteractive }
-            '6' { Show-LabHyperVMenuActionHeader -Title 'Windows-Builder aufräumen'; Remove-LabHyperVImageBuildInteractive }
+            '1' { Invoke-LabHyperVMenuAction -Title 'Windows-Builder vorbereiten' -Action { New-LabHyperVImageBuildInteractive } }
+            '2' { Invoke-LabHyperVMenuAction -Title 'Windows-Build-Status' -Action { $null = Show-LabHyperVImageBuilds } }
+            '3' { Invoke-LabHyperVMenuAction -Title 'Windows-Builder starten' -Action { Start-LabHyperVImageBuildInteractive } }
+            '4' { Invoke-LabHyperVMenuAction -Title 'Windows generalisieren' -Action { Invoke-LabHyperVImageGeneralizationInteractive } }
+            '5' { Invoke-LabHyperVMenuAction -Title 'Windows-Image veröffentlichen' -Action { Publish-LabHyperVImageBuildInteractive } }
+            '6' { Invoke-LabHyperVMenuAction -Title 'Windows-Builder aufräumen' -Action { Remove-LabHyperVImageBuildInteractive } }
             default { Write-LabWarning "Ungueltige Auswahl: $choice" }
         }
     }
@@ -614,6 +636,7 @@ function Invoke-LabHyperVSqlAcceptanceMenu {
 
     $exitMenu = $false
     while (-not $exitMenu) {
+        Clear-Host
         Write-Host ''
         Write-Host '  Run-lokale Windows-/SQL-Abnahmeumgebung' -ForegroundColor DarkYellow
         Write-Host '    Dies ist kein Prepared-Image-Pfad; hier wird eine vollständige Testinstanz installiert.' -ForegroundColor DarkGray
@@ -625,10 +648,10 @@ function Invoke-LabHyperVSqlAcceptanceMenu {
         $choice = Read-Host '  Auswahl'
         switch ($choice) {
             '0' { $exitMenu = $true }
-            '1' { Show-LabHyperVMenuActionHeader -Title 'OOBE und SQL-Setup'; Invoke-LabHyperVSqlAcceptanceInstallInteractive }
-            '2' { Show-LabHyperVMenuActionHeader -Title 'SQL-Abnahmetest'; Test-LabHyperVSqlAcceptanceInteractive }
-            '3' { Show-LabHyperVMenuActionHeader -Title 'SQL-Abnahmematrix'; Show-LabHyperVSqlAcceptanceMatrix }
-            '4' { Show-LabHyperVMenuActionHeader -Title 'Manuelle OOBE übernehmen'; Invoke-LabHyperVSqlManualOobeAcceptanceInstallInteractive }
+            '1' { Invoke-LabHyperVMenuAction -Title 'OOBE und SQL-Setup' -Action { Invoke-LabHyperVSqlAcceptanceInstallInteractive } }
+            '2' { Invoke-LabHyperVMenuAction -Title 'SQL-Abnahmetest' -Action { Test-LabHyperVSqlAcceptanceInteractive } }
+            '3' { Invoke-LabHyperVMenuAction -Title 'SQL-Abnahmematrix' -Action { Show-LabHyperVSqlAcceptanceMatrix } }
+            '4' { Invoke-LabHyperVMenuAction -Title 'Manuelle OOBE übernehmen' -Action { Invoke-LabHyperVSqlManualOobeAcceptanceInstallInteractive } }
             default { Write-LabWarning "Ungueltige Auswahl: $choice" }
         }
     }

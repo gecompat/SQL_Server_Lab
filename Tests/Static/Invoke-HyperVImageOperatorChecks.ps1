@@ -257,8 +257,10 @@ try {
     )
     Add-CheckResult -Name 'Untermenü-Aktionen leeren die Konsole vor ihrer Ausgabe' -Success (
         $menuText -match 'function Show-LabHyperVMenuActionHeader' -and
-        $menuText -match 'Show-LabHyperVMenuActionHeader[\s\S]{0,180}Clear-Host' -and
-        $menuText -match "'1' \{ Show-LabHyperVMenuActionHeader -Title 'Neues SQL-Prepared-Image'"
+        $menuText -match 'function Invoke-LabHyperVMenuAction' -and
+        $menuText -match 'Show-LabHyperVMenuActionHeader[\s\S]{0,180}\[Enter\] für Menü' -and
+        $menuText -match "'1' \{ Invoke-LabHyperVMenuAction -Title 'Neues SQL-Prepared-Image'" -and
+        @($menuText | Select-String -Pattern 'while \(-not \$exitMenu\) \{\s*Clear-Host' -AllMatches).Matches.Count -ge 5
     )
     Add-CheckResult -Name 'Windows-Builder-Cleanup bietet ALL mit eigener Gesamtbestaetigung' -Success (
         $menuText -match '\[ALL\] Alle \$\(\$builds\.Count\) angezeigten unfertigen Windows-Builder aufraeumen' -and

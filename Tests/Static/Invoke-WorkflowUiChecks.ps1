@@ -193,7 +193,7 @@ Add-CheckResult -Name 'Frische SQL-Images prüfen Windows-Edition vor PrepareIma
     $scriptText -match 'Windows-Edition prüfen' -and
     $scriptText -match "action === 'ConfirmSqlWindowsInstall'" -and
     $consoleText -match 'Confirm-LabHyperVSqlWindowsInstallationInteractive' -and
-    $consoleText -match "'2' \{ Show-LabHyperVMenuActionHeader -Title 'Windows-Installation bestätigen'; Confirm-LabHyperVSqlWindowsInstallationInteractive \}"
+    $consoleText -match "'2' \{ Invoke-LabHyperVMenuAction -Title 'Windows-Installation bestätigen' -Action \{ Confirm-LabHyperVSqlWindowsInstallationInteractive \} \}"
 )
 Add-CheckResult -Name 'UI erstellt reguläre Hyper-V-Labs nur aus SQL-Prepared-Images' -Success (
     $hyperVLabText -match 'SQL_PREPARED_SEALED' -and
