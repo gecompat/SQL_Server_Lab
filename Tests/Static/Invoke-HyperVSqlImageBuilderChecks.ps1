@@ -303,6 +303,13 @@ try {
         $menuText -notmatch 'Aktion 10' -and
         $menuText -notmatch 'Aktion 11'
     )
+    Add-CheckResult -Name 'Prepared-Image-Auswahl zeigt Anzeigename, Zeitpunkt und Kurzkennung' -Success (
+        $menuText -match 'function Select-LabHyperVPreparedArtifact' -and
+        $menuText -match 'Der Anzeigename ist frei wählbar' -and
+        $menuText -match 'Veröffentlicht: {0}.*Kennung: {1}' -and
+        $menuText -match 'artifact\.displayName' -and
+        $menuText -notmatch 'SQL Server \{2\} \{3\}.*artifact\.artifactId'
+    )
     $prepareFunctionIndex = $menuText.IndexOf('function Invoke-LabHyperVSqlPrepareInteractive')
     $targetBuilderIndex = $menuText.IndexOf('Ziel-Builder: SQL {0} {1} | VM: {2}', $prepareFunctionIndex)
     $credentialPromptIndex = $menuText.IndexOf('Read-Host ''  Lokaler Gast-Administrator [Administrator]''', $prepareFunctionIndex)

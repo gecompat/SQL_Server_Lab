@@ -1923,9 +1923,18 @@ function Select-LabHyperVPreparedArtifact {
 
     $artifacts = @(Get-HyperVImageArtifact | Where-Object { $_.artifactState -eq 'SQL_PREPARED_SEALED' })
     if ($artifacts.Count -eq 0) { Write-LabInfo 'Kein veröffentlichtes SQL-Prepared-Image vorhanden.'; return $null }
+    Write-Host '  Veröffentlichte SQL-Prepared-Images:' -ForegroundColor White
+    Write-Host '  Der Anzeigename ist frei wählbar; bei gleichen technischen Varianten helfen Zeitpunkt und Kurzkennung bei der eindeutigen Auswahl.' -ForegroundColor DarkGray
     for ($i = 0; $i -lt $artifacts.Count; $i++) {
         $artifact = $artifacts[$i]
-        Write-Host ("    [{0}] Windows {1} · SQL Server {2} {3} · {4}" -f ($i + 1), $artifact.operatingSystem.id, $artifact.sql.version, $artifact.sql.edition, $artifact.artifactId) -ForegroundColor White
+        $operatingSystemLabel = Get-LabWindowsMediaOperatingSystemLabel -OperatingSystemId ([string]$artifact.operatingSystem.id)
+        $fallbackName = "{0} · SQL Server {1} {2}" -f $operatingSystemLabel, $artifact.sql.version, $artifact.sql.edition
+        $displayName = if ([string]::IsNullOrWhiteSpace([string]$artifact.displayName)) { $fallbackName } else { [string]$artifact.displayName }
+        $shortArtifactId = if ([string]$artifact.artifactId -match '([a-f0-9]{12,})$') { $Matches[1].Substring(0, 12) } else { [string]$artifact.artifactId }
+        $registeredAt = if ([string]::IsNullOrWhiteSpace([string]$artifact.registeredAt)) { 'unbekannt' } else { [string]$artifact.registeredAt }
+        Write-Host ("    [{0}] {1}" -f ($i + 1), $displayName) -ForegroundColor White
+        Write-Host ("        Windows: {0} {1} · SQL Server: {2} {3}" -f $operatingSystemLabel, $artifact.operatingSystem.installationType, $artifact.sql.version, $artifact.sql.edition) -ForegroundColor Gray
+        Write-Host ("        Veröffentlicht: {0} · Kennung: {1}" -f $registeredAt, $shortArtifactId) -ForegroundColor DarkGray
     }
     $selection = Read-Host '  Prepared-Image auswählen [1]'
     if (-not $selection) { $selection = '1' }
