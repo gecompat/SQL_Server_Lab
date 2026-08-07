@@ -74,6 +74,11 @@ try {
         (Test-Path -LiteralPath $unattendedSecret) -and
         (Get-Content -LiteralPath $unattendedSecret -Raw) -notmatch 'Generated_Administrator_42!'
     )
+    $environmentText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private\HyperVLabEnvironment.ps1') -Raw -Encoding utf8
+    Add-CheckResult -Name 'SQL CompleteImage wertet den Gast-Exit-Code als Integer aus' -Success (
+        $environmentText -match '\$exitCode = \[int\]\$process\.ExitCode' -and
+        $environmentText -match '\$exitCode -ne 0 -and \$exitCode -ne 3010'
+    )
     $runtimeName = & $module { Get-HyperVLabRuntimeName -LabName 'Mein SQL Lab' -RunId '12345678-0000-0000-0000-000000000000' }
     Add-CheckResult -Name 'Hyper-V-Runtime-Name zeigt Projektnamen und eindeutiges Run-Präfix' -Success ($runtimeName -eq 'Mein SQL Lab-12345678')
     $reconciledVm = & $module {
