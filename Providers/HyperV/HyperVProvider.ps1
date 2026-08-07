@@ -1342,14 +1342,24 @@ function Remove-HyperVInstance {
         return [PSCustomObject]@{ Removed = $false; AlreadyAbsent = $true; VMName = $VMName }
     }
 
-    $vhdxPaths = @([string]$managed.Identity.childVhdxPath) + @(
-        $managed.Identity.additionalVhdxPaths | ForEach-Object { [string]$_ }
-    )
-    foreach ($vhdxPath in $vhdxPaths) {
-        if (-not (Test-HyperVPathWithinRunDirectory -Path $vhdxPath -RunDirectory $ExpectedRunDirectory)) {
-            throw 'HYPERV_RESOURCE_SCOPE_VIOLATION'
-        }
+    $childVhdxPath = [string]$managed.Identity.childVhdxPath
+    if (-not (Test-HyperVPathWithinRunDirectory -Path $childVhdxPath -RunDirectory $ExpectedRunDirectory)) {
+        throw 'HYPERV_RESOURCE_SCOPE_VIOLATION'
     }
+    $additionalVhdxPaths = @($managed.Identity.additionalVhdxPaths | ForEach-Object { [string]$_ })
+    $externalAdditionalVhdxPaths = @(
+        $additionalVhdxPaths | Where-Object {
+            -not (Test-HyperVPathWithinRunDirectory -Path $_ -RunDirectory $ExpectedRunDirectory)
+        }
+    )
+    # Eine optionale Data-Root-VHDX gehört absichtlich nicht zum Run-Verzeichnis.
+    # Beim regulären Cleanup wird sie mit -PreserveVhdx lediglich von der VM
+    # getrennt und niemals entfernt. Ohne diesen expliziten Schutz darf keine
+    # externe VHDX stillschweigend in den Löschumfang geraten.
+    if ($externalAdditionalVhdxPaths.Count -gt 0 -and -not $PreserveVhdx) {
+        throw 'HYPERV_EXTERNAL_VHDX_REQUIRES_PRESERVE'
+    }
+    $vhdxPaths = @($childVhdxPath) + @($additionalVhdxPaths)
 
     if ([string]$managed.VM.State -ne 'Off') {
         if ($RequireOff) { throw 'HYPERV_VM_MUST_BE_OFF' }
@@ -1358,7 +1368,9 @@ function Remove-HyperVInstance {
     $null = Remove-VM -VM $managed.VM -Force -ErrorAction Stop
 
     if (-not $PreserveVhdx) {
-        foreach ($vhdxPath in $vhdxPaths) {
+        foreach ($vhdxPath in @($childVhdxPath) + @($additionalVhdxPaths | Where-Object {
+                    Test-HyperVPathWithinRunDirectory -Path $_ -RunDirectory $ExpectedRunDirectory
+                })) {
             $null = Remove-HyperVVhdxForCleanup -Path $vhdxPath -ExpectedRunDirectory $ExpectedRunDirectory
         }
     }
