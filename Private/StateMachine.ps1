@@ -567,6 +567,62 @@ function Get-LabActiveRuns {
     return $runs
 }
 
+function Get-LabRunRuntimeStatus {
+    <#
+    .SYNOPSIS
+        Liest den aktuellen Zustand der Runtime, ohne den Workflow-State zu ändern.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Run,
+        [string]$StateRoot
+    )
+
+    if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
+    $connectionPath = Join-Path (Join-Path (Join-Path $StateRoot 'runs') ([string]$Run.runId)) 'connection-info.json'
+    if (-not (Test-Path -LiteralPath $connectionPath -PathType Leaf)) {
+        return [PSCustomObject]@{ State = 'UNKNOWN'; Source = 'connection-info fehlt'; Instances = @() }
+    }
+
+    try { $connection = Get-Content -LiteralPath $connectionPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20 }
+    catch { return [PSCustomObject]@{ State = 'UNAVAILABLE'; Source = 'connection-info ungültig'; Instances = @() } }
+
+    $instances = @()
+    foreach ($instance in @($connection.instances)) {
+        try {
+            $provider = [string]$instance.provider
+            $status = switch ($provider) {
+                'hyperv' { Get-HyperVInstanceStatus -VMName ([string]$instance.vmName) -ExpectedRunId ([string]$Run.runId) -ExpectedScopeId ([string]$Run.scopeId) }
+                'docker' { Get-DockerInstanceStatus -ContainerIdOrName ([string]$instance.containerId) }
+                'podman' { Get-PodmanInstanceStatus -ContainerIdOrName ([string]$instance.containerId) }
+                default { $null }
+            }
+            if (-not $status) { throw "Unbekannter Provider: $provider" }
+            $liveState = if ($provider -eq 'hyperv') {
+                if (-not $status.Exists) { 'MISSING' } elseif ([string]$status.State -eq 'Running') { 'RUNNING' } elseif ([string]$status.State -eq 'Off') { 'STOPPED' } else { ([string]$status.State).ToUpperInvariant() }
+            }
+            elseif (-not $status.Exists) { 'MISSING' }
+            elseif ($status.Running) { 'RUNNING' }
+            else { 'STOPPED' }
+            $instances += [PSCustomObject]@{ Id = [string]$instance.id; Provider = $provider; State = $liveState }
+        }
+        catch {
+            $instances += [PSCustomObject]@{ Id = [string]$instance.id; Provider = [string]$instance.provider; State = 'UNAVAILABLE' }
+        }
+    }
+
+    $states = @($instances.State)
+    $runningCount = @($states | Where-Object { $_ -eq 'RUNNING' }).Count
+    $stoppedCount = @($states | Where-Object { $_ -eq 'STOPPED' }).Count
+    $state = if ($states.Count -eq 0) { 'UNKNOWN' }
+    elseif ($states -contains 'UNAVAILABLE') { 'UNAVAILABLE' }
+    elseif ($states -contains 'MISSING') { 'MISSING' }
+    elseif ($runningCount -eq $states.Count) { 'RUNNING' }
+    elseif ($stoppedCount -eq $states.Count) { 'STOPPED' }
+    else { 'PARTIAL' }
+    return [PSCustomObject]@{ State = $state; Source = 'Runtime'; Instances = $instances }
+}
+
 function Remove-LabRunState {
     [CmdletBinding()]
     param(

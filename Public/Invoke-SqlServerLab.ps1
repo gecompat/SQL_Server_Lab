@@ -105,7 +105,8 @@ function Show-LabBanner {
         foreach ($run in $runs) {
             $prefix = $run.runId.Substring(0, 8)
             $name = $run.metadata.name
-            Write-Host "    [$($run.state.PadRight(10))] ${prefix}... - $name" -ForegroundColor Gray
+            $runtime = Get-LabRunRuntimeStatus -Run $run -StateRoot $stateRoot
+            Write-Host "    [Live: $($runtime.State.PadRight(11))] ${prefix}... - $name  (Workflow: $($run.state))" -ForegroundColor Gray
         }
     }
     else {
@@ -1914,7 +1915,7 @@ function Manage-LabHyperVEnvironmentInteractive {
         try {
             $lab = Get-HyperVLabWorkflowRun -RunId $runs[$i].runId
             $status = Get-HyperVInstanceStatus -VMName $lab.Instance.vmName -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
-            Write-Host ("    [{0}] {1} · {2} · VM {3}: {4}" -f ($i + 1), $runs[$i].metadata.name, $runs[$i].state, $lab.Instance.vmName, $status.State) -ForegroundColor White
+            Write-Host ("    [{0}] {1} · Live: {2} · Workflow: {3} · VM {4}" -f ($i + 1), $runs[$i].metadata.name, $status.State, $runs[$i].state, $lab.Instance.vmName) -ForegroundColor White
             if ($lab.Instance.connectionString) { Write-Host "        Connection String (in VM): $($lab.Instance.connectionString)" -ForegroundColor DarkGray }
             if ($lab.Instance.persistentStorage) { Write-Host "        Persistente Daten: $($lab.Instance.persistentStorage.hostPath) [$($lab.Instance.persistentStorage.state)]" -ForegroundColor DarkGray }
         }
@@ -2012,7 +2013,8 @@ function Select-LabRun {
     Write-Host ""
     for ($i = 0; $i -lt $Runs.Count; $i++) {
         $prefix = $Runs[$i].runId.Substring(0, 8)
-        Write-Host "    [$($i+1)] ${prefix}... - $($Runs[$i].metadata.name) [$($Runs[$i].state)]" -ForegroundColor White
+        $runtime = Get-LabRunRuntimeStatus -Run $Runs[$i]
+        Write-Host "    [$($i+1)] ${prefix}... - $($Runs[$i].metadata.name) [Live: $($runtime.State); Workflow: $($Runs[$i].state)]" -ForegroundColor White
     }
     Write-Host ""
     $sel = Read-Host "  $Prompt (Nummer)"
