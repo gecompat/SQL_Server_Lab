@@ -626,15 +626,14 @@ Eine Restore-Datenbank wird nicht zuerst per `CREATE DATABASE` angelegt. Nach er
 }
 ```
 
-Automatisch unterstützt werden Katalogvarianten, deren URL direkt auf eine
-`.bak`-Datei zeigt und die `runtimeStatus: executable` tragen. Eine im Katalog
-hinterlegte SHA-256 wird erzwungen; fehlt sie, fragt ein interaktiver Lauf
-einmalig nach Vertrauen und registriert den berechneten Hash im lokalen Trust
-Store. Mehrere Samples pro Instanz können ad-hoc über
+Automatisch unterstützt werden ausführbare Katalogvarianten mit direktem
+`.bak`, ZIP mit katalogisierter `.bak`-Payload oder einem gepinnten einzelnen
+T-SQL-Skript. Eine im Katalog hinterlegte SHA-256 wird erzwungen; fehlt sie,
+fragt ein interaktiver Lauf einmalig nach Vertrauen und registriert den
+berechneten Hash im lokalen Trust Store. Mehrere Samples pro Instanz können ad-hoc über
 `New-SqlServerLab -Sample 'adventureworks-2022:lightweight', 'wideworldimporters:standard'`
 oder den Menüschritt `Testdatenbanken` gewählt werden. `.7z`-Archive,
-Attach-Verfahren und reine SQL-Skript-Samples werden nicht automatisch
-verarbeitet.
+Attach-Verfahren und Script-Bundles werden nicht automatisch verarbeitet.
 
 ## 13a. Project Adapter anwenden
 

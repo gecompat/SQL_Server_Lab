@@ -103,8 +103,9 @@ function New-SqlServerLab {
         Optionale Liste katalogisierter Testdatenbanken fuer die Ad-hoc-Instanz.
         Jeder Eintrag verwendet das Format 'sampleId' oder 'sampleId:variante',
         beispielsweise 'adventureworks-2022:lightweight'. Nur executable
-        Backup-Varianten aus Catalogs/sample-databases.json sind zulaessig; die
-        Zieldatenbanknamen ergeben sich aus den erwarteten Katalog-Outputs.
+        direkte Backups, sichere ZIP-Backups und einzelne SQL-Skript-Varianten
+        aus Catalogs/sample-databases.json sind zulaessig; die Zieldatenbanknamen
+        ergeben sich aus den erwarteten Katalog-Outputs.
     .PARAMETER Manifest
         Pfad zu einer vorhandenen JSON-Manifestdatei. Relative lokale Pfade im
         Manifest werden relativ zu deren Verzeichnis aufgeloest.
@@ -141,7 +142,7 @@ function New-SqlServerLab {
         $lab = New-SqlServerLab -Version '2022' -Provider docker -Sample 'adventureworks-2022:lightweight', 'wideworldimporters:standard'
 
         Erstellt eine Ad-hoc-Instanz und installiert zwei katalogisierte
-        Testdatenbanken ueber den Backup-Handler. Fehlt eine bekannte
+        Testdatenbanken ueber den typisierten Sample-Handler. Fehlt eine bekannte
         SHA-256-Pruefsumme, fragt der Lauf einmalig nach Vertrauen.
     .EXAMPLE
         $lab = New-SqlServerLab -Manifest './Schemas/example-performance-lab.json'

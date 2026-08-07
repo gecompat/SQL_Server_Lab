@@ -1,11 +1,11 @@
 #Requires -Version 7.2
 <#
 .SYNOPSIS
-    Prueft den Sample-Backup-Handler-Vertrag ohne Netzwerk, Container oder SQL Server.
+    Prueft die Sample-Handler-Vertraege ohne Netzwerk, Container oder SQL Server.
 .DESCRIPTION
-    Validiert Katalogfilterung, Sample-Aufloesung, Idempotenz- und Trust-Metadaten
-    sowie den nicht interaktiven TRUST_REQUIRED-Pfad des Handlers. Es werden nur
-    temporaere, synthetische State-Dateien verwendet.
+    Validiert Katalogfilterung, Sample-Aufloesung, Idempotenz- und Trust-Metadaten,
+    ZIP-Payload-Schutz sowie den nicht interaktiven TRUST_REQUIRED-Pfad. Es werden
+    nur temporaere, synthetische State-Dateien verwendet.
 #>
 [CmdletBinding()]
 param()
@@ -67,16 +67,23 @@ try {
             $descriptiveRejected = $_.Exception.Message -match 'beschreibend katalogisiert'
         }
 
-        $scriptRejected = $false
-        try {
-            $null = Resolve-LabSampleRestore `
-                -SampleDefinition ([PSCustomObject]@{ id = 'northwind'; variant = 'script' }) `
-                -SqlVersion '2022' `
-                -TargetDatabaseName 'Northwind'
-        }
-        catch {
-            $scriptRejected = $_.Exception.Message -match 'beschreibend katalogisiert|Backup-Handler'
-        }
+        $scriptContract = Resolve-LabSampleRestore `
+            -SampleDefinition ([PSCustomObject]@{ id = 'northwind'; variant = 'script' }) `
+            -SqlVersion '2022' `
+            -TargetDatabaseName 'Northwind'
+
+        Add-Type -AssemblyName System.IO.Compression -ErrorAction Stop
+        $zipPath = Join-Path $StateRoot 'archive.zip'
+        $zipWorking = Join-Path $StateRoot 'zip-source'
+        New-Item -Path $zipWorking -ItemType Directory -Force | Out-Null
+        $backupPath = Join-Path $zipWorking 'nested/sample.bak'
+        New-Item -Path (Split-Path -Parent $backupPath) -ItemType Directory -Force | Out-Null
+        [System.IO.File]::WriteAllText($backupPath, 'static-check-backup')
+        [System.IO.Compression.ZipFile]::CreateFromDirectory($zipWorking, $zipPath)
+        $archivePayload = Get-LabArchiveBackupPayload -ArchivePath $zipPath -PayloadPath 'nested/sample.bak' -RunDirectory $StateRoot
+        $archivePayloadWorks = (Test-Path -LiteralPath $archivePayload.Path -PathType Leaf) -and
+            ([System.IO.File]::ReadAllText($archivePayload.Path) -eq 'static-check-backup')
+        Remove-Item -LiteralPath $archivePayload.WorkingDirectory -Recurse -Force
 
         $dummyPassword = ConvertTo-SecureString 'Static-Check-Only-1!' -AsPlainText -Force
         $handlerResult = Install-LabSampleDatabase `
@@ -86,6 +93,39 @@ try {
             -RestoreDefinition $resolved `
             -NonInteractive `
             -StateRoot $StateRoot
+
+        $scriptSourcePath = Join-Path $StateRoot 'northwind.sql'
+        [System.IO.File]::WriteAllText($scriptSourcePath, 'SELECT 1;')
+        $originalResolver = (Get-Command Resolve-LabArtifact).ScriptBlock
+        $originalQuery = (Get-Command Invoke-SqlQuery).ScriptBlock
+        $originalCreateDatabase = (Get-Command New-SqlServerLabDatabase).ScriptBlock
+        $originalScript = (Get-Command Invoke-LabSqlScript).ScriptBlock
+        try {
+            $script:SampleHandlerQueryCalls = 0
+            Set-Item Function:Resolve-LabArtifact -Value {
+                [PSCustomObject]@{ Status = 'ARTIFACT_READY'; Message = 'static'; Path = $scriptSourcePath; Sha256 = 'a' * 64 }
+            }
+            Set-Item Function:Invoke-SqlQuery -Value {
+                $script:SampleHandlerQueryCalls++
+                if ($script:SampleHandlerQueryCalls -ge 2) { return @('ONLINE') }
+                return @()
+            }
+            Set-Item Function:New-SqlServerLabDatabase -Value { [PSCustomObject]@{ Success = $true } }
+            Set-Item Function:Invoke-LabSqlScript -Value { [PSCustomObject]@{ Success = $true; Message = 'static script'; Batches = 1 } }
+            $scriptHandlerResult = Install-LabSampleDatabase `
+                -Port 14330 `
+                -SaPassword $dummyPassword `
+                -ContainerName 'static-check-none' `
+                -RestoreDefinition $scriptContract `
+                -StateRoot $StateRoot
+        }
+        finally {
+            Set-Item Function:Resolve-LabArtifact -Value $originalResolver
+            Set-Item Function:Invoke-SqlQuery -Value $originalQuery
+            Set-Item Function:New-SqlServerLabDatabase -Value $originalCreateDatabase
+            Set-Item Function:Invoke-LabSqlScript -Value $originalScript
+            Remove-Variable SampleHandlerQueryCalls -Scope Script -ErrorAction SilentlyContinue
+        }
 
         $status = Get-LabSampleArtifactLocalStatus `
             -Source $resolved.source `
@@ -103,8 +143,8 @@ try {
             -DatabaseName 'WideWorldImporters')
 
         [PSCustomObject]@{
-            AllBackupExecutable   = @($allVariants | Where-Object { $_.ArtifactType -ne 'backup' }).Count -eq 0
-            NoDescriptiveVariants = @($allVariants | Where-Object { $_.SampleId -in @('stackoverflow-50gb', 'northwind') }).Count -eq 0
+            AllExecutableSupported = @($allVariants | Where-Object { $_.ArtifactType -notin @('backup', 'archive-backup', 'sql-script') }).Count -eq 0
+            NoDescriptiveVariants = @($allVariants | Where-Object { $_.SampleId -eq 'stackoverflow-50gb' }).Count -eq 0
             VersionFilterWorks    = @($variants2019 | Where-Object { $_.MinSqlVersion -eq '2022' }).Count -eq 0 -and
                 @($variants2022 | Where-Object { $_.SampleId -eq 'adventureworks-2022' }).Count -gt 0
             CurrentMicrosoftBackups = @($variants2025 | Where-Object {
@@ -124,7 +164,10 @@ try {
                 $resolved.downloadSizeMB -gt 0
             WrongNameRejected     = $wrongNameRejected
             DescriptiveRejected   = $descriptiveRejected
-            ScriptRejected        = $scriptRejected
+            ScriptContractWorks   = $scriptContract.artifactType -eq 'sql-script' -and
+                $scriptContract.installation.executionMode -eq 'existing-database'
+            ScriptHandlerWorks    = $scriptHandlerResult.Status -eq 'DATASET_READY' -and $scriptHandlerResult.Success
+            ArchivePayloadWorks   = $archivePayloadWorks
             TrustRequired         = $handlerResult.Status -eq 'TRUST_REQUIRED' -and -not $handlerResult.Success
             LocalStatusUntrusted  = $status.TrustStatus -eq 'TRUST_REQUIRED' -and $status.CacheStatus -eq 'MISS'
             InMemoryMoveWorks     = $wideWorldMoves.Count -eq 3 -and
@@ -132,15 +175,17 @@ try {
         }
     } $temporaryRoot
 
-    Add-CheckResult -Name 'Katalogliste enthaelt nur Backup-Handler-Varianten' -Success $result.AllBackupExecutable
-    Add-CheckResult -Name 'Beschreibende Varianten (Attach/SQL-Skript) bleiben ausgeschlossen' -Success $result.NoDescriptiveVariants
+    Add-CheckResult -Name 'Katalogliste enthaelt nur freigegebene Sample-Handler-Varianten' -Success $result.AllExecutableSupported
+    Add-CheckResult -Name 'Beschreibende Attach-Varianten bleiben ausgeschlossen' -Success $result.NoDescriptiveVariants
     Add-CheckResult -Name 'Versionsfilter beruecksichtigt minSqlVersion und CU-Bezeichner' -Success $result.VersionFilterWorks
     Add-CheckResult -Name 'Aktuelle Microsoft-Backups fuer AdventureWorks und Data Warehouse sind katalogisiert' -Success $result.CurrentMicrosoftBackups
     Add-CheckResult -Name 'Contoso-Backups sind als direkt restaurierbare Groessenvarianten katalogisiert' -Success $result.ContosoBackups
     Add-CheckResult -Name 'Sample-Aufloesung liefert Trust-, Idempotenz- und Groessenvertrag' -Success $result.ResolvedContract
     Add-CheckResult -Name 'Abweichender Zieldatenbankname wird abgelehnt' -Success $result.WrongNameRejected
     Add-CheckResult -Name 'Beschreibende Varianten werden nicht ausgefuehrt' -Success $result.DescriptiveRejected
-    Add-CheckResult -Name 'SQL-Skript-Samples werden nicht als Restore umgedeutet' -Success $result.ScriptRejected
+    Add-CheckResult -Name 'SQL-Skript-Sample liefert einen typisierten Installationsvertrag' -Success $result.ScriptContractWorks
+    Add-CheckResult -Name 'SQL-Skript-Handler erstellt Ziel und verifiziert die Datenbank' -Success $result.ScriptHandlerWorks
+    Add-CheckResult -Name 'ZIP-Backup-Payload wird nur im temporaeren Arbeitsbereich extrahiert' -Success $result.ArchivePayloadWorks
     Add-CheckResult -Name 'Nicht interaktiver Handler ohne Trust endet mit TRUST_REQUIRED' -Success $result.TrustRequired
     Add-CheckResult -Name 'Lokaler Trust-/Cache-Status wird read-only gemeldet' -Success $result.LocalStatusUntrusted
     Add-CheckResult -Name 'In-Memory-OLTP-Container wird beim Restore per MOVE in den Linux-Datenpfad umgeleitet' -Success $result.InMemoryMoveWorks

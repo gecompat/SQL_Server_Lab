@@ -201,9 +201,11 @@ Die statische Prüfung verifiziert JSON und Schema-Referenzen. Der Manifestparse
 - Variante vorhanden;
 - SQL-Mindestversion erfüllt;
 - URL vorhanden;
-- Variante ist eine direkte `.bak`-Quelle.
+- Variante hat einen freigegebenen Handler und eine dazu passende direkte
+  `.bak`-, `.zip`- oder `.sql`-Quelle.
 
-Archive, Attach-Szenarien und SQL-Skript-Samples müssen mit einer erklärenden Fehlermeldung abgewiesen werden.
+Nicht freigegebene Archive, Attach-Szenarien und Script-Bundles müssen mit einer
+erklärenden Fehlermeldung abgewiesen werden.
 
 Ein vollständiger automatischer Download-/Restore-Test pro Sample ist derzeit nicht vorhanden.
 

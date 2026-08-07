@@ -349,7 +349,7 @@ function Resolve-LabArtifact {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$Source,
-        [ValidateSet('backup')][string]$ArtifactType = 'backup',
+        [ValidateSet('backup', 'archive-backup', 'sql-script')][string]$ArtifactType = 'backup',
         [ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$ExpectedSha256,
         [ValidateSet('catalog-only', 'interactive-once')][string]$TrustPolicy = 'interactive-once',
         [string]$SampleId,
@@ -365,8 +365,13 @@ function Resolve-LabArtifact {
 
     $canonicalSource = Get-LabCanonicalArtifactSource -Source $Source
     $sourceUri = [System.Uri]::new($canonicalSource)
-    if ($ArtifactType -eq 'backup' -and $sourceUri.AbsolutePath -notmatch '(?i)\.bak$') {
-        throw "ARTIFACT_SOURCE_INVALID: Backup-URL verweist nicht auf eine direkte .bak-Datei: $canonicalSource"
+    $expectedExtension = switch ($ArtifactType) {
+        'backup' { '\.bak$' }
+        'archive-backup' { '\.zip$' }
+        'sql-script' { '\.sql$' }
+    }
+    if ($sourceUri.AbsolutePath -notmatch "(?i)$expectedExtension") {
+        throw "ARTIFACT_SOURCE_INVALID: Artifact Type '$ArtifactType' verweist nicht auf eine passende direkte Quelle: $canonicalSource"
     }
     $paths = Initialize-LabArtifactStore -StateRoot $StateRoot
     $expected = if ($ExpectedSha256) { $ExpectedSha256.ToLowerInvariant() } else { $null }

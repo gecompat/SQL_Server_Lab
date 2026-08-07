@@ -129,7 +129,7 @@ function Get-SqlServerLabWorkflow {
             [PSCustomObject]@{
                 SampleId = $_.SampleId; Variant = $_.Variant; DisplayName = $_.DisplayName
                 Description = $_.Description; ExpectedDatabase = $_.ExpectedDatabase
-                DownloadSizeMB = $_.DownloadSizeMB; MinSqlVersion = $_.MinSqlVersion
+                ArtifactType = $_.ArtifactType; DownloadSizeMB = $_.DownloadSizeMB; MinSqlVersion = $_.MinSqlVersion
                 TrustStatus = if ($_.ExpectedSha256) { 'catalog-verified' } else { 'TRUST_REQUIRED' }
                 CacheStatus = 'UNKNOWN'
             }

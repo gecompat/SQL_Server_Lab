@@ -546,13 +546,13 @@
         "script": {
           "artifactType": "sql-script",
           "handlerContractVersion": "1",
-          "url": "https://raw.githubusercontent.com/microsoft/sql-server-samples/master/samples/databases/northwind-pubs/instnwnd.sql",
+          "url": "https://raw.githubusercontent.com/microsoft/sql-server-samples/1ab31bc560415b570d57bb5ff9896f4698891321/samples/databases/northwind-pubs/instnwnd.sql",
           "downloadSizeMB": 1,
           "estimatedInstallSizeMB": null,
           "resourceEstimateStatus": "unknown",
-          "sha256": null,
-          "integrityOrigin": null,
-          "trustPolicy": "interactive-once",
+          "sha256": "3cc62b3fca6d244a47dbde698b809331e4f85988a0685b2b370717d431e94871",
+          "integrityOrigin": "catalog-verified",
+          "trustPolicy": "catalog-only",
           "compatibility": 100,
           "expectedOutputs": [
             { "name": "Northwind", "kind": "database" }
@@ -561,6 +561,47 @@
             "kind": "sql-script",
             "entrypoint": "instnwnd.sql",
             "workingDirectory": ".",
+            "executionMode": "existing-database",
+            "allowedSqlcmdFeatures": ["go"],
+            "timeoutSeconds": 300,
+            "idempotencyMode": "fail-if-exists",
+            "partialFailurePolicy": "recovery-required",
+            "baselinePolicy": "eligible-after-verification"
+          },
+          "note": "Der Handler erstellt zuerst die leere Datenbank Northwind und führt das offizielle Skript darin aus.",
+          "runtimeStatus": "executable"
+        }
+      },
+      "minSqlVersion": "2019",
+      "tags": ["grundlagen", "schulung", "klein", "einfach", "klassiker"]
+    },
+    {
+      "id": "chinook",
+      "name": "Chinook",
+      "displayName": "Chinook (Musikshop)",
+      "description": "Kleine, portable Community-Beispieldatenbank für SQL-Grundlagen, ORM-, Schema- und CI-Tests.",
+      "category": "community",
+      "license": "MIT",
+      "source": "https://github.com/lerocha/chinook-database",
+      "versions": {
+        "sql-server": {
+          "artifactType": "sql-script",
+          "handlerContractVersion": "1",
+          "url": "https://raw.githubusercontent.com/lerocha/chinook-database/7f67772503d71ba90f19283c38e93923addb43fa/ChinookDatabase/DataSources/Chinook_SqlServer.sql",
+          "downloadSizeMB": 1,
+          "estimatedInstallSizeMB": null,
+          "resourceEstimateStatus": "unknown",
+          "sha256": "5ea75c9e925ead917d3fabea6ed3cc8c1ff1d036b61e915c94631aafa2b0802b",
+          "integrityOrigin": "catalog-verified",
+          "trustPolicy": "catalog-only",
+          "compatibility": 100,
+          "expectedOutputs": [
+            { "name": "Chinook", "kind": "database" }
+          ],
+          "installation": {
+            "kind": "sql-script",
+            "entrypoint": "Chinook_SqlServer.sql",
+            "workingDirectory": ".",
             "executionMode": "self-creates-databases",
             "allowedSqlcmdFeatures": ["go"],
             "timeoutSeconds": 300,
@@ -568,12 +609,12 @@
             "partialFailurePolicy": "recovery-required",
             "baselinePolicy": "eligible-after-verification"
           },
-          "note": "T-SQL-Skript; ein SQL-Skript-Handler ist noch nicht implementiert.",
-          "runtimeStatus": "descriptive"
+          "note": "Das Upstream-Skript legt Chinook selbst an; der Handler blockiert vorhandene Datenbanken vorab.",
+          "runtimeStatus": "executable"
         }
       },
       "minSqlVersion": "2019",
-      "tags": ["grundlagen", "schulung", "klein", "einfach", "klassiker"]
+      "tags": ["oltp", "grundlagen", "orm", "ci", "klein", "community"]
     }
   ],
   "categories": {

@@ -2,10 +2,11 @@
 .SYNOPSIS
     Sample-Artifact-Handler fuer den gemeinsamen Installations-Lifecycle.
 .DESCRIPTION
-    Implementiert den Backup-Handler aus dem Sample-Zielvertrag: Acquisition
-    und Integritaet laufen ueber den Artifact Resolver (Trust Store, Cache,
-    Quarantaene, Run Lock), danach folgen Idempotenzpruefung, Restore und
-    Output-Verification. Alle Ergebnisse verwenden stabile Statusklassen
+    Implementiert die freigegebenen Sample-Handler aus dem Sample-Zielvertrag:
+    direkte Backups, ZIP-Archive mit genau einem katalogisierten Backup und
+    einzelne T-SQL-Skripte. Acquisition und Integritaet laufen ueber den
+    Artifact Resolver (Trust Store, Cache, Quarantaene, Run Lock), danach
+    folgen Idempotenzpruefung, Apply und Output-Verification. Alle Ergebnisse verwenden stabile Statusklassen
     (DATASET_READY, TRUST_REQUIRED, SAMPLE_OUTPUT_CONFLICT,
     SAMPLE_INSTALLATION_FAILED, SAMPLE_VERIFICATION_FAILED).
 #>
@@ -15,10 +16,10 @@ function Get-LabExecutableSampleVariant {
     .SYNOPSIS
         Listet automatisch installierbare Sample-Varianten des Katalogs auf.
     .DESCRIPTION
-        Liefert nur Varianten, die der implementierte Backup-Handler ausfuehren
-        kann: artifactType backup, runtimeStatus executable, direkte .bak-URL
-        und genau eine erwartete Datenbank. Optional wird nach SQL-Version
-        gefiltert.
+        Liefert nur Varianten, fuer die ein freigegebener Runtime-Handler
+        vorhanden ist: direkte Backups, ZIP-Backups und einzelne T-SQL-Skripte.
+        Jede Variante muss genau eine erwartete Datenbank definieren. Optional
+        wird nach SQL-Version gefiltert.
     #>
     [CmdletBinding()]
     param(
@@ -42,8 +43,8 @@ function Get-LabExecutableSampleVariant {
         foreach ($variantProperty in @($sample.versions.PSObject.Properties)) {
             $definition = $variantProperty.Value
             if ($definition.runtimeStatus -ne 'executable' -or
-                $definition.artifactType -ne 'backup' -or
-                $definition.installation.kind -ne 'backup') {
+                $definition.artifactType -notin @('backup', 'archive-backup', 'sql-script') -or
+                [string]$definition.installation.kind -ne [string]$definition.artifactType) {
                 continue
             }
 
@@ -62,6 +63,7 @@ function Get-LabExecutableSampleVariant {
                 SourcePage             = [string]$sample.source
                 Source                 = [string]$definition.url
                 ArtifactType           = [string]$definition.artifactType
+                Installation           = $definition.installation
                 ExpectedDatabase       = [string]$outputs[0].name
                 DownloadSizeMB         = $definition.downloadSizeMB
                 EstimatedInstallSizeMB = $definition.estimatedInstallSizeMB
@@ -120,16 +122,91 @@ function Get-LabSampleArtifactLocalStatus {
     }
 }
 
+function Get-LabArchiveBackupPayload {
+    <#
+    .SYNOPSIS
+        Extrahiert ein katalogisiertes .bak aus einem verifizierten ZIP temporär.
+    .DESCRIPTION
+        Es wird ausschliesslich der exakte, im Katalog vereinbarte Payload-Pfad
+        extrahiert. Das verhindert Mehrdeutigkeit sowie Zip-Slip-Pfade; das
+        Arbeitsverzeichnis wird vom aufrufenden Handler immer wieder entfernt.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$ArchivePath,
+        [Parameter(Mandatory)][string]$PayloadPath,
+        [string]$RunDirectory
+    )
+
+    if (-not (Test-Path -LiteralPath $ArchivePath -PathType Leaf)) {
+        throw "SAMPLE_ARCHIVE_NOT_FOUND: $ArchivePath"
+    }
+
+    $normalizedPayload = ($PayloadPath -replace '\\', '/').TrimStart('/')
+    if ([string]::IsNullOrWhiteSpace($normalizedPayload) -or
+        $normalizedPayload -match '(^|/)\.\.(/|$)' -or
+        [System.IO.Path]::IsPathRooted($normalizedPayload) -or
+        $normalizedPayload -notmatch '(?i)\.bak$') {
+        throw "SAMPLE_ARCHIVE_PAYLOAD_INVALID: '$PayloadPath' ist kein sicherer relativer .bak-Pfad."
+    }
+
+    $temporaryBase = if ($RunDirectory -and (Test-Path -LiteralPath $RunDirectory -PathType Container)) {
+        Join-Path $RunDirectory 'artifact-work'
+    }
+    else {
+        Join-Path ([System.IO.Path]::GetTempPath()) 'sql-server-lab-artifacts'
+    }
+    $workingDirectory = Join-Path $temporaryBase ([guid]::NewGuid().ToString('N'))
+    New-Item -Path $workingDirectory -ItemType Directory -Force | Out-Null
+
+    try {
+        Add-Type -AssemblyName System.IO.Compression -ErrorAction Stop
+        $archive = [System.IO.Compression.ZipFile]::OpenRead($ArchivePath)
+        try {
+            $matches = @($archive.Entries | Where-Object {
+                $_.FullName.Replace('\\', '/') -ieq $normalizedPayload
+            })
+            if ($matches.Count -ne 1 -or $matches[0].Length -le 0) {
+                throw "SAMPLE_ARCHIVE_PAYLOAD_NOT_FOUND: ZIP muss genau die katalogisierte Backup-Payload '$normalizedPayload' enthalten."
+            }
+
+            $targetPath = Join-Path $workingDirectory ($normalizedPayload -replace '/', [System.IO.Path]::DirectorySeparatorChar)
+            $targetRoot = [System.IO.Path]::GetFullPath($workingDirectory + [System.IO.Path]::DirectorySeparatorChar)
+            $fullTargetPath = [System.IO.Path]::GetFullPath($targetPath)
+            if (-not $fullTargetPath.StartsWith($targetRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+                throw "SAMPLE_ARCHIVE_PAYLOAD_INVALID: ZIP-Payload verlaesst das temporaere Arbeitsverzeichnis."
+            }
+
+            $targetDirectory = Split-Path -Parent $fullTargetPath
+            New-Item -Path $targetDirectory -ItemType Directory -Force | Out-Null
+            [System.IO.Compression.ZipFileExtensions]::ExtractToFile($matches[0], $fullTargetPath, $false)
+            return [PSCustomObject]@{
+                Path             = $fullTargetPath
+                WorkingDirectory = $workingDirectory
+            }
+        }
+        finally {
+            $archive.Dispose()
+        }
+    }
+    catch {
+        if (Test-Path -LiteralPath $workingDirectory) {
+            Remove-Item -LiteralPath $workingDirectory -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        throw
+    }
+}
+
 function Install-LabSampleDatabase {
     <#
     .SYNOPSIS
-        Installiert ein Backup-Sample ueber den gemeinsamen Handler-Lifecycle.
+        Installiert ein katalogisiertes Sample ueber den gemeinsamen Handler-Lifecycle.
     .DESCRIPTION
         Acquire und VerifyIntegrity laufen ueber Resolve-LabArtifact mit der
         vollstaendigen Sample-Identitaet, damit Trust Store und Run Lock den
         Katalogbezug enthalten. Danach prueft der Handler die Idempotenzregel
-        (fail-if-exists), stellt das Backup aus dem verifizierten Cache wieder
-        her und verifiziert die erwartete Datenbank als ONLINE.
+        (fail-if-exists), fuehrt den typisierten Handler aus und verifiziert
+        die erwartete Datenbank als ONLINE.
     #>
     [CmdletBinding()]
     param(
@@ -157,7 +234,7 @@ function Install-LabSampleDatabase {
 
     $resolverArguments = @{
         Source                 = [string]$RestoreDefinition.source
-        ArtifactType           = 'backup'
+        ArtifactType           = [string]$RestoreDefinition.artifactType
         TrustPolicy            = if ($RestoreDefinition.trustPolicy) { [string]$RestoreDefinition.trustPolicy } else { 'interactive-once' }
         SampleId               = [string]$RestoreDefinition.sampleId
         SampleVariant          = [string]$RestoreDefinition.sampleVariant
@@ -184,6 +261,7 @@ function Install-LabSampleDatabase {
     }
 
     $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword)
+    $temporaryArchivePayload = $null
     try {
         $saPlain = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
     }
@@ -207,20 +285,81 @@ function Install-LabSampleDatabase {
             return [PSCustomObject]$result
         }
 
-        $restoreResult = Restore-SqlServerLabDatabase `
-            -HostName $HostName `
-            -Port $Port `
-            -SaPassword $SaPassword `
-            -BackupSource $artifactResolution.Path `
-            -ExpectedSha256 $artifactResolution.Sha256 `
-            -DatabaseName $databaseName `
-            -ContainerName $ContainerName `
-            -StateRoot $StateRoot
+        switch ([string]$RestoreDefinition.artifactType) {
+            'backup' {
+                $restoreResult = Restore-SqlServerLabDatabase `
+                    -HostName $HostName `
+                    -Port $Port `
+                    -SaPassword $SaPassword `
+                    -BackupSource $artifactResolution.Path `
+                    -ExpectedSha256 $artifactResolution.Sha256 `
+                    -DatabaseName $databaseName `
+                    -ContainerName $ContainerName `
+                    -StateRoot $StateRoot
+                if (-not $restoreResult.Success) {
+                    $result.Status = 'SAMPLE_INSTALLATION_FAILED'
+                    $result.Message = $restoreResult.Message
+                    return [PSCustomObject]$result
+                }
+            }
+            'archive-backup' {
+                if ([string]$RestoreDefinition.installation.archiveFormat -ne 'zip') {
+                    throw "SAMPLE_ARCHIVE_FORMAT_UNSUPPORTED: '$($RestoreDefinition.installation.archiveFormat)'"
+                }
+                $temporaryArchivePayload = Get-LabArchiveBackupPayload `
+                    -ArchivePath $artifactResolution.Path `
+                    -PayloadPath ([string]$RestoreDefinition.installation.payloadPath) `
+                    -RunDirectory $RunDirectory
+                $restoreResult = Restore-SqlServerLabDatabase `
+                    -HostName $HostName `
+                    -Port $Port `
+                    -SaPassword $SaPassword `
+                    -BackupSource $temporaryArchivePayload.Path `
+                    -DatabaseName $databaseName `
+                    -ContainerName $ContainerName `
+                    -StateRoot $StateRoot
+                if (-not $restoreResult.Success) {
+                    $result.Status = 'SAMPLE_INSTALLATION_FAILED'
+                    $result.Message = $restoreResult.Message
+                    return [PSCustomObject]$result
+                }
+            }
+            'sql-script' {
+                $executionMode = [string]$RestoreDefinition.installation.executionMode
+                if ($executionMode -eq 'existing-database') {
+                    $createResult = New-SqlServerLabDatabase `
+                        -HostName $HostName `
+                        -Port $Port `
+                        -SaPassword $SaPassword `
+                        -DatabaseName $databaseName
+                    if (-not $createResult.Success) {
+                        $result.Status = 'SAMPLE_INSTALLATION_FAILED'
+                        $result.Message = "Zieldatenbank '$databaseName' konnte nicht erstellt werden."
+                        return [PSCustomObject]$result
+                    }
+                }
+                elseif ($executionMode -ne 'self-creates-databases') {
+                    throw "SAMPLE_SCRIPT_EXECUTION_MODE_UNSUPPORTED: '$executionMode'"
+                }
 
-        if (-not $restoreResult.Success) {
-            $result.Status = 'SAMPLE_INSTALLATION_FAILED'
-            $result.Message = $restoreResult.Message
-            return [PSCustomObject]$result
+                $scriptDatabase = if ($executionMode -eq 'existing-database') { $databaseName } else { 'master' }
+                $scriptResult = Invoke-LabSqlScript `
+                    -ScriptPath $artifactResolution.Path `
+                    -HostName $HostName `
+                    -Port $Port `
+                    -SaPassword $SaPassword `
+                    -Database $scriptDatabase `
+                    -KeepConnection `
+                    -TimeoutSeconds ([int]$RestoreDefinition.installation.timeoutSeconds)
+                if (-not $scriptResult.Success) {
+                    $result.Status = 'SAMPLE_INSTALLATION_FAILED'
+                    $result.Message = $scriptResult.Message
+                    return [PSCustomObject]$result
+                }
+            }
+            default {
+                throw "SAMPLE_HANDLER_UNSUPPORTED: '$($RestoreDefinition.artifactType)'"
+            }
         }
 
         $stateOutput = Invoke-SqlQuery `
@@ -243,5 +382,8 @@ function Install-LabSampleDatabase {
     }
     finally {
         $saPlain = $null
+        if ($temporaryArchivePayload -and (Test-Path -LiteralPath $temporaryArchivePayload.WorkingDirectory)) {
+            Remove-Item -LiteralPath $temporaryArchivePayload.WorkingDirectory -Recurse -Force -ErrorAction SilentlyContinue
+        }
     }
 }
