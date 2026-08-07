@@ -446,6 +446,91 @@ function Rename-LabRunDisplayName {
     return [PSCustomObject]@{ RunId = $RunId; PreviousName = $previousName; Name = $DisplayName; Changed = $true }
 }
 
+function Get-LabContainerRuntimeName {
+    <#
+    .SYNOPSIS
+        Erzeugt einen Docker-/Podman-konformen, projektlesbaren Runtime-Namen.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9][A-Za-z0-9 _-]{0,63}$')][string]$LabName,
+        [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$')][string]$InstanceId,
+        [Parameter(Mandatory)][string]$RunId
+    )
+
+    $stem = ($LabName.Trim() -replace '[^A-Za-z0-9_.-]+', '-').Trim([char[]]@('.', '-', '_')).ToLowerInvariant()
+    if (-not $stem) { throw 'LAB_RUNTIME_NAME_REQUIRED' }
+    $runPrefix = $RunId.Replace('-', '').Substring(0, 8).ToLowerInvariant()
+    return "$stem-$InstanceId-$runPrefix"
+}
+
+function Rename-ContainerLabEnvironment {
+    <#
+    .SYNOPSIS
+        Benennt Docker- oder Podman-Container eines Lab-Runs gemeinsam um.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RunId,
+        [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9][A-Za-z0-9 _-]{0,63}$')][string]$DisplayName,
+        [string]$StateRoot
+    )
+
+    if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
+    $run = Get-LabRunState -RunId $RunId -StateRoot $StateRoot
+    $runDirectory = Join-Path (Join-Path $StateRoot 'runs') $RunId
+    $connectionPath = Join-Path $runDirectory 'connection-info.json'
+    if (-not (Test-Path -LiteralPath $connectionPath -PathType Leaf)) { throw 'LAB_CONNECTION_INFO_NOT_FOUND' }
+    $originalConnectionJson = Get-Content -LiteralPath $connectionPath -Raw -Encoding utf8
+    $connection = $originalConnectionJson | ConvertFrom-Json -Depth 20
+    $DisplayName = $DisplayName.Trim()
+    $renames = @()
+    $planPath = Join-Path $runDirectory 'cleanup-plan.json'
+    $originalPlanJson = $null
+
+    try {
+        foreach ($instance in @($connection.instances)) {
+            $provider = [string]$instance.provider
+            if ($provider -notin @('docker', 'podman')) { continue }
+            $oldName = [string]$instance.containerName
+            $newName = Get-LabContainerRuntimeName -LabName $DisplayName -InstanceId ([string]$instance.id) -RunId $RunId
+            if ($oldName -eq $newName) { continue }
+            $output = & $provider rename ([string]$instance.containerId) $newName 2>&1
+            if ($LASTEXITCODE -ne 0) { throw "${provider}_CONTAINER_RENAME_FAILED: $(($output | Out-String).Trim())" }
+            $instance | Add-Member -NotePropertyName containerName -NotePropertyValue $newName -Force
+            $renames += [PSCustomObject]@{ Provider = $provider; OldName = $oldName; NewName = $newName; ContainerId = [string]$instance.containerId }
+        }
+
+        if (Test-Path -LiteralPath $planPath -PathType Leaf) {
+            $originalPlanJson = Get-Content -LiteralPath $planPath -Raw -Encoding utf8
+            $plan = $originalPlanJson | ConvertFrom-Json -Depth 20
+            foreach ($rename in $renames) {
+                foreach ($step in @($plan.steps | Where-Object { $_.resourceType -eq 'container' -and $_.provider -eq $rename.Provider -and $_.resourceId -eq $rename.OldName })) {
+                    $step.resourceId = $rename.NewName
+                    $step.compensation = "$($rename.Provider) rm -f $($rename.NewName)"
+                }
+            }
+            Write-LabArtifactJsonAtomic -Path $planPath -InputObject $plan
+        }
+        Write-LabArtifactJsonAtomic -Path $connectionPath -InputObject $connection
+        $renamed = Rename-LabRunDisplayName -RunId $RunId -DisplayName $DisplayName -StateRoot $StateRoot
+    }
+    catch {
+        for ($index = @($renames).Count - 1; $index -ge 0; $index--) {
+            $rename = @($renames)[$index]
+            try { & $rename.Provider rename $rename.ContainerId $rename.OldName 1>$null 2>$null } catch { }
+        }
+        if ($originalPlanJson) { Set-Content -LiteralPath $planPath -Value $originalPlanJson -Encoding utf8 }
+        Set-Content -LiteralPath $connectionPath -Value $originalConnectionJson -Encoding utf8
+        throw
+    }
+
+    return [PSCustomObject]@{
+        RunId = $renamed.RunId; PreviousName = $renamed.PreviousName; Name = $renamed.Name; Changed = $renamed.Changed
+        RuntimeRenamed = @($renames).Count -gt 0; RuntimeObjects = @($renames)
+    }
+}
+
 function Get-LabActiveRuns {
     [CmdletBinding()]
     param(

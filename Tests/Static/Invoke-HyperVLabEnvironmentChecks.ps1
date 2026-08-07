@@ -36,6 +36,47 @@ try {
         $connection.instances.Count -eq 1 -and $connection.instances[0].provider -eq 'hyperv' -and
         $connection.instances[0].imageArtifactId -eq 'sql-prepared-test'
     )
+    $runtimeName = & $module { Get-HyperVLabRuntimeName -LabName 'Mein SQL Lab' -RunId '12345678-0000-0000-0000-000000000000' }
+    Add-CheckResult -Name 'Hyper-V-Runtime-Name zeigt Projektnamen und eindeutiges Run-Präfix' -Success ($runtimeName -eq 'Mein SQL Lab-12345678')
+    $containerRename = & $module {
+        param($Root)
+        $run = New-LabRunState -StateRoot $Root -Metadata @{ name = 'Alter Name' } -ProviderSubRuns @([PSCustomObject]@{ id = 'provider-docker'; provider = 'docker'; instanceIds = @('primary') })
+        $null = New-CleanupPlan -RunDir $run.RunDir -RunId $run.RunId -ScopeId $run.ScopeId -ProviderSubRuns @([PSCustomObject]@{ id = 'provider-docker'; provider = 'docker'; instanceIds = @('primary') })
+        $oldName = 'alter-name-primary-oldrunid'
+        $null = Add-CleanupStep -RunDir $run.RunDir -ResourceType container -ResourceId $oldName -Action remove -Provider docker -ProviderSubRunId provider-docker
+        Write-LabArtifactJsonAtomic -Path (Join-Path $run.RunDir 'connection-info.json') -InputObject ([PSCustomObject]@{ instances = @([PSCustomObject]@{ id = 'primary'; provider = 'docker'; containerId = 'mock-container-id'; containerName = $oldName }) })
+        function docker { param($Verb, $ContainerId, $NewName) $global:LASTEXITCODE = 0 }
+        $result = Rename-ContainerLabEnvironment -RunId $run.RunId -DisplayName 'Neuer Name' -StateRoot $Root
+        $connection = Get-Content -LiteralPath (Join-Path $run.RunDir 'connection-info.json') -Raw | ConvertFrom-Json -Depth 10
+        $plan = Get-Content -LiteralPath (Join-Path $run.RunDir 'cleanup-plan.json') -Raw | ConvertFrom-Json -Depth 10
+        [PSCustomObject]@{ Result = $result; Name = $connection.instances[0].containerName; CleanupName = $plan.steps[0].resourceId }
+    } $temporaryRoot
+    Add-CheckResult -Name 'Container-Umbenennung aktualisiert Runtime, Verbindung und Cleanup-Plan gemeinsam' -Success (
+        $containerRename.Result.RuntimeRenamed -and
+        $containerRename.Name -match '^neuer-name-primary-[a-f0-9]{8}$' -and
+        $containerRename.CleanupName -eq $containerRename.Name
+    )
+    $hyperVRename = & $module {
+        param($Root)
+        $run = New-LabRunState -StateRoot $Root -Metadata @{ name = 'Alter HyperV Name'; workflowKind = 'hyperv-lab' } -ProviderSubRuns @([PSCustomObject]@{ id = 'provider-hyperv'; provider = 'hyperv'; instanceIds = @('primary') })
+        $null = New-CleanupPlan -RunDir $run.RunDir -RunId $run.RunId -ScopeId $run.ScopeId -ProviderSubRuns @([PSCustomObject]@{ id = 'provider-hyperv'; provider = 'hyperv'; instanceIds = @('primary') })
+        $oldName = 'alter-hyperv-name-legacy'
+        $null = Add-CleanupStep -RunDir $run.RunDir -ResourceType vm -ResourceId $oldName -Action remove -Provider hyperv -ProviderSubRunId provider-hyperv
+        Write-LabArtifactJsonAtomic -Path (Join-Path $run.RunDir 'connection-info.json') -InputObject ([PSCustomObject]@{ instances = @([PSCustomObject]@{ id = 'primary'; provider = 'hyperv'; vmName = $oldName }) })
+        function Get-HyperVManagedVM { [PSCustomObject]@{ VM = [PSCustomObject]@{ Name = $oldName; State = 'Off' } } }
+        function Get-VM { param($Name) $null }
+        function Rename-VM { param($VM, $NewName) $script:renamedVm = $NewName }
+        $result = Rename-HyperVLabEnvironment -RunId $run.RunId -DisplayName 'Neuer HyperV Name' -StateRoot $Root
+        $connection = Get-Content -LiteralPath (Join-Path $run.RunDir 'connection-info.json') -Raw | ConvertFrom-Json -Depth 10
+        $plan = Get-Content -LiteralPath (Join-Path $run.RunDir 'cleanup-plan.json') -Raw | ConvertFrom-Json -Depth 10
+        [PSCustomObject]@{ Result = $result; Name = $connection.instances[0].vmName; CleanupName = $plan.steps[0].resourceId; RenamedVm = $script:renamedVm }
+    } $temporaryRoot
+    Add-CheckResult -Name 'Hyper-V-Umbenennung aktualisiert VM, Verbindung und Cleanup-Plan gemeinsam' -Success (
+        $hyperVRename.Result.VMRenamed -and
+        $hyperVRename.Name -match '^Neuer HyperV Name-[a-f0-9]{8}$' -and
+        $hyperVRename.CleanupName -eq $hyperVRename.Name -and
+        $hyperVRename.RenamedVm -eq $hyperVRename.Name
+    )
 
     $existingVmCreated = & $module {
         param($Root)

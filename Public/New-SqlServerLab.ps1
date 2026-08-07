@@ -5,7 +5,7 @@ function Add-LabInstanceCleanupPlan {
         [Parameter(Mandatory)]$RunState
     )
 
-    $containerName = "sql-lab-$($Instance.id)-$($RunState.RunId.Substring(0, 8))"
+    $containerName = Get-LabContainerRuntimeName -LabName ([string]$RunState.metadata.name) -InstanceId ([string]$Instance.id) -RunId $RunState.RunId
 
     foreach ($drive in @($Instance.drives | Where-Object {
         $_ -and $_.containerPath -and -not $_.hostPath -and $_.persistence -ne 'data-root-runtime-volume'
@@ -49,6 +49,7 @@ function New-LabProviderContainer {
                 -RunId $RunState.RunId `
                 -ScopeId $RunState.ScopeId `
                 -InstanceId $Instance.id `
+                -LabName ([string]$RunState.metadata.name) `
                 -Port $Port `
                 -SaPassword $SaPassword `
                 -Profile $Instance.profile `
@@ -61,6 +62,7 @@ function New-LabProviderContainer {
                 -RunId $RunState.RunId `
                 -ScopeId $RunState.ScopeId `
                 -InstanceId $Instance.id `
+                -LabName ([string]$RunState.metadata.name) `
                 -Port $Port `
                 -SaPassword $SaPassword `
                 -Profile $Instance.profile `

@@ -95,6 +95,10 @@ try {
         -Text $provider `
         -Pattern 'Set-VM[^\r\n]+AutomaticCheckpointsEnabled\s+\$false'
     Add-TextContract `
+        -Name 'Reguläre Hyper-V-Labs verwenden den Projektnamen mit eindeutiger Run-ID' `
+        -Text $provider `
+        -Pattern 'LabName[\s\S]+\$vmName\s*=\s*if\s*\(\$LabName\)'
+    Add-TextContract `
         -Name 'Zusatz-VHDX werden explizit per SCSI angebunden' `
         -Text $provider `
         -Pattern 'Add-VMHardDiskDrive[\s\S]+ControllerType\s+SCSI[\s\S]+ControllerNumber\s+0'

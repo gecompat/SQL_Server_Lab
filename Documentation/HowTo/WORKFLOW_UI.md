@@ -46,6 +46,16 @@ Bestätigung und führt ausschließlich die hinterlegten Cleanup-Pläne aus;
 persistente Data-Root-Inhalte und veröffentlichte Hyper-V-Images bleiben
 erhalten.
 
+## Namen in Runtime und Oberfläche
+
+Der frei wählbare Projektname ist zugleich der führende Teil der Runtime-Namen.
+Neue Docker- und Podman-Container heißen
+`projektname-instanz-runid`, reguläre Hyper-V-VMs `Projektname-RunId`.
+Die kurze Run-ID verhindert Kollisionen bei gleichen Projektnamen. Eine spätere
+Umbenennung aktualisiert Container beziehungsweise die ausgeschaltete Hyper-V-VM
+sowie Verbindungsdaten und Cleanup-Plan. Docker und Podman dürfen dabei laufen;
+eine Hyper-V-VM muss vorher gestoppt werden.
+
 ## Plattformen
 
 Die Oberfläche kann mit PowerShell 7 unter Windows und Linux gestartet werden.

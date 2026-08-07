@@ -292,7 +292,15 @@ function Invoke-SqlServerLabWorkflowAction {
             if ([string]::IsNullOrWhiteSpace($ManifestPath) -or -not (Test-Path -LiteralPath $ManifestPath -PathType Leaf)) { throw 'CONTAINER_WORKFLOW_MANIFEST_PATH_REQUIRED' }
             New-SqlServerLab -Manifest $ManifestPath -SaPassword $SaPassword
         }
-        'RenameLab' { Rename-LabRunDisplayName -RunId $BuildId -DisplayName $LabName }
+        'RenameLab' {
+            $run = Get-LabRunState -RunId $BuildId
+            if ([string]$run.metadata.workflowKind -eq 'hyperv-lab') {
+                Rename-HyperVLabEnvironment -RunId $BuildId -DisplayName $LabName
+            }
+            else {
+                Rename-ContainerLabEnvironment -RunId $BuildId -DisplayName $LabName
+            }
+        }
         'NewHyperVLab' {
             $lab = New-HyperVLabEnvironment -ArtifactId $ArtifactId -LabName $LabName -InstanceId $InstanceId -MemoryStartupMB $MemoryStartupMB -ProcessorCount $ProcessorCount -SwitchName $SwitchName
             if ($PersistentData) { $null = Enable-HyperVLabPersistentData -RunId $lab.RunId -DataRoot $DataRoot -SizeGB $PersistentDataDiskGB }
