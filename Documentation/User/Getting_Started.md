@@ -562,8 +562,8 @@ Ohne `switchName` verwendet der Manifestpfad den gespeicherten beziehungsweise
 verwalteten internen Hyper-V-Lab-Switch. Nach der unbeaufsichtigten OOBE erhält
 der Gast eine feste Lab-IP; SQL-TCP, eine auf den Host beschränkte Firewallregel
 und SQL-Authentifizierung werden eingerichtet. Der ausgegebene Host-Connection-
-String verwendet `sa`; dessen Passwort ist das bei der Bereitstellung gewählte
-Gast-Administratorpasswort und wird nicht im Klartext gespeichert.
+String verwendet `sa`; dessen Passwort kann bei der Bereitstellung bewusst
+eigenständig gesetzt werden und wird nicht im Klartext gespeichert.
 
 ### SQL Server Configuration Manager: WMI reparieren
 

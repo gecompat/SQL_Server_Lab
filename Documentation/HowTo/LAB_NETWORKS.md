@@ -72,9 +72,10 @@ ist dann aber nicht vom Host-SSMS erreichbar.
 
 Der vollständige Hostvertrag lautet: VM-Netzadapter am Internal-Switch,
 deterministische Gast-IP, SQL-TCP auf 1433, Firewall nur von der Host-IP und
-SQL-Authentifizierung. Der Connection String verwendet deshalb `sa` und das
-bei der Erstellung gewählte Gast-Administratorpasswort. Dieses Passwort wird
-nicht im Connection String oder Run-State im Klartext gespeichert.
+SQL-Authentifizierung. Der Connection String verwendet deshalb `sa` und einen
+neutralen Platzhalter für das gewählte SQL-SA-Passwort. Dieses Passwort kann
+bewusst vom Gast-Administratorpasswort abweichen und wird weder im Connection
+String noch im Run-State im Klartext gespeichert.
 
 Für ältere, bereits vorhandene VMs steht in Konsole und lokaler UI die Aktion
 **Host-SSMS einrichten** bereit. Sie verlangt das lokale Gast-Administrator-
