@@ -59,6 +59,16 @@ try {
         })
         $cache = Get-LabArtifactCacheEntry -Sha256 $sha256 -StateRoot $StateRoot -TestDataRoot $paths.TestDataRoot
 
+        $legacyPayloadPath = Join-Path $StateRoot 'legacy-artifact.bak'
+        [System.IO.File]::WriteAllBytes($legacyPayloadPath, [byte[]](0x4C, 0x45, 0x47, 0x41, 0x43, 0x59))
+        $legacySha256 = (Get-FileHash -LiteralPath $legacyPayloadPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        $legacySource = 'https://example.invalid/samples/legacy-artifact.bak'
+        $legacyDirectory = Join-Path $StateRoot "cache/artifacts/sha256/$legacySha256"
+        New-Item -Path $legacyDirectory -ItemType Directory -Force | Out-Null
+        Copy-Item -LiteralPath $legacyPayloadPath -Destination (Join-Path $legacyDirectory 'artifact.bak')
+        Write-LabArtifactJsonAtomic -Path (Join-Path $legacyDirectory 'metadata.json') -InputObject ([PSCustomObject]@{ source = $legacySource; sha256 = $legacySha256 })
+        $legacyResolution = Resolve-LabArtifact -Source $legacySource -ExpectedSha256 $legacySha256 -SampleId 'legacy-sample' -SampleVariant 'full' -Category 'migration' -NonInteractive -StateRoot $StateRoot -TestDataRoot $paths.TestDataRoot
+
         $runDirectory = Join-Path $StateRoot 'runs/test-run'
         New-Item -Path $runDirectory -ItemType Directory -Force | Out-Null
         $artifact = [PSCustomObject]@{
@@ -107,6 +117,8 @@ try {
             LibraryVisible = $cachedResolution.Path -like (Join-Path $paths.LibraryRoot '*') -and
                 (Test-Path -LiteralPath $cachedResolution.Path -PathType Leaf) -and
                 (Test-Path -LiteralPath (Join-Path (Split-Path -Parent $cachedResolution.Path) 'artifact.json') -PathType Leaf)
+            LegacyMigrationWorks = $legacyResolution.Status -eq 'ARTIFACT_READY' -and $legacyResolution.CacheStatus -eq 'HIT' -and
+                $legacyResolution.Path -like (Join-Path $paths.LibraryRoot '*') -and (Test-Path -LiteralPath $legacyResolution.Path -PathType Leaf)
             SevenZipTrustRequired = $sevenZipTrust.Status -eq 'TRUST_REQUIRED'
         }
     } $temporaryRoot
@@ -119,6 +131,7 @@ try {
     Add-CheckResult -Name 'Nicht interaktive Aufloesung ohne Hash endet mit TRUST_REQUIRED' -Success $result.TrustRequired
     Add-CheckResult -Name 'Bekannter Trust nutzt den verifizierten Content Cache' -Success $result.CacheResolutionReady
     Add-CheckResult -Name 'Verifizierte Artefakte werden sichtbar in der Testdaten-Bibliothek veröffentlicht' -Success $result.LibraryVisible
+    Add-CheckResult -Name 'Verifizierte Bestände aus dem alten State-Cache werden ohne Download übernommen' -Success $result.LegacyMigrationWorks
     Add-CheckResult -Name 'Katalogisierte .7z-Archive passieren den sicheren Artifact-Vertrag' -Success $result.SevenZipTrustRequired
 }
 catch {

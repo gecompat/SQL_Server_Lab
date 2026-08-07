@@ -284,7 +284,19 @@ function Get-LabArtifactCacheEntry {
     $metadataPath = Join-Path $directory 'metadata.json'
     if (-not (Test-Path -LiteralPath $artifactPath -PathType Leaf) -or
         -not (Test-Path -LiteralPath $metadataPath -PathType Leaf)) {
-        return $null
+        # Bestandsdaten aus früheren Versionen lagen unter StateRoot. Sie
+        # werden nicht verschoben oder gelöscht, aber bei der nächsten Nutzung
+        # hashgeprüft in die sichtbare Testdaten-Bibliothek übernommen.
+        $legacyDirectory = Join-Path (Join-Path $StateRoot 'cache/artifacts/sha256') $digest
+        $legacyArtifactPath = Join-Path $legacyDirectory 'artifact.bak'
+        $legacyMetadataPath = Join-Path $legacyDirectory 'metadata.json'
+        if (-not (Test-Path -LiteralPath $legacyArtifactPath -PathType Leaf) -or
+            -not (Test-Path -LiteralPath $legacyMetadataPath -PathType Leaf)) {
+            return $null
+        }
+        $directory = $legacyDirectory
+        $artifactPath = $legacyArtifactPath
+        $metadataPath = $legacyMetadataPath
     }
 
     $actualSha256 = (Get-FileHash -LiteralPath $artifactPath -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -298,6 +310,7 @@ function Get-LabArtifactCacheEntry {
         Path     = $artifactPath
         Sha256   = $digest
         Metadata = $metadata
+        IsLegacyStateCache = ($directory -notlike "$($paths.CacheRoot)*")
     }
 }
 

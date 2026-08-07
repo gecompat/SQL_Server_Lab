@@ -13,6 +13,9 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   werden nach Kategorie, Sample und Variante abgelegt und mit `artifact.json`
   dokumentiert; der technische SHA-256-Speicher liegt ebenfalls im Testdaten-
   Root, während State Root nur Staging, Trust und Quarantäne enthält.
+- vorhandene, verifizierte Testdaten aus dem bisherigen lokalen State-Cache
+  werden bei der nächsten Nutzung ohne erneuten Download in die sichtbare
+  Bibliothek übernommen; der alte Cache bleibt unverändert erhalten.
 
 - dynamische Windows-ISO-Erkennung für Windows Server und Windows-Client aus
   `install.wim`/`install.esd`, einschließlich lizenzierter und
