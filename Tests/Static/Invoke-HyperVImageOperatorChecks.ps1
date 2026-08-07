@@ -246,10 +246,11 @@ try {
         $menuText -match 'New-HyperVLabEnvironment' -and
         $menuText -match 'Open-HyperVLabEnvironmentConsole'
     )
-    Add-CheckResult -Name 'Reguläre Hyper-V-Labs bieten verfügbare Switches mit isolierter Auswahl an' -Success (
+    Add-CheckResult -Name 'Reguläre Hyper-V-Labs verwenden standardmäßig den verwalteten Switch und erlauben bewusste Isolation' -Success (
         $menuText -match 'function Select-LabHyperVVirtualSwitch' -and
         $menuText -match 'Get-VMSwitch -ErrorAction Stop' -and
-        $menuText -match '\[0\] Kein Switch = isoliert' -and
+        $menuText -match 'Verwalteter SQL_Server_Lab-Internal-Switch' -and
+        $menuText -match '\[0\] Kein Switch = bewusst isoliert' -and
         @($menuText | Select-String -Pattern 'Select-LabHyperVVirtualSwitch' -AllMatches).Matches.Count -ge 3
     )
     Add-CheckResult -Name 'Erfolgreiche Hyper-V-Laberstellung meldet den nächsten Schritt ohne ungültigen Inline-if-Aufruf' -Success (

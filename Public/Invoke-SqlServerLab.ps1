@@ -1818,8 +1818,8 @@ function Select-LabHyperVVirtualSwitch {
     .DESCRIPTION
         Die Switch-Liste wird erst unmittelbar vor der Lab-Erstellung gelesen,
         damit zwischenzeitlich neu angelegte oder entfernte Switches korrekt
-        berücksichtigt werden. Eine leere Auswahl bedeutet weiterhin eine
-        isolierte VM ohne Netzwerkadapter.
+        berücksichtigt werden. Die Standardauswahl verwendet den verwalteten
+        internen Lab-Switch; Isolation muss bewusst gewählt werden.
     #>
     [CmdletBinding()]
     param()
@@ -1832,25 +1832,22 @@ function Select-LabHyperVVirtualSwitch {
         return $null
     }
 
-    if ($switches.Count -eq 0) {
-        Write-LabInfo 'Keine virtuellen Hyper-V-Switches vorhanden. Die VM bleibt isoliert.'
-        return $null
-    }
-
     Write-Host ''
     Write-Host '  Virtueller Switch:' -ForegroundColor White
-    Write-Host '    [0] Kein Switch = isoliert' -ForegroundColor DarkGray
+    Write-Host '    [Enter] Verwalteter SQL_Server_Lab-Internal-Switch (empfohlen, Host-SSMS möglich)' -ForegroundColor Green
+    Write-Host '    [0] Kein Switch = bewusst isoliert' -ForegroundColor DarkGray
     for ($i = 0; $i -lt $switches.Count; $i++) {
         $switch = $switches[$i]
         Write-Host ("    [{0}] {1} · {2}" -f ($i + 1), $switch.Name, $switch.SwitchType) -ForegroundColor White
     }
-    $selection = Read-Host '  Virtuellen Switch auswählen [0]'
-    if (-not $selection -or $selection -eq '0') { return $null }
+    $selection = Read-Host '  Virtuellen Switch auswählen [Enter]'
+    if (-not $selection) { return [PSCustomObject]@{ SwitchName = $null; Isolated = $false } }
+    if ($selection -eq '0') { return [PSCustomObject]@{ SwitchName = $null; Isolated = $true } }
     if ($selection -notmatch '^\d+$' -or [int]$selection -lt 1 -or [int]$selection -gt $switches.Count) {
-        Write-LabWarning 'Ungültige Auswahl. Die VM bleibt isoliert.'
+        Write-LabWarning 'Ungültige Auswahl.'
         return $null
     }
-    return [string]$switches[[int]$selection - 1].Name
+    return [PSCustomObject]@{ SwitchName = [string]$switches[[int]$selection - 1].Name; Isolated = $false }
 }
 
 function New-LabHyperVEnvironmentInteractive {
@@ -1867,7 +1864,8 @@ function New-LabHyperVEnvironmentInteractive {
     if (-not $memory) { $memory = 4096 }
     $cpu = Read-Host '  vCPU [4]'
     if (-not $cpu) { $cpu = 4 }
-    $switchName = Select-LabHyperVVirtualSwitch
+    $switch = Select-LabHyperVVirtualSwitch
+    if (-not $switch) { return }
     $persistentData = $false
     $dataRoot = Get-LabDataRootDefault
     $persistentDataDiskGB = 128
@@ -1910,7 +1908,7 @@ function New-LabHyperVEnvironmentInteractive {
     Write-Host '  Es wird eine differenzierende VM erstellt, automatisch per Unattend.xml eingerichtet und anschließend mit SQL CompleteImage vervollständigt.' -ForegroundColor DarkGray
     if (-not (Read-LabConfirm -Prompt '  Hyper-V-Umgebung jetzt erstellen?' -Default $false)) { return }
     try {
-        $lab = New-HyperVLabEnvironment -ArtifactId $artifact.artifactId -LabName $name -InstanceId $instanceId -MemoryStartupMB ([int]$memory) -ProcessorCount ([int]$cpu) -SwitchName $switchName
+        $lab = New-HyperVLabEnvironment -ArtifactId $artifact.artifactId -LabName $name -InstanceId $instanceId -MemoryStartupMB ([int]$memory) -ProcessorCount ([int]$cpu) -SwitchName $switch.SwitchName -Isolated:$switch.Isolated
         if ($persistentData) {
             $null = Enable-HyperVLabPersistentData -RunId $lab.RunId -DataRoot $dataRoot -SizeGB ([int]$persistentDataDiskGB)
         }
@@ -1949,7 +1947,8 @@ function New-LabHyperVEnvironmentFromExistingVmInteractive {
     if (-not $memory) { $memory = $source.MemoryStartupMB }
     $cpu = Read-Host "  vCPU [$($source.ProcessorCount)]"
     if (-not $cpu) { $cpu = $source.ProcessorCount }
-    $switchName = Select-LabHyperVVirtualSwitch
+    $switch = Select-LabHyperVVirtualSwitch
+    if (-not $switch) { return }
     $persistentData = $false
     $dataRoot = Get-LabDataRootDefault
     $persistentDataDiskGB = 128
@@ -1964,7 +1963,7 @@ function New-LabHyperVEnvironmentFromExistingVmInteractive {
     Write-LabWarning 'Die Original-VM und ihre VHDX bleiben unverändert. Es wird eine eigene, schreibgeschützte Arbeitskopie als Parent erstellt.'
     if (-not (Read-LabConfirm -Prompt '  Lizenz- und Ablaufstatus der Quell-VM geprüft und Lab-VM erstellen?' -Default $false)) { return }
     try {
-        $lab = New-HyperVLabEnvironmentFromExistingVm -SourceVMName $source.VMName -LabName $name -InstanceId $instanceId -MemoryStartupMB ([int]$memory) -ProcessorCount ([int]$cpu) -SwitchName $switchName -ConfirmSourceLicense
+        $lab = New-HyperVLabEnvironmentFromExistingVm -SourceVMName $source.VMName -LabName $name -InstanceId $instanceId -MemoryStartupMB ([int]$memory) -ProcessorCount ([int]$cpu) -SwitchName $switch.SwitchName -Isolated:$switch.Isolated -ConfirmSourceLicense
         if ($persistentData) {
             $null = Enable-HyperVLabPersistentData -RunId $lab.RunId -DataRoot $dataRoot -SizeGB ([int]$persistentDataDiskGB)
         }
@@ -1985,7 +1984,7 @@ function Manage-LabHyperVEnvironmentInteractive {
             $lab = Get-HyperVLabWorkflowRun -RunId $runs[$i].runId
             $status = Get-HyperVInstanceStatus -VMName $lab.Instance.vmName -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
             Write-Host ("    [{0}] {1} · Live: {2} · Workflow: {3} · VM {4}" -f ($i + 1), $runs[$i].metadata.name, $status.State, $runs[$i].state, $lab.Instance.vmName) -ForegroundColor White
-            if ($lab.Instance.connectionString) { Write-Host "        Connection String (in VM): $($lab.Instance.connectionString)" -ForegroundColor DarkGray }
+            if ($lab.Instance.connectionString) { Write-Host "        Connection String (Host-SSMS): $($lab.Instance.connectionString)" -ForegroundColor DarkGray }
             if ($lab.Instance.persistentStorage) { Write-Host "        Persistente Daten: $($lab.Instance.persistentStorage.hostPath) [$($lab.Instance.persistentStorage.state)]" -ForegroundColor DarkGray }
         }
         catch { Write-Host ("    [{0}] {1} · {2}" -f ($i + 1), $runs[$i].metadata.name, $runs[$i].state) -ForegroundColor Yellow }
@@ -1993,7 +1992,7 @@ function Manage-LabHyperVEnvironmentInteractive {
     $selection = Read-Host '  Umgebung auswählen'
     if ($selection -notmatch '^\d+$' -or [int]$selection -lt 1 -or [int]$selection -gt $runs.Count) { Write-LabWarning 'Ungültige Auswahl.'; return }
     $runId = [string]$runs[[int]$selection - 1].runId
-    $action = Read-Host '  Aktion: [s]tarten, [v]mconnect, sto[p]pen, [d]aten-VHDX, [i]nitialisieren, [c]ompleteimage, SQL-[q] prüfen, [w]mi reparieren, [e]ntfernen'
+    $action = Read-Host '  Aktion: [s]tarten, [v]mconnect, sto[p]pen, [d]aten-VHDX, [i]nitialisieren, [c]ompleteimage, [h]ost-SSMS einrichten, SQL-[q] prüfen, [w]mi reparieren, [e]ntfernen'
     try {
         switch ($action) {
             's' { $result = Start-HyperVLabEnvironment -RunId $runId; Write-LabSuccess "VM gestartet: $($result.VMName)" }
@@ -2018,8 +2017,18 @@ function Manage-LabHyperVEnvironmentInteractive {
                 $userName = Read-Host '  Lokaler Gast-Administrator [Administrator]'
                 if (-not $userName) { $userName = 'Administrator' }
                 $credential = [PSCredential]::new($userName, (Read-Host '  Gastpasswort' -AsSecureString))
-                $result = Complete-HyperVLabSqlImage -RunId $runId -Credential $credential
+                $result = Complete-HyperVLabSqlImage -RunId $runId -Credential $credential -SqlSaPassword $credential.Password
                 Write-LabSuccess "SQL CompleteImage abgeschlossen. State: $($result.State)"
+            }
+            'h' {
+                $userName = Read-Host '  Lokaler Gast-Administrator [Administrator]'
+                if (-not $userName) { $userName = 'Administrator' }
+                $credential = [PSCredential]::new($userName, (Read-Host '  Gastpasswort (wird auch als neues SA-Passwort verwendet)' -AsSecureString))
+                $switch = Select-LabHyperVVirtualSwitch
+                if (-not $switch) { return }
+                if ($switch.Isolated) { throw 'HYPERV_LAB_HOST_SQL_REQUIRES_NETWORK' }
+                $result = Enable-HyperVLabHostSqlAccess -RunId $runId -Credential $credential -SqlSaPassword $credential.Password -SwitchName $switch.SwitchName
+                Write-LabSuccess "Host-SSMS bereit: $($result.ConnectionString)"
             }
             'q' {
                 $userName = Read-Host '  Lokaler Gast-Administrator [Administrator]'
@@ -2028,7 +2037,7 @@ function Manage-LabHyperVEnvironmentInteractive {
                 $instances = @(Inspect-HyperVLabSqlInstances -RunId $runId -Credential $credential)
                 foreach ($instance in $instances) {
                     Write-Host ("    {0} · Dienst {1} · TCP {2}" -f $instance.Name, $instance.ServiceStatus, $instance.TcpPort) -ForegroundColor White
-                    Write-Host "      Connection String (in VM): $($instance.ConnectionString)" -ForegroundColor DarkGray
+                    Write-Host "      Connection String: $($instance.ConnectionString)" -ForegroundColor DarkGray
                 }
             }
             'w' {

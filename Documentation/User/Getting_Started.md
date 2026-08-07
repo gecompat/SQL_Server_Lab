@@ -558,6 +558,13 @@ Katalogdatenbanken, beliebige Zusatzlaufwerke, Softwareinstallationen und
 Post-Provisioning-Skripte werden explizit abgelehnt, damit kein Manifest nur
 teilweise ausgeführt wird.
 
+Ohne `switchName` verwendet der Manifestpfad den gespeicherten beziehungsweise
+verwalteten internen Hyper-V-Lab-Switch. Nach der unbeaufsichtigten OOBE erhält
+der Gast eine feste Lab-IP; SQL-TCP, eine auf den Host beschränkte Firewallregel
+und SQL-Authentifizierung werden eingerichtet. Der ausgegebene Host-Connection-
+String verwendet `sa`; dessen Passwort ist das bei der Bereitstellung gewählte
+Gast-Administratorpasswort und wird nicht im Klartext gespeichert.
+
 ### SQL Server Configuration Manager: WMI reparieren
 
 `Invalid class [0x80041010]` bedeutet üblicherweise, dass der SQL-WMI-Provider

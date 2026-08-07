@@ -163,14 +163,14 @@ function renderHyperVArtifactDetails(items) {
 function renderHyperVSwitchOptions(items) {
   const select = $('#hyperv-switch');
   const previous = select.value;
-  select.innerHTML = '<option value="">Kein Switch = isoliert</option>' + (items || []).map((item) =>
+  select.innerHTML = '<option value="">SQL_Server_Lab-Standard (Host-SSMS möglich)</option>' + (items || []).map((item) =>
     '<option value="' + escapeHtml(item.Name) + '">' + escapeHtml(item.Name) + (item.Type ? ' · ' + escapeHtml(item.Type) : '') + '</option>'
   ).join('');
   if ((items || []).some((item) => item.Name === previous)) select.value = previous;
   const existingVmSelect = $('#hyperv-existing-vm-switch');
   if (existingVmSelect) {
     const existingPrevious = existingVmSelect.value;
-    existingVmSelect.innerHTML = '<option value="">Kein Switch = isoliert</option>' + (items || []).map((item) =>
+    existingVmSelect.innerHTML = '<option value="">SQL_Server_Lab-Standard (Host-SSMS möglich)</option>' + (items || []).map((item) =>
       '<option value="' + escapeHtml(item.Name) + '">' + escapeHtml(item.Name) + (item.Type ? ' · ' + escapeHtml(item.Type) : '') + '</option>'
     ).join('');
     if ((items || []).some((item) => item.Name === existingPrevious)) existingVmSelect.value = existingPrevious;
@@ -348,19 +348,20 @@ function renderHyperVLabs(items) {
     const sqlInstances = item.SqlInstances || [];
     const instanceDetails = sqlInstances.length
       ? '<div class="container-instance"><div class="build-meta"><strong>SQL-Instanzen in der VM</strong> · geprüft ' + escapeHtml(item.SqlInstancesInspectedAt || '–') + '</div>' + sqlInstances.map((instance) => {
-        const endpoint = instance.ConnectionString ? '<div class="build-meta connection-string"><strong>Connection String (in VM):</strong> <code>' + escapeHtml(instance.ConnectionString) + '</code></div>' : '';
+        const endpoint = instance.ConnectionString ? '<div class="build-meta connection-string"><strong>Connection String:</strong> <code>' + escapeHtml(instance.ConnectionString) + '</code></div>' : '';
         const port = instance.TcpPort ? ' · TCP ' + escapeHtml(instance.TcpPort) : '';
         return '<div class="build-meta">' + escapeHtml(instance.Name || instance.ServiceName || '–') + ' · Dienst ' + escapeHtml(instance.ServiceStatus || '–') + port + '</div>' + endpoint;
       }).join('') + '</div>'
       : '';
     const primaryConnection = item.ConnectionString && !sqlInstances.length
-      ? '<div class="build-meta connection-string"><strong>Connection String (in VM):</strong> <code>' + escapeHtml(item.ConnectionString) + '</code></div>'
+      ? '<div class="build-meta connection-string"><strong>Connection String (Host-SSMS):</strong> <code>' + escapeHtml(item.ConnectionString) + '</code></div>'
       : '';
     const actions = [
       '<button class="button secondary" data-hyperv-action="' + (running ? 'StopHyperVLab' : 'StartHyperVLab') + '" data-run="' + escapeHtml(item.RunId) + '">' + (running ? 'Stoppen' : 'Starten') + '</button>',
       (!running && !persistent) ? '<button class="button secondary" data-hyperv-action="EnableHyperVLabPersistentData" data-run="' + escapeHtml(item.RunId) + '">Daten-VHDX anhängen</button>' : '',
       (running && persistent?.state === 'ATTACHED_PENDING_INITIALIZATION') ? '<button class="button primary" data-hyperv-action="InitializeHyperVLabPersistentData" data-run="' + escapeHtml(item.RunId) + '">Daten-VHDX initialisieren</button>' : '',
       sqlNeedsCompletion ? '<button class="button primary" data-hyperv-action="CompleteHyperVLabSql" data-run="' + escapeHtml(item.RunId) + '">SQL CompleteImage ausführen</button>' : '',
+      running ? '<button class="button primary" data-hyperv-action="EnableHyperVLabHostSqlAccess" data-run="' + escapeHtml(item.RunId) + '">Host-SSMS einrichten</button>' : '',
       running ? '<button class="button secondary" data-hyperv-action="InspectHyperVLabSqlInstances" data-run="' + escapeHtml(item.RunId) + '">SQL-Instanzen prüfen</button>' : '',
       '<button class="button secondary" data-hyperv-action="OpenHyperVConsole" data-run="' + escapeHtml(item.RunId) + '">VMConnect öffnen</button>',
       '<button class="button secondary" data-lab-rename="true" data-run="' + escapeHtml(item.RunId) + '" data-name="' + escapeHtml(item.Name || item.RunId) + '">Name ändern</button>',
@@ -601,17 +602,20 @@ document.addEventListener('click', async (event) => {
   }
   const hypervAction = event.target.closest('[data-hyperv-action]');
   if (hypervAction) {
-    if (['CompleteHyperVLabSql', 'InspectHyperVLabSqlInstances', 'InitializeHyperVLabPersistentData'].includes(hypervAction.dataset.hypervAction)) {
+    if (['CompleteHyperVLabSql', 'EnableHyperVLabHostSqlAccess', 'InspectHyperVLabSqlInstances', 'InitializeHyperVLabPersistentData'].includes(hypervAction.dataset.hypervAction)) {
       const inspect = hypervAction.dataset.hypervAction === 'InspectHyperVLabSqlInstances';
       const initializePersistentData = hypervAction.dataset.hypervAction === 'InitializeHyperVLabPersistentData';
+      const hostSql = hypervAction.dataset.hypervAction === 'EnableHyperVLabHostSqlAccess';
       $('#credential-action').value = hypervAction.dataset.hypervAction;
       $('#credential-build').value = hypervAction.dataset.run;
-      $('#credential-title').textContent = initializePersistentData ? 'Daten-VHDX initialisieren' : (inspect ? 'SQL-Instanzen prüfen' : 'SQL CompleteImage');
+      $('#credential-title').textContent = initializePersistentData ? 'Daten-VHDX initialisieren' : (inspect ? 'SQL-Instanzen prüfen' : (hostSql ? 'Host-SSMS einrichten' : 'SQL CompleteImage'));
       $('#credential-note').textContent = initializePersistentData
         ? 'Das lokale Administratorpasswort wird einmalig benötigt, um ausschließlich den neu angehängten Lab-Datenträger als D:\\SQLData zu formatieren und einzubinden.'
         : inspect
         ? 'Das lokale Administratorpasswort wird einmalig für eine ausschließlich lesende Prüfung von SQL-Instanzen, Diensten und TCP-Ports in dieser laufenden Lab-VM benötigt.'
-        : 'Das lokale Administratorpasswort wird einmalig benötigt, um SQL Server in dieser laufenden Lab-VM zu vervollständigen.';
+        : hostSql
+        ? 'Der laufenden VM wird ein verbindlicher Lab-Switch, eine feste Gast-IP, SQL-TCP und eine auf diesen Host beschränkte Firewallregel eingerichtet. Das Passwort wird als SA-Passwort gesetzt und nicht gespeichert oder protokolliert.'
+        : 'Das lokale Administratorpasswort wird einmalig benötigt, um SQL Server in dieser laufenden Lab-VM zu vervollständigen. Es wird zugleich als SA-Passwort gesetzt.';
       $('#credential-dialog').showModal();
       return;
     }

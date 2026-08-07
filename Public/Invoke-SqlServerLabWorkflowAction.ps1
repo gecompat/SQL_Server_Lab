@@ -24,7 +24,8 @@ Name einer vorhandenen, ausgeschalteten Hyper-V-VM. Sie wird nur als
 unveränderte Quelle für eine run-lokale Arbeitskopie verwendet.
 .PARAMETER SwitchName
 Optionaler vorhandener virtueller Hyper-V-Switch für eine reguläre Hyper-V-
-Umgebung. Ohne Angabe bleibt die VM bewusst isoliert.
+Umgebung. Ohne Angabe wird der gespeicherte beziehungsweise verwaltete
+SQL_Server_Lab-Internal-Switch verwendet.
 .PARAMETER MediaRoot
     Externer Media Root für eine neue Windows- oder SQL-Vorbereitung.
 .PARAMETER DataRoot
@@ -131,7 +132,7 @@ function Invoke-SqlServerLabWorkflowAction {
             'SetMediaRoot', 'SetDataRoot',
             'NewContainerLab', 'CreateContainerManifest', 'NewContainerLabFromManifest', 'RenameLab', 'StartContainerLab', 'StopContainerLab', 'RestartContainerLab', 'RemoveContainerLab', 'ClearAllLabs',
             'CreateContainerDatabase', 'InstallContainerSampleDatabase', 'InstallContainerSampleDatabases', 'ExecuteContainerScript',
-            'NewHyperVLab', 'NewHyperVLabFromExistingVm', 'StartHyperVLab', 'StopHyperVLab', 'EnableHyperVLabPersistentData', 'InitializeHyperVLabPersistentData', 'CompleteHyperVLabSql', 'InspectHyperVLabSqlInstances', 'OpenHyperVConsole', 'RemoveHyperVLab',
+            'NewHyperVLab', 'NewHyperVLabFromExistingVm', 'StartHyperVLab', 'StopHyperVLab', 'EnableHyperVLabPersistentData', 'InitializeHyperVLabPersistentData', 'CompleteHyperVLabSql', 'EnableHyperVLabHostSqlAccess', 'InspectHyperVLabSqlInstances', 'OpenHyperVConsole', 'RemoveHyperVLab',
             'NewWindowsBuild', 'SetWindowsMediaHash', 'OpenWindowsConsole', 'ConfirmWindowsInstall', 'GeneralizeWindowsBuild', 'PublishWindowsBuild',
             'NewSqlBuild', 'NewSqlBuildFromBaseline', 'SetSqlMediaHash', 'OpenSqlConsole', 'ConfirmSqlWindowsInstall', 'PrepareSqlImage', 'ResumeSqlImage', 'PublishSqlImage',
             'RunSqlAcceptanceSetup', 'RunSqlAcceptanceTests',
@@ -276,6 +277,7 @@ function Invoke-SqlServerLabWorkflowAction {
         'StopHyperVLab' { 'Der saubere Stopp der Hyper-V-VM wird vorbereitet.' }
         'OpenHyperVConsole' { 'VMConnect wird vorbereitet.' }
         'CompleteHyperVLabSql' { 'SQL Server wird mit CompleteImage in der laufenden Lab-VM vervollständigt.' }
+        'EnableHyperVLabHostSqlAccess' { 'Hyper-V-Netz, SQL-TCP und die Host-SSMS-Verbindung werden eingerichtet und geprüft.' }
         'EnableHyperVLabPersistentData' { 'Eine langlebige Daten-VHDX wird für die ausgeschaltete Lab-VM vorbereitet.' }
         'InitializeHyperVLabPersistentData' { 'Der langlebige Daten-VHDX wird einmalig im laufenden Gast initialisiert.' }
         'InspectHyperVLabSqlInstances' { 'SQL-Instanzen, Dienste und TCP-Ports werden ausschließlich lesend in der laufenden Lab-VM geprüft.' }
@@ -333,7 +335,8 @@ function Invoke-SqlServerLabWorkflowAction {
         'StopHyperVLab' { Stop-HyperVLabEnvironment -RunId $BuildId }
         'EnableHyperVLabPersistentData' { Enable-HyperVLabPersistentData -RunId $BuildId -DataRoot $DataRoot -SizeGB $PersistentDataDiskGB }
         'InitializeHyperVLabPersistentData' { Initialize-HyperVLabPersistentData -RunId $BuildId -Credential $credential }
-        'CompleteHyperVLabSql' { Complete-HyperVLabSqlImage -RunId $BuildId -Credential $credential }
+        'CompleteHyperVLabSql' { Complete-HyperVLabSqlImage -RunId $BuildId -Credential $credential -SqlSaPassword $GuestPassword }
+        'EnableHyperVLabHostSqlAccess' { Enable-HyperVLabHostSqlAccess -RunId $BuildId -Credential $credential -SqlSaPassword $GuestPassword -SwitchName $SwitchName }
         'InspectHyperVLabSqlInstances' { Inspect-HyperVLabSqlInstances -RunId $BuildId -Credential $credential }
         'OpenHyperVConsole' { Open-HyperVLabEnvironmentConsole -RunId $BuildId }
         'RemoveHyperVLab' { Remove-SqlServerLab -RunId $BuildId -Force -Confirm:$false }
