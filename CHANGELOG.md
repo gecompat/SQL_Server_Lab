@@ -15,6 +15,9 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   Medien sichtbar statt sie zu verbergen. Ältere Windows-Server-1709-Medien
   werden über DISM-Edition und ISO-Namen zuverlässig der 2016er-Familie
   zugeordnet; nicht lesbare ISO-Dateien liefern ihren Fehlergrund sichtbar;
+- dynamische Medienauswahl gruppiert Windows Server und Windows Client nach
+  Produktfamilie, Version und Lizenztyp; Evaluation-Medien erscheinen getrennt
+  von regulären Medien in Konsole und Workflow-UI;
 - optionale 7-Zip-Unterstützung für katalogisierte `.7z`-Archive mit exakt
   einer `.bak`-Payload. Fehlt 7-Zip, wird es nie automatisch nachinstalliert;
   die Konsole bietet dafür nach ausdrücklicher Bestätigung eine lokale

@@ -93,7 +93,9 @@ Add-CheckResult -Name 'UI bietet erkannte Windows- und SQL-Medien ohne manuelle 
     $scriptText -match 'delete parameters\.SqlEdition' -and
     $scriptText -match 'function isSqlPreparedCompatibleWindowsMedia' -and
     $scriptText -match 'Erkannt – für SQL-Prepared derzeit nicht unterstützt' -and
-    $scriptText -match 'Nicht auswertbar – nicht verwendbar'
+    $scriptText -match 'Nicht auswertbar – nicht verwendbar' -and
+    $scriptText -match 'function windowsMediaGroup' -and
+    $scriptText -match 'Reguläre Medien'
 )
 Add-CheckResult -Name 'SQL-Prepared-Images verwenden standardmäßig frische Windows- und SQL-ISOs' -Success (
     $actionText -match 'NewSqlBuild' -and

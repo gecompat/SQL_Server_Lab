@@ -224,6 +224,33 @@ function isSqlPreparedCompatibleWindowsMedia(item) {
   return item.OperatingSystemId === 'windows-server-2025';
 }
 
+function windowsMediaGroup(item) {
+  const osId = String(item?.OperatingSystemId || 'unbekannt');
+  const serverMatch = /^windows-server-(\d+)$/i.exec(osId);
+  const clientMatch = /^windows-(\d+)$/i.exec(osId);
+  const osLabel = serverMatch ? ('Windows Server ' + serverMatch[1]) : (clientMatch ? ('Windows ' + clientMatch[1]) : osId);
+  const evaluation = /-evaluation$/i.test(String(item?.WindowsEdition || ''));
+  const versionSort = String(9999 - Number((serverMatch || clientMatch || [])[1] || 0)).padStart(4, '0');
+  return {
+    key: osId + '::' + (evaluation ? 'evaluation' : 'regular'),
+    label: osLabel + ' · ' + (evaluation ? 'Evaluation' : 'Reguläre Medien'),
+    sortKey: (serverMatch ? '0' : (clientMatch ? '1' : '9')) + '-' + versionSort + '::' + (evaluation ? '1' : '0')
+  };
+}
+
+function renderGroupedWindowsOptions(items, prefix, optionHtml) {
+  const groups = new Map();
+  (items || []).forEach((item) => {
+    const group = windowsMediaGroup(item);
+    if (!groups.has(group.key)) groups.set(group.key, { ...group, items: [] });
+    groups.get(group.key).items.push(item);
+  });
+  return [...groups.values()].sort((left, right) => left.sortKey.localeCompare(right.sortKey)).map((group) =>
+    '<optgroup label="' + escapeHtml(prefix ? (prefix + ' · ' + group.label) : group.label) + '">'
+      + group.items.map(optionHtml).join('') + '</optgroup>'
+  ).join('');
+}
+
 function renderWindowsInstallationMedia(items, sqlCompatibleOnly = false) {
   const select = $('#windows-media');
   const previous = select.value;
@@ -235,8 +262,8 @@ function renderWindowsInstallationMedia(items, sqlCompatibleOnly = false) {
   const unrecognized = (items || []).filter((item) => item.State !== 'READY');
   const unrecognizedHtml = unrecognized.map((item) => '<option disabled value="">' + escapeHtml(item.MediaId) + ' · nicht auswertbar: ' + escapeHtml(item.Message || 'Unbekannter Fehler') + '</option>').join('');
   select.innerHTML = '<option value="">Windows-Installationsmedium auswählen …</option>'
-    + (ready.length ? '<optgroup label="Für diesen Build verfügbar">' + ready.map((item) => optionHtml(item)).join('') + '</optgroup>' : '')
-    + (unsupported.length ? '<optgroup label="Erkannt – für SQL-Prepared derzeit nicht unterstützt">' + unsupported.map((item) => optionHtml(item, true)).join('') + '</optgroup>' : '')
+    + (ready.length ? renderGroupedWindowsOptions(ready, sqlCompatibleOnly ? 'Für diesen Build verfügbar' : '', (item) => optionHtml(item)) : '')
+    + (unsupported.length ? renderGroupedWindowsOptions(unsupported, 'Erkannt – für SQL-Prepared derzeit nicht unterstützt', (item) => optionHtml(item, true)) : '')
     + (unrecognizedHtml ? '<optgroup label="Nicht auswertbar – nicht verwendbar">' + unrecognizedHtml + '</optgroup>' : '');
   if (ready.some((item) => windowsMediaSelectionKey(item) === previous)) select.value = previous;
   updateWindowsMediaSelection();
