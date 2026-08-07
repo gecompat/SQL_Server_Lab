@@ -122,6 +122,10 @@ function New-SqlServerLab {
     .PARAMETER PersistentData
         Bindet /var/opt/mssql der neu erstellten Docker- oder Podman-Instanz
         als Host-Bind-Mount im Data Root ein.
+    .PARAMETER GuestPassword
+        Optionales lokales Administratorpasswort für eine Hyper-V-Manifest-
+        Bereitstellung. Der Wert wird nur run-lokal DPAPI-geschützt abgelegt.
+        Ohne Angabe folgt die sichere Passwortstrategie aus dem Manifest.
     .PARAMETER SkipAssessment
         Ueberspringt das Resource Assessment vor der Provisionierung. Die
         spaeteren Provider- und SQL-Pruefungen bleiben aktiv.
@@ -183,6 +187,7 @@ function New-SqlServerLab {
         [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9 _-]{0,63}$')][string]$LabName,
         [string]$DataRoot,
         [switch]$PersistentData,
+        [SecureString]$GuestPassword,
         [switch]$SkipAssessment
     )
 
@@ -246,6 +251,11 @@ function New-SqlServerLab {
         }
     }
 
+    if ($PSCmdlet.ParameterSetName -eq 'Manifest' -and $resolved.persistentData.enabled) {
+        $PersistentData = $true
+        if (-not $DataRoot -and $resolved.persistentData.dataRoot) { $DataRoot = $resolved.persistentData.dataRoot }
+    }
+
     if ($PersistentData) {
         if (-not $DataRoot) { $DataRoot = Get-LabDataRootDefault }
         if (-not $DataRoot) { throw 'LAB_DATA_ROOT_REQUIRED: PersistentData benötigt einen konfigurierten Data Root.' }
@@ -255,6 +265,61 @@ function New-SqlServerLab {
     Write-LabInfo "Umgebung: $($resolved.name) ($($resolved.instances.Count) Instanz(en))"
 
     $providers = @($resolved.instances | ForEach-Object { $_.provider } | Sort-Object -Unique)
+
+    # Ein Manifest kann eine reguläre Hyper-V-Lab-VM vollständig aus einem
+    # bereits veröffentlichten SQL-Prepared-Image bereitstellen. Image-Builds
+    # selbst bleiben absichtlich außerhalb des Manifests, damit keine ISO- oder
+    # Passwortdetails in der deklarativen Labbeschreibung landen.
+    if ($providers.Count -eq 1 -and $providers[0] -eq 'hyperv') {
+        if ($resolved.instances.Count -ne 1) { throw 'HYPERV_MANIFEST_SINGLE_INSTANCE_REQUIRED' }
+        $instance = $resolved.instances[0]
+        if (-not $instance.hyperv -or -not $instance.hyperv.preparedImageId) { throw 'HYPERV_MANIFEST_PREPARED_IMAGE_REQUIRED' }
+        $artifact = Get-HyperVImageArtifact -ArtifactId ([string]$instance.hyperv.preparedImageId) -StateRoot $StateRoot
+        if (-not $artifact -or [string]$artifact.artifactState -ne 'SQL_PREPARED_SEALED') { throw 'HYPERV_MANIFEST_SQL_PREPARED_IMAGE_REQUIRED' }
+        if ([string]$artifact.sql.version -ne [string]$instance.version) {
+            throw "HYPERV_MANIFEST_SQL_VERSION_MISMATCH: Manifest $($instance.version), Image $($artifact.sql.version)"
+        }
+
+        $passwordSource = if ($GuestPassword) { 'user' } elseif ([string]$instance.hyperv.guestPasswordMode -eq 'prompt') { 'user' } else { 'generated' }
+        if (-not $GuestPassword -and $passwordSource -eq 'generated') {
+            $GuestPassword = New-HyperVSqlUnattendedPassword
+            $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($GuestPassword)
+            try {
+                Write-LabWarning "Einmaliges Gast-Administratorpasswort für diese Manifestbereitstellung: $([System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr))"
+            }
+            finally { [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
+        }
+        elseif (-not $GuestPassword) {
+            $first = Read-Host '  Gastpasswort für Administrator' -AsSecureString
+            $second = Read-Host '  Gastpasswort bestätigen' -AsSecureString
+            $firstBstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($first)
+            $secondBstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($second)
+            try {
+                if ([System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($firstBstr) -cne [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($secondBstr)) {
+                    throw 'HYPERV_MANIFEST_GUEST_PASSWORD_MISMATCH'
+                }
+                $GuestPassword = $first
+            }
+            finally {
+                [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($firstBstr)
+                [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($secondBstr)
+            }
+        }
+
+        $lab = New-HyperVLabEnvironment -ArtifactId ([string]$artifact.artifactId) -LabName ([string]$resolved.name) -InstanceId ([string]$instance.id) `
+            -MemoryStartupMB ([int]$instance.hyperv.memoryStartupMB) -ProcessorCount ([int]$instance.hyperv.processorCount) `
+            -SwitchName ([string]$instance.hyperv.switchName) -StateRoot $StateRoot
+        $hyperVLab = Get-HyperVLabWorkflowRun -RunId $lab.RunId -StateRoot $StateRoot
+        if ($PersistentData) {
+            $null = Enable-HyperVLabPersistentData -RunId $lab.RunId -DataRoot $DataRoot -SizeGB ([int]$resolved.persistentData.dataDiskGB) -StateRoot $hyperVLab.StateRoot
+        }
+        $provisioning = Invoke-HyperVLabUnattendedProvision -RunId $lab.RunId -AdministratorPassword $GuestPassword -PasswordSource $passwordSource -StateRoot $hyperVLab.StateRoot
+        return [PSCustomObject]@{
+            RunId = $lab.RunId; ScopeId = $lab.ScopeId; State = 'RUNNING'; Name = $resolved.name; Instances = @($hyperVLab.Instance)
+            StateRoot = $hyperVLab.StateRoot; DataRoot = if ($PersistentData) { $DataRoot } else { $null }; Provisioning = $provisioning
+        }
+    }
+
     $notImplementedProviders = @($providers | Where-Object { $_ -notin @('docker', 'podman') })
     if ($notImplementedProviders.Count -gt 0) {
         throw "Provider nicht implementiert: $($notImplementedProviders -join ', ')."

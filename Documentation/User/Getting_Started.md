@@ -432,7 +432,7 @@ aktuell implementierten Runtime-Defaults auf. Zu den wichtigsten gehören:
 
 | Manifestfeld | Effektiver Framework-Default bei fehlender Angabe |
 |---|---|
-| `instances[].provider` | automatische Auswahl: normalerweise `docker`; `hyperv` besitzt Lifecycle und Image-Registry, wird aber noch nicht als SQL-fertiger Manifestpfad provisioniert |
+| `instances[].provider` | automatische Auswahl: normalerweise `docker`; `hyperv` benötigt explizit `os: "windows"` und einen `hyperv.preparedImageId`-Verweis |
 | `instances[].os` | `linux` |
 | `instances[].profile` | `standard` |
 | `instances[].collation` | `SQL_Latin1_General_CP1_CS_AS` |
@@ -507,6 +507,65 @@ $lab = New-SqlServerLab -Manifest '.\mein-lab.json'
 ```
 
 Relative Pfade für lokale Restore-Dateien, `hostPath` und `postProvision` werden relativ zum Manifest-Verzeichnis aufgelöst.
+
+### Hyper-V aus einem Prepared-Image bereitstellen
+
+Der Manifestpfad für Hyper-V erstellt bewusst **keinen** Windows- oder
+SQL-Image-Build. Er referenziert ein bereits veröffentlichtes,
+unveränderliches `SQL_PREPARED_SEALED`-Artifact und erzeugt daraus eine neue
+differenzierende VM. So ist die Bereitstellung reproduzierbar und ohne
+manuelle OOBE möglich.
+
+```json
+{
+  "$schema": "./Schemas/lab-manifest.schema.json",
+  "name": "projekt-sql-2025",
+  "persistentData": {
+    "enabled": true,
+    "dataRoot": "D:\\Lab_Data",
+    "dataDiskGB": 128
+  },
+  "instances": [
+    {
+      "id": "primary",
+      "version": "2025",
+      "provider": "hyperv",
+      "os": "windows",
+      "hyperv": {
+        "preparedImageId": "hyperv-sql-prepared-sealed-<Artifact-SHA-256>",
+        "switchName": "SQL_LAB_HYPERV",
+        "memoryStartupMB": 4096,
+        "processorCount": 4,
+        "guestPasswordMode": "generated"
+      }
+    }
+  ]
+}
+```
+
+`preparedImageId` wird aus **Hyper-V Windows-Image verwalten** übernommen.
+`guestPasswordMode: "generated"` zeigt beim Start einmalig ein zufälliges
+Passwort an; `"prompt"` fragt es sicher ab. Ein Klartextpasswort gehört nie in
+die Manifestdatei. Die Antwortdatei wird nur in die neue Child-VHDX injiziert,
+anschließend aus dem Gast entfernt und das Passwort pro Run DPAPI-geschützt
+gespeichert.
+
+`persistentData` ist optional. Bei Hyper-V wird für genau diese Lab-VM eine
+eigene dynamische Daten-VHDX im Data Root erstellt; andere Klone verwenden sie
+nicht. Der Data Root muss vorher initialisiert sein. Ein Hyper-V-Manifest
+unterstützt derzeit genau eine Instanz und keine Mischung mit Containern.
+Katalogdatenbanken, beliebige Zusatzlaufwerke, Softwareinstallationen und
+Post-Provisioning-Skripte werden explizit abgelehnt, damit kein Manifest nur
+teilweise ausgeführt wird.
+
+### SQL Server Configuration Manager: WMI reparieren
+
+`Invalid class [0x80041010]` bedeutet üblicherweise, dass der SQL-WMI-Provider
+nicht registriert ist. Neue Prepared-Image-Klone prüfen ihn nach
+`CompleteImage` automatisch. Für bereits vorhandene, laufende Hyper-V-Labs
+steht unter **Hyper-V-Umgebungen verwalten** die Aktion `[w]mi reparieren` zur
+Verfügung. Sie kompiliert ausschließlich die lokale passende SQL-MOF-Datei und
+startet den WMI-Dienst im Gast neu.
 
 ## 12. Manifest-Restore
 

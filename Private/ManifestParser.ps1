@@ -292,6 +292,7 @@ function Resolve-ManifestDefaults {
             serverConfig  = $null
             software      = @()
             postProvision = @()
+            hyperv        = $null
         }
 
         if (-not $instance.provider) {
@@ -415,7 +416,25 @@ function Resolve-ManifestDefaults {
             }
         }
 
+        if ($instance.hyperv) {
+            $resolved.hyperv = [PSCustomObject]@{
+                preparedImageId   = [string]$instance.hyperv.preparedImageId
+                switchName        = [string]$instance.hyperv.switchName
+                memoryStartupMB   = if ($instance.hyperv.memoryStartupMB) { [int]$instance.hyperv.memoryStartupMB } else { 4096 }
+                processorCount    = if ($instance.hyperv.processorCount) { [int]$instance.hyperv.processorCount } else { 4 }
+                guestPasswordMode = if ($instance.hyperv.guestPasswordMode) { [string]$instance.hyperv.guestPasswordMode } else { 'generated' }
+            }
+        }
+
         $resolvedInstances += $resolved
+    }
+
+    $persistentDataRoot = if ($Manifest.persistentData -and $Manifest.persistentData.dataRoot) {
+        [string]$Manifest.persistentData.dataRoot
+    }
+    else { $null }
+    if ($persistentDataRoot -and -not [System.IO.Path]::IsPathRooted($persistentDataRoot)) {
+        $persistentDataRoot = Join-Path $manifestDirectory $persistentDataRoot
     }
 
     return [PSCustomObject]@{
@@ -423,6 +442,11 @@ function Resolve-ManifestDefaults {
         description       = $Manifest.description
         instances         = $resolvedInstances
         resourceOverrides = $Manifest.resourceOverrides
+        persistentData    = [PSCustomObject]@{
+            enabled    = [bool]($Manifest.persistentData -and $Manifest.persistentData.enabled -eq $true)
+            dataRoot   = $persistentDataRoot
+            dataDiskGB = if ($Manifest.persistentData -and $Manifest.persistentData.dataDiskGB) { [int]$Manifest.persistentData.dataDiskGB } else { 128 }
+        }
         manifestPath      = $ManifestPath
     }
 }
