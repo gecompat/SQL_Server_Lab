@@ -2021,7 +2021,29 @@ function Manage-LabHyperVEnvironmentInteractive {
     $selection = Read-Host '  Umgebung auswählen'
     if ($selection -notmatch '^\d+$' -or [int]$selection -lt 1 -or [int]$selection -gt $runs.Count) { Write-LabWarning 'Ungültige Auswahl.'; return }
     $runId = [string]$runs[[int]$selection - 1].runId
-    $action = Read-Host '  Aktion: [s]tarten, [v]mconnect, sto[p]pen, [d]aten-VHDX, [i]nitialisieren, [c]ompleteimage, [h]ost-SSMS einrichten, SQL-[q] prüfen, [w]mi reparieren, [e]ntfernen'
+    Write-Host ''
+    Write-Host '  Aktion auswählen:' -ForegroundColor White
+    Write-Host '    [s] VM starten' -ForegroundColor Yellow
+    Write-Host '        Startet die ausgewählte, ausgeschaltete Lab-VM.' -ForegroundColor DarkGray
+    Write-Host '    [v] VMConnect öffnen' -ForegroundColor White
+    Write-Host '        Öffnet die lokale VM-Konsole für sichtbare Windows-Arbeiten.' -ForegroundColor DarkGray
+    Write-Host '    [p] VM stoppen' -ForegroundColor White
+    Write-Host '        Fährt die Lab-VM sauber herunter; Image und Daten bleiben erhalten.' -ForegroundColor DarkGray
+    Write-Host '    [d] Daten-VHDX anhängen' -ForegroundColor White
+    Write-Host '        Erstellt eine eigene langlebige Datenplatte im Data Root und hängt sie an.' -ForegroundColor DarkGray
+    Write-Host '    [i] Daten-VHDX initialisieren' -ForegroundColor White
+    Write-Host '        Formatiert ausschließlich die neu angehängte Lab-Datenplatte als D:\SQLData.' -ForegroundColor DarkGray
+    Write-Host '    [c] SQL CompleteImage ausführen' -ForegroundColor Yellow
+    Write-Host '        Vervollständigt SQL Server im Klon. Erforderlich, wenn MSSQLSERVER noch fehlt.' -ForegroundColor DarkGray
+    Write-Host '    [h] Host-SSMS einrichten' -ForegroundColor Yellow
+    Write-Host '        Richtet Labnetz, feste Gast-IP, SQL-TCP und die Host-Verbindung mit SA ein.' -ForegroundColor DarkGray
+    Write-Host '    [q] SQL-Instanzen prüfen' -ForegroundColor White
+    Write-Host '        Liest Dienste, Instanzen und TCP-Ports aus; verändert die VM nicht.' -ForegroundColor DarkGray
+    Write-Host '    [w] SQL-WMI reparieren' -ForegroundColor White
+    Write-Host '        Repariert den SQL-WMI-Provider – nur bei Fehlern im SQL Configuration Manager.' -ForegroundColor DarkGray
+    Write-Host '    [e] Umgebung entfernen' -ForegroundColor Red
+    Write-Host '        Löscht VM und run-lokale differenzierende VHDX nach Bestätigung.' -ForegroundColor DarkGray
+    $action = Read-Host '  Aktion (Buchstabe)'
     try {
         switch ($action) {
             's' { $result = Start-HyperVLabEnvironment -RunId $runId; Write-LabSuccess "VM gestartet: $($result.VMName)" }

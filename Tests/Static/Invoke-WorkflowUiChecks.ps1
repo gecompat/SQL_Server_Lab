@@ -246,6 +246,13 @@ Add-CheckResult -Name 'Konsole spiegelt Data-VHDX, SQL-CompleteImage, WMI-Repara
     $consoleText -match 'Enable-HyperVLabHostSqlAccess' -and
     $consoleText -match 'Connection String \(Host-SSMS\)'
 )
+Add-CheckResult -Name 'Konsolenaktionen für Hyper-V-Labs werden einzeln mit Zweck erklärt' -Success (
+    $consoleText -match "Write-Host '    \[s\] VM starten'" -and
+    $consoleText -match "Write-Host '    \[c\] SQL CompleteImage ausführen'" -and
+    $consoleText -match "Write-Host '    \[h\] Host-SSMS einrichten'" -and
+    $consoleText -match 'Erforderlich, wenn MSSQLSERVER noch fehlt' -and
+    $consoleText -match 'Formatiert ausschließlich die neu angehängte Lab-Datenplatte'
+)
 Add-CheckResult -Name 'UI bietet einen getrennten, sicheren Schnellstart aus vorhandener Windows-VM' -Success (
     $hyperVLabText -match 'Get-HyperVExistingVmLabSource' -and
     $hyperVLabText -match 'New-HyperVLabEnvironmentFromExistingVm' -and
