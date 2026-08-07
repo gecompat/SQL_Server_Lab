@@ -1350,14 +1350,14 @@ function Show-LabHyperVSqlManualInstructions {
         $typeLabel = if ([string]$Build.operatingSystem.installationType -eq 'core') { 'Server Core Installation' } else { 'Desktop Experience' }
         Write-Host "    2. Im Windows-Setup exakt '$editionLabel ($typeLabel)' auswählen und OOBE abschließen." -ForegroundColor White
         Write-Host '    3. Lokales Administratorpasswort setzen und einmal anmelden.' -ForegroundColor White
-        Write-Host '    4. Zurueck im Image-Menue Aktion 10 waehlen: SQL PrepareImage und genau ein finaler Windows-Sysprep.' -ForegroundColor White
-        Write-Host '  Die zweite DVD enthaelt bereits die verifizierte SQL-ISO; sie wird von Aktion 10 verwendet.' -ForegroundColor DarkGray
+        Write-Host '    4. Im Untermenü „Prepared-Image-Builder fortsetzen“ „SQL PrepareImage und finalen Sysprep ausführen“ wählen.' -ForegroundColor White
+        Write-Host '  Die zweite DVD enthält bereits die verifizierte SQL-ISO; sie wird von diesem Schritt verwendet.' -ForegroundColor DarkGray
         return
     }
     Write-Host '  SQL-Prepared-Image aus OS-Baseline:' -ForegroundColor Yellow
     Write-Host "    VM: $($Build.builder.vmName)" -ForegroundColor White
     Write-Host '    1. VMConnect öffnen, die kurze OOBE der OS-Baseline abschließen und lokales Administratorpasswort setzen.' -ForegroundColor White
-    Write-Host '    2. Zurück im Image-Menü Aktion 10 wählen: SQL PrepareImage und genau ein finaler Windows-Sysprep.' -ForegroundColor White
+    Write-Host '    2. Im Untermenü „Prepared-Image-Builder fortsetzen“ „SQL PrepareImage und finalen Sysprep ausführen“ wählen.' -ForegroundColor White
     Write-Host '  Windows wird nicht erneut installiert: Die OS-Baseline bleibt unverändert, der Builder verwendet nur eine eigene differenzierende VHDX.' -ForegroundColor DarkGray
 }
 
@@ -1577,7 +1577,7 @@ function Confirm-LabHyperVSqlWindowsInstallationInteractive {
     $credential = [PSCredential]::new($userName, $password)
     try {
         $confirmed = Confirm-HyperVSqlFreshWindowsInstallation -Build $build -Credential $credential
-        Write-LabSuccess ("Windows bestätigt: {0} / {1}. Jetzt Aktion 10 für SQL PrepareImage wählen." -f $confirmed.operatingSystem.edition, $confirmed.operatingSystem.installationType)
+        Write-LabSuccess ("Windows bestätigt: {0} / {1}. Jetzt im Builder-Untermenü SQL PrepareImage und finalen Sysprep ausführen wählen." -f $confirmed.operatingSystem.edition, $confirmed.operatingSystem.installationType)
     }
     catch { Write-LabError $_.Exception.Message }
 }
@@ -1598,10 +1598,10 @@ function Invoke-LabHyperVSqlPrepareInteractive {
     try {
         $result = Invoke-HyperVSqlPrepareAndGeneralize -BuildId $build.buildId -Credential $credential
         if ($result.state -eq 'REBOOT_REQUIRED') {
-            Write-LabInfo 'SQL Setup hat einen Neustart angefordert. Naechster Schritt: [9] booten, danach [10] erneut ausfuehren.'
+            Write-LabInfo 'SQL Setup hat einen Neustart angefordert. Im Builder-Untermenü die VM erneut starten und danach „SQL PrepareImage und finalen Sysprep ausführen“ wiederholen.'
         }
         elseif ($result.state -eq 'RESUME_PENDING') {
-            Write-LabSuccess 'SQL PrepareImage und Sysprep sind fertig. Naechster Schritt: [11] Prepared-Image veroeffentlichen.'
+            Write-LabSuccess 'SQL PrepareImage und Sysprep sind fertig. Nächster Schritt: Im Builder-Untermenü „Prepared-Image veröffentlichen“ wählen.'
         }
         else { Write-LabInfo "SQL-Schritt beendet. Naechster Schritt: $(Get-LabHyperVSqlImageNextStep -Build $result)" }
     }
@@ -1699,7 +1699,7 @@ function Resume-LabHyperVSqlPreparedImageGeneralizationInteractive {
     if (-not (Read-LabConfirm -Prompt '  Offline-Wiederaufnahme jetzt ausfuehren?' -Default $false)) { return }
     try {
         $result = Resume-HyperVSqlPreparedImageGeneralization -BuildId $build.buildId
-        Write-LabSuccess "Generalisierung offline verifiziert. State: $($result.state). Als Naechstes Aktion 11 waehlen."
+        Write-LabSuccess "Generalisierung offline verifiziert. State: $($result.state). Als Nächstes im Builder-Untermenü Prepared-Image veröffentlichen wählen."
     }
     catch { Write-LabError $_.Exception.Message }
 }
@@ -1714,7 +1714,7 @@ function Invoke-LabHyperVSqlAcceptanceInstallInteractive {
     ) -RequireExistingVm
     if (-not $build) { return }
     if ([string]$build.provisioningMode -eq 'fresh-windows-media') {
-        Write-LabInfo 'Dieser frische Builder ist fuer SQL PrepareImage bestimmt. Zuerst Windows manuell installieren, dann Aktion 10 waehlen.'
+        Write-LabInfo 'Dieser frische Builder ist für SQL PrepareImage bestimmt. Zuerst Windows manuell installieren, dann im Builder-Untermenü „SQL PrepareImage und finalen Sysprep ausführen“ wählen.'
         return
     }
     Write-Host ("  Ziel: SQL {0} | VM {1}" -f $build.sql.version, $build.builder.vmName) -ForegroundColor White
