@@ -7,6 +7,13 @@ const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => 
 const shortId = (value) => value ? String(value).slice(0, 12) + '…' : '–';
 const safeExternalUrl = (value) => /^https:\/\//i.test(String(value || '')) ? String(value) : '';
 
+function formatOperatingSystem(value) {
+  const operatingSystem = String(value || 'Windows');
+  if (/^windows-server-\d+$/i.test(operatingSystem)) return 'Windows Server ' + operatingSystem.replace(/^windows-server-/i, '');
+  if (/^windows-\d+$/i.test(operatingSystem)) return 'Windows ' + operatingSystem.replace(/^windows-/i, '');
+  return operatingSystem;
+}
+
 function statusClass(state) {
   if (['OS_SEALED', 'SQL_PREPARED_SEALED', 'TESTS_PASSED'].includes(state)) return 'done';
   if (state === 'FAILED') return 'failed';
@@ -92,8 +99,8 @@ function acceptanceActions(item) {
 function renderBuilds(target, kind, items) {
   $(target).innerHTML = items.length ? items.map((item) => {
     const generatedTitle = kind === 'sql'
-      ? 'Windows ' + escapeHtml(item.OperatingSystem.replace('windows-server-', 'Server ')) + ' · SQL Server ' + escapeHtml(item.SqlVersion)
-      : escapeHtml(item.OperatingSystem.replace('windows-server-', 'Windows Server '));
+      ? escapeHtml(formatOperatingSystem(item.OperatingSystem)) + ' · SQL Server ' + escapeHtml(item.SqlVersion)
+      : escapeHtml(formatOperatingSystem(item.OperatingSystem));
     const title = item.DisplayName ? escapeHtml(item.DisplayName) : generatedTitle;
     const metadata = kind === 'sql'
       ? escapeHtml(item.WindowsEdition + ' · ' + item.InstallationType + ' · ' + item.SqlEdition)
@@ -133,9 +140,9 @@ function renderHyperVArtifactOptions(items) {
 function renderSqlParentOptions(items) {
   const select = $('#sql-parent-artifact');
   const previous = select.value;
-  const compatible = (items || []).filter((item) => item.OperatingSystem === 'windows-server-2025');
+  const compatible = (items || []).filter((item) => /^windows-(server-)?\d+$/i.test(String(item.OperatingSystem || '')));
   select.innerHTML = '<option value="">OS-Baseline auswählen …</option>' + compatible.map((item) =>
-    '<option value="' + escapeHtml(item.ArtifactId) + '">' + escapeHtml(item.DisplayName || ('Windows Server 2025 · ' + item.Edition + ' · ' + item.InstallationType)) + ' · ' + escapeHtml(shortId(item.ArtifactId)) + '</option>'
+    '<option value="' + escapeHtml(item.ArtifactId) + '">' + escapeHtml(item.DisplayName || (formatOperatingSystem(item.OperatingSystem) + ' · ' + item.Edition + ' · ' + item.InstallationType)) + ' · ' + escapeHtml(shortId(item.ArtifactId)) + '</option>'
   ).join('');
   if (compatible.some((item) => item.ArtifactId === previous)) select.value = previous;
   renderSqlParentDetails(compatible);
@@ -145,7 +152,7 @@ function renderSqlParentDetails(items) {
   const selected = (items || []).find((item) => item.ArtifactId === $('#sql-parent-artifact').value);
   const target = $('#sql-parent-details');
   target.textContent = selected
-    ? 'Windows Server 2025 · ' + selected.Edition + ' · ' + selected.InstallationType + ' · Parent bleibt unverändert · Artifact: ' + selected.ArtifactId
+    ? formatOperatingSystem(selected.OperatingSystem) + ' · ' + selected.Edition + ' · ' + selected.InstallationType + ' · Parent bleibt unverändert · Artifact: ' + selected.ArtifactId
     : 'Die OS-Baseline bleibt unverändert; der SQL-Builder erhält eine eigene differenzierende VHDX.';
 }
 
@@ -221,7 +228,7 @@ function renderSqlInstallationMedia(items) {
 }
 
 function isSqlPreparedCompatibleWindowsMedia(item) {
-  return item.OperatingSystemId === 'windows-server-2025';
+  return /^windows-(server-)?\d+$/i.test(String(item?.OperatingSystemId || ''));
 }
 
 function windowsMediaGroup(item) {
