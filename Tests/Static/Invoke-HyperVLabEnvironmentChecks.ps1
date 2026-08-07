@@ -24,6 +24,7 @@ try {
                 sql = [PSCustomObject]@{ version = '2025'; edition = 'Enterprise' }
             }
         }
+        function Get-HyperVLabVMs { @() }
         function New-HyperVInstance {
             [PSCustomObject]@{ VMName = 'sql-lab-primary-mock'; VMId = 'mock-vm-id' }
         }
@@ -38,6 +39,15 @@ try {
     )
     $runtimeName = & $module { Get-HyperVLabRuntimeName -LabName 'Mein SQL Lab' -RunId '12345678-0000-0000-0000-000000000000' }
     Add-CheckResult -Name 'Hyper-V-Runtime-Name zeigt Projektnamen und eindeutiges Run-Präfix' -Success ($runtimeName -eq 'Mein SQL Lab-12345678')
+    $reconciledVm = & $module {
+        param($Root)
+        $run = New-LabRunState -StateRoot $Root -Metadata @{ name = 'Reconcile'; workflowKind = 'hyperv-lab' }
+        Write-LabArtifactJsonAtomic -Path (Join-Path $run.RunDir 'connection-info.json') -InputObject ([PSCustomObject]@{ instances = @([PSCustomObject]@{ id = 'primary'; provider = 'hyperv'; vmName = 'alter-name'; vmId = 'old-id' }) })
+        function Get-HyperVLabVMs { [PSCustomObject]@{ VMName = 'aktueller-name'; VMId = 'current-id'; State = 'Running' } }
+        $lab = Get-HyperVLabWorkflowRun -RunId $run.RunId -StateRoot $Root
+        [PSCustomObject]@{ VMName = $lab.Instance.vmName; VMId = $lab.Instance.vmId }
+    } $temporaryRoot
+    Add-CheckResult -Name 'Hyper-V löst veraltete VM-Namen über Run- und Scope-Identity auf' -Success ($reconciledVm.VMName -eq 'aktueller-name' -and $reconciledVm.VMId -eq 'current-id')
     $containerRename = & $module {
         param($Root)
         $run = New-LabRunState -StateRoot $Root -Metadata @{ name = 'Alter Name' } -ProviderSubRuns @([PSCustomObject]@{ id = 'provider-docker'; provider = 'docker'; instanceIds = @('primary') })

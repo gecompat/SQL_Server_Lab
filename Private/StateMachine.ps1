@@ -597,7 +597,12 @@ function Get-LabRunRuntimeStatus {
         try {
             $provider = [string]$instance.provider
             $status = switch ($provider) {
-                'hyperv' { Get-HyperVInstanceStatus -VMName ([string]$instance.vmName) -ExpectedRunId ([string]$Run.runId) -ExpectedScopeId ([string]$Run.scopeId) }
+                'hyperv' {
+                    # Resolve über die VM-Notes repariert bei Bedarf alte
+                    # connection-info-Namen vor der Live-Abfrage.
+                    $hyperVLab = Get-HyperVLabWorkflowRun -RunId ([string]$Run.runId) -StateRoot $StateRoot
+                    Get-HyperVInstanceStatus -VMName ([string]$hyperVLab.Instance.vmName) -ExpectedRunId ([string]$Run.runId) -ExpectedScopeId ([string]$Run.scopeId)
+                }
                 'docker' { Get-DockerInstanceStatus -ContainerIdOrName ([string]$instance.containerId) }
                 'podman' { Get-PodmanInstanceStatus -ContainerIdOrName ([string]$instance.containerId) }
                 default { $null }
