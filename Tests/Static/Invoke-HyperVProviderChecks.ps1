@@ -95,9 +95,9 @@ try {
         -Text $provider `
         -Pattern 'Set-VM[^\r\n]+AutomaticCheckpointsEnabled\s+\$false'
     Add-TextContract `
-        -Name 'Normale Lab-VMs begrenzen dynamischen Speicher auf den gewaehlten Startwert' `
+        -Name 'Normale Lab-VMs erhalten einen begrenzten dynamischen Speicherbereich' `
         -Text $provider `
-        -Pattern 'Set-VMMemory[\s\S]+DynamicMemoryEnabled\s+\$true[\s\S]+MinimumBytes\s+512MB[\s\S]+MaximumBytes\s+\$MemoryStartupBytes'
+        -Pattern 'Math\]::Max\(\[double\]512MB,\s*\[double\]\$MemoryStartupBytes\s*/\s*2\)[\s\S]+Math\]::Min\(\[double\]1TB,\s*\[double\]\$MemoryStartupBytes\s*\*\s*2\)[\s\S]+Set-VMMemory[\s\S]+MaximumBytes\s+\$memoryMaximumBytes'
     Add-TextContract `
         -Name 'Reguläre Hyper-V-Labs verwenden den Projektnamen mit eindeutiger Run-ID' `
         -Text $provider `
