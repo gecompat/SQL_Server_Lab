@@ -24,6 +24,18 @@ function Get-HyperVLabWorkflowRun {
     $connection = Get-Content -LiteralPath $connectionPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
     $instance = @($connection.instances | Where-Object { $_.provider -eq 'hyperv' }) | Select-Object -First 1
     if (-not $instance -or -not $instance.vmName) { throw 'HYPERV_LAB_CONNECTION_INFO_INVALID' }
+
+    # Ältere oder manuell umbenannte VMs können einen inzwischen veralteten
+    # connection-info-Namen besitzen. Die signierte Lab-Identity in den VM-
+    # Notes ist dafür die maßgebliche Zuordnung, nicht der Anzeigename.
+    $matchingVm = @(
+        Get-HyperVLabVMs -RunId ([string]$run.runId) -ScopeId ([string]$run.scopeId)
+    )
+    if ($matchingVm.Count -eq 1 -and [string]$matchingVm[0].VMName -ne [string]$instance.vmName) {
+        $instance | Add-Member -NotePropertyName vmName -NotePropertyValue ([string]$matchingVm[0].VMName) -Force
+        $instance | Add-Member -NotePropertyName vmId -NotePropertyValue ([string]$matchingVm[0].VMId) -Force
+        Write-LabArtifactJsonAtomic -Path $connectionPath -InputObject $connection
+    }
     return [PSCustomObject]@{ Run = $run; RunDirectory = $runDirectory; Connection = $connection; Instance = $instance; StateRoot = $StateRoot }
 }
 
