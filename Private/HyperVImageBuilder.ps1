@@ -164,8 +164,10 @@ function New-HyperVWindowsImageBuilder {
     # can be tagged for deterministic cleanup.
     $vm = New-VM -Name $vmName -Generation 2 -MemoryStartupBytes $MemoryStartupBytes -VHDPath $diskPath -ErrorAction Stop
     # Do not inherit Hyper-V's unbounded dynamic-memory default (commonly 1 TB).
-    $null = Set-VMMemory -VM $vm -DynamicMemoryEnabled $true -MinimumBytes 512MB `
-        -StartupBytes $MemoryStartupBytes -MaximumBytes $MemoryStartupBytes -ErrorAction Stop
+    $memoryMinimumBytes = [long][Math]::Max([double]512MB, [double]$MemoryStartupBytes / 2)
+    $memoryMaximumBytes = [long][Math]::Min([double]1TB, [double]$MemoryStartupBytes * 2)
+    $null = Set-VMMemory -VM $vm -DynamicMemoryEnabled $true -MinimumBytes $memoryMinimumBytes `
+        -StartupBytes $MemoryStartupBytes -MaximumBytes $memoryMaximumBytes -ErrorAction Stop
     # Mark the VM immediately so cleanup can identify it even when later setup fails.
     $notes = ConvertTo-HyperVLabNotes -RunId $BuildId -ScopeId $build.scopeId -InstanceId image-builder -ChildVhdxPath $diskPath
     $null = Set-VM -VM $vm -Notes $notes -AutomaticCheckpointsEnabled $false -ErrorAction Stop
