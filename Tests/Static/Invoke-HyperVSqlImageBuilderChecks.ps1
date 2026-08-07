@@ -297,6 +297,12 @@ try {
         $menuText -match 'Show-LabHyperVSqlImageBuilds' -and
         $menuText -match 'Show-LabHyperVSqlNextActions'
     )
+    Add-CheckResult -Name 'SQL-Prepared-Anweisungen verwenden keine obsolete Aktionsnummerierung' -Success (
+        $menuText -match 'Prepared-Image-Builder fortsetzen.*SQL PrepareImage und finalen Sysprep' -and
+        $menuText -match 'Prepared-Image veröffentlichen wählen' -and
+        $menuText -notmatch 'Aktion 10' -and
+        $menuText -notmatch 'Aktion 11'
+    )
     $prepareFunctionIndex = $menuText.IndexOf('function Invoke-LabHyperVSqlPrepareInteractive')
     $targetBuilderIndex = $menuText.IndexOf('Ziel-Builder: SQL {0} {1} | VM: {2}', $prepareFunctionIndex)
     $credentialPromptIndex = $menuText.IndexOf('Read-Host ''  Lokaler Gast-Administrator [Administrator]''', $prepareFunctionIndex)
