@@ -12,8 +12,8 @@
 Große, lizenzierte oder zeitlich begrenzte Installationsmedien gehören nicht in
 das Repository. Der Media Root ist ein operatorseitiges Verzeichnis außerhalb
 von Git. Er ist außerdem vom Lab-State getrennt: Der Media Root enthält
-bereitgestellte Quellen, während der State Root Runs, Cache, Registry und
-Cleanup-Informationen enthält.
+bereitgestellte Quellen, während der State Root Runs, Trust-Freigaben,
+Quarantäne, Registry und Cleanup-Informationen enthält.
 
 Das Projekt setzt keinen festen Laufwerksbuchstaben voraus. Jeder Aufruf muss
 den Root ausdrücklich angeben:
@@ -69,6 +69,9 @@ mehr existierender lokaler Pfad wird nicht als Default angeboten.
 │   └── 2025\Eval\
 │       ├── ISO\
 │       └── VHDX\
+├── Testdaten\
+│   ├── Sammlungen\<Kategorie>\<Sample>\<Variante>\
+│   └── _verified\sha256\
 ├── Hashes\
 ├── Evidence\
 └── Exports\
@@ -80,6 +83,23 @@ ist für explizite Buildnachweise vorgesehen. `Exports` enthält bewusst erzeugt
 lokale Übergabeartefakte und wird nicht versioniert. Der Initializer ergänzt im
 Root und in jedem Medienziel eine `README.md` mit offizieller Downloadquelle,
 Zielpfad, Auswahlkriterien und Verwendungshinweisen.
+
+### Testdaten-Bibliothek
+
+`Testdaten` ist die sichtbare, wiederverwendbare Bibliothek für katalogisierte
+Backups, ZIP-/7z-Archive und T-SQL-Skripte. Ein Download startet weiterhin nur
+bei einer expliziten Testdatenbank-Installation. Nach SHA-256-Prüfung erscheint
+die Datei unter `Sammlungen\<Kategorie>\<Sample>\<Variante>` zusammen mit einer
+`artifact.json` (Quelle, Hash, Lizenz-/Trust-Herkunft und Zeitpunkt).
+
+`_verified\sha256` ist der technische, inhaltsadressierte Speicher derselben
+Artefakte. Die sichtbaren Dateien in `Sammlungen` werden nach Möglichkeit als
+Hardlink darauf angelegt; andernfalls wird sicher kopiert. Temporäre Downloads,
+Quarantäne und Trust-Freigaben bleiben im State Root.
+
+Der Testdaten-Root kann in der Workflow-UI unter **Medienquellen** oder in der
+Konsole über **[t] Testdaten-Bibliothek konfigurieren** geändert werden. Ohne
+eigene Einstellung lautet der Default `<MediaRoot>\Testdaten`.
 
 ## 3. Struktur automatisch erstellen
 

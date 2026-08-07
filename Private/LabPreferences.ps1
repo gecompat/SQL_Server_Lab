@@ -92,6 +92,43 @@ function Set-LabMediaRootDefault {
     return $resolved
 }
 
+function Get-LabTestDataRootDefault {
+    <# Liefert die sichtbare, wiederverwendbare Testdaten-Bibliothek. #>
+    [CmdletBinding()]
+    param()
+
+    $candidates = @(
+        [string]$env:SQL_SERVER_LAB_TEST_DATA_ROOT,
+        (Get-LabProjectPreferenceValue -Name testDataRoot),
+        [string][Environment]::GetEnvironmentVariable('SQL_SERVER_LAB_TEST_DATA_ROOT', 'User')
+    ) | Where-Object { $_ }
+    foreach ($candidate in $candidates) {
+        if (Test-Path -LiteralPath $candidate -PathType Container) {
+            return (Resolve-Path -LiteralPath $candidate -ErrorAction Stop).Path
+        }
+    }
+
+    $mediaRoot = Get-LabMediaRootDefault
+    if ($mediaRoot) { return (Join-Path $mediaRoot 'Testdaten') }
+    return $null
+}
+
+function Set-LabTestDataRootDefault {
+    <# Speichert eine sichtbare Testdaten-Bibliothek außerhalb des Run-State. #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$TestDataRoot)
+
+    $resolved = [System.IO.Path]::GetFullPath($TestDataRoot)
+    if (-not (Test-Path -LiteralPath $resolved -PathType Container)) {
+        New-Item -Path $resolved -ItemType Directory -Force | Out-Null
+    }
+    $resolved = (Resolve-Path -LiteralPath $resolved -ErrorAction Stop).Path
+    $env:SQL_SERVER_LAB_TEST_DATA_ROOT = $resolved
+    [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_TEST_DATA_ROOT', $resolved, 'User')
+    Set-LabProjectPreferenceValue -Name testDataRoot -Value $resolved
+    return $resolved
+}
+
 function Get-LabDataRootDefault {
     [CmdletBinding()]
     param()

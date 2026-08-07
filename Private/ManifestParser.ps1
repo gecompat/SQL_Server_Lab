@@ -172,6 +172,7 @@ function Resolve-LabSampleArtifact {
     return [PSCustomObject]@{
         sampleId                = [string]$sample.id
         sampleVariant           = $variant
+        category                = [string]$sample.category
         artifactType            = [string]$variantDefinition.artifactType
         handlerContractVersion  = [string]$variantDefinition.handlerContractVersion
         source                  = $source
@@ -244,6 +245,7 @@ function Resolve-LabSampleRestore {
         replace                 = $false
         sampleId                = $artifact.sampleId
         sampleVariant           = $artifact.sampleVariant
+        category                = $artifact.category
         artifactType            = $artifact.artifactType
         handlerContractVersion  = $artifact.handlerContractVersion
         license                 = $artifact.license

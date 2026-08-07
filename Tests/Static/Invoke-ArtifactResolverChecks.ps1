@@ -29,7 +29,8 @@ try {
     $result = & $module {
         param($StateRoot)
 
-        $paths = Initialize-LabArtifactStore -StateRoot $StateRoot
+        $env:SQL_SERVER_LAB_TEST_DATA_ROOT = Join-Path $StateRoot 'Testdaten'
+        $paths = Initialize-LabArtifactStore -StateRoot $StateRoot -TestDataRoot (Join-Path $StateRoot 'Testdaten')
         $payloadPath = Join-Path $StateRoot 'synthetic-artifact.bak'
         [System.IO.File]::WriteAllBytes($payloadPath, [byte[]](0x53, 0x51, 0x4C, 0x2D, 0x4C, 0x41, 0x42))
         $sha256 = (Get-FileHash -LiteralPath $payloadPath -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -56,7 +57,7 @@ try {
             sha256 = $sha256
             integrityOrigin = 'user-trusted-generated'
         })
-        $cache = Get-LabArtifactCacheEntry -Sha256 $sha256 -StateRoot $StateRoot
+        $cache = Get-LabArtifactCacheEntry -Sha256 $sha256 -StateRoot $StateRoot -TestDataRoot $paths.TestDataRoot
 
         $runDirectory = Join-Path $StateRoot 'runs/test-run'
         New-Item -Path $runDirectory -ItemType Directory -Force | Out-Null
@@ -79,17 +80,20 @@ try {
         $nonInteractive = Resolve-LabArtifact `
             -Source 'https://example.invalid/samples/unknown.bak' `
             -NonInteractive `
+            -TestDataRoot $paths.TestDataRoot `
             -StateRoot $StateRoot
         $cachedResolution = Resolve-LabArtifact `
             -Source $source `
             -SampleId 'synthetic-sample' `
             -SampleVariant 'unit' `
             -NonInteractive `
+            -TestDataRoot $paths.TestDataRoot `
             -StateRoot $StateRoot
         $sevenZipTrust = Resolve-LabArtifact `
             -Source 'https://example.invalid/samples/unknown.7z' `
             -ArtifactType 'archive-backup' `
             -NonInteractive `
+            -TestDataRoot $paths.TestDataRoot `
             -StateRoot $StateRoot
 
         [PSCustomObject]@{
@@ -100,6 +104,9 @@ try {
             PortableLockSafe = $portableLock -notmatch '(?i)(stateRoot|runDirectory|connectionString|password|hostPath)'
             TrustRequired = $nonInteractive.Status -eq 'TRUST_REQUIRED'
             CacheResolutionReady = $cachedResolution.Status -eq 'ARTIFACT_READY' -and $cachedResolution.CacheStatus -eq 'HIT'
+            LibraryVisible = $cachedResolution.Path -like (Join-Path $paths.LibraryRoot '*') -and
+                (Test-Path -LiteralPath $cachedResolution.Path -PathType Leaf) -and
+                (Test-Path -LiteralPath (Join-Path (Split-Path -Parent $cachedResolution.Path) 'artifact.json') -PathType Leaf)
             SevenZipTrustRequired = $sevenZipTrust.Status -eq 'TRUST_REQUIRED'
         }
     } $temporaryRoot
@@ -111,6 +118,7 @@ try {
     Add-CheckResult -Name 'Portables Lock enthaelt keine Runtime- oder Secretfelder' -Success $result.PortableLockSafe
     Add-CheckResult -Name 'Nicht interaktive Aufloesung ohne Hash endet mit TRUST_REQUIRED' -Success $result.TrustRequired
     Add-CheckResult -Name 'Bekannter Trust nutzt den verifizierten Content Cache' -Success $result.CacheResolutionReady
+    Add-CheckResult -Name 'Verifizierte Artefakte werden sichtbar in der Testdaten-Bibliothek veröffentlicht' -Success $result.LibraryVisible
     Add-CheckResult -Name 'Katalogisierte .7z-Archive passieren den sicheren Artifact-Vertrag' -Success $result.SevenZipTrustRequired
 }
 catch {

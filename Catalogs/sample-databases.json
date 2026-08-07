@@ -624,7 +624,7 @@
     "custom": "Eigene Projekt-Datenbanken (lokal registriert)"
   },
   "cachePolicy": {
-    "location": "<StateRoot>/cache/artifacts/sha256/",
+    "location": "<TestDataRoot>/_verified/sha256/ and <TestDataRoot>/Sammlungen/<Kategorie>/<Sample>/<Variante>/",
     "strategy": "content-addressed",
     "verifyChecksum": true,
     "maxCacheSizeGB": 50,

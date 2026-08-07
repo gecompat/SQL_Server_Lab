@@ -247,8 +247,10 @@
       <p class="form-note">Der Pfad wird lokal als Standard gespeichert. Bei einer Änderung werden die Medien beim nächsten Erkennen am neuen Ort gesucht.</p>
       <label>Data Root (optional)<input id="sources-data-root" placeholder="z. B. D:\Lab_Data"></label>
       <p class="form-note">Der Data Root enthält optionale langlebige Daten. Er muss zuvor mit <code>Initialize-SqlServerLabDataRoot.ps1</code> initialisiert worden sein.</p>
+      <label>Testdaten-Root<input id="sources-test-data-root" placeholder="Standard: &lt;Media Root&gt;\Testdaten"></label>
+      <p class="form-note">Dort bleibt die wiederverwendbare Bibliothek aus Backups, Archiven und T-SQL-Skripten sichtbar. Der Download wird erst beim expliziten Installieren einer Testdatenbank ausgelöst.</p>
       <div id="media-source-list" class="source-list"></div>
-      <div class="dialog-actions"><button type="button" class="button secondary" value="cancel" formnovalidate>Schließen</button><button class="button primary" value="default">Media Root speichern</button></div>
+      <div class="dialog-actions"><button type="button" class="button secondary" value="cancel" formnovalidate>Schließen</button><button class="button primary" value="default">Pfade speichern</button></div>
     </form>
   </dialog>
 

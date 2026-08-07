@@ -17,7 +17,7 @@
 function Invoke-SqlServerLab {
     [CmdletBinding()]
     param(
-        [ValidateSet('New', 'Manifest', 'Status', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'Script', 'Database', 'Image', 'MediaRoot', 'DataRoot', 'Rename', 'Install7Zip')]
+        [ValidateSet('New', 'Manifest', 'Status', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'Script', 'Database', 'Image', 'MediaRoot', 'DataRoot', 'TestDataRoot', 'Rename', 'Install7Zip')]
         [string]$Action
     )
 
@@ -52,6 +52,7 @@ function Invoke-SqlServerLab {
             'i' { Invoke-LabAction -ActionName 'Image' }
             'r' { Invoke-LabAction -ActionName 'MediaRoot' }
             'd' { Invoke-LabAction -ActionName 'DataRoot' }
+            't' { Invoke-LabAction -ActionName 'TestDataRoot' }
             'z' { Invoke-LabAction -ActionName 'Install7Zip' }
             '0' { $exit = $true }
             'q' { $exit = $true }
@@ -257,6 +258,7 @@ function Show-LabMenu {
     Write-Host "    [i] Hyper-V Windows-Image verwalten" -ForegroundColor Yellow
     Write-Host "    [r] Media Root konfigurieren" -ForegroundColor White
     Write-Host "    [d] Persistenten Data Root konfigurieren" -ForegroundColor White
+    Write-Host "    [t] Testdaten-Bibliothek konfigurieren" -ForegroundColor White
     Write-Host "    [z] 7-Zip für katalogisierte .7z-Backups optional installieren" -ForegroundColor White
     Write-Host ""
     Write-Host "    [0/q] Beenden" -ForegroundColor DarkGray
@@ -304,6 +306,20 @@ function Invoke-LabAction {
                 Write-LabError "Data Root konnte nicht gespeichert werden: $($_.Exception.Message)"
                 Write-Host '  Der Ordner muss vorher mit .\Tools\Initialize-SqlServerLabDataRoot.ps1 initialisiert werden.' -ForegroundColor DarkGray
             }
+        }
+        'TestDataRoot' {
+            $currentTestDataRoot = Get-LabTestDataRootDefault
+            $prompt = if ($currentTestDataRoot) { "  Testdaten-Root [$currentTestDataRoot]" } else { '  Testdaten-Root' }
+            $candidate = Read-Host $prompt
+            if ([string]::IsNullOrWhiteSpace($candidate)) {
+                Write-LabInfo 'Testdaten-Root unverändert.'
+                return
+            }
+            try {
+                $savedTestDataRoot = Set-LabTestDataRootDefault -TestDataRoot $candidate
+                Write-LabSuccess "Testdaten-Bibliothek gespeichert: $savedTestDataRoot"
+            }
+            catch { Write-LabError "Testdaten-Root konnte nicht gespeichert werden: $($_.Exception.Message)" }
         }
         'Install7Zip' {
             $existing = Get-Lab7ZipExecutable

@@ -140,6 +140,13 @@ Add-CheckResult -Name 'Media Root und Quellen trennen Portalseiten von Bootstrap
     $scriptText -match 'sourceMediaRoot\.value = data\.Defaults\.MediaRoot' -and
     $scriptText -match 'safeExternalUrl'
 )
+Add-CheckResult -Name 'Testdaten-Root ist konfigurierbar und wird als sichtbare Bibliothek verwendet' -Success (
+    $actionText -match 'SetTestDataRoot' -and
+    $workflowText -match 'TestDataRoot' -and
+    $htmlText -match 'id="sources-test-data-root"' -and
+    $scriptText -match "SetTestDataRoot" -and
+    $consoleText -match 'Testdaten-Bibliothek konfigurieren'
+)
 Add-CheckResult -Name 'Datenbankdialog bietet katalogisierte Testdatenbanken mit explizitem Trust an' -Success (
     $workflowText -match 'SampleDatabases = \$sampleDatabases' -and
     $workflowText -match 'Get-LabExecutableSampleVariant' -and

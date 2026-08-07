@@ -10,7 +10,7 @@
 
 function Get-LabMediaSourceCatalog {
     [CmdletBinding()]
-    param([string]$MediaRoot)
+    param([string]$MediaRoot, [string]$TestDataRoot)
 
     $root = $null
     if ($MediaRoot -and (Test-Path -LiteralPath $MediaRoot -PathType Container)) {
@@ -51,9 +51,9 @@ function Get-LabMediaSourceCatalog {
     foreach ($sample in @(Get-LabExecutableSampleVariant)) {
         $sources += [PSCustomObject]@{
             Id = "sample:$($sample.SampleId):$($sample.Variant)"; Category = 'Testdatenbank'; DisplayName = "$($sample.DisplayName) · $($sample.Variant)"
-            Url = [string]$sample.Source; Acquisition = 'DOWNLOAD_ON_INSTALL'; TargetRelativePath = 'Lokaler Artefaktcache'
-            TargetPath = $null; Available = $false
-            Note = if ($sample.ExpectedSha256) { 'Wird erst beim expliziten Anlegen der Testdatenbank geladen und gegen die Katalog-Prüfsumme verifiziert.' } else { 'Wird erst beim expliziten Anlegen der Testdatenbank geladen. Vor dem ersten Download ist eine einmalige Vertrauensfreigabe erforderlich.' }
+            Url = [string]$sample.Source; Acquisition = 'DOWNLOAD_ON_INSTALL'; TargetRelativePath = 'Testdaten-Bibliothek/Sammlungen/<Kategorie>/<Sample>/<Variante>'
+            TargetPath = $TestDataRoot; Available = [bool]($TestDataRoot -and (Test-Path -LiteralPath $TestDataRoot -PathType Container))
+            Note = if ($sample.ExpectedSha256) { 'Wird erst beim expliziten Anlegen geladen, gegen die Katalog-Prüfsumme verifiziert und sichtbar in der Testdaten-Bibliothek abgelegt.' } else { 'Wird erst beim expliziten Anlegen geladen. Vor dem ersten Download ist eine einmalige Vertrauensfreigabe erforderlich; danach liegt die verifizierte Datei sichtbar in der Testdaten-Bibliothek.' }
         }
     }
     return @($sources)
