@@ -47,14 +47,18 @@ try {
         Write-LabArtifactJsonAtomic -Path (Join-Path $run.RunDir 'connection-info.json') -InputObject ([PSCustomObject]@{ instances = @([PSCustomObject]@{ id = 'primary'; provider = 'docker'; containerId = 'mock-container-id'; containerName = $oldName }) })
         function docker { param($Verb, $ContainerId, $NewName) $global:LASTEXITCODE = 0 }
         $result = Rename-ContainerLabEnvironment -RunId $run.RunId -DisplayName 'Neuer Name' -StateRoot $Root
+        $secondResult = Rename-ContainerLabEnvironment -RunId $run.RunId -DisplayName 'Noch Neuer' -StateRoot $Root
         $connection = Get-Content -LiteralPath (Join-Path $run.RunDir 'connection-info.json') -Raw | ConvertFrom-Json -Depth 10
         $plan = Get-Content -LiteralPath (Join-Path $run.RunDir 'cleanup-plan.json') -Raw | ConvertFrom-Json -Depth 10
-        [PSCustomObject]@{ Result = $result; Name = $connection.instances[0].containerName; CleanupName = $plan.steps[0].resourceId }
+        $state = Get-LabRunState -RunId $run.RunId -StateRoot $Root
+        [PSCustomObject]@{ Result = $result; SecondResult = $secondResult; Name = $connection.instances[0].containerName; CleanupName = $plan.steps[0].resourceId; NameHistory = @($state.metadata.nameHistory) }
     } $temporaryRoot
     Add-CheckResult -Name 'Container-Umbenennung aktualisiert Runtime, Verbindung und Cleanup-Plan gemeinsam' -Success (
         $containerRename.Result.RuntimeRenamed -and
-        $containerRename.Name -match '^neuer-name-primary-[a-f0-9]{8}$' -and
-        $containerRename.CleanupName -eq $containerRename.Name
+        $containerRename.SecondResult.RuntimeRenamed -and
+        $containerRename.Name -match '^noch-neuer-primary-[a-f0-9]{8}$' -and
+        $containerRename.CleanupName -eq $containerRename.Name -and
+        $containerRename.NameHistory.Count -eq 2
     )
     $hyperVRename = & $module {
         param($Root)

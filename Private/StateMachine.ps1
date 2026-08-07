@@ -437,10 +437,15 @@ function Rename-LabRunDisplayName {
 
     if (-not $current.metadata) { $current | Add-Member -NotePropertyName metadata -NotePropertyValue ([PSCustomObject]@{}) -Force }
     $current.metadata | Add-Member -NotePropertyName name -NotePropertyValue $DisplayName -Force
-    $history = if ($current.metadata.PSObject.Properties['nameHistory']) { @($current.metadata.nameHistory) } else { @() }
-    $current.metadata | Add-Member -NotePropertyName nameHistory -NotePropertyValue @($history + [PSCustomObject]@{
-        previousName = $previousName; name = $DisplayName; changedAt = Get-LabTimestamp
-    }) -Force
+    # ConvertFrom-Json liefert bei genau einem Eintrag ein PSCustomObject statt
+    # eines Arrays. Eine explizite Liste verhindert daher op_Addition-Fehler
+    # beim zweiten oder späteren Umbenennen.
+    $history = [System.Collections.Generic.List[object]]::new()
+    if ($current.metadata.PSObject.Properties['nameHistory']) {
+        foreach ($entry in @($current.metadata.nameHistory)) { $history.Add($entry) }
+    }
+    $history.Add([PSCustomObject]@{ previousName = $previousName; name = $DisplayName; changedAt = Get-LabTimestamp })
+    $current.metadata | Add-Member -NotePropertyName nameHistory -NotePropertyValue @($history.ToArray()) -Force
     $current.updatedAt = Get-LabTimestamp
     $current | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $statePath -Encoding utf8
     return [PSCustomObject]@{ RunId = $RunId; PreviousName = $previousName; Name = $DisplayName; Changed = $true }
