@@ -167,6 +167,22 @@ try {
     $stoppedState = & $module { param($RunId, $Root) Get-LabRunState -RunId $RunId -StateRoot $Root } $created.RunId $temporaryRoot
     Add-CheckResult -Name 'Hyper-V-Lab-Stopp bewahrt den Run und setzt STOPPED' -Success ($stopped.State -eq 'Off' -and $stoppedState.state -eq 'STOPPED')
 
+    $genericStart = & $module {
+        param($RunId, $Root)
+        function Get-LabStateRoot { $Root }
+        function Start-HyperVInstance { [PSCustomObject]@{ VMName = 'sql-lab-primary-mock'; State = 'Running'; Exists = $true } }
+        Start-SqlServerLab -RunId $RunId
+    } $created.RunId $temporaryRoot
+    $genericStop = & $module {
+        param($RunId, $Root)
+        function Get-LabStateRoot { $Root }
+        function Stop-HyperVInstance { [PSCustomObject]@{ VMName = 'sql-lab-primary-mock'; State = 'Off'; Exists = $true } }
+        Stop-SqlServerLab -RunId $RunId -Force
+    } $created.RunId $temporaryRoot
+    Add-CheckResult -Name 'Generische Start- und Stoppaktionen delegieren Hyper-V-Labs niemals an Docker oder Podman' -Success (
+        $genericStart.State -eq 'Running' -and $genericStop.State -eq 'Off'
+    )
+
     $inspected = & $module {
         param($RunId, $Root)
         function Get-HyperVManagedVM { [PSCustomObject]@{ VM = [PSCustomObject]@{ State = 'Running' } } }

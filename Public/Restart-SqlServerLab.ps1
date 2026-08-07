@@ -2,8 +2,9 @@
 .SYNOPSIS
     Startet eine SQL_Server_Lab-Umgebung neu.
 .DESCRIPTION
-    Stoppt Container graceful, startet neu und wartet auf SQL-Bereitschaft.
-    Nuetzlich nach Konfigurations-Aenderungen oder bei SQL-Problemen.
+    Startet Container- oder reguläre Hyper-V-Labs neu. Hyper-V-Labs werden
+    durch die delegierenden Start- und Stoppfunktionen nie als Container
+    behandelt. Bei Container-Labs wird danach auf SQL-Bereitschaft gewartet.
 .PARAMETER RunId
     Die RunId der Umgebung.
 .PARAMETER TimeoutSeconds
