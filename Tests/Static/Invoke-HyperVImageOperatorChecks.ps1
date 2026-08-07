@@ -99,31 +99,36 @@ try {
         @($discovered | Where-Object { $_.MediaId -eq 'OperatingSystems/Client/11/ISO/windows-11-auto.iso' -and $_.OperatingSystemId -eq 'windows-11' -and $_.WindowsEdition -eq 'enterprise-evaluation' -and $_.InstallationType -eq 'desktop-experience' -and $_.State -eq 'READY' }).Count -eq 1
     )
 
-    $parsedMedia = & $module {
-        param($Iso)
-        function Get-DiskImage { [PSCustomObject]@{ Attached = $false } }
-        function Mount-DiskImage { [PSCustomObject]@{ Attached = $true } }
-        function Get-Volume { [PSCustomObject]@{ DriveLetter = 'X' } }
-        function Test-Path {
-            param($LiteralPath, $PathType)
-            $LiteralPath -like '*install.wim'
-        }
-        function Get-Item { [PSCustomObject]@{ FullName = 'X:\sources\install.wim' } }
-        function Get-WindowsImage {
-            @(
-                [PSCustomObject]@{ ImageName = 'Windows Server 2025 Standard Evaluation (Desktop Experience)'; ImageIndex = 2 },
-                [PSCustomObject]@{ ImageName = 'Windows Server 2025 Datacenter Evaluation'; ImageIndex = 3 },
-                [PSCustomObject]@{ ImageName = 'Windows 11 Enterprise Evaluation'; ImageIndex = 4 }
-            )
-        }
-        function Dismount-DiskImage { }
-        @(Get-HyperVWindowsInstallationMediaInfo -IsoPath $Iso)
-    } $discoveryIsoPath
-    Add-CheckResult -Name 'Windows-Server-Version bleibt trotz Editions- und Typ-Erkennung erhalten' -Success (
-        @($parsedMedia | Where-Object { $_.OperatingSystemId -eq 'windows-server-2025' -and $_.WindowsEdition -eq 'standard-evaluation' -and $_.InstallationType -eq 'desktop-experience' }).Count -eq 1 -and
-        @($parsedMedia | Where-Object { $_.OperatingSystemId -eq 'windows-server-2025' -and $_.WindowsEdition -eq 'datacenter-evaluation' -and $_.InstallationType -eq 'core' }).Count -eq 1 -and
-        @($parsedMedia | Where-Object { $_.OperatingSystemId -eq 'windows-11' -and $_.WindowsEdition -eq 'enterprise-evaluation' -and $_.InstallationType -eq 'desktop-experience' }).Count -eq 1
-    )
+    if ($IsWindows) {
+        $parsedMedia = & $module {
+            param($Iso)
+            function Get-DiskImage { [PSCustomObject]@{ Attached = $false } }
+            function Mount-DiskImage { [PSCustomObject]@{ Attached = $true } }
+            function Get-Volume { [PSCustomObject]@{ DriveLetter = 'X' } }
+            function Test-Path {
+                param($LiteralPath, $PathType)
+                $LiteralPath -like '*install.wim'
+            }
+            function Get-Item { [PSCustomObject]@{ FullName = 'X:\sources\install.wim' } }
+            function Get-WindowsImage {
+                @(
+                    [PSCustomObject]@{ ImageName = 'Windows Server 2025 Standard Evaluation (Desktop Experience)'; ImageIndex = 2 },
+                    [PSCustomObject]@{ ImageName = 'Windows Server 2025 Datacenter Evaluation'; ImageIndex = 3 },
+                    [PSCustomObject]@{ ImageName = 'Windows 11 Enterprise Evaluation'; ImageIndex = 4 }
+                )
+            }
+            function Dismount-DiskImage { }
+            @(Get-HyperVWindowsInstallationMediaInfo -IsoPath $Iso)
+        } $discoveryIsoPath
+        Add-CheckResult -Name 'Windows-Server-Version bleibt trotz Editions- und Typ-Erkennung erhalten' -Success (
+            @($parsedMedia | Where-Object { $_.OperatingSystemId -eq 'windows-server-2025' -and $_.WindowsEdition -eq 'standard-evaluation' -and $_.InstallationType -eq 'desktop-experience' }).Count -eq 1 -and
+            @($parsedMedia | Where-Object { $_.OperatingSystemId -eq 'windows-server-2025' -and $_.WindowsEdition -eq 'datacenter-evaluation' -and $_.InstallationType -eq 'core' }).Count -eq 1 -and
+            @($parsedMedia | Where-Object { $_.OperatingSystemId -eq 'windows-11' -and $_.WindowsEdition -eq 'enterprise-evaluation' -and $_.InstallationType -eq 'desktop-experience' }).Count -eq 1
+        )
+    }
+    else {
+        Add-CheckResult -Name 'Windows-Server-Medienanalyse wird auf Nicht-Windows korrekt übersprungen' -Success $true
+    }
 
     $manual = & $module {
         param($BuildId, $Root)

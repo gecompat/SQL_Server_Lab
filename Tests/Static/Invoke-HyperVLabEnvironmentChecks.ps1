@@ -173,6 +173,9 @@ try {
 
     $started = & $module {
         param($RunId, $Root)
+        # Der Test verifiziert nur die Delegation. Er darf auf Linux nicht
+        # durch die echte Hyper-V-Discovery (Get-VM) vom Host abhängen.
+        function Get-HyperVLabVMs { [PSCustomObject]@{ VMName = 'sql-lab-primary-mock'; VMId = 'mock-vm-id'; State = 'Off' } }
         function Start-HyperVInstance { [PSCustomObject]@{ VMName = 'sql-lab-primary-mock'; State = 'Running'; Exists = $true } }
         Start-HyperVLabEnvironment -RunId $RunId -StateRoot $Root
     } $created.RunId $temporaryRoot
@@ -181,6 +184,7 @@ try {
 
     $stopped = & $module {
         param($RunId, $Root)
+        function Get-HyperVLabVMs { [PSCustomObject]@{ VMName = 'sql-lab-primary-mock'; VMId = 'mock-vm-id'; State = 'Running' } }
         function Stop-HyperVInstance { [PSCustomObject]@{ VMName = 'sql-lab-primary-mock'; State = 'Off'; Exists = $true } }
         Stop-HyperVLabEnvironment -RunId $RunId -StateRoot $Root
     } $created.RunId $temporaryRoot
@@ -190,12 +194,14 @@ try {
     $genericStart = & $module {
         param($RunId, $Root)
         function Get-LabStateRoot { $Root }
+        function Get-HyperVLabVMs { [PSCustomObject]@{ VMName = 'sql-lab-primary-mock'; VMId = 'mock-vm-id'; State = 'Off' } }
         function Start-HyperVInstance { [PSCustomObject]@{ VMName = 'sql-lab-primary-mock'; State = 'Running'; Exists = $true } }
         Start-SqlServerLab -RunId $RunId
     } $created.RunId $temporaryRoot
     $genericStop = & $module {
         param($RunId, $Root)
         function Get-LabStateRoot { $Root }
+        function Get-HyperVLabVMs { [PSCustomObject]@{ VMName = 'sql-lab-primary-mock'; VMId = 'mock-vm-id'; State = 'Running' } }
         function Stop-HyperVInstance { [PSCustomObject]@{ VMName = 'sql-lab-primary-mock'; State = 'Off'; Exists = $true } }
         Stop-SqlServerLab -RunId $RunId -Force
     } $created.RunId $temporaryRoot
