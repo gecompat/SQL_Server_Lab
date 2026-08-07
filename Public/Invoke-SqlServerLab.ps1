@@ -1301,13 +1301,14 @@ function Select-LabHyperVOsArtifact {
     param()
 
     $artifacts = @(Get-HyperVImageArtifact -SkipIntegrityCheck | Where-Object {
-        $_.artifactState -eq 'OS_SEALED' -and $_.operatingSystem.id -eq 'windows-server-2025'
+        $_.artifactState -eq 'OS_SEALED' -and [string]$_.operatingSystem.id -match '^windows-(server-)?[0-9]+$'
     })
-    if ($artifacts.Count -eq 0) { Write-LabError 'Keine Windows-Server-2025-OS_SEALED-Baseline vorhanden.'; return $null }
+    if ($artifacts.Count -eq 0) { Write-LabError 'Keine veröffentlichte Windows-OS-Baseline vorhanden.'; return $null }
     if ($artifacts.Count -eq 1) { return $artifacts[0] }
     Write-Host ''
     for ($i = 0; $i -lt $artifacts.Count; $i++) {
-        Write-Host "    [$($i + 1)] $($artifacts[$i].operatingSystem.edition) / $($artifacts[$i].operatingSystem.installationType)" -ForegroundColor White
+        $operatingSystemLabel = Get-LabWindowsMediaOperatingSystemLabel -OperatingSystemId ([string]$artifacts[$i].operatingSystem.id)
+        Write-Host "    [$($i + 1)] $operatingSystemLabel / $($artifacts[$i].operatingSystem.edition) / $($artifacts[$i].operatingSystem.installationType)" -ForegroundColor White
         Write-Host "        $($artifacts[$i].artifactId)" -ForegroundColor DarkGray
     }
     $selection = Read-Host '  OS-Baseline (Nummer)'
@@ -1325,9 +1326,10 @@ function Show-LabHyperVSqlManualInstructions {
     if ([string]$Build.provisioningMode -eq 'fresh-windows-media') {
         Write-Host '  Frische Windows-Installation fuer das SQL-Prepared-Image:' -ForegroundColor Yellow
         Write-Host "    VM: $($Build.builder.vmName)" -ForegroundColor White
-        Write-Host '    1. Windows Server 2025 in VMConnect auf der leeren OS-Disk installieren.' -ForegroundColor White
+        $operatingSystemLabel = Get-LabWindowsMediaOperatingSystemLabel -OperatingSystemId ([string]$Build.operatingSystem.id)
+        Write-Host "    1. $operatingSystemLabel in VMConnect auf der leeren OS-Disk installieren." -ForegroundColor White
         $editionBase = ([string]$Build.operatingSystem.edition -replace '-evaluation$', '')
-        $editionLabel = "Windows Server 2025 $((Get-Culture).TextInfo.ToTitleCase($editionBase))"
+        $editionLabel = "$operatingSystemLabel $((Get-Culture).TextInfo.ToTitleCase(($editionBase -replace '-', ' ')))"
         if ([string]$Build.license.type -eq 'evaluation') { $editionLabel += ' Evaluation' }
         $typeLabel = if ([string]$Build.operatingSystem.installationType -eq 'core') { 'Server Core Installation' } else { 'Desktop Experience' }
         Write-Host "    2. Im Windows-Setup exakt '$editionLabel ($typeLabel)' auswählen und OOBE abschließen." -ForegroundColor White
@@ -1422,14 +1424,9 @@ function New-LabHyperVSqlImageBuildInteractive {
     $allWindowsMedia = @(Get-HyperVWindowsInstallationMediaCandidates -MediaRoot $mediaRoot)
     $allWindowsCandidates = @($allWindowsMedia | Where-Object { $_.State -eq 'READY' })
     $windowsCandidates = @($allWindowsCandidates | Where-Object { (Test-HyperVSqlPreparedWindowsMediaCompatibility -OperatingSystemId ([string]$_.OperatingSystemId)).Compatible })
-    if ($windowsCandidates.Count -eq 0) { Write-LabError 'Kein erkanntes Windows Server 2025-Installationsmedium vorhanden.'; return }
+    if ($windowsCandidates.Count -eq 0) { Write-LabError 'Kein erkanntes Windows-Installationsmedium vorhanden.'; return }
     Write-Host '  Erkannte Windows-Installationsvarianten:' -ForegroundColor White
     Write-LabWindowsMediaSelectionGroups -Candidates $windowsCandidates -Numbered
-    $otherWindowsCandidates = @($allWindowsCandidates | Where-Object { -not (Test-HyperVSqlPreparedWindowsMediaCompatibility -OperatingSystemId ([string]$_.OperatingSystemId)).Compatible })
-    if ($otherWindowsCandidates.Count -gt 0) {
-        Write-Host '  Weitere Windows-Medien erkannt (für OS-Baselines verfügbar, noch nicht für SQL-Prepared):' -ForegroundColor DarkGray
-        Write-LabWindowsMediaSelectionGroups -Candidates $otherWindowsCandidates -ItemPrefix '    ' -Color DarkGray
-    }
     $unrecognizedWindowsMedia = @($allWindowsMedia | Where-Object { $_.State -ne 'READY' })
     if ($unrecognizedWindowsMedia.Count -gt 0) {
         Write-Host '  Nicht auswertbare Windows-Medien (werden nicht verwendet):' -ForegroundColor Yellow
@@ -1441,6 +1438,7 @@ function New-LabHyperVSqlImageBuildInteractive {
     if (-not $windowsSelection) { $windowsSelection = '1' }
     if ($windowsSelection -notmatch '^\d+$' -or [int]$windowsSelection -lt 1 -or [int]$windowsSelection -gt $windowsCandidates.Count) { Write-LabError 'Ungültige Windows-Medienauswahl.'; return }
     $selectedWindowsMedia = $windowsCandidates[[int]$windowsSelection - 1]
+    $operatingSystemId = [string]$selectedWindowsMedia.OperatingSystemId
     $windowsEdition = [string]$selectedWindowsMedia.WindowsEdition
     $installationType = [string]$selectedWindowsMedia.InstallationType
     $windowsMediaPath = [string]$selectedWindowsMedia.MediaId
@@ -1453,12 +1451,12 @@ function New-LabHyperVSqlImageBuildInteractive {
     if ($imageName -and $imageName.Trim().Length -gt 80) { Write-LabError 'Der Image-Name darf höchstens 80 Zeichen enthalten.'; return }
 
     try {
-        $windowsMedia = Resolve-HyperVWindowsInstallationMedia -MediaRoot $mediaRoot -OperatingSystemId windows-server-2025 -WindowsMediaPath $windowsMediaPath -WindowsEdition $windowsEdition -InstallationType $installationType
+        $windowsMedia = Resolve-HyperVWindowsInstallationMedia -MediaRoot $mediaRoot -OperatingSystemId $operatingSystemId -WindowsMediaPath $windowsMediaPath -WindowsEdition $windowsEdition -InstallationType $installationType
         if ($windowsMedia.HashStatus -eq 'MISSING') {
             Write-LabWarning 'Fuer die Windows-ISO existiert noch kein SHA-256-Sidecar.'
             if (-not (Read-LabConfirm -Prompt '  Windows-SHA-256 jetzt berechnen und lokal festschreiben?' -Default $false)) { return }
             Write-LabInfo 'Windows-SHA-256 wird berechnet; grosse ISOs benoetigen mehrere Minuten.'
-            $windowsMedia = New-HyperVWindowsMediaHashSidecar -MediaRoot $mediaRoot -OperatingSystemId windows-server-2025 -WindowsMediaPath $windowsMediaPath -WindowsEdition $windowsEdition -InstallationType $installationType
+            $windowsMedia = New-HyperVWindowsMediaHashSidecar -MediaRoot $mediaRoot -OperatingSystemId $operatingSystemId -WindowsMediaPath $windowsMediaPath -WindowsEdition $windowsEdition -InstallationType $installationType
         }
         $sqlMedia = Resolve-HyperVSqlInstallationMedia -MediaRoot $mediaRoot -SqlVersion $sqlVersion -MediaEdition $mediaEdition -SqlMediaPath $sqlMediaPath
         if ($sqlMedia.HashStatus -eq 'MISSING') {
@@ -1469,11 +1467,15 @@ function New-LabHyperVSqlImageBuildInteractive {
         }
         Write-Host ''
         $windowsLicenseType = Get-HyperVWindowsMediaLicenseType -WindowsEdition $windowsEdition
-        Write-Host "  Windows: Windows Server 2025 / $windowsEdition / $installationType / $windowsLicenseType" -ForegroundColor DarkGray
+        $operatingSystemLabel = Get-LabWindowsMediaOperatingSystemLabel -OperatingSystemId $operatingSystemId
+        Write-Host "  Windows: $operatingSystemLabel / $windowsEdition / $installationType / $windowsLicenseType" -ForegroundColor DarkGray
         Write-Host "  SQL:     $sqlVersion $mediaEdition; SQLENGINE, FULLTEXT, REPLICATION" -ForegroundColor DarkGray
         Write-Host '  Ablauf: Windows installieren -> SQL PrepareImage -> ein finaler Sysprep.' -ForegroundColor Yellow
+        if ($operatingSystemId -ne 'windows-server-2025') {
+            Write-LabWarning "Die Kombination $operatingSystemLabel / SQL Server $sqlVersion wird auf Ihre Entscheidung gebaut; Installation und Sysprep liefern bei echter Inkompatibilität die konkrete Diagnose."
+        }
         if (-not (Read-LabConfirm -Prompt '  Frischen SQL-Prepared-Image-Builder jetzt erzeugen?' -Default $false)) { return }
-        $build = Initialize-HyperVSqlFreshPreparedImageBuild -MediaRoot $mediaRoot -OperatingSystemId windows-server-2025 `
+        $build = Initialize-HyperVSqlFreshPreparedImageBuild -MediaRoot $mediaRoot -OperatingSystemId $operatingSystemId `
             -WindowsEdition $windowsEdition -InstallationType $installationType -WindowsMediaPath $windowsMediaPath -SqlVersion $sqlVersion -MediaEdition $mediaEdition -SqlMediaPath $sqlMediaPath -ImageName $imageName
         Write-LabSuccess "Frischer SQL-Builder erstellt. BuildId: $($build.buildId)"
         Show-LabHyperVSqlManualInstructions -Build $build

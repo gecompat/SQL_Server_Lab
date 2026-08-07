@@ -450,9 +450,6 @@ function New-HyperVSqlImageBuildPlan {
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
     $artifact = Get-HyperVImageArtifact -ArtifactId $ImageArtifactId -StateRoot $StateRoot
     if (-not $artifact -or $artifact.artifactState -ne 'OS_SEALED') { throw 'HYPERV_SQL_IMAGE_OS_BASELINE_REQUIRED' }
-    if ([string]$artifact.operatingSystem.id -ne 'windows-server-2025') {
-        throw 'HYPERV_SQL_IMAGE_OS_NOT_COMPATIBLE'
-    }
     if ($artifact.license.type -eq 'evaluation' -and $artifact.license.evaluationExpiresAt -and
         ([datetime]$artifact.license.evaluationExpiresAt).ToUniversalTime() -lt [datetime]::UtcNow.AddDays(30)) {
         throw 'HYPERV_SQL_IMAGE_OS_EVALUATION_EXPIRING'
@@ -523,8 +520,8 @@ function New-HyperVSqlFreshImageBuildPlan {
     param(
         [Parameter(Mandatory)][string]$WindowsIsoPath,
         [Parameter(Mandatory)][ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$ExpectedWindowsSha256,
-        [Parameter(Mandatory)][ValidateSet('windows-server-2025')][string]$OperatingSystemId,
-        [Parameter(Mandatory)][ValidatePattern('^(standard|datacenter)(-evaluation)?$')][string]$WindowsEdition,
+        [Parameter(Mandatory)][ValidatePattern('^windows-(server-)?[0-9]+$')][string]$OperatingSystemId,
+        [Parameter(Mandatory)][ValidatePattern('^[a-z0-9-]+$')][string]$WindowsEdition,
         [Parameter(Mandatory)][ValidateSet('core', 'desktop-experience')][string]$InstallationType,
         [Parameter(Mandatory)][string]$SqlIsoPath,
         [Parameter(Mandatory)][ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$ExpectedSqlSha256,
@@ -558,8 +555,9 @@ function New-HyperVSqlFreshImageBuildPlan {
     Write-LabArtifactJsonAtomic -Path (Join-Path $buildDirectory 'build-local.json') -InputObject ([PSCustomObject]@{
         windowsIsoPath = $windowsIso; sqlIsoPath = $sqlIso
     })
+    $operatingSystemVersion = if ($OperatingSystemId -match '^windows-(?:server-)?(?<version>[0-9]+)$') { [string]$Matches.version } else { $OperatingSystemId }
     $operatingSystem = [PSCustomObject]@{
-        id = $OperatingSystemId; version = '2025'; edition = $WindowsEdition
+        id = $OperatingSystemId; version = $operatingSystemVersion; edition = $WindowsEdition
         installationType = $InstallationType; language = 'en-US'; architecture = 'x64'
     }
     $license = [PSCustomObject]@{ type = (Get-HyperVWindowsMediaLicenseType -WindowsEdition $WindowsEdition); evaluationExpiresAt = $null }
@@ -656,8 +654,8 @@ function Initialize-HyperVSqlFreshPreparedImageBuild {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$MediaRoot,
-        [Parameter(Mandatory)][ValidateSet('windows-server-2025')][string]$OperatingSystemId,
-        [Parameter(Mandatory)][ValidatePattern('^(standard|datacenter)(-evaluation)?$')][string]$WindowsEdition,
+        [Parameter(Mandatory)][ValidatePattern('^windows-(server-)?[0-9]+$')][string]$OperatingSystemId,
+        [Parameter(Mandatory)][ValidatePattern('^[a-z0-9-]+$')][string]$WindowsEdition,
         [Parameter(Mandatory)][ValidateSet('core', 'desktop-experience')][string]$InstallationType,
         [string]$WindowsMediaPath,
         [Parameter(Mandatory)][string]$SqlVersion,
@@ -760,17 +758,37 @@ function Confirm-HyperVSqlFreshWindowsInstallation {
         [string]$receipt.buildId -ne [string]$Build.buildId -or [string]$receipt.scopeId -ne [string]$Build.scopeId) {
         throw 'HYPERV_SQL_WINDOWS_INSTALLATION_RECEIPT_INVALID'
     }
-    if ([string]$receipt.productName -notmatch '2025') { throw "HYPERV_SQL_WINDOWS_INSTALLATION_VERSION_MISMATCH: erkannt $($receipt.productName)" }
+    $expectedOperatingSystemId = [string]$Build.operatingSystem.id
+    $expectedProductPattern = if ($expectedOperatingSystemId -match '^windows-server-') { 'Windows Server' } elseif ($expectedOperatingSystemId -match '^windows-(?<version>[0-9]+)$') { "Windows $($Matches.version)" } else { 'Windows' }
+    if ([string]$receipt.productName -notmatch $expectedProductPattern) {
+        throw "HYPERV_SQL_WINDOWS_INSTALLATION_VERSION_MISMATCH: erwartet $expectedOperatingSystemId, erkannt $($receipt.productName)"
+    }
     $editionBase = ([string]$Build.operatingSystem.edition -replace '-evaluation$', '')
-    $editionId = if ($editionBase -eq 'standard') { 'ServerStandard' } else { 'ServerDatacenter' }
-    $editionPattern = if ([string]$Build.license.type -eq 'evaluation') { "^$editionId`Eval$" } else { "^$editionId$" }
+    $editionId = switch -Regex ($editionBase) {
+        '^standard$' { 'ServerStandard'; break }
+        '^datacenter$' { 'ServerDatacenter'; break }
+        '^azure-edition$' { 'ServerAzure'; break }
+        '^enterprise' { 'Enterprise'; break }
+        '^education' { 'Education'; break }
+        '^professional' { 'Professional'; break }
+        '^home$' { 'Core'; break }
+        default { [regex]::Escape($editionBase) }
+    }
+    # EditionID unterscheidet sich zwischen Windows-Versionen (z. B.
+    # Enterprise, EnterpriseEval oder EnterpriseS). Der aus der ISO gewählte
+    # Editionsstamm muss passen; die Evaluation ist bereits im Build-Lizenztyp
+    # erfasst und wird nicht künstlich als Setup-Blockade verwendet.
+    $editionPattern = "^$editionId"
     if ([string]$receipt.editionId -notmatch $editionPattern) {
-        $expectedLabel = "Windows Server 2025 $((Get-Culture).TextInfo.ToTitleCase($editionBase))"
+        $osLabel = ($expectedOperatingSystemId -replace '^windows-server-', 'Windows Server ')
+        $osLabel = ($osLabel -replace '^windows-', 'Windows ')
+        $editionLabel = ((Get-Culture).TextInfo.ToTitleCase(($editionBase -replace '-', ' ')))
+        $expectedLabel = "$osLabel $editionLabel"
         if ([string]$Build.license.type -eq 'evaluation') { $expectedLabel += ' Evaluation' }
         $typeLabel = if ([string]$Build.operatingSystem.installationType -eq 'core') { 'Server Core Installation' } else { 'Desktop Experience' }
         throw "HYPERV_SQL_WINDOWS_INSTALLATION_EDITION_MISMATCH: erwartet $($Build.operatingSystem.edition), erkannt $($receipt.editionId). In VMConnect Windows vor SQL-Setup neu installieren und '$expectedLabel ($typeLabel)' auswählen."
     }
-    $actualType = switch ([string]$receipt.installationType) { 'Server Core' { 'core' }; 'Server' { 'desktop-experience' }; default { 'unknown' } }
+    $actualType = switch ([string]$receipt.installationType) { 'Server Core' { 'core' }; 'Server' { 'desktop-experience' }; 'Client' { 'desktop-experience' }; default { 'unknown' } }
     if ($actualType -ne [string]$Build.operatingSystem.installationType) { throw "HYPERV_SQL_WINDOWS_INSTALLATION_TYPE_MISMATCH: erwartet $($Build.operatingSystem.installationType), erkannt $actualType" }
     $Build | Add-Member -NotePropertyName installationEvidence -NotePropertyValue ([PSCustomObject]@{
         verified = $true; productName = [string]$receipt.productName; editionId = [string]$receipt.editionId

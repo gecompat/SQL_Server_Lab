@@ -22,6 +22,9 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   Datacenter aus regulären wie Evaluation-ISOs. Der Lizenztyp wird aus dem
   ausgewählten Medium abgeleitet; ein Evaluation-Ablaufdatum wird nur dafür
   verlangt.
+- alle erkannten Windows-Server- und Windows-Client-Medien können im
+  SQL-Prepared-Workflow ausgewählt werden. Nicht vorab getestete Kombinationen
+  werden sichtbar gewarnt, aber nicht künstlich blockiert.
 - optionale 7-Zip-Unterstützung für katalogisierte `.7z`-Archive mit exakt
   einer `.bak`-Payload. Fehlt 7-Zip, wird es nie automatisch nachinstalliert;
   die Konsole bietet dafür nach ausdrücklicher Bestätigung eine lokale
