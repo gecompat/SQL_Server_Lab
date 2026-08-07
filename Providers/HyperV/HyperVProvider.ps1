@@ -659,7 +659,7 @@ function Invoke-HyperVPowerShellDirect {
         [Parameter(Mandatory)][PSCredential]$Credential,
         [Parameter(Mandatory)][scriptblock]$ScriptBlock,
         [object[]]$ArgumentList = @(),
-        [ValidatePattern('^(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])(?:\.(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])){3}$')][string]$FallbackAddress
+        [ValidatePattern('^(?:(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])(?:\.(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])){3})?$')][string]$FallbackAddress
     )
 
     $managed = Get-HyperVManagedVM -VMName $VMName -ExpectedRunId $ExpectedRunId -ExpectedScopeId $ExpectedScopeId
@@ -718,7 +718,7 @@ function Wait-HyperVPowerShellDirect {
         [Parameter(Mandatory)][string]$ExpectedScopeId,
         [Parameter(Mandatory)][PSCredential]$Credential,
         [string]$ExpectedComputerName,
-        [ValidatePattern('^(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])(?:\.(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])){3}$')][string]$FallbackAddress,
+        [ValidatePattern('^(?:(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])(?:\.(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])){3})?$')][string]$FallbackAddress,
         [ValidateRange(1, 3600)][int]$TimeoutSeconds = 300,
         [ValidateRange(100, 60000)][int]$PollIntervalMilliseconds = 2000
     )
@@ -789,7 +789,7 @@ function Set-HyperVWindowsGuestSpecialization {
         [Parameter(Mandatory)][string]$ExpectedScopeId,
         [Parameter(Mandatory)][PSCredential]$Credential,
         [Parameter(Mandatory)][ValidatePattern('^(?![0-9]+$)[A-Za-z0-9](?:[A-Za-z0-9-]{0,13}[A-Za-z0-9])?$')][string]$ComputerName,
-        [ValidatePattern('^(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])(?:\.(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])){3}$')][string]$FallbackAddress,
+        [ValidatePattern('^(?:(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])(?:\.(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])){3})?$')][string]$FallbackAddress,
         [ValidateRange(1, 3600)][int]$TimeoutSeconds = 300
     )
 
@@ -954,7 +954,7 @@ function Wait-HyperVGuestSqlReady {
         [Parameter(Mandatory)][string]$ExpectedScopeId,
         [Parameter(Mandatory)][PSCredential]$Credential,
         [Parameter(Mandatory)][SecureString]$SaPassword,
-        [ValidatePattern('^(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])(?:\.(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])){3}$')][string]$FallbackAddress,
+        [ValidatePattern('^(?:(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])(?:\.(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])){3})?$')][string]$FallbackAddress,
         [ValidatePattern('^[A-Za-z][A-Za-z0-9_$-]{0,127}$')][string]$InstanceName = 'MSSQLSERVER',
         [ValidateRange(0, 99)][int]$ExpectedMajorVersion = 0,
         [ValidateRange(1, 3600)][int]$TimeoutSeconds = 300,

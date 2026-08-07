@@ -44,10 +44,10 @@ try {
         $null = New-Item -Path $child -ItemType File -Force
         function Get-HyperVLabVMs { [PSCustomObject]@{ VMName = 'sql-lab-primary-mock'; VMId = 'mock-vm-id'; State = 'Off' } }
         function Get-HyperVManagedVM { [PSCustomObject]@{ VM = [PSCustomObject]@{ State = 'Off' }; Identity = [PSCustomObject]@{ childVhdxPath = $child } } }
-        function Set-HyperVSqlOfflineUnattend { param($VhdxPath, $MountRoot, $UnattendXml) if ($VhdxPath -ne $child -or $UnattendXml -notmatch 'AdministratorPassword') { throw 'UNATTEND_INJECTION_INVALID' } }
+        function Set-HyperVSqlOfflineUnattend { param($VhdxPath, $MountRoot, $UnattendXml, $BootstrapScript) if ($VhdxPath -ne $child -or $UnattendXml -notmatch 'AdministratorPassword' -or $BootstrapScript -notmatch 'Enable-PSRemoting') { throw 'UNATTEND_INJECTION_INVALID' } }
         function Start-HyperVLabEnvironment { [PSCustomObject]@{ State = 'Running' } }
-        function Wait-HyperVPowerShellDirect { [PSCustomObject]@{ Ready = $true; Message = 'ready' } }
-        function Invoke-HyperVPowerShellDirect { param($ArgumentList) [PSCustomObject]@{ runId = $ArgumentList[0]; imageState = 'IMAGE_STATE_COMPLETE'; observedAt = '2026-08-07T12:00:00.0000000Z' } }
+        function Wait-HyperVPowerShellDirect { param($FallbackAddress) if (-not $FallbackAddress) { throw 'LAB_NETWORK_FALLBACK_INVALID' }; [PSCustomObject]@{ Ready = $true; Message = 'ready' } }
+        function Invoke-HyperVPowerShellDirect { param($ArgumentList, $FallbackAddress) if (-not $FallbackAddress) { throw 'LAB_NETWORK_FALLBACK_INVALID' }; [PSCustomObject]@{ runId = $ArgumentList[0]; imageState = 'IMAGE_STATE_COMPLETE'; observedAt = '2026-08-07T12:00:00.0000000Z' } }
         function Complete-HyperVLabSqlImage {
             param($RunId, $Credential, $SqlSaPassword)
             $script:capturedSqlSaPasswordLength = $SqlSaPassword.Length
@@ -71,6 +71,8 @@ try {
         $unattended.HostSqlSaPasswordLength -eq $unattended.ExpectedSaPasswordLength -and
         $unattendedConnection.instances[0].oobeAutomation.passwordSource -eq 'generated' -and
         $unattendedConnection.instances[0].oobeAutomation.answerMedia -eq 'guest-scrubbed' -and
+        $unattendedConnection.instances[0].oobeAutomation.networkBootstrap -eq 'lab-winrm-v1' -and
+        $unattendedConnection.instances[0].oobeAutomation.labAddress -match '^172\.28\.0\.' -and
         (Test-Path -LiteralPath $unattendedSecret) -and
         (Get-Content -LiteralPath $unattendedSecret -Raw) -notmatch 'Generated_Administrator_42!'
     )
