@@ -80,10 +80,29 @@ try {
         New-Item -Path (Split-Path -Parent $backupPath) -ItemType Directory -Force | Out-Null
         [System.IO.File]::WriteAllText($backupPath, 'static-check-backup')
         [System.IO.Compression.ZipFile]::CreateFromDirectory($zipWorking, $zipPath)
-        $archivePayload = Get-LabArchiveBackupPayload -ArchivePath $zipPath -PayloadPath 'nested/sample.bak' -RunDirectory $StateRoot
+        $archivePayload = Get-LabArchiveBackupPayload -ArchivePath $zipPath -PayloadPath 'nested/sample.bak' -ArchiveFormat zip -RunDirectory $StateRoot
         $archivePayloadWorks = (Test-Path -LiteralPath $archivePayload.Path -PathType Leaf) -and
             ([System.IO.File]::ReadAllText($archivePayload.Path) -eq 'static-check-backup')
         Remove-Item -LiteralPath $archivePayload.WorkingDirectory -Recurse -Force
+
+        $sevenZipPayloadWorks = $true
+        $sevenZip = Get-Lab7ZipExecutable
+        if ($sevenZip) {
+            $sevenZipSource = Join-Path $StateRoot 'seven-zip-source'
+            New-Item -Path (Join-Path $sevenZipSource 'nested') -ItemType Directory -Force | Out-Null
+            [System.IO.File]::WriteAllText((Join-Path $sevenZipSource 'nested/sample.bak'), 'static-check-7z-backup')
+            $sevenZipArchive = Join-Path $StateRoot 'archive.7z'
+            Push-Location $sevenZipSource
+            try {
+                & ([string]$sevenZip.Path) a -t7z $sevenZipArchive 'nested/sample.bak' | Out-Null
+                if ($LASTEXITCODE -ne 0) { throw "Statisches 7z-Testarchiv konnte nicht erstellt werden (ExitCode $LASTEXITCODE)." }
+            }
+            finally { Pop-Location }
+            $sevenZipPayload = Get-LabArchiveBackupPayload -ArchivePath $sevenZipArchive -PayloadPath 'nested/sample.bak' -ArchiveFormat 7z -RunDirectory $StateRoot
+            $sevenZipPayloadWorks = (Test-Path -LiteralPath $sevenZipPayload.Path -PathType Leaf) -and
+                ([System.IO.File]::ReadAllText($sevenZipPayload.Path) -eq 'static-check-7z-backup')
+            Remove-Item -LiteralPath $sevenZipPayload.WorkingDirectory -Recurse -Force
+        }
 
         $dummyPassword = ConvertTo-SecureString 'Static-Check-Only-1!' -AsPlainText -Force
         $handlerResult = Install-LabSampleDatabase `
@@ -168,6 +187,7 @@ try {
                 $scriptContract.installation.executionMode -eq 'existing-database'
             ScriptHandlerWorks    = $scriptHandlerResult.Status -eq 'DATASET_READY' -and $scriptHandlerResult.Success
             ArchivePayloadWorks   = $archivePayloadWorks
+            SevenZipPayloadWorks  = $sevenZipPayloadWorks
             TrustRequired         = $handlerResult.Status -eq 'TRUST_REQUIRED' -and -not $handlerResult.Success
             LocalStatusUntrusted  = $status.TrustStatus -eq 'TRUST_REQUIRED' -and $status.CacheStatus -eq 'MISS'
             InMemoryMoveWorks     = $wideWorldMoves.Count -eq 3 -and
@@ -186,6 +206,7 @@ try {
     Add-CheckResult -Name 'SQL-Skript-Sample liefert einen typisierten Installationsvertrag' -Success $result.ScriptContractWorks
     Add-CheckResult -Name 'SQL-Skript-Handler erstellt Ziel und verifiziert die Datenbank' -Success $result.ScriptHandlerWorks
     Add-CheckResult -Name 'ZIP-Backup-Payload wird nur im temporaeren Arbeitsbereich extrahiert' -Success $result.ArchivePayloadWorks
+    Add-CheckResult -Name '7z-Backup-Payload wird bei verfügbarem 7-Zip sicher extrahiert' -Success $result.SevenZipPayloadWorks
     Add-CheckResult -Name 'Nicht interaktiver Handler ohne Trust endet mit TRUST_REQUIRED' -Success $result.TrustRequired
     Add-CheckResult -Name 'Lokaler Trust-/Cache-Status wird read-only gemeldet' -Success $result.LocalStatusUntrusted
     Add-CheckResult -Name 'In-Memory-OLTP-Container wird beim Restore per MOVE in den Linux-Datenpfad umgeleitet' -Success $result.InMemoryMoveWorks

@@ -27,6 +27,7 @@
         'Test-SqlServerLabPrerequisite'
         'Test-SqlServerLabAdapter'
         'Install-SqlServerLabAdapter'
+        'Install-SqlServerLab7Zip'
     )
 
     CmdletsToExport   = @()

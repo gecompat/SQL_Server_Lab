@@ -202,7 +202,7 @@ foreach ($sample in @($sampleCatalog.databases)) {
                 $definition.trustPolicy -eq 'interactive-once'
             $expectedExtension = switch ([string]$definition.artifactType) {
                 'backup' { '\.bak$' }
-                'archive-backup' { '\.zip$' }
+                'archive-backup' { '\.(zip|7z)$' }
                 'sql-script' { '\.sql$' }
                 default { $null }
             }

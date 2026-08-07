@@ -357,8 +357,10 @@ Im Manifest bleibt die deklarative Referenz unverändert:
 ```
 
 `Northwind` und `Chinook` sind als SHA-256-verifizierte Skript-Samples direkt
-wählbar. Große `.7z`-Archive, Script-Bundles und Attach-Szenarien bleiben
-bewusst beschreibend und werden nicht als Backup, ZIP oder Skript umgedeutet.
+wählbar. Katalogisierte `.7z`-Archive mit genau einer `.bak`-Payload werden
+nach expliziter lokaler 7-Zip-Installation unterstützt. Große `.7z`-Archive
+mit MDF/LDF-Dateien, Script-Bundles und Attach-Szenarien bleiben bewusst
+beschreibend und werden nicht als Backup oder Skript umgedeutet.
 
 Der verbindliche Zielvertrag für weitere Script-Bundle-Handler, kontextreiche
 Pfadführung und `LAB_GENERATED`-Baselines ist in
@@ -430,6 +432,7 @@ Clear-SqlServerLab
 | `Test-SqlServerLabPrerequisite` | Provider, RAM, Storage und Ports prüfen |
 | `Test-SqlServerLabAdapter` | Project Adapter gegen Schema, Pfadgrenzen und optional einen Run prüfen |
 | `Install-SqlServerLabAdapter` | Validierten Adapter-Entrypoint ohne Lifecycle-Seiteneffekt anwenden |
+| `Install-SqlServerLab7Zip` | 7-Zip für katalogisierte `.7z`-Backup-Payloads ausdrücklich und optional über `winget` installieren |
 
 `SqlServerLab.psd1` ist die autoritative Liste der exportierten Funktionen.
 

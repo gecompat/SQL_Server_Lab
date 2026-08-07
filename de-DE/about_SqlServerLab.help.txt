@@ -111,6 +111,10 @@ COMMANDS
         Wendet einen validierten Adapter-Entrypoint (install, update, validate,
         cleanup) auf eine laufende Instanz an; ohne Lifecycle-Seiteneffekt.
 
+    Install-SqlServerLab7Zip
+        Installiert 7-Zip nach expliziter Bestätigung optional über winget für
+        katalogisierte .7z-Backups mit einer .bak-Payload.
+
 NAMING AND OWNERSHIP
     PowerShell ordnet jeden exportierten Befehl ueber die Source- und
     ModuleName-Eigenschaften dem Modul SqlServerLab zu:

@@ -86,6 +86,7 @@ Test-SqlServerLabPrerequisite         # Ressourcenpruefung (read-only)
 # Project Adapter
 Test-SqlServerLabAdapter              # Adapter gegen Schema und Pfadgrenzen pruefen (read-only)
 Install-SqlServerLabAdapter           # Adapter-Entrypoint ohne Lifecycle-Seiteneffekt anwenden
+Install-SqlServerLab7Zip              # 7-Zip optional via winget für sichere .7z-Backup-Payloads installieren
 ```
 
 ### 2.4 Rueckgabe-Objekt

@@ -17,7 +17,7 @@
 function Invoke-SqlServerLab {
     [CmdletBinding()]
     param(
-        [ValidateSet('New', 'Manifest', 'Status', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'Script', 'Database', 'Image', 'MediaRoot', 'DataRoot', 'Rename')]
+        [ValidateSet('New', 'Manifest', 'Status', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'Script', 'Database', 'Image', 'MediaRoot', 'DataRoot', 'Rename', 'Install7Zip')]
         [string]$Action
     )
 
@@ -52,6 +52,7 @@ function Invoke-SqlServerLab {
             'i' { Invoke-LabAction -ActionName 'Image' }
             'r' { Invoke-LabAction -ActionName 'MediaRoot' }
             'd' { Invoke-LabAction -ActionName 'DataRoot' }
+            'z' { Invoke-LabAction -ActionName 'Install7Zip' }
             '0' { $exit = $true }
             'q' { $exit = $true }
             default { Write-Host "  Ungueltige Auswahl: $choice" -ForegroundColor Red }
@@ -180,6 +181,7 @@ function Show-LabMenu {
     Write-Host "    [i] Hyper-V Windows-Image verwalten" -ForegroundColor Yellow
     Write-Host "    [r] Media Root konfigurieren" -ForegroundColor White
     Write-Host "    [d] Persistenten Data Root konfigurieren" -ForegroundColor White
+    Write-Host "    [z] 7-Zip für katalogisierte .7z-Backups optional installieren" -ForegroundColor White
     Write-Host ""
     Write-Host "    [0/q] Beenden" -ForegroundColor DarkGray
     Write-Host ""
@@ -226,6 +228,21 @@ function Invoke-LabAction {
                 Write-LabError "Data Root konnte nicht gespeichert werden: $($_.Exception.Message)"
                 Write-Host '  Der Ordner muss vorher mit .\Tools\Initialize-SqlServerLabDataRoot.ps1 initialisiert werden.' -ForegroundColor DarkGray
             }
+        }
+        'Install7Zip' {
+            $existing = Get-Lab7ZipExecutable
+            if ($existing) {
+                Write-LabSuccess "7-Zip verfügbar: $($existing.Path)"
+                return
+            }
+            Write-LabWarning '7-Zip wird ausschließlich für explizit katalogisierte .7z-Backups benötigt.'
+            Write-Host '  Die Installation erfolgt nur nach dieser Bestätigung über winget (Paket 7zip.7zip).' -ForegroundColor DarkGray
+            if (-not (Read-LabConfirm -Prompt '  7-Zip jetzt optional installieren?' -Default $false)) { return }
+            try {
+                $result = Install-SqlServerLab7Zip -Confirm:$false
+                Write-LabSuccess $result.Message
+            }
+            catch { Write-LabError $_.Exception.Message }
         }
         'Manifest' {
             $manifestPath = Read-Host '  Manifest-Zielpfad [.\lab-manifest.json]'

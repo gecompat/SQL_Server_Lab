@@ -24,6 +24,7 @@ Dieses Verzeichnis enthält die öffentlichen PowerShell-Funktionen des Moduls. 
 | `Test-SqlServerLabPrerequisite` | `Private/ResourceAssessment.ps1` | Provider, RAM, Storage und Ports ohne Mutation prüfen |
 | `Test-SqlServerLabAdapter` | `Test-SqlServerLabAdapter.ps1` | Project Adapter gegen Schema, Pfadgrenzen und optional eine Run-Instanz prüfen |
 | `Install-SqlServerLabAdapter` | `Install-SqlServerLabAdapter.ps1` | Validierten Adapter-Entrypoint ohne Lifecycle-Seiteneffekt auf eine Instanz anwenden |
+| `Install-SqlServerLab7Zip` | `Install-SqlServerLab7Zip.ps1` | 7-Zip ausschließlich auf expliziten Aufruf über `winget` für katalogisierte `.7z`-Backups installieren |
 
 `Test-SqlServerLabPrerequisite` ist öffentlich exportiert, obwohl seine Definition im internen Resource-Assessment-Baustein liegt. Der Ablageort allein bestimmt nicht die Sichtbarkeit; maßgeblich ist `FunctionsToExport` im Modulmanifest.
 
