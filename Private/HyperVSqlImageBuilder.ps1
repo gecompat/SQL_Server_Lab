@@ -169,8 +169,17 @@ function Get-HyperVSqlInstallationMediaCandidates {
     $sqlRoot = Join-Path $resolvedRoot 'SQL'
     if (-not (Test-Path -LiteralPath $sqlRoot -PathType Container)) { return @() }
     if (-not $script:HyperVSqlMediaScanCache) { $script:HyperVSqlMediaScanCache = @{} }
+    if (-not $script:HyperVSqlMediaScanCacheRoots) { $script:HyperVSqlMediaScanCacheRoots = @{} }
+    $rootKey = $resolvedRoot.ToLowerInvariant()
+    if (-not $script:HyperVSqlMediaScanCacheRoots.ContainsKey($rootKey)) {
+        foreach ($entry in (Get-HyperVMediaDiscoveryCache -MediaRoot $resolvedRoot -Kind sql).GetEnumerator()) {
+            $script:HyperVSqlMediaScanCache[$entry.Key] = @($entry.Value)
+        }
+        $script:HyperVSqlMediaScanCacheRoots[$rootKey] = $true
+    }
     $items = @(Get-ChildItem -LiteralPath $sqlRoot -File -Recurse -Force | Where-Object { $_.Extension -ieq '.iso' })
     $knownPaths = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    $cacheChanged = $false
     foreach ($item in $items) {
         $null = $knownPaths.Add($item.FullName)
         $fingerprint = "$($item.Length):$($item.LastWriteTimeUtc.Ticks)"
@@ -186,10 +195,18 @@ function Get-HyperVSqlInstallationMediaCandidates {
                 $cached = [PSCustomObject]@{ Fingerprint = $fingerprint; MediaId = $relativePath; SqlVersion = $null; MajorVersion = $null; SetupVersion = $null; MediaEdition = (Get-HyperVSqlMediaEditionFromPath -Path $relativePath); EditionDetected = $false; State = 'UNRECOGNIZED'; Message = $_.Exception.Message }
             }
             $script:HyperVSqlMediaScanCache[$item.FullName] = $cached
+            $cacheChanged = $true
         }
     }
-    foreach ($path in @($script:HyperVSqlMediaScanCache.Keys)) { if (-not $knownPaths.Contains($path)) { $script:HyperVSqlMediaScanCache.Remove($path) } }
-    return @($script:HyperVSqlMediaScanCache.Values | ForEach-Object {
+    foreach ($path in @($script:HyperVSqlMediaScanCache.Keys)) { if ($path.StartsWith($resolvedRoot, [System.StringComparison]::OrdinalIgnoreCase) -and -not $knownPaths.Contains($path)) { $script:HyperVSqlMediaScanCache.Remove($path); $cacheChanged = $true } }
+    if ($cacheChanged) {
+        $persistentCache = @{}
+        foreach ($path in @($script:HyperVSqlMediaScanCache.Keys | Where-Object { $_.StartsWith($resolvedRoot, [System.StringComparison]::OrdinalIgnoreCase) })) {
+            $persistentCache[$path] = $script:HyperVSqlMediaScanCache[$path]
+        }
+        Save-HyperVMediaDiscoveryCache -MediaRoot $resolvedRoot -Kind sql -Cache $persistentCache
+    }
+    return @($script:HyperVSqlMediaScanCache.GetEnumerator() | Where-Object { $_.Key.StartsWith($resolvedRoot, [System.StringComparison]::OrdinalIgnoreCase) } | ForEach-Object { $_.Value } | ForEach-Object {
         $summary = Get-HyperVMediaHashSidecarSummary -MediaRoot $resolvedRoot -RelativePath $_.MediaId
         $_ | Add-Member -NotePropertyName HashPath -NotePropertyValue $summary.HashPath -Force
         $_ | Add-Member -NotePropertyName HashStatus -NotePropertyValue $summary.HashStatus -Force

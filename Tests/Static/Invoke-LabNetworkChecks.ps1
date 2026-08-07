@@ -37,6 +37,25 @@ try {
     Add-CheckResult -Name 'Podman verwendet das feste Labnetz mit Host-Portzugriff' -Success ($podman -match 'Ensure-LabPodmanNetwork' -and $podman -match '--network.*\$labNetwork\.Name')
     Add-CheckResult -Name 'Hyper-V-SQL-Builder bindet SQL_LAB_HYPERV' -Success ($hyperv -match 'Ensure-LabHyperVNetwork' -and $hyperv -match '-SwitchName \$labNetwork.Name')
     Add-CheckResult -Name 'Hyper-V-Gast erhaelt nach OOBE eine Lab-IP und SQL-Firewallfreigabe' -Success ($acceptance -match 'Initialize-HyperVGuestLabNetwork' -and $networkSource -match 'New-NetFirewallRule[\s\S]+LocalPort 1433')
+    $hypervLab = Get-Content (Join-Path $repoRoot 'Private/HyperVLabEnvironment.ps1') -Raw
+    $hypervProvider = Get-Content (Join-Path $repoRoot 'Providers/HyperV/HyperVProvider.ps1') -Raw
+    Add-CheckResult -Name 'Regulärer Prepared-Image-Klon injiziert Labnetz-Bootstrap und akzeptiert leeren Fallback ohne Validierungsfehler' -Success (
+        $hypervLab -match 'New-HyperVSqlGuestNetworkBootstrapScript' -and
+        $hypervLab -match 'Get-LabNetworkGuestAddress[\s\S]*lab\.Run\.runId' -and
+        $hypervLab -match 'Set-HyperVSqlOfflineUnattend[\s\S]+-BootstrapScript \$bootstrap'
+    )
+    $emptyFallbackAccepted = & $module {
+        function Get-HyperVManagedVM { [PSCustomObject]@{ VM = [PSCustomObject]@{ State = 'Running' } } }
+        function Invoke-Command { 'ok' }
+        $password = ConvertTo-SecureString 'Test_Administrator_42!' -AsPlainText -Force
+        try {
+            $result = Invoke-HyperVPowerShellDirect -VMName 'mock' -ExpectedRunId 'run' -ExpectedScopeId 'scope' `
+                -Credential ([PSCredential]::new('Administrator', $password)) -FallbackAddress '' -ScriptBlock { 'ok' }
+            $result -eq 'ok'
+        }
+        catch { $false }
+    }
+    Add-CheckResult -Name 'Leerer Hyper-V-Fallback wird nicht als ungültige IP validiert' -Success $emptyFallbackAccepted
     Add-CheckResult -Name 'Interaktiver Hyper-V-Pfad fordert UAC automatisch an' -Success ($elevationSource -match 'Start-Process[\s\S]+-Verb RunAs' -and $menuSource -match 'Start-LabElevatedAction')
     Add-CheckResult -Name 'UAC-Prozess importiert das Modul mit gueltigem Import-Module-Aufruf' -Success ($elevationSource -match 'Import-Module\s+''\$escapedModulePath''\s+-Force' -and $elevationSource -notmatch 'Import-Module -LiteralPath')
     Add-CheckResult -Name 'Zuletzt gewaehlter Media Root wird projektlokal gespeichert und vorbelegt' -Success (

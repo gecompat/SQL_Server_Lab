@@ -127,6 +127,13 @@ function New-SqlServerLab {
         Optionales lokales Administratorpasswort für eine Hyper-V-Manifest-
         Bereitstellung. Der Wert wird nur run-lokal DPAPI-geschützt abgelegt.
         Ohne Angabe folgt die sichere Passwortstrategie aus dem Manifest.
+    .PARAMETER SqlSaPassword
+        Optionales separates SQL-SA-Passwort für eine Hyper-V-Manifest-
+        Bereitstellung. Es wird nie in das Manifest oder den Run-State geschrieben.
+    .PARAMETER NonInteractive
+        Unterbindet Kennwortabfragen. Fehlende, erforderliche Secrets werden
+        stattdessen mit einem klaren Fehler abgelehnt; gedacht für CI/CD und
+        deklarative Manifestbereitstellungen.
     .PARAMETER SkipAssessment
         Ueberspringt das Resource Assessment vor der Provisionierung. Die
         spaeteren Provider- und SQL-Pruefungen bleiben aktiv.
@@ -189,6 +196,8 @@ function New-SqlServerLab {
         [string]$DataRoot,
         [switch]$PersistentData,
         [SecureString]$GuestPassword,
+        [SecureString]$SqlSaPassword,
+        [switch]$NonInteractive,
         [switch]$SkipAssessment
     )
 
@@ -291,6 +300,7 @@ function New-SqlServerLab {
             finally { [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
         }
         elseif (-not $GuestPassword) {
+            if ($NonInteractive) { throw 'HYPERV_MANIFEST_GUEST_PASSWORD_REQUIRED_NONINTERACTIVE' }
             $first = Read-Host '  Gastpasswort für Administrator' -AsSecureString
             $second = Read-Host '  Gastpasswort bestätigen' -AsSecureString
             $firstBstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($first)
@@ -314,7 +324,7 @@ function New-SqlServerLab {
         if ($PersistentData) {
             $null = Enable-HyperVLabPersistentData -RunId $lab.RunId -DataRoot $DataRoot -SizeGB ([int]$resolved.persistentData.dataDiskGB) -StateRoot $hyperVLab.StateRoot
         }
-        $provisioning = Invoke-HyperVLabUnattendedProvision -RunId $lab.RunId -AdministratorPassword $GuestPassword -PasswordSource $passwordSource -StateRoot $hyperVLab.StateRoot
+        $provisioning = Invoke-HyperVLabUnattendedProvision -RunId $lab.RunId -AdministratorPassword $GuestPassword -SqlSaPassword $SqlSaPassword -PasswordSource $passwordSource -StateRoot $hyperVLab.StateRoot
         return [PSCustomObject]@{
             RunId = $lab.RunId; ScopeId = $lab.ScopeId; State = 'RUNNING'; Name = $resolved.name; Instances = @($hyperVLab.Instance)
             StateRoot = $hyperVLab.StateRoot; DataRoot = if ($PersistentData) { $DataRoot } else { $null }; Provisioning = $provisioning
@@ -366,6 +376,7 @@ function New-SqlServerLab {
     }
 
     if (-not $SaPassword) {
+        if ($NonInteractive) { throw 'SA_PASSWORD_REQUIRED_NONINTERACTIVE' }
         Write-LabInfo 'SA-Passwort wird benoetigt.'
         $SaPassword = Read-SaPassword
     }

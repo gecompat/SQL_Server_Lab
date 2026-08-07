@@ -249,7 +249,7 @@ function Initialize-HyperVGuestLabNetwork {
         [Parameter(Mandatory)][PSCredential]$Credential,
         [Parameter(Mandatory)]$Network,
         [Parameter(Mandatory)][string]$Identity,
-        [ValidatePattern('^(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])(?:\.(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])){3}$')][string]$FallbackAddress
+        [ValidatePattern('^(?:(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])(?:\.(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])){3})?$')][string]$FallbackAddress
     )
 
     $address = Get-LabNetworkGuestAddress -Network $Network -Identity $Identity

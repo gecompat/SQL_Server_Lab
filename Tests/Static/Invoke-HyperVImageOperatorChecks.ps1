@@ -100,6 +100,20 @@ try {
     Add-CheckResult -Name 'Windows-ISOs werden unabhängig von der Ordnerstruktur dynamisch angeboten' -Success (
         @($discovered | Where-Object { $_.MediaId -eq 'OperatingSystems/Client/11/ISO/windows-11-auto.iso' -and $_.OperatingSystemId -eq 'windows-11' -and $_.WindowsEdition -eq 'enterprise-evaluation' -and $_.InstallationType -eq 'desktop-experience' -and $_.State -eq 'READY' }).Count -eq 1
     )
+    $persistentDiscoveryCache = & $module {
+        param($Root)
+        $cache = @{
+            (Join-Path $Root 'OperatingSystems/Client/11/ISO/windows-11-auto.iso') = @([PSCustomObject]@{
+                Fingerprint = '1:2'; MediaId = 'OperatingSystems/Client/11/ISO/windows-11-auto.iso'; State = 'READY'
+            })
+        }
+        Save-HyperVMediaDiscoveryCache -MediaRoot $Root -Kind windows -Cache $cache
+        $loaded = Get-HyperVMediaDiscoveryCache -MediaRoot $Root -Kind windows
+        [PSCustomObject]@{ Exists = (Test-Path -LiteralPath (Join-Path $Root 'Evidence/windows-media-discovery-cache.json')); Count = $loaded.Count; State = [string]$loaded.Values[0][0].State }
+    } $mediaRoot
+    Add-CheckResult -Name 'Unveränderte Windows-ISOs werden pro Media Root prozessübergreifend aus dem Metadatencache gelesen' -Success (
+        $persistentDiscoveryCache.Exists -and $persistentDiscoveryCache.Count -eq 1 -and $persistentDiscoveryCache.State -eq 'READY'
+    )
     $sqlPreparedCompatibility = & $module {
         [PSCustomObject]@{
             Server2025 = (Test-HyperVSqlPreparedWindowsMediaCompatibility -OperatingSystemId 'windows-server-2025').Compatible

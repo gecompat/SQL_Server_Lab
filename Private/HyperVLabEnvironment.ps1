@@ -293,29 +293,36 @@ function Invoke-HyperVLabUnattendedProvision {
     Write-LabInfo 'Schritt 2/6: Gastpasswort wird nur für diesen Run DPAPI-geschützt abgelegt.'
     Save-LabSecret -Path $lab.RunDirectory -Name 'guest-administrator-password' -Secret $AdministratorPassword
     $credential = [PSCredential]::new('Administrator', $AdministratorPassword)
-    $unattend = $null
+    $unattend = $null; $bootstrap = $null; $fallbackAddress = $null
     try {
-        $unattend = New-HyperVSqlOobeUnattendXml -AdministratorPassword $AdministratorPassword
-        Write-LabInfo 'Schritt 3/6: Unattend.xml wird ausschließlich in die Child-VHDX injiziert.'
-        Set-HyperVSqlOfflineUnattend -VhdxPath $vhdxPath -MountRoot (Join-Path $lab.RunDirectory 'offline-oobe-mount') -UnattendXml $unattend
+        if ($lab.Instance.labNetwork) {
+            $fallbackAddress = Get-LabNetworkGuestAddress -Network $lab.Instance.labNetwork -Identity $lab.Run.runId
+            $bootstrap = New-HyperVSqlGuestNetworkBootstrapScript -Network $lab.Instance.labNetwork -Address $fallbackAddress
+        }
+        $unattend = New-HyperVSqlOobeUnattendXml -AdministratorPassword $AdministratorPassword `
+            -Network $lab.Instance.labNetwork -Identity $lab.Run.runId
+        Write-LabInfo 'Schritt 3/6: Unattend.xml und – bei Labnetz – der WinRM-Netzwerk-Bootstrap werden ausschließlich in die Child-VHDX injiziert.'
+        Set-HyperVSqlOfflineUnattend -VhdxPath $vhdxPath -MountRoot (Join-Path $lab.RunDirectory 'offline-oobe-mount') -UnattendXml $unattend -BootstrapScript $bootstrap
     }
-    finally { $unattend = $null }
+    finally { $unattend = $null; $bootstrap = $null }
 
     $lab.Instance | Add-Member -NotePropertyName oobeAutomation -NotePropertyValue ([PSCustomObject]@{
         status = 'RUNNING'; passwordSource = $PasswordSource; passwordStorage = 'host-dpapi'
-        answerMedia = 'run-child-vhdx'; startedAt = Get-LabTimestamp
+        answerMedia = 'run-child-vhdx'; networkBootstrap = if ($fallbackAddress) { 'lab-winrm-v1' } else { 'none' }
+        labAddress = $fallbackAddress; startedAt = Get-LabTimestamp
     }) -Force
     Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
 
-    Write-LabInfo 'Schritt 4/6: VM wird gestartet; OOBE, Sprache, Region und Tastatur laufen unbeaufsichtigt.'
+    $readinessChannel = if ($fallbackAddress) { "PowerShell Direct oder Lab-WinRM ($fallbackAddress)" } else { 'PowerShell Direct (VM bleibt bewusst isoliert)' }
+    Write-LabInfo "Schritt 4/6: VM wird gestartet; OOBE, Sprache, Region und Tastatur laufen unbeaufsichtigt. Readiness: $readinessChannel."
     $null = Start-HyperVLabEnvironment -RunId $RunId -StateRoot $lab.StateRoot
     $ready = Wait-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId `
-        -ExpectedScopeId $lab.Run.scopeId -Credential $credential -TimeoutSeconds $TimeoutSeconds
+        -ExpectedScopeId $lab.Run.scopeId -Credential $credential -FallbackAddress $fallbackAddress -TimeoutSeconds $TimeoutSeconds
     if (-not $ready.Ready) { throw "HYPERV_LAB_UNATTENDED_OOBE_TIMEOUT: $($ready.Message)" }
 
     Write-LabInfo 'Schritt 5/6: OOBE-Artefakte werden im Gast entfernt und die regionale Konfiguration wird geprüft.'
     $receipt = Invoke-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId `
-        -ExpectedScopeId $lab.Run.scopeId -Credential $credential -ArgumentList @([string]$lab.Run.runId) -ScriptBlock {
+        -ExpectedScopeId $lab.Run.scopeId -Credential $credential -FallbackAddress $fallbackAddress -ArgumentList @([string]$lab.Run.runId) -ScriptBlock {
             param($ExpectedRunId)
             $ErrorActionPreference = 'Stop'
             Set-WinHomeLocation -GeoId 94
@@ -340,7 +347,8 @@ function Invoke-HyperVLabUnattendedProvision {
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
     $lab.Instance | Add-Member -NotePropertyName oobeAutomation -NotePropertyValue ([PSCustomObject]@{
         status = 'COMPLETED'; passwordSource = $PasswordSource; passwordStorage = 'host-dpapi'
-        answerMedia = 'guest-scrubbed'; completedAt = [string]$receipt.observedAt
+        answerMedia = 'guest-scrubbed'; networkBootstrap = if ($fallbackAddress) { 'lab-winrm-v1' } else { 'none' }
+        labAddress = $fallbackAddress; completedAt = [string]$receipt.observedAt
     }) -Force
     Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
 

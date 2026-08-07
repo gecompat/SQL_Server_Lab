@@ -1921,7 +1921,10 @@ function Select-LabHyperVPreparedArtifact {
     [CmdletBinding()]
     param()
 
-    $artifacts = @(Get-HyperVImageArtifact | Where-Object { $_.artifactState -eq 'SQL_PREPARED_SEALED' })
+    # Die Auswahl liest nur die kleine Registry. Die vollständige VHDX-Integrität
+    # wird erst unmittelbar vor dem Klonen geprüft; dadurch bleibt das Menü auch
+    # mit mehreren großen Prepared-Images ohne minutenlanges Hashing responsiv.
+    $artifacts = @(Get-HyperVImageArtifact -SkipIntegrityCheck | Where-Object { $_.artifactState -eq 'SQL_PREPARED_SEALED' })
     if ($artifacts.Count -eq 0) { Write-LabInfo 'Kein veröffentlichtes SQL-Prepared-Image vorhanden.'; return $null }
     Write-Host '  Veröffentlichte SQL-Prepared-Images:' -ForegroundColor White
     Write-Host '  Der Anzeigename ist frei wählbar; bei gleichen technischen Varianten helfen Zeitpunkt und Kurzkennung bei der eindeutigen Auswahl.' -ForegroundColor DarkGray
@@ -1986,10 +1989,11 @@ function Read-LabHyperVSqlSaPassword {
     [CmdletBinding()]
     param([Parameter(Mandatory)][SecureString]$GuestPassword)
 
-    Write-Host '  SQL-SA-Passwort: [Enter] = Gastpasswort verwenden, [s] separat festlegen' -ForegroundColor White
-    $choice = Read-Host '  Auswahl [Enter]'
-    if (-not $choice) { return $GuestPassword }
-    if ($choice -notin @('s', 'S')) { Write-LabWarning 'Ungültige Auswahl.'; return $null }
+    Write-Host '  SQL-SA-Passwort: [1] Gastpasswort verwenden, [2] separat festlegen [1]' -ForegroundColor White
+    $choice = Read-Host '  Auswahl'
+    if (-not $choice) { $choice = '1' }
+    if ($choice -eq '1') { return $GuestPassword }
+    if ($choice -ne '2') { Write-LabWarning 'Ungültige Auswahl.'; return $null }
 
     $saPassword = Read-Host '  Eigenes SQL-SA-Passwort' -AsSecureString
     $confirmation = Read-Host '  SQL-SA-Passwort bestätigen' -AsSecureString

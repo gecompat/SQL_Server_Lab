@@ -51,6 +51,54 @@ function Get-HyperVMediaHashSidecarSummary {
     return [PSCustomObject]@{ HashPath = $hashPath; HashStatus = 'SIDECAR_READY'; ExpectedSha256 = $Matches['sha'].ToLowerInvariant() }
 }
 
+function Get-HyperVMediaDiscoveryCache {
+    <# .SYNOPSIS Lädt erkannte ISO-Metadaten eines Media Root, ohne ISO-Dateien einzuhängen. #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$MediaRoot, [Parameter(Mandatory)][ValidateSet('windows', 'sql')][string]$Kind)
+
+    $path = Join-Path (Join-Path $MediaRoot 'Evidence') ("{0}-media-discovery-cache.json" -f $Kind)
+    $cache = @{}
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return $cache }
+    try {
+        $document = Get-Content -LiteralPath $path -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
+        if ([string]$document.contractVersion -ne '1' -or [string]$document.kind -ne $Kind) { return $cache }
+        foreach ($entry in @($document.entries)) {
+            if ($entry.path -and $entry.items) { $cache[[string]$entry.path] = @($entry.items) }
+        }
+    }
+    catch {
+        Write-LabWarning "Media-Erkennungscache wird ignoriert: $($_.Exception.Message)"
+    }
+    return $cache
+}
+
+function Save-HyperVMediaDiscoveryCache {
+    <# .SYNOPSIS Schreibt nur abgeleitete ISO-Metadaten; die ISO selbst bleibt unverändert. #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$MediaRoot,
+        [Parameter(Mandatory)][ValidateSet('windows', 'sql')][string]$Kind,
+        [Parameter(Mandatory)][hashtable]$Cache
+    )
+
+    try {
+        $evidenceRoot = Join-Path $MediaRoot 'Evidence'
+        New-Item -Path $evidenceRoot -ItemType Directory -Force | Out-Null
+        $document = [PSCustomObject]@{
+            contractVersion = '1'; kind = $Kind; generatedAt = Get-LabTimestamp
+            entries = @($Cache.GetEnumerator() | Sort-Object Key | ForEach-Object {
+                [PSCustomObject]@{ path = $_.Key; items = @($_.Value) }
+            })
+        }
+        Write-LabArtifactJsonAtomic -Path (Join-Path $evidenceRoot ("{0}-media-discovery-cache.json" -f $Kind)) -InputObject $document
+    }
+    catch {
+        # Ein schreibgeschützter Media Root darf die dynamische Erkennung nicht
+        # verhindern; dann bleibt sie innerhalb der laufenden Sitzung gecacht.
+        Write-LabWarning "Media-Erkennungscache konnte nicht gespeichert werden: $($_.Exception.Message)"
+    }
+}
+
 function Get-HyperVWindowsInstallationMediaInfo {
     <# .SYNOPSIS Liest Windows-Server- und Windows-Client-Version, Edition und Installationsart direkt aus einer ISO. #>
     [CmdletBinding()]
@@ -167,6 +215,14 @@ function Get-HyperVWindowsInstallationMediaCandidates {
 
     $resolvedRoot = (Resolve-Path -LiteralPath $MediaRoot -ErrorAction Stop).Path
     if (-not $script:HyperVWindowsMediaScanCache) { $script:HyperVWindowsMediaScanCache = @{} }
+    if (-not $script:HyperVWindowsMediaScanCacheRoots) { $script:HyperVWindowsMediaScanCacheRoots = @{} }
+    $rootKey = $resolvedRoot.ToLowerInvariant()
+    if (-not $script:HyperVWindowsMediaScanCacheRoots.ContainsKey($rootKey)) {
+        foreach ($entry in (Get-HyperVMediaDiscoveryCache -MediaRoot $resolvedRoot -Kind windows).GetEnumerator()) {
+            $script:HyperVWindowsMediaScanCache[$entry.Key] = @($entry.Value)
+        }
+        $script:HyperVWindowsMediaScanCacheRoots[$rootKey] = $true
+    }
     # SQL-, Hash- und Evidenzordner gehören anderen Workflows. Alle übrigen
     # Unterordner dürfen frei benannt oder umsortiert werden.
     $excludedRoots = @('SQL', 'Hashes', 'Evidence', 'Exports', '.git')
@@ -177,6 +233,7 @@ function Get-HyperVWindowsInstallationMediaCandidates {
         return $topLevel -notin $excludedRoots
     })
     $knownPaths = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    $cacheChanged = $false
     foreach ($item in $items) {
         $null = $knownPaths.Add($item.FullName)
         $fingerprint = "$($item.Length):$($item.LastWriteTimeUtc.Ticks)"
@@ -193,10 +250,18 @@ function Get-HyperVWindowsInstallationMediaCandidates {
                 $cached = @([PSCustomObject]@{ Fingerprint = $fingerprint; MediaId = $relativePath; OperatingSystemId = $null; WindowsEdition = $null; InstallationType = $null; ImageName = $null; ImageIndex = $null; State = 'UNRECOGNIZED'; Message = $_.Exception.Message })
             }
             $script:HyperVWindowsMediaScanCache[$item.FullName] = $cached
+            $cacheChanged = $true
         }
     }
-    foreach ($path in @($script:HyperVWindowsMediaScanCache.Keys)) { if (-not $knownPaths.Contains($path)) { $script:HyperVWindowsMediaScanCache.Remove($path) } }
-    return @($script:HyperVWindowsMediaScanCache.Values | ForEach-Object { $_ } | ForEach-Object {
+    foreach ($path in @($script:HyperVWindowsMediaScanCache.Keys)) { if ($path.StartsWith($resolvedRoot, [System.StringComparison]::OrdinalIgnoreCase) -and -not $knownPaths.Contains($path)) { $script:HyperVWindowsMediaScanCache.Remove($path); $cacheChanged = $true } }
+    if ($cacheChanged) {
+        $persistentCache = @{}
+        foreach ($path in @($script:HyperVWindowsMediaScanCache.Keys | Where-Object { $_.StartsWith($resolvedRoot, [System.StringComparison]::OrdinalIgnoreCase) })) {
+            $persistentCache[$path] = $script:HyperVWindowsMediaScanCache[$path]
+        }
+        Save-HyperVMediaDiscoveryCache -MediaRoot $resolvedRoot -Kind windows -Cache $persistentCache
+    }
+    return @($script:HyperVWindowsMediaScanCache.GetEnumerator() | Where-Object { $_.Key.StartsWith($resolvedRoot, [System.StringComparison]::OrdinalIgnoreCase) } | ForEach-Object { $_.Value } | ForEach-Object {
         $summary = Get-HyperVMediaHashSidecarSummary -MediaRoot $resolvedRoot -RelativePath $_.MediaId
         $_ | Add-Member -NotePropertyName HashPath -NotePropertyValue $summary.HashPath -Force
         $_ | Add-Member -NotePropertyName HashStatus -NotePropertyValue $summary.HashStatus -Force
