@@ -39,7 +39,7 @@ Fachliche Testszenarien bleiben in den konsumierenden Projekten. `SQL_Server_Lab
 | Gemischter Docker-/Podman-Lifecycle | implementiert | `Documentation/Architecture/MIXED_PROVIDER_LIFECYCLE.md` |
 | Hyper-V-Provider | Lifecycle einschließlich Gast-Drives, Windows-Specialization, SQL-Readiness, Image-Registry, Windows-Builder und resumierbarem SQL-`PrepareImage`-Builder implementiert; realer Windows-2025-VHDX-Boot verifiziert, echter SQL-End-to-End-Nachweis noch offen | `Providers/HyperV/HyperVProvider.ps1`, `Private/HyperVImageBuilder.ps1`, `Private/HyperVSqlImageBuilder.ps1` |
 | Ad-hoc-Provisionierung | implementiert | `New-SqlServerLab -Version ... -Provider ...` |
-| Manifest-Provisionierung | implementiert | `Schemas/lab-manifest.schema.json` |
+| Manifest-Provisionierung | primärer unbeaufsichtigter Containerpfad; externe Secret-Referenzen, SHA-256-Restores und sichere Mount-Defaults | `Schemas/lab-manifest.schema.json`, `Documentation/Architecture/TEMPLATE_POOL_AND_AUTOMATED_MANIFESTS.md` |
 | Resource Assessment | implementiert | `Test-SqlServerLabPrerequisite` |
 | Run-State und Cleanup-Plan | implementiert | `Private/StateMachine.ps1`, `Private/CleanupEngine.ps1` |
 | Datenbankerstellung | implementiert | `New-SqlServerLabDatabase` |
@@ -53,10 +53,11 @@ Fachliche Testszenarien bleiben in den konsumierenden Projekten. `SQL_Server_Lab
 
 Die [bekannten Grenzen](Documentation/Quality/KNOWN_LIMITATIONS.md) sind Teil des öffentlichen Vertrags. Planungsdokumente sind kein Runtime-Nachweis.
 
-`Invoke-SqlServerLab` und `New-SqlServerLab` bieten Hyper-V noch nicht als
-ausführbaren Menü-/SQL-Runtimepfad an. Der Provider bleibt intern, bis
-`CompleteImage`, Manifest-/Netzwerk-Binding und ein echter Windows-/SQL-
-End-to-End-Nachweis vollständig sind.
+Der Ad-hoc- und Menüpfad bietet Hyper-V noch nicht als allgemeinen SQL-
+Runtimepfad an. `New-SqlServerLab -Manifest` unterstützt hingegen genau eine
+explizit ausgewählte `SQL_PREPARED_SEALED`-Vorlage als differenzierenden Klon.
+Vollständige deklarative Hyper-V-Drives, Datenbanken und Network Intents bleiben
+bis zu ihrem echten End-to-End-Nachweis begrenzt.
 
 ## Voraussetzungen
 
@@ -91,7 +92,9 @@ Die zusätzlichen Voraussetzungen für Entwicklung, Provider-Smoke-Tests,
 Self-hosted Runner und Hyper-V beschreibt die
 [Entwicklungs- und Testumgebung](Documentation/Development/DEVELOPMENT_AND_TEST_SETUP_WINDOWS.md).
 Für einen geführten Überblick über Windows-Baselines, SQL-Prepared-Images und
-offene Schritte steht außerdem die [lokale Workflow-Oberfläche](Documentation/HowTo/WORKFLOW_UI.md) bereit.
+offene Schritte steht außerdem die [lokale Workflow-Oberfläche](Documentation/HowTo/WORKFLOW_UI.md) bereit. Der
+[Vorlagen- und Manifestvertrag](Documentation/Architecture/TEMPLATE_POOL_AND_AUTOMATED_MANIFESTS.md)
+trennt dabei immutable Vorlagen, wegwerfbare Labs und explizite Expertenaktionen.
 
 Runtime prüfen:
 
@@ -270,12 +273,20 @@ $result.Warnings
 
 Fehler verhindern das Speichern beziehungsweise Provisionieren. Warnungen
 kennzeichnen unter anderem vorbereitete Schemafelder ohne stabilen Runtimepfad
-und riskante SQL-Konfigurationen.
+und riskante SQL-Konfigurationen. Ein gespeichertes Manifest läuft standardmäßig
+unbeaufsichtigt: fehlende Voraussetzungen stoppen mit einem Fehler statt eine
+Passwort- oder Trust-Abfrage zu öffnen.
 
 ```json
 {
   "$schema": "./Schemas/lab-manifest.schema.json",
   "name": "mein-erstes-lab",
+  "automation": {
+    "mode": "unattended",
+    "secrets": {
+      "saPassword": "SQL_SERVER_LAB_SECRET_SA_PASSWORD"
+    }
+  },
   "instances": [
     {
       "id": "primary",
@@ -299,8 +310,17 @@ und riskante SQL-Konfigurationen.
 Ausführen:
 
 ```powershell
+$env:SQL_SERVER_LAB_SECRET_SA_PASSWORD = '<aus Secret Store oder CI-Injection>'
 $lab = New-SqlServerLab -Manifest '.\mein-lab.json'
+Remove-Item Env:SQL_SERVER_LAB_SECRET_SA_PASSWORD
 ```
+
+Das Manifest enthält damit nur den Namen der Prozessvariablen, nie den
+Passwortwert. Remote-Backups benötigen für automatisierte Läufe eine
+`restore.sha256`; ohne bekannte Prüfsumme endet der Lauf mit `TRUST_REQUIRED`.
+Für zentrale Testdatenbibliothek, Data Root, die maximal 20 immutable Vorlagen
+und den ausdrücklich doppelten Opt-in für schreibende Host-Mounts siehe den
+[Vorlagen- und Manifestvertrag](Documentation/Architecture/TEMPLATE_POOL_AND_AUTOMATED_MANIFESTS.md).
 
 Vollständige Beispiele liegen unter [`Schemas/`](Schemas/README.md).
 
@@ -415,7 +435,7 @@ Clear-SqlServerLab
 | Cmdlet | Zweck |
 |---|---|
 | `Invoke-SqlServerLab` | Interaktives Menü |
-| `Get-SqlServerLabWorkflow` | Konsolidierte Workflow-, Image- und Kombinationsübersicht ohne Geheimnisse |
+| `Get-SqlServerLabWorkflow` | Konsolidierte Workflow-, Image-, Vorlagenpool- und Kombinationsübersicht ohne Geheimnisse |
 | `Invoke-SqlServerLabWorkflowAction` | Nicht interaktive Hyper-V-Workflow-Aktion für die lokale Oberfläche |
 | `New-SqlServerLabManifest` | Schema-gesteuertes Manifest in der Konsole erstellen |
 | `Test-SqlServerLabManifest` | Manifest ohne Provisionierung strukturell und fachlich prüfen |
@@ -558,6 +578,7 @@ _QuellRepo/      unveränderte Quell-Snapshots anderer Repositories
 - [Testdatenbank-Provisionierung und menügeführte Manifest-Erstellung](Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md)
 - [Gemischter Container-Provider-Lifecycle](Documentation/Architecture/MIXED_PROVIDER_LIFECYCLE.md)
 - [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md)
+- [Vorlagenpool und automatisierte Manifeste](Documentation/Architecture/TEMPLATE_POOL_AND_AUTOMATED_MANIFESTS.md)
 - [Öffentliche Cmdlets](Public/README.md)
 - [Project Adapter](Adapters/README.md)
 - [Provider](Providers/README.md)

@@ -2,6 +2,12 @@
   "$schema": "../Schemas/lab-manifest.schema.json",
   "name": "ml-services-lab",
   "description": "SQL Server mit R, Python und Java fuer In-Database ML und Extensibility",
+  "automation": {
+    "mode": "unattended",
+    "secrets": {
+      "saPassword": "SQL_SERVER_LAB_SECRET_SA_PASSWORD"
+    }
+  },
   "instances": [
     {
       "id": "ml-server",

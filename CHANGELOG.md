@@ -8,6 +8,19 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- unbeaufsichtigter Manifest-Standard mit externen, eng benannten Prozess-
+  Secret-Referenzen für SA-, Gast- und SQL-SA-Passwörter. Klartextsecrets werden
+  vom Schema abgelehnt; Remote-Restores können ihre SHA-256 deklarieren und
+  enden ohne bekannte Prüfsumme im Automationspfad sicher mit `TRUST_REQUIRED`;
+- klarer Dreiklang aus immutable Hyper-V-Vorlagenpool (maximal 20
+  `OS_SEALED`-/`SQL_PREPARED_SEALED`-Images), differenzierenden wegwerfbaren
+  Labs und expliziten Expertenaktionen. Aktive Lab-Klone schützen ihr Parent-
+  Image vor dem Entfernen; Workflow-Übersicht und UI zeigen die Poolbelegung;
+- sichere Manifest-Host-Mounts: read-only als Default; schreibende beliebige
+  Hostpfade brauchen sowohl `expertActions.hostWriteMounts` als auch
+  `-AllowExpertHostWriteMounts`. Die zentrale verifizierte Testdatenbibliothek
+  bleibt von den pro Lab getrennten Data-/Backup-Bereichen isoliert;
+
 - konfigurierbare sichtbare Testdaten-Bibliothek: Standard ist
   `<MediaRoot>\Testdaten`. Verifizierte Backups, Archive und T-SQL-Skripte
   werden nach Kategorie, Sample und Variante abgelegt und mit `artifact.json`

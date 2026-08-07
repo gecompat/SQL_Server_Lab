@@ -28,6 +28,7 @@ function renderSummary(summary) {
   const values = [
     [summary.WindowsBaselines, 'OS-Baselines'],
     [summary.SqlPreparedImages, 'SQL-Prepared-Images'],
+    [String(summary.TemplatePoolUsed ?? 0) + '/' + String(summary.TemplatePoolCapacity ?? 20), 'Vorlagenpool'],
     [summary.PendingWindowsBuilds, 'offene Windows-Builds'],
     [summary.PendingSqlBuilds, 'offene SQL-Builds'],
     [summary.ActiveContainerLabs, 'aktive Container-Labs']
@@ -748,7 +749,7 @@ document.addEventListener('click', async (event) => {
   const artifactRemove = event.target.closest('[data-artifact-remove]');
   if (artifactRemove) {
     const kind = artifactRemove.dataset.artifactKind;
-    openConfirmation(kind + ' löschen', kind + ' „' + artifactRemove.dataset.artifact + '“ wirklich löschen? Die registrierte immutable VHDX und ihre Metadaten werden entfernt. Falls ein aktiver Build das Image noch verwendet, wird das Löschen sicher blockiert.', 'RemoveHyperVImageArtifact', { ArtifactId: artifactRemove.dataset.artifact }, 'Image löschen');
+    openConfirmation(kind + ' löschen', kind + ' „' + artifactRemove.dataset.artifact + '“ wirklich löschen? Die registrierte immutable VHDX und ihre Metadaten werden entfernt. Falls ein aktiver Build oder Lab-Klon das Image noch verwendet, wird das Löschen sicher blockiert.', 'RemoveHyperVImageArtifact', { ArtifactId: artifactRemove.dataset.artifact }, 'Image löschen');
     return;
   }
   const artifactRename = event.target.closest('[data-artifact-rename]');

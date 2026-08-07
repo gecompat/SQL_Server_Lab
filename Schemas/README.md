@@ -90,6 +90,22 @@ Auswirkungen und ein Beispiel. Bei relativen Hostpfaden zeigt er während der
 Eingabe zusätzlich die aufgelöste lokale Vorschau. Diese Anzeige schreibt keine
 Hostpfade in versionierte Artefakte.
 
+`drives[].hostPath` ist bei Manifesten standardmäßig `readOnly`. Für einen
+schreibenden beliebigen Host-Mount müssen **beide** Freigaben vorliegen:
+`drives[].accessMode: "readWrite"` zusammen mit
+`expertActions.hostWriteMounts: true` im Manifest und der Aufrufschalter
+`New-SqlServerLab -AllowExpertHostWriteMounts`. Für normale Testdaten sind die
+verifizierte Media-Root-Bibliothek und der pro Lab getrennte Data Root vorgesehen.
+
+## Unbeaufsichtigte Ausführung
+
+Manifeste verwenden standardmäßig `automation.mode: "unattended"`. Geheimnisse
+werden ausschließlich als Namen von Prozess-Umgebungsvariablen mit dem Präfix
+`SQL_SERVER_LAB_SECRET_` referenziert, beispielsweise
+`SQL_SERVER_LAB_SECRET_SA_PASSWORD`; Klartextwerte sind nicht schemagültig.
+Remote-Restores brauchen für automatisierte Läufe `restore.sha256`. Ohne
+bekannte Prüfsumme endet der Artifact Resolver sicher mit `TRUST_REQUIRED`.
+
 ## Sample-Datenbanken
 
 Beispiel:
@@ -112,7 +128,9 @@ Der Manifestparser akzeptiert automatisch nur Varianten mit direkter `.bak`-URL.
 Import-Module .\SqlServerLab.psd1 -Force
 New-SqlServerLabManifest -Path .\mein-lab.json
 Test-SqlServerLabManifest -Path .\mein-lab.json
+$env:SQL_SERVER_LAB_SECRET_SA_PASSWORD = '<aus Secret Store oder CI-Injection>'
 New-SqlServerLab -Manifest .\Schemas\example-performance-lab.json
+Remove-Item Env:SQL_SERVER_LAB_SECRET_SA_PASSWORD
 ```
 
 `New-SqlServerLabManifest` liest den gesamten Eingabebaum aus

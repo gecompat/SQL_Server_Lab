@@ -83,6 +83,50 @@
         }
       },
       "additionalProperties": false
+    },
+    "automation": {
+      "type": "object",
+      "description": "Unbeaufsichtigter Manifestlauf. Das Manifest referenziert nur den Namen einer durch den aufrufenden Prozess bereitgestellten Secret-Umgebungsvariablen; es enthält niemals Geheimnisse.",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "unattended",
+            "interactive"
+          ],
+          "default": "unattended",
+          "description": "unattended ist der Standard für Manifeste und beendet fehlende Voraussetzungen ohne Rückfrage. interactive ist nur ein expliziter Kompatibilitätsmodus."
+        },
+        "secrets": {
+          "type": "object",
+          "description": "Optionale Referenzen auf Prozess-Umgebungsvariablen für nicht interaktive Läufe.",
+          "properties": {
+            "saPassword": {
+              "$ref": "#/definitions/secretEnvironmentVariable"
+            },
+            "guestPassword": {
+              "$ref": "#/definitions/secretEnvironmentVariable"
+            },
+            "sqlSaPassword": {
+              "$ref": "#/definitions/secretEnvironmentVariable"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "expertActions": {
+      "type": "object",
+      "description": "Explizite Freigaben fuer erweiterte, potenziell nicht wegwerfbare Aktionen. Sie sind kein Bestandteil des Standard-Labpfads.",
+      "properties": {
+        "hostWriteMounts": {
+          "type": "boolean",
+          "default": false,
+          "description": "Erlaubt schreibende beliebige Host-Mounts nur zusammen mit dem Cmdlet-Schalter -AllowExpertHostWriteMounts. Ohne beide Freigaben sind Host-Mounts schreibgeschuetzt."
+        }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false,
@@ -253,6 +297,14 @@
       },
       "additionalProperties": false
     },
+    "secretEnvironmentVariable": {
+      "type": "string",
+      "pattern": "^SQL_SERVER_LAB_SECRET_[A-Z0-9_]+$",
+      "description": "Name einer nur für den aufrufenden Prozess bereitgestellten Secret-Umgebungsvariablen. Der Wert selbst wird weder im Manifest noch im Run-State gespeichert.",
+      "examples": [
+        "SQL_SERVER_LAB_SECRET_SA_PASSWORD"
+      ]
+    },
     "database": {
       "type": "object",
       "required": [
@@ -418,6 +470,11 @@
                 "auto"
               ],
               "default": "auto"
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[A-Fa-f0-9]{64}$",
+              "description": "Erwartete SHA-256-Prüfsumme für einen automatisierten Remote-Restore. Ohne bekannte Prüfsumme wird ein unbeaufsichtigter Download mit TRUST_REQUIRED abgelehnt."
             },
             "replace": {
               "type": "boolean",
@@ -999,6 +1056,15 @@
             "D:\\SqlData",
             "/mnt/fast-ssd/sql"
           ]
+        },
+        "accessMode": {
+          "type": "string",
+          "description": "Zugriffsmodus eines optionalen Host-Mounts. readOnly ist der sichere Standard; readWrite ist eine explizite Expertenaktion.",
+          "enum": [
+            "readOnly",
+            "readWrite"
+          ],
+          "default": "readOnly"
         },
         "sizeLimitGB": {
           "type": "number",

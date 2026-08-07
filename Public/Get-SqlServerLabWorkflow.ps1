@@ -61,10 +61,12 @@ function Get-SqlServerLabWorkflow {
     $hyperVSwitches = @()
     $hyperVExistingVmSources = @()
     $activeContainerRuns = @()
+    $templatePool = [PSCustomObject]@{ MaximumTemplates = 20; UsedTemplates = 0; AvailableTemplates = 20; IsAtCapacity = $false; WindowsBaselines = 0; SqlPreparedImages = 0; Templates = @() }
     if ($hyperV.Supported) {
         try { $windowsBuilds = @(Get-HyperVImageBuildPlans 2>$null) } catch { }
         try { $sqlBuilds = @(Get-HyperVSqlImageBuildPlans 2>$null) } catch { }
         try { $artifacts = @(Get-HyperVImageArtifact -SkipIntegrityCheck 2>$null) } catch { }
+        try { $templatePool = Get-HyperVTemplatePoolStatus -Artifacts $artifacts } catch { }
         try { $acceptance = @(Get-HyperVSqlAcceptanceMatrix 2>$null) } catch { }
         if ($hyperV.Available) {
             try {
@@ -243,12 +245,15 @@ function Get-SqlServerLabWorkflow {
         WindowsInstallationMedia = $windowsInstallationMedia
         SampleDatabases = $sampleDatabases
         MediaSources = $mediaSources
+        TemplatePool = $templatePool
         HyperVLabs = $hyperVLabs
         HyperVSwitches = $hyperVSwitches
         HyperVExistingVmSources = $hyperVExistingVmSources
         Summary = [PSCustomObject]@{
             WindowsBaselines = @($artifacts | Where-Object artifactState -eq 'OS_SEALED').Count
             SqlPreparedImages = @($artifacts | Where-Object artifactState -eq 'SQL_PREPARED_SEALED').Count
+            TemplatePoolUsed = $templatePool.UsedTemplates
+            TemplatePoolCapacity = $templatePool.MaximumTemplates
             ActiveContainerLabs = $activeContainerRuns.Count
             PendingWindowsBuilds = @($windowsItems | Where-Object State -notin @('OS_SEALED', 'TEST_ARTIFACT_PUBLISHED')).Count
             PendingSqlBuilds = @($sqlItems | Where-Object State -notin @('SQL_PREPARED_SEALED', 'TESTS_PASSED')).Count

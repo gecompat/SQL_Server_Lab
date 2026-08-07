@@ -107,6 +107,66 @@ try {
         -not $sqlEvaluationArtifact.sql.license.evaluationExpiresAt
     )
 
+    $poolStateRoot = Join-Path $temporaryRoot 'template-pool-state'
+    $poolSources = @()
+    for ($index = 1; $index -le 20; $index++) {
+        $poolSource = Join-Path $temporaryRoot ("template-$index.vhdx")
+        $poolPayload = [byte[]]::new(4096)
+        [System.Text.Encoding]::ASCII.GetBytes('vhdxfile').CopyTo($poolPayload, 0)
+        $poolPayload[64] = [byte]$index
+        [System.IO.File]::WriteAllBytes($poolSource, $poolPayload)
+        (Get-Item -LiteralPath $poolSource).IsReadOnly = $true
+        $poolSha = (Get-FileHash -LiteralPath $poolSource -Algorithm SHA256).Hash
+        $null = & $module {
+            param($SourcePath, $Sha256, $StateRoot, $Index)
+            Import-HyperVImageArtifact -VhdxPath $SourcePath -ExpectedSha256 $Sha256 `
+                -ArtifactState OS_SEALED -OperatingSystemId windows-server-2025 `
+                -OperatingSystemVersion 2025 -Edition standard-evaluation -InstallationType core `
+                -LicenseType evaluation -IntegrityOrigin generated-by-runtime -Generalized `
+                -DisplayName ("Pool Template $Index") -StateRoot $StateRoot
+        } $poolSource $poolSha $poolStateRoot $index
+        $poolSources += $poolSource
+    }
+    $templatePool = & $module { param($StateRoot) Get-HyperVTemplatePoolStatus -StateRoot $StateRoot } $poolStateRoot
+    Add-CheckResult -Name 'Vorlagenpool begrenzt veröffentlichte OS- und SQL-Prepared-Images auf zwanzig Einträge' -Success (
+        $templatePool.MaximumTemplates -eq 20 -and $templatePool.UsedTemplates -eq 20 -and
+        $templatePool.AvailableTemplates -eq 0 -and $templatePool.IsAtCapacity
+    )
+
+    $overflowSource = Join-Path $temporaryRoot 'template-overflow.vhdx'
+    $overflowPayload = [byte[]]::new(4096)
+    [System.Text.Encoding]::ASCII.GetBytes('vhdxfile').CopyTo($overflowPayload, 0)
+    $overflowPayload[64] = [byte]21
+    [System.IO.File]::WriteAllBytes($overflowSource, $overflowPayload)
+    (Get-Item -LiteralPath $overflowSource).IsReadOnly = $true
+    $overflowSha = (Get-FileHash -LiteralPath $overflowSource -Algorithm SHA256).Hash
+    $poolCapacityRejected = $false
+    try {
+        & $module {
+            param($SourcePath, $Sha256, $StateRoot)
+            Import-HyperVImageArtifact -VhdxPath $SourcePath -ExpectedSha256 $Sha256 `
+                -ArtifactState OS_SEALED -OperatingSystemId windows-server-2025 `
+                -OperatingSystemVersion 2025 -Edition standard-evaluation -InstallationType core `
+                -LicenseType evaluation -IntegrityOrigin generated-by-runtime -Generalized -StateRoot $StateRoot
+        } $overflowSource $overflowSha $poolStateRoot | Out-Null
+    }
+    catch { $poolCapacityRejected = $_.Exception.Message -match 'HYPERV_TEMPLATE_POOL_CAPACITY_EXCEEDED' }
+    Add-CheckResult -Name 'Voller Vorlagenpool blockiert neue Images ohne vorhandene Vorlagen zu verändern' -Success $poolCapacityRejected
+
+    $poolReferenceRun = & $module {
+        param($StateRoot, $ArtifactId)
+        New-LabRunState -StateRoot $StateRoot -Metadata @{ name = 'template-reference'; workflowKind = 'hyperv-lab'; imageArtifactId = $ArtifactId }
+    } $poolStateRoot $templatePool.Templates[0].artifactId
+    $templateInUseRejected = $false
+    try {
+        & $module {
+            param($ArtifactId, $StateRoot)
+            Remove-HyperVImageArtifact -ArtifactId $ArtifactId -StateRoot $StateRoot
+        } $templatePool.Templates[0].artifactId $poolStateRoot | Out-Null
+    }
+    catch { $templateInUseRejected = $_.Exception.Message -match 'HYPERV_ARTIFACT_IN_USE' }
+    Add-CheckResult -Name 'Aktiver differenzierender Lab-Run schützt sein Parent-Template vor dem Entfernen' -Success $templateInUseRejected
+
     $metadataConflictRejected = $false
     try {
         & $module {

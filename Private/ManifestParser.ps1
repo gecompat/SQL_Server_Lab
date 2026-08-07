@@ -328,10 +328,10 @@ function Resolve-ManifestDefaults {
                     }
 
                     $restoreDefinition = [PSCustomObject]@{
-                        source  = $source
-                        type    = if ($database.restore.type) { $database.restore.type } else { 'auto' }
-                        replace = if ($null -ne $database.restore.replace) { [bool]$database.restore.replace } else { $true }
-                        expectedSha256 = $null
+                    source  = $source
+                    type    = if ($database.restore.type) { $database.restore.type } else { 'auto' }
+                    replace = if ($null -ne $database.restore.replace) { [bool]$database.restore.replace } else { $true }
+                    expectedSha256 = if ($database.restore.sha256) { ([string]$database.restore.sha256).ToLowerInvariant() } else { $null }
                     }
                 }
 
@@ -359,6 +359,7 @@ function Resolve-ManifestDefaults {
                     id            = $drive.id
                     containerPath = $drive.containerPath
                     hostPath      = $hostPath
+                    readOnly      = if ($hostPath) { if ($drive.accessMode) { [string]$drive.accessMode -eq 'readOnly' } else { $true } } else { $false }
                     sizeLimitGB   = $drive.sizeLimitGB
                     type          = if ($drive.type) { $drive.type } else { 'auto' }
                 }
@@ -450,6 +451,15 @@ function Resolve-ManifestDefaults {
             enabled    = [bool]($Manifest.persistentData -and $Manifest.persistentData.enabled -eq $true)
             dataRoot   = $persistentDataRoot
             dataDiskGB = if ($Manifest.persistentData -and $Manifest.persistentData.dataDiskGB) { [int]$Manifest.persistentData.dataDiskGB } else { 128 }
+        }
+        automation        = [PSCustomObject]@{
+            mode = if ($Manifest.automation -and $Manifest.automation.mode) { [string]$Manifest.automation.mode } else { 'unattended' }
+            saPasswordEnvironmentVariable = if ($Manifest.automation -and $Manifest.automation.secrets -and $Manifest.automation.secrets.saPassword) { [string]$Manifest.automation.secrets.saPassword } else { $null }
+            guestPasswordEnvironmentVariable = if ($Manifest.automation -and $Manifest.automation.secrets -and $Manifest.automation.secrets.guestPassword) { [string]$Manifest.automation.secrets.guestPassword } else { $null }
+            sqlSaPasswordEnvironmentVariable = if ($Manifest.automation -and $Manifest.automation.secrets -and $Manifest.automation.secrets.sqlSaPassword) { [string]$Manifest.automation.secrets.sqlSaPassword } else { $null }
+        }
+        expertActions     = [PSCustomObject]@{
+            hostWriteMounts = [bool]($Manifest.expertActions -and $Manifest.expertActions.hostWriteMounts -eq $true)
         }
         manifestPath      = $ManifestPath
     }

@@ -735,6 +735,9 @@ function Get-LabManifestValidationResult {
                 if ($database.restore.type -eq 'file' -and $isUrl) {
                     $errors.Add("$databasePath.restore: type 'file' kann keine HTTP(S)-URL verwenden.")
                 }
+                if ($isUrl -and -not $database.restore.sha256) {
+                    $warnings.Add("$databasePath.restore.sha256 fehlt: Im unbeaufsichtigten Manifest-Standard endet der Download mit TRUST_REQUIRED.")
+                }
                 if (-not $isUrl) {
                     $localPath = if ([System.IO.Path]::IsPathRooted($source)) {
                         $source
@@ -803,6 +806,10 @@ function Get-LabManifestValidationResult {
             if ([string]::IsNullOrWhiteSpace($drive.containerPath)) {
                 $errors.Add("$instancePath.drives[$($drive.id)].containerPath darf nicht leer sein.")
             }
+            if ($drive.hostPath -and [string]$drive.accessMode -eq 'readWrite' -and
+                -not ($Manifest.expertActions -and $Manifest.expertActions.hostWriteMounts -eq $true)) {
+                $errors.Add("$instancePath.drives[$($drive.id)]: Schreibende Host-Mounts erfordern expertActions.hostWriteMounts=true und beim Start -AllowExpertHostWriteMounts.")
+            }
             if ($drive.sizeLimitGB) {
                 $warnings.Add("$instancePath.drives[$($drive.id)].sizeLimitGB ist nur Metadatum und wird nicht erzwungen.")
             }
@@ -835,6 +842,9 @@ function Get-LabManifestValidationResult {
     if ($Manifest.persistentData -and $Manifest.persistentData.enabled -eq $true -and $Manifest.persistentData.dataRoot -and
         -not [System.IO.Path]::IsPathRooted([string]$Manifest.persistentData.dataRoot)) {
         $warnings.Add('persistentData.dataRoot wird relativ zum Manifest-Verzeichnis aufgelöst.')
+    }
+    if ($Manifest.automation -and $Manifest.automation.mode -eq 'interactive') {
+        $warnings.Add('automation.mode interactive ist ein expliziter Kompatibilitätsmodus; der Manifest-Primärweg ist unattended.')
     }
 
     if ($Manifest.resourceOverrides.maxMemoryMB -or $Manifest.resourceOverrides.maxCpus) {
