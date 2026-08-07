@@ -266,6 +266,11 @@ Add-CheckResult -Name 'Docker-, Podman- und Hyper-V-Labs können nachträglich u
     $consoleText -match "\[n\] Umgebung umbenennen" -and
     $htmlText -match 'Projektname-Instanz-Run-ID'
 )
+Add-CheckResult -Name 'Konsolenübersicht trennt Live-Runtime vom gespeicherten Workflow-Status' -Success (
+    $consoleText -match 'Get-LabRunRuntimeStatus' -and
+    $consoleText -match 'Live:' -and
+    $consoleText -match 'Workflow:'
+)
 Add-CheckResult -Name 'Hyper-V-Switches und sofortige Browser-Rückmeldung sind sichtbar' -Success (
     $htmlText -match 'id="hyperv-switch"' -and
     $scriptText -match 'renderHyperVSwitchOptions' -and
