@@ -51,24 +51,22 @@ try {
         function Complete-HyperVLabSqlImage {
             param($RunId, $Credential, $SqlSaPassword)
             $script:capturedSqlSaPasswordLength = $SqlSaPassword.Length
-            [PSCustomObject]@{ state = 'COMPLETE'; serviceStatus = 'Running' }
-        }
-        function Enable-HyperVLabHostSqlAccess {
-            param($RunId, $Credential, $SqlSaPassword)
-            $script:capturedHostSqlSaPasswordLength = $SqlSaPassword.Length
-            [PSCustomObject]@{ ConnectionString = 'Server=172.28.0.58,1433;Database=master;User ID=sa;Password=<separates-Sa-Passwort>;' }
+            [PSCustomObject]@{
+                state = 'COMPLETE'; serviceStatus = 'Running'
+                hostSqlAccess = [PSCustomObject]@{ ConnectionString = 'Server=172.28.0.58,1433;Database=master;User ID=sa;Password=<separates-Sa-Passwort>;' }
+            }
         }
         $password = ConvertTo-SecureString 'Generated_Administrator_42!' -AsPlainText -Force
         $saPassword = ConvertTo-SecureString 'Separate_SA_51!' -AsPlainText -Force
         $result = Invoke-HyperVLabUnattendedProvision -RunId $RunId -AdministratorPassword $password -SqlSaPassword $saPassword -PasswordSource generated -StateRoot $Root
-        [PSCustomObject]@{ Result = $result; SqlSaPasswordLength = $script:capturedSqlSaPasswordLength; HostSqlSaPasswordLength = $script:capturedHostSqlSaPasswordLength; ExpectedSaPasswordLength = $saPassword.Length }
+        [PSCustomObject]@{ Result = $result; SqlSaPasswordLength = $script:capturedSqlSaPasswordLength; ExpectedSaPasswordLength = $saPassword.Length }
     } $created.RunId $temporaryRoot
     $unattendedConnection = Get-Content -LiteralPath (Join-Path (Join-Path (Join-Path $temporaryRoot 'runs') $created.RunId) 'connection-info.json') -Raw | ConvertFrom-Json -Depth 10
     $unattendedSecret = Join-Path (Join-Path (Join-Path (Join-Path $temporaryRoot 'runs') $created.RunId) 'secrets') 'guest-administrator-password.secret'
     Add-CheckResult -Name 'Prepared-Image-Klon injiziert OOBE nur in die Child-VHDX und speichert das Gastpasswort DPAPI-geschützt' -Success (
         $unattended.Result.OobeState -eq 'COMPLETED' -and
         $unattended.SqlSaPasswordLength -eq $unattended.ExpectedSaPasswordLength -and
-        $unattended.HostSqlSaPasswordLength -eq $unattended.ExpectedSaPasswordLength -and
+        $unattended.Result.HostSqlAccess.ConnectionString -match '172\.28\.0\.58,1433' -and
         $unattendedConnection.instances[0].oobeAutomation.passwordSource -eq 'generated' -and
         $unattendedConnection.instances[0].oobeAutomation.answerMedia -eq 'guest-scrubbed' -and
         $unattendedConnection.instances[0].oobeAutomation.networkBootstrap -eq 'lab-winrm-v1' -and

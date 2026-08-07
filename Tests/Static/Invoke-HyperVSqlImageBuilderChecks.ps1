@@ -267,7 +267,7 @@ try {
         $builderText -match '-SqlBuild \$build\.sql\.setupBuild' -and $builderText -match '-SqlFeatures @\(\$build\.sql\.features\)'
     )
     Add-CheckResult -Name 'Invoke-SqlServerLab-Image-Menue bietet den SQL-Image-Lifecycle' -Success (
-        $menuText -match 'Initialize-HyperVSqlFreshPreparedImageBuild' -and $menuText -match 'Invoke-HyperVSqlPrepareAndGeneralize' -and
+        $menuText -match 'Initialize-HyperVSqlFreshPreparedImageBuild' -and $menuText -match 'Complete-HyperVSqlPreparedImageBuild' -and
         $menuText -match 'Publish-HyperVSqlPreparedImageBuild'
     )
     $imageDeleteFunctionIndex = $menuText.IndexOf('function Remove-LabHyperVImageArtifactInteractive')
@@ -291,17 +291,25 @@ try {
         )
     }
     Add-CheckResult -Name 'SQL-Image-Status nennt den konkreten Untermenü-Schritt ohne interne State-Kenntnis' -Success (
-        $nextActionGuidance[0] -eq 'Prepared-Image-Builder fortsetzen: Prepared-Image jetzt veröffentlichen.' -and
-        $nextActionGuidance[1] -eq 'Prepared-Image-Builder fortsetzen: VM booten; danach SQL PrepareImage erneut ausführen.' -and
+        $nextActionGuidance[0] -eq 'Automatischen Abschluss fortsetzen; das Prepared-Image wird veröffentlicht.' -and
+        $nextActionGuidance[1] -eq 'Automatischen Abschluss fortsetzen; der von SQL angeforderte Neustart wird geprüft und der Ablauf fortgesetzt.' -and
         $menuText -match "Invoke-LabHyperVMenuAction -Title 'Builder-Status'" -and
         $menuText -match 'Show-LabHyperVSqlImageBuilds' -and
         $menuText -match 'Show-LabHyperVSqlNextActions'
     )
     Add-CheckResult -Name 'SQL-Prepared-Anweisungen verwenden keine obsolete Aktionsnummerierung' -Success (
-        $menuText -match 'Prepared-Image-Builder fortsetzen.*SQL PrepareImage und finalen Sysprep' -and
-        $menuText -match 'Prepared-Image veröffentlichen wählen' -and
+        $menuText -match 'Windows-Installation bestätigen und automatisch fertigstellen' -and
+        $menuText -match 'SQL PrepareImage, Neustarts, Sysprep und Veröffentlichung' -and
         $menuText -notmatch 'Aktion 10' -and
         $menuText -notmatch 'Aktion 11'
+    )
+    Add-CheckResult -Name 'Standardpfad automatisiert SQL-Setup-Neustart, Sysprep und Veröffentlichung nach Windows-Bestätigung' -Success (
+        $builderText -match 'function Wait-HyperVSqlImageBuildGuestRestart' -and
+        $builderText -match 'bootTimeBeforeRestart' -and
+        $builderText -match 'function Complete-HyperVSqlPreparedImageBuild' -and
+        $builderText -match 'Publish-HyperVSqlPreparedImageBuild -BuildId \$BuildId' -and
+        $menuText -match 'Complete-HyperVSqlPreparedImageBuild -BuildId \$confirmed\.buildId' -and
+        $menuText -match 'Automatischen Abschluss fortsetzen'
     )
     Add-CheckResult -Name 'Prepared-Image-Auswahl zeigt Anzeigename, Zeitpunkt und Kurzkennung' -Success (
         $menuText -match 'function Select-LabHyperVPreparedArtifact' -and

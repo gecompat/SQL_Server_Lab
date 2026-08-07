@@ -10,6 +10,35 @@
 $script:LabModuleName = 'SqlServerLab'
 $script:LabVersion = '0.1.0'
 
+function Get-LabBuildInfo {
+    <#
+    .SYNOPSIS Liefert die tatsächlich geladene Modulversion und Quellrevision.
+    .DESCRIPTION Die Information wird pro Modulsitzung einmal ermittelt. Damit
+    zeigt das Konsolenbanner nach einem Import direkt, aus welchem Checkout die
+    gerade ausgeführten Funktionen stammen.
+    #>
+    [CmdletBinding()]
+    param()
+
+    if ($script:LabBuildInfo) { return $script:LabBuildInfo }
+    $revision = 'ohne-git-revision'
+    $git = Get-Command git -ErrorAction SilentlyContinue
+    if ($git -and $script:ModuleRoot -and (Test-Path -LiteralPath (Join-Path $script:ModuleRoot '.git'))) {
+        try {
+            $candidate = @(& $git.Source -C $script:ModuleRoot rev-parse --short=8 HEAD 2>$null | Select-Object -First 1)[0]
+            if ($candidate -match '^[a-f0-9]{7,40}$') { $revision = [string]$candidate }
+        }
+        catch { }
+    }
+    $script:LabBuildInfo = [PSCustomObject]@{
+        Version = $script:LabVersion
+        Revision = $revision
+        Source = [string]$script:ModuleRoot
+        Display = "$($script:LabVersion) · $revision"
+    }
+    return $script:LabBuildInfo
+}
+
 # --- Farbdefinitionen ---
 $script:Colors = @{
     Info    = 'Cyan'

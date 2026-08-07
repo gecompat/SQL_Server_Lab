@@ -359,10 +359,10 @@ function Invoke-HyperVLabUnattendedProvision {
     # Ein separates SA-Passwort ist bewusst möglich. Ohne Angabe bleibt der
     # frühere, sichere Standard erhalten: SA entspricht dem Gastkonto.
     if (-not $SqlSaPassword) { $SqlSaPassword = $AdministratorPassword }
-    Write-LabInfo 'Schritt 6/6b: SQL CompleteImage wird in der laufenden Klon-VM ausgeführt.'
+    Write-LabInfo 'Schritt 6/6b: SQL CompleteImage, WMI-Prüfung sowie TCP/IP-Hostzugriff werden in der laufenden Klon-VM automatisch ausgeführt.'
     $sqlCompletion = Complete-HyperVLabSqlImage -RunId $RunId -Credential $credential -SqlSaPassword $SqlSaPassword -MediaRoot $MediaRoot -StateRoot $lab.StateRoot
-    $hostAccess = if ($lab.Instance.labNetwork) { Enable-HyperVLabHostSqlAccess -RunId $RunId -Credential $credential -SqlSaPassword $SqlSaPassword -StateRoot $lab.StateRoot } else { $null }
-    Write-LabSuccess 'Unbeaufsichtigte OOBE, SQL CompleteImage und der Host-SSMS-Zugriff sind abgeschlossen.'
+    $hostAccess = if ($sqlCompletion.PSObject.Properties['hostSqlAccess']) { $sqlCompletion.hostSqlAccess } else { $null }
+    Write-LabSuccess 'Unbeaufsichtigte OOBE, SQL CompleteImage, WMI und der TCP/IP-Hostzugriff sind abgeschlossen.'
     return [PSCustomObject]@{ RunId = $RunId; OobeState = 'COMPLETED'; SqlCompletion = $sqlCompletion; HostSqlAccess = $hostAccess; PasswordSource = $PasswordSource }
 }
 
@@ -492,11 +492,15 @@ function Get-HyperVLabSqlInstanceReceipt {
     den TCP-Port. Kennwörter und sonstige Geheimnisse werden nicht gelesen.
     #>
     [CmdletBinding()]
-    param([Parameter(Mandatory)]$Lab, [Parameter(Mandatory)][PSCredential]$Credential)
+    param(
+        [Parameter(Mandatory)]$Lab,
+        [Parameter(Mandatory)][PSCredential]$Credential,
+        [string]$FallbackAddress
+    )
 
     $managed = Get-HyperVManagedVM -VMName ([string]$Lab.Instance.vmName) -ExpectedRunId $Lab.Run.runId -ExpectedScopeId $Lab.Run.scopeId
     if (-not $managed -or [string]$managed.VM.State -ne 'Running') { throw 'HYPERV_LAB_SQL_INSPECTION_VM_MUST_BE_RUNNING' }
-    $receipt = Invoke-HyperVPowerShellDirect -VMName $Lab.Instance.vmName -ExpectedRunId $Lab.Run.runId -ExpectedScopeId $Lab.Run.scopeId -Credential $Credential -ArgumentList @([string]$Lab.Run.runId, [string]$Lab.Run.scopeId) -ScriptBlock {
+    $receipt = Invoke-HyperVPowerShellDirect -VMName $Lab.Instance.vmName -ExpectedRunId $Lab.Run.runId -ExpectedScopeId $Lab.Run.scopeId -Credential $Credential -FallbackAddress $FallbackAddress -ArgumentList @([string]$Lab.Run.runId, [string]$Lab.Run.scopeId) -ScriptBlock {
         param($ExpectedRunId, $ExpectedScopeId)
         $root = 'HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\Instance Names\SQL'
         $instances = @()
@@ -602,6 +606,9 @@ function Enable-HyperVLabHostSqlAccess {
     $networkReceipt = Initialize-HyperVGuestLabNetwork -VMName $lab.Instance.vmName -ExpectedRunId $lab.Run.runId `
         -ExpectedScopeId $lab.Run.scopeId -Credential $Credential -Network $network -Identity $lab.Run.runId
 
+    Write-LabInfo 'Hostzugriff: SQL-WMI-Provider wird geprüft und bei Bedarf automatisch repariert.'
+    $null = Repair-HyperVLabSqlWmiProvider -RunId $RunId -Credential $Credential `
+        -FallbackAddress $networkReceipt.Address -StateRoot $lab.StateRoot
     Write-LabInfo 'Hostzugriff: aktiviere SQL-TCP, SQL-Authentifizierung und die Host-beschränkte Firewallregel.'
     $receipt = Invoke-HyperVPowerShellDirect -VMName $lab.Instance.vmName -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId `
         -Credential $Credential -FallbackAddress $networkReceipt.Address -ArgumentList @([string]$lab.Run.runId, [string]$lab.Run.scopeId, $SqlSaPassword, [string]$network.HostAddress) -ScriptBlock {
@@ -671,7 +678,7 @@ function Enable-HyperVLabHostSqlAccess {
     $lab.Instance | Add-Member -NotePropertyName port -NotePropertyValue 1433 -Force
     $passwordHint = if ($usesSeparateSaPassword) { 'Separat festgelegtes SQL-SA-Passwort' } else { 'Gast-Administratorpasswort' }
     $lab.Instance | Add-Member -NotePropertyName hostSqlAccess -NotePropertyValue ([PSCustomObject]@{ state = 'READY'; authentication = 'sql-authentication'; login = 'sa'; passwordHint = $passwordHint; configuredAt = [string]$receipt.observedAt }) -Force
-    $instanceReceipt = Get-HyperVLabSqlInstanceReceipt -Lab $lab -Credential $Credential
+    $instanceReceipt = Get-HyperVLabSqlInstanceReceipt -Lab $lab -Credential $Credential -FallbackAddress $networkReceipt.Address
     $null = Save-HyperVLabSqlInstanceReceipt -Lab $lab -Receipt $instanceReceipt
     Write-LabSuccess "Hostzugriff bereit: $($lab.Instance.host),1433 (SQL-Login sa; Passwort: $passwordHint)."
     return [PSCustomObject]@{ Network = $networkReceipt; Sql = $receipt; ConnectionString = [string]$lab.Instance.connectionString }
@@ -683,7 +690,11 @@ function Inspect-HyperVLabSqlInstances {
 
     Write-LabInfo 'Schritt 1/2: SQL-Instanzen werden ausschließlich lesend im laufenden Gast geprüft.'
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
-    $receipt = Get-HyperVLabSqlInstanceReceipt -Lab $lab -Credential $Credential
+    $fallbackAddress = if ($lab.Instance.labNetwork) {
+        if ($lab.Instance.labNetwork.address) { [string]$lab.Instance.labNetwork.address }
+        else { Get-LabNetworkGuestAddress -Network $lab.Instance.labNetwork -Identity ([string]$lab.Run.runId) }
+    }
+    $receipt = Get-HyperVLabSqlInstanceReceipt -Lab $lab -Credential $Credential -FallbackAddress $fallbackAddress
     $instances = Save-HyperVLabSqlInstanceReceipt -Lab $lab -Receipt $receipt
     Write-LabSuccess "Schritt 2/2: $($instances.Count) SQL-Instanz(en) geprüft und Verbindungsdaten aktualisiert."
     return $instances
@@ -698,14 +709,19 @@ function Repair-HyperVLabSqlWmiProvider {
     kompiliert und der WMI-Dienst im Gast neu gestartet.
     #>
     [CmdletBinding()]
-    param([Parameter(Mandatory)][string]$RunId, [Parameter(Mandatory)][PSCredential]$Credential, [string]$StateRoot)
+    param(
+        [Parameter(Mandatory)][string]$RunId,
+        [Parameter(Mandatory)][PSCredential]$Credential,
+        [string]$FallbackAddress,
+        [string]$StateRoot
+    )
 
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
     $managed = Get-HyperVManagedVM -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
     if (-not $managed -or [string]$managed.VM.State -ne 'Running') { throw 'HYPERV_LAB_SQL_WMI_VM_MUST_BE_RUNNING' }
 
     $receipt = Invoke-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $Credential `
-        -ArgumentList @([string]$lab.Run.runId, [string]$lab.Run.scopeId) -ScriptBlock {
+        -FallbackAddress $FallbackAddress -ArgumentList @([string]$lab.Run.runId, [string]$lab.Run.scopeId) -ScriptBlock {
             param($ExpectedRunId, $ExpectedScopeId)
             $ErrorActionPreference = 'Stop'
             $instanceMap = Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\Instance Names\SQL' -ErrorAction Stop
@@ -742,6 +758,56 @@ function Repair-HyperVLabSqlWmiProvider {
     Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
     Write-LabSuccess $(if ($receipt.repaired) { 'SQL-WMI-Provider wurde repariert.' } else { 'SQL-WMI-Provider ist bereits verfügbar.' })
     return $receipt
+}
+
+function Wait-HyperVLabSqlCompletionRestart {
+    <#
+    .SYNOPSIS Wartet nach SQL CompleteImage auf den tatsächlich neuen Gast-Boot.
+    .DESCRIPTION Ein SQL-Setup-Rückgabecode 3010 bedeutet nicht, dass TCP,
+    Dienste oder WMI bereits nutzbar sind. Die Bootzeit verhindert, dass die
+    alte PowerShell-Direct-Sitzung versehentlich als erfolgreicher Neustart
+    gezählt wird.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Lab,
+        [Parameter(Mandatory)][PSCredential]$Credential,
+        [Parameter(Mandatory)][string]$PreviousBootTime,
+        [string]$FallbackAddress,
+        [ValidateRange(30, 1800)][int]$TimeoutSeconds = 600
+    )
+
+    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+    $lastStatus = 'Neustart noch nicht beobachtet.'
+    $lastProgressSeconds = -30
+    while ($stopwatch.Elapsed.TotalSeconds -lt $TimeoutSeconds) {
+        if (($stopwatch.Elapsed.TotalSeconds - $lastProgressSeconds) -ge 30) {
+            $lastProgressSeconds = $stopwatch.Elapsed.TotalSeconds
+            Write-LabInfo "SQL CompleteImage: warte auf Gast-Neustart ($([int]$stopwatch.Elapsed.TotalSeconds)s/$TimeoutSeconds, $lastStatus)"
+        }
+        try {
+            $probe = Invoke-HyperVPowerShellDirect -VMName ([string]$Lab.Instance.vmName) `
+                -ExpectedRunId ([string]$Lab.Run.runId) -ExpectedScopeId ([string]$Lab.Run.scopeId) `
+                -Credential $Credential -FallbackAddress $FallbackAddress -ScriptBlock {
+                    [PSCustomObject]@{
+                        bootTime = (Get-CimInstance Win32_OperatingSystem -ErrorAction Stop).LastBootUpTime.ToUniversalTime().ToString('o')
+                        imageState = [string](Get-ItemPropertyValue -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State' -Name ImageState -ErrorAction Stop)
+                    }
+                }
+            $probe = @($probe)[-1]
+            if ($probe -and [string]$probe.bootTime -ne $PreviousBootTime -and [string]$probe.imageState -eq 'IMAGE_STATE_COMPLETE') {
+                $stopwatch.Stop()
+                return [PSCustomObject]@{ Ready = $true; BootTime = [string]$probe.bootTime; Duration = $stopwatch.Elapsed; Message = 'SQL CompleteImage-Neustart abgeschlossen.' }
+            }
+            $lastStatus = if ($probe) { "Bootzeit noch unverändert ($($probe.bootTime))." } else { 'Kein PowerShell-Direct-Resultat.' }
+        }
+        catch {
+            $lastStatus = $_.Exception.Message
+        }
+        Start-Sleep -Seconds 2
+    }
+    $stopwatch.Stop()
+    return [PSCustomObject]@{ Ready = $false; BootTime = $null; Duration = $stopwatch.Elapsed; Message = "SQL CompleteImage-Neustart Timeout: $lastStatus" }
 }
 
 function Complete-HyperVLabSqlImage {
@@ -785,12 +851,16 @@ function Complete-HyperVLabSqlImage {
     $managed = Get-HyperVManagedVM -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
     if (-not $managed -or [string]$managed.VM.State -ne 'Running') { throw 'HYPERV_LAB_SQL_COMPLETE_VM_MUST_BE_RUNNING' }
     if (-not $SqlSaPassword) { $SqlSaPassword = $Credential.Password }
+    $fallbackAddress = if ($lab.Instance.labNetwork) {
+        if ($lab.Instance.labNetwork.address) { [string]$lab.Instance.labNetwork.address }
+        else { Get-LabNetworkGuestAddress -Network $lab.Instance.labNetwork -Identity ([string]$lab.Run.runId) }
+    }
 
     if (-not @(Get-VMDvdDrive -VMName $lab.Instance.vmName -ErrorAction Stop | Where-Object { $_.Path -eq $media.IsoPath })) {
         $null = Add-VMDvdDrive -VMName $lab.Instance.vmName -Path $media.IsoPath -ErrorAction Stop
     }
     Write-LabInfo 'Schritt 1/3: SQL-Setup-Medium wird in der run-eigenen VM geprüft.'
-    $receipt = Invoke-HyperVPowerShellDirect -VMName $lab.Instance.vmName -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $Credential -ArgumentList @([string]$lab.Run.runId, [string]$lab.Run.scopeId, $SqlSaPassword) -ScriptBlock {
+    $receipt = Invoke-HyperVPowerShellDirect -VMName $lab.Instance.vmName -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $Credential -FallbackAddress $fallbackAddress -ArgumentList @([string]$lab.Run.runId, [string]$lab.Run.scopeId, $SqlSaPassword) -ScriptBlock {
         param($ExpectedRunId, $ExpectedScopeId, $SaPassword)
         $setup = @(Get-PSDrive -PSProvider FileSystem | ForEach-Object {
             $candidate = Join-Path $_.Root 'setup.exe'
@@ -809,13 +879,14 @@ function Complete-HyperVLabSqlImage {
             # immer als typisierten Integer. Vor jeder Auswertung normalisieren.
             $exitCode = [int]$process.ExitCode
             if ($exitCode -ne 0 -and $exitCode -ne 3010) { throw "HYPERV_LAB_SQL_COMPLETE_FAILED: ExitCode=$exitCode" }
+            $bootTimeBeforeRestart = (Get-CimInstance Win32_OperatingSystem -ErrorAction Stop).LastBootUpTime.ToUniversalTime().ToString('o')
             if ($exitCode -eq 3010) { & shutdown.exe /r /t 10 /f | Out-Null }
             $service = Get-Service -Name MSSQLSERVER -ErrorAction SilentlyContinue
             if ($service -and $exitCode -eq 0 -and $service.Status -ne 'Running') {
                 Start-Service -Name MSSQLSERVER -ErrorAction Stop
                 $service = Get-Service -Name MSSQLSERVER -ErrorAction Stop
             }
-            [PSCustomObject]@{ runId = $ExpectedRunId; scopeId = $ExpectedScopeId; exitCode = $exitCode; serviceName = if ($service) { $service.Name } else { $null }; serviceStatus = if ($service) { [string]$service.Status } else { $null }; completedAt = [datetime]::UtcNow.ToString('o') }
+            [PSCustomObject]@{ runId = $ExpectedRunId; scopeId = $ExpectedScopeId; exitCode = $exitCode; bootTimeBeforeRestart = $bootTimeBeforeRestart; serviceName = if ($service) { $service.Name } else { $null }; serviceStatus = if ($service) { [string]$service.Status } else { $null }; completedAt = [datetime]::UtcNow.ToString('o') }
         }
         finally {
             $plainPassword = $null
@@ -824,17 +895,44 @@ function Complete-HyperVLabSqlImage {
     }
     $receipt = @($receipt)[-1]
     if (-not $receipt -or [string]$receipt.runId -ne [string]$lab.Run.runId -or [int]$receipt.exitCode -notin @(0, 3010) -or (([int]$receipt.exitCode -eq 0) -and $receipt.serviceName -ne 'MSSQLSERVER')) { throw 'HYPERV_LAB_SQL_COMPLETE_RECEIPT_INVALID' }
-    Write-LabInfo 'Schritt 2/3: SQL CompleteImage wurde bestätigt; Verbindungsdaten werden aktualisiert.'
-    $lab.Instance | Add-Member -NotePropertyName sqlCompletion -NotePropertyValue ([PSCustomObject]@{ state = if ([int]$receipt.exitCode -eq 3010) { 'REBOOT_REQUIRED' } else { 'COMPLETE' }; serviceStatus = [string]$receipt.serviceStatus; completedAt = [string]$receipt.completedAt }) -Force
-    if ([int]$receipt.exitCode -eq 0) {
-        $null = Repair-HyperVLabSqlWmiProvider -RunId $RunId -Credential $Credential -StateRoot $lab.StateRoot
-        $instanceReceipt = Get-HyperVLabSqlInstanceReceipt -Lab $lab -Credential $Credential
-        $null = Save-HyperVLabSqlInstanceReceipt -Lab $lab -Receipt $instanceReceipt
+    if ([int]$receipt.exitCode -eq 3010) {
+        Write-LabInfo 'Schritt 2/5: SQL Setup hat einen Neustart angefordert; der automatische Ablauf wartet auf den neuen Gast-Boot.'
+        $restarted = Wait-HyperVLabSqlCompletionRestart -Lab $lab -Credential $Credential `
+            -PreviousBootTime ([string]$receipt.bootTimeBeforeRestart) -FallbackAddress $fallbackAddress
+        if (-not $restarted.Ready) { throw "HYPERV_LAB_SQL_COMPLETE_REBOOT_TIMEOUT: $($restarted.Message)" }
     }
-    else {
+    Write-LabInfo 'Schritt 3/5: SQL-WMI-Provider wird automatisch geprüft und bei Bedarf repariert.'
+    $wmiReceipt = Repair-HyperVLabSqlWmiProvider -RunId $RunId -Credential $Credential `
+        -FallbackAddress $fallbackAddress -StateRoot $lab.StateRoot
+    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
+    $instanceReceipt = Get-HyperVLabSqlInstanceReceipt -Lab $lab -Credential $Credential -FallbackAddress $fallbackAddress
+    $instances = Save-HyperVLabSqlInstanceReceipt -Lab $lab -Receipt $instanceReceipt
+    $defaultInstance = @($instances | Where-Object { $_.IsDefault }) | Select-Object -First 1
+    if (-not $defaultInstance -or [string]$defaultInstance.ServiceStatus -ne 'Running') {
+        throw 'HYPERV_LAB_SQL_COMPLETE_DEFAULT_INSTANCE_NOT_RUNNING'
+    }
+
+    $completion = [PSCustomObject]@{
+        state = 'COMPLETE'; serviceStatus = [string]$defaultInstance.ServiceStatus
+        completedAt = [string]$receipt.completedAt; wmiProvider = $wmiReceipt
+    }
+    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
+    $lab.Instance | Add-Member -NotePropertyName sqlCompletion -NotePropertyValue $completion -Force
+    Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
+
+    $hostAccess = $null
+    if ($lab.Instance.labNetwork) {
+        Write-LabInfo 'Schritt 4/5: Feste Lab-IP, SQL-TCP und die auf den Host beschränkte Firewallregel werden automatisch eingerichtet.'
+        $hostAccess = Enable-HyperVLabHostSqlAccess -RunId $RunId -Credential $Credential `
+            -SqlSaPassword $SqlSaPassword -StateRoot $lab.StateRoot
+        $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
+        $lab.Instance.sqlCompletion | Add-Member -NotePropertyName hostSqlAccess -NotePropertyValue $hostAccess -Force
         Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
     }
-    Write-LabSuccess 'Schritt 3/3: SQL Server CompleteImage ist ausgeführt; MSSQLSERVER ist in dieser Lab-VM eingerichtet.'
+    else {
+        Write-LabWarning 'Schritt 4/5 übersprungen: Die VM wurde ausdrücklich isoliert erstellt; ein Zugriff des Hosts oder anderer Anwendungen ist damit nicht möglich.'
+    }
+    Write-LabSuccess 'Schritt 5/5: SQL Server, WMI und – im Labnetz – TCP/IP für Host-Anwendungen sind bereit.'
     return $lab.Instance.sqlCompletion
 }
 

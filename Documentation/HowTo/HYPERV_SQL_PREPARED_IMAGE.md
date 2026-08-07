@@ -17,7 +17,7 @@ einer bereits generalisierten OS-Baseline und schont deren Sysprep-Zähler.
 | Hauptmenü | Zweck |
 |---|---|
 | `1` Neues SQL-Prepared-Image erstellen | Geführter Standardpfad: Windows-ISO + SQL-ISO, ein finaler Sysprep |
-| `2` Offenen Prepared-Image-Builder fortsetzen | VMConnect, Windows-Bestätigung, SQL `PrepareImage`, Sysprep, Publikation und Recovery |
+| `2` Offenen Prepared-Image-Builder fortsetzen | Windows-Bestätigung und danach automatischer Abschluss mit SQL `PrepareImage`, benötigten Neustarts, Sysprep und Publikation; Einzelaktionen nur für Recovery |
 | `3` Neue Hyper-V-Umgebung aus Prepared-Image erstellen | Aus einem veröffentlichten Image eine ausgeschaltete differenzierende Lab-VM erzeugen |
 | `4` Hyper-V-Umgebungen verwalten | Start, VMConnect, Stopp und Entfernen regulärer Lab-VMs |
 | `5` Veröffentlichte Images verwalten | Anzeigenamen ändern oder Image kontrolliert löschen |
@@ -83,20 +83,19 @@ SQL-Image-Build steht im Menü bei `MANUAL_ACTION_REQUIRED`.
 
 ### SQL vorbereiten und einmalig versiegeln
 
-1. Zurück im Hyper-V-Hauptmenü `2` wählen und dort zuerst die Windows-Installation
-   bestätigen, anschließend **SQL PrepareImage und finalen Sysprep ausführen** wählen.
+1. Zurück im Hyper-V-Hauptmenü `2` wählen und **Windows-Installation bestätigen
+   und Image automatisch fertigstellen** auswählen.
 2. `Administrator` und das soeben gesetzte Passwort eingeben.
-3. Die Bestätigung für `SQL PrepareImage und anschliessend Windows-Sysprep`
-   mit `j` geben.
-4. Warten, bis der Ablauf `RESUME_PENDING` meldet. SQL Setup kann je nach
-   Storage und ISO mehrere Minuten dauern. Falls Setup einen Neustart verlangt,
-   wird `REBOOT_REQUIRED` gemeldet: im Untermenü den Builder erneut starten,
-   vollständig booten lassen und den SQL-Prepare-Schritt nochmals wählen. `PrepareImage`
-   wird dabei nicht doppelt ausgeführt.
+3. Warten, bis der Ablauf SQL `PrepareImage`, erforderliche SQL-Neustarts,
+   finalen Sysprep, das Herunterfahren und die Publikation selbst beendet hat.
+   Bei einem SQL-Setup-Neustart wartet der Ablauf auf eine tatsächlich neue
+   Windows-Startzeit; `PrepareImage` wird dabei nicht doppelt ausgeführt.
 
-Erwarteter Endzustand: Die VM ist ausgeschaltet und der Build hat den Status
-`RESUME_PENDING`. Ein nach Sysprep zurückgesetztes Administratorpasswort ist
-normal und wird nicht mehr benötigt.
+Erwarteter Endzustand: Das Artifact steht auf `SQL_PREPARED_SEALED`. Ein nach
+Sysprep zurückgesetztes Administratorpasswort ist normal und wird nicht mehr
+benötigt. **Automatischen Image-Abschluss fortsetzen** und
+**Prepared-Image veröffentlichen** bleiben ausschließlich Diagnose- und
+Recovery-Aktionen für einen zuvor unterbrochenen Ablauf.
 
 ### Image veröffentlichen
 
@@ -120,9 +119,9 @@ Builder-Status kontrollieren.
 | 2 | Windows Server 2025 ISO; SQL 2022 und passende Medien-Edition | eigener Builder und eigene Artifact-ID |
 | 3 | Windows Server 2025 ISO; SQL 2019 und passende Medien-Edition | eigener Builder und eigene Artifact-ID |
 
-Für jeden Lauf gilt: Builder erstellen → Windows installieren → SQL
-`PrepareImage` + Sysprep → veröffentlichen. Nur die SQL-Version und die
-dazugehörige ISO ändern sich. Ein fehlgeschlagener Builder darf nicht mit einem
+Für jeden Lauf gilt: Builder erstellen → Windows installieren → Installation
+bestätigen → automatischer SQL-Prepare/Sysprep/Publish-Abschluss. Nur die
+SQL-Version und die dazugehörige ISO ändern sich. Ein fehlgeschlagener Builder darf nicht mit einem
 anderen Menüpfad weiterverwendet werden: im Prepared-Image-Untermenü aufräumen
 und danach einen frischen Builder beginnen. Der Fehlertext und die
 `C:\\Windows\\System32\\Sysprep\\Panther`-Logs der betroffenen VM sind
@@ -150,9 +149,11 @@ nach erfolgreicher OOBE im Gast entfernt.
 Die VM erhält standardmäßig den verwalteten SQL_Server_Lab-Internal-Switch;
 ein anderer vorhandener Switch kann bewusst gewählt werden. Netzwerkadapter
 sind Hyper-V-Hardware und werden deshalb nicht aus der Vorlage übernommen.
-Der Standardweg setzt eine deterministische Gast-IP, SQL-TCP auf 1433 und eine
-Firewallregel ausschließlich für den Host. Damit kann SSMS auf dem Host den
-ausgegebenen Connection String nutzen. Das SA-Passwort kann beim Anlegen oder
+Der Standardweg konfiguriert nach SQL `CompleteImage` automatisch den SQL-WMI-
+Provider, eine deterministische Gast-IP, SQL-TCP auf 1433 und eine Firewallregel
+ausschließlich für den Host. Damit kann SSMS oder eine Anwendung auf dem Host den
+ausgegebenen Connection String nutzen. Bei einer bewusst isolierten VM wird
+diese Host-Netzwerkfreigabe nicht erzwungen; die Oberfläche meldet das klar. Das SA-Passwort kann beim Anlegen oder
 bei **Host-SSMS einrichten** bewusst separat vergeben werden; bleibt es leer,
 übernimmt SQL sicher das gewählte Gast-Administratorpasswort. Kein Klartext-
 Passwort wird gespeichert oder protokolliert.
@@ -276,10 +277,11 @@ Gast entfernt.
 
 Für den **Prepared-Image-Standardpfad** wird Windows nach dem Start des
 frischen Builders in VMConnect installiert. Nach OOBE, lokalem
-Administratorpasswort und einer Anmeldung im Hauptmenü `2` den Builder
-fortsetzen. Der Punkt **SQL PrepareImage und finalen Sysprep ausführen** führt
-SQL `PrepareImage` und den finalen Windows-Sysprep ohne weitere
-VMConnect-Interaktion aus.
+Administratorpasswort und einer Anmeldung im Hauptmenü `2` den Punkt
+**Windows-Installation bestätigen und Image automatisch fertigstellen**
+wählen. Er führt SQL `PrepareImage`, ggf. SQL-Setup-Neustarts, finalen
+Windows-Sysprep und die Veröffentlichung ohne weitere VMConnect-Interaktion
+aus.
 
 Offizielle Referenzen:
 
@@ -299,9 +301,8 @@ setup.exe /Q /ACTION=PrepareImage
 ```
 
 Setup-Version, Features und Exitcode werden als bereinigtes Receipt
-festgehalten. Exitcode `3010` führt zu `REBOOT_REQUIRED`; nach dem Neustart
-wird im Prepared-Image-Untermenü der Builder wieder gestartet und der
-SQL-Prepare-Schritt erneut gewählt. Anschließend folgt:
+festgehalten. Bei Exitcode `3010` wartet der Standardpfad automatisch auf einen
+neuen Gast-Boot und fährt danach fort. Anschließend folgt:
 
 ```text
 Sysprep.exe /generalize /oobe /mode:vm /quit /quiet
@@ -330,12 +331,16 @@ Windows-Images als Lösung.
 
 ## 7. Immutable SQL-Baseline veröffentlichen
 
-Der Punkt **Prepared-Image veröffentlichen** prüft VM-Identität, Auszustand, fehlende Checkpoints und den
+Die automatische Veröffentlichung prüft VM-Identität, Auszustand, fehlende Checkpoints und den
 buildlokalen VHDX-Pfad. Die differenzierende Builder-VHDX wird mit `Convert-VHD` in eine
 eigenständige dynamische VHDX überführt; damit gilt derselbe sichere
 Publikationsschritt auch für künftige Disk-Typen. Erst danach erfolgen
 SHA-256, Registry-Import und Metadatenprüfung. VM und lokale Build-VHDX werden
 erst nach erfolgreichem Registry-Import entfernt.
+
+Der Menüpunkt **Prepared-Image veröffentlichen** ist für Recovery eines bereits
+bis `RESUME_PENDING` gekommenen, unterbrochenen Builds vorgesehen und gehört
+nicht mehr zum Normalpfad.
 
 Das Ergebnis ist ein `SQL_PREPARED_SEALED`-Artifact. Eine spätere Lab-VM muss
 noch SQL `CompleteImage` ausführen und Instanzkonto, Administratoren,

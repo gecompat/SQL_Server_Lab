@@ -75,7 +75,7 @@ Add-CheckResult -Name 'Browser-Oberflaeche zeigt Workflow und Live-Log' -Success
     $htmlText -match 'Live-Log' -and
     $scriptText -match 'Nächster Schritt' -and
     $scriptText -match 'refreshJobs' -and
-    $scriptText -match 'SQL-PrepareImage fortsetzen' -and
+    $scriptText -match 'Automatischen Image-Abschluss fortsetzen' -and
     $htmlText -match 'Neue Container-Umgebung' -and
     $scriptText -match 'CreateContainerDatabase' -and
     $scriptText -match 'dateToGerman'
@@ -211,10 +211,10 @@ Add-CheckResult -Name 'Frische SQL-Images prüfen Windows-Edition vor PrepareIma
     $actionText -match 'ConfirmSqlWindowsInstall' -and
     $actionText -match 'Confirm-HyperVSqlFreshWindowsInstallation' -and
     $workflowText -match 'InstallationVerified = \[bool\]\(\$_\.installationEvidence' -and
-    $scriptText -match 'Windows-Edition prüfen' -and
+    $scriptText -match 'Windows prüfen und Image automatisch fertigstellen' -and
     $scriptText -match "action === 'ConfirmSqlWindowsInstall'" -and
     $consoleText -match 'Confirm-LabHyperVSqlWindowsInstallationInteractive' -and
-    $consoleText -match "'2' \{ Invoke-LabHyperVMenuAction -Title 'Windows-Installation bestätigen' -Action \{ Confirm-LabHyperVSqlWindowsInstallationInteractive \} \}"
+    $consoleText -match "'2' \{ Invoke-LabHyperVMenuAction -Title 'Windows bestätigen und automatisch fertigstellen' -Action \{ Confirm-LabHyperVSqlWindowsInstallationInteractive \} \}"
 )
 Add-CheckResult -Name 'UI erstellt reguläre Hyper-V-Labs nur aus SQL-Prepared-Images' -Success (
     $hyperVLabText -match 'SQL_PREPARED_SEALED' -and
@@ -235,7 +235,7 @@ Add-CheckResult -Name 'UI erstellt reguläre Hyper-V-Labs nur aus SQL-Prepared-I
     $htmlText -match 'id="new-hyperv-lab"' -and
     $htmlText -match 'id="hyperv-artifact"' -and
     $scriptText -match 'renderHyperVLabs' -and
-    $scriptText -match 'SQL CompleteImage ausführen' -and
+    $scriptText -match 'SQL, WMI und TCP/IP automatisch einrichten' -and
     $scriptText -match 'SQL-Instanzen prüfen' -and
     $scriptText -match 'Connection String' -and
     $scriptText -match 'data-hyperv-remove'
@@ -257,6 +257,14 @@ Add-CheckResult -Name 'Prepared-Image-Klone erlauben getrennte Gast- und SA-Pass
     $scriptText -match 'generateHyperVGuestPassword' -and
     $scriptText -match 'navigator\.clipboard' -and
     $scriptText -match 'updateHyperVSaPasswordMode'
+)
+Add-CheckResult -Name 'Reguläre Hyper-V-Klone automatisieren SQL-Neustart, WMI und TCP/IP-Hostzugriff' -Success (
+    $hyperVLabText -match 'Wait-HyperVLabSqlCompletionRestart' -and
+    $hyperVLabText -match 'Repair-HyperVLabSqlWmiProvider' -and
+    $hyperVLabText -match 'Enable-HyperVLabHostSqlAccess' -and
+    $hyperVLabText -match 'Feste Lab-IP, SQL-TCP' -and
+    $actionText -match 'SQL-WMI-Provider sowie TCP/IP-Hostzugriff' -and
+    $scriptText -match 'SQL, WMI und TCP/IP automatisch einrichten'
 )
 Add-CheckResult -Name 'Konsole spiegelt Data-VHDX, SQL-CompleteImage, WMI-Reparatur und SQL-Instanzprüfung für reguläre Hyper-V-Labs' -Success (
     $consoleText -match 'Enable-HyperVLabPersistentData' -and
