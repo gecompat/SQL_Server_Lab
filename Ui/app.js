@@ -460,7 +460,7 @@ function openBuild(kind) {
   const freshSqlBuild = kind === 'sql-fresh';
   $('#build-type').value = kind;
   $('#build-kind').textContent = sqlBuild ? 'SQL-PREPARED-IMAGE' : 'WINDOWS-OS-BASELINE';
-  $('#build-title').textContent = kind === 'sql' ? 'Neues SQL-Prepared-Image aus OS-Baseline' : freshSqlBuild ? 'Frisches SQL-Prepared-Image aus ISOs' : 'Neue Windows-OS-Baseline';
+  $('#build-title').textContent = kind === 'sql' ? 'Erweitert: SQL-Prepared-Image aus OS-Baseline' : freshSqlBuild ? 'Neues SQL-Prepared-Image' : 'Erweitert: Windows-OS-Baseline';
   $('#sql-fields').hidden = !sqlBuild;
   $('#sql-hash-fields').hidden = !sqlBuild;
   $('#sql-image-name-field').hidden = !sqlBuild;
@@ -471,10 +471,10 @@ function openBuild(kind) {
   $('#windows-media').disabled = kind === 'sql';
   $('#sql-media').disabled = !sqlBuild;
   $('#build-note').textContent = kind === 'sql'
-    ? 'Aus der gewählten unveränderlichen OS-Baseline wird eine eigene differenzierende VHDX erstellt. Windows muss nicht erneut installiert werden; nur OOBE und SQL PrepareImage erfolgen in der neuen Build-VM.'
+    ? 'Expertenpfad: Aus der gewählten unveränderlichen OS-Baseline wird eine eigene differenzierende VHDX erstellt. Windows muss nicht erneut installiert werden; nur OOBE und SQL PrepareImage erfolgen in der neuen Build-VM.'
     : freshSqlBuild
-      ? 'Sonderfall: Windows und SQL werden gemeinsam aus den Original-ISOs installiert. Für wiederholte SQL-Versionen ist der Weg über eine veröffentlichte OS-Baseline schneller.'
-      : 'Windows-ISOs können in beliebigen Unterordnern des Media Root liegen. Vor dem Build muss der SHA-256 der ausgewählten ISO geprüft und gespeichert sein.';
+      ? 'Standardpfad: Windows und SQL werden gemeinsam aus den Original-ISOs installiert und anschließend genau einmal final generalisiert. Vor dem Build müssen die SHA-256-Werte der ausgewählten ISOs geprüft und gespeichert sein.'
+      : 'Expertenpfad: Windows-ISOs können in beliebigen Unterordnern des Media Root liegen. Vor dem Build muss der SHA-256 der ausgewählten ISO geprüft und gespeichert sein.';
   $('#sql-image-name').value = '';
   $('#media-root').value = workflow?.Defaults?.MediaRoot || '';
   renderWindowsInstallationMedia(workflow?.WindowsInstallationMedia || [], freshSqlBuild);

@@ -459,80 +459,178 @@ function Invoke-LabHyperVImageAction {
 
     $exitImageMenu = $false
     while (-not $exitImageMenu) {
-    Write-Host '  Hyper-V Image-Lifecycle:' -ForegroundColor White
-    Write-Host ''
-    Write-Host '    Empfohlener Prepared-Image-Pfad: 1 -> 3 -> 4 -> 5, danach 7 -> 9 (OOBE) -> 10 -> 11.' -ForegroundColor Yellow
-    Write-Host '    Die veröffentlichte OS-Baseline wird wiederverwendet; nur der SQL-Builder erhält eine differenzierende VHDX.' -ForegroundColor DarkGray
-    Show-LabHyperVSqlNextActions
-    Write-Host ''
-    Write-Host '    Windows-OS-Baseline' -ForegroundColor DarkGray
-    Write-Host '    [1] Neuen Windows-Builder aus Media Root vorbereiten' -ForegroundColor Yellow
-    Write-Host '    [2] Windows-Build-Status anzeigen' -ForegroundColor White
-    Write-Host '    [3] Windows-Builder starten und VMConnect oeffnen' -ForegroundColor White
-    Write-Host '    [4] Installiertes Windows generalisieren' -ForegroundColor White
-    Write-Host '    [5] Windows-Image veroeffentlichen' -ForegroundColor White
-    Write-Host '    [6] Unfertigen Windows-Builder aufraeumen' -ForegroundColor Red
-    Write-Host ''
-    Write-Host '    SQL-Prepared-Image aus frischer Windows-ISO' -ForegroundColor DarkGray
-    Write-Host '    [7] SQL-Prepared-Image aus veröffentlichter OS-Baseline vorbereiten' -ForegroundColor Yellow
-    Write-Host '    [8] SQL-Image-Build-Status anzeigen' -ForegroundColor White
-    Write-Host '    [9] SQL-Builder starten und Windows-Installation in VMConnect abschliessen' -ForegroundColor White
-    Write-Host '    [b] Installierte Windows-Edition vor SQL-Setup prüfen' -ForegroundColor White
-    Write-Host '    [10] SQL PrepareImage automatisch installieren und Windows-Sysprep ausfuehren' -ForegroundColor White
-    Write-Host '    [11] SQL-Prepared-Image veroeffentlichen' -ForegroundColor White
-    Write-Host '    [12] Unfertigen SQL-Builder aufraeumen' -ForegroundColor Red
-    Write-Host '    [f] Sonderfall: frischen SQL-Builder aus Windows- und SQL-ISO vorbereiten' -ForegroundColor DarkGray
-    Write-Host ''
-    Write-Host '    Run-lokale Windows-SQL-Abnahmeumgebung (Alternative zu 9 -> 10 -> 11)' -ForegroundColor DarkGray
-    Write-Host '    [13] OOBE und vollstaendiges SQL automatisch installieren' -ForegroundColor Yellow
-    Write-Host '    [14] SQL-Abnahmetest ausfuehren' -ForegroundColor White
-    Write-Host '    [15] SQL-2019/2022/2025-Abnahmematrix anzeigen' -ForegroundColor White
-    Write-Host '    [16] OOBE manuell abgeschlossen: uebernehmen und vollstaendiges SQL installieren' -ForegroundColor White
-    Write-Host '    [17] Nach Sysprep ohne Gastpasswort offline pruefen und Prepared-Image fortsetzen' -ForegroundColor Yellow
-    Write-Host '    [18] Reguläre Hyper-V-Umgebung aus SQL-Prepared-Image erstellen' -ForegroundColor Yellow
-    Write-Host '    [19] Reguläre Hyper-V-Umgebungen verwalten (Start, VMConnect, Stopp, Entfernen)' -ForegroundColor White
-    Write-Host '    [20] Namen veröffentlichter OS- und SQL-Images ändern' -ForegroundColor White
-    Write-Host '    [21] Reguläre Hyper-V-Umgebung aus vorhandener ausgeschalteter Windows-VM erstellen' -ForegroundColor Yellow
-    Write-Host '    [22] Veröffentlichte OS- und SQL-Images löschen' -ForegroundColor Red
-    Write-Host '    [0] Zurueck' -ForegroundColor DarkGray
-    Write-Host ''
-    $choice = Read-Host '  Auswahl'
-    if ($choice -ne '0') {
-        Clear-Host
+        Write-Host '  Hyper-V' -ForegroundColor White
         Write-Host ''
-        Write-Host "  Hyper-V Image-Lifecycle – Auswahl: $choice" -ForegroundColor Cyan
-        Write-Host '  ---------------------------------------------------------------------' -ForegroundColor DarkCyan
+        Write-Host '    Standardpfad: Windows + SQL aus ISO installieren, einmal Sysprep, als Prepared-Image veröffentlichen.' -ForegroundColor Yellow
+        Write-Host '    Technische Einzelaktionen, OS-Baselines und Abnahme-VMs liegen unter Erweitert.' -ForegroundColor DarkGray
         Write-Host ''
+        Write-Host '    [1] Neues SQL-Prepared-Image erstellen' -ForegroundColor Yellow
+        Write-Host '    [2] Offenen Prepared-Image-Builder fortsetzen' -ForegroundColor White
+        Write-Host '    [3] Neue Hyper-V-Umgebung aus Prepared-Image erstellen' -ForegroundColor Yellow
+        Write-Host '    [4] Hyper-V-Umgebungen verwalten' -ForegroundColor White
+        Write-Host '    [5] Veröffentlichte Images verwalten' -ForegroundColor White
+        Write-Host '    [e] Erweitert: OS-Baselines, Abnahme und Reparatur' -ForegroundColor DarkGray
+        Write-Host '    [0] Zurueck' -ForegroundColor DarkGray
+        Write-Host ''
+        $choice = Read-Host '  Auswahl'
+        switch ($choice) {
+            '0' { $exitImageMenu = $true }
+            '1' { Show-LabHyperVMenuActionHeader -Title 'Neues SQL-Prepared-Image'; New-LabHyperVSqlImageBuildInteractive }
+            '2' { Invoke-LabHyperVPreparedImageWorkflowMenu }
+            '3' { Show-LabHyperVMenuActionHeader -Title 'Neue Hyper-V-Umgebung'; New-LabHyperVEnvironmentInteractive }
+            '4' { Show-LabHyperVMenuActionHeader -Title 'Hyper-V-Umgebungen verwalten'; Manage-LabHyperVEnvironmentInteractive }
+            '5' { Invoke-LabHyperVPublishedImageMenu }
+            'e' { Invoke-LabHyperVAdvancedMenu }
+            default { Write-LabWarning "Ungueltige Auswahl: $choice" }
+        }
     }
+}
 
-    switch ($choice) {
-        '0' { $exitImageMenu = $true }
-        '1' { New-LabHyperVImageBuildInteractive }
-        '2' { $null = Show-LabHyperVImageBuilds }
-        '3' { Start-LabHyperVImageBuildInteractive }
-        '4' { Invoke-LabHyperVImageGeneralizationInteractive }
-        '5' { Publish-LabHyperVImageBuildInteractive }
-        '6' { Remove-LabHyperVImageBuildInteractive }
-        '7' { New-LabHyperVSqlAcceptanceBuildInteractive }
-        '8' { $null = Show-LabHyperVSqlImageBuilds }
-        '9' { Start-LabHyperVSqlImageBuildInteractive }
-        'b' { Confirm-LabHyperVSqlWindowsInstallationInteractive }
-        '10' { Invoke-LabHyperVSqlPrepareInteractive }
-        '11' { Publish-LabHyperVSqlImageBuildInteractive }
-        '12' { Remove-LabHyperVSqlImageBuildInteractive }
-        'f' { New-LabHyperVSqlImageBuildInteractive }
-        '13' { Invoke-LabHyperVSqlAcceptanceInstallInteractive }
-        '14' { Test-LabHyperVSqlAcceptanceInteractive }
-        '15' { Show-LabHyperVSqlAcceptanceMatrix }
-        '16' { Invoke-LabHyperVSqlManualOobeAcceptanceInstallInteractive }
-        '17' { Resume-LabHyperVSqlPreparedImageGeneralizationInteractive }
-        '18' { New-LabHyperVEnvironmentInteractive }
-        '19' { Manage-LabHyperVEnvironmentInteractive }
-        '20' { Rename-LabHyperVImageArtifactInteractive }
-        '21' { New-LabHyperVEnvironmentFromExistingVmInteractive }
-        '22' { Remove-LabHyperVImageArtifactInteractive }
-        default { Write-LabWarning "Ungueltige Auswahl: $choice" }
+function Show-LabHyperVMenuActionHeader {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Title)
+
+    Clear-Host
+    Write-Host ''
+    Write-Host "  Hyper-V – $Title" -ForegroundColor Cyan
+    Write-Host '  ---------------------------------------------------------------------' -ForegroundColor DarkCyan
+    Write-Host ''
+}
+
+function Invoke-LabHyperVPreparedImageWorkflowMenu {
+    [CmdletBinding()]
+    param()
+
+    $exitMenu = $false
+    while (-not $exitMenu) {
+        Write-Host ''
+        Write-Host '  Prepared-Image-Builder fortsetzen' -ForegroundColor White
+        Write-Host '    Folge: Windows installieren -> SQL PrepareImage -> finaler Sysprep -> veröffentlichen.' -ForegroundColor Yellow
+        Show-LabHyperVSqlNextActions
+        Write-Host ''
+        Write-Host '    [1] Builder starten und VMConnect öffnen' -ForegroundColor White
+        Write-Host '    [2] Windows-Installation bestätigen' -ForegroundColor White
+        Write-Host '    [3] SQL PrepareImage und finalen Sysprep ausführen' -ForegroundColor Yellow
+        Write-Host '    [4] Prepared-Image veröffentlichen' -ForegroundColor White
+        Write-Host '    [5] Builder-Status anzeigen' -ForegroundColor White
+        Write-Host '    [r] Sysprep offline prüfen und Wiederaufnahme versuchen' -ForegroundColor DarkYellow
+        Write-Host '    [c] Unfertigen Builder aufräumen' -ForegroundColor Red
+        Write-Host '    [0] Zurück' -ForegroundColor DarkGray
+        $choice = Read-Host '  Auswahl'
+        switch ($choice) {
+            '0' { $exitMenu = $true }
+            '1' { Show-LabHyperVMenuActionHeader -Title 'Builder starten'; Start-LabHyperVSqlImageBuildInteractive }
+            '2' { Show-LabHyperVMenuActionHeader -Title 'Windows-Installation bestätigen'; Confirm-LabHyperVSqlWindowsInstallationInteractive }
+            '3' { Show-LabHyperVMenuActionHeader -Title 'SQL PrepareImage und Sysprep'; Invoke-LabHyperVSqlPrepareInteractive }
+            '4' { Show-LabHyperVMenuActionHeader -Title 'Prepared-Image veröffentlichen'; Publish-LabHyperVSqlImageBuildInteractive }
+            '5' { Show-LabHyperVMenuActionHeader -Title 'Builder-Status'; $null = Show-LabHyperVSqlImageBuilds }
+            'r' { Show-LabHyperVMenuActionHeader -Title 'Sysprep-Recovery'; Resume-LabHyperVSqlPreparedImageGeneralizationInteractive }
+            'c' { Show-LabHyperVMenuActionHeader -Title 'Unfertigen Builder aufräumen'; Remove-LabHyperVSqlImageBuildInteractive }
+            default { Write-LabWarning "Ungueltige Auswahl: $choice" }
+        }
     }
+}
+
+function Invoke-LabHyperVPublishedImageMenu {
+    [CmdletBinding()]
+    param()
+
+    $exitMenu = $false
+    while (-not $exitMenu) {
+        Write-Host ''
+        Write-Host '  Veröffentlichte Images verwalten' -ForegroundColor White
+        Write-Host '    [1] Namen ändern' -ForegroundColor White
+        Write-Host '    [2] Image löschen' -ForegroundColor Red
+        Write-Host '    [0] Zurück' -ForegroundColor DarkGray
+        $choice = Read-Host '  Auswahl'
+        switch ($choice) {
+            '0' { $exitMenu = $true }
+            '1' { Show-LabHyperVMenuActionHeader -Title 'Image-Namen ändern'; Rename-LabHyperVImageArtifactInteractive }
+            '2' { Show-LabHyperVMenuActionHeader -Title 'Image löschen'; Remove-LabHyperVImageArtifactInteractive }
+            default { Write-LabWarning "Ungueltige Auswahl: $choice" }
+        }
+    }
+}
+
+function Invoke-LabHyperVAdvancedMenu {
+    [CmdletBinding()]
+    param()
+
+    $exitMenu = $false
+    while (-not $exitMenu) {
+        Write-Host ''
+        Write-Host '  Hyper-V – Erweitert / Reparatur' -ForegroundColor DarkYellow
+        Write-Host '    [1] Windows-OS-Baselines verwalten (Expertenpfad)' -ForegroundColor DarkGray
+        Write-Host '    [2] SQL-Builder aus einer OS-Baseline erstellen (Expertenpfad)' -ForegroundColor DarkGray
+        Write-Host '    [3] Run-lokale Windows-/SQL-Abnahmeumgebung' -ForegroundColor DarkGray
+        Write-Host '    [4] Sysprep offline prüfen und Wiederaufnahme versuchen' -ForegroundColor DarkYellow
+        Write-Host '    [5] Neue Umgebung aus vorhandener ausgeschalteter Windows-VM' -ForegroundColor White
+        Write-Host '    [0] Zurück' -ForegroundColor DarkGray
+        $choice = Read-Host '  Auswahl'
+        switch ($choice) {
+            '0' { $exitMenu = $true }
+            '1' { Invoke-LabHyperVWindowsBaselineMenu }
+            '2' { Show-LabHyperVMenuActionHeader -Title 'SQL-Builder aus OS-Baseline'; New-LabHyperVSqlAcceptanceBuildInteractive }
+            '3' { Invoke-LabHyperVSqlAcceptanceMenu }
+            '4' { Show-LabHyperVMenuActionHeader -Title 'Sysprep-Recovery'; Resume-LabHyperVSqlPreparedImageGeneralizationInteractive }
+            '5' { Show-LabHyperVMenuActionHeader -Title 'Neue Umgebung aus vorhandener Windows-VM'; New-LabHyperVEnvironmentFromExistingVmInteractive }
+            default { Write-LabWarning "Ungueltige Auswahl: $choice" }
+        }
+    }
+}
+
+function Invoke-LabHyperVWindowsBaselineMenu {
+    [CmdletBinding()]
+    param()
+
+    $exitMenu = $false
+    while (-not $exitMenu) {
+        Write-Host ''
+        Write-Host '  Windows-OS-Baselines – Expertenpfad' -ForegroundColor DarkYellow
+        Write-Host '    [1] Windows-Builder aus Media Root vorbereiten' -ForegroundColor White
+        Write-Host '    [2] Windows-Build-Status anzeigen' -ForegroundColor White
+        Write-Host '    [3] Windows-Builder starten und VMConnect öffnen' -ForegroundColor White
+        Write-Host '    [4] Installiertes Windows generalisieren' -ForegroundColor White
+        Write-Host '    [5] Windows-Image veröffentlichen' -ForegroundColor White
+        Write-Host '    [6] Unfertigen Windows-Builder aufräumen' -ForegroundColor Red
+        Write-Host '    [0] Zurück' -ForegroundColor DarkGray
+        $choice = Read-Host '  Auswahl'
+        switch ($choice) {
+            '0' { $exitMenu = $true }
+            '1' { Show-LabHyperVMenuActionHeader -Title 'Windows-Builder vorbereiten'; New-LabHyperVImageBuildInteractive }
+            '2' { Show-LabHyperVMenuActionHeader -Title 'Windows-Build-Status'; $null = Show-LabHyperVImageBuilds }
+            '3' { Show-LabHyperVMenuActionHeader -Title 'Windows-Builder starten'; Start-LabHyperVImageBuildInteractive }
+            '4' { Show-LabHyperVMenuActionHeader -Title 'Windows generalisieren'; Invoke-LabHyperVImageGeneralizationInteractive }
+            '5' { Show-LabHyperVMenuActionHeader -Title 'Windows-Image veröffentlichen'; Publish-LabHyperVImageBuildInteractive }
+            '6' { Show-LabHyperVMenuActionHeader -Title 'Windows-Builder aufräumen'; Remove-LabHyperVImageBuildInteractive }
+            default { Write-LabWarning "Ungueltige Auswahl: $choice" }
+        }
+    }
+}
+
+function Invoke-LabHyperVSqlAcceptanceMenu {
+    [CmdletBinding()]
+    param()
+
+    $exitMenu = $false
+    while (-not $exitMenu) {
+        Write-Host ''
+        Write-Host '  Run-lokale Windows-/SQL-Abnahmeumgebung' -ForegroundColor DarkYellow
+        Write-Host '    Dies ist kein Prepared-Image-Pfad; hier wird eine vollständige Testinstanz installiert.' -ForegroundColor DarkGray
+        Write-Host '    [1] OOBE und vollständiges SQL automatisch installieren' -ForegroundColor White
+        Write-Host '    [2] SQL-Abnahmetest ausführen' -ForegroundColor White
+        Write-Host '    [3] SQL-2019/2022/2025-Abnahmematrix anzeigen' -ForegroundColor White
+        Write-Host '    [4] Manuell abgeschlossene OOBE übernehmen und vollständiges SQL installieren' -ForegroundColor White
+        Write-Host '    [0] Zurück' -ForegroundColor DarkGray
+        $choice = Read-Host '  Auswahl'
+        switch ($choice) {
+            '0' { $exitMenu = $true }
+            '1' { Show-LabHyperVMenuActionHeader -Title 'OOBE und SQL-Setup'; Invoke-LabHyperVSqlAcceptanceInstallInteractive }
+            '2' { Show-LabHyperVMenuActionHeader -Title 'SQL-Abnahmetest'; Test-LabHyperVSqlAcceptanceInteractive }
+            '3' { Show-LabHyperVMenuActionHeader -Title 'SQL-Abnahmematrix'; Show-LabHyperVSqlAcceptanceMatrix }
+            '4' { Show-LabHyperVMenuActionHeader -Title 'Manuelle OOBE übernehmen'; Invoke-LabHyperVSqlManualOobeAcceptanceInstallInteractive }
+            default { Write-LabWarning "Ungueltige Auswahl: $choice" }
+        }
     }
 }
 
@@ -882,20 +980,20 @@ function Get-LabHyperVSqlImageNextStep {
     $isFreshPreparedImage = [string]$Build.provisioningMode -eq 'fresh-windows-media'
     switch ([string]$Build.state) {
         'MANUAL_ACTION_REQUIRED' {
-            if ($isFreshPreparedImage) { return '[9] VMConnect oeffnen, Windows installieren und einmal als Administrator anmelden.' }
-            return '[9] VMConnect oeffnen, OOBE der OS-Baseline abschliessen und lokales Administratorpasswort setzen; danach [10] SQL PrepareImage ausfuehren.'
+            if ($isFreshPreparedImage) { return 'Prepared-Image-Builder fortsetzen: VMConnect öffnen, Windows installieren und einmal als Administrator anmelden.' }
+            return 'Prepared-Image-Builder fortsetzen: VMConnect öffnen, OOBE der OS-Baseline abschließen und danach SQL PrepareImage ausführen.'
         }
-        'OOBE_AUTOMATION_RUNNING' { return '[13] fortsetzen; die OOBE-Automatisierung wird geprueft.' }
-        'OOBE_COMPLETED' { return '[13] vollstaendiges SQL installieren.' }
-        'REBOOT_REQUIRED' { return '[9] VM starten, vollstaendig booten lassen; danach [10] erneut ausfuehren.' }
-        'RESUME_PENDING' { return '[11] SQL-Prepared-Image jetzt veroeffentlichen.' }
-        'SQL_INSTALL_RUNNING' { return '[13] erneut aufrufen; der Installationsfortschritt wird fortgesetzt.' }
-        'SQL_INSTALL_REBOOT_REQUIRED' { return '[9] VM booten; danach [13] erneut aufrufen.' }
-        'SQL_READY_RUN' { return '[14] SQL-Abnahmetest ausfuehren.' }
-        'TESTS_PASSED' { return 'Fertig. Bei Bedarf mit [12] die run-lokale Abnahme-VM aufraeumen.' }
+        'OOBE_AUTOMATION_RUNNING' { return 'Erweitert -> Abnahmeumgebung öffnen und den OOBE-Fortschritt fortsetzen.' }
+        'OOBE_COMPLETED' { return 'Erweitert -> Abnahmeumgebung: vollständiges SQL installieren.' }
+        'REBOOT_REQUIRED' { return 'Prepared-Image-Builder fortsetzen: VM booten; danach SQL PrepareImage erneut ausführen.' }
+        'RESUME_PENDING' { return 'Prepared-Image-Builder fortsetzen: Prepared-Image jetzt veröffentlichen.' }
+        'SQL_INSTALL_RUNNING' { return 'Erweitert -> Abnahmeumgebung erneut aufrufen; der Installationsfortschritt wird fortgesetzt.' }
+        'SQL_INSTALL_REBOOT_REQUIRED' { return 'Erweitert -> Abnahmeumgebung: VM booten und SQL-Setup fortsetzen.' }
+        'SQL_READY_RUN' { return 'Erweitert -> Abnahmeumgebung: SQL-Abnahmetest ausführen.' }
+        'TESTS_PASSED' { return 'Fertig. Bei Bedarf den run-lokalen Abnahme-Builder aufräumen.' }
         'SQL_PREPARED_SEALED' { return 'Fertig. Das immutable Prepared-Image wurde veroeffentlicht.' }
-        'FAILED' { return 'Fehler pruefen; nach fehlgeschlagenem Sysprep [17], andernfalls [12] zum Aufraeumen.' }
-        default { return '[8] Status erneut pruefen oder den zuletzt ausgegebenen Hinweis befolgen.' }
+        'FAILED' { return 'Fehler prüfen; nach fehlgeschlagenem Sysprep im Prepared-Image-Builder die Offline-Recovery wählen, andernfalls aufräumen.' }
+        default { return 'Builder-Status prüfen oder den zuletzt ausgegebenen Hinweis befolgen.' }
     }
 }
 

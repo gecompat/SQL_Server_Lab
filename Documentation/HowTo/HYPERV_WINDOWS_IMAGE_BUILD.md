@@ -29,6 +29,11 @@ D:\Lab_Base\WindowsServer\2025\Eval\ISO\<Originaldateiname>.iso
 
 ## 2. Image-Menü starten
 
+Windows-OS-Baselines sind ein Expertenpfad. Im Hyper-V-Hauptmenü zuerst `e`
+und danach **Windows-OS-Baselines verwalten** wählen. Für ein reguläres
+SQL-Prepared-Image ist stattdessen der frische Windows+SQL-Pfad im Hauptmenü
+vorgesehen.
+
 ```powershell
 Set-Location D:\r\pu\SQL_Server_Lab
 
@@ -128,7 +133,7 @@ Evidenzdateien oder VM-Notizen.
 
 ## 6. Generalisieren
 
-Im Image-Menü Aktion 4 auswählen und die lokalen Gast-Administrator-Credentials
+Im Untermenü **Windows-OS-Baselines** den Punkt **Installiertes Windows generalisieren** auswählen und die lokalen Gast-Administrator-Credentials
 eingeben. Credentials werden ausschließlich für PowerShell Direct verwendet
 und nicht persistiert.
 
@@ -150,7 +155,7 @@ Gast-Shutdown geprüft. Erfolgreiche technische Evidenz führt zu
 
 ## 7. Immutable Baseline veröffentlichen
 
-Im Image-Menü Aktion 5 wählen. Für Evaluation-Medien muss das Ablaufdatum
+Im Untermenü **Windows-OS-Baselines** den Punkt **Windows-Image veröffentlichen** wählen. Für Evaluation-Medien muss das Ablaufdatum
 angegeben werden. Der vorgeschlagene Wert von 180 Tagen ist zu prüfen und bei
 Bedarf an den tatsächlichen Installations-/Aktivierungszeitpunkt anzupassen.
 
@@ -191,10 +196,10 @@ Bei einem Fehler:
 1. Image-Menü erneut öffnen;
 2. Status anzeigen;
 3. denselben Build fortsetzen;
-4. nur wenn der Build verworfen werden soll, Aktion 6 zum scopegebundenen
+4. nur wenn der Build verworfen werden soll, den Punkt **Unfertigen Windows-Builder aufräumen** zum scopegebundenen
    Cleanup verwenden.
 
-Aktion 6 bietet neben einer einzelnen Nummer auch die Eingabe ALL. Diese Auswahl
+Der Cleanup bietet neben einer einzelnen Nummer auch die Eingabe ALL. Diese Auswahl
 entfernt alle angezeigten unfertigen Windows-Builder samt VMs und buildlokalen
 VHDX, verlangt eine zweite Gesamtbestätigung und zeigt den Fortschritt. Bereits
 als OS_SEALED veröffentlichte Images sind davon ausgeschlossen. Ein erfolgreicher

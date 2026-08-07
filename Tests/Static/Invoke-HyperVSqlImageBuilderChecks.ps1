@@ -147,7 +147,7 @@ try {
         $builderText -match 'HYPERV_SQL_IMAGE_GENERALIZATION_RECOVERY_INVALID_STATE' -and
         $builderText -match 'WINDOWS_SYSPREP_REARM_LIMIT_REACHED' -and
         $builderText -match 'SysprepDetail' -and
-        $menuText -match "'17' \{ Resume-LabHyperVSqlPreparedImageGeneralizationInteractive \}"
+        $menuText -match "'r' \{ Show-LabHyperVMenuActionHeader -Title 'Sysprep-Recovery'; Resume-LabHyperVSqlPreparedImageGeneralizationInteractive \}"
     )
     Add-CheckResult -Name 'Sysprep wartet nach /quit auf den finalen Generalize-ImageState' -Success (
         $builderText -match 'stateDeadline = \[datetime\]::UtcNow\.AddSeconds\(600\)' -and
@@ -209,22 +209,23 @@ try {
         $builderText.IndexOf('Confirm-HyperVSqlInstallationMediaVersion -IsoPath $sqlMedia.IsoPath') -lt $builderText.IndexOf('New-VHD -Path $diskPath')
     )
     Add-CheckResult -Name 'SQL-Prepared-Publikation flacht Differencing-Kette ab' -Success ($builderText -match 'Convert-VHD[\s\S]+-VHDType Dynamic')
-    Add-CheckResult -Name 'Sonderpfad für frische ISOs erstellt Windows-VHDX und bindet beide ISOs ein' -Success (
+    Add-CheckResult -Name 'Standardpfad für frische ISOs erstellt Windows-VHDX und bindet beide ISOs ein' -Success (
         $builderText -match 'function Initialize-HyperVSqlFreshPreparedImageBuild' -and
         $builderText -match 'New-HyperVSqlFreshImageBuildPlan' -and
         $builderText -match 'New-VHD -Path \$diskPath -Dynamic' -and
         $builderText -match 'Add-VMDvdDrive -VM \$vm -Path \$windowsMedia\.IsoPath' -and
         $builderText -match 'Add-VMDvdDrive -VM \$vm -Path \$sqlMedia\.IsoPath' -and
-        $menuText -match "'f' \{ New-LabHyperVSqlImageBuildInteractive \}" -and
+        $menuText -match "'1' \{ Show-LabHyperVMenuActionHeader -Title 'Neues SQL-Prepared-Image'; New-LabHyperVSqlImageBuildInteractive \}" -and
         $menuText -match 'ein finaler Sysprep'
     )
-    Add-CheckResult -Name 'Empfohlener Prepared-Image-Pfad verwendet eine veröffentlichte OS-Baseline als unveränderten Parent' -Success (
+    Add-CheckResult -Name 'Optionaler Expertenpfad verwendet eine veröffentlichte OS-Baseline als unveränderten Parent' -Success (
         $builderText -match "provisioningMode = 'sealed-os-baseline'" -and
         $builderText -match 'function Initialize-HyperVSqlPreparedImageBuild' -and
         $builderText -match 'New-HyperVInstance -ImageArtifactId \$ImageArtifactId' -and
         $builderText -match '\[ValidateLength\(1, 80\)\]\[string\]\$ImageName' -and
-        $menuText -match "'7' \{ New-LabHyperVSqlAcceptanceBuildInteractive \}" -and
-        $menuText -match 'OS-Baseline wird wiederverwendet'
+        $menuText -match 'function Invoke-LabHyperVAdvancedMenu' -and
+        $menuText -match "'2' \{ Show-LabHyperVMenuActionHeader -Title 'SQL-Builder aus OS-Baseline'; New-LabHyperVSqlAcceptanceBuildInteractive \}" -and
+        $menuText -match 'OS-Baselines verwalten \(Expertenpfad\)'
     )
     $convertIndex = $builderText.IndexOf('Convert-VHD -Path $childPath')
     $importIndex = $builderText.IndexOf('$artifact = Import-HyperVImageArtifact')
@@ -260,10 +261,11 @@ try {
             Get-LabHyperVSqlImageNextStep -Build ([PSCustomObject]@{ state = 'REBOOT_REQUIRED'; provisioningMode = 'fresh-windows-media' })
         )
     }
-    Add-CheckResult -Name 'SQL-Image-Status nennt den konkreten naechsten Menuepunkt ohne interne State-Kenntnis' -Success (
-        $nextActionGuidance[0] -eq '[11] SQL-Prepared-Image jetzt veroeffentlichen.' -and
-        $nextActionGuidance[1] -eq '[9] VM starten, vollstaendig booten lassen; danach [10] erneut ausfuehren.' -and
-        $menuText -match '''8''\s*\{\s*\$null\s*=\s*Show-LabHyperVSqlImageBuilds\s*\}' -and
+    Add-CheckResult -Name 'SQL-Image-Status nennt den konkreten Untermenü-Schritt ohne interne State-Kenntnis' -Success (
+        $nextActionGuidance[0] -eq 'Prepared-Image-Builder fortsetzen: Prepared-Image jetzt veröffentlichen.' -and
+        $nextActionGuidance[1] -eq 'Prepared-Image-Builder fortsetzen: VM booten; danach SQL PrepareImage erneut ausführen.' -and
+        $menuText -match "Show-LabHyperVMenuActionHeader -Title 'Builder-Status'" -and
+        $menuText -match 'Show-LabHyperVSqlImageBuilds' -and
         $menuText -match 'Show-LabHyperVSqlNextActions'
     )
     $prepareFunctionIndex = $menuText.IndexOf('function Invoke-LabHyperVSqlPrepareInteractive')
