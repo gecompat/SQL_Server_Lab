@@ -1,10 +1,11 @@
 <#
 .SYNOPSIS
-    Erstellt und verwaltet reguläre Hyper-V-Lab-VMs aus Prepared-Images.
+    Erstellt und verwaltet reguläre Hyper-V-Lab-VMs aus Windows- oder SQL-Images.
 .DESCRIPTION
-    Ein regulärer Run verwendet ausschließlich ein registriertes, unveränderliches
-    SQL_PREPARED_SEALED-Image als Parent. Die VM bleibt nach dem Erstellen aus;
-    Start und VMConnect sind separate, sichtbare Benutzeraktionen.
+    Ein regulärer Run verwendet ein registriertes, unveränderliches OS_SEALED-
+    oder SQL_PREPARED_SEALED-Image als Parent. Reine Windows-Labs sind ein
+    eigenständiger Workload: Sie erhalten weder SQL CompleteImage noch WMI-/
+    TCP-Konfiguration. SQL-Labs führen diese Schritte erst im Run-Child aus.
 #>
 
 function Get-HyperVLabWorkflowRun {
@@ -131,7 +132,7 @@ function New-HyperVLabEnvironmentFromExistingVm {
 
     Write-LabInfo 'Schritt 2/6: Workflow-Run und Cleanup-Plan werden angelegt.'
     $run = New-LabRunState -StateRoot $StateRoot -Metadata @{
-        name = $LabName; workflowKind = 'hyperv-lab'; baseKind = 'existing-vm'
+        name = $LabName; workflowKind = 'hyperv-lab'; baseKind = 'existing-vm'; workload = 'windows'
         sourceVMName = $source.VMName; sourceVhdxPath = $source.SourceVhdxPath
         sourceLicenseNotice = $source.LicenseNotice
         network = if ($labNetwork) { $labNetwork.Name } else { $null }
@@ -159,12 +160,15 @@ function New-HyperVLabEnvironmentFromExistingVm {
                 id = $InstanceId; provider = 'hyperv'; vmName = $vm.VMName; vmId = $vm.VMId
                 sqlVersion = $null; sqlEdition = $null; imageArtifactId = $null; host = $null; port = $null
                 labNetwork = if ($labNetwork) { [PSCustomObject]@{ name = $labNetwork.Name; subnet = $labNetwork.Subnet; prefixLength = $labNetwork.PrefixLength; hostAddress = $labNetwork.HostAddress } } else { $null }
-                baseKind = 'existing-vm'; sourceVMName = $source.VMName; sourceVhdxPath = $source.SourceVhdxPath
+                baseKind = 'existing-vm'; workload = 'windows'; sourceVMName = $source.VMName; sourceVhdxPath = $source.SourceVhdxPath
                 sourceParentCopyPath = $parentCopyPath; sourceParentSha256 = $parentHash
             })
         }
         Write-LabInfo 'Schritt 5/6: Verbindungsdaten und sichere Ressourcenbindung werden gespeichert.'
         Write-LabArtifactJsonAtomic -Path (Join-Path $run.RunDir 'connection-info.json') -InputObject $connection
+        # Der technische State SQL_READY ist im gemeinsamen Lifecycle der
+        # nächste zulässige Zustand; workload=windows verhindert, dass die UI
+        # daraus eine SQL-Aktion ableitet.
         $null = Set-LabRunState -RunId $run.RunId -NewState SQL_READY -Reason 'Windows-Quell-VM als unveraenderte Basis gebunden.' -StateRoot $run.StateRoot
         $null = Set-LabRunState -RunId $run.RunId -NewState DATABASES_CREATED -Reason 'Keine run-lokalen Datenbanken angefordert.' -StateRoot $run.StateRoot
         $null = Set-LabRunState -RunId $run.RunId -NewState RUNNING -Reason 'Hyper-V-VM erstellt, noch ausgeschaltet.' -StateRoot $run.StateRoot
@@ -201,50 +205,57 @@ function New-HyperVLabEnvironment {
         [string]$StateRoot
     )
 
-    Write-LabInfo 'Schritt 1/5: Hyper-V-Verfügbarkeit und SQL-Prepared-Image werden geprüft.'
+    Write-LabInfo 'Schritt 1/5: Hyper-V-Verfügbarkeit und veröffentlichte Windows-/SQL-Vorlage werden geprüft.'
     $availability = Test-HyperVAvailable
     if (-not $availability.Available) { throw "HYPERV_WORKFLOW_UNAVAILABLE: $($availability.Message)" }
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
     $artifact = Get-HyperVImageArtifact -ArtifactId $ArtifactId -StateRoot $StateRoot
     if (-not $artifact) { throw 'HYPERV_LAB_ARTIFACT_NOT_FOUND' }
-    if ([string]$artifact.artifactState -ne 'SQL_PREPARED_SEALED') {
-        throw 'HYPERV_LAB_SQL_PREPARED_IMAGE_REQUIRED'
+    $artifactState = [string]$artifact.artifactState
+    if ($artifactState -notin @('SQL_PREPARED_SEALED', 'OS_SEALED')) {
+        throw 'HYPERV_LAB_WINDOWS_OR_SQL_PREPARED_IMAGE_REQUIRED'
     }
+    $workload = if ($artifactState -eq 'SQL_PREPARED_SEALED') { 'sql' } else { 'windows' }
+    $baseKind = if ($workload -eq 'sql') { 'sql-prepared' } else { 'windows-baseline' }
     $labNetwork = Resolve-LabHyperVNetwork -SwitchName $SwitchName -Isolated:$Isolated
 
     Write-LabInfo 'Schritt 2/5: Workflow-Run und rückgängig ausführbarer Cleanup-Plan werden angelegt.'
     $run = New-LabRunState -StateRoot $StateRoot -Metadata @{
-        name = $LabName; workflowKind = 'hyperv-lab'; imageArtifactId = $ArtifactId
+        name = $LabName; workflowKind = 'hyperv-lab'; imageArtifactId = $ArtifactId; workload = $workload; baseKind = $baseKind
         network = if ($labNetwork) { $labNetwork.Name } else { $null }
     } -ProviderSubRuns @([PSCustomObject]@{ id = 'provider-hyperv'; provider = 'hyperv'; instanceIds = @($InstanceId) })
     try {
         $null = New-CleanupPlan -RunDir $run.RunDir -RunId $run.RunId -ScopeId $run.ScopeId -ProviderSubRuns @([PSCustomObject]@{ id = 'provider-hyperv'; provider = 'hyperv'; instanceIds = @($InstanceId) })
-        $null = Set-LabRunState -RunId $run.RunId -NewState PROVISIONING -Reason 'Hyper-V-Lab wird aus Prepared-Image erstellt.' -StateRoot $run.StateRoot
-        Set-LabProviderSubRunState -RunId $run.RunId -Provider hyperv -NewState PROVISIONING -Reason 'Hyper-V-Lab wird aus Prepared-Image erstellt.' -StateRoot $run.StateRoot
+        $sourceDescription = if ($workload -eq 'sql') { 'SQL-Prepared-Image' } else { 'Windows-OS-Baseline' }
+        $null = Set-LabRunState -RunId $run.RunId -NewState PROVISIONING -Reason "Hyper-V-Lab wird aus $sourceDescription erstellt." -StateRoot $run.StateRoot
+        Set-LabProviderSubRunState -RunId $run.RunId -Provider hyperv -NewState PROVISIONING -Reason "Hyper-V-Lab wird aus $sourceDescription erstellt." -StateRoot $run.StateRoot
         Write-LabInfo "Schritt 3/5: Differenzierende VM wird aus Image $ArtifactId erstellt."
         $vm = New-HyperVInstance -ImageArtifactId $ArtifactId -RunDirectory $run.RunDir -RunId $run.RunId -ScopeId $run.ScopeId -InstanceId $InstanceId -LabName $LabName -MemoryStartupBytes ($MemoryStartupMB * 1MB) -ProcessorCount $ProcessorCount -SwitchName $(if ($labNetwork) { $labNetwork.Name } else { $null }) -StateRoot $run.StateRoot
         $connection = [PSCustomObject]@{
             schemaVersion = 1; instances = @([PSCustomObject]@{
                 id = $InstanceId; provider = 'hyperv'; vmName = $vm.VMName; vmId = $vm.VMId
-                sqlVersion = [string]$artifact.sql.version; sqlEdition = [string]$artifact.sql.edition
-                imageArtifactId = $ArtifactId; host = $null; port = $null
+                sqlVersion = if ($workload -eq 'sql') { [string]$artifact.sql.version } else { $null }
+                sqlEdition = if ($workload -eq 'sql') { [string]$artifact.sql.edition } else { $null }
+                workload = $workload; baseKind = $baseKind; imageArtifactId = $ArtifactId; host = $null; port = $null
                 labNetwork = if ($labNetwork) { [PSCustomObject]@{ name = $labNetwork.Name; subnet = $labNetwork.Subnet; prefixLength = $labNetwork.PrefixLength; hostAddress = $labNetwork.HostAddress } } else { $null }
             })
         }
         Write-LabInfo 'Schritt 4/5: Verbindungsdaten und Ressourcenbindung werden gespeichert.'
         Write-LabArtifactJsonAtomic -Path (Join-Path $run.RunDir 'connection-info.json') -InputObject $connection
-        # Das Prepared-Image enthält SQL bereits. Der Run wird bewusst ausgeschaltet
-        # hinterlegt, bis der Benutzer den sichtbaren Start anstößt.
-        $null = Set-LabRunState -RunId $run.RunId -NewState SQL_READY -Reason 'Prepared-Image gebunden.' -StateRoot $run.StateRoot
+        # Der gemeinsame State-Machine-Vertrag enthält noch keinen WINDOWS_READY-
+        # Zustand. workload=windows ist daher maßgeblich für die Darstellung,
+        # während SQL_READY nur die zulässige technische Transition markiert.
+        $readyReason = if ($workload -eq 'sql') { 'SQL-Prepared-Image gebunden.' } else { 'Windows-OS-Baseline gebunden.' }
+        $null = Set-LabRunState -RunId $run.RunId -NewState SQL_READY -Reason $readyReason -StateRoot $run.StateRoot
         $null = Set-LabRunState -RunId $run.RunId -NewState DATABASES_CREATED -Reason 'Keine run-lokalen Datenbanken angefordert.' -StateRoot $run.StateRoot
         $null = Set-LabRunState -RunId $run.RunId -NewState RUNNING -Reason 'Hyper-V-VM erstellt, noch ausgeschaltet.' -StateRoot $run.StateRoot
         $null = Set-LabRunState -RunId $run.RunId -NewState STOPPED -Reason 'Warte auf sichtbaren VM-Start.' -StateRoot $run.StateRoot
-        Set-LabProviderSubRunState -RunId $run.RunId -Provider hyperv -NewState SQL_READY -Reason 'Prepared-Image gebunden.' -StateRoot $run.StateRoot
+        Set-LabProviderSubRunState -RunId $run.RunId -Provider hyperv -NewState SQL_READY -Reason $readyReason -StateRoot $run.StateRoot
         Set-LabProviderSubRunState -RunId $run.RunId -Provider hyperv -NewState DATABASES_CREATED -Reason 'Keine run-lokalen Datenbanken angefordert.' -StateRoot $run.StateRoot
         Set-LabProviderSubRunState -RunId $run.RunId -Provider hyperv -NewState RUNNING -Reason 'Hyper-V-VM erstellt, noch ausgeschaltet.' -StateRoot $run.StateRoot
         Set-LabProviderSubRunState -RunId $run.RunId -Provider hyperv -NewState STOPPED -Reason 'Warte auf sichtbaren VM-Start.' -StateRoot $run.StateRoot
-        Write-LabSuccess "Schritt 5/5: VM $($vm.VMName) ist erstellt und bewusst ausgeschaltet."
-        return [PSCustomObject]@{ RunId = $run.RunId; ScopeId = $run.ScopeId; VMName = $vm.VMName; State = 'STOPPED'; ArtifactId = $ArtifactId }
+        Write-LabSuccess "Schritt 5/5: $workload-VM $($vm.VMName) ist erstellt und bewusst ausgeschaltet."
+        return [PSCustomObject]@{ RunId = $run.RunId; ScopeId = $run.ScopeId; VMName = $vm.VMName; State = 'STOPPED'; ArtifactId = $ArtifactId; Workload = $workload }
     }
     catch {
         try {
@@ -279,9 +290,10 @@ function Invoke-HyperVLabUnattendedProvision {
         [string]$StateRoot
     )
 
-    Write-LabInfo 'Schritt 1/6: Prepared-Image-Klon und isolierte Child-VHDX werden geprüft.'
+    Write-LabInfo 'Schritt 1/6: Klon-Vorlage und isolierte Child-VHDX werden geprüft.'
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
-    if (-not $lab.Instance.imageArtifactId) { throw 'HYPERV_LAB_UNATTENDED_REQUIRES_PREPARED_IMAGE' }
+    if (-not $lab.Instance.imageArtifactId) { throw 'HYPERV_LAB_UNATTENDED_REQUIRES_IMAGE_ARTIFACT' }
+    $windowsOnly = [string]$lab.Instance.workload -eq 'windows'
     if ($lab.Instance.oobeAutomation -and [string]$lab.Instance.oobeAutomation.status -eq 'COMPLETED') {
         throw 'HYPERV_LAB_UNATTENDED_ALREADY_COMPLETED'
     }
@@ -355,6 +367,15 @@ function Invoke-HyperVLabUnattendedProvision {
     if ($lab.Instance.persistentStorage -and [string]$lab.Instance.persistentStorage.state -eq 'ATTACHED_PENDING_INITIALIZATION') {
         Write-LabInfo 'Schritt 6/6a: Eigene Data-Root-VHDX wird im Gast initialisiert.'
         $null = Initialize-HyperVLabPersistentData -RunId $RunId -Credential $credential -StateRoot $lab.StateRoot
+    }
+    if ($windowsOnly) {
+        $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
+        $lab.Instance | Add-Member -NotePropertyName windowsProvisioning -NotePropertyValue ([PSCustomObject]@{
+            state = 'COMPLETE'; completedAt = Get-LabTimestamp; workload = 'windows-only'
+        }) -Force
+        Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
+        Write-LabSuccess 'Unbeaufsichtigte OOBE für die reine Windows-VM ist abgeschlossen. SQL, WMI und TCP/IP werden nicht konfiguriert.'
+        return [PSCustomObject]@{ RunId = $RunId; OobeState = 'COMPLETED'; WindowsOnly = $true; PasswordSource = $PasswordSource }
     }
     # Ein separates SA-Passwort ist bewusst möglich. Ohne Angabe bleibt der
     # frühere, sichere Standard erhalten: SA entspricht dem Gastkonto.

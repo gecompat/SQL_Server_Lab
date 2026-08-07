@@ -99,23 +99,26 @@ function Get-SqlServerLabWorkflow {
                 }
                 catch { $vmState = 'Unavailable' }
             }
+            $workload = if ($instance -and $instance.workload) { [string]$instance.workload } elseif ($run.metadata.workload) { [string]$run.metadata.workload } elseif ($instance -and $instance.sqlVersion) { 'sql' } else { 'windows' }
+            $isSqlLab = $workload -eq 'sql'
             [PSCustomObject]@{
                 RunId = [string]$run.runId; Name = [string]$run.metadata.name; State = [string]$run.state
                 VMName = if ($instance) { [string]$instance.vmName } else { $null }; VMState = $vmState; Exists = $exists
                 InstanceId = if ($instance) { [string]$instance.id } else { $null }
+                Workload = $workload
                 SqlVersion = if ($instance) { [string]$instance.sqlVersion } else { $null }
                 SqlEdition = if ($instance) { [string]$instance.sqlEdition } else { $null }
-                SqlCompleted = [bool]($instance -and $instance.sqlCompletion -and [string]$instance.sqlCompletion.state -eq 'COMPLETE')
-                SqlCompletionState = if ($instance -and $instance.sqlCompletion) { [string]$instance.sqlCompletion.state } else { 'PENDING_COMPLETE_IMAGE' }
-                ConnectionString = if ($instance) { [string]$instance.connectionString } else { $null }
-                SqlInstances = @($instance.sqlInstances | ForEach-Object {
+                SqlCompleted = [bool]($isSqlLab -and $instance -and $instance.sqlCompletion -and [string]$instance.sqlCompletion.state -eq 'COMPLETE')
+                SqlCompletionState = if (-not $isSqlLab) { 'NOT_APPLICABLE' } elseif ($instance -and $instance.sqlCompletion) { [string]$instance.sqlCompletion.state } else { 'PENDING_COMPLETE_IMAGE' }
+                ConnectionString = if ($isSqlLab -and $instance) { [string]$instance.connectionString } else { $null }
+                SqlInstances = if ($isSqlLab) { @($instance.sqlInstances | ForEach-Object {
                     [PSCustomObject]@{
                         Name = [string]$_.Name; InstanceId = [string]$_.InstanceId; IsDefault = [bool]$_.IsDefault
                         ServiceName = [string]$_.ServiceName; ServiceStatus = [string]$_.ServiceStatus; TcpPort = $_.TcpPort
                         ConnectionString = [string]$_.ConnectionString
                     }
-                })
-                SqlInstancesInspectedAt = if ($instance) { [string]$instance.sqlInstancesInspectedAt } else { $null }
+                }) } else { @() }
+                SqlInstancesInspectedAt = if ($isSqlLab -and $instance) { [string]$instance.sqlInstancesInspectedAt } else { $null }
                 PersistentStorage = if ($instance) { $instance.persistentStorage } else { $null }
                 ArtifactId = [string]$run.metadata.imageArtifactId
                 BaseKind = [string]$run.metadata.baseKind

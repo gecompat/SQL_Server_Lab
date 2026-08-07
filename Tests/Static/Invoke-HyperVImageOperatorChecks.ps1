@@ -275,8 +275,8 @@ try {
         $menuText -match 'while \(-not \$exitImageMenu\)' -and
         $menuText -match '''0''\s*\{\s*\$exitImageMenu\s*=\s*\$true\s*\}'
     )
-    Add-CheckResult -Name 'Kompaktes Hyper-V-Hauptmenü bietet reguläre Labs aus Prepared-Images an' -Success (
-        $menuText -match '\[3\] Neue Hyper-V-Umgebung aus Prepared-Image erstellen' -and
+    Add-CheckResult -Name 'Kompaktes Hyper-V-Hauptmenü bietet reine Windows- und SQL-Labs aus Vorlagen an' -Success (
+        $menuText -match '\[3\] Neue Hyper-V-Umgebung aus Windows- oder SQL-Vorlage erstellen' -and
         $menuText -match 'New-LabHyperVEnvironmentInteractive' -and
         $menuText -match 'Manage-LabHyperVEnvironmentInteractive' -and
         $menuText -match 'New-HyperVLabEnvironment' -and

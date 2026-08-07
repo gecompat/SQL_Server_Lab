@@ -625,7 +625,7 @@ function Invoke-LabHyperVImageAction {
         Write-Host ''
         Write-Host '    [1] Neues SQL-Prepared-Image erstellen' -ForegroundColor Yellow
         Write-Host '    [2] Offenen Prepared-Image-Builder fortsetzen' -ForegroundColor White
-        Write-Host '    [3] Neue Hyper-V-Umgebung aus Prepared-Image erstellen' -ForegroundColor Yellow
+        Write-Host '    [3] Neue Hyper-V-Umgebung aus Windows- oder SQL-Vorlage erstellen' -ForegroundColor Yellow
         Write-Host '    [4] Hyper-V-Umgebungen verwalten' -ForegroundColor White
         Write-Host '    [5] Veröffentlichte Images verwalten' -ForegroundColor White
         Write-Host '    [e] Erweitert: OS-Baselines, Abnahme und Reparatur' -ForegroundColor DarkGray
@@ -1923,23 +1923,26 @@ function Select-LabHyperVPreparedArtifact {
 
     # Die Auswahl liest nur die kleine Registry. Die vollständige VHDX-Integrität
     # wird erst unmittelbar vor dem Klonen geprüft; dadurch bleibt das Menü auch
-    # mit mehreren großen Prepared-Images ohne minutenlanges Hashing responsiv.
-    $artifacts = @(Get-HyperVImageArtifact -SkipIntegrityCheck | Where-Object { $_.artifactState -eq 'SQL_PREPARED_SEALED' })
-    if ($artifacts.Count -eq 0) { Write-LabInfo 'Kein veröffentlichtes SQL-Prepared-Image vorhanden.'; return $null }
-    Write-Host '  Veröffentlichte SQL-Prepared-Images:' -ForegroundColor White
+    # mit mehreren großen Vorlagen ohne minutenlanges Hashing responsiv.
+    $artifacts = @(Get-HyperVImageArtifact -SkipIntegrityCheck | Where-Object { $_.artifactState -in @('OS_SEALED', 'SQL_PREPARED_SEALED') })
+    if ($artifacts.Count -eq 0) { Write-LabInfo 'Keine veröffentlichte Windows- oder SQL-Vorlage vorhanden.'; return $null }
+    Write-Host '  Veröffentlichte Windows- und SQL-Vorlagen:' -ForegroundColor White
+    Write-Host '  Windows-OS-Baselines ergeben reine Windows-VMs; SQL-Prepared-Images ergänzen automatisch SQL, WMI und TCP/IP.' -ForegroundColor DarkGray
     Write-Host '  Der Anzeigename ist frei wählbar; bei gleichen technischen Varianten helfen Zeitpunkt und Kurzkennung bei der eindeutigen Auswahl.' -ForegroundColor DarkGray
     for ($i = 0; $i -lt $artifacts.Count; $i++) {
         $artifact = $artifacts[$i]
         $operatingSystemLabel = Get-LabWindowsMediaOperatingSystemLabel -OperatingSystemId ([string]$artifact.operatingSystem.id)
-        $fallbackName = "{0} · SQL Server {1} {2}" -f $operatingSystemLabel, $artifact.sql.version, $artifact.sql.edition
+        $isSqlPrepared = [string]$artifact.artifactState -eq 'SQL_PREPARED_SEALED'
+        $fallbackName = if ($isSqlPrepared) { "{0} · SQL Server {1} {2}" -f $operatingSystemLabel, $artifact.sql.version, $artifact.sql.edition } else { "{0} · reine Windows-OS-Baseline" -f $operatingSystemLabel }
         $displayName = if ([string]::IsNullOrWhiteSpace([string]$artifact.displayName)) { $fallbackName } else { [string]$artifact.displayName }
         $shortArtifactId = if ([string]$artifact.artifactId -match '([a-f0-9]{12,})$') { $Matches[1].Substring(0, 12) } else { [string]$artifact.artifactId }
         $registeredAt = if ([string]::IsNullOrWhiteSpace([string]$artifact.registeredAt)) { 'unbekannt' } else { [string]$artifact.registeredAt }
         Write-Host ("    [{0}] {1}" -f ($i + 1), $displayName) -ForegroundColor White
-        Write-Host ("        Windows: {0} {1} · SQL Server: {2} {3}" -f $operatingSystemLabel, $artifact.operatingSystem.installationType, $artifact.sql.version, $artifact.sql.edition) -ForegroundColor Gray
+        $workload = if ($isSqlPrepared) { "Windows: {0} {1} · SQL Server: {2} {3}" -f $operatingSystemLabel, $artifact.operatingSystem.installationType, $artifact.sql.version, $artifact.sql.edition } else { "Windows: {0} {1} · Reine Windows-VM ohne SQL Server" -f $operatingSystemLabel, $artifact.operatingSystem.installationType }
+        Write-Host ("        {0}" -f $workload) -ForegroundColor Gray
         Write-Host ("        Veröffentlicht: {0} · Kennung: {1}" -f $registeredAt, $shortArtifactId) -ForegroundColor DarkGray
     }
-    $selection = Read-Host '  Prepared-Image auswählen [1]'
+    $selection = Read-Host '  Vorlage auswählen [1]'
     if (-not $selection) { $selection = '1' }
     if ($selection -notmatch '^\d+$' -or [int]$selection -lt 1 -or [int]$selection -gt $artifacts.Count) { Write-LabWarning 'Ungültige Auswahl.'; return $null }
     return $artifacts[[int]$selection - 1]
@@ -1968,7 +1971,7 @@ function Select-LabHyperVVirtualSwitch {
 
     Write-Host ''
     Write-Host '  Virtueller Switch:' -ForegroundColor White
-    Write-Host '    [Enter] Verwalteter SQL_Server_Lab-Internal-Switch (empfohlen, Host-SSMS möglich)' -ForegroundColor Green
+    Write-Host '    [Enter] Verwalteter SQL_Server_Lab-Internal-Switch (empfohlen, Hostzugriff möglich)' -ForegroundColor Green
     Write-Host '    [0] Kein Switch = bewusst isoliert' -ForegroundColor DarkGray
     for ($i = 0; $i -lt $switches.Count; $i++) {
         $switch = $switches[$i]
@@ -2018,8 +2021,10 @@ function New-LabHyperVEnvironmentInteractive {
 
     $artifact = Select-LabHyperVPreparedArtifact
     if (-not $artifact) { return }
-    $name = Read-Host '  Labname [hyperv-sql-lab]'
-    if (-not $name) { $name = 'hyperv-sql-lab' }
+    $isSqlPrepared = [string]$artifact.artifactState -eq 'SQL_PREPARED_SEALED'
+    $defaultLabName = if ($isSqlPrepared) { 'hyperv-sql-lab' } else { 'hyperv-windows-lab' }
+    $name = Read-Host "  Labname [$defaultLabName]"
+    if (-not $name) { $name = $defaultLabName }
     $instanceId = Read-Host '  Instanzname [primary]'
     if (-not $instanceId) { $instanceId = 'primary' }
     $memory = Read-Host '  Startspeicher MB [4096]'
@@ -2031,7 +2036,7 @@ function New-LabHyperVEnvironmentInteractive {
     $persistentData = $false
     $dataRoot = Get-LabDataRootDefault
     $persistentDataDiskGB = 128
-    if ($dataRoot) {
+    if ($isSqlPrepared -and $dataRoot) {
         Write-LabInfo "Optionaler Data Root verfügbar: $dataRoot"
         $persistentData = Read-LabConfirm -Prompt '  Langlebige Daten-VHDX im Data Root anhängen?' -Default $false
         if ($persistentData) {
@@ -2066,10 +2071,18 @@ function New-LabHyperVEnvironmentInteractive {
             [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($secondBstr)
         }
     }
-    $sqlSaPassword = Read-LabHyperVSqlSaPassword -GuestPassword $guestPassword
-    if (-not $sqlSaPassword) { return }
+    $sqlSaPassword = $null
+    if ($isSqlPrepared) {
+        $sqlSaPassword = Read-LabHyperVSqlSaPassword -GuestPassword $guestPassword
+        if (-not $sqlSaPassword) { return }
+    }
     Write-Host "  Image: $($artifact.artifactId)" -ForegroundColor DarkGray
-    Write-Host '  Es wird eine differenzierende VM erstellt, automatisch per Unattend.xml eingerichtet und anschließend mit SQL CompleteImage vervollständigt.' -ForegroundColor DarkGray
+    if ($isSqlPrepared) {
+        Write-Host '  Es wird eine differenzierende VM erstellt, automatisch per Unattend.xml eingerichtet und anschließend mit SQL CompleteImage vervollständigt.' -ForegroundColor DarkGray
+    }
+    else {
+        Write-Host '  Es wird eine reine differenzierende Windows-VM erstellt und automatisch per Unattend.xml eingerichtet. SQL, WMI und SQL-TCP werden bewusst nicht angefasst.' -ForegroundColor DarkGray
+    }
     if (-not (Read-LabConfirm -Prompt '  Hyper-V-Umgebung jetzt erstellen?' -Default $false)) { return }
     try {
         $lab = New-HyperVLabEnvironment -ArtifactId $artifact.artifactId -LabName $name -InstanceId $instanceId -MemoryStartupMB ([int]$memory) -ProcessorCount ([int]$cpu) -SwitchName $switch.SwitchName -Isolated:$switch.Isolated
@@ -2078,7 +2091,12 @@ function New-LabHyperVEnvironmentInteractive {
         }
         $null = Invoke-HyperVLabUnattendedProvision -RunId $lab.RunId -AdministratorPassword $guestPassword -SqlSaPassword $sqlSaPassword -PasswordSource $passwordSource
         Write-LabSuccess "Hyper-V-Umgebung bereitgestellt: $($lab.VMName) (Run $($lab.RunId))"
-        Write-LabInfo 'Die OOBE, SQL CompleteImage und eine optionale Daten-VHDX-Initialisierung wurden automatisch ausgeführt.'
+        if ($isSqlPrepared) {
+            Write-LabInfo 'Die OOBE, SQL CompleteImage und eine optionale Daten-VHDX-Initialisierung wurden automatisch ausgeführt.'
+        }
+        else {
+            Write-LabInfo 'Die OOBE wurde automatisch ausgeführt. Die VM ist als reine Windows-Umgebung einsatzbereit.'
+        }
     }
     catch { Write-LabError $_.Exception.Message }
 }
@@ -2157,6 +2175,7 @@ function Manage-LabHyperVEnvironmentInteractive {
     if ($selection -notmatch '^\d+$' -or [int]$selection -lt 1 -or [int]$selection -gt $runs.Count) { Write-LabWarning 'Ungültige Auswahl.'; return }
     $runId = [string]$runs[[int]$selection - 1].runId
     $selectedLab = Get-HyperVLabWorkflowRun -RunId $runId
+    $isSqlLab = if ($selectedLab.Instance.workload) { [string]$selectedLab.Instance.workload -eq 'sql' } else { [bool]$selectedLab.Instance.sqlVersion }
     $persistentStorage = $selectedLab.Instance.persistentStorage
     $persistentStoragePending = $persistentStorage -and [string]$persistentStorage.state -eq 'ATTACHED_PENDING_INITIALIZATION'
     Write-Host ''
@@ -2178,14 +2197,19 @@ function Manage-LabHyperVEnvironmentInteractive {
     else {
         Write-Host "        Persistente Daten sind bereit: $($persistentStorage.guestPath)" -ForegroundColor DarkGray
     }
-    Write-Host '    [c] SQL CompleteImage ausführen' -ForegroundColor Yellow
-    Write-Host '        Vervollständigt SQL Server im Klon. Erforderlich, wenn MSSQLSERVER noch fehlt.' -ForegroundColor DarkGray
-    Write-Host '    [h] Host-SSMS einrichten' -ForegroundColor Yellow
-    Write-Host '        Richtet Labnetz, feste Gast-IP, SQL-TCP und die Host-Verbindung mit SA ein.' -ForegroundColor DarkGray
-    Write-Host '    [q] SQL-Instanzen prüfen' -ForegroundColor White
-    Write-Host '        Liest Dienste, Instanzen und TCP-Ports aus; verändert die VM nicht.' -ForegroundColor DarkGray
-    Write-Host '    [w] SQL-WMI reparieren' -ForegroundColor White
-    Write-Host '        Repariert den SQL-WMI-Provider – nur bei Fehlern im SQL Configuration Manager.' -ForegroundColor DarkGray
+    if ($isSqlLab) {
+        Write-Host '    [c] SQL CompleteImage ausführen' -ForegroundColor Yellow
+        Write-Host '        Vervollständigt SQL Server im Klon. Erforderlich, wenn MSSQLSERVER noch fehlt.' -ForegroundColor DarkGray
+        Write-Host '    [h] Host-SSMS einrichten' -ForegroundColor Yellow
+        Write-Host '        Richtet Labnetz, feste Gast-IP, SQL-TCP und die Host-Verbindung mit SA ein.' -ForegroundColor DarkGray
+        Write-Host '    [q] SQL-Instanzen prüfen' -ForegroundColor White
+        Write-Host '        Liest Dienste, Instanzen und TCP-Ports aus; verändert die VM nicht.' -ForegroundColor DarkGray
+        Write-Host '    [w] SQL-WMI reparieren' -ForegroundColor White
+        Write-Host '        Repariert den SQL-WMI-Provider – nur bei Fehlern im SQL Configuration Manager.' -ForegroundColor DarkGray
+    }
+    else {
+        Write-Host '        Reine Windows-Umgebung: keine SQL-Aktionen, keine SQL-WMI- oder TCP/IP-Konfiguration.' -ForegroundColor DarkGray
+    }
     Write-Host '    [e] Umgebung entfernen' -ForegroundColor Red
     Write-Host '        Löscht VM und run-lokale differenzierende VHDX nach Bestätigung.' -ForegroundColor DarkGray
     $action = Read-Host '  Aktion (Buchstabe)'
@@ -2213,6 +2237,7 @@ function Manage-LabHyperVEnvironmentInteractive {
                 Write-LabSuccess "Daten-VHDX wurde im Gast als $($dataDrive.guestPath) initialisiert."
             }
             'c' {
+                if (-not $isSqlLab) { Write-LabWarning 'Diese reine Windows-Umgebung enthält keine SQL-Prepared-Instanz.'; return }
                 $userName = Read-Host '  Lokaler Gast-Administrator [Administrator]'
                 if (-not $userName) { $userName = 'Administrator' }
                 $credential = [PSCredential]::new($userName, (Read-Host '  Gastpasswort' -AsSecureString))
@@ -2222,6 +2247,7 @@ function Manage-LabHyperVEnvironmentInteractive {
                 Write-LabSuccess "SQL CompleteImage abgeschlossen. State: $($result.State)"
             }
             'h' {
+                if (-not $isSqlLab) { Write-LabWarning 'Host-SSMS ist nur für SQL-Prepared-Umgebungen verfügbar.'; return }
                 $userName = Read-Host '  Lokaler Gast-Administrator [Administrator]'
                 if (-not $userName) { $userName = 'Administrator' }
                 $credential = [PSCredential]::new($userName, (Read-Host '  Gastpasswort' -AsSecureString))
@@ -2234,6 +2260,7 @@ function Manage-LabHyperVEnvironmentInteractive {
                 Write-LabSuccess "Host-SSMS bereit: $($result.ConnectionString)"
             }
             'q' {
+                if (-not $isSqlLab) { Write-LabWarning 'SQL-Instanzen prüfen ist für reine Windows-Umgebungen nicht anwendbar.'; return }
                 $userName = Read-Host '  Lokaler Gast-Administrator [Administrator]'
                 if (-not $userName) { $userName = 'Administrator' }
                 $credential = [PSCredential]::new($userName, (Read-Host '  Gastpasswort' -AsSecureString))
@@ -2244,6 +2271,7 @@ function Manage-LabHyperVEnvironmentInteractive {
                 }
             }
             'w' {
+                if (-not $isSqlLab) { Write-LabWarning 'SQL-WMI reparieren ist für reine Windows-Umgebungen nicht anwendbar.'; return }
                 $userName = Read-Host '  Lokaler Gast-Administrator [Administrator]'
                 if (-not $userName) { $userName = 'Administrator' }
                 $credential = [PSCredential]::new($userName, (Read-Host '  Gastpasswort' -AsSecureString))

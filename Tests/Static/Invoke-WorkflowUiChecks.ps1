@@ -216,8 +216,11 @@ Add-CheckResult -Name 'Frische SQL-Images prüfen Windows-Edition vor PrepareIma
     $consoleText -match 'Confirm-LabHyperVSqlWindowsInstallationInteractive' -and
     $consoleText -match "'2' \{ Invoke-LabHyperVMenuAction -Title 'Windows bestätigen und automatisch fertigstellen' -Action \{ Confirm-LabHyperVSqlWindowsInstallationInteractive \} \}"
 )
-Add-CheckResult -Name 'UI erstellt reguläre Hyper-V-Labs nur aus SQL-Prepared-Images' -Success (
+Add-CheckResult -Name 'UI trennt reine Windows-VMs von SQL-Prepared-Hyper-V-Labs' -Success (
     $hyperVLabText -match 'SQL_PREPARED_SEALED' -and
+    $hyperVLabText -match "OS_SEALED" -and
+    $hyperVLabText -match "workload = 'windows'" -and
+    $hyperVLabText -match 'WindowsOnly' -and
     $hyperVLabText -match 'New-HyperVInstance' -and
     $hyperVLabText -match 'Start-HyperVLabEnvironment' -and
     $hyperVLabText -match 'Complete-HyperVLabSqlImage' -and
@@ -235,6 +238,8 @@ Add-CheckResult -Name 'UI erstellt reguläre Hyper-V-Labs nur aus SQL-Prepared-I
     $htmlText -match 'id="new-hyperv-lab"' -and
     $htmlText -match 'id="hyperv-artifact"' -and
     $scriptText -match 'renderHyperVLabs' -and
+    $scriptText -match 'getHyperVArtifactCandidates' -and
+    $scriptText -match "item.Workload !== 'windows'" -and
     $scriptText -match 'SQL, WMI und TCP/IP automatisch einrichten' -and
     $scriptText -match 'SQL-Instanzen prüfen' -and
     $scriptText -match 'Connection String' -and
