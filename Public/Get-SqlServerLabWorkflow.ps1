@@ -136,7 +136,8 @@ function Get-SqlServerLabWorkflow {
         })
     }
     catch { }
-    try { $mediaSources = @(Get-LabMediaSourceCatalog -MediaRoot $MediaRoot) } catch { }
+    $testDataRoot = Get-LabTestDataRootDefault
+    try { $mediaSources = @(Get-LabMediaSourceCatalog -MediaRoot $MediaRoot -TestDataRoot $testDataRoot) } catch { }
     if ($MediaRoot -and $IsWindows) {
         try { $sqlInstallationMedia = @(Get-HyperVSqlInstallationMediaCandidates -MediaRoot $MediaRoot) } catch { }
         try { $windowsInstallationMedia = @(Get-HyperVWindowsInstallationMediaCandidates -MediaRoot $MediaRoot) } catch { }
@@ -234,7 +235,7 @@ function Get-SqlServerLabWorkflow {
             HyperV = $hyperV
             Providers = @(Get-AvailableLabProviders | Sort-Object)
         }
-        Defaults = [PSCustomObject]@{ MediaRoot = $MediaRoot; DataRoot = Get-LabDataRootDefault }
+        Defaults = [PSCustomObject]@{ MediaRoot = $MediaRoot; DataRoot = Get-LabDataRootDefault; TestDataRoot = $testDataRoot }
         SqlInstallationMedia = $sqlInstallationMedia
         WindowsInstallationMedia = $windowsInstallationMedia
         SampleDatabases = $sampleDatabases

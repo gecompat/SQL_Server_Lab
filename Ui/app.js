@@ -317,6 +317,10 @@ function renderWorkflow(data) {
   if (sourceDataRoot && !sourceDataRoot.value && data.Defaults?.DataRoot) {
     sourceDataRoot.value = data.Defaults.DataRoot;
   }
+  const sourceTestDataRoot = $('#sources-test-data-root');
+  if (sourceTestDataRoot && !sourceTestDataRoot.value && data.Defaults?.TestDataRoot) {
+    sourceTestDataRoot.value = data.Defaults.TestDataRoot;
+  }
   const host = data.Host;
   const hostChip = $('#host-status');
   if (!host.HyperV.Supported) {
@@ -944,6 +948,7 @@ $('#hyperv-existing-vm-lab-form').addEventListener('submit', async (event) => {
 $('#media-sources').addEventListener('click', () => {
   $('#sources-media-root').value = workflow?.Defaults?.MediaRoot || '';
   $('#sources-data-root').value = workflow?.Defaults?.DataRoot || '';
+  $('#sources-test-data-root').value = workflow?.Defaults?.TestDataRoot || '';
   renderMediaSources(workflow?.MediaSources || []);
   $('#media-sources-dialog').showModal();
 });
@@ -957,6 +962,8 @@ $('#media-sources-form').addEventListener('submit', async (event) => {
     await startAction('SetMediaRoot', { MediaRoot: mediaRoot });
     const dataRoot = $('#sources-data-root').value.trim();
     if (dataRoot) await startAction('SetDataRoot', { DataRoot: dataRoot });
+    const testDataRoot = $('#sources-test-data-root').value.trim();
+    if (testDataRoot) await startAction('SetTestDataRoot', { TestDataRoot: testDataRoot });
     await refresh(mediaRoot);
     $('#media-sources-dialog').close();
   } catch (error) { showError(error); }

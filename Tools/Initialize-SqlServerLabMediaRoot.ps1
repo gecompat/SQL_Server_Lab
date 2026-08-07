@@ -131,6 +131,7 @@ $relativeDirectories = @(
     'WindowsServer/2025/Eval/ISO',
     'WindowsServer/2025/Eval/VHDX',
     'WindowsClient/11/Eval/ISO',
+    'Testdaten',
     'Hashes',
     'Evidence',
     'Exports'
@@ -176,6 +177,7 @@ Konfigurierter Root: `{{ROOT_PATH}}`
 - `WindowsServer\<Version>\Eval\ISO` – Windows-Server-Installationsmedien.
 - `WindowsServer\<Version>\Eval\VHDX` – von Microsoft gelieferte oder vorbereitete virtuelle Datenträger.
 - `WindowsClient\11\Eval\ISO` – Windows-11-Evaluation-Installationsmedien; die automatische Erkennung akzeptiert auch andere Unterordner.
+- `Testdaten` – sichtbare, wiederverwendbare Bibliothek für verifizierte Testdatenbanken, Archive und T-SQL-Skripte.
 - `Incoming` – noch nicht klassifizierte Medien.
 - `Hashes` – automatisch erzeugte SHA-256-Sidecars.
 - `Evidence` – lokale Build- und Generalisierungsnachweise.
@@ -198,6 +200,19 @@ Anschließend aus dem Repository ausführen:
 ```
 
 Unbekannte Root-Medien werden nicht geraten, sondern hier gesammelt. Prüfe Dateiname, Herkunft, Edition und Lizenz vor einer manuellen Zuordnung.
+'@
+
+Add-MediaReadmeDefinition -RelativePath 'Testdaten/README.md' -Content @'
+# SQL_Server_Lab Testdaten-Bibliothek
+
+Dieser Ordner enthält wiederverwendbare, lokal verifizierte Testdaten-Artefakte.
+Sie werden erst beim bewussten Installieren einer Testdatenbank heruntergeladen.
+
+- `Sammlungen\<Kategorie>\<Sample>\<Variante>` enthält die sichtbar abgelegten Backups, ZIP-/7z-Archive und T-SQL-Skripte sowie deren `artifact.json`.
+- `_verified` ist der technische SHA-256-Speicher. Dateien in `Sammlungen` verweisen darauf oder werden bei Bedarf kopiert.
+- Die jeweilige `artifact.json` dokumentiert Quelle, SHA-256, Art des Artefakts und Zeitpunkt der Übernahme.
+
+Lösche Artefakte nicht während eine Installation läuft. Eine manuell hinzugefügte Datei wird erst nach einem passenden Katalogeintrag und einer SHA-256-Prüfung automatisch verwendet.
 '@
 
 Add-MediaReadmeDefinition -RelativePath 'Linux/ISO/README.md' -Content @'

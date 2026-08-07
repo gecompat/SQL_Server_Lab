@@ -35,6 +35,7 @@ try {
     $result = & $module {
         param($StateRoot)
 
+        $env:SQL_SERVER_LAB_TEST_DATA_ROOT = Join-Path $StateRoot 'Testdaten'
         $allVariants = @(Get-LabExecutableSampleVariant)
         $variants2019 = @(Get-LabExecutableSampleVariant -SqlVersion '2019')
         $variants2022 = @(Get-LabExecutableSampleVariant -SqlVersion '2022-CU16')
@@ -111,6 +112,7 @@ try {
             -ContainerName 'static-check-none' `
             -RestoreDefinition $resolved `
             -NonInteractive `
+            -TestDataRoot (Join-Path $StateRoot 'Testdaten') `
             -StateRoot $StateRoot
 
         $scriptSourcePath = Join-Path $StateRoot 'northwind.sql'
@@ -150,6 +152,7 @@ try {
             -Source $resolved.source `
             -SampleId $resolved.sampleId `
             -SampleVariant $resolved.sampleVariant `
+            -TestDataRoot (Join-Path $StateRoot 'Testdaten') `
             -StateRoot $StateRoot
 
         $wideWorldMoves = @(New-LabRestoreMoveStatements `

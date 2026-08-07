@@ -2,9 +2,9 @@
 .SYNOPSIS
     Lokale Acquisition-, Integrity- und Lock-Verwaltung fuer Sample-Artifacts.
 .DESCRIPTION
-    Verwaltet ausschliesslich lokale Runtime-Dateien unter StateRoot. Der
-    Resolver laedt HTTP(S)-Artifacts zuerst in einen Staging-Bereich, prueft
-    deren SHA-256 und uebernimmt sie danach in einen inhaltsadressierten Cache.
+    Der Resolver laedt HTTP(S)-Artifacts zuerst in einen technischen
+    Staging-Bereich, prueft deren SHA-256 und übernimmt sie danach in die
+    sichtbare Testdaten-Bibliothek unter dem konfigurierten Testdaten-Root.
     Fehlende Katalogpruefsummen duerfen nur im interaktiven, explizit
     bestaetigten Trust-Pfad erzeugt werden.
 #>
@@ -12,18 +12,24 @@
 function Get-LabArtifactStorePaths {
     [CmdletBinding()]
     param(
-        [string]$StateRoot
+        [string]$StateRoot,
+        [string]$TestDataRoot
     )
 
     if (-not $StateRoot) {
         $StateRoot = Get-LabStateRoot
     }
 
+    if (-not $TestDataRoot) { $TestDataRoot = Get-LabTestDataRootDefault }
+    if (-not $TestDataRoot) { $TestDataRoot = Join-Path $StateRoot 'testdata-library' }
+    $libraryRoot = [System.IO.Path]::GetFullPath($TestDataRoot)
     return [PSCustomObject]@{
         StateRoot       = $StateRoot
+        TestDataRoot    = $libraryRoot
         TrustDirectory  = Join-Path $StateRoot 'trust'
         TrustStorePath  = Join-Path $StateRoot 'trust/sample-artifacts.json'
-        CacheRoot       = Join-Path $StateRoot 'cache/artifacts/sha256'
+        CacheRoot       = Join-Path $libraryRoot '_verified/sha256'
+        LibraryRoot     = Join-Path $libraryRoot 'Sammlungen'
         StagingRoot     = Join-Path $StateRoot 'cache/staging'
         QuarantineRoot  = Join-Path $StateRoot 'cache/quarantine'
     }
@@ -32,12 +38,13 @@ function Get-LabArtifactStorePaths {
 function Initialize-LabArtifactStore {
     [CmdletBinding()]
     param(
-        [string]$StateRoot
+        [string]$StateRoot,
+        [string]$TestDataRoot
     )
 
     $null = Initialize-LabStateRoot -StateRoot $StateRoot
-    $paths = Get-LabArtifactStorePaths -StateRoot $StateRoot
-    foreach ($directory in @($paths.TrustDirectory, $paths.CacheRoot, $paths.StagingRoot, $paths.QuarantineRoot)) {
+    $paths = Get-LabArtifactStorePaths -StateRoot $StateRoot -TestDataRoot $TestDataRoot
+    foreach ($directory in @($paths.TestDataRoot, $paths.LibraryRoot, $paths.TrustDirectory, $paths.CacheRoot, $paths.StagingRoot, $paths.QuarantineRoot)) {
         if (-not (Test-Path -LiteralPath $directory -PathType Container)) {
             New-Item -Path $directory -ItemType Directory -Force | Out-Null
         }
@@ -51,6 +58,49 @@ function Initialize-LabArtifactStore {
     }
 
     return $paths
+}
+
+function ConvertTo-LabArtifactLibrarySegment {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][AllowEmptyString()][string]$Value, [string]$Fallback = 'Unkategorisiert')
+    $normalized = ($Value -replace '[\\/:*?"<>|]', '-').Trim(' ', '.')
+    if ([string]::IsNullOrWhiteSpace($normalized)) { return $Fallback }
+    return $normalized
+}
+
+function Publish-LabArtifactLibraryEntry {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Paths,
+        [Parameter(Mandatory)][string]$CachePath,
+        [Parameter(Mandatory)][string]$Sha256,
+        [Parameter(Mandatory)][string]$Source,
+        [string]$Category,
+        [string]$SampleId,
+        [string]$SampleVariant,
+        [string]$ArtifactType,
+        [string]$IntegrityOrigin
+    )
+
+    $uri = [System.Uri]::new($Source)
+    $sourceName = [System.IO.Path]::GetFileName([System.Uri]::UnescapeDataString($uri.AbsolutePath))
+    if ([string]::IsNullOrWhiteSpace($sourceName)) { $sourceName = 'artifact.bin' }
+    $stem = [System.IO.Path]::GetFileNameWithoutExtension($sourceName)
+    $extension = [System.IO.Path]::GetExtension($sourceName)
+    $fileName = "$(ConvertTo-LabArtifactLibrarySegment -Value $stem)-$($Sha256.Substring(0, 12))$extension"
+    $directory = Join-Path (Join-Path (Join-Path $Paths.LibraryRoot (ConvertTo-LabArtifactLibrarySegment -Value $Category -Fallback 'Unkategorisiert')) (ConvertTo-LabArtifactLibrarySegment -Value $SampleId -Fallback 'Direkte-Downloads')) (ConvertTo-LabArtifactLibrarySegment -Value $SampleVariant -Fallback 'Standard')
+    New-Item -Path $directory -ItemType Directory -Force | Out-Null
+    $libraryPath = Join-Path $directory $fileName
+    if (-not (Test-Path -LiteralPath $libraryPath -PathType Leaf)) {
+        try { New-Item -ItemType HardLink -Path $libraryPath -Target $CachePath -ErrorAction Stop | Out-Null }
+        catch { Copy-Item -LiteralPath $CachePath -Destination $libraryPath -Force }
+    }
+    Write-LabArtifactJsonAtomic -Path (Join-Path $directory 'artifact.json') -InputObject ([PSCustomObject]@{
+        formatVersion = '1'; source = $Source; sha256 = $Sha256; artifactType = $ArtifactType
+        category = $Category; sampleId = $SampleId; sampleVariant = $SampleVariant
+        integrityOrigin = $IntegrityOrigin; acquiredAt = Get-LabTimestamp; file = $fileName
+    })
+    return $libraryPath
 }
 
 function Write-LabArtifactJsonAtomic {
@@ -223,10 +273,11 @@ function Get-LabArtifactCacheEntry {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$Sha256,
-        [string]$StateRoot
+        [string]$StateRoot,
+        [string]$TestDataRoot
     )
 
-    $paths = Initialize-LabArtifactStore -StateRoot $StateRoot
+    $paths = Initialize-LabArtifactStore -StateRoot $StateRoot -TestDataRoot $TestDataRoot
     $digest = $Sha256.ToLowerInvariant()
     $directory = Join-Path $paths.CacheRoot $digest
     $artifactPath = Join-Path $directory 'artifact.bak'
@@ -354,13 +405,15 @@ function Resolve-LabArtifact {
         [ValidateSet('catalog-only', 'interactive-once')][string]$TrustPolicy = 'interactive-once',
         [string]$SampleId,
         [string]$SampleVariant,
+        [string]$Category,
         [string]$HandlerContractVersion = '1',
         [int]$Compatibility,
         [array]$ExpectedOutputs = @(),
         [switch]$NonInteractive,
         [switch]$TrustUnknownArtifact,
         [string]$RunDirectory,
-        [string]$StateRoot
+        [string]$StateRoot,
+        [string]$TestDataRoot
     )
 
     $canonicalSource = Get-LabCanonicalArtifactSource -Source $Source
@@ -373,7 +426,7 @@ function Resolve-LabArtifact {
     if ($sourceUri.AbsolutePath -notmatch "(?i)$expectedExtension") {
         throw "ARTIFACT_SOURCE_INVALID: Artifact Type '$ArtifactType' verweist nicht auf eine passende direkte Quelle: $canonicalSource"
     }
-    $paths = Initialize-LabArtifactStore -StateRoot $StateRoot
+    $paths = Initialize-LabArtifactStore -StateRoot $StateRoot -TestDataRoot $TestDataRoot
     $expected = if ($ExpectedSha256) { $ExpectedSha256.ToLowerInvariant() } else { $null }
     $integrityOrigin = if ($expected) { 'catalog-verified' } else { $null }
 
@@ -386,13 +439,14 @@ function Resolve-LabArtifact {
     }
 
     if ($expected) {
-        $cached = Get-LabArtifactCacheEntry -Sha256 $expected -StateRoot $StateRoot
+        $cached = Get-LabArtifactCacheEntry -Sha256 $expected -StateRoot $StateRoot -TestDataRoot $TestDataRoot
         if ($cached) {
+            $libraryPath = Publish-LabArtifactLibraryEntry -Paths $paths -CachePath $cached.Path -Sha256 $expected -Source $canonicalSource -Category $Category -SampleId $SampleId -SampleVariant $SampleVariant -ArtifactType $ArtifactType -IntegrityOrigin $integrityOrigin
             $ready = [PSCustomObject]@{
                 Status                 = 'ARTIFACT_READY'
-                Message                = 'Verifiziertes Artifact aus lokalem Cache verwendet.'
+                Message                = 'Verifiziertes Artifact aus der lokalen Testdaten-Bibliothek verwendet.'
                 Source                 = $canonicalSource
-                Path                   = $cached.Path
+                Path                   = $libraryPath
                 Sha256                 = $expected
                 IntegrityOrigin        = $integrityOrigin
                 ArtifactType           = $ArtifactType
@@ -488,7 +542,7 @@ function Resolve-LabArtifact {
         if (-not (Test-Path -LiteralPath $cacheDirectory -PathType Container)) {
             New-Item -Path $cacheDirectory -ItemType Directory -Force | Out-Null
         }
-        $existing = Get-LabArtifactCacheEntry -Sha256 $expected -StateRoot $StateRoot
+        $existing = Get-LabArtifactCacheEntry -Sha256 $expected -StateRoot $StateRoot -TestDataRoot $TestDataRoot
         if (-not $existing) {
             Move-Item -LiteralPath $stagingPath -Destination $cachePath -Force
             Write-LabArtifactJsonAtomic -Path (Join-Path $cacheDirectory 'metadata.json') -InputObject ([PSCustomObject]@{
@@ -506,11 +560,13 @@ function Resolve-LabArtifact {
     } | Out-Null
     if (Test-Path -LiteralPath $stagingDirectory) { Remove-Item -LiteralPath $stagingDirectory -Recurse -Force }
 
+    $libraryPath = Publish-LabArtifactLibraryEntry -Paths $paths -CachePath $cachePath -Sha256 $expected -Source $canonicalSource -Category $Category -SampleId $SampleId -SampleVariant $SampleVariant -ArtifactType $ArtifactType -IntegrityOrigin $integrityOrigin
+
     $ready = [PSCustomObject]@{
         Status                 = 'ARTIFACT_READY'
-        Message                = 'Artifact geladen, SHA-256 verifiziert und lokal zwischengespeichert.'
+        Message                = "Artifact geladen, SHA-256 verifiziert und in der Testdaten-Bibliothek abgelegt: $libraryPath"
         Source                 = $canonicalSource
-        Path                   = $cachePath
+        Path                   = $libraryPath
         Sha256                 = $expected
         IntegrityOrigin        = $integrityOrigin
         ArtifactType           = $ArtifactType

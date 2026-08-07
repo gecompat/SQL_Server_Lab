@@ -30,6 +30,10 @@ SQL_Server_Lab-Internal-Switch verwendet.
     Externer Media Root für eine neue Windows- oder SQL-Vorbereitung.
 .PARAMETER DataRoot
     Vorher initialisierter Data Root für optionale langlebige SQL-Daten.
+.PARAMETER TestDataRoot
+    Sichtbarer Root für wiederverwendbare Testdatenbanken, Archive und
+    katalogisierte T-SQL-Skripte. Ohne Angabe wird `<MediaRoot>\Testdaten`
+    verwendet, sofern ein Media Root konfiguriert ist.
 .PARAMETER PersistentData
     Aktiviert die optionale Data-Root-Anbindung beim Erstellen einer Container-
     oder Hyper-V-Umgebung.
@@ -131,7 +135,7 @@ function Invoke-SqlServerLabWorkflowAction {
         [Parameter(Mandatory)]
         [ValidateSet(
             'Refresh',
-            'SetMediaRoot', 'SetDataRoot',
+            'SetMediaRoot', 'SetDataRoot', 'SetTestDataRoot',
             'NewContainerLab', 'CreateContainerManifest', 'NewContainerLabFromManifest', 'RenameLab', 'StartContainerLab', 'StopContainerLab', 'RestartContainerLab', 'RemoveContainerLab', 'ClearAllLabs',
             'CreateContainerDatabase', 'InstallContainerSampleDatabase', 'InstallContainerSampleDatabases', 'ExecuteContainerScript',
             'NewHyperVLab', 'NewHyperVLabFromExistingVm', 'StartHyperVLab', 'StopHyperVLab', 'EnableHyperVLabPersistentData', 'InitializeHyperVLabPersistentData', 'CompleteHyperVLabSql', 'EnableHyperVLabHostSqlAccess', 'InspectHyperVLabSqlInstances', 'OpenHyperVConsole', 'RemoveHyperVLab',
@@ -150,6 +154,7 @@ function Invoke-SqlServerLabWorkflowAction {
         [string]$SwitchName,
         [string]$MediaRoot,
         [string]$DataRoot,
+        [string]$TestDataRoot,
         [switch]$PersistentData,
         [ValidateRange(32, 4096)][int]$PersistentDataDiskGB = 128,
         [ValidatePattern('^windows-(server-)?[0-9]+$')][string]$OperatingSystemId = 'windows-server-2025',
@@ -215,6 +220,15 @@ function Invoke-SqlServerLabWorkflowAction {
             Action = $Action
             CompletedAt = (Get-Date).ToUniversalTime().ToString('o')
             Result = [PSCustomObject]@{ DataRoot = (Set-LabDataRootDefault -DataRoot $DataRoot) }
+        }
+    }
+
+    if ($Action -eq 'SetTestDataRoot') {
+        if (-not $TestDataRoot) { throw 'LAB_TEST_DATA_ROOT_REQUIRED' }
+        return [PSCustomObject]@{
+            Action = $Action
+            CompletedAt = (Get-Date).ToUniversalTime().ToString('o')
+            Result = [PSCustomObject]@{ TestDataRoot = (Set-LabTestDataRootDefault -TestDataRoot $TestDataRoot) }
         }
     }
 

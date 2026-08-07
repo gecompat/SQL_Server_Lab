@@ -89,7 +89,8 @@ function Get-LabSampleArtifactLocalStatus {
         [Parameter(Mandatory)][string]$SampleId,
         [Parameter(Mandatory)][string]$SampleVariant,
         [string]$ExpectedSha256,
-        [string]$StateRoot
+        [string]$StateRoot,
+        [string]$TestDataRoot
     )
 
     $knownSha256 = if ($ExpectedSha256) { $ExpectedSha256.ToLowerInvariant() } else { $null }
@@ -111,7 +112,7 @@ function Get-LabSampleArtifactLocalStatus {
     }
 
     $cacheStatus = 'MISS'
-    if ($knownSha256 -and (Get-LabArtifactCacheEntry -Sha256 $knownSha256 -StateRoot $StateRoot)) {
+    if ($knownSha256 -and (Get-LabArtifactCacheEntry -Sha256 $knownSha256 -StateRoot $StateRoot -TestDataRoot $TestDataRoot)) {
         $cacheStatus = 'HIT'
     }
 
@@ -258,7 +259,8 @@ function Install-LabSampleDatabase {
         [switch]$NonInteractive,
         [switch]$TrustUnknownArtifact,
         [string]$RunDirectory,
-        [string]$StateRoot
+        [string]$StateRoot,
+        [string]$TestDataRoot
     )
 
     $databaseName = [string]$RestoreDefinition.expectedOutputs[0].name
@@ -278,12 +280,14 @@ function Install-LabSampleDatabase {
         TrustPolicy            = if ($RestoreDefinition.trustPolicy) { [string]$RestoreDefinition.trustPolicy } else { 'interactive-once' }
         SampleId               = [string]$RestoreDefinition.sampleId
         SampleVariant          = [string]$RestoreDefinition.sampleVariant
+        Category               = [string]$RestoreDefinition.category
         HandlerContractVersion = [string]$RestoreDefinition.handlerContractVersion
         ExpectedOutputs        = @($RestoreDefinition.expectedOutputs)
         NonInteractive         = $NonInteractive
         TrustUnknownArtifact   = $TrustUnknownArtifact
         RunDirectory           = $RunDirectory
         StateRoot              = $StateRoot
+        TestDataRoot           = $TestDataRoot
     }
     if ($RestoreDefinition.expectedSha256) {
         $resolverArguments.ExpectedSha256 = [string]$RestoreDefinition.expectedSha256

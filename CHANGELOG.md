@@ -8,6 +8,12 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- konfigurierbare sichtbare Testdaten-Bibliothek: Standard ist
+  `<MediaRoot>\Testdaten`. Verifizierte Backups, Archive und T-SQL-Skripte
+  werden nach Kategorie, Sample und Variante abgelegt und mit `artifact.json`
+  dokumentiert; der technische SHA-256-Speicher liegt ebenfalls im Testdaten-
+  Root, während State Root nur Staging, Trust und Quarantäne enthält.
+
 - dynamische Windows-ISO-Erkennung für Windows Server und Windows-Client aus
   `install.wim`/`install.esd`, einschließlich lizenzierter und
   Evaluation-Editionen. Neue und entfernte Medien werden beim nächsten Scan
