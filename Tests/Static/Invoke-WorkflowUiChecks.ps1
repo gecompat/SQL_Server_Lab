@@ -256,13 +256,15 @@ Add-CheckResult -Name 'Prepared-Images erhalten lesbare Namen und zeigen vollst�
 )
 Add-CheckResult -Name 'Docker-, Podman- und Hyper-V-Labs können nachträglich umbenannt werden' -Success (
     $actionText -match "'RenameLab'" -and
-    $actionText -match 'Rename-LabRunDisplayName' -and
+    $actionText -match 'Rename-HyperVLabEnvironment' -and
+    $actionText -match 'Rename-ContainerLabEnvironment' -and
     $htmlText -match 'id="lab-name-dialog"' -and
     $htmlText -match 'id="lab-current-name"' -and
     $scriptText -match 'data-lab-rename' -and
     $scriptText -match "startAction\('RenameLab'" -and
     $consoleText -match 'Rename-LabEnvironmentInteractive' -and
-    $consoleText -match "\[n\] Umgebung umbenennen"
+    $consoleText -match "\[n\] Umgebung umbenennen" -and
+    $htmlText -match 'Projektname-Instanz-Run-ID'
 )
 Add-CheckResult -Name 'Hyper-V-Switches und sofortige Browser-Rückmeldung sind sichtbar' -Success (
     $htmlText -match 'id="hyperv-switch"' -and

@@ -23,6 +23,11 @@ einer bereits generalisierten OS-Baseline und schont deren Sysprep-Zähler.
 | `5` Veröffentlichte Images verwalten | Anzeigenamen ändern oder Image kontrolliert löschen |
 | `e` Erweitert | OS-Baselines, Abnahme-VMs, Recovery und der historische Baseline-Pfad |
 
+Reguläre Hyper-V-Labs erhalten als VM-Namen `<Projektname>-<RunId-Präfix>`,
+zum Beispiel `win-sql2025-6a2e8828`. Der Projektname ist damit im Hyper-V-
+Manager direkt wiederzuerkennen und bleibt durch das Präfix eindeutig. Wird ein
+Hyper-V-Lab später umbenannt, wird die ausgeschaltete VM mit umbenannt.
+
 Eine run-lokale Abnahmeumgebung ist **kein** Prepared-Image-Schritt. Sie
 installiert eine vollständige, konkrete SQL-Instanz für Tests; `PrepareImage`
 ist ausschließlich für die portable Vorlage vorgesehen.

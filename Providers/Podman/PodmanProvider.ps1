@@ -61,6 +61,7 @@ function New-PodmanInstance {
         [Parameter(Mandatory)][string]$RunId,
         [Parameter(Mandatory)][string]$ScopeId,
         [Parameter(Mandatory)][string]$InstanceId,
+        [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9 _-]{0,63}$')][string]$LabName,
         [int]$Port = 0,
         [Parameter(Mandatory)][SecureString]$SaPassword,
         [ValidateSet('compact', 'standard', 'performance')]
@@ -73,7 +74,7 @@ function New-PodmanInstance {
     $profileDefinition = Get-LabResourceProfile -Name $Profile
     $memoryLimit = "$($profileDefinition.maxMemoryMB)m"
     $cpuLimit = [string]$profileDefinition.maxCpus
-    $containerName = "sql-lab-$InstanceId-$($RunId.Substring(0, 8))"
+    $containerName = if ($LabName) { Get-LabContainerRuntimeName -LabName $LabName -InstanceId $InstanceId -RunId $RunId } else { "sql-lab-$InstanceId-$($RunId.Substring(0, 8))" }
     $labNetwork = Ensure-LabPodmanNetwork -Name $NetworkName
 
     $volumeArguments = @()

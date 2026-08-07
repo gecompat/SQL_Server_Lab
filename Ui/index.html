@@ -314,7 +314,7 @@
       <input id="lab-name-run" type="hidden">
       <p class="form-note">Aktueller Name: <strong id="lab-current-name"></strong></p>
       <label>Neuer Anzeigename<input id="lab-display-name" maxlength="64" pattern="[A-Za-z0-9][A-Za-z0-9 _-]{0,63}" required aria-describedby="lab-name-note"></label>
-      <p id="lab-name-note" class="form-note">Es werden nur die Lab-Metadaten geändert. Container, VM, Ports und persistente Daten bleiben unverändert.</p>
+      <p id="lab-name-note" class="form-note">Runtime-Objekte werden zu <em>Projektname-Instanz-Run-ID</em> umbenannt. Hyper-V-VMs müssen dafür ausgeschaltet sein; Docker und Podman können auch laufend umbenannt werden. Ports und persistente Daten bleiben unverändert.</p>
       <div class="dialog-actions"><button type="button" class="button secondary" value="cancel" formnovalidate>Abbrechen</button><button class="button primary" value="default">Name speichern</button></div>
     </form>
   </dialog>

@@ -2031,9 +2031,9 @@ function Rename-LabEnvironmentInteractive {
     .SYNOPSIS
         Ändert den Anzeigenamen einer laufenden oder gestoppten Lab-Umgebung.
     .DESCRIPTION
-        Gilt für Docker-, Podman- und Hyper-V-Labs. Es werden ausschließlich
-        Metadaten im Run-State geändert; Runtime-Objekte und persistente Daten
-        bleiben unverändert.
+        Die Runtime-Objekte werden zusammen mit den Metadaten als
+        <Name>-<RunId-Präfix> umbenannt. Bei Hyper-V ist das nur für eine
+        ausgeschaltete VM möglich; Docker und Podman erlauben es auch laufend.
     #>
     [CmdletBinding()]
     param()
@@ -2047,8 +2047,17 @@ function Rename-LabEnvironmentInteractive {
     $newName = Read-Host "  Neuer Anzeigename [$currentName]"
     if (-not $newName) { Write-LabInfo 'Name unverändert.'; return }
     try {
-        $renamed = Rename-LabRunDisplayName -RunId $runId -DisplayName $newName
-        if ($renamed.Changed) { Write-LabSuccess "Umgebung umbenannt: $($renamed.PreviousName) -> $($renamed.Name)" }
+        $renamed = if ([string]$run.metadata.workflowKind -eq 'hyperv-lab') {
+            Rename-HyperVLabEnvironment -RunId $runId -DisplayName $newName
+        }
+        else {
+            Rename-ContainerLabEnvironment -RunId $runId -DisplayName $newName
+        }
+        if ($renamed.Changed) {
+            Write-LabSuccess "Umgebung umbenannt: $($renamed.PreviousName) -> $($renamed.Name)"
+            if ($renamed.PSObject.Properties['VMRenamed'] -and $renamed.VMRenamed) { Write-LabInfo "Hyper-V-VM umbenannt: $($renamed.PreviousVMName) -> $($renamed.VMName)" }
+            if ($renamed.PSObject.Properties['RuntimeRenamed'] -and $renamed.RuntimeRenamed) { Write-LabInfo 'Docker-/Podman-Container wurden synchron umbenannt.' }
+        }
         else { Write-LabInfo 'Name unverändert.' }
     }
     catch { Write-LabError $_.Exception.Message }

@@ -310,6 +310,7 @@ function New-HyperVInstance {
         [Parameter(Mandatory)][string]$RunId,
         [Parameter(Mandatory)][string]$ScopeId,
         [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$')][string]$InstanceId,
+        [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9 _-]{0,63}$')][string]$LabName,
         [ValidateRange(512MB, 1TB)][long]$MemoryStartupBytes = 2GB,
         [ValidateRange(1, 64)][int]$ProcessorCount = 2,
         [string]$SwitchName,
@@ -365,7 +366,9 @@ function New-HyperVInstance {
 
     $runPrefix = $RunId.Replace('-', '').Substring(0, 8).ToLowerInvariant()
     $safeInstanceId = $InstanceId -replace '_', '-'
-    $vmName = "sql-lab-$safeInstanceId-$runPrefix"
+    # Der Projektname ist im Hyper-V-Manager sofort sichtbar; das Run-Präfix
+    # hält gleichnamige Labs kollisionsfrei.
+    $vmName = if ($LabName) { "$(($LabName.Trim()))-$runPrefix" } else { "sql-lab-$safeInstanceId-$runPrefix" }
     if (Get-VM -Name $vmName -ErrorAction SilentlyContinue) {
         throw "Hyper-V-VM existiert bereits: $vmName"
     }

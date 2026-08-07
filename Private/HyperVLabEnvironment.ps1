@@ -27,6 +27,18 @@ function Get-HyperVLabWorkflowRun {
     return [PSCustomObject]@{ Run = $run; RunDirectory = $runDirectory; Connection = $connection; Instance = $instance; StateRoot = $StateRoot }
 }
 
+function Get-HyperVLabRuntimeName {
+    <# Liefert den menschenlesbaren und zugleich eindeutigen Hyper-V-Namen. #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9][A-Za-z0-9 _-]{0,63}$')][string]$LabName,
+        [Parameter(Mandatory)][string]$RunId
+    )
+
+    $runPrefix = $RunId.Replace('-', '').Substring(0, 8).ToLowerInvariant()
+    return "$(($LabName.Trim()))-$runPrefix"
+}
+
 function Get-HyperVExistingVmLabSource {
     <#
     .SYNOPSIS
@@ -126,7 +138,7 @@ function New-HyperVLabEnvironmentFromExistingVm {
         $parentHash = (Get-FileHash -LiteralPath $parentCopyPath -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()
 
         Write-LabInfo 'Schritt 4/6: Differenzierende Lab-VM wird aus der geschuetzten Arbeitskopie erstellt.'
-        $vm = New-HyperVInstance -ParentVhdxPath $parentCopyPath -ParentSha256 $parentHash -RunDirectory $run.RunDir -RunId $run.RunId -ScopeId $run.ScopeId -InstanceId $InstanceId -MemoryStartupBytes ($MemoryStartupMB * 1MB) -ProcessorCount $ProcessorCount -SwitchName $SwitchName
+        $vm = New-HyperVInstance -ParentVhdxPath $parentCopyPath -ParentSha256 $parentHash -RunDirectory $run.RunDir -RunId $run.RunId -ScopeId $run.ScopeId -InstanceId $InstanceId -LabName $LabName -MemoryStartupBytes ($MemoryStartupMB * 1MB) -ProcessorCount $ProcessorCount -SwitchName $SwitchName
         $connection = [PSCustomObject]@{
             schemaVersion = 1; instances = @([PSCustomObject]@{
                 id = $InstanceId; provider = 'hyperv'; vmName = $vm.VMName; vmId = $vm.VMId
@@ -191,7 +203,7 @@ function New-HyperVLabEnvironment {
         $null = Set-LabRunState -RunId $run.RunId -NewState PROVISIONING -Reason 'Hyper-V-Lab wird aus Prepared-Image erstellt.' -StateRoot $run.StateRoot
         Set-LabProviderSubRunState -RunId $run.RunId -Provider hyperv -NewState PROVISIONING -Reason 'Hyper-V-Lab wird aus Prepared-Image erstellt.' -StateRoot $run.StateRoot
         Write-LabInfo "Schritt 3/5: Differenzierende VM wird aus Image $ArtifactId erstellt."
-        $vm = New-HyperVInstance -ImageArtifactId $ArtifactId -RunDirectory $run.RunDir -RunId $run.RunId -ScopeId $run.ScopeId -InstanceId $InstanceId -MemoryStartupBytes ($MemoryStartupMB * 1MB) -ProcessorCount $ProcessorCount -SwitchName $SwitchName -StateRoot $run.StateRoot
+        $vm = New-HyperVInstance -ImageArtifactId $ArtifactId -RunDirectory $run.RunDir -RunId $run.RunId -ScopeId $run.ScopeId -InstanceId $InstanceId -LabName $LabName -MemoryStartupBytes ($MemoryStartupMB * 1MB) -ProcessorCount $ProcessorCount -SwitchName $SwitchName -StateRoot $run.StateRoot
         $connection = [PSCustomObject]@{
             schemaVersion = 1; instances = @([PSCustomObject]@{
                 id = $InstanceId; provider = 'hyperv'; vmName = $vm.VMName; vmId = $vm.VMId
@@ -223,6 +235,57 @@ function New-HyperVLabEnvironment {
         }
         catch { }
         throw
+    }
+}
+
+function Rename-HyperVLabEnvironment {
+    <#
+    .SYNOPSIS
+        Benennt einen Hyper-V-Lab-Run und seine ausgeschaltete VM gemeinsam um.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RunId,
+        [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9][A-Za-z0-9 _-]{0,63}$')][string]$DisplayName,
+        [string]$StateRoot
+    )
+
+    if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
+    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
+    $DisplayName = $DisplayName.Trim()
+    $newVmName = Get-HyperVLabRuntimeName -LabName $DisplayName -RunId $RunId
+    $previousVmName = [string]$lab.Instance.vmName
+    $vmRenamed = $false
+
+    if ($previousVmName -ne $newVmName) {
+        $managed = Get-HyperVManagedVM -VMName $previousVmName -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
+        if ([string]$managed.VM.State -ne 'Off') { throw 'HYPERV_LAB_VM_MUST_BE_STOPPED_FOR_RENAME' }
+        if (Get-VM -Name $newVmName -ErrorAction SilentlyContinue) { throw "HYPERV_LAB_VM_NAME_ALREADY_EXISTS: $newVmName" }
+        Rename-VM -VM $managed.VM -NewName $newVmName -ErrorAction Stop
+        $lab.Instance | Add-Member -NotePropertyName vmName -NotePropertyValue $newVmName -Force
+        Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
+        $planPath = Join-Path $lab.RunDirectory 'cleanup-plan.json'
+        if (Test-Path -LiteralPath $planPath -PathType Leaf) {
+            $plan = Get-Content -LiteralPath $planPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
+            foreach ($step in @($plan.steps | Where-Object { $_.resourceType -eq 'vm' -and $_.resourceId -eq $previousVmName })) {
+                $step.resourceId = $newVmName
+                $step.compensation = "Remove Hyper-V VM $newVmName"
+            }
+            Write-LabArtifactJsonAtomic -Path $planPath -InputObject $plan
+        }
+        $vmRenamed = $true
+    }
+
+    try {
+        $renamed = Rename-LabRunDisplayName -RunId $RunId -DisplayName $DisplayName -StateRoot $StateRoot
+    }
+    catch {
+        if ($vmRenamed) { try { Rename-VM -Name $newVmName -NewName $previousVmName -ErrorAction Stop } catch { } }
+        throw
+    }
+    return [PSCustomObject]@{
+        RunId = $renamed.RunId; PreviousName = $renamed.PreviousName; Name = $renamed.Name; Changed = $renamed.Changed
+        PreviousVMName = $previousVmName; VMName = $newVmName; VMRenamed = $vmRenamed
     }
 }
 
