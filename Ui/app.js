@@ -232,9 +232,12 @@ function renderWindowsInstallationMedia(items, sqlCompatibleOnly = false) {
   const optionHtml = (item, disabled = false) => '<option' + (disabled ? ' disabled' : '') + ' value="' + escapeHtml(windowsMediaSelectionKey(item)) + '" data-media-id="' + escapeHtml(item.MediaId) + '" data-os="' + escapeHtml(item.OperatingSystemId) + '" data-edition="' + escapeHtml(item.WindowsEdition) + '" data-installation="' + escapeHtml(item.InstallationType) + '" data-hash-status="' + escapeHtml(item.HashStatus || 'MISSING') + '" data-hash="' + escapeHtml(item.ExpectedSha256 || '') + '">'
     + escapeHtml(item.ImageName || (item.OperatingSystemId + ' · ' + item.WindowsEdition + ' · ' + item.InstallationType)) + (item.HashStatus === 'SIDECAR_READY' ? ' · Hash gesetzt' : ' · Hash fehlt') + ' · ' + escapeHtml(item.MediaId) + (disabled ? ' · nur OS-Baseline' : '') + '</option>';
   const unsupported = sqlCompatibleOnly ? allReady.filter((item) => !isSqlPreparedCompatibleWindowsMedia(item)) : [];
+  const unrecognized = (items || []).filter((item) => item.State !== 'READY');
+  const unrecognizedHtml = unrecognized.map((item) => '<option disabled value="">' + escapeHtml(item.MediaId) + ' · nicht auswertbar: ' + escapeHtml(item.Message || 'Unbekannter Fehler') + '</option>').join('');
   select.innerHTML = '<option value="">Windows-Installationsmedium auswählen …</option>'
     + (ready.length ? '<optgroup label="Für diesen Build verfügbar">' + ready.map((item) => optionHtml(item)).join('') + '</optgroup>' : '')
-    + (unsupported.length ? '<optgroup label="Erkannt – für SQL-Prepared derzeit nicht unterstützt">' + unsupported.map((item) => optionHtml(item, true)).join('') + '</optgroup>' : '');
+    + (unsupported.length ? '<optgroup label="Erkannt – für SQL-Prepared derzeit nicht unterstützt">' + unsupported.map((item) => optionHtml(item, true)).join('') + '</optgroup>' : '')
+    + (unrecognizedHtml ? '<optgroup label="Nicht auswertbar – nicht verwendbar">' + unrecognizedHtml + '</optgroup>' : '');
   if (ready.some((item) => windowsMediaSelectionKey(item) === previous)) select.value = previous;
   updateWindowsMediaSelection();
 }

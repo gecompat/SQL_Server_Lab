@@ -188,6 +188,10 @@ Image-Workflows wird der Media Root erneut nach ISO-Dateien außerhalb von
 ISOs erscheinen beziehungsweise verschwinden daher ohne Katalog- oder
 Verzeichnisänderung. Version, Edition und Installationsart stammen aus
 `install.wim` beziehungsweise `install.esd`, nicht aus dem Ordnernamen.
+Ältere SAC-Medien wie Windows Server, Version 1709 werden zusätzlich über
+ihre DISM-Edition und den ISO-Dateinamen aufgelöst, weil ihr Image-Name die
+Serverjahresversion nicht enthält. Kann ein Medium nicht ausgewertet werden,
+wird es mit dem konkreten Grund angezeigt statt still ignoriert.
 
 Im SQL-Prepared-Dialog werden erkannte, aber aktuell nicht kompatible
 Windows-Medien bewusst als solche angezeigt. Sie werden nicht still

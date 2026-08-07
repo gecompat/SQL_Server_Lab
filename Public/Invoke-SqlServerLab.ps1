@@ -1344,7 +1344,8 @@ function New-LabHyperVSqlImageBuildInteractive {
     try { $mediaRoot = Set-LabMediaRootDefault -MediaRoot $mediaRoot }
     catch { Write-LabError "Media Root ist ungueltig: $($_.Exception.Message)"; return }
 
-    $allWindowsCandidates = @(Get-HyperVWindowsInstallationMediaCandidates -MediaRoot $mediaRoot | Where-Object { $_.State -eq 'READY' })
+    $allWindowsMedia = @(Get-HyperVWindowsInstallationMediaCandidates -MediaRoot $mediaRoot)
+    $allWindowsCandidates = @($allWindowsMedia | Where-Object { $_.State -eq 'READY' })
     $windowsCandidates = @($allWindowsCandidates | Where-Object { (Test-HyperVSqlPreparedWindowsMediaCompatibility -OperatingSystemId ([string]$_.OperatingSystemId)).Compatible })
     if ($windowsCandidates.Count -eq 0) { Write-LabError 'Kein erkanntes Windows Server 2025-Installationsmedium vorhanden.'; return }
     Write-Host '  Erkannte Windows-Installationsvarianten:' -ForegroundColor White
@@ -1357,6 +1358,13 @@ function New-LabHyperVSqlImageBuildInteractive {
         Write-Host '  Weitere Windows-Medien erkannt (für OS-Baselines verfügbar, noch nicht für SQL-Prepared):' -ForegroundColor DarkGray
         foreach ($candidate in $otherWindowsCandidates) {
             Write-Host ("    - {0} · {1} · {2}" -f $candidate.ImageName, $candidate.WindowsEdition, $candidate.MediaId) -ForegroundColor DarkGray
+        }
+    }
+    $unrecognizedWindowsMedia = @($allWindowsMedia | Where-Object { $_.State -ne 'READY' })
+    if ($unrecognizedWindowsMedia.Count -gt 0) {
+        Write-Host '  Nicht auswertbare Windows-Medien (werden nicht verwendet):' -ForegroundColor Yellow
+        foreach ($candidate in $unrecognizedWindowsMedia) {
+            Write-Host ("    - {0}: {1}" -f $candidate.MediaId, $candidate.Message) -ForegroundColor Yellow
         }
     }
     $windowsSelection = Read-Host '  Windows-Variante (Nummer) [1]'
