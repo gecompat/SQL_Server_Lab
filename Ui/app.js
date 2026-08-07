@@ -399,6 +399,13 @@ function updateHyperVGuestPasswordMode() {
   if (generated && !$('#hyperv-guest-password').value) $('#hyperv-guest-password').value = generateHyperVGuestPassword();
 }
 
+function updateHyperVSaPasswordMode() {
+  const hasSeparateSaPassword = Boolean($('#hyperv-sa-password').value);
+  $('#hyperv-sa-password-repeat-label').hidden = !hasSeparateSaPassword;
+  $('#hyperv-sa-password-repeat').required = hasSeparateSaPassword;
+  if (!hasSeparateSaPassword) $('#hyperv-sa-password-repeat').value = '';
+}
+
 function renderAcceptance(items) {
   $('#acceptance').innerHTML = items.length ? items.map((item) => {
     const actions = acceptanceActions(item).map((button) => button.cleanup
@@ -606,16 +613,19 @@ document.addEventListener('click', async (event) => {
       const inspect = hypervAction.dataset.hypervAction === 'InspectHyperVLabSqlInstances';
       const initializePersistentData = hypervAction.dataset.hypervAction === 'InitializeHyperVLabPersistentData';
       const hostSql = hypervAction.dataset.hypervAction === 'EnableHyperVLabHostSqlAccess';
+      const sqlCompletion = hypervAction.dataset.hypervAction === 'CompleteHyperVLabSql';
       $('#credential-action').value = hypervAction.dataset.hypervAction;
       $('#credential-build').value = hypervAction.dataset.run;
+      $('#credential-sa-password-label').hidden = !(hostSql || sqlCompletion);
+      $('#credential-sa-password').value = '';
       $('#credential-title').textContent = initializePersistentData ? 'Daten-VHDX initialisieren' : (inspect ? 'SQL-Instanzen prüfen' : (hostSql ? 'Host-SSMS einrichten' : 'SQL CompleteImage'));
       $('#credential-note').textContent = initializePersistentData
         ? 'Das lokale Administratorpasswort wird einmalig benötigt, um ausschließlich den neu angehängten Lab-Datenträger als D:\\SQLData zu formatieren und einzubinden.'
         : inspect
         ? 'Das lokale Administratorpasswort wird einmalig für eine ausschließlich lesende Prüfung von SQL-Instanzen, Diensten und TCP-Ports in dieser laufenden Lab-VM benötigt.'
         : hostSql
-        ? 'Der laufenden VM wird ein verbindlicher Lab-Switch, eine feste Gast-IP, SQL-TCP und eine auf diesen Host beschränkte Firewallregel eingerichtet. Das Passwort wird als SA-Passwort gesetzt und nicht gespeichert oder protokolliert.'
-        : 'Das lokale Administratorpasswort wird einmalig benötigt, um SQL Server in dieser laufenden Lab-VM zu vervollständigen. Es wird zugleich als SA-Passwort gesetzt.';
+        ? 'Der laufenden VM wird ein verbindlicher Lab-Switch, eine feste Gast-IP, SQL-TCP und eine auf diesen Host beschränkte Firewallregel eingerichtet. Optional kann ein eigenständiges SA-Passwort gesetzt werden; leer übernimmt das Gastpasswort. Kein Passwort wird protokolliert.'
+        : 'Das lokale Administratorpasswort wird einmalig benötigt, um SQL Server in dieser laufenden Lab-VM zu vervollständigen. Optional kann ein eigenständiges SA-Passwort gesetzt werden; leer übernimmt das Gastpasswort.';
       $('#credential-dialog').showModal();
       return;
     }
@@ -774,9 +784,13 @@ $('#credential-form').addEventListener('submit', async (event) => {
   if (event.submitter?.value === 'cancel') return;
   event.preventDefault();
   const password = $('#guest-password').value;
+  const saPassword = $('#credential-sa-password').value;
   try {
-    await startAction($('#credential-action').value, { BuildId: $('#credential-build').value, GuestUserName: $('#guest-user').value, GuestPassword: password });
+    const parameters = { BuildId: $('#credential-build').value, GuestUserName: $('#guest-user').value, GuestPassword: password };
+    if (saPassword) parameters.SaPassword = saPassword;
+    await startAction($('#credential-action').value, parameters);
     $('#guest-password').value = '';
+    $('#credential-sa-password').value = '';
     $('#credential-dialog').close();
   } catch (error) { showError(error); }
 });
@@ -804,6 +818,7 @@ $('#new-hyperv-lab').addEventListener('click', () => {
   renderHyperVArtifactOptions(workflow?.SqlPreparedImages || []);
   renderHyperVSwitchOptions(workflow?.HyperVSwitches || []);
   updateHyperVGuestPasswordMode();
+  updateHyperVSaPasswordMode();
   $('#hyperv-lab-dialog').showModal();
 });
 
@@ -816,6 +831,7 @@ $('#new-hyperv-existing-vm-lab').addEventListener('click', () => {
 $('#hyperv-artifact').addEventListener('change', () => renderHyperVArtifactDetails(workflow?.SqlPreparedImages || []));
 $('#hyperv-existing-vm-source').addEventListener('change', () => renderHyperVExistingVmSourceDetails(workflow?.HyperVExistingVmSources || []));
 $('#hyperv-password-mode').addEventListener('change', updateHyperVGuestPasswordMode);
+$('#hyperv-sa-password').addEventListener('input', updateHyperVSaPasswordMode);
 $('#hyperv-generate-password').addEventListener('click', () => { $('#hyperv-guest-password').value = generateHyperVGuestPassword(); });
 $('#hyperv-copy-password').addEventListener('click', async () => {
   try { await navigator.clipboard.writeText($('#hyperv-guest-password').value); }
@@ -828,10 +844,12 @@ $('#hyperv-lab-form').addEventListener('submit', async (event) => {
   if (!$('#hyperv-artifact').value) { showError(new Error('Bitte ein veröffentlichtes SQL-Prepared-Image auswählen.')); return; }
   const passwordMode = $('#hyperv-password-mode').value;
   const guestPassword = $('#hyperv-guest-password').value;
+  const saPassword = $('#hyperv-sa-password').value;
   if (!guestPassword) { showError(new Error('Bitte ein lokales Administratorpasswort erzeugen oder eingeben.')); return; }
   if (passwordMode === 'user' && guestPassword !== $('#hyperv-guest-password-repeat').value) { showError(new Error('Die eingegebenen Passwörter stimmen nicht überein.')); return; }
+  if (saPassword && saPassword !== $('#hyperv-sa-password-repeat').value) { showError(new Error('Die beiden SQL-SA-Passwörter stimmen nicht überein.')); return; }
   try {
-    await startAction('NewHyperVLab', {
+    const parameters = {
       ArtifactId: $('#hyperv-artifact').value,
       LabName: $('#hyperv-lab-name').value.trim(),
       InstanceId: $('#hyperv-instance').value.trim(),
@@ -843,9 +861,14 @@ $('#hyperv-lab-form').addEventListener('submit', async (event) => {
       ProvisionUnattended: true,
       GuestPasswordSource: passwordMode,
       GuestPassword: guestPassword
-    });
+    };
+    if (saPassword) parameters.SaPassword = saPassword;
+    await startAction('NewHyperVLab', parameters);
     $('#hyperv-guest-password').value = '';
     $('#hyperv-guest-password-repeat').value = '';
+    $('#hyperv-sa-password').value = '';
+    $('#hyperv-sa-password-repeat').value = '';
+    updateHyperVSaPasswordMode();
     $('#hyperv-lab-dialog').close();
   } catch (error) { showError(error); }
 });

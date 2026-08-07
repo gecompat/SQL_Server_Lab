@@ -272,6 +272,7 @@ function Invoke-HyperVLabUnattendedProvision {
     param(
         [Parameter(Mandatory)][string]$RunId,
         [Parameter(Mandatory)][SecureString]$AdministratorPassword,
+        [SecureString]$SqlSaPassword,
         [ValidateSet('user', 'generated')][string]$PasswordSource = 'user',
         [ValidateRange(60, 3600)][int]$TimeoutSeconds = 900,
         [string]$MediaRoot,
@@ -347,9 +348,12 @@ function Invoke-HyperVLabUnattendedProvision {
         Write-LabInfo 'Schritt 6/6a: Eigene Data-Root-VHDX wird im Gast initialisiert.'
         $null = Initialize-HyperVLabPersistentData -RunId $RunId -Credential $credential -StateRoot $lab.StateRoot
     }
+    # Ein separates SA-Passwort ist bewusst möglich. Ohne Angabe bleibt der
+    # frühere, sichere Standard erhalten: SA entspricht dem Gastkonto.
+    if (-not $SqlSaPassword) { $SqlSaPassword = $AdministratorPassword }
     Write-LabInfo 'Schritt 6/6b: SQL CompleteImage wird in der laufenden Klon-VM ausgeführt.'
-    $sqlCompletion = Complete-HyperVLabSqlImage -RunId $RunId -Credential $credential -SqlSaPassword $AdministratorPassword -MediaRoot $MediaRoot -StateRoot $lab.StateRoot
-    $hostAccess = if ($lab.Instance.labNetwork) { Enable-HyperVLabHostSqlAccess -RunId $RunId -Credential $credential -SqlSaPassword $AdministratorPassword -StateRoot $lab.StateRoot } else { $null }
+    $sqlCompletion = Complete-HyperVLabSqlImage -RunId $RunId -Credential $credential -SqlSaPassword $SqlSaPassword -MediaRoot $MediaRoot -StateRoot $lab.StateRoot
+    $hostAccess = if ($lab.Instance.labNetwork) { Enable-HyperVLabHostSqlAccess -RunId $RunId -Credential $credential -SqlSaPassword $SqlSaPassword -StateRoot $lab.StateRoot } else { $null }
     Write-LabSuccess 'Unbeaufsichtigte OOBE, SQL CompleteImage und der Host-SSMS-Zugriff sind abgeschlossen.'
     return [PSCustomObject]@{ RunId = $RunId; OobeState = 'COMPLETED'; SqlCompletion = $sqlCompletion; HostSqlAccess = $hostAccess; PasswordSource = $PasswordSource }
 }

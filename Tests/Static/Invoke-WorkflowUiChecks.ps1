@@ -219,7 +219,7 @@ Add-CheckResult -Name 'UI erstellt reguläre Hyper-V-Labs nur aus SQL-Prepared-I
     $scriptText -match 'Connection String' -and
     $scriptText -match 'data-hyperv-remove'
 )
-Add-CheckResult -Name 'Prepared-Image-Klone bieten eigenes oder kopierbares Zufallspasswort für automatische OOBE' -Success (
+Add-CheckResult -Name 'Prepared-Image-Klone erlauben getrennte Gast- und SA-Passwörter für automatische OOBE' -Success (
     $hyperVLabText -match 'Invoke-HyperVLabUnattendedProvision' -and
     $hyperVLabText -match 'run-child-vhdx' -and
     $hyperVLabText -match 'Save-LabSecret' -and
@@ -227,11 +227,15 @@ Add-CheckResult -Name 'Prepared-Image-Klone bieten eigenes oder kopierbares Zufa
     $hyperVLabText -match 'Complete-HyperVLabSqlImage' -and
     $actionText -match 'ProvisionUnattended' -and
     $actionText -match 'GuestPasswordSource' -and
+    $actionText -match '\[SecureString\]\$SaPassword' -and
     $htmlText -match 'id="hyperv-password-mode"' -and
     $htmlText -match 'id="hyperv-guest-password"' -and
+    $htmlText -match 'id="hyperv-sa-password"' -and
+    $htmlText -match 'id="credential-sa-password"' -and
     $htmlText -match 'id="hyperv-copy-password"' -and
     $scriptText -match 'generateHyperVGuestPassword' -and
-    $scriptText -match 'navigator\.clipboard'
+    $scriptText -match 'navigator\.clipboard' -and
+    $scriptText -match 'updateHyperVSaPasswordMode'
 )
 Add-CheckResult -Name 'Konsole spiegelt Data-VHDX, SQL-CompleteImage, WMI-Reparatur und SQL-Instanzprüfung für reguläre Hyper-V-Labs' -Success (
     $consoleText -match 'Enable-HyperVLabPersistentData' -and

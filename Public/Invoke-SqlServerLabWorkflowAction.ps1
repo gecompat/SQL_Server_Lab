@@ -67,7 +67,9 @@ lokale Datei geprüft.
 .PARAMETER InstanceId
     Sprechender Instanzname innerhalb einer Container-Lab-Umgebung.
 .PARAMETER SaPassword
-    Nicht persistiertes SA-Passwort für Containeraktionen.
+    Nicht persistiertes SA-Passwort für Containeraktionen und optional für
+    SQL Server in Hyper-V-Labs. Ohne Angabe verwendet ein Hyper-V-Lab das
+    Gast-Administratorpasswort auch für SA.
 .PARAMETER HostName
     SQL-Host für Datenbank- oder Skriptaktionen; Standard ist 127.0.0.1.
 .PARAMETER Port
@@ -227,7 +229,7 @@ function Invoke-SqlServerLabWorkflowAction {
     }
 
     $credential = $null
-    $credentialRequired = $Action -in @('ConfirmWindowsInstall', 'ConfirmSqlWindowsInstall', 'PrepareSqlImage', 'CompleteHyperVLabSql', 'InspectHyperVLabSqlInstances', 'InitializeHyperVLabPersistentData')
+    $credentialRequired = $Action -in @('ConfirmWindowsInstall', 'ConfirmSqlWindowsInstall', 'PrepareSqlImage', 'CompleteHyperVLabSql', 'EnableHyperVLabHostSqlAccess', 'InspectHyperVLabSqlInstances', 'InitializeHyperVLabPersistentData')
     if ($Action -eq 'GeneralizeWindowsBuild') {
         $existingWindowsBuild = Get-HyperVImageBuildPlan -BuildId $BuildId
         $credentialRequired = $existingWindowsBuild -and [string]$existingWindowsBuild.state -eq 'MANUAL_ACTION_REQUIRED'
@@ -321,7 +323,7 @@ function Invoke-SqlServerLabWorkflowAction {
             $lab = New-HyperVLabEnvironment -ArtifactId $ArtifactId -LabName $LabName -InstanceId $InstanceId -MemoryStartupMB $MemoryStartupMB -ProcessorCount $ProcessorCount -SwitchName $SwitchName
             if ($PersistentData) { $null = Enable-HyperVLabPersistentData -RunId $lab.RunId -DataRoot $DataRoot -SizeGB $PersistentDataDiskGB }
             if ($ProvisionUnattended) {
-                $provisioning = Invoke-HyperVLabUnattendedProvision -RunId $lab.RunId -AdministratorPassword $GuestPassword -PasswordSource $GuestPasswordSource -MediaRoot $MediaRoot
+                $provisioning = Invoke-HyperVLabUnattendedProvision -RunId $lab.RunId -AdministratorPassword $GuestPassword -SqlSaPassword $SaPassword -PasswordSource $GuestPasswordSource -MediaRoot $MediaRoot
                 $lab | Add-Member -NotePropertyName provisioning -NotePropertyValue $provisioning -Force
             }
             $lab
@@ -335,8 +337,8 @@ function Invoke-SqlServerLabWorkflowAction {
         'StopHyperVLab' { Stop-HyperVLabEnvironment -RunId $BuildId }
         'EnableHyperVLabPersistentData' { Enable-HyperVLabPersistentData -RunId $BuildId -DataRoot $DataRoot -SizeGB $PersistentDataDiskGB }
         'InitializeHyperVLabPersistentData' { Initialize-HyperVLabPersistentData -RunId $BuildId -Credential $credential }
-        'CompleteHyperVLabSql' { Complete-HyperVLabSqlImage -RunId $BuildId -Credential $credential -SqlSaPassword $GuestPassword }
-        'EnableHyperVLabHostSqlAccess' { Enable-HyperVLabHostSqlAccess -RunId $BuildId -Credential $credential -SqlSaPassword $GuestPassword -SwitchName $SwitchName }
+        'CompleteHyperVLabSql' { Complete-HyperVLabSqlImage -RunId $BuildId -Credential $credential -SqlSaPassword $(if ($SaPassword) { $SaPassword } else { $GuestPassword }) }
+        'EnableHyperVLabHostSqlAccess' { Enable-HyperVLabHostSqlAccess -RunId $BuildId -Credential $credential -SqlSaPassword $(if ($SaPassword) { $SaPassword } else { $GuestPassword }) -SwitchName $SwitchName }
         'InspectHyperVLabSqlInstances' { Inspect-HyperVLabSqlInstances -RunId $BuildId -Credential $credential }
         'OpenHyperVConsole' { Open-HyperVLabEnvironmentConsole -RunId $BuildId }
         'RemoveHyperVLab' { Remove-SqlServerLab -RunId $BuildId -Force -Confirm:$false }

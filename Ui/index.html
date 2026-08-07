@@ -161,6 +161,7 @@
       <input id="credential-action" type="hidden"><input id="credential-build" type="hidden">
       <label>Lokaler Benutzer<input id="guest-user" value="Administrator" required></label>
       <label>Gastpasswort<input id="guest-password" type="password" autocomplete="current-password" required></label>
+      <label id="credential-sa-password-label" hidden>SQL-SA-Passwort <span class="muted">(optional; leer = Gastpasswort)</span><input id="credential-sa-password" type="password" autocomplete="new-password"></label>
       <p id="credential-note" class="form-note">Das Passwort wird nur für diese Aktion verwendet und nicht gespeichert oder protokolliert.</p>
       <div class="dialog-actions"><button type="button" class="button secondary" value="cancel" formnovalidate>Abbrechen</button><button class="button primary" value="default">Aktion starten</button></div>
     </form>
@@ -213,7 +214,9 @@
       <label>Lokales Administratorpasswort<input id="hyperv-guest-password" type="text" autocomplete="new-password" required></label>
       <label id="hyperv-guest-password-repeat-label">Passwort wiederholen<input id="hyperv-guest-password-repeat" type="password" autocomplete="new-password"></label>
       <div class="build-actions"><button id="hyperv-generate-password" type="button" class="button secondary">Passwort erzeugen</button><button id="hyperv-copy-password" type="button" class="button secondary">Passwort kopieren</button></div>
-      <p class="form-note">Die Antwortdatei wird nur in die differenzierende Klon-VHDX geschrieben und nach OOBE im Gast entfernt. Das Passwort wird ausschließlich für diesen Run DPAPI-geschützt abgelegt; das Prepared-Image bleibt unverändert. Standardmäßig erhält die VM einen verwalteten Internal-Switch, eine feste Lab-IP sowie SQL-TCP für SSMS auf diesem Host. Das Gastpasswort ist zugleich das SA-Passwort.</p>
+      <label>SQL Server SA-Passwort <span class="muted">(optional; leer = lokales Administratorpasswort)</span><input id="hyperv-sa-password" type="password" autocomplete="new-password"></label>
+      <label id="hyperv-sa-password-repeat-label" hidden>SQL-SA-Passwort wiederholen<input id="hyperv-sa-password-repeat" type="password" autocomplete="new-password"></label>
+      <p class="form-note">Die Antwortdatei wird nur in die differenzierende Klon-VHDX geschrieben und nach OOBE im Gast entfernt. Das Gastpasswort wird ausschließlich für diesen Run DPAPI-geschützt abgelegt; das Prepared-Image bleibt unverändert. Standardmäßig erhält die VM einen verwalteten Internal-Switch, eine feste Lab-IP sowie SQL-TCP für SSMS auf diesem Host. Ein separates SQL-SA-Passwort ist optional.</p>
       <div class="dialog-actions"><button type="button" class="button secondary" value="cancel" formnovalidate>Abbrechen</button><button class="button primary" value="default">Schnell bereitstellen</button></div>
     </form>
   </dialog>
