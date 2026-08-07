@@ -97,6 +97,10 @@ Artefakte. Die sichtbaren Dateien in `Sammlungen` werden nach Möglichkeit als
 Hardlink darauf angelegt; andernfalls wird sicher kopiert. Temporäre Downloads,
 Quarantäne und Trust-Freigaben bleiben im State Root.
 
+Bestände aus älteren Versionen unter `<StateRoot>\cache\artifacts\sha256`
+werden nicht gelöscht: Bei der nächsten Verwendung wird ihr Hash erneut
+geprüft und die Datei in die neue sichtbare Bibliothek übernommen.
+
 Der Testdaten-Root kann in der Workflow-UI unter **Medienquellen** oder in der
 Konsole über **[t] Testdaten-Bibliothek konfigurieren** geändert werden. Ohne
 eigene Einstellung lautet der Default `<MediaRoot>\Testdaten`.
