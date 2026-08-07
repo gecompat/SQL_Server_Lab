@@ -268,7 +268,7 @@ function Select-LabManifestSampleReference {
     .SYNOPSIS
         Katalogauswahl fuer eine Sample-Referenz im Manifest-Wizard.
     .DESCRIPTION
-        Zeigt alle mit dem Backup-Handler installierbaren Varianten mit
+        Zeigt alle mit dem Sample-Handler installierbaren Varianten mit
         erwarteter Datenbank, Groesse und Lizenz. Der Rueckgabewert enthaelt
         nur ID und Variante; Source und SHA-256 werden erst beim Provisionieren
         aufgeloest und im Run Lock festgehalten.

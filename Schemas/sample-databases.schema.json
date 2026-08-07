@@ -286,7 +286,11 @@
           "then": {
             "properties": {
               "artifactType": {
-                "const": "backup"
+                "enum": [
+                  "backup",
+                  "archive-backup",
+                  "sql-script"
+                ]
               }
             }
           }

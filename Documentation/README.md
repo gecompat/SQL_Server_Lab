@@ -64,7 +64,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | Podman | implementiert | `Providers/Podman/PodmanProvider.ps1` |
 | Hyper-V | Lifecycle-Grundlage; keine SQL-Provisionierung | `Providers/HyperV/HyperVProvider.ps1`, `Providers/HyperV/README.md` |
 | Versions- und Buildauflösung | implementiert | `Catalogs/sql-server-versions.json`, `Private/VersionCatalog.ps1` |
-| Sample-Katalog | typisierter Artifact-Vertrag implementiert; Runtime weiterhin nur für ausführbare Backup-Varianten | `Catalogs/sample-databases.json`, `Schemas/sample-databases.schema.json`, `Private/ManifestParser.ps1` |
+| Sample-Katalog | typisierter Artifact-Vertrag; direkte Backups, sichere ZIP-Backups und gepinnte Einzelskripte ausführbar | `Catalogs/sample-databases.json`, `Schemas/sample-databases.schema.json`, `Private/SampleArtifactHandlers.ps1` |
 | Manifestparser | implementiert | `Private/ManifestParser.ps1` |
 | Resource Assessment | implementiert | `Private/ResourceAssessment.ps1` |
 | State und Cleanup | implementiert | `Private/StateMachine.ps1`, `Private/CleanupEngine.ps1` |
@@ -130,7 +130,7 @@ Nur wenn alle Ebenen zusammenpassen, ist ein Feld als vollständig implementiert
 | [SQL-Server-zentrierte Scope-Entscheidung](Architecture/SQL_SERVER_CENTRIC_SCOPE_DECISION.md) | SQL Server als Hauptzweck; Supporting Components nur mit SQL-Bezug |
 | [Erweiterbarer Umgebungs- und Ausführungsvertrag](Architecture/EXTENSIBLE_ENVIRONMENT_AND_EXECUTION_CONTRACT.md) | Packages, Kataloge, Komponenten, Ressourcen, Workflow, Provider, Recovery und Cleanup |
 | [Manifest- und Schnittstellenarchitektur](Architecture/MANIFEST_AND_INTERFACE_ARCHITECTURE.md) | langfristiger deklarativer Vertrag und Auflösungsreihenfolge |
-| [Testdatenbank-Provisionierung und menügeführte Manifest-Erstellung](Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md) | Zielvertrag für Artifact Handler, Trust/Hash, Mehrfachauswahl, Pfadführung und Baselines; Backup-Handler, Trust-Pfad und Mehrfachauswahl sind implementiert |
+| [Testdatenbank-Provisionierung und menügeführte Manifest-Erstellung](Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md) | Zielvertrag für Artifact Handler, Trust/Hash, Mehrfachauswahl, Pfadführung und Baselines; direkte Backups, sichere ZIP-Backups, Einzelskripte, Trust-Pfad und Mehrfachauswahl sind implementiert |
 | [Gemischter Container-Provider-Lifecycle](Architecture/MIXED_PROVIDER_LIFECYCLE.md) | implementierter Docker-/Podman-Lifecycle mit ProviderSubRuns, Start-Rollback und providergebundenem Cleanup |
 | [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md) | verbindlicher Zielvertrag für Hyper-V, sealed Images, Netzwerke, Software, Reconcile und Refresh; noch kein Runtime-Nachweis |
 | [Projektintegrationsvertrag](Architecture/PROJECT_INTEGRATION_CONTRACT.md) | Anbindung konsumierender Projekte |

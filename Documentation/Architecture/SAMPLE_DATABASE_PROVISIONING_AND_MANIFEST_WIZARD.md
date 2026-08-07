@@ -28,8 +28,8 @@ der Backup-Handler für executable `.bak`-Varianten einschließlich Trust-Pfad,
 Sample-Identität in Trust Store und Run Lock, Idempotenz- und
 Output-Verification, die Mehrfachauswahl im Ad-hoc-Menü und per
 `New-SqlServerLab -Sample` sowie eine Katalogauswahl im Manifest-Wizard.
-SQL-Skript-Samples, Script Bundles, mehrere Outputs pro Installation und
-Baseline-Erzeugung sind noch nicht implementiert.
+Einzelne gepinnte SQL-Skript-Samples sind implementiert; Script Bundles,
+mehrere Outputs pro Installation und Baseline-Erzeugung bleiben offen.
 
 Der gemeinsame Katalogvertrag für Artifact Type, Installation, erwartete
 Outputs, Trust Policy und Größenmetadaten ist implementiert. Für die
@@ -73,7 +73,8 @@ Installation Handler aus.
 | Sample-Katalog | vorhanden; direkte `.bak`-Backup-Varianten sind `executable` |
 | Sample-Backup-Handler mit Trust-Pfad und Verification | implementiert (`Private/SampleArtifactHandlers.ps1`) |
 | SQL-Skriptausführung | für einzelne T-SQL-Dateien vorhanden |
-| SQL-Skript-Sample als Artifact Handler | nicht implementiert |
+| SQL-Skript-Sample als Artifact Handler | implementiert für einzelne, gepinnte Skripte ohne Includes/Variablen (`Northwind`, `Chinook`) |
+| ZIP-Backup als Artifact Handler | implementiert für exakt katalogisierte `.bak`-Payloads; Entpacken erfolgt nur temporär |
 | mehrere Samples im Ad-hoc-Menü auswählen | implementiert (`Invoke-SqlServerLab`, `New-SqlServerLab -Sample`) |
 | persistenter Trust Store und Manifest Lock | implementiert; Sample-Identität wird mitgeführt |
 | inhaltsadressierter Artifact Cache und Quarantäne | implementiert |
@@ -230,21 +231,18 @@ ausgeführt.
 ### 6.1 Unterstützbare Installationsformen
 
 Ein SQL-Skript-Sample ist automatisierbar, wenn der Katalog den Ablauf
-vollständig beschreibt. Der Handler unterstützt:
+vollständig beschreibt. Der aktuelle Handler unterstützt:
 
 - ein einzelnes Skript;
-- ein Archiv oder Verzeichnis mit mehreren Skripten;
 - einen definierten Entrypoint;
-- Includes über `:r`;
-- Variablen über katalogisierte oder manifestgebundene `:setvar`-Werte;
 - `GO` und `GO <count>`;
 - Ausführung gegen `master`, eine vorhandene Zieldatenbank oder einen
   Self-Creating-Modus;
-- eine oder mehrere erwartete erzeugte Datenbanken.
+- genau eine erwartete erzeugte Datenbank.
 
-Für sqlcmd-Syntax ist ein nachgewiesener sqlcmd-kompatibler Ausführungspfad zu
-verwenden. Der bestehende reine `GO`-Batch-Splitter ist dafür allein nicht
-ausreichend.
+`:r`, `:setvar`, `:connect` und Shell-Escapes sind für katalogisierte Samples
+absichtlich nicht freigegeben. Script-Bundles benötigen weiterhin einen eigenen
+Handler und bleiben `descriptive`.
 
 ### 6.2 Typspezifische Metadaten
 
@@ -254,17 +252,16 @@ Ein Script Handler benötigt mindestens:
 - `workingDirectory`, relativ zur verifizierten Artifact Root;
 - `executionMode`: `master`, `existing-database` oder
   `self-creates-databases`;
-- optionale `targetDatabase`;
-- erlaubte und erforderliche Variablen ohne Secretwerte im Katalog;
-- `expectedDatabases` als Liste;
+- optionales `targetDatabase`;
+- genau einen erwarteten Datenbankoutput;
 - erwartete Marker, Tabellen oder andere Verification Actions;
 - `timeoutSeconds`;
 - `idempotencyMode`;
 - `partialFailurePolicy`;
 - `baselinePolicy`.
 
-Ein Bundle darf mehrere Datenbanken erzeugen. Die gesamte Liste muss vor
-Ausführung im Plan sichtbar sein.
+Ein künftiges Bundle darf mehrere Datenbanken erzeugen. Die gesamte Liste muss
+vor Ausführung im Plan sichtbar sein.
 
 ### 6.3 Sicherheitsgrenzen
 
@@ -613,13 +610,14 @@ kann aus diesem Inhalt erzeugt werden.
   Trust-/Hash-Pfad ausführbar machen;
 - Resource Assessment um Artifact-Bedarf ergänzen.
 
-**Implementiert am 2026-08-01:** Der Sample-Backup-Handler
+**Erweitert am 2026-08-07:** Der Sample-Handler
 (`Private/SampleArtifactHandlers.ps1`) bindet die Sample-Identität an Trust
 Store, Cache und Run Lock, setzt `fail-if-exists` durch und verifiziert die
 erwartete Datenbank als `ONLINE` (`DATASET_READY`). Direkte
-`.bak`-Backup-Varianten des Katalogs sind `executable`; ohne Katalog-SHA-256
-gilt der Trust-Pfad `interactive-once`, nicht interaktiv endet die Aufloesung
-mit `TRUST_REQUIRED`. Mehrfachauswahl ist im Ad-hoc-Menü und über
+`.bak`-Backup-Varianten, fest katalogisierte ZIP-Backups (temporäres
+Entpacken einer exakten `.bak`-Payload) sowie einzelne gepinnte SQL-Skripte
+sind `executable`. Ohne Katalog-SHA-256 gilt der Trust-Pfad `interactive-once`,
+nicht interaktiv endet die Aufloesung mit `TRUST_REQUIRED`. Mehrfachauswahl ist im Ad-hoc-Menü und über
 `New-SqlServerLab -Sample` verfügbar; Kollisionen erwarteter Outputs werden als
 `SAMPLE_OUTPUT_CONFLICT` abgewiesen. Der Manifest-Wizard bietet für
 `sample`-Felder eine Katalogauswahl. Das Storage-Assessment rechnet Download-
@@ -628,7 +626,7 @@ Zieldatenbanknamen und mehrere Outputs pro Installation bleiben offen.
 
 ### Welle 4 – SQL-Skripte und Bundles
 
-- `sql-script`-Handler;
+- `sql-script`-Handler für einzelne gepinnte Skripte umgesetzt;
 - `script-bundle`-Handler mit sqlcmd-Unterstützung;
 - erwartete mehrere Datenbankausgaben;
 - Verification, Idempotency und Compensation;

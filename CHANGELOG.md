@@ -4,6 +4,20 @@ Dieses Changelog dokumentiert Änderungen am öffentlichen Verhalten, an maschin
 
 Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher nach Datum geführt. Neue Einträge werden oben ergänzt.
 
+## 2026-08-07
+
+### Hinzugefügt
+
+- typisierte Runtime-Handler für einzelne, SHA-256-verifizierte T-SQL-Skripte
+  und sichere ZIP-Backups; ZIP-Payloads werden ausschließlich aus einem
+  exakten Katalogpfad in ein temporäres Arbeitsverzeichnis entpackt und danach
+  entfernt;
+- katalogisierte, auf unveränderliche Upstream-Commits gepinnte Testdaten für
+  Northwind und Chinook. Beide können über Konsole, Workflow-UI,
+  `New-SqlServerLab -Sample` und Manifeste automatisch geladen werden;
+- sichtbare Handler-Typen bei der Auswahl von Testdatenbanken in Konsole und
+  Workflow-UI.
+
 ## 2026-08-05
 
 ### Hinzugefügt

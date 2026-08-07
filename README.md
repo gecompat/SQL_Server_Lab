@@ -306,13 +306,15 @@ Vollständige Beispiele liegen unter [`Schemas/`](Schemas/README.md).
 
 ## Sample-Datenbanken
 
-Katalogisierte Testdatenbanken mit direkter `.bak`-URL und
-`runtimeStatus: executable` werden automatisch über den Sample-Backup-Handler
-installiert. Die Integrität sichert der Artifact Resolver: Eine im Katalog
-hinterlegte SHA-256 wird erzwungen; fehlt sie, fragt ein interaktiver Lauf
-einmalig nach Vertrauen (`interactive-once`), registriert den berechneten Hash
-im lokalen Trust Store und legt das Artefakt im inhaltsadressierten Cache ab.
-Nicht interaktive Läufe enden ohne bekannten Hash mit `TRUST_REQUIRED`.
+Katalogisierte Testdatenbanken mit `runtimeStatus: executable` werden über den
+typisierten Sample-Handler installiert. Unterstützt sind direkte `.bak`-Files,
+ZIP-Dateien mit einer exakten katalogisierten `.bak`-Payload (temporär
+entpackt) sowie gepinnte einzelne T-SQL-Skripte. Die Integrität sichert der
+Artifact Resolver: Eine im Katalog hinterlegte SHA-256 wird erzwungen; fehlt
+sie, fragt ein interaktiver Lauf einmalig nach Vertrauen (`interactive-once`),
+registriert den berechneten Hash im lokalen Trust Store und legt das Artefakt
+im inhaltsadressierten Cache ab. Nicht interaktive Läufe enden ohne bekannten
+Hash mit `TRUST_REQUIRED`.
 
 Ad-hoc können mehrere Samples pro Instanz gewählt werden – im Menü von
 `Invoke-SqlServerLab` über den Schritt `Testdatenbanken` oder direkt:
@@ -354,14 +356,14 @@ Im Manifest bleibt die deklarative Referenz unverändert:
 }
 ```
 
-Archive, Attach-Szenarien und SQL-Skript-Samples werden nicht automatisch in
-einen Restore umgedeutet. Sie führen mit einer klaren Fehlermeldung zum
-Abbruch.
+`Northwind` und `Chinook` sind als SHA-256-verifizierte Skript-Samples direkt
+wählbar. Große `.7z`-Archive, Script-Bundles und Attach-Szenarien bleiben
+bewusst beschreibend und werden nicht als Backup, ZIP oder Skript umgedeutet.
 
-Der verbindliche Zielvertrag für SQL-Skript-/Bundle-Handler, kontextreiche
+Der verbindliche Zielvertrag für weitere Script-Bundle-Handler, kontextreiche
 Pfadführung und `LAB_GENERATED`-Baselines ist in
 [Testdatenbank-Provisionierung und menügeführte Manifest-Erstellung](Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md)
-dokumentiert; diese Teile folgen in den Wellen 4 und 5.
+dokumentiert; diese Teile bleiben für spätere Wellen vorgesehen.
 
 ## Project Adapter
 

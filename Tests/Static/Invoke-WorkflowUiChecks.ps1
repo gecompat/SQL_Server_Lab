@@ -132,6 +132,7 @@ Add-CheckResult -Name 'Media Root und Quellen trennen Portalseiten von Bootstrap
 Add-CheckResult -Name 'Datenbankdialog bietet katalogisierte Testdatenbanken mit explizitem Trust an' -Success (
     $workflowText -match 'SampleDatabases = \$sampleDatabases' -and
     $workflowText -match 'Get-LabExecutableSampleVariant' -and
+    $workflowText -match 'ArtifactType = \$_.ArtifactType' -and
     $actionText -match 'InstallContainerSampleDatabase' -and
     $actionText -match 'Resolve-LabRunInstance' -and
     $actionText -match 'CONTAINER_WORKFLOW_SAMPLE_TRUST_REQUIRED' -and
@@ -140,6 +141,8 @@ Add-CheckResult -Name 'Datenbankdialog bietet katalogisierte Testdatenbanken mit
     $htmlText -match 'id="container-sample-sha256"' -and
     $actionText -match '\[string\]\$SampleSha256' -and
     $scriptText -match 'renderContainerSampleOptions' -and
+    $scriptText -match 'data-artifact-type' -and
+    $scriptText -match 'Handler: ' -and
     $scriptText -match 'TrustUnknownSample' -and
     $scriptText -match 'SampleSha256' -and
     $scriptText -match "container-sample-trust'\)\.checked = false"

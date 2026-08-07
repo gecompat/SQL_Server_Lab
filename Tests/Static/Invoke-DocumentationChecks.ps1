@@ -200,9 +200,16 @@ foreach ($sample in @($sampleCatalog.databases)) {
         if ($definition.runtimeStatus -eq 'executable') {
             $hasIntegrityPath = ([string]$definition.sha256 -match '^[A-Fa-f0-9]{64}$') -or
                 $definition.trustPolicy -eq 'interactive-once'
-            if ($definition.artifactType -ne 'backup' -or
-                [string]$definition.installation.kind -ne 'backup' -or
-                [string]$definition.url -notmatch '(?i)\.bak$' -or
+            $expectedExtension = switch ([string]$definition.artifactType) {
+                'backup' { '\.bak$' }
+                'archive-backup' { '\.zip$' }
+                'sql-script' { '\.sql$' }
+                default { $null }
+            }
+            if ([string]$definition.artifactType -notin @('backup', 'archive-backup', 'sql-script') -or
+                [string]$definition.installation.kind -ne [string]$definition.artifactType -or
+                -not $expectedExtension -or
+                [string]$definition.url -notmatch "(?i)$expectedExtension" -or
                 -not $hasIntegrityPath) {
                 $invalidExecutableSamples += "$($sample.id):$($variant.Name)"
             }
@@ -230,7 +237,7 @@ foreach ($sample in @($sampleCatalog.databases)) {
     }
 }
 Add-ValidationResult `
-    -Name 'Ausfuehrbare Sample-Varianten sind Backup-Handler mit SHA-256 oder Trust-Pfad' `
+    -Name 'Ausfuehrbare Sample-Varianten haben einen freigegebenen Handler mit SHA-256 oder Trust-Pfad' `
     -Success ($invalidExecutableSamples.Count -eq 0) `
     -Message ($invalidExecutableSamples -join ', ')
 Add-ValidationResult `

@@ -544,7 +544,8 @@ function renderContainerSampleOptions(sqlVersion) {
   select.innerHTML = samples.map((sample) => {
     const trustRequired = sample.TrustStatus === 'TRUST_REQUIRED';
     const size = sample.DownloadSizeMB ? ' · ' + sample.DownloadSizeMB + ' MB' : '';
-    return '<option value="' + escapeHtml(sample.SampleId + ':' + sample.Variant) + '" data-database="' + escapeHtml(sample.ExpectedDatabase) + '" data-trust-required="' + trustRequired + '" data-sha256="' + escapeHtml(sample.ExpectedSha256 || '') + '">' + escapeHtml(sample.DisplayName) + ' · ' + escapeHtml(sample.Variant) + ' → ' + escapeHtml(sample.ExpectedDatabase) + size + '</option>';
+    const type = sample.ArtifactType ? ' · ' + sample.ArtifactType : '';
+    return '<option value="' + escapeHtml(sample.SampleId + ':' + sample.Variant) + '" data-database="' + escapeHtml(sample.ExpectedDatabase) + '" data-artifact-type="' + escapeHtml(sample.ArtifactType || '') + '" data-trust-required="' + trustRequired + '" data-sha256="' + escapeHtml(sample.ExpectedSha256 || '') + '">' + escapeHtml(sample.DisplayName) + ' · ' + escapeHtml(sample.Variant) + ' → ' + escapeHtml(sample.ExpectedDatabase) + type + size + '</option>';
   }).join('');
   updateContainerSampleSelection();
 }
@@ -558,8 +559,9 @@ function updateContainerSampleSelection() {
   $('#container-database-name').disabled = selectedSample;
   if (selectedSample) $('#container-database-name').value = multipleSamples ? options.length + ' Testdatenbanken ausgewählt' : (option?.dataset?.database || '');
   else $('#container-database-name').value = '';
+  const artifactType = option?.dataset?.artifactType || 'backup';
   $('#container-sample-note').textContent = selectedSample
-    ? (multipleSamples ? options.length + ' Testdatenbanken werden nacheinander installiert und verifiziert.' : 'Die Zieldatenbank wird vom Katalog festgelegt.')
+    ? (multipleSamples ? options.length + ' Testdatenbanken werden nacheinander installiert und verifiziert.' : 'Die Zieldatenbank wird vom Katalog festgelegt. Handler: ' + artifactType + '.')
     : 'Ohne Auswahl wird die oben angegebene leere Datenbank angelegt.';
   const expectedSha = option?.dataset?.sha256 || '';
   $('#container-sample-hash-field').hidden = !selectedSample || multipleSamples;

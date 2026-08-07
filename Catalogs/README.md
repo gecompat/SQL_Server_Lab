@@ -113,20 +113,24 @@ Beispiel:
 ### Runtimeunterstützung
 
 Der Katalog wird in den gemeinsamen Artifact-Vertrag aufgelöst. Automatisch
-bereitstellen kann der aktuelle Runtimepfad den Backup-Handler: Die Variante
-muss `artifactType: backup`, eine direkte `.bak`-URL und
-`runtimeStatus: executable` besitzen. Die Integrität sichert entweder eine
+bereitstellen kann der aktuelle Runtimepfad direkte Backups (`backup` und
+`.bak`), sichere ZIP-Backups (`archive-backup` und `.zip`) sowie einzelne
+T-SQL-Skripte (`sql-script` und `.sql`), jeweils mit `runtimeStatus:
+executable`. ZIP-Backups benötigen eine exakte `installation.payloadPath`-
+Angabe und werden nur temporär entpackt. Die Integrität sichert entweder eine
 Katalog-SHA-256 (`trustPolicy: catalog-only`) oder der Trust-Pfad
 `interactive-once` mit einmaliger interaktiver Freigabe; nicht interaktive
 Läufe enden ohne bekannten Hash mit `TRUST_REQUIRED`.
 
 Nicht automatisch ausführbar sind unter anderem:
 
-- Archive wie `.7z` oder `.zip`
+- Archive wie `.7z` oder nicht katalogisierte ZIP-Dateien
 - Attach-Szenarien
-- reine SQL-Skript-Varianten
+- Script-Bundles und SQL-Skripte mit `:r`, `:setvar`, `:connect` oder
+  Shell-Escapes
 
-Diese Einträge dürfen trotzdem als Planungs- und Quellenkatalog enthalten sein. Der Runtimepfad lehnt sie mit einer erklärenden Fehlermeldung ab.
+Diese Einträge dürfen trotzdem als Planungs- und Quellenkatalog enthalten sein.
+Der Runtimepfad lehnt sie mit einer erklärenden Fehlermeldung ab.
 
 Der verbindliche Zielvertrag für zusätzliche Artifact Types und Baselines steht in [Testdatenbank-Provisionierung und menügeführte Manifest-Erstellung](../Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md). Der Sample-Backup-Handler nutzt Trust Store, inhaltsadressierten Cache und Run Lock einschließlich Sample-Identität.
 

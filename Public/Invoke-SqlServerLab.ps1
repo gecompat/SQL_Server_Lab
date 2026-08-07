@@ -1678,7 +1678,7 @@ function Show-LabHyperVSqlAcceptanceMatrix {
 function Select-LabSampleSelection {
     <#
     .SYNOPSIS Menuegefuehrte Mehrfachauswahl katalogisierter Testdatenbanken.
-    .DESCRIPTION Zeigt alle mit dem Backup-Handler installierbaren Varianten
+    .DESCRIPTION Zeigt alle mit dem Sample-Handler installierbaren Varianten
                  einschliesslich Groesse, Lizenz, Trust- und Cache-Status und
                  verhindert kollidierende Zieldatenbanken.
     .OUTPUTS String-Array im Format 'sampleId:variante' fuer New-SqlServerLab -Sample.
@@ -1712,15 +1712,15 @@ function Select-LabSampleSelection {
     $selection = [System.Collections.Generic.List[string]]::new()
     while ($true) {
         Write-Host ''
-        Write-Host '  Testdatenbanken (Backup-Handler):' -ForegroundColor White
+        Write-Host '  Testdatenbanken (Sample-Handler):' -ForegroundColor White
         for ($i = 0; $i -lt $variants.Count; $i++) {
             $variant = $variants[$i]
             $key = "$($variant.SampleId):$($variant.Variant)"
             $marker = if ($selection.Contains($key)) { '[x]' } else { '[ ]' }
             $status = $localStatus[$key]
             Write-Host ("    {0} [{1,2}] {2} ({3})" -f $marker, ($i + 1), $variant.DisplayName, $variant.Variant) -ForegroundColor White
-            Write-Host ("           DB: {0} | Download: {1} MB | Lizenz: {2} | Trust: {3} | Cache: {4}" -f `
-                $variant.ExpectedDatabase, $variant.DownloadSizeMB, $variant.License, $status.TrustStatus, $status.CacheStatus) -ForegroundColor DarkGray
+            Write-Host ("           Typ: {0} | DB: {1} | Download: {2} MB | Lizenz: {3} | Trust: {4} | Cache: {5}" -f `
+                $variant.ArtifactType, $variant.ExpectedDatabase, $variant.DownloadSizeMB, $variant.License, $status.TrustStatus, $status.CacheStatus) -ForegroundColor DarkGray
         }
         Write-Host ''
         Write-Host '    [Nummer] Auswahl umschalten, [d Nummer] Details, [Enter] uebernehmen, [0] keine Testdatenbank' -ForegroundColor DarkGray
