@@ -209,7 +209,7 @@
         <label>Virtueller Switch<select id="hyperv-switch"><option value="">SQL_Server_Lab-Standard (Host-SSMS möglich)</option></select></label>
       </div>
       <label class="form-check"><input id="hyperv-persistent-data" type="checkbox"> Langlebige Daten-VHDX im Data Root anhängen</label>
-      <p class="form-note">Die Daten-VHDX wird je Lab neu im Data Root angelegt, nicht mit der Vorlage geteilt und bei „Entfernen“ nicht gelöscht. Sie wird automatisch als <code>D:\SQLData</code> initialisiert.</p>
+      <p class="form-note">Die Daten-VHDX wird je Lab neu im Data Root angelegt, nicht mit der Vorlage geteilt und bei „Entfernen“ nicht gelöscht. Im Gast wird ein freier Datenbuchstabe verwendet (bevorzugt <code>S:\SQLData</code>).</p>
       <label>Gastpasswort<select id="hyperv-password-mode"><option value="generated">Zufällig erzeugen und zum Kopieren anzeigen</option><option value="user">Eigenes Passwort verwenden</option></select></label>
       <label>Lokales Administratorpasswort<input id="hyperv-guest-password" type="text" autocomplete="new-password" required></label>
       <label id="hyperv-guest-password-repeat-label">Passwort wiederholen<input id="hyperv-guest-password-repeat" type="password" autocomplete="new-password"></label>
