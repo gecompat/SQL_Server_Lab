@@ -72,30 +72,47 @@ function Get-HyperVWindowsInstallationMediaInfo {
         $variants = @(
             Get-WindowsImage -ImagePath $installers[0].FullName -ErrorAction Stop | ForEach-Object {
                 $name = [string]$_.ImageName
+                # Ältere Semi-Annual-Channel-Medien nennen das Image lediglich
+                # "Windows Server, version 1709". Ergänzende DISM-Metadaten
+                # und ausschließlich der ISO-Dateiname liefern dann die fehlende
+                # Jahres-/Editionsinformation. Der Inhalt des install.wim/esd
+                # bleibt weiterhin die maßgebliche Quelle.
+                $imageDescription = [string]$_.ImageDescription
+                $editionId = [string]$_.EditionId
+                $metadataText = "$name $imageDescription $editionId"
+                $fallbackText = "$metadataText $([IO.Path]::GetFileName($resolvedIso))"
                 $operatingSystemId = $null
                 $edition = $null
                 $installationType = 'desktop-experience'
-                if ($name -match '(?i)Windows Server (?<year>20\d{2})') {
+                if ($metadataText -match '(?i)Windows Server (?<year>20\d{2})') {
                     $year = [string]$Matches.year
                     $operatingSystemId = "windows-server-$year"
-                    $editionBase = if ($name -match '(?i)Datacenter') { 'datacenter' } elseif ($name -match '(?i)Standard') { 'standard' } elseif ($name -match '(?i)Azure Edition') { 'azure-edition' } else { $null }
+                    $editionBase = if ($metadataText -match '(?i)Datacenter') { 'datacenter' } elseif ($metadataText -match '(?i)Standard') { 'standard' } elseif ($metadataText -match '(?i)Azure Edition') { 'azure-edition' } else { $null }
                     if ($editionBase) {
-                        $edition = if ($name -match '(?i)(evaluation|eval)') { "$editionBase-evaluation" } else { $editionBase }
+                        $edition = if ($metadataText -match '(?i)(evaluation|eval)') { "$editionBase-evaluation" } else { $editionBase }
                     }
                     # Windows Server 2016/2019 nennen Desktop Experience nicht
                     # immer aus. Ihre Core-Abbilder tragen dafür üblicherweise
                     # CORE im Image-Namen; aktuelle Medien verwenden den
                     # expliziten Desktop-Experience-Zusatz.
-                    $installationType = if ($name -match '(?i)Desktop Experience' -or ($year -le '2019' -and $name -notmatch '(?i)CORE')) { 'desktop-experience' } else { 'core' }
+                    $installationType = if ($metadataText -match '(?i)Desktop Experience' -or ($year -le '2019' -and $metadataText -notmatch '(?i)CORE')) { 'desktop-experience' } else { 'core' }
                 }
-                elseif ($name -match '(?i)Windows (?<major>10|11)') {
+                elseif ($metadataText -match '(?i)Windows (?<major>10|11)') {
                     $major = [string]$Matches.major
                     $operatingSystemId = "windows-$major"
-                    $editionBase = if ($name -match '(?i)Enterprise') { 'enterprise' } elseif ($name -match '(?i)Education') { 'education' } elseif ($name -match '(?i)Pro(fessional)?') { 'professional' } elseif ($name -match '(?i)Home') { 'home' } else { $null }
+                    $editionBase = if ($metadataText -match '(?i)Enterprise') { 'enterprise' } elseif ($metadataText -match '(?i)Education') { 'education' } elseif ($metadataText -match '(?i)Pro(fessional)?') { 'professional' } elseif ($metadataText -match '(?i)Home') { 'home' } else { $null }
                     if ($editionBase) {
-                        if ($name -match '(?i)LTSC') { $editionBase += '-ltsc' }
-                        $edition = if ($name -match '(?i)(evaluation|eval)') { "$editionBase-evaluation" } else { $editionBase }
+                        if ($metadataText -match '(?i)LTSC') { $editionBase += '-ltsc' }
+                        $edition = if ($metadataText -match '(?i)(evaluation|eval)') { "$editionBase-evaluation" } else { $editionBase }
                     }
+                }
+                elseif ($metadataText -match '(?i)Windows Server,? version 1709' -and $fallbackText -match '(?i)(2016|winsrv2016)') {
+                    $operatingSystemId = 'windows-server-2016'
+                    $editionBase = if ($fallbackText -match '(?i)Datacenter') { 'datacenter' } elseif ($fallbackText -match '(?i)Standard') { 'standard' } else { $null }
+                    if ($editionBase) {
+                        $edition = if ($metadataText -match '(?i)(evaluation|eval)') { "$editionBase-evaluation" } else { $editionBase }
+                    }
+                    $installationType = if ($metadataText -match '(?i)(CORE|Server Core)') { 'core' } else { 'desktop-experience' }
                 }
                 if (-not $operatingSystemId -or -not $edition) { return }
                 [PSCustomObject]@{

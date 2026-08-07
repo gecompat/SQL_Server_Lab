@@ -12,7 +12,9 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   `install.wim`/`install.esd`, einschließlich lizenzierter und
   Evaluation-Editionen. Neue und entfernte Medien werden beim nächsten Scan
   automatisch berücksichtigt; der SQL-Prepared-Dialog zeigt nicht kompatible
-  Medien sichtbar statt sie zu verbergen;
+  Medien sichtbar statt sie zu verbergen. Ältere Windows-Server-1709-Medien
+  werden über DISM-Edition und ISO-Namen zuverlässig der 2016er-Familie
+  zugeordnet; nicht lesbare ISO-Dateien liefern ihren Fehlergrund sichtbar;
 - optionale 7-Zip-Unterstützung für katalogisierte `.7z`-Archive mit exakt
   einer `.bak`-Payload. Fehlt 7-Zip, wird es nie automatisch nachinstalliert;
   die Konsole bietet dafür nach ausdrücklicher Bestätigung eine lokale

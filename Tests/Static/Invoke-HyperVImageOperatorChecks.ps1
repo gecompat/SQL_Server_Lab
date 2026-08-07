@@ -82,8 +82,10 @@ try {
 
     $discoveryDirectory = Join-Path $mediaRoot 'OperatingSystems/Client/11/ISO'
     $discoveryIsoPath = Join-Path $discoveryDirectory 'windows-11-auto.iso'
+    $legacyServerIsoPath = Join-Path $discoveryDirectory 'Windows_Server_2016_Datacenter_cyg-winsrv2016dc1709en.iso'
     New-Item -Path $discoveryDirectory -ItemType Directory -Force | Out-Null
     [System.IO.File]::WriteAllBytes($discoveryIsoPath, $bytes)
+    [System.IO.File]::WriteAllBytes($legacyServerIsoPath, $bytes)
     $discovered = & $module {
         param($Root, $DiscoveryIso)
         function Get-HyperVWindowsInstallationMediaInfo {
@@ -125,17 +127,19 @@ try {
                     [PSCustomObject]@{ ImageName = 'Windows Server 2025 Datacenter Evaluation'; ImageIndex = 3 },
                     [PSCustomObject]@{ ImageName = 'Windows 11 Enterprise Evaluation'; ImageIndex = 4 },
                     [PSCustomObject]@{ ImageName = 'Windows Server 2016 SERVERSTANDARD'; ImageIndex = 5 },
-                    [PSCustomObject]@{ ImageName = 'Windows 11 Enterprise LTSC Evaluation'; ImageIndex = 6 }
+                    [PSCustomObject]@{ ImageName = 'Windows 11 Enterprise LTSC Evaluation'; ImageIndex = 6 },
+                    [PSCustomObject]@{ ImageName = 'Windows Server, version 1709'; ImageDescription = 'Windows Server Datacenter'; EditionId = 'ServerDatacenter'; ImageIndex = 7 }
                 )
             }
             function Dismount-DiskImage { }
             @(Get-HyperVWindowsInstallationMediaInfo -IsoPath $Iso)
-        } $discoveryIsoPath
+        } $legacyServerIsoPath
         Add-CheckResult -Name 'Windows-Server-Version bleibt trotz Editions- und Typ-Erkennung erhalten' -Success (
             @($parsedMedia | Where-Object { $_.OperatingSystemId -eq 'windows-server-2025' -and $_.WindowsEdition -eq 'standard-evaluation' -and $_.InstallationType -eq 'desktop-experience' }).Count -eq 1 -and
             @($parsedMedia | Where-Object { $_.OperatingSystemId -eq 'windows-server-2025' -and $_.WindowsEdition -eq 'datacenter-evaluation' -and $_.InstallationType -eq 'core' }).Count -eq 1 -and
             @($parsedMedia | Where-Object { $_.OperatingSystemId -eq 'windows-11' -and $_.WindowsEdition -eq 'enterprise-evaluation' -and $_.InstallationType -eq 'desktop-experience' }).Count -eq 1 -and
             @($parsedMedia | Where-Object { $_.OperatingSystemId -eq 'windows-server-2016' -and $_.WindowsEdition -eq 'standard' -and $_.InstallationType -eq 'desktop-experience' }).Count -eq 1 -and
+            @($parsedMedia | Where-Object { $_.OperatingSystemId -eq 'windows-server-2016' -and $_.WindowsEdition -eq 'datacenter' -and $_.InstallationType -eq 'desktop-experience' }).Count -eq 1 -and
             @($parsedMedia | Where-Object { $_.OperatingSystemId -eq 'windows-11' -and $_.WindowsEdition -eq 'enterprise-ltsc-evaluation' }).Count -eq 1
         )
     }
