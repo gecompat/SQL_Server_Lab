@@ -2,9 +2,9 @@
 .SYNOPSIS
     Stoppt eine laufende SQL_Server_Lab-Umgebung.
 .DESCRIPTION
-    Stoppt alle Container der Umgebung je ProviderSubRun und setzt den globalen
-    State erst nach einem vollstaendigen Stop auf STOPPED. Persistente Daten und
-    Run-State bleiben erhalten.
+    Stoppt Container-Labs je ProviderSubRun. Reguläre Hyper-V-Labs werden
+    anhand ihres Workflow-Kinds direkt an den Hyper-V-Lifecycle delegiert.
+    Persistente Daten und Run-State bleiben erhalten.
 .PARAMETER RunId
     RunId der zu stoppenden Umgebung.
 .PARAMETER TimeoutSeconds
@@ -32,6 +32,17 @@ function Stop-SqlServerLab {
     process {
         $stateRoot = Get-LabStateRoot
         $run = Get-LabRunState -RunId $RunId -StateRoot $stateRoot
+
+        if ([string]$run.metadata.workflowKind -eq 'hyperv-lab') {
+            if ($run.state -ne 'RUNNING') {
+                Write-LabWarning "Lab '$RunId' ist nicht im Status RUNNING (aktuell: $($run.state)). Nichts zu tun."
+                return [PSCustomObject]@{ RunId = $RunId; Status = $run.state; Action = 'SKIPPED' }
+            }
+            if (-not $Force -and -not $PSCmdlet.ShouldProcess($RunId, 'Stop')) {
+                return [PSCustomObject]@{ RunId = $RunId; Status = 'RUNNING'; Action = 'CANCELLED' }
+            }
+            return Stop-HyperVLabEnvironment -RunId $RunId -StateRoot $stateRoot
+        }
 
         if ($run.state -ne 'RUNNING') {
             Write-LabWarning "Lab '$RunId' ist nicht im Status RUNNING (aktuell: $($run.state)). Nichts zu tun."

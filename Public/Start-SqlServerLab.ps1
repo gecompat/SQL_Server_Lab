@@ -2,9 +2,10 @@
 .SYNOPSIS
     Startet eine gestoppte SQL_Server_Lab-Umgebung.
 .DESCRIPTION
-    Startet alle Container der Umgebung je ProviderSubRun. Danach wird optional
-    die SQL- und Datenbank-Bereitschaft geprueft und der globale State erst dann
-    auf RUNNING gesetzt, wenn jeder ProviderSubRun gestartet werden konnte.
+    Startet Container-Labs je ProviderSubRun. Reguläre Hyper-V-Labs werden
+    anhand ihres Workflow-Kinds direkt an den Hyper-V-Lifecycle delegiert;
+    sie werden nie als Container interpretiert. Bei Container-Labs wird danach
+    optional die SQL- und Datenbank-Bereitschaft geprueft.
 .PARAMETER RunId
     RunId der zu startenden Umgebung.
 .PARAMETER SkipReadyCheck
@@ -32,6 +33,18 @@ function Start-SqlServerLab {
     process {
         $stateRoot = Get-LabStateRoot
         $run = Get-LabRunState -RunId $RunId -StateRoot $stateRoot
+
+        # Reguläre Hyper-V-Labs besitzen ebenfalls einen ProviderSubRun. Dieser
+        # ist aber ausdrücklich keine Container-Runtime. Die generische
+        # Hauptmenüaktion muss daher vor jeder docker/podman-Auflösung an den
+        # zustandsgeführten Hyper-V-Workflow delegieren.
+        if ([string]$run.metadata.workflowKind -eq 'hyperv-lab') {
+            if ($run.state -ne 'STOPPED') {
+                Write-LabWarning "Lab '$RunId' ist nicht im Status STOPPED (aktuell: $($run.state)). Nichts zu tun."
+                return [PSCustomObject]@{ RunId = $RunId; Status = $run.state; Action = 'SKIPPED' }
+            }
+            return Start-HyperVLabEnvironment -RunId $RunId -StateRoot $stateRoot
+        }
 
         if ($run.state -ne 'STOPPED') {
             Write-LabWarning "Lab '$RunId' ist nicht im Status STOPPED (aktuell: $($run.state)). Nichts zu tun."
