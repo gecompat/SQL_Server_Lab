@@ -7,6 +7,28 @@
 | `Static/` | Import-, Export-, JSON-, Schema-, Metadaten-, Link-, Menü- und Dokumentationskonsistenz |
 | `Integration/` | mutierende Lifecycle-, Provider-, Versions- und Parallelitäts-Smoke-Tests |
 
+## Kurz-Readiness vor Push/Release
+
+Empfohlene minimale Abfolge vor jedem Push auf `main`:
+
+```powershell
+.\Tests\Static\Invoke-AllChecks.ps1
+.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider auto
+.\Tests\Integration\Invoke-SmokeMatrix.ps1
+```
+
+Bei Hyper-V-relevanten Änderungen zusätzlich:
+
+```powershell
+.\Tests\Integration\Invoke-HyperVSmokeTest.ps1
+```
+
+Interpretation:
+
+- `SKIP`: Provider nicht erreichbar/fehlend oder fehlende Elevation
+- `FAIL`: Erreichbarer Provider hat einen harten Fehler, Exitcode ist `1`
+- `PASS`: Testpfad ist vollständig erfolgreich
+
 ## Statische Prüfungen
 
 ```powershell
