@@ -136,7 +136,7 @@ function Invoke-SqlServerLabWorkflowAction {
         [ValidateSet(
             'Refresh',
             'SetMediaRoot', 'SetDataRoot', 'SetTestDataRoot',
-            'NewContainerLab', 'CreateContainerManifest', 'NewContainerLabFromManifest', 'RenameLab', 'StartContainerLab', 'StopContainerLab', 'RestartContainerLab', 'RemoveContainerLab', 'ClearAllLabs',
+            'NewContainerLab', 'CreateContainerManifest', 'NewContainerLabFromManifest', 'RenameLab', 'StartContainerLab', 'StopContainerLab', 'StartLabReconcile', 'StopLabReconcile', 'RestartContainerLab', 'RemoveContainerLab', 'ClearAllLabs',
             'CreateContainerDatabase', 'InstallContainerSampleDatabase', 'InstallContainerSampleDatabases', 'ExecuteContainerScript',
             'NewHyperVLab', 'NewHyperVLabFromExistingVm', 'StartHyperVLab', 'StopHyperVLab', 'EnableHyperVLabPersistentData', 'InitializeHyperVLabPersistentData', 'CompleteHyperVLabSql', 'EnableHyperVLabHostSqlAccess', 'InspectHyperVLabSqlInstances', 'OpenHyperVConsole', 'RemoveHyperVLab',
             'NewWindowsBuild', 'SetWindowsMediaHash', 'OpenWindowsConsole', 'ConfirmWindowsInstall', 'GeneralizeWindowsBuild', 'PublishWindowsBuild',
@@ -234,7 +234,8 @@ function Invoke-SqlServerLabWorkflowAction {
 
     $containerActions = @(
         'NewContainerLab', 'CreateContainerManifest', 'NewContainerLabFromManifest', 'RenameLab', 'StartContainerLab', 'StopContainerLab', 'RestartContainerLab', 'RemoveContainerLab',
-        'ClearAllLabs', 'CreateContainerDatabase', 'InstallContainerSampleDatabase', 'InstallContainerSampleDatabases', 'ExecuteContainerScript'
+        'ClearAllLabs', 'CreateContainerDatabase', 'InstallContainerSampleDatabase', 'InstallContainerSampleDatabases', 'ExecuteContainerScript',
+        'StartLabReconcile', 'StopLabReconcile'
     )
     if ($Action -notin $containerActions) {
         if (-not $IsWindows) { throw 'HYPERV_WORKFLOW_WINDOWS_HOST_REQUIRED' }
@@ -291,6 +292,8 @@ function Invoke-SqlServerLabWorkflowAction {
         'NewHyperVLabFromExistingVm' { 'Die Quell-VM wird geprüft; danach wird eine geschützte Arbeitskopie für die neue Lab-VM erstellt.' }
         'StartHyperVLab' { 'Der sichtbare Start der Hyper-V-VM wird vorbereitet.' }
         'StopHyperVLab' { 'Der saubere Stopp der Hyper-V-VM wird vorbereitet.' }
+        'StartLabReconcile' { 'Der Run-übergreifende Reconcile-Start wird vorbereitet.' }
+        'StopLabReconcile' { 'Der Run-übergreifende Reconcile-Stopp wird vorbereitet.' }
         'OpenHyperVConsole' { 'VMConnect wird vorbereitet.' }
         'CompleteHyperVLabSql' { 'SQL Server, möglicher Setup-Neustart, SQL-WMI-Provider sowie TCP/IP-Hostzugriff werden automatisch eingerichtet.' }
         'EnableHyperVLabHostSqlAccess' { 'Hyper-V-Netz, SQL-TCP und die Host-SSMS-Verbindung werden eingerichtet und geprüft.' }
@@ -350,6 +353,7 @@ function Invoke-SqlServerLabWorkflowAction {
         }
         'StartHyperVLab' { Start-HyperVLabEnvironment -RunId $BuildId }
         'StopHyperVLab' { Stop-HyperVLabEnvironment -RunId $BuildId }
+        'StartLabReconcile' { Invoke-SqlServerLabReconcileAction -RunId $BuildId -TargetState RUNNING }
         'EnableHyperVLabPersistentData' { Enable-HyperVLabPersistentData -RunId $BuildId -DataRoot $DataRoot -SizeGB $PersistentDataDiskGB }
         'InitializeHyperVLabPersistentData' { Initialize-HyperVLabPersistentData -RunId $BuildId -Credential $credential }
         'CompleteHyperVLabSql' { Complete-HyperVLabSqlImage -RunId $BuildId -Credential $credential -SqlSaPassword $(if ($SaPassword) { $SaPassword } else { $GuestPassword }) }
@@ -359,6 +363,7 @@ function Invoke-SqlServerLabWorkflowAction {
         'RemoveHyperVLab' { Remove-SqlServerLab -RunId $BuildId -Force -Confirm:$false }
         'StartContainerLab' { Start-SqlServerLab -RunId $BuildId }
         'StopContainerLab' { Stop-SqlServerLab -RunId $BuildId -Force -Confirm:$false }
+        'StopLabReconcile' { Invoke-SqlServerLabReconcileAction -RunId $BuildId -TargetState STOPPED }
         'RestartContainerLab' { Restart-SqlServerLab -RunId $BuildId -Force -Confirm:$false }
         'RemoveContainerLab' { Remove-SqlServerLab -RunId $BuildId -Force -Confirm:$false }
         'ClearAllLabs' { Clear-SqlServerLab -Force }

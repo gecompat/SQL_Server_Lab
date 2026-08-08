@@ -54,6 +54,10 @@ COMMANDS
         Liefert einen read-only Desired/Actual/Diff/Action-Plan fuer den
         Lifecycle eines bestehenden Runs.
 
+    Invoke-SqlServerLabReconcileAction
+        Fuehrt einen eindeutig zuordenbaren Reconcile-Plan (Start oder Stopp)
+        fuer einen Run aus.
+
     Invoke-SqlServerLabWorkflowAction
         Fuehrt eine explizite, nicht interaktive Hyper-V-Workflow-Aktion fuer
         die lokale Browser-Oberflaeche aus.

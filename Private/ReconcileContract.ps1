@@ -132,7 +132,7 @@ function Compare-LabDesiredActualState {
         Actions = @($providers | ForEach-Object {
             [PSCustomObject]@{ Operation = $operation; Provider = [string]$_; TargetState = $Desired.TargetState }
         })
-        Warnings = @('Die Aktionen sind nur ein Vorschlag; ein Executor ist nicht Bestandteil dieses Vertragsstands.')
+        Warnings = @('Die Aktionen sind nur ein Vorschlag; die Ausfuehrung erfolgt explizit ueber Invoke-SqlServerLabReconcileAction.')
     }
 }
 

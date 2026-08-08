@@ -47,6 +47,14 @@ public_commands:
     source: Public/Get-SqlServerLabWorkflow.ps1
     purpose: "Konsolidierte, geheimnisfreie Workflow- und Imageübersicht"
     mutates_host: false
+  - name: Get-SqlServerLabReconcilePlan
+    source: Public/Get-SqlServerLabReconcilePlan.ps1
+    purpose: "Read-only Desired/Actual/Diff/Action-Plan fuer einen bestehenden Lifecycle-Run"
+    mutates_host: false
+  - name: Invoke-SqlServerLabReconcileAction
+    source: Public/Invoke-SqlServerLabReconcileAction.ps1
+    purpose: "Reconcile-Plan fuer einen bestehenden Run ausfuehren (START/STOP), wenn eindeutig restartfaehig"
+    mutates_host: true
   - name: Invoke-SqlServerLabWorkflowAction
     source: Public/Invoke-SqlServerLabWorkflowAction.ps1
     purpose: "Nicht interaktive UI-Aktion für einen zulässigen Hyper-V-Workflow-Schritt"
@@ -494,10 +502,15 @@ change_coupling:
   public_command_change:
     - SqlServerLab.psd1
     - Public/README.md
+    - Public/Invoke-SqlServerLabReconcileAction.ps1
     - README.md
+    - Documentation/README.md
     - Documentation/User/Getting_Started.md
     - .ai/repo_map.yaml
+    - Tests/Static/Invoke-ReconcileActionContractChecks.ps1
     - Tests/Static/Invoke-DocumentationChecks.ps1
+    - en-US/about_SqlServerLab.help.txt
+    - de-DE/about_SqlServerLab.help.txt
   manifest_field_change:
     - Schemas/lab-manifest.schema.json
     - Private/ManifestParser.ps1

@@ -37,6 +37,7 @@ Interpretation:
 .\Tests\Static\Invoke-DocumentationChecks.ps1
 .\Tests\Static\Invoke-ReadinessContractChecks.ps1
 .\Tests\Static\Invoke-ReconcileContractChecks.ps1
+.\Tests\Static\Invoke-ReconcileActionContractChecks.ps1
 .\Tests\Static\Invoke-MixedProviderLifecycleChecks.ps1
 .\Tests\Static\Invoke-ArtifactResolverChecks.ps1
 .\Tests\Static\Invoke-SampleHandlerChecks.ps1
@@ -59,6 +60,9 @@ Die statischen Prüfungen benötigen keine laufende SQL-Server-Instanz. Sie kont
 - Read-only Reconcile-Vertrag: versionierter Desired/Actual/Diff/Action-Plan,
   No-op, providergebundene Vorschläge, fail-closed Runtime-Zustände und
   Geheimnisfreiheit;
+- Reconcile-Executor-Vertrag: `Invoke-SqlServerLabReconcileAction` mit
+  unterstütztem `START`/`STOP`, `-WhatIf`, mixed-operation-Schutz und
+  geheimnissicherem Ergebnis;
 - Ausschluss bekannter veralteter Beispiele und Statusangaben.
 - ProviderSubRuns, Mixed-Provider-Beispiel und Cleanup-Zuordnung.
 - Trust Store, inhaltsadressierten Artifact Cache, Quarantäne und sanitisiertes Run Lock mit ausschliesslich synthetischen Testbytes.
