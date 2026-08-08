@@ -36,6 +36,7 @@ Interpretation:
 .\Tests\Static\Invoke-ManifestBuilderChecks.ps1
 .\Tests\Static\Invoke-DocumentationChecks.ps1
 .\Tests\Static\Invoke-ReadinessContractChecks.ps1
+.\Tests\Static\Invoke-ReconcileContractChecks.ps1
 .\Tests\Static\Invoke-MixedProviderLifecycleChecks.ps1
 .\Tests\Static\Invoke-ArtifactResolverChecks.ps1
 .\Tests\Static\Invoke-SampleHandlerChecks.ps1
@@ -55,6 +56,9 @@ Die statischen Prüfungen benötigen keine laufende SQL-Server-Instanz. Sie kont
 - Existenz der in Provider-Metadaten angegebenen Module;
 - zentrale Dokumentationslinks;
 - SQL- und Datenbank-Readiness-Verträge;
+- Read-only Reconcile-Vertrag: versionierter Desired/Actual/Diff/Action-Plan,
+  No-op, providergebundene Vorschläge, fail-closed Runtime-Zustände und
+  Geheimnisfreiheit;
 - Ausschluss bekannter veralteter Beispiele und Statusangaben.
 - ProviderSubRuns, Mixed-Provider-Beispiel und Cleanup-Zuordnung.
 - Trust Store, inhaltsadressierten Artifact Cache, Quarantäne und sanitisiertes Run Lock mit ausschliesslich synthetischen Testbytes.

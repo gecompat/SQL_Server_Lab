@@ -48,6 +48,10 @@ COMMANDS
         Returns the consolidated workflow view for local labs, Windows
         baselines, SQL prepared images, and acceptance environments.
 
+    Get-SqlServerLabReconcilePlan
+        Returns a read-only desired/actual/diff/action plan for an existing
+        run lifecycle.
+
     Invoke-SqlServerLabWorkflowAction
         Runs one explicit non-interactive Hyper-V workflow action for the
         local browser user interface.
