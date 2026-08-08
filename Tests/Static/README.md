@@ -18,6 +18,7 @@ Container, Datenbanken oder Run-States.
 | `Invoke-DocumentationChecks.ps1` | PowerShell-Syntax, Exporte und Help, JSON-Schemas, Kataloge, Beispielmanifeste, Provider-Metadaten, Links und Statusaussagen | `.\Tests\Static\Invoke-DocumentationChecks.ps1` |
 | `Invoke-ManifestBuilderChecks.ps1` | Schema-gesteuerter Builder, semantische Manifestpruefung und atomisches Schreiben | `.\Tests\Static\Invoke-ManifestBuilderChecks.ps1` |
 | `Invoke-ReadinessContractChecks.ps1` | SQL-Readiness, interaktives Menue und atomare Portallokation ohne Provider-Mutation | `.\Tests\Static\Invoke-ReadinessContractChecks.ps1` |
+| `Invoke-ReconcileActionContractChecks.ps1` | Executor-Phasen für Reconcile-Aktionen inkl. `WhatIf`, unterstützte/unsupported-Pläne und Leak-Schutz | `.\Tests\Static\Invoke-ReconcileActionContractChecks.ps1` |
 | `Invoke-MixedProviderLifecycleChecks.ps1` | ProviderSubRun-State, gruppierter Lifecycle, Cleanup-Zuordnung und Mixed-Provider-Beispiel ohne Provider-Mutation | `.\Tests\Static\Invoke-MixedProviderLifecycleChecks.ps1` |
 
 Alle Skripte beenden sich bei einem fehlgeschlagenen Vertrag mit einem Exitcode

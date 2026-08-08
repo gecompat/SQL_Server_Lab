@@ -705,8 +705,7 @@ einem Run kombinieren; Details und Grenzen stehen im
 
 ### Read-only Reconcile-Vorschau
 
-Bevor ein künftiger Reconcile-Executor Lifecycle-Ressourcen ändern darf, kann
-der aktuelle Plan ohne Mutation gelesen werden. Der Vertrag enthält keine
+Der aktuelle Plan kann ohne Mutation gelesen werden. Der Vertrag enthält keine
 Secrets, Host-/Port-Werte oder Container-/VM-IDs. Unvollständige Runtime-
 Zustände werden bewusst als `unsupported` statt mit Teilaktionen ausgewiesen.
 
@@ -714,8 +713,19 @@ Zustände werden bewusst als `unsupported` statt mit Teilaktionen ausgewiesen.
 Get-SqlServerLabReconcilePlan -RunId $lab.RunId -TargetState STOPPED
 ```
 
-Im ersten Vertragsstand sind Actions ausschließlich Vorschläge; sie starten,
-stoppen oder verändern noch keine Ressource.
+### Reconcile-Executor ausführen
+
+Für `START`/`STOP`-Vorschläge kann der Plan jetzt im nächsten Schritt ausgeführt
+werden. Das Beispiel wechselt den gewünschten Zielzustand kontrolliert auf
+`RUNNING`; bestehende Fehlkonfigurationen oder gemischte Operationssätze bleiben
+aus Sicherheitsgründen als `unsupported` und unverändert.
+
+```powershell
+Invoke-SqlServerLabReconcileAction -RunId $lab.RunId -TargetState RUNNING
+```
+
+Mit `-WhatIf` kann vorab geprüft werden, ob der Executor tatsächlich
+Ausführungsversuche durchführt.
 
 ## 16. Umgebung entfernen
 

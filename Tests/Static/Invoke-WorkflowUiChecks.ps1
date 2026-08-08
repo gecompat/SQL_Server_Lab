@@ -211,6 +211,16 @@ Add-CheckResult -Name 'Container-Labs zeigen alle Instanzen inklusive Provider' 
     $workflowText -match '\[string\]\$_.version' -and
     $scriptText -notmatch '\(item\.Instances \|\| \[\]\)\[0\]'
 )
+Add-CheckResult -Name 'UI-Lifecycle-Schaltflächen gehen über Reconcile-Vertrag' -Success (
+    $actionText -match 'StartLabReconcile' -and
+    $actionText -match 'StopLabReconcile' -and
+    $actionText -match 'Invoke-SqlServerLabReconcileAction -RunId \$BuildId -TargetState RUNNING' -and
+    $actionText -match 'Invoke-SqlServerLabReconcileAction -RunId \$BuildId -TargetState STOPPED' -and
+    $scriptText -match 'data-container-action' -and
+    $scriptText -match 'data-hyperv-action' -and
+    $scriptText -match 'StopLabReconcile' -and
+    $scriptText -match 'StartLabReconcile'
+)
 Add-CheckResult -Name 'UI bildet Hyper-V-SQL-Abnahmeschritte zustandsgeführt ab' -Success (
     $workflowText -match 'AcceptanceEnvironments = \$acceptanceItems' -and
     $workflowText -match 'ProvisioningMode' -and

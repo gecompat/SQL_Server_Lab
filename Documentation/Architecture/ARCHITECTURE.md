@@ -63,6 +63,7 @@ Auto-Discovery-Reihenfolge:
 Invoke-SqlServerLab                    # Menue oder Manifest-Einstieg
 Get-SqlServerLabWorkflow               # Verdichtete, geheimnisfreie Workflow-Sicht
 Get-SqlServerLabReconcilePlan          # Read-only Desired/Actual/Diff/Action-Plan eines Runs
+Invoke-SqlServerLabReconcileAction     # Start/Stop aus einem Reconcile-Plan ausfuehren
 Invoke-SqlServerLabWorkflowAction      # UI-tauglicher, nicht interaktiver Hyper-V-Schritt
 New-SqlServerLab                       # Neue Umgebung
 Get-SqlServerLab                       # Status

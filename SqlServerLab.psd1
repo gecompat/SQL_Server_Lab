@@ -12,6 +12,7 @@
         'Invoke-SqlServerLab'
         'Get-SqlServerLabWorkflow'
         'Get-SqlServerLabReconcilePlan'
+        'Invoke-SqlServerLabReconcileAction'
         'Invoke-SqlServerLabWorkflowAction'
         'New-SqlServerLabManifest'
         'Test-SqlServerLabManifest'
