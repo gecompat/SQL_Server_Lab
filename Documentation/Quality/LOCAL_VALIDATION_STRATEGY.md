@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `IMPLEMENTED_WITH_GAPS` |
-| Stand | 2026-07-27 |
+| Stand | 2026-08-08 |
 | CI/CD | keine Voraussetzung für die lokale Produktfunktion |
 | Ziel | reproduzierbare lokale Prüfung von Verträgen und Provider-Runtime |
 
@@ -11,19 +11,20 @@
 
 `SQL_Server_Lab` stellt seine Qualitätsprüfungen als lokal ausführbare Skripte bereit.
 
-Die lokale Validierung besteht aktuell aus zwei tatsächlich implementierten Ebenen:
+Die lokale Validierung besteht aktuell aus drei produktiven Ebenen:
 
 1. statische Vertrags- und Dokumentationsprüfung ohne Labmutation;
-2. mutierender End-to-End-Smoke-Test für genau einen ausgewählten Containerprovider.
+2. mutierender End-to-End-Smoke-Test für einen ausgewählten Laufzeitprovider (oder Auto-Auswahl);
+3. Übergreifende Matrixtests (`Invoke-SmokeMatrix`) über erreichbare Provider inkl. Referenzversionen und optionaler Vollmatrix.
 
-Weitergehende Planner-, Synthetic-, Recovery- und vollständige Versionsmatrixtests bleiben Roadmap. Sie dürfen nicht als bereits vorhanden oder bestanden dargestellt werden.
+Es gibt weiterhin Restlücken (z. B. Hyper-V-Postcondition- und SQL-Readiness auf echter Host-VM), aber Versions-/Provider-Matrix, Restore-Smoke und Hyper-V-Grundlage sind als lokale Pfade dokumentiert und getestet.
 
 ## 2. Aktuelle Einstiegspunkte
 
 ### Statische Prüfung
 
 ```powershell
-.\Tests\Static\Invoke-DocumentationChecks.ps1
+.\Tests\Static\Invoke-AllChecks.ps1
 ```
 
 ### Docker-Smoke-Test
@@ -45,6 +46,11 @@ Weitergehende Planner-, Synthetic-, Recovery- und vollständige Versionsmatrixte
 ```
 
 Der Auto-Modus wählt für den mutierenden Lifecycle genau eine Runtime: Docker vor Podman. Er ist kein Ersatz für zwei getrennte Providerläufe.
+Der empfohlene operative Push-Pfad ist in der lokalen Readiness-Checkliste beschrieben:
+
+```text
+.\Documentation\Quality\LOCAL_READINESS_CHECKLIST.md
+```
 
 ## 3. Voraussetzungen
 
@@ -64,6 +70,13 @@ Der Auto-Modus wählt für den mutierenden Lifecycle genau eine Runtime: Docker 
 - ein freier Port im Lab-Bereich.
 
 Ein fehlender Provider oder ein fehlendes `sqlcmd` ist kein bestandener Test. Der Test bricht mit einem nachvollziehbaren Fehler ab.
+
+Für lokale Full-Readiness sind zusätzlich relevant:
+
+```powershell
+.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider auto
+.\Tests\Integration\Invoke-SmokeMatrix.ps1
+```
 
 ## 4. Statische Vertragsprüfung
 
@@ -266,7 +279,7 @@ Verwendung:
 
 Ein nicht verfügbarer Provider darf nicht als `PASS` behandelt werden.
 
-## 13. Empfohlene lokale Abnahme vor Merge
+## 13. Empfohlene lokale Abnahme vor Push/Release
 
 ### Nur Dokumentation, Schema oder Metadaten
 
@@ -280,6 +293,7 @@ Ein nicht verfügbarer Provider darf nicht als `PASS` behandelt werden.
 .\Tests\Static\Invoke-DocumentationChecks.ps1
 .\Tests\Integration\Invoke-SmokeTest.ps1 -Provider docker
 .\Tests\Integration\Invoke-RestoreSmokeTest.ps1 -Provider docker
+.\Tests\Integration\Invoke-SmokeMatrix.ps1
 ```
 
 ### Podman-Runtime betroffen
@@ -288,6 +302,7 @@ Ein nicht verfügbarer Provider darf nicht als `PASS` behandelt werden.
 .\Tests\Static\Invoke-DocumentationChecks.ps1
 .\Tests\Integration\Invoke-SmokeTest.ps1 -Provider podman
 .\Tests\Integration\Invoke-RestoreSmokeTest.ps1 -Provider podman
+.\Tests\Integration\Invoke-SmokeMatrix.ps1
 ```
 
 ### Gemeinsame Containerlogik betroffen
@@ -309,6 +324,16 @@ Ein nicht verfügbarer Provider darf nicht als `PASS` behandelt werden.
 
 Der Hyper-V-Smoke-Test ist ein Image-Registry- und VM-/VHDX-Lifecycle-Nachweis. Ein erfolgreicher
 Lauf ist kein Betriebssystem-, PowerShell-Direct-Postcondition- oder SQL-Nachweis.
+
+### Voller Minimalablauf (Push/Release)
+
+```powershell
+.\Tests\Static\Invoke-AllChecks.ps1
+.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider auto
+.\Tests\Integration\Invoke-SmokeMatrix.ps1
+```
+
+Bei fehlender Docker-/Podman-Ebene dokumentiert `Invoke-SmokeMatrix` `SKIP` statt `FAIL`; ein erreichbarer Providerfehler bleibt jedoch `FAIL`.
 
 Nicht verfügbare Native-Tests müssen im Pull Request mit Grund als `NOT_EXECUTED` angegeben werden.
 

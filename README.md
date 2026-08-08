@@ -529,6 +529,14 @@ flowchart TD
 
 ## Tests und Validierung
 
+Vor jedem Push/Release ist zusätzlich die lokale Readiness-Checkliste sinnvoll:
+
+```powershell
+.\Documentation\Quality\LOCAL_READINESS_CHECKLIST.md
+```
+
+Sie bündelt die empfohlene Reihenfolge für statische und Integration-Checks sowie häufige Umgebungsfehlerursachen.
+
 Statische Konsistenz- und Readiness-Prüfungen:
 
 ```powershell
