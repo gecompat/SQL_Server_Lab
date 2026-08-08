@@ -157,6 +157,18 @@ function New-SqlServerLab {
     .PARAMETER SqlSaPassword
         Optionales separates SQL-SA-Passwort für eine Hyper-V-Manifest-
         Bereitstellung. Es wird nie in das Manifest oder den Run-State geschrieben.
+    .PARAMETER Region
+        Zwei- oder vierstelliger Regions-Schlüssel für die Windows-OOBE
+        (z. B. DE, DE-DE oder AT).
+    .PARAMETER SystemLocale
+        Windows-System-Locale für die OOBE-Konfiguration (z. B. de-DE).
+    .PARAMETER UiLanguage
+        Windows-UI-Language für die OOBE-Konfiguration (z. B. en-US).
+    .PARAMETER InputLocale
+        Keyboard Input Locale, z. B. 0407:00000407.
+    .PARAMETER TimeZone
+        Windows-Zeitzone für die OOBE-Konfiguration (z. B. W. Europe Standard
+        Time).
     .PARAMETER NonInteractive
         Unterbindet Kennwortabfragen. Fehlende, erforderliche Secrets werden
         stattdessen mit einem klaren Fehler abgelehnt; gedacht für CI/CD und
@@ -232,6 +244,11 @@ function New-SqlServerLab {
         [switch]$PersistentData,
         [SecureString]$GuestPassword,
         [SecureString]$SqlSaPassword,
+        [ValidatePattern('^[A-Za-z]{2}(-[A-Za-z]{2})?$')][string]$Region = 'DE',
+        [ValidatePattern('^[A-Za-z]{2}-[A-Za-z]{2}$')][string]$SystemLocale = 'de-DE',
+        [ValidatePattern('^[A-Za-z]{2}-[A-Za-z]{2}$')][string]$UiLanguage = 'en-US',
+        [ValidatePattern('^[0-9A-Fa-f]{4}:[0-9A-Fa-f]{8}$')][string]$InputLocale = '0407:00000407',
+        [string]$TimeZone = 'W. Europe Standard Time',
         [switch]$NonInteractive,
         [switch]$AllowExpertHostWriteMounts,
         [switch]$SkipAssessment
@@ -391,7 +408,7 @@ function New-SqlServerLab {
         if ($PersistentData) {
             $null = Enable-HyperVLabPersistentData -RunId $lab.RunId -DataRoot $DataRoot -SizeGB ([int]$resolved.persistentData.dataDiskGB) -StateRoot $hyperVLab.StateRoot
         }
-        $provisioning = Invoke-HyperVLabUnattendedProvision -RunId $lab.RunId -AdministratorPassword $GuestPassword -SqlSaPassword $SqlSaPassword -PasswordSource $passwordSource -StateRoot $hyperVLab.StateRoot
+        $provisioning = Invoke-HyperVLabUnattendedProvision -RunId $lab.RunId -AdministratorPassword $GuestPassword -SqlSaPassword $SqlSaPassword -PasswordSource $passwordSource -Region $Region -SystemLocale $SystemLocale -UiLanguage $UiLanguage -InputLocale $InputLocale -TimeZone $TimeZone -StateRoot $hyperVLab.StateRoot
         return [PSCustomObject]@{
             RunId = $lab.RunId; ScopeId = $lab.ScopeId; State = 'RUNNING'; Name = $resolved.name; Instances = @($hyperVLab.Instance)
             StateRoot = $hyperVLab.StateRoot; DataRoot = if ($PersistentData) { $DataRoot } else { $null }; Provisioning = $provisioning

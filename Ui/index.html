@@ -207,6 +207,11 @@
         <label>Startspeicher (MB)<input id="hyperv-memory" type="number" min="512" value="4096" required></label>
         <label>vCPU<input id="hyperv-processors" type="number" min="1" max="64" value="4" required></label>
         <label>Virtueller Switch<select id="hyperv-switch"><option value="">SQL_Server_Lab-Standard (Host-SSMS möglich)</option></select></label>
+        <label>Region<input id="hyperv-region" value="DE" list="hyperv-region-options" maxlength="5" required><datalist id="hyperv-region-options"><option value="DE"><option value="AT"><option value="de-DE"><option value="de-AT"><option value="US"></datalist></label>
+        <label>System-Locale<input id="hyperv-system-locale" value="de-DE" list="hyperv-locale-options" pattern="[A-Za-z]{2}-[A-Za-z]{2}" required><datalist id="hyperv-locale-options"><option value="de-DE"><option value="en-US"><option value="de-AT"><option value="en-GB"></datalist></label>
+        <label>UI-Language<input id="hyperv-ui-language" value="en-US" list="hyperv-language-options" pattern="[A-Za-z]{2}-[A-Za-z]{2}" required><datalist id="hyperv-language-options"><option value="de-DE"><option value="en-US"><option value="de-AT"><option value="en-GB"></datalist></label>
+        <label>Input-Locale<input id="hyperv-input-locale" value="0407:00000407" pattern="[0-9A-Fa-f]{4}:[0-9A-Fa-f]{8}" required></label>
+        <label>Zeitzone<select id="hyperv-time-zone"><option>W. Europe Standard Time</option><option>UTC</option><option>Central Europe Standard Time</option><option>Eastern Standard Time</option></select></label>
       </div>
       <label id="hyperv-persistent-field" class="form-check"><input id="hyperv-persistent-data" type="checkbox"> Langlebige Daten-VHDX im Data Root anhängen</label>
       <p class="form-note">Die Daten-VHDX wird je Lab neu im Data Root angelegt, nicht mit der Vorlage geteilt und bei „Entfernen“ nicht gelöscht. Im Gast wird ein freier Datenbuchstabe verwendet (bevorzugt <code>S:\SQLData</code>).</p>

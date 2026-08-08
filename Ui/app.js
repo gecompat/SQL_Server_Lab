@@ -992,9 +992,19 @@ $('#hyperv-lab-form').addEventListener('submit', async (event) => {
   const passwordMode = $('#hyperv-password-mode').value;
   const guestPassword = $('#hyperv-guest-password').value;
   const saPassword = selectedArtifact.Workload === 'sql' ? $('#hyperv-sa-password').value : '';
+  const region = $('#hyperv-region').value.trim();
+  const systemLocale = $('#hyperv-system-locale').value.trim();
+  const uiLanguage = $('#hyperv-ui-language').value.trim();
+  const inputLocale = $('#hyperv-input-locale').value.trim();
+  const timeZone = $('#hyperv-time-zone').value.trim();
   if (!guestPassword) { showError(new Error('Bitte ein lokales Administratorpasswort erzeugen oder eingeben.')); return; }
   if (passwordMode === 'user' && guestPassword !== $('#hyperv-guest-password-repeat').value) { showError(new Error('Die eingegebenen Passwörter stimmen nicht überein.')); return; }
   if (saPassword && saPassword !== $('#hyperv-sa-password-repeat').value) { showError(new Error('Die beiden SQL-SA-Passwörter stimmen nicht überein.')); return; }
+  if (!region || !/^[A-Za-z]{2}(-[A-Za-z]{2})?$/.test(region)) { showError(new Error('Bitte eine gültige Region im Format DE oder DE-DE eingeben.')); return; }
+  if (!systemLocale || !/^[A-Za-z]{2}-[A-Za-z]{2}$/i.test(systemLocale)) { showError(new Error('Bitte eine gültige System-Locale im Format de-DE eingeben.')); return; }
+  if (!uiLanguage || !/^[A-Za-z]{2}-[A-Za-z]{2}$/i.test(uiLanguage)) { showError(new Error('Bitte eine gültige UI-Language im Format en-US eingeben.')); return; }
+  if (!inputLocale || !/^[0-9A-Fa-f]{4}:[0-9A-Fa-f]{8}$/.test(inputLocale)) { showError(new Error('Bitte eine gültige Input-Locale im Format 0407:00000407 eingeben.')); return; }
+  if (!timeZone) { showError(new Error('Bitte eine Zeitzone angeben.')); return; }
   try {
     const parameters = {
       ArtifactId: $('#hyperv-artifact').value,
@@ -1003,6 +1013,11 @@ $('#hyperv-lab-form').addEventListener('submit', async (event) => {
       MemoryStartupMB: Number($('#hyperv-memory').value),
       ProcessorCount: Number($('#hyperv-processors').value),
       SwitchName: $('#hyperv-switch').value.trim(),
+      Region: region,
+      SystemLocale: systemLocale,
+      UiLanguage: uiLanguage,
+      InputLocale: inputLocale,
+      TimeZone: timeZone,
       PersistentData: selectedArtifact.Workload === 'sql' && $('#hyperv-persistent-data').checked,
       DataRoot: selectedArtifact.Workload === 'sql' && $('#hyperv-persistent-data').checked ? (workflow?.Defaults?.DataRoot || '') : '',
       ProvisionUnattended: true,

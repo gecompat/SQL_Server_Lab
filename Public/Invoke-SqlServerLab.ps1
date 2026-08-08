@@ -2022,6 +2022,34 @@ function Read-LabHyperVSqlSaPassword {
     }
 }
 
+function Read-LabHyperVLocaleSettings {
+    [CmdletBinding()]
+    param()
+
+    $region = Read-Host '  Region (z. B. DE, AT oder de-AT) [DE]'
+    if (-not $region) { $region = 'DE' }
+
+    $systemLocale = Read-Host '  System-Locale (z. B. de-DE, en-US oder de-AT) [de-DE]'
+    if (-not $systemLocale) { $systemLocale = 'de-DE' }
+
+    $uiLanguage = Read-Host '  UI-Language (z. B. de-DE oder en-US) [en-US]'
+    if (-not $uiLanguage) { $uiLanguage = 'en-US' }
+
+    $inputLocale = Read-Host '  Input-Locale [0407:00000407]'
+    if (-not $inputLocale) { $inputLocale = '0407:00000407' }
+
+    $timeZone = Read-Host '  Zeitzone [W. Europe Standard Time]'
+    if (-not $timeZone) { $timeZone = 'W. Europe Standard Time' }
+
+    return [PSCustomObject]@{
+        Region = $region
+        SystemLocale = $systemLocale
+        UiLanguage = $uiLanguage
+        InputLocale = $inputLocale
+        TimeZone = $timeZone
+    }
+}
+
 function New-LabHyperVEnvironmentInteractive {
     [CmdletBinding()]
     param()
@@ -2083,6 +2111,7 @@ function New-LabHyperVEnvironmentInteractive {
         $sqlSaPassword = Read-LabHyperVSqlSaPassword -GuestPassword $guestPassword
         if (-not $sqlSaPassword) { return }
     }
+    $localeSettings = Read-LabHyperVLocaleSettings
     Write-Host "  Image: $($artifact.artifactId)" -ForegroundColor DarkGray
     if ($isSqlPrepared) {
         Write-Host '  Es wird eine differenzierende VM erstellt, automatisch per Unattend.xml eingerichtet und anschließend mit SQL CompleteImage vervollständigt.' -ForegroundColor DarkGray
@@ -2096,7 +2125,16 @@ function New-LabHyperVEnvironmentInteractive {
         if ($persistentData) {
             $null = Enable-HyperVLabPersistentData -RunId $lab.RunId -DataRoot $dataRoot -SizeGB ([int]$persistentDataDiskGB)
         }
-        $null = Invoke-HyperVLabUnattendedProvision -RunId $lab.RunId -AdministratorPassword $guestPassword -SqlSaPassword $sqlSaPassword -PasswordSource $passwordSource
+        $null = Invoke-HyperVLabUnattendedProvision `
+            -RunId $lab.RunId `
+            -AdministratorPassword $guestPassword `
+            -SqlSaPassword $sqlSaPassword `
+            -PasswordSource $passwordSource `
+            -Region $localeSettings.Region `
+            -SystemLocale $localeSettings.SystemLocale `
+            -UiLanguage $localeSettings.UiLanguage `
+            -InputLocale $localeSettings.InputLocale `
+            -TimeZone $localeSettings.TimeZone
         Write-LabSuccess "Hyper-V-Umgebung bereitgestellt: $($lab.VMName) (Run $($lab.RunId))"
         if ($isSqlPrepared) {
             Write-LabInfo 'Die OOBE, SQL CompleteImage und eine optionale Daten-VHDX-Initialisierung wurden automatisch ausgeführt.'

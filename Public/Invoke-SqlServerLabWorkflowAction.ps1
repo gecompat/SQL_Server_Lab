@@ -108,6 +108,16 @@ Ist er angegeben, wird der Download strikt dagegen verifiziert.
     einzelnen Bereitstellungsvorgang zufällig erzeugt wurde. Der Wert dient
     ausschließlich der Run-Metadatenanzeige; das Passwort selbst wird nie im
     Klartext gespeichert.
+.PARAMETER Region
+    Zwei- oder vierstelliger Regions-Schlüssel für die Windows-OOBE (z. B. DE oder DE-DE).
+.PARAMETER SystemLocale
+    Windows-System-Locale im Format de-DE (Standard: de-DE).
+.PARAMETER UiLanguage
+    Windows-UI-Language im Format en-US (Standard: en-US).
+.PARAMETER InputLocale
+    Keyboard Input Locale (z. B. 0407:00000407).
+.PARAMETER TimeZone
+    Windows-Zeitzone für die OOBE- und SQL-CompleteImage-Umgebung.
 .PARAMETER ProvisionUnattended
     Führt bei einer neuen Hyper-V-Lab-VM die Windows-OOBE, optionale
     Data-Root-Initialisierung und SQL CompleteImage unbeaufsichtigt aus. Das
@@ -185,6 +195,11 @@ function Invoke-SqlServerLabWorkflowAction {
         [string]$GuestUserName = 'Administrator',
         [SecureString]$GuestPassword,
         [ValidateSet('user', 'generated')][string]$GuestPasswordSource = 'user',
+        [ValidatePattern('^[A-Za-z]{2}(-[A-Za-z]{2})?$')][string]$Region = 'DE',
+        [ValidatePattern('^[A-Za-z]{2}-[A-Za-z]{2}$')][string]$SystemLocale = 'de-DE',
+        [ValidatePattern('^[A-Za-z]{2}-[A-Za-z]{2}$')][string]$UiLanguage = 'en-US',
+        [ValidatePattern('^[0-9A-Fa-f]{4}:[0-9A-Fa-f]{8}$')][string]$InputLocale = '0407:00000407',
+        [string]$TimeZone = 'W. Europe Standard Time',
         [switch]$ProvisionUnattended,
         [Nullable[datetime]]$EvaluationExpiresAt,
         [ValidateRange(2, 1048576)][int]$MemoryStartupMB = 4096,
@@ -341,7 +356,17 @@ function Invoke-SqlServerLabWorkflowAction {
             $lab = New-HyperVLabEnvironment -ArtifactId $ArtifactId -LabName $LabName -InstanceId $InstanceId -MemoryStartupMB $MemoryStartupMB -ProcessorCount $ProcessorCount -SwitchName $SwitchName
             if ($PersistentData) { $null = Enable-HyperVLabPersistentData -RunId $lab.RunId -DataRoot $DataRoot -SizeGB $PersistentDataDiskGB }
             if ($ProvisionUnattended) {
-                $provisioning = Invoke-HyperVLabUnattendedProvision -RunId $lab.RunId -AdministratorPassword $GuestPassword -SqlSaPassword $SaPassword -PasswordSource $GuestPasswordSource -MediaRoot $MediaRoot
+                $provisioning = Invoke-HyperVLabUnattendedProvision `
+                    -RunId $lab.RunId `
+                    -AdministratorPassword $GuestPassword `
+                    -SqlSaPassword $SaPassword `
+                    -PasswordSource $GuestPasswordSource `
+                    -Region $Region `
+                    -SystemLocale $SystemLocale `
+                    -UiLanguage $UiLanguage `
+                    -InputLocale $InputLocale `
+                    -TimeZone $TimeZone `
+                    -MediaRoot $MediaRoot
                 $lab | Add-Member -NotePropertyName provisioning -NotePropertyValue $provisioning -Force
             }
             $lab

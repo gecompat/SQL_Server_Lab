@@ -276,14 +276,30 @@ Add-CheckResult -Name 'Prepared-Image-Klone erlauben getrennte Gast- und SA-Pass
     $hyperVLabText -match 'Complete-HyperVLabSqlImage' -and
     $actionText -match 'ProvisionUnattended' -and
     $actionText -match 'GuestPasswordSource' -and
+    $actionText -match '\[string\]\$Region' -and
+    $actionText -match '\[string\]\$SystemLocale' -and
+    $actionText -match '\[string\]\$UiLanguage' -and
+    $actionText -match '\[string\]\$InputLocale' -and
+    $actionText -match '\[string\]\$TimeZone' -and
     $actionText -match '\[SecureString\]\$SaPassword' -and
+    $consoleText -match 'Read-LabHyperVLocaleSettings' -and
+    $hyperVLabText -match 'Resolve-HyperVLocaleGeoId' -and
     $htmlText -match 'id="hyperv-password-mode"' -and
     $htmlText -match 'id="hyperv-guest-password"' -and
     $htmlText -match 'id="hyperv-sa-password"' -and
+    $htmlText -match 'id="hyperv-region"' -and
+    $htmlText -match 'id="hyperv-system-locale"' -and
+    $htmlText -match 'id="hyperv-ui-language"' -and
+    $htmlText -match 'id="hyperv-input-locale"' -and
+    $htmlText -match 'id="hyperv-time-zone"' -and
     $htmlText -match 'id="credential-sa-password"' -and
     $htmlText -match 'id="hyperv-copy-password"' -and
     $scriptText -match 'generateHyperVGuestPassword' -and
     $scriptText -match 'navigator\.clipboard' -and
+    $scriptText -match 'SystemLocale: systemLocale' -and
+    $scriptText -match 'UiLanguage: uiLanguage' -and
+    $scriptText -match 'InputLocale: inputLocale' -and
+    $scriptText -match 'TimeZone: timeZone' -and
     $scriptText -match 'updateHyperVSaPasswordMode'
 )
 Add-CheckResult -Name 'Reguläre Hyper-V-Klone automatisieren SQL-Neustart, WMI und TCP/IP-Hostzugriff' -Success (

@@ -86,7 +86,7 @@ function Show-Usage {
     Write-ScriptMessage -Message '      Relativer Pfad zur Logdatei, bezogen auf das Git-Root.' -Color Cyan
     Write-ScriptMessage -Message '  -AllFiles             Prüft alle Dateien im Repository statt nur neue oder geänderte Dateien.' -Color Cyan
     Write-ScriptMessage -Message '  -CheckOnly            Führt nur die Prüfung aus. Commit und Push werden übersprungen.' -Color Cyan
-    Write-ScriptMessage -Message '  -Help | -help | /?    Zeigt diese Hilfe mit Beispielen an.' -Color Cyan -BlankLineAfter
+    Write-ScriptMessage -Message '  -ShowHelp | -Help | -help | -h | -? | --help  Zeigt diese Hilfe mit Beispielen an.' -Color Cyan -BlankLineAfter
 
     Write-ScriptMessage -Message 'Aufrufbeispiele:' -Color Magenta
     Write-ScriptMessage -Message "  .\$ScriptName" -Color Cyan
