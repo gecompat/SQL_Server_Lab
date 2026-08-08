@@ -4,7 +4,7 @@
 |---|---|
 | Projekt | `SQL_Server_Lab` |
 | Status | `PLANNING_BASELINE_WITH_STATUS_TRACKING` |
-| Stand | 2026-08-01 |
+| Stand | 2026-08-08 |
 | Umsetzungsstand | Abschnitt 17a; Runtime-Nachweis ausschließlich über `Documentation/Quality/KNOWN_LIMITATIONS.md` |
 | Zielversion der Verträge | `0.1-draft` |
 | Primärsprache | Deutsch; etablierte englische Fachbegriffe bleiben erhalten |
@@ -897,7 +897,7 @@ Abnahme:
 - Releaseartefakte enthalten keine lokalen States, Secrets oder Umgebungsdaten;
 - ein externer Validator könnte ausschließlich über veröffentlichte Verträge arbeiten.
 
-## 17a. Umsetzungsstand der Wellen (Stand 2026-08-01)
+## 17a. Umsetzungsstand der Wellen (Stand 2026-08-08)
 
 Dieser Abschnitt gleicht den Plan mit dem tatsächlich implementierten Stand ab.
 Er ist eine Statusübersicht, kein Runtime-Nachweis; verbindlich bleibt
