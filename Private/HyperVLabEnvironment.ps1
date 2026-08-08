@@ -269,6 +269,97 @@ function New-HyperVLabEnvironment {
     }
 }
 
+function Resolve-HyperVLocaleGeoId {
+    [CmdletBinding()]
+    param(
+        [string]$Region
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Region)) { throw 'HYPERV_LAB_REGION_REQUIRED' }
+
+    $normalized = $Region.Trim().Replace('_', '-').ToUpperInvariant()
+    $territory = if ($normalized -match '^[A-Z]{2}-([A-Z]{2})$') {
+        $Matches[1]
+    }
+    elseif ($normalized -match '^[A-Z]{2}$') {
+        $normalized
+    }
+    else {
+        throw "HYPERV_LAB_REGION_INVALID: $Region"
+    }
+
+    try {
+        $regionInfo = [System.Globalization.RegionInfo]::new($territory)
+        if ($regionInfo.GeoId -le 0) { throw 'GeoId unavailable' }
+        return [int]$regionInfo.GeoId
+    }
+    catch {
+        throw "HYPERV_LAB_REGION_UNSUPPORTED: $Region"
+    }
+}
+
+function Get-HyperVUnattendedLocaleSettings {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Region,
+        [Parameter(Mandatory)][string]$SystemLocale,
+        [Parameter(Mandatory)][string]$UiLanguage,
+        [Parameter(Mandatory)][string]$InputLocale,
+        [Parameter(Mandatory)][string]$TimeZone
+    )
+
+    return [PSCustomObject]@{
+        Region = $Region
+        GeoId = Resolve-HyperVLocaleGeoId -Region $Region
+        SystemLocale = $SystemLocale
+        UiLanguage = $UiLanguage
+        InputLocale = $InputLocale
+        TimeZone = $TimeZone
+    }
+}
+
+function Get-HyperVUnattendedPostLoginScript {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][int]$GeoId,
+        [Parameter(Mandatory)][string]$SystemLocale,
+        [Parameter(Mandatory)][string]$UiLanguage,
+        [Parameter(Mandatory)][string]$InputLocale,
+        [Parameter(Mandatory)][string]$TimeZone
+    )
+
+    return {
+        param(
+            $ExpectedRunId,
+            [int]$GeoId,
+            $SystemLocale,
+            $UiLanguage,
+            $InputLocale,
+            $TimeZone
+        )
+        $ErrorActionPreference = 'Stop'
+        Set-WinHomeLocation -GeoId $GeoId
+        Set-WinSystemLocale -SystemLocale $SystemLocale
+        Set-Culture -CultureInfo $SystemLocale
+        Set-WinUILanguageOverride -Language $UiLanguage
+        Set-WinDefaultInputMethodOverride -InputTip $InputLocale
+        Set-TimeZone -Id $TimeZone
+        Remove-Item -LiteralPath "$env:WINDIR\Panther\Unattend.xml" -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath "$env:WINDIR\Panther\Unattend\Unattend.xml" -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath "$env:WINDIR\Setup\Scripts\SetupComplete.cmd" -Force -ErrorAction SilentlyContinue
+        [PSCustomObject]@{
+            runId = $ExpectedRunId
+            imageState = [string](Get-ItemPropertyValue -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State' -Name ImageState)
+            geoId = [int](Get-WinHomeLocation).GeoId
+            systemLocale = [string](Get-WinSystemLocale)
+            uiLanguage = [string](Get-WinUILanguageOverride)
+            inputLocale = [string](Get-WinDefaultInputMethodOverride)
+            timeZone = [string](Get-TimeZone).Id
+            observedAt = [datetime]::UtcNow.ToString('o')
+        }
+    }.GetNewClosure()
+}
+
 function Invoke-HyperVLabUnattendedProvision {
     <#
     .SYNOPSIS
@@ -286,6 +377,11 @@ function Invoke-HyperVLabUnattendedProvision {
         [SecureString]$SqlSaPassword,
         [ValidateSet('user', 'generated')][string]$PasswordSource = 'user',
         [ValidateRange(60, 3600)][int]$TimeoutSeconds = 900,
+        [ValidatePattern('^[A-Za-z]{2}(-[A-Za-z]{2})?$')][string]$Region = 'DE',
+        [ValidatePattern('^[A-Za-z]{2}-[A-Za-z]{2}$')][string]$SystemLocale = 'de-DE',
+        [ValidatePattern('^[A-Za-z]{2}-[A-Za-z]{2}$')][string]$UiLanguage = 'en-US',
+        [ValidatePattern('^[0-9A-Fa-f]{4}:[0-9A-Fa-f]{8}$')][string]$InputLocale = '0407:00000407',
+        [string]$TimeZone = 'W. Europe Standard Time',
         [string]$MediaRoot,
         [string]$StateRoot
     )
@@ -306,13 +402,16 @@ function Invoke-HyperVLabUnattendedProvision {
     Save-LabSecret -Path $lab.RunDirectory -Name 'guest-administrator-password' -Secret $AdministratorPassword
     $credential = [PSCredential]::new('Administrator', $AdministratorPassword)
     $unattend = $null; $bootstrap = $null; $fallbackAddress = $null
+    $localeSettings = Get-HyperVUnattendedLocaleSettings -Region $Region -SystemLocale $SystemLocale -UiLanguage $UiLanguage -InputLocale $InputLocale -TimeZone $TimeZone
+    $postLoginScript = Get-HyperVUnattendedPostLoginScript -GeoId $localeSettings.GeoId -SystemLocale $localeSettings.SystemLocale -UiLanguage $localeSettings.UiLanguage -InputLocale $localeSettings.InputLocale -TimeZone $localeSettings.TimeZone
     try {
         if ($lab.Instance.labNetwork) {
             $fallbackAddress = Get-LabNetworkGuestAddress -Network $lab.Instance.labNetwork -Identity $lab.Run.runId
             $bootstrap = New-HyperVSqlGuestNetworkBootstrapScript -Network $lab.Instance.labNetwork -Address $fallbackAddress
         }
         $unattend = New-HyperVSqlOobeUnattendXml -AdministratorPassword $AdministratorPassword `
-            -Network $lab.Instance.labNetwork -Identity $lab.Run.runId
+            -Network $lab.Instance.labNetwork -Identity $lab.Run.runId `
+            -TimeZone $localeSettings.TimeZone
         Write-LabInfo 'Schritt 3/6: Unattend.xml und – bei Labnetz – der WinRM-Netzwerk-Bootstrap werden ausschließlich in die Child-VHDX injiziert.'
         Set-HyperVSqlOfflineUnattend -VhdxPath $vhdxPath -MountRoot (Join-Path $lab.RunDirectory 'offline-oobe-mount') -UnattendXml $unattend -BootstrapScript $bootstrap
     }
@@ -320,6 +419,7 @@ function Invoke-HyperVLabUnattendedProvision {
 
     $lab.Instance | Add-Member -NotePropertyName oobeAutomation -NotePropertyValue ([PSCustomObject]@{
         status = 'RUNNING'; passwordSource = $PasswordSource; passwordStorage = 'host-dpapi'
+        region = $Region; systemLocale = $SystemLocale; uiLanguage = $UiLanguage; inputLocale = $InputLocale; timeZone = $TimeZone
         answerMedia = 'run-child-vhdx'; networkBootstrap = if ($fallbackAddress) { 'lab-winrm-v1' } else { 'none' }
         labAddress = $fallbackAddress; startedAt = Get-LabTimestamp
     }) -Force
@@ -334,31 +434,22 @@ function Invoke-HyperVLabUnattendedProvision {
 
     Write-LabInfo 'Schritt 5/6: OOBE-Artefakte werden im Gast entfernt und die regionale Konfiguration wird geprüft.'
     $receipt = Invoke-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId `
-        -ExpectedScopeId $lab.Run.scopeId -Credential $credential -FallbackAddress $fallbackAddress -ArgumentList @([string]$lab.Run.runId) -ScriptBlock {
-            param($ExpectedRunId)
-            $ErrorActionPreference = 'Stop'
-            Set-WinHomeLocation -GeoId 94
-            Set-WinSystemLocale -SystemLocale 'de-DE'
-            Set-Culture -CultureInfo 'de-DE'
-            Set-WinUILanguageOverride -Language 'en-US'
-            Set-WinDefaultInputMethodOverride -InputTip '0407:00000407'
-            Set-TimeZone -Id 'W. Europe Standard Time'
-            Remove-Item -LiteralPath "$env:WINDIR\Panther\Unattend.xml" -Force -ErrorAction SilentlyContinue
-            Remove-Item -LiteralPath "$env:WINDIR\Panther\Unattend\Unattend.xml" -Force -ErrorAction SilentlyContinue
-            Remove-Item -LiteralPath "$env:WINDIR\Setup\Scripts\SetupComplete.cmd" -Force -ErrorAction SilentlyContinue
-            [PSCustomObject]@{
-                runId = $ExpectedRunId
-                imageState = [string](Get-ItemPropertyValue -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State' -Name ImageState)
-                observedAt = [datetime]::UtcNow.ToString('o')
-            }
-        }
+        -ExpectedScopeId $lab.Run.scopeId -Credential $credential -FallbackAddress $fallbackAddress `
+        -ArgumentList @([string]$lab.Run.runId, $localeSettings.GeoId, $localeSettings.SystemLocale, $localeSettings.UiLanguage, $localeSettings.InputLocale, $localeSettings.TimeZone) `
+        -ScriptBlock $postLoginScript
     $receipt = @($receipt)[-1]
-    if (-not $receipt -or [string]$receipt.runId -ne [string]$lab.Run.runId -or [string]$receipt.imageState -ne 'IMAGE_STATE_COMPLETE') {
+    if (-not $receipt -or [string]$receipt.runId -ne [string]$lab.Run.runId -or
+        [string]$receipt.imageState -ne 'IMAGE_STATE_COMPLETE' -or [int]$receipt.geoId -ne $localeSettings.GeoId -or
+        [string]$receipt.systemLocale -ne $localeSettings.SystemLocale -or
+        [string]$receipt.uiLanguage -ne $localeSettings.UiLanguage -or
+        [string]$receipt.inputLocale -ne $localeSettings.InputLocale -or
+        [string]$receipt.timeZone -ne $localeSettings.TimeZone) {
         throw 'HYPERV_LAB_UNATTENDED_OOBE_RECEIPT_INVALID'
     }
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
     $lab.Instance | Add-Member -NotePropertyName oobeAutomation -NotePropertyValue ([PSCustomObject]@{
         status = 'COMPLETED'; passwordSource = $PasswordSource; passwordStorage = 'host-dpapi'
+        region = $Region; systemLocale = $SystemLocale; uiLanguage = $UiLanguage; inputLocale = $InputLocale; timeZone = $TimeZone
         answerMedia = 'guest-scrubbed'; networkBootstrap = if ($fallbackAddress) { 'lab-winrm-v1' } else { 'none' }
         labAddress = $fallbackAddress; completedAt = [string]$receipt.observedAt
     }) -Force

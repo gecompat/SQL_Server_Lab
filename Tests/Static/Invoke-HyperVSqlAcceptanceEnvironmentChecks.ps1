@@ -36,6 +36,13 @@ try {
         $unattend -notmatch 'Microsoft-Windows-International-Core' -and
         $unattend -match '<TimeZone>W\. Europe Standard Time</TimeZone>'
     )
+    $customTimeZoneUnattend = & $module {
+        param($Password)
+        New-HyperVSqlOobeUnattendXml -AdministratorPassword $Password -TimeZone 'Central Europe Standard Time'
+    } $securePassword
+    Add-CheckResult -Name 'Unattend.xml übernimmt eine explizit gewählte Windows-Zeitzone' -Success (
+        $customTimeZoneUnattend -match '<TimeZone>Central Europe Standard Time</TimeZone>'
+    )
     Add-CheckResult -Name 'OOBE blendet interaktive Seiten aus und aktiviert genau einen AutoLogon' -Success (
         $unattend -match '<HideEULAPage>true</HideEULAPage>' -and
         $unattend -match '<HideLocalAccountScreen>true</HideLocalAccountScreen>' -and

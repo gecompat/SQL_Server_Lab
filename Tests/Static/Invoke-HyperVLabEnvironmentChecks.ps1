@@ -67,7 +67,14 @@ try {
         function Set-HyperVSqlOfflineUnattend { param($VhdxPath, $MountRoot, $UnattendXml, $BootstrapScript) if ($VhdxPath -ne $child) { throw 'WINDOWS_UNATTEND_INJECTION_INVALID' } }
         function Start-HyperVLabEnvironment { [PSCustomObject]@{ State = 'Running' } }
         function Wait-HyperVPowerShellDirect { [PSCustomObject]@{ Ready = $true; Message = 'ready' } }
-        function Invoke-HyperVPowerShellDirect { param($ArgumentList) [PSCustomObject]@{ runId = $ArgumentList[0]; imageState = 'IMAGE_STATE_COMPLETE'; observedAt = '2026-08-07T12:00:00.0000000Z' } }
+        function Invoke-HyperVPowerShellDirect {
+            param($ArgumentList)
+            [PSCustomObject]@{
+                runId = $ArgumentList[0]; imageState = 'IMAGE_STATE_COMPLETE'; geoId = $ArgumentList[1]
+                systemLocale = $ArgumentList[2]; uiLanguage = $ArgumentList[3]; inputLocale = $ArgumentList[4]
+                timeZone = $ArgumentList[5]; observedAt = '2026-08-07T12:00:00.0000000Z'
+            }
+        }
         function Complete-HyperVLabSqlImage { throw 'SQL_MUST_NOT_RUN_FOR_WINDOWS_ONLY' }
         $password = ConvertTo-SecureString 'Windows_Administrator_42!' -AsPlainText -Force
         $result = Invoke-HyperVLabUnattendedProvision -RunId $created.RunId -AdministratorPassword $password -PasswordSource generated -StateRoot $Root
@@ -87,10 +94,18 @@ try {
         $null = New-Item -Path $child -ItemType File -Force
         function Get-HyperVLabVMs { [PSCustomObject]@{ VMName = 'sql-lab-primary-mock'; VMId = 'mock-vm-id'; State = 'Off' } }
         function Get-HyperVManagedVM { [PSCustomObject]@{ VM = [PSCustomObject]@{ State = 'Off' }; Identity = [PSCustomObject]@{ childVhdxPath = $child } } }
-        function Set-HyperVSqlOfflineUnattend { param($VhdxPath, $MountRoot, $UnattendXml, $BootstrapScript) if ($VhdxPath -ne $child -or $UnattendXml -notmatch 'AdministratorPassword' -or $BootstrapScript -notmatch 'Enable-PSRemoting') { throw 'UNATTEND_INJECTION_INVALID' } }
+        function Set-HyperVSqlOfflineUnattend { param($VhdxPath, $MountRoot, $UnattendXml, $BootstrapScript) if ($VhdxPath -ne $child -or $UnattendXml -notmatch 'AdministratorPassword' -or $UnattendXml -notmatch '<TimeZone>Central Europe Standard Time</TimeZone>' -or $BootstrapScript -notmatch 'Enable-PSRemoting') { throw 'UNATTEND_INJECTION_INVALID' } }
         function Start-HyperVLabEnvironment { [PSCustomObject]@{ State = 'Running' } }
         function Wait-HyperVPowerShellDirect { param($FallbackAddress) if (-not $FallbackAddress) { throw 'LAB_NETWORK_FALLBACK_INVALID' }; [PSCustomObject]@{ Ready = $true; Message = 'ready' } }
-        function Invoke-HyperVPowerShellDirect { param($ArgumentList, $FallbackAddress) if (-not $FallbackAddress) { throw 'LAB_NETWORK_FALLBACK_INVALID' }; [PSCustomObject]@{ runId = $ArgumentList[0]; imageState = 'IMAGE_STATE_COMPLETE'; observedAt = '2026-08-07T12:00:00.0000000Z' } }
+        function Invoke-HyperVPowerShellDirect {
+            param($ArgumentList, $FallbackAddress)
+            if (-not $FallbackAddress) { throw 'LAB_NETWORK_FALLBACK_INVALID' }
+            [PSCustomObject]@{
+                runId = $ArgumentList[0]; imageState = 'IMAGE_STATE_COMPLETE'; geoId = $ArgumentList[1]
+                systemLocale = $ArgumentList[2]; uiLanguage = $ArgumentList[3]; inputLocale = $ArgumentList[4]
+                timeZone = $ArgumentList[5]; observedAt = '2026-08-07T12:00:00.0000000Z'
+            }
+        }
         function Complete-HyperVLabSqlImage {
             param($RunId, $Credential, $SqlSaPassword)
             $script:capturedSqlSaPasswordLength = $SqlSaPassword.Length
@@ -101,7 +116,8 @@ try {
         }
         $password = ConvertTo-SecureString 'Generated_Administrator_42!' -AsPlainText -Force
         $saPassword = ConvertTo-SecureString 'Separate_SA_51!' -AsPlainText -Force
-        $result = Invoke-HyperVLabUnattendedProvision -RunId $RunId -AdministratorPassword $password -SqlSaPassword $saPassword -PasswordSource generated -StateRoot $Root
+        $result = Invoke-HyperVLabUnattendedProvision -RunId $RunId -AdministratorPassword $password -SqlSaPassword $saPassword -PasswordSource generated `
+            -Region 'de-AT' -SystemLocale 'de-AT' -UiLanguage 'de-DE' -InputLocale '0C07:00000407' -TimeZone 'Central Europe Standard Time' -StateRoot $Root
         [PSCustomObject]@{ Result = $result; SqlSaPasswordLength = $script:capturedSqlSaPasswordLength; ExpectedSaPasswordLength = $saPassword.Length }
     } $created.RunId $temporaryRoot
     $unattendedConnection = Get-Content -LiteralPath (Join-Path (Join-Path (Join-Path $temporaryRoot 'runs') $created.RunId) 'connection-info.json') -Raw | ConvertFrom-Json -Depth 10
@@ -111,11 +127,27 @@ try {
         $unattended.SqlSaPasswordLength -eq $unattended.ExpectedSaPasswordLength -and
         $unattended.Result.HostSqlAccess.ConnectionString -match '172\.28\.0\.58,1433' -and
         $unattendedConnection.instances[0].oobeAutomation.passwordSource -eq 'generated' -and
+        $unattendedConnection.instances[0].oobeAutomation.region -eq 'de-AT' -and
+        $unattendedConnection.instances[0].oobeAutomation.systemLocale -eq 'de-AT' -and
+        $unattendedConnection.instances[0].oobeAutomation.uiLanguage -eq 'de-DE' -and
+        $unattendedConnection.instances[0].oobeAutomation.inputLocale -eq '0C07:00000407' -and
+        $unattendedConnection.instances[0].oobeAutomation.timeZone -eq 'Central Europe Standard Time' -and
         $unattendedConnection.instances[0].oobeAutomation.answerMedia -eq 'guest-scrubbed' -and
         $unattendedConnection.instances[0].oobeAutomation.networkBootstrap -eq 'lab-winrm-v1' -and
         $unattendedConnection.instances[0].oobeAutomation.labAddress -match '^172\.28\.0\.' -and
         (Test-Path -LiteralPath $unattendedSecret) -and
         (Get-Content -LiteralPath $unattendedSecret -Raw) -notmatch 'Generated_Administrator_42!'
+    )
+    $regionGeoIds = & $module {
+        [PSCustomObject]@{
+            Germany = Resolve-HyperVLocaleGeoId -Region 'DE'
+            Austria = Resolve-HyperVLocaleGeoId -Region 'de-AT'
+        }
+    }
+    Add-CheckResult -Name 'Regionsangaben unterstützen Länder- und Locale-Formate ohne Deutschland-Fallback' -Success (
+        $regionGeoIds.Germany -eq ([System.Globalization.RegionInfo]::new('DE')).GeoId -and
+        $regionGeoIds.Austria -eq ([System.Globalization.RegionInfo]::new('AT')).GeoId -and
+        $regionGeoIds.Austria -ne $regionGeoIds.Germany
     )
     $environmentText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private\HyperVLabEnvironment.ps1') -Raw -Encoding utf8
     Add-CheckResult -Name 'SQL CompleteImage wertet den Gast-Exit-Code als Integer aus' -Success (

@@ -83,7 +83,8 @@ function New-HyperVSqlOobeUnattendXml {
     param(
         [Parameter(Mandatory)][SecureString]$AdministratorPassword,
         $Network,
-        [string]$Identity
+        [string]$Identity,
+        [ValidateNotNullOrEmpty()][string]$TimeZone = 'W. Europe Standard Time'
     )
 
     $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($AdministratorPassword)
@@ -91,6 +92,7 @@ function New-HyperVSqlOobeUnattendXml {
     try {
         $plain = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
         $escapedPassword = [System.Security.SecurityElement]::Escape($plain)
+        $escapedTimeZone = [System.Security.SecurityElement]::Escape($TimeZone.Trim())
         return @"
 <?xml version="1.0" encoding="utf-8"?>
 <unattend xmlns="urn:schemas-microsoft-com:unattend">
@@ -99,7 +101,7 @@ function New-HyperVSqlOobeUnattendXml {
       <AdministratorPassword><Value>$escapedPassword</Value><PlainText>true</PlainText></AdministratorPassword>
       <AutoLogon><Password><Value>$escapedPassword</Value><PlainText>true</PlainText></Password><Enabled>true</Enabled><LogonCount>1</LogonCount><Username>Administrator</Username></AutoLogon>
       <RegisteredOwner>SQL_Server_Lab</RegisteredOwner>
-      <TimeZone>W. Europe Standard Time</TimeZone>
+      <TimeZone>$escapedTimeZone</TimeZone>
       <OOBE>
         <HideEULAPage>true</HideEULAPage>
         <HideLocalAccountScreen>true</HideLocalAccountScreen>
