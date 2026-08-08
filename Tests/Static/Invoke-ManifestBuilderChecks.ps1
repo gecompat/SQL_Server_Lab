@@ -320,6 +320,22 @@ Add-CheckResult `
     -Success $hyperVManifestResult.IsValid `
     -Message ($hyperVManifestResult.Errors -join '; ')
 
+$hyperVWindowsManifest = [ordered]@{
+    name = 'hyperv-manifest-windows-check'
+    persistentData = [ordered]@{ enabled = $true; dataDiskGB = 128 }
+    instances = @(
+        [ordered]@{
+            id = 'primary'; version = '2025'; provider = 'hyperv'; os = 'windows'
+            hyperv = [ordered]@{ preparedImageId = ('hyperv-os-sealed-' + ('a' * 64)); memoryStartupMB = 4096; processorCount = 4; guestPasswordMode = 'generated' }
+        }
+    )
+}
+$hyperVWindowsManifestResult = Test-SqlServerLabManifest -InputObject $hyperVWindowsManifest
+Add-CheckResult `
+    -Name 'Hyper-V-Manifest referenziert ein OS_SEALED-Image ohne Klartextpasswort' `
+    -Success $hyperVWindowsManifestResult.IsValid `
+    -Message ($hyperVWindowsManifestResult.Errors -join '; ')
+
 $mixedHyperVManifest = [ordered]@{
     name = 'mixed-hyperv-container'
     instances = @(

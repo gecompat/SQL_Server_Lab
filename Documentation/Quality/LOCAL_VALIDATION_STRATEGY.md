@@ -154,7 +154,7 @@ Der Test erzeugt ausschließlich synthetische Testobjekte.
 |---|---:|---:|---:|
 | Resource Assessment | implementiert | implementiert | Lifecycle-Verfügbarkeit implementiert |
 | sealed Image-Registry | nicht zutreffend | nicht zutreffend | Import, Integrity, Auswahl und Run Lock implementiert |
-| einzelne SQL-Instanz | implementiert | implementiert | eingeschränkter Manifest-Klonpfad aus `SQL_PREPARED_SEALED` implementiert; allgemeiner Providerpfad geplant |
+| einzelne SQL-Instanz | implementiert | implementiert | eingeschränkter Manifest-Klonpfad aus `OS_SEALED` oder `SQL_PREPARED_SEALED` implementiert; allgemeiner Providerpfad geplant |
 | Health und SQL Readiness | implementiert | implementiert | Orchestrierung im Manifest-Klonpfad implementiert; realer Windows-/SQL-End-to-End-Nachweis offen |
 | Datenbankerstellung | implementiert | implementiert | geplant |
 | T-SQL-Skriptausführung | implementiert | implementiert | geplant |

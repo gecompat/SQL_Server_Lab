@@ -366,10 +366,14 @@ function New-SqlServerLab {
     if ($providers.Count -eq 1 -and $providers[0] -eq 'hyperv') {
         if ($resolved.instances.Count -ne 1) { throw 'HYPERV_MANIFEST_SINGLE_INSTANCE_REQUIRED' }
         $instance = $resolved.instances[0]
-        if (-not $instance.hyperv -or -not $instance.hyperv.preparedImageId) { throw 'HYPERV_MANIFEST_PREPARED_IMAGE_REQUIRED' }
-        $artifact = Get-HyperVImageArtifact -ArtifactId ([string]$instance.hyperv.preparedImageId) -StateRoot $StateRoot
-        if (-not $artifact -or [string]$artifact.artifactState -ne 'SQL_PREPARED_SEALED') { throw 'HYPERV_MANIFEST_SQL_PREPARED_IMAGE_REQUIRED' }
-        if ([string]$artifact.sql.version -ne [string]$instance.version) {
+        $artifactId = [string]$instance.hyperv.preparedImageId
+        if (-not $instance.hyperv -or -not $artifactId) { throw 'HYPERV_MANIFEST_PREPARED_IMAGE_REQUIRED' }
+        $artifact = Get-HyperVImageArtifact -ArtifactId $artifactId -StateRoot $StateRoot
+        $artifactState = [string]$artifact.artifactState
+        if (-not $artifact -or $artifactState -notin @('SQL_PREPARED_SEALED', 'OS_SEALED')) {
+            throw 'HYPERV_MANIFEST_HYPERV_IMAGE_REQUIRED'
+        }
+        if ($artifactState -eq 'SQL_PREPARED_SEALED' -and [string]$artifact.sql.version -ne [string]$instance.version) {
             throw "HYPERV_MANIFEST_SQL_VERSION_MISMATCH: Manifest $($instance.version), Image $($artifact.sql.version)"
         }
 
