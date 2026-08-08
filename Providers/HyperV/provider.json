@@ -4,6 +4,7 @@
   "description": "Generation-2-VM-Lifecycle aus einer verifizierten read-only Parent-VHDX.",
   "runtimeStatus": "windows-specialization-sql-readiness-orchestration",
   "sqlProvisioning": false,
+  "sqlProvisioningScope": "prepared-image-clone-only",
   "capabilities": [
     "windows-host",
     "generation-2",
@@ -24,16 +25,18 @@
     "windows-guest-specialization",
     "powershell-direct-reboot-reconnect",
     "in-guest-sql-readiness",
+    "prepared-image-manifest-clone",
+    "sql-complete-image-clone-specialization",
     "sealed-image-publication"
   ],
   "limitations": [
     "no-unattended-os-build",
     "manual-os-installation",
     "no-real-windows-guest-sysprep-ci",
-    "no-sql-provisioning",
-    "no-network-binding",
+    "no-general-sql-manifest-provisioning",
+    "no-broad-network-binding",
     "no-real-windows-guest-specialization-ci",
-    "no-sql-complete-image-runtime",
+    "no-real-windows-sql-e2e-evidence",
     "no-drive-manifest-binding"
   ],
   "detectionCommand": "Get-VMHost",

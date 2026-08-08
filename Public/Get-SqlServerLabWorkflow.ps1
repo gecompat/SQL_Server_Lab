@@ -239,6 +239,7 @@ function Get-SqlServerLabWorkflow {
             IsElevated = $isElevated
             HyperV = $hyperV
             Providers = @(Get-AvailableLabProviders | Sort-Object)
+            ProviderCapabilities = @(Get-LabProviderCapabilityContract)
         }
         Defaults = [PSCustomObject]@{ MediaRoot = $MediaRoot; DataRoot = Get-LabDataRootDefault; TestDataRoot = $testDataRoot }
         SqlInstallationMedia = $sqlInstallationMedia
