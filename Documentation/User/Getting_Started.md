@@ -446,7 +446,7 @@ aktuell implementierten Runtime-Defaults auf. Zu den wichtigsten gehören:
 
 | Manifestfeld | Effektiver Framework-Default bei fehlender Angabe |
 |---|---|
-| `instances[].provider` | automatische Auswahl: normalerweise `docker`; `hyperv` benötigt explizit `os: "windows"` und einen `hyperv.preparedImageId`-Verweis |
+| `instances[].provider` | automatische Auswahl: normalerweise `docker`; `hyperv` benötigt explizit `os: "windows"` und einen `hyperv.preparedImageId`-Verweis auf ein `OS_SEALED`- oder `SQL_PREPARED_SEALED`-Artifact |
 | `instances[].os` | `linux` |
 | `instances[].profile` | `standard` |
 | `instances[].collation` | `SQL_Latin1_General_CP1_CS_AS` |
@@ -526,9 +526,9 @@ Relative Pfade für lokale Restore-Dateien, `hostPath` und `postProvision` werde
 
 Der Manifestpfad für Hyper-V erstellt bewusst **keinen** Windows- oder
 SQL-Image-Build. Er referenziert ein bereits veröffentlichtes,
-unveränderliches `SQL_PREPARED_SEALED`-Artifact und erzeugt daraus eine neue
-differenzierende VM. So ist die Bereitstellung reproduzierbar und ohne
-manuelle OOBE möglich.
+unveränderliches `OS_SEALED`- oder `SQL_PREPARED_SEALED`-Artifact und erzeugt
+daraus eine neue differenzierende VM. Für `SQL_PREPARED_SEALED` ist damit der
+SQL-spezifische Pfad vollständig automatisiert inklusive OOBE.
 
 ```json
 {
@@ -546,7 +546,7 @@ manuelle OOBE möglich.
       "provider": "hyperv",
       "os": "windows",
       "hyperv": {
-        "preparedImageId": "hyperv-sql-prepared-sealed-<Artifact-SHA-256>",
+  "preparedImageId": "hyperv-sql-prepared-sealed-<Artifact-SHA-256>",
         "switchName": "SQL_LAB_HYPERV",
         "memoryStartupMB": 4096,
         "processorCount": 4,
@@ -574,10 +574,11 @@ teilweise ausgeführt wird.
 
 Ohne `switchName` verwendet der Manifestpfad den gespeicherten beziehungsweise
 verwalteten internen Hyper-V-Lab-Switch. Nach der unbeaufsichtigten OOBE erhält
-der Gast eine feste Lab-IP; SQL-TCP, eine auf den Host beschränkte Firewallregel
-und SQL-Authentifizierung werden eingerichtet. Der ausgegebene Host-Connection-
-String verwendet `sa`; dessen Passwort kann bei der Bereitstellung bewusst
-eigenständig gesetzt werden und wird nicht im Klartext gespeichert.
+der Gast eine feste Lab-IP. Bei `SQL_PREPARED_SEALED` werden zusätzlich SQL-TCP,
+eine auf den Host beschränkte Firewallregel und SQL-Authentifizierung eingerichtet.
+Der ausgegebene Host-Connection-String verwendet `sa`; dessen Passwort kann bei
+der Bereitstellung bewusst eigenständig gesetzt werden und wird nicht im Klartext
+gespeichert.
 
 ### SQL Server Configuration Manager: WMI reparieren
 

@@ -22,6 +22,10 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 - `Invoke-SqlServerLabReconcileAction` reicht einen expliziten `StateRoot`
   jetzt auch an die tatsächlichen Start-/Stop-Executors weiter. Damit stimmen
   Plan und Mutation bei isolierten oder benutzerdefinierten State-Roots überein.
+- `New-SqlServerLab` akzeptiert für den deklarativen Hyper-V-Pfad jetzt sowohl
+  `SQL_PREPARED_SEALED` als auch `OS_SEALED` als Image-Parent, sodass
+  reine OS-Baseline-Manifest-Instanzen ohne SQL-kompatible Build-ID erstellt
+  werden können.
 
 ## 2026-08-08
 

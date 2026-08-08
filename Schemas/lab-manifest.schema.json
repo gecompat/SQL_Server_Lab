@@ -260,8 +260,8 @@
           "properties": {
             "preparedImageId": {
               "type": "string",
-              "pattern": "^hyperv-sql-prepared-sealed-[a-f0-9]{64}$",
-              "description": "Artifact-ID eines lokal veröffentlichten SQL_PREPARED_SEALED-Images."
+              "pattern": "^hyperv-(os|sql-prepared)-sealed-[a-f0-9]{64}$",
+              "description": "Artifact-ID eines lokal veröffentlichten OS_SEALED- oder SQL_PREPARED_SEALED-Images."
             },
             "switchName": {
               "type": "string",
