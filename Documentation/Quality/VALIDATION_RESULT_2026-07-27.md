@@ -1,5 +1,31 @@
 # Validierungsergebnis vom 2026-07-27
 
+## Aktualisierung vom 2026-08-08
+
+- Branch: `main` (lokal verifiziert nach den Runtime-Anpassungen)
+- PowerShell: `7.6.4`
+- Ergebnisstatus: `PASS` (Docker, Podman, Hyper-V-Lifecycle)
+
+Ausgeführte Nachweise:
+
+```powershell
+.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider docker
+.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider podman
+.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider hyperv
+.\Tests\Integration\Invoke-SmokeMatrix.ps1
+```
+
+Ergebnis:
+
+```text
+Invoke-SmokeTest.ps1 -Provider docker  => 33/33 PASS, 0 FAIL
+Invoke-SmokeTest.ps1 -Provider podman  => 33/33 PASS, 0 FAIL
+Invoke-SmokeTest.ps1 -Provider hyperv  => PASS (Hyper-V-Lifecycle)
+Invoke-SmokeMatrix.ps1               => PASS=5 FAIL=0 SKIP=0
+```
+
+Testzertifikat: `PASS`.
+
 ## Geprüfter Stand
 
 - Branch: `main`

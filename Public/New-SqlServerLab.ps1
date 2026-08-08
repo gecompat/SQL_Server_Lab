@@ -5,7 +5,8 @@ function Add-LabInstanceCleanupPlan {
         [Parameter(Mandatory)]$RunState
     )
 
-    $containerName = Get-LabContainerRuntimeName -LabName ([string]$RunState.metadata.name) -InstanceId ([string]$Instance.id) -RunId $RunState.RunId
+    $labName = Resolve-LabRuntimeName -RunState $RunState
+    $containerName = Get-LabContainerRuntimeName -LabName $labName -InstanceId ([string]$Instance.id) -RunId $RunState.RunId
 
     foreach ($drive in @($Instance.drives | Where-Object {
         $_ -and $_.containerPath -and -not $_.hostPath -and $_.persistence -ne 'data-root-runtime-volume'
@@ -33,6 +34,28 @@ function Add-LabInstanceCleanupPlan {
         -Compensation "$($Instance.provider) rm -f $containerName"
 }
 
+function Resolve-LabRuntimeName {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$RunState
+    )
+
+    $candidate = [string]$RunState.metadata.name
+    if (-not [string]::IsNullOrWhiteSpace($candidate)) {
+        return $candidate.Trim()
+    }
+
+    if ($RunState.RunId) {
+        $safeRunId = ([string]$RunState.RunId).Replace('-', '')
+        if ($safeRunId.Length -gt 8) {
+            $safeRunId = $safeRunId.Substring(0, 8)
+        }
+        return "lab-$safeRunId"
+    }
+
+    return 'sql-server-lab'
+}
+
 function New-LabProviderContainer {
     [CmdletBinding()]
     param(
@@ -42,6 +65,8 @@ function New-LabProviderContainer {
         [int]$Port = 0
     )
 
+    $labName = Resolve-LabRuntimeName -RunState $RunState
+
     switch ($Instance.provider) {
         'docker' {
             return New-DockerInstance `
@@ -49,7 +74,7 @@ function New-LabProviderContainer {
                 -RunId $RunState.RunId `
                 -ScopeId $RunState.ScopeId `
                 -InstanceId $Instance.id `
-                -LabName ([string]$RunState.metadata.name) `
+                -LabName $labName `
                 -Port $Port `
                 -SaPassword $SaPassword `
                 -Profile $Instance.profile `
@@ -62,7 +87,7 @@ function New-LabProviderContainer {
                 -RunId $RunState.RunId `
                 -ScopeId $RunState.ScopeId `
                 -InstanceId $Instance.id `
-                -LabName ([string]$RunState.metadata.name) `
+                -LabName $labName `
                 -Port $Port `
                 -SaPassword $SaPassword `
                 -Profile $Instance.profile `
@@ -279,6 +304,10 @@ function New-SqlServerLab {
             resourceOverrides = $null
             manifestPath      = $null
         }
+    }
+
+    if ([string]::IsNullOrWhiteSpace([string]$resolved.name)) {
+        $resolved.name = "adhoc-$Version-$Provider"
     }
 
     # Manifeste sind der primäre Automationspfad. Sie laufen standardmäßig

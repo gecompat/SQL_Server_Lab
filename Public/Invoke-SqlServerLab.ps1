@@ -246,6 +246,13 @@ function Show-LabMenu {
     Write-Host "  -------------------------" -ForegroundColor DarkCyan
     Write-Host "  Aktionen:" -ForegroundColor White
     Write-Host ""
+    $sevenZip = Get-Lab7ZipExecutable
+    $sevenZipLabel = if ($sevenZip) {
+        '7-Zip für katalogisierte .7z-Backups bereits verfügbar'
+    }
+    else {
+        '7-Zip für katalogisierte .7z-Backups optional installieren'
+    }
     Write-Host "    [1] Neue Umgebung erstellen" -ForegroundColor Yellow
     Write-Host "    [m] Manifest erstellen und pruefen" -ForegroundColor Yellow
     Write-Host "    [2] Status anzeigen" -ForegroundColor White
@@ -261,7 +268,7 @@ function Show-LabMenu {
     Write-Host "    [r] Media Root konfigurieren" -ForegroundColor White
     Write-Host "    [d] Persistenten Data Root konfigurieren" -ForegroundColor White
     Write-Host "    [t] Testdaten-Bibliothek konfigurieren" -ForegroundColor White
-    Write-Host "    [z] 7-Zip für katalogisierte .7z-Backups optional installieren" -ForegroundColor White
+    Write-Host "    [z] $sevenZipLabel" -ForegroundColor White
     Write-Host ""
     Write-Host "    [0/q] Beenden" -ForegroundColor DarkGray
     Write-Host ""

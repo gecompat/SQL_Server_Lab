@@ -63,6 +63,20 @@ Get-Help New-SqlServerLab -Full
 Get-Help Test-SqlServerLabManifest -Parameter Path
 ```
 
+Standard für Skript-Hilfeeinträge (`-ShowHelp` und `--help`; `/?` sowie
+`-help`/`-h`/`-?` können je nach PowerShell-Kontext die Engine-Hilfe auslösen):
+
+```powershell
+.\Invoke-SqlServerLab.ps1 -ShowHelp
+.\Tools\Initialize-SqlServerLabDataRoot.ps1 -ShowHelp
+.\Tools\Initialize-SqlServerLabMediaRoot.ps1 -ShowHelp
+.\Tools\Start-SqlServerLabUi.ps1 -ShowHelp
+.\CheckLargeGitFilesPush.ps1 --help
+```
+
+Für alle aufgeführten Skripte gilt: Wird ein Support-Switch erkannt, wird direkt
+die Skript-Hilfe angezeigt und anschließend die Ausführung beendet.
+
 Die autoritative Exportliste steht in `SqlServerLab.psd1`. `Get-Command` zeigt
 für jeden Export in `ModuleName` und `Source` die Zuordnung zu `SqlServerLab`.
 Bei einem Namenskonflikt ist der modulqualifizierte Aufruf eindeutig, zum

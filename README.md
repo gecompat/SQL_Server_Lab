@@ -143,6 +143,20 @@ Interaktive Bedienung:
 Invoke-SqlServerLab
 ```
 
+Standard für Skript-Hilfeeinträge (`-ShowHelp` und `--help`; `/?` sowie
+`-help`/`-h`/`-?` können je nach PowerShell-Kontext die Engine-Hilfe auslösen):
+
+```powershell
+.\Invoke-SqlServerLab.ps1 -ShowHelp
+.\Tools\Initialize-SqlServerLabDataRoot.ps1 -ShowHelp
+.\Tools\Initialize-SqlServerLabMediaRoot.ps1 -ShowHelp
+.\Tools\Start-SqlServerLabUi.ps1 -ShowHelp
+.\CheckLargeGitFilesPush.ps1 --help
+```
+
+Wenn einer dieser Schalter erkannt wird, wird die Skript-Hilfe angezeigt und die
+Ausführung beendet.
+
 Status anzeigen:
 
 ```powershell
@@ -532,9 +546,19 @@ Einzelprovider-Smoke-Test:
 ```powershell
 .\Tests\Integration\Invoke-SmokeTest.ps1 -Provider docker
 .\Tests\Integration\Invoke-SmokeTest.ps1 -Provider podman
+.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider hyperv
 .\Tests\Integration\Invoke-MixedProviderSmokeTest.ps1
 .\Tests\Integration\Invoke-RestoreSmokeTest.ps1 -Provider docker
 .\Tests\Integration\Invoke-RestoreSmokeTest.ps1 -Provider podman
+```
+
+Aktueller lokaler Validierungsnachweis (2026-08-08):
+
+```text
+Invoke-SmokeTest.ps1 -Provider docker   => 33/33 PASS, 0 FAIL
+Invoke-SmokeTest.ps1 -Provider podman   => 33/33 PASS, 0 FAIL
+Invoke-SmokeTest.ps1 -Provider hyperv   => PASS (Hyper-V-Lifecycle)
+Invoke-SmokeMatrix.ps1                 => PASS=5 FAIL=0 SKIP=0
 ```
 
 Providerübergreifender Lifecycle-Test für alle lokal erreichbaren Provider:

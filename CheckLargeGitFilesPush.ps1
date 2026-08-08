@@ -1,11 +1,11 @@
 [CmdletBinding()]
 param(
-    [double]$LimitMB,
+    [Alias('h', 'help', '?')]
+    [switch]$ShowHelp,
+    [object]$LimitMB,
     [string]$LogFileName,
     [switch]$CheckOnly,
     [switch]$AllFiles,
-    [Alias('help')]
-    [switch]$ShowHelp,
     [Parameter(ValueFromRemainingArguments = $true)]
     [string[]]$RemainingArgs
 )
@@ -169,7 +169,17 @@ function Get-CommitFileList {
 }
 
 try {
-    if ($ShowHelp -or ($RemainingArgs -contains '/?') -or ($RemainingArgs -contains '-help') -or ($RemainingArgs -contains '--help')) {
+    $showHelpRequested = $ShowHelp.IsPresent -or
+        ($RemainingArgs -contains '/?') -or
+        ($RemainingArgs -contains '-?') -or
+        ($RemainingArgs -contains '-h') -or
+        ($RemainingArgs -contains '-help') -or
+        ($RemainingArgs -contains '--help') -or
+        ($LimitMB -eq '/?') -or
+        ($LimitMB -eq '-?') -or
+        ($LimitMB -eq '-h') -or
+        ($LimitMB -eq '--help')
+    if ($showHelpRequested) {
         Show-Usage -ScriptName ([System.IO.Path]::GetFileName($PSCommandPath))
         exit 0
     }
@@ -185,7 +195,19 @@ try {
     }
 
     # Effektive Konfiguration
-    if (-not $PSBoundParameters.ContainsKey('LimitMB')) {
+    if ($PSBoundParameters.ContainsKey('LimitMB')) {
+        if ($LimitMB -is [double]) {
+            $LimitMB = [double]$LimitMB
+        }
+        else {
+            $parsedLimitMB = 0.0
+            if (-not [double]::TryParse([string]$LimitMB, [ref]$parsedLimitMB)) {
+                throw 'LimitMB muss numerisch sein.'
+            }
+            $LimitMB = $parsedLimitMB
+        }
+    }
+    else {
         $LimitMB = $DefaultLimitMB
     }
 

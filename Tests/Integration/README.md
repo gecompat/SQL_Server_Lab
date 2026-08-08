@@ -8,7 +8,7 @@ End-to-End-Test des gesamten Lab-Lifecycles.
 |---|---|---|
 | `-SaPassword` | SmokeTest_Pwd1! | SA-Passwort (SecureString) |
 | `-Version` | 2025 | SQL-Server-Version |
-| `-Provider` | auto | docker, podman, oder auto (erkennt verfuegbare Runtime) |
+| `-Provider` | auto | docker, podman, hyperv oder auto (erkennt verfuegbare Container-Runtimes; bei `hyperv` wird der native Hyper-V-Smoke-Test ausgeführt) |
 | `-KeepOnFailure` | false | Container bei Fehler behalten (Debugging) |
 
 ## Testschritte (T1-T9)
@@ -22,6 +22,22 @@ End-to-End-Test des gesamten Lab-Lifecycles.
 7. Stop-SqlServerLab
 8. Start-SqlServerLab
 9. Remove-SqlServerLab
+
+`hyperv` ist kein Container-Lifecycle und wird hier nur als Ziel für den dedizierten
+`Invoke-HyperVSmokeTest.ps1` unterstützt.
+
+```powershell
+.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider hyperv
+```
+
+## Letzter dokumentierter lokaler Nachweis (2026-08-08)
+
+```text
+Invoke-SmokeTest.ps1 -Provider docker   => 33/33 PASS, 0 FAIL
+Invoke-SmokeTest.ps1 -Provider podman   => 33/33 PASS, 0 FAIL
+Invoke-SmokeTest.ps1 -Provider hyperv   => PASS (Hyper-V-Lifecycle)
+Invoke-SmokeMatrix.ps1                 => PASS=5 FAIL=0 SKIP=0
+```
 
 ## .gitignore
 

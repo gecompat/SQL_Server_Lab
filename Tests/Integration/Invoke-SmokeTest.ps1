@@ -11,13 +11,17 @@
 .PARAMETER Version
     SQL-Server-Version oder katalogisierter CU-Bezeichner. Default: 2025.
 .PARAMETER Provider
-    docker, podman oder auto. Auto waehlt Docker vor Podman.
+    docker, podman, auto oder hyperv.
+    Auto waehlt Docker vor Podman.
+    Für hyperv wird der Hyper-V-spezifische Smoke-Test ausgefuehrt.
 .PARAMETER KeepOnFailure
     Lab bei einem Fehler zur lokalen Diagnose nicht automatisch entfernen.
 .EXAMPLE
     .\Invoke-SmokeTest.ps1 -Provider docker
 .EXAMPLE
     .\Invoke-SmokeTest.ps1 -Provider podman -Version '2022'
+.EXAMPLE
+    .\Invoke-SmokeTest.ps1 -Provider hyperv
 #>
 [CmdletBinding()]
 param(
@@ -26,7 +30,7 @@ param(
     [string[]]$RemainingArgs,
     [SecureString]$SaPassword,
     [string]$Version = '2025',
-    [ValidateSet('docker', 'podman', 'auto')]
+    [ValidateSet('docker', 'podman', 'auto', 'hyperv')]
     [string]$Provider = 'auto',
     [switch]$KeepOnFailure
 )
@@ -35,6 +39,21 @@ $showHelpRequested = $ShowHelp.IsPresent -or @($RemainingArgs) -contains '/?' -o
 if ($showHelpRequested) {
     Get-Help -Full -Name $PSCommandPath | Out-Host
     return
+}
+
+if ($Provider -eq 'hyperv') {
+    $hypervSmokeScript = Join-Path $PSScriptRoot 'Invoke-HyperVSmokeTest.ps1'
+    if (-not (Test-Path -LiteralPath $hypervSmokeScript -PathType Leaf)) {
+        throw "Hyper-V-Smoke-Testskript wurde nicht gefunden: $hypervSmokeScript"
+    }
+
+    if ($KeepOnFailure.IsPresent) {
+        & $hypervSmokeScript -KeepOnFailure
+    }
+    else {
+        & $hypervSmokeScript
+    }
+    exit $LASTEXITCODE
 }
 
 
@@ -110,15 +129,56 @@ function ConvertFrom-TestSecureString {
     }
 }
 
-function Test-RuntimeCommand {
+function Test-ProviderRuntimeStatus {
+    [CmdletBinding()]
     param([Parameter(Mandatory)][string]$Name)
 
-    if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
-        return $false
+    if ($Name -eq 'hyperv') {
+        try {
+            $assessment = Test-SqlServerLabPrerequisite -Provider hyperv
+            $providerMessage = $assessment.Details | Where-Object { $_.Category -eq 'Provider' } | Select-Object -First 1
+            return [PSCustomObject]@{
+                Available = $assessment.Status -ne 'RESOURCE_HARD_BLOCK'
+                Message   = if ($providerMessage) {
+                    $providerMessage.Message
+                }
+                else {
+                    if ($assessment.Status -eq 'RESOURCE_OK') {
+                        'Hyper-V-Lifecycle verfuegbar.'
+                    }
+                    else {
+                        'Hyper-V-Lifecycle nicht verfuegbar.'
+                    }
+                }
+            }
+        }
+        catch {
+            return [PSCustomObject]@{
+                Available = $false
+                Message   = $_.Exception.Message
+            }
+        }
     }
 
-    & $Name info 1>$null 2>$null
-    return $LASTEXITCODE -eq 0
+    try {
+        $assessment = Test-SqlServerLabPrerequisite -Provider $Name
+        $providerMessage = $assessment.Details | Where-Object { $_.Category -eq 'Provider' } | Select-Object -First 1
+        return [PSCustomObject]@{
+            Available = $assessment.Status -ne 'RESOURCE_HARD_BLOCK'
+            Message   = if ($providerMessage) {
+                $providerMessage.Message
+            }
+            else {
+                if ($assessment.Status -eq 'RESOURCE_OK') { "$Name ist erreichbar." } else { "$Name ist nicht erreichbar." }
+            }
+        }
+    }
+    catch {
+        return [PSCustomObject]@{
+            Available = $false
+            Message   = $_.Exception.Message
+        }
+    }
 }
 
 Write-Host "`n====================================================================" -ForegroundColor White
@@ -181,14 +241,17 @@ try {
         -Message 'Providers/Podman/provider.json oder Implementierung fehlt'
 
     if ($Provider -eq 'auto') {
-        if (Test-RuntimeCommand -Name 'docker') {
+        $dockerRuntime = Test-ProviderRuntimeStatus -Name 'docker'
+        $podmanRuntime = Test-ProviderRuntimeStatus -Name 'podman'
+
+        if ($dockerRuntime.Available) {
             $Provider = 'docker'
         }
-        elseif (Test-RuntimeCommand -Name 'podman') {
+        elseif ($podmanRuntime.Available) {
             $Provider = 'podman'
         }
         else {
-            throw 'Weder Docker noch Podman ist installiert und erreichbar.'
+            throw "Weder Docker noch Podman ist installiert und erreichbar. Docker: $($dockerRuntime.Message). Podman: $($podmanRuntime.Message)."
         }
     }
 
@@ -196,9 +259,9 @@ try {
         throw "Provider '$Provider' besitzt keinen vollständigen Providervertrag."
     }
 
-    if (-not (Test-RuntimeCommand -Name $Provider)) {
-        throw "Runtime '$Provider' ist nicht erreichbar."
-    }
+        if (-not (Test-ProviderRuntimeStatus -Name $Provider).Available) {
+            throw "Runtime '$Provider' ist nicht erreichbar."
+        }
 
     $script:ContainerRuntime = $Provider
     Write-Host "    Gewaehlter Provider: $Provider" -ForegroundColor DarkGray
@@ -214,7 +277,17 @@ try {
     Write-TestHeader 'T2: Resource Assessment'
 
     foreach ($implementedProvider in $implementedProviders) {
-        if (-not (Test-RuntimeCommand -Name $implementedProvider)) {
+        if ($implementedProvider -eq 'hyperv') {
+            $availability = Test-ProviderRuntimeStatus -Name 'hyperv'
+            if (-not $availability.Available) {
+                Write-Host "    SKIP: hyperv nicht erreichbar ($($availability.Message))" -ForegroundColor Yellow
+                continue
+            }
+            Write-Host "    PASS: hyperv erreicht (Hyper-V-Pruefung via Test-SqlServerLabPrerequisite)" -ForegroundColor Green
+            continue
+        }
+
+        if (-not (Test-ProviderRuntimeStatus -Name $implementedProvider).Available) {
             Write-Host "    SKIP: $implementedProvider ist nicht erreichbar" -ForegroundColor Yellow
             continue
         }

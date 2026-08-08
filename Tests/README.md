@@ -52,9 +52,12 @@ Der bestehende Test prüft einen explizit gewählten Provider vollständig:
 ```powershell
 .\Tests\Integration\Invoke-SmokeTest.ps1 -Provider docker
 .\Tests\Integration\Invoke-SmokeTest.ps1 -Provider podman
+.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider hyperv
 ```
 
-`-Provider auto` wählt weiterhin genau einen erreichbaren Provider, bevorzugt Docker vor Podman. Ein erfolgreicher Docker-Lauf ist kein Nachweis für Podman und umgekehrt.
+`-Provider auto` wählt weiterhin genau einen erreichbaren Container-Provider, bevorzugt Docker vor Podman. Ein erfolgreicher Docker-Lauf ist kein Nachweis für Podman und umgekehrt.
+
+`-Provider hyperv` startet den Hyper-V-native Smoke-Test (`Invoke-HyperVSmokeTest.ps1`) und überprüft damit ausschließlich den VM-/VHDX-/Image-Builder-Lifecycle (ohne SQL-Containerlaufzeit).
 
 ## Gemischter Container-Provider-Smoke-Test
 

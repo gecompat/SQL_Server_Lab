@@ -16,8 +16,7 @@
 param(
     [Alias('h','help','?')][switch]$ShowHelp,
     [Parameter(ValueFromRemainingArguments = $true)]
-    [string[]]$RemainingArgs,
-)
+    [string[]]$RemainingArgs)
 
 $showHelpRequested = $ShowHelp.IsPresent -or @($RemainingArgs) -contains '/?' -or @($RemainingArgs) -contains '-?' -or @($RemainingArgs) -contains '-h' -or @($RemainingArgs) -contains '--help'
 
@@ -69,4 +68,6 @@ if ($failedChecks.Count -gt 0) {
 }
 
 Write-Host "`nALLE STATISCHEN VERTRAGSPRUEFUNGEN: PASS" -ForegroundColor Green
+
+
 

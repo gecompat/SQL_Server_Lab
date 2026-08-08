@@ -2,8 +2,7 @@
 [CmdletBinding()] param(
     [Alias('h','help','?')][switch]$ShowHelp,
     [Parameter(ValueFromRemainingArguments = $true)]
-    [string[]]$RemainingArgs,
-)
+    [string[]]$RemainingArgs)
 
 $showHelpRequested = $ShowHelp.IsPresent -or @($RemainingArgs) -contains '/?' -or @($RemainingArgs) -contains '-?' -or @($RemainingArgs) -contains '-h' -or @($RemainingArgs) -contains '--help'
 
@@ -76,4 +75,6 @@ catch { Add-CheckResult -Name 'Data-Root-Testausfuehrung' -Success $false -Messa
 finally { if (Test-Path -LiteralPath $temporaryRoot) { Remove-Item -LiteralPath $temporaryRoot -Recurse -Force } }
 Write-Host ''; Write-Host "Ergebnis: $passed PASS, $($failures.Count) FAIL" -ForegroundColor Cyan
 if ($failures.Count) { exit 1 }; exit 0
+
+
 

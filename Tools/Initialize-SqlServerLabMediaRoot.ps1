@@ -38,12 +38,11 @@
         -OrganizeExisting `
         -GenerateSha256
 .EXAMPLE
-    .\Tools\Initialize-SqlServerLabMediaRoot.ps1 -RootPath 'D:\Lab_Base' -h
+    .\Tools\Initialize-SqlServerLabMediaRoot.ps1 -RootPath 'D:\Lab_Base' -ShowHelp
 #>
 [CmdletBinding(SupportsShouldProcess)]
 param(
-    [Alias('h', 'help')][switch]$ShowHelp,
-    [Parameter(Mandatory)]
+    [Alias('h', 'help', '?')][switch]$ShowHelp,
     [ValidateNotNullOrEmpty()]
     [string]$RootPath,
  
@@ -54,14 +53,50 @@ param(
     [string[]]$RemainingArgs
 )
 
+$helpTokens = @('/?', '-?', '-h', '--help', '-help')
 $showHelpRequested = $ShowHelp.IsPresent -or
     @($RemainingArgs) -contains '/?' -or
     @($RemainingArgs) -contains '-?' -or
     @($RemainingArgs) -contains '-h' -or
-    @($RemainingArgs) -contains '--help'
+    @($RemainingArgs) -contains '--help' -or
+    # Hilfemodus kann auch als Positionsargument in RootPath landen.
+    ($null -ne $RootPath -and $RootPath -in $helpTokens)
+
+function Show-Usage {
+param(
+    [string]$ScriptName = 'Initialize-SqlServerLabMediaRoot.ps1'
+)
+    Write-Host "$ScriptName" -ForegroundColor Cyan
+    Write-Host 'Funktion:' -ForegroundColor Magenta
+    Write-Host '  Erstellt und pflegt den externen Media Root fuer SQL_Server_Lab.' -ForegroundColor Cyan
+    Write-Host '  Erzeugt READMEs, optional bestehende Medien zuordnen und Sidecars erstellen.' -ForegroundColor Cyan
+    Write-Host ''
+    Write-Host 'Aufruf:' -ForegroundColor Magenta
+    Write-Host "  .\$ScriptName -RootPath <Pfad> [-OrganizeExisting] [-GenerateSha256] [-ShowHelp]" -ForegroundColor Cyan
+    Write-Host "  .\$ScriptName -ShowHelp" -ForegroundColor Cyan
+    Write-Host ''
+    Write-Host 'Parameter:' -ForegroundColor Magenta
+    Write-Host '  -RootPath <string>     Externer Root-Ordner fuer ISO/VHDX/Installer.' -ForegroundColor Cyan
+    Write-Host '  -OrganizeExisting      Vorhandene Medien automatisch einsortieren.' -ForegroundColor Cyan
+    Write-Host '  -GenerateSha256        SHA-256-Sidecars fuer Medien erzeugen.' -ForegroundColor Cyan
+    Write-Host '  -ShowHelp              Zeigt diese Hilfe.' -ForegroundColor Cyan
+    Write-Host ''
+    Write-Host 'Beispiele:' -ForegroundColor Magenta
+    Write-Host "  .\$ScriptName -RootPath 'D:\\Lab_Media'" -ForegroundColor Cyan
+    Write-Host '  -> Richtet die Standard-Media-Struktur ein.' -ForegroundColor Green
+    Write-Host "  .\$ScriptName -RootPath 'D:\\Lab_Media' -OrganizeExisting" -ForegroundColor Cyan
+    Write-Host '  -> Sortiert vorhandene Dateien in die Zielstruktur ein.' -ForegroundColor Green
+    Write-Host "  .\$ScriptName -RootPath 'D:\\Lab_Media' -GenerateSha256" -ForegroundColor Cyan
+    Write-Host '  -> Erzeugt SHA-256-Dateien unterhalb von Hashes.' -ForegroundColor Green
+}
+
 if ($showHelpRequested) {
-    Get-Help -Full -Name $PSCommandPath | Out-Host
+    Show-Usage -ScriptName (Split-Path -Leaf $PSCommandPath)
     return
+}
+
+if ([string]::IsNullOrWhiteSpace($RootPath)) {
+    throw 'Parameter RootPath ist erforderlich. Beispiel: .\Tools\Initialize-SqlServerLabMediaRoot.ps1 -RootPath D:\Lab_Media'
 }
 
 Set-StrictMode -Version Latest

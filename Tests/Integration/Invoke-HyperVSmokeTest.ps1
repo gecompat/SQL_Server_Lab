@@ -56,6 +56,12 @@ function Assert-HyperVSmoke {
     Write-Host "PASS: $Description" -ForegroundColor Green
 }
 
+function Test-CurrentAdminSession {
+    $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = [Security.Principal.WindowsPrincipal]::new($identity)
+    return $principal.IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)
+}
+
 try {
     $mutexAcquired = $mutex.WaitOne([TimeSpan]::FromMinutes(10))
     if (-not $mutexAcquired) {
@@ -66,8 +72,13 @@ try {
     Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
     $module = Import-Module $modulePath -Force -PassThru
 
-    $availability = & $module { Test-HyperVAvailable }
-    Assert-HyperVSmoke -Condition $availability.Available -Description 'Hyper-V-Host ist erreichbar'
+    if (-not (Test-CurrentAdminSession)) {
+        throw 'Hyper-V-Smoke-Test erfordert eine echte erhöhte PowerShell-Sitzung (Administrator).'
+    }
+
+    $prereq = & $module { Test-SqlServerLabPrerequisite -Provider hyperv }
+    $hypervProvider = $prereq.Details | Where-Object Category -EQ 'Provider' | Select-Object -First 1
+    Assert-HyperVSmoke -Condition ($hypervProvider.Status -eq 'RESOURCE_OK') -Description "Hyper-V-Host ist erreichbar: $($hypervProvider.Message)"
 
     $null = New-VHD -Path $parentPath -Dynamic -SizeBytes 64MB -ErrorAction Stop
     (Get-Item -LiteralPath $parentPath).IsReadOnly = $true
