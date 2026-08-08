@@ -78,6 +78,16 @@ SQL-Readiness. Der Ablauf ist unter
 [Windows-Server-Baseline aus ISO](../HowTo/HYPERV_WINDOWS_IMAGE_BUILD.md)
 dokumentiert.
 
+Mit
+`Tests/Integration/Invoke-HyperVWindowsBaselineAcceptanceRun.ps1` existiert
+nun ein dedizierter realer Cold-Path-Runner für veröffentlichte
+`OS_SEALED`-Baselines. Er deckt OOBE, regionale Einstellungen, PowerShell
+Direct, Stop/Start über Reconcile, den Reconnect nach einem Cold Start, die
+Abwesenheit einer SQL-Instanz und scopegebundenen Cleanup ab. Ein positiver
+hostlokaler Lauf dieses neuen Runners ist noch nicht dokumentiert; bis dahin
+bleibt er ein ausführbarer Abnahmevertrag und kein zusätzlicher Runtime-
+Nachweis.
+
 `New-SqlServerLab -Manifest` kann genau eine veröffentlichte
 `SQL_PREPARED_SEALED`-Vorlage als differenzierenden Hyper-V-Lab-Klon starten und
 die vorhandene Unattended-Provisionierung verwenden. Der Aufruf braucht dafür

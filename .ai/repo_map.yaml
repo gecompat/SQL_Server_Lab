@@ -454,6 +454,17 @@ validation:
       - restore_filelistonly_and_move
       - restored_database_online_and_content
       - full_cleanup
+  hyperv_windows_baseline_acceptance:
+    source: Tests/Integration/Invoke-HyperVWindowsBaselineAcceptanceRun.ps1
+    command: '.\Tests\Integration\Invoke-HyperVWindowsBaselineAcceptanceRun.ps1 -ArtifactId <hyperv-os-sealed-id> -AdministratorPassword <SecureString>'
+    execution_status: "implementiert; positiver hostlokaler Lauf noch offen"
+    checks:
+      - unattended_windows_oobe_and_locale
+      - reconcile_stop_start
+      - powershell_direct_after_cold_start
+      - no_sql_instance_in_os_baseline
+      - scope_bound_cleanup
+      - immutable_parent_after_cleanup
   remote_workflows:
     static_contracts:
       source: .github/workflows/static-contracts.yml
@@ -541,9 +552,9 @@ change_coupling:
 known_limitations:
   binding_document: Documentation/Quality/KNOWN_LIMITATIONS.md
   highlights:
-    - "Hyper-V sealed VHDX Registry, Builder-/Resume-Grundlage und enger Manifest-Klonpfad implementiert; vollautomatische OS-Factory, breites Manifest-Binding und echter Windows-/SQL-End-to-End-Nachweis bleiben offen"
+    - "Hyper-V sealed VHDX Registry, Builder-/Resume-Grundlage, enger Manifest-Klonpfad und Windows-Baseline-Acceptance-Runner implementiert; dessen positiver hostlokaler Lauf, die vollautomatische OS-Factory, breites Manifest-Binding und echter SQL-End-to-End-Nachweis bleiben offen"
     - "Container-Manifeste laufen standardmäßig unattended mit externen Secret-Referenzen, SHA-256-/Trust-Schutz und read-only Host-Mount-Default"
-    - "providerneutrale Network Intents, Exposure Policy und Reconcile nicht implementiert"
+    - "providerneutrale Network Intents und Exposure Policy sind nicht implementiert; Reconcile ist auf den Lifecycle START/STOP begrenzt"
     - "Artifact Refresh und Rebuild für Medien, VHDX und Derived Images nicht implementiert"
     - "kein provideruebergreifendes Docker-/Podman-Netzwerk oder Hyper-V-SubRun"
     - "Sample-Backup-Handler mit Trust-Pfad, Mehrfachauswahl, ZIP-/7z-Backup-Payloads und gepinnten Einzelskripten sind implementiert; Script Bundles, mehrteilige/nicht freigegebene Archive und Attach-Handler bleiben offen"

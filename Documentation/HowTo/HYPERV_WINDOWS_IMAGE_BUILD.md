@@ -200,6 +200,28 @@ Baseline oder andere Windows-Labs entfernt werden. Eine vorhandene,
 ausgeschaltete Windows-VM kann alternativ ebenfalls als geschützte, eigene
 Arbeitskopie als Klonquelle verwendet werden.
 
+### Reale Cold-Path-Abnahme einer OS-Baseline
+
+Für einen reproduzierbaren Nachweis außerhalb des Menüs steht ein eigener
+Integration-Runner bereit. Die Artifact-ID kann im Image-Menü beim Status der
+Windows-OS-Baselines abgelesen werden. Der Aufruf muss in einer erhöhten
+PowerShell-7-Sitzung auf dem Hyper-V-Host erfolgen:
+
+```powershell
+$password = Read-Host 'Gast-Administratorpasswort' -AsSecureString
+.\Tests\Integration\Invoke-HyperVWindowsBaselineAcceptanceRun.ps1 `
+    -ArtifactId 'hyperv-os-sealed-<sha256>' `
+    -AdministratorPassword $password
+```
+
+Der Runner erstellt einen frischen differenzierenden Klon, führt die OOBE aus,
+prüft die regionale Konfiguration, stoppt und startet die VM über Reconcile,
+wartet erneut auf PowerShell Direct und bestätigt, dass keine SQL-Instanz in
+der reinen OS-Baseline enthalten ist. Bei Erfolg sowie standardmäßig auch bei
+Fehlern werden alle run-lokalen Ressourcen entfernt. Nur `-KeepOnFailure`
+behält einen fehlgeschlagenen Run bewusst zur Diagnose. Die immutable
+Parent-VHDX wird nicht verändert und nach dem Cleanup erneut verifiziert.
+
 ## 9. Status und Recovery
 
 Build-State liegt standardmäßig unter:

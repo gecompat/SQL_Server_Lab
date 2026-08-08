@@ -690,10 +690,13 @@ offen und führen zunächst zu `MANUAL_ACTION_REQUIRED`.
 - Start, Stop, Status, Remove und scope-sicherer Cleanup;
 - eigener Smoke Test auf `SQL_Lab` plus `Hyper-V`.
 
-Stand 2026-08-03: Die Lifecycle-Grundlage und der synthetische Native-Smoke-Test
-sind implementiert. Die PowerShell-Direct-Sysprep-Orchestrierung und ihre
-technischen Postconditions sind statisch abgedeckt; ein echter Windows-Gast-
-End-to-End-Nachweis bleibt offen. Die run-lokale Windows-Specialization setzt
+Stand 2026-08-09: Die Lifecycle-Grundlage und der synthetische Native-Smoke-Test
+sind implementiert. Zusätzlich steht ein realer Windows-Baseline-Acceptance-
+Runner für OOBE, PowerShell Direct, Reconcile-Cold-Start und Cleanup bereit;
+sein positiver hostlokaler Lauf ist noch nicht dokumentiert. Die PowerShell-
+Direct-Sysprep-Orchestrierung und ihre technischen Postconditions sind statisch
+abgedeckt; ein echter positiver Windows-Gast-End-to-End-Nachweis bleibt offen.
+Die run-lokale Windows-Specialization setzt
 einen validierten Computernamen, persistiert ihren Reboot-Zustand und wartet
 begrenzt auf den PowerShell-Direct-Reconnect; auch dieser Pfad ist mangels einer
 realen sealed Baseline bislang nur statisch abgedeckt.

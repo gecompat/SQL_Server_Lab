@@ -146,10 +146,10 @@ function Invoke-SqlServerLabReconcileAction {
         $executionSummary.Status = 'PLANNED'
         try {
             $result = if ($canonicalOperation -eq 'Start') {
-                Start-SqlServerLab -RunId $RunId
+                Start-SqlServerLab -RunId $RunId -StateRoot $StateRoot
             }
             else {
-                Stop-SqlServerLab -RunId $RunId -Force
+                Stop-SqlServerLab -RunId $RunId -StateRoot $StateRoot -Force
             }
             $entry.Status = if ([string]$result.Status -match 'FAILED|WITH_ERRORS|RECOVERY_REQUIRED') { 'FAILED' } else { 'SUCCEEDED' }
             $entry.Result = $result

@@ -4,6 +4,25 @@ Dieses Changelog dokumentiert Änderungen am öffentlichen Verhalten, an maschin
 
 Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher nach Datum geführt. Neue Einträge werden oben ergänzt.
 
+## 2026-08-09
+
+### Hinzugefügt
+
+- realer Hyper-V-Windows-Baseline-Acceptance-Runner für veröffentlichte
+  `OS_SEALED`-Images. Er prüft OOBE und regionale Einstellungen, Stop/Start
+  über Reconcile, PowerShell Direct nach einem Cold Start, die Abwesenheit
+  einer SQL-Instanz sowie scopegebundenen Cleanup und die unveränderte
+  Parent-VHDX;
+- konfigurierbare Region, System-Locale, UI-Sprache, Eingabemethode und
+  Windows-Zeitzone für den Hyper-V-Klonpfad in Konsole, Workflow-UI und
+  nicht interaktiver Workflow-Aktion.
+
+### Geändert
+
+- `Invoke-SqlServerLabReconcileAction` reicht einen expliziten `StateRoot`
+  jetzt auch an die tatsächlichen Start-/Stop-Executors weiter. Damit stimmen
+  Plan und Mutation bei isolierten oder benutzerdefinierten State-Roots überein.
+
 ## 2026-08-08
 
 ### Geändert
