@@ -55,7 +55,8 @@ Die [bekannten Grenzen](Documentation/Quality/KNOWN_LIMITATIONS.md) sind Teil de
 
 Der Ad-hoc- und Menüpfad bietet Hyper-V noch nicht als allgemeinen SQL-
 Runtimepfad an. `New-SqlServerLab -Manifest` unterstützt hingegen genau eine
-explizit ausgewählte `SQL_PREPARED_SEALED`-Vorlage als differenzierenden Klon.
+explizit ausgewählte `OS_SEALED` oder `SQL_PREPARED_SEALED`-Vorlage als
+differenzierenden Klon.
 Vollständige deklarative Hyper-V-Drives, Datenbanken und Network Intents bleiben
 bis zu ihrem echten End-to-End-Nachweis begrenzt.
 
