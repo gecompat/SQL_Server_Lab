@@ -23,8 +23,13 @@ cd ~/src/SQL_Server_Lab
 pwsh -NoProfile -File ./Tests/Static/Invoke-AllChecks.ps1
 ```
 
-Die aktuelle statische Suite benötigt weder Pester noch PSScriptAnalyzer als
-separates Paket.
+Für den ergänzenden Pester-Check zusätzlich:
+
+```bash
+pwsh -NoProfile -File ./Tests/Static/Invoke-PesterChecks.ps1
+```
+
+PSScriptAnalyzer ist als Teil des lokalen Qualitätsrasters bereits vorgesehen.
 
 ## 3. Provider-Tests
 

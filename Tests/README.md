@@ -17,6 +17,13 @@ Empfohlene minimale Abfolge vor jedem Push auf `main`:
 .\Tests\Integration\Invoke-SmokeMatrix.ps1
 ```
 
+Alternativ (lokales Paket inklusive Pester):
+
+```powershell
+.\Tests\Static\Invoke-PesterChecks.ps1
+.\Tests\Pester\SqlServerLab.Module.Tests.ps1
+```
+
 Bei Hyper-V-relevanten Änderungen zusätzlich:
 
 ```powershell
@@ -44,6 +51,8 @@ Interpretation:
 .\Tests\Static\Invoke-ProjectAdapterChecks.ps1
 .\Tests\Static\Invoke-CleanupRecoveryChecks.ps1
 .\Tests\Static\Invoke-PodmanBootstrapChecks.ps1
+.\Tests\Static\Invoke-PesterChecks.ps1
+.\Tests\Static\Invoke-ReleaseReadinessChecks.ps1
 ```
 
 Die statischen Prüfungen benötigen keine laufende SQL-Server-Instanz. Sie kontrollieren unter anderem:
@@ -63,6 +72,8 @@ Die statischen Prüfungen benötigen keine laufende SQL-Server-Instanz. Sie kont
 - Reconcile-Executor-Vertrag: `Invoke-SqlServerLabReconcileAction` mit
   unterstütztem `START`/`STOP`, `-WhatIf`, mixed-operation-Schutz und
   geheimnissicherem Ergebnis;
+- Pester-Vertrag: projektspezifische Baseline, Manifest-/Exportkonsistenz und
+  deterministisch ausführbare Unit-/Contract-Tests unter `Tests/Pester`;
 - Ausschluss bekannter veralteter Beispiele und Statusangaben.
 - ProviderSubRuns, Mixed-Provider-Beispiel und Cleanup-Zuordnung.
 - Trust Store, inhaltsadressierten Artifact Cache, Quarantäne und sanitisiertes Run Lock mit ausschliesslich synthetischen Testbytes.

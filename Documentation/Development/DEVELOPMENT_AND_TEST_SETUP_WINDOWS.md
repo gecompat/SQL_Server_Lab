@@ -79,12 +79,18 @@ nicht in Repository, Logs oder Actions-Artefakte gelangen.
 
 ## 3. Statische Entwicklung und Tests
 
-Die gegenwärtige statische Suite benötigt keine zusätzliche Pester- oder
-PSScriptAnalyzer-Installation. PowerShell 7.2 oder neuer genügt.
+Die statische Suite und PSScriptAnalyzer-Prüfung laufen bereits über das
+lokale Repo und benötigen PowerShell 7.2 oder neuer. 
+
+Für den ergänzenden Pester-Unit-/Contract-Check empfiehlt sich:
+
+- `Install-Module PSScriptAnalyzer -Scope CurrentUser -Force` (für PSScriptAnalyzer)
+- `Install-Module Pester -Scope CurrentUser -Force` (für `Invoke-PesterChecks`)
 
 ```powershell
 Import-Module .\SqlServerLab.psd1 -Force
 .\Tests\Static\Invoke-AllChecks.ps1
+.\Tests\Static\Invoke-PesterChecks.ps1
 ```
 
 Für reine Dokumentationsänderungen ist mindestens auszuführen:
@@ -93,8 +99,7 @@ Für reine Dokumentationsänderungen ist mindestens auszuführen:
 .\Tests\Static\Invoke-DocumentationChecks.ps1
 ```
 
-PSScriptAnalyzer ist als zukünftige Erweiterung der Qualitätsstrategie geplant,
-aber derzeit keine Voraussetzung für einen erfolgreichen Repository-Testlauf.
+PSScriptAnalyzer ist als Teil des projektspezifischen Qualitätsrasters aktiv.
 
 ## 4. Docker-Testumgebung
 

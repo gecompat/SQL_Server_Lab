@@ -17,6 +17,10 @@ Ziel: reproduzierbare, schnelle Einschätzung, ob ein Push bzw. Merge auf `main`
 - `.\Tests\Static\Invoke-AllChecks.ps1`
   - Erwartung: `ALLE STATISCHEN VERTRAGSPRUEFUNGEN: PASS`
   - Erwartet mindestens bei Änderungen an Skripten, Modulen, Workflows, Tests, READMEs.
+- `.\Tests\Static\Invoke-PesterChecks.ps1`
+  - Erwartung: kein `FAIL` im Pester-Suitenlauf.
+- `.\Tools\Prepare-LocalRelease.ps1 -CreateArchive -IncludeHashManifest` (für Releases)
+  - Erwartung: erzeugte Release-Struktur unter `.artifacts/release` inkl. Manifest und optionaler Hash-Liste.
 
 ## 3) Runtime-Checks (wenn Laufzeit-Änderungen betroffen sind)
 
@@ -55,4 +59,3 @@ Ziel: reproduzierbare, schnelle Einschätzung, ob ein Push bzw. Merge auf `main`
 - Meldung wie `Bypassed rule violations for refs/heads/main` ist kein Testfehler.
 - Sie bedeutet, dass ein Push die gesetzte Schutzregel umgangen hat (z. B. direkter Push auf `main` statt PR-Flow).
 - Wenn du das vermeiden willst: Änderungen per PR laufen lassen oder Berechtigungseinstellungen anpassen.
-

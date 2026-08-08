@@ -588,6 +588,12 @@ Vollständige Matrix aus Docker/Podman, SQL Server 2019/2022/2025 und kontrollie
 
 Nicht erreichbare Provider werden als `SKIP` ausgewiesen. Erreichbare, aber fehlerhafte Provider führen zu `FAIL` und Exitcode `1`. Details zu Testumfang, Parallelitätsvertrag und Remote Runnern stehen in [Tests/README.md](Tests/README.md).
 
+Für eine reproduzierbare lokale Release-Kopie:
+
+```powershell
+.\Tools\Prepare-LocalRelease.ps1 -CreateArchive -IncludeHashManifest
+```
+
 ## Repository-Struktur
 
 ```text

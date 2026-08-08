@@ -484,10 +484,10 @@ Sicherheitsgarantien.
 
 | ID | Arbeitspaket | Ergebnis |
 |---|---|---|
-| `QUAL-901` | Pester-Paket und projektspezifische PSScriptAnalyzer-Baseline | wartbare Unit-/Contract-Abdeckung |
+| `QUAL-901` | Pester-Paket und projektspezifische PSScriptAnalyzer-Baseline | abgeschlossen: Pester-Runner + Modul- und Baseline-Tests integriert |
 | `QUAL-902` | Privacy-, Secret-, Pfad-, Symlink-/Junction- und Fremdobjektschutz erweitern | stärkere lokale Sicherheitsprüfung |
 | `QUAL-903` | Fault Injection für Prozessabbruch, Reboot, Portbindung, Providerfehler und Cleanup | Recovery-Nachweis |
-| `QUAL-904` | Release-Check, Versionierung, Notes und optionale hashgebundene Pakete | reproduzierbare lokale Freigabe |
+| `QUAL-904` | Release-Check, Versionierung, Notes und optionale hashgebundene Pakete | reproduzierbare lokale Freigabe (lokale Artefaktkopie + Hash-Option) |
 | `QUAL-905` | Operator-, Recovery- und Troubleshooting-Dokumentation abschließen | sichere Bedienbarkeit ohne Chatkontext |
 | `QUAL-906` | öffentliche Vertragsversion erst nach Adapter- und Providerabnahme festlegen | belastbare Kompatibilitätsgrenze |
 
