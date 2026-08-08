@@ -266,6 +266,14 @@ Ist-Stand und dieselbe Priorität.
 **Ziel:** Ein providerneutraler, read-only planbarer Änderungsvertrag steht vor
 jeder neuen UI- oder Runtimefunktion.
 
+**Umsetzungsstand 2026-08-08:** Der erste vertikale Vertragskern ist als
+`Get-SqlServerLabReconcilePlan` umgesetzt. Er liest bestehende Runs
+abwärtskompatibel, liefert versionierte Desired-/Actual-/Diff-/Action-Objekte,
+plant No-op oder providergebundene Start-/Stop-Vorschläge und blockiert
+`UNKNOWN`, `UNAVAILABLE`, `MISSING` und `PARTIAL` fail-closed. Ein mutierender
+Executor, umfassende Desired-State-Persistenz und weitere Änderungsklassen
+bleiben bewusst in den nachfolgenden CORE-Arbeitspaketen.
+
 | ID | Arbeitspaket | Ergebnis |
 |---|---|---|
 | `CORE-101` | Desired State, Actual State, Diff, Bound Plan, Lock und Result getrennt versionieren | stabile serialisierbare Verträge |

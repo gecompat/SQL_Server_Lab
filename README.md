@@ -450,6 +450,7 @@ Clear-SqlServerLab
 |---|---|
 | `Invoke-SqlServerLab` | Interaktives Menü |
 | `Get-SqlServerLabWorkflow` | Konsolidierte Workflow-, Image-, Vorlagenpool- und Kombinationsübersicht ohne Geheimnisse |
+| `Get-SqlServerLabReconcilePlan` | Read-only Desired/Actual/Diff/Action-Plan für einen bestehenden Lifecycle-Run |
 | `Invoke-SqlServerLabWorkflowAction` | Nicht interaktive Hyper-V-Workflow-Aktion für die lokale Oberfläche |
 | `New-SqlServerLabManifest` | Schema-gesteuertes Manifest in der Konsole erstellen |
 | `Test-SqlServerLabManifest` | Manifest ohne Provisionierung strukturell und fachlich prüfen |

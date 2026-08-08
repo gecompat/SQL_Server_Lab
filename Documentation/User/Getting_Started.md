@@ -703,6 +703,20 @@ ursprünglichen Provider gebunden. Ein Manifest kann beide Containerprovider in
 einem Run kombinieren; Details und Grenzen stehen im
 [Gemischten Container-Provider-Lifecycle](../Architecture/MIXED_PROVIDER_LIFECYCLE.md).
 
+### Read-only Reconcile-Vorschau
+
+Bevor ein künftiger Reconcile-Executor Lifecycle-Ressourcen ändern darf, kann
+der aktuelle Plan ohne Mutation gelesen werden. Der Vertrag enthält keine
+Secrets, Host-/Port-Werte oder Container-/VM-IDs. Unvollständige Runtime-
+Zustände werden bewusst als `unsupported` statt mit Teilaktionen ausgewiesen.
+
+```powershell
+Get-SqlServerLabReconcilePlan -RunId $lab.RunId -TargetState STOPPED
+```
+
+Im ersten Vertragsstand sind Actions ausschließlich Vorschläge; sie starten,
+stoppen oder verändern noch keine Ressource.
+
 ## 16. Umgebung entfernen
 
 ```powershell
