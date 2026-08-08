@@ -10,12 +10,22 @@
 #>
 [CmdletBinding()]
 param(
+    [Alias('h','help','?')][switch]$ShowHelp,
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [string[]]$RemainingArgs,
     [Parameter(Mandatory)][string]$BuildId,
     [ValidateRange(60, 3600)][int]$OobeTimeoutSeconds = 900,
     [ValidateRange(60, 10800)][int]$SetupTimeoutSeconds = 7200,
     [ValidateRange(60, 3600)][int]$ReadinessTimeoutSeconds = 600,
     [string]$StateRoot
 )
+
+$showHelpRequested = $ShowHelp.IsPresent -or @($RemainingArgs) -contains '/?' -or @($RemainingArgs) -contains '-?' -or @($RemainingArgs) -contains '-h' -or @($RemainingArgs) -contains '--help'
+if ($showHelpRequested) {
+    Get-Help -Full -Name $PSCommandPath | Out-Host
+    return
+}
+
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
@@ -105,3 +115,5 @@ finally {
     ObservedAt = [datetime]::UtcNow.ToString('o')
 } | ConvertTo-Json -Depth 4
 Write-AcceptanceProgress "Abnahme erfolgreich abgeschlossen."
+
+

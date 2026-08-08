@@ -8,7 +8,21 @@
     Fehler-, Timeout- und Parallelpfade.
 #>
 [CmdletBinding()]
-param()
+param(
+    [Alias('h','help','?')][switch]$ShowHelp,
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [string[]]$RemainingArgs,
+)
+
+$showHelpRequested = $ShowHelp.IsPresent -or @($RemainingArgs) -contains '/?' -or @($RemainingArgs) -contains '-?' -or @($RemainingArgs) -contains '-h' -or @($RemainingArgs) -contains '--help'
+
+if ($showHelpRequested) {
+
+    Get-Help -Full -Name $PSCommandPath | Out-Host
+
+    return
+
+}
 
 $ErrorActionPreference = 'Stop'
 $targetPath = Join-Path (Resolve-Path (Join-Path $PSScriptRoot '..\Integration')).Path 'Initialize-PodmanRuntime.ps1'
@@ -214,3 +228,4 @@ if ($failures.Count -gt 0) {
 }
 
 exit 0
+

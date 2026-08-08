@@ -1,5 +1,19 @@
 [CmdletBinding()]
-param()
+param(
+    [Alias('h','help','?')][switch]$ShowHelp,
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [string[]]$RemainingArgs,
+)
+
+$showHelpRequested = $ShowHelp.IsPresent -or @($RemainingArgs) -contains '/?' -or @($RemainingArgs) -contains '-?' -or @($RemainingArgs) -contains '-h' -or @($RemainingArgs) -contains '--help'
+
+if ($showHelpRequested) {
+
+    Get-Help -Full -Name $PSCommandPath | Out-Host
+
+    return
+
+}
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
@@ -117,3 +131,4 @@ if ($failures.Count -gt 0) {
 
 Write-Host 'READINESS MENU AND PORT CONTRACT CHECK: PASS' -ForegroundColor Green
 exit 0
+

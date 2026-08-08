@@ -256,17 +256,17 @@
 
   <dialog id="container-operation-dialog">
     <form id="container-operation-form" method="dialog">
-      <div class="dialog-heading"><div><p class="eyebrow">CONTAINER-AKTION</p><h2 id="container-operation-title">Aktion ausführen</h2></div><button type="button" class="icon-button" value="cancel" formnovalidate aria-label="Schließen">×</button></div>
-      <input id="container-operation-action" type="hidden"><input id="container-operation-run" type="hidden"><input id="container-operation-port" type="hidden"><input id="container-operation-instance" type="hidden">
-      <label id="container-database-field">Datenbankname<input id="container-database-name" pattern="[A-Za-z0-9_]{1,128}"></label>
+      <div class="dialog-heading"><div><p id="container-operation-badge" class="eyebrow">LAB-AKTION</p><h2 id="container-operation-title">Aktion ausführen</h2></div><button type="button" class="icon-button" value="cancel" formnovalidate aria-label="Schließen">×</button></div>
+      <input id="container-operation-action" type="hidden"><input id="container-operation-run" type="hidden"><input id="container-operation-port" type="hidden"><input id="container-operation-instance" type="hidden"><input id="container-operation-kind" type="hidden"><input id="container-operation-host" type="hidden">
+      <label id="container-database-field">Datenbankname<input id="container-database-name" pattern="[A-Za-z][A-Za-z0-9_]{0,127}"></label>
       <label id="container-sample-field">Testdatenbanken aus Katalog (optional, Mehrfachauswahl mit Strg/Shift)<select id="container-sample" multiple size="6"></select></label>
       <p id="container-sample-note" class="form-note">Ohne Auswahl wird die oben angegebene leere Datenbank angelegt.</p>
       <label id="container-sample-hash-field" hidden>Offizieller SHA-256 der Testdatenbank (optional)<input id="container-sample-sha256" inputmode="text" autocomplete="off" maxlength="64" placeholder="64 Hex-Zeichen"></label>
       <label id="container-sample-trust-field" hidden><input id="container-sample-trust" type="checkbox"> Ich vertraue dieser Quelle einmalig: Die heruntergeladene Datei wird mit SHA-256 geprüft und der Fingerprint lokal für diese Katalogvariante gespeichert.</label>
       <label id="container-script-field">Absoluter Pfad zum SQL-Skript<input id="container-script-path"></label>
-      <label id="container-script-database-field">Zieldatenbank<input id="container-script-database" value="master" pattern="[A-Za-z0-9_]{1,128}"></label>
-      <label>SA-Passwort<input id="container-operation-password" type="password" autocomplete="current-password" required></label>
-      <p class="form-note">Das Passwort wird nicht gespeichert oder im Log angezeigt.</p>
+      <label id="container-script-database-field">Zieldatenbank<input id="container-script-database" value="master" pattern="[A-Za-z][A-Za-z0-9_]{0,127}"></label>
+      <label id="container-operation-password-label">SA-Passwort<input id="container-operation-password" type="password" autocomplete="current-password" required></label>
+      <p id="container-operation-password-note" class="form-note">Das Passwort wird nicht gespeichert oder im Log angezeigt.</p>
       <div class="dialog-actions"><button type="button" class="button secondary" value="cancel" formnovalidate>Abbrechen</button><button class="button primary" value="default">Aktion starten</button></div>
     </form>
   </dialog>

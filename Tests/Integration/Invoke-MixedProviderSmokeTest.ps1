@@ -16,9 +16,19 @@
 #>
 [CmdletBinding()]
 param(
+    [Alias('h','help','?')][switch]$ShowHelp,
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [string[]]$RemainingArgs,
     [string]$Version = '2022',
     [switch]$KeepOnFailure
 )
+
+$showHelpRequested = $ShowHelp.IsPresent -or @($RemainingArgs) -contains '/?' -or @($RemainingArgs) -contains '-?' -or @($RemainingArgs) -contains '-h' -or @($RemainingArgs) -contains '--help'
+if ($showHelpRequested) {
+    Get-Help -Full -Name $PSCommandPath | Out-Host
+    return
+}
+
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
@@ -141,3 +151,5 @@ if ($testFailed) {
 
 Write-Host 'Mixed-Provider-Smoke-Test erfolgreich.' -ForegroundColor Green
 exit 0
+
+

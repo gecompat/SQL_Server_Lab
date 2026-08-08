@@ -1,5 +1,19 @@
 #Requires -Version 7.2
-[CmdletBinding()] param()
+[CmdletBinding()] param(
+    [Alias('h','help','?')][switch]$ShowHelp,
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [string[]]$RemainingArgs,
+)
+
+$showHelpRequested = $ShowHelp.IsPresent -or @($RemainingArgs) -contains '/?' -or @($RemainingArgs) -contains '-?' -or @($RemainingArgs) -contains '-h' -or @($RemainingArgs) -contains '--help'
+
+if ($showHelpRequested) {
+
+    Get-Help -Full -Name $PSCommandPath | Out-Host
+
+    return
+
+}
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $toolPath = Join-Path $repoRoot 'Tools/Initialize-SqlServerLabDataRoot.ps1'
@@ -62,3 +76,4 @@ catch { Add-CheckResult -Name 'Data-Root-Testausfuehrung' -Success $false -Messa
 finally { if (Test-Path -LiteralPath $temporaryRoot) { Remove-Item -LiteralPath $temporaryRoot -Recurse -Force } }
 Write-Host ''; Write-Host "Ergebnis: $passed PASS, $($failures.Count) FAIL" -ForegroundColor Cyan
 if ($failures.Count) { exit 1 }; exit 0
+

@@ -1,6 +1,8 @@
 let workflow = null;
 let activeJobCount = 0;
 let optimisticJobs = [];
+const jobLineCache = {};
+let uiConfig = { jobLogBurstLimit: 300 };
 
 const $ = (selector) => document.querySelector(selector);
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
@@ -409,8 +411,8 @@ function renderActiveLabs(items) {
         ? '<div class="build-meta"><strong>Persistente Daten:</strong> Host ' + escapeHtml(instance.PersistentStorage.hostPath) + (instance.PersistentStorage.guestPath ? ' → Gast ' + escapeHtml(instance.PersistentStorage.guestPath) : '') + ' [' + escapeHtml(instance.PersistentStorage.state || '–') + ']</div>'
         : '';
       const operations = running && instance.Port ? [
-        '<button class="button secondary" data-container-operation="CreateContainerDatabase" data-run="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(instance.Id) + '" data-sql-version="' + escapeHtml(instance.SqlVersion) + '" data-port="' + escapeHtml(instance.Port) + '">Datenbank anlegen</button>',
-        '<button class="button secondary" data-container-operation="ExecuteContainerScript" data-run="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(instance.Id) + '" data-port="' + escapeHtml(instance.Port) + '">SQL-Skript ausführen</button>'
+        '<button class="button secondary" data-container-operation="CreateContainerDatabase" data-container-operation-kind="container" data-run="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(instance.Id) + '" data-container-operation-host="' + escapeHtml(instance.Host || '127.0.0.1') + '" data-sql-version="' + escapeHtml(instance.SqlVersion) + '" data-port="' + escapeHtml(instance.Port) + '">Datenbank anlegen</button>',
+        '<button class="button secondary" data-container-operation="ExecuteContainerScript" data-container-operation-kind="container" data-run="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(instance.Id) + '" data-container-operation-host="' + escapeHtml(instance.Host || '127.0.0.1') + '" data-port="' + escapeHtml(instance.Port) + '">SQL-Skript ausführen</button>'
       ].join('') : '';
       return '<div class="container-instance"><div class="build-meta">' + escapeHtml(provider) + ' · SQL Server ' + escapeHtml(instance.SqlVersion || '–') + ' · ' + escapeHtml(connection) + '</div>' + connectionString + persistentStorage + '<div class="build-actions">' + operations + '</div></div>';
     }).join('') || '<p class="empty">Keine Instanzen im Run gespeichert.</p>';
@@ -418,13 +420,27 @@ function renderActiveLabs(items) {
   }).join('') : empty('Noch keine Container-Labs vorhanden.');
 }
 
+function parseSqlConnectionHost(connectionString) {
+  const match = String(connectionString || '').match(/Data Source\s*=\s*([^;]+)/i);
+  if (!match) return '127.0.0.1';
+  const endpoint = String(match[1] || '').trim();
+  if (!endpoint) return '127.0.0.1';
+  return endpoint.split(',')[0].replace(/^\[(.+)\]$/, '$1');
+}
+
 function renderHyperVLabs(items) {
   $('#hyperv-labs').innerHTML = items.length ? items.map((item) => {
     const running = item.State === 'RUNNING' && item.VMState === 'Running';
     const isSqlLab = item.Workload !== 'windows';
+    const sqlInstances = item.SqlInstances || [];
+    const primarySqlInstance = sqlInstances.find((instance) => instance.IsDefault) || sqlInstances[0] || null;
+    const sqlOperationInstanceId = primarySqlInstance && primarySqlInstance.InstanceId ? primarySqlInstance.InstanceId : item.InstanceId || 'primary';
+    const sqlOperationPort = primarySqlInstance && primarySqlInstance.TcpPort ? Number(primarySqlInstance.TcpPort) : 1433;
+    const sqlOperationHost = primarySqlInstance && primarySqlInstance.ConnectionString
+      ? parseSqlConnectionHost(primarySqlInstance.ConnectionString)
+      : parseSqlConnectionHost(item.ConnectionString);
     const sqlNeedsCompletion = isSqlLab && Boolean(item.ArtifactId) && item.SqlCompletionState === 'PENDING_COMPLETE_IMAGE';
     const persistent = item.PersistentStorage;
-    const sqlInstances = item.SqlInstances || [];
     const instanceDetails = sqlInstances.length
       ? '<div class="container-instance"><div class="build-meta"><strong>SQL-Instanzen in der VM</strong> · geprüft ' + escapeHtml(item.SqlInstancesInspectedAt || '–') + '</div>' + sqlInstances.map((instance) => {
         const endpoint = instance.ConnectionString ? '<div class="build-meta connection-string"><strong>Connection String:</strong> <code>' + escapeHtml(instance.ConnectionString) + '</code></div>' : '';
@@ -442,6 +458,8 @@ function renderHyperVLabs(items) {
       sqlNeedsCompletion ? '<button class="button primary" data-hyperv-action="CompleteHyperVLabSql" data-run="' + escapeHtml(item.RunId) + '">SQL, WMI und TCP/IP automatisch einrichten</button>' : '',
       (running && isSqlLab && !sqlNeedsCompletion) ? '<button class="button primary" data-hyperv-action="EnableHyperVLabHostSqlAccess" data-run="' + escapeHtml(item.RunId) + '">Hostzugriff reparieren</button>' : '',
       (running && isSqlLab) ? '<button class="button secondary" data-hyperv-action="InspectHyperVLabSqlInstances" data-run="' + escapeHtml(item.RunId) + '">SQL-Instanzen prüfen</button>' : '',
+      (running && isSqlLab) ? '<button class="button secondary" data-container-operation="CreateHyperVLabDatabase" data-container-operation-kind="hyperv" data-run="' + escapeHtml(item.RunId) + '" data-container-operation-host="' + escapeHtml(sqlOperationHost) + '" data-instance="' + escapeHtml(sqlOperationInstanceId) + '" data-port="' + escapeHtml(String(sqlOperationPort)) + '">Datenbank anlegen</button>' : '',
+      (running && isSqlLab) ? '<button class="button secondary" data-container-operation="ExecuteHyperVLabScript" data-container-operation-kind="hyperv" data-run="' + escapeHtml(item.RunId) + '" data-container-operation-host="' + escapeHtml(sqlOperationHost) + '" data-instance="' + escapeHtml(sqlOperationInstanceId) + '" data-port="' + escapeHtml(String(sqlOperationPort)) + '">SQL-Skript ausführen</button>' : '',
       '<button class="button secondary" data-hyperv-action="OpenHyperVConsole" data-run="' + escapeHtml(item.RunId) + '">VMConnect öffnen</button>',
       '<button class="button secondary" data-lab-rename="true" data-run="' + escapeHtml(item.RunId) + '" data-name="' + escapeHtml(item.Name || item.RunId) + '">Name ändern</button>',
       '<button class="button danger" data-hyperv-remove="true" data-run="' + escapeHtml(item.RunId) + '" data-name="' + escapeHtml(item.Name || item.RunId) + '">Entfernen</button>'
@@ -505,23 +523,43 @@ async function refresh(mediaRoot) {
   renderWorkflow(await response.json());
 }
 
+async function refreshUiConfig() {
+  const response = await fetch('/api/config');
+  if (!response.ok) return;
+  const config = await response.json();
+  const requestedLimit = Number(config?.jobLogBurstLimit);
+  uiConfig.jobLogBurstLimit = Number.isFinite(requestedLimit) ? Math.max(1, Math.floor(requestedLimit)) : uiConfig.jobLogBurstLimit;
+}
+
 function renderJobs(serverJobs) {
-  const known = new Set((serverJobs || []).map((job) => job.Id));
-  optimisticJobs = optimisticJobs.filter((job) => !known.has(job.Id));
-  const jobs = [...optimisticJobs, ...(serverJobs || [])];
+  const jobsByServer = serverJobs || [];
+  const known = new Set(jobsByServer.map((job) => String(job.Id)));
+  optimisticJobs = optimisticJobs.filter((job) => !known.has(String(job.Id)));
+  const jobs = [...optimisticJobs, ...jobsByServer];
   activeJobCount = jobs.filter((job) => ['Running', 'NotStarted', 'Submitting'].includes(job.State)).length;
   const anyRunning = activeJobCount > 0;
   $('#job-count').textContent = jobs.length + ' Aktion(en)';
   $('#jobs').innerHTML = jobs.length ? jobs.map((job) => {
     const running = ['Running', 'NotStarted', 'Submitting'].includes(job.State);
+    const configuredLimit = Number(uiConfig.jobLogBurstLimit);
+    const burstLimit = Number.isFinite(configuredLimit) ? Math.max(1, Math.floor(configuredLimit)) : 300;
     const elapsed = Number(job.ElapsedSeconds || Math.max(0, Math.floor((Date.now() - Date.parse(job.StartedAt || new Date().toISOString())) / 1000)) || 0);
     const runtime = running ? ' · läuft seit ' + elapsed + ' s' : '';
     const activityAge = job.LastActivityAt ? Math.max(0, Math.floor((Date.now() - Date.parse(job.LastActivityAt)) / 1000)) : null;
     const heartbeat = running ? '[HEARTBEAT] Job aktiv · Laufzeit ' + elapsed + ' s' + (activityAge === null ? ' · Auftrag wird an den lokalen Server übergeben.' : ' · letzte Servermeldung vor ' + activityAge + ' s.') : '';
-    const lines = [...(job.Lines || []), ...(heartbeat ? [heartbeat] : [])].join('\n') || 'Aktion läuft …';
+    const jobId = String(job.Id);
+    const previousLines = Array.isArray(jobLineCache[jobId]) ? jobLineCache[jobId] : [];
+    const incomingLines = Array.isArray(job.Lines) ? job.Lines : [];
+    const mergedLines = [...previousLines, ...incomingLines].slice(-burstLimit);
+    jobLineCache[jobId] = mergedLines;
+    const lines = [...mergedLines, ...(heartbeat ? [heartbeat] : [])].join('\n') || 'Aktion läuft …';
     return '<article class="job"><div class="job-header"><strong>' + escapeHtml(job.Action + runtime) + '</strong><span class="status ' + (job.State === 'Failed' ? 'failed' : job.State === 'Completed' ? 'done' : 'pending') + '">' + escapeHtml(job.State) + '</span></div>' + (running ? '<div class="job-progress" aria-label="Aktion läuft"></div>' : '') + '<pre class="log">' + escapeHtml(lines) + '</pre></article>';
   }).join('') : empty('Noch keine Aktion wurde aus der Oberfläche gestartet.');
   const feedback = $('#action-feedback');
+  const presentJobIds = new Set(jobs.map((job) => String(job.Id)));
+  Object.keys(jobLineCache).forEach((jobId) => {
+    if (!presentJobIds.has(jobId)) { delete jobLineCache[jobId]; }
+  });
   if (!anyRunning) feedback.hidden = true;
 }
 
@@ -534,6 +572,7 @@ async function refreshJobs() {
 
 async function startAction(action, parameters) {
   const optimistic = { Id: 'pending-' + Date.now(), Action: action, State: 'Submitting', StartedAt: new Date().toISOString(), Lines: ['[ANFORDERUNG] ' + action + ' wurde im Browser ausgelöst.', '[WARTEN] Auftrag wird an den lokalen Workflow-Server übergeben.'] };
+  jobLineCache[String(optimistic.Id)] = Array.isArray(optimistic.Lines) ? optimistic.Lines : [];
   optimisticJobs.push(optimistic);
   renderJobs([]);
   const feedback = $('#action-feedback');
@@ -548,7 +587,19 @@ async function startAction(action, parameters) {
     });
     if (!response.ok) throw new Error(await response.text());
     const accepted = await response.json();
-    optimistic.Id = accepted.id || optimistic.Id;
+    const acceptedId = accepted.id || optimistic.Id;
+    if (acceptedId && acceptedId !== optimistic.Id) {
+      const previousId = String(optimistic.Id);
+      const nextId = String(acceptedId);
+      if (jobLineCache[previousId]) {
+        jobLineCache[nextId] = jobLineCache[previousId];
+        delete jobLineCache[previousId];
+      }
+      optimistic.Id = acceptedId;
+    }
+    else {
+      optimistic.Id = acceptedId;
+    }
     optimistic.State = 'Running';
     optimistic.Lines.push('[AKZEPTIERT] Hintergrundjob ' + optimistic.Id + ' wurde gestartet.');
     renderJobs([]);
@@ -654,22 +705,31 @@ function updateContainerSampleSelection() {
   $('#container-sample-trust').checked = false;
 }
 
-function openContainerOperation(action, runId, port, instanceId, sqlVersion) {
-  const databaseAction = action === 'CreateContainerDatabase';
+function openContainerOperation(action, runId, port, instanceId, sqlVersion, kind, host) {
+  const operationKind = kind === 'hyperv' ? 'hyperv' : 'container';
+  const isCreateAction = action === 'CreateContainerDatabase' || action === 'CreateHyperVLabDatabase';
+  const databaseAction = isCreateAction;
   $('#container-operation-action').value = action;
   $('#container-operation-run').value = runId;
   $('#container-operation-port').value = port;
+  $('#container-operation-host').value = host || '127.0.0.1';
+  $('#container-operation-kind').value = operationKind;
+  $('#container-operation-badge').textContent = 'LAB-AKTION';
+  $('#container-operation-password-label').textContent = operationKind === 'hyperv' ? 'Gastpasswort' : 'SA-Passwort';
+  $('#container-operation-password-note').textContent = operationKind === 'hyperv'
+    ? 'Das Passwort dient für PowerShell Direct und den SQL-Zugriff auf die laufende Hyper-V-VM.'
+    : 'Das Passwort wird nicht gespeichert oder im Log angezeigt.';
   $('#container-operation-instance').value = instanceId || 'primary';
   $('#container-operation-title').textContent = databaseAction ? 'Datenbank anlegen' : 'SQL-Skript ausführen';
   $('#container-database-field').hidden = !databaseAction;
-  $('#container-sample-field').hidden = !databaseAction;
+  $('#container-sample-field').hidden = !(isCreateAction && operationKind === 'container');
   $('#container-sample-hash-field').hidden = true;
   $('#container-sample-trust-field').hidden = true;
   $('#container-sample-sha256').value = '';
   $('#container-sample-trust').checked = false;
   $('#container-script-field').hidden = databaseAction;
   $('#container-script-database-field').hidden = databaseAction;
-  if (databaseAction) renderContainerSampleOptions(sqlVersion);
+  if (isCreateAction && operationKind === 'container') renderContainerSampleOptions(sqlVersion);
   $('#container-operation-dialog').showModal();
 }
 
@@ -716,7 +776,10 @@ document.addEventListener('click', async (event) => {
     return;
   }
   const operation = event.target.closest('[data-container-operation]');
-  if (operation) { openContainerOperation(operation.dataset.containerOperation, operation.dataset.run, operation.dataset.port, operation.dataset.instance, operation.dataset.sqlVersion); return; }
+  if (operation) {
+    openContainerOperation(operation.dataset.containerOperation, operation.dataset.run, operation.dataset.port, operation.dataset.instance, operation.dataset.sqlVersion, operation.dataset.containerOperationKind, operation.dataset.containerOperationHost);
+    return;
+  }
   const labRename = event.target.closest('[data-lab-rename]');
   if (labRename) {
     const currentName = labRename.dataset.name || '–';
@@ -1047,28 +1110,91 @@ $('#container-operation-form').addEventListener('submit', async (event) => {
   if (event.submitter?.value === 'cancel') return;
   event.preventDefault();
   let action = $('#container-operation-action').value;
-  const parameters = { BuildId: $('#container-operation-run').value, InstanceId: $('#container-operation-instance').value, Port: Number($('#container-operation-port').value), SaPassword: $('#container-operation-password').value };
-  if (action === 'CreateContainerDatabase') {
-    const samples = [...$('#container-sample').selectedOptions].map((option) => option.value).filter(Boolean);
-    if (samples.length) {
-      const sampleSha256 = $('#container-sample-sha256').value.trim();
-      if (sampleSha256 && !/^[a-fA-F0-9]{64}$/.test(sampleSha256)) { showError(new Error('Der SHA-256 der Testdatenbank muss 64 Hex-Zeichen enthalten.')); return; }
-      if ($('#container-sample-trust-field').hidden === false && !sampleSha256 && !$('#container-sample-trust').checked) { showError(new Error('Bitte einen offiziellen SHA-256 eintragen oder die einmalige Vertrauensfreigabe bestätigen.')); return; }
-      action = samples.length === 1 ? 'InstallContainerSampleDatabase' : 'InstallContainerSampleDatabases';
-      if (samples.length === 1) {
-        const [SampleId, SampleVariant] = samples[0].split(':', 2);
-        parameters.SampleId = SampleId;
-        parameters.SampleVariant = SampleVariant;
-        if (sampleSha256) parameters.SampleSha256 = sampleSha256;
-      } else {
-        parameters.SampleSelections = samples;
+  const operationKind = $('#container-operation-kind').value || 'container';
+  const targetPort = Number($('#container-operation-port').value);
+  const password = $('#container-operation-password').value;
+  const operationPort = Number.isFinite(targetPort) ? Number(targetPort) : 0;
+  const parameters = {
+    BuildId: $('#container-operation-run').value,
+    InstanceId: $('#container-operation-instance').value,
+    HostName: $('#container-operation-host').value || '127.0.0.1',
+    Port: operationPort
+  };
+
+  if (!operationPort || operationPort < 1 || operationPort > 65535) {
+    showError(new Error('Bitte einen gültigen SQL-Port zwischen 1 und 65535 angeben.'));
+    return;
+  }
+
+  if (operationKind === 'hyperv') {
+    parameters.GuestPassword = password;
+  }
+  else {
+    parameters.SaPassword = password;
+  }
+  if (!password) {
+    showError(new Error(operationKind === 'hyperv' ? 'Bitte das Gastpasswort angeben.' : 'Bitte das SA-Passwort angeben.'));
+    return;
+  }
+  if (action === 'CreateContainerDatabase' || action === 'CreateHyperVLabDatabase') {
+    if (action === 'CreateContainerDatabase' && operationKind === 'container') {
+      const samples = [...$('#container-sample').selectedOptions].map((option) => option.value).filter(Boolean);
+      if (samples.length) {
+        const sampleSha256 = $('#container-sample-sha256').value.trim();
+        if (sampleSha256 && !/^[a-fA-F0-9]{64}$/.test(sampleSha256)) { showError(new Error('Der SHA-256 der Testdatenbank muss 64 Hex-Zeichen enthalten.')); return; }
+        if ($('#container-sample-trust-field').hidden === false && !sampleSha256 && !$('#container-sample-trust').checked) { showError(new Error('Bitte einen offiziellen SHA-256 eintragen oder die einmalige Vertrauensfreigabe bestätigen.')); return; }
+        action = samples.length === 1 ? 'InstallContainerSampleDatabase' : 'InstallContainerSampleDatabases';
+        if (samples.length === 1) {
+          const [SampleId, SampleVariant] = samples[0].split(':', 2);
+          parameters.SampleId = SampleId;
+          parameters.SampleVariant = SampleVariant;
+          if (sampleSha256) parameters.SampleSha256 = sampleSha256;
+        }
+        else {
+          parameters.SampleSelections = samples;
+        }
+        parameters.TrustUnknownSample = $('#container-sample-trust').checked;
       }
-      parameters.TrustUnknownSample = $('#container-sample-trust').checked;
-    } else {
-      parameters.DatabaseName = $('#container-database-name').value;
+      else {
+        const databaseName = $('#container-database-name').value.trim();
+        if (!databaseName) {
+          showError(new Error('Bitte einen Datenbanknamen eingeben.'));
+          return;
+        }
+        if (!/^[A-Za-z][A-Za-z0-9_]{0,127}$/.test(databaseName)) {
+          showError(new Error('Der Datenbankname ist ungültig. Erlaubt sind Buchstaben, Zahlen und Unterstrich; das erste Zeichen muss ein Buchstabe sein.'));
+          return;
+        }
+        parameters.DatabaseName = databaseName;
+      }
+    }
+    else {
+      const databaseName = $('#container-database-name').value.trim();
+      if (!databaseName) {
+        showError(new Error('Bitte einen Datenbanknamen für den Hyper-V-Vorgang eingeben.'));
+        return;
+      }
+      if (!/^[A-Za-z][A-Za-z0-9_]{0,127}$/.test(databaseName)) {
+        showError(new Error('Der Datenbankname ist ungültig. Erlaubt sind Buchstaben, Zahlen und Unterstrich; das erste Zeichen muss ein Buchstabe sein.'));
+        return;
+      }
+      parameters.DatabaseName = databaseName;
     }
   }
-  else { parameters.ScriptPath = $('#container-script-path').value; parameters.Database = $('#container-script-database').value; }
+  else {
+    const scriptPath = $('#container-script-path').value.trim();
+    const targetDatabase = $('#container-script-database').value.trim() || 'master';
+    if (!scriptPath) {
+      showError(new Error(operationKind === 'hyperv' ? 'Bitte den absoluten Skriptpfad für die Hyper-V-VM angeben.' : 'Bitte den absoluten Skriptpfad angeben.'));
+      return;
+    }
+    if (targetDatabase && !/^[A-Za-z][A-Za-z0-9_]{0,127}$/.test(targetDatabase)) {
+      showError(new Error('Der Skript-Zieldatenbankname ist ungültig. Erlaubt sind Buchstaben, Zahlen und Unterstrich; das erste Zeichen muss ein Buchstabe sein.'));
+      return;
+    }
+    parameters.ScriptPath = scriptPath;
+    parameters.Database = targetDatabase;
+  }
   try {
     await startAction(action, parameters);
     $('#container-operation-password').value = ''; $('#container-operation-dialog').close();
@@ -1119,6 +1245,7 @@ $('#lab-name-form').addEventListener('submit', async (event) => {
 
 $('#refresh').addEventListener('click', () => refresh().catch(showError));
 
+refreshUiConfig().catch(() => {});
 refresh().catch(showError);
 refreshJobs();
 window.setInterval(() => {
