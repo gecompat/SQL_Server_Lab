@@ -12,6 +12,9 @@
     SQL- und Datenbank-Readiness-Pruefung ueberspringen.
 .PARAMETER TimeoutSeconds
     Maximale Wartezeit fuer SQL- und Datenbank-Bereitschaft pro Instanz.
+.PARAMETER StateRoot
+    Optionaler State-Root fuer den Lauf. Ohne Angabe wird `Get-LabStateRoot`
+    verwendet.
 .INPUTS
     System.Object. Objekte mit einer RunId-Eigenschaft koennen ueber die
     Pipeline gebunden werden.
@@ -27,11 +30,12 @@ function Start-SqlServerLab {
         [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
         [string]$RunId,
         [switch]$SkipReadyCheck,
-        [int]$TimeoutSeconds = 60
+        [int]$TimeoutSeconds = 60,
+        [string]$StateRoot
     )
 
     process {
-        $stateRoot = Get-LabStateRoot
+        $stateRoot = if ([string]::IsNullOrWhiteSpace($StateRoot)) { Get-LabStateRoot } else { $StateRoot }
         $run = Get-LabRunState -RunId $RunId -StateRoot $stateRoot
         $run = (Sync-LabRunRuntimeState -Run $run -StateRoot $stateRoot).Run
 
