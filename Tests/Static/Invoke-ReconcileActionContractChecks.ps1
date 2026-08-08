@@ -98,6 +98,7 @@ try {
             $script:reconcileRuntimeState = 'RUNNING'
             $script:startCalls = 0
             $script:stopCalls = 0
+            $script:executorStateRoots = [System.Collections.Generic.List[string]]::new()
             Set-Item Function:Get-LabRunRuntimeStatus -Value {
                 [PSCustomObject]@{
                     State = $script:reconcileRuntimeState
@@ -109,13 +110,15 @@ try {
                 }
             }
             Set-Item Function:Start-SqlServerLab -Value {
-                param([string]$RunId)
+                param([string]$RunId, [string]$StateRoot)
                 $script:startCalls++
+                $script:executorStateRoots.Add($StateRoot)
                 [PSCustomObject]@{ RunId = $RunId; Status = 'RUNNING'; Action = 'STARTED' }
             }
             Set-Item Function:Stop-SqlServerLab -Value {
-                param([string]$RunId)
+                param([string]$RunId, [string]$StateRoot, [switch]$Force)
                 $script:stopCalls++
+                $script:executorStateRoots.Add($StateRoot)
                 [PSCustomObject]@{ RunId = $RunId; Status = 'STOPPED'; Action = 'STOPPED' }
             }
 
@@ -127,6 +130,9 @@ try {
 
             $script:reconcileRuntimeState = 'STOPPED'
             $restart = Invoke-SqlServerLabReconcileAction -RunId $RunId -TargetState RUNNING -StateRoot $StateRoot
+
+            $script:reconcileRuntimeState = 'RUNNING'
+            $stop = Invoke-SqlServerLabReconcileAction -RunId $RunId -TargetState STOPPED -StateRoot $StateRoot
 
             $script:reconcileRuntimeState = 'STOPPED'
             $whatIf = Invoke-SqlServerLabReconcileAction -RunId $RunId -TargetState RUNNING -StateRoot $StateRoot -WhatIf
@@ -159,10 +165,12 @@ try {
                 NoOp = $noOp
                 Unsupported = $unsupported
                 Restart = $restart
+                Stop = $stop
                 WhatIf = $whatIf
                 Mixed = $mixed
                 StartCalls = $script:startCalls
                 StopCalls = $script:stopCalls
+                ExecutorStateRoots = @($script:executorStateRoots)
                 StateBefore = $StateBefore
                 ConnectionBefore = $ConnectionBefore
                 StatePath = Join-Path $StateRoot 'runs' $RunId 'run-state.json'
@@ -184,16 +192,19 @@ try {
         -Name 'Unsupported-Plan bleibt ohne Mutation' `
         -Success ($contract.Unsupported.ExecutionSummary.Status -eq 'UNSUPPORTED' -and $contract.Unsupported.MutationAllowed -eq $false -and $contract.Unsupported.ExecutionSummary.ExecutedActions -eq 0)
     Add-CheckResult `
-        -Name 'Reconcile-Executor ruft bei Restart genau einen Start-Executor' `
-        -Success ($contract.Restart.MutationAllowed -eq $true -and $contract.Restart.ExecutionSummary.Status -eq 'SUCCEEDED' -and $contract.StartCalls -eq 1 -and $contract.StopCalls -eq 0)
+        -Name 'Reconcile-Executor ruft Start und Stop genau einmal auf' `
+        -Success ($contract.Restart.MutationAllowed -eq $true -and $contract.Restart.ExecutionSummary.Status -eq 'SUCCEEDED' -and $contract.Stop.MutationAllowed -eq $true -and $contract.Stop.ExecutionSummary.Status -eq 'SUCCEEDED' -and $contract.StartCalls -eq 1 -and $contract.StopCalls -eq 1)
+    Add-CheckResult `
+        -Name 'Reconcile-Executor reicht den angeforderten StateRoot an Start und Stop weiter' `
+        -Success ($contract.ExecutorStateRoots.Count -eq 2 -and @($contract.ExecutorStateRoots | Where-Object { $_ -ne $testData.StateRoot }).Count -eq 0)
     Add-CheckResult `
         -Name 'WhatIf verhindert Laufzeitmutation' `
         -Success ($contract.WhatIf.MutationAllowed -eq $false -and $contract.WhatIf.ExecutionSummary.ExecutedActions -eq 0 -and $contract.WhatIf.ExecutionSummary.Status -eq 'WOULD_EXECUTE')
     Add-CheckResult `
         -Name 'Gemischte Reconcile-Operationen werden als unsupported klassifiziert' `
-        -Success ($contract.Mixed.ExecutionSummary.Status -eq 'UNSUPPORTED' -and $contract.Mixed.MutationAllowed -eq $false -and $contract.StartCalls -eq 1)
+        -Success ($contract.Mixed.ExecutionSummary.Status -eq 'UNSUPPORTED' -and $contract.Mixed.MutationAllowed -eq $false -and $contract.StartCalls -eq 1 -and $contract.StopCalls -eq 1)
 
-    $leakPayload = @($contract.NoOp, $contract.Unsupported, $contract.Restart, $contract.WhatIf, $contract.Mixed) | ConvertTo-Json -Depth 20
+    $leakPayload = @($contract.NoOp, $contract.Unsupported, $contract.Restart, $contract.Stop, $contract.WhatIf, $contract.Mixed) | ConvertTo-Json -Depth 20
 
     Add-CheckResult `
         -Name 'Reconcile-Action-Vertrag leakt keine Geheimnisse oder Host-Infos' `

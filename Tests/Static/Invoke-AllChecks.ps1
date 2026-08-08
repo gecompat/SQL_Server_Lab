@@ -46,6 +46,7 @@ $checks = @(
     'Invoke-HyperVSqlImageBuilderChecks.ps1',
     'Invoke-WorkflowUiChecks.ps1',
     'Invoke-HyperVSqlAcceptanceEnvironmentChecks.ps1',
+    'Invoke-HyperVWindowsBaselineAcceptanceChecks.ps1',
     'Invoke-DataRootChecks.ps1',
     'Invoke-ReadinessContractChecks.ps1',
     'Invoke-ReconcileContractChecks.ps1',

@@ -95,3 +95,31 @@ fuer synthetische Medien in der Runtime explizit gesperrt.
 ```powershell
 .\Tests\Integration\Invoke-HyperVSmokeTest.ps1
 ```
+
+## Invoke-HyperVWindowsBaselineAcceptanceRun.ps1
+
+Der Windows-Baseline-Acceptance-Runner ist der reale Gegenpart zum
+synthetischen Hyper-V-Smoke. Er verlangt eine bereits veröffentlichte
+`OS_SEALED`-Artifact-ID und ein als `SecureString` übergebenes
+Gast-Administratorpasswort. Der Lauf:
+
+1. erstellt eine differenzierende Windows-VM;
+2. automatisiert OOBE, Region, Sprache, Tastatur und Zeitzone;
+3. stoppt und startet die VM über den gemeinsamen Reconcile-Vertrag;
+4. prüft PowerShell Direct nach dem Cold Start;
+5. weist nach, dass die OS-Baseline keine SQL-Instanz enthält;
+6. entfernt VM, Child-VHDX, State und DPAPI-Secret scopegebunden.
+
+Die immutable Parent-VHDX bleibt erhalten und wird nach dem Cleanup erneut auf
+Hash und Schreibschutz geprüft. Der Runner muss in einer erhöhten
+PowerShell-7-Sitzung auf dem Hyper-V-Host gestartet werden:
+
+```powershell
+$password = Read-Host 'Gast-Administratorpasswort' -AsSecureString
+.\Tests\Integration\Invoke-HyperVWindowsBaselineAcceptanceRun.ps1 `
+    -ArtifactId 'hyperv-os-sealed-<sha256>' `
+    -AdministratorPassword $password
+```
+
+`-KeepOnFailure` behält Ressourcen ausschließlich nach einem fehlgeschlagenen
+Lauf für die lokale Diagnose.
