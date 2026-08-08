@@ -461,9 +461,11 @@ function New-SqlServerLab {
             }
     )
 
+    $desiredProvisioningMode = if ($PSCmdlet.ParameterSetName -eq 'Manifest') { 'manifest' } else { 'adhoc' }
+    $desiredState = New-LabDesiredStateSnapshot -ResolvedLab $resolved -ProvisioningMode $desiredProvisioningMode -PersistentData ([bool]$PersistentData)
     $runState = New-LabRunState `
         -StateRoot $StateRoot `
-        -Metadata @{ name = $resolved.name; persistentData = [bool]$PersistentData; dataRoot = if ($PersistentData) { $DataRoot } else { $null } } `
+        -Metadata @{ name = $resolved.name; persistentData = [bool]$PersistentData; dataRoot = if ($PersistentData) { $DataRoot } else { $null }; desiredState = $desiredState } `
         -ProviderSubRuns $providerSubRuns
     $effectiveStateRoot = $runState.StateRoot
     $cleanupStatus = 'NOT_STARTED'
