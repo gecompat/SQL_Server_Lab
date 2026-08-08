@@ -2,6 +2,7 @@
 
 | Dokument | Inhalt |
 |---|---|
+| DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md | Konsolidierte, priorisierte Lieferreihenfolge für Statuswahrheit, Desired State/Reconcile, UI, Adapter, Hyper-V-Zero-Touch, Datenartefakte, Szenarien und Release-Gates |
 | MASTER_IMPLEMENTATION_PLAN.md | Gesamtziel, Wellen, Abnahmekriterien und Umsetzungsstand |
 | MASTER_IMPLEMENTATION_PLAN_SCOPE_ADDENDUM.md | Vorrangige Scope-Regeln |
 | FUTURE_UI_WORKFLOW_PLAN_2026-08-08.md | Zukunftsplanung für CLI-/UI-Menüführung, Reconcile-Aktionen und Infrastruktur-Changes (Hyper-V + Container) |

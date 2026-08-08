@@ -603,6 +603,7 @@ _QuellRepo/      unveränderte Quell-Snapshots anderer Repositories
 
 ## Weiterführende Dokumentation
 
+- [Konsolidierter Entwicklungs- und Ausführungsplan](Documentation/Project_Planning/DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md)
 - [Getting Started](Documentation/User/Getting_Started.md)
 - [Dokumentationsübersicht](Documentation/README.md)
 - [Bekannte Grenzen](Documentation/Quality/KNOWN_LIMITATIONS.md)
