@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING_INDEX` |
-| Stand | 2026-08-03 |
+| Stand | 2026-08-08 |
 
 Diese Datei ist der verbindliche Dokumentationsindex. Die Root-[README](../README.md) ist der operative Einstieg. Bei Widersprüchen zwischen Planungsdokumenten und implementiertem Verhalten gelten Code, Schemas, Kataloge, Tests und die dokumentierten bekannten Grenzen als Ist-Nachweis.
 
@@ -48,10 +48,11 @@ Diese Datei ist der verbindliche Dokumentationsindex. Die Root-[README](../READM
 7. [Vorlagenpool und automatisierte Manifeste](Architecture/TEMPLATE_POOL_AND_AUTOMATED_MANIFESTS.md)
 8. [Feste isolierte Labnetze](HowTo/LAB_NETWORKS.md)
 9. [Projektintegrationsvertrag](Architecture/PROJECT_INTEGRATION_CONTRACT.md)
-10. [Master-Umsetzungsplan](Project_Planning/MASTER_IMPLEMENTATION_PLAN.md)
-11. [Masterplan-Ergänzung](Project_Planning/MASTER_IMPLEMENTATION_PLAN_SCOPE_ADDENDUM.md)
-12. [Project-Adapter-Priorisierung](Project_Planning/PROJECT_ADAPTER_PRIORITIZATION.md)
-13. [Zukünftige Anwendungsfälle](Architecture/FUTURE_USE_CASES_AND_EXTENSION_GUARDRAILS.md)
+10. [Konsolidierter Entwicklungs- und Ausführungsplan](Project_Planning/DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md)
+11. [Master-Umsetzungsplan](Project_Planning/MASTER_IMPLEMENTATION_PLAN.md)
+12. [Masterplan-Ergänzung](Project_Planning/MASTER_IMPLEMENTATION_PLAN_SCOPE_ADDENDUM.md)
+13. [Project-Adapter-Priorisierung](Project_Planning/PROJECT_ADAPTER_PRIORITIZATION.md)
+14. [Zukünftige Anwendungsfälle](Architecture/FUTURE_USE_CASES_AND_EXTENSION_GUARDRAILS.md)
 
 Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ein Feature bereits ausgeführt werden kann.
 
