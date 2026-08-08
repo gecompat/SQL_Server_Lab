@@ -340,13 +340,19 @@ Lauf ist kein Betriebssystem-, PowerShell-Direct-Postcondition- oder SQL-Nachwei
 
 Bei fehlender Docker-/Podman-Ebene dokumentiert `Invoke-SmokeMatrix` `SKIP` statt `FAIL`; ein erreichbarer Providerfehler bleibt jedoch `FAIL`.
 
+Reproduzierbare Release-Vorbereitung:
+
+```powershell
+.\Tools\Prepare-LocalRelease.ps1 -CreateArchive -IncludeHashManifest
+```
+
 Nicht verfügbare Native-Tests müssen im Pull Request mit Grund als `NOT_EXECUTED` angegeben werden.
 
 ## 14. Roadmap
 
 Verbleibende priorisierte Ergänzungen:
 
-1. PSScriptAnalyzer mit projektspezifischer Baseline;
+1. Pester-Kontrakt-Paket und Release-Artefakt-Erstellung (mit `Tools\Prepare-LocalRelease.ps1`) sind implementiert;
 2. zusätzliche nicht mutierende Versionsauflösungstests;
 3. weitere Fault-Injection-Pfade für Portbindung, Runtimeabbruch und
    teilweise Orphan-Bereinigung;
