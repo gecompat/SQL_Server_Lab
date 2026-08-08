@@ -115,19 +115,13 @@ Diese Planung hat keine Container- oder VM-Runtime mutiert.
 | Reconcile-Executor und Actual-State-Collector fehlen | vorhandene Labs können noch nicht über einen einheitlichen Änderungsplan verwaltet werden |
 | zwei reale Adapterpiloten fehlen | der Vertrag ist noch nicht an beiden Primärkonsumenten bewiesen |
 | Script Bundles, mehrere Handler-Outputs und `LAB_GENERATED`-Baselines sind offen | komplexere Schulungs-/Analysepakete benötigen Sonderwege |
-| Fault-/Scenario-Engine, PSScriptAnalyzer-Baseline und vollständiger Privacy-Scanner fehlen | Release-Härtung und komplexe SQL-Szenarien bleiben unvollständig |
+| Fault-/Scenario-Engine und vollständiger Privacy-Scanner fehlen | Release-Härtung und komplexe SQL-Szenarien bleiben unvollständig |
 
 ### 3.3 In Phase 0 zu reparierende Statusabweichungen
 
 Die folgenden Punkte sind Planungsinput und dürfen nicht als bereits behoben
 gelten:
 
-- `LOCAL_VALIDATION_STRATEGY.md` behauptet in Abschnitt 7 noch, es gebe kein übergeordnetes Matrixskript, obwohl `Invoke-SmokeMatrix.ps1` existiert und dokumentiert ist.
-- `.ai/PROJECT_CONTEXT.md` und `.ai/repo_map.yaml` enthalten einzelne ältere Aussagen zu Sample-Handlern und Hyper-V-Build-/Resume-Pfaden.
-- `Documentation/README.md` nennt noch 17 öffentliche Funktionen, während `SqlServerLab.psd1` aktuell 19 Exporte enthält.
-- `MASTER_IMPLEMENTATION_PLAN.md` führt den Wellenstatus nur mit Stand 2026-08-01.
-- `FUTURE_USE_CASES_AND_EXTENSION_GUARDRAILS.md` besitzt eine ältere Prioritätstabelle, die der späteren Adapterentscheidung widerspricht.
-- `FUTURE_UI_WORKFLOW_PLAN_2026-08-08.md` referenziert den privaten Zero-Touch-Plan mit einem zu prüfenden relativen Link.
 - „CI/CD ist kein Bestandteil“ und die vorhandenen ergänzenden `.github/workflows` müssen einheitlich als **keine Produktabhängigkeit, aber optionale Remote-Validierung** beschrieben werden.
 - die aktuelle Menüposition „Hyper-V-Umgebungen verwalten“ unter der Image-Verwaltung widerspricht dem langfristigen umgebungszentrierten Zielbild.
 
