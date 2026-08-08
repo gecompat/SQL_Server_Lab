@@ -65,6 +65,12 @@ SQL Server ist verbindlicher Hauptzweck. Supporting Components werden über erwe
 | `fault-type.schema.json` | kontrollierte SQL-bezogene Fault Injection |
 | `control-plane-adapter.schema.json` | CLI-, REST- oder UI-Anbindung |
 
+Der aktuelle M1-Schnitt persistiert noch keine Capability-Dateien. Er projiziert
+stattdessen die bestehenden `provider.json`-Angaben als versionierten,
+deklarativen `SqlServerLab.ProviderCapability`-Vertrag in die Workflow-Sicht.
+`DECLARED_SUPPORTED` bedeutet dabei ausschließlich eine Metadatenbehauptung;
+Runtime-, Gast- und End-to-End-Nachweise bleiben getrennte Evidenz.
+
 ### 3.3 Content Contracts
 
 | Schema | Zweck |

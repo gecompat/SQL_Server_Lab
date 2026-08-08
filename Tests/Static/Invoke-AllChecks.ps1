@@ -48,6 +48,7 @@ $checks = @(
     'Invoke-DataRootChecks.ps1',
     'Invoke-ReadinessContractChecks.ps1',
     'Invoke-ReconcileContractChecks.ps1',
+    'Invoke-ProviderCapabilityChecks.ps1',
     'Invoke-MixedProviderLifecycleChecks.ps1',
     'Invoke-ProjectAdapterChecks.ps1',
     'Invoke-SampleHandlerChecks.ps1',

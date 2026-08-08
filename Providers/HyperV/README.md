@@ -56,13 +56,15 @@ fehlende Checkpoints und die VHDX-Pfadgrenze. Reale Medien werden erst danach
 als immutable `OS_SEALED` registriert; synthetische CI-Medien bleiben zwingend
 `LIFECYCLE_TEST_ONLY` und duerfen den Sysprep-Pfad nicht ausfuehren.
 
-Der Slice ist kein SQL-Runtime-Nachweis. `New-SqlServerLab` provisioniert noch
-keine Hyper-V-Instanz und die Provider-Metadaten setzen `sqlProvisioning` daher
-explizit auf `false`.
+Der Slice ist kein allgemeiner SQL-Runtime-Nachweis. `New-SqlServerLab` kann
+einen eng begrenzten `SQL_PREPARED_SEALED`-Manifest-Klon mit OOBE-,
+`CompleteImage`- und Readiness-Orchestrierung erstellen; die Provider-Metadaten
+kennzeichnen dies separat als `prepared-image-clone-only`. Allgemeines
+Manifest-Binding und echter Windows-/SQL-End-to-End-Nachweis bleiben offen.
 
-Entsprechend erscheint Hyper-V noch nicht als ausführbarer Provider im
-`Invoke-SqlServerLab`-Menü. Eine Freigabe folgt erst nach Manifest-Binding,
-SQL-`CompleteImage`, Netzwerkzugriff und echtem Windows-/SQL-End-to-End-Test.
+Entsprechend erscheint Hyper-V noch nicht als allgemeiner ausführbarer Provider
+im `Invoke-SqlServerLab`-Menü. Eine breite Freigabe folgt erst nach allgemeinem
+Manifest-Binding, Netzwerkzugriff und echtem Windows-/SQL-End-to-End-Test.
 
 ## Verbleibender Providerumfang
 
