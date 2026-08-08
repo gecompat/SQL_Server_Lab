@@ -16,6 +16,7 @@ Container, Datenbanken oder Run-States.
 | `Invoke-HyperVImageOperatorChecks.ps1` | Media-Root-Auflösung, einzelnes SHA-256-Sidecar, Build-Auflistung und Image-Menüvertrag | `.\Tests\Static\Invoke-HyperVImageOperatorChecks.ps1` |
 | `Invoke-HyperVSqlAcceptanceEnvironmentChecks.ps1` | Unattended OOBE mit Region Deutschland/UI en-US/deutscher Tastatur, erhöhungsgebundener Offline-VHDX-Pfad, DPAPI-Secrets, direkte SQL-Installation und Create/Insert/Backup/Verify/Drop-Abnahme | `.\Tests\Static\Invoke-HyperVSqlAcceptanceEnvironmentChecks.ps1` |
 | `Invoke-DocumentationChecks.ps1` | PowerShell-Syntax, Exporte und Help, JSON-Schemas, Kataloge, Beispielmanifeste, Provider-Metadaten, Links und Statusaussagen | `.\Tests\Static\Invoke-DocumentationChecks.ps1` |
+| `Invoke-PSScriptAnalyzerChecks.ps1` | PowerShell-Linting via PSScriptAnalyzer mit projektweiter Baseline (`PSScriptAnalyzerSettings.psd1`) | `.\Tests\Static\Invoke-PSScriptAnalyzerChecks.ps1` |
 | `Invoke-ManifestBuilderChecks.ps1` | Schema-gesteuerter Builder, semantische Manifestpruefung und atomisches Schreiben | `.\Tests\Static\Invoke-ManifestBuilderChecks.ps1` |
 | `Invoke-ReadinessContractChecks.ps1` | SQL-Readiness, interaktives Menue und atomare Portallokation ohne Provider-Mutation | `.\Tests\Static\Invoke-ReadinessContractChecks.ps1` |
 | `Invoke-ReconcileActionContractChecks.ps1` | Executor-Phasen für Reconcile-Aktionen inkl. `WhatIf`, unterstützte/unsupported-Pläne und Leak-Schutz | `.\Tests\Static\Invoke-ReconcileActionContractChecks.ps1` |
@@ -29,6 +30,6 @@ CI-Workflows verwenden `Invoke-AllChecks.ps1`, damit der Exitcode einer
 fehlgeschlagenen Suite nicht durch eine spaetere erfolgreiche Suite maskiert
 wird.
 
-PSScriptAnalyzer mit einer projektspezifischen Baseline und eigenstaendige
-Provider-Interface-Contract-Tests bleiben Erweiterungspunkte; sie sind nicht mit
-den vorhandenen Vertragspruefungen gleichzusetzen.
+PSScriptAnalyzer ist jetzt als eigene statische Suite mit projektspezifischer
+Baseline aktiv eingebunden. Weitere neue Checks (Privacy-Scanner/Release-Profile)
+bleiben Erweiterungspunkte.
