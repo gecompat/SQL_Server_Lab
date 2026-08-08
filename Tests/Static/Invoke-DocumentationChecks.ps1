@@ -425,6 +425,12 @@ $coreFiles = @(
     'Documentation/HowTo/MEDIA_ROOT_LAYOUT.md'
     'Documentation/HowTo/HYPERV_WINDOWS_IMAGE_BUILD.md'
     'Documentation/Quality/KNOWN_LIMITATIONS.md'
+    'Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md'
+    'Documentation/Project_Planning/README.md'
+    'Documentation/Project_Planning/DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md'
+    'Documentation/Project_Planning/FUTURE_UI_WORKFLOW_PLAN_2026-08-08.md'
+    'Documentation/Project_Planning/MASTER_IMPLEMENTATION_PLAN.md'
+    'Documentation/Architecture/FUTURE_USE_CASES_AND_EXTENSION_GUARDRAILS.md'
     'Catalogs/README.md'
     'Public/README.md'
     'Schemas/README.md'
@@ -501,8 +507,26 @@ foreach ($relativePath in $apiIndexFiles) {
 Write-Host "`n[6] Veraltete Aussagen und Beispiele" -ForegroundColor Cyan
 
 $rootReadme = Get-Content -LiteralPath (Join-Path $repoRoot 'README.md') -Raw -Encoding utf8
+$documentationIndex = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\README.md') -Raw -Encoding utf8
 $gettingStarted = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\User\Getting_Started.md') -Raw -Encoding utf8
 $testsReadme = Get-Content -LiteralPath (Join-Path $repoRoot 'Tests\README.md') -Raw -Encoding utf8
+$localValidationStrategy = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Quality\LOCAL_VALIDATION_STRATEGY.md') -Raw -Encoding utf8
+$projectContext = Get-Content -LiteralPath (Join-Path $repoRoot '.ai\PROJECT_CONTEXT.md') -Raw -Encoding utf8
+$repoMap = Get-Content -LiteralPath (Join-Path $repoRoot '.ai\repo_map.yaml') -Raw -Encoding utf8
+$masterImplementationPlan = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\MASTER_IMPLEMENTATION_PLAN.md') -Raw -Encoding utf8
+$futureUseCases = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Architecture\FUTURE_USE_CASES_AND_EXTENSION_GUARDRAILS.md') -Raw -Encoding utf8
+$knownLimitations = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Quality\KNOWN_LIMITATIONS.md') -Raw -Encoding utf8
+$hyperVManifestRuntime = Get-Content -LiteralPath (Join-Path $repoRoot 'Public\New-SqlServerLab.ps1') -Raw -Encoding utf8
+$hyperVLabEnvironmentRuntime = Get-Content -LiteralPath (Join-Path $repoRoot 'Private\HyperVLabEnvironment.ps1') -Raw -Encoding utf8
+$latestValidationResult = Get-ChildItem -LiteralPath (Join-Path $repoRoot 'Documentation\Quality') -Filter 'VALIDATION_RESULT_*.md' -File |
+    Sort-Object -Property Name -Descending |
+    Select-Object -First 1
+$latestValidationMessage = if ($latestValidationResult) {
+    "Erwartet: $($latestValidationResult.Name)"
+}
+else {
+    'Kein Validation-Report vorhanden'
+}
 
 $legacyPublicCommands = @(
     'New-LabManifest'
@@ -545,6 +569,71 @@ Add-ValidationResult `
 Add-ValidationResult `
     -Name 'Root-README ist nicht mehr PLANNING_FOUNDATION' `
     -Success ($rootReadme -notmatch 'PLANNING_FOUNDATION')
+
+Add-ValidationResult `
+    -Name 'Dokumentationsindex nennt die aktuelle Zahl oeffentlicher Exporte' `
+    -Success ($documentationIndex -match [regex]::Escape("| Öffentliche API | $($expectedFunctions.Count) exportierte Funktionen |")) `
+    -Message "Erwartet: $($expectedFunctions.Count)"
+
+Add-ValidationResult `
+    -Name 'Lokale Validierungsstrategie beschreibt den Matrixeinstieg korrekt' `
+    -Success ($localValidationStrategy -match 'Invoke-SmokeMatrix\.ps1' -and $localValidationStrategy -notmatch 'kein übergeordnetes Skript')
+
+Add-ValidationResult `
+    -Name 'Projektkontext beschreibt gemischten Docker-/Podman-Lifecycle nicht als offen' `
+    -Success ($projectContext -notmatch 'gemeinsamer Lifecycle für gemischte Provider innerhalb eines Runs')
+
+Add-ValidationResult `
+    -Name 'Projektkontext bezeichnet Einzelskripte nicht als offenen Sample-Pfad' `
+    -Success ($projectContext -notmatch 'SQL-Skript-Samples;')
+
+Add-ValidationResult `
+    -Name 'Repo-Map kennt den aktuellen Validierungsreport' `
+    -Success ($latestValidationResult -and $repoMap -match [regex]::Escape("latest_validation_result: Documentation/Quality/$($latestValidationResult.Name)")) `
+    -Message $latestValidationMessage
+
+Add-ValidationResult `
+    -Name 'Repo-Map beschreibt SQL-Skripte und Builder-Resume nicht als nicht implementiert' `
+    -Success ($repoMap -notmatch 'SQL-Skript-, Bundle-, Archiv- und Attach-Handler noch nicht implementiert' -and $repoMap -notmatch 'unattended OS-/SQL-Image-Build und Resume nicht implementiert')
+
+Add-ValidationResult `
+    -Name 'Masterplan trennt lokale Produktfunktion von optionaler CI-Validierung' `
+    -Success ($masterImplementationPlan -notmatch 'keine CI/CD-Artefakte vorhanden' -and $masterImplementationPlan -match 'keine Produktabhängigkeit')
+
+Add-ValidationResult `
+    -Name 'Historischer Architekturstatus ist als Snapshot gekennzeichnet' `
+    -Success ($futureUseCases -match 'Historischer Implementierungsstatus')
+
+$hyperVPreparedCloneImplemented = $hyperVManifestRuntime -match 'Invoke-HyperVLabUnattendedProvision' -and
+    $hyperVLabEnvironmentRuntime -match 'Complete-HyperVLabSqlImage'
+if ($hyperVPreparedCloneImplemented) {
+    Add-ValidationResult `
+        -Name 'Statusdokumentation ordnet Hyper-V CompleteImage dem Prepared-Image-Klonpfad zu' `
+        -Success ($knownLimitations -match 'Klonpfad.*CompleteImage' -and
+            $masterImplementationPlan -match 'CompleteImage.*Prepared-Image-Klonpfad' -and
+            $repoMap -match 'partial_prepared_image_clone_only')
+
+    Add-ValidationResult `
+        -Name 'Lokale Validierungsstrategie trennt Hyper-V-Klonpfad und allgemeinen Providerpfad' `
+        -Success ($localValidationStrategy -match 'SQL_PREPARED_SEALED' -and
+            $localValidationStrategy -match 'allgemeiner Providerpfad geplant')
+}
+
+if (Test-Path -LiteralPath (Join-Path $repoRoot 'Tests\Integration\Invoke-MixedProviderSmokeTest.ps1') -PathType Leaf) {
+    Add-ValidationResult `
+        -Name 'Lokale Validierungsstrategie dokumentiert den implementierten Docker-/Podman-Mixed-Run' `
+        -Success ($localValidationStrategy -match '(?m)^\| gemischter Provider-Run \| implementiert mit Podman-ProviderSubRun \| implementiert mit Docker-ProviderSubRun \| nicht unterstützt \|\r?$')
+}
+
+if ($latestValidationResult -and $latestValidationResult.Name -match '^VALIDATION_RESULT_(?<date>\d{4}-\d{2}-\d{2})\.md$') {
+    $latestValidationDate = $Matches.date
+    $expectedLatestResult = "latest_validation_result: Documentation/Quality/$($latestValidationResult.Name)"
+    $expectedConfirmedResult = "(?ms)last_confirmed_result:\s*date: `"$([regex]::Escape($latestValidationDate))`"\s*source: Documentation/Quality/$([regex]::Escape($latestValidationResult.Name))"
+    Add-ValidationResult `
+        -Name 'Repo-Map synchronisiert aktuellen und letzten bestätigten Validierungsreport' `
+        -Success ($repoMap -match [regex]::Escape($expectedLatestResult) -and $repoMap -match $expectedConfirmedResult) `
+        -Message "Erwartet: $($latestValidationResult.Name)"
+}
 
 Add-ValidationResult `
     -Name 'Keine lokale Entwicklerpfad-Vorgabe im Getting Started' `

@@ -13,7 +13,7 @@
 
 Es existieren bereits verwandte Planungsdokumente:
 
-- [SQL_Server_Lab_HyperV_Workflow_2026-08-08_1108Z_Zero_Touch_Plan.md](../private_Note/SQL_Server_Lab_HyperV_Workflow_2026-08-08_1108Z_Zero_Touch_Plan.md): Schwerpunkt Zero-Touch-Pipeline und Zero-Touch-First-Flow.
+- [SQL_Server_Lab_HyperV_Workflow_2026-08-08_1108Z_Zero_Touch_Plan.md](../../private_Note/SQL_Server_Lab_HyperV_Workflow_2026-08-08_1108Z_Zero_Touch_Plan.md): Schwerpunkt Zero-Touch-Pipeline und Zero-Touch-First-Flow.
 - [MASTER_IMPLEMENTATION_PLAN.md](MASTER_IMPLEMENTATION_PLAN.md): Gesamtumsetzung mit Wellen und Welle 8 (Reconcile/Manifest).
 - [HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md](../Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md): Contract-Entscheidungen, insbesondere Änderungsklassen (`live`, `restart`, `recreate`, `reprovision`), Netzwerk-, Drive- und Reconcile-Regeln.
 

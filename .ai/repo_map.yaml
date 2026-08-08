@@ -36,7 +36,7 @@ sources_of_truth:
   validation_runtime_contracts: Tests/Static/Invoke-ReadinessContractChecks.ps1
   validation_manifest_builder: Tests/Static/Invoke-ManifestBuilderChecks.ps1
   validation_runtime_matrix: Tests/Integration/Invoke-SmokeMatrix.ps1
-  latest_validation_result: Documentation/Quality/VALIDATION_RESULT_2026-07-27.md
+  latest_validation_result: Documentation/Quality/VALIDATION_RESULT_2026-08-08.md
 
 public_commands:
   - name: Invoke-SqlServerLab
@@ -229,7 +229,7 @@ providers:
     metadata: Providers/HyperV/provider.json
     documentation: Providers/HyperV/README.md
     command: Get-VMHost
-    sql_provisioning: false
+    sql_provisioning: "partial_prepared_image_clone_only; realer allgemeiner SQL-End-to-End-Nachweis offen"
     native_smoke: Tests/Integration/Invoke-HyperVSmokeTest.ps1
     registry_static_checks: Tests/Static/Invoke-HyperVImageRegistryChecks.ps1
     builder_static_checks: Tests/Static/Invoke-HyperVImageBuilderChecks.ps1
@@ -243,7 +243,7 @@ catalogs:
     data: Catalogs/sample-databases.json
     schema: Schemas/sample-databases.schema.json
     artifact_contract: "Artifact Type, Installation, erwartete Outputs, Groessen- und Integrity-/Trust-Metadaten sind maschinenlesbar"
-    executable_variants: "Nur artifactType backup mit direkter .bak-URL und runtimeStatus executable; Integritaet ueber Katalog-SHA-256 oder Trust-Pfad interactive-once"
+    executable_variants: "Direkte .bak-Backups, ZIP-/7z-Archive mit exakt einer katalogisierten .bak-Payload sowie gepinnte Einzelskripte mit runtimeStatus executable; Integritaet ueber Katalog-SHA-256 oder Trust-Pfad interactive-once"
 
 project_adapters:
   schema: Schemas/project-adapter.schema.json
@@ -484,10 +484,11 @@ validation:
     static_push_trigger: true
     runtime_push_trigger: false
   last_confirmed_result:
-    date: "2026-07-27"
-    source: Documentation/Quality/VALIDATION_RESULT_2026-07-27.md
-    docker: "PASS – 2019, 2022, 2025 lifecycle and parallel runs"
-    podman: "PASS – 2019, 2022, 2025 lifecycle and parallel runs"
+    date: "2026-08-08"
+    source: Documentation/Quality/VALIDATION_RESULT_2026-08-08.md
+    docker: "PASS – Auto-Smoke 33/33 und Provider-Matrix"
+    podman: "PASS – erreichbarer Provider in der Provider-Matrix"
+    hyperv: "PASS – nativer VM-/VHDX-/Image-Builder-Lifecycle; kein SQL-End-to-End-Nachweis"
 
 change_coupling:
   public_command_change:
@@ -527,13 +528,12 @@ change_coupling:
 known_limitations:
   binding_document: Documentation/Quality/KNOWN_LIMITATIONS.md
   highlights:
-    - "Hyper-V sealed VHDX Registry und enger Manifest-Klonpfad implementiert; unattended OS-/SQL-Image-Build und Resume nicht implementiert"
+    - "Hyper-V sealed VHDX Registry, Builder-/Resume-Grundlage und enger Manifest-Klonpfad implementiert; vollautomatische OS-Factory, breites Manifest-Binding und echter Windows-/SQL-End-to-End-Nachweis bleiben offen"
     - "Container-Manifeste laufen standardmäßig unattended mit externen Secret-Referenzen, SHA-256-/Trust-Schutz und read-only Host-Mount-Default"
     - "providerneutrale Network Intents, Exposure Policy und Reconcile nicht implementiert"
     - "Artifact Refresh und Rebuild für Medien, VHDX und Derived Images nicht implementiert"
     - "kein provideruebergreifendes Docker-/Podman-Netzwerk oder Hyper-V-SubRun"
-    - "Sample-Automation nur fuer executable Backup-Varianten; SQL-Skript-, Bundle-, Archiv- und Attach-Handler noch nicht implementiert"
-    - "Sample-Backup-Handler mit Trust-Pfad, Mehrfachauswahl im Menue und New-SqlServerLab -Sample sind implementiert"
+    - "Sample-Backup-Handler mit Trust-Pfad, Mehrfachauswahl, ZIP-/7z-Backup-Payloads und gepinnten Einzelskripten sind implementiert; Script Bundles, mehrteilige/nicht freigegebene Archive und Attach-Handler bleiben offen"
     - "LAB_GENERATED-Baselines und beste kompatible Aufsetzpunkte noch nicht implementiert"
     - "mehrere reservierte serverConfig-Felder noch ohne stabilen Runtimepfad"
     - "Versionskatalog wird nicht automatisch als aktuell garantiert"

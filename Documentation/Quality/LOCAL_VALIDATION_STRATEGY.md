@@ -154,15 +154,15 @@ Der Test erzeugt ausschließlich synthetische Testobjekte.
 |---|---:|---:|---:|
 | Resource Assessment | implementiert | implementiert | Lifecycle-Verfügbarkeit implementiert |
 | sealed Image-Registry | nicht zutreffend | nicht zutreffend | Import, Integrity, Auswahl und Run Lock implementiert |
-| einzelne SQL-Instanz | implementiert | implementiert | geplant |
-| Health und SQL Readiness | implementiert | implementiert | geplant |
+| einzelne SQL-Instanz | implementiert | implementiert | eingeschränkter Manifest-Klonpfad aus `SQL_PREPARED_SEALED` implementiert; allgemeiner Providerpfad geplant |
+| Health und SQL Readiness | implementiert | implementiert | Orchestrierung im Manifest-Klonpfad implementiert; realer Windows-/SQL-End-to-End-Nachweis offen |
 | Datenbankerstellung | implementiert | implementiert | geplant |
 | T-SQL-Skriptausführung | implementiert | implementiert | geplant |
 | Live-Status | implementiert | implementiert | Lifecycle-Grundlage implementiert |
 | Stop und Start | implementiert | implementiert | Lifecycle-Grundlage implementiert |
 | Remove | implementiert | implementiert | scopegebundene Grundlage implementiert |
 | eigener Smoke-Test-Aufruf | vorhanden | vorhanden | vorhanden, ohne OS/SQL |
-| gemischter Provider-Run | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| gemischter Provider-Run | implementiert mit Podman-ProviderSubRun | implementiert mit Docker-ProviderSubRun | nicht unterstützt |
 
 `implementiert` bedeutet, dass Code und Testpfad vorhanden sind. `validiert` darf nur für einen tatsächlich erfolgreich ausgeführten lokalen Lauf verwendet werden.
 
@@ -179,7 +179,12 @@ Der Smoke-Test kann eine Version oder einen katalogisierten CU-Kurzbezeichner er
 .\Tests\Integration\Invoke-SmokeTest.ps1 -Provider docker -Version '2022-CU16'
 ```
 
-Es gibt derzeit kein übergeordnetes Skript, das automatisch die vollständige Version-Provider-Matrix durchläuft. Einzelne Aufrufe sind deshalb getrennt zu dokumentieren.
+`Invoke-SmokeMatrix.ps1` ist der übergeordnete Matrixeinstieg. Ohne
+`-FullMatrix` prüft er pro erreichbarem Provider die Referenzversion; mit
+`-Provider all -FullMatrix` prüft er die vollständige lokal erreichbare
+Versions-/Provider-Matrix. Die einzelnen Nachweise bleiben getrennt zu
+dokumentieren, wenn ein Provider nicht verfügbar ist oder ein gezielter
+Versions-/CU-Lauf beauftragt wurde.
 
 Ein Katalogeintrag oder vorhandener Testparameter beweist nicht, dass ein Image weiterhin verfügbar oder der Katalog aktuell ist.
 
