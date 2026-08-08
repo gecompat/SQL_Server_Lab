@@ -101,7 +101,9 @@ if ($failures.Count -eq 0) {
     Assert-Contains $newLab 'Set-LabProviderSubRunsState' 'New-SqlServerLab setzt keine ProviderSubRun-States.'
     Assert-Contains $getLab 'Group-Object\s+-Property\s+provider' 'Get-SqlServerLab gruppiert Live-Status nicht nach Provider.'
     Assert-Contains $startLab 'ProviderSubRun' 'Start-SqlServerLab behandelt ProviderSubRuns nicht.'
+    Assert-Contains $startLab '\[string\]\$StateRoot' 'Start-SqlServerLab akzeptiert keinen expliziten StateRoot.'
     Assert-Contains $stopLab 'ProviderSubRun' 'Stop-SqlServerLab behandelt ProviderSubRuns nicht.'
+    Assert-Contains $stopLab '\[string\]\$StateRoot' 'Stop-SqlServerLab akzeptiert keinen expliziten StateRoot.'
     Assert-Contains $removeLab 'ProviderSubRun' 'Remove-SqlServerLab behandelt ProviderSubRuns nicht.'
 
     foreach ($lifecycleSource in @($newLab, $getLab, $startLab, $stopLab)) {

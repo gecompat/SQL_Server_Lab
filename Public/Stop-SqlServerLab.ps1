@@ -11,6 +11,9 @@
     Graceful-Shutdown-Timeout fuer die Container-Runtime.
 .PARAMETER Force
     Keine Bestaetigung abfragen.
+.PARAMETER StateRoot
+    Optionaler State-Root fuer den Lauf. Ohne Angabe wird `Get-LabStateRoot`
+    verwendet.
 .INPUTS
     System.Object. Objekte mit einer RunId-Eigenschaft koennen ueber die
     Pipeline gebunden werden.
@@ -26,11 +29,12 @@ function Stop-SqlServerLab {
         [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
         [string]$RunId,
         [int]$TimeoutSeconds = 10,
-        [switch]$Force
+        [switch]$Force,
+        [string]$StateRoot
     )
 
     process {
-        $stateRoot = Get-LabStateRoot
+        $stateRoot = if ([string]::IsNullOrWhiteSpace($StateRoot)) { Get-LabStateRoot } else { $StateRoot }
         $run = Get-LabRunState -RunId $RunId -StateRoot $stateRoot
         $run = (Sync-LabRunRuntimeState -Run $run -StateRoot $stateRoot).Run
 
