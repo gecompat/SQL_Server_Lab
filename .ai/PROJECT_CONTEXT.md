@@ -321,3 +321,23 @@ Insbesondere:
 ## 15. Statuswahrheit
 
 Eine Funktion darf erst als implementiert bezeichnet werden, wenn der Code vorhanden ist und eine passende lokale Prüfung existiert. Eine Funktion darf erst als validiert bezeichnet werden, wenn die relevante Prüfung tatsächlich erfolgreich ausgeführt wurde.
+
+## 16. KI-Handover: Zero-Touch-Hyper-V (Stand 2026-08-08)
+
+Für den nahtlosen Weitbetrieb gilt:
+
+- Eine Erstellung neuer Hyper-V-Umgebungen darf im Standardpfad keine manuelle Gastinteraktion benötigen.
+- CPU, RAM, Netzwerk und Drive-Topologie sind über Manifest, CLI und UI als deklarative Ziele konfigurierbar und im Reconcile änderbar.
+- Speicherorte für TempDB, Daten, Log und Backup müssen im Manifest auswählbar sein und nachträglich geändert werden können.
+- Testdatenbanken müssen in nachfolgenden Runs ergänzt oder entfernt werden können.
+- Evaluation-OS mit Ablaufzeiten müssen vor Auswahl eines Aufsetzpunkts geprüft werden; ungültige oder ablaufende Baselines werden vorab ausgeschlossen.
+- Speed bleibt Ziel: Cold-Path (OS_GENERALIZED_SEALED -> Child -> Unattend -> OS_READY) bleibt funktional korrekt und fallback-fähig, Pools/Acceleratoren bleiben optional.
+- Nächster KI-Einstiegspunkt: die vorhandene Datei  
+  `private_Note/SQL_Server_Lab_HyperV_Workflow_2026-08-08_1108Z_Zero_Touch_Plan.md`, insbesondere Abschnitt 24.
+
+## 17. Operative Einbringung und Hygiene
+
+- Konsistente Wellen werden mit kleinem Scope umgesetzt und **in die aktuelle `main`-Linie gemerged**.
+- Nicht mehr benötigte PRs sind zu schließen oder zu löschen, um den Projektzustand zu säubern.
+- Commitnachrichten richten sich nach den Projektregeln mit KI-Präfix in der ersten Zeile und klarer Änderungsbeschreibung.
+- Branches, deren PRs abgeschlossen sind oder verworfen wurden, sind zeitnah aufzuräumen.

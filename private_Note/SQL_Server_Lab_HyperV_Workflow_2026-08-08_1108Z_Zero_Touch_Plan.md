@@ -1665,3 +1665,59 @@ Die neue verbindliche Leitlinie lautet:
 > Eine generalisierte OS-Baseline ist der notwendige wiederverwendbare Ausgangspunkt. Eine run-spezifische Unattend-Konfiguration macht daraus ohne menschlichen Eingriff eine vollständig verwaltbare Windows-VM. Vorbereitete OS- und SQL-Slots bleiben optionale Beschleuniger. Der Benutzer beschreibt ausschließlich den Zielzustand; das Framework wählt den schnellsten kompatiblen Pfad, verarbeitet Reboots selbst und kann bestehende Umgebungen über Reconcile kontrolliert ändern oder neu provisionieren.
 
 Damit wird Sysprep nicht abgeschafft. Es wird an die richtige Stelle verschoben: **in die Factory-Ebene und aus dem normalen Benutzerworkflow heraus.**
+
+## 24. KI-Handover-Verankering für nächste Instanz (2026-08-08)
+
+Folgende Punkte sind als nicht verhandelbare Ausführungsvorgaben zu behandeln, damit ein späterer Einstieg direkt die richtige Richtung nimmt:
+
+### 24.1 Nicht verhandelbare Betriebsanforderung
+
+- Eine neue Hyper-V-Umgebung darf im Standardpfad ohne manuelle Eingriffe des Users im Gast laufen.
+- Der User darf während der Provisionierung weder VMConnect öffnen noch im Gast klicken.
+- Jede Abweichung vom automatischen Pfad ist vor jeder Mutation als separate, klar als Factory/Trust/Diagnose gekennzeichnete Aktion auszuweisen.
+- Kein impliziter Übergang auf manuelle OOBE-Rückfalle.
+
+### 24.2 Konfigurierbarkeit durch Manifest, CLI und UI (Muss)
+
+- CPU, RAM und dynamisches RAM müssen pro Lauf im Manifest, in der CLI und im UI gesetzt und verändert werden können.
+- Netzwerkzielbild (NIC-Typ, Bandbreiten-/Latenzprofil, erreichbarkeit, statische vs. dynamische Adresse, DNS- und Gateway-Intent) muss pro Lauf vollständig konfigurierbar sein.
+- I/O- und Performance-Intent für Testkonstellationen muss explizit abbildbar sein (z. B. `slow`, `throttled`, `balanced`, `high`).
+- Datenpfade müssen je nach Lab typisierbar und nachträglich anpassbar sein:
+  - TempDB
+  - Datenbankdateien (Daten + Log)
+  - Backup-Ziel
+  - temporäre Arbeitsdaten
+- Testdatenbanken müssen nachträglich erstellt, ergänzt oder entfernt werden können.
+- Alle Änderungsanforderungen laufen als Manifeständerung in den Reconcile-Flow (`live`, `restart`, `recreate`, `reprovision`, `unsupported`).
+
+### 24.3 Evaluation-Betriebssicherheit (Muss)
+
+- Evaluation-OS-Instanzen sind in der Kompatibilität zuerst zu berücksichtigen.
+- Das Ablaufdatum/ die Mindestrestzeit einer Evaluation-Basis ist vor der Aufsetzentscheidung verbindlich zu prüfen.
+- Resolver darf keinen Lauf starten, wenn die Baseline aus Compliance-/Laufzeitsicht vor Ablauf steht oder nicht erneuert werden kann.
+- Reprovision über frische Baseline muss als kontrollierter Standardweg vorgesehen sein.
+
+### 24.4 Geschwindigkeit als harte Zielgröße
+
+- Der Standard-Casual-Pfad bleibt `OS_GENERALIZED_SEALED -> Child -> Unattend -> OS_READY`, unabhängig von vorhandenen Caches.
+- Warm-Pool- und SQL-Prepared-Pfade dürfen nur beschleunigen, nicht blockieren.
+- Der Resolver muss bei Cache-Miss deterministisch auf den Cold-Path zurückfallen und ihn korrekt bereitstellen.
+
+### 24.5 Empfohlene direkte nächste Schritte für neue KI
+
+1. Welle 0 bis Welle 3 stabilisieren und als `PLANNING_BASELINE_FOR_IMPLEMENTATION` dokumentieren.
+2. Contract-/Schema-Validierung für CPU/RAM/Network/Drives/Test-Db-Erweiterung nach dem Manifestvertrag abschließen.
+3. Unattend- und First-Run-Pfade auf vollständige OOBE-Autonomie mit Reboot-Resume auslegen.
+4. Reconcile für Laufzeitänderungen von CPU/RAM/Drives/Testdatenbanken implementieren oder protokollieren.
+5. Evaluation-OS-Kompatibilitäts- und Ablaufprüfungen früh in Planner+Resolver aufnehmen.
+6. Planungsstand im Repo (Plan, Known Limitations, docs, tests) synchron halten.
+
+### 24.6 Operative Governance für Folgeänderungen
+
+- Konsistente Änderungen werden als Wellen/Teilpakete mit sauberem Scope umgesetzt und **immer gegen `origin:main` gemerged**.
+- Branches sollen zeitnah aufgeräumt werden; alte oder obsolet gewordene Pull Requests sind zu schließen oder zu löschen.
+- Nicht mehr benötigte PRs sind als solche zu markieren, damit die Sicht auf aktive Umsetzungslinien klar bleibt.
+- Commit-Messages folgen den Projektregeln:
+  - KI-Commitpräfix (`ChatGPT:`, `Codex:` oder `Genie:`),
+  - klarer Scope-Titel als erste Zeile,
+  - aussagekräftiger Text für Test-/Dokumentationsstatus.
