@@ -17,6 +17,13 @@ function New-LabDesiredState {
     )
 
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
+    $persisted = Get-LabPersistedDesiredState -RunId ([string]$Run.runId) -StateRoot $StateRoot
+    if ($persisted) {
+        return [PSCustomObject]@{
+            Contract = $persisted.Contract; RunId = [string]$persisted.RunId; TargetState = $TargetState
+            Instances = @($persisted.Instances | ForEach-Object { [PSCustomObject]@{ Id = [string]$_.Id; Provider = [string]$_.Provider; TargetState = $TargetState } })
+        }
+    }
     $instances = @()
     $connectionPath = Join-Path (Join-Path (Join-Path $StateRoot 'runs') ([string]$Run.runId)) 'connection-info.json'
     if (Test-Path -LiteralPath $connectionPath -PathType Leaf) {
