@@ -36,14 +36,23 @@ $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("sql-lab-reconcile-chec
 try {
     $contract = & $module {
         param($Root)
-        $run = New-LabRunState -StateRoot $Root -Metadata @{ name = 'Reconcile check' } -ProviderSubRuns @(
-            [PSCustomObject]@{ provider = 'docker'; instanceIds = @('primary') },
-            [PSCustomObject]@{ provider = 'podman'; instanceIds = @('secondary') }
+        $desiredSnapshot = [PSCustomObject]@{
+            Contract = [PSCustomObject]@{ Name = 'SqlServerLab.RunDesiredState'; Version = '1.0' }
+            ProvisioningMode = 'manifest'
+            LabName = 'Reconcile check'
+            PersistentData = $false
+            Instances = @(
+                [PSCustomObject]@{ Id = 'primary'; Provider = 'podman'; Version = '2019'; Profile = 'standard'; DatabaseNames = @('master') },
+                [PSCustomObject]@{ Id = 'secondary'; Provider = 'docker'; Version = '2019'; Profile = 'standard'; DatabaseNames = @('db1', 'db2') }
+            )
+        }
+        $run = New-LabRunState -StateRoot $Root -Metadata @{ name = 'Reconcile check'; desiredState = $desiredSnapshot } -ProviderSubRuns @(
+            [PSCustomObject]@{ provider = 'docker'; instanceIds = @('primary') }
         )
         $connection = [PSCustomObject]@{
             instances = @(
                 [PSCustomObject]@{ id = 'primary'; provider = 'docker'; host = 'secret-host.invalid'; port = 1433; containerId = 'container-secret-id'; connectionString = 'Password=not-in-plan' },
-                [PSCustomObject]@{ id = 'secondary'; provider = 'podman'; host = 'secret-host.invalid'; port = 1434; containerId = 'container-secret-id-2'; connectionString = 'Password=not-in-plan' }
+                [PSCustomObject]@{ id = 'ghost'; provider = 'docker'; host = 'secret-host.invalid'; port = 1434; containerId = 'container-secret-id-2'; connectionString = 'Password=not-in-plan' }
             )
         }
         $connectionPath = Join-Path $run.RunDir 'connection-info.json'
@@ -67,13 +76,22 @@ try {
             $restart = Get-SqlServerLabReconcilePlan -RunId $run.RunId -TargetState RUNNING -StateRoot $Root
             $script:reconcileRuntimeState = 'PARTIAL'
             $partial = Get-SqlServerLabReconcilePlan -RunId $run.RunId -TargetState STOPPED -StateRoot $Root
+
+            $invalidSnapshot = [PSCustomObject]@{
+                Contract = [PSCustomObject]@{ Name = 'SqlServerLab.RunDesiredState'; Version = '9.9' }
+                Instances = @()
+            }
+            $invalidRun = New-LabRunState -StateRoot $Root -Metadata @{ name = 'Reconcile invalid'; desiredState = $invalidSnapshot } -ProviderSubRuns @(
+                [PSCustomObject]@{ provider = 'docker'; instanceIds = @('fallback') }
+            )
+            $invalid = Get-SqlServerLabReconcilePlan -RunId $invalidRun.RunId -TargetState RUNNING -StateRoot $Root
         }
         finally {
             Set-Item Function:Get-LabRunRuntimeStatus -Value $originalRuntime
         }
 
         [PSCustomObject]@{
-            NoOp = $noOp; Restart = $restart; Partial = $partial
+            NoOp = $noOp; Restart = $restart; Partial = $partial; Invalid = $invalid
             StateUnchanged = $beforeState -eq (Get-Content -LiteralPath $statePath -Raw -Encoding utf8)
             ConnectionUnchanged = $beforeConnection -eq (Get-Content -LiteralPath $connectionPath -Raw -Encoding utf8)
         }
@@ -86,8 +104,14 @@ try {
         -Name 'Stopped nach Running plant nur providergebundene Startvorschlaege' `
         -Success ($contract.Restart.HighestChangeClass -eq 'restart' -and @($contract.Restart.Actions).Count -eq 2 -and @($contract.Restart.Actions | Where-Object Operation -eq 'Start').Count -eq 2 -and @($contract.Restart.Actions.Provider | Sort-Object) -join ',' -eq 'docker,podman')
     Add-CheckResult `
+        -Name 'Persistierter Sollzustand wird verwendet' `
+        -Success ($contract.NoOp.Desired.Source -eq 'persisted-desired-state' -and @($contract.NoOp.Desired.Instances | ForEach-Object Provider) -join ',' -eq 'podman,docker')
+    Add-CheckResult `
         -Name 'Partial Runtime bleibt fail-closed und plant keine Teilmutation' `
         -Success ($contract.Partial.HighestChangeClass -eq 'unsupported' -and $contract.Partial.Actions.Count -eq 0 -and -not $contract.Partial.MutationAllowed -and $contract.Partial.Warnings.Count -gt 0)
+    Add-CheckResult `
+        -Name 'Persistierter ungültiger Sollzustand bleibt fail-closed' `
+        -Success ($contract.Invalid.HighestChangeClass -eq 'unsupported' -and $contract.Invalid.Actions.Count -eq 0 -and $contract.Invalid.Desired.IsValid -eq $false -and $contract.Invalid.Warnings.Count -gt 0 -and -not $contract.Invalid.MutationAllowed)
     Add-CheckResult `
         -Name 'Plan enthaelt keine Secrets, Hostwerte, Ports oder Runtime-IDs' `
         -Success ((($contract | ConvertTo-Json -Depth 20) -notmatch 'not-in-plan|secret-host|1433|1434|container-secret-id'))

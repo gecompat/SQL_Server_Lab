@@ -18,10 +18,27 @@ function New-LabDesiredState {
 
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
     $persisted = Get-LabPersistedDesiredState -RunId ([string]$Run.runId) -StateRoot $StateRoot
-    if ($persisted) {
+    if ($persisted.Status -eq 'VALID') {
+        $snapshot = $persisted.Snapshot
         return [PSCustomObject]@{
-            Contract = $persisted.Contract; RunId = [string]$persisted.RunId; TargetState = $TargetState
-            Instances = @($persisted.Instances | ForEach-Object { [PSCustomObject]@{ Id = [string]$_.Id; Provider = [string]$_.Provider; TargetState = $TargetState } })
+            Contract = [PSCustomObject]@{ Name = 'SqlServerLab.DesiredState'; Version = '1.0' }
+            RunId = [string]$Run.runId
+            TargetState = $TargetState
+            Source = 'persisted-desired-state'
+            IsValid = $true
+            ValidationError = $null
+            Instances = @($snapshot.Instances | ForEach-Object { [PSCustomObject]@{ Id = [string]$_.Id; Provider = [string]$_.Provider; TargetState = $TargetState } })
+        }
+    }
+    if ($persisted.Status -eq 'INVALID') {
+        return [PSCustomObject]@{
+            Contract = [PSCustomObject]@{ Name = 'SqlServerLab.DesiredState'; Version = '1.0' }
+            RunId = [string]$Run.runId
+            TargetState = $TargetState
+            Source = 'persisted-desired-state-invalid'
+            IsValid = $false
+            ValidationError = [string]$persisted.Reason
+            Instances = @()
         }
     }
     $instances = @()
@@ -49,6 +66,9 @@ function New-LabDesiredState {
         Contract = [PSCustomObject]@{ Name = 'SqlServerLab.DesiredState'; Version = '1.0' }
         RunId = [string]$Run.runId
         TargetState = $TargetState
+        Source = 'connection-info-or-provider-subruns'
+        IsValid = $true
+        ValidationError = $null
         Instances = $instances
     }
 }
@@ -80,6 +100,14 @@ function Compare-LabDesiredActualState {
     )
 
     $diagnosticStates = @('UNKNOWN', 'UNAVAILABLE', 'MISSING', 'PARTIAL')
+    if ($Desired.PSObject.Properties.Name -contains 'IsValid' -and -not [bool]$Desired.IsValid) {
+        return [PSCustomObject]@{
+            ChangeClass = 'unsupported'
+            Reasons = @("Persisted desired state ist ungültig: $($Desired.ValidationError)")
+            Actions = @()
+            Warnings = @("Bitte Snapshot reparieren oder entfernen; fail-closed ohne Teilmutation bis zum Zielzustand.")
+        }
+    }
     if ($Actual.State -in $diagnosticStates) {
         return [PSCustomObject]@{
             ChangeClass = 'unsupported'
