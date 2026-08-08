@@ -25,13 +25,13 @@
 .EXAMPLE
     ./Tools/Start-SqlServerLabUi.ps1 -NoBrowser
 .EXAMPLE
-    ./Tools/Start-SqlServerLabUi.ps1 -h
+    ./Tools/Start-SqlServerLabUi.ps1 -ShowHelp
 #>
 [CmdletBinding()]
 param(
-    [ValidateRange(1025, 65535)][int]$Port = 8484,
-    [ValidateRange(0, 300)][int]$JobStopTimeoutSeconds = 5,
-    [ValidateRange(1, 2000)][int]$JobLogBurstLimit = 300,
+    [Parameter(Position = 0)][string]$Port = '8484',
+    [Parameter(Position = 1)][string]$JobStopTimeoutSeconds = '5',
+    [Parameter(Position = 2)][string]$JobLogBurstLimit = '300',
     [Alias('h', 'help', '?')][switch]$ShowHelp,
     [switch]$NoBrowser,
     [Parameter(ValueFromRemainingArguments = $true)]
@@ -39,16 +39,76 @@ param(
 )
 
 $extraArgs = @($RemainingArgs)
+$helpTokens = @('/?', '-?', '-h', '--help', '-help')
 $showHelpRequested = $ShowHelp.IsPresent -or
     $extraArgs -contains '/?' -or
     $extraArgs -contains '-?' -or
     $extraArgs -contains '-h' -or
-    $extraArgs -contains '--help'
+    $extraArgs -contains '--help' -or
+    ($null -ne $Port -and $Port -in $helpTokens) -or
+    ($null -ne $JobStopTimeoutSeconds -and $JobStopTimeoutSeconds -in $helpTokens) -or
+    ($null -ne $JobLogBurstLimit -and $JobLogBurstLimit -in $helpTokens)
+
+function Show-Usage {
+param(
+    [string]$ScriptName = 'Start-SqlServerLabUi.ps1'
+)
+    Write-Host "$ScriptName" -ForegroundColor Cyan
+    Write-Host 'Funktion:' -ForegroundColor Magenta
+    Write-Host '  Startet die lokale Workflow-UI fuer SQL_Server_Lab auf 127.0.0.1.' -ForegroundColor Cyan
+    Write-Host ''
+    Write-Host 'Aufruf:' -ForegroundColor Magenta
+    Write-Host "  .\$ScriptName [-Port <Int>] [-JobStopTimeoutSeconds <Int>] [-JobLogBurstLimit <Int>] [-NoBrowser] [-ShowHelp]" -ForegroundColor Cyan
+    Write-Host "  .\$ScriptName -ShowHelp" -ForegroundColor Cyan
+    Write-Host ''
+    Write-Host 'Parameter:' -ForegroundColor Magenta
+    Write-Host '  -Port <int>                 Listener-Port (Default: 8484).' -ForegroundColor Cyan
+    Write-Host '  -JobStopTimeoutSeconds <int> Timeout beim Stoppen von Jobs (0..300). Default: 5.' -ForegroundColor Cyan
+    Write-Host '  -JobLogBurstLimit <int>      Max neue Log-Zeilen pro Poll (1..2000). Default: 300.' -ForegroundColor Cyan
+    Write-Host '  -NoBrowser                  Startet keinen Browser automatisch.' -ForegroundColor Cyan
+    Write-Host '  -ShowHelp                   Zeigt diese Hilfe.' -ForegroundColor Cyan
+    Write-Host ''
+    Write-Host 'Beispiele:' -ForegroundColor Magenta
+    Write-Host "  .\$ScriptName" -ForegroundColor Cyan
+    Write-Host '  -> Startet die UI auf Port 8484.' -ForegroundColor Green
+    Write-Host "  .\$ScriptName -Port 8080 -JobStopTimeoutSeconds 10" -ForegroundColor Cyan
+    Write-Host '  -> Startet auf alternativem Port mit längerem Job-Stop-Timeout.' -ForegroundColor Green
+    Write-Host "  .\$ScriptName -NoBrowser" -ForegroundColor Cyan
+    Write-Host '  -> Startet die UI ohne automatischen Browseraufruf.' -ForegroundColor Green
+    Write-Host "  .\$ScriptName -ShowHelp" -ForegroundColor Cyan
+}
 
 if ($showHelpRequested) {
-    Get-Help -Full -Name $PSCommandPath | Out-Host
+    Show-Usage -ScriptName (Split-Path -Leaf $PSCommandPath)
     return
 }
+
+$parsedPort = 0
+if (-not [int]::TryParse([string]$Port, [ref]$parsedPort)) {
+    throw 'Parameter Port muss eine Ganzzahl zwischen 1025 und 65535 sein.'
+}
+if ($parsedPort -lt 1025 -or $parsedPort -gt 65535) {
+    throw 'Parameter Port muss im Bereich 1025..65535 liegen.'
+}
+$Port = $parsedPort
+
+$parsedJobStopTimeoutSeconds = 0
+if (-not [int]::TryParse([string]$JobStopTimeoutSeconds, [ref]$parsedJobStopTimeoutSeconds)) {
+    throw 'Parameter JobStopTimeoutSeconds muss eine Ganzzahl zwischen 0 und 300 sein.'
+}
+if ($parsedJobStopTimeoutSeconds -lt 0 -or $parsedJobStopTimeoutSeconds -gt 300) {
+    throw 'Parameter JobStopTimeoutSeconds muss im Bereich 0..300 liegen.'
+}
+$JobStopTimeoutSeconds = $parsedJobStopTimeoutSeconds
+
+$parsedJobLogBurstLimit = 0
+if (-not [int]::TryParse([string]$JobLogBurstLimit, [ref]$parsedJobLogBurstLimit)) {
+    throw 'Parameter JobLogBurstLimit muss eine Ganzzahl zwischen 1 und 2000 sein.'
+}
+if ($parsedJobLogBurstLimit -lt 1 -or $parsedJobLogBurstLimit -gt 2000) {
+    throw 'Parameter JobLogBurstLimit muss im Bereich 1..2000 liegen.'
+}
+$JobLogBurstLimit = $parsedJobLogBurstLimit
 
 $ErrorActionPreference = 'Stop'
 $uiRoot = Join-Path $PSScriptRoot '..\Ui'

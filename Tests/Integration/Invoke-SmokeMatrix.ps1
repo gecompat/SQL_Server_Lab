@@ -57,6 +57,7 @@ $modulePath = (Resolve-Path (Join-Path $PSScriptRoot '..\..\SqlServerLab.psd1'))
 $providersRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..\Providers')).Path
 $script:Results = [System.Collections.Generic.List[object]]::new()
 $script:StartedAt = Get-Date
+$requestedMode = $Provider
 
 function Add-Result {
     param(
@@ -79,9 +80,44 @@ function Add-Result {
 
 function Test-RuntimeAvailable {
     param([string]$Name)
-    if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) { return $false }
-    & $Name info 1>$null 2>$null
-    return $LASTEXITCODE -eq 0
+
+    if ($Name -eq 'hyperv') {
+        try {
+            $assessment = Test-SqlServerLabPrerequisite -Provider $Name
+            $providerMessage = $assessment.Details | Where-Object { $_.Category -eq 'Provider' } | Select-Object -First 1
+            return [PSCustomObject]@{
+                Available = $assessment.Status -ne 'RESOURCE_HARD_BLOCK'
+                Message   = if ($providerMessage) { $providerMessage.Message } else { 'Hyper-V-Lifecycle nicht erreichbar.' }
+            }
+        }
+        catch {
+            return [PSCustomObject]@{
+                Available = $false
+                Message   = $_.Exception.Message
+            }
+        }
+    }
+
+    try {
+        $assessment = Test-SqlServerLabPrerequisite -Provider $Name
+        if ($assessment.Details) {
+            $providerMessage = $assessment.Details | Where-Object { $_.Category -eq 'Provider' } | Select-Object -First 1
+            return [PSCustomObject]@{
+                Available = $assessment.Status -ne 'RESOURCE_HARD_BLOCK'
+                Message   = if ($providerMessage) { $providerMessage.Message } else { "$Name Runtime erreichbar." }
+            }
+        }
+        return [PSCustomObject]@{
+            Available = $false
+            Message   = "$Name liefert keine Assessment-Daten."
+        }
+    }
+    catch {
+        return [PSCustomObject]@{
+            Available = $false
+            Message   = $_.Exception.Message
+        }
+    }
 }
 
 function ConvertFrom-TestSecureString {
@@ -299,9 +335,44 @@ $requested = if ($Provider -eq 'all') { $implemented } else { @($Provider) }
 $available = @()
 foreach ($name in $requested) {
     if ($name -notin $implemented) { Add-Result -Category 'Discovery' -Provider $name -Version '-' -Status FAIL -Message 'Provider nicht implementiert'; continue }
-    if (Test-RuntimeAvailable $name) { $available += $name; Add-Result -Category 'Discovery' -Provider $name -Version '-' -Status PASS -Message 'Runtime erreichbar' }
-    else { Add-Result -Category 'Discovery' -Provider $name -Version '-' -Status SKIP -Message 'Runtime nicht erreichbar' }
+    if ($name -eq 'hyperv') {
+        try {
+            $assessment = Test-SqlServerLabPrerequisite -Provider $name
+            if ($assessment.Status -ne 'RESOURCE_HARD_BLOCK') {
+                Add-Result -Category 'Discovery' -Provider $name -Version '-' -Status PASS -Message 'Verfuegbar; Lifecycle in dieser Matrix nicht ausgefuehrt (verwende .\Tests\Integration\Invoke-HyperVSmokeTest.ps1).'
+            }
+            else {
+                $detail = if ($assessment.Details -and $assessment.Details.Count -gt 0) {
+                    $assessment.Details[0].Message
+                } else { 'Hyper-V ist nicht erreichbar/konfiguriert.' }
+                Add-Result -Category 'Discovery' -Provider $name -Version '-' -Status SKIP -Message $detail
+            }
+        }
+        catch {
+            Add-Result -Category 'Discovery' -Provider $name -Version '-' -Status SKIP -Message $_.Exception.Message
+        }
+        continue
+    }
+    $runtime = Test-RuntimeAvailable $name
+    if ($runtime.Available) {
+        $available += $name
+        Add-Result -Category 'Discovery' -Provider $name -Version '-' -Status PASS -Message $runtime.Message
+    }
+    else { Add-Result -Category 'Discovery' -Provider $name -Version '-' -Status SKIP -Message $runtime.Message }
 }
+if ($available.Count -eq 0 -and $requestedMode -eq 'all') {
+    $elapsed = (Get-Date) - $script:StartedAt
+    Write-Host "`n===================================================================="
+    Write-Host ' ERGEBNIS'
+    Write-Host '===================================================================='
+    $script:Results | Format-Table Category,Provider,Version,Status,Message -AutoSize
+    $failures = @($script:Results | Where-Object Status -eq 'FAIL')
+    $skipped = @($script:Results | Where-Object Status -eq 'SKIP')
+    Write-Host ("PASS={0} FAIL={1} SKIP={2} Dauer={3:N1}s" -f @($script:Results | Where-Object Status -eq 'PASS').Count,$failures.Count,$skipped.Count,$elapsed.TotalSeconds)
+    if ($failures.Count -gt 0) { exit 1 }
+    exit 0
+}
+
 if ($available.Count -eq 0) { throw 'Kein angeforderter Provider ist erreichbar.' }
 
 foreach ($name in $available) { Invoke-FullLifecycle -ProviderName $name -VersionName $ReferenceVersion }

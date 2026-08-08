@@ -4,6 +4,18 @@ Dieses Changelog dokumentiert Änderungen am öffentlichen Verhalten, an maschin
 
 Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher nach Datum geführt. Neue Einträge werden oben ergänzt.
 
+## 2026-08-08
+
+### Geändert
+
+- `Invoke-SmokeTest.ps1` unterstützt `-Provider hyperv` direkt und startet dafür
+  den dedizierten nativen Hyper-V-Smoke-Pfad. Der Aufruf dokumentiert dadurch
+  denselben lokalen Nachweisweg für VM-/VHDX-/Image-Builder-Lifecycle wie den
+  dedizierten `Invoke-HyperVSmokeTest.ps1`.
+- `Tests/Integration/README.md` und `README.md` wurden erweitert, um den
+  Hyper-V-Provider als expliziten Einzelprovider-Smoke-Zweig mit aktuellem
+  Nachweisstatus (`PASS`) zu dokumentieren.
+
 ## 2026-08-07
 
 ### Hinzugefügt

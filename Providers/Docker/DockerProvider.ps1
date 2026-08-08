@@ -10,19 +10,82 @@ function Test-DockerAvailable {
     [CmdletBinding()]
     param()
 
+    function Invoke-DockerClientProbe {
+        param([Parameter(Mandatory)][string[]]$Arguments)
+
+        $originalConfig = if (Test-Path Env:DOCKER_CONFIG) { $env:DOCKER_CONFIG } else { $null }
+        $fallbackConfig = Join-Path $env:TEMP ("sql-lab-docker-config-{0}" -f [System.Guid]::NewGuid().ToString('N'))
+        $attempts = @(
+            @{ Config = $originalConfig; Label = 'Primary' },
+            @{ Config = $fallbackConfig; Label = 'Fallback' }
+        )
+        $lastResult = [PSCustomObject]@{
+            Success  = $false
+            Output   = ''
+            ExitCode = $null
+            Message  = ''
+        }
+
+        try {
+            foreach ($attempt in $attempts) {
+                if ($attempt.Label -eq 'Fallback') {
+                    New-Item -Path $attempt.Config -ItemType Directory -Force | Out-Null
+                }
+
+                if ($null -eq $attempt.Config) {
+                    if (Test-Path Env:DOCKER_CONFIG) { Remove-Item Env:DOCKER_CONFIG -ErrorAction SilentlyContinue }
+                }
+                else {
+                    $env:DOCKER_CONFIG = $attempt.Config
+                }
+
+                $output = & docker @Arguments 2>&1
+                $exitCode = $LASTEXITCODE
+                $text = ($output | Out-String).Trim()
+                $lastResult = [PSCustomObject]@{
+                    Success  = ($exitCode -eq 0)
+                    Output   = $text
+                    ExitCode = $exitCode
+                    Message  = $text
+                }
+
+                if ($exitCode -eq 0) {
+                    return $lastResult
+                }
+
+                if (
+                    $attempt.Label -eq 'Primary' -and
+                    $text -match '(?i)Error loading config file|Zugriff verweigert|Permission denied'
+                ) {
+                    continue
+                }
+                return $lastResult
+            }
+            return $lastResult
+        }
+        finally {
+            if ($null -eq $originalConfig) {
+                if (Test-Path Env:DOCKER_CONFIG) { Remove-Item Env:DOCKER_CONFIG -ErrorAction SilentlyContinue }
+            }
+            else {
+                $env:DOCKER_CONFIG = $originalConfig
+            }
+        }
+    }
+
     try {
-        $versionOutput = docker info --format '{{.ServerVersion}}' 2>&1
-        if ($LASTEXITCODE -ne 0) {
+        $probe = Invoke-DockerClientProbe -Arguments @('info', '--format', '{{.ServerVersion}}')
+        if (-not $probe.Success) {
             return [PSCustomObject]@{
                 Available = $false
                 Version   = $null
-                Message   = "Docker nicht erreichbar: $(($versionOutput | Out-String).Trim())"
+                Message   = "Docker nicht erreichbar: $($probe.Message)"
             }
         }
 
         return [PSCustomObject]@{
             Available = $true
-            Version   = ([string]$versionOutput).Trim()
+            Version   = ([string]$probe.Output).Trim()
             Message   = ''
         }
     }

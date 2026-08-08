@@ -11,8 +11,7 @@
 param(
     [Alias('h','help','?')][switch]$ShowHelp,
     [Parameter(ValueFromRemainingArguments = $true)]
-    [string[]]$RemainingArgs,
-)
+    [string[]]$RemainingArgs)
 
 $showHelpRequested = $ShowHelp.IsPresent -or @($RemainingArgs) -contains '/?' -or @($RemainingArgs) -contains '-?' -or @($RemainingArgs) -contains '-h' -or @($RemainingArgs) -contains '--help'
 
@@ -214,4 +213,6 @@ if ($failures.Count -gt 0) {
 }
 
 exit 0
+
+
 

@@ -181,9 +181,9 @@ function Test-RamAvailability {
 
     # Freien RAM ermitteln
     $freeMB = 0
-    try {
-        if ($IsWindows) {
-            $os = Get-CimInstance Win32_OperatingSystem
+        try {
+            if ($IsWindows) {
+            $os = Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction Stop
             $freeMB = [math]::Round($os.FreePhysicalMemory / 1024)
         } else {
             $memInfo = Get-Content '/proc/meminfo' -ErrorAction SilentlyContinue

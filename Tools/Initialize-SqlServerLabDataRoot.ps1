@@ -16,25 +16,59 @@
 .EXAMPLE
     .\Tools\Initialize-SqlServerLabDataRoot.ps1 -RootPath 'D:\Lab_Data' -LabId 'training'
 .EXAMPLE
-    .\Tools\Initialize-SqlServerLabDataRoot.ps1 -RootPath 'D:\Lab_Data' -LabId 'training' -h
+    .\Tools\Initialize-SqlServerLabDataRoot.ps1 -RootPath 'D:\Lab_Data' -LabId 'training' -ShowHelp
 #>
 [CmdletBinding(SupportsShouldProcess)]
 param(
-    [Alias('h', 'help')][switch]$ShowHelp,
-    [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$RootPath,
+    [Alias('h', 'help', '?')][switch]$ShowHelp,
+    [ValidateNotNullOrEmpty()][string]$RootPath,
     [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$')][string]$LabId,
     [Parameter(ValueFromRemainingArguments = $true)]
     [string[]]$RemainingArgs
 )
 
+$helpTokens = @('/?', '-?', '-h', '--help', '-help')
 $showHelpRequested = $ShowHelp.IsPresent -or
     @($RemainingArgs) -contains '/?' -or
     @($RemainingArgs) -contains '-?' -or
     @($RemainingArgs) -contains '-h' -or
-    @($RemainingArgs) -contains '--help'
+    @($RemainingArgs) -contains '--help' -or
+    # Hilfemodus kann auch als Positionsargument in RootPath landen.
+    ($null -ne $RootPath -and $RootPath -in $helpTokens)
+
+function Show-Usage {
+param(
+    [string]$ScriptName = 'Initialize-SqlServerLabDataRoot.ps1'
+)
+    Write-Host "$ScriptName" -ForegroundColor Cyan
+    Write-Host 'Funktion:' -ForegroundColor Magenta
+    Write-Host '  Erstellt und validiert den persistenten Daten-Root fuer SQL_Server_Lab.' -ForegroundColor Cyan
+    Write-Host '  Trennung von Daten, Backups und Git-Checkout.' -ForegroundColor Cyan
+    Write-Host ''
+    Write-Host 'Aufruf:' -ForegroundColor Magenta
+    Write-Host "  .\$ScriptName -RootPath <Pfad> [-LabId <Name>] [-ShowHelp]" -ForegroundColor Cyan
+    Write-Host "  .\$ScriptName -ShowHelp" -ForegroundColor Cyan
+    Write-Host ''
+    Write-Host 'Parameter:' -ForegroundColor Magenta
+    Write-Host '  -RootPath <string>    Pfad fuer den Daten-Root (ausserehalb des Repos).' -ForegroundColor Cyan
+    Write-Host '  -LabId <string>       Optionaler stabiler Lab-Name fuer versionierte Unterverzeichnisse.' -ForegroundColor Cyan
+    Write-Host '  -ShowHelp             Zeigt diese Hilfe.' -ForegroundColor Cyan
+    Write-Host ''
+    Write-Host 'Beispiele:' -ForegroundColor Magenta
+    Write-Host "  .\$ScriptName -RootPath 'D:\\Lab_Data'" -ForegroundColor Cyan
+    Write-Host '  -> Legt den Basispfad fuer langlebige Daten an.' -ForegroundColor Green
+    Write-Host "  .\$ScriptName -RootPath 'D:\\Lab_Data' -LabId 'training'" -ForegroundColor Cyan
+    Write-Host '  -> Erstellt strukturierte Unterordner fuer ein stabil benanntes Lab.' -ForegroundColor Green
+    Write-Host "  .\$ScriptName -ShowHelp" -ForegroundColor Cyan
+}
+
 if ($showHelpRequested) {
-    Get-Help -Full -Name $PSCommandPath | Out-Host
+    Show-Usage -ScriptName (Split-Path -Leaf $PSCommandPath)
     return
+}
+
+if ([string]::IsNullOrWhiteSpace($RootPath)) {
+    throw 'Parameter RootPath ist erforderlich. Beispiel: .\Tools\Initialize-SqlServerLabDataRoot.ps1 -RootPath D:\Lab_Data'
 }
 
 Set-StrictMode -Version Latest

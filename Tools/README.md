@@ -5,6 +5,7 @@
 | [Initialize-SqlServerLabMediaRoot.ps1](Initialize-SqlServerLabMediaRoot.ps1) | Erstellt einen externen Media Root samt lokalen Download-READMEs, sortiert vorhandene ISO/VHDX/Installer optional ein und erzeugt auf Wunsch SHA-256-Sidecars |
 | [Initialize-SqlServerLabDataRoot.ps1](Initialize-SqlServerLabDataRoot.ps1) | Erstellt den getrennten langlebigen Data Root für Evaluation-Refresh, Backups und versionsgebundene Datenbankdateien |
 | [Start-SqlServerLabUi.ps1](Start-SqlServerLabUi.ps1) | Startet das lokale Browser-Cockpit für Workflow, Hintergrundaktionen und Live-Logs auf 127.0.0.1 |
+| [CheckLargeGitFilesPush.ps1](../CheckLargeGitFilesPush.ps1) | Prüft staged/untracked Dateien auf Größe, schreibt optional Log und kann Commit+Push nach Prüfung ausführen |
 
 Werkzeuge unter `Tools/` sind keine exportierten Cmdlets des PowerShell-Moduls.
 Sie werden ausdrücklich über ihren Dateipfad aufgerufen.
@@ -16,6 +17,26 @@ Die UI wird per Dateipfad gestartet:
 ```powershell
 .\Tools\Start-SqlServerLabUi.ps1
 ```
+
+## Standard-Hilfe (Skript-Einstiegspunkte)
+
+Alle Skript-Einstiegspunkte im Projekt unterstützen konsistent `-ShowHelp`/`--help`
+als Hilfemodus (PowerShell kann die Schalter `/?`, `-h`, `-help` oder `-?`
+je nach Kontext auch direkt als Engine-Hilfe behandeln):
+
+- `./Tools/<script>.ps1 -ShowHelp`
+- `./Tools/<script>.ps1 --help`
+
+Projektweit häufig zusätzlich genutzt:
+
+- `.\Invoke-SqlServerLab.ps1 -ShowHelp`
+- `.\Tools\Initialize-SqlServerLabDataRoot.ps1 -ShowHelp`
+- `.\Tools\Initialize-SqlServerLabMediaRoot.ps1 -ShowHelp`
+- `.\Tools\Start-SqlServerLabUi.ps1 -ShowHelp`
+- `.\CheckLargeGitFilesPush.ps1 --help`
+
+Damit wird direkt die Skript-spezifische Hilfe angezeigt und anschließend die
+Ausführung beendet.
 
 Unterstützte Optionen:
 

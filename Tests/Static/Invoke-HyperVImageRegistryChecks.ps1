@@ -3,8 +3,7 @@
 param(
     [Alias('h','help','?')][switch]$ShowHelp,
     [Parameter(ValueFromRemainingArguments = $true)]
-    [string[]]$RemainingArgs,
-)
+    [string[]]$RemainingArgs)
 
 $showHelpRequested = $ShowHelp.IsPresent -or @($RemainingArgs) -contains '/?' -or @($RemainingArgs) -contains '-?' -or @($RemainingArgs) -contains '-h' -or @($RemainingArgs) -contains '--help'
 
@@ -234,4 +233,6 @@ Write-Host ''
 Write-Host "Ergebnis: $passed PASS, $($failures.Count) FAIL" -ForegroundColor Cyan
 if ($failures.Count -gt 0) { exit 1 }
 exit 0
+
+
 
