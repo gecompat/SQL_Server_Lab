@@ -32,6 +32,9 @@
 #>
 [CmdletBinding()]
 param(
+    [Alias('h','help','?')][switch]$ShowHelp,
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [string[]]$RemainingArgs,
     [ValidateSet('all', 'docker', 'podman')]
     [string]$Provider = 'all',
     [string[]]$Versions = @('2019', '2022', '2025'),
@@ -41,6 +44,13 @@ param(
     [switch]$KeepOnFailure,
     [SecureString]$SaPassword
 )
+
+$showHelpRequested = $ShowHelp.IsPresent -or @($RemainingArgs) -contains '/?' -or @($RemainingArgs) -contains '-?' -or @($RemainingArgs) -contains '-h' -or @($RemainingArgs) -contains '--help'
+if ($showHelpRequested) {
+    Get-Help -Full -Name $PSCommandPath | Out-Host
+    return
+}
+
 
 $ErrorActionPreference = 'Stop'
 $modulePath = (Resolve-Path (Join-Path $PSScriptRoot '..\..\SqlServerLab.psd1')).Path
@@ -315,3 +325,5 @@ $skipped = @($script:Results | Where-Object Status -eq 'SKIP')
 Write-Host ("PASS={0} FAIL={1} SKIP={2} Dauer={3:N1}s" -f @($script:Results | Where-Object Status -eq 'PASS').Count,$failures.Count,$skipped.Count,$elapsed.TotalSeconds)
 if ($failures.Count -gt 0) { exit 1 }
 exit 0
+
+

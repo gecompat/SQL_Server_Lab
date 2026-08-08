@@ -22,11 +22,21 @@
 #>
 [CmdletBinding()]
 param(
+    [Alias('h','help','?')][switch]$ShowHelp,
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [string[]]$RemainingArgs,
     [ValidateSet('New', 'Status', 'Start', 'Stop', 'Restart', 'Remove', 'Clear', 'Script', 'Database', 'Image')]
     [string]$Action,
 
     [string]$Manifest
 )
+
+$showHelpRequested = $ShowHelp.IsPresent -or @($RemainingArgs) -contains '/?' -or @($RemainingArgs) -contains '-?' -or @($RemainingArgs) -contains '-h' -or @($RemainingArgs) -contains '--help'
+if ($showHelpRequested) {
+    Get-Help -Full -Name $PSCommandPath | Out-Host
+    return
+}
+
 
 $ErrorActionPreference = 'Stop'
 
@@ -44,3 +54,5 @@ elseif ($Action) {
 else {
     Invoke-SqlServerLab
 }
+
+

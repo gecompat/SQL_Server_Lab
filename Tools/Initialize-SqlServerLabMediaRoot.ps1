@@ -23,6 +23,8 @@
 .PARAMETER GenerateSha256
     Erzeugt fuer alle Medien SHA-256-Sidecars unterhalb von Hashes. Bereits
     vorhandene abweichende Sidecars brechen ab und werden nicht ueberschrieben.
+.PARAMETER ShowHelp
+    Zeigt diese Hilfeseite an.
 .EXAMPLE
     .\Tools\Initialize-SqlServerLabMediaRoot.ps1 -RootPath 'D:\Lab_Base'
 .EXAMPLE
@@ -35,17 +37,32 @@
         -RootPath 'D:\Lab_Base' `
         -OrganizeExisting `
         -GenerateSha256
+.EXAMPLE
+    .\Tools\Initialize-SqlServerLabMediaRoot.ps1 -RootPath 'D:\Lab_Base' -h
 #>
 [CmdletBinding(SupportsShouldProcess)]
 param(
+    [Alias('h', 'help')][switch]$ShowHelp,
     [Parameter(Mandatory)]
     [ValidateNotNullOrEmpty()]
     [string]$RootPath,
-
+ 
     [switch]$OrganizeExisting,
-
-    [switch]$GenerateSha256
+ 
+    [switch]$GenerateSha256,
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [string[]]$RemainingArgs
 )
+
+$showHelpRequested = $ShowHelp.IsPresent -or
+    @($RemainingArgs) -contains '/?' -or
+    @($RemainingArgs) -contains '-?' -or
+    @($RemainingArgs) -contains '-h' -or
+    @($RemainingArgs) -contains '--help'
+if ($showHelpRequested) {
+    Get-Help -Full -Name $PSCommandPath | Out-Host
+    return
+}
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'

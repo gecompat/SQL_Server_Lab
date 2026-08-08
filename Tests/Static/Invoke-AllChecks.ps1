@@ -13,7 +13,21 @@
     ausgelöst.
 #>
 [CmdletBinding()]
-param()
+param(
+    [Alias('h','help','?')][switch]$ShowHelp,
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [string[]]$RemainingArgs,
+)
+
+$showHelpRequested = $ShowHelp.IsPresent -or @($RemainingArgs) -contains '/?' -or @($RemainingArgs) -contains '-?' -or @($RemainingArgs) -contains '-h' -or @($RemainingArgs) -contains '--help'
+
+if ($showHelpRequested) {
+
+    Get-Help -Full -Name $PSCommandPath | Out-Host
+
+    return
+
+}
 
 $ErrorActionPreference = 'Stop'
 $pwshCommand = Get-Command pwsh -ErrorAction Stop
@@ -55,3 +69,4 @@ if ($failedChecks.Count -gt 0) {
 }
 
 Write-Host "`nALLE STATISCHEN VERTRAGSPRUEFUNGEN: PASS" -ForegroundColor Green
+

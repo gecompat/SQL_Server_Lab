@@ -22,12 +22,22 @@
 #>
 [CmdletBinding()]
 param(
+    [Alias('h','help','?')][switch]$ShowHelp,
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [string[]]$RemainingArgs,
     [ValidateRange(1, 600)]
     [int]$TimeoutSeconds = 90,
 
     [ValidateRange(1, 30)]
     [int]$PollIntervalSeconds = 2
 )
+
+$showHelpRequested = $ShowHelp.IsPresent -or @($RemainingArgs) -contains '/?' -or @($RemainingArgs) -contains '-?' -or @($RemainingArgs) -contains '-h' -or @($RemainingArgs) -contains '--help'
+if ($showHelpRequested) {
+    Get-Help -Full -Name $PSCommandPath | Out-Host
+    return
+}
+
 
 $ErrorActionPreference = 'Stop'
 
@@ -140,3 +150,5 @@ finally {
     }
     $mutex.Dispose()
 }
+
+

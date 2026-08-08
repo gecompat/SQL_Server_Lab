@@ -12,7 +12,18 @@
     Behaelt Testressourcen fuer eine lokale Diagnose. Nicht fuer CI verwenden.
 #>
 [CmdletBinding()]
-param([switch]$KeepOnFailure)
+param(
+    [Alias('h', 'help', '?')][switch]$ShowHelp,
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [string[]]$RemainingArgs,
+    [switch]$KeepOnFailure
+)
+
+$showHelpRequested = $ShowHelp.IsPresent -or @($RemainingArgs) -contains '/?' -or @($RemainingArgs) -contains '-?' -or @($RemainingArgs) -contains '-h' -or @($RemainingArgs) -contains '--help'
+if ($showHelpRequested) {
+    Get-Help -Full -Name $PSCommandPath | Out-Host
+    return
+}
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path

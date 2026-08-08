@@ -11,14 +11,31 @@
 .PARAMETER LabId
     Optionaler stabiler logischer Lab-Name. Erzeugt die zugehoerige
     versionsgetrennte Daten- und Backupstruktur.
+.PARAMETER ShowHelp
+    Zeigt diese Hilfeseite an.
 .EXAMPLE
     .\Tools\Initialize-SqlServerLabDataRoot.ps1 -RootPath 'D:\Lab_Data' -LabId 'training'
+.EXAMPLE
+    .\Tools\Initialize-SqlServerLabDataRoot.ps1 -RootPath 'D:\Lab_Data' -LabId 'training' -h
 #>
 [CmdletBinding(SupportsShouldProcess)]
 param(
+    [Alias('h', 'help')][switch]$ShowHelp,
     [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$RootPath,
-    [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$')][string]$LabId
+    [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$')][string]$LabId,
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [string[]]$RemainingArgs
 )
+
+$showHelpRequested = $ShowHelp.IsPresent -or
+    @($RemainingArgs) -contains '/?' -or
+    @($RemainingArgs) -contains '-?' -or
+    @($RemainingArgs) -contains '-h' -or
+    @($RemainingArgs) -contains '--help'
+if ($showHelpRequested) {
+    Get-Help -Full -Name $PSCommandPath | Out-Host
+    return
+}
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'

@@ -21,12 +21,22 @@
 #>
 [CmdletBinding()]
 param(
+    [Alias('h','help','?')][switch]$ShowHelp,
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [string[]]$RemainingArgs,
     [SecureString]$SaPassword,
     [string]$Version = '2025',
     [ValidateSet('docker', 'podman', 'auto')]
     [string]$Provider = 'auto',
     [switch]$KeepOnFailure
 )
+
+$showHelpRequested = $ShowHelp.IsPresent -or @($RemainingArgs) -contains '/?' -or @($RemainingArgs) -contains '-?' -or @($RemainingArgs) -contains '-h' -or @($RemainingArgs) -contains '--help'
+if ($showHelpRequested) {
+    Get-Help -Full -Name $PSCommandPath | Out-Host
+    return
+}
+
 
 $ErrorActionPreference = 'Stop'
 $script:TestResults = [System.Collections.Generic.List[object]]::new()
@@ -509,3 +519,5 @@ if ($failed -gt 0) {
 }
 
 exit 0
+
+

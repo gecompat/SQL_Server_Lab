@@ -6,14 +6,49 @@
     Stellt ausschliesslich auf 127.0.0.1 eine kleine Browser-Oberflaeche bereit.
     Aktionen laufen als Thread-Jobs im selben erhöhten Prozess; Geheimnisse
     werden nicht geloggt oder persistiert.
+.PARAMETER Port
+    Lauscht auf diesem TCP-Port (Standard: 8484).
+.PARAMETER JobStopTimeoutSeconds
+    Legt fest, wie lange auf das beendende Herunterfahren offener
+    Hintergrundjobs gewartet wird, bevor hart aufgeräumt wird.
+.PARAMETER JobLogBurstLimit
+    Begrenzt die Anzahl neuer Log-Zeilen, die pro Polling-Schritt in der UI
+    angezeigt werden.
+.PARAMETER NoBrowser
+    Unterdrueckt den automatischen Aufruf von Browser/Startseite.
+.PARAMETER ShowHelp
+    Zeigt diese Hilfeseite an.
 .EXAMPLE
     ./Tools/Start-SqlServerLabUi.ps1
+.EXAMPLE
+    ./Tools/Start-SqlServerLabUi.ps1 -Port 8080 -JobStopTimeoutSeconds 10 -JobLogBurstLimit 500
+.EXAMPLE
+    ./Tools/Start-SqlServerLabUi.ps1 -NoBrowser
+.EXAMPLE
+    ./Tools/Start-SqlServerLabUi.ps1 -h
 #>
 [CmdletBinding()]
 param(
     [ValidateRange(1025, 65535)][int]$Port = 8484,
-    [switch]$NoBrowser
+    [ValidateRange(0, 300)][int]$JobStopTimeoutSeconds = 5,
+    [ValidateRange(1, 2000)][int]$JobLogBurstLimit = 300,
+    [Alias('h', 'help', '?')][switch]$ShowHelp,
+    [switch]$NoBrowser,
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [string[]]$RemainingArgs
 )
+
+$extraArgs = @($RemainingArgs)
+$showHelpRequested = $ShowHelp.IsPresent -or
+    $extraArgs -contains '/?' -or
+    $extraArgs -contains '-?' -or
+    $extraArgs -contains '-h' -or
+    $extraArgs -contains '--help'
+
+if ($showHelpRequested) {
+    Get-Help -Full -Name $PSCommandPath | Out-Host
+    return
+}
 
 $ErrorActionPreference = 'Stop'
 $uiRoot = Join-Path $PSScriptRoot '..\Ui'
@@ -51,16 +86,28 @@ function Get-UiJobSnapshot {
         $line = ($_ | Out-String).Trim()
         if ($line) { $line }
     })
+    $burstLimit = [int]$JobLogBurstLimit
+    if ($burstLimit -lt 1) { $burstLimit = 1 }
+    $observed = [int]$Record.LastObservedLineCount
+    if ($observed -lt 0) { $observed = 0 }
+    if ($observed -gt $lines.Count) { $observed = 0 }
+    $newLines = @()
+    if ($lines.Count -gt $observed) {
+        $newLines = $lines[$observed..($lines.Count - 1)]
+        if ($newLines.Count -gt $burstLimit) {
+            $newLines = $newLines[($newLines.Count - $burstLimit)..($newLines.Count - 1)]
+        }
+    }
     $state = [string]$Record.Job.State
     $startedAt = [datetimeoffset]::Parse(
         [string]$Record.StartedAt,
         [Globalization.CultureInfo]::InvariantCulture,
         [Globalization.DateTimeStyles]::RoundtripKind
     ).UtcDateTime
-    if ($state -eq 'Failed' -and $lines.Count -eq 0) {
-        $lines = @('[FEHLER] Hintergrundaktion wurde abgebrochen.')
+    if ($state -eq 'Failed' -and $lines.Count -eq 0 -and $observed -eq 0) {
+        $newLines = @('[FEHLER] Hintergrundaktion wurde abgebrochen.')
     }
-    if ($Record.LastObservedLineCount -lt $lines.Count) {
+    if ($observed -lt $lines.Count) {
         $Record.LastObservedLineCount = $lines.Count
         $Record.LastActivityAt = (Get-Date).ToUniversalTime().ToString('o')
     }
@@ -71,7 +118,7 @@ function Get-UiJobSnapshot {
         StartedAt = $Record.StartedAt
         ElapsedSeconds = [math]::Max(0, [math]::Floor(((Get-Date).ToUniversalTime() - $startedAt).TotalSeconds))
         LastActivityAt = $Record.LastActivityAt
-        Lines = $lines
+        Lines = $newLines
     }
 }
 
@@ -134,13 +181,23 @@ $url = "http://127.0.0.1:$Port/"
 $listener.Prefixes.Add($url)
 $listener.Start()
 $jobs = @{}
+
 Write-Host "SQL_Server_Lab Workflow UI: $url" -ForegroundColor Green
 Write-Host 'Zum Beenden Strg+C druecken.' -ForegroundColor DarkGray
+Write-Host "Job-Stop-Timeout beim Beenden: ${JobStopTimeoutSeconds}s (Parameter: -JobStopTimeoutSeconds)." -ForegroundColor DarkGray
+Write-Host "Log-Burst-Limit pro Snapshot: ${JobLogBurstLimit} Zeilen (Parameter: -JobLogBurstLimit)." -ForegroundColor DarkGray
 if (-not $NoBrowser) { Start-Process $url }
 
 try {
     while ($listener.IsListening) {
-        $context = $listener.GetContext()
+        try {
+            $context = $listener.GetContext()
+        }
+        catch {
+            if (-not $listener.IsListening) { break }
+            if ($_.Exception -is [System.Management.Automation.PipelineStoppedException]) { break }
+            throw
+        }
         try {
             if (-not [Net.IPAddress]::IsLoopback($context.Request.RemoteEndPoint.Address)) {
                 Write-UiResponse -Context $context -Body 'Nur lokaler Zugriff ist erlaubt.' -StatusCode 403
@@ -156,6 +213,10 @@ try {
             if ($path -eq '/api/jobs' -and $context.Request.HttpMethod -eq 'GET') {
                 $snapshot = @($jobs.Values | ForEach-Object { Get-UiJobSnapshot -Record $_ } | Sort-Object StartedAt -Descending)
                 Write-UiResponse -Context $context -Body ($snapshot | ConvertTo-Json -Depth 8) -ContentType 'application/json; charset=utf-8'
+                continue
+            }
+            if ($path -eq '/api/config' -and $context.Request.HttpMethod -eq 'GET') {
+                Write-UiResponse -Context $context -Body (@{ jobLogBurstLimit = $JobLogBurstLimit } | ConvertTo-Json -Depth 4) -ContentType 'application/json; charset=utf-8'
                 continue
             }
             if ($path -eq '/api/actions' -and $context.Request.HttpMethod -eq 'POST') {
@@ -209,10 +270,29 @@ try {
     }
 }
 finally {
+    if ($jobs.Count -gt 0) { Write-Host "Beende $($jobs.Count) UI-Job(s)..." -ForegroundColor DarkGray }
     foreach ($record in $jobs.Values) {
-        if ($record.Job.State -eq 'Running') { Stop-Job -Job $record.Job -ErrorAction SilentlyContinue }
-        Remove-Job -Job $record.Job -Force -ErrorAction SilentlyContinue
+        $job = $record.Job
+        $state = [string]$job.State
+        if ($state -eq 'Running' -or $state -eq 'NotStarted') {
+            Write-Host "Job $($record.Id) ($($record.Action)) beendet: Zustand '$state'..." -ForegroundColor DarkGray
+            Stop-Job -Job $job -ErrorAction SilentlyContinue
+            if (-not (Wait-Job -Job $job -Timeout $JobStopTimeoutSeconds)) {
+                Write-Host "Job $($record.Id) reagierte nicht auf Stop; wird hart bereinigt." -ForegroundColor DarkYellow
+            }
+        }
+        elseif ($state -eq 'Blocked') {
+            Write-Host "Job $($record.Id) ($($record.Action)) ist blockiert; warte auf Beendigung..." -ForegroundColor DarkYellow
+            if (-not (Wait-Job -Job $job -Timeout $JobStopTimeoutSeconds)) {
+                Write-Host "Job $($record.Id) reagierte nicht auf Beendigung; wird hart bereinigt." -ForegroundColor DarkYellow
+            }
+        }
+        else {
+            Write-Host "Job $($record.Id) ($($record.Action)) bereits abgeschlossen (Zustand '$state')." -ForegroundColor DarkGray
+        }
+        Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
     }
+    if ($jobs.Count -gt 0) { Write-Host 'UI-Job-Bereinigung abgeschlossen.' -ForegroundColor DarkGray }
     $listener.Stop()
     $listener.Close()
 }
