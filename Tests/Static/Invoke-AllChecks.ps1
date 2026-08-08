@@ -54,8 +54,8 @@ $checks = @(
     'Invoke-MixedProviderLifecycleChecks.ps1',
     'Invoke-ProjectAdapterChecks.ps1',
     'Invoke-SampleHandlerChecks.ps1',
-    'Invoke-ManifestBuilderChecks.ps1'
-    'Invoke-PrivacyScannerChecks.ps1'
+    'Invoke-ManifestBuilderChecks.ps1',
+    'Invoke-PrivacyScannerChecks.ps1',
     'Invoke-ReleaseReadinessChecks.ps1'
 )
 $failedChecks = [System.Collections.Generic.List[string]]::new()
