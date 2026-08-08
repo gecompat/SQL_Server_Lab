@@ -388,7 +388,14 @@ Die Erweiterung ist nur zulässig, wenn sie einen konkreten SQL-Server-Anwendung
 
 ---
 
-## 17. Implementierungsstatus (Stand: Juli 2026)
+## 17. Historischer Implementierungsstatus (Stand: Juli 2026)
+
+Dieser Abschnitt bleibt als historischer Architektur-Snapshot erhalten. Er ist
+kein aktueller Runtime-Nachweis und darf nicht zur Priorisierung neuer Arbeit
+verwendet werden. Der aktuelle Ausführungsstand steht in
+[KNOWN_LIMITATIONS.md](../Quality/KNOWN_LIMITATIONS.md); die verbindliche
+Lieferreihenfolge steht im
+[konsolidierten Entwicklungs- und Ausführungsplan](../Project_Planning/DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md).
 
 ### Abgeschlossene Architekturtests
 

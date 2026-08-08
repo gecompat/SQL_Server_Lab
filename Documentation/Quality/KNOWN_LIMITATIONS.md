@@ -122,9 +122,11 @@ für `Mount-VHD` benötigte Volume-Recht. In diesem Fall bleibt genau der
 dokumentierte OOBE-/Passwortschritt manuell; SQL Setup und Abnahme laufen
 danach weiter unbeaufsichtigt.
 
-Noch nicht implementiert ist die deklarative Hyper-V-Bindung an den bestehenden
-Manifest-Drive-, Datenbank-, Post-Provisioning- und Netzwerkvertrag. Ebenfalls
-offen bleiben der unattended OS-Build, `CompleteImage`, runtimeübergreifende
+Noch nicht implementiert ist die vollständige deklarative Hyper-V-Bindung an den
+bestehenden Manifest-Drive-, Datenbank-, Post-Provisioning- und Netzwerkvertrag.
+Der enge Klonpfad aus einem `SQL_PREPARED_SEALED`-Image führt `CompleteImage`
+bereits aus; offen bleiben der vollautomatische OS-Factory-Build, ein allgemeiner
+Hyper-V-SQL-Runtimepfad mit realem End-to-End-Nachweis, runtimeübergreifende
 Network Intents, zentraler IPAM, Reconcile und der automatische Artifact Refresh. Der
 verbindliche Zielvertrag steht in
 [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](../Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md).

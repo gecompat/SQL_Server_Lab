@@ -8,7 +8,7 @@
 | Umsetzungsstand | Abschnitt 17a; Runtime-Nachweis ausschließlich über `Documentation/Quality/KNOWN_LIMITATIONS.md` |
 | Zielversion der Verträge | `0.1-draft` |
 | Primärsprache | Deutsch; etablierte englische Fachbegriffe bleiben erhalten |
-| CI/CD | ausdrücklich nicht Bestandteil dieses Repositories |
+| CI/CD | keine Produktabhängigkeit; optionale Workflows dienen nur der ergänzenden Validierung |
 | Quellprojekte | `gecompat/SQL_Server_Analyze`, `gecompat/SQL_PerformanceSchulung` |
 
 ## 1. Architekturentscheidung
@@ -687,13 +687,13 @@ Arbeitspakete:
 - `LAB-FND-005`: Master-Umsetzungsplan;
 - `LAB-FND-006`: Project-Integration-Vertrag;
 - `LAB-FND-007`: Migrationsinventar;
-- `LAB-FND-008`: lokale Validierungsstrategie ohne CI/CD;
+- `LAB-FND-008`: lokale Validierungsstrategie ohne Produktabhängigkeit von CI/CD;
 - `LAB-FND-009`: KI-Projektkontext.
 
 Abnahme:
 
 - Ziel, Grenzen und Verantwortungen sind widerspruchsfrei;
-- keine CI/CD-Artefakte vorhanden;
+- die lokale Produktfunktion hängt nicht von CI/CD ab; optionale Validierungsworkflows bleiben davon getrennt;
 - Privacy- und Lizenzregeln sind sichtbar verankert;
 - Migration benennt Quelle, Ziel und Übergang je Funktionsgruppe.
 
@@ -916,7 +916,7 @@ Jedes Dokument führt seine eigene Wellenzählung.
 | Welle 1 – Verträge und CLI-Skelett | teilweise, mit bewusster Abweichung | Statt getrennter Run-Request-/Scenario-/Topology-Schemas existiert `Schemas/lab-manifest.schema.json` mit Wizard und Fachvalidierung; Preflight ist `Test-SqlServerLabPrerequisite`; der Adaptervertrag ist als `Schemas/project-adapter.schema.json` (`0.1-draft`) implementiert. Scenario- und Capability-Schemas sind offen |
 | Welle 2 – Container Quick Environment | umgesetzt | Docker und Podman über direkte Provider-Adapter (kein Compose-Core), Menü und nicht interaktive Parameter, Profile, Health-/SQL-/Versionsprüfung, Lifecycle, scope-gebundener Cleanup; zusätzlich implementiert: gemischter Docker-/Podman-Run, Sample-Backup-Handler mit Trust Store und inhaltsadressiertem Cache |
 | Welle 3 – Migration des Analyze-QuickTest-Lifecycle | teilweise | Übergangszustände vor Mutation, Recovery-Status, Run-ID-/Scope-Validierung und lokale Secret-Verwaltung sind im Core vorhanden; Reset-Vertrag, Apply-Adapter und Compatibility Wrapper für `SQL_Server_Analyze` sind offen |
-| Welle 4 – Hyper-V Provider | begonnen | Immutable Image-Registry, Baseline-Auswahl, Generation-2-/Secure-Boot-/Parent-Child-VHDX-Lifecycle, Gast-Drives, Windows-Specialization und interne SQL-Readiness-Orchestrierung implementiert; unattended Build, SQL `CompleteImage`, Netzwerk-/Manifest-Binding und echter Windows-/SQL-Gastnachweis offen |
+| Welle 4 – Hyper-V Provider | begonnen | Immutable Image-Registry, Baseline-Auswahl, Generation-2-/Secure-Boot-/Parent-Child-VHDX-Lifecycle, Gast-Drives, Windows-Specialization, SQL-`CompleteImage` im engen Prepared-Image-Klonpfad und interne SQL-Readiness-Orchestrierung implementiert; vollautomatische OS-Factory, breites Netzwerk-/Manifest-Binding und echter Windows-/SQL-Gastnachweis offen |
 | Welle 5 – Scenario Engine und Fault Injection | nicht begonnen | |
 | Welle 6 – Adapter `SQL_PerformanceSchulung` | begonnen | Adaptervertrag, Resolver, `Test-/Install-SqlServerLabAdapter` und synthetischer Beispieladapter sind implementiert (`ADP-001`/`ADP-002`/`ADP-005`); der Pilot im Schulungsrepository ist offen, siehe [Project-Adapter-Priorisierung](PROJECT_ADAPTER_PRIORITIZATION.md) |
 | Welle 7 – Adapter `SQL_Server_Analyze` | begonnen | gleiche Adapterbasis; der Pilot im Analyze-Repository ist offen |

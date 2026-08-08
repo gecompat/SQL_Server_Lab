@@ -44,6 +44,7 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   Sample-Identität, Idempotenzregel und ONLINE-Verification;
 - Mehrfachauswahl von Testdatenbanken im Ad-hoc-Menü und über
   `New-SqlServerLab -Sample`;
+- gemischter Docker-/Podman-Lifecycle mit getrennten `ProviderSubRuns`;
 - Post-Provision-T-SQL;
 - Start, Stop, Restart, Status, Remove und Clear;
 - statische Vertragsprüfung;
@@ -73,9 +74,11 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 - vollständiger Hyper-V-Provider mit resumierbarem OS-/SQL-Image-Build,
   SQL-`CompleteImage`, realem Gast-End-to-End-Nachweis, Manifest-Binding
   zusätzlicher Drives und providerneutralen Netzwerken;
-- gemeinsamer Lifecycle für gemischte Provider innerhalb eines Runs;
+- Hyper-V-SubRuns und ein providerübergreifendes Containernetzwerk innerhalb
+  eines Runs;
 - vollständige Ausführung aller im Schema vorbereiteten `serverConfig`-Felder;
-- automatische Verarbeitung von Sample-Archiven, Attach-Szenarien und SQL-Skript-Samples;
+- `script-bundle`-Handler, mehrteilige oder nicht freigegebene Archive und
+  Attach-Szenarien;
 - kontextreiche Manifest-Menüführung mit Navigation und Planvorschau;
 - `LAB_GENERATED`-Baselines und deterministische Wahl des besten kompatiblen Aufsetzpunkts;
 - providerneutrale Software und External Runtimes einschließlich Python unter
@@ -106,9 +109,12 @@ Der Provider eines Runs wird in `connection-info.json` gespeichert. Lifecycle un
 Hyper-V
 ```
 
-Hyper-V besitzt einen getrennten VM-Lifecycle-Nachweis, aber noch keinen SQL-
-Runtime-Nachweis. Der Provider wird deshalb nicht von `New-SqlServerLab`
-provisioniert und nicht als SQL-bereit angeboten.
+Hyper-V besitzt einen getrennten VM-Lifecycle-Nachweis, aber noch keinen
+positiven allgemeinen SQL-Runtime-Nachweis. Der Ad-hoc-Pfad bietet Hyper-V
+deshalb nicht als allgemeinen SQL-Provider an. `New-SqlServerLab -Manifest`
+kann nur den eng begrenzten Klonpfad aus genau einer veröffentlichten
+`SQL_PREPARED_SEALED`-Vorlage verwenden; dieser Pfad ist kein Ersatz für den
+noch offenen vollständigen End-to-End-Nachweis.
 
 Der verbindliche Implementierungsvertrag steht in
 `Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md`.
@@ -236,7 +242,13 @@ Blockiert:
 
 Der aktuelle Restorepfad unterstützt direkte `.bak`-Dateien. Archive, Attach-Szenarien und Backupketten benötigen einen eigenen zukünftigen Vertrag.
 
-Der verbindliche Zielvertrag für mehrere auswählbare Samples, SQL-Skript-/Bundle-Installationen, einmalige Vertrauensfreigabe mit dauerhaftem SHA-256, portable sanitisierten Locks und `LAB_GENERATED`-Baselines steht in `Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md`. Diese Funktionen sind noch nicht implementiert.
+Der verbindliche Zielvertrag für mehrere auswählbare Samples, SQL-Skript- und
+Bundle-Installationen, einmalige Vertrauensfreigabe mit dauerhaftem SHA-256,
+portable sanitisierte Locks und `LAB_GENERATED`-Baselines steht in
+`Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md`.
+Mehrfachauswahl, Trust-/Hash-Pfad und gepinnte Einzelskripte sind implementiert;
+Script Bundles, mehrere erwartete Outputs und `LAB_GENERATED`-Baselines bleiben
+offen.
 
 ## 10. State, Secrets und Cleanup
 
