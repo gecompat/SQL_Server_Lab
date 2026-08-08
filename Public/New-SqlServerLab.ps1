@@ -360,9 +360,10 @@ function New-SqlServerLab {
     $providers = @($resolved.instances | ForEach-Object { $_.provider } | Sort-Object -Unique)
 
     # Ein Manifest kann eine reguläre Hyper-V-Lab-VM vollständig aus einem
-    # bereits veröffentlichten SQL-Prepared-Image bereitstellen. Image-Builds
-    # selbst bleiben absichtlich außerhalb des Manifests, damit keine ISO- oder
-    # Passwortdetails in der deklarativen Labbeschreibung landen.
+    # bereits veröffentlichten OS_SEALED- oder SQL_PREPARED_SEALED-Image
+    # bereitstellen. Image-Builds selbst bleiben absichtlich außerhalb des
+    # Manifests, damit keine ISO- oder Passwortdetails in der deklarativen
+    # Labbeschreibung landen.
     if ($providers.Count -eq 1 -and $providers[0] -eq 'hyperv') {
         if ($resolved.instances.Count -ne 1) { throw 'HYPERV_MANIFEST_SINGLE_INSTANCE_REQUIRED' }
         $instance = $resolved.instances[0]
