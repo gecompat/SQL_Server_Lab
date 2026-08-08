@@ -26,13 +26,59 @@ Add-CheckResult `
 $source = Get-Content -LiteralPath $reconcilePath -Raw -Encoding utf8
 $forbiddenPlannerMutations = @('Sync-LabRunRuntimeState', 'Set-LabRunState', 'Set-LabProviderSubRunState', 'Set-Content', 'Write-LabArtifactJsonAtomic')
 $forbiddenPresent = @($forbiddenPlannerMutations | Where-Object { $source -match [regex]::Escape($_) })
-Add-CheckResult `
-    -Name 'Reconcile-Plan bleibt ohne State- oder Runtime-Mutation' `
-    -Success ($forbiddenPresent.Count -eq 0) `
-    -Message ($forbiddenPresent -join ', ')
+    Add-CheckResult `
+        -Name 'Reconcile-Plan bleibt ohne State- oder Runtime-Mutation' `
+        -Success ($forbiddenPresent.Count -eq 0) `
+        -Message ($forbiddenPresent -join ', ')
 
-$module = Get-Module SqlServerLab
-$tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("sql-lab-reconcile-check-" + [guid]::NewGuid().ToString('N'))
+    $module = Get-Module SqlServerLab
+    $desiredSnapshot = & $module {
+        param()
+        $snapshotInput = [PSCustomObject]@{
+            name = 'snapshot-check'
+            instances = @(
+                [PSCustomObject]@{
+                    id = 'primary'
+                    provider = 'docker'
+                    version = '2019'
+                    profile = 'standard'
+                    databases = @([PSCustomObject]@{ name = 'db1' }, [PSCustomObject]@{ name = 'db2' })
+                    automation = [PSCustomObject]@{ EnvironmentVariable = 'DO_NOT_PERSIST' }
+                    persistentStorage = [PSCustomObject]@{
+                        mode = 'data-root-runtime-volume'
+                        root = 'C:\host\should-not-persist'
+                        backupHostPath = 'D:\should-not-persist'
+                    }
+                    drives = @(
+                        [PSCustomObject]@{ id = 'data'; containerPath = '/var/opt/mssql' ; hostPath = 'C:\host\should-not-persist' }
+                    )
+                }
+            )
+        }
+
+        $snapshot = New-LabDesiredStateSnapshot -ResolvedLab $snapshotInput -ProvisioningMode 'manifest' -PersistentData $true
+        $topUnknown = @($snapshot.PSObject.Properties.Name | Where-Object { $_ -notin @('Contract', 'ProvisioningMode', 'LabName', 'PersistentData', 'Instances') })
+        $instanceUnknown = @(
+            $snapshot.Instances | ForEach-Object {
+                @($_.PSObject.Properties.Name | Where-Object { $_ -notin @('Id', 'Provider', 'Version', 'Profile', 'DatabaseNames') })
+            }
+        ) | ForEach-Object { $_ }
+        [PSCustomObject]@{
+            Snapshot = $snapshot
+            TopUnknown = $topUnknown
+            InstanceUnknown = @($instanceUnknown | Where-Object { $_ })
+            Serialized = $snapshot | ConvertTo-Json -Depth 10
+        }
+    }
+
+    Add-CheckResult `
+        -Name 'DesiredState-Snapshot enthält nur erlaubte Felder' `
+        -Success ($desiredSnapshot.TopUnknown.Count -eq 0 -and $desiredSnapshot.InstanceUnknown.Count -eq 0)
+        Add-CheckResult `
+        -Name 'DesiredState-Snapshot ist frei von Host-/Secret-bezogenen Inhalten' `
+        -Success ($desiredSnapshot.Serialized -notmatch 'C:\\|D:\\|hostPath|automation|EnvironmentVariable|not-persist')
+
+    $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("sql-lab-reconcile-check-" + [guid]::NewGuid().ToString('N'))
 try {
     $contract = & $module {
         param($Root)
