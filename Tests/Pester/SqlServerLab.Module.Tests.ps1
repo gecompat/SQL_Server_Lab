@@ -98,6 +98,74 @@ function Get-ObjectField {
     return $null
 }
 
+function Get-ManifestDataFieldFromFile {
+    param(
+        [Parameter(Mandatory)]
+        [string]$Path,
+
+        [Parameter(Mandatory)]
+        [string]$FieldName,
+
+        [ValidateSet('Scalar', 'Array')]
+        [string]$Mode = 'Scalar'
+    )
+
+    $content = Get-Content -LiteralPath $Path -Raw -ErrorAction Stop
+    if ([string]::IsNullOrWhiteSpace($content)) {
+        return $null
+    }
+
+    switch ($Mode) {
+        'Scalar' {
+            $pattern = "(?is)$([regex]::Escape($FieldName))\s*=\s*(['\`"])(.*?)\1"
+            if ($content -match $pattern) {
+                return $matches[2]
+            }
+            return $null
+        }
+        'Array' {
+            $pattern = "(?is)$([regex]::Escape($FieldName))\s*=\s*@\((.*?)\)"
+            if ($content -match $pattern) {
+                $block = $matches[1]
+                $values = [regex]::Matches($block, "['`"]([^'`"]+)['`"]") | ForEach-Object { $_.Groups[1].Value }
+                if ($values.Count -eq 0) {
+                    return $null
+                }
+                return $values
+            }
+            return $null
+        }
+    }
+}
+
+function Normalize-StringList {
+    param([object]$Value)
+
+    if ($null -eq $Value) {
+        return @()
+    }
+
+    $items = @()
+    if ($Value -is [System.Collections.IDictionary]) {
+        $items = @($Value.Keys)
+    }
+    elseif ($Value -is [System.Collections.IEnumerable] -and $Value -isnot [string]) {
+        $items = @($Value)
+    }
+    else {
+        $items = @($Value)
+    }
+
+    return @(
+        $items |
+            ForEach-Object { 
+                if ($null -eq $_) { $null } else { $_.ToString().Trim() }
+            } |
+            Where-Object { $_ -and $_ -ne '*' } |
+            Sort-Object -Unique
+    )
+}
+
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
 $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
 $moduleManifest = Test-ModuleManifest -Path $modulePath -ErrorAction Stop
@@ -112,20 +180,35 @@ $moduleVersion = Get-ObjectField -InputObject $moduleManifestData -Name @('Modul
 if ($null -eq $moduleVersion) {
     $moduleVersion = Get-ObjectField -InputObject $moduleManifest -Name @('ModuleVersion', 'Version')
 }
+
+if ($null -eq $moduleVersion -or [string]::IsNullOrWhiteSpace("$moduleVersion")) {
+    $moduleVersion = Get-ManifestDataFieldFromFile -Path $modulePath -FieldName 'ModuleVersion' -Mode 'Scalar'
+}
+
 if ($moduleVersion -is [version]) {
     $moduleVersion = $moduleVersion.ToString()
+}
+elseif ($moduleVersion -is [string] -and [string]::IsNullOrWhiteSpace($moduleVersion)) {
+    $moduleVersion = $null
 }
 
 if ($null -ne $moduleManifestData) {
     $manifestFunctions = Get-ObjectField -InputObject $moduleManifestData -Name @('FunctionsToExport')
 }
+if ($null -eq $manifestFunctions -or $manifestFunctions.Count -eq 0) {
+    $manifestFunctions = Normalize-StringList $manifestFunctions
+}
 if ($null -eq $manifestFunctions -and $moduleManifest.ExportedFunctions) {
     $manifestFunctions = $moduleManifest.ExportedFunctions.Keys
+}
+if ($null -eq $manifestFunctions -or $manifestFunctions.Count -eq 0) {
+    $manifestFunctions = Get-ManifestDataFieldFromFile -Path $modulePath -FieldName 'FunctionsToExport' -Mode 'Array'
 }
 if ($null -eq $manifestFunctions) {
     $manifestFunctions = @()
 }
-$manifestFunctions = @($manifestFunctions | ForEach-Object { $_.ToString().Trim() } | Where-Object { $_ -and $_ -ne '*' } | Sort-Object -Unique)
+$manifestFunctions = Normalize-StringList $manifestFunctions
+
 $exportedFunctions = @(Get-Module SqlServerLab | Select-Object -ExpandProperty ExportedFunctions | Select-Object -ExpandProperty Keys | ForEach-Object { $_.ToString().Trim() } | Sort-Object -Unique)
 if ($null -eq $exportedFunctions) {
     $exportedFunctions = @()
