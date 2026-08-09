@@ -62,6 +62,8 @@ try {
         $bootstrap -match "IPAddress '172\.28\.0\.42'" -and
         $bootstrap -match 'Enable-PSRemoting' -and
         $bootstrap -match "RemoteAddress '172\.28\.0\.1'" -and
+        $bootstrap -match 'Set-Content[\s\S]+-Encoding UTF8' -and
+        $bootstrap -notmatch 'utf8NoBOM' -and
         $bootstrap -notmatch [regex]::Escape($knownPassword)
     )
 

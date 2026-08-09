@@ -74,7 +74,7 @@ if (-not (Get-NetFirewallRule -DisplayName `$ruleName -ErrorAction SilentlyConti
 `$receiptDirectory = Join-Path `$env:ProgramData 'SqlServerLab'
 New-Item -Path `$receiptDirectory -ItemType Directory -Force | Out-Null
 [PSCustomObject]@{ contractVersion = '1'; network = '$($Network.Name)'; address = '$Address'; prefixLength = $prefixLength; hostAddress = '$hostAddress'; observedAt = [datetime]::UtcNow.ToString('o') } |
-    ConvertTo-Json -Compress | Set-Content -LiteralPath (Join-Path `$receiptDirectory 'oobe-network.json') -Encoding utf8NoBOM
+    ConvertTo-Json -Compress | Set-Content -LiteralPath (Join-Path `$receiptDirectory 'oobe-network.json') -Encoding UTF8
 "@
 }
 
