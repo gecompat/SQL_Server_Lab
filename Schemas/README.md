@@ -23,6 +23,7 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 | `example-ml-services.json` | External-Languages-Konfiguration mit Sample-Referenz | umgebungsabhängig; Sample-Anteil ausführbar über den Backup-Handler mit Trust-Pfad |
 | `example-performance-tuning.json` | Performance-Konfiguration mit Sample-Referenz | vorbereitet; referenzierte StackOverflow-Variante ist ein Attach-Archiv und bleibt beschreibend |
 | `example-mixed-provider-lab.json` | zwei kompakte Instanzen mit Docker und Podman in einem Run | ausführbar, wenn beide Runtimes erreichbar sind; keine gemeinsame Netzwerktopologie |
+| `example-hyperv-drive-lab.json` | SQL-Prepared-Hyper-V-VM mit run-lokalen Data-/Log-VHDX und Guest-Initialisierung | ausführbar, wenn die referenzierte lokale Sealed-Artifact-ID vorhanden ist |
 
 Weitere `example-*.json`-Dateien können spezialisierte oder vorbereitete Szenarien enthalten. Ein Beispiel ist nur dann als End-to-End ausführbar anzusehen, wenn alle referenzierten Skripte und Quellen existieren und keine Grenze aus `Documentation/Quality/KNOWN_LIMITATIONS.md` verletzt wird.
 

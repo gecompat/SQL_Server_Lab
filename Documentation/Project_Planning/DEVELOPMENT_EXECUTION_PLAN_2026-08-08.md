@@ -111,7 +111,7 @@ Diese Planung hat keine Container- oder VM-Runtime mutiert.
 | kein gemeinsamer Desired-State-/Actual-State-/Diff-/Plan-Vertrag | Reconcile und konsistente UI-Vorschau können nicht providerneutral wachsen |
 | bestehende Hyper-V-Standardwege enthalten noch Factory-/manuelle Übergänge | ein normaler Lablauf ist noch nicht durchgehend Zero-Touch nachgewiesen |
 | kein positiver realer Hyper-V-Cold-Path von generalisierter OS-Basis bis SQL `READY` für die Zielmatrix | Mocks und Lifecycle-Smoke beweisen weder OOBE- noch SQL-End-to-End-Bereitschaft |
-| Hyper-V-Manifestbindung für freie Drives, Datenbanken, Post-Provisioning und Network Intents ist unvollständig | UI-/Manifestparität fehlt |
+| Hyper-V-Manifestbindung für Datenbanken, Software, Post-Provisioning und Network Intents ist unvollständig | UI-/Manifestparität fehlt trotz gebundener freier Drives weiterhin |
 | Reconcile-Executor und Actual-State-Collector fehlen | vorhandene Labs können noch nicht über einen einheitlichen Änderungsplan verwaltet werden |
 | zwei reale Adapterpiloten fehlen | der Vertrag ist noch nicht an beiden Primärkonsumenten bewiesen |
 | `LAB_GENERATED`-Erzeugung und -Präferenz sind für Single- und Multi-Output-Container-Samples implementiert; Hyper-V-Export ist offen; Script Bundles mit mehreren festen Datenbankoutputs sind implementiert | VM-basierte Baselines benötigen noch Sonderwege |

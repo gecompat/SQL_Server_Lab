@@ -207,6 +207,7 @@ internal_components:
     source: Private/DesiredState.ps1
     responsibilities:
       - "geheimnisfreien Sollzustand vor jeder Provider-Mutation erzeugen"
+      - "Hyper-V-Manifest-Drives als run-lokale VHDX- und Guest-Initialisierungs-Intents binden"
       - "Drive-, Network- und Software-Anforderungen providerneutral normalisieren"
       - "deklarative Provider-Capability-Evidenz ohne Runtime-Annahme persistieren"
   - name: CleanupEngine
@@ -577,7 +578,7 @@ change_coupling:
 known_limitations:
   binding_document: Documentation/Quality/KNOWN_LIMITATIONS.md
   highlights:
-    - "Hyper-V sealed VHDX Registry, Builder-/Resume-Grundlage, enger Manifest-Klonpfad und Windows-Baseline-Acceptance-Runner implementiert; dessen positiver hostlokaler Lauf, die vollautomatische OS-Factory, breites Manifest-Binding und echter SQL-End-to-End-Nachweis bleiben offen"
+    - "Hyper-V sealed VHDX Registry, Builder-/Resume-Grundlage, enger Manifest-Klonpfad, freie Manifest-Drives und Windows-Baseline-Acceptance-Runner implementiert; dessen positiver hostlokaler Lauf, die vollautomatische OS-Factory, Datenbank-/Software-/Post-Provision-/Netzwerk-Binding und echter SQL-End-to-End-Nachweis bleiben offen"
     - "Container-Manifeste laufen standardmäßig unattended mit externen Secret-Referenzen, SHA-256-/Trust-Schutz und read-only Host-Mount-Default"
     - "providerneutrale Network Intents und Exposure Policy sind nicht implementiert; Reconcile ist auf den Lifecycle START/STOP begrenzt"
     - "Artifact Refresh und Rebuild für Medien, VHDX und Derived Images nicht implementiert"

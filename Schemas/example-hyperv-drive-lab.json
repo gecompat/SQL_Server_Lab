@@ -1,0 +1,33 @@
+{
+  "$schema": "./lab-manifest.schema.json",
+  "name": "hyperv-drive-lab",
+  "instances": [
+    {
+      "id": "primary",
+      "version": "2025",
+      "provider": "hyperv",
+      "os": "windows",
+      "profile": "performance",
+      "hyperv": {
+        "preparedImageId": "hyperv-sql-prepared-sealed-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "memoryStartupMB": 8192,
+        "processorCount": 4,
+        "guestPasswordMode": "prompt"
+      },
+      "drives": [
+        {
+          "id": "data",
+          "containerPath": "D:\\SQLData",
+          "sizeLimitGB": 128,
+          "type": "ssd"
+        },
+        {
+          "id": "log",
+          "containerPath": "L:\\SQLLog",
+          "sizeLimitGB": 64,
+          "type": "ssd"
+        }
+      ]
+    }
+  ]
+}
