@@ -270,10 +270,10 @@ bleiben bewusst `descriptive`, weil sie MDF/LDF-Dateien für einen noch nicht
 implementierten Attach-Handler enthalten – sie werden nicht als `.bak`
 umgedeutet.
 
-Noch nicht implementiert sind Attach-Handler, Multi-Output- und Hyper-V-
-`LAB_GENERATED`-Backups, das Überschreiben der erwarteten Zieldatenbanknamen
-sowie die Wizard-Navigation mit Zurück/Planvorschau. Single-Output-Container-
-Samples erzeugen nach erfolgreicher Verifikation ein geprüftes Backup und
+Noch nicht implementiert sind Attach-Handler, Hyper-V-`LAB_GENERATED`-Backups,
+das Überschreiben der erwarteten Zieldatenbanknamen sowie die Wizard-Navigation
+mit Zurück/Planvorschau. Single- und Multi-Output-Container-Samples erzeugen
+nach erfolgreicher Verifikation geprüfte Backups und
 bevorzugen es in Folge-Runs über das portable Register. Script Bundles können
 Datenbanken als eine Installation erzeugen; bei einem Teilfehler bleibt der
 Run mit `RECOVERY_REQUIRED` sichtbar, eine automatische Löschung wird nicht
@@ -356,7 +356,7 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
 
 ## Priorisierte nächste technische Schritte
 
-1. `LAB_GENERATED`-Erzeugung und Auswahl auf Multi-Output-Bundles und den Hyper-V-Export erweitern (Sample-Welle 5/6).
+1. `LAB_GENERATED`-Erzeugung und Auswahl an den Hyper-V-Export binden (Sample-Welle 5/6).
 2. Providerneutrale Drive-, Network-, Software- und Reconcile-Verträge gemäß Hyper-V-Zielvertrag umsetzen.
 3. Artifact Registry, Refresh/Rebuild und Evaluierungsablauf implementieren.
 4. Hyper-V anschließend in den dokumentierten, getrennt testbaren Wellen implementieren.
