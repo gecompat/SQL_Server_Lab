@@ -191,31 +191,21 @@ function Get-RawManifestField {
 }
 
 $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
-$moduleManifest = Test-ModuleManifest -Path $modulePath -ErrorAction Stop
 $manifestData = Get-PowerShellDataFile -Path $modulePath
 $manifestRaw = Get-Content -LiteralPath $modulePath -Raw -ErrorAction Stop
+$moduleInfo = Import-Module -Name $modulePath -Force -PassThru -ErrorAction Stop
 
-$moduleVersion = if ($null -ne $moduleManifest.Version) {
-    $moduleManifest.Version.ToString()
-}
-else {
-    $null
-}
+$moduleVersion = $moduleInfo.Version.ToString()
 if ([string]::IsNullOrWhiteSpace($moduleVersion)) {
     $moduleVersion = Get-ObjectField -InputObject $manifestData -Name @('ModuleVersion', 'Version')
 }
 if ([string]::IsNullOrWhiteSpace($moduleVersion)) {
     $moduleVersion = Get-RawManifestField -Content $manifestRaw -FieldName 'ModuleVersion' -Mode 'Scalar'
 }
-if ($moduleVersion -is [version]) {
-    $moduleVersion = $moduleVersion.ToString()
-}
 
-$manifestFunctions = if ($null -ne $moduleManifest.ExportedFunctions) {
-    To-StringArray -Value $moduleManifest.ExportedFunctions.Keys
-}
-else {
-    @()
+$manifestFunctions = @()
+if ($null -ne $moduleInfo.ExportedFunctions) {
+    $manifestFunctions = To-StringArray -Value $moduleInfo.ExportedFunctions.Keys
 }
 if ($manifestFunctions.Count -eq 0) {
     $manifestFunctions = To-StringArray -Value (Get-ObjectField -InputObject $manifestData -Name @('FunctionsToExport'))
@@ -227,10 +217,7 @@ if ($manifestFunctions.Count -eq 0) {
 $psaSettingsPath = Join-Path $repoRoot 'Tests' 'Static' 'PSScriptAnalyzerSettings.psd1'
 $psaSettings = Get-PowerShellDataFile -Path $psaSettingsPath
 
-Remove-Module -Name 'SqlServerLab' -Force -ErrorAction SilentlyContinue
-Import-Module $modulePath -Force -ErrorAction Stop
-
-$exportedFunctions = To-StringArray -Value (Get-Module SqlServerLab | Select-Object -ExpandProperty ExportedFunctions | Select-Object -ExpandProperty Keys | ForEach-Object { $_.ToString().Trim() } | Sort-Object -Unique)
+$exportedFunctions = To-StringArray -Value ($moduleInfo.ExportedFunctions.Keys | ForEach-Object { $_.ToString().Trim() } | Sort-Object -Unique)
 $exportedFunctions = if ($null -eq $exportedFunctions) { @() } else { @($exportedFunctions) }
 
 $psaIncludeDefaultRules = Get-ObjectField -InputObject $psaSettings -Name @('IncludeDefaultRules')
