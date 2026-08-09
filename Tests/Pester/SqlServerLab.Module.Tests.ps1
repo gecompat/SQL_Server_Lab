@@ -132,10 +132,57 @@ if ([string]::IsNullOrWhiteSpace($repoRoot)) {
     throw 'Repo-Root konnte nicht ermittelt werden.'
 }
 
+function To-StringArray {
+    param(
+        [Parameter(Mandatory)]
+        [object]$Value
+    )
+
+    if ($null -eq $Value) {
+        return @()
+    }
+
+    $items = @($Value)
+    if ($items.Count -eq 1 -and $null -eq $items[0]) {
+        return @()
+    }
+
+    return @(
+        $items |
+            ForEach-Object { 
+                if ($null -eq $_) { $null } else { $_.ToString().Trim() }
+            } |
+            Where-Object { $null -ne $_ -and $_ -ne '' -and $_ -ne '*' } |
+            Sort-Object -Unique
+    )
+}
+
 $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
 $moduleManifest = Test-ModuleManifest -Path $modulePath -ErrorAction Stop
-$moduleVersion = if ($null -ne $moduleManifest.Version) { $moduleManifest.Version.ToString() } else { $null }
-$manifestFunctions = @($moduleManifest.ExportedFunctions.Keys | Where-Object { $_ -and $_ -ne '*' } | ForEach-Object { $_.ToString().Trim() } | Sort-Object -Unique)
+$manifestData = Get-PowerShellDataFile -Path $modulePath
+
+$moduleVersion = if ($null -ne $moduleManifest.Version) {
+    $moduleManifest.Version.ToString()
+}
+else {
+    $null
+}
+if ([string]::IsNullOrWhiteSpace($moduleVersion)) {
+    $moduleVersion = Get-ObjectField -InputObject $manifestData -Name @('ModuleVersion', 'Version')
+}
+if ($moduleVersion -is [version]) {
+    $moduleVersion = $moduleVersion.ToString()
+}
+
+$manifestFunctions = if ($null -ne $moduleManifest.ExportedFunctions) {
+    To-StringArray -Value $moduleManifest.ExportedFunctions.Keys
+}
+else {
+    @()
+}
+if ($manifestFunctions.Count -eq 0) {
+    $manifestFunctions = To-StringArray -Value (Get-ObjectField -InputObject $manifestData -Name @('FunctionsToExport'))
+}
 
 $psaSettingsPath = Join-Path $repoRoot 'Tests' 'Static' 'PSScriptAnalyzerSettings.psd1'
 $psaSettings = Get-PowerShellDataFile -Path $psaSettingsPath
@@ -143,7 +190,7 @@ $psaSettings = Get-PowerShellDataFile -Path $psaSettingsPath
 Remove-Module -Name 'SqlServerLab' -Force -ErrorAction SilentlyContinue
 Import-Module $modulePath -Force -ErrorAction Stop
 
-$exportedFunctions = @(Get-Module SqlServerLab | Select-Object -ExpandProperty ExportedFunctions | Select-Object -ExpandProperty Keys | ForEach-Object { $_.ToString().Trim() } | Sort-Object -Unique)
+$exportedFunctions = To-StringArray -Value (Get-Module SqlServerLab | Select-Object -ExpandProperty ExportedFunctions | Select-Object -ExpandProperty Keys | ForEach-Object { $_.ToString().Trim() } | Sort-Object -Unique)
 $exportedFunctions = if ($null -eq $exportedFunctions) { @() } else { @($exportedFunctions) }
 
 $psaIncludeDefaultRules = Get-ObjectField -InputObject $psaSettings -Name @('IncludeDefaultRules')
