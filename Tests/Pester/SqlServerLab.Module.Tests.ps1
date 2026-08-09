@@ -12,8 +12,16 @@ function Get-PowerShellDataFile {
 
     try {
         $value = Import-PowerShellDataFile -Path $Path -ErrorAction Stop
-        if ($value -is [System.Collections.IList] -and $value.Count -eq 1) {
-            $value = $value[0]
+        if ($value -is [System.Collections.IList]) {
+            if ($value.Count -eq 1) {
+                $value = $value[0]
+            }
+            elseif ($value.Count -gt 1) {
+                $fallback = $value | Where-Object { $_ -is [hashtable] } | Select-Object -First 1
+                if ($fallback) {
+                    $value = $fallback
+                }
+            }
         }
         if ($null -ne $value) {
             return $value
@@ -26,8 +34,16 @@ function Get-PowerShellDataFile {
     try {
         $content = Get-Content -LiteralPath $Path -Raw -ErrorAction Stop
         $value = Invoke-Expression $content
-        if ($value -is [System.Collections.IList] -and $value.Count -eq 1) {
-            $value = $value[0]
+        if ($value -is [System.Collections.IList]) {
+            if ($value.Count -eq 1) {
+                $value = $value[0]
+            }
+            elseif ($value.Count -gt 1) {
+                $fallback = $value | Where-Object { $_ -is [hashtable] } | Select-Object -First 1
+                if ($fallback) {
+                    $value = $fallback
+                }
+            }
         }
         return $value
     }
@@ -36,22 +52,93 @@ function Get-PowerShellDataFile {
     }
 }
 
+function Get-ObjectField {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [AllowNull()]
+        [object]$InputObject,
+
+        [Parameter(Mandatory)]
+        [string[]]$Name
+    )
+
+    if ($null -eq $InputObject) {
+        return $null
+    }
+
+    foreach ($candidate in $Name) {
+        if ($InputObject -is [hashtable]) {
+            if ($InputObject.Contains($candidate)) {
+                return $InputObject[$candidate]
+            }
+            $match = $InputObject.Keys | Where-Object { $_ -ieq $candidate } | Select-Object -First 1
+            if ($match) {
+                return $InputObject[$match]
+            }
+        }
+
+        $property = $InputObject.PSObject.Properties[$candidate]
+        if ($null -ne $property) {
+            return $property.Value
+        }
+
+        $property = $InputObject.PSObject.Properties | Where-Object { $_.Name -ieq $candidate } | Select-Object -First 1
+        if ($null -ne $property) {
+            return $InputObject.$($property.Name)
+        }
+
+        $value = $InputObject.$candidate
+        if ($null -ne $value) {
+            return $value
+        }
+    }
+
+    return $null
+}
+
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
 $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
 $moduleManifest = Test-ModuleManifest -Path $modulePath -ErrorAction Stop
+$moduleManifestData = Get-PowerShellDataFile -Path $modulePath
 $psaSettingsPath = Join-Path $repoRoot 'Tests' 'Static' 'PSScriptAnalyzerSettings.psd1'
 $psaSettings = Get-PowerShellDataFile -Path $psaSettingsPath
 
 Remove-Module -Name 'SqlServerLab' -Force -ErrorAction SilentlyContinue
 Import-Module $modulePath -Force -ErrorAction Stop
 
-$manifestFunctions = @($moduleManifest.ExportedFunctions.Keys | Where-Object { $_ -and $_ -ne '*' } | Sort-Object)
+$moduleVersion = Get-ObjectField -InputObject $moduleManifestData -Name @('ModuleVersion', 'Version')
+if ($null -eq $moduleVersion) {
+    $moduleVersion = Get-ObjectField -InputObject $moduleManifest -Name @('ModuleVersion', 'Version')
+}
+if ($moduleVersion -is [version]) {
+    $moduleVersion = $moduleVersion.ToString()
+}
+
+if ($null -ne $moduleManifestData) {
+    $manifestFunctions = Get-ObjectField -InputObject $moduleManifestData -Name @('FunctionsToExport')
+}
+if ($null -eq $manifestFunctions -and $moduleManifest.ExportedFunctions) {
+    $manifestFunctions = $moduleManifest.ExportedFunctions.Keys
+}
+if ($null -eq $manifestFunctions) {
+    $manifestFunctions = @()
+}
+
+$manifestFunctions = @($manifestFunctions | Where-Object { $_ -and $_ -ne '*' } | Sort-Object)
 $exportedFunctions = @(Get-Module SqlServerLab | Select-Object -ExpandProperty ExportedFunctions | Select-Object -ExpandProperty Keys | Sort-Object)
-$publicScripts = Get-ChildItem -Path (Join-Path $repoRoot 'Public') -Filter '*.ps1' -File | ForEach-Object { [System.IO.Path]::GetFileNameWithoutExtension($_.Name) } | Sort-Object
+if ($null -eq $exportedFunctions) {
+    $exportedFunctions = @()
+}
+else {
+    $exportedFunctions = @($exportedFunctions)
+}
+$psaIncludeDefaultRules = Get-ObjectField -InputObject $psaSettings -Name @('IncludeDefaultRules')
+$psaSeverity = Get-ObjectField -InputObject $psaSettings -Name @('Severity')
+$psaSeverityList = @($psaSeverity | Where-Object { $_ -and $_ -is [string] })
 
 Describe 'SqlServerLab-Modulmanifest' {
     It 'muss eine gültige Modulversion enthalten' {
-        $moduleVersion = $moduleManifest.Version
         if ([string]::IsNullOrWhiteSpace($moduleVersion)) {
             throw 'Das Modulmanifest enthält keine Modulversion.'
         }
@@ -79,10 +166,10 @@ Describe 'SqlServerLab-Modulmanifest' {
 
 Describe 'PSScriptAnalyzer-Grundlage' {
     It 'muss Fehler- und Warn-Seriousness in der projektspezifischen Baseline aktivieren' {
-        if ($psaSettings.IncludeDefaultRules -ne $true) {
+        if ($psaIncludeDefaultRules -ne $true) {
             throw 'PSScriptAnalyzer-Einstellung IncludeDefaultRules ist nicht aktiv.'
         }
-        if ($psaSettings.Severity -notcontains 'Error' -or $psaSettings.Severity -notcontains 'Warning') {
+        if ($psaSeverityList -notcontains 'Error' -or $psaSeverityList -notcontains 'Warning') {
             throw 'PSScriptAnalyzer-Baseline enthält nicht Error+Warning.'
         }
     }
