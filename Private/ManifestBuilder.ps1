@@ -643,7 +643,7 @@ function Get-LabManifestValidationResult {
                 $errors.Add("${instancePath}.os: Hyper-V-Prepared-Images benötigen os 'windows'.")
             }
             if (-not $instance.hyperv -or -not $instance.hyperv.preparedImageId) {
-                $errors.Add("${instancePath}.hyperv.preparedImageId: Ein veröffentlichtes Hyper-V-Sealed-Image ist erforderlich.")
+                $warnings.Add("${instancePath}.hyperv.preparedImageId: Nicht gesetzt; zur Laufzeit wird deterministisch die höchste lokale SQL_PREPARED_SEALED-Vorlage auf Windows Server Standard Evaluation mit Desktop Experience gewählt.")
             }
             if (@($instance.databases | Where-Object { $null -ne $_ }).Count -gt 0 -or
                 @($instance.postProvision | Where-Object { $null -ne $_ }).Count -gt 0 -or

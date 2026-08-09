@@ -418,6 +418,41 @@ function Resolve-HyperVImageArtifact {
     }
 }
 
+function Resolve-HyperVManifestFallbackArtifact {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$SqlVersion,
+        [ValidateRange(0, 3650)][int]$MinimumEvaluationDaysRemaining = 30,
+        [string]$StateRoot
+    )
+
+    $now = [datetime]::UtcNow
+    $candidates = foreach ($artifact in @(Get-HyperVImageArtifact -StateRoot $StateRoot)) {
+        if ([string]$artifact.artifactState -ne 'SQL_PREPARED_SEALED' -or
+            -not [bool]$artifact.generalized -or -not [bool]$artifact.sqlPrepared -or
+            [string]$artifact.operatingSystem.id -notmatch '^windows-server' -or
+            [string]$artifact.operatingSystem.edition -notmatch '(?i)standard' -or
+            -not ([string]$artifact.operatingSystem.installationType).Equals('desktop-experience', [System.StringComparison]::OrdinalIgnoreCase) -or
+            -not ([string]$artifact.license.type).Equals('evaluation', [System.StringComparison]::OrdinalIgnoreCase) -or
+            -not ([string]$artifact.sql.version).Equals($SqlVersion, [System.StringComparison]::OrdinalIgnoreCase)) {
+            continue
+        }
+        if ($artifact.license.evaluationExpiresAt) {
+            $remaining = ([datetime]$artifact.license.evaluationExpiresAt).ToUniversalTime() - $now
+            if ($remaining.TotalDays -lt $MinimumEvaluationDaysRemaining) { continue }
+        }
+        $versionMatch = [regex]::Match([string]$artifact.operatingSystem.version, '\d{4}')
+        $versionRank = if ($versionMatch.Success) { [int]$versionMatch.Value } else { -1 }
+        [PSCustomObject]@{ Artifact = $artifact; VersionRank = $versionRank }
+    }
+
+    return @($candidates | Sort-Object `
+        @{ Expression = { $_.VersionRank }; Descending = $true }, `
+        @{ Expression = { [datetime]$_.Artifact.registeredAt }; Descending = $true }, `
+        @{ Expression = { [string]$_.Artifact.artifactId }; Descending = $false } |
+        Select-Object -First 1 | ForEach-Object { $_.Artifact })[0]
+}
+
 function Add-HyperVImageManifestLockEntry {
     [CmdletBinding()]
     param(

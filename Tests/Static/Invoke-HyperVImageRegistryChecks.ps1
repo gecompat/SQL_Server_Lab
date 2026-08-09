@@ -81,6 +81,41 @@ try {
         $result.Artifact.bootInteraction.initialMediaKey -eq 'space' -and
         $result.Artifact.bootInteraction.purpose -eq 'build-provenance'
     )
+
+    $fallbackSelection = & $module {
+        function Get-HyperVImageArtifact {
+            @(
+                [PSCustomObject]@{
+                    artifactId = 'prepared-2022'; artifactState = 'SQL_PREPARED_SEALED'; generalized = $true; sqlPrepared = $true
+                    registeredAt = '2026-08-01T00:00:00Z'; operatingSystem = [PSCustomObject]@{ id = 'windows-server-2022'; version = '2022'; edition = 'standard-evaluation'; installationType = 'desktop-experience' }
+                    license = [PSCustomObject]@{ type = 'evaluation'; evaluationExpiresAt = [datetime]::UtcNow.AddDays(90).ToString('o') }
+                    sql = [PSCustomObject]@{ version = '2025' }
+                },
+                [PSCustomObject]@{
+                    artifactId = 'prepared-2025'; artifactState = 'SQL_PREPARED_SEALED'; generalized = $true; sqlPrepared = $true
+                    registeredAt = '2026-08-01T00:00:00Z'; operatingSystem = [PSCustomObject]@{ id = 'windows-server-2025'; version = '2025'; edition = 'standard-evaluation'; installationType = 'desktop-experience' }
+                    license = [PSCustomObject]@{ type = 'evaluation'; evaluationExpiresAt = [datetime]::UtcNow.AddDays(90).ToString('o') }
+                    sql = [PSCustomObject]@{ version = '2025' }
+                },
+                [PSCustomObject]@{
+                    artifactId = 'prepared-2028-datacenter'; artifactState = 'SQL_PREPARED_SEALED'; generalized = $true; sqlPrepared = $true
+                    registeredAt = '2026-08-01T00:00:00Z'; operatingSystem = [PSCustomObject]@{ id = 'windows-server-2028'; version = '2028'; edition = 'datacenter-evaluation'; installationType = 'desktop-experience' }
+                    license = [PSCustomObject]@{ type = 'evaluation'; evaluationExpiresAt = [datetime]::UtcNow.AddDays(90).ToString('o') }
+                    sql = [PSCustomObject]@{ version = '2025' }
+                },
+                [PSCustomObject]@{
+                    artifactId = 'prepared-2029-core'; artifactState = 'SQL_PREPARED_SEALED'; generalized = $true; sqlPrepared = $true
+                    registeredAt = '2026-08-01T00:00:00Z'; operatingSystem = [PSCustomObject]@{ id = 'windows-server-2029'; version = '2029'; edition = 'standard-evaluation'; installationType = 'core' }
+                    license = [PSCustomObject]@{ type = 'evaluation'; evaluationExpiresAt = [datetime]::UtcNow.AddDays(90).ToString('o') }
+                    sql = [PSCustomObject]@{ version = '2025' }
+                }
+            )
+        }
+        Resolve-HyperVManifestFallbackArtifact -SqlVersion 2025
+    }
+    Add-CheckResult -Name 'Manifest-Fallback wählt deterministisch die höchste Standard-Evaluation mit Desktop Experience' -Success (
+        $fallbackSelection.artifactId -eq 'prepared-2025'
+    )
     Add-CheckResult -Name 'Manifest Lock enthaelt keinen Hostpfad' -Success (($lock | ConvertTo-Json -Depth 30) -notmatch [regex]::Escape($temporaryRoot))
 
     $generalizationRejected = $false

@@ -379,9 +379,19 @@ function New-SqlServerLab {
     if ($providers.Count -eq 1 -and $providers[0] -eq 'hyperv') {
         if ($resolved.instances.Count -ne 1) { throw 'HYPERV_MANIFEST_SINGLE_INSTANCE_REQUIRED' }
         $instance = $resolved.instances[0]
-        $artifactId = [string]$instance.hyperv.preparedImageId
-        if (-not $instance.hyperv -or -not $artifactId) { throw 'HYPERV_MANIFEST_PREPARED_IMAGE_REQUIRED' }
-        $artifact = Get-HyperVImageArtifact -ArtifactId $artifactId -StateRoot $StateRoot
+        $hyperVSettings = if ($instance.PSObject.Properties['hyperv']) { $instance.hyperv } else { $null }
+        $artifactId = if ($hyperVSettings -and $hyperVSettings.PSObject.Properties['preparedImageId']) {
+            [string]$hyperVSettings.preparedImageId
+        } else { $null }
+        $artifact = if ($artifactId) {
+            Get-HyperVImageArtifact -ArtifactId $artifactId -StateRoot $StateRoot
+        }
+        else {
+            Resolve-HyperVManifestFallbackArtifact -SqlVersion ([string]$instance.version) -StateRoot $StateRoot
+        }
+        if (-not $artifact -and -not $artifactId) {
+            throw 'HYPERV_MANIFEST_FALLBACK_IMAGE_NOT_FOUND: Keine lokale SQL_PREPARED_SEALED-Vorlage für die angeforderte SQL-Version auf Windows Server Standard Evaluation mit Desktop Experience und mindestens 30 verbleibenden Evaluationstagen gefunden.'
+        }
         $artifactState = [string]$artifact.artifactState
         if (-not $artifact -or $artifactState -notin @('SQL_PREPARED_SEALED', 'OS_SEALED')) {
             throw 'HYPERV_MANIFEST_HYPERV_IMAGE_REQUIRED'
@@ -390,7 +400,10 @@ function New-SqlServerLab {
             throw "HYPERV_MANIFEST_SQL_VERSION_MISMATCH: Manifest $($instance.version), Image $($artifact.sql.version)"
         }
 
-        $passwordSource = if ($GuestPassword) { 'user' } elseif ([string]$instance.hyperv.guestPasswordMode -eq 'prompt') { 'user' } else { 'generated' }
+        $guestPasswordMode = if ($hyperVSettings -and $hyperVSettings.PSObject.Properties['guestPasswordMode']) {
+            [string]$hyperVSettings.guestPasswordMode
+        } else { 'generated' }
+        $passwordSource = if ($GuestPassword) { 'user' } elseif ($guestPasswordMode -eq 'prompt') { 'user' } else { 'generated' }
         if (-not $GuestPassword -and $passwordSource -eq 'generated') {
             if ($effectiveNonInteractive) { throw 'HYPERV_MANIFEST_GUEST_PASSWORD_REQUIRED_NONINTERACTIVE' }
             $GuestPassword = New-HyperVSqlUnattendedPassword
@@ -430,9 +443,12 @@ function New-SqlServerLab {
             }
         })
         $hyperVDesiredState = New-LabDesiredStateSnapshot -ResolvedLab $resolved -ProvisioningMode manifest -PersistentData ([bool]$PersistentData)
+        $hyperVMemoryStartupMB = if ($hyperVSettings -and $hyperVSettings.PSObject.Properties['memoryStartupMB']) { [int]$hyperVSettings.memoryStartupMB } else { 4096 }
+        $hyperVProcessorCount = if ($hyperVSettings -and $hyperVSettings.PSObject.Properties['processorCount']) { [int]$hyperVSettings.processorCount } else { 4 }
+        $hyperVSwitchName = if ($hyperVSettings -and $hyperVSettings.PSObject.Properties['switchName']) { [string]$hyperVSettings.switchName } else { $null }
         $lab = New-HyperVLabEnvironment -ArtifactId ([string]$artifact.artifactId) -LabName ([string]$resolved.name) -InstanceId ([string]$instance.id) `
-            -MemoryStartupMB ([int]$instance.hyperv.memoryStartupMB) -ProcessorCount ([int]$instance.hyperv.processorCount) `
-            -SwitchName ([string]$instance.hyperv.switchName) -AdditionalDrives $hyperVAdditionalDrives -DesiredState $hyperVDesiredState -StateRoot $StateRoot
+            -MemoryStartupMB $hyperVMemoryStartupMB -ProcessorCount $hyperVProcessorCount `
+            -SwitchName $hyperVSwitchName -AdditionalDrives $hyperVAdditionalDrives -DesiredState $hyperVDesiredState -StateRoot $StateRoot
         $hyperVLab = Get-HyperVLabWorkflowRun -RunId $lab.RunId -StateRoot $StateRoot
         if ($PersistentData) {
             $null = Enable-HyperVLabPersistentData -RunId $lab.RunId -DataRoot $DataRoot -SizeGB ([int]$resolved.persistentData.dataDiskGB) -StateRoot $hyperVLab.StateRoot
