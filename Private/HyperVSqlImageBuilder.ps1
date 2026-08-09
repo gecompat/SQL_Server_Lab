@@ -243,7 +243,20 @@ function Resolve-HyperVSqlInstallationMedia {
     }
     else {
         $isoDirectory = Join-Path $resolvedRoot "SQL/$SqlVersion/$MediaEdition/ISO"
-        if (-not (Test-Path -LiteralPath $isoDirectory -PathType Container)) { throw "HYPERV_SQL_MEDIA_DIRECTORY_NOT_FOUND: $isoDirectory" }
+        if (-not (Test-Path -LiteralPath $isoDirectory -PathType Container)) {
+            $versionDirectory = Join-Path $resolvedRoot "SQL/$SqlVersion"
+            $editionDirectories = if (Test-Path -LiteralPath $versionDirectory -PathType Container) {
+                @(Get-ChildItem -LiteralPath $versionDirectory -Directory -Force | Where-Object {
+                    $_.Name -like "${MediaEdition}_*" -and (Test-Path -LiteralPath (Join-Path $_.FullName 'ISO') -PathType Container)
+                })
+            }
+            else { @() }
+            if ($editionDirectories.Count -eq 0) { throw "HYPERV_SQL_MEDIA_DIRECTORY_NOT_FOUND: $isoDirectory" }
+            if ($editionDirectories.Count -gt 1) {
+                throw "HYPERV_SQL_MEDIA_EDITION_DIRECTORY_AMBIGUOUS: $($editionDirectories.Name -join ', ')"
+            }
+            $isoDirectory = Join-Path $editionDirectories[0].FullName 'ISO'
+        }
         $isoFiles = @(Get-ChildItem -LiteralPath $isoDirectory -File -Force | Where-Object Extension -IEQ '.iso')
         if ($isoFiles.Count -eq 0) { throw "HYPERV_SQL_MEDIA_NOT_FOUND: $isoDirectory" }
         if ($isoFiles.Count -gt 1) { throw "HYPERV_SQL_MEDIA_AMBIGUOUS: $($isoFiles.Name -join ', ')" }

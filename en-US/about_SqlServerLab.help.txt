@@ -102,6 +102,10 @@ COMMANDS
     Invoke-SqlServerLabScript
         Executes a T-SQL script with GO batch support.
 
+    Get-SqlServerLabGeneratedSqlAccess
+        Returns runtime SQL access for an automatically generated SQL Server SA
+        account, including the connection string.
+
     Validation
 
     Test-SqlServerLabPrerequisite

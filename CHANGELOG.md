@@ -26,6 +26,13 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   `SQL_PREPARED_SEALED` als auch `OS_SEALED` als Image-Parent, sodass
   reine OS-Baseline-Manifest-Instanzen ohne SQL-kompatible Build-ID erstellt
   werden können.
+- Hyper-V-Fokus-Workflow wurde dokumentiert und in der Slot-Verwaltung weiter
+  gestrafft: OOBE-Übernahme (`o`) kann direkt zur SQL-Zielplanung und
+  optionaler sofortiger Installation führen; `[a]` führt SQL-Plan und direkte
+  Slot-Installation im selben Schritt aus; `[x]` teilt denselben Installationspfad.
+- Neue How-to-Dokumentation eingeführt:
+  `Documentation/HowTo/HYPERV_SLOT_SQL_WORKFLOW.md` plus Verlinkung im
+  Dokumentationsindex.
 
 ## 2026-08-08
 

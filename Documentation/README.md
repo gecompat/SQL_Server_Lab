@@ -15,10 +15,11 @@ Diese Datei ist der verbindliche Dokumentationsindex. Die Root-[README](../READM
 2. [Installation für AnwenderInnen unter Linux](User/INSTALLATION_LINUX.md)
 3. [Externer Media Root](HowTo/MEDIA_ROOT_LAYOUT.md)
 4. [Windows-Server-Baseline aus ISO mit Hyper-V erstellen](HowTo/HYPERV_WINDOWS_IMAGE_BUILD.md)
-5. [SQL-Prepared-Images aus frischer Windows-Installation](HowTo/HYPERV_SQL_PREPARED_IMAGE.md)
-6. [Persistente Daten und Evaluation-Refresh](HowTo/PERSISTENT_DATA_AND_EVALUATION_REFRESH.md)
-7. [Lokale Workflow-Oberfläche](HowTo/WORKFLOW_UI.md)
-8. [Getting Started](User/Getting_Started.md)
+5. [Hyper-V Slot- und SQL-Workflow (OS-Slot → SQL-Slot)](HowTo/HYPERV_SLOT_SQL_WORKFLOW.md)
+6. [SQL-Prepared-Images aus frischer Windows-Installation](HowTo/HYPERV_SQL_PREPARED_IMAGE.md)
+7. [Persistente Daten und Evaluation-Refresh](HowTo/PERSISTENT_DATA_AND_EVALUATION_REFRESH.md)
+8. [Lokale Workflow-Oberfläche](HowTo/WORKFLOW_UI.md)
+9. [Getting Started](User/Getting_Started.md)
 9. [Root-README](../README.md)
 10. [Manifest-Schemas und Beispiele](../Schemas/README.md)
 11. [Öffentliche Cmdlets](../Public/README.md)
@@ -61,7 +62,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | Komponente | Status | Autoritative Dateien |
 |---|---|---|
 | PowerShell-Modul | implementiert | `SqlServerLab.psd1`, `SqlServerLab.psm1` |
-| Öffentliche API | 21 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
+| Öffentliche API | 22 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
 | Docker | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman | implementiert | `Providers/Podman/PodmanProvider.ps1` |
 | Hyper-V | Lifecycle, sealed Registry und enger Manifestpfad aus SQL-Prepared-Image; echter SQL-End-to-End-Nachweis bleibt offen | `Providers/HyperV/HyperVProvider.ps1`, `Private/HyperVImageRegistry.ps1` |
@@ -103,6 +104,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `New-SqlServerLabDatabase` | Datenbank erzeugen |
 | `Restore-SqlServerLabDatabase` | `.bak` aus Datei oder URL wiederherstellen |
 | `Invoke-SqlServerLabScript` | T-SQL-Skript ausführen |
+| `Get-SqlServerLabGeneratedSqlAccess` | Laufzeit-generierte SQL-Access-Daten inkl. SA-Passwort und ConnectionString aus einem Hyper-V-Run beziehen |
 | `Test-SqlServerLabPrerequisite` | Provider, RAM, Storage und Ports prüfen |
 | `Test-SqlServerLabAdapter` | Project Adapter gegen Schema, Pfadgrenzen und optional einen Run prüfen |
 | `Install-SqlServerLabAdapter` | Validierten Adapter-Entrypoint ohne Lifecycle-Seiteneffekt anwenden |
