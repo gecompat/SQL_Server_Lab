@@ -627,13 +627,14 @@ function Invoke-LabHyperVImageAction {
         Clear-Host
         Write-Host '  Hyper-V' -ForegroundColor White
         Write-Host ''
-        Write-Host '    Standardpfad: Windows + SQL aus ISO installieren, einmal Sysprep, als Prepared-Image veröffentlichen.' -ForegroundColor Yellow
-        Write-Host '    Technische Einzelaktionen, OS-Baselines und Abnahme-VMs liegen unter Erweitert.' -ForegroundColor DarkGray
+        Write-Host '    Standardpfad: Windows aus DVD installieren, als OS-Vorlage veröffentlichen und daraus Betriebssystem-Slots erzeugen.' -ForegroundColor Yellow
+        Write-Host '    SQL Server wird erst danach optional auf einem Slot installiert oder als eigene SQL-Vorlage vorbereitet.' -ForegroundColor DarkGray
         Write-Host ''
-        Write-Host '    [1] Neues SQL-Prepared-Image erstellen' -ForegroundColor Yellow
-        Write-Host '    [2] Offenen Prepared-Image-Builder fortsetzen' -ForegroundColor White
-        Write-Host '    [3] Neue Hyper-V-Umgebung aus Windows- oder SQL-Vorlage erstellen' -ForegroundColor Yellow
-        Write-Host '    [4] Hyper-V-Umgebungen verwalten' -ForegroundColor White
+        Write-Host '    [1] Windows-OS-Vorlage aus DVD erstellen oder fortsetzen' -ForegroundColor Yellow
+        Write-Host '    [2] Betriebssystem-Slot aus Windows-OS-Vorlage erstellen' -ForegroundColor Yellow
+        Write-Host '    [3] Neue SQL-Prepared-Vorlage aus DVD erstellen (optional)' -ForegroundColor White
+        Write-Host '    [s] Offenen SQL-Prepared-Builder fortsetzen' -ForegroundColor White
+        Write-Host '    [4] Betriebssystem- und SQL-Slots verwalten' -ForegroundColor White
         Write-Host '    [5] Veröffentlichte Vorlagen verwalten oder gezielt löschen' -ForegroundColor White
         Write-Host '    [e] Erweitert: OS-Baselines, Abnahme und Reparatur' -ForegroundColor DarkGray
         Write-Host '    [0] Zurueck' -ForegroundColor DarkGray
@@ -641,10 +642,11 @@ function Invoke-LabHyperVImageAction {
         $choice = Read-Host '  Auswahl'
         switch ($choice) {
             '0' { $exitImageMenu = $true }
-            '1' { Invoke-LabHyperVMenuAction -Title 'Neues SQL-Prepared-Image' -Action { New-LabHyperVSqlImageBuildInteractive } }
-            '2' { Invoke-LabHyperVPreparedImageWorkflowMenu }
-            '3' { Invoke-LabHyperVMenuAction -Title 'Neue Hyper-V-Umgebung' -Action { New-LabHyperVEnvironmentInteractive } }
-            '4' { Invoke-LabHyperVMenuAction -Title 'Hyper-V-Umgebungen verwalten' -Action { Manage-LabHyperVEnvironmentInteractive } }
+            '1' { Invoke-LabHyperVWindowsBaselineMenu }
+            '2' { Invoke-LabHyperVMenuAction -Title 'Betriebssystem-Slot aus Windows-OS-Vorlage' -Action { New-LabHyperVEnvironmentInteractive -WindowsOnly } }
+            '3' { Invoke-LabHyperVMenuAction -Title 'Neue SQL-Prepared-Vorlage' -Action { New-LabHyperVSqlImageBuildInteractive } }
+            's' { Invoke-LabHyperVPreparedImageWorkflowMenu }
+            '4' { Invoke-LabHyperVMenuAction -Title 'Betriebssystem- und SQL-Slots verwalten' -Action { Manage-LabHyperVEnvironmentInteractive } }
             '5' { Invoke-LabHyperVPublishedImageMenu }
             'e' { Invoke-LabHyperVAdvancedMenu }
             default { Write-LabWarning "Ungueltige Auswahl: $choice" }
@@ -2119,9 +2121,9 @@ function Read-LabHyperVLocaleSettings {
 
 function New-LabHyperVEnvironmentInteractive {
     [CmdletBinding()]
-    param()
+    param([switch]$WindowsOnly)
 
-    $artifact = Select-LabHyperVPreparedArtifact
+    $artifact = if ($WindowsOnly) { Select-LabHyperVOsArtifact } else { Select-LabHyperVPreparedArtifact }
     if (-not $artifact) { return }
     $isSqlPrepared = [string]$artifact.artifactState -eq 'SQL_PREPARED_SEALED'
     $defaultLabName = if ($isSqlPrepared) { 'hyperv-sql-lab' } else { 'hyperv-windows-lab' }

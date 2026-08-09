@@ -38,6 +38,12 @@ function Clear-SqlServerLab {
     $activeRuns = @(Get-LabActiveRuns -StateRoot $stateRoot)
     $windowsImageBuilds = if (-not $StateOnly -and -not $ContainersOnly) { @(Get-HyperVImageBuildPlans -StateRoot $stateRoot) } else { @() }
     $sqlImageBuilds = if (-not $StateOnly -and -not $ContainersOnly) { @(Get-HyperVSqlImageBuildPlans -StateRoot $stateRoot) } else { @() }
+    $dataRoot = if (-not $StateOnly -and -not $ContainersOnly) { Get-LabDataRootDefault } else { $null }
+    $dataLabsRoot = if ($dataRoot) { Join-Path $dataRoot 'Labs' } else { $null }
+    $dataLabDirectories = if ($dataLabsRoot -and (Test-Path -LiteralPath $dataLabsRoot -PathType Container)) {
+        @(Get-ChildItem -LiteralPath $dataLabsRoot -Directory -Force)
+    }
+    else { @() }
     $knownRunIds = @($activeRuns | ForEach-Object { $_.runId })
     $runtimeStatus = @{}
     $allContainers = @()
@@ -86,6 +92,7 @@ function Clear-SqlServerLab {
     Write-LabStatus -Label 'Orphan-Container' -Value $orphanContainers.Count
     Write-LabStatus -Label 'Hyper-V Windows-Builder' -Value $windowsImageBuilds.Count
     Write-LabStatus -Label 'Hyper-V SQL-Builder' -Value $sqlImageBuilds.Count
+    Write-LabStatus -Label 'Data-Root-Labverzeichnisse' -Value $dataLabDirectories.Count
     Write-LabInfo 'Veröffentlichte OS- und SQL-Vorlagen bleiben erhalten und werden ausschließlich unter Hyper-V -> Veröffentlichte Vorlagen verwaltet.'
     foreach ($runtime in @('docker', 'podman')) {
         Write-LabStatus -Label "Runtime $runtime" -Value $runtimeStatus[$runtime]
@@ -98,7 +105,7 @@ function Clear-SqlServerLab {
         $allContainers.Count
     }
     else {
-        $activeRuns.Count + $orphanContainers.Count + $windowsImageBuilds.Count + $sqlImageBuilds.Count
+        $activeRuns.Count + $orphanContainers.Count + $windowsImageBuilds.Count + $sqlImageBuilds.Count + $dataLabDirectories.Count
     }
 
     if ($workCount -eq 0) {
@@ -139,6 +146,7 @@ function Clear-SqlServerLab {
     $removedContainers = 0
     $removedStateRuns = 0
     $removedImageBuilds = 0
+    $removedDataLabDirectories = 0
     $errors = 0
 
     if ($StateOnly) {
@@ -302,6 +310,20 @@ function Clear-SqlServerLab {
             }
             catch { Write-LabError "SQL-Builder '$($build.buildId)' konnte nicht entfernt werden: $($_.Exception.Message)"; $errors++ }
         }
+        if ($dataLabDirectories.Count -gt 0) {
+            $canonicalLabsRoot = [IO.Path]::GetFullPath($dataLabsRoot).TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
+            foreach ($directory in $dataLabDirectories) {
+                try {
+                    $canonicalDirectory = [IO.Path]::GetFullPath($directory.FullName)
+                    if (-not $canonicalDirectory.StartsWith($canonicalLabsRoot, [StringComparison]::OrdinalIgnoreCase)) {
+                        throw 'DATA_ROOT_LAB_DIRECTORY_SCOPE_VIOLATION'
+                    }
+                    Remove-Item -LiteralPath $canonicalDirectory -Recurse -Force -ErrorAction Stop
+                    $removedDataLabDirectories++
+                }
+                catch { Write-LabError "Data-Root-Labverzeichnis '$($directory.FullName)' konnte nicht entfernt werden: $($_.Exception.Message)"; $errors++ }
+            }
+        }
     }
 
     $status = if ($errors -eq 0) { 'CLEAN' } else { 'PARTIAL' }
@@ -309,6 +331,7 @@ function Clear-SqlServerLab {
     Write-LabStatus -Label 'Container entfernt' -Value $removedContainers -Color 'Green'
     Write-LabStatus -Label 'State-Runs bereinigt' -Value $removedStateRuns -Color 'Green'
     Write-LabStatus -Label 'Image-Builder entfernt' -Value $removedImageBuilds -Color 'Green'
+    Write-LabStatus -Label 'Data-Root-Labverzeichnisse entfernt' -Value $removedDataLabDirectories -Color 'Green'
     if ($errors -gt 0) {
         Write-LabStatus -Label 'Fehler' -Value $errors -Color 'Red'
     }
@@ -317,6 +340,7 @@ function Clear-SqlServerLab {
         Containers = $removedContainers
         StateRuns  = $removedStateRuns
         ImageBuilds = $removedImageBuilds
+        DataLabDirectories = $removedDataLabDirectories
         Errors     = $errors
         Status     = $status
     }

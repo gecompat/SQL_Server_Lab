@@ -40,6 +40,8 @@ try {
         $moduleManifestText -match "'Get-SqlServerLabGeneratedSqlAccess'"
     )
     Add-CheckResult -Name 'OS-Baseline erzeugt zuerst nur einen manuellen Windows-Slot ohne SQL-Kopplung' -Success (
+        $menuText -match 'Windows-OS-Vorlage aus DVD erstellen oder fortsetzen' -and
+        $menuText -match 'New-LabHyperVEnvironmentInteractive -WindowsOnly' -and
         $menuText -match 'Windows-Slot jetzt erstellen' -and
         $menuText -match 'SQL Server wird nicht installiert' -and
         $menuText -match 'Windows-Grundinstallation übernehmen' -and
