@@ -79,7 +79,7 @@ Installation Handler aus.
 | mehrere Samples im Ad-hoc-Menü auswählen | implementiert (`Invoke-SqlServerLab`, `New-SqlServerLab -Sample`) |
 | persistenter Trust Store und Manifest Lock | implementiert; Sample-Identität wird mitgeführt |
 | inhaltsadressierter Artifact Cache und Quarantäne | implementiert |
-| `LAB_GENERATED`-Baseline-Auswahl | für verifizierte Single-Output-Container-Samples implementiert; Multi-Output- und Hyper-V-Export offen |
+| `LAB_GENERATED`-Baseline-Auswahl | für verifizierte Single- und Multi-Output-Container-Samples implementiert; Hyper-V-Export offen |
 | kontextbezogene Manifest-Menüführung | Pfadsemantik und Sample-Katalogauswahl vorhanden; Navigation/Planvorschau offen |
 
 ## 4. Gemeinsamer Artifact-Vertrag
@@ -649,11 +649,13 @@ Apply auf `ONLINE` geprüft; unsichere Teilzustände enden mit
 
 Teilstand: Das lokale, portable Register, die deterministische Key-Bildung,
 exakte und kompatible Auswahl sowie Quarantäne bei fehlenden, pfadfremden oder
-hashabweichenden Objekten sind implementiert. Single-Output-Container-Samples
-werden nach erfolgreicher Verifikation mit `BACKUP ... CHECKSUM` und
+hashabweichenden Objekten sind implementiert. Single- und Multi-Output-
+Container-Samples werden nach erfolgreicher Verifikation mit `BACKUP ... CHECKSUM` und
 `RESTORE VERIFYONLY` registriert; Folge-Runs bevorzugen die Baseline und fallen
 bei fehlender, unpassender oder quarantainisierter Baseline auf das verifizierte
-Originalartefakt zurück. Multi-Output-Baselines und Hyper-V-Export sind offen.
+Originalartefakt zurück. Multi-Output-Baselines werden als typisierte ZIPs aus
+exakt den erwarteten, einzeln verifizierten Datenbankbackups gespeichert.
+Hyper-V-Export ist offen.
 
 ### Welle 6 – Weitere Artifact Types und Hyper-V-Bindung
 

@@ -192,7 +192,7 @@ internal_components:
   - name: SampleBaselineRuntime
     source: Private/SampleBaselineRuntime.ps1
     responsibilities:
-      - "Single-Output-Container-Samples nach erfolgreicher SQL-Verifikation mit CHECKSUM sichern"
+      - "Single- und Multi-Output-Container-Samples nach erfolgreicher SQL-Verifikation mit CHECKSUM sichern"
       - "erzeugte Backups vor Registrierung mit RESTORE VERIFYONLY pruefen"
       - "exakte oder kompatible LAB_GENERATED-Baselines vor dem Originalartefakt bevorzugen"
       - "bei fehlender oder ungueltiger Baseline sicher auf das verifizierte Originalartefakt zurueckfallen"
@@ -295,6 +295,7 @@ planning_contracts:
       - sql_script_and_bundle_installation
       - lab_generated_baseline_registry
       - lab_generated_single_output_container_runtime
+      - lab_generated_multi_output_container_runtime
       - contextual_path_guidance
       - lab_generated_baselines
       - hyperv_baseline_bindings

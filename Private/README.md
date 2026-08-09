@@ -16,7 +16,7 @@ Der Pfad `Private/` beschreibt primär die interne Architektur. Die tatsächlich
 | `ArtifactResolver.ps1` | HTTP(S)-Backup-Acquisition, lokaler Trust Store, inhaltsadressierter Cache, Quarantäne und sanitisiertes Run Lock |
 | `SampleArtifactHandlers.ps1` | Backup-, Archiv-, Einzel-Skript- und sichere Multi-Output-Script-Bundle-Installation |
 | `SampleBaselineRegistry.ps1` | Inhaltsadressiertes `LAB_GENERATED`-Register, deterministische Keys, exakte/kompatible Auswahl und Quarantäne |
-| `SampleBaselineRuntime.ps1` | Erzeugung und bevorzugte Wiederverwendung verifizierter Single-Output-Container-Baselines |
+| `SampleBaselineRuntime.ps1` | Erzeugung und bevorzugte Wiederverwendung verifizierter Single- und Multi-Output-Container-Baselines |
 | `SqlReadiness.ps1` | SQL-Bereitschaft, Queries und interne Skriptausführung |
 | `ResourceAssessment.ps1` | Prüfung aller verwendeten Provider sowie runweiter RAM-, Storage- und Portkapazität; definiert das exportierte `Test-SqlServerLabPrerequisite` |
 | `CleanupEngine.ps1` | Cleanup-Plan, ProviderSubRuns, Schritte und Compensation |

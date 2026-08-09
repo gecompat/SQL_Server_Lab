@@ -1010,8 +1010,7 @@ Trust-Pfad und Mehrfachauswahl ist implementiert (Sample-Welle 3 des
 Sample-Zielvertrags). Die nächsten Schritte sind:
 
 1. Die vorhandene `LAB_GENERATED`-Erzeugung und -Präferenz für verifizierte
-   Single-Output-Container-Samples auf Multi-Output-Bundles und Hyper-V-Export
-   erweitern;
+   Single- und Multi-Output-Container-Samples an den Hyper-V-Export binden;
 2. **Project Adapter priorisieren:** Adaptervertrag als versioniertes
    JSON-Schema festschreiben und die Wellen 6 und 7 mit je einer Pilotdemo
    beginnen. Details und Reihenfolge stehen in

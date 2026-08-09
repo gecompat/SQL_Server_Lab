@@ -114,7 +114,7 @@ Diese Planung hat keine Container- oder VM-Runtime mutiert.
 | Hyper-V-Manifestbindung für freie Drives, Datenbanken, Post-Provisioning und Network Intents ist unvollständig | UI-/Manifestparität fehlt |
 | Reconcile-Executor und Actual-State-Collector fehlen | vorhandene Labs können noch nicht über einen einheitlichen Änderungsplan verwaltet werden |
 | zwei reale Adapterpiloten fehlen | der Vertrag ist noch nicht an beiden Primärkonsumenten bewiesen |
-| `LAB_GENERATED`-Erzeugung und -Präferenz sind für Single-Output-Container-Samples implementiert; Multi-Output- und Hyper-V-Export sind offen; Script Bundles mit mehreren festen Datenbankoutputs sind implementiert | komplexe und VM-basierte Baselines benötigen noch Sonderwege |
+| `LAB_GENERATED`-Erzeugung und -Präferenz sind für Single- und Multi-Output-Container-Samples implementiert; Hyper-V-Export ist offen; Script Bundles mit mehreren festen Datenbankoutputs sind implementiert | VM-basierte Baselines benötigen noch Sonderwege |
 | Fault-/Scenario-Engine und vollständiger Privacy-Scanner fehlen | Release-Härtung und komplexe SQL-Szenarien bleiben unvollständig |
 
 ### 3.3 In Phase 0 zu reparierende Statusabweichungen

@@ -545,8 +545,9 @@ function Install-LabSampleDatabase {
         [PSCustomObject]@{
             Status          = 'ARTIFACT_READY'
             Path            = [string]$baselineRequest.Selection.Path
-            Sha256          = [string]$baselineRequest.Selection.BackupSha256
+            Sha256          = [string]$baselineRequest.Selection.Sha256
             IntegrityOrigin = 'LAB_GENERATED'
+            ArtifactFormat  = [string]$baselineRequest.Selection.ArtifactFormat
             Message         = 'Verifizierte LAB_GENERATED-Baseline ausgewaehlt.'
         }
     }
@@ -563,6 +564,7 @@ function Install-LabSampleDatabase {
     $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword)
     $temporaryArchivePayload = $null
     $temporaryBundlePayload = $null
+    $temporaryBaselineBundle = $null
     try {
         $saPlain = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
     }
@@ -588,7 +590,7 @@ function Install-LabSampleDatabase {
             }
         }
 
-        $effectiveArtifactType = if ($baselineRequest) { 'backup' } else { [string]$RestoreDefinition.artifactType }
+        $effectiveArtifactType = if ($baselineRequest -and $databaseNames.Count -gt 1) { 'baseline-bundle' } elseif ($baselineRequest) { 'backup' } else { [string]$RestoreDefinition.artifactType }
         switch ($effectiveArtifactType) {
             'backup' {
                 $restoreResult = Restore-SqlServerLabDatabase `
@@ -716,6 +718,28 @@ function Install-LabSampleDatabase {
                     return [PSCustomObject]$result
                 }
             }
+            'baseline-bundle' {
+                $temporaryBaselineBundle = Expand-LabSampleBaselineBundle `
+                    -BundlePath $artifactResolution.Path `
+                    -DatabaseNames $databaseNames `
+                    -RunDirectory $RunDirectory
+                foreach ($payload in $temporaryBaselineBundle.Payloads) {
+                    $restoreResult = Restore-SqlServerLabDatabase `
+                        -HostName $HostName `
+                        -Port $Port `
+                        -SaPassword $SaPassword `
+                        -BackupSource $payload.Path `
+                        -ExpectedSha256 $payload.Sha256 `
+                        -DatabaseName $payload.DatabaseName `
+                        -ContainerName $ContainerName `
+                        -StateRoot $StateRoot
+                    if (-not $restoreResult.Success) {
+                        $result.Status = 'RECOVERY_REQUIRED'
+                        $result.Message = "Multi-Output-Baseline wurde nicht vollstaendig wiederhergestellt: $($restoreResult.Message)"
+                        return [PSCustomObject]$result
+                    }
+                }
+            }
             default {
                 throw "SAMPLE_HANDLER_UNSUPPORTED: '$($RestoreDefinition.artifactType)'"
             }
@@ -740,22 +764,28 @@ function Install-LabSampleDatabase {
         if (-not $baselineRequest -and
             $SqlVersion -and
             [string]$RestoreDefinition.installation.baselinePolicy -eq 'eligible-after-verification' -and
-            $databaseNames.Count -eq 1) {
+            $databaseNames.Count -ge 1) {
             try {
                 $baselineKey = New-LabSampleBaselineRequestKey `
                     -RestoreDefinition $RestoreDefinition `
                     -SourceSha256 ([string]$artifactResolution.Sha256) `
                     -SqlVersion $SqlVersion
-                $result.Baseline = New-LabSampleBaselineBackup `
-                    -HostName $HostName `
-                    -Port $Port `
-                    -SaPassword $SaPassword `
-                    -ContainerName $ContainerName `
-                    -DatabaseName $databaseName `
-                    -Key $baselineKey `
-                    -RunDirectory $RunDirectory `
-                    -StateRoot $StateRoot `
-                    -TestDataRoot $TestDataRoot
+                $baselineArguments = @{
+                    HostName = $HostName
+                    Port = $Port
+                    SaPassword = $SaPassword
+                    ContainerName = $ContainerName
+                    Key = $baselineKey
+                    RunDirectory = $RunDirectory
+                    StateRoot = $StateRoot
+                    TestDataRoot = $TestDataRoot
+                }
+                $result.Baseline = if ($databaseNames.Count -eq 1) {
+                    New-LabSampleBaselineBackup -DatabaseName $databaseName @baselineArguments
+                }
+                else {
+                    New-LabSampleBaselineBundle -DatabaseNames $databaseNames @baselineArguments
+                }
             }
             catch {
                 $result.Baseline = [PSCustomObject]@{
@@ -778,6 +808,9 @@ function Install-LabSampleDatabase {
         }
         if ($temporaryBundlePayload -and (Test-Path -LiteralPath $temporaryBundlePayload.WorkingDirectory)) {
             Remove-Item -LiteralPath $temporaryBundlePayload.WorkingDirectory -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        if ($temporaryBaselineBundle -and (Test-Path -LiteralPath $temporaryBaselineBundle.WorkingDirectory)) {
+            Remove-Item -LiteralPath $temporaryBaselineBundle.WorkingDirectory -Recurse -Force -ErrorAction SilentlyContinue
         }
     }
 }

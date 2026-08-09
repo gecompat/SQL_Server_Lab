@@ -125,6 +125,7 @@ function Register-LabSampleBaseline {
     param(
         [Parameter(Mandatory)]$Key,
         [Parameter(Mandatory)][string]$BackupPath,
+        [ValidateSet('database-backup', 'multi-database-zip')][string]$ArtifactFormat = 'database-backup',
         [string]$StateRoot,
         [string]$TestDataRoot
     )
@@ -135,7 +136,8 @@ function Register-LabSampleBaseline {
     $paths = Initialize-LabSampleBaselineRegistry -StateRoot $StateRoot -TestDataRoot $TestDataRoot
     $backupSha256 = (Get-FileHash -LiteralPath $BackupPath -Algorithm SHA256).Hash.ToLowerInvariant()
     $objectDirectory = Join-Path $paths.ObjectsRoot $backupSha256
-    $objectPath = Join-Path $objectDirectory 'baseline.bak'
+    $objectFileName = if ($ArtifactFormat -eq 'multi-database-zip') { 'baseline.zip' } else { 'baseline.bak' }
+    $objectPath = Join-Path $objectDirectory $objectFileName
     New-Item -Path $objectDirectory -ItemType Directory -Force | Out-Null
     if (-not (Test-Path -LiteralPath $objectPath -PathType Leaf)) {
         Copy-Item -LiteralPath $BackupPath -Destination $objectPath
@@ -151,7 +153,8 @@ function Register-LabSampleBaseline {
         origin = 'LAB_GENERATED'
         key = $Key.Data
         backupSha256 = $backupSha256
-        objectPath = "objects/$backupSha256/baseline.bak"
+        objectPath = "objects/$backupSha256/$objectFileName"
+        artifactFormat = $ArtifactFormat
         verified = $true
         quarantined = $false
         quarantineReason = $null
@@ -260,6 +263,7 @@ function Get-LabSampleBaseline {
             KeyId = [string]$candidate.keyId
             Path = $objectPath
             Sha256 = [string]$candidate.backupSha256
+            ArtifactFormat = if ($candidate.artifactFormat) { [string]$candidate.artifactFormat } else { 'database-backup' }
             Record = $candidate
         }
     }
