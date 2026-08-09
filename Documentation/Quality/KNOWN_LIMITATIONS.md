@@ -357,7 +357,7 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
 ## Priorisierte nächste technische Schritte
 
 1. `LAB_GENERATED`-Erzeugung und Auswahl an den Hyper-V-Export binden (Sample-Welle 5/6).
-2. Providerneutrale Drive-, Network-, Software- und Reconcile-Verträge gemäß Hyper-V-Zielvertrag umsetzen.
+2. Die implementierten providerneutralen Drive-, Network- und Software-Intents an Hyper-V-Manifest, LAN/NAT/IPAM und Software-Runtime binden.
 3. Artifact Registry, Refresh/Rebuild und Evaluierungsablauf implementieren.
 4. Hyper-V anschließend in den dokumentierten, getrennt testbaren Wellen implementieren.
 5. Katalogaktualität, verifizierte Prüfsummen (`catalog-verified`) und Baseline-Kompatibilität kontrolliert pflegen.

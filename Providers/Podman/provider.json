@@ -8,6 +8,8 @@
     "fast-start",
     "port-mapping",
     "volume-mounts",
+    "managed-lab-network",
+    "isolated-network",
     "resource-limits",
     "rootless"
   ],

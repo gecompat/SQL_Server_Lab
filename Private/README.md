@@ -13,6 +13,7 @@ Der Pfad `Private/` beschreibt primär die interne Architektur. Die tatsächlich
 | `SecretProvider.ps1` | lokales Speichern, Lesen und Entfernen von Secrets |
 | `VersionCatalog.ps1` | Versionen, CU-Builds, Images, Ressourcenprofile und Sample-Katalogzugriff |
 | `StateMachine.ps1` | State-Root, Run-State, ProviderSubRuns, Übergänge, Historie und aktive Runs |
+| `DesiredState.ps1` | Geheimnisfreier Run-Sollzustand mit providerneutralen Drive-, Network- und Software-Intents |
 | `ArtifactResolver.ps1` | HTTP(S)-Backup-Acquisition, lokaler Trust Store, inhaltsadressierter Cache, Quarantäne und sanitisiertes Run Lock |
 | `SampleArtifactHandlers.ps1` | Backup-, Archiv-, Einzel-Skript- und sichere Multi-Output-Script-Bundle-Installation |
 | `SampleBaselineRegistry.ps1` | Inhaltsadressiertes `LAB_GENERATED`-Register, deterministische Keys, exakte/kompatible Auswahl und Quarantäne |
