@@ -191,45 +191,111 @@ function Get-RawManifestField {
 }
 
 $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
-$manifestData = Get-PowerShellDataFile -Path $modulePath
-$manifestRaw = Get-Content -LiteralPath $modulePath -Raw -ErrorAction Stop
-$moduleInfo = Import-Module -Name $modulePath -Force -PassThru -ErrorAction Stop
-$validatedManifest = $null
-try {
-    $validatedManifest = Test-ModuleManifest -Path $modulePath -ErrorAction Stop
-}
-catch {
-    Write-Warning "Test-ModuleManifest fehlgeschlagen für '$modulePath': $($_.Exception.Message)"
+
+function Get-SqlServerLabManifestVersion {
+    param([Parameter(Mandatory)][string]$ManifestPath)
+
+    $manifestData = Get-PowerShellDataFile -Path $ManifestPath
+    $manifestRaw = Get-Content -LiteralPath $ManifestPath -Raw -ErrorAction Stop
+    $moduleVersion = Get-ObjectField -InputObject $manifestData -Name @('ModuleVersion', 'Version')
+
+    if ([string]::IsNullOrWhiteSpace($moduleVersion)) {
+        foreach ($line in $manifestRaw -split "`r?`n") {
+            if ($line -notmatch '^\s*ModuleVersion\s*=') { continue }
+
+            $candidate = (($line -split '=', 2)[1] -replace '#.*$', '').Trim()
+            if (($candidate.StartsWith("'") -and $candidate.EndsWith("'")) -or ($candidate.StartsWith('"') -and $candidate.EndsWith('"'))) {
+                $candidate = $candidate.Substring(1, $candidate.Length - 2).Trim()
+            }
+
+            if (-not [string]::IsNullOrWhiteSpace($candidate)) {
+                $moduleVersion = $candidate
+                break
+            }
+        }
+    }
+
+    if ([string]::IsNullOrWhiteSpace($moduleVersion)) {
+        try {
+            $validatedManifest = Test-ModuleManifest -Path $ManifestPath -ErrorAction Stop
+            if ($null -ne $validatedManifest -and $null -ne $validatedManifest.Version) {
+                $moduleVersion = $validatedManifest.Version.ToString()
+            }
+        }
+        catch {
+            Write-Warning "Test-ModuleManifest fehlgeschlagen für '$ManifestPath': $($_.Exception.Message)"
+        }
+    }
+
+    if ([string]::IsNullOrWhiteSpace($moduleVersion)) {
+        try {
+            $moduleInfo = Import-Module -Name $ManifestPath -Force -PassThru -ErrorAction Stop
+            if ($null -ne $moduleInfo -and $null -ne $moduleInfo.Version) {
+                $moduleVersion = $moduleInfo.Version.ToString()
+            }
+        }
+        catch {
+            Write-Warning "Modulimport für Versionsprüfung fehlgeschlagen für '$ManifestPath': $($_.Exception.Message)"
+        }
+    }
+
+    return $moduleVersion
 }
 
-$moduleVersion = Get-ObjectField -InputObject $manifestData -Name @('ModuleVersion', 'Version')
-if ([string]::IsNullOrWhiteSpace($moduleVersion)) {
-    $moduleVersion = Get-RawManifestField -Content $manifestRaw -FieldName 'ModuleVersion' -Mode 'Scalar'
-}
-if ([string]::IsNullOrWhiteSpace($moduleVersion) -and $null -ne $validatedManifest) {
-    $moduleVersion = $validatedManifest.Version.ToString()
-}
-if ([string]::IsNullOrWhiteSpace($moduleVersion) -and $null -ne $moduleInfo) {
-    $moduleVersion = $moduleInfo.Version.ToString()
+function Get-SqlServerLabManifestFunctions {
+    param([Parameter(Mandatory)][string]$ManifestPath)
+
+    $manifestData = Get-PowerShellDataFile -Path $ManifestPath
+    $manifestRaw = Get-Content -LiteralPath $ManifestPath -Raw -ErrorAction Stop
+    $manifestFunctions = To-StringArray -Value (Get-ObjectField -InputObject $manifestData -Name @('FunctionsToExport'))
+
+    if ($manifestFunctions.Count -eq 0) {
+        $manifestFunctions = To-StringArray -Value (Get-RawManifestField -Content $manifestRaw -FieldName 'FunctionsToExport' -Mode 'Array')
+    }
+
+    if ($manifestFunctions.Count -eq 0) {
+        try {
+            $moduleInfo = Import-Module -Name $ManifestPath -Force -PassThru -ErrorAction Stop
+            if ($null -ne $moduleInfo -and $null -ne $moduleInfo.ExportedFunctions) {
+                $manifestFunctions = To-StringArray -Value $moduleInfo.ExportedFunctions.Keys
+            }
+        }
+        catch {
+            Write-Warning "Modulimport für Manifest-Funktionen fehlgeschlagen für '$ManifestPath': $($_.Exception.Message)"
+        }
+    }
+
+    if ($null -eq $manifestFunctions) {
+        return @()
+    }
+
+    return $manifestFunctions
 }
 
-$manifestFunctions = To-StringArray -Value (Get-ObjectField -InputObject $manifestData -Name @('FunctionsToExport'))
-if ($manifestFunctions.Count -eq 0) {
-    $manifestFunctions = To-StringArray -Value (Get-RawManifestField -Content $manifestRaw -FieldName 'FunctionsToExport' -Mode 'Array')
-}
-if ($manifestFunctions.Count -eq 0 -and $null -ne $moduleInfo -and $null -ne $moduleInfo.ExportedFunctions) {
-    $manifestFunctions = To-StringArray -Value $moduleInfo.ExportedFunctions.Keys
-}
-if ($null -eq $manifestFunctions) { $manifestFunctions = @() }
+function Get-SqlServerLabExportedFunctions {
+    param([Parameter(Mandatory)][string]$ManifestPath)
 
-$exportedFunctions = @()
-if ($null -ne $moduleInfo -and $null -ne $moduleInfo.ExportedFunctions) {
-    $exportedFunctions = To-StringArray -Value $moduleInfo.ExportedFunctions.Keys
+    $manifestFunctionInfo = @()
+    try {
+        $moduleInfo = Import-Module -Name $ManifestPath -Force -PassThru -ErrorAction Stop
+        if ($null -ne $moduleInfo -and $null -ne $moduleInfo.ExportedFunctions) {
+            $manifestFunctionInfo = To-StringArray -Value $moduleInfo.ExportedFunctions.Keys
+        }
+    }
+    catch {
+        Write-Warning "Modulimport für exportierte Funktionen fehlgeschlagen für '$ManifestPath': $($_.Exception.Message)"
+    }
+
+    if ($manifestFunctionInfo.Count -eq 0) {
+        $manifestFunctionInfo = To-StringArray -Value (Get-Command -Module SqlServerLab -CommandType Function | Select-Object -ExpandProperty Name)
+    }
+
+    if ($null -eq $manifestFunctionInfo) {
+        return @()
+    }
+
+    return $manifestFunctionInfo
 }
-if ($exportedFunctions.Count -eq 0) {
-    $exportedFunctions = To-StringArray -Value (Get-Command -Module SqlServerLab -CommandType Function | Select-Object -ExpandProperty Name)
-}
-if ($null -eq $exportedFunctions) { $exportedFunctions = @() }
 
 $psaSettingsPath = Join-Path $repoRoot 'Tests' 'Static' 'PSScriptAnalyzerSettings.psd1'
 $psaSettings = Get-PowerShellDataFile -Path $psaSettingsPath
@@ -239,14 +305,18 @@ $psaSeverity = Get-ObjectField -InputObject $psaSettings -Name @('Severity')
 $psaSeverityList = @($psaSeverity | Where-Object { $_ -and $_ -is [string] })
 
 Describe 'SqlServerLab-Modulmanifest' {
+    $script:moduleVersion = Get-SqlServerLabManifestVersion -ManifestPath $modulePath
+    $script:manifestFunctions = Get-SqlServerLabManifestFunctions -ManifestPath $modulePath
+    $script:exportedFunctions = Get-SqlServerLabExportedFunctions -ManifestPath $modulePath
+
     It 'muss eine gültige Modulversion enthalten' {
-        if ([string]::IsNullOrWhiteSpace($moduleVersion)) {
+        if ([string]::IsNullOrWhiteSpace($script:moduleVersion)) {
             throw 'Das Modulmanifest enthält keine Modulversion.'
         }
     }
 
     It 'muss für jede in FunctionsToExport definierte Funktion eine aufrufbare Command-Definition haben' {
-        foreach ($commandName in $manifestFunctions) {
+        foreach ($commandName in $script:manifestFunctions) {
             try {
                 $null = Get-Command -Name $commandName -Module SqlServerLab -ErrorAction Stop
             }
@@ -258,14 +328,14 @@ Describe 'SqlServerLab-Modulmanifest' {
 
     It 'muss das im Manifest deklarierte Exportset konsistent mit dem importierten Modul exportieren' {
         $manifestFunctionSet = @(
-            $manifestFunctions |
+            $script:manifestFunctions |
                 ForEach-Object { if ($null -ne $_) { $_.ToString().Trim() } } |
                 Where-Object { $_ -and $_ -ne '*' } |
                 Sort-Object -Unique
         )
 
         $exportedFunctionSet = @(
-            $exportedFunctions |
+            $script:exportedFunctions |
                 ForEach-Object { if ($null -ne $_) { $_.ToString().Trim() } } |
                 Where-Object { $_ -and $_ -ne '*' } |
                 Sort-Object -Unique
