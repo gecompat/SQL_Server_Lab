@@ -376,7 +376,8 @@ function New-HyperVTransientGeneratedSqlAccess {
     param(
         $HostSqlAccess,
         [Parameter(Mandatory)][SecureString]$SqlSaPassword,
-        [switch]$Generated
+        [switch]$Generated,
+        [switch]$Persisted
     )
 
     if (-not $Generated) { return $null }
@@ -396,12 +397,17 @@ function New-HyperVTransientGeneratedSqlAccess {
             else { $null }
         } else { $null }
         return [PSCustomObject]@{
-            transient = $true
+            transient = -not $Persisted
             generated = $true
             userName = 'sa'
             password = $plainTextPassword
             connectionString = $connectionString
-            notice = 'Nur im unmittelbaren Aufrufergebnis vorhanden; nicht im Run-State oder connection-info.json gespeichert.'
+            notice = if ($Persisted) {
+                'DPAPI-geschützt im Run-Secret-Store gespeichert; explizit über Get-SqlServerLabGeneratedSqlAccess abrufbar.'
+            }
+            else {
+                'Nur im unmittelbaren Aufrufergebnis vorhanden; nicht im Run-State oder connection-info.json gespeichert.'
+            }
         }
     }
     finally { [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
@@ -539,16 +545,21 @@ function Invoke-HyperVLabUnattendedProvision {
     # frühere, sichere Standard erhalten: SA entspricht dem Gastkonto.
     $sqlSaPasswordWasProvided = $null -ne $SqlSaPassword
     if (-not $SqlSaPassword) { $SqlSaPassword = $AdministratorPassword }
+    $generatedSqlPassword = $PasswordSource -eq 'generated' -and -not $sqlSaPasswordWasProvided
+    if ($generatedSqlPassword) {
+        Save-LabSecret -Path $lab.RunDirectory -Name 'generated-sql-sa-password' -Secret $SqlSaPassword
+    }
     Write-LabInfo 'Schritt 6/6b: SQL CompleteImage, WMI-Prüfung sowie TCP/IP-Hostzugriff werden in der laufenden Klon-VM automatisch ausgeführt.'
     $sqlCompletion = Complete-HyperVLabSqlImage -RunId $RunId -Credential $credential -SqlSaPassword $SqlSaPassword -MediaRoot $MediaRoot -StateRoot $lab.StateRoot
     $hostAccess = if ($sqlCompletion.PSObject.Properties['hostSqlAccess']) { $sqlCompletion.hostSqlAccess } else { $null }
     $generatedSqlAccess = New-HyperVTransientGeneratedSqlAccess -HostSqlAccess $hostAccess -SqlSaPassword $SqlSaPassword `
-        -Generated:($PasswordSource -eq 'generated' -and -not $sqlSaPasswordWasProvided)
+        -Generated:$generatedSqlPassword -Persisted:$generatedSqlPassword
     if ($generatedSqlAccess) {
         Write-Host ''
-        Write-Host '  Temporäre generierte SQL-Verbindung (wird nicht gespeichert):' -ForegroundColor Yellow
+        Write-Host '  Generierte SQL-Verbindung (DPAPI-geschützt später erneut abrufbar):' -ForegroundColor Yellow
         if ($generatedSqlAccess.connectionString) { Write-Host "  $($generatedSqlAccess.connectionString)" -ForegroundColor White }
         Write-Host "  SA-Passwort: $($generatedSqlAccess.password)" -ForegroundColor White
+        Write-Host "  Abruf: Get-SqlServerLabGeneratedSqlAccess -RunId $RunId" -ForegroundColor DarkGray
     }
     Write-LabSuccess 'Unbeaufsichtigte OOBE, SQL CompleteImage, WMI und der TCP/IP-Hostzugriff sind abgeschlossen.'
     return [PSCustomObject]@{
