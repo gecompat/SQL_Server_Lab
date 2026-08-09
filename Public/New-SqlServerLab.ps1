@@ -694,6 +694,7 @@ function New-SqlServerLab {
                         -SaPassword $SaPassword `
                         -ContainerName $labInstance.ContainerName `
                         -RestoreDefinition $database.restore `
+                        -SqlVersion ([string]$instance.version) `
                         -NonInteractive:$effectiveNonInteractive `
                         -RunDirectory $runState.RunDir `
                         -StateRoot $effectiveStateRoot

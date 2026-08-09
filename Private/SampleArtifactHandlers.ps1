@@ -477,6 +477,7 @@ function Install-LabSampleDatabase {
         [Parameter(Mandatory)]$RestoreDefinition,
         [switch]$NonInteractive,
         [switch]$TrustUnknownArtifact,
+        [string]$SqlVersion,
         [string]$RunDirectory,
         [string]$StateRoot,
         [string]$TestDataRoot
@@ -502,7 +503,19 @@ function Install-LabSampleDatabase {
         DatabaseName  = $databaseName
         DatabaseNames = $databaseNames
         Artifact      = $null
+        Baseline      = $null
         Success       = $false
+    }
+
+    $baselineRequest = if ($SqlVersion) {
+        Get-LabSampleBaselineRequest `
+            -RestoreDefinition $RestoreDefinition `
+            -SqlVersion $SqlVersion `
+            -StateRoot $StateRoot `
+            -TestDataRoot $TestDataRoot
+    }
+    else {
+        $null
     }
 
     $resolverArguments = @{
@@ -527,7 +540,19 @@ function Install-LabSampleDatabase {
         $resolverArguments.Compatibility = [int]$RestoreDefinition.compatibility
     }
 
-    $artifactResolution = Resolve-LabArtifact @resolverArguments
+    $artifactResolution = if ($baselineRequest) {
+        Write-LabInfo "LAB_GENERATED-Baseline verwenden ($($baselineRequest.Selection.MatchType)): $($baselineRequest.Selection.KeyId)"
+        [PSCustomObject]@{
+            Status          = 'ARTIFACT_READY'
+            Path            = [string]$baselineRequest.Selection.Path
+            Sha256          = [string]$baselineRequest.Selection.BackupSha256
+            IntegrityOrigin = 'LAB_GENERATED'
+            Message         = 'Verifizierte LAB_GENERATED-Baseline ausgewaehlt.'
+        }
+    }
+    else {
+        Resolve-LabArtifact @resolverArguments
+    }
     $result.Artifact = $artifactResolution
     if ($artifactResolution.Status -ne 'ARTIFACT_READY') {
         $result.Status = $artifactResolution.Status
@@ -563,7 +588,8 @@ function Install-LabSampleDatabase {
             }
         }
 
-        switch ([string]$RestoreDefinition.artifactType) {
+        $effectiveArtifactType = if ($baselineRequest) { 'backup' } else { [string]$RestoreDefinition.artifactType }
+        switch ($effectiveArtifactType) {
             'backup' {
                 $restoreResult = Restore-SqlServerLabDatabase `
                     -HostName $HostName `
@@ -708,6 +734,35 @@ function Install-LabSampleDatabase {
                 $result.Status = if ($RestoreDefinition.artifactType -eq 'script-bundle') { 'RECOVERY_REQUIRED' } else { 'SAMPLE_VERIFICATION_FAILED' }
                 $result.Message = "Erwartete Datenbank '$expectedDatabaseName' ist nach der Installation nicht ONLINE."
                 return [PSCustomObject]$result
+            }
+        }
+
+        if (-not $baselineRequest -and
+            $SqlVersion -and
+            [string]$RestoreDefinition.installation.baselinePolicy -eq 'eligible-after-verification' -and
+            $databaseNames.Count -eq 1) {
+            try {
+                $baselineKey = New-LabSampleBaselineRequestKey `
+                    -RestoreDefinition $RestoreDefinition `
+                    -SourceSha256 ([string]$artifactResolution.Sha256) `
+                    -SqlVersion $SqlVersion
+                $result.Baseline = New-LabSampleBaselineBackup `
+                    -HostName $HostName `
+                    -Port $Port `
+                    -SaPassword $SaPassword `
+                    -ContainerName $ContainerName `
+                    -DatabaseName $databaseName `
+                    -Key $baselineKey `
+                    -RunDirectory $RunDirectory `
+                    -StateRoot $StateRoot `
+                    -TestDataRoot $TestDataRoot
+            }
+            catch {
+                $result.Baseline = [PSCustomObject]@{
+                    Status  = 'BASELINE_GENERATION_FAILED'
+                    Message = $_.Exception.Message
+                }
+                Write-LabWarning "Sample ist verifiziert, LAB_GENERATED-Backup konnte jedoch nicht erzeugt werden: $($_.Exception.Message)"
             }
         }
 
