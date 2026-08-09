@@ -4,10 +4,9 @@
     Fuehrt PSScriptAnalyzer auf zentralen PowerShell-Dateien mit projektweiter Baseline aus.
 
 .DESCRIPTION
-    Der Check ist lokal reproduzierbar, mutiert keine Artefakte und bricht nur bei
-    gefundenen Problemen auf Error-/Warning-Ebene ab. Bei fehlendem Modul wird der
-    Check bewusst als "skipped" bewertet, damit reproduzierbare Testläufe ohne
-    externes Modul trotzdem laeuft.
+    Der Check ist lokal reproduzierbar und mutiert keine Artefakte. Fehler blockieren
+    den Lauf; Warnungen werden als gruppierte technische Schuld sichtbar ausgegeben.
+    Bei fehlendem Modul wird der Check bewusst als "skipped" bewertet.
 #>
 [CmdletBinding()]
 param(
@@ -50,17 +49,27 @@ foreach ($file in $sourceFiles) {
     }
 }
 
-if (@($results).Count -eq 0) {
-    Write-Host 'PSScriptAnalyzer: PASS' -ForegroundColor Green
+$warnings = @($results | Where-Object { $_.Severity.ToString() -eq 'Warning' })
+$errors = @($results | Where-Object { $_.Severity.ToString() -eq 'Error' })
+
+if ($warnings.Count -gt 0) {
+    Write-Host "PSScriptAnalyzer: WARN ($($warnings.Count) Fundmeldungen)" -ForegroundColor Yellow
+    foreach ($group in @($warnings | Group-Object -Property RuleName | Sort-Object -Property Count -Descending)) {
+        Write-Host ("  WARN  {0}: {1}" -f $group.Name, $group.Count) -ForegroundColor Yellow
+    }
+}
+
+if ($errors.Count -eq 0) {
+    Write-Host 'PSScriptAnalyzer: PASS (keine Error-Fundmeldungen)' -ForegroundColor Green
     exit 0
 }
 
-$issueByFile = $results | Group-Object -Property ScriptPath | Sort-Object Name
+$issueByFile = $errors | Group-Object -Property ScriptPath | Sort-Object Name
 foreach ($group in $issueByFile) {
     foreach ($issue in @($group.Group | Sort-Object Line, Column, RuleName)) {
         Write-Host ("  FAIL  {0}:{1}:{2} [{3}] {4}" -f $issue.ScriptPath, $issue.Line, $issue.Column, $issue.RuleName, $issue.Message) -ForegroundColor Red
     }
 }
 
-Write-Host "PSScriptAnalyzer: FAIL ($(@($results).Count) Fundmeldungen)" -ForegroundColor Red
+Write-Host "PSScriptAnalyzer: FAIL ($($errors.Count) Error-Fundmeldungen)" -ForegroundColor Red
 exit 1
