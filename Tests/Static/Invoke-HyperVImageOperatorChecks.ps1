@@ -273,6 +273,12 @@ try {
         $menuText -match 'VMConnect nach einem Setup-Reboot schwarz' -and
         $menuText -match 'Fenster schliessen und erneut verbinden; keinen Reset ausloesen'
     )
+    Add-CheckResult -Name 'SQL-Builder-Auswahl zeigt eindeutige VM-, Windows- und Erstellungsdetails' -Success (
+        $menuText -match '\$imageName = if \(\[string\]::IsNullOrWhiteSpace' -and
+        $menuText -match 'Get-VM -Name \$vmName' -and
+        $menuText -match 'VM: \{0\} \[\{1\}\] \| Windows: \{2\} / \{3\}' -and
+        $menuText -match 'Erstellt: \{0\} \| BuildId: \{1\}'
+    )
     Add-CheckResult -Name 'Menue besitzt Generalisierung und Publikation' -Success (
         $menuText -match 'Invoke-HyperVWindowsImageGeneralization' -and
         $menuText -match 'Publish-HyperVWindowsImageBuild'

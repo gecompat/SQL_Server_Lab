@@ -1224,7 +1224,25 @@ function Select-LabHyperVSqlImageBuild {
     if ($builds.Count -eq 1) { return $builds[0] }
     Write-Host ''
     for ($i = 0; $i -lt $builds.Count; $i++) {
-        Write-Host "    [$($i + 1)] SQL $($builds[$i].sql.version) [$($builds[$i].state)] $($builds[$i].buildId)" -ForegroundColor White
+        $candidate = $builds[$i]
+        $imageName = if ([string]::IsNullOrWhiteSpace([string]$candidate.displayName)) { '(ohne Image-Name)' } else { [string]$candidate.displayName }
+        $vmName = if ($candidate.builder -and $candidate.builder.vmName) { [string]$candidate.builder.vmName } else { '-' }
+        $vmState = '-'
+        if ($vmName -ne '-') {
+            try { $vmState = [string](Get-VM -Name $vmName -ErrorAction Stop).State } catch { $vmState = 'nicht gefunden' }
+        }
+        $createdAt = if ($candidate.manualAction -and $candidate.manualAction.requestedAt) {
+            [string]$candidate.manualAction.requestedAt
+        }
+        elseif ($candidate.stateHistory -and @($candidate.stateHistory).Count -gt 0) {
+            [string]@($candidate.stateHistory)[0].timestamp
+        }
+        else { '-' }
+        Write-Host ("    [{0}] {1} | SQL {2} {3} | {4}" -f `
+            ($i + 1), $imageName, $candidate.sql.version, $candidate.sql.edition, $candidate.state) -ForegroundColor White
+        Write-Host ("        VM: {0} [{1}] | Windows: {2} / {3}" -f `
+            $vmName, $vmState, $candidate.operatingSystem.edition, $candidate.operatingSystem.installationType) -ForegroundColor DarkGray
+        Write-Host ("        Erstellt: {0} | BuildId: {1}" -f $createdAt, $candidate.buildId) -ForegroundColor DarkGray
     }
     $selection = Read-Host '  Build (Nummer)'
     if ($selection -notmatch '^\d+$' -or [int]$selection -lt 1 -or [int]$selection -gt $builds.Count) {
