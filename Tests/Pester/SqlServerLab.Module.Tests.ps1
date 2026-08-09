@@ -157,9 +157,43 @@ function To-StringArray {
     )
 }
 
+function Get-RawManifestField {
+    param(
+        [Parameter(Mandatory)]
+        [string]$Content,
+
+        [Parameter(Mandatory)]
+        [string]$FieldName,
+
+        [ValidateSet('Scalar', 'Array')]
+        [string]$Mode = 'Scalar'
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Content)) {
+        return $null
+    }
+
+    $escapedField = [regex]::Escape($FieldName)
+    if ($Mode -eq 'Scalar') {
+        $pattern = "(?m)^[ \t]*$escapedField[ \t]*=[ \t]*(['""])([^'""]*)\1"
+        if ($Content -match $pattern) {
+            return $matches[2]
+        }
+        return $null
+    }
+
+    $pattern = "(?is)^[ \t]*$escapedField[ \t]*=[ \t]*@\\((.*?)\\)"
+    if ($Content -match $pattern) {
+        $block = $matches[1]
+        return [regex]::Matches($block, "['""]([^'""]+)['""]") | ForEach-Object { $_.Groups[1].Value }
+    }
+    return $null
+}
+
 $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
 $moduleManifest = Test-ModuleManifest -Path $modulePath -ErrorAction Stop
 $manifestData = Get-PowerShellDataFile -Path $modulePath
+$manifestRaw = Get-Content -LiteralPath $modulePath -Raw -ErrorAction Stop
 
 $moduleVersion = if ($null -ne $moduleManifest.Version) {
     $moduleManifest.Version.ToString()
@@ -169,6 +203,9 @@ else {
 }
 if ([string]::IsNullOrWhiteSpace($moduleVersion)) {
     $moduleVersion = Get-ObjectField -InputObject $manifestData -Name @('ModuleVersion', 'Version')
+}
+if ([string]::IsNullOrWhiteSpace($moduleVersion)) {
+    $moduleVersion = Get-RawManifestField -Content $manifestRaw -FieldName 'ModuleVersion' -Mode 'Scalar'
 }
 if ($moduleVersion -is [version]) {
     $moduleVersion = $moduleVersion.ToString()
@@ -182,6 +219,9 @@ else {
 }
 if ($manifestFunctions.Count -eq 0) {
     $manifestFunctions = To-StringArray -Value (Get-ObjectField -InputObject $manifestData -Name @('FunctionsToExport'))
+}
+if ($manifestFunctions.Count -eq 0) {
+    $manifestFunctions = To-StringArray -Value (Get-RawManifestField -Content $manifestRaw -FieldName 'FunctionsToExport' -Mode 'Array')
 }
 
 $psaSettingsPath = Join-Path $repoRoot 'Tests' 'Static' 'PSScriptAnalyzerSettings.psd1'
