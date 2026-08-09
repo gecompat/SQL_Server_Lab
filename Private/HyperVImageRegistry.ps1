@@ -350,7 +350,7 @@ function Rename-HyperVImageArtifact {
 
     return Invoke-LabArtifactStoreLock -StateRoot $StateRoot -ScriptBlock {
         $paths = Initialize-HyperVImageStore -StateRoot $StateRoot
-        $artifact = Get-HyperVImageArtifact -ArtifactId $ArtifactId -StateRoot $StateRoot
+        $artifact = Get-HyperVImageArtifact -ArtifactId $ArtifactId -StateRoot $StateRoot -SkipIntegrityCheck
         if (-not $artifact) { throw 'HYPERV_ARTIFACT_NOT_FOUND' }
         $metadataPath = Join-Path (Join-Path $paths.RegistryRoot $ArtifactId) 'metadata.json'
         if (-not (Test-Path -LiteralPath $metadataPath -PathType Leaf)) { throw 'HYPERV_ARTIFACT_METADATA_NOT_FOUND' }
@@ -358,7 +358,7 @@ function Rename-HyperVImageArtifact {
         $metadata | Add-Member -NotePropertyName displayName -NotePropertyValue $DisplayName -Force
         $metadata | Add-Member -NotePropertyName displayNameUpdatedAt -NotePropertyValue (Get-LabTimestamp) -Force
         Write-LabArtifactJsonAtomic -Path $metadataPath -InputObject $metadata
-        return Get-HyperVImageArtifact -ArtifactId $ArtifactId -StateRoot $StateRoot
+        return Get-HyperVImageArtifact -ArtifactId $ArtifactId -StateRoot $StateRoot -SkipIntegrityCheck
     }
 }
 
