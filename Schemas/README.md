@@ -9,6 +9,7 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 | `lab-manifest.schema.json` | Struktur deklarativer Labdefinitionen |
 | `version-catalog.schema.json` | Struktur von `Catalogs/sql-server-versions.json` |
 | `sample-databases.schema.json` | Struktur von `Catalogs/sample-databases.json` |
+| `sample-baseline-registry.schema.json` | Portables Register verifizierter, inhaltsadressierter `LAB_GENERATED`-Backups |
 | `project-adapter.schema.json` | Adaptervertrag konsumierender Projekte (`Adapters/`), Version `0.1-draft` |
 
 ## Beispiele
@@ -120,7 +121,7 @@ Beispiel:
 }
 ```
 
-Der Manifestparser akzeptiert automatisch nur Varianten mit direkter `.bak`-URL. Archive, SQL-Skripte und Attach-Szenarien werden nicht stillschweigend umgedeutet.
+Der Manifestparser akzeptiert nur als `executable` katalogisierte Varianten. Unterstützt sind direkte Backups, exakt katalogisierte Backup-Archive, einzelne SQL-Skripte und sichere Script Bundles mit festen erwarteten Datenbanken. Attach-Szenarien bleiben `descriptive` und werden nicht stillschweigend umgedeutet.
 
 ## Nutzung
 

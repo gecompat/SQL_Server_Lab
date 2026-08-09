@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/gecompat/SQL_Server_Lab/raw/main/Schemas/sample-baseline-registry.schema.json",
+  "title": "SQL Server Lab Sample Baseline Registry",
+  "type": "object",
+  "required": ["formatVersion", "records"],
+  "properties": {
+    "formatVersion": { "const": "1" },
+    "records": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["baselineId", "keyId", "origin", "key", "backupSha256", "objectPath", "verified", "quarantined", "verifiedAt"],
+        "properties": {
+          "baselineId": { "type": "string", "minLength": 1 },
+          "keyId": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "origin": { "const": "LAB_GENERATED" },
+          "key": { "type": "object" },
+          "backupSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "objectPath": { "type": "string", "pattern": "^objects/[a-f0-9]{64}/baseline\\.bak$" },
+          "verified": { "type": "boolean" },
+          "quarantined": { "type": "boolean" },
+          "quarantineReason": { "type": ["string", "null"] },
+          "verifiedAt": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
