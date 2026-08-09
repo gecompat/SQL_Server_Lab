@@ -634,7 +634,7 @@ function Invoke-LabHyperVImageAction {
         Write-Host '    [2] Offenen Prepared-Image-Builder fortsetzen' -ForegroundColor White
         Write-Host '    [3] Neue Hyper-V-Umgebung aus Windows- oder SQL-Vorlage erstellen' -ForegroundColor Yellow
         Write-Host '    [4] Hyper-V-Umgebungen verwalten' -ForegroundColor White
-        Write-Host '    [5] Veröffentlichte Images verwalten' -ForegroundColor White
+        Write-Host '    [5] Veröffentlichte Vorlagen verwalten oder gezielt löschen' -ForegroundColor White
         Write-Host '    [e] Erweitert: OS-Baselines, Abnahme und Reparatur' -ForegroundColor DarkGray
         Write-Host '    [0] Zurueck' -ForegroundColor DarkGray
         Write-Host ''
@@ -723,9 +723,9 @@ function Invoke-LabHyperVPublishedImageMenu {
     while (-not $exitMenu) {
         Clear-Host
         Write-Host ''
-        Write-Host '  Veröffentlichte Images verwalten' -ForegroundColor White
+        Write-Host '  Veröffentlichte Vorlagen verwalten' -ForegroundColor White
         Write-Host '    [1] Namen ändern' -ForegroundColor White
-        Write-Host '    [2] Image löschen' -ForegroundColor Red
+        Write-Host '    [2] Vorlage gezielt löschen' -ForegroundColor Red
         Write-Host '    [0] Zurück' -ForegroundColor DarkGray
         $choice = Read-Host '  Auswahl'
         switch ($choice) {
