@@ -51,6 +51,58 @@ try {
         $connection.instances.Count -eq 1 -and $connection.instances[0].provider -eq 'hyperv' -and
         $connection.instances[0].imageArtifactId -eq 'sql-prepared-test' -and $connection.instances[0].workload -eq 'sql'
     )
+    $driveBound = & $module {
+        param($Root)
+        function Test-HyperVAvailable { [PSCustomObject]@{ Available = $true; Message = 'mock' } }
+        function Get-HyperVImageArtifact {
+            [PSCustomObject]@{
+                artifactId = 'sql-prepared-drive-test'; artifactState = 'SQL_PREPARED_SEALED'
+                sql = [PSCustomObject]@{ version = '2025'; edition = 'Enterprise' }
+            }
+        }
+        function Resolve-LabHyperVNetwork { [PSCustomObject]@{ Name = 'SQL_LAB_HYPERV'; Subnet = '172.28.0.0/24'; PrefixLength = 24; HostAddress = '172.28.0.1' } }
+        function Get-HyperVLabVMs { @() }
+        function New-HyperVInstance {
+            param($AdditionalDrives)
+            $script:capturedAdditionalDrives = @($AdditionalDrives)
+            $provisionedDrives = @($AdditionalDrives | ForEach-Object {
+                [PSCustomObject]@{
+                    Id = $_.id; Role = $_.role; SizeBytes = $_.sizeBytes; VhdType = $_.vhdType
+                    GuestPath = $_.guestPath; AllocationUnitKB = $_.allocationUnitKB
+                    FileSystem = $_.fileSystem; VolumeLabel = $_.volumeLabel
+                    Path = (Join-Path $Root "host-only-$($_.id).vhdx")
+                    DiskIdentifier = "disk-$($_.id)"
+                }
+            })
+            [PSCustomObject]@{ VMName = 'sql-lab-drive-mock'; VMId = 'drive-vm-id'; AdditionalDrives = $provisionedDrives }
+        }
+        $drives = @([PSCustomObject]@{
+            id = 'sql-data'; role = 'sqlData'; sizeBytes = [int64](10GB); vhdType = 'dynamic'
+            guestPath = 'D:\SQLData'; allocationUnitKB = 64; fileSystem = 'NTFS'; volumeLabel = 'SQL_DATA'
+        })
+        $desiredState = [PSCustomObject]@{
+            contract = 'SqlServerLab.InstanceIntent'; contractVersion = 1; instanceId = 'primary'
+            drives = @([PSCustomObject]@{ id = 'sql-data'; role = 'sqlData'; guestPath = 'D:\SQLData' })
+        }
+        $created = New-HyperVLabEnvironment -ArtifactId 'sql-prepared-drive-test' -LabName 'Drive Mock' -InstanceId primary `
+            -AdditionalDrives $drives -DesiredState $desiredState -StateRoot $Root
+        $run = Get-LabRunState -RunId $created.RunId -StateRoot $Root
+        $connection = Get-Content -LiteralPath (Join-Path $run.RunDir 'connection-info.json') -Raw | ConvertFrom-Json -Depth 10
+        [PSCustomObject]@{
+            CapturedDrives = @($script:capturedAdditionalDrives)
+            PersistedDrives = @($connection.instances[0].additionalDrives)
+            DesiredState = $run.metadata.desiredState
+        }
+    } $temporaryRoot
+    Add-CheckResult -Name 'Manifest-Drives erreichen Hyper-V als VHDX-Intents ohne hostlokale Pfade in der Run-Evidenz' -Success (
+        $driveBound.CapturedDrives.Count -eq 1 -and
+        $driveBound.CapturedDrives[0].role -eq 'sqlData' -and
+        $driveBound.CapturedDrives[0].guestPath -eq 'D:\SQLData' -and
+        $driveBound.PersistedDrives.Count -eq 1 -and
+        $driveBound.PersistedDrives[0].diskIdentifier -eq 'disk-sql-data' -and
+        -not ($driveBound.PersistedDrives[0].PSObject.Properties.Name -contains 'Path') -and
+        $driveBound.DesiredState.contract -eq 'SqlServerLab.InstanceIntent'
+    )
     $windowsOnly = & $module {
         param($Root)
         function Test-HyperVAvailable { [PSCustomObject]@{ Available = $true; Message = 'mock' } }
@@ -153,6 +205,11 @@ try {
     Add-CheckResult -Name 'SQL CompleteImage wertet den Gast-Exit-Code als Integer aus' -Success (
         $environmentText -match '\$exitCode = \[int\]\$process\.ExitCode' -and
         $environmentText -match '\$exitCode -ne 0 -and \$exitCode -ne 3010'
+    )
+    Add-CheckResult -Name 'Unattended Hyper-V-Provisionierung initialisiert freie Gast-Drives und persistiert nur sanitierte Evidenz' -Success (
+        $environmentText -match 'Initialize-HyperVWindowsGuestDrives' -and
+        $environmentText -match 'guestDriveReceipt' -and
+        $environmentText -match 'DiskIdentifier'
     )
     $runtimeName = & $module { Get-HyperVLabRuntimeName -LabName 'Mein SQL Lab' -RunId '12345678-0000-0000-0000-000000000000' }
     Add-CheckResult -Name 'Hyper-V-Runtime-Name zeigt Projektnamen und eindeutiges Run-Präfix' -Success ($runtimeName -eq 'Mein SQL Lab-12345678')
