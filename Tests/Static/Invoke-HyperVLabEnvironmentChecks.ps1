@@ -88,7 +88,8 @@ try {
         $created = New-HyperVLabEnvironment -ArtifactId 'sql-prepared-drive-test' -LabName 'Drive Mock' -InstanceId primary `
             -AdditionalDrives $drives -DesiredState $desiredState -StateRoot $Root
         $run = Get-LabRunState -RunId $created.RunId -StateRoot $Root
-        $connection = Get-Content -LiteralPath (Join-Path $run.RunDir 'connection-info.json') -Raw | ConvertFrom-Json -Depth 10
+        $connectionPath = Join-Path (Join-Path (Join-Path $Root 'runs') $created.RunId) 'connection-info.json'
+        $connection = Get-Content -LiteralPath $connectionPath -Raw | ConvertFrom-Json -Depth 10
         [PSCustomObject]@{
             CapturedDrives = @($script:capturedAdditionalDrives)
             PersistedDrives = @($connection.instances[0].additionalDrives)
