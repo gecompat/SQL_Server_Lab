@@ -60,7 +60,7 @@ $forbiddenPresent = @($forbiddenPlannerMutations | Where-Object { $source -match
         $topUnknown = @($snapshot.PSObject.Properties.Name | Where-Object { $_ -notin @('Contract', 'ProvisioningMode', 'LabName', 'PersistentData', 'Instances') })
         $instanceUnknown = @(
             $snapshot.Instances | ForEach-Object {
-                @($_.PSObject.Properties.Name | Where-Object { $_ -notin @('Id', 'Provider', 'Version', 'Profile', 'DatabaseNames') })
+                @($_.PSObject.Properties.Name | Where-Object { $_ -notin @('Id', 'Provider', 'Version', 'Profile', 'DatabaseNames', 'Intents') })
             }
         ) | ForEach-Object { $_ }
         [PSCustomObject]@{

@@ -651,6 +651,12 @@ Die Planvorschau begründet insbesondere:
 - Diff-/Reconcile-Änderungsklassen;
 - statische Contract Tests.
 
+Stand 2026-08-09: Der persistierte Run-Sollzustand enthält einen versionierten,
+geheimnisfreien `SqlServerLab.InstanceIntent` für Drives, Network und Software.
+Provider-Metadaten liefern die deklarative Evidenzgrenze; noch nicht gebundene
+Software- oder Hyper-V-LAN-Intents bleiben sichtbar `DECLARED_UNSUPPORTED`.
+Konkrete Hostpfade, Switch-Namen, URLs und Befehle werden nicht persistiert.
+
 ### Welle 2 – Artifact- und Medienverwaltung
 
 - OS-, SQL- und Softwarekataloge;

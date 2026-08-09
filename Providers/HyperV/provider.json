@@ -19,6 +19,7 @@
     "powershell-direct-sysprep",
     "automatic-generalization-evidence",
     "run-local-additional-vhdx",
+    "isolated-network",
     "scsi-drive-attachment",
     "stable-vhdx-disk-identity",
     "powershell-direct-guest-drive-initialization",

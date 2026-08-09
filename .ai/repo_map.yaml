@@ -203,6 +203,12 @@ internal_components:
       - "Pfadgrenzen des Adapter-Roots und Reparse Points erzwingen"
       - "unbekannte Major-Vertrags- und Core-Versionen ablehnen"
       - "Versions- und Capability-Gates gegen eine Run-Instanz pruefen"
+  - name: DesiredState
+    source: Private/DesiredState.ps1
+    responsibilities:
+      - "geheimnisfreien Sollzustand vor jeder Provider-Mutation erzeugen"
+      - "Drive-, Network- und Software-Anforderungen providerneutral normalisieren"
+      - "deklarative Provider-Capability-Evidenz ohne Runtime-Annahme persistieren"
   - name: CleanupEngine
     source: Private/CleanupEngine.ps1
     responsibilities:
