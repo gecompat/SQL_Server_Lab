@@ -25,6 +25,12 @@ Add-CheckResult `
     -Name 'Export verfuegbar: Invoke-SqlServerLabReconcileAction' `
     -Success ([bool](Get-Command Invoke-SqlServerLabReconcileAction -Module SqlServerLab -ErrorAction SilentlyContinue))
 
+$startCommand = Get-Command Start-SqlServerLab -Module SqlServerLab -ErrorAction Stop
+$stopCommand = Get-Command Stop-SqlServerLab -Module SqlServerLab -ErrorAction Stop
+Add-CheckResult `
+    -Name 'Start-SqlServerLab und Stop-SqlServerLab akzeptieren optionalen StateRoot' `
+    -Success (($startCommand.Parameters.ContainsKey('StateRoot') -and $stopCommand.Parameters.ContainsKey('StateRoot')))
+
 $testSource = Get-Content -LiteralPath $actionPath -Raw -Encoding utf8
 $forbiddenMutations = @(
     'Write-LabArtifactJsonAtomic',
