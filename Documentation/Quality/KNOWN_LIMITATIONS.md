@@ -135,8 +135,7 @@ danach weiter unbeaufsichtigt.
 Freie run-lokale Manifest-Drives werden inzwischen deklarativ auf zusätzliche
 Hyper-V-VHDX und deren Disk-ID-gebundene Gastinitialisierung abgebildet. Noch
 nicht implementiert ist die vollständige Bindung an den Datenbank-, Software-,
-Post-Provisioning- und Netzwerkvertrag. Der enge Klonpfad aus einem
-`SQL_PREPARED_SEALED`-Image führt `CompleteImage` bereits aus; offen bleiben der
+Post-Provisioning- und Netzwerkvertrag. Der enge Klonpfad führt für ein `SQL_PREPARED_SEALED`-Image `CompleteImage` bereits aus; offen bleiben der
 vollautomatische OS-Factory-Build, ein allgemeiner Hyper-V-SQL-Runtimepfad mit
 realem End-to-End-Nachweis, runtimeübergreifende Network Intents, zentraler IPAM,
 Reconcile und der automatische Artifact Refresh. Der verbindliche Zielvertrag steht in
