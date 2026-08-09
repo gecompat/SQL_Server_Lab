@@ -85,7 +85,11 @@ try {
         $freshPlan.provisioningMode -eq 'fresh-windows-media' -and
         $freshPlan.parentArtifact.source -eq 'fresh-windows-media' -and
         $freshPlan.operatingSystem.installationType -eq 'desktop-experience' -and
-        $freshPlan.displayName -eq 'Testbild SQL 2019'
+        $freshPlan.displayName -eq 'Testbild SQL 2019' -and
+        $freshPlan.windowsMedia.bootInteraction.initialMediaKey -eq 'space'
+    )
+    Add-CheckResult -Name 'Fresh-SQL-Builder sendet den initialen Windows-DVD-Boot-Key' -Success (
+        $builderText -match "provisioningMode\s+-eq\s+'fresh-windows-media'[\s\S]{0,300}Invoke-HyperVInitialMediaBootInteraction"
     )
     $freshLicensedPlan = & $module {
         param($Iso,$Sha,$Root)

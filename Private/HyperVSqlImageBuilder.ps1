@@ -583,7 +583,10 @@ function New-HyperVSqlFreshImageBuildPlan {
         contractVersion = '2'; buildKind = 'hyperv-sql-prepare-image-fresh-windows'; buildId = $buildId; scopeId = $scopeId
         provisioningMode = 'fresh-windows-media'; displayName = $ImageName; state = 'MEDIA_VERIFIED'
         stateHistory = @([PSCustomObject]@{ state = 'MEDIA_VERIFIED'; timestamp = $timestamp; reason = 'Windows- und SQL-ISO SHA-256 verifiziert; ein finaler Sysprep vorgesehen' })
-        operatingSystem = $operatingSystem; license = $license; windowsMedia = [PSCustomObject]@{ sha256 = $windowsSha256 }
+        operatingSystem = $operatingSystem; license = $license; windowsMedia = [PSCustomObject]@{
+            sha256 = $windowsSha256
+            bootInteraction = [PSCustomObject]@{ initialMediaKey = 'space' }
+        }
         parentArtifact = [PSCustomObject]@{ artifactId = $null; source = 'fresh-windows-media'; operatingSystem = $operatingSystem; license = $license }
         resources = [PSCustomObject]@{ osDiskSizeBytes = $OsDiskSizeBytes }
         sql = [PSCustomObject]@{
@@ -769,8 +772,14 @@ function Start-HyperVSqlImageBuildVM {
     if (-not $build -or $build.state -notin @('MANUAL_ACTION_REQUIRED', 'REBOOT_REQUIRED')) {
         throw 'HYPERV_SQL_IMAGE_BUILD_VM_NOT_STARTABLE'
     }
-    return Start-HyperVInstance -VMName ([string]$build.builder.vmName) `
+    $instance = Start-HyperVInstance -VMName ([string]$build.builder.vmName) `
         -ExpectedRunId $build.buildId -ExpectedScopeId $build.scopeId
+    if ([string]$build.provisioningMode -eq 'fresh-windows-media') {
+        $receipt = Invoke-HyperVInitialMediaBootInteraction `
+            -BuildId $BuildId -VMName ([string]$build.builder.vmName) -StateRoot $StateRoot
+        $instance | Add-Member -NotePropertyName InitialMediaBoot -NotePropertyValue $receipt -Force
+    }
+    return $instance
 }
 
 function Confirm-HyperVSqlFreshWindowsInstallation {
