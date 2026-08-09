@@ -36,6 +36,9 @@ function Clear-SqlServerLab {
 
     $stateRoot = Get-LabStateRoot
     $activeRuns = @(Get-LabActiveRuns -StateRoot $stateRoot)
+    $windowsImageBuilds = if (-not $StateOnly -and -not $ContainersOnly) { @(Get-HyperVImageBuildPlans -StateRoot $stateRoot) } else { @() }
+    $sqlImageBuilds = if (-not $StateOnly -and -not $ContainersOnly) { @(Get-HyperVSqlImageBuildPlans -StateRoot $stateRoot) } else { @() }
+    $imageArtifacts = if (-not $StateOnly -and -not $ContainersOnly) { @(Get-HyperVImageArtifact -StateRoot $stateRoot -SkipIntegrityCheck) } else { @() }
     $knownRunIds = @($activeRuns | ForEach-Object { $_.runId })
     $runtimeStatus = @{}
     $allContainers = @()
@@ -82,6 +85,9 @@ function Clear-SqlServerLab {
     Write-LabStatus -Label 'Aktive Runs' -Value $activeRuns.Count
     Write-LabStatus -Label 'Lab-Container' -Value $allContainers.Count
     Write-LabStatus -Label 'Orphan-Container' -Value $orphanContainers.Count
+    Write-LabStatus -Label 'Hyper-V Windows-Builder' -Value $windowsImageBuilds.Count
+    Write-LabStatus -Label 'Hyper-V SQL-Builder' -Value $sqlImageBuilds.Count
+    Write-LabStatus -Label 'Veröffentlichte Hyper-V-Images' -Value $imageArtifacts.Count
     foreach ($runtime in @('docker', 'podman')) {
         Write-LabStatus -Label "Runtime $runtime" -Value $runtimeStatus[$runtime]
     }
@@ -93,7 +99,7 @@ function Clear-SqlServerLab {
         $allContainers.Count
     }
     else {
-        $activeRuns.Count + $orphanContainers.Count
+        $activeRuns.Count + $orphanContainers.Count + $windowsImageBuilds.Count + $sqlImageBuilds.Count + $imageArtifacts.Count
     }
 
     if ($workCount -eq 0) {
@@ -133,6 +139,8 @@ function Clear-SqlServerLab {
 
     $removedContainers = 0
     $removedStateRuns = 0
+    $removedImageBuilds = 0
+    $removedImageArtifacts = 0
     $errors = 0
 
     if ($StateOnly) {
@@ -281,12 +289,33 @@ function Clear-SqlServerLab {
                 $errors++
             }
         }
+
+        foreach ($build in $windowsImageBuilds) {
+            try {
+                $result = Remove-HyperVWindowsImageBuild -BuildId ([string]$build.buildId) -StateRoot $stateRoot
+                if ([string]$result.Status -eq 'CLEANUP_SUCCEEDED') { $removedImageBuilds++ } else { $errors++ }
+            }
+            catch { Write-LabError "Windows-Builder '$($build.buildId)' konnte nicht entfernt werden: $($_.Exception.Message)"; $errors++ }
+        }
+        foreach ($build in $sqlImageBuilds) {
+            try {
+                $result = Remove-HyperVSqlImageBuild -BuildId ([string]$build.buildId) -StateRoot $stateRoot
+                if ([string]$result.Status -eq 'CLEANUP_SUCCEEDED') { $removedImageBuilds++ } else { $errors++ }
+            }
+            catch { Write-LabError "SQL-Builder '$($build.buildId)' konnte nicht entfernt werden: $($_.Exception.Message)"; $errors++ }
+        }
+        foreach ($artifact in $imageArtifacts) {
+            try { $null = Remove-HyperVImageArtifact -ArtifactId ([string]$artifact.artifactId) -StateRoot $stateRoot; $removedImageArtifacts++ }
+            catch { Write-LabError "Image '$($artifact.artifactId)' konnte nicht entfernt werden: $($_.Exception.Message)"; $errors++ }
+        }
     }
 
     $status = if ($errors -eq 0) { 'CLEAN' } else { 'PARTIAL' }
     Write-LabHeader 'Cleanup abgeschlossen'
     Write-LabStatus -Label 'Container entfernt' -Value $removedContainers -Color 'Green'
     Write-LabStatus -Label 'State-Runs bereinigt' -Value $removedStateRuns -Color 'Green'
+    Write-LabStatus -Label 'Image-Builder entfernt' -Value $removedImageBuilds -Color 'Green'
+    Write-LabStatus -Label 'Hyper-V-Images entfernt' -Value $removedImageArtifacts -Color 'Green'
     if ($errors -gt 0) {
         Write-LabStatus -Label 'Fehler' -Value $errors -Color 'Red'
     }
@@ -294,6 +323,8 @@ function Clear-SqlServerLab {
     return [PSCustomObject]@{
         Containers = $removedContainers
         StateRuns  = $removedStateRuns
+        ImageBuilds = $removedImageBuilds
+        ImageArtifacts = $removedImageArtifacts
         Errors     = $errors
         Status     = $status
     }

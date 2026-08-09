@@ -574,6 +574,55 @@ function Invoke-HyperVLabUnattendedProvision {
     }
 }
 
+function Complete-HyperVLabManualWindowsSlot {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RunId,
+        [Parameter(Mandatory)][PSCredential]$Credential,
+        [ValidateRange(60, 3600)][int]$TimeoutSeconds = 900,
+        [string]$StateRoot
+    )
+
+    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
+    if ([string]$lab.Instance.workload -ne 'windows' -or [string]$lab.Instance.baseKind -ne 'windows-baseline') {
+        throw 'HYPERV_MANUAL_WINDOWS_SLOT_REQUIRED'
+    }
+    if ($lab.Instance.windowsProvisioning -and [string]$lab.Instance.windowsProvisioning.state -eq 'COMPLETE') {
+        throw 'HYPERV_MANUAL_WINDOWS_SLOT_ALREADY_COMPLETED'
+    }
+    $managed = Get-HyperVManagedVM -VMName ([string]$lab.Instance.vmName) `
+        -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
+    if (-not $managed -or [string]$managed.VM.State -ne 'Running') {
+        throw 'HYPERV_MANUAL_WINDOWS_SLOT_VM_MUST_BE_RUNNING'
+    }
+
+    Write-LabInfo 'Windows-Slot: prüfe abgeschlossene manuelle Windows-Einrichtung per PowerShell Direct.'
+    $ready = Wait-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) `
+        -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId `
+        -Credential $Credential -TimeoutSeconds $TimeoutSeconds
+    if (-not $ready.Ready) { throw "HYPERV_MANUAL_WINDOWS_SLOT_TIMEOUT: $($ready.Message)" }
+
+    Save-LabSecret -Path $lab.RunDirectory -Name 'guest-administrator-password' -Secret $Credential.Password
+    $networkReceipt = $null
+    if ($lab.Instance.labNetwork) {
+        Write-LabInfo "Windows-Slot: konfiguriere feste Gastadresse im Netz $($lab.Instance.labNetwork.name)."
+        $networkReceipt = Initialize-HyperVGuestLabNetwork -VMName ([string]$lab.Instance.vmName) `
+            -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId `
+            -Credential $Credential -Network $lab.Instance.labNetwork -Identity $lab.Run.runId
+    }
+
+    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
+    $lab.Instance | Add-Member -NotePropertyName windowsProvisioning -NotePropertyValue ([PSCustomObject]@{
+        state = 'COMPLETE'; mode = 'manual-handoff'; computerName = [string]$ready.ComputerName
+        imageState = [string]$ready.ImageState; network = $networkReceipt; completedAt = Get-LabTimestamp
+    }) -Force
+    Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
+    return [PSCustomObject]@{
+        RunId = $lab.Run.runId; VMName = $lab.Instance.vmName; State = 'WINDOWS_SLOT_READY'
+        ComputerName = [string]$ready.ComputerName; Network = $networkReceipt
+    }
+}
+
 function Rename-HyperVLabEnvironment {
     <#
     .SYNOPSIS
