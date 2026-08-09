@@ -636,9 +636,17 @@ function Initialize-HyperVSqlPreparedImageBuild {
     if ($media.HashStatus -ne 'SIDECAR_READY') { throw "HYPERV_SQL_MEDIA_HASH_REQUIRED: $($media.HashPath)" }
     $null = Confirm-HyperVSqlInstallationMediaVersion -IsoPath $media.IsoPath -SqlVersion $SqlVersion
     $labNetwork = Ensure-LabHyperVNetwork
-    $plan = New-HyperVSqlImageBuildPlan -ImageArtifactId $ImageArtifactId -IsoPath $media.IsoPath `
-        -ExpectedSha256 $media.ExpectedSha256 -SqlVersion $SqlVersion -SqlEdition $MediaEdition `
-        -SqlFeatures $SqlFeatures -ImageName $ImageName -StateRoot $StateRoot
+    $planArguments = @{
+        ImageArtifactId = $ImageArtifactId
+        IsoPath = $media.IsoPath
+        ExpectedSha256 = $media.ExpectedSha256
+        SqlVersion = $SqlVersion
+        SqlEdition = $MediaEdition
+        SqlFeatures = $SqlFeatures
+        StateRoot = $StateRoot
+    }
+    if (-not [string]::IsNullOrWhiteSpace($ImageName)) { $planArguments.ImageName = $ImageName.Trim() }
+    $plan = New-HyperVSqlImageBuildPlan @planArguments
     try {
         $instance = New-HyperVInstance -ImageArtifactId $ImageArtifactId -StateRoot $StateRoot `
             -RunDirectory $plan.BuildDirectory -RunId $plan.buildId -ScopeId $plan.scopeId `
@@ -692,11 +700,22 @@ function Initialize-HyperVSqlFreshPreparedImageBuild {
     if ($sqlMedia.HashStatus -ne 'SIDECAR_READY') { throw "HYPERV_SQL_MEDIA_HASH_REQUIRED: $($sqlMedia.HashPath)" }
     $null = Confirm-HyperVSqlInstallationMediaVersion -IsoPath $sqlMedia.IsoPath -SqlVersion $SqlVersion
     $labNetwork = Ensure-LabHyperVNetwork
-    $plan = New-HyperVSqlFreshImageBuildPlan -WindowsIsoPath $windowsMedia.IsoPath `
-        -ExpectedWindowsSha256 $windowsMedia.ExpectedSha256 -OperatingSystemId $OperatingSystemId `
-        -WindowsEdition $WindowsEdition -InstallationType $InstallationType -SqlIsoPath $sqlMedia.IsoPath `
-        -ExpectedSqlSha256 $sqlMedia.ExpectedSha256 -SqlVersion $SqlVersion -SqlEdition $MediaEdition `
-        -SqlFeatures $SqlFeatures -ImageName $ImageName -OsDiskSizeBytes $OsDiskSizeBytes -StateRoot $StateRoot
+    $planArguments = @{
+        WindowsIsoPath = $windowsMedia.IsoPath
+        ExpectedWindowsSha256 = $windowsMedia.ExpectedSha256
+        OperatingSystemId = $OperatingSystemId
+        WindowsEdition = $WindowsEdition
+        InstallationType = $InstallationType
+        SqlIsoPath = $sqlMedia.IsoPath
+        ExpectedSqlSha256 = $sqlMedia.ExpectedSha256
+        SqlVersion = $SqlVersion
+        SqlEdition = $MediaEdition
+        SqlFeatures = $SqlFeatures
+        OsDiskSizeBytes = $OsDiskSizeBytes
+        StateRoot = $StateRoot
+    }
+    if (-not [string]::IsNullOrWhiteSpace($ImageName)) { $planArguments.ImageName = $ImageName.Trim() }
+    $plan = New-HyperVSqlFreshImageBuildPlan @planArguments
     try {
         $resourceRoot = Join-Path $plan.BuildDirectory 'resources/hyperv'
         $runPrefix = $plan.buildId.Replace('-', '').Substring(0, 8).ToLowerInvariant()

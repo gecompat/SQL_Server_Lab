@@ -265,6 +265,7 @@ try {
 
     $menuText = Get-Content -LiteralPath $menuPath -Raw -Encoding utf8
     $entryText = Get-Content -LiteralPath $entryPath -Raw -Encoding utf8
+    $sqlBuilderText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVSqlImageBuilder.ps1') -Raw -Encoding utf8
     Add-CheckResult -Name 'Hauptmenue bietet Hyper-V-Image-Verwaltung an' -Success ($menuText -match "'i'\s*\{\s*Invoke-LabAction\s+-ActionName\s+'Image'")
     Add-CheckResult -Name 'Direkt-Aktion Image ist am Einstieg erlaubt' -Success ($entryText -match "ValidateSet\([^\)]*'Image'")
     Add-CheckResult -Name 'Menue dokumentiert den manuellen Installationsschritt' -Success ($menuText -match 'Show-LabHyperVManualInstallInstructions')
@@ -315,7 +316,10 @@ try {
     Add-CheckResult -Name 'Optionaler SQL-Prepared-Image-Name wird nur bei Inhalt gebunden' -Success (
         $menuText -match '\[string\]::IsNullOrWhiteSpace\(\$imageName\)' -and
         $menuText -match '\$buildArguments\.ImageName = \$imageName\.Trim\(\)' -and
-        $menuText -match 'Initialize-HyperVSqlFreshPreparedImageBuild @buildArguments'
+        $menuText -match 'Initialize-HyperVSqlFreshPreparedImageBuild @buildArguments' -and
+        @($sqlBuilderText | Select-String -Pattern '\$planArguments\.ImageName = \$ImageName\.Trim\(\)' -AllMatches).Matches.Count -eq 2 -and
+        $sqlBuilderText -match 'New-HyperVSqlImageBuildPlan @planArguments' -and
+        $sqlBuilderText -match 'New-HyperVSqlFreshImageBuildPlan @planArguments'
     )
     Add-CheckResult -Name 'Windows-Builder-Cleanup bietet ALL mit eigener Gesamtbestaetigung' -Success (
         $menuText -match '\[ALL\] Alle \$\(\$builds\.Count\) angezeigten unfertigen Windows-Builder aufraeumen' -and
