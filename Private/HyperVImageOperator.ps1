@@ -596,16 +596,22 @@ function Invoke-HyperVInitialMediaBootInteraction {
         [string]$StateRoot
     )
 
+    $isSqlBuild = $false
     $build = Get-HyperVImageBuildPlan -BuildId $BuildId -StateRoot $StateRoot
+    if (-not $build -and (Get-Command Get-HyperVSqlImageBuildPlan -ErrorAction SilentlyContinue)) {
+        $build = Get-HyperVSqlImageBuildPlan -BuildId $BuildId -StateRoot $StateRoot
+        $isSqlBuild = $null -ne $build
+    }
     if (-not $build) { throw 'HYPERV_IMAGE_BUILD_NOT_FOUND' }
     if ($build.initialMediaBootReceipt) { return $build.initialMediaBootReceipt }
 
-    $initialMediaKey = [string]$build.media.bootInteraction.initialMediaKey
+    $bootMedia = if ($isSqlBuild) { $build.windowsMedia } else { $build.media }
+    $initialMediaKey = [string]$bootMedia.bootInteraction.initialMediaKey
     if ([string]::IsNullOrWhiteSpace($initialMediaKey)) {
         # Portable migration for unfinished Windows builds created before the
         # boot-interaction contract existed.
         $initialMediaKey = 'space'
-        $build.media | Add-Member -NotePropertyName bootInteraction `
+        $bootMedia | Add-Member -NotePropertyName bootInteraction `
             -NotePropertyValue ([PSCustomObject]@{ initialMediaKey = $initialMediaKey }) -Force
     }
     if ($initialMediaKey -notin @('none', 'space')) {
@@ -648,7 +654,12 @@ function Invoke-HyperVInitialMediaBootInteraction {
         completedAt = Get-LabTimestamp
     }
     $build | Add-Member -NotePropertyName initialMediaBootReceipt -NotePropertyValue $receipt -Force
-    Write-HyperVImageBuildState -BuildDirectory $build.BuildDirectory -State $build
+    if ($isSqlBuild) {
+        Write-HyperVSqlImageBuildState -BuildDirectory $build.BuildDirectory -State $build
+    }
+    else {
+        Write-HyperVImageBuildState -BuildDirectory $build.BuildDirectory -State $build
+    }
     return $receipt
 }
 
