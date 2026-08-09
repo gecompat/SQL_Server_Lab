@@ -37,8 +37,7 @@
     "no-general-sql-manifest-provisioning",
     "no-broad-network-binding",
     "no-real-windows-guest-specialization-ci",
-    "no-real-windows-sql-e2e-evidence",
-    "no-drive-manifest-binding"
+    "no-real-windows-sql-e2e-evidence"
   ],
   "detectionCommand": "Get-VMHost",
   "healthCheck": "Get-VMHost",

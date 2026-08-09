@@ -320,6 +320,27 @@ Add-CheckResult `
     -Success $hyperVManifestResult.IsValid `
     -Message ($hyperVManifestResult.Errors -join '; ')
 
+$hyperVDriveManifest = $hyperVManifest | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
+$hyperVDriveManifest.instances[0] | Add-Member -NotePropertyName drives -NotePropertyValue @(
+    [PSCustomObject]@{ id = 'data'; containerPath = 'D:\SQLData'; sizeLimitGB = 64; type = 'ssd' },
+    [PSCustomObject]@{ id = 'log'; containerPath = 'L:\SQLLog'; sizeLimitGB = 32; type = 'ssd' }
+) -Force
+$hyperVDriveResult = Test-SqlServerLabManifest -InputObject $hyperVDriveManifest
+Add-CheckResult `
+    -Name 'Hyper-V-Manifest bindet sichere run-lokale Zusatz-VHDX' `
+    -Success $hyperVDriveResult.IsValid `
+    -Message ($hyperVDriveResult.Errors -join '; ')
+
+$hyperVUnsafeDriveManifest = $hyperVManifest | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
+$hyperVUnsafeDriveManifest.instances[0] | Add-Member -NotePropertyName drives -NotePropertyValue @(
+    [PSCustomObject]@{ id = 'unsafe'; containerPath = 'D:\Unsafe'; hostPath = 'C:\HostData'; type = 'tmpfs' }
+) -Force
+$hyperVUnsafeDriveResult = Test-SqlServerLabManifest -InputObject $hyperVUnsafeDriveManifest
+Add-CheckResult `
+    -Name 'Hyper-V-Manifest blockiert Host-Mount, tmpfs und fehlende VHDX-Groesse' `
+    -Success (-not $hyperVUnsafeDriveResult.IsValid -and @($hyperVUnsafeDriveResult.Errors | Where-Object { $_ -match 'hostPath|tmpfs|sizeLimitGB' }).Count -ge 3) `
+    -Message ($hyperVUnsafeDriveResult.Errors -join '; ')
+
 $hyperVWindowsManifest = [ordered]@{
     name = 'hyperv-manifest-windows-check'
     persistentData = [ordered]@{ enabled = $true; dataDiskGB = 128 }

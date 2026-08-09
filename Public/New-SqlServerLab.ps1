@@ -418,14 +418,27 @@ function New-SqlServerLab {
             }
         }
 
+        $hyperVAdditionalDrives = @($instance.drives | Where-Object { $_ } | ForEach-Object {
+            [PSCustomObject]@{
+                id = [string]$_.id
+                role = Get-LabDriveIntentRole -DriveId ([string]$_.id)
+                sizeBytes = [long]([double]$_.sizeLimitGB * 1GB)
+                vhdType = if ([string]$instance.profile -eq 'performance') { 'fixed' } else { 'dynamic' }
+                guestPath = [string]$_.containerPath
+                allocationUnitKB = 64
+                fileSystem = 'NTFS'
+            }
+        })
+        $hyperVDesiredState = New-LabDesiredStateSnapshot -ResolvedLab $resolved -ProvisioningMode manifest -PersistentData ([bool]$PersistentData)
         $lab = New-HyperVLabEnvironment -ArtifactId ([string]$artifact.artifactId) -LabName ([string]$resolved.name) -InstanceId ([string]$instance.id) `
             -MemoryStartupMB ([int]$instance.hyperv.memoryStartupMB) -ProcessorCount ([int]$instance.hyperv.processorCount) `
-            -SwitchName ([string]$instance.hyperv.switchName) -StateRoot $StateRoot
+            -SwitchName ([string]$instance.hyperv.switchName) -AdditionalDrives $hyperVAdditionalDrives -DesiredState $hyperVDesiredState -StateRoot $StateRoot
         $hyperVLab = Get-HyperVLabWorkflowRun -RunId $lab.RunId -StateRoot $StateRoot
         if ($PersistentData) {
             $null = Enable-HyperVLabPersistentData -RunId $lab.RunId -DataRoot $DataRoot -SizeGB ([int]$resolved.persistentData.dataDiskGB) -StateRoot $hyperVLab.StateRoot
         }
         $provisioning = Invoke-HyperVLabUnattendedProvision -RunId $lab.RunId -AdministratorPassword $GuestPassword -SqlSaPassword $SqlSaPassword -PasswordSource $passwordSource -Region $Region -SystemLocale $SystemLocale -UiLanguage $UiLanguage -InputLocale $InputLocale -TimeZone $TimeZone -StateRoot $hyperVLab.StateRoot
+        $hyperVLab = Get-HyperVLabWorkflowRun -RunId $lab.RunId -StateRoot $hyperVLab.StateRoot
         return [PSCustomObject]@{
             RunId = $lab.RunId; ScopeId = $lab.ScopeId; State = 'RUNNING'; Name = $resolved.name; Instances = @($hyperVLab.Instance)
             StateRoot = $hyperVLab.StateRoot; DataRoot = if ($PersistentData) { $DataRoot } else { $null }; Provisioning = $provisioning

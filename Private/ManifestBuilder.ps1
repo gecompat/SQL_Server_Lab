@@ -647,9 +647,29 @@ function Get-LabManifestValidationResult {
             }
             if (@($instance.databases | Where-Object { $null -ne $_ }).Count -gt 0 -or
                 @($instance.postProvision | Where-Object { $null -ne $_ }).Count -gt 0 -or
-                @($instance.software | Where-Object { $null -ne $_ }).Count -gt 0 -or
-                @($instance.drives | Where-Object { $null -ne $_ }).Count -gt 0) {
-                $errors.Add("${instancePath}: Datenbanken, Software, freie Drives und Post-Provision-Skripte sind für den Hyper-V-Manifestpfad noch nicht atomar implementiert.")
+                @($instance.software | Where-Object { $null -ne $_ }).Count -gt 0) {
+                $errors.Add("${instancePath}: Datenbanken, Software und Post-Provision-Skripte sind für den Hyper-V-Manifestpfad noch nicht atomar implementiert.")
+            }
+            $hyperVDriveLetters = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+            foreach ($drive in @($instance.drives | Where-Object { $_ })) {
+                if ($drive.hostPath) {
+                    $errors.Add("${instancePath}.drives[$($drive.id)].hostPath: Hyper-V-Zusatz-VHDX werden ausschließlich run-lokal erzeugt; Host-Mounts sind nicht zulässig.")
+                }
+                if (-not $drive.sizeLimitGB) {
+                    $errors.Add("${instancePath}.drives[$($drive.id)].sizeLimitGB: Für Hyper-V-Zusatz-VHDX ist eine explizite Größe erforderlich.")
+                }
+                if ([string]$drive.containerPath -notmatch '^[D-Zd-z]:\\(?:[^<>:"/|?*\r\n]+(?:\\[^<>:"/|?*\r\n]+)*)?$') {
+                    $errors.Add("${instancePath}.drives[$($drive.id)].containerPath: Hyper-V benötigt einen absoluten Windows-Gastpfad ab Laufwerk D:.")
+                }
+                else {
+                    $driveLetter = ([string]$drive.containerPath).Substring(0, 1)
+                    if (-not $hyperVDriveLetters.Add($driveLetter)) {
+                        $errors.Add("${instancePath}.drives: Gastlaufwerk '$driveLetter' ist mehrfach belegt.")
+                    }
+                }
+                if ([string]$drive.type -eq 'tmpfs') {
+                    $errors.Add("${instancePath}.drives[$($drive.id)].type: tmpfs wird von Hyper-V nicht unterstützt.")
+                }
             }
         }
         elseif ($instance.software) {

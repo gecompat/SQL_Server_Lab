@@ -30,11 +30,12 @@ die isolierte Lifecycle-Grundlage aus Welle 4, die Registry-Grundlage aus Welle
 2 sowie Teile aus Welle 5: Generation 2, Secure Boot, verifizierte Parent-/
 Child-VHDX, Status, Start, Stop, PowerShell Direct, scopegebundener Cleanup,
 immutable sealed VHDX, deterministische Auswahl, Manifest Lock, zusätzliche
-Gast-Drives, Windows-Specialization mit Reboot/Reconnect und eine interne SQL-
-Readiness-Orchestrierung. Unattended Image Build, SQL `CompleteImage`, Netzwerk-
-und Manifest-Binding sowie der echte Windows-/SQL-End-to-End-Nachweis sind noch
-nicht implementiert. Die bestehenden Containerpfade bleiben für SQL-fertige
-Labs unverändert maßgeblich.
+Gast-Drives samt Manifest-Binding, Windows-Specialization mit Reboot/Reconnect
+und eine interne SQL-Readiness-Orchestrierung. Unattended Image Build, SQL
+`CompleteImage`, Netzwerk-, Datenbank-, Software- und Post-Provision-Binding
+sowie der echte Windows-/SQL-End-to-End-Nachweis sind noch nicht implementiert.
+Die bestehenden Containerpfade bleiben für SQL-fertige Labs unverändert
+maßgeblich.
 
 ## 2. Verbindliche Grundentscheidungen
 
@@ -715,14 +716,16 @@ realen sealed Baseline bislang nur statisch abgedeckt.
 - `SQL_PREPARED_SEALED`;
 - SQL Readiness und Configuration.
 
-Stand 2026-08-03: Run-lokale dynamische und feste Zusatz-VHDX mit validierten
+Stand 2026-08-09: Run-lokale dynamische und feste Zusatz-VHDX mit validierten
 SQL-bezogenen Rollen, SCSI-Anbindung, VM-Identitätsbindung und scope-sicherem
 Cleanup sind implementiert. Der VHDX-DiskIdentifier bindet Host und Gast;
 PowerShell Direct orchestriert idempotente GPT-/NTFS-Initialisierung,
 Allocation Unit, Volume Label und Gastpfad. Eine interne SQL-Readiness-Prüfung
 validiert Dienst, Major-Version und die Online-Systemdatenbanken und persistiert
-sanitierte `SQL_READY_RUN`-Evidenz. Ein echter Windows-Gast-End-to-End-Nachweis,
-Manifest-Binding und alle SQL-Setup-/`CompleteImage`-Schritte bleiben offen.
+sanitierte `SQL_READY_RUN`-Evidenz. Freie Manifest-Drives werden in diesen
+Lifecycle übersetzt und mit ihrem geheimnisfreien Sollzustand im Run gebunden.
+Ein echter Windows-Gast-End-to-End-Nachweis sowie alle SQL-Setup-/
+`CompleteImage`-Schritte bleiben offen.
 
 ### Welle 6 – Netzwerkabstraktion
 

@@ -202,6 +202,8 @@ function New-HyperVLabEnvironment {
         [ValidateRange(1, 64)][int]$ProcessorCount = 4,
         [string]$SwitchName,
         [switch]$Isolated,
+        [object[]]$AdditionalDrives = @(),
+        $DesiredState,
         [string]$StateRoot
     )
 
@@ -223,6 +225,7 @@ function New-HyperVLabEnvironment {
     $run = New-LabRunState -StateRoot $StateRoot -Metadata @{
         name = $LabName; workflowKind = 'hyperv-lab'; imageArtifactId = $ArtifactId; workload = $workload; baseKind = $baseKind
         network = if ($labNetwork) { $labNetwork.Name } else { $null }
+        desiredState = $DesiredState
     } -ProviderSubRuns @([PSCustomObject]@{ id = 'provider-hyperv'; provider = 'hyperv'; instanceIds = @($InstanceId) })
     try {
         $null = New-CleanupPlan -RunDir $run.RunDir -RunId $run.RunId -ScopeId $run.ScopeId -ProviderSubRuns @([PSCustomObject]@{ id = 'provider-hyperv'; provider = 'hyperv'; instanceIds = @($InstanceId) })
@@ -230,7 +233,7 @@ function New-HyperVLabEnvironment {
         $null = Set-LabRunState -RunId $run.RunId -NewState PROVISIONING -Reason "Hyper-V-Lab wird aus $sourceDescription erstellt." -StateRoot $run.StateRoot
         Set-LabProviderSubRunState -RunId $run.RunId -Provider hyperv -NewState PROVISIONING -Reason "Hyper-V-Lab wird aus $sourceDescription erstellt." -StateRoot $run.StateRoot
         Write-LabInfo "Schritt 3/5: Differenzierende VM wird aus Image $ArtifactId erstellt."
-        $vm = New-HyperVInstance -ImageArtifactId $ArtifactId -RunDirectory $run.RunDir -RunId $run.RunId -ScopeId $run.ScopeId -InstanceId $InstanceId -LabName $LabName -MemoryStartupBytes ($MemoryStartupMB * 1MB) -ProcessorCount $ProcessorCount -SwitchName $(if ($labNetwork) { $labNetwork.Name } else { $null }) -StateRoot $run.StateRoot
+        $vm = New-HyperVInstance -ImageArtifactId $ArtifactId -RunDirectory $run.RunDir -RunId $run.RunId -ScopeId $run.ScopeId -InstanceId $InstanceId -LabName $LabName -MemoryStartupBytes ($MemoryStartupMB * 1MB) -ProcessorCount $ProcessorCount -SwitchName $(if ($labNetwork) { $labNetwork.Name } else { $null }) -AdditionalDrives $AdditionalDrives -StateRoot $run.StateRoot
         $connection = [PSCustomObject]@{
             schemaVersion = 1; instances = @([PSCustomObject]@{
                 id = $InstanceId; provider = 'hyperv'; vmName = $vm.VMName; vmId = $vm.VMId
@@ -238,6 +241,14 @@ function New-HyperVLabEnvironment {
                 sqlEdition = if ($workload -eq 'sql') { [string]$artifact.sql.edition } else { $null }
                 workload = $workload; baseKind = $baseKind; imageArtifactId = $ArtifactId; host = $null; port = $null
                 labNetwork = if ($labNetwork) { [PSCustomObject]@{ name = $labNetwork.Name; subnet = $labNetwork.Subnet; prefixLength = $labNetwork.PrefixLength; hostAddress = $labNetwork.HostAddress } } else { $null }
+                additionalDrives = @($vm.AdditionalDrives | ForEach-Object {
+                    [PSCustomObject]@{
+                        id = [string]$_.Id; role = [string]$_.Role; sizeBytes = [long]$_.SizeBytes
+                        vhdType = [string]$_.VhdType; diskIdentifier = [string]$_.DiskIdentifier
+                        guestPath = [string]$_.GuestPath; allocationUnitKB = [int]$_.AllocationUnitKB
+                        volumeLabel = [string]$_.VolumeLabel; state = 'ATTACHED_PENDING_INITIALIZATION'
+                    }
+                })
             })
         }
         Write-LabInfo 'Schritt 4/5: Verbindungsdaten und Ressourcenbindung werden gespeichert.'
@@ -455,9 +466,29 @@ function Invoke-HyperVLabUnattendedProvision {
     }) -Force
     Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
 
+    $driveReceipt = $null
     if ($lab.Instance.persistentStorage -and [string]$lab.Instance.persistentStorage.state -eq 'ATTACHED_PENDING_INITIALIZATION') {
         Write-LabInfo 'Schritt 6/6a: Eigene Data-Root-VHDX wird im Gast initialisiert.'
-        $null = Initialize-HyperVLabPersistentData -RunId $RunId -Credential $credential -StateRoot $lab.StateRoot
+        $driveReceipt = Initialize-HyperVLabPersistentData -RunId $RunId -Credential $credential -StateRoot $lab.StateRoot
+    }
+    else {
+        $managedAfterOobe = Get-HyperVManagedVM -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
+        if (@($managedAfterOobe.Identity.additionalDrives | Where-Object guestPath).Count -gt 0) {
+            Write-LabInfo 'Schritt 6/6a: Manifestgebundene Zusatz-VHDX werden im Gast initialisiert.'
+            $driveReceipt = Initialize-HyperVWindowsGuestDrives -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $credential
+        }
+    }
+    if ($driveReceipt) {
+        $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
+        $lab.Instance | Add-Member -NotePropertyName additionalDrives -NotePropertyValue @($driveReceipt.Drives | ForEach-Object {
+            [PSCustomObject]@{
+                id = [string]$_.id; diskIdentifier = [string]$_.diskIdentifier
+                guestPath = [string]$_.guestPath; driveLetter = [string]$_.driveLetter
+                fileSystem = [string]$_.fileSystem; allocationUnitKB = [int]$_.allocationUnitKB
+                volumeLabel = [string]$_.volumeLabel; status = [string]$_.status
+            }
+        }) -Force
+        Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
     }
     if ($windowsOnly) {
         $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot

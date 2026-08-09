@@ -132,13 +132,14 @@ für `Mount-VHD` benötigte Volume-Recht. In diesem Fall bleibt genau der
 dokumentierte OOBE-/Passwortschritt manuell; SQL Setup und Abnahme laufen
 danach weiter unbeaufsichtigt.
 
-Noch nicht implementiert ist die vollständige deklarative Hyper-V-Bindung an den
-bestehenden Manifest-Drive-, Datenbank-, Post-Provisioning- und Netzwerkvertrag.
-Der enge Klonpfad aus einem `SQL_PREPARED_SEALED`-Image führt `CompleteImage`
-bereits aus; offen bleiben der vollautomatische OS-Factory-Build, ein allgemeiner
-Hyper-V-SQL-Runtimepfad mit realem End-to-End-Nachweis, runtimeübergreifende
-Network Intents, zentraler IPAM, Reconcile und der automatische Artifact Refresh. Der
-verbindliche Zielvertrag steht in
+Freie run-lokale Manifest-Drives werden inzwischen deklarativ auf zusätzliche
+Hyper-V-VHDX und deren Disk-ID-gebundene Gastinitialisierung abgebildet. Noch
+nicht implementiert ist die vollständige Bindung an den Datenbank-, Software-,
+Post-Provisioning- und Netzwerkvertrag. Der enge Klonpfad aus einem
+`SQL_PREPARED_SEALED`-Image führt `CompleteImage` bereits aus; offen bleiben der
+vollautomatische OS-Factory-Build, ein allgemeiner Hyper-V-SQL-Runtimepfad mit
+realem End-to-End-Nachweis, runtimeübergreifende Network Intents, zentraler IPAM,
+Reconcile und der automatische Artifact Refresh. Der verbindliche Zielvertrag steht in
 [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](../Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md).
 
 ## Manifest und Schema
@@ -357,7 +358,7 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
 ## Priorisierte nächste technische Schritte
 
 1. `LAB_GENERATED`-Erzeugung und Auswahl an den Hyper-V-Export binden (Sample-Welle 5/6).
-2. Die implementierten providerneutralen Drive-, Network- und Software-Intents an Hyper-V-Manifest, LAN/NAT/IPAM und Software-Runtime binden.
+2. Die implementierten providerneutralen Network- und Software-Intents an Hyper-V-LAN/NAT/IPAM und Software-Runtime binden.
 3. Artifact Registry, Refresh/Rebuild und Evaluierungsablauf implementieren.
 4. Hyper-V anschließend in den dokumentierten, getrennt testbaren Wellen implementieren.
 5. Katalogaktualität, verifizierte Prüfsummen (`catalog-verified`) und Baseline-Kompatibilität kontrolliert pflegen.
