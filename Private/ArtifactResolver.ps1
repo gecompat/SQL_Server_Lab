@@ -277,6 +277,7 @@ function Get-LabArtifactCacheEntry {
         [string]$TestDataRoot
     )
 
+    if ([string]::IsNullOrWhiteSpace($StateRoot)) { $StateRoot = Get-LabStateRoot }
     $paths = Initialize-LabArtifactStore -StateRoot $StateRoot -TestDataRoot $TestDataRoot
     $digest = $Sha256.ToLowerInvariant()
     $directory = Join-Path $paths.CacheRoot $digest

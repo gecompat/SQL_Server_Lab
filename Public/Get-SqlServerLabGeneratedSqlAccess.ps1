@@ -13,6 +13,10 @@ function Get-SqlServerLabGeneratedSqlAccess {
         Run-ID des bereitgestellten Hyper-V-SQL-Labs.
     .PARAMETER StateRoot
         Optionaler abweichender State Root.
+    .OUTPUTS
+        [PSCustomObject]
+        Objekt mit den Laufzeitzugangsdaten für den SQL-Server inklusive
+        `ConnectionString`, `Generated` und optional `SaPassword`.
     .EXAMPLE
         Get-SqlServerLabGeneratedSqlAccess -RunId 01234567-89ab-cdef-0123-456789abcdef
     #>

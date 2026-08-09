@@ -104,6 +104,10 @@ COMMANDS
     Invoke-SqlServerLabScript
         Fuehrt ein T-SQL-Skript mit Unterstuetzung fuer GO-Batches aus.
 
+    Get-SqlServerLabGeneratedSqlAccess
+        Liefert den Laufzeitzugriff auf ein automatisch generiertes SQL Server
+        SA-Konto inklusive ConnectionString.
+
     Pruefung
 
     Test-SqlServerLabPrerequisite

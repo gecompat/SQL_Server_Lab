@@ -81,6 +81,7 @@ Test-SqlServerLabManifest             # Manifest ohne Provisionierung pruefen
 New-SqlServerLabDatabase              # Datenbank anlegen (mit File-Layout)
 Restore-SqlServerLabDatabase          # Datenbank aus .bak wiederherstellen
 Invoke-SqlServerLabScript             # T-SQL-Skript ausfuehren
+Get-SqlServerLabGeneratedSqlAccess      # Hyper-V-Generierte SQL-Accessdaten (ConnectionString/Passwort) abrufen
 
 # Pruefung
 Test-SqlServerLabPrerequisite         # Ressourcenpruefung (read-only)
