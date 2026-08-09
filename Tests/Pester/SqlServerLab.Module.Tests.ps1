@@ -68,11 +68,12 @@ function Get-ObjectField {
     }
 
     foreach ($candidate in $Name) {
-        if ($InputObject -is [hashtable]) {
+        if ($InputObject -is [System.Collections.IDictionary]) {
             if ($InputObject.Contains($candidate)) {
                 return $InputObject[$candidate]
             }
-            $match = $InputObject.Keys | Where-Object { $_ -ieq $candidate } | Select-Object -First 1
+
+            $match = @($InputObject.Keys) | Where-Object { $_ -ieq $candidate } | Select-Object -First 1
             if ($match) {
                 return $InputObject[$match]
             }
