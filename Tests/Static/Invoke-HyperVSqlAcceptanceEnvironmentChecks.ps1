@@ -40,6 +40,11 @@ try {
         $unattend -notmatch 'Microsoft-Windows-International-Core' -and
         $unattend -match '<TimeZone>W\. Europe Standard Time</TimeZone>'
     )
+    Add-CheckResult -Name 'Specialize unterdrueckt die interaktive Privacy Experience vor dem ersten Login' -Success (
+        $unattend -match '<settings pass="specialize">' -and
+        $unattend -match 'Microsoft-Windows-Deployment' -and
+        $unattend -match 'DisablePrivacyExperience /t REG_DWORD /d 1 /f'
+    )
     $customTimeZoneUnattend = & $module {
         param($Password)
         New-HyperVSqlOobeUnattendXml -AdministratorPassword $Password -TimeZone 'Central Europe Standard Time'
