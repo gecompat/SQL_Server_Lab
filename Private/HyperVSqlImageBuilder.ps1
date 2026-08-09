@@ -1204,6 +1204,10 @@ function Publish-HyperVSqlPreparedImageBuild {
     $parent = $build.parentArtifact
     $expiry = if ($EvaluationExpiresAt) { $EvaluationExpiresAt } elseif ($parent.license.evaluationExpiresAt) { [datetime]$parent.license.evaluationExpiresAt } else { $null }
     if ([string]$parent.license.type -eq 'evaluation' -and -not $expiry) { throw 'HYPERV_SQL_IMAGE_EVALUATION_EXPIRY_REQUIRED' }
+    $displayNameArgument = @{}
+    if (-not [string]::IsNullOrWhiteSpace([string]$build.displayName)) {
+        $displayNameArgument.DisplayName = ([string]$build.displayName).Trim()
+    }
     $artifact = Import-HyperVImageArtifact -VhdxPath $flatPath -ExpectedSha256 $sha256 `
         -ArtifactState SQL_PREPARED_SEALED -OperatingSystemId $parent.operatingSystem.id `
         -OperatingSystemVersion $parent.operatingSystem.version -Edition $parent.operatingSystem.edition `
@@ -1211,7 +1215,7 @@ function Publish-HyperVSqlPreparedImageBuild {
         -LicenseType $parent.license.type -IntegrityOrigin generated-by-runtime -Generalized -SqlPrepared `
         -SqlVersion $build.sql.version -SqlEdition $build.sql.edition -SqlBuild $build.sql.setupBuild `
         -SqlFeatures @($build.sql.features) -SqlLicenseType $build.sql.license.type `
-        -EvaluationExpiresAt $expiry -DisplayName ([string]$build.displayName) -StateRoot $StateRoot
+        -EvaluationExpiresAt $expiry @displayNameArgument -StateRoot $StateRoot
     if (-not $artifact -or $artifact.artifactState -ne 'SQL_PREPARED_SEALED' -or $artifact.sha256 -ne $sha256.ToLowerInvariant()) {
         throw 'HYPERV_SQL_IMAGE_ARTIFACT_PUBLICATION_FAILED'
     }

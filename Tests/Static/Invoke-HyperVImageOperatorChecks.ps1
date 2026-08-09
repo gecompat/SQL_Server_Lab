@@ -329,7 +329,9 @@ try {
         $menuText -match 'Initialize-HyperVSqlFreshPreparedImageBuild @buildArguments' -and
         @($sqlBuilderText | Select-String -Pattern '\$planArguments\.ImageName = \$ImageName\.Trim\(\)' -AllMatches).Matches.Count -eq 2 -and
         $sqlBuilderText -match 'New-HyperVSqlImageBuildPlan @planArguments' -and
-        $sqlBuilderText -match 'New-HyperVSqlFreshImageBuildPlan @planArguments'
+        $sqlBuilderText -match 'New-HyperVSqlFreshImageBuildPlan @planArguments' -and
+        $sqlBuilderText -match '\$displayNameArgument\.DisplayName = \(\[string\]\$build\.displayName\)\.Trim\(\)' -and
+        $sqlBuilderText -match 'Import-HyperVImageArtifact[\s\S]+@displayNameArgument'
     )
     Add-CheckResult -Name 'Windows-Builder-Cleanup bietet ALL mit eigener Gesamtbestaetigung' -Success (
         $menuText -match '\[ALL\] Alle \$\(\$builds\.Count\) angezeigten unfertigen Windows-Builder aufraeumen' -and
