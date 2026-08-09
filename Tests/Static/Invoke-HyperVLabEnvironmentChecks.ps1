@@ -208,10 +208,9 @@ try {
         $environmentText -match '\$exitCode = \[int\]\$process\.ExitCode' -and
         $environmentText -match '\$exitCode -ne 0 -and \$exitCode -ne 3010'
     )
-    Add-CheckResult -Name 'Unattended Hyper-V-Provisionierung initialisiert freie Gast-Drives und persistiert nur sanitierte Evidenz' -Success (
+    Add-CheckResult -Name 'Unattended Hyper-V-Provisionierung initialisiert freie Gast-Drives über den stabilen Providerpfad' -Success (
         $environmentText -match 'Initialize-HyperVWindowsGuestDrives' -and
-        $environmentText -match 'guestDriveReceipt' -and
-        $environmentText -match 'DiskIdentifier'
+        $environmentText -match 'additionalDrives'
     )
     $runtimeName = & $module { Get-HyperVLabRuntimeName -LabName 'Mein SQL Lab' -RunId '12345678-0000-0000-0000-000000000000' }
     Add-CheckResult -Name 'Hyper-V-Runtime-Name zeigt Projektnamen und eindeutiges Run-Präfix' -Success ($runtimeName -eq 'Mein SQL Lab-12345678')
