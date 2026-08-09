@@ -194,10 +194,20 @@ $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
 $manifestData = Get-PowerShellDataFile -Path $modulePath
 $manifestRaw = Get-Content -LiteralPath $modulePath -Raw -ErrorAction Stop
 $moduleInfo = Import-Module -Name $modulePath -Force -PassThru -ErrorAction Stop
+$validatedManifest = $null
+try {
+    $validatedManifest = Test-ModuleManifest -Path $modulePath -ErrorAction Stop
+}
+catch {
+    Write-Warning "Test-ModuleManifest fehlgeschlagen für '$modulePath': $($_.Exception.Message)"
+}
 
 $moduleVersion = Get-ObjectField -InputObject $manifestData -Name @('ModuleVersion', 'Version')
 if ([string]::IsNullOrWhiteSpace($moduleVersion)) {
     $moduleVersion = Get-RawManifestField -Content $manifestRaw -FieldName 'ModuleVersion' -Mode 'Scalar'
+}
+if ([string]::IsNullOrWhiteSpace($moduleVersion) -and $null -ne $validatedManifest) {
+    $moduleVersion = $validatedManifest.Version.ToString()
 }
 if ([string]::IsNullOrWhiteSpace($moduleVersion) -and $null -ne $moduleInfo) {
     $moduleVersion = $moduleInfo.Version.ToString()
@@ -247,7 +257,9 @@ Describe 'SqlServerLab-Modulmanifest' {
     }
 
     It 'muss das im Manifest deklarierte Exportset konsistent mit dem importierten Modul exportieren' {
-        $delta = Compare-Object -ReferenceObject @($manifestFunctions) -DifferenceObject @($exportedFunctions)
+        $manifestFunctionSet = To-StringArray -Value $manifestFunctions
+        $exportedFunctionSet = To-StringArray -Value $exportedFunctions
+        $delta = Compare-Object -ReferenceObject $manifestFunctionSet -DifferenceObject $exportedFunctionSet
         if ($delta) {
             $items = ($delta | ForEach-Object { $_.InputObject }) -join ', '
             throw "Exportabweichung zwischen Manifest und Modul: $items"
