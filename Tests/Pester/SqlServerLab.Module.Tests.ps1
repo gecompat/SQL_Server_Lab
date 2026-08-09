@@ -25,7 +25,7 @@ function Get-PowerShellDataFile {
 
     try {
         $content = Get-Content -LiteralPath $Path -Raw -ErrorAction Stop
-        $value = [scriptblock]::Create($content).Invoke()
+        $value = Invoke-Expression $content
         if ($value -is [System.Collections.IList] -and $value.Count -eq 1) {
             $value = $value[0]
         }
@@ -38,23 +38,20 @@ function Get-PowerShellDataFile {
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
 $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
-$moduleManifest = Get-PowerShellDataFile -Path $modulePath
+$moduleManifest = Test-ModuleManifest -Path $modulePath -ErrorAction Stop
 $psaSettingsPath = Join-Path $repoRoot 'Tests' 'Static' 'PSScriptAnalyzerSettings.psd1'
 $psaSettings = Get-PowerShellDataFile -Path $psaSettingsPath
 
 Remove-Module -Name 'SqlServerLab' -Force -ErrorAction SilentlyContinue
 Import-Module $modulePath -Force -ErrorAction Stop
 
-$manifestFunctions = @($moduleManifest.FunctionsToExport | Where-Object { $_ -and $_ -ne '*' } | Sort-Object)
+$manifestFunctions = @($moduleManifest.ExportedFunctions.Keys | Where-Object { $_ -and $_ -ne '*' } | Sort-Object)
 $exportedFunctions = @(Get-Module SqlServerLab | Select-Object -ExpandProperty ExportedFunctions | Select-Object -ExpandProperty Keys | Sort-Object)
 $publicScripts = Get-ChildItem -Path (Join-Path $repoRoot 'Public') -Filter '*.ps1' -File | ForEach-Object { [System.IO.Path]::GetFileNameWithoutExtension($_.Name) } | Sort-Object
 
 Describe 'SqlServerLab-Modulmanifest' {
     It 'muss eine gültige Modulversion enthalten' {
-        $moduleVersion = $moduleManifest.ModuleVersion
-        if ([string]::IsNullOrWhiteSpace($moduleVersion)) {
-            $moduleVersion = $moduleManifest.Version
-        }
+        $moduleVersion = $moduleManifest.Version
         if ([string]::IsNullOrWhiteSpace($moduleVersion)) {
             throw 'Das Modulmanifest enthält keine Modulversion.'
         }
