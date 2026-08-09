@@ -228,7 +228,7 @@ function Invoke-HyperVSqlUnattendedOobe {
             Set-HyperVSqlOfflineUnattend -VhdxPath $vhdxPath `
                 -MountRoot (Join-Path $build.BuildDirectory 'offline-mount') -UnattendXml $unattend -BootstrapScript $bootstrap
         }
-        finally { $unattend = $null; $bootstrap = $null }
+        finally { $unattend = $null }
         $build | Add-Member -NotePropertyName oobeAutomation -NotePropertyValue ([PSCustomObject]@{
             status = 'RUNNING'; region = 'DE'; systemLocale = 'de-DE'; uiLanguage = 'en-US'
             inputLocale = '0407:00000407'; timeZone = 'W. Europe Standard Time'
@@ -243,8 +243,12 @@ function Invoke-HyperVSqlUnattendedOobe {
     }
 
     Write-LabInfo "OOBE: pruefe Windows-Readiness per PowerShell Direct oder Lab-WinRM"
-    $ready = Wait-HyperVPowerShellDirect -VMName $vmName -ExpectedRunId $build.buildId `
-        -ExpectedScopeId $build.scopeId -Credential $credential -FallbackAddress $fallbackAddress -TimeoutSeconds $TimeoutSeconds
+    try {
+        $ready = Wait-HyperVPowerShellDirect -VMName $vmName -ExpectedRunId $build.buildId `
+            -ExpectedScopeId $build.scopeId -Credential $credential -FallbackAddress $fallbackAddress `
+            -GuestInitializationScript $bootstrap -TimeoutSeconds $TimeoutSeconds
+    }
+    finally { $bootstrap = $null }
     if (-not $ready.Ready) { throw "HYPERV_SQL_OOBE_TIMEOUT: $($ready.Message)" }
     $receipt = Invoke-HyperVPowerShellDirect -VMName $vmName -ExpectedRunId $build.buildId `
         -ExpectedScopeId $build.scopeId -Credential $credential -FallbackAddress $fallbackAddress -ScriptBlock {

@@ -1198,6 +1198,24 @@ function Show-LabHyperVSqlNextActions {
     }
 }
 
+function Format-LabMenuDateTime {
+    [CmdletBinding()]
+    param([AllowNull()][AllowEmptyString()]$Value)
+
+    if ([string]::IsNullOrWhiteSpace([string]$Value)) { return '-' }
+    $parsed = [datetimeoffset]::MinValue
+    if (-not [datetimeoffset]::TryParse(
+            [string]$Value,
+            [Globalization.CultureInfo]::InvariantCulture,
+            [Globalization.DateTimeStyles]::RoundtripKind,
+            [ref]$parsed)) {
+        return [string]$Value
+    }
+    return $parsed.ToLocalTime().ToString(
+        'yyyy-MM-dd HH:mm:ss',
+        [Globalization.CultureInfo]::InvariantCulture)
+}
+
 function Select-LabHyperVSqlImageBuild {
     [CmdletBinding()]
     param(
@@ -1238,6 +1256,7 @@ function Select-LabHyperVSqlImageBuild {
             [string]@($candidate.stateHistory)[0].timestamp
         }
         else { '-' }
+        $createdAt = Format-LabMenuDateTime -Value $createdAt
         Write-Host ("    [{0}] {1} | SQL {2} {3} | {4}" -f `
             ($i + 1), $imageName, $candidate.sql.version, $candidate.sql.edition, $candidate.state) -ForegroundColor White
         Write-Host ("        VM: {0} [{1}] | Windows: {2} / {3}" -f `
@@ -1977,7 +1996,7 @@ function Select-LabHyperVPreparedArtifact {
         $fallbackName = if ($isSqlPrepared) { "{0} · SQL Server {1} {2}" -f $operatingSystemLabel, $artifact.sql.version, $artifact.sql.edition } else { "{0} · reine Windows-OS-Baseline" -f $operatingSystemLabel }
         $displayName = if ([string]::IsNullOrWhiteSpace([string]$artifact.displayName)) { $fallbackName } else { [string]$artifact.displayName }
         $shortArtifactId = if ([string]$artifact.artifactId -match '([a-f0-9]{12,})$') { $Matches[1].Substring(0, 12) } else { [string]$artifact.artifactId }
-        $registeredAt = if ([string]::IsNullOrWhiteSpace([string]$artifact.registeredAt)) { 'unbekannt' } else { [string]$artifact.registeredAt }
+        $registeredAt = if ([string]::IsNullOrWhiteSpace([string]$artifact.registeredAt)) { 'unbekannt' } else { Format-LabMenuDateTime -Value $artifact.registeredAt }
         Write-Host ("    [{0}] {1}" -f ($i + 1), $displayName) -ForegroundColor White
         $workload = if ($isSqlPrepared) { "Windows: {0} {1} · SQL Server: {2} {3}" -f $operatingSystemLabel, $artifact.operatingSystem.installationType, $artifact.sql.version, $artifact.sql.edition } else { "Windows: {0} {1} · Reine Windows-VM ohne SQL Server" -f $operatingSystemLabel, $artifact.operatingSystem.installationType }
         Write-Host ("        {0}" -f $workload) -ForegroundColor Gray

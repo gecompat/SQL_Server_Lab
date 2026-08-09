@@ -719,6 +719,7 @@ function Wait-HyperVPowerShellDirect {
         [Parameter(Mandatory)][PSCredential]$Credential,
         [string]$ExpectedComputerName,
         [ValidatePattern('^(?:(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])(?:\.(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])){3})?$')][string]$FallbackAddress,
+        [string]$GuestInitializationScript,
         [ValidateRange(1, 3600)][int]$TimeoutSeconds = 300,
         [ValidateRange(100, 60000)][int]$PollIntervalMilliseconds = 2000
     )
@@ -732,6 +733,7 @@ function Wait-HyperVPowerShellDirect {
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
     $lastError = ''
     $lastProgressSeconds = -30
+    $guestInitializationComplete = [string]::IsNullOrWhiteSpace($GuestInitializationScript)
     while ($stopwatch.Elapsed.TotalSeconds -lt $TimeoutSeconds) {
         if (($stopwatch.Elapsed.TotalSeconds - $lastProgressSeconds) -ge 30) {
             $lastProgressSeconds = $stopwatch.Elapsed.TotalSeconds
@@ -751,6 +753,15 @@ function Wait-HyperVPowerShellDirect {
                 } `
                 -ErrorAction Stop
             $probe = @($probe)[0]
+            if (-not $guestInitializationComplete) {
+                $null = Invoke-HyperVPowerShellDirect `
+                    -VMName $VMName -ExpectedRunId $ExpectedRunId -ExpectedScopeId $ExpectedScopeId `
+                    -Credential $Credential -FallbackAddress $FallbackAddress `
+                    -ScriptBlock ([scriptblock]::Create($GuestInitializationScript)) `
+                    -ErrorAction Stop
+                $guestInitializationComplete = $true
+                Write-LabInfo "PowerShell Direct: Gast-Initialisierung für $VMName ausgeführt."
+            }
             if ((-not $ExpectedComputerName -or
                     [string]$probe.computerName -eq $ExpectedComputerName) -and
                 [string]$probe.imageState -eq 'IMAGE_STATE_COMPLETE') {

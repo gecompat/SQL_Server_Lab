@@ -468,7 +468,7 @@ function Invoke-HyperVLabUnattendedProvision {
         Write-LabInfo 'Schritt 3/6: Unattend.xml und – bei Labnetz – der WinRM-Netzwerk-Bootstrap werden ausschließlich in die Child-VHDX injiziert.'
         Set-HyperVSqlOfflineUnattend -VhdxPath $vhdxPath -MountRoot (Join-Path $lab.RunDirectory 'offline-oobe-mount') -UnattendXml $unattend -BootstrapScript $bootstrap
     }
-    finally { $unattend = $null; $bootstrap = $null }
+    finally { $unattend = $null }
 
     $lab.Instance | Add-Member -NotePropertyName oobeAutomation -NotePropertyValue ([PSCustomObject]@{
         status = 'RUNNING'; passwordSource = $PasswordSource; passwordStorage = 'host-dpapi'
@@ -481,8 +481,12 @@ function Invoke-HyperVLabUnattendedProvision {
     $readinessChannel = if ($fallbackAddress) { "PowerShell Direct oder Lab-WinRM ($fallbackAddress)" } else { 'PowerShell Direct (VM bleibt bewusst isoliert)' }
     Write-LabInfo "Schritt 4/6: VM wird gestartet; OOBE, Sprache, Region und Tastatur laufen unbeaufsichtigt. Readiness: $readinessChannel."
     $null = Start-HyperVLabEnvironment -RunId $RunId -StateRoot $lab.StateRoot
-    $ready = Wait-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId `
-        -ExpectedScopeId $lab.Run.scopeId -Credential $credential -FallbackAddress $fallbackAddress -TimeoutSeconds $TimeoutSeconds
+    try {
+        $ready = Wait-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId `
+            -ExpectedScopeId $lab.Run.scopeId -Credential $credential -FallbackAddress $fallbackAddress `
+            -GuestInitializationScript $bootstrap -TimeoutSeconds $TimeoutSeconds
+    }
+    finally { $bootstrap = $null }
     if (-not $ready.Ready) { throw "HYPERV_LAB_UNATTENDED_OOBE_TIMEOUT: $($ready.Message)" }
 
     Write-LabInfo 'Schritt 5/6: OOBE-Artefakte werden im Gast entfernt und die regionale Konfiguration wird geprüft.'
