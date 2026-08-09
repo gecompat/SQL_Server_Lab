@@ -32,6 +32,10 @@ try {
     $unattend = & $module { param($Password) New-HyperVSqlOobeUnattendXml -AdministratorPassword $Password } $securePassword
     [xml]$unattendDocument = $unattend
     Add-CheckResult -Name 'Unattend.xml ist wohlgeformtes XML' -Success ($null -ne $unattendDocument.unattend.settings)
+    Add-CheckResult -Name 'Administratorpasswort folgt der Windows-Shell-Setup-UserAccounts-Hierarchie' -Success (
+        $unattend -match '<UserAccounts>\s*<AdministratorPassword>' -and
+        $unattend -notmatch '<component[^>]+>\s*<AdministratorPassword>'
+    )
     Add-CheckResult -Name 'Minimaler OOBE-Antwortsatz setzt Zeitzone ohne Sprachpaketabhaengigkeit' -Success (
         $unattend -notmatch 'Microsoft-Windows-International-Core' -and
         $unattend -match '<TimeZone>W\. Europe Standard Time</TimeZone>'
