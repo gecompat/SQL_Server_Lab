@@ -458,6 +458,7 @@ function New-SqlServerLab {
         return [PSCustomObject]@{
             RunId = $lab.RunId; ScopeId = $lab.ScopeId; State = 'RUNNING'; Name = $resolved.name; Instances = @($hyperVLab.Instance)
             StateRoot = $hyperVLab.StateRoot; DataRoot = if ($PersistentData) { $DataRoot } else { $null }; Provisioning = $provisioning
+            GeneratedSqlAccess = if ($provisioning.PSObject.Properties['GeneratedSqlAccess']) { $provisioning.GeneratedSqlAccess } else { $null }
         }
     }
 
