@@ -193,7 +193,9 @@ try {
         (Get-Content -LiteralPath $unattendedSecret -Raw) -notmatch 'Generated_Administrator_42!'
     )
     $transientSqlAccess = & $module {
-        $password = ConvertTo-SecureString 'Generated_Temporary_SA_42!' -AsPlainText -Force
+        $password = [SecureString]::new()
+        foreach ($character in 'Generated_Temporary_SA_42!'.ToCharArray()) { $password.AppendChar($character) }
+        $password.MakeReadOnly()
         New-HyperVTransientGeneratedSqlAccess `
             -HostSqlAccess ([PSCustomObject]@{
                 ConnectionString = 'Server=172.28.0.58,1433;Database=master;User ID=sa;Password=<SQL-SA-Passwort>;Encrypt=True;TrustServerCertificate=True;'
@@ -202,7 +204,9 @@ try {
             -Generated
     }
     $explicitSqlAccess = & $module {
-        $password = ConvertTo-SecureString 'Explicit_SA_42!' -AsPlainText -Force
+        $password = [SecureString]::new()
+        foreach ($character in 'Explicit_SA_42!'.ToCharArray()) { $password.AppendChar($character) }
+        $password.MakeReadOnly()
         New-HyperVTransientGeneratedSqlAccess -HostSqlAccess $null -SqlSaPassword $password
     }
     Add-CheckResult -Name 'Generiertes SA-Passwort erscheint nur flüchtig als kopierfertige Connection' -Success (
