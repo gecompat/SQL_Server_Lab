@@ -256,7 +256,7 @@
         },
         "hyperv": {
           "type": "object",
-          "description": "Hyper-V-spezifische Bereitstellung aus einem veröffentlichten Hyper-V-Sealed-Image. Passwörter gehören nie in das Manifest.",
+          "description": "Hyper-V-spezifische Bereitstellung. Ohne preparedImageId wird die höchste lokale SQL_PREPARED_SEALED-Vorlage auf Windows Server Standard Evaluation mit Desktop Experience gewählt. Passwörter gehören nie in das Manifest.",
           "properties": {
             "preparedImageId": {
               "type": "string",
@@ -289,9 +289,6 @@
               "description": "Zufälliges Einmalpasswort anzeigen oder beim Start sicher abfragen. Das Passwort wird nicht gespeichert."
             }
           },
-          "required": [
-            "preparedImageId"
-          ],
           "additionalProperties": false
         }
       },

@@ -320,6 +320,14 @@ Add-CheckResult `
     -Success $hyperVManifestResult.IsValid `
     -Message ($hyperVManifestResult.Errors -join '; ')
 
+$hyperVFallbackManifest = $hyperVManifest | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
+$hyperVFallbackManifest.instances[0].PSObject.Properties.Remove('hyperv')
+$hyperVFallbackResult = Test-SqlServerLabManifest -InputObject $hyperVFallbackManifest
+Add-CheckResult `
+    -Name 'Hyper-V-Manifest ohne explizites Image aktiviert den sicheren lokalen Standard-Desktop-Fallback' `
+    -Success ($hyperVFallbackResult.IsValid -and $hyperVFallbackResult.Warnings -match 'SQL_PREPARED_SEALED.*Standard Evaluation.*Desktop Experience') `
+    -Message (($hyperVFallbackResult.Errors + $hyperVFallbackResult.Warnings) -join '; ')
+
 $hyperVDriveManifest = $hyperVManifest | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
 $hyperVDriveManifest.instances[0] | Add-Member -NotePropertyName drives -NotePropertyValue @(
     [PSCustomObject]@{ id = 'data'; containerPath = 'D:\SQLData'; sizeLimitGB = 64; type = 'ssd' },
