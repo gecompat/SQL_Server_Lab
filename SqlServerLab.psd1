@@ -18,6 +18,7 @@
         'Test-SqlServerLabManifest'
         'New-SqlServerLab'
         'Get-SqlServerLab'
+        'Get-SqlServerLabGeneratedSqlAccess'
         'Start-SqlServerLab'
         'Stop-SqlServerLab'
         'Restart-SqlServerLab'
