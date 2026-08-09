@@ -192,6 +192,25 @@ try {
         (Test-Path -LiteralPath $unattendedSecret) -and
         (Get-Content -LiteralPath $unattendedSecret -Raw) -notmatch 'Generated_Administrator_42!'
     )
+    $transientSqlAccess = & $module {
+        $password = ConvertTo-SecureString 'Generated_Temporary_SA_42!' -AsPlainText -Force
+        New-HyperVTransientGeneratedSqlAccess `
+            -HostSqlAccess ([PSCustomObject]@{
+                ConnectionString = 'Server=172.28.0.58,1433;Database=master;User ID=sa;Password=<SQL-SA-Passwort>;Encrypt=True;TrustServerCertificate=True;'
+            }) `
+            -SqlSaPassword $password `
+            -Generated
+    }
+    $explicitSqlAccess = & $module {
+        $password = ConvertTo-SecureString 'Explicit_SA_42!' -AsPlainText -Force
+        New-HyperVTransientGeneratedSqlAccess -HostSqlAccess $null -SqlSaPassword $password
+    }
+    Add-CheckResult -Name 'Generiertes SA-Passwort erscheint nur flüchtig als kopierfertige Connection' -Success (
+        $transientSqlAccess.transient -and
+        $transientSqlAccess.password -eq 'Generated_Temporary_SA_42!' -and
+        $transientSqlAccess.connectionString -match 'Password="Generated_Temporary_SA_42!";' -and
+        -not $explicitSqlAccess
+    )
     $regionGeoIds = & $module {
         [PSCustomObject]@{
             Germany = Resolve-HyperVLocaleGeoId -Region 'DE'

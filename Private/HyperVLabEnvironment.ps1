@@ -371,6 +371,42 @@ function Get-HyperVUnattendedPostLoginScript {
     }.GetNewClosure()
 }
 
+function New-HyperVTransientGeneratedSqlAccess {
+    [CmdletBinding()]
+    param(
+        $HostSqlAccess,
+        [Parameter(Mandatory)][SecureString]$SqlSaPassword,
+        [switch]$Generated
+    )
+
+    if (-not $Generated) { return $null }
+    $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SqlSaPassword)
+    try {
+        $plainTextPassword = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+        $connectionString = if ($HostSqlAccess -and $HostSqlAccess.ConnectionString) {
+            $escapedPassword = $plainTextPassword.Replace('"', '""')
+            $template = [string]$HostSqlAccess.ConnectionString
+            $placeholder = [regex]::Match($template, 'Password=<[^;]+>;')
+            if ($placeholder.Success) {
+                $template.Remove($placeholder.Index, $placeholder.Length).Insert(
+                    $placeholder.Index,
+                    "Password=`"$escapedPassword`";"
+                )
+            }
+            else { $null }
+        } else { $null }
+        return [PSCustomObject]@{
+            transient = $true
+            generated = $true
+            userName = 'sa'
+            password = $plainTextPassword
+            connectionString = $connectionString
+            notice = 'Nur im unmittelbaren Aufrufergebnis vorhanden; nicht im Run-State oder connection-info.json gespeichert.'
+        }
+    }
+    finally { [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
+}
+
 function Invoke-HyperVLabUnattendedProvision {
     <#
     .SYNOPSIS
@@ -501,12 +537,24 @@ function Invoke-HyperVLabUnattendedProvision {
     }
     # Ein separates SA-Passwort ist bewusst möglich. Ohne Angabe bleibt der
     # frühere, sichere Standard erhalten: SA entspricht dem Gastkonto.
+    $sqlSaPasswordWasProvided = $null -ne $SqlSaPassword
     if (-not $SqlSaPassword) { $SqlSaPassword = $AdministratorPassword }
     Write-LabInfo 'Schritt 6/6b: SQL CompleteImage, WMI-Prüfung sowie TCP/IP-Hostzugriff werden in der laufenden Klon-VM automatisch ausgeführt.'
     $sqlCompletion = Complete-HyperVLabSqlImage -RunId $RunId -Credential $credential -SqlSaPassword $SqlSaPassword -MediaRoot $MediaRoot -StateRoot $lab.StateRoot
     $hostAccess = if ($sqlCompletion.PSObject.Properties['hostSqlAccess']) { $sqlCompletion.hostSqlAccess } else { $null }
+    $generatedSqlAccess = New-HyperVTransientGeneratedSqlAccess -HostSqlAccess $hostAccess -SqlSaPassword $SqlSaPassword `
+        -Generated:($PasswordSource -eq 'generated' -and -not $sqlSaPasswordWasProvided)
+    if ($generatedSqlAccess) {
+        Write-Host ''
+        Write-Host '  Temporäre generierte SQL-Verbindung (wird nicht gespeichert):' -ForegroundColor Yellow
+        if ($generatedSqlAccess.connectionString) { Write-Host "  $($generatedSqlAccess.connectionString)" -ForegroundColor White }
+        Write-Host "  SA-Passwort: $($generatedSqlAccess.password)" -ForegroundColor White
+    }
     Write-LabSuccess 'Unbeaufsichtigte OOBE, SQL CompleteImage, WMI und der TCP/IP-Hostzugriff sind abgeschlossen.'
-    return [PSCustomObject]@{ RunId = $RunId; OobeState = 'COMPLETED'; SqlCompletion = $sqlCompletion; HostSqlAccess = $hostAccess; PasswordSource = $PasswordSource }
+    return [PSCustomObject]@{
+        RunId = $RunId; OobeState = 'COMPLETED'; SqlCompletion = $sqlCompletion
+        HostSqlAccess = $hostAccess; GeneratedSqlAccess = $generatedSqlAccess; PasswordSource = $PasswordSource
+    }
 }
 
 function Rename-HyperVLabEnvironment {
