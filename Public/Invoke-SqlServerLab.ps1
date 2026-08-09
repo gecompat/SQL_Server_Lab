@@ -2135,6 +2135,22 @@ function New-LabHyperVEnvironmentInteractive {
     if (-not $cpu) { $cpu = 4 }
     $switch = Select-LabHyperVVirtualSwitch
     if (-not $switch) { return }
+    if (-not $isSqlPrepared) {
+        Write-Host "  Image: $($artifact.artifactId)" -ForegroundColor DarkGray
+        Write-Host '  Es wird nur ein ausgeschalteter Betriebssystem-Slot als differenzierende VHDX erstellt.' -ForegroundColor Yellow
+        Write-Host '  Windows-Grundeinrichtung und OOBE erfolgen anschließend manuell; SQL Server wird nicht installiert.' -ForegroundColor DarkGray
+        if (-not (Read-LabConfirm -Prompt '  Windows-Slot jetzt erstellen?' -Default $false)) { return }
+        try {
+            $lab = New-HyperVLabEnvironment -ArtifactId $artifact.artifactId -LabName $name -InstanceId $instanceId `
+                -MemoryStartupMB ([int]$memory) -ProcessorCount ([int]$cpu) `
+                -SwitchName $switch.SwitchName -Isolated:$switch.Isolated
+            Write-LabSuccess "Windows-Slot erstellt und ausgeschaltet: $($lab.VMName) (Run $($lab.RunId))"
+            Write-LabInfo 'Nächster Schritt: unter Hyper-V-Umgebungen verwalten die VM starten, VMConnect öffnen und Windows manuell fertig einrichten.'
+            Write-LabInfo 'Danach dort „Windows-Grundinstallation übernehmen“ ausführen.'
+        }
+        catch { Write-LabError $_.Exception.Message }
+        return
+    }
     $persistentData = $false
     $dataRoot = Get-LabDataRootDefault
     $persistentDataDiskGB = 128
@@ -2320,7 +2336,15 @@ function Manage-LabHyperVEnvironmentInteractive {
         Write-Host '        Repariert den SQL-WMI-Provider – nur bei Fehlern im SQL Configuration Manager.' -ForegroundColor DarkGray
     }
     else {
-        Write-Host '        Reine Windows-Umgebung: keine SQL-Aktionen, keine SQL-WMI- oder TCP/IP-Konfiguration.' -ForegroundColor DarkGray
+        $windowsSlotReady = $selectedLab.Instance.windowsProvisioning -and [string]$selectedLab.Instance.windowsProvisioning.state -eq 'COMPLETE'
+        if (-not $windowsSlotReady) {
+            Write-Host '    [o] Windows-Grundinstallation übernehmen' -ForegroundColor Yellow
+            Write-Host '        Prüft die manuell abgeschlossene OOBE und richtet danach das Labnetz ein. SQL bleibt unberührt.' -ForegroundColor DarkGray
+        }
+        else {
+            Write-Host '        Windows-Slot ist übernommen und für einen späteren SQL-Ausbau bereit.' -ForegroundColor Green
+        }
+        Write-Host '        Reine Windows-Umgebung: SQL Server ist nicht installiert.' -ForegroundColor DarkGray
     }
     Write-Host '    [e] Umgebung entfernen' -ForegroundColor Red
     Write-Host '        Löscht VM und run-lokale differenzierende VHDX nach Bestätigung.' -ForegroundColor DarkGray
@@ -2347,6 +2371,15 @@ function Manage-LabHyperVEnvironmentInteractive {
                 $result = Initialize-HyperVLabPersistentData -RunId $runId -Credential $credential
                 $dataDrive = @($result.Drives | Where-Object id -EQ 'persistent-sql-data') | Select-Object -First 1
                 Write-LabSuccess "Daten-VHDX wurde im Gast als $($dataDrive.guestPath) initialisiert."
+            }
+            'o' {
+                if ($isSqlLab) { Write-LabWarning 'Diese Aktion gilt nur für reine Windows-Slots.'; return }
+                if ($windowsSlotReady) { Write-LabWarning 'Dieser Windows-Slot wurde bereits übernommen.'; return }
+                $userName = Read-Host '  Lokaler Gast-Administrator [Administrator]'
+                if (-not $userName) { $userName = 'Administrator' }
+                $credential = [PSCredential]::new($userName, (Read-Host '  Gastpasswort' -AsSecureString))
+                $result = Complete-HyperVLabManualWindowsSlot -RunId $runId -Credential $credential
+                Write-LabSuccess "Windows-Slot übernommen: $($result.VMName) · $($result.ComputerName)"
             }
             'c' {
                 if (-not $isSqlLab) { Write-LabWarning 'Diese reine Windows-Umgebung enthält keine SQL-Prepared-Instanz.'; return }

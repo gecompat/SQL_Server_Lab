@@ -29,6 +29,7 @@ Write-Host 'SQL_Server_Lab - Hyper-V Lab Environment Checks' -ForegroundColor Cy
 try {
     $module = Import-Module $modulePath -Force -PassThru
     $environmentText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVLabEnvironment.ps1') -Raw -Encoding utf8
+    $menuText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Invoke-SqlServerLab.ps1') -Raw -Encoding utf8
     $generatedAccessText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Get-SqlServerLabGeneratedSqlAccess.ps1') -Raw -Encoding utf8
     $moduleManifestText = Get-Content -LiteralPath $modulePath -Raw -Encoding utf8
     Add-CheckResult -Name 'Generierte SA-Zugangsdaten bleiben DPAPI-geschützt und explizit erneut abrufbar' -Success (
@@ -37,6 +38,13 @@ try {
         $generatedAccessText -match "Get-LabSecret -Path \$lab\.RunDirectory -Name 'generated-sql-sa-password'" -and
         $generatedAccessText -match 'New-HyperVTransientGeneratedSqlAccess[\s\S]+-Generated -Persisted' -and
         $moduleManifestText -match "'Get-SqlServerLabGeneratedSqlAccess'"
+    )
+    Add-CheckResult -Name 'OS-Baseline erzeugt zuerst nur einen manuellen Windows-Slot ohne SQL-Kopplung' -Success (
+        $menuText -match 'Windows-Slot jetzt erstellen' -and
+        $menuText -match 'SQL Server wird nicht installiert' -and
+        $menuText -match 'Windows-Grundinstallation übernehmen' -and
+        $environmentText -match 'function Complete-HyperVLabManualWindowsSlot' -and
+        $environmentText -match "mode = 'manual-handoff'"
     )
     $created = & $module {
         param($Root)
