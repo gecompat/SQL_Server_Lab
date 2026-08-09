@@ -56,6 +56,7 @@ $checks = @(
     'Invoke-ProjectAdapterChecks.ps1',
     'Invoke-SampleHandlerChecks.ps1',
     'Invoke-SampleBaselineRegistryChecks.ps1',
+    'Invoke-SampleBaselineRuntimeChecks.ps1',
     'Invoke-ManifestBuilderChecks.ps1',
     'Invoke-PrivacyScannerChecks.ps1',
     'Invoke-PesterChecks.ps1',
