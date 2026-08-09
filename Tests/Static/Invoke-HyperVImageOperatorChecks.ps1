@@ -269,6 +269,10 @@ try {
     Add-CheckResult -Name 'Hauptmenue bietet Hyper-V-Image-Verwaltung an' -Success ($menuText -match "'i'\s*\{\s*Invoke-LabAction\s+-ActionName\s+'Image'")
     Add-CheckResult -Name 'Direkt-Aktion Image ist am Einstieg erlaubt' -Success ($entryText -match "ValidateSet\([^\)]*'Image'")
     Add-CheckResult -Name 'Menue dokumentiert den manuellen Installationsschritt' -Success ($menuText -match 'Show-LabHyperVManualInstallInstructions')
+    Add-CheckResult -Name 'Fresh-SQL-Anleitung erklaert schwarzen VMConnect-Bildschirm nach Setup-Reboot' -Success (
+        $menuText -match 'VMConnect nach einem Setup-Reboot schwarz' -and
+        $menuText -match 'Fenster schliessen und erneut verbinden; keinen Reset ausloesen'
+    )
     Add-CheckResult -Name 'Menue besitzt Generalisierung und Publikation' -Success (
         $menuText -match 'Invoke-HyperVWindowsImageGeneralization' -and
         $menuText -match 'Publish-HyperVWindowsImageBuild'

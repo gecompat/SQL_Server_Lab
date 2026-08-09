@@ -1358,8 +1358,9 @@ function Show-LabHyperVSqlManualInstructions {
         if ([string]$Build.license.type -eq 'evaluation') { $editionLabel += ' Evaluation' }
         $typeLabel = if ([string]$Build.operatingSystem.installationType -eq 'core') { 'Server Core Installation' } else { 'Desktop Experience' }
         Write-Host "    2. Im Windows-Setup exakt '$editionLabel ($typeLabel)' auswählen und OOBE abschließen." -ForegroundColor White
-        Write-Host '    3. Lokales Administratorpasswort setzen und einmal anmelden.' -ForegroundColor White
-        Write-Host '    4. Im Untermenü „Prepared-Image-Builder fortsetzen“ „Windows-Installation bestätigen und automatisch fertigstellen“ wählen.' -ForegroundColor White
+    Write-Host '    3. Lokales Administratorpasswort setzen und einmal anmelden.' -ForegroundColor White
+    Write-Host '       Bleibt VMConnect nach einem Setup-Reboot schwarz: Fenster schliessen und erneut verbinden; keinen Reset ausloesen.' -ForegroundColor DarkGray
+    Write-Host '    4. Im Untermenü „Prepared-Image-Builder fortsetzen“ „Windows-Installation bestätigen und automatisch fertigstellen“ wählen.' -ForegroundColor White
         Write-Host '  Die zweite DVD enthält bereits die verifizierte SQL-ISO; sie wird von diesem Schritt verwendet.' -ForegroundColor DarkGray
         return
     }
