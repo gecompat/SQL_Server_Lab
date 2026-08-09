@@ -1500,8 +1500,20 @@ function New-LabHyperVSqlImageBuildInteractive {
             Write-LabWarning "Die Kombination $operatingSystemLabel / SQL Server $sqlVersion wird auf Ihre Entscheidung gebaut; Installation und Sysprep liefern bei echter Inkompatibilität die konkrete Diagnose."
         }
         if (-not (Read-LabConfirm -Prompt '  Frischen SQL-Prepared-Image-Builder jetzt erzeugen?' -Default $false)) { return }
-        $build = Initialize-HyperVSqlFreshPreparedImageBuild -MediaRoot $mediaRoot -OperatingSystemId $operatingSystemId `
-            -WindowsEdition $windowsEdition -InstallationType $installationType -WindowsMediaPath $windowsMediaPath -SqlVersion $sqlVersion -MediaEdition $mediaEdition -SqlMediaPath $sqlMediaPath -ImageName $imageName
+        $buildArguments = @{
+            MediaRoot = $mediaRoot
+            OperatingSystemId = $operatingSystemId
+            WindowsEdition = $windowsEdition
+            InstallationType = $installationType
+            WindowsMediaPath = $windowsMediaPath
+            SqlVersion = $sqlVersion
+            MediaEdition = $mediaEdition
+            SqlMediaPath = $sqlMediaPath
+        }
+        if (-not [string]::IsNullOrWhiteSpace($imageName)) {
+            $buildArguments.ImageName = $imageName.Trim()
+        }
+        $build = Initialize-HyperVSqlFreshPreparedImageBuild @buildArguments
         Write-LabSuccess "Frischer SQL-Builder erstellt. BuildId: $($build.buildId)"
         Show-LabHyperVSqlManualInstructions -Build $build
         if (Read-LabConfirm -Prompt '  Builder starten und VMConnect oeffnen?' -Default $true) {
