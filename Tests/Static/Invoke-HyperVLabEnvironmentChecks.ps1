@@ -53,6 +53,7 @@ try {
     )
     $driveBound = & $module {
         param($Root)
+        $script:driveTestRoot = $Root
         function Test-HyperVAvailable { [PSCustomObject]@{ Available = $true; Message = 'mock' } }
         function Get-HyperVImageArtifact {
             [PSCustomObject]@{
@@ -70,7 +71,7 @@ try {
                     Id = $_.id; Role = $_.role; SizeBytes = $_.sizeBytes; VhdType = $_.vhdType
                     GuestPath = $_.guestPath; AllocationUnitKB = $_.allocationUnitKB
                     FileSystem = $_.fileSystem; VolumeLabel = $_.volumeLabel
-                    Path = (Join-Path $Root "host-only-$($_.id).vhdx")
+                    Path = (Join-Path $script:driveTestRoot "host-only-$($_.id).vhdx")
                     DiskIdentifier = "disk-$($_.id)"
                 }
             })
