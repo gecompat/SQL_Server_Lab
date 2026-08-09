@@ -183,7 +183,7 @@ function Set-LabSampleBaselineQuarantined {
     $backupSha256 = [string]$target[0].backupSha256
     $objectDirectory = Join-Path $paths.ObjectsRoot $backupSha256
     if (Test-Path -LiteralPath $objectDirectory -PathType Container) {
-        $quarantineDirectory = Join-Path $paths.QuarantineRoot "$(Get-LabTimestamp -replace '[:T.-]', '')-$backupSha256"
+        $quarantineDirectory = Join-Path $paths.QuarantineRoot "$([DateTime]::UtcNow.ToString('yyyyMMddHHmmssfff'))-$backupSha256"
         Move-Item -LiteralPath $objectDirectory -Destination $quarantineDirectory
         Write-LabArtifactJsonAtomic -Path (Join-Path $quarantineDirectory 'quarantine.json') -InputObject ([PSCustomObject]@{
             reason = $Reason
