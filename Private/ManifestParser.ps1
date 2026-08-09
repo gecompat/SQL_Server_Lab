@@ -202,7 +202,8 @@ function Resolve-LabSampleRestore {
         Loest eine Sample-Referenz in einen aktuell unterstuetzten Installationsvertrag auf.
 
     .DESCRIPTION
-        Unterstützt direkte Backups, ZIP-Backups und einzelne T-SQL-Skripte.
+        Unterstuetzt direkte Backups, ZIP-/7z-Backups, einzelne T-SQL-Skripte
+        und katalogisierte Script Bundles mit einem oder mehreren Datenbankoutputs.
         Eine fehlende Katalogpruefsumme ist zulaessig; die Integritaet wird dann
         zur Laufzeit ueber den Trust-Pfad (interactive-once) des Artifact
         Resolvers gesichert. Nicht interaktive Laeufe enden dort mit
@@ -225,18 +226,22 @@ function Resolve-LabSampleRestore {
     if ($artifact.runtimeStatus -ne 'executable') {
         throw "Sample '$($artifact.sampleId)' Variante '$($artifact.sampleVariant)' ist nur beschreibend katalogisiert und nicht fuer die automatische Ausfuehrung freigegeben."
     }
-    if ($artifact.artifactType -notin @('backup', 'archive-backup', 'sql-script') -or
+    if ($artifact.artifactType -notin @('backup', 'archive-backup', 'sql-script', 'script-bundle') -or
         [string]$artifact.installation.kind -ne [string]$artifact.artifactType) {
         throw "Sample '$($artifact.sampleId)' Variante '$($artifact.sampleVariant)' hat Artifact Type '$($artifact.artifactType)'. Der Manifestpfad unterstuetzt diesen Handler nicht."
     }
     if ([string]::IsNullOrWhiteSpace($artifact.expectedSha256) -and $artifact.trustPolicy -ne 'interactive-once') {
         throw "Sample '$($artifact.sampleId)' Variante '$($artifact.sampleVariant)' besitzt weder eine verifizierte SHA-256-Pruefsumme noch einen interaktiven Trust-Pfad."
     }
-    if ($artifact.expectedOutputs.Count -ne 1 -or $artifact.expectedOutputs[0].kind -ne 'database') {
-        throw "Sample '$($artifact.sampleId)' Variante '$($artifact.sampleVariant)' kann nicht als einzelner Backup-Restore verwendet werden, weil die erwarteten Ausgaben nicht eindeutig sind."
+    $databaseOutputs = @($artifact.expectedOutputs | Where-Object { $_.kind -eq 'database' })
+    if ($databaseOutputs.Count -eq 0 -or $databaseOutputs.Count -ne $artifact.expectedOutputs.Count) {
+        throw "Sample '$($artifact.sampleId)' Variante '$($artifact.sampleVariant)' definiert keine eindeutige Liste erwarteter Datenbanken."
     }
-    if ($artifact.expectedOutputs[0].name -ne $TargetDatabaseName) {
-        throw "Sample '$($artifact.sampleId)' Variante '$($artifact.sampleVariant)' erwartet die Datenbank '$($artifact.expectedOutputs[0].name)', nicht '$TargetDatabaseName'."
+    if ($artifact.artifactType -ne 'script-bundle' -and $databaseOutputs.Count -ne 1) {
+        throw "Sample '$($artifact.sampleId)' Variante '$($artifact.sampleVariant)' kann mit Handler '$($artifact.artifactType)' nicht mehrere Datenbanken erzeugen."
+    }
+    if ($databaseOutputs[0].name -ne $TargetDatabaseName) {
+        throw "Sample '$($artifact.sampleId)' Variante '$($artifact.sampleVariant)' erwartet als fuehrende Datenbank '$($databaseOutputs[0].name)', nicht '$TargetDatabaseName'."
     }
 
     return [PSCustomObject]@{

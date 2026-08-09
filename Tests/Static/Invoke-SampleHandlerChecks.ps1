@@ -130,28 +130,123 @@ try {
 
         $scriptSourcePath = Join-Path $StateRoot 'northwind.sql'
         [System.IO.File]::WriteAllText($scriptSourcePath, 'SELECT 1;')
+
+        $bundleSourceRoot = Join-Path $StateRoot 'bundle-source'
+        $bundleWorkingRoot = Join-Path $bundleSourceRoot 'bundle'
+        $bundleIncludeRoot = Join-Path $bundleWorkingRoot 'includes'
+        New-Item -Path $bundleIncludeRoot -ItemType Directory -Force | Out-Null
+        [System.IO.File]::WriteAllText((Join-Path $bundleWorkingRoot 'entry.sql'), @'
+:setvar FirstDatabase BundleOne
+CREATE DATABASE [$(FirstDatabase)];
+:r includes/second.sql
+GO
+'@)
+        [System.IO.File]::WriteAllText((Join-Path $bundleIncludeRoot 'second.sql'), @'
+:setvar SecondDatabase BundleTwo
+CREATE DATABASE [$(SecondDatabase)];
+'@)
+        $bundleArchivePath = Join-Path $StateRoot 'bundle.zip'
+        [System.IO.Compression.ZipFile]::CreateFromDirectory($bundleSourceRoot, $bundleArchivePath)
+
+        $bundleCatalogSample = [PSCustomObject]@{
+            id = 'static-script-bundle'
+            displayName = 'Static Script Bundle'
+            description = 'Static only'
+            category = 'training'
+            license = 'test-only'
+            source = 'https://example.invalid/static-script-bundle'
+            minSqlVersion = '2019'
+            versions = [PSCustomObject]@{
+                full = [PSCustomObject]@{
+                    url = 'https://example.invalid/static-script-bundle.zip'
+                    artifactType = 'script-bundle'
+                    handlerContractVersion = '1'
+                    downloadSizeMB = 1
+                    estimatedInstallSizeMB = 2
+                    resourceEstimateStatus = 'catalog-estimated'
+                    sha256 = $null
+                    integrityOrigin = $null
+                    trustPolicy = 'interactive-once'
+                    compatibility = 150
+                    expectedOutputs = @(
+                        [PSCustomObject]@{ name = 'BundleOne'; kind = 'database' },
+                        [PSCustomObject]@{ name = 'BundleTwo'; kind = 'database' }
+                    )
+                    installation = [PSCustomObject]@{
+                        kind = 'script-bundle'
+                        entrypoint = 'entry.sql'
+                        workingDirectory = 'bundle'
+                        executionMode = 'self-creates-databases'
+                        allowedSqlcmdFeatures = @('go', 'include', 'setvar')
+                        timeoutSeconds = 300
+                        idempotencyMode = 'fail-if-exists'
+                        partialFailurePolicy = 'recovery-required'
+                        baselinePolicy = 'none'
+                    }
+                    runtimeStatus = 'executable'
+                }
+            }
+        }
+        $originalSampleCatalog = (Get-Command Get-LabSampleDatabase).ScriptBlock
+        try {
+            Set-Item Function:Get-LabSampleDatabase -Value { $bundleCatalogSample }
+            $bundleContract = Resolve-LabSampleRestore `
+                -SampleDefinition ([PSCustomObject]@{ id = 'static-script-bundle'; variant = 'full' }) `
+                -SqlVersion '2022' `
+                -TargetDatabaseName 'BundleOne'
+        }
+        finally {
+            Set-Item Function:Get-LabSampleDatabase -Value $originalSampleCatalog
+        }
+
         $originalResolver = (Get-Command Resolve-LabArtifact).ScriptBlock
         $originalQuery = (Get-Command Invoke-SqlQuery).ScriptBlock
         $originalCreateDatabase = (Get-Command New-SqlServerLabDatabase).ScriptBlock
         $originalScript = (Get-Command Invoke-LabSqlScript).ScriptBlock
         try {
             $script:SampleHandlerQueryCalls = 0
+            $script:SampleHandlerExpectedDatabases = 1
+            $script:UseBundleArtifact = $false
+            $script:BundleFlattenedContent = $null
+            $script:BundleScriptDatabase = $null
+            $script:BundleWorkingDirectory = $null
             Set-Item Function:Resolve-LabArtifact -Value {
-                [PSCustomObject]@{ Status = 'ARTIFACT_READY'; Message = 'static'; Path = $scriptSourcePath; Sha256 = 'a' * 64 }
+                $path = if ($script:UseBundleArtifact) { $bundleArchivePath } else { $scriptSourcePath }
+                [PSCustomObject]@{ Status = 'ARTIFACT_READY'; Message = 'static'; Path = $path; Sha256 = 'a' * 64 }
             }
             Set-Item Function:Invoke-SqlQuery -Value {
                 $script:SampleHandlerQueryCalls++
-                if ($script:SampleHandlerQueryCalls -ge 2) { return @('ONLINE') }
+                if ($script:SampleHandlerQueryCalls -gt $script:SampleHandlerExpectedDatabases) { return @('ONLINE') }
                 return @()
             }
             Set-Item Function:New-SqlServerLabDatabase -Value { [PSCustomObject]@{ Success = $true } }
-            Set-Item Function:Invoke-LabSqlScript -Value { [PSCustomObject]@{ Success = $true; Message = 'static script'; Batches = 1 } }
+            Set-Item Function:Invoke-LabSqlScript -Value {
+                param($ScriptPath, $HostName, $Port, $SaPassword, $Database, $KeepConnection, $TimeoutSeconds)
+                if ($script:UseBundleArtifact) {
+                    $script:BundleFlattenedContent = Get-Content -LiteralPath $ScriptPath -Raw
+                    $script:BundleScriptDatabase = $Database
+                    $script:BundleWorkingDirectory = Split-Path -Parent $ScriptPath
+                }
+                [PSCustomObject]@{ Success = $true; Message = 'static script'; Batches = 1 }
+            }
             $scriptHandlerResult = Install-LabSampleDatabase `
                 -Port 14330 `
                 -SaPassword $dummyPassword `
                 -ContainerName 'static-check-none' `
                 -RestoreDefinition $scriptContract `
                 -StateRoot $StateRoot
+
+            $script:SampleHandlerQueryCalls = 0
+            $script:SampleHandlerExpectedDatabases = 2
+            $script:UseBundleArtifact = $true
+            $bundleHandlerResult = Install-LabSampleDatabase `
+                -Port 14330 `
+                -SaPassword $dummyPassword `
+                -ContainerName 'static-check-none' `
+                -RestoreDefinition $bundleContract `
+                -RunDirectory $StateRoot `
+                -StateRoot $StateRoot
+            $bundleWorkingDirectoryRemoved = -not (Test-Path -LiteralPath $script:BundleWorkingDirectory)
         }
         finally {
             Set-Item Function:Resolve-LabArtifact -Value $originalResolver
@@ -159,6 +254,8 @@ try {
             Set-Item Function:New-SqlServerLabDatabase -Value $originalCreateDatabase
             Set-Item Function:Invoke-LabSqlScript -Value $originalScript
             Remove-Variable SampleHandlerQueryCalls -Scope Script -ErrorAction SilentlyContinue
+            Remove-Variable SampleHandlerExpectedDatabases -Scope Script -ErrorAction SilentlyContinue
+            Remove-Variable UseBundleArtifact -Scope Script -ErrorAction SilentlyContinue
         }
 
         $status = Get-LabSampleArtifactLocalStatus `
@@ -178,7 +275,7 @@ try {
             -DatabaseName 'WideWorldImporters')
 
         [PSCustomObject]@{
-            AllExecutableSupported = @($allVariants | Where-Object { $_.ArtifactType -notin @('backup', 'archive-backup', 'sql-script') }).Count -eq 0
+            AllExecutableSupported = @($allVariants | Where-Object { $_.ArtifactType -notin @('backup', 'archive-backup', 'sql-script', 'script-bundle') }).Count -eq 0
             NoDescriptiveVariants = @($allVariants | Where-Object { $_.SampleId -eq 'stackoverflow-50gb' }).Count -eq 0
             VersionFilterWorks    = @($variants2019 | Where-Object { $_.MinSqlVersion -eq '2022' }).Count -eq 0 -and
                 @($variants2022 | Where-Object { $_.SampleId -eq 'adventureworks-2022' }).Count -gt 0
@@ -202,6 +299,17 @@ try {
             ScriptContractWorks   = $scriptContract.artifactType -eq 'sql-script' -and
                 $scriptContract.installation.executionMode -eq 'existing-database'
             ScriptHandlerWorks    = $scriptHandlerResult.Status -eq 'DATASET_READY' -and $scriptHandlerResult.Success
+            BundleContractWorks   = $bundleContract.artifactType -eq 'script-bundle' -and
+                @($bundleContract.expectedOutputs).Count -eq 2 -and
+                @($bundleContract.installation.allowedSqlcmdFeatures) -contains 'include'
+            BundleHandlerWorks    = $bundleHandlerResult.Status -eq 'DATASET_READY' -and
+                $bundleHandlerResult.Success -and
+                @($bundleHandlerResult.DatabaseNames).Count -eq 2 -and
+                $script:BundleScriptDatabase -eq 'master' -and
+                $script:BundleFlattenedContent -match 'CREATE DATABASE \[BundleOne\]' -and
+                $script:BundleFlattenedContent -match 'CREATE DATABASE \[BundleTwo\]' -and
+                $script:BundleFlattenedContent -notmatch '(?im)^\s*:(?:r|setvar)' -and
+                $bundleWorkingDirectoryRemoved
             ArchivePayloadWorks   = $archivePayloadWorks
             SevenZipPayloadWorks  = $sevenZipPayloadWorks
             TrustRequired         = $handlerResult.Status -eq 'TRUST_REQUIRED' -and -not $handlerResult.Success
@@ -221,6 +329,8 @@ try {
     Add-CheckResult -Name 'Beschreibende Varianten werden nicht ausgefuehrt' -Success $result.DescriptiveRejected
     Add-CheckResult -Name 'SQL-Skript-Sample liefert einen typisierten Installationsvertrag' -Success $result.ScriptContractWorks
     Add-CheckResult -Name 'SQL-Skript-Handler erstellt Ziel und verifiziert die Datenbank' -Success $result.ScriptHandlerWorks
+    Add-CheckResult -Name 'Script-Bundle-Aufloesung liefert mehrere typisierte Datenbankoutputs' -Success $result.BundleContractWorks
+    Add-CheckResult -Name 'Script-Bundle-Handler expandiert sichere sqlcmd-Includes und verifiziert alle Outputs' -Success $result.BundleHandlerWorks
     Add-CheckResult -Name 'ZIP-Backup-Payload wird nur im temporaeren Arbeitsbereich extrahiert' -Success $result.ArchivePayloadWorks
     Add-CheckResult -Name '7z-Backup-Payload wird bei verfügbarem 7-Zip sicher extrahiert' -Success $result.SevenZipPayloadWorks
     Add-CheckResult -Name 'Nicht interaktiver Handler ohne Trust endet mit TRUST_REQUIRED' -Success $result.TrustRequired

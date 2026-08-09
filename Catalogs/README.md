@@ -115,7 +115,8 @@ Beispiel:
 Der Katalog wird in den gemeinsamen Artifact-Vertrag aufgelöst. Automatisch
 bereitstellen kann der aktuelle Runtimepfad direkte Backups (`backup` und
 `.bak`), sichere Archiv-Backups (`archive-backup` mit `.zip` oder `.7z`) sowie
-einzelne T-SQL-Skripte (`sql-script` und `.sql`), jeweils mit
+einzelne T-SQL-Skripte (`sql-script` und `.sql`) und katalogisierte ZIP-Script-
+Bundles (`script-bundle`), jeweils mit
 `runtimeStatus: executable`. Archiv-Backups benötigen eine exakte
 `installation.payloadPath`-Angabe und werden nur temporär entpackt. Für `.7z`
 muss die lokale 7-Zip-Kommandozeile verfügbar sein; sie kann nach expliziter
@@ -129,8 +130,9 @@ Nicht automatisch ausführbar sind unter anderem:
 
 - nicht katalogisierte Archive
 - Attach-Szenarien
-- Script-Bundles und SQL-Skripte mit `:r`, `:setvar`, `:connect` oder
-  Shell-Escapes
+- Script-Bundles mit nicht freigegebenen sqlcmd-Features, `:connect` oder
+  Shell-Escapes; `:r` und `:setvar` sind nur innerhalb des extrahierten
+  Bundle-Roots und bei explizitem `allowedSqlcmdFeatures` zulässig
 
 Diese Einträge dürfen trotzdem als Planungs- und Quellenkatalog enthalten sein.
 Der Runtimepfad lehnt sie mit einer erklärenden Fehlermeldung ab.

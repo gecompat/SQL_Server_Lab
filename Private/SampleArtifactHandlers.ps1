@@ -3,12 +3,12 @@
     Sample-Artifact-Handler fuer den gemeinsamen Installations-Lifecycle.
 .DESCRIPTION
     Implementiert die freigegebenen Sample-Handler aus dem Sample-Zielvertrag:
-    direkte Backups, ZIP-/7z-Archive mit genau einem katalogisierten Backup und
-    einzelne T-SQL-Skripte. Acquisition und Integritaet laufen ueber den
+    direkte Backups, ZIP-/7z-Archive mit genau einem katalogisierten Backup,
+    einzelne T-SQL-Skripte und sichere ZIP-Script-Bundles. Acquisition und Integritaet laufen ueber den
     Artifact Resolver (Trust Store, Cache, Quarantaene, Run Lock), danach
     folgen Idempotenzpruefung, Apply und Output-Verification. Alle Ergebnisse verwenden stabile Statusklassen
     (DATASET_READY, TRUST_REQUIRED, SAMPLE_OUTPUT_CONFLICT,
-    SAMPLE_INSTALLATION_FAILED, SAMPLE_VERIFICATION_FAILED).
+    SAMPLE_INSTALLATION_FAILED, SAMPLE_VERIFICATION_FAILED, RECOVERY_REQUIRED).
 #>
 
 function Get-LabExecutableSampleVariant {
@@ -17,9 +17,9 @@ function Get-LabExecutableSampleVariant {
         Listet automatisch installierbare Sample-Varianten des Katalogs auf.
     .DESCRIPTION
         Liefert nur Varianten, fuer die ein freigegebener Runtime-Handler
-        vorhanden ist: direkte Backups, ZIP-/7z-Backups und einzelne T-SQL-Skripte.
-        Jede Variante muss genau eine erwartete Datenbank definieren. Optional
-        wird nach SQL-Version gefiltert.
+        vorhanden ist: direkte Backups, ZIP-/7z-Backups, einzelne T-SQL-Skripte
+        und Script Bundles. Bundles duerfen mehrere erwartete Datenbanken definieren.
+        Optional wird nach SQL-Version gefiltert.
     #>
     [CmdletBinding()]
     param(
@@ -43,13 +43,16 @@ function Get-LabExecutableSampleVariant {
         foreach ($variantProperty in @($sample.versions.PSObject.Properties)) {
             $definition = $variantProperty.Value
             if ($definition.runtimeStatus -ne 'executable' -or
-                $definition.artifactType -notin @('backup', 'archive-backup', 'sql-script') -or
+                $definition.artifactType -notin @('backup', 'archive-backup', 'sql-script', 'script-bundle') -or
                 [string]$definition.installation.kind -ne [string]$definition.artifactType) {
                 continue
             }
 
             $outputs = @($definition.expectedOutputs)
-            if ($outputs.Count -ne 1 -or $outputs[0].kind -ne 'database') {
+            if ($outputs.Count -eq 0 -or @($outputs | Where-Object { $_.kind -ne 'database' }).Count -gt 0) {
+                continue
+            }
+            if ($definition.artifactType -ne 'script-bundle' -and $outputs.Count -ne 1) {
                 continue
             }
 
@@ -65,6 +68,7 @@ function Get-LabExecutableSampleVariant {
                 ArtifactType           = [string]$definition.artifactType
                 Installation           = $definition.installation
                 ExpectedDatabase       = [string]$outputs[0].name
+                ExpectedDatabases      = @($outputs | ForEach-Object { [string]$_.name })
                 DownloadSizeMB         = $definition.downloadSizeMB
                 EstimatedInstallSizeMB = $definition.estimatedInstallSizeMB
                 MinSqlVersion          = [string]$sample.minSqlVersion
@@ -238,6 +242,221 @@ function Get-LabArchiveBackupPayload {
     }
 }
 
+function Expand-LabScriptBundlePayload {
+    <#
+    .SYNOPSIS
+        Extrahiert katalogisierte SQL-Dateien eines ZIP-Script-Bundles sicher.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$BundlePath,
+        [Parameter(Mandatory)][string]$Entrypoint,
+        [Parameter(Mandatory)][string]$WorkingDirectory,
+        [string]$RunDirectory
+    )
+
+    if (-not (Test-Path -LiteralPath $BundlePath -PathType Leaf)) {
+        throw "SAMPLE_BUNDLE_NOT_FOUND: $BundlePath"
+    }
+
+    $normalizeRelativePath = {
+        param([string]$Value, [string]$Label, [switch]$AllowCurrentDirectory)
+
+        $normalized = ([string]$Value -replace '\\', '/').Trim()
+        if ($AllowCurrentDirectory -and $normalized -eq '.') {
+            return ''
+        }
+        if ([string]::IsNullOrWhiteSpace($normalized) -or
+            $normalized -match '^(?:[A-Za-z]:|/)' -or
+            @($normalized -split '/' | Where-Object { $_ -in @('.', '..') }).Count -gt 0) {
+            throw "SAMPLE_BUNDLE_PATH_INVALID: $Label '$Value' ist kein sicherer relativer Pfad."
+        }
+        return ($normalized.Trim('/'))
+    }
+
+    $bundleSubdirectory = & $normalizeRelativePath $WorkingDirectory 'workingDirectory' -AllowCurrentDirectory
+    $entrypointRelative = & $normalizeRelativePath $Entrypoint 'entrypoint'
+    if ($entrypointRelative -notmatch '(?i)\.sql$') {
+        throw "SAMPLE_BUNDLE_ENTRYPOINT_INVALID: '$Entrypoint' ist kein SQL-Skript."
+    }
+
+    $entrypointArchivePath = if ($bundleSubdirectory) {
+        "$bundleSubdirectory/$entrypointRelative"
+    }
+    else {
+        $entrypointRelative
+    }
+
+    $temporaryBase = if ($RunDirectory -and (Test-Path -LiteralPath $RunDirectory -PathType Container)) {
+        Join-Path $RunDirectory 'artifact-work'
+    }
+    else {
+        Join-Path ([System.IO.Path]::GetTempPath()) 'sql-server-lab-artifacts'
+    }
+    $extractionRoot = Join-Path $temporaryBase ([guid]::NewGuid().ToString('N'))
+    New-Item -Path $extractionRoot -ItemType Directory -Force | Out-Null
+
+    try {
+        Add-Type -AssemblyName System.IO.Compression -ErrorAction Stop
+        $archive = [System.IO.Compression.ZipFile]::OpenRead($BundlePath)
+        try {
+            $entrypointMatches = [System.Collections.Generic.List[string]]::new()
+            $targetRoot = [System.IO.Path]::GetFullPath($extractionRoot + [System.IO.Path]::DirectorySeparatorChar)
+            $workingPrefix = if ($bundleSubdirectory) { "$bundleSubdirectory/" } else { '' }
+
+            foreach ($entry in $archive.Entries) {
+                if ([string]::IsNullOrEmpty($entry.Name)) {
+                    continue
+                }
+
+                $archivePath = & $normalizeRelativePath $entry.FullName 'archive entry'
+                if ($workingPrefix -and -not $archivePath.StartsWith($workingPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+                    continue
+                }
+
+                $relativePath = if ($workingPrefix) { $archivePath.Substring($workingPrefix.Length) } else { $archivePath }
+                if ($relativePath -notmatch '(?i)\.sql$') {
+                    continue
+                }
+
+                $targetPath = Join-Path $extractionRoot ($relativePath -replace '/', [System.IO.Path]::DirectorySeparatorChar)
+                $fullTargetPath = [System.IO.Path]::GetFullPath($targetPath)
+                if (-not $fullTargetPath.StartsWith($targetRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+                    throw "SAMPLE_BUNDLE_PATH_INVALID: Archiveintrag '$archivePath' verlaesst den Bundle-Scope."
+                }
+
+                $targetDirectory = Split-Path -Parent $fullTargetPath
+                New-Item -Path $targetDirectory -ItemType Directory -Force | Out-Null
+                [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $fullTargetPath, $false)
+
+                if ($archivePath -ieq $entrypointArchivePath) {
+                    $entrypointMatches.Add($fullTargetPath)
+                }
+            }
+
+            if ($entrypointMatches.Count -ne 1) {
+                throw "SAMPLE_BUNDLE_ENTRYPOINT_NOT_FOUND: ZIP muss genau den katalogisierten Entrypoint '$entrypointArchivePath' enthalten."
+            }
+
+            return [PSCustomObject]@{
+                Path             = $entrypointMatches[0]
+                BundleRoot       = $extractionRoot
+                WorkingDirectory = $extractionRoot
+            }
+        }
+        finally {
+            $archive.Dispose()
+        }
+    }
+    catch {
+        if (Test-Path -LiteralPath $extractionRoot) {
+            Remove-Item -LiteralPath $extractionRoot -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        throw
+    }
+}
+
+function Convert-LabScriptBundleToSql {
+    <#
+    .SYNOPSIS
+        Loest erlaubte sqlcmd-Direktiven innerhalb eines Bundle-Roots auf.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$EntrypointPath,
+        [Parameter(Mandatory)][string]$BundleRoot,
+        [string[]]$AllowedSqlcmdFeatures = @()
+    )
+
+    $rootPath = [System.IO.Path]::GetFullPath($BundleRoot)
+    $rootPrefix = $rootPath + [System.IO.Path]::DirectorySeparatorChar
+    $allowedFeatures = @($AllowedSqlcmdFeatures | ForEach-Object { ([string]$_).ToLowerInvariant() })
+    $variables = @{}
+    $activePaths = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+
+    $substituteVariables = {
+        param([string]$Text)
+
+        return [regex]::Replace($Text, '\$\(([A-Za-z_][A-Za-z0-9_]*)\)', {
+            param($match)
+            $variableName = $match.Groups[1].Value
+            if (-not $variables.ContainsKey($variableName)) {
+                throw "SAMPLE_BUNDLE_VARIABLE_UNDEFINED: '$variableName'"
+            }
+            return [string]$variables[$variableName]
+        })
+    }
+
+    $expandScript = $null
+    $expandScript = {
+        param([string]$ScriptPath)
+
+        $fullScriptPath = [System.IO.Path]::GetFullPath($ScriptPath)
+        if (-not $fullScriptPath.StartsWith($rootPrefix, [System.StringComparison]::OrdinalIgnoreCase) -or
+            $fullScriptPath -notmatch '(?i)\.sql$' -or
+            -not (Test-Path -LiteralPath $fullScriptPath -PathType Leaf)) {
+            throw "SAMPLE_BUNDLE_INCLUDE_INVALID: '$ScriptPath' liegt nicht als SQL-Datei im Bundle-Scope."
+        }
+        if (-not $activePaths.Add($fullScriptPath)) {
+            throw "SAMPLE_BUNDLE_INCLUDE_CYCLE: '$fullScriptPath' wurde rekursiv eingebunden."
+        }
+
+        try {
+            foreach ($line in Get-Content -LiteralPath $fullScriptPath -Encoding utf8) {
+                if ($line -match '^\s*(?::connect\b|:!!\b|!!\b)') {
+                    throw "SAMPLE_BUNDLE_SQLCMD_UNSAFE: Unsichere Direktive in '$fullScriptPath'."
+                }
+                if ($line -match '^\s*:setvar\s+([A-Za-z_][A-Za-z0-9_]*)\s+(.+?)\s*$') {
+                    if ($allowedFeatures -notcontains 'setvar') {
+                        throw "SAMPLE_BUNDLE_SQLCMD_FEATURE_NOT_ALLOWED: setvar"
+                    }
+                    $value = $Matches[2].Trim()
+                    if (($value.StartsWith('"') -and $value.EndsWith('"')) -or
+                        ($value.StartsWith("'") -and $value.EndsWith("'"))) {
+                        $value = $value.Substring(1, $value.Length - 2)
+                    }
+                    $variables[$Matches[1]] = $value
+                    continue
+                }
+                if ($line -match '^\s*:r\s+(.+?)\s*$') {
+                    if ($allowedFeatures -notcontains 'include') {
+                        throw "SAMPLE_BUNDLE_SQLCMD_FEATURE_NOT_ALLOWED: include"
+                    }
+                    $includeValue = & $substituteVariables $Matches[1].Trim()
+                    if (($includeValue.StartsWith('"') -and $includeValue.EndsWith('"')) -or
+                        ($includeValue.StartsWith("'") -and $includeValue.EndsWith("'"))) {
+                        $includeValue = $includeValue.Substring(1, $includeValue.Length - 2)
+                    }
+                    $includeValue = $includeValue -replace '/', [System.IO.Path]::DirectorySeparatorChar
+                    if ([System.IO.Path]::IsPathRooted($includeValue) -or
+                        @($includeValue -split '[\\/]' | Where-Object { $_ -eq '..' }).Count -gt 0) {
+                        throw "SAMPLE_BUNDLE_INCLUDE_INVALID: '$includeValue' verlaesst den Bundle-Scope."
+                    }
+                    $includePath = Join-Path (Split-Path -Parent $fullScriptPath) $includeValue
+                    & $expandScript $includePath
+                    continue
+                }
+                if ($line -match '^\s*:' ) {
+                    throw "SAMPLE_BUNDLE_SQLCMD_DIRECTIVE_UNSUPPORTED: '$($line.Trim())'"
+                }
+                if ($line -match '(?i)^\s*GO\s*(?:--.*)?$' -and $allowedFeatures -notcontains 'go') {
+                    throw "SAMPLE_BUNDLE_SQLCMD_FEATURE_NOT_ALLOWED: go"
+                }
+
+                & $substituteVariables $line
+            }
+        }
+        finally {
+            $null = $activePaths.Remove($fullScriptPath)
+        }
+    }
+
+    $flattenedLines = @(& $expandScript $EntrypointPath)
+    $flattenedPath = Join-Path $rootPath "bundle-$([guid]::NewGuid().ToString('N')).sql"
+    [System.IO.File]::WriteAllLines($flattenedPath, $flattenedLines, [System.Text.UTF8Encoding]::new($false))
+    return $flattenedPath
+}
+
 function Install-LabSampleDatabase {
     <#
     .SYNOPSIS
@@ -263,13 +482,25 @@ function Install-LabSampleDatabase {
         [string]$TestDataRoot
     )
 
-    $databaseName = [string]$RestoreDefinition.expectedOutputs[0].name
+    $databaseNames = @(
+        $RestoreDefinition.expectedOutputs |
+            Where-Object { $_.kind -eq 'database' } |
+            ForEach-Object { [string]$_.name } |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+            Select-Object -Unique
+    )
+    if ($databaseNames.Count -eq 0 -or $databaseNames.Count -ne @($RestoreDefinition.expectedOutputs).Count) {
+        throw 'SAMPLE_OUTPUTS_INVALID: Der Handler benoetigt eine eindeutige Liste erwarteter Datenbanken.'
+    }
+
+    $databaseName = $databaseNames[0]
     $result = [ordered]@{
         Status        = $null
         Message       = $null
         SampleId      = [string]$RestoreDefinition.sampleId
         SampleVariant = [string]$RestoreDefinition.sampleVariant
         DatabaseName  = $databaseName
+        DatabaseNames = $databaseNames
         Artifact      = $null
         Success       = $false
     }
@@ -306,6 +537,7 @@ function Install-LabSampleDatabase {
 
     $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword)
     $temporaryArchivePayload = $null
+    $temporaryBundlePayload = $null
     try {
         $saPlain = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
     }
@@ -314,19 +546,21 @@ function Install-LabSampleDatabase {
     }
 
     try {
-        $escapedDatabaseName = $databaseName.Replace("'", "''")
-        $existsOutput = Invoke-SqlQuery `
-            -HostName $HostName `
-            -Port $Port `
-            -SaPlain $saPlain `
-            -Query "SET NOCOUNT ON; SELECT name FROM sys.databases WHERE name = N'$escapedDatabaseName';"
-        $existsText = (@($existsOutput) | ForEach-Object { ([string]$_).Trim() })
-
         $idempotencyMode = if ($RestoreDefinition.idempotencyMode) { [string]$RestoreDefinition.idempotencyMode } else { 'fail-if-exists' }
-        if ($existsText -contains $databaseName -and $idempotencyMode -eq 'fail-if-exists') {
-            $result.Status = 'SAMPLE_OUTPUT_CONFLICT'
-            $result.Message = "Datenbank '$databaseName' existiert bereits; Idempotenzregel fail-if-exists blockiert die Installation."
-            return [PSCustomObject]$result
+        foreach ($expectedDatabaseName in $databaseNames) {
+            $escapedExpectedName = $expectedDatabaseName.Replace("'", "''")
+            $existsOutput = Invoke-SqlQuery `
+                -HostName $HostName `
+                -Port $Port `
+                -SaPlain $saPlain `
+                -Query "SET NOCOUNT ON; SELECT name FROM sys.databases WHERE name = N'$escapedExpectedName';"
+            $existsText = (@($existsOutput) | ForEach-Object { ([string]$_).Trim() })
+
+            if ($existsText -contains $expectedDatabaseName -and $idempotencyMode -eq 'fail-if-exists') {
+                $result.Status = 'SAMPLE_OUTPUT_CONFLICT'
+                $result.Message = "Datenbank '$expectedDatabaseName' existiert bereits; Idempotenzregel fail-if-exists blockiert die Installation."
+                return [PSCustomObject]$result
+            }
         }
 
         switch ([string]$RestoreDefinition.artifactType) {
@@ -403,26 +637,82 @@ function Install-LabSampleDatabase {
                     return [PSCustomObject]$result
                 }
             }
+            'script-bundle' {
+                if ([string]$RestoreDefinition.installation.partialFailurePolicy -ne 'recovery-required') {
+                    throw "SAMPLE_BUNDLE_PARTIAL_FAILURE_POLICY_UNSUPPORTED: '$($RestoreDefinition.installation.partialFailurePolicy)'"
+                }
+
+                $temporaryBundlePayload = Expand-LabScriptBundlePayload `
+                    -BundlePath $artifactResolution.Path `
+                    -Entrypoint ([string]$RestoreDefinition.installation.entrypoint) `
+                    -WorkingDirectory ([string]$RestoreDefinition.installation.workingDirectory) `
+                    -RunDirectory $RunDirectory
+                $flattenedScriptPath = Convert-LabScriptBundleToSql `
+                    -EntrypointPath $temporaryBundlePayload.Path `
+                    -BundleRoot $temporaryBundlePayload.BundleRoot `
+                    -AllowedSqlcmdFeatures @($RestoreDefinition.installation.allowedSqlcmdFeatures)
+
+                $executionMode = [string]$RestoreDefinition.installation.executionMode
+                if ($executionMode -eq 'existing-database') {
+                    if ($databaseNames.Count -ne 1) {
+                        throw 'SAMPLE_BUNDLE_EXISTING_DATABASE_AMBIGUOUS: existing-database erlaubt genau einen erwarteten Output.'
+                    }
+                    $createResult = New-SqlServerLabDatabase `
+                        -HostName $HostName `
+                        -Port $Port `
+                        -SaPassword $SaPassword `
+                        -DatabaseName $databaseName
+                    if (-not $createResult.Success) {
+                        $result.Status = 'SAMPLE_INSTALLATION_FAILED'
+                        $result.Message = "Zieldatenbank '$databaseName' konnte nicht erstellt werden."
+                        return [PSCustomObject]$result
+                    }
+                    $scriptDatabase = $databaseName
+                }
+                elseif ($executionMode -in @('master', 'self-creates-databases')) {
+                    $scriptDatabase = 'master'
+                }
+                else {
+                    throw "SAMPLE_SCRIPT_EXECUTION_MODE_UNSUPPORTED: '$executionMode'"
+                }
+
+                $scriptResult = Invoke-LabSqlScript `
+                    -ScriptPath $flattenedScriptPath `
+                    -HostName $HostName `
+                    -Port $Port `
+                    -SaPassword $SaPassword `
+                    -Database $scriptDatabase `
+                    -KeepConnection `
+                    -TimeoutSeconds ([int]$RestoreDefinition.installation.timeoutSeconds)
+                if (-not $scriptResult.Success) {
+                    $result.Status = 'RECOVERY_REQUIRED'
+                    $result.Message = "Script Bundle wurde nicht vollstaendig ausgefuehrt: $($scriptResult.Message)"
+                    return [PSCustomObject]$result
+                }
+            }
             default {
                 throw "SAMPLE_HANDLER_UNSUPPORTED: '$($RestoreDefinition.artifactType)'"
             }
         }
 
-        $stateOutput = Invoke-SqlQuery `
-            -HostName $HostName `
-            -Port $Port `
-            -SaPlain $saPlain `
-            -Query "SET NOCOUNT ON; SELECT state_desc FROM sys.databases WHERE name = N'$escapedDatabaseName';"
-        $stateText = (@($stateOutput) | ForEach-Object { ([string]$_).Trim() })
+        foreach ($expectedDatabaseName in $databaseNames) {
+            $escapedExpectedName = $expectedDatabaseName.Replace("'", "''")
+            $stateOutput = Invoke-SqlQuery `
+                -HostName $HostName `
+                -Port $Port `
+                -SaPlain $saPlain `
+                -Query "SET NOCOUNT ON; SELECT state_desc FROM sys.databases WHERE name = N'$escapedExpectedName';"
+            $stateText = (@($stateOutput) | ForEach-Object { ([string]$_).Trim() })
 
-        if ($stateText -notcontains 'ONLINE') {
-            $result.Status = 'SAMPLE_VERIFICATION_FAILED'
-            $result.Message = "Erwartete Datenbank '$databaseName' ist nach der Installation nicht ONLINE."
-            return [PSCustomObject]$result
+            if ($stateText -notcontains 'ONLINE') {
+                $result.Status = if ($RestoreDefinition.artifactType -eq 'script-bundle') { 'RECOVERY_REQUIRED' } else { 'SAMPLE_VERIFICATION_FAILED' }
+                $result.Message = "Erwartete Datenbank '$expectedDatabaseName' ist nach der Installation nicht ONLINE."
+                return [PSCustomObject]$result
+            }
         }
 
         $result.Status = 'DATASET_READY'
-        $result.Message = "Sample '$($result.SampleId)' Variante '$($result.SampleVariant)' installiert und verifiziert."
+        $result.Message = "Sample '$($result.SampleId)' Variante '$($result.SampleVariant)' installiert und verifiziert: $($databaseNames -join ', ')."
         $result.Success = $true
         return [PSCustomObject]$result
     }
@@ -430,6 +720,9 @@ function Install-LabSampleDatabase {
         $saPlain = $null
         if ($temporaryArchivePayload -and (Test-Path -LiteralPath $temporaryArchivePayload.WorkingDirectory)) {
             Remove-Item -LiteralPath $temporaryArchivePayload.WorkingDirectory -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        if ($temporaryBundlePayload -and (Test-Path -LiteralPath $temporaryBundlePayload.WorkingDirectory)) {
+            Remove-Item -LiteralPath $temporaryBundlePayload.WorkingDirectory -Recurse -Force -ErrorAction SilentlyContinue
         }
     }
 }
