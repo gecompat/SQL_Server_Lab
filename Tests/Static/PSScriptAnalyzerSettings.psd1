@@ -7,5 +7,12 @@
         'Error'
         'Warning'
     )
+    # Existing security-rule debt. The analyzer runner fails when a rule exceeds
+    # its recorded count, so new findings cannot silently enter the repository.
+    ErrorBaseline = @{
+        PSAvoidUsingConvertToSecureStringWithPlainText = 21
+        PSAvoidUsingUsernameAndPasswordParams = 1
+        PSAvoidUsingComputerNameHardcoded = 2
+    }
     ExcludeRules = @()
 }
