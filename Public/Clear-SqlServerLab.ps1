@@ -38,7 +38,6 @@ function Clear-SqlServerLab {
     $activeRuns = @(Get-LabActiveRuns -StateRoot $stateRoot)
     $windowsImageBuilds = if (-not $StateOnly -and -not $ContainersOnly) { @(Get-HyperVImageBuildPlans -StateRoot $stateRoot) } else { @() }
     $sqlImageBuilds = if (-not $StateOnly -and -not $ContainersOnly) { @(Get-HyperVSqlImageBuildPlans -StateRoot $stateRoot) } else { @() }
-    $imageArtifacts = if (-not $StateOnly -and -not $ContainersOnly) { @(Get-HyperVImageArtifact -StateRoot $stateRoot -SkipIntegrityCheck) } else { @() }
     $knownRunIds = @($activeRuns | ForEach-Object { $_.runId })
     $runtimeStatus = @{}
     $allContainers = @()
@@ -87,7 +86,7 @@ function Clear-SqlServerLab {
     Write-LabStatus -Label 'Orphan-Container' -Value $orphanContainers.Count
     Write-LabStatus -Label 'Hyper-V Windows-Builder' -Value $windowsImageBuilds.Count
     Write-LabStatus -Label 'Hyper-V SQL-Builder' -Value $sqlImageBuilds.Count
-    Write-LabStatus -Label 'Veröffentlichte Hyper-V-Images' -Value $imageArtifacts.Count
+    Write-LabInfo 'Veröffentlichte OS- und SQL-Vorlagen bleiben erhalten und werden ausschließlich unter Hyper-V -> Veröffentlichte Vorlagen verwaltet.'
     foreach ($runtime in @('docker', 'podman')) {
         Write-LabStatus -Label "Runtime $runtime" -Value $runtimeStatus[$runtime]
     }
@@ -99,7 +98,7 @@ function Clear-SqlServerLab {
         $allContainers.Count
     }
     else {
-        $activeRuns.Count + $orphanContainers.Count + $windowsImageBuilds.Count + $sqlImageBuilds.Count + $imageArtifacts.Count
+        $activeRuns.Count + $orphanContainers.Count + $windowsImageBuilds.Count + $sqlImageBuilds.Count
     }
 
     if ($workCount -eq 0) {
@@ -140,7 +139,6 @@ function Clear-SqlServerLab {
     $removedContainers = 0
     $removedStateRuns = 0
     $removedImageBuilds = 0
-    $removedImageArtifacts = 0
     $errors = 0
 
     if ($StateOnly) {
@@ -304,10 +302,6 @@ function Clear-SqlServerLab {
             }
             catch { Write-LabError "SQL-Builder '$($build.buildId)' konnte nicht entfernt werden: $($_.Exception.Message)"; $errors++ }
         }
-        foreach ($artifact in $imageArtifacts) {
-            try { $null = Remove-HyperVImageArtifact -ArtifactId ([string]$artifact.artifactId) -StateRoot $stateRoot; $removedImageArtifacts++ }
-            catch { Write-LabError "Image '$($artifact.artifactId)' konnte nicht entfernt werden: $($_.Exception.Message)"; $errors++ }
-        }
     }
 
     $status = if ($errors -eq 0) { 'CLEAN' } else { 'PARTIAL' }
@@ -315,7 +309,6 @@ function Clear-SqlServerLab {
     Write-LabStatus -Label 'Container entfernt' -Value $removedContainers -Color 'Green'
     Write-LabStatus -Label 'State-Runs bereinigt' -Value $removedStateRuns -Color 'Green'
     Write-LabStatus -Label 'Image-Builder entfernt' -Value $removedImageBuilds -Color 'Green'
-    Write-LabStatus -Label 'Hyper-V-Images entfernt' -Value $removedImageArtifacts -Color 'Green'
     if ($errors -gt 0) {
         Write-LabStatus -Label 'Fehler' -Value $errors -Color 'Red'
     }
@@ -324,7 +317,6 @@ function Clear-SqlServerLab {
         Containers = $removedContainers
         StateRuns  = $removedStateRuns
         ImageBuilds = $removedImageBuilds
-        ImageArtifacts = $removedImageArtifacts
         Errors     = $errors
         Status     = $status
     }
