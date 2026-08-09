@@ -433,6 +433,7 @@ function Initialize-HyperVWindowsImageBuild {
         [ValidateRange(1, 64)][int]$ProcessorCount = 4,
         [string]$Language = 'en-US',
         [string]$WindowsMediaPath,
+        [ValidateSet('none', 'space')][string]$InitialMediaKey = 'space',
         [string]$StateRoot
     )
 
@@ -451,6 +452,7 @@ function Initialize-HyperVWindowsImageBuild {
         -InstallationType $InstallationType `
         -Language $Language `
         -LicenseType $LicenseType `
+        -InitialMediaKey $InitialMediaKey `
         -OsDiskSizeBytes $OsDiskSizeBytes `
         -StateRoot $StateRoot
 
@@ -584,6 +586,72 @@ function Confirm-HyperVWindowsImageInstallation {
     return Get-HyperVImageBuildPlan -BuildId $BuildId -StateRoot $StateRoot
 }
 
+function Invoke-HyperVInitialMediaBootInteraction {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$BuildId,
+        [Parameter(Mandatory)][string]$VMName,
+        [ValidateRange(1, 30)][int]$Attempts = 12,
+        [ValidateRange(50, 2000)][int]$IntervalMilliseconds = 400,
+        [string]$StateRoot
+    )
+
+    $build = Get-HyperVImageBuildPlan -BuildId $BuildId -StateRoot $StateRoot
+    if (-not $build) { throw 'HYPERV_IMAGE_BUILD_NOT_FOUND' }
+    if ($build.initialMediaBootReceipt) { return $build.initialMediaBootReceipt }
+
+    $initialMediaKey = [string]$build.media.bootInteraction.initialMediaKey
+    if ([string]::IsNullOrWhiteSpace($initialMediaKey)) {
+        # Portable migration for unfinished Windows builds created before the
+        # boot-interaction contract existed.
+        $initialMediaKey = 'space'
+        $build.media | Add-Member -NotePropertyName bootInteraction `
+            -NotePropertyValue ([PSCustomObject]@{ initialMediaKey = $initialMediaKey }) -Force
+    }
+    if ($initialMediaKey -notin @('none', 'space')) {
+        throw 'HYPERV_INITIAL_MEDIA_KEY_INVALID'
+    }
+
+    $successfulSends = 0
+    if ($initialMediaKey -eq 'space') {
+        $lastError = $null
+        Start-Sleep -Milliseconds 750
+        for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
+            try {
+                $escapedVmName = $VMName.Replace("'", "''")
+                $computerSystem = @(Get-CimInstance -Namespace 'root/virtualization/v2' `
+                    -ClassName Msvm_ComputerSystem `
+                    -Filter "Caption='Virtual Machine' AND ElementName='$escapedVmName'" -ErrorAction Stop)[0]
+                if (-not $computerSystem) { throw 'HYPERV_BUILDER_VM_CIM_NOT_FOUND' }
+                $keyboard = @(Get-CimAssociatedInstance -InputObject $computerSystem `
+                    -Association Msvm_SystemDevice -ResultClassName Msvm_Keyboard -ErrorAction Stop)[0]
+                if (-not $keyboard) { throw 'HYPERV_BUILDER_KEYBOARD_NOT_FOUND' }
+                $result = Invoke-CimMethod -InputObject $keyboard -MethodName TypeKey `
+                    -Arguments @{ keyCode = [uint32]0x20 } -ErrorAction Stop
+                if ([uint32]$result.ReturnValue -eq 0) { $successfulSends++ }
+                else { $lastError = "TypeKey=$($result.ReturnValue)" }
+            }
+            catch { $lastError = $_.Exception.Message }
+            if ($attempt -lt $Attempts) { Start-Sleep -Milliseconds $IntervalMilliseconds }
+        }
+        if ($successfulSends -eq 0) {
+            throw "HYPERV_INITIAL_MEDIA_KEY_SEND_FAILED: $lastError"
+        }
+    }
+
+    $receipt = [PSCustomObject]@{
+        contractVersion = '1'; phase = 'initial-media-boot'
+        initialMediaKey = $initialMediaKey
+        status = if ($initialMediaKey -eq 'none') { 'SKIPPED' } else { 'SENT' }
+        attempts = if ($initialMediaKey -eq 'none') { 0 } else { $Attempts }
+        successfulSends = $successfulSends
+        completedAt = Get-LabTimestamp
+    }
+    $build | Add-Member -NotePropertyName initialMediaBootReceipt -NotePropertyValue $receipt -Force
+    Write-HyperVImageBuildState -BuildDirectory $build.BuildDirectory -State $build
+    return $receipt
+}
+
 function Start-HyperVWindowsImageBuildVM {
     [CmdletBinding()]
     param(
@@ -600,10 +668,14 @@ function Start-HyperVWindowsImageBuildVM {
         throw 'HYPERV_IMAGE_BUILD_VM_MISSING'
     }
 
-    return Start-HyperVInstance `
+    $instance = Start-HyperVInstance `
         -VMName ([string]$build.builder.vmName) `
         -ExpectedRunId $BuildId `
         -ExpectedScopeId ([string]$build.scopeId)
+    $receipt = Invoke-HyperVInitialMediaBootInteraction `
+        -BuildId $BuildId -VMName ([string]$build.builder.vmName) -StateRoot $StateRoot
+    $instance | Add-Member -NotePropertyName InitialMediaBoot -NotePropertyValue $receipt -Force
+    return $instance
 }
 
 function Remove-HyperVWindowsImageBuild {
