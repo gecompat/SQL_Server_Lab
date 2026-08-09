@@ -32,8 +32,8 @@ try {
     $plan = & $module { param($Iso,$Sha,$Root) New-HyperVWindowsImageBuildPlan -IsoPath $Iso -ExpectedSha256 $Sha -OperatingSystemId synthetic-ci -Edition none -InstallationType synthetic -LicenseType test-only -OsDiskSizeBytes 64MB -StateRoot $Root } $isoPath $sha $temporaryRoot
     Add-CheckResult -Name 'Build startet in MEDIA_VERIFIED' -Success ($plan.state -eq 'MEDIA_VERIFIED')
     Add-CheckResult -Name 'Windows-Build persistiert den initialen Leertastenvertrag' -Success ($plan.media.bootInteraction.initialMediaKey -eq 'space')
-    $noInputPlan = & $module { param($Iso,$Sha,$Root) New-HyperVWindowsImageBuildPlan -IsoPath $Iso -ExpectedSha256 $Sha -OperatingSystemId linux-hadoop -Edition none -InstallationType synthetic -LicenseType test-only -InitialMediaKey none -OsDiskSizeBytes 64MB -StateRoot $Root } $isoPath $sha (Join-Path $temporaryRoot 'no-input-plan')
-    Add-CheckResult -Name 'Nicht-Windows-Medium kann Tastatureingaben explizit deaktivieren' -Success ($noInputPlan.media.bootInteraction.initialMediaKey -eq 'none')
+    $noInputPlan = & $module { param($Iso,$Sha,$Root) New-HyperVWindowsImageBuildPlan -IsoPath $Iso -ExpectedSha256 $Sha -OperatingSystemId synthetic-ci -Edition none -InstallationType synthetic -LicenseType test-only -InitialMediaKey none -OsDiskSizeBytes 64MB -StateRoot $Root } $isoPath $sha (Join-Path $temporaryRoot 'no-input-plan')
+    Add-CheckResult -Name 'Installationsmedium kann Tastatureingaben explizit deaktivieren' -Success ($noInputPlan.media.bootInteraction.initialMediaKey -eq 'none')
     $mediaCatalog = & $module { Get-LabMediaSourceCatalog }
     Add-CheckResult -Name 'Medienkatalog trennt Windows-Leertaste und Linux ohne Eingabe' -Success (
         @($mediaCatalog | Where-Object { $_.Category -like 'Windows*' -and $_.BootInteraction.InitialMediaKey -ne 'space' }).Count -eq 0 -and
@@ -186,7 +186,7 @@ try {
     $noInputBoot = & $module {
         param($Iso,$Sha,$Root)
         $plan = New-HyperVWindowsImageBuildPlan -IsoPath $Iso -ExpectedSha256 $Sha `
-            -OperatingSystemId linux-hadoop -Edition none -InstallationType synthetic `
+            -OperatingSystemId synthetic-ci -Edition none -InstallationType synthetic `
             -LicenseType test-only -InitialMediaKey none -OsDiskSizeBytes 64MB -StateRoot $Root
         $plan = Set-HyperVImageBuildState -BuildId $plan.buildId -State BUILDER_READY -Reason test -StateRoot $Root
         $plan.builder = [PSCustomObject]@{ vmName = 'mock-linux-vm'; generation = 2; secureBoot = $true }
