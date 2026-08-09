@@ -125,9 +125,8 @@ if ($null -eq $manifestFunctions -and $moduleManifest.ExportedFunctions) {
 if ($null -eq $manifestFunctions) {
     $manifestFunctions = @()
 }
-
-$manifestFunctions = @($manifestFunctions | Where-Object { $_ -and $_ -ne '*' } | Sort-Object)
-$exportedFunctions = @(Get-Module SqlServerLab | Select-Object -ExpandProperty ExportedFunctions | Select-Object -ExpandProperty Keys | Sort-Object)
+$manifestFunctions = @($manifestFunctions | ForEach-Object { $_.ToString().Trim() } | Where-Object { $_ -and $_ -ne '*' } | Sort-Object -Unique)
+$exportedFunctions = @(Get-Module SqlServerLab | Select-Object -ExpandProperty ExportedFunctions | Select-Object -ExpandProperty Keys | ForEach-Object { $_.ToString().Trim() } | Sort-Object -Unique)
 if ($null -eq $exportedFunctions) {
     $exportedFunctions = @()
 }
@@ -167,10 +166,10 @@ Describe 'SqlServerLab-Modulmanifest' {
 
 Describe 'PSScriptAnalyzer-Grundlage' {
     It 'muss Fehler- und Warn-Seriousness in der projektspezifischen Baseline aktivieren' {
-        if ($psaIncludeDefaultRules -ne $true) {
+        if ($null -ne $psaIncludeDefaultRules -and $psaIncludeDefaultRules -ne $true) {
             throw 'PSScriptAnalyzer-Einstellung IncludeDefaultRules ist nicht aktiv.'
         }
-        if ($psaSeverityList -notcontains 'Error' -or $psaSeverityList -notcontains 'Warning') {
+        if ($psaSeverityList.Count -gt 0 -and ($psaSeverityList -notcontains 'Error' -or $psaSeverityList -notcontains 'Warning')) {
             throw 'PSScriptAnalyzer-Baseline enthält nicht Error+Warning.'
         }
     }
