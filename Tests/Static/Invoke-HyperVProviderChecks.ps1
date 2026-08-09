@@ -140,6 +140,10 @@ try {
         -Text $provider `
         -Pattern 'Rename-Computer[\s\S]+REBOOT_REQUIRED[\s\S]+shutdown\.exe[\s\S]+Wait-HyperVPowerShellDirect'
     Add-TextContract `
+        -Name 'Readiness kann den Labnetz-Bootstrap idempotent ueber PowerShell Direct nachholen' `
+        -Text $provider `
+        -Pattern 'GuestInitializationScript[\s\S]+guestInitializationComplete[\s\S]+ScriptBlock \(\[scriptblock\]::Create\(\$GuestInitializationScript\)\)'
+    Add-TextContract `
         -Name 'Gastremoting faellt nur auf eine temporaere Lab-WinRM-Vertrauensbeziehung zurueck' `
         -Text $provider `
         -Pattern 'TrustedHosts[\s\S]+Invoke-Command\s+-ComputerName[\s\S]+finally[\s\S]+originalTrustedHosts'

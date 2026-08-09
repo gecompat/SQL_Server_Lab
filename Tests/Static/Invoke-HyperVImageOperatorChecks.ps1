@@ -277,7 +277,8 @@ try {
         $menuText -match '\$imageName = if \(\[string\]::IsNullOrWhiteSpace' -and
         $menuText -match 'Get-VM -Name \$vmName' -and
         $menuText -match 'VM: \{0\} \[\{1\}\] \| Windows: \{2\} / \{3\}' -and
-        $menuText -match 'Erstellt: \{0\} \| BuildId: \{1\}'
+        $menuText -match 'Erstellt: \{0\} \| BuildId: \{1\}' -and
+        $menuText -match "'yyyy-MM-dd HH:mm:ss'"
     )
     Add-CheckResult -Name 'Gast- und SQL-Passwortdialog verwenden dieselbe Auswahlsemantik' -Success (
         $menuText -match 'Gastpasswort: \[1\] selbst festlegen, \[2\] zufällig erzeugen' -and
