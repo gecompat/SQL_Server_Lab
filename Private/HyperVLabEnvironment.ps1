@@ -464,6 +464,8 @@ function Invoke-HyperVLabUnattendedProvision {
         }
         $unattend = New-HyperVSqlOobeUnattendXml -AdministratorPassword $AdministratorPassword `
             -Network $lab.Instance.labNetwork -Identity $lab.Run.runId `
+            -SystemLocale $localeSettings.SystemLocale -UiLanguage $localeSettings.UiLanguage `
+            -InputLocale $localeSettings.InputLocale `
             -TimeZone $localeSettings.TimeZone
         Write-LabInfo 'Schritt 3/6: Unattend.xml und – bei Labnetz – der WinRM-Netzwerk-Bootstrap werden ausschließlich in die Child-VHDX injiziert.'
         Set-HyperVSqlOfflineUnattend -VhdxPath $vhdxPath -MountRoot (Join-Path $lab.RunDirectory 'offline-oobe-mount') -UnattendXml $unattend -BootstrapScript $bootstrap

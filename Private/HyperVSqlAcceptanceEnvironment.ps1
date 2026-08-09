@@ -84,6 +84,9 @@ function New-HyperVSqlOobeUnattendXml {
         [Parameter(Mandatory)][SecureString]$AdministratorPassword,
         $Network,
         [string]$Identity,
+        [ValidatePattern('^[A-Za-z]{2}-[A-Za-z]{2}$')][string]$SystemLocale = 'de-DE',
+        [ValidatePattern('^[A-Za-z]{2}-[A-Za-z]{2}$')][string]$UiLanguage = 'en-US',
+        [ValidatePattern('^[0-9A-Fa-f]{4}:[0-9A-Fa-f]{8}$')][string]$InputLocale = '0407:00000407',
         [ValidateNotNullOrEmpty()][string]$TimeZone = 'W. Europe Standard Time'
     )
 
@@ -92,6 +95,9 @@ function New-HyperVSqlOobeUnattendXml {
     try {
         $plain = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
         $escapedPassword = [System.Security.SecurityElement]::Escape($plain)
+        $escapedSystemLocale = [System.Security.SecurityElement]::Escape($SystemLocale.Trim())
+        $escapedUiLanguage = [System.Security.SecurityElement]::Escape($UiLanguage.Trim())
+        $escapedInputLocale = [System.Security.SecurityElement]::Escape($InputLocale.Trim())
         $escapedTimeZone = [System.Security.SecurityElement]::Escape($TimeZone.Trim())
         return @"
 <?xml version="1.0" encoding="utf-8"?>
@@ -108,6 +114,12 @@ function New-HyperVSqlOobeUnattendXml {
     </component>
   </settings>
   <settings pass="oobeSystem">
+    <component name="Microsoft-Windows-International-Core" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+      <InputLocale>$escapedInputLocale</InputLocale>
+      <SystemLocale>$escapedSystemLocale</SystemLocale>
+      <UILanguage>$escapedUiLanguage</UILanguage>
+      <UserLocale>$escapedSystemLocale</UserLocale>
+    </component>
     <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
       <UserAccounts>
         <AdministratorPassword><Value>$escapedPassword</Value><PlainText>true</PlainText></AdministratorPassword>
