@@ -6,12 +6,15 @@ on:
     branches:
       - main
     paths:
-      - 'Private/CleanupEngine.ps1'
-      - 'Private/ResourceAssessment.ps1'
+      - 'Private/**'
+      - 'Public/**'
       - 'Providers/HyperV/**'
-      - 'Tests/Integration/Invoke-HyperVSmokeTest.ps1'
-      - 'Tests/Static/Invoke-HyperVProviderChecks.ps1'
+      - 'Schemas/**'
+      - 'Tests/Integration/Invoke-HyperV*'
+      - 'Tests/Static/Invoke-HyperV*'
       - 'Tests/Static/Invoke-AllChecks.ps1'
+      - 'SqlServerLab.psd1'
+      - 'SqlServerLab.psm1'
       - '.github/workflows/runtime-smoke-hyperv.yml'
 
 permissions:

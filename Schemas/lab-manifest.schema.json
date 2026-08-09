@@ -256,7 +256,7 @@
         },
         "hyperv": {
           "type": "object",
-          "description": "Hyper-V-spezifische Bereitstellung aus einem veröffentlichten SQL-Prepared-Image. Passwörter gehören nie in das Manifest.",
+          "description": "Hyper-V-spezifische Bereitstellung aus einem veröffentlichten Hyper-V-Sealed-Image. Passwörter gehören nie in das Manifest.",
           "properties": {
             "preparedImageId": {
               "type": "string",

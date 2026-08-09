@@ -31,6 +31,81 @@ Add-CheckResult -Name 'Windows-Baseline-Acceptance-Runner bietet Hilfe ohne Pfli
 $runnerText = Get-Content -LiteralPath $runnerPath -Raw -Encoding utf8
 $reconcileText = Get-Content -LiteralPath $reconcilePath -Raw -Encoding utf8
 
+$runnerTokens = $null
+$runnerParseErrors = $null
+$runnerAst = [System.Management.Automation.Language.Parser]::ParseFile($runnerPath, [ref]$runnerTokens, [ref]$runnerParseErrors)
+
+function Get-CommandParameterValues {
+    param(
+        [Parameter(Mandatory)][System.Management.Automation.Language.CommandAst]$Command,
+        [Parameter(Mandatory)][string]$ParameterName
+    )
+
+    $values = [System.Collections.Generic.List[string]]::new()
+    $captureNext = $false
+    foreach ($element in $command.CommandElements) {
+        if ($element -is [System.Management.Automation.Language.CommandParameterAst]) {
+            $captureNext = ($element.ParameterName -ieq $ParameterName)
+            continue
+        }
+        if ($captureNext) {
+            if ($null -ne $element.Extent) {
+                $values.Add($element.Extent.Text.Trim("""'"))
+            }
+            $captureNext = $false
+        }
+    }
+    return @($values)
+}
+
+function Has-CommandParameterName {
+    param(
+        [Parameter(Mandatory)][System.Management.Automation.Language.CommandAst]$Command,
+        [Parameter(Mandatory)][string]$ParameterName
+    )
+
+    foreach ($element in $Command.CommandElements) {
+        if ($element -is [System.Management.Automation.Language.CommandParameterAst] -and
+            $element.ParameterName -ieq $ParameterName) {
+            return $true
+        }
+    }
+
+    return $false
+}
+
+$runnerReconcileCalls = @(
+    $runnerAst.FindAll({
+        param($node)
+        $node -is [System.Management.Automation.Language.CommandAst] -and
+        $node.GetCommandName() -eq 'Invoke-SqlServerLabReconcileAction'
+    }, $true)
+)
+$runnerArtifactCalls = @(
+    $runnerAst.FindAll({
+        param($node)
+        $node -is [System.Management.Automation.Language.CommandAst] -and
+        $node.GetCommandName() -eq 'Get-HyperVImageArtifact'
+    }, $true)
+)
+
+$reconcileTargets = @{}
+foreach ($call in $runnerReconcileCalls) {
+    foreach ($target in Get-CommandParameterValues -Command $call -ParameterName 'TargetState') {
+        $reconcileTargets[$target.ToUpperInvariant()] = $true
+    }
+}
+$artifactLookupHasArtifactId = $false
+$artifactLookupHasStateRoot = $false
+foreach ($call in $runnerArtifactCalls) {
+    if (Has-CommandParameterName -Command $call -ParameterName 'ArtifactId') {
+        $artifactLookupHasArtifactId = $true
+    }
+    if (Has-CommandParameterName -Command $call -ParameterName 'StateRoot') {
+        $artifactLookupHasStateRoot = $true
+    }
+}
+
 Add-CheckResult -Name 'Runner akzeptiert ausschliesslich immutable OS_SEALED-Artifact-IDs' -Success (
     $runnerText -match 'hyperv-os-sealed-\[a-f0-9\]\{64\}' -and
     $runnerText -match "artifactState -eq 'OS_SEALED'" -and
@@ -42,10 +117,14 @@ Add-CheckResult -Name 'Runner deckt OOBE und Windows-only-Provisionierung ab' -S
     $runnerText -match "windowsProvisioning\.state -eq 'COMPLETE'"
 )
 Add-CheckResult -Name 'Runner prueft Stop, Start und PowerShell-Direct-Reconnect' -Success (
-    ([regex]::Matches($runnerText, 'Invoke-SqlServerLabReconcileAction')).Count -ge 2 -and
-    $runnerText -match 'TargetState STOPPED' -and
-    $runnerText -match 'TargetState RUNNING' -and
+    $runnerReconcileCalls.Count -ge 2 -and
+    $reconcileTargets.ContainsKey('STOPPED') -and
+    $reconcileTargets.ContainsKey('RUNNING') -and
     $runnerText -match 'Wait-HyperVPowerShellDirect'
+)
+Add-CheckResult -Name 'Runner übergibt Artifact-Id und StateRoot bei Hyper-V-Image-Metadatenabfrage' -Success (
+    $artifactLookupHasArtifactId -and
+    $artifactLookupHasStateRoot
 )
 Add-CheckResult -Name 'Runner behauptet fuer die OS-Baseline keine SQL-Bereitschaft' -Success (
     $runnerText -match 'sqlServices = @\(\$sqlServices\)' -and
