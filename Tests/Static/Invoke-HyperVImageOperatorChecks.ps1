@@ -312,6 +312,11 @@ try {
         $menuText -match "'1' \{ Invoke-LabHyperVMenuAction -Title 'Neues SQL-Prepared-Image'" -and
         @($menuText | Select-String -Pattern 'while \(-not \$exitMenu\) \{\s*Clear-Host' -AllMatches).Matches.Count -ge 5
     )
+    Add-CheckResult -Name 'Optionaler SQL-Prepared-Image-Name wird nur bei Inhalt gebunden' -Success (
+        $menuText -match '\[string\]::IsNullOrWhiteSpace\(\$imageName\)' -and
+        $menuText -match '\$buildArguments\.ImageName = \$imageName\.Trim\(\)' -and
+        $menuText -match 'Initialize-HyperVSqlFreshPreparedImageBuild @buildArguments'
+    )
     Add-CheckResult -Name 'Windows-Builder-Cleanup bietet ALL mit eigener Gesamtbestaetigung' -Success (
         $menuText -match '\[ALL\] Alle \$\(\$builds\.Count\) angezeigten unfertigen Windows-Builder aufraeumen' -and
         $menuText -match 'WIRKLICH ALLE Windows-Builder aufraeumen' -and
