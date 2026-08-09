@@ -79,7 +79,7 @@ Installation Handler aus.
 | mehrere Samples im Ad-hoc-Menü auswählen | implementiert (`Invoke-SqlServerLab`, `New-SqlServerLab -Sample`) |
 | persistenter Trust Store und Manifest Lock | implementiert; Sample-Identität wird mitgeführt |
 | inhaltsadressierter Artifact Cache und Quarantäne | implementiert |
-| `LAB_GENERATED`-Baseline-Auswahl | nicht implementiert |
+| `LAB_GENERATED`-Baseline-Auswahl | Registry, deterministischer Key, exakte/kompatible Auswahl und Quarantäne implementiert; Backup-Erzeugung und Runtime-Präferenz offen |
 | kontextbezogene Manifest-Menüführung | Pfadsemantik und Sample-Katalogauswahl vorhanden; Navigation/Planvorschau offen |
 
 ## 4. Gemeinsamer Artifact-Vertrag
@@ -646,6 +646,12 @@ Apply auf `ONLINE` geprüft; unsichere Teilzustände enden mit
 - Baseline Registry, Key und Verification;
 - deterministische Auswahl der besten kompatiblen Baseline;
 - Invalidierung und Fallback.
+
+Teilstand: Das lokale, portable Register, die deterministische Key-Bildung,
+exakte und kompatible Auswahl sowie Quarantäne bei fehlenden, pfadfremden oder
+hashabweichenden Objekten sind implementiert. Noch offen sind die SQL-seitige
+Backup-Erzeugung nach erfolgreicher Sample-Verifikation und die Runtime-
+Präferenz mit Fallback auf das verifizierte Originalartefakt.
 
 ### Welle 6 – Weitere Artifact Types und Hyper-V-Bindung
 

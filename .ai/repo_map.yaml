@@ -15,6 +15,7 @@ sources_of_truth:
   manifest_builder_validation: Private/ManifestBuilder.ps1
   sql_versions: Catalogs/sql-server-versions.json
   sample_databases: Catalogs/sample-databases.json
+  sample_baseline_registry_schema: Schemas/sample-baseline-registry.schema.json
   state_contract: Private/StateMachine.ps1
   cleanup_contract: Private/CleanupEngine.ps1
   port_allocation_contract: Private/PortAllocation.ps1
@@ -181,6 +182,13 @@ internal_components:
       - "Samples ueber Resolver, Idempotenzregel und typisierten Handler installieren"
       - "Script Bundles sicher extrahieren, erlaubte sqlcmd-Features root-gebunden expandieren und mehrere Outputs verifizieren"
       - "erwartete Datenbanken als ONLINE verifizieren und DATASET_READY oder RECOVERY_REQUIRED melden"
+  - name: SampleBaselineRegistry
+    source: Private/SampleBaselineRegistry.ps1
+    responsibilities:
+      - "deterministische Baseline Keys aus Sample-, Quellen-, Handler-, SQL- und Verification-Invarianten bilden"
+      - "verifizierte LAB_GENERATED-Backups inhaltsadressiert und portabel registrieren"
+      - "exakte und kompatible Baselines deterministisch auswaehlen"
+      - "fehlende, pfadfremde oder hashabweichende Baselines quarantainisieren"
   - name: ProjectAdapter
     source: Private/ProjectAdapter.ps1
     responsibilities:
@@ -278,6 +286,7 @@ planning_contracts:
       - manifest_lock
       - content_addressed_cache
       - sql_script_and_bundle_installation
+      - lab_generated_baseline_registry
       - contextual_path_guidance
       - lab_generated_baselines
       - hyperv_baseline_bindings

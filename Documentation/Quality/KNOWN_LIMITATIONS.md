@@ -270,9 +270,11 @@ bleiben bewusst `descriptive`, weil sie MDF/LDF-Dateien für einen noch nicht
 implementierten Attach-Handler enthalten – sie werden nicht als `.bak`
 umgedeutet.
 
-Noch nicht implementiert sind Attach-Handler, `LAB_GENERATED`-Baselines, das
-Überschreiben der erwarteten Zieldatenbanknamen sowie die Wizard-Navigation mit
-Zurück/Planvorschau. Script Bundles können mehrere fest katalogisierte
+Noch nicht implementiert sind Attach-Handler, die SQL-seitige Erzeugung und
+Runtime-Präferenz von `LAB_GENERATED`-Backups, das Überschreiben der erwarteten
+Zieldatenbanknamen sowie die Wizard-Navigation mit Zurück/Planvorschau. Das
+Baseline-Register mit deterministischem Key, exakter/kompatibler Auswahl und
+Quarantäne ist vorhanden. Script Bundles können mehrere fest katalogisierte
 Datenbanken als eine Installation erzeugen; bei einem Teilfehler bleibt der
 Run mit `RECOVERY_REQUIRED` sichtbar, eine automatische Löschung wird nicht
 vorgetäuscht.
@@ -354,7 +356,7 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
 
 ## Priorisierte nächste technische Schritte
 
-1. `LAB_GENERATED`-Baselines mit Registry, Key und deterministischer Auswahl umsetzen (Sample-Welle 5).
+1. Nach erfolgreicher Sample-Verifikation `LAB_GENERATED`-Backups erzeugen und Runtime-Präferenz samt Originalartefakt-Fallback an das vorhandene Register binden (Sample-Welle 5).
 2. Providerneutrale Drive-, Network-, Software- und Reconcile-Verträge gemäß Hyper-V-Zielvertrag umsetzen.
 3. Artifact Registry, Refresh/Rebuild und Evaluierungsablauf implementieren.
 4. Hyper-V anschließend in den dokumentierten, getrennt testbaren Wellen implementieren.
