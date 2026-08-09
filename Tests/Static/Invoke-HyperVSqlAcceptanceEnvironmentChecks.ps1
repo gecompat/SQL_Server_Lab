@@ -46,7 +46,8 @@ try {
     Add-CheckResult -Name 'OOBE blendet interaktive Seiten aus und aktiviert genau einen AutoLogon' -Success (
         $unattend -match '<HideEULAPage>true</HideEULAPage>' -and
         $unattend -match '<HideLocalAccountScreen>true</HideLocalAccountScreen>' -and
-        $unattend -match '<LogonCount>1</LogonCount>'
+        $unattend -match '<LogonCount>1</LogonCount>' -and
+        $unattend -notmatch '<NetworkLocation>'
     )
     $labNetwork = [PSCustomObject]@{ Name = 'SQL_LAB_HYPERV'; Subnet = '172.28.0.0/24'; PrefixLength = 24; HostAddress = '172.28.0.1' }
     $bootstrap = & $module {
