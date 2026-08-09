@@ -38,9 +38,16 @@ $runId = [guid]::NewGuid().ToString()
 $scopeId = [guid]::NewGuid().ToString()
 $instance = $null
 $builder = $null
+$reconcileImageArtifact = $null
+$reconcileRun = $null
+$reconcileStartPlan = $null
+$reconcileStartAction = $null
+$reconcileStopPlan = $null
+$reconcileStopAction = $null
 $module = $null
 $cleanupComplete = $false
 $builderCleanupComplete = $false
+$reconcileCleanupComplete = $false
 $mutexName = 'Global\SQL_Server_Lab_Runtime_Smoke'
 $mutex = [System.Threading.Mutex]::new($false, $mutexName)
 $mutexAcquired = $false
@@ -183,6 +190,62 @@ try {
     $manifestLock = Get-Content -LiteralPath (Join-Path $runDirectory 'manifest.lock.json') -Raw | ConvertFrom-Json -Depth 20
     Assert-HyperVSmoke -Condition ($manifestLock.artifacts[0].artifactId -eq $imageArtifact.artifactId) -Description 'Manifest Lock referenziert Artifact-ID ohne Hostpfad'
 
+    $reconcileImageArtifact = & $module {
+        param($ParentPath, $ParentHash, $StateRoot)
+        Import-HyperVImageArtifact `
+            -VhdxPath $ParentPath `
+            -ExpectedSha256 $ParentHash `
+            -ArtifactState 'OS_SEALED' `
+            -OperatingSystemId 'synthetic-ci' `
+            -OperatingSystemVersion '1' `
+            -Edition 'none' `
+            -InstallationType synthetic `
+            -LicenseType 'test-only' `
+            -IntegrityOrigin 'synthetic-test' `
+            -Generalized `
+            -StateRoot $StateRoot
+    } $parentPath $parentHash $stateRoot
+    Assert-HyperVSmoke -Condition ($reconcileImageArtifact.artifactState -eq 'OS_SEALED') -Description 'Synthese-OS-Image wurde als OS_SEALED registriert'
+
+    $reconcileRun = & $module {
+        param($ArtifactId, $StateRoot)
+        New-HyperVLabEnvironment `
+            -ArtifactId $ArtifactId `
+            -LabName 'Hyper-V Reconcile Smoke' `
+            -InstanceId 'reconcile-smoke' `
+            -MemoryStartupMB 512 `
+            -ProcessorCount 1 `
+            -StateRoot $StateRoot
+    } $reconcileImageArtifact.artifactId $stateRoot
+    Assert-HyperVSmoke -Condition ($reconcileRun.State -eq 'STOPPED') -Description 'Reconcile-Smoke Run wurde bewusst ausgeschaltet erstellt'
+
+    $reconcileStartPlan = & $module {
+        param($RunId, $StateRoot)
+        Get-SqlServerLabReconcilePlan -RunId $RunId -TargetState RUNNING -StateRoot $StateRoot
+    } $reconcileRun.RunId $stateRoot
+    Assert-HyperVSmoke -Condition (-not $reconcileStartPlan.IsNoOp -and $reconcileStartPlan.HighestChangeClass -eq 'restart') -Description 'Reconcile-Plan erkennt den Startbedarf'
+
+    $reconcileStartAction = & $module {
+        param($RunId, $StateRoot)
+        Invoke-SqlServerLabReconcileAction -RunId $RunId -TargetState RUNNING -StateRoot $StateRoot -Confirm:`$false
+    } $reconcileRun.RunId $stateRoot
+    Assert-HyperVSmoke -Condition ($reconcileStartAction.ExecutionSummary.Status -eq 'SUCCEEDED') -Description 'Reconcile-Executor hat VM gestartet'
+
+    $reconcileStopPlan = & $module {
+        param($RunId, $StateRoot)
+        Get-SqlServerLabReconcilePlan -RunId $RunId -TargetState STOPPED -StateRoot $StateRoot
+    } $reconcileRun.RunId $stateRoot
+    Assert-HyperVSmoke -Condition ($reconcileStopPlan.HighestChangeClass -eq 'restart') -Description 'Reconcile-Plan erkennt nach dem Start den Rückweg auf STOPPED'
+
+    $reconcileStopAction = & $module {
+        param($RunId, $StateRoot)
+        Invoke-SqlServerLabReconcileAction -RunId $RunId -TargetState STOPPED -StateRoot $StateRoot -Confirm:`$false
+    } $reconcileRun.RunId $stateRoot
+    Assert-HyperVSmoke -Condition ($reconcileStopAction.ExecutionSummary.Status -eq 'SUCCEEDED') -Description 'Reconcile-Executor hat VM gestoppt'
+
+    $reconcileRunState = & $module { param($RunId, $StateRoot) Get-LabRunState -RunId $RunId -StateRoot $StateRoot } $reconcileRun.RunId $stateRoot
+    Assert-HyperVSmoke -Condition ($reconcileRunState.state -eq 'STOPPED') -Description 'Reconcile-Run ist nach Stop wieder STOPPED'
+
     $isoBytes = [byte[]]::new(65536)
     [System.Text.Encoding]::ASCII.GetBytes('CD001').CopyTo($isoBytes, 32769)
     [System.IO.File]::WriteAllBytes($isoPath, $isoBytes)
@@ -230,6 +293,37 @@ try {
 }
 finally {
     if (-not $KeepOnFailure) {
+        if ($module -and $reconcileRun -and -not $reconcileCleanupComplete) {
+            try {
+                $reconcileRemoval = & $module {
+                    param($RunId, $StateRoot)
+                    Remove-SqlServerLab -RunId $RunId -StateRoot $StateRoot -Force
+                } $reconcileRun.RunId $stateRoot
+                if ($reconcileRemoval.Status -ne 'REMOVED' -and $reconcileRemoval.Cleanup -ne 'CLEANUP_SUCCEEDED') {
+                    Write-Warning "Reconcile-Run-Cleanup unvollstaendig: $($reconcileRemoval.Status)/$($reconcileRemoval.Cleanup)"
+                }
+            }
+            catch {
+                Write-Warning "Reconcile-Run-Cleanup fehlgeschlagen: $($_.Exception.Message)"
+            }
+            finally {
+                $reconcileCleanupComplete = $true
+            }
+        }
+        if ($module -and $reconcileImageArtifact) {
+            try {
+                $artifactIdToRemove = [string]$reconcileImageArtifact.artifactId
+                if ($artifactIdToRemove -match '^hyperv-os-sealed-[a-f0-9]{64}$') {
+                    & $module {
+                        param($ArtifactId, $StateRoot)
+                        Remove-HyperVImageArtifact -ArtifactId $ArtifactId -StateRoot $StateRoot
+                    } $artifactIdToRemove $stateRoot | Out-Null
+                }
+            }
+            catch {
+                Write-Warning "Reconcile-OS-Artifact-Cleanup fehlgeschlagen: $($_.Exception.Message)"
+            }
+        }
         if ($module -and $builder -and -not $builderCleanupComplete -and (Test-Path -LiteralPath (Join-Path $builder.BuildDirectory 'cleanup-plan.json'))) {
             try {
                 $null = & $module { param($Dir,$Scope) Invoke-CleanupPlan -RunDir $Dir -ScopeId $Scope } $builder.BuildDirectory $builder.scopeId
