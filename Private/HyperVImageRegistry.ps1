@@ -138,6 +138,7 @@ function Import-HyperVImageArtifact {
         [ValidateSet('x64')][string]$Architecture = 'x64',
         [Parameter(Mandatory)][ValidateSet('licensed', 'evaluation', 'test-only')][string]$LicenseType,
         [Parameter(Mandatory)][ValidateSet('catalog-verified', 'user-verified-local', 'generated-by-runtime', 'synthetic-test')][string]$IntegrityOrigin,
+        [ValidateSet('none', 'space')][string]$InitialMediaKey = 'none',
         [switch]$Generalized,
         [switch]$SqlPrepared,
         [string]$SqlVersion,
@@ -237,6 +238,10 @@ function Import-HyperVImageArtifact {
                 artifactState         = $ArtifactState
                 sha256                = $sha256
                 integrityOrigin       = $IntegrityOrigin
+                bootInteraction       = [PSCustomObject]@{
+                    initialMediaKey = $InitialMediaKey
+                    purpose = 'build-provenance'
+                }
                 registeredAt          = Get-LabTimestamp
                 generalized           = [bool]$Generalized
                 sqlPrepared           = [bool]$SqlPrepared

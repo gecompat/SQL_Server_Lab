@@ -46,12 +46,14 @@ try {
             -ArtifactState LIFECYCLE_TEST_ONLY `
             -OperatingSystemId synthetic-ci -OperatingSystemVersion 1 -Edition none `
             -InstallationType synthetic -LicenseType test-only -IntegrityOrigin synthetic-test `
+            -InitialMediaKey space `
             -StateRoot $StateRoot
         $again = Import-HyperVImageArtifact `
             -VhdxPath $SourcePath -ExpectedSha256 $Sha256 `
             -ArtifactState LIFECYCLE_TEST_ONLY `
             -OperatingSystemId synthetic-ci -OperatingSystemVersion 1 -Edition none `
             -InstallationType synthetic -LicenseType test-only -IntegrityOrigin synthetic-test `
+            -InitialMediaKey space `
             -StateRoot $StateRoot
         $renamed = Rename-HyperVImageArtifact -ArtifactId $artifact.artifactId -DisplayName 'Umbenanntes Testimage' -StateRoot $StateRoot
         $selection = Resolve-HyperVImageArtifact `
@@ -75,6 +77,10 @@ try {
 
     $lock = Get-Content -LiteralPath $result.LockPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 30
     Add-CheckResult -Name 'Manifest Lock speichert Artifact-ID' -Success ($lock.artifacts[0].artifactId -eq $result.Artifact.artifactId)
+    Add-CheckResult -Name 'Image-Artifact bewahrt die Bootinteraktion nur als Provenienz' -Success (
+        $result.Artifact.bootInteraction.initialMediaKey -eq 'space' -and
+        $result.Artifact.bootInteraction.purpose -eq 'build-provenance'
+    )
     Add-CheckResult -Name 'Manifest Lock enthaelt keinen Hostpfad' -Success (($lock | ConvertTo-Json -Depth 30) -notmatch [regex]::Escape($temporaryRoot))
 
     $generalizationRejected = $false

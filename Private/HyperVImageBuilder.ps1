@@ -99,6 +99,7 @@ function New-HyperVWindowsImageBuildPlan {
         [ValidateSet('core', 'desktop-experience', 'synthetic')][string]$InstallationType = 'core',
         [string]$Language = 'en-US',
         [Parameter(Mandatory)][ValidateSet('licensed', 'evaluation', 'test-only')][string]$LicenseType,
+        [ValidateSet('none', 'space')][string]$InitialMediaKey = 'space',
         [ValidateRange(64MB, 1TB)][long]$OsDiskSizeBytes = 64GB,
         [string]$StateRoot
     )
@@ -126,7 +127,10 @@ function New-HyperVWindowsImageBuildPlan {
     $state = [PSCustomObject]@{
         contractVersion = '1'; buildId = $buildId; scopeId = $scopeId; state = 'MEDIA_VERIFIED'
         stateHistory = @([PSCustomObject]@{ state = 'MEDIA_VERIFIED'; timestamp = $timestamp; reason = 'ISO SHA-256 und ISO-9660-Signatur verifiziert' })
-        media = [PSCustomObject]@{ sha256 = $sha256; integrityOrigin = 'user-verified-local' }
+        media = [PSCustomObject]@{
+            sha256 = $sha256; integrityOrigin = 'user-verified-local'
+            bootInteraction = [PSCustomObject]@{ initialMediaKey = $InitialMediaKey }
+        }
         operatingSystem = [PSCustomObject]@{ id = $OperatingSystemId; edition = $Edition; installationType = $InstallationType; language = $Language; architecture = 'x64' }
         license = [PSCustomObject]@{ type = $LicenseType }
         resources = [PSCustomObject]@{ osDiskSizeBytes = $OsDiskSizeBytes }
@@ -514,6 +518,7 @@ function Publish-HyperVWindowsImageBuild {
         Edition = [string]$build.operatingSystem.edition; InstallationType = [string]$build.operatingSystem.installationType
         Language = [string]$build.operatingSystem.language; LicenseType = [string]$build.license.type
         IntegrityOrigin = if ($synthetic) { 'synthetic-test' } else { 'generated-by-runtime' }
+        InitialMediaKey = [string]$build.media.bootInteraction.initialMediaKey
         EvaluationExpiresAt = $EvaluationExpiresAt; StateRoot = $StateRoot
     }
     if (-not $synthetic) { $importParameters.Generalized = $true }
