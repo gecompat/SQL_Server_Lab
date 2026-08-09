@@ -195,30 +195,34 @@ $manifestData = Get-PowerShellDataFile -Path $modulePath
 $manifestRaw = Get-Content -LiteralPath $modulePath -Raw -ErrorAction Stop
 $moduleInfo = Import-Module -Name $modulePath -Force -PassThru -ErrorAction Stop
 
-$moduleVersion = $moduleInfo.Version.ToString()
-if ([string]::IsNullOrWhiteSpace($moduleVersion)) {
-    $moduleVersion = Get-ObjectField -InputObject $manifestData -Name @('ModuleVersion', 'Version')
-}
+$moduleVersion = Get-ObjectField -InputObject $manifestData -Name @('ModuleVersion', 'Version')
 if ([string]::IsNullOrWhiteSpace($moduleVersion)) {
     $moduleVersion = Get-RawManifestField -Content $manifestRaw -FieldName 'ModuleVersion' -Mode 'Scalar'
 }
+if ([string]::IsNullOrWhiteSpace($moduleVersion) -and $null -ne $moduleInfo) {
+    $moduleVersion = $moduleInfo.Version.ToString()
+}
 
-$manifestFunctions = @()
-if ($null -ne $moduleInfo.ExportedFunctions) {
-    $manifestFunctions = To-StringArray -Value $moduleInfo.ExportedFunctions.Keys
-}
-if ($manifestFunctions.Count -eq 0) {
-    $manifestFunctions = To-StringArray -Value (Get-ObjectField -InputObject $manifestData -Name @('FunctionsToExport'))
-}
+$manifestFunctions = To-StringArray -Value (Get-ObjectField -InputObject $manifestData -Name @('FunctionsToExport'))
 if ($manifestFunctions.Count -eq 0) {
     $manifestFunctions = To-StringArray -Value (Get-RawManifestField -Content $manifestRaw -FieldName 'FunctionsToExport' -Mode 'Array')
 }
+if ($manifestFunctions.Count -eq 0 -and $null -ne $moduleInfo -and $null -ne $moduleInfo.ExportedFunctions) {
+    $manifestFunctions = To-StringArray -Value $moduleInfo.ExportedFunctions.Keys
+}
+if ($null -eq $manifestFunctions) { $manifestFunctions = @() }
+
+$exportedFunctions = @()
+if ($null -ne $moduleInfo -and $null -ne $moduleInfo.ExportedFunctions) {
+    $exportedFunctions = To-StringArray -Value $moduleInfo.ExportedFunctions.Keys
+}
+if ($exportedFunctions.Count -eq 0) {
+    $exportedFunctions = To-StringArray -Value (Get-Command -Module SqlServerLab -CommandType Function | Select-Object -ExpandProperty Name)
+}
+if ($null -eq $exportedFunctions) { $exportedFunctions = @() }
 
 $psaSettingsPath = Join-Path $repoRoot 'Tests' 'Static' 'PSScriptAnalyzerSettings.psd1'
 $psaSettings = Get-PowerShellDataFile -Path $psaSettingsPath
-
-$exportedFunctions = To-StringArray -Value ($moduleInfo.ExportedFunctions.Keys | ForEach-Object { $_.ToString().Trim() } | Sort-Object -Unique)
-$exportedFunctions = if ($null -eq $exportedFunctions) { @() } else { @($exportedFunctions) }
 
 $psaIncludeDefaultRules = Get-ObjectField -InputObject $psaSettings -Name @('IncludeDefaultRules')
 $psaSeverity = Get-ObjectField -InputObject $psaSettings -Name @('Severity')
