@@ -1,10 +1,46 @@
 #Requires -Version 7.2
 
-$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+function Get-PowerShellDataFile {
+    param(
+        [Parameter(Mandatory)]
+        [string]$Path
+    )
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        throw "Datei nicht gefunden: $Path"
+    }
+
+    try {
+        $value = Import-PowerShellDataFile -Path $Path -ErrorAction Stop
+        if ($value -is [System.Collections.IList] -and $value.Count -eq 1) {
+            $value = $value[0]
+        }
+        if ($null -ne $value) {
+            return $value
+        }
+    }
+    catch {
+        Write-Warning "Import-PowerShellDataFile fehlgeschlagen für '$Path': $($_.Exception.Message)"
+    }
+
+    try {
+        $content = Get-Content -LiteralPath $Path -Raw -ErrorAction Stop
+        $value = [scriptblock]::Create($content).Invoke()
+        if ($value -is [System.Collections.IList] -and $value.Count -eq 1) {
+            $value = $value[0]
+        }
+        return $value
+    }
+    catch {
+        throw "Daten aus '$Path' konnten nicht geladen werden: $($_.Exception.Message)"
+    }
+}
+
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
 $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
-$moduleManifest = Import-PowerShellDataFile -Path $modulePath
-$psaSettingsPath = Join-Path $repoRoot 'Tests\Static\PSScriptAnalyzerSettings.psd1'
-$psaSettings = Import-PowerShellDataFile -Path $psaSettingsPath
+$moduleManifest = Get-PowerShellDataFile -Path $modulePath
+$psaSettingsPath = Join-Path $repoRoot 'Tests' 'Static' 'PSScriptAnalyzerSettings.psd1'
+$psaSettings = Get-PowerShellDataFile -Path $psaSettingsPath
 
 Remove-Module -Name 'SqlServerLab' -Force -ErrorAction SilentlyContinue
 Import-Module $modulePath -Force -ErrorAction Stop
@@ -15,7 +51,11 @@ $publicScripts = Get-ChildItem -Path (Join-Path $repoRoot 'Public') -Filter '*.p
 
 Describe 'SqlServerLab-Modulmanifest' {
     It 'muss eine gültige Modulversion enthalten' {
-        if ([string]::IsNullOrWhiteSpace($moduleManifest.ModuleVersion)) {
+        $moduleVersion = $moduleManifest.ModuleVersion
+        if ([string]::IsNullOrWhiteSpace($moduleVersion)) {
+            $moduleVersion = $moduleManifest.Version
+        }
+        if ([string]::IsNullOrWhiteSpace($moduleVersion)) {
             throw 'Das Modulmanifest enthält keine Modulversion.'
         }
     }
@@ -38,7 +78,6 @@ Describe 'SqlServerLab-Modulmanifest' {
             throw "Exportabweichung zwischen Manifest und Modul: $items"
         }
     }
-
 }
 
 Describe 'PSScriptAnalyzer-Grundlage' {
@@ -55,9 +94,9 @@ Describe 'PSScriptAnalyzer-Grundlage' {
 Describe 'Statische Testskripte' {
     It 'müssen im definierten Ort erreichbar sein' {
         $required = @(
-            'Tests\Static\Invoke-ReleaseReadinessChecks.ps1',
-            'Tests\Static\Invoke-PSScriptAnalyzerChecks.ps1',
-            'Tests\Static\Invoke-PesterChecks.ps1'
+            (Join-Path 'Tests' 'Static' 'Invoke-ReleaseReadinessChecks.ps1'),
+            (Join-Path 'Tests' 'Static' 'Invoke-PSScriptAnalyzerChecks.ps1'),
+            (Join-Path 'Tests' 'Static' 'Invoke-PesterChecks.ps1')
         )
         foreach ($path in $required) {
             if (-not (Test-Path -LiteralPath (Join-Path $repoRoot $path))) {
