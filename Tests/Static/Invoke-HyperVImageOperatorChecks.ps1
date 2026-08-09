@@ -279,6 +279,11 @@ try {
         $menuText -match 'VM: \{0\} \[\{1\}\] \| Windows: \{2\} / \{3\}' -and
         $menuText -match 'Erstellt: \{0\} \| BuildId: \{1\}'
     )
+    Add-CheckResult -Name 'Gast- und SQL-Passwortdialog verwenden dieselbe Auswahlsemantik' -Success (
+        $menuText -match 'Gastpasswort: \[1\] selbst festlegen, \[2\] zufällig erzeugen' -and
+        $menuText -match 'SQL-SA-Passwort: \[1\] selbst festlegen, \[2\] vorhandenes Gastpasswort übernehmen \[2\]' -and
+        $menuText -match "if \(\$choice -eq '2'\) \{ return \$GuestPassword \}"
+    )
     Add-CheckResult -Name 'Menue besitzt Generalisierung und Publikation' -Success (
         $menuText -match 'Invoke-HyperVWindowsImageGeneralization' -and
         $menuText -match 'Publish-HyperVWindowsImageBuild'

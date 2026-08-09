@@ -2033,11 +2033,11 @@ function Read-LabHyperVSqlSaPassword {
     [CmdletBinding()]
     param([Parameter(Mandatory)][SecureString]$GuestPassword)
 
-    Write-Host '  SQL-SA-Passwort: [1] Gastpasswort verwenden, [2] separat festlegen [1]' -ForegroundColor White
+    Write-Host '  SQL-SA-Passwort: [1] selbst festlegen, [2] vorhandenes Gastpasswort übernehmen [2]' -ForegroundColor White
     $choice = Read-Host '  Auswahl'
-    if (-not $choice) { $choice = '1' }
-    if ($choice -eq '1') { return $GuestPassword }
-    if ($choice -ne '2') { Write-LabWarning 'Ungültige Auswahl.'; return $null }
+    if (-not $choice) { $choice = '2' }
+    if ($choice -eq '2') { return $GuestPassword }
+    if ($choice -ne '1') { Write-LabWarning 'Ungültige Auswahl.'; return $null }
 
     $saPassword = Read-Host '  Eigenes SQL-SA-Passwort' -AsSecureString
     $confirmation = Read-Host '  SQL-SA-Passwort bestätigen' -AsSecureString
