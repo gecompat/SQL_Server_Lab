@@ -257,8 +257,19 @@ Describe 'SqlServerLab-Modulmanifest' {
     }
 
     It 'muss das im Manifest deklarierte Exportset konsistent mit dem importierten Modul exportieren' {
-        $manifestFunctionSet = To-StringArray -Value $manifestFunctions
-        $exportedFunctionSet = To-StringArray -Value $exportedFunctions
+        $manifestFunctionSet = @(
+            $manifestFunctions |
+                ForEach-Object { if ($null -ne $_) { $_.ToString().Trim() } } |
+                Where-Object { $_ -and $_ -ne '*' } |
+                Sort-Object -Unique
+        )
+
+        $exportedFunctionSet = @(
+            $exportedFunctions |
+                ForEach-Object { if ($null -ne $_) { $_.ToString().Trim() } } |
+                Where-Object { $_ -and $_ -ne '*' } |
+                Sort-Object -Unique
+        )
         $delta = Compare-Object -ReferenceObject $manifestFunctionSet -DifferenceObject $exportedFunctionSet
         if ($delta) {
             $items = ($delta | ForEach-Object { $_.InputObject }) -join ', '
