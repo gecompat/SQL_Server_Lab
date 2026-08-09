@@ -28,6 +28,12 @@ $errorBaseline = if ($settings.ErrorBaseline -is [System.Collections.IDictionary
 else {
     @{}
 }
+$analyzerSettings = @{}
+foreach ($key in @('CustomRulePath', 'ExcludeRules', 'IncludeRules', 'IncludeDefaultRules', 'RecurseCustomRulePath', 'Rules', 'Severity')) {
+    if ($settings.ContainsKey($key)) {
+        $analyzerSettings[$key] = $settings[$key]
+    }
+}
 $excludedPathRegex = [System.Text.RegularExpressions.Regex]::new('([\\/]_QuellRepo[\\/]|[\\/]private_Note[\\/]|[\\/]\\.secrets[\\/]|[\\/]Tests[\\/]Integration[\\/])')
 $scriptAnalyzerCommand = Get-Command Invoke-ScriptAnalyzer -ErrorAction SilentlyContinue
 
@@ -50,7 +56,7 @@ $results = @()
 foreach ($file in $sourceFiles) {
     $relativePath = [System.IO.Path]::GetRelativePath($repoRoot, $file.FullName)
     Write-Host "  Analysiere $relativePath"
-    $fileResults = Invoke-ScriptAnalyzer -Path $file.FullName -Settings $settingsPath -Severity @('Error','Warning')
+    $fileResults = Invoke-ScriptAnalyzer -Path $file.FullName -Settings $analyzerSettings -Severity @('Error','Warning')
     if ($fileResults) {
         $results += $fileResults
     }
