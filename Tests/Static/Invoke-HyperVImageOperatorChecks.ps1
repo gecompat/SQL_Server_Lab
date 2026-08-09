@@ -280,6 +280,12 @@ try {
         $menuText -match 'Erstellt: \{0\} \| BuildId: \{1\}' -and
         $menuText -match "'yyyy-MM-dd HH:mm:ss'"
     )
+    Add-CheckResult -Name 'Image-Loeschauswahl zeigt Version, Zeitpunkt und Kurzkennung' -Success (
+        $menuText -match 'function Remove-LabHyperVImageArtifactInteractive' -and
+        $menuText -match 'Windows: \{0\} \{1\} · SQL Server: \{2\} \{3\}' -and
+        $menuText -match 'Veröffentlicht: \{0\} · Kennung: \{1\}' -and
+        $menuText -match '\$shortArtifactId'
+    )
     Add-CheckResult -Name 'Gast- und SQL-Passwortdialog verwenden dieselbe Auswahlsemantik' -Success (
         $menuText -match 'Gastpasswort: \[1\] selbst festlegen, \[2\] zufällig erzeugen' -and
         $menuText -match 'SQL-SA-Passwort: \[1\] selbst festlegen, \[2\] vorhandenes Gastpasswort übernehmen \[2\]' -and

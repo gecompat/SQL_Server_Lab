@@ -1329,8 +1329,22 @@ function Remove-LabHyperVImageArtifactInteractive {
     Write-Host '  Veröffentlichte Images:' -ForegroundColor White
     for ($i = 0; $i -lt $artifacts.Count; $i++) {
         $artifact = $artifacts[$i]
-        $label = if ($artifact.displayName) { [string]$artifact.displayName } else { [string]$artifact.artifactId }
-        Write-Host ("    [{0}] {1} · {2} · {3}" -f ($i + 1), $artifact.artifactState, $label, $artifact.artifactId) -ForegroundColor White
+        $operatingSystemLabel = Get-LabWindowsMediaOperatingSystemLabel -OperatingSystemId ([string]$artifact.operatingSystem.id)
+        $isSqlPrepared = [string]$artifact.artifactState -eq 'SQL_PREPARED_SEALED'
+        $fallbackName = if ($isSqlPrepared) {
+            "{0} · SQL Server {1} {2}" -f $operatingSystemLabel, $artifact.sql.version, $artifact.sql.edition
+        }
+        else { "{0} · reine Windows-OS-Baseline" -f $operatingSystemLabel }
+        $displayName = if ([string]::IsNullOrWhiteSpace([string]$artifact.displayName)) { $fallbackName } else { [string]$artifact.displayName }
+        $shortArtifactId = if ([string]$artifact.artifactId -match '([a-f0-9]{12,})$') { $Matches[1].Substring(0, 12) } else { [string]$artifact.artifactId }
+        $registeredAt = if ([string]::IsNullOrWhiteSpace([string]$artifact.registeredAt)) { 'unbekannt' } else { Format-LabMenuDateTime -Value $artifact.registeredAt }
+        $workload = if ($isSqlPrepared) {
+            "Windows: {0} {1} · SQL Server: {2} {3}" -f $operatingSystemLabel, $artifact.operatingSystem.installationType, $artifact.sql.version, $artifact.sql.edition
+        }
+        else { "Windows: {0} {1} · Reine Windows-VM ohne SQL Server" -f $operatingSystemLabel, $artifact.operatingSystem.installationType }
+        Write-Host ("    [{0}] {1}" -f ($i + 1), $displayName) -ForegroundColor White
+        Write-Host ("        {0}" -f $workload) -ForegroundColor Gray
+        Write-Host ("        Veröffentlicht: {0} · Kennung: {1}" -f $registeredAt, $shortArtifactId) -ForegroundColor DarkGray
     }
     Write-Host '    [ALL] Alle oben angezeigten Images löschen' -ForegroundColor Red
     $selection = Read-Host '  Image auswählen'
