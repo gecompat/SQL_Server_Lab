@@ -98,124 +98,54 @@ function Get-ObjectField {
     return $null
 }
 
-function Get-ManifestDataFieldFromFile {
-    param(
-        [Parameter(Mandatory)]
-        [string]$Path,
+function Resolve-RepoRoot {
+    param([string]$CandidatePath)
 
-        [Parameter(Mandatory)]
-        [string]$FieldName,
-
-        [ValidateSet('Scalar', 'Array')]
-        [string]$Mode = 'Scalar'
-    )
-
-    $content = Get-Content -LiteralPath $Path -Raw -ErrorAction Stop
-    if ([string]::IsNullOrWhiteSpace($content)) {
+    if ([string]::IsNullOrWhiteSpace($CandidatePath)) {
         return $null
     }
 
-    switch ($Mode) {
-        'Scalar' {
-            $pattern = "(?is)$([regex]::Escape($FieldName))\s*=\s*(['\`"])(.*?)\1"
-            if ($content -match $pattern) {
-                return $matches[2]
-            }
-            return $null
-        }
-        'Array' {
-            $pattern = "(?is)$([regex]::Escape($FieldName))\s*=\s*@\((.*?)\)"
-            if ($content -match $pattern) {
-                $block = $matches[1]
-                $values = [regex]::Matches($block, "['`"]([^'`"]+)['`"]") | ForEach-Object { $_.Groups[1].Value }
-                if ($values.Count -eq 0) {
-                    return $null
-                }
-                return $values
-            }
-            return $null
+    $probe = Join-Path $CandidatePath '..' '..'
+    try {
+        $resolved = Resolve-Path -LiteralPath $probe -ErrorAction Stop
+        $manifestPath = Join-Path $resolved.Path 'SqlServerLab.psd1'
+        if (Test-Path -LiteralPath $manifestPath) {
+            return $resolved.Path
         }
     }
+    catch {
+        return $null
+    }
+
+    return $null
 }
 
-function Normalize-StringList {
-    param([object]$Value)
-
-    if ($null -eq $Value) {
-        return @()
+$repoRoot = $null
+foreach ($candidate in @($PSScriptRoot, (Split-Path -Parent $PSCommandPath), (Get-Location).Path)) {
+    $resolved = Resolve-RepoRoot -CandidatePath $candidate
+    if (-not [string]::IsNullOrWhiteSpace($resolved)) {
+        $repoRoot = $resolved
+        break
     }
-
-    $items = @()
-    if ($Value -is [System.Collections.IDictionary]) {
-        $items = @($Value.Keys)
-    }
-    elseif ($Value -is [System.Collections.IEnumerable] -and $Value -isnot [string]) {
-        $items = @($Value)
-    }
-    else {
-        $items = @($Value)
-    }
-
-    return @(
-        $items |
-            ForEach-Object { 
-                if ($null -eq $_) { $null } else { $_.ToString().Trim() }
-            } |
-            Where-Object { $_ -and $_ -ne '*' } |
-            Sort-Object -Unique
-    )
+}
+if ([string]::IsNullOrWhiteSpace($repoRoot)) {
+    throw 'Repo-Root konnte nicht ermittelt werden.'
 }
 
-$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
 $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
 $moduleManifest = Test-ModuleManifest -Path $modulePath -ErrorAction Stop
-$moduleManifestData = Get-PowerShellDataFile -Path $modulePath
+$moduleVersion = if ($null -ne $moduleManifest.Version) { $moduleManifest.Version.ToString() } else { $null }
+$manifestFunctions = @($moduleManifest.ExportedFunctions.Keys | Where-Object { $_ -and $_ -ne '*' } | ForEach-Object { $_.ToString().Trim() } | Sort-Object -Unique)
+
 $psaSettingsPath = Join-Path $repoRoot 'Tests' 'Static' 'PSScriptAnalyzerSettings.psd1'
 $psaSettings = Get-PowerShellDataFile -Path $psaSettingsPath
 
 Remove-Module -Name 'SqlServerLab' -Force -ErrorAction SilentlyContinue
 Import-Module $modulePath -Force -ErrorAction Stop
 
-$moduleVersion = Get-ObjectField -InputObject $moduleManifestData -Name @('ModuleVersion', 'Version')
-if ($null -eq $moduleVersion) {
-    $moduleVersion = Get-ObjectField -InputObject $moduleManifest -Name @('ModuleVersion', 'Version')
-}
-
-if ($null -eq $moduleVersion -or [string]::IsNullOrWhiteSpace("$moduleVersion")) {
-    $moduleVersion = Get-ManifestDataFieldFromFile -Path $modulePath -FieldName 'ModuleVersion' -Mode 'Scalar'
-}
-
-if ($moduleVersion -is [version]) {
-    $moduleVersion = $moduleVersion.ToString()
-}
-elseif ($moduleVersion -is [string] -and [string]::IsNullOrWhiteSpace($moduleVersion)) {
-    $moduleVersion = $null
-}
-
-if ($null -ne $moduleManifestData) {
-    $manifestFunctions = Get-ObjectField -InputObject $moduleManifestData -Name @('FunctionsToExport')
-}
-if ($null -eq $manifestFunctions -or $manifestFunctions.Count -eq 0) {
-    $manifestFunctions = Normalize-StringList $manifestFunctions
-}
-if ($null -eq $manifestFunctions -and $moduleManifest.ExportedFunctions) {
-    $manifestFunctions = $moduleManifest.ExportedFunctions.Keys
-}
-if ($null -eq $manifestFunctions -or $manifestFunctions.Count -eq 0) {
-    $manifestFunctions = Get-ManifestDataFieldFromFile -Path $modulePath -FieldName 'FunctionsToExport' -Mode 'Array'
-}
-if ($null -eq $manifestFunctions) {
-    $manifestFunctions = @()
-}
-$manifestFunctions = Normalize-StringList $manifestFunctions
-
 $exportedFunctions = @(Get-Module SqlServerLab | Select-Object -ExpandProperty ExportedFunctions | Select-Object -ExpandProperty Keys | ForEach-Object { $_.ToString().Trim() } | Sort-Object -Unique)
-if ($null -eq $exportedFunctions) {
-    $exportedFunctions = @()
-}
-else {
-    $exportedFunctions = @($exportedFunctions)
-}
+$exportedFunctions = if ($null -eq $exportedFunctions) { @() } else { @($exportedFunctions) }
+
 $psaIncludeDefaultRules = Get-ObjectField -InputObject $psaSettings -Name @('IncludeDefaultRules')
 $psaSeverity = Get-ObjectField -InputObject $psaSettings -Name @('Severity')
 $psaSeverityList = @($psaSeverity | Where-Object { $_ -and $_ -is [string] })
@@ -239,7 +169,7 @@ Describe 'SqlServerLab-Modulmanifest' {
     }
 
     It 'muss das im Manifest deklarierte Exportset konsistent mit dem importierten Modul exportieren' {
-        $delta = Compare-Object -ReferenceObject $manifestFunctions -DifferenceObject $exportedFunctions
+        $delta = Compare-Object -ReferenceObject @($manifestFunctions) -DifferenceObject @($exportedFunctions)
         if ($delta) {
             $items = ($delta | ForEach-Object { $_.InputObject }) -join ', '
             throw "Exportabweichung zwischen Manifest und Modul: $items"
