@@ -29,9 +29,14 @@ try {
     [System.IO.File]::WriteAllBytes($isoPath, $bytes)
     $sha = (Get-FileHash $isoPath -Algorithm SHA256).Hash
     $module = Import-Module $modulePath -Force -PassThru
+    $operatorText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVImageOperator.ps1') -Raw
     $plan = & $module { param($Iso,$Sha,$Root) New-HyperVWindowsImageBuildPlan -IsoPath $Iso -ExpectedSha256 $Sha -OperatingSystemId synthetic-ci -Edition none -InstallationType synthetic -LicenseType test-only -OsDiskSizeBytes 64MB -StateRoot $Root } $isoPath $sha $temporaryRoot
     Add-CheckResult -Name 'Build startet in MEDIA_VERIFIED' -Success ($plan.state -eq 'MEDIA_VERIFIED')
     Add-CheckResult -Name 'Windows-Build persistiert den initialen Leertastenvertrag' -Success ($plan.media.bootInteraction.initialMediaKey -eq 'space')
+    Add-CheckResult -Name 'Virtuelle Tastatur wird ohne sprachabhängigen CIM-Caption-Filter aufgelöst' -Success (
+        $operatorText -match '-Filter "ElementName=''\$escapedVmName''"' -and
+        $operatorText -notmatch "Caption='Virtual Machine'"
+    )
     $noInputPlan = & $module { param($Iso,$Sha,$Root) New-HyperVWindowsImageBuildPlan -IsoPath $Iso -ExpectedSha256 $Sha -OperatingSystemId synthetic-ci -Edition none -InstallationType synthetic -LicenseType test-only -InitialMediaKey none -OsDiskSizeBytes 64MB -StateRoot $Root } $isoPath $sha (Join-Path $temporaryRoot 'no-input-plan')
     Add-CheckResult -Name 'Installationsmedium kann Tastatureingaben explizit deaktivieren' -Success ($noInputPlan.media.bootInteraction.initialMediaKey -eq 'none')
     $mediaCatalog = & $module { Get-LabMediaSourceCatalog }

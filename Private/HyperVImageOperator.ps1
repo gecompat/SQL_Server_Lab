@@ -627,7 +627,7 @@ function Invoke-HyperVInitialMediaBootInteraction {
                 $escapedVmName = $VMName.Replace("'", "''")
                 $computerSystem = @(Get-CimInstance -Namespace 'root/virtualization/v2' `
                     -ClassName Msvm_ComputerSystem `
-                    -Filter "Caption='Virtual Machine' AND ElementName='$escapedVmName'" -ErrorAction Stop)[0]
+                    -Filter "ElementName='$escapedVmName'" -ErrorAction Stop)[0]
                 if (-not $computerSystem) { throw 'HYPERV_BUILDER_VM_CIM_NOT_FOUND' }
                 $keyboard = @(Get-CimAssociatedInstance -InputObject $computerSystem `
                     -Association Msvm_SystemDevice -ResultClassName Msvm_Keyboard -ErrorAction Stop)[0]
