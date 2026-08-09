@@ -67,7 +67,7 @@ try {
                 -TargetDatabaseName 'FalscherName'
         }
         catch {
-            $wrongNameRejected = $_.Exception.Message -match 'erwartet die Datenbank'
+            $wrongNameRejected = $_.Exception.Message -match 'erwartet als fuehrende Datenbank'
         }
 
         $descriptiveRejected = $false
