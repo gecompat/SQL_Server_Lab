@@ -36,8 +36,12 @@ try {
         $unattend -match '<UserAccounts>\s*<AdministratorPassword>' -and
         $unattend -notmatch '<component[^>]+>\s*<AdministratorPassword>'
     )
-    Add-CheckResult -Name 'Minimaler OOBE-Antwortsatz setzt Zeitzone ohne Sprachpaketabhaengigkeit' -Success (
-        $unattend -notmatch 'Microsoft-Windows-International-Core' -and
+    Add-CheckResult -Name 'OOBE-Antwortsatz setzt Sprache, Region, Tastatur und Zeitzone' -Success (
+        $unattend -match 'Microsoft-Windows-International-Core' -and
+        $unattend -match '<InputLocale>0407:00000407</InputLocale>' -and
+        $unattend -match '<SystemLocale>de-DE</SystemLocale>' -and
+        $unattend -match '<UILanguage>en-US</UILanguage>' -and
+        $unattend -match '<UserLocale>de-DE</UserLocale>' -and
         $unattend -match '<TimeZone>W\. Europe Standard Time</TimeZone>'
     )
     Add-CheckResult -Name 'Specialize unterdrueckt die interaktive Privacy Experience vor dem ersten Login' -Success (
