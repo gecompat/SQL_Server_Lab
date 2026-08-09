@@ -1009,9 +1009,9 @@ Der Container-Core (Welle 2) ist umgesetzt; der Sample-Backup-Handler mit
 Trust-Pfad und Mehrfachauswahl ist implementiert (Sample-Welle 3 des
 Sample-Zielvertrags). Die nächsten Schritte sind:
 
-1. Sample-Wellen 4 und 5 (SQL-Skript-/Bundle-Handler, `LAB_GENERATED`-Baselines)
-   gemäß Sample-Zielvertrag abschließen, soweit sie für die Adapter benötigt
-   werden;
+1. Nach Abschluss der SQL-Skript-/Bundle-Handler aus Sample-Welle 4 die
+   `LAB_GENERATED`-Baselines aus Sample-Welle 5 gemäß Sample-Zielvertrag
+   abschließen, soweit sie für die Adapter benötigt werden;
 2. **Project Adapter priorisieren:** Adaptervertrag als versioniertes
    JSON-Schema festschreiben und die Wellen 6 und 7 mit je einer Pilotdemo
    beginnen. Details und Reihenfolge stehen in

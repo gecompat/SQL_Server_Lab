@@ -241,10 +241,13 @@ Bei manuellen Restores ist `-RunId` mit optionaler `-InstanceId` die bevorzugte 
 Automatisch ausführbar sind Varianten mit `runtimeStatus: executable` und den
 Handler-Typen `backup`, `archive-backup` (ZIP oder 7z mit einer exakten,
 katalogisierten `.bak`-Payload) oder `sql-script` (einzelnes katalogisiertes
-T-SQL-Skript). Die Installation läuft über
+T-SQL-Skript) sowie `script-bundle` (ZIP mit root-gebundenem SQL-Entrypoint).
+Bundles erlauben ausschließlich explizit freigegebene `GO`-, `:r`- und
+`:setvar`-Features; `:connect`, Shell-Escapes, Include-Traversal und rekursive
+Includes werden abgelehnt. Die Installation läuft über
 `Private/SampleArtifactHandlers.ps1`, bindet die Sample-Identität an Trust
 Store, Cache und Run Lock, setzt `fail-if-exists` durch und verifiziert die
-erwartete Datenbank abschließend als `ONLINE` (`DATASET_READY`). Archiv-Payloads
+erwarteten Datenbanken abschließend als `ONLINE` (`DATASET_READY`). Archiv-Payloads
 werden nur temporär unter dem Run- bzw. Temp-Arbeitsbereich extrahiert und nach
 dem Restore entfernt.
 
@@ -267,10 +270,12 @@ bleiben bewusst `descriptive`, weil sie MDF/LDF-Dateien für einen noch nicht
 implementierten Attach-Handler enthalten – sie werden nicht als `.bak`
 umgedeutet.
 
-Noch nicht implementiert sind Script-Bundles und Attach-Handler,
-`LAB_GENERATED`-Baselines, das Überschreiben der erwarteten Zieldatenbanknamen
-sowie die Wizard-Navigation mit Zurück/Planvorschau. Ein Sample, das mehrere
-Datenbanken erzeugt, wird weiterhin nicht automatisch installiert.
+Noch nicht implementiert sind Attach-Handler, `LAB_GENERATED`-Baselines, das
+Überschreiben der erwarteten Zieldatenbanknamen sowie die Wizard-Navigation mit
+Zurück/Planvorschau. Script Bundles können mehrere fest katalogisierte
+Datenbanken als eine Installation erzeugen; bei einem Teilfehler bleibt der
+Run mit `RECOVERY_REQUIRED` sichtbar, eine automatische Löschung wird nicht
+vorgetäuscht.
 
 Der verbleibende Zielvertrag steht in
 [Testdatenbank-Provisionierung und menügeführte Manifest-Erstellung](../Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md).
@@ -349,9 +354,8 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
 
 ## Priorisierte nächste technische Schritte
 
-1. SQL-Skript- und Script-Bundle-Handler mit Verification und Cleanup ergänzen (Sample-Welle 4).
-2. `LAB_GENERATED`-Baselines mit Registry, Key und deterministischer Auswahl umsetzen (Sample-Welle 5).
-3. Providerneutrale Drive-, Network-, Software- und Reconcile-Verträge gemäß Hyper-V-Zielvertrag umsetzen.
-4. Artifact Registry, Refresh/Rebuild und Evaluierungsablauf implementieren.
-5. Hyper-V anschließend in den dokumentierten, getrennt testbaren Wellen implementieren.
-6. Katalogaktualität, verifizierte Prüfsummen (`catalog-verified`) und Baseline-Kompatibilität kontrolliert pflegen.
+1. `LAB_GENERATED`-Baselines mit Registry, Key und deterministischer Auswahl umsetzen (Sample-Welle 5).
+2. Providerneutrale Drive-, Network-, Software- und Reconcile-Verträge gemäß Hyper-V-Zielvertrag umsetzen.
+3. Artifact Registry, Refresh/Rebuild und Evaluierungsablauf implementieren.
+4. Hyper-V anschließend in den dokumentierten, getrennt testbaren Wellen implementieren.
+5. Katalogaktualität, verifizierte Prüfsummen (`catalog-verified`) und Baseline-Kompatibilität kontrolliert pflegen.

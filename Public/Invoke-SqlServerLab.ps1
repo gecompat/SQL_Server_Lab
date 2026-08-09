@@ -528,7 +528,7 @@ function Invoke-LabAction {
                     $variant = @($sample.versions.PSObject.Properties | Where-Object Name -eq $variantName | Select-Object -First 1)
                     if ($variant.Count -ne 1) { Write-LabError "Sample-Variante nicht gefunden: $sampleSpec"; continue }
                     $outputs = @($variant[0].Value.expectedOutputs)
-                    if ($outputs.Count -ne 1 -or -not $outputs[0].name) { Write-LabError "Sample besitzt keinen eindeutigen Datenbank-Output: $sampleSpec"; continue }
+                    if ($outputs.Count -eq 0 -or @($outputs | Where-Object { $_.kind -ne 'database' -or -not $_.name }).Count -gt 0) { Write-LabError "Sample besitzt keine eindeutige Datenbank-Outputliste: $sampleSpec"; continue }
                     try {
                         $restoreDefinition = Resolve-LabSampleRestore -SampleDefinition ([PSCustomObject]@{ id = $parts[0]; variant = $variantName }) -SqlVersion $target.Version -TargetDatabaseName ([string]$outputs[0].name)
                         $result = Install-LabSampleDatabase -HostName $target.HostName -Port $target.Port -SaPassword $pw -ContainerName $target.ContainerName -RestoreDefinition $restoreDefinition -RunDirectory $runDirectory -StateRoot $stateRoot
@@ -1847,9 +1847,10 @@ function Select-LabSampleSelection {
             $key = "$($variant.SampleId):$($variant.Variant)"
             $marker = if ($selection.Contains($key)) { '[x]' } else { '[ ]' }
             $status = $localStatus[$key]
+            $expectedDatabaseText = @($variant.ExpectedDatabases) -join ', '
             Write-Host ("    {0} [{1,2}] {2} ({3})" -f $marker, ($i + 1), $variant.DisplayName, $variant.Variant) -ForegroundColor White
             Write-Host ("           Typ: {0} | DB: {1} | Download: {2} MB | Lizenz: {3} | Trust: {4} | Cache: {5}" -f `
-                $variant.ArtifactType, $variant.ExpectedDatabase, $variant.DownloadSizeMB, $variant.License, $status.TrustStatus, $status.CacheStatus) -ForegroundColor DarkGray
+                $variant.ArtifactType, $expectedDatabaseText, $variant.DownloadSizeMB, $variant.License, $status.TrustStatus, $status.CacheStatus) -ForegroundColor DarkGray
         }
         Write-Host ''
         Write-Host '    [Nummer] Auswahl umschalten, [d Nummer] Details, [Enter] uebernehmen, [0] keine Testdatenbank' -ForegroundColor DarkGray
@@ -1873,7 +1874,7 @@ function Select-LabSampleSelection {
             Write-Host ''
             Write-Host "  $($variant.DisplayName) ($($variant.SampleId):$($variant.Variant))" -ForegroundColor White
             Write-Host "    $($variant.Description)" -ForegroundColor DarkGray
-            Write-Host "    Erwartete Datenbank:   $($variant.ExpectedDatabase)" -ForegroundColor DarkGray
+            Write-Host "    Erwartete Datenbanken: $(@($variant.ExpectedDatabases) -join ', ')" -ForegroundColor DarkGray
             Write-Host "    Quellseite:            $($variant.SourcePage)" -ForegroundColor DarkGray
             Write-Host "    Artifact-URL:          $($variant.Source)" -ForegroundColor DarkGray
             Write-Host "    Download:              $($variant.DownloadSizeMB) MB" -ForegroundColor DarkGray
@@ -1906,15 +1907,17 @@ function Select-LabSampleSelection {
         }
 
         $conflict = $null
+        $conflictingDatabase = $null
         foreach ($selectedKey in $selection) {
             $selectedVariant = $variants | Where-Object { "$($_.SampleId):$($_.Variant)" -eq $selectedKey } | Select-Object -First 1
-            if ($selectedVariant -and $selectedVariant.ExpectedDatabase -eq $variant.ExpectedDatabase) {
+            $conflictingDatabase = @($selectedVariant.ExpectedDatabases | Where-Object { @($variant.ExpectedDatabases) -contains $_ } | Select-Object -First 1)
+            if ($selectedVariant -and $conflictingDatabase.Count -gt 0) {
                 $conflict = $selectedKey
                 break
             }
         }
         if ($conflict) {
-            Write-LabWarning "SAMPLE_OUTPUT_CONFLICT: '$key' und '$conflict' erzeugen beide die Datenbank '$($variant.ExpectedDatabase)'."
+            Write-LabWarning "SAMPLE_OUTPUT_CONFLICT: '$key' und '$conflict' erzeugen beide die Datenbank '$($conflictingDatabase[0])'."
             continue
         }
 

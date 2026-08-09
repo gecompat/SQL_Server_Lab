@@ -272,6 +272,7 @@ function New-SqlServerLab {
     }
     else {
         $sampleDatabases = @()
+        $selectedSampleOutputs = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
         foreach ($sampleSpec in @($Sample | Where-Object { $_ })) {
             $specParts = ([string]$sampleSpec).Split(':', 2)
             $sampleDefinition = [PSCustomObject]@{
@@ -282,21 +283,32 @@ function New-SqlServerLab {
             $sampleArtifact = Resolve-LabSampleArtifact `
                 -SampleDefinition $sampleDefinition `
                 -SqlVersion $Version
-            $targetDatabaseName = [string]$sampleArtifact.expectedOutputs[0].name
-
-            if (@($sampleDatabases | Where-Object { $_.name -eq $targetDatabaseName }).Count -gt 0) {
-                throw "SAMPLE_OUTPUT_CONFLICT: Die Auswahl erzeugt die Datenbank '$targetDatabaseName' mehrfach."
+            $targetDatabaseNames = @(
+                $sampleArtifact.expectedOutputs |
+                    Where-Object { $_.kind -eq 'database' } |
+                    ForEach-Object { [string]$_.name }
+            )
+            if ($targetDatabaseNames.Count -eq 0 -or $targetDatabaseNames.Count -ne @($sampleArtifact.expectedOutputs).Count) {
+                throw "SAMPLE_OUTPUTS_INVALID: '$sampleSpec' besitzt keine eindeutige Datenbank-Outputliste."
             }
+            foreach ($outputName in $targetDatabaseNames) {
+                if ($selectedSampleOutputs.Contains($outputName)) {
+                    throw "SAMPLE_OUTPUT_CONFLICT: Die Auswahl erzeugt die Datenbank '$outputName' mehrfach."
+                }
+            }
+            $targetDatabaseName = $targetDatabaseNames[0]
+            $restoreDefinition = Resolve-LabSampleRestore `
+                -SampleDefinition $sampleDefinition `
+                -SqlVersion $Version `
+                -TargetDatabaseName $targetDatabaseName
+            foreach ($outputName in $targetDatabaseNames) { $null = $selectedSampleOutputs.Add($outputName) }
 
             $sampleDatabases += [PSCustomObject]@{
                 name      = $targetDatabaseName
                 collation = 'SQL_Latin1_General_CP1_CS_AS'
                 options   = $null
                 files     = $null
-                restore   = Resolve-LabSampleRestore `
-                    -SampleDefinition $sampleDefinition `
-                    -SqlVersion $Version `
-                    -TargetDatabaseName $targetDatabaseName
+                restore   = $restoreDefinition
                 sample    = $sampleDefinition
             }
         }
@@ -672,6 +684,7 @@ function New-SqlServerLab {
                 Select-Object -First 1
 
             foreach ($database in @($instance.databases | Where-Object { $_.restore })) {
+                $databaseNamesToRecord = @($database.name)
                 if ($database.restore.sampleId) {
                     Write-LabInfo "Sample '$($database.restore.sampleId):$($database.restore.sampleVariant)' auf '$($instance.id)' installieren..."
 
@@ -687,6 +700,9 @@ function New-SqlServerLab {
 
                     if (-not $sampleResult.Success) {
                         throw "Sample-Installation fehlgeschlagen ($($sampleResult.Status)): $($sampleResult.Message)"
+                    }
+                    if (@($sampleResult.DatabaseNames).Count -gt 0) {
+                        $databaseNamesToRecord = @($sampleResult.DatabaseNames)
                     }
                     Write-LabSuccess "  $($sampleResult.Status): $($sampleResult.Message)"
                 }
@@ -720,8 +736,10 @@ function New-SqlServerLab {
                         -SaPassword $SaPassword
                 }
 
-                if ($labInstance.Databases -notcontains $database.name) {
-                    $labInstance.Databases += $database.name
+                foreach ($installedDatabaseName in $databaseNamesToRecord) {
+                    if ($labInstance.Databases -notcontains $installedDatabaseName) {
+                        $labInstance.Databases += $installedDatabaseName
+                    }
                 }
             }
         }

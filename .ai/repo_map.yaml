@@ -176,10 +176,11 @@ internal_components:
   - name: SampleArtifactHandlers
     source: Private/SampleArtifactHandlers.ps1
     responsibilities:
-      - "executable Backup-Varianten des Sample-Katalogs auflisten und filtern"
+      - "executable Backup-, Einzel-Skript- und Script-Bundle-Varianten des Sample-Katalogs auflisten und filtern"
       - "Trust- und Cache-Status je Variante read-only melden"
-      - "Backup-Samples ueber Resolver, Idempotenzregel und Restore installieren"
-      - "erwartete Datenbank als ONLINE verifizieren und DATASET_READY melden"
+      - "Samples ueber Resolver, Idempotenzregel und typisierten Handler installieren"
+      - "Script Bundles sicher extrahieren, erlaubte sqlcmd-Features root-gebunden expandieren und mehrere Outputs verifizieren"
+      - "erwartete Datenbanken als ONLINE verifizieren und DATASET_READY oder RECOVERY_REQUIRED melden"
   - name: ProjectAdapter
     source: Private/ProjectAdapter.ps1
     responsibilities:
@@ -557,7 +558,7 @@ known_limitations:
     - "providerneutrale Network Intents und Exposure Policy sind nicht implementiert; Reconcile ist auf den Lifecycle START/STOP begrenzt"
     - "Artifact Refresh und Rebuild für Medien, VHDX und Derived Images nicht implementiert"
     - "kein provideruebergreifendes Docker-/Podman-Netzwerk oder Hyper-V-SubRun"
-    - "Sample-Backup-Handler mit Trust-Pfad, Mehrfachauswahl, ZIP-/7z-Backup-Payloads und gepinnten Einzelskripten sind implementiert; Script Bundles, mehrteilige/nicht freigegebene Archive und Attach-Handler bleiben offen"
+    - "Sample-Handler mit Trust-Pfad, Mehrfachauswahl, ZIP-/7z-Backup-Payloads, gepinnten Einzelskripten und sicheren Multi-Output-ZIP-Script-Bundles sind implementiert; nicht freigegebene Archive und Attach-Handler bleiben offen"
     - "LAB_GENERATED-Baselines und beste kompatible Aufsetzpunkte noch nicht implementiert"
     - "mehrere reservierte serverConfig-Felder noch ohne stabilen Runtimepfad"
     - "Versionskatalog wird nicht automatisch als aktuell garantiert"

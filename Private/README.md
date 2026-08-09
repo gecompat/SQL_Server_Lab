@@ -14,6 +14,7 @@ Der Pfad `Private/` beschreibt primär die interne Architektur. Die tatsächlich
 | `VersionCatalog.ps1` | Versionen, CU-Builds, Images, Ressourcenprofile und Sample-Katalogzugriff |
 | `StateMachine.ps1` | State-Root, Run-State, ProviderSubRuns, Übergänge, Historie und aktive Runs |
 | `ArtifactResolver.ps1` | HTTP(S)-Backup-Acquisition, lokaler Trust Store, inhaltsadressierter Cache, Quarantäne und sanitisiertes Run Lock |
+| `SampleArtifactHandlers.ps1` | Backup-, Archiv-, Einzel-Skript- und sichere Multi-Output-Script-Bundle-Installation |
 | `SqlReadiness.ps1` | SQL-Bereitschaft, Queries und interne Skriptausführung |
 | `ResourceAssessment.ps1` | Prüfung aller verwendeten Provider sowie runweiter RAM-, Storage- und Portkapazität; definiert das exportierte `Test-SqlServerLabPrerequisite` |
 | `CleanupEngine.ps1` | Cleanup-Plan, ProviderSubRuns, Schritte und Compensation |

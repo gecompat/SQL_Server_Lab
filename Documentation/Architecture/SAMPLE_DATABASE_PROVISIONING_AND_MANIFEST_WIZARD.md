@@ -28,8 +28,9 @@ der Backup-Handler für executable `.bak`-Varianten einschließlich Trust-Pfad,
 Sample-Identität in Trust Store und Run Lock, Idempotenz- und
 Output-Verification, die Mehrfachauswahl im Ad-hoc-Menü und per
 `New-SqlServerLab -Sample` sowie eine Katalogauswahl im Manifest-Wizard.
-Einzelne gepinnte SQL-Skript-Samples sind implementiert; Script Bundles,
-mehrere Outputs pro Installation und Baseline-Erzeugung bleiben offen.
+Einzelne gepinnte SQL-Skript-Samples und sichere ZIP-Script-Bundles mit mehreren
+fest katalogisierten Datenbankoutputs sind implementiert; Baseline-Erzeugung
+bleibt offen.
 
 Der gemeinsame Katalogvertrag für Artifact Type, Installation, erwartete
 Outputs, Trust Policy und Größenmetadaten ist implementiert. Für die
@@ -627,10 +628,17 @@ Zieldatenbanknamen und mehrere Outputs pro Installation bleiben offen.
 ### Welle 4 – SQL-Skripte und Bundles
 
 - `sql-script`-Handler für einzelne gepinnte Skripte umgesetzt;
-- `script-bundle`-Handler mit sqlcmd-Unterstützung;
-- erwartete mehrere Datenbankausgaben;
-- Verification, Idempotency und Compensation;
+- `script-bundle`-Handler mit begrenzter sqlcmd-Unterstützung umgesetzt;
+- erwartete mehrere Datenbankausgaben umgesetzt;
+- Verification, Idempotency und fail-closed Recovery umgesetzt;
 - Northwind als erster ausführbarer Script-Sample-Nachweis.
+
+**Implementiert am 2026-08-09:** ZIP-Bundles werden erst nach Artifact-Trust in
+einen temporären Scope extrahiert. Der katalogisierte Entrypoint darf nur
+root-gebundene SQL-Includes und explizit freigegebene `GO`-/`:setvar`-Features
+verwenden. Alle erwarteten Datenbanken werden vor Apply auf Konflikte und nach
+Apply auf `ONLINE` geprüft; unsichere Teilzustände enden mit
+`RECOVERY_REQUIRED` statt automatischer Fremddatenlöschung.
 
 ### Welle 5 – Baselines
 
