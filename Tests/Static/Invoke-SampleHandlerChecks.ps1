@@ -221,7 +221,7 @@ CREATE DATABASE [$(SecondDatabase)];
             }
             Set-Item Function:New-SqlServerLabDatabase -Value { [PSCustomObject]@{ Success = $true } }
             Set-Item Function:Invoke-LabSqlScript -Value {
-                param($ScriptPath, $HostName, $Port, $SaPassword, $Database, $KeepConnection, $TimeoutSeconds)
+                param($ScriptPath, $HostName, $Port, $SaPassword, $Database, [switch]$KeepConnection, $TimeoutSeconds)
                 if ($script:UseBundleArtifact) {
                     $script:BundleFlattenedContent = Get-Content -LiteralPath $ScriptPath -Raw
                     $script:BundleScriptDatabase = $Database
