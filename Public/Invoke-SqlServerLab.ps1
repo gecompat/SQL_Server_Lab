@@ -92,15 +92,40 @@ function Show-LabBanner {
     $hyperVCheck = if ($IsWindows) { Test-HyperVAvailable } else { $null }
     $hyperVInstalled = $null -ne (Get-Command Get-VM -ErrorAction SilentlyContinue)
 
-    $providerLabel = if ($providers.Count -gt 0) { $providers -join ', ' } else { 'KEIN Anbieter' }
-    if ($hyperVInstalled -and $hyperVCheck -and -not $hyperVCheck.Available) {
-        $providerLabel += ', hyperv (UAC erforderlich)'
+    $providerColorMap = @{
+        docker = 'DarkCyan'
+        podman = 'DarkGreen'
+        hyperv = 'DarkYellow'
     }
-    if ($providers.Count -gt 0 -or $hyperVInstalled) {
-        Write-Host "  Provider: $providerLabel" -ForegroundColor DarkGray
+    $providerEntries = @(
+        foreach ($provider in @($providers | ForEach-Object { [string]$_ } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })) {
+            @{ Display = $provider; SortKey = [string]$provider.ToLowerInvariant().Trim() }
+        }
+    )
+    if ($hyperVInstalled -and $hyperVCheck -and $hyperVCheck.Available -and -not ($providerEntries.SortKey -contains 'hyperv')) {
+        $providerEntries = @($providerEntries + @(@{ Display = 'hyperv'; SortKey = 'hyperv' }))
+    }
+    if ($hyperVInstalled -and $null -ne $hyperVCheck -and -not $hyperVCheck.Available) {
+        $providerEntries = @($providerEntries + @(@{ Display = 'hyperv (UAC erforderlich)'; SortKey = 'hyperv' }))
+    }
+
+    $providerEntries = @(
+        $providerEntries |
+            Sort-Object SortKey |
+            Group-Object SortKey |
+            ForEach-Object { $_.Group | Select-Object -First 1 }
+    )
+    if ($providerEntries.Count -eq 0) {
+        Write-Host '  Provider: KEINER VERFUEGBAR' -ForegroundColor Red
     }
     else {
-        Write-Host "  Provider: KEINER VERFUEGBAR" -ForegroundColor Red
+        Write-Host '  Provider:' -ForegroundColor DarkGray
+        foreach ($providerEntry in $providerEntries) {
+            $provider = $providerEntry.Display
+            $providerToken = ($provider -split '\s+')[0].ToLowerInvariant()
+            $providerColor = if ($providerColorMap.ContainsKey($providerToken)) { $providerColorMap[$providerToken] } else { 'Gray' }
+            Write-Host ('    - {0}' -f $provider) -ForegroundColor $providerColor
+        }
     }
 
     # Aktive Labs kurz anzeigen
