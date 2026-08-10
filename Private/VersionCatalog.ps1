@@ -166,6 +166,92 @@ function Get-SqlServerBuilds {
     return @($version.docker.builds)
 }
 
+function Get-SqlServerPatchOptions {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$VersionId,
+        [string]$MediaRoot
+    )
+
+    $builds = @(Get-SqlServerBuilds -VersionId $VersionId | Where-Object { [string]$_.cu -match '^CU\d+$' })
+    return @($builds | Sort-Object { [int](([string]$_.cu) -replace '^CU', '') } -Descending | ForEach-Object {
+        $build = $_
+        $windows = if ($build.PSObject.Properties['windows']) { $build.windows } else { $null }
+        $relativePath = if ($windows -and $windows.relativePath) {
+            [string]$windows.relativePath
+        }
+        elseif ($build.kb) {
+            "SQL/$VersionId/Updates/$($build.cu)/SQLServer$VersionId-$($build.kb)-x64.exe"
+        }
+        else { $null }
+        $localPath = if ($MediaRoot -and $relativePath) {
+            Join-Path $MediaRoot ($relativePath.Replace('/', [IO.Path]::DirectorySeparatorChar))
+        }
+        else { $null }
+        $present = $localPath -and (Test-Path -LiteralPath $localPath -PathType Leaf)
+        $sha256 = if ($windows -and $windows.sha256) { ([string]$windows.sha256).ToLowerInvariant() } else { $null }
+        [PSCustomObject]@{
+            VersionId = "$VersionId-$($build.cu)"
+            BaseVersion = $VersionId
+            Cu = [string]$build.cu
+            Build = [string]$build.build
+            Kb = [string]$build.kb
+            Released = [string]$build.released
+            ContainerTag = [string]$build.tag
+            ArticleUrl = [string]$build.articleUrl
+            WindowsRelativePath = $relativePath
+            WindowsPath = $localPath
+            WindowsStatus = if ($present) { if ($sha256) { 'PRESENT_HASH_CATALOGUED' } else { 'PRESENT_UNVERIFIED' } } else { 'MISSING' }
+            DownloadUrl = if ($windows) { [string]$windows.downloadUrl } else { $null }
+            Sha256 = $sha256
+            CanAutoDownload = [bool]($windows -and $windows.downloadUrl -and $sha256)
+        }
+    })
+}
+
+function Confirm-SqlServerWindowsPatchPackage {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Patch)
+
+    if (-not $Patch.WindowsPath -or -not (Test-Path -LiteralPath $Patch.WindowsPath -PathType Leaf)) {
+        throw "SQL_WINDOWS_CU_PACKAGE_MISSING: $($Patch.WindowsRelativePath)"
+    }
+    if (-not $Patch.Sha256) {
+        throw "SQL_WINDOWS_CU_HASH_NOT_CATALOGUED: $($Patch.Cu) · $($Patch.ArticleUrl)"
+    }
+    $actual = (Get-FileHash -LiteralPath $Patch.WindowsPath -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()
+    if ($actual -ne [string]$Patch.Sha256) {
+        throw "SQL_WINDOWS_CU_HASH_MISMATCH: $($Patch.WindowsRelativePath)"
+    }
+    return $Patch.WindowsPath
+}
+
+function Save-SqlServerWindowsPatchPackage {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Patch,
+        [Parameter(Mandatory)][string]$MediaRoot
+    )
+
+    if (-not $Patch.CanAutoDownload) {
+        throw "SQL_WINDOWS_CU_AUTODOWNLOAD_NOT_TRUSTED: $($Patch.Cu)"
+    }
+    $target = Join-Path $MediaRoot ([string]$Patch.WindowsRelativePath).Replace('/', [IO.Path]::DirectorySeparatorChar)
+    $targetDirectory = Split-Path -Parent $target
+    $null = New-Item -ItemType Directory -Path $targetDirectory -Force
+    $temporary = "$target.download"
+    try {
+        Invoke-WebRequest -Uri $Patch.DownloadUrl -OutFile $temporary -UseBasicParsing -ErrorAction Stop
+        $actual = (Get-FileHash -LiteralPath $temporary -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()
+        if ($actual -ne [string]$Patch.Sha256) { throw "SQL_WINDOWS_CU_DOWNLOAD_HASH_MISMATCH: $($Patch.Cu)" }
+        Move-Item -LiteralPath $temporary -Destination $target -Force
+    }
+    finally {
+        Remove-Item -LiteralPath $temporary -Force -ErrorAction SilentlyContinue
+    }
+    return $target
+}
+
 function Get-LabSampleDatabase {
     <#
     .SYNOPSIS

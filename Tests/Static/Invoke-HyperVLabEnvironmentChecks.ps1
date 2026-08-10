@@ -33,9 +33,9 @@ try {
     $generatedAccessText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Get-SqlServerLabGeneratedSqlAccess.ps1') -Raw -Encoding utf8
     $moduleManifestText = Get-Content -LiteralPath $modulePath -Raw -Encoding utf8
     Add-CheckResult -Name 'Generierte SA-Zugangsdaten bleiben DPAPI-geschützt und explizit erneut abrufbar' -Success (
-        $environmentText -match "Save-LabSecret -Path \$lab\.RunDirectory -Name 'generated-sql-sa-password'" -and
+        $environmentText -match 'Save-LabSecret -Path \$lab\.RunDirectory -Name ''generated-sql-sa-password''' -and
         $environmentText -match 'Get-SqlServerLabGeneratedSqlAccess -RunId \$RunId' -and
-        $generatedAccessText -match "Get-LabSecret -Path \$lab\.RunDirectory -Name 'generated-sql-sa-password'" -and
+        $generatedAccessText -match 'Get-LabSecret -Path \$lab\.RunDirectory -Name ''generated-sql-sa-password''' -and
         $generatedAccessText -match 'New-HyperVTransientGeneratedSqlAccess[\s\S]+-Generated -Persisted' -and
         $moduleManifestText -match "'Get-SqlServerLabGeneratedSqlAccess'"
     )
