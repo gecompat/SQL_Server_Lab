@@ -79,7 +79,34 @@ Bei TDE oder verschlüsselten Backups müssen Zertifikat und Private Key getrenn
 verschlüsselt und vor dem Entfernen der alten Instanz testweise restauriert
 werden.
 
-## 5. Optionale Runtime-Anbindung
+## 5. Gemeinsame Backup-Bibliothek und private Arbeitsbereiche
+
+Die heruntergeladenen Testdaten liegen zentral in der sichtbaren Testdaten-
+Bibliothek, standardmäßig unter `<MediaRoot>\Testdaten\Sammlungen`. Sie ist die
+gemeinsame, unveränderliche Quelle für alle katalogisierten `.bak`-Dateien,
+ZIP-/7z-Archive und Skripte: Ein Download wird nur einmal geprüft und danach
+für weitere Labs wiederverwendet.
+
+Davon getrennt ist der **Backup-Arbeitsbereich** einer Umgebung. Er ist
+schreibbar und gehört genau einem Lab. Damit kann kein paralleler SQL-Dienst
+eine Sicherung einer anderen Umgebung überschreiben:
+
+| Provider | gemeinsame Quelle | schreibbarer Arbeitsbereich |
+|---|---|---|
+| Docker / Podman | Testdaten-Bibliothek auf dem Host; das Framework kopiert die gewählte, verifizierte Quelle vor dem Restore | `<DataRoot>\Labs\...\backups` → `/var/opt/mssql/backup` |
+| Hyper-V | Testdaten-Bibliothek auf dem Host. Für einen automatisierten Restore muss die gewählte Datei gezielt in den Gast-Arbeitsbereich übertragen werden; ein ungesicherter Host-Mount findet nicht statt. | eigene Daten-VHDX → `S:\SQLData\Backups` |
+
+Ein einziger, gleichzeitig beschreibbarer Ordner für alle VMs ist absichtlich
+kein Default. Hyper-V kann einen Hostordner nicht wie Docker als Laufwerk
+einbinden; ein SMB-Share würde zusätzliche Host-Firewall-, Dienstkonto- und
+Berechtigungsregeln benötigen. Für einen echten Live-Share muss dieser
+explizit und mit passenden Sicherheitsvorgaben eingerichtet werden. Die
+Standardlösung bleibt deshalb: gemeinsame geprüfte **Quelle**, isolierter
+schreibbarer **Arbeitsbereich**. Die gezielte Übertragung aus der Bibliothek in
+einen Hyper-V-Gast ist als nächste Erweiterung vorgesehen; bis dahin ist die
+Bibliothek nicht als direkt im Gast sichtbarer Ordner zu verstehen.
+
+## 6. Optionale Runtime-Anbindung
 
 Der Data Root wird in der Workflow-Oberfläche unter **Medienquellen** einmalig
 als lokaler Standard gespeichert. Beim Erstellen einer neuen Docker- oder
@@ -93,8 +120,9 @@ Run-Metadatum sichtbar.
 
 Für reguläre Hyper-V-Umgebungen kann beim Erstellen oder nachträglich im
 ausgeschalteten Zustand eine langlebige Daten-VHDX angehängt werden. Nach dem
-Start initialisiert die UI sie mit einer bestätigten Gastanmeldung als
-`D:\SQLData`. Auch diese VHDX liegt außerhalb des Run-State und wird nicht vom
+Start initialisiert die UI sie mit einer bestätigten Gastanmeldung unter einem
+freien Gastbuchstaben, bevorzugt als `S:\SQLData`; `D:` bleibt bewusst dem oft
+vorhandenen DVD-Laufwerk vorbehalten. Auch diese VHDX liegt außerhalb des Run-State und wird nicht vom
 normalen Cleanup entfernt.
 
 Bereits bestehende Container lassen sich technisch nicht um einen Mount

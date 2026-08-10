@@ -77,8 +77,8 @@ try {
         $preferencesSource -match 'Write-LabArtifactJsonAtomic -Path \$preferencePath' -and
         $preferencesSource -match 'SetEnvironmentVariable\(''SQL_SERVER_LAB_MEDIA_ROOT''.+''User''' -and
         $menuSource -match 'Get-LabMediaRootDefault' -and $menuSource -match 'Set-LabMediaRootDefault' -and
-        $menuSource -match '\[r\] Media Root konfigurieren' -and
-        $menuSource -match "'r' \{ Invoke-LabAction -ActionName 'MediaRoot' \}"
+        $menuSource -match '\[p\] Media Root konfigurieren' -and
+        $menuSource -match "'p' \{ Invoke-LabAction -ActionName 'MediaRoot' \}"
     )
 }
 catch { Add-CheckResult -Name 'Labnetz-Testausfuehrung' -Success $false -Message $_.Exception.Message }

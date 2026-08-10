@@ -21,7 +21,10 @@
 
   <main>
     <section id="notice" class="notice" hidden></section>
-    <div id="action-feedback" class="action-feedback" role="status" aria-live="polite" hidden></div>
+    <div id="action-feedback" class="action-feedback" role="status" aria-live="polite" hidden>
+      <span id="action-feedback-text"></span>
+      <button id="action-feedback-log" type="button" class="button secondary">Live-Log anzeigen</button>
+    </div>
     <section id="summary" class="summary-grid" aria-label="Übersicht"></section>
 
     <section class="workflow-intro">
@@ -330,6 +333,20 @@
       <label>Neuer Anzeigename<input id="lab-display-name" maxlength="64" pattern="[A-Za-z0-9][A-Za-z0-9 _-]{0,63}" required aria-describedby="lab-name-note"></label>
       <p id="lab-name-note" class="form-note">Runtime-Objekte werden zu <em>Projektname-Instanz-Run-ID</em> umbenannt. Hyper-V-VMs müssen dafür ausgeschaltet sein; Docker und Podman können auch laufend umbenannt werden. Ports und persistente Daten bleiben unverändert.</p>
       <div class="dialog-actions"><button type="button" class="button secondary" value="cancel" formnovalidate>Abbrechen</button><button class="button primary" value="default">Name speichern</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="resource-dialog">
+    <form id="resource-form" method="dialog">
+      <div class="dialog-heading"><div><p class="eyebrow">UMGEBUNGSRESSOURCEN</p><h2>CPU und Speicher ändern</h2></div><button type="button" class="icon-button" value="cancel" formnovalidate aria-label="Schließen">×</button></div>
+      <input id="resource-run" type="hidden">
+      <p id="resource-current" class="selection-details">Die aktuellen Werte werden aus dem echten Runtime-Objekt gelesen.</p>
+      <div class="form-grid">
+        <label id="resource-memory-label">Speicher (MB)<input id="resource-memory" type="number" min="512" max="1048576" required></label>
+        <label>vCPU / CPU-Limit<input id="resource-processors" type="number" min="1" max="64" required></label>
+      </div>
+      <p id="resource-note" class="form-note"></p>
+      <div class="dialog-actions"><button type="button" class="button secondary" value="cancel" formnovalidate>Abbrechen</button><button class="button primary" value="default">Ressourcen im Hintergrund ändern</button></div>
     </form>
   </dialog>
 

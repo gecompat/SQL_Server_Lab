@@ -10,6 +10,12 @@ zulässigen Schritt statt nur interner Zustandsnamen.
 Die Oberfläche ist ein zweiter Einstieg über denselben PowerShell-Core. Sie
 enthält keine eigene Provisionierungslogik.
 
+Die Workflow-Inventur (ISO-, Image- und Runtime-Erkennung) läuft getrennt von
+der HTTP-Annahme eines Klicks. Nach einer Aktion schließt der Dialog daher
+sofort; Live-Log, Auftragsbestätigung, Laufzeit und Herzschlag erscheinen
+unmittelbar. Die möglicherweise langsamere vollständige Inventur wird danach
+im Hintergrund aktualisiert.
+
 ## Start
 
 Im Repository unter PowerShell 7 starten:
@@ -52,6 +58,16 @@ Vertrauensfreigabe. Der Menüpunkt **Alles aufräumen** zeigt vor dem Start eine
 Bestätigung und führt ausschließlich die hinterlegten Cleanup-Pläne aus;
 persistente Data-Root-Inhalte und veröffentlichte Hyper-V-Images bleiben
 erhalten.
+
+## Einheitliche Umgebungsaktionen
+
+Docker-, Podman- und Hyper-V-Labs zeigen den tatsächlichen Laufzeitstatus sowie
+ihre Connection Strings. **CPU und Speicher ändern** ist für alle drei
+Provider verfügbar: Container übernehmen ihre Limits direkt; bei Hyper-V muss
+die VM ausgeschaltet sein und erhält einen begrenzten dynamischen Bereich
+(mindestens 1 GB bzw. die Hälfte des Startwerts, maximal das Doppelte). Die
+Hyper-V-Verwaltung ergänzt nur die Windows-/SQL-spezifischen Aktionen wie
+VMConnect, Daten-VHDX oder WMI-Reparatur.
 
 ## Namen in Runtime und Oberfläche
 

@@ -133,6 +133,12 @@ Bestätigt bewusst den Lizenz- und möglichen Ablaufhinweis, bevor aus einer
 vorhandenen Windows-VM eine neue differenzierende Lab-VM erzeugt wird.
 .PARAMETER OsDiskSizeGB
     Größe der Systemdisk einer neu anzulegenden VM in GB.
+.PARAMETER MemoryMB
+    Gewünschter Speicher in MB für eine bestehende Lab-Umgebung. Bei
+    Containern ist dies das harte Runtime-Limit; bei Hyper-V der Startwert.
+.PARAMETER ProcessorCount
+    Anzahl virtueller CPUs beziehungsweise CPU-Limit einer bestehenden
+    Lab-Umgebung.
 .OUTPUTS
     System.Management.Automation.PSCustomObject. Liefert die Aktion, den
     Abschlusszeitpunkt und das Ergebnis des bestehenden Fachbefehls.
@@ -146,7 +152,7 @@ function Invoke-SqlServerLabWorkflowAction {
         [ValidateSet(
             'Refresh',
             'SetMediaRoot', 'SetDataRoot', 'SetTestDataRoot',
-            'NewContainerLab', 'CreateContainerManifest', 'NewContainerLabFromManifest', 'RenameLab', 'StartContainerLab', 'StopContainerLab', 'StartLabReconcile', 'StopLabReconcile', 'RestartContainerLab', 'RemoveContainerLab', 'ClearAllLabs',
+            'NewContainerLab', 'CreateContainerManifest', 'NewContainerLabFromManifest', 'RenameLab', 'SetLabResources', 'StartContainerLab', 'StopContainerLab', 'StartLabReconcile', 'StopLabReconcile', 'RestartContainerLab', 'RemoveContainerLab', 'ClearAllLabs',
             'CreateContainerDatabase', 'InstallContainerSampleDatabase', 'InstallContainerSampleDatabases', 'ExecuteContainerScript',
             'NewHyperVLab', 'NewHyperVLabFromExistingVm', 'StartHyperVLab', 'StopHyperVLab', 'EnableHyperVLabPersistentData', 'InitializeHyperVLabPersistentData', 'CompleteHyperVLabSql', 'EnableHyperVLabHostSqlAccess', 'InspectHyperVLabSqlInstances', 'OpenHyperVConsole', 'RemoveHyperVLab',
             'NewWindowsBuild', 'SetWindowsMediaHash', 'OpenWindowsConsole', 'ConfirmWindowsInstall', 'GeneralizeWindowsBuild', 'PublishWindowsBuild',
@@ -203,6 +209,7 @@ function Invoke-SqlServerLabWorkflowAction {
         [switch]$ProvisionUnattended,
         [Nullable[datetime]]$EvaluationExpiresAt,
         [ValidateRange(2, 1048576)][int]$MemoryStartupMB = 4096,
+        [ValidateRange(512, 1048576)][int]$MemoryMB,
         [ValidateRange(1, 64)][int]$ProcessorCount = 4,
         [switch]$ConfirmSourceLicense,
         [ValidateRange(32, 1048576)][int]$OsDiskSizeGB = 80
@@ -248,7 +255,7 @@ function Invoke-SqlServerLabWorkflowAction {
     }
 
     $containerActions = @(
-        'NewContainerLab', 'CreateContainerManifest', 'NewContainerLabFromManifest', 'RenameLab', 'StartContainerLab', 'StopContainerLab', 'RestartContainerLab', 'RemoveContainerLab',
+        'NewContainerLab', 'CreateContainerManifest', 'NewContainerLabFromManifest', 'RenameLab', 'SetLabResources', 'StartContainerLab', 'StopContainerLab', 'RestartContainerLab', 'RemoveContainerLab',
         'ClearAllLabs', 'CreateContainerDatabase', 'InstallContainerSampleDatabase', 'InstallContainerSampleDatabases', 'ExecuteContainerScript',
         'StartLabReconcile', 'StopLabReconcile'
     )
@@ -279,6 +286,9 @@ function Invoke-SqlServerLabWorkflowAction {
     }
     if ($Action -eq 'RenameLab' -and ([string]::IsNullOrWhiteSpace($BuildId) -or [string]::IsNullOrWhiteSpace($LabName))) {
         throw 'LAB_WORKFLOW_RUN_AND_NAME_REQUIRED'
+    }
+    if ($Action -eq 'SetLabResources' -and ([string]::IsNullOrWhiteSpace($BuildId) -or $MemoryMB -lt 512)) {
+        throw 'LAB_WORKFLOW_RESOURCE_TARGET_REQUIRED'
     }
     if ($Action -eq 'NewHyperVLab' -and ([string]::IsNullOrWhiteSpace($ArtifactId) -or [string]::IsNullOrWhiteSpace($LabName))) {
         throw 'HYPERV_LAB_ARTIFACT_AND_NAME_REQUIRED'
@@ -315,6 +325,7 @@ function Invoke-SqlServerLabWorkflowAction {
         'EnableHyperVLabPersistentData' { 'Eine langlebige Daten-VHDX wird für die ausgeschaltete Lab-VM vorbereitet.' }
         'InitializeHyperVLabPersistentData' { 'Der langlebige Daten-VHDX wird einmalig im laufenden Gast initialisiert.' }
         'InspectHyperVLabSqlInstances' { 'SQL-Instanzen, Dienste und TCP-Ports werden ausschließlich lesend in der laufenden Lab-VM geprüft.' }
+        'SetLabResources' { 'CPU- und Speicherwerte werden am echten Runtime-Objekt geprüft und anschließend aktualisiert.' }
         'ConfirmSqlWindowsInstall' { 'Die manuell installierte Windows-Edition wird geprüft; anschließend laufen SQL PrepareImage, Neustarts, Sysprep und Veröffentlichung automatisch.' }
         'PrepareSqlImage' { 'Der automatische Abschluss mit SQL PrepareImage, Neustarts, Sysprep und Veröffentlichung wird fortgesetzt.' }
         'NewSqlBuild' { 'Windows- und SQL-Medien werden für den Build geprüft.' }
@@ -352,6 +363,7 @@ function Invoke-SqlServerLabWorkflowAction {
                 Rename-ContainerLabEnvironment -RunId $BuildId -DisplayName $LabName
             }
         }
+        'SetLabResources' { Set-LabEnvironmentResources -RunId $BuildId -MemoryMB $MemoryMB -ProcessorCount $ProcessorCount }
         'NewHyperVLab' {
             $lab = New-HyperVLabEnvironment -ArtifactId $ArtifactId -LabName $LabName -InstanceId $InstanceId -MemoryStartupMB $MemoryStartupMB -ProcessorCount $ProcessorCount -SwitchName $SwitchName
             if ($PersistentData) { $null = Enable-HyperVLabPersistentData -RunId $lab.RunId -DataRoot $DataRoot -SizeGB $PersistentDataDiskGB }
