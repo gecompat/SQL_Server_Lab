@@ -524,13 +524,16 @@ function Invoke-LabAction {
                 $path = $catalog.Path
                 $workflow = $catalog.Catalog
                 $summary = $workflow.Summary
+                $providerValues = @($workflow.Host.Providers | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
+                $providersText = if ($providerValues.Count -gt 0) { ($providerValues -join ', ') } else { 'n/a' }
+                $mediaRootText = if ([string]::IsNullOrWhiteSpace($workflow.Defaults.MediaRoot)) { 'nicht gesetzt' } else { [string]$workflow.Defaults.MediaRoot }
 
                 Write-LabSuccess "SQL-Server-Lab-Katalog erstellt: $path"
                 Write-Host ('  Erzeugt: {0} · Katalog-Format: {1} · Module: {2}' -f
                     $catalog.GeneratedAt, $catalog.Catalog.CatalogFormat, $catalog.Catalog.Module.Version) -ForegroundColor White
                 Write-Host ('  StateRoot: {0}' -f $workflow.StateRoot) -ForegroundColor White
-                Write-Host ('  Medienroot: {0}' -f $workflow.Defaults.MediaRoot) -ForegroundColor White
-                Write-Host "  Provider: $((($workflow.Host.Providers) -join ', '))" -ForegroundColor White
+                Write-Host ('  Medienroot: {0} · verwendet Standard: {1}' -f $mediaRootText, $mediaRootText -eq 'nicht gesetzt') -ForegroundColor White
+                Write-Host ('  Provider: {0}' -f $providersText) -ForegroundColor White
                 Write-Host ('  Windows-Baselines: {0} · SQL-Prepared-Images: {1}' -f $summary.WindowsBaselines, $summary.SqlPreparedImages) -ForegroundColor White
                 Write-Host ('  Offene Builds: Windows {0}, SQL {1} · aktive Hyper-V-Labs: {2}' -f
                     $summary.PendingWindowsBuilds, $summary.PendingSqlBuilds, @($workflow.HyperVLabs).Count) -ForegroundColor White
