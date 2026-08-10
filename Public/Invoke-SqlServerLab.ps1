@@ -630,7 +630,7 @@ function Read-LabSqlEnvironmentIntentInteractive {
     }
     $hostPort = if ($networkMode -eq 'host-access') { Read-LabIntegerIntentValue -Prompt 'SQL-Hostport (0 = automatisch)' -Default 0 -Minimum 0 -Maximum 65535 } else { 0 }
     if ($hostPort -gt 0 -and $hostPort -lt 1024) { Write-LabWarning 'Ports unter 1024 sind nicht zulässig.'; return $null }
-    $collation = 'SQL_Latin1_General_CP1_CI_AS'
+    $collation = 'SQL_Latin1_General_CP1_CS_AS'
     $maxDop = [Math]::Min(8, [int][Math]::Ceiling([double]$cpu))
     $costThreshold = 50
     $sqlMaxMemoryMB = [Math]::Max(1024, $memoryMB - 1024)

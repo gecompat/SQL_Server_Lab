@@ -179,7 +179,7 @@ Ausführbare Beispiele verwenden diese Felder daher nicht.
 
 ## Collation
 
-Die Instanzdefinition enthält eine Collation, die als Default für neu angelegte Datenbanken verwendet wird. Eine abweichende SQL-Server-Instanzcollation wird bei der Containererstellung derzeit nicht gesetzt.
+Die Instanzdefinition enthält eine Collation, die bei neuen Umgebungen sowohl als SQL-Server-Instanzcollation als auch als Default für neu angelegte Datenbanken verwendet wird. Ohne explizite Angabe gilt `SQL_Latin1_General_CP1_CS_AS`.
 
 ## Datenbankdateien und Volumes
 

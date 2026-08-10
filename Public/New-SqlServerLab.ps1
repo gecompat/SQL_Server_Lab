@@ -145,7 +145,7 @@ function New-SqlServerLab {
         verwendet die Vorgabe des gewaehlten Ressourcenprofils.
     .PARAMETER Collation
         SQL-Server-Collation der neuen Ad-hoc-Instanz. Standard ist
-        SQL_Latin1_General_CP1_CI_AS.
+        SQL_Latin1_General_CP1_CS_AS.
     .PARAMETER ServerConfig
         Optionale typisierte SQL-Server-Konfiguration, beispielsweise fuer
         Max Server Memory, MAXDOP, Cost Threshold und TempDB-Dateien.
@@ -261,7 +261,7 @@ function New-SqlServerLab {
 
         [Parameter(ParameterSetName = 'AdHoc')][ValidateRange(0, 64)][decimal]$Cpu = 0,
         [Parameter(ParameterSetName = 'AdHoc')][ValidateRange(0, 1048576)][int]$MemoryMB = 0,
-        [Parameter(ParameterSetName = 'AdHoc')][ValidatePattern('^[A-Za-z0-9_]{1,128}$')][string]$Collation = 'SQL_Latin1_General_CP1_CI_AS',
+        [Parameter(ParameterSetName = 'AdHoc')][ValidatePattern('^[A-Za-z0-9_]{1,128}$')][string]$Collation = 'SQL_Latin1_General_CP1_CS_AS',
         [Parameter(ParameterSetName = 'AdHoc')]$ServerConfig,
         [Parameter(ParameterSetName = 'AdHoc')][object[]]$Drives = @(),
         [Parameter(ParameterSetName = 'AdHoc')][string]$NetworkName,
