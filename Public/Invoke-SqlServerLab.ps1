@@ -521,7 +521,28 @@ function Invoke-LabAction {
             }
             try {
                 $catalog = Get-SqlServerLabCatalog -Path $catalogPath -StateRoot $stateRoot
-                Write-LabSuccess "SQL-Server-Lab-Katalog erstellt: $($catalog.Path)"
+                $path = $catalog.Path
+                $workflow = $catalog.Catalog
+                $summary = $workflow.Summary
+
+                Write-LabSuccess "SQL-Server-Lab-Katalog erstellt: $path"
+                Write-Host ('  Erzeugt: {0} · Katalog-Format: {1} · Module: {2}' -f
+                    $catalog.GeneratedAt, $catalog.Catalog.CatalogFormat, $catalog.Catalog.Module.Version) -ForegroundColor White
+                Write-Host ('  StateRoot: {0}' -f $workflow.StateRoot) -ForegroundColor White
+                Write-Host ('  Medienroot: {0}' -f $workflow.Defaults.MediaRoot) -ForegroundColor White
+                Write-Host "  Provider: $((($workflow.Host.Providers) -join ', '))" -ForegroundColor White
+                Write-Host ('  Windows-Baselines: {0} · SQL-Prepared-Images: {1}' -f $summary.WindowsBaselines, $summary.SqlPreparedImages) -ForegroundColor White
+                Write-Host ('  Offene Builds: Windows {0}, SQL {1} · aktive Hyper-V-Labs: {2}' -f
+                    $summary.PendingWindowsBuilds, $summary.PendingSqlBuilds, @($workflow.HyperVLabs).Count) -ForegroundColor White
+                Write-Host ('  Aktive Container-Labs: {0} · SQL-Medien: {1} · Windows-Medien: {2}' -f
+                    $summary.ActiveContainerLabs, @($workflow.SqlInstallationMedia).Count, @($workflow.WindowsInstallationMedia).Count) -ForegroundColor White
+                try {
+                    $file = Get-Item -LiteralPath $path -ErrorAction Stop
+                    Write-Host ('  Dateigröße: {0} KB' -f [Math]::Round($file.Length / 1KB, 2)) -ForegroundColor White
+                }
+                catch {
+                    Write-LabInfo "Datei konnte zur Größenbestimmung nicht gelesen werden: $($_.Exception.Message)"
+                }
             }
             catch {
                 Write-LabError $_.Exception.Message
