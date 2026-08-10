@@ -124,7 +124,7 @@ function New-DockerInstance {
         [string]$NetworkName,
         [ValidateRange(0,64)][decimal]$Cpu = 0,
         [ValidateRange(0,1048576)][int]$MemoryMB = 0,
-        [ValidatePattern('^[A-Za-z0-9_]{1,128}$')][string]$Collation = 'SQL_Latin1_General_CP1_CI_AS'
+        [ValidatePattern('^[A-Za-z0-9_]{1,128}$')][string]$Collation = 'SQL_Latin1_General_CP1_CS_AS'
     )
 
     $image = Get-SqlServerDockerImage -VersionId $VersionId
