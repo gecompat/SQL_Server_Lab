@@ -1191,7 +1191,11 @@ function Enable-HyperVLabPersistentData {
         $null = Set-VMHardDiskDrive -VMHardDiskDrive $attachedDrive -MaximumIOPS $MaximumIops -ErrorAction Stop
     }
     $null = Set-VM -VMName $lab.Instance.vmName -Notes $notes -AutomaticCheckpointsEnabled $false -ErrorAction Stop
-    $lab.Instance | Add-Member -NotePropertyName persistentStorage -NotePropertyValue ([PSCustomObject]@{ mode = 'data-root-vhdx'; root = [string]$storage.SqlRoot; hostPath = [string]$storage.HyperVVhdxPath; guestPath = 'S:\SQLData'; maximumIops = $MaximumIops; state = 'ATTACHED_PENDING_INITIALIZATION' }) -Force
+    $lab.Instance | Add-Member -NotePropertyName persistentStorage -NotePropertyValue ([PSCustomObject]@{
+        mode = 'data-root-vhdx'; root = [string]$storage.SqlRoot; hostPath = [string]$storage.HyperVVhdxPath
+        guestPath = 'S:\SQLData'; backupGuestPath = 'S:\SQLData\Backups'; backupMode = 'guest-data-vhdx'
+        maximumIops = $MaximumIops; state = 'ATTACHED_PENDING_INITIALIZATION'
+    }) -Force
     Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
     Write-LabSuccess "Persistente Daten-VHDX angehängt: $($storage.HyperVVhdxPath). Nach dem VM-Start einmal initialisieren."
     return $lab.Instance.persistentStorage
@@ -1208,10 +1212,18 @@ function Initialize-HyperVLabPersistentData {
     $dataDrive = @($receipt.Drives | Where-Object id -EQ 'persistent-sql-data') | Select-Object -First 1
     if (-not $dataDrive -or -not $dataDrive.guestPath) { throw 'HYPERV_LAB_PERSISTENT_DATA_RECEIPT_MISSING' }
     $lab.Instance.persistentStorage.guestPath = [string]$dataDrive.guestPath
+    $backupGuestPath = Join-Path ([string]$dataDrive.guestPath) 'Backups'
+    $null = Invoke-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $Credential -ArgumentList @($backupGuestPath) -ScriptBlock {
+        param($BackupPath)
+        New-Item -ItemType Directory -Path $BackupPath -Force | Out-Null
+        [PSCustomObject]@{ backupPath = $BackupPath; ready = (Test-Path -LiteralPath $BackupPath -PathType Container) }
+    }
+    $lab.Instance.persistentStorage.backupGuestPath = $backupGuestPath
+    $lab.Instance.persistentStorage.backupMode = 'guest-data-vhdx'
     $lab.Instance.persistentStorage.state = 'READY'
     $lab.Instance.persistentStorage.initializedAt = Get-LabTimestamp
     Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
-    Write-LabSuccess "Persistenter Hyper-V-Datenträger ist im Gast als $($lab.Instance.persistentStorage.guestPath) bereit."
+    Write-LabSuccess "Persistenter Hyper-V-Datenträger ist im Gast als $($lab.Instance.persistentStorage.guestPath) bereit; Backup-Pfad: $backupGuestPath"
     return $receipt
 }
 

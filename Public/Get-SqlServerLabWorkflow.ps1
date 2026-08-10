@@ -84,6 +84,7 @@ function Get-SqlServerLabWorkflow {
         $hyperVLabs = @($activeRuns | Where-Object { [string]$_.metadata.workflowKind -eq 'hyperv-lab' } | ForEach-Object {
             $run = $_
             $connectionInfo = $null
+            $resources = $null
             try {
                 $connectionPath = Join-Path (Join-Path (Join-Path $stateRoot 'runs') ([string]$run.runId)) 'connection-info.json'
                 if (Test-Path -LiteralPath $connectionPath -PathType Leaf) {
@@ -91,6 +92,7 @@ function Get-SqlServerLabWorkflow {
                 }
             }
             catch { }
+            try { $resources = Get-LabEnvironmentResources -RunId ([string]$run.runId) -StateRoot $stateRoot } catch { }
             $instance = @($connectionInfo.instances | Where-Object { $_.provider -eq 'hyperv' }) | Select-Object -First 1
             $vmState = 'Unknown'
             $exists = $false
@@ -126,6 +128,7 @@ function Get-SqlServerLabWorkflow {
                 BaseKind = [string]$run.metadata.baseKind
                 SourceVMName = [string]$run.metadata.sourceVMName
                 SourceLicenseNotice = [string]$run.metadata.sourceLicenseNotice
+                Resources = $resources
             }
         })
     }
@@ -279,6 +282,7 @@ function Get-SqlServerLabWorkflow {
         AcceptanceEnvironments = $acceptanceItems
         ActiveLabs = @($activeContainerRuns | ForEach-Object {
             $connectionInfo = $null
+            $resources = $null
             try {
                 $connectionPath = Join-Path (Join-Path (Join-Path $stateRoot 'runs') ([string]$_.runId)) 'connection-info.json'
                 if (Test-Path -LiteralPath $connectionPath -PathType Leaf) {
@@ -286,14 +290,17 @@ function Get-SqlServerLabWorkflow {
                 }
             }
             catch { }
+            try { $resources = Get-LabEnvironmentResources -RunId ([string]$_.runId) -StateRoot $stateRoot } catch { }
             [PSCustomObject]@{
                 RunId = [string]$_.runId; Name = [string]$_.metadata.name; State = [string]$_.state
+                Resources = $resources
                 Instances = @($connectionInfo.instances | ForEach-Object {
                     [PSCustomObject]@{
                         Id = [string]$_.id; Provider = [string]$_.provider; Host = [string]$_.host
                         Port = $_.port; SqlVersion = if ($_.sqlVersion) { [string]$_.sqlVersion } else { [string]$_.version }
                         ConnectionString = [string]$_.connectionString
                         PersistentStorage = $_.persistentStorage
+                        ResourceSettings = $_.resourceSettings
                     }
                 })
             }
