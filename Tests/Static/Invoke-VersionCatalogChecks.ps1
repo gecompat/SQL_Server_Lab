@@ -1,0 +1,42 @@
+#Requires -Version 7.2
+[CmdletBinding()]
+param()
+$ErrorActionPreference = 'Stop'
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+$failures = [System.Collections.Generic.List[string]]::new(); $passed = 0
+. (Join-Path $PSScriptRoot '..' 'Common' 'CheckResult.ps1')
+Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
+Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -ErrorAction Stop
+$module = Get-Module SqlServerLab
+
+$versions = & $module { @(Get-SqlServerVersions -Status SUPPORTED | Where-Object { $_.docker.image }) }
+Add-CheckResult -Name 'Container-Katalog enthält SQL Server 2017 bis 2025' -Success (
+    (@($versions.id | Sort-Object) -join ',') -eq '2017,2019,2022,2025'
+)
+
+$sql2017 = & $module { Get-SqlServerDockerImage -VersionId '2017' }
+Add-CheckResult -Name 'SQL Server 2017 löst auf das offizielle latest-Image auf' -Success (
+    $sql2017 -eq 'mcr.microsoft.com/mssql/server:2017-latest'
+)
+
+$sql2022Cu7 = & $module { Get-SqlServerDockerImage -VersionId '2022-CU7' }
+Add-CheckResult -Name 'SQL Server 2022 CU7 löst auf den unveränderlichen MCR-Tag auf' -Success (
+    $sql2022Cu7 -eq 'mcr.microsoft.com/mssql/server:2022-CU7-ubuntu-20.04'
+)
+
+$sql2022Builds = & $module { @(Get-SqlServerBuilds -VersionId '2022') }
+Add-CheckResult -Name 'SQL Server 2022 enthält CU1 bis CU26 vollständig' -Success (
+    $sql2022Builds.Count -eq 26 -and
+    (@($sql2022Builds.cu | Sort-Object { [int]($_ -replace '^CU', '') }) -join ',') -eq ((1..26 | ForEach-Object { "CU$_" }) -join ',')
+)
+
+$sql2025Builds = & $module { @(Get-SqlServerBuilds -VersionId '2025') }
+Add-CheckResult -Name 'SQL Server 2025 enthält CU1 bis CU7 ohne alten CTP-Eintrag' -Success (
+    $sql2025Builds.Count -eq 7 -and @($sql2025Builds.cu) -notcontains 'CTP'
+)
+
+if ($failures.Count -gt 0) {
+    foreach ($failure in $failures) { Write-Host "FAIL: $failure" -ForegroundColor Red }
+    exit 1
+}
+Write-Host "Version Catalog Checks: $passed PASS" -ForegroundColor Green

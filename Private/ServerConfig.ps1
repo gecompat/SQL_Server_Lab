@@ -41,8 +41,10 @@ function Assert-LabContainerPath {
         [string]$Label = 'Containerpfad'
     )
 
-    if (-not $Path.StartsWith('/') -or $Path -match "['\r\n]") {
-        throw "$Label '$Path' ist kein sicherer absoluter Linux-Containerpfad."
+    $isLinuxPath = $Path.StartsWith('/')
+    $isWindowsPath = $Path -match '^[D-Zd-z]:\\'
+    if ((-not $isLinuxPath -and -not $isWindowsPath) -or $Path -match "['\r\n]") {
+        throw "$Label '$Path' ist kein sicherer absoluter Linux- oder Windows-Gastpfad."
     }
 }
 

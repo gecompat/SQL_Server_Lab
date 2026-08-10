@@ -2,6 +2,26 @@
   "$schema": "../Schemas/version-catalog.schema.json",
   "versions": [
     {
+      "id": "2017",
+      "displayName": "SQL Server 2017",
+      "major": 14,
+      "compatibilityLevel": 140,
+      "status": "SUPPORTED",
+      "docker": {
+        "image": "mcr.microsoft.com/mssql/server:2017-latest",
+        "minMemoryMB": 2048,
+        "builds": [
+          {
+            "tag": "2017-CU31-ubuntu-18.04",
+            "cu": "CU31",
+            "kb": "KB5016884",
+            "released": "2022-09-20"
+          }
+        ]
+      },
+      "eol": null
+    },
+    {
       "id": "2019",
       "displayName": "SQL Server 2019",
       "major": 15,
@@ -47,40 +67,160 @@
         "minMemoryMB": 2048,
         "builds": [
           {
+            "tag": "2022-CU26-ubuntu-22.04",
+            "cu": "CU26",
+            "kb": "KB5093420",
+            "released": "2026-07-16"
+          },
+          {
+            "tag": "2022-CU25-ubuntu-22.04",
+            "cu": "CU25",
+            "kb": "KB5081477",
+            "released": "2026-05-20"
+          },
+          {
+            "tag": "2022-CU24-ubuntu-22.04",
+            "cu": "CU24",
+            "kb": "KB5080999",
+            "released": "2026-03-12"
+          },
+          {
+            "tag": "2022-CU23-ubuntu-22.04",
+            "cu": "CU23",
+            "kb": "KB5078297",
+            "released": "2026-01-29"
+          },
+          {
+            "tag": "2022-CU22-ubuntu-22.04",
+            "cu": "CU22",
+            "kb": "KB5068450",
+            "released": "2025-11-13"
+          },
+          {
+            "tag": "2022-CU21-ubuntu-22.04",
+            "cu": "CU21",
+            "kb": "KB5065865",
+            "released": "2025-09-11"
+          },
+          {
+            "tag": "2022-CU20-ubuntu-22.04",
+            "cu": "CU20",
+            "kb": "KB5059390",
+            "released": "2025-07-10"
+          },
+          {
+            "tag": "2022-CU19-ubuntu-22.04",
+            "cu": "CU19",
+            "kb": "KB5054531",
+            "released": "2025-05-15"
+          },
+          {
             "tag": "2022-CU18-ubuntu-22.04",
             "cu": "CU18",
-            "kb": "KB5044865",
-            "released": "2025-02-13"
+            "kb": "KB5050771",
+            "released": "2025-03-13"
           },
           {
             "tag": "2022-CU17-ubuntu-22.04",
             "cu": "CU17",
-            "kb": "KB5042578",
-            "released": "2024-10-10"
+            "kb": "KB5048038",
+            "released": "2025-01-16"
           },
           {
             "tag": "2022-CU16-ubuntu-22.04",
             "cu": "CU16",
-            "kb": "KB5041865",
-            "released": "2024-08-08"
+            "kb": "KB5048033",
+            "released": "2024-11-14"
           },
           {
             "tag": "2022-CU15-ubuntu-22.04",
             "cu": "CU15",
-            "kb": "KB5039731",
-            "released": "2024-06-13"
+            "kb": "KB5041321",
+            "released": "2024-09-25"
           },
           {
             "tag": "2022-CU14-ubuntu-22.04",
             "cu": "CU14",
             "kb": "KB5038325",
-            "released": "2024-04-11"
+            "released": "2024-07-23"
           },
           {
             "tag": "2022-CU13-ubuntu-22.04",
             "cu": "CU13",
             "kb": "KB5036432",
-            "released": "2024-02-15"
+            "released": "2024-05-16"
+          },
+          {
+            "tag": "2022-CU12-ubuntu-22.04",
+            "cu": "CU12",
+            "kb": "KB5033663",
+            "released": "2024-03-14"
+          },
+          {
+            "tag": "2022-CU11-ubuntu-22.04",
+            "cu": "CU11",
+            "kb": "KB5032679",
+            "released": "2024-01-11"
+          },
+          {
+            "tag": "2022-CU10-ubuntu-22.04",
+            "cu": "CU10",
+            "kb": "KB5031778",
+            "released": "2023-11-16"
+          },
+          {
+            "tag": "2022-CU9-ubuntu-20.04",
+            "cu": "CU9",
+            "kb": "KB5030731",
+            "released": "2023-10-12"
+          },
+          {
+            "tag": "2022-CU8-ubuntu-20.04",
+            "cu": "CU8",
+            "kb": "KB5029666",
+            "released": "2023-09-14"
+          },
+          {
+            "tag": "2022-CU7-ubuntu-20.04",
+            "cu": "CU7",
+            "kb": "KB5028743",
+            "released": "2023-08-10"
+          },
+          {
+            "tag": "2022-CU6-ubuntu-20.04",
+            "cu": "CU6",
+            "kb": "KB5027505",
+            "released": "2023-07-13"
+          },
+          {
+            "tag": "2022-CU5-ubuntu-20.04",
+            "cu": "CU5",
+            "kb": "KB5026806",
+            "released": "2023-06-15"
+          },
+          {
+            "tag": "2022-CU4-ubuntu-20.04",
+            "cu": "CU4",
+            "kb": "KB5026717",
+            "released": "2023-05-11"
+          },
+          {
+            "tag": "2022-CU3-ubuntu-20.04",
+            "cu": "CU3",
+            "kb": "KB5024396",
+            "released": "2023-04-13"
+          },
+          {
+            "tag": "2022-RTM-CU2-ubuntu-20.04",
+            "cu": "CU2",
+            "kb": "KB5023127",
+            "released": "2023-03-15"
+          },
+          {
+            "tag": "2022-CU1-ubuntu-20.04",
+            "cu": "CU1",
+            "kb": "KB5022375",
+            "released": "2023-02-16"
           }
         ]
       },
@@ -100,10 +240,46 @@
         "minMemoryMB": 2048,
         "builds": [
           {
-            "tag": "2025-latest",
-            "cu": "CTP",
-            "kb": null,
-            "released": "2025-05-01"
+            "tag": "2025-CU7-ubuntu-24.04",
+            "cu": "CU7",
+            "kb": "KB5096981",
+            "released": "2026-07-16"
+          },
+          {
+            "tag": "2025-CU6-ubuntu-24.04",
+            "cu": "CU6",
+            "kb": "KB5093421",
+            "released": "2026-06-17"
+          },
+          {
+            "tag": "2025-CU5-ubuntu-24.04",
+            "cu": "CU5",
+            "kb": "KB5084896",
+            "released": "2026-05-20"
+          },
+          {
+            "tag": "2025-CU4-ubuntu-24.04",
+            "cu": "CU4",
+            "kb": "KB5081495",
+            "released": "2026-04-16"
+          },
+          {
+            "tag": "2025-CU3-ubuntu-24.04",
+            "cu": "CU3",
+            "kb": "KB5077896",
+            "released": "2026-03-12"
+          },
+          {
+            "tag": "2025-CU2-ubuntu-24.04",
+            "cu": "CU2",
+            "kb": "KB5075211",
+            "released": "2026-02-12"
+          },
+          {
+            "tag": "2025-CU1-ubuntu-24.04",
+            "cu": "CU1",
+            "kb": "KB5078298",
+            "released": "2026-01-29"
           }
         ]
       },
@@ -134,5 +310,5 @@
       "maxCpus": 8
     }
   },
-  "_comment": "Builds: Manifest kann 'version: 2022-CU16' angeben. Aufgeloest ueber builds[].tag"
+  "_comment": "Builds: Manifest oder Dialog können z. B. 'version: 2022-CU7' angeben. Aufgelöst über builds[].tag. Basisversionen verwenden den veränderlichen latest-Tag."
 }

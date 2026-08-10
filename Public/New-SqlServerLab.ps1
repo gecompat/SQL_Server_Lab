@@ -79,7 +79,10 @@ function New-LabProviderContainer {
                 -SaPassword $SaPassword `
                 -Profile $Instance.profile `
                 -Drives $Instance.drives `
-                -NetworkName $Instance.networkName
+                -NetworkName $Instance.networkName `
+                -Cpu $Instance.runtimeResources.cpu `
+                -MemoryMB $Instance.runtimeResources.memoryMB `
+                -Collation $Instance.collation
         }
         'podman' {
             return New-PodmanInstance `
@@ -92,7 +95,10 @@ function New-LabProviderContainer {
                 -SaPassword $SaPassword `
                 -Profile $Instance.profile `
                 -Drives $Instance.drives `
-                -NetworkName $Instance.networkName
+                -NetworkName $Instance.networkName `
+                -Cpu $Instance.runtimeResources.cpu `
+                -MemoryMB $Instance.runtimeResources.memoryMB `
+                -Collation $Instance.collation
         }
         default {
             throw "Provider '$($Instance.provider)' ist noch nicht implementiert."
@@ -131,6 +137,25 @@ function New-SqlServerLab {
         direkte Backups, sichere ZIP-Backups und einzelne SQL-Skript-Varianten
         aus Catalogs/sample-databases.json sind zulaessig; die Zieldatenbanknamen
         ergeben sich aus den erwarteten Katalog-Outputs.
+    .PARAMETER Cpu
+        Explizite Anzahl virtueller CPUs fuer die Ad-hoc-Instanz. Der Wert 0
+        verwendet die Vorgabe des gewaehlten Ressourcenprofils.
+    .PARAMETER MemoryMB
+        Expliziter Arbeitsspeicher in MB fuer die Ad-hoc-Instanz. Der Wert 0
+        verwendet die Vorgabe des gewaehlten Ressourcenprofils.
+    .PARAMETER Collation
+        SQL-Server-Collation der neuen Ad-hoc-Instanz. Standard ist
+        SQL_Latin1_General_CP1_CI_AS.
+    .PARAMETER ServerConfig
+        Optionale typisierte SQL-Server-Konfiguration, beispielsweise fuer
+        Max Server Memory, MAXDOP, Cost Threshold und TempDB-Dateien.
+    .PARAMETER Drives
+        Optionale Laufwerks- und Volume-Definitionen fuer Daten, Log,
+        TempDB und Backups. Die Provider pruefen die jeweils unterstuetzten
+        Pfade, Groessen und I/O-Grenzen.
+    .PARAMETER NetworkName
+        Optionaler Name des Docker-, Podman- oder Hyper-V-Netzes, an das die
+        Ad-hoc-Instanz gebunden wird.
     .PARAMETER Manifest
         Pfad zu einer vorhandenen JSON-Manifestdatei. Relative lokale Pfade im
         Manifest werden relativ zu deren Verzeichnis aufgeloest. Manifeste
@@ -234,6 +259,13 @@ function New-SqlServerLab {
         [Parameter(ParameterSetName = 'AdHoc')]
         [string[]]$Sample = @(),
 
+        [Parameter(ParameterSetName = 'AdHoc')][ValidateRange(0, 64)][decimal]$Cpu = 0,
+        [Parameter(ParameterSetName = 'AdHoc')][ValidateRange(0, 1048576)][int]$MemoryMB = 0,
+        [Parameter(ParameterSetName = 'AdHoc')][ValidatePattern('^[A-Za-z0-9_]{1,128}$')][string]$Collation = 'SQL_Latin1_General_CP1_CI_AS',
+        [Parameter(ParameterSetName = 'AdHoc')]$ServerConfig,
+        [Parameter(ParameterSetName = 'AdHoc')][object[]]$Drives = @(),
+        [Parameter(ParameterSetName = 'AdHoc')][string]$NetworkName,
+
         [Parameter(ParameterSetName = 'Manifest', Mandatory)]
         [string]$Manifest,
 
@@ -322,10 +354,12 @@ function New-SqlServerLab {
                     provider      = $Provider
                     os            = 'linux'
                     profile       = $Profile
-                    collation     = 'SQL_Latin1_General_CP1_CS_AS'
+                    collation     = $Collation
                     databases     = $sampleDatabases
-                    drives        = @()
-                    serverConfig  = $null
+                    drives        = @($Drives)
+                    serverConfig  = $ServerConfig
+                    networkName   = $NetworkName
+                    runtimeResources = [PSCustomObject]@{ cpu=$Cpu; memoryMB=$MemoryMB }
                     software      = @()
                     postProvision = @()
                 }

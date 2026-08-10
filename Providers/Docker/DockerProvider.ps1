@@ -121,13 +121,18 @@ function New-DockerInstance {
         [ValidateSet('compact', 'standard', 'performance')]
         [string]$Profile = 'standard',
         [array]$Drives = @(),
-        [string]$NetworkName
+        [string]$NetworkName,
+        [ValidateRange(0,64)][decimal]$Cpu = 0,
+        [ValidateRange(0,1048576)][int]$MemoryMB = 0,
+        [ValidatePattern('^[A-Za-z0-9_]{1,128}$')][string]$Collation = 'SQL_Latin1_General_CP1_CI_AS'
     )
 
     $image = Get-SqlServerDockerImage -VersionId $VersionId
     $profileDefinition = Get-LabResourceProfile -Name $Profile
-    $memoryLimit = "$($profileDefinition.maxMemoryMB)m"
-    $cpuLimit = [string]$profileDefinition.maxCpus
+    $effectiveMemoryMB = if ($MemoryMB -gt 0) { $MemoryMB } else { [int]$profileDefinition.maxMemoryMB }
+    $effectiveCpu = if ($Cpu -gt 0) { $Cpu } else { [decimal]$profileDefinition.maxCpus }
+    $memoryLimit = "${effectiveMemoryMB}m"
+    $cpuLimit = $effectiveCpu.ToString('0.##', [Globalization.CultureInfo]::InvariantCulture)
     $containerName = if ($LabName) { Get-LabContainerRuntimeName -LabName $LabName -InstanceId $InstanceId -RunId $RunId } else { "sql-lab-$InstanceId-$($RunId.Substring(0, 8))" }
     $labNetwork = Ensure-LabDockerNetwork -Name $NetworkName
 
@@ -187,6 +192,7 @@ function New-DockerInstance {
                     '-e', "MSSQL_SA_PASSWORD=$saPlain",
                     '-e', 'MSSQL_PID=Developer',
                     '-e', 'MSSQL_AGENT_ENABLED=true',
+                    '-e', "MSSQL_COLLATION=$Collation",
                     '--memory', $memoryLimit,
                     '--cpus', $cpuLimit,
                     '--label', "sql-server-lab.run-id=$RunId",
