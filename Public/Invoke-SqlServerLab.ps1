@@ -505,6 +505,233 @@ function Invoke-LabAction {
     }
 }
 
+function Get-LabHostPhysicalMemoryMB {
+    [CmdletBinding()]
+    param()
+    try {
+        [long]$bytes = 0
+        if ($env:OS -eq 'Windows_NT') {
+            $bytes = [long](Get-CimInstance Win32_ComputerSystem -ErrorAction Stop).TotalPhysicalMemory
+        }
+        elseif (Test-Path -LiteralPath '/proc/meminfo' -PathType Leaf) {
+            $line = Get-Content -LiteralPath '/proc/meminfo' | Where-Object { $_ -match '^MemTotal:\s+(\d+)\s+kB$' } | Select-Object -First 1
+            if ($line -match '^MemTotal:\s+(\d+)\s+kB$') { $bytes = [long]$Matches[1] * 1KB }
+        }
+        if ($bytes -gt 0) { return [long][Math]::Floor($bytes / 1MB) }
+    }
+    catch { Write-Verbose $_.Exception.Message }
+    return [long]0
+}
+
+function Read-LabIntegerIntentValue {
+    [CmdletBinding()]
+    param([string]$Prompt, [int]$Default, [int]$Minimum, [int]$Maximum)
+    while ($true) {
+        $raw = Read-Host "  $Prompt [$Default]"
+        if ([string]::IsNullOrWhiteSpace($raw)) { return $Default }
+        $value = 0
+        if ([int]::TryParse($raw, [ref]$value) -and $value -ge $Minimum -and $value -le $Maximum) { return $value }
+        Write-LabWarning "$Prompt muss eine ganze Zahl zwischen $Minimum und $Maximum sein."
+    }
+}
+
+function Read-LabDecimalIntentValue {
+    [CmdletBinding()]
+    param([string]$Prompt, [decimal]$Default, [decimal]$Minimum, [decimal]$Maximum)
+    $culture = [Globalization.CultureInfo]::InvariantCulture
+    while ($true) {
+        $raw = Read-Host ("  {0} [{1}]" -f $Prompt, $Default.ToString('0.##', $culture))
+        if ([string]::IsNullOrWhiteSpace($raw)) { return $Default }
+        $value = [decimal]0
+        if ($raw -notmatch ',' -and [decimal]::TryParse($raw, [Globalization.NumberStyles]::Number, $culture, [ref]$value) -and $value -ge $Minimum -and $value -le $Maximum) { return $value }
+        Write-LabWarning "$Prompt muss zwischen $Minimum und $Maximum liegen; Dezimaltrennzeichen ist ein Punkt, z. B. 1.5."
+    }
+}
+
+function Select-LabSqlPatchIntent {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$BaseVersion)
+    $mediaRoot = Get-LabMediaRootDefault
+    $patches = @(Get-SqlServerPatchOptions -VersionId $BaseVersion -MediaRoot $mediaRoot)
+    if ($patches.Count -eq 0) {
+        Write-LabInfo "Für SQL Server $BaseVersion sind keine einzelnen CUs katalogisiert; Basisstand/latest wird verwendet."
+        return [PSCustomObject]@{ VersionId=$BaseVersion; BaseVersion=$BaseVersion; Cu=$null; Build=$null; WindowsStatus='NOT_APPLICABLE' }
+    }
+    $latest = $patches[0]
+    $catalogDate = [string]$script:VersionCatalog.catalogMetadata.lastVerified
+    Write-Host "  Katalogisierte Patchstände (Stand $catalogDate):" -ForegroundColor White
+    Write-Host "    latest -> $($latest.Cu) · Build $($latest.Build) · $($latest.Kb)" -ForegroundColor Green
+    foreach ($patch in $patches) {
+        $windowsText = if ($patch.WindowsStatus -like 'PRESENT*') { 'Windows-Paket vorhanden' } else { "Windows-Paket fehlt: $($patch.WindowsRelativePath)" }
+        Write-Host "    $($patch.Cu) · Build $($patch.Build) · $($patch.Kb) · $($patch.Released) · $windowsText" -ForegroundColor $(if ($patch.WindowsStatus -like 'PRESENT*') { 'White' } else { 'DarkYellow' })
+    }
+    Write-Host '  Fehlende Windows-Pakete verhindern Container nicht; sie werden nur für Hyper-V benötigt.' -ForegroundColor DarkGray
+    while ($true) {
+        $selection = Read-Host "  Patchstand: latest oder $(@($patches.Cu | Sort-Object { [int]($_ -replace '^CU','') }) -join ', ') [latest]"
+        if (-not $selection -or $selection -eq 'latest') { return $latest }
+        $selected = $patches | Where-Object { $_.Cu -eq $selection.ToUpperInvariant() } | Select-Object -First 1
+        if ($selected) { return $selected }
+        Write-LabWarning 'Patchstand ist nicht im lokalen Agent-Katalog enthalten.'
+    }
+}
+
+function Read-LabSqlEnvironmentIntentInteractive {
+    [CmdletBinding()]
+    param()
+    Write-Host ''
+    Write-Host '  SQL-Zielkonfiguration:' -ForegroundColor White
+    Write-Host '    [1] Schnellkonfiguration mit sichtbaren Standardwerten' -ForegroundColor Green
+    Write-Host '    [2] Benutzerdefiniert: OS, Edition, Netzwerk, Storage, I/O, TempDB und Collation' -ForegroundColor White
+    $mode = Read-Host '  Konfiguration [1]'
+    if (-not $mode) { $mode = '1' }
+    if ($mode -notin @('1','2')) { Write-LabWarning 'Ungültige Konfigurationsauswahl.'; return $null }
+    $custom = $mode -eq '2'
+    $versions = @(Get-SqlServerVersions | Where-Object { $_.status -ne 'BLOCKED' } | Sort-Object { [int]$_.id } -Descending)
+    Write-Host "  Verfügbare SQL Server Versionen: $(@($versions.id) -join ', ')" -ForegroundColor White
+    while ($true) {
+        $baseVersion = Read-Host '  SQL Server Version [2025]'
+        if (-not $baseVersion) { $baseVersion = '2025' }
+        if ($baseVersion -in @($versions.id)) { break }
+        Write-LabWarning 'SQL-Version ist nicht im Agent-Katalog enthalten.'
+    }
+    $patch = Select-LabSqlPatchIntent -BaseVersion $baseVersion
+    $purpose = 'adhoc'
+    $requiresWindows = $false
+    $edition = 'Developer'
+    if ($custom) {
+        $purposeChoice = Read-Host '  Verwendung: [1] fertige Ad-hoc-Umgebung, [2] ausgeschalteter SQL-Pool-Slot [1]'
+        if (-not $purposeChoice) { $purposeChoice = '1' }
+        if ($purposeChoice -eq '2') { $purpose = 'sql-pool-slot' } elseif ($purposeChoice -ne '1') { Write-LabWarning 'Ungültige Verwendung.'; return $null }
+        $requiresWindows = Read-LabConfirm -Prompt '  Wird ausdrücklich ein Windows-Gast benötigt?' -Default $false
+        $editionChoice = Read-Host '  SQL-Edition: [1] Developer, [2] Standard, [3] Enterprise [1]'
+        if (-not $editionChoice) { $editionChoice = '1' }
+        $edition = switch ($editionChoice) { '1' {'Developer'} '2' {'Standard'} '3' {'Enterprise'} default { Write-LabWarning 'Ungültige Edition.'; return $null } }
+    }
+    $cpu = Read-LabDecimalIntentValue -Prompt 'vCPU (1..64)' -Default 4 -Minimum 1 -Maximum 64
+    $physicalMemoryMB = Get-LabHostPhysicalMemoryMB
+    $memoryPrompt = if ($physicalMemoryMB -gt 0) { "RAM MB (Minimum 2048; Host physisch: $physicalMemoryMB; technisches Limit: 1048576)" } else { 'RAM MB (2048..1048576; Host-RAM nicht ermittelbar)' }
+    $memoryMB = Read-LabIntegerIntentValue -Prompt $memoryPrompt -Default 4096 -Minimum 2048 -Maximum 1048576
+    if ($physicalMemoryMB -gt 0 -and $memoryMB -gt $physicalMemoryMB) {
+        Write-LabWarning "RAM-Overcommit: $memoryMB MB angefordert, physisch $physicalMemoryMB MB. Auslagerung ist nicht garantiert; Runtime kann OOM oder Startfehler liefern."
+    }
+    $networkMode = 'host-access'
+    if ($custom) {
+        $networkChoice = Read-Host '  Netzwerk: [1] Hostzugriff, [2] vollständig isoliert, [3] externes LAN [1]'
+        if (-not $networkChoice) { $networkChoice = '1' }
+        $networkMode = switch ($networkChoice) { '1' {'host-access'} '2' {'isolated'} '3' {'external'} default { Write-LabWarning 'Ungültiges Netzwerk.'; return $null } }
+    }
+    $hostPort = if ($networkMode -eq 'host-access') { Read-LabIntegerIntentValue -Prompt 'SQL-Hostport (0 = automatisch)' -Default 0 -Minimum 0 -Maximum 65535 } else { 0 }
+    if ($hostPort -gt 0 -and $hostPort -lt 1024) { Write-LabWarning 'Ports unter 1024 sind nicht zulässig.'; return $null }
+    $collation = 'SQL_Latin1_General_CP1_CI_AS'
+    $maxDop = [Math]::Min(8, [int][Math]::Ceiling([double]$cpu))
+    $costThreshold = 50
+    $sqlMaxMemoryMB = [Math]::Max(1024, $memoryMB - 1024)
+    $tempDbFileCount = $maxDop
+    $tempDbFileSizeMB = 256
+    $tempDbGrowthMB = 64
+    $storageMode = 'standard'
+    $tempDbVolumeCount = 1
+    $drives = @()
+    if ($custom) {
+        while ($true) {
+            $value = Read-Host "  Server-Collation [$collation]"
+            if (-not $value) { break }
+            if ($value -match '^[A-Za-z0-9_]{1,128}$') { $collation=$value; break }
+            Write-LabWarning 'Collation darf nur Buchstaben, Zahlen und Unterstriche enthalten.'
+        }
+        $sqlMaxMemoryMB = Read-LabIntegerIntentValue -Prompt 'SQL max server memory MB' -Default $sqlMaxMemoryMB -Minimum 512 -Maximum ([Math]::Max(512,$memoryMB-256))
+        $maxDop = Read-LabIntegerIntentValue -Prompt 'MAXDOP (0..64)' -Default $maxDop -Minimum 0 -Maximum 64
+        $costThreshold = Read-LabIntegerIntentValue -Prompt 'Cost Threshold for Parallelism (0..32767)' -Default 50 -Minimum 0 -Maximum 32767
+        $tempDbFileCount = Read-LabIntegerIntentValue -Prompt 'Anzahl TempDB-Datendateien' -Default $tempDbFileCount -Minimum 1 -Maximum 32
+        $tempDbFileSizeMB = Read-LabIntegerIntentValue -Prompt 'TempDB-Dateigröße MB' -Default 256 -Minimum 8 -Maximum 1048576
+        $tempDbGrowthMB = Read-LabIntegerIntentValue -Prompt 'TempDB-Wachstum MB' -Default 64 -Minimum 1 -Maximum 1048576
+        $storageChoice = Read-Host '  Storage: [1] Standardlayout, [2] getrennte Data-/Log-/TempDB-/Backup-Datenträger [1]'
+        if (-not $storageChoice) { $storageChoice='1' }
+        if ($storageChoice -eq '2') {
+            $storageMode='separated'
+            $tempDbVolumeCount = Read-LabIntegerIntentValue -Prompt 'Anzahl verteilter TempDB-Datenträger' -Default 1 -Minimum 1 -Maximum 8
+            $specs=@([PSCustomObject]@{Id='data';Role='sqlData';Size=128;Count=1},[PSCustomObject]@{Id='log';Role='sqlLog';Size=64;Count=1},[PSCustomObject]@{Id='tempdb';Role='tempdb';Size=32;Count=$tempDbVolumeCount},[PSCustomObject]@{Id='backup';Role='backup';Size=64;Count=1})
+            foreach ($spec in $specs) { for ($index=1;$index -le $spec.Count;$index++) { $label="$($spec.Id)$(if ($spec.Count -gt 1) {$index} else {''})"; $size=Read-LabIntegerIntentValue -Prompt "$label Größe GB" -Default $spec.Size -Minimum 1 -Maximum 4096; $iops=Read-LabIntegerIntentValue -Prompt "$label maximale IOPS (0 = unbegrenzt)" -Default 0 -Minimum 0 -Maximum 1000000; $drives += [PSCustomObject]@{Id=$label;Role=$spec.Role;SizeGB=$size;MaximumIops=$iops} } }
+        }
+        elseif ($storageChoice -ne '1') { Write-LabWarning 'Ungültiges Storage-Layout.'; return $null }
+    }
+    $profile = if ($cpu -le 2 -and $memoryMB -le 2048) {'compact'} elseif ($cpu -le 4 -and $memoryMB -le 4096) {'standard'} else {'performance'}
+    $defaultName = 'sql-lab-{0}' -f (Get-Date -Format 'yyyy-MM-dd-HHmmss')
+    while ($true) { $labName=Read-Host "  Labname [$defaultName]"; if (-not $labName) {$labName=$defaultName}; if ($labName -match '^[A-Za-z0-9][A-Za-z0-9 _-]{0,63}$') {break}; Write-LabWarning 'Labname ist ungültig.' }
+    return [PSCustomObject]@{ Contract='SqlServerLab.InteractiveSqlIntent/1.1'; CustomConfiguration=$custom; LabName=$labName; InstanceId='primary'; BaseVersion=$baseVersion; VersionId=[string]$patch.VersionId; Patch=$patch; Purpose=$purpose; RequiresWindows=$requiresWindows; Edition=$edition; Cpu=$cpu; MemoryMB=$memoryMB; Profile=$profile; NetworkMode=$networkMode; HostPort=$hostPort; Collation=$collation; SqlMaxMemoryMB=$sqlMaxMemoryMB; MaxDop=$maxDop; CostThreshold=$costThreshold; StorageMode=$storageMode; Drives=$drives; TempDbFileCount=$tempDbFileCount; TempDbFileSizeMB=$tempDbFileSizeMB; TempDbGrowthMB=$tempDbGrowthMB; TempDbVolumeCount=$tempDbVolumeCount }
+}
+
+function Resolve-LabSqlIntentProvider {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Intent,[Parameter(Mandatory)][string[]]$AvailableProviders)
+    $reasons=[Collections.Generic.List[string]]::new()
+    if ([int]$Intent.BaseVersion -lt 2017) {$reasons.Add('Für diese SQL-Version ist kein unterstütztes Containerimage katalogisiert.')}
+    if ($Intent.RequiresWindows) {$reasons.Add('Windows-Gast wurde angefordert.')}
+    if ($Intent.Edition -ne 'Developer') {$reasons.Add("Edition $($Intent.Edition) benötigt den Windows-/ISO-Pfad.")}
+    if ($Intent.Purpose -eq 'sql-pool-slot') {$reasons.Add('Ein SQL-Pool-Slot benötigt Hyper-V.')}
+    if ($Intent.NetworkMode -in @('isolated','external')) {$reasons.Add("Netzwerkmodus $($Intent.NetworkMode) benötigt Hyper-V.")}
+    if (@($Intent.Drives | Where-Object {[long]$_.MaximumIops -gt 0}).Count -gt 0) {$reasons.Add('Datenträgerbezogene IOPS-Limits benötigen Hyper-V.')}
+    if ($Intent.NetworkMode -eq 'external') { return [PSCustomObject]@{Supported=$false;Provider=$null;Reasons=@('Externes LAN benötigt zuerst einen vollständigen IP-/Gateway-/DNS-Vertrag.')} }
+    if ($reasons.Count -gt 0) {
+        if ([decimal]$Intent.Cpu % 1 -ne 0) { return [PSCustomObject]@{Supported=$false;Provider=$null;Reasons=@('Hyper-V benötigt ganzzahlige vCPU.')} }
+        if ($Intent.Patch.Cu -and $Intent.Patch.WindowsStatus -ne 'PRESENT_HASH_CATALOGUED' -and -not $Intent.Patch.CanAutoDownload) { return [PSCustomObject]@{Supported=$false;Provider=$null;Reasons=@($reasons + "Windows-Paket fehlt oder besitzt keinen katalogisierten SHA-256: $($Intent.Patch.WindowsRelativePath)" + "Quelle: $($Intent.Patch.ArticleUrl)")} }
+        if ('hyperv' -notin $AvailableProviders) { return [PSCustomObject]@{Supported=$false;Provider=$null;Reasons=@($reasons + 'Hyper-V ist nicht verfügbar.')} }
+        return [PSCustomObject]@{Supported=$true;Provider='hyperv';Reasons=@($reasons)}
+    }
+    foreach ($candidate in @('docker','podman')) { if ($candidate -in $AvailableProviders) { try {$null=Get-SqlServerDockerImage -VersionId $Intent.VersionId; return [PSCustomObject]@{Supported=$true;Provider=$candidate;Reasons=@('Linux-Container erfüllt alle Anforderungen und wird bevorzugt.')}} catch {} } }
+    return [PSCustomObject]@{Supported=$false;Provider=$null;Reasons=@('Kein Provider kann den Sollzustand reproduzieren.')}
+}
+
+function Confirm-LabSqlWindowsPatchMediaInteractive {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Intent)
+    if (-not $Intent.Patch.Cu) { return $true }
+    $mediaRoot = Get-LabMediaRootDefault
+    if (-not $mediaRoot) { Write-LabError 'Für ein Windows-CU ist ein konfigurierter Media Root erforderlich.'; return $false }
+    if ($Intent.Patch.WindowsStatus -ne 'PRESENT_HASH_CATALOGUED') {
+        if (-not $Intent.Patch.CanAutoDownload) {
+            Write-LabError "Windows-CU nicht sicher verfügbar: $($Intent.Patch.WindowsRelativePath)"
+            if ($Intent.Patch.ArticleUrl) { Write-Host "  Quelle: $($Intent.Patch.ArticleUrl)" -ForegroundColor DarkYellow }
+            return $false
+        }
+        Write-LabInfo "Windows-Paket $($Intent.Patch.Cu) kann über die katalogisierte HTTPS-Quelle mit SHA-256-Prüfung geladen werden."
+        if (-not (Read-LabConfirm -Prompt '  Fehlendes SQL-CU-Paket jetzt sicher herunterladen?' -Default $true)) { return $false }
+        $path = Save-SqlServerWindowsPatchPackage -Patch $Intent.Patch -MediaRoot $mediaRoot
+        $Intent.Patch | Add-Member -NotePropertyName WindowsPath -NotePropertyValue $path -Force
+        $Intent.Patch | Add-Member -NotePropertyName WindowsStatus -NotePropertyValue 'PRESENT_HASH_CATALOGUED' -Force
+    }
+    try { $null = Confirm-SqlServerWindowsPatchPackage -Patch $Intent.Patch; return $true }
+    catch { Write-LabError $_.Exception.Message; return $false }
+}
+
+function New-LabHyperVDrivesFromIntent {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Intent)
+    if ($Intent.StorageMode -ne 'separated') { return @() }
+    $letters=@('T','U','V','W','X','Y','Z','Q');$tempIndex=0
+    return @($Intent.Drives | ForEach-Object {
+        $guestPath=switch($_.Role){'sqlData'{'E:\SQLData'}'sqlLog'{'L:\SQLLog'}'backup'{'R:\SQLBackup'}'tempdb'{$letter=$letters[$tempIndex];$tempIndex++;"${letter}:\TempDB"}}
+        [PSCustomObject]@{id=[string]$_.Id;role=[string]$_.Role;sizeBytes=[long]$_.SizeGB*1GB;vhdType='dynamic';guestPath=$guestPath;allocationUnitKB=64;fileSystem='NTFS';maximumIops=[long]$_.MaximumIops}
+    })
+}
+
+function New-LabIntentServerConfig {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Intent)
+    $roots = if ($Intent.StorageMode -eq 'separated') { @(1..[int]$Intent.TempDbVolumeCount | ForEach-Object {"/sqltemp$_"}) } else { @('/var/opt/mssql/data') }
+    $roots=@($roots)
+    $files=@()
+    for($i=0;$i -lt [int]$Intent.TempDbFileCount;$i++){ $name=if($i -eq 0){'tempdev.mdf'}else{"temp$($i+1).ndf"}; $files += [PSCustomObject]@{path="$($roots[$i % $roots.Count])/$name";sizeMB=[int]$Intent.TempDbFileSizeMB;growth="$($Intent.TempDbGrowthMB)MB"} }
+    return [PSCustomObject]@{memory=[PSCustomObject]@{minMB=0;maxMB=[int]$Intent.SqlMaxMemoryMB};maxDop=[int]$Intent.MaxDop;costThreshold=[int]$Intent.CostThreshold;tempdb=[PSCustomObject]@{dataFiles=$files;logFile=[PSCustomObject]@{path="$($roots[0])/templog.ldf";sizeMB=[int]$Intent.TempDbFileSizeMB;growth="$($Intent.TempDbGrowthMB)MB"};equalSize=$true};traceFlags=@();spConfigure=[PSCustomObject]@{'optimize for ad hoc workloads'=1}}
+}
+
+function New-LabContainerDrivesFromIntent {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Intent)
+    if ($Intent.StorageMode -ne 'separated') {return @()}
+    return @($Intent.Drives | ForEach-Object { $path=switch($_.Role){'sqlData'{'/sqldata'}'sqlLog'{'/sqllog'}'backup'{'/sqlbackup'}'tempdb'{"/sqltemp$(([string]$_.Id -replace '^tempdb',''))"}}; if($path -eq '/sqltemp'){$path='/sqltemp1'}; [PSCustomObject]@{id=[string]$_.Id;containerPath=$path;type='ssd';sizeLimitGB=[int]$_.SizeGB;readOnly=$false} })
+}
+
 function Invoke-LabNewEnvironmentInteractive {
     <#
     .SYNOPSIS
@@ -516,44 +743,26 @@ function Invoke-LabNewEnvironmentInteractive {
     [CmdletBinding()]
     param()
 
-    # Verfügbare Provider ermitteln
     $availableProviders = @(Get-AvailableLabProviders)
-
-    if ($availableProviders.Count -eq 0) {
-        Write-LabError "Kein verfügbarer Provider gefunden (docker, podman, hyperv)."
-        return
-    }
-
-    # Provider-Auswahl (automatisch wenn nur ein Anbieter)
-    if ($availableProviders.Count -eq 1) {
-        $provider = $availableProviders[0]
-        Write-LabInfo "Provider: $provider (einziger verfügbarer)"
-    }
-    else {
-        Write-Host "  Verfügbare Provider:" -ForegroundColor DarkGray
-        for ($i = 0; $i -lt $availableProviders.Count; $i++) {
-            Write-Host "    [$($i + 1)] $($availableProviders[$i])" -ForegroundColor White
-        }
-        $provSel = Read-Host "  Provider [$($availableProviders[0])]"
-        if (-not $provSel) { $provider = $availableProviders[0] }
-        elseif ($provSel -match '^\d+$' -and [int]$provSel -ge 1 -and [int]$provSel -le $availableProviders.Count) {
-            $provider = $availableProviders[[int]$provSel - 1]
-        }
-        elseif ($provSel -in $availableProviders) {
-            $provider = $provSel
-        }
-        else {
-            Write-LabError "Ungültige Provider-Auswahl: $provSel"
-            return
-        }
-    }
-
+    if ($availableProviders.Count -eq 0) {Write-LabError 'Kein Provider verfügbar.';return}
+    Write-Host '  Umgebungstyp:' -ForegroundColor White
+    Write-Host '    [1] SQL-Umgebung' -ForegroundColor White
+    Write-Host '    [2] Windows-OS-Slot (für spätere SQL-Nachrüstung)' -ForegroundColor White
+    $kind=Read-Host '  Ziel [1]'; if(-not $kind){$kind='1'}
+    if($kind -eq '2'){Invoke-LabNewHyperVEnvironmentInteractive;return}
+    if($kind -ne '1'){Write-LabWarning 'Ungültiges Ziel.';return}
+    $intent=Read-LabSqlEnvironmentIntentInteractive; if(-not $intent){return}
+    $decision=Resolve-LabSqlIntentProvider -Intent $intent -AvailableProviders $availableProviders
+    if(-not $decision.Supported){Write-LabError 'Sollzustand ist nicht reproduzierbar:';foreach($reason in $decision.Reasons){Write-Host "    - $reason" -ForegroundColor Yellow};return}
+    $provider=[string]$decision.Provider
+    Write-LabSuccess "Providerentscheidung: $provider"
+    foreach($reason in $decision.Reasons){Write-LabInfo $reason}
     if ($provider -eq 'hyperv') {
-        Invoke-LabNewHyperVEnvironmentInteractive
+        if (-not (Confirm-LabSqlWindowsPatchMediaInteractive -Intent $intent)) { return }
+        Invoke-LabNewHyperVEnvironmentInteractive -Intent $intent
         return
     }
-
-    Invoke-LabNewContainerEnvironmentInteractive -Provider $provider
+    Invoke-LabNewContainerEnvironmentInteractive -Provider $provider -Intent $intent
 }
 
 function Invoke-LabNewContainerEnvironmentInteractive {
@@ -562,23 +771,9 @@ function Invoke-LabNewContainerEnvironmentInteractive {
         Interaktiver Hyper-V-unabhängiger Container-Erstellungsfluss.
     #>
     [CmdletBinding()]
-    param([Parameter(Mandatory)][string]$Provider)
-
-    # Version abfragen
-    Write-Host "  Verfügbare Versionen: 2019, 2022, 2025" -ForegroundColor DarkGray
-    $version = Read-Host "  SQL-Server-Version [2025]"
-    if (-not $version) { $version = '2025' }
-
-    $profile = Read-Host '  Ressourcenprofil: compact, standard, performance [standard]'
-    if (-not $profile) { $profile = 'standard' }
-    if ($profile -notin @('compact', 'standard', 'performance')) {
-        Write-LabError "Ungültiges Ressourcenprofil: $profile"
-        return
-    }
-    $labName = Read-Host "  Labname [adhoc-$version-$provider]"
-    if (-not $labName) { $labName = "adhoc-$version-$provider" }
-    $instanceId = Read-Host '  Instanzname [primary]'
-    if (-not $instanceId) { $instanceId = 'primary' }
+    param([Parameter(Mandatory)][string]$Provider,$Intent)
+    if($Intent){$version=$Intent.VersionId;$profile=$Intent.Profile;$labName=$Intent.LabName;$instanceId=$Intent.InstanceId}
+    else { $version='2025';$profile='standard';$labName="adhoc-$version-$provider";$instanceId='primary' }
 
     # Testdatenbanken (optional, Mehrfachauswahl)
     $selectedSamples = @(Select-LabSampleSelection -SqlVersion $version)
@@ -590,6 +785,7 @@ function Invoke-LabNewContainerEnvironmentInteractive {
         LabName     = $labName
         InstanceId   = $instanceId
     }
+    if($Intent){$newLabArguments.Cpu=[decimal]$Intent.Cpu;$newLabArguments.MemoryMB=[int]$Intent.MemoryMB;$newLabArguments.Collation=[string]$Intent.Collation;$newLabArguments.ServerConfig=New-LabIntentServerConfig -Intent $Intent;$newLabArguments.Drives=@(New-LabContainerDrivesFromIntent -Intent $Intent)}
     $defaultDataRoot = Get-LabDataRootDefault
     if ($defaultDataRoot) {
         Write-LabInfo "Optionaler Data Root verfügbar: $defaultDataRoot"
@@ -616,7 +812,7 @@ function Invoke-LabNewHyperVEnvironmentInteractive {
         Startet den Hyper-V-spezifischen Bereitstellungsdialog aus dem Hauptmenü.
     #>
     [CmdletBinding()]
-    param()
+    param($Intent)
 
     $availability = Test-HyperVAvailable
     if (-not $availability.Available) {
@@ -624,6 +820,7 @@ function Invoke-LabNewHyperVEnvironmentInteractive {
         return
     }
 
+    if($Intent){New-LabHyperVEnvironmentInteractive -WindowsOnly -Intent $Intent;return}
     Write-Host "  Bereitstellungsziel:" -ForegroundColor DarkGray
     Write-Host '    [1] Sofortige SQL-Umgebung aus SQL-Prepared-Image' -ForegroundColor White
     Write-Host '    [2] Windows-OS-Slot für spätere Anpassung/Installation' -ForegroundColor DarkGray
@@ -2220,7 +2417,8 @@ function New-LabHyperVEnvironmentInteractive {
     [CmdletBinding()]
     param(
         [switch]$WindowsOnly,
-        [switch]$SqlOnly
+        [switch]$SqlOnly,
+        $Intent
     )
 
     if ($WindowsOnly -and $SqlOnly) {
@@ -2233,17 +2431,18 @@ function New-LabHyperVEnvironmentInteractive {
     else { Select-LabHyperVPreparedArtifact }
     if (-not $artifact) { return }
     $isSqlPrepared = [string]$artifact.artifactState -eq 'SQL_PREPARED_SEALED'
-    $defaultLabName = if ($isSqlPrepared) { 'hyperv-sql-lab' } else { 'hyperv-windows-lab' }
-    $name = Read-Host "  Labname [$defaultLabName]"
+    $defaultLabName = '{0}-{1}' -f $(if ($isSqlPrepared) {'hyperv-sql-lab'} else {'hyperv-windows-lab'}), (Get-Date -Format 'yyyy-MM-dd-HHmmss')
+    $name = if($Intent){[string]$Intent.LabName}else{Read-Host "  Labname [$defaultLabName]"}
     if (-not $name) { $name = $defaultLabName }
-    $instanceId = Read-Host '  Instanzname [primary]'
+    $instanceId = if($Intent){[string]$Intent.InstanceId}else{Read-Host '  Instanzname [primary]'}
     if (-not $instanceId) { $instanceId = 'primary' }
-    $memory = Read-Host '  Startspeicher MB [4096]'
+    $memory = if($Intent){[int]$Intent.MemoryMB}else{Read-Host '  Startspeicher MB [4096]'}
     if (-not $memory) { $memory = 4096 }
-    $cpu = Read-Host '  vCPU [4]'
+    $cpu = if($Intent){[int]$Intent.Cpu}else{Read-Host '  vCPU [4]'}
     if (-not $cpu) { $cpu = 4 }
-    $switch = Select-LabHyperVVirtualSwitch
+    $switch = if($Intent -and $Intent.NetworkMode -eq 'isolated'){[PSCustomObject]@{SwitchName=$null;Isolated=$true}}elseif($Intent -and $Intent.NetworkMode -eq 'host-access'){[PSCustomObject]@{SwitchName=$null;Isolated=$false}}else{Select-LabHyperVVirtualSwitch}
     if (-not $switch) { return }
+    $additionalDrives = if($Intent){@(New-LabHyperVDrivesFromIntent -Intent $Intent)}else{@()}
     if (-not $isSqlPrepared) {
         Write-Host "  Image: $($artifact.artifactId)" -ForegroundColor DarkGray
         Write-Host '  Es wird nur ein ausgeschalteter Betriebssystem-Slot als differenzierende VHDX erstellt.' -ForegroundColor Yellow
@@ -2252,7 +2451,7 @@ function New-LabHyperVEnvironmentInteractive {
         try {
             $lab = New-HyperVLabEnvironment -ArtifactId $artifact.artifactId -LabName $name -InstanceId $instanceId `
                 -MemoryStartupMB ([int]$memory) -ProcessorCount ([int]$cpu) `
-                -SwitchName $switch.SwitchName -Isolated:$switch.Isolated
+                -SwitchName $switch.SwitchName -Isolated:$switch.Isolated -AdditionalDrives $additionalDrives
             Write-LabSuccess "Windows-Slot erstellt: $($lab.VMName) (Run $($lab.RunId))"
             Write-LabInfo 'Windows-Slot wird jetzt automatisch gestartet und VMConnect geöffnet.'
             $null = Start-HyperVLabEnvironment -RunId $lab.RunId
@@ -2260,7 +2459,29 @@ function New-LabHyperVEnvironmentInteractive {
             Write-LabSuccess "Windows-Slot läuft; VMConnect ist geöffnet: $($lab.VMName)"
             Write-LabInfo 'Windows-OOBE jetzt manuell abschließen, Administratorpasswort setzen und einmal vollständig anmelden.'
             Write-LabInfo 'Falls VMConnect nach einem Neustart schwarz bleibt: unter [i] -> [4] den Slot wählen und mit [v] neu verbinden.'
-            Write-LabInfo 'Nach der ersten vollständigen Anmeldung: unter [i] -> [4] den Slot wählen und mit [o] „Windows-Grundinstallation übernehmen“ ausführen.'
+            if($Intent){
+                Write-Host ''
+                Write-Host '  Bitte jetzt in VMConnect erledigen:' -ForegroundColor White
+                Write-Host '    1. Windows-OOBE vollständig abschließen.' -ForegroundColor White
+                Write-Host '    2. Lokales Administratorpasswort setzen.' -ForegroundColor White
+                Write-Host '    3. Einmal vollständig als Administrator anmelden.' -ForegroundColor White
+                $handoff=Read-Host '  [a] Alles erledigt / [b] Problem - Workflow abbrechen [b]'
+                if($handoff -ne 'a'){Write-LabWarning 'Workflow wurde vor der SQL-Installation beendet.';return}
+                $user=Read-Host '  Lokaler Gast-Administrator [Administrator]';if(-not $user){$user='Administrator'}
+                $credential=[PSCredential]::new($user,(Read-Host '  Gastpasswort' -AsSecureString))
+                $null=Complete-HyperVLabManualWindowsSlot -RunId $lab.RunId -Credential $credential
+                $null=Stop-HyperVLabEnvironment -RunId $lab.RunId
+                $mediaRoot=Get-LabMediaRootDefault
+                if(-not $mediaRoot){throw 'Kein Media Root gespeichert.'}
+                $mediaEdition=if($Intent.Edition -eq 'Standard'){'Standard'}else{'Enterprise'}
+                $sqlMedia=Resolve-HyperVSqlInstallationMedia -MediaRoot $mediaRoot -SqlVersion $Intent.BaseVersion -MediaEdition $mediaEdition
+                if($sqlMedia.HashStatus -ne 'SIDECAR_READY'){$sqlMedia=New-HyperVSqlMediaHashSidecar -MediaRoot $mediaRoot -SqlVersion $Intent.BaseVersion -MediaEdition $mediaEdition -SqlMediaPath $sqlMedia.RelativePath -Confirm:$false}
+                $plan=Set-HyperVLabSqlDeploymentPlan -RunId $lab.RunId -SqlVersion $Intent.BaseVersion -DeploymentMode $(if($Intent.Purpose -eq 'sql-pool-slot'){'sql-pool-slot'}else{'adhoc-install'}) -MediaEdition $mediaEdition -SqlMediaPath $sqlMedia.RelativePath -ProcessorCount ([int]$Intent.Cpu) -SqlPatch ([string]$Intent.Patch.Cu) -SqlUpdatePath ([string]$Intent.Patch.WindowsPath) -ExpectedSqlBuild ([string]$Intent.Patch.Build)
+                Write-LabInfo "SQL $($Intent.BaseVersion) $($Intent.Patch.Cu) wird jetzt vollständig installiert; kein Sysprep."
+                $result=Invoke-HyperVLabSqlSlotInstall -RunId $lab.RunId -MediaRoot $mediaRoot
+                Write-LabSuccess "SQL-Umgebung bereit: $($result.VMName) · SQL $($result.SqlVersion) $($Intent.Patch.Cu)"
+            }
+            else{Write-LabInfo 'Nach der ersten vollständigen Anmeldung: unter [i] -> [4] den Slot wählen und mit [o] „Windows-Grundinstallation übernehmen“ ausführen.'}
         }
         catch { Write-LabError $_.Exception.Message }
         return

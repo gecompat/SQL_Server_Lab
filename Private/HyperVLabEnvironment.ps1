@@ -634,6 +634,9 @@ function Set-HyperVLabSqlDeploymentPlan {
         [Parameter(Mandatory)][string]$SqlMediaPath,
         [ValidateRange(1, 64)][int]$ProcessorCount = 4,
         [ValidateRange(0, 1000000)][long]$MaximumDataIops = 0,
+        [string]$SqlPatch,
+        [string]$SqlUpdatePath,
+        [string]$ExpectedSqlBuild,
         [string]$StateRoot
     )
 
@@ -648,10 +651,13 @@ function Set-HyperVLabSqlDeploymentPlan {
     if ([string]$managed.VM.State -ne 'Off') { throw 'HYPERV_LAB_SQL_PLAN_VM_MUST_BE_OFF' }
 
     $null = Set-VMProcessor -VM $managed.VM -Count $ProcessorCount -ErrorAction Stop
+    $null = Set-VMMemory -VM $managed.VM -StartupBytes ([long]$managed.VM.MemoryStartup) -ErrorAction Stop
     $lab.Instance | Add-Member -NotePropertyName sqlDeploymentPlan -NotePropertyValue ([PSCustomObject]@{
         state = 'PLANNED'; sqlVersion = $SqlVersion; mediaEdition = $MediaEdition; sqlMediaPath = $SqlMediaPath
         deploymentMode = $DeploymentMode; features = @('SQLENGINE', 'FULLTEXT', 'REPLICATION')
-        processorCount = $ProcessorCount; maximumDataIops = $MaximumDataIops; plannedAt = Get-LabTimestamp
+        processorCount = $ProcessorCount; maximumDataIops = $MaximumDataIops
+        sqlPatch = $SqlPatch; sqlUpdatePath = $SqlUpdatePath; expectedSqlBuild = $ExpectedSqlBuild
+        plannedAt = Get-LabTimestamp
     }) -Force
     Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
     return $lab.Instance.sqlDeploymentPlan
@@ -796,6 +802,31 @@ function Invoke-HyperVLabSqlSlotInstall {
             $ready = Wait-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) `
                 -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $credential -TimeoutSeconds $ReadinessTimeoutSeconds
             if (-not $ready.Ready) { throw "HYPERV_LAB_SQL_INSTALL_RESTART_TIMEOUT: $($ready.Message)" }
+        }
+        if ($plan.sqlUpdatePath -and -not $plan.patchAppliedAt) {
+            if (-not (Test-Path -LiteralPath $plan.sqlUpdatePath -PathType Leaf)) { throw "HYPERV_SQL_CU_PACKAGE_MISSING: $($plan.sqlUpdatePath)" }
+            Write-LabInfo "SQL $($plan.sqlPatch) wird im Gast installiert."
+            $guestFolder='C:\SqlServerLab\Updates'
+            $guestUpdatePath=Join-Path $guestFolder (Split-Path -Leaf ([string]$plan.sqlUpdatePath))
+            $null=Invoke-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $credential -ArgumentList @($guestFolder) -ScriptBlock {param($Path);$null=New-Item -ItemType Directory -Path $Path -Force}
+            $guestService=Get-VMIntegrationService -VMName ([string]$lab.Instance.vmName) -ErrorAction Stop | Where-Object {$_.Id -eq [guid]'6C09BB55-D683-4DA0-8931-C9BF705F6480'} | Select-Object -First 1
+            if(-not $guestService){throw 'HYPERV_GUEST_FILE_COPY_SERVICE_NOT_FOUND'}
+            if(-not $guestService.Enabled){$null=Enable-VMIntegrationService -VMIntegrationService $guestService -ErrorAction Stop}
+            Copy-VMFile -VMName ([string]$lab.Instance.vmName) -SourcePath ([string]$plan.sqlUpdatePath) -DestinationPath $guestUpdatePath -FileSource Host -CreateFullPath -Force -ErrorAction Stop
+            $patchReceipt=Invoke-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $credential -ArgumentList @($guestUpdatePath,$SetupTimeoutSeconds) -ScriptBlock {
+                param($PackagePath,$TimeoutSeconds)
+                $process=Start-Process -FilePath $PackagePath -ArgumentList @('/quiet','/IAcceptSQLServerLicenseTerms','/Action=Patch','/AllInstances') -PassThru
+                if(-not $process.WaitForExit([int]$TimeoutSeconds*1000)){Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue;throw "SQL_CU_INSTALL_TIMEOUT: $TimeoutSeconds"}
+                if([int]$process.ExitCode -notin @(0,3010)){throw "SQL_CU_INSTALL_FAILED: $($process.ExitCode)"}
+                [PSCustomObject]@{exitCode=[int]$process.ExitCode;completedAt=[datetime]::UtcNow.ToString('o')}
+            }
+            $patchReceipt=@($patchReceipt)[-1]
+            if([int]$patchReceipt.exitCode -eq 3010){$null=Restart-VM -Name ([string]$lab.Instance.vmName) -Force -ErrorAction Stop;$ready=Wait-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $credential -TimeoutSeconds $ReadinessTimeoutSeconds;if(-not $ready.Ready){throw 'HYPERV_SQL_CU_RESTART_TIMEOUT'}}
+            $actualBuild=Invoke-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $credential -ScriptBlock {$instance=(Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\Instance Names\SQL' -ErrorAction Stop).MSSQLSERVER;(Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\$instance\MSSQLServer\CurrentVersion" -ErrorAction Stop).CurrentVersion}
+            $actualBuild=[string]@($actualBuild)[-1]
+            if($plan.expectedSqlBuild -and $actualBuild -ne [string]$plan.expectedSqlBuild){throw "HYPERV_SQL_CU_BUILD_MISMATCH: expected=$($plan.expectedSqlBuild); actual=$actualBuild"}
+            $plan | Add-Member -NotePropertyName patchAppliedAt -NotePropertyValue ([string]$patchReceipt.completedAt) -Force
+            $plan | Add-Member -NotePropertyName installedSqlBuild -NotePropertyValue $actualBuild -Force
         }
         $plan.state = 'CONFIGURATION_PENDING'
         $plan | Add-Member -NotePropertyName setupVersion -NotePropertyValue ([string]$receipt.setupVersion) -Force

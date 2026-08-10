@@ -263,6 +263,33 @@ ELSE
         }
     }
 
+    if ($dataFiles.Count -gt 0) {
+        $desiredLogicalNames = @(for ($index = 0; $index -lt $dataFiles.Count; $index++) {
+            if ($index -eq 0) { 'tempdev' } else { "temp$($index + 1)" }
+        })
+        $desiredSqlNames = @($desiredLogicalNames | ForEach-Object { "N'$($_.Replace("'", "''"))'" }) -join ', '
+        $statements += @"
+USE [tempdb];
+DECLARE @SqlLabFileName sysname, @SqlLabRemove nvarchar(max);
+DECLARE SqlLabExtraTempDbFiles CURSOR LOCAL FAST_FORWARD FOR
+    SELECT [name]
+    FROM tempdb.sys.database_files
+    WHERE [type] = 0 AND [name] NOT IN ($desiredSqlNames);
+OPEN SqlLabExtraTempDbFiles;
+FETCH NEXT FROM SqlLabExtraTempDbFiles INTO @SqlLabFileName;
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    SET @SqlLabRemove = N'DBCC SHRINKFILE (' + QUOTENAME(@SqlLabFileName, '''') + N', EMPTYFILE) WITH NO_INFOMSGS; ' +
+        N'ALTER DATABASE [tempdb] REMOVE FILE ' + QUOTENAME(@SqlLabFileName) + N';';
+    EXEC sys.sp_executesql @SqlLabRemove;
+    FETCH NEXT FROM SqlLabExtraTempDbFiles INTO @SqlLabFileName;
+END;
+CLOSE SqlLabExtraTempDbFiles;
+DEALLOCATE SqlLabExtraTempDbFiles;
+USE [master];
+"@
+    }
+
     if ($Config.logFile) {
         $logPath = [string]$Config.logFile.path
         Assert-LabContainerPath -Path $logPath -Label 'TempDB-Log-File-Pfad'

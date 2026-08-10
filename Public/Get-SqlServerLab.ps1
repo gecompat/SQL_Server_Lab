@@ -151,7 +151,14 @@ function Get-SqlServerLab {
         Write-Host ''
         Write-LabStatus -Label 'RunId' -Value "$($lab.RunId)  [$($lab.State)]"
         Write-LabStatus -Label 'Name' -Value $lab.Name
-        Write-LabStatus -Label 'Erstellt' -Value $lab.CreatedAt
+        $createdAtText = try {
+            ([DateTimeOffset]$lab.CreatedAt).ToLocalTime().ToString(
+                'yyyy-MM-dd HH:mm:ss',
+                [System.Globalization.CultureInfo]::InvariantCulture
+            )
+        }
+        catch { [string]$lab.CreatedAt }
+        Write-LabStatus -Label 'Erstellt' -Value $createdAtText
 
         foreach ($instance in $lab.Instances) {
             $upText = if ($instance.ContainerUp) { '[UP]' } else { '[DOWN]' }

@@ -1,6 +1,35 @@
 {
   "$schema": "../Schemas/version-catalog.schema.json",
+  "catalogMetadata": {
+    "lastVerified": "2026-07-16",
+    "maintainedBy": "monthly-catalog-agent",
+    "sources": [
+      "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2025/build-versions"
+    ]
+  },
   "versions": [
+    {
+      "id": "2016",
+      "displayName": "SQL Server 2016",
+      "major": 13,
+      "compatibilityLevel": 130,
+      "status": "DEPRECATED",
+      "docker": null,
+      "eol": null
+    },
+    {
+      "id": "2017",
+      "displayName": "SQL Server 2017",
+      "major": 14,
+      "compatibilityLevel": 140,
+      "status": "DEPRECATED",
+      "docker": {
+        "image": "mcr.microsoft.com/mssql/server:2017-latest",
+        "minMemoryMB": 2048,
+        "builds": []
+      },
+      "eol": null
+    },
     {
       "id": "2019",
       "displayName": "SQL Server 2019",
@@ -100,10 +129,95 @@
         "minMemoryMB": 2048,
         "builds": [
           {
-            "tag": "2025-latest",
-            "cu": "CTP",
-            "kb": null,
-            "released": "2025-05-01"
+            "tag": "2025-CU7-ubuntu-24.04",
+            "cu": "CU7",
+            "build": "17.0.4065.4",
+            "kb": "KB5096981",
+            "released": "2026-07-16",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2025/cumulativeupdate7",
+            "windows": {
+              "relativePath": "SQL/2025/Updates/CU7/SQLServer2025-KB5096981-x64.exe",
+              "downloadUrl": null,
+              "sha256": null
+            }
+          },
+          {
+            "tag": "2025-CU6-ubuntu-24.04",
+            "cu": "CU6",
+            "build": "17.0.4055.5",
+            "kb": "KB5093421",
+            "released": "2026-06-17",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2025/cumulativeupdate6",
+            "windows": {
+              "relativePath": "SQL/2025/Updates/CU6/SQLServer2025-KB5093421-x64.exe",
+              "downloadUrl": null,
+              "sha256": null
+            }
+          },
+          {
+            "tag": "2025-CU5-ubuntu-24.04",
+            "cu": "CU5",
+            "build": "17.0.4045.5",
+            "kb": "KB5084896",
+            "released": "2026-05-20",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2025/cumulativeupdate5",
+            "windows": {
+              "relativePath": "SQL/2025/Updates/CU5/SQLServer2025-KB5084896-x64.exe",
+              "downloadUrl": null,
+              "sha256": null
+            }
+          },
+          {
+            "tag": "2025-CU4-ubuntu-24.04",
+            "cu": "CU4",
+            "build": "17.0.4035.5",
+            "kb": "KB5081495",
+            "released": "2026-04-16",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2025/cumulativeupdate4",
+            "windows": {
+              "relativePath": "SQL/2025/Updates/CU4/SQLServer2025-KB5081495-x64.exe",
+              "downloadUrl": null,
+              "sha256": null
+            }
+          },
+          {
+            "tag": "2025-CU3-ubuntu-24.04",
+            "cu": "CU3",
+            "build": "17.0.4025.3",
+            "kb": "KB5077896",
+            "released": "2026-03-12",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2025/cumulativeupdate3",
+            "windows": {
+              "relativePath": "SQL/2025/Updates/CU3/SQLServer2025-KB5077896-x64.exe",
+              "downloadUrl": null,
+              "sha256": null
+            }
+          },
+          {
+            "tag": "2025-CU2-ubuntu-24.04",
+            "cu": "CU2",
+            "build": "17.0.4015.4",
+            "kb": "KB5075211",
+            "released": "2026-02-12",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2025/cumulativeupdate2",
+            "windows": {
+              "relativePath": "SQL/2025/Updates/CU2/SQLServer2025-KB5075211-x64.exe",
+              "downloadUrl": null,
+              "sha256": null
+            }
+          },
+          {
+            "tag": "2025-CU1-ubuntu-24.04",
+            "cu": "CU1",
+            "build": "17.0.4006.2",
+            "kb": "KB5078298",
+            "released": "2026-01-29",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2025/cumulativeupdate1",
+            "windows": {
+              "relativePath": "SQL/2025/Updates/CU1/SQLServer2025-KB5078298-x64.exe",
+              "downloadUrl": null,
+              "sha256": null
+            }
           }
         ]
       },
@@ -134,5 +248,5 @@
       "maxCpus": 8
     }
   },
-  "_comment": "Builds: Manifest kann 'version: 2022-CU16' angeben. Aufgeloest ueber builds[].tag"
+  "_comment": "Monatlicher Agentvertrag: builds[] wird nur aus offiziellen Microsoft-Quellen aktualisiert. Windows-Autodownload ist erst mit downloadUrl und SHA-256 erlaubt."
 }
