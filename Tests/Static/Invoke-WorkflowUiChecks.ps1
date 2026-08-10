@@ -322,7 +322,7 @@ Add-CheckResult -Name 'Docker-, Podman- und Hyper-V-Labs können nachträglich u
     $htmlText -match 'id="lab-name-dialog"' -and
     $htmlText -match 'id="lab-current-name"' -and
     $scriptText -match 'data-lab-rename' -and
-    $scriptText -match "startAction\('RenameLab'" -and
+    $scriptText -match "queueBackgroundAction\('RenameLab'" -and
     $consoleText -match 'Rename-LabEnvironmentInteractive' -and
     $consoleText -match "\[n\] Umgebung umbenennen" -and
     $htmlText -match 'Projektname-Instanz-Run-ID'

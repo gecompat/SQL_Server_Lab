@@ -17,7 +17,7 @@
 function Invoke-SqlServerLab {
     [CmdletBinding()]
     param(
-        [ValidateSet('New', 'Manifest', 'Status', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'Script', 'Database', 'Image', 'MediaRoot', 'DataRoot', 'TestDataRoot', 'Rename', 'Install7Zip')]
+        [ValidateSet('New', 'Manifest', 'Status', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'Script', 'Database', 'Image', 'MediaRoot', 'DataRoot', 'TestDataRoot', 'Rename', 'Resources', 'Manage', 'Install7Zip')]
         [string]$Action
     )
 
@@ -39,7 +39,7 @@ function Invoke-SqlServerLab {
 
         switch ($choice) {
             '1' { Invoke-LabAction -ActionName 'New' }
-            'm' { Invoke-LabAction -ActionName 'Manifest' }
+            'u' { Invoke-LabAction -ActionName 'Manage' }
             '2' { Invoke-LabAction -ActionName 'Status' }
             '3' { Invoke-LabAction -ActionName 'Stop' }
             '4' { Invoke-LabAction -ActionName 'Start' }
@@ -49,8 +49,10 @@ function Invoke-SqlServerLab {
             '8' { Invoke-LabAction -ActionName 'Database' }
             '9' { Invoke-LabAction -ActionName 'Script' }
             'n' { Invoke-LabAction -ActionName 'Rename' }
+            'r' { Invoke-LabAction -ActionName 'Resources' }
+            'm' { Invoke-LabAction -ActionName 'Manifest' }
             'i' { Invoke-LabAction -ActionName 'Image' }
-            'r' { Invoke-LabAction -ActionName 'MediaRoot' }
+            'p' { Invoke-LabAction -ActionName 'MediaRoot' }
             'd' { Invoke-LabAction -ActionName 'DataRoot' }
             't' { Invoke-LabAction -ActionName 'TestDataRoot' }
             'z' { Invoke-LabAction -ActionName 'Install7Zip' }
@@ -244,21 +246,27 @@ function Get-LabRunsByRuntimeState {
 
 function Show-LabMenu {
     Write-Host "  -------------------------" -ForegroundColor DarkCyan
-    Write-Host "  Aktionen:" -ForegroundColor White
+    Write-Host "  Umgebungen:" -ForegroundColor White
     Write-Host ""
     Write-Host "    [1] Neue Umgebung erstellen" -ForegroundColor Yellow
-    Write-Host "    [m] Manifest erstellen und pruefen" -ForegroundColor Yellow
-    Write-Host "    [2] Status anzeigen" -ForegroundColor White
-    Write-Host "    [3] Umgebung stoppen" -ForegroundColor White
-    Write-Host "    [4] Umgebung starten" -ForegroundColor White
-    Write-Host "    [5] Umgebung neustarten" -ForegroundColor White
-    Write-Host "    [6] Umgebung entfernen" -ForegroundColor White
+    Write-Host "    [u] Umgebung verwalten (Start, Stopp, Name, CPU, Speicher, Entfernen)" -ForegroundColor Yellow
+    Write-Host "    [2] Status anzeigen (Schnellansicht)" -ForegroundColor White
+    Write-Host "    [3] Umgebung stoppen (Schnellaktion)" -ForegroundColor White
+    Write-Host "    [4] Umgebung starten (Schnellaktion)" -ForegroundColor White
+    Write-Host "    [5] Umgebung neustarten (Schnellaktion)" -ForegroundColor White
+    Write-Host "    [6] Umgebung entfernen (Schnellaktion)" -ForegroundColor White
+    Write-Host "    [r] CPU und Speicher ändern" -ForegroundColor White
+    Write-Host "    [n] Umgebung umbenennen" -ForegroundColor White
     Write-Host "    [7] Alles aufraeumen" -ForegroundColor Red
+    Write-Host ""
+    Write-Host "  SQL und Bereitstellung:" -ForegroundColor White
     Write-Host "    [8] Datenbank anlegen" -ForegroundColor White
     Write-Host "    [9] SQL-Skript ausfuehren" -ForegroundColor White
-    Write-Host "    [n] Umgebung umbenennen" -ForegroundColor White
+    Write-Host "    [m] Container-Manifest erstellen und pruefen" -ForegroundColor Yellow
     Write-Host "    [i] Hyper-V Windows-Image verwalten" -ForegroundColor Yellow
-    Write-Host "    [r] Media Root konfigurieren" -ForegroundColor White
+    Write-Host ""
+    Write-Host "  Speicherorte und Werkzeuge:" -ForegroundColor White
+    Write-Host "    [p] Media Root konfigurieren" -ForegroundColor White
     Write-Host "    [d] Persistenten Data Root konfigurieren" -ForegroundColor White
     Write-Host "    [t] Testdaten-Bibliothek konfigurieren" -ForegroundColor White
     Write-Host "    [z] 7-Zip für katalogisierte .7z-Backups optional installieren" -ForegroundColor White
@@ -351,6 +359,8 @@ function Invoke-LabAction {
                 Write-LabSuccess "Lab erstellt. RunId: $($lab.RunId)"
             }
         }
+        'Manage' { Manage-LabEnvironmentInteractive }
+        'Resources' { Set-LabResourcesInteractive }
         'Rename' { Rename-LabEnvironmentInteractive }
         'New' {
             # Verfuegbare Provider ermitteln
@@ -2157,7 +2167,7 @@ function New-LabHyperVEnvironmentFromExistingVmInteractive {
 
 function Manage-LabHyperVEnvironmentInteractive {
     [CmdletBinding()]
-    param()
+    param([string]$RunId)
 
     $runs = @(Get-LabActiveRuns | Where-Object { [string]$_.metadata.workflowKind -eq 'hyperv-lab' })
     if ($runs.Count -eq 0) { Write-LabInfo 'Keine regulären Hyper-V-Umgebungen vorhanden.'; return }
@@ -2167,13 +2177,22 @@ function Manage-LabHyperVEnvironmentInteractive {
             $status = Get-HyperVInstanceStatus -VMName $lab.Instance.vmName -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
             Write-Host ("    [{0}] {1} · Live: {2} · Workflow: {3} · VM {4}" -f ($i + 1), $runs[$i].metadata.name, $status.State, $runs[$i].state, $lab.Instance.vmName) -ForegroundColor White
             if ($lab.Instance.connectionString) { Write-Host "        Connection String (Host-SSMS): $($lab.Instance.connectionString)" -ForegroundColor DarkGray }
-            if ($lab.Instance.persistentStorage) { Write-Host "        Persistente Daten: Host $($lab.Instance.persistentStorage.hostPath) -> Gast $($lab.Instance.persistentStorage.guestPath) [$($lab.Instance.persistentStorage.state)]" -ForegroundColor DarkGray }
+            if ($lab.Instance.persistentStorage) {
+                Write-Host "        Persistente Daten: Host-VHDX $($lab.Instance.persistentStorage.hostPath) -> Gast $($lab.Instance.persistentStorage.guestPath) [$($lab.Instance.persistentStorage.state)]" -ForegroundColor DarkGray
+                if ($lab.Instance.persistentStorage.backupGuestPath) { Write-Host "        Backup-Arbeitsbereich: Gast $($lab.Instance.persistentStorage.backupGuestPath) (eigene Daten-VHDX)" -ForegroundColor DarkGray }
+            }
         }
         catch { Write-Host ("    [{0}] {1} · {2}" -f ($i + 1), $runs[$i].metadata.name, $runs[$i].state) -ForegroundColor Yellow }
     }
-    $selection = Read-Host '  Umgebung auswählen'
-    if ($selection -notmatch '^\d+$' -or [int]$selection -lt 1 -or [int]$selection -gt $runs.Count) { Write-LabWarning 'Ungültige Auswahl.'; return }
-    $runId = [string]$runs[[int]$selection - 1].runId
+    if (-not $RunId) {
+        $selection = Read-Host '  Umgebung auswählen'
+        if ($selection -notmatch '^\d+$' -or [int]$selection -lt 1 -or [int]$selection -gt $runs.Count) { Write-LabWarning 'Ungültige Auswahl.'; return }
+        $RunId = [string]$runs[[int]$selection - 1].runId
+    }
+    elseif (@($runs | Where-Object { [string]$_.runId -eq $RunId }).Count -ne 1) {
+        Write-LabWarning 'Die ausgewählte Hyper-V-Umgebung existiert nicht mehr.'
+        return
+    }
     $selectedLab = Get-HyperVLabWorkflowRun -RunId $runId
     $isSqlLab = if ($selectedLab.Instance.workload) { [string]$selectedLab.Instance.workload -eq 'sql' } else { [bool]$selectedLab.Instance.sqlVersion }
     $persistentStorage = $selectedLab.Instance.persistentStorage
@@ -2186,6 +2205,8 @@ function Manage-LabHyperVEnvironmentInteractive {
     Write-Host '        Öffnet die lokale VM-Konsole für sichtbare Windows-Arbeiten.' -ForegroundColor DarkGray
     Write-Host '    [p] VM stoppen' -ForegroundColor White
     Write-Host '        Fährt die Lab-VM sauber herunter; Image und Daten bleiben erhalten.' -ForegroundColor DarkGray
+    Write-Host '    [r] CPU und Speicher ändern' -ForegroundColor White
+    Write-Host '        Setzt vCPU und einen sinnvollen dynamischen Speicherbereich; VM muss ausgeschaltet sein.' -ForegroundColor DarkGray
     if (-not $persistentStorage) {
         Write-Host '    [d] Daten-VHDX anhängen' -ForegroundColor White
         Write-Host '        Optional: Erstellt eine eigene langlebige Datenplatte im Data Root und hängt sie an.' -ForegroundColor DarkGray
@@ -2218,6 +2239,7 @@ function Manage-LabHyperVEnvironmentInteractive {
             's' { $result = Start-HyperVLabEnvironment -RunId $runId; Write-LabSuccess "VM gestartet: $($result.VMName)" }
             'v' { $result = Open-HyperVLabEnvironmentConsole -RunId $runId; Write-LabInfo "VMConnect geöffnet: $($result.VMName)" }
             'p' { $result = Stop-HyperVLabEnvironment -RunId $runId; Write-LabSuccess "VM gestoppt: $($result.VMName)" }
+            'r' { Set-LabResourcesInteractive -RunId $runId }
             'd' {
                 if ($persistentStorage) { Write-LabWarning 'Für diese Umgebung ist bereits eine Daten-VHDX angehängt.'; return }
                 $dataRoot = Get-LabDataRootDefault
@@ -2343,6 +2365,108 @@ function Select-LabRun {
 
     Write-LabWarning "Ungueltige Auswahl."
     return $null
+}
+
+function Set-LabResourcesInteractive {
+    <#
+    .SYNOPSIS
+        Ändert CPU und Speicher einer Docker-, Podman- oder Hyper-V-Umgebung.
+    .DESCRIPTION
+        Die angezeigten Werte stammen aus der Runtime. Container werden direkt
+        aktualisiert; eine Hyper-V-VM muss vor der Änderung ausgeschaltet sein.
+    #>
+    [CmdletBinding()]
+    param([string]$RunId)
+
+    $runs = @(Get-LabActiveRuns)
+    if ($runs.Count -eq 0) { Write-LabInfo 'Keine aktiven Lab-Umgebungen vorhanden.'; return }
+    if (-not $RunId) { $RunId = Select-LabRun -Runs $runs -Prompt 'Umgebung für CPU/Speicher' }
+    if (-not $RunId) { return }
+
+    try {
+        $run = Get-LabRunState -RunId $RunId
+        $resources = Get-LabEnvironmentResources -RunId $RunId
+        $instances = @($resources.Instances | Where-Object { $_.Available -ne $false })
+        if ($instances.Count -eq 0) { Write-LabError 'Die Runtime-Objekte dieser Umgebung sind nicht erreichbar.'; return }
+        $first = $instances[0]
+        $isHyperV = [string]$run.metadata.workflowKind -eq 'hyperv-lab'
+        $memory = if ($isHyperV) { [int]$first.MemoryStartupMB } else { [int]$first.MemoryLimitMB }
+        $cpu = if ($first.ProcessorCount) { [int][math]::Ceiling([decimal]$first.ProcessorCount) } else { 4 }
+
+        Write-Host ''
+        Write-Host "  Ressourcen: $($run.metadata.name)" -ForegroundColor Cyan
+        foreach ($instance in $instances) {
+            $instanceMemory = if ($isHyperV) { $instance.MemoryStartupMB } else { $instance.MemoryLimitMB }
+            Write-Host "    $($instance.Provider): $instanceMemory MB · $($instance.ProcessorCount) CPU · $($instance.RuntimeState)" -ForegroundColor DarkGray
+        }
+        if ($isHyperV -and [string]$first.RuntimeState -ne 'Off') {
+            Write-LabWarning 'Hyper-V-Ressourcen können sicher nur bei ausgeschalteter VM geändert werden. Zuerst im Verwalten-Menü stoppen.'
+            return
+        }
+        Write-Host '  Container übernehmen die Limits sofort; Hyper-V erhält einen dynamischen Bereich von mindestens 1 GB/halber Startwert bis zum Doppelten.' -ForegroundColor DarkGray
+        $newMemory = Read-Host "  Neuer Speicher in MB [$memory]"
+        if (-not $newMemory) { $newMemory = $memory }
+        $newCpu = Read-Host "  Neue CPU-Anzahl [$cpu]"
+        if (-not $newCpu) { $newCpu = $cpu }
+        if ($newMemory -notmatch '^\d+$' -or [int]$newMemory -lt 512 -or $newCpu -notmatch '^\d+$' -or [int]$newCpu -lt 1 -or [int]$newCpu -gt 64) {
+            Write-LabError 'Ungültige Ressourcenwerte. Speicher mindestens 512 MB, CPU 1 bis 64.'
+            return
+        }
+        if (-not (Read-LabConfirm -Prompt '  Ressourcen jetzt am Runtime-Objekt ändern?' -Default $false)) { return }
+        $result = Set-LabEnvironmentResources -RunId $RunId -MemoryMB ([int]$newMemory) -ProcessorCount ([int]$newCpu)
+        Write-LabSuccess "Ressourcen aktualisiert: $($result.Provider), $newMemory MB, $newCpu CPU."
+    }
+    catch { Write-LabError $_.Exception.Message }
+}
+
+function Manage-LabEnvironmentInteractive {
+    <#
+    .SYNOPSIS
+        Einheitlicher Einstieg zur Verwaltung aller Laufzeitprovider.
+    .DESCRIPTION
+        Führt Docker und Podman direkt; Hyper-V wechselt erst nach der Auswahl
+        in seine zusätzlichen Windows-/SQL-spezifischen Aktionen.
+    #>
+    [CmdletBinding()]
+    param()
+
+    $runs = @(Get-LabActiveRuns)
+    if ($runs.Count -eq 0) { Write-LabInfo 'Keine aktiven Lab-Umgebungen vorhanden.'; return }
+    $runId = Select-LabRun -Runs $runs -Prompt 'Umgebung verwalten'
+    if (-not $runId) { return }
+    $run = Get-LabRunState -RunId $runId
+    if ([string]$run.metadata.workflowKind -eq 'hyperv-lab') {
+        Manage-LabHyperVEnvironmentInteractive -RunId $runId
+        return
+    }
+
+    $synced = Sync-LabRunRuntimeState -Run $run
+    Write-Host ''
+    Write-Host "  Umgebung verwalten: $($run.metadata.name) · $($synced.Runtime.State)" -ForegroundColor Cyan
+    foreach ($connection in @(Get-LabRunConnectionStrings -RunId $runId)) { Write-Host "    SQL: $($connection.Value)" -ForegroundColor DarkGray }
+    Write-Host ''
+    Write-Host '    [s] Starten oder stoppen' -ForegroundColor Yellow
+    Write-Host '        Startet eine gestoppte oder stoppt eine laufende Container-Umgebung.' -ForegroundColor DarkGray
+    Write-Host '    [r] CPU und Speicher ändern' -ForegroundColor White
+    Write-Host '        Übernimmt echte Docker-/Podman-Limits unmittelbar für alle Instanzen des Labs.' -ForegroundColor DarkGray
+    Write-Host '    [n] Anzeigename ändern' -ForegroundColor White
+    Write-Host '        Benennt Container und Projektanzeige gemeinsam um.' -ForegroundColor DarkGray
+    Write-Host '    [e] Umgebung entfernen' -ForegroundColor Red
+    Write-Host '        Entfernt Container und run-lokale Ressourcen nach Bestätigung.' -ForegroundColor DarkGray
+    $action = Read-Host '  Aktion (Buchstabe)'
+    try {
+        switch ($action) {
+            's' { if ([string]$synced.Runtime.State -eq 'RUNNING') { Stop-SqlServerLab -RunId $runId -Force } else { Start-SqlServerLab -RunId $runId } }
+            'r' { Set-LabResourcesInteractive -RunId $runId }
+            'n' {
+                $name = Read-Host "  Neuer Anzeigename [$($run.metadata.name)]"
+                if ($name) { $renamed = Rename-ContainerLabEnvironment -RunId $runId -DisplayName $name; Write-LabSuccess "Umbenannt: $($renamed.Name)" }
+            }
+            'e' { if (Read-LabConfirm -Prompt '  Umgebung wirklich entfernen?' -Default $false) { Remove-SqlServerLab -RunId $runId -Force } }
+            default { Write-LabWarning 'Ungültige Aktion.' }
+        }
+    }
+    catch { Write-LabError $_.Exception.Message }
 }
 
 function Rename-LabEnvironmentInteractive {
