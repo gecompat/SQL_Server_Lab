@@ -41,7 +41,7 @@ Die veröffentlichte OS-Baseline kann als reine Windows-Vorlage verwendet werden
 
 1. Hauptmenü `Hyper-V` aufrufen.
 2. Aktion **[1] Neue Hyper-V-Umgebung aus Windows- oder SQL-Vorlage erstellen**.
-3. Bei Auswahl von Hyper-V die neue Provider-Unterabfrage:
+3. Zieltyp direkt auswählen (ab sofort in diesem Pfad):
 
 - `[2] Windows-OS-Slot für spätere Anpassung/Installation`
 
@@ -49,6 +49,9 @@ Die veröffentlichte OS-Baseline kann als reine Windows-Vorlage verwendet werden
 
 Seit dem neuen Codepfad wird die VM bei Slot-Erstellung automatisch gestartet
 und VMConnect geöffnet, damit das OOBE direkt im Fenster weitergeführt werden kann.
+
+> Bei SQL-Zielen läuft die Provider-Auswahl danach. Dadurch wird verhindert, dass du
+> bereits vor der Zielentscheidung den richtigen Container-/Hyper-V-Anbieter raten musst.
 
 ## 3) Windows-Manual OOBE prüfen und übernehmen
 
