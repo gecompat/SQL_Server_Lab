@@ -8,6 +8,23 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- sofortige, sichtbare Aktionsrückmeldung in der Workflow-UI: Formulardialoge
+  schließen nach Annahme des Auftrags, Live-Log und Herzschlag erscheinen
+  unmittelbar; die teurere Medien-/Image-Inventur läuft getrennt im
+  Hintergrund statt jeden Sekunden-Poll zu blockieren;
+- einheitliche Ressourcenverwaltung für Docker, Podman und Hyper-V. Die Werte
+  werden aus der echten Runtime gelesen. Container-Limits werden direkt
+  aktualisiert; ausgeschaltete Hyper-V-VMs erhalten vCPU sowie einen begrenzten
+  dynamischen Speicherbereich statt unrealistischen 512 MB oder 1 TB;
+- Konsolen-Hauptmenü mit einheitlichem Einstieg **Umgebung verwalten** und
+  einheitlichen Aktionen für Start/Stopp, Umbenennen, CPU/Speicher und
+  Entfernen; Hyper-V-spezifische Windows-/SQL-Schritte bleiben im
+  Hyper-V-Zweig;
+- die Dokumentation trennt die gemeinsame, verifizierte Testdaten-/Backup-
+  Bibliothek im Media Root von den schreibbaren, isolierten Backup-
+  Arbeitsbereichen je Lab. Hyper-V verwendet dafür die eigene Daten-VHDX
+  (`S:\\SQLData\\Backups`), nicht einen fälschlich suggerierten Host-Mount.
+
 - konfigurierbare sichtbare Testdaten-Bibliothek: Standard ist
   `<MediaRoot>\Testdaten`. Verifizierte Backups, Archive und T-SQL-Skripte
   werden nach Kategorie, Sample und Variante abgelegt und mit `artifact.json`

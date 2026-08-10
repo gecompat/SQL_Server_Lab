@@ -125,6 +125,54 @@ function Start-UiWorkflowJob {
     }
 }
 
+# Die Medien- und Image-Erkennung kann große ISOs kurz einbinden und ist damit
+# wesentlich teurer als ein Browser-Klick. Sie läuft deshalb separat; der
+# HTTP-Listener bleibt für Jobs, Live-Log und weitere Klicks ansprechbar.
+$workflowInventory = [PSCustomObject]@{
+    Job = $null; Snapshot = $null; MediaRoot = $null; RequestedAt = $null
+}
+
+function Update-UiWorkflowInventory {
+    if (-not $workflowInventory.Job) { return }
+    if ($workflowInventory.Job.State -notin @('Completed', 'Failed', 'Stopped')) { return }
+    try {
+        if ($workflowInventory.Job.State -eq 'Completed') {
+            $snapshot = @(Receive-Job -Job $workflowInventory.Job -ErrorAction Stop)
+            if ($snapshot.Count -gt 0) { $workflowInventory.Snapshot = $snapshot[-1] }
+        }
+    }
+    finally {
+        Remove-Job -Job $workflowInventory.Job -Force -ErrorAction SilentlyContinue
+        $workflowInventory.Job = $null
+    }
+}
+
+function Get-UiWorkflowInventoryResponse {
+    param([string]$MediaRoot)
+
+    Update-UiWorkflowInventory
+    $normalizedRoot = [string]$MediaRoot
+    $requestedAt = if ($workflowInventory.RequestedAt) { [datetime]$workflowInventory.RequestedAt } else { [datetime]::MinValue }
+    # Kurz cachen, damit das wiederholte Polling keine ISO-Scans auslöst, aber
+    # nach einer Aktion neue Labs und Zustände rasch sichtbar werden.
+    $isFresh = $workflowInventory.Snapshot -and $workflowInventory.MediaRoot -eq $normalizedRoot -and ((Get-Date) - $requestedAt).TotalSeconds -lt 5
+    if (-not $isFresh -and -not $workflowInventory.Job) {
+        $workflowInventory.MediaRoot = $normalizedRoot
+        $workflowInventory.RequestedAt = Get-Date
+        $workflowInventory.Job = Start-ThreadJob -Name 'sql-lab-ui-workflow-inventory' -ArgumentList $modulePath, $normalizedRoot -ScriptBlock {
+            param($JobModulePath, $JobMediaRoot)
+            $InformationPreference = 'SilentlyContinue'
+            $WarningPreference = 'SilentlyContinue'
+            Import-Module $JobModulePath -Force 6>$null
+            Get-SqlServerLabWorkflow -MediaRoot $JobMediaRoot
+        }
+    }
+    return [PSCustomObject]@{
+        Refreshing = [bool]$workflowInventory.Job
+        Snapshot = $workflowInventory.Snapshot
+    }
+}
+
 if (-not (Test-Path -LiteralPath $uiRoot -PathType Container)) {
     throw "UI_ROOT_NOT_FOUND: $uiRoot"
 }
@@ -150,7 +198,7 @@ try {
             $path = $context.Request.Url.AbsolutePath
             if ($path -eq '/api/workflow' -and $context.Request.HttpMethod -eq 'GET') {
                 $mediaRoot = [string]$context.Request.QueryString['mediaRoot']
-                Write-UiResponse -Context $context -Body (Get-SqlServerLabWorkflow -MediaRoot $mediaRoot | ConvertTo-Json -Depth 12) -ContentType 'application/json; charset=utf-8'
+                Write-UiResponse -Context $context -Body (Get-UiWorkflowInventoryResponse -MediaRoot $mediaRoot | ConvertTo-Json -Depth 12) -ContentType 'application/json; charset=utf-8'
                 continue
             }
             if ($path -eq '/api/jobs' -and $context.Request.HttpMethod -eq 'GET') {
@@ -209,6 +257,10 @@ try {
     }
 }
 finally {
+    if ($workflowInventory.Job) {
+        if ($workflowInventory.Job.State -eq 'Running') { Stop-Job -Job $workflowInventory.Job -ErrorAction SilentlyContinue }
+        Remove-Job -Job $workflowInventory.Job -Force -ErrorAction SilentlyContinue
+    }
     foreach ($record in $jobs.Values) {
         if ($record.Job.State -eq 'Running') { Stop-Job -Job $record.Job -ErrorAction SilentlyContinue }
         Remove-Job -Job $record.Job -Force -ErrorAction SilentlyContinue

@@ -1,6 +1,7 @@
 let workflow = null;
 let activeJobCount = 0;
 let optimisticJobs = [];
+let workflowRefreshTimer = null;
 
 const $ = (selector) => document.querySelector(selector);
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
@@ -22,6 +23,17 @@ function statusClass(state) {
 
 function empty(message) {
   return '<p class="empty">' + escapeHtml(message) + '</p>';
+}
+
+function resourceForInstance(resources, instanceId) {
+  return (resources?.Instances || []).find((item) => String(item.InstanceId) === String(instanceId)) || null;
+}
+
+function resourceSummary(resource, provider) {
+  if (!resource || resource.Available === false) return 'Ressourcen: Runtime derzeit nicht erreichbar';
+  const memory = provider === 'hyperv' ? resource.MemoryStartupMB : resource.MemoryLimitMB;
+  const cpu = resource.ProcessorCount;
+  return 'Ressourcen: ' + (memory ? memory + ' MB' : 'unbegrenzt') + ' · ' + (cpu || 'unbegrenzt') + ' CPU';
 }
 
 function renderSummary(summary) {
@@ -385,16 +397,22 @@ function renderWorkflow(data) {
   renderSqlInstallationMedia(data.SqlInstallationMedia);
   const sqlFreshBuildDialogOpen = $('#build-dialog')?.open && $('#build-type')?.value === 'sql-fresh';
   renderWindowsInstallationMedia(data.WindowsInstallationMedia, sqlFreshBuildDialogOpen);
-  const disabled = !host.HyperV.Supported || !host.HyperV.Available || !host.IsElevated;
-  document.querySelectorAll('[data-open-build], [data-action], [data-build-cleanup], [data-artifact-rename], [data-artifact-remove], [data-hyperv-action], #new-hyperv-lab, #new-hyperv-existing-vm-lab').forEach((button) => { button.disabled = disabled; });
+  const hyperVDisabled = !host.HyperV.Supported || !host.HyperV.Available || !host.IsElevated;
+  // Container-Aktionen bleiben unabhängig von Hyper-V nutzbar. Bislang konnte
+  // ein fehlendes Hyper-V-Feature auch Docker-/Podman-Schaltflächen sperren.
+  document.querySelectorAll('[data-open-build], [data-action], [data-build-cleanup], [data-artifact-rename], [data-artifact-remove], [data-hyperv-action], #new-hyperv-lab, #new-hyperv-existing-vm-lab').forEach((button) => { button.disabled = hyperVDisabled; });
+  document.querySelectorAll('[data-lab-resources][data-provider="hyperv"]').forEach((button) => { button.disabled = hyperVDisabled; });
 }
 
 function renderActiveLabs(items) {
   $('#active-labs').innerHTML = items.length ? items.map((item) => {
     const running = item.State === 'RUNNING';
+    const resources = item.Resources?.Instances || [];
+    const primaryResource = resources[0] || null;
     const lifecycleActions = [
       '<button class="button secondary" data-container-action="' + (running ? 'StopContainerLab' : 'StartContainerLab') + '" data-run="' + escapeHtml(item.RunId) + '">' + (running ? 'Stoppen' : 'Starten') + '</button>',
       running ? '<button class="button secondary" data-container-action="RestartContainerLab" data-run="' + escapeHtml(item.RunId) + '">Neustarten</button>' : '',
+      '<button class="button secondary" data-lab-resources="true" data-run="' + escapeHtml(item.RunId) + '" data-provider="container" data-memory="' + escapeHtml(primaryResource?.MemoryLimitMB || primaryResource?.memoryLimitMB || '') + '" data-cpu="' + escapeHtml(primaryResource?.ProcessorCount || primaryResource?.processorCount || '') + '" data-instances="' + escapeHtml(resources.length) + '">CPU / Speicher ändern</button>',
       '<button class="button secondary" data-lab-rename="true" data-run="' + escapeHtml(item.RunId) + '" data-name="' + escapeHtml(item.Name || item.RunId) + '">Name ändern</button>',
       '<button class="button secondary" data-container-remove="true" data-run="' + escapeHtml(item.RunId) + '" data-name="' + escapeHtml(item.Name || item.RunId) + '">Entfernen</button>'
     ].join('');
@@ -407,11 +425,15 @@ function renderActiveLabs(items) {
       const persistentStorage = instance.PersistentStorage?.hostPath
         ? '<div class="build-meta"><strong>Persistente Daten:</strong> Host ' + escapeHtml(instance.PersistentStorage.hostPath) + (instance.PersistentStorage.guestPath ? ' → Gast ' + escapeHtml(instance.PersistentStorage.guestPath) : '') + ' [' + escapeHtml(instance.PersistentStorage.state || '–') + ']</div>'
         : '';
+      const backupStorage = instance.PersistentStorage?.backupHostPath
+        ? '<div class="build-meta"><strong>Backup-Arbeitsbereich:</strong> Host ' + escapeHtml(instance.PersistentStorage.backupHostPath) + ' → SQL ' + escapeHtml(instance.PersistentStorage.backupGuestPath || '/var/opt/mssql/backup') + '</div>'
+        : '';
       const operations = running && instance.Port ? [
         '<button class="button secondary" data-container-operation="CreateContainerDatabase" data-run="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(instance.Id) + '" data-sql-version="' + escapeHtml(instance.SqlVersion) + '" data-port="' + escapeHtml(instance.Port) + '">Datenbank anlegen</button>',
         '<button class="button secondary" data-container-operation="ExecuteContainerScript" data-run="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(instance.Id) + '" data-port="' + escapeHtml(instance.Port) + '">SQL-Skript ausführen</button>'
       ].join('') : '';
-      return '<div class="container-instance"><div class="build-meta">' + escapeHtml(provider) + ' · SQL Server ' + escapeHtml(instance.SqlVersion || '–') + ' · ' + escapeHtml(connection) + '</div>' + connectionString + persistentStorage + '<div class="build-actions">' + operations + '</div></div>';
+      const resource = resourceForInstance(item.Resources, instance.Id);
+      return '<div class="container-instance"><div class="build-meta">' + escapeHtml(provider) + ' · SQL Server ' + escapeHtml(instance.SqlVersion || '–') + ' · ' + escapeHtml(connection) + '</div><div class="build-meta">' + escapeHtml(resourceSummary(resource, provider)) + '</div>' + connectionString + persistentStorage + backupStorage + '<div class="build-actions">' + operations + '</div></div>';
     }).join('') || '<p class="empty">Keine Instanzen im Run gespeichert.</p>';
     return '<article class="build-card"><div class="build-card-top"><div><div class="build-title">' + escapeHtml(item.Name || shortId(item.RunId)) + '</div><div class="build-meta">' + escapeHtml(item.State) + '</div></div><span class="status ' + statusClass(item.State === 'RUNNING' ? 'TESTS_PASSED' : item.State) + '">' + escapeHtml(item.State) + '</span></div><div class="build-actions">' + lifecycleActions + '</div>' + instances + '<div class="build-meta">Run: ' + escapeHtml(shortId(item.RunId)) + '</div></article>';
   }).join('') : empty('Noch keine Container-Labs vorhanden.');
@@ -434,8 +456,10 @@ function renderHyperVLabs(items) {
     const primaryConnection = item.ConnectionString && !sqlInstances.length
       ? '<div class="build-meta connection-string"><strong>Connection String (Host-SSMS):</strong> <code>' + escapeHtml(item.ConnectionString) + '</code></div>'
       : '';
+    const resource = resourceForInstance(item.Resources, item.InstanceId);
     const actions = [
       '<button class="button secondary" data-hyperv-action="' + (running ? 'StopHyperVLab' : 'StartHyperVLab') + '" data-run="' + escapeHtml(item.RunId) + '">' + (running ? 'Stoppen' : 'Starten') + '</button>',
+      '<button class="button secondary" data-lab-resources="true" data-run="' + escapeHtml(item.RunId) + '" data-provider="hyperv" data-memory="' + escapeHtml(resource?.MemoryStartupMB || resource?.memoryStartupMB || '') + '" data-cpu="' + escapeHtml(resource?.ProcessorCount || resource?.processorCount || '') + '" data-requires-stopped="true">CPU / Speicher ändern</button>',
       (!running && !persistent) ? '<button class="button secondary" data-hyperv-action="EnableHyperVLabPersistentData" data-run="' + escapeHtml(item.RunId) + '">Daten-VHDX anhängen</button>' : '',
       (running && persistent?.state === 'ATTACHED_PENDING_INITIALIZATION') ? '<button class="button primary" data-hyperv-action="InitializeHyperVLabPersistentData" data-run="' + escapeHtml(item.RunId) + '">Daten-VHDX initialisieren</button>' : '',
       sqlNeedsCompletion ? '<button class="button primary" data-hyperv-action="CompleteHyperVLabSql" data-run="' + escapeHtml(item.RunId) + '">SQL, WMI und TCP/IP automatisch einrichten</button>' : '',
@@ -449,10 +473,11 @@ function renderHyperVLabs(items) {
     const detail = ['VM: ' + (item.VMName || '–'), 'VM-Status: ' + (item.VMState || '–'), sourceBased ? 'Basis: ' + (item.SourceVMName || 'bestehende VM') : (isSqlLab ? 'SQL Server ' + (item.SqlVersion || '–') : 'Reine Windows-VM')].join(' · ');
     const baseDetail = sourceBased ? 'Quelle: ' + (item.SourceVMName || '–') + ' · Original unverändert' : 'Vorlage: ' + shortId(item.ArtifactId);
     const persistentDetail = persistent ? '<div class="build-meta"><strong>Persistente Daten:</strong> Host ' + escapeHtml(persistent.hostPath || persistent.root || '–') + (persistent.guestPath ? ' → Gast ' + escapeHtml(persistent.guestPath) : '') + ' · ' + escapeHtml(persistent.state || 'eingebunden') + '</div>' : '';
+    const backupDetail = persistent?.backupGuestPath ? '<div class="build-meta"><strong>Backup-Arbeitsbereich:</strong> Gast ' + escapeHtml(persistent.backupGuestPath) + ' auf eigener Daten-VHDX' + (persistent.backupMode === 'guest-data-vhdx' ? ' · nicht als Host-Ordner eingebunden' : '') + '</div>' : '';
     const nextStep = !isSqlLab
       ? (running ? 'Die reine Windows-VM läuft. VMConnect öffnen und Windows verwenden.' : 'VM starten und anschließend VMConnect öffnen.')
       : sqlNeedsCompletion ? (running ? 'SQL, WMI und TCP/IP automatisch einrichten; danach ist die VM vom Host aus erreichbar.' : 'VM starten; danach SQL, WMI und TCP/IP automatisch einrichten.') : (item.SqlCompletionState === 'REBOOT_REQUIRED' ? 'SQL Setup startet automatisch neu; der laufende Job wartet auf die anschließende WMI- und TCP/IP-Konfiguration.' : (running ? 'VM läuft und ist bei erfolgreicher Bereitstellung über ihren Connection String vom Host erreichbar.' : 'VM starten und anschließend VMConnect öffnen.'));
-    return '<article class="build-card"><div class="build-card-top"><div><div class="build-title">' + escapeHtml(item.Name || shortId(item.RunId)) + '</div><div class="build-meta">' + escapeHtml(detail) + '</div></div><span class="status ' + statusClass(running ? 'TESTS_PASSED' : item.State) + '">' + escapeHtml(item.State) + '</span></div><p class="build-next"><strong>Nächster Schritt:</strong> ' + escapeHtml(nextStep) + '</p><div class="build-actions">' + actions + '</div>' + persistentDetail + instanceDetails + primaryConnection + '<div class="build-meta">Run: ' + escapeHtml(shortId(item.RunId)) + ' · ' + escapeHtml(baseDetail) + '</div></article>';
+    return '<article class="build-card"><div class="build-card-top"><div><div class="build-title">' + escapeHtml(item.Name || shortId(item.RunId)) + '</div><div class="build-meta">' + escapeHtml(detail) + '</div></div><span class="status ' + statusClass(running ? 'TESTS_PASSED' : item.State) + '">' + escapeHtml(item.State) + '</span></div><p class="build-next"><strong>Nächster Schritt:</strong> ' + escapeHtml(nextStep) + '</p><div class="build-actions">' + actions + '</div><div class="build-meta">' + escapeHtml(resourceSummary(resource, 'hyperv')) + '</div>' + persistentDetail + backupDetail + instanceDetails + primaryConnection + '<div class="build-meta">Run: ' + escapeHtml(shortId(item.RunId)) + ' · ' + escapeHtml(baseDetail) + '</div></article>';
   }).join('') : empty('Noch keine regulären Hyper-V-Umgebungen vorhanden.');
 }
 
@@ -501,7 +526,24 @@ async function refresh(mediaRoot) {
   const suffix = mediaRoot ? '?mediaRoot=' + encodeURIComponent(mediaRoot) : '';
   const response = await fetch('/api/workflow' + suffix);
   if (!response.ok) throw new Error(await response.text());
-  renderWorkflow(await response.json());
+  const payload = await response.json();
+  if (Object.prototype.hasOwnProperty.call(payload, 'Refreshing')) {
+    if (payload.Snapshot) renderWorkflow(payload.Snapshot);
+    else {
+      $('#host-status').textContent = 'Inventar wird geladen …';
+      $('#host-status').className = 'chip neutral';
+      $('#notice').hidden = false;
+      $('#notice').textContent = 'Windows-, SQL- und Hyper-V-Inventar wird im Hintergrund ermittelt. Live-Aktionen bleiben bedienbar.';
+    }
+    if (payload.Refreshing && !workflowRefreshTimer) {
+      workflowRefreshTimer = window.setTimeout(() => {
+        workflowRefreshTimer = null;
+        refresh(mediaRoot).catch(showError);
+      }, 750);
+    }
+    return;
+  }
+  renderWorkflow(payload);
 }
 
 function renderJobs(serverJobs) {
@@ -536,7 +578,7 @@ async function startAction(action, parameters) {
   optimisticJobs.push(optimistic);
   renderJobs([]);
   const feedback = $('#action-feedback');
-  feedback.textContent = 'Aktion gestartet: ' + action + ' – Auftrag wird verarbeitet.';
+  $('#action-feedback-text').textContent = 'Auftrag wird angenommen: ' + action + ' – Live-Log und Herzschlag sind sofort sichtbar.';
   feedback.hidden = false;
   let response;
   try {
@@ -551,8 +593,11 @@ async function startAction(action, parameters) {
     optimistic.State = 'Running';
     optimistic.Lines.push('[AKZEPTIERT] Hintergrundjob ' + optimistic.Id + ' wurde gestartet.');
     renderJobs([]);
-    await refreshJobs();
-    window.setTimeout(() => refresh().catch(showError), 800);
+    refreshJobs().catch(() => {});
+    // Die komplette Workflow-Inventur kann ISO-Metadaten prüfen und ist
+    // bewusst nicht Teil des unmittelbaren Klickpfads. Der Job bleibt jede
+    // Sekunde sichtbar; nach kurzer Zeit wird die fachliche Ansicht erneuert.
+    window.setTimeout(() => refresh().catch(showError), 3500);
   } catch (error) {
     optimisticJobs = optimisticJobs.filter((job) => job !== optimistic);
     renderJobs([]);
@@ -672,6 +717,31 @@ function openContainerOperation(action, runId, port, instanceId, sqlVersion) {
   $('#container-operation-dialog').showModal();
 }
 
+function openResourceDialog(button) {
+  const provider = button.dataset.provider;
+  const memory = Number(button.dataset.memory || (provider === 'hyperv' ? 4096 : 4096));
+  const cpu = Number(button.dataset.cpu || 4);
+  const instanceCount = Number(button.dataset.instances || 1);
+  $('#resource-run').value = button.dataset.run;
+  $('#resource-memory').value = memory;
+  $('#resource-processors').value = cpu;
+  $('#resource-memory-label').firstChild.textContent = provider === 'hyperv' ? 'Startspeicher (MB)' : 'Speicher-Limit (MB)';
+  $('#resource-current').textContent = 'Aktuell aus der Runtime erkannt: ' + memory + ' MB · ' + cpu + ' CPU' + (instanceCount > 1 ? ' · wird auf ' + instanceCount + ' Container angewendet.' : '.');
+  $('#resource-note').textContent = provider === 'hyperv'
+    ? 'Hyper-V muss zum Ändern ausgeschaltet sein. Der dynamische Speicherbereich wird sinnvoll auf mindestens 1 GB bzw. die Hälfte des Startwerts und maximal das Doppelte gesetzt – nicht auf 512 MB oder 1 TB.'
+    : 'Docker/Podman übernehmen die Werte sofort über ihre Runtime-Limits. Für mehrere Instanzen dieses Labs gelten die Werte einheitlich.';
+  $('#resource-dialog').showModal();
+}
+
+function queueBackgroundAction(action, parameters, dialog, onQueued) {
+  // Das unmittelbare Signal und der optimistische Live-Log-Eintrag entstehen
+  // synchron vor dem ersten await. Der Dialog darf deshalb nicht einen langen
+  // HTTP-/Inventarzugriff überdecken.
+  dialog?.close();
+  if (onQueued) onQueued();
+  startAction(action, parameters).catch(showError);
+}
+
 let pendingConfirmation = null;
 function openConfirmation(title, message, action, parameters, submitLabel = 'Entfernen') {
   pendingConfirmation = { action, parameters };
@@ -725,6 +795,8 @@ document.addEventListener('click', async (event) => {
     $('#lab-name-dialog').showModal();
     return;
   }
+  const resourceButton = event.target.closest('[data-lab-resources]');
+  if (resourceButton) { openResourceDialog(resourceButton); return; }
   const remove = event.target.closest('[data-container-remove]');
   if (remove) {
     openConfirmation('Container-Lab entfernen', 'Container-Lab „' + remove.dataset.name + '“ wirklich entfernen? Der Container und sein Workflow-Run werden bereinigt.', 'RemoveContainerLab', { BuildId: remove.dataset.run });
@@ -827,10 +899,7 @@ $('#build-form').addEventListener('submit', async (event) => {
   if ((kind === 'sql' || kind === 'sql-fresh') && (!parameters.SqlMediaPath || !parameters.SqlVersion || !parameters.SqlEdition)) { showError(new Error('Bitte ein SQL-Installationsmedium mit erkannter Edition auswählen.')); return; }
   if (kind === 'sql' && !$('#sql-parent-artifact').value) { showError(new Error('Bitte eine veröffentlichte OS-Baseline auswählen.')); return; }
   if (kind === 'sql') parameters.ArtifactId = $('#sql-parent-artifact').value;
-  try {
-    await startAction(kind === 'sql' ? 'NewSqlBuildFromBaseline' : kind === 'sql-fresh' ? 'NewSqlBuild' : 'NewWindowsBuild', parameters);
-    $('#build-dialog').close();
-  } catch (error) { showError(error); }
+  queueBackgroundAction(kind === 'sql' ? 'NewSqlBuildFromBaseline' : kind === 'sql-fresh' ? 'NewSqlBuild' : 'NewWindowsBuild', parameters, $('#build-dialog'));
 });
 
 $('#sql-media').addEventListener('change', updateSqlMediaSelection);
@@ -867,23 +936,20 @@ $('#credential-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   const password = $('#guest-password').value;
   const saPassword = $('#credential-sa-password').value;
-  try {
-    const parameters = { BuildId: $('#credential-build').value, GuestUserName: $('#guest-user').value, GuestPassword: password };
-    if (saPassword) parameters.SaPassword = saPassword;
-    await startAction($('#credential-action').value, parameters);
+  const parameters = { BuildId: $('#credential-build').value, GuestUserName: $('#guest-user').value, GuestPassword: password };
+  if (saPassword) parameters.SaPassword = saPassword;
+  queueBackgroundAction($('#credential-action').value, parameters, $('#credential-dialog'), () => {
     $('#guest-password').value = '';
     $('#credential-sa-password').value = '';
-    $('#credential-dialog').close();
-  } catch (error) { showError(error); }
+  });
 });
 
 $('#publish-form').addEventListener('submit', async (event) => {
   if (event.submitter?.value === 'cancel') return;
   event.preventDefault();
-  try {
-    await startAction($('#publish-action').value, { BuildId: $('#publish-build').value, EvaluationExpiresAt: parseGermanDate($('#evaluation-expiry').value) });
-    $('#publish-dialog').close();
-  } catch (error) { showError(error); }
+  let evaluationExpiresAt;
+  try { evaluationExpiresAt = parseGermanDate($('#evaluation-expiry').value); } catch (error) { showError(error); return; }
+  queueBackgroundAction($('#publish-action').value, { BuildId: $('#publish-build').value, EvaluationExpiresAt: evaluationExpiresAt }, $('#publish-dialog'));
 });
 
 $('#new-container').addEventListener('click', () => $('#container-dialog').showModal());
@@ -931,29 +997,27 @@ $('#hyperv-lab-form').addEventListener('submit', async (event) => {
   if (!guestPassword) { showError(new Error('Bitte ein lokales Administratorpasswort erzeugen oder eingeben.')); return; }
   if (passwordMode === 'user' && guestPassword !== $('#hyperv-guest-password-repeat').value) { showError(new Error('Die eingegebenen Passwörter stimmen nicht überein.')); return; }
   if (saPassword && saPassword !== $('#hyperv-sa-password-repeat').value) { showError(new Error('Die beiden SQL-SA-Passwörter stimmen nicht überein.')); return; }
-  try {
-    const parameters = {
-      ArtifactId: $('#hyperv-artifact').value,
-      LabName: $('#hyperv-lab-name').value.trim(),
-      InstanceId: $('#hyperv-instance').value.trim(),
-      MemoryStartupMB: Number($('#hyperv-memory').value),
-      ProcessorCount: Number($('#hyperv-processors').value),
-      SwitchName: $('#hyperv-switch').value.trim(),
-      PersistentData: selectedArtifact.Workload === 'sql' && $('#hyperv-persistent-data').checked,
-      DataRoot: selectedArtifact.Workload === 'sql' && $('#hyperv-persistent-data').checked ? (workflow?.Defaults?.DataRoot || '') : '',
-      ProvisionUnattended: true,
-      GuestPasswordSource: passwordMode,
-      GuestPassword: guestPassword
-    };
-    if (saPassword) parameters.SaPassword = saPassword;
-    await startAction('NewHyperVLab', parameters);
+  const parameters = {
+    ArtifactId: $('#hyperv-artifact').value,
+    LabName: $('#hyperv-lab-name').value.trim(),
+    InstanceId: $('#hyperv-instance').value.trim(),
+    MemoryStartupMB: Number($('#hyperv-memory').value),
+    ProcessorCount: Number($('#hyperv-processors').value),
+    SwitchName: $('#hyperv-switch').value.trim(),
+    PersistentData: selectedArtifact.Workload === 'sql' && $('#hyperv-persistent-data').checked,
+    DataRoot: selectedArtifact.Workload === 'sql' && $('#hyperv-persistent-data').checked ? (workflow?.Defaults?.DataRoot || '') : '',
+    ProvisionUnattended: true,
+    GuestPasswordSource: passwordMode,
+    GuestPassword: guestPassword
+  };
+  if (saPassword) parameters.SaPassword = saPassword;
+  queueBackgroundAction('NewHyperVLab', parameters, $('#hyperv-lab-dialog'), () => {
     $('#hyperv-guest-password').value = '';
     $('#hyperv-guest-password-repeat').value = '';
     $('#hyperv-sa-password').value = '';
     $('#hyperv-sa-password-repeat').value = '';
     updateHyperVSaPasswordMode();
-    $('#hyperv-lab-dialog').close();
-  } catch (error) { showError(error); }
+  });
 });
 
 $('#hyperv-existing-vm-lab-form').addEventListener('submit', async (event) => {
@@ -961,21 +1025,19 @@ $('#hyperv-existing-vm-lab-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   if (!$('#hyperv-existing-vm-source').value) { showError(new Error('Bitte eine ausgeschaltete vorhandene Windows-VM auswählen.')); return; }
   if (!$('#hyperv-existing-vm-license-confirm').checked) { showError(new Error('Bitte Lizenz- und Ablaufhinweis für die Quell-VM bestätigen.')); return; }
-  try {
-    await startAction('NewHyperVLabFromExistingVm', {
-      SourceVMName: $('#hyperv-existing-vm-source').value,
-      LabName: $('#hyperv-existing-vm-lab-name').value.trim(),
-      InstanceId: $('#hyperv-existing-vm-instance').value.trim(),
-      MemoryStartupMB: Number($('#hyperv-existing-vm-memory').value),
-      ProcessorCount: Number($('#hyperv-existing-vm-processors').value),
-      SwitchName: $('#hyperv-existing-vm-switch').value.trim(),
-      ConfirmSourceLicense: true,
-      PersistentData: $('#hyperv-existing-vm-persistent-data').checked,
-      DataRoot: $('#hyperv-existing-vm-persistent-data').checked ? (workflow?.Defaults?.DataRoot || '') : ''
-    });
+  queueBackgroundAction('NewHyperVLabFromExistingVm', {
+    SourceVMName: $('#hyperv-existing-vm-source').value,
+    LabName: $('#hyperv-existing-vm-lab-name').value.trim(),
+    InstanceId: $('#hyperv-existing-vm-instance').value.trim(),
+    MemoryStartupMB: Number($('#hyperv-existing-vm-memory').value),
+    ProcessorCount: Number($('#hyperv-existing-vm-processors').value),
+    SwitchName: $('#hyperv-existing-vm-switch').value.trim(),
+    ConfirmSourceLicense: true,
+    PersistentData: $('#hyperv-existing-vm-persistent-data').checked,
+    DataRoot: $('#hyperv-existing-vm-persistent-data').checked ? (workflow?.Defaults?.DataRoot || '') : ''
+  }, $('#hyperv-existing-vm-lab-dialog'), () => {
     $('#hyperv-existing-vm-license-confirm').checked = false;
-    $('#hyperv-existing-vm-lab-dialog').close();
-  } catch (error) { showError(error); }
+  });
 });
 
 $('#media-sources').addEventListener('click', () => {
@@ -1006,40 +1068,34 @@ $('#container-form').addEventListener('submit', async (event) => {
   if (event.submitter?.value === 'cancel') return;
   event.preventDefault();
   if ($('#container-password').value !== $('#container-password-repeat').value) { showError(new Error('Die beiden SA-Passwörter stimmen nicht überein.')); return; }
-  try {
-    const persistentData = $('#container-persistent-data').checked;
-    const parameters = { Provider: $('#container-provider').value, SqlVersion: $('#container-version').value, Profile: $('#container-profile').value, InstanceId: $('#container-instance').value, LabName: $('#container-lab-name').value, PersistentData: persistentData, SaPassword: $('#container-password').value };
-    if (persistentData) parameters.DataRoot = workflow?.Defaults?.DataRoot || '';
-    await startAction('NewContainerLab', parameters);
+  const persistentData = $('#container-persistent-data').checked;
+  const parameters = { Provider: $('#container-provider').value, SqlVersion: $('#container-version').value, Profile: $('#container-profile').value, InstanceId: $('#container-instance').value, LabName: $('#container-lab-name').value, PersistentData: persistentData, SaPassword: $('#container-password').value };
+  if (persistentData) parameters.DataRoot = workflow?.Defaults?.DataRoot || '';
+  queueBackgroundAction('NewContainerLab', parameters, $('#container-dialog'), () => {
     $('#container-password').value = ''; $('#container-password-repeat').value = ''; $('#container-dialog').close();
-  } catch (error) { showError(error); }
+  });
 });
 
 $('#manifest-form').addEventListener('submit', async (event) => {
   if (event.submitter?.value === 'cancel') return;
   event.preventDefault();
-  try {
-    await startAction('CreateContainerManifest', {
-      ManifestPath: $('#manifest-path').value.trim(),
-      LabName: $('#manifest-name').value.trim(),
-      ManifestDescription: $('#manifest-description').value.trim(),
-      Provider: $('#manifest-provider').value,
-      SqlVersion: $('#manifest-version').value,
-      Profile: $('#manifest-profile').value,
-      InstanceId: $('#manifest-instance').value.trim()
-    });
-    $('#manifest-dialog').close();
-  } catch (error) { showError(error); }
+  queueBackgroundAction('CreateContainerManifest', {
+    ManifestPath: $('#manifest-path').value.trim(),
+    LabName: $('#manifest-name').value.trim(),
+    ManifestDescription: $('#manifest-description').value.trim(),
+    Provider: $('#manifest-provider').value,
+    SqlVersion: $('#manifest-version').value,
+    Profile: $('#manifest-profile').value,
+    InstanceId: $('#manifest-instance').value.trim()
+  }, $('#manifest-dialog'));
 });
 
 $('#manifest-run-form').addEventListener('submit', async (event) => {
   if (event.submitter?.value === 'cancel') return;
   event.preventDefault();
-  try {
-    await startAction('NewContainerLabFromManifest', { ManifestPath: $('#manifest-run-path').value.trim(), SaPassword: $('#manifest-run-password').value });
+  queueBackgroundAction('NewContainerLabFromManifest', { ManifestPath: $('#manifest-run-path').value.trim(), SaPassword: $('#manifest-run-password').value }, $('#manifest-run-dialog'), () => {
     $('#manifest-run-password').value = '';
-    $('#manifest-run-dialog').close();
-  } catch (error) { showError(error); }
+  });
 });
 
 $('#container-operation-form').addEventListener('submit', async (event) => {
@@ -1068,10 +1124,9 @@ $('#container-operation-form').addEventListener('submit', async (event) => {
     }
   }
   else { parameters.ScriptPath = $('#container-script-path').value; parameters.Database = $('#container-script-database').value; }
-  try {
-    await startAction(action, parameters);
+  queueBackgroundAction(action, parameters, $('#container-operation-dialog'), () => {
     $('#container-operation-password').value = ''; $('#container-operation-dialog').close();
-  } catch (error) { showError(error); }
+  });
 });
 
 $('#container-sample').addEventListener('change', updateContainerSampleSelection);
@@ -1087,11 +1142,8 @@ $('#confirmation-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   const confirmation = pendingConfirmation;
   if (!confirmation) { $('#confirmation-dialog').close(); return; }
-  try {
-    await startAction(confirmation.action, confirmation.parameters);
-    pendingConfirmation = null;
-    $('#confirmation-dialog').close();
-  } catch (error) { showError(error); }
+  pendingConfirmation = null;
+  queueBackgroundAction(confirmation.action, confirmation.parameters, $('#confirmation-dialog'));
 });
 
 $('#artifact-name-form').addEventListener('submit', async (event) => {
@@ -1099,10 +1151,7 @@ $('#artifact-name-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   const displayName = $('#artifact-display-name').value.trim();
   if (!displayName) { showError(new Error('Bitte einen Namen eingeben.')); return; }
-  try {
-    await startAction('RenameHyperVImageArtifact', { ArtifactId: $('#artifact-name-id').value, DisplayName: displayName });
-    $('#artifact-name-dialog').close();
-  } catch (error) { showError(error); }
+  queueBackgroundAction('RenameHyperVImageArtifact', { ArtifactId: $('#artifact-name-id').value, DisplayName: displayName }, $('#artifact-name-dialog'));
 });
 
 $('#lab-name-form').addEventListener('submit', async (event) => {
@@ -1110,17 +1159,29 @@ $('#lab-name-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   const labName = $('#lab-display-name').value.trim();
   if (!labName) { showError(new Error('Bitte einen Namen angeben.')); return; }
-  try {
-    await startAction('RenameLab', { BuildId: $('#lab-name-run').value, LabName: labName });
-    $('#lab-name-dialog').close();
-  } catch (error) { showError(error); }
+  queueBackgroundAction('RenameLab', { BuildId: $('#lab-name-run').value, LabName: labName }, $('#lab-name-dialog'));
 });
+
+$('#resource-form').addEventListener('submit', (event) => {
+  if (event.submitter?.value === 'cancel') return;
+  event.preventDefault();
+  const memory = Number($('#resource-memory').value);
+  const processors = Number($('#resource-processors').value);
+  if (!Number.isInteger(memory) || memory < 512 || !Number.isInteger(processors) || processors < 1) {
+    showError(new Error('Bitte mindestens 512 MB Speicher und mindestens eine CPU angeben.'));
+    return;
+  }
+  queueBackgroundAction('SetLabResources', { BuildId: $('#resource-run').value, MemoryMB: memory, ProcessorCount: processors }, $('#resource-dialog'));
+});
+
+$('#action-feedback-log').addEventListener('click', () => $('#jobs').closest('.panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
 
 $('#refresh').addEventListener('click', () => refresh().catch(showError));
 
 refresh().catch(showError);
 refreshJobs();
-window.setInterval(() => {
-  refreshJobs().then(() => { if (activeJobCount) refresh().catch(() => {}); });
-}, 1000);
-window.setInterval(() => { if (!activeJobCount) refresh().catch(() => {}); }, 10000);
+// Der Sekunden-Takt ist ausschließlich für sichtbares Fortschritts-Feedback.
+// Eine Workflow-Aktualisierung kann ISO- und VHDX-Metadaten untersuchen und
+// darf daher keinen Klickpfad oder den lokalen HTTP-Server blockieren.
+window.setInterval(() => { refreshJobs(); }, 1000);
+window.setInterval(() => { refresh().catch(() => {}); }, 15000);
