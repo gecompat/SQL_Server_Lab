@@ -50,6 +50,10 @@ COMMANDS
         Liefert die zusammengefasste Workflow-Sicht fuer lokale Labs,
         Windows-Baselines, SQL-Prepared-Images und Abnahmeumgebungen.
 
+    Get-SqlServerLabCatalog
+        Erzeugt einen konsolidierten, geheimnisfreien Laufzeitkatalog der aktuellen
+        Labs, Templates und Artefakte und speichert ihn als JSON-Datei.
+
     Get-SqlServerLabReconcilePlan
         Liefert einen read-only Desired/Actual/Diff/Action-Plan fuer den
         Lifecycle eines bestehenden Runs.

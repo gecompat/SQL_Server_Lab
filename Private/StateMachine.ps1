@@ -39,7 +39,8 @@ function Initialize-LabStateRoot {
     $directories = @(
         $StateRoot,
         (Join-Path $StateRoot 'runs'),
-        (Join-Path $StateRoot 'scope-markers')
+        (Join-Path $StateRoot 'scope-markers'),
+        (Join-Path $StateRoot 'catalog')
     )
 
     foreach ($directory in $directories) {
