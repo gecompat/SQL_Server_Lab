@@ -525,20 +525,35 @@ function Invoke-LabAction {
                 $workflow = $catalog.Catalog
                 $summary = $workflow.Summary
                 $providerValues = @($workflow.Host.Providers | ForEach-Object { [string]$_ } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique)
-                $providersText = if ($providerValues.Count -gt 0) { ($providerValues -join ', ') } else { 'n/a' }
+                $providerColorMap = @{
+                    docker = 'DarkCyan'
+                    podman = 'DarkGreen'
+                    hyperv = 'DarkYellow'
+                }
                 $fallbackMediaRoot = Get-LabMediaRootDefault
                 $mediaRootText = if ([string]::IsNullOrWhiteSpace($workflow.Defaults.MediaRoot)) {
                     if ([string]::IsNullOrWhiteSpace($fallbackMediaRoot)) { 'nicht gesetzt' } else { "nicht gesetzt (Standard: $fallbackMediaRoot)" }
                 } else {
                     [string]$workflow.Defaults.MediaRoot
                 }
-
                 Write-LabSuccess "SQL-Server-Lab-Katalog erstellt: $path"
                 Write-Host ('  Erzeugt: {0} · Katalog-Format: {1} · Module: {2}' -f
                     $catalog.GeneratedAt, $catalog.Catalog.CatalogFormat, $catalog.Catalog.Module.Version) -ForegroundColor White
                 Write-Host ('  StateRoot: {0}' -f $workflow.StateRoot) -ForegroundColor White
                 Write-Host ('  Medienroot: {0}' -f $mediaRootText) -ForegroundColor White
-                Write-Host ('  Provider: {0}' -f $providersText) -ForegroundColor White
+                if ($providerValues.Count -eq 0) {
+                    Write-Host '  Provider: n/a' -ForegroundColor Gray
+                }
+                else {
+                    Write-Host '  Provider:' -ForegroundColor White
+                    foreach ($provider in $providerValues) {
+                        $providerColor = 'Gray'
+                        if ($providerColorMap.ContainsKey($provider.ToLowerInvariant())) {
+                            $providerColor = $providerColorMap[$provider.ToLowerInvariant()]
+                        }
+                        Write-Host ('    - {0}' -f $provider) -ForegroundColor $providerColor
+                    }
+                }
                 Write-Host ('  Windows-Baselines: {0} · SQL-Prepared-Images: {1}' -f $summary.WindowsBaselines, $summary.SqlPreparedImages) -ForegroundColor White
                 Write-Host ('  Offene Builds: Windows {0}, SQL {1} · aktive Hyper-V-Labs: {2}' -f
                     $summary.PendingWindowsBuilds, $summary.PendingSqlBuilds, @($workflow.HyperVLabs).Count) -ForegroundColor White
