@@ -1,0 +1,262 @@
+name: SQL CU Monthly Watch
+
+on:
+  schedule:
+    - cron: '0 6 1 * *'
+  workflow_dispatch:
+  pull_request:
+    types:
+      - closed
+    branches:
+      - main
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: sql-server-lab-cu-monthly-watch
+  cancel-in-progress: false
+
+jobs:
+  cu-monthly-watch:
+    if: github.event_name != 'pull_request' || github.event.pull_request.merged == true
+
+    name: Check SQL Server CU catalog
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Run CU check
+        id: cucheck
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $scriptPath = Join-Path $PWD 'Tools/Get-SqlServerCuStatus.ps1'
+          $jsonText = & $scriptPath -AsJson
+          $outputJsonPath = Join-Path $env:RUNNER_TEMP 'sql-cu-watch.json'
+          $outputSummaryPath = Join-Path $env:RUNNER_TEMP 'sql-cu-watch-summary.md'
+
+          $jsonText | Out-File -FilePath $outputJsonPath -Encoding utf8
+          $result = $jsonText | ConvertFrom-Json
+
+          $status = [string]$result.Status
+          $newItems = @($result.Versions | Where-Object { $_.Status -eq 'NEW' })
+          $unclearItems = @($result.Versions | Where-Object { $_.Status -eq 'UNCLEAR' })
+
+          "status=$status" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "new_count=$($newItems.Count)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "unclear_count=$($unclearItems.Count)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "json_path=$outputJsonPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "summary_path=$outputSummaryPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+          $report = @"
+# SQL Server CU Watch – Ergebnis
+
+- Status: **$($result.Status)**
+- Geprüft am: $($result.CheckedAtUtc)
+- Quelle: $($result.SourceUrl)
+- Katalog: $($result.CatalogPath)
+
+## Diff je Version
+"@
+
+          foreach ($entry in $result.Versions) {
+            $report += @"
+
+### SQL $($entry.Version) – $($entry.Status)
+- Letzter Microsoft-Stand: $($entry.LatestMicrosoft.Build) / $($entry.LatestMicrosoft.Update) / $($entry.LatestMicrosoft.Kb) / $($entry.LatestMicrosoft.Released)
+- Katalog-Latest-KB: $($entry.LatestCatalogKb)
+- Fehlende Einträge: $($entry.MissingCount)
+"@
+
+            if ($entry.MissingCount -gt 0) {
+              $report += "`n- Missing:"
+              foreach ($m in @($entry.Missing)) {
+                $report += "`n  - $($m.Build) $($m.Update) $($m.Kb) ($($m.Released))"
+              }
+              $report += "`n"
+            }
+
+            if ($entry.Note) {
+              $report += @"
+- Hinweis: $($entry.Note)
+"@
+            }
+          }
+
+          if (-not $result.Versions -or $result.Versions.Count -eq 0) {
+            $report += "`nEs wurden keine Versionsdaten ausgewertet."
+          }
+
+          if ($status -eq 'UNCLEAR') {
+            $report += "`n- Ergebnis ist unklar, bitte Quelle und Katalog manuell prüfen."
+          }
+          elseif ($newItems.Count -gt 0) {
+            $report += "`n- Handlung: Katalog mit den fehlenden KBs aktualisieren."
+          }
+          else {
+            $report += "`n- Handlung: Keine Änderungen nötig."
+          }
+
+          $report += @"
+
+Nächster Check: $((Get-Date).AddMonths(1).ToString('yyyy-MM-dd'))
+"@
+
+          $report | Out-File -FilePath $outputSummaryPath -Encoding utf8
+
+      - name: Upload CU watch artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: sql-cu-watch
+          path: |
+            ${{ runner.temp }}/sql-cu-watch.json
+            ${{ runner.temp }}/sql-cu-watch-summary.md
+          if-no-files-found: ignore
+          retention-days: 60
+
+      - name: Open or update tracking issue
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $status = '${{ steps.cucheck.outputs.status }}'
+          $newCount = [int]'${{ steps.cucheck.outputs.new_count }}'
+          $unclearCount = [int]'${{ steps.cucheck.outputs.unclear_count }}'
+          $summaryPath = '${{ steps.cucheck.outputs.summary_path }}'
+
+          $body = Get-Content -LiteralPath $summaryPath -Raw
+          $monthTag = Get-Date -Format 'yyyy-MM'
+          $titlePrefix = "[SQL CU Watch] $monthTag"
+          $title = "$titlePrefix [$status]"
+          $issueBodyFile = Join-Path $env:RUNNER_TEMP 'sql-cu-watch-issue.md'
+
+          $statusLabelLines = @"
+## Status-Labels
+- [ ] NO CHANGE
+- [ ] NEW
+- [ ] UNCLEAR
+"@
+
+          switch ($status) {
+            'NEW' { $statusLabelLines = $statusLabelLines -replace '- \[ \] NEW', '- [x] NEW' }
+            'UNCLEAR' { $statusLabelLines = $statusLabelLines -replace '- \[ \] UNCLEAR', '- [x] UNCLEAR' }
+            default { $statusLabelLines = $statusLabelLines -replace '- \[ \] NO CHANGE', '- [x] NO CHANGE' }
+          }
+
+          $statusBlock = if ($newCount -gt 0) {
+            '- Handlung: Katalog mit den fehlenden KBs aktualisieren.'
+          } elseif ($unclearCount -gt 0) {
+            '- Handlung: Quelle und Katalog manuell prüfen.'
+          } else {
+            '- Handlung: Keine neuen Schritte notwendig.'
+          }
+
+          $body = @"
+## SQL CU Watch
+
+**Status:** $status
+
+$statusLabelLines
+
+$statusBlock
+
+$body
+"@
+          Set-Content -LiteralPath $issueBodyFile -Encoding utf8 -Value $body
+
+          $issues = gh issue list --state open --json number,title,createdAt --limit 100 | ConvertFrom-Json
+          $existing = @($issues | Where-Object { $_.title -like "$titlePrefix*" }) |
+            Sort-Object { [int]$_.number } -Descending |
+            Select-Object -First 1
+          $labelBase = 'cu-watch'
+          $statusLabel = switch ($status) {
+            'NEW' { 'cu-watch/new' }
+            'UNCLEAR' { 'cu-watch/unclear' }
+            default { 'cu-watch/no-change' }
+          }
+          $allStatusLabels = @('cu-watch/no-change', 'cu-watch/new', 'cu-watch/unclear')
+
+          function Ensure-Label {
+            param(
+              [string]$Name,
+              [string]$Color = '0E8A16',
+              [string]$Description = ''
+            )
+            $exists = $false
+            try {
+              gh label view $Name --json name --jq '.name' | Out-Null
+              $exists = $true
+            }
+            catch { }
+            if (-not $exists) {
+              if ($Description) {
+                gh label create $Name --color $Color --description $Description | Out-Null
+              }
+              else {
+                gh label create $Name --color $Color | Out-Null
+              }
+            }
+          }
+
+          Ensure-Label -Name $labelBase -Color '0E8A16' -Description 'Automatisierter SQL CU Watch-Ticker'
+          Ensure-Label -Name 'cu-watch/no-change' -Color '0E8A16' -Description 'SQL CU Watch meldet keinen neuen CU-Stand'
+          Ensure-Label -Name 'cu-watch/new' -Color 'D93F0B' -Description 'SQL CU Watch meldet neue CU-/KB-Einträge'
+          Ensure-Label -Name 'cu-watch/unclear' -Color 'FBCA04' -Description 'SQL CU Watch ist unklar und braucht manuelle Prüfung'
+          $removeStatusLabels = @($allStatusLabels | Where-Object { $_ -ne $statusLabel })
+          $labelsForCreate = @($labelBase, $statusLabel)
+
+          function Add-Labels {
+            param(
+              [int]$IssueNumber,
+              [string[]]$Labels
+            )
+            foreach ($label in $Labels) {
+              gh issue edit $IssueNumber --add-label $label | Out-Null
+            }
+          }
+
+          function Remove-Labels {
+            param(
+              [int]$IssueNumber,
+              [string[]]$Labels
+            )
+            foreach ($label in $Labels) {
+              try {
+                gh issue edit $IssueNumber --remove-label $label | Out-Null
+              }
+              catch { }
+            }
+          }
+
+          if ($status -eq 'NO CHANGE') {
+            if ($existing) {
+              Remove-Labels -IssueNumber $existing.number -Labels $allStatusLabels
+              Add-Labels -IssueNumber $existing.number -Labels $labelsForCreate
+              $closeComment = @"
+Der Check ist wieder in Ordnung.
+Der zuletzt offene monatliche Hinweis wurde automatisch auf "NO CHANGE" gesetzt und hiermit geschlossen.
+"@
+              gh issue comment $existing.number --body $closeComment
+              gh issue close $existing.number
+            }
+            exit 0
+          }
+
+          if ($existing) {
+            Remove-Labels -IssueNumber $existing.number -Labels $allStatusLabels
+            Add-Labels -IssueNumber $existing.number -Labels $labelsForCreate
+            gh issue edit $existing.number --title $title --body-file $issueBodyFile | Out-Null
+          }
+          else {
+            $labelArg = @($labelBase, $statusLabel) -join ','
+            gh issue create --title $title --body-file $issueBodyFile --label $labelArg | Out-Null
+          }
