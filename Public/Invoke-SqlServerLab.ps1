@@ -77,6 +77,54 @@ function Invoke-SqlServerLab {
 # Interne Hilfsfunktionen
 # =============================================================================
 
+function Write-LabProviderList {
+    [CmdletBinding()]
+    param(
+        [string[]]$Providers,
+        [switch]$AsBanner,
+        [string]$HeaderLabel = '  Provider:'
+    )
+
+    $providerColorMap = @{
+        docker = 'DarkCyan'
+        podman = 'DarkGreen'
+        hyperv = 'DarkYellow'
+    }
+    $entries = @(
+        foreach ($provider in @($Providers | ForEach-Object { [string]$_ } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })) {
+            [PSCustomObject]@{
+                Display = [string]$provider
+                SortKey = [string]$provider.ToLowerInvariant().Trim()
+            }
+        }
+    )
+    $entries = @(
+        $entries |
+            Sort-Object SortKey |
+            Group-Object SortKey |
+            ForEach-Object { $_.Group | Select-Object -First 1 }
+    )
+
+    if ($entries.Count -eq 0) {
+        if ($AsBanner) {
+            Write-Host '  Provider: KEINER VERFUEGBAR' -ForegroundColor Red
+        }
+        else {
+            Write-Host '  Provider: n/a' -ForegroundColor Gray
+        }
+        return
+    }
+
+    $headerColor = if ($AsBanner) { 'DarkGray' } else { 'White' }
+    Write-Host $HeaderLabel -ForegroundColor $headerColor
+    foreach ($entry in $entries) {
+        $provider = $entry.Display
+        $providerToken = ($provider -split '\s+')[0].ToLowerInvariant()
+        $providerColor = if ($providerColorMap.ContainsKey($providerToken)) { $providerColorMap[$providerToken] } else { 'Gray' }
+        Write-Host ('    - {0}' -f $provider) -ForegroundColor $providerColor
+    }
+}
+
 function Show-LabBanner {
     Clear-Host
     Write-Host ""
@@ -92,14 +140,9 @@ function Show-LabBanner {
     $hyperVCheck = if ($IsWindows) { Test-HyperVAvailable } else { $null }
     $hyperVInstalled = $null -ne (Get-Command Get-VM -ErrorAction SilentlyContinue)
 
-    $providerColorMap = @{
-        docker = 'DarkCyan'
-        podman = 'DarkGreen'
-        hyperv = 'DarkYellow'
-    }
     $providerEntries = @(
         foreach ($provider in @($providers | ForEach-Object { [string]$_ } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })) {
-            @{ Display = $provider; SortKey = [string]$provider.ToLowerInvariant().Trim() }
+            [PSCustomObject]@{ Display = $provider; SortKey = [string]$provider.ToLowerInvariant().Trim() }
         }
     )
     if ($hyperVInstalled -and $hyperVCheck -and $hyperVCheck.Available -and -not ($providerEntries.SortKey -contains 'hyperv')) {
@@ -114,19 +157,9 @@ function Show-LabBanner {
             Sort-Object SortKey |
             Group-Object SortKey |
             ForEach-Object { $_.Group | Select-Object -First 1 }
+            | Select-Object -ExpandProperty Display
     )
-    if ($providerEntries.Count -eq 0) {
-        Write-Host '  Provider: KEINER VERFUEGBAR' -ForegroundColor Red
-    }
-    else {
-        Write-Host '  Provider:' -ForegroundColor DarkGray
-        foreach ($providerEntry in $providerEntries) {
-            $provider = $providerEntry.Display
-            $providerToken = ($provider -split '\s+')[0].ToLowerInvariant()
-            $providerColor = if ($providerColorMap.ContainsKey($providerToken)) { $providerColorMap[$providerToken] } else { 'Gray' }
-            Write-Host ('    - {0}' -f $provider) -ForegroundColor $providerColor
-        }
-    }
+    Write-LabProviderList -Providers $providerEntries -AsBanner
 
     # Aktive Labs kurz anzeigen
     $stateRoot = Get-LabStateRoot
@@ -566,19 +599,7 @@ function Invoke-LabAction {
                     $catalog.GeneratedAt, $catalog.Catalog.CatalogFormat, $catalog.Catalog.Module.Version) -ForegroundColor White
                 Write-Host ('  StateRoot: {0}' -f $workflow.StateRoot) -ForegroundColor White
                 Write-Host ('  Medienroot: {0}' -f $mediaRootText) -ForegroundColor White
-                if ($providerValues.Count -eq 0) {
-                    Write-Host '  Provider: n/a' -ForegroundColor Gray
-                }
-                else {
-                    Write-Host '  Provider:' -ForegroundColor White
-                    foreach ($provider in $providerValues) {
-                        $providerColor = 'Gray'
-                        if ($providerColorMap.ContainsKey($provider.ToLowerInvariant())) {
-                            $providerColor = $providerColorMap[$provider.ToLowerInvariant()]
-                        }
-                        Write-Host ('    - {0}' -f $provider) -ForegroundColor $providerColor
-                    }
-                }
+                Write-LabProviderList -Providers $providerValues
                 Write-Host ('  Windows-Baselines: {0} · SQL-Prepared-Images: {1}' -f $summary.WindowsBaselines, $summary.SqlPreparedImages) -ForegroundColor White
                 Write-Host ('  Offene Builds: Windows {0}, SQL {1} · aktive Hyper-V-Labs: {2}' -f
                     $summary.PendingWindowsBuilds, $summary.PendingSqlBuilds, @($workflow.HyperVLabs).Count) -ForegroundColor White
