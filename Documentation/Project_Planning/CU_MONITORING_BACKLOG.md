@@ -2,15 +2,19 @@
 
 ## Status
 
-`DEFERRED`
+`ACTIVE`
 
-Die automatische monatliche Überwachung neuer SQL-Server-Cumulative-Updates ist nicht Bestandteil des aktuell freigegebenen Container-Core und wird nicht mit der Umstellung der Schwester-Repositories auf `SQL_Server_Lab` gekoppelt.
+Die automatische monatliche Überwachung neuer SQL-Server-Cumulative-Updates ist im Projekt umgesetzt und läuft über einen geplanten GitHub-Workflow.
+
+## Implementierung
+
+Aktiv: `.github/workflows/sql-cu-monthly-monitor.yml` führt `.github/prompts/sql-cu-monthly-monitor.prompt.md`/`ops/sql-cu-policy.md` zugrunde liegende Logik automatisiert aus.
 
 ## Erhaltener fachlicher Ansatz
 
 Ein späterer Umsetzungsschritt kann folgende Punkte erneut bewerten:
 
-- monatlicher geplanter Lauf sowie manueller Dry-Run;
+- monatlicher geplanter Lauf sowie manueller Dry-Run (Workflow manuell über `workflow_dispatch` auslösbar).
 - SQL Server 2019, 2022 und 2025;
 - Microsoft Learn als autoritative Build-/CU-Quelle;
 - optionale zweite Quelle nur als Frühindikator;
@@ -21,7 +25,7 @@ Ein späterer Umsetzungsschritt kann folgende Punkte erneut bewerten:
 
 ## Wiederaufnahme
 
-Die Umsetzung soll später neu vom dann aktuellen `main` aus erfolgen. Vor einer Übernahme sind Quellen, Katalogmodell, Workflow-Berechtigungen, Schreibzugriffe und Fehlerverhalten erneut zu prüfen.
+Die Umsetzung erfolgt aktuell auf dem bestehenden `main`. Bei Anpassungen sind Quellen, Katalogmodell, Workflow-Berechtigungen, Schreibzugriffe und Fehlerverhalten weiterhin bei jeder Änderung erneut zu prüfen.
 
 Historischer Kontext: Der frühere Draft-PR `#2` wurde bewusst geschlossen, weil er gegenüber dem aktuellen Runtime-Stand stark divergiert war und nicht zum unmittelbaren Umgebungsbereitstellungsvertrag für `SQL_Server_Analyze` und `SQL_PerformanceSchulung` gehört.
 
