@@ -113,6 +113,7 @@ function ConvertTo-HyperVLabNotes {
                     fileSystem = [string]$_.FileSystem
                     allocationUnitKB = [int]$_.AllocationUnitKB
                     volumeLabel = [string]$_.VolumeLabel
+                    maximumIops = [long]$_.MaximumIops
                 }
             }
         )
@@ -191,6 +192,8 @@ function Resolve-HyperVAdditionalDrivePlan {
         if ($volumeLabel -notmatch '^[A-Za-z0-9][A-Za-z0-9 _-]{0,31}$') {
             throw "HYPERV_ADDITIONAL_DRIVE_VOLUME_LABEL_INVALID: $id"
         }
+        $maximumIops = if ($drive.maximumIops) { [long]$drive.maximumIops } else { 0 }
+        if ($maximumIops -lt 0 -or $maximumIops -gt 1000000) { throw "HYPERV_ADDITIONAL_DRIVE_IOPS_INVALID: $id" }
 
         $safeId = $id -replace '_', '-'
         $path = Join-Path $ResourceRoot "$VMName-$safeId.vhdx"
@@ -212,6 +215,7 @@ function Resolve-HyperVAdditionalDrivePlan {
             FileSystem = 'NTFS'
             AllocationUnitKB = $allocationUnitKB
             VolumeLabel = $volumeLabel
+            MaximumIops = $maximumIops
         }
     }
     return @($plan)
@@ -475,7 +479,7 @@ function New-HyperVInstance {
             Remove-VMNetworkAdapter -ErrorAction Stop
     }
     foreach ($drive in $additionalDrivePlan) {
-        $null = Add-VMHardDiskDrive `
+        $attachedDrive = Add-VMHardDiskDrive `
             -VM $vm `
             -ControllerType SCSI `
             -ControllerNumber 0 `
@@ -676,7 +680,11 @@ function Invoke-HyperVPowerShellDirect {
             -Credential $Credential `
             -ScriptBlock $ScriptBlock `
             -ArgumentList $ArgumentList `
-            -ErrorAction Stop
+            -ErrorAction Stop `
+            -Passthru
+        if ([long]$drive.MaximumIops -gt 0) {
+            $null = Set-VMHardDiskDrive -VMHardDiskDrive $attachedDrive -MaximumIOPS ([long]$drive.MaximumIops) -ErrorAction Stop
+        }
     }
     catch {
         if (-not $FallbackAddress) { throw }

@@ -157,7 +157,9 @@ function Get-SqlServerLab {
                 [System.Globalization.CultureInfo]::InvariantCulture
             )
         }
-        catch { [string]$lab.CreatedAt }
+        catch {
+            [string]$lab.CreatedAt
+        }
         Write-LabStatus -Label 'Erstellt' -Value $createdAtText
 
         foreach ($instance in $lab.Instances) {

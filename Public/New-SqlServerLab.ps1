@@ -138,17 +138,24 @@ function New-SqlServerLab {
         aus Catalogs/sample-databases.json sind zulaessig; die Zieldatenbanknamen
         ergeben sich aus den erwarteten Katalog-Outputs.
     .PARAMETER Cpu
-        Explizite vCPU-Anzahl. Null verwendet das Ressourcenprofil.
+        Explizite Anzahl virtueller CPUs fuer die Ad-hoc-Instanz. Der Wert 0
+        verwendet die Vorgabe des gewaehlten Ressourcenprofils.
     .PARAMETER MemoryMB
-        Explizites RAM-Limit in MB. Null verwendet das Ressourcenprofil.
+        Expliziter Arbeitsspeicher in MB fuer die Ad-hoc-Instanz. Der Wert 0
+        verwendet die Vorgabe des gewaehlten Ressourcenprofils.
     .PARAMETER Collation
-        SQL-Server-Collation der Ad-hoc-Instanz.
+        SQL-Server-Collation der neuen Ad-hoc-Instanz. Standard ist
+        SQL_Latin1_General_CP1_CI_AS.
     .PARAMETER ServerConfig
-        Typisierte SQL-Konfiguration für Speicher, MAXDOP und TempDB.
+        Optionale typisierte SQL-Server-Konfiguration, beispielsweise fuer
+        Max Server Memory, MAXDOP, Cost Threshold und TempDB-Dateien.
     .PARAMETER Drives
-        Optionale verwaltete Provider-Laufwerke beziehungsweise Volumes.
+        Optionale Laufwerks- und Volume-Definitionen fuer Daten, Log,
+        TempDB und Backups. Die Provider pruefen die jeweils unterstuetzten
+        Pfade, Groessen und I/O-Grenzen.
     .PARAMETER NetworkName
-        Optionaler Name des verwalteten Provider-Netzes.
+        Optionaler Name des Docker-, Podman- oder Hyper-V-Netzes, an das die
+        Ad-hoc-Instanz gebunden wird.
     .PARAMETER Manifest
         Pfad zu einer vorhandenen JSON-Manifestdatei. Relative lokale Pfade im
         Manifest werden relativ zu deren Verzeichnis aufgeloest. Manifeste

@@ -118,6 +118,11 @@ Interaktiv:
 Invoke-SqlServerLab
 ```
 
+Für neue Labore über das Menü gilt nun der Ziel-first-Fluss:
+für SQL-Umgebungen wird danach der Provider abgefragt, für einen OS-Slot wird direkt
+der Hyper-V-Weg genutzt. Details stehen unter
+[INTERACTIVE_WORKFLOW.md](./INTERACTIVE_WORKFLOW.md).
+
 Für eine geführte Übersicht mit OS-Baselines, SQL-Prepared-Images,
 Hintergrundaktionen und Live-Log kann die
 [lokale Workflow-Oberfläche](../HowTo/WORKFLOW_UI.md) gestartet werden.

@@ -30,6 +30,7 @@ try {
     $module = Import-Module $modulePath -Force -PassThru
     $environmentText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVLabEnvironment.ps1') -Raw -Encoding utf8
     $menuText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Invoke-SqlServerLab.ps1') -Raw -Encoding utf8
+    $newLabText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/New-SqlServerLab.ps1') -Raw -Encoding utf8
     $generatedAccessText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Get-SqlServerLabGeneratedSqlAccess.ps1') -Raw -Encoding utf8
     $moduleManifestText = Get-Content -LiteralPath $modulePath -Raw -Encoding utf8
     Add-CheckResult -Name 'Generierte SA-Zugangsdaten bleiben DPAPI-geschützt und explizit erneut abrufbar' -Success (
@@ -47,6 +48,45 @@ try {
         $menuText -match 'Windows-Grundinstallation übernehmen' -and
         $environmentText -match 'function Complete-HyperVLabManualWindowsSlot' -and
         $environmentText -match "mode = 'manual-handoff'"
+    )
+    Add-CheckResult -Name 'Interaktiver Hyper-V-SQL-Pfad erzeugt fehlende Vorstufen statt ohne Aktion abzubrechen' -Success (
+        $menuText -match 'function Read-LabSqlEnvironmentIntentInteractive' -and
+        $menuText -match 'function Resolve-LabSqlIntentProvider' -and
+        $menuText -match 'Providerentscheidung:' -and
+        $menuText -match 'Benutzerdefiniert: OS, Edition, Netzwerk, Storage, I/O, TempDB und Collation' -and
+        $menuText -match 'function Invoke-LabNewHyperVSqlEnvironmentWorkflowInteractive' -and
+        $menuText -match 'Keine veröffentlichte SQL-Prepared-Vorlage vorhanden\. Der interaktive Workflow wechselt auf den Windows-OS-Pfad' -and
+        $menuText -match 'New-LabHyperVImageBuildInteractive' -and
+        $menuText -match 'Invoke-LabHyperVWindowsBaselineMenu' -and
+        $menuText -match 'New-LabHyperVEnvironmentInteractive -WindowsOnly -ContinueSqlWorkflow' -and
+        $menuText -match 'function Complete-LabHyperVManualWindowsWorkflowInteractive' -and
+        $menuText -match 'function Select-LabReusableHyperVWindowsSlotInteractive' -and
+        $menuText -match 'Vorhandene Windows-Slots ohne SQL-Ausbau' -and
+        $menuText -match 'Invoke-LabReusableHyperVWindowsSlotInteractive -Slot \$reusableSlot' -and
+        $menuText -match "'SQL_RESUME'" -and
+        $menuText -match 'unterbrochener SQL-Ausbau wurde erkannt' -and
+        $menuText -match '\[a\] Alles erledigt / \[b\] Problem - Workflow abbrechen' -and
+        $menuText -match 'Complete-HyperVLabManualWindowsSlot -RunId \$RunId' -and
+        $menuText -match 'Für die SQL-Ressourcenplanung muss die VM ausgeschaltet sein; sie wird jetzt automatisch sauber heruntergefahren' -and
+        $menuText -match 'Stop-HyperVLabEnvironment -RunId \$RunId' -and
+        $menuText -match 'Invoke-LabHyperVSqlSlotInstallInteractive -Plan \$plan -RunId \$RunId' -and
+        $menuText -match 'Invoke-LabNewHyperVSqlEnvironmentWorkflowInteractive'
+    )
+    Add-CheckResult -Name 'Vollständige SQL-Installation wartet auf Registry- und Dienstregistrierung' -Success (
+        $environmentText -match 'SQL_SETUP_INSTALLATION_NOT_REGISTERED' -and
+        $environmentText -match 'HYPERV_LAB_SQL_INSTANCE_REGISTRY_NOT_FOUND' -and
+        $environmentText -match "Get-Service -Name 'MSSQLSERVER'"
+    )
+    Add-CheckResult -Name 'Hyper-V-Sonderkonfiguration wird in VM, Setup und SQL Server ausgeführt' -Success (
+        $environmentText -match 'MemoryStartupMB' -and
+        $environmentText -match 'StorageConfiguration' -and
+        $environmentText -match 'SQLCOLLATION' -and
+        $environmentText -match 'Deklarierte SQL-Memory-, MAXDOP-, Cost-Threshold- und TempDB-Konfiguration' -and
+        $environmentText -match 'Set-LabServerConfig'
+    )
+    Add-CheckResult -Name 'Manifestpfad bleibt ohne fertige SQL-Vorlage fail-closed' -Success (
+        $newLabText -match 'HYPERV_MANIFEST_FALLBACK_IMAGE_NOT_FOUND' -and
+        $newLabText -match 'Keine lokale SQL_PREPARED_SEALED-Vorlage'
     )
     $created = & $module {
         param($Root)
