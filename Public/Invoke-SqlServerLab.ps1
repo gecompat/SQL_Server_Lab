@@ -524,7 +524,7 @@ function Invoke-LabAction {
                 $path = $catalog.Path
                 $workflow = $catalog.Catalog
                 $summary = $workflow.Summary
-                $providerValues = @($workflow.Host.Providers | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
+                $providerValues = @($workflow.Host.Providers | ForEach-Object { [string]$_ } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique)
                 $providersText = if ($providerValues.Count -gt 0) { ($providerValues -join ', ') } else { 'n/a' }
                 $fallbackMediaRoot = Get-LabMediaRootDefault
                 $mediaRootText = if ([string]::IsNullOrWhiteSpace($workflow.Defaults.MediaRoot)) {
