@@ -11,6 +11,7 @@
     FunctionsToExport = @(
         'Invoke-SqlServerLab'
         'Get-SqlServerLabWorkflow'
+        'Get-SqlServerLabCatalog'
         'Get-SqlServerLabReconcilePlan'
         'Invoke-SqlServerLabReconcileAction'
         'Invoke-SqlServerLabWorkflowAction'

@@ -451,6 +451,7 @@ Clear-SqlServerLab
 |---|---|
 | `Invoke-SqlServerLab` | Interaktives Menü |
 | `Get-SqlServerLabWorkflow` | Konsolidierte Workflow-, Image-, Vorlagenpool- und Kombinationsübersicht ohne Geheimnisse |
+| `Get-SqlServerLabCatalog` | Konsolidierten Lab-Katalog als JSON-Artefakt erzeugen |
 | `Get-SqlServerLabReconcilePlan` | Read-only Desired/Actual/Diff/Action-Plan für einen bestehenden Lifecycle-Run |
 | `Invoke-SqlServerLabReconcileAction` | Reconcile-Plan für einen laufenden Run ausführen (`START` oder `STOP`) |
 | `Invoke-SqlServerLabWorkflowAction` | Nicht interaktive Hyper-V-Workflow-Aktion für die lokale Oberfläche |

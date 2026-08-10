@@ -17,7 +17,7 @@
 function Invoke-SqlServerLab {
     [CmdletBinding()]
     param(
-        [ValidateSet('New', 'Manifest', 'Status', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'Script', 'Database', 'Image', 'MediaRoot', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip')]
+        [ValidateSet('New', 'Manifest', 'Status', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'Script', 'Database', 'Image', 'MediaRoot', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip', 'Catalog')]
         [string]$Action
     )
 
@@ -56,6 +56,7 @@ function Invoke-SqlServerLab {
             'd' { Invoke-LabAction -ActionName 'DataRoot' }
             't' { Invoke-LabAction -ActionName 'TestDataRoot' }
             'z' { Invoke-LabAction -ActionName 'Install7Zip' }
+            'k' { Invoke-LabAction -ActionName 'Catalog' }
             '0' { $exit = $true }
             'q' { $exit = $true }
             default { Write-Host "  Ungueltige Auswahl: $choice" -ForegroundColor Red }
@@ -277,6 +278,7 @@ function Show-LabMenu {
     Write-Host "    [p] Media Root konfigurieren" -ForegroundColor White
     Write-Host "    [d] Persistenten Data Root konfigurieren" -ForegroundColor White
     Write-Host "    [t] Testdaten-Bibliothek konfigurieren" -ForegroundColor White
+    Write-Host "    [k] SQL-Server-Lab-Katalog erstellen" -ForegroundColor White
     Write-Host "    [z] $sevenZipLabel" -ForegroundColor White
     Write-Host ""
     Write-Host "    [0/q] Beenden" -ForegroundColor DarkGray
@@ -509,6 +511,21 @@ function Invoke-LabAction {
 
         'Image' {
             Invoke-LabHyperVImageAction
+        }
+        'Catalog' {
+            $stateRoot = Get-LabStateRoot
+            $defaultPath = Join-Path (Join-Path $stateRoot 'catalog') 'sql-server-lab-catalog.json'
+            $catalogPath = Read-Host "  Katalog-Zielpfad [$defaultPath]"
+            if ([string]::IsNullOrWhiteSpace($catalogPath)) {
+                $catalogPath = $defaultPath
+            }
+            try {
+                $catalog = Get-SqlServerLabCatalog -Path $catalogPath -StateRoot $stateRoot
+                Write-LabSuccess "SQL-Server-Lab-Katalog erstellt: $($catalog.Path)"
+            }
+            catch {
+                Write-LabError $_.Exception.Message
+            }
         }
     }
 }

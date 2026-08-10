@@ -48,6 +48,11 @@ public_commands:
     source: Public/Get-SqlServerLabWorkflow.ps1
     purpose: "Konsolidierte, geheimnisfreie Workflow- und Imageübersicht"
     mutates_host: false
+  - name: Get-SqlServerLabCatalog
+    source: Public/Get-SqlServerLabCatalog.ps1
+    purpose: "Laufzeitworkflow-Katalog als persistentes, maschinenlesbares JSON-Artefakt erstellen"
+    mutates_host: true
+    writes_files: true
   - name: Get-SqlServerLabReconcilePlan
     source: Public/Get-SqlServerLabReconcilePlan.ps1
     purpose: "Read-only Desired/Actual/Diff/Action-Plan fuer einen bestehenden Lifecycle-Run"

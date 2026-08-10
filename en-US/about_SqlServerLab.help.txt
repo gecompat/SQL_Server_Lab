@@ -48,6 +48,10 @@ COMMANDS
         Returns the consolidated workflow view for local labs, Windows
         baselines, SQL prepared images, and acceptance environments.
 
+    Get-SqlServerLabCatalog
+        Builds a consolidated, secret-free runtime catalog of current labs,
+        templates, and artifacts and stores it as JSON.
+
     Get-SqlServerLabReconcilePlan
         Returns a read-only desired/actual/diff/action plan for an existing
         run lifecycle.
