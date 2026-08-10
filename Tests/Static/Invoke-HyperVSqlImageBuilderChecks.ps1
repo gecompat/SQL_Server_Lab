@@ -261,7 +261,7 @@ try {
         $builderText -match 'New-VHD -Path \$diskPath -Dynamic' -and
         $builderText -match 'Add-VMDvdDrive -VM \$vm -Path \$windowsMedia\.IsoPath' -and
         $builderText -match 'Add-VMDvdDrive -VM \$vm -Path \$sqlMedia\.IsoPath' -and
-        $menuText -match "'1' \{ Invoke-LabHyperVMenuAction -Title 'Neues SQL-Prepared-Image' -Action \{ New-LabHyperVSqlImageBuildInteractive \} \}" -and
+        $menuText -match "'3' \{ Invoke-LabHyperVMenuAction -Title 'Neue SQL-Prepared-Vorlage' -Action \{ New-LabHyperVSqlImageBuildInteractive \} \}" -and
         $menuText -match 'ein finaler Sysprep'
     )
     Add-CheckResult -Name 'Optionaler Expertenpfad verwendet eine veröffentlichte OS-Baseline als unveränderten Parent' -Success (

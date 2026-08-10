@@ -737,8 +737,8 @@ function Invoke-LabNewEnvironmentInteractive {
     .SYNOPSIS
         Zentraler Interaktionspfad für "Neue Umgebung erstellen".
     .DESCRIPTION
-        Bietet verfügbare Provider inkl. Hyper-V an und ruft dann den passenden
-        Provider-spezifischen Workflow auf.
+        Fragt zuerst das Ziel der Umgebung (SQL oder Windows-OS-Slot) ab und
+        wählt anschließend den passenden Anbieter (Docker/Podman/Hyper-V).
     #>
     [CmdletBinding()]
     param()
@@ -771,9 +771,88 @@ function Invoke-LabNewContainerEnvironmentInteractive {
         Interaktiver Hyper-V-unabhängiger Container-Erstellungsfluss.
     #>
     [CmdletBinding()]
-    param([Parameter(Mandatory)][string]$Provider,$Intent)
-    if($Intent){$version=$Intent.VersionId;$profile=$Intent.Profile;$labName=$Intent.LabName;$instanceId=$Intent.InstanceId}
-    else { $version='2025';$profile='standard';$labName="adhoc-$version-$provider";$instanceId='primary' }
+    param([Parameter(Mandatory)][string]$Provider, $Intent)
+
+    if ($Intent) {
+        $version = [string]$Intent.VersionId
+        Write-LabInfo "Container-Image: $(Get-SqlServerDockerImage -VersionId $version)"
+        $selectedSamples = @(Select-LabSampleSelection -SqlVersion $version)
+        $arguments = @{
+            Version=$version; Provider=$Provider; Profile=[string]$Intent.Profile; LabName=[string]$Intent.LabName
+            InstanceId=[string]$Intent.InstanceId; Port=[int]$Intent.HostPort; Cpu=[decimal]$Intent.Cpu
+            MemoryMB=[int]$Intent.MemoryMB; Collation=[string]$Intent.Collation
+            ServerConfig=(New-LabIntentServerConfig -Intent $Intent -Target container)
+            Drives=@(New-LabContainerDrivesFromIntent -Intent $Intent)
+        }
+        if ($selectedSamples.Count -gt 0) { $arguments.Sample = $selectedSamples }
+        $lab = New-SqlServerLab @arguments
+        Write-Host ''
+        Write-LabSuccess "Lab erstellt auf $Provider. RunId: $($lab.RunId)"
+        return
+    }
+
+    # Basisversion und optional einen reproduzierbar fixierten CU-Stand abfragen.
+    $containerVersions = @(
+        Get-SqlServerVersions -Status SUPPORTED |
+            Where-Object { $_.docker -and $_.docker.image } |
+            Sort-Object { [int]$_.id }
+    )
+    if ($containerVersions.Count -eq 0) {
+        Write-LabError 'Keine unterstützte SQL-Server-Container-Version im Versionskatalog vorhanden.'
+        return
+    }
+    $versionIds = @($containerVersions | ForEach-Object { [string]$_.id })
+    $defaultVersion = $versionIds[-1]
+    while ($true) {
+        Write-Host ("  Verfügbare {0}-Image-Versionen: {1}" -f $Provider, ($versionIds -join ', ')) -ForegroundColor DarkGray
+        $baseVersion = Read-Host "  SQL-Server-Version [$defaultVersion]"
+        if (-not $baseVersion) { $baseVersion = $defaultVersion }
+        if ($baseVersion -in $versionIds) { break }
+        Write-LabWarning "SQL Server $baseVersion ist für $Provider nicht katalogisiert. Verfügbar: $($versionIds -join ', ')."
+    }
+
+    $builds = @(Get-SqlServerBuilds -VersionId $baseVersion | Sort-Object {
+        if ([string]$_.cu -match '^CU(\d+)$') { [int]$Matches[1] } else { -1 }
+    } -Descending)
+    $selectedBuild = $null
+    if ($builds.Count -gt 0) {
+        $cuNumbers = @($builds | ForEach-Object {
+            if ([string]$_.cu -match '^CU(\d+)$') { [int]$Matches[1] }
+        } | Sort-Object)
+        $isContiguous = $cuNumbers.Count -gt 0 -and
+            $cuNumbers.Count -eq $cuNumbers[-1] -and
+            (($cuNumbers -join ',') -eq ((1..$cuNumbers[-1]) -join ','))
+        $cuSummary = if ($isContiguous) {
+            "CU1..CU$($cuNumbers[-1])"
+        }
+        else {
+            (@($builds.cu) -join ', ')
+        }
+        while ($true) {
+            Write-Host "  Verfügbare CU-Stände für SQL Server ${baseVersion}: $cuSummary" -ForegroundColor DarkGray
+            Write-Host '  [Enter] verwendet den veränderlichen Microsoft-Tag latest.' -ForegroundColor DarkGray
+            $buildSelection = Read-Host '  CU-Stand, z. B. CU7 oder 7 [latest]'
+            if (-not $buildSelection -or $buildSelection -eq 'latest') { break }
+            $requestedCu = if ($buildSelection -match '^\d+$') { "CU$buildSelection" } else { $buildSelection.ToUpperInvariant() }
+            $selectedBuild = $builds | Where-Object { [string]$_.cu -eq $requestedCu } | Select-Object -First 1
+            if ($selectedBuild) { break }
+            Write-LabWarning "CU '$buildSelection' ist für SQL Server $baseVersion nicht katalogisiert. Verfügbar: $cuSummary oder latest."
+        }
+    }
+    $version = if ($selectedBuild) { "$baseVersion-$($selectedBuild.cu)" } else { $baseVersion }
+    $containerImage = Get-SqlServerDockerImage -VersionId $version
+    Write-LabInfo "Container-Image: $containerImage"
+
+    $profile = Read-Host '  Ressourcenprofil: compact, standard, performance [standard]'
+    if (-not $profile) { $profile = 'standard' }
+    if ($profile -notin @('compact', 'standard', 'performance')) {
+        Write-LabError "Ungültiges Ressourcenprofil: $profile"
+        return
+    }
+    $labName = Read-Host "  Labname [adhoc-$version-$provider]"
+    if (-not $labName) { $labName = "adhoc-$version-$provider" }
+    $instanceId = Read-Host '  Instanzname [primary]'
+    if (-not $instanceId) { $instanceId = 'primary' }
 
     # Testdatenbanken (optional, Mehrfachauswahl)
     $selectedSamples = @(Select-LabSampleSelection -SqlVersion $version)
@@ -829,7 +908,7 @@ function Invoke-LabNewHyperVEnvironmentInteractive {
     if (-not $mode) { $mode = '1' }
     switch ($mode) {
         '1' {
-            New-LabHyperVEnvironmentInteractive -SqlOnly
+            Invoke-LabNewHyperVSqlEnvironmentWorkflowInteractive
         }
         '2' {
             New-LabHyperVEnvironmentInteractive -WindowsOnly
@@ -838,6 +917,76 @@ function Invoke-LabNewHyperVEnvironmentInteractive {
             Write-LabError "Ungültige Auswahl: $mode"
         }
     }
+}
+
+function Invoke-LabNewHyperVSqlEnvironmentWorkflowInteractive {
+    <#
+    .SYNOPSIS
+        Führt den interaktiven Hyper-V-SQL-Pfad bis zum nächsten ausführbaren Schritt.
+    .DESCRIPTION
+        Verwendet eine vorhandene SQL-Vorlage direkt. Fehlt sie, wird aus einer
+        OS-Vorlage ein manueller Windows-Slot begonnen. Fehlt auch die OS-Vorlage,
+        wird ein vorhandener OS-Builder fortgesetzt oder ein neuer aus DVD erzeugt.
+        Dieser Fallback ist bewusst nur interaktiv; Manifeste bleiben fail-closed.
+    #>
+    [CmdletBinding()]
+    param($Intent)
+
+    $artifacts = @(Get-HyperVImageArtifact -SkipIntegrityCheck)
+    $sqlArtifacts = @($artifacts | Where-Object { [string]$_.artifactState -eq 'SQL_PREPARED_SEALED' })
+    if ($Intent -and $Intent.RequiresFreshSqlInstall) { $sqlArtifacts = @() }
+    if ($sqlArtifacts.Count -gt 0) {
+        New-LabHyperVEnvironmentInteractive -SqlOnly -Intent $Intent
+        Write-LabInfo 'Kapazitätshinweis: Für besondere SQL-Konfigurationen kann zusätzlich ein Windows-OS-Slot aus der OS-Vorlage vorbereitet werden.'
+        return
+    }
+
+    Write-LabWarning 'Keine veröffentlichte SQL-Prepared-Vorlage vorhanden. Der interaktive Workflow wechselt auf den Windows-OS-Pfad.'
+    $reusableSlot = Select-LabReusableHyperVWindowsSlotInteractive -Intent $Intent
+    if ($reusableSlot) {
+        Invoke-LabReusableHyperVWindowsSlotInteractive -Slot $reusableSlot -Intent $Intent
+        return
+    }
+    $osArtifacts = @($artifacts | Where-Object {
+        [string]$_.artifactState -eq 'OS_SEALED' -and
+        [string]$_.operatingSystem.id -match '^windows-(server-)?[0-9]+$'
+    })
+
+    if ($osArtifacts.Count -eq 0) {
+        Write-LabWarning 'Auch keine veröffentlichte Windows-OS-Vorlage vorhanden.'
+        Write-Host '  Notwendiger Ablauf:' -ForegroundColor Yellow
+        Write-Host '    1. Windows-OS-Vorlage aus DVD erstellen und veröffentlichen.' -ForegroundColor White
+        Write-Host '    2. Daraus einen Windows-Slot für diese SQL-Umgebung erzeugen.' -ForegroundColor White
+        Write-Host '    3. OOBE abschließen; danach übernimmt das Framework Netzwerk und SQL-Ausbau.' -ForegroundColor White
+
+        $openBuilds = @(Get-HyperVImageBuildPlans | Where-Object {
+            [string]$_.state -notin @('OS_SEALED', 'TEST_ARTIFACT_PUBLISHED', 'FAILED', 'CLEANED_UP')
+        })
+        if ($openBuilds.Count -gt 0) {
+            Write-LabInfo "Ein offener Windows-OS-Builder ist vorhanden ($($openBuilds.Count)); dieser wird statt eines doppelten Builds fortgesetzt."
+            if (Read-LabConfirm -Prompt '  Windows-OS-Vorlagen-Workflow jetzt fortsetzen?' -Default $true) {
+                Invoke-LabHyperVWindowsBaselineMenu
+            }
+        }
+        elseif (Read-LabConfirm -Prompt '  Windows-OS-Vorlage jetzt aus DVD beginnen?' -Default $true) {
+            New-LabHyperVImageBuildInteractive
+        }
+
+        $osArtifacts = @(Get-HyperVImageArtifact -SkipIntegrityCheck | Where-Object {
+            [string]$_.artifactState -eq 'OS_SEALED' -and
+            [string]$_.operatingSystem.id -match '^windows-(server-)?[0-9]+$'
+        })
+        if ($osArtifacts.Count -eq 0) {
+            Write-LabInfo 'Die OS-Vorlage benötigt noch die angezeigten manuellen Windows-Schritte.'
+            Write-LabInfo 'Danach erneut [1] „Neue Umgebung erstellen“ wählen; der Workflow setzt automatisch beim Windows-Slot fort.'
+            return
+        }
+        Write-LabSuccess 'Windows-OS-Vorlage ist jetzt verfügbar; der SQL-Umgebungsworkflow wird fortgesetzt.'
+    }
+
+    Write-LabInfo 'Eine Windows-OS-Vorlage ist verfügbar. Daraus wird jetzt der Betriebssystem-Slot für die gewünschte SQL-Umgebung angelegt.'
+    Write-LabInfo 'SQL Server wird erst nach der manuellen OOBE installiert; es erfolgt kein zusätzlicher Sysprep-Lauf.'
+    New-LabHyperVEnvironmentInteractive -WindowsOnly -ContinueSqlWorkflow -Intent $Intent
 }
 
 function Invoke-LabHyperVImageAction {
@@ -1695,7 +1844,11 @@ function Select-LabSqlInstallationMedia {
         Verzeichnisnamen eingeben muss.
     #>
     [CmdletBinding()]
-    param([Parameter(Mandatory)][string]$MediaRoot)
+    param(
+        [Parameter(Mandatory)][string]$MediaRoot,
+        [string]$SqlVersion,
+        [ValidateSet('Enterprise','Standard')][string]$MediaEdition
+    )
 
     $sqlRoot = Join-Path $MediaRoot 'SQL'
     if (-not (Test-Path -LiteralPath $sqlRoot -PathType Container)) {
@@ -1727,14 +1880,20 @@ function Select-LabSqlInstallationMedia {
     $versions = @($choices.SqlVersion | Select-Object -Unique | Sort-Object { [int]$_ } -Descending)
     $defaultVersion = $versions[0]
     Write-Host "  Verfügbare SQL Server Versionen: $($versions -join ', ')" -ForegroundColor White
-    $sqlVersion = Read-Host "  SQL Server Version [$defaultVersion]"
-    if (-not $sqlVersion) { $sqlVersion = $defaultVersion }
-    if ($sqlVersion -notin $versions) {
-        Write-LabError "SQL-Version ist nicht als ISO verfügbar: $sqlVersion"
+    if (-not $SqlVersion) { $SqlVersion = Read-Host "  SQL Server Version [$defaultVersion]" }
+    if (-not $SqlVersion) { $SqlVersion = $defaultVersion }
+    if ($SqlVersion -notin $versions) {
+        Write-LabError "SQL-Version ist nicht als ISO verfügbar: $SqlVersion"
         return $null
     }
 
-    $versionChoices = @($choices | Where-Object SqlVersion -eq $sqlVersion)
+    $versionChoices = @($choices | Where-Object SqlVersion -eq $SqlVersion)
+    if ($MediaEdition) { $versionChoices = @($versionChoices | Where-Object MediaEdition -eq $MediaEdition) }
+    if ($versionChoices.Count -eq 0) { Write-LabError "Kein SQL-$SqlVersion-Medium für Edition $MediaEdition verfügbar."; return $null }
+    if ($versionChoices.Count -eq 1) {
+        Write-LabInfo "SQL-Medium automatisch gewählt: $($versionChoices[0].MediaId)"
+        return $versionChoices[0]
+    }
     Write-Host '  Verfügbare SQL-Installationsmedien:' -ForegroundColor White
     for ($i = 0; $i -lt $versionChoices.Count; $i++) {
         $choice = $versionChoices[$i]
@@ -2413,16 +2572,255 @@ function Read-LabHyperVLocaleSettings {
     }
 }
 
+function New-LabHyperVSqlDeploymentPlanInteractive {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$RunId, $Intent)
+
+    if ($Intent) {
+        $deploymentMode = [string]$Intent.Purpose
+    }
+    else {
+        $mode = Read-Host '  Ausbau: [1] fertiger SQL-Pool-Slot, [2] vollständige SQL-Ad-hoc-Umgebung [1]'
+        if (-not $mode) { $mode = '1' }
+        if ($mode -notin @('1', '2')) { Write-LabWarning 'Ungültige Auswahl.'; return $null }
+        $deploymentMode = if ($mode -eq '1') { 'sql-pool-slot' } else { 'adhoc-install' }
+    }
+    $mediaRoot = Get-LabMediaRootDefault
+    if (-not $mediaRoot) { throw 'Kein Media Root gespeichert. Zuerst Hauptmenü [r] konfigurieren.' }
+    $mediaArguments = @{ MediaRoot=$mediaRoot }
+    if ($Intent) {
+        $mediaArguments.SqlVersion = [string]$Intent.BaseVersion
+        if ([string]$Intent.Edition -in @('Standard','Enterprise')) { $mediaArguments.MediaEdition = [string]$Intent.Edition }
+    }
+    $selectedSqlMedia = Select-LabSqlInstallationMedia @mediaArguments
+    if (-not $selectedSqlMedia) { return $null }
+    $processorDefault = if ($deploymentMode -eq 'adhoc-install') { 8 } else { 4 }
+    $processorCount = if ($Intent) { [int]$Intent.Cpu } else { Read-Host "  vCPU [$processorDefault]" }
+    if (-not $processorCount) { $processorCount = $processorDefault }
+    $maximumIops = 0
+    if (-not $Intent -and $deploymentMode -eq 'adhoc-install') {
+        $maximumIops = Read-Host '  Maximale IOPS der SQL-Datenplatte (0 = unbegrenzt) [100]'
+        if ([string]::IsNullOrWhiteSpace($maximumIops)) { $maximumIops = 100 }
+    }
+    $lab = Get-HyperVLabWorkflowRun -RunId $RunId
+    $vmStatus = Get-HyperVInstanceStatus -VMName ([string]$lab.Instance.vmName) `
+        -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
+    if (-not $vmStatus -or -not $vmStatus.Exists) { throw 'HYPERV_LAB_VM_NOT_FOUND' }
+    if ([string]$vmStatus.State -ne 'Off') {
+        Write-LabInfo 'Für die SQL-Ressourcenplanung muss die VM ausgeschaltet sein; sie wird jetzt automatisch sauber heruntergefahren.'
+        $stopped = Stop-HyperVLabEnvironment -RunId $RunId
+        Write-LabSuccess "VM für SQL-Planung ausgeschaltet: $($stopped.VMName)"
+    }
+    else {
+        Write-LabInfo 'VM ist bereits ausgeschaltet und für die SQL-Ressourcenplanung bereit.'
+    }
+    $planArguments = @{
+        RunId=$RunId; SqlVersion=[string]$selectedSqlMedia.SqlVersion; DeploymentMode=$deploymentMode
+        MediaEdition=[string]$selectedSqlMedia.MediaEdition; SqlMediaPath=[string]$selectedSqlMedia.MediaId
+        ProcessorCount=[int]$processorCount; MaximumDataIops=[long]$maximumIops
+    }
+    if ($Intent) {
+        $planArguments.MemoryStartupMB = [int]$Intent.MemoryMB
+        $planArguments.Collation = [string]$Intent.Collation
+        $planArguments.SqlPort = if ([int]$Intent.HostPort -gt 0) { [int]$Intent.HostPort } else { 1433 }
+        $planArguments.NetworkMode = [string]$Intent.NetworkMode
+        $planArguments.ServerConfig = New-LabIntentServerConfig -Intent $Intent -Target hyperv
+        $tempPaths = if ([string]$Intent.StorageMode -eq 'separated') {
+            @(@('T','U','V','W','X','Y','Z','Q')[0..([int]$Intent.TempDbVolumeCount - 1)] | ForEach-Object { "${_}:\TempDB" })
+        } else { @('C:\SQLData\TempDB') }
+        $planArguments.StorageConfiguration = [PSCustomObject]@{
+            dataPath=if ([string]$Intent.StorageMode -eq 'separated') { 'E:\SQLData' } else { 'C:\SQLData\Data' }
+            logPath=if ([string]$Intent.StorageMode -eq 'separated') { 'L:\SQLLog' } else { 'C:\SQLData\Log' }
+            tempDbPaths=$tempPaths
+            backupPath=if ([string]$Intent.StorageMode -eq 'separated') { 'R:\SQLBackup' } else { 'C:\SQLData\Backup' }
+        }
+    }
+    $plan = Set-HyperVLabSqlDeploymentPlan @planArguments
+    Write-LabSuccess "SQL-Ausbau gespeichert: SQL $($plan.sqlVersion) · $($plan.deploymentMode) · $($plan.processorCount) vCPU"
+    if ([long]$plan.maximumDataIops -gt 0) {
+        $dataRoot = Get-LabDataRootDefault
+        if (-not $dataRoot) { throw 'Kein Data Root gespeichert. Zuerst Hauptmenü [d] konfigurieren.' }
+        $storage = Enable-HyperVLabPersistentData -RunId $RunId -DataRoot $dataRoot -SizeGB 128 -MaximumIops ([long]$plan.maximumDataIops)
+        Write-LabSuccess "Gedrosselte SQL-Datenplatte angehängt: max. $($plan.maximumDataIops) IOPS · $($storage.hostPath)"
+    }
+    return $plan
+}
+
+function Invoke-LabHyperVSqlSlotInstallInteractive {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][PSObject]$Plan,
+        [Parameter(Mandatory)][string]$RunId
+    )
+
+    if ([string]$Plan.deploymentMode -notin @('sql-pool-slot', 'adhoc-install') -or
+        [string]$Plan.state -notin @('PLANNED', 'CONFIGURATION_PENDING')) {
+        Write-LabWarning 'Kein ausführbarer vollständiger SQL-Installationsplan vorhanden.'
+        return $false
+    }
+    $mediaRoot = Get-LabMediaRootDefault
+    if (-not $mediaRoot) { throw 'Kein Media Root gespeichert. Zuerst Hauptmenü [r] konfigurieren.' }
+    Write-Host "  SQL: $($Plan.sqlVersion) · $($Plan.deploymentMode) · Medium $($Plan.mediaEdition)" -ForegroundColor White
+    Write-Host '  SQL wird vollständig installiert. Es wird kein Sysprep ausgeführt und dieser Slot wird nicht geklont.' -ForegroundColor Yellow
+    if (-not (Read-LabConfirm -Prompt '  Vollständige SQL-Installation jetzt ausführen?' -Default $true)) { return $false }
+    $result = Invoke-HyperVLabSqlSlotInstall -RunId $RunId -MediaRoot $mediaRoot
+    Write-LabSuccess "SQL-Slot ist bereit: SQL $($result.SqlVersion) · $($result.DeploymentMode)"
+    if ($result.GeneratedSqlAccess) {
+        Write-Host "  Connection String: $($result.GeneratedSqlAccess.connectionString)" -ForegroundColor White
+        Write-Host "  SA-Passwort: $($result.GeneratedSqlAccess.password)" -ForegroundColor Yellow
+        Write-Host "  Später abrufbar: Get-SqlServerLabGeneratedSqlAccess -RunId $RunId" -ForegroundColor DarkGray
+    }
+    return $true
+}
+
+function Complete-LabHyperVManualWindowsWorkflowInteractive {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RunId,
+        [switch]$ContinueWithSql,
+        $Intent
+    )
+
+    Write-Host ''
+    Write-Host '  Bitte jetzt in VMConnect erledigen:' -ForegroundColor White
+    Write-Host '    1. Windows-OOBE vollständig abschließen.' -ForegroundColor White
+    Write-Host '    2. Lokales Administratorpasswort setzen.' -ForegroundColor White
+    Write-Host '    3. Einmal vollständig als Administrator anmelden.' -ForegroundColor White
+    Write-Host '    4. Danach hier mit [a] bestätigen; der Workflow läuft automatisch weiter.' -ForegroundColor White
+    Write-Host '  Falls VMConnect nach einem Neustart schwarz bleibt, VMConnect schließen und erneut verbinden.' -ForegroundColor DarkYellow
+    do {
+        $done = Read-Host '  [a] Alles erledigt / [b] Problem - Workflow abbrechen [b]'
+        if (-not $done) { $done = 'b' }
+        $done = $done.ToLowerInvariant()
+        if ($done -notin @('a', 'b')) { Write-LabWarning 'Ungültige Auswahl. Bitte [a] oder [b] eingeben.' }
+    } while ($done -notin @('a', 'b'))
+    if ($done -eq 'b') {
+        Write-LabWarning 'Workflow angehalten. Der Slot bleibt erhalten; Wiederaufnahme unter [i] -> [4] mit [o] „Windows-Grundinstallation übernehmen“.'
+        return $false
+    }
+
+    $userName = Read-Host '  Lokaler Gast-Administrator [Administrator]'
+    if (-not $userName) { $userName = 'Administrator' }
+    $credential = [PSCredential]::new($userName, (Read-Host '  Gastpasswort' -AsSecureString))
+    Write-LabInfo 'Windows-Grundinstallation wird jetzt geprüft und das Labnetz eingerichtet.'
+    $result = Complete-HyperVLabManualWindowsSlot -RunId $RunId -Credential $credential
+    Write-LabSuccess "Windows-Slot übernommen: $($result.VMName) · $($result.ComputerName)"
+    if (-not $ContinueWithSql) { return $true }
+
+    Write-LabInfo 'Der Workflow fährt ohne Menüwechsel mit der SQL-Konfiguration fort.'
+    $plan = New-LabHyperVSqlDeploymentPlanInteractive -RunId $RunId -Intent $Intent
+    if (-not $plan) { return $false }
+    return Invoke-LabHyperVSqlSlotInstallInteractive -Plan $plan -RunId $RunId
+}
+
+function Select-LabReusableHyperVWindowsSlotInteractive {
+    [CmdletBinding()]
+    param($Intent)
+
+    $candidates = @()
+    foreach ($run in @(Get-LabActiveRuns)) {
+        if ([string]$run.metadata.workflowKind -ne 'hyperv-lab') { continue }
+        try {
+            $lab = Get-HyperVLabWorkflowRun -RunId ([string]$run.runId)
+            $plan = $lab.Instance.sqlDeploymentPlan
+            $resumableSqlPlan = $plan -and
+                [string]$plan.deploymentMode -in @('sql-pool-slot', 'adhoc-install') -and
+                [string]$plan.state -in @('PLANNED', 'CONFIGURATION_PENDING')
+            $unusedWindowsSlot = [string]$lab.Instance.workload -eq 'windows' -and -not $plan
+            if ($Intent -and $resumableSqlPlan -and [string]$plan.sqlVersion -ne [string]$Intent.BaseVersion) { $resumableSqlPlan = $false }
+            if ($Intent -and $unusedWindowsSlot -and [string]$Intent.StorageMode -eq 'separated' -and
+                @($lab.Instance.additionalDrives).Count -ne @($Intent.Drives).Count) { $unusedWindowsSlot = $false }
+            if (-not $unusedWindowsSlot -and -not $resumableSqlPlan) { continue }
+            $status = Get-HyperVInstanceStatus -VMName ([string]$lab.Instance.vmName) `
+                -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
+            if (-not $status -or -not $status.Exists) { continue }
+            $phase = if ($resumableSqlPlan) {
+                'SQL_RESUME'
+            }
+            elseif ($lab.Instance.windowsProvisioning -and [string]$lab.Instance.windowsProvisioning.state -eq 'COMPLETE') {
+                'WINDOWS_READY'
+            }
+            else {
+                'OOBE_PENDING'
+            }
+            $candidates += [PSCustomObject]@{
+                RunId = [string]$lab.Run.runId
+                VMName = [string]$lab.Instance.vmName
+                Phase = $phase
+                LiveState = [string]$status.State
+                CreatedAt = [string]$lab.Run.createdAt
+                Plan = $plan
+            }
+        }
+        catch {
+            Write-LabWarning "Windows-Slot $($run.runId) konnte nicht als Wiederverwendungskandidat geprüft werden: $($_.Exception.Message)"
+        }
+    }
+    $candidates = @($candidates | Sort-Object CreatedAt -Descending)
+    if ($candidates.Count -eq 0) { return $null }
+
+    Write-Host ''
+    Write-Host '  Vorhandene Windows-Slots ohne SQL-Ausbau:' -ForegroundColor White
+    for ($i = 0; $i -lt $candidates.Count; $i++) {
+        $candidate = $candidates[$i]
+        $phaseLabel = switch ($candidate.Phase) {
+            'SQL_RESUME' { if ([string]$candidate.Plan.state -eq 'CONFIGURATION_PENDING') { 'SQL installiert, Konfiguration fortsetzen' } else { 'SQL-Ausbau geplant, Installation fortsetzen' } }
+            'WINDOWS_READY' { 'Windows übernommen, SQL offen' }
+            default { 'OOBE noch offen' }
+        }
+        Write-Host "    [$($i + 1)] $($candidate.VMName) · $phaseLabel · Live: $($candidate.LiveState)" -ForegroundColor White
+    }
+    Write-Host '    [n] Keinen Slot verwenden und einen neuen aus der OS-Vorlage erzeugen' -ForegroundColor DarkGray
+    $selection = Read-Host '  Slot verwenden [1]'
+    if (-not $selection) { $selection = '1' }
+    if ($selection.ToLowerInvariant() -eq 'n') { return $null }
+    if ($selection -notmatch '^\d+$' -or [int]$selection -lt 1 -or [int]$selection -gt $candidates.Count) {
+        Write-LabWarning 'Ungültige Auswahl; es wird kein zusätzlicher Slot erzeugt.'
+        return $null
+    }
+    return $candidates[[int]$selection - 1]
+}
+
+function Invoke-LabReusableHyperVWindowsSlotInteractive {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][PSObject]$Slot, $Intent)
+
+    Write-LabSuccess "Vorhandener Windows-Slot wird für den SQL-Workflow verwendet: $($Slot.VMName)"
+    if ([string]$Slot.Phase -eq 'SQL_RESUME') {
+        Write-LabInfo 'Ein unterbrochener SQL-Ausbau wurde erkannt und wird ohne erneute Installation am gespeicherten Schritt fortgesetzt.'
+        $null = Invoke-LabHyperVSqlSlotInstallInteractive -Plan $Slot.Plan -RunId ([string]$Slot.RunId)
+        return
+    }
+    if ([string]$Slot.Phase -eq 'OOBE_PENDING') {
+        if ([string]$Slot.LiveState -ne 'Running') {
+            $null = Start-HyperVLabEnvironment -RunId ([string]$Slot.RunId)
+        }
+        $null = Open-HyperVLabEnvironmentConsole -RunId ([string]$Slot.RunId)
+        $null = Complete-LabHyperVManualWindowsWorkflowInteractive -RunId ([string]$Slot.RunId) -ContinueWithSql -Intent $Intent
+        return
+    }
+
+    Write-LabInfo 'Windows ist bereits übernommen; der Workflow fährt direkt mit SQL-Konfiguration und Installation fort.'
+    $plan = New-LabHyperVSqlDeploymentPlanInteractive -RunId ([string]$Slot.RunId) -Intent $Intent
+    if (-not $plan) { return }
+    $null = Invoke-LabHyperVSqlSlotInstallInteractive -Plan $plan -RunId ([string]$Slot.RunId)
+}
+
 function New-LabHyperVEnvironmentInteractive {
     [CmdletBinding()]
     param(
         [switch]$WindowsOnly,
         [switch]$SqlOnly,
+        [switch]$ContinueSqlWorkflow,
         $Intent
     )
 
     if ($WindowsOnly -and $SqlOnly) {
         Write-LabError 'Ungültige Kombination: -WindowsOnly und -SqlOnly.'
+        return
+    }
+    if ($ContinueSqlWorkflow -and -not $WindowsOnly) {
+        Write-LabError '-ContinueSqlWorkflow benötigt -WindowsOnly.'
         return
     }
 
@@ -2431,18 +2829,21 @@ function New-LabHyperVEnvironmentInteractive {
     else { Select-LabHyperVPreparedArtifact }
     if (-not $artifact) { return }
     $isSqlPrepared = [string]$artifact.artifactState -eq 'SQL_PREPARED_SEALED'
-    $defaultLabName = '{0}-{1}' -f $(if ($isSqlPrepared) {'hyperv-sql-lab'} else {'hyperv-windows-lab'}), (Get-Date -Format 'yyyy-MM-dd-HHmmss')
-    $name = if($Intent){[string]$Intent.LabName}else{Read-Host "  Labname [$defaultLabName]"}
+    $defaultLabNamePrefix = if ($isSqlPrepared) { 'hyperv-sql-lab' } else { 'hyperv-windows-lab' }
+    $defaultLabName = '{0}-{1}' -f $defaultLabNamePrefix, (Get-Date -Format 'yyyy-MM-dd-HHmmss')
+    $name = if ($Intent) { [string]$Intent.LabName } else { Read-Host "  Labname [$defaultLabName]" }
     if (-not $name) { $name = $defaultLabName }
-    $instanceId = if($Intent){[string]$Intent.InstanceId}else{Read-Host '  Instanzname [primary]'}
+    $instanceId = if ($Intent) { [string]$Intent.InstanceId } else { Read-Host '  Instanzname [primary]' }
     if (-not $instanceId) { $instanceId = 'primary' }
-    $memory = if($Intent){[int]$Intent.MemoryMB}else{Read-Host '  Startspeicher MB [4096]'}
+    $memory = if ($Intent) { [int]$Intent.MemoryMB } else { Read-Host '  Startspeicher MB [4096]' }
     if (-not $memory) { $memory = 4096 }
-    $cpu = if($Intent){[int]$Intent.Cpu}else{Read-Host '  vCPU [4]'}
+    $cpu = if ($Intent) { [int]$Intent.Cpu } else { Read-Host '  vCPU [4]' }
     if (-not $cpu) { $cpu = 4 }
-    $switch = if($Intent -and $Intent.NetworkMode -eq 'isolated'){[PSCustomObject]@{SwitchName=$null;Isolated=$true}}elseif($Intent -and $Intent.NetworkMode -eq 'host-access'){[PSCustomObject]@{SwitchName=$null;Isolated=$false}}else{Select-LabHyperVVirtualSwitch}
+    $switch = if ($Intent -and [string]$Intent.NetworkMode -eq 'isolated') { [PSCustomObject]@{ SwitchName=$null; Isolated=$true } }
+        elseif ($Intent -and [string]$Intent.NetworkMode -eq 'host-access') { [PSCustomObject]@{ SwitchName=$null; Isolated=$false } }
+        else { Select-LabHyperVVirtualSwitch }
     if (-not $switch) { return }
-    $additionalDrives = if($Intent){@(New-LabHyperVDrivesFromIntent -Intent $Intent)}else{@()}
+    $additionalDrives = if ($Intent) { @(New-LabHyperVDrivesFromIntent -Intent $Intent) } else { @() }
     if (-not $isSqlPrepared) {
         Write-Host "  Image: $($artifact.artifactId)" -ForegroundColor DarkGray
         Write-Host '  Es wird nur ein ausgeschalteter Betriebssystem-Slot als differenzierende VHDX erstellt.' -ForegroundColor Yellow
@@ -2457,31 +2858,13 @@ function New-LabHyperVEnvironmentInteractive {
             $null = Start-HyperVLabEnvironment -RunId $lab.RunId
             $null = Open-HyperVLabEnvironmentConsole -RunId $lab.RunId
             Write-LabSuccess "Windows-Slot läuft; VMConnect ist geöffnet: $($lab.VMName)"
-            Write-LabInfo 'Windows-OOBE jetzt manuell abschließen, Administratorpasswort setzen und einmal vollständig anmelden.'
-            Write-LabInfo 'Falls VMConnect nach einem Neustart schwarz bleibt: unter [i] -> [4] den Slot wählen und mit [v] neu verbinden.'
-            if($Intent){
-                Write-Host ''
-                Write-Host '  Bitte jetzt in VMConnect erledigen:' -ForegroundColor White
-                Write-Host '    1. Windows-OOBE vollständig abschließen.' -ForegroundColor White
-                Write-Host '    2. Lokales Administratorpasswort setzen.' -ForegroundColor White
-                Write-Host '    3. Einmal vollständig als Administrator anmelden.' -ForegroundColor White
-                $handoff=Read-Host '  [a] Alles erledigt / [b] Problem - Workflow abbrechen [b]'
-                if($handoff -ne 'a'){Write-LabWarning 'Workflow wurde vor der SQL-Installation beendet.';return}
-                $user=Read-Host '  Lokaler Gast-Administrator [Administrator]';if(-not $user){$user='Administrator'}
-                $credential=[PSCredential]::new($user,(Read-Host '  Gastpasswort' -AsSecureString))
-                $null=Complete-HyperVLabManualWindowsSlot -RunId $lab.RunId -Credential $credential
-                $null=Stop-HyperVLabEnvironment -RunId $lab.RunId
-                $mediaRoot=Get-LabMediaRootDefault
-                if(-not $mediaRoot){throw 'Kein Media Root gespeichert.'}
-                $mediaEdition=if($Intent.Edition -eq 'Standard'){'Standard'}else{'Enterprise'}
-                $sqlMedia=Resolve-HyperVSqlInstallationMedia -MediaRoot $mediaRoot -SqlVersion $Intent.BaseVersion -MediaEdition $mediaEdition
-                if($sqlMedia.HashStatus -ne 'SIDECAR_READY'){$sqlMedia=New-HyperVSqlMediaHashSidecar -MediaRoot $mediaRoot -SqlVersion $Intent.BaseVersion -MediaEdition $mediaEdition -SqlMediaPath $sqlMedia.RelativePath -Confirm:$false}
-                $plan=Set-HyperVLabSqlDeploymentPlan -RunId $lab.RunId -SqlVersion $Intent.BaseVersion -DeploymentMode $(if($Intent.Purpose -eq 'sql-pool-slot'){'sql-pool-slot'}else{'adhoc-install'}) -MediaEdition $mediaEdition -SqlMediaPath $sqlMedia.RelativePath -ProcessorCount ([int]$Intent.Cpu) -SqlPatch ([string]$Intent.Patch.Cu) -SqlUpdatePath ([string]$Intent.Patch.WindowsPath) -ExpectedSqlBuild ([string]$Intent.Patch.Build)
-                Write-LabInfo "SQL $($Intent.BaseVersion) $($Intent.Patch.Cu) wird jetzt vollständig installiert; kein Sysprep."
-                $result=Invoke-HyperVLabSqlSlotInstall -RunId $lab.RunId -MediaRoot $mediaRoot
-                Write-LabSuccess "SQL-Umgebung bereit: $($result.VMName) · SQL $($result.SqlVersion) $($Intent.Patch.Cu)"
+            if ($ContinueSqlWorkflow) {
+                $null = Complete-LabHyperVManualWindowsWorkflowInteractive -RunId $lab.RunId -ContinueWithSql -Intent $Intent
             }
-            else{Write-LabInfo 'Nach der ersten vollständigen Anmeldung: unter [i] -> [4] den Slot wählen und mit [o] „Windows-Grundinstallation übernehmen“ ausführen.'}
+            else {
+                Write-LabInfo 'Windows-OOBE jetzt manuell abschließen, Administratorpasswort setzen und einmal vollständig anmelden.'
+                Write-LabInfo 'Dieser bewusst einzeln erzeugte OS-Slot kann danach unter [i] -> [4] mit [o] übernommen werden.'
+            }
         }
         catch { Write-LabError $_.Exception.Message }
         return
@@ -2736,36 +3119,7 @@ function Manage-LabHyperVEnvironmentInteractive {
     $action = Read-Host '  Aktion (Buchstabe)'
     $planSqlDeployment = {
         param([Parameter(Mandatory)] [string] $RunId)
-        $mode = Read-Host '  Ausbau: [1] fertiger SQL-Pool-Slot, [2] vollständige SQL-Ad-hoc-Umgebung [1]'
-        if (-not $mode) { $mode = '1' }
-        if ($mode -notin @('1', '2')) { throw 'Ungültige Auswahl.' }
-        $deploymentMode = if ($mode -eq '1') { 'sql-pool-slot' } else { 'adhoc-install' }
-        $mediaRoot = Get-LabMediaRootDefault
-        if (-not $mediaRoot) { throw 'Kein Media Root gespeichert. Zuerst Hauptmenü [r] konfigurieren.' }
-        $selectedSqlMedia = Select-LabSqlInstallationMedia -MediaRoot $mediaRoot
-        if (-not $selectedSqlMedia) { return $null }
-        $sqlVersion = [string]$selectedSqlMedia.SqlVersion
-        $mediaEdition = [string]$selectedSqlMedia.MediaEdition
-        $sqlMediaPath = [string]$selectedSqlMedia.MediaId
-        $processorDefault = if ($deploymentMode -eq 'adhoc-install') { 8 } else { 4 }
-        $processorCount = Read-Host "  vCPU [$processorDefault]"
-        if (-not $processorCount) { $processorCount = $processorDefault }
-        $maximumIops = 0
-        if ($deploymentMode -eq 'adhoc-install') {
-            $maximumIops = Read-Host '  Maximale IOPS der SQL-Datenplatte (0 = unbegrenzt) [100]'
-            if ([string]::IsNullOrWhiteSpace($maximumIops)) { $maximumIops = 100 }
-        }
-        $plan = Set-HyperVLabSqlDeploymentPlan -RunId $RunId -SqlVersion $sqlVersion `
-            -DeploymentMode $deploymentMode -MediaEdition $mediaEdition -SqlMediaPath $sqlMediaPath `
-            -ProcessorCount ([int]$processorCount) -MaximumDataIops ([long]$maximumIops)
-        Write-LabSuccess "SQL-Ausbau gespeichert: SQL $($plan.sqlVersion) · $($plan.deploymentMode) · $($plan.processorCount) vCPU"
-        if ([long]$plan.maximumDataIops -gt 0) {
-            $dataRoot = Get-LabDataRootDefault
-            if (-not $dataRoot) { throw 'Kein Data Root gespeichert. Zuerst Hauptmenü [d] konfigurieren.' }
-            $storage = Enable-HyperVLabPersistentData -RunId $RunId -DataRoot $dataRoot -SizeGB 128 -MaximumIops ([long]$plan.maximumDataIops)
-            Write-LabSuccess "Gedrosselte SQL-Datenplatte angehängt: max. $($plan.maximumDataIops) IOPS · $($storage.hostPath)"
-        }
-        return $plan
+        New-LabHyperVSqlDeploymentPlanInteractive -RunId $RunId
     }
     $executeSqlSlotInstall = {
         param(
@@ -2773,29 +3127,7 @@ function Manage-LabHyperVEnvironmentInteractive {
             [Parameter(Mandatory)] [string] $RunId
         )
 
-        if (-not $Plan -or [string]$Plan.deploymentMode -notin @('sql-pool-slot', 'adhoc-install') -or
-            [string]$Plan.state -notin @('PLANNED', 'CONFIGURATION_PENDING')) {
-            Write-LabWarning 'Kein ausführbarer vollständiger SQL-Installationsplan vorhanden.'
-            return $false
-        }
-
-        $mediaRoot = Get-LabMediaRootDefault
-        if (-not $mediaRoot) { throw 'Kein Media Root gespeichert. Zuerst Hauptmenü [r] konfigurieren.' }
-
-        Write-Host "  SQL: $($Plan.sqlVersion) · $($Plan.deploymentMode) · Medium $($Plan.mediaEdition)" -ForegroundColor White
-        Write-Host '  SQL wird vollständig installiert. Es wird kein Sysprep ausgeführt und dieser Slot wird nicht geklont.' -ForegroundColor Yellow
-        if (-not (Read-LabConfirm -Prompt '  Vollständige SQL-Installation jetzt ausführen?' -Default $false)) {
-            return $false
-        }
-
-        $result = Invoke-HyperVLabSqlSlotInstall -RunId $RunId -MediaRoot $mediaRoot
-        Write-LabSuccess "SQL-Slot ist bereit: SQL $($result.SqlVersion) · $($result.DeploymentMode)"
-        if ($result.GeneratedSqlAccess) {
-            Write-Host "  Connection String: $($result.GeneratedSqlAccess.connectionString)" -ForegroundColor White
-            Write-Host "  SA-Passwort: $($result.GeneratedSqlAccess.password)" -ForegroundColor Yellow
-            Write-Host "  Später abrufbar: Get-SqlServerLabGeneratedSqlAccess -RunId $RunId" -ForegroundColor DarkGray
-        }
-        return $true
+        return Invoke-LabHyperVSqlSlotInstallInteractive -Plan $Plan -RunId $RunId
     }
 
     try {

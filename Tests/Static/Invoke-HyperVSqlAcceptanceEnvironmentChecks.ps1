@@ -99,7 +99,7 @@ try {
         function Stop-HyperVInstance { [PSCustomObject]@{ State = 'Off' } }
         function Set-HyperVSqlOfflineUnattend {
             param($VhdxPath,$MountRoot,$UnattendXml,$BootstrapScript)
-            if ($UnattendXml -match 'Microsoft-Windows-International-Core' -or $BootstrapScript -notmatch 'Enable-PSRemoting') { throw 'UNATTEND_MOCK_INVALID' }
+            if ($UnattendXml -notmatch 'Microsoft-Windows-International-Core' -or $BootstrapScript -notmatch 'Enable-PSRemoting') { throw 'UNATTEND_MOCK_INVALID' }
         }
         function Start-HyperVInstance { [PSCustomObject]@{ State = 'Running' } }
         function Wait-HyperVPowerShellDirect { [PSCustomObject]@{ Ready = $true; Message = 'ready' } }

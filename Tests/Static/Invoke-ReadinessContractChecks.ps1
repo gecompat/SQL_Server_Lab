@@ -116,7 +116,7 @@ if ($failures.Count -eq 0) {
     Assert-Contains $menu 'Show-LabBanner' 'Menuebanner wird nicht aufgerufen.'
     Assert-Contains $menu 'Show-LabMenu' 'Menueauswahl wird nicht aufgerufen.'
     Assert-NotContains $menu 'function\s+Invoke-SqlServerLab[\s\S]{0,2500}Import-Module[\s\S]{0,100}-Force' 'Invoke-SqlServerLab darf das laufende Modul nicht selbst mit -Force neu laden.'
-    Assert-NotContains $menu '\$available\s*\+=\s*["'']hyperv["'']' 'Das Menue darf Hyper-V nicht allein aufgrund von Get-VM als implementierten Provider anbieten.'
+    Assert-Contains $menu '\$hyperv\s*=\s*Test-HyperVAvailable[\s\S]{0,180}if\s*\(\$hyperv\.Available\)' 'Das Menue muss Hyper-V über den vollständigen Provider-Readiness-Test freigeben.'
 
     Assert-Contains $documentation 'networkingMode=mirrored' 'Podman-Windows-How-to dokumentiert mirrored networking nicht.'
     Assert-Contains $documentation 'eth0' 'Diagnose-Fallback ueber eth0 fehlt in der Dokumentation.'

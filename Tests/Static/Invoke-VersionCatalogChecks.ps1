@@ -1,13 +1,53 @@
+#Requires -Version 7.2
+[CmdletBinding()]
+param()
 $ErrorActionPreference = 'Stop'
-$root = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
-$catalog = Get-Content -LiteralPath (Join-Path $root 'Catalogs\sql-server-versions.json') -Raw | ConvertFrom-Json -Depth 30
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+$failures = [System.Collections.Generic.List[string]]::new(); $passed = 0
+. (Join-Path $PSScriptRoot '..' 'Common' 'CheckResult.ps1')
+Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
+Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -ErrorAction Stop
+$module = Get-Module SqlServerLab
+
+$versions = & $module { @(Get-SqlServerVersions -Status SUPPORTED | Where-Object { $_.docker.image }) }
+Add-CheckResult -Name 'Container-Katalog enthält SQL Server 2017 bis 2025' -Success (
+    (@($versions.id | Sort-Object) -join ',') -eq '2017,2019,2022,2025'
+)
+
+$sql2017 = & $module { Get-SqlServerDockerImage -VersionId '2017' }
+Add-CheckResult -Name 'SQL Server 2017 löst auf das offizielle latest-Image auf' -Success (
+    $sql2017 -eq 'mcr.microsoft.com/mssql/server:2017-latest'
+)
+
+$sql2022Cu7 = & $module { Get-SqlServerDockerImage -VersionId '2022-CU7' }
+Add-CheckResult -Name 'SQL Server 2022 CU7 löst auf den unveränderlichen MCR-Tag auf' -Success (
+    $sql2022Cu7 -eq 'mcr.microsoft.com/mssql/server:2022-CU7-ubuntu-20.04'
+)
+
+$sql2022Builds = & $module { @(Get-SqlServerBuilds -VersionId '2022') }
+Add-CheckResult -Name 'SQL Server 2022 enthält CU1 bis CU26 vollständig' -Success (
+    $sql2022Builds.Count -eq 26 -and
+    (@($sql2022Builds.cu | Sort-Object { [int]($_ -replace '^CU', '') }) -join ',') -eq ((1..26 | ForEach-Object { "CU$_" }) -join ',')
+)
+
+$sql2025Builds = & $module { @(Get-SqlServerBuilds -VersionId '2025') }
+Add-CheckResult -Name 'SQL Server 2025 enthält CU1 bis CU7 ohne alten CTP-Eintrag' -Success (
+    $sql2025Builds.Count -eq 7 -and @($sql2025Builds.cu) -notcontains 'CTP'
+)
+
+$catalog = Get-Content -LiteralPath (Join-Path $repoRoot 'Catalogs\sql-server-versions.json') -Raw | ConvertFrom-Json -Depth 30
 $sql2025 = $catalog.versions | Where-Object id -eq '2025' | Select-Object -First 1
-$cus = @($sql2025.docker.builds | Where-Object { $_.cu -match '^CU\d+$' })
-if ($cus.Count -lt 1) { throw 'VERSION_CATALOG_SQL2025_CUS_MISSING' }
-if (@($cus.cu | Sort-Object -Unique).Count -ne $cus.Count) { throw 'VERSION_CATALOG_DUPLICATE_CU' }
-foreach ($cu in $cus) {
-    if (-not $cu.tag -or -not $cu.build -or -not $cu.kb -or -not $cu.released) { throw "VERSION_CATALOG_CU_INCOMPLETE: $($cu.cu)" }
-    if (-not $cu.windows.relativePath) { throw "VERSION_CATALOG_WINDOWS_PATH_MISSING: $($cu.cu)" }
-    if ($cu.windows.downloadUrl -and -not $cu.windows.sha256) { throw "VERSION_CATALOG_UNTRUSTED_AUTODOWNLOAD: $($cu.cu)" }
+$sql2025Cus = @($sql2025.docker.builds | Where-Object { $_.cu -match '^CU\d+$' })
+Add-CheckResult -Name 'Windows-CU-Metadaten sind vollständig und Downloads nur mit SHA-256 erlaubt' -Success (
+    $sql2025Cus.Count -eq 7 -and
+    @($sql2025Cus | Where-Object {
+        -not $_.build -or -not $_.kb -or -not $_.released -or -not $_.windows.relativePath -or
+        ($_.windows.downloadUrl -and -not $_.windows.sha256)
+    }).Count -eq 0
+)
+
+if ($failures.Count -gt 0) {
+    foreach ($failure in $failures) { Write-Host "FAIL: $failure" -ForegroundColor Red }
+    exit 1
 }
-Write-Host "VERSION CATALOG CHECKS: PASS ($($cus.Count) SQL-2025-CUs)" -ForegroundColor Green
+Write-Host "Version Catalog Checks: $passed PASS" -ForegroundColor Green

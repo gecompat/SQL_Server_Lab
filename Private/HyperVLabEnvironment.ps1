@@ -246,7 +246,8 @@ function New-HyperVLabEnvironment {
                         id = [string]$_.Id; role = [string]$_.Role; sizeBytes = [long]$_.SizeBytes
                         vhdType = [string]$_.VhdType; diskIdentifier = [string]$_.DiskIdentifier
                         guestPath = [string]$_.GuestPath; allocationUnitKB = [int]$_.AllocationUnitKB
-                        volumeLabel = [string]$_.VolumeLabel; state = 'ATTACHED_PENDING_INITIALIZATION'
+                        volumeLabel = [string]$_.VolumeLabel; maximumIops = [long]$_.MaximumIops
+                        state = 'ATTACHED_PENDING_INITIALIZATION'
                     }
                 })
             })
@@ -634,6 +635,12 @@ function Set-HyperVLabSqlDeploymentPlan {
         [Parameter(Mandatory)][string]$SqlMediaPath,
         [ValidateRange(1, 64)][int]$ProcessorCount = 4,
         [ValidateRange(0, 1000000)][long]$MaximumDataIops = 0,
+        [ValidateRange(0, 1048576)][int]$MemoryStartupMB = 0,
+        [ValidatePattern('^[A-Za-z0-9_]{1,128}$')][string]$Collation = 'SQL_Latin1_General_CP1_CI_AS',
+        [ValidateRange(1,65535)][int]$SqlPort = 1433,
+        [ValidateSet('host-access','isolated')][string]$NetworkMode = 'host-access',
+        $ServerConfig,
+        $StorageConfiguration,
         [string]$SqlPatch,
         [string]$SqlUpdatePath,
         [string]$ExpectedSqlBuild,
@@ -651,11 +658,19 @@ function Set-HyperVLabSqlDeploymentPlan {
     if ([string]$managed.VM.State -ne 'Off') { throw 'HYPERV_LAB_SQL_PLAN_VM_MUST_BE_OFF' }
 
     $null = Set-VMProcessor -VM $managed.VM -Count $ProcessorCount -ErrorAction Stop
-    $null = Set-VMMemory -VM $managed.VM -StartupBytes ([long]$managed.VM.MemoryStartup) -ErrorAction Stop
+    if ($MemoryStartupMB -gt 0) {
+        $startupBytes = [long]$MemoryStartupMB * 1MB
+        $minimumBytes = [long][Math]::Max([double]512MB, [double]$startupBytes / 2)
+        $maximumBytes = [long][Math]::Min([double]1TB, [double]$startupBytes * 2)
+        $null = Set-VMMemory -VM $managed.VM -DynamicMemoryEnabled $true -MinimumBytes $minimumBytes `
+            -StartupBytes $startupBytes -MaximumBytes $maximumBytes -ErrorAction Stop
+    }
     $lab.Instance | Add-Member -NotePropertyName sqlDeploymentPlan -NotePropertyValue ([PSCustomObject]@{
         state = 'PLANNED'; sqlVersion = $SqlVersion; mediaEdition = $MediaEdition; sqlMediaPath = $SqlMediaPath
         deploymentMode = $DeploymentMode; features = @('SQLENGINE', 'FULLTEXT', 'REPLICATION')
-        processorCount = $ProcessorCount; maximumDataIops = $MaximumDataIops
+        processorCount = $ProcessorCount; memoryStartupMB = $MemoryStartupMB; maximumDataIops = $MaximumDataIops
+        collation = $Collation; sqlPort = $SqlPort; networkMode = $NetworkMode
+        serverConfig = $ServerConfig; storage = $StorageConfiguration
         sqlPatch = $SqlPatch; sqlUpdatePath = $SqlUpdatePath; expectedSqlBuild = $ExpectedSqlBuild
         plannedAt = Get-LabTimestamp
     }) -Force
@@ -725,6 +740,20 @@ function Invoke-HyperVLabSqlSlotInstall {
             -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $credential -TimeoutSeconds $ReadinessTimeoutSeconds
         if (-not $ready.Ready) { throw "HYPERV_LAB_SQL_INSTALL_GUEST_TIMEOUT: $($ready.Message)" }
 
+        $pendingAdditionalDrives = @($lab.Instance.additionalDrives | Where-Object { [string]$_.state -eq 'ATTACHED_PENDING_INITIALIZATION' })
+        if ($pendingAdditionalDrives.Count -gt 0) {
+            Write-LabInfo "$($pendingAdditionalDrives.Count) zusätzliche SQL-VHDX werden im Gast initialisiert."
+            $driveReceipt = Initialize-HyperVWindowsGuestDrives -VMName ([string]$lab.Instance.vmName) `
+                -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $credential
+            foreach ($drive in $pendingAdditionalDrives) {
+                $initialized = @($driveReceipt.Drives | Where-Object { [string]$_.id -eq [string]$drive.id }) | Select-Object -First 1
+                if (-not $initialized -or -not $initialized.guestPath) { throw "HYPERV_LAB_ADDITIONAL_DRIVE_INITIALIZATION_MISSING: $($drive.id)" }
+                $drive.guestPath = [string]$initialized.guestPath
+                $drive.state = 'READY'
+            }
+            Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
+        }
+
         $dataRoot = $null
         if ($lab.Instance.persistentStorage) {
             if ([string]$lab.Instance.persistentStorage.state -eq 'ATTACHED_PENDING_INITIALIZATION') {
@@ -739,9 +768,9 @@ function Invoke-HyperVLabSqlSlotInstall {
         Write-LabInfo "SQL $($plan.sqlVersion) wird vollständig im eindeutigen Windows-Slot installiert; kein Sysprep."
         $receipt = Invoke-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) `
             -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $credential `
-            -ArgumentList @([string]$plan.sqlVersion, $setupVersionPattern, (@($plan.features) -join ','), $SqlSaPassword, $dataRoot, $SetupTimeoutSeconds) `
+            -ArgumentList @([string]$plan.sqlVersion, $setupVersionPattern, (@($plan.features) -join ','), $SqlSaPassword, $dataRoot, $plan.storage, [string]$plan.collation, $SetupTimeoutSeconds) `
             -ScriptBlock {
-                param($ExpectedSqlVersion, $ExpectedSetupVersionPattern, $FeaturesCsv, $SaPassword, $SqlDataRoot, $TimeoutSeconds)
+                param($ExpectedSqlVersion, $ExpectedSetupVersionPattern, $FeaturesCsv, $SaPassword, $SqlDataRoot, $StorageConfiguration, $Collation, $TimeoutSeconds)
                 $ErrorActionPreference = 'Stop'
                 $features = @([string]$FeaturesCsv -split ',' | Where-Object { $_ })
                 $setups = @(Get-CimInstance Win32_LogicalDisk -Filter 'DriveType=5' | ForEach-Object {
@@ -749,26 +778,34 @@ function Invoke-HyperVLabSqlSlotInstall {
                     if (Test-Path -LiteralPath $candidate -PathType Leaf) { Get-Item -LiteralPath $candidate }
                 } | Where-Object { [string]$_.VersionInfo.FileVersion -match $ExpectedSetupVersionPattern })
                 if ($setups.Count -ne 1) { throw "SQL_SETUP_MEDIA_NOT_UNIQUE: $($setups.Count)" }
-                $arguments = @(
+                    $arguments = @(
                     '/Q', '/ACTION=Install', "/FEATURES=$($features -join ',')",
                     '/INSTANCENAME=MSSQLSERVER', '/INSTANCEID=MSSQLSERVER',
                     '/SQLSVCACCOUNT="NT Service\MSSQLSERVER"', '/AGTSVCACCOUNT="NT Service\SQLSERVERAGENT"',
                     '/AGTSVCSTARTUPTYPE=Automatic', '/SQLSYSADMINACCOUNTS="BUILTIN\Administrators"',
                     '/SECURITYMODE=SQL', '/TCPENABLED=1', '/SQLSVCINSTANTFILEINIT=True',
-                    '/ENU=True', '/IACCEPTSQLSERVERLICENSETERMS', '/INDICATEPROGRESS'
-                )
+                        '/ENU=True', '/IACCEPTSQLSERVERLICENSETERMS', '/INDICATEPROGRESS'
+                    )
+                    if ($Collation) { $arguments += "/SQLCOLLATION=$Collation" }
                 $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword)
                 $plainPassword = $null
                 try {
                     $plainPassword = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
                     if ($plainPassword -match '[\s"]') { throw 'SQL_SA_PASSWORD_COMMAND_LINE_UNSAFE' }
                     $arguments += "/SAPWD=$plainPassword"
-                    if ($SqlDataRoot) {
-                        $paths = @{
+                    $paths = if ($StorageConfiguration) {
+                        [PSCustomObject]@{
+                            Data=[string]$StorageConfiguration.dataPath; Log=[string]$StorageConfiguration.logPath
+                            Temp=[string]@($StorageConfiguration.tempDbPaths)[0]; Backup=[string]$StorageConfiguration.backupPath
+                        }
+                    } elseif ($SqlDataRoot) {
+                        [PSCustomObject]@{
                             Data=Join-Path $SqlDataRoot 'Data'; Log=Join-Path $SqlDataRoot 'Log'
                             Temp=Join-Path $SqlDataRoot 'TempDB'; Backup=Join-Path $SqlDataRoot 'Backup'
                         }
-                        $paths.Values | ForEach-Object { $null = New-Item -Path $_ -ItemType Directory -Force }
+                    } else { $null }
+                    if ($paths) {
+                        @($paths.Data,$paths.Log,$paths.Temp,$paths.Backup) | ForEach-Object { $null = New-Item -Path $_ -ItemType Directory -Force }
                         $arguments += "/SQLUSERDBDIR=$($paths.Data)"
                         $arguments += "/SQLUSERDBLOGDIR=$($paths.Log)"
                         $arguments += "/SQLTEMPDBDIR=$($paths.Temp)"
@@ -782,6 +819,20 @@ function Invoke-HyperVLabSqlSlotInstall {
                         throw "SQL_SETUP_INSTALL_TIMEOUT: $TimeoutSeconds"
                     }
                     if ([int]$process.ExitCode -notin @(0,3010)) { throw "SQL_SETUP_INSTALL_FAILED: $($process.ExitCode)" }
+                    $instanceRegistryPath = 'HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\Instance Names\SQL'
+                    $registrationDeadline = [datetime]::UtcNow.AddMinutes(5)
+                    $instanceRegistered = $false
+                    do {
+                        $instanceRegistered = (Test-Path -LiteralPath $instanceRegistryPath) -and
+                            ($null -ne (Get-Service -Name 'MSSQLSERVER' -ErrorAction SilentlyContinue))
+                        if (-not $instanceRegistered) { Start-Sleep -Seconds 5 }
+                    } while (-not $instanceRegistered -and [datetime]::UtcNow -lt $registrationDeadline)
+                    if (-not $instanceRegistered) {
+                        $summary = Get-ChildItem -LiteralPath 'C:\Program Files\Microsoft SQL Server' -Filter Summary.txt -Recurse -File -ErrorAction SilentlyContinue |
+                            Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
+                        $summaryTail = if ($summary) { (@(Get-Content -LiteralPath $summary.FullName -Tail 12 -ErrorAction SilentlyContinue) -join ' | ') } else { 'nicht gefunden' }
+                        throw "SQL_SETUP_INSTALLATION_NOT_REGISTERED: ExitCode=$([int]$process.ExitCode); Summary=$summaryTail"
+                    }
                     [PSCustomObject]@{
                         action='Install'; sqlVersion=$ExpectedSqlVersion; setupVersion=[string]$setups[0].VersionInfo.FileVersion
                         features=$features; exitCode=[int]$process.ExitCode; completedAt=[datetime]::UtcNow.ToString('o')
@@ -840,7 +891,13 @@ function Invoke-HyperVLabSqlSlotInstall {
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
     $plan = $lab.Instance.sqlDeploymentPlan
     Write-LabInfo 'SQL-Instanz wird für Hostzugriff, TCP/IP, Firewall und Labnetz fertig konfiguriert.'
-    $hostAccess = Enable-HyperVLabHostSqlAccess -RunId $RunId -Credential $credential -SqlSaPassword $SqlSaPassword -StateRoot $lab.StateRoot
+    $hostAccess = Enable-HyperVLabHostSqlAccess -RunId $RunId -Credential $credential -SqlSaPassword $SqlSaPassword `
+        -SqlPort $(if ($plan.sqlPort) { [int]$plan.sqlPort } else { 1433 }) -StateRoot $lab.StateRoot
+    if ($plan.serverConfig) {
+        Write-LabInfo 'Deklarierte SQL-Memory-, MAXDOP-, Cost-Threshold- und TempDB-Konfiguration wird angewendet.'
+        $null = Set-LabServerConfig -Config $plan.serverConfig -HostName ([string]$hostAccess.Network.Address) `
+            -Port $(if ($plan.sqlPort) { [int]$plan.sqlPort } else { 1433 }) -SaPassword $SqlSaPassword
+    }
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
     $plan = $lab.Instance.sqlDeploymentPlan
     $plan.state = 'SQL_SLOT_READY'
@@ -857,8 +914,17 @@ function Invoke-HyperVLabSqlSlotInstall {
         }
         Set-LabProviderSubRunState -RunId $RunId -Provider hyperv -NewState RUNNING -Reason 'SQL-Ad-hoc-Umgebung vollständig installiert.' -StateRoot $lab.StateRoot
     }
-    $generatedAccess = New-HyperVTransientGeneratedSqlAccess -HostSqlAccess $hostAccess -SqlSaPassword $SqlSaPassword `
-        -Generated:$generatedSaPassword -Persisted:$generatedSaPassword
+    if ([string]$plan.networkMode -eq 'isolated') {
+        Write-LabInfo 'Angeforderte Isolation: Netzwerkadapter wird nach Abschluss der SQL-Konfiguration entfernt.'
+        @(Get-VMNetworkAdapter -VMName ([string]$lab.Instance.vmName) -ErrorAction Stop) | Remove-VMNetworkAdapter -ErrorAction Stop
+        $lab.Instance.host = $null; $lab.Instance.port = $null; $lab.Instance.connectionString = $null; $lab.Instance.labNetwork = $null
+        Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
+        $hostAccess = $null
+    }
+    $generatedAccess = if ($hostAccess) {
+        New-HyperVTransientGeneratedSqlAccess -HostSqlAccess $hostAccess -SqlSaPassword $SqlSaPassword `
+            -Generated:$generatedSaPassword -Persisted:$generatedSaPassword
+    } else { $null }
     return [PSCustomObject]@{
         RunId=$RunId; VMName=$lab.Instance.vmName; State='SQL_SLOT_READY'; SqlVersion=$plan.sqlVersion
         DeploymentMode=$plan.deploymentMode; HostSqlAccess=$hostAccess; GeneratedSqlAccess=$generatedAccess
@@ -1246,6 +1312,7 @@ function Enable-HyperVLabHostSqlAccess {
         [Parameter(Mandatory)][string]$RunId,
         [Parameter(Mandatory)][PSCredential]$Credential,
         [SecureString]$SqlSaPassword,
+        [ValidateRange(1,65535)][int]$SqlPort = 1433,
         [string]$SwitchName,
         [string]$StateRoot
     )
@@ -1276,15 +1343,19 @@ function Enable-HyperVLabHostSqlAccess {
         -FallbackAddress $networkReceipt.Address -StateRoot $lab.StateRoot
     Write-LabInfo 'Hostzugriff: aktiviere SQL-TCP, SQL-Authentifizierung und die Host-beschränkte Firewallregel.'
     $receipt = Invoke-HyperVPowerShellDirect -VMName $lab.Instance.vmName -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId `
-        -Credential $Credential -FallbackAddress $networkReceipt.Address -ArgumentList @([string]$lab.Run.runId, [string]$lab.Run.scopeId, $SqlSaPassword, [string]$network.HostAddress) -ScriptBlock {
-            param($ExpectedRunId, $ExpectedScopeId, $SaPassword, $HostAddress)
+        -Credential $Credential -FallbackAddress $networkReceipt.Address -ArgumentList @([string]$lab.Run.runId, [string]$lab.Run.scopeId, $SqlSaPassword, [string]$network.HostAddress, $SqlPort) -ScriptBlock {
+            param($ExpectedRunId, $ExpectedScopeId, $SaPassword, $HostAddress, $RequestedSqlPort)
             $ErrorActionPreference = 'Stop'
             $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword)
             $plain = $null
             try {
                 $plain = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
                 if ($plain -match '[\s"]') { throw 'HYPERV_LAB_SQL_SA_PASSWORD_COMMAND_LINE_UNSAFE' }
-                $instanceMap = Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\Instance Names\SQL' -ErrorAction Stop
+                $instanceRegistryPath = 'HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\Instance Names\SQL'
+                if (-not (Test-Path -LiteralPath $instanceRegistryPath)) {
+                    throw 'HYPERV_LAB_SQL_INSTANCE_REGISTRY_NOT_FOUND: SQL Setup ist noch nicht vollständig registriert; den SQL-Workflow erneut fortsetzen.'
+                }
+                $instanceMap = Get-ItemProperty -LiteralPath $instanceRegistryPath -ErrorAction Stop
                 $instances = @($instanceMap.PSObject.Properties | Where-Object { $_.Name -notmatch '^PS' })
                 if ($instances.Count -eq 0) { throw 'HYPERV_LAB_SQL_INSTANCE_NOT_FOUND' }
                 $configured = @()
@@ -1292,7 +1363,7 @@ function Enable-HyperVLabHostSqlAccess {
                     $name = [string]$instances[$index].Name
                     $instanceId = [string]$instances[$index].Value
                     $serviceName = if ($name -eq 'MSSQLSERVER') { 'MSSQLSERVER' } else { 'MSSQL$' + $name }
-                    $port = 1433 + $index
+                    $port = [int]$RequestedSqlPort + $index
                     $tcpRoot = "HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\$instanceId\MSSQLServer\SuperSocketNetLib\Tcp"
                     if (Test-Path -LiteralPath $tcpRoot) {
                         Set-ItemProperty -LiteralPath $tcpRoot -Name Enabled -Value 1 -Type DWord -ErrorAction Stop
@@ -1340,12 +1411,12 @@ function Enable-HyperVLabHostSqlAccess {
     }
     $lab.Instance | Add-Member -NotePropertyName labNetwork -NotePropertyValue ([PSCustomObject]@{ name = $networkReceipt.Network; address = $networkReceipt.Address; prefixLength = $networkReceipt.PrefixLength; hostAddress = $network.HostAddress }) -Force
     $lab.Instance | Add-Member -NotePropertyName host -NotePropertyValue ([string]$networkReceipt.Address) -Force
-    $lab.Instance | Add-Member -NotePropertyName port -NotePropertyValue 1433 -Force
+    $lab.Instance | Add-Member -NotePropertyName port -NotePropertyValue $SqlPort -Force
     $passwordHint = if ($usesSeparateSaPassword) { 'Separat festgelegtes SQL-SA-Passwort' } else { 'Gast-Administratorpasswort' }
     $lab.Instance | Add-Member -NotePropertyName hostSqlAccess -NotePropertyValue ([PSCustomObject]@{ state = 'READY'; authentication = 'sql-authentication'; login = 'sa'; passwordHint = $passwordHint; configuredAt = [string]$receipt.observedAt }) -Force
     $instanceReceipt = Get-HyperVLabSqlInstanceReceipt -Lab $lab -Credential $Credential -FallbackAddress $networkReceipt.Address
     $null = Save-HyperVLabSqlInstanceReceipt -Lab $lab -Receipt $instanceReceipt
-    Write-LabSuccess "Hostzugriff bereit: $($lab.Instance.host),1433 (SQL-Login sa; Passwort: $passwordHint)."
+    Write-LabSuccess "Hostzugriff bereit: $($lab.Instance.host),$SqlPort (SQL-Login sa; Passwort: $passwordHint)."
     return [PSCustomObject]@{ Network = $networkReceipt; Sql = $receipt; ConnectionString = [string]$lab.Instance.connectionString }
 }
 

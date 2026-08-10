@@ -289,7 +289,7 @@ try {
     Add-CheckResult -Name 'Gast- und SQL-Passwortdialog verwenden dieselbe Auswahlsemantik' -Success (
         $menuText -match 'Gastpasswort: \[1\] selbst festlegen, \[2\] zufällig erzeugen' -and
         $menuText -match 'SQL-SA-Passwort: \[1\] selbst festlegen, \[2\] vorhandenes Gastpasswort übernehmen \[2\]' -and
-        $menuText -match "if \(\$choice -eq '2'\) \{ return \$GuestPassword \}"
+        $menuText -match 'if \(\$choice -eq ''2''\) \{ return \$GuestPassword \}'
     )
     Add-CheckResult -Name 'Menue besitzt Generalisierung und Publikation' -Success (
         $menuText -match 'Invoke-HyperVWindowsImageGeneralization' -and
@@ -311,8 +311,10 @@ try {
         $menuText -match 'while \(-not \$exitImageMenu\)' -and
         $menuText -match '''0''\s*\{\s*\$exitImageMenu\s*=\s*\$true\s*\}'
     )
-    Add-CheckResult -Name 'Kompaktes Hyper-V-Hauptmenü bietet reine Windows- und SQL-Labs aus Vorlagen an' -Success (
-        $menuText -match '\[3\] Neue Hyper-V-Umgebung aus Windows- oder SQL-Vorlage erstellen' -and
+    Add-CheckResult -Name 'Kompaktes Hyper-V-Hauptmenü trennt OS-Vorlage, Windows-Slot und SQL-Vorlage' -Success (
+        $menuText -match '\[1\] Windows-OS-Vorlage aus DVD erstellen oder fortsetzen' -and
+        $menuText -match '\[2\] Betriebssystem-Slot aus Windows-OS-Vorlage erstellen' -and
+        $menuText -match '\[3\] Neue SQL-Prepared-Vorlage aus DVD erstellen' -and
         $menuText -match 'New-LabHyperVEnvironmentInteractive' -and
         $menuText -match 'Manage-LabHyperVEnvironmentInteractive' -and
         $menuText -match 'New-HyperVLabEnvironment' -and
@@ -332,7 +334,7 @@ try {
         $menuText -match 'function Show-LabHyperVMenuActionHeader' -and
         $menuText -match 'function Invoke-LabHyperVMenuAction' -and
         $menuText -match 'Show-LabHyperVMenuActionHeader[\s\S]{0,180}\[Enter\] für Menü' -and
-        $menuText -match "'1' \{ Invoke-LabHyperVMenuAction -Title 'Neues SQL-Prepared-Image'" -and
+        $menuText -match "'3' \{ Invoke-LabHyperVMenuAction -Title 'Neue SQL-Prepared-Vorlage'" -and
         @($menuText | Select-String -Pattern 'while \(-not \$exitMenu\) \{\s*Clear-Host' -AllMatches).Matches.Count -ge 5
     )
     Add-CheckResult -Name 'Optionaler SQL-Prepared-Image-Name wird nur bei Inhalt gebunden' -Success (
