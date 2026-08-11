@@ -632,7 +632,9 @@ function New-SqlServerLab {
                 -Port $container.Port `
                 -SaPassword $SaPassword `
                 -TimeoutSeconds 120 `
-                -ExpectedMajorVersion $versionDefinition.major
+                -ExpectedMajorVersion $versionDefinition.major `
+                -Provider $container.Provider `
+                -ContainerIdOrName $container.ContainerId
 
             if (-not $readiness.Ready) {
                 throw "SQL Server nicht bereit: $($readiness.Message)"
