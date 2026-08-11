@@ -179,32 +179,6 @@ function Update-LabContainerEnvironmentInteractive {
         }
     }
 
-    $showFieldMenu = {
-        param(
-            [decimal]$Cpu,
-            [int]$MemoryMB,
-            [int]$Port,
-            [int]$Cursor,
-            [string]$Message,
-            [string]$EnvironmentName,
-            [string]$Provider
-        )
-        $markers = @(' ', ' ', ' ', ' ')
-        if ($Cursor -ge 0 -and $Cursor -lt $markers.Count) { $markers[$Cursor] = '>' }
-        Write-Host
-        Write-Host '  Docker-/Podman-Umgebung ändern' -ForegroundColor Cyan
-        Write-Host ("  Umgebung: {0} · {1}" -f $EnvironmentName, $Provider) -ForegroundColor DarkGray
-        Write-Host
-        Write-Host '  Bitte Werte prüfen und korrigieren:' -ForegroundColor White
-        Write-Host ("  {0} vCPU (1..64): {1}" -f $markers[0], $Cpu.ToString('0.##', $culture))
-        Write-Host ("  {0} RAM MB (512..1048576): {1}" -f $markers[1], $MemoryMB)
-        Write-Host ("  {0} Hostport (1024..65535): {1}" -f $markers[2], $Port)
-        Write-Host ("  {0} Änderungen übernehmen" -f $markers[3])
-        if ($Message) { Write-Host ("  Hinweis: {0}" -f $Message) -ForegroundColor Yellow }
-        else { Write-Host }
-        Write-Host '  Navigiere mit ↑/↓, bestätige mit [Enter].  [Esc]=Abbruch.'
-    }
-
     $stateRoot = Get-LabStateRoot
     $choices = @()
     foreach ($run in @(Get-LabActiveRuns)) {
@@ -216,13 +190,16 @@ function Update-LabContainerEnvironmentInteractive {
         }
     }
     if ($choices.Count -eq 0) { Write-LabInfo 'Keine änderbare Docker-/Podman-Umgebung vorhanden.'; return }
-    for ($i=0; $i -lt $choices.Count; $i++) {
+    $environmentItems = for ($i=0; $i -lt $choices.Count; $i++) {
         $instance = @($choices[$i].Connection.instances)[0]
-        Write-Host ("    [{0}] {1} · {2} · Port {3}" -f ($i+1), $choices[$i].Run.metadata.name, $instance.provider, $instance.port) -ForegroundColor White
+        New-LabConsoleItem -Id ([string]$choices[$i].Run.runId) -Label ([string]$choices[$i].Run.metadata.name) -Value ("{0} - Port {1}" -f $instance.provider, $instance.port) -Shortcut ([string]($i + 1)) -Data $choices[$i]
     }
-    $selection = Read-Host '  Umgebung auswählen'
-    if ($selection -notmatch '^\d+$' -or [int]$selection -lt 1 -or [int]$selection -gt $choices.Count) { Write-LabWarning 'Ungültige Auswahl.'; return }
-    $selected = $choices[[int]$selection-1]
+    $environmentResult = Invoke-LabConsoleMenu -ScreenId 'container-update-environment' -Title 'Docker-/Podman-Umgebung auswaehlen' -Items $environmentItems -FallbackPrompt '  Umgebung auswaehlen'
+    if ($environmentResult.Status -ne 'Selected') {
+        if ($environmentResult.Status -eq 'Invalid') { Write-LabWarning 'Ungueltige Auswahl.' }
+        return
+    }
+    $selected = $environmentResult.SelectedItem.Data
     $provider = $null
     $containerIdentity = $null
     foreach ($providerCandidate in @('docker', 'podman')) {
@@ -260,55 +237,45 @@ function Update-LabContainerEnvironmentInteractive {
     $cpu = $currentCpu
     $memoryMB = $currentMemoryMB
     $port = $currentPort
-    $cursor = 0
     $apply = $false
     $menuMessage = ''
+    $selectedFieldId = 'cpu'
     # Runtimezustand und Werte sind ein Snapshot. Die Navigation zeichnet nur diesen lokalen Zustand neu.
     $environmentName = [string]$selected.Run.metadata.name
 
     while ($true) {
-        Clear-Host
-        & $showFieldMenu -Cpu $cpu -MemoryMB $memoryMB -Port $port -Cursor $cursor -Message $menuMessage -EnvironmentName $environmentName -Provider $provider
-        $key = [Console]::ReadKey($true)
+        $fieldItems = @(
+            New-LabConsoleItem -Id 'cpu' -Label 'vCPU (1..64)' -Value $cpu.ToString('0.##', $culture) -Shortcut '1'
+            New-LabConsoleItem -Id 'memory' -Label 'RAM MB (512..1048576)' -Value $memoryMB -Shortcut '2'
+            New-LabConsoleItem -Id 'port' -Label 'Hostport (1024..65535)' -Value $port -Shortcut '3'
+            New-LabConsoleItem -Id 'apply' -Label 'Aenderungen uebernehmen' -Shortcut '4'
+        )
+        $fieldResult = Invoke-LabConsoleMenu -ScreenId 'container-update-fields' -Title 'Docker-/Podman-Umgebung aendern' -Subtitle ("Umgebung: {0} - {1}" -f $environmentName, $provider) -Items $fieldItems -SelectedId $selectedFieldId -Footer 'Pfeile: Navigation  Enter: Bearbeiten  Esc: Abbruch' -FallbackPrompt '  Feld auswaehlen'
+        if ($fieldResult.Status -eq 'Cancelled') { Write-LabInfo 'Abbruch durch Nutzer.'; return }
+        if ($fieldResult.Status -ne 'Selected') { $menuMessage = 'Ungueltige Auswahl.'; continue }
+        $selectedFieldId = [string]$fieldResult.SelectedItem.Id
         $menuMessage = ''
-        switch ([string]$key.Key) {
-            'UpArrow' { if ($cursor -gt 0) { $cursor-- } }
-            'DownArrow' { if ($cursor -lt 3) { $cursor++ } }
-            'D1' { $cursor = 0 }
-            'D2' { $cursor = 1 }
-            'D3' { $cursor = 2 }
-            'D4' { $cursor = 3 }
-            'NumPad1' { $cursor = 0 }
-            'NumPad2' { $cursor = 1 }
-            'NumPad3' { $cursor = 2 }
-            'NumPad4' { $cursor = 3 }
-            'Enter' {
-                if ($cursor -eq 3) {
+        switch ($selectedFieldId) {
+            'apply' {
                     if (-not (& $isHostPortAvailable -Port $port -CurrentPort $currentPort)) {
                         $menuMessage = "Hostport $port wird bereits von einem anderen Dienst verwendet."
-                        $cursor = 2
+                        $selectedFieldId = 'port'
+                        Write-LabWarning $menuMessage
                         continue
                     }
                     $apply = $true
                     break
-                }
-                if ($cursor -eq 0) { $cpu = & $readNumericValue -Label '  vCPU' -Current $cpu -Minimum 1 -Maximum 64 -RequireInteger $false }
-                elseif ($cursor -eq 1) { $memoryMB = [int](& $readNumericValue -Label '  RAM MB' -Current $memoryMB -Minimum 512 -Maximum 1048576 -RequireInteger $true) }
-                elseif ($cursor -eq 2) {
+            }
+            'cpu' { $cpu = & $readNumericValue -Label '  vCPU' -Current $cpu -Minimum 1 -Maximum 64 -RequireInteger $false }
+            'memory' { $memoryMB = [int](& $readNumericValue -Label '  RAM MB' -Current $memoryMB -Minimum 512 -Maximum 1048576 -RequireInteger $true) }
+            'port' {
                     $proposedPort = [int](& $readNumericValue -Label '  Hostport' -Current $port -Minimum 1024 -Maximum 65535 -RequireInteger $true)
                     if (-not (& $isHostPortAvailable -Port $proposedPort -CurrentPort $currentPort)) {
                         $menuMessage = "Hostport $proposedPort wird bereits von einem anderen Dienst verwendet."
+                        Write-LabWarning $menuMessage
                         continue
                     }
                     $port = $proposedPort
-                }
-            }
-            'Escape' {
-                Write-LabInfo 'Abbruch durch Nutzer.'
-                return
-            }
-            default {
-                $menuMessage = 'Ungültige Taste. Nutze ↑/↓, Enter oder Esc.'
             }
         }
         if ($apply) { break }
