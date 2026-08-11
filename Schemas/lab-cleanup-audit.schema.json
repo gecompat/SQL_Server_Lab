@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sql-server-lab.local/schemas/lab-cleanup-audit.schema.json",
+  "title": "SqlServerLab.CleanupAudit/1.0",
+  "type": "object",
+  "required": ["ContractVersion", "AuditId", "CreatedAt", "Status", "DataRoots", "ActiveRuns", "Runtimes", "Containers", "ManagedVolumes", "ManagedNetworks", "HyperV", "ExternalReferences", "RepositoryResidues", "LegacyStateRoots", "Summary"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.CleanupAudit/1.0" },
+    "AuditId": { "type": "string", "format": "uuid" },
+    "Status": { "enum": ["CLEAN", "RESIDUALS", "UNVERIFIABLE"] },
+    "DataRoots": { "type": "array" },
+    "ActiveRuns": { "type": "array" },
+    "Runtimes": { "type": "array" },
+    "Containers": { "type": "array" },
+    "ManagedVolumes": { "type": "array" },
+    "ManagedNetworks": { "type": "array" },
+    "HyperV": { "type": "object" },
+    "ExternalReferences": { "type": "array" },
+    "RepositoryResidues": { "type": "array" },
+    "LegacyStateRoots": { "type": "array" },
+    "Summary": { "type": "object" }
+  },
+  "additionalProperties": true
+}

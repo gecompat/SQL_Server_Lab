@@ -17,7 +17,7 @@
 function Invoke-SqlServerLab {
     [CmdletBinding()]
     param(
-        [ValidateSet('New', 'Manifest', 'Status', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'Script', 'Database', 'Image', 'MediaRoot', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip', 'Catalog', 'ConnectionCenter')]
+        [ValidateSet('New', 'Manifest', 'Status', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'Script', 'Database', 'Image', 'MediaRoot', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip', 'Catalog', 'ConnectionCenter')]
         [string]$Action
     )
 
@@ -49,6 +49,7 @@ function Invoke-SqlServerLab {
             '5' { Invoke-LabAction -ActionName 'Restart' }
             '6' { Invoke-LabAction -ActionName 'Remove' }
             '7' { Invoke-LabAction -ActionName 'Clear' }
+            'a' { Invoke-LabAction -ActionName 'CleanupAudit' }
             '8' { Invoke-LabAction -ActionName 'Database' }
             '9' { Invoke-LabAction -ActionName 'Script' }
             'n' { Invoke-LabAction -ActionName 'Rename' }
@@ -355,6 +356,7 @@ function Show-LabMenu {
     Write-Host "    [r] CPU und Speicher ändern" -ForegroundColor White
     Write-Host "    [n] Umgebung umbenennen" -ForegroundColor White
     Write-Host "    [7] Alles aufraeumen" -ForegroundColor Red
+    Write-Host "    [a] Cleanup-Audit anzeigen (read-only)" -ForegroundColor White
     Write-Host ""
     Write-Host "  SQL und Bereitstellung:" -ForegroundColor White
     Write-Host "    [8] Datenbank anlegen" -ForegroundColor White
@@ -400,6 +402,13 @@ function Invoke-LabAction {
         }
         'DataRoot' {
             Invoke-LabStorageInteractive
+        }
+        'CleanupAudit' {
+            $result = Get-SqlServerLabCleanupAudit
+            Write-LabStatus -Label 'Audit-Status' -Value $result.Audit.Status -Color $(if ($result.Audit.Status -eq 'CLEAN') { 'Green' } else { 'Yellow' })
+            Write-LabStatus -Label 'Verbleibende Ressourcen' -Value $result.Audit.Summary.ResidualCount
+            Write-LabStatus -Label 'Nicht pruefbare Provider' -Value $result.Audit.Summary.UnverifiableProviders
+            if ($result.Path) { Write-LabInfo "Audit gespeichert: $($result.Path)" }
         }
         'TestDataRoot' {
             $currentTestDataRoot = Get-LabTestDataRootDefault
