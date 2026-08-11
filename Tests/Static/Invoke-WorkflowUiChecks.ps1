@@ -363,7 +363,7 @@ Add-CheckResult -Name 'Docker-, Podman- und Hyper-V-Labs können nachträglich u
     $scriptText -match 'data-lab-rename' -and
     $scriptText -match "queueBackgroundAction\('RenameLab'" -and
     $consoleText -match 'Rename-LabEnvironmentInteractive' -and
-    $consoleText -match "\[n\] Umgebung umbenennen" -and
+    $consoleText -match "New-LabConsoleItem -Id 'rename' -Label 'Umgebung umbenennen' -Shortcut 'n'" -and
     $htmlText -match 'Projektname-Instanz-Run-ID'
 )
 Add-CheckResult -Name 'Konsolenübersicht zeigt Live-Status und passwortmaskierte Connection-Strings statt Workflow-Interna' -Success (
