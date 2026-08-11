@@ -54,6 +54,24 @@ COMMANDS
         Erzeugt einen konsolidierten, geheimnisfreien Laufzeitkatalog der aktuellen
         Labs, Templates und Artefakte und speichert ihn als JSON-Datei.
 
+    Get-SqlServerLabConnectionCenter
+        Liefert den passwortfreien SQL-Endpunktkatalog für SSMS und CMS.
+
+    Sync-SqlServerLabConnectionCenter
+        Aktualisiert den lokalen Katalog der Verbindungszentrale atomar.
+
+    Export-SqlServerLabSsmsRegistration
+        Erzeugt einen kennwortfreien SSMS-Registered-Servers-Import.
+
+    Export-SqlServerLabCmsSyncScript
+        Erzeugt ein idempotentes Synchronisationsskript für einen vorhandenen CMS.
+
+    Initialize-SqlServerLabCms
+        Erstellt nach ausdrücklicher Auswahl einen kompakten persistenten Docker-/Podman-CMS.
+
+    Sync-SqlServerLabCms
+        Synchronisiert einen verwalteten lokalen CMS mit dem aktuellen Endpunktkatalog.
+
     Get-SqlServerLabReconcilePlan
         Liefert einen read-only Desired/Actual/Diff/Action-Plan fuer den
         Lifecycle eines bestehenden Runs.
