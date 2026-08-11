@@ -23,6 +23,7 @@ param(
     [Alias('h', 'help', '?')][switch]$ShowHelp,
     [ValidateNotNullOrEmpty()][string]$RootPath,
     [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$')][string]$LabId,
+    [ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$ControllerId,
     [Parameter(ValueFromRemainingArguments = $true)]
     [string[]]$RemainingArgs
 )
@@ -99,6 +100,10 @@ function Add-DataRootReadme {
 }
 
 $dataRoot = [System.IO.Path]::GetFullPath($RootPath)
+$dataRoot = $dataRoot.TrimEnd('\', '/')
+if (-not [string]::Equals((Split-Path -Leaf $dataRoot), 'Lab_Data', [StringComparison]::OrdinalIgnoreCase)) {
+    throw 'LAB_DATA_ROOT_NAME_REQUIRED: RootPath muss auf einen Ordner namens Lab_Data zeigen.'
+}
 $volumeRoot = [System.IO.Path]::GetPathRoot($dataRoot)
 if ($dataRoot.TrimEnd('\', '/') -eq $volumeRoot.TrimEnd('\', '/')) {
     throw 'DATA_ROOT_TOO_BROAD: Ein Laufwerks- oder Dateisystemroot ist nicht zulaessig.'
@@ -108,7 +113,7 @@ if (Test-DataPathWithin -Path $dataRoot -ParentPath $repositoryRoot) {
     throw 'DATA_ROOT_INSIDE_REPOSITORY: Daten muessen ausserhalb des Git-Checkouts liegen.'
 }
 
-$relativeDirectories = @('Backups/Incoming', 'Backups/Verified', 'Labs', 'Catalog', 'Exports')
+$relativeDirectories = @('Backups/Incoming', 'Backups/Verified', 'Labs', 'Catalog', 'Exports', 'State', 'Temp')
 if ($LabId) {
     $relativeDirectories += @(
         "Labs/$LabId/Backups/Full", "Labs/$LabId/Backups/Differential", "Labs/$LabId/Backups/Log",
@@ -131,6 +136,27 @@ foreach ($path in @($dataRoot) + @($relativeDirectories | ForEach-Object { Join-
         New-Item -Path $path -ItemType Directory -Force | Out-Null
         $createdDirectories.Add($path)
     }
+}
+
+$markerPath = Join-Path $dataRoot '.sql-server-lab-root.json'
+$existingMarker = $null
+if (Test-Path -LiteralPath $markerPath -PathType Leaf) {
+    $existingMarker = Get-Content -LiteralPath $markerPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 8
+    if ([string]$existingMarker.ManagedBy -ne 'SQL_Server_Lab') { throw 'LAB_DATA_ROOT_FOREIGN_OWNER' }
+    if ($ControllerId -and [string]$existingMarker.ControllerId -ne $ControllerId) { throw 'LAB_DATA_ROOT_CONTROLLER_MISMATCH' }
+    $ControllerId = [string]$existingMarker.ControllerId
+}
+if (-not $ControllerId) { $ControllerId = [Guid]::NewGuid().ToString('D') }
+$marker = [PSCustomObject]@{
+    ContractVersion = 'SqlServerLab.DataRoot/2.0'
+    ManagedBy = 'SQL_Server_Lab'
+    ControllerId = $ControllerId
+    VolumeId = $volumeRoot
+    CreatedAt = if ($existingMarker -and $existingMarker.CreatedAt) { [string]$existingMarker.CreatedAt } else { (Get-Date).ToUniversalTime().ToString('o') }
+    DataRoot = $dataRoot
+}
+if ($PSCmdlet.ShouldProcess($markerPath, 'Data-Root-Marker schreiben')) {
+    $marker | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $markerPath -Encoding utf8NoBOM
 }
 
 $rootReadme = @"
@@ -174,7 +200,9 @@ Stabile logische Identitaet: ``$LabId``
 }
 
 [PSCustomObject]@{
-    ContractVersion = '1'
+    ContractVersion = 'SqlServerLab.DataRoot/2.0'
+    ControllerId = $ControllerId
+    MarkerPath = $markerPath
     DataRoot = $dataRoot
     LabId = if ($LabId) { $LabId } else { $null }
     CreatedDirectories = @($createdDirectories)

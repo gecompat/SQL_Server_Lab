@@ -27,7 +27,7 @@ function Get-LabPersistentInstanceStorage {
         [switch]$Create
     )
 
-    $root = (Resolve-Path -LiteralPath $DataRoot -ErrorAction Stop).Path
+    $root = Resolve-LabDataRootForUse -DataRoot $DataRoot
     if (-not (Test-Path -LiteralPath (Join-Path $root 'Labs') -PathType Container)) {
         throw 'LAB_DATA_ROOT_LAYOUT_REQUIRED'
     }

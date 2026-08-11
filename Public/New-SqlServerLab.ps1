@@ -402,7 +402,7 @@ function New-SqlServerLab {
     if ($PersistentData) {
         if (-not $DataRoot) { $DataRoot = Get-LabDataRootDefault }
         if (-not $DataRoot) { throw 'LAB_DATA_ROOT_REQUIRED: PersistentData benötigt einen konfigurierten Data Root.' }
-        $DataRoot = Set-LabDataRootDefault -DataRoot $DataRoot
+        $DataRoot = Resolve-LabDataRootForUse -DataRoot $DataRoot
     }
 
     Write-LabInfo "Umgebung: $($resolved.name) ($($resolved.instances.Count) Instanz(en))"

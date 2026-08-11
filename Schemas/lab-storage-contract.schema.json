@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sql-server-lab.local/schemas/lab-storage-contract.schema.json",
+  "title": "SqlServerLab.Storage/2.0",
+  "type": "object",
+  "required": ["ContractVersion", "ControllerId", "DefaultDataRoot", "LabDataLocations"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.Storage/2.0" },
+    "ControllerId": { "type": "string", "format": "uuid" },
+    "DefaultDataRoot": { "type": "string", "minLength": 1 },
+    "LabDataLocations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["VolumeId", "LabDataParent", "LabDataRoot"],
+        "properties": {
+          "VolumeId": { "type": "string", "minLength": 1 },
+          "DriveLetter": { "type": "string" },
+          "LabDataParent": { "type": "string", "minLength": 1 },
+          "LabDataRoot": { "type": "string", "pattern": "(?i)[\\\\/]Lab_Data$" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": true
+}
