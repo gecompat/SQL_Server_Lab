@@ -2,7 +2,7 @@
 
 | Merkmal | Wert |
 |---|---|
-| Status | `IMPLEMENTING_FOUNDATION_CUI_001_TO_004` |
+| Status | `IMPLEMENTING_VERTICAL_UI_CUI_001_TO_006` |
 | Stand | 2026-08-11 |
 | Priorität | `P0 / M2` |
 | Geltung | interaktive PowerShell-Konsole von `SQL_Server_Lab` |
@@ -236,8 +236,8 @@ automatische Medienbeschaffung, Slot-Erzeugung oder sonstige Mutation auslösen.
 | `CUI-002` | gemeinsames Screen-, Item-, Field- und UI-State-Modell | `IMPLEMENTED_MENU_STATE` - stabile Auswahl-IDs und Viewport-State |
 | `CUI-003` | Frame-Renderer mit Viewport, Resize und sauberem Refresh | `IMPLEMENTED_MENU_FRAME` - In-place-Repaint ohne `Clear-Host` |
 | `CUI-004` | gemeinsame Key-Loop für Menü, Auswahl und Mehrfachauswahl | `PARTIAL` - Auswahl und Refresh implementiert; Mehrfachauswahl folgt |
-| `CUI-005` | editierbares Formular mit Feldvalidierung und Review | lange Erfassungen bleiben korrigierbar |
-| `CUI-006` | Hauptmenü und Auswahl aktiver Umgebungen migrieren | erster produktiver Vertical Slice |
+| `CUI-005` | editierbares Formular mit Feldvalidierung und Review | `IMPLEMENTED_VERTICAL_SLICE` - Container-Ressourcen vor Mutation editieren, validieren und reviewen |
+| `CUI-006` | Hauptmenü und Auswahl aktiver Umgebungen migrieren | `IMPLEMENTED` - Hauptmenü, stabiler Run-Selector und Container-Aktionsmenü verwenden den gemeinsamen Renderer |
 | `CUI-007` | SQL-Zielkonfiguration migrieren | komplexer Formularnachweis |
 | `CUI-008` | Sample-Auswahl sowie Hyper-V-Image-, Slot- und Verwaltungsmenüs migrieren | breite Menüabdeckung |
 | `CUI-009` | Container-Änderungsdialog auf gemeinsamen Renderer umstellen | `IMPLEMENTED_VERTICAL_SLICE` - Sonder-Key-Loop und `Clear-Host` entfernt |

@@ -336,9 +336,6 @@ function Get-LabRunsByRuntimeState {
 }
 
 function Show-LabMenu {
-    Write-Host "  -------------------------" -ForegroundColor DarkCyan
-    Write-Host "  Umgebungen:" -ForegroundColor White
-    Write-Host ""
     $sevenZip = Get-Lab7ZipExecutable
     $sevenZipLabel = if ($sevenZip) {
         '7-Zip für katalogisierte .7z-Backups bereits verfügbar'
@@ -346,36 +343,36 @@ function Show-LabMenu {
     else {
         '7-Zip für katalogisierte .7z-Backups optional installieren'
     }
-    Write-Host "    [1] Neue Umgebung erstellen" -ForegroundColor Yellow
-    Write-Host "    [u] Umgebung verwalten (Start, Stopp, Name, CPU, Speicher, Entfernen)" -ForegroundColor Yellow
-    Write-Host "    [2] Status anzeigen (Schnellansicht)" -ForegroundColor White
-    Write-Host "    [3] Umgebung stoppen (Schnellaktion)" -ForegroundColor White
-    Write-Host "    [4] Umgebung starten (Schnellaktion)" -ForegroundColor White
-    Write-Host "    [5] Umgebung neustarten (Schnellaktion)" -ForegroundColor White
-    Write-Host "    [6] Umgebung entfernen (Schnellaktion)" -ForegroundColor White
-    Write-Host "    [r] CPU und Speicher ändern" -ForegroundColor White
-    Write-Host "    [n] Umgebung umbenennen" -ForegroundColor White
-    Write-Host "    [7] Alles aufraeumen" -ForegroundColor Red
-    Write-Host "    [a] Cleanup-Audit anzeigen (read-only)" -ForegroundColor White
-    Write-Host ""
-    Write-Host "  SQL und Bereitstellung:" -ForegroundColor White
-    Write-Host "    [8] Datenbank anlegen" -ForegroundColor White
-    Write-Host "    [9] SQL-Skript ausfuehren" -ForegroundColor White
-    Write-Host "    [m] Container-Manifest erstellen und pruefen" -ForegroundColor Yellow
-    Write-Host "    [i] Hyper-V Windows-Image verwalten" -ForegroundColor Yellow
-    Write-Host ""
-    Write-Host "  Speicherorte und Werkzeuge:" -ForegroundColor White
-    Write-Host "    [p] Media Root konfigurieren" -ForegroundColor White
-    Write-Host "    [d] Storage verwalten (Lab_Data je Volume)" -ForegroundColor White
-    Write-Host "    [t] Testdaten-Bibliothek konfigurieren" -ForegroundColor White
-    Write-Host "    [k] SQL-Verbindungszentrale (SSMS, CMS, Export)" -ForegroundColor Yellow
-    Write-Host "    [z] $sevenZipLabel" -ForegroundColor White
-    Write-Host ""
-    Write-Host "    [0/q] Beenden" -ForegroundColor DarkGray
-    Write-Host ""
-    Write-Host "  -------------------------" -ForegroundColor DarkCyan
-    $choice = Read-Host "  Auswahl"
-    return $choice
+    $items = @(
+        New-LabConsoleItem -Id 'create' -Label 'Neue Umgebung erstellen' -Shortcut '1'
+        New-LabConsoleItem -Id 'manage' -Label 'Umgebung verwalten' -Value 'Start, Stopp, Name, CPU, Speicher, Entfernen' -Shortcut 'u'
+        New-LabConsoleItem -Id 'status' -Label 'Status anzeigen (Schnellansicht)' -Shortcut '2'
+        New-LabConsoleItem -Id 'stop' -Label 'Umgebung stoppen (Schnellaktion)' -Shortcut '3'
+        New-LabConsoleItem -Id 'start' -Label 'Umgebung starten (Schnellaktion)' -Shortcut '4'
+        New-LabConsoleItem -Id 'restart' -Label 'Umgebung neustarten (Schnellaktion)' -Shortcut '5'
+        New-LabConsoleItem -Id 'remove' -Label 'Umgebung entfernen (Schnellaktion)' -Shortcut '6'
+        New-LabConsoleItem -Id 'resources' -Label 'CPU und Speicher aendern' -Shortcut 'r'
+        New-LabConsoleItem -Id 'rename' -Label 'Umgebung umbenennen' -Shortcut 'n'
+        New-LabConsoleItem -Id 'clear' -Label 'Alles aufraeumen' -Shortcut '7'
+        New-LabConsoleItem -Id 'audit' -Label 'Cleanup-Audit anzeigen (read-only)' -Shortcut 'a'
+        New-LabConsoleItem -Id 'database' -Label 'Datenbank anlegen' -Shortcut '8'
+        New-LabConsoleItem -Id 'script' -Label 'SQL-Skript ausfuehren' -Shortcut '9'
+        New-LabConsoleItem -Id 'manifest' -Label 'Container-Manifest erstellen und pruefen' -Shortcut 'm'
+        New-LabConsoleItem -Id 'hyperv' -Label 'Hyper-V Windows-Image verwalten' -Shortcut 'i'
+        New-LabConsoleItem -Id 'media' -Label 'Media Root konfigurieren' -Shortcut 'p'
+        New-LabConsoleItem -Id 'storage' -Label 'Storage verwalten' -Value 'Lab_Data je Volume' -Shortcut 'd'
+        New-LabConsoleItem -Id 'samples' -Label 'Testdaten-Bibliothek konfigurieren' -Shortcut 't'
+        New-LabConsoleItem -Id 'connections' -Label 'SQL-Verbindungszentrale' -Value 'SSMS, CMS, Export' -Shortcut 'k'
+        New-LabConsoleItem -Id 'sevenzip' -Label $sevenZipLabel -Shortcut 'z'
+        New-LabConsoleItem -Id 'exit' -Label 'Beenden' -Shortcut '0' -Aliases @('q')
+    )
+    while ($true) {
+        $result = Invoke-LabConsoleMenu -ScreenId 'main-menu' -Title 'SQL Server Lab' -Subtitle 'Umgebungen, SQL-Bereitstellung und Werkzeuge' -Items $items -Footer 'Pfeile: Navigation  Enter/Shortcut: Auswahl  F5: Menue aktualisieren  Esc: Beenden' -FallbackPrompt '  Auswahl'
+        if ($result.Status -eq 'Refresh') { continue }
+        if ($result.Status -eq 'Cancelled') { return '0' }
+        if ($result.Status -eq 'Selected') { return [string]$result.SelectedItem.Shortcut }
+        Write-LabWarning 'Ungueltige Auswahl.'
+    }
 }
 
 function Invoke-LabAction {
@@ -3576,23 +3573,18 @@ function Select-LabRun {
         return $Runs[0].runId
     }
 
-    Write-Host ""
-    for ($i = 0; $i -lt $Runs.Count; $i++) {
-        $prefix = $Runs[$i].runId.Substring(0, 8)
-        $synced = Sync-LabRunRuntimeState -Run $Runs[$i]
-        $runtime = $synced.Runtime
-        Write-Host "    [$($i+1)] ${prefix}... - $($Runs[$i].metadata.name) [$($runtime.State)]" -ForegroundColor White
+    while ($true) {
+        $items = for ($i = 0; $i -lt $Runs.Count; $i++) {
+            $prefix = $Runs[$i].runId.Substring(0, 8)
+            $synced = Sync-LabRunRuntimeState -Run $Runs[$i]
+            New-LabConsoleItem -Id ([string]$Runs[$i].runId) -Label ("{0}... - {1}" -f $prefix, $Runs[$i].metadata.name) -Value ([string]$synced.Runtime.State) -Shortcut ([string]($i + 1)) -Data $Runs[$i]
+        }
+        $result = Invoke-LabConsoleMenu -ScreenId 'active-run-selection' -Title $Prompt -Subtitle 'Aktive SQL_Server_Lab-Umgebungen' -Items $items -Footer 'Pfeile: Navigation  Enter: Auswahl  F5: Runtime-Status aktualisieren  Esc: Zurueck' -FallbackPrompt "  $Prompt (Nummer)"
+        if ($result.Status -eq 'Refresh') { continue }
+        if ($result.Status -eq 'Selected') { return [string]$result.SelectedItem.Id }
+        if ($result.Status -eq 'Invalid') { Write-LabWarning 'Ungueltige Auswahl.' }
+        return $null
     }
-    Write-Host ""
-    $sel = Read-Host "  $Prompt (Nummer)"
-    $idx = [int]$sel - 1
-
-    if ($idx -ge 0 -and $idx -lt $Runs.Count) {
-        return $Runs[$idx].runId
-    }
-
-    Write-LabWarning "Ungueltige Auswahl."
-    return $null
 }
 
 function Set-LabResourcesInteractive {
@@ -3669,19 +3661,16 @@ function Manage-LabEnvironmentInteractive {
     }
 
     $synced = Sync-LabRunRuntimeState -Run $run
-    Write-Host ''
-    Write-Host "  Umgebung verwalten: $($run.metadata.name) · $($synced.Runtime.State)" -ForegroundColor Cyan
-    foreach ($connection in @(Get-LabRunConnectionStrings -RunId $runId)) { Write-Host "    SQL: $($connection.Value)" -ForegroundColor DarkGray }
-    Write-Host ''
-    Write-Host '    [s] Starten oder stoppen' -ForegroundColor Yellow
-    Write-Host '        Startet eine gestoppte oder stoppt eine laufende Container-Umgebung.' -ForegroundColor DarkGray
-    Write-Host '    [r] CPU und Speicher ändern' -ForegroundColor White
-    Write-Host '        Übernimmt echte Docker-/Podman-Limits unmittelbar für alle Instanzen des Labs.' -ForegroundColor DarkGray
-    Write-Host '    [n] Anzeigename ändern' -ForegroundColor White
-    Write-Host '        Benennt Container und Projektanzeige gemeinsam um.' -ForegroundColor DarkGray
-    Write-Host '    [e] Umgebung entfernen' -ForegroundColor Red
-    Write-Host '        Entfernt Container und run-lokale Ressourcen nach Bestätigung.' -ForegroundColor DarkGray
-    $action = Read-Host '  Aktion (Buchstabe)'
+    $connectionLabel = @((Get-LabRunConnectionStrings -RunId $runId) | ForEach-Object Value) -join ', '
+    $actionItems = @(
+        New-LabConsoleItem -Id 'lifecycle' -Label 'Starten oder stoppen' -Value 'abhängig vom aktuellen Zustand' -Shortcut 's'
+        New-LabConsoleItem -Id 'resources' -Label 'CPU und Speicher aendern' -Value 'Docker-/Podman-Limits' -Shortcut 'r'
+        New-LabConsoleItem -Id 'rename' -Label 'Anzeigename aendern' -Shortcut 'n'
+        New-LabConsoleItem -Id 'remove' -Label 'Umgebung entfernen' -Value 'erfordert Bestaetigung' -Shortcut 'e'
+    )
+    $actionResult = Invoke-LabConsoleMenu -ScreenId 'environment-actions' -Title ("Umgebung verwalten: {0}" -f $run.metadata.name) -Subtitle ("Status: {0}{1}" -f $synced.Runtime.State, $(if ($connectionLabel) { " - SQL: $connectionLabel" } else { '' })) -Items $actionItems -Footer 'Pfeile: Navigation  Enter/Shortcut: Aktion  Esc: Zurueck' -FallbackPrompt '  Aktion (Buchstabe)'
+    if ($actionResult.Status -ne 'Selected') { return }
+    $action = [string]$actionResult.SelectedItem.Shortcut
     try {
         switch ($action) {
             's' { if ([string]$synced.Runtime.State -eq 'RUNNING') { Stop-SqlServerLab -RunId $runId } else { Start-SqlServerLab -RunId $runId } }

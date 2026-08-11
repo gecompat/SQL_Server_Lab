@@ -106,6 +106,11 @@ mit einem bloßen Fehler:
 
 ## Hinweise zur Bedienbarkeit
 
+- Das Hauptmenü und die Auswahl aktiver Umgebungen verwenden bei geeigneter
+  Konsole einen gemeinsamen cursorbasierten Viewport. Direkte Buchstaben- und
+  Ziffernshortcuts bleiben erhalten; `F5` aktualisiert ausdrücklich den
+  jeweiligen Snapshot. Ohne sichere Konsolensteuerung bleibt derselbe Ablauf
+  nummeriert beziehungsweise buchstabenbasiert über `Read-Host` verfügbar.
 - Im geführten SQL-Workflow werden OOBE-Übernahme, SQL-Planung und Installation
   nach der Bestätigung ohne Menüwechsel ausgeführt.
 - Einzeln angelegte OS-Slots und bewusst abgebrochene Abläufe können weiterhin mit
@@ -122,6 +127,9 @@ mit einem bloßen Fehler:
   gespeicherten Snapshot neu und lösen keine Docker-/Podman-Abfragen aus. In
   Hosts ohne sichere `System.Console`-Steuerung bleibt der nummerierte
   `Read-Host`-Fallback vollständig bedienbar.
+- Vor der Containeränderung werden CPU, RAM und Port gemeinsam validiert und in
+  einer Review-Ansicht gezeigt. Erst die dortige Aktion `Anwenden` ruft den
+  bestehenden Reconcile-Pfad auf.
 - Unter `[k] SQL-Verbindungszentrale` stehen der passwortfreie Endpunktkatalog,
   ein SSMS-`.regsrvr`-Export, die sichere Aktualisierung einer lokalen SSMS-Gruppe
   sowie ein idempotentes CMS-Synchronisationsskript zur Verfügung.

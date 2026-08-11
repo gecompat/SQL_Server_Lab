@@ -34,6 +34,7 @@ function New-LabConsoleItem {
         [Parameter(Mandatory)][string]$Label,
         [AllowNull()][object]$Value,
         [AllowEmptyString()][string]$Shortcut = '',
+        [string[]]$Aliases = @(),
         [switch]$Disabled,
         [AllowNull()][object]$Data
     )
@@ -43,8 +44,39 @@ function New-LabConsoleItem {
         Label = $Label
         Value = $Value
         Shortcut = $Shortcut
+        Aliases = @($Aliases)
         Disabled = $Disabled.IsPresent
         Data = $Data
+    }
+}
+
+function New-LabConsoleField {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Id,
+        [Parameter(Mandatory)][string]$Label,
+        [AllowNull()][object]$Value,
+        [AllowEmptyString()][string]$Shortcut = '',
+        [scriptblock]$Editor,
+        [scriptblock]$Validator,
+        [scriptblock]$Formatter,
+        [switch]$Sensitive,
+        [switch]$Required
+    )
+
+    if ($Sensitive -and $null -ne $Value) {
+        throw 'CONSOLE_UI_SENSITIVE_INITIAL_VALUE_NOT_ALLOWED'
+    }
+    [PSCustomObject]@{
+        Id = $Id
+        Label = $Label
+        Value = $Value
+        Shortcut = $Shortcut
+        Editor = $Editor
+        Validator = $Validator
+        Formatter = $Formatter
+        Sensitive = $Sensitive.IsPresent
+        Required = $Required.IsPresent
     }
 }
 
@@ -306,7 +338,8 @@ function Invoke-LabConsoleMenu {
         for ($index = 0; $index -lt $Items.Count; $index++) {
             $item = $Items[$index]
             if ([bool]$item.Disabled) { continue }
-            if ([string]$answer -eq [string]($index + 1) -or ([string]$item.Shortcut -and [string]$answer -ieq [string]$item.Shortcut)) {
+            $displayShortcut = if ([string]$item.Shortcut) { [string]$item.Shortcut } else { [string]($index + 1) }
+            if ([string]$answer -ieq $displayShortcut -or @($item.Aliases | Where-Object { [string]$_ -ieq [string]$answer }).Count -gt 0) {
                 return [PSCustomObject]@{ Status='Selected'; SelectedItem=$item; State=$null }
             }
         }
@@ -337,9 +370,15 @@ function Invoke-LabConsoleMenu {
                 }
                 'Escape' { return [PSCustomObject]@{ Status='Cancelled'; SelectedItem=$null; State=$state } }
                 'F5' { return [PSCustomObject]@{ Status='Refresh'; SelectedItem=$null; State=$state } }
+                'F10' { return [PSCustomObject]@{ Status='Review'; SelectedItem=$null; State=$state } }
                 default {
                     if ($keyCharacter) {
-                        $match = @($state.Items | Where-Object { -not [bool]$_.Disabled -and [string]$_.Shortcut -and [string]$_.Shortcut -ieq $keyCharacter }) | Select-Object -First 1
+                        $match = @($state.Items | Where-Object {
+                            -not [bool]$_.Disabled -and (
+                                ([string]$_.Shortcut -and [string]$_.Shortcut -ieq $keyCharacter) -or
+                                @($_.Aliases | Where-Object { [string]$_ -ieq $keyCharacter }).Count -gt 0
+                            )
+                        }) | Select-Object -First 1
                         if ($match) { return [PSCustomObject]@{ Status='Selected'; SelectedItem=$match; State=$state } }
                     }
                     $state.Message = 'Taste ist in dieser Ansicht nicht belegt.'
@@ -349,5 +388,122 @@ function Invoke-LabConsoleMenu {
     }
     finally {
         if (-not $FrameWriter) { Complete-LabConsoleSession -Session $session }
+    }
+}
+
+function Test-LabConsoleFormValues {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][object[]]$Fields,
+        [Parameter(Mandatory)][hashtable]$Values,
+        [Parameter(Mandatory)][hashtable]$SecureValues
+    )
+
+    $validation = @{}
+    foreach ($field in $Fields) {
+        $id = [string]$field.Id
+        $hasValue = if ([bool]$field.Sensitive) { $SecureValues.ContainsKey($id) } else { $Values.ContainsKey($id) -and $null -ne $Values[$id] -and [string]$Values[$id] }
+        if ([bool]$field.Required -and -not $hasValue) {
+            $validation[$id] = 'Pflichtfeld ist nicht ausgefuellt.'
+            continue
+        }
+        if ($field.Validator) {
+            $message = [string](& $field.Validator $(if ([bool]$field.Sensitive) { $SecureValues[$id] } else { $Values[$id] }) $Values)
+            if ($message) { $validation[$id] = $message }
+        }
+    }
+    $validation
+}
+
+function Invoke-LabConsoleForm {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$ScreenId,
+        [Parameter(Mandatory)][string]$Title,
+        [Parameter(Mandatory)][object[]]$Fields,
+        [string]$Subtitle = '',
+        [string]$SelectedId,
+        [switch]$ForceFallback,
+        [AllowNull()][object]$Capability,
+        [scriptblock]$ReadInput,
+        [scriptblock]$ReadKey,
+        [scriptblock]$FrameWriter
+    )
+
+    $values = @{}
+    $secureValues = @{}
+    foreach ($field in $Fields) {
+        if (-not [bool]$field.Sensitive) { $values[[string]$field.Id] = $field.Value }
+    }
+    if (-not $SelectedId -and $Fields.Count -gt 0) { $SelectedId = [string]$Fields[0].Id }
+    $message = ''
+
+    while ($true) {
+        $items = foreach ($field in $Fields) {
+            $id = [string]$field.Id
+            $displayValue = if ([bool]$field.Sensitive) {
+                if ($secureValues.ContainsKey($id)) { '<gesetzt>' } else { '<nicht gesetzt>' }
+            }
+            elseif ($field.Formatter) { [string](& $field.Formatter $values[$id]) }
+            else { [string]$values[$id] }
+            New-LabConsoleItem -Id $id -Label ([string]$field.Label) -Value $displayValue -Shortcut ([string]$field.Shortcut) -Data $field
+        }
+        $items = @($items) + @(New-LabConsoleItem -Id '__review' -Label 'Eingaben pruefen und anwenden' -Shortcut 'f')
+        $formResult = Invoke-LabConsoleMenu -ScreenId $ScreenId -Title $Title -Subtitle $(if ($message) { "$Subtitle - $message" } else { $Subtitle }) -Items $items -SelectedId $SelectedId -Footer 'Pfeile: Navigation  Enter: Bearbeiten  F10/f: Pruefen  Esc: Abbruch' -ForceFallback:$ForceFallback -Capability $Capability -ReadInput $ReadInput -ReadKey $ReadKey -FrameWriter $FrameWriter
+        if ($formResult.Status -eq 'Cancelled') {
+            return [PSCustomObject]@{ Status='Cancelled'; Values=$values; SecureValues=$secureValues; Validation=@{} }
+        }
+        $reviewRequested = $formResult.Status -eq 'Review' -or ($formResult.Status -eq 'Selected' -and [string]$formResult.SelectedItem.Id -eq '__review')
+        if (-not $reviewRequested) {
+            if ($formResult.Status -ne 'Selected') { $message = 'Ungueltige Auswahl.'; continue }
+            $field = $formResult.SelectedItem.Data
+            $SelectedId = [string]$field.Id
+            $currentValue = if ([bool]$field.Sensitive) { $null } else { $values[$SelectedId] }
+            $newValue = if ($field.Editor) {
+                & $field.Editor $currentValue $values
+            }
+            elseif ($ReadInput) {
+                & $ReadInput $field $currentValue
+            }
+            else {
+                Read-Host ("  {0} [{1}]" -f $field.Label, $currentValue)
+            }
+            if ([bool]$field.Sensitive) {
+                if ($null -ne $newValue) { $secureValues[$SelectedId] = $newValue }
+            }
+            else { $values[$SelectedId] = $newValue }
+            $validation = Test-LabConsoleFormValues -Fields @($field) -Values $values -SecureValues $secureValues
+            $message = if ($validation.ContainsKey($SelectedId)) { [string]$validation[$SelectedId] } else { '' }
+            continue
+        }
+
+        $validation = Test-LabConsoleFormValues -Fields $Fields -Values $values -SecureValues $secureValues
+        if ($validation.Count -gt 0) {
+            $SelectedId = [string]@($Fields | Where-Object { $validation.ContainsKey([string]$_.Id) } | Select-Object -First 1).Id
+            $message = [string]$validation[$SelectedId]
+            continue
+        }
+
+        $reviewItems = foreach ($field in $Fields) {
+            $id = [string]$field.Id
+            $displayValue = if ([bool]$field.Sensitive) { if ($secureValues.ContainsKey($id)) { '<gesetzt>' } else { '<nicht gesetzt>' } }
+                elseif ($field.Formatter) { [string](& $field.Formatter $values[$id]) }
+                else { [string]$values[$id] }
+            New-LabConsoleItem -Id "review-$id" -Label ([string]$field.Label) -Value $displayValue -Data $field
+        }
+        $reviewItems = @($reviewItems) + @(
+            New-LabConsoleItem -Id '__apply' -Label 'Aenderungen jetzt anwenden' -Shortcut 'a'
+            New-LabConsoleItem -Id '__back' -Label 'Zurueck zur Bearbeitung' -Shortcut 'b'
+            New-LabConsoleItem -Id '__cancel' -Label 'Abbrechen' -Shortcut 'q'
+        )
+        $reviewResult = Invoke-LabConsoleMenu -ScreenId "$ScreenId-review" -Title "$Title - Pruefen" -Subtitle 'Noch wurde keine Runtime-Mutation ausgefuehrt.' -Items $reviewItems -SelectedId '__apply' -Footer 'Pfeile: Pruefen  a: Anwenden  b: Bearbeiten  q/Esc: Abbruch' -ForceFallback:$ForceFallback -Capability $Capability -ReadInput $ReadInput -ReadKey $ReadKey -FrameWriter $FrameWriter
+        if ($reviewResult.Status -eq 'Cancelled' -or [string]$reviewResult.SelectedItem.Id -eq '__cancel') {
+            return [PSCustomObject]@{ Status='Cancelled'; Values=$values; SecureValues=$secureValues; Validation=$validation }
+        }
+        if ([string]$reviewResult.SelectedItem.Id -eq '__apply') {
+            return [PSCustomObject]@{ Status='Confirmed'; Values=$values; SecureValues=$secureValues; Validation=$validation }
+        }
+        if ([string]$reviewResult.SelectedItem.Id -like 'review-*') { $SelectedId = [string]$reviewResult.SelectedItem.Data.Id }
+        $message = ''
     }
 }
