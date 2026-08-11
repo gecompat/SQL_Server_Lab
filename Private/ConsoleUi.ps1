@@ -391,6 +391,129 @@ function Invoke-LabConsoleMenu {
     }
 }
 
+function Invoke-LabConsoleMultiSelect {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$ScreenId,
+        [Parameter(Mandatory)][string]$Title,
+        [Parameter(Mandatory)][object[]]$Items,
+        [string[]]$SelectedIds = @(),
+        [string]$Subtitle = '',
+        [string]$Footer = 'Pfeile: Navigation  Space: Umschalten  Enter: Uebernehmen  D: Details  Esc: Keine Auswahl',
+        [switch]$ForceFallback,
+        [AllowNull()][object]$Capability,
+        [scriptblock]$ValidateToggle,
+        [scriptblock]$ShowDetails,
+        [scriptblock]$ReadInput,
+        [scriptblock]$ReadKey,
+        [scriptblock]$FrameWriter
+    )
+
+    $selected = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($id in @($SelectedIds)) { if ($id) { $null = $selected.Add([string]$id) } }
+    $itemById = @{}
+    foreach ($item in $Items) { $itemById[[string]$item.Id] = $item }
+    $getSelectedItems = {
+        @($Items | Where-Object { $selected.Contains([string]$_.Id) })
+    }
+    $getDisplayItems = {
+        @($Items | ForEach-Object {
+            $marker = if ($selected.Contains([string]$_.Id)) { '[x]' } else { '[ ]' }
+            New-LabConsoleItem -Id ([string]$_.Id) -Label "$marker $($_.Label)" -Value $_.Value `
+                -Shortcut ([string]$_.Shortcut) -Aliases @($_.Aliases) -Disabled:([bool]$_.Disabled) -Data $_
+        })
+    }
+    $toggle = {
+        param([Parameter(Mandatory)][object]$Item, [AllowNull()][object]$State)
+        $id = [string]$Item.Id
+        if ($selected.Contains($id)) {
+            $null = $selected.Remove($id)
+        }
+        else {
+            if ($ValidateToggle) {
+                $message = [string](& $ValidateToggle $Item (& $getSelectedItems))
+                if ($message) {
+                    if ($State) { $State.Message = $message }
+                    return $false
+                }
+            }
+            $null = $selected.Add($id)
+        }
+        if ($State) {
+            $State.Message = ''
+            $null = Sync-LabConsoleState -State $State -Items (& $getDisplayItems)
+        }
+        return $true
+    }
+
+    if (-not $Capability) { $Capability = Test-LabConsoleCapability }
+    if ($ForceFallback -or -not [bool]$Capability.Supported) {
+        while ($true) {
+            $displayItems = & $getDisplayItems
+            for ($index = 0; $index -lt $displayItems.Count; $index++) {
+                $item = $displayItems[$index]
+                $shortcut = if ([string]$item.Shortcut) { [string]$item.Shortcut } else { [string]($index + 1) }
+                $value = if ($null -ne $item.Value -and [string]$item.Value) { " - $($item.Value)" } else { '' }
+                Write-Host ("    [{0}] {1}{2}" -f $shortcut, $item.Label, $value)
+            }
+            $answer = if ($ReadInput) { & $ReadInput '  Auswahl' } else { Read-Host '  Auswahl' }
+            if ([string]::IsNullOrWhiteSpace([string]$answer)) {
+                return [PSCustomObject]@{ Status='Confirmed'; SelectedItems=(& $getSelectedItems); State=$null }
+            }
+            if ([string]$answer -eq '0') {
+                return [PSCustomObject]@{ Status='Cancelled'; SelectedItems=@(); State=$null }
+            }
+            $detailRequested = [string]$answer -match '^[dD]\s*(.+)$'
+            $lookup = if ($detailRequested) { [string]$Matches[1] } else { [string]$answer }
+            $matched = $null
+            for ($index = 0; $index -lt $Items.Count; $index++) {
+                $item = $Items[$index]
+                $shortcut = if ([string]$item.Shortcut) { [string]$item.Shortcut } else { [string]($index + 1) }
+                if ($lookup -ieq $shortcut -or @($item.Aliases | Where-Object { [string]$_ -ieq $lookup }).Count -gt 0) { $matched = $item; break }
+            }
+            if (-not $matched) { Write-Host '  Ungueltige Auswahl.'; continue }
+            if ($detailRequested -and $ShowDetails) { & $ShowDetails $matched; continue }
+            $null = & $toggle $matched $null
+        }
+    }
+
+    $state = New-LabConsoleState -ScreenId $ScreenId -Items (& $getDisplayItems) -SelectedId $(if ($SelectedIds.Count -gt 0) { $SelectedIds[0] } else { '' })
+    $session = if ($FrameWriter) { [PSCustomObject]@{ PreviousLineCount=0 } } else { New-LabConsoleSession }
+    try {
+        while ($true) {
+            $width = if ($FrameWriter) { 80 } else { [Console]::WindowWidth }
+            $height = if ($FrameWriter) { 25 } else { [Console]::WindowHeight }
+            $frame = Get-LabConsoleFrame -State $state -Title $Title -Subtitle $Subtitle -Footer $Footer -Width $width -Height $height
+            if ($FrameWriter) { & $FrameWriter $session $frame } else { Write-LabConsoleFrame -Session $session -Frame $frame }
+            $key = if ($ReadKey) { & $ReadKey } else { [Console]::ReadKey($true) }
+            $selectedDisplayItem = if ($state.SelectedIndex -ge 0) { $state.Items[$state.SelectedIndex] } else { $null }
+            switch ([string]$key.Key) {
+                'UpArrow'   { $null = Move-LabConsoleSelection -State $state -Direction Up }
+                'DownArrow' { $null = Move-LabConsoleSelection -State $state -Direction Down }
+                'PageUp'    { $null = Move-LabConsoleSelection -State $state -Direction PageUp }
+                'PageDown'  { $null = Move-LabConsoleSelection -State $state -Direction PageDown }
+                'Home'      { $null = Move-LabConsoleSelection -State $state -Direction Home }
+                'End'       { $null = Move-LabConsoleSelection -State $state -Direction End }
+                'Spacebar'  { if ($selectedDisplayItem) { $null = & $toggle $selectedDisplayItem.Data $state } }
+                'Enter'     { return [PSCustomObject]@{ Status='Confirmed'; SelectedItems=(& $getSelectedItems); State=$state } }
+                'Escape'    { return [PSCustomObject]@{ Status='Cancelled'; SelectedItems=@(); State=$state } }
+                'F5'        { $null = Sync-LabConsoleState -State $state -Items (& $getDisplayItems) }
+                'D'         { if ($selectedDisplayItem -and $ShowDetails) { & $ShowDetails $selectedDisplayItem.Data } }
+                default {
+                    $character = [string]$key.KeyChar
+                    $matched = @($Items | Where-Object {
+                        -not [bool]$_.Disabled -and (([string]$_.Shortcut -and [string]$_.Shortcut -ieq $character) -or @($_.Aliases | Where-Object { [string]$_ -ieq $character }).Count -gt 0)
+                    }) | Select-Object -First 1
+                    if ($matched) { $null = & $toggle $matched $state } else { $state.Message = 'Taste ist in dieser Ansicht nicht belegt.' }
+                }
+            }
+        }
+    }
+    finally {
+        if (-not $FrameWriter) { Complete-LabConsoleSession -Session $session }
+    }
+}
+
 function Test-LabConsoleFormValues {
     [CmdletBinding()]
     param(
