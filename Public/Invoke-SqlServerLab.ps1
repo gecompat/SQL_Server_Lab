@@ -758,7 +758,9 @@ function Select-LabSqlPatchIntent {
     }
     Write-Host '  Fehlende Windows-Pakete verhindern Container nicht; sie werden nur für Hyper-V benötigt.' -ForegroundColor DarkGray
     while ($true) {
-        $selection = Read-Host "  Patchstand: latest oder $(@($patches.Cu | Sort-Object { [int]($_ -replace '^CU','') }) -join ', ') [latest]"
+        Write-Host '  [latest] Gleitender Microsoft-Tag; bei jeder neuen Erstellung aktuell (Default, nicht reproduzierbar)' -ForegroundColor Green
+        Write-Host "  [CU]     Fixierter Stand: $(@($patches.Cu | Sort-Object { [int]($_ -replace '^CU','') }) -join ', ')" -ForegroundColor White
+        $selection = Read-Host '  Patchstand [latest]'
         if (-not $selection -or $selection -eq 'latest') {
             Write-LabWarning 'latest ist ein gleitender Microsoft-Tag. Eine spätere Erstellung kann einen neueren CU-Stand verwenden.'
             return $floatingLatest
