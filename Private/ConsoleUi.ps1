@@ -280,26 +280,44 @@ function New-LabConsoleSession {
     $session
 }
 
+function Get-LabConsoleWritePlan {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][object]$Session,
+        [Parameter(Mandatory)][object]$Frame,
+        [ValidateRange(2, 1000)][int]$Width,
+        [ValidateRange(1, 500)][int]$Height
+    )
+
+    $usableWidth = [Math]::Max(1, $Width - 1)
+    $lineCount = [Math]::Min(@($Frame.Lines).Count, $Height)
+    $clearThrough = [Math]::Min([Math]::Max($lineCount, [int]$Session.PreviousLineCount), $Height)
+    $rows = [System.Collections.Generic.List[object]]::new()
+    for ($row = 0; $row -lt $clearThrough; $row++) {
+        $text = if ($row -lt $lineCount) { Format-LabConsoleText -Text ([string]$Frame.Lines[$row]) -Width $usableWidth } else { '' }
+        $rows.Add([PSCustomObject]@{ Row=$row; Text=$text.PadRight($usableWidth); ClearsPrevious=($row -ge $lineCount) })
+    }
+    [PSCustomObject]@{ Rows=@($rows); LineCount=$lineCount; Width=$usableWidth; Height=$Height }
+}
+
 function Write-LabConsoleFrame {
     [CmdletBinding()]
     param([Parameter(Mandatory)][object]$Session, [Parameter(Mandatory)][object]$Frame)
 
-    $width = [Math]::Max(1, [Console]::WindowWidth - 1)
+    $width = [Console]::WindowWidth
     $height = [Console]::WindowHeight
-    if ($Session.Width -ne [Console]::WindowWidth -or $Session.Height -ne $height) {
+    if ($Session.Width -ne $width -or $Session.Height -ne $height) {
         $Session.OriginTop = [Console]::WindowTop
-        $Session.Width = [Console]::WindowWidth
+        $Session.Width = $width
         $Session.Height = $height
     }
-    $lineCount = [Math]::Min(@($Frame.Lines).Count, $height)
-    $clearThrough = [Math]::Min([Math]::Max($lineCount, [int]$Session.PreviousLineCount), $height)
-    for ($row = 0; $row -lt $clearThrough; $row++) {
-        [Console]::SetCursorPosition(0, $Session.OriginTop + $row)
-        $text = if ($row -lt $lineCount) { Format-LabConsoleText -Text ([string]$Frame.Lines[$row]) -Width $width } else { '' }
-        [Console]::Write($text.PadRight($width))
+    $plan = Get-LabConsoleWritePlan -Session $Session -Frame $Frame -Width $width -Height $height
+    foreach ($row in $plan.Rows) {
+        [Console]::SetCursorPosition(0, $Session.OriginTop + [int]$row.Row)
+        [Console]::Write([string]$row.Text)
     }
-    $Session.PreviousLineCount = $lineCount
-    [Console]::SetCursorPosition(0, [Math]::Min($Session.OriginTop + [Math]::Max(0, $lineCount - 1), [Console]::BufferHeight - 1))
+    $Session.PreviousLineCount = [int]$plan.LineCount
+    [Console]::SetCursorPosition(0, [Math]::Min($Session.OriginTop + [Math]::Max(0, [int]$plan.LineCount - 1), [Console]::BufferHeight - 1))
 }
 
 function Complete-LabConsoleSession {
@@ -309,13 +327,13 @@ function Complete-LabConsoleSession {
     try {
         [Console]::ForegroundColor = $Session.ForegroundColor
         [Console]::BackgroundColor = $Session.BackgroundColor
-        [Console]::CursorVisible = $true
+        [Console]::CursorVisible = [bool]$Session.CursorVisible
         $targetTop = [Math]::Min($Session.OriginTop + [int]$Session.PreviousLineCount, [Console]::BufferHeight - 1)
         [Console]::SetCursorPosition(0, [Math]::Max(0, $targetTop))
         [Console]::WriteLine()
     }
     catch {
-        try { [Console]::CursorVisible = $true } catch {}
+        try { [Console]::CursorVisible = [bool]$Session.CursorVisible } catch {}
     }
 }
 
@@ -334,7 +352,10 @@ function Invoke-LabConsoleMenu {
         [AllowNull()][object]$Capability,
         [scriptblock]$ReadInput,
         [scriptblock]$ReadKey,
-        [scriptblock]$FrameWriter
+        [scriptblock]$FrameWriter,
+        [scriptblock]$GetViewport,
+        [scriptblock]$SessionFactory,
+        [scriptblock]$SessionCompleter
     )
 
     if (-not $PSBoundParameters.ContainsKey('Snapshot') -and (Get-Command Get-LabConsoleAttentionSnapshot -ErrorAction SilentlyContinue)) {
@@ -367,11 +388,13 @@ function Invoke-LabConsoleMenu {
 
     $state = New-LabConsoleState -ScreenId $ScreenId -Items $Items -SelectedId $SelectedId
     $state.Snapshot = $Snapshot
-    $session = if ($FrameWriter) { [PSCustomObject]@{ PreviousLineCount=0 } } else { New-LabConsoleSession }
+    $session = if ($SessionFactory) { & $SessionFactory } elseif ($FrameWriter) { [PSCustomObject]@{ PreviousLineCount=0 } } else { New-LabConsoleSession }
+    $consoleFailure = $null
     try {
         while ($true) {
-            $width = if ($FrameWriter) { 80 } else { [Console]::WindowWidth }
-            $height = if ($FrameWriter) { 25 } else { [Console]::WindowHeight }
+            $viewport = if ($GetViewport) { & $GetViewport } else { $null }
+            $width = if ($viewport) { [Math]::Max(20, [int]$viewport.Width) } elseif ($FrameWriter) { 80 } else { [Console]::WindowWidth }
+            $height = if ($viewport) { [Math]::Max(6, [int]$viewport.Height) } elseif ($FrameWriter) { 25 } else { [Console]::WindowHeight }
             $frame = Get-LabConsoleFrame -State $state -Title $Title -Subtitle $Subtitle -Footer $Footer -Width $width -Height $height
             if ($FrameWriter) { & $FrameWriter $session $frame } else { Write-LabConsoleFrame -Session $session -Frame $frame }
             $key = if ($ReadKey) { & $ReadKey } else { [Console]::ReadKey($true) }
@@ -411,8 +434,16 @@ function Invoke-LabConsoleMenu {
             }
         }
     }
+    catch {
+        $consoleFailure = $_
+    }
     finally {
-        if (-not $FrameWriter) { Complete-LabConsoleSession -Session $session }
+        if ($SessionCompleter) { & $SessionCompleter $session }
+        elseif (-not $FrameWriter) { Complete-LabConsoleSession -Session $session }
+    }
+    if ($consoleFailure) {
+        Write-Host "  Cursoransicht nicht verfügbar; nummerierter Fallback wird verwendet: $($consoleFailure.Exception.Message)"
+        return Invoke-LabConsoleMenu -ScreenId $ScreenId -Title $Title -Subtitle $Subtitle -Items $Items -SelectedId $SelectedId -Snapshot $Snapshot -Footer $Footer -FallbackPrompt $FallbackPrompt -ForceFallback -ReadInput $ReadInput
     }
 }
 
@@ -432,7 +463,10 @@ function Invoke-LabConsoleMultiSelect {
         [scriptblock]$ShowDetails,
         [scriptblock]$ReadInput,
         [scriptblock]$ReadKey,
-        [scriptblock]$FrameWriter
+        [scriptblock]$FrameWriter,
+        [scriptblock]$GetViewport,
+        [scriptblock]$SessionFactory,
+        [scriptblock]$SessionCompleter
     )
 
     $selected = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
@@ -512,11 +546,13 @@ function Invoke-LabConsoleMultiSelect {
 
     $state = New-LabConsoleState -ScreenId $ScreenId -Items (& $getDisplayItems) -SelectedId $(if ($SelectedIds.Count -gt 0) { $SelectedIds[0] } else { '' })
     $state.Snapshot = $Snapshot
-    $session = if ($FrameWriter) { [PSCustomObject]@{ PreviousLineCount=0 } } else { New-LabConsoleSession }
+    $session = if ($SessionFactory) { & $SessionFactory } elseif ($FrameWriter) { [PSCustomObject]@{ PreviousLineCount=0 } } else { New-LabConsoleSession }
+    $consoleFailure = $null
     try {
         while ($true) {
-            $width = if ($FrameWriter) { 80 } else { [Console]::WindowWidth }
-            $height = if ($FrameWriter) { 25 } else { [Console]::WindowHeight }
+            $viewport = if ($GetViewport) { & $GetViewport } else { $null }
+            $width = if ($viewport) { [Math]::Max(20, [int]$viewport.Width) } elseif ($FrameWriter) { 80 } else { [Console]::WindowWidth }
+            $height = if ($viewport) { [Math]::Max(6, [int]$viewport.Height) } elseif ($FrameWriter) { 25 } else { [Console]::WindowHeight }
             $frame = Get-LabConsoleFrame -State $state -Title $Title -Subtitle $Subtitle -Footer $Footer -Width $width -Height $height
             if ($FrameWriter) { & $FrameWriter $session $frame } else { Write-LabConsoleFrame -Session $session -Frame $frame }
             $key = if ($ReadKey) { & $ReadKey } else { [Console]::ReadKey($true) }
@@ -548,8 +584,16 @@ function Invoke-LabConsoleMultiSelect {
             }
         }
     }
+    catch {
+        $consoleFailure = $_
+    }
     finally {
-        if (-not $FrameWriter) { Complete-LabConsoleSession -Session $session }
+        if ($SessionCompleter) { & $SessionCompleter $session }
+        elseif (-not $FrameWriter) { Complete-LabConsoleSession -Session $session }
+    }
+    if ($consoleFailure) {
+        Write-Host "  Cursoransicht nicht verfügbar; Mehrfachauswahl-Fallback wird verwendet: $($consoleFailure.Exception.Message)"
+        return Invoke-LabConsoleMultiSelect -ScreenId $ScreenId -Title $Title -Subtitle $Subtitle -Items $Items -SelectedIds @($selected) -Snapshot $Snapshot -Footer $Footer -ForceFallback -ValidateToggle $ValidateToggle -ShowDetails $ShowDetails -ReadInput $ReadInput
     }
 }
 
@@ -589,7 +633,10 @@ function Invoke-LabConsoleForm {
         [AllowNull()][object]$Capability,
         [scriptblock]$ReadInput,
         [scriptblock]$ReadKey,
-        [scriptblock]$FrameWriter
+        [scriptblock]$FrameWriter,
+        [scriptblock]$GetViewport,
+        [scriptblock]$SessionFactory,
+        [scriptblock]$SessionCompleter
     )
 
     $values = @{}
@@ -611,7 +658,7 @@ function Invoke-LabConsoleForm {
             New-LabConsoleItem -Id $id -Label ([string]$field.Label) -Value $displayValue -Shortcut ([string]$field.Shortcut) -Data $field
         }
         $items = @($items) + @(New-LabConsoleItem -Id '__review' -Label 'Eingaben pruefen und anwenden' -Shortcut 'f')
-        $formResult = Invoke-LabConsoleMenu -ScreenId $ScreenId -Title $Title -Subtitle $(if ($message) { "$Subtitle - $message" } else { $Subtitle }) -Items $items -SelectedId $SelectedId -Footer 'Pfeile: Navigation  Enter: Bearbeiten  F10/f: Pruefen  Esc: Abbruch' -ForceFallback:$ForceFallback -Capability $Capability -ReadInput $ReadInput -ReadKey $ReadKey -FrameWriter $FrameWriter
+        $formResult = Invoke-LabConsoleMenu -ScreenId $ScreenId -Title $Title -Subtitle $(if ($message) { "$Subtitle - $message" } else { $Subtitle }) -Items $items -SelectedId $SelectedId -Footer 'Pfeile: Navigation  Enter: Bearbeiten  F10/f: Pruefen  Esc: Abbruch' -ForceFallback:$ForceFallback -Capability $Capability -ReadInput $ReadInput -ReadKey $ReadKey -FrameWriter $FrameWriter -GetViewport $GetViewport -SessionFactory $SessionFactory -SessionCompleter $SessionCompleter
         if ($formResult.Status -eq 'Cancelled') {
             return [PSCustomObject]@{ Status='Cancelled'; Values=$values; SecureValues=$secureValues; Validation=@{} }
         }
@@ -658,7 +705,7 @@ function Invoke-LabConsoleForm {
             New-LabConsoleItem -Id '__back' -Label 'Zurueck zur Bearbeitung' -Shortcut 'b'
             New-LabConsoleItem -Id '__cancel' -Label 'Abbrechen' -Shortcut 'q'
         )
-        $reviewResult = Invoke-LabConsoleMenu -ScreenId "$ScreenId-review" -Title "$Title - Pruefen" -Subtitle 'Noch wurde keine Runtime-Mutation ausgefuehrt.' -Items $reviewItems -SelectedId '__apply' -Footer 'Pfeile: Pruefen  a: Anwenden  b: Bearbeiten  q/Esc: Abbruch' -ForceFallback:$ForceFallback -Capability $Capability -ReadInput $ReadInput -ReadKey $ReadKey -FrameWriter $FrameWriter
+        $reviewResult = Invoke-LabConsoleMenu -ScreenId "$ScreenId-review" -Title "$Title - Pruefen" -Subtitle 'Noch wurde keine Runtime-Mutation ausgefuehrt.' -Items $reviewItems -SelectedId '__apply' -Footer 'Pfeile: Pruefen  a: Anwenden  b: Bearbeiten  q/Esc: Abbruch' -ForceFallback:$ForceFallback -Capability $Capability -ReadInput $ReadInput -ReadKey $ReadKey -FrameWriter $FrameWriter -GetViewport $GetViewport -SessionFactory $SessionFactory -SessionCompleter $SessionCompleter
         if ($reviewResult.Status -eq 'Cancelled' -or [string]$reviewResult.SelectedItem.Id -eq '__cancel') {
             return [PSCustomObject]@{ Status='Cancelled'; Values=$values; SecureValues=$secureValues; Validation=$validation }
         }
