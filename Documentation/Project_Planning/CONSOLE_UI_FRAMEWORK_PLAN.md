@@ -239,7 +239,7 @@ automatische Medienbeschaffung, Slot-Erzeugung oder sonstige Mutation auslösen.
 | `CUI-005` | editierbares Formular mit Feldvalidierung und Review | `IMPLEMENTED_VERTICAL_SLICE` - Container-Ressourcen vor Mutation editieren, validieren und reviewen |
 | `CUI-006` | Hauptmenü und Auswahl aktiver Umgebungen migrieren | `IMPLEMENTED` - Hauptmenü, stabiler Run-Selector und Container-Aktionsmenü verwenden den gemeinsamen Renderer |
 | `CUI-007` | SQL-Zielkonfiguration migrieren | `IMPLEMENTED_VERTICAL_SLICE` - Quick und Custom werden vor Providerentscheidung gemeinsam editiert, validiert und reviewed |
-| `CUI-008` | Sample-Auswahl sowie Hyper-V-Image-, Slot- und Verwaltungsmenüs migrieren | breite Menüabdeckung |
+| `CUI-008` | Sample-Auswahl sowie Hyper-V-Image-, Slot- und Verwaltungsmenüs migrieren | `IMPLEMENTED` - gemeinsame Mehrfachauswahl, Image-Menüs, Slot-Auswahl und dynamische Verwaltungsaktionen verwenden stabile IDs und den gemeinsamen Renderer |
 | `CUI-009` | Container-Änderungsdialog auf gemeinsamen Renderer umstellen | `IMPLEMENTED_VERTICAL_SLICE` - Sonder-Key-Loop und `Clear-Host` entfernt |
 | `CUI-010` | Attention-Footer an gemeinsamen read-only Status anbinden | offene Benutzeraktionen sichtbar |
 | `CUI-011` | Zustands-, Render-, Resize-, Fallback- und Recovery-Tests | belastbare Console-UX |
