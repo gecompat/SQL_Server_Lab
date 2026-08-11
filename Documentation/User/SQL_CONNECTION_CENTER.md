@@ -46,13 +46,16 @@ solange der lokale DPAPI-Schlüssel den Run entschlüsseln kann. Manuell eingege
 manifestbasierte Kennwörter bleiben immer maskiert.
 
 Alternativ schreibt `[4]` unter `Lab_Data/Exports` ein idempotentes
-`sql-server-lab-cms-sync.sql`. Das Skript nutzt
-die dokumentierten `msdb.dbo.sp_sysmanagement_*`-Prozeduren, legt Gruppen an und ergänzt
-fehlende Registered Servers in einem vorhandenen Central Management Server. Es löscht keine
-CMS-Einträge und enthält keine Kennwörter.
+`sql-server-lab-cms-sync.sql`. Das Skript nutzt die dokumentierten
+`msdb.dbo.sp_sysmanagement_*`-Prozeduren und gleicht den vollständig durch SQL Server Lab
+verwalteten CMS-Unterbaum mit dem Framework-State ab. Es legt Einträge an, verschiebt sie
+zwischen `Running` und `Stopped` und entfernt veraltete Einträge nur, wenn der zugehörige
+Provider lokal sicher geprüft werden kann. Das Skript enthält keine Kennwörter.
 
 ## Gruppen
 
-`[5]` ändert den Namen der verwalteten Wurzelgruppe. Für maximale Kompatibilität mit dem
-SSMS-Import liegen die Server direkt darunter; der Provider steht im Anzeigenamen, etwa
-`[DOCKER] mein-lab (primary)`.
+`[5]` ändert den Namen der verwalteten SSMS-/CMS-Wurzelgruppe. In der CMS-Verwaltung kann
+die sichtbare Hierarchie zusätzlich unabhängig konfiguriert werden: eigener Root-Ordner
+ein oder aus sowie Provider-Ordner unter `Running` und `Stopped` ein oder aus. Damit sind
+vier Layouts möglich, einschließlich der flachsten Variante mit Umgebungen direkt unter
+`Running` und `Stopped`. Der Name des CMS-Knotens selbst bleibt eine lokale SSMS-Eigenschaft.
