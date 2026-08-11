@@ -113,6 +113,8 @@ function Wait-SqlReady {
         [int]$TimeoutSeconds = 120,
         [int]$PollIntervalMilliseconds = 500,
         [int]$ExpectedMajorVersion = 0,
+        [ValidateRange(2, 20)][int]$RequiredConsecutiveSuccesses = 2,
+        [ValidateRange(1, 60)][int]$StabilitySeconds = 5,
         [ValidateSet('docker', 'podman')][string]$Provider,
         [string]$ContainerIdOrName
     )
@@ -139,6 +141,8 @@ function Wait-SqlReady {
     $lastError = ''
     $podmanDiagnosticChecked = $false
     $nextRuntimeCheckSeconds = 0
+    $consecutiveSuccesses = 0
+    $readySinceSeconds = $null
 
     try {
         Write-LabInfo "Warte auf SQL-Bereitschaft (${HostName}:$Port, Timeout: ${TimeoutSeconds}s)..."
@@ -162,20 +166,30 @@ function Wait-SqlReady {
                 $majorVersion = [int]$outputText
                 if ($ExpectedMajorVersion -gt 0 -and $majorVersion -ne $ExpectedMajorVersion) {
                     $lastError = "Erwartete Major-Version $ExpectedMajorVersion, gefunden $majorVersion."
+                    $consecutiveSuccesses = 0
+                    $readySinceSeconds = $null
                 }
                 else {
-                    $stopwatch.Stop()
-                    Write-LabSuccess "SQL Server bereit nach $($stopwatch.Elapsed.TotalSeconds.ToString('F1'))s (Major: $majorVersion)"
-                    return [PSCustomObject]@{
-                        Ready        = $true
-                        MajorVersion = $majorVersion
-                        Duration     = $stopwatch.Elapsed
-                        Message      = 'SQL Server bereit'
+                    if ($null -eq $readySinceSeconds) { $readySinceSeconds = $stopwatch.Elapsed.TotalSeconds }
+                    $consecutiveSuccesses++
+                    $stableForSeconds = $stopwatch.Elapsed.TotalSeconds - $readySinceSeconds
+                    if ($consecutiveSuccesses -ge $RequiredConsecutiveSuccesses -and $stableForSeconds -ge $StabilitySeconds) {
+                        $stopwatch.Stop()
+                        Write-LabSuccess "SQL Server stabil bereit nach $($stopwatch.Elapsed.TotalSeconds.ToString('F1'))s (Major: $majorVersion)"
+                        return [PSCustomObject]@{
+                            Ready        = $true
+                            MajorVersion = $majorVersion
+                            Duration     = $stopwatch.Elapsed
+                            Message      = 'SQL Server stabil bereit'
+                        }
                     }
+                    $lastError = "SQL Server antwortet; Stabilisierung ${stableForSeconds}s/${StabilitySeconds}s, erfolgreiche Probes: $consecutiveSuccesses/$RequiredConsecutiveSuccesses."
                 }
             }
             else {
                 $lastError = if ($outputText) { $outputText } else { "sqlcmd Exitcode $exitCode" }
+                $consecutiveSuccesses = 0
+                $readySinceSeconds = $null
             }
 
             if ($Provider -and $ContainerIdOrName -and $stopwatch.Elapsed.TotalSeconds -ge $nextRuntimeCheckSeconds) {
@@ -340,6 +354,7 @@ function Invoke-SqlQuery {
         throw "Database '$Database' ist ungueltig."
     }
 
+    $loginTimeoutSeconds = [Math]::Max(2, [Math]::Min($TimeoutSeconds, 30))
     $output = sqlcmd `
         -S "${HostName},${Port}" `
         -U sa `
@@ -348,6 +363,7 @@ function Invoke-SqlQuery {
         -d $Database `
         -Q $Query `
         -b `
+        -l $loginTimeoutSeconds `
         -t $TimeoutSeconds `
         -W 2>&1
     $exitCode = $LASTEXITCODE
