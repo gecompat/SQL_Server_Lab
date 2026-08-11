@@ -54,6 +54,10 @@ COMMANDS
         Erzeugt einen konsolidierten, geheimnisfreien Laufzeitkatalog der aktuellen
         Labs, Templates und Artefakte und speichert ihn als JSON-Datei.
 
+    Get-SqlServerLabCleanupAudit
+        Inventarisiert read-only bekannte Lab-Daten und Runtime-Ressourcen und
+        meldet Reste sowie nicht pruefbare Provider ohne etwas zu entfernen.
+
     Get-SqlServerLabConnectionCenter
         Liefert den passwortfreien SQL-Endpunktkatalog für SSMS und CMS.
 
