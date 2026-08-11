@@ -69,6 +69,41 @@ Hinweis: --user-mode-networking allein stellt die Localhost-Portweiterleitung ni
     return $null
 }
 
+function Get-LabContainerReadinessDiagnostic {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][ValidateSet('docker', 'podman')][string]$Provider,
+        [Parameter(Mandatory)][string]$ContainerIdOrName,
+        [switch]$IncludeLogs
+    )
+
+    if (-not (Get-Command $Provider -ErrorAction SilentlyContinue)) { return $null }
+    try {
+        $stateOutput = & $Provider inspect --format '{{.State.Status}}|{{.State.ExitCode}}|{{.State.OOMKilled}}|{{.State.Error}}' $ContainerIdOrName 2>&1
+        if ($LASTEXITCODE -ne 0) { return $null }
+        $stateText = (($stateOutput | ForEach-Object { [string]$_ }) -join ' ').Trim()
+        $parts = @($stateText -split '\|', 4)
+        $status = if ($parts.Count -gt 0) { [string]$parts[0] } else { 'unknown' }
+        $exitCode = if ($parts.Count -gt 1) { [string]$parts[1] } else { '?' }
+        $oomKilled = if ($parts.Count -gt 2) { [string]$parts[2] } else { '?' }
+        $runtimeError = if ($parts.Count -gt 3) { [string]$parts[3] } else { '' }
+        $message = "Containerstatus: $status; ExitCode: $exitCode; OOMKilled: $oomKilled"
+        if (-not [string]::IsNullOrWhiteSpace($runtimeError)) { $message += "; RuntimeError: $runtimeError" }
+
+        if ($IncludeLogs) {
+            $logOutput = & $Provider logs --tail 80 $ContainerIdOrName 2>&1
+            $logText = (($logOutput | ForEach-Object { [string]$_ }) -join "`n").Trim()
+            if ($logText) {
+                $logText = [regex]::Replace($logText, '(?i)((?:sa_)?password\s*[=:]\s*)\S+', '$1***')
+                if ($logText.Length -gt 6000) { $logText = $logText.Substring($logText.Length - 6000) }
+                $message += "`nContainer-Logs (letzte Zeilen):`n$logText"
+            }
+        }
+        return [PSCustomObject]@{ Status = $status; Running = $status -eq 'running'; Message = $message }
+    }
+    catch { return $null }
+}
+
 function Wait-SqlReady {
     [CmdletBinding()]
     param(
@@ -77,7 +112,9 @@ function Wait-SqlReady {
         [Parameter(Mandatory)][SecureString]$SaPassword,
         [int]$TimeoutSeconds = 120,
         [int]$PollIntervalMilliseconds = 500,
-        [int]$ExpectedMajorVersion = 0
+        [int]$ExpectedMajorVersion = 0,
+        [ValidateSet('docker', 'podman')][string]$Provider,
+        [string]$ContainerIdOrName
     )
 
     if (-not (Get-Command sqlcmd -ErrorAction SilentlyContinue)) {
@@ -101,6 +138,7 @@ function Wait-SqlReady {
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
     $lastError = ''
     $podmanDiagnosticChecked = $false
+    $nextRuntimeCheckSeconds = 0
 
     try {
         Write-LabInfo "Warte auf SQL-Bereitschaft (${HostName}:$Port, Timeout: ${TimeoutSeconds}s)..."
@@ -140,6 +178,21 @@ function Wait-SqlReady {
                 $lastError = if ($outputText) { $outputText } else { "sqlcmd Exitcode $exitCode" }
             }
 
+            if ($Provider -and $ContainerIdOrName -and $stopwatch.Elapsed.TotalSeconds -ge $nextRuntimeCheckSeconds) {
+                $runtimeDiagnostic = Get-LabContainerReadinessDiagnostic -Provider $Provider -ContainerIdOrName $ContainerIdOrName
+                $nextRuntimeCheckSeconds = $stopwatch.Elapsed.TotalSeconds + 2
+                if ($runtimeDiagnostic -and -not $runtimeDiagnostic.Running) {
+                    $stopwatch.Stop()
+                    $runtimeDiagnostic = Get-LabContainerReadinessDiagnostic -Provider $Provider -ContainerIdOrName $ContainerIdOrName -IncludeLogs
+                    return [PSCustomObject]@{
+                        Ready        = $false
+                        MajorVersion = $null
+                        Duration     = $stopwatch.Elapsed
+                        Message      = "SQL-Container wurde vor der Bereitschaft beendet. $($runtimeDiagnostic.Message)"
+                    }
+                }
+            }
+
             if (-not $podmanDiagnosticChecked -and $HostName -in @('127.0.0.1', 'localhost') -and $stopwatch.Elapsed.TotalSeconds -ge 5) {
                 $podmanDiagnostic = Get-PodmanWindowsLocalhostDiagnostic -Port $Port
                 if ($podmanDiagnostic) {
@@ -159,6 +212,10 @@ function Wait-SqlReady {
         }
 
         $stopwatch.Stop()
+        if ($Provider -and $ContainerIdOrName) {
+            $runtimeDiagnostic = Get-LabContainerReadinessDiagnostic -Provider $Provider -ContainerIdOrName $ContainerIdOrName -IncludeLogs
+            if ($runtimeDiagnostic) { $lastError += "`n$($runtimeDiagnostic.Message)" }
+        }
         return [PSCustomObject]@{
             Ready        = $false
             MajorVersion = $null
