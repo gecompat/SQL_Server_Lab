@@ -728,14 +728,30 @@ function Select-LabSqlPatchIntent {
     param([Parameter(Mandatory)][string]$BaseVersion)
     $mediaRoot = Get-LabMediaRootDefault
     $patches = @(Get-SqlServerPatchOptions -VersionId $BaseVersion -MediaRoot $mediaRoot)
-    if ($patches.Count -eq 0) {
-        Write-LabInfo "Für SQL Server $BaseVersion sind keine einzelnen CUs katalogisiert; Basisstand/latest wird verwendet."
-        return [PSCustomObject]@{ VersionId=$BaseVersion; BaseVersion=$BaseVersion; Cu=$null; Build=$null; WindowsStatus='NOT_APPLICABLE' }
+    $floatingLatest = [PSCustomObject]@{
+        VersionId = $BaseVersion
+        BaseVersion = $BaseVersion
+        Cu = $null
+        Build = $null
+        Kb = $null
+        Released = $null
+        ArticleUrl = $null
+        WindowsStatus = 'NOT_APPLICABLE'
+        WindowsRelativePath = $null
+        CanAutoDownload = $false
+        Floating = $true
+        Reproducible = $false
     }
-    $latest = $patches[0]
+    if ($patches.Count -eq 0) {
+        Write-LabInfo "Für SQL Server $BaseVersion sind keine einzelnen CUs katalogisiert; der veränderliche Microsoft-Tag latest wird verwendet."
+        return $floatingLatest
+    }
+    $catalogLatest = $patches[0]
+    $floatingImage = Get-SqlServerDockerImage -VersionId $BaseVersion
     $catalogDate = [string]$script:VersionCatalog.catalogMetadata.lastVerified
     Write-Host "  Katalogisierte Patchstände (Stand $catalogDate):" -ForegroundColor White
-    Write-Host "    latest -> $($latest.Cu) · Build $($latest.Build) · $($latest.Kb)" -ForegroundColor Green
+    Write-Host "    latest (gleitend) · $floatingImage · nicht reproduzierbar" -ForegroundColor Green
+    Write-Host "    aktuell katalogisiert: $($catalogLatest.Cu) · Build $($catalogLatest.Build) · $($catalogLatest.Kb)" -ForegroundColor DarkGreen
     foreach ($patch in $patches) {
         $windowsText = if ($patch.WindowsStatus -like 'PRESENT*') { 'Windows-Paket vorhanden' } else { "Windows-Paket fehlt: $($patch.WindowsRelativePath)" }
         Write-Host "    $($patch.Cu) · Build $($patch.Build) · $($patch.Kb) · $($patch.Released) · $windowsText" -ForegroundColor $(if ($patch.WindowsStatus -like 'PRESENT*') { 'White' } else { 'DarkYellow' })
@@ -743,7 +759,10 @@ function Select-LabSqlPatchIntent {
     Write-Host '  Fehlende Windows-Pakete verhindern Container nicht; sie werden nur für Hyper-V benötigt.' -ForegroundColor DarkGray
     while ($true) {
         $selection = Read-Host "  Patchstand: latest oder $(@($patches.Cu | Sort-Object { [int]($_ -replace '^CU','') }) -join ', ') [latest]"
-        if (-not $selection -or $selection -eq 'latest') { return $latest }
+        if (-not $selection -or $selection -eq 'latest') {
+            Write-LabWarning 'latest ist ein gleitender Microsoft-Tag. Eine spätere Erstellung kann einen neueren CU-Stand verwenden.'
+            return $floatingLatest
+        }
         $selected = $patches | Where-Object { $_.Cu -eq $selection.ToUpperInvariant() } | Select-Object -First 1
         if ($selected) { return $selected }
         Write-LabWarning 'Patchstand ist nicht im lokalen Agent-Katalog enthalten.'
@@ -848,6 +867,7 @@ function Resolve-LabSqlIntentProvider {
     if (@($Intent.Drives | Where-Object {[long]$_.MaximumIops -gt 0}).Count -gt 0) {$reasons.Add('Datenträgerbezogene IOPS-Limits benötigen Hyper-V.')}
     if ($Intent.NetworkMode -eq 'external') { return [PSCustomObject]@{Supported=$false;Provider=$null;Reasons=@('Externes LAN benötigt zuerst einen vollständigen IP-/Gateway-/DNS-Vertrag.')} }
     if ($reasons.Count -gt 0) {
+        if ($Intent.Patch.Floating) { return [PSCustomObject]@{Supported=$false;Provider=$null;Reasons=@($reasons + 'Der gleitende Patchstand latest ist nur für Container zulässig. Für Hyper-V muss ein konkretes CU gewählt werden.')} }
         if ([decimal]$Intent.Cpu % 1 -ne 0) { return [PSCustomObject]@{Supported=$false;Provider=$null;Reasons=@('Hyper-V benötigt ganzzahlige vCPU.')} }
         if ($Intent.Patch.Cu -and $Intent.Patch.WindowsStatus -ne 'PRESENT_HASH_CATALOGUED' -and -not $Intent.Patch.CanAutoDownload) { return [PSCustomObject]@{Supported=$false;Provider=$null;Reasons=@($reasons + "Windows-Paket fehlt oder besitzt keinen katalogisierten SHA-256: $($Intent.Patch.WindowsRelativePath)" + "Quelle: $($Intent.Patch.ArticleUrl)")} }
         if ('hyperv' -notin $AvailableProviders) { return [PSCustomObject]@{Supported=$false;Provider=$null;Reasons=@($reasons + 'Hyper-V ist nicht verfügbar.')} }
