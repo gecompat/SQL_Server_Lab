@@ -129,7 +129,9 @@ mit einem bloßen Fehler:
 - Das Menü in `u` ist feldbasiert (`↑/↓`, Enter), bei ungültigen Werten gibt es
   konkrete Hinweise statt sofortiger Abbrüche.
 - Der Dialog verwendet die gemeinsame Console-UI-Schicht mit stabilem Fokus,
-  Viewport und In-place-Refresh ohne `Clear-Host` pro Tastendruck. Container- und
+  Viewport und In-place-Refresh ohne `Clear-Host` pro Tastendruck. Sample-Auswahl,
+  Hyper-V-Image-, Slot- und Verwaltungsmenüs verwenden denselben Renderer; `Space`
+  schaltet mehrere Samples um, `Enter` übernimmt und `Esc` bricht ohne Auswahl ab. Container- und
   Statusdaten werden davor einmalig geladen; Pfeiltasten zeichnen nur diesen
   gespeicherten Snapshot neu und lösen keine Docker-/Podman-Abfragen aus. In
   Hosts ohne sichere `System.Console`-Steuerung bleibt der nummerierte

@@ -50,6 +50,14 @@ $refreshKeys.Enqueue([PSCustomObject]@{ Key='F5'; KeyChar=[char]0 })
 $refreshResult = Invoke-LabConsoleMenu -ScreenId 'refresh' -Title 'Refresh' -Items $items -Capability ([PSCustomObject]@{ Supported=$true }) -ReadKey { $refreshKeys.Dequeue() } -FrameWriter { param($session, $renderedFrame) }
 Add-ConsoleUiCheck 'F5 fordert Refresh an statt Runtime selbst aufzurufen' ($refreshResult.Status -eq 'Refresh')
 
+$multiKeys = [System.Collections.Generic.Queue[object]]::new()
+$multiKeys.Enqueue([PSCustomObject]@{ Key='Spacebar'; KeyChar=' ' })
+$multiKeys.Enqueue([PSCustomObject]@{ Key='DownArrow'; KeyChar=[char]0 })
+$multiKeys.Enqueue([PSCustomObject]@{ Key='Spacebar'; KeyChar=' ' })
+$multiKeys.Enqueue([PSCustomObject]@{ Key='Enter'; KeyChar=[char]13 })
+$multiResult = Invoke-LabConsoleMultiSelect -ScreenId 'multi' -Title 'Multi' -Items $items -Capability ([PSCustomObject]@{ Supported=$true }) -ReadKey { $multiKeys.Dequeue() } -FrameWriter { param($session, $renderedFrame) }
+Add-ConsoleUiCheck 'Mehrfachauswahl schaltet per Space um und bestätigt gesammelt' ($multiResult.Status -eq 'Confirmed' -and @($multiResult.SelectedItems).Count -eq 2 -and @($multiResult.SelectedItems).Id -contains 'one' -and @($multiResult.SelectedItems).Id -contains 'two')
+
 $formKeys = [System.Collections.Generic.Queue[object]]::new()
 $formKeys.Enqueue([PSCustomObject]@{ Key='Enter'; KeyChar=[char]13 })
 $formKeys.Enqueue([PSCustomObject]@{ Key='F10'; KeyChar=[char]0 })
@@ -72,6 +80,15 @@ $entrySource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Invoke-SqlS
     $sqlIntentMatch = [regex]::Match($entrySource, 'function Read-LabSqlEnvironmentIntentInteractive \{[\s\S]+?\n\}(?=\r?\n\r?\nfunction Resolve-LabSqlIntentProvider)')
 Add-ConsoleUiCheck 'SQL-Zielkonfiguration verwendet gemeinsames Formular und Review' ($sqlIntentMatch.Success -and $sqlIntentMatch.Value -match 'Invoke-LabConsoleForm' -and $sqlIntentMatch.Value -match 'New-LabConsoleField')
 Add-ConsoleUiCheck 'Providerentscheidung bleibt ausserhalb der Formularnavigation' ($sqlIntentMatch.Success -and $sqlIntentMatch.Value -notmatch 'Resolve-LabSqlIntentProvider|Invoke-LabNewContainerEnvironmentInteractive|Invoke-LabNewHyperVEnvironmentInteractive')
+
+$cui008Functions = @('Invoke-LabHyperVImageAction','Invoke-LabHyperVPreparedImageWorkflowMenu','Invoke-LabHyperVPublishedImageMenu','Invoke-LabHyperVAdvancedMenu','Invoke-LabHyperVWindowsBaselineMenu','Invoke-LabHyperVSqlAcceptanceMenu','Select-LabReusableHyperVWindowsSlotInteractive','Manage-LabHyperVEnvironmentInteractive')
+$cui008MenuCoverage = @($cui008Functions | Where-Object {
+    $match = [regex]::Match($entrySource, "function $([regex]::Escape($_)) \{[\s\S]+?(?=\r?\nfunction |\z)")
+    -not $match.Success -or $match.Value -notmatch 'Invoke-LabConsoleMenu'
+}).Count -eq 0
+$sampleSelectionMatch = [regex]::Match($entrySource, 'function Select-LabSampleSelection \{[\s\S]+?(?=\r?\nfunction Select-LabHyperVPreparedArtifact)')
+Add-ConsoleUiCheck 'CUI-008 migriert Hyper-V-Image-, Slot- und Verwaltungsmenüs' $cui008MenuCoverage
+Add-ConsoleUiCheck 'Sample-Auswahl verwendet gemeinsame Mehrfachauswahl' ($sampleSelectionMatch.Success -and $sampleSelectionMatch.Value -match 'Invoke-LabConsoleMultiSelect')
 
 Write-Host "`nErgebnis: $passed PASS, $failed FAIL"
 if ($failed -gt 0) { exit 1 }
