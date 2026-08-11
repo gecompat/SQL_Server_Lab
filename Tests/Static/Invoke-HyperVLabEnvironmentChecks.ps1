@@ -53,7 +53,8 @@ try {
         $menuText -match 'function Read-LabSqlEnvironmentIntentInteractive' -and
         $menuText -match 'function Resolve-LabSqlIntentProvider' -and
         $menuText -match 'Providerentscheidung:' -and
-        $menuText -match 'Benutzerdefiniert: OS, Edition, Netzwerk, Storage, I/O, TempDB und Collation' -and
+        $menuText -match "Label='Benutzerdefiniert'" -and
+        $menuText -match "Value='OS, Edition, Netzwerk, Storage, I/O, TempDB und Collation'" -and
         $menuText -match 'function Invoke-LabNewHyperVSqlEnvironmentWorkflowInteractive' -and
         $menuText -match 'Keine veröffentlichte SQL-Prepared-Vorlage vorhanden\. Der interaktive Workflow wechselt auf den Windows-OS-Pfad' -and
         $menuText -match 'New-LabHyperVImageBuildInteractive' -and
