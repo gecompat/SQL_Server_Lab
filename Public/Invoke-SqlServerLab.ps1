@@ -766,87 +766,114 @@ function Select-LabSqlPatchIntent {
 function Read-LabSqlEnvironmentIntentInteractive {
     [CmdletBinding()]
     param()
-    Write-Host ''
-    Write-Host '  SQL-Zielkonfiguration:' -ForegroundColor White
-    Write-Host '    [1] Schnellkonfiguration mit sichtbaren Standardwerten' -ForegroundColor Green
-    Write-Host '    [2] Benutzerdefiniert: OS, Edition, Netzwerk, Storage, I/O, TempDB und Collation' -ForegroundColor White
-    $mode = Read-Host '  Konfiguration [1]'
-    if (-not $mode) { $mode = '1' }
-    if ($mode -notin @('1','2')) { Write-LabWarning 'Ungültige Konfigurationsauswahl.'; return $null }
-    $custom = $mode -eq '2'
     $versions = @(Get-SqlServerVersions | Where-Object { $_.status -ne 'BLOCKED' } | Sort-Object { [int]$_.id } -Descending)
-    Write-Host "  Verfügbare SQL Server Versionen: $(@($versions.id) -join ', ')" -ForegroundColor White
-    while ($true) {
-        $baseVersion = Read-Host '  SQL Server Version [2025]'
-        if (-not $baseVersion) { $baseVersion = '2025' }
-        if ($baseVersion -in @($versions.id)) { break }
-        Write-LabWarning 'SQL-Version ist nicht im Agent-Katalog enthalten.'
+    $selectOption = {
+        param([string]$ScreenId, [string]$Title, [object[]]$Options, [string]$CurrentId)
+        $items = for ($index = 0; $index -lt $Options.Count; $index++) {
+            New-LabConsoleItem -Id ([string]$Options[$index].Id) -Label ([string]$Options[$index].Label) -Value $Options[$index].Value -Shortcut ([string]($index + 1))
+        }
+        $result = Invoke-LabConsoleMenu -ScreenId $ScreenId -Title $Title -Items $items -SelectedId $CurrentId -Footer 'Pfeile: Navigation  Enter: Auswahl  Esc: bisherigen Wert behalten' -FallbackPrompt '  Auswahl'
+        if ($result.Status -eq 'Selected') { return [string]$result.SelectedItem.Id }
+        return $CurrentId
     }
+    $mode = & $selectOption -ScreenId 'sql-intent-mode' -Title 'SQL-Zielkonfiguration' -CurrentId 'quick' -Options @(
+        [PSCustomObject]@{ Id='quick'; Label='Schnellkonfiguration'; Value='sichtbare Standardwerte' }
+        [PSCustomObject]@{ Id='custom'; Label='Benutzerdefiniert'; Value='OS, Edition, Netzwerk, Storage, I/O, TempDB und Collation' }
+    )
+    $custom = $mode -eq 'custom'
+    $versionOptions = @($versions | ForEach-Object { [PSCustomObject]@{ Id=[string]$_.id; Label="SQL Server $($_.id)"; Value=[string]$_.status } })
+    $baseVersion = & $selectOption -ScreenId 'sql-intent-version' -Title 'SQL Server Version' -Options $versionOptions -CurrentId '2025'
+    if ($baseVersion -notin @($versions.id)) { Write-LabWarning 'SQL-Version ist nicht im Agent-Katalog enthalten.'; return $null }
     $patch = Select-LabSqlPatchIntent -BaseVersion $baseVersion
-    $purpose = 'adhoc'
-    $requiresWindows = $false
-    $edition = 'Developer'
-    if ($custom) {
-        $purposeChoice = Read-Host '  Verwendung: [1] fertige Ad-hoc-Umgebung, [2] ausgeschalteter SQL-Pool-Slot [1]'
-        if (-not $purposeChoice) { $purposeChoice = '1' }
-        if ($purposeChoice -eq '2') { $purpose = 'sql-pool-slot' } elseif ($purposeChoice -ne '1') { Write-LabWarning 'Ungültige Verwendung.'; return $null }
-        $requiresWindows = Read-LabConfirm -Prompt '  Wird ausdrücklich ein Windows-Gast benötigt?' -Default $false
-        $editionChoice = Read-Host '  SQL-Edition: [1] Developer, [2] Standard, [3] Enterprise [1]'
-        if (-not $editionChoice) { $editionChoice = '1' }
-        $edition = switch ($editionChoice) { '1' {'Developer'} '2' {'Standard'} '3' {'Enterprise'} default { Write-LabWarning 'Ungültige Edition.'; return $null } }
-    }
-    $cpu = Read-LabDecimalIntentValue -Prompt 'vCPU (1..64)' -Default 4 -Minimum 1 -Maximum 64
     $physicalMemoryMB = Get-LabHostPhysicalMemoryMB
     $memoryPrompt = if ($physicalMemoryMB -gt 0) { "RAM MB (Minimum 2048; Host physisch: $physicalMemoryMB; technisches Limit: 1048576)" } else { 'RAM MB (2048..1048576; Host-RAM nicht ermittelbar)' }
-    $memoryMB = Read-LabIntegerIntentValue -Prompt $memoryPrompt -Default 4096 -Minimum 2048 -Maximum 1048576
-    if ($physicalMemoryMB -gt 0 -and $memoryMB -gt $physicalMemoryMB) {
-        Write-LabWarning "RAM-Overcommit: $memoryMB MB angefordert, physisch $physicalMemoryMB MB. Auslagerung ist nicht garantiert; Runtime kann OOM oder Startfehler liefern."
-    }
-    $networkMode = 'host-access'
-    if ($custom) {
-        $networkChoice = Read-Host '  Netzwerk: [1] Hostzugriff, [2] vollständig isoliert, [3] externes LAN [1]'
-        if (-not $networkChoice) { $networkChoice = '1' }
-        $networkMode = switch ($networkChoice) { '1' {'host-access'} '2' {'isolated'} '3' {'external'} default { Write-LabWarning 'Ungültiges Netzwerk.'; return $null } }
-    }
-    $hostPort = if ($networkMode -eq 'host-access') { Read-LabIntegerIntentValue -Prompt 'SQL-Hostport (0 = automatisch)' -Default 0 -Minimum 0 -Maximum 65535 } else { 0 }
-    if ($hostPort -gt 0 -and $hostPort -lt 1024) { Write-LabWarning 'Ports unter 1024 sind nicht zulässig.'; return $null }
-    $collation = 'SQL_Latin1_General_CP1_CS_AS'
-    $maxDop = [Math]::Min(8, [int][Math]::Ceiling([double]$cpu))
-    $costThreshold = 50
-    $sqlMaxMemoryMB = [Math]::Max(1024, $memoryMB - 1024)
-    $tempDbFileCount = $maxDop
-    $tempDbFileSizeMB = 256
-    $tempDbGrowthMB = 64
-    $storageMode = 'standard'
-    $tempDbVolumeCount = 1
-    $drives = @()
-    if ($custom) {
-        while ($true) {
-            $value = Read-Host "  Server-Collation [$collation]"
-            if (-not $value) { break }
-            if ($value -match '^[A-Za-z0-9_]{1,128}$') { $collation=$value; break }
-            Write-LabWarning 'Collation darf nur Buchstaben, Zahlen und Unterstriche enthalten.'
-        }
-        $sqlMaxMemoryMB = Read-LabIntegerIntentValue -Prompt 'SQL max server memory MB' -Default $sqlMaxMemoryMB -Minimum 512 -Maximum ([Math]::Max(512,$memoryMB-256))
-        $maxDop = Read-LabIntegerIntentValue -Prompt 'MAXDOP (0..64)' -Default $maxDop -Minimum 0 -Maximum 64
-        $costThreshold = Read-LabIntegerIntentValue -Prompt 'Cost Threshold for Parallelism (0..32767)' -Default 50 -Minimum 0 -Maximum 32767
-        $tempDbFileCount = Read-LabIntegerIntentValue -Prompt 'Anzahl TempDB-Datendateien' -Default $tempDbFileCount -Minimum 1 -Maximum 32
-        $tempDbFileSizeMB = Read-LabIntegerIntentValue -Prompt 'TempDB-Dateigröße MB' -Default 256 -Minimum 8 -Maximum 1048576
-        $tempDbGrowthMB = Read-LabIntegerIntentValue -Prompt 'TempDB-Wachstum MB' -Default 64 -Minimum 1 -Maximum 1048576
-        $storageChoice = Read-Host '  Storage: [1] Standardlayout, [2] getrennte Data-/Log-/TempDB-/Backup-Datenträger [1]'
-        if (-not $storageChoice) { $storageChoice='1' }
-        if ($storageChoice -eq '2') {
-            $storageMode='separated'
-            $tempDbVolumeCount = Read-LabIntegerIntentValue -Prompt 'Anzahl verteilter TempDB-Datenträger' -Default 1 -Minimum 1 -Maximum 8
-            $specs=@([PSCustomObject]@{Id='data';Role='sqlData';Size=128;Count=1},[PSCustomObject]@{Id='log';Role='sqlLog';Size=64;Count=1},[PSCustomObject]@{Id='tempdb';Role='tempdb';Size=32;Count=$tempDbVolumeCount},[PSCustomObject]@{Id='backup';Role='backup';Size=64;Count=1})
-            foreach ($spec in $specs) { for ($index=1;$index -le $spec.Count;$index++) { $label="$($spec.Id)$(if ($spec.Count -gt 1) {$index} else {''})"; $size=Read-LabIntegerIntentValue -Prompt "$label Größe GB" -Default $spec.Size -Minimum 1 -Maximum 4096; $iops=Read-LabIntegerIntentValue -Prompt "$label maximale IOPS (0 = unbegrenzt)" -Default 0 -Minimum 0 -Maximum 1000000; $drives += [PSCustomObject]@{Id=$label;Role=$spec.Role;SizeGB=$size;MaximumIops=$iops} } }
-        }
-        elseif ($storageChoice -ne '1') { Write-LabWarning 'Ungültiges Storage-Layout.'; return $null }
-    }
-    $profile = if ($cpu -le 2 -and $memoryMB -le 2048) {'compact'} elseif ($cpu -le 4 -and $memoryMB -le 4096) {'standard'} else {'performance'}
+    $defaultCpu = [decimal]4
+    $defaultMemoryMB = 4096
+    $defaultMaxDop = [Math]::Min(8, [int][Math]::Ceiling([double]$defaultCpu))
     $defaultName = 'sql-lab-{0}' -f (Get-Date -Format 'yyyy-MM-dd-HHmmss')
-    while ($true) { $labName=Read-Host "  Labname [$defaultName]"; if (-not $labName) {$labName=$defaultName}; if ($labName -match '^[A-Za-z0-9][A-Za-z0-9 _-]{0,63}$') {break}; Write-LabWarning 'Labname ist ungültig.' }
-    return [PSCustomObject]@{ Contract='SqlServerLab.InteractiveSqlIntent/1.1'; CustomConfiguration=$custom; LabName=$labName; InstanceId='primary'; BaseVersion=$baseVersion; VersionId=[string]$patch.VersionId; Patch=$patch; Purpose=$purpose; RequiresWindows=$requiresWindows; Edition=$edition; Cpu=$cpu; MemoryMB=$memoryMB; Profile=$profile; NetworkMode=$networkMode; HostPort=$hostPort; Collation=$collation; SqlMaxMemoryMB=$sqlMaxMemoryMB; MaxDop=$maxDop; CostThreshold=$costThreshold; StorageMode=$storageMode; Drives=$drives; TempDbFileCount=$tempDbFileCount; TempDbFileSizeMB=$tempDbFileSizeMB; TempDbGrowthMB=$tempDbGrowthMB; TempDbVolumeCount=$tempDbVolumeCount }
+    $defaultStorage = [PSCustomObject]@{ Mode='standard'; TempDbVolumeCount=1; Drives=@() }
+
+    $selectVersion = {
+        param($current, $values)
+        $selected = & $selectOption -ScreenId 'sql-intent-version-edit' -Title 'SQL Server Version bearbeiten' -Options $versionOptions -CurrentId ([string]$current)
+        if ($selected -ne [string]$current) { $values['patch'] = Select-LabSqlPatchIntent -BaseVersion $selected }
+        $selected
+    }
+    $selectPatch = { param($current, $values) Select-LabSqlPatchIntent -BaseVersion ([string]$values['baseVersion']) }
+    $selectPurpose = { param($current, $values) & $selectOption -ScreenId 'sql-intent-purpose' -Title 'Verwendung' -CurrentId ([string]$current) -Options @([PSCustomObject]@{Id='adhoc';Label='Fertige Ad-hoc-Umgebung';Value=$null},[PSCustomObject]@{Id='sql-pool-slot';Label='Ausgeschalteter SQL-Pool-Slot';Value=$null}) }
+    $selectWindows = { param($current, $values) [bool]::Parse((& $selectOption -ScreenId 'sql-intent-windows' -Title 'Windows-Gast erforderlich' -CurrentId ([string]$current).ToLowerInvariant() -Options @([PSCustomObject]@{Id='false';Label='Nein';Value='Container ist zulässig'},[PSCustomObject]@{Id='true';Label='Ja';Value='Hyper-V erforderlich'}))) }
+    $selectEdition = { param($current, $values) & $selectOption -ScreenId 'sql-intent-edition' -Title 'SQL-Edition' -CurrentId ([string]$current) -Options @([PSCustomObject]@{Id='Developer';Label='Developer';Value=$null},[PSCustomObject]@{Id='Standard';Label='Standard';Value=$null},[PSCustomObject]@{Id='Enterprise';Label='Enterprise';Value=$null}) }
+    $selectNetwork = {
+        param($current, $values)
+        $selected = & $selectOption -ScreenId 'sql-intent-network' -Title 'Netzwerkmodus' -CurrentId ([string]$current) -Options @([PSCustomObject]@{Id='host-access';Label='Hostzugriff';Value='SQL-Port am Host'},[PSCustomObject]@{Id='isolated';Label='Vollstaendig isoliert';Value='kein Hostport'},[PSCustomObject]@{Id='external';Label='Externes LAN';Value='expliziter Netzwerkvertrag erforderlich'})
+        if ($selected -ne 'host-access') { $values['hostPort'] = 0 }
+        $selected
+    }
+    $editStorage = {
+        param($current, $values)
+        $modeSelection = & $selectOption -ScreenId 'sql-intent-storage' -Title 'Storage-Layout' -CurrentId ([string]$current.Mode) -Options @([PSCustomObject]@{Id='standard';Label='Standardlayout';Value='Framework-Defaults'},[PSCustomObject]@{Id='separated';Label='Getrennte Datentraeger';Value='Data, Log, TempDB und Backup'})
+        if ($modeSelection -eq 'standard') { return [PSCustomObject]@{ Mode='standard'; TempDbVolumeCount=1; Drives=@() } }
+        $volumeCount = Read-LabIntegerIntentValue -Prompt 'Anzahl verteilter TempDB-Datentraeger' -Default ([Math]::Max(1,[int]$current.TempDbVolumeCount)) -Minimum 1 -Maximum 8
+        $drives = @()
+        $specs = @([PSCustomObject]@{Id='data';Role='sqlData';Size=128;Count=1},[PSCustomObject]@{Id='log';Role='sqlLog';Size=64;Count=1},[PSCustomObject]@{Id='tempdb';Role='tempdb';Size=32;Count=$volumeCount},[PSCustomObject]@{Id='backup';Role='backup';Size=64;Count=1})
+        foreach ($spec in $specs) {
+            for ($index=1; $index -le $spec.Count; $index++) {
+                $label = "$($spec.Id)$(if ($spec.Count -gt 1) { $index } else { '' })"
+                $size = Read-LabIntegerIntentValue -Prompt "$label Groesse GB" -Default $spec.Size -Minimum 1 -Maximum 4096
+                $iops = Read-LabIntegerIntentValue -Prompt "$label maximale IOPS (0 = unbegrenzt)" -Default 0 -Minimum 0 -Maximum 1000000
+                $drives += [PSCustomObject]@{ Id=$label; Role=$spec.Role; SizeGB=$size; MaximumIops=$iops }
+            }
+        }
+        [PSCustomObject]@{ Mode='separated'; TempDbVolumeCount=$volumeCount; Drives=$drives }
+    }
+    $formatStorage = { param($value) if ([string]$value.Mode -eq 'standard') { 'Standardlayout' } else { "Getrennt: $(@($value.Drives | ForEach-Object { "$($_.Id)=$($_.SizeGB)GB/$($_.MaximumIops)IOPS" }) -join ', ')" } }
+
+    $fields = @(
+        New-LabConsoleField -Id 'labName' -Label 'Labname' -Value $defaultName -Shortcut '1' -Editor { param($current,$values) $candidate=Read-Host "  Labname [$current]"; if($candidate){$candidate}else{$current} } -Validator { param($value,$values) if([string]$value -notmatch '^[A-Za-z0-9][A-Za-z0-9 _-]{0,63}$'){'Labname ist ungueltig.'} } -Required
+        New-LabConsoleField -Id 'baseVersion' -Label 'SQL Server Version' -Value $baseVersion -Shortcut '2' -Editor $selectVersion -Validator { param($value,$values) if([string]$value -notin @($versions.id)){'SQL-Version fehlt im Agent-Katalog.'} }
+        New-LabConsoleField -Id 'patch' -Label 'Patchstand' -Value $patch -Shortcut '3' -Editor $selectPatch -Formatter { param($value) [string]$value.VersionId }
+        New-LabConsoleField -Id 'cpu' -Label 'vCPU (1..64)' -Value $defaultCpu -Shortcut '4' -Editor { param($current,$values) Read-LabDecimalIntentValue -Prompt 'vCPU (1..64)' -Default ([decimal]$current) -Minimum 1 -Maximum 64 }
+        New-LabConsoleField -Id 'memoryMB' -Label $memoryPrompt -Value $defaultMemoryMB -Shortcut '5' -Editor { param($current,$values) Read-LabIntegerIntentValue -Prompt $memoryPrompt -Default ([int]$current) -Minimum 2048 -Maximum 1048576 }
+        New-LabConsoleField -Id 'hostPort' -Label 'SQL-Hostport (0 = automatisch)' -Value 0 -Shortcut '6' -Editor { param($current,$values) if([string]$values['networkMode'] -ne 'host-access'){0}else{Read-LabIntegerIntentValue -Prompt 'SQL-Hostport (0 = automatisch)' -Default ([int]$current) -Minimum 0 -Maximum 65535} } -Validator { param($value,$values) if([string]$values['networkMode'] -eq 'host-access' -and [int]$value -gt 0 -and [int]$value -lt 1024){'Ports unter 1024 sind nicht zulaessig.'}elseif([string]$values['networkMode'] -ne 'host-access' -and [int]$value -ne 0){'Ohne Hostzugriff muss der Hostport 0 sein.'} }
+    )
+    if ($custom) {
+        $fields += @(
+            New-LabConsoleField -Id 'purpose' -Label 'Verwendung' -Value 'adhoc' -Shortcut '7' -Editor $selectPurpose
+            New-LabConsoleField -Id 'requiresWindows' -Label 'Windows-Gast erforderlich' -Value $false -Shortcut '8' -Editor $selectWindows -Formatter { param($value) if([bool]$value){'Ja'}else{'Nein'} }
+            New-LabConsoleField -Id 'edition' -Label 'SQL-Edition' -Value 'Developer' -Shortcut '9' -Editor $selectEdition
+            New-LabConsoleField -Id 'networkMode' -Label 'Netzwerkmodus' -Value 'host-access' -Shortcut 'n' -Editor $selectNetwork
+            New-LabConsoleField -Id 'collation' -Label 'Server-Collation' -Value 'SQL_Latin1_General_CP1_CS_AS' -Shortcut 'c' -Editor { param($current,$values) $candidate=Read-Host "  Server-Collation [$current]";if($candidate){$candidate}else{$current} } -Validator { param($value,$values) if([string]$value -notmatch '^[A-Za-z0-9_]{1,128}$'){'Collation darf nur Buchstaben, Zahlen und Unterstriche enthalten.'} }
+            New-LabConsoleField -Id 'sqlMaxMemoryMB' -Label 'SQL max server memory MB' -Value ([Math]::Max(1024,$defaultMemoryMB-1024)) -Shortcut 's' -Editor { param($current,$values) Read-LabIntegerIntentValue -Prompt 'SQL max server memory MB' -Default ([int]$current) -Minimum 512 -Maximum ([Math]::Max(512,[int]$values['memoryMB']-256)) } -Validator { param($value,$values) if([int]$value -gt ([Math]::Max(512,[int]$values['memoryMB']-256))){'SQL max memory muss mindestens 256 MB unter dem Lab-RAM bleiben.'} }
+            New-LabConsoleField -Id 'maxDop' -Label 'MAXDOP (0..64)' -Value $defaultMaxDop -Shortcut 'm' -Editor { param($current,$values) Read-LabIntegerIntentValue -Prompt 'MAXDOP (0..64)' -Default ([int]$current) -Minimum 0 -Maximum 64 }
+            New-LabConsoleField -Id 'costThreshold' -Label 'Cost Threshold for Parallelism' -Value 50 -Shortcut 'o' -Editor { param($current,$values) Read-LabIntegerIntentValue -Prompt 'Cost Threshold for Parallelism (0..32767)' -Default ([int]$current) -Minimum 0 -Maximum 32767 }
+            New-LabConsoleField -Id 'tempDbFileCount' -Label 'Anzahl TempDB-Datendateien' -Value $defaultMaxDop -Shortcut 't' -Editor { param($current,$values) Read-LabIntegerIntentValue -Prompt 'Anzahl TempDB-Datendateien' -Default ([int]$current) -Minimum 1 -Maximum 32 }
+            New-LabConsoleField -Id 'tempDbFileSizeMB' -Label 'TempDB-Dateigroesse MB' -Value 256 -Shortcut 'g' -Editor { param($current,$values) Read-LabIntegerIntentValue -Prompt 'TempDB-Dateigroesse MB' -Default ([int]$current) -Minimum 8 -Maximum 1048576 }
+            New-LabConsoleField -Id 'tempDbGrowthMB' -Label 'TempDB-Wachstum MB' -Value 64 -Shortcut 'w' -Editor { param($current,$values) Read-LabIntegerIntentValue -Prompt 'TempDB-Wachstum MB' -Default ([int]$current) -Minimum 1 -Maximum 1048576 }
+            New-LabConsoleField -Id 'storage' -Label 'Storage-Layout und IOPS' -Value $defaultStorage -Shortcut 'd' -Editor $editStorage -Formatter $formatStorage
+        )
+    }
+    if (-not $custom) {
+        $fields += New-LabConsoleField -Id 'networkMode' -Label 'Netzwerkmodus' -Value 'host-access' -Editor { param($current,$values) $current }
+    }
+    $formResult = Invoke-LabConsoleForm -ScreenId 'sql-target-configuration' -Title 'SQL-Zielkonfiguration bearbeiten' -Subtitle $(if($custom){'Benutzerdefiniert - alle Werte vor Providerentscheidung'}else{'Schnellkonfiguration - sichtbare Standardwerte'}) -Fields $fields
+    if ($formResult.Status -ne 'Confirmed') { Write-LabInfo 'SQL-Zielkonfiguration abgebrochen.'; return $null }
+    $values = $formResult.Values
+    $cpu = [decimal]$values['cpu']; $memoryMB = [int]$values['memoryMB']; $patch = $values['patch']
+    if ($physicalMemoryMB -gt 0 -and $memoryMB -gt $physicalMemoryMB) { Write-LabWarning "RAM-Overcommit: $memoryMB MB angefordert, physisch $physicalMemoryMB MB. Auslagerung ist nicht garantiert; Runtime kann OOM oder Startfehler liefern." }
+    $storage = if($custom){$values['storage']}else{$defaultStorage}
+    $profile = if ($cpu -le 2 -and $memoryMB -le 2048) {'compact'} elseif ($cpu -le 4 -and $memoryMB -le 4096) {'standard'} else {'performance'}
+    return [PSCustomObject]@{
+        Contract='SqlServerLab.InteractiveSqlIntent/1.1'; CustomConfiguration=$custom; LabName=[string]$values['labName']; InstanceId='primary'
+        BaseVersion=[string]$values['baseVersion']; VersionId=[string]$patch.VersionId; Patch=$patch
+        Purpose=if($custom){[string]$values['purpose']}else{'adhoc'}; RequiresWindows=if($custom){[bool]$values['requiresWindows']}else{$false}; Edition=if($custom){[string]$values['edition']}else{'Developer'}
+        Cpu=$cpu; MemoryMB=$memoryMB; Profile=$profile; NetworkMode=[string]$values['networkMode']; HostPort=[int]$values['hostPort']
+        Collation=if($custom){[string]$values['collation']}else{'SQL_Latin1_General_CP1_CS_AS'}
+        SqlMaxMemoryMB=if($custom){[int]$values['sqlMaxMemoryMB']}else{[Math]::Max(1024,$memoryMB-1024)}
+        MaxDop=if($custom){[int]$values['maxDop']}else{[Math]::Min(8,[int][Math]::Ceiling([double]$cpu))}; CostThreshold=if($custom){[int]$values['costThreshold']}else{50}
+        StorageMode=[string]$storage.Mode; Drives=@($storage.Drives)
+        TempDbFileCount=if($custom){[int]$values['tempDbFileCount']}else{[Math]::Min(8,[int][Math]::Ceiling([double]$cpu))}
+        TempDbFileSizeMB=if($custom){[int]$values['tempDbFileSizeMB']}else{256}; TempDbGrowthMB=if($custom){[int]$values['tempDbGrowthMB']}else{64}; TempDbVolumeCount=[int]$storage.TempDbVolumeCount
+    }
 }
 
 function Resolve-LabSqlIntentProvider {
