@@ -46,6 +46,13 @@ Windows-Anforderung, Zweck, vCPU, RAM, Netzwerk, Port, Collation, SQL-Memory,
 MAXDOP, Cost Threshold, TempDB-Dateien sowie getrennte Data-, Log-, TempDB- und
 Backup-Datenträger einschließlich optionaler IOPS-Limits.
 
+Quick und Custom werden anschließend als cursorbasiertes, editierbares Formular
+angezeigt. `Enter` bearbeitet das fokussierte Feld, `F10` wechselt zur
+vollständigen Review-Ansicht. Fehler wie ein unzulässiger Hostport, eine
+ungültige Collation oder SQL-Memory oberhalb des verfügbaren Lab-RAMs blockieren
+die Bestätigung. Erst `Anwenden` in der Review-Ansicht übergibt den Intent an die
+Providerentscheidung; Navigation und Bearbeitung erzeugen keine Umgebung.
+
 ### Schritt 3: Provider automatisch bestimmen
 
 - Docker wird bevorzugt, wenn ein Linux-Container alle Anforderungen erfüllt.
