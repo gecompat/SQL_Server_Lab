@@ -33,6 +33,7 @@ function Clear-SqlServerLab {
     }
 
     Write-LabHeader 'SQL Server Lab - Cleanup'
+    $auditBefore = Get-SqlServerLabCleanupAudit
 
     $stateRoot = Get-LabStateRoot
     $activeRuns = @(Get-LabActiveRuns -StateRoot $stateRoot)
@@ -115,6 +116,8 @@ function Clear-SqlServerLab {
             StateRuns  = 0
             Errors     = 0
             Status     = 'CLEAN'
+            AuditBefore = $auditBefore
+            AuditAfter = $auditBefore
         }
     }
 
@@ -327,6 +330,7 @@ function Clear-SqlServerLab {
     }
 
     $status = if ($errors -eq 0) { 'CLEAN' } else { 'PARTIAL' }
+    $auditAfter = Get-SqlServerLabCleanupAudit
     Write-LabHeader 'Cleanup abgeschlossen'
     Write-LabStatus -Label 'Container entfernt' -Value $removedContainers -Color 'Green'
     Write-LabStatus -Label 'State-Runs bereinigt' -Value $removedStateRuns -Color 'Green'
@@ -343,5 +347,7 @@ function Clear-SqlServerLab {
         DataLabDirectories = $removedDataLabDirectories
         Errors     = $errors
         Status     = $status
+        AuditBefore = $auditBefore
+        AuditAfter = $auditAfter
     }
 }

@@ -131,7 +131,7 @@ und Run-State absolute Pfade enthalten koennen.
 | STO-005 | Storage-Menue | Implementiert: Anzeige und Parent-Konfiguration; Parent-Wechsel fordert Migration |
 | STO-006 | Migrationsplan | Implementiert: unveraenderlicher Plan mit Kapazitaet, betroffenen Runs, Blockern und erforderlichen Aktionen |
 | STO-007 | Migration | Implementiert: journalisierte, fortsetzbare Copy/Verify/Switch/Cleanup-Migration; Hyper-V-Rebind automatisch, Container-Bind-Mounts bleiben expliziter Plan-Blocker |
-| STO-008 | Cleanup-Audit | Nachweis und Bericht ueber verbleibende Daten und Runtime-Ressourcen |
+| STO-008 | Cleanup-Audit | Implementiert: read-only Nachweis ueber Datenwurzeln, State, Provider, externe Referenzen und Repository-Reste; Vorher-/Nachher-Audit in `Clear-SqlServerLab` |
 
 ## Abnahmekriterien
 
