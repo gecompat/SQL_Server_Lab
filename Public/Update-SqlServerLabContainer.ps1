@@ -234,52 +234,18 @@ function Update-LabContainerEnvironmentInteractive {
         } catch {}
     }
 
-    $cpu = $currentCpu
-    $memoryMB = $currentMemoryMB
-    $port = $currentPort
-    $apply = $false
-    $menuMessage = ''
-    $selectedFieldId = 'cpu'
-    # Runtimezustand und Werte sind ein Snapshot. Die Navigation zeichnet nur diesen lokalen Zustand neu.
+    # Runtimezustand und Werte sind ein Snapshot. Navigation und Review mutieren den Provider nicht.
     $environmentName = [string]$selected.Run.metadata.name
-
-    while ($true) {
-        $fieldItems = @(
-            New-LabConsoleItem -Id 'cpu' -Label 'vCPU (1..64)' -Value $cpu.ToString('0.##', $culture) -Shortcut '1'
-            New-LabConsoleItem -Id 'memory' -Label 'RAM MB (512..1048576)' -Value $memoryMB -Shortcut '2'
-            New-LabConsoleItem -Id 'port' -Label 'Hostport (1024..65535)' -Value $port -Shortcut '3'
-            New-LabConsoleItem -Id 'apply' -Label 'Aenderungen uebernehmen' -Shortcut '4'
-        )
-        $fieldResult = Invoke-LabConsoleMenu -ScreenId 'container-update-fields' -Title 'Docker-/Podman-Umgebung aendern' -Subtitle ("Umgebung: {0} - {1}" -f $environmentName, $provider) -Items $fieldItems -SelectedId $selectedFieldId -Footer 'Pfeile: Navigation  Enter: Bearbeiten  Esc: Abbruch' -FallbackPrompt '  Feld auswaehlen'
-        if ($fieldResult.Status -eq 'Cancelled') { Write-LabInfo 'Abbruch durch Nutzer.'; return }
-        if ($fieldResult.Status -ne 'Selected') { $menuMessage = 'Ungueltige Auswahl.'; continue }
-        $selectedFieldId = [string]$fieldResult.SelectedItem.Id
-        $menuMessage = ''
-        switch ($selectedFieldId) {
-            'apply' {
-                    if (-not (& $isHostPortAvailable -Port $port -CurrentPort $currentPort)) {
-                        $menuMessage = "Hostport $port wird bereits von einem anderen Dienst verwendet."
-                        $selectedFieldId = 'port'
-                        Write-LabWarning $menuMessage
-                        continue
-                    }
-                    $apply = $true
-                    break
-            }
-            'cpu' { $cpu = & $readNumericValue -Label '  vCPU' -Current $cpu -Minimum 1 -Maximum 64 -RequireInteger $false }
-            'memory' { $memoryMB = [int](& $readNumericValue -Label '  RAM MB' -Current $memoryMB -Minimum 512 -Maximum 1048576 -RequireInteger $true) }
-            'port' {
-                    $proposedPort = [int](& $readNumericValue -Label '  Hostport' -Current $port -Minimum 1024 -Maximum 65535 -RequireInteger $true)
-                    if (-not (& $isHostPortAvailable -Port $proposedPort -CurrentPort $currentPort)) {
-                        $menuMessage = "Hostport $proposedPort wird bereits von einem anderen Dienst verwendet."
-                        Write-LabWarning $menuMessage
-                        continue
-                    }
-                    $port = $proposedPort
-            }
-        }
-        if ($apply) { break }
-    }
+    $fields = @(
+        New-LabConsoleField -Id 'cpu' -Label 'vCPU (1..64)' -Value $currentCpu -Shortcut '1' -Editor { param($current, $values) & $readNumericValue -Label '  vCPU' -Current $current -Minimum 1 -Maximum 64 -RequireInteger $false } -Formatter { param($value) ([decimal]$value).ToString('0.##', $culture) }
+        New-LabConsoleField -Id 'memory' -Label 'RAM MB (512..1048576)' -Value $currentMemoryMB -Shortcut '2' -Editor { param($current, $values) [int](& $readNumericValue -Label '  RAM MB' -Current $current -Minimum 512 -Maximum 1048576 -RequireInteger $true) }
+        New-LabConsoleField -Id 'port' -Label 'Hostport (1024..65535)' -Value $currentPort -Shortcut '3' -Editor { param($current, $values) [int](& $readNumericValue -Label '  Hostport' -Current $current -Minimum 1024 -Maximum 65535 -RequireInteger $true) } -Validator { param($value, $values) if (-not (& $isHostPortAvailable -Port ([int]$value) -CurrentPort $currentPort)) { "Hostport $value wird bereits von einem anderen Dienst verwendet." } }
+    )
+    $formResult = Invoke-LabConsoleForm -ScreenId 'container-update-form' -Title 'Docker-/Podman-Umgebung aendern' -Subtitle ("Umgebung: {0} - {1}" -f $environmentName, $provider) -Fields $fields
+    if ($formResult.Status -ne 'Confirmed') { Write-LabInfo 'Abbruch durch Nutzer.'; return }
+    $cpu = [decimal]$formResult.Values['cpu']
+    $memoryMB = [int]$formResult.Values['memory']
+    $port = [int]$formResult.Values['port']
 
     $arguments = @{
         RunId=[string]$selected.Run.runId
@@ -288,7 +254,6 @@ function Update-LabContainerEnvironmentInteractive {
         Port=[int]$port
     }
 
-    if (-not (Read-LabConfirm -Prompt '  Sollzustand jetzt automatisch anwenden?' -Default $false)) { return }
     try {
         $result = Update-SqlServerLabContainer @arguments
     } catch {
