@@ -9,6 +9,7 @@ Der Pfad `Private/` beschreibt primär die interne Architektur. Die tatsächlich
 | Datei | Verantwortung |
 |---|---|
 | `Common.ps1` | Ausgabe, Eingaben, IDs, Zeitstempel und gemeinsame Runtime-Erkennung |
+| `AttentionStatus.ps1` | Read-only Snapshot für CU-/Media-Lücken, Slot-/Vorlagenkapazität, Builder und Recovery im Konsolen-Footer |
 | `PathSafety.ps1` | geschützte Pfade, Scope-Prüfung und Scope-Marker |
 | `SecretProvider.ps1` | lokales Speichern, Lesen und Entfernen von Secrets |
 | `VersionCatalog.ps1` | Versionen, CU-Builds, Images, Ressourcenprofile und Sample-Katalogzugriff |

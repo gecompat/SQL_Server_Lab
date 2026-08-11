@@ -35,6 +35,14 @@ $frame = Get-LabConsoleFrame -State $state -Title 'Test' -Width 30 -Height 8
 Add-ConsoleUiCheck 'Frame besitzt begrenzten Viewport und Fokusmarker' ($frame.Lines.Count -eq 8 -and @($frame.Lines | Where-Object { $_ -match '^>' }).Count -eq 1)
 Add-ConsoleUiCheck 'Framezeilen bleiben innerhalb der Breite' (@($frame.Lines | Where-Object Length -gt 29).Count -eq 0)
 
+$state.Snapshot = [PSCustomObject]@{ AttentionItems=@(
+    [PSCustomObject]@{ Severity='Critical'; Message='Recovery erforderlich.' }
+    [PSCustomObject]@{ Severity='Warning'; Message='CU-Paket fehlt.' }
+) }
+$attentionFrame = Get-LabConsoleFrame -State $state -Title 'Attention' -Width 50 -Height 10
+Add-ConsoleUiCheck 'Footer zeigt read-only Attention Items aus dem Snapshot' (@($attentionFrame.Lines | Where-Object { $_ -match '^Offen \[!\]' }).Count -eq 2)
+$state.Snapshot = $null
+
 $fallback = Invoke-LabConsoleMenu -ScreenId 'fallback' -Title 'Fallback' -Items $items -ForceFallback -ReadInput { param($prompt) '2' }
 Add-ConsoleUiCheck 'Read-Host-Fallback waehlt nummeriert' ($fallback.Status -eq 'Selected' -and $fallback.SelectedItem.Id -eq 'two')
 
@@ -89,6 +97,10 @@ $cui008MenuCoverage = @($cui008Functions | Where-Object {
 $sampleSelectionMatch = [regex]::Match($entrySource, 'function Select-LabSampleSelection \{[\s\S]+?(?=\r?\nfunction Select-LabHyperVPreparedArtifact)')
 Add-ConsoleUiCheck 'CUI-008 migriert Hyper-V-Image-, Slot- und Verwaltungsmenüs' $cui008MenuCoverage
 Add-ConsoleUiCheck 'Sample-Auswahl verwendet gemeinsame Mehrfachauswahl' ($sampleSelectionMatch.Success -and $sampleSelectionMatch.Value -match 'Invoke-LabConsoleMultiSelect')
+
+$attentionSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/AttentionStatus.ps1') -Raw
+Add-ConsoleUiCheck 'CUI-010 besitzt gemeinsamen read-only Attention-Snapshot' ($attentionSource -match 'function Get-LabAttentionSnapshot' -and $attentionSource -match 'Get-SqlServerPatchOptions' -and $attentionSource -match 'SQL_SLOT_READY' -and $attentionSource -match 'RECOVERY_REQUIRED')
+Add-ConsoleUiCheck 'Hauptmenü bindet Attention-Snapshot an gemeinsamen Renderer' ($entrySource -match 'Update-LabConsoleAttentionSnapshot' -and $entrySource -match 'Invoke-LabConsoleMenu[^\r\n]+-Snapshot \$snapshot')
 
 Write-Host "`nErgebnis: $passed PASS, $failed FAIL"
 if ($failed -gt 0) { exit 1 }

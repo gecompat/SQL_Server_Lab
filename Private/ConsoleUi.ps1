@@ -230,7 +230,18 @@ function Get-LabConsoleFrame {
     $header.Add($Title)
     if ($Subtitle) { $header.Add($Subtitle) }
     $header.Add('')
-    $footerLines = @('', $(if ($State.Message) { "Hinweis: $($State.Message)" } else { '' }), $Footer)
+    $attentionItems = if ($State.Snapshot -and $State.Snapshot.PSObject.Properties['AttentionItems']) { @($State.Snapshot.AttentionItems) } else { @() }
+    $footerLines = [System.Collections.Generic.List[string]]::new()
+    $footerLines.Add('')
+    $attentionLimit = [Math]::Min(2, $attentionItems.Count)
+    for ($index = 0; $index -lt $attentionLimit; $index++) {
+        $attention = $attentionItems[$index]
+        $marker = switch ([string]$attention.Severity) { 'Critical' { '[!]' } 'Warning' { '[!]' } default { '[i]' } }
+        $footerLines.Add("Offen $marker $($attention.Message)")
+    }
+    if ($attentionItems.Count -gt $attentionLimit) { $footerLines.Add("Weitere offene Punkte: $($attentionItems.Count - $attentionLimit)") }
+    if ($State.Message) { $footerLines.Add("Hinweis: $($State.Message)") }
+    $footerLines.Add($Footer)
     $viewportHeight = [Math]::Max(1, $Height - $header.Count - $footerLines.Count)
     $null = Set-LabConsoleViewport -State $State -ViewportHeight $viewportHeight
 
@@ -317,6 +328,7 @@ function Invoke-LabConsoleMenu {
         [string]$Subtitle = '',
         [string]$Footer = 'Pfeile: Navigation  Enter: Auswahl  Esc: Zurueck  F5: Aktualisieren',
         [string]$SelectedId,
+        [AllowNull()][object]$Snapshot,
         [string]$FallbackPrompt = '  Auswahl',
         [switch]$ForceFallback,
         [AllowNull()][object]$Capability,
@@ -325,8 +337,15 @@ function Invoke-LabConsoleMenu {
         [scriptblock]$FrameWriter
     )
 
+    if (-not $PSBoundParameters.ContainsKey('Snapshot') -and (Get-Command Get-LabConsoleAttentionSnapshot -ErrorAction SilentlyContinue)) {
+        try { $Snapshot = Get-LabConsoleAttentionSnapshot } catch { $Snapshot = $null }
+    }
     if (-not $Capability) { $Capability = Test-LabConsoleCapability }
     if ($ForceFallback -or -not [bool]$Capability.Supported) {
+        if ($Snapshot -and @($Snapshot.AttentionItems).Count -gt 0) {
+            Write-Host "  Offene Punkte: $(@($Snapshot.AttentionItems).Count)"
+            foreach ($attention in @($Snapshot.AttentionItems | Select-Object -First 3)) { Write-Host "    [$($attention.Severity)] $($attention.Message)" }
+        }
         for ($index = 0; $index -lt $Items.Count; $index++) {
             $item = $Items[$index]
             $shortcut = if ([string]$item.Shortcut) { [string]$item.Shortcut } else { [string]($index + 1) }
@@ -347,6 +366,7 @@ function Invoke-LabConsoleMenu {
     }
 
     $state = New-LabConsoleState -ScreenId $ScreenId -Items $Items -SelectedId $SelectedId
+    $state.Snapshot = $Snapshot
     $session = if ($FrameWriter) { [PSCustomObject]@{ PreviousLineCount=0 } } else { New-LabConsoleSession }
     try {
         while ($true) {
@@ -369,7 +389,12 @@ function Invoke-LabConsoleMenu {
                     return [PSCustomObject]@{ Status='Selected'; SelectedItem=$selected; State=$state }
                 }
                 'Escape' { return [PSCustomObject]@{ Status='Cancelled'; SelectedItem=$null; State=$state } }
-                'F5' { return [PSCustomObject]@{ Status='Refresh'; SelectedItem=$null; State=$state } }
+                'F5' {
+                    if (Get-Command Update-LabConsoleAttentionSnapshot -ErrorAction SilentlyContinue) {
+                        try { $state.Snapshot = Update-LabConsoleAttentionSnapshot } catch { $state.Message = "Attention-Status konnte nicht aktualisiert werden: $($_.Exception.Message)" }
+                    }
+                    return [PSCustomObject]@{ Status='Refresh'; SelectedItem=$null; State=$state }
+                }
                 'F10' { return [PSCustomObject]@{ Status='Review'; SelectedItem=$null; State=$state } }
                 default {
                     if ($keyCharacter) {
@@ -399,6 +424,7 @@ function Invoke-LabConsoleMultiSelect {
         [Parameter(Mandatory)][object[]]$Items,
         [string[]]$SelectedIds = @(),
         [string]$Subtitle = '',
+        [AllowNull()][object]$Snapshot,
         [string]$Footer = 'Pfeile: Navigation  Space: Umschalten  Enter: Uebernehmen  D: Details  Esc: Keine Auswahl',
         [switch]$ForceFallback,
         [AllowNull()][object]$Capability,
@@ -446,8 +472,15 @@ function Invoke-LabConsoleMultiSelect {
         return $true
     }
 
+    if (-not $PSBoundParameters.ContainsKey('Snapshot') -and (Get-Command Get-LabConsoleAttentionSnapshot -ErrorAction SilentlyContinue)) {
+        try { $Snapshot = Get-LabConsoleAttentionSnapshot } catch { $Snapshot = $null }
+    }
     if (-not $Capability) { $Capability = Test-LabConsoleCapability }
     if ($ForceFallback -or -not [bool]$Capability.Supported) {
+        if ($Snapshot -and @($Snapshot.AttentionItems).Count -gt 0) {
+            Write-Host "  Offene Punkte: $(@($Snapshot.AttentionItems).Count)"
+            foreach ($attention in @($Snapshot.AttentionItems | Select-Object -First 3)) { Write-Host "    [$($attention.Severity)] $($attention.Message)" }
+        }
         while ($true) {
             $displayItems = & $getDisplayItems
             for ($index = 0; $index -lt $displayItems.Count; $index++) {
@@ -478,6 +511,7 @@ function Invoke-LabConsoleMultiSelect {
     }
 
     $state = New-LabConsoleState -ScreenId $ScreenId -Items (& $getDisplayItems) -SelectedId $(if ($SelectedIds.Count -gt 0) { $SelectedIds[0] } else { '' })
+    $state.Snapshot = $Snapshot
     $session = if ($FrameWriter) { [PSCustomObject]@{ PreviousLineCount=0 } } else { New-LabConsoleSession }
     try {
         while ($true) {
@@ -497,7 +531,12 @@ function Invoke-LabConsoleMultiSelect {
                 'Spacebar'  { if ($selectedDisplayItem) { $null = & $toggle $selectedDisplayItem.Data $state } }
                 'Enter'     { return [PSCustomObject]@{ Status='Confirmed'; SelectedItems=(& $getSelectedItems); State=$state } }
                 'Escape'    { return [PSCustomObject]@{ Status='Cancelled'; SelectedItems=@(); State=$state } }
-                'F5'        { $null = Sync-LabConsoleState -State $state -Items (& $getDisplayItems) }
+                'F5'        {
+                    if (Get-Command Update-LabConsoleAttentionSnapshot -ErrorAction SilentlyContinue) {
+                        try { $state.Snapshot = Update-LabConsoleAttentionSnapshot } catch { $state.Message = "Attention-Status konnte nicht aktualisiert werden: $($_.Exception.Message)" }
+                    }
+                    $null = Sync-LabConsoleState -State $state -Items (& $getDisplayItems)
+                }
                 'D'         { if ($selectedDisplayItem -and $ShowDetails) { & $ShowDetails $selectedDisplayItem.Data } }
                 default {
                     $character = [string]$key.KeyChar
