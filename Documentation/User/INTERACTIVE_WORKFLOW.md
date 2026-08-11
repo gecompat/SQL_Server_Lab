@@ -119,6 +119,9 @@ mit einem bloßen Fehler:
 - Beim Navigieren wird der Dialog als eigener Bildschirm aktualisiert. Container-
   und Statusdaten werden davor einmalig geladen; Pfeiltasten zeichnen nur diesen
   gespeicherten Snapshot neu und lösen keine Docker-/Podman-Abfragen aus.
+- Unter `[k] SQL-Verbindungszentrale` stehen der passwortfreie Endpunktkatalog,
+  ein SSMS-`.regsrvr`-Export, die sichere Aktualisierung einer lokalen SSMS-Gruppe
+  sowie ein idempotentes CMS-Synchronisationsskript zur Verfügung.
 
 ## Erledigt-Liste
 

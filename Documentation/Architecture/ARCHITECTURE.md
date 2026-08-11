@@ -63,6 +63,12 @@ Auto-Discovery-Reihenfolge:
 Invoke-SqlServerLab                    # Menue oder Manifest-Einstieg
 Get-SqlServerLabWorkflow               # Verdichtete, geheimnisfreie Workflow-Sicht
 Get-SqlServerLabCatalog                # Laufzeit-Workflow-Katalog als JSON-Artefakt schreiben
+Get-SqlServerLabConnectionCenter       # Passwortfreier SQL-Endpunktkatalog für SSMS und CMS
+Sync-SqlServerLabConnectionCenter      # Endpunktkatalog atomar aktualisieren
+Export-SqlServerLabSsmsRegistration    # Kennwortfreien SSMS-.regsrvr-Export erzeugen
+Export-SqlServerLabCmsSyncScript       # CMS-Synchronisationsskript erzeugen
+Initialize-SqlServerLabCms             # Kompakten persistenten lokalen CMS erstellen
+Sync-SqlServerLabCms                   # Verwalteten CMS mit Endpunkten abgleichen
 Get-SqlServerLabReconcilePlan          # Read-only Desired/Actual/Diff/Action-Plan eines Runs
 Invoke-SqlServerLabReconcileAction     # Start/Stop aus einem Reconcile-Plan ausfuehren
 Invoke-SqlServerLabWorkflowAction      # UI-tauglicher, nicht interaktiver Hyper-V-Schritt

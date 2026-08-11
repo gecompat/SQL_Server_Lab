@@ -17,7 +17,7 @@
 function Invoke-SqlServerLab {
     [CmdletBinding()]
     param(
-        [ValidateSet('New', 'Manifest', 'Status', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'Script', 'Database', 'Image', 'MediaRoot', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip', 'Catalog')]
+        [ValidateSet('New', 'Manifest', 'Status', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'Script', 'Database', 'Image', 'MediaRoot', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip', 'Catalog', 'ConnectionCenter')]
         [string]$Action
     )
 
@@ -28,6 +28,9 @@ function Invoke-SqlServerLab {
     # Direkt-Aktion ohne Menue
     if ($Action) {
         Invoke-LabAction -ActionName $Action
+        if ($Action -in @('New', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'Rename', 'Resources', 'UpdateContainer', 'Manage')) {
+            Sync-LabConnectionCenterAfterLifecycle
+        }
         return
     }
 
@@ -56,12 +59,15 @@ function Invoke-SqlServerLab {
             'd' { Invoke-LabAction -ActionName 'DataRoot' }
             't' { Invoke-LabAction -ActionName 'TestDataRoot' }
             'z' { Invoke-LabAction -ActionName 'Install7Zip' }
-            'k' { Invoke-LabAction -ActionName 'Catalog' }
+            'k' { Invoke-LabAction -ActionName 'ConnectionCenter' }
             '0' { $exit = $true }
             'q' { $exit = $true }
             default { Write-Host "  Ungueltige Auswahl: $choice" -ForegroundColor Red }
         }
 
+        if ($choice -in @('1', '3', '4', '5', '6', '7', 'i', 'n', 'r', 'u')) {
+            Sync-LabConnectionCenterAfterLifecycle
+        }
         if (-not $exit) {
             Write-Host ""
             Write-Host "  [Enter] fuer Menue..." -ForegroundColor DarkGray -NoNewline
@@ -76,6 +82,26 @@ function Invoke-SqlServerLab {
 # =============================================================================
 # Interne Hilfsfunktionen
 # =============================================================================
+
+function Sync-LabConnectionCenterAfterLifecycle {
+    <# .SYNOPSIS Synchronisiert Verbindungszentrale und einen eingerichteten CMS nach einer Lifecycle-Aktion. #>
+    [CmdletBinding()]
+    param()
+
+    try { $null = Sync-SqlServerLabConnectionCenter -Quiet }
+    catch { Write-LabWarning "Verbindungszentrale konnte nicht synchronisiert werden: $($_.Exception.Message)"; return }
+
+    try {
+        $cms = Get-LabConnectionCenterCmsConfiguration
+        if ($cms) {
+            $result = Sync-SqlServerLabCms -Quiet
+            Write-LabInfo "CMS automatisch synchronisiert: $($result.Entries) Endpunkt(e)."
+        }
+    }
+    catch {
+        Write-LabWarning "CMS-Synchronisation fehlgeschlagen: $($_.Exception.Message). Unter [k] -> [4] erneut ausführen."
+    }
+}
 
 function Write-LabProviderList {
     [CmdletBinding()]
@@ -191,7 +217,7 @@ function Show-LabBanner {
 }
 
 function Get-LabRunConnectionStrings {
-    <# .SYNOPSIS Liefert die passwortmaskierten SQL-Connection-Strings eines Runs. #>
+    <# .SYNOPSIS Liefert SQL-Connection-Strings; automatisch erzeugte Kennwörter dürfen sichtbar sein. #>
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$RunId, [string]$StateRoot)
 
@@ -201,6 +227,7 @@ function Get-LabRunConnectionStrings {
     try { $connectionInfo = Get-Content -LiteralPath $connectionInfoPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20 }
     catch { return @() }
 
+    $generatedPassword = Get-LabAutomaticallyGeneratedRunSaPassword -RunId $RunId -StateRoot $StateRoot
     $result = @()
     foreach ($instance in @($connectionInfo.instances)) {
         $value = [string]$instance.connectionString
@@ -208,6 +235,9 @@ function Get-LabRunConnectionStrings {
             $value = New-SqlConnectionString -HostName $(if ($instance.host) { [string]$instance.host } else { '127.0.0.1' }) -Port ([int]$instance.port)
         }
         if ($value) {
+            if ($generatedPassword) {
+                $value = [regex]::Replace($value, '(?i)(Password|Pwd)\s*=\s*[^;]*', ('Password={0}' -f $generatedPassword))
+            }
             $result += [PSCustomObject]@{ Provider = [string]$instance.provider; InstanceId = [string]$instance.id; Value = $value }
         }
     }
@@ -336,7 +366,7 @@ function Show-LabMenu {
     Write-Host "    [p] Media Root konfigurieren" -ForegroundColor White
     Write-Host "    [d] Persistenten Data Root konfigurieren" -ForegroundColor White
     Write-Host "    [t] Testdaten-Bibliothek konfigurieren" -ForegroundColor White
-    Write-Host "    [k] SQL-Server-Lab-Katalog erstellen" -ForegroundColor White
+    Write-Host "    [k] SQL-Verbindungszentrale (SSMS, CMS, Export)" -ForegroundColor Yellow
     Write-Host "    [z] $sevenZipLabel" -ForegroundColor White
     Write-Host ""
     Write-Host "    [0/q] Beenden" -ForegroundColor DarkGray
@@ -450,7 +480,7 @@ function Invoke-LabAction {
                 return
             }
             $runId = Select-LabRun -Runs $runs -Prompt "Stoppen"
-            if ($runId) { Stop-SqlServerLab -RunId $runId -Force }
+            if ($runId) { Stop-SqlServerLab -RunId $runId }
         }
 
         'Start' {
@@ -470,7 +500,7 @@ function Invoke-LabAction {
                 return
             }
             $runId = Select-LabRun -Runs $runs -Prompt "Neustarten"
-            if ($runId) { Restart-SqlServerLab -RunId $runId -Force }
+            if ($runId) { Restart-SqlServerLab -RunId $runId }
         }
 
         'Remove' {
@@ -617,7 +647,37 @@ function Invoke-LabAction {
                 Write-LabError $_.Exception.Message
             }
         }
+        'ConnectionCenter' {
+            Invoke-LabConnectionCenterInteractive
+        }
     }
+}
+
+function Get-LabAutomaticallyGeneratedRunSaPassword {
+    <#
+    .SYNOPSIS
+        Liefert ausschließlich ein vom Lab selbst erzeugtes SA-Passwort im Klartext.
+    .DESCRIPTION
+        Manuell eingegebene oder manifestbasierte Kennwörter werden nie angezeigt.
+        Bestehende CMS-Konfigurationen vor PasswordOrigin/1.0 gelten aufgrund ihres
+        ausschließlich generatorbasierten CMS-Workflows ebenfalls als erzeugt.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$RunId, [string]$StateRoot)
+
+    if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
+    try {
+        $cms = Get-LabConnectionCenterCmsConfiguration -StateRoot $StateRoot
+        if (-not $cms -or [string]$cms.RunId -ne $RunId) { return $null }
+        $isGenerated = ([string]$cms.PasswordOrigin -eq 'Generated') -or ([string]$cms.Purpose -eq 'Central Management Server')
+        if (-not $isGenerated) { return $null }
+        $secret = Get-LabSecret -Path (Join-Path (Join-Path $StateRoot 'runs') $RunId) -Name 'sa-password'
+        if (-not $secret) { return $null }
+        $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($secret)
+        try { return [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) }
+        finally { [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
+    }
+    catch { return $null }
 }
 
 function Get-LabHostPhysicalMemoryMB {
@@ -3571,7 +3631,7 @@ function Manage-LabEnvironmentInteractive {
     $action = Read-Host '  Aktion (Buchstabe)'
     try {
         switch ($action) {
-            's' { if ([string]$synced.Runtime.State -eq 'RUNNING') { Stop-SqlServerLab -RunId $runId -Force } else { Start-SqlServerLab -RunId $runId } }
+            's' { if ([string]$synced.Runtime.State -eq 'RUNNING') { Stop-SqlServerLab -RunId $runId } else { Start-SqlServerLab -RunId $runId } }
             'r' { Set-LabResourcesInteractive -RunId $runId }
             'n' {
                 $name = Read-Host "  Neuer Anzeigename [$($run.metadata.name)]"

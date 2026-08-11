@@ -452,6 +452,12 @@ Clear-SqlServerLab
 | `Invoke-SqlServerLab` | Interaktives Menü |
 | `Get-SqlServerLabWorkflow` | Konsolidierte Workflow-, Image-, Vorlagenpool- und Kombinationsübersicht ohne Geheimnisse |
 | `Get-SqlServerLabCatalog` | Konsolidierten Lab-Katalog als JSON-Artefakt erzeugen |
+| `Get-SqlServerLabConnectionCenter` | Passwortfreien, providerübergreifenden SQL-Endpunktkatalog ermitteln |
+| `Sync-SqlServerLabConnectionCenter` | Den Endpunktkatalog der SSMS-/CMS-Verbindungszentrale aktualisieren |
+| `Export-SqlServerLabSsmsRegistration` | Kennwortfreien `.regsrvr`-Import für SSMS erzeugen |
+| `Export-SqlServerLabCmsSyncScript` | Idempotentes Synchronisationsskript für einen vorhandenen CMS erzeugen |
+| `Initialize-SqlServerLabCms` | Kompakten persistenten Docker-/Podman-CMS nach expliziter Auswahl anlegen |
+| `Sync-SqlServerLabCms` | Verwalteten lokalen CMS mit dem aktuellen Endpunktkatalog abgleichen |
 | `Get-SqlServerLabReconcilePlan` | Read-only Desired/Actual/Diff/Action-Plan für einen bestehenden Lifecycle-Run |
 | `Invoke-SqlServerLabReconcileAction` | Reconcile-Plan für einen laufenden Run ausführen (`START` oder `STOP`) |
 | `Invoke-SqlServerLabWorkflowAction` | Nicht interaktive Hyper-V-Workflow-Aktion für die lokale Oberfläche |

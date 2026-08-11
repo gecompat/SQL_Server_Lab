@@ -10,7 +10,8 @@
 .PARAMETER TimeoutSeconds
     Maximale Wartezeit fuer SQL-Bereitschaft nach Neustart (Default: 60s).
 .PARAMETER Force
-    Keine Bestaetigung abfragen.
+    Ueberspringt Bestaetigungen, einschliesslich der besonderen
+    Sicherheitsabfrage fuer einen optional konfigurierten CMS.
 .INPUTS
     System.Object. Objekte mit einer RunId-Eigenschaft koennen ueber die
     Pipeline gebunden werden.
@@ -49,7 +50,20 @@ function Restart-SqlServerLab {
 
         # Stop (falls laufend)
         if ($run.state -eq 'RUNNING') {
-            $null = Stop-SqlServerLab -RunId $RunId -Force
+            $stopResult = if ($Force) {
+                Stop-SqlServerLab -RunId $RunId -Force
+            }
+            else {
+                Stop-SqlServerLab -RunId $RunId
+            }
+            if ($stopResult.Action -eq 'CANCELLED') {
+                return [PSCustomObject]@{
+                    RunId  = $RunId
+                    Status = 'RUNNING'
+                    Action = 'CANCELLED'
+                    Reason = $stopResult.Reason
+                }
+            }
         }
 
         # Start + Wait-SqlReady
