@@ -31,6 +31,7 @@
         'Restart-SqlServerLab'
         'Remove-SqlServerLab'
         'Clear-SqlServerLab'
+        'Get-SqlServerLabCleanupAudit'
         'New-SqlServerLabDatabase'
         'Invoke-SqlServerLabScript'
         'Restore-SqlServerLabDatabase'
