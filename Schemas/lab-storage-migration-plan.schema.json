@@ -18,7 +18,7 @@
     "AffectedRuns": { "type": "array" },
     "RequiredActions": { "type": "array", "items": { "type": "string" } },
     "Blockers": { "type": "array", "items": { "type": "string" } },
-    "ExecutionImplemented": { "const": false }
+    "ExecutionImplemented": { "const": true }
   },
   "additionalProperties": true
 }
