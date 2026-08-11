@@ -180,6 +180,76 @@ function Resolve-LabDataRootForUse {
     return (Resolve-Path -LiteralPath $candidate -ErrorAction Stop).Path
 }
 
+function New-LabDataMigrationPlan {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$SourceDataRoot,
+        [Parameter(Mandatory)][string]$TargetParent
+    )
+
+    $configuration = Get-LabStorageConfiguration
+    $sourceRoot = Resolve-LabDataRootForUse -DataRoot $SourceDataRoot
+    $sourceLocation = @($configuration.LabDataLocations | Where-Object { [string]::Equals([string]$_.LabDataRoot, $sourceRoot, [StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 1)
+    if ($sourceLocation.Count -eq 0) { throw "LAB_DATA_ROOT_NOT_REGISTERED: $sourceRoot" }
+
+    $targetParentPath = [System.IO.Path]::GetFullPath($TargetParent)
+    $targetVolumeRoot = [System.IO.Path]::GetPathRoot($targetParentPath)
+    $normalizedTargetParent = if ($targetParentPath.TrimEnd('\', '/') -eq $targetVolumeRoot.TrimEnd('\', '/')) { $targetVolumeRoot } else { $targetParentPath.TrimEnd('\', '/') }
+    $targetRoot = Join-Path $normalizedTargetParent 'Lab_Data'
+    $sourceVolume = Get-LabVolumeIdentity -Path $sourceRoot
+    $targetVolume = Get-LabVolumeIdentity -Path $targetRoot
+    $blockers = [System.Collections.Generic.List[string]]::new()
+    if ([string]$sourceVolume.VolumeId -ne [string]$targetVolume.VolumeId) {
+        $blockers.Add('TARGET_VOLUME_DIFFERS: Ein anderes Volume wird als eigene Lab_Data-Location registriert, nicht als Parent-Migration behandelt.')
+    }
+    if ([string]::Equals($sourceRoot, $targetRoot, [StringComparison]::OrdinalIgnoreCase)) { $blockers.Add('SOURCE_EQUALS_TARGET') }
+
+    $targetMarker = Get-LabDataRootMarker -DataRoot $targetRoot
+    if ($targetMarker -and [string]$targetMarker.ControllerId -ne [string]$configuration.ControllerId) { $blockers.Add('TARGET_CONTROLLER_MISMATCH') }
+    if ((Test-Path -LiteralPath $targetRoot -PathType Container) -and -not $targetMarker) {
+        $targetContent = Get-ChildItem -LiteralPath $targetRoot -Force -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($targetContent) { $blockers.Add('TARGET_NOT_EMPTY_OR_UNMANAGED') }
+    }
+
+    $files = @(Get-ChildItem -LiteralPath $sourceRoot -File -Recurse -Force -ErrorAction Stop)
+    $totalBytes = [long](($files | Measure-Object -Property Length -Sum).Sum)
+    $driveInfo = [System.IO.DriveInfo]::new($targetVolume.VolumeRoot)
+    $availableBytes = [long]$driveInfo.AvailableFreeSpace
+    $requiredBytes = [long][Math]::Ceiling($totalBytes * 1.1)
+    if ($availableBytes -lt $requiredBytes) { $blockers.Add('TARGET_CAPACITY_INSUFFICIENT') }
+
+    $affectedRuns = @()
+    foreach ($run in @(Get-LabActiveRuns)) {
+        $runDataRoot = [string]$run.metadata.dataRoot
+        if ($runDataRoot -and [string]::Equals([System.IO.Path]::GetFullPath($runDataRoot).TrimEnd('\', '/'), $sourceRoot.TrimEnd('\', '/'), [StringComparison]::OrdinalIgnoreCase)) {
+            $runState = [string]$run.state
+            $affectedRuns += [PSCustomObject]@{ RunId=[string]$run.runId; Name=[string]$run.metadata.name; State=$runState }
+            if ($runState -notin @('STOPPED', 'REMOVED', 'FAILED')) { $blockers.Add("RUN_NOT_STOPPED:$($run.runId)") }
+        }
+    }
+
+    $planId = [Guid]::NewGuid().ToString('D')
+    $plan = [PSCustomObject]@{
+        ContractVersion = 'SqlServerLab.StorageMigrationPlan/1.0'
+        PlanId = $planId
+        CreatedAt = Get-LabTimestamp
+        ControllerId = [string]$configuration.ControllerId
+        Status = if ($blockers.Count -eq 0) { 'READY' } else { 'BLOCKED' }
+        Source = [PSCustomObject]@{ VolumeId=$sourceVolume.VolumeId; DriveLetter=$sourceVolume.DriveLetter; LabDataRoot=$sourceRoot }
+        Target = [PSCustomObject]@{ VolumeId=$targetVolume.VolumeId; DriveLetter=$targetVolume.DriveLetter; LabDataParent=$normalizedTargetParent; LabDataRoot=$targetRoot }
+        Inventory = [PSCustomObject]@{ FileCount=$files.Count; TotalBytes=$totalBytes; RequiredBytes=$requiredBytes; AvailableBytes=$availableBytes }
+        AffectedRuns = @($affectedRuns)
+        RequiredActions = @('Stop affected environments', 'Create migration journal', 'Copy and verify data', 'Update provider and state references', 'Switch authoritative storage catalog', 'Remove empty managed source root')
+        Blockers = @($blockers | Sort-Object -Unique)
+        ExecutionImplemented = $false
+    }
+    $planDirectory = Join-Path (Join-Path $sourceRoot 'Catalog') 'storage-migrations'
+    if (-not (Test-Path -LiteralPath $planDirectory -PathType Container)) { New-Item -Path $planDirectory -ItemType Directory -Force | Out-Null }
+    $planPath = Join-Path $planDirectory "$planId.plan.json"
+    Write-LabArtifactJsonAtomic -Path $planPath -InputObject $plan
+    return [PSCustomObject]@{ Path=$planPath; Plan=$plan }
+}
+
 function Invoke-LabStorageInteractive {
     [CmdletBinding()]
     param()
@@ -193,6 +263,7 @@ function Invoke-LabStorageInteractive {
     }
     Write-Host '    [1] Lab_Data-Parent eines Volumes konfigurieren'
     Write-Host '    [2] Storage-Konfiguration erneut anzeigen'
+    Write-Host '    [3] Parent-Wechsel als Migrationsplan pruefen'
     Write-Host '    [0] Zurueck'
     $choice = Read-Host '  Auswahl'
     if ($choice -eq '1') {
@@ -202,6 +273,24 @@ function Invoke-LabStorageInteractive {
             $setDefault = -not $configuration.DefaultDataRoot -or (Read-LabConfirm -Prompt '  Diese Lab_Data-Wurzel als Standard verwenden?' -Default $false)
             $result = Set-LabDataLocation -LabDataParent $parent -SetDefault:$setDefault
             Write-LabSuccess "Lab_Data registriert: $($result.LabDataRoot)"
+        }
+        catch { Write-LabError $_.Exception.Message }
+    }
+    elseif ($choice -eq '3') {
+        $locations = @($configuration.LabDataLocations)
+        if ($locations.Count -eq 0) { Write-LabWarning 'Keine Lab_Data-Wurzel registriert.'; return }
+        for ($index = 0; $index -lt $locations.Count; $index++) { Write-Host ('    [{0}] {1}' -f ($index + 1), $locations[$index].LabDataRoot) }
+        $selection = Read-Host '  Quell-Root [1]'
+        if (-not $selection) { $selection = '1' }
+        $number = 0
+        if (-not [int]::TryParse($selection, [ref]$number) -or $number -lt 1 -or $number -gt $locations.Count) { Write-LabWarning 'Ungueltige Auswahl.'; return }
+        $targetParent = Read-Host '  Neuer fester Parent auf demselben Volume'
+        if (-not $targetParent) { return }
+        try {
+            $result = New-LabDataMigrationPlan -SourceDataRoot ([string]$locations[$number - 1].LabDataRoot) -TargetParent $targetParent
+            Write-LabInfo "Migrationsplan: $($result.Path)"
+            Write-Host ("    Status={0}, Dateien={1}, Bytes={2}, Blocker={3}" -f $result.Plan.Status, $result.Plan.Inventory.FileCount, $result.Plan.Inventory.TotalBytes, @($result.Plan.Blockers).Count) -ForegroundColor DarkGray
+            foreach ($blocker in @($result.Plan.Blockers)) { Write-LabWarning $blocker }
         }
         catch { Write-LabError $_.Exception.Message }
     }

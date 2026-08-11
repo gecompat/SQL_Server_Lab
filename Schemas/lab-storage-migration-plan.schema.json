@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sql-server-lab.local/schemas/lab-storage-migration-plan.schema.json",
+  "title": "SqlServerLab.StorageMigrationPlan/1.0",
+  "type": "object",
+  "required": ["ContractVersion", "PlanId", "ControllerId", "Status", "Source", "Target", "Inventory", "AffectedRuns", "RequiredActions", "Blockers", "ExecutionImplemented"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.StorageMigrationPlan/1.0" },
+    "PlanId": { "type": "string", "format": "uuid" },
+    "ControllerId": { "type": "string", "format": "uuid" },
+    "Status": { "enum": ["READY", "BLOCKED"] },
+    "Source": { "type": "object" },
+    "Target": { "type": "object" },
+    "Inventory": {
+      "type": "object",
+      "required": ["FileCount", "TotalBytes", "RequiredBytes", "AvailableBytes"]
+    },
+    "AffectedRuns": { "type": "array" },
+    "RequiredActions": { "type": "array", "items": { "type": "string" } },
+    "Blockers": { "type": "array", "items": { "type": "string" } },
+    "ExecutionImplemented": { "const": false }
+  },
+  "additionalProperties": true
+}
