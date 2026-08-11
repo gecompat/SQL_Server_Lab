@@ -892,12 +892,30 @@ function New-LabHyperVDrivesFromIntent {
 
 function New-LabIntentServerConfig {
     [CmdletBinding()]
-    param([Parameter(Mandatory)]$Intent)
-    $roots = if ($Intent.StorageMode -eq 'separated') { @(1..[int]$Intent.TempDbVolumeCount | ForEach-Object {"/sqltemp$_"}) } else { @('/var/opt/mssql/data') }
+    param(
+        [Parameter(Mandatory)]$Intent,
+        [ValidateSet('container', 'hyperv')][string]$Target = 'container'
+    )
+    $roots = if ($Intent.StorageMode -eq 'separated') {
+        if ($Target -eq 'hyperv') {
+            $letters = @('T','U','V','W','X','Y','Z','Q')
+            @(0..([int]$Intent.TempDbVolumeCount - 1) | ForEach-Object { "$($letters[$_]):\TempDB" })
+        }
+        else {
+            @(1..[int]$Intent.TempDbVolumeCount | ForEach-Object { "/sqltemp$_" })
+        }
+    }
+    elseif ($Target -eq 'hyperv') { @('C:\SQLData\TempDB') }
+    else { @('/var/opt/mssql/data') }
     $roots=@($roots)
     $files=@()
-    for($i=0;$i -lt [int]$Intent.TempDbFileCount;$i++){ $name=if($i -eq 0){'tempdev.mdf'}else{"temp$($i+1).ndf"}; $files += [PSCustomObject]@{path="$($roots[$i % $roots.Count])/$name";sizeMB=[int]$Intent.TempDbFileSizeMB;growth="$($Intent.TempDbGrowthMB)MB"} }
-    return [PSCustomObject]@{memory=[PSCustomObject]@{minMB=0;maxMB=[int]$Intent.SqlMaxMemoryMB};maxDop=[int]$Intent.MaxDop;costThreshold=[int]$Intent.CostThreshold;tempdb=[PSCustomObject]@{dataFiles=$files;logFile=[PSCustomObject]@{path="$($roots[0])/templog.ldf";sizeMB=[int]$Intent.TempDbFileSizeMB;growth="$($Intent.TempDbGrowthMB)MB"};equalSize=$true};traceFlags=@();spConfigure=[PSCustomObject]@{'optimize for ad hoc workloads'=1}}
+    for($i=0;$i -lt [int]$Intent.TempDbFileCount;$i++){
+        $name=if($i -eq 0){'tempdev.mdf'}else{"temp$($i+1).ndf"}
+        $path = if ($Target -eq 'hyperv') { Join-Path $roots[$i % $roots.Count] $name } else { "$($roots[$i % $roots.Count])/$name" }
+        $files += [PSCustomObject]@{path=$path;sizeMB=[int]$Intent.TempDbFileSizeMB;growth="$($Intent.TempDbGrowthMB)MB"}
+    }
+    $logPath = if ($Target -eq 'hyperv') { Join-Path $roots[0] 'templog.ldf' } else { "$($roots[0])/templog.ldf" }
+    return [PSCustomObject]@{memory=[PSCustomObject]@{minMB=0;maxMB=[int]$Intent.SqlMaxMemoryMB};maxDop=[int]$Intent.MaxDop;costThreshold=[int]$Intent.CostThreshold;tempdb=[PSCustomObject]@{dataFiles=$files;logFile=[PSCustomObject]@{path=$logPath;sizeMB=[int]$Intent.TempDbFileSizeMB;growth="$($Intent.TempDbGrowthMB)MB"};equalSize=$true};traceFlags=@();spConfigure=[PSCustomObject]@{'optimize for ad hoc workloads'=1}}
 }
 
 function New-LabContainerDrivesFromIntent {
@@ -952,15 +970,24 @@ function Invoke-LabNewContainerEnvironmentInteractive {
         $version = [string]$Intent.VersionId
         Write-LabInfo "Container-Image: $(Get-SqlServerDockerImage -VersionId $version)"
         $selectedSamples = @(Select-LabSampleSelection -SqlVersion $version)
-        $arguments = @{
-            Version=$version; Provider=$Provider; Profile=[string]$Intent.Profile; LabName=[string]$Intent.LabName
-            InstanceId=[string]$Intent.InstanceId; Port=[int]$Intent.HostPort; Cpu=[decimal]$Intent.Cpu
-            MemoryMB=[int]$Intent.MemoryMB; Collation=[string]$Intent.Collation
-            ServerConfig=(New-LabIntentServerConfig -Intent $Intent -Target container)
-            Drives=@(New-LabContainerDrivesFromIntent -Intent $Intent)
+        try {
+            $arguments = @{
+                Version=$version; Provider=$Provider; Profile=[string]$Intent.Profile; LabName=[string]$Intent.LabName
+                InstanceId=[string]$Intent.InstanceId; Port=[int]$Intent.HostPort; Cpu=[decimal]$Intent.Cpu
+                MemoryMB=[int]$Intent.MemoryMB; Collation=[string]$Intent.Collation
+                ServerConfig=(New-LabIntentServerConfig -Intent $Intent -Target container -ErrorAction Stop)
+                Drives=@(New-LabContainerDrivesFromIntent -Intent $Intent -ErrorAction Stop)
+            }
+            if ($selectedSamples.Count -gt 0) { $arguments.Sample = $selectedSamples }
+            $lab = New-SqlServerLab @arguments -ErrorAction Stop
+            if (-not $lab -or [string]::IsNullOrWhiteSpace([string]$lab.RunId)) {
+                throw 'LAB_CREATION_RESULT_INVALID: New-SqlServerLab lieferte keine RunId.'
+            }
         }
-        if ($selectedSamples.Count -gt 0) { $arguments.Sample = $selectedSamples }
-        $lab = New-SqlServerLab @arguments
+        catch {
+            Write-LabError "Lab-Erstellung fehlgeschlagen: $($_.Exception.Message)"
+            return
+        }
         Write-Host ''
         Write-LabSuccess "Lab erstellt auf $Provider. RunId: $($lab.RunId)"
         return
@@ -1055,7 +1082,16 @@ function Invoke-LabNewContainerEnvironmentInteractive {
         $newLabArguments.Sample = $selectedSamples
     }
 
-    $lab = New-SqlServerLab @newLabArguments
+    try {
+        $lab = New-SqlServerLab @newLabArguments -ErrorAction Stop
+        if (-not $lab -or [string]::IsNullOrWhiteSpace([string]$lab.RunId)) {
+            throw 'LAB_CREATION_RESULT_INVALID: New-SqlServerLab lieferte keine RunId.'
+        }
+    }
+    catch {
+        Write-LabError "Lab-Erstellung fehlgeschlagen: $($_.Exception.Message)"
+        return
+    }
     Write-Host ''
     Write-LabSuccess "Lab erstellt auf $Provider. RunId: $($lab.RunId)"
 }
