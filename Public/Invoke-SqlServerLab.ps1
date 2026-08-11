@@ -336,39 +336,35 @@ function Get-LabRunsByRuntimeState {
 }
 
 function Show-LabMenu {
-    $sevenZip = Get-Lab7ZipExecutable
-    $sevenZipLabel = if ($sevenZip) {
-        '7-Zip für katalogisierte .7z-Backups bereits verfügbar'
-    }
-    else {
-        '7-Zip für katalogisierte .7z-Backups optional installieren'
-    }
-    $items = @(
-        New-LabConsoleItem -Id 'create' -Label 'Neue Umgebung erstellen' -Shortcut '1'
-        New-LabConsoleItem -Id 'manage' -Label 'Umgebung verwalten' -Value 'Start, Stopp, Name, CPU, Speicher, Entfernen' -Shortcut 'u'
-        New-LabConsoleItem -Id 'status' -Label 'Status anzeigen (Schnellansicht)' -Shortcut '2'
-        New-LabConsoleItem -Id 'stop' -Label 'Umgebung stoppen (Schnellaktion)' -Shortcut '3'
-        New-LabConsoleItem -Id 'start' -Label 'Umgebung starten (Schnellaktion)' -Shortcut '4'
-        New-LabConsoleItem -Id 'restart' -Label 'Umgebung neustarten (Schnellaktion)' -Shortcut '5'
-        New-LabConsoleItem -Id 'remove' -Label 'Umgebung entfernen (Schnellaktion)' -Shortcut '6'
-        New-LabConsoleItem -Id 'resources' -Label 'CPU und Speicher aendern' -Shortcut 'r'
-        New-LabConsoleItem -Id 'rename' -Label 'Umgebung umbenennen' -Shortcut 'n'
-        New-LabConsoleItem -Id 'clear' -Label 'Alles aufraeumen' -Shortcut '7'
-        New-LabConsoleItem -Id 'audit' -Label 'Cleanup-Audit anzeigen (read-only)' -Shortcut 'a'
-        New-LabConsoleItem -Id 'database' -Label 'Datenbank anlegen' -Shortcut '8'
-        New-LabConsoleItem -Id 'script' -Label 'SQL-Skript ausfuehren' -Shortcut '9'
-        New-LabConsoleItem -Id 'manifest' -Label 'Container-Manifest erstellen und pruefen' -Shortcut 'm'
-        New-LabConsoleItem -Id 'hyperv' -Label 'Hyper-V Windows-Image verwalten' -Shortcut 'i'
-        New-LabConsoleItem -Id 'media' -Label 'Media Root konfigurieren' -Shortcut 'p'
-        New-LabConsoleItem -Id 'storage' -Label 'Storage verwalten' -Value 'Lab_Data je Volume' -Shortcut 'd'
-        New-LabConsoleItem -Id 'samples' -Label 'Testdaten-Bibliothek konfigurieren' -Shortcut 't'
-        New-LabConsoleItem -Id 'connections' -Label 'SQL-Verbindungszentrale' -Value 'SSMS, CMS, Export' -Shortcut 'k'
-        New-LabConsoleItem -Id 'sevenzip' -Label $sevenZipLabel -Shortcut 'z'
-        New-LabConsoleItem -Id 'exit' -Label 'Beenden' -Shortcut '0' -Aliases @('q')
-    )
+    try { $snapshot = Update-LabConsoleAttentionSnapshot } catch { $snapshot = $null }
     while ($true) {
-        $result = Invoke-LabConsoleMenu -ScreenId 'main-menu' -Title 'SQL Server Lab' -Subtitle 'Umgebungen, SQL-Bereitstellung und Werkzeuge' -Items $items -Footer 'Pfeile: Navigation  Enter/Shortcut: Auswahl  F5: Menue aktualisieren  Esc: Beenden' -FallbackPrompt '  Auswahl'
-        if ($result.Status -eq 'Refresh') { continue }
+        $sevenZip = Get-Lab7ZipExecutable
+        $sevenZipLabel = if ($sevenZip) { '7-Zip für katalogisierte .7z-Backups bereits verfügbar' } else { '7-Zip für katalogisierte .7z-Backups optional installieren' }
+        $items = @(
+            New-LabConsoleItem -Id 'create' -Label 'Neue Umgebung erstellen' -Shortcut '1'
+            New-LabConsoleItem -Id 'manage' -Label 'Umgebung verwalten' -Value 'Start, Stopp, Name, CPU, Speicher, Entfernen' -Shortcut 'u'
+            New-LabConsoleItem -Id 'status' -Label 'Status anzeigen (Schnellansicht)' -Shortcut '2'
+            New-LabConsoleItem -Id 'stop' -Label 'Umgebung stoppen (Schnellaktion)' -Shortcut '3'
+            New-LabConsoleItem -Id 'start' -Label 'Umgebung starten (Schnellaktion)' -Shortcut '4'
+            New-LabConsoleItem -Id 'restart' -Label 'Umgebung neustarten (Schnellaktion)' -Shortcut '5'
+            New-LabConsoleItem -Id 'remove' -Label 'Umgebung entfernen (Schnellaktion)' -Shortcut '6'
+            New-LabConsoleItem -Id 'resources' -Label 'CPU und Speicher aendern' -Shortcut 'r'
+            New-LabConsoleItem -Id 'rename' -Label 'Umgebung umbenennen' -Shortcut 'n'
+            New-LabConsoleItem -Id 'clear' -Label 'Alles aufraeumen' -Shortcut '7'
+            New-LabConsoleItem -Id 'audit' -Label 'Cleanup-Audit anzeigen (read-only)' -Shortcut 'a'
+            New-LabConsoleItem -Id 'database' -Label 'Datenbank anlegen' -Shortcut '8'
+            New-LabConsoleItem -Id 'script' -Label 'SQL-Skript ausfuehren' -Shortcut '9'
+            New-LabConsoleItem -Id 'manifest' -Label 'Container-Manifest erstellen und pruefen' -Shortcut 'm'
+            New-LabConsoleItem -Id 'hyperv' -Label 'Hyper-V Windows-Image verwalten' -Shortcut 'i'
+            New-LabConsoleItem -Id 'media' -Label 'Media Root konfigurieren' -Shortcut 'p'
+            New-LabConsoleItem -Id 'storage' -Label 'Storage verwalten' -Value 'Lab_Data je Volume' -Shortcut 'd'
+            New-LabConsoleItem -Id 'samples' -Label 'Testdaten-Bibliothek konfigurieren' -Shortcut 't'
+            New-LabConsoleItem -Id 'connections' -Label 'SQL-Verbindungszentrale' -Value 'SSMS, CMS, Export' -Shortcut 'k'
+            New-LabConsoleItem -Id 'sevenzip' -Label $sevenZipLabel -Shortcut 'z'
+            New-LabConsoleItem -Id 'exit' -Label 'Beenden' -Shortcut '0' -Aliases @('q')
+        )
+        $result = Invoke-LabConsoleMenu -ScreenId 'main-menu' -Title 'SQL Server Lab' -Subtitle 'Umgebungen, SQL-Bereitstellung und Werkzeuge' -Items $items -Snapshot $snapshot -Footer 'Pfeile: Navigation  Enter/Shortcut: Auswahl  F5: Status aktualisieren  Esc: Beenden' -FallbackPrompt '  Auswahl'
+        if ($result.Status -eq 'Refresh') { $snapshot = Get-LabConsoleAttentionSnapshot; continue }
         if ($result.Status -eq 'Cancelled') { return '0' }
         if ($result.Status -eq 'Selected') { return [string]$result.SelectedItem.Shortcut }
         Write-LabWarning 'Ungueltige Auswahl.'
