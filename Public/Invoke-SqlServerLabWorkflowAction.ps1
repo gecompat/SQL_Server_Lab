@@ -303,7 +303,7 @@ function Invoke-SqlServerLabWorkflowAction {
     if (($PersistentData -and $Action -in @('NewHyperVLab', 'NewHyperVLabFromExistingVm')) -or $Action -eq 'EnableHyperVLabPersistentData') {
         if (-not $DataRoot) { $DataRoot = Get-LabDataRootDefault }
         if (-not $DataRoot) { throw 'LAB_DATA_ROOT_REQUIRED: Persistente Hyper-V-Daten benötigen einen konfigurierten Data Root.' }
-        $DataRoot = Set-LabDataRootDefault -DataRoot $DataRoot
+        $DataRoot = Resolve-LabDataRootForUse -DataRoot $DataRoot
     }
 
     if ($Action -in @('NewWindowsBuild', 'NewSqlBuild', 'NewSqlBuildFromBaseline', 'SetWindowsMediaHash', 'SetSqlMediaHash')) {

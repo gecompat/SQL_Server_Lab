@@ -19,10 +19,19 @@ function Get-LabStateRoot {
         return $env:SQL_SERVER_LAB_STATE
     }
 
+    $dataRoot = Get-LabDataRootDefault
     if ($IsWindows) {
-        return Join-Path $env:LOCALAPPDATA 'SqlServerLab'
+        $legacyRoot = Join-Path $env:LOCALAPPDATA 'SqlServerLab'
+        $legacyRuns = Join-Path $legacyRoot 'runs'
+        if (Test-Path -LiteralPath $legacyRuns -PathType Container) {
+            $existingRun = Get-ChildItem -LiteralPath $legacyRuns -Filter 'run-state.json' -File -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($existingRun) { return $legacyRoot }
+        }
+        if ($dataRoot) { return Join-Path $dataRoot 'State' }
+        return $legacyRoot
     }
 
+    if ($dataRoot) { return Join-Path $dataRoot 'State' }
     return Join-Path (Resolve-Path '~') '.sql-server-lab'
 }
 

@@ -18,13 +18,25 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $toolPath = Join-Path $repoRoot 'Tools/Initialize-SqlServerLabDataRoot.ps1'
 $consolePath = Join-Path $repoRoot 'Public/Invoke-SqlServerLab.ps1'
 $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
-$temporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) "sql-lab-data-root-$([guid]::NewGuid().ToString('N'))"
+$temporaryParent = Join-Path ([System.IO.Path]::GetTempPath()) "sql-lab-data-root-$([guid]::NewGuid().ToString('N'))"
+$temporaryRoot = Join-Path $temporaryParent 'Lab_Data'
+$previousDataRoot = $env:SQL_SERVER_LAB_DATA_ROOT
 $failures = [System.Collections.Generic.List[string]]::new(); $passed = 0
 . (Join-Path $PSScriptRoot '..' 'Common' 'CheckResult.ps1')
 Write-Host ''; Write-Host 'SQL_Server_Lab - Data Root Checks' -ForegroundColor Cyan
 try {
     $receipt = & $toolPath -RootPath $temporaryRoot -LabId evaluation-refresh
     Add-CheckResult -Name 'Zentraler Data Root wird ausserhalb von Run-State angelegt' -Success ($receipt.DataRoot -eq $temporaryRoot)
+    $marker = Get-Content -LiteralPath (Join-Path $temporaryRoot '.sql-server-lab-root.json') -Raw -Encoding utf8 | ConvertFrom-Json
+    Add-CheckResult -Name 'Data Root besitzt einen controllergebundenen Contract-2.0-Marker' -Success (
+        $marker.ContractVersion -eq 'SqlServerLab.DataRoot/2.0' -and $marker.ManagedBy -eq 'SQL_Server_Lab' -and $marker.ControllerId
+    )
+    $storageConfiguration = [PSCustomObject]@{
+        ContractVersion = 'SqlServerLab.Storage/2.0'; ControllerId = [string]$marker.ControllerId; DefaultDataRoot = $temporaryRoot
+        LabDataLocations = @([PSCustomObject]@{ VolumeId=[string]$marker.VolumeId; DriveLetter=[System.IO.Path]::GetPathRoot($temporaryRoot); LabDataParent=$temporaryParent; LabDataRoot=$temporaryRoot })
+    }
+    $storageConfiguration | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $temporaryRoot 'Catalog/storage-locations.json') -Encoding utf8NoBOM
+    $env:SQL_SERVER_LAB_DATA_ROOT = $temporaryRoot
     foreach ($version in @('2019','2022','2025')) {
         Add-CheckResult -Name "SQL-$version-Datendateien sind versionsgetrennt" -Success (
             Test-Path -LiteralPath (Join-Path $temporaryRoot "Labs/evaluation-refresh/Versions/$version/Data")
@@ -47,9 +59,9 @@ try {
         $consoleText -match 'SQL-System- und Datenbanken persistent im Data Root einbinden' -and
         $consoleText -match '\$newLabArguments\.PersistentData = \$true' -and
         $consoleText -match '\$newLabArguments\.DataRoot = \$defaultDataRoot' -and
-        $consoleText -match '\[d\] Persistenten Data Root konfigurieren' -and
+        $consoleText -match '\[d\] Storage verwalten \(Lab_Data je Volume\)' -and
         $consoleText -match "'d' \{ Invoke-LabAction -ActionName 'DataRoot' \}" -and
-        $consoleText -match 'Set-LabDataRootDefault -DataRoot \$candidate'
+        $consoleText -match 'Invoke-LabStorageInteractive'
     )
     $module = Import-Module $modulePath -Force -PassThru -ErrorAction Stop
     $persistentDriveContract = & $module {
@@ -72,7 +84,10 @@ try {
     )
 }
 catch { Add-CheckResult -Name 'Data-Root-Testausfuehrung' -Success $false -Message $_.Exception.Message }
-finally { if (Test-Path -LiteralPath $temporaryRoot) { Remove-Item -LiteralPath $temporaryRoot -Recurse -Force } }
+finally {
+    $env:SQL_SERVER_LAB_DATA_ROOT = $previousDataRoot
+    if (Test-Path -LiteralPath $temporaryParent) { Remove-Item -LiteralPath $temporaryParent -Recurse -Force }
+}
 Write-Host ''; Write-Host "Ergebnis: $passed PASS, $($failures.Count) FAIL" -ForegroundColor Cyan
 if ($failures.Count) { exit 1 }; exit 0
 
