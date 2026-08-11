@@ -169,10 +169,10 @@ if (-not $msRows -and $overallStatus -ne 'UNCLEAR') {
 }
 
 foreach ($target in $targetVersions) {
-    $version = $target.Trim()
-    if (-not $catalogData.ContainsKey($version)) {
+    $versionId = $target.Trim()
+    if (-not $catalogData.ContainsKey($versionId)) {
         $checkResult += [PSCustomObject]@{
-            Version = $version
+            Version = $versionId
             Status = 'UNCLEAR'
             LatestCatalogKb = ''
             LatestMicrosoft = $null
@@ -186,7 +186,7 @@ foreach ($target in $targetVersions) {
 
     if ($overallStatus -eq 'UNCLEAR') {
         $checkResult += [PSCustomObject]@{
-            Version = $version
+            Version = $versionId
             Status = 'UNCLEAR'
             LatestCatalogKb = ''
             LatestMicrosoft = $null
@@ -197,7 +197,7 @@ foreach ($target in $targetVersions) {
         continue
     }
 
-    $catalogVersionsForVersion = @($catalogData[$version].Builds)
+    $catalogVersionsForVersion = @($catalogData[$versionId].Builds)
     $catalogKbSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
     foreach ($catalogBuild in $catalogVersionsForVersion) {
         if ($catalogBuild.Kb) {
@@ -214,10 +214,10 @@ foreach ($target in $targetVersions) {
         $knownLatestKb = $latestCatalog.Kb
     }
 
-    $rowsForVersion = @($msRows | Where-Object { $_.Version -eq $version } | Sort-Object -Property { [Version]$_.Build } -Descending)
+    $rowsForVersion = @($msRows | Where-Object { $_.Version -eq $versionId } | Sort-Object -Property { [Version]$_.Build } -Descending)
     if ($rowsForVersion.Count -eq 0) {
         $checkResult += [PSCustomObject]@{
-            Version = $version
+            Version = $versionId
             Status = 'UNCLEAR'
             LatestCatalogKb = $knownLatestKb
             LatestMicrosoft = $null
@@ -253,7 +253,7 @@ foreach ($target in $targetVersions) {
     }
 
     $checkResult += [PSCustomObject]@{
-        Version = $version
+        Version = $versionId
         Status = $status
         LatestCatalogKb = $knownLatestKb
         LatestMicrosoft = $latestMicrosoft
