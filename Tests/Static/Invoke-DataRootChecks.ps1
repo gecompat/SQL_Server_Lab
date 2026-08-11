@@ -59,7 +59,7 @@ try {
         $consoleText -match 'SQL-System- und Datenbanken persistent im Data Root einbinden' -and
         $consoleText -match '\$newLabArguments\.PersistentData = \$true' -and
         $consoleText -match '\$newLabArguments\.DataRoot = \$defaultDataRoot' -and
-        $consoleText -match '\[d\] Storage verwalten \(Lab_Data je Volume\)' -and
+        $consoleText -match "New-LabConsoleItem -Id 'storage' -Label 'Storage verwalten'.+-Shortcut 'd'" -and
         $consoleText -match "'d' \{ Invoke-LabAction -ActionName 'DataRoot' \}" -and
         $consoleText -match 'Invoke-LabStorageInteractive'
     )
