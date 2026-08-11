@@ -141,6 +141,11 @@ mit einem bloßen Fehler:
   oder Vorlagenbestand, offene Image-Builder sowie Recovery/Cleanup. Pfeiltasten
   lesen diesen Status nicht erneut; `F5` aktualisiert ihn bewusst und löst keine
   Medienbeschaffung, Slot-Erzeugung oder andere Mutation aus.
+- Die gemeinsame UI-Schicht besitzt reproduzierbare Verträge für kleine und
+  wechselnde Terminalgrößen, das Löschen alter Renderzeilen, stabile Auswahl-IDs,
+  nummerierten Fallback, Session-Recovery und maskierte Secret-Formulare. Bei
+  einem Konsolenfehler wird die Session beendet und kontrolliert auf `Read-Host`
+  zurückgefallen.
 - Vor der Containeränderung werden CPU, RAM und Port gemeinsam validiert und in
   einer Review-Ansicht gezeigt. Erst die dortige Aktion `Anwenden` ruft den
   bestehenden Reconcile-Pfad auf.
