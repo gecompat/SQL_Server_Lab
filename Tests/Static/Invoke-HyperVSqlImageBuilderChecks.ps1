@@ -271,7 +271,8 @@ try {
         $builderText -match '\[ValidateLength\(1, 80\)\]\[string\]\$ImageName' -and
         $menuText -match 'function Invoke-LabHyperVAdvancedMenu' -and
         $menuText -match "'2' \{ Invoke-LabHyperVMenuAction -Title 'SQL-Builder aus OS-Baseline' -Action \{ New-LabHyperVSqlAcceptanceBuildInteractive \} \}" -and
-        $menuText -match 'OS-Baselines verwalten \(Expertenpfad\)'
+        $menuText -match "Label 'Windows-OS-Baselines verwalten'" -and
+        $menuText -match "Value 'Expertenpfad'"
     )
     $convertIndex = $builderText.IndexOf('Convert-VHD -Path $childPath')
     $importIndex = $builderText.IndexOf('$artifact = Import-HyperVImageArtifact')
