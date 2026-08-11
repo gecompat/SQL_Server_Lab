@@ -235,14 +235,14 @@ automatische Medienbeschaffung, Slot-Erzeugung oder sonstige Mutation auslösen.
 | `CUI-001` | Console-Capability-Erkennung und `Read-Host`-Fallback | `IMPLEMENTED` - sichere Host-Kompatibilität |
 | `CUI-002` | gemeinsames Screen-, Item-, Field- und UI-State-Modell | `IMPLEMENTED_MENU_STATE` - stabile Auswahl-IDs und Viewport-State |
 | `CUI-003` | Frame-Renderer mit Viewport, Resize und sauberem Refresh | `IMPLEMENTED_MENU_FRAME` - In-place-Repaint ohne `Clear-Host` |
-| `CUI-004` | gemeinsame Key-Loop für Menü, Auswahl und Mehrfachauswahl | `PARTIAL` - Auswahl und Refresh implementiert; Mehrfachauswahl folgt |
+| `CUI-004` | gemeinsame Key-Loop für Menü, Auswahl und Mehrfachauswahl | `IMPLEMENTED` - Auswahl, Mehrfachauswahl, Refresh und Fallback verwenden dieselbe Zustands-/Renderer-Schicht |
 | `CUI-005` | editierbares Formular mit Feldvalidierung und Review | `IMPLEMENTED_VERTICAL_SLICE` - Container-Ressourcen vor Mutation editieren, validieren und reviewen |
 | `CUI-006` | Hauptmenü und Auswahl aktiver Umgebungen migrieren | `IMPLEMENTED` - Hauptmenü, stabiler Run-Selector und Container-Aktionsmenü verwenden den gemeinsamen Renderer |
 | `CUI-007` | SQL-Zielkonfiguration migrieren | `IMPLEMENTED_VERTICAL_SLICE` - Quick und Custom werden vor Providerentscheidung gemeinsam editiert, validiert und reviewed |
 | `CUI-008` | Sample-Auswahl sowie Hyper-V-Image-, Slot- und Verwaltungsmenüs migrieren | `IMPLEMENTED` - gemeinsame Mehrfachauswahl, Image-Menüs, Slot-Auswahl und dynamische Verwaltungsaktionen verwenden stabile IDs und den gemeinsamen Renderer |
 | `CUI-009` | Container-Änderungsdialog auf gemeinsamen Renderer umstellen | `IMPLEMENTED_VERTICAL_SLICE` - Sonder-Key-Loop und `Clear-Host` entfernt |
 | `CUI-010` | Attention-Footer an gemeinsamen read-only Status anbinden | `IMPLEMENTED` - lokaler Snapshot zeigt CU-/Media-Lücken, Slot- und Vorlagenkapazität, offene Builder sowie Recovery ohne Mutation; F5 lädt bewusst neu |
-| `CUI-011` | Zustands-, Render-, Resize-, Fallback- und Recovery-Tests | belastbare Console-UX |
+| `CUI-011` | Zustands-, Render-, Resize-, Fallback- und Recovery-Tests | `IMPLEMENTED` - deterministische Viewport-, Write-Plan-, Fallback-, Session-Recovery-, Formular- und Secret-Verträge |
 
 Die Migration erfolgt vertikal. Ein migriertes Menü verwendet vollständig die
 gemeinsame Schicht; neue parallele Cursorimplementierungen sind nicht zulässig.

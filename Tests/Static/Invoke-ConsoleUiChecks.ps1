@@ -31,9 +31,16 @@ Add-ConsoleUiCheck 'Home springt zum ersten Element' ($state.SelectedId -eq 'one
 $null = Sync-LabConsoleState -State $state -Items @($items[2], $items[0], $items[1])
 Add-ConsoleUiCheck 'Sortierung erhaelt Auswahl ueber ID' ($state.SelectedId -eq 'one' -and $state.SelectedIndex -eq 1)
 
+$null = Sync-LabConsoleState -State $state -Items @($items[2], $items[1])
+Add-ConsoleUiCheck 'Entfernte Auswahl wechselt kontrolliert zum naechsten gueltigen Element' ($state.SelectedId -eq 'two' -and $state.SelectedIndex -eq 1)
+
 $frame = Get-LabConsoleFrame -State $state -Title 'Test' -Width 30 -Height 8
 Add-ConsoleUiCheck 'Frame besitzt begrenzten Viewport und Fokusmarker' ($frame.Lines.Count -eq 8 -and @($frame.Lines | Where-Object { $_ -match '^>' }).Count -eq 1)
 Add-ConsoleUiCheck 'Framezeilen bleiben innerhalb der Breite' (@($frame.Lines | Where-Object Length -gt 29).Count -eq 0)
+
+$writeSession = [PSCustomObject]@{ PreviousLineCount=5 }
+$writePlan = Get-LabConsoleWritePlan -Session $writeSession -Frame ([PSCustomObject]@{ Lines=@('kurz','neu') }) -Width 12 -Height 6
+Add-ConsoleUiCheck 'Write-Plan ueberschreibt alte Restzeilen vollstaendig' ($writePlan.Rows.Count -eq 5 -and @($writePlan.Rows | Where-Object ClearsPrevious).Count -eq 3 -and @($writePlan.Rows | Where-Object { $_.Text.Length -ne 11 }).Count -eq 0)
 
 $state.Snapshot = [PSCustomObject]@{ AttentionItems=@(
     [PSCustomObject]@{ Severity='Critical'; Message='Recovery erforderlich.' }
@@ -46,12 +53,40 @@ $state.Snapshot = $null
 $fallback = Invoke-LabConsoleMenu -ScreenId 'fallback' -Title 'Fallback' -Items $items -ForceFallback -ReadInput { param($prompt) '2' }
 Add-ConsoleUiCheck 'Read-Host-Fallback waehlt nummeriert' ($fallback.Status -eq 'Selected' -and $fallback.SelectedItem.Id -eq 'two')
 
+$invalidFallback = Invoke-LabConsoleMenu -ScreenId 'fallback-invalid' -Title 'Fallback' -Items $items -ForceFallback -ReadInput { param($prompt) '99' }
+$disabledFallback = Invoke-LabConsoleMenu -ScreenId 'fallback-disabled' -Title 'Fallback' -Items @(
+    New-LabConsoleItem -Id 'disabled' -Label 'Disabled' -Shortcut '1' -Disabled
+    New-LabConsoleItem -Id 'enabled' -Label 'Enabled' -Shortcut '2'
+) -ForceFallback -ReadInput { param($prompt) '1' }
+Add-ConsoleUiCheck 'Fallback lehnt unbekannte und deaktivierte Auswahl kontrolliert ab' ($invalidFallback.Status -eq 'Invalid' -and $disabledFallback.Status -eq 'Invalid')
+
 $keys = [System.Collections.Generic.Queue[object]]::new()
 $keys.Enqueue([PSCustomObject]@{ Key='DownArrow'; KeyChar=[char]0 })
 $keys.Enqueue([PSCustomObject]@{ Key='Enter'; KeyChar=[char]13 })
 $renderCount = 0
 $cursorResult = Invoke-LabConsoleMenu -ScreenId 'cursor' -Title 'Cursor' -Items $items -Capability ([PSCustomObject]@{ Supported=$true }) -ReadKey { $keys.Dequeue() } -FrameWriter { param($session, $renderedFrame) $script:renderCount++ }
 Add-ConsoleUiCheck 'Key-Loop navigiert und rendert lokal neu' ($cursorResult.SelectedItem.Id -eq 'two' -and $renderCount -eq 2)
+
+$resizeKeys = [System.Collections.Generic.Queue[object]]::new()
+$resizeKeys.Enqueue([PSCustomObject]@{ Key='DownArrow'; KeyChar=[char]0 })
+$resizeKeys.Enqueue([PSCustomObject]@{ Key='Enter'; KeyChar=[char]13 })
+$viewports = [System.Collections.Generic.Queue[object]]::new()
+$viewports.Enqueue([PSCustomObject]@{ Width=80; Height=25 })
+$viewports.Enqueue([PSCustomObject]@{ Width=32; Height=9 })
+$resizeFrames = [System.Collections.Generic.List[object]]::new()
+$resizeResult = Invoke-LabConsoleMenu -ScreenId 'resize' -Title 'Resize' -Items $items -Capability ([PSCustomObject]@{ Supported=$true }) -ReadKey { $resizeKeys.Dequeue() } -GetViewport { $viewports.Dequeue() } -FrameWriter { param($session, $renderedFrame) $resizeFrames.Add($renderedFrame) }
+Add-ConsoleUiCheck 'Resize berechnet Layout neu und erhaelt stabile Auswahl' ($resizeResult.SelectedItem.Id -eq 'two' -and $resizeFrames.Count -eq 2 -and $resizeFrames[0].Width -eq 79 -and $resizeFrames[1].Width -eq 31 -and $resizeFrames[1].Height -eq 9)
+
+$longItems = @(1..30 | ForEach-Object { New-LabConsoleItem -Id "item-$_" -Label "Item $_" })
+$longState = New-LabConsoleState -ScreenId 'long' -Items $longItems -ViewportHeight 4
+$null = Move-LabConsoleSelection -State $longState -Direction PageDown
+$null = Move-LabConsoleSelection -State $longState -Direction End
+$longFrame = Get-LabConsoleFrame -State $longState -Title 'Long' -Width 24 -Height 8
+Add-ConsoleUiCheck 'Kleiner Viewport erreicht per PageDown und End das Listenende' ($longState.SelectedId -eq 'item-30' -and $longState.TopIndex -gt 0 -and @($longFrame.Lines | Where-Object { $_ -match '^>' }).Count -eq 1)
+
+$recoveryCompleted = $false
+$recoveryResult = Invoke-LabConsoleMenu -ScreenId 'recovery' -Title 'Recovery' -Items $items -Capability ([PSCustomObject]@{ Supported=$true }) -ReadKey { throw 'SIMULATED_CONSOLE_FAILURE' } -ReadInput { param($prompt) '2' } -FrameWriter { param($session, $renderedFrame) } -SessionFactory { [PSCustomObject]@{ PreviousLineCount=0 } } -SessionCompleter { param($session) $script:recoveryCompleted=$true }
+Add-ConsoleUiCheck 'Konsolenfehler beendet Session und wechselt in Fallback' ($recoveryCompleted -and $recoveryResult.Status -eq 'Selected' -and $recoveryResult.SelectedItem.Id -eq 'two')
 
 $refreshKeys = [System.Collections.Generic.Queue[object]]::new()
 $refreshKeys.Enqueue([PSCustomObject]@{ Key='F5'; KeyChar=[char]0 })
@@ -66,6 +101,12 @@ $multiKeys.Enqueue([PSCustomObject]@{ Key='Enter'; KeyChar=[char]13 })
 $multiResult = Invoke-LabConsoleMultiSelect -ScreenId 'multi' -Title 'Multi' -Items $items -Capability ([PSCustomObject]@{ Supported=$true }) -ReadKey { $multiKeys.Dequeue() } -FrameWriter { param($session, $renderedFrame) }
 Add-ConsoleUiCheck 'Mehrfachauswahl schaltet per Space um und bestätigt gesammelt' ($multiResult.Status -eq 'Confirmed' -and @($multiResult.SelectedItems).Count -eq 2 -and @($multiResult.SelectedItems).Id -contains 'one' -and @($multiResult.SelectedItems).Id -contains 'two')
 
+$multiFallbackInputs = [System.Collections.Generic.Queue[string]]::new()
+$multiFallbackInputs.Enqueue('1')
+$multiFallbackInputs.Enqueue('')
+$multiFallbackResult = Invoke-LabConsoleMultiSelect -ScreenId 'multi-fallback' -Title 'Multi Fallback' -Items $items -ForceFallback -ReadInput { param($prompt) $multiFallbackInputs.Dequeue() }
+Add-ConsoleUiCheck 'Mehrfachauswahl bleibt im Read-Host-Fallback vollstaendig bedienbar' ($multiFallbackResult.Status -eq 'Confirmed' -and @($multiFallbackResult.SelectedItems).Id -contains 'one')
+
 $formKeys = [System.Collections.Generic.Queue[object]]::new()
 $formKeys.Enqueue([PSCustomObject]@{ Key='Enter'; KeyChar=[char]13 })
 $formKeys.Enqueue([PSCustomObject]@{ Key='F10'; KeyChar=[char]0 })
@@ -75,6 +116,15 @@ $fields = @(
 )
 $formResult = Invoke-LabConsoleForm -ScreenId 'form' -Title 'Form' -Fields $fields -Capability ([PSCustomObject]@{ Supported=$true }) -ReadKey { $formKeys.Dequeue() } -FrameWriter { param($session, $renderedFrame) }
 Add-ConsoleUiCheck 'Formular bearbeitet, validiert und reviewed vor Bestaetigung' ($formResult.Status -eq 'Confirmed' -and [int]$formResult.Values['cpu'] -eq 4)
+
+$secretKeys = [System.Collections.Generic.Queue[object]]::new()
+$secretKeys.Enqueue([PSCustomObject]@{ Key='Enter'; KeyChar=[char]13 })
+$secretKeys.Enqueue([PSCustomObject]@{ Key='F10'; KeyChar=[char]0 })
+$secretKeys.Enqueue([PSCustomObject]@{ Key='Enter'; KeyChar=[char]13 })
+$secretFrames = [System.Collections.Generic.List[string]]::new()
+$secretFields = @(New-LabConsoleField -Id 'password' -Label 'Passwort' -Sensitive -Required -Editor { param($current, $values) ConvertTo-SecureString 'CUI011-Not-In-Frame' -AsPlainText -Force })
+$secretResult = Invoke-LabConsoleForm -ScreenId 'secret-form' -Title 'Secret Form' -Fields $secretFields -Capability ([PSCustomObject]@{ Supported=$true }) -ReadKey { $secretKeys.Dequeue() } -FrameWriter { param($session, $renderedFrame) $secretFrames.Add((@($renderedFrame.Lines) -join "`n")) }
+Add-ConsoleUiCheck 'Secrets bleiben in Formular-, Review- und Frame-Snapshots maskiert' ($secretResult.Status -eq 'Confirmed' -and $secretResult.SecureValues.ContainsKey('password') -and (@($secretFrames) -join "`n") -notmatch 'CUI011-Not-In-Frame' -and (@($secretFrames) -join "`n") -match '<gesetzt>')
 
 $sensitiveFieldRejected = $false
 try { $null = New-LabConsoleField -Id 'secret' -Label 'Secret' -Value 'plaintext' -Sensitive } catch { $sensitiveFieldRejected = $_.Exception.Message -eq 'CONSOLE_UI_SENSITIVE_INITIAL_VALUE_NOT_ALLOWED' }
@@ -101,6 +151,8 @@ Add-ConsoleUiCheck 'Sample-Auswahl verwendet gemeinsame Mehrfachauswahl' ($sampl
 $attentionSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/AttentionStatus.ps1') -Raw
 Add-ConsoleUiCheck 'CUI-010 besitzt gemeinsamen read-only Attention-Snapshot' ($attentionSource -match 'function Get-LabAttentionSnapshot' -and $attentionSource -match 'Get-SqlServerPatchOptions' -and $attentionSource -match 'SQL_SLOT_READY' -and $attentionSource -match 'RECOVERY_REQUIRED')
 Add-ConsoleUiCheck 'Hauptmenü bindet Attention-Snapshot an gemeinsamen Renderer' ($entrySource -match 'Update-LabConsoleAttentionSnapshot' -and $entrySource -match 'Invoke-LabConsoleMenu[^\r\n]+-Snapshot \$snapshot')
+Add-ConsoleUiCheck 'CUI-011 besitzt Resize-, Write-Plan- und Recovery-Injektionspunkte' ($consoleSource -match 'function Get-LabConsoleWritePlan' -and $consoleSource -match '\[scriptblock\]\$GetViewport' -and $consoleSource -match '\[scriptblock\]\$SessionCompleter' -and $consoleSource -match 'Cursoransicht nicht verfügbar')
+Add-ConsoleUiCheck 'Session stellt urspruengliche Cursorsichtbarkeit wieder her' ($consoleSource -match '\[Console\]::CursorVisible = \[bool\]\$Session\.CursorVisible')
 
 Write-Host "`nErgebnis: $passed PASS, $failed FAIL"
 if ($failed -gt 0) { exit 1 }
