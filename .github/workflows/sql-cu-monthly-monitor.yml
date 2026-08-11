@@ -55,24 +55,24 @@ jobs:
           "summary_path=$outputSummaryPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
           $report = @"
-# SQL Server CU Watch – Ergebnis
+          # SQL Server CU Watch – Ergebnis
 
-- Status: **$($result.Status)**
-- Geprüft am: $($result.CheckedAtUtc)
-- Quelle: $($result.SourceUrl)
-- Katalog: $($result.CatalogPath)
+          - Status: **$($result.Status)**
+          - Geprüft am: $($result.CheckedAtUtc)
+          - Quelle: $($result.SourceUrl)
+          - Katalog: $($result.CatalogPath)
 
-## Diff je Version
-"@
+          ## Diff je Version
+          "@
 
           foreach ($entry in $result.Versions) {
             $report += @"
 
-### SQL $($entry.Version) – $($entry.Status)
-- Letzter Microsoft-Stand: $($entry.LatestMicrosoft.Build) / $($entry.LatestMicrosoft.Update) / $($entry.LatestMicrosoft.Kb) / $($entry.LatestMicrosoft.Released)
-- Katalog-Latest-KB: $($entry.LatestCatalogKb)
-- Fehlende Einträge: $($entry.MissingCount)
-"@
+          ### SQL $($entry.Version) – $($entry.Status)
+          - Letzter Microsoft-Stand: $($entry.LatestMicrosoft.Build) / $($entry.LatestMicrosoft.Update) / $($entry.LatestMicrosoft.Kb) / $($entry.LatestMicrosoft.Released)
+          - Katalog-Latest-KB: $($entry.LatestCatalogKb)
+          - Fehlende Einträge: $($entry.MissingCount)
+          "@
 
             if ($entry.MissingCount -gt 0) {
               $report += "`n- Missing:"
@@ -84,8 +84,8 @@ jobs:
 
             if ($entry.Note) {
               $report += @"
-- Hinweis: $($entry.Note)
-"@
+          - Hinweis: $($entry.Note)
+          "@
             }
           }
 
@@ -105,8 +105,8 @@ jobs:
 
           $report += @"
 
-Nächster Check: $((Get-Date).AddMonths(1).ToString('yyyy-MM-dd'))
-"@
+          Nächster Check: $((Get-Date).AddMonths(1).ToString('yyyy-MM-dd'))
+          "@
 
           $report | Out-File -FilePath $outputSummaryPath -Encoding utf8
 
@@ -140,11 +140,11 @@ Nächster Check: $((Get-Date).AddMonths(1).ToString('yyyy-MM-dd'))
           $issueBodyFile = Join-Path $env:RUNNER_TEMP 'sql-cu-watch-issue.md'
 
           $statusLabelLines = @"
-## Status-Labels
-- [ ] NO CHANGE
-- [ ] NEW
-- [ ] UNCLEAR
-"@
+          ## Status-Labels
+          - [ ] NO CHANGE
+          - [ ] NEW
+          - [ ] UNCLEAR
+          "@
 
           switch ($status) {
             'NEW' { $statusLabelLines = $statusLabelLines -replace '- \[ \] NEW', '- [x] NEW' }
@@ -161,16 +161,16 @@ Nächster Check: $((Get-Date).AddMonths(1).ToString('yyyy-MM-dd'))
           }
 
           $body = @"
-## SQL CU Watch
+          ## SQL CU Watch
 
-**Status:** $status
+          **Status:** $status
 
-$statusLabelLines
+          $statusLabelLines
 
-$statusBlock
+          $statusBlock
 
-$body
-"@
+          $body
+          "@
           Set-Content -LiteralPath $issueBodyFile -Encoding utf8 -Value $body
 
           $issues = gh issue list --state open --json number,title,createdAt --limit 100 | ConvertFrom-Json
@@ -242,9 +242,9 @@ $body
               Remove-Labels -IssueNumber $existing.number -Labels $allStatusLabels
               Add-Labels -IssueNumber $existing.number -Labels $labelsForCreate
               $closeComment = @"
-Der Check ist wieder in Ordnung.
-Der zuletzt offene monatliche Hinweis wurde automatisch auf "NO CHANGE" gesetzt und hiermit geschlossen.
-"@
+          Der Check ist wieder in Ordnung.
+          Der zuletzt offene monatliche Hinweis wurde automatisch auf "NO CHANGE" gesetzt und hiermit geschlossen.
+          "@
               gh issue comment $existing.number --body $closeComment
               gh issue close $existing.number
             }
