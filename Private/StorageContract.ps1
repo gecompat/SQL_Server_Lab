@@ -223,9 +223,18 @@ function New-LabDataMigrationPlan {
         $runDataRoot = [string]$run.metadata.dataRoot
         if ($runDataRoot -and [string]::Equals([System.IO.Path]::GetFullPath($runDataRoot).TrimEnd('\', '/'), $sourceRoot.TrimEnd('\', '/'), [StringComparison]::OrdinalIgnoreCase)) {
             $runState = [string]$run.state
-            $affectedRuns += [PSCustomObject]@{ RunId=[string]$run.runId; Name=[string]$run.metadata.name; State=$runState }
+            $providers = @(
+                @($run.instances | ForEach-Object { [string]$_.provider })
+                @($run.providerSubRuns.PSObject.Properties | ForEach-Object { [string]$_.Name })
+            ) | Where-Object { $_ } | Sort-Object -Unique
+            $affectedRuns += [PSCustomObject]@{ RunId=[string]$run.runId; Name=[string]$run.metadata.name; State=$runState; Providers=@($providers) }
             if ($runState -notin @('STOPPED', 'REMOVED', 'FAILED')) { $blockers.Add("RUN_NOT_STOPPED:$($run.runId)") }
+            if (@($providers | Where-Object { $_ -in @('docker', 'podman') }).Count -gt 0) { $blockers.Add("CONTAINER_REBIND_REQUIRED:$($run.runId)") }
         }
+    }
+    $stateRoot = Get-LabStateRoot
+    if (@($affectedRuns).Count -gt 0 -and -not [string]::Equals([System.IO.Path]::GetFullPath($stateRoot).TrimEnd('\', '/'), (Join-Path $sourceRoot 'State').TrimEnd('\', '/'), [StringComparison]::OrdinalIgnoreCase)) {
+        $blockers.Add('STATE_ROOT_OUTSIDE_SOURCE')
     }
 
     $planId = [Guid]::NewGuid().ToString('D')
@@ -241,13 +250,184 @@ function New-LabDataMigrationPlan {
         AffectedRuns = @($affectedRuns)
         RequiredActions = @('Stop affected environments', 'Create migration journal', 'Copy and verify data', 'Update provider and state references', 'Switch authoritative storage catalog', 'Remove empty managed source root')
         Blockers = @($blockers | Sort-Object -Unique)
-        ExecutionImplemented = $false
+        ExecutionImplemented = $true
     }
     $planDirectory = Join-Path (Join-Path $sourceRoot 'Catalog') 'storage-migrations'
     if (-not (Test-Path -LiteralPath $planDirectory -PathType Container)) { New-Item -Path $planDirectory -ItemType Directory -Force | Out-Null }
     $planPath = Join-Path $planDirectory "$planId.plan.json"
     Write-LabArtifactJsonAtomic -Path $planPath -InputObject $plan
     return [PSCustomObject]@{ Path=$planPath; Plan=$plan }
+}
+
+function Write-LabDataMigrationJournal {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)]$Journal, [string]$MirrorPath)
+
+    $Journal.UpdatedAt = Get-LabTimestamp
+    Write-LabArtifactJsonAtomic -Path $Path -InputObject $Journal
+    if ($MirrorPath) { Write-LabArtifactJsonAtomic -Path $MirrorPath -InputObject $Journal }
+}
+
+function Update-LabMigratedJsonReferences {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Root, [Parameter(Mandatory)][string]$SourceRoot, [Parameter(Mandatory)][string]$TargetRoot)
+
+    $changed = [System.Collections.Generic.List[string]]::new()
+    $sourceEscaped = $SourceRoot.Replace('\', '\\')
+    $targetEscaped = $TargetRoot.Replace('\', '\\')
+    foreach ($path in @(Get-ChildItem -LiteralPath $Root -Filter '*.json' -File -Recurse -Force -ErrorAction Stop)) {
+        $content = Get-Content -LiteralPath $path.FullName -Raw -Encoding utf8
+        $updated = $content.Replace($sourceEscaped, $targetEscaped, [StringComparison]::OrdinalIgnoreCase)
+        $updated = $updated.Replace($SourceRoot, $TargetRoot, [StringComparison]::OrdinalIgnoreCase)
+        if ($updated -ne $content) {
+            [System.IO.File]::WriteAllText($path.FullName, $updated, [System.Text.UTF8Encoding]::new($false))
+            $changed.Add($path.FullName)
+        }
+    }
+    return @($changed)
+}
+
+function Invoke-LabDataMigration {
+    [CmdletBinding(SupportsShouldProcess, ConfirmImpact='High')]
+    param([Parameter(Mandatory)][string]$PlanPath, [switch]$ProcessEnvironmentOnly)
+
+    $resolvedPlanPath = (Resolve-Path -LiteralPath $PlanPath -ErrorAction Stop).Path
+    $plan = Get-Content -LiteralPath $resolvedPlanPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
+    if ([string]$plan.ContractVersion -ne 'SqlServerLab.StorageMigrationPlan/1.0' -or -not [bool]$plan.ExecutionImplemented) { throw 'LAB_STORAGE_MIGRATION_PLAN_NOT_EXECUTABLE' }
+    if ([string]$plan.Status -ne 'READY' -or @($plan.Blockers).Count -gt 0) { throw "LAB_STORAGE_MIGRATION_PLAN_BLOCKED: $(@($plan.Blockers) -join ', ')" }
+    $sourceRoot = (Resolve-Path -LiteralPath ([string]$plan.Source.LabDataRoot) -ErrorAction Stop).Path.TrimEnd('\', '/')
+    $targetRoot = [System.IO.Path]::GetFullPath([string]$plan.Target.LabDataRoot).TrimEnd('\', '/')
+    $configuration = Get-LabStorageConfiguration -DataRoot $sourceRoot
+    if ([string]$configuration.ControllerId -ne [string]$plan.ControllerId) { throw 'LAB_STORAGE_MIGRATION_CONTROLLER_MISMATCH' }
+    if (-not (Test-LabDataRootOwnership -DataRoot $sourceRoot -ControllerId ([string]$plan.ControllerId))) { throw 'LAB_STORAGE_MIGRATION_SOURCE_OWNERSHIP_INVALID' }
+    if (-not $PSCmdlet.ShouldProcess("$sourceRoot -> $targetRoot", 'Lab_Data journalisiert migrieren')) { return $null }
+
+    $planHash = (Get-FileHash -LiteralPath $resolvedPlanPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $journalDirectory = Split-Path -Parent $resolvedPlanPath
+    $journalPath = Join-Path $journalDirectory "$($plan.PlanId).journal.json"
+    $targetJournalPath = Join-Path (Join-Path (Join-Path $targetRoot 'Catalog') 'storage-migrations') "$($plan.PlanId).journal.json"
+    $journal = if (Test-Path -LiteralPath $journalPath -PathType Leaf) {
+        Get-Content -LiteralPath $journalPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 30
+    }
+    else {
+        [PSCustomObject]@{
+            ContractVersion='SqlServerLab.StorageMigrationJournal/1.0'; PlanId=[string]$plan.PlanId; PlanSha256=$planHash
+            Status='PREPARING'; CreatedAt=Get-LabTimestamp; UpdatedAt=Get-LabTimestamp; CurrentStep='validate'
+            CopiedFiles=@(); ReboundResources=@(); UpdatedReferences=@(); Errors=@()
+        }
+    }
+    if ([string]$journal.PlanSha256 -ne $planHash) { throw 'LAB_STORAGE_MIGRATION_PLAN_CHANGED' }
+
+    try {
+        if ($IsWindows -and (Get-Command Get-VMHardDiskDrive -ErrorAction SilentlyContinue)) {
+            foreach ($drive in @(Get-VMHardDiskDrive -ErrorAction SilentlyContinue | Where-Object {
+                if (-not $_.Path) { return $false }
+                $drivePath = [System.IO.Path]::GetFullPath([string]$_.Path)
+                return $drivePath.Equals($sourceRoot, [StringComparison]::OrdinalIgnoreCase) -or $drivePath.StartsWith($sourceRoot + [System.IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)
+            })) {
+                $vm = Get-VM -Name ([string]$drive.VMName) -ErrorAction Stop
+                if ([string]$vm.State -ne 'Off') { throw "LAB_STORAGE_MIGRATION_HYPERV_VM_NOT_OFF: $($drive.VMName)" }
+            }
+        }
+        foreach ($runtime in @('docker', 'podman')) {
+            if (-not (Get-Command $runtime -ErrorAction SilentlyContinue)) { continue }
+            $containerIds = & $runtime ps -a -q --filter 'label=sql-server-lab.run-id' 2>$null
+            if ($LASTEXITCODE -ne 0) { continue }
+            foreach ($containerId in @($containerIds)) {
+                $inspect = @(& $runtime inspect ([string]$containerId) 2>$null | ConvertFrom-Json -Depth 30)[0]
+                foreach ($mount in @($inspect.Mounts | Where-Object { $_.Type -eq 'bind' -and $_.Source })) {
+                    $mountSource = [System.IO.Path]::GetFullPath([string]$mount.Source)
+                    if ($mountSource.Equals($sourceRoot, [StringComparison]::OrdinalIgnoreCase) -or $mountSource.StartsWith($sourceRoot + [System.IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
+                        throw "LAB_STORAGE_MIGRATION_CONTAINER_REBIND_REQUIRED: $runtime/$containerId"
+                    }
+                }
+            }
+        }
+
+        $journal.Status = 'COPYING'; $journal.CurrentStep = 'copy-and-verify'
+        Write-LabDataMigrationJournal -Path $journalPath -Journal $journal
+        if (-not (Test-Path -LiteralPath $targetRoot -PathType Container)) { New-Item -Path $targetRoot -ItemType Directory -Force | Out-Null }
+        $targetJournalDirectory = Split-Path -Parent $targetJournalPath
+        if (-not (Test-Path -LiteralPath $targetJournalDirectory -PathType Container)) { New-Item -Path $targetJournalDirectory -ItemType Directory -Force | Out-Null }
+        foreach ($sourceFile in @(Get-ChildItem -LiteralPath $sourceRoot -File -Recurse -Force -ErrorAction Stop | Where-Object { $_.FullName -ne $journalPath })) {
+            $relativePath = [System.IO.Path]::GetRelativePath($sourceRoot, $sourceFile.FullName)
+            $destination = Join-Path $targetRoot $relativePath
+            $destinationDirectory = Split-Path -Parent $destination
+            if (-not (Test-Path -LiteralPath $destinationDirectory -PathType Container)) { New-Item -Path $destinationDirectory -ItemType Directory -Force | Out-Null }
+            $sourceHash = (Get-FileHash -LiteralPath $sourceFile.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            $alreadyCopied = (Test-Path -LiteralPath $destination -PathType Leaf) -and ((Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLowerInvariant() -eq $sourceHash)
+            if (-not $alreadyCopied) {
+                $temporaryDestination = "$destination.sql-lab-migrating"
+                Copy-Item -LiteralPath $sourceFile.FullName -Destination $temporaryDestination -Force
+                $targetHash = (Get-FileHash -LiteralPath $temporaryDestination -Algorithm SHA256).Hash.ToLowerInvariant()
+                if ($targetHash -ne $sourceHash) { throw "LAB_STORAGE_MIGRATION_HASH_MISMATCH: $relativePath" }
+                Move-Item -LiteralPath $temporaryDestination -Destination $destination -Force
+            }
+            if ($relativePath -notin @($journal.CopiedFiles)) { $journal.CopiedFiles += $relativePath }
+            Write-LabDataMigrationJournal -Path $journalPath -Journal $journal -MirrorPath $targetJournalPath
+        }
+
+        $journal.Status = 'REBINDING'; $journal.CurrentStep = 'provider-rebind'
+        Write-LabDataMigrationJournal -Path $journalPath -Journal $journal -MirrorPath $targetJournalPath
+        if ($IsWindows -and (Get-Command Get-VMHardDiskDrive -ErrorAction SilentlyContinue)) {
+            foreach ($drive in @(Get-VMHardDiskDrive -ErrorAction SilentlyContinue | Where-Object {
+                if (-not $_.Path) { return $false }
+                $drivePath = [System.IO.Path]::GetFullPath([string]$_.Path)
+                return $drivePath.Equals($sourceRoot, [StringComparison]::OrdinalIgnoreCase) -or $drivePath.StartsWith($sourceRoot + [System.IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)
+            })) {
+                $vm = Get-VM -Name ([string]$drive.VMName) -ErrorAction Stop
+                if ([string]$vm.State -ne 'Off') { throw "LAB_STORAGE_MIGRATION_HYPERV_VM_NOT_OFF: $($drive.VMName)" }
+                $newPath = Join-Path $targetRoot ([System.IO.Path]::GetRelativePath($sourceRoot, [string]$drive.Path))
+                Set-VMHardDiskDrive -VMHardDiskDrive $drive -Path $newPath -ErrorAction Stop
+                $journal.ReboundResources += [PSCustomObject]@{ Provider='hyperv'; VMName=[string]$drive.VMName; PreviousPath=[string]$drive.Path; Path=$newPath }
+            }
+        }
+
+        $journal.Status = 'SWITCHING'; $journal.CurrentStep = 'references-and-catalog'
+        $journal.UpdatedReferences = @(Update-LabMigratedJsonReferences -Root $targetRoot -SourceRoot $sourceRoot -TargetRoot $targetRoot)
+        $locations = @($configuration.LabDataLocations | ForEach-Object {
+            if ([string]::Equals([string]$_.LabDataRoot, $sourceRoot, [StringComparison]::OrdinalIgnoreCase)) {
+                [PSCustomObject]@{ VolumeId=[string]$plan.Target.VolumeId; DriveLetter=[string]$plan.Target.DriveLetter; LabDataParent=[string]$plan.Target.LabDataParent; LabDataRoot=$targetRoot }
+            }
+            else { $_ }
+        })
+        $newConfiguration = [PSCustomObject]@{
+            ContractVersion='SqlServerLab.Storage/2.0'; ControllerId=[string]$configuration.ControllerId
+            DefaultDataRoot=if ([string]::Equals([string]$configuration.DefaultDataRoot, $sourceRoot, [StringComparison]::OrdinalIgnoreCase)) { $targetRoot } else { [string]$configuration.DefaultDataRoot }
+            LabDataLocations=$locations; UpdatedAt=Get-LabTimestamp
+        }
+        $null = Initialize-LabManagedDataRoot -DataRoot $targetRoot -ControllerId ([string]$configuration.ControllerId) -Confirm:$false
+        Write-LabArtifactJsonAtomic -Path (Join-Path (Join-Path $targetRoot 'Catalog') 'storage-locations.json') -InputObject $newConfiguration
+        if ([string]::Equals([string]$newConfiguration.DefaultDataRoot, $targetRoot, [StringComparison]::OrdinalIgnoreCase)) {
+            $env:SQL_SERVER_LAB_DATA_ROOT = $targetRoot
+            if (-not $ProcessEnvironmentOnly) { [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_DATA_ROOT', $targetRoot, 'User') }
+            Set-LabProjectPreferenceValue -Name dataRoot -Value $targetRoot
+        }
+
+        $journal.Status = 'CLEANING'; $journal.CurrentStep = 'remove-verified-source'
+        Write-LabDataMigrationJournal -Path $journalPath -Journal $journal -MirrorPath $targetJournalPath
+        foreach ($sourceFile in @(Get-ChildItem -LiteralPath $sourceRoot -File -Recurse -Force -ErrorAction Stop)) {
+            $relativePath = [System.IO.Path]::GetRelativePath($sourceRoot, $sourceFile.FullName)
+            $destination = Join-Path $targetRoot $relativePath
+            if (-not (Test-Path -LiteralPath $destination -PathType Leaf)) { throw "LAB_STORAGE_MIGRATION_TARGET_FILE_MISSING: $relativePath" }
+            if ($sourceFile.FullName -ne $journalPath) { Remove-Item -LiteralPath $sourceFile.FullName -Force }
+        }
+        if (Test-Path -LiteralPath $journalPath -PathType Leaf) { Remove-Item -LiteralPath $journalPath -Force }
+        foreach ($directory in @(Get-ChildItem -LiteralPath $sourceRoot -Directory -Recurse -Force | Sort-Object FullName -Descending)) {
+            if (-not (Get-ChildItem -LiteralPath $directory.FullName -Force -ErrorAction SilentlyContinue | Select-Object -First 1)) { Remove-Item -LiteralPath $directory.FullName -Force }
+        }
+        if (-not (Get-ChildItem -LiteralPath $sourceRoot -Force -ErrorAction SilentlyContinue | Select-Object -First 1)) { Remove-Item -LiteralPath $sourceRoot -Force }
+
+        $journal.Status = 'COMPLETED'; $journal.CurrentStep = 'complete'; $journal.CompletedAt = Get-LabTimestamp
+        Write-LabDataMigrationJournal -Path $targetJournalPath -Journal $journal
+        return [PSCustomObject]@{ Status='COMPLETED'; PlanId=[string]$plan.PlanId; DataRoot=$targetRoot; JournalPath=$targetJournalPath }
+    }
+    catch {
+        $journal.Status = 'RECOVERY_REQUIRED'; $journal.CurrentStep = 'failed'
+        $journal.Errors += [PSCustomObject]@{ At=Get-LabTimestamp; Message=$_.Exception.Message }
+        try { Write-LabDataMigrationJournal -Path $journalPath -Journal $journal -MirrorPath $(if (Test-Path -LiteralPath $targetRoot -PathType Container) { $targetJournalPath } else { $null }) } catch { }
+        throw "LAB_STORAGE_MIGRATION_RECOVERY_REQUIRED: $($_.Exception.Message)"
+    }
 }
 
 function Invoke-LabStorageInteractive {
@@ -264,6 +444,7 @@ function Invoke-LabStorageInteractive {
     Write-Host '    [1] Lab_Data-Parent eines Volumes konfigurieren'
     Write-Host '    [2] Storage-Konfiguration erneut anzeigen'
     Write-Host '    [3] Parent-Wechsel als Migrationsplan pruefen'
+    Write-Host '    [4] Freigegebenen Migrationsplan ausfuehren'
     Write-Host '    [0] Zurueck'
     $choice = Read-Host '  Auswahl'
     if ($choice -eq '1') {
@@ -291,6 +472,18 @@ function Invoke-LabStorageInteractive {
             Write-LabInfo "Migrationsplan: $($result.Path)"
             Write-Host ("    Status={0}, Dateien={1}, Bytes={2}, Blocker={3}" -f $result.Plan.Status, $result.Plan.Inventory.FileCount, $result.Plan.Inventory.TotalBytes, @($result.Plan.Blockers).Count) -ForegroundColor DarkGray
             foreach ($blocker in @($result.Plan.Blockers)) { Write-LabWarning $blocker }
+        }
+        catch { Write-LabError $_.Exception.Message }
+    }
+    elseif ($choice -eq '4') {
+        $planPath = Read-Host '  Vollstaendiger Pfad zur *.plan.json'
+        if (-not $planPath) { return }
+        Write-LabWarning 'Die Migration kopiert und prueft alle Dateien, bindet Hyper-V-VHDX um und schaltet erst danach den Katalog um.'
+        if (-not (Read-LabConfirm -Prompt '  Migrationsplan jetzt ausfuehren?' -Default $false)) { return }
+        try {
+            $result = Invoke-LabDataMigration -PlanPath $planPath -Confirm:$false
+            Write-LabSuccess "Storage-Migration abgeschlossen: $($result.DataRoot)"
+            Write-LabInfo "Journal: $($result.JournalPath)"
         }
         catch { Write-LabError $_.Exception.Message }
     }

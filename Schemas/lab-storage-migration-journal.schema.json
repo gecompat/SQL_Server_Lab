@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sql-server-lab.local/schemas/lab-storage-migration-journal.schema.json",
+  "title": "SqlServerLab.StorageMigrationJournal/1.0",
+  "type": "object",
+  "required": ["ContractVersion", "PlanId", "PlanSha256", "Status", "CurrentStep", "CopiedFiles", "ReboundResources", "UpdatedReferences", "Errors"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.StorageMigrationJournal/1.0" },
+    "PlanId": { "type": "string", "format": "uuid" },
+    "PlanSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "Status": { "enum": ["PREPARING", "COPYING", "REBINDING", "SWITCHING", "CLEANING", "COMPLETED", "RECOVERY_REQUIRED"] },
+    "CurrentStep": { "type": "string" },
+    "CopiedFiles": { "type": "array", "items": { "type": "string" } },
+    "ReboundResources": { "type": "array" },
+    "UpdatedReferences": { "type": "array", "items": { "type": "string" } },
+    "Errors": { "type": "array" }
+  },
+  "additionalProperties": true
+}
