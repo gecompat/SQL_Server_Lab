@@ -631,7 +631,7 @@ function New-SqlServerLab {
             $readiness = Wait-SqlReady `
                 -Port $container.Port `
                 -SaPassword $SaPassword `
-                -TimeoutSeconds 120 `
+                -TimeoutSeconds 300 `
                 -ExpectedMajorVersion $versionDefinition.major `
                 -Provider $container.Provider `
                 -ContainerIdOrName $container.ContainerId
