@@ -6,6 +6,9 @@
     Providers unpruefbare Ressourcen werden gemeldet, aber niemals entfernt.
 .PARAMETER NoWrite
     Gibt den Audit nur zurueck und schreibt kein JSON-Artefakt.
+.OUTPUTS
+    PSCustomObject mit Path und Audit. Audit enthaelt Status, Zusammenfassung,
+    Datenwurzeln, aktive Runs sowie gefundene oder unpruefbare Providerressourcen.
 #>
 function Get-SqlServerLabCleanupAudit {
     [CmdletBinding()]

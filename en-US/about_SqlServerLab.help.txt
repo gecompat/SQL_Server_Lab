@@ -52,6 +52,10 @@ COMMANDS
         Builds a consolidated, secret-free runtime catalog of current labs,
         templates, and artifacts and stores it as JSON.
 
+    Get-SqlServerLabCleanupAudit
+        Inventories known lab data and runtime resources read-only and reports
+        residuals or unavailable providers without removing anything.
+
     Get-SqlServerLabConnectionCenter
         Returns the password-free SQL endpoint catalog used by SSMS and CMS.
 
