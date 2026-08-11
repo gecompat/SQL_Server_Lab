@@ -136,6 +136,11 @@ mit einem bloßen Fehler:
   gespeicherten Snapshot neu und lösen keine Docker-/Podman-Abfragen aus. In
   Hosts ohne sichere `System.Console`-Steuerung bleibt der nummerierte
   `Read-Host`-Fallback vollständig bedienbar.
+- Der stabile Footer zeigt offene Punkte aus einem gemeinsamen read-only Snapshot:
+  fehlende aktuelle CU-Windows-Pakete, veralteten CU-Katalog, niedrigen SQL-Slot-
+  oder Vorlagenbestand, offene Image-Builder sowie Recovery/Cleanup. Pfeiltasten
+  lesen diesen Status nicht erneut; `F5` aktualisiert ihn bewusst und löst keine
+  Medienbeschaffung, Slot-Erzeugung oder andere Mutation aus.
 - Vor der Containeränderung werden CPU, RAM und Port gemeinsam validiert und in
   einer Review-Ansicht gezeigt. Erst die dortige Aktion `Anwenden` ruft den
   bestehenden Reconcile-Pfad auf.
