@@ -2,7 +2,8 @@
 
 ## Status
 
-Dieses Dokument beschreibt den verbindlichen Zielvertrag. Die vollstaendige
+Der versionierte Storage-Contract, Root-Marker, Volume-Mapping, zentrale
+Pfadauflösung und die Konsolenverwaltung sind implementiert. Die vollstaendige
 volumeuebergreifende Migration ist noch nicht implementiert und darf bis zu
 ihrem End-to-End-Nachweis nicht als verfuegbare Funktion dokumentiert werden.
 
@@ -124,10 +125,10 @@ und Run-State absolute Pfade enthalten koennen.
 | ID | Paket | Ergebnis |
 |---|---|---|
 | STO-001 | Schreibpfad-Inventur | Alle aktuellen Schreiborte und externen Provider-Ressourcen sind erfasst |
-| STO-002 | Storage-Contract | Versioniertes Schema fuer `Lab_Base`, Volume-Mapping und Root-Marker |
-| STO-003 | Pfad-Resolver | Jeder Schreibpfad wird zentral aus Volume-ID und `labDataParent` abgeleitet |
-| STO-004 | Guardrails | Freie Environment-Pfade und unmarkierte Ziele werden abgelehnt |
-| STO-005 | Storage-Menue | Anzeige, Konfiguration und Vorschau ohne direkte Seiteneffekte |
+| STO-002 | Storage-Contract | Implementiert: Schema `SqlServerLab.Storage/2.0`, Volume-Mapping und controllergebundener Root-Marker |
+| STO-003 | Pfad-Resolver | Implementiert für persistente Environment-Daten und neuen Run-State |
+| STO-004 | Guardrails | Implementiert: freie und unmarkierte Environment-Pfade werden abgelehnt |
+| STO-005 | Storage-Menue | Implementiert: Anzeige und Parent-Konfiguration; Parent-Wechsel fordert Migration |
 | STO-006 | Migrationsplan | Read-only Plan mit Kapazitaet, Referenzen, Risiken und Aktionen |
 | STO-007 | Migration | Journalisierte, fortsetzbare Verschiebung mit Provider-Updates |
 | STO-008 | Cleanup-Audit | Nachweis und Bericht ueber verbleibende Daten und Runtime-Ressourcen |

@@ -364,7 +364,7 @@ function Show-LabMenu {
     Write-Host ""
     Write-Host "  Speicherorte und Werkzeuge:" -ForegroundColor White
     Write-Host "    [p] Media Root konfigurieren" -ForegroundColor White
-    Write-Host "    [d] Persistenten Data Root konfigurieren" -ForegroundColor White
+    Write-Host "    [d] Storage verwalten (Lab_Data je Volume)" -ForegroundColor White
     Write-Host "    [t] Testdaten-Bibliothek konfigurieren" -ForegroundColor White
     Write-Host "    [k] SQL-Verbindungszentrale (SSMS, CMS, Export)" -ForegroundColor Yellow
     Write-Host "    [z] $sevenZipLabel" -ForegroundColor White
@@ -399,21 +399,7 @@ function Invoke-LabAction {
             }
         }
         'DataRoot' {
-            $currentDataRoot = Get-LabDataRootDefault
-            $prompt = if ($currentDataRoot) { "  Neuer Data Root [$currentDataRoot]" } else { '  Neuer Data Root' }
-            $candidate = Read-Host $prompt
-            if ([string]::IsNullOrWhiteSpace($candidate)) {
-                Write-LabInfo 'Data Root unverändert.'
-                return
-            }
-            try {
-                $savedDataRoot = Set-LabDataRootDefault -DataRoot $candidate
-                Write-LabSuccess "Data Root gespeichert: $savedDataRoot"
-            }
-            catch {
-                Write-LabError "Data Root konnte nicht gespeichert werden: $($_.Exception.Message)"
-                Write-Host '  Der Ordner muss vorher mit .\Tools\Initialize-SqlServerLabDataRoot.ps1 initialisiert werden.' -ForegroundColor DarkGray
-            }
+            Invoke-LabStorageInteractive
         }
         'TestDataRoot' {
             $currentTestDataRoot = Get-LabTestDataRootDefault

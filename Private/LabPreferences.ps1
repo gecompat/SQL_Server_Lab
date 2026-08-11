@@ -7,6 +7,13 @@ function Get-LabProjectPreferencesPath {
     [CmdletBinding()]
     param()
 
+    $configuredDataRoot = @(
+        [string]$env:SQL_SERVER_LAB_DATA_ROOT,
+        [string][Environment]::GetEnvironmentVariable('SQL_SERVER_LAB_DATA_ROOT', 'User')
+    ) | Where-Object { $_ } | Select-Object -First 1
+    if ($configuredDataRoot -and (Test-Path -LiteralPath $configuredDataRoot -PathType Container)) {
+        return Join-Path (Join-Path $configuredDataRoot 'Catalog') 'preferences.json'
+    }
     if (-not $script:ModuleRoot) { return $null }
     return Join-Path (Join-Path $script:ModuleRoot '.local') 'preferences.json'
 }
@@ -139,7 +146,7 @@ function Get-LabDataRootDefault {
         [string][Environment]::GetEnvironmentVariable('SQL_SERVER_LAB_DATA_ROOT', 'User')
     ) | Where-Object { $_ }
     foreach ($candidate in $candidates) {
-        if (Test-Path -LiteralPath $candidate -PathType Container) {
+        if ((Test-Path -LiteralPath $candidate -PathType Container) -and (Test-LabDataRootOwnership -DataRoot $candidate)) {
             return (Resolve-Path -LiteralPath $candidate -ErrorAction Stop).Path
         }
     }
@@ -150,14 +157,7 @@ function Set-LabDataRootDefault {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$DataRoot)
 
-    $resolved = (Resolve-Path -LiteralPath $DataRoot -ErrorAction Stop).Path
-    if (-not (Test-Path -LiteralPath (Join-Path $resolved 'Labs') -PathType Container)) {
-        throw 'LAB_DATA_ROOT_LAYOUT_REQUIRED: Data Root zuerst mit Initialize-SqlServerLabDataRoot.ps1 initialisieren.'
-    }
-    $env:SQL_SERVER_LAB_DATA_ROOT = $resolved
-    [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_DATA_ROOT', $resolved, 'User')
-    Set-LabProjectPreferenceValue -Name dataRoot -Value $resolved
-    return $resolved
+    return Register-LabDataRoot -DataRoot $DataRoot -SetDefault
 }
 
 function Get-LabHyperVSwitchDefault {
