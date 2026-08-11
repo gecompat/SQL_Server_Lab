@@ -90,16 +90,30 @@ function Get-MicrosoftRows {
         $response = Invoke-WebRequest -Uri $SourceUrl -UseBasicParsing -TimeoutSec 90 -Headers @{
             'User-Agent' = 'sql-server-lab-cuwatcher/1.0 (+https://github.com)'
         }
-        $plain = Convert-PlainTextFromHtml -Html $response.Content
+        $sourceText = [string]$response.Content
+        $gitSourceMatch = [regex]::Match(
+            $sourceText,
+            '(?is)<meta\s+name=["'']github_feedback_content_git_url["'']\s+content=["''](?<url>[^"'']+)["'']'
+        )
+        if ($gitSourceMatch.Success) {
+            $gitSourceUrl = $gitSourceMatch.Groups['url'].Value
+            $rawSourceUrl = $gitSourceUrl -replace '^https://github\.com/([^/]+)/([^/]+)/blob/([^/]+)/(.*)$', 'https://raw.githubusercontent.com/$1/$2/$3/$4'
+            if ($rawSourceUrl -eq $gitSourceUrl) {
+                throw "Microsoft-Markdownquelle hat ein unbekanntes GitHub-URL-Format: $gitSourceUrl"
+            }
+            $sourceText = [string](Invoke-WebRequest -Uri $rawSourceUrl -UseBasicParsing -TimeoutSec 90 -Headers @{
+                'User-Agent' = 'sql-server-lab-cuwatcher/1.0 (+https://github.com)'
+            }).Content
+        }
     }
     catch {
         throw "Microsoft-Quelle konnte nicht geladen werden: $($_.Exception.Message)"
     }
 
     $rows = @()
-    $sectionPattern = '(?ms)^###\s*SQL Server\s+(?<version>\d{4}(?:\s*R2)?)\s*\n(?<body>.*?)(?=^###\s*SQL Server\s+\d{4}(?:\s*R2)?|$)'
+    $sectionPattern = '(?ms)^###\s*SQL Server\s+(?<version>\d{4}(?:\s*R2)?)\s*\n(?<body>.*?)(?=^###\s*SQL Server\s+\d{4}(?:\s*R2)?|\z)'
     $sectionMatches = [regex]::Matches(
-        $plain,
+        $sourceText,
         $sectionPattern,
         [System.Text.RegularExpressions.RegexOptions]::Multiline -bor [System.Text.RegularExpressions.RegexOptions]::IgnoreCase
     )
@@ -113,26 +127,24 @@ function Get-MicrosoftRows {
         $majorVersion = $majorMatch.Value
         $body = [string]$section.Groups['body'].Value
 
-        $rowPattern = '(?m)^\s*(?<build>\d+\.\d+\.\d+\.\d+)\s*\|\s*(?<sp>[^|]+?)\s*\|\s*(?<update>[^|]+?)\s*\|\s*(?<kb>KB\d+|NA)\s*\|\s*(?<released>[A-Za-z]+\s+\d{1,2},\s+\d{4})\s*$'
-        $rowMatches = [regex]::Matches(
-            $body,
-            $rowPattern,
-            [System.Text.RegularExpressions.RegexOptions]::IgnoreCase -bor [System.Text.RegularExpressions.RegexOptions]::Multiline
-        )
-
-        foreach ($match in $rowMatches) {
-            $kb = [string]$match.Groups['kb'].Value.ToUpperInvariant().Trim()
-            $updateText = [string]$match.Groups['update'].Value
-            if (-not $updateText.ToUpperInvariant().Contains('CU')) {
+        foreach ($line in @($body -split '\r?\n')) {
+            $cells = @($line.Trim().Trim('|').Split('|') | ForEach-Object { $_.Trim() })
+            if ($cells.Count -lt 5 -or $cells[0] -notmatch '^\d+\.\d+\.\d+\.\d+$') {
                 continue
             }
+            $updateText = [string]$cells[2]
+            if ($updateText -notmatch '(?i)^CU\d+$') {
+                continue
+            }
+            $kbMatch = [regex]::Match([string]$cells[3], '(?i)KB\d+')
+            $kb = if ($kbMatch.Success) { $kbMatch.Value.ToUpperInvariant() } else { '' }
 
             $rows += [PSCustomObject]@{
                 Version = $majorVersion
-                Build = [string]$match.Groups['build'].Value
-                Update = $updateText.Trim()
-                Kb = if ($kb -eq 'NA') { '' } else { $kb }
-                Released = [string]$match.Groups['released'].Value
+                Build = [string]$cells[0]
+                Update = $updateText
+                Kb = $kb
+                Released = [string]$cells[4]
             }
         }
     }
