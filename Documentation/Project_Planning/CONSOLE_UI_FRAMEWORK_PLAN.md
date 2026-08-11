@@ -2,7 +2,7 @@
 
 | Merkmal | Wert |
 |---|---|
-| Status | `PLANNED_BINDING_UI_CONTRACT` |
+| Status | `IMPLEMENTING_FOUNDATION_CUI_001_TO_004` |
 | Stand | 2026-08-11 |
 | Priorität | `P0 / M2` |
 | Geltung | interaktive PowerShell-Konsole von `SQL_Server_Lab` |
@@ -232,15 +232,15 @@ automatische Medienbeschaffung, Slot-Erzeugung oder sonstige Mutation auslösen.
 
 | ID | Arbeitspaket | Ergebnis |
 |---|---|---|
-| `CUI-001` | Console-Capability-Erkennung und `Read-Host`-Fallback | sichere Host-Kompatibilität |
-| `CUI-002` | gemeinsames Screen-, Item-, Field- und UI-State-Modell | keine lokalen Menü-State-Maschinen mehr |
-| `CUI-003` | Frame-Renderer mit Viewport, Resize und sauberem Refresh | kein `Clear-Host` pro Tastendruck |
-| `CUI-004` | gemeinsame Key-Loop für Menü, Auswahl und Mehrfachauswahl | konsistente Navigation |
+| `CUI-001` | Console-Capability-Erkennung und `Read-Host`-Fallback | `IMPLEMENTED` - sichere Host-Kompatibilität |
+| `CUI-002` | gemeinsames Screen-, Item-, Field- und UI-State-Modell | `IMPLEMENTED_MENU_STATE` - stabile Auswahl-IDs und Viewport-State |
+| `CUI-003` | Frame-Renderer mit Viewport, Resize und sauberem Refresh | `IMPLEMENTED_MENU_FRAME` - In-place-Repaint ohne `Clear-Host` |
+| `CUI-004` | gemeinsame Key-Loop für Menü, Auswahl und Mehrfachauswahl | `PARTIAL` - Auswahl und Refresh implementiert; Mehrfachauswahl folgt |
 | `CUI-005` | editierbares Formular mit Feldvalidierung und Review | lange Erfassungen bleiben korrigierbar |
 | `CUI-006` | Hauptmenü und Auswahl aktiver Umgebungen migrieren | erster produktiver Vertical Slice |
 | `CUI-007` | SQL-Zielkonfiguration migrieren | komplexer Formularnachweis |
 | `CUI-008` | Sample-Auswahl sowie Hyper-V-Image-, Slot- und Verwaltungsmenüs migrieren | breite Menüabdeckung |
-| `CUI-009` | Container-Änderungsdialog auf gemeinsamen Renderer umstellen | bestehende Sonderimplementierung entfernt |
+| `CUI-009` | Container-Änderungsdialog auf gemeinsamen Renderer umstellen | `IMPLEMENTED_VERTICAL_SLICE` - Sonder-Key-Loop und `Clear-Host` entfernt |
 | `CUI-010` | Attention-Footer an gemeinsamen read-only Status anbinden | offene Benutzeraktionen sichtbar |
 | `CUI-011` | Zustands-, Render-, Resize-, Fallback- und Recovery-Tests | belastbare Console-UX |
 
