@@ -1285,22 +1285,20 @@ function Invoke-LabHyperVImageAction {
 
     $exitImageMenu = $false
     while (-not $exitImageMenu) {
-        Clear-Host
-        Write-Host '  Hyper-V' -ForegroundColor White
-        Write-Host ''
-        Write-Host '    Standardpfad: Windows aus DVD installieren, als OS-Vorlage veröffentlichen und daraus Betriebssystem-Slots erzeugen.' -ForegroundColor Yellow
-        Write-Host '    SQL Server wird erst danach optional auf einem Slot installiert oder als eigene SQL-Vorlage vorbereitet.' -ForegroundColor DarkGray
-        Write-Host ''
-        Write-Host '    [1] Windows-OS-Vorlage aus DVD erstellen oder fortsetzen' -ForegroundColor Yellow
-        Write-Host '    [2] Betriebssystem-Slot aus Windows-OS-Vorlage erstellen' -ForegroundColor Yellow
-        Write-Host '    [3] Neue SQL-Prepared-Vorlage aus DVD erstellen (optional)' -ForegroundColor White
-        Write-Host '    [s] Offenen SQL-Prepared-Builder fortsetzen' -ForegroundColor White
-        Write-Host '    [4] Betriebssystem- und SQL-Slots verwalten' -ForegroundColor White
-        Write-Host '    [5] Veröffentlichte Vorlagen verwalten oder gezielt löschen' -ForegroundColor White
-        Write-Host '    [e] Erweitert: OS-Baselines, Abnahme und Reparatur' -ForegroundColor DarkGray
-        Write-Host '    [0] Zurueck' -ForegroundColor DarkGray
-        Write-Host ''
-        $choice = Read-Host '  Auswahl'
+        $items = @(
+            New-LabConsoleItem -Id '1' -Label 'Windows-OS-Vorlage aus DVD erstellen oder fortsetzen' -Shortcut '1' -Value 'Standardpfad'
+            New-LabConsoleItem -Id '2' -Label 'Betriebssystem-Slot aus Windows-OS-Vorlage erstellen' -Shortcut '2'
+            New-LabConsoleItem -Id '3' -Label 'Neue SQL-Prepared-Vorlage aus DVD erstellen' -Shortcut '3' -Value 'optional'
+            New-LabConsoleItem -Id 's' -Label 'Offenen SQL-Prepared-Builder fortsetzen' -Shortcut 's'
+            New-LabConsoleItem -Id '4' -Label 'Betriebssystem- und SQL-Slots verwalten' -Shortcut '4'
+            New-LabConsoleItem -Id '5' -Label 'Veröffentlichte Vorlagen verwalten oder gezielt löschen' -Shortcut '5'
+            New-LabConsoleItem -Id 'e' -Label 'Erweitert: OS-Baselines, Abnahme und Reparatur' -Shortcut 'e'
+            New-LabConsoleItem -Id '0' -Label 'Zurueck' -Shortcut '0'
+        )
+        $menuResult = Invoke-LabConsoleMenu -ScreenId 'hyperv-images' -Title 'Hyper-V' -Subtitle 'Windows-Vorlage -> Betriebssystem-Slot -> optionaler SQL-Ausbau' -Items $items
+        if ($menuResult.Status -eq 'Cancelled') { $exitImageMenu = $true; continue }
+        if ($menuResult.Status -ne 'Selected') { continue }
+        $choice = [string]$menuResult.SelectedItem.Id
         switch ($choice) {
             '0' { $exitImageMenu = $true }
             '1' { Invoke-LabHyperVWindowsBaselineMenu }
@@ -1349,21 +1347,20 @@ function Invoke-LabHyperVPreparedImageWorkflowMenu {
 
     $exitMenu = $false
     while (-not $exitMenu) {
-        Clear-Host
-        Write-Host ''
-        Write-Host '  Prepared-Image-Builder fortsetzen' -ForegroundColor White
-        Write-Host '    Standardpfad: Windows einmal manuell installieren; danach laufen SQL PrepareImage, Neustarts, Sysprep und Veröffentlichung automatisch.' -ForegroundColor Yellow
-        Show-LabHyperVSqlNextActions
-        Write-Host ''
-        Write-Host '    [1] Builder starten und VMConnect öffnen' -ForegroundColor White
-        Write-Host '    [2] Windows-Installation bestätigen und automatisch fertigstellen' -ForegroundColor Yellow
-        Write-Host '    [3] Automatischen Abschluss fortsetzen (nur nach Unterbrechung)' -ForegroundColor White
-        Write-Host '    [4] Prepared-Image manuell veröffentlichen (nur Diagnose)' -ForegroundColor DarkGray
-        Write-Host '    [5] Builder-Status anzeigen' -ForegroundColor White
-        Write-Host '    [r] Sysprep offline prüfen und Wiederaufnahme versuchen' -ForegroundColor DarkYellow
-        Write-Host '    [c] Unfertigen Builder aufräumen' -ForegroundColor Red
-        Write-Host '    [0] Zurück' -ForegroundColor DarkGray
-        $choice = Read-Host '  Auswahl'
+        $items = @(
+            New-LabConsoleItem -Id '1' -Label 'Builder starten und VMConnect öffnen' -Shortcut '1'
+            New-LabConsoleItem -Id '2' -Label 'Windows-Installation bestätigen und automatisch fertigstellen' -Shortcut '2'
+            New-LabConsoleItem -Id '3' -Label 'Automatischen Abschluss fortsetzen' -Shortcut '3' -Value 'nur nach Unterbrechung'
+            New-LabConsoleItem -Id '4' -Label 'Prepared-Image manuell veröffentlichen' -Shortcut '4' -Value 'nur Diagnose'
+            New-LabConsoleItem -Id '5' -Label 'Builder-Status anzeigen' -Shortcut '5'
+            New-LabConsoleItem -Id 'r' -Label 'Sysprep offline prüfen und Wiederaufnahme versuchen' -Shortcut 'r'
+            New-LabConsoleItem -Id 'c' -Label 'Unfertigen Builder aufräumen' -Shortcut 'c'
+            New-LabConsoleItem -Id '0' -Label 'Zurück' -Shortcut '0'
+        )
+        $menuResult = Invoke-LabConsoleMenu -ScreenId 'hyperv-prepared-workflow' -Title 'Prepared-Image-Builder fortsetzen' -Subtitle 'Nach Windows-Installation laufen PrepareImage, Neustarts, Sysprep und Veröffentlichung automatisch.' -Items $items
+        if ($menuResult.Status -eq 'Cancelled') { $exitMenu = $true; continue }
+        if ($menuResult.Status -ne 'Selected') { continue }
+        $choice = [string]$menuResult.SelectedItem.Id
         switch ($choice) {
             '0' { $exitMenu = $true }
             '1' { Invoke-LabHyperVMenuAction -Title 'Builder starten' -Action { Start-LabHyperVSqlImageBuildInteractive } }
@@ -1384,13 +1381,15 @@ function Invoke-LabHyperVPublishedImageMenu {
 
     $exitMenu = $false
     while (-not $exitMenu) {
-        Clear-Host
-        Write-Host ''
-        Write-Host '  Veröffentlichte Vorlagen verwalten' -ForegroundColor White
-        Write-Host '    [1] Namen ändern' -ForegroundColor White
-        Write-Host '    [2] Vorlage gezielt löschen' -ForegroundColor Red
-        Write-Host '    [0] Zurück' -ForegroundColor DarkGray
-        $choice = Read-Host '  Auswahl'
+        $items = @(
+            New-LabConsoleItem -Id '1' -Label 'Namen ändern' -Shortcut '1'
+            New-LabConsoleItem -Id '2' -Label 'Vorlage gezielt löschen' -Shortcut '2'
+            New-LabConsoleItem -Id '0' -Label 'Zurück' -Shortcut '0'
+        )
+        $menuResult = Invoke-LabConsoleMenu -ScreenId 'hyperv-published-images' -Title 'Veröffentlichte Vorlagen verwalten' -Items $items
+        if ($menuResult.Status -eq 'Cancelled') { $exitMenu = $true; continue }
+        if ($menuResult.Status -ne 'Selected') { continue }
+        $choice = [string]$menuResult.SelectedItem.Id
         switch ($choice) {
             '0' { $exitMenu = $true }
             '1' { Invoke-LabHyperVMenuAction -Title 'Image-Namen ändern' -Action { Rename-LabHyperVImageArtifactInteractive } }
@@ -1406,16 +1405,18 @@ function Invoke-LabHyperVAdvancedMenu {
 
     $exitMenu = $false
     while (-not $exitMenu) {
-        Clear-Host
-        Write-Host ''
-        Write-Host '  Hyper-V – Erweitert / Reparatur' -ForegroundColor DarkYellow
-        Write-Host '    [1] Windows-OS-Baselines verwalten (Expertenpfad)' -ForegroundColor DarkGray
-        Write-Host '    [2] SQL-Builder aus einer OS-Baseline erstellen (Expertenpfad)' -ForegroundColor DarkGray
-        Write-Host '    [3] Run-lokale Windows-/SQL-Abnahmeumgebung' -ForegroundColor DarkGray
-        Write-Host '    [4] Sysprep offline prüfen und Wiederaufnahme versuchen' -ForegroundColor DarkYellow
-        Write-Host '    [5] Neue Umgebung aus vorhandener ausgeschalteter Windows-VM' -ForegroundColor White
-        Write-Host '    [0] Zurück' -ForegroundColor DarkGray
-        $choice = Read-Host '  Auswahl'
+        $items = @(
+            New-LabConsoleItem -Id '1' -Label 'Windows-OS-Baselines verwalten' -Shortcut '1' -Value 'Expertenpfad'
+            New-LabConsoleItem -Id '2' -Label 'SQL-Builder aus einer OS-Baseline erstellen' -Shortcut '2' -Value 'Expertenpfad'
+            New-LabConsoleItem -Id '3' -Label 'Run-lokale Windows-/SQL-Abnahmeumgebung' -Shortcut '3'
+            New-LabConsoleItem -Id '4' -Label 'Sysprep offline prüfen und Wiederaufnahme versuchen' -Shortcut '4'
+            New-LabConsoleItem -Id '5' -Label 'Neue Umgebung aus vorhandener ausgeschalteter Windows-VM' -Shortcut '5'
+            New-LabConsoleItem -Id '0' -Label 'Zurück' -Shortcut '0'
+        )
+        $menuResult = Invoke-LabConsoleMenu -ScreenId 'hyperv-advanced' -Title 'Hyper-V - Erweitert / Reparatur' -Items $items
+        if ($menuResult.Status -eq 'Cancelled') { $exitMenu = $true; continue }
+        if ($menuResult.Status -ne 'Selected') { continue }
+        $choice = [string]$menuResult.SelectedItem.Id
         switch ($choice) {
             '0' { $exitMenu = $true }
             '1' { Invoke-LabHyperVWindowsBaselineMenu }
@@ -1434,17 +1435,19 @@ function Invoke-LabHyperVWindowsBaselineMenu {
 
     $exitMenu = $false
     while (-not $exitMenu) {
-        Clear-Host
-        Write-Host ''
-        Write-Host '  Windows-OS-Baselines – Expertenpfad' -ForegroundColor DarkYellow
-        Write-Host '    [1] Windows-Builder aus Media Root vorbereiten' -ForegroundColor White
-        Write-Host '    [2] Windows-Build-Status anzeigen' -ForegroundColor White
-        Write-Host '    [3] Windows-Builder starten und VMConnect öffnen' -ForegroundColor White
-        Write-Host '    [4] Installiertes Windows generalisieren' -ForegroundColor White
-        Write-Host '    [5] Windows-Image veröffentlichen' -ForegroundColor White
-        Write-Host '    [6] Unfertigen Windows-Builder aufräumen' -ForegroundColor Red
-        Write-Host '    [0] Zurück' -ForegroundColor DarkGray
-        $choice = Read-Host '  Auswahl'
+        $items = @(
+            New-LabConsoleItem -Id '1' -Label 'Windows-Builder aus Media Root vorbereiten' -Shortcut '1'
+            New-LabConsoleItem -Id '2' -Label 'Windows-Build-Status anzeigen' -Shortcut '2'
+            New-LabConsoleItem -Id '3' -Label 'Windows-Builder starten und VMConnect öffnen' -Shortcut '3'
+            New-LabConsoleItem -Id '4' -Label 'Installiertes Windows generalisieren' -Shortcut '4'
+            New-LabConsoleItem -Id '5' -Label 'Windows-Image veröffentlichen' -Shortcut '5'
+            New-LabConsoleItem -Id '6' -Label 'Unfertigen Windows-Builder aufräumen' -Shortcut '6'
+            New-LabConsoleItem -Id '0' -Label 'Zurück' -Shortcut '0'
+        )
+        $menuResult = Invoke-LabConsoleMenu -ScreenId 'hyperv-windows-baselines' -Title 'Windows-OS-Baselines - Expertenpfad' -Items $items
+        if ($menuResult.Status -eq 'Cancelled') { $exitMenu = $true; continue }
+        if ($menuResult.Status -ne 'Selected') { continue }
+        $choice = [string]$menuResult.SelectedItem.Id
         switch ($choice) {
             '0' { $exitMenu = $true }
             '1' { Invoke-LabHyperVMenuAction -Title 'Windows-Builder vorbereiten' -Action { New-LabHyperVImageBuildInteractive } }
@@ -1464,16 +1467,17 @@ function Invoke-LabHyperVSqlAcceptanceMenu {
 
     $exitMenu = $false
     while (-not $exitMenu) {
-        Clear-Host
-        Write-Host ''
-        Write-Host '  Run-lokale Windows-/SQL-Abnahmeumgebung' -ForegroundColor DarkYellow
-        Write-Host '    Dies ist kein Prepared-Image-Pfad; hier wird eine vollständige Testinstanz installiert.' -ForegroundColor DarkGray
-        Write-Host '    [1] OOBE und vollständiges SQL automatisch installieren' -ForegroundColor White
-        Write-Host '    [2] SQL-Abnahmetest ausführen' -ForegroundColor White
-        Write-Host '    [3] SQL-2019/2022/2025-Abnahmematrix anzeigen' -ForegroundColor White
-        Write-Host '    [4] Manuell abgeschlossene OOBE übernehmen und vollständiges SQL installieren' -ForegroundColor White
-        Write-Host '    [0] Zurück' -ForegroundColor DarkGray
-        $choice = Read-Host '  Auswahl'
+        $items = @(
+            New-LabConsoleItem -Id '1' -Label 'OOBE und vollständiges SQL automatisch installieren' -Shortcut '1'
+            New-LabConsoleItem -Id '2' -Label 'SQL-Abnahmetest ausführen' -Shortcut '2'
+            New-LabConsoleItem -Id '3' -Label 'SQL-2019/2022/2025-Abnahmematrix anzeigen' -Shortcut '3'
+            New-LabConsoleItem -Id '4' -Label 'Manuell abgeschlossene OOBE übernehmen und vollständiges SQL installieren' -Shortcut '4'
+            New-LabConsoleItem -Id '0' -Label 'Zurück' -Shortcut '0'
+        )
+        $menuResult = Invoke-LabConsoleMenu -ScreenId 'hyperv-sql-acceptance' -Title 'Run-lokale Windows-/SQL-Abnahmeumgebung' -Subtitle 'Vollständige Testinstanz; kein Prepared-Image-Pfad.' -Items $items
+        if ($menuResult.Status -eq 'Cancelled') { $exitMenu = $true; continue }
+        if ($menuResult.Status -ne 'Selected') { continue }
+        $choice = [string]$menuResult.SelectedItem.Id
         switch ($choice) {
             '0' { $exitMenu = $true }
             '1' { Invoke-LabHyperVMenuAction -Title 'OOBE und SQL-Setup' -Action { Invoke-LabHyperVSqlAcceptanceInstallInteractive } }
@@ -2577,93 +2581,45 @@ function Select-LabSampleSelection {
             -ExpectedSha256 $variant.ExpectedSha256
     }
 
-    $selection = [System.Collections.Generic.List[string]]::new()
-    while ($true) {
-        Write-Host ''
-        Write-Host '  Testdatenbanken (Sample-Handler):' -ForegroundColor White
-        for ($i = 0; $i -lt $variants.Count; $i++) {
-            $variant = $variants[$i]
+    $items = @(
+        for ($index = 0; $index -lt $variants.Count; $index++) {
+            $variant = $variants[$index]
             $key = "$($variant.SampleId):$($variant.Variant)"
-            $marker = if ($selection.Contains($key)) { '[x]' } else { '[ ]' }
             $status = $localStatus[$key]
-            $expectedDatabaseText = @($variant.ExpectedDatabases) -join ', '
-            Write-Host ("    {0} [{1,2}] {2} ({3})" -f $marker, ($i + 1), $variant.DisplayName, $variant.Variant) -ForegroundColor White
-            Write-Host ("           Typ: {0} | DB: {1} | Download: {2} MB | Lizenz: {3} | Trust: {4} | Cache: {5}" -f `
-                $variant.ArtifactType, $expectedDatabaseText, $variant.DownloadSizeMB, $variant.License, $status.TrustStatus, $status.CacheStatus) -ForegroundColor DarkGray
+            $value = "DB: $(@($variant.ExpectedDatabases) -join ', ') | $($variant.DownloadSizeMB) MB | Trust: $($status.TrustStatus) | Cache: $($status.CacheStatus)"
+            New-LabConsoleItem -Id $key -Label "$($variant.DisplayName) ($($variant.Variant))" -Value $value -Shortcut ([string]($index + 1)) `
+                -Data ([PSCustomObject]@{ Variant=$variant; Status=$status })
         }
-        Write-Host ''
-        Write-Host '    [Nummer] Auswahl umschalten, [d Nummer] Details, [Enter] uebernehmen, [0] keine Testdatenbank' -ForegroundColor DarkGray
-        $choice = Read-Host '  Auswahl'
-
-        if ([string]::IsNullOrWhiteSpace($choice)) {
-            break
-        }
-        if ($choice.Trim() -eq '0') {
-            return @()
-        }
-
-        if ($choice -match '^[dD]\s*(\d+)$') {
-            $detailIndex = [int]$Matches[1] - 1
-            if ($detailIndex -lt 0 -or $detailIndex -ge $variants.Count) {
-                Write-LabWarning 'Ungueltige Nummer.'
-                continue
-            }
-            $variant = $variants[$detailIndex]
-            $status = $localStatus["$($variant.SampleId):$($variant.Variant)"]
-            Write-Host ''
-            Write-Host "  $($variant.DisplayName) ($($variant.SampleId):$($variant.Variant))" -ForegroundColor White
-            Write-Host "    $($variant.Description)" -ForegroundColor DarkGray
-            Write-Host "    Erwartete Datenbanken: $(@($variant.ExpectedDatabases) -join ', ')" -ForegroundColor DarkGray
-            Write-Host "    Quellseite:            $($variant.SourcePage)" -ForegroundColor DarkGray
-            Write-Host "    Artifact-URL:          $($variant.Source)" -ForegroundColor DarkGray
-            Write-Host "    Download:              $($variant.DownloadSizeMB) MB" -ForegroundColor DarkGray
-            Write-Host "    Lizenz:                $($variant.License)" -ForegroundColor DarkGray
-            Write-Host "    Mindest-SQL-Version:   $($variant.MinSqlVersion)" -ForegroundColor DarkGray
-            Write-Host "    Trust-Status:          $($status.TrustStatus)" -ForegroundColor DarkGray
-            Write-Host "    Cache-Status:          $($status.CacheStatus)" -ForegroundColor DarkGray
-            if ($status.TrustStatus -eq 'TRUST_REQUIRED') {
-                Write-Host '    Hinweis: Ohne bekannte SHA-256 fragt die Provisionierung einmalig nach Vertrauen.' -ForegroundColor Yellow
-            }
-            continue
-        }
-
-        if ($choice -notmatch '^\d+$') {
-            Write-LabWarning "Ungueltige Eingabe: $choice"
-            continue
-        }
-
-        $index = [int]$choice - 1
-        if ($index -lt 0 -or $index -ge $variants.Count) {
-            Write-LabWarning 'Ungueltige Nummer.'
-            continue
-        }
-
-        $variant = $variants[$index]
-        $key = "$($variant.SampleId):$($variant.Variant)"
-        if ($selection.Contains($key)) {
-            $null = $selection.Remove($key)
-            continue
-        }
-
-        $conflict = $null
-        $conflictingDatabase = $null
-        foreach ($selectedKey in $selection) {
-            $selectedVariant = $variants | Where-Object { "$($_.SampleId):$($_.Variant)" -eq $selectedKey } | Select-Object -First 1
-            $conflictingDatabase = @($selectedVariant.ExpectedDatabases | Where-Object { @($variant.ExpectedDatabases) -contains $_ } | Select-Object -First 1)
-            if ($selectedVariant -and $conflictingDatabase.Count -gt 0) {
-                $conflict = $selectedKey
-                break
+    )
+    $validateToggle = {
+        param($candidate, $selectedItems)
+        foreach ($selectedItem in @($selectedItems)) {
+            $database = @($selectedItem.Data.Variant.ExpectedDatabases | Where-Object { @($candidate.Data.Variant.ExpectedDatabases) -contains $_ } | Select-Object -First 1)
+            if ($database.Count -gt 0) {
+                return "SAMPLE_OUTPUT_CONFLICT: '$($candidate.Id)' und '$($selectedItem.Id)' erzeugen beide '$($database[0])'."
             }
         }
-        if ($conflict) {
-            Write-LabWarning "SAMPLE_OUTPUT_CONFLICT: '$key' und '$conflict' erzeugen beide die Datenbank '$($conflictingDatabase[0])'."
-            continue
-        }
-
-        $selection.Add($key)
+        return ''
     }
-
-    return @($selection)
+    $showDetails = {
+        param($item)
+        $variant = $item.Data.Variant
+        $status = $item.Data.Status
+        Write-Host ''
+        Write-Host "  $($variant.DisplayName) ($($item.Id))" -ForegroundColor White
+        Write-Host "    $($variant.Description)" -ForegroundColor DarkGray
+        Write-Host "    Erwartete Datenbanken: $(@($variant.ExpectedDatabases) -join ', ')" -ForegroundColor DarkGray
+        Write-Host "    Quellseite: $($variant.SourcePage)" -ForegroundColor DarkGray
+        Write-Host "    Artifact-URL: $($variant.Source)" -ForegroundColor DarkGray
+        Write-Host "    Download: $($variant.DownloadSizeMB) MB | Lizenz: $($variant.License) | Mindest-SQL: $($variant.MinSqlVersion)" -ForegroundColor DarkGray
+        Write-Host "    Trust: $($status.TrustStatus) | Cache: $($status.CacheStatus)" -ForegroundColor DarkGray
+        if ($status.TrustStatus -eq 'TRUST_REQUIRED') { Write-Host '    Ohne bekannte SHA-256 fragt die Provisionierung einmalig nach Vertrauen.' -ForegroundColor Yellow }
+        $null = Read-Host '  [Enter] für Auswahl ...'
+    }
+    $selectionResult = Invoke-LabConsoleMultiSelect -ScreenId 'sample-selection' -Title 'Testdatenbanken (Sample-Handler)' `
+        -Subtitle "SQL Server $SqlVersion" -Items $items -ValidateToggle $validateToggle -ShowDetails $showDetails
+    if ($selectionResult.Status -ne 'Confirmed') { return @() }
+    return @($selectionResult.SelectedItems | ForEach-Object { [string]$_.Id })
 }
 
 function Select-LabHyperVPreparedArtifact {
@@ -3011,26 +2967,21 @@ function Select-LabReusableHyperVWindowsSlotInteractive {
     $candidates = @($candidates | Sort-Object CreatedAt -Descending)
     if ($candidates.Count -eq 0) { return $null }
 
-    Write-Host ''
-    Write-Host '  Vorhandene Windows-Slots ohne SQL-Ausbau:' -ForegroundColor White
-    for ($i = 0; $i -lt $candidates.Count; $i++) {
-        $candidate = $candidates[$i]
-        $phaseLabel = switch ($candidate.Phase) {
-            'SQL_RESUME' { if ([string]$candidate.Plan.state -eq 'CONFIGURATION_PENDING') { 'SQL installiert, Konfiguration fortsetzen' } else { 'SQL-Ausbau geplant, Installation fortsetzen' } }
-            'WINDOWS_READY' { 'Windows übernommen, SQL offen' }
-            default { 'OOBE noch offen' }
+    $items = @(
+        for ($index = 0; $index -lt $candidates.Count; $index++) {
+            $candidate = $candidates[$index]
+            $phaseLabel = switch ($candidate.Phase) {
+                'SQL_RESUME' { if ([string]$candidate.Plan.state -eq 'CONFIGURATION_PENDING') { 'SQL installiert, Konfiguration fortsetzen' } else { 'SQL-Ausbau geplant, Installation fortsetzen' } }
+                'WINDOWS_READY' { 'Windows übernommen, SQL offen' }
+                default { 'OOBE noch offen' }
+            }
+            New-LabConsoleItem -Id ([string]$candidate.RunId) -Label ([string]$candidate.VMName) -Value "$phaseLabel | Live: $($candidate.LiveState)" -Shortcut ([string]($index + 1)) -Data $candidate
         }
-        Write-Host "    [$($i + 1)] $($candidate.VMName) · $phaseLabel · Live: $($candidate.LiveState)" -ForegroundColor White
-    }
-    Write-Host '    [n] Keinen Slot verwenden und einen neuen aus der OS-Vorlage erzeugen' -ForegroundColor DarkGray
-    $selection = Read-Host '  Slot verwenden [1]'
-    if (-not $selection) { $selection = '1' }
-    if ($selection.ToLowerInvariant() -eq 'n') { return $null }
-    if ($selection -notmatch '^\d+$' -or [int]$selection -lt 1 -or [int]$selection -gt $candidates.Count) {
-        Write-LabWarning 'Ungültige Auswahl; es wird kein zusätzlicher Slot erzeugt.'
-        return $null
-    }
-    return $candidates[[int]$selection - 1]
+        New-LabConsoleItem -Id 'new' -Label 'Keinen Slot verwenden; neuen Slot aus OS-Vorlage erzeugen' -Shortcut 'n'
+    )
+    $selectionResult = Invoke-LabConsoleMenu -ScreenId 'hyperv-reusable-windows-slot' -Title 'Vorhandenen Windows-Slot verwenden' -Items $items -SelectedId ([string]$candidates[0].RunId)
+    if ($selectionResult.Status -ne 'Selected' -or [string]$selectionResult.SelectedItem.Id -eq 'new') { return $null }
+    return $selectionResult.SelectedItem.Data
 }
 
 function Invoke-LabReusableHyperVWindowsSlotInteractive {
@@ -3293,9 +3244,20 @@ function Manage-LabHyperVEnvironmentInteractive {
         catch { Write-Host ("    [{0}] {1} · {2}" -f ($i + 1), $runs[$i].metadata.name, $runs[$i].state) -ForegroundColor Yellow }
     }
     if (-not $RunId) {
-        $selection = Read-Host '  Umgebung auswählen'
-        if ($selection -notmatch '^\d+$' -or [int]$selection -lt 1 -or [int]$selection -gt $runs.Count) { Write-LabWarning 'Ungültige Auswahl.'; return }
-        $RunId = [string]$runs[[int]$selection - 1].runId
+        $runItems = @(
+            for ($index = 0; $index -lt $runs.Count; $index++) {
+                $run = $runs[$index]
+                try {
+                    $lab = Get-HyperVLabWorkflowRun -RunId $run.runId
+                    $status = Get-HyperVInstanceStatus -VMName $lab.Instance.vmName -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
+                    New-LabConsoleItem -Id ([string]$run.runId) -Label ([string]$run.metadata.name) -Value "Live: $($status.State) | Workflow: $($run.state) | VM: $($lab.Instance.vmName)" -Shortcut ([string]($index + 1)) -Data $run
+                }
+                catch { New-LabConsoleItem -Id ([string]$run.runId) -Label ([string]$run.metadata.name) -Value ([string]$run.state) -Shortcut ([string]($index + 1)) -Data $run }
+            }
+        )
+        $runSelection = Invoke-LabConsoleMenu -ScreenId 'hyperv-environment-selection' -Title 'Hyper-V-Umgebung verwalten' -Items $runItems
+        if ($runSelection.Status -ne 'Selected') { return }
+        $RunId = [string]$runSelection.SelectedItem.Id
     }
     elseif (@($runs | Where-Object { [string]$_.runId -eq $RunId }).Count -ne 1) {
         Write-LabWarning 'Die ausgewählte Hyper-V-Umgebung existiert nicht mehr.'
@@ -3379,7 +3341,34 @@ function Manage-LabHyperVEnvironmentInteractive {
     }
     Write-Host '    [e] Umgebung entfernen' -ForegroundColor Red
     Write-Host '        Löscht VM und run-lokale differenzierende VHDX nach Bestätigung.' -ForegroundColor DarkGray
-    $action = Read-Host '  Aktion (Buchstabe)'
+    $actionItems = @(
+        New-LabConsoleItem -Id 's' -Label 'VM starten' -Shortcut 's' -Value 'ausgeschaltete Lab-VM starten'
+        New-LabConsoleItem -Id 'v' -Label 'VMConnect öffnen' -Shortcut 'v' -Value 'lokale VM-Konsole öffnen'
+        New-LabConsoleItem -Id 'p' -Label 'VM stoppen' -Shortcut 'p' -Value 'sauber herunterfahren'
+        New-LabConsoleItem -Id 'resources' -Label 'CPU und Speicher ändern' -Shortcut 'r' -Value 'VM muss ausgeschaltet sein'
+        if (-not $persistentStorage) { New-LabConsoleItem -Id 'd' -Label 'Daten-VHDX anhängen' -Shortcut 'd' }
+        elseif ($persistentStoragePending) { New-LabConsoleItem -Id 'i' -Label 'Daten-VHDX initialisieren' -Shortcut 'i' }
+        if ($isSqlLab) {
+            New-LabConsoleItem -Id 'c' -Label 'SQL CompleteImage ausführen' -Shortcut 'c' -Value 'MSSQLSERVER vervollständigen'
+            New-LabConsoleItem -Id 'h' -Label 'Host-SSMS einrichten' -Shortcut 'h' -Value 'Netzwerk, SQL-TCP und Host-Verbindung'
+            New-LabConsoleItem -Id 'q' -Label 'SQL-Instanzen prüfen' -Shortcut 'q'
+            New-LabConsoleItem -Id 'w' -Label 'SQL-WMI reparieren' -Shortcut 'w'
+        }
+        else {
+            if (-not $windowsSlotReady) { New-LabConsoleItem -Id 'o' -Label 'Windows-Grundinstallation übernehmen' -Shortcut 'o' }
+            elseif (-not $selectedLab.Instance.sqlDeploymentPlan) { New-LabConsoleItem -Id 'a' -Label 'SQL-Ausbau festlegen und direkt ausführen' -Shortcut 'a' }
+            elseif ([string]$selectedLab.Instance.sqlDeploymentPlan.deploymentMode -in @('sql-pool-slot','adhoc-install') -and [string]$selectedLab.Instance.sqlDeploymentPlan.state -in @('PLANNED','CONFIGURATION_PENDING')) {
+                New-LabConsoleItem -Id 'x' -Label 'SQL vollständig installieren und konfigurieren' -Shortcut 'x'
+            }
+            elseif ([string]$selectedLab.Instance.sqlDeploymentPlan.deploymentMode -eq 'prepared-template' -and [string]$selectedLab.Instance.sqlDeploymentPlan.state -in @('PLANNED','PREPARE_RUNNING')) {
+                New-LabConsoleItem -Id 'prepared' -Label 'SQL PrepareImage/Generalize ausführen oder fortsetzen' -Shortcut 'g'
+            }
+        }
+        New-LabConsoleItem -Id 'e' -Label 'Umgebung entfernen' -Shortcut 'e' -Value 'VM und run-lokale VHDX löschen'
+    )
+    $actionResult = Invoke-LabConsoleMenu -ScreenId 'hyperv-environment-actions' -Title 'Hyper-V-Umgebung verwalten' -Subtitle "$($selectedLab.Run.name) | VM: $($selectedLab.Instance.vmName)" -Items $actionItems
+    if ($actionResult.Status -ne 'Selected') { return }
+    $action = [string]$actionResult.SelectedItem.Id
     $planSqlDeployment = {
         param([Parameter(Mandatory)] [string] $RunId)
         New-LabHyperVSqlDeploymentPlanInteractive -RunId $RunId
@@ -3398,7 +3387,7 @@ function Manage-LabHyperVEnvironmentInteractive {
             's' { $result = Start-HyperVLabEnvironment -RunId $runId; Write-LabSuccess "VM gestartet: $($result.VMName)" }
             'v' { $result = Open-HyperVLabEnvironmentConsole -RunId $runId; Write-LabInfo "VMConnect geöffnet: $($result.VMName)" }
             'p' { $result = Stop-HyperVLabEnvironment -RunId $runId; Write-LabSuccess "VM gestoppt: $($result.VMName)" }
-            'r' { Set-LabResourcesInteractive -RunId $runId }
+            'resources' { Set-LabResourcesInteractive -RunId $runId }
             'd' {
                 if ($persistentStorage) { Write-LabWarning 'Für diese Umgebung ist bereits eine Daten-VHDX angehängt.'; return }
                 $dataRoot = Get-LabDataRootDefault
@@ -3484,7 +3473,7 @@ function Manage-LabHyperVEnvironmentInteractive {
                 $plan = $selectedLab.Instance.sqlDeploymentPlan
                 if (-not (& $executeSqlSlotInstall $plan $runId)) { return }
             }
-            'r' {
+            'prepared' {
                 if ($isSqlLab -or -not $windowsSlotReady) { Write-LabWarning 'Diese Aktion benötigt einen übernommenen Windows-Slot.'; return }
                 $plan = $selectedLab.Instance.sqlDeploymentPlan
                 if (-not $plan -or [string]$plan.state -notin @('PLANNED', 'PREPARE_RUNNING') -or [string]$plan.deploymentMode -ne 'prepared-template') {

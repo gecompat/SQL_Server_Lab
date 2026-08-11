@@ -312,9 +312,9 @@ try {
         $menuText -match '''0''\s*\{\s*\$exitImageMenu\s*=\s*\$true\s*\}'
     )
     Add-CheckResult -Name 'Kompaktes Hyper-V-Hauptmenü trennt OS-Vorlage, Windows-Slot und SQL-Vorlage' -Success (
-        $menuText -match '\[1\] Windows-OS-Vorlage aus DVD erstellen oder fortsetzen' -and
-        $menuText -match '\[2\] Betriebssystem-Slot aus Windows-OS-Vorlage erstellen' -and
-        $menuText -match '\[3\] Neue SQL-Prepared-Vorlage aus DVD erstellen' -and
+        $menuText -match "Label 'Windows-OS-Vorlage aus DVD erstellen oder fortsetzen'" -and
+        $menuText -match "Label 'Betriebssystem-Slot aus Windows-OS-Vorlage erstellen'" -and
+        $menuText -match "Label 'Neue SQL-Prepared-Vorlage aus DVD erstellen'" -and
         $menuText -match 'New-LabHyperVEnvironmentInteractive' -and
         $menuText -match 'Manage-LabHyperVEnvironmentInteractive' -and
         $menuText -match 'New-HyperVLabEnvironment' -and
@@ -335,7 +335,7 @@ try {
         $menuText -match 'function Invoke-LabHyperVMenuAction' -and
         $menuText -match 'Show-LabHyperVMenuActionHeader[\s\S]{0,180}\[Enter\] für Menü' -and
         $menuText -match "'3' \{ Invoke-LabHyperVMenuAction -Title 'Neue SQL-Prepared-Vorlage'" -and
-        @($menuText | Select-String -Pattern 'while \(-not \$exitMenu\) \{\s*Clear-Host' -AllMatches).Matches.Count -ge 5
+        @($menuText | Select-String -Pattern "Invoke-LabConsoleMenu -ScreenId 'hyperv-" -AllMatches).Matches.Count -ge 6
     )
     Add-CheckResult -Name 'Optionaler SQL-Prepared-Image-Name wird nur bei Inhalt gebunden' -Success (
         $menuText -match '\[string\]::IsNullOrWhiteSpace\(\$imageName\)' -and
