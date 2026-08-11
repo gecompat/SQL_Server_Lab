@@ -50,6 +50,20 @@ $refreshKeys.Enqueue([PSCustomObject]@{ Key='F5'; KeyChar=[char]0 })
 $refreshResult = Invoke-LabConsoleMenu -ScreenId 'refresh' -Title 'Refresh' -Items $items -Capability ([PSCustomObject]@{ Supported=$true }) -ReadKey { $refreshKeys.Dequeue() } -FrameWriter { param($session, $renderedFrame) }
 Add-ConsoleUiCheck 'F5 fordert Refresh an statt Runtime selbst aufzurufen' ($refreshResult.Status -eq 'Refresh')
 
+$formKeys = [System.Collections.Generic.Queue[object]]::new()
+$formKeys.Enqueue([PSCustomObject]@{ Key='Enter'; KeyChar=[char]13 })
+$formKeys.Enqueue([PSCustomObject]@{ Key='F10'; KeyChar=[char]0 })
+$formKeys.Enqueue([PSCustomObject]@{ Key='Enter'; KeyChar=[char]13 })
+$fields = @(
+    New-LabConsoleField -Id 'cpu' -Label 'CPU' -Value 2 -Editor { param($current, $values) 4 } -Validator { param($value, $values) if ([int]$value -lt 1) { 'CPU muss positiv sein.' } }
+)
+$formResult = Invoke-LabConsoleForm -ScreenId 'form' -Title 'Form' -Fields $fields -Capability ([PSCustomObject]@{ Supported=$true }) -ReadKey { $formKeys.Dequeue() } -FrameWriter { param($session, $renderedFrame) }
+Add-ConsoleUiCheck 'Formular bearbeitet, validiert und reviewed vor Bestaetigung' ($formResult.Status -eq 'Confirmed' -and [int]$formResult.Values['cpu'] -eq 4)
+
+$sensitiveFieldRejected = $false
+try { $null = New-LabConsoleField -Id 'secret' -Label 'Secret' -Value 'plaintext' -Sensitive } catch { $sensitiveFieldRejected = $_.Exception.Message -eq 'CONSOLE_UI_SENSITIVE_INITIAL_VALUE_NOT_ALLOWED' }
+Add-ConsoleUiCheck 'Sensitive Klartextwerte gelangen nicht in den UI-State' $sensitiveFieldRejected
+
 $consoleSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/ConsoleUi.ps1') -Raw
 $containerSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Update-SqlServerLabContainer.ps1') -Raw
 Add-ConsoleUiCheck 'Key-Loops verwenden kein Clear-Host' ($consoleSource -notmatch 'Clear-Host' -and $containerSource -notmatch 'Clear-Host')
