@@ -80,12 +80,12 @@ function ConvertFrom-LabConnectionStringTarget {
         }
         catch { }
     }
-    $host = [string]$Instance.host
-    if ([string]::IsNullOrWhiteSpace($host)) { $host = [string]$Instance.hostName }
-    if ([string]::IsNullOrWhiteSpace($host)) { return $null }
+    $serverHost = [string]$Instance.host
+    if ([string]::IsNullOrWhiteSpace($serverHost)) { $serverHost = [string]$Instance.hostName }
+    if ([string]::IsNullOrWhiteSpace($serverHost)) { return $null }
     $port = [int]$Instance.port
-    if ($port -gt 0) { return ('{0},{1}' -f $host, $port) }
-    return $host
+    if ($port -gt 0) { return ('{0},{1}' -f $serverHost, $port) }
+    return $serverHost
 }
 
 function Get-SqlServerLabConnectionCenter {
@@ -200,9 +200,11 @@ function New-LabConnectionCenterPassword {
     $characters = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@$%+=_-'.ToCharArray()
     $bytes = [byte[]]::new(32)
     [Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+    $password = [Security.SecureString]::new()
     try {
-        $plain = -join ($bytes | ForEach-Object { $characters[$_ % $characters.Length] })
-        return ConvertTo-SecureString $plain -AsPlainText -Force
+        foreach ($byte in $bytes) { $password.AppendChar($characters[$byte % $characters.Length]) }
+        $password.MakeReadOnly()
+        return $password
     }
     finally { [Array]::Clear($bytes, 0, $bytes.Length) }
 }
