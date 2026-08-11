@@ -174,7 +174,7 @@ jobs:
           Set-Content -LiteralPath $issueBodyFile -Encoding utf8 -Value $body
 
           $issues = gh issue list --state open --json number,title,createdAt --limit 100 | ConvertFrom-Json
-          $existing = @($issues | Where-Object { $_.title -like "$titlePrefix*" }) |
+          $existing = @($issues | Where-Object { ([string]$_.title).StartsWith($titlePrefix, [StringComparison]::Ordinal) }) |
             Sort-Object { [int]$_.number } -Descending |
             Select-Object -First 1
           $labelBase = 'cu-watch'
