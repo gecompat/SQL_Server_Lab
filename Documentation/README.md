@@ -62,7 +62,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | Komponente | Status | Autoritative Dateien |
 |---|---|---|
 | PowerShell-Modul | implementiert | `SqlServerLab.psd1`, `SqlServerLab.psm1` |
-| Öffentliche API | 29 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
+| Öffentliche API | 30 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
 | Docker | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman | implementiert | `Providers/Podman/PodmanProvider.ps1` |
 | Hyper-V | Lifecycle, sealed Registry und enger Manifestpfad aus SQL-Prepared-Image; echter SQL-End-to-End-Nachweis bleibt offen | `Providers/HyperV/HyperVProvider.ps1`, `Private/HyperVImageRegistry.ps1` |
@@ -90,6 +90,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `Invoke-SqlServerLab` | Interaktives Menü |
 | `Get-SqlServerLabWorkflow` | Konsolidierte Workflow- und Imageübersicht ohne Geheimnisse |
 | `Get-SqlServerLabCatalog` | Konsolidierten Lab-Katalog als JSON-Artefakt erzeugen |
+| `Get-SqlServerLabCleanupAudit` | Bekannte Lab-Daten und Runtime-Ressourcen read-only auf Reste prüfen |
 | `Get-SqlServerLabConnectionCenter` | Passwortfreien SQL-Endpunktkatalog für SSMS und CMS ermitteln |
 | `Sync-SqlServerLabConnectionCenter` | Endpunktkatalog der Verbindungszentrale aktualisieren |
 | `Export-SqlServerLabSsmsRegistration` | Kennwortfreien SSMS-`.regsrvr`-Export erzeugen |

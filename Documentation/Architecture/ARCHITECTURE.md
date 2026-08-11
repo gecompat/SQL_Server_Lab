@@ -63,6 +63,7 @@ Auto-Discovery-Reihenfolge:
 Invoke-SqlServerLab                    # Menue oder Manifest-Einstieg
 Get-SqlServerLabWorkflow               # Verdichtete, geheimnisfreie Workflow-Sicht
 Get-SqlServerLabCatalog                # Laufzeit-Workflow-Katalog als JSON-Artefakt schreiben
+Get-SqlServerLabCleanupAudit           # Daten- und Runtime-Reste read-only inventarisieren
 Get-SqlServerLabConnectionCenter       # Passwortfreier SQL-Endpunktkatalog für SSMS und CMS
 Sync-SqlServerLabConnectionCenter      # Endpunktkatalog atomar aktualisieren
 Export-SqlServerLabSsmsRegistration    # Kennwortfreien SSMS-.regsrvr-Export erzeugen
