@@ -191,20 +191,7 @@ jobs:
               [string]$Color = '0E8A16',
               [string]$Description = ''
             )
-            $exists = $false
-            try {
-              gh label view $Name --json name --jq '.name' | Out-Null
-              $exists = $true
-            }
-            catch { }
-            if (-not $exists) {
-              if ($Description) {
-                gh label create $Name --color $Color --description $Description | Out-Null
-              }
-              else {
-                gh label create $Name --color $Color | Out-Null
-              }
-            }
+            gh label create $Name --color $Color --description $Description --force | Out-Null
           }
 
           Ensure-Label -Name $labelBase -Color '0E8A16' -Description 'Automatisierter SQL CU Watch-Ticker'
