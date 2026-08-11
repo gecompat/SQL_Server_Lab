@@ -62,7 +62,7 @@ try {
         $menuText -match 'New-LabHyperVEnvironmentInteractive -WindowsOnly -ContinueSqlWorkflow' -and
         $menuText -match 'function Complete-LabHyperVManualWindowsWorkflowInteractive' -and
         $menuText -match 'function Select-LabReusableHyperVWindowsSlotInteractive' -and
-        $menuText -match 'Vorhandene Windows-Slots ohne SQL-Ausbau' -and
+        $menuText -match 'Vorhandenen Windows-Slot verwenden' -and
         $menuText -match 'Invoke-LabReusableHyperVWindowsSlotInteractive -Slot \$reusableSlot' -and
         $menuText -match "'SQL_RESUME'" -and
         $menuText -match 'unterbrochener SQL-Ausbau wurde erkannt' -and
