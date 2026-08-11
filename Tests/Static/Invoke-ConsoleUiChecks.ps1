@@ -122,7 +122,13 @@ $secretKeys.Enqueue([PSCustomObject]@{ Key='Enter'; KeyChar=[char]13 })
 $secretKeys.Enqueue([PSCustomObject]@{ Key='F10'; KeyChar=[char]0 })
 $secretKeys.Enqueue([PSCustomObject]@{ Key='Enter'; KeyChar=[char]13 })
 $secretFrames = [System.Collections.Generic.List[string]]::new()
-$secretFields = @(New-LabConsoleField -Id 'password' -Label 'Passwort' -Sensitive -Required -Editor { param($current, $values) ConvertTo-SecureString 'CUI011-Not-In-Frame' -AsPlainText -Force })
+$secretFields = @(New-LabConsoleField -Id 'password' -Label 'Passwort' -Sensitive -Required -Editor {
+    param($current, $values)
+    $secureValue = [Security.SecureString]::new()
+    foreach ($character in 'CUI011-Not-In-Frame'.ToCharArray()) { $secureValue.AppendChar($character) }
+    $secureValue.MakeReadOnly()
+    return $secureValue
+})
 $secretResult = Invoke-LabConsoleForm -ScreenId 'secret-form' -Title 'Secret Form' -Fields $secretFields -Capability ([PSCustomObject]@{ Supported=$true }) -ReadKey { $secretKeys.Dequeue() } -FrameWriter { param($session, $renderedFrame) $secretFrames.Add((@($renderedFrame.Lines) -join "`n")) }
 Add-ConsoleUiCheck 'Secrets bleiben in Formular-, Review- und Frame-Snapshots maskiert' ($secretResult.Status -eq 'Confirmed' -and $secretResult.SecureValues.ContainsKey('password') -and (@($secretFrames) -join "`n") -notmatch 'CUI011-Not-In-Frame' -and (@($secretFrames) -join "`n") -match '<gesetzt>')
 
