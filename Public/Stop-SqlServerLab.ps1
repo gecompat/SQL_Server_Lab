@@ -10,7 +10,9 @@
 .PARAMETER TimeoutSeconds
     Graceful-Shutdown-Timeout fuer die Container-Runtime.
 .PARAMETER Force
-    Keine Bestaetigung abfragen.
+    Ueberspringt die besondere Sicherheitsabfrage beim Stoppen des optional
+    konfigurierten Central Management Servers. Normale Umgebungen benoetigen
+    ohne `-Confirm` keine Bestaetigung.
 .PARAMETER StateRoot
     Optionaler State-Root fuer den Lauf. Ohne Angabe wird `Get-LabStateRoot`
     verwendet.
@@ -38,17 +40,6 @@ function Stop-SqlServerLab {
         $run = Get-LabRunState -RunId $RunId -StateRoot $stateRoot
         $run = (Sync-LabRunRuntimeState -Run $run -StateRoot $stateRoot).Run
 
-        if ([string]$run.metadata.workflowKind -eq 'hyperv-lab') {
-            if ($run.state -ne 'RUNNING') {
-                Write-LabWarning "Lab '$RunId' ist nicht im Status RUNNING (aktuell: $($run.state)). Nichts zu tun."
-                return [PSCustomObject]@{ RunId = $RunId; Status = $run.state; Action = 'SKIPPED' }
-            }
-            if (-not $Force -and -not $PSCmdlet.ShouldProcess($RunId, 'Stop')) {
-                return [PSCustomObject]@{ RunId = $RunId; Status = 'RUNNING'; Action = 'CANCELLED' }
-            }
-            return Stop-HyperVLabEnvironment -RunId $RunId -StateRoot $stateRoot
-        }
-
         if ($run.state -ne 'RUNNING') {
             Write-LabWarning "Lab '$RunId' ist nicht im Status RUNNING (aktuell: $($run.state)). Nichts zu tun."
             return [PSCustomObject]@{
@@ -58,12 +49,47 @@ function Stop-SqlServerLab {
             }
         }
 
-        if (-not $Force -and -not $PSCmdlet.ShouldProcess($RunId, 'Stop')) {
+        $cmsConfiguration = $null
+        if (Get-Command 'Get-LabConnectionCenterCmsConfiguration' -ErrorAction SilentlyContinue) {
+            $cmsConfiguration = Get-LabConnectionCenterCmsConfiguration -StateRoot $stateRoot
+        }
+        $isManagedCms = $cmsConfiguration -and
+            [string]::Equals(
+                [string]$cmsConfiguration.RunId,
+                $RunId,
+                [System.StringComparison]::OrdinalIgnoreCase
+            )
+        $displayName = if ($run.metadata.name) { [string]$run.metadata.name } else { $RunId }
+        $stopDescription = if ($isManagedCms) { 'Central Management Server stoppen' } else { 'Stop' }
+
+        if (-not $PSCmdlet.ShouldProcess($RunId, $stopDescription)) {
             return [PSCustomObject]@{
                 RunId  = $RunId
                 Status = 'RUNNING'
                 Action = 'CANCELLED'
             }
+        }
+
+        if ($isManagedCms -and -not $Force) {
+            Write-LabWarning "Die Umgebung '$displayName' ist der konfigurierte Central Management Server (CMS)."
+            Write-LabWarning 'Beim Stoppen sind die zentrale Serverregistrierung und die automatische CMS-Synchronisation bis zum naechsten Start nicht verfuegbar.'
+            $continue = $PSCmdlet.ShouldContinue(
+                "Soll der Central Management Server '$displayName' wirklich gestoppt werden?",
+                'Central Management Server stoppen'
+            )
+            if (-not $continue) {
+                Write-LabInfo 'CMS wurde nicht gestoppt.'
+                return [PSCustomObject]@{
+                    RunId  = $RunId
+                    Status = 'RUNNING'
+                    Action = 'CANCELLED'
+                    Reason = 'CMS_STOP_DECLINED'
+                }
+            }
+        }
+
+        if ([string]$run.metadata.workflowKind -eq 'hyperv-lab') {
+            return Stop-HyperVLabEnvironment -RunId $RunId -StateRoot $stateRoot
         }
 
         $runDirectory = Join-Path (Join-Path $stateRoot 'runs') $RunId

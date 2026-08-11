@@ -52,6 +52,24 @@ COMMANDS
         Builds a consolidated, secret-free runtime catalog of current labs,
         templates, and artifacts and stores it as JSON.
 
+    Get-SqlServerLabConnectionCenter
+        Returns the password-free SQL endpoint catalog used by SSMS and CMS.
+
+    Sync-SqlServerLabConnectionCenter
+        Atomically refreshes the local connection-center catalog.
+
+    Export-SqlServerLabSsmsRegistration
+        Creates a password-free SSMS Registered Servers import file.
+
+    Export-SqlServerLabCmsSyncScript
+        Creates an idempotent synchronization script for an existing CMS.
+
+    Initialize-SqlServerLabCms
+        Creates an explicitly requested compact persistent Docker or Podman CMS.
+
+    Sync-SqlServerLabCms
+        Synchronizes a managed local CMS with the current endpoint catalog.
+
     Get-SqlServerLabReconcilePlan
         Returns a read-only desired/actual/diff/action plan for an existing
         run lifecycle.
