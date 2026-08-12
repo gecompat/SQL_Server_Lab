@@ -30,6 +30,7 @@ Das Repository verwaltet NICHT:
 - Testdaten-Generierung (gehoert dem Konsumenten)
 - Analyse-Szenarien, Findings, Probes (gehoert SQL_Server_Analyze)
 - Demo-Harness, Praesentationen (gehoert SQL_PerformanceSchulung)
+- wiederverwendbare T-SQL-Module und deren fachliche Versionsmatrix (gehoert SQL_Server_Toolbelt)
 
 ---
 
@@ -40,7 +41,8 @@ Das Repository verwaltet NICHT:
 | Repository | Verwendungszweck |
 | --- | --- |
 | SQL_Server_Analyze | Framework-Installation, Diagnose-Szenarien, Validierung |
-| SQL_PerformanceSchulung | Demo-Umgebungen, Multi-Session, Baseline/Observation |
+| SQL_PerformanceSchulung | Umgebungen zur Konstruktion von Beispielen, Multi-Session, Baseline/Observation |
+| SQL_Server_Toolbelt | modulare T-SQL-Bausteine, Install-/Update-/Uninstall-Lifecycle, Kompatibilitaetsnachweis |
 
 ### 2.2 Konsumierung
 
@@ -516,9 +518,10 @@ Bei Fehler: Cleanup rueckwaerts ab fehlgeschlagenem Schritt.
 
 13. Alle Lifecycle-Cmdlets (Start, Stop, Restart, Get)
 14. Analyze-Adapter (Manifest-Beispiel + Framework-Installation)
-15. PerformanceSchulung-Adapter (Manifest-Beispiel + Demo-Setup)
-16. Schema-Validierung (manifest.schema.json)
-17. Test-Suite (Static + Integration)
+15. PerformanceSchulung-Adapter (Manifest-Beispiel + Beispielkonstruktion)
+16. Toolbelt-Adapter (Manifest-Beispiel + Modul-Deployment)
+17. Schema-Validierung (manifest.schema.json)
+18. Test-Suite (Static + Integration)
 
 ### Phase 3: Hyper-V
 

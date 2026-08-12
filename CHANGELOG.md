@@ -42,6 +42,13 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Geändert
 
+- die aktiven Planungs-, Architektur- und Metadaten benennen die drei
+  Konsumenten und ihre Rollen: `SQL_PerformanceSchulung` konstruiert Beispiele
+  standardmäßig auf einer aktuellen Linux-Umgebung und kann szenariobezogen
+  Windows oder andere Katalogversionen anfordern; `SQL_Server_Analyze` und
+  `SQL_Server_Toolbelt` führen versionsabhängige Entwicklungs- und Abnahmetests
+  auf Windows/Linux mit SQL Server 2019, 2022 und 2025 aus. Die eigene
+  SQL-Lab-Runtime-Abnahme bleibt je Provider auf SQL Server 2025 konzentriert;
 - neue Instanzen und Datenbanken verwenden ohne explizite Angabe die native
   SQL-Containercollation `SQL_Latin1_General_CP1_CI_AS`. Das vermeidet beim
   SQL-2025-Standardpfad einen unnötigen Umbau der Systemdatenbanken;

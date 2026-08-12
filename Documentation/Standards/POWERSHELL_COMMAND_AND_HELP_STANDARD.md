@@ -64,9 +64,10 @@ lokalem Bedarf `Import-Module -Prefix` oder modulqualifizierte Namen verwenden.
 ## Migration bestehender Namen
 
 Die generischen `Lab*`-Namen wurden vor Version 1.0 unmittelbar ersetzt. Es
-gibt keine Kompatibilitaetsaliasse und keinen Deprecation-Zeitraum. Die zwei
-bekannten konsumierenden Repositories `SQL_Server_Analyze` und
-`SQL_PerformanceSchulung` werden bei Bedarf im selben Aenderungszug angepasst.
+gibt keine Kompatibilitaetsaliasse und keinen Deprecation-Zeitraum. Die drei
+bekannten konsumierenden Repositories `SQL_Server_Analyze`,
+`SQL_PerformanceSchulung` und `SQL_Server_Toolbelt` werden bei Bedarf im selben
+Aenderungszug angepasst.
 
 | Bisheriger Name | Kanonischer Name |
 |---|---|

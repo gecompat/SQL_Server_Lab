@@ -4,8 +4,8 @@
 |---|---|
 | Status | `ARCHITECTURE_DECISION_DRAFT` |
 | Vertragsversion | `0.3` |
-| Stand | 2026-07-26 |
-| Primärkonsumenten | `SQL_Server_Analyze`, `SQL_PerformanceSchulung` |
+| Stand | 2026-08-12 |
+| Primärkonsumenten | `SQL_PerformanceSchulung`, `SQL_Server_Analyze`, `SQL_Server_Toolbelt` |
 | Hauptzweck | Übergabe SQL-zentrierter Lab Packages |
 | Maßgebliche Scope-Entscheidung | [SQL-Server-zentrierte Scope-Entscheidung](./SQL_SERVER_CENTRIC_SCOPE_DECISION.md) |
 
@@ -96,7 +96,8 @@ Sie darf nur durch ein SQL Package mit dokumentiertem `SqlPurpose` verwendet wer
 <Workspace>/
 ├── SQL_Server_Lab/
 ├── SQL_Server_Analyze/
-└── SQL_PerformanceSchulung/
+├── SQL_PerformanceSchulung/
+└── SQL_Server_Toolbelt/
 ```
 
 Der lokale Projektroot wird beim Aufruf explizit gebunden. Kein absoluter Pfad wird versioniert.
@@ -194,6 +195,7 @@ Deployment Units installieren oder konfigurieren beispielsweise:
 
 - SQL_Server_Analyze;
 - Performance-Schulungs-Framework;
+- SQL_Server_Toolbelt-Modul oder -Modulpaket;
 - markierte Testdatenbank;
 - SQL Agent;
 - Service Account und Domain Join;
@@ -286,6 +288,7 @@ SQL_SERVER_ANALYZE_INFRASTRUCTURE_SCENARIOS
 - Blocking-, Wait-, TempDB-, I/O-, Query-Store-, XE- und Infrastrukturworkloads;
 - Analyzer-Probes;
 - Finding-, Status- und Resultset-Assertions;
+- Windows- und Linux-Zielumgebungen für SQL Server 2019, 2022 und 2025;
 - projektspezifischer Cleanup.
 
 ### 9.3 Grenze
@@ -327,6 +330,47 @@ SQL_PERFORMANCE_DEMO_INFRASTRUCTURE
 | Observation | Probe |
 | Comparison | Assertion |
 | Gelb/Rot | Safety Class, Resource und Fault Profile |
+| Cleanup | Project Cleanup plus Lab Compensation |
+
+Dieser Adapter dient der Konstruktion reproduzierbarer Beispiele. Sein Standard
+ist die aktuelle SQL-Version auf Linux. Ein Package darf Windows oder eine
+andere katalogisierte Version anfordern, wenn die Beispielkonstellation dies
+fachlich benötigt. Das Schulungsrepository ist nicht Eigentümer der allgemeinen
+SQL-Mehrversions-Abnahmematrix.
+
+## 10a. Integration `SQL_Server_Toolbelt`
+
+### 10a.1 Package-Familien
+
+```text
+SQL_SERVER_TOOLBELT_MODULE
+SQL_SERVER_TOOLBELT_MODULE_SET
+SQL_SERVER_TOOLBELT_COMPATIBILITY
+```
+
+### 10a.2 Erhaltener Modulvertrag
+
+- Modul-ID und Modulversion;
+- Abhängigkeiten und Installationsreihenfolge;
+- lokale oder zentrale Bereitstellungsart;
+- Install-, Update- und Uninstall-Entrypoints;
+- Vorbedingungen und unterstützte SQL-Versionen;
+- Windows- und Linux-Zielumgebungen für SQL Server 2019, 2022 und 2025;
+- idempotente Validierung der bereitgestellten Objekte;
+- modulbezogene Cleanup- und Recovery-Regeln;
+- Kompatibilitätsevidenz für SQL Server 2019, 2022 und 2025 im
+  Toolbelt-Repository.
+
+### 10a.3 Abbildung
+
+| Toolbelt-Inhalt | Lab-Package-Vertrag |
+|---|---|
+| SQL-Zielinstanz | Primary SQL Component |
+| Modul oder Modulset | Deployment Units |
+| Abhängigkeiten | typisierte Inputs und Ausführungsreihenfolge |
+| Install/Update/Uninstall | Workflow Actions |
+| Objekt- und Versionsprüfung | Probe und Assertion |
+| lokale oder zentrale Bereitstellung | Package-Parameter und Bindings |
 | Cleanup | Project Cleanup plus Lab Compensation |
 
 ## 11. SQL Supporting Components
@@ -478,7 +522,8 @@ Getrennt versioniert werden:
 - Evidence;
 - Control Plane.
 
-`1.0` wird erst nach produktiver Abnahme beider Primärprojekte und der drei Kernprovider festgeschrieben.
+`1.0` wird erst nach produktiver Abnahme aller drei Primärkonsumenten und der
+drei Kernprovider festgeschrieben.
 
 ## 19. Abnahmekriterien
 
@@ -490,7 +535,7 @@ Getrennt versioniert werden:
 - Projekte benötigen keine Providerbefehle;
 - Inputs und Outputs werden typisiert verbunden;
 - Hyper-V, Docker und Podman nutzen denselben übergeordneten Contract;
-- beide Primärprojekte nutzen denselben Lab-Core;
+- alle drei Primärprojekte nutzen denselben Lab-Core;
 - unbekannte oder untrusted Erweiterungen werden abgelehnt;
 - Cleanup und Compensation laufen auch bei Project-Fehlern;
 - keine unabhängigen Nicht-SQL-Packages werden akzeptiert.

@@ -920,6 +920,7 @@ Unzulässig:
 - Quick Environment;
 - Performance-Schulungs-Pilot;
 - Analyze-Pilot;
+- Toolbelt-Pilot;
 - DataSet-, Workload-, Probe- und Cleanup-Verträge;
 - Lab-Backup-Fortsetzung;
 - mindestens eine öffentliche Demo-Datenbank.

@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING_ADDENDUM` |
-| Stand | 2026-07-26 |
+| Stand | 2026-08-12 |
 | Bezieht sich auf | `MASTER_IMPLEMENTATION_PLAN.md` |
 | Vorrang | Diese Ergänzung und `SQL_SERVER_CENTRIC_SCOPE_DECISION.md` haben bei widersprüchlichen Formulierungen Vorrang. |
 
@@ -22,7 +22,12 @@ Supporting Components sind nur zulässig, wenn sie für einen SQL-Zweck erforder
 
 ## 2. Versionsoffener SQL-Server-Vertrag
 
-Formulierungen wie „SQL Server 2019, 2022 und 2025“ bezeichnen den **derzeit vorgesehenen aktiven Versionsumfang**. Sie sind nicht als dauerhafte Ober- oder Untergrenze des Lab-Core zu verstehen.
+Formulierungen wie „SQL Server 2019, 2022 und 2025“ bezeichnen den **derzeit
+vorgesehenen aktiven Katalog- und Bereitstellungsumfang**. Sie sind nicht als
+dauerhafte Ober- oder Untergrenze des Lab-Core zu verstehen. Die eigene
+SQL-Lab-Runtime-Abnahme verwendet je Provider ausschließlich SQL Server 2025.
+Die reale Windows-/Linux-Kompatibilitätsmatrix 2019/2022/2025 wird in
+`SQL_Server_Analyze` und `SQL_Server_Toolbelt` ausgeführt.
 
 Verbindlich gilt:
 
@@ -123,7 +128,8 @@ Ein absoluter Ausschluss verwaister Ressourcen ist bei Hostausfall oder externem
 - Package-, Purpose- und Schemafamilie;
 - SQL Version Catalog;
 - Docker-, Podman- und Hyper-V-Provider;
-- derzeit SQL Server 2019, 2022 und 2025;
+- katalogbasierte Windows-/Linux-Bereitstellung für SQL Server 2019, 2022 und
+  2025 bei SQL Server 2025 als Core-Runtime-Referenz;
 - Resource Assessment und bewusster Overcommit;
 - State, Secret, Binding, Cleanup und Recovery;
 - Quick Environment.
@@ -135,6 +141,7 @@ Ein absoluter Ausschluss verwaister Ressourcen ist bei Hostausfall oder externem
 - mindestens eine öffentliche Demo-Datenbank;
 - `SQL_PerformanceSchulung`-Package;
 - `SQL_Server_Analyze`-Package;
+- `SQL_Server_Toolbelt`-Package;
 - Workloads, Probes und Assertions;
 - SQL-bezogene Fault Injection.
 
@@ -180,7 +187,12 @@ Providerunterschiede werden über Capabilities dargestellt und nicht durch falsc
 - SQL Server ist in allen öffentlichen Einstiegsdokumenten eindeutig Hauptzweck.
 - Jedes ausführbare Package besitzt `SqlPurpose`.
 - SQL-Versionen sind katalog- und constraintbasiert statt dauerhaft fest codiert.
-- Der aktuelle Umfang wird als „derzeit SQL Server 2019, 2022 und 2025“ bezeichnet.
+- Der aktuelle Bereitstellungskatalog umfasst SQL Server 2019, 2022 und 2025;
+  der SQL-Lab-Core wird je Provider nur mit SQL Server 2025 abgenommen.
+- `SQL_Server_Analyze` und `SQL_Server_Toolbelt` führen die reale
+  Windows-/Linux-Entwicklungs- und Abnahmematrix 2019/2022/2025.
+- `SQL_PerformanceSchulung` verwendet standardmäßig die aktuelle Linux-
+  Umgebung und fordert Abweichungen nur szenariobezogen an.
 - Neue Versionen und das kontrollierte Ausgrenzen alter Versionen erfordern keinen Core-Neuentwurf.
 - Lab-Backups und öffentliche Demo-Datenbanken sind zulässige, verifizierte Artefakte.
 - Produktions- und unklassifizierte Daten bleiben blockiert.
