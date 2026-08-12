@@ -317,6 +317,7 @@ function New-HyperVInstance {
         [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9 _-]{0,63}$')][string]$LabName,
         [ValidateRange(512MB, 1TB)][long]$MemoryStartupBytes = 2GB,
         [ValidateRange(1, 64)][int]$ProcessorCount = 2,
+        [ValidateSet('on', 'off')][string]$AutoStart = 'off',
         [string]$SwitchName,
         [object[]]$AdditionalDrives = @()
     )
@@ -471,6 +472,8 @@ function New-HyperVInstance {
         -ChildVhdxPath $childVhdxPath `
         -AdditionalDrives $additionalDrivePlan
     $null = Set-VM -VM $vm -Notes $notes -AutomaticCheckpointsEnabled $false -ErrorAction Stop
+    $automaticStartAction = if ($AutoStart -eq 'on') { 'Start' } else { 'Nothing' }
+    $null = Set-VM -VM $vm -AutomaticStartAction $automaticStartAction -ErrorAction Stop
     if (-not $SwitchName) {
         # New-VM erzeugt hostabhaengig auch ohne SwitchName einen getrennten
         # Standardadapter. Dieser Slice besitzt noch keinen Netzwerkvertrag und
@@ -501,6 +504,7 @@ function New-HyperVInstance {
         ScopeId       = $ScopeId
         ChildVhdxPath = $childVhdxPath
         AdditionalDrives = @($additionalDrivePlan)
+        AutoStart     = $AutoStart
         State         = [string]$vm.State
         SqlReady      = $false
     }
@@ -536,6 +540,7 @@ function Get-HyperVInstanceStatus {
         RunId      = [string]$managed.Identity.runId
         ScopeId    = [string]$managed.Identity.scopeId
         InstanceId = [string]$managed.Identity.instanceId
+        AutoStart  = if ([string]$managed.VM.AutomaticStartAction -eq 'Start') { 'on' } else { 'off' }
         AdditionalVhdxPaths = @($managed.Identity.additionalVhdxPaths | ForEach-Object { [string]$_ })
         AdditionalDrives = @($managed.Identity.additionalDrives)
         GuestDrivesReady = [bool](

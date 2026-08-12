@@ -12,6 +12,7 @@
         "preparedImageId": "hyperv-sql-prepared-sealed-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "memoryStartupMB": 8192,
         "processorCount": 4,
+        "autostart": "on",
         "guestPasswordMode": "prompt"
       },
       "drives": [

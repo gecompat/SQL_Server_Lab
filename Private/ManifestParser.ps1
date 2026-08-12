@@ -432,6 +432,7 @@ function Resolve-ManifestDefaults {
                 switchName        = [string]$instance.hyperv.switchName
                 memoryStartupMB   = if ($instance.hyperv.memoryStartupMB) { [int]$instance.hyperv.memoryStartupMB } else { 4096 }
                 processorCount    = if ($instance.hyperv.processorCount) { [int]$instance.hyperv.processorCount } else { 4 }
+                autostart         = if ($instance.hyperv.autostart) { [string]$instance.hyperv.autostart } else { 'off' }
                 guestPasswordMode = if ($instance.hyperv.guestPasswordMode) { [string]$instance.hyperv.guestPasswordMode } else { 'generated' }
             }
         }

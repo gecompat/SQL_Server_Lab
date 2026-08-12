@@ -96,10 +96,12 @@ function Get-SqlServerLabWorkflow {
             $instance = @($connectionInfo.instances | Where-Object { $_.provider -eq 'hyperv' }) | Select-Object -First 1
             $vmState = 'Unknown'
             $exists = $false
+            $autoStart = if ($instance -and $instance.autostart) { [string]$instance.autostart } else { 'off' }
             if ($instance -and $instance.vmName) {
                 try {
                     $status = Get-HyperVInstanceStatus -VMName ([string]$instance.vmName) -ExpectedRunId ([string]$run.runId) -ExpectedScopeId ([string]$run.scopeId)
                     $vmState = [string]$status.State; $exists = [bool]$status.Exists
+                    if ($status.PSObject.Properties['AutoStart']) { $autoStart = [string]$status.AutoStart }
                 }
                 catch { $vmState = 'Unavailable' }
             }
@@ -109,6 +111,7 @@ function Get-SqlServerLabWorkflow {
                 RunId = [string]$run.runId; Name = [string]$run.metadata.name; State = [string]$run.state
                 VMName = if ($instance) { [string]$instance.vmName } else { $null }; VMState = $vmState; Exists = $exists
                 InstanceId = if ($instance) { [string]$instance.id } else { $null }
+                AutoStart = $autoStart
                 Workload = $workload
                 SqlVersion = if ($instance) { [string]$instance.sqlVersion } else { $null }
                 SqlEdition = if ($instance) { [string]$instance.sqlEdition } else { $null }

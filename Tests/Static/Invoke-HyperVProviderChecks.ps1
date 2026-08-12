@@ -108,6 +108,10 @@ try {
         -Text $provider `
         -Pattern 'Set-VM[^\r\n]+AutomaticCheckpointsEnabled\s+\$false'
     Add-TextContract `
+        -Name 'VM-Autostart bildet on und off deterministisch auf Hyper-V ab' `
+        -Text $provider `
+        -Pattern 'ValidateSet\(''on'',\s*''off''\)[\s\S]+AutomaticStartAction\s+\$automaticStartAction'
+    Add-TextContract `
         -Name 'Normale Lab-VMs erhalten einen begrenzten dynamischen Speicherbereich' `
         -Text $provider `
         -Pattern 'Math\]::Max\(\[double\]512MB,\s*\[double\]\$MemoryStartupBytes\s*/\s*2\)[\s\S]+Math\]::Min\(\[double\]1TB,\s*\[double\]\$MemoryStartupBytes\s*\*\s*2\)[\s\S]+Set-VMMemory[\s\S]+MaximumBytes\s+\$memoryMaximumBytes'

@@ -126,6 +126,7 @@ try {
             -InstanceId 'lifecycle-smoke' `
             -MemoryStartupBytes 512MB `
             -ProcessorCount 1 `
+            -AutoStart on `
             -AdditionalDrives @(
                 [PSCustomObject]@{ id = 'data'; role = 'sqlData'; sizeBytes = 32MB; vhdType = 'dynamic'; guestPath = 'D:\SqlData' },
                 [PSCustomObject]@{ id = 'log'; role = 'sqlLog'; sizeBytes = 32MB; vhdType = 'dynamic'; guestPath = 'L:\SqlLog' }
@@ -146,6 +147,7 @@ try {
         Get-HyperVInstanceStatus -VMName $VMName -ExpectedRunId $RunId -ExpectedScopeId $ScopeId
     } $instance.VMName $runId $scopeId
     Assert-HyperVSmoke -Condition ($createdStatus.Exists -and $createdStatus.State -eq 'Off') -Description 'Generation-2-VM ist initial ausgeschaltet'
+    Assert-HyperVSmoke -Condition ($createdStatus.AutoStart -eq 'on') -Description 'Autostart-Opt-in ist im Providerstatus sichtbar'
     Assert-HyperVSmoke -Condition (@($createdStatus.AdditionalVhdxPaths).Count -eq 2) -Description 'VM-Status bewahrt die Zusatz-VHDX-Bindung'
     Assert-HyperVSmoke -Condition (-not $createdStatus.GuestDrivesReady) -Description 'Host-Smoke behauptet ohne Windows-Gast keine initialisierten Volumes'
     Assert-HyperVSmoke -Condition (-not $createdStatus.WindowsSpecialized) -Description 'Host-Smoke behauptet ohne Windows-Gast keine Specialization'
@@ -156,6 +158,7 @@ try {
     $firmware = Get-VMFirmware -VM $vm -ErrorAction Stop
     Assert-HyperVSmoke -Condition ($firmware.SecureBoot -eq 'On') -Description 'Secure Boot ist aktiviert'
     Assert-HyperVSmoke -Condition (-not $vm.AutomaticCheckpointsEnabled) -Description 'Automatische Checkpoints sind fuer Lab-VM deaktiviert'
+    Assert-HyperVSmoke -Condition ([string]$vm.AutomaticStartAction -eq 'Start') -Description 'Autostart-Opt-in setzt AutomaticStartAction auf Start'
     $attachedPaths = @(Get-VMHardDiskDrive -VM $vm -ErrorAction Stop | ForEach-Object { [System.IO.Path]::GetFullPath([string]$_.Path) })
     Assert-HyperVSmoke -Condition ($attachedPaths.Count -eq 3) -Description 'OS-Child und zwei Zusatz-VHDX sind an die VM gebunden'
     foreach ($drive in @($instance.AdditionalDrives)) {

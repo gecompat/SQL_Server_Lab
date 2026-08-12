@@ -103,14 +103,15 @@ try {
         function New-HyperVInstance {
             [PSCustomObject]@{ VMName = 'sql-lab-primary-mock'; VMId = 'mock-vm-id' }
         }
-        New-HyperVLabEnvironment -ArtifactId 'sql-prepared-test' -LabName 'Mock Lab' -InstanceId primary -StateRoot $Root
+        New-HyperVLabEnvironment -ArtifactId 'sql-prepared-test' -LabName 'Mock Lab' -InstanceId primary -AutoStart on -StateRoot $Root
     } $temporaryRoot
     $state = & $module { param($RunId, $Root) Get-LabRunState -RunId $RunId -StateRoot $Root } $created.RunId $temporaryRoot
     $connection = Get-Content -LiteralPath (Join-Path (Join-Path (Join-Path $temporaryRoot 'runs') $created.RunId) 'connection-info.json') -Raw | ConvertFrom-Json -Depth 10
     Add-CheckResult -Name 'Reguläres SQL-Hyper-V-Lab bindet ein Prepared-Image und bleibt ausgeschaltet' -Success (
         $created.State -eq 'STOPPED' -and $state.state -eq 'STOPPED' -and
         $connection.instances.Count -eq 1 -and $connection.instances[0].provider -eq 'hyperv' -and
-        $connection.instances[0].imageArtifactId -eq 'sql-prepared-test' -and $connection.instances[0].workload -eq 'sql'
+        $connection.instances[0].imageArtifactId -eq 'sql-prepared-test' -and $connection.instances[0].workload -eq 'sql' -and
+        $connection.instances[0].autostart -eq 'on' -and $state.metadata.autostart -eq 'on'
     )
     $driveBound = & $module {
         param($Root)

@@ -489,7 +489,7 @@ function renderHyperVLabs(items) {
       '<button class="button danger" data-hyperv-remove="true" data-run="' + escapeHtml(item.RunId) + '" data-name="' + escapeHtml(item.Name || item.RunId) + '">Entfernen</button>'
     ].join('');
     const sourceBased = item.BaseKind === 'existing-vm';
-    const detail = ['VM: ' + (item.VMName || '–'), 'VM-Status: ' + (item.VMState || '–'), sourceBased ? 'Basis: ' + (item.SourceVMName || 'bestehende VM') : (isSqlLab ? 'SQL Server ' + (item.SqlVersion || '–') : 'Reine Windows-VM')].join(' · ');
+    const detail = ['VM: ' + (item.VMName || '–'), 'VM-Status: ' + (item.VMState || '–'), 'Autostart: ' + (item.AutoStart === 'on' ? 'ein' : 'aus'), sourceBased ? 'Basis: ' + (item.SourceVMName || 'bestehende VM') : (isSqlLab ? 'SQL Server ' + (item.SqlVersion || '–') : 'Reine Windows-VM')].join(' · ');
     const baseDetail = sourceBased ? 'Quelle: ' + (item.SourceVMName || '–') + ' · Original unverändert' : 'Vorlage: ' + shortId(item.ArtifactId);
     const persistentDetail = persistent ? '<div class="build-meta"><strong>Persistente Daten:</strong> Host ' + escapeHtml(persistent.hostPath || persistent.root || '–') + (persistent.guestPath ? ' → Gast ' + escapeHtml(persistent.guestPath) : '') + ' · ' + escapeHtml(persistent.state || 'eingebunden') + '</div>' : '';
     const backupDetail = persistent?.backupGuestPath ? '<div class="build-meta"><strong>Backup-Arbeitsbereich:</strong> Gast ' + escapeHtml(persistent.backupGuestPath) + ' auf eigener Daten-VHDX' + (persistent.backupMode === 'guest-data-vhdx' ? ' · nicht als Host-Ordner eingebunden' : '') + '</div>' : '';
@@ -1077,6 +1077,7 @@ $('#hyperv-lab-form').addEventListener('submit', async (event) => {
     InstanceId: $('#hyperv-instance').value.trim(),
     MemoryStartupMB: Number($('#hyperv-memory').value),
     ProcessorCount: Number($('#hyperv-processors').value),
+    AutoStart: $('#hyperv-autostart').checked ? 'on' : 'off',
     SwitchName: $('#hyperv-switch').value.trim(),
     Region: region,
     SystemLocale: systemLocale,
@@ -1110,6 +1111,7 @@ $('#hyperv-existing-vm-lab-form').addEventListener('submit', async (event) => {
     InstanceId: $('#hyperv-existing-vm-instance').value.trim(),
     MemoryStartupMB: Number($('#hyperv-existing-vm-memory').value),
     ProcessorCount: Number($('#hyperv-existing-vm-processors').value),
+    AutoStart: $('#hyperv-existing-vm-autostart').checked ? 'on' : 'off',
     SwitchName: $('#hyperv-existing-vm-switch').value.trim(),
     ConfirmSourceLicense: true,
     PersistentData: $('#hyperv-existing-vm-persistent-data').checked,

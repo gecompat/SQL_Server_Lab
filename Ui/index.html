@@ -216,6 +216,7 @@
         <label>Input-Locale<input id="hyperv-input-locale" value="0407:00000407" pattern="[0-9A-Fa-f]{4}:[0-9A-Fa-f]{8}" required></label>
         <label>Zeitzone<select id="hyperv-time-zone"><option>W. Europe Standard Time</option><option>UTC</option><option>Central Europe Standard Time</option><option>Eastern Standard Time</option></select></label>
       </div>
+      <label class="form-check"><input id="hyperv-autostart" type="checkbox"> VM beim Hochfahren des Hyper-V-Hosts automatisch starten</label>
       <label id="hyperv-persistent-field" class="form-check"><input id="hyperv-persistent-data" type="checkbox"> Langlebige Daten-VHDX im Data Root anhängen</label>
       <p class="form-note">Die Daten-VHDX wird je Lab neu im Data Root angelegt, nicht mit der Vorlage geteilt und bei „Entfernen“ nicht gelöscht. Im Gast wird ein freier Datenbuchstabe verwendet (bevorzugt <code>S:\SQLData</code>).</p>
       <label>Gastpasswort<select id="hyperv-password-mode"><option value="generated">Zufällig erzeugen und zum Kopieren anzeigen</option><option value="user">Eigenes Passwort verwenden</option></select></label>
@@ -241,6 +242,7 @@
         <label>vCPU<input id="hyperv-existing-vm-processors" type="number" min="1" max="64" value="4" required></label>
         <label>Virtueller Switch<select id="hyperv-existing-vm-switch"><option value="">SQL_Server_Lab-Standard (Host-SSMS möglich)</option></select></label>
       </div>
+      <label class="form-check"><input id="hyperv-existing-vm-autostart" type="checkbox"> VM beim Hochfahren des Hyper-V-Hosts automatisch starten</label>
       <label class="form-check"><input id="hyperv-existing-vm-persistent-data" type="checkbox"> Langlebige Daten-VHDX im Data Root anhängen</label>
       <label class="form-check"><input id="hyperv-existing-vm-license-confirm" type="checkbox" required> Ich bestätige, dass Lizenz- und Ablaufstatus der Quell-VM geprüft werden. Eine Entwicklungs-/Evaluierungsumgebung kann zeitlich befristet sein.</label>
       <p class="form-note">Die Original-VM und ihre VHDX werden nicht verändert. SQL Server Lab erstellt zuerst eine eigene Arbeitskopie der Systemdisk und verwendet nur diese als schreibgeschützten Parent der neuen differenzierenden, ausgeschalteten Lab-VM.</p>

@@ -497,9 +497,10 @@ function New-SqlServerLab {
         $hyperVDesiredState = New-LabDesiredStateSnapshot -ResolvedLab $resolved -ProvisioningMode manifest -PersistentData ([bool]$PersistentData)
         $hyperVMemoryStartupMB = if ($hyperVSettings -and $hyperVSettings.PSObject.Properties['memoryStartupMB']) { [int]$hyperVSettings.memoryStartupMB } else { 4096 }
         $hyperVProcessorCount = if ($hyperVSettings -and $hyperVSettings.PSObject.Properties['processorCount']) { [int]$hyperVSettings.processorCount } else { 4 }
+        $hyperVAutoStart = if ($hyperVSettings -and $hyperVSettings.PSObject.Properties['autostart']) { [string]$hyperVSettings.autostart } else { 'off' }
         $hyperVSwitchName = if ($hyperVSettings -and $hyperVSettings.PSObject.Properties['switchName']) { [string]$hyperVSettings.switchName } else { $null }
         $lab = New-HyperVLabEnvironment -ArtifactId ([string]$artifact.artifactId) -LabName ([string]$resolved.name) -InstanceId ([string]$instance.id) `
-            -MemoryStartupMB $hyperVMemoryStartupMB -ProcessorCount $hyperVProcessorCount `
+            -MemoryStartupMB $hyperVMemoryStartupMB -ProcessorCount $hyperVProcessorCount -AutoStart $hyperVAutoStart `
             -SwitchName $hyperVSwitchName -AdditionalDrives $hyperVAdditionalDrives -DesiredState $hyperVDesiredState -StateRoot $StateRoot
         $hyperVLab = Get-HyperVLabWorkflowRun -RunId $lab.RunId -StateRoot $StateRoot
         if ($PersistentData) {
