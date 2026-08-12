@@ -37,7 +37,7 @@ sources_of_truth:
   validation_runtime_contracts: Tests/Static/Invoke-ReadinessContractChecks.ps1
   validation_manifest_builder: Tests/Static/Invoke-ManifestBuilderChecks.ps1
   validation_runtime_matrix: Tests/Integration/Invoke-SmokeMatrix.ps1
-  latest_validation_result: Documentation/Quality/VALIDATION_RESULT_2026-08-08.md
+  latest_validation_result: Documentation/Quality/VALIDATION_RESULT_2026-08-12.md
 
 public_commands:
   - name: Invoke-SqlServerLab
@@ -534,11 +534,11 @@ validation:
     static_push_trigger: true
     runtime_push_trigger: false
   last_confirmed_result:
-    date: "2026-08-08"
-    source: Documentation/Quality/VALIDATION_RESULT_2026-08-08.md
-    docker: "PASS – Auto-Smoke 33/33 und Provider-Matrix"
-    podman: "PASS – erreichbarer Provider in der Provider-Matrix"
-    hyperv: "PASS – nativer VM-/VHDX-/Image-Builder-Lifecycle; kein SQL-End-to-End-Nachweis"
+    date: "2026-08-12"
+    source: Documentation/Quality/VALIDATION_RESULT_2026-08-12.md
+    docker: "PASS – SQL 2019/2022/2025, Parallel-Lane, SQL-2022-Adapter 10/10 und Restore"
+    podman: "PASS – SQL 2019/2022/2025, Parallel-Lane, Mixed-Provider und Restore"
+    hyperv: "NOT_EXECUTED – aktuelle PowerShell-Sitzung nicht erhöht"
 
 change_coupling:
   public_command_change:
@@ -589,7 +589,7 @@ known_limitations:
     - "Artifact Refresh und Rebuild für Medien, VHDX und Derived Images nicht implementiert"
     - "kein provideruebergreifendes Docker-/Podman-Netzwerk oder Hyper-V-SubRun"
     - "Sample-Handler mit Trust-Pfad, Mehrfachauswahl, ZIP-/7z-Backup-Payloads, gepinnten Einzelskripten und sicheren Multi-Output-ZIP-Script-Bundles sind implementiert; nicht freigegebene Archive und Attach-Handler bleiben offen"
-    - "LAB_GENERATED-Baselines und beste kompatible Aufsetzpunkte noch nicht implementiert"
+    - "Containerbasierte LAB_GENERATED-Baselines und kompatible Aufsetzpunkte sind implementiert; Hyper-V-Export und -Nutzung bleiben offen"
     - "mehrere reservierte serverConfig-Felder noch ohne stabilen Runtimepfad"
     - "Versionskatalog wird nicht automatisch als aktuell garantiert"
 

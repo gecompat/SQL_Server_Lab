@@ -897,7 +897,7 @@ Abnahme:
 - Releaseartefakte enthalten keine lokalen States, Secrets oder Umgebungsdaten;
 - ein externer Validator könnte ausschließlich über veröffentlichte Verträge arbeiten.
 
-## 17a. Umsetzungsstand der Wellen (Stand 2026-08-08)
+## 17a. Umsetzungsstand der Wellen (Stand 2026-08-12)
 
 Dieser Abschnitt gleicht den Plan mit dem tatsächlich implementierten Stand ab.
 Er ist eine Statusübersicht, kein Runtime-Nachweis; verbindlich bleibt
@@ -921,7 +921,7 @@ Jedes Dokument führt seine eigene Wellenzählung.
 | Welle 6 – Adapter `SQL_PerformanceSchulung` | begonnen | Adaptervertrag, Resolver, `Test-/Install-SqlServerLabAdapter` und synthetischer Beispieladapter sind implementiert (`ADP-001`/`ADP-002`/`ADP-005`); der Pilot im Schulungsrepository ist offen, siehe [Project-Adapter-Priorisierung](PROJECT_ADAPTER_PRIORITIZATION.md) |
 | Welle 7 – Adapter `SQL_Server_Analyze` | begonnen | gleiche Adapterbasis; der Pilot im Analyze-Repository ist offen |
 | Welle 8 – Ablösung und Repositorybereinigung | nicht begonnen | setzt Wellen 6 und 7 voraus |
-| Welle 9 – Release-Härtung ohne CI/CD | teilweise | statische Contract-Checks, lokale Validierungsstrategie und Privacy-Scanner sind implementiert; Pester-Paket ist integriert, Releaseartefakt-Check ist integriert, OpenPoints verbleiben bei `QUAL-902`, `QUAL-903` und `QUAL-906` |
+| Welle 9 – Release-Härtung ohne CI/CD | teilweise | vollständiger statischer Gate einschließlich PSScriptAnalyzer, lokale Validierungsstrategie, Privacy-Scanner, Pester und Releaseartefakt-Check sind integriert; OpenPoints verbleiben bei breiter Failure-Injection und `QUAL-906` |
 
 **Strukturabweichung:** Die Zielstruktur aus Abschnitt 16 (`Contracts/`,
 `Catalog/`, `Orchestration/`, `Scenarios/`, `Adapters/`, `Tools/`) wurde nicht

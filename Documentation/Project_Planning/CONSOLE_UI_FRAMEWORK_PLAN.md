@@ -2,8 +2,8 @@
 
 | Merkmal | Wert |
 |---|---|
-| Status | `IMPLEMENTING_VERTICAL_UI_CUI_001_TO_006` |
-| Stand | 2026-08-11 |
+| Status | `IMPLEMENTED_CUI_001_TO_011` |
+| Stand | 2026-08-12 |
 | Priorität | `P0 / M2` |
 | Geltung | interaktive PowerShell-Konsole von `SQL_Server_Lab` |
 | Ziel | konsistente cursorbasierte Menüs und lange editierbare Formulare ohne flackernden Vollbild-Neuaufbau |
@@ -24,11 +24,11 @@ nummerierte beziehungsweise buchstabenbasierte `Read-Host`-Bedienung bleibt als
 vollwertiger Fallback für nicht unterstützte Hosts und umgeleitete Ein- oder
 Ausgabe erhalten.
 
-## 2. Ausgangslage
+## 2. Historische Ausgangslage
 
-Die Haupt- und Hyper-V-Menüs werden überwiegend vollständig ausgegeben und
-anschließend über `Read-Host` ausgewählt. Lange Konfigurationen werden als
-sequenzielle Prompt-Kette erfasst. Dadurch fehlen insbesondere:
+Vor der Umsetzung wurden die Haupt- und Hyper-V-Menüs überwiegend vollständig
+ausgegeben und anschließend über `Read-Host` ausgewählt. Lange Konfigurationen
+wurden als sequenzielle Prompt-Kette erfasst. Dadurch fehlten insbesondere:
 
 - Navigation mit Pfeiltasten;
 - ein sichtbarer Fokus;
@@ -38,10 +38,10 @@ sequenzielle Prompt-Kette erfasst. Dadurch fehlen insbesondere:
 - einheitliche Inline-Validierung;
 - ein sauberer Refresh ohne `Clear-Host` bei jedem Tastendruck.
 
-`Update-SqlServerLabContainer` besitzt bereits einen lokalen
-Pfeiltasten-Dialog. Dieser dient als Verhaltensreferenz, wird aber nicht als
-zweite Console-UI-Implementierung fortgeführt. Insbesondere wird dessen
-`Clear-Host` pro Tastendruck durch den gemeinsamen Renderer ersetzt.
+`Update-SqlServerLabContainer` besaß bereits einen lokalen Pfeiltasten-Dialog.
+Dieser diente als Verhaltensreferenz und wurde nicht als zweite Console-UI-
+Implementierung fortgeführt. Dessen `Clear-Host` pro Tastendruck wurde durch
+den gemeinsamen Renderer ersetzt.
 
 ## 3. Nichtziele
 
