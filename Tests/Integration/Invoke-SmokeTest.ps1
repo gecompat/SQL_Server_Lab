@@ -19,7 +19,7 @@
 .EXAMPLE
     .\Invoke-SmokeTest.ps1 -Provider docker
 .EXAMPLE
-    .\Invoke-SmokeTest.ps1 -Provider podman -Version '2022'
+    .\Invoke-SmokeTest.ps1 -Provider podman -Version '2025'
 .EXAMPLE
     .\Invoke-SmokeTest.ps1 -Provider hyperv
 #>

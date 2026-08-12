@@ -581,20 +581,25 @@ Invoke-SmokeTest.ps1 -Provider hyperv   => PASS (Hyper-V-Lifecycle)
 Invoke-SmokeMatrix.ps1                 => PASS=5 FAIL=0 SKIP=0
 ```
 
-Providerübergreifender Lifecycle-Test für alle lokal erreichbaren Provider:
+Providerübergreifender Lifecycle-Test für alle lokal erreichbaren Provider mit
+der SQL-Server-2025-Referenzversion:
 
 ```powershell
 .\Tests\Integration\Invoke-SmokeMatrix.ps1
 ```
 
-Vollständige Matrix aus Docker/Podman, SQL Server 2019/2022/2025 und kontrollierten parallelen Runs:
+Optionaler Parallelitätsnachweis mit derselben Referenzversion:
 
 ```powershell
 .\Tests\Integration\Invoke-SmokeMatrix.ps1 `
     -Provider all `
-    -FullMatrix `
     -IncludeParallel
 ```
+
+SQL_Server_Lab verwendet für seine Runtime-Gates ausschließlich SQL Server
+2025. Mehrversions-Abnahmen für 2019/2022/2025 sind Aufgabe der konsumierenden
+Partnerprojekte SQL Analyze und Toolbelt; der Lab-Core hält dafür weiterhin den
+katalogbasierten Auflösungspfad bereit.
 
 Nicht erreichbare Provider werden als `SKIP` ausgewiesen. Erreichbare, aber fehlerhafte Provider führen zu `FAIL` und Exitcode `1`. Details zu Testumfang, Parallelitätsvertrag und Remote Runnern stehen in [Tests/README.md](Tests/README.md).
 

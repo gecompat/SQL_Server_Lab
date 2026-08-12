@@ -10,7 +10,7 @@
 .PARAMETER Provider
     Expliziter Provider docker oder podman.
 .PARAMETER Version
-    SQL-Server-Version fuer die temporaere Labinstanz. Default: 2022.
+    SQL-Server-Version fuer die temporaere Labinstanz. Default: 2025.
 .PARAMETER KeepOnFailure
     Behaelt Lab-State und synthetische Fixture bei einem Fehler zur Diagnose.
 .EXAMPLE
@@ -25,7 +25,7 @@ param(
     [ValidateSet('docker', 'podman')]
     [string]$Provider,
 
-    [string]$Version = '2022',
+    [string]$Version = '2025',
 
     [switch]$KeepOnFailure
 )

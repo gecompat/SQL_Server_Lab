@@ -16,11 +16,9 @@ on:
       sql_version:
         description: SQL Server Hauptversion
         required: true
-        default: '2022'
+        default: '2025'
         type: choice
         options:
-          - '2019'
-          - '2022'
           - '2025'
       media_edition:
         description: SQL-Medienedition

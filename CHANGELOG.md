@@ -18,17 +18,25 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   Runtime-Kopien vervielfachen die projektspezifische Baseline dadurch nicht;
 - der native Hyper-V-Smoke übergibt `Confirm` bei Reconcile-Aktionen als
   booleschen Switchwert; der erhöhte Runner kann den Start-/Stop-Nachweis damit
-  ohne Parameterbindungsfehler ausführen.
+  ohne Parameterbindungsfehler ausführen;
+- SQL-2025-Container, die während der ersten Initialisierung im transienten
+  Loginzustand 18456/115 hängen, werden früh erkannt und genau einmal
+  scopegebunden neu erstellt. Andere Readiness-Fehler bleiben unverändert
+  fail-closed.
 
 ### Geändert
 
+- die Runtime-Gates von SQL_Server_Lab verwenden für Docker, Podman, Hyper-V,
+  Mixed Provider, Restore und den synthetischen Adapter einheitlich SQL Server
+  2025. Mehrversions-Abnahmen sind den Partnerprojekten SQL Analyze und
+  Toolbelt zugeordnet;
 - der vollständige statische Prüfeinstieg bindet Cleanup-Audit-, Storage-
   Migration- und Versionskatalog-Verträge ein;
 - die Versionskatalogprüfung bildet den zusammengeführten Katalogvertrag ab:
   SQL Server 2019, 2022 und 2025 sind unterstützte Containerlinien, SQL Server
   2017 bleibt als explizit veralteter, weiterhin auflösbarer Eintrag erhalten;
-- der aktuelle lokale Validierungsstand für Docker und Podman über SQL Server
-  2019, 2022 und 2025, parallele und gemischte Runs, Adapter und Restore ist in
+- der aktuelle lokale Validierungsstand für Docker und Podman einschließlich
+  paralleler und gemischter Runs, Adapter und Restore ist in
   den Quality-Dokumenten festgehalten; Hyper-V bleibt mangels erhöhter Sitzung
   als `NOT_EXECUTED` ausgewiesen.
 

@@ -555,7 +555,7 @@ Empfohlener vollständiger Container-Releasepfad:
 .\Tests\Integration\Invoke-RestoreSmokeTest.ps1 -Provider docker
 .\Tests\Integration\Invoke-RestoreSmokeTest.ps1 -Provider podman
 .\Tests\Integration\Invoke-MixedProviderSmokeTest.ps1
-.\Tests\Integration\Invoke-SmokeMatrix.ps1 -Provider all -FullMatrix -IncludeParallel
+.\Tests\Integration\Invoke-SmokeMatrix.ps1 -Provider all -ReferenceVersion 2025
 ```
 
 Für Hyper-V-relevante Änderungen zusätzlich:
@@ -690,7 +690,8 @@ Das Kernvorhaben gilt als abgeschlossen, wenn:
 2. Quick-, Manifest-, UI- und nicht interaktive Aufrufe denselben Core nutzen;
 3. beide Primärkonsumenten über produktive Adapterpiloten angebunden sind;
 4. eine Hyper-V-Windows-SQL-Umgebung nach vorhandener generalisierter Baseline ohne Gastinteraktion `READY` erreicht;
-5. SQL 2019, 2022 und 2025 katalogbasiert behandelt und je Capability korrekt validiert oder begründet nicht ausgeführt werden;
+5. SQL Server 2025 als Referenzversion auf den Kernprovidern validiert ist und
+   SQL Analyze sowie Toolbelt die katalogbasierten Mehrversions-Abnahmen tragen;
 6. bestehende Labs über sichtbare `live`-, `restart`-, `recreate`- und `reprovision`-Pläne geändert werden können;
 7. CPU, RAM, Dynamic Memory, Network Intents, VHDX-Rollen, SQL-Konfiguration und Testdatenbanken über Manifest, CLI und UI konsistent steuerbar sind;
 8. persistente Daten bei Recreate/Reprovision nachweislich geschützt bleiben;

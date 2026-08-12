@@ -106,6 +106,20 @@ function New-LabProviderContainer {
     }
 }
 
+function Remove-LabProviderContainerForReadinessRetry {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Container,
+        [Parameter(Mandatory)][string]$ScopeId
+    )
+
+    switch ([string]$Container.Provider) {
+        'docker' { Remove-DockerInstance -ContainerIdOrName $Container.ContainerId -ExpectedScopeId $ScopeId }
+        'podman' { Remove-PodmanInstance -ContainerIdOrName $Container.ContainerId -ExpectedScopeId $ScopeId }
+        default { throw "Readiness-Retry ist für Provider '$($Container.Provider)' nicht unterstützt." }
+    }
+}
+
 function New-SqlServerLab {
     <#
     .SYNOPSIS
@@ -621,23 +635,38 @@ function New-SqlServerLab {
         foreach ($instance in $resolved.instances) {
             Write-LabInfo "Instanz '$($instance.id)' erstellen ($($instance.version), $($instance.provider))..."
 
-            $container = New-LabProviderContainer `
-                -Instance $instance `
-                -RunState $runState `
-                -SaPassword $SaPassword `
-                -Port $Port
-
             $versionDefinition = Get-SqlServerVersion -VersionId $instance.version
-            $readiness = Wait-SqlReady `
-                -Port $container.Port `
-                -SaPassword $SaPassword `
-                -TimeoutSeconds 300 `
-                -ExpectedMajorVersion $versionDefinition.major `
-                -Provider $container.Provider `
-                -ContainerIdOrName $container.ContainerId
+            $container = $null
+            $readiness = $null
+            foreach ($readinessAttempt in 1..2) {
+                $container = New-LabProviderContainer `
+                    -Instance $instance `
+                    -RunState $runState `
+                    -SaPassword $SaPassword `
+                    -Port $Port
 
-            if (-not $readiness.Ready) {
-                throw "SQL Server nicht bereit: $($readiness.Message)"
+                $readiness = Wait-SqlReady `
+                    -Port $container.Port `
+                    -SaPassword $SaPassword `
+                    -TimeoutSeconds 300 `
+                    -ExpectedMajorVersion $versionDefinition.major `
+                    -Provider $container.Provider `
+                    -ContainerIdOrName $container.ContainerId
+
+                if ($readiness.Ready) { break }
+
+                $retryableSql2025State = (
+                    [string]$instance.version -match '^2025(?:$|-)' -and
+                    [string]$readiness.Message -match '^LAB_SQL_TRANSIENT_LOGIN_STATE_115:'
+                )
+                if (-not $retryableSql2025State -or $readinessAttempt -ge 2) {
+                    throw "SQL Server nicht bereit: $($readiness.Message)"
+                }
+
+                Write-LabWarning 'SQL Server 2025 meldet den transienten Loginzustand 115. Der scopegebundene Container wird einmal neu erstellt.'
+                Remove-LabProviderContainerForReadinessRetry -Container $container -ScopeId $runState.ScopeId
+                $container = $null
+                Start-Sleep -Seconds 2
             }
 
             $labInstances += [PSCustomObject]@{

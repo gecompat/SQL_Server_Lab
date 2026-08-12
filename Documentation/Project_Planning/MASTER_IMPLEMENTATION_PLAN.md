@@ -935,7 +935,8 @@ entstehen weiterhin erst mit dem ersten kanonischen Artefakt.
 ### P0
 
 1. Docker Quick Environment mit SQL Server 2022;
-2. Docker-/Podman-Matrix für 2019, 2022 und 2025;
+2. Docker-, Podman- und Hyper-V-Referenznachweis mit SQL Server 2025; die
+   Mehrversionsmatrix liegt bei SQL Analyze und Toolbelt;
 3. Analyze-Frameworkinstallation über Adapter;
 4. Performance-Schulungsdemo mit einer Instanz und deterministischer Testdatenbank;
 5. temporärer Scope mit vollständigem Reset und Destroy;
@@ -992,7 +993,8 @@ Das Vorhaben gilt als funktional abgeschlossen, wenn:
 
 1. Docker, Podman und Hyper-V über einen gemeinsamen CLI- und State-Vertrag steuerbar sind;
 2. Quick-, Scenario- und Custom-Modus denselben Core verwenden;
-3. SQL Server 2019, 2022 und 2025 unterstützt und versionserkannt werden;
+3. SQL Server 2025 als Core-Referenz validiert wird und weitere katalogisierte
+   Versionen über die Partnerprojekte SQL Analyze und Toolbelt abgenommen werden;
 4. Project Adapter für `SQL_Server_Analyze` und `SQL_PerformanceSchulung` produktiv nutzbar sind;
 5. die doppelten generischen Labimplementierungen in den Quellrepositories kontrolliert abgelöst wurden;
 6. Netzwerk-, I/O-, CPU- und Memory-Konstellationen capability- und scope-gebunden verfügbar sind;

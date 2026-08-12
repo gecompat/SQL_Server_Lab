@@ -1,34 +1,26 @@
 #Requires -Version 7.2
 <#
 .SYNOPSIS
-    Provider-, Versions- und Parallelitaets-Smoke-Test fuer SQL_Server_Lab.
+    Provider- und Parallelitaets-Smoke-Test fuer die SQL-2025-Referenzversion.
 .DESCRIPTION
     Ermittelt standardmaessig alle implementierten und lokal erreichbaren Provider,
     fuehrt fuer jeden Provider einen vollstaendigen Lifecycle-Test mit der
-    Referenzversion aus und prueft optional mehrere parallele Labs.
-
-    Mit -FullMatrix werden zusaetzlich alle angegebenen SQL-Versionen pro Provider
-    provisioniert, verifiziert und wieder entfernt. Nicht erreichbare Provider
-    werden als SKIPPED ausgewiesen; ein erreichbarer, aber fehlerhafter Provider
-    ergibt FAILED.
+    Referenzversion aus und prueft optional mehrere parallele Labs derselben
+    Referenzversion. Nicht erreichbare Provider werden als SKIPPED ausgewiesen;
+    ein erreichbarer, aber fehlerhafter Provider ergibt FAILED.
 .PARAMETER Provider
     all, docker oder podman. Default: all.
-.PARAMETER Versions
-    SQL-Versionen fuer die Matrix. Default: 2019, 2022 und 2025.
 .PARAMETER ReferenceVersion
     Version fuer den vollstaendigen Lifecycle pro Provider. Default: 2025.
-.PARAMETER FullMatrix
-    Fuehrt Provisionierung und Cleanup fuer jede Provider-/Versionskombination aus.
 .PARAMETER IncludeParallel
-    Fuehrt einen Parallelitaetstest mit bis zu vier gleichzeitig laufenden Labs aus.
+    Fuehrt einen Parallelitaetstest mit bis zu vier gleichzeitig laufenden Labs
+    derselben Referenzversion aus.
 .PARAMETER KeepOnFailure
     Laesst fehlgeschlagene Labs zur Diagnose bestehen.
 .EXAMPLE
     .\Invoke-SmokeMatrix.ps1
 .EXAMPLE
-    .\Invoke-SmokeMatrix.ps1 -FullMatrix -IncludeParallel
-.EXAMPLE
-    .\Invoke-SmokeMatrix.ps1 -Provider podman -ReferenceVersion 2022 -IncludeParallel
+    .\Invoke-SmokeMatrix.ps1 -Provider podman -IncludeParallel
 #>
 [CmdletBinding()]
 param(
@@ -37,9 +29,7 @@ param(
     [string[]]$RemainingArgs,
     [ValidateSet('all', 'docker', 'podman')]
     [string]$Provider = 'all',
-    [string[]]$Versions = @('2019', '2022', '2025'),
     [string]$ReferenceVersion = '2025',
-    [switch]$FullMatrix,
     [switch]$IncludeParallel,
     [switch]$KeepOnFailure,
     [SecureString]$SaPassword
@@ -167,28 +157,6 @@ function Remove-TestLabSafely {
     catch { Write-Warning "Cleanup fuer Run $($Lab.RunId) fehlgeschlagen: $($_.Exception.Message)" }
 }
 
-function Invoke-VersionProbe {
-    param([string]$ProviderName, [string]$VersionName)
-    $lab = $null
-    try {
-        $lab = New-SqlServerLab -Version $VersionName -Provider $ProviderName -Profile compact -SaPassword $SaPassword -SkipAssessment
-        $instance = $lab.Instances | Select-Object -First 1
-        $plain = ConvertFrom-TestSecureString $SaPassword
-        try {
-            $major = & sqlcmd -S "$($instance.Host),$($instance.Port)" -U sa -P $plain -C -b -h -1 -W -Q "SET NOCOUNT ON; SELECT CONVERT(varchar(10),SERVERPROPERTY('ProductMajorVersion'));" 2>&1
-            if ($LASTEXITCODE -ne 0) { throw (($major | Out-String).Trim()) }
-        }
-        finally { $plain = $null }
-        Remove-SqlServerLab -RunId $lab.RunId -Force | Out-Null
-        $lab = $null
-        Add-Result -Category 'Matrix' -Provider $ProviderName -Version $VersionName -Status PASS -Message "Major=$((($major | Select-Object -First 1).ToString()).Trim())"
-    }
-    catch {
-        Add-Result -Category 'Matrix' -Provider $ProviderName -Version $VersionName -Status FAIL -Message $_.Exception.Message
-        if (-not $KeepOnFailure) { Remove-TestLabSafely $lab }
-    }
-}
-
 function Invoke-FullLifecycle {
     param([string]$ProviderName, [string]$VersionName)
     $lab = $null
@@ -245,15 +213,15 @@ GO
 }
 
 function Invoke-ParallelProbe {
-    param([string[]]$ProviderNames)
+    param([string[]]$ProviderNames, [string]$VersionName)
     $scenarios = [System.Collections.Generic.List[object]]::new()
     if ('docker' -in $ProviderNames) {
-        $scenarios.Add([pscustomobject]@{ Provider='docker'; Version='2022' })
-        $scenarios.Add([pscustomobject]@{ Provider='docker'; Version='2025' })
+        $scenarios.Add([pscustomobject]@{ Provider='docker'; Version=$VersionName })
+        $scenarios.Add([pscustomobject]@{ Provider='docker'; Version=$VersionName })
     }
     if ('podman' -in $ProviderNames) {
-        $scenarios.Add([pscustomobject]@{ Provider='podman'; Version='2022' })
-        $scenarios.Add([pscustomobject]@{ Provider='podman'; Version='2025' })
+        $scenarios.Add([pscustomobject]@{ Provider='podman'; Version=$VersionName })
+        $scenarios.Add([pscustomobject]@{ Provider='podman'; Version=$VersionName })
     }
     if ($scenarios.Count -lt 2) {
         Add-Result -Category 'Parallel' -Provider ($ProviderNames -join ',') -Version '-' -Status SKIP -Message 'Weniger als zwei geeignete Szenarien.'
@@ -293,10 +261,10 @@ function Invoke-ParallelProbe {
         }
         for ($i = 1; $i -lt $labs.Count; $i++) { Remove-SqlServerLab -RunId $labs[$i].RunId -Force | Out-Null }
         $labs.Clear()
-        Add-Result -Category 'Parallel' -Provider ($ProviderNames -join ',') -Version 'mixed' -Status PASS -Message "$($scenarios.Count) Runs, eindeutige Ports/States, isolierter Cleanup"
+        Add-Result -Category 'Parallel' -Provider ($ProviderNames -join ',') -Version $VersionName -Status PASS -Message "$($scenarios.Count) Runs, eindeutige Ports/States, isolierter Cleanup"
     }
     catch {
-        Add-Result -Category 'Parallel' -Provider ($ProviderNames -join ',') -Version 'mixed' -Status FAIL -Message $_.Exception.Message
+        Add-Result -Category 'Parallel' -Provider ($ProviderNames -join ',') -Version $VersionName -Status FAIL -Message $_.Exception.Message
         if (-not $KeepOnFailure) { foreach ($lab in $labs) { Remove-TestLabSafely $lab } }
     }
     finally { $jobs | Remove-Job -Force -ErrorAction SilentlyContinue }
@@ -376,15 +344,7 @@ if ($available.Count -eq 0 -and $requestedMode -eq 'all') {
 if ($available.Count -eq 0) { throw 'Kein angeforderter Provider ist erreichbar.' }
 
 foreach ($name in $available) { Invoke-FullLifecycle -ProviderName $name -VersionName $ReferenceVersion }
-if ($FullMatrix) {
-    foreach ($name in $available) {
-        foreach ($versionName in $Versions) {
-            if ($versionName -eq $ReferenceVersion) { continue }
-            Invoke-VersionProbe -ProviderName $name -VersionName $versionName
-        }
-    }
-}
-if ($IncludeParallel) { Invoke-ParallelProbe -ProviderNames $available }
+if ($IncludeParallel) { Invoke-ParallelProbe -ProviderNames $available -VersionName $ReferenceVersion }
 
 $elapsed = (Get-Date) - $script:StartedAt
 Write-Host "`n===================================================================="
