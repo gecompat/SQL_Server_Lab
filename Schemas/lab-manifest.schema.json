@@ -280,6 +280,15 @@
               "maximum": 64,
               "default": 4
             },
+            "autostart": {
+              "type": "string",
+              "enum": [
+                "on",
+                "off"
+              ],
+              "default": "off",
+              "description": "Startet die verwaltete Lab-VM beim Hochfahren des Hyper-V-Hosts automatisch. 'off' belässt sie ausgeschaltet."
+            },
             "guestPasswordMode": {
               "type": "string",
               "enum": [

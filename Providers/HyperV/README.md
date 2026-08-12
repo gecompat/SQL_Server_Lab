@@ -31,6 +31,8 @@ plattformgebundene SQL-Features benötigen.
   vier Systemdatenbanken; nur sanitierte `SQL_READY_RUN`-Evidenz wird in den
   VM-Notizen gespeichert;
 - Status, Start, Stop, Remove und PowerShell Direct;
+- deklarativer VM-Autostart (`autostart: on|off`) über Hyper-Vs
+  `AutomaticStartAction`, standardmäßig ausgeschaltet;
 - VM-Identität über RunId, ScopeId und InstanceId;
 - Cleanup-Plan vor der ersten Provider-Mutation;
 - eigener synthetischer Native-Smoke-Test ohne Betriebssystem, Netzwerk oder SQL.

@@ -6,6 +6,13 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ## 2026-08-12
 
+### Hinzugefügt
+
+- Hyper-V-Lab-VMs unterstützen jetzt `autostart: "on"|"off"` in Manifesten,
+  Konsole und Workflow-UI. `on` setzt Hyper-Vs `AutomaticStartAction=Start`,
+  wird in Run-/Connection-State und Status sichtbar gemacht und startet die VM
+  nach einem Hostneustart automatisch; `off` bleibt der kompatible Standard.
+
 ### Behoben
 
 - die Hyper-V-Storage-Migration ermittelt VHDX-Bindungen jetzt explizit je VM

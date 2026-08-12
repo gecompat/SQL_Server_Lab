@@ -57,6 +57,9 @@ Der Ad-hoc- und Menüpfad bietet Hyper-V noch nicht als allgemeinen SQL-
 Runtimepfad an. `New-SqlServerLab -Manifest` unterstützt hingegen genau eine
 explizit ausgewählte `OS_SEALED` oder `SQL_PREPARED_SEALED`-Vorlage als
 differenzierenden Klon.
+Hyper-V-VMs können dabei per `instances[].hyperv.autostart: "on"` so
+konfiguriert werden, dass Hyper-V sie nach dem Hochfahren des Hosts automatisch
+startet; ohne Angabe bleibt Autostart ausgeschaltet.
 Vollständige deklarative Hyper-V-Drives, Datenbanken und Network Intents bleiben
 bis zu ihrem echten End-to-End-Nachweis begrenzt.
 
