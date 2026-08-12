@@ -115,6 +115,7 @@ function New-HyperVLabEnvironmentFromExistingVm {
         [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$')][string]$InstanceId,
         [ValidateRange(512, 1048576)][int]$MemoryStartupMB = 4096,
         [ValidateRange(1, 64)][int]$ProcessorCount = 4,
+        [ValidateSet('on', 'off')][string]$AutoStart = 'off',
         [string]$SwitchName,
         [switch]$Isolated,
         [switch]$ConfirmSourceLicense,
@@ -132,7 +133,7 @@ function New-HyperVLabEnvironmentFromExistingVm {
 
     Write-LabInfo 'Schritt 2/6: Workflow-Run und Cleanup-Plan werden angelegt.'
     $run = New-LabRunState -StateRoot $StateRoot -Metadata @{
-        name = $LabName; workflowKind = 'hyperv-lab'; baseKind = 'existing-vm'; workload = 'windows'
+        name = $LabName; workflowKind = 'hyperv-lab'; baseKind = 'existing-vm'; workload = 'windows'; autostart = $AutoStart
         sourceVMName = $source.VMName; sourceVhdxPath = $source.SourceVhdxPath
         sourceLicenseNotice = $source.LicenseNotice
         network = if ($labNetwork) { $labNetwork.Name } else { $null }
@@ -154,10 +155,10 @@ function New-HyperVLabEnvironmentFromExistingVm {
         $parentHash = (Get-FileHash -LiteralPath $parentCopyPath -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()
 
         Write-LabInfo 'Schritt 4/6: Differenzierende Lab-VM wird aus der geschuetzten Arbeitskopie erstellt.'
-        $vm = New-HyperVInstance -ParentVhdxPath $parentCopyPath -ParentSha256 $parentHash -RunDirectory $run.RunDir -RunId $run.RunId -ScopeId $run.ScopeId -InstanceId $InstanceId -LabName $LabName -MemoryStartupBytes ($MemoryStartupMB * 1MB) -ProcessorCount $ProcessorCount -SwitchName $(if ($labNetwork) { $labNetwork.Name } else { $null })
+        $vm = New-HyperVInstance -ParentVhdxPath $parentCopyPath -ParentSha256 $parentHash -RunDirectory $run.RunDir -RunId $run.RunId -ScopeId $run.ScopeId -InstanceId $InstanceId -LabName $LabName -MemoryStartupBytes ($MemoryStartupMB * 1MB) -ProcessorCount $ProcessorCount -AutoStart $AutoStart -SwitchName $(if ($labNetwork) { $labNetwork.Name } else { $null })
         $connection = [PSCustomObject]@{
             schemaVersion = 1; instances = @([PSCustomObject]@{
-                id = $InstanceId; provider = 'hyperv'; vmName = $vm.VMName; vmId = $vm.VMId
+                id = $InstanceId; provider = 'hyperv'; vmName = $vm.VMName; vmId = $vm.VMId; autostart = $AutoStart
                 sqlVersion = $null; sqlEdition = $null; imageArtifactId = $null; host = $null; port = $null
                 labNetwork = if ($labNetwork) { [PSCustomObject]@{ name = $labNetwork.Name; subnet = $labNetwork.Subnet; prefixLength = $labNetwork.PrefixLength; hostAddress = $labNetwork.HostAddress } } else { $null }
                 baseKind = 'existing-vm'; workload = 'windows'; sourceVMName = $source.VMName; sourceVhdxPath = $source.SourceVhdxPath
@@ -178,7 +179,7 @@ function New-HyperVLabEnvironmentFromExistingVm {
         Set-LabProviderSubRunState -RunId $run.RunId -Provider hyperv -NewState RUNNING -Reason 'Hyper-V-VM erstellt, noch ausgeschaltet.' -StateRoot $run.StateRoot
         Set-LabProviderSubRunState -RunId $run.RunId -Provider hyperv -NewState STOPPED -Reason 'Warte auf sichtbaren VM-Start.' -StateRoot $run.StateRoot
         Write-LabSuccess "Schritt 6/6: VM $($vm.VMName) ist erstellt; die Quell-VM '$($source.VMName)' blieb unveraendert."
-        return [PSCustomObject]@{ RunId = $run.RunId; ScopeId = $run.ScopeId; VMName = $vm.VMName; State = 'STOPPED'; SourceVMName = $source.VMName }
+        return [PSCustomObject]@{ RunId = $run.RunId; ScopeId = $run.ScopeId; VMName = $vm.VMName; State = 'STOPPED'; AutoStart = $AutoStart; SourceVMName = $source.VMName }
     }
     catch {
         try {
@@ -200,6 +201,7 @@ function New-HyperVLabEnvironment {
         [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$')][string]$InstanceId,
         [ValidateRange(512, 1048576)][int]$MemoryStartupMB = 4096,
         [ValidateRange(1, 64)][int]$ProcessorCount = 4,
+        [ValidateSet('on', 'off')][string]$AutoStart = 'off',
         [string]$SwitchName,
         [switch]$Isolated,
         [object[]]$AdditionalDrives = @(),
@@ -223,7 +225,7 @@ function New-HyperVLabEnvironment {
 
     Write-LabInfo 'Schritt 2/5: Workflow-Run und rückgängig ausführbarer Cleanup-Plan werden angelegt.'
     $run = New-LabRunState -StateRoot $StateRoot -Metadata @{
-        name = $LabName; workflowKind = 'hyperv-lab'; imageArtifactId = $ArtifactId; workload = $workload; baseKind = $baseKind
+        name = $LabName; workflowKind = 'hyperv-lab'; imageArtifactId = $ArtifactId; workload = $workload; baseKind = $baseKind; autostart = $AutoStart
         network = if ($labNetwork) { $labNetwork.Name } else { $null }
         desiredState = $DesiredState
     } -ProviderSubRuns @([PSCustomObject]@{ id = 'provider-hyperv'; provider = 'hyperv'; instanceIds = @($InstanceId) })
@@ -233,10 +235,10 @@ function New-HyperVLabEnvironment {
         $null = Set-LabRunState -RunId $run.RunId -NewState PROVISIONING -Reason "Hyper-V-Lab wird aus $sourceDescription erstellt." -StateRoot $run.StateRoot
         Set-LabProviderSubRunState -RunId $run.RunId -Provider hyperv -NewState PROVISIONING -Reason "Hyper-V-Lab wird aus $sourceDescription erstellt." -StateRoot $run.StateRoot
         Write-LabInfo "Schritt 3/5: Differenzierende VM wird aus Image $ArtifactId erstellt."
-        $vm = New-HyperVInstance -ImageArtifactId $ArtifactId -RunDirectory $run.RunDir -RunId $run.RunId -ScopeId $run.ScopeId -InstanceId $InstanceId -LabName $LabName -MemoryStartupBytes ($MemoryStartupMB * 1MB) -ProcessorCount $ProcessorCount -SwitchName $(if ($labNetwork) { $labNetwork.Name } else { $null }) -AdditionalDrives $AdditionalDrives -StateRoot $run.StateRoot
+        $vm = New-HyperVInstance -ImageArtifactId $ArtifactId -RunDirectory $run.RunDir -RunId $run.RunId -ScopeId $run.ScopeId -InstanceId $InstanceId -LabName $LabName -MemoryStartupBytes ($MemoryStartupMB * 1MB) -ProcessorCount $ProcessorCount -AutoStart $AutoStart -SwitchName $(if ($labNetwork) { $labNetwork.Name } else { $null }) -AdditionalDrives $AdditionalDrives -StateRoot $run.StateRoot
         $connection = [PSCustomObject]@{
             schemaVersion = 1; instances = @([PSCustomObject]@{
-                id = $InstanceId; provider = 'hyperv'; vmName = $vm.VMName; vmId = $vm.VMId
+                id = $InstanceId; provider = 'hyperv'; vmName = $vm.VMName; vmId = $vm.VMId; autostart = $AutoStart
                 sqlVersion = if ($workload -eq 'sql') { [string]$artifact.sql.version } else { $null }
                 sqlEdition = if ($workload -eq 'sql') { [string]$artifact.sql.edition } else { $null }
                 workload = $workload; baseKind = $baseKind; imageArtifactId = $ArtifactId; host = $null; port = $null
@@ -267,7 +269,7 @@ function New-HyperVLabEnvironment {
         Set-LabProviderSubRunState -RunId $run.RunId -Provider hyperv -NewState RUNNING -Reason 'Hyper-V-VM erstellt, noch ausgeschaltet.' -StateRoot $run.StateRoot
         Set-LabProviderSubRunState -RunId $run.RunId -Provider hyperv -NewState STOPPED -Reason 'Warte auf sichtbaren VM-Start.' -StateRoot $run.StateRoot
         Write-LabSuccess "Schritt 5/5: $workload-VM $($vm.VMName) ist erstellt und bewusst ausgeschaltet."
-        return [PSCustomObject]@{ RunId = $run.RunId; ScopeId = $run.ScopeId; VMName = $vm.VMName; State = 'STOPPED'; ArtifactId = $ArtifactId; Workload = $workload }
+        return [PSCustomObject]@{ RunId = $run.RunId; ScopeId = $run.ScopeId; VMName = $vm.VMName; State = 'STOPPED'; AutoStart = $AutoStart; ArtifactId = $ArtifactId; Workload = $workload }
     }
     catch {
         try {

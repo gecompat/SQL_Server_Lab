@@ -60,7 +60,8 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 - statische Vertragsprüfung;
 - Docker- und Podman-Smoke-Testpfad.
 - Hyper-V-Lifecycle-Grundlage mit Generation 2, Secure Boot, verifizierter
-  Parent-/Child-VHDX, Status, Start, Stop und scopegebundenem Cleanup;
+  Parent-/Child-VHDX, Status, Start, Stop, deklarativem VM-Autostart und
+  scopegebundenem Cleanup;
 - immutable Hyper-V-Image-Registry mit SHA-256, sealed-Evidence,
   deterministischer Auswahl und portablem Manifest Lock;
 - Windows-Image-Builder-Grundlage mit ISO-Integrity, persistentem Resume-State,

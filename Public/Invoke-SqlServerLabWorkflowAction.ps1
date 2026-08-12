@@ -128,6 +128,9 @@ Ist er angegeben, wird der Download strikt dagegen verifiziert.
     Startspeicher der neu anzulegenden VM in MB.
 .PARAMETER ProcessorCount
 Anzahl virtueller Prozessoren der neu anzulegenden VM.
+.PARAMETER AutoStart
+    `on` startet die neue verwaltete Lab-VM beim Hochfahren des Hyper-V-Hosts;
+    `off` belässt das bisherige Verhalten.
 .PARAMETER ConfirmSourceLicense
 Bestätigt bewusst den Lizenz- und möglichen Ablaufhinweis, bevor aus einer
 vorhandenen Windows-VM eine neue differenzierende Lab-VM erzeugt wird.
@@ -211,6 +214,7 @@ function Invoke-SqlServerLabWorkflowAction {
         [ValidateRange(2, 1048576)][int]$MemoryStartupMB = 4096,
         [ValidateRange(512, 1048576)][int]$MemoryMB,
         [ValidateRange(1, 64)][int]$ProcessorCount = 4,
+        [ValidateSet('on', 'off')][string]$AutoStart = 'off',
         [switch]$ConfirmSourceLicense,
         [ValidateRange(32, 1048576)][int]$OsDiskSizeGB = 80
     )
@@ -365,7 +369,7 @@ function Invoke-SqlServerLabWorkflowAction {
         }
         'SetLabResources' { Set-LabEnvironmentResources -RunId $BuildId -MemoryMB $MemoryMB -ProcessorCount $ProcessorCount }
         'NewHyperVLab' {
-            $lab = New-HyperVLabEnvironment -ArtifactId $ArtifactId -LabName $LabName -InstanceId $InstanceId -MemoryStartupMB $MemoryStartupMB -ProcessorCount $ProcessorCount -SwitchName $SwitchName
+            $lab = New-HyperVLabEnvironment -ArtifactId $ArtifactId -LabName $LabName -InstanceId $InstanceId -MemoryStartupMB $MemoryStartupMB -ProcessorCount $ProcessorCount -AutoStart $AutoStart -SwitchName $SwitchName
             if ($PersistentData) { $null = Enable-HyperVLabPersistentData -RunId $lab.RunId -DataRoot $DataRoot -SizeGB $PersistentDataDiskGB }
             if ($ProvisionUnattended) {
                 $provisioning = Invoke-HyperVLabUnattendedProvision `
@@ -384,7 +388,7 @@ function Invoke-SqlServerLabWorkflowAction {
             $lab
         }
         'NewHyperVLabFromExistingVm' {
-            $lab = New-HyperVLabEnvironmentFromExistingVm -SourceVMName $SourceVMName -LabName $LabName -InstanceId $InstanceId -MemoryStartupMB $MemoryStartupMB -ProcessorCount $ProcessorCount -SwitchName $SwitchName -ConfirmSourceLicense:$ConfirmSourceLicense
+            $lab = New-HyperVLabEnvironmentFromExistingVm -SourceVMName $SourceVMName -LabName $LabName -InstanceId $InstanceId -MemoryStartupMB $MemoryStartupMB -ProcessorCount $ProcessorCount -AutoStart $AutoStart -SwitchName $SwitchName -ConfirmSourceLicense:$ConfirmSourceLicense
             if ($PersistentData) { $null = Enable-HyperVLabPersistentData -RunId $lab.RunId -DataRoot $DataRoot -SizeGB $PersistentDataDiskGB }
             $lab
         }

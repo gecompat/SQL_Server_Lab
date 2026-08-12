@@ -336,7 +336,10 @@ Add-CheckResult -Name 'UI bietet einen getrennten, sicheren Schnellstart aus vor
     $htmlText -match 'id="new-hyperv-existing-vm-lab"' -and
     $htmlText -match 'id="hyperv-existing-vm-source"' -and
     $htmlText -match 'id="hyperv-existing-vm-license-confirm"' -and
+    $htmlText -match 'id="hyperv-autostart"' -and
+    $htmlText -match 'id="hyperv-existing-vm-autostart"' -and
     $scriptText -match 'renderHyperVExistingVmSourceOptions' -and
+    $scriptText -match "AutoStart:.*'on'.*'off'" -and
     $scriptText -match 'ConfirmSourceLicense' -and
     $consoleText -match 'New-LabHyperVEnvironmentFromExistingVmInteractive' -and
     $consoleText -match 'ConfirmSourceLicense'
