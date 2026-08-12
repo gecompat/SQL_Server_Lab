@@ -16,7 +16,7 @@
     das erste Zeichen muss ein Buchstabe sein.
 .PARAMETER Collation
     Collation der neuen Datenbank. Standard ist
-    SQL_Latin1_General_CP1_CS_AS.
+    SQL_Latin1_General_CP1_CI_AS.
 .PARAMETER DataFiles
     Array von Data-File-Definitionen mit name sowie optional path, sizeMB und
     filegrowthMB. Ohne Angabe wird eine Data-Datei erzeugt.
@@ -39,7 +39,7 @@ function New-SqlServerLabDatabase {
         [Parameter(Mandatory)][int]$Port,
         [Parameter(Mandatory)][SecureString]$SaPassword,
         [Parameter(Mandatory)][string]$DatabaseName,
-        [string]$Collation = 'SQL_Latin1_General_CP1_CS_AS',
+        [string]$Collation = 'SQL_Latin1_General_CP1_CI_AS',
         [array]$DataFiles = @(),
         [array]$LogFiles = @(),
         $Options = $null

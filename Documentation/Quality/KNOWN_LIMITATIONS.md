@@ -16,13 +16,14 @@ pro Instanz in `connection-info.json` gespeicherten Provider.
 
 Der lokale Nachweis vom 2026-08-12 ist für Docker 29.6.2 und Podman 6.0.2
 positiv. Der laufende Core-Gate verwendet ausschließlich SQL Server 2025;
-Mehrversions-Kompatibilität wird in SQL Analyze und Toolbelt abgenommen. Während
-der Initialisierung der SQL-2025-Systemdatenbanken trat bei Docker und Podman
-sporadisch der Loginfehler 18456/State 115 auf. SQL_Server_Lab erkennt nur
-diesen Diagnosefall und erstellt den scopegebundenen Container genau einmal
-neu; alle anderen Readiness-Fehler bleiben hart fehlschlagend. Der Retry wurde
-in Adapter- und Restore-Läufen erfolgreich ausgeführt, alle Testressourcen
-wurden scopegebunden bereinigt. Details stehen im
+Mehrversions-Kompatibilität wird in SQL Analyze und Toolbelt abgenommen. Der
+Core-Gate verwendet die native Containercollation
+`SQL_Latin1_General_CP1_CI_AS`. Beim expliziten SQL-2025-Systemdatenbankumbau
+auf `SQL_Latin1_General_CP1_CS_AS` trat bei Docker und Podman sporadisch der
+Loginfehler 18456/State 115 auf. SQL_Server_Lab erkennt nur diesen Diagnosefall
+und erstellt den scopegebundenen Container genau einmal neu; wiederholt sich
+der Zustand oder tritt ein anderer Readiness-Fehler auf, bleibt der Lauf
+fail-closed. Alle Testressourcen wurden scopegebunden bereinigt. Details stehen im
 [Validierungsbericht vom 2026-08-12](VALIDATION_RESULT_2026-08-12.md).
 
 ### Gemischte Containerprovider in einem Run
@@ -190,7 +191,7 @@ Ausführbare Beispiele verwenden diese Felder daher nicht.
 
 ## Collation
 
-Die Instanzdefinition enthält eine Collation, die bei neuen Umgebungen sowohl als SQL-Server-Instanzcollation als auch als Default für neu angelegte Datenbanken verwendet wird. Ohne explizite Angabe gilt `SQL_Latin1_General_CP1_CS_AS`.
+Die Instanzdefinition enthält eine Collation, die bei neuen Umgebungen sowohl als SQL-Server-Instanzcollation als auch als Default für neu angelegte Datenbanken verwendet wird. Ohne explizite Angabe gilt der native SQL-Containerstandard `SQL_Latin1_General_CP1_CI_AS`. Eine abweichende Collation wie `SQL_Latin1_General_CP1_CS_AS` löst beim ersten Containerstart einen Systemdatenbankumbau aus und kann deshalb deutlich länger benötigen.
 
 ## Datenbankdateien und Volumes
 

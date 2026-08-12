@@ -838,7 +838,7 @@ function Read-LabSqlEnvironmentIntentInteractive {
             New-LabConsoleField -Id 'requiresWindows' -Label 'Windows-Gast erforderlich' -Value $false -Shortcut '8' -Editor $selectWindows -Formatter { param($value) if([bool]$value){'Ja'}else{'Nein'} }
             New-LabConsoleField -Id 'edition' -Label 'SQL-Edition' -Value 'Developer' -Shortcut '9' -Editor $selectEdition
             New-LabConsoleField -Id 'networkMode' -Label 'Netzwerkmodus' -Value 'host-access' -Shortcut 'n' -Editor $selectNetwork
-            New-LabConsoleField -Id 'collation' -Label 'Server-Collation' -Value 'SQL_Latin1_General_CP1_CS_AS' -Shortcut 'c' -Editor { param($current,$values) $candidate=Read-Host "  Server-Collation [$current]";if($candidate){$candidate}else{$current} } -Validator { param($value,$values) if([string]$value -notmatch '^[A-Za-z0-9_]{1,128}$'){'Collation darf nur Buchstaben, Zahlen und Unterstriche enthalten.'} }
+            New-LabConsoleField -Id 'collation' -Label 'Server-Collation' -Value 'SQL_Latin1_General_CP1_CI_AS' -Shortcut 'c' -Editor { param($current,$values) $candidate=Read-Host "  Server-Collation [$current]";if($candidate){$candidate}else{$current} } -Validator { param($value,$values) if([string]$value -notmatch '^[A-Za-z0-9_]{1,128}$'){'Collation darf nur Buchstaben, Zahlen und Unterstriche enthalten.'} }
             New-LabConsoleField -Id 'sqlMaxMemoryMB' -Label 'SQL max server memory MB' -Value ([Math]::Max(1024,$defaultMemoryMB-1024)) -Shortcut 's' -Editor { param($current,$values) Read-LabIntegerIntentValue -Prompt 'SQL max server memory MB' -Default ([int]$current) -Minimum 512 -Maximum ([Math]::Max(512,[int]$values['memoryMB']-256)) } -Validator { param($value,$values) if([int]$value -gt ([Math]::Max(512,[int]$values['memoryMB']-256))){'SQL max memory muss mindestens 256 MB unter dem Lab-RAM bleiben.'} }
             New-LabConsoleField -Id 'maxDop' -Label 'MAXDOP (0..64)' -Value $defaultMaxDop -Shortcut 'm' -Editor { param($current,$values) Read-LabIntegerIntentValue -Prompt 'MAXDOP (0..64)' -Default ([int]$current) -Minimum 0 -Maximum 64 }
             New-LabConsoleField -Id 'costThreshold' -Label 'Cost Threshold for Parallelism' -Value 50 -Shortcut 'o' -Editor { param($current,$values) Read-LabIntegerIntentValue -Prompt 'Cost Threshold for Parallelism (0..32767)' -Default ([int]$current) -Minimum 0 -Maximum 32767 }
@@ -863,7 +863,7 @@ function Read-LabSqlEnvironmentIntentInteractive {
         BaseVersion=[string]$values['baseVersion']; VersionId=[string]$patch.VersionId; Patch=$patch
         Purpose=if($custom){[string]$values['purpose']}else{'adhoc'}; RequiresWindows=if($custom){[bool]$values['requiresWindows']}else{$false}; Edition=if($custom){[string]$values['edition']}else{'Developer'}
         Cpu=$cpu; MemoryMB=$memoryMB; Profile=$profile; NetworkMode=[string]$values['networkMode']; HostPort=[int]$values['hostPort']
-        Collation=if($custom){[string]$values['collation']}else{'SQL_Latin1_General_CP1_CS_AS'}
+        Collation=if($custom){[string]$values['collation']}else{'SQL_Latin1_General_CP1_CI_AS'}
         SqlMaxMemoryMB=if($custom){[int]$values['sqlMaxMemoryMB']}else{[Math]::Max(1024,$memoryMB-1024)}
         MaxDop=if($custom){[int]$values['maxDop']}else{[Math]::Min(8,[int][Math]::Ceiling([double]$cpu))}; CostThreshold=if($custom){[int]$values['costThreshold']}else{50}
         StorageMode=[string]$storage.Mode; Drives=@($storage.Drives)

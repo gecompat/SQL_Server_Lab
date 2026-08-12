@@ -295,7 +295,7 @@ function Resolve-ManifestDefaults {
             provider      = if ($instance.provider) { $instance.provider } else { 'docker' }
             os            = if ($instance.os) { $instance.os } else { 'linux' }
             profile       = if ($instance.profile) { $instance.profile } else { 'standard' }
-            collation     = if ($instance.collation) { $instance.collation } else { 'SQL_Latin1_General_CP1_CS_AS' }
+            collation     = if ($instance.collation) { $instance.collation } else { 'SQL_Latin1_General_CP1_CI_AS' }
             databases     = @()
             drives        = @()
             serverConfig  = $null

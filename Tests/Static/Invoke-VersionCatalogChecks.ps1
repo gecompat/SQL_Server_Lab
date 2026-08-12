@@ -84,6 +84,32 @@ Add-CheckResult -Name 'Reguläre Runtime-, Mixed-, Restore-, Adapter- und Hyper-
     $nonReferenceRuntimeHits.Count -eq 0
 )
 
+$defaultCollationFiles = @(
+    (Join-Path $repoRoot 'Private/ManifestParser.ps1'),
+    (Join-Path $repoRoot 'Providers/Docker/DockerProvider.ps1'),
+    (Join-Path $repoRoot 'Providers/Podman/PodmanProvider.ps1'),
+    (Join-Path $repoRoot 'Public/New-SqlServerLab.ps1'),
+    (Join-Path $repoRoot 'Public/New-SqlServerLabDatabase.ps1'),
+    (Join-Path $repoRoot 'Schemas/lab-manifest.schema.json')
+)
+$invalidDefaultCollationFiles = @($defaultCollationFiles | Where-Object {
+    (Get-Content -LiteralPath $_ -Raw -Encoding utf8) -notmatch 'SQL_Latin1_General_CP1_CI_AS'
+})
+$manifestSchemaText = Get-Content -LiteralPath (Join-Path $repoRoot 'Schemas/lab-manifest.schema.json') -Raw -Encoding utf8
+Add-CheckResult -Name 'Standardpfade verwenden die native SQL-Containercollation CI_AS' -Success (
+    $invalidDefaultCollationFiles.Count -eq 0 -and
+    $manifestSchemaText -match '"default"\s*:\s*"SQL_Latin1_General_CP1_CI_AS"'
+)
+
+$containerProviderText = @(
+    Get-Content -LiteralPath (Join-Path $repoRoot 'Providers/Docker/DockerProvider.ps1') -Raw -Encoding utf8
+    Get-Content -LiteralPath (Join-Path $repoRoot 'Providers/Podman/PodmanProvider.ps1') -Raw -Encoding utf8
+) -join "`n"
+Add-CheckResult -Name 'Provider übergeben MSSQL_COLLATION nur für eine explizite Custom-Collation' -Success (
+    @([regex]::Matches($containerProviderText, "Collation\s+-ne\s+'SQL_Latin1_General_CP1_CI_AS'")).Count -eq 2 -and
+    @([regex]::Matches($containerProviderText, 'MSSQL_COLLATION=\$Collation')).Count -eq 2
+)
+
 if ($failures.Count -gt 0) {
     foreach ($failure in $failures) { Write-Host "FAIL: $failure" -ForegroundColor Red }
     exit 1

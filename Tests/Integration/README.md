@@ -43,12 +43,14 @@ Invoke-RestoreSmokeTest.ps1 / Docker / SQL 2025   => PASS
 Invoke-RestoreSmokeTest.ps1 / Podman / SQL 2025   => PASS
 Invoke-MixedProviderSmokeTest.ps1                 => PASS
 Invoke-SmokeMatrix.ps1 -Provider all (Abschluss)  => PASS=4 FAIL=0 SKIP=1
-Invoke-HyperVSmokeTest.ps1                        => NOT_EXECUTED (Sitzung nicht erhöht)
+Invoke-HyperVSmokeTest.ps1 / GitHub Runner        => PASS
+Fresh Hyper-V SQL 2025 Acceptance                 => BLOCKED (Eval-ISO fehlt im Media-Root)
 ```
 
-`(*)` SQL Server 2025 meldete während der Systemdatenbankinitialisierung
-sporadisch 18456/State 115. Der ausschließlich dafür erlaubte, scopegebundene
-Einmal-Retry wurde in Adapter- und beiden Restore-Läufen erfolgreich ausgeführt.
+`(*)` Reguläre Gates verwenden Microsofts native Containercollation
+`SQL_Latin1_General_CP1_CI_AS`. Eine ausdrücklich abweichende Collation kann
+einen längeren Systemdatenbankumbau auslösen; nur State 115 erhält einen
+scopegebundenen Einmal-Retry und schlägt bei Wiederholung geschlossen fehl.
 
 SQL_Server_Lab prüft als Core-Referenz ausschließlich SQL Server 2025. Die
 Mehrversions-Abnahme liegt bei SQL Analyze und Toolbelt.
