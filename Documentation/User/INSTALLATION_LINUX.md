@@ -216,6 +216,12 @@ podman info
 podman run --rm docker.io/library/alpine cat /etc/os-release
 ```
 
+Bei `instances[].autostart: "on"` aktiviert SQL Server Lab für Podman den
+User-Service `podman-restart.service` sowie systemd-Linger für den aktuellen
+Benutzer. Docker verwendet dieselbe Container-Restart-Policy und prüft, dass
+`docker.service` beim Boot aktiviert ist. Fehlende Rechte oder ein deaktivierter
+Hostdienst führen zu einem klaren Fehler statt zu einem Schein-Autostart.
+
 ## 9. Repository beziehen
 
 Empfohlener interaktiver Checkout:

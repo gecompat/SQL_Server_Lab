@@ -58,7 +58,10 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 - gemeinsames Console-UI-Framework für die umgesetzten CUI-001-bis-CUI-011-
   Flows;
 - statische Vertragsprüfung;
-- Docker- und Podman-Smoke-Testpfad.
+- Docker- und Podman-Smoke-Testpfad;
+- providerneutraler Instanz-Autostart: Hyper-V `AutomaticStartAction`,
+  Docker/Podman-Restart-Policy, Windows-Anmeldekoordinator und Podman-User-
+  systemd-Service; der verwaltete CMS verwendet Autostart zwingend;
 - Hyper-V-Lifecycle-Grundlage mit Generation 2, Secure Boot, verifizierter
   Parent-/Child-VHDX, Status, Start, Stop, deklarativem VM-Autostart und
   scopegebundenem Cleanup;

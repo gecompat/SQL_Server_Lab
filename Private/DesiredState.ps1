@@ -121,7 +121,8 @@ function New-LabDesiredStateSnapshot {
             }
             [PSCustomObject]@{
                 Id = [string]$instance.id; Provider = [string]$instance.provider; Version = [string]$instance.version
-                Profile = [string]$instance.profile; DatabaseNames = @($instance.databases | ForEach-Object { [string]$_.name })
+                Profile = [string]$instance.profile; AutoStart = [string]$instance.autostart
+                DatabaseNames = @($instance.databases | ForEach-Object { [string]$_.name })
                 Intents = New-LabInstanceIntentSnapshot -Instance $instance -ProviderCapability $providerCapability
             }
         })

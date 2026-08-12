@@ -189,6 +189,15 @@
           ],
           "default": "standard"
         },
+        "autostart": {
+          "type": "string",
+          "enum": [
+            "on",
+            "off"
+          ],
+          "default": "off",
+          "description": "Startet die verwaltete Instanz nach einem Host-Neustart automatisch. Docker und Podman verwenden eine Restart-Policy und bei Desktop-/Machine-Runtimes einen Host-Startkoordinator; Hyper-V verwendet AutomaticStartAction."
+        },
         "collation": {
           "type": "string",
           "description": "Default-Collation fuer Instanz und Datenbanken",
@@ -286,8 +295,7 @@
                 "on",
                 "off"
               ],
-              "default": "off",
-              "description": "Startet die verwaltete Lab-VM beim Hochfahren des Hyper-V-Hosts automatisch. 'off' belässt sie ausgeschaltet."
+              "description": "Veralteter Kompatibilitätsalias für instances[].autostart. Wird nur verwendet, wenn der providerneutrale Wert fehlt."
             },
             "guestPasswordMode": {
               "type": "string",

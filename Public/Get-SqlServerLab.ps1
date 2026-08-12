@@ -95,6 +95,7 @@ function Get-SqlServerLab {
                         Name    = ([string]$inspectItem.Name).TrimStart('/')
                         Running = $inspectItem.State.Status -eq 'running'
                         Healthy = $healthStatus -eq 'healthy'
+                        AutoStart = ([string]$inspectItem.HostConfig.RestartPolicy.Name -in @('always', 'unless-stopped') -and [string]$labels.'sql-server-lab.autostart' -eq 'on')
                     }
                 }
                 catch {
@@ -122,6 +123,7 @@ function Get-SqlServerLab {
                 ContainerName = if ($containerInfo) { $containerInfo.Name } else { '' }
                 ContainerUp   = if ($containerInfo) { $containerInfo.Running } else { $false }
                 Healthy       = if ($containerInfo) { $containerInfo.Healthy } else { $false }
+                AutoStart     = if ($containerInfo) { if ($containerInfo.AutoStart) { 'on' } else { 'off' } } elseif ($instance.autostart) { [string]$instance.autostart } else { 'off' }
             }
         }
 
@@ -165,9 +167,10 @@ function Get-SqlServerLab {
         foreach ($instance in $lab.Instances) {
             $upText = if ($instance.ContainerUp) { '[UP]' } else { '[DOWN]' }
             $healthText = if ($instance.Healthy) { ' healthy' } else { '' }
+            $autoStartText = if ($instance.AutoStart -eq 'on') { ' autostart' } else { '' }
             Write-LabStatus `
                 -Label "  $($instance.Id)" `
-                -Value "$($instance.Host):$($instance.Port) (SQL $($instance.Version), $($instance.Provider)) $upText$healthText"
+                -Value "$($instance.Host):$($instance.Port) (SQL $($instance.Version), $($instance.Provider)) $upText$healthText$autoStartText"
         }
 
         if ($lab.RuntimeNote) {

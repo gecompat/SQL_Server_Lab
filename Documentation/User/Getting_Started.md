@@ -550,12 +550,12 @@ SQL-spezifische Pfad vollständig automatisiert inklusive OOBE.
       "version": "2025",
       "provider": "hyperv",
       "os": "windows",
+      "autostart": "on",
       "hyperv": {
   "preparedImageId": "hyperv-sql-prepared-sealed-<Artifact-SHA-256>",
         "switchName": "SQL_LAB_HYPERV",
         "memoryStartupMB": 4096,
         "processorCount": 4,
-        "autostart": "on",
         "guestPasswordMode": "generated"
       }
     }
@@ -564,11 +564,19 @@ SQL-spezifische Pfad vollständig automatisiert inklusive OOBE.
 ```
 
 `preparedImageId` wird aus **Hyper-V Windows-Image verwalten** übernommen.
-`autostart: "on"` setzt für genau diese verwaltete VM die Hyper-V-Aktion
-`AutomaticStartAction=Start`. Sie wird dadurch beim Hochfahren des Hosts
-automatisch gestartet, etwa damit eine CMS-Instanz ohne manuellen VM-Start
-verfügbar wird. Ohne Angabe gilt aus Kompatibilitäts- und Ressourcengründen
-`"off"`.
+`instances[].autostart: "on"` ist providerneutral. Für Hyper-V setzt es
+`AutomaticStartAction=Start`. Docker und Podman verwenden `unless-stopped` und
+das Label `sql-server-lab.autostart=on`. Unter Windows richtet SQL Server Lab
+zusätzlich je Runtime einen Auftrag für die Anmeldung des aktuellen Benutzers
+ein: Er startet Docker Desktop beziehungsweise die Podman Machine und danach
+ausschließlich markierte Lab-Container. Ein Windows-Desktop-/Rootless-Container
+ist deshalb nach dem ersten Login verfügbar, nicht bereits vor der Anmeldung.
+Auf nativem Linux prüft SQL Server Lab, dass `docker.service` beim Boot startet;
+für Podman aktiviert es den User-Service `podman-restart.service` und systemd-
+Linger für den aktuellen Benutzer. Kann der Hoststart nicht garantiert werden,
+bricht die Provisionierung fail-closed ab. Ohne Angabe gilt `"off"`.
+`hyperv.autostart` bleibt als veralteter Alias kompatibel, darf dem neuen Wert
+aber nicht widersprechen.
 `guestPasswordMode: "generated"` zeigt beim Start einmalig ein zufälliges
 Passwort an; `"prompt"` fragt es sicher ab. Ein Klartextpasswort gehört nie in
 die Manifestdatei. Die Antwortdatei wird nur in die neue Child-VHDX injiziert,

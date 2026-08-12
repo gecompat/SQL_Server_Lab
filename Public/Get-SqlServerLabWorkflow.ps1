@@ -301,6 +301,7 @@ function Get-SqlServerLabWorkflow {
                     [PSCustomObject]@{
                         Id = [string]$_.id; Provider = [string]$_.provider; Host = [string]$_.host
                         Port = $_.port; SqlVersion = if ($_.sqlVersion) { [string]$_.sqlVersion } else { [string]$_.version }
+                        AutoStart = if ($_.autostart) { [string]$_.autostart } else { 'off' }
                         ConnectionString = [string]$_.connectionString
                         PersistentStorage = $_.persistentStorage
                         ResourceSettings = $_.resourceSettings

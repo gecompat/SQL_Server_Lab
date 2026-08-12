@@ -347,12 +347,14 @@ Verbindliche Ziele:
 - Portprüfung vor Mutation;
 - Healthcheck plus SQL-Abfrage plus Major-Version-Prüfung;
 - Scope-, Owner- und Run-ID-Labels;
+- providerneutraler, explizit opt-in aktivierter Instanz-Autostart über
+  Runtime-Restart-Policy und bei Desktop-Runtimes einen Benutzerkoordinator;
 - tatsächliche Container-, Netzwerk- und Volume-IDs im State;
 - keine globalen Prune- oder Wildcard-Löschungen.
 
 ### 9.2 Podman
 
-Podman verwendet denselben logischen Containervertrag. Abweichungen werden in einem Provider-Override und einer Capability-Matrix dokumentiert. Eine Docker-Abnahme gilt nicht automatisch als Podman-Abnahme.
+Podman verwendet denselben logischen Containervertrag. Abweichungen werden in einem Provider-Override und einer Capability-Matrix dokumentiert. Eine Docker-Abnahme gilt nicht automatisch als Podman-Abnahme. Für Autostart aktiviert natives Linux den Podman-User-Restart-Service; Windows startet zuerst die benutzergebundene Podman Machine.
 
 ### 9.3 Hyper-V Windows
 

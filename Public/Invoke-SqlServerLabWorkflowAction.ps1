@@ -129,8 +129,8 @@ Ist er angegeben, wird der Download strikt dagegen verifiziert.
 .PARAMETER ProcessorCount
 Anzahl virtueller Prozessoren der neu anzulegenden VM.
 .PARAMETER AutoStart
-    `on` startet die neue verwaltete Lab-VM beim Hochfahren des Hyper-V-Hosts;
-    `off` belässt das bisherige Verhalten.
+    `on` startet die neue verwaltete Container- oder Hyper-V-Instanz nach einem
+    Host-Neustart; `off` belässt das bisherige Verhalten.
 .PARAMETER ConfirmSourceLicense
 Bestätigt bewusst den Lizenz- und möglichen Ablaufhinweis, bevor aus einer
 vorhandenen Windows-VM eine neue differenzierende Lab-VM erzeugt wird.
@@ -342,14 +342,14 @@ function Invoke-SqlServerLabWorkflowAction {
     Write-LabInfo "Auftrag angenommen: $progress"
     $result = switch ($Action) {
         'NewContainerLab' {
-            New-SqlServerLab -Version $SqlVersion -Provider $Provider -Profile $Profile -InstanceId $InstanceId -LabName $LabName -DataRoot $DataRoot -PersistentData:$PersistentData -SaPassword $SaPassword
+            New-SqlServerLab -Version $SqlVersion -Provider $Provider -Profile $Profile -InstanceId $InstanceId -LabName $LabName -DataRoot $DataRoot -PersistentData:$PersistentData -AutoStart $AutoStart -SaPassword $SaPassword
         }
         'CreateContainerManifest' {
             if ([string]::IsNullOrWhiteSpace($ManifestPath) -or [string]::IsNullOrWhiteSpace($LabName)) { throw 'CONTAINER_WORKFLOW_MANIFEST_PATH_AND_NAME_REQUIRED' }
             $draft = [ordered]@{
                 name = $LabName
                 description = if ($ManifestDescription) { $ManifestDescription } else { 'Über die lokale SQL Server Lab Workflow-UI erstellt.' }
-                instances = @([ordered]@{ id = $InstanceId; version = $SqlVersion; provider = $Provider; profile = $Profile })
+                instances = @([ordered]@{ id = $InstanceId; version = $SqlVersion; provider = $Provider; profile = $Profile; autostart = $AutoStart })
             }
             $manifest = New-SqlServerLabManifest -Path $ManifestPath -InputObject $draft -PassThru
             [PSCustomObject]@{ Path = [IO.Path]::GetFullPath($ManifestPath); Name = $manifest.name; InstanceCount = @($manifest.instances).Count }
