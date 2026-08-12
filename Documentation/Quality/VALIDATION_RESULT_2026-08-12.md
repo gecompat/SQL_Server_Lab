@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `CONTAINER_VALIDATION_PASS_HYPERV_LIFECYCLE_PASS_SQL_MEDIA_BLOCKED` |
-| Ausgangsstand | `origin/main` bei `e98aaf2` plus Konsolidierungsänderungen |
+| Ausgangsstand | `origin/main` bei `0195851` plus providerübergreifender Autostart-Änderung |
 | PowerShell | 7.6.3 |
 | Umgebung | Windows, Docker 29.6.2, Podman 6.0.2 |
 
@@ -15,6 +15,16 @@ einem gemeinsamen Run geprüft. Der erhöhte GitHub-Runner hat den nativen
 Hyper-V-Generation-2-Lifecycle bestanden. Die echte SQL-2025-Acceptance konnte
 nach grünem Hyper-V-Preflight nicht starten, weil auf dem Runner die erwartete
 ISO unter `D:\Lab_Base\SQL\2025\Eval\ISO` fehlt.
+
+Der nachgezogene Autostart-Vertrag wurde auf dem endgültigen Änderungsstand
+erneut vollständig statisch validiert. Docker/SQL Server 2025 bestand zusätzlich
+einen echten Lifecycle mit `autostart=on`, wirksamer `unless-stopped`-Policy,
+Lab-Label, SQL-Readiness, Restart, Stop/Start und rückstandsfreiem Cleanup. Der
+temporäre Windows-Anmeldeauftrag und sein generiertes Skript waren nach dem
+Cleanup nicht mehr vorhanden. Podman ist in der aktuellen lokalen Sitzung nicht
+installiert; der SQL-2025-Self-hosted-Workflow prüft deshalb Label und Policy als
+verbindliches Runtime-Gate. Hyper-V benötigt lokal weiterhin eine erhöhte
+Sitzung und bleibt durch seinen vorhandenen SQL-2025-Runner abgedeckt.
 
 ## Statische Prüfung
 
@@ -37,6 +47,8 @@ blockierend.
 | Docker-Voraussetzung | `PASS` | Docker 29.6.2 erreichbar |
 | Podman-Voraussetzung | `PASS` | Podman 6.0.2 erreichbar |
 | Docker / SQL Server 2025 | `PASS` | isolierter Lauf 33/33 und abschließender Lifecycle-Gate erfolgreich |
+| Docker-Autostart / SQL Server 2025 | `PASS` | Policy, Label, State, Restart, Stop/Start und rückstandsfreies Cleanup |
+| Podman-Autostart / SQL Server 2025 | `CI_GATE` | Self-hosted Workflow führt `Invoke-SmokeMatrix -TestAutoStart` aus; lokal ist Podman nicht installiert |
 | Podman / SQL Server 2025 | `PASS` | nativer Collation-Standard: bereit nach 9,4s; Lifecycle und Cleanup erfolgreich |
 | Docker/Podman parallel | `PASS` | vier parallele Runs mit eindeutigen Ports, State und Cleanup |
 | Mixed Docker/Podman | `PASS` | native Collation: bereit nach 9,4s/10,3s; Status, Stop/Start und Cleanup erfolgreich |

@@ -8,11 +8,11 @@
       "provider": "hyperv",
       "os": "windows",
       "profile": "performance",
+      "autostart": "on",
       "hyperv": {
         "preparedImageId": "hyperv-sql-prepared-sealed-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "memoryStartupMB": 8192,
         "processorCount": 4,
-        "autostart": "on",
         "guestPasswordMode": "prompt"
       },
       "drives": [

@@ -194,6 +194,7 @@ Container-Volumes gehören dagegen in den normalen Storage-Pfad.
 | Meilenstein | Status am 2026-08-12 | Nächster belastbarer Schritt |
 |---|---|---|
 | M0 Statuswahrheit | `validated` | Drift weiter statisch verhindern |
+| Providerneutraler Instanz-Autostart | `validated` | Docker-, Podman- und Hyper-V-SQL-2025-Smokes fortlaufend grün halten |
 | M1 Desired State und Planner | `implemented_partial` | Journal/Resume und weitere Änderungsklassen |
 | M2 UI und Container-Reconcile | `implemented_partial` | reale `live`-/`recreate`-Änderungen für Docker und Podman |
 | M3 Adapterpiloten | `planned_external_scope` | je ein Pilot in den beiden Konsumenten-Repositories |

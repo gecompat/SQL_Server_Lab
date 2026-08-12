@@ -192,6 +192,8 @@
       </div>
       <label class="form-check"><input id="container-persistent-data" type="checkbox"> Daten dauerhaft im konfigurierten Data Root speichern</label>
       <p class="form-note">Bei Aktivierung wird <code>/var/opt/mssql</code> als Host-Bind-Mount unter dem Data Root geführt. „Umgebung entfernen“ entfernt diesen Datenbereich nicht.</p>
+      <label class="form-check"><input id="container-autostart" type="checkbox"> Instanz nach einem Host-Neustart automatisch starten</label>
+      <p class="form-note">Docker/Podman erhalten eine Restart-Policy. Unter Windows startet ein benutzergebundener Auftrag die Desktop-/Machine-Runtime nach der Anmeldung.</p>
       <label>SA-Passwort<input id="container-password" type="password" autocomplete="new-password" required></label>
       <label>SA-Passwort wiederholen<input id="container-password-repeat" type="password" autocomplete="new-password" required></label>
       <p class="form-note">Das Passwort wird ausschließlich an den gestarteten Job übergeben, nicht gespeichert und nicht im Live-Log ausgegeben.</p>

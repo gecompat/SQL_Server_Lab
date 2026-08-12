@@ -124,6 +124,7 @@ function New-DockerInstance {
         [string]$NetworkName,
         [ValidateRange(0,64)][decimal]$Cpu = 0,
         [ValidateRange(0,1048576)][int]$MemoryMB = 0,
+        [ValidateSet('on', 'off')][string]$AutoStart = 'off',
         [ValidatePattern('^[A-Za-z0-9_]{1,128}$')][string]$Collation = 'SQL_Latin1_General_CP1_CI_AS'
     )
 
@@ -164,6 +165,7 @@ function New-DockerInstance {
     if ($Collation -ne 'SQL_Latin1_General_CP1_CI_AS') {
         $collationArguments = @('-e', "MSSQL_COLLATION=$Collation")
     }
+    $restartArguments = if ($AutoStart -eq 'on') { @('--restart', 'unless-stopped') } else { @() }
 
     $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword)
     try {
@@ -197,7 +199,7 @@ function New-DockerInstance {
                     '-e', "MSSQL_SA_PASSWORD=$saPlain",
                     '-e', 'MSSQL_PID=Developer',
                     '-e', 'MSSQL_AGENT_ENABLED=true'
-                ) + $collationArguments + @(
+                ) + $collationArguments + $restartArguments + @(
                     '--memory', $memoryLimit,
                     '--cpus', $cpuLimit,
                     '--label', "sql-server-lab.run-id=$RunId",
@@ -205,6 +207,7 @@ function New-DockerInstance {
                     '--label', "sql-server-lab.instance-id=$InstanceId",
                     '--label', "sql-server-lab.version=$VersionId",
                     '--label', 'sql-server-lab.provider=docker',
+                    '--label', "sql-server-lab.autostart=$AutoStart",
                     '--label', "sql-server-lab.created-at=$(Get-LabTimestamp)",
                     '--health-cmd', '/opt/mssql-tools*/bin/sqlcmd -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -Q "SELECT 1" -b',
                     '--health-interval', '5s',
@@ -248,6 +251,7 @@ function New-DockerInstance {
                 VersionId     = $VersionId
                 Provider      = 'docker'
                 Image         = $image
+                AutoStart     = $AutoStart
                 Status        = 'Created'
             }
         }
@@ -270,6 +274,7 @@ function Get-DockerInstanceStatus {
                 Exists  = $false
                 Running = $false
                 Healthy = $false
+                AutoStart = $false
                 Raw     = $null
             }
         }
@@ -280,6 +285,7 @@ function Get-DockerInstanceStatus {
             Exists  = $true
             Running = $item.State.Status -eq 'running'
             Healthy = $health -eq 'healthy'
+            AutoStart = [string]$item.HostConfig.RestartPolicy.Name -in @('always', 'unless-stopped')
             Raw     = [string]$item.State.Status
         }
     }
@@ -288,6 +294,7 @@ function Get-DockerInstanceStatus {
             Exists  = $false
             Running = $false
             Healthy = $false
+            AutoStart = $false
             Raw     = $_.Exception.Message
         }
     }
@@ -343,6 +350,9 @@ function Remove-DockerInstance {
     }
 
     Write-LabSuccess "Container entfernt: $ContainerIdOrName"
+    if (Get-Command Remove-LabContainerAutoStartCoordinatorIfUnused -ErrorAction SilentlyContinue) {
+        Remove-LabContainerAutoStartCoordinatorIfUnused -Provider docker
+    }
 }
 
 function Get-DockerLabContainers {
@@ -388,6 +398,7 @@ function Get-DockerLabContainers {
             ScopeId     = [string]$labels.'sql-server-lab.scope-id'
             InstanceId  = [string]$labels.'sql-server-lab.instance-id'
             Version     = [string]$labels.'sql-server-lab.version'
+            AutoStart   = [string]$labels.'sql-server-lab.autostart' -eq 'on'
         }
     }
 

@@ -17,6 +17,9 @@
     derselben Referenzversion aus.
 .PARAMETER KeepOnFailure
     Laesst fehlgeschlagene Labs zur Diagnose bestehen.
+.PARAMETER TestAutoStart
+    Erstellt den seriellen Lifecycle-Run mit Autostart und prüft Restart-Policy,
+    Label und den zurückgegebenen Vertrag. Der parallele Probe bleibt bei off.
 .EXAMPLE
     .\Invoke-SmokeMatrix.ps1
 .EXAMPLE
@@ -32,6 +35,7 @@ param(
     [string]$ReferenceVersion = '2025',
     [switch]$IncludeParallel,
     [switch]$KeepOnFailure,
+    [switch]$TestAutoStart,
     [SecureString]$SaPassword
 )
 
@@ -162,8 +166,17 @@ function Invoke-FullLifecycle {
     $lab = $null
     $sqlPath = Join-Path $env:TEMP "SqlServerLab-Smoke-$ProviderName-$VersionName-$PID.sql"
     try {
-        $lab = New-SqlServerLab -Version $VersionName -Provider $ProviderName -Profile compact -SaPassword $SaPassword -SkipAssessment
+        $autoStart = if ($TestAutoStart) { 'on' } else { 'off' }
+        $lab = New-SqlServerLab -Version $VersionName -Provider $ProviderName -Profile compact -AutoStart $autoStart -SaPassword $SaPassword -SkipAssessment
         $instance = $lab.Instances | Select-Object -First 1
+        if ([string]$instance.AutoStart -ne $autoStart) { throw "Autostart-Vertrag meldet '$($instance.AutoStart)' statt '$autoStart'." }
+        if ($TestAutoStart) {
+            $inspect = & $ProviderName inspect $instance.ContainerId 2>$null | ConvertFrom-Json -Depth 30
+            if ($LASTEXITCODE -ne 0 -or -not $inspect) { throw 'Autostart-Inspect fehlgeschlagen.' }
+            $runtimeInstance = @($inspect)[0]
+            if ([string]$runtimeInstance.HostConfig.RestartPolicy.Name -notin @('always', 'unless-stopped')) { throw 'Autostart-Restart-Policy fehlt.' }
+            if ([string]$runtimeInstance.Config.Labels.'sql-server-lab.autostart' -ne 'on') { throw 'Autostart-Label fehlt.' }
+        }
         $dbName = "Smoke_${ProviderName}_${VersionName}" -replace '[^A-Za-z0-9_]', '_'
         $db = New-SqlServerLabDatabase -HostName $instance.Host -Port $instance.Port -SaPassword $SaPassword -DatabaseName $dbName
         if (-not $db.Success) { throw 'Datenbankerstellung meldet Success=False.' }
@@ -203,7 +216,7 @@ GO
         $remove = Remove-SqlServerLab -RunId $lab.RunId -Force
         if ($remove.Cleanup -ne 'CLEANUP_SUCCEEDED' -or $remove.Errors -ne 0) { throw 'Cleanup fehlgeschlagen.' }
         $lab = $null
-        Add-Result -Category 'Lifecycle' -Provider $ProviderName -Version $VersionName -Status PASS -Message 'Create/DB/Script/Restart/Persistenz/Stop/Start/Cleanup'
+        Add-Result -Category 'Lifecycle' -Provider $ProviderName -Version $VersionName -Status PASS -Message 'Create/DB/Script/Restart/Persistenz/Stop/Start/Autostart/Cleanup'
     }
     catch {
         Add-Result -Category 'Lifecycle' -Provider $ProviderName -Version $VersionName -Status FAIL -Message $_.Exception.Message

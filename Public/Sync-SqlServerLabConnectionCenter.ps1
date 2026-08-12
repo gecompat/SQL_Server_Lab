@@ -256,13 +256,14 @@ function Initialize-SqlServerLabCms {
     $dataRoot = Get-LabDataRootDefault
     if (-not $dataRoot) { throw 'CONNECTION_CENTER_CMS_DATA_ROOT_REQUIRED: Für einen dauerhaften CMS zuerst einen Data Root konfigurieren.' }
     $password = New-LabConnectionCenterPassword
-    $lab = New-SqlServerLab -Version '2025' -Provider $Provider -Profile compact -LabName 'sql-server-lab-cms' -PersistentData -DataRoot $dataRoot -SaPassword $password -StateRoot $StateRoot
+    $lab = New-SqlServerLab -Version '2025' -Provider $Provider -Profile compact -LabName 'sql-server-lab-cms' -PersistentData -DataRoot $dataRoot -AutoStart on -SaPassword $password -StateRoot $StateRoot
     $configuration = [PSCustomObject]@{
         ContractVersion = 'SqlServerLab.ConnectionCenterCms/1.0'
         RunId = [string]$lab.RunId
         Provider = $Provider
         CreatedAt = Get-LabTimestamp
         Purpose = 'Central Management Server'
+        AutoStart = 'on'
         PasswordOrigin = 'Generated'
     }
     Set-LabConnectionCenterCmsConfiguration -Configuration $configuration -StateRoot $StateRoot | Out-Null

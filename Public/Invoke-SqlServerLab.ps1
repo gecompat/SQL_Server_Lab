@@ -1012,6 +1012,7 @@ function Invoke-LabNewContainerEnvironmentInteractive {
                 Version=$version; Provider=$Provider; Profile=[string]$Intent.Profile; LabName=[string]$Intent.LabName
                 InstanceId=[string]$Intent.InstanceId; Port=[int]$Intent.HostPort; Cpu=[decimal]$Intent.Cpu
                 MemoryMB=[int]$Intent.MemoryMB; Collation=[string]$Intent.Collation
+                AutoStart=if ($Intent.PSObject.Properties['AutoStart']) { [string]$Intent.AutoStart } else { 'off' }
                 ServerConfig=(New-LabIntentServerConfig -Intent $Intent -Target container -ErrorAction Stop)
                 Drives=@(New-LabContainerDrivesFromIntent -Intent $Intent -ErrorAction Stop)
             }
@@ -1102,6 +1103,7 @@ function Invoke-LabNewContainerEnvironmentInteractive {
         Profile     = $profile
         LabName     = $labName
         InstanceId   = $instanceId
+        AutoStart    = if (Read-LabConfirm -Prompt '  Instanz nach einem Host-Neustart automatisch starten?' -Default $false) { 'on' } else { 'off' }
     }
     if($Intent){$newLabArguments.Cpu=[decimal]$Intent.Cpu;$newLabArguments.MemoryMB=[int]$Intent.MemoryMB;$newLabArguments.Collation=[string]$Intent.Collation;$newLabArguments.ServerConfig=New-LabIntentServerConfig -Intent $Intent;$newLabArguments.Drives=@(New-LabContainerDrivesFromIntent -Intent $Intent)}
     $defaultDataRoot = Get-LabDataRootDefault

@@ -211,6 +211,13 @@ Add-CheckResult -Name 'Container-Labs zeigen alle Instanzen inklusive Provider' 
     $workflowText -match '\[string\]\$_.version' -and
     $scriptText -notmatch '\(item\.Instances \|\| \[\]\)\[0\]'
 )
+Add-CheckResult -Name 'Container-Autostart ist in UI, Workflow und Übersicht durchgängig' -Success (
+    $htmlText -match 'id="container-autostart"' -and
+    $scriptText -match "AutoStart: \$\('#container-autostart'\)\.checked \? 'on' : 'off'" -and
+    $actionText -match 'New-SqlServerLab.*-AutoStart \$AutoStart' -and
+    $workflowText -match 'AutoStart = if \(\$_\.autostart\)' -and
+    $scriptText -match 'Autostart: '
+)
 Add-CheckResult -Name 'UI-Lifecycle-Schaltflächen gehen über Reconcile-Vertrag' -Success (
     $actionText -match 'StartLabReconcile' -and
     $actionText -match 'StopLabReconcile' -and
