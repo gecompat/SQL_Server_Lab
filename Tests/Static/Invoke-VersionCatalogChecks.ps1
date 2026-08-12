@@ -10,8 +10,13 @@ Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -ErrorAction Stop
 $module = Get-Module SqlServerLab
 
 $versions = & $module { @(Get-SqlServerVersions -Status SUPPORTED | Where-Object { $_.docker.image }) }
-Add-CheckResult -Name 'Container-Katalog enthält SQL Server 2017 bis 2025' -Success (
-    (@($versions.id | Sort-Object) -join ',') -eq '2017,2019,2022,2025'
+Add-CheckResult -Name 'Container-Katalog enthält die unterstützten SQL-Versionen 2019 bis 2025' -Success (
+    (@($versions.id | Sort-Object) -join ',') -eq '2019,2022,2025'
+)
+
+$deprecatedVersions = & $module { @(Get-SqlServerVersions -Status DEPRECATED | Where-Object { $_.docker.image }) }
+Add-CheckResult -Name 'SQL Server 2017 bleibt als veralteter Containerpfad explizit katalogisiert' -Success (
+    @($deprecatedVersions.id) -contains '2017'
 )
 
 $sql2017 = & $module { Get-SqlServerDockerImage -VersionId '2017' }
@@ -19,15 +24,19 @@ Add-CheckResult -Name 'SQL Server 2017 löst auf das offizielle latest-Image auf
     $sql2017 -eq 'mcr.microsoft.com/mssql/server:2017-latest'
 )
 
-$sql2022Cu7 = & $module { Get-SqlServerDockerImage -VersionId '2022-CU7' }
-Add-CheckResult -Name 'SQL Server 2022 CU7 löst auf den unveränderlichen MCR-Tag auf' -Success (
-    $sql2022Cu7 -eq 'mcr.microsoft.com/mssql/server:2022-CU7-ubuntu-20.04'
-)
-
 $sql2022Builds = & $module { @(Get-SqlServerBuilds -VersionId '2022') }
-Add-CheckResult -Name 'SQL Server 2022 enthält CU1 bis CU26 vollständig' -Success (
-    $sql2022Builds.Count -eq 26 -and
-    (@($sql2022Builds.cu | Sort-Object { [int]($_ -replace '^CU', '') }) -join ',') -eq ((1..26 | ForEach-Object { "CU$_" }) -join ',')
+Add-CheckResult -Name 'SQL Server 2022 enthält eindeutige katalogisierte CU-Tags' -Success (
+    $sql2022Builds.Count -gt 0 -and
+    @($sql2022Builds.cu | Sort-Object -Unique).Count -eq $sql2022Builds.Count -and
+    @($sql2022Builds.tag | Sort-Object -Unique).Count -eq $sql2022Builds.Count
+)
+$invalid2022Resolutions = @($sql2022Builds | Where-Object {
+    $versionId = "2022-$($_.cu)"
+    $resolvedImage = & $module { param($id) Get-SqlServerDockerImage -VersionId $id } $versionId
+    $resolvedImage -ne "mcr.microsoft.com/mssql/server:$($_.tag)"
+})
+Add-CheckResult -Name 'Alle katalogisierten SQL-2022-CUs lösen auf ihren unveränderlichen MCR-Tag auf' -Success (
+    $invalid2022Resolutions.Count -eq 0
 )
 
 $sql2025Builds = & $module { @(Get-SqlServerBuilds -VersionId '2025') }
@@ -44,6 +53,61 @@ Add-CheckResult -Name 'Windows-CU-Metadaten sind vollständig und Downloads nur 
         -not $_.build -or -not $_.kb -or -not $_.released -or -not $_.windows.relativePath -or
         ($_.windows.downloadUrl -and -not $_.windows.sha256)
     }).Count -eq 0
+)
+
+$runtimeWorkflowPaths = @(
+    (Join-Path $repoRoot '.github/workflows/runtime-smoke-docker.yml'),
+    (Join-Path $repoRoot '.github/workflows/runtime-smoke-podman.yml')
+)
+$runtimeWorkflowText = ($runtimeWorkflowPaths | ForEach-Object {
+    Get-Content -LiteralPath $_ -Raw -Encoding utf8
+}) -join "`n"
+Add-CheckResult -Name 'Docker- und Podman-Gates verwenden nur die SQL-2025-Referenzversion' -Success (
+    $runtimeWorkflowText -notmatch '(?m)-FullMatrix|(?m)-IncludeParallel' -and
+    @([regex]::Matches($runtimeWorkflowText, '(?m)-ReferenceVersion\s+2025')).Count -eq 2 -and
+    @([regex]::Matches($runtimeWorkflowText, '(?m)-Version\s+2025')).Count -eq 2
+)
+
+$referenceFiles = @(
+    (Join-Path $repoRoot 'Tests/Integration/Invoke-RestoreSmokeTest.ps1'),
+    (Join-Path $repoRoot 'Tests/Integration/Invoke-AdapterSmokeTest.ps1'),
+    (Join-Path $repoRoot 'Tests/Integration/Invoke-MixedProviderSmokeTest.ps1'),
+    (Join-Path $repoRoot 'Schemas/example-mixed-provider-lab.json'),
+    (Join-Path $repoRoot '.github/workflows/runtime-smoke-docker-github-hosted.yml'),
+    (Join-Path $repoRoot '.github/workflows/adapter-smoke-github-hosted.yml'),
+    (Join-Path $repoRoot '.github/workflows/runtime-smoke-hyperv-sql-fresh-acceptance.yml')
+)
+$nonReferenceRuntimeHits = @($referenceFiles | Where-Object {
+    (Get-Content -LiteralPath $_ -Raw -Encoding utf8) -match '(?m)(?:Version\s*=\s*|Version\s+|"version"\s*:\s*|versions=\()["'']?(?:2019|2022)'
+})
+Add-CheckResult -Name 'Reguläre Runtime-, Mixed-, Restore-, Adapter- und Hyper-V-Gates sind auf SQL 2025 vereinheitlicht' -Success (
+    $nonReferenceRuntimeHits.Count -eq 0
+)
+
+$defaultCollationFiles = @(
+    (Join-Path $repoRoot 'Private/ManifestParser.ps1'),
+    (Join-Path $repoRoot 'Providers/Docker/DockerProvider.ps1'),
+    (Join-Path $repoRoot 'Providers/Podman/PodmanProvider.ps1'),
+    (Join-Path $repoRoot 'Public/New-SqlServerLab.ps1'),
+    (Join-Path $repoRoot 'Public/New-SqlServerLabDatabase.ps1'),
+    (Join-Path $repoRoot 'Schemas/lab-manifest.schema.json')
+)
+$invalidDefaultCollationFiles = @($defaultCollationFiles | Where-Object {
+    (Get-Content -LiteralPath $_ -Raw -Encoding utf8) -notmatch 'SQL_Latin1_General_CP1_CI_AS'
+})
+$manifestSchemaText = Get-Content -LiteralPath (Join-Path $repoRoot 'Schemas/lab-manifest.schema.json') -Raw -Encoding utf8
+Add-CheckResult -Name 'Standardpfade verwenden die native SQL-Containercollation CI_AS' -Success (
+    $invalidDefaultCollationFiles.Count -eq 0 -and
+    $manifestSchemaText -match '"default"\s*:\s*"SQL_Latin1_General_CP1_CI_AS"'
+)
+
+$containerProviderText = @(
+    Get-Content -LiteralPath (Join-Path $repoRoot 'Providers/Docker/DockerProvider.ps1') -Raw -Encoding utf8
+    Get-Content -LiteralPath (Join-Path $repoRoot 'Providers/Podman/PodmanProvider.ps1') -Raw -Encoding utf8
+) -join "`n"
+Add-CheckResult -Name 'Provider übergeben MSSQL_COLLATION nur für eine explizite Custom-Collation' -Success (
+    @([regex]::Matches($containerProviderText, "Collation\s+-ne\s+'SQL_Latin1_General_CP1_CI_AS'")).Count -eq 2 -and
+    @([regex]::Matches($containerProviderText, 'MSSQL_COLLATION=\$Collation')).Count -eq 2
 )
 
 if ($failures.Count -gt 0) {

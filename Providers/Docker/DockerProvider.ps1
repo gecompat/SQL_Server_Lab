@@ -124,7 +124,7 @@ function New-DockerInstance {
         [string]$NetworkName,
         [ValidateRange(0,64)][decimal]$Cpu = 0,
         [ValidateRange(0,1048576)][int]$MemoryMB = 0,
-        [ValidatePattern('^[A-Za-z0-9_]{1,128}$')][string]$Collation = 'SQL_Latin1_General_CP1_CS_AS'
+        [ValidatePattern('^[A-Za-z0-9_]{1,128}$')][string]$Collation = 'SQL_Latin1_General_CP1_CI_AS'
     )
 
     $image = Get-SqlServerDockerImage -VersionId $VersionId
@@ -160,6 +160,11 @@ function New-DockerInstance {
         $volumeArguments += $volumeTarget
     }
 
+    $collationArguments = @()
+    if ($Collation -ne 'SQL_Latin1_General_CP1_CI_AS') {
+        $collationArguments = @('-e', "MSSQL_COLLATION=$Collation")
+    }
+
     $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword)
     try {
         $saPlain = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
@@ -191,8 +196,8 @@ function New-DockerInstance {
                     '-e', 'ACCEPT_EULA=Y',
                     '-e', "MSSQL_SA_PASSWORD=$saPlain",
                     '-e', 'MSSQL_PID=Developer',
-                    '-e', 'MSSQL_AGENT_ENABLED=true',
-                    '-e', "MSSQL_COLLATION=$Collation",
+                    '-e', 'MSSQL_AGENT_ENABLED=true'
+                ) + $collationArguments + @(
                     '--memory', $memoryLimit,
                     '--cpus', $cpuLimit,
                     '--label', "sql-server-lab.run-id=$RunId",

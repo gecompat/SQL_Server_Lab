@@ -30,7 +30,35 @@ End-to-End-Test des gesamten Lab-Lifecycles.
 .\Tests\Integration\Invoke-SmokeTest.ps1 -Provider hyperv
 ```
 
-## Letzter dokumentierter lokaler Nachweis (2026-08-08)
+## Aktueller lokaler Nachweis (2026-08-12)
+
+```text
+Invoke-AllChecks.ps1                              => PASS
+Invoke-SmokeMatrix.ps1 / Docker / SQL Server 2025 => PASS (*)
+Invoke-SmokeMatrix.ps1 / Podman / SQL Server 2025 => PASS
+Invoke-SmokeTest.ps1 / Docker / SQL Server 2025   => 33/33 PASS
+Invoke-SmokeTest.ps1 / Podman / SQL Server 2025   => 33/33 PASS
+Invoke-AdapterSmokeTest.ps1 / Docker / SQL 2025   => 10/10 PASS
+Invoke-RestoreSmokeTest.ps1 / Docker / SQL 2025   => PASS
+Invoke-RestoreSmokeTest.ps1 / Podman / SQL 2025   => PASS
+Invoke-MixedProviderSmokeTest.ps1                 => PASS
+Invoke-SmokeMatrix.ps1 -Provider all (Abschluss)  => PASS=4 FAIL=0 SKIP=1
+Invoke-HyperVSmokeTest.ps1 / GitHub Runner        => PASS
+Fresh Hyper-V SQL 2025 Acceptance                 => BLOCKED (Eval-ISO fehlt im Media-Root)
+```
+
+`(*)` Reguläre Gates verwenden Microsofts native Containercollation
+`SQL_Latin1_General_CP1_CI_AS`. Eine ausdrücklich abweichende Collation kann
+einen längeren Systemdatenbankumbau auslösen; nur State 115 erhält einen
+scopegebundenen Einmal-Retry und schlägt bei Wiederholung geschlossen fehl.
+
+SQL_Server_Lab prüft als Core-Referenz ausschließlich SQL Server 2025. Die
+Mehrversions-Abnahme liegt bei SQL Analyze und Toolbelt.
+
+Der vollständige Befund und die Fehlerabgrenzung stehen im
+[Validierungsbericht vom 2026-08-12](../../Documentation/Quality/VALIDATION_RESULT_2026-08-12.md).
+
+## Vorheriger lokaler Nachweis (2026-08-08)
 
 ```text
 Invoke-SmokeTest.ps1 -Provider docker   => 33/33 PASS, 0 FAIL

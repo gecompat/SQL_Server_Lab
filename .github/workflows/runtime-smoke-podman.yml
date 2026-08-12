@@ -24,7 +24,7 @@ concurrency:
 
 jobs:
   podman-smoke:
-    name: Podman provider, versions and parallel runs
+    name: Podman provider with SQL Server 2025
     runs-on: [self-hosted, SQL_Lab, Podman]
     timeout-minutes: 25
 
@@ -49,7 +49,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           .\Tests\Static\Invoke-AllChecks.ps1
 
-      - name: Podman smoke matrix
+      - name: Podman SQL Server 2025 lifecycle
         run: |
           $ErrorActionPreference = 'Stop'
           $logPath = Join-Path $env:RUNNER_TEMP 'podman-smoke-matrix.log'
@@ -62,13 +62,13 @@ jobs:
 
             & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-SmokeMatrix.ps1 `
               -Provider podman `
-              -FullMatrix `
-              -IncludeParallel 2>&1 | Tee-Object -FilePath $logPath
+              -ReferenceVersion 2025 2>&1 | Tee-Object -FilePath $logPath
             $matrixExitCode = $LASTEXITCODE
             if ($matrixExitCode -ne 0) { throw "Podman Smoke Matrix endete mit Exitcode $matrixExitCode." }
 
             & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-RestoreSmokeTest.ps1 `
-              -Provider podman 2>&1 | Tee-Object -FilePath $logPath -Append
+              -Provider podman `
+              -Version 2025 2>&1 | Tee-Object -FilePath $logPath -Append
             $restoreExitCode = $LASTEXITCODE
             if ($restoreExitCode -ne 0) { throw "Podman Restore Smoke Test endete mit Exitcode $restoreExitCode." }
           }

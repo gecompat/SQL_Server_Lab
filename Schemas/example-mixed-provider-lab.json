@@ -11,13 +11,13 @@
   "instances": [
     {
       "id": "docker-primary",
-      "version": "2022",
+      "version": "2025",
       "provider": "docker",
       "profile": "compact"
     },
     {
       "id": "podman-secondary",
-      "version": "2022",
+      "version": "2025",
       "provider": "podman",
       "profile": "compact"
     }

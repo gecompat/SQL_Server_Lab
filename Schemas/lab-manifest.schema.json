@@ -192,8 +192,9 @@
         "collation": {
           "type": "string",
           "description": "Default-Collation fuer Instanz und Datenbanken",
-          "default": "SQL_Latin1_General_CP1_CS_AS",
+          "default": "SQL_Latin1_General_CP1_CI_AS",
           "examples": [
+            "SQL_Latin1_General_CP1_CI_AS",
             "SQL_Latin1_General_CP1_CS_AS",
             "Latin1_General_CI_AS",
             "German_PhoneBook_CI_AI"

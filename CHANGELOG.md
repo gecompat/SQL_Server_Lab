@@ -4,6 +4,49 @@ Dieses Changelog dokumentiert Änderungen am öffentlichen Verhalten, an maschin
 
 Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher nach Datum geführt. Neue Einträge werden oben ergänzt.
 
+## 2026-08-12
+
+### Behoben
+
+- die Hyper-V-Storage-Migration ermittelt VHDX-Bindungen jetzt explizit je VM
+  über `Get-VMHardDiskDrive -VMName`; das verhindert einen ungültigen
+  parameterlosen Hyper-V-Aufruf;
+- das Migrationsjournal enthält `CompletedAt` bereits beim Anlegen und kann den
+  erfolgreichen Abschluss dadurch unter Strict Mode zuverlässig persistieren;
+- PSScriptAnalyzer begrenzt seinen Quellscan jetzt segmentbasiert auf den
+  versionierbaren Repositorybestand. Lokale Release-, State-, Cache- und
+  Runtime-Kopien vervielfachen die projektspezifische Baseline dadurch nicht;
+- der native Hyper-V-Smoke übergibt `Confirm` bei Reconcile-Aktionen als
+  booleschen Switchwert; der erhöhte Runner kann den Start-/Stop-Nachweis damit
+  ohne Parameterbindungsfehler ausführen;
+- SQL-2025-Container mit expliziter Custom-Collation, die während der ersten
+  Initialisierung im transienten
+  Loginzustand 18456/115 hängen, werden früh erkannt und genau einmal
+  scopegebunden neu erstellt. Andere Readiness-Fehler bleiben unverändert
+  fail-closed.
+
+### Geändert
+
+- neue Instanzen und Datenbanken verwenden ohne explizite Angabe die native
+  SQL-Containercollation `SQL_Latin1_General_CP1_CI_AS`. Das vermeidet beim
+  SQL-2025-Standardpfad einen unnötigen Umbau der Systemdatenbanken;
+  abweichende Collations wie `SQL_Latin1_General_CP1_CS_AS` bleiben explizit
+  unterstützt;
+- die Runtime-Gates von SQL_Server_Lab verwenden für Docker, Podman, Hyper-V,
+  Mixed Provider, Restore und den synthetischen Adapter einheitlich SQL Server
+  2025. Mehrversions-Abnahmen sind den Partnerprojekten SQL Analyze und
+  Toolbelt zugeordnet;
+- der vollständige statische Prüfeinstieg bindet Cleanup-Audit-, Storage-
+  Migration- und Versionskatalog-Verträge ein;
+- die Versionskatalogprüfung bildet den zusammengeführten Katalogvertrag ab:
+  SQL Server 2019, 2022 und 2025 sind unterstützte Containerlinien, SQL Server
+  2017 bleibt als explizit veralteter, weiterhin auflösbarer Eintrag erhalten;
+- der aktuelle lokale Validierungsstand für Docker und Podman einschließlich
+  paralleler und gemischter Runs, Adapter und Restore ist in
+  den Quality-Dokumenten festgehalten; der erhöhte Hyper-V-Lifecycle ist grün,
+  während die echte SQL-2025-Acceptance wegen der fehlenden Eval-ISO im
+  Media-Root blockiert bleibt.
+
 ## 2026-08-09
 
 ### Hinzugefügt

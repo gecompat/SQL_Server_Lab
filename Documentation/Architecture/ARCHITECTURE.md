@@ -137,7 +137,7 @@ Ein Manifest beschreibt eine Umgebung deklarativ. Der Konsument definiert WAS; d
       "provider": "docker|podman|hyperv (optional)",
       "os": "windows|linux (optional)",
       "profile": "compact|standard|performance (optional)",
-      "collation": "SQL_Latin1_General_CP1_CS_AS (optional)",
+      "collation": "SQL_Latin1_General_CP1_CI_AS (optional; container-native default)",
       "databases": [
         {
           "name": "DatabaseA",
