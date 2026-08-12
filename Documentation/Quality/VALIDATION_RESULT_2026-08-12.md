@@ -2,7 +2,7 @@
 
 | Merkmal | Wert |
 |---|---|
-| Status | `AUTOMATED_CONTAINER_VALIDATION_PASS_HYPERV_NOT_EXECUTED` |
+| Status | `CONTAINER_VALIDATION_PASS_HYPERV_LIFECYCLE_PASS_SQL_MEDIA_BLOCKED` |
 | Ausgangsstand | `origin/main` bei `e98aaf2` plus Konsolidierungsänderungen |
 | PowerShell | 7.6.3 |
 | Umgebung | Windows, Docker 29.6.2, Podman 6.0.2 |
@@ -11,8 +11,10 @@
 
 Der vollständige statische Gate und alle ohne interaktive Freigabe ausführbaren
 Container-Abnahmen sind grün. Docker und Podman wurden jeweils separat sowie in
-einem gemeinsamen Run geprüft. Hyper-V wurde nicht ausgeführt, weil die aktuelle
-PowerShell-Sitzung nicht erhöht ist; ein UAC-Dialog wurde bewusst nicht ausgelöst.
+einem gemeinsamen Run geprüft. Der erhöhte GitHub-Runner hat den nativen
+Hyper-V-Generation-2-Lifecycle bestanden. Die echte SQL-2025-Acceptance konnte
+nach grünem Hyper-V-Preflight nicht starten, weil auf dem Runner die erwartete
+ISO unter `D:\Lab_Base\SQL\2025\Eval\ISO` fehlt.
 
 ## Statische Prüfung
 
@@ -35,22 +37,24 @@ blockierend.
 | Docker-Voraussetzung | `PASS` | Docker 29.6.2 erreichbar |
 | Podman-Voraussetzung | `PASS` | Podman 6.0.2 erreichbar |
 | Docker / SQL Server 2025 | `PASS` | isolierter Lauf 33/33 und abschließender Lifecycle-Gate erfolgreich |
-| Podman / SQL Server 2025 | `PASS` | isolierter und abschließender Lifecycle-Gate erfolgreich |
+| Podman / SQL Server 2025 | `PASS` | nativer Collation-Standard: bereit nach 9,4s; Lifecycle und Cleanup erfolgreich |
 | Docker/Podman parallel | `PASS` | vier parallele Runs mit eindeutigen Ports, State und Cleanup |
-| Mixed Docker/Podman | `PASS` | gemeinsamer Run, Status, Stop/Start und Cleanup erfolgreich |
+| Mixed Docker/Podman | `PASS` | native Collation: bereit nach 9,4s/10,3s; Status, Stop/Start und Cleanup erfolgreich |
 | Project Adapter / Docker / SQL Server 2025 | `PASS` | 10 von 10 Prüfungen erfolgreich; enger State-115-Retry wurde ausgeführt |
 | Restore / Docker / SQL Server 2025 | `PASS` | Hash-Ablehnung, Restore, Datenprüfung und Cleanup erfolgreich; enger State-115-Retry wurde ausgeführt |
-| Restore / Podman / SQL Server 2025 | `PASS` | Hash-Ablehnung, Restore, Datenprüfung und Cleanup erfolgreich; enger State-115-Retry wurde ausgeführt |
+| Restore / Podman / SQL Server 2025 | `PASS` | Hash-Ablehnung, Restore, Datenprüfung und Cleanup mit nativer Collation erfolgreich |
 | Abschließende kompakte Matrix | `PASS` | `PASS=4 FAIL=0 SKIP=1`; Docker und Podman SQL Server 2025 |
-| Hyper-V | `NOT_EXECUTED` | echte Administrator-Sitzung erforderlich |
+| Hyper-V Generation-2-Lifecycle | `PASS` | erhöhter GitHub-Runner; VM/VHDX, Stop/Start, Reconcile und Cleanup |
+| Hyper-V / SQL Server 2025 | `BLOCKED` | Preflight PASS; `HYPERV_SQL_MEDIA_NOT_FOUND` für die erwartete Eval-ISO |
 
-Während der Initialisierung der SQL-2025-Systemdatenbanken trat bei Docker und
-Podman sporadisch der Loginfehler 18456/State 115 auf. Die Diagnose wurde auf
-diesen konkreten Logzustand begrenzt; ausschließlich dafür wird der
-scopeverifizierte Container genau einmal neu erstellt. Dieser Pfad wurde im
-Adapterlauf sowie in beiden Restore-Läufen tatsächlich ausgeführt. Die zweiten
-Versuche und das Cleanup waren erfolgreich; alle anderen Readiness-Fehler
-bleiben hart fehlschlagend.
+Die frühere implizite Custom-Collation `SQL_Latin1_General_CP1_CS_AS` löste in
+SQL Server 2025 einen Systemdatenbankumbau aus. Auf Podman blieb dieser auch
+nach einem scopegebundenen Retry im Loginzustand 18456/State 115. Der
+Produktstandard wurde deshalb auf Microsofts native Containercollation
+`SQL_Latin1_General_CP1_CI_AS` korrigiert und `MSSQL_COLLATION` wird nur noch
+für explizite Abweichungen gesetzt. Podman und Mixed Provider wurden danach
+lokal ohne Retry in rund zehn Sekunden je Instanz bereit. Der enge Einmal-Retry
+für ausdrücklich gewählte Custom-Collations bleibt fail-closed.
 
 ## Cleanup und Bestandsschutz
 
@@ -62,10 +66,10 @@ bleiben hart fehlschlagend.
 
 ## Verbleibende Abgrenzung
 
-Der Containerstand ist lokal freigabefähig. Offen bleibt ausschließlich der
-aktuelle native Hyper-V-Nachweis in einer erhöhten PowerShell-Sitzung. Der
-positive Hyper-V-Lifecycle-Nachweis vom 2026-08-08 bleibt historische Evidenz,
-ersetzt aber keinen neuen hostlokalen Lauf für diesen Änderungssatz.
+Der Containerstand und der aktuelle native Hyper-V-Lifecycle sind
+freigabefähig. Der echte Hyper-V-/SQL-2025-End-to-End-Nachweis bleibt bis zur
+Bereitstellung einer hashverifizierten Eval-ISO im dokumentierten Media-Root
+blockiert; der automatisierte Runner benötigt keine weitere Codeänderung.
 
 Für nachfolgende Änderungen gilt SQL Server 2025 als einzige Runtime-
 Referenzversion dieses Repositories. Die katalogisierten Versionen 2019 und

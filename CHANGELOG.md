@@ -19,13 +19,19 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 - der native Hyper-V-Smoke übergibt `Confirm` bei Reconcile-Aktionen als
   booleschen Switchwert; der erhöhte Runner kann den Start-/Stop-Nachweis damit
   ohne Parameterbindungsfehler ausführen;
-- SQL-2025-Container, die während der ersten Initialisierung im transienten
+- SQL-2025-Container mit expliziter Custom-Collation, die während der ersten
+  Initialisierung im transienten
   Loginzustand 18456/115 hängen, werden früh erkannt und genau einmal
   scopegebunden neu erstellt. Andere Readiness-Fehler bleiben unverändert
   fail-closed.
 
 ### Geändert
 
+- neue Instanzen und Datenbanken verwenden ohne explizite Angabe die native
+  SQL-Containercollation `SQL_Latin1_General_CP1_CI_AS`. Das vermeidet beim
+  SQL-2025-Standardpfad einen unnötigen Umbau der Systemdatenbanken;
+  abweichende Collations wie `SQL_Latin1_General_CP1_CS_AS` bleiben explizit
+  unterstützt;
 - die Runtime-Gates von SQL_Server_Lab verwenden für Docker, Podman, Hyper-V,
   Mixed Provider, Restore und den synthetischen Adapter einheitlich SQL Server
   2025. Mehrversions-Abnahmen sind den Partnerprojekten SQL Analyze und
@@ -37,8 +43,9 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   2017 bleibt als explizit veralteter, weiterhin auflösbarer Eintrag erhalten;
 - der aktuelle lokale Validierungsstand für Docker und Podman einschließlich
   paralleler und gemischter Runs, Adapter und Restore ist in
-  den Quality-Dokumenten festgehalten; Hyper-V bleibt mangels erhöhter Sitzung
-  als `NOT_EXECUTED` ausgewiesen.
+  den Quality-Dokumenten festgehalten; der erhöhte Hyper-V-Lifecycle ist grün,
+  während die echte SQL-2025-Acceptance wegen der fehlenden Eval-ISO im
+  Media-Root blockiert bleibt.
 
 ## 2026-08-09
 

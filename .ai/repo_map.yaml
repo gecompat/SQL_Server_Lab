@@ -457,6 +457,7 @@ validation:
     source: Tests/Integration/Invoke-SmokeMatrix.ps1
     command: '.\Tests\Integration\Invoke-SmokeMatrix.ps1 -Provider all -ReferenceVersion 2025'
     reference_version: "2025"
+    reference_collation: SQL_Latin1_General_CP1_CI_AS
     multi_version_acceptance_owners:
       - SQL_Analyze
       - Toolbelt
@@ -538,7 +539,7 @@ validation:
     source: Documentation/Quality/VALIDATION_RESULT_2026-08-12.md
     docker: "PASS – SQL-2025-Lifecycle, Adapter 10/10 und Restore"
     podman: "PASS – SQL-2025-Lifecycle, Mixed-Provider und Restore"
-    hyperv: "NOT_EXECUTED – aktuelle PowerShell-Sitzung nicht erhöht"
+    hyperv: "PASS – Generation-2-Lifecycle; SQL-2025-Acceptance durch fehlende Eval-ISO im Media-Root blockiert"
 
 change_coupling:
   public_command_change:
