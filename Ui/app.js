@@ -436,7 +436,7 @@ function renderActiveLabs(items) {
         '<button class="button secondary" data-container-operation="ExecuteContainerScript" data-container-operation-kind="container" data-run="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(instance.Id) + '" data-container-operation-host="' + escapeHtml(instance.Host || '127.0.0.1') + '" data-port="' + escapeHtml(instance.Port) + '">SQL-Skript ausführen</button>'
       ].join('') : '';
       const resource = resourceForInstance(item.Resources, instance.Id);
-      return '<div class="container-instance"><div class="build-meta">' + escapeHtml(provider) + ' · SQL Server ' + escapeHtml(instance.SqlVersion || '–') + ' · ' + escapeHtml(connection) + '</div><div class="build-meta">' + escapeHtml(resourceSummary(resource, provider)) + '</div>' + connectionString + persistentStorage + backupStorage + '<div class="build-actions">' + operations + '</div></div>';
+      return '<div class="container-instance"><div class="build-meta">' + escapeHtml(provider) + ' · SQL Server ' + escapeHtml(instance.SqlVersion || '–') + ' · ' + escapeHtml(connection) + ' · Autostart: ' + escapeHtml(instance.AutoStart === 'on' ? 'ein' : 'aus') + '</div><div class="build-meta">' + escapeHtml(resourceSummary(resource, provider)) + '</div>' + connectionString + persistentStorage + backupStorage + '<div class="build-actions">' + operations + '</div></div>';
     }).join('') || '<p class="empty">Keine Instanzen im Run gespeichert.</p>';
     return '<article class="build-card"><div class="build-card-top"><div><div class="build-title">' + escapeHtml(item.Name || shortId(item.RunId)) + '</div><div class="build-meta">' + escapeHtml(item.State) + '</div></div><span class="status ' + statusClass(item.State === 'RUNNING' ? 'TESTS_PASSED' : item.State) + '">' + escapeHtml(item.State) + '</span></div><div class="build-actions">' + lifecycleActions + '</div>' + instances + '<div class="build-meta">Run: ' + escapeHtml(shortId(item.RunId)) + '</div></article>';
   }).join('') : empty('Noch keine Container-Labs vorhanden.');
@@ -1150,7 +1150,7 @@ $('#container-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   if ($('#container-password').value !== $('#container-password-repeat').value) { showError(new Error('Die beiden SA-Passwörter stimmen nicht überein.')); return; }
   const persistentData = $('#container-persistent-data').checked;
-  const parameters = { Provider: $('#container-provider').value, SqlVersion: $('#container-version').value, Profile: $('#container-profile').value, InstanceId: $('#container-instance').value, LabName: $('#container-lab-name').value, PersistentData: persistentData, SaPassword: $('#container-password').value };
+  const parameters = { Provider: $('#container-provider').value, SqlVersion: $('#container-version').value, Profile: $('#container-profile').value, InstanceId: $('#container-instance').value, LabName: $('#container-lab-name').value, PersistentData: persistentData, AutoStart: $('#container-autostart').checked ? 'on' : 'off', SaPassword: $('#container-password').value };
   if (persistentData) parameters.DataRoot = workflow?.Defaults?.DataRoot || '';
   queueBackgroundAction('NewContainerLab', parameters, $('#container-dialog'), () => {
     $('#container-password').value = ''; $('#container-password-repeat').value = ''; $('#container-dialog').close();

@@ -369,6 +369,7 @@ provisioning_flow:
   - "Invoke-LabPortAllocationLock"
   - "Find-LabAvailablePort"
   - "Provider-Container erstellen und Port runtimeautoritativ binden"
+  - "Bei instances[].autostart=on Runtime-Restart-Policy und Hostkoordinator aktivieren"
   - "Wait-SqlReady"
   - "Set-LabServerConfig"
   - "New-SqlServerLabDatabase für Create-Datenbanken"

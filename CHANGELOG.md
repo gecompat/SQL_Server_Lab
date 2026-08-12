@@ -12,6 +12,14 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   Konsole und Workflow-UI. `on` setzt Hyper-Vs `AutomaticStartAction=Start`,
   wird in Run-/Connection-State und Status sichtbar gemacht und startet die VM
   nach einem Hostneustart automatisch; `off` bleibt der kompatible Standard.
+- `instances[].autostart` gilt jetzt providerübergreifend. Docker und Podman
+  setzen `unless-stopped` und ein verwaltetes Label; Windows erhält je Runtime
+  einen Benutzer-Anmeldeauftrag, natives Podman/Linux aktiviert
+  `podman-restart.service` samt systemd-Linger; Docker/Linux prüft seinen
+  bootfähigen Daemon. Der optionale lokale CMS wird immer mit Autostart
+  erstellt. `hyperv.autostart` bleibt als konfliktgeprüfter Alias kompatibel.
+- Die SQL-2025-Smokes für Docker und Podman prüfen Autostart-Label und wirksame
+  Restart-Policy explizit.
 
 ### Behoben
 

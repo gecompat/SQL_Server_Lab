@@ -82,6 +82,7 @@ function New-LabProviderContainer {
                 -NetworkName $Instance.networkName `
                 -Cpu $Instance.runtimeResources.cpu `
                 -MemoryMB $Instance.runtimeResources.memoryMB `
+                -AutoStart $Instance.autostart `
                 -Collation $Instance.collation
         }
         'podman' {
@@ -98,6 +99,7 @@ function New-LabProviderContainer {
                 -NetworkName $Instance.networkName `
                 -Cpu $Instance.runtimeResources.cpu `
                 -MemoryMB $Instance.runtimeResources.memoryMB `
+                -AutoStart $Instance.autostart `
                 -Collation $Instance.collation
         }
         default {
@@ -170,6 +172,11 @@ function New-SqlServerLab {
     .PARAMETER NetworkName
         Optionaler Name des Docker-, Podman- oder Hyper-V-Netzes, an das die
         Ad-hoc-Instanz gebunden wird.
+    .PARAMETER AutoStart
+        `on` startet die verwaltete Ad-hoc-Instanz nach einem Host-Neustart
+        automatisch. Docker und Podman verwenden Restart-Policies sowie bei
+        Desktop-/Machine-Runtimes einen Host-Startkoordinator; Hyper-V verwendet
+        die native AutomaticStartAction. Standard ist `off`.
     .PARAMETER Manifest
         Pfad zu einer vorhandenen JSON-Manifestdatei. Relative lokale Pfade im
         Manifest werden relativ zu deren Verzeichnis aufgeloest. Manifeste
@@ -279,6 +286,7 @@ function New-SqlServerLab {
         [Parameter(ParameterSetName = 'AdHoc')]$ServerConfig,
         [Parameter(ParameterSetName = 'AdHoc')][object[]]$Drives = @(),
         [Parameter(ParameterSetName = 'AdHoc')][string]$NetworkName,
+        [Parameter(ParameterSetName = 'AdHoc')][ValidateSet('on', 'off')][string]$AutoStart = 'off',
 
         [Parameter(ParameterSetName = 'Manifest', Mandatory)]
         [string]$Manifest,
@@ -369,6 +377,7 @@ function New-SqlServerLab {
                     provider      = $Provider
                     os            = 'linux'
                     profile       = $Profile
+                    autostart     = $AutoStart
                     collation     = $Collation
                     databases     = $sampleDatabases
                     drives        = @($Drives)
@@ -497,7 +506,7 @@ function New-SqlServerLab {
         $hyperVDesiredState = New-LabDesiredStateSnapshot -ResolvedLab $resolved -ProvisioningMode manifest -PersistentData ([bool]$PersistentData)
         $hyperVMemoryStartupMB = if ($hyperVSettings -and $hyperVSettings.PSObject.Properties['memoryStartupMB']) { [int]$hyperVSettings.memoryStartupMB } else { 4096 }
         $hyperVProcessorCount = if ($hyperVSettings -and $hyperVSettings.PSObject.Properties['processorCount']) { [int]$hyperVSettings.processorCount } else { 4 }
-        $hyperVAutoStart = if ($hyperVSettings -and $hyperVSettings.PSObject.Properties['autostart']) { [string]$hyperVSettings.autostart } else { 'off' }
+        $hyperVAutoStart = [string]$instance.autostart
         $hyperVSwitchName = if ($hyperVSettings -and $hyperVSettings.PSObject.Properties['switchName']) { [string]$hyperVSettings.switchName } else { $null }
         $lab = New-HyperVLabEnvironment -ArtifactId ([string]$artifact.artifactId) -LabName ([string]$resolved.name) -InstanceId ([string]$instance.id) `
             -MemoryStartupMB $hyperVMemoryStartupMB -ProcessorCount $hyperVProcessorCount -AutoStart $hyperVAutoStart `
@@ -646,6 +655,10 @@ function New-SqlServerLab {
                     -SaPassword $SaPassword `
                     -Port $Port
 
+                if ([string]$instance.autostart -eq 'on') {
+                    $null = Enable-LabContainerHostAutoStart -Provider ([string]$instance.provider)
+                }
+
                 $readiness = Wait-SqlReady `
                     -Port $container.Port `
                     -SaPassword $SaPassword `
@@ -674,6 +687,7 @@ function New-SqlServerLab {
                 Id               = $instance.id
                 Version          = $instance.version
                 Provider         = $instance.provider
+                AutoStart        = [string]$instance.autostart
                 Host             = '127.0.0.1'
                 Port             = $container.Port
                 ContainerId      = $container.ContainerId
@@ -900,6 +914,7 @@ function New-SqlServerLab {
                     port             = $_.Port
                     version          = $_.Version
                     provider         = $_.Provider
+                    autostart        = $_.AutoStart
                     containerId      = $_.ContainerId
                     containerName    = $_.ContainerName
                     connectionString = $_.ConnectionString

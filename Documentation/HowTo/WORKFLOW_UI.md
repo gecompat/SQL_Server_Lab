@@ -46,6 +46,9 @@ ausgeführt werden sollen.
 5. Bei neuen Hyper-V-Labs kann **VM beim Hochfahren des Hyper-V-Hosts
    automatisch starten** aktiviert werden. Die Übersicht zeigt den wirksamen
    Zustand als `Autostart: ein|aus`; ohne Auswahl bleibt er ausgeschaltet.
+6. Neue Docker-/Podman-Labs bieten dieselbe Option. Die Runtime erhält eine
+   Restart-Policy; auf Windows startet der verwaltete Auftrag sie nach der
+   Benutzeranmeldung und fährt nur entsprechend markierte Lab-Container hoch.
 
 Gastpasswörter werden nur für den jeweiligen PowerShell-Direct-Aufruf
 entgegengenommen. Sie werden nicht im Build-State, Browser-Speicher oder

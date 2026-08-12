@@ -62,7 +62,8 @@ jobs:
 
             & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-SmokeMatrix.ps1 `
               -Provider podman `
-              -ReferenceVersion 2025 2>&1 | Tee-Object -FilePath $logPath
+              -ReferenceVersion 2025 `
+              -TestAutoStart 2>&1 | Tee-Object -FilePath $logPath
             $matrixExitCode = $LASTEXITCODE
             if ($matrixExitCode -ne 0) { throw "Podman Smoke Matrix endete mit Exitcode $matrixExitCode." }
 

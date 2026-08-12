@@ -57,9 +57,12 @@ Der Ad-hoc- und Menüpfad bietet Hyper-V noch nicht als allgemeinen SQL-
 Runtimepfad an. `New-SqlServerLab -Manifest` unterstützt hingegen genau eine
 explizit ausgewählte `OS_SEALED` oder `SQL_PREPARED_SEALED`-Vorlage als
 differenzierenden Klon.
-Hyper-V-VMs können dabei per `instances[].hyperv.autostart: "on"` so
-konfiguriert werden, dass Hyper-V sie nach dem Hochfahren des Hosts automatisch
-startet; ohne Angabe bleibt Autostart ausgeschaltet.
+Alle Provider unterstützen `instances[].autostart: "on"`. Hyper-V verwendet
+`AutomaticStartAction=Start`; Docker und Podman erhalten `unless-stopped` sowie
+ein Lab-Label. Unter Windows startet ein benutzergebundener Auftrag nach der
+Anmeldung Docker Desktop beziehungsweise die Podman Machine und anschließend
+nur markierte Lab-Container. Ohne Angabe bleibt Autostart ausgeschaltet;
+`instances[].hyperv.autostart` bleibt als Kompatibilitätsalias lesbar.
 Vollständige deklarative Hyper-V-Drives, Datenbanken und Network Intents bleiben
 bis zu ihrem echten End-to-End-Nachweis begrenzt.
 
@@ -132,13 +135,13 @@ Test-SqlServerLabPrerequisite -Provider podman
 Eine SQL-Server-2025-Umgebung erstellen:
 
 ```powershell
-$lab = New-SqlServerLab -Version '2025' -Provider docker
+$lab = New-SqlServerLab -Version '2025' -Provider docker -AutoStart on
 ```
 
 Mit Podman:
 
 ```powershell
-$lab = New-SqlServerLab -Version '2025' -Provider podman
+$lab = New-SqlServerLab -Version '2025' -Provider podman -AutoStart on
 ```
 
 Interaktive Bedienung:
