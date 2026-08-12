@@ -632,6 +632,11 @@ function Get-LabManifestValidationResult {
         }
         $effectiveProviders.Add($effectiveProvider)
 
+        if ($instance.autostart -and $instance.hyperv -and $instance.hyperv.autostart -and
+            [string]$instance.autostart -ne [string]$instance.hyperv.autostart) {
+            $errors.Add("${instancePath}: autostart und hyperv.autostart widersprechen einander.")
+        }
+
         if ($effectiveProvider -notin @('docker', 'podman', 'hyperv')) {
             $errors.Add("${instancePath}: Provider '$effectiveProvider' ist nicht implementiert.")
         }

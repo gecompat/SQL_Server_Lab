@@ -295,6 +295,7 @@ function Resolve-ManifestDefaults {
             provider      = if ($instance.provider) { $instance.provider } else { 'docker' }
             os            = if ($instance.os) { $instance.os } else { 'linux' }
             profile       = if ($instance.profile) { $instance.profile } else { 'standard' }
+            autostart     = if ($instance.autostart) { [string]$instance.autostart } elseif ($instance.hyperv -and $instance.hyperv.autostart) { [string]$instance.hyperv.autostart } else { 'off' }
             collation     = if ($instance.collation) { $instance.collation } else { 'SQL_Latin1_General_CP1_CI_AS' }
             databases     = @()
             drives        = @()
@@ -432,7 +433,7 @@ function Resolve-ManifestDefaults {
                 switchName        = [string]$instance.hyperv.switchName
                 memoryStartupMB   = if ($instance.hyperv.memoryStartupMB) { [int]$instance.hyperv.memoryStartupMB } else { 4096 }
                 processorCount    = if ($instance.hyperv.processorCount) { [int]$instance.hyperv.processorCount } else { 4 }
-                autostart         = if ($instance.hyperv.autostart) { [string]$instance.hyperv.autostart } else { 'off' }
+                autostart         = [string]$resolved.autostart
                 guestPasswordMode = if ($instance.hyperv.guestPasswordMode) { [string]$instance.hyperv.guestPasswordMode } else { 'generated' }
             }
         }

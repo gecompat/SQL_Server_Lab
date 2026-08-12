@@ -35,6 +35,12 @@ werden. Das SA-Passwort wird einmalig angezeigt und anschließend nur run-lokal 
 geschützt gespeichert. Jede Lifecycle-Aktion der Konsole synchronisiert diesen CMS
 best-effort mit dem aktuellen Katalog.
 
+Der verwaltete CMS wird stets mit `autostart=on` erstellt. Bei Docker/Podman
+greifen Restart-Policy und Hostkoordinator; unter Windows ist er nach der ersten
+Anmeldung des einrichtenden Benutzers verfügbar. So bleibt die zentrale Instanz
+nicht versehentlich wegen einer ausgeschalteten Podman Machine oder eines nicht
+gestarteten Docker Desktop stehen.
+
 Sobald ein CMS eingerichtet ist, führt jede erfolgreiche Konsolen-Lifecycle-Aktion die
 CMS-Synchronisation automatisch aus, einschließlich des Hyper-V-Unterworkflows. `[6]`
 dient nur zum manuellen Nachholen oder zur Diagnose. Schlägt die automatische

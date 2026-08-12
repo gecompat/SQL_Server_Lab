@@ -296,7 +296,8 @@ git pull --ff-only
 Import-Module .\SqlServerLab.psd1 -Force
 ```
 
-Podman-AnwenderInnen starten vor der ersten Lab-Nutzung nach einem Hostneustart:
+Ohne aktivierten Lab-Autostart starten Podman-AnwenderInnen vor der ersten
+Lab-Nutzung nach einem Hostneustart:
 
 ```powershell
 podman machine start podman-machine-default
@@ -304,4 +305,8 @@ podman info
 ```
 
 Docker-AnwenderInnen starten Docker Desktop und prüfen anschließend `docker
-info`.
+info`. Bei `-AutoStart on` beziehungsweise `instances[].autostart: "on"` legt
+SQL Server Lab stattdessen je Runtime einen Auftrag für das aktuelle
+Benutzerkonto an. Er startet die Runtime nach der Windows-Anmeldung und fährt
+nur markierte Lab-Container hoch. Desktop-/Rootless-Runtimes stehen damit erst
+nach der Anmeldung, nicht als systemweiter Dienst vor dem Login, bereit.
