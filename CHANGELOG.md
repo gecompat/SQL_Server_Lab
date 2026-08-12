@@ -4,6 +4,31 @@ Dieses Changelog dokumentiert Änderungen am öffentlichen Verhalten, an maschin
 
 Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher nach Datum geführt. Neue Einträge werden oben ergänzt.
 
+## 2026-08-12
+
+### Behoben
+
+- die Hyper-V-Storage-Migration ermittelt VHDX-Bindungen jetzt explizit je VM
+  über `Get-VMHardDiskDrive -VMName`; das verhindert einen ungültigen
+  parameterlosen Hyper-V-Aufruf;
+- das Migrationsjournal enthält `CompletedAt` bereits beim Anlegen und kann den
+  erfolgreichen Abschluss dadurch unter Strict Mode zuverlässig persistieren;
+- PSScriptAnalyzer begrenzt seinen Quellscan jetzt segmentbasiert auf den
+  versionierbaren Repositorybestand. Lokale Release-, State-, Cache- und
+  Runtime-Kopien vervielfachen die projektspezifische Baseline dadurch nicht.
+
+### Geändert
+
+- der vollständige statische Prüfeinstieg bindet Cleanup-Audit-, Storage-
+  Migration- und Versionskatalog-Verträge ein;
+- die Versionskatalogprüfung bildet den zusammengeführten Katalogvertrag ab:
+  SQL Server 2019, 2022 und 2025 sind unterstützte Containerlinien, SQL Server
+  2017 bleibt als explizit veralteter, weiterhin auflösbarer Eintrag erhalten;
+- der aktuelle lokale Validierungsstand für Docker und Podman über SQL Server
+  2019, 2022 und 2025, parallele und gemischte Runs, Adapter und Restore ist in
+  den Quality-Dokumenten festgehalten; Hyper-V bleibt mangels erhöhter Sitzung
+  als `NOT_EXECUTED` ausgewiesen.
+
 ## 2026-08-09
 
 ### Hinzugefügt

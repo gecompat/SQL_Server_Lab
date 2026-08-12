@@ -30,7 +30,30 @@ End-to-End-Test des gesamten Lab-Lifecycles.
 .\Tests\Integration\Invoke-SmokeTest.ps1 -Provider hyperv
 ```
 
-## Letzter dokumentierter lokaler Nachweis (2026-08-08)
+## Aktueller lokaler Nachweis (2026-08-12)
+
+```text
+Invoke-AllChecks.ps1                              => PASS
+Invoke-SmokeMatrix.ps1 / Docker / SQL 2019-2025   => PASS (*)
+Invoke-SmokeMatrix.ps1 / Podman / SQL 2019-2025   => PASS
+Invoke-SmokeTest.ps1 / Docker / SQL Server 2025   => 33/33 PASS
+Invoke-SmokeTest.ps1 / Podman / SQL Server 2025   => 33/33 PASS
+Invoke-AdapterSmokeTest.ps1 / Docker / SQL 2022   => 10/10 PASS
+Invoke-RestoreSmokeTest.ps1 / Docker / SQL 2022   => PASS
+Invoke-RestoreSmokeTest.ps1 / Podman / SQL 2022   => PASS
+Invoke-MixedProviderSmokeTest.ps1                 => PASS
+Invoke-SmokeMatrix.ps1 -Provider all (Abschluss)  => PASS=4 FAIL=0 SKIP=1
+Invoke-HyperVSmokeTest.ps1                        => NOT_EXECUTED (Sitzung nicht erhöht)
+```
+
+`(*)` Der erste Docker-/SQL-2025-Lauf der vollständigen Matrix hatte einen
+einmaligen Readiness-Fehler. Cleanup, isolierte Wiederholung, parallele Lane und
+abschließende Matrix waren erfolgreich; der Fehler war nicht reproduzierbar.
+
+Der vollständige Befund und die Fehlerabgrenzung stehen im
+[Validierungsbericht vom 2026-08-12](../../Documentation/Quality/VALIDATION_RESULT_2026-08-12.md).
+
+## Vorheriger lokaler Nachweis (2026-08-08)
 
 ```text
 Invoke-SmokeTest.ps1 -Provider docker   => 33/33 PASS, 0 FAIL

@@ -268,6 +268,23 @@ function Write-LabDataMigrationJournal {
     if ($MirrorPath) { Write-LabArtifactJsonAtomic -Path $MirrorPath -InputObject $Journal }
 }
 
+function Get-LabHyperVHardDiskDriveInventory {
+    [CmdletBinding()]
+    param()
+
+    $getVmCommand = Get-Command Get-VM -ErrorAction SilentlyContinue
+    $getDriveCommand = Get-Command Get-VMHardDiskDrive -ErrorAction SilentlyContinue
+    if (-not $getVmCommand -or -not $getDriveCommand) { return @() }
+
+    $drives = [System.Collections.Generic.List[object]]::new()
+    foreach ($vm in @(Get-VM -ErrorAction Stop)) {
+        foreach ($drive in @(Get-VMHardDiskDrive -VMName ([string]$vm.Name) -ErrorAction Stop)) {
+            $drives.Add($drive)
+        }
+    }
+    return @($drives)
+}
+
 function Update-LabMigratedJsonReferences {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$Root, [Parameter(Mandatory)][string]$SourceRoot, [Parameter(Mandatory)][string]$TargetRoot)
@@ -313,14 +330,14 @@ function Invoke-LabDataMigration {
         [PSCustomObject]@{
             ContractVersion='SqlServerLab.StorageMigrationJournal/1.0'; PlanId=[string]$plan.PlanId; PlanSha256=$planHash
             Status='PREPARING'; CreatedAt=Get-LabTimestamp; UpdatedAt=Get-LabTimestamp; CurrentStep='validate'
-            CopiedFiles=@(); ReboundResources=@(); UpdatedReferences=@(); Errors=@()
+            CompletedAt=$null; CopiedFiles=@(); ReboundResources=@(); UpdatedReferences=@(); Errors=@()
         }
     }
     if ([string]$journal.PlanSha256 -ne $planHash) { throw 'LAB_STORAGE_MIGRATION_PLAN_CHANGED' }
 
     try {
-        if ($IsWindows -and (Get-Command Get-VMHardDiskDrive -ErrorAction SilentlyContinue)) {
-            foreach ($drive in @(Get-VMHardDiskDrive -ErrorAction SilentlyContinue | Where-Object {
+        if ($IsWindows) {
+            foreach ($drive in @(Get-LabHyperVHardDiskDriveInventory | Where-Object {
                 if (-not $_.Path) { return $false }
                 $drivePath = [System.IO.Path]::GetFullPath([string]$_.Path)
                 return $drivePath.Equals($sourceRoot, [StringComparison]::OrdinalIgnoreCase) -or $drivePath.StartsWith($sourceRoot + [System.IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)
@@ -369,8 +386,8 @@ function Invoke-LabDataMigration {
 
         $journal.Status = 'REBINDING'; $journal.CurrentStep = 'provider-rebind'
         Write-LabDataMigrationJournal -Path $journalPath -Journal $journal -MirrorPath $targetJournalPath
-        if ($IsWindows -and (Get-Command Get-VMHardDiskDrive -ErrorAction SilentlyContinue)) {
-            foreach ($drive in @(Get-VMHardDiskDrive -ErrorAction SilentlyContinue | Where-Object {
+        if ($IsWindows) {
+            foreach ($drive in @(Get-LabHyperVHardDiskDriveInventory | Where-Object {
                 if (-not $_.Path) { return $false }
                 $drivePath = [System.IO.Path]::GetFullPath([string]$_.Path)
                 return $drivePath.Equals($sourceRoot, [StringComparison]::OrdinalIgnoreCase) -or $drivePath.StartsWith($sourceRoot + [System.IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)

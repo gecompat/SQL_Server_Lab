@@ -3,9 +3,9 @@
 | Merkmal | Wert |
 |---|---|
 | Projekt | `gecompat/SQL_Server_Lab` |
-| Status | `PLANNING_BASELINE_FOR_IMPLEMENTATION` |
-| Stand | 2026-08-08 |
-| Ausgangsstand | `origin/main` = Commit `6411e5f` (`docs: integrate future workflow plan and readiness checks`); keine Commits zwischen `origin/main` und lokalem `HEAD` |
+| Status | `ACTIVE_EXECUTION_BACKLOG` |
+| Stand | 2026-08-12 |
+| Ausgangsstand | Statusabgleich gegen `origin/main` und den lokalen Validierungsbericht vom 2026-08-12; Commit-IDs sind kein Planungsvertrag |
 | Ziel | eine einzige ausführbare Lieferreihenfolge für Core, UI, Adapter, Hyper-V, Datenartefakte, Qualität und spätere Erweiterungen |
 | Runtime-Nachweis | ausschließlich Code, passende Tests, [KNOWN_LIMITATIONS.md](../Quality/KNOWN_LIMITATIONS.md) und datierte Validierungsnachweise |
 
@@ -92,37 +92,37 @@ Für jede Entwicklungswelle gelten folgende Leitplanken:
 | UI | interaktives PowerShell-Menü und lokale Loopback-Browseroberfläche mit Workflow-/Job-API |
 | Qualität | statische Gesamtprüfung, Provider-Smokes, Versions-/Provider-Matrix, Restore-, Mixed-Provider-, Adapter- und Hyper-V-Testpfade |
 
-Am 2026-08-08 wurde für diesen Plan erneut ausgeführt:
+Am 2026-08-12 wurde für diesen Plan erneut ausgeführt:
 
 ```text
 .\Tests\Static\Invoke-AllChecks.ps1
 => ALLE STATISCHEN VERTRAGSPRUEFUNGEN: PASS
 ```
 
-Die datierten Runtime-Ergebnisse stehen separat in
-[VALIDATION_RESULT_2026-08-08.md](../Quality/VALIDATION_RESULT_2026-08-08.md).
-Diese Planung hat keine Container- oder VM-Runtime mutiert.
+Die datierten Runtime-Ergebnisse für Docker, Podman, Mixed Provider, Adapter und
+Restore stehen separat in
+[VALIDATION_RESULT_2026-08-12.md](../Quality/VALIDATION_RESULT_2026-08-12.md).
+Hyper-V blieb mangels erhöhter Sitzung `NOT_EXECUTED`.
 
 ### 3.2 Offene Kernlücken
 
 | Lücke | Wirkung |
 |---|---|
-| Statusquellen sind teilweise zeitlich und fachlich asynchron | Prioritäten und Runtimeaussagen können falsch interpretiert werden |
-| kein gemeinsamer Desired-State-/Actual-State-/Diff-/Plan-Vertrag | Reconcile und konsistente UI-Vorschau können nicht providerneutral wachsen |
+| der Desired-/Actual-/Diff-/Plan-Vertrag deckt bisher nur read-only Planung und START/STOP ab | weitere Reconcile-Klassen benötigen persistente Verträge und Executor |
 | bestehende Hyper-V-Standardwege enthalten noch Factory-/manuelle Übergänge | ein normaler Lablauf ist noch nicht durchgehend Zero-Touch nachgewiesen |
 | kein positiver realer Hyper-V-Cold-Path von generalisierter OS-Basis bis SQL `READY` für die Zielmatrix | Mocks und Lifecycle-Smoke beweisen weder OOBE- noch SQL-End-to-End-Bereitschaft |
 | Hyper-V-Manifestbindung für Datenbanken, Software, Post-Provisioning und Network Intents ist unvollständig | UI-/Manifestparität fehlt trotz gebundener freier Drives weiterhin |
-| Reconcile-Executor und Actual-State-Collector fehlen | vorhandene Labs können noch nicht über einen einheitlichen Änderungsplan verwaltet werden |
+| Reconcile-Executor und Actual-State-Collector sind auf Lifecycle START/STOP begrenzt | Ressourcen- und Konfigurationsänderungen fehlen |
 | zwei reale Adapterpiloten fehlen | der Vertrag ist noch nicht an beiden Primärkonsumenten bewiesen |
 | `LAB_GENERATED`-Erzeugung und -Präferenz sind für Single- und Multi-Output-Container-Samples implementiert; Hyper-V-Export ist offen; Script Bundles mit mehreren festen Datenbankoutputs sind implementiert | VM-basierte Baselines benötigen noch Sonderwege |
-| Fault-/Scenario-Engine und vollständiger Privacy-Scanner fehlen | Release-Härtung und komplexe SQL-Szenarien bleiben unvollständig |
+| Fault-/Scenario-Engine und breite Abbruch-/Recovery-Injektion fehlen | Release-Härtung und komplexe SQL-Szenarien bleiben unvollständig |
 
-### 3.3 In Phase 0 zu reparierende Statusabweichungen
+### 3.3 Fortlaufend zu prüfende Statusabweichungen
 
-Die folgenden Punkte sind Planungsinput und dürfen nicht als bereits behoben
-gelten:
+Der CI/CD-Widerspruch ist bereinigt: `.github/workflows` liefern optionale
+Remote-Validierung und sind keine Produktabhängigkeit. Als offener UX-Punkt
+bleibt:
 
-- „CI/CD ist kein Bestandteil“ und die vorhandenen ergänzenden `.github/workflows` müssen einheitlich als **keine Produktabhängigkeit, aber optionale Remote-Validierung** beschrieben werden.
 - die aktuelle Menüposition „Hyper-V-Umgebungen verwalten“ unter der Image-Verwaltung widerspricht dem langfristigen umgebungszentrierten Zielbild.
 
 ## 4. Verbindliche Produkt- und UX-Entscheidungen
@@ -188,6 +188,21 @@ den doppelten Opt-in im Manifest und im Aufruf. Hyper-V-VHDX und verwaltete
 Container-Volumes gehören dagegen in den normalen Storage-Pfad.
 
 ## 5. Kritischer Lieferpfad
+
+### 5.1 Aktueller Meilensteinstatus
+
+| Meilenstein | Status am 2026-08-12 | Nächster belastbarer Schritt |
+|---|---|---|
+| M0 Statuswahrheit | `validated` | Drift weiter statisch verhindern |
+| M1 Desired State und Planner | `implemented_partial` | Journal/Resume und weitere Änderungsklassen |
+| M2 UI und Container-Reconcile | `implemented_partial` | reale `live`-/`recreate`-Änderungen für Docker und Podman |
+| M3 Adapterpiloten | `planned_external_scope` | je ein Pilot in den beiden Konsumenten-Repositories |
+| M4 Hyper-V OS Cold Path | `implemented_partial` | realer unattended Windows-2025-Cold-Path |
+| M5 Hyper-V SQL und Resolver | `implemented_partial` | realer OS-zu-SQL-Cold-Path und Manifestparität |
+| M6 Reconcile-Breite | `planned` | Hardware-, Netzwerk-, Storage- und SQL-Änderungsklassen |
+| M7 Artifacts und Baselines | `implemented_partial` | Hyper-V-Export/-Nutzung und weitere typisierte Handler |
+| M8 Scenarios und Migration | `planned` | Scenario-Vertrag nach den Adapterpiloten |
+| M9 Release-Härtung | `implemented_partial` | Failure-Injection und öffentliche Version erst nach Provider-/Adapterabnahme |
 
 ```mermaid
 flowchart LR
@@ -260,13 +275,14 @@ Ist-Stand und dieselbe Priorität.
 **Ziel:** Ein providerneutraler, read-only planbarer Änderungsvertrag steht vor
 jeder neuen UI- oder Runtimefunktion.
 
-**Umsetzungsstand 2026-08-08:** Der erste vertikale Vertragskern ist als
+**Umsetzungsstand 2026-08-12:** Der erste vertikale Vertragskern ist als
 `Get-SqlServerLabReconcilePlan` umgesetzt. Er liest bestehende Runs
 abwärtskompatibel, liefert versionierte Desired-/Actual-/Diff-/Action-Objekte,
 plant No-op oder providergebundene Start-/Stop-Vorschläge und blockiert
-`UNKNOWN`, `UNAVAILABLE`, `MISSING` und `PARTIAL` fail-closed. Ein mutierender
-Executor, umfassende Desired-State-Persistenz und weitere Änderungsklassen
-bleiben bewusst in den nachfolgenden CORE-Arbeitspaketen.
+`UNKNOWN`, `UNAVAILABLE`, `MISSING` und `PARTIAL` fail-closed. Der gebundene
+Executor setzt START/STOP kontrolliert um. Umfassende Desired-State-Persistenz,
+Journal/Resume und weitere Änderungsklassen bleiben in den nachfolgenden
+CORE-Arbeitspaketen.
 
 | ID | Arbeitspaket | Ergebnis |
 |---|---|---|
@@ -650,22 +666,18 @@ verbindliches Performance-SLA festgelegt.
 | Dokumentation driftet erneut | M0 erweitert statische Status-/Linkchecks; gekoppelte Dokumente je Task festlegen |
 | lokaler Native-Test ist nicht verfügbar | `NOT_EXECUTED` mit Grund; keine grüne Ersatzbehauptung |
 
-## 12. Empfohlene erste Änderungssätze
+## 12. Empfohlene nächste Änderungssätze
 
 Die folgende Reihenfolge liefert frühe, einzeln prüfbare Ergebnisse:
 
-1. `BASE-002`: Status- und Linkwidersprüche korrigieren.
-2. `BASE-004`: Dokumentationschecks auf Planungs- und Statusquellen erweitern.
-3. `CORE-101`/`CORE-103`: versionierte Desired-/Actual-/Diff- und Änderungsklassen definieren.
-4. `CORE-104`: read-only Action Preview über die bestehende Workflow-API ausgeben.
-5. `CNT-211`: Docker-/Podman-Actual-State ohne Mutation erfassen.
-6. `UX-201`/`UX-202`: neuen umgebungszentrierten Einstieg mit alten Aliaspfaden hinzufügen.
-7. `CNT-212`: erste reale Live-Änderung mit No-op- und Rollback-Test.
-8. `CNT-213`: erste Recreate-Änderung mit persistentem Volume testen.
-9. `ADP-003`: Schulungspilot in getrennt abgestimmtem Konsumenten-Scope.
-10. `ADP-004`: Analyze-Pilot in getrennt abgestimmtem Konsumenten-Scope.
-11. `HV-402`/`HV-403`: Unattend-Generator und sichere Child-Delivery.
-12. `HV-405`/`HV-406`: realer Zero-Touch-OS-Cold-Path bis `OS_READY`.
+1. `CORE-105`/`CORE-106`: Journal, Resume und Recovery für weitere Mutationen härten.
+2. `CNT-212`: erste reale Live-Änderung mit No-op- und Rollback-Test.
+3. `CNT-213`: erste Recreate-Änderung mit persistentem Volume testen.
+4. `ADP-003`: Schulungspilot in getrennt abgestimmtem Konsumenten-Scope.
+5. `ADP-004`: Analyze-Pilot in getrennt abgestimmtem Konsumenten-Scope.
+6. `HV-402`/`HV-403`: Unattend-Generator und sichere Child-Delivery vervollständigen.
+7. `HV-405`/`HV-406`: realer Zero-Touch-OS-Cold-Path bis `OS_READY`.
+8. `DATA-707`: Container-Baselines an Hyper-V-Export und -Nutzung binden.
 
 Erst danach folgen SQL-Cold-Path, Resolver-Optimierung, breite
 Hyper-V-Infrastrukturänderungen und optionale Caches.

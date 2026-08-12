@@ -4,7 +4,7 @@
 |---|---|
 | Status | `BINDING` |
 | Runtime-Status | `CONTAINER_CORE_IMPLEMENTED_HYPERV_SPECIALIZATION_READINESS_ORCHESTRATION` |
-| Stand | 2026-08-03 |
+| Stand | 2026-08-12 |
 | Repository | `gecompat/SQL_Server_Lab` |
 | Maschinenlesbare Landkarte | [`repo_map.yaml`](repo_map.yaml) |
 
@@ -42,11 +42,21 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   inhaltsadressierter Backup-Cache, Quarantäne und Run Lock für URL-Backups;
 - Sample-Backup-Handler für executable `.bak`-Katalogvarianten mit
   Sample-Identität, Idempotenzregel und ONLINE-Verification;
+- sichere `script-bundle`-Installation aus ZIP-Dateien mit root-gebundenem
+  SQL-Entrypoint und mehreren erwarteten Outputs;
+- inhaltsadressierte `LAB_GENERATED`-Baselines für Single- und Multi-Output-
+  Container-Samples einschließlich kompatibler Aufsetzpunktauswahl;
 - Mehrfachauswahl von Testdatenbanken im Ad-hoc-Menü und über
   `New-SqlServerLab -Sample`;
 - gemischter Docker-/Podman-Lifecycle mit getrennten `ProviderSubRuns`;
 - Post-Provision-T-SQL;
 - Start, Stop, Restart, Status, Remove und Clear;
+- read-only Desired/Actual/Diff-Reconcile sowie kontrollierte START-/STOP-
+  Aktionen für bestehende Runs;
+- verwalteter Storage-Vertrag, journalisierte Parent-Migration innerhalb eines
+  Volumes und Cleanup-Audit;
+- gemeinsames Console-UI-Framework für die umgesetzten CUI-001-bis-CUI-011-
+  Flows;
 - statische Vertragsprüfung;
 - Docker- und Podman-Smoke-Testpfad.
 - Hyper-V-Lifecycle-Grundlage mit Generation 2, Secure Boot, verifizierter
@@ -77,13 +87,13 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 - Hyper-V-SubRuns und ein providerübergreifendes Containernetzwerk innerhalb
   eines Runs;
 - vollständige Ausführung aller im Schema vorbereiteten `serverConfig`-Felder;
-- `script-bundle`-Handler, mehrteilige oder nicht freigegebene Archive und
-  Attach-Szenarien;
+- nicht freigegebene Archive und Attach-Szenarien;
 - kontextreiche Manifest-Menüführung mit Navigation und Planvorschau;
-- `LAB_GENERATED`-Baselines und deterministische Wahl des besten kompatiblen Aufsetzpunkts;
+- Hyper-V-Export und -Nutzung von `LAB_GENERATED`-Baselines;
 - providerneutrale Software und External Runtimes einschließlich Python unter
   Linux sowie Derived Container Images;
-- kontrollierte nachträgliche Änderungen über Diff und Reconcile;
+- Reconcile-Aktionen über START/STOP hinaus, insbesondere für Ressourcen- und
+  Konfigurationsänderungen;
 - versionierter Refresh-/Rebuild-Lifecycle für Medien, VHDX und Container-Images;
 - konsumierende Analyze- und Schulungs-Lab-Packages;
 - langfristige Planner-, Package- und Supporting-Component-Architektur.
@@ -100,6 +110,12 @@ Podman
 ```
 
 Beide Provider benötigen getrennte Native-Tests. Ein erfolgreicher Docker-Test ist kein Podman-Nachweis und umgekehrt.
+
+Der lokale Nachweis vom 2026-08-12 bestätigt Docker und Podman für SQL Server
+2019, 2022 und 2025 einschließlich paralleler, gemischter und Restore-Pfade.
+Hyper-V wurde in der nicht erhöhten Sitzung nicht ausgeführt. Die genaue
+Abgrenzung steht in
+`Documentation/Quality/VALIDATION_RESULT_2026-08-12.md`.
 
 Der Provider eines Runs wird in `connection-info.json` gespeichert. Lifecycle und Live-Status müssen diese Bindung verwenden und dürfen nicht zufällig eine andere lokal installierte Runtime auswählen.
 
@@ -247,8 +263,9 @@ Bundle-Installationen, einmalige Vertrauensfreigabe mit dauerhaftem SHA-256,
 portable sanitisierte Locks und `LAB_GENERATED`-Baselines steht in
 `Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md`.
 Mehrfachauswahl, Trust-/Hash-Pfad und gepinnte Einzelskripte sind implementiert;
-Script Bundles, mehrere erwartete Outputs und `LAB_GENERATED`-Baselines bleiben
-offen.
+sichere Script Bundles, mehrere erwartete Outputs und containerbasierte
+`LAB_GENERATED`-Baselines sind ebenfalls implementiert. Attach-Szenarien,
+nicht freigegebene Archive und der Hyper-V-Baseline-Export bleiben offen.
 
 ## 10. State, Secrets und Cleanup
 

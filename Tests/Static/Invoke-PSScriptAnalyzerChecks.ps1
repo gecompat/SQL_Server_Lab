@@ -34,7 +34,16 @@ foreach ($key in @('CustomRulePath', 'ExcludeRules', 'IncludeRules', 'IncludeDef
         $analyzerSettings[$key] = $settings[$key]
     }
 }
-$excludedPathRegex = [System.Text.RegularExpressions.Regex]::new('([\\/]_QuellRepo[\\/]|[\\/]private_Note[\\/]|[\\/]\\.secrets[\\/]|[\\/]Tests[\\/]Integration[\\/])')
+$excludedRootNames = @(
+    '_QuellRepo',
+    'private_Note',
+    '.artifacts',
+    '.cache',
+    '.local',
+    '.runtime',
+    '.secrets',
+    '.state'
+)
 $scriptAnalyzerCommand = Get-Command Invoke-ScriptAnalyzer -ErrorAction SilentlyContinue
 
 if (-not $scriptAnalyzerCommand) {
@@ -48,8 +57,21 @@ Import-Module $scriptAnalyzerCommand.Module.Name -ErrorAction Stop | Out-Null
 
 $sourceFiles = Get-ChildItem -LiteralPath $repoRoot -Recurse -File |
     Where-Object {
-        $_.Extension -in @('.ps1', '.psm1') -and
-        -not $excludedPathRegex.IsMatch($_.FullName)
+        if ($_.Extension -notin @('.ps1', '.psm1')) {
+            return $false
+        }
+
+        $relativePath = [System.IO.Path]::GetRelativePath($repoRoot, $_.FullName)
+        $pathSegments = @($relativePath.Replace('\', '/').Split('/', [System.StringSplitOptions]::RemoveEmptyEntries))
+        if ($pathSegments.Count -eq 0 -or $pathSegments[0] -in $excludedRootNames) {
+            return $false
+        }
+
+        return -not (
+            $pathSegments.Count -gt 1 -and
+            $pathSegments[0] -ieq 'Tests' -and
+            $pathSegments[1] -ieq 'Integration'
+        )
     }
 
 $results = @()
