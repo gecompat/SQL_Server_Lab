@@ -636,7 +636,7 @@ function Set-HyperVLabSqlDeploymentPlan {
         [ValidateRange(1, 64)][int]$ProcessorCount = 4,
         [ValidateRange(0, 1000000)][long]$MaximumDataIops = 0,
         [ValidateRange(0, 1048576)][int]$MemoryStartupMB = 0,
-        [ValidatePattern('^[A-Za-z0-9_]{1,128}$')][string]$Collation = 'SQL_Latin1_General_CP1_CS_AS',
+        [ValidatePattern('^[A-Za-z0-9_]{1,128}$')][string]$Collation = 'SQL_Latin1_General_CP1_CI_AS',
         [ValidateRange(1,65535)][int]$SqlPort = 1433,
         [ValidateSet('host-access','isolated')][string]$NetworkMode = 'host-access',
         $ServerConfig,

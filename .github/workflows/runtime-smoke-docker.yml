@@ -24,7 +24,7 @@ concurrency:
 
 jobs:
   docker-smoke:
-    name: Docker provider, versions and parallel runs
+    name: Docker provider with SQL Server 2025
     runs-on: [self-hosted, SQL_Lab, Docker]
     timeout-minutes: 25
 
@@ -50,7 +50,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           .\Tests\Static\Invoke-AllChecks.ps1
 
-      - name: Docker smoke matrix
+      - name: Docker SQL Server 2025 lifecycle
         run: |
           $ErrorActionPreference = 'Stop'
           $logPath = Join-Path $env:RUNNER_TEMP 'docker-smoke-matrix.log'
@@ -63,13 +63,13 @@ jobs:
 
             & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-SmokeMatrix.ps1 `
               -Provider docker `
-              -FullMatrix `
-              -IncludeParallel 2>&1 | Tee-Object -FilePath $logPath
+              -ReferenceVersion 2025 2>&1 | Tee-Object -FilePath $logPath
             $matrixExitCode = $LASTEXITCODE
             if ($matrixExitCode -ne 0) { throw "Docker Smoke Matrix endete mit Exitcode $matrixExitCode." }
 
             & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-RestoreSmokeTest.ps1 `
-              -Provider docker 2>&1 | Tee-Object -FilePath $logPath -Append
+              -Provider docker `
+              -Version 2025 2>&1 | Tee-Object -FilePath $logPath -Append
             $restoreExitCode = $LASTEXITCODE
             if ($restoreExitCode -ne 0) { throw "Docker Restore Smoke Test endete mit Exitcode $restoreExitCode." }
           }

@@ -54,7 +54,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          ./Tests/Integration/Invoke-AdapterSmokeTest.ps1 -Version 2022 -Provider docker
+          ./Tests/Integration/Invoke-AdapterSmokeTest.ps1 -Version 2025 -Provider docker
 
       - name: Cleanup containers
         if: always()

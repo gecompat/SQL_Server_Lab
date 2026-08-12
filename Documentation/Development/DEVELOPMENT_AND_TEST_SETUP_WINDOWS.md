@@ -125,7 +125,7 @@ Die vollständige Versions- und Parallelmatrix benötigt zusätzliche Zeit,
 Arbeitsspeicher und lokalen Image-Speicher:
 
 ```powershell
-.\Tests\Integration\Invoke-SmokeMatrix.ps1 -Provider docker -FullMatrix -IncludeParallel
+.\Tests\Integration\Invoke-SmokeMatrix.ps1 -Provider docker -ReferenceVersion 2025
 ```
 
 ## 5. Podman-Testumgebung
@@ -165,7 +165,7 @@ Relevante Tests:
 .\Tests\Static\Invoke-AllChecks.ps1
 .\Tests\Integration\Invoke-SmokeTest.ps1 -Provider podman
 .\Tests\Integration\Invoke-RestoreSmokeTest.ps1 -Provider podman
-.\Tests\Integration\Invoke-SmokeMatrix.ps1 -Provider podman -FullMatrix -IncludeParallel
+.\Tests\Integration\Invoke-SmokeMatrix.ps1 -Provider podman -ReferenceVersion 2025
 ```
 
 ## 6. Gemischter Docker-/Podman-Test

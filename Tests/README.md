@@ -127,10 +127,10 @@ SHA-256 und stellt es ueber die gespeicherte Run-/Providerbindung wieder her:
 .\Tests\Integration\Invoke-RestoreSmokeTest.ps1 -Provider podman
 ```
 
-Die Remote-Workflows fuehren den Test nach der jeweiligen vollstaendigen
-Docker- beziehungsweise Podman-Matrix unter demselben hostweiten Mutex aus.
+Die Remote-Workflows fuehren den Test nach dem jeweiligen SQL-2025-Lifecycle
+für Docker beziehungsweise Podman unter demselben hostweiten Mutex aus.
 
-## Provider- und Versionsmatrix
+## Provider-Referenztest
 
 Der bevorzugte übergreifende Test ist:
 
@@ -153,15 +153,10 @@ Provisionierung
 
 Nicht erreichbare Provider werden als `SKIP` ausgewiesen. Ein erreichbarer, aber fehlerhafter Provider führt zu `FAIL` und Exitcode `1`.
 
-### Vollständige Versionsmatrix
-
-```powershell
-.\Tests\Integration\Invoke-SmokeMatrix.ps1 `
-    -Provider all `
-    -FullMatrix
-```
-
-Dabei werden die SQL-Server-Versionen 2019, 2022 und 2025 pro erreichbarem Provider provisioniert, gegen die tatsächliche Major-Version geprüft und wieder entfernt. Die Referenzversion erhält zusätzlich den vollständigen Lifecycle-Test.
+SQL_Server_Lab prüft im eigenen Runtime-Gate genau die Referenzversion SQL
+Server 2025. Der Katalog bleibt versionsoffen, aber reale Kompatibilitätsläufe
+für 2019 und 2022 gehören in die Partnerprojekte SQL Analyze und Toolbelt, in
+denen die versionsabhängigen Workflows tatsächlich verwendet werden.
 
 ### Parallelitätsprüfung
 
@@ -171,12 +166,11 @@ Dabei werden die SQL-Server-Versionen 2019, 2022 und 2025 pro erreichbarem Provi
     -IncludeParallel
 ```
 
-Der Paralleltest prüft gleichzeitig laufende Labs je verfügbarem Provider. Aktuell werden bis zu vier Szenarien verwendet:
+Der Paralleltest prüft gleichzeitig laufende Labs je verfügbarem Provider.
+Aktuell werden bis zu vier SQL-Server-2025-Szenarien verwendet:
 
-- Docker / SQL Server 2022;
-- Docker / SQL Server 2025;
-- Podman / SQL Server 2022;
-- Podman / SQL Server 2025.
+- zweimal Docker / SQL Server 2025;
+- zweimal Podman / SQL Server 2025.
 
 Geprüft werden:
 
@@ -187,12 +181,11 @@ Geprüft werden:
 - Fortbestand der übrigen Runs;
 - vollständiger abschließender Cleanup.
 
-### Vollständige lokale Abnahme
+### Erweiterte lokale Parallelitätsabnahme
 
 ```powershell
 .\Tests\Integration\Invoke-SmokeMatrix.ps1 `
     -Provider all `
-    -FullMatrix `
     -IncludeParallel
 ```
 

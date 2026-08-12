@@ -15,6 +15,13 @@ Write-Host ''; Write-Host 'SQL_Server_Lab - Storage Migration Checks' -Foregroun
 
 try {
     $module = Import-Module $modulePath -Force -PassThru -ErrorAction Stop
+    & $module {
+        Set-Item -Path Function:script:Get-LabHyperVHardDiskDriveInventory -Value { return @() }
+    }
+    $storageContractText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private\StorageContract.ps1') -Raw -Encoding utf8
+    Add-CheckResult -Name 'Hyper-V-Diskinventur übergibt den verpflichtenden VM-Namen' -Success (
+        $storageContractText -match 'Get-VMHardDiskDrive\s+-VMName\s+'
+    )
     $setup = & $module {
         param($source)
         $marker = Initialize-LabManagedDataRoot -DataRoot $source -Confirm:$false
