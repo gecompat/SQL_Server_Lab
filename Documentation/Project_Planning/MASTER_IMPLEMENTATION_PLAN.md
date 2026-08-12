@@ -4,12 +4,13 @@
 |---|---|
 | Projekt | `SQL_Server_Lab` |
 | Status | `PLANNING_BASELINE_WITH_STATUS_TRACKING` |
-| Stand | 2026-08-08 |
+| Stand | 2026-08-12 |
 | Umsetzungsstand | Abschnitt 17a; Runtime-Nachweis ausschließlich über `Documentation/Quality/KNOWN_LIMITATIONS.md` |
 | Zielversion der Verträge | `0.1-draft` |
 | Primärsprache | Deutsch; etablierte englische Fachbegriffe bleiben erhalten |
 | CI/CD | keine Produktabhängigkeit; optionale Workflows dienen nur der ergänzenden Validierung |
-| Quellprojekte | `gecompat/SQL_Server_Analyze`, `gecompat/SQL_PerformanceSchulung` |
+| Historische Quellprojekte | `gecompat/SQL_Server_Analyze`, `gecompat/SQL_PerformanceSchulung` |
+| Aktuelle Konsumenten | `gecompat/SQL_PerformanceSchulung`, `gecompat/SQL_Server_Analyze`, `gecompat/SQL_Server_Toolbelt` |
 
 ## 1. Architekturentscheidung
 
@@ -22,6 +23,11 @@ Damit werden drei heute getrennte Anforderungen unter einer gemeinsamen Architek
 3. **Custom Lab:** über Menü oder Manifest eine frei konfigurierbare synthetische Labortopologie aufbauen.
 
 Die bestehende Funktionalität in `SQL_Server_Analyze/QuickStart`, `SQL_Server_Analyze/Lab/QuickTest` und `SQL_PerformanceSchulung/Infrastructure` wird nicht unkontrolliert kopiert. Sie wird inventarisiert, fachlich zusammengeführt, über gemeinsame Verträge neu geordnet und erst nach Abnahme schrittweise aus den Quellprojekten abgelöst.
+
+Diese Herkunft bleibt als Migrationsnachweis erhalten. Aktuell greifen drei
+Konsumenten auf das Lab zu: `SQL_PerformanceSchulung` zur Konstruktion von
+Beispielen sowie `SQL_Server_Analyze` und `SQL_Server_Toolbelt` für
+versionsabhängige Entwicklungs- und Abnahmetests.
 
 ## 2. Problemstellung
 
@@ -53,7 +59,10 @@ Die Zielarchitektur kombiniert daher:
 
 `SQL_Server_Lab` soll:
 
-- SQL Server 2019, 2022 und 2025 einzeln oder in definierten Kombinationen bereitstellen;
+- SQL Server 2019, 2022 und 2025 katalogbasiert auf Windows und Linux
+  bereitstellen; der Core wird je Provider nur mit SQL Server 2025 validiert,
+  die reale OS-/Versionsmatrix gehört `SQL_Server_Analyze` und
+  `SQL_Server_Toolbelt`;
 - Docker und Podman über denselben Container-Core unterstützen;
 - Hyper-V mit Windows- und Linux-Gästen unterstützen;
 - eine verteilte Ausführung über getrennte Windows- und Linux-Hosts ermöglichen, ohne sie für den Standardbetrieb vorauszusetzen;
@@ -605,6 +614,31 @@ Der bestehende Demo-Vertrag bleibt maßgeblich für:
 
 Allgemeine Provider- und Provisionierungslogik wird aus `Infrastructure/` herausgelöst. `Infrastructure/` kann als Adapter-, Beispiel- oder Übergangsbereich bestehen bleiben, aber nicht als zweite Labplattform.
 
+Der Standardpfad für die Beispielkonstruktion verwendet die aktuelle
+SQL-Version auf Linux. Windows oder eine andere katalogisierte SQL-Version
+werden nur angefordert, wenn die jeweilige Beispielkonstellation dies benötigt.
+
+## 15a. Integration mit `SQL_Server_Toolbelt`
+
+### 15a.1 Erhaltene fachliche Verantwortung
+
+Das Toolbelt verantwortet:
+
+- Modul-ID, Version und Abhängigkeiten;
+- T-SQL-Installations-, Update- und Uninstall-Inhalte;
+- lokale oder zentrale Bereitstellung;
+- fachliche Validierung der bereitgestellten Objekte;
+- Entwicklungs- und Abnahmetests auf Windows und Linux mit SQL Server 2019,
+  2022 und 2025;
+- Cleanup und fachliche Traceability.
+
+### 15a.2 Zielzustand im Partnerrepository
+
+`SQL_Server_Toolbelt` enthält weiterhin die wiederverwendbaren T-SQL-Module,
+ihre Metadaten, Installations- und Validierungsskripte, die physische
+OS-/Versions-Evidenz sowie einen schlanken Project Adapter. Provider-, Host-,
+Lifecycle- und Provisionierungslogik wird nicht in das Toolbelt kopiert.
+
 ## 16. Vorgesehene Repositorystruktur
 
 ```text
@@ -729,7 +763,8 @@ Arbeitspakete:
 
 - portabler Compose-Core;
 - Docker- und Podman-Overrides;
-- SQL Server 2019/2022/2025;
+- katalogbasierte Bereitstellung von SQL Server 2019/2022/2025; die
+  Core-Runtime-Abnahme verwendet SQL Server 2025;
 - Menüführung und nicht interaktive Parameter;
 - Ressourcenprofile und sequenzieller Start;
 - lokale Volumes beziehungsweise Bind-Mounts je Capability;
@@ -816,7 +851,9 @@ Abnahme:
 
 ### Welle 6 – Adapter `SQL_PerformanceSchulung`
 
-**Ziel:** Demos nutzen das Lab, ohne ihren fachlichen Demo-Vertrag zu verlieren.
+**Ziel:** Die Konstruktion von Beispielen nutzt das Lab, ohne den fachlichen
+Demo-Vertrag zu verlieren. Standard ist die aktuelle SQL-Version auf Linux;
+Windows oder andere Katalogversionen sind szenariobezogene Ausnahmen.
 
 Arbeitspakete:
 
@@ -846,7 +883,7 @@ Arbeitspakete:
 - Analyzer-Observation-Entrypoints;
 - Mapping bestehender LAB-001-Szenarien;
 - Finding- und Statusassertionen;
-- Versionsmatrix 2019/2022/2025;
+- Entwicklungs- und Abnahmematrix Windows/Linux mit SQL Server 2019/2022/2025;
 - Blocking-, Wait-, TempDB-, I/O-, Query-Store-, XE- und Infrastruktur-Piloten;
 - Compatibility Wrapper für `QuickStart` und `Lab/QuickTest`.
 
@@ -856,6 +893,28 @@ Abnahme:
 - Frameworkupdate verändert die Topologie nicht;
 - Analyzer-Evidenz bleibt fachlich im Analyze-Repository;
 - generische Lifecycle-Logik ist nicht mehr dupliziert.
+
+### Welle 7a – Adapter `SQL_Server_Toolbelt`
+
+**Ziel:** Versionsabhängige Toolbelt-Entwicklung und -Abnahme nutzt den
+gemeinsamen Lab-Core.
+
+Arbeitspakete:
+
+- Project Adapter und Modul-zu-Package-Katalog;
+- Install-, Update-, Uninstall- und Validate-Entrypoints;
+- Abhängigkeits- und Idempotenzvertrag;
+- lokale und zentrale Bereitstellungsart;
+- Entwicklungs- und Abnahmematrix Windows/Linux mit SQL Server 2019/2022/2025;
+- strukturierte Objekt-, Versions- und Cleanup-Evidenz.
+
+Abnahme:
+
+- mindestens ein Modul durchläuft Install, Validate, Update und Uninstall;
+- wiederholte Installation ist idempotent oder liefert einen definierten
+  Statuscode;
+- Toolbelt-Evidenz bleibt fachlich im Toolbelt-Repository;
+- Provider-Logik wird nicht in Modulskripte kopiert.
 
 ### Welle 8 – Ablösung und Repositorybereinigung
 
@@ -918,11 +977,12 @@ Jedes Dokument führt seine eigene Wellenzählung.
 | Welle 1 – Verträge und CLI-Skelett | teilweise, mit bewusster Abweichung | Statt getrennter Run-Request-/Scenario-/Topology-Schemas existiert `Schemas/lab-manifest.schema.json` mit Wizard und Fachvalidierung; Preflight ist `Test-SqlServerLabPrerequisite`; der Adaptervertrag ist als `Schemas/project-adapter.schema.json` (`0.1-draft`) implementiert. Scenario- und Capability-Schemas sind offen |
 | Welle 2 – Container Quick Environment | umgesetzt | Docker und Podman über direkte Provider-Adapter (kein Compose-Core), Menü und nicht interaktive Parameter, Profile, Health-/SQL-/Versionsprüfung, Lifecycle, scope-gebundener Cleanup; zusätzlich implementiert: gemischter Docker-/Podman-Run, Sample-Backup-Handler mit Trust Store und inhaltsadressiertem Cache |
 | Welle 3 – Migration des Analyze-QuickTest-Lifecycle | teilweise | Übergangszustände vor Mutation, Recovery-Status, Run-ID-/Scope-Validierung und lokale Secret-Verwaltung sind im Core vorhanden; Reset-Vertrag, Apply-Adapter und Compatibility Wrapper für `SQL_Server_Analyze` sind offen |
-| Welle 4 – Hyper-V Provider | begonnen | Immutable Image-Registry, Baseline-Auswahl, Generation-2-/Secure-Boot-/Parent-Child-VHDX-Lifecycle, Gast-Drives, Windows-Specialization, SQL-`CompleteImage` im engen Prepared-Image-Klonpfad und interne SQL-Readiness-Orchestrierung implementiert; vollautomatische OS-Factory, breites Netzwerk-/Manifest-Binding und echter Windows-/SQL-Gastnachweis offen |
+| Welle 4 – Hyper-V Provider | teilweise; nativer Lifecycle validiert | Immutable Image-Registry, Baseline-Auswahl, Generation-2-/Secure-Boot-/Parent-Child-VHDX-Lifecycle, Gast-Drives, Windows-Specialization, SQL-`CompleteImage` im engen Prepared-Image-Klonpfad und interne SQL-Readiness-Orchestrierung implementiert; VM-/VHDX-/Start-/Stop-/Reconcile-/Cleanup-Lifecycle ist auf einem erhöhten Runner grün. Vollautomatische OS-Factory, breites Netzwerk-/Manifest-Binding und echter Windows-/SQL-2025-Gastnachweis sind offen |
 | Welle 5 – Scenario Engine und Fault Injection | nicht begonnen | |
 | Welle 6 – Adapter `SQL_PerformanceSchulung` | begonnen | Adaptervertrag, Resolver, `Test-/Install-SqlServerLabAdapter` und synthetischer Beispieladapter sind implementiert (`ADP-001`/`ADP-002`/`ADP-005`); der Pilot im Schulungsrepository ist offen, siehe [Project-Adapter-Priorisierung](PROJECT_ADAPTER_PRIORITIZATION.md) |
 | Welle 7 – Adapter `SQL_Server_Analyze` | begonnen | gleiche Adapterbasis; der Pilot im Analyze-Repository ist offen |
-| Welle 8 – Ablösung und Repositorybereinigung | nicht begonnen | setzt Wellen 6 und 7 voraus |
+| Welle 7a – Adapter `SQL_Server_Toolbelt` | begonnen | gleiche Adapterbasis; der Modul-Lifecycle-Pilot im Toolbelt-Repository ist offen |
+| Welle 8 – Ablösung und Repositorybereinigung | nicht begonnen | setzt Wellen 6, 7 und 7a voraus |
 | Welle 9 – Release-Härtung ohne CI/CD | teilweise | vollständiger statischer Gate einschließlich PSScriptAnalyzer, lokale Validierungsstrategie, Privacy-Scanner, Pester und Releaseartefakt-Check sind integriert; OpenPoints verbleiben bei breiter Failure-Injection und `QUAL-906` |
 
 **Strukturabweichung:** Die Zielstruktur aus Abschnitt 16 (`Contracts/`,
@@ -936,11 +996,14 @@ entstehen weiterhin erst mit dem ersten kanonischen Artefakt.
 
 ### P0
 
-1. Docker Quick Environment mit SQL Server 2022;
-2. Docker-, Podman- und Hyper-V-Referenznachweis mit SQL Server 2025; die
+1. Docker-, Podman- und Hyper-V-Referenznachweis mit SQL Server 2025; die
    Mehrversionsmatrix liegt bei SQL Analyze und Toolbelt;
-3. Analyze-Frameworkinstallation über Adapter;
-4. Performance-Schulungsdemo mit einer Instanz und deterministischer Testdatenbank;
+2. Performance-Schulungsbeispiel über Adapter auf der aktuellen Linux-
+   Referenzumgebung;
+3. Analyze-Frameworkinstallation über Adapter und partnerseitige
+   Windows-/Linux-Matrix 2019/2022/2025;
+4. Toolbelt-Modul-Lifecycle über Adapter und partnerseitige Windows-/Linux-
+   Matrix 2019/2022/2025;
 5. temporärer Scope mit vollständigem Reset und Destroy;
 6. Netzwerk-Latenzprofil auf einer kontrollierten Linux-Lane;
 7. I/O-Limit auf einem dedizierten Lab-Blockgerät oder VHDX.
@@ -973,7 +1036,7 @@ entstehen weiterhin erst mit dem ersten kanonischen Artefakt.
 | versehentliche Fremdressourcenlöschung | Run-ID, Marker, tatsächliche Objekt-IDs, Pfadgrenzen, `-WhatIf`, Bestätigung |
 | Secret-Leak | Secret Provider, ignorierte lokale Pfade, redigierte Konsolenausgabe, keine Werte in Manifesten |
 | Repositorydaten aus realen Umgebungen | verbindlicher Privacy-Vertrag und lokale Evidenztrennung |
-| zu frühe Vertragsfestschreibung | `0.x`-Draftphase; `1.0` erst nach zwei produktiven Adaptern |
+| zu frühe Vertragsfestschreibung | `0.x`-Draftphase; `1.0` erst nach drei produktiven Adaptern |
 | Quellprojekte verlieren Funktionen | inventarisierte Migration, Wrapper und Abnahme vor Entfernung |
 | CI/CD wächst wieder in das Produktrepo | lokale Tests und explizite Grenze zu einem möglichen separaten Validator |
 | Lizenzkonflikte bei Medien und Images | keine Weitergabe; lokale Media Locks; Betreiberverantwortung dokumentieren |
@@ -997,7 +1060,8 @@ Das Vorhaben gilt als funktional abgeschlossen, wenn:
 2. Quick-, Scenario- und Custom-Modus denselben Core verwenden;
 3. SQL Server 2025 als Core-Referenz validiert wird und weitere katalogisierte
    Versionen über die Partnerprojekte SQL Analyze und Toolbelt abgenommen werden;
-4. Project Adapter für `SQL_Server_Analyze` und `SQL_PerformanceSchulung` produktiv nutzbar sind;
+4. Project Adapter für `SQL_PerformanceSchulung`, `SQL_Server_Analyze` und
+   `SQL_Server_Toolbelt` produktiv nutzbar sind;
 5. die doppelten generischen Labimplementierungen in den Quellrepositories kontrolliert abgelöst wurden;
 6. Netzwerk-, I/O-, CPU- und Memory-Konstellationen capability- und scope-gebunden verfügbar sind;
 7. alle mutierten Ressourcen exakt registriert und sicher bereinigt werden;
@@ -1009,21 +1073,21 @@ Das Vorhaben gilt als funktional abgeschlossen, wenn:
 
 ## 22. Nächster sinnvoller Verarbeitungsschritt
 
-Der Container-Core (Welle 2) ist umgesetzt; der Sample-Backup-Handler mit
-Trust-Pfad und Mehrfachauswahl ist implementiert (Sample-Welle 3 des
-Sample-Zielvertrags). Die nächsten Schritte sind:
+Der Container-Core (Welle 2), der Sample-Backup-Handler und die native
+Hyper-V-Generation-2-Lifecycle-Grundlage sind umgesetzt. Die nächsten Schritte
+sind:
 
 1. Die vorhandene `LAB_GENERATED`-Erzeugung und -Präferenz für verifizierte
    Single- und Multi-Output-Container-Samples an den Hyper-V-Export binden;
-2. **Project Adapter priorisieren:** Adaptervertrag als versioniertes
-   JSON-Schema festschreiben und die Wellen 6 und 7 mit je einer Pilotdemo
-   beginnen. Details und Reihenfolge stehen in
+2. die Wellen 6, 7 und 7a mit je einem Partnerpiloten beginnen:
+   Schulungs-Beispielkonstruktion, Analyze-Frameworkinstallation und
+   Toolbelt-Modul-Lifecycle. Details und Reihenfolge stehen in
    [Project-Adapter-Priorisierung](PROJECT_ADAPTER_PRIORITIZATION.md);
-3. Hyper-V (Welle 4) folgt nach den Adaptern; vorbereitend werden nur die
-   providerneutralen Drive-, Network-, Software- und Reconcile-Verträge
-   geschärft.
+3. den vorhandenen Hyper-V-Pfad mit hashverifizierten Medien bis zum echten
+   Windows-/SQL-2025-Gastnachweis führen und parallel den Zero-Touch-Cold-Path
+   vervollständigen.
 
-Vor der Übernahme ausführbarer Dateien aus den Quellrepositories wird das
+Vor der Übernahme ausführbarer Dateien aus den Partnerrepositories wird das
 Migrationsinventar pro Datei vervollständigt und jede Funktion als `MIGRATE`,
 `REIMPLEMENT`, `KEEP_PROJECT_SPECIFIC`, `WRAP_TEMPORARILY` oder
 `RETIRE_AFTER_ACCEPTANCE` klassifiziert.

@@ -24,8 +24,16 @@ Das Repository dient insbesondere als gemeinsame Ausführungsbasis für:
 
 - [`gecompat/SQL_Server_Analyze`](https://github.com/gecompat/SQL_Server_Analyze)
 - [`gecompat/SQL_PerformanceSchulung`](https://github.com/gecompat/SQL_PerformanceSchulung)
+- [`gecompat/SQL_Server_Toolbelt`](https://github.com/gecompat/SQL_Server_Toolbelt)
 
-Fachliche Testszenarien bleiben in den konsumierenden Projekten. `SQL_Server_Lab` stellt dafür die benötigte Umgebung bereit.
+`SQL_PerformanceSchulung` verwendet überwiegend eine aktuelle Linux-Umgebung
+zur Konstruktion von Beispielen und kann für besondere Konstellationen Windows
+oder eine andere katalogisierte SQL-Version anfordern. `SQL_Server_Analyze` und
+`SQL_Server_Toolbelt` verwenden Windows- und Linux-Umgebungen mit SQL Server
+2019, 2022 und 2025 für versionsabhängige Entwicklungs- und Abnahmetests. Die
+fachlichen Inhalte und Nachweise bleiben in den konsumierenden Projekten;
+`SQL_Server_Lab` stellt den generischen Umgebungs- und Lifecyclepfad bereit und
+testet seinen Core je Provider nur mit SQL Server 2025.
 
 ## Aktueller Status
 

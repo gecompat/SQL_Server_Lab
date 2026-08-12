@@ -332,8 +332,8 @@ Entrypoints mit `..` oder absoluten Pfaden ab, der Resolver erzwingt zusätzlich
 Containment im Adapter-Root und lehnt Reparse Points ab.
 
 Als Capabilities werden derzeit nur `sqlcmd` und `container-linux` geprüft.
-Die produktiven Adapter für `SQL_Server_Analyze` und `SQL_PerformanceSchulung`
-sind noch nicht umgesetzt; die Reihenfolge steht in der
+Die produktiven Adapter für `SQL_PerformanceSchulung`, `SQL_Server_Analyze` und
+`SQL_Server_Toolbelt` sind noch nicht umgesetzt; die Reihenfolge steht in der
 [Project-Adapter-Priorisierung](../Project_Planning/PROJECT_ADAPTER_PRIORITIZATION.md).
 
 ## SQL Server Builds und CUs
@@ -371,5 +371,7 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
 1. `LAB_GENERATED`-Erzeugung und Auswahl an den Hyper-V-Export binden (Sample-Welle 5/6).
 2. Die implementierten providerneutralen Network- und Software-Intents an Hyper-V-LAN/NAT/IPAM und Software-Runtime binden.
 3. Artifact Registry, Refresh/Rebuild und Evaluierungsablauf implementieren.
-4. Hyper-V anschließend in den dokumentierten, getrennt testbaren Wellen implementieren.
+4. Den bereits validierten nativen Hyper-V-Lifecycle in getrennten Wellen bis
+   zum realen Windows-/SQL-2025-Cold-Path und zur vollständigen Manifestbindung
+   ausbauen.
 5. Katalogaktualität, verifizierte Prüfsummen (`catalog-verified`) und Baseline-Kompatibilität kontrolliert pflegen.
