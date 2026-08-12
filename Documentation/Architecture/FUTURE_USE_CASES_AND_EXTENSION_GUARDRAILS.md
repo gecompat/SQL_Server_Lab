@@ -422,7 +422,7 @@ Lieferreihenfolge steht im
 
 | Test | Naechster Schritt |
 |---|---|
-| Test C – Hyper-V SQL Server | Provider implementieren |
+| Test C – Hyper-V SQL Server | vorhandenen Lifecycle bis zum realen SQL-2025-Gastnachweis führen |
 | Test E – Analyze Szenario | Adapter zu SQL_Server_Analyze |
 | Test F – Domain Controller | Hyper-V-Prerequisite |
 | Test G – SQL-Integration | PolyBase oder Linked Server Demo |
@@ -431,8 +431,9 @@ Lieferreihenfolge steht im
 
 | Prio | Feature | Abhaengigkeit |
 |---|---|---|
-| 1 | Hyper-V Provider | Windows Admin-Rechte + Hyper-V Feature |
+| 1 | Hyper-V-SQL-Cold-Path | Windows Admin-Rechte, Hyper-V Feature und hashverifizierte Medien |
 | 2 | Multi-Instanz (2+ Container) | Container-Networking |
 | 3 | Performance-Schulungspaket | Adapter zu SQL_PerformanceSchulung |
 | 4 | Analyze-Integrationspaket | Adapter zu SQL_Server_Analyze |
-| 5 | Public Sample Catalog | AdventureWorks, WideWorldImporters, etc. |
+| 5 | Toolbelt-Modulpaket | Adapter zu SQL_Server_Toolbelt |
+| 6 | Public Sample Catalog | AdventureWorks, WideWorldImporters, etc. |
