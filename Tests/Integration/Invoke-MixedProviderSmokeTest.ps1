@@ -8,7 +8,7 @@
     Der Test verwendet ausschliesslich einen temporaeren StateRoot und ein zur
     Laufzeit erzeugtes synthetisches SA-Passwort.
 .PARAMETER Version
-    SQL-Server-Version fuer beide Testinstanzen. Default: 2022.
+    SQL-Server-Version fuer beide Testinstanzen. Default: 2025.
 .PARAMETER KeepOnFailure
     Behaelt den temporaeren StateRoot und die Labressourcen bei einem Fehler.
 .EXAMPLE
@@ -19,7 +19,7 @@ param(
     [Alias('h','help','?')][switch]$ShowHelp,
     [Parameter(ValueFromRemainingArguments = $true)]
     [string[]]$RemainingArgs,
-    [string]$Version = '2022',
+    [string]$Version = '2025',
     [switch]$KeepOnFailure
 )
 

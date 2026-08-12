@@ -16,7 +16,7 @@ param(
     [Alias('h','help','?')][switch]$ShowHelp,
     [Parameter(ValueFromRemainingArguments = $true)]
     [string[]]$RemainingArgs,
-    [string]$Version = '2022',
+    [string]$Version = '2025',
     [string]$Provider = 'docker'
 )
 

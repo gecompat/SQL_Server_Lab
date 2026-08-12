@@ -15,7 +15,7 @@ Die lokale Validierung besteht aktuell aus drei produktiven Ebenen:
 
 1. statische Vertrags- und Dokumentationsprüfung ohne Labmutation;
 2. mutierender End-to-End-Smoke-Test für einen ausgewählten Laufzeitprovider (oder Auto-Auswahl);
-3. Übergreifende Matrixtests (`Invoke-SmokeMatrix`) über erreichbare Provider inkl. Referenzversionen und optionaler Vollmatrix.
+3. Übergreifender Referenztest (`Invoke-SmokeMatrix`) über erreichbare Provider mit SQL Server 2025 und optionaler Parallelitätsprüfung.
 
 Es gibt weiterhin Restlücken (z. B. Hyper-V-Postcondition- und SQL-Readiness auf echter Host-VM), aber Versions-/Provider-Matrix, Restore-Smoke und Hyper-V-Grundlage sind als lokale Pfade dokumentiert und getestet.
 
@@ -179,12 +179,12 @@ Der Smoke-Test kann eine Version oder einen katalogisierten CU-Kurzbezeichner er
 .\Tests\Integration\Invoke-SmokeTest.ps1 -Provider docker -Version '2022-CU16'
 ```
 
-`Invoke-SmokeMatrix.ps1` ist der übergeordnete Matrixeinstieg. Ohne
-`-FullMatrix` prüft er pro erreichbarem Provider die Referenzversion; mit
-`-Provider all -FullMatrix` prüft er die vollständige lokal erreichbare
-Versions-/Provider-Matrix. Die einzelnen Nachweise bleiben getrennt zu
-dokumentieren, wenn ein Provider nicht verfügbar ist oder ein gezielter
-Versions-/CU-Lauf beauftragt wurde.
+`Invoke-SmokeMatrix.ps1` ist der übergeordnete Provider-Testeinstieg und prüft
+pro erreichbarem Provider SQL Server 2025. `-IncludeParallel` verwendet
+ebenfalls ausschließlich diese Referenzversion. Die reale Mehrversions-
+Kompatibilität für 2019/2022/2025 wird in SQL Analyze und Toolbelt geprüft,
+weil dort die versionsabhängigen Partnerworkflows liegen. Einzelne Nachweise
+bleiben getrennt zu dokumentieren, wenn ein Provider nicht verfügbar ist.
 
 Ein Katalogeintrag oder vorhandener Testparameter beweist nicht, dass ein Image weiterhin verfügbar oder der Katalog aktuell ist.
 

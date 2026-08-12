@@ -455,14 +455,14 @@ validation:
     podman: '.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider podman'
   runtime_matrix:
     source: Tests/Integration/Invoke-SmokeMatrix.ps1
-    command: '.\Tests\Integration\Invoke-SmokeMatrix.ps1 -Provider all -FullMatrix -IncludeParallel'
-    versions:
-      - "2019"
-      - "2022"
-      - "2025"
+    command: '.\Tests\Integration\Invoke-SmokeMatrix.ps1 -Provider all -ReferenceVersion 2025'
+    reference_version: "2025"
+    multi_version_acceptance_owners:
+      - SQL_Analyze
+      - Toolbelt
     checks:
       - full_lifecycle_per_provider
-      - major_version_matrix
+      - sql_2025_reference_runtime
       - parallel_unique_run_and_scope_ids
       - parallel_unique_ports
       - isolated_cleanup
@@ -536,8 +536,8 @@ validation:
   last_confirmed_result:
     date: "2026-08-12"
     source: Documentation/Quality/VALIDATION_RESULT_2026-08-12.md
-    docker: "PASS – SQL 2019/2022/2025, Parallel-Lane, SQL-2022-Adapter 10/10 und Restore"
-    podman: "PASS – SQL 2019/2022/2025, Parallel-Lane, Mixed-Provider und Restore"
+    docker: "PASS – SQL-2025-Lifecycle, Adapter 10/10 und Restore"
+    podman: "PASS – SQL-2025-Lifecycle, Mixed-Provider und Restore"
     hyperv: "NOT_EXECUTED – aktuelle PowerShell-Sitzung nicht erhöht"
 
 change_coupling:

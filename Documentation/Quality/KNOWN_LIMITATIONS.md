@@ -15,9 +15,13 @@ Docker und Podman sind implementiert. Start, Stop und Live-Status verwenden den
 pro Instanz in `connection-info.json` gespeicherten Provider.
 
 Der lokale Nachweis vom 2026-08-12 ist für Docker 29.6.2 und Podman 6.0.2
-positiv. Die SQL-Server-Linien 2019, 2022 und 2025 sowie parallele und gemischte
-Providerpfade wurden geprüft. Ein einmaliger Docker-/SQL-2025-Readiness-Fehler
-war in drei anschließenden Läufen nicht reproduzierbar; alle Testressourcen
+positiv. Der laufende Core-Gate verwendet ausschließlich SQL Server 2025;
+Mehrversions-Kompatibilität wird in SQL Analyze und Toolbelt abgenommen. Während
+der Initialisierung der SQL-2025-Systemdatenbanken trat bei Docker und Podman
+sporadisch der Loginfehler 18456/State 115 auf. SQL_Server_Lab erkennt nur
+diesen Diagnosefall und erstellt den scopegebundenen Container genau einmal
+neu; alle anderen Readiness-Fehler bleiben hart fehlschlagend. Der Retry wurde
+in Adapter- und Restore-Läufen erfolgreich ausgeführt, alle Testressourcen
 wurden scopegebunden bereinigt. Details stehen im
 [Validierungsbericht vom 2026-08-12](VALIDATION_RESULT_2026-08-12.md).
 

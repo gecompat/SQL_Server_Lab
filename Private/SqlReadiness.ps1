@@ -141,6 +141,7 @@ function Wait-SqlReady {
     $lastError = ''
     $podmanDiagnosticChecked = $false
     $nextRuntimeCheckSeconds = 0
+    $nextTransientLoginCheckSeconds = 15
     $consecutiveSuccesses = 0
     $readySinceSeconds = $null
 
@@ -203,6 +204,25 @@ function Wait-SqlReady {
                         MajorVersion = $null
                         Duration     = $stopwatch.Elapsed
                         Message      = "SQL-Container wurde vor der Bereitschaft beendet. $($runtimeDiagnostic.Message)"
+                    }
+                }
+            }
+
+            if ($Provider -and $ContainerIdOrName -and
+                $stopwatch.Elapsed.TotalSeconds -ge $nextTransientLoginCheckSeconds -and
+                $lastError -match '(?i)(login timeout|unable to complete login|18456)') {
+                $nextTransientLoginCheckSeconds = $stopwatch.Elapsed.TotalSeconds + 15
+                $transientDiagnostic = Get-LabContainerReadinessDiagnostic `
+                    -Provider $Provider `
+                    -ContainerIdOrName $ContainerIdOrName `
+                    -IncludeLogs
+                if ($transientDiagnostic -and $transientDiagnostic.Message -match '(?i)Error:\s*18456[\s\S]{0,120}State:\s*115') {
+                    $stopwatch.Stop()
+                    return [PSCustomObject]@{
+                        Ready        = $false
+                        MajorVersion = $null
+                        Duration     = $stopwatch.Elapsed
+                        Message      = "LAB_SQL_TRANSIENT_LOGIN_STATE_115: SQL-2025-Initialisierung blieb in einem transienten Loginzustand. $($transientDiagnostic.Message)"
                     }
                 }
             }

@@ -19,6 +19,7 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $sqlReadinessPath = Join-Path $repoRoot 'Private\SqlReadiness.ps1'
 $portAllocationPath = Join-Path $repoRoot 'Private\PortAllocation.ps1'
 $startPath = Join-Path $repoRoot 'Public\Start-SqlServerLab.ps1'
+$newLabPath = Join-Path $repoRoot 'Public\New-SqlServerLab.ps1'
 $menuPath = Join-Path $repoRoot 'Public\Invoke-SqlServerLab.ps1'
 $dockerProviderPath = Join-Path $repoRoot 'Providers\Docker\DockerProvider.ps1'
 $podmanProviderPath = Join-Path $repoRoot 'Providers\Podman\PodmanProvider.ps1'
@@ -55,6 +56,7 @@ foreach ($path in @(
     $sqlReadinessPath,
     $portAllocationPath,
     $startPath,
+    $newLabPath,
     $menuPath,
     $dockerProviderPath,
     $podmanProviderPath,
@@ -70,6 +72,7 @@ if ($failures.Count -eq 0) {
     $sqlReadiness = Get-Content -LiteralPath $sqlReadinessPath -Raw -Encoding utf8
     $portAllocation = Get-Content -LiteralPath $portAllocationPath -Raw -Encoding utf8
     $start = Get-Content -LiteralPath $startPath -Raw -Encoding utf8
+    $newLab = Get-Content -LiteralPath $newLabPath -Raw -Encoding utf8
     $menu = Get-Content -LiteralPath $menuPath -Raw -Encoding utf8
     $dockerProvider = Get-Content -LiteralPath $dockerProviderPath -Raw -Encoding utf8
     $podmanProvider = Get-Content -LiteralPath $podmanProviderPath -Raw -Encoding utf8
@@ -79,6 +82,10 @@ if ($failures.Count -eq 0) {
     Assert-Contains $sqlReadiness 'function\s+Get-PodmanWindowsLocalhostDiagnostic' 'Podman-Windows-Diagnosefunktion fehlt.'
     Assert-Contains $sqlReadiness 'networkingMode=mirrored' 'Konkreter WSL-Mirrored-Networking-Hinweis fehlt.'
     Assert-Contains $sqlReadiness 'SQL Server is now ready for client connections' 'Containerinterne SQL-Bereitschaft wird nicht geprueft.'
+    Assert-Contains $sqlReadiness 'LAB_SQL_TRANSIENT_LOGIN_STATE_115' 'SQL-2025-State-115-Diagnosecode fehlt.'
+    Assert-Contains $newLab "retryableSql2025State[\s\S]+instance\.version\s+-match\s+'\^2025" 'Readiness-Retry ist nicht auf SQL Server 2025 begrenzt.'
+    Assert-Contains $newLab 'Remove-LabProviderContainerForReadinessRetry[\s\S]+-ScopeId\s+\$runState\.ScopeId' 'Readiness-Retry entfernt den Container nicht mit der erwarteten Scope-ID.'
+    Assert-Contains $newLab 'readinessAttempt\s+-ge\s+2' 'SQL-2025-State-115-Retry ist nicht auf einen Versuch begrenzt.'
     Assert-Contains $sqlReadiness 'Start-Sleep\s+-Milliseconds' 'Readiness verwendet kein kurzes Millisekunden-Polling.'
     Assert-Contains $sqlReadiness 'function\s+Wait-LabDatabaseReady' 'Datenbank-Readiness-Funktion fehlt.'
     Assert-Contains $sqlReadiness 'Wait-LabDatabaseReady[\s\S]+Invoke-LabSqlScript' 'Skriptausfuehrung ist nicht gegen Datenbank-Readiness abgesichert.'

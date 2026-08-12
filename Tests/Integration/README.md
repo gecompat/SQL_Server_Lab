@@ -34,21 +34,24 @@ End-to-End-Test des gesamten Lab-Lifecycles.
 
 ```text
 Invoke-AllChecks.ps1                              => PASS
-Invoke-SmokeMatrix.ps1 / Docker / SQL 2019-2025   => PASS (*)
-Invoke-SmokeMatrix.ps1 / Podman / SQL 2019-2025   => PASS
+Invoke-SmokeMatrix.ps1 / Docker / SQL Server 2025 => PASS (*)
+Invoke-SmokeMatrix.ps1 / Podman / SQL Server 2025 => PASS
 Invoke-SmokeTest.ps1 / Docker / SQL Server 2025   => 33/33 PASS
 Invoke-SmokeTest.ps1 / Podman / SQL Server 2025   => 33/33 PASS
-Invoke-AdapterSmokeTest.ps1 / Docker / SQL 2022   => 10/10 PASS
-Invoke-RestoreSmokeTest.ps1 / Docker / SQL 2022   => PASS
-Invoke-RestoreSmokeTest.ps1 / Podman / SQL 2022   => PASS
+Invoke-AdapterSmokeTest.ps1 / Docker / SQL 2025   => 10/10 PASS
+Invoke-RestoreSmokeTest.ps1 / Docker / SQL 2025   => PASS
+Invoke-RestoreSmokeTest.ps1 / Podman / SQL 2025   => PASS
 Invoke-MixedProviderSmokeTest.ps1                 => PASS
 Invoke-SmokeMatrix.ps1 -Provider all (Abschluss)  => PASS=4 FAIL=0 SKIP=1
 Invoke-HyperVSmokeTest.ps1                        => NOT_EXECUTED (Sitzung nicht erhöht)
 ```
 
-`(*)` Der erste Docker-/SQL-2025-Lauf der vollständigen Matrix hatte einen
-einmaligen Readiness-Fehler. Cleanup, isolierte Wiederholung, parallele Lane und
-abschließende Matrix waren erfolgreich; der Fehler war nicht reproduzierbar.
+`(*)` SQL Server 2025 meldete während der Systemdatenbankinitialisierung
+sporadisch 18456/State 115. Der ausschließlich dafür erlaubte, scopegebundene
+Einmal-Retry wurde in Adapter- und beiden Restore-Läufen erfolgreich ausgeführt.
+
+SQL_Server_Lab prüft als Core-Referenz ausschließlich SQL Server 2025. Die
+Mehrversions-Abnahme liegt bei SQL Analyze und Toolbelt.
 
 Der vollständige Befund und die Fehlerabgrenzung stehen im
 [Validierungsbericht vom 2026-08-12](../../Documentation/Quality/VALIDATION_RESULT_2026-08-12.md).

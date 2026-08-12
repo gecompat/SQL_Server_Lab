@@ -55,6 +55,35 @@ Add-CheckResult -Name 'Windows-CU-Metadaten sind vollständig und Downloads nur 
     }).Count -eq 0
 )
 
+$runtimeWorkflowPaths = @(
+    (Join-Path $repoRoot '.github/workflows/runtime-smoke-docker.yml'),
+    (Join-Path $repoRoot '.github/workflows/runtime-smoke-podman.yml')
+)
+$runtimeWorkflowText = ($runtimeWorkflowPaths | ForEach-Object {
+    Get-Content -LiteralPath $_ -Raw -Encoding utf8
+}) -join "`n"
+Add-CheckResult -Name 'Docker- und Podman-Gates verwenden nur die SQL-2025-Referenzversion' -Success (
+    $runtimeWorkflowText -notmatch '(?m)-FullMatrix|(?m)-IncludeParallel' -and
+    @([regex]::Matches($runtimeWorkflowText, '(?m)-ReferenceVersion\s+2025')).Count -eq 2 -and
+    @([regex]::Matches($runtimeWorkflowText, '(?m)-Version\s+2025')).Count -eq 2
+)
+
+$referenceFiles = @(
+    (Join-Path $repoRoot 'Tests/Integration/Invoke-RestoreSmokeTest.ps1'),
+    (Join-Path $repoRoot 'Tests/Integration/Invoke-AdapterSmokeTest.ps1'),
+    (Join-Path $repoRoot 'Tests/Integration/Invoke-MixedProviderSmokeTest.ps1'),
+    (Join-Path $repoRoot 'Schemas/example-mixed-provider-lab.json'),
+    (Join-Path $repoRoot '.github/workflows/runtime-smoke-docker-github-hosted.yml'),
+    (Join-Path $repoRoot '.github/workflows/adapter-smoke-github-hosted.yml'),
+    (Join-Path $repoRoot '.github/workflows/runtime-smoke-hyperv-sql-fresh-acceptance.yml')
+)
+$nonReferenceRuntimeHits = @($referenceFiles | Where-Object {
+    (Get-Content -LiteralPath $_ -Raw -Encoding utf8) -match '(?m)(?:Version\s*=\s*|Version\s+|"version"\s*:\s*|versions=\()["'']?(?:2019|2022)'
+})
+Add-CheckResult -Name 'Reguläre Runtime-, Mixed-, Restore-, Adapter- und Hyper-V-Gates sind auf SQL 2025 vereinheitlicht' -Success (
+    $nonReferenceRuntimeHits.Count -eq 0
+)
+
 if ($failures.Count -gt 0) {
     foreach ($failure in $failures) { Write-Host "FAIL: $failure" -ForegroundColor Red }
     exit 1
