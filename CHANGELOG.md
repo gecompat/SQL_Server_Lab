@@ -15,7 +15,10 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   erfolgreichen Abschluss dadurch unter Strict Mode zuverlässig persistieren;
 - PSScriptAnalyzer begrenzt seinen Quellscan jetzt segmentbasiert auf den
   versionierbaren Repositorybestand. Lokale Release-, State-, Cache- und
-  Runtime-Kopien vervielfachen die projektspezifische Baseline dadurch nicht.
+  Runtime-Kopien vervielfachen die projektspezifische Baseline dadurch nicht;
+- der native Hyper-V-Smoke übergibt `Confirm` bei Reconcile-Aktionen als
+  booleschen Switchwert; der erhöhte Runner kann den Start-/Stop-Nachweis damit
+  ohne Parameterbindungsfehler ausführen.
 
 ### Geändert
 
