@@ -75,6 +75,10 @@ Für jede Entwicklungswelle gelten folgende Leitplanken:
 14. Ressourcenunterversorgung darf nur bei `RESOURCE_INSUFFICIENT_OVERRIDABLE` bewusst und protokolliert übersteuert werden. Unsichere Pfade, fehlende Capabilities, blockierte Versionen, unzulässige Daten, fehlende Secrets/Lizenzen und ein fehlender Cleanup-Plan bleiben harte Blocker.
 15. SQL-Versionen bleiben katalog- und constraintbasiert. `EXPERIMENTAL`, `SUPPORTED`, `DEPRECATED`, `RETIRED` und `BLOCKED` werden ohne Core-Neuentwurf verarbeitet.
 16. Der Vorlagenpool überschreibt oder löscht keine Artifacts automatisch. Seine Kapazitäts- und Referenzschutzregeln bleiben erhalten.
+17. Der Core wird je Provider mit SQL Server 2025 validiert. Analyze und
+    Toolbelt fordern Windows/Linux mit SQL Server 2019, 2022 und 2025 für ihre
+    Entwicklungs- und Abnahmematrix an. PerformanceSchulung verwendet
+    standardmäßig die aktuelle Linux-Umgebung und weicht nur szenariobezogen ab.
 
 ## 3. Verifizierte Ausgangslage
 
@@ -102,7 +106,9 @@ Am 2026-08-12 wurde für diesen Plan erneut ausgeführt:
 Die datierten Runtime-Ergebnisse für Docker, Podman, Mixed Provider, Adapter und
 Restore stehen separat in
 [VALIDATION_RESULT_2026-08-12.md](../Quality/VALIDATION_RESULT_2026-08-12.md).
-Hyper-V blieb mangels erhöhter Sitzung `NOT_EXECUTED`.
+Der erhöhte GitHub-Runner hat den nativen Hyper-V-Generation-2-Lifecycle
+einschließlich VM/VHDX, Stop/Start, Reconcile und Cleanup bestanden. Die echte
+Hyper-V-/SQL-2025-Acceptance bleibt wegen fehlender Eval-ISO blockiert.
 
 ### 3.2 Offene Kernlücken
 
@@ -113,7 +119,7 @@ Hyper-V blieb mangels erhöhter Sitzung `NOT_EXECUTED`.
 | kein positiver realer Hyper-V-Cold-Path von generalisierter OS-Basis bis SQL `READY` für die Zielmatrix | Mocks und Lifecycle-Smoke beweisen weder OOBE- noch SQL-End-to-End-Bereitschaft |
 | Hyper-V-Manifestbindung für Datenbanken, Software, Post-Provisioning und Network Intents ist unvollständig | UI-/Manifestparität fehlt trotz gebundener freier Drives weiterhin |
 | Reconcile-Executor und Actual-State-Collector sind auf Lifecycle START/STOP begrenzt | Ressourcen- und Konfigurationsänderungen fehlen |
-| zwei reale Adapterpiloten fehlen | der Vertrag ist noch nicht an beiden Primärkonsumenten bewiesen |
+| drei reale Adapterpiloten fehlen | der Vertrag ist noch nicht an den drei Konsumenten und ihren unterschiedlichen Rollen bewiesen |
 | `LAB_GENERATED`-Erzeugung und -Präferenz sind für Single- und Multi-Output-Container-Samples implementiert; Hyper-V-Export ist offen; Script Bundles mit mehreren festen Datenbankoutputs sind implementiert | VM-basierte Baselines benötigen noch Sonderwege |
 | Fault-/Scenario-Engine und breite Abbruch-/Recovery-Injektion fehlen | Release-Härtung und komplexe SQL-Szenarien bleiben unvollständig |
 
@@ -194,10 +200,10 @@ Container-Volumes gehören dagegen in den normalen Storage-Pfad.
 | Meilenstein | Status am 2026-08-12 | Nächster belastbarer Schritt |
 |---|---|---|
 | M0 Statuswahrheit | `validated` | Drift weiter statisch verhindern |
-| Providerneutraler Instanz-Autostart | `validated` | Docker-, Podman- und Hyper-V-SQL-2025-Smokes fortlaufend grün halten |
+| Providerneutraler Instanz-Autostart | `implemented_runtime_partial` | Docker-/SQL-2025-Runtime ist grün; Podman-Self-hosted-Gate und nativen Hyper-V-Lifecycle fortlaufend grün halten |
 | M1 Desired State und Planner | `implemented_partial` | Journal/Resume und weitere Änderungsklassen |
 | M2 UI und Container-Reconcile | `implemented_partial` | reale `live`-/`recreate`-Änderungen für Docker und Podman |
-| M3 Adapterpiloten | `planned_external_scope` | je ein Pilot in den beiden Konsumenten-Repositories |
+| M3 Adapterpiloten | `planned_external_scope` | je ein Pilot in den drei Konsumenten-Repositories |
 | M4 Hyper-V OS Cold Path | `implemented_partial` | realer unattended Windows-2025-Cold-Path |
 | M5 Hyper-V SQL und Resolver | `implemented_partial` | realer OS-zu-SQL-Cold-Path und Manifestparität |
 | M6 Reconcile-Breite | `planned` | Hardware-, Netzwerk-, Storage- und SQL-Änderungsklassen |
@@ -209,22 +215,23 @@ Container-Volumes gehören dagegen in den normalen Storage-Pfad.
 flowchart LR
     M0["M0 Statuswahrheit"] --> M1["M1 Desired State und Planner"]
     M1 --> M2["M2 UI-Shell und Container-Reconcile"]
-    M2 --> M3["M3 zwei Adapterpiloten"]
-    M3 --> M4["M4 Hyper-V OS Cold Path"]
+    M2 --> M3["M3 drei Adapterpiloten"]
+    M2 --> M4["M4 Hyper-V OS Cold Path"]
     M4 --> M5["M5 Hyper-V SQL und Resolver"]
-    M5 --> M6["M6 Reconcile-Breite und Infrastruktur-UI"]
+    M3 --> M6["M6 Reconcile-Breite und Infrastruktur-UI"]
+    M5 --> M6
     M6 --> M7["M7 Datenartefakte und Baselines"]
     M7 --> M8["M8 Szenarien und Migration"]
     M8 --> M9["M9 Release-Härtung"]
     M4 --> O1["Optional: Factory-Automation"]
     M5 --> O2["Optional: Warm Pool"]
-    M9 --> O3["Später: Remote Host, CU-Monitoring, HA/Integration"]
+    M9 --> O3["Später: Remote Host, HA/Integration"]
 ```
 
 Die Reihenfolge hält die dokumentierte Adapterpriorisierung ein. Providerneutrale
 Desired-State-, Drive-, Network-, Software- und Reconcile-Verträge werden vor
-den Adapterpiloten begonnen; der große Hyper-V-Runtimeausbau folgt nach dem
-Vertragsbeweis durch beide Primärkonsumenten.
+den Adapterpiloten begonnen; der weitere Hyper-V-Runtimeausbau und die drei
+Partnerpiloten können als getrennte Änderungssätze parallel fortschreiten.
 
 ## 6. Meilensteine und Arbeitspakete
 
@@ -240,9 +247,9 @@ Arbeiten in den Schwester-Repositories verfügbar sind.
 | M1 Desired State und Planner | P0 | XL | Core/Contracts | M0 |
 | M2 UI und Container-Reconcile | P0 | L | Core, UX, Docker/Podman | M1 |
 | M3 Adapterpiloten | P0 | L | Integration plus Konsumenten | M2 und externe Scopes |
-| M4 Hyper-V OS Cold Path | P0 | XL | Hyper-V/Windows | M1, M3, reale Baseline |
+| M4 Hyper-V OS Cold Path | P0 | XL | Hyper-V/Windows | M1, reale Baseline |
 | M5 Hyper-V SQL und Resolver | P0 | XL | Hyper-V/SQL | M4, verifizierte Medien |
-| M6 Reconcile-Breite | P1 | XL | Core, Hyper-V, Netzwerk, UX | M5 |
+| M6 Reconcile-Breite | P1 | XL | Core, Hyper-V, Netzwerk, UX | M3, M5 |
 | M7 Artifacts und Baselines | P1 | L | Artifact/Data/Provider | M5, teilweise M6 |
 | M8 Scenarios und Migration | P1 | XL | Scenario/Integration | M3, M6, M7 |
 | M9 Release-Härtung | P1 | L | Quality/Release | M8 |
@@ -334,23 +341,24 @@ produktiven Containerprovidern vertikal bewiesen.
 
 ### M3 – Reale Project-Adapter-Piloten
 
-**Ziel:** Der Lab-Core wird an beiden Primärkonsumenten bewiesen, bevor weitere
+**Ziel:** Der Lab-Core wird an allen drei Konsumenten bewiesen, bevor weitere
 öffentliche Verträge oder eine Version `1.0` festgeschrieben werden.
 
 | ID | Arbeitspaket | Ergebnis |
 |---|---|---|
-| `ADP-003` | eine grüne `SQL_PerformanceSchulung`-Demo als Container-Vertical-Slice | Demo-End-to-End ohne kopierte Providerlogik |
-| `ADP-004` | `SQL_Server_Analyze`-Frameworkinstallation plus ein Quick-/Diagnosefall | Analyzer-Evidenz bleibt im Konsumenten |
+| `ADP-003` | eine `SQL_PerformanceSchulung`-Beispielkonstruktion auf der aktuellen Linux-/SQL-Umgebung als Vertical Slice | Demo-End-to-End ohne kopierte Providerlogik; Windows/andere Katalogversion nur bei Szenariobedarf |
+| `ADP-004` | `SQL_Server_Analyze`-Frameworkinstallation plus ein Quick-/Diagnosefall | Analyzer-Evidenz und Windows-/Linux-Matrix 2019/2022/2025 bleiben im Konsumenten |
 | `ADP-006` | Adapter-Preflight, Install/Update/Validate/Cleanup gegen Result- und Statusvertrag härten | strukturierte, versionsgebundene Integration |
 | `ADP-007` | entscheiden, ob der Schulungspilot eigene T-SQL-Entrypoints genügt oder `script-bundle` vorzieht | keine unnötige Vorabimplementierung |
+| `ADP-008` | `SQL_Server_Toolbelt`-Modul installieren, validieren, aktualisieren und deinstallieren | Toolbelt-Evidenz und Windows-/Linux-Matrix 2019/2022/2025 bleiben im Konsumenten |
 
-Arbeiten in den beiden Schwester-Repositories benötigen jeweils einen eigenen,
+Arbeiten in den drei Schwester-Repositories benötigen jeweils einen eigenen,
 ausdrücklich abgestimmten Änderungsscope. Dieser Plan autorisiert keine
 ungefragten externen Repositoryänderungen.
 
 **Gate M3:**
 
-- beide Piloten laufen reproduzierbar auf dem Container-Core;
+- alle drei Piloten laufen reproduzierbar auf dem Core;
 - Adapter-Update startet, stoppt oder ersetzt keine Runtime-Ressource;
 - Statuscodes und Capability-Gates sind konsumierbar;
 - fachliche SQL-Inhalte, Assertions und Evidence bleiben im jeweiligen Projekt;
@@ -399,14 +407,15 @@ ohne SQL-Vorlage; vorhandene Prepared-Images beschleunigen nur.
 | `HV-505` | Datenbanken, Samples und Post-Provisioning über vorhandene Trust-/Artifact-Pfade binden | Manifestparität für den Vertical Slice |
 | `HV-506` | vorhandenes `SQL_PREPARED_SEALED` und `CompleteImage` als optionalen Accelerator integrieren | schnellerer, nicht zwingender Pfad |
 | `HV-507` | Resolver-Reihenfolge, Begründung und Cold-Path-Fallback umsetzen | Cache Miss blockiert nicht |
-| `HV-508` | SQL 2025, danach 2022 und 2019 mit eigener Capability-/Medienabnahme testen | katalogbasierte Zielmatrix |
+| `HV-508` | SQL Server 2025 als Hyper-V-Core-Referenz mit eigener Capability-/Medienabnahme testen | belastbarer Referenznachweis; weitere Versionen werden partnerseitig abgenommen |
 
 **Gate M5:**
 
 - `OS_GENERALIZED_SEALED -> READY` funktioniert real ohne Prepared-Image und ohne Benutzereingriff;
 - SQL-Setup-Reboot wird ohne Doppelinstallation fortgesetzt;
 - Prepared-Image-Inkompatibilität führt begründet zum Cold Path;
-- mindestens SQL Server 2025 ist real vollständig validiert; 2022/2019 sind validiert oder ausdrücklich `NOT_EXECUTED` mit Grund;
+- SQL Server 2025 ist real vollständig validiert; SQL 2019/2022 bleiben
+  katalogisiert und werden in Analyze und Toolbelt auf Windows/Linux abgenommen;
 - Datenbank-/Sample-Verifikation und Cleanup sind erfolgreich;
 - keine Secrets stehen in Setup-Logs, State, Lock oder Evidence.
 
@@ -481,7 +490,7 @@ ohne eine zweite Labplattform zu erhalten.
 | `SCN-802` | `Arrange`, `Act`, `Observe`, `Assert`, `Cleanup`, Timeouts und Abbruchsignale | resumierbare Scenario Engine |
 | `FLT-811` | Netzwerk-, I/O-, CPU-, Memory-, TempDB- und Log-Faults capability- und scopegebunden | sichere Fault Injection |
 | `FLT-812` | Ausgangszustand, automatische Rücknahme und Recovery verifizieren | kein unkontrollierter Restzustand |
-| `MIG-821` | weitere grüne/gelbe/rote Schulungs- und Analyze-Piloten migrieren | fachliche Breite |
+| `MIG-821` | weitere Schulungs-, Analyze- und Toolbelt-Piloten migrieren | fachliche Breite |
 | `MIG-822` | Compatibility Wrapper, Deprecation und Paritätsnachweise | kontrollierter Übergang |
 | `MIG-823` | generische Doppelimplementierungen erst nach Abnahme entfernen | kein Funktionsverlust |
 
@@ -528,8 +537,10 @@ Diese Punkte bleiben erhalten, blockieren aber den kritischen Pfad nicht:
 | `P2` | Multi-Instanz, Domain Controller, Kerberos, WSFC, AG, FCI | konkreter SQL-Zweck, M8 Scenario-/Capability-Vertrag |
 | `P2` | PolyBase/Hadoop, REST-/HTTP- und weitere Supporting Components | konkreter SQL-Integrationstest; kein allgemeines Fremdprodukt-Lab |
 | `P3` | Remote Windows Hyper-V Host | registrierter Host, gehärtetes Remoting, separater Teilhost-State und kein implizites Credential Delegation |
-| `P3` | CU-Monitoring | eigener kleiner Änderungssatz vom dann aktuellen `main`; Quellen und Schreibrechte neu prüfen |
 | `P3` | zentrale Scheduler-, Cloud-, Kubernetes- oder allgemeine Remote-Agent-Architektur | nur nach konkretem SQL-Bedarf und neuer Architekturentscheidung |
+
+Das CU-Monitoring ist bereits als aktive, getrennte Monitoring-Lane umgesetzt
+und gehört deshalb nicht mehr zum späteren Entwicklungsbacklog.
 
 ## 8. Verbindliche Quality Gates je Änderungsklasse
 
@@ -676,9 +687,10 @@ Die folgende Reihenfolge liefert frühe, einzeln prüfbare Ergebnisse:
 3. `CNT-213`: erste Recreate-Änderung mit persistentem Volume testen.
 4. `ADP-003`: Schulungspilot in getrennt abgestimmtem Konsumenten-Scope.
 5. `ADP-004`: Analyze-Pilot in getrennt abgestimmtem Konsumenten-Scope.
-6. `HV-402`/`HV-403`: Unattend-Generator und sichere Child-Delivery vervollständigen.
-7. `HV-405`/`HV-406`: realer Zero-Touch-OS-Cold-Path bis `OS_READY`.
-8. `DATA-707`: Container-Baselines an Hyper-V-Export und -Nutzung binden.
+6. `ADP-008`: Toolbelt-Pilot in getrennt abgestimmtem Konsumenten-Scope.
+7. `HV-402`/`HV-403`: Unattend-Generator und sichere Child-Delivery vervollständigen.
+8. `HV-405`/`HV-406`: realer Zero-Touch-OS-Cold-Path bis `OS_READY`.
+9. `DATA-707`: Container-Baselines an Hyper-V-Export und -Nutzung binden.
 
 Erst danach folgen SQL-Cold-Path, Resolver-Optimierung, breite
 Hyper-V-Infrastrukturänderungen und optionale Caches.
@@ -689,7 +701,7 @@ Das Kernvorhaben gilt als abgeschlossen, wenn:
 
 1. Docker, Podman und Hyper-V denselben Desired-State-, Plan-, State- und Cleanup-Vertrag verwenden;
 2. Quick-, Manifest-, UI- und nicht interaktive Aufrufe denselben Core nutzen;
-3. beide Primärkonsumenten über produktive Adapterpiloten angebunden sind;
+3. alle drei Konsumenten über produktive Adapterpiloten angebunden sind;
 4. eine Hyper-V-Windows-SQL-Umgebung nach vorhandener generalisierter Baseline ohne Gastinteraktion `READY` erreicht;
 5. SQL Server 2025 als Referenzversion auf den Kernprovidern validiert ist und
    SQL Analyze sowie Toolbelt die katalogbasierten Mehrversions-Abnahmen tragen;
@@ -703,5 +715,5 @@ Das Kernvorhaben gilt als abgeschlossen, wenn:
 13. Scenario- und Fault-Pfade capability-, timeout- und scopegebunden sind;
 14. lokale statische, Container-, Adapter- und Hyper-V-Abnahmen dokumentiert ausführbar sind;
 15. Front Door, Known Limitations, Architektur, Tests und Repo-Map denselben Stand beschreiben;
-16. Remote Host, Warm Pool, CU-Monitoring und weitere Supporting Components den Kernpfad nicht blockieren;
+16. Remote Host, Warm Pool, das laufende CU-Monitoring und weitere Supporting Components den Kernpfad nicht blockieren;
 17. eine neue Person das Projekt ohne früheren Chatkontext sicher aufsetzen, bedienen, ändern und bereinigen kann.

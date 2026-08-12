@@ -3,6 +3,17 @@ project:
   name: SQL_Server_Lab
   purpose: "Lokale, isolierte und reproduzierbare SQL-Server-Testumgebungen"
   default_branch: main
+  consumers:
+    SQL_PerformanceSchulung:
+      purpose: example_construction
+      default_environment: linux_current
+      exceptions: windows_or_catalog_version_by_scenario
+    SQL_Server_Analyze:
+      purpose: development_and_acceptance
+      environment_matrix: windows_linux_sql_2019_2022_2025
+    SQL_Server_Toolbelt:
+      purpose: development_and_acceptance
+      environment_matrix: windows_linux_sql_2019_2022_2025
   module_manifest: SqlServerLab.psd1
   module_loader: SqlServerLab.psm1
   runtime_status: CONTAINER_CORE_IMPLEMENTED_HYPERV_SPECIALIZATION_READINESS_ORCHESTRATION
@@ -460,8 +471,8 @@ validation:
     reference_version: "2025"
     reference_collation: SQL_Latin1_General_CP1_CI_AS
     multi_version_acceptance_owners:
-      - SQL_Analyze
-      - Toolbelt
+      - SQL_Server_Analyze
+      - SQL_Server_Toolbelt
     checks:
       - full_lifecycle_per_provider
       - sql_2025_reference_runtime

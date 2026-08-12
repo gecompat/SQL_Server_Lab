@@ -249,7 +249,9 @@ Pflichtfelder:
 - `SafetyClass`;
 - `DataClassification`.
 
-Deployment Units installieren beispielsweise SQL_Server_Analyze, das Schulungsframework, SQL Agent-Konfiguration, Domain Join oder PolyBase-Supporting-Inhalte.
+Deployment Units installieren beispielsweise SQL_Server_Analyze, das
+Schulungsframework, SQL_Server_Toolbelt-Module, SQL Agent-Konfiguration, Domain
+Join oder PolyBase-Supporting-Inhalte.
 
 ## 10. `dataset.schema.json`
 

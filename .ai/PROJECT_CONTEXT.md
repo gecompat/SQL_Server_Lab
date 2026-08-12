@@ -178,9 +178,18 @@ Der Katalog wird nicht automatisch als aktuell garantiert. Build- und CU-Angaben
 ## 5. Primärprojekte
 
 - `gecompat/SQL_Server_Analyze`;
-- `gecompat/SQL_PerformanceSchulung`.
+- `gecompat/SQL_PerformanceSchulung`;
+- `gecompat/SQL_Server_Toolbelt`.
 
-Diese Projekte behalten ihre fachlichen Szenarien, Installationsinhalte, Testdaten, Workloads, Beobachtungen und Assertions. `SQL_Server_Lab` stellt den generischen Umgebungs- und Lifecyclepfad bereit.
+`SQL_PerformanceSchulung` nutzt standardmäßig eine aktuelle Linux-Umgebung zur
+Konstruktion von Beispielen; einzelne Konstellationen dürfen Windows oder eine
+andere katalogisierte SQL-Version anfordern. `SQL_Server_Analyze` und
+`SQL_Server_Toolbelt` nutzen Windows und Linux mit SQL Server 2019, 2022 und
+2025 für versionsabhängige Entwicklungs- und Abnahmetests. Alle drei Projekte
+behalten ihre fachlichen Szenarien, Installationsinhalte, Testdaten, Workloads,
+Beobachtungen und Assertions; `SQL_Server_Lab` stellt den generischen
+Umgebungs- und Lifecyclepfad bereit und validiert seinen Core je Provider mit
+SQL Server 2025.
 
 Quell-Snapshots unter `_QuellRepo/` dienen nur als eingefrorene Referenz. Sie definieren nicht automatisch die öffentliche API dieses Repositories.
 
