@@ -555,6 +555,7 @@ SQL-spezifische Pfad vollständig automatisiert inklusive OOBE.
         "switchName": "SQL_LAB_HYPERV",
         "memoryStartupMB": 4096,
         "processorCount": 4,
+        "autostart": "on",
         "guestPasswordMode": "generated"
       }
     }
@@ -563,6 +564,11 @@ SQL-spezifische Pfad vollständig automatisiert inklusive OOBE.
 ```
 
 `preparedImageId` wird aus **Hyper-V Windows-Image verwalten** übernommen.
+`autostart: "on"` setzt für genau diese verwaltete VM die Hyper-V-Aktion
+`AutomaticStartAction=Start`. Sie wird dadurch beim Hochfahren des Hosts
+automatisch gestartet, etwa damit eine CMS-Instanz ohne manuellen VM-Start
+verfügbar wird. Ohne Angabe gilt aus Kompatibilitäts- und Ressourcengründen
+`"off"`.
 `guestPasswordMode: "generated"` zeigt beim Start einmalig ein zufälliges
 Passwort an; `"prompt"` fragt es sicher ab. Ein Klartextpasswort gehört nie in
 die Manifestdatei. Die Antwortdatei wird nur in die neue Child-VHDX injiziert,

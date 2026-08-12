@@ -3038,6 +3038,9 @@ function New-LabHyperVEnvironmentInteractive {
     if (-not $memory) { $memory = 4096 }
     $cpu = if ($Intent) { [int]$Intent.Cpu } else { Read-Host '  vCPU [4]' }
     if (-not $cpu) { $cpu = 4 }
+    $autoStart = if ($Intent -and $Intent.PSObject.Properties['AutoStart']) { [string]$Intent.AutoStart }
+        elseif (Read-LabConfirm -Prompt '  VM beim Hochfahren des Hyper-V-Hosts automatisch starten?' -Default $false) { 'on' }
+        else { 'off' }
     $switch = if ($Intent -and [string]$Intent.NetworkMode -eq 'isolated') { [PSCustomObject]@{ SwitchName=$null; Isolated=$true } }
         elseif ($Intent -and [string]$Intent.NetworkMode -eq 'host-access') { [PSCustomObject]@{ SwitchName=$null; Isolated=$false } }
         else { Select-LabHyperVVirtualSwitch }
@@ -3050,7 +3053,7 @@ function New-LabHyperVEnvironmentInteractive {
         if (-not (Read-LabConfirm -Prompt '  Windows-Slot jetzt erstellen?' -Default $false)) { return }
         try {
             $lab = New-HyperVLabEnvironment -ArtifactId $artifact.artifactId -LabName $name -InstanceId $instanceId `
-                -MemoryStartupMB ([int]$memory) -ProcessorCount ([int]$cpu) `
+                -MemoryStartupMB ([int]$memory) -ProcessorCount ([int]$cpu) -AutoStart $autoStart `
                 -SwitchName $switch.SwitchName -Isolated:$switch.Isolated -AdditionalDrives $additionalDrives
             Write-LabSuccess "Windows-Slot erstellt: $($lab.VMName) (Run $($lab.RunId))"
             Write-LabInfo 'Windows-Slot wird jetzt automatisch gestartet und VMConnect geöffnet.'
@@ -3121,7 +3124,7 @@ function New-LabHyperVEnvironmentInteractive {
     }
     if (-not (Read-LabConfirm -Prompt '  Hyper-V-Umgebung jetzt erstellen?' -Default $false)) { return }
     try {
-        $lab = New-HyperVLabEnvironment -ArtifactId $artifact.artifactId -LabName $name -InstanceId $instanceId -MemoryStartupMB ([int]$memory) -ProcessorCount ([int]$cpu) -SwitchName $switch.SwitchName -Isolated:$switch.Isolated
+        $lab = New-HyperVLabEnvironment -ArtifactId $artifact.artifactId -LabName $name -InstanceId $instanceId -MemoryStartupMB ([int]$memory) -ProcessorCount ([int]$cpu) -AutoStart $autoStart -SwitchName $switch.SwitchName -Isolated:$switch.Isolated
         if ($persistentData) {
             $null = Enable-HyperVLabPersistentData -RunId $lab.RunId -DataRoot $dataRoot -SizeGB ([int]$persistentDataDiskGB)
         }
@@ -3174,6 +3177,7 @@ function New-LabHyperVEnvironmentFromExistingVmInteractive {
     if (-not $memory) { $memory = $source.MemoryStartupMB }
     $cpu = Read-Host "  vCPU [$($source.ProcessorCount)]"
     if (-not $cpu) { $cpu = $source.ProcessorCount }
+    $autoStart = if (Read-LabConfirm -Prompt '  VM beim Hochfahren des Hyper-V-Hosts automatisch starten?' -Default $false) { 'on' } else { 'off' }
     $switch = Select-LabHyperVVirtualSwitch
     if (-not $switch) { return }
     $persistentData = $false
@@ -3190,7 +3194,7 @@ function New-LabHyperVEnvironmentFromExistingVmInteractive {
     Write-LabWarning 'Die Original-VM und ihre VHDX bleiben unverändert. Es wird eine eigene, schreibgeschützte Arbeitskopie als Parent erstellt.'
     if (-not (Read-LabConfirm -Prompt '  Lizenz- und Ablaufstatus der Quell-VM geprüft und Lab-VM erstellen?' -Default $false)) { return }
     try {
-        $lab = New-HyperVLabEnvironmentFromExistingVm -SourceVMName $source.VMName -LabName $name -InstanceId $instanceId -MemoryStartupMB ([int]$memory) -ProcessorCount ([int]$cpu) -SwitchName $switch.SwitchName -Isolated:$switch.Isolated -ConfirmSourceLicense
+        $lab = New-HyperVLabEnvironmentFromExistingVm -SourceVMName $source.VMName -LabName $name -InstanceId $instanceId -MemoryStartupMB ([int]$memory) -ProcessorCount ([int]$cpu) -AutoStart $autoStart -SwitchName $switch.SwitchName -Isolated:$switch.Isolated -ConfirmSourceLicense
         if ($persistentData) {
             $null = Enable-HyperVLabPersistentData -RunId $lab.RunId -DataRoot $dataRoot -SizeGB ([int]$persistentDataDiskGB)
         }

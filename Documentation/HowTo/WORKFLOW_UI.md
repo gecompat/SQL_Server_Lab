@@ -43,6 +43,9 @@ ausgeführt werden sollen.
    eine auf den Host begrenzte Firewallregel. Der ausgegebene Connection String
    ist damit für SSMS und Host-Anwendungen nutzbar. Bewusst isolierte VMs
    bleiben davon ausgenommen.
+5. Bei neuen Hyper-V-Labs kann **VM beim Hochfahren des Hyper-V-Hosts
+   automatisch starten** aktiviert werden. Die Übersicht zeigt den wirksamen
+   Zustand als `Autostart: ein|aus`; ohne Auswahl bleibt er ausgeschaltet.
 
 Gastpasswörter werden nur für den jeweiligen PowerShell-Direct-Aufruf
 entgegengenommen. Sie werden nicht im Build-State, Browser-Speicher oder

@@ -310,7 +310,7 @@ $hyperVManifest = [ordered]@{
     instances = @(
         [ordered]@{
             id = 'primary'; version = '2025'; provider = 'hyperv'; os = 'windows'
-            hyperv = [ordered]@{ preparedImageId = ('hyperv-sql-prepared-sealed-' + ('a' * 64)); memoryStartupMB = 4096; processorCount = 4; guestPasswordMode = 'generated' }
+            hyperv = [ordered]@{ preparedImageId = ('hyperv-sql-prepared-sealed-' + ('a' * 64)); memoryStartupMB = 4096; processorCount = 4; autostart = 'on'; guestPasswordMode = 'generated' }
         }
     )
 }
@@ -319,6 +319,22 @@ Add-CheckResult `
     -Name 'Hyper-V-Manifest referenziert ein Prepared-Image ohne Klartextpasswort' `
     -Success $hyperVManifestResult.IsValid `
     -Message ($hyperVManifestResult.Errors -join '; ')
+
+$resolvedHyperVAutoStart = & $module {
+    param($Manifest)
+    (Resolve-ManifestDefaults -Manifest $Manifest -ManifestPath (Join-Path $PWD 'in-memory-hyperv.json')).instances[0].hyperv.autostart
+} $hyperVManifest
+Add-CheckResult `
+    -Name 'Hyper-V-Manifest reicht autostart=on in den aufgelösten Vertrag weiter' `
+    -Success ($resolvedHyperVAutoStart -eq 'on')
+
+$invalidHyperVAutoStart = $hyperVManifest | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
+$invalidHyperVAutoStart.instances[0].hyperv.autostart = 'always'
+$invalidHyperVAutoStartResult = Test-SqlServerLabManifest -InputObject $invalidHyperVAutoStart
+Add-CheckResult `
+    -Name 'Hyper-V-Manifest lehnt unbekannte Autostart-Werte ab' `
+    -Success (-not $invalidHyperVAutoStartResult.IsValid -and $invalidHyperVAutoStartResult.Errors -match 'autostart') `
+    -Message ($invalidHyperVAutoStartResult.Errors -join '; ')
 
 $hyperVFallbackManifest = $hyperVManifest | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
 $hyperVFallbackManifest.instances[0].PSObject.Properties.Remove('hyperv')
@@ -355,7 +371,7 @@ $hyperVWindowsManifest = [ordered]@{
     instances = @(
         [ordered]@{
             id = 'primary'; version = '2025'; provider = 'hyperv'; os = 'windows'
-            hyperv = [ordered]@{ preparedImageId = ('hyperv-os-sealed-' + ('a' * 64)); memoryStartupMB = 4096; processorCount = 4; guestPasswordMode = 'generated' }
+            hyperv = [ordered]@{ preparedImageId = ('hyperv-os-sealed-' + ('a' * 64)); memoryStartupMB = 4096; processorCount = 4; autostart = 'off'; guestPasswordMode = 'generated' }
         }
     )
 }
