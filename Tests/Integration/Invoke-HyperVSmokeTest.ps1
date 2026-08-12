@@ -227,7 +227,7 @@ try {
 
     $reconcileStartAction = & $module {
         param($RunId, $StateRoot)
-        Invoke-SqlServerLabReconcileAction -RunId $RunId -TargetState RUNNING -StateRoot $StateRoot -Confirm:`$false
+        Invoke-SqlServerLabReconcileAction -RunId $RunId -TargetState RUNNING -StateRoot $StateRoot -Confirm:$false
     } $reconcileRun.RunId $stateRoot
     Assert-HyperVSmoke -Condition ($reconcileStartAction.ExecutionSummary.Status -eq 'SUCCEEDED') -Description 'Reconcile-Executor hat VM gestartet'
 
@@ -239,7 +239,7 @@ try {
 
     $reconcileStopAction = & $module {
         param($RunId, $StateRoot)
-        Invoke-SqlServerLabReconcileAction -RunId $RunId -TargetState STOPPED -StateRoot $StateRoot -Confirm:`$false
+        Invoke-SqlServerLabReconcileAction -RunId $RunId -TargetState STOPPED -StateRoot $StateRoot -Confirm:$false
     } $reconcileRun.RunId $stateRoot
     Assert-HyperVSmoke -Condition ($reconcileStopAction.ExecutionSummary.Status -eq 'SUCCEEDED') -Description 'Reconcile-Executor hat VM gestoppt'
 
