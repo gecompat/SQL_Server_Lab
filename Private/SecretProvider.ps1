@@ -20,13 +20,22 @@ function Test-SaPasswordComplexity {
     [PSCustomObject]@{ Valid = $reasons.Count -eq 0; Reasons = $reasons }
 }
 
+function ConvertFrom-LabSecureString {
+    <# Liest den UTF-16-BSTR plattformunabhängig und gibt den Puffer garantiert frei. #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][SecureString]$SecureString)
+
+    $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecureString)
+    try { return [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) }
+    finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
+}
+
 function Read-SaPassword {
     [CmdletBinding()]
     param([int]$MaxAttempts = 3)
     for ($i = 1; $i -le $MaxAttempts; $i++) {
         $secure = Read-Host 'SA-Passwort' -AsSecureString
-        $plain = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto(
-            [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure))
+        $plain = ConvertFrom-LabSecureString -SecureString $secure
         $check = Test-SaPasswordComplexity -Password $plain
         if (-not $check.Valid) {
             Write-LabWarning "Passwort erfuellt nicht die Anforderungen:"
@@ -35,8 +44,7 @@ function Read-SaPassword {
             continue
         }
         $confirm = Read-Host 'SA-Passwort bestaetigen' -AsSecureString
-        $confirmPlain = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto(
-            [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($confirm))
+        $confirmPlain = ConvertFrom-LabSecureString -SecureString $confirm
         if ($plain -ne $confirmPlain) {
             Write-LabWarning "Passwoerter stimmen nicht ueberein."
             if ($i -lt $MaxAttempts) { Write-LabInfo "Erneut eingeben ($($i+1)/$MaxAttempts)." }
@@ -112,12 +120,14 @@ function Save-LabSecret {
         }
         Set-Content -Path $secretFile -Value $encrypted -Encoding utf8
     } else {
-        $plain = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto(
-            [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($Secret))
-        $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($plain))
         $plain = $null
-        Set-Content -Path $secretFile -Value $encoded -Encoding utf8
-        chmod 600 $secretFile 2>$null
+        try {
+            $plain = ConvertFrom-LabSecureString -SecureString $Secret
+            $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($plain))
+            Set-Content -Path $secretFile -Value $encoded -Encoding utf8
+            chmod 600 $secretFile 2>$null
+        }
+        finally { $plain = $null }
     }
 }
 

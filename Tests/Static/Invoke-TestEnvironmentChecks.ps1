@@ -46,6 +46,14 @@ try {
         $secret.MakeReadOnly()
         Save-LabSecret -Path $RunDirectory -Name 'sa-password' -Secret $secret
     } $runDirectory
+    $secretRoundTrip = & $module {
+        param($RunDirectory)
+        $secret = Get-LabSecret -Path $RunDirectory -Name 'sa-password'
+        ConvertFrom-LabSecureString -SecureString $secret
+    } $runDirectory
+    Add-CheckResult -Name 'Secret-Store bewahrt Kennwörter plattformunabhängig und zeichengetreu' -Success (
+        $secretRoundTrip -eq 'Random-Test-Password_42!'
+    )
     & $module {
         param($RunId,$OutputRoot)
         Register-LabTestEnvironmentRun -RunId $RunId -Platform linux -SqlVersion 2022 -Patch latest -InstanceId primary -OutputDirectory $OutputRoot
