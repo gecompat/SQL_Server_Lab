@@ -46,6 +46,19 @@ CMS-Synchronisation automatisch aus, einschließlich des Hyper-V-Unterworkflows.
 dient nur zum manuellen Nachholen oder zur Diagnose. Schlägt die automatische
 Synchronisation fehl, zeigt die Konsole eine sichtbare Warnung mit dem Wiederholungsweg an.
 
+Die CMS-Einträge erscheinen in SSMS nicht im normalen **Objekt-Explorer** und auch
+nicht unter **Lokale Servergruppen**. Der verwaltete CMS muss einmal unter
+**Ansicht -> Registrierte Server -> Datenbankmodul -> Zentrale Verwaltungsserver**
+mit dem im CMS-Menü angezeigten Serverziel registriert werden. Danach den Knoten
+aktualisieren und **SQL Server Lab -> Running** aufklappen; darunter folgen optional
+die Providergruppen `DOCKER`, `PODMAN` und `HYPERV`. Das CMS-Menü zeigt dafür den
+konkreten Servernamen. Zugangsdaten bleiben im geschützten Run-Secret und werden
+nicht in den CMS-Registrierungen gespeichert.
+
+Der CMS selbst wird nicht als verwaltetes Ziel in seinen eigenen Unterbaum
+eingetragen. Bei sechs fertigen Testumgebungen meldet der CMS-Abgleich daher sechs
+Endpunkte, auch wenn die lokale Verbindungszentrale zusätzlich den CMS-Run anzeigt.
+
 Der CMS wird immer mit einem automatisch erzeugten SA-Passwort erstellt. Daher zeigt die
 Konsolenübersicht dessen Connection String einschließlich Passwort erneut im Klartext an,
 solange der lokale DPAPI-Schlüssel den Run entschlüsseln kann. Manuell eingegebene oder

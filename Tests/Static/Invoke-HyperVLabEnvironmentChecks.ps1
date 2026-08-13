@@ -34,6 +34,18 @@ try {
     $newLabText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/New-SqlServerLab.ps1') -Raw -Encoding utf8
     $generatedAccessText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Get-SqlServerLabGeneratedSqlAccess.ps1') -Raw -Encoding utf8
     $moduleManifestText = Get-Content -LiteralPath $modulePath -Raw -Encoding utf8
+    $guestPathContract = & $module {
+        $accepted = $true
+        try { Assert-LabContainerPath -Path 'C:\SQLData\TempDB\tempdev.mdf' -Label 'TempDB-Testpfad' }
+        catch { $accepted = $false }
+        $relativeRejected = $false
+        try { Assert-LabContainerPath -Path 'SQLData\TempDB\tempdev.mdf' -Label 'TempDB-Testpfad' }
+        catch { $relativeRejected = $true }
+        [PSCustomObject]@{ Accepted=$accepted; RelativeRejected=$relativeRejected }
+    }
+    Add-CheckResult -Name 'TempDB-Pfadprüfung akzeptiert absoluten Windows-Systemlaufwerk-Gastpfad' -Success (
+        $guestPathContract.Accepted -and $guestPathContract.RelativeRejected
+    )
     Add-CheckResult -Name 'Generierte SA-Zugangsdaten bleiben DPAPI-geschützt und explizit erneut abrufbar' -Success (
         $environmentText -match 'Save-LabSecret -Path \$lab\.RunDirectory -Name ''generated-sql-sa-password''' -and
         $environmentText -match 'Save-LabSecret -Path \$lab\.RunDirectory -Name ''sa-password''' -and
@@ -82,16 +94,16 @@ try {
         $environmentText -match 'HYPERV_LAB_SQL_INSTANCE_REGISTRY_NOT_FOUND' -and
         $environmentText -match "Get-Service -Name 'MSSQLSERVER'"
     )
-    Add-CheckResult -Name 'SQL Server 2022 erhält keinen nicht unterstützten Azure-Extension-Parameter' -Success (
-        $environmentText -match 'if \(\$ExpectedSqlVersion -eq ''2025''\) \{ \$arguments \+= ''/AZUREEXTENSION=0'' \}' -and
-        $acceptanceText -match 'if \(\[int\]\$expectedMajor -ge 17\) \{ \$arguments \+= ''/AZUREEXTENSION=0'' \}' -and
-        $environmentText -notmatch 'ExpectedSqlVersion -in @\(''2022'',''2025''\)' -and
-        $acceptanceText -notmatch 'expectedMajor -ge 16'
+    Add-CheckResult -Name 'Ungültiger Azure-Extension-Setupschalter wird für keine SQL-Version übergeben' -Success (
+        $environmentText -notmatch '/AZUREEXTENSION' -and
+        $acceptanceText -notmatch '/AZUREEXTENSION'
     )
     Add-CheckResult -Name 'Fehlgeschlagenes SQL Setup kann kontrolliert erneut gestartet werden' -Success (
         $environmentText -match "INSTALL_RETRY_PENDING" -and
         $environmentText -match "SQL_SETUP_\(\?:INSTALL_FAILED\|INSTALL_TIMEOUT\|INSTALLATION_NOT_REGISTERED\)" -and
-        $environmentText -match 'lastSetupFailureAt'
+        $environmentText -match 'lastSetupFailureAt' -and
+        $environmentText -match '\^Final result:\\s\+Failed' -and
+        $menuText -match "'PLANNED', 'INSTALL_RETRY_PENDING', 'CONFIGURATION_PENDING'"
     )
     Add-CheckResult -Name 'SA-Passwort wird bei ALTER LOGIN sicher als SQL-Literal erzeugt' -Success (
         $environmentText -match 'QUOTENAME\(@password' -and

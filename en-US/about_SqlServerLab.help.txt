@@ -137,7 +137,8 @@ COMMANDS
         passwords and refreshes the test environment contract.
 
     Export-SqlServerLabTestEnvironment
-        Writes TestUmgebung.env, TestUmgebung.json, and TestUmgebung.md to the
+        Writes TestUmgebung.env, TestUmgebung.json, TestUmgebung.schema.json,
+        TestUmgebung.prompt.md, and TestUmgebung.md to the
         configured Lab_Data export directory.
 
     Clear-SqlServerLabAutomatedTestEnvironment
