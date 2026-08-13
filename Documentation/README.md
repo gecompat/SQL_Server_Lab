@@ -115,7 +115,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `Invoke-SqlServerLabScript` | T-SQL-Skript ausführen |
 | `Get-SqlServerLabGeneratedSqlAccess` | Laufzeit-generierte SQL-Access-Daten inkl. SA-Passwort und ConnectionString aus einem Hyper-V-Run beziehen |
 | `New-SqlServerLabAutomatedTestEnvironment` | Linux-Testumgebungen mit getrennten Zufallskennwörtern erstellen und nach Lab_Data exportieren |
-| `Export-SqlServerLabTestEnvironment` | Testzugänge als dotenv, kanonisches JSON und Markdown für KI und Werkzeuge exportieren |
+| `Export-SqlServerLabTestEnvironment` | Testzugänge als dotenv, schema-validierbares JSON, portablen Agenten-Prompt und Markdown exportieren |
 | `Clear-SqlServerLabAutomatedTestEnvironment` | Die geschützte Gruppe automatisierter Testumgebungen vollständig entfernen |
 | `Test-SqlServerLabPrerequisite` | Provider, RAM, Storage und Ports prüfen |
 | `Test-SqlServerLabAdapter` | Project Adapter gegen Schema, Pfadgrenzen und optional einen Run prüfen |

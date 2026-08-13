@@ -149,6 +149,7 @@ function Register-LabDataRoot {
         $env:SQL_SERVER_LAB_CONTROLLER_ID = $controllerId
         [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_CONTROLLER_ID', $controllerId, 'User')
         Set-LabProjectPreferenceValue -Name dataRoot -Value $root
+        $null = Set-LabTestEnvironmentDiscoveryEnvironment -DataRoot $root
     }
     return $root
 }
@@ -419,6 +420,7 @@ function Invoke-LabDataMigration {
             $env:SQL_SERVER_LAB_DATA_ROOT = $targetRoot
             if (-not $ProcessEnvironmentOnly) { [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_DATA_ROOT', $targetRoot, 'User') }
             Set-LabProjectPreferenceValue -Name dataRoot -Value $targetRoot
+            $null = Set-LabTestEnvironmentDiscoveryEnvironment -DataRoot $targetRoot -ProcessEnvironmentOnly:$ProcessEnvironmentOnly
         }
 
         $journal.Status = 'CLEANING'; $journal.CurrentStep = 'remove-verified-source'

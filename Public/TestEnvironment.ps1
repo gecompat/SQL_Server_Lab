@@ -70,6 +70,90 @@ function Test-LabAutomatedTestEnvironmentRun {
     return [bool](@(Get-LabAutomatedTestEnvironmentRunIds -OutputDirectory $OutputDirectory) -contains $RunId)
 }
 
+function Get-LabAutomatedTestEnvironmentStatus {
+    <# Liefert eine secretfreie, laufzeitnahe Statussicht für die interaktive Anzeige. #>
+    [CmdletBinding()]
+    param([string]$OutputDirectory, [string]$StateRoot)
+
+    if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
+    $registry = Get-LabTestEnvironmentRegistry -OutputDirectory $OutputDirectory
+    $entries = @(
+        foreach ($registered in @($registry.environments | Sort-Object key)) {
+            $statusCode = 'PROVISIONING_PENDING'
+            $displayStatus = 'vorgemerkt, noch nicht erstellt'
+            $runtimeState = $null
+            $planState = $null
+            if ([string]$registered.runId) {
+                $runDirectory = Join-Path (Join-Path $StateRoot 'runs') ([string]$registered.runId)
+                $runStatePath = Join-Path $runDirectory 'run-state.json'
+                $connectionPath = Join-Path $runDirectory 'connection-info.json'
+                if (-not (Test-Path -LiteralPath $runStatePath -PathType Leaf)) {
+                    $statusCode = 'MISSING'
+                    $displayStatus = 'Run-State fehlt'
+                }
+                else {
+                    try {
+                        $run = Get-Content -LiteralPath $runStatePath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 30
+                        $runtimeState = [string]$run.state
+                        try {
+                            $observedRuntimeState = [string](Sync-LabRunRuntimeState -Run $run -StateRoot $StateRoot).Runtime.State
+                            if ($observedRuntimeState -and $observedRuntimeState -ne 'UNKNOWN') { $runtimeState = $observedRuntimeState }
+                        }
+                        catch { }
+                        $connection = if (Test-Path -LiteralPath $connectionPath -PathType Leaf) {
+                            Get-Content -LiteralPath $connectionPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 30
+                        }
+                        $instance = @($connection.instances | Where-Object { [string]$_.id -eq [string]$registered.instanceId } | Select-Object -First 1)[0]
+                        if ([string]$registered.platform -eq 'windows') {
+                            $planState = if ($instance -and $instance.sqlDeploymentPlan) { [string]$instance.sqlDeploymentPlan.state } else { $null }
+                            switch ($planState) {
+                                'SQL_SLOT_READY' {
+                                    if ($runtimeState -eq 'RUNNING') { $statusCode = 'READY'; $displayStatus = 'fertig' }
+                                    else { $statusCode = $runtimeState; $displayStatus = "SQL fertig, VM $($runtimeState.ToLowerInvariant()) (startbar)" }
+                                }
+                                'CONFIGURATION_PENDING' { $statusCode = $planState; $displayStatus = 'SQL-Abschluss fortsetzbar' }
+                                'INSTALL_RETRY_PENDING' { $statusCode = $planState; $displayStatus = 'SQL-Installation wiederholbar' }
+                                'INSTALLING' { $statusCode = $planState; $displayStatus = 'SQL-Installation läuft' }
+                                'PLANNED' { $statusCode = $planState; $displayStatus = 'SQL-Installation fortsetzbar' }
+                                default {
+                                    if ($instance -and $instance.windowsProvisioning -and [string]$instance.windowsProvisioning.state -eq 'COMPLETE') {
+                                        $statusCode = 'WINDOWS_READY'; $displayStatus = 'Windows fertig, SQL noch offen'
+                                    }
+                                    else { $statusCode = 'OOBE_PENDING'; $displayStatus = 'Windows-OOBE noch offen' }
+                                }
+                            }
+                        }
+                        elseif ($instance -and $runtimeState -eq 'RUNNING') {
+                            $statusCode = 'READY'; $displayStatus = 'fertig'
+                        }
+                        else {
+                            $statusCode = if ($runtimeState) { $runtimeState } else { 'INCOMPLETE' }
+                            $displayStatus = if ($runtimeState -eq 'STOPPED') { 'fertig, aber gestoppt (startbar)' } else { $statusCode.ToLowerInvariant() }
+                        }
+                    }
+                    catch {
+                        $statusCode = 'READ_FAILED'
+                        $displayStatus = 'Status nicht lesbar'
+                    }
+                }
+            }
+            [PSCustomObject]@{
+                Key = [string]$registered.key; Platform = [string]$registered.platform
+                SqlVersion = [string]$registered.sqlVersion; Patch = [string]$registered.patch
+                RunId = [string]$registered.runId; StatusCode = $statusCode
+                DisplayStatus = $displayStatus; RuntimeState = $runtimeState; PlanState = $planState
+            }
+        }
+    )
+    $ready = @($entries | Where-Object StatusCode -eq 'READY').Count
+    return [PSCustomObject]@{
+        GroupStatus = if ($entries.Count -gt 0 -and $ready -eq $entries.Count) { 'READY' } elseif ($entries.Count -gt 0) { 'INCOMPLETE' } else { 'EMPTY' }
+        Ready = $ready
+        Total = $entries.Count
+        Entries = $entries
+    }
+}
+
 function Register-LabTestEnvironmentIntent {
     [CmdletBinding()]
     param(
@@ -78,11 +162,14 @@ function Register-LabTestEnvironmentIntent {
         [Parameter(Mandatory)][string]$Patch,
         [Parameter(Mandatory)][string]$InstanceId,
         [string]$Name,
-        [string]$OutputDirectory
+        [string]$OutputDirectory,
+        [switch]$ReuseExisting
     )
 
     $registry = Get-LabTestEnvironmentRegistry -OutputDirectory $OutputDirectory
     $requestedKey = ConvertTo-LabTestEnvironmentKey -Platform $Platform -SqlVersion $SqlVersion -Patch $Patch -Name $Name
+    $existingForKey = @($registry.environments | Where-Object { [string]$_.key -eq $requestedKey } | Select-Object -First 1)[0]
+    if ($ReuseExisting -and $existingForKey) { return $existingForKey }
     $existingPending = @($registry.environments | Where-Object {
         [string]$_.key -eq $requestedKey -and -not [string]$_.runId -and [string]$_.registrationState -eq 'PROVISIONING_PENDING'
     } | Select-Object -First 1)[0]
@@ -273,21 +360,40 @@ function Get-LabTestEnvironmentResolvedEntries {
     return $resolved
 }
 
+function Sync-LabAutomatedTestEnvironmentConnectionCenter {
+    <# Synchronisiert Testgruppe, Verbindungszentrale und optionalen CMS als eine Einheit. #>
+    [CmdletBinding()]
+    param([string]$StateRoot)
+
+    try { $connectionCenter = Sync-SqlServerLabConnectionCenter -StateRoot $StateRoot -Quiet }
+    catch { Write-LabWarning "Testumgebungs-Verbindungszentrale konnte nicht synchronisiert werden: $($_.Exception.Message)"; return $null }
+    try {
+        $cmsConfiguration = Get-LabConnectionCenterCmsConfiguration -StateRoot $StateRoot
+        $cms = if ($cmsConfiguration) { Sync-SqlServerLabCms -StateRoot $StateRoot -Quiet } else { $null }
+        if ($cms) { Write-LabInfo "Automatisierte Testumgebungen im CMS synchronisiert: $($cms.Entries) Endpunkt(e)." }
+        return [PSCustomObject]@{ ConnectionCenter=$connectionCenter; Cms=$cms }
+    }
+    catch {
+        Write-LabWarning "CMS-Synchronisation für automatisierte Testumgebungen fehlgeschlagen: $($_.Exception.Message)"
+        return [PSCustomObject]@{ ConnectionCenter=$connectionCenter; Cms=$null }
+    }
+}
+
 function Export-SqlServerLabTestEnvironment {
     <#
     .SYNOPSIS
         Exportiert automatisiert nutzbare SQL-Testzugänge nach Lab_Data.
     .DESCRIPTION
-        Schreibt einen kanonischen JSON-Vertrag, eine dotenv-Datei und eine
-        menschen- sowie KI-lesbare Markdown-Beschreibung. ENV und JSON enthalten
-        Klartextkennwörter und werden nach Möglichkeit auf den aktuellen Benutzer
-        beschränkt.
+        Schreibt einen kanonischen JSON-Vertrag, das zugehörige JSON Schema, eine
+        dotenv-Datei und eine menschen- sowie KI-lesbare Markdown-Beschreibung.
+        ENV und JSON enthalten Klartextkennwörter und werden nach Möglichkeit auf
+        den aktuellen Benutzer beschränkt.
     .PARAMETER OutputDirectory
         Optionales Zielverzeichnis. Standard ist Lab_Data/Exports.
     .PARAMETER StateRoot
         Optionaler SQL_Server_Lab-State-Root, aus dem Runs und Secrets gelesen werden.
     .OUTPUTS
-        Objekt mit den drei Exportpfaden sowie Anzahl aller und bereiter Einträge.
+        Objekt mit den vier Exportpfaden sowie Anzahl aller und bereiter Einträge.
     #>
     [CmdletBinding()]
     param([string]$OutputDirectory, [string]$StateRoot)
@@ -297,7 +403,20 @@ function Export-SqlServerLabTestEnvironment {
     $registry = Get-LabTestEnvironmentRegistry -OutputDirectory $directory
     $entries = @(Get-LabTestEnvironmentResolvedEntries -Registry $registry -StateRoot $StateRoot)
     $groupStatus = if ($entries.Count -eq 0) { 'EMPTY' } elseif (@($entries | Where-Object status -ne 'READY').Count -eq 0) { 'READY' } else { 'INCOMPLETE' }
+    $schemaSourcePath = Join-Path (Split-Path -Parent $PSScriptRoot) 'Schemas/test-environment.schema.json'
+    if (-not (Test-Path -LiteralPath $schemaSourcePath -PathType Leaf)) {
+        throw "TEST_ENVIRONMENT_SCHEMA_MISSING: $schemaSourcePath"
+    }
+    $schemaPath = Join-Path $directory 'TestUmgebung.schema.json'
+    Copy-Item -LiteralPath $schemaSourcePath -Destination $schemaPath -Force
+    $promptSourcePath = Join-Path (Split-Path -Parent $PSScriptRoot) 'Documentation/User/LOCAL_SQL_TESTING_PROMPT.md'
+    if (-not (Test-Path -LiteralPath $promptSourcePath -PathType Leaf)) {
+        throw "TEST_ENVIRONMENT_PROMPT_MISSING: $promptSourcePath"
+    }
+    $promptPath = Join-Path $directory 'TestUmgebung.prompt.md'
+    Copy-Item -LiteralPath $promptSourcePath -Destination $promptPath -Force
     $document = [PSCustomObject]@{
+        '$schema' = './TestUmgebung.schema.json'
         contractVersion = 'SqlServerLab.TestEnvironment/1.0'
         generatedAt = Get-LabTimestamp
         groupStatus = $groupStatus
@@ -337,10 +456,14 @@ function Export-SqlServerLabTestEnvironment {
         '> `TestUmgebung.env` und `TestUmgebung.json` enthalten Klartextkennwörter. Nicht kopieren, committen oder weitergeben.', '',
         '## Maschinenvertrag', '',
         '- Kanonische Datei: `TestUmgebung.json` mit Vertrag `SqlServerLab.TestEnvironment/1.0`.',
+        '- Validierung: `TestUmgebung.schema.json` nach JSON Schema Draft 2020-12; `TestUmgebung.json` verweist über `$schema` darauf.',
+        '- Wiederverwendbarer Agenten-Prompt: `TestUmgebung.prompt.md`.',
+        '- Portable Discovery: zuerst `SQL_SERVER_LAB_TEST_ENV_FILE`, sonst `SQL_SERVER_LAB_DATA_ROOT` plus `Exports/TestUmgebung.json`.',
         '- Die Gruppe ist nur bei `groupStatus = READY` verwendbar; andernfalls ist die gesamte Gruppe gesperrt.',
         '- Ein Eintrag wird über `platform`, `sqlVersion` und `patch` ausgewählt.',
         '- Ausschließlich Einträge mit `status = READY` dürfen für Tests verwendet werden; `runtimeStatus` zeigt den Einzelzustand.',
-        '- `patch = latest` ist gleitend; `resolvedVersion` dokumentiert die tatsächlich provisionierte Auswahl.',
+        '- `patch = latest` ist bei Linux gleitend; `patch = base` bezeichnet bei Windows die Basisinstallation ohne separates CU.',
+        '- `resolvedVersion` dokumentiert die tatsächlich installierte SQL-Version.',
         '- Verbindung: `host`, `port`, `database`, `username`, `password`, `encrypt`, `trustServerCertificate`.',
         '- Dotenv-Schlüssel verwenden das Präfix `SQL_SERVER_LAB_<KEY>_...`.', '',
         '## Beispiel für KI und Tools', '',
@@ -356,10 +479,15 @@ function Export-SqlServerLabTestEnvironment {
     foreach ($entry in $entries) { $markdown += "- `$($entry.key)`: $($entry.platform), SQL $($entry.sqlVersion), $($entry.patch), $($entry.status), $($entry.host):$($entry.port)" }
     $mdPath = Join-Path $directory 'TestUmgebung.md'
     [IO.File]::WriteAllLines($mdPath, $markdown, [Text.UTF8Encoding]::new($false))
+    $configuredUserDataRoot = [string][Environment]::GetEnvironmentVariable('SQL_SERVER_LAB_DATA_ROOT', 'User')
+    $exportDataRoot = Split-Path -Parent $directory
+    $persistDiscovery = $configuredUserDataRoot -and
+        [string]::Equals([IO.Path]::GetFullPath($configuredUserDataRoot).TrimEnd('\','/'), [IO.Path]::GetFullPath($exportDataRoot).TrimEnd('\','/'), [StringComparison]::OrdinalIgnoreCase)
+    $null = Set-LabTestEnvironmentDiscoveryEnvironment -DataRoot $exportDataRoot -ProcessEnvironmentOnly:(-not $persistDiscovery)
     foreach ($secretPath in @($envPath, $jsonPath, (Get-LabTestEnvironmentRegistryPath -OutputDirectory $directory))) {
         Protect-LabTestEnvironmentSecretFile -Path $secretPath
     }
-    return [PSCustomObject]@{ Directory=$directory; EnvPath=$envPath; JsonPath=$jsonPath; MarkdownPath=$mdPath; GroupStatus=$groupStatus; Entries=$entries.Count; Ready=@($entries | Where-Object status -eq 'READY').Count }
+    return [PSCustomObject]@{ Directory=$directory; EnvPath=$envPath; JsonPath=$jsonPath; SchemaPath=$schemaPath; PromptPath=$promptPath; MarkdownPath=$mdPath; GroupStatus=$groupStatus; Entries=$entries.Count; Ready=@($entries | Where-Object status -eq 'READY').Count }
 }
 
 function Clear-SqlServerLabAutomatedTestEnvironment {
@@ -428,10 +556,11 @@ function Clear-SqlServerLabAutomatedTestEnvironment {
     finally { $script:LabAutomatedTestEnvironmentGroupOperation = $previousGroupOperation }
 
     if ($remaining.Count -eq 0) {
-        foreach ($fileName in @('TestUmgebung.env','TestUmgebung.json','TestUmgebung.md','TestUmgebung.registry.json')) {
+        foreach ($fileName in @('TestUmgebung.env','TestUmgebung.json','TestUmgebung.schema.json','TestUmgebung.prompt.md','TestUmgebung.md','TestUmgebung.registry.json')) {
             $path = Join-Path $directory $fileName
             if (Test-Path -LiteralPath $path -PathType Leaf) { Remove-Item -LiteralPath $path -Force }
         }
+        $null = Sync-LabAutomatedTestEnvironmentConnectionCenter -StateRoot $StateRoot
         return [PSCustomObject]@{ Status='REMOVED'; Removed=$removed; Remaining=0; Errors=0 }
     }
 
@@ -441,6 +570,7 @@ function Clear-SqlServerLabAutomatedTestEnvironment {
     Write-LabArtifactJsonAtomic -Path $registryPath -InputObject $registry
     Protect-LabTestEnvironmentSecretFile -Path $registryPath
     $null = Export-SqlServerLabTestEnvironment -OutputDirectory $directory -StateRoot $StateRoot
+    $null = Sync-LabAutomatedTestEnvironmentConnectionCenter -StateRoot $StateRoot
     return [PSCustomObject]@{ Status='RECOVERY_REQUIRED'; Removed=$removed; Remaining=$remaining.Count; Errors=$errors }
 }
 
@@ -451,7 +581,8 @@ function New-SqlServerLabAutomatedTestEnvironment {
     .DESCRIPTION
         Verarbeitet eine oder mehrere Spezifikationen, erstellt für jede eine
         eigene Docker- oder Podman-Umgebung und aktualisiert anschließend
-        TestUmgebung.env, TestUmgebung.json und TestUmgebung.md unter Lab_Data.
+        TestUmgebung.env, TestUmgebung.json, TestUmgebung.schema.json und
+        TestUmgebung.md unter Lab_Data.
         Windows-Aufträge werden wegen möglicher OOBE-Schritte über Menüpunkt [e]
         geführt.
     .PARAMETER Specification
@@ -523,5 +654,6 @@ function New-SqlServerLabAutomatedTestEnvironment {
         }
     }
     $export = Export-SqlServerLabTestEnvironment -OutputDirectory $OutputDirectory -StateRoot $StateRoot
+    $null = Sync-LabAutomatedTestEnvironmentConnectionCenter -StateRoot $StateRoot
     return [PSCustomObject]@{ Status=if ($errors.Count -eq 0 -and $export.GroupStatus -eq 'READY') { 'READY' } else { 'INCOMPLETE' }; Environments=$results; Errors=$errors; Export=$export }
 }

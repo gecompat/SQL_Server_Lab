@@ -107,8 +107,26 @@ function Get-SqlServerLabConnectionCenter {
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
     $configuration = Get-LabConnectionCenterConfiguration -StateRoot $StateRoot
     $entries = @()
+    $testRunIds = @(Get-LabAutomatedTestEnvironmentRunIds)
+    $testEntriesByRunId = @{}
+    $testGroupReady = $false
+    if ($testRunIds.Count -gt 0) {
+        try {
+            $testRegistry = Get-LabTestEnvironmentRegistry
+            $resolvedTestEntries = @(Get-LabTestEnvironmentResolvedEntries -Registry $testRegistry -StateRoot $StateRoot)
+            $testGroupReady = $resolvedTestEntries.Count -eq @($testRegistry.environments).Count -and
+                $resolvedTestEntries.Count -gt 0 -and @($resolvedTestEntries | Where-Object status -ne 'READY').Count -eq 0
+            if ($testGroupReady) {
+                foreach ($testEntry in $resolvedTestEntries) { $testEntriesByRunId[[string]$testEntry.runId] = $testEntry }
+            }
+        }
+        catch { $testGroupReady = $false }
+    }
     foreach ($run in @(Get-LabActiveRuns -StateRoot $StateRoot)) {
         $runId = [string]$run.runId
+        $isAutomatedTestEnvironment = $runId -in $testRunIds
+        if ($isAutomatedTestEnvironment -and -not $testGroupReady) { continue }
+        $testEnvironment = if ($isAutomatedTestEnvironment) { $testEntriesByRunId[$runId] } else { $null }
         $connectionPath = Join-Path (Join-Path (Join-Path $StateRoot 'runs') $runId) 'connection-info.json'
         if (-not (Test-Path -LiteralPath $connectionPath -PathType Leaf)) { continue }
         try { $connection = Get-Content -LiteralPath $connectionPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20 }
@@ -122,13 +140,13 @@ function Get-SqlServerLabConnectionCenter {
             if ([string]::IsNullOrWhiteSpace($provider)) { $provider = 'unknown' }
             $instanceId = [string]$instance.id
             if ([string]::IsNullOrWhiteSpace($instanceId)) { $instanceId = 'primary' }
-            $labName = [string]$run.metadata.name
+            $labName = if ($testEnvironment) { "TEST · $([string]$testEnvironment.key)" } else { [string]$run.metadata.name }
             if ([string]::IsNullOrWhiteSpace($labName)) { $labName = $runId.Substring(0, [Math]::Min(8, $runId.Length)) }
             $entries += [PSCustomObject]@{
                 Id = ('{0}/{1}' -f $runId, $instanceId)
                 RunId = $runId
                 DisplayName = ('{0} ({1})' -f $labName, $instanceId)
-                Description = ('SQL Server Lab · {0} · {1}' -f $provider, $runtimeState)
+                Description = if ($testEnvironment) { ('SQL Server Lab · automatisierte Testumgebung · {0} · {1}' -f $provider, $runtimeState) } else { ('SQL Server Lab · {0} · {1}' -f $provider, $runtimeState) }
                 Provider = $provider
                 Group = $provider.ToUpperInvariant()
                 Server = $target
@@ -442,6 +460,12 @@ function Export-SqlServerLabCmsSyncScript {
 
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
     $center = (Sync-SqlServerLabConnectionCenter -StateRoot $StateRoot -Quiet).ConnectionCenter
+    $cmsConfiguration = Get-LabConnectionCenterCmsConfiguration -StateRoot $StateRoot
+    if ($cmsConfiguration) {
+        # Ein CMS darf nicht als Ziel in seinem eigenen verwalteten Unterbaum
+        # erscheinen. Die lokale Verbindungszentrale darf ihn weiterhin zeigen.
+        $center.Entries = @($center.Entries | Where-Object { [string]$_.RunId -ne [string]$cmsConfiguration.RunId })
+    }
     if (-not $Path) { $Path = Join-Path (Get-LabConnectionCenterExportDirectory -StateRoot $StateRoot) 'sql-server-lab-cms-sync.sql' }
     $escape = { param([string]$Value) $Value.Replace("'", "''") }
     $providerAvailability = [ordered]@{}
@@ -627,6 +651,17 @@ function Invoke-LabCmsInteractive {
         return
     }
     Write-Host "  Verwalteter CMS: $($configuration.RunId) · Provider: $($configuration.Provider)" -ForegroundColor White
+    $cmsTarget = $null
+    try {
+        $cmsConnectionPath = Join-Path (Join-Path (Join-Path $StateRoot 'runs') ([string]$configuration.RunId)) 'connection-info.json'
+        $cmsConnection = Get-Content -LiteralPath $cmsConnectionPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
+        $cmsInstance = @($cmsConnection.instances | Where-Object { [string]$_.id -eq 'primary' } | Select-Object -First 1)[0]
+        $cmsTarget = ConvertFrom-LabConnectionStringTarget -ConnectionString ([string]$cmsInstance.connectionString) -Instance $cmsInstance
+    }
+    catch { }
+    if ($cmsTarget) { Write-Host "  SSMS-CMS-Server: $cmsTarget" -ForegroundColor White }
+    Write-Host '  Anzeige in SSMS: Ansicht -> Registrierte Server -> Datenbankmodul -> Zentrale Verwaltungsserver' -ForegroundColor DarkGray
+    Write-Host "  Dort den CMS-Server registrieren/aktualisieren und 'SQL Server Lab -> Running' aufklappen." -ForegroundColor DarkGray
     Write-Host '    [1] CMS jetzt synchronisieren'
     Write-Host '    [2] CMS-Synchronisationsskript exportieren'
     Write-Host '    [3] CMS-Ordnerstruktur konfigurieren'

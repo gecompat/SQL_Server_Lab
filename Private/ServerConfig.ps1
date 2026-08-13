@@ -42,7 +42,10 @@ function Assert-LabContainerPath {
     )
 
     $isLinuxPath = $Path.StartsWith('/')
-    $isWindowsPath = $Path -match '^[D-Zd-z]:\\'
+    # C: ist der reguläre Systemdatenträger eines Windows-Gasts. Die Prüfung
+    # bewertet ausschließlich einen SQL-internen Gastpfad und darf ihn daher
+    # nicht wie einen schreibenden Hostpfad behandeln.
+    $isWindowsPath = $Path -match '^[C-Zc-z]:\\'
     if ((-not $isLinuxPath -and -not $isWindowsPath) -or $Path -match "['\r\n]") {
         throw "$Label '$Path' ist kein sicherer absoluter Linux- oder Windows-Gastpfad."
     }

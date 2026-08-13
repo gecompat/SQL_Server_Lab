@@ -139,7 +139,8 @@ COMMANDS
         Zufallskennwörtern und aktualisiert den Testumgebungsvertrag.
 
     Export-SqlServerLabTestEnvironment
-        Schreibt TestUmgebung.env, TestUmgebung.json und TestUmgebung.md in den
+        Schreibt TestUmgebung.env, TestUmgebung.json, TestUmgebung.schema.json,
+        TestUmgebung.prompt.md und TestUmgebung.md in den
         konfigurierten Lab_Data-Exportordner.
 
     Clear-SqlServerLabAutomatedTestEnvironment
