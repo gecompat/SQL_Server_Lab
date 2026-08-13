@@ -134,10 +134,12 @@ end {
     if ($WriteGitHubOutput) {
         if (-not $env:GITHUB_OUTPUT) { throw 'GITHUB_OUTPUT_NOT_SET' }
         foreach ($name in @('Docker','Podman','Mixed','HyperV','Adapter')) {
-            "$($name.ToLowerInvariant())=$([string]$selection.$name).ToLowerInvariant()" |
+            $value = ([string]$selection.$name).ToLowerInvariant()
+            "$($name.ToLowerInvariant())=$value" |
                 Out-File -LiteralPath $env:GITHUB_OUTPUT -Encoding utf8 -Append
         }
-        "documentation_only=$([string]$selection.DocumentationOnly).ToLowerInvariant()" |
+        $documentationOnly = ([string]$selection.DocumentationOnly).ToLowerInvariant()
+        "documentation_only=$documentationOnly" |
             Out-File -LiteralPath $env:GITHUB_OUTPUT -Encoding utf8 -Append
     }
 
