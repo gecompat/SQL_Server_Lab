@@ -6,6 +6,8 @@ Container, Datenbanken oder Run-States.
 | Skript | Scope | Aufruf |
 |---|---|---|
 | `Invoke-AllChecks.ps1` | Fuehrt alle statischen Suites isoliert aus und erzwingt deren Exitcodes | `.\Tests\Static\Invoke-AllChecks.ps1` |
+| `Invoke-ImpactedChecks.ps1` | Fuehrt anhand geaenderter Repositorypfade nur die betroffenen Suites aus | `.\Tests\Static\Invoke-ImpactedChecks.ps1 -ChangedPath $paths` |
+| `Invoke-CiStrategyChecks.ps1` | Prueft Pfadklassifikation, PR-/Nightly-Trennung und das Verbot redundanter Volltests | `.\Tests\Static\Invoke-CiStrategyChecks.ps1` |
 | `Invoke-CleanupRecoveryChecks.ps1` | Simulierter Providerfehler, `RECOVERY_REQUIRED`, persistierte Fehlerursache und erfolgreicher Cleanup-Retry | `.\Tests\Static\Invoke-CleanupRecoveryChecks.ps1` |
 | `Invoke-PodmanBootstrapChecks.ps1` | Ready-, Start-, Fehler-, Timeout- und Parallelpfade des Podman-Bootstraps ohne echte Runtime | `.\Tests\Static\Invoke-PodmanBootstrapChecks.ps1` |
 | `Invoke-LabNetworkChecks.ps1` | Feste, konfigurierbare Docker-, Podman- und Hyper-V-Labnetze, CIDR-Kollisionsschutz sowie Hostzugriffsvertrag | `.\Tests\Static\Invoke-LabNetworkChecks.ps1` |
@@ -31,9 +33,9 @@ Alle Skripte beenden sich bei einem fehlgeschlagenen Vertrag mit einem Exitcode
 ungleich null. Native Docker-, Podman- und Hyper-V-Lifecycle-Tests liegen getrennt unter
 [`../Integration/`](../Integration/README.md).
 
-CI-Workflows verwenden `Invoke-AllChecks.ps1`, damit der Exitcode einer
-fehlgeschlagenen Suite nicht durch eine spaetere erfolgreiche Suite maskiert
-wird.
+Das PR-Gate verwendet `Invoke-ImpactedChecks.ps1`. `Invoke-AllChecks.ps1` läuft
+gebündelt im täglichen Nightly-Workflow und bei bewusster manueller Abnahme.
+Jede gewählte Suite läuft weiterhin in einem isolierten PowerShell-Prozess.
 
 PSScriptAnalyzer ist als eigene statische Suite mit projektspezifischer
 Baseline eingebunden. Privacy-Scanner und Release-Readiness-Checks sind aktiv in

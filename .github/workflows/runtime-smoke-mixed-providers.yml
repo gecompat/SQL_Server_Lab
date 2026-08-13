@@ -1,27 +1,15 @@
 name: Runtime Smoke - Mixed Providers
 
 on:
+  workflow_call:
   workflow_dispatch:
-  pull_request:
-    branches:
-      - main
-    paths:
-      - 'Private/**'
-      - 'Providers/Docker/**'
-      - 'Providers/Podman/**'
-      - 'Public/**'
-      - 'Schemas/**'
-      - 'Tests/**'
-      - 'SqlServerLab.psd1'
-      - 'SqlServerLab.psm1'
-      - '.github/workflows/runtime-smoke-mixed-providers.yml'
 
 permissions:
   contents: read
 
 concurrency:
-  group: sql-server-lab-runtime-smoke-mixed-providers
-  cancel-in-progress: false
+  group: sql-server-lab-runtime-smoke-mixed-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   mixed-provider-smoke:
@@ -46,11 +34,6 @@ jobs:
           .\Tests\Integration\Initialize-PodmanRuntime.ps1
           sqlcmd -?
           if ($LASTEXITCODE -ne 0) { throw 'sqlcmd ist nicht verwendbar.' }
-
-      - name: Static contracts
-        run: |
-          $ErrorActionPreference = 'Stop'
-          .\Tests\Static\Invoke-AllChecks.ps1
 
       - name: Mixed provider smoke test
         run: |

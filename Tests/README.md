@@ -7,21 +7,21 @@
 | `Static/` | Import-, Export-, JSON-, Schema-, Metadaten-, Link-, Menü- und Dokumentationskonsistenz |
 | `Integration/` | mutierende Lifecycle-, Provider-, Versions- und Parallelitäts-Smoke-Tests |
 
-## Kurz-Readiness vor Push/Release
+## Kurz-Readiness vor einem Pull Request
 
-Empfohlene minimale Abfolge vor jedem Push auf `main`:
+Die CI ermittelt die betroffenen Suites aus den geänderten Pfaden. Lokal kann
+dieselbe Auswahl verwendet werden:
+
+```powershell
+$paths = git diff --name-only origin/main...HEAD
+.\Tests\Static\Invoke-ImpactedChecks.ps1 -ChangedPath $paths
+```
+
+Die vollständige statische Regression bleibt für Nightly, Release oder eine
+bewusste manuelle Abnahme verfügbar:
 
 ```powershell
 .\Tests\Static\Invoke-AllChecks.ps1
-.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider auto
-.\Tests\Integration\Invoke-SmokeMatrix.ps1
-```
-
-Alternativ (lokales Paket inklusive Pester):
-
-```powershell
-.\Tests\Static\Invoke-PesterChecks.ps1
-.\Tests\Pester\SqlServerLab.Module.Tests.ps1
 ```
 
 Bei Hyper-V-relevanten Änderungen zusätzlich:
@@ -191,10 +191,24 @@ Geprüft werden:
 
 ## Remote Runner
 
-Der Workflow `Static Contracts` führt `Tests/Static/Invoke-AllChecks.ps1` bei
-jeder Änderung an `main` und bei jedem Pull Request gegen `main` auf
-`windows-latest` und `ubuntu-latest` aus. Beide Matrix-Jobs sind als
-plattformübergreifende Pflichtchecks für Pull Requests vorgesehen.
+Der Workflow `PR Gate` führt bei Pull Requests auf Windows und Ubuntu nur die
+von `Tools/Get-CiTestSelection.ps1` ermittelten statischen Suites aus. Je nach
+Änderungsbereich wird höchstens der passende Docker-, Podman-, Mixed-, Hyper-V-
+oder Adapter-Smoke zugeschaltet. Reine Dokumentationsänderungen starten keine
+Runtime. Unbekannte produktive Änderungen verwenden Docker als sicheren
+repräsentativen Fallback.
+
+Ein Push auf `main` startet keine erneute Vollmatrix. Der tägliche Workflow
+`Nightly Regression` führt stattdessen alle statischen Suites, alle Runtime-
+Smokes sowie die SQL-/CMS-Abnahme der gemeinsam exportierten Testumgebungen aus.
+Fehler werden in einem wiederverwendeten GitHub-Issue sichtbar gehalten. Die
+frische Hyper-V-/SQL-Installation läuft zusätzlich wöchentlich oder manuell.
+
+Self-hosted Runtime-Jobs aus Pull Requests werden nur für Branches desselben
+Repositories ausgeführt. Fork-Code erhält keinen Zugriff auf die privilegierten
+SQL-/Hyper-V-Runner und wird auf GitHub-hosted Runnern statisch geprüft; die
+vollständige Runtime-Abdeckung folgt über den vertrauenswürdigen Nightly-Lauf
+von `main`.
 
 Die Runtime-Tests verwenden ausschließlich dafür gekennzeichnete Self-hosted Runner:
 
@@ -211,6 +225,7 @@ Remote-Läufe befinden sich unter:
 
 ```text
 .github/workflows/static-contracts.yml
+.github/workflows/nightly-regression.yml
 .github/workflows/adapter-smoke-github-hosted.yml
 .github/workflows/runtime-smoke-docker-github-hosted.yml
 .github/workflows/runtime-smoke-docker.yml
@@ -219,9 +234,9 @@ Remote-Läufe befinden sich unter:
 .github/workflows/runtime-smoke-hyperv.yml
 ```
 
-Die Runtime-Workflows liefern echte Provider- und Restore-Nachweise. Sie sind
-nicht als verpflichtende Pull-Request-Checks konzipiert, weil ihre Verfügbarkeit
-von Runtimes, Images und den gekennzeichneten Self-hosted Runnern abhängt.
+Die Runtime-Workflows sind wiederverwendbar und enthalten keine Kopie der
+statischen Vollregression. Der stabile Pflichtcheck für Branch Protection heißt
+`PR Gate`; veraltete PR-Läufe werden automatisch abgebrochen.
 
 ## Voraussetzungen
 

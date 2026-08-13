@@ -4,11 +4,6 @@ on:
   schedule:
     - cron: '0 6 1 * *'
   workflow_dispatch:
-  pull_request:
-    types:
-      - closed
-    branches:
-      - main
 
 permissions:
   contents: read
@@ -20,8 +15,6 @@ concurrency:
 
 jobs:
   cu-monthly-watch:
-    if: github.event_name != 'pull_request' || github.event.pull_request.merged == true
-
     name: Check SQL Server CU catalog
     runs-on: ubuntu-latest
     timeout-minutes: 15

@@ -369,7 +369,9 @@ Testskript `Tests/Static/Invoke-AllChecks.ps1`.
 
 Lokale Produktfunktion und Native-Tests dürfen nicht von GitHub-hosted Runnern abhängen.
 
-Der GitHub-hosted Workflow `Static Contracts` führt die statischen Prüfungen auf
-Windows und Ubuntu aus. Er ist von den getrennten Runtime-Workflows abgegrenzt
-und stellt keinen erfolgreichen Docker-, Podman- oder Hyper-V-Nachweis dar, wenn
-die entsprechende Runtime nicht tatsächlich verwendet wurde.
+Der Workflow `PR Gate` klassifiziert geänderte Pfade, führt auf Windows und
+Ubuntu nur betroffene statische Suites aus und schaltet ausschließlich passende
+Runtime-Smokes zu. Auf einen Merge nach `main` folgt keine zweite Vollmatrix.
+Die vollständige statische und native Regression läuft täglich gebündelt als
+`Nightly Regression`; eine frische Hyper-V-/SQL-Installation läuft wöchentlich
+oder manuell. Nightly-Fehler werden über ein dauerhaftes Tracking-Issue sichtbar.
