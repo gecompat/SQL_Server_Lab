@@ -444,6 +444,16 @@ Die Topologie verwendet logische Rollen statt realer Laufwerksnamen:
 
 `FAULT_TARGET` muss eine harte Maximalgröße besitzen und darf niemals auf einen System- oder fremden Datenpfad zeigen.
 
+Die Rollen werden zusätzlich bis auf Dateiebene aufgelöst. Der lokale Bound
+Plan kann Default-User-Data, Default-User-Log, Backup, jedes einzelne
+TempDB-Datenfile, TempDB-Log sowie Data-/Log-Files einer Datenbank an
+unterschiedliche Storage-Locations binden. Unterschiedliche Volumes oder
+Laufwerksbuchstaben beweisen dabei keine unterschiedlichen physischen Geräte;
+eine geforderte physische Trennung gilt nur bei nachweislich disjunkten
+Backing-Device-IDs als erfüllt. Der detaillierte Vertrag und die
+Lieferreihenfolge stehen im
+[Konsolen-, Lifecycle- und Storage-Konsolidierungsplan](CONSOLE_LIFECYCLE_AND_STORAGE_CONSOLIDATION_PLAN_2026-08-12.md).
+
 ## 11. Menügeführte Installation
 
 Die interaktive Oberfläche arbeitet in nachvollziehbaren Schritten:
@@ -985,6 +995,14 @@ Jedes Dokument führt seine eigene Wellenzählung.
 | Welle 8 – Ablösung und Repositorybereinigung | nicht begonnen | setzt Wellen 6, 7 und 7a voraus |
 | Welle 9 – Release-Härtung ohne CI/CD | teilweise | vollständiger statischer Gate einschließlich PSScriptAnalyzer, lokale Validierungsstrategie, Privacy-Scanner, Pester und Releaseartefakt-Check sind integriert; OpenPoints verbleiben bei breiter Failure-Injection und `QUAL-906` |
 
+**Vorgeschaltete Konsolidierungswelle:** Die manuelle Abnahme vom 2026-08-12
+hat P0-Lücken bei Lifecycle-Seiteneffekten, Menüabbruch, Portprüfung,
+Hyper-V-Generalize und Storage-Defaults nachgewiesen. Diese Punkte sowie die
+dateigenaue SQL-/TempDB-Platzierung werden vor weiteren Komfortausbauten nach
+dem
+[Konsolen-, Lifecycle- und Storage-Konsolidierungsplan](CONSOLE_LIFECYCLE_AND_STORAGE_CONSOLIDATION_PLAN_2026-08-12.md)
+bearbeitet. Die Wellenstatus-Tabelle allein ist dafür kein Runtime-Nachweis.
+
 **Strukturabweichung:** Die Zielstruktur aus Abschnitt 16 (`Contracts/`,
 `Catalog/`, `Orchestration/`, `Scenarios/`, `Adapters/`, `Tools/`) wurde nicht
 angelegt. Die implementierte Struktur verwendet `Public/`, `Private/`,
@@ -1077,13 +1095,21 @@ Der Container-Core (Welle 2), der Sample-Backup-Handler und die native
 Hyper-V-Generation-2-Lifecycle-Grundlage sind umgesetzt. Die nächsten Schritte
 sind:
 
-1. Die vorhandene `LAB_GENERATED`-Erzeugung und -Präferenz für verifizierte
+1. die P0-Fehler aus der manuellen Konsolenabnahme schließen: kein CMS-Sync
+   nach Abbruch oder No-op, vollständiger Menüabbruchvertrag, belegte Ports
+   blockieren, Hyper-V-Generalize reparieren und UAC-Vorabfrage verifizieren;
+2. Multi-Root-Storage konsolidieren und den providerneutralen, dateigenauen
+   SQL-Storage-Plan umsetzen. Der Referenzfall bindet User-Data, User-Log und
+   TempDB getrennt und verteilt vier TempDB-Datenfiles auf vier nachweislich
+   unterschiedliche physische Datenträger. Details stehen im
+   [Konsolen-, Lifecycle- und Storage-Konsolidierungsplan](CONSOLE_LIFECYCLE_AND_STORAGE_CONSOLIDATION_PLAN_2026-08-12.md);
+3. die vorhandene `LAB_GENERATED`-Erzeugung und -Präferenz für verifizierte
    Single- und Multi-Output-Container-Samples an den Hyper-V-Export binden;
-2. die Wellen 6, 7 und 7a mit je einem Partnerpiloten beginnen:
+4. die Wellen 6, 7 und 7a mit je einem Partnerpiloten beginnen:
    Schulungs-Beispielkonstruktion, Analyze-Frameworkinstallation und
    Toolbelt-Modul-Lifecycle. Details und Reihenfolge stehen in
    [Project-Adapter-Priorisierung](PROJECT_ADAPTER_PRIORITIZATION.md);
-3. den vorhandenen Hyper-V-Pfad mit hashverifizierten Medien bis zum echten
+5. den vorhandenen Hyper-V-Pfad mit hashverifizierten Medien bis zum echten
    Windows-/SQL-2025-Gastnachweis führen und parallel den Zero-Touch-Cold-Path
    vervollständigen.
 

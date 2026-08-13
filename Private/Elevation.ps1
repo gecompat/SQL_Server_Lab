@@ -42,6 +42,10 @@ function Start-LabElevatedAction {
     # von Leerzeichen oder Sonderzeichen im Modulpfad.
     $command = "Import-Module '$escapedModulePath' -Force; Invoke-SqlServerLab -Action $Action"
     $encodedCommand = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
+    Write-LabInfo "Für '$Action' wird ein neues PowerShell-Fenster mit Administratorrechten benötigt."
+    if (-not (Read-LabConfirm -Prompt '  Administratorfenster und anschließende Windows-Sicherheitsabfrage jetzt öffnen?' -Default $false)) {
+        return [PSCustomObject]@{ Started = $false; Reason = 'USER_DECLINED'; Action = $Action }
+    }
     Start-Process -FilePath $pwsh.Source -Verb RunAs -ArgumentList @('-NoProfile', '-NoExit', '-EncodedCommand', $encodedCommand) -ErrorAction Stop
     return [PSCustomObject]@{ Started = $true; Reason = 'UAC_PROMPTED'; Action = $Action }
 }

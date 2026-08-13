@@ -132,6 +132,18 @@ COMMANDS
         Returns runtime SQL access for an automatically generated SQL Server SA
         account, including the connection string.
 
+    New-SqlServerLabAutomatedTestEnvironment
+        Creates one or more Linux SQL test environments with separate random
+        passwords and refreshes the test environment contract.
+
+    Export-SqlServerLabTestEnvironment
+        Writes TestUmgebung.env, TestUmgebung.json, and TestUmgebung.md to the
+        configured Lab_Data export directory.
+
+    Clear-SqlServerLabAutomatedTestEnvironment
+        Removes all automated test environments as one protected group and
+        deletes the corresponding TestUmgebung export.
+
     Validation
 
     Test-SqlServerLabPrerequisite

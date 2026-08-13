@@ -7,6 +7,15 @@ Pfadauflösung und die Konsolenverwaltung sind implementiert. Die vollstaendige
 volumeuebergreifende Migration ist noch nicht implementiert und darf bis zu
 ihrem End-to-End-Nachweis nicht als verfuegbare Funktion dokumentiert werden.
 
+Die manuelle Abnahme vom 2026-08-12 hat weitere Luecken in der ersten
+Konsolenimplementierung nachgewiesen: Legacy-Defaults werden nicht in jedem
+Fall sicher uebernommen, laufwerksrelative Eingaben wie `D:` werden akzeptiert,
+Unteraktionen verlassen das Storage-Menue und SQL-Rollen beziehungsweise
+einzelne SQL-Dateien koennen noch nicht an verschiedene Locations gebunden
+werden. Die Korrektur und Erweiterung ist im
+[Konsolen-, Lifecycle- und Storage-Konsolidierungsplan](CONSOLE_LIFECYCLE_AND_STORAGE_CONSOLIDATION_PLAN_2026-08-12.md)
+detailliert geplant.
+
 ## Ziel
 
 SQL_Server_Lab schreibt generierte und veraenderliche Daten ausschliesslich in
@@ -46,6 +55,13 @@ E:\PersistenteDaten\SQL_Server_Lab\Lab_Data
 Der Benutzer waehlt bei der Environment-Erstellung nur das Volume. Das
 Framework leitet den Zielpfad aus der zentralen Volume-Konfiguration ab. Frei
 eingebbare Environment-Pfade sind nicht Teil des Vertrags.
+
+Der als Standard markierte Root ist ausschliesslich der globale Fallback fuer
+neue persistente Lab-Ablagen. Das Registrieren einer weiteren Location darf
+einen vorhandenen Standard niemals implizit aendern. Ein vorhandener
+Legacy-Root wird vor der ersten Erweiterung idempotent uebernommen. Fuer einen
+Parent sind nur vollqualifizierte Pfade zulaessig: `D:\` ist gueltig und ergibt
+`D:\Lab_Data`; `D:` ist laufwerksrelativ und muss blockiert werden.
 
 Empfohlenes Konfigurationsmodell:
 
@@ -132,6 +148,14 @@ und Run-State absolute Pfade enthalten koennen.
 | STO-006 | Migrationsplan | Implementiert: unveraenderlicher Plan mit Kapazitaet, betroffenen Runs, Blockern und erforderlichen Aktionen |
 | STO-007 | Migration | Implementiert: journalisierte, fortsetzbare Copy/Verify/Switch/Cleanup-Migration; Hyper-V-Rebind automatisch, Container-Bind-Mounts bleiben expliziter Plan-Blocker |
 | STO-008 | Cleanup-Audit | Implementiert: read-only Nachweis ueber Datenwurzeln, State, Provider, externe Referenzen und Repository-Reste; Vorher-/Nachher-Audit in `Clear-SqlServerLab` |
+| STO-009 | Legacy-Default-Uebernahme | Vorhandene Roots bleiben beim Registrieren weiterer Locations autoritativ und werden mit Receipt uebernommen |
+| STO-010 | Location-Identitaet und Pfadvalidierung | Stabile `LocationId`; laufwerksrelative und nicht normalisierbare Parents werden vor Mutation blockiert |
+| STO-011 | Expliziter Default- und Referenzschutz | Defaultwechsel ist eine eigene bestaetigte Aktion; aktive Bindings verhindern Deregistrierung |
+| STO-012 | Volume- und Backing-Device-Topologie | Logische Volume-Trennung und nachgewiesene physische Geraetetrennung werden getrennt ausgewiesen |
+| STO-013 | Location-basierte Migration | Plan und Journal verwenden stabile Location-/Volume-IDs statt fluechtiger Laufwerksbuchstaben |
+| SFP-001 | Storage-Intent und lokaler Bound Plan | Portable Rollenanforderungen und konkrete lokale Location-/Geraetebindungen sind getrennt versioniert |
+| SFP-002 | Dateigenaue SQL-Platzierung | User-Data, User-Log, Backup, jedes TempDB-Datenfile und TempDB-Log sind einzeln plan- und reviewbar |
+| SFP-003 | TempDB-Verteilungsregeln | Explizite, Round-Robin-, Volume- und physische Geraetemodi blockieren unzureichende oder unbekannte Topologie |
 
 ## Abnahmekriterien
 
@@ -139,6 +163,13 @@ und Run-State absolute Pfade enthalten koennen.
 - `Lab_Base` ist genau einmal vorhanden und wird nicht als per-Volume-Parent missverstanden.
 - Pro Volume existiert hoechstens eine aktive, controllergebundene `Lab_Data`-Wurzel.
 - Environment-Erstellung bietet eine Volume-, aber keine freie Pfadauswahl an.
+- Das Hinzufuegen einer Location aendert keinen vorhandenen globalen Default.
+- `D:` und andere laufwerksrelative Parents werden abgelehnt; das normalisierte
+  Ziel wird vor der Bestaetigung angezeigt.
+- SQL-Data, SQL-Log, Backup, einzelne TempDB-Datenfiles und TempDB-Log koennen
+  getrennt gebunden werden.
+- Vier TempDB-Files gelten nur bei paarweise disjunkten nachgewiesenen
+  Backing-Devices als auf vier physischen Datentraegern getrennt.
 - Ein Parent-Wechsel ist vorab als Plan sichtbar und nach Unterbrechung fortsetzbar.
 - `Clear-SqlServerLab` meldet alle nicht dateibasierten oder externen Reste explizit.
 - Nach erfolgreichem Cleanup koennen Repository, `Lab_Base` und alle bekannten

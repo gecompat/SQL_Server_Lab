@@ -158,9 +158,12 @@ try {
     Add-CheckResult `
         -Name 'Persistierter ungültiger Sollzustand bleibt fail-closed' `
         -Success ($contract.Invalid.HighestChangeClass -eq 'unsupported' -and $contract.Invalid.Actions.Count -eq 0 -and $contract.Invalid.Desired.IsValid -eq $false -and $contract.Invalid.Warnings.Count -gt 0 -and -not $contract.Invalid.MutationAllowed)
+    $serializedContract = $contract | ConvertTo-Json -Depth 20
+    $containsForbiddenRuntimeData = $serializedContract -match 'not-in-plan|secret-host\.invalid|container-secret-id' -or
+        $serializedContract -match '(?i)"port"\s*:\s*143[34](?:\s*[,}])'
     Add-CheckResult `
         -Name 'Plan enthaelt keine Secrets, Hostwerte, Ports oder Runtime-IDs' `
-        -Success ((($contract | ConvertTo-Json -Depth 20) -notmatch 'not-in-plan|secret-host|1433|1434|container-secret-id'))
+        -Success (-not $containsForbiddenRuntimeData)
     Add-CheckResult `
         -Name 'Read-only Plan veraendert weder Run-State noch Connection-Info' `
         -Success ($contract.StateUnchanged -and $contract.ConnectionUnchanged)

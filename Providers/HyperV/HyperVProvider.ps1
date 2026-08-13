@@ -22,14 +22,6 @@ function Test-HyperVAvailable {
         }
     }
 
-    if (-not (Test-LabAdministrator)) {
-        return [PSCustomObject]@{
-            Available = $false
-            Version   = $null
-            Message   = 'Hyper-V-Aktionen benoetigen eine erhöhte PowerShell-Sitzung.'
-        }
-    }
-
     $requiredCommands = @(
         'Add-VMHardDiskDrive',
         'Add-VMDvdDrive',
@@ -59,6 +51,12 @@ function Test-HyperVAvailable {
         }
     }
 
+    # Nicht pauschal ein administratives Token verlangen. Mitglieder der
+    # lokalen Gruppe "Hyper-V-Administratoren" duerfen den Hyper-V-Dienst
+    # verwalten, ohne lokale Administratoren zu sein. Der echte Get-VMHost-
+    # Probe entscheidet deshalb capability-basiert. Einzelne Hostoperationen
+    # wie das Offline-Mounten einer VHDX pruefen ihre zusaetzlichen Privilegien
+    # weiterhin direkt am jeweiligen Ausfuehrungspunkt.
     try {
         $null = Get-VMHost -ErrorAction Stop
         $module = Get-Module Hyper-V -ListAvailable |
@@ -129,6 +127,14 @@ function Resolve-HyperVAdditionalDrivePlan {
         [Parameter(Mandatory)][string]$VMName,
         [Parameter(Mandatory)][string]$RunDirectory
     )
+
+    # PowerShell bindet ein explizit uebergebenes $null bei object[] als einen
+    # einzelnen Nullwert. Fuer den optionalen Drive-Vertrag bedeutet $null
+    # jedoch dasselbe wie eine leere Liste. Echte Nullwerte innerhalb einer
+    # nichtleeren Liste bleiben weiterhin ungueltig.
+    if ($null -eq $AdditionalDrives) {
+        $AdditionalDrives = @()
+    }
 
     if (@($AdditionalDrives).Count -gt 16) {
         throw 'HYPERV_ADDITIONAL_DRIVE_LIMIT_EXCEEDED'
@@ -488,6 +494,10 @@ function New-HyperVInstance {
             -ControllerNumber 0 `
             -Path $drive.Path `
             -ErrorAction Stop
+        if ([long]$drive.MaximumIops -gt 0) {
+            $null = Set-VMHardDiskDrive -VMHardDiskDrive $attachedDrive `
+                -MaximumIOPS ([long]$drive.MaximumIops) -ErrorAction Stop
+        }
     }
     $null = Set-VMProcessor -VM $vm -Count $ProcessorCount -ErrorAction Stop
     $null = Set-VMFirmware `
@@ -645,15 +655,22 @@ function Invoke-HyperVWinRmFallback {
     $originalTrustedHosts = [string](Get-Item -Path $trustedHostsPath -ErrorAction Stop).Value
     $trustedHosts = @($originalTrustedHosts -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
     $alreadyTrusted = $trustedHosts -contains '*' -or $trustedHosts -contains $Address
+    $trustedHostsChanged = $false
     try {
         if (-not $alreadyTrusted) {
-            Set-Item -Path $trustedHostsPath -Value (@($trustedHosts + $Address) -join ',') -Force -ErrorAction Stop
+            try {
+                Set-Item -Path $trustedHostsPath -Value (@($trustedHosts + $Address) -join ',') -Force -ErrorAction Stop
+                $trustedHostsChanged = $true
+            }
+            catch {
+                throw "HYPERV_LAB_WINRM_TRUSTED_HOST_REQUIRES_ELEVATION: $Address"
+            }
         }
         return Invoke-Command -ComputerName $Address -Credential $Credential -Authentication Negotiate `
             -ScriptBlock $ScriptBlock -ArgumentList $ArgumentList -ErrorAction Stop
     }
     finally {
-        if (-not $alreadyTrusted) {
+        if ($trustedHostsChanged) {
             Set-Item -Path $trustedHostsPath -Value $originalTrustedHosts -Force -ErrorAction SilentlyContinue
         }
     }
@@ -679,23 +696,30 @@ function Invoke-HyperVPowerShellDirect {
         throw "PowerShell Direct erfordert eine laufende VM: $VMName"
     }
 
-    try {
-        return Invoke-Command `
-            -VMName $VMName `
-            -Credential $Credential `
-            -ScriptBlock $ScriptBlock `
-            -ArgumentList $ArgumentList `
-            -ErrorAction Stop `
-            -Passthru
-        if ([long]$drive.MaximumIops -gt 0) {
-            $null = Set-VMHardDiskDrive -VMHardDiskDrive $attachedDrive -MaximumIOPS ([long]$drive.MaximumIops) -ErrorAction Stop
+    $directError = $null
+    foreach ($attempt in 1..10) {
+        try {
+            return Invoke-Command `
+                -VMName $VMName `
+                -Credential $Credential `
+                -ScriptBlock $ScriptBlock `
+                -ArgumentList $ArgumentList `
+                -ErrorAction Stop
+        }
+        catch {
+            if ([string]$_.CategoryInfo.Category -ne 'OpenError') { throw }
+            $directError = $_
+            if ($attempt -lt 10) { Start-Sleep -Seconds 3 }
         }
     }
-    catch {
-        if (-not $FallbackAddress) { throw }
-        Write-LabInfo "PowerShell Direct fuer $VMName nicht verfuegbar; nutze WinRM im Labnetz ($FallbackAddress)."
+    if (-not $FallbackAddress) { throw $directError }
+    Write-LabInfo "PowerShell Direct fuer $VMName nach 10 Versuchen nicht verfuegbar; nutze WinRM im Labnetz ($FallbackAddress)."
+    try {
         return Invoke-HyperVWinRmFallback -Address $FallbackAddress -Credential $Credential `
             -ScriptBlock $ScriptBlock -ArgumentList $ArgumentList
+    }
+    catch {
+        throw "HYPERV_LAB_GUEST_COMMAND_UNAVAILABLE: PowerShell Direct: $($directError.Exception.Message); WinRM: $($_.Exception.Message)"
     }
 }
 

@@ -31,6 +31,11 @@ function Get-SqlServerLabGeneratedSqlAccess {
         throw 'HYPERV_LAB_GENERATED_SQL_ACCESS_NOT_APPLICABLE'
     }
     $sqlSaPassword = Get-LabSecret -Path $lab.RunDirectory -Name 'generated-sql-sa-password'
+    if (-not $sqlSaPassword -and [string]$lab.Instance.sqlDeploymentPlan.passwordSource -eq 'generated') {
+        # Kompatibilität für Ad-hoc-Slots, die vor Einführung des expliziten
+        # generated-sql-sa-password-Alias bereits sa-password gespeichert haben.
+        $sqlSaPassword = Get-LabSecret -Path $lab.RunDirectory -Name 'sa-password'
+    }
     if (-not $sqlSaPassword) {
         throw 'HYPERV_LAB_GENERATED_SQL_ACCESS_NOT_FOUND: Für diesen Run wurde kein automatisch generiertes SA-Passwort gespeichert.'
     }

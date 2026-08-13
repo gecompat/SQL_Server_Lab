@@ -44,6 +44,7 @@ sources_of_truth:
   hyperv_windows_image_build: Documentation/HowTo/HYPERV_WINDOWS_IMAGE_BUILD.md
   workflow_ui: Documentation/HowTo/WORKFLOW_UI.md
   remote_hyperv_host_backlog: Documentation/Project_Planning/HYPERV_REMOTE_HOST_BACKLOG.md
+  manual_acceptance_consolidation_plan: Documentation/Project_Planning/CONSOLE_LIFECYCLE_AND_STORAGE_CONSOLIDATION_PLAN_2026-08-12.md
   validation_documentation: Tests/Static/Invoke-DocumentationChecks.ps1
   validation_runtime_contracts: Tests/Static/Invoke-ReadinessContractChecks.ps1
   validation_manifest_builder: Tests/Static/Invoke-ManifestBuilderChecks.ps1
@@ -303,6 +304,20 @@ project_adapters:
   prioritization: Documentation/Project_Planning/PROJECT_ADAPTER_PRIORITIZATION.md
 
 planning_contracts:
+  console_lifecycle_storage_consolidation:
+    source: Documentation/Project_Planning/CONSOLE_LIFECYCLE_AND_STORAGE_CONSOLIDATION_PLAN_2026-08-12.md
+    status: PLANNED_FROM_MANUAL_ACCEPTANCE
+    runtime_status: OPEN_WITH_UAC_PRECONFIRMATION_IMPLEMENTED_UNVERIFIED
+    covers:
+      - lifecycle_action_results_and_cms_sync_gate
+      - complete_console_ui_migration_and_fallback_test_mode
+      - action_scoped_elevation
+      - endpoint_port_conflict_checks
+      - storage_location_and_legacy_default_semantics
+      - backing_device_topology
+      - per_file_sql_data_log_and_tempdb_placement
+      - hyperv_generalize_regression
+      - status_collation_and_io_context
   sample_artifact_and_manifest_wizard:
     source: Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md
     status: BINDING_IMPLEMENTATION_TARGET

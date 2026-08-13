@@ -695,7 +695,7 @@ function Invoke-HyperVLabSqlSlotInstall {
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
     $plan = $lab.Instance.sqlDeploymentPlan
     if (-not $plan -or [string]$plan.deploymentMode -notin @('sql-pool-slot', 'adhoc-install') -or
-        [string]$plan.state -notin @('PLANNED', 'CONFIGURATION_PENDING')) {
+        [string]$plan.state -notin @('PLANNED', 'INSTALL_RETRY_PENDING', 'CONFIGURATION_PENDING')) {
         throw 'HYPERV_LAB_SQL_INSTALL_PLAN_REQUIRED'
     }
     $managed = Get-HyperVManagedVM -VMName ([string]$lab.Instance.vmName) `
@@ -715,10 +715,11 @@ function Invoke-HyperVLabSqlSlotInstall {
         $SqlSaPassword = New-HyperVSqlUnattendedPassword
         $generatedSaPassword = $true
         Save-LabSecret -Path $lab.RunDirectory -Name 'sa-password' -Secret $SqlSaPassword
+        Save-LabSecret -Path $lab.RunDirectory -Name 'generated-sql-sa-password' -Secret $SqlSaPassword
         $plan | Add-Member -NotePropertyName passwordSource -NotePropertyValue 'generated' -Force
     }
 
-    if ([string]$plan.state -eq 'PLANNED') {
+    if ([string]$plan.state -in @('PLANNED', 'INSTALL_RETRY_PENDING')) {
         $media = Resolve-HyperVSqlInstallationMedia -MediaRoot $MediaRoot -SqlVersion ([string]$plan.sqlVersion) `
             -MediaEdition ([string]$plan.mediaEdition) -SqlMediaPath ([string]$plan.sqlMediaPath)
         if ([string]$media.HashStatus -ne 'SIDECAR_READY') {
@@ -768,10 +769,11 @@ function Invoke-HyperVLabSqlSlotInstall {
         }
 
         Write-LabInfo "SQL $($plan.sqlVersion) wird vollständig im eindeutigen Windows-Slot installiert; kein Sysprep."
-        $receipt = Invoke-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) `
-            -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $credential `
-            -ArgumentList @([string]$plan.sqlVersion, $setupVersionPattern, (@($plan.features) -join ','), $SqlSaPassword, $dataRoot, $plan.storage, [string]$plan.collation, $SetupTimeoutSeconds) `
-            -ScriptBlock {
+        try {
+            $receipt = Invoke-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) `
+                -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $credential `
+                -ArgumentList @([string]$plan.sqlVersion, $setupVersionPattern, (@($plan.features) -join ','), $SqlSaPassword, $dataRoot, $plan.storage, [string]$plan.collation, $SetupTimeoutSeconds) `
+                -ScriptBlock {
                 param($ExpectedSqlVersion, $ExpectedSetupVersionPattern, $FeaturesCsv, $SaPassword, $SqlDataRoot, $StorageConfiguration, $Collation, $TimeoutSeconds)
                 $ErrorActionPreference = 'Stop'
                 $features = @([string]$FeaturesCsv -split ',' | Where-Object { $_ })
@@ -814,7 +816,7 @@ function Invoke-HyperVLabSqlSlotInstall {
                         $arguments += "/SQLTEMPDBLOGDIR=$($paths.Temp)"
                         $arguments += "/SQLBACKUPDIR=$($paths.Backup)"
                     }
-                    if ($ExpectedSqlVersion -in @('2022','2025')) { $arguments += '/AZUREEXTENSION=0' }
+                    if ($ExpectedSqlVersion -eq '2025') { $arguments += '/AZUREEXTENSION=0' }
                     $process = Start-Process -FilePath $setups[0].FullName -ArgumentList $arguments -PassThru -NoNewWindow
                     if (-not $process.WaitForExit([int]$TimeoutSeconds * 1000)) {
                         Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
@@ -844,7 +846,18 @@ function Invoke-HyperVLabSqlSlotInstall {
                     $plainPassword = $null
                     [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
                 }
+                }
+        }
+        catch {
+            if ($_.Exception.Message -match 'SQL_SETUP_(?:INSTALL_FAILED|INSTALL_TIMEOUT|INSTALLATION_NOT_REGISTERED)') {
+                $plan.state = 'INSTALL_RETRY_PENDING'
+                $failureCode = if ($_.Exception.Message -match 'SQL_SETUP_[A-Z_]+') { $Matches[0] } else { 'SQL_SETUP_FAILED' }
+                $plan | Add-Member -NotePropertyName lastSetupFailure -NotePropertyValue $failureCode -Force
+                $plan | Add-Member -NotePropertyName lastSetupFailureAt -NotePropertyValue (Get-LabTimestamp) -Force
+                Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
             }
+            throw
+        }
         $receipt = @($receipt)[-1]
         if (-not $receipt -or [string]$receipt.action -ne 'Install' -or [int]$receipt.exitCode -notin @(0,3010)) {
             throw 'HYPERV_LAB_SQL_INSTALL_RECEIPT_INVALID'
@@ -1401,7 +1414,13 @@ function Enable-HyperVLabHostSqlAccess {
                 try {
                     $connection.Open()
                     $command = $connection.CreateCommand()
-                    $command.CommandText = 'ALTER LOGIN [sa] ENABLE; ALTER LOGIN [sa] WITH PASSWORD = @password, CHECK_POLICY = ON;'
+                    $command.CommandText = @'
+DECLARE @statement nvarchar(max) =
+    N'ALTER LOGIN [sa] ENABLE; ALTER LOGIN [sa] WITH PASSWORD = ' +
+    QUOTENAME(@password, '''') +
+    N', CHECK_POLICY = ON;';
+EXEC sys.sp_executesql @statement;
+'@
                     $null = $command.Parameters.Add('@password', [System.Data.SqlDbType]::NVarChar, 128)
                     $command.Parameters['@password'].Value = $plain
                     $null = $command.ExecuteNonQuery()

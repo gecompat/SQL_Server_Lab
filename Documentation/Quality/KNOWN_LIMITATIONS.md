@@ -193,9 +193,29 @@ Ausführbare Beispiele verwenden diese Felder daher nicht.
 
 Die Instanzdefinition enthält eine Collation, die bei neuen Umgebungen sowohl als SQL-Server-Instanzcollation als auch als Default für neu angelegte Datenbanken verwendet wird. Ohne explizite Angabe gilt der native SQL-Containerstandard `SQL_Latin1_General_CP1_CI_AS`. Eine abweichende Collation wie `SQL_Latin1_General_CP1_CS_AS` löst beim ersten Containerstart einen Systemdatenbankumbau aus und kann deshalb deutlich länger benötigen.
 
+Die Konsolenanwendung besitzt noch keinen versionsgebundenen Collation-Katalog
+mit Filter- oder Suchauswahl. Das aktuelle freie Eingabefeld validiert nur den
+technischen Namen. Katalog, tokenbasierte Suche und SQL-seitige Verifikation
+sind in `COL-001` des
+[Konsolidierungsplans](../Project_Planning/CONSOLE_LIFECYCLE_AND_STORAGE_CONSOLIDATION_PLAN_2026-08-12.md)
+vorgesehen.
+
 ## Datenbankdateien und Volumes
 
 `New-SqlServerLabDatabase` berücksichtigt `path` für Data- und Log-Files. Der angegebene Containerpfad muss vorher über `drives` beziehungsweise einen Volume-Mount bereitgestellt worden sein.
+
+Die aktuelle Multi-Root-Verwaltung kann registrierte `Lab_Data`-Roots noch
+nicht Default-Data, Default-Log, Backup, einzelnen TempDB-Datenfiles oder dem
+TempDB-Log zuordnen. Auch eine geforderte physische Trennung wird noch nicht
+über Backing Devices nachgewiesen. Vier Laufwerksbuchstaben oder Partitionen
+auf derselben Festplatte dürfen daher derzeit nicht als vier physisch getrennte
+TempDB-Ziele bewertet werden.
+
+Die aktuelle Storage-Konsole verwendet außerdem noch direkte `Read-Host`-
+Auswahl, akzeptiert laufwerksrelative Eingaben wie `D:` und kann beim ersten
+Registrieren eines weiteren Roots einen bestehenden Legacy-Default übersehen.
+Bis `STO-009` bis `STO-013` und `SFP-001` bis `SFP-003` umgesetzt sind, müssen
+Default und resultierende Pfade vor jeder Mutation manuell geprüft werden.
 
 Das Feld `sizeLimitGB` bei Drives ist derzeit Metadatum; Docker- oder Podman-Volumes werden dadurch nicht physisch auf diese Größe begrenzt.
 
@@ -362,16 +382,31 @@ Der Integration-Smoke-Test benötigt eine laufende lokale Runtime und `sqlcmd`.
 
 Die statische Konsistenzprüfung ersetzt keinen echten Docker- oder Podman-End-to-End-Test.
 
+Die reale Hyper-V-Abnahme hat im Windows-Generalize-Pfad einen nicht gültigen
+Aufruf `Invoke-Command -Passthru` gefunden. Die statischen Prüfungen haben
+diesen nativen Parameterfehler nicht erkannt. Der Build bleibt bis zur
+Korrektur und erneuten PowerShell-Direct-Abnahme offen.
+
+Beim bloßen Öffnen und Abbrechen bestimmter Lifecycle-Schnellmenüs kann derzeit
+eine automatische Connection-Center-/CMS-Synchronisation ausgelöst werden.
+Bis zur Einführung des strukturierten Aktionsergebnisses gilt: Menüabbruch ist
+nicht als nachgewiesen seiteneffektfrei zu betrachten.
+
 ## Lokale State- und Secret-Daten
 
 State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien liegen außerhalb des Git-Checkouts. Sie dürfen nicht in Issues, Pull Requests oder versionierte Diagnoseartefakte kopiert werden.
 
 ## Priorisierte nächste technische Schritte
 
-1. `LAB_GENERATED`-Erzeugung und Auswahl an den Hyper-V-Export binden (Sample-Welle 5/6).
-2. Die implementierten providerneutralen Network- und Software-Intents an Hyper-V-LAN/NAT/IPAM und Software-Runtime binden.
-3. Artifact Registry, Refresh/Rebuild und Evaluierungsablauf implementieren.
-4. Den bereits validierten nativen Hyper-V-Lifecycle in getrennten Wellen bis
+1. Die P0-Fehler und unerwünschten Seiteneffekte aus der manuellen Abnahme nach
+   dem [Konsolidierungsplan](../Project_Planning/CONSOLE_LIFECYCLE_AND_STORAGE_CONSOLIDATION_PLAN_2026-08-12.md)
+   schließen und real regressieren.
+2. Multi-Root-Storage sowie dateigenaue Data-/Log-/TempDB-Platzierung inklusive
+   Nachweis physischer Backing Devices umsetzen.
+3. `LAB_GENERATED`-Erzeugung und Auswahl an den Hyper-V-Export binden (Sample-Welle 5/6).
+4. Die implementierten providerneutralen Network- und Software-Intents an Hyper-V-LAN/NAT/IPAM und Software-Runtime binden.
+5. Artifact Registry, Refresh/Rebuild und Evaluierungsablauf implementieren.
+6. Den bereits validierten nativen Hyper-V-Lifecycle in getrennten Wellen bis
    zum realen Windows-/SQL-2025-Cold-Path und zur vollständigen Manifestbindung
    ausbauen.
-5. Katalogaktualität, verifizierte Prüfsummen (`catalog-verified`) und Baseline-Kompatibilität kontrolliert pflegen.
+7. Katalogaktualität, verifizierte Prüfsummen (`catalog-verified`) und Baseline-Kompatibilität kontrolliert pflegen.

@@ -7,3 +7,4 @@
 | [Getting_Started.md](Getting_Started.md) | Schnellstart und Bedienung der öffentlichen Cmdlets |
 | [INTERACTIVE_WORKFLOW.md](INTERACTIVE_WORKFLOW.md) | Ziel-zuerst-Interaktionsfluss für neue Umgebungen und Hyper-V/Container-Entscheidungen |
 | [SQL_CONNECTION_CENTER.md](SQL_CONNECTION_CENTER.md) | Providerübergreifender SQL-Endpunktkatalog sowie SSMS- und CMS-Integration |
+| [AUTOMATED_TEST_ENVIRONMENTS.md](AUTOMATED_TEST_ENVIRONMENTS.md) | Mehrfacherstellung und `TestUmgebung.env`/JSON-Vertrag für KI und Testwerkzeuge |

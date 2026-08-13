@@ -67,6 +67,20 @@ $renderCount = 0
 $cursorResult = Invoke-LabConsoleMenu -ScreenId 'cursor' -Title 'Cursor' -Items $items -Capability ([PSCustomObject]@{ Supported=$true }) -ReadKey { $keys.Dequeue() } -FrameWriter { param($session, $renderedFrame) $script:renderCount++ }
 Add-ConsoleUiCheck 'Key-Loop navigiert und rendert lokal neu' ($cursorResult.SelectedItem.Id -eq 'two' -and $renderCount -eq 2)
 
+$numberedItems = @(1..12 | ForEach-Object { New-LabConsoleItem -Id "number-$_" -Label "Number $_" -Shortcut ([string]$_) })
+$numberKeys = [System.Collections.Generic.Queue[object]]::new()
+$numberKeys.Enqueue([PSCustomObject]@{ Key='D1'; KeyChar='1' })
+$numberKeys.Enqueue([PSCustomObject]@{ Key='D1'; KeyChar='1' })
+$numberRenderCount = 0
+$numberResult = Invoke-LabConsoleMenu -ScreenId 'number-11' -Title 'Number 11' -Items $numberedItems -Capability ([PSCustomObject]@{ Supported=$true }) -ReadKey { $numberKeys.Dequeue() } -FrameWriter { param($session, $renderedFrame) $script:numberRenderCount++ }
+Add-ConsoleUiCheck 'Mehrstellige Auswahl 11 wartet nach erster 1 und wählt Eintrag 11' ($numberResult.SelectedItem.Id -eq 'number-11' -and $numberRenderCount -eq 2)
+
+$singleDigitKeys = [System.Collections.Generic.Queue[object]]::new()
+$singleDigitKeys.Enqueue([PSCustomObject]@{ Key='D1'; KeyChar='1' })
+$singleDigitKeys.Enqueue([PSCustomObject]@{ Key='Enter'; KeyChar=[char]13 })
+$singleDigitResult = Invoke-LabConsoleMenu -ScreenId 'number-1' -Title 'Number 1' -Items $numberedItems -Capability ([PSCustomObject]@{ Supported=$true }) -ReadKey { $singleDigitKeys.Dequeue() } -FrameWriter { param($session, $renderedFrame) }
+Add-ConsoleUiCheck 'Mehrdeutige einstellige Auswahl 1 wird mit Enter bestätigt' ($singleDigitResult.SelectedItem.Id -eq 'number-1')
+
 $resizeKeys = [System.Collections.Generic.Queue[object]]::new()
 $resizeKeys.Enqueue([PSCustomObject]@{ Key='DownArrow'; KeyChar=[char]0 })
 $resizeKeys.Enqueue([PSCustomObject]@{ Key='Enter'; KeyChar=[char]13 })
@@ -100,6 +114,13 @@ $multiKeys.Enqueue([PSCustomObject]@{ Key='Spacebar'; KeyChar=' ' })
 $multiKeys.Enqueue([PSCustomObject]@{ Key='Enter'; KeyChar=[char]13 })
 $multiResult = Invoke-LabConsoleMultiSelect -ScreenId 'multi' -Title 'Multi' -Items $items -Capability ([PSCustomObject]@{ Supported=$true }) -ReadKey { $multiKeys.Dequeue() } -FrameWriter { param($session, $renderedFrame) }
 Add-ConsoleUiCheck 'Mehrfachauswahl schaltet per Space um und bestätigt gesammelt' ($multiResult.Status -eq 'Confirmed' -and @($multiResult.SelectedItems).Count -eq 2 -and @($multiResult.SelectedItems).Id -contains 'one' -and @($multiResult.SelectedItems).Id -contains 'two')
+
+$multiNumberKeys = [System.Collections.Generic.Queue[object]]::new()
+$multiNumberKeys.Enqueue([PSCustomObject]@{ Key='D1'; KeyChar='1' })
+$multiNumberKeys.Enqueue([PSCustomObject]@{ Key='D1'; KeyChar='1' })
+$multiNumberKeys.Enqueue([PSCustomObject]@{ Key='Enter'; KeyChar=[char]13 })
+$multiNumberResult = Invoke-LabConsoleMultiSelect -ScreenId 'multi-number-11' -Title 'Multi Number 11' -Items $numberedItems -Capability ([PSCustomObject]@{ Supported=$true }) -ReadKey { $multiNumberKeys.Dequeue() } -FrameWriter { param($session, $renderedFrame) }
+Add-ConsoleUiCheck 'Mehrfachauswahl interpretiert 11 ebenfalls als Eintrag 11' ($multiNumberResult.Status -eq 'Confirmed' -and @($multiNumberResult.SelectedItems).Count -eq 1 -and $multiNumberResult.SelectedItems[0].Id -eq 'number-11')
 
 $multiFallbackInputs = [System.Collections.Generic.Queue[string]]::new()
 $multiFallbackInputs.Enqueue('1')

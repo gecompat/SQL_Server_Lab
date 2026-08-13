@@ -59,6 +59,12 @@ try {
     Add-CheckResult `
         -Name 'Runner-Labels sind capability-spezifisch' `
         -Success ((@($metadata.requirements.runnerLabels) -join ',') -eq 'self-hosted,SQL_Lab,Hyper-V')
+    Add-CheckResult `
+        -Name 'Hyper-V-Verfügbarkeit verwendet einen Capability-Probe statt pauschaler Administratorpflicht' `
+        -Success (
+            $provider -match 'Get-VMHost\s+-ErrorAction\s+Stop' -and
+            $provider -notmatch 'if\s*\(\s*-not\s*\(Test-LabAdministrator\)\s*\)'
+        )
 
     foreach ($functionName in @(
         'Test-HyperVAvailable',
@@ -123,6 +129,16 @@ try {
         -Name 'Zusatz-VHDX werden explizit per SCSI angebunden' `
         -Text $provider `
         -Pattern 'Add-VMHardDiskDrive[\s\S]+ControllerType\s+SCSI[\s\S]+ControllerNumber\s+0'
+    Add-CheckResult `
+        -Name 'PowerShell Direct verwendet nur gültige Invoke-Command-Parameter' `
+        -Success (
+            $provider -match 'Invoke-Command[\s\S]+-VMName\s+\$VMName[\s\S]+-Credential\s+\$Credential' -and
+            $provider -notmatch 'Invoke-Command[\s\S]{0,400}-Pass(?:t|T)hru'
+        )
+    Add-TextContract `
+        -Name 'IOPS-Limit wird direkt nach dem Anhaengen der Zusatz-VHDX gesetzt' `
+        -Text $provider `
+        -Pattern 'foreach\s*\(\$drive\s+in\s+\$additionalDrivePlan\)[\s\S]+Add-VMHardDiskDrive[\s\S]+Set-VMHardDiskDrive[\s\S]+MaximumIOPS'
     Add-TextContract `
         -Name 'Zusatz-VHDX erhalten Cleanup vor ihrer Erstellung' `
         -Text $provider `
@@ -150,7 +166,15 @@ try {
     Add-TextContract `
         -Name 'Gastremoting faellt nur auf eine temporaere Lab-WinRM-Vertrauensbeziehung zurueck' `
         -Text $provider `
-        -Pattern 'TrustedHosts[\s\S]+Invoke-Command\s+-ComputerName[\s\S]+finally[\s\S]+originalTrustedHosts'
+        -Pattern 'TrustedHosts[\s\S]+trustedHostsChanged[\s\S]+Invoke-Command\s+-ComputerName[\s\S]+finally[\s\S]+originalTrustedHosts'
+    Add-TextContract `
+        -Name 'PowerShell Direct wird vor dem privilegierten WinRM-Fallback mehrfach versucht' `
+        -Text $provider `
+        -Pattern 'foreach\s*\(\$attempt in 1\.\.10\)[\s\S]+Invoke-Command[\s\S]+Start-Sleep -Seconds 3[\s\S]+nach 10 Versuchen'
+    Add-TextContract `
+        -Name 'Fachliche Gastfehler werden weder wiederholt noch auf WinRM umgeleitet' `
+        -Text $provider `
+        -Pattern "CategoryInfo\.Category -ne 'OpenError'\) \{ throw \}"
     Add-TextContract `
         -Name 'WinRM-Fallback startet nur den Host-Client und erstellt keinen Host-Listener' `
         -Text $provider `
@@ -208,6 +232,8 @@ try {
     $driveContract = & $module {
         $runDirectory = Join-Path ([System.IO.Path]::GetTempPath()) 'sql-lab-hyperv-drive-static-run'
         $resourceRoot = Join-Path (Join-Path $runDirectory 'resources') 'hyperv'
+        $emptyPlan = Resolve-HyperVAdditionalDrivePlan -RunDirectory $runDirectory `
+            -ResourceRoot $resourceRoot -VMName 'sql-lab-static' -AdditionalDrives $null
         $plan = Resolve-HyperVAdditionalDrivePlan -RunDirectory $runDirectory `
             -ResourceRoot $resourceRoot -VMName 'sql-lab-static' -AdditionalDrives @(
                 [PSCustomObject]@{ id = 'data'; role = 'sqlData'; sizeBytes = 64MB; vhdType = 'dynamic'; guestPath = 'D:\SqlData' },
@@ -222,8 +248,11 @@ try {
                 )
         }
         catch { $duplicateRejected = $_.Exception.Message -like 'HYPERV_ADDITIONAL_DRIVE_ID_DUPLICATE*' }
-        [PSCustomObject]@{ Plan = $plan; DuplicateRejected = $duplicateRejected }
+        [PSCustomObject]@{ EmptyPlan = $emptyPlan; Plan = $plan; DuplicateRejected = $duplicateRejected }
     }
+    Add-CheckResult `
+        -Name 'Leerer optionaler Hyper-V-Drive-Vertrag wird als leere Liste behandelt' `
+        -Success (@($driveContract.EmptyPlan).Count -eq 0)
     Add-CheckResult `
         -Name 'Drive-Plan validiert Rollen, Typen und IDs vor Mutation' `
         -Success (
