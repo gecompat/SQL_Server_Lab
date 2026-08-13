@@ -64,7 +64,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | Komponente | Status | Autoritative Dateien |
 |---|---|---|
 | PowerShell-Modul | implementiert | `SqlServerLab.psd1`, `SqlServerLab.psm1` |
-| Öffentliche API | 33 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
+| Öffentliche API | 44 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
 | Docker | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman | implementiert | `Providers/Podman/PodmanProvider.ps1` |
 | Hyper-V | Lifecycle, sealed Registry und enger Manifestpfad aus SQL-Prepared-Image; echter SQL-End-to-End-Nachweis bleibt offen | `Providers/HyperV/HyperVProvider.ps1`, `Private/HyperVImageRegistry.ps1` |
@@ -90,6 +90,17 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | Cmdlet | Zweck |
 |---|---|
 | `Invoke-SqlServerLab` | Interaktives Menü |
+| `New-SqlServerLabBatch` | Providerneutralen Einzel- oder Mengenbatch validieren, expandieren und persistent einreihen |
+| `Get-SqlServerLabBatch` | Batchplan, Abhängigkeiten, Fortschritt und Cleanup-Scope lesen |
+| `Get-SqlServerLabQueue` | Worker, Locks, Blockierungen und User-Gates lesen |
+| `Get-SqlServerLabOperation` | Schritte, Receipts, Events und Ergebnis eines Kindvorgangs lesen |
+| `Confirm-SqlServerLabOperationUserAction` | Ausgewählte User-Gates einzeln technisch prüfen und fortsetzen |
+| `Move-SqlServerLabOperation` | Wartenden Vorgang innerhalb seiner Priorität umreihen |
+| `Set-SqlServerLabOperationPriority` | Individuelle Vorgangspriorität setzen |
+| `Suspend-SqlServerLabOperation` | Wartenden Vorgang pausieren |
+| `Resume-SqlServerLabOperation` | Pausierten Vorgang wieder freigeben |
+| `Stop-SqlServerLabOperation` | Vorgang an sicherer Grenze stoppen und optional scopegebunden bereinigen |
+| `Stop-SqlServerLabBatch` | Unfertige Positionen oder ausdrücklich den gesamten Batch zurückbauen |
 | `Get-SqlServerLabWorkflow` | Konsolidierte Workflow- und Imageübersicht ohne Geheimnisse |
 | `Get-SqlServerLabCatalog` | Konsolidierten Lab-Katalog als JSON-Artefakt erzeugen |
 | `Get-SqlServerLabCleanupAudit` | Bekannte Lab-Daten und Runtime-Ressourcen read-only auf Reste prüfen |

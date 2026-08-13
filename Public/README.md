@@ -7,6 +7,17 @@ Dieses Verzeichnis enthält die öffentlichen PowerShell-Funktionen des Moduls. 
 | Cmdlet | Datei oder Definition | Zweck |
 |---|---|---|
 | `Invoke-SqlServerLab` | `Invoke-SqlServerLab.ps1` | Interaktives Menü |
+| `New-SqlServerLabBatch` | `BatchWorkflow.ps1` | Einzel- oder Mengenbatch validieren, expandieren und persistent einreihen |
+| `Get-SqlServerLabBatch` | `BatchWorkflow.ps1` | Batchplan, Abhängigkeiten, Fortschritt und Cleanup-Scope lesen |
+| `Get-SqlServerLabQueue` | `BatchWorkflow.ps1` | Worker, Locks, Blockierungen und User-Gates lesen |
+| `Get-SqlServerLabOperation` | `BatchWorkflow.ps1` | Schritte, Receipts, Events und Ergebnis eines Kindvorgangs lesen |
+| `Confirm-SqlServerLabOperationUserAction` | `BatchWorkflow.ps1` | User-Gates einzeln technisch prüfen und nur erfolgreiche Positionen fortsetzen |
+| `Move-SqlServerLabOperation` | `BatchWorkflow.ps1` | Wartenden Vorgang innerhalb seiner Priorität umreihen |
+| `Set-SqlServerLabOperationPriority` | `BatchWorkflow.ps1` | Individuelle Priorität eines Kindvorgangs setzen |
+| `Suspend-SqlServerLabOperation` | `BatchWorkflow.ps1` | Wartenden Vorgang pausieren |
+| `Resume-SqlServerLabOperation` | `BatchWorkflow.ps1` | Pausierten Vorgang wieder freigeben |
+| `Stop-SqlServerLabOperation` | `BatchWorkflow.ps1` | Vorgang an sicherer Grenze stoppen und optional scopegebunden bereinigen |
+| `Stop-SqlServerLabBatch` | `BatchWorkflow.ps1` | Unfertige Positionen oder ausdrücklich den gesamten Batch zurückbauen |
 | `Get-SqlServerLabWorkflow` | `Get-SqlServerLabWorkflow.ps1` | Verdichtete Workflow-, Image- und Kombinationsübersicht ohne Geheimnisse |
 | `Get-SqlServerLabCatalog` | `Get-SqlServerLabCatalog.ps1` | Workflow-Katalog als persistenter, maschinenlesbarer Katalog mit Laufzeit-Metadaten |
 | `Get-SqlServerLabCleanupAudit` | `Get-SqlServerLabCleanupAudit.ps1` | Bekannte Datenwurzeln und Runtime-Ressourcen read-only auf Reste und nicht prüfbare Provider untersuchen |

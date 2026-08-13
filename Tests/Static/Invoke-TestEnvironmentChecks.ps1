@@ -182,6 +182,7 @@ try {
         -not (Test-Path -LiteralPath (Join-Path $clearOutput 'TestUmgebung.prompt.md'))
     )
     $menuText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Invoke-SqlServerLab.ps1') -Raw -Encoding utf8
+    $batchConsoleText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/BatchConsole.ps1') -Raw -Encoding utf8
     $testEnvironmentText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/TestEnvironment.ps1') -Raw -Encoding utf8
     $hyperVLabText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVLabEnvironment.ps1') -Raw -Encoding utf8
     $clearText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Clear-SqlServerLab.ps1') -Raw -Encoding utf8
@@ -189,15 +190,16 @@ try {
     $lifecycleText = @(
         'Start-SqlServerLab.ps1','Stop-SqlServerLab.ps1','Restart-SqlServerLab.ps1','Remove-SqlServerLab.ps1','Update-SqlServerLabContainer.ps1'
     ) | ForEach-Object { Get-Content -LiteralPath (Join-Path $repoRoot "Public/$_") -Raw -Encoding utf8 }
-    Add-CheckResult -Name 'Hauptmenü bietet Batch-Erfassung für Linux und Windows an' -Success (
-        $menuText -match "-Id 'automated-test' -Label 'Umgebung für automatisierte Tests anlegen'" -and
-        $menuText -match "-Id 'clear-automated-test' -Label 'Alle automatisierten Testumgebungen löschen'" -and
-        $menuText -match "\[l\] Linux hinzufügen  \[w\] Windows hinzufügen" -and
-        $menuText -match "\[a\] Alle erstellen" -and
-        $menuText -match 'Bestehende Testgruppe:' -and
-        $menuText -match 'Noch keine neue Umgebung hinzugefügt' -and
+    Add-CheckResult -Name 'Providerneutraler Hauptpfad bietet Batch-Erfassung für Linux und Windows an' -Success (
+        $menuText -match "-Id 'plan' -Label 'Umgebungen planen und erstellen'" -and
+        $batchConsoleText -match "-Id 'add-sql' -Label 'SQL-Umgebung hinzufuegen'" -and
+        $batchConsoleText -match "-Id 'add-windows'" -and
+        $batchConsoleText -match "'Reine Windows-Umgebung hinzufuegen'" -and
+        $batchConsoleText -match "-Id 'matrix' -Label 'Testmatrix erzeugen'" -and
+        $batchConsoleText -match "ProviderPreference'\] = 'Auto'" -and
+        $batchConsoleText -match "-Id 'review' -Label 'Gesamtplan pruefen und zur Queue uebergeben'" -and
+        $menuText -match "-Id 'ClearAutomatedTestEnvironment' -Label 'Alle automatisierten Testumgebungen loeschen'" -and
         $testEnvironmentText -match 'function Get-LabAutomatedTestEnvironmentStatus' -and
-        $menuText -match "AutoStart='on'" -and
         $testEnvironmentText -match '-AutoStart on' -and
         $menuText -match 'DisableAutomatedTestEnvironments'
     )

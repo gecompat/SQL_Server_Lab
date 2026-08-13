@@ -27,6 +27,15 @@
     </div>
     <section id="summary" class="summary-grid" aria-label="Übersicht"></section>
 
+    <section class="panel queue-panel">
+      <div class="section-heading">
+        <div><p class="eyebrow">PERSISTENTER WORKFLOW</p><h2>Vorgänge, Queue und Benutzeraktionen</h2></div>
+        <span id="queue-count" class="count"></span>
+      </div>
+      <p>Wartende Benutzeraktionen geben Worker frei. Read-only-Probes melden nur einen Kandidaten; fortgesetzt wird ausschließlich nach Bestätigung.</p>
+      <div id="operation-queue" class="cards"></div>
+    </section>
+
     <section class="workflow-intro">
       <div>
         <p class="eyebrow">GEFÜHRTER WORKFLOW</p>

@@ -31,6 +31,8 @@ try {
     $environmentText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVLabEnvironment.ps1') -Raw -Encoding utf8
     $acceptanceText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVSqlAcceptanceEnvironment.ps1') -Raw -Encoding utf8
     $menuText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Invoke-SqlServerLab.ps1') -Raw -Encoding utf8
+    $batchConsoleText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/BatchConsole.ps1') -Raw -Encoding utf8
+    $batchWorkflowText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/BatchWorkflow.ps1') -Raw -Encoding utf8
     $newLabText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/New-SqlServerLab.ps1') -Raw -Encoding utf8
     $generatedAccessText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Get-SqlServerLabGeneratedSqlAccess.ps1') -Raw -Encoding utf8
     $moduleManifestText = Get-Content -LiteralPath $modulePath -Raw -Encoding utf8
@@ -65,29 +67,14 @@ try {
         $environmentText -match 'function Complete-HyperVLabManualWindowsSlot' -and
         $environmentText -match "mode = 'manual-handoff'"
     )
-    Add-CheckResult -Name 'Interaktiver Hyper-V-SQL-Pfad erzeugt fehlende Vorstufen statt ohne Aktion abzubrechen' -Success (
-        $menuText -match 'function Read-LabSqlEnvironmentIntentInteractive' -and
-        $menuText -match 'function Resolve-LabSqlIntentProvider' -and
-        $menuText -match 'Providerentscheidung:' -and
-        $menuText -match "Label='Benutzerdefiniert'" -and
-        $menuText -match "Value='OS, Edition, Netzwerk, Storage, I/O, TempDB und Collation'" -and
-        $menuText -match 'function Invoke-LabNewHyperVSqlEnvironmentWorkflowInteractive' -and
-        $menuText -match 'Keine veröffentlichte SQL-Prepared-Vorlage vorhanden\. Der interaktive Workflow wechselt auf den Windows-OS-Pfad' -and
-        $menuText -match 'New-LabHyperVImageBuildInteractive' -and
-        $menuText -match 'Invoke-LabHyperVWindowsBaselineMenu' -and
-        $menuText -match 'New-LabHyperVEnvironmentInteractive -WindowsOnly -ContinueSqlWorkflow' -and
-        $menuText -match 'function Complete-LabHyperVManualWindowsWorkflowInteractive' -and
-        $menuText -match 'function Select-LabReusableHyperVWindowsSlotInteractive' -and
-        $menuText -match 'Vorhandenen Windows-Slot verwenden' -and
-        $menuText -match 'Invoke-LabReusableHyperVWindowsSlotInteractive -Slot \$reusableSlot' -and
-        $menuText -match "'SQL_RESUME'" -and
-        $menuText -match 'unterbrochener SQL-Ausbau wurde erkannt' -and
-        $menuText -match '\[a\] Alles erledigt / \[b\] Problem - Workflow abbrechen' -and
-        $menuText -match 'Complete-HyperVLabManualWindowsSlot -RunId \$RunId' -and
-        $menuText -match 'Für die SQL-Ressourcenplanung muss die VM ausgeschaltet sein; sie wird jetzt automatisch sauber heruntergefahren' -and
-        $menuText -match 'Stop-HyperVLabEnvironment -RunId \$RunId' -and
-        $menuText -match 'Invoke-LabHyperVSqlSlotInstallInteractive -Plan \$plan -RunId \$RunId' -and
-        $menuText -match 'Invoke-LabNewHyperVSqlEnvironmentWorkflowInteractive'
+    Add-CheckResult -Name 'Providerneutraler SQL-Batch erzeugt fehlende Hyper-V-Vorstufen persistent' -Success (
+        $batchConsoleText -match "New-LabConsoleItem -Id 'add-sql' -Label 'SQL-Umgebung hinzufuegen'" -and
+        $batchConsoleText -match "ProviderPreference.+Auto" -and
+        $batchWorkflowText -match 'function Resolve-LabBatchProvider' -and
+        $batchWorkflowText -match 'function Find-LabMatchingHyperVArtifact' -and
+        $batchWorkflowText -match "'WaitingForDependency'" -and
+        $batchWorkflowText -match "'ResolveHyperVArtifact'" -and
+        $menuText -match "New-LabConsoleItem -Id 'Image' -Label 'Hyper-V Infrastruktur: OS-Images und ISOs verwalten'"
     )
     Add-CheckResult -Name 'Vollständige SQL-Installation wartet auf Registry- und Dienstregistrierung' -Success (
         $environmentText -match 'SQL_SETUP_INSTALLATION_NOT_REGISTERED' -and

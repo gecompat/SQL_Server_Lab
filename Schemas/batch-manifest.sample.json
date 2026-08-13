@@ -1,0 +1,38 @@
+{
+  "$schema": "./lab-batch.schema.json",
+  "contract": "SqlServerLab.BatchManifest/1.0",
+  "name": "Schulungs-Slots",
+  "priority": "Normal",
+  "defaults": {
+    "providerPreference": "Auto",
+    "cpu": 4,
+    "autoStart": false
+  },
+  "items": [
+    {
+      "id": "windows-desktop",
+      "kind": "WindowsSlot",
+      "count": 3,
+      "intent": {
+        "operatingSystem": "Windows Server 2025",
+        "variant": "Desktop",
+        "memoryMB": 8192,
+        "requiresUserSetup": true
+      }
+    },
+    {
+      "id": "sql-2022-linux",
+      "kind": "SqlEnvironment",
+      "count": 2,
+      "intent": {
+        "operatingSystem": "Linux",
+        "sqlVersion": "2022",
+        "edition": "Developer",
+        "patch": "latest"
+      },
+      "overrides": {
+        "memoryMB": 4096
+      }
+    }
+  ]
+}

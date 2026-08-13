@@ -47,6 +47,7 @@ testet seinen Core je Provider nur mit SQL Server 2025.
 | Gemischter Docker-/Podman-Lifecycle | implementiert | `Documentation/Architecture/MIXED_PROVIDER_LIFECYCLE.md` |
 | Hyper-V-Provider | Lifecycle einschließlich Gast-Drives, Windows-Specialization, SQL-Readiness, Image-Registry, Windows-Builder und resumierbarem SQL-`PrepareImage`-Builder implementiert; realer Windows-2025-VHDX-Boot verifiziert, echter SQL-End-to-End-Nachweis noch offen | `Providers/HyperV/HyperVProvider.ps1`, `Private/HyperVImageBuilder.ps1`, `Private/HyperVSqlImageBuilder.ps1` |
 | Ad-hoc-Provisionierung | implementiert | `New-SqlServerLab -Version ... -Provider ...` |
+| Providerneutrale Batch-, Queue- und Resume-Provisionierung | implementiert | `Private/BatchWorkflow.ps1`, `Public/BatchWorkflow.ps1`, `Schemas/lab-batch.schema.json` |
 | Manifest-Provisionierung | primärer unbeaufsichtigter Containerpfad; externe Secret-Referenzen, SHA-256-Restores und sichere Mount-Defaults | `Schemas/lab-manifest.schema.json`, `Documentation/Architecture/TEMPLATE_POOL_AND_AUTOMATED_MANIFESTS.md` |
 | Resource Assessment | implementiert | `Test-SqlServerLabPrerequisite` |
 | Run-State und Cleanup-Plan | implementiert | `Private/StateMachine.ps1`, `Private/CleanupEngine.ps1` |
@@ -61,10 +62,11 @@ testet seinen Core je Provider nur mit SQL Server 2025.
 
 Die [bekannten Grenzen](Documentation/Quality/KNOWN_LIMITATIONS.md) sind Teil des öffentlichen Vertrags. Planungsdokumente sind kein Runtime-Nachweis.
 
-Der Ad-hoc- und Menüpfad bietet Hyper-V noch nicht als allgemeinen SQL-
-Runtimepfad an. `New-SqlServerLab -Manifest` unterstützt hingegen genau eine
-explizit ausgewählte `OS_SEALED` oder `SQL_PREPARED_SEALED`-Vorlage als
-differenzierenden Klon.
+Der normale Menüpfad plant einzelne und mehrere SQL-/Windows-Umgebungen
+providerneutral. `ProviderPreference = Auto` ist der Standard; Docker, Podman
+oder Hyper-V können nur unter den erweiterten Eigenschaften explizit gewählt
+werden. Hyper-V-spezifische Vorlagen-, ISO-, Slot- und Recovery-Aufgaben bleiben
+im eigenen Infrastrukturbereich.
 Alle Provider unterstützen `instances[].autostart: "on"`. Hyper-V verwendet
 `AutomaticStartAction=Start`; Docker und Podman erhalten `unless-stopped` sowie
 ein Lab-Label. Unter Windows startet ein benutzergebundener Auftrag nach der
@@ -464,6 +466,19 @@ Clear-SqlServerLab
 | Cmdlet | Zweck |
 |---|---|
 | `Invoke-SqlServerLab` | Interaktives Menü |
+| `New-SqlServerLabBatch` | Eine oder mehrere Positionen expandieren, vollständig validieren und persistent einreihen; `-Manifest` setzt einen eindeutigen offenen Lauf fort |
+| `Get-SqlServerLabBatch` | Batchzustand, Review, Abhängigkeiten, Fortschritt und Cleanup-Scope lesen |
+| `Get-SqlServerLabQueue` | Worker, Locks, nächste startbare Position, Blockierungsgründe und User-Gates lesen |
+| `Get-SqlServerLabOperation` | Persistente Kindvorgänge, Schritte, Receipts und Events lesen |
+| `Confirm-SqlServerLabOperationUserAction` | Ausgewählte User-Gates einzeln technisch prüfen und nur erfolgreiche Positionen fortsetzen |
+| `Move-SqlServerLabOperation` | Wartenden Vorgang innerhalb seiner Priorität umreihen |
+| `Set-SqlServerLabOperationPriority` | Individuelle Vorgangspriorität setzen |
+| `Set-SqlServerLabBatchPriority` | Batchpriorität an nicht individuell überschriebene Kindvorgänge weitergeben |
+| `Suspend-SqlServerLabOperation` / `Resume-SqlServerLabOperation` | Wartenden Vorgang pausieren oder wieder freigeben |
+| `Stop-SqlServerLabOperation -Cleanup` | Vorgang an sicherer Schrittgrenze stoppen und scopegebunden bereinigen |
+| `Stop-SqlServerLabBatch -Cleanup` | Unfertige Positionen stoppen oder mit `-IncludeCompleted` den gesamten Batch nach zweiter Review zurückbauen |
+| `Invoke-SqlServerLabScheduler` | Persistente Queue mit zwei Workern und maximal einem `HyperVHeavy`-Vorgang verarbeiten |
+| `Invoke-SqlServerLabOperationProbe` | Fällige User-Gates ausschließlich lesend prüfen, ohne sie selbstständig fortzusetzen |
 | `Get-SqlServerLabWorkflow` | Konsolidierte Workflow-, Image-, Vorlagenpool- und Kombinationsübersicht ohne Geheimnisse |
 | `Get-SqlServerLabCatalog` | Konsolidierten Lab-Katalog als JSON-Artefakt erzeugen |
 | `Get-SqlServerLabCleanupAudit` | Bekannte Lab-Daten und Runtime-Ressourcen read-only auf Reste prüfen |
@@ -546,12 +561,14 @@ flowchart TD
 | Exportierte Cmdlets | `SqlServerLab.psd1` |
 | Modul-Ladevorgang | `SqlServerLab.psm1` |
 | Manifestfelder | `Schemas/lab-manifest.schema.json` |
+| Batch-Manifestfelder | `Schemas/lab-batch.schema.json` |
 | Manifest-Eingabe und Fachvalidierung | `Private/ManifestBuilder.ps1` plus `Private/ManifestParser.ps1` |
 | SQL-Versionen und Images | `Catalogs/sql-server-versions.json` |
 | Sample-Datenbanken | `Catalogs/sample-databases.json` |
 | Provider-Funktion | `Providers/*/*.ps1` |
 | Provider-Metadaten | `Providers/*/provider.json` |
 | State und Übergänge | `Private/StateMachine.ps1` |
+| Batch-, Queue-, Lease-, User-Gate- und Resume-Vertrag | `Private/BatchWorkflow.ps1` |
 | Cleanup-Verhalten | `Private/CleanupEngine.ps1` |
 | Aktuelle Einschränkungen | `Documentation/Quality/KNOWN_LIMITATIONS.md` |
 | KI-Landkarte | `.ai/repo_map.yaml` |
@@ -570,6 +587,7 @@ Statische Konsistenz- und Readiness-Prüfungen:
 
 ```powershell
 .\Tests\Static\Invoke-ManifestBuilderChecks.ps1
+.\Tests\Static\Invoke-BatchWorkflowChecks.ps1
 .\Tests\Static\Invoke-DocumentationChecks.ps1
 .\Tests\Static\Invoke-ReadinessContractChecks.ps1
 .\Tests\Static\Invoke-MixedProviderLifecycleChecks.ps1
