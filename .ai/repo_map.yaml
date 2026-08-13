@@ -22,6 +22,8 @@ sources_of_truth:
   exported_commands: SqlServerLab.psd1
   module_loading: SqlServerLab.psm1
   manifest_structure: Schemas/lab-manifest.schema.json
+  batch_manifest_structure: Schemas/lab-batch.schema.json
+  batch_queue_resume_contract: Private/BatchWorkflow.ps1
   manifest_resolution: Private/ManifestParser.ps1
   manifest_builder_validation: Private/ManifestBuilder.ps1
   sql_versions: Catalogs/sql-server-versions.json
@@ -48,10 +50,27 @@ sources_of_truth:
   validation_documentation: Tests/Static/Invoke-DocumentationChecks.ps1
   validation_runtime_contracts: Tests/Static/Invoke-ReadinessContractChecks.ps1
   validation_manifest_builder: Tests/Static/Invoke-ManifestBuilderChecks.ps1
+  validation_batch_workflow: Tests/Static/Invoke-BatchWorkflowChecks.ps1
   validation_runtime_matrix: Tests/Integration/Invoke-SmokeMatrix.ps1
   latest_validation_result: Documentation/Quality/VALIDATION_RESULT_2026-08-12.md
 
 public_commands:
+  - name: New-SqlServerLabBatch
+    source: Public/BatchWorkflow.ps1
+    purpose: "Providerneutralen Einzel- oder Mengenbatch validieren, expandieren und persistent einreihen"
+    mutates_host: true
+  - name: Get-SqlServerLabQueue
+    source: Public/BatchWorkflow.ps1
+    purpose: "Persistente Queue, Worker, Locks, Blockierungen und User-Gates lesen"
+    mutates_host: false
+  - name: Confirm-SqlServerLabOperationUserAction
+    source: Public/BatchWorkflow.ps1
+    purpose: "Ausdruecklich bestaetigte User-Gates einzeln technisch verifizieren und fortsetzen"
+    mutates_host: true
+  - name: Invoke-SqlServerLabScheduler
+    source: Public/BatchWorkflow.ps1
+    purpose: "Queue mit Ressourcenklassen, Locks und Resume verarbeiten"
+    mutates_host: true
   - name: Invoke-SqlServerLab
     source: Public/Invoke-SqlServerLab.ps1
     purpose: "Interaktives Menü"

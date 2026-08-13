@@ -59,8 +59,9 @@ try {
         $consoleText -match 'SQL-System- und Datenbanken persistent im Data Root einbinden' -and
         $consoleText -match '\$newLabArguments\.PersistentData = \$true' -and
         $consoleText -match '\$newLabArguments\.DataRoot = \$defaultDataRoot' -and
-        $consoleText -match "New-LabConsoleItem -Id 'storage' -Label 'Storage verwalten'.+-Shortcut 'd'" -and
-        $consoleText -match "'d' \{ Invoke-LabAction -ActionName 'DataRoot' \}" -and
+        $consoleText -match "New-LabConsoleItem -Id 'storage' -Label 'Medien, Testdaten und Speicher'.+-Shortcut '5'" -and
+        $consoleText -match "New-LabConsoleItem -Id 'DataRoot' -Label 'Lab_Data verwalten'.+-Shortcut 'd'" -and
+        $consoleText -match "'DataRoot'\s*\{\s*Invoke-LabStorageInteractive" -and
         $consoleText -match 'Invoke-LabStorageInteractive'
     )
     $module = Import-Module $modulePath -Force -PassThru -ErrorAction Stop

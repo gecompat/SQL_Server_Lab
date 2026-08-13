@@ -327,6 +327,48 @@ try {
                 Write-UiResponse -Context $context -Body (@{ jobLogBurstLimit = $JobLogBurstLimit } | ConvertTo-Json -Depth 4) -ContentType 'application/json; charset=utf-8'
                 continue
             }
+            if ($path -eq '/api/queue' -and $context.Request.HttpMethod -eq 'GET') {
+                Write-UiResponse -Context $context -Body (Get-SqlServerLabQueue | ConvertTo-Json -Depth 20) -ContentType 'application/json; charset=utf-8'
+                continue
+            }
+            if ($path -eq '/api/batches' -and $context.Request.HttpMethod -eq 'POST') {
+                $body = [IO.StreamReader]::new($context.Request.InputStream, $context.Request.ContentEncoding).ReadToEnd()
+                $request = $body | ConvertFrom-Json -Depth 30
+                $batch = New-SqlServerLabBatch -Name ([string]$request.name) -Priority $(if ($request.priority) { [string]$request.priority } else { 'Normal' }) -Defaults $request.defaults -Items @($request.items) -Queue:$false
+                Write-UiResponse -Context $context -Body ($batch | ConvertTo-Json -Depth 30) -ContentType 'application/json; charset=utf-8' -StatusCode 201
+                continue
+            }
+            if ($path -eq '/api/operations' -and $context.Request.HttpMethod -eq 'POST') {
+                $body = [IO.StreamReader]::new($context.Request.InputStream, $context.Request.ContentEncoding).ReadToEnd()
+                $request = $body | ConvertFrom-Json -Depth 12
+                $operationId = [string]$request.operationId
+                $result = switch ([string]$request.command) {
+                    'Confirm' {
+                        $credential = $null
+                        if ($request.userName -and $request.password) {
+                            $secure = [SecureString]::new()
+                            foreach ($character in ([string]$request.password).ToCharArray()) { $secure.AppendChar($character) }
+                            $secure.MakeReadOnly()
+                            $credential = [PSCredential]::new([string]$request.userName, $secure)
+                        }
+                        Confirm-SqlServerLabOperationUserAction -OperationId $operationId -Credential $credential
+                    }
+                    'Probe' { & (Get-Module SqlServerLab) { param($Id) Invoke-SqlServerLabOperationProbe -OperationId $Id } $operationId }
+                    'Suspend' { Suspend-SqlServerLabOperation -OperationId $operationId }
+                    'Resume' { Resume-SqlServerLabOperation -OperationId $operationId }
+                    'MoveUp' { Move-SqlServerLabOperation -OperationId $operationId -Direction Up }
+                    'MoveDown' { Move-SqlServerLabOperation -OperationId $operationId -Direction Down }
+                    'PriorityHigh' { Set-SqlServerLabOperationPriority -OperationId $operationId -Priority High }
+                    'PriorityNormal' { Set-SqlServerLabOperationPriority -OperationId $operationId -Priority Normal }
+                    'PriorityLow' { Set-SqlServerLabOperationPriority -OperationId $operationId -Priority Low }
+                    'StopCleanup' { Stop-SqlServerLabOperation -OperationId $operationId -Cleanup -Confirm:$false }
+                    'SubmitBatch' { & (Get-Module SqlServerLab) { param($Id) Submit-SqlServerLabBatch -BatchId $Id } ([string]$request.batchId) }
+                    default { throw "Unbekanntes Operation-Kommando '$($request.command)'." }
+                }
+                try { & (Get-Module SqlServerLab) { Start-SqlServerLabOperationHost } } catch { }
+                Write-UiResponse -Context $context -Body ($result | ConvertTo-Json -Depth 20) -ContentType 'application/json; charset=utf-8'
+                continue
+            }
             if ($path -eq '/api/actions' -and $context.Request.HttpMethod -eq 'POST') {
                 $body = [IO.StreamReader]::new($context.Request.InputStream, $context.Request.ContentEncoding).ReadToEnd()
                 $request = $body | ConvertFrom-Json -Depth 8
@@ -345,9 +387,27 @@ try {
                         $parameters['SaPassword'] = [string]$request.parameters.SaPassword
                     }
                 }
-                # Unabhängige Workflows (etwa Image-Build und Container-Lab)
-                # dürfen parallel gestartet werden. Fachbefehle prüfen ihre
-                # jeweiligen Ressourcen weiterhin selbst.
+                $hasTransientSecret = $parameters.ContainsKey('GuestPassword') -or $parameters.ContainsKey('SaPassword')
+                if (-not $hasTransientSecret -and $action -ne 'Refresh') {
+                    $resourceClass = if ($action -match 'WindowsBuild|SqlBuild|HyperVLab|HyperVImage') { 'HyperVHeavy' } elseif ($action -match 'MediaRoot|DataRoot|Storage') { 'ExclusiveStorage' } else { 'LifecycleLight' }
+                    $targetId = if ($parameters.ContainsKey('BuildId')) { [string]$parameters.BuildId } elseif ($parameters.ContainsKey('ArtifactId')) { [string]$parameters.ArtifactId } elseif ($parameters.ContainsKey('LabName')) { [string]$parameters.LabName } else { $action }
+                    $batch = New-SqlServerLabBatch -Name "Browser: $action" -Items @([pscustomobject]@{
+                        id = ("ui-$action-" + [guid]::NewGuid().ToString('n').Substring(0, 6)).ToLowerInvariant()
+                        kind = 'Action'
+                        count = 1
+                        intent = [pscustomobject]@{
+                            WorkflowAction = $action
+                            WorkflowParameters = [pscustomobject]$parameters
+                            ResourceClass = $resourceClass
+                            Locks = @("ui-resource:$targetId")
+                            ProviderPreference = 'Auto'
+                        }
+                    })
+                    try { & (Get-Module SqlServerLab) { Start-SqlServerLabOperationHost } } catch { }
+                    Write-UiResponse -Context $context -Body (@{ id = $batch.batchId; action = $action; persistent = $true; operationIds = $batch.operationIds } | ConvertTo-Json -Depth 8 -Compress) -ContentType 'application/json; charset=utf-8' -StatusCode 202
+                    continue
+                }
+                # Geheimnisse werden niemals im persistenten Batch abgelegt.
                 $record = Start-UiWorkflowJob -Action $action -Parameters $parameters
                 $jobs[$record.Id] = $record
                 Write-UiResponse -Context $context -Body (@{ id = $record.Id; action = $action } | ConvertTo-Json -Compress) -ContentType 'application/json; charset=utf-8' -StatusCode 202

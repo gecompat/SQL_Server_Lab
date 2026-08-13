@@ -7,6 +7,7 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 | Datei | Zweck |
 |---|---|
 | `lab-manifest.schema.json` | Struktur deklarativer Labdefinitionen |
+| `lab-batch.schema.json` | Mengenfähiger Vertrag `SqlServerLab.BatchManifest/1.0` mit Defaults, Positionen, Anzahl, Intent und Overrides |
 | `version-catalog.schema.json` | Struktur von `Catalogs/sql-server-versions.json` |
 | `sample-databases.schema.json` | Struktur von `Catalogs/sample-databases.json` |
 | `sample-baseline-registry.schema.json` | Portables Register verifizierter, inhaltsadressierter Single-Backup- und Multi-Database-ZIP-`LAB_GENERATED`-Objekte |
@@ -25,6 +26,7 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 | `example-performance-tuning.json` | Performance-Konfiguration mit Sample-Referenz | vorbereitet; referenzierte StackOverflow-Variante ist ein Attach-Archiv und bleibt beschreibend |
 | `example-mixed-provider-lab.json` | zwei kompakte Instanzen mit Docker und Podman in einem Run | ausführbar, wenn beide Runtimes erreichbar sind; keine gemeinsame Netzwerktopologie |
 | `example-hyperv-drive-lab.json` | SQL-Prepared-Hyper-V-VM mit run-lokalen Data-/Log-VHDX und Guest-Initialisierung | ausführbar, wenn die referenzierte lokale Sealed-Artifact-ID vorhanden ist |
+| `batch-manifest.sample.json` | Providerneutrale SQL-/Windows-Mengenplanung mit gemeinsamen Defaults und individuellen Overrides | wird vor Ausführung expandiert und provider-/hostabhängig validiert |
 
 Weitere `example-*.json`-Dateien können spezialisierte oder vorbereitete Szenarien enthalten. Ein Beispiel ist nur dann als End-to-End ausführbar anzusehen, wenn alle referenzierten Skripte und Quellen existieren und keine Grenze aus `Documentation/Quality/KNOWN_LIMITATIONS.md` verletzt wird.
 
