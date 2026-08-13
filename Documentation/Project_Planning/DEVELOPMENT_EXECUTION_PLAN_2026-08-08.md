@@ -43,6 +43,7 @@ einem tatsächlich erfolgreichen, passenden Lauf verwendet.
 - [Masterplan-Ergänzung](MASTER_IMPLEMENTATION_PLAN_SCOPE_ADDENDUM.md);
 - [Project-Adapter-Priorisierung](PROJECT_ADAPTER_PRIORITIZATION.md);
 - [Zukunftsplan der Menüführung](FUTURE_UI_WORKFLOW_PLAN_2026-08-08.md);
+- [Konsolen-, Lifecycle- und Storage-Konsolidierungsplan aus der manuellen Abnahme](CONSOLE_LIFECYCLE_AND_STORAGE_CONSOLIDATION_PLAN_2026-08-12.md);
 - [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](../Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md);
 - [Testdatenbank- und Manifest-Wizard-Vertrag](../Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md);
 - [Vorlagenpool und automatisierte Manifeste](../Architecture/TEMPLATE_POOL_AND_AUTOMATED_MANIFESTS.md);
@@ -326,6 +327,9 @@ produktiven Containerprovidern vertikal bewiesen.
 | `UX-203` | Schnell-, Infrastruktur- und Advanced-Pfad umsetzen | Spezialaktionen bleiben sichtbar getrennt |
 | `UX-204` | Browser-UI und PowerShell-Menü auf dieselben Workflow-/Planner-Results binden | keine Businesslogik-Duplikation in JavaScript |
 | `UX-205` | alte direkte Menüaktionen als getestete Übergangsaliase erhalten | risikoarme Migration |
+| `UX-206` | alle verbliebenen `Read-Host`-Auswahlmenüs auf gemeinsame Cursor-UI, `Escape`, Untermenü-Refresh und diagnostischen `Auto|Fallback`-Modus migrieren | ein reproduzierbarer Bedien- und Abbruchvertrag ohne globale Enter-Pause |
+| `LIF-206` | strukturiertes Aktionsergebnis und CMS-/Connection-Center-Sync-Gate einführen | Cancel und No-op sind frei von Seiteneffekten; relevante Mutation synchronisiert genau einmal |
+| `PORT-206` | belegte und reservierte Hostports im Review und unmittelbar vor Mutation prüfen | keine bekannte oder konkurrierende Portbelegung wird akzeptiert |
 | `CNT-211` | Docker-/Podman-Actual-State-Collector | belastbarer Soll-/Ist-Vergleich |
 | `CNT-212` | SQL-Konfiguration und unterstützte Limits live ändern | erster `live`-Nachweis |
 | `CNT-213` | Ports, Mounts und Environment kontrolliert per Recreate ändern | persistente Volumes bleiben erhalten |
@@ -429,6 +433,8 @@ und transparent verwaltet werden.
 | `HV-601` | Actual State aus Hyper-V, Windows und SQL erfassen | semantischer Diff |
 | `HV-602` | vCPU, statisches/dynamisches RAM und Min/Startup/Max umsetzen | `live`/`restart` nach Capability |
 | `HV-603` | zusätzliche VHDX, Größenänderung und Rollen `Data`, `Log`, `TempDB`, `Backup` | Storage-Reconcile mit Gastverifikation |
+| `HV-603A` | VHDX pro gebundener Storage-Location/I/O-Lane mit Host-, Gast- und SQL-Receipt | dateigenaue Data-/Log-/TempDB-Platzierung ist reproduzierbar und fortsetzbar |
+| `STO-603` | stabile Locations, Backing-Device-Topologie und TempDB-Modi bis `one-file-per-physical-device` | vier Partitionen auf einer Disk können physische Trennung nicht vortäuschen |
 | `NET-611` | Intents `isolated`, `hostOnly`, `nat`, `lan` mit Exposure Policy modellieren | providerneutraler Netzwerkvertrag |
 | `NET-612` | IPAM, DHCP/static, DNS, Gateway, NIC/Switch und Kollisionen planen | deterministische Netzbindung |
 | `HV-604` | SQL-Port, Memory, MaxDOP, ausgewählte Konfiguration und Testdatenbanken ändern | SQL-/Daten-Reconcile |
@@ -682,15 +688,27 @@ verbindliches Performance-SLA festgelegt.
 
 Die folgende Reihenfolge liefert frühe, einzeln prüfbare Ergebnisse:
 
-1. `CORE-105`/`CORE-106`: Journal, Resume und Recovery für weitere Mutationen härten.
-2. `CNT-212`: erste reale Live-Änderung mit No-op- und Rollback-Test.
-3. `CNT-213`: erste Recreate-Änderung mit persistentem Volume testen.
-4. `ADP-003`: Schulungspilot in getrennt abgestimmtem Konsumenten-Scope.
-5. `ADP-004`: Analyze-Pilot in getrennt abgestimmtem Konsumenten-Scope.
-6. `ADP-008`: Toolbelt-Pilot in getrennt abgestimmtem Konsumenten-Scope.
-7. `HV-402`/`HV-403`: Unattend-Generator und sichere Child-Delivery vervollständigen.
-8. `HV-405`/`HV-406`: realer Zero-Touch-OS-Cold-Path bis `OS_READY`.
-9. `DATA-707`: Container-Baselines an Hyper-V-Export und -Nutzung binden.
+1. `FIX-001`, `LIF-001`/`LIF-002`, `PORT-001`/`PORT-002` und `UAC-001` aus
+   dem Konsolidierungsplan: reproduzierbare P0-Fehler und Seiteneffekte schließen.
+2. `CUI-012` bis `CUI-019`: verbliebene Auswahlmenüs, `Escape`, Untermenü-
+   Refresh, Ergebnisansichten und reproduzierbaren Fallback vereinheitlichen.
+3. `STO-009` bis `STO-013`: Legacy-Default, absolute Pfade, stabile Locations
+   und Backing-Device-Topologie härten.
+4. `SFP-001` bis `SFP-003`: portablen Storage-Intent vom lokalen Bound Plan
+   trennen und jede SQL-/TempDB-Datei planbar machen.
+5. `HVS-001`/`HVS-002` und `SQLS-001`: vier TempDB-Datenfiles auf vier
+   nachweislich unterschiedlichen physischen Geräten mit SQL-Postconditions
+   als Hyper-V-Referenzfall abnehmen.
+6. `SQLS-002`/`SQLS-003`: neue Datenbanken und Restore dateigenau an Data-
+   und Log-Locations binden.
+7. `CORE-105`/`CORE-106`: Journal, Resume und Recovery für weitere Mutationen härten.
+8. `CNT-212`: erste reale Live-Änderung mit No-op- und Rollback-Test.
+9. `CNT-213`: erste Recreate-Änderung mit persistentem Volume testen.
+10. `ADP-003`, `ADP-004` und `ADP-008`: die drei Partnerpiloten in getrennt
+    abgestimmten Konsumenten-Scopes beginnen.
+11. `HV-402`/`HV-403` und `HV-405`/`HV-406`: sicheren Zero-Touch-OS-Cold-Path
+    bis `OS_READY` vervollständigen.
+12. `DATA-707`: Container-Baselines an Hyper-V-Export und -Nutzung binden.
 
 Erst danach folgen SQL-Cold-Path, Resolver-Optimierung, breite
 Hyper-V-Infrastrukturänderungen und optionale Caches.

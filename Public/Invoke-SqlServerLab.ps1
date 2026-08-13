@@ -17,7 +17,7 @@
 function Invoke-SqlServerLab {
     [CmdletBinding()]
     param(
-        [ValidateSet('New', 'Manifest', 'Status', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'Script', 'Database', 'Image', 'MediaRoot', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip', 'Catalog', 'ConnectionCenter')]
+        [ValidateSet('New', 'AutomatedTestEnvironment', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'Script', 'Database', 'Image', 'MediaRoot', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip', 'Catalog', 'ConnectionCenter')]
         [string]$Action
     )
 
@@ -28,7 +28,7 @@ function Invoke-SqlServerLab {
     # Direkt-Aktion ohne Menue
     if ($Action) {
         Invoke-LabAction -ActionName $Action
-        if ($Action -in @('New', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'Rename', 'Resources', 'UpdateContainer', 'Manage')) {
+        if ($Action -in @('New', 'AutomatedTestEnvironment', 'ClearAutomatedTestEnvironment', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'Rename', 'Resources', 'UpdateContainer', 'Manage')) {
             Sync-LabConnectionCenterAfterLifecycle
         }
         return
@@ -42,6 +42,8 @@ function Invoke-SqlServerLab {
 
         switch ($choice) {
             '1' { Invoke-LabAction -ActionName 'New' }
+            'e' { Invoke-LabAction -ActionName 'AutomatedTestEnvironment' }
+            'x' { Invoke-LabAction -ActionName 'ClearAutomatedTestEnvironment' }
             'u' { Invoke-LabAction -ActionName 'Manage' }
             '2' { Invoke-LabAction -ActionName 'Status' }
             '3' { Invoke-LabAction -ActionName 'Stop' }
@@ -66,7 +68,7 @@ function Invoke-SqlServerLab {
             default { Write-Host "  Ungueltige Auswahl: $choice" -ForegroundColor Red }
         }
 
-        if ($choice -in @('1', '3', '4', '5', '6', '7', 'i', 'n', 'r', 'u')) {
+        if ($choice -in @('1', 'e', 'x', '3', '4', '5', '6', '7', 'i', 'n', 'r', 'u')) {
             Sync-LabConnectionCenterAfterLifecycle
         }
         if (-not $exit) {
@@ -342,6 +344,8 @@ function Show-LabMenu {
         $sevenZipLabel = if ($sevenZip) { '7-Zip für katalogisierte .7z-Backups bereits verfügbar' } else { '7-Zip für katalogisierte .7z-Backups optional installieren' }
         $items = @(
             New-LabConsoleItem -Id 'create' -Label 'Neue Umgebung erstellen' -Shortcut '1'
+            New-LabConsoleItem -Id 'automated-test' -Label 'Umgebung für automatisierte Tests anlegen' -Value 'Linux/Windows · Version/CU · TestUmgebung.env' -Shortcut 'e'
+            New-LabConsoleItem -Id 'clear-automated-test' -Label 'Alle automatisierten Testumgebungen löschen' -Value 'geschützte Gruppe · alles oder nichts' -Shortcut 'x'
             New-LabConsoleItem -Id 'manage' -Label 'Umgebung verwalten' -Value 'Start, Stopp, Name, CPU, Speicher, Entfernen' -Shortcut 'u'
             New-LabConsoleItem -Id 'status' -Label 'Status anzeigen (Schnellansicht)' -Shortcut '2'
             New-LabConsoleItem -Id 'stop' -Label 'Umgebung stoppen (Schnellaktion)' -Shortcut '3'
@@ -450,6 +454,8 @@ function Invoke-LabAction {
         'Resources' { Set-LabResourcesInteractive }
         'Rename' { Rename-LabEnvironmentInteractive }
         'New' { Invoke-LabNewEnvironmentInteractive }
+        'AutomatedTestEnvironment' { Invoke-LabAutomatedTestEnvironmentInteractive }
+        'ClearAutomatedTestEnvironment' { Invoke-LabClearAutomatedTestEnvironmentInteractive }
 
         'Status' {
             $runs = @(Get-LabActiveRuns)
@@ -467,7 +473,7 @@ function Invoke-LabAction {
                 Write-LabInfo "Keine laufenden Labs."
                 return
             }
-            $runId = Select-LabRun -Runs $runs -Prompt "Stoppen"
+            $runId = Select-LabRun -Runs $runs -Prompt "Stoppen" -DisableAutomatedTestEnvironments
             if ($runId) { Stop-SqlServerLab -RunId $runId }
         }
 
@@ -477,7 +483,7 @@ function Invoke-LabAction {
                 Write-LabInfo "Keine gestoppten Labs."
                 return
             }
-            $runId = Select-LabRun -Runs $runs -Prompt "Starten"
+            $runId = Select-LabRun -Runs $runs -Prompt "Starten" -DisableAutomatedTestEnvironments
             if ($runId) { Start-SqlServerLab -RunId $runId }
         }
 
@@ -487,7 +493,7 @@ function Invoke-LabAction {
                 Write-LabInfo "Keine Labs zum Neustarten."
                 return
             }
-            $runId = Select-LabRun -Runs $runs -Prompt "Neustarten"
+            $runId = Select-LabRun -Runs $runs -Prompt "Neustarten" -DisableAutomatedTestEnvironments
             if ($runId) { Restart-SqlServerLab -RunId $runId }
         }
 
@@ -497,7 +503,7 @@ function Invoke-LabAction {
                 Write-LabInfo "Keine aktiven Labs."
                 return
             }
-            $runId = Select-LabRun -Runs $runs -Prompt "Entfernen"
+            $runId = Select-LabRun -Runs $runs -Prompt "Entfernen" -DisableAutomatedTestEnvironments
             if ($runId) {
                 $confirm = Read-Host "  Wirklich entfernen? (j/n) [n]"
                 if ($confirm -eq 'j') { Remove-SqlServerLab -RunId $runId -Force }
@@ -514,7 +520,7 @@ function Invoke-LabAction {
                 Write-LabInfo "Keine laufenden Labs."
                 return
             }
-            $runId = Select-LabRun -Runs $runs -Prompt "Datenbank anlegen auf"
+            $runId = Select-LabRun -Runs $runs -Prompt "Datenbank anlegen auf" -DisableAutomatedTestEnvironments
             if (-not $runId) { return }
 
             $stateRoot = Get-LabStateRoot
@@ -563,7 +569,7 @@ function Invoke-LabAction {
                 Write-LabInfo "Keine laufenden Labs."
                 return
             }
-            $runId = Select-LabRun -Runs $runs -Prompt "Skript ausfuehren auf"
+            $runId = Select-LabRun -Runs $runs -Prompt "Skript ausfuehren auf" -DisableAutomatedTestEnvironments
             if (-not $runId) { return }
 
             # Port aus connection-info lesen
@@ -995,6 +1001,143 @@ function Invoke-LabNewEnvironmentInteractive {
     Invoke-LabNewContainerEnvironmentInteractive -Provider $provider -Intent $intent
 }
 
+function Invoke-LabClearAutomatedTestEnvironmentInteractive {
+    <# .SYNOPSIS Entfernt ausschließlich die vollständige automatisierte Testgruppe. #>
+    [CmdletBinding()]
+    param()
+
+    try { $registry = Get-LabTestEnvironmentRegistry }
+    catch { Write-LabError $_.Exception.Message; return }
+    $entries = @($registry.environments)
+    if ($entries.Count -eq 0) { Write-LabInfo 'Keine automatisierten Testumgebungen registriert.'; return }
+    Write-Host ''
+    Write-Host '  Folgende geschützte Testumgebungen werden gemeinsam gelöscht:' -ForegroundColor Yellow
+    foreach ($entry in $entries) {
+        $runLabel = if ($entry.runId) { ([string]$entry.runId).Substring(0, [Math]::Min(8, ([string]$entry.runId).Length)) } else { 'noch nicht erstellt' }
+        Write-Host "    $($entry.key) · $($entry.platform) · SQL $($entry.sqlVersion) · $($entry.patch) · $runLabel" -ForegroundColor White
+    }
+    if (-not (Read-LabConfirm -Prompt '  Wirklich ALLE automatisierten Testumgebungen löschen?' -Default $false)) { return }
+    $result = Clear-SqlServerLabAutomatedTestEnvironment -Force -Confirm:$false
+    if ([string]$result.Status -eq 'REMOVED') {
+        Write-LabSuccess "Alle automatisierten Testumgebungen wurden gelöscht ($($result.Removed))."
+    }
+    else {
+        Write-LabError "Gruppenlöschung unvollständig: $($result.Remaining) verblieben, $($result.Errors) Fehler."
+    }
+}
+
+function Invoke-LabAutomatedTestEnvironmentInteractive {
+    <# .SYNOPSIS Erfasst mehrere automatisierte Linux-/Windows-SQL-Testziele und erstellt den Lab_Data-Vertrag. #>
+    [CmdletBinding()]
+    param()
+
+    $dataRoot = Get-LabDataRootDefault
+    if (-not $dataRoot) { Write-LabError 'Für TestUmgebung.env muss zuerst unter [d] ein Data Root konfiguriert werden.'; return }
+    $queue = [Collections.Generic.List[object]]::new()
+    while ($true) {
+        Write-Host ''
+        Write-Host '  Umgebung für automatisierte Tests anlegen' -ForegroundColor Cyan
+        Write-Host "  Export: $(Join-Path $dataRoot 'Exports')" -ForegroundColor DarkGray
+        if ($queue.Count -eq 0) { Write-Host '    Noch keine Umgebung erfasst.' -ForegroundColor DarkGray }
+        else {
+            for ($index = 0; $index -lt $queue.Count; $index++) {
+                $item = $queue[$index]
+                Write-Host ("    [{0}] {1} · SQL {2} · {3} · Schlüssel {4}" -f ($index + 1), $item.Platform, $item.SqlVersion, $item.Patch, $item.Key) -ForegroundColor White
+            }
+        }
+        Write-Host '  [l] Linux hinzufügen  [w] Windows hinzufügen  [d] letzten Eintrag entfernen' -ForegroundColor White
+        Write-Host '  [a] Alle erstellen  [r] Export aktualisieren  [x] Alle Testumgebungen löschen  [0] Zurück' -ForegroundColor White
+        $choice = (Read-Host '  Auswahl').ToLowerInvariant()
+        if ($choice -eq '0') { return }
+        if ($choice -eq 'd') { if ($queue.Count -gt 0) { $queue.RemoveAt($queue.Count - 1) }; continue }
+        if ($choice -eq 'r') {
+            $export = Export-SqlServerLabTestEnvironment
+            Write-LabSuccess "Testumgebungsvertrag aktualisiert: $($export.EnvPath) ($($export.Ready)/$($export.Entries) bereit)"
+            continue
+        }
+        if ($choice -eq 'x') {
+            Invoke-LabClearAutomatedTestEnvironmentInteractive
+            continue
+        }
+        if ($choice -in @('l','w')) {
+            $platform = if ($choice -eq 'l') { 'linux' } else { 'windows' }
+            $versions = @(Get-SqlServerVersions -Status SUPPORTED | Where-Object {
+                if ($platform -eq 'linux') { $_.docker -and $_.docker.image } else { [string]$_.id -in @('2019','2022','2025') }
+            } | Sort-Object { [int]$_.id })
+            Write-Host "  Verfügbare SQL-Versionen: $(@($versions.id) -join ', ')" -ForegroundColor DarkGray
+            $sqlVersion = Read-Host "  SQL Server Version [$($versions[-1].id)]"
+            if (-not $sqlVersion) { $sqlVersion = [string]$versions[-1].id }
+            if ($sqlVersion -notin @($versions.id)) { Write-LabWarning 'SQL-Version ist für diese Plattform nicht katalogisiert.'; continue }
+            $patchIntent = Select-LabSqlPatchIntent -BaseVersion $sqlVersion
+            $requestedPatch = if ($patchIntent.Cu) { ([string]$patchIntent.Cu).ToLowerInvariant() } else { 'latest' }
+            if ($platform -eq 'windows' -and $patchIntent.Floating) {
+                $latestWindowsPatch = @(Get-SqlServerPatchOptions -VersionId $sqlVersion -MediaRoot (Get-LabMediaRootDefault) | Select-Object -First 1)[0]
+                if (-not $latestWindowsPatch) { Write-LabWarning "Windows latest ist für SQL $sqlVersion nicht auflösbar: kein konkreter CU-Stand katalogisiert."; continue }
+                Write-LabInfo "Windows latest wird für diesen Auftrag reproduzierbar auf $($latestWindowsPatch.Cu) ($($latestWindowsPatch.Build)) aufgelöst."
+                $patchIntent = $latestWindowsPatch
+            }
+            if ($platform -eq 'windows' -and -not (Confirm-LabSqlWindowsPatchMediaInteractive -Intent ([PSCustomObject]@{ Patch=$patchIntent }))) { continue }
+            $baseKey = ConvertTo-LabTestEnvironmentKey -Platform $platform -SqlVersion $sqlVersion -Patch $requestedPatch
+            $key = $baseKey; $suffix = 2
+            while (@($queue | Where-Object Key -eq $key).Count -gt 0) { $key = "${baseKey}_$suffix"; $suffix++ }
+            $queue.Add([PSCustomObject]@{
+                Platform=$platform; SqlVersion=$sqlVersion; Patch=$requestedPatch; PatchIntent=$patchIntent
+                Key=$key; Name=("test-{0}-{1}-{2}-{3}" -f $platform,$sqlVersion,$requestedPatch,(Get-Date -Format 'HHmmss'))
+                InstanceId='primary'
+            })
+            continue
+        }
+        if ($choice -ne 'a') { Write-LabWarning 'Ungültige Auswahl.'; continue }
+        if ($queue.Count -eq 0) { Write-LabWarning 'Zuerst mindestens eine Umgebung hinzufügen.'; continue }
+
+        foreach ($request in @($queue)) {
+            $intentRegistration = Register-LabTestEnvironmentIntent -Platform ([string]$request.Platform) `
+                -SqlVersion ([string]$request.SqlVersion) -Patch ([string]$request.Patch) `
+                -InstanceId ([string]$request.InstanceId) -Name ([string]$request.Key)
+            $request.Key = [string]$intentRegistration.key
+        }
+        $null = Export-SqlServerLabTestEnvironment
+
+        foreach ($request in @($queue)) {
+            try {
+                if ([string]$request.Platform -eq 'linux') {
+                    Write-LabInfo "Erstelle $($request.Key) vollständig automatisiert mit eigenem Zufallskennwort."
+                    $creation = New-SqlServerLabAutomatedTestEnvironment -Specification @([PSCustomObject]@{
+                        Platform='linux'; SqlVersion=$request.SqlVersion; Patch=$request.Patch; Name=$request.Name
+                        Key=$request.Key; InstanceId=$request.InstanceId
+                    })
+                    if ([string]$creation.Status -ne 'READY') { throw "TEST_ENVIRONMENT_GROUP_INCOMPLETE: $(@($creation.Errors.Message) -join '; ')" }
+                    continue
+                }
+                Write-LabInfo "Erstelle $($request.Key) über Hyper-V. Nur Windows-OOBE und erste Anmeldung können manuell erforderlich sein."
+                $before = @(Get-LabActiveRuns | ForEach-Object { [string]$_.runId })
+                $intent = [PSCustomObject]@{
+                    Contract='SqlServerLab.AutomatedTestIntent/1.0'; TestAutomation=$true
+                    LabName=$request.Name; InstanceId=$request.InstanceId; BaseVersion=$request.SqlVersion
+                    VersionId=[string]$request.PatchIntent.VersionId; Patch=$request.PatchIntent; Purpose='adhoc-install'
+                    RequiresWindows=$true; RequiresFreshSqlInstall=$true; ForceNewWindowsSlot=$true; Edition='Developer'; Cpu=[decimal]4; MemoryMB=4096
+                    Profile='standard'; NetworkMode='host-access'; HostPort=0; Collation='SQL_Latin1_General_CP1_CI_AS'
+                    SqlMaxMemoryMB=3072; MaxDop=4; CostThreshold=50; StorageMode='standard'; Drives=@()
+                    TempDbFileCount=4; TempDbFileSizeMB=256; TempDbGrowthMB=64; TempDbVolumeCount=1; AutoStart='on'
+                }
+                Invoke-LabNewHyperVSqlEnvironmentWorkflowInteractive -Intent $intent
+                $createdRun = @(Get-LabActiveRuns | Where-Object {
+                    [string]$_.runId -notin $before -and [string]$_.metadata.name -eq [string]$request.Name
+                } | Sort-Object createdAt -Descending | Select-Object -First 1)[0]
+                if (-not $createdRun) { throw 'TEST_ENVIRONMENT_HYPERV_RUN_NOT_CREATED' }
+                $null = Register-LabTestEnvironmentRun -RunId ([string]$createdRun.runId) -Platform windows `
+                    -SqlVersion ([string]$request.SqlVersion) -Patch ([string]$request.Patch) -InstanceId ([string]$request.InstanceId) -Name ([string]$request.Key)
+            }
+            catch { Write-LabError "$($request.Key) konnte nicht vollständig erstellt werden: $($_.Exception.Message)" }
+        }
+        $export = Export-SqlServerLabTestEnvironment
+        Write-LabSuccess "TestUmgebung.env geschrieben: $($export.EnvPath)"
+        Write-LabSuccess "Kanonischer Maschinenvertrag: $($export.JsonPath)"
+        Write-LabInfo "Bereit: $($export.Ready) von $($export.Entries). Nicht bereite Hyper-V-Runs später fortsetzen und mit [e] -> [r] neu exportieren."
+        return
+    }
+}
+
 function Invoke-LabNewContainerEnvironmentInteractive {
     <#
     .SYNOPSIS
@@ -1192,7 +1335,10 @@ function Invoke-LabNewHyperVSqlEnvironmentWorkflowInteractive {
     }
 
     Write-LabWarning 'Keine veröffentlichte SQL-Prepared-Vorlage vorhanden. Der interaktive Workflow wechselt auf den Windows-OS-Pfad.'
-    $reusableSlot = Select-LabReusableHyperVWindowsSlotInteractive -Intent $Intent
+    $reusableSlot = if ($Intent -and $Intent.PSObject.Properties['ForceNewWindowsSlot'] -and $Intent.ForceNewWindowsSlot) {
+        $null
+    }
+    else { Select-LabReusableHyperVWindowsSlotInteractive -Intent $Intent }
     if ($reusableSlot) {
         Invoke-LabReusableHyperVWindowsSlotInteractive -Slot $reusableSlot -Intent $Intent
         return
@@ -2831,6 +2977,11 @@ function New-LabHyperVSqlDeploymentPlanInteractive {
         $planArguments.SqlPort = if ([int]$Intent.HostPort -gt 0) { [int]$Intent.HostPort } else { 1433 }
         $planArguments.NetworkMode = [string]$Intent.NetworkMode
         $planArguments.ServerConfig = New-LabIntentServerConfig -Intent $Intent -Target hyperv
+        if ($Intent.Patch -and $Intent.Patch.Cu) {
+            $planArguments.SqlPatch = [string]$Intent.Patch.Cu
+            $planArguments.SqlUpdatePath = [string]$Intent.Patch.WindowsPath
+            $planArguments.ExpectedSqlBuild = [string]$Intent.Patch.Build
+        }
         $tempPaths = if ([string]$Intent.StorageMode -eq 'separated') {
             @(@('T','U','V','W','X','Y','Z','Q')[0..([int]$Intent.TempDbVolumeCount - 1)] | ForEach-Object { "${_}:\TempDB" })
         } else { @('C:\SQLData\TempDB') }
@@ -3047,7 +3198,13 @@ function New-LabHyperVEnvironmentInteractive {
         elseif ($Intent -and [string]$Intent.NetworkMode -eq 'host-access') { [PSCustomObject]@{ SwitchName=$null; Isolated=$false } }
         else { Select-LabHyperVVirtualSwitch }
     if (-not $switch) { return }
-    $additionalDrives = if ($Intent) { @(New-LabHyperVDrivesFromIntent -Intent $Intent) } else { @() }
+    # Eine leere Array-Ausgabe innerhalb einer PowerShell-if-Zuweisung wird zu
+    # $null. Der Provider wuerde dieses $null sonst als einen leeren Drive-
+    # Eintrag binden. Deshalb den leeren Fall explizit als Array erhalten.
+    $additionalDrives = @()
+    if ($Intent) {
+        $additionalDrives = @(New-LabHyperVDrivesFromIntent -Intent $Intent)
+    }
     if (-not $isSqlPrepared) {
         Write-Host "  Image: $($artifact.artifactId)" -ForegroundColor DarkGray
         Write-Host '  Es wird nur ein ausgeschalteter Betriebssystem-Slot als differenzierende VHDX erstellt.' -ForegroundColor Yellow
@@ -3211,12 +3368,14 @@ function Manage-LabHyperVEnvironmentInteractive {
     param([string]$RunId)
 
     $runs = @(Get-LabActiveRuns | Where-Object { [string]$_.metadata.workflowKind -eq 'hyperv-lab' })
+    $protectedRunIds = @(Get-LabAutomatedTestEnvironmentRunIds)
     if ($runs.Count -eq 0) { Write-LabInfo 'Keine regulären Hyper-V-Umgebungen vorhanden.'; return }
     for ($i = 0; $i -lt $runs.Count; $i++) {
         try {
             $lab = Get-HyperVLabWorkflowRun -RunId $runs[$i].runId
             $status = Get-HyperVInstanceStatus -VMName $lab.Instance.vmName -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
-            Write-Host ("    [{0}] {1} · Live: {2} · Workflow: {3} · VM {4}" -f ($i + 1), $runs[$i].metadata.name, $status.State, $runs[$i].state, $lab.Instance.vmName) -ForegroundColor White
+            $protectionLabel = if ([string]$runs[$i].runId -in $protectedRunIds) { ' · TESTGRUPPE GESCHÜTZT' } else { '' }
+            Write-Host ("    [{0}] {1} · Live: {2} · Workflow: {3} · VM {4}{5}" -f ($i + 1), $runs[$i].metadata.name, $status.State, $runs[$i].state, $lab.Instance.vmName, $protectionLabel) -ForegroundColor White
             $windowsState = if ($lab.Instance.windowsProvisioning -and [string]$lab.Instance.windowsProvisioning.state -eq 'COMPLETE') { 'bereit' } else { 'OOBE/Übernahme ausständig' }
             $sqlState = 'nicht installiert'
             $sqlColor = 'DarkGray'
@@ -3249,12 +3408,15 @@ function Manage-LabHyperVEnvironmentInteractive {
         $runItems = @(
             for ($index = 0; $index -lt $runs.Count; $index++) {
                 $run = $runs[$index]
+                $protected = [string]$run.runId -in $protectedRunIds
                 try {
                     $lab = Get-HyperVLabWorkflowRun -RunId $run.runId
                     $status = Get-HyperVInstanceStatus -VMName $lab.Instance.vmName -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
-                    New-LabConsoleItem -Id ([string]$run.runId) -Label ([string]$run.metadata.name) -Value "Live: $($status.State) | Workflow: $($run.state) | VM: $($lab.Instance.vmName)" -Shortcut ([string]($index + 1)) -Data $run
+                    $value = "Live: $($status.State) | Workflow: $($run.state) | VM: $($lab.Instance.vmName)"
+                    if ($protected) { $value += ' | geschützte Testgruppe' }
+                    New-LabConsoleItem -Id ([string]$run.runId) -Label ([string]$run.metadata.name) -Value $value -Shortcut ([string]($index + 1)) -Data $run -Disabled:$protected
                 }
-                catch { New-LabConsoleItem -Id ([string]$run.runId) -Label ([string]$run.metadata.name) -Value ([string]$run.state) -Shortcut ([string]($index + 1)) -Data $run }
+                catch { New-LabConsoleItem -Id ([string]$run.runId) -Label ([string]$run.metadata.name) -Value ([string]$run.state) -Shortcut ([string]($index + 1)) -Data $run -Disabled:$protected }
             }
         )
         $runSelection = Invoke-LabConsoleMenu -ScreenId 'hyperv-environment-selection' -Title 'Hyper-V-Umgebung verwalten' -Items $runItems
@@ -3263,6 +3425,10 @@ function Manage-LabHyperVEnvironmentInteractive {
     }
     elseif (@($runs | Where-Object { [string]$_.runId -eq $RunId }).Count -ne 1) {
         Write-LabWarning 'Die ausgewählte Hyper-V-Umgebung existiert nicht mehr.'
+        return
+    }
+    if ([string]$RunId -in $protectedRunIds) {
+        Write-LabWarning 'Diese Hyper-V-Umgebung gehört zur geschützten Testgruppe und ist hier nicht einzeln verwaltbar.'
         return
     }
     $selectedLab = Get-HyperVLabWorkflowRun -RunId $runId
@@ -3582,10 +3748,12 @@ function Get-AvailableLabProviders {
 function Select-LabRun {
     param(
         [Parameter(Mandatory)][array]$Runs,
-        [string]$Prompt = "Auswahl"
+        [string]$Prompt = "Auswahl",
+        [switch]$DisableAutomatedTestEnvironments
     )
 
-    if ($Runs.Count -eq 1) {
+    $protectedRunIds = if ($DisableAutomatedTestEnvironments) { @(Get-LabAutomatedTestEnvironmentRunIds) } else { @() }
+    if ($Runs.Count -eq 1 -and [string]$Runs[0].runId -notin $protectedRunIds) {
         $prefix = $Runs[0].runId.Substring(0, 8)
         Write-LabInfo "Einziges Lab: ${prefix}... ($($Runs[0].metadata.name))"
         return $Runs[0].runId
@@ -3595,7 +3763,9 @@ function Select-LabRun {
         $items = for ($i = 0; $i -lt $Runs.Count; $i++) {
             $prefix = $Runs[$i].runId.Substring(0, 8)
             $synced = Sync-LabRunRuntimeState -Run $Runs[$i]
-            New-LabConsoleItem -Id ([string]$Runs[$i].runId) -Label ("{0}... - {1}" -f $prefix, $Runs[$i].metadata.name) -Value ([string]$synced.Runtime.State) -Shortcut ([string]($i + 1)) -Data $Runs[$i]
+            $protected = [string]$Runs[$i].runId -in $protectedRunIds
+            $value = if ($protected) { "$($synced.Runtime.State) · geschützte Testgruppe · nur gemeinsam löschbar" } else { [string]$synced.Runtime.State }
+            New-LabConsoleItem -Id ([string]$Runs[$i].runId) -Label ("{0}... - {1}" -f $prefix, $Runs[$i].metadata.name) -Value $value -Shortcut ([string]($i + 1)) -Data $Runs[$i] -Disabled:$protected
         }
         $result = Invoke-LabConsoleMenu -ScreenId 'active-run-selection' -Title $Prompt -Subtitle 'Aktive SQL_Server_Lab-Umgebungen' -Items $items -Footer 'Pfeile: Navigation  Enter: Auswahl  F5: Runtime-Status aktualisieren  Esc: Zurueck' -FallbackPrompt "  $Prompt (Nummer)"
         if ($result.Status -eq 'Refresh') { continue }
@@ -3618,8 +3788,9 @@ function Set-LabResourcesInteractive {
 
     $runs = @(Get-LabActiveRuns)
     if ($runs.Count -eq 0) { Write-LabInfo 'Keine aktiven Lab-Umgebungen vorhanden.'; return }
-    if (-not $RunId) { $RunId = Select-LabRun -Runs $runs -Prompt 'Umgebung für CPU/Speicher' }
+    if (-not $RunId) { $RunId = Select-LabRun -Runs $runs -Prompt 'Umgebung für CPU/Speicher' -DisableAutomatedTestEnvironments }
     if (-not $RunId) { return }
+    if (Test-LabAutomatedTestEnvironmentRun -RunId $RunId) { Write-LabWarning 'Automatisierte Testumgebungen sind als Gruppe geschützt; Ressourcenänderung ist gesperrt.'; return }
 
     try {
         $run = Get-LabRunState -RunId $RunId
@@ -3670,7 +3841,7 @@ function Manage-LabEnvironmentInteractive {
 
     $runs = @(Get-LabActiveRuns)
     if ($runs.Count -eq 0) { Write-LabInfo 'Keine aktiven Lab-Umgebungen vorhanden.'; return }
-    $runId = Select-LabRun -Runs $runs -Prompt 'Umgebung verwalten'
+    $runId = Select-LabRun -Runs $runs -Prompt 'Umgebung verwalten' -DisableAutomatedTestEnvironments
     if (-not $runId) { return }
     $run = Get-LabRunState -RunId $runId
     if ([string]$run.metadata.workflowKind -eq 'hyperv-lab') {
@@ -3718,7 +3889,7 @@ function Rename-LabEnvironmentInteractive {
 
     $runs = @(Get-LabActiveRuns)
     if ($runs.Count -eq 0) { Write-LabInfo 'Keine aktiven Lab-Umgebungen vorhanden.'; return }
-    $runId = Select-LabRun -Runs $runs -Prompt 'Umgebung zum Umbenennen'
+    $runId = Select-LabRun -Runs $runs -Prompt 'Umgebung zum Umbenennen' -DisableAutomatedTestEnvironments
     if (-not $runId) { return }
     $run = Get-LabRunState -RunId $runId
     $currentName = [string]$run.metadata.name

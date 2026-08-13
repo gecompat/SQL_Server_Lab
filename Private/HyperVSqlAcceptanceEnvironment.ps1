@@ -418,7 +418,7 @@ function Invoke-HyperVSqlTestEnvironmentInstall {
                             "/SAPWD=$plainPassword", '/TCPENABLED=0', '/SQLSVCINSTANTFILEINIT=True',
                             '/ENU=True', '/IACCEPTSQLSERVERLICENSETERMS', '/INDICATEPROGRESS'
                         )
-                        if ([int]$expectedMajor -ge 16) { $arguments += '/AZUREEXTENSION=0' }
+                        if ([int]$expectedMajor -ge 17) { $arguments += '/AZUREEXTENSION=0' }
                         $process = Start-Process -FilePath $setup[0].FullName -ArgumentList $arguments -PassThru -NoNewWindow
                         if (-not $process.WaitForExit([int]$TimeoutSeconds * 1000)) {
                             Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue

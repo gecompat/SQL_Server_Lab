@@ -50,6 +50,33 @@ function New-LabConsoleItem {
     }
 }
 
+function Resolve-LabConsoleNumericShortcut {
+    <# .SYNOPSIS Löst eine gepufferte mehrstellige numerische Menüauswahl auf. #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][object[]]$Items,
+        [Parameter(Mandatory)][AllowEmptyString()][string]$Buffer
+    )
+
+    $prefixMatches = @()
+    foreach ($item in $Items) {
+        if ([bool]$item.Disabled) { continue }
+        $tokens = @([string]$item.Shortcut) + @($item.Aliases | ForEach-Object { [string]$_ })
+        foreach ($token in @($tokens | Where-Object { $_ -match '^\d+$' } | Sort-Object -Unique)) {
+            if ($token.StartsWith($Buffer, [StringComparison]::OrdinalIgnoreCase)) {
+                $prefixMatches += [PSCustomObject]@{ Item=$item; Token=$token; Exact=($token -eq $Buffer) }
+            }
+        }
+    }
+    $exactMatch = @($prefixMatches | Where-Object Exact | Select-Object -First 1)[0]
+    $exactItem = if ($exactMatch) { $exactMatch.Item } else { $null }
+    $hasLongerMatch = @($prefixMatches | Where-Object { -not $_.Exact }).Count -gt 0
+    $status = if ($prefixMatches.Count -eq 0) { 'Invalid' }
+        elseif ($exactItem -and -not $hasLongerMatch) { 'Selected' }
+        else { 'Pending' }
+    return [PSCustomObject]@{ Status=$status; Item=$exactItem; HasLongerMatch=$hasLongerMatch; Matches=$prefixMatches.Count }
+}
+
 function New-LabConsoleField {
     [CmdletBinding()]
     param(
@@ -388,6 +415,7 @@ function Invoke-LabConsoleMenu {
 
     $state = New-LabConsoleState -ScreenId $ScreenId -Items $Items -SelectedId $SelectedId
     $state.Snapshot = $Snapshot
+    $numericShortcutBuffer = ''
     $session = if ($SessionFactory) { & $SessionFactory } elseif ($FrameWriter) { [PSCustomObject]@{ PreviousLineCount=0 } } else { New-LabConsoleSession }
     $consoleFailure = $null
     try {
@@ -401,13 +429,28 @@ function Invoke-LabConsoleMenu {
             $keyName = [string]$key.Key
             $keyCharacter = [string]$key.KeyChar
             switch ($keyName) {
-                'UpArrow'   { $null = Move-LabConsoleSelection -State $state -Direction Up }
-                'DownArrow' { $null = Move-LabConsoleSelection -State $state -Direction Down }
-                'PageUp'    { $null = Move-LabConsoleSelection -State $state -Direction PageUp }
-                'PageDown'  { $null = Move-LabConsoleSelection -State $state -Direction PageDown }
-                'Home'      { $null = Move-LabConsoleSelection -State $state -Direction Home }
-                'End'       { $null = Move-LabConsoleSelection -State $state -Direction End }
+                'UpArrow'   { $numericShortcutBuffer=''; $null = Move-LabConsoleSelection -State $state -Direction Up }
+                'DownArrow' { $numericShortcutBuffer=''; $null = Move-LabConsoleSelection -State $state -Direction Down }
+                'PageUp'    { $numericShortcutBuffer=''; $null = Move-LabConsoleSelection -State $state -Direction PageUp }
+                'PageDown'  { $numericShortcutBuffer=''; $null = Move-LabConsoleSelection -State $state -Direction PageDown }
+                'Home'      { $numericShortcutBuffer=''; $null = Move-LabConsoleSelection -State $state -Direction Home }
+                'End'       { $numericShortcutBuffer=''; $null = Move-LabConsoleSelection -State $state -Direction End }
+                'Backspace' {
+                    if ($numericShortcutBuffer.Length -gt 0) {
+                        $numericShortcutBuffer = $numericShortcutBuffer.Substring(0, $numericShortcutBuffer.Length - 1)
+                        $state.Message = if ($numericShortcutBuffer) { "Nummer: $numericShortcutBuffer" } else { '' }
+                    }
+                }
                 'Enter' {
+                    if ($numericShortcutBuffer) {
+                        $numericResolution = Resolve-LabConsoleNumericShortcut -Items $state.Items -Buffer $numericShortcutBuffer
+                        if ($numericResolution.Item) {
+                            return [PSCustomObject]@{ Status='Selected'; SelectedItem=$numericResolution.Item; State=$state }
+                        }
+                        $state.Message = "Nummer '$numericShortcutBuffer' ist nicht belegt."
+                        $numericShortcutBuffer = ''
+                        continue
+                    }
                     $selected = if ($state.SelectedIndex -ge 0) { $state.Items[$state.SelectedIndex] } else { $null }
                     return [PSCustomObject]@{ Status='Selected'; SelectedItem=$selected; State=$state }
                 }
@@ -420,6 +463,21 @@ function Invoke-LabConsoleMenu {
                 }
                 'F10' { return [PSCustomObject]@{ Status='Review'; SelectedItem=$null; State=$state } }
                 default {
+                    if ($keyCharacter -match '^\d$') {
+                        $numericShortcutBuffer += $keyCharacter
+                        $numericResolution = Resolve-LabConsoleNumericShortcut -Items $state.Items -Buffer $numericShortcutBuffer
+                        if ($numericResolution.Status -eq 'Selected') {
+                            return [PSCustomObject]@{ Status='Selected'; SelectedItem=$numericResolution.Item; State=$state }
+                        }
+                        if ($numericResolution.Status -eq 'Pending') {
+                            $state.Message = "Nummer: $numericShortcutBuffer"
+                            continue
+                        }
+                        $state.Message = "Nummer '$numericShortcutBuffer' ist nicht belegt."
+                        $numericShortcutBuffer = ''
+                        continue
+                    }
+                    $numericShortcutBuffer = ''
                     if ($keyCharacter) {
                         $match = @($state.Items | Where-Object {
                             -not [bool]$_.Disabled -and (
@@ -546,6 +604,7 @@ function Invoke-LabConsoleMultiSelect {
 
     $state = New-LabConsoleState -ScreenId $ScreenId -Items (& $getDisplayItems) -SelectedId $(if ($SelectedIds.Count -gt 0) { $SelectedIds[0] } else { '' })
     $state.Snapshot = $Snapshot
+    $numericShortcutBuffer = ''
     $session = if ($SessionFactory) { & $SessionFactory } elseif ($FrameWriter) { [PSCustomObject]@{ PreviousLineCount=0 } } else { New-LabConsoleSession }
     $consoleFailure = $null
     try {
@@ -558,14 +617,33 @@ function Invoke-LabConsoleMultiSelect {
             $key = if ($ReadKey) { & $ReadKey } else { [Console]::ReadKey($true) }
             $selectedDisplayItem = if ($state.SelectedIndex -ge 0) { $state.Items[$state.SelectedIndex] } else { $null }
             switch ([string]$key.Key) {
-                'UpArrow'   { $null = Move-LabConsoleSelection -State $state -Direction Up }
-                'DownArrow' { $null = Move-LabConsoleSelection -State $state -Direction Down }
-                'PageUp'    { $null = Move-LabConsoleSelection -State $state -Direction PageUp }
-                'PageDown'  { $null = Move-LabConsoleSelection -State $state -Direction PageDown }
-                'Home'      { $null = Move-LabConsoleSelection -State $state -Direction Home }
-                'End'       { $null = Move-LabConsoleSelection -State $state -Direction End }
-                'Spacebar'  { if ($selectedDisplayItem) { $null = & $toggle $selectedDisplayItem.Data $state } }
-                'Enter'     { return [PSCustomObject]@{ Status='Confirmed'; SelectedItems=(& $getSelectedItems); State=$state } }
+                'UpArrow'   { $numericShortcutBuffer=''; $null = Move-LabConsoleSelection -State $state -Direction Up }
+                'DownArrow' { $numericShortcutBuffer=''; $null = Move-LabConsoleSelection -State $state -Direction Down }
+                'PageUp'    { $numericShortcutBuffer=''; $null = Move-LabConsoleSelection -State $state -Direction PageUp }
+                'PageDown'  { $numericShortcutBuffer=''; $null = Move-LabConsoleSelection -State $state -Direction PageDown }
+                'Home'      { $numericShortcutBuffer=''; $null = Move-LabConsoleSelection -State $state -Direction Home }
+                'End'       { $numericShortcutBuffer=''; $null = Move-LabConsoleSelection -State $state -Direction End }
+                'Backspace' {
+                    if ($numericShortcutBuffer.Length -gt 0) {
+                        $numericShortcutBuffer = $numericShortcutBuffer.Substring(0, $numericShortcutBuffer.Length - 1)
+                        $state.Message = if ($numericShortcutBuffer) { "Nummer: $numericShortcutBuffer" } else { '' }
+                    }
+                }
+                'Spacebar'  { $numericShortcutBuffer=''; if ($selectedDisplayItem) { $null = & $toggle $selectedDisplayItem.Data $state } }
+                'Enter'     {
+                    if ($numericShortcutBuffer) {
+                        $numericResolution = Resolve-LabConsoleNumericShortcut -Items $state.Items -Buffer $numericShortcutBuffer
+                        if ($numericResolution.Item) {
+                            $null = & $toggle $numericResolution.Item.Data $state
+                            $numericShortcutBuffer = ''
+                            continue
+                        }
+                        $state.Message = "Nummer '$numericShortcutBuffer' ist nicht belegt."
+                        $numericShortcutBuffer = ''
+                        continue
+                    }
+                    return [PSCustomObject]@{ Status='Confirmed'; SelectedItems=(& $getSelectedItems); State=$state }
+                }
                 'Escape'    { return [PSCustomObject]@{ Status='Cancelled'; SelectedItems=@(); State=$state } }
                 'F5'        {
                     if (Get-Command Update-LabConsoleAttentionSnapshot -ErrorAction SilentlyContinue) {
@@ -576,6 +654,23 @@ function Invoke-LabConsoleMultiSelect {
                 'D'         { if ($selectedDisplayItem -and $ShowDetails) { & $ShowDetails $selectedDisplayItem.Data } }
                 default {
                     $character = [string]$key.KeyChar
+                    if ($character -match '^\d$') {
+                        $numericShortcutBuffer += $character
+                        $numericResolution = Resolve-LabConsoleNumericShortcut -Items $state.Items -Buffer $numericShortcutBuffer
+                        if ($numericResolution.Status -eq 'Selected') {
+                            $null = & $toggle $numericResolution.Item.Data $state
+                            $numericShortcutBuffer = ''
+                            continue
+                        }
+                        if ($numericResolution.Status -eq 'Pending') {
+                            $state.Message = "Nummer: $numericShortcutBuffer"
+                            continue
+                        }
+                        $state.Message = "Nummer '$numericShortcutBuffer' ist nicht belegt."
+                        $numericShortcutBuffer = ''
+                        continue
+                    }
+                    $numericShortcutBuffer = ''
                     $matched = @($Items | Where-Object {
                         -not [bool]$_.Disabled -and (([string]$_.Shortcut -and [string]$_.Shortcut -ieq $character) -or @($_.Aliases | Where-Object { [string]$_ -ieq $character }).Count -gt 0)
                     }) | Select-Object -First 1

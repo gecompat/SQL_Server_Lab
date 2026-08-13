@@ -134,6 +134,18 @@ COMMANDS
         Liefert den Laufzeitzugriff auf ein automatisch generiertes SQL Server
         SA-Konto inklusive ConnectionString.
 
+    New-SqlServerLabAutomatedTestEnvironment
+        Erstellt eine oder mehrere Linux-SQL-Testumgebungen mit getrennten
+        Zufallskennwörtern und aktualisiert den Testumgebungsvertrag.
+
+    Export-SqlServerLabTestEnvironment
+        Schreibt TestUmgebung.env, TestUmgebung.json und TestUmgebung.md in den
+        konfigurierten Lab_Data-Exportordner.
+
+    Clear-SqlServerLabAutomatedTestEnvironment
+        Entfernt alle automatisierten Testumgebungen gemeinsam und löscht den
+        zugehörigen TestUmgebung-Export.
+
     Pruefung
 
     Test-SqlServerLabPrerequisite

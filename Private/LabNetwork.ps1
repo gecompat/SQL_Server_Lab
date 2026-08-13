@@ -268,14 +268,33 @@ function Initialize-HyperVGuestLabNetwork {
                 $existing | Remove-NetIPAddress -Confirm:$false -ErrorAction SilentlyContinue
                 New-NetIPAddress -InterfaceIndex $adapter.ifIndex -IPAddress $Address -PrefixLength $PrefixLength -ErrorAction Stop | Out-Null
             }
+            $deadline = [datetime]::UtcNow.AddSeconds(15)
+            do {
+                $observed = @(Get-NetIPAddress -InterfaceIndex $adapter.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+                    Where-Object { $_.IPAddress -eq $Address -and $_.PrefixLength -eq $PrefixLength })
+                if ($observed.Count -eq 1 -and [string]$observed[0].AddressState -eq 'Preferred') { break }
+                if (@($observed | Where-Object { [string]$_.AddressState -in @('Duplicate','Invalid') }).Count -gt 0) {
+                    throw "LAB_NETWORK_GUEST_ADDRESS_CONFLICT: $Address"
+                }
+                Start-Sleep -Milliseconds 250
+            } while ([datetime]::UtcNow -lt $deadline)
+            if ($observed.Count -ne 1 -or [string]$observed[0].AddressState -ne 'Preferred') {
+                throw "LAB_NETWORK_GUEST_ADDRESS_NOT_READY: $Address/$PrefixLength"
+            }
             $ruleName = 'SQL_Server_Lab SQL TCP Host'
             if (-not (Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue)) {
                 New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -Action Allow -Protocol TCP -LocalPort 1433 -RemoteAddress $HostAddress | Out-Null
             }
-            [PSCustomObject]@{ contractVersion = '1'; network = $NetworkName; address = $Address; prefixLength = $PrefixLength; observedAt = [datetime]::UtcNow.ToString('o') }
+            [PSCustomObject]@{
+                contractVersion = '1'; network = $NetworkName
+                address = [string]$observed[0].IPAddress; prefixLength = [int]$observed[0].PrefixLength
+                addressState = [string]$observed[0].AddressState; observedAt = [datetime]::UtcNow.ToString('o')
+            }
         }
     $receipt = @($receipt)[-1]
-    if (-not $receipt -or [string]$receipt.contractVersion -ne '1' -or [string]$receipt.address -ne $address) {
+    if (-not $receipt -or [string]$receipt.contractVersion -ne '1' -or
+        [string]$receipt.address -ne $address -or [int]$receipt.prefixLength -ne [int]$Network.PrefixLength -or
+        [string]$receipt.addressState -ne 'Preferred') {
         throw 'LAB_NETWORK_GUEST_RECEIPT_INVALID'
     }
     return [PSCustomObject]@{ Network = [string]$Network.Name; Address = $address; PrefixLength = [int]$Network.PrefixLength; ObservedAt = [string]$receipt.observedAt }

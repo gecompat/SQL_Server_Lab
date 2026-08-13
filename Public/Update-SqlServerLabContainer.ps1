@@ -15,6 +15,9 @@ function Update-SqlServerLabContainer {
     )
 
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
+    if (Test-LabAutomatedTestEnvironmentRun -RunId $RunId) {
+        throw 'TEST_ENVIRONMENT_GROUP_PROTECTED: Containeränderung ist für einzelne Testumgebungen gesperrt.'
+    }
     $runDirectory = Join-Path (Join-Path $StateRoot 'runs') $RunId
     $connectionPath = Join-Path $runDirectory 'connection-info.json'
     if (-not (Test-Path -LiteralPath $connectionPath -PathType Leaf)) { throw 'CONTAINER_RECONCILE_CONNECTION_INFO_MISSING' }
@@ -190,9 +193,12 @@ function Update-LabContainerEnvironmentInteractive {
         }
     }
     if ($choices.Count -eq 0) { Write-LabInfo 'Keine änderbare Docker-/Podman-Umgebung vorhanden.'; return }
+    $protectedRunIds = @(Get-LabAutomatedTestEnvironmentRunIds)
     $environmentItems = for ($i=0; $i -lt $choices.Count; $i++) {
         $instance = @($choices[$i].Connection.instances)[0]
-        New-LabConsoleItem -Id ([string]$choices[$i].Run.runId) -Label ([string]$choices[$i].Run.metadata.name) -Value ("{0} - Port {1}" -f $instance.provider, $instance.port) -Shortcut ([string]($i + 1)) -Data $choices[$i]
+        $protected = [string]$choices[$i].Run.runId -in $protectedRunIds
+        $value = if ($protected) { "{0} - Port {1} · geschützte Testgruppe" -f $instance.provider, $instance.port } else { "{0} - Port {1}" -f $instance.provider, $instance.port }
+        New-LabConsoleItem -Id ([string]$choices[$i].Run.runId) -Label ([string]$choices[$i].Run.metadata.name) -Value $value -Shortcut ([string]($i + 1)) -Data $choices[$i] -Disabled:$protected
     }
     $environmentResult = Invoke-LabConsoleMenu -ScreenId 'container-update-environment' -Title 'Docker-/Podman-Umgebung auswaehlen' -Items $environmentItems -FallbackPrompt '  Umgebung auswaehlen'
     if ($environmentResult.Status -ne 'Selected') {

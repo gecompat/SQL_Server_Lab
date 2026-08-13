@@ -29,14 +29,18 @@ Write-Host 'SQL_Server_Lab - Hyper-V Lab Environment Checks' -ForegroundColor Cy
 try {
     $module = Import-Module $modulePath -Force -PassThru
     $environmentText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVLabEnvironment.ps1') -Raw -Encoding utf8
+    $acceptanceText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVSqlAcceptanceEnvironment.ps1') -Raw -Encoding utf8
     $menuText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Invoke-SqlServerLab.ps1') -Raw -Encoding utf8
     $newLabText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/New-SqlServerLab.ps1') -Raw -Encoding utf8
     $generatedAccessText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Get-SqlServerLabGeneratedSqlAccess.ps1') -Raw -Encoding utf8
     $moduleManifestText = Get-Content -LiteralPath $modulePath -Raw -Encoding utf8
     Add-CheckResult -Name 'Generierte SA-Zugangsdaten bleiben DPAPI-geschützt und explizit erneut abrufbar' -Success (
         $environmentText -match 'Save-LabSecret -Path \$lab\.RunDirectory -Name ''generated-sql-sa-password''' -and
+        $environmentText -match 'Save-LabSecret -Path \$lab\.RunDirectory -Name ''sa-password''' -and
         $environmentText -match 'Get-SqlServerLabGeneratedSqlAccess -RunId \$RunId' -and
         $generatedAccessText -match 'Get-LabSecret -Path \$lab\.RunDirectory -Name ''generated-sql-sa-password''' -and
+        $generatedAccessText -match 'sqlDeploymentPlan\.passwordSource -eq ''generated''' -and
+        $generatedAccessText -match 'Get-LabSecret -Path \$lab\.RunDirectory -Name ''sa-password''' -and
         $generatedAccessText -match 'New-HyperVTransientGeneratedSqlAccess[\s\S]+-Generated -Persisted' -and
         $moduleManifestText -match "'Get-SqlServerLabGeneratedSqlAccess'"
     )
@@ -77,6 +81,22 @@ try {
         $environmentText -match 'SQL_SETUP_INSTALLATION_NOT_REGISTERED' -and
         $environmentText -match 'HYPERV_LAB_SQL_INSTANCE_REGISTRY_NOT_FOUND' -and
         $environmentText -match "Get-Service -Name 'MSSQLSERVER'"
+    )
+    Add-CheckResult -Name 'SQL Server 2022 erhält keinen nicht unterstützten Azure-Extension-Parameter' -Success (
+        $environmentText -match 'if \(\$ExpectedSqlVersion -eq ''2025''\) \{ \$arguments \+= ''/AZUREEXTENSION=0'' \}' -and
+        $acceptanceText -match 'if \(\[int\]\$expectedMajor -ge 17\) \{ \$arguments \+= ''/AZUREEXTENSION=0'' \}' -and
+        $environmentText -notmatch 'ExpectedSqlVersion -in @\(''2022'',''2025''\)' -and
+        $acceptanceText -notmatch 'expectedMajor -ge 16'
+    )
+    Add-CheckResult -Name 'Fehlgeschlagenes SQL Setup kann kontrolliert erneut gestartet werden' -Success (
+        $environmentText -match "INSTALL_RETRY_PENDING" -and
+        $environmentText -match "SQL_SETUP_\(\?:INSTALL_FAILED\|INSTALL_TIMEOUT\|INSTALLATION_NOT_REGISTERED\)" -and
+        $environmentText -match 'lastSetupFailureAt'
+    )
+    Add-CheckResult -Name 'SA-Passwort wird bei ALTER LOGIN sicher als SQL-Literal erzeugt' -Success (
+        $environmentText -match 'QUOTENAME\(@password' -and
+        $environmentText -match 'EXEC sys\.sp_executesql @statement' -and
+        $environmentText -notmatch 'ALTER LOGIN \[sa\] WITH PASSWORD = @password'
     )
     Add-CheckResult -Name 'Hyper-V-Sonderkonfiguration wird in VM, Setup und SQL Server ausgeführt' -Success (
         $environmentText -match 'MemoryStartupMB' -and

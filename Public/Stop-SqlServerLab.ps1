@@ -37,6 +37,9 @@ function Stop-SqlServerLab {
 
     process {
         $stateRoot = if ([string]::IsNullOrWhiteSpace($StateRoot)) { Get-LabStateRoot } else { $StateRoot }
+        if (Test-LabAutomatedTestEnvironmentRun -RunId $RunId) {
+            throw 'TEST_ENVIRONMENT_GROUP_PROTECTED: Einzelnes Stoppen ist für die automatisch gestartete Testgruppe gesperrt.'
+        }
         $run = Get-LabRunState -RunId $RunId -StateRoot $stateRoot
         $run = (Sync-LabRunRuntimeState -Run $run -StateRoot $stateRoot).Run
 

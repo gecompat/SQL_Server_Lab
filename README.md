@@ -489,6 +489,9 @@ Clear-SqlServerLab
 | `Restore-SqlServerLabDatabase` | `.bak` aus Datei oder URL wiederherstellen |
 | `Invoke-SqlServerLabScript` | T-SQL-Skript ausführen |
 | `Get-SqlServerLabGeneratedSqlAccess` | Hyper-V SQL-Zugriffsdaten (ConnectionString + generiertes SA-Passwort) aus dem Run abrufen |
+| `New-SqlServerLabAutomatedTestEnvironment` | Linux-Testumgebungen mit getrennten Zufallskennwörtern erstellen und nach Lab_Data exportieren |
+| `Export-SqlServerLabTestEnvironment` | Registrierte Testumgebungen als dotenv, JSON und Markdown für KI und Testwerkzeuge exportieren |
+| `Clear-SqlServerLabAutomatedTestEnvironment` | Alle automatisierten Testumgebungen als geschützte Gruppe gemeinsam entfernen |
 | `Test-SqlServerLabPrerequisite` | Provider, RAM, Storage und Ports prüfen |
 | `Test-SqlServerLabAdapter` | Project Adapter gegen Schema, Pfadgrenzen und optional einen Run prüfen |
 | `Install-SqlServerLabAdapter` | Validierten Adapter-Entrypoint ohne Lifecycle-Seiteneffekt anwenden |
@@ -641,6 +644,7 @@ _QuellRepo/      unveränderte Quell-Snapshots anderer Repositories
 ## Weiterführende Dokumentation
 
 - [Konsolidierter Entwicklungs- und Ausführungsplan](Documentation/Project_Planning/DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md)
+- [Konsolen-, Lifecycle- und Storage-Konsolidierungsplan aus der manuellen Abnahme](Documentation/Project_Planning/CONSOLE_LIFECYCLE_AND_STORAGE_CONSOLIDATION_PLAN_2026-08-12.md)
 - [Getting Started](Documentation/User/Getting_Started.md)
 - [Dokumentationsübersicht](Documentation/README.md)
 - [Bekannte Grenzen](Documentation/Quality/KNOWN_LIMITATIONS.md)

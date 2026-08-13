@@ -37,6 +37,8 @@ function Clear-SqlServerLab {
 
     $stateRoot = Get-LabStateRoot
     $activeRuns = @(Get-LabActiveRuns -StateRoot $stateRoot)
+    $protectedTestRunIds = @(Get-LabAutomatedTestEnvironmentRunIds)
+    $cleanupRuns = @($activeRuns | Where-Object { [string]$_.runId -notin $protectedTestRunIds })
     $windowsImageBuilds = if (-not $StateOnly -and -not $ContainersOnly) { @(Get-HyperVImageBuildPlans -StateRoot $stateRoot) } else { @() }
     $sqlImageBuilds = if (-not $StateOnly -and -not $ContainersOnly) { @(Get-HyperVSqlImageBuildPlans -StateRoot $stateRoot) } else { @() }
     $dataRoot = if (-not $StateOnly -and -not $ContainersOnly) { Get-LabDataRootDefault } else { $null }
@@ -87,30 +89,35 @@ function Clear-SqlServerLab {
             -not $_.RunId -or $_.RunId -notin $knownRunIds
         }
     )
+    $cleanupContainers = @($allContainers | Where-Object { -not $_.RunId -or [string]$_.RunId -notin $protectedTestRunIds })
 
     Write-LabStatus -Label 'Aktive Runs' -Value $activeRuns.Count
+    Write-LabStatus -Label 'Geschützte automatisierte Test-Runs' -Value $protectedTestRunIds.Count
     Write-LabStatus -Label 'Lab-Container' -Value $allContainers.Count
     Write-LabStatus -Label 'Orphan-Container' -Value $orphanContainers.Count
     Write-LabStatus -Label 'Hyper-V Windows-Builder' -Value $windowsImageBuilds.Count
     Write-LabStatus -Label 'Hyper-V SQL-Builder' -Value $sqlImageBuilds.Count
     Write-LabStatus -Label 'Data-Root-Labverzeichnisse' -Value $dataLabDirectories.Count
     Write-LabInfo 'Veröffentlichte OS- und SQL-Vorlagen bleiben erhalten und werden ausschließlich unter Hyper-V -> Veröffentlichte Vorlagen verwaltet.'
+    if ($protectedTestRunIds.Count -gt 0) {
+        Write-LabInfo 'Automatisierte Testumgebungen bleiben bei dieser normalen Bereinigung geschützt; dafür den eigenen Gruppen-Löschpunkt verwenden.'
+    }
     foreach ($runtime in @('docker', 'podman')) {
         Write-LabStatus -Label "Runtime $runtime" -Value $runtimeStatus[$runtime]
     }
 
     $workCount = if ($StateOnly) {
-        $activeRuns.Count
+        $cleanupRuns.Count
     }
     elseif ($ContainersOnly) {
-        $allContainers.Count
+        $cleanupContainers.Count
     }
     else {
-        $activeRuns.Count + $orphanContainers.Count + $windowsImageBuilds.Count + $sqlImageBuilds.Count + $dataLabDirectories.Count
+        $cleanupRuns.Count + $orphanContainers.Count + $windowsImageBuilds.Count + $sqlImageBuilds.Count + $dataLabDirectories.Count
     }
 
     if ($workCount -eq 0) {
-        Write-LabSuccess 'Alles sauber. Nichts zu entfernen.'
+        Write-LabSuccess $(if ($protectedTestRunIds.Count -gt 0) { 'Keine regulären Cleanup-Ziele. Die automatisierte Testgruppe bleibt unverändert.' } else { 'Alles sauber. Nichts zu entfernen.' })
         return [PSCustomObject]@{
             Containers = 0
             StateRuns  = 0
@@ -122,7 +129,7 @@ function Clear-SqlServerLab {
     }
 
     if (-not $PSCmdlet.ShouldProcess(
-        "$($activeRuns.Count) Run(s), $($allContainers.Count) Container",
+        "$($cleanupRuns.Count) reguläre Run(s), $($cleanupContainers.Count) reguläre Container",
         'SQL_Server_Lab-Bereinigung ausfuehren'
     )) {
         return [PSCustomObject]@{
@@ -153,7 +160,7 @@ function Clear-SqlServerLab {
     $errors = 0
 
     if ($StateOnly) {
-        foreach ($run in $activeRuns) {
+        foreach ($run in $cleanupRuns) {
             $runDirectory = Join-Path (Join-Path $stateRoot 'runs') $run.runId
             $connectionInfoPath = Join-Path $runDirectory 'connection-info.json'
             $expectedProviders = @()
@@ -233,7 +240,7 @@ function Clear-SqlServerLab {
         }
     }
     elseif ($ContainersOnly) {
-        foreach ($container in $allContainers) {
+        foreach ($container in $cleanupContainers) {
             if (-not $container.ScopeId) {
                 Write-LabError "Container '$($container.Name)' besitzt kein Scope-Label; Entfernung verweigert."
                 $errors++
@@ -258,7 +265,7 @@ function Clear-SqlServerLab {
         }
     }
     else {
-        foreach ($run in $activeRuns) {
+        foreach ($run in $cleanupRuns) {
             try {
                 $result = Remove-SqlServerLab -RunId $run.runId -StateRoot $stateRoot -Force
                 if ($result.Status -eq 'REMOVED') {

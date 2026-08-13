@@ -2,7 +2,7 @@
 
 | Merkmal | Wert |
 |---|---|
-| Status | `IMPLEMENTED_CUI_001_TO_011` |
+| Status | `IMPLEMENTED_CORE_WITH_MENU_MIGRATION_GAPS` |
 | Stand | 2026-08-12 |
 | Priorität | `P0 / M2` |
 | Geltung | interaktive PowerShell-Konsole von `SQL_Server_Lab` |
@@ -246,6 +246,21 @@ automatische Medienbeschaffung, Slot-Erzeugung oder sonstige Mutation auslösen.
 
 Die Migration erfolgt vertikal. Ein migriertes Menü verwendet vollständig die
 gemeinsame Schicht; neue parallele Cursorimplementierungen sind nicht zulässig.
+
+### 12.1 Nachaudit der manuellen Konsolenabnahme
+
+Die Frameworkbausteine `CUI-001` bis `CUI-011` sind vorhanden. Die manuelle
+Abnahme vom 2026-08-12 hat jedoch gezeigt, dass die Migration der konkreten
+Menüs noch nicht vollständig ist. Insbesondere Storage-, Connection-Center-,
+Erstellungs- und einzelne Hyper-V-Auswahlen verwenden weiterhin direkte
+`Read-Host`-Listen. Dadurch fehlen dort Cursorsteuerung und einheitliches
+`Escape`; Unteraktionen können außerdem unerwartet in das Hauptmenü
+zurückfallen.
+
+Diese Restmigration wird als `CUI-012` bis `CUI-019` im
+[Konsolen-, Lifecycle- und Storage-Konsolidierungsplan](CONSOLE_LIFECYCLE_AND_STORAGE_CONSOLIDATION_PLAN_2026-08-12.md)
+geführt. Bis zu dessen Abnahme bedeutet der Status dieses Dokuments daher
+„Framework-Core implementiert“, nicht „alle Menüs migriert“.
 
 ## 13. Abnahmekriterien
 

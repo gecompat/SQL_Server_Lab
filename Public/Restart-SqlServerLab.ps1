@@ -32,6 +32,9 @@ function Restart-SqlServerLab {
 
     process {
         $stateRoot = Get-LabStateRoot
+        if (Test-LabAutomatedTestEnvironmentRun -RunId $RunId) {
+            throw 'TEST_ENVIRONMENT_GROUP_PROTECTED: Einzelner Neustart ist für die automatisch gestartete Testgruppe gesperrt.'
+        }
         $run = Get-LabRunState -RunId $RunId -StateRoot $stateRoot
         $run = (Sync-LabRunRuntimeState -Run $run -StateRoot $stateRoot).Run
         $runPrefix = $RunId.Substring(0, 8)
