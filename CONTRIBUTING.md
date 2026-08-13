@@ -133,16 +133,19 @@ Neue CU- oder Buildangaben dürfen nicht aus einer vermuteten Tag-Konvention erf
 
 ## Lokale Validierung
 
-Mindestens ausführen:
+Die geänderten Pfade mit derselben Auswahl wie das PR-Gate prüfen:
 
 ```powershell
-.\Tests\Static\Invoke-DocumentationChecks.ps1
-.\Tests\Static\Invoke-MixedProviderLifecycleChecks.ps1
-.\Tests\Static\Invoke-CleanupRecoveryChecks.ps1
-.\Tests\Static\Invoke-PodmanBootstrapChecks.ps1
+$paths = git diff --name-only origin/main...HEAD
+.\Tests\Static\Invoke-ImpactedChecks.ps1 -ChangedPath $paths
 ```
 
-Bei Runtimeänderungen zusätzlich:
+Bei Runtimeänderungen zusätzlich den von
+`Tools/Get-CiTestSelection.ps1` ausgewählten Provider-Smoke ausführen. Docker,
+Podman, Mixed und Hyper-V sind getrennte Nachweise. Die vollständige Regression
+ist kein Pflichtlauf für jeden Beitrag; sie läuft täglich gebündelt.
+
+Beispiele:
 
 ```powershell
 .\Tests\Integration\Invoke-SmokeTest.ps1 -Provider docker
@@ -152,7 +155,9 @@ Bei Runtimeänderungen zusätzlich:
 .\Tests\Integration\Invoke-RestoreSmokeTest.ps1 -Provider podman
 ```
 
-Nur verfügbare Provider können lokal getestet werden. Ein nicht ausgeführter Test muss im Pull Request ausdrücklich genannt werden.
+Nur verfügbare Provider können lokal getestet werden. Ein vom Selektor
+angeforderter, aber lokal nicht ausgeführter Test muss im Pull Request
+ausdrücklich genannt werden.
 
 ## Sprachstil und Übersetzungen
 
