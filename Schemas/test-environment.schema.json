@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sql-server-lab.local/schemas/test-environment.schema.json",
+  "title": "SqlServerLab.TestEnvironment/1.0",
+  "description": "Maschinenlesbarer Vertrag fuer die gemeinsam nutzbare Gruppe automatisierter SQL-Server-Testumgebungen.",
+  "type": "object",
+  "required": [
+    "$schema",
+    "contractVersion",
+    "generatedAt",
+    "groupStatus",
+    "selectionRule",
+    "containsPlainTextSecrets",
+    "environments"
+  ],
+  "properties": {
+    "$schema": { "const": "./TestUmgebung.schema.json" },
+    "contractVersion": { "const": "SqlServerLab.TestEnvironment/1.0" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "groupStatus": { "enum": ["EMPTY", "READY", "INCOMPLETE"] },
+    "selectionRule": { "type": "string", "minLength": 1 },
+    "containsPlainTextSecrets": { "const": true },
+    "environments": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/environment" }
+    }
+  },
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": { "properties": { "groupStatus": { "const": "EMPTY" } }, "required": ["groupStatus"] },
+      "then": { "properties": { "environments": { "maxItems": 0 } } }
+    },
+    {
+      "if": { "properties": { "groupStatus": { "const": "READY" } }, "required": ["groupStatus"] },
+      "then": {
+        "properties": {
+          "environments": {
+            "minItems": 1,
+            "items": {
+              "allOf": [
+                { "$ref": "#/$defs/environment" },
+                { "properties": { "status": { "const": "READY" }, "runtimeStatus": { "const": "READY" } } }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "groupStatus": { "const": "INCOMPLETE" } }, "required": ["groupStatus"] },
+      "then": {
+        "properties": {
+          "environments": {
+            "minItems": 1,
+            "items": {
+              "allOf": [
+                { "$ref": "#/$defs/environment" },
+                { "properties": { "status": { "const": "GROUP_INCOMPLETE" } } }
+              ]
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "nullableString": {
+      "type": ["string", "null"]
+    },
+    "environment": {
+      "type": "object",
+      "required": [
+        "key",
+        "status",
+        "runtimeStatus",
+        "platform",
+        "provider",
+        "sqlVersion",
+        "patch",
+        "resolvedVersion",
+        "runId",
+        "instanceId",
+        "host",
+        "port",
+        "database",
+        "username",
+        "password",
+        "encrypt",
+        "trustServerCertificate",
+        "autoStart",
+        "connectionString"
+      ],
+      "properties": {
+        "key": { "type": "string", "pattern": "^[A-Z0-9_]+$", "minLength": 1 },
+        "status": { "enum": ["READY", "GROUP_INCOMPLETE"] },
+        "runtimeStatus": { "type": "string", "minLength": 1 },
+        "platform": { "enum": ["linux", "windows"] },
+        "provider": {
+          "anyOf": [
+            { "enum": ["docker", "podman", "hyperv"] },
+            { "type": "null" }
+          ]
+        },
+        "sqlVersion": { "type": "string", "pattern": "^[0-9]{4}$" },
+        "patch": { "type": "string", "minLength": 1 },
+        "resolvedVersion": { "$ref": "#/$defs/nullableString" },
+        "runId": { "type": "string" },
+        "instanceId": { "type": "string", "minLength": 1 },
+        "host": { "$ref": "#/$defs/nullableString" },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "database": { "const": "master" },
+        "username": { "const": "sa" },
+        "password": { "$ref": "#/$defs/nullableString" },
+        "encrypt": { "const": true },
+        "trustServerCertificate": { "const": true },
+        "autoStart": { "const": "on" },
+        "connectionString": { "$ref": "#/$defs/nullableString" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

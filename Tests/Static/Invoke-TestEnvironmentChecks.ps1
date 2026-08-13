@@ -31,6 +31,9 @@ try {
     } | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $runDirectory 'connection-info.json') -Encoding utf8
 
     $module = Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -PassThru
+    $dataRoot = Split-Path -Parent $outputRoot
+    & $module { param($DataRoot) $null = Initialize-LabManagedDataRoot -DataRoot $DataRoot } $dataRoot
+    $env:SQL_SERVER_LAB_DATA_ROOT = $dataRoot
     Add-CheckResult -Name 'Öffentliche Cmdlets sind über das Modul verfügbar' -Success (
         $module.ExportedCommands.ContainsKey('New-SqlServerLabAutomatedTestEnvironment') -and
         $module.ExportedCommands.ContainsKey('Export-SqlServerLabTestEnvironment') -and
@@ -43,12 +46,39 @@ try {
         $secret.MakeReadOnly()
         Save-LabSecret -Path $RunDirectory -Name 'sa-password' -Secret $secret
     } $runDirectory
+    $secretRoundTrip = & $module {
+        param($RunDirectory)
+        $secret = Get-LabSecret -Path $RunDirectory -Name 'sa-password'
+        ConvertFrom-LabSecureString -SecureString $secret
+    } $runDirectory
+    Add-CheckResult -Name 'Secret-Store bewahrt Kennwörter plattformunabhängig und zeichengetreu' -Success (
+        $secretRoundTrip -eq 'Random-Test-Password_42!'
+    )
     & $module {
         param($RunId,$OutputRoot)
         Register-LabTestEnvironmentRun -RunId $RunId -Platform linux -SqlVersion 2022 -Patch latest -InstanceId primary -OutputDirectory $OutputRoot
     } $runId $outputRoot | Out-Null
+    $reusedIntent = & $module {
+        param($OutputRoot)
+        Register-LabTestEnvironmentIntent -Platform linux -SqlVersion 2022 -Patch latest -InstanceId primary `
+            -Name LINUX_2022_LATEST -OutputDirectory $OutputRoot -ReuseExisting
+    } $outputRoot
+    Add-CheckResult -Name 'Explizite Wiederaufnahme behält Schlüssel und registrierten Run idempotent bei' -Success (
+        [string]$reusedIntent.key -eq 'LINUX_2022_LATEST' -and [string]$reusedIntent.runId -eq $runId
+    )
+    $statusSnapshot = & $module {
+        param($OutputRoot,$StateRoot)
+        Get-LabAutomatedTestEnvironmentStatus -OutputDirectory $OutputRoot -StateRoot $StateRoot
+    } $outputRoot $stateRoot
+    Add-CheckResult -Name 'Menüstatus projiziert bestehende Testumgebungen laufzeitnah ohne Zugangsdaten' -Success (
+        $statusSnapshot.GroupStatus -eq 'INCOMPLETE' -and $statusSnapshot.Ready -eq 0 -and
+        $statusSnapshot.Total -eq 1 -and $statusSnapshot.Entries[0].StatusCode -eq 'UNAVAILABLE' -and
+        -not $statusSnapshot.Entries[0].PSObject.Properties['Password'] -and
+        -not $statusSnapshot.Entries[0].PSObject.Properties['ConnectionString']
+    )
     $export = Export-SqlServerLabTestEnvironment -OutputDirectory $outputRoot -StateRoot $stateRoot
-    $json = Get-Content -LiteralPath $export.JsonPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
+    $jsonText = Get-Content -LiteralPath $export.JsonPath -Raw -Encoding utf8
+    $json = $jsonText | ConvertFrom-Json -Depth 20
     $envText = Get-Content -LiteralPath $export.EnvPath -Raw -Encoding utf8
     $markdown = Get-Content -LiteralPath $export.MarkdownPath -Raw -Encoding utf8
 
@@ -56,11 +86,29 @@ try {
         $export.Directory -eq [IO.Path]::GetFullPath($outputRoot) -and
         -not $export.EnvPath.StartsWith($repoRoot, [StringComparison]::OrdinalIgnoreCase)
     )
+    Add-CheckResult -Name 'JSON-Export verweist auf das mitexportierte und gültige Schema' -Success (
+        $json.'$schema' -eq './TestUmgebung.schema.json' -and
+        $export.SchemaPath -eq (Join-Path $outputRoot 'TestUmgebung.schema.json') -and
+        (Test-Path -LiteralPath $export.SchemaPath -PathType Leaf) -and
+        ($jsonText | Test-Json -SchemaFile $export.SchemaPath)
+    )
+    Add-CheckResult -Name 'Export veröffentlicht portable Discovery und den wiederverwendbaren Prompt' -Success (
+        $export.PromptPath -eq (Join-Path $outputRoot 'TestUmgebung.prompt.md') -and
+        (Test-Path -LiteralPath $export.PromptPath -PathType Leaf) -and
+        $env:SQL_SERVER_LAB_TEST_ENV_FILE -eq $export.JsonPath -and
+        $env:SQL_SERVER_LAB_TEST_ENV_SCHEMA_FILE -eq $export.SchemaPath -and
+        $env:SQL_SERVER_LAB_TEST_ENV_PROMPT_FILE -eq $export.PromptPath -and
+        (Get-Content -LiteralPath $export.PromptPath -Raw -Encoding utf8) -match 'Keine Laufwerks-, Home- oder Repositorysuche'
+    )
     Add-CheckResult -Name 'Vollständige Gruppe ist eindeutig als READY selektierbar' -Success (
         $json.contractVersion -eq 'SqlServerLab.TestEnvironment/1.0' -and $json.groupStatus -eq 'READY' -and
         @($json.environments | Where-Object {
             $_.platform -eq 'linux' -and $_.sqlVersion -eq '2022' -and $_.patch -eq 'latest' -and $_.status -eq 'READY'
         }).Count -eq 1
+    )
+    $readyCenter = Get-SqlServerLabConnectionCenter -StateRoot $stateRoot
+    Add-CheckResult -Name 'Vollständige Testgruppe erscheint mit stabilem Namen in der Verbindungszentrale' -Success (
+        @($readyCenter.Entries | Where-Object { $_.RunId -eq $runId -and $_.DisplayName -eq 'TEST · LINUX_2022_LATEST (primary)' }).Count -eq 1
     )
     Add-CheckResult -Name 'ENV enthält stabile Präfixe, AutoStart und das zufällige Kennwort' -Success (
         $envText -match 'SQL_SERVER_LAB_TEST_ENV_GROUP_STATUS="READY"' -and
@@ -78,11 +126,10 @@ try {
         Register-LabTestEnvironmentRun -RunId $MissingRunId -Platform windows -SqlVersion 2019 -Patch cu32 -InstanceId primary -Name AAA_MISSING -OutputDirectory $OutputRoot
     } $secondRunId $missingRunId $outputRoot | Out-Null
     $incompleteExport = Export-SqlServerLabTestEnvironment -OutputDirectory $outputRoot -StateRoot $stateRoot
-    $incompleteJson = Get-Content -LiteralPath $incompleteExport.JsonPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
+    $incompleteJsonText = Get-Content -LiteralPath $incompleteExport.JsonPath -Raw -Encoding utf8
+    $incompleteJson = $incompleteJsonText | ConvertFrom-Json -Depth 20
     $incompleteEnv = Get-Content -LiteralPath $incompleteExport.EnvPath -Raw -Encoding utf8
-    $dataRoot = Split-Path -Parent $outputRoot
-    & $module { param($DataRoot) $null = Initialize-LabManagedDataRoot -DataRoot $DataRoot } $dataRoot
-    $env:SQL_SERVER_LAB_DATA_ROOT = $dataRoot
+    $incompleteCenter = Get-SqlServerLabConnectionCenter -StateRoot $stateRoot
     $defaultExport = Export-SqlServerLabTestEnvironment -StateRoot $stateRoot
     Add-CheckResult -Name 'Standardexport wird aus dem konfigurierten Lab_Data abgeleitet' -Success (
         $defaultExport.Directory -eq [IO.Path]::GetFullPath($outputRoot)
@@ -91,7 +138,11 @@ try {
         $incompleteJson.groupStatus -eq 'INCOMPLETE' -and
         @($incompleteJson.environments | Where-Object status -eq 'READY').Count -eq 0 -and
         $incompleteEnv -match 'SQL_SERVER_LAB_TEST_ENV_GROUP_STATUS="INCOMPLETE"' -and
-        $incompleteEnv -notmatch 'SQL_SERVER_LAB_DEFAULT_KEY='
+        $incompleteEnv -notmatch 'SQL_SERVER_LAB_DEFAULT_KEY=' -and
+        ($incompleteJsonText | Test-Json -SchemaFile $incompleteExport.SchemaPath)
+    )
+    Add-CheckResult -Name 'Unvollständige Testgruppe wird auch im CMS-Katalog vollständig zurückgehalten' -Success (
+        @($incompleteCenter.Entries | Where-Object RunId -eq $runId).Count -eq 0
     )
     Add-CheckResult -Name 'Mehrere identische Ziele behalten getrennte Schlüssel' -Success (
         @($incompleteJson.environments | Where-Object key -eq 'LINUX_2022_LATEST').Count -eq 1 -and
@@ -126,11 +177,15 @@ try {
     $clearResult = Clear-SqlServerLabAutomatedTestEnvironment -OutputDirectory $clearOutput -StateRoot $stateRoot -Force -Confirm:$false
     Add-CheckResult -Name 'Eigener Löschpunkt entfernt die vollständige Gruppe samt Exportdateien' -Success (
         $clearResult.Status -eq 'REMOVED' -and -not (Test-Path -LiteralPath (Join-Path $clearOutput 'TestUmgebung.registry.json')) -and
-        -not (Test-Path -LiteralPath (Join-Path $clearOutput 'TestUmgebung.env'))
+        -not (Test-Path -LiteralPath (Join-Path $clearOutput 'TestUmgebung.env')) -and
+        -not (Test-Path -LiteralPath (Join-Path $clearOutput 'TestUmgebung.schema.json')) -and
+        -not (Test-Path -LiteralPath (Join-Path $clearOutput 'TestUmgebung.prompt.md'))
     )
     $menuText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Invoke-SqlServerLab.ps1') -Raw -Encoding utf8
     $testEnvironmentText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/TestEnvironment.ps1') -Raw -Encoding utf8
+    $hyperVLabText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVLabEnvironment.ps1') -Raw -Encoding utf8
     $clearText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Clear-SqlServerLab.ps1') -Raw -Encoding utf8
+    $connectionCenterText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Sync-SqlServerLabConnectionCenter.ps1') -Raw -Encoding utf8
     $lifecycleText = @(
         'Start-SqlServerLab.ps1','Stop-SqlServerLab.ps1','Restart-SqlServerLab.ps1','Remove-SqlServerLab.ps1','Update-SqlServerLabContainer.ps1'
     ) | ForEach-Object { Get-Content -LiteralPath (Join-Path $repoRoot "Public/$_") -Raw -Encoding utf8 }
@@ -139,9 +194,66 @@ try {
         $menuText -match "-Id 'clear-automated-test' -Label 'Alle automatisierten Testumgebungen löschen'" -and
         $menuText -match "\[l\] Linux hinzufügen  \[w\] Windows hinzufügen" -and
         $menuText -match "\[a\] Alle erstellen" -and
+        $menuText -match 'Bestehende Testgruppe:' -and
+        $menuText -match 'Noch keine neue Umgebung hinzugefügt' -and
+        $testEnvironmentText -match 'function Get-LabAutomatedTestEnvironmentStatus' -and
         $menuText -match "AutoStart='on'" -and
         $testEnvironmentText -match '-AutoStart on' -and
         $menuText -match 'DisableAutomatedTestEnvironments'
+    )
+    $windowsPatchContract = & $module {
+        $base = New-LabWindowsBaseSqlPatchIntent -BaseVersion '2022'
+        $intent = [PSCustomObject]@{
+            BaseVersion='2022'; VersionId='2022'; Patch=$base; RequiresWindows=$true
+            Edition='Developer'; Purpose='adhoc'; NetworkMode='host-access'; Drives=@(); Cpu=[decimal]4
+        }
+        [PSCustomObject]@{
+            Base=$base
+            Decision=Resolve-LabSqlIntentProvider -Intent $intent -AvailableProviders @('hyperv')
+        }
+    }
+    Add-CheckResult -Name 'Windows base benötigt kein CU-Paket und bleibt für Hyper-V zulässig' -Success (
+        $windowsPatchContract.Base.PatchMode -eq 'base' -and
+        -not $windowsPatchContract.Base.Cu -and
+        -not $windowsPatchContract.Base.WindowsPath -and
+        -not $windowsPatchContract.Base.Floating -and
+        $windowsPatchContract.Decision.Supported -and
+        $windowsPatchContract.Decision.Provider -eq 'hyperv' -and
+        $menuText -match 'Select-LabSqlPatchIntent -BaseVersion \$sqlVersion -Platform \$platform' -and
+        $menuText -notmatch 'latestWindowsPatch'
+    )
+    Add-CheckResult -Name 'Automatisierte Windows-Ziele entnehmen freie Slots aus dem Pool' -Success (
+        $menuText -match 'PreferExistingWindowsSlot=\$true' -and
+        $menuText -match 'Select-LabReusableHyperVWindowsSlotInteractive -Intent \$Intent -Automatic:\$automaticSlotSelection' -and
+        $menuText -match 'ReusedWindowsSlotRunId' -and
+        $menuText -match 'Register-LabTestEnvironmentRun -RunId \(\[string\]\$reusableSlot.RunId\)' -and
+        $menuText -match 'Freier Windows-Slot wird automatisch aus dem Pool entnommen' -and
+        $menuText -match 'Get-LabAutomatedTestEnvironmentRunIds' -and
+        $menuText -match '\$intendedTestRunId' -and
+        $menuText -match "'PLANNED', 'INSTALL_RETRY_PENDING', 'CONFIGURATION_PENDING'" -and
+        $menuText -match 'SQL-Testumgebung ist bereits vollständig bereit' -and
+        $testEnvironmentText -match '\[switch\]\$ReuseExisting' -and
+        $menuText -match '-ReuseExisting:' -and
+        $menuText -match 'Set-HyperVLabAutoStart -RunId \(\[string\]\$Slot.RunId\)' -and
+        $hyperVLabText -match 'function Set-HyperVLabAutoStart' -and
+        $hyperVLabText -match 'AutomaticStartAction \$automaticStartAction' -and
+        $menuText -notmatch 'RequiresFreshSqlInstall=\$true; ForceNewWindowsSlot=\$true'
+    )
+    Add-CheckResult -Name 'Batch-Linux-Erfolg hängt nicht vom noch unvollständigen Gruppenstatus ab' -Success (
+        $menuText -match 'TEST_ENVIRONMENT_CREATION_FAILED' -and
+        $menuText -notmatch 'TEST_ENVIRONMENT_GROUP_INCOMPLETE'
+    )
+    Add-CheckResult -Name 'Testgruppe synchronisiert Verbindungszentrale und CMS explizit und atomar sichtbar' -Success (
+        $testEnvironmentText -match 'function Sync-LabAutomatedTestEnvironmentConnectionCenter' -and
+        $testEnvironmentText -match 'Sync-SqlServerLabCms -StateRoot \$StateRoot -Quiet' -and
+        $connectionCenterText -match 'if \(\$isAutomatedTestEnvironment -and -not \$testGroupReady\) \{ continue \}' -and
+        $connectionCenterText -match 'TEST · \$\(\[string\]\$testEnvironment.key\)'
+    )
+    Add-CheckResult -Name 'CMS-Menü nennt Zielserver und korrekten SSMS-Anzeigeort' -Success (
+        $connectionCenterText -match 'SSMS-CMS-Server:' -and
+        $connectionCenterText -match 'Ansicht -> Registrierte Server -> Datenbankmodul -> Zentrale Verwaltungsserver' -and
+        $connectionCenterText -match "SQL Server Lab -> Running" -and
+        $connectionCenterText -match '\$center\.Entries = @\(\$center\.Entries \| Where-Object \{ \[string\]\$_\.RunId -ne \[string\]\$cmsConfiguration\.RunId \}\)'
     )
     Add-CheckResult -Name 'Normale Lifecycle- und Cleanup-Pfade schützen die Testgruppe' -Success (
         @($lifecycleText | Where-Object { $_ -match 'TEST_ENVIRONMENT_GROUP_PROTECTED' }).Count -eq 5 -and
