@@ -266,7 +266,11 @@ try {
     $menuText = Get-Content -LiteralPath $menuPath -Raw -Encoding utf8
     $entryText = Get-Content -LiteralPath $entryPath -Raw -Encoding utf8
     $sqlBuilderText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVSqlImageBuilder.ps1') -Raw -Encoding utf8
-    Add-CheckResult -Name 'Hauptmenue bietet Hyper-V-Image-Verwaltung an' -Success ($menuText -match "'i'\s*\{\s*Invoke-LabAction\s+-ActionName\s+'Image'")
+    Add-CheckResult -Name 'Hauptmenue fuehrt Image-Verwaltung unter Hyper-V-Infrastruktur' -Success (
+        $menuText -match "New-LabConsoleItem -Id 'hyperv' -Label 'Hyper-V-Infrastruktur'.+-Shortcut '4'" -and
+        $menuText -match "New-LabConsoleItem -Id 'Image' -Label 'Hyper-V Infrastruktur: OS-Images und ISOs verwalten'.+-Shortcut '1'" -and
+        $menuText -match "'hyperv' \{ Invoke-LabAreaMenuInteractive -Area HyperV \}"
+    )
     Add-CheckResult -Name 'Direkt-Aktion Image ist am Einstieg erlaubt' -Success ($entryText -match "ValidateSet\([^\)]*'Image'")
     Add-CheckResult -Name 'Menue dokumentiert den manuellen Installationsschritt' -Success ($menuText -match 'Show-LabHyperVManualInstallInstructions')
     Add-CheckResult -Name 'Fresh-SQL-Anleitung erklaert schwarzen VMConnect-Bildschirm nach Setup-Reboot' -Success (

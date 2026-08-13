@@ -6,6 +6,23 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ## 2026-08-13
 
+### Hinzugefügt
+
+- persistenter `SqlServerLab.Batch/1.0`- und `SqlServerLab.Operation/1.0`-Kern
+  mit stabiler Mengenexpansion, gemeinsamer Abhängigkeitsauflösung,
+  scopegebundenem Cleanup und manifestbasierter Wiederaufnahme;
+- Scheduler mit zwei Workern, einem `HyperVHeavy`-Slot, Ressourcen-Locks,
+  `StateRoot`-Lease, Prioritäten, Umreihung, Pause/Resume und Wiederfreigabe
+  verlassener Schritte nach einem Prozessabbruch;
+- persistente User-Gates mit vollständigen Anweisungen, read-only Probes,
+  `CandidateSatisfied`, Einzel-/Mehrfachbestätigung, Ton-Backoff sowie lokalen
+  und globalen Ruhemodi;
+- providerneutraler Mengen-Composer für SQL-, Windows-, Slot- und Matrixplanung
+  sowie Queue-/User-Gate-Ansichten in Konsole und lokaler Workflow-UI;
+- `SqlServerLab.BatchManifest/1.0`, öffentliche Batch-/Queue-Cmdlets und
+  `Invoke-BatchWorkflowChecks.ps1` für Expansion, Fehlerisolation,
+  Parallelitätslimits, User-Gates und Resume.
+
 ### Geändert
 
 - Pull Requests verwenden jetzt ein pfadabhängiges `PR Gate` statt der
@@ -18,6 +35,11 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   `SELECT @@VERSION`, `sys.databases`, einem Create/Drop-Schreibtest und einem
   Abgleich der realen CMS-Registrierungen geprüft. Eine frische Hyper-V-/SQL-
   Installation läuft zusätzlich wöchentlich oder manuell.
+- Das Hauptmenü verwendet sieben eindeutig benannte Arbeitsbereiche. Die
+  normale Erstellung ist providerneutral; explizite Providerwahl liegt unter
+  Erweitert, während Hyper-V-Vorlagen, ISOs, Slots und Recovery separat bleiben.
+- Browsermutationen ohne transiente Geheimnisse werden als persistente
+  Operation eingereiht statt ausschließlich als flüchtiger ThreadJob gestartet.
 
 ## 2026-08-12
 

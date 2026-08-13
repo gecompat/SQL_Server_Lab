@@ -35,6 +35,7 @@ $checks = @(
     'Invoke-PSScriptAnalyzerChecks.ps1',
     'Invoke-CiStrategyChecks.ps1',
     'Invoke-ConsoleUiChecks.ps1',
+    'Invoke-BatchWorkflowChecks.ps1',
     'Invoke-ArtifactResolverChecks.ps1',
     'Invoke-CleanupRecoveryChecks.ps1',
     'Invoke-CleanupAuditChecks.ps1',

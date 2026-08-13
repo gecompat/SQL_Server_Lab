@@ -238,6 +238,13 @@ function Get-SqlServerLabWorkflow {
         }
     })
 
+    $batches = @()
+    $operations = @()
+    $queue = $null
+    try { $batches = @(Get-SqlServerLabBatch -StateRoot $stateRoot) } catch { }
+    try { $operations = @(Get-SqlServerLabOperation -StateRoot $stateRoot) } catch { }
+    try { $queue = Get-SqlServerLabQueue -StateRoot $stateRoot } catch { }
+
     [PSCustomObject]@{
         GeneratedAt = (Get-Date).ToUniversalTime().ToString('o')
         Host = [PSCustomObject]@{
@@ -248,6 +255,9 @@ function Get-SqlServerLabWorkflow {
             ProviderCapabilities = @(Get-LabProviderCapabilityContract)
         }
         Defaults = [PSCustomObject]@{ MediaRoot = $MediaRoot; DataRoot = Get-LabDataRootDefault; TestDataRoot = $testDataRoot }
+        Batches = $batches
+        Operations = $operations
+        Queue = $queue
         SqlInstallationMedia = $sqlInstallationMedia
         WindowsInstallationMedia = $windowsInstallationMedia
         SampleDatabases = $sampleDatabases
@@ -264,6 +274,10 @@ function Get-SqlServerLabWorkflow {
             ActiveContainerLabs = $activeContainerRuns.Count
             PendingWindowsBuilds = @($windowsItems | Where-Object State -notin @('OS_SEALED', 'TEST_ARTIFACT_PUBLISHED')).Count
             PendingSqlBuilds = @($sqlItems | Where-Object State -notin @('SQL_PREPARED_SEALED', 'TESTS_PASSED')).Count
+            ActiveBatches = @($batches | Where-Object status -notin @('Completed', 'CompletedWithErrors', 'Cancelled')).Count
+            RunningWorkers = if ($queue) { [int]$queue.runningWorkers } else { 0 }
+            WaitingUserGates = if ($queue) { [int]$queue.waitingUserGates } else { 0 }
+            QueueLength = if ($queue) { [int]$queue.length } else { 0 }
         }
         WindowsBaselines = @($artifacts | Where-Object artifactState -eq 'OS_SEALED' | ForEach-Object {
             [PSCustomObject]@{

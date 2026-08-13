@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/gecompat/SQL_Server_Lab/Schemas/lab-batch.schema.json",
+  "title": "SqlServerLab.BatchManifest/1.0",
+  "type": "object",
+  "required": ["name", "items"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "contract": { "const": "SqlServerLab.BatchManifest/1.0" },
+    "name": { "type": "string", "minLength": 1 },
+    "priority": { "enum": ["High", "Normal", "Low"] },
+    "defaults": { "type": "object" },
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "kind"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "kind": { "type": "string", "minLength": 1 },
+          "count": { "type": "integer", "minimum": 1 },
+          "intent": { "type": "object" },
+          "manifest": { "type": "object" },
+          "overrides": { "type": "object" }
+        },
+        "additionalProperties": true
+      }
+    }
+  }
+}

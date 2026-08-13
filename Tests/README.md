@@ -41,6 +41,7 @@ Interpretation:
 ```powershell
 .\Tests\Static\Invoke-AllChecks.ps1
 .\Tests\Static\Invoke-ManifestBuilderChecks.ps1
+.\Tests\Static\Invoke-BatchWorkflowChecks.ps1
 .\Tests\Static\Invoke-DocumentationChecks.ps1
 .\Tests\Static\Invoke-ReadinessContractChecks.ps1
 .\Tests\Static\Invoke-ReconcileContractChecks.ps1
@@ -61,6 +62,8 @@ Die statischen Prüfungen benötigen keine laufende SQL-Server-Instanz. Sie kont
 - Existenz referenzierter Schema-Dateien;
 - Import des Modulmanifests;
 - Übereinstimmung von `FunctionsToExport` und tatsächlich verfügbaren Funktionen;
+- persistente Batch-/Operation-Verträge, deterministische Mengenexpansion,
+  Zwei-Worker-/HyperVHeavy-Limits, Fehlerisolation, User-Gates und Resume;
 - schema- und fachgerechte Manifest-Erstellung ohne Provisionierung;
 - Ablehnung unbekannter Felder, doppelter IDs, Providerkonflikte und inkompatibler Datenbankoptionen;
 - Existenz der in Provider-Metadaten angegebenen Module;

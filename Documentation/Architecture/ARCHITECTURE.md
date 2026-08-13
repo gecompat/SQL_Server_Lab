@@ -63,6 +63,17 @@ Auto-Discovery-Reihenfolge:
 ```text
 # Lifecycle
 Invoke-SqlServerLab                    # Menue oder Manifest-Einstieg
+New-SqlServerLabBatch                  # Einzel- oder Mengenbatch persistent planen und einreihen
+Get-SqlServerLabBatch                  # Batchplan und Fortschritt lesen
+Get-SqlServerLabQueue                  # Worker, Locks, Blockierungen und User-Gates lesen
+Get-SqlServerLabOperation              # Kindvorgang, Schritte, Receipts und Events lesen
+Confirm-SqlServerLabOperationUserAction # User-Gate einzeln technisch pruefen und fortsetzen
+Move-SqlServerLabOperation             # Wartenden Vorgang umreihen
+Set-SqlServerLabOperationPriority      # Individuelle Prioritaet setzen
+Suspend-SqlServerLabOperation          # Wartenden Vorgang pausieren
+Resume-SqlServerLabOperation           # Pausierten Vorgang freigeben
+Stop-SqlServerLabOperation             # Vorgang und optional seinen Scope bereinigen
+Stop-SqlServerLabBatch                 # Unfertige oder alle Batch-Ressourcen zurueckbauen
 Get-SqlServerLabWorkflow               # Verdichtete, geheimnisfreie Workflow-Sicht
 Get-SqlServerLabCatalog                # Laufzeit-Workflow-Katalog als JSON-Artefakt schreiben
 Get-SqlServerLabCleanupAudit           # Daten- und Runtime-Reste read-only inventarisieren

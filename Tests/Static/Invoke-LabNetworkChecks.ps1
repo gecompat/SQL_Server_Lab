@@ -82,8 +82,9 @@ try {
         $preferencesSource -match 'Write-LabArtifactJsonAtomic -Path \$preferencePath' -and
         $preferencesSource -match 'SetEnvironmentVariable\(''SQL_SERVER_LAB_MEDIA_ROOT''.+''User''' -and
         $menuSource -match 'Get-LabMediaRootDefault' -and $menuSource -match 'Set-LabMediaRootDefault' -and
-        $menuSource -match "New-LabConsoleItem -Id 'media' -Label 'Media Root konfigurieren' -Shortcut 'p'" -and
-        $menuSource -match "'p' \{ Invoke-LabAction -ActionName 'MediaRoot' \}"
+        $menuSource -match "New-LabConsoleItem -Id 'storage' -Label 'Medien, Testdaten und Speicher'.+-Shortcut '5'" -and
+        $menuSource -match "New-LabConsoleItem -Id 'MediaRoot' -Label 'Lab_Base / Media-Root konfigurieren'.+-Shortcut 'p'" -and
+        $menuSource -match "'MediaRoot'\s*\{"
     )
 }
 catch { Add-CheckResult -Name 'Labnetz-Testausfuehrung' -Success $false -Message $_.Exception.Message }

@@ -46,6 +46,39 @@ COMMANDS
     Invoke-SqlServerLab
         Oeffnet das interaktive Menue oder fuehrt eine Menueaktion direkt aus.
 
+    New-SqlServerLabBatch
+        Validiert, expandiert und persistiert einen providerneutralen Einzel- oder Mengenbatch.
+
+    Get-SqlServerLabBatch
+        Liefert Batchplan, Abhaengigkeiten, Fortschritt und Cleanup-Scope.
+
+    Get-SqlServerLabQueue
+        Liefert Worker, Locks, Blockierungen und wartende User-Gates.
+
+    Get-SqlServerLabOperation
+        Liefert Kindvorgaenge, Schritte, Receipts und Events.
+
+    Confirm-SqlServerLabOperationUserAction
+        Prueft ausgewaehlte User-Gates einzeln und setzt nur erfolgreiche Positionen fort.
+
+    Move-SqlServerLabOperation
+        Reiht einen wartenden Vorgang innerhalb seiner Prioritaet um.
+
+    Set-SqlServerLabOperationPriority
+        Setzt eine individuelle Vorgangsprioritaet.
+
+    Suspend-SqlServerLabOperation
+        Pausiert einen wartenden Vorgang.
+
+    Resume-SqlServerLabOperation
+        Gibt einen pausierten Vorgang bei erfuellten Abhaengigkeiten frei.
+
+    Stop-SqlServerLabOperation
+        Stoppt einen Vorgang sicher und bereinigt optional nur seinen Scope.
+
+    Stop-SqlServerLabBatch
+        Stoppt unfertige Positionen oder baut ausdruecklich den gesamten Batch zurueck.
+
     Get-SqlServerLabWorkflow
         Liefert die zusammengefasste Workflow-Sicht fuer lokale Labs,
         Windows-Baselines, SQL-Prepared-Images und Abnahmeumgebungen.
