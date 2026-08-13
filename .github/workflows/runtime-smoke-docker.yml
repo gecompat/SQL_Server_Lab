@@ -1,26 +1,15 @@
 name: Runtime Smoke - Docker
 
 on:
+  workflow_call:
   workflow_dispatch:
-  pull_request:
-    branches:
-      - main
-    paths:
-      - 'Catalogs/**'
-      - 'Private/**'
-      - 'Providers/Docker/**'
-      - 'Public/**'
-      - 'Tests/**'
-      - 'SqlServerLab.psd1'
-      - 'SqlServerLab.psm1'
-      - '.github/workflows/runtime-smoke-docker.yml'
 
 permissions:
   contents: read
 
 concurrency:
-  group: sql-server-lab-runtime-smoke-docker
-  cancel-in-progress: false
+  group: sql-server-lab-runtime-smoke-docker-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   docker-smoke:
@@ -44,11 +33,6 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Docker-Runtime ist nicht erreichbar.' }
           sqlcmd -?
           if ($LASTEXITCODE -ne 0) { throw 'sqlcmd ist nicht verwendbar.' }
-
-      - name: Static contracts
-        run: |
-          $ErrorActionPreference = 'Stop'
-          .\Tests\Static\Invoke-AllChecks.ps1
 
       - name: Docker SQL Server 2025 lifecycle
         run: |

@@ -6,6 +6,7 @@
 | [Initialize-SqlServerLabDataRoot.ps1](Initialize-SqlServerLabDataRoot.ps1) | Erstellt den getrennten langlebigen Data Root für Evaluation-Refresh, Backups und versionsgebundene Datenbankdateien |
 | [Start-SqlServerLabUi.ps1](Start-SqlServerLabUi.ps1) | Startet das lokale Browser-Cockpit für Workflow, Hintergrundaktionen und Live-Logs auf 127.0.0.1 |
 | [Prepare-LocalRelease.ps1](Prepare-LocalRelease.ps1) | Erzeugt ein reproduzierbares lokales Release-Artefakt inkl. Manifest, optionalem SHA-256-Digest und optionalem ZIP-Archiv |
+| [Get-CiTestSelection.ps1](Get-CiTestSelection.ps1) | Klassifiziert geänderte Pfade für schnelle, betroffene PR-Checks und gezielte Runtime-Smokes |
 | [CheckLargeGitFilesPush.ps1](../CheckLargeGitFilesPush.ps1) | Prüft staged/untracked Dateien auf Größe, schreibt optional Log und kann Commit+Push nach Prüfung ausführen |
 
 Werkzeuge unter `Tools/` sind keine exportierten Cmdlets des PowerShell-Moduls.

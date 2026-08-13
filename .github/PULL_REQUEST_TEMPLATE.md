@@ -12,9 +12,9 @@
 
 ## Validierung
 
-- [ ] `Tests/Static/Invoke-DocumentationChecks.ps1` erfolgreich
-- [ ] Docker-Smoke-Test erfolgreich oder begründet nicht ausgeführt
-- [ ] Podman-Smoke-Test erfolgreich oder begründet nicht ausgeführt
+- [ ] Betroffene statische Suites über `Invoke-ImpactedChecks.ps1` erfolgreich
+- [ ] Vom CI-Selektor angeforderte Runtime-Smokes erfolgreich oder begründet nicht lokal ausgeführt
+- [ ] Eine vollständige Regression wurde nur bei besonderem Risiko bewusst zusätzlich ausgeführt
 - [ ] Manifestbeispiele und referenzierte Dateien geprüft
 - [ ] Exportliste, README, Repo-Map und Known Limitations abgeglichen
 

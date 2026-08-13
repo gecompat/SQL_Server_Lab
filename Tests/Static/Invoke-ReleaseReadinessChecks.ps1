@@ -43,7 +43,8 @@ $requiredArtifacts = @(
     'Documentation/Quality/LOCAL_READINESS_CHECKLIST.md',
     'Documentation/Quality/PRIVACY_AND_ARTIFACT_SECURITY.md',
     'Documentation/Quality/README.md',
-    '.github/workflows/static-contracts.yml'
+    '.github/workflows/static-contracts.yml',
+    '.github/workflows/nightly-regression.yml'
 )
 foreach ($requiredArtifact in $requiredArtifacts) {
     $fullPath = Join-Path $repoRoot $requiredArtifact
@@ -92,7 +93,11 @@ $testsReadme = Get-Content -LiteralPath (Join-Path $repoRoot 'Tests\README.md') 
 Add-CheckResult -Name 'Tests-README führt Static Contracts als Release-Grundbaustein auf' -Success ($testsReadme -match 'Invoke-AllChecks\.ps1')
 
 $staticWorkflow = Get-Content -LiteralPath (Join-Path $repoRoot '.github\workflows\static-contracts.yml') -Raw -Encoding utf8
-Add-CheckResult -Name 'Static workflow führt Invoke-AllChecks aus' -Success ($staticWorkflow -match 'Invoke-AllChecks\.ps1')
+$nightlyWorkflow = Get-Content -LiteralPath (Join-Path $repoRoot '.github\workflows\nightly-regression.yml') -Raw -Encoding utf8
+Add-CheckResult -Name 'PR workflow führt nur betroffene Checks aus' -Success (
+    $staticWorkflow -match 'Invoke-ImpactedChecks\.ps1' -and $staticWorkflow -notmatch 'Invoke-AllChecks\.ps1'
+)
+Add-CheckResult -Name 'Nightly workflow führt Invoke-AllChecks aus' -Success ($nightlyWorkflow -match 'Invoke-AllChecks\.ps1')
 
 Add-CheckResult -Name 'Release-Readiness-Checks werden nur informiert, nicht auf mutable State angewiesen' -Success $true
 
