@@ -41,36 +41,16 @@ function Invoke-SqlServerLab {
         $choice = Show-LabMenu
 
         switch ($choice) {
-            '1' { Invoke-LabAction -ActionName 'New' }
-            'e' { Invoke-LabAction -ActionName 'AutomatedTestEnvironment' }
-            'x' { Invoke-LabAction -ActionName 'ClearAutomatedTestEnvironment' }
-            'u' { Invoke-LabAction -ActionName 'Manage' }
-            '2' { Invoke-LabAction -ActionName 'Status' }
-            '3' { Invoke-LabAction -ActionName 'Stop' }
-            '4' { Invoke-LabAction -ActionName 'Start' }
-            '5' { Invoke-LabAction -ActionName 'Restart' }
-            '6' { Invoke-LabAction -ActionName 'Remove' }
-            '7' { Invoke-LabAction -ActionName 'Clear' }
-            'a' { Invoke-LabAction -ActionName 'CleanupAudit' }
-            '8' { Invoke-LabAction -ActionName 'Database' }
-            '9' { Invoke-LabAction -ActionName 'Script' }
-            'n' { Invoke-LabAction -ActionName 'Rename' }
-            'r' { Invoke-LabAction -ActionName 'Resources' }
-            'm' { Invoke-LabAction -ActionName 'Manifest' }
-            'i' { Invoke-LabAction -ActionName 'Image' }
-            'p' { Invoke-LabAction -ActionName 'MediaRoot' }
-            'd' { Invoke-LabAction -ActionName 'DataRoot' }
-            't' { Invoke-LabAction -ActionName 'TestDataRoot' }
-            'z' { Invoke-LabAction -ActionName 'Install7Zip' }
-            'k' { Invoke-LabAction -ActionName 'ConnectionCenter' }
+            'environment' { Invoke-LabMenuAction -ActionName (Show-LabEnvironmentMenu) }
+            'hyperv' { Invoke-LabMenuAction -ActionName (Show-LabHyperVMenu) }
+            'storage' { Invoke-LabMenuAction -ActionName (Show-LabStorageMenu) }
+            'database' { Invoke-LabMenuAction -ActionName (Show-LabDatabaseMenu) }
+            'tools' { Invoke-LabMenuAction -ActionName (Show-LabToolsMenu) }
             '0' { $exit = $true }
             'q' { $exit = $true }
             default { Write-Host "  Ungueltige Auswahl: $choice" -ForegroundColor Red }
         }
 
-        if ($choice -in @('1', '3', '4', '5', '6', '7', 'i', 'n', 'r', 'u')) {
-            Sync-LabConnectionCenterAfterLifecycle
-        }
         if (-not $exit) {
             Write-Host ""
             Write-Host "  [Enter] fuer Menue..." -ForegroundColor DarkGray -NoNewline
@@ -104,6 +84,108 @@ function Sync-LabConnectionCenterAfterLifecycle {
     catch {
         Write-LabWarning "CMS-Synchronisation fehlgeschlagen: $($_.Exception.Message). Unter [k] -> [4] erneut ausführen."
     }
+}
+
+function Invoke-LabMenuAction {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$ActionName)
+
+    if ([string]::IsNullOrWhiteSpace($ActionName) -or $ActionName -eq 'back') {
+        return
+    }
+
+    if ($ActionName -eq 'HyperVManage') {
+        Manage-LabHyperVEnvironmentInteractive
+    }
+    else {
+        Invoke-LabAction -ActionName $ActionName
+    }
+
+    if ($ActionName -in @('New', 'AutomatedTestEnvironment', 'ClearAutomatedTestEnvironment', 'Status', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'Rename', 'Resources', 'Manage', 'UpdateContainer')) {
+        Sync-LabConnectionCenterAfterLifecycle
+    }
+}
+
+function Show-LabSubMenu {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$ScreenId,
+        [Parameter(Mandatory)][string]$Title,
+        [string]$Subtitle = '',
+        [Parameter(Mandatory)][object[]]$Items
+    )
+
+    $result = Invoke-LabConsoleMenu -ScreenId $ScreenId -Title $Title -Subtitle $Subtitle -Items $Items -Footer 'Pfeile: Navigation  Enter/Shortcut: Auswahl  Esc: Zurueck'
+
+    if ($result.Status -eq 'Cancelled') { return $null }
+    if ($result.Status -ne 'Selected') { return $null }
+    return [string]$result.SelectedItem.Id
+}
+
+function Show-LabEnvironmentMenu {
+    $items = @(
+        New-LabConsoleItem -Id 'New' -Label 'Neue Umgebung erstellen' -Shortcut '1'
+        New-LabConsoleItem -Id 'AutomatedTestEnvironment' -Label 'Umgebung fuer automatisierte Tests anlegen' -Value 'Linux/Windows · Version/CU · TestUmgebung.env' -Shortcut 'e'
+        New-LabConsoleItem -Id 'ClearAutomatedTestEnvironment' -Label 'Alle automatisierten Testumgebungen loeschen' -Value 'geschuetzte Gruppe' -Shortcut 'x'
+        New-LabConsoleItem -Id 'Manage' -Label 'Umgebung verwalten' -Value 'Start, Stopp, Name, CPU, Speicher, Entfernen' -Shortcut 'u'
+        New-LabConsoleItem -Id 'Status' -Label 'Status anzeigen (Schnellansicht)' -Shortcut '2'
+        New-LabConsoleItem -Id 'Stop' -Label 'Umgebung stoppen (Schnellaktion)' -Shortcut '3'
+        New-LabConsoleItem -Id 'Start' -Label 'Umgebung starten (Schnellaktion)' -Shortcut '4'
+        New-LabConsoleItem -Id 'Restart' -Label 'Umgebung neustarten (Schnellaktion)' -Shortcut '5'
+        New-LabConsoleItem -Id 'Remove' -Label 'Umgebung entfernen (Schnellaktion)' -Shortcut '6'
+        New-LabConsoleItem -Id 'Clear' -Label 'Alles aufraeumen' -Shortcut '7'
+        New-LabConsoleItem -Id 'CleanupAudit' -Label 'Cleanup-Audit anzeigen (read-only)' -Shortcut 'a'
+        New-LabConsoleItem -Id 'Rename' -Label 'Umgebung umbenennen' -Shortcut 'n'
+        New-LabConsoleItem -Id 'Resources' -Label 'CPU und Speicher aendern' -Shortcut 'r'
+        New-LabConsoleItem -Id 'back' -Label 'Zurueck' -Shortcut '0'
+    )
+
+    return Show-LabSubMenu -ScreenId 'environment-menu' -Title 'Umgebungen' -Subtitle 'Provisionierung, Lifecycle und Wartung' -Items $items
+}
+
+function Show-LabHyperVMenu {
+    $items = @(
+        New-LabConsoleItem -Id 'Image' -Label 'Hyper-V Windows-Image verwalten' -Value 'OS- und SQL-Bildworkflow inkl. OS-Vorlagen' -Shortcut '1'
+        New-LabConsoleItem -Id 'HyperVManage' -Label 'Hyper-V Slot- und Laufzeitumgebung verwalten' -Value 'Windows-/SQL-Slots uebernehmen, freigeben, fortsetzen' -Shortcut '2'
+        New-LabConsoleItem -Id 'back' -Label 'Zurueck' -Shortcut '0'
+    )
+
+    return Show-LabSubMenu -ScreenId 'hyperv-menu' -Title 'Hyper-V' -Subtitle 'OS-Vorlage, Slots und Slot-Freigabe' -Items $items
+}
+
+function Show-LabStorageMenu {
+    $items = @(
+        New-LabConsoleItem -Id 'MediaRoot' -Label 'Lab_Base / Media-Root konfigurieren' -Value 'ISO-, Win-/SQL-Medien, Sidecar-Hashes' -Shortcut 'p'
+        New-LabConsoleItem -Id 'DataRoot' -Label 'Lab_Data verwalten' -Value 'Lab_Data je Volume' -Shortcut 'd'
+        New-LabConsoleItem -Id 'TestDataRoot' -Label 'Testdaten-Bibliothek konfigurieren' -Shortcut 't'
+        New-LabConsoleItem -Id 'back' -Label 'Zurueck' -Shortcut '0'
+    )
+
+    return Show-LabSubMenu -ScreenId 'storage-menu' -Title 'Storage & Medien' -Subtitle 'Lab_Base, Lab_Data und Testdaten' -Items $items
+}
+
+function Show-LabDatabaseMenu {
+    $items = @(
+        New-LabConsoleItem -Id 'Manifest' -Label 'Container-Manifest erstellen und pruefen' -Shortcut 'm'
+        New-LabConsoleItem -Id 'Database' -Label 'Datenbank anlegen' -Shortcut '8'
+        New-LabConsoleItem -Id 'Script' -Label 'SQL-Skript ausfuehren' -Shortcut '9'
+        New-LabConsoleItem -Id 'back' -Label 'Zurueck' -Shortcut '0'
+    )
+
+    return Show-LabSubMenu -ScreenId 'database-menu' -Title 'Datenbank & Skripte' -Subtitle 'Artefakte, Datenbanken und SQL-Ausfuehrung' -Items $items
+}
+
+function Show-LabToolsMenu {
+    $sevenZip = Get-Lab7ZipExecutable
+    $sevenZipLabel = if ($sevenZip) { '7-Zip fuer .7z-Backups verfügbar' } else { '7-Zip fuer .7z-Backups optional installieren' }
+
+    $items = @(
+        New-LabConsoleItem -Id 'ConnectionCenter' -Label 'SQL-Verbindungszentrale' -Value 'SSMS, CMS, Export' -Shortcut 'k'
+        New-LabConsoleItem -Id 'Install7Zip' -Label $sevenZipLabel -Shortcut 'z'
+        New-LabConsoleItem -Id 'back' -Label 'Zurueck' -Shortcut '0'
+    )
+
+    return Show-LabSubMenu -ScreenId 'tools-menu' -Title 'Werkzeuge & Verbindungen' -Subtitle 'Utilities und Verbindungs-Workflow' -Items $items
 }
 
 function Write-LabProviderList {
@@ -340,37 +422,18 @@ function Get-LabRunsByRuntimeState {
 function Show-LabMenu {
     try { $snapshot = Update-LabConsoleAttentionSnapshot } catch { $snapshot = $null }
     while ($true) {
-        $sevenZip = Get-Lab7ZipExecutable
-        $sevenZipLabel = if ($sevenZip) { '7-Zip für katalogisierte .7z-Backups bereits verfügbar' } else { '7-Zip für katalogisierte .7z-Backups optional installieren' }
         $items = @(
-            New-LabConsoleItem -Id 'create' -Label 'Neue Umgebung erstellen' -Shortcut '1'
-            New-LabConsoleItem -Id 'automated-test' -Label 'Umgebung für automatisierte Tests anlegen' -Value 'Linux/Windows · Version/CU · TestUmgebung.env' -Shortcut 'e'
-            New-LabConsoleItem -Id 'clear-automated-test' -Label 'Alle automatisierten Testumgebungen löschen' -Value 'geschützte Gruppe · alles oder nichts' -Shortcut 'x'
-            New-LabConsoleItem -Id 'manage' -Label 'Umgebung verwalten' -Value 'Start, Stopp, Name, CPU, Speicher, Entfernen' -Shortcut 'u'
-            New-LabConsoleItem -Id 'status' -Label 'Status anzeigen (Schnellansicht)' -Shortcut '2'
-            New-LabConsoleItem -Id 'stop' -Label 'Umgebung stoppen (Schnellaktion)' -Shortcut '3'
-            New-LabConsoleItem -Id 'start' -Label 'Umgebung starten (Schnellaktion)' -Shortcut '4'
-            New-LabConsoleItem -Id 'restart' -Label 'Umgebung neustarten (Schnellaktion)' -Shortcut '5'
-            New-LabConsoleItem -Id 'remove' -Label 'Umgebung entfernen (Schnellaktion)' -Shortcut '6'
-            New-LabConsoleItem -Id 'resources' -Label 'CPU und Speicher aendern' -Shortcut 'r'
-            New-LabConsoleItem -Id 'rename' -Label 'Umgebung umbenennen' -Shortcut 'n'
-            New-LabConsoleItem -Id 'clear' -Label 'Alles aufraeumen' -Shortcut '7'
-            New-LabConsoleItem -Id 'audit' -Label 'Cleanup-Audit anzeigen (read-only)' -Shortcut 'a'
-            New-LabConsoleItem -Id 'database' -Label 'Datenbank anlegen' -Shortcut '8'
-            New-LabConsoleItem -Id 'script' -Label 'SQL-Skript ausfuehren' -Shortcut '9'
-            New-LabConsoleItem -Id 'manifest' -Label 'Container-Manifest erstellen und pruefen' -Shortcut 'm'
-            New-LabConsoleItem -Id 'hyperv' -Label 'Hyper-V Windows-Image verwalten' -Shortcut 'i'
-            New-LabConsoleItem -Id 'media' -Label 'Media Root konfigurieren' -Shortcut 'p'
-            New-LabConsoleItem -Id 'storage' -Label 'Storage verwalten' -Value 'Lab_Data je Volume' -Shortcut 'd'
-            New-LabConsoleItem -Id 'samples' -Label 'Testdaten-Bibliothek konfigurieren' -Shortcut 't'
-            New-LabConsoleItem -Id 'connections' -Label 'SQL-Verbindungszentrale' -Value 'SSMS, CMS, Export' -Shortcut 'k'
-            New-LabConsoleItem -Id 'sevenzip' -Label $sevenZipLabel -Shortcut 'z'
+            New-LabConsoleItem -Id 'environment' -Label 'Umgebungen' -Shortcut '1'
+            New-LabConsoleItem -Id 'hyperv' -Label 'Hyper-V Plattform' -Shortcut '2'
+            New-LabConsoleItem -Id 'storage' -Label 'Storage & Medien (Lab_Base / Lab_Data)' -Value 'OS-Medien, Datenwurzeln, Testdaten' -Shortcut '3'
+            New-LabConsoleItem -Id 'database' -Label 'Datenbank & Skripte' -Shortcut '4'
+            New-LabConsoleItem -Id 'tools' -Label 'Werkzeuge & Verbindungen' -Value '7-Zip, Verbindungszentrale' -Shortcut '5'
             New-LabConsoleItem -Id 'exit' -Label 'Beenden' -Shortcut '0' -Aliases @('q')
         )
-        $result = Invoke-LabConsoleMenu -ScreenId 'main-menu' -Title 'SQL Server Lab' -Subtitle 'Umgebungen, SQL-Bereitstellung und Werkzeuge' -Items $items -Snapshot $snapshot -Footer 'Pfeile: Navigation  Enter/Shortcut: Auswahl  F5: Status aktualisieren  Esc: Beenden' -FallbackPrompt '  Auswahl'
+        $result = Invoke-LabConsoleMenu -ScreenId 'main-menu' -Title 'SQL Server Lab' -Subtitle 'Bereichsorientierte Navigation' -Items $items -Snapshot $snapshot -Footer 'Pfeile: Navigation  Enter/Shortcut: Auswahl  F5: Status aktualisieren  Esc: Beenden' -FallbackPrompt '  Auswahl'
         if ($result.Status -eq 'Refresh') { $snapshot = Get-LabConsoleAttentionSnapshot; continue }
         if ($result.Status -eq 'Cancelled') { return '0' }
-        if ($result.Status -eq 'Selected') { return [string]$result.SelectedItem.Shortcut }
+        if ($result.Status -eq 'Selected') { return [string]$result.SelectedItem.Id }
         Write-LabWarning 'Ungueltige Auswahl.'
     }
 }
