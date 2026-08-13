@@ -645,6 +645,7 @@ _QuellRepo/      unveränderte Quell-Snapshots anderer Repositories
 
 - [Konsolidierter Entwicklungs- und Ausführungsplan](Documentation/Project_Planning/DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md)
 - [Konsolen-, Lifecycle- und Storage-Konsolidierungsplan aus der manuellen Abnahme](Documentation/Project_Planning/CONSOLE_LIFECYCLE_AND_STORAGE_CONSOLIDATION_PLAN_2026-08-12.md)
+- [Providerneutraler Batch-, Queue- und Resume-Workflow](Documentation/Project_Planning/PROVIDER_NEUTRAL_BATCH_QUEUE_RESUME_WORKFLOW_2026-08-13.md)
 - [Getting Started](Documentation/User/Getting_Started.md)
 - [Dokumentationsübersicht](Documentation/README.md)
 - [Bekannte Grenzen](Documentation/Quality/KNOWN_LIMITATIONS.md)
