@@ -36,6 +36,21 @@ Add-CheckResult -Name 'CI-Infrastruktur prueft einmalig alle Runtime-Gates' -Suc
     $ci.Docker -and $ci.Podman -and $ci.Mixed -and $ci.HyperV -and $ci.Adapter
 )
 
+$outputPath = Join-Path ([IO.Path]::GetTempPath()) "sql-server-lab-ci-output-$([guid]::NewGuid().ToString('N')).txt"
+try {
+    $env:GITHUB_OUTPUT = $outputPath
+    $null = & $selector -ChangedPath @('.github/workflows/static-contracts.yml') -WriteGitHubOutput
+    $outputText = Get-Content -LiteralPath $outputPath -Raw -Encoding utf8
+    Add-CheckResult -Name 'GitHub-Outputs verwenden exakte boolesche Kleinbuchstabenwerte' -Success (
+        $outputText -match '(?m)^docker=true\r?$' -and $outputText -match '(?m)^hyperv=true\r?$' -and
+        $outputText -notmatch 'ToLowerInvariant'
+    )
+}
+finally {
+    Remove-Item Env:GITHUB_OUTPUT -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $outputPath -Force -ErrorAction SilentlyContinue
+}
+
 $allChecksText = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'Invoke-AllChecks.ps1') -Raw -Encoding utf8
 Add-CheckResult -Name 'CI-Strategievertrag ist Teil der Vollregression' -Success ($allChecksText -match 'Invoke-CiStrategyChecks\.ps1')
 
