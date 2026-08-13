@@ -1,0 +1,117 @@
+name: Nightly Regression
+
+on:
+  schedule:
+    - cron: '0 1 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: sql-server-lab-nightly-regression
+  cancel-in-progress: false
+
+jobs:
+  full-static-contracts:
+    name: Full static regression (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - windows-latest
+          - ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - name: Run all static contracts
+        shell: pwsh
+        run: ./Tests/Static/Invoke-AllChecks.ps1
+
+  docker-runtime:
+    uses: ./.github/workflows/runtime-smoke-docker.yml
+
+  podman-runtime:
+    uses: ./.github/workflows/runtime-smoke-podman.yml
+
+  mixed-runtime:
+    uses: ./.github/workflows/runtime-smoke-mixed-providers.yml
+
+  hyperv-runtime:
+    uses: ./.github/workflows/runtime-smoke-hyperv.yml
+
+  adapter-runtime:
+    uses: ./.github/workflows/adapter-smoke-github-hosted.yml
+
+  test-environments:
+    name: Six shared SQL test environments and CMS
+    runs-on: [self-hosted, SQL_Lab, Hyper-V]
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v7
+      - name: SQL, write access and CMS consistency
+        run: |
+          $ErrorActionPreference = 'Stop'
+          .\Tests\Integration\Invoke-TestEnvironmentAcceptance.ps1
+
+  nightly-report:
+    name: Nightly result
+    if: always()
+    needs:
+      - full-static-contracts
+      - docker-runtime
+      - podman-runtime
+      - mixed-runtime
+      - hyperv-runtime
+      - adapter-runtime
+      - test-environments
+    runs-on: ubuntu-latest
+    steps:
+      - name: Open, update or close tracking issue
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $results = [ordered]@{
+            static = '${{ needs.full-static-contracts.result }}'
+            docker = '${{ needs.docker-runtime.result }}'
+            podman = '${{ needs.podman-runtime.result }}'
+            mixed = '${{ needs.mixed-runtime.result }}'
+            hyperv = '${{ needs.hyperv-runtime.result }}'
+            adapter = '${{ needs.adapter-runtime.result }}'
+            test_environments = '${{ needs.test-environments.result }}'
+          }
+          $failed = @($results.GetEnumerator() | Where-Object Value -ne 'success')
+          $title = '[Nightly Regression] SQL_Server_Lab'
+          $existing = gh issue list --repo $env:REPOSITORY --state open --search "`"$title`" in:title" --json number,title --limit 20 | ConvertFrom-Json |
+            Where-Object title -eq $title | Select-Object -First 1
+
+          if ($failed.Count -eq 0) {
+            if ($existing) {
+              gh issue comment $existing.number --repo $env:REPOSITORY --body "Nightly wieder erfolgreich: $env:RUN_URL"
+              gh issue close $existing.number --repo $env:REPOSITORY --reason completed
+            }
+            Write-Host 'Nightly Regression erfolgreich.' -ForegroundColor Green
+            exit 0
+          }
+
+          gh label create nightly-regression --repo $env:REPOSITORY --color D93F0B --description 'Fehler in der gebuendelten Nightly-Regression' --force | Out-Null
+          $lines = @('# Nightly Regression fehlgeschlagen', '', "Lauf: $env:RUN_URL", '', '## Ergebnisse', '')
+          foreach ($entry in $results.GetEnumerator()) { $lines += "- $($entry.Key): **$($entry.Value)**" }
+          $body = $lines -join "`n"
+          if ($existing) {
+            gh issue edit $existing.number --repo $env:REPOSITORY --body $body --add-label nightly-regression | Out-Null
+            gh issue comment $existing.number --repo $env:REPOSITORY --body "Erneut fehlgeschlagen: $env:RUN_URL"
+          }
+          else {
+            gh issue create --repo $env:REPOSITORY --title $title --body $body --label nightly-regression | Out-Null
+          }
+          throw "Nightly Regression fehlgeschlagen: $(($failed | ForEach-Object { "$($_.Key)=$($_.Value)" }) -join ', ')"

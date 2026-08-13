@@ -4,6 +4,21 @@ Dieses Changelog dokumentiert Änderungen am öffentlichen Verhalten, an maschin
 
 Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher nach Datum geführt. Neue Einträge werden oben ergänzt.
 
+## 2026-08-13
+
+### Geändert
+
+- Pull Requests verwenden jetzt ein pfadabhängiges `PR Gate` statt der
+  vollständigen Testmatrix. Redundante statische Volltests wurden aus allen
+  Runtime-Workflows entfernt; veraltete PR-Läufe werden abgebrochen.
+- Nach einem Merge auf `main` wird keine zweite Vollmatrix gestartet. Die
+  vollständige plattform- und providerübergreifende Regression läuft täglich
+  gebündelt und pflegt bei Fehlern ein GitHub-Tracking-Issue.
+- Die sechs gemeinsam exportierten SQL-Testumgebungen werden nachts mit
+  `SELECT @@VERSION`, `sys.databases`, einem Create/Drop-Schreibtest und einem
+  Abgleich der realen CMS-Registrierungen geprüft. Eine frische Hyper-V-/SQL-
+  Installation läuft zusätzlich wöchentlich oder manuell.
+
 ## 2026-08-12
 
 ### Hinzugefügt

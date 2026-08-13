@@ -1,11 +1,8 @@
-name: Static Contracts
+name: PR Gate
 
 on:
   workflow_dispatch:
   pull_request:
-    branches:
-      - main
-  push:
     branches:
       - main
 
@@ -13,12 +10,46 @@ permissions:
   contents: read
 
 concurrency:
-  group: sql-server-lab-static-${{ github.event.pull_request.number || github.ref }}
+  group: sql-server-lab-pr-gate-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
+  classify:
+    name: Classify affected tests
+    runs-on: ubuntu-latest
+    outputs:
+      changed_paths: ${{ steps.selection.outputs.changed_paths }}
+      docker: ${{ steps.selection.outputs.docker }}
+      podman: ${{ steps.selection.outputs.podman }}
+      mixed: ${{ steps.selection.outputs.mixed }}
+      hyperv: ${{ steps.selection.outputs.hyperv }}
+      adapter: ${{ steps.selection.outputs.adapter }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Select affected suites
+        id: selection
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $baseSha = '${{ github.event.pull_request.base.sha }}'
+          $headSha = '${{ github.event.pull_request.head.sha }}'
+          if (-not $baseSha -or -not $headSha) {
+            $headSha = (git rev-parse HEAD).Trim()
+            $baseSha = (git rev-parse HEAD^).Trim()
+          }
+          $paths = @(git diff --name-only $baseSha $headSha | Where-Object { $_ })
+          if ($LASTEXITCODE -ne 0) { throw 'Changed paths konnten nicht bestimmt werden.' }
+          $json = ConvertTo-Json -InputObject $paths -Compress
+          $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($json))
+          "changed_paths=$encoded" | Out-File -LiteralPath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          ./Tools/Get-CiTestSelection.ps1 -ChangedPath $paths -WriteGitHubOutput | Format-List
+
   static-contracts:
     name: Static contracts (${{ matrix.os }})
+    needs: classify
     strategy:
       fail-fast: false
       matrix:
@@ -26,14 +57,75 @@ jobs:
           - windows-latest
           - ubuntu-latest
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
-
+    timeout-minutes: 10
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7
+      - uses: actions/checkout@v7
 
-      - name: Run static contracts
+      - name: Run affected static contracts
         shell: pwsh
+        env:
+          CHANGED_PATHS_BASE64: ${{ needs.classify.outputs.changed_paths }}
         run: |
           $ErrorActionPreference = 'Stop'
-          ./Tests/Static/Invoke-AllChecks.ps1
+          $json = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($env:CHANGED_PATHS_BASE64))
+          $paths = @($json | ConvertFrom-Json)
+          ./Tests/Static/Invoke-ImpactedChecks.ps1 -ChangedPath $paths
+
+  docker-runtime:
+    needs: classify
+    if: needs.classify.outputs.docker == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    uses: ./.github/workflows/runtime-smoke-docker.yml
+
+  podman-runtime:
+    needs: classify
+    if: needs.classify.outputs.podman == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    uses: ./.github/workflows/runtime-smoke-podman.yml
+
+  mixed-runtime:
+    needs: classify
+    if: needs.classify.outputs.mixed == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    uses: ./.github/workflows/runtime-smoke-mixed-providers.yml
+
+  hyperv-runtime:
+    needs: classify
+    if: needs.classify.outputs.hyperv == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    uses: ./.github/workflows/runtime-smoke-hyperv.yml
+
+  adapter-runtime:
+    needs: classify
+    if: needs.classify.outputs.adapter == 'true'
+    uses: ./.github/workflows/adapter-smoke-github-hosted.yml
+
+  pr-gate:
+    name: PR Gate
+    if: always()
+    needs:
+      - classify
+      - static-contracts
+      - docker-runtime
+      - podman-runtime
+      - mixed-runtime
+      - hyperv-runtime
+      - adapter-runtime
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require selected checks to pass
+        shell: pwsh
+        run: |
+          $required = @{
+            classify = '${{ needs.classify.result }}'
+            static = '${{ needs.static-contracts.result }}'
+          }
+          $optional = @{
+            docker = '${{ needs.docker-runtime.result }}'
+            podman = '${{ needs.podman-runtime.result }}'
+            mixed = '${{ needs.mixed-runtime.result }}'
+            hyperv = '${{ needs.hyperv-runtime.result }}'
+            adapter = '${{ needs.adapter-runtime.result }}'
+          }
+          $failed = @($required.GetEnumerator() | Where-Object Value -ne 'success')
+          $failed += @($optional.GetEnumerator() | Where-Object Value -notin @('success','skipped'))
+          if ($failed.Count -gt 0) {
+            throw "PR Gate fehlgeschlagen: $(($failed | ForEach-Object { "$($_.Key)=$($_.Value)" }) -join ', ')"
+          }
+          Write-Host 'Alle ausgewaehlten PR-Pruefungen sind erfolgreich.' -ForegroundColor Green

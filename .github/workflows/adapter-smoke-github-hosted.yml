@@ -1,21 +1,8 @@
 name: Adapter Smoke - Docker (GitHub-hosted)
 
 on:
+  workflow_call:
   workflow_dispatch:
-  pull_request:
-    branches:
-      - main
-    paths:
-      - 'Adapters/**'
-      - 'Private/ProjectAdapter.ps1'
-      - 'Private/SqlReadiness.ps1'
-      - 'Private/PathSafety.ps1'
-      - 'Private/RunResolution.ps1'
-      - 'Public/Install-SqlServerLabAdapter.ps1'
-      - 'Public/Test-SqlServerLabAdapter.ps1'
-      - 'Schemas/project-adapter.schema.json'
-      - 'Tests/Integration/Invoke-AdapterSmokeTest.ps1'
-      - '.github/workflows/adapter-smoke-github-hosted.yml'
 
 permissions:
   contents: read
@@ -43,12 +30,6 @@ jobs:
           sudo ACCEPT_EULA=Y apt-get install -y mssql-tools18 unixodbc-dev
           echo "/opt/mssql-tools18/bin" >> "$GITHUB_PATH"
           /opt/mssql-tools18/bin/sqlcmd -?
-
-      - name: Static contracts (adapter)
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          ./Tests/Static/Invoke-ProjectAdapterChecks.ps1
 
       - name: Adapter smoke test
         shell: pwsh
