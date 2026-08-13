@@ -45,7 +45,10 @@ function renderSummary(summary) {
     [String(summary.TemplatePoolUsed ?? 0) + '/' + String(summary.TemplatePoolCapacity ?? 20), 'Vorlagenpool'],
     [summary.PendingWindowsBuilds, 'offene Windows-Builds'],
     [summary.PendingSqlBuilds, 'offene SQL-Builds'],
-    [summary.ActiveContainerLabs, 'aktive Container-Labs']
+    [summary.ActiveContainerLabs, 'aktive Container-Labs'],
+    [summary.RunningWorkers, 'laufende Worker'],
+    [summary.WaitingUserGates, 'wartende User-Gates'],
+    [summary.QueueLength, 'Queue-Positionen']
   ];
   $('#summary').innerHTML = values.map(([value, label]) =>
     '<article class="summary-card"><span class="summary-value">' + escapeHtml(value) + '</span><span class="summary-label">' + escapeHtml(label) + '</span></article>'
@@ -350,6 +353,7 @@ function updateSqlMediaSelection() {
 
 function renderWorkflow(data) {
   workflow = data;
+  renderOperationQueue(data.Queue);
   // Der Quellen-Dialog kann vor dem ersten API-Refresh geöffnet werden. In
   // diesem Fall das anfangs leere Feld nachträglich füllen, aber eine bereits
   // vom Benutzer eingegebene Pfadänderung niemals überschreiben.
@@ -406,6 +410,51 @@ function renderWorkflow(data) {
   document.querySelectorAll('[data-open-build], [data-action], [data-build-cleanup], [data-artifact-rename], [data-artifact-remove], [data-hyperv-action], #new-hyperv-lab, #new-hyperv-existing-vm-lab').forEach((button) => { button.disabled = hyperVDisabled; });
   document.querySelectorAll('[data-lab-resources][data-provider="hyperv"]').forEach((button) => { button.disabled = hyperVDisabled; });
 }
+
+function renderOperationQueue(queue) {
+  const items = queue?.items || [];
+  $('#queue-count').textContent = (queue?.runningWorkers || 0) + '/' + (queue?.maxWorkers || 2) + ' Worker · ' + items.length + ' offen';
+  $('#operation-queue').innerHTML = items.length ? items.map((item) => {
+    const gate = item.userGate;
+    const gateDetails = gate ? '<div class="operation-gate"><strong>' + escapeHtml(gate.reason) + '</strong><ol>' + (gate.instructions || []).map((step) => '<li>' + escapeHtml(step) + '</li>').join('') + '</ol><span>Erwartet: ' + escapeHtml(gate.expectedResult) + '</span></div>' : '';
+    const confirmation = ['WaitingForUser', 'CandidateSatisfied'].includes(item.status)
+      ? '<button class="button primary" data-operation-command="Confirm" data-operation="' + escapeHtml(item.operationId) + '" data-verification="' + escapeHtml(gate?.verification?.type || '') + '">Erledigt - prüfen und fortsetzen</button>'
+      : '';
+    const pause = item.status === 'Paused'
+      ? '<button class="button secondary" data-operation-command="Resume" data-operation="' + escapeHtml(item.operationId) + '">Freigeben</button>'
+      : (item.status === 'Queued' || item.status === 'WaitingForDependency' ? '<button class="button secondary" data-operation-command="Suspend" data-operation="' + escapeHtml(item.operationId) + '">Pausieren</button>' : '');
+    return '<article class="build-card operation-card"><div class="build-card-top"><div><div class="build-title">' + escapeHtml(item.title) + '</div><div class="build-meta">' + escapeHtml(item.priority + ' · ' + item.resourceClass + ' · ' + item.provider) + '</div></div><span class="status ' + statusClass(item.status) + '">' + escapeHtml(item.status) + '</span></div><progress max="100" value="' + escapeHtml(item.progress || 0) + '"></progress>' + gateDetails + '<div class="build-actions">' + confirmation + pause + '<button class="button secondary" data-operation-command="MoveUp" data-operation="' + escapeHtml(item.operationId) + '">Nach oben</button><button class="button danger" data-operation-command="StopCleanup" data-operation="' + escapeHtml(item.operationId) + '">Stoppen + Cleanup</button></div><div class="build-meta">' + escapeHtml(item.blockedReason || item.operationId) + '</div></article>';
+  }).join('') : empty('Keine offenen persistenten Vorgänge.');
+}
+
+async function runOperationCommand(operationId, command, verificationType) {
+  const payload = { operationId, command };
+  if (command === 'Confirm' && verificationType === 'HyperVWindowsSetup') {
+    $('#credential-action').value = '__ConfirmOperation';
+    $('#credential-build').value = operationId;
+    $('#credential-title').textContent = 'Windows-Aktion prüfen und fortsetzen';
+    $('#credential-note').textContent = 'Das eingerichtete Windows-Konto wird nur für diese PowerShell-Direct-Prüfung verwendet und nicht gespeichert oder protokolliert.';
+    $('#credential-sa-password-label').hidden = true;
+    $('#credential-dialog').showModal();
+    return;
+  }
+  if (command === 'StopCleanup') {
+    openConfirmation('Vorgang stoppen und aufräumen', 'Diesen Vorgang wirklich aufräumen? Nur sein persistierter Scope wird entfernt; veröffentlichte Images bleiben unverändert.', '__OperationStopCleanup', { operationId }, 'Stoppen + Cleanup');
+    return;
+  }
+  const response = await fetch('/api/operations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+  if (!response.ok) throw new Error(await response.text());
+  await refresh();
+}
+
+document.addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-operation-command]');
+  if (!button) return;
+  button.disabled = true;
+  try { await runOperationCommand(button.dataset.operation, button.dataset.operationCommand, button.dataset.verification); }
+  catch (error) { window.alert(error.message); }
+  finally { button.disabled = false; }
+});
 
 function renderActiveLabs(items) {
   $('#active-labs').innerHTML = items.length ? items.map((item) => {
@@ -1000,6 +1049,22 @@ $('#credential-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   const password = $('#guest-password').value;
   const saPassword = $('#credential-sa-password').value;
+  if ($('#credential-action').value === '__ConfirmOperation') {
+    const operationId = $('#credential-build').value;
+    try {
+      const response = await fetch('/api/operations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ operationId, command: 'Confirm', userName: $('#guest-user').value, password })
+      });
+      if (!response.ok) throw new Error(await response.text());
+      $('#credential-dialog').close();
+      $('#guest-password').value = '';
+      await refresh();
+    }
+    catch (error) { showError(error); }
+    return;
+  }
   const parameters = { BuildId: $('#credential-build').value, GuestUserName: $('#guest-user').value, GuestPassword: password };
   if (saPassword) parameters.SaPassword = saPassword;
   queueBackgroundAction($('#credential-action').value, parameters, $('#credential-dialog'), () => {
@@ -1287,6 +1352,16 @@ $('#confirmation-form').addEventListener('submit', async (event) => {
   const confirmation = pendingConfirmation;
   if (!confirmation) { $('#confirmation-dialog').close(); return; }
   pendingConfirmation = null;
+  if (confirmation.action === '__OperationStopCleanup') {
+    $('#confirmation-dialog').close();
+    try {
+      const response = await fetch('/api/operations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ operationId: confirmation.parameters.operationId, command: 'StopCleanup' }) });
+      if (!response.ok) throw new Error(await response.text());
+      await refresh();
+    }
+    catch (error) { showError(error); }
+    return;
+  }
   queueBackgroundAction(confirmation.action, confirmation.parameters, $('#confirmation-dialog'));
 });
 

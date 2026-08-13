@@ -1,6 +1,6 @@
 @{
     RootModule        = 'SqlServerLab.psm1'
-    ModuleVersion     = '0.1.0'
+    ModuleVersion     = '0.2.0'
     GUID              = 'b3a7c4e1-9f2d-4a8b-b6c5-d1e0f3a2b4c7'
     Author            = 'gecompat - Gerhard Pisch'
     CompanyName       = 'gecompat'
@@ -9,6 +9,17 @@
     PowerShellVersion = '7.2'
 
     FunctionsToExport = @(
+        'New-SqlServerLabBatch'
+        'Get-SqlServerLabBatch'
+        'Get-SqlServerLabQueue'
+        'Get-SqlServerLabOperation'
+        'Confirm-SqlServerLabOperationUserAction'
+        'Move-SqlServerLabOperation'
+        'Set-SqlServerLabOperationPriority'
+        'Suspend-SqlServerLabOperation'
+        'Resume-SqlServerLabOperation'
+        'Stop-SqlServerLabOperation'
+        'Stop-SqlServerLabBatch'
         'Invoke-SqlServerLab'
         'Get-SqlServerLabWorkflow'
         'Get-SqlServerLabCatalog'
