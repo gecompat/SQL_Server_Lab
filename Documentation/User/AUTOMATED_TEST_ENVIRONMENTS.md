@@ -7,6 +7,26 @@ Windows verwendet Hyper-V; wenn keine vollständig vorbereitete SQL-Vorlage
 vorhanden ist, pausiert der Ablauf ausschließlich für Windows-OOBE,
 Administratorpasswort und die erste Anmeldung.
 
+Das Menü zeigt bei jedem Öffnen zuerst die bereits registrierte Testgruppe mit
+dem aktuellen Einzelstatus an, beispielsweise `fertig`, `SQL-Installation
+wiederholbar` oder `SQL-Abschluss fortsetzbar`. Darunter steht getrennt der
+„Neue Auftrag“, der nur die während dieses Menüaufrufs neu hinzugefügten Ziele
+enthält.
+
+Für Windows wird zuerst der älteste freie, bereits vollständig eingerichtete
+Windows-Slot aus dem lokalen Slot-Pool verwendet. Der Slot wird nach erfolgreicher
+Auswahl sofort für den stabilen Testumgebungsschlüssel reserviert. Nur wenn kein
+geeigneter Slot vorhanden ist, erzeugt das Framework eine neue differenzierende VM
+aus der veröffentlichten Windows-OS-Vorlage; dann können OOBE und erste Anmeldung
+nötig werden. Bereits einer Testgruppe zugeordnete Slots werden nicht für andere
+Ziele vergeben.
+
+Schlägt SQL Setup fehl, bleibt der reservierte Slot im Zustand
+`INSTALL_RETRY_PENDING`. Wird derselbe Windows-Schlüssel erneut zur Batch-Liste
+hinzugefügt, setzt das Framework genau diesen Run fort; es belegt weder einen
+weiteren Pool-Slot noch legt es einen Schlüssel mit Suffix an. Eine bereits fertige
+Umgebung wird idempotent erkannt und nicht erneut installiert.
+
 Alle Testumgebungen bilden eine gemeinsame, geschützte Lifecycle-Gruppe:
 
 - Jede Linux- und Windows-Umgebung wird mit `AutoStart = on` erstellt.
@@ -16,6 +36,11 @@ Alle Testumgebungen bilden eine gemeinsame, geschützte Lifecycle-Gruppe:
 - Auch `Clear-SqlServerLab` überspringt die geschützte Testgruppe.
 - Hauptmenüpunkt **[x] Alle automatisierten Testumgebungen löschen** entfernt
   ausschließlich die vollständige Gruppe; einzelne Löschungen sind gesperrt.
+- Ein konfigurierter CMS folgt demselben Alles-oder-nichts-Vertrag: Solange die
+  Gruppe nicht vollständig `READY` ist, wird keine ihrer Umgebungen im CMS
+  freigegeben. Sobald alle bereit sind, werden sie gemeinsam unter stabilen Namen
+  wie `TEST · LINUX_2022_LATEST` registriert. Die Sammellöschung entfernt auch
+  alle zugehörigen CMS-Registrierungen beim nächsten automatischen Abgleich.
 
 Jede Umgebung erhält ein eigenes kryptografisch zufälliges SA-Kennwort. Der
 Framework-Secret-Store bewahrt es weiterhin geschützt auf. Für externe
@@ -24,6 +49,8 @@ Testwerkzeuge wird zusätzlich ein absichtlicher Klartext-Export erzeugt:
 ```text
 <Lab_Data>\Exports\TestUmgebung.env
 <Lab_Data>\Exports\TestUmgebung.json
+<Lab_Data>\Exports\TestUmgebung.schema.json
+<Lab_Data>\Exports\TestUmgebung.prompt.md
 <Lab_Data>\Exports\TestUmgebung.md
 <Lab_Data>\Exports\TestUmgebung.registry.json
 ```
@@ -33,6 +60,21 @@ enthalten dennoch Zugangsdaten und dürfen nicht kopiert, committed oder
 weitergegeben werden. Das Framework beschränkt die Dateirechte nach Möglichkeit
 auf den aktuellen Betriebssystembenutzer.
 
+Verbraucher dürfen keinen konkreten Laufwerks- oder Repositorypfad voraussetzen.
+Das Framework veröffentlicht beim Setzen des Standard-Data-Roots und bei einem
+regulären Export folgende Pfadvariablen für den aktuellen Benutzer:
+
+```text
+SQL_SERVER_LAB_TEST_ENV_FILE
+SQL_SERVER_LAB_TEST_ENV_SCHEMA_FILE
+SQL_SERVER_LAB_TEST_ENV_PROMPT_FILE
+```
+
+Als kompatibler Fallback bleibt `SQL_SERVER_LAB_DATA_ROOT` verfügbar; der Vertrag
+liegt relativ dazu unter `Exports/TestUmgebung.json`. Eine Laufwerkssuche ist
+nicht zulässig. Bereits laufende Prozesse müssen die Benutzervariablen bei Bedarf
+explizit lesen oder nach der Konfiguration neu gestartet werden.
+
 ## Auswahlvertrag für KI und Werkzeuge
 
 `TestUmgebung.json` ist der kanonische Vertrag
@@ -40,7 +82,8 @@ auf den aktuellen Betriebssystembenutzer.
 
 1. `platform`: `linux` oder `windows`;
 2. `sqlVersion`: beispielsweise `2019`, `2022` oder `2025`;
-3. `patch`: `latest` oder ein konkreter CU-Bezeichner wie `cu18`;
+3. `patch`: bei Linux `latest`, bei Windows `base` oder ein konkreter
+   CU-Bezeichner wie `cu18`;
 4. oberstes `groupStatus`: muss `READY` sein;
 5. `status`: ausschließlich `READY` verwenden.
 
@@ -56,7 +99,17 @@ Danach stehen `host`, `port`, `database`, `username`, `password`, `encrypt`,
 Beispiel in PowerShell:
 
 ```powershell
-$contract = Get-Content D:\Lab_Data\Exports\TestUmgebung.json -Raw |
+$contractPath = $env:SQL_SERVER_LAB_TEST_ENV_FILE
+if (-not $contractPath) {
+    $contractPath = [Environment]::GetEnvironmentVariable('SQL_SERVER_LAB_TEST_ENV_FILE', 'User')
+}
+if (-not $contractPath) {
+    $dataRoot = $env:SQL_SERVER_LAB_DATA_ROOT
+    if (-not $dataRoot) { $dataRoot = [Environment]::GetEnvironmentVariable('SQL_SERVER_LAB_DATA_ROOT', 'User') }
+    if ($dataRoot) { $contractPath = Join-Path $dataRoot 'Exports/TestUmgebung.json' }
+}
+if (-not $contractPath -or -not (Test-Path -LiteralPath $contractPath)) { throw 'Kein SQL_Server_Lab-Testumgebungsvertrag gefunden.' }
+$contract = Get-Content -LiteralPath $contractPath -Raw |
     ConvertFrom-Json
 
 $sql = $contract.environments |
@@ -86,15 +139,36 @@ SQL_SERVER_LAB_LINUX_2022_LATEST_CONNECTION_STRING="..."
 
 JSON ist für KI und allgemeine Programme vorzuziehen, weil mehrere Umgebungen
 als Array typisiert bleiben. Dotenv ist für bestehende Testframeworks gedacht.
+`TestUmgebung.json` verweist mit `$schema` auf die danebenliegende Datei
+`TestUmgebung.schema.json` (JSON Schema Draft 2020-12). Verbraucher können den
+Export damit vor der Auswahl und vor jeder Verbindung strukturell validieren.
 
-## `latest` und Reproduzierbarkeit
+Beispiel mit PowerShell 7 und portabler Discovery:
+
+```powershell
+$contractPath = [Environment]::GetEnvironmentVariable('SQL_SERVER_LAB_TEST_ENV_FILE', 'User')
+$schemaPath = [Environment]::GetEnvironmentVariable('SQL_SERVER_LAB_TEST_ENV_SCHEMA_FILE', 'User')
+Test-Json -LiteralPath $contractPath -SchemaFile $schemaPath
+```
+
+Der vollständige wiederverwendbare Agenten-Prompt steht in
+[`LOCAL_SQL_TESTING_PROMPT.md`](LOCAL_SQL_TESTING_PROMPT.md) und wird als
+`TestUmgebung.prompt.md` neben dem Laufzeitvertrag exportiert.
+
+## `latest`, `base` und Reproduzierbarkeit
 
 - Linux `latest` verwendet den gleitenden Microsoft-Container-Tag.
-- Windows `latest` wird beim Erfassen auf den höchsten lokal katalogisierten
-  konkreten CU aufgelöst. Das benötigte, per SHA-256 katalogisierte Windows-Paket
-  muss vorhanden sein. Ohne sicheren konkreten CU wird die Erstellung abgelehnt.
+- Windows verwendet standardmäßig `base`: SQL Server wird direkt vom ausgewählten
+  und geprüften Installationsmedium installiert, ohne anschließend ein separates
+  CU-Paket einzuspielen. `base` behauptet daher ausdrücklich nicht, der neueste
+  Microsoft-CU-Stand zu sein. Die tatsächlich installierte Version steht nach
+  der Bereitstellung in `resolvedVersion`.
+- Die frühere Eingabe `latest` wird im Windows-Menü nur aus
+  Kompatibilitätsgründen noch akzeptiert und wie `base` behandelt. Neu erzeugte
+  Verträge verwenden dafür stets `patch = base`.
 - Ein expliziter CU bleibt auf den gewählten Katalog-Tag beziehungsweise das
-  geprüfte Windows-Updatepaket fixiert.
+  geprüfte Windows-Updatepaket fixiert. Nur in diesem Fall muss das per SHA-256
+  katalogisierte Windows-CU-Paket vorhanden sein.
 
 ## Nicht interaktiver Linux-Aufruf
 

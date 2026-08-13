@@ -52,6 +52,30 @@ function Get-HyperVLabRuntimeName {
     return "$(($LabName.Trim()))-$runPrefix"
 }
 
+function Set-HyperVLabAutoStart {
+    <# Setzt den nativen VM-Autostart und den persistierten Labvertrag gemeinsam. #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RunId,
+        [Parameter(Mandatory)][ValidateSet('on','off')][string]$AutoStart,
+        [string]$StateRoot
+    )
+
+    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
+    $managed = Get-HyperVManagedVM -VMName ([string]$lab.Instance.vmName) `
+        -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
+    if (-not $managed) { throw 'HYPERV_LAB_VM_NOT_FOUND' }
+    $automaticStartAction = if ($AutoStart -eq 'on') { 'Start' } else { 'Nothing' }
+    $null = Set-VM -VM $managed.VM -AutomaticStartAction $automaticStartAction -ErrorAction Stop
+
+    $lab.Instance | Add-Member -NotePropertyName autostart -NotePropertyValue $AutoStart -Force
+    $lab.Run.metadata | Add-Member -NotePropertyName autostart -NotePropertyValue $AutoStart -Force
+    $lab.Run.updatedAt = Get-LabTimestamp
+    Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
+    Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'run-state.json') -InputObject $lab.Run
+    return [PSCustomObject]@{ RunId=$RunId; VMName=[string]$lab.Instance.vmName; AutoStart=$AutoStart; AutomaticStartAction=$automaticStartAction }
+}
+
 function Get-HyperVExistingVmLabSource {
     <#
     .SYNOPSIS
@@ -816,13 +840,19 @@ function Invoke-HyperVLabSqlSlotInstall {
                         $arguments += "/SQLTEMPDBLOGDIR=$($paths.Temp)"
                         $arguments += "/SQLBACKUPDIR=$($paths.Backup)"
                     }
-                    if ($ExpectedSqlVersion -eq '2025') { $arguments += '/AZUREEXTENSION=0' }
                     $process = Start-Process -FilePath $setups[0].FullName -ArgumentList $arguments -PassThru -NoNewWindow
                     if (-not $process.WaitForExit([int]$TimeoutSeconds * 1000)) {
                         Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
                         throw "SQL_SETUP_INSTALL_TIMEOUT: $TimeoutSeconds"
                     }
                     if ([int]$process.ExitCode -notin @(0,3010)) { throw "SQL_SETUP_INSTALL_FAILED: $($process.ExitCode)" }
+                    $summary = Get-ChildItem -LiteralPath 'C:\Program Files\Microsoft SQL Server' -Filter Summary.txt -Recurse -File -ErrorAction SilentlyContinue |
+                        Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
+                    $summaryText = if ($summary) { Get-Content -LiteralPath $summary.FullName -Raw -ErrorAction SilentlyContinue } else { $null }
+                    if ($summaryText -match '(?im)^Final result:\s+Failed\s*$') {
+                        $summaryTail = @(Get-Content -LiteralPath $summary.FullName -Tail 12 -ErrorAction SilentlyContinue) -join ' | '
+                        throw "SQL_SETUP_INSTALL_FAILED: ExitCode=$([int]$process.ExitCode); Summary=$summaryTail"
+                    }
                     $instanceRegistryPath = 'HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\Instance Names\SQL'
                     $registrationDeadline = [datetime]::UtcNow.AddMinutes(5)
                     $instanceRegistered = $false
@@ -832,8 +862,6 @@ function Invoke-HyperVLabSqlSlotInstall {
                         if (-not $instanceRegistered) { Start-Sleep -Seconds 5 }
                     } while (-not $instanceRegistered -and [datetime]::UtcNow -lt $registrationDeadline)
                     if (-not $instanceRegistered) {
-                        $summary = Get-ChildItem -LiteralPath 'C:\Program Files\Microsoft SQL Server' -Filter Summary.txt -Recurse -File -ErrorAction SilentlyContinue |
-                            Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
                         $summaryTail = if ($summary) { (@(Get-Content -LiteralPath $summary.FullName -Tail 12 -ErrorAction SilentlyContinue) -join ' | ') } else { 'nicht gefunden' }
                         throw "SQL_SETUP_INSTALLATION_NOT_REGISTERED: ExitCode=$([int]$process.ExitCode); Summary=$summaryTail"
                     }

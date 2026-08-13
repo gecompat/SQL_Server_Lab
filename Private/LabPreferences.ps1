@@ -153,6 +153,33 @@ function Get-LabDataRootDefault {
     return $null
 }
 
+function Set-LabTestEnvironmentDiscoveryEnvironment {
+    <# Veröffentlicht ausschließlich portable Pfade; die Dateien selbst können Secrets enthalten. #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$DataRoot,
+        [switch]$ProcessEnvironmentOnly
+    )
+
+    $root = [IO.Path]::GetFullPath($DataRoot).TrimEnd('\', '/')
+    $contractPath = Join-Path $root 'Exports/TestUmgebung.json'
+    $schemaPath = Join-Path $root 'Exports/TestUmgebung.schema.json'
+    $promptPath = Join-Path $root 'Exports/TestUmgebung.prompt.md'
+    $variables = [ordered]@{
+        SQL_SERVER_LAB_TEST_ENV_FILE = $contractPath
+        SQL_SERVER_LAB_TEST_ENV_SCHEMA_FILE = $schemaPath
+        SQL_SERVER_LAB_TEST_ENV_PROMPT_FILE = $promptPath
+    }
+    foreach ($pair in $variables.GetEnumerator()) {
+        [Environment]::SetEnvironmentVariable($pair.Key, $pair.Value, 'Process')
+        if (-not $ProcessEnvironmentOnly) {
+            try { [Environment]::SetEnvironmentVariable($pair.Key, $pair.Value, 'User') }
+            catch { Write-Verbose "Benutzervariable $($pair.Key) konnte nicht gesetzt werden: $($_.Exception.Message)" }
+        }
+    }
+    return [PSCustomObject]$variables
+}
+
 function Set-LabDataRootDefault {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$DataRoot)

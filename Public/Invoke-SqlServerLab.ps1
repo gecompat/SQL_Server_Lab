@@ -28,7 +28,7 @@ function Invoke-SqlServerLab {
     # Direkt-Aktion ohne Menue
     if ($Action) {
         Invoke-LabAction -ActionName $Action
-        if ($Action -in @('New', 'AutomatedTestEnvironment', 'ClearAutomatedTestEnvironment', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'Rename', 'Resources', 'UpdateContainer', 'Manage')) {
+        if ($Action -in @('New', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'Rename', 'Resources', 'UpdateContainer', 'Manage')) {
             Sync-LabConnectionCenterAfterLifecycle
         }
         return
@@ -68,7 +68,7 @@ function Invoke-SqlServerLab {
             default { Write-Host "  Ungueltige Auswahl: $choice" -ForegroundColor Red }
         }
 
-        if ($choice -in @('1', 'e', 'x', '3', '4', '5', '6', '7', 'i', 'n', 'r', 'u')) {
+        if ($choice -in @('1', '3', '4', '5', '6', '7', 'i', 'n', 'r', 'u')) {
             Sync-LabConnectionCenterAfterLifecycle
         }
         if (-not $exit) {
@@ -717,11 +717,37 @@ function Read-LabDecimalIntentValue {
     }
 }
 
-function Select-LabSqlPatchIntent {
+function New-LabWindowsBaseSqlPatchIntent {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$BaseVersion)
+
+    return [PSCustomObject]@{
+        VersionId = $BaseVersion
+        BaseVersion = $BaseVersion
+        Cu = $null
+        Build = $null
+        Kb = $null
+        Released = $null
+        ArticleUrl = $null
+        WindowsStatus = 'NOT_APPLICABLE'
+        WindowsRelativePath = $null
+        WindowsPath = $null
+        CanAutoDownload = $false
+        Floating = $false
+        Reproducible = $true
+        PatchMode = 'base'
+    }
+}
+
+function Select-LabSqlPatchIntent {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$BaseVersion,
+        [ValidateSet('linux','windows')][string]$Platform = 'linux'
+    )
     $mediaRoot = Get-LabMediaRootDefault
     $patches = @(Get-SqlServerPatchOptions -VersionId $BaseVersion -MediaRoot $mediaRoot)
+    $windowsBase = New-LabWindowsBaseSqlPatchIntent -BaseVersion $BaseVersion
     $floatingLatest = [PSCustomObject]@{
         VersionId = $BaseVersion
         BaseVersion = $BaseVersion
@@ -735,8 +761,13 @@ function Select-LabSqlPatchIntent {
         CanAutoDownload = $false
         Floating = $true
         Reproducible = $false
+        PatchMode = 'latest'
     }
     if ($patches.Count -eq 0) {
+        if ($Platform -eq 'windows') {
+            Write-LabInfo "Für SQL Server $BaseVersion sind keine einzelnen CUs katalogisiert; die Windows-Basisinstallation ohne separates CU wird verwendet."
+            return $windowsBase
+        }
         Write-LabInfo "Für SQL Server $BaseVersion sind keine einzelnen CUs katalogisiert; der veränderliche Microsoft-Tag latest wird verwendet."
         return $floatingLatest
     }
@@ -744,18 +775,32 @@ function Select-LabSqlPatchIntent {
     $floatingImage = Get-SqlServerDockerImage -VersionId $BaseVersion
     $catalogDate = [string]$script:VersionCatalog.catalogMetadata.lastVerified
     Write-Host "  Katalogisierte Patchstände (Stand $catalogDate):" -ForegroundColor White
-    Write-Host "    latest (gleitend) · $floatingImage · nicht reproduzierbar" -ForegroundColor Green
+    if ($Platform -eq 'windows') {
+        Write-Host '    base · SQL-Installationsmedium ohne separates CU-Paket' -ForegroundColor Green
+    }
+    else {
+        Write-Host "    latest (gleitend) · $floatingImage · nicht reproduzierbar" -ForegroundColor Green
+    }
     Write-Host "    aktuell katalogisiert: $($catalogLatest.Cu) · Build $($catalogLatest.Build) · $($catalogLatest.Kb)" -ForegroundColor DarkGreen
     foreach ($patch in $patches) {
         $windowsText = if ($patch.WindowsStatus -like 'PRESENT*') { 'Windows-Paket vorhanden' } else { "Windows-Paket fehlt: $($patch.WindowsRelativePath)" }
         Write-Host "    $($patch.Cu) · Build $($patch.Build) · $($patch.Kb) · $($patch.Released) · $windowsText" -ForegroundColor $(if ($patch.WindowsStatus -like 'PRESENT*') { 'White' } else { 'DarkYellow' })
     }
-    Write-Host '  Fehlende Windows-Pakete verhindern Container nicht; sie werden nur für Hyper-V benötigt.' -ForegroundColor DarkGray
+    Write-Host '  Fehlende Windows-Pakete verhindern weder Container noch die Windows-Basisinstallation; sie werden nur für ein ausdrücklich gewähltes Hyper-V-CU benötigt.' -ForegroundColor DarkGray
     while ($true) {
-        Write-Host '  [latest] Gleitender Microsoft-Tag; bei jeder neuen Erstellung aktuell (Default, nicht reproduzierbar)' -ForegroundColor Green
+        if ($Platform -eq 'windows') {
+            Write-Host '  [base]   Basisinstallation vom SQL-Medium ohne separates CU (Default)' -ForegroundColor Green
+        }
+        else {
+            Write-Host '  [latest] Gleitender Microsoft-Tag; bei jeder neuen Erstellung aktuell (Default, nicht reproduzierbar)' -ForegroundColor Green
+        }
         Write-Host "  [CU]     Fixierter Stand: $(@($patches.Cu | Sort-Object { [int]($_ -replace '^CU','') }) -join ', ')" -ForegroundColor White
-        $selection = Read-Host '  Patchstand [latest]'
-        if (-not $selection -or $selection -eq 'latest') {
+        $selection = Read-Host $(if ($Platform -eq 'windows') { '  Patchstand [base]' } else { '  Patchstand [latest]' })
+        if ($Platform -eq 'windows' -and (-not $selection -or $selection -in @('base','latest'))) {
+            if ($selection -eq 'latest') { Write-LabWarning 'Windows latest wird aus Kompatibilitätsgründen als base interpretiert: Basisinstallation ohne separates CU.' }
+            return $windowsBase
+        }
+        if ($Platform -eq 'linux' -and (-not $selection -or $selection -eq 'latest')) {
             Write-LabWarning 'latest ist ein gleitender Microsoft-Tag. Eine spätere Erstellung kann einen neueren CU-Stand verwenden.'
             return $floatingLatest
         }
@@ -890,7 +935,7 @@ function Resolve-LabSqlIntentProvider {
     if (@($Intent.Drives | Where-Object {[long]$_.MaximumIops -gt 0}).Count -gt 0) {$reasons.Add('Datenträgerbezogene IOPS-Limits benötigen Hyper-V.')}
     if ($Intent.NetworkMode -eq 'external') { return [PSCustomObject]@{Supported=$false;Provider=$null;Reasons=@('Externes LAN benötigt zuerst einen vollständigen IP-/Gateway-/DNS-Vertrag.')} }
     if ($reasons.Count -gt 0) {
-        if ($Intent.Patch.Floating) { return [PSCustomObject]@{Supported=$false;Provider=$null;Reasons=@($reasons + 'Der gleitende Patchstand latest ist nur für Container zulässig. Für Hyper-V muss ein konkretes CU gewählt werden.')} }
+        if ($Intent.Patch.Floating) { $reasons.Add('Der für Container gleitende Stand latest wird bei Hyper-V als Windows-Basisinstallation ohne separates CU ausgeführt.') }
         if ([decimal]$Intent.Cpu % 1 -ne 0) { return [PSCustomObject]@{Supported=$false;Provider=$null;Reasons=@('Hyper-V benötigt ganzzahlige vCPU.')} }
         if ($Intent.Patch.Cu -and $Intent.Patch.WindowsStatus -ne 'PRESENT_HASH_CATALOGUED' -and -not $Intent.Patch.CanAutoDownload) { return [PSCustomObject]@{Supported=$false;Provider=$null;Reasons=@($reasons + "Windows-Paket fehlt oder besitzt keinen katalogisierten SHA-256: $($Intent.Patch.WindowsRelativePath)" + "Quelle: $($Intent.Patch.ArticleUrl)")} }
         if ('hyperv' -notin $AvailableProviders) { return [PSCustomObject]@{Supported=$false;Provider=$null;Reasons=@($reasons + 'Hyper-V ist nicht verfügbar.')} }
@@ -994,6 +1039,11 @@ function Invoke-LabNewEnvironmentInteractive {
     Write-LabSuccess "Providerentscheidung: $provider"
     foreach($reason in $decision.Reasons){Write-LabInfo $reason}
     if ($provider -eq 'hyperv') {
+        if ($intent.Patch.Floating) {
+            $intent.Patch = New-LabWindowsBaseSqlPatchIntent -BaseVersion ([string]$intent.BaseVersion)
+            $intent.VersionId = [string]$intent.BaseVersion
+            Write-LabInfo 'Für Hyper-V wird latest als Windows-Basisinstallation ohne separates CU-Paket ausgeführt.'
+        }
         if (-not (Confirm-LabSqlWindowsPatchMediaInteractive -Intent $intent)) { return }
         Invoke-LabNewHyperVEnvironmentInteractive -Intent $intent
         return
@@ -1038,7 +1088,17 @@ function Invoke-LabAutomatedTestEnvironmentInteractive {
         Write-Host ''
         Write-Host '  Umgebung für automatisierte Tests anlegen' -ForegroundColor Cyan
         Write-Host "  Export: $(Join-Path $dataRoot 'Exports')" -ForegroundColor DarkGray
-        if ($queue.Count -eq 0) { Write-Host '    Noch keine Umgebung erfasst.' -ForegroundColor DarkGray }
+        $existingStatus = Get-LabAutomatedTestEnvironmentStatus
+        Write-Host ("  Bestehende Testgruppe: {0} · {1}/{2} bereit" -f $existingStatus.GroupStatus, $existingStatus.Ready, $existingStatus.Total) -ForegroundColor $(if ($existingStatus.GroupStatus -eq 'READY') { 'Green' } elseif ($existingStatus.GroupStatus -eq 'EMPTY') { 'DarkGray' } else { 'Yellow' })
+        if ($existingStatus.Total -eq 0) { Write-Host '    Keine Testumgebung registriert.' -ForegroundColor DarkGray }
+        else {
+            foreach ($existing in @($existingStatus.Entries)) {
+                $statusColor = if ($existing.StatusCode -eq 'READY') { 'Green' } elseif ($existing.StatusCode -in @('INSTALLING','CONFIGURATION_PENDING','INSTALL_RETRY_PENDING','PLANNED','WINDOWS_READY','OOBE_PENDING','STOPPED')) { 'Yellow' } else { 'Red' }
+                Write-Host ("    {0} · {1} · SQL {2} · {3} · {4}" -f $existing.Key, $existing.Platform, $existing.SqlVersion, $existing.Patch, $existing.DisplayStatus) -ForegroundColor $statusColor
+            }
+        }
+        Write-Host '  Neuer Auftrag:' -ForegroundColor Cyan
+        if ($queue.Count -eq 0) { Write-Host '    Noch keine neue Umgebung hinzugefügt.' -ForegroundColor DarkGray }
         else {
             for ($index = 0; $index -lt $queue.Count; $index++) {
                 $item = $queue[$index]
@@ -1068,14 +1128,8 @@ function Invoke-LabAutomatedTestEnvironmentInteractive {
             $sqlVersion = Read-Host "  SQL Server Version [$($versions[-1].id)]"
             if (-not $sqlVersion) { $sqlVersion = [string]$versions[-1].id }
             if ($sqlVersion -notin @($versions.id)) { Write-LabWarning 'SQL-Version ist für diese Plattform nicht katalogisiert.'; continue }
-            $patchIntent = Select-LabSqlPatchIntent -BaseVersion $sqlVersion
-            $requestedPatch = if ($patchIntent.Cu) { ([string]$patchIntent.Cu).ToLowerInvariant() } else { 'latest' }
-            if ($platform -eq 'windows' -and $patchIntent.Floating) {
-                $latestWindowsPatch = @(Get-SqlServerPatchOptions -VersionId $sqlVersion -MediaRoot (Get-LabMediaRootDefault) | Select-Object -First 1)[0]
-                if (-not $latestWindowsPatch) { Write-LabWarning "Windows latest ist für SQL $sqlVersion nicht auflösbar: kein konkreter CU-Stand katalogisiert."; continue }
-                Write-LabInfo "Windows latest wird für diesen Auftrag reproduzierbar auf $($latestWindowsPatch.Cu) ($($latestWindowsPatch.Build)) aufgelöst."
-                $patchIntent = $latestWindowsPatch
-            }
+            $patchIntent = Select-LabSqlPatchIntent -BaseVersion $sqlVersion -Platform $platform
+            $requestedPatch = if ($patchIntent.Cu) { ([string]$patchIntent.Cu).ToLowerInvariant() } elseif ([string]$patchIntent.PatchMode -eq 'base') { 'base' } else { 'latest' }
             if ($platform -eq 'windows' -and -not (Confirm-LabSqlWindowsPatchMediaInteractive -Intent ([PSCustomObject]@{ Patch=$patchIntent }))) { continue }
             $baseKey = ConvertTo-LabTestEnvironmentKey -Platform $platform -SqlVersion $sqlVersion -Patch $requestedPatch
             $key = $baseKey; $suffix = 2
@@ -1093,7 +1147,8 @@ function Invoke-LabAutomatedTestEnvironmentInteractive {
         foreach ($request in @($queue)) {
             $intentRegistration = Register-LabTestEnvironmentIntent -Platform ([string]$request.Platform) `
                 -SqlVersion ([string]$request.SqlVersion) -Patch ([string]$request.Patch) `
-                -InstanceId ([string]$request.InstanceId) -Name ([string]$request.Key)
+                -InstanceId ([string]$request.InstanceId) -Name ([string]$request.Key) `
+                -ReuseExisting:([string]$request.Platform -eq 'windows')
             $request.Key = [string]$intentRegistration.key
         }
         $null = Export-SqlServerLabTestEnvironment
@@ -1106,24 +1161,33 @@ function Invoke-LabAutomatedTestEnvironmentInteractive {
                         Platform='linux'; SqlVersion=$request.SqlVersion; Patch=$request.Patch; Name=$request.Name
                         Key=$request.Key; InstanceId=$request.InstanceId
                     })
-                    if ([string]$creation.Status -ne 'READY') { throw "TEST_ENVIRONMENT_GROUP_INCOMPLETE: $(@($creation.Errors.Message) -join '; ')" }
+                    if (@($creation.Errors).Count -gt 0 -or @($creation.Environments).Count -eq 0) {
+                        throw "TEST_ENVIRONMENT_CREATION_FAILED: $(@($creation.Errors.Message) -join '; ')"
+                    }
                     continue
                 }
                 Write-LabInfo "Erstelle $($request.Key) über Hyper-V. Nur Windows-OOBE und erste Anmeldung können manuell erforderlich sein."
                 $before = @(Get-LabActiveRuns | ForEach-Object { [string]$_.runId })
                 $intent = [PSCustomObject]@{
                     Contract='SqlServerLab.AutomatedTestIntent/1.0'; TestAutomation=$true
+                    TestEnvironmentKey=$request.Key; TestEnvironmentPatch=$request.Patch
                     LabName=$request.Name; InstanceId=$request.InstanceId; BaseVersion=$request.SqlVersion
                     VersionId=[string]$request.PatchIntent.VersionId; Patch=$request.PatchIntent; Purpose='adhoc-install'
-                    RequiresWindows=$true; RequiresFreshSqlInstall=$true; ForceNewWindowsSlot=$true; Edition='Developer'; Cpu=[decimal]4; MemoryMB=4096
+                    RequiresWindows=$true; RequiresFreshSqlInstall=$true; PreferExistingWindowsSlot=$true; Edition='Developer'; Cpu=[decimal]4; MemoryMB=4096
                     Profile='standard'; NetworkMode='host-access'; HostPort=0; Collation='SQL_Latin1_General_CP1_CI_AS'
                     SqlMaxMemoryMB=3072; MaxDop=4; CostThreshold=50; StorageMode='standard'; Drives=@()
                     TempDbFileCount=4; TempDbFileSizeMB=256; TempDbGrowthMB=64; TempDbVolumeCount=1; AutoStart='on'
                 }
                 Invoke-LabNewHyperVSqlEnvironmentWorkflowInteractive -Intent $intent
-                $createdRun = @(Get-LabActiveRuns | Where-Object {
-                    [string]$_.runId -notin $before -and [string]$_.metadata.name -eq [string]$request.Name
-                } | Sort-Object createdAt -Descending | Select-Object -First 1)[0]
+                $reusedRunId = if ($intent.PSObject.Properties['ReusedWindowsSlotRunId']) { [string]$intent.ReusedWindowsSlotRunId } else { $null }
+                $createdRun = if ($reusedRunId) {
+                    @(Get-LabActiveRuns | Where-Object { [string]$_.runId -eq $reusedRunId } | Select-Object -First 1)[0]
+                }
+                else {
+                    @(Get-LabActiveRuns | Where-Object {
+                        [string]$_.runId -notin $before -and [string]$_.metadata.name -eq [string]$request.Name
+                    } | Sort-Object createdAt -Descending | Select-Object -First 1)[0]
+                }
                 if (-not $createdRun) { throw 'TEST_ENVIRONMENT_HYPERV_RUN_NOT_CREATED' }
                 $null = Register-LabTestEnvironmentRun -RunId ([string]$createdRun.runId) -Platform windows `
                     -SqlVersion ([string]$request.SqlVersion) -Patch ([string]$request.Patch) -InstanceId ([string]$request.InstanceId) -Name ([string]$request.Key)
@@ -1131,6 +1195,7 @@ function Invoke-LabAutomatedTestEnvironmentInteractive {
             catch { Write-LabError "$($request.Key) konnte nicht vollständig erstellt werden: $($_.Exception.Message)" }
         }
         $export = Export-SqlServerLabTestEnvironment
+        $null = Sync-LabAutomatedTestEnvironmentConnectionCenter
         Write-LabSuccess "TestUmgebung.env geschrieben: $($export.EnvPath)"
         Write-LabSuccess "Kanonischer Maschinenvertrag: $($export.JsonPath)"
         Write-LabInfo "Bereit: $($export.Ready) von $($export.Entries). Nicht bereite Hyper-V-Runs später fortsetzen und mit [e] -> [r] neu exportieren."
@@ -1338,8 +1403,17 @@ function Invoke-LabNewHyperVSqlEnvironmentWorkflowInteractive {
     $reusableSlot = if ($Intent -and $Intent.PSObject.Properties['ForceNewWindowsSlot'] -and $Intent.ForceNewWindowsSlot) {
         $null
     }
-    else { Select-LabReusableHyperVWindowsSlotInteractive -Intent $Intent }
+    else {
+        $automaticSlotSelection = [bool]($Intent -and $Intent.PSObject.Properties['PreferExistingWindowsSlot'] -and $Intent.PreferExistingWindowsSlot)
+        Select-LabReusableHyperVWindowsSlotInteractive -Intent $Intent -Automatic:$automaticSlotSelection
+    }
     if ($reusableSlot) {
+        if ($Intent) { $Intent | Add-Member -NotePropertyName ReusedWindowsSlotRunId -NotePropertyValue ([string]$reusableSlot.RunId) -Force }
+        if ($Intent -and $Intent.TestAutomation) {
+            $null = Register-LabTestEnvironmentRun -RunId ([string]$reusableSlot.RunId) -Platform windows `
+                -SqlVersion ([string]$Intent.BaseVersion) -Patch ([string]$Intent.TestEnvironmentPatch) `
+                -InstanceId ([string]$Intent.InstanceId) -Name ([string]$Intent.TestEnvironmentKey)
+        }
         Invoke-LabReusableHyperVWindowsSlotInteractive -Slot $reusableSlot -Intent $Intent
         return
     }
@@ -3011,7 +3085,7 @@ function Invoke-LabHyperVSqlSlotInstallInteractive {
     )
 
     if ([string]$Plan.deploymentMode -notin @('sql-pool-slot', 'adhoc-install') -or
-        [string]$Plan.state -notin @('PLANNED', 'CONFIGURATION_PENDING')) {
+        [string]$Plan.state -notin @('PLANNED', 'INSTALL_RETRY_PENDING', 'CONFIGURATION_PENDING')) {
         Write-LabWarning 'Kein ausführbarer vollständiger SQL-Installationsplan vorhanden.'
         return $false
     }
@@ -3072,26 +3146,46 @@ function Complete-LabHyperVManualWindowsWorkflowInteractive {
 
 function Select-LabReusableHyperVWindowsSlotInteractive {
     [CmdletBinding()]
-    param($Intent)
+    param($Intent, [switch]$Automatic)
 
     $candidates = @()
+    $protectedTestRunIds = @(Get-LabAutomatedTestEnvironmentRunIds)
+    $intendedTestRunId = $null
+    if ($Intent -and $Intent.TestAutomation -and [string]$Intent.TestEnvironmentKey) {
+        try {
+            $testRegistry = Get-LabTestEnvironmentRegistry
+            $intendedRegistration = @($testRegistry.environments | Where-Object {
+                [string]$_.key -eq [string]$Intent.TestEnvironmentKey -and [string]$_.runId
+            } | Select-Object -First 1)[0]
+            if ($intendedRegistration) { $intendedTestRunId = [string]$intendedRegistration.runId }
+        }
+        catch { Write-LabWarning "Registrierter Test-Slot konnte nicht auf Wiederaufnahme geprüft werden: $($_.Exception.Message)" }
+    }
     foreach ($run in @(Get-LabActiveRuns)) {
         if ([string]$run.metadata.workflowKind -ne 'hyperv-lab') { continue }
+        if ($intendedTestRunId -and [string]$run.runId -ne $intendedTestRunId) { continue }
+        if (-not $intendedTestRunId -and [string]$run.runId -in $protectedTestRunIds) { continue }
         try {
             $lab = Get-HyperVLabWorkflowRun -RunId ([string]$run.runId)
             $plan = $lab.Instance.sqlDeploymentPlan
             $resumableSqlPlan = $plan -and
                 [string]$plan.deploymentMode -in @('sql-pool-slot', 'adhoc-install') -and
-                [string]$plan.state -in @('PLANNED', 'CONFIGURATION_PENDING')
+                [string]$plan.state -in @('PLANNED', 'INSTALL_RETRY_PENDING', 'CONFIGURATION_PENDING')
+            $readySqlPlan = $intendedTestRunId -and $plan -and
+                [string]$plan.deploymentMode -in @('sql-pool-slot', 'adhoc-install') -and
+                [string]$plan.state -eq 'SQL_SLOT_READY'
             $unusedWindowsSlot = [string]$lab.Instance.workload -eq 'windows' -and -not $plan
             if ($Intent -and $resumableSqlPlan -and [string]$plan.sqlVersion -ne [string]$Intent.BaseVersion) { $resumableSqlPlan = $false }
             if ($Intent -and $unusedWindowsSlot -and [string]$Intent.StorageMode -eq 'separated' -and
                 @($lab.Instance.additionalDrives).Count -ne @($Intent.Drives).Count) { $unusedWindowsSlot = $false }
-            if (-not $unusedWindowsSlot -and -not $resumableSqlPlan) { continue }
+            if (-not $unusedWindowsSlot -and -not $resumableSqlPlan -and -not $readySqlPlan) { continue }
             $status = Get-HyperVInstanceStatus -VMName ([string]$lab.Instance.vmName) `
                 -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
             if (-not $status -or -not $status.Exists) { continue }
-            $phase = if ($resumableSqlPlan) {
+            $phase = if ($readySqlPlan) {
+                'SQL_READY'
+            }
+            elseif ($resumableSqlPlan) {
                 'SQL_RESUME'
             }
             elseif ($lab.Instance.windowsProvisioning -and [string]$lab.Instance.windowsProvisioning.state -eq 'COMPLETE') {
@@ -3105,7 +3199,7 @@ function Select-LabReusableHyperVWindowsSlotInteractive {
                 VMName = [string]$lab.Instance.vmName
                 Phase = $phase
                 LiveState = [string]$status.State
-                CreatedAt = [string]$lab.Run.createdAt
+                CreatedAt = [datetime]$lab.Run.createdAt
                 Plan = $plan
             }
         }
@@ -3115,12 +3209,18 @@ function Select-LabReusableHyperVWindowsSlotInteractive {
     }
     $candidates = @($candidates | Sort-Object CreatedAt -Descending)
     if ($candidates.Count -eq 0) { return $null }
+    if ($Automatic) {
+        $selected = $candidates[-1]
+        Write-LabInfo "Freier Windows-Slot wird automatisch aus dem Pool entnommen: $($selected.VMName) (Run $($selected.RunId))."
+        return $selected
+    }
 
     $items = @(
         for ($index = 0; $index -lt $candidates.Count; $index++) {
             $candidate = $candidates[$index]
             $phaseLabel = switch ($candidate.Phase) {
                 'SQL_RESUME' { if ([string]$candidate.Plan.state -eq 'CONFIGURATION_PENDING') { 'SQL installiert, Konfiguration fortsetzen' } else { 'SQL-Ausbau geplant, Installation fortsetzen' } }
+                'SQL_READY' { 'SQL-Testumgebung bereits vollständig bereit' }
                 'WINDOWS_READY' { 'Windows übernommen, SQL offen' }
                 default { 'OOBE noch offen' }
             }
@@ -3138,6 +3238,14 @@ function Invoke-LabReusableHyperVWindowsSlotInteractive {
     param([Parameter(Mandatory)][PSObject]$Slot, $Intent)
 
     Write-LabSuccess "Vorhandener Windows-Slot wird für den SQL-Workflow verwendet: $($Slot.VMName)"
+    if ($Intent -and $Intent.PSObject.Properties['AutoStart']) {
+        $autoStart = Set-HyperVLabAutoStart -RunId ([string]$Slot.RunId) -AutoStart ([string]$Intent.AutoStart)
+        Write-LabInfo "VM-Autostart für übernommenen Slot: $($autoStart.AutoStart)."
+    }
+    if ([string]$Slot.Phase -eq 'SQL_READY') {
+        Write-LabSuccess 'Die registrierte SQL-Testumgebung ist bereits vollständig bereit; es wird kein weiterer Pool-Slot belegt.'
+        return
+    }
     if ([string]$Slot.Phase -eq 'SQL_RESUME') {
         Write-LabInfo 'Ein unterbrochener SQL-Ausbau wurde erkannt und wird ohne erneute Installation am gespeicherten Schritt fortgesetzt.'
         $null = Invoke-LabHyperVSqlSlotInstallInteractive -Plan $Slot.Plan -RunId ([string]$Slot.RunId)
@@ -3384,6 +3492,7 @@ function Manage-LabHyperVEnvironmentInteractive {
                 switch ([string]$sqlPlan.state) {
                     'PLANNED' { $sqlState = "geplant: SQL $($sqlPlan.sqlVersion) · $($sqlPlan.deploymentMode)"; $sqlColor = 'Yellow' }
                     'INSTALLING' { $sqlState = "Installation läuft oder wurde unterbrochen: SQL $($sqlPlan.sqlVersion)"; $sqlColor = 'Yellow' }
+                    'INSTALL_RETRY_PENDING' { $sqlState = "Setup fehlgeschlagen, erneute Installation möglich: SQL $($sqlPlan.sqlVersion)"; $sqlColor = 'Yellow' }
                     'CONFIGURATION_PENDING' { $sqlState = "installiert, Abschlusskonfiguration ausständig: SQL $($sqlPlan.sqlVersion)"; $sqlColor = 'Yellow' }
                     'SQL_SLOT_READY' { $sqlState = "bereit und verwendbar: SQL $($sqlPlan.sqlVersion) · $($sqlPlan.deploymentMode)"; $sqlColor = 'Green' }
                     'PREPARE_RUNNING' { $sqlState = 'nicht verwendbar: alter PrepareImage-/Sysprep-Versuch'; $sqlColor = 'Red' }
@@ -3479,7 +3588,7 @@ function Manage-LabHyperVEnvironmentInteractive {
                 $plan = $selectedLab.Instance.sqlDeploymentPlan
                 $iopsLabel = if ([long]$plan.maximumDataIops -gt 0) { [string]$plan.maximumDataIops } else { 'unbegrenzt' }
                 Write-Host ("        SQL-Ziel: {0} · {1} · {2} vCPU · Data-I/O max. {3} IOPS" -f $plan.sqlVersion, $plan.deploymentMode, $plan.processorCount, $iopsLabel) -ForegroundColor Cyan
-                if ([string]$plan.deploymentMode -in @('sql-pool-slot','adhoc-install') -and [string]$plan.state -in @('PLANNED','CONFIGURATION_PENDING')) {
+                if ([string]$plan.deploymentMode -in @('sql-pool-slot','adhoc-install') -and [string]$plan.state -in @('PLANNED','INSTALL_RETRY_PENDING','CONFIGURATION_PENDING')) {
                     Write-Host '    [x] SQL vollständig installieren und konfigurieren' -ForegroundColor Yellow
                     Write-Host '        Installiert eine fertige SQL-Instanz in diesen eindeutigen Slot. Kein Sysprep und kein anschließendes Klonen.' -ForegroundColor DarkGray
                 }
@@ -3525,7 +3634,7 @@ function Manage-LabHyperVEnvironmentInteractive {
         else {
             if (-not $windowsSlotReady) { New-LabConsoleItem -Id 'o' -Label 'Windows-Grundinstallation übernehmen' -Shortcut 'o' }
             elseif (-not $selectedLab.Instance.sqlDeploymentPlan) { New-LabConsoleItem -Id 'a' -Label 'SQL-Ausbau festlegen und direkt ausführen' -Shortcut 'a' }
-            elseif ([string]$selectedLab.Instance.sqlDeploymentPlan.deploymentMode -in @('sql-pool-slot','adhoc-install') -and [string]$selectedLab.Instance.sqlDeploymentPlan.state -in @('PLANNED','CONFIGURATION_PENDING')) {
+            elseif ([string]$selectedLab.Instance.sqlDeploymentPlan.deploymentMode -in @('sql-pool-slot','adhoc-install') -and [string]$selectedLab.Instance.sqlDeploymentPlan.state -in @('PLANNED','INSTALL_RETRY_PENDING','CONFIGURATION_PENDING')) {
                 New-LabConsoleItem -Id 'x' -Label 'SQL vollständig installieren und konfigurieren' -Shortcut 'x'
             }
             elseif ([string]$selectedLab.Instance.sqlDeploymentPlan.deploymentMode -eq 'prepared-template' -and [string]$selectedLab.Instance.sqlDeploymentPlan.state -in @('PLANNED','PREPARE_RUNNING')) {
@@ -3606,7 +3715,7 @@ function Manage-LabHyperVEnvironmentInteractive {
                 Write-LabSuccess "Windows-Slot übernommen: $($result.VMName) · $($result.ComputerName)"
                 $selectedPlan = $selectedLab.Instance.sqlDeploymentPlan
                 if ($selectedPlan -and [string]$selectedPlan.deploymentMode -in @('sql-pool-slot', 'adhoc-install') -and
-                    [string]$selectedPlan.state -in @('PLANNED', 'CONFIGURATION_PENDING')) {
+                    [string]$selectedPlan.state -in @('PLANNED', 'INSTALL_RETRY_PENDING', 'CONFIGURATION_PENDING')) {
                     if (Read-LabConfirm -Prompt '  Windows ist übernommen. Soll jetzt der SQL-Ausbau automatisch abgeschlossen werden?' -Default $true) {
                         if (-not (& $executeSqlSlotInstall $selectedPlan $runId)) { return }
                     }
