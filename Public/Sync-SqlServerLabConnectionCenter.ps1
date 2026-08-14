@@ -291,6 +291,86 @@ function Initialize-SqlServerLabCms {
     return [PSCustomObject]@{ Configuration = $configuration; Lab = $lab; Password = $plain }
 }
 
+function Get-LabConnectionCenterCmsEnvironmentCandidates {
+    [CmdletBinding()]
+    param([string]$StateRoot)
+
+    if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
+    $protectedRunIds = @(Get-LabAutomatedTestEnvironmentRunIds)
+    $candidates = @()
+    foreach ($run in @(Get-LabActiveRuns -StateRoot $StateRoot)) {
+        if ([string]$run.runId -in $protectedRunIds) { continue }
+        $connectionPath = Join-Path (Join-Path (Join-Path $StateRoot 'runs') ([string]$run.runId)) 'connection-info.json'
+        if (-not (Test-Path -LiteralPath $connectionPath -PathType Leaf)) { continue }
+        try { $connectionInfo = Get-Content -LiteralPath $connectionPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20 }
+        catch { continue }
+        $instances = @($connectionInfo.instances | Where-Object {
+            -not [string]::IsNullOrWhiteSpace([string]$_.connectionString) -or
+            -not [string]::IsNullOrWhiteSpace([string]$_.host) -or
+            [int]$_.port -gt 0
+        })
+        if ($instances.Count -eq 0) { continue }
+
+        $provider = if ([string]$run.metadata.workflowKind -eq 'hyperv-lab') {
+            'hyperv'
+        }
+        else {
+            [string]@($instances | ForEach-Object { [string]$_.provider } | Where-Object { $_ -in @('docker', 'podman', 'hyperv') } | Select-Object -First 1)[0]
+        }
+        if ([string]::IsNullOrWhiteSpace($provider)) { continue }
+        $state = [string]$run.runtime.state
+        $name = [string]$run.metadata.name
+        if ([string]::IsNullOrWhiteSpace($name)) { $name = [string]$run.runId }
+        $candidates += [pscustomobject]@{
+            Run = $run
+            RunId = [string]$run.runId
+            Name = $name
+            Provider = $provider
+            State = $state
+        }
+    }
+    return @($candidates | Sort-Object Name, RunId)
+}
+
+function Register-SqlServerLabCmsEnvironment {
+    <# .SYNOPSIS Registriert eine vorhandene providerneutrale SQL-Umgebung als verwalteten CMS. #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RunId,
+        [Security.SecureString]$SaPassword,
+        [string]$StateRoot
+    )
+
+    if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
+    $existing = Get-LabConnectionCenterCmsConfiguration -StateRoot $StateRoot
+    if ($existing) { throw "CONNECTION_CENTER_CMS_ALREADY_CONFIGURED: Run $($existing.RunId) ist bereits als CMS registriert." }
+    $candidate = @(Get-LabConnectionCenterCmsEnvironmentCandidates -StateRoot $StateRoot | Where-Object RunId -eq $RunId | Select-Object -First 1)
+    if ($candidate.Count -ne 1) { throw 'CONNECTION_CENTER_CMS_RUN_NOT_ELIGIBLE: Der Run besitzt keinen verwendbaren SQL-Endpunkt oder ist geschuetzt.' }
+
+    $runDirectory = Join-Path (Join-Path $StateRoot 'runs') $RunId
+    $passwordOrigin = 'ExistingRunSecret'
+    if ($SaPassword) {
+        $null = Save-LabSecret -Path $runDirectory -Name 'sa-password' -Secret $SaPassword
+        $passwordOrigin = 'ProvidedForCms'
+    }
+    elseif (-not (Get-LabSecret -Path $runDirectory -Name 'sa-password')) {
+        throw 'CONNECTION_CENTER_CMS_SECRET_REQUIRED: Fuer die CMS-Synchronisation ist das SA-Passwort dieser Umgebung erforderlich.'
+    }
+
+    $configuration = [pscustomobject]@{
+        ContractVersion = 'SqlServerLab.ConnectionCenterCms/1.1'
+        RunId = $RunId
+        Provider = [string]$candidate[0].Provider
+        CreatedAt = Get-LabTimestamp
+        Purpose = 'Central Management Server'
+        AutoStart = 'existing'
+        PasswordOrigin = $passwordOrigin
+        AdoptedExistingEnvironment = $true
+    }
+    Set-LabConnectionCenterCmsConfiguration -Configuration $configuration -StateRoot $StateRoot | Out-Null
+    return [pscustomobject]@{ Configuration = $configuration; Run = $candidate[0].Run }
+}
+
 function Add-LabSsmsTextNode {
     [CmdletBinding()]
     param([Parameter(Mandatory)][System.Xml.XmlDocument]$Document, [Parameter(Mandatory)][System.Xml.XmlElement]$Parent, [Parameter(Mandatory)][string]$Name, [string]$Value)
@@ -629,25 +709,53 @@ function Invoke-LabCmsInteractive {
     Write-Host '  ---------------------------------------------------------------------' -ForegroundColor DarkCyan
     if (-not $configuration) {
         Write-LabInfo 'Kein verwalteter CMS vorhanden.'
-        Write-Host '    [1] Kompakten persistenten CMS mit Docker/Podman erstellen'
-        Write-Host '    [2] Nur CMS-Synchronisationsskript exportieren'
-        Write-Host '    [0] Zurück'
-        $choice = Read-Host '  Auswahl'
-        if ($choice -eq '1') {
-            $providers = @(Get-AvailableLabProviders | Where-Object { $_ -in @('docker', 'podman') })
-            if ($providers.Count -eq 0) { Write-LabError 'Docker oder Podman ist für den CMS erforderlich.'; return }
-            for ($index = 0; $index -lt $providers.Count; $index++) { Write-Host ('    [{0}] {1}' -f ($index + 1), $providers[$index]) }
-            $selection = Read-Host '  Provider [1]'
-            if (-not $selection) { $selection = '1' }
-            $number = 0
-            if (-not [int]::TryParse($selection, [ref]$number) -or $number -lt 1 -or $number -gt $providers.Count) { Write-LabWarning 'Ungültige Auswahl.'; return }
+        $availableProviders = @(Get-AvailableLabProviders)
+        $containerProviders = @('docker', 'podman' | Where-Object { $_ -in $availableProviders })
+        $candidates = @(Get-LabConnectionCenterCmsEnvironmentCandidates -StateRoot $StateRoot)
+        $candidateSummary = if ($candidates.Count -gt 0) {
+            (($candidates | Group-Object Provider | ForEach-Object { '{0}: {1}' -f $_.Name, $_.Count }) -join ' · ')
+        }
+        else { 'keine geeignete bestehende SQL-Umgebung' }
+        $menu = Invoke-LabConsoleMenu -ScreenId 'cms-create-menu' -Title 'CMS bereitstellen' -Subtitle 'Docker/Podman primaer; vorhandene SQL-Umgebung providerneutral uebernehmen' -Items @(
+            New-LabConsoleItem -Id create -Label 'Kompakten persistenten CMS automatisch erstellen' -Value 'Docker bevorzugt · Podman als Fallback' -Shortcut 1 -Disabled:($containerProviders.Count -eq 0)
+            New-LabConsoleItem -Id adopt -Label 'Bestehende SQL-Umgebung als CMS verwenden' -Value $candidateSummary -Shortcut 2 -Disabled:($candidates.Count -eq 0)
+            New-LabConsoleItem -Id export -Label 'Nur CMS-Synchronisationsskript exportieren' -Shortcut 3
+            New-LabConsoleItem -Id back -Label 'Zurueck' -Shortcut 0
+        ) -Footer 'Pfeile: Navigation  Enter/Shortcut: Auswahl  Esc: Zurueck'
+        if ($menu.Status -ne 'Selected' -or [string]$menu.SelectedItem.Id -eq 'back') { return }
+        if ([string]$menu.SelectedItem.Id -eq 'create') {
             if (-not (Read-LabConfirm -Prompt '  Persistenten kompakten CMS jetzt erstellen?' -Default $false)) { return }
-            $result = Initialize-SqlServerLabCms -Provider $providers[$number - 1] -StateRoot $StateRoot
+            $result = Initialize-SqlServerLabCms -StateRoot $StateRoot
             Write-LabSuccess "CMS erstellt: Run $($result.Configuration.RunId)"
             Write-LabWarning "Einmaliges CMS-SA-Passwort (jetzt kopieren): $($result.Password)"
             $null = Sync-SqlServerLabCms -StateRoot $StateRoot
         }
-        elseif ($choice -eq '2') { $result = Export-SqlServerLabCmsSyncScript -StateRoot $StateRoot; Write-LabSuccess "CMS-Synchronisationsskript erstellt: $($result.Path)" }
+        elseif ([string]$menu.SelectedItem.Id -eq 'adopt') {
+            $candidateItems = @(
+                for ($index = 0; $index -lt $candidates.Count; $index++) {
+                    $candidate = $candidates[$index]
+                    New-LabConsoleItem -Id $candidate.RunId -Label $candidate.Name -Value ("{0} · {1} · Run {2}" -f $candidate.Provider, $candidate.State, $candidate.RunId.Substring(0, [Math]::Min(8, $candidate.RunId.Length))) -Shortcut ([string]($index + 1))
+                }
+            )
+            $selection = Invoke-LabConsoleMenu -ScreenId 'cms-adopt-select' -Title 'SQL-Umgebung als CMS verwenden' -Subtitle 'Die Umgebung wird als geschuetzter CMS-Systemdienst registriert' -Items $candidateItems -Footer 'Pfeile: Navigation  Enter/Shortcut: Auswahl  Esc: Zurueck'
+            if ($selection.Status -ne 'Selected') { return }
+            $selected = @($candidates | Where-Object RunId -eq ([string]$selection.SelectedItem.Id) | Select-Object -First 1)[0]
+            $runDirectory = Join-Path (Join-Path $StateRoot 'runs') $selected.RunId
+            $storedPassword = Get-LabSecret -Path $runDirectory -Name 'sa-password'
+            $providedPassword = $null
+            if (-not $storedPassword) {
+                Write-LabInfo 'Fuer diesen Run ist kein lokal geschuetztes SA-Passwort vorhanden.'
+                $providedPassword = Read-Host '  SA-Passwort fuer CMS-Synchronisation' -AsSecureString
+                if (-not $providedPassword -or $providedPassword.Length -eq 0) { Write-LabWarning 'CMS-Uebernahme abgebrochen: Passwort fehlt.'; return }
+            }
+            Write-LabInfo "Run $($selected.RunId) bleibt bestehen und wird als CMS-Systemdienst geschuetzt. Es wird keine neue VM und kein neuer Container erzeugt."
+            if (-not (Read-LabConfirm -Prompt '  Diese SQL-Umgebung jetzt als CMS verwenden?' -Default $false)) { return }
+            $result = Register-SqlServerLabCmsEnvironment -RunId $selected.RunId -SaPassword $providedPassword -StateRoot $StateRoot
+            Write-LabSuccess "CMS registriert: Run $($result.Configuration.RunId) · Provider $($result.Configuration.Provider)"
+            if ([string]$selected.State -eq 'RUNNING') { $null = Sync-SqlServerLabCms -StateRoot $StateRoot }
+            else { Write-LabWarning 'Der CMS ist derzeit nicht gestartet. Nach dem Start kann die Synchronisation fortgesetzt werden.' }
+        }
+        elseif ([string]$menu.SelectedItem.Id -eq 'export') { $result = Export-SqlServerLabCmsSyncScript -StateRoot $StateRoot; Write-LabSuccess "CMS-Synchronisationsskript erstellt: $($result.Path)" }
         return
     }
     Write-Host "  Verwalteter CMS: $($configuration.RunId) · Provider: $($configuration.Provider)" -ForegroundColor White

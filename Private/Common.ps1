@@ -9,6 +9,53 @@
 # --- Modul-weite Konfiguration ---
 $script:LabModuleName = 'SqlServerLab'
 $script:LabVersion = '0.1.0'
+$script:LabConsoleInputCancellationCode = 'LAB_CONSOLE_INPUT_CANCELLED'
+
+function Test-LabConsoleInputCancellation {
+    [CmdletBinding()]
+    param([AllowNull()][object]$InputObject)
+
+    if ($null -eq $InputObject) { return $false }
+    $candidate = if ($InputObject -is [Management.Automation.ErrorRecord]) { $InputObject.Exception } else { $InputObject }
+    while ($candidate -is [Exception]) {
+        if ([string]$candidate.Message -match [regex]::Escape($script:LabConsoleInputCancellationCode)) { return $true }
+        $candidate = $candidate.InnerException
+    }
+    return ([string]$InputObject -match [regex]::Escape($script:LabConsoleInputCancellationCode))
+}
+
+function New-LabConsoleInputCancellationException {
+    [CmdletBinding()]
+    param()
+
+    return [OperationCanceledException]::new($script:LabConsoleInputCancellationCode)
+}
+
+function Read-Host {
+    [CmdletBinding()]
+    param(
+        [Parameter(Position = 0)][AllowNull()][object]$Prompt = '',
+        [switch]$AsSecureString,
+        [switch]$MaskInput,
+        [AllowNull()][object]$Capability,
+        [scriptblock]$ReadInput,
+        [scriptblock]$ReadKey,
+        [scriptblock]$WriteText
+    )
+
+    $arguments = @{
+        Prompt = [string]$Prompt
+        AsSecureString = $AsSecureString
+        MaskInput = $MaskInput
+    }
+    if ($PSBoundParameters.ContainsKey('Capability')) { $arguments.Capability = $Capability }
+    if ($ReadInput) { $arguments.ReadInput = $ReadInput }
+    if ($ReadKey) { $arguments.ReadKey = $ReadKey }
+    if ($WriteText) { $arguments.WriteText = $WriteText }
+    $result = Read-LabConsoleTextInput @arguments
+    if ($result.Status -ne 'Confirmed') { throw (New-LabConsoleInputCancellationException) }
+    return $result.Value
+}
 
 function Get-LabBuildInfo {
     <#
@@ -90,6 +137,7 @@ function Write-LabWarning {
     #>
     [CmdletBinding()]
     param([Parameter(Mandatory, Position = 0)][string]$Message)
+    if (Test-LabConsoleInputCancellation -InputObject $Message) { throw (New-LabConsoleInputCancellationException) }
     if ($global:SqlServerLabUiCaptureOutput) {
         Write-Information "[WARNUNG] $Message" -Tags 'SqlServerLabUi' -InformationAction Continue
         return
@@ -103,6 +151,7 @@ function Write-LabError {
     #>
     [CmdletBinding()]
     param([Parameter(Mandatory, Position = 0)][string]$Message)
+    if (Test-LabConsoleInputCancellation -InputObject $Message) { throw (New-LabConsoleInputCancellationException) }
     if ($global:SqlServerLabUiCaptureOutput) {
         Write-Information "[FEHLER]  $Message" -Tags 'SqlServerLabUi' -InformationAction Continue
         return

@@ -10,6 +10,7 @@ $script:ModuleRoot = $PSScriptRoot
 $script:CatalogsPath = Join-Path $script:ModuleRoot 'Catalogs'
 $script:ProvidersPath = Join-Path $script:ModuleRoot 'Providers'
 $script:SchemasPath = Join-Path $script:ModuleRoot 'Schemas'
+$script:ModuleLoadErrors = [System.Collections.Generic.List[string]]::new()
 
 # --- Versionskatalog laden (wird von Providern und Private benoetigt) ---
 $script:VersionCatalog = $null
@@ -19,7 +20,9 @@ if (Test-Path $catalogFile) {
         $script:VersionCatalog = Get-Content $catalogFile -Raw | ConvertFrom-Json
     }
     catch {
-        Write-Warning "Versionskatalog konnte nicht geladen werden: $_"
+        $message = "Versionskatalog konnte nicht geladen werden: $_"
+        $script:ModuleLoadErrors.Add($message)
+        Write-Warning $message
     }
 }
 
@@ -38,7 +41,9 @@ if (Test-Path $script:ProvidersPath) {
                 Write-Verbose "[LOAD] Provider: $($s.Name)"
             }
             catch {
-                Write-Warning "Provider-Skript fehlgeschlagen: $($s.FullName) - $_"
+                $message = "Provider-Skript fehlgeschlagen: $($s.FullName) - $_"
+                $script:ModuleLoadErrors.Add($message)
+                Write-Warning $message
             }
         }
 
@@ -54,7 +59,9 @@ if (Test-Path $script:ProvidersPath) {
                 }
             }
             catch {
-                Write-Warning "Provider-Metadaten fehlgeschlagen: $($dir.Name) - $_"
+                $message = "Provider-Metadaten fehlgeschlagen: $($dir.Name) - $_"
+                $script:ModuleLoadErrors.Add($message)
+                Write-Warning $message
             }
         }
     }
@@ -69,7 +76,9 @@ if (Test-Path $privatePath) {
             . $file.FullName
         }
         catch {
-            Write-Warning "Fehler beim Laden von $($file.Name): $_"
+            $message = "Fehler beim Laden von $($file.FullName): $_"
+            $script:ModuleLoadErrors.Add($message)
+            Write-Warning $message
         }
     }
 }
@@ -83,9 +92,26 @@ if (Test-Path $publicPath) {
             . $file.FullName
         }
         catch {
-            Write-Warning "Fehler beim Laden von $($file.Name): $_"
+            $message = "Fehler beim Laden von $($file.FullName): $_"
+            $script:ModuleLoadErrors.Add($message)
+            Write-Warning $message
         }
     }
+}
+
+if ($script:ModuleLoadErrors.Count -gt 0) {
+    throw "SQL_SERVER_LAB_MODULE_LOAD_FAILED:`n$($script:ModuleLoadErrors -join "`n")"
+}
+
+$requiredInternalFunctions = @(
+    'Get-LabEnvironmentResources'
+    'Set-LabEnvironmentResources'
+)
+$missingInternalFunctions = @($requiredInternalFunctions | Where-Object {
+    -not (Get-Command $_ -CommandType Function -ErrorAction SilentlyContinue)
+})
+if ($missingInternalFunctions.Count -gt 0) {
+    throw "SQL_SERVER_LAB_MODULE_CONTRACT_INCOMPLETE: $($missingInternalFunctions -join ', ')"
 }
 
 Write-Verbose "[LOAD] SqlServerLab geladen. Provider: $($script:RegisteredProviders.Keys -join ', ')"
