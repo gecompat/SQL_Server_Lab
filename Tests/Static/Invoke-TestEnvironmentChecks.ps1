@@ -203,6 +203,12 @@ try {
         $testEnvironmentText -match '-AutoStart on' -and
         $menuText -match 'DisableAutomatedTestEnvironments'
     )
+    Add-CheckResult -Name 'Cleanup zeigt Docker, Podman und Hyper-V mit explizitem Runtime-Status' -Success (
+        $clearText -match "Id='docker'; Label='docker'" -and
+        $clearText -match "Id='podman'; Label='podman'" -and
+        $clearText -match "Id='hyperv'; Label='Hyper-V'" -and
+        $clearText -match '\$auditBefore\.Audit\.HyperV\.Status'
+    )
     $windowsPatchContract = & $module {
         $base = New-LabWindowsBaseSqlPatchIntent -BaseVersion '2022'
         $intent = [PSCustomObject]@{
