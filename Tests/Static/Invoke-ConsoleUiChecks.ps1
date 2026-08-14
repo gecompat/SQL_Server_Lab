@@ -4,7 +4,9 @@ param()
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
+. (Join-Path $repoRoot 'Private/Common.ps1')
 . (Join-Path $repoRoot 'Private/ConsoleUi.ps1')
+. (Join-Path $repoRoot 'Public/BatchConsole.ps1')
 
 $passed = 0
 $failed = 0
@@ -38,6 +40,14 @@ $frame = Get-LabConsoleFrame -State $state -Title 'Test' -Width 30 -Height 8
 Add-ConsoleUiCheck 'Frame besitzt begrenzten Viewport und Fokusmarker' ($frame.Lines.Count -eq 8 -and @($frame.Lines | Where-Object { $_ -match '^>' }).Count -eq 1)
 Add-ConsoleUiCheck 'Framezeilen bleiben innerhalb der Breite' (@($frame.Lines | Where-Object Length -gt 29).Count -eq 0)
 
+$disabledState = New-LabConsoleState -ScreenId 'disabled-color' -Items @(
+    New-LabConsoleItem -Id 'enabled' -Label 'Enabled' -Shortcut '1'
+    New-LabConsoleItem -Id 'disabled' -Label 'Disabled' -Shortcut '2' -Disabled
+)
+$disabledFrame = Get-LabConsoleFrame -State $disabledState -Title 'Disabled' -Width 40 -Height 8
+$disabledLineIndex = @(0..($disabledFrame.Lines.Count - 1) | Where-Object { $disabledFrame.Lines[$_] -match '\[2\].*Disabled' } | Select-Object -First 1)[0]
+Add-ConsoleUiCheck 'Deaktivierte Menuepunkte werden dunkelgrau gerendert' ($null -ne $disabledLineIndex -and $disabledFrame.LineColors[$disabledLineIndex] -eq 'DarkGray')
+
 $writeSession = [PSCustomObject]@{ PreviousLineCount=5 }
 $writePlan = Get-LabConsoleWritePlan -Session $writeSession -Frame ([PSCustomObject]@{ Lines=@('kurz','neu') }) -Width 12 -Height 6
 Add-ConsoleUiCheck 'Write-Plan ueberschreibt alte Restzeilen vollstaendig' ($writePlan.Rows.Count -eq 5 -and @($writePlan.Rows | Where-Object ClearsPrevious).Count -eq 3 -and @($writePlan.Rows | Where-Object { $_.Text.Length -ne 11 }).Count -eq 0)
@@ -49,6 +59,39 @@ $state.Snapshot = [PSCustomObject]@{ AttentionItems=@(
 $attentionFrame = Get-LabConsoleFrame -State $state -Title 'Attention' -Width 50 -Height 10
 Add-ConsoleUiCheck 'Footer zeigt read-only Attention Items aus dem Snapshot' (@($attentionFrame.Lines | Where-Object { $_ -match '^Offen \[!\]' }).Count -eq 2)
 $state.Snapshot = $null
+
+$textEscapeKeys = [System.Collections.Generic.Queue[object]]::new()
+$textEscapeKeys.Enqueue([PSCustomObject]@{ Key='Escape'; KeyChar=[char]27 })
+$textEscapeResult = Read-LabConsoleTextInput -Prompt 'Batch-Name' -Default 'Neue Umgebungen' -Capability ([PSCustomObject]@{ Supported=$true }) -ReadKey { $textEscapeKeys.Dequeue() } -WriteText { param($text) }
+Add-ConsoleUiCheck 'Texteingabe bricht mit Escape ohne Wert ab' ($textEscapeResult.Status -eq 'Cancelled' -and $null -eq $textEscapeResult.Value)
+
+$textDefaultKeys = [System.Collections.Generic.Queue[object]]::new()
+$textDefaultKeys.Enqueue([PSCustomObject]@{ Key='Enter'; KeyChar=[char]13 })
+$textDefaultResult = Read-LabConsoleTextInput -Prompt 'Batch-Name' -Default 'Neue Umgebungen' -Capability ([PSCustomObject]@{ Supported=$true }) -ReadKey { $textDefaultKeys.Dequeue() } -WriteText { param($text) }
+Add-ConsoleUiCheck 'Texteingabe bestaetigt mit Enter den Default' ($textDefaultResult.Status -eq 'Confirmed' -and $textDefaultResult.Value -eq 'Neue Umgebungen')
+
+$hostEscapeKeys = [System.Collections.Generic.Queue[object]]::new()
+$hostEscapeKeys.Enqueue([PSCustomObject]@{ Key='Escape'; KeyChar=[char]27 })
+$hostEscapeDetected = $false
+try { $null = Read-Host 'Beliebiges Feld' -Capability ([PSCustomObject]@{ Supported=$true }) -ReadKey { $hostEscapeKeys.Dequeue() } -WriteText { param($text) } }
+catch { $hostEscapeDetected = Test-LabConsoleInputCancellation -InputObject $_ }
+Add-ConsoleUiCheck 'Jede modulinterne Read-Host-Eingabe liefert bei Escape das gemeinsame Abbruchsignal' $hostEscapeDetected
+
+$secureEscapeKeys = [System.Collections.Generic.Queue[object]]::new()
+$secureEscapeKeys.Enqueue([PSCustomObject]@{ Key='A'; KeyChar='x' })
+$secureEscapeKeys.Enqueue([PSCustomObject]@{ Key='Escape'; KeyChar=[char]27 })
+$secureWrites = [System.Collections.Generic.List[string]]::new()
+$secureEscapeDetected = $false
+try { $null = Read-Host 'Passwort' -AsSecureString -Capability ([PSCustomObject]@{ Supported=$true }) -ReadKey { $secureEscapeKeys.Dequeue() } -WriteText { param($text) $secureWrites.Add([string]$text) } }
+catch { $secureEscapeDetected = Test-LabConsoleInputCancellation -InputObject $_ }
+Add-ConsoleUiCheck 'Escape verwirft auch sichere Eingaben ohne Klartextausgabe' ($secureEscapeDetected -and (@($secureWrites) -join '') -notmatch 'x')
+
+$acknowledgementKeys = [System.Collections.Generic.Queue[object]]::new()
+$acknowledgementKeys.Enqueue([PSCustomObject]@{ Key='A'; KeyChar='a' })
+$acknowledgementKeys.Enqueue([PSCustomObject]@{ Key='Enter'; KeyChar=[char]13 })
+$acknowledgementWrites = [System.Collections.Generic.List[string]]::new()
+Wait-LabConsoleAcknowledgement -Capability ([PSCustomObject]@{ Supported=$true }) -ReadKey { $acknowledgementKeys.Dequeue() } -WriteText { param($text) $acknowledgementWrites.Add([string]$text) }
+Add-ConsoleUiCheck 'Informationsansicht wartet genau bis Enter oder Escape' ($acknowledgementKeys.Count -eq 0 -and @($acknowledgementWrites).Count -eq 2)
 
 $fallback = Invoke-LabConsoleMenu -ScreenId 'fallback' -Title 'Fallback' -Items $items -ForceFallback -ReadInput { param($prompt) '2' }
 Add-ConsoleUiCheck 'Read-Host-Fallback waehlt nummeriert' ($fallback.Status -eq 'Selected' -and $fallback.SelectedItem.Id -eq 'two')
@@ -162,6 +205,7 @@ $containerSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Update-
 Add-ConsoleUiCheck 'Key-Loops verwenden kein Clear-Host' ($consoleSource -notmatch 'Clear-Host' -and $containerSource -notmatch 'Clear-Host')
 
 $entrySource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Invoke-SqlServerLab.ps1') -Raw
+$connectionCenterSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Sync-SqlServerLabConnectionCenter.ps1') -Raw
     $sqlIntentMatch = [regex]::Match($entrySource, 'function Read-LabSqlEnvironmentIntentInteractive \{[\s\S]+?\n\}(?=\r?\n\r?\nfunction Resolve-LabSqlIntentProvider)')
 Add-ConsoleUiCheck 'SQL-Zielkonfiguration verwendet gemeinsames Formular und Review' ($sqlIntentMatch.Success -and $sqlIntentMatch.Value -match 'Invoke-LabConsoleForm' -and $sqlIntentMatch.Value -match 'New-LabConsoleField')
 Add-ConsoleUiCheck 'Providerentscheidung bleibt ausserhalb der Formularnavigation' ($sqlIntentMatch.Success -and $sqlIntentMatch.Value -notmatch 'Resolve-LabSqlIntentProvider|Invoke-LabNewContainerEnvironmentInteractive|Invoke-LabNewHyperVEnvironmentInteractive')
@@ -178,8 +222,37 @@ Add-ConsoleUiCheck 'Sample-Auswahl verwendet gemeinsame Mehrfachauswahl' ($sampl
 $attentionSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/AttentionStatus.ps1') -Raw
 Add-ConsoleUiCheck 'CUI-010 besitzt gemeinsamen read-only Attention-Snapshot' ($attentionSource -match 'function Get-LabAttentionSnapshot' -and $attentionSource -match 'Get-SqlServerPatchOptions' -and $attentionSource -match 'SQL_SLOT_READY' -and $attentionSource -match 'RECOVERY_REQUIRED')
 Add-ConsoleUiCheck 'Hauptmenü bindet Attention-Snapshot an gemeinsamen Renderer' ($entrySource -match 'Update-LabConsoleAttentionSnapshot' -and $entrySource -match 'Invoke-LabConsoleMenu[^\r\n]+-Snapshot \$snapshot')
+$environmentMenuMatch = [regex]::Match($entrySource, 'function Show-LabEnvironmentMenu \{[\s\S]+?(?=\r?\nfunction Show-LabHyperVMenu)')
+Add-ConsoleUiCheck 'Umgebungsmenue beginnt mit Verwaltung und gruppiert destruktive Sammelaktionen am Ende' ($environmentMenuMatch.Success -and $environmentMenuMatch.Value.IndexOf("-Id 'Manage'") -lt $environmentMenuMatch.Value.IndexOf("-Id 'ClearAutomatedTestEnvironment'") -and $environmentMenuMatch.Value.IndexOf("-Id 'ClearAutomatedTestEnvironment'") -lt $environmentMenuMatch.Value.IndexOf("-Id 'Clear'") -and $environmentMenuMatch.Value.IndexOf("-Id 'Clear'") -lt $environmentMenuMatch.Value.IndexOf("-Id 'back'"))
+Add-ConsoleUiCheck 'Read-only Menueaktionen warten zentral auf genau eine Rueckkehrbestaetigung' ($entrySource -match '\$ActionName -in @\(''Status'', ''CleanupAudit'', ''Catalog''\)[\s\S]+?Wait-LabConsoleAcknowledgement')
+Add-ConsoleUiCheck 'Umgebungsauswahl verwendet Namen als Primaertext und weist die technische Run-ID als Detail aus' ($entrySource -match 'function Get-LabRunSelectorPresentation' -and $entrySource -match 'Label = \$name' -and $entrySource -match "\('Run \{0\}'")
+Add-ConsoleUiCheck 'Connection-Center-CMS ist als nicht mutierbarer Systemdienst klassifiziert' ($entrySource -match "'CMS-Systemdienst'" -and $entrySource -match '-Disabled:\(\$protected -or \(\$DisableSystemServices -and \$systemService\)\)')
+Add-ConsoleUiCheck 'Hauptmenue startet ohne vorab ausgegebene und sofort ueberschriebene Umgebungsuebersicht' ([regex]::Match($entrySource, 'function Invoke-SqlServerLab \{[\s\S]+?(?=\r?\n# =+)').Value -notmatch 'Show-LabBanner')
+Add-ConsoleUiCheck 'Interaktiver Status zeigt Connection String und gespeichertes generiertes SA-Passwort' ($entrySource -match 'function Show-LabEnvironmentStatusInteractive' -and $entrySource -match "'SA-Passwort \(automatisch erzeugt\)'" -and $entrySource -match 'Show-LabEnvironmentStatusInteractive -RunId')
+Add-ConsoleUiCheck 'Hauptmenue deaktiviert Hyper-V-Infrastruktur wenn der Provider nicht verwendbar ist' ($entrySource -match '-Id ''hyperv''.*-Disabled:\(-not \$hyperVAvailable\)' -and $entrySource -match 'Test-HyperVAvailable')
+Add-ConsoleUiCheck 'Statusauswahl bietet Alle und einzelne Umgebungen an' ($entrySource -match "-Id '__all' -Label 'Alle Umgebungen'" -and $entrySource -match "-ScreenId 'environment-status-select'" -and $entrySource -match '\$selectedRuns = if')
+Add-ConsoleUiCheck 'CMS bevorzugt Container und kann vorhandene Hyper-V-SQL-Umgebung uebernehmen' ($connectionCenterSource -match "@\('docker', 'podman'" -and $connectionCenterSource -match "-Id adopt -Label 'Bestehende SQL-Umgebung als CMS verwenden'" -and $connectionCenterSource -match "workflowKind -eq 'hyperv-lab'" -and $connectionCenterSource -match 'function Register-SqlServerLabCmsEnvironment')
+Add-ConsoleUiCheck 'Manuell bereitgestelltes CMS-Passwort wird nicht als generiert markiert' ($connectionCenterSource -match 'PasswordOrigin = \$passwordOrigin' -and $connectionCenterSource -match '\$passwordOrigin = ''ProvidedForCms''' -and $entrySource -match 'IsNullOrWhiteSpace\(\[string\]\$cms.PasswordOrigin\)')
+Add-ConsoleUiCheck 'Generierter Passwortabruf umfasst Hyper-V- und automatisierte Testumgebungen' ($entrySource -match 'Get-SqlServerLabGeneratedSqlAccess -RunId \$RunId' -and $entrySource -match 'Test-LabAutomatedTestEnvironmentRun -RunId \$RunId')
 Add-ConsoleUiCheck 'CUI-011 besitzt Resize-, Write-Plan- und Recovery-Injektionspunkte' ($consoleSource -match 'function Get-LabConsoleWritePlan' -and $consoleSource -match '\[scriptblock\]\$GetViewport' -and $consoleSource -match '\[scriptblock\]\$SessionCompleter' -and $consoleSource -match 'Cursoransicht nicht verfügbar')
 Add-ConsoleUiCheck 'Session stellt urspruengliche Cursorsichtbarkeit wieder her' ($consoleSource -match '\[Console\]::CursorVisible = \[bool\]\$Session\.CursorVisible')
+
+$emptyQueue = [PSCustomObject]@{ items=@(); waitingUserGates=0 }
+$emptyAvailability = Get-LabQueueMenuAvailability -Queue $emptyQueue -Batches @()
+Add-ConsoleUiCheck 'Leere Queue deaktiviert alle auftragsbezogenen Aktionen' (-not $emptyAvailability.HasOverview -and -not $emptyAvailability.HasUserGates -and -not $emptyAvailability.HasCandidates -and -not $emptyAvailability.CanChangePriority -and -not $emptyAvailability.CanMove -and -not $emptyAvailability.CanPauseOrResume -and -not $emptyAvailability.CanStopOperation -and -not $emptyAvailability.CanStopBatch -and -not $emptyAvailability.CanRunScheduler)
+
+$singleQueue = [PSCustomObject]@{ items=@([PSCustomObject]@{ operationId='one'; status='Queued'; priority='Normal' }); waitingUserGates=0 }
+$singleAvailability = Get-LabQueueMenuAvailability -Queue $singleQueue -Batches @()
+Add-ConsoleUiCheck 'Ein einzelner Vorgang kann pausiert oder gestoppt, aber nicht priorisiert oder umgereiht werden' ($singleAvailability.CanPauseOrResume -and $singleAvailability.CanStopOperation -and -not $singleAvailability.CanChangePriority -and -not $singleAvailability.CanMove)
+
+$pairQueue = [PSCustomObject]@{ items=@([PSCustomObject]@{ operationId='one'; status='Queued'; priority='Normal' }, [PSCustomObject]@{ operationId='two'; status='Paused'; priority='Normal' }); waitingUserGates=0 }
+$pairAvailability = Get-LabQueueMenuAvailability -Queue $pairQueue -Batches @([PSCustomObject]@{ status='Queued' })
+Add-ConsoleUiCheck 'Zwei wartende Vorgaenge derselben Prioritaet aktivieren Priorisierung, Umreihung und Batch-Aktionen' ($pairAvailability.CanChangePriority -and $pairAvailability.CanMove -and $pairAvailability.CanStopBatch -and @($pairAvailability.MovableOperationIds).Count -eq 2)
+
+function Read-LabConsoleTextInput { [PSCustomObject]@{ Status='Cancelled'; Value=$null } }
+$composerCancelled = $true
+try { Invoke-LabBatchComposerInteractive } catch { $composerCancelled = $false }
+Add-ConsoleUiCheck 'Batch-Composer kehrt nach Escape am Namen ohne weitere Aktion zurueck' $composerCancelled
 
 Write-Host "`nErgebnis: $passed PASS, $failed FAIL"
 if ($failed -gt 0) { exit 1 }

@@ -27,6 +27,100 @@ function Test-LabConsoleCapability {
     }
 }
 
+function Read-LabConsoleTextInput {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Prompt,
+        [AllowEmptyString()][string]$Default = '',
+        [switch]$AsSecureString,
+        [switch]$MaskInput,
+        [AllowNull()][object]$Capability,
+        [scriptblock]$ReadInput,
+        [scriptblock]$ReadKey,
+        [scriptblock]$WriteText
+    )
+
+    if (-not $Capability) { $Capability = Test-LabConsoleCapability }
+    $promptText = if ($Default) { "$Prompt [$Default]" } else { $Prompt }
+    if (-not [bool]$Capability.Supported) {
+        $value = if ($ReadInput) { & $ReadInput $promptText } elseif ($AsSecureString) { Microsoft.PowerShell.Utility\Read-Host $promptText -AsSecureString } elseif ($MaskInput) { Microsoft.PowerShell.Utility\Read-Host $promptText -MaskInput } else { Microsoft.PowerShell.Utility\Read-Host $promptText }
+        if ($null -eq $value) { return [PSCustomObject]@{ Status='Cancelled'; Value=$null } }
+        if ($AsSecureString) { return [PSCustomObject]@{ Status='Confirmed'; Value=$value } }
+        return [PSCustomObject]@{ Status='Confirmed'; Value=$(if ([string]::IsNullOrWhiteSpace([string]$value)) { $Default } else { [string]$value }) }
+    }
+
+    $write = {
+        param([string]$Text)
+        if ($WriteText) { & $WriteText $Text } else { [Console]::Write($Text) }
+    }
+    $value = ''
+    $secureValue = if ($AsSecureString) { [Security.SecureString]::new() } else { $null }
+    $length = 0
+    & $write "$promptText (Esc: Abbruch): "
+    while ($true) {
+        $key = if ($ReadKey) { & $ReadKey } else { [Console]::ReadKey($true) }
+        switch ([string]$key.Key) {
+            'Escape' {
+                if ($secureValue) { $secureValue.Dispose() }
+                & $write [Environment]::NewLine
+                return [PSCustomObject]@{ Status='Cancelled'; Value=$null }
+            }
+            'Enter' {
+                & $write [Environment]::NewLine
+                if ($secureValue) {
+                    $secureValue.MakeReadOnly()
+                    return [PSCustomObject]@{ Status='Confirmed'; Value=$secureValue }
+                }
+                return [PSCustomObject]@{ Status='Confirmed'; Value=$(if ([string]::IsNullOrWhiteSpace($value)) { $Default } else { $value }) }
+            }
+            'Backspace' {
+                if ($length -gt 0) {
+                    $length--
+                    if ($secureValue) { $secureValue.RemoveAt($length) }
+                    else { $value = $value.Substring(0, $value.Length - 1) }
+                    & $write "`b `b"
+                }
+            }
+            default {
+                $character = [char]$key.KeyChar
+                if (-not [char]::IsControl($character)) {
+                    $length++
+                    if ($secureValue) { $secureValue.AppendChar($character) } else { $value += $character }
+                    & $write $(if ($AsSecureString -or $MaskInput) { '*' } else { [string]$character })
+                }
+            }
+        }
+    }
+}
+
+function Wait-LabConsoleAcknowledgement {
+    [CmdletBinding()]
+    param(
+        [string]$Prompt = '  Enter oder Escape: Zurueck',
+        [AllowNull()][object]$Capability,
+        [scriptblock]$ReadKey,
+        [scriptblock]$WriteText
+    )
+
+    if (-not $Capability) { $Capability = Test-LabConsoleCapability }
+    if (-not [bool]$Capability.Supported) {
+        $null = Microsoft.PowerShell.Utility\Read-Host $Prompt
+        return
+    }
+    $write = {
+        param([string]$Text)
+        if ($WriteText) { & $WriteText $Text } else { [Console]::Write($Text) }
+    }
+    & $write "$Prompt "
+    while ($true) {
+        $key = if ($ReadKey) { & $ReadKey } else { [Console]::ReadKey($true) }
+        if ([string]$key.Key -in @('Enter','Escape')) {
+            & $write [Environment]::NewLine
+            return
+        }
+    }
+}
+
 function New-LabConsoleItem {
     [CmdletBinding()]
     param(
@@ -273,20 +367,22 @@ function Get-LabConsoleFrame {
     $null = Set-LabConsoleViewport -State $State -ViewportHeight $viewportHeight
 
     $lines = [System.Collections.Generic.List[string]]::new()
-    foreach ($line in $header) { $lines.Add((Format-LabConsoleText -Text $line -Width $usableWidth)) }
+    $lineColors = [System.Collections.Generic.List[string]]::new()
+    foreach ($line in $header) { $lines.Add((Format-LabConsoleText -Text $line -Width $usableWidth)); $lineColors.Add('') }
     for ($row = 0; $row -lt $viewportHeight; $row++) {
         $itemIndex = $State.TopIndex + $row
-        if ($itemIndex -ge $State.Items.Count) { $lines.Add(''); continue }
+        if ($itemIndex -ge $State.Items.Count) { $lines.Add(''); $lineColors.Add(''); continue }
         $item = $State.Items[$itemIndex]
         $focus = if ($itemIndex -eq $State.SelectedIndex) { '>' } else { ' ' }
         $shortcut = if ([string]$item.Shortcut) { "[$($item.Shortcut)] " } else { '' }
         $value = if ($null -ne $item.Value -and [string]$item.Value) { ": $($item.Value)" } else { '' }
         $disabled = if ([bool]$item.Disabled) { ' (nicht verfuegbar)' } else { '' }
         $lines.Add((Format-LabConsoleText -Text ("{0} {1}{2}{3}{4}" -f $focus, $shortcut, $item.Label, $value, $disabled) -Width $usableWidth))
+        $lineColors.Add($(if ([bool]$item.Disabled) { 'DarkGray' } else { '' }))
     }
-    foreach ($line in $footerLines) { $lines.Add((Format-LabConsoleText -Text $line -Width $usableWidth)) }
+    foreach ($line in $footerLines) { $lines.Add((Format-LabConsoleText -Text $line -Width $usableWidth)); $lineColors.Add('') }
 
-    [PSCustomObject]@{ Lines=@($lines); Width=$usableWidth; Height=$Height; ViewportHeight=$viewportHeight }
+    [PSCustomObject]@{ Lines=@($lines); LineColors=@($lineColors); Width=$usableWidth; Height=$Height; ViewportHeight=$viewportHeight }
 }
 
 function New-LabConsoleSession {
@@ -322,7 +418,8 @@ function Get-LabConsoleWritePlan {
     $rows = [System.Collections.Generic.List[object]]::new()
     for ($row = 0; $row -lt $clearThrough; $row++) {
         $text = if ($row -lt $lineCount) { Format-LabConsoleText -Text ([string]$Frame.Lines[$row]) -Width $usableWidth } else { '' }
-        $rows.Add([PSCustomObject]@{ Row=$row; Text=$text.PadRight($usableWidth); ClearsPrevious=($row -ge $lineCount) })
+        $color = if ($row -lt $lineCount -and $Frame.PSObject.Properties['LineColors'] -and $row -lt @($Frame.LineColors).Count) { [string]$Frame.LineColors[$row] } else { '' }
+        $rows.Add([PSCustomObject]@{ Row=$row; Text=$text.PadRight($usableWidth); Color=$color; ClearsPrevious=($row -ge $lineCount) })
     }
     [PSCustomObject]@{ Rows=@($rows); LineCount=$lineCount; Width=$usableWidth; Height=$Height }
 }
@@ -341,8 +438,10 @@ function Write-LabConsoleFrame {
     $plan = Get-LabConsoleWritePlan -Session $Session -Frame $Frame -Width $width -Height $height
     foreach ($row in $plan.Rows) {
         [Console]::SetCursorPosition(0, $Session.OriginTop + [int]$row.Row)
+        [Console]::ForegroundColor = if ([string]$row.Color) { [ConsoleColor]$row.Color } else { [ConsoleColor]$Session.ForegroundColor }
         [Console]::Write([string]$row.Text)
     }
+    [Console]::ForegroundColor = [ConsoleColor]$Session.ForegroundColor
     $Session.PreviousLineCount = [int]$plan.LineCount
     [Console]::SetCursorPosition(0, [Math]::Min($Session.OriginTop + [Math]::Max(0, [int]$plan.LineCount - 1), [Console]::BufferHeight - 1))
 }
@@ -398,7 +497,8 @@ function Invoke-LabConsoleMenu {
             $item = $Items[$index]
             $shortcut = if ([string]$item.Shortcut) { [string]$item.Shortcut } else { [string]($index + 1) }
             $value = if ($null -ne $item.Value -and [string]$item.Value) { " - $($item.Value)" } else { '' }
-            Write-Host ("    [{0}] {1}{2}" -f $shortcut, $item.Label, $value)
+            $disabled = if ([bool]$item.Disabled) { ' (nicht verfuegbar)' } else { '' }
+            Write-Host ("    [{0}] {1}{2}{3}" -f $shortcut, $item.Label, $value, $disabled) -ForegroundColor $(if ([bool]$item.Disabled) { 'DarkGray' } else { 'Gray' })
         }
         $answer = if ($ReadInput) { & $ReadInput $FallbackPrompt } else { Read-Host $FallbackPrompt }
         if (-not $answer) { return [PSCustomObject]@{ Status='Cancelled'; SelectedItem=$null; State=$null } }

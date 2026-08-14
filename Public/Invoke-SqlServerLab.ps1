@@ -27,35 +27,40 @@ function Invoke-SqlServerLab {
 
     # Direkt-Aktion ohne Menue
     if ($Action) {
-        if ($Action -eq 'BatchPlan') { Invoke-LabBatchComposerInteractive; return }
-        if ($Action -eq 'Queue') { Invoke-LabQueueInteractive; return }
-        $before = Get-LabWorkflowLifecycleFingerprint
-        Invoke-LabAction -ActionName $Action
-        $after = Get-LabWorkflowLifecycleFingerprint
-        if ($Action -in @('New', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'Rename', 'Resources', 'UpdateContainer', 'Manage') -and $null -ne $before -and $before -ne $after) {
-            Sync-LabConnectionCenterAfterLifecycle
+        try {
+            if ($Action -eq 'BatchPlan') { Invoke-LabBatchComposerInteractive; return }
+            if ($Action -eq 'Queue') { Invoke-LabQueueInteractive; return }
+            $before = Get-LabWorkflowLifecycleFingerprint
+            Invoke-LabAction -ActionName $Action
+            $after = Get-LabWorkflowLifecycleFingerprint
+            if ($Action -in @('New', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'Rename', 'Resources', 'UpdateContainer', 'Manage') -and $null -ne $before -and $before -ne $after) {
+                Sync-LabConnectionCenterAfterLifecycle
+            }
         }
+        catch { if (-not (Test-LabConsoleInputCancellation -InputObject $_)) { throw } }
         return
     }
 
     # Interaktiver Menue-Loop
     $exit = $false
     while (-not $exit) {
-        Show-LabBanner
         $choice = Show-LabMenu
 
-        switch ($choice) {
-            'plan' { Invoke-LabBatchComposerInteractive }
-            'queue' { Invoke-LabQueueInteractive }
-            'environment' { Invoke-LabAreaMenuInteractive -Area Environment }
-            'hyperv' { Invoke-LabAreaMenuInteractive -Area HyperV }
-            'storage' { Invoke-LabAreaMenuInteractive -Area Storage }
-            'database' { Invoke-LabAreaMenuInteractive -Area Database }
-            'system' { Invoke-LabAreaMenuInteractive -Area System }
-            '0' { $exit = $true }
-            'q' { $exit = $true }
-            default { Write-Host "  Ungueltige Auswahl: $choice" -ForegroundColor Red }
+        try {
+            switch ($choice) {
+                'plan' { Invoke-LabBatchComposerInteractive }
+                'queue' { Invoke-LabQueueInteractive }
+                'environment' { Invoke-LabAreaMenuInteractive -Area Environment }
+                'hyperv' { Invoke-LabAreaMenuInteractive -Area HyperV }
+                'storage' { Invoke-LabAreaMenuInteractive -Area Storage }
+                'database' { Invoke-LabAreaMenuInteractive -Area Database }
+                'system' { Invoke-LabAreaMenuInteractive -Area System }
+                '0' { $exit = $true }
+                'q' { $exit = $true }
+                default { Write-Host "  Ungueltige Auswahl: $choice" -ForegroundColor Red }
+            }
         }
+        catch { if (-not (Test-LabConsoleInputCancellation -InputObject $_)) { throw } }
 
     }
 
@@ -107,6 +112,10 @@ function Invoke-LabMenuAction {
         Invoke-LabAction -ActionName $ActionName
     }
 
+    if ($ActionName -in @('Status', 'CleanupAudit', 'Catalog')) {
+        Wait-LabConsoleAcknowledgement
+    }
+
     $after = Get-LabWorkflowLifecycleFingerprint
     if ($ActionName -in @('New', 'AutomatedTestEnvironment', 'ClearAutomatedTestEnvironment', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'Rename', 'Resources', 'Manage', 'UpdateContainer') -and $null -ne $before -and $before -ne $after) {
         Sync-LabConnectionCenterAfterLifecycle
@@ -130,18 +139,24 @@ function Show-LabSubMenu {
 }
 
 function Show-LabEnvironmentMenu {
+    $runs = try { @(Get-LabActiveRuns) } catch { @() }
+    $states = @($runs | ForEach-Object { [string](Get-LabWorkflowValue -InputObject $_.runtime -Name 'state' -Default (Get-LabWorkflowValue -InputObject $_ -Name 'state' -Default '')) })
+    $hasRuns = $runs.Count -gt 0
+    $hasRunning = @($states | Where-Object { $_ -eq 'RUNNING' }).Count -gt 0
+    $hasStopped = @($states | Where-Object { $_ -eq 'STOPPED' }).Count -gt 0
+    $hasAutomatedTestEnvironments = try { [int](Get-LabAutomatedTestEnvironmentStatus).Total -gt 0 } catch { $false }
     $items = @(
-        New-LabConsoleItem -Id 'ClearAutomatedTestEnvironment' -Label 'Alle automatisierten Testumgebungen loeschen' -Value 'geschuetzte Gruppe' -Shortcut 'x'
-        New-LabConsoleItem -Id 'Manage' -Label 'Umgebung auswaehlen und verwalten' -Value 'Start, Stopp, Name, CPU, Speicher, Entfernen' -Shortcut '1'
-        New-LabConsoleItem -Id 'Status' -Label 'Status aller Umgebungen anzeigen' -Shortcut '2'
-        New-LabConsoleItem -Id 'Stop' -Label 'Umgebung stoppen' -Shortcut '3'
-        New-LabConsoleItem -Id 'Start' -Label 'Umgebung starten' -Shortcut '4'
-        New-LabConsoleItem -Id 'Restart' -Label 'Umgebung neustarten' -Shortcut '5'
-        New-LabConsoleItem -Id 'Remove' -Label 'Umgebung entfernen' -Shortcut '6'
-        New-LabConsoleItem -Id 'Clear' -Label 'Alle Lab-Ressourcen aufraeumen' -Shortcut '7'
+        New-LabConsoleItem -Id 'Manage' -Label 'Umgebung auswaehlen und verwalten' -Value 'Start, Stopp, Name, CPU, Speicher, Entfernen' -Shortcut '1' -Disabled:(-not $hasRuns)
+        New-LabConsoleItem -Id 'Status' -Label 'Status aller Umgebungen anzeigen' -Shortcut '2' -Disabled:(-not $hasRuns)
+        New-LabConsoleItem -Id 'Stop' -Label 'Umgebung stoppen' -Shortcut '3' -Disabled:(-not $hasRunning)
+        New-LabConsoleItem -Id 'Start' -Label 'Umgebung starten' -Shortcut '4' -Disabled:(-not $hasStopped)
+        New-LabConsoleItem -Id 'Restart' -Label 'Umgebung neustarten' -Shortcut '5' -Disabled:(-not ($hasRunning -or $hasStopped))
+        New-LabConsoleItem -Id 'Rename' -Label 'Umgebung umbenennen' -Shortcut 'n' -Disabled:(-not $hasRuns)
+        New-LabConsoleItem -Id 'Resources' -Label 'CPU und Speicher aendern' -Shortcut 'r' -Disabled:(-not $hasRuns)
         New-LabConsoleItem -Id 'CleanupAudit' -Label 'Cleanup-Audit anzeigen (read-only)' -Shortcut 'a'
-        New-LabConsoleItem -Id 'Rename' -Label 'Umgebung umbenennen' -Shortcut 'n'
-        New-LabConsoleItem -Id 'Resources' -Label 'CPU und Speicher aendern' -Shortcut 'r'
+        New-LabConsoleItem -Id 'Remove' -Label 'Umgebung entfernen' -Shortcut '6' -Disabled:(-not $hasRuns)
+        New-LabConsoleItem -Id 'ClearAutomatedTestEnvironment' -Label 'Alle automatisierten Testumgebungen loeschen' -Value 'geschuetzte Gruppe' -Shortcut 'x' -Disabled:(-not $hasAutomatedTestEnvironments)
+        New-LabConsoleItem -Id 'Clear' -Label 'Alle Lab-Ressourcen aufraeumen' -Value 'Recovery und verwaiste Ressourcen' -Shortcut '7'
         New-LabConsoleItem -Id 'back' -Label 'Zurueck' -Shortcut '0'
     )
 
@@ -345,6 +360,51 @@ function Get-LabRunConnectionStrings {
     return @($result)
 }
 
+function Show-LabEnvironmentStatusInteractive {
+    <# .SYNOPSIS Zeigt den dauerhaften Status samt bewusst eingeblendeten generierten SQL-Zugangsdaten. #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$RunId, [string]$StateRoot)
+
+    if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
+    $null = Get-SqlServerLab -RunId $RunId -Detailed
+    $connections = @(Get-LabRunConnectionStrings -RunId $RunId -StateRoot $StateRoot)
+    $generatedAccess = try { Get-SqlServerLabGeneratedSqlAccess -RunId $RunId -StateRoot $StateRoot } catch { $null }
+    $generatedPassword = if ($generatedAccess -and $generatedAccess.Generated -and $generatedAccess.Persisted) {
+        [string]$generatedAccess.Password
+    }
+    else {
+        Get-LabAutomaticallyGeneratedRunSaPassword -RunId $RunId -StateRoot $StateRoot
+    }
+
+    if ($generatedAccess -and $generatedAccess.ConnectionString) {
+        $hyperVConnection = @($connections | Where-Object { [string]$_.Provider -eq 'hyperv' } | Select-Object -First 1)
+        if ($hyperVConnection.Count -eq 1) {
+            $hyperVConnection[0].Value = [string]$generatedAccess.ConnectionString
+        }
+        else {
+            $connections += [pscustomobject]@{ Provider='hyperv'; InstanceId='sql'; Value=[string]$generatedAccess.ConnectionString }
+        }
+    }
+
+    Write-Host ''
+    Write-Host '  SQL-Zugang' -ForegroundColor Cyan
+    if ($connections.Count -eq 0) {
+        Write-LabStatus -Label 'Connection String' -Value 'noch nicht ermittelt' -Color DarkGray
+    }
+    else {
+        foreach ($connection in $connections) {
+            Write-LabStatus -Label ("Connection String ({0}/{1})" -f $connection.Provider, $connection.InstanceId) -Value ([string]$connection.Value)
+        }
+    }
+    if ($generatedPassword) {
+        Write-LabStatus -Label 'SA-Passwort (automatisch erzeugt)' -Value $generatedPassword -Color Yellow
+        Write-Host '  Das Passwort wird nur in dieser ausdrücklich geöffneten Statusansicht entschlüsselt angezeigt.' -ForegroundColor DarkGray
+    }
+    else {
+        Write-LabStatus -Label 'SA-Passwort' -Value 'nicht automatisch gespeichert oder für diese Umgebung nicht abrufbar' -Color DarkGray
+    }
+}
+
 function Get-LabWindowsMediaOperatingSystemLabel {
     <# .SYNOPSIS Erzeugt eine lesbare, versionsdynamische Windows-Gruppenüberschrift. #>
     [CmdletBinding()]
@@ -438,11 +498,25 @@ function Get-LabRunsByRuntimeState {
 function Show-LabMenu {
     try { $snapshot = Update-LabConsoleAttentionSnapshot } catch { $snapshot = $null }
     while ($true) {
+        $hyperVAvailability = try {
+            if ($IsWindows) { Test-HyperVAvailable }
+            else { [pscustomobject]@{ Available = $false; Message = 'Hyper-V ist nur unter Windows verfuegbar.' } }
+        }
+        catch { [pscustomobject]@{ Available = $false; Message = $_.Exception.Message } }
+        $hyperVAvailable = $null -ne $hyperVAvailability -and [bool]$hyperVAvailability.Available
+        $hyperVMenuValue = if ($hyperVAvailable) {
+            'Vorlagen · ISOs · Slots · Bulk-Bereitstellung · Recovery'
+        }
+        else {
+            $reason = [string]$hyperVAvailability.Message
+            if ([string]::IsNullOrWhiteSpace($reason)) { $reason = 'Hyper-V ist nicht installiert oder in dieser Sitzung nicht verwendbar.' }
+            "Nicht verfuegbar: $reason"
+        }
         $items = @(
             New-LabConsoleItem -Id 'plan' -Label 'Umgebungen planen und erstellen' -Value 'SQL/Windows · Einzelposition oder Batch · Provider Auto' -Shortcut '1'
             New-LabConsoleItem -Id 'queue' -Label 'Vorgaenge, Queue und Benutzeraktionen' -Value 'Fortschritt · Prioritaet · Resume · User-Gates' -Shortcut '2'
             New-LabConsoleItem -Id 'environment' -Label 'Umgebungen verwalten' -Value 'Status · Start · Stopp · Name · CPU/RAM · Entfernen' -Shortcut '3'
-            New-LabConsoleItem -Id 'hyperv' -Label 'Hyper-V-Infrastruktur' -Value 'Vorlagen · ISOs · Slots · Bulk-Bereitstellung · Recovery' -Shortcut '4'
+            New-LabConsoleItem -Id 'hyperv' -Label 'Hyper-V-Infrastruktur' -Value $hyperVMenuValue -Shortcut '4' -Disabled:(-not $hyperVAvailable)
             New-LabConsoleItem -Id 'storage' -Label 'Medien, Testdaten und Speicher' -Value 'Lab_Base · Lab_Data · Testdatenbibliothek · Storage' -Shortcut '5'
             New-LabConsoleItem -Id 'database' -Label 'Datenbanken und Verbindungen' -Value 'Samples · Restore · Skripte · Endpunkte · SSMS · CMS' -Shortcut '6'
             New-LabConsoleItem -Id 'system' -Label 'Systemstatus und Einstellungen' -Value 'Provider · Scheduler · Ton · Ruhemodus · Audit' -Shortcut '7'
@@ -544,8 +618,35 @@ function Invoke-LabAction {
                 Write-LabInfo "Keine aktiven Labs."
                 return
             }
-            $runId = Select-LabRun -Runs $runs -Prompt "Status anzeigen"
-            if ($runId) { $null = Get-SqlServerLab -RunId $runId -Detailed }
+            $cmsRunId = try { [string](Get-LabConnectionCenterCmsConfiguration).RunId } catch { '' }
+            $statusRuns = @($runs | Where-Object { [string]$_.runId -ne $cmsRunId })
+            if ($statusRuns.Count -eq 0) {
+                Write-LabInfo 'Keine normalen Lab-Umgebungen vorhanden. Der CMS-Systemdienst wird unter Datenbanken und Verbindungen verwaltet.'
+                return
+            }
+
+            $statusItems = [System.Collections.Generic.List[object]]::new()
+            $statusItems.Add((New-LabConsoleItem -Id '__all' -Label 'Alle Umgebungen' -Value "$($statusRuns.Count) Umgebung(en)" -Shortcut 'a'))
+            for ($index = 0; $index -lt $statusRuns.Count; $index++) {
+                $run = $statusRuns[$index]
+                $presentation = Get-LabRunSelectorPresentation -Run $run -RuntimeState ([string]$run.runtime.state)
+                $statusItems.Add((New-LabConsoleItem -Id ([string]$run.runId) -Label $presentation.Label -Value $presentation.Value -Shortcut ([string]($index + 1))))
+            }
+            $selection = Invoke-LabConsoleMenu -ScreenId 'environment-status-select' -Title 'Umgebungsstatus anzeigen' -Subtitle 'Eine Umgebung oder Alle auswaehlen' -Items $statusItems.ToArray() -Footer 'Pfeile: Navigation  Enter/Shortcut: Auswahl  Esc: Zurueck'
+            if ($selection.Status -ne 'Selected') { return }
+
+            $selectedRuns = if ([string]$selection.SelectedItem.Id -eq '__all') {
+                @($statusRuns)
+            }
+            else {
+                @($statusRuns | Where-Object { [string]$_.runId -eq [string]$selection.SelectedItem.Id })
+            }
+            foreach ($run in $selectedRuns) {
+                Write-Host ''
+                Write-Host ("  Umgebung: {0} ({1})" -f ([string]$run.metadata.name), ([string]$run.runId)) -ForegroundColor Cyan
+                Write-Host '  ---------------------------------------------------------------------' -ForegroundColor DarkCyan
+                Show-LabEnvironmentStatusInteractive -RunId ([string]$run.runId)
+            }
         }
 
         'Stop' {
@@ -554,7 +655,7 @@ function Invoke-LabAction {
                 Write-LabInfo "Keine laufenden Labs."
                 return
             }
-            $runId = Select-LabRun -Runs $runs -Prompt "Stoppen" -DisableAutomatedTestEnvironments
+            $runId = Select-LabRun -Runs $runs -Prompt "Stoppen" -DisableAutomatedTestEnvironments -DisableSystemServices
             if ($runId) { Stop-SqlServerLab -RunId $runId }
         }
 
@@ -564,7 +665,7 @@ function Invoke-LabAction {
                 Write-LabInfo "Keine gestoppten Labs."
                 return
             }
-            $runId = Select-LabRun -Runs $runs -Prompt "Starten" -DisableAutomatedTestEnvironments
+            $runId = Select-LabRun -Runs $runs -Prompt "Starten" -DisableAutomatedTestEnvironments -DisableSystemServices
             if ($runId) { Start-SqlServerLab -RunId $runId }
         }
 
@@ -574,7 +675,7 @@ function Invoke-LabAction {
                 Write-LabInfo "Keine Labs zum Neustarten."
                 return
             }
-            $runId = Select-LabRun -Runs $runs -Prompt "Neustarten" -DisableAutomatedTestEnvironments
+            $runId = Select-LabRun -Runs $runs -Prompt "Neustarten" -DisableAutomatedTestEnvironments -DisableSystemServices
             if ($runId) { Restart-SqlServerLab -RunId $runId }
         }
 
@@ -584,7 +685,7 @@ function Invoke-LabAction {
                 Write-LabInfo "Keine aktiven Labs."
                 return
             }
-            $runId = Select-LabRun -Runs $runs -Prompt "Entfernen" -DisableAutomatedTestEnvironments
+            $runId = Select-LabRun -Runs $runs -Prompt "Entfernen" -DisableAutomatedTestEnvironments -DisableSystemServices
             if ($runId) {
                 $confirm = Read-Host "  Wirklich entfernen? (j/n) [n]"
                 if ($confirm -eq 'j') { Remove-SqlServerLab -RunId $runId -Force }
@@ -601,7 +702,7 @@ function Invoke-LabAction {
                 Write-LabInfo "Keine laufenden Labs."
                 return
             }
-            $runId = Select-LabRun -Runs $runs -Prompt "Datenbank anlegen auf" -DisableAutomatedTestEnvironments
+            $runId = Select-LabRun -Runs $runs -Prompt "Datenbank anlegen auf" -DisableAutomatedTestEnvironments -DisableSystemServices
             if (-not $runId) { return }
 
             $stateRoot = Get-LabStateRoot
@@ -650,7 +751,7 @@ function Invoke-LabAction {
                 Write-LabInfo "Keine laufenden Labs."
                 return
             }
-            $runId = Select-LabRun -Runs $runs -Prompt "Skript ausfuehren auf" -DisableAutomatedTestEnvironments
+            $runId = Select-LabRun -Runs $runs -Prompt "Skript ausfuehren auf" -DisableAutomatedTestEnvironments -DisableSystemServices
             if (-not $runId) { return }
 
             # Port aus connection-info lesen
@@ -743,16 +844,42 @@ function Get-LabAutomaticallyGeneratedRunSaPassword {
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
     try {
         $cms = Get-LabConnectionCenterCmsConfiguration -StateRoot $StateRoot
-        if (-not $cms -or [string]$cms.RunId -ne $RunId) { return $null }
-        $isGenerated = ([string]$cms.PasswordOrigin -eq 'Generated') -or ([string]$cms.Purpose -eq 'Central Management Server')
-        if (-not $isGenerated) { return $null }
-        $secret = Get-LabSecret -Path (Join-Path (Join-Path $StateRoot 'runs') $RunId) -Name 'sa-password'
-        if (-not $secret) { return $null }
-        $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($secret)
-        try { return [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) }
-        finally { [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
+        $isGeneratedCms = $cms -and [string]$cms.RunId -eq $RunId -and (
+            [string]$cms.PasswordOrigin -eq 'Generated' -or
+            ([string]::IsNullOrWhiteSpace([string]$cms.PasswordOrigin) -and [string]$cms.Purpose -eq 'Central Management Server')
+        )
+        if ($isGeneratedCms) {
+            $secret = Get-LabSecret -Path (Join-Path (Join-Path $StateRoot 'runs') $RunId) -Name 'sa-password'
+            if ($secret) {
+                $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($secret)
+                try { return [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) }
+                finally { [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
+            }
+        }
     }
-    catch { return $null }
+    catch { }
+
+    try {
+        if (Test-LabAutomatedTestEnvironmentRun -RunId $RunId) {
+            $secret = Get-LabSecret -Path (Join-Path (Join-Path $StateRoot 'runs') $RunId) -Name 'sa-password'
+            if (-not $secret) { $secret = Get-LabSecret -Path (Join-Path (Join-Path $StateRoot 'runs') $RunId) -Name 'generated-sql-sa-password' }
+            if ($secret) {
+                $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($secret)
+                try { return [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) }
+                finally { [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
+            }
+        }
+    }
+    catch { }
+
+    try {
+        $generatedAccess = Get-SqlServerLabGeneratedSqlAccess -RunId $RunId -StateRoot $StateRoot
+        if ($generatedAccess -and $generatedAccess.Generated -and $generatedAccess.Persisted -and $generatedAccess.Password) {
+            return [string]$generatedAccess.Password
+        }
+    }
+    catch { }
+    return $null
 }
 
 function Get-LabHostPhysicalMemoryMB {
@@ -3911,27 +4038,84 @@ function Get-AvailableLabProviders {
     return @($available | Sort-Object -Unique)
 }
 
+function Get-LabRunSelectorPresentation {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Run,
+        [string]$RuntimeState,
+        [switch]$Protected,
+        [switch]$SystemService
+    )
+
+    $runId = [string]$Run.runId
+    $shortRunId = if ($runId.Length -gt 8) { $runId.Substring(0, 8) + '...' } else { $runId }
+    $name = [string]$Run.metadata.name
+    if ([string]::IsNullOrWhiteSpace($name)) { $name = 'Unbenannte Umgebung' }
+
+    $providers = @(
+        @($Run.providerSubRuns | ForEach-Object { [string]$_.provider })
+        @($Run.metadata.desiredState.Instances | ForEach-Object { [string]$_.Provider })
+    ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique
+    $workflowKind = [string]$Run.metadata.workflowKind
+    $baseKind = [string]$Run.metadata.baseKind
+    if ($workflowKind -eq 'hyperv-lab' -and $providers -notcontains 'hyperv') {
+        $providers = @($providers) + 'hyperv'
+    }
+
+    $role = if ($SystemService) {
+        'CMS-Systemdienst'
+    }
+    elseif ($Protected) {
+        'Automatisierte Testumgebung'
+    }
+    elseif ($workflowKind -eq 'hyperv-lab' -and $baseKind -eq 'windows-baseline' -and $null -eq $Run.metadata.desiredState) {
+        'Hyper-V-Windows-Slot'
+    }
+    elseif ($workflowKind -eq 'hyperv-lab') {
+        'Hyper-V-Umgebung'
+    }
+    else {
+        'Lab-Umgebung'
+    }
+
+    $details = [System.Collections.Generic.List[string]]::new()
+    if (-not [string]::IsNullOrWhiteSpace($RuntimeState)) { $details.Add($RuntimeState.ToUpperInvariant()) }
+    $details.Add($role)
+    if (@($providers).Count -gt 0) { $details.Add(('Provider {0}' -f (@($providers) -join '/'))) }
+    if (-not [string]::IsNullOrWhiteSpace($shortRunId)) { $details.Add(('Run {0}' -f $shortRunId)) }
+    if ($SystemService) { $details.Add('unter Datenbanken und Verbindungen verwalten') }
+    elseif ($Protected) { $details.Add('nur als Testgruppe verwaltbar') }
+
+    [pscustomobject]@{
+        Label = $name
+        Value = ($details -join ' | ')
+    }
+}
+
 function Select-LabRun {
     param(
         [Parameter(Mandatory)][array]$Runs,
         [string]$Prompt = "Auswahl",
-        [switch]$DisableAutomatedTestEnvironments
+        [switch]$DisableAutomatedTestEnvironments,
+        [switch]$DisableSystemServices
     )
 
     $protectedRunIds = if ($DisableAutomatedTestEnvironments) { @(Get-LabAutomatedTestEnvironmentRunIds) } else { @() }
-    if ($Runs.Count -eq 1 -and [string]$Runs[0].runId -notin $protectedRunIds) {
-        $prefix = $Runs[0].runId.Substring(0, 8)
-        Write-LabInfo "Einziges Lab: ${prefix}... ($($Runs[0].metadata.name))"
+    $cmsRunId = try { [string](Get-LabConnectionCenterCmsConfiguration).RunId } catch { '' }
+    $singleRunIsSystemService = -not [string]::IsNullOrWhiteSpace($cmsRunId) -and [string]$Runs[0].runId -eq $cmsRunId
+    if ($Runs.Count -eq 1 -and [string]$Runs[0].runId -notin $protectedRunIds -and -not ($DisableSystemServices -and $singleRunIsSystemService)) {
+        $presentation = Get-LabRunSelectorPresentation -Run $Runs[0] -RuntimeState ([string]$Runs[0].runtime.state) -SystemService:$singleRunIsSystemService
+        Write-LabInfo ("Einzige Umgebung: {0} ({1})" -f $presentation.Label, $presentation.Value)
         return $Runs[0].runId
     }
 
     while ($true) {
         $items = for ($i = 0; $i -lt $Runs.Count; $i++) {
-            $prefix = $Runs[$i].runId.Substring(0, 8)
             $synced = Sync-LabRunRuntimeState -Run $Runs[$i]
             $protected = [string]$Runs[$i].runId -in $protectedRunIds
-            $value = if ($protected) { "$($synced.Runtime.State) · geschützte Testgruppe · nur gemeinsam löschbar" } else { [string]$synced.Runtime.State }
-            New-LabConsoleItem -Id ([string]$Runs[$i].runId) -Label ("{0}... - {1}" -f $prefix, $Runs[$i].metadata.name) -Value $value -Shortcut ([string]($i + 1)) -Data $Runs[$i] -Disabled:$protected
+            $systemService = -not [string]::IsNullOrWhiteSpace($cmsRunId) -and [string]$Runs[$i].runId -eq $cmsRunId
+            $presentation = Get-LabRunSelectorPresentation -Run $Runs[$i] -RuntimeState ([string]$synced.Runtime.State) -Protected:$protected -SystemService:$systemService
+            New-LabConsoleItem -Id ([string]$Runs[$i].runId) -Label $presentation.Label -Value $presentation.Value -Shortcut ([string]($i + 1)) -Data $Runs[$i] -Disabled:($protected -or ($DisableSystemServices -and $systemService))
         }
         $result = Invoke-LabConsoleMenu -ScreenId 'active-run-selection' -Title $Prompt -Subtitle 'Aktive SQL_Server_Lab-Umgebungen' -Items $items -Footer 'Pfeile: Navigation  Enter: Auswahl  F5: Runtime-Status aktualisieren  Esc: Zurueck' -FallbackPrompt "  $Prompt (Nummer)"
         if ($result.Status -eq 'Refresh') { continue }
@@ -3954,7 +4138,7 @@ function Set-LabResourcesInteractive {
 
     $runs = @(Get-LabActiveRuns)
     if ($runs.Count -eq 0) { Write-LabInfo 'Keine aktiven Lab-Umgebungen vorhanden.'; return }
-    if (-not $RunId) { $RunId = Select-LabRun -Runs $runs -Prompt 'Umgebung für CPU/Speicher' -DisableAutomatedTestEnvironments }
+    if (-not $RunId) { $RunId = Select-LabRun -Runs $runs -Prompt 'Umgebung für CPU/Speicher' -DisableAutomatedTestEnvironments -DisableSystemServices }
     if (-not $RunId) { return }
     if (Test-LabAutomatedTestEnvironmentRun -RunId $RunId) { Write-LabWarning 'Automatisierte Testumgebungen sind als Gruppe geschützt; Ressourcenänderung ist gesperrt.'; return }
 
@@ -3962,7 +4146,11 @@ function Set-LabResourcesInteractive {
         $run = Get-LabRunState -RunId $RunId
         $resources = Get-LabEnvironmentResources -RunId $RunId
         $instances = @($resources.Instances | Where-Object { $_.Available -ne $false })
-        if ($instances.Count -eq 0) { Write-LabError 'Die Runtime-Objekte dieser Umgebung sind nicht erreichbar.'; return }
+        if ($instances.Count -eq 0) {
+            Write-LabError 'Die Runtime-Objekte dieser Umgebung sind nicht erreichbar.'
+            $null = Wait-LabConsoleAcknowledgement
+            return
+        }
         $first = $instances[0]
         $isHyperV = [string]$run.metadata.workflowKind -eq 'hyperv-lab'
         $memory = if ($isHyperV) { [int]$first.MemoryStartupMB } else { [int]$first.MemoryLimitMB }
@@ -3976,6 +4164,7 @@ function Set-LabResourcesInteractive {
         }
         if ($isHyperV -and [string]$first.RuntimeState -ne 'Off') {
             Write-LabWarning 'Hyper-V-Ressourcen können sicher nur bei ausgeschalteter VM geändert werden. Zuerst im Verwalten-Menü stoppen.'
+            $null = Wait-LabConsoleAcknowledgement
             return
         }
         Write-Host '  Container übernehmen die Limits sofort; Hyper-V erhält einen dynamischen Bereich von mindestens 1 GB/halber Startwert bis zum Doppelten.' -ForegroundColor DarkGray
@@ -3985,13 +4174,19 @@ function Set-LabResourcesInteractive {
         if (-not $newCpu) { $newCpu = $cpu }
         if ($newMemory -notmatch '^\d+$' -or [int]$newMemory -lt 512 -or $newCpu -notmatch '^\d+$' -or [int]$newCpu -lt 1 -or [int]$newCpu -gt 64) {
             Write-LabError 'Ungültige Ressourcenwerte. Speicher mindestens 512 MB, CPU 1 bis 64.'
+            $null = Wait-LabConsoleAcknowledgement
             return
         }
         if (-not (Read-LabConfirm -Prompt '  Ressourcen jetzt am Runtime-Objekt ändern?' -Default $false)) { return }
         $result = Set-LabEnvironmentResources -RunId $RunId -MemoryMB ([int]$newMemory) -ProcessorCount ([int]$newCpu)
-        Write-LabSuccess "Ressourcen aktualisiert: $($result.Provider), $newMemory MB, $newCpu CPU."
+        if ($result.NoChange) { Write-LabInfo "Ressourcen unverändert: $($result.Provider), $newMemory MB, $newCpu CPU." }
+        else { Write-LabSuccess "Ressourcen aktualisiert: $($result.Provider), $newMemory MB, $newCpu CPU." }
+        $null = Wait-LabConsoleAcknowledgement
     }
-    catch { Write-LabError $_.Exception.Message }
+    catch {
+        Write-LabError $_.Exception.Message
+        $null = Wait-LabConsoleAcknowledgement
+    }
 }
 
 function Manage-LabEnvironmentInteractive {
@@ -4007,7 +4202,7 @@ function Manage-LabEnvironmentInteractive {
 
     $runs = @(Get-LabActiveRuns)
     if ($runs.Count -eq 0) { Write-LabInfo 'Keine aktiven Lab-Umgebungen vorhanden.'; return }
-    $runId = Select-LabRun -Runs $runs -Prompt 'Umgebung verwalten' -DisableAutomatedTestEnvironments
+    $runId = Select-LabRun -Runs $runs -Prompt 'Umgebung verwalten' -DisableAutomatedTestEnvironments -DisableSystemServices
     if (-not $runId) { return }
     $run = Get-LabRunState -RunId $runId
     if ([string]$run.metadata.workflowKind -eq 'hyperv-lab') {
@@ -4055,7 +4250,7 @@ function Rename-LabEnvironmentInteractive {
 
     $runs = @(Get-LabActiveRuns)
     if ($runs.Count -eq 0) { Write-LabInfo 'Keine aktiven Lab-Umgebungen vorhanden.'; return }
-    $runId = Select-LabRun -Runs $runs -Prompt 'Umgebung zum Umbenennen' -DisableAutomatedTestEnvironments
+    $runId = Select-LabRun -Runs $runs -Prompt 'Umgebung zum Umbenennen' -DisableAutomatedTestEnvironments -DisableSystemServices
     if (-not $runId) { return }
     $run = Get-LabRunState -RunId $runId
     $currentName = [string]$run.metadata.name

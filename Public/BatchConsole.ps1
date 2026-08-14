@@ -218,8 +218,9 @@ function Invoke-LabBatchComposerInteractive {
     param([switch]$SlotMode)
 
     $basket = [Collections.Generic.List[object]]::new()
-    $name = Read-Host '  Batch-Name [Neue Umgebungen]'
-    if ([string]::IsNullOrWhiteSpace($name)) { $name = 'Neue Umgebungen' }
+    $nameInput = Read-LabConsoleTextInput -Prompt '  Batch-Name' -Default 'Neue Umgebungen'
+    if ($nameInput.Status -ne 'Confirmed') { return }
+    $name = [string]$nameInput.Value
     while ($true) {
         $expandedCount = if ($basket.Count -eq 0) { 0 } else { [int](@($basket | Measure-Object -Property count -Sum).Sum) }
         $summary = "$($basket.Count) Gruppen · $expandedCount Positionen"
@@ -329,29 +330,66 @@ function Confirm-LabCandidateOperationsInteractive {
     }
 }
 
+function Get-LabQueueMenuAvailability {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][object]$Queue,
+        [object[]]$Batches = @()
+    )
+
+    $items = @($Queue.items)
+    $priorityCandidates = @($items | Where-Object status -ne 'Running')
+    $movableItems = @($priorityCandidates | Group-Object priority | Where-Object Count -ge 2 | ForEach-Object { @($_.Group) })
+    $pausableItems = @($items | Where-Object status -in @('Queued','WaitingForDependency','Paused'))
+    $activeBatches = @($Batches | Where-Object status -ne 'Cancelled')
+    [PSCustomObject]@{
+        HasOverview = $items.Count -gt 0
+        HasUserGates = [int]$Queue.waitingUserGates -gt 0
+        HasCandidates = @($items | Where-Object status -eq 'CandidateSatisfied').Count -gt 0
+        CanChangePriority = $priorityCandidates.Count -ge 2
+        PriorityOperationIds = @($priorityCandidates.operationId)
+        CanMove = $movableItems.Count -ge 2
+        MovableOperationIds = @($movableItems.operationId)
+        CanPauseOrResume = $pausableItems.Count -gt 0
+        CanStopOperation = $items.Count -gt 0
+        CanStopBatch = $activeBatches.Count -gt 0
+        CanRunScheduler = $items.Count -gt 0
+    }
+}
+
 function Invoke-LabQueueInteractive {
     [CmdletBinding()]
     param()
 
     while ($true) {
         $queue = Get-SqlServerLabQueue
+        $batches = @(Get-SqlServerLabBatch)
+        $availability = Get-LabQueueMenuAvailability -Queue $queue -Batches $batches
         $subtitle = "$($queue.runningWorkers)/$($queue.maxWorkers) Worker · $($queue.waitingUserGates) User-Gates · Queue $($queue.length)"
         $choice = Invoke-LabConsoleMenu -ScreenId 'queue-menu' -Title 'Vorgaenge, Queue und Benutzeraktionen' -Subtitle $subtitle -Items @(
-            New-LabConsoleItem -Id 'overview' -Label 'Queue-Uebersicht und Details' -Value $subtitle -Shortcut '1'
-            New-LabConsoleItem -Id 'gates' -Label 'Benutzeraktionen oeffnen' -Value 'Schritte werden immer vollstaendig angezeigt' -Shortcut '2' -Disabled:($queue.waitingUserGates -eq 0)
-            New-LabConsoleItem -Id 'bulk-confirm' -Label 'Vermutlich erledigte Positionen auswaehlen, pruefen und fortsetzen' -Shortcut '3' -Disabled:(@($queue.items | Where-Object status -eq 'CandidateSatisfied').Count -eq 0)
-            New-LabConsoleItem -Id 'priority' -Label 'Prioritaet aendern' -Shortcut '4'
-            New-LabConsoleItem -Id 'move' -Label 'Wartenden Vorgang umreihen' -Shortcut '5'
-            New-LabConsoleItem -Id 'pause' -Label 'Vorgang pausieren oder freigeben' -Shortcut '6'
-            New-LabConsoleItem -Id 'stop' -Label 'Vorgang endgueltig stoppen und aufraeumen' -Shortcut '7'
-            New-LabConsoleItem -Id 'batch-stop' -Label 'Batch stoppen oder vollstaendig zurueckbauen' -Shortcut '8'
-            New-LabConsoleItem -Id 'quiet' -Label 'Ton und Ruhemodus' -Shortcut '9'
-            New-LabConsoleItem -Id 'run' -Label 'Scheduler jetzt ausfuehren' -Value '2 Worker · 1 HyperVHeavy' -Shortcut 'r'
+            New-LabConsoleItem -Id 'overview' -Label 'Queue-Uebersicht und Details' -Value $subtitle -Shortcut '1' -Disabled:(-not $availability.HasOverview)
+            New-LabConsoleItem -Id 'gates' -Label 'Benutzeraktionen oeffnen' -Value 'Schritte werden immer vollstaendig angezeigt' -Shortcut '2' -Disabled:(-not $availability.HasUserGates)
+            New-LabConsoleItem -Id 'bulk-confirm' -Label 'Vermutlich erledigte Positionen auswaehlen, pruefen und fortsetzen' -Shortcut '3' -Disabled:(-not $availability.HasCandidates)
+            New-LabConsoleItem -Id 'priority' -Label 'Prioritaet aendern' -Value 'Mindestens zwei noch nicht laufende Vorgaenge' -Shortcut '4' -Disabled:(-not $availability.CanChangePriority)
+            New-LabConsoleItem -Id 'move' -Label 'Wartenden Vorgang umreihen' -Value 'Mindestens zwei Vorgaenge derselben Prioritaet' -Shortcut '5' -Disabled:(-not $availability.CanMove)
+            New-LabConsoleItem -Id 'pause' -Label 'Vorgang pausieren oder freigeben' -Shortcut '6' -Disabled:(-not $availability.CanPauseOrResume)
+            New-LabConsoleItem -Id 'stop' -Label 'Vorgang endgueltig stoppen und aufraeumen' -Shortcut '7' -Disabled:(-not $availability.CanStopOperation)
+            New-LabConsoleItem -Id 'batch-stop' -Label 'Batch stoppen oder vollstaendig zurueckbauen' -Shortcut '8' -Disabled:(-not $availability.CanStopBatch)
+            New-LabConsoleItem -Id 'quiet' -Label 'Ton und Ruhemodus' -Value 'Globale Einstellung, auch fuer kuenftige Vorgaenge' -Shortcut '9'
+            New-LabConsoleItem -Id 'run' -Label 'Scheduler jetzt ausfuehren' -Value '2 Worker · 1 HyperVHeavy' -Shortcut 'r' -Disabled:(-not $availability.CanRunScheduler)
             New-LabConsoleItem -Id 'back' -Label 'Zurueck' -Shortcut '0'
         )
         if ($choice.Status -ne 'Selected' -or $choice.SelectedItem.Id -eq 'back') { return }
         switch ([string]$choice.SelectedItem.Id) {
-            'overview' { $operation = Select-LabQueueOperationInteractive -Title 'Queue-Uebersicht'; if ($null -ne $operation) { Clear-Host; $operation | Select-Object operationId,batchId,itemId,title,status,progress,priority,queuePosition,provider,providerReason,resourceClass,locks,dependencies,error | Format-List | Out-Host; if ($operation.status -in @('WaitingForUser','CandidateSatisfied')) { Show-LabOperationGateInteractive -Operation $operation } } }
+            'overview' {
+                $operation = Select-LabQueueOperationInteractive -Title 'Queue-Uebersicht'
+                if ($null -ne $operation) {
+                    Clear-Host
+                    $operation | Select-Object operationId,batchId,itemId,title,status,progress,priority,queuePosition,provider,providerReason,resourceClass,locks,dependencies,error | Format-List | Out-Host
+                    if ($operation.status -in @('WaitingForUser','CandidateSatisfied')) { Show-LabOperationGateInteractive -Operation $operation }
+                    Wait-LabConsoleAcknowledgement
+                }
+            }
             'gates' {
                 $operation = Select-LabQueueOperationInteractive -Title 'Offene Benutzeraktion' -Filter { $_.status -in @('WaitingForUser','CandidateSatisfied') }
                 if ($null -ne $operation) {
@@ -368,8 +406,8 @@ function Invoke-LabQueueInteractive {
                 }
             }
             'bulk-confirm' { Confirm-LabCandidateOperationsInteractive }
-            'priority' { $operation = Select-LabQueueOperationInteractive; if ($null -ne $operation) { $p = Invoke-LabConsoleMenu -ScreenId 'queue-priority' -Title 'Prioritaet' -Items @(New-LabConsoleItem -Id High -Label High -Shortcut 1; New-LabConsoleItem -Id Normal -Label Normal -Shortcut 2; New-LabConsoleItem -Id Low -Label Low -Shortcut 3); if ($p.Status -eq 'Selected') { Set-SqlServerLabOperationPriority -OperationId $operation.operationId -Priority $p.SelectedItem.Id | Out-Null } } }
-            'move' { $operation = Select-LabQueueOperationInteractive -Filter { $_.status -notin @('Running','Completed','Failed','Cancelled') }; if ($null -ne $operation) { $d = Invoke-LabConsoleMenu -ScreenId 'queue-move' -Title 'Umreihen' -Items @(New-LabConsoleItem -Id Up -Label 'Nach oben' -Shortcut 1; New-LabConsoleItem -Id Down -Label 'Nach unten' -Shortcut 2); if ($d.Status -eq 'Selected') { Move-SqlServerLabOperation -OperationId $operation.operationId -Direction $d.SelectedItem.Id | Out-Null } } }
+            'priority' { $operationIds = @($availability.PriorityOperationIds); $operation = Select-LabQueueOperationInteractive -Filter { $_.operationId -in $operationIds }; if ($null -ne $operation) { $p = Invoke-LabConsoleMenu -ScreenId 'queue-priority' -Title 'Prioritaet' -Subtitle "Aktuell: $($operation.priority)" -Items @(New-LabConsoleItem -Id High -Label High -Shortcut 1 -Disabled:($operation.priority -eq 'High'); New-LabConsoleItem -Id Normal -Label Normal -Shortcut 2 -Disabled:($operation.priority -eq 'Normal'); New-LabConsoleItem -Id Low -Label Low -Shortcut 3 -Disabled:($operation.priority -eq 'Low')); if ($p.Status -eq 'Selected') { Set-SqlServerLabOperationPriority -OperationId $operation.operationId -Priority $p.SelectedItem.Id | Out-Null } } }
+            'move' { $operationIds = @($availability.MovableOperationIds); $operation = Select-LabQueueOperationInteractive -Filter { $_.operationId -in $operationIds }; if ($null -ne $operation) { $peers = @($queue.items | Where-Object { $_.priority -eq $operation.priority -and $_.status -ne 'Running' } | Sort-Object queuePosition); $current = [Array]::IndexOf([string[]]@($peers.operationId), [string]$operation.operationId); $d = Invoke-LabConsoleMenu -ScreenId 'queue-move' -Title 'Umreihen' -Items @(New-LabConsoleItem -Id Up -Label 'Nach oben' -Shortcut 1 -Disabled:($current -le 0); New-LabConsoleItem -Id Down -Label 'Nach unten' -Shortcut 2 -Disabled:($current -ge $peers.Count - 1)); if ($d.Status -eq 'Selected') { Move-SqlServerLabOperation -OperationId $operation.operationId -Direction $d.SelectedItem.Id | Out-Null } } }
             'pause' { $operation = Select-LabQueueOperationInteractive -Filter { $_.status -in @('Queued','WaitingForDependency','Paused') }; if ($null -ne $operation) { if ($operation.status -eq 'Paused') { Resume-SqlServerLabOperation -OperationId $operation.operationId | Out-Null } else { Suspend-SqlServerLabOperation -OperationId $operation.operationId | Out-Null } } }
             'stop' { $operation = Select-LabQueueOperationInteractive; if ($null -ne $operation) { Stop-SqlServerLabOperation -OperationId $operation.operationId -Cleanup -Confirm | Out-Null } }
             'batch-stop' { Invoke-LabBatchStopInteractive }
@@ -433,6 +471,7 @@ function Invoke-LabAreaMenuInteractive {
             'System' { Show-LabSystemMenu }
         }
         if ([string]::IsNullOrWhiteSpace([string]$action) -or $action -eq 'back') { return }
-        Invoke-LabMenuAction -ActionName $action
+        try { Invoke-LabMenuAction -ActionName $action }
+        catch { if (-not (Test-LabConsoleInputCancellation -InputObject $_)) { throw } }
     }
 }

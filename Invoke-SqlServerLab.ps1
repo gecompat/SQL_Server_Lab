@@ -90,7 +90,16 @@ $ErrorActionPreference = 'Stop'
 
 # Modul aus demselben Verzeichnis laden
 $modulePath = Join-Path $PSScriptRoot 'SqlServerLab.psd1'
-Import-Module $modulePath -Force
+Import-Module $modulePath -Force -ErrorAction Stop
+$loadedModule = Get-Module SqlServerLab -ErrorAction Stop
+$missingInternalFunctions = @(& $loadedModule {
+    @('Get-LabEnvironmentResources', 'Set-LabEnvironmentResources') | Where-Object {
+        -not (Get-Command $_ -CommandType Function -ErrorAction SilentlyContinue)
+    }
+})
+if ($missingInternalFunctions.Count -gt 0) {
+    throw "SQL_SERVER_LAB_MODULE_CONTRACT_INCOMPLETE: $($missingInternalFunctions -join ', ')"
+}
 
 # Dispatch
 if ($Manifest) {
