@@ -48,7 +48,9 @@ function Clear-SqlServerLab {
     }
     else { @() }
     $knownRunIds = @($activeRuns | ForEach-Object { $_.runId })
-    $runtimeStatus = @{}
+    $runtimeStatus = @{
+        hyperv = [string]$auditBefore.Audit.HyperV.Status
+    }
     $allContainers = @()
 
     foreach ($runtime in @('docker', 'podman')) {
@@ -102,8 +104,12 @@ function Clear-SqlServerLab {
     if ($protectedTestRunIds.Count -gt 0) {
         Write-LabInfo 'Automatisierte Testumgebungen bleiben bei dieser normalen Bereinigung geschützt; dafür den eigenen Gruppen-Löschpunkt verwenden.'
     }
-    foreach ($runtime in @('docker', 'podman')) {
-        Write-LabStatus -Label "Runtime $runtime" -Value $runtimeStatus[$runtime]
+    foreach ($runtime in @(
+        [PSCustomObject]@{ Id='docker'; Label='docker' }
+        [PSCustomObject]@{ Id='podman'; Label='podman' }
+        [PSCustomObject]@{ Id='hyperv'; Label='Hyper-V' }
+    )) {
+        Write-LabStatus -Label "Runtime $($runtime.Label)" -Value $runtimeStatus[$runtime.Id]
     }
 
     $workCount = if ($StateOnly) {
