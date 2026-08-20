@@ -5,7 +5,7 @@
 | Projekt | `gecompat/SQL_Server_Lab` |
 | Status | `ACTIVE_EXECUTION_BACKLOG` |
 | Stand | 2026-08-20 |
-| Ausgangsstand | Statusabgleich gegen `origin/main`, den lokalen Validierungsbericht vom 2026-08-12 und fokussierte Batch-/Console-Vertragsprüfungen vom 2026-08-20; Commit-IDs sind kein Planungsvertrag |
+| Ausgangsstand | Statusabgleich gegen `origin/main` und den lokalen sowie CI-gestützten Validierungsbericht vom 2026-08-20; Commit-IDs sind kein Planungsvertrag |
 | Ziel | eine einzige ausführbare Lieferreihenfolge für Core, UI, Adapter, Hyper-V, Datenartefakte, Qualität und spätere Erweiterungen |
 | Runtime-Nachweis | ausschließlich Code, passende Tests, [KNOWN_LIMITATIONS.md](../Quality/KNOWN_LIMITATIONS.md) und datierte Validierungsnachweise |
 
@@ -99,19 +99,19 @@ Für jede Entwicklungswelle gelten folgende Leitplanken:
 | Batch und Queue | persistenter Batch-/Operation-Kern, deterministische Expansion, Scheduler, Resume, User-Gates, Console Composer, Batchmanifest und Browserübergabe |
 | Qualität | statische Gesamtprüfung, Provider-Smokes, Versions-/Provider-Matrix, Restore-, Mixed-Provider-, Adapter- und Hyper-V-Testpfade |
 
-Am 2026-08-12 wurde für diesen Plan erneut ausgeführt:
+Am 2026-08-20 wurden die betroffenen statischen Verträge und die reale
+Batch-Provider-Matrix erneut ausgeführt:
 
 ```text
 .\Tests\Static\Invoke-AllChecks.ps1
 => ALLE STATISCHEN VERTRAGSPRUEFUNGEN: PASS
 ```
 
-Die datierten Runtime-Ergebnisse für Docker, Podman, Mixed Provider, Adapter und
-Restore stehen separat in
-[VALIDATION_RESULT_2026-08-12.md](../Quality/VALIDATION_RESULT_2026-08-12.md).
-Der erhöhte GitHub-Runner hat den nativen Hyper-V-Generation-2-Lifecycle
-einschließlich VM/VHDX, Stop/Start, Reconcile und Cleanup bestanden. Die echte
-Hyper-V-/SQL-2025-Acceptance bleibt wegen fehlender Eval-ISO blockiert.
+Die datierten lokalen und CI-gestützten Ergebnisse für Docker, Podman, Mixed
+Provider, Adapter, Batch und Hyper-V stehen in
+[VALIDATION_RESULT_2026-08-20.md](../Quality/VALIDATION_RESULT_2026-08-20.md).
+Die allgemeine echte Hyper-V-/SQL-2025-Acceptance aus frischer
+Installationsmedia bleibt wegen fehlender Eval-ISO blockiert.
 
 ### 3.2 Offene Kernlücken
 

@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING_LIMITATIONS` |
-| Stand | 2026-08-12 |
+| Stand | 2026-08-20 |
 
 Dieses Dokument beschreibt bekannte Grenzen des aktuell implementierten Runtimepfads. Es ist Teil des öffentlichen Projektvertrags. Ein Feld im JSON-Schema oder ein Planungsdokument gilt nicht automatisch als Implementierungsnachweis.
 
@@ -14,8 +14,8 @@ Dieses Dokument beschreibt bekannte Grenzen des aktuell implementierten Runtimep
 Docker und Podman sind implementiert. Start, Stop und Live-Status verwenden den
 pro Instanz in `connection-info.json` gespeicherten Provider.
 
-Der lokale Nachweis vom 2026-08-12 ist für Docker 29.6.2 und Podman 6.0.2
-positiv. Der laufende Core-Gate verwendet ausschließlich SQL Server 2025;
+Der aktuelle Nachweis vom 2026-08-20 ist für Docker 29.7.2 und Podman 6.0.2
+einschliesslich providerneutraler Batchlaeufe positiv. Der laufende Core-Gate verwendet ausschließlich SQL Server 2025;
 Mehrversions-Kompatibilität wird in SQL Analyze und Toolbelt abgenommen. Der
 Core-Gate verwendet die native Containercollation
 `SQL_Latin1_General_CP1_CI_AS`. Beim expliziten SQL-2025-Systemdatenbankumbau
@@ -24,7 +24,7 @@ Loginfehler 18456/State 115 auf. SQL_Server_Lab erkennt nur diesen Diagnosefall
 und erstellt den scopegebundenen Container genau einmal neu; wiederholt sich
 der Zustand oder tritt ein anderer Readiness-Fehler auf, bleibt der Lauf
 fail-closed. Alle Testressourcen wurden scopegebunden bereinigt. Details stehen im
-[Validierungsbericht vom 2026-08-12](VALIDATION_RESULT_2026-08-12.md).
+[Validierungsbericht vom 2026-08-20](VALIDATION_RESULT_2026-08-20.md).
 
 ### Gemischte Containerprovider in einem Run
 
