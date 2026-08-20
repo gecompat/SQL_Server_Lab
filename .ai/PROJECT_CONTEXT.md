@@ -121,13 +121,15 @@ Podman
 
 Beide Provider benötigen getrennte Native-Tests. Ein erfolgreicher Docker-Test ist kein Podman-Nachweis und umgekehrt.
 
-Der lokale Nachweis vom 2026-08-12 bestätigt Docker und Podman einschließlich
-paralleler, gemischter und Restore-Pfade. Der verbindliche Runtime-Gate des
+Der aktuelle Nachweis vom 2026-08-20 bestätigt Docker und Podman einschließlich
+Batch-, paralleler, gemischter und Restore-Pfade. Der verbindliche Runtime-Gate des
 Lab-Core verwendet SQL Server 2025 als einzige Referenzversion; reale
 Mehrversions-Abnahmen liegen bei SQL Analyze und Toolbelt. Der erhöhte
-GitHub-Runner bestätigt den nativen Hyper-V-Lifecycle; die echte SQL-2025-
-Acceptance ist ausschließlich durch die fehlende Eval-ISO im Media-Root blockiert. Die genaue Abgrenzung steht in
-`Documentation/Quality/VALIDATION_RESULT_2026-08-12.md`.
+GitHub-Runner und der lokale Batchnachweis bestätigen den nativen Hyper-V-
+Lifecycle; die allgemeine echte SQL-2025-Acceptance aus frischer SQL-
+Installationsmedia bleibt durch die fehlende Eval-ISO im Media-Root blockiert.
+Die genaue Abgrenzung steht in
+`Documentation/Quality/VALIDATION_RESULT_2026-08-20.md`.
 
 Der Provider eines Runs wird in `connection-info.json` gespeichert. Lifecycle und Live-Status müssen diese Bindung verwenden und dürfen nicht zufällig eine andere lokal installierte Runtime auswählen.
 

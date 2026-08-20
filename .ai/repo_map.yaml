@@ -55,7 +55,7 @@ sources_of_truth:
   validation_manifest_builder: Tests/Static/Invoke-ManifestBuilderChecks.ps1
   validation_batch_workflow: Tests/Static/Invoke-BatchWorkflowChecks.ps1
   validation_runtime_matrix: Tests/Integration/Invoke-SmokeMatrix.ps1
-  latest_validation_result: Documentation/Quality/VALIDATION_RESULT_2026-08-12.md
+  latest_validation_result: Documentation/Quality/VALIDATION_RESULT_2026-08-20.md
 
 public_commands:
   - name: New-SqlServerLabBatch
@@ -584,11 +584,11 @@ validation:
     static_push_trigger: true
     runtime_push_trigger: false
   last_confirmed_result:
-    date: "2026-08-12"
-    source: Documentation/Quality/VALIDATION_RESULT_2026-08-12.md
-    docker: "PASS – SQL-2025-Lifecycle, Adapter 10/10 und Restore"
-    podman: "PASS – SQL-2025-Lifecycle, Mixed-Provider und Restore"
-    hyperv: "PASS – Generation-2-Lifecycle; SQL-2025-Acceptance durch fehlende Eval-ISO im Media-Root blockiert"
+    date: "2026-08-20"
+    source: Documentation/Quality/VALIDATION_RESULT_2026-08-20.md
+    docker: "PASS – SQL-2025-Batch, Lifecycle, Adapter und Cleanup"
+    podman: "PASS – SQL-2025-Batch, Mixed-Provider und Cleanup"
+    hyperv: "PASS – Batch und Generation-2-Lifecycle; allgemeine SQL-2025-Acceptance durch fehlende Eval-ISO im Media-Root blockiert"
 
 change_coupling:
   public_command_change:
