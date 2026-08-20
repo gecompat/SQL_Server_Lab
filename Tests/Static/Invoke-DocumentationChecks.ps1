@@ -411,6 +411,7 @@ foreach ($providerDefinitionFile in $providerDefinitions) {
 Write-Host "`n[5] Zentrale Dokumentation" -ForegroundColor Cyan
 
 $coreFiles = @(
+    'AGENTS.md'
     'README.md'
     'Documentation/README.md'
     'Documentation/Architecture/ARCHITECTURE.md'
@@ -426,6 +427,7 @@ $coreFiles = @(
     'Documentation/HowTo/MEDIA_ROOT_LAYOUT.md'
     'Documentation/HowTo/HYPERV_WINDOWS_IMAGE_BUILD.md'
     'Documentation/Quality/KNOWN_LIMITATIONS.md'
+    'Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md'
     'Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md'
     'Documentation/Project_Planning/README.md'
     'Documentation/Project_Planning/DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md'
@@ -438,6 +440,7 @@ $coreFiles = @(
     'Tests/README.md'
     'Tools/README.md'
     '.ai/PROJECT_CONTEXT.md'
+    '.ai/MODEL_ROUTING_POLICY.md'
     '.ai/WORKING_RULES.md'
     '.ai/repo_map.yaml'
     'CONTRIBUTING.md'
@@ -512,6 +515,9 @@ $documentationIndex = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentati
 $gettingStarted = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\User\Getting_Started.md') -Raw -Encoding utf8
 $testsReadme = Get-Content -LiteralPath (Join-Path $repoRoot 'Tests\README.md') -Raw -Encoding utf8
 $localValidationStrategy = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Quality\LOCAL_VALIDATION_STRATEGY.md') -Raw -Encoding utf8
+$costEfficientDevelopment = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Quality\COST_EFFICIENT_DEVELOPMENT.md') -Raw -Encoding utf8
+$agentContract = Get-Content -LiteralPath (Join-Path $repoRoot 'AGENTS.md') -Raw -Encoding utf8
+$modelRoutingPolicy = Get-Content -LiteralPath (Join-Path $repoRoot '.ai\MODEL_ROUTING_POLICY.md') -Raw -Encoding utf8
 $projectContext = Get-Content -LiteralPath (Join-Path $repoRoot '.ai\PROJECT_CONTEXT.md') -Raw -Encoding utf8
 $repoMap = Get-Content -LiteralPath (Join-Path $repoRoot '.ai\repo_map.yaml') -Raw -Encoding utf8
 $masterImplementationPlan = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\MASTER_IMPLEMENTATION_PLAN.md') -Raw -Encoding utf8
@@ -579,6 +585,23 @@ Add-ValidationResult `
 Add-ValidationResult `
     -Name 'Lokale Validierungsstrategie beschreibt den Matrixeinstieg korrekt' `
     -Success ($localValidationStrategy -match 'Invoke-SmokeMatrix\.ps1' -and $localValidationStrategy -notmatch 'kein übergeordnetes Skript')
+
+Add-ValidationResult `
+    -Name 'Agentenvertrag bindet Modellrouting und kosteneffiziente Tests ein' `
+    -Success ($agentContract -match [regex]::Escape('.ai/MODEL_ROUTING_POLICY.md') -and
+        $agentContract -match [regex]::Escape('Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md'))
+
+Add-ValidationResult `
+    -Name 'Modellrouting fordert das kleinste ausreichend qualifizierte Modell' `
+    -Success ($modelRoutingPolicy -match 'kostengünstigste und kontexteffizienteste Modell' -and
+        $modelRoutingPolicy -match 'notwendige Qualität zuverlässig' -and
+        $modelRoutingPolicy -match [regex]::Escape('gpt-5.3-codex-spark') -and
+        $modelRoutingPolicy -match 'eigenes Tokenkontingent')
+
+Add-ValidationResult `
+    -Name 'Kosteneffiziente Entwicklung bindet lokale Testauswahl und Logaggregation' `
+    -Success ($costEfficientDevelopment -match 'Invoke-ImpactedChecks\.ps1' -and
+        $costEfficientDevelopment -match [regex]::Escape('.artifacts/test-runs/'))
 
 Add-ValidationResult `
     -Name 'Projektkontext beschreibt gemischten Docker-/Podman-Lifecycle nicht als offen' `
