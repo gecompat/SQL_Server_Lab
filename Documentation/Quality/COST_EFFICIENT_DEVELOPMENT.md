@@ -88,7 +88,10 @@ und technisch zusammenhaengende Zustaende uebernommen. Ein solcher Stand
 enthaelt die erforderlichen Code-, Vertrags-, Dokumentations- und
 Testanpassungen gemeinsam und hat die fuer seinen Scope notwendigen lokalen
 Gates bestanden. Unfertige Zwischenstaende werden weder als Commit oder Pull
-Request veroeffentlicht noch nach `main` gemergt.
+Request veroeffentlicht noch nach `main` gemergt. Eine Ausnahme ist nur auf
+ausdruecklichen Wunsch und nach expliziter Freigabe durch den User zulaessig;
+der unvollstaendige Zustand und seine offenen Validierungen muessen dabei in
+Commit und Pull Request klar gekennzeichnet werden.
 
 ## 4. Wiederholungen und Diagnose
 

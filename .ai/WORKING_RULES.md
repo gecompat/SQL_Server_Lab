@@ -213,7 +213,7 @@ CI/CD ist keine Voraussetzung für lokale Produktfunktion. Statische Checks dür
 - liefert eine KI wegen fehlendem Repositoryzugriff Dateien, Patches oder Downloadartefakte zur manuellen Übernahme, stellt sie zusätzlich eine vollständige einzeilige Commit-Nachricht mit ihrem Präfix in einem separat kopierbaren Textblock bereit;
 - ausschließlich von Menschen erstellte Änderungen benötigen kein KI-Präfix;
 - keine Runtime-, Secret-, Cache- oder Evidence-Rohdaten committen;
-- nur in sich konsistente, fachlich und technisch zusammenhaengende Zustaende in das GitHub-Repository uebernehmen; Commit, Pull Request und Merge duerfen keine unvollstaendigen Zwischenzustaende veroeffentlichen;
+- nur in sich konsistente, fachlich und technisch zusammenhaengende Zustaende in das GitHub-Repository uebernehmen; eine Ausnahme fuer einen unvollstaendigen Zwischenstand ist ausschliesslich auf ausdruecklichen Wunsch und nach expliziter Freigabe durch den User zulaessig und muss in Commit und Pull Request klar als solche gekennzeichnet werden;
 - jeder zu veroeffentlichende Stand enthaelt die zugehoerigen Code-, Vertrags-, Dokumentations- und Testanpassungen und ist vor Push beziehungsweise Merge mit den fuer seinen Scope erforderlichen lokalen Gates validiert;
 - vor dem Merge den vollständigen Branch-Diff prüfen;
 - bei nicht ausgeführten Native-Tests die Einschränkung offen nennen.
