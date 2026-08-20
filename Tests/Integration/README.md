@@ -88,6 +88,34 @@ und ändert keine Connection-Auswahl.
 .\Tests\Integration\Invoke-MixedProviderSmokeTest.ps1
 ```
 
+## Invoke-BatchWorkflowSmokeTest.ps1
+
+Der Batch-Smoke ist der reale Gegenpart zu
+`Invoke-BatchWorkflowChecks.ps1`. Er provisioniert über einen expliziten
+Docker- oder Podman-Provider zwei SQL-Server-2025-Umgebungen, verarbeitet die
+persistente Queue mit zwei Workern, prüft eindeutige Runs und einen
+idempotenten zweiten Scheduler-Lauf und führt danach den scopegebundenen
+Batch-Cleanup aus.
+
+Der Batch-State enthält ausschließlich den Namen einer
+`SQL_SERVER_LAB_SECRET_*`-Prozessvariable. Der Test erzeugt den Secret-Wert
+temporär, vererbt ihn an die Worker und stellt die vorherige Prozessumgebung im
+`finally`-Block wieder her.
+
+```powershell
+.\Tests\Integration\Invoke-BatchWorkflowSmokeTest.ps1 -Provider docker
+.\Tests\Integration\Invoke-BatchWorkflowSmokeTest.ps1 -Provider podman
+.\Tests\Integration\Invoke-BatchWorkflowSmokeTest.ps1 `
+    -Provider hyperv `
+    -ArtifactId 'hyperv-os-sealed-<sha256>'
+```
+
+Der Hyper-V-Pfad bindet das vorhandene immutable Artefaktverzeichnis über eine
+temporäre NTFS-Junction in den isolierten Test-State ein. Er kopiert oder
+verändert das Parent nicht und entfernt nach dem Lauf beide VMs, Child-VHDX,
+die Junction und den temporären State. Vor dem rekursiven Temp-Cleanup wird
+explizit geprüft, dass das Ziel tatsächlich ein Reparse Point ist.
+
 ## Invoke-RestoreSmokeTest.ps1
 
 Der Restore-Smoke-Test erzeugt im Lab eine kleine synthetische Datenbank mit

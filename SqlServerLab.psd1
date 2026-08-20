@@ -20,6 +20,7 @@
         'Resume-SqlServerLabOperation'
         'Stop-SqlServerLabOperation'
         'Stop-SqlServerLabBatch'
+        'Invoke-SqlServerLabScheduler'
         'Invoke-SqlServerLab'
         'Get-SqlServerLabWorkflow'
         'Get-SqlServerLabCatalog'
