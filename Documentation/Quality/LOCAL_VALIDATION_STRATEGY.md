@@ -148,6 +148,23 @@ Die statische Prüfung ersetzt nicht:
 
 Der Test erzeugt ausschließlich synthetische Testobjekte.
 
+Der dedizierte Batch-/Queue-Smoke prüft zusätzlich die reale Provisionierung
+zweier Container-Labs über persistente Operationen, zwei Scheduler-Worker,
+idempotentes Resume und scopegebundenen Cleanup:
+
+```powershell
+.\Tests\Integration\Invoke-BatchWorkflowSmokeTest.ps1 -Provider docker
+.\Tests\Integration\Invoke-BatchWorkflowSmokeTest.ps1 -Provider podman
+.\Tests\Integration\Invoke-BatchWorkflowSmokeTest.ps1 `
+    -Provider hyperv `
+    -ArtifactId 'hyperv-os-sealed-<sha256>'
+```
+
+Container-Batchpositionen müssen dazu in `defaults`, `intent`, `manifest` oder
+`overrides` das Feld `SaPasswordEnvironmentVariable` mit dem Namen einer
+`SQL_SERVER_LAB_SECRET_*`-Prozessvariable referenzieren. Der Wert wird erst im
+Worker gelesen und nicht im Workflow-State persistiert.
+
 ## 6. Provider-Abnahme
 
 | Fähigkeit | Docker | Podman | Hyper-V |

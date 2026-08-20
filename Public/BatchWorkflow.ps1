@@ -767,6 +767,21 @@ function Set-SqlServerLabAttention {
     return Write-LabSchedulerSettings -Settings $settings -StateRoot $StateRoot
 }
 
+<#
+.SYNOPSIS
+    Verarbeitet die persistente Batch-Queue.
+.DESCRIPTION
+    Reserviert startbare Operationen atomar, fuehrt bis zu MaxWorkers parallel
+    aus und setzt verlassene Vorgänge am letzten persistenten Schritt fort.
+.PARAMETER UntilIdle
+    Wiederholt die Auswahl, bis keine startbare Operation mehr vorhanden ist.
+.PARAMETER MaxWorkers
+    Maximale Zahl paralleler Worker. Default: 2.
+.PARAMETER StateRoot
+    Optionaler Root fuer den persistenten Workflow-State.
+.OUTPUTS
+    Ergebnisse der ausgefuehrten Worker-Operationen.
+#>
 function Invoke-SqlServerLabScheduler {
     [CmdletBinding()]
     param(

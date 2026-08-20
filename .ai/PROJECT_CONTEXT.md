@@ -4,7 +4,7 @@
 |---|---|
 | Status | `BINDING` |
 | Runtime-Status | `CONTAINER_CORE_IMPLEMENTED_HYPERV_SPECIALIZATION_READINESS_ORCHESTRATION` |
-| Stand | 2026-08-12 |
+| Stand | 2026-08-20 |
 | Repository | `gecompat/SQL_Server_Lab` |
 | Maschinenlesbare Landkarte | [`repo_map.yaml`](repo_map.yaml) |
 
@@ -57,6 +57,10 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   Volumes und Cleanup-Audit;
 - gemeinsames Console-UI-Framework für die umgesetzten CUI-001-bis-CUI-011-
   Flows;
+- providerneutraler `SqlServerLab.Batch/1.0`- und
+  `SqlServerLab.Operation/1.0`-Kern mit deterministischer Mengenexpansion,
+  persistenter Queue, zwei Workern, einem `HyperVHeavy`-Slot, Resume,
+  User-Gates, Queue-/Composer-Menü und Browserübergabe;
 - statische Vertragsprüfung;
 - Docker- und Podman-Smoke-Testpfad;
 - providerneutraler Instanz-Autostart: Hyper-V `AutomaticStartAction`,
@@ -101,6 +105,8 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 - versionierter Refresh-/Rebuild-Lifecycle für Medien, VHDX und Container-Images;
 - konsumierende Analyze- und Schulungs-Lab-Packages;
 - langfristige Planner-, Package- und Supporting-Component-Architektur.
+- Batch-/Queue-Provider-Matrix am 2026-08-20 real verifiziert: Docker und Podman mit je zwei SQL-2025-Runs, Hyper-V mit zwei Windows-2025-Slots, Resume und vollständigem Cleanup; offen bleiben echter Prozessabbruch, Manifest-Rerun und Windows-User-Gate
+  einschließlich Abbruch- und Cleanup-Pfaden;
 
 Die verbindliche Detailabgrenzung steht in `Documentation/Quality/KNOWN_LIMITATIONS.md`.
 
@@ -334,6 +340,7 @@ Statisch:
 
 ```powershell
 .\Tests\Static\Invoke-DocumentationChecks.ps1
+.\Tests\Static\Invoke-BatchWorkflowChecks.ps1
 ```
 
 Docker:

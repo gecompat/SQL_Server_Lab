@@ -66,6 +66,7 @@ Invoke-SqlServerLab                    # Menue oder Manifest-Einstieg
 New-SqlServerLabBatch                  # Einzel- oder Mengenbatch persistent planen und einreihen
 Get-SqlServerLabBatch                  # Batchplan und Fortschritt lesen
 Get-SqlServerLabQueue                  # Worker, Locks, Blockierungen und User-Gates lesen
+Invoke-SqlServerLabScheduler           # Persistente Queue mit begrenzter Workerzahl verarbeiten
 Get-SqlServerLabOperation              # Kindvorgang, Schritte, Receipts und Events lesen
 Confirm-SqlServerLabOperationUserAction # User-Gate einzeln technisch pruefen und fortsetzen
 Move-SqlServerLabOperation             # Wartenden Vorgang umreihen

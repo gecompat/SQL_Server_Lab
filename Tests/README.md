@@ -119,6 +119,22 @@ Eine vorhandene, gestoppte Podman-Machine wird vor Podman- und Mixed-Smokes
 durch `Tests/Integration/Initialize-PodmanRuntime.ps1` automatisch gestartet.
 Podman muss installiert und mindestens eine Machine bereits angelegt sein.
 
+## Batch-/Queue-Runtime-Smoke-Test
+
+Der Batch-Smoke erzeugt zwei Umgebungen über die persistente Queue, führt sie
+mit zwei Workern aus, prüft eindeutige RunIds und idempotentes Scheduler-Resume
+und baut anschließend beide Operation-Scopes wieder ab. Das synthetische
+SA-Passwort wird nur über eine temporäre `SQL_SERVER_LAB_SECRET_*`-
+Prozessvariable an die Worker vererbt.
+
+```powershell
+.\Tests\Integration\Invoke-BatchWorkflowSmokeTest.ps1 -Provider docker
+.\Tests\Integration\Invoke-BatchWorkflowSmokeTest.ps1 -Provider podman
+.\Tests\Integration\Invoke-BatchWorkflowSmokeTest.ps1 `
+    -Provider hyperv `
+    -ArtifactId 'hyperv-os-sealed-<sha256>'
+```
+
 ## Backup-/Restore-Smoke-Test
 
 Der echte Restore-Test verwendet ausschliesslich eine zur Laufzeit erzeugte
