@@ -461,6 +461,23 @@ Alle erkannten Lab-Reste bereinigen:
 Clear-SqlServerLab
 ```
 
+Container-Batches laufen immer non-interaktiv. Deshalb referenziert der Plan
+nur den Namen einer eng benannten Prozessvariable; der Secret-Wert selbst wird
+nicht in Batch-, Operation- oder Event-State geschrieben:
+
+```powershell
+$env:SQL_SERVER_LAB_SECRET_BATCH_SA_PASSWORD = '<aus Secret Store oder CI-Injection>'
+$batch = New-SqlServerLabBatch `
+    -Name 'Zwei Docker-Labs' `
+    -Defaults @{
+        ProviderPreference = 'docker'
+        Version = '2025'
+        SaPasswordEnvironmentVariable = 'SQL_SERVER_LAB_SECRET_BATCH_SA_PASSWORD'
+    } `
+    -Items @(@{ id = 'sql'; kind = 'SqlEnvironment'; count = 2 })
+Invoke-SqlServerLabScheduler -UntilIdle
+```
+
 ## Öffentliche Cmdlets
 
 | Cmdlet | Zweck |

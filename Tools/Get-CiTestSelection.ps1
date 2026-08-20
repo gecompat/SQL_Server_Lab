@@ -63,6 +63,7 @@ end {
 
     $staticGroups = @(
         @{ Pattern = '(?i)(Cleanup|Remove-SqlServerLab|Clear-SqlServerLab)'; Checks = @('Invoke-CleanupRecoveryChecks.ps1','Invoke-CleanupAuditChecks.ps1') },
+        @{ Pattern = '(?i)(BatchWorkflow|BatchConsole|lab-batch)'; Checks = @('Invoke-BatchWorkflowChecks.ps1') },
         @{ Pattern = '(?i)(ConsoleUi|Invoke-SqlServerLab\.ps1|Workflow)'; Checks = @('Invoke-ConsoleUiChecks.ps1','Invoke-WorkflowUiChecks.ps1') },
         @{ Pattern = '(?i)(ArtifactResolver|MediaSourceCatalog|SevenZip)'; Checks = @('Invoke-ArtifactResolverChecks.ps1','Invoke-MediaRootLayoutChecks.ps1') },
         @{ Pattern = '(?i)(ContainerAutoStart|Start-SqlServerLab|Stop-SqlServerLab|Restart-SqlServerLab)'; Checks = @('Invoke-ContainerAutoStartChecks.ps1') },
@@ -108,7 +109,7 @@ end {
         Add-Check 'Invoke-CiStrategyChecks.ps1'
     }
     else {
-        if (Test-AnyPath '(?i)(^Providers/Docker/|runtime-smoke-docker\.yml|Invoke-Smoke(Matrix|Test)|Invoke-RestoreSmokeTest)') { $runtime.Docker = $true }
+        if (Test-AnyPath '(?i)(^Providers/Docker/|runtime-smoke-docker\.yml|Invoke-Smoke(Matrix|Test)|Invoke-RestoreSmokeTest|BatchWorkflow|BatchConsole|lab-batch)') { $runtime.Docker = $true }
         if (Test-AnyPath '(?i)(^Providers/Podman/|runtime-smoke-podman\.yml|PodmanBootstrap|Initialize-PodmanRuntime)') { $runtime.Podman = $true }
         if (Test-AnyPath '(?i)(runtime-smoke-mixed-providers\.yml|MixedProvider|ProviderCapability|DesiredState|ReconcileContract|ProviderSubRun)') { $runtime.Mixed = $true }
         if (Test-AnyPath '(?i)(^Providers/HyperV/|runtime-smoke-hyperv\.yml|/HyperV|^Private/HyperV|HyperVSmokeTest)') { $runtime.HyperV = $true }

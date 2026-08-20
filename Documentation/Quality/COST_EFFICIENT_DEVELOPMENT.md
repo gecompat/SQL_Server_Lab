@@ -83,6 +83,13 @@ Release, ausdrückliche Abnahme oder einen Scope vorbehalten, dessen geteilter
 Vertrag die vollständige Breite erfordert. Pro konsistentem stabilen Stand wird
 ein erforderlicher vollständiger Gate nur einmal ausgeführt.
 
+In das GitHub-Repository werden ausschliesslich in sich konsistente, fachlich
+und technisch zusammenhaengende Zustaende uebernommen. Ein solcher Stand
+enthaelt die erforderlichen Code-, Vertrags-, Dokumentations- und
+Testanpassungen gemeinsam und hat die fuer seinen Scope notwendigen lokalen
+Gates bestanden. Unfertige Zwischenstaende werden weder als Commit oder Pull
+Request veroeffentlicht noch nach `main` gemergt.
+
 ## 4. Wiederholungen und Diagnose
 
 - Ein unveränderter grüner Test wird ohne begründete Abhängigkeitswirkung nicht

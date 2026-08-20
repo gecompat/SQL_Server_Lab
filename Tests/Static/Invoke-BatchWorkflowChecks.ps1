@@ -27,6 +27,7 @@ try {
     $queue = Get-SqlServerLabQueue -StateRoot $testRoot
     Assert-Check ($queue.maxWorkers -eq 2) 'Scheduler-Default ist nicht zwei Worker.'
     Assert-Check ($queue.length -eq 3) 'Queue enthaelt nicht alle Kindvorgaenge.'
+
     & $module { param($Root) Invoke-SqlServerLabScheduler -UntilIdle -StateRoot $Root | Out-Null } $testRoot
     $expandedOperations = @(Get-SqlServerLabOperation -BatchId $batch.batchId -StateRoot $testRoot)
     Assert-Check (@($expandedOperations | Where-Object status -eq 'Completed').Count -eq 3) 'Expandierte Vorgaenge wurden nicht abgeschlossen.'
@@ -95,10 +96,39 @@ try {
     Assert-Check (@($heavyOperations | Where-Object status -eq 'Completed').Count -eq 2) 'HyperVHeavy-Vorgaenge wurden nicht abgeschlossen.'
     Assert-Check (([DateTime]$heavyOperations[1].startedAt) -ge ([DateTime]$heavyOperations[0].completedAt)) 'Mehr als ein HyperVHeavy-Vorgang lief gleichzeitig.'
 
+    $availability = & $module {
+        $original = ${function:Test-ProviderAvailability}
+        try {
+            function Test-ProviderAvailability {
+                param([string]$Provider)
+                [pscustomobject]@{ Status = if ($Provider -eq 'docker') { 'RESOURCE_OK' } else { 'RESOURCE_HARD_BLOCK' } }
+            }
+            Get-LabProviderAvailabilityMap
+        }
+        finally {
+            Set-Item -Path function:Test-ProviderAvailability -Value $original
+        }
+    }
+    Assert-Check ($availability.docker -and -not $availability.podman) 'Resource-Assessment-Status wird nicht korrekt in Batch-Providerverfuegbarkeit uebersetzt.'
+
     $schemaPath = Join-Path $repoRoot 'Schemas\lab-batch.schema.json'
     Assert-Check (Test-Path -LiteralPath $schemaPath -PathType Leaf) 'Batch-Manifest-Schema fehlt.'
     $schema = Get-Content -LiteralPath $schemaPath -Raw -Encoding utf8 | ConvertFrom-Json
     Assert-Check ($schema.title -eq 'SqlServerLab.BatchManifest/1.0') 'Batch-Manifest-Schema hat den falschen Vertrag.'
+
+    $batchRuntimeSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Private\BatchWorkflow.ps1') -Raw -Encoding utf8
+    Assert-Check ($batchRuntimeSource -match [regex]::Escape("-Name 'Profile' -Default 'compact'")) 'Container-Batches verwenden kein gueltiges Standardprofil.'
+    Assert-Check ($batchRuntimeSource -match [regex]::Escape("if (`$autoStartValue) { 'on' } else { 'off' }")) 'Container-Batches normalisieren boolesches AutoStart nicht auf den oeffentlichen on/off-Vertrag.'
+    Assert-Check ($batchRuntimeSource -match [regex]::Escape('BATCH_SA_PASSWORD_ENVIRONMENT_VARIABLE_REQUIRED')) 'Container-Batches brechen ohne Secret-Referenz nicht eindeutig ab.'
+    Assert-Check ($batchRuntimeSource -match [regex]::Escape("Get-LabManifestEnvironmentSecret -Name `$saPasswordEnvironmentVariable")) 'Container-Batches loesen die eng benannte Secret-Referenz nicht erst im Worker auf.'
+
+    $batchSmokePath = Join-Path $repoRoot 'Tests\Integration\Invoke-BatchWorkflowSmokeTest.ps1'
+    Assert-Check (Test-Path -LiteralPath $batchSmokePath -PathType Leaf) 'Realer Batch-/Queue-Runtime-Smoke fehlt.'
+    $batchSmokeSource = Get-Content -LiteralPath $batchSmokePath -Raw -Encoding utf8
+    Assert-Check ($batchSmokeSource -match [regex]::Escape("[ValidateSet('docker', 'podman', 'hyperv')]")) 'Batch-Smoke deckt nicht alle drei Provider ab.'
+    Assert-Check ($batchSmokeSource -match [regex]::Escape('New-Item -ItemType Junction') -and
+        $batchSmokeSource -match [regex]::Escape('TEMP_ARTIFACT_LINK_NOT_REPARSE_POINT') -and
+        $batchSmokeSource -notmatch [regex]::Escape('New-Item -ItemType HardLink')) 'Hyper-V-Smoke bindet das immutable Parent nicht ueber eine sicher gepruefte Junction ein.'
 
     Write-Host 'BATCH-/QUEUE-/RESUME-VERTRAGSPRUEFUNGEN: PASS' -ForegroundColor Green
 }
