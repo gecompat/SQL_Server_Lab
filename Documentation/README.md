@@ -28,15 +28,18 @@ Diese Datei ist der verbindliche Dokumentationsindex. Die Root-[README](../READM
 
 ### Projekt weiterentwickeln
 
-1. [Entwicklungs- und Testumgebung unter Windows](Development/DEVELOPMENT_AND_TEST_SETUP_WINDOWS.md)
-2. [Entwicklungs- und Testumgebung unter Linux](Development/DEVELOPMENT_AND_TEST_SETUP_LINUX.md)
-3. [KI-Projektkontext](../.ai/PROJECT_CONTEXT.md)
-4. [Arbeitsregeln](../.ai/WORKING_RULES.md)
-5. [Maschinenlesbare Repo-Map](../.ai/repo_map.yaml)
-6. [Beitragsregeln](../CONTRIBUTING.md)
-7. [Lokale Validierungsstrategie](Quality/LOCAL_VALIDATION_STRATEGY.md)
-8. [Bekannte Grenzen](Quality/KNOWN_LIMITATIONS.md)
-9. [PowerShell Command and Help Standard](Standards/POWERSHELL_COMMAND_AND_HELP_STANDARD.md)
+1. [Verbindlicher Agenten-Arbeitsvertrag](../AGENTS.md)
+2. [Entwicklungs- und Testumgebung unter Windows](Development/DEVELOPMENT_AND_TEST_SETUP_WINDOWS.md)
+3. [Entwicklungs- und Testumgebung unter Linux](Development/DEVELOPMENT_AND_TEST_SETUP_LINUX.md)
+4. [KI-Projektkontext](../.ai/PROJECT_CONTEXT.md)
+5. [Arbeitsregeln](../.ai/WORKING_RULES.md)
+6. [Modell- und Agenten-Routing](../.ai/MODEL_ROUTING_POLICY.md)
+7. [Kosten- und kontexteffiziente Entwicklung](Quality/COST_EFFICIENT_DEVELOPMENT.md)
+8. [Maschinenlesbare Repo-Map](../.ai/repo_map.yaml)
+9. [Beitragsregeln](../CONTRIBUTING.md)
+10. [Lokale Validierungsstrategie](Quality/LOCAL_VALIDATION_STRATEGY.md)
+11. [Bekannte Grenzen](Quality/KNOWN_LIMITATIONS.md)
+12. [PowerShell Command and Help Standard](Standards/POWERSHELL_COMMAND_AND_HELP_STANDARD.md)
 
 ### Architektur und langfristige Planung verstehen
 
@@ -209,14 +212,18 @@ Forschungsunterlagen dienen der Auswahl von Mustern. Sie sind keine automatische
 
 Eine generische KI soll den Projektstand in dieser Reihenfolge ermitteln:
 
-1. `README.md`
-2. `.ai/repo_map.yaml`
-3. `SqlServerLab.psd1`
-4. `Schemas/` und `Catalogs/`
-5. `Public/`, `Private/`, `Providers/`
-6. `Tests/`
-7. `Documentation/Quality/KNOWN_LIMITATIONS.md`
-8. Planungsdokumente erst danach
+1. `AGENTS.md`
+2. `.ai/PROJECT_CONTEXT.md`
+3. `.ai/WORKING_RULES.md`
+4. `.ai/repo_map.yaml`
+5. `.ai/MODEL_ROUTING_POLICY.md`
+6. `Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md`
+7. `SqlServerLab.psd1`
+8. `Schemas/` und `Catalogs/`
+9. `Public/`, `Private/`, `Providers/`
+10. `Tests/`
+11. `Documentation/Quality/KNOWN_LIMITATIONS.md`
+12. Planungsdokumente erst danach
 
 Bei jeder Änderung müssen Code, Beispiel, Dokumentation und Test gemeinsam geprüft werden. Die statische Prüfung ist über folgenden Befehl ausführbar:
 

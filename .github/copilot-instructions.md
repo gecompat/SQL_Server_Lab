@@ -1,5 +1,13 @@
 ## SQL_Server_Lab – Copilot Baseline (CU/Slot Watch)
 
+Vor jeder Änderung gelten außerdem:
+
+- `AGENTS.md` als primärer Arbeitsvertrag;
+- `.ai/MODEL_ROUTING_POLICY.md` für die Auswahl des kleinsten ausreichend
+  qualifizierten Modells;
+- `Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md` für Local-first-
+  Auswertung, knappe Modellkontexte und stufenweise Tests.
+
 Bezug für Wartungs- und Kataloganfragen:
 - `ops/sql-cu-policy.md`
 - `Catalogs/sql-server-versions.json`

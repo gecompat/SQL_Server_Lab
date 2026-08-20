@@ -2,6 +2,7 @@
 
 | Dokument | Zweck |
 |---|---|
+| [COST_EFFICIENT_DEVELOPMENT.md](COST_EFFICIENT_DEVELOPMENT.md) | verbindliche Local-first-, Log-, Teststufen- und Kontextkostenstrategie |
 | [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md) | verbindliche Grenzen des aktuellen Runtimepfads |
 | [LOCAL_VALIDATION_STRATEGY.md](LOCAL_VALIDATION_STRATEGY.md) | tatsächlich verfügbare lokale Prüfpfade und verbleibende Testlücken |
 | [LOCAL_READINESS_CHECKLIST.md](LOCAL_READINESS_CHECKLIST.md) | präzise Vor-Push- und Vor-Release-Validierungsreihenfolge |

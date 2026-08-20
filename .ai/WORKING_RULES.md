@@ -15,15 +15,18 @@
 
 ## 2. Vor jeder Änderung
 
-1. aktuellen `main`-Stand prüfen;
-2. offene Branches und Pull Requests auf Überschneidungen prüfen;
-3. Zielpfad und Verantwortungsgrenze bestimmen;
-4. Privacy- und Secret-Risiko prüfen;
-5. autoritative Quellen aus `.ai/repo_map.yaml` lesen;
-6. bekannte Grenzen prüfen;
-7. nur beabsichtigte Dateien ändern;
-8. gekoppelte Dokumente und Tests mitführen;
-9. Statuswahrheit beibehalten.
+1. Root-`AGENTS.md` lesen;
+2. aktuellen `main`-Stand prüfen;
+3. offene Branches und Pull Requests auf Überschneidungen prüfen;
+4. Zielpfad und Verantwortungsgrenze bestimmen;
+5. Privacy- und Secret-Risiko prüfen;
+6. autoritative Quellen aus `.ai/repo_map.yaml` lesen;
+7. `MODEL_ROUTING_POLICY.md` und
+   `Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md` anwenden;
+8. bekannte Grenzen prüfen;
+9. nur beabsichtigte Dateien ändern;
+10. gekoppelte Dokumente und Tests mitführen;
+11. Statuswahrheit beibehalten.
 
 ## 3. Datenschutz
 
@@ -148,6 +151,21 @@ Restore, Attach, Archiv, SQL-Skript und Backupkette sind unterschiedliche Vertr�
 - Artefaktspezifische Sprachkonventionen bleiben erhalten; insbesondere verwendet das Projekt weiterhin englische Commit Messages mit dem vorgeschriebenen KI-Präfix.
 
 ## 12. Validierung
+
+Testauswahl, lokale Logauswertung, Wiederholungen und vollständige Gates folgen
+dem verbindlichen Vertrag unter
+`Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md`. Zuerst werden die
+betroffenen Suites lokal bestimmt:
+
+```powershell
+$paths = git diff --name-only origin/main...HEAD
+.\Tests\Static\Invoke-ImpactedChecks.ps1 -ChangedPath $paths
+```
+
+Vollständige Logs bleiben lokal; in einen KI-Kontext gelangen nur
+deduplizierte Findings und entscheidungsrelevante Ausschnitte. Ein
+unveränderter grüner Test oder eine identische Fehlersignatur wird ohne neue
+Evidence nicht erneut ausgeführt.
 
 Mindestens ausführen:
 
