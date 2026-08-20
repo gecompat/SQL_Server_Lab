@@ -67,7 +67,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | Komponente | Status | Autoritative Dateien |
 |---|---|---|
 | PowerShell-Modul | implementiert | `SqlServerLab.psd1`, `SqlServerLab.psm1` |
-| Öffentliche API | 44 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
+| Öffentliche API | 45 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
 | Docker | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman | implementiert | `Providers/Podman/PodmanProvider.ps1` |
 | Hyper-V | Lifecycle, sealed Registry und enger Manifestpfad aus SQL-Prepared-Image; echter SQL-End-to-End-Nachweis bleibt offen | `Providers/HyperV/HyperVProvider.ps1`, `Private/HyperVImageRegistry.ps1` |
@@ -96,6 +96,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `New-SqlServerLabBatch` | Providerneutralen Einzel- oder Mengenbatch validieren, expandieren und persistent einreihen |
 | `Get-SqlServerLabBatch` | Batchplan, Abhängigkeiten, Fortschritt und Cleanup-Scope lesen |
 | `Get-SqlServerLabQueue` | Worker, Locks, Blockierungen und User-Gates lesen |
+| `Invoke-SqlServerLabScheduler` | Persistente Queue mit begrenzter Workerzahl bis zum Leerlauf verarbeiten |
 | `Get-SqlServerLabOperation` | Schritte, Receipts, Events und Ergebnis eines Kindvorgangs lesen |
 | `Confirm-SqlServerLabOperationUserAction` | Ausgewählte User-Gates einzeln technisch prüfen und fortsetzen |
 | `Move-SqlServerLabOperation` | Wartenden Vorgang innerhalb seiner Priorität umreihen |

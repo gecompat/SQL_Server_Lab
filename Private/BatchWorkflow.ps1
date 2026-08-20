@@ -310,7 +310,11 @@ function Get-LabProviderAvailabilityMap {
             else {
                 $available = Get-LabWorkflowValue -InputObject $probe -Name 'Available' -Default $null
                 if ($null -eq $available) {
-                    $available = Get-LabWorkflowValue -InputObject $probe -Name 'IsAvailable' -Default $false
+                    $available = Get-LabWorkflowValue -InputObject $probe -Name 'IsAvailable' -Default $null
+                }
+                if ($null -eq $available) {
+                    $status = [string](Get-LabWorkflowValue -InputObject $probe -Name 'Status' -Default '')
+                    $available = $status -eq 'RESOURCE_OK'
                 }
                 $result[$provider] = [bool]$available
             }
@@ -976,19 +980,31 @@ function Invoke-LabOperationStepAction {
             $parameters = @{
                 Provider = [string]$Operation.provider
                 Version = [string](Get-LabWorkflowValue -InputObject $effective -Name 'Version' -Default (Get-LabWorkflowValue -InputObject $effective -Name 'SqlVersion' -Default '2022'))
-                Profile = [string](Get-LabWorkflowValue -InputObject $effective -Name 'Profile' -Default 'dev')
+                Profile = [string](Get-LabWorkflowValue -InputObject $effective -Name 'Profile' -Default 'compact')
                 StateRoot = $StateRoot
                 NonInteractive = $true
             }
+            $saPasswordEnvironmentVariable = [string](Get-LabWorkflowValue -InputObject $effective -Name 'SaPasswordEnvironmentVariable' -Default '')
+            if ([string]::IsNullOrWhiteSpace($saPasswordEnvironmentVariable)) {
+                throw 'BATCH_SA_PASSWORD_ENVIRONMENT_VARIABLE_REQUIRED: Container-Batchpositionen benötigen eine Referenz auf eine SQL_SERVER_LAB_SECRET_*-Prozessvariable.'
+            }
+            $parameters['SaPassword'] = Get-LabManifestEnvironmentSecret -Name $saPasswordEnvironmentVariable
             foreach ($mapping in @(
                 @('LabName', 'LabName'), @('InstanceId', 'InstanceId'), @('Port', 'Port'), @('Cpu', 'Cpu'),
-                @('MemoryMB', 'MemoryMB'), @('Collation', 'Collation'), @('AutoStart', 'AutoStart'),
+                @('MemoryMB', 'MemoryMB'), @('Collation', 'Collation'),
                 @('DataRoot', 'DataRoot'), @('PersistentData', 'PersistentData'), @('NetworkName', 'NetworkName')
             )) {
                 $value = Get-LabWorkflowValue -InputObject $effective -Name $mapping[0] -Default $null
                 if ($null -ne $value -and -not ([string]::IsNullOrWhiteSpace([string]$value))) {
                     $parameters[$mapping[1]] = $value
                 }
+            }
+            $autoStartValue = Get-LabWorkflowValue -InputObject $effective -Name 'AutoStart' -Default $null
+            if ($autoStartValue -is [bool]) {
+                $autoStartValue = if ($autoStartValue) { 'on' } else { 'off' }
+            }
+            if ($null -ne $autoStartValue -and -not [string]::IsNullOrWhiteSpace([string]$autoStartValue)) {
+                $parameters['AutoStart'] = [string]$autoStartValue
             }
             $created = New-SqlServerLab @parameters
             $result = @($created) | Select-Object -Last 1

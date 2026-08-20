@@ -2,10 +2,10 @@
 
 | Merkmal | Wert |
 |---|---|
-| Status | `APPROVED_IMPLEMENTATION_PLAN` |
-| Stand | 2026-08-13 |
+| Status | `IMPLEMENTED_WITH_OPEN_RUNTIME_ACCEPTANCE` |
+| Stand | 2026-08-20 |
 | Priorität | `P0` für Vorgangskern, Resume, User-Gates und verständliche Menüführung |
-| Implementierungsstatus | `NOT_IMPLEMENTED` sofern eine Welle nicht ausdrücklich anders markiert ist |
+| Implementierungsstatus | persistenter Kern und Adapter implementiert; reale Provider-/Slot-Abnahme und Restmigration offen |
 | Geltung | PowerShell-Konsole, öffentliche Cmdlets, Manifeste, lokale Workflow-Oberfläche und alle Provider |
 | Ziel | providerneutrale, mengenfähige und nach Abbruch sicher fortsetzbare Erstellung von SQL- und Windows-Umgebungen |
 
@@ -42,37 +42,54 @@ Standard.
 
 ## 2. Aktueller Ausgangsstand und Wiedereinstieg
 
-Dieses Dokument hält das beschlossene Zielbild fest. Es ist kein Beleg für
-eine bereits vorhandene Implementierung.
+Dieses Dokument hält Zielbild und Statusabgleich fest. Code und passende Tests
+bleiben der Implementierungsnachweis; die folgende Tabelle ordnet diesen
+Nachweis ein.
 
-Stand 2026-08-13 gilt:
+Stand 2026-08-20 gilt:
 
 | Bereich | Status |
 |---|---|
-| Vollständige Batch-/Operation-Verträge | `PLANNED` |
-| Persistente Queue und Scheduler-Lease | `PLANNED` |
-| User-Gates mit Read-only-Probes | `PLANNED` |
-| Mengenfähiger Composer | `PLANNED` |
-| Providerneutrale Erstellung | `PLANNED` |
-| Batch-Manifest | `PLANNED` |
-| Browseradapter für persistente Vorgänge | `PLANNED` |
-| Neue konsolidierte Menüstruktur | `STARTED_UNVERIFIED` |
+| Vollständige Batch-/Operation-Verträge | `VERIFIED` durch synthetischen lokalen Contract-Test |
+| Persistente Queue und Scheduler-Lease | `VERIFIED` durch Resume-, Worker-, Lease- und Fehlerisolationstest |
+| User-Gates mit Read-only-Probes | `VERIFIED` für synthetischen Probe-/Bestätigungsvertrag |
+| Mengenfähiger Composer | `IMPLEMENTED_UNVERIFIED`; Console-Vertrag statisch geprüft, reale Bulk-Abnahme offen |
+| Providerneutrale Erstellung | `IN_PROGRESS`; Docker-/Podman-Bulk sowie Hyper-V-Slot-Bulk, Scheduler-Resume und Cleanup real verifiziert; Prozessabbruch und User-Gates offen |
+| Batch-Manifest | `VERIFIED` für Schema und deterministische Expansion |
+| Browseradapter für persistente Vorgänge | `IMPLEMENTED_UNVERIFIED`; Queue-Anzeige und persistente Übergabe vorhanden |
+| Neue konsolidierte Menüstruktur | `IMPLEMENTED_UNVERIFIED`; zentrale UI-Checks grün, Restmigration bleibt offen |
 
-Der Branch `codex/menu-structure-overview` enthält einen begonnenen
-Menüteilstand. Eine lokale Änderung an `Public/Invoke-SqlServerLab.ps1` darf
-nicht mit dem hier beschriebenen Vorgangskern verwechselt werden. Vor der
-Weiterarbeit ist der tatsächliche Git- und Runtimezustand erneut zu erfassen.
+Der persistente Kern wurde mit PR #68 und die weitere providerneutrale
+Konsolenkonsolidierung mit PR #70 nach `main` übernommen. Die lokalen
+fokussierten Nachweise vom 2026-08-20 sind:
 
-Der vorhandene Menü-Branch beziehungsweise PR #68 wird nicht unverändert
-gemergt. Sinnvolle Begriffe und Navigationselemente werden in die hier
-beschriebene Struktur übernommen.
+```powershell
+.\Tests\Static\Invoke-BatchWorkflowChecks.ps1
+.\Tests\Static\Invoke-ConsoleUiChecks.ps1
+.\Tests\Static\Invoke-EnvironmentResourceChecks.ps1
+.\Tests\Static\Invoke-ModuleLoadContractChecks.ps1
+.\Tests\Static\Invoke-TestEnvironmentChecks.ps1
+.\Tests\Integration\Invoke-BatchWorkflowSmokeTest.ps1 -Provider docker
+.\Tests\Integration\Invoke-BatchWorkflowSmokeTest.ps1 -Provider podman
+.\Tests\Integration\Invoke-BatchWorkflowSmokeTest.ps1 -Provider hyperv -ArtifactId '<OS_SEALED-ID>'
+```
+
+Die statischen Prüfungen belegen Verträge, persistente Testzustände und
+UI-Bindings. Die Runtime-Smokes haben je zwei reale SQL-Server-2025-Umgebungen
+für Docker und Podman sowie zwei Windows-Server-2025-Slots aus einem immutable
+`OS_SEALED`-Parent für Hyper-V nachgewiesen. Geprüft wurden eindeutige RunIds,
+idempotentes Resume, das einzelne `HyperVHeavy`-Limit und vollständiger
+scopegebundener Cleanup. Offen bleiben echter Prozessabbruch/Resume,
+Manifest-Rerun und das interaktive Windows-User-Gate.
 
 ### Verbindlicher Wiedereinstieg für eine spätere Sitzung
 
 1. Dieses Dokument vollständig lesen.
 2. `git status`, aktuellen Branch, offene PRs und vorhandene lokale Änderungen erfassen.
 3. Bestehenden Code und Tests als Ist-Nachweis behandeln; Plantexte nicht als Implementierungsnachweis verwenden.
-4. Mit Welle 1 beginnen oder bei der ersten noch nicht abgenommenen Welle fortsetzen.
+4. Bei der ersten noch nicht vollständig abgenommenen Welle fortsetzen; aktuell
+   sind dies die reale Providerabnahme in Welle 5 sowie die Restmigrationen aus
+   Welle 6 und 7.
 5. Nach jeder Welle Status und Abnahmen in Abschnitt 16 aktualisieren.
 6. Keine Provider-Sonderlogik direkt in Console- oder Browserdialoge einbauen; alle Adapter müssen den gemeinsamen Vorgangskern verwenden.
 7. Reale Slots und Umgebungen nach Tests scopegebunden bereinigen.
@@ -524,14 +541,14 @@ Dieser Abschnitt ist bei jeder Implementierungswelle zu aktualisieren.
 
 | Welle | Status | Nachweis | Offene Abnahme |
 |---|---|---|---|
-| 1 Persistenter Kern | `PLANNED` | - | Verträge, atomare Persistenz, Rerun |
-| 2 Scheduler | `PLANNED` | - | Workerlimit, Lease, Locks, Fehlerisolation |
-| 3 Console Composer | `PLANNED` | - | Bulk-Edit, Expansion, Review |
-| 4 User-Gates | `PLANNED` | - | Probe, Bestätigung, Ton, Ruhemodus |
-| 5 Providerneutrale Erstellung | `PLANNED` | - | Auto-Auflösung, Slot-Bulk, Abhängigkeiten |
-| 6 Menükonsolidierung | `STARTED_UNVERIFIED` | lokaler Menüteilstand | vollständige Navigation und Fallback |
-| 7 Browser und Manifest | `PLANNED` | - | persistente Adapter und Batchschema |
-| 8 Abnahme und Veröffentlichung | `PLANNED` | - | lokale Tests, Cleanup, PR, Checks, Merge |
+| 1 Persistenter Kern | `VERIFIED` | `Invoke-BatchWorkflowChecks.ps1`: Vertrag, Expansion, Persistenz | reale Provider-Receipts bleiben Teil von Welle 5 |
+| 2 Scheduler | `VERIFIED` | zwei Worker, ein `HyperVHeavy`, Resume und Fehlerisolation synthetisch grün | Prozess-/Providerabbruch mit realen Ressourcen |
+| 3 Console Composer | `IMPLEMENTED_UNVERIFIED` | Composer und Queue-Menü vorhanden; Console-UI-Checks grün | reale Bulk-Erfassung und Abbruchpfade |
+| 4 User-Gates | `VERIFIED` | Probe, `CandidateSatisfied` und Bestätigung synthetisch grün | reale Hyper-V-Windows-Gates und Credential-Verifikation |
+| 5 Providerneutrale Erstellung | `IN_PROGRESS` | Docker und Podman: je zwei SQL-2025-Runs; Hyper-V: zwei Windows-2025-Slots seriell; Resume und Cleanup mit `Invoke-BatchWorkflowSmokeTest.ps1` verifiziert | echter Prozessabbruch, Manifest-Rerun und fehlende Shared-Artifact-Abhängigkeit |
+| 6 Menükonsolidierung | `IMPLEMENTED_UNVERIFIED` | providerneutrale Arbeitsbereiche und 54 Console-UI-Checks | `CUI-012` bis `CUI-019` und manuelle Navigation |
+| 7 Browser und Manifest | `IMPLEMENTED_UNVERIFIED` | Batchschema, persistente Browserübergabe und Queue-Ansicht vorhanden | Browser-End-to-End, Manifest-Rerun und Cleanup |
+| 8 Abnahme und Veröffentlichung | `IN_PROGRESS` | PR #68/#70 gemergt; fokussierte statische Checks und Docker-/Podman-/Hyper-V-Batch-Cleanup grün | Prozessabbruch, Manifest-Rerun, User-Gate und übrige manuelle Abnahme |
 
 Statuswerte dürfen nur mit konkretem Nachweis geändert werden:
 

@@ -4,8 +4,8 @@
 |---|---|
 | Projekt | `gecompat/SQL_Server_Lab` |
 | Status | `ACTIVE_EXECUTION_BACKLOG` |
-| Stand | 2026-08-12 |
-| Ausgangsstand | Statusabgleich gegen `origin/main` und den lokalen Validierungsbericht vom 2026-08-12; Commit-IDs sind kein Planungsvertrag |
+| Stand | 2026-08-20 |
+| Ausgangsstand | Statusabgleich gegen `origin/main`, den lokalen Validierungsbericht vom 2026-08-12 und fokussierte Batch-/Console-Vertragsprüfungen vom 2026-08-20; Commit-IDs sind kein Planungsvertrag |
 | Ziel | eine einzige ausführbare Lieferreihenfolge für Core, UI, Adapter, Hyper-V, Datenartefakte, Qualität und spätere Erweiterungen |
 | Runtime-Nachweis | ausschließlich Code, passende Tests, [KNOWN_LIMITATIONS.md](../Quality/KNOWN_LIMITATIONS.md) und datierte Validierungsnachweise |
 
@@ -44,6 +44,7 @@ einem tatsächlich erfolgreichen, passenden Lauf verwendet.
 - [Project-Adapter-Priorisierung](PROJECT_ADAPTER_PRIORITIZATION.md);
 - [Zukunftsplan der Menüführung](FUTURE_UI_WORKFLOW_PLAN_2026-08-08.md);
 - [Konsolen-, Lifecycle- und Storage-Konsolidierungsplan aus der manuellen Abnahme](CONSOLE_LIFECYCLE_AND_STORAGE_CONSOLIDATION_PLAN_2026-08-12.md);
+- [Providerneutraler Batch-, Queue- und Resume-Workflow](PROVIDER_NEUTRAL_BATCH_QUEUE_RESUME_WORKFLOW_2026-08-13.md);
 - [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](../Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md);
 - [Testdatenbank- und Manifest-Wizard-Vertrag](../Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md);
 - [Vorlagenpool und automatisierte Manifeste](../Architecture/TEMPLATE_POOL_AND_AUTOMATED_MANIFESTS.md);
@@ -95,6 +96,7 @@ Für jede Entwicklungswelle gelten folgende Leitplanken:
 | Project Adapter | Vertrag `0.1-draft`, sicherer Resolver, T-SQL-Entrypoints, Capability-/Versions-Gates und synthetischer Beispieladapter |
 | Hyper-V-Basis | Generation 2, Secure Boot, Parent-/Child-VHDX, Image Registry, Builder, Zusatz-VHDX, Windows-Specialization, SQL-Readiness-Orchestrierung und scopegebundener Lifecycle |
 | UI | interaktives PowerShell-Menü und lokale Loopback-Browseroberfläche mit Workflow-/Job-API |
+| Batch und Queue | persistenter Batch-/Operation-Kern, deterministische Expansion, Scheduler, Resume, User-Gates, Console Composer, Batchmanifest und Browserübergabe |
 | Qualität | statische Gesamtprüfung, Provider-Smokes, Versions-/Provider-Matrix, Restore-, Mixed-Provider-, Adapter- und Hyper-V-Testpfade |
 
 Am 2026-08-12 wurde für diesen Plan erneut ausgeführt:
@@ -198,12 +200,12 @@ Container-Volumes gehören dagegen in den normalen Storage-Pfad.
 
 ### 5.1 Aktueller Meilensteinstatus
 
-| Meilenstein | Status am 2026-08-12 | Nächster belastbarer Schritt |
+| Meilenstein | Status am 2026-08-20 | Nächster belastbarer Schritt |
 |---|---|---|
 | M0 Statuswahrheit | `validated` | Drift weiter statisch verhindern |
 | Providerneutraler Instanz-Autostart | `implemented_runtime_partial` | Docker-/SQL-2025-Runtime ist grün; Podman-Self-hosted-Gate und nativen Hyper-V-Lifecycle fortlaufend grün halten |
 | M1 Desired State und Planner | `implemented_partial` | Journal/Resume und weitere Änderungsklassen |
-| M2 UI und Container-Reconcile | `implemented_partial` | reale `live`-/`recreate`-Änderungen für Docker und Podman |
+| M2 UI und Container-Reconcile | `implemented_partial` | Batch/Queue real verifiziert: Docker und Podman mit je zwei SQL-2025-Runs, Hyper-V mit zwei Windows-2025-Slots, Resume und Cleanup; Prozessabbruch/Manifest-Rerun sowie reale `live`-/`recreate`-Änderungen offen |
 | M3 Adapterpiloten | `planned_external_scope` | je ein Pilot in den drei Konsumenten-Repositories |
 | M4 Hyper-V OS Cold Path | `implemented_partial` | realer unattended Windows-2025-Cold-Path |
 | M5 Hyper-V SQL und Resolver | `implemented_partial` | realer OS-zu-SQL-Cold-Path und Manifestparität |
@@ -688,27 +690,33 @@ verbindliches Performance-SLA festgelegt.
 
 Die folgende Reihenfolge liefert frühe, einzeln prüfbare Ergebnisse:
 
-1. `FIX-001`, `LIF-001`/`LIF-002`, `PORT-001`/`PORT-002` und `UAC-001` aus
-   dem Konsolidierungsplan: reproduzierbare P0-Fehler und Seiteneffekte schließen.
-2. `CUI-012` bis `CUI-019`: verbliebene Auswahlmenüs, `Escape`, Untermenü-
+1. Nach der real erfolgreichen Docker-/Podman-/Hyper-V-Provider-Matrix den
+   Batch-/Queue-Kern mit Manifest-Rerun und echtem Prozessabbruch/Resume
+   abnehmen; danach das Windows-User-Gate mit technischer Verifikation prüfen.
+2. `FIX-001` real erneut abnehmen sowie `LIF-001`/`LIF-002`,
+   `PORT-001`/`PORT-002` und `UAC-001` aus dem Konsolidierungsplan vollständig
+   schließen. Der ungültige `Invoke-Command -Passthru`-Aufruf ist im Code
+   entfernt und statisch gebunden, der reale PowerShell-Direct-Nachweis bleibt
+   offen.
+3. `CUI-012` bis `CUI-019`: verbliebene Auswahlmenüs, `Escape`, Untermenü-
    Refresh, Ergebnisansichten und reproduzierbaren Fallback vereinheitlichen.
-3. `STO-009` bis `STO-013`: Legacy-Default, absolute Pfade, stabile Locations
+4. `STO-009` bis `STO-013`: Legacy-Default, absolute Pfade, stabile Locations
    und Backing-Device-Topologie härten.
-4. `SFP-001` bis `SFP-003`: portablen Storage-Intent vom lokalen Bound Plan
+5. `SFP-001` bis `SFP-003`: portablen Storage-Intent vom lokalen Bound Plan
    trennen und jede SQL-/TempDB-Datei planbar machen.
-5. `HVS-001`/`HVS-002` und `SQLS-001`: vier TempDB-Datenfiles auf vier
+6. `HVS-001`/`HVS-002` und `SQLS-001`: vier TempDB-Datenfiles auf vier
    nachweislich unterschiedlichen physischen Geräten mit SQL-Postconditions
    als Hyper-V-Referenzfall abnehmen.
-6. `SQLS-002`/`SQLS-003`: neue Datenbanken und Restore dateigenau an Data-
+7. `SQLS-002`/`SQLS-003`: neue Datenbanken und Restore dateigenau an Data-
    und Log-Locations binden.
-7. `CORE-105`/`CORE-106`: Journal, Resume und Recovery für weitere Mutationen härten.
-8. `CNT-212`: erste reale Live-Änderung mit No-op- und Rollback-Test.
-9. `CNT-213`: erste Recreate-Änderung mit persistentem Volume testen.
-10. `ADP-003`, `ADP-004` und `ADP-008`: die drei Partnerpiloten in getrennt
+8. `CORE-105`/`CORE-106`: Journal, Resume und Recovery für weitere Mutationen härten.
+9. `CNT-212`: erste reale Live-Änderung mit No-op- und Rollback-Test.
+10. `CNT-213`: erste Recreate-Änderung mit persistentem Volume testen.
+11. `ADP-003`, `ADP-004` und `ADP-008`: die drei Partnerpiloten in getrennt
     abgestimmten Konsumenten-Scopes beginnen.
-11. `HV-402`/`HV-403` und `HV-405`/`HV-406`: sicheren Zero-Touch-OS-Cold-Path
+12. `HV-402`/`HV-403` und `HV-405`/`HV-406`: sicheren Zero-Touch-OS-Cold-Path
     bis `OS_READY` vervollständigen.
-12. `DATA-707`: Container-Baselines an Hyper-V-Export und -Nutzung binden.
+13. `DATA-707`: Container-Baselines an Hyper-V-Export und -Nutzung binden.
 
 Erst danach folgen SQL-Cold-Path, Resolver-Optimierung, breite
 Hyper-V-Infrastrukturänderungen und optionale Caches.

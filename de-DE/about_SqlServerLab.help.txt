@@ -55,6 +55,9 @@ COMMANDS
     Get-SqlServerLabQueue
         Liefert Worker, Locks, Blockierungen und wartende User-Gates.
 
+    Invoke-SqlServerLabScheduler
+        Verarbeitet die persistente Batch-Queue mit begrenzter Workerzahl bis zum Leerlauf.
+
     Get-SqlServerLabOperation
         Liefert Kindvorgaenge, Schritte, Receipts und Events.
 

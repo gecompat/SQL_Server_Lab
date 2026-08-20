@@ -521,6 +521,7 @@ $modelRoutingPolicy = Get-Content -LiteralPath (Join-Path $repoRoot '.ai\MODEL_R
 $projectContext = Get-Content -LiteralPath (Join-Path $repoRoot '.ai\PROJECT_CONTEXT.md') -Raw -Encoding utf8
 $repoMap = Get-Content -LiteralPath (Join-Path $repoRoot '.ai\repo_map.yaml') -Raw -Encoding utf8
 $masterImplementationPlan = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\MASTER_IMPLEMENTATION_PLAN.md') -Raw -Encoding utf8
+$batchWorkflowPlan = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\PROVIDER_NEUTRAL_BATCH_QUEUE_RESUME_WORKFLOW_2026-08-13.md') -Raw -Encoding utf8
 $futureUseCases = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Architecture\FUTURE_USE_CASES_AND_EXTENSION_GUARDRAILS.md') -Raw -Encoding utf8
 $knownLimitations = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Quality\KNOWN_LIMITATIONS.md') -Raw -Encoding utf8
 $hyperVManifestRuntime = Get-Content -LiteralPath (Join-Path $repoRoot 'Public\New-SqlServerLab.ps1') -Raw -Encoding utf8
@@ -612,6 +613,11 @@ Add-ValidationResult `
     -Success ($projectContext -notmatch 'SQL-Skript-Samples;')
 
 Add-ValidationResult `
+    -Name 'Projektkontext beschreibt die Batch-/Operation-Vertraege als implementiert' `
+    -Success ($projectContext -match [regex]::Escape('SqlServerLab.Batch/1.0') -and
+        $projectContext -match [regex]::Escape('SqlServerLab.Operation/1.0'))
+
+Add-ValidationResult `
     -Name 'Repo-Map kennt den aktuellen Validierungsreport' `
     -Success ($latestValidationResult -and $repoMap -match [regex]::Escape("latest_validation_result: Documentation/Quality/$($latestValidationResult.Name)")) `
     -Message $latestValidationMessage
@@ -623,6 +629,13 @@ Add-ValidationResult `
 Add-ValidationResult `
     -Name 'Masterplan trennt lokale Produktfunktion von optionaler CI-Validierung' `
     -Success ($masterImplementationPlan -notmatch 'keine CI/CD-Artefakte vorhanden' -and $masterImplementationPlan -match 'keine Produktabhängigkeit')
+
+Add-ValidationResult `
+    -Name 'Batch-Plan bildet implementierten Kern und offene Runtime-Abnahme ab' `
+    -Success ($batchWorkflowPlan -match 'IMPLEMENTED_WITH_OPEN_RUNTIME_ACCEPTANCE' -and
+        $batchWorkflowPlan -notmatch [regex]::Escape('| 1 Persistenter Kern | `PLANNED`') -and
+        $batchWorkflowPlan -match 'Docker-/Podman-Bulk sowie Hyper-V-Slot-Bulk' -and
+        $batchWorkflowPlan -match 'Prozessabbruch und User-Gates offen')
 
 Add-ValidationResult `
     -Name 'Historischer Architekturstatus ist als Snapshot gekennzeichnet' `

@@ -984,8 +984,8 @@ Jedes Dokument führt seine eigene Wellenzählung.
 | Master-Plan-Welle | Stand | Anmerkung |
 |---|---|---|
 | Welle 0 – Repository- und Governance-Basis | abgeschlossen | README, Lizenz, Privacy-, Sprach- und Validierungsverträge, KI-Kontext vorhanden |
-| Welle 1 – Verträge und CLI-Skelett | teilweise, mit bewusster Abweichung | Statt getrennter Run-Request-/Scenario-/Topology-Schemas existiert `Schemas/lab-manifest.schema.json` mit Wizard und Fachvalidierung; Preflight ist `Test-SqlServerLabPrerequisite`; der Adaptervertrag ist als `Schemas/project-adapter.schema.json` (`0.1-draft`) implementiert. Scenario- und Capability-Schemas sind offen |
-| Welle 2 – Container Quick Environment | umgesetzt | Docker und Podman über direkte Provider-Adapter (kein Compose-Core), Menü und nicht interaktive Parameter, Profile, Health-/SQL-/Versionsprüfung, Lifecycle, scope-gebundener Cleanup; zusätzlich implementiert: gemischter Docker-/Podman-Run, Sample-Backup-Handler mit Trust Store und inhaltsadressiertem Cache |
+| Welle 1 – Verträge und CLI-Skelett | teilweise, mit bewusster Abweichung | Statt getrennter Run-Request-/Scenario-/Topology-Schemas existiert `Schemas/lab-manifest.schema.json` mit Wizard und Fachvalidierung; Preflight ist `Test-SqlServerLabPrerequisite`; Adapter- sowie Batch-/Operation-Verträge sind implementiert. Scenario- und breite Capability-Schemas sind offen |
+| Welle 2 – Container Quick Environment | umgesetzt | Docker und Podman über direkte Provider-Adapter (kein Compose-Core), Menü und nicht interaktive Parameter, Profile, Health-/SQL-/Versionsprüfung, Lifecycle und scopegebundener Cleanup; zusätzlich implementiert: gemischter Docker-/Podman-Run, Sample-Backup-Handler sowie providerneutraler Batch-/Queue-/Resume-Kern. Docker-/Podman-SQL-Bulk und Hyper-V-Windows-Slot-Bulk samt Resume und Cleanup sind real verifiziert |
 | Welle 3 – Migration des Analyze-QuickTest-Lifecycle | teilweise | Übergangszustände vor Mutation, Recovery-Status, Run-ID-/Scope-Validierung und lokale Secret-Verwaltung sind im Core vorhanden; Reset-Vertrag, Apply-Adapter und Compatibility Wrapper für `SQL_Server_Analyze` sind offen |
 | Welle 4 – Hyper-V Provider | teilweise; nativer Lifecycle validiert | Immutable Image-Registry, Baseline-Auswahl, Generation-2-/Secure-Boot-/Parent-Child-VHDX-Lifecycle, Gast-Drives, Windows-Specialization, SQL-`CompleteImage` im engen Prepared-Image-Klonpfad und interne SQL-Readiness-Orchestrierung implementiert; VM-/VHDX-/Start-/Stop-/Reconcile-/Cleanup-Lifecycle ist auf einem erhöhten Runner grün. Vollautomatische OS-Factory, breites Netzwerk-/Manifest-Binding und echter Windows-/SQL-2025-Gastnachweis sind offen |
 | Welle 5 – Scenario Engine und Fault Injection | nicht begonnen | |
@@ -1091,25 +1091,29 @@ Das Vorhaben gilt als funktional abgeschlossen, wenn:
 
 ## 22. Nächster sinnvoller Verarbeitungsschritt
 
-Der Container-Core (Welle 2), der Sample-Backup-Handler und die native
+Der Container-Core (Welle 2), der Sample-Backup-Handler, der synthetisch
+verifizierte Batch-/Queue-/Resume-Vertrag und die native
 Hyper-V-Generation-2-Lifecycle-Grundlage sind umgesetzt. Die nächsten Schritte
 sind:
 
-1. die P0-Fehler aus der manuellen Konsolenabnahme schließen: kein CMS-Sync
+1. nach der erfolgreichen Docker-/Podman-/Hyper-V-Batchmatrix Manifest-Rerun,
+   Resume nach echtem Prozessabbruch und das Windows-User-Gate prüfen;
+2. die P0-Fehler aus der manuellen Konsolenabnahme schließen: kein CMS-Sync
    nach Abbruch oder No-op, vollständiger Menüabbruchvertrag, belegte Ports
-   blockieren, Hyper-V-Generalize reparieren und UAC-Vorabfrage verifizieren;
-2. Multi-Root-Storage konsolidieren und den providerneutralen, dateigenauen
+   blockieren, den bereits statisch korrigierten Hyper-V-Generalize-Pfad real
+   erneut abnehmen und die UAC-Vorabfrage verifizieren;
+3. Multi-Root-Storage konsolidieren und den providerneutralen, dateigenauen
    SQL-Storage-Plan umsetzen. Der Referenzfall bindet User-Data, User-Log und
    TempDB getrennt und verteilt vier TempDB-Datenfiles auf vier nachweislich
    unterschiedliche physische Datenträger. Details stehen im
    [Konsolen-, Lifecycle- und Storage-Konsolidierungsplan](CONSOLE_LIFECYCLE_AND_STORAGE_CONSOLIDATION_PLAN_2026-08-12.md);
-3. die vorhandene `LAB_GENERATED`-Erzeugung und -Präferenz für verifizierte
+4. die vorhandene `LAB_GENERATED`-Erzeugung und -Präferenz für verifizierte
    Single- und Multi-Output-Container-Samples an den Hyper-V-Export binden;
-4. die Wellen 6, 7 und 7a mit je einem Partnerpiloten beginnen:
+5. die Wellen 6, 7 und 7a mit je einem Partnerpiloten beginnen:
    Schulungs-Beispielkonstruktion, Analyze-Frameworkinstallation und
    Toolbelt-Modul-Lifecycle. Details und Reihenfolge stehen in
    [Project-Adapter-Priorisierung](PROJECT_ADAPTER_PRIORITIZATION.md);
-5. den vorhandenen Hyper-V-Pfad mit hashverifizierten Medien bis zum echten
+6. den vorhandenen Hyper-V-Pfad mit hashverifizierten Medien bis zum echten
    Windows-/SQL-2025-Gastnachweis führen und parallel den Zero-Touch-Cold-Path
    vervollständigen.
 
