@@ -59,9 +59,9 @@ Stand 2026-08-20 gilt:
 | Browseradapter für persistente Vorgänge | `IMPLEMENTED_UNVERIFIED`; Queue-Anzeige und persistente Übergabe vorhanden |
 | Neue konsolidierte Menüstruktur | `IMPLEMENTED_UNVERIFIED`; zentrale UI-Checks grün, Restmigration bleibt offen |
 
-Der persistente Kern wurde mit PR #68 und die weitere providerneutrale
-Konsolenkonsolidierung mit PR #70 nach `main` übernommen. Die lokalen
-fokussierten Nachweise vom 2026-08-20 sind:
+Der persistente Kern wurde mit PR #68, die providerneutrale
+Konsolenkonsolidierung mit PR #70 und die reale Provider-Matrix mit PR #73 nach
+`main` übernommen. Die lokalen fokussierten Nachweise vom 2026-08-20 sind:
 
 ```powershell
 .\Tests\Static\Invoke-BatchWorkflowChecks.ps1
@@ -548,7 +548,7 @@ Dieser Abschnitt ist bei jeder Implementierungswelle zu aktualisieren.
 | 5 Providerneutrale Erstellung | `IN_PROGRESS` | Docker und Podman: je zwei SQL-2025-Runs; Hyper-V: zwei Windows-2025-Slots seriell; Resume und Cleanup mit `Invoke-BatchWorkflowSmokeTest.ps1` verifiziert | echter Prozessabbruch, Manifest-Rerun und fehlende Shared-Artifact-Abhängigkeit |
 | 6 Menükonsolidierung | `IMPLEMENTED_UNVERIFIED` | providerneutrale Arbeitsbereiche und 54 Console-UI-Checks | `CUI-012` bis `CUI-019` und manuelle Navigation |
 | 7 Browser und Manifest | `IMPLEMENTED_UNVERIFIED` | Batchschema, persistente Browserübergabe und Queue-Ansicht vorhanden | Browser-End-to-End, Manifest-Rerun und Cleanup |
-| 8 Abnahme und Veröffentlichung | `IN_PROGRESS` | PR #68/#70 gemergt; fokussierte statische Checks und Docker-/Podman-/Hyper-V-Batch-Cleanup grün | Prozessabbruch, Manifest-Rerun, User-Gate und übrige manuelle Abnahme |
+| 8 Abnahme und Veröffentlichung | `IN_PROGRESS` | PR #68/#70/#73 gemergt; statische und GitHub-Gates sowie Docker-/Podman-/Hyper-V-Batch-Cleanup grün | Prozessabbruch, Manifest-Rerun, User-Gate und übrige manuelle Abnahme |
 
 Statuswerte dürfen nur mit konkretem Nachweis geändert werden:
 
