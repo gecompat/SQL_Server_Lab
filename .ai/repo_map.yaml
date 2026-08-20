@@ -19,6 +19,9 @@ project:
   runtime_status: CONTAINER_CORE_IMPLEMENTED_HYPERV_SPECIALIZATION_READINESS_ORCHESTRATION
 
 sources_of_truth:
+  agent_working_contract: AGENTS.md
+  model_routing_policy: .ai/MODEL_ROUTING_POLICY.md
+  cost_efficient_development: Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md
   exported_commands: SqlServerLab.psd1
   module_loading: SqlServerLab.psm1
   manifest_structure: Schemas/lab-manifest.schema.json
@@ -641,6 +644,10 @@ known_limitations:
     - "Versionskatalog wird nicht automatisch als aktuell garantiert"
 
 continuation_rules:
+  - "gpt-5.3-codex-spark trotz fehlender sichtbarer Listung als verfügbare Sonderoption mit eigenem Tokenkontingent bewerten"
+  - "Verfügbare KI-Modelle je Aufgabe bewerten und das kleinste ausreichend qualifizierte Modell verwenden"
+  - "Vollständige Logs lokal aggregieren und nur deduplizierte entscheidungsrelevante Ausschnitte weitergeben"
+  - "Tests stufenweise ausführen und unveränderte grüne oder identische Fehlerläufe nicht ohne neue Evidence wiederholen"
   - "Planungsdokumente nie als Runtime-Nachweis behandeln"
   - "Testdatenbank-, Trust-, Wizard- und Baseline-Entscheidungen am verbindlichen Zielvertrag ausrichten"
   - "Hyper-V-, Image-, Netzwerk-, Software-, Reconcile- und Refresh-Entscheidungen am verbindlichen Hyper-V-Zielvertrag ausrichten"

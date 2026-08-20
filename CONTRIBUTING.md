@@ -8,11 +8,13 @@ Das Repository ist nicht Open Source. Rechte zur Nutzung, Weitergabe und Veränd
 
 ## Vor jeder Änderung
 
-1. Root-`README.md` und `.ai/repo_map.yaml` lesen.
-2. `Documentation/Quality/KNOWN_LIMITATIONS.md` prüfen.
-3. Betroffene öffentliche Verträge bestimmen.
-4. Verifizieren, ob bereits ein offener Branch oder Pull Request dieselbe Änderung enthält.
-5. Sicherstellen, dass keine realen Secrets, personenbezogenen Daten, Kundendaten, Firmendaten, Hostinformationen oder proprietären internen Artefakte übernommen werden.
+1. Root-`AGENTS.md`, Root-`README.md` und `.ai/repo_map.yaml` lesen.
+2. `.ai/MODEL_ROUTING_POLICY.md` und
+   `Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md` anwenden.
+3. `Documentation/Quality/KNOWN_LIMITATIONS.md` prüfen.
+4. Betroffene öffentliche Verträge bestimmen.
+5. Verifizieren, ob bereits ein offener Branch oder Pull Request dieselbe Änderung enthält.
+6. Sicherstellen, dass keine realen Secrets, personenbezogenen Daten, Kundendaten, Firmendaten, Hostinformationen oder proprietären internen Artefakte übernommen werden.
 
 ## Privacy- und Sicherheitsregel
 
@@ -132,6 +134,11 @@ Bei Versionen, Builds oder Sample-Datenbanken sind gemeinsam zu prüfen:
 Neue CU- oder Buildangaben dürfen nicht aus einer vermuteten Tag-Konvention erfunden werden.
 
 ## Lokale Validierung
+
+Die Testreihenfolge, lokale Logaggregation und Wiederholungsregeln aus
+`Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md` sind verbindlich.
+Notwendige Tests werden nicht aus Kostengründen ausgelassen; während der
+Entwicklung wird jedoch zuerst der kleinste aussagekräftige Scope geprüft.
 
 Die geänderten Pfade mit derselben Auswahl wie das PR-Gate prüfen:
 
