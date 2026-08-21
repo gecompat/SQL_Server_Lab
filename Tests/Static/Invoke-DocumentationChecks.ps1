@@ -593,11 +593,12 @@ Add-ValidationResult `
         $agentContract -match [regex]::Escape('Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md'))
 
 Add-ValidationResult `
-    -Name 'Modellrouting fordert das kleinste ausreichend qualifizierte Modell' `
-    -Success ($modelRoutingPolicy -match 'kostengünstigste und kontexteffizienteste Modell' -and
-        $modelRoutingPolicy -match 'notwendige Qualität zuverlässig' -and
-        $modelRoutingPolicy -match [regex]::Escape('gpt-5.3-codex-spark') -and
-        $modelRoutingPolicy -match 'eigenes Tokenkontingent')
+    -Name 'Verarbeitungsrichtlinie ist anbieterneutral und kostenoptimiert' `
+    -Success ($modelRoutingPolicy -match 'unabhängig vom verwendeten KI-Anbieter' -and
+        $modelRoutingPolicy -match 'möglichst geringen Gesamtkosten' -and
+        $modelRoutingPolicy -match 'Preise, Fähigkeiten, Kontingente oder Modellwechsel werden nicht erfunden' -and
+        $modelRoutingPolicy -match 'Systeme ohne Modellwechsel' -and
+        $modelRoutingPolicy -match 'Tests werden niemals als erfolgreich bezeichnet')
 
 Add-ValidationResult `
     -Name 'Kosteneffiziente Entwicklung bindet lokale Testauswahl und Logaggregation' `

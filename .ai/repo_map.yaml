@@ -644,8 +644,9 @@ known_limitations:
     - "Versionskatalog wird nicht automatisch als aktuell garantiert"
 
 continuation_rules:
-  - "gpt-5.3-codex-spark trotz fehlender sichtbarer Listung als verfügbare Sonderoption mit eigenem Tokenkontingent bewerten"
-  - "Verfügbare KI-Modelle je Aufgabe bewerten und das kleinste ausreichend qualifizierte Modell verwenden"
+  - "Tatsächlich verfügbare KI-Systeme, Modelle, Kontingente, lokale Werkzeuge und Steuerungsmöglichkeiten ohne erfundene Fähigkeiten oder Modellwechsel bewerten"
+  - "Je überprüfbarem Teilschritt die kostengünstigste ausreichend qualifizierte Kombination aus System, Reasoning-Aufwand, Werkzeugen und lokalen Tests verwenden"
+  - "Systeme ohne Modellwechsel durch kleinen Kontext, fokussierte Werkzeuge, lokale Tests und zusätzliche Prüfung kostenoptimal einsetzen"
   - "Vollständige Logs lokal aggregieren und nur deduplizierte entscheidungsrelevante Ausschnitte weitergeben"
   - "Tests stufenweise ausführen und unveränderte grüne oder identische Fehlerläufe nicht ohne neue Evidence wiederholen"
   - "Planungsdokumente nie als Runtime-Nachweis behandeln"

@@ -22,15 +22,14 @@ ausdrücklich dokumentiert werden.
 
 ## Kontext- und kosteneffiziente Arbeit
 
-- Die verfügbaren KI-Modelle werden vor jeder Aufgabe nach Aufgabenklasse,
-  Risiko, benötigter Qualität, Kontextkosten und Ausführungskosten bewertet.
-- Verwendet wird das kleinste beziehungsweise kostengünstigste verfügbare
-  Modell, das die notwendige Qualität zuverlässig liefert.
-- `gpt-5.3-codex-spark` wird als verfügbare Sonderoption mit eigenem
-  Tokenkontingent in die Auswahl einbezogen, auch wenn es in einer angezeigten
-  Modellliste fehlt. Für vollständig begrenzte atomare Coding-Pakete ist dieses
-  Kontingent bevorzugt zu prüfen.
-- Stärkere Modelle sind kritischen Architektur-, Security-, Privacy-,
+- Die tatsächlich verfügbaren KI-Systeme, Modelle, lokalen Werkzeuge und
+  Steuerungsmöglichkeiten werden vor umfangreichen Arbeiten nach Aufgabenklasse,
+  Risiko, benötigter Qualität und Gesamtkosten bewertet.
+- Verwendet wird die kostengünstigste verfügbare Kombination, die die notwendige
+  Qualität, Sicherheit, Zuverlässigkeit und Nachprüfbarkeit erreicht.
+- Separate Kontingente oder lokale Systeme werden für geeignete Routinearbeit
+  bevorzugt, wenn ihre Verfügbarkeit und Eignung tatsächlich bestätigt sind.
+- Leistungsfähigere Systeme sind kritischen Architektur-, Security-, Privacy-,
   Nebenläufigkeits-, Autorisierungs- und Datenverlustfragen vorbehalten. Nach
   deren Klärung wird für begrenzte mechanische Arbeit wieder zurückgestuft.
 - Vollständige Logs, große Diffs, wiederholte Fehler und lange grüne
@@ -41,7 +40,7 @@ ausdrücklich dokumentiert werden.
   Teilaufgaben sinnvoll. Eine atomare Implementierung hat genau einen aktiven
   Implementierungsagenten.
 
-Die verbindlichen Einzelheiten stehen in
+Die verbindlichen anbieterneutralen Einzelheiten stehen in
 `.ai/MODEL_ROUTING_POLICY.md` und
 `Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md`.
 
