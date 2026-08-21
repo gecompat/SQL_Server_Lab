@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING` |
-| Stand | 2026-08-20 |
+| Stand | 2026-08-21 |
 | Geltungsbereich | lokale Entwicklung, KI-Arbeit, Tests, Reviews und CI-Wellen |
 
 ## 1. Ziel
@@ -141,15 +141,16 @@ Ein Delegationskontext enthält nur:
 - lokal aggregierte, deduplizierte Findings.
 
 Lange Chat-Historien, vollständige grüne Logs und unverbundene
-Repositorytexte werden nicht weitergereicht. Modellwahl und Eskalation folgen
-`.ai/MODEL_ROUTING_POLICY.md`.
+Repositorytexte werden nicht weitergereicht. System- und Modellwahl sowie
+Eskalation folgen `.ai/MODEL_ROUTING_POLICY.md`.
 
 ## 7. Abschlussbericht
 
 Der Abschluss einer Welle nennt knapp:
 
 - geänderten Scope;
-- verwendete Modellklasse und eine relevante Eskalation;
+- eine relevante System-, Modell- oder Kostenabwägung nur, wenn sie Qualität,
+  Validierung oder Ausführung beeinflusst hat;
 - lokal ausgeführte fokussierte und betroffene Prüfungen;
 - Ergebnis des erforderlichen Abschluss-Gates;
 - nicht ausgeführte Provider-/Native-Tests mit Grund;

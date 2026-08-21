@@ -590,7 +590,7 @@ flowchart TD
 | Aktuelle Einschränkungen | `Documentation/Quality/KNOWN_LIMITATIONS.md` |
 | KI-Landkarte | `.ai/repo_map.yaml` |
 | KI-Arbeitsvertrag | `AGENTS.md` |
-| Modell- und Agenten-Routing | `.ai/MODEL_ROUTING_POLICY.md` |
+| Anbieterneutrale kosten- und qualitätsoptimierte Verarbeitung | `.ai/MODEL_ROUTING_POLICY.md` |
 | Kosten- und kontexteffiziente Entwicklung | `Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md` |
 
 ## Tests und Validierung

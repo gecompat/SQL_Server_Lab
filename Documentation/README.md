@@ -33,7 +33,7 @@ Diese Datei ist der verbindliche Dokumentationsindex. Die Root-[README](../READM
 3. [Entwicklungs- und Testumgebung unter Linux](Development/DEVELOPMENT_AND_TEST_SETUP_LINUX.md)
 4. [KI-Projektkontext](../.ai/PROJECT_CONTEXT.md)
 5. [Arbeitsregeln](../.ai/WORKING_RULES.md)
-6. [Modell- und Agenten-Routing](../.ai/MODEL_ROUTING_POLICY.md)
+6. [Anbieterneutrale kosten- und qualitätsoptimierte Verarbeitung](../.ai/MODEL_ROUTING_POLICY.md)
 7. [Kosten- und kontexteffiziente Entwicklung](Quality/COST_EFFICIENT_DEVELOPMENT.md)
 8. [Maschinenlesbare Repo-Map](../.ai/repo_map.yaml)
 9. [Beitragsregeln](../CONTRIBUTING.md)
