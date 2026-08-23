@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `IMPLEMENTED_WITH_GAPS` |
-| Stand | 2026-08-08 |
+| Stand | 2026-08-23 |
 | CI/CD | keine Voraussetzung für die lokale Produktfunktion |
 | Ziel | reproduzierbare lokale Prüfung von Verträgen und Provider-Runtime |
 
@@ -18,6 +18,30 @@ Die lokale Validierung besteht aktuell aus drei produktiven Ebenen:
 3. Übergreifender Referenztest (`Invoke-SmokeMatrix`) über erreichbare Provider mit SQL Server 2025 und optionaler Parallelitätsprüfung.
 
 Es gibt weiterhin Restlücken (z. B. Hyper-V-Postcondition- und SQL-Readiness auf echter Host-VM), aber Versions-/Provider-Matrix, Restore-Smoke und Hyper-V-Grundlage sind als lokale Pfade dokumentiert und getestet.
+
+### 1.1 Validierungsscope der AI Repository Foundation
+
+Die Foundation ergänzt die vorhandenen Prüfungen, ersetzt sie aber nicht. Die
+Nachweise werden getrennt ausgewiesen:
+
+| Scope | Zuständiger Nachweis |
+|---|---|
+| `FOUNDATION_INTEGRITY` | Foundation-Validator gegen die installierten Dateien unter `.ai/foundation/`, den Root-Bridge-Block, die Provenienz und ausgewählte Adapter |
+| `PROJECT_SEMANTIC` | vorhandene statische Projektverträge, insbesondere `Invoke-DocumentationChecks.ps1`, `Invoke-PrivacyScannerChecks.ps1` und die betroffene Auswahl über `Invoke-ImpactedChecks.ps1` |
+| `RUNTIME_EMPIRICAL` | Builds, Provider-Smokes, Integrationsprüfungen und manuelle Abnahmen, wenn der Änderungsscope Runtimeverhalten berührt |
+
+Der Foundation-Validator wird aus einem Checkout der Foundation ausgeführt:
+
+```text
+python tools/foundation_validator.py --target <SQL_Server_Lab-Checkout>
+```
+
+Ein grüner `FOUNDATION_INTEGRITY`-Nachweis ist kein Nachweis für
+`PROJECT_SEMANTIC` oder `RUNTIME_EMPIRICAL`. `NOT_EXECUTED` entspricht
+`not executed`; `PASS` darf nur für den tatsächlich ausgeführten und
+bestandenen Scope als `validated` abgebildet werden. `SKIP_OPTIONAL`,
+`UNSUPPORTED`, `WARN`, `FAIL` und `RECOVERY_REQUIRED` bleiben eigenständige
+Projektstatus und dürfen nicht als `validated` dargestellt werden.
 
 ## 2. Aktuelle Einstiegspunkte
 

@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING` |
-| Stand | 2026-08-21 |
+| Stand | 2026-08-23 |
 | Geltungsbereich | KI-unterstützte Entwicklung, Diagnose, Review, Planung, Tests und Betrieb |
 
 Diese Richtlinie gilt unabhängig vom verwendeten KI-Anbieter, Modell,
@@ -67,6 +67,27 @@ Kategorien:
 Ein lokales Modell ist nicht automatisch die günstigste Wahl. Laufzeit,
 Hardwareverbrauch, Ergebnisqualität und mögliche Nacharbeit werden ebenfalls
 berücksichtigt.
+
+## Semantische Zuordnung zur AI Repository Foundation
+
+Die detaillierte Projektrichtlinie bleibt für die konkrete System- und
+Modellwahl maßgeblich. Für repositoryübergreifende Portabilität gelten die
+folgenden semantischen Zuordnungen zum Foundation-Ruleset `1.2.0`:
+
+| Foundation-Tier | Projektzuordnung |
+|---|---|
+| `LOCAL` | deterministische lokale Werkzeuge, Skripte, Parser, Tests und Prüfungen ohne erforderliches generatives Modell |
+| `ECONOMICAL` | die Kategorie `günstig und schnell` für klar definierte, risikoarme und leicht überprüfbare Arbeit |
+| `BALANCED` | die Kategorie `ausgewogen` für mehrere zusammenwirkende Verträge, Dateien oder Quellen sowie nicht offensichtliche Diagnosen |
+| `FRONTIER` | die Kategorie `leistungsfähig und teuer` ausschließlich für ungelöste, kritische oder schwer überprüfbare Architektur-, Security-, Privacy-, Autorisierungs- oder Datenverlustfragen |
+
+Konkrete Anbieter, Modelle, Preise, Kontingente und Produktfunktionen sind
+veränderliche Runtime- oder Projektfakten. Ihre Nennung in dieser Richtlinie
+ist ein Beispiel und keine dauerhafte Verfügbarkeits- oder
+Fähigkeitsannahme. Menschlicher Prüfaufwand wird erst nach Bestimmung des
+erforderlichen Capability-Tiers als Effizienzfaktor berücksichtigt; er darf
+allein weder das Tier erhöhen noch eine erforderliche Prüfung oder Freigabe
+ersetzen.
 
 ## Aufgaben zerlegen
 

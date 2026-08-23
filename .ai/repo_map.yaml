@@ -20,8 +20,10 @@ project:
 
 sources_of_truth:
   agent_working_contract: AGENTS.md
+  foundation_ruleset: .ai/foundation/FOUNDATION_RULESET.md
   model_routing_policy: .ai/MODEL_ROUTING_POLICY.md
   cost_efficient_development: Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md
+  sql_cu_watch_policy: ops/sql-cu-policy.md
   exported_commands: SqlServerLab.psd1
   module_loading: SqlServerLab.psm1
   manifest_structure: Schemas/lab-manifest.schema.json
@@ -56,6 +58,36 @@ sources_of_truth:
   validation_batch_workflow: Tests/Static/Invoke-BatchWorkflowChecks.ps1
   validation_runtime_matrix: Tests/Integration/Invoke-SmokeMatrix.ps1
   latest_validation_result: Documentation/Quality/VALIDATION_RESULT_2026-08-20.md
+
+foundation_integration:
+  source_repository: gecompat/AI_Repository_Foundation
+  source_commit: 28e0e071fef421528d106676c99234d48be08b6b
+  ruleset_version: "1.2.0"
+  foundation_integrity_index: .ai/foundation/repo_map.yaml
+  selected_adapters:
+    - github-copilot
+  adapter_rule_rehome:
+    github-copilot: ops/sql-cu-policy.md
+  semantic_classification:
+    equivalent:
+      - truthful_status_and_validation_evidence
+      - local_impact_based_validation
+      - small_coherent_branch_and_pr_changes
+    project_stronger:
+      - synthetic_and_allowlisted_repository_data
+      - additional_approval_and_cleanup_requirements
+      - provider_specific_runtime_evidence
+    project_selectable_override:
+      - custom_target_license
+      - german_project_documentation
+      - ai_commit_prefix
+    complementary:
+      - detailed_model_and_cost_routing
+      - sql_server_domain_and_provider_contracts
+      - extended_validation_statuses
+  model_routing_mapping: .ai/MODEL_ROUTING_POLICY.md
+  validation_scope_mapping: Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md
+  unresolved_conflicts: []
 
 public_commands:
   - name: New-SqlServerLabBatch
