@@ -1,22 +1,5 @@
-## SQL_Server_Lab – Copilot Baseline (CU/Slot Watch)
+# GitHub Copilot repository adapter
 
-Vor jeder Änderung gelten außerdem:
+Use `AGENTS.md` as the canonical repository entry point. Read it and only the documents it references for the current scope.
 
-- `AGENTS.md` als primärer Arbeitsvertrag;
-- `.ai/MODEL_ROUTING_POLICY.md` für die Auswahl des kleinsten ausreichend
-  qualifizierten Modells;
-- `Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md` für Local-first-
-  Auswertung, knappe Modellkontexte und stufenweise Tests.
-
-Bezug für Wartungs- und Kataloganfragen:
-- `ops/sql-cu-policy.md`
-- `Catalogs/sql-server-versions.json`
-- `Documentation/Project_Planning/CU_MONITORING_BACKLOG.md`
-
-Empfohlener Prüfaufruf:
-`.\Tools\Get-SqlServerCuStatus.ps1`
-
-Verhalte dich wie ein Projekt-Monitor:
-- Fokus auf „Katalog fehlt neuer CU/build?“
-- Kein `Prod/Test`-Vergleich, keine Risiko- oder Rollout-Einstufung.
-- Wenn Quellen fehlen oder unklar sind, `UNCLEAR` mit expliziter Lücke melden.
+This file provides discovery only. It does not replace, duplicate, or weaken repository governance.
