@@ -443,6 +443,22 @@ $coreFiles = @(
     '.ai/MODEL_ROUTING_POLICY.md'
     '.ai/WORKING_RULES.md'
     '.ai/repo_map.yaml'
+    '.ai/foundation/FOUNDATION_RULESET.md'
+    '.ai/foundation/AI_REPOSITORY_FOUNDATION_NOTICE.md'
+    '.ai/foundation/PROJECT_RULES.md'
+    '.ai/foundation/SEMANTIC_INTEGRATION_POLICY.md'
+    '.ai/foundation/WORKING_RULES.md'
+    '.ai/foundation/MODEL_ROUTING_POLICY.md'
+    '.ai/foundation/VALIDATION_POLICY.md'
+    '.ai/foundation/DATA_PRIVACY_AND_CONFIDENTIALITY.md'
+    '.ai/foundation/SECURITY_AND_SAFE_OPERATIONS.md'
+    '.ai/foundation/DOCUMENTATION_POLICY.md'
+    '.ai/foundation/THIRD_PARTY_AND_LICENSING.md'
+    '.ai/foundation/SOURCE_AND_EVIDENCE_POLICY.md'
+    '.ai/foundation/DEPENDENCY_POLICY.md'
+    '.ai/foundation/repo_map.yaml'
+    '.github/copilot-instructions.md'
+    'ops/sql-cu-policy.md'
     'CONTRIBUTING.md'
     'CHANGELOG.md'
     'SECURITY.md'
@@ -520,6 +536,11 @@ $agentContract = Get-Content -LiteralPath (Join-Path $repoRoot 'AGENTS.md') -Raw
 $modelRoutingPolicy = Get-Content -LiteralPath (Join-Path $repoRoot '.ai\MODEL_ROUTING_POLICY.md') -Raw -Encoding utf8
 $projectContext = Get-Content -LiteralPath (Join-Path $repoRoot '.ai\PROJECT_CONTEXT.md') -Raw -Encoding utf8
 $repoMap = Get-Content -LiteralPath (Join-Path $repoRoot '.ai\repo_map.yaml') -Raw -Encoding utf8
+$foundationRuleset = Get-Content -LiteralPath (Join-Path $repoRoot '.ai\foundation\FOUNDATION_RULESET.md') -Raw -Encoding utf8
+$foundationRepoMap = Get-Content -LiteralPath (Join-Path $repoRoot '.ai\foundation\repo_map.yaml') -Raw -Encoding utf8
+$foundationNotice = Get-Content -LiteralPath (Join-Path $repoRoot '.ai\foundation\AI_REPOSITORY_FOUNDATION_NOTICE.md') -Raw -Encoding utf8
+$copilotAdapter = Get-Content -LiteralPath (Join-Path $repoRoot '.github\copilot-instructions.md') -Raw -Encoding utf8
+$sqlCuPolicy = Get-Content -LiteralPath (Join-Path $repoRoot 'ops\sql-cu-policy.md') -Raw -Encoding utf8
 $masterImplementationPlan = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\MASTER_IMPLEMENTATION_PLAN.md') -Raw -Encoding utf8
 $batchWorkflowPlan = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\PROVIDER_NEUTRAL_BATCH_QUEUE_RESUME_WORKFLOW_2026-08-13.md') -Raw -Encoding utf8
 $futureUseCases = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Architecture\FUTURE_USE_CASES_AND_EXTENSION_GUARDRAILS.md') -Raw -Encoding utf8
@@ -592,6 +613,47 @@ Add-ValidationResult `
     -Success ($agentContract -match [regex]::Escape('.ai/MODEL_ROUTING_POLICY.md') -and
         $agentContract -match [regex]::Escape('Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md'))
 
+$foundationBridgeBeginCount = ([regex]::Matches($agentContract, '<!-- AI_REPOSITORY_FOUNDATION:BEGIN v1 -->')).Count
+$foundationBridgeEndCount = ([regex]::Matches($agentContract, '<!-- AI_REPOSITORY_FOUNDATION:END -->')).Count
+Add-ValidationResult `
+    -Name 'Agentenvertrag enthaelt genau einen Foundation-Bridge-Block' `
+    -Success ($foundationBridgeBeginCount -eq 1 -and
+        $foundationBridgeEndCount -eq 1 -and
+        $agentContract -match [regex]::Escape('.ai/foundation/FOUNDATION_RULESET.md')) `
+    -Message "BEGIN=$foundationBridgeBeginCount; END=$foundationBridgeEndCount"
+
+Add-ValidationResult `
+    -Name 'Foundation-Ruleset und Index sind auf Version 1.2.0 gebunden' `
+    -Success ($foundationRuleset -match 'Ruleset version: 1\.2\.0' -and
+        $foundationRepoMap -match 'foundation_ruleset_version: 1\.2\.0' -and
+        $foundationRuleset -match [regex]::Escape('SEMANTIC_INTEGRATION_POLICY.md'))
+
+Add-ValidationResult `
+    -Name 'Foundation-Provenienz enthaelt den vollstaendigen MIT-Hinweis' `
+    -Success ($foundationNotice -match [regex]::Escape('Copyright (c) 2026 Gerhard P') -and
+        $foundationNotice -match [regex]::Escape('Permission is hereby granted, free of charge') -and
+        $foundationNotice -match [regex]::Escape('THE SOFTWARE IS PROVIDED "AS IS"'))
+
+Add-ValidationResult `
+    -Name 'Repo-Map dokumentiert Foundation-Quelle, Adapter und semantische Zuordnung' `
+    -Success ($repoMap -match 'source_commit: 28e0e071fef421528d106676c99234d48be08b6b' -and
+        $repoMap -match 'ruleset_version: "1\.2\.0"' -and
+        $repoMap -match 'github-copilot' -and
+        $repoMap -match 'sql_cu_watch_policy: ops/sql-cu-policy\.md' -and
+        $repoMap -match 'unresolved_conflicts: \[\]')
+
+Add-ValidationResult `
+    -Name 'Copilot-Adapter bleibt eine duenne Discovery-Bruecke' `
+    -Success ($copilotAdapter -match [regex]::Escape('Use `AGENTS.md` as the canonical repository entry point.') -and
+        $copilotAdapter -match 'discovery only' -and
+        $copilotAdapter -notmatch 'CU/Slot Watch|Get-SqlServerCuStatus')
+
+Add-ValidationResult `
+    -Name 'CU-Watch-Governance bleibt in der kanonischen Projektquelle erhalten' `
+    -Success ($sqlCuPolicy -match [regex]::Escape('.\Tools\Get-SqlServerCuStatus.ps1') -and
+        $sqlCuPolicy -match 'UNCLEAR' -and
+        $sqlCuPolicy -match 'Keine Risiko-Matrix')
+
 Add-ValidationResult `
     -Name 'Verarbeitungsrichtlinie ist anbieterneutral und kostenoptimiert' `
     -Success ($modelRoutingPolicy -match 'unabhängig vom verwendeten KI-Anbieter' -and
@@ -599,6 +661,21 @@ Add-ValidationResult `
         $modelRoutingPolicy -match 'Preise, Fähigkeiten, Kontingente oder Modellwechsel werden nicht erfunden' -and
         $modelRoutingPolicy -match 'Systeme ohne Modellwechsel' -and
         $modelRoutingPolicy -match 'Tests werden niemals als erfolgreich bezeichnet')
+
+Add-ValidationResult `
+    -Name 'Modellrouting bildet die vier Foundation-Tiers semantisch ab' `
+    -Success ($modelRoutingPolicy -match [regex]::Escape('| `LOCAL` |') -and
+        $modelRoutingPolicy -match [regex]::Escape('| `ECONOMICAL` |') -and
+        $modelRoutingPolicy -match [regex]::Escape('| `BALANCED` |') -and
+        $modelRoutingPolicy -match [regex]::Escape('| `FRONTIER` |') -and
+        $modelRoutingPolicy -match '(?s)Menschlicher Prüfaufwand.*allein weder das Tier erhöhen')
+
+Add-ValidationResult `
+    -Name 'Lokale Validierungsstrategie trennt Foundation-, Projekt- und Runtime-Scope' `
+    -Success ($localValidationStrategy -match 'FOUNDATION_INTEGRITY' -and
+        $localValidationStrategy -match 'PROJECT_SEMANTIC' -and
+        $localValidationStrategy -match 'RUNTIME_EMPIRICAL' -and
+        $localValidationStrategy -match '(?s)Foundation-Validator.*kein Nachweis')
 
 Add-ValidationResult `
     -Name 'Kosteneffiziente Entwicklung bindet lokale Testauswahl und Logaggregation' `
