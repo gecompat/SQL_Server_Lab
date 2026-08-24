@@ -69,6 +69,57 @@ Hinweis: --user-mode-networking allein stellt die Localhost-Portweiterleitung ni
     return $null
 }
 
+function Resolve-PodmanWindowsHostName {
+    [CmdletBinding()]
+    param([string]$FallbackHostName = '127.0.0.1')
+
+    if (-not $IsWindows -or
+        -not (Get-Command podman -ErrorAction SilentlyContinue) -or
+        -not (Get-Command wsl.exe -ErrorAction SilentlyContinue)) {
+        return $FallbackHostName
+    }
+
+    try {
+        $connections = @(podman system connection list --format json 2>$null | ConvertFrom-Json)
+        $defaultConnection = @($connections | Where-Object { $_.Default } | Select-Object -First 1)
+        if ($LASTEXITCODE -ne 0 -or $defaultConnection.Count -ne 1) { return $FallbackHostName }
+
+        $uriMatch = [regex]::Match([string]$defaultConnection[0].URI, ':(?<Port>[0-9]+)/')
+        if (-not $uriMatch.Success) { return $FallbackHostName }
+
+        $connectionPort = [int]$uriMatch.Groups['Port'].Value
+        $machines = @(podman machine list --format json 2>$null | ConvertFrom-Json)
+        $machine = @(
+            $machines |
+                Where-Object { $_.Running -and [int]$_.Port -eq $connectionPort } |
+                Select-Object -First 1
+        )
+        if ($LASTEXITCODE -ne 0 -or $machine.Count -ne 1 -or [string]$machine[0].VMType -ne 'wsl') {
+            return $FallbackHostName
+        }
+
+        $distributionName = "podman-$([string]$machine[0].Name)"
+        $addressOutput = @(
+            & wsl.exe -d $distributionName -u root -- ip -4 -o addr show dev eth0 scope global 2>$null |
+                ForEach-Object { [string]$_ }
+        ) -join "`n"
+        if ($LASTEXITCODE -ne 0) { return $FallbackHostName }
+
+        $addressMatch = [regex]::Match($addressOutput, '\binet\s+(?<Address>[0-9]+(?:\.[0-9]+){3})/')
+        $parsedAddress = $null
+        if ($addressMatch.Success -and
+            [System.Net.IPAddress]::TryParse($addressMatch.Groups['Address'].Value, [ref]$parsedAddress) -and
+            $parsedAddress.AddressFamily -eq [System.Net.Sockets.AddressFamily]::InterNetwork) {
+            return $parsedAddress.ToString()
+        }
+    }
+    catch {
+        Write-LabWarning "Podman-WSL-Adresse konnte nicht aufgelöst werden; Fallback auf $FallbackHostName. $($_.Exception.Message)"
+    }
+
+    return $FallbackHostName
+}
+
 function Get-LabContainerReadinessDiagnostic {
     [CmdletBinding()]
     param(
