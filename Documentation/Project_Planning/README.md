@@ -2,7 +2,7 @@
 
 | Dokument | Inhalt |
 |---|---|
-| DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md | Konsolidierte, priorisierte Lieferreihenfolge für Statuswahrheit, Desired State/Reconcile, UI, Adapter, Hyper-V-Zero-Touch, Datenartefakte, Szenarien und Release-Gates |
+| DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md | Kanonische Ausführungsreihenfolge; Abschnitt 12 verankert die nächsten fünf noch nicht begonnenen Wellen für Baseline, P0-Recovery, drei Adapterpiloten, Hyper-V-End-to-End sowie Storage/Reconcile |
 | MASTER_IMPLEMENTATION_PLAN.md | Gesamtziel, Wellen, Abnahmekriterien und Umsetzungsstand |
 | MASTER_IMPLEMENTATION_PLAN_SCOPE_ADDENDUM.md | Vorrangige Scope-Regeln |
 | FUTURE_UI_WORKFLOW_PLAN_2026-08-08.md | Zukunftsplanung für CLI-/UI-Menüführung, Reconcile-Aktionen und Infrastruktur-Changes (Hyper-V + Container) |
@@ -13,3 +13,9 @@
 | PROJECT_ADAPTER_PRIORITIZATION.md | Entscheidung, Project Adapter vor Hyper-V umzusetzen, mit Arbeitspaketen |
 | CU_MONITORING_BACKLOG.md | Backlog zur Katalogaktualität der SQL-Server-Builds |
 | HYPERV_REMOTE_HOST_BACKLOG.md | Spätere Steuerung eines entfernten Windows-Hyper-V-Hosts aus der lokalen Workflow-Oberfläche |
+
+Für Reihenfolge und Priorität der Weiterentwicklung ist ausschließlich
+`DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md` maßgeblich. Die Wellenzählungen in
+den übrigen Dokumenten beschreiben deren jeweiligen fachlichen Teilvertrag und
+werden über den Master-Plan zugeordnet. Ein Planungsstatus ist kein
+Implementierungs- oder Runtime-Nachweis.
