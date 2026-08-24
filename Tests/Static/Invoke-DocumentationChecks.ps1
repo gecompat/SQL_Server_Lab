@@ -443,10 +443,16 @@ $coreFiles = @(
     '.ai/MODEL_ROUTING_POLICY.md'
     '.ai/WORKING_RULES.md'
     '.ai/repo_map.yaml'
+    '.ai/IDENTITY_AND_ARTIFACT_REGISTRATION.md'
     '.ai/foundation/FOUNDATION_RULESET.md'
     '.ai/foundation/AI_REPOSITORY_FOUNDATION_NOTICE.md'
     '.ai/foundation/PROJECT_RULES.md'
     '.ai/foundation/SEMANTIC_INTEGRATION_POLICY.md'
+    '.ai/foundation/PERSISTENT_IDENTITY_POLICY.md'
+    '.ai/foundation/ARTIFACT_REGISTRATION_POLICY.md'
+    '.ai/foundation/schemas/artifact-record.schema.json'
+    '.ai/foundation/schemas/artifact-registry.schema.json'
+    '.ai/foundation/schemas/artifact-registration-request.schema.json'
     '.ai/foundation/WORKING_RULES.md'
     '.ai/foundation/MODEL_ROUTING_POLICY.md'
     '.ai/foundation/VALIDATION_POLICY.md'
@@ -623,9 +629,9 @@ Add-ValidationResult `
     -Message "BEGIN=$foundationBridgeBeginCount; END=$foundationBridgeEndCount"
 
 Add-ValidationResult `
-    -Name 'Foundation-Ruleset und Index sind auf Version 1.2.0 gebunden' `
-    -Success ($foundationRuleset -match 'Ruleset version: 1\.2\.0' -and
-        $foundationRepoMap -match 'foundation_ruleset_version: 1\.2\.0' -and
+    -Name 'Foundation-Ruleset und Index sind auf Version 1.4.0 gebunden' `
+    -Success ($foundationRuleset -match 'Ruleset version: 1\.4\.0' -and
+        $foundationRepoMap -match 'foundation_ruleset_version: 1\.4\.0' -and
         $foundationRuleset -match [regex]::Escape('SEMANTIC_INTEGRATION_POLICY.md'))
 
 Add-ValidationResult `
@@ -636,8 +642,8 @@ Add-ValidationResult `
 
 Add-ValidationResult `
     -Name 'Repo-Map dokumentiert Foundation-Quelle, Adapter und semantische Zuordnung' `
-    -Success ($repoMap -match 'source_commit: 28e0e071fef421528d106676c99234d48be08b6b' -and
-        $repoMap -match 'ruleset_version: "1\.2\.0"' -and
+    -Success ($repoMap -match 'source_commit: 2c9de5d5299a0eefec59fdc6131519886dc5e195' -and
+        $repoMap -match 'ruleset_version: "1\.4\.0"' -and
         $repoMap -match 'github-copilot' -and
         $repoMap -match 'sql_cu_watch_policy: ops/sql-cu-policy\.md' -and
         $repoMap -match 'unresolved_conflicts: \[\]')
@@ -823,5 +829,3 @@ if ($failures.Count -gt 0) {
 
 Write-Host 'Alle statischen Vertragspruefungen waren erfolgreich.' -ForegroundColor Green
 exit 0
-
-

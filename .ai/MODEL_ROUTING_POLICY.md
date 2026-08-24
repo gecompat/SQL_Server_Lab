@@ -72,7 +72,7 @@ berücksichtigt.
 
 Die detaillierte Projektrichtlinie bleibt für die konkrete System- und
 Modellwahl maßgeblich. Für repositoryübergreifende Portabilität gelten die
-folgenden semantischen Zuordnungen zum Foundation-Ruleset `1.2.0`:
+folgenden semantischen Zuordnungen zum Foundation-Ruleset `1.4.0`:
 
 | Foundation-Tier | Projektzuordnung |
 |---|---|
