@@ -80,12 +80,17 @@ if ($failures.Count -eq 0) {
     $documentation = Get-Content -LiteralPath $documentationPath -Raw -Encoding utf8
 
     Assert-Contains $sqlReadiness 'function\s+Get-PodmanWindowsLocalhostDiagnostic' 'Podman-Windows-Diagnosefunktion fehlt.'
+    Assert-Contains $sqlReadiness 'function\s+Resolve-PodmanWindowsHostName' 'Podman-Windows-Hostauflösung fehlt.'
+    Assert-Contains $sqlReadiness 'podman\s+machine\s+list\s+--format\s+json' 'Podman-Windows-Hostauflösung ermittelt die aktive Machine nicht strukturiert.'
+    Assert-Contains $sqlReadiness 'ip\s+-4\s+-o\s+addr\s+show\s+dev\s+eth0' 'Podman-Windows-Hostauflösung ermittelt keine IPv4-Adresse der WSL-Machine.'
     Assert-Contains $sqlReadiness 'networkingMode=mirrored' 'Konkreter WSL-Mirrored-Networking-Hinweis fehlt.'
     Assert-Contains $sqlReadiness 'SQL Server is now ready for client connections' 'Containerinterne SQL-Bereitschaft wird nicht geprueft.'
     Assert-Contains $sqlReadiness 'LAB_SQL_TRANSIENT_LOGIN_STATE_115' 'SQL-2025-State-115-Diagnosecode fehlt.'
     Assert-Contains $newLab "retryableSql2025State[\s\S]+instance\.version\s+-match\s+'\^2025" 'Readiness-Retry ist nicht auf SQL Server 2025 begrenzt.'
     Assert-Contains $newLab 'Remove-LabProviderContainerForReadinessRetry[\s\S]+-ScopeId\s+\$runState\.ScopeId' 'Readiness-Retry entfernt den Container nicht mit der erwarteten Scope-ID.'
     Assert-Contains $newLab 'readinessAttempt\s+-ge\s+2' 'SQL-2025-State-115-Retry ist nicht auf einen Versuch begrenzt.'
+    Assert-Contains $newLab 'Resolve-PodmanWindowsHostName[\s\S]+Wait-SqlReady[\s\S]+-HostName\s+\$containerHost' 'Podman-Hostauflösung wird nicht für die SQL-Readiness verwendet.'
+    Assert-Contains $newLab 'New-SqlConnectionString\s+-HostName\s+\$containerHost' 'Die gespeicherte Verbindung verwendet nicht den aufgelösten Podman-Host.'
     Assert-Contains $sqlReadiness 'Start-Sleep\s+-Milliseconds' 'Readiness verwendet kein kurzes Millisekunden-Polling.'
     Assert-Contains $sqlReadiness 'function\s+Wait-LabDatabaseReady' 'Datenbank-Readiness-Funktion fehlt.'
     Assert-Contains $sqlReadiness 'Wait-LabDatabaseReady[\s\S]+Invoke-LabSqlScript' 'Skriptausfuehrung ist nicht gegen Datenbank-Readiness abgesichert.'
