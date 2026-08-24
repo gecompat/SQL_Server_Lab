@@ -61,8 +61,8 @@ sources_of_truth:
 
 foundation_integration:
   source_repository: gecompat/AI_Repository_Foundation
-  source_commit: 28e0e071fef421528d106676c99234d48be08b6b
-  ruleset_version: "1.2.0"
+  source_commit: 2c9de5d5299a0eefec59fdc6131519886dc5e195
+  ruleset_version: "1.4.0"
   foundation_integrity_index: .ai/foundation/repo_map.yaml
   selected_adapters:
     - github-copilot
@@ -87,6 +87,14 @@ foundation_integration:
       - extended_validation_statuses
   model_routing_mapping: .ai/MODEL_ROUTING_POLICY.md
   validation_scope_mapping: Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md
+  identity_registration_mapping: .ai/IDENTITY_AND_ARTIFACT_REGISTRATION.md
+  identity_adoption_mode: PRESERVE
+  registration_authorities:
+    hyperv_images: Import-HyperVImageArtifact
+    sample_baselines: Register-LabSampleBaseline
+    runs_and_scopes: New-LabRunState
+    final_human_reference_scope: not_currently_allocated_authority_required_before_use
+  selected_capabilities: []
   unresolved_conflicts: []
 
 public_commands:
