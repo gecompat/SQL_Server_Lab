@@ -1091,31 +1091,25 @@ Das Vorhaben gilt als funktional abgeschlossen, wenn:
 
 ## 22. Nächster sinnvoller Verarbeitungsschritt
 
-Der Container-Core (Welle 2), der Sample-Backup-Handler, der synthetisch
-verifizierte Batch-/Queue-/Resume-Vertrag und die native
-Hyper-V-Generation-2-Lifecycle-Grundlage sind umgesetzt. Die nächsten Schritte
-sind:
+Die verbindliche Reihenfolge der nächsten Weiterentwicklung steht in Abschnitt
+12 des
+[konsolidierten Entwicklungs- und Ausführungsplans](DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md).
+Sie ersetzt die frühere lose Liste nächster Schritte, ohne den Status einer
+Master-Plan-Welle zu verändern oder eine Umsetzung zu starten.
 
-1. nach der erfolgreichen Docker-/Podman-/Hyper-V-Batchmatrix Manifest-Rerun,
-   Resume nach echtem Prozessabbruch und das Windows-User-Gate prüfen;
-2. die P0-Fehler aus der manuellen Konsolenabnahme schließen: kein CMS-Sync
-   nach Abbruch oder No-op, vollständiger Menüabbruchvertrag, belegte Ports
-   blockieren, den bereits statisch korrigierten Hyper-V-Generalize-Pfad real
-   erneut abnehmen und die UAC-Vorabfrage verifizieren;
-3. Multi-Root-Storage konsolidieren und den providerneutralen, dateigenauen
-   SQL-Storage-Plan umsetzen. Der Referenzfall bindet User-Data, User-Log und
-   TempDB getrennt und verteilt vier TempDB-Datenfiles auf vier nachweislich
-   unterschiedliche physische Datenträger. Details stehen im
-   [Konsolen-, Lifecycle- und Storage-Konsolidierungsplan](CONSOLE_LIFECYCLE_AND_STORAGE_CONSOLIDATION_PLAN_2026-08-12.md);
-4. die vorhandene `LAB_GENERATED`-Erzeugung und -Präferenz für verifizierte
-   Single- und Multi-Output-Container-Samples an den Hyper-V-Export binden;
-5. die Wellen 6, 7 und 7a mit je einem Partnerpiloten beginnen:
-   Schulungs-Beispielkonstruktion, Analyze-Frameworkinstallation und
-   Toolbelt-Modul-Lifecycle. Details und Reihenfolge stehen in
-   [Project-Adapter-Priorisierung](PROJECT_ADAPTER_PRIORITIZATION.md);
-6. den vorhandenen Hyper-V-Pfad mit hashverifizierten Medien bis zum echten
-   Windows-/SQL-2025-Gastnachweis führen und parallel den Zero-Touch-Cold-Path
-   vervollständigen.
+| Nächste Welle | Zuordnung zu diesem Master-Plan | Status |
+|---|---|---|
+| N1 – Baseline, Regressionen und Katalogwartung | Wellen 0, 1 und 9; fortlaufende Statuswahrheit | `PLANNED_NOT_STARTED` |
+| N2 – P0-Steuerungs-, Abbruch- und Recovery-Verträge | Wellen 1, 2, 3 und 9; vorgeschaltete Konsolidierungswelle | `PLANNED_NOT_STARTED` |
+| N3 – Drei reale Project-Adapter-Piloten | Wellen 6, 7 und 7a | `PLANNED_NOT_STARTED` |
+| N4 – Hyper-V Windows-/SQL-End-to-End | Welle 4 | `PLANNED_NOT_STARTED` |
+| N5 – Storage- und Reconcile-Vertical-Slice | Wellen 1, 3, 4 und 5; Storage-Konsolidierungsplan | `PLANNED_NOT_STARTED` |
+
+Die fünf Wellen bilden den nächsten Planungshorizont. Scenario Engine, breite
+Fault Injection, vollständige Migration und Ablösung, Remote Hyper-V Host und
+die öffentliche Vertragsversion `1.0` bleiben nachgelagert. Implementierungs-
+und Validierungsstatus werden ausschließlich nach tatsächlichen Änderungen und
+passenden ausgeführten Nachweisen aktualisiert.
 
 Vor der Übernahme ausführbarer Dateien aus den Partnerrepositories wird das
 Migrationsinventar pro Datei vervollständigt und jede Funktion als `MIGRATE`,
