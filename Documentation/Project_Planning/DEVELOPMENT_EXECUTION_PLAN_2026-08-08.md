@@ -4,8 +4,8 @@
 |---|---|
 | Projekt | `gecompat/SQL_Server_Lab` |
 | Status | `ACTIVE_EXECUTION_BACKLOG` |
-| Stand | 2026-08-20 |
-| Ausgangsstand | Statusabgleich gegen `origin/main` und den lokalen sowie CI-gestützten Validierungsbericht vom 2026-08-20; Commit-IDs sind kein Planungsvertrag |
+| Stand | 2026-08-24 |
+| Ausgangsstand | Planungsabgleich gegen `origin/main`, Known Limitations, offene Regressionen und den lokalen sowie CI-gestützten Validierungsbericht vom 2026-08-20; Commit-IDs sind kein Planungsvertrag |
 | Ziel | eine einzige ausführbare Lieferreihenfolge für Core, UI, Adapter, Hyper-V, Datenartefakte, Qualität und spätere Erweiterungen |
 | Runtime-Nachweis | ausschließlich Code, passende Tests, [KNOWN_LIMITATIONS.md](../Quality/KNOWN_LIMITATIONS.md) und datierte Validierungsnachweise |
 
@@ -686,40 +686,140 @@ verbindliches Performance-SLA festgelegt.
 | Dokumentation driftet erneut | M0 erweitert statische Status-/Linkchecks; gekoppelte Dokumente je Task festlegen |
 | lokaler Native-Test ist nicht verfügbar | `NOT_EXECUTED` mit Grund; keine grüne Ersatzbehauptung |
 
-## 12. Empfohlene nächste Änderungssätze
+## 12. Verbindliche nächsten fünf Entwicklungswellen
 
-Die folgende Reihenfolge liefert frühe, einzeln prüfbare Ergebnisse:
+Dieser Abschnitt ist die kanonische Reihenfolge für die nächste
+Weiterentwicklung. Die Wellen bündeln vorhandene Task-IDs aus den
+Meilensteinen und Spezialplänen; sie erfinden keine parallelen Verträge.
 
-1. Nach der real erfolgreichen Docker-/Podman-/Hyper-V-Provider-Matrix den
-   Batch-/Queue-Kern mit Manifest-Rerun und echtem Prozessabbruch/Resume
-   abnehmen; danach das Windows-User-Gate mit technischer Verifikation prüfen.
-2. `FIX-001` real erneut abnehmen sowie `LIF-001`/`LIF-002`,
-   `PORT-001`/`PORT-002` und `UAC-001` aus dem Konsolidierungsplan vollständig
-   schließen. Der ungültige `Invoke-Command -Passthru`-Aufruf ist im Code
-   entfernt und statisch gebunden, der reale PowerShell-Direct-Nachweis bleibt
-   offen.
-3. `CUI-012` bis `CUI-019`: verbliebene Auswahlmenüs, `Escape`, Untermenü-
-   Refresh, Ergebnisansichten und reproduzierbaren Fallback vereinheitlichen.
-4. `STO-009` bis `STO-013`: Legacy-Default, absolute Pfade, stabile Locations
-   und Backing-Device-Topologie härten.
-5. `SFP-001` bis `SFP-003`: portablen Storage-Intent vom lokalen Bound Plan
-   trennen und jede SQL-/TempDB-Datei planbar machen.
-6. `HVS-001`/`HVS-002` und `SQLS-001`: vier TempDB-Datenfiles auf vier
-   nachweislich unterschiedlichen physischen Geräten mit SQL-Postconditions
-   als Hyper-V-Referenzfall abnehmen.
-7. `SQLS-002`/`SQLS-003`: neue Datenbanken und Restore dateigenau an Data-
-   und Log-Locations binden.
-8. `CORE-105`/`CORE-106`: Journal, Resume und Recovery für weitere Mutationen härten.
-9. `CNT-212`: erste reale Live-Änderung mit No-op- und Rollback-Test.
-10. `CNT-213`: erste Recreate-Änderung mit persistentem Volume testen.
-11. `ADP-003`, `ADP-004` und `ADP-008`: die drei Partnerpiloten in getrennt
-    abgestimmten Konsumenten-Scopes beginnen.
-12. `HV-402`/`HV-403` und `HV-405`/`HV-406`: sicheren Zero-Touch-OS-Cold-Path
-    bis `OS_READY` vervollständigen.
-13. `DATA-707`: Container-Baselines an Hyper-V-Export und -Nutzung binden.
+Alle fünf Wellen besitzen zum Stand dieses Dokuments den Status
+`PLANNED_NOT_STARTED`. Ihre Aufnahme in diesen Plan startet keine Umsetzung und
+ist kein Implementierungs- oder Runtime-Nachweis. Jede Welle wird später in
+kleine, einzeln prüfbare Pull Requests zerlegt und erst nach ihrem eigenen Gate
+als begonnen oder abgeschlossen ausgewiesen.
 
-Erst danach folgen SQL-Cold-Path, Resolver-Optimierung, breite
-Hyper-V-Infrastrukturänderungen und optionale Caches.
+### Welle N1 – Baseline, Regressionen und Katalogwartung
+
+**Ziel:** Vor neuen Produktänderungen eine widerspruchsfreie, grüne und fachlich
+aktuelle Ausgangsbasis herstellen.
+
+- die offene Nightly-Regression getrennt nach statischem Vertragsfehler,
+  Testumgebungszustand und Providerfehler klassifizieren;
+- persistente Testumgebungen zunächst ausschließlich read-only prüfen und eine
+  erforderliche Reparatur oder Neuerstellung als eigenen autorisierten Vorgang
+  mit State-, Cleanup- und Recovery-Gate behandeln;
+- die unterstützten SQL-Versionen 2019, 2022 und 2025 gegen die autoritative
+  Microsoft-Buildquelle abgleichen;
+- nur fachlich verifizierte Build-, KB-, Release- und ausführbare Artifact-
+  Kombinationen katalogisieren; unbekannte oder nicht ausführbare Varianten
+  bleiben fail-closed;
+- Status-, Validierungs- und Changelog-Drift zusammen mit der jeweiligen
+  tatsächlichen Änderung schließen.
+
+**Gate N1:** Statische Verträge laufen auf Windows und Linux grün; die
+betroffenen persistenten Testumgebungen sind nachweislich erreichbar oder mit
+einem konkreten `RECOVERY_REQUIRED`-Pfad dokumentiert; Katalog, Resolver,
+Schema und Dokumentation stimmen überein. Zwei aufeinanderfolgende Nightlies
+werden erst nach tatsächlich grünen Läufen als stabil gewertet.
+
+### Welle N2 – P0-Steuerungs-, Abbruch- und Recovery-Verträge
+
+**Ziel:** Alle bereits identifizierten P0-Lücken schließen, bevor Komfort- oder
+Breitenausbau beginnt.
+
+- Manifest-Rerun, echten Prozessabbruch und idempotentes Resume für den
+  Batch-/Queue-Kern real abnehmen;
+- Windows-User-Gates so prüfen, dass read-only Probes höchstens
+  `CandidateSatisfied` setzen und ohne ausdrückliche Bestätigung nichts
+  fortgesetzt wird;
+- `LIF-001`/`LIF-002`, `PORT-001`/`PORT-002`, `UAC-001` und `PRV-001` aus dem
+  Konsolidierungsplan schließen;
+- Cancel, Ablehnung, No-op, Skip und Fehler ohne Connection-Center-/CMS-
+  Synchronisation beenden; eine erfolgreiche endpunktrelevante Mutation löst
+  genau eine Synchronisation aus;
+- `Escape`, `Ctrl+C`, den Console-Fallback und den bereits statisch
+  korrigierten Hyper-V-Generalize-Pfad real abnehmen.
+
+**Gate N2:** Kein Abbruch oder No-op mutiert Runtime oder CMS; ein
+Prozessabbruch erzeugt keine doppelte Ressource; Resume, Rollback, Cleanup und
+`RECOVERY_REQUIRED` sind deterministisch; Generalize erreicht auf einem realen
+Windows-Gast den vorgesehenen Receipt-Pfad.
+
+### Welle N3 – Drei reale Project-Adapter-Piloten
+
+**Ziel:** Den Adaptervertrag an allen drei vorgesehenen Konsumenten beweisen,
+bevor seine öffentliche Version stabilisiert oder generische Altlogik entfernt
+wird.
+
+1. `ADP-003`: ein reproduzierbares SQL-2025-Linux-Beispiel aus
+   `SQL_PerformanceSchulung` über versionierte Adapter-Entrypoints aufbauen und
+   vollständig bereinigen;
+2. `ADP-004`: das Analyze-Framework und ein Quick-Szenario über den Adapter
+   installieren und validieren;
+3. `ADP-008`: ein Toolbelt-Modul installieren, validieren, aktualisieren und
+   deinstallieren.
+
+Jeder Pilot erhält einen eigenen Branch und Pull Request im autoritativen
+Partnerrepository. SQL_Server_Lab bleibt Eigentümer von Provider-, State- und
+Lifecyclelogik; fachliche Inhalte und Evidence bleiben beim Konsumenten. Eine
+im Pilot entdeckte generische Lücke wird zuerst mit einem Core-Vertragstest
+gebunden und in einem getrennten SQL_Server_Lab-Änderungssatz geschlossen.
+
+**Gate N3:** Alle drei Piloten laufen für ihren SQL-2025-Referenzfall end-to-end
+und bereinigen scopegebunden. Es existiert keine duplizierte Providerlogik, und
+der Adaptervertrag bleibt bis zum Abschluss aller drei Piloten `0.1-draft`.
+
+### Welle N4 – Hyper-V Windows-/SQL-End-to-End
+
+**Ziel:** Den vorhandenen partiellen Hyper-V-Pfad mit hashverifizierten Medien
+bis zu einem realen Windows-2025-/SQL-2025-Gastnachweis führen.
+
+- Windows- und SQL-Medien samt Sidecars vor Verwendung erneut verifizieren;
+- eine veröffentlichte `OS_SEALED`-Baseline über Cold Start, OOBE-/Locale-
+  Prüfung, PowerShell Direct, Reconcile Stop/Start und Cleanup abnehmen;
+- SQL-`PrepareImage`/`CompleteImage`, Windows-Specialization, Reboot/Resume und
+  SQL-Readiness über persistente, geheimnisfreie Receipts orchestrieren;
+- einen normalen Manifestlauf bis `SQL_READY_RUN` einschließlich Major-Version,
+  Online-Systemdatenbanken, Providerbindung und scopegebundenem Cleanup
+  nachweisen;
+- nach der ersten Provisionierungsmutation keine versteckte Gastinteraktion
+  zulassen; fehlende Capability oder Credentials bleiben fail-closed.
+
+**Gate N4:** Ein realer Windows-2025-/SQL-2025-Gast erreicht den dokumentierten
+Ready-Status, der Parent-Hash bleibt unverändert, und VM, Child-VHDX, State und
+Secrets werden gemäß Persistenzpolicy bereinigt. Mock- und synthetische
+Lifecycle-Tests reichen für dieses Gate nicht aus.
+
+### Welle N5 – Storage- und Reconcile-Vertical-Slice
+
+**Ziel:** Den providerneutralen Storagevertrag und die ersten über START/STOP
+hinausgehenden Reconcile-Klassen als durchgängigen vertikalen Slice umsetzen.
+
+- `STO-009` bis `STO-013`: Legacy-Default, absolute Pfade, stabile
+  `LocationId`, Referenzschutz und Backing-Device-Topologie härten;
+- `SFP-001` bis `SFP-003`: portablen Storage-Intent, lokalen Bound Plan und
+  Runtime-Receipt versionieren und Data, Log, TempDB-Data, TempDB-Log sowie
+  Backup getrennt planbar machen;
+- `HVS-001`/`HVS-002` und `SQLS-001` bis `SQLS-003`: Hostpfad, VHDX-ID,
+  Gastdisk, Gastpfad und jede SQL-Datei durchgängig binden und verifizieren;
+- `CORE-105`/`CORE-106`: Operation Journal, Resume und Recovery auf weitere
+  Mutationen ausdehnen;
+- `CNT-212` und `CNT-213`: je eine reale `live`- und `recreate`-Änderung mit
+  No-op-, Rollback- und Persistenznachweis liefern.
+
+**Gate N5:** No-op bleibt read-only; unbekannte oder nur logische Topologie wird
+nicht als physische Trennung ausgegeben; vier TempDB-Datenfiles werden im
+Hyper-V-Referenzfall auf vier nachweislich getrennte Geräte gebunden; SQL-
+Postconditions bestätigen jeden geplanten Pfad; Recreate erhält freigegebene
+persistente Daten und hat einen deterministischen Recovery-Pfad.
+
+### Nachgelagerter Horizont
+
+Scenario Engine, breite Fault Injection, vollständige Migration und Ablösung,
+Remote Hyper-V Host sowie die öffentliche Vertragsversion `1.0` beginnen nicht
+innerhalb dieser fünf Wellen. Sie bleiben in M8/M9 beziehungsweise den
+dedizierten Backlogs erhalten und werden nach den Gates N3 bis N5 neu
+priorisiert.
 
 ## 13. Gesamt-Definition-of-Done
 
