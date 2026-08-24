@@ -46,7 +46,19 @@ $outputXml = Join-Path $artifactDir ('Pester-Results-{0:yyyyMMdd-HHmmss}.xml' -f
 $previousErrorAction = $ErrorActionPreference
 $ErrorActionPreference = 'Continue'
 try {
-    $result = Invoke-Pester -Script $pesterRoot -PassThru -OutputFile $outputXml -OutputFormat NUnitXml -ErrorAction SilentlyContinue
+    if ($pesterModule.Version.Major -ge 6) {
+        $configuration = New-PesterConfiguration
+        $configuration.Run.Path = @($pesterRoot)
+        $configuration.Run.PassThru = $true
+        $configuration.Output.Verbosity = 'Normal'
+        $configuration.TestResult.Enabled = $true
+        $configuration.TestResult.OutputPath = $outputXml
+        $configuration.TestResult.OutputFormat = 'NUnitXml'
+        $result = Invoke-Pester -Configuration $configuration -ErrorAction SilentlyContinue
+    }
+    else {
+        $result = Invoke-Pester -Script $pesterRoot -PassThru -OutputFile $outputXml -OutputFormat NUnitXml -ErrorAction SilentlyContinue
+    }
 }
 finally {
     $ErrorActionPreference = $previousErrorAction

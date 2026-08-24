@@ -70,7 +70,9 @@ Ein Test gegen diese Adresse kann zeigen, dass SQL Server und die Portfreigabe i
 Test-NetConnection -ComputerName 172.23.234.180 -Port 14330
 ```
 
-Diese Adresse ist kein stabiler Connection-String. Sie kann sich nach einem WSL- oder Hostneustart aendern. Ein eigenes statisches Podman-Containernetzwerk stabilisiert nicht automatisch die Windows-zu-WSL-Adresse und ersetzt daher die Localhost-Konfiguration nicht.
+Diese Adresse kann sich nach einem WSL- oder Hostneustart aendern. Ein eigenes statisches Podman-Containernetzwerk stabilisiert nicht automatisch die Windows-zu-WSL-Adresse und ersetzt daher die Localhost-Konfiguration nicht.
+
+Wenn die aktive Podman-Verbindung auf eine WSL-Machine zeigt, löst SQL_Server_Lab deren aktuelle `eth0`-IPv4-Adresse beim Erstellen einer Umgebung auf und verwendet sie für Readiness und gespeicherte Verbindung. Neu erstellte Umgebungen erhalten dadurch nach einem Machine-Neustart automatisch die aktuelle Adresse; für bereits gespeicherte Umgebungen bleibt Mirrored Networking der stabilere Hostvertrag.
 
 ## Framework-Verhalten
 

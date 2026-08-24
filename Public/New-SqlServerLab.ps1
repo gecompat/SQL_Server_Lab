@@ -648,6 +648,7 @@ function New-SqlServerLab {
             $versionDefinition = Get-SqlServerVersion -VersionId $instance.version
             $container = $null
             $readiness = $null
+            $containerHost = '127.0.0.1'
             foreach ($readinessAttempt in 1..2) {
                 $container = New-LabProviderContainer `
                     -Instance $instance `
@@ -655,11 +656,19 @@ function New-SqlServerLab {
                     -SaPassword $SaPassword `
                     -Port $Port
 
+                $containerHost = if ([string]$container.Provider -eq 'podman') {
+                    Resolve-PodmanWindowsHostName
+                }
+                else {
+                    '127.0.0.1'
+                }
+
                 if ([string]$instance.autostart -eq 'on') {
                     $null = Enable-LabContainerHostAutoStart -Provider ([string]$instance.provider)
                 }
 
                 $readiness = Wait-SqlReady `
+                    -HostName $containerHost `
                     -Port $container.Port `
                     -SaPassword $SaPassword `
                     -TimeoutSeconds 300 `
@@ -688,11 +697,11 @@ function New-SqlServerLab {
                 Version          = $instance.version
                 Provider         = $instance.provider
                 AutoStart        = [string]$instance.autostart
-                Host             = '127.0.0.1'
+                Host             = $containerHost
                 Port             = $container.Port
                 ContainerId      = $container.ContainerId
                 ContainerName    = $container.ContainerName
-                ConnectionString = New-SqlConnectionString -Port $container.Port
+                ConnectionString = New-SqlConnectionString -HostName $containerHost -Port $container.Port
                 Databases        = @()
                 Status           = 'Running'
             }
