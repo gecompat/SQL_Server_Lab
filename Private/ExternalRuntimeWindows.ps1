@@ -197,7 +197,8 @@ function Copy-LabExternalRuntimeWindowsPayload {
             else { $null = New-Item -Path $Path -ItemType Directory -Force }
         }
     $guestService = Get-VMIntegrationService -VMName $VMName -ErrorAction Stop |
-        Where-Object { $_.Id -eq [guid]'6C09BB55-D683-4DA0-8931-C9BF705F6480' } | Select-Object -First 1
+        Where-Object { ([string]$_.Id).EndsWith('6C09BB55-D683-4DA0-8931-C9BF705F6480', [StringComparison]::OrdinalIgnoreCase) } |
+        Select-Object -First 1
     if (-not $guestService) { throw 'HYPERV_GUEST_FILE_COPY_SERVICE_NOT_FOUND' }
     if (-not $guestService.Enabled) { $null = Enable-VMIntegrationService -VMIntegrationService $guestService -ErrorAction Stop }
 
