@@ -128,7 +128,7 @@ try {
     Add-TextContract `
         -Name 'Zusatz-VHDX werden explizit per SCSI angebunden' `
         -Text $provider `
-        -Pattern 'Add-VMHardDiskDrive[\s\S]+ControllerType\s+SCSI[\s\S]+ControllerNumber\s+0'
+        -Pattern 'Add-VMHardDiskDrive[\s\S]+ControllerType\s+SCSI[\s\S]+ControllerNumber\s+0[\s\S]+ControllerLocation'
     Add-CheckResult `
         -Name 'PowerShell Direct verwendet nur gültige Invoke-Command-Parameter' `
         -Success (
@@ -317,11 +317,14 @@ try {
             $provider -match '\$specifications = @\(\$plan\.drives\)'
         )
     Add-CheckResult `
-        -Name 'Frische Daten-VHDX nutzt nur bei genau einer RAW-Nicht-Systemdisk einen sicheren Fallback' `
+        -Name 'Frische Daten-VHDX nutzt feste SCSI-Slots und Groesse als sicheren RAW-Fallback' `
         -Success (
-            $provider -match '\$matchingMethod = ''single-raw-disk-fallback''' -and
+            $provider -match '\$matchingMethod = ''scsi-location-raw-fallback''' -and
             $provider -match '\$rawCandidates\.Count -eq 1' -and
             $provider -match '\[string\]\$_.PartitionStyle -eq ''RAW''' -and
+            $provider -match '\[int\]\$_.Number -eq \[int\]\$specification.controllerLocation' -and
+            $provider -match '\[long\]\$_.Size -eq \[long\]\$specification.sizeBytes' -and
+            $provider -match 'GUEST_DISK_ALREADY_CLAIMED' -and
             $provider -match 'GUEST_DISK_IDENTIFIER_MATCH_COUNT'
         )
     Add-CheckResult `
