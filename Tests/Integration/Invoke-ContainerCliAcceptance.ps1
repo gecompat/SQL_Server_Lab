@@ -178,7 +178,8 @@ GO
     Assert-Acceptance ($persistentEvidence -eq 'persisted-before-reconcile') 'Daten, Mounts und Testdatenbank ueberstehen das Reconcile'
 
     $stopResult = Stop-SqlServerLab -RunId $lab.RunId -StateRoot $stateRoot -Force
-    Assert-Acceptance ($stopResult.Status -eq 'STOPPED' -and $stopResult.Errors -eq 0) 'Stop meldet einen fehlerfreien Providerzustand'
+    $failedStopProviders = @($stopResult.ProviderSubRuns | Where-Object { $_.Errors -ne 0 -or $_.Status -ne 'STOPPED' })
+    Assert-Acceptance ($stopResult.Status -eq 'STOPPED' -and $failedStopProviders.Count -eq 0) 'Stop meldet einen fehlerfreien Providerzustand'
     $startResult = Start-SqlServerLab -RunId $lab.RunId -StateRoot $stateRoot -TimeoutSeconds 180
     Assert-Acceptance ($startResult.Status -eq 'RUNNING' -and $startResult.Errors -eq 0) 'Start erreicht stabile SQL-Readiness'
     $restartResult = Restart-SqlServerLab -RunId $lab.RunId -TimeoutSeconds 180 -Force
