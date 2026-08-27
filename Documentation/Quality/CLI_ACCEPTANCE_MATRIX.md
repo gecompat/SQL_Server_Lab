@@ -6,7 +6,7 @@
 | Zweck | nachvollziehbarer Runtime-Nachweis fuer die oeffentliche CLI |
 | CU-Strategie | keine Vollmatrix aller CUs; je Containerprovider ein repraesentativer CU |
 | Containerreferenz | SQL Server 2022 CU18 (`2022-CU18`) |
-| Windowsreferenz | SQL Server 2025 Basisinstallation aus verifizierter ISO |
+| Windowsreferenz | SQL Server 2025 Enterprise Developer Basisinstallation aus verifizierter ISO |
 | Ausloesung | gezielt nach Frameworkaenderungen; kein unveraenderter Nightly-Wiederholungslauf |
 
 `PASS` darf erst nach einem tatsaechlich erfolgreichen Lauf eingetragen werden.
@@ -72,7 +72,7 @@ Statische Vertragspruefungen und Runtime-Nachweise sind getrennte Evidence.
 ```powershell
 gh workflow run runtime-smoke-docker.yml --ref <branch> -f mode=cli-acceptance
 gh workflow run runtime-smoke-podman.yml --ref <branch> -f mode=cli-acceptance
-gh workflow run runtime-smoke-hyperv.yml --ref <branch> -f mode=cli-acceptance -f media_root='D:\Lab_Base'
+gh workflow run runtime-smoke-hyperv.yml --ref <branch> -f mode=cli-acceptance -f media_root='D:\Lab_Base' -f media_edition=Enterprise
 ```
 
 Docker und Podman verwenden den gemeinsamen hostweiten Runtime-Lock. Der

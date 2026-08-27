@@ -13,7 +13,7 @@ param(
     [string]$MediaRoot = 'D:\Lab_Base',
     [string]$ArtifactId,
     [ValidateSet('2019','2022','2025')][string]$SqlVersion = '2025',
-    [ValidateSet('Eval','Enterprise','Standard')][string]$MediaEdition = 'Eval',
+    [ValidateSet('Eval','Enterprise','Standard')][string]$MediaEdition = 'Enterprise',
     [string]$SqlMediaPath,
     [ValidateRange(60,3600)][int]$OobeTimeoutSeconds = 1200,
     [ValidateRange(60,10800)][int]$SetupTimeoutSeconds = 7200,
@@ -94,7 +94,7 @@ try {
             } | Select-Object -First 1)[0]
         } @($MediaRoot,$SqlVersion,$MediaEdition)
         if (-not $mediaCandidate) {
-            throw "HYPERV_CLI_SQL_MEDIA_NOT_FOUND: SQL Server $SqlVersion $MediaEdition ISO unter $MediaRoot\SQL. Manueller Bezug: https://www.microsoft.com/evalcenter/download-sql-server-2025"
+            throw "HYPERV_CLI_SQL_MEDIA_NOT_FOUND: SQL Server $SqlVersion $MediaEdition ISO unter $MediaRoot\SQL. Manueller Bezug: https://www.microsoft.com/en-us/evalcenter/sql-server-2025-download"
         }
         $SqlMediaPath = [string]$mediaCandidate.MediaId
     }
