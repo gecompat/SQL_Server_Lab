@@ -192,14 +192,24 @@ gegen ihre Content-Hashes geprüft. Dieselben Postconditions werden nach
 einem Dienstneustart und nach einem VM-Cold-Start wiederholt. Evidence und
 Receipts enthalten weder Secrets noch Hostpfade.
 
-Der Runner muss in einer erhöhten PowerShell-7-Sitzung auf dem Hyper-V-Host
-laufen. Ein bereits vorbereiteter Run kann anhand seiner ID fortgesetzt
-werden:
+Ein frischer Run, dessen Child-VHDX noch eine OOBE-Antwortdatei benötigt, muss
+in einer erhöhten PowerShell-7-Sitzung laufen. Ein bereits spezialisierter
+Windows-Slot mit `windowsProvisioning.state = COMPLETE` kann ohne diesen
+Offline-Mount fortgesetzt werden, sofern der aktuelle Account die konkret
+benötigten Hyper-V-Operationen ausführen darf. Die Run-ID muss zu einem eigens
+für diesen Nachweis freigegebenen Slot gehören: Der Runner installiert dort
+dauerhaft SQL Server 2022 sowie die drei Runtimes und verändert daher keinen
+allgemein geteilten oder anderweitig reservierten Poolslot ohne ausdrückliche
+Freigabe.
 
 ```powershell
 .\Tests\Integration\Invoke-ExternalRuntimeHyperVAcceptance.ps1 `
     -RunId '<existing-run-id>'
 ```
+
+`-CleanupOnSuccess` entfernt den verwendeten Run nach erfolgreicher Evidence
+über `Remove-SqlServerLab`; ohne den Switch bleibt er für die Auswertung
+erhalten. Ein fehlgeschlagener Lauf bleibt für Recovery sichtbar.
 
 Die katalogisierten Windows-Varianten bleiben bis zu diesem positiven nativen
 Nachweis `PREVIEW`.
