@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/ai-repository-foundation/feature-catalog.schema.json",
+  "title": "AI Repository Foundation Semantic Feature Catalog",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "ruleset_version", "assessment_classifications", "features"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "ruleset_version": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},
+    "assessment_classifications": {
+      "type": "array",
+      "uniqueItems": true,
+      "minItems": 7,
+      "items": {"enum": ["NOT_APPLICABLE", "ALREADY_EQUIVALENT", "PROJECT_STRONGER", "APPLY_DEFAULT", "RECOMMENDED", "DECISION_REQUIRED", "CONFLICT"]}
+    },
+    "features": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {"$ref": "#/$defs/feature"}
+    }
+  },
+  "$defs": {
+    "feature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "introduced_in", "change_history", "transfer_sources", "applicability", "recommendation"],
+      "properties": {
+        "title": {"type": "string", "minLength": 1},
+        "introduced_in": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},
+        "change_history": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["version", "impact", "summary"],
+            "properties": {
+              "version": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},
+              "impact": {"enum": ["MATERIAL", "NON_MATERIAL"]},
+              "summary": {"type": "string", "minLength": 1}
+            }
+          }
+        },
+        "transfer_sources": {
+          "type": "array",
+          "uniqueItems": true,
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "dependencies": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "applicability": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "signals", "questions"],
+          "properties": {
+            "mode": {"enum": ["ALWAYS", "REPOSITORY_EVIDENCE"]},
+            "signals": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+            "questions": {"type": "array", "items": {"type": "string", "minLength": 1}}
+          }
+        },
+        "recommendation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["when_applicable", "summary"],
+          "properties": {
+            "when_applicable": {"enum": ["APPLY_DEFAULT", "RECOMMENDED", "DECISION_REQUIRED"]},
+            "summary": {"type": "string", "minLength": 1},
+            "decision_required_when": {"type": "array", "items": {"type": "string", "minLength": 1}}
+          }
+        }
+      }
+    }
+  }
+}

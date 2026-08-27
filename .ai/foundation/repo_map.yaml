@@ -1,5 +1,5 @@
 schema_version: 1
-foundation_ruleset_version: 1.4.0
+foundation_ruleset_version: 1.7.0
 canonical_entrypoint: AGENTS.md
 authority:
   required_or_baseline:
@@ -8,6 +8,10 @@ authority:
     - .ai/foundation/SEMANTIC_INTEGRATION_POLICY.md
     - .ai/foundation/PERSISTENT_IDENTITY_POLICY.md
     - .ai/foundation/ARTIFACT_REGISTRATION_POLICY.md
+    - .ai/foundation/CENTRAL_ARTIFACT_REGISTRY_POLICY.md
+    - .ai/foundation/UPGRADE_APPLICABILITY_POLICY.md
+    - .ai/foundation/REPOSITORY_CONTINUITY_POLICY.md
+    - .ai/foundation/feature_catalog.json
     - .ai/foundation/WORKING_RULES.md
     - .ai/foundation/MODEL_ROUTING_POLICY.md
     - .ai/foundation/VALIDATION_POLICY.md
@@ -20,7 +24,10 @@ authority:
   schemas:
     - .ai/foundation/schemas/artifact-record.schema.json
     - .ai/foundation/schemas/artifact-registry.schema.json
+    - .ai/foundation/schemas/artifact-registry-v2.schema.json
     - .ai/foundation/schemas/artifact-registration-request.schema.json
+    - .ai/foundation/schemas/feature-catalog.schema.json
+    - .ai/foundation/schemas/upgrade-assessment.schema.json
 provenance:
   foundation_notice: .ai/foundation/AI_REPOSITORY_FOUNDATION_NOTICE.md
   target_root_license_behavior: independent_and_untouched
@@ -32,16 +39,7 @@ integration_contract:
   adapter_governance_migration: preserve_then_rehome_then_thin
   project_repo_map_behavior: preserve_and_optionally_bridge
   orphaned_authority_is_integration_defect: true
-  compatibility_classes:
-    - EQUIVALENT
-    - PROJECT_STRONGER
-    - PROJECT_SELECTABLE_OVERRIDE
-    - COMPLEMENTARY
-    - DUPLICATE_GOVERNANCE
-    - FOUNDATION_REQUIRED_CONFLICT
-    - TARGET_INTERNAL_CONFLICT
-    - ORPHANED_AUTHORITY
-    - ADAPTER_GOVERNANCE_MISPLACED
+  compatibility_classes: EQUIVALENT_PROJECT_STRONGER_PROJECT_SELECTABLE_OVERRIDE_COMPLEMENTARY_DUPLICATE_GOVERNANCE_FOUNDATION_REQUIRED_CONFLICT_TARGET_INTERNAL_CONFLICT_ORPHANED_AUTHORITY_ADAPTER_GOVERNANCE_MISPLACED
 identity_contract:
   policy: .ai/foundation/PERSISTENT_IDENTITY_POLICY.md
   required_invariants: stable_no_reuse_no_silent_rename_legacy_preservation_identity_vs_classification_explicit_relations_revision_separation_no_auth_by_id
@@ -61,7 +59,8 @@ identity_contract:
 registration_contract:
   policy: .ai/foundation/ARTIFACT_REGISTRATION_POLICY.md
   artifact_schema: .ai/foundation/schemas/artifact-record.schema.json
-  registry_schema: .ai/foundation/schemas/artifact-registry.schema.json
+  legacy_registry_schema: .ai/foundation/schemas/artifact-registry.schema.json
+  central_registry_schema: .ai/foundation/schemas/artifact-registry-v2.schema.json
   request_schema: .ai/foundation/schemas/artifact-registration-request.schema.json
   authority_scope: one_registration_authority_per_overlapping_identifier_scope
   same_authority_for_humans_and_ai: true
@@ -72,8 +71,44 @@ registration_contract:
   direct_requires_serialized_or_equivalent_unique_allocation: true
   deferred_uid_is_final_before_human_reference: true
   final_human_reference_must_be_authority_allocated: true
+  default_registry_profile: foundation-artifact-registry/v2
+  compatible_registry_profiles: foundation-artifact-registry/v1_foundation-artifact-registry/v2
   reference_clients: optional_capability
   reference_client_capability: artifact-registration-clients
+central_registry_contract:
+  policy: .ai/foundation/CENTRAL_ARTIFACT_REGISTRY_POLICY.md
+  profile: foundation-artifact-registry/v2
+  complete_records_in_single_registry: true
+  human_reference_is_object_key: true
+  persist_next_sequence: false
+  allocation_derivation: max_existing_sequence_plus_one
+  persist_global_registry_revision: false
+  git_revision_is_concurrency_token: true
+  object_level_three_way_merge_required: true
+  git_merge_result_must_equal_semantic_merge: true
+  cross_pr_preflight_recommended: true
+  optional_github_capability: artifact-registry-github
+upgrade_contract:
+  policy: .ai/foundation/UPGRADE_APPLICABILITY_POLICY.md
+  feature_catalog: .ai/foundation/feature_catalog.json
+  feature_catalog_schema: .ai/foundation/schemas/feature-catalog.schema.json
+  assessment_schema: .ai/foundation/schemas/upgrade-assessment.schema.json
+  complete_feature_delta_required: true
+  candidate_definition: introduced_or_materially_changed_after_installed_through_source_version
+  assessment_classifications: NOT_APPLICABLE_ALREADY_EQUIVALENT_PROJECT_STRONGER_APPLY_DEFAULT_RECOMMENDED_DECISION_REQUIRED_CONFLICT
+  silent_skip_prohibited: true
+  surface_results: RECOMMENDED_DECISION_REQUIRED_CONFLICT
+  unknown_installed_version_behavior: resolve_baseline_or_conservative_assessment
+continuity_contract:
+  policy: .ai/foundation/REPOSITORY_CONTINUITY_POLICY.md
+  classification: VALIDATION_FAILURE_INFRASTRUCTURE_UNAVAILABLE_UNKNOWN
+  validation_failure_bypass: prohibited
+  infrastructure_unavailable_bypass: project_selectable
+  unknown_bypass: prohibited
+  audit_path_required: true
+  direct_push_break_glass: prohibited
+  deferred_validation_after_recovery: required
+  target_repository_administration: recommend_never_silently_configure
 validation_contract:
   foundation_integrity:
     label: FOUNDATION_INTEGRITY
@@ -87,6 +122,17 @@ validation_contract:
     label: RUNTIME_EMPIRICAL
     authority: target_repository
     purpose: tests_builds_integrations_runtime_research_data_and_manual_validation
+  text_content_equivalence:
+    utf8_crlf_lf_equivalent: true
+    lone_cr_significant: true
+    final_newline_significant: true
+    binary_byte_exact: true
+    target_gitattributes_behavior: preserve_project_policy_do_not_create_for_eol_only_foundation_drift
+  validation_availability:
+    classifications: VALIDATION_FAILURE_INFRASTRUCTURE_UNAVAILABLE_UNKNOWN
+    validation_failure_break_glass: prohibited
+    infrastructure_unavailable_break_glass: project_selectable
+    missing_validation_remains_pending: true
   status_vocabulary:
     foundation_reserved_meanings: not_executed_pending_manual_validation_validated
     target_extensions_allowed: true

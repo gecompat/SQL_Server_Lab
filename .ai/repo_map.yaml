@@ -61,9 +61,10 @@ sources_of_truth:
 
 foundation_integration:
   source_repository: gecompat/AI_Repository_Foundation
-  source_commit: 2c9de5d5299a0eefec59fdc6131519886dc5e195
-  ruleset_version: "1.4.0"
+  source_commit: d49f978f33001fcc098998ff7c04ffb209b28033
+  ruleset_version: "1.7.0"
   foundation_integrity_index: .ai/foundation/repo_map.yaml
+  feature_catalog: .ai/foundation/feature_catalog.json
   selected_adapters:
     - github-copilot
   adapter_rule_rehome:
@@ -95,6 +96,19 @@ foundation_integration:
     runs_and_scopes: New-LabRunState
     final_human_reference_scope: not_currently_allocated_authority_required_before_use
   selected_capabilities: []
+  upgrade_assessment:
+    installed_version: "1.4.0"
+    source_version: "1.7.0"
+    assessed_on: "2026-08-27"
+    candidates:
+      artifact-registration: ALREADY_EQUIVALENT
+      central-artifact-registry: NOT_APPLICABLE
+      layered-validation: APPLY_DEFAULT
+      repository-continuity-break-glass: RECOMMENDED
+      semantic-integration: APPLY_DEFAULT
+      semantic-upgrade-applicability: APPLY_DEFAULT
+    open_recommendations:
+      - repository-continuity-break-glass
   unresolved_conflicts: []
 
 public_commands:
@@ -587,6 +601,16 @@ validation:
       - scope_bound_cleanup
       - immutable_parent_after_cleanup
   remote_workflows:
+    foundation_integrity:
+      source: .github/workflows/static-contracts.yml
+      job: foundation-integrity
+      runner: ubuntu-latest
+      foundation_repository: gecompat/AI_Repository_Foundation
+      foundation_ref: d49f978f33001fcc098998ff7c04ffb209b28033
+      selected_adapters:
+        - github-copilot
+      selected_capabilities: []
+      required_via_pr_gate_when_affected: true
     static_contracts:
       source: .github/workflows/static-contracts.yml
       runners:
