@@ -100,6 +100,8 @@ if ($failures.Count -eq 0) {
     Assert-Contains $sqlReadiness 'if\s+\(\$KeepConnection\)[\s\S]+-i\s+\$tempScriptPath' 'KeepConnection fuehrt das Skript nicht in einem einzelnen sqlcmd-Prozess aus.'
     Assert-Contains $sqlReadiness 'WriteAllText\([\s\S]+UTF8Encoding\]::new\(\$true\)' 'KeepConnection erzeugt keine explizite UTF-8-BOM-Eingabedatei.'
     Assert-Contains $sqlReadiness '-X1[\s\S]+-x' 'KeepConnection deaktiviert die sqlcmd-Skriptebene nicht vollstaendig.'
+    Assert-Contains $sqlReadiness '\$IsWindows\s+-and\s+\$Query\.Length\s+-gt\s+7000[\s\S]+-i\s+\$tempQueryPath' 'Grosse Windows-Batches umgehen das CreateProcess-Kommandozeilenlimit nicht.'
+    Assert-Contains $sqlReadiness 'tempQueryPath[\s\S]+finally[\s\S]+Remove-Item' 'Temporaere grosse Query-Dateien werden nicht garantiert entfernt.'
 
     Assert-Contains $portAllocation 'function\s+Get-LabReservedSqlPorts' 'Runtimeuebergreifende Portermittlung fehlt.'
     Assert-Contains $portAllocation 'function\s+Find-LabAvailablePort' 'Gemeinsame freie Portsuche fehlt.'
