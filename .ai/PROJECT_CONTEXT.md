@@ -86,6 +86,9 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   Reboot-Zustand und begrenztem PowerShell-Direct-Reconnect;
 - SQL-Readiness-Orchestrierung im Gast mit Dienst-, Major-Version- und
   Systemdatenbankprüfung sowie sanitierter `SQL_READY_RUN`-Evidenz;
+- providerneutraler Softwarekatalog und External-Runtime-Resolver mit
+  SQL-/OS-/Provider-Capability-Gates, sicherer Legacy-`post-start`-Grenze und
+  geheimnisfreien Software-Intents für Python, R und Java;
 
 ### Geplant oder unvollständig
 
@@ -98,8 +101,9 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 - nicht freigegebene Archive und Attach-Szenarien;
 - kontextreiche Manifest-Menüführung mit Navigation und Planvorschau;
 - Hyper-V-Export und -Nutzung von `LAB_GENERATED`-Baselines;
-- providerneutrale Software und External Runtimes einschließlich Python unter
-  Linux sowie Derived Container Images;
+- ausführbare External Runtimes einschließlich Derived Container Images,
+  Hyper-V-Gastinstallation, Java-Library-Registrierung und realer
+  `sp_execute_external_script`-Nachweise;
 - Reconcile-Aktionen über START/STOP hinaus, insbesondere für Ressourcen- und
   Konfigurationsänderungen;
 - versionierter Refresh-/Rebuild-Lifecycle für Medien, VHDX und Container-Images;

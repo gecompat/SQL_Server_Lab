@@ -9,7 +9,8 @@
     "volume-mounts",
     "managed-lab-network",
     "isolated-network",
-    "resource-limits"
+    "resource-limits",
+    "software-catalog-planning"
   ],
   "limitations": [
     "no-gui",

@@ -139,6 +139,7 @@ foreach ($file in $jsonFiles) {
 $schemaValidationTargets = @(
     @{ Data = 'Catalogs/sql-server-versions.json'; Schema = 'Schemas/version-catalog.schema.json' }
     @{ Data = 'Catalogs/sample-databases.json'; Schema = 'Schemas/sample-databases.schema.json' }
+    @{ Data = 'Catalogs/software.json'; Schema = 'Schemas/software-catalog.schema.json' }
 ) + @(
     Get-ChildItem -LiteralPath (Join-Path $repoRoot 'Schemas') -Filter 'example-*.json' -File |
         ForEach-Object {

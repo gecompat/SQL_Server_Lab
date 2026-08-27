@@ -452,6 +452,7 @@ function Install-LabExternalLanguages {
     param(
         [Parameter(Mandatory)][string]$ContainerName,
         [Parameter(Mandatory)]$Config,
+        [Parameter(Mandatory)][string]$SqlVersion,
         [Parameter(Mandatory)][int]$Port,
         [Parameter(Mandatory)][SecureString]$SaPassword,
         [string]$HostName = '127.0.0.1',
@@ -463,6 +464,18 @@ function Install-LabExternalLanguages {
     }
     if ($Config.installMethod -in @('custom-image', 'pre-built') -or $Config.customImage) {
         throw 'Custom-Image- und Pre-Built-External-Languages sind noch nicht in die Provider-Imageauswahl integriert.'
+    }
+
+    $requests = @(ConvertTo-LabExternalRuntimeRequests -Software @() -ExternalScripts $Config)
+    foreach ($request in $requests) {
+        $plan = Resolve-LabExternalRuntimePlan `
+            -SoftwareItem $request `
+            -SqlVersion $SqlVersion `
+            -Provider $Provider `
+            -OperatingSystem 'linux'
+        if ([string]$plan.Status -ne 'RESOLVED') {
+            throw "EXTERNAL_RUNTIME_PLAN_REJECTED: $($plan.SoftwareId) / $($plan.ReasonCode) - $($plan.Reason)"
+        }
     }
 
     $runtime = Resolve-LabContainerProvider `

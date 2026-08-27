@@ -278,6 +278,13 @@ internal_components:
       - "Container-Images bestimmen"
       - "Ressourcenprofile liefern"
       - "Sample-Katalog lesen"
+  - name: SoftwareCatalog
+    source: Private/SoftwareCatalog.ps1
+    responsibilities:
+      - "Python-, R- und Java-Anforderungen in providerneutrale Software-Intents normalisieren"
+      - "SQL-Version, Betriebssystem, Architektur, Provider und Runtimevariante deterministisch aufloesen"
+      - "unbelegte Varianten, freie Commands und nicht gesperrte Pakete vor Provider-Mutationen ablehnen"
+      - "sanitisierte Softwareplaene und Installation-Receipt-Vertraege bereitstellen"
   - name: ResourceAssessment
     source: Private/ResourceAssessment.ps1
     responsibilities:
@@ -354,7 +361,7 @@ internal_components:
     responsibilities:
       - "Memory, TempDB, MaxDOP und sp_configure anwenden"
       - "Datenbankoptionen anwenden"
-      - "External Languages vorbereiten"
+      - "External Languages nur nach RESOLVED-Softwareplan aktivieren"
   - name: SecretProvider
     source: Private/SecretProvider.ps1
     responsibilities:

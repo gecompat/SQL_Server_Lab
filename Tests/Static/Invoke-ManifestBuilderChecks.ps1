@@ -223,7 +223,8 @@ Add-CheckResult `
     -Name 'Host-Mounts sind standardmäßig read-only und Containerprovider geben den Modus weiter' `
     -Success ($explicitHostWriteManifestResult.IsValid -and
         $dockerProviderSource -match '\$drive\.hostPath -and \$drive\.readOnly -eq \$true' -and $dockerProviderSource -match '\$\{volumeTarget\}:ro' -and
-        $podmanProviderSource -match '\$drive\.hostPath -and \$drive\.readOnly -eq \$true' -and $podmanProviderSource -match '\$\{volumeTarget\}:ro' -and
+        $podmanProviderSource -match '\$drive\.readOnly -eq \$true' -and
+        $podmanProviderSource -match "\$volumeOptions \+= 'ro'" -and $podmanProviderSource -match '\$volumeOptions -join' -and
         @($mountProjection | Where-Object id -eq 'host')[0].readOnly -and
         -not @($mountProjection | Where-Object id -eq 'volume')[0].readOnly) `
     -Message (($explicitHostWriteManifestResult.Errors + $explicitHostWriteManifestResult.Warnings) -join '; ')
