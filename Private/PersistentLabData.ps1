@@ -78,3 +78,23 @@ function Add-LabPersistentContainerDrive {
     }
     return $Instance
 }
+
+function Add-LabRunScopedContainerSystemDrive {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Instance)
+
+    $currentDrives = @($Instance.drives)
+    $existing = @($currentDrives | Where-Object { $_ -and $_.containerPath -eq '/var/opt/mssql' })
+    if ($existing.Count -gt 0) { return $Instance }
+
+    # Auch eine kurzlebige Lab-Umgebung muss einen kontrollierten Container-
+    # Recreate ohne Verlust von master/model/msdb und Datenbankregistrierungen
+    # ueberstehen. Dieses Volume wird beim rungebundenen Lab-Cleanup entfernt
+    # und ist daher nicht mit dem langlebigen Data-Root-Vertrag gleichzusetzen.
+    $systemDrive = [PSCustomObject]@{
+        id = 'runtime-mssql'; containerPath = '/var/opt/mssql'
+        persistence = 'run-scoped-runtime-volume'
+    }
+    $Instance | Add-Member -NotePropertyName drives -NotePropertyValue (@($systemDrive) + $currentDrives) -Force
+    return $Instance
+}
