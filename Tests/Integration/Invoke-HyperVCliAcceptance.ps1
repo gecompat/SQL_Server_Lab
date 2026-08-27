@@ -60,6 +60,34 @@ function Invoke-WindowsAcceptanceQuery {
     (($output | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ -and $_ -notmatch '^Changed database context' }) -join "`n")
 }
 
+function Wait-WindowsAcceptanceSqlReady {
+    param(
+        [Parameter(Mandatory)][ValidateRange(1,99)][int]$ExpectedMajorVersion,
+        [ValidateRange(1,3600)][int]$TimeoutSeconds = 1200
+    )
+
+    $context = Invoke-Private {
+        param($RunId,$Root)
+        Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $Root
+    } @($lab.RunId,$StateRoot)
+    $credential = [PSCredential]::new('Administrator', $guestPassword)
+    return Invoke-Private {
+        param($VmName,$RunId,$ScopeId,$Credential,$SaPassword,$Address,$ExpectedMajor,$Timeout)
+        Wait-HyperVGuestSqlReady -VMName $VmName -ExpectedRunId $RunId -ExpectedScopeId $ScopeId `
+            -Credential $Credential -SaPassword $SaPassword -FallbackAddress $Address `
+            -ExpectedMajorVersion $ExpectedMajor -TimeoutSeconds $Timeout
+    } @(
+        [string]$context.Instance.vmName,
+        [string]$context.Run.runId,
+        [string]$context.Run.scopeId,
+        $credential,
+        $saPassword,
+        [string]$context.Instance.oobeAutomation.labAddress,
+        $ExpectedMajorVersion,
+        $TimeoutSeconds
+    )
+}
+
 try {
     $mutexAcquired = $mutex.WaitOne([TimeSpan]::FromMinutes(15))
     if (-not $mutexAcquired) { throw 'HYPERV_CLI_ACCEPTANCE_HOST_LOCK_TIMEOUT' }
@@ -170,9 +198,11 @@ try {
     $script:sqlAddress = [string]$install.HostSqlAccess.Network.Address
     $saPlain = ConvertFrom-AcceptanceSecureString $saPassword
 
-    Restart-SqlServerLab -RunId $lab.RunId -TimeoutSeconds 1200 -Force -Confirm:$false | Out-Null
-    $versionEvidence = Invoke-WindowsAcceptanceQuery "SET NOCOUNT ON; SELECT CAST(SERVERPROPERTY('ProductMajorVersion') AS varchar(8));"
     $expectedMajor = @{ '2019'='15'; '2022'='16'; '2025'='17' }[$SqlVersion]
+    Restart-SqlServerLab -RunId $lab.RunId -TimeoutSeconds 1200 -Force -Confirm:$false | Out-Null
+    $restartReadiness = Wait-WindowsAcceptanceSqlReady -ExpectedMajorVersion $expectedMajor
+    Assert-HyperVCli $restartReadiness.Ready 'SQL ist nach Restart-SqlServerLab wieder bereit'
+    $versionEvidence = Invoke-WindowsAcceptanceQuery "SET NOCOUNT ON; SELECT CAST(SERVERPROPERTY('ProductMajorVersion') AS varchar(8));"
     Assert-HyperVCli ($versionEvidence -eq $expectedMajor) "SQL Server $SqlVersion meldet den erwarteten Major Build" $versionEvidence
 
     $configEvidence = Invoke-WindowsAcceptanceQuery "SET NOCOUNT ON; SELECT name + '=' + CAST(value_in_use AS varchar(20)) FROM sys.configurations WHERE name IN ('max server memory (MB)','max degree of parallelism','cost threshold for parallelism','optimize for ad hoc workloads') ORDER BY name;"
@@ -204,6 +234,8 @@ try {
     $resources = Invoke-SqlServerLabWorkflowAction -Action SetLabResources -BuildId $lab.RunId -MemoryMB 5120 -ProcessorCount 3
     Assert-HyperVCli ($resources.Result.Changed -and $resources.Result.Instances[0].MemoryStartupMB -eq 5120 -and $resources.Result.Instances[0].ProcessorCount -eq 3) 'Hyper-V-vCPU und RAM wurden ueber die CLI geaendert'
     Start-SqlServerLab -RunId $lab.RunId -StateRoot $StateRoot -TimeoutSeconds 1200 | Out-Null
+    $resourceReadiness = Wait-WindowsAcceptanceSqlReady -ExpectedMajorVersion $expectedMajor
+    Assert-HyperVCli $resourceReadiness.Ready 'SQL ist nach Ressourcenwechsel und Start wieder bereit'
     Assert-HyperVCli ((Invoke-WindowsAcceptanceQuery "SET NOCOUNT ON; SELECT COUNT_BIG(*) FROM CliStorageEvidence.sys.tables;") -gt 0) 'Datenzustand bleibt nach Ressourcenwechsel und Neustart erreichbar'
 
     Remove-SqlServerLab -RunId $lab.RunId -StateRoot $StateRoot -Force -Confirm:$false | Out-Null
