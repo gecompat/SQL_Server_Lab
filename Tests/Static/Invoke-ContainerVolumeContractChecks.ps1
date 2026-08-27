@@ -26,4 +26,8 @@ foreach ($entry in $providers.GetEnumerator()) {
     Assert-VolumeContract ($text -match '(?s)volume inspect.*?return \$false') "$name initialisiert bestehende Volumes nicht erneut"
 }
 
+Assert-VolumeContract ($providers.podman -match "(?s)if \(-not \`$drive\.hostPath\) \{ \`$volumeOptions \+= 'U' \}") 'podman verwendet die user-namespace-sichere U-Option nur fuer Named Volumes'
+$reconcile = Get-Content (Join-Path $repoRoot 'Public/Update-SqlServerLabContainer.ps1') -Raw -Encoding utf8
+Assert-VolumeContract ($reconcile -match "(?s)if \(\`$runtime -eq 'podman'\) \{ \`$volumeOptions \+= 'U' \}") 'Podman-Reconcile erhaelt die user-namespace-sichere Volume-Eigentuemerschaft'
+
 Write-Host "CONTAINER VOLUME CONTRACT CHECKS: $passed PASS" -ForegroundColor Green

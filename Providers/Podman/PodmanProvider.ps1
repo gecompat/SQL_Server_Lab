@@ -134,8 +134,11 @@ function New-PodmanInstance {
 
         $volumeArguments += '-v'
         $volumeTarget = "${volumeSource}:$($drive.containerPath)"
-        if ($drive.hostPath -and $drive.readOnly -eq $true) {
-            $volumeTarget = "${volumeTarget}:ro"
+        $volumeOptions = @()
+        if (-not $drive.hostPath) { $volumeOptions += 'U' }
+        if ($drive.readOnly -eq $true) { $volumeOptions += 'ro' }
+        if ($volumeOptions.Count -gt 0) {
+            $volumeTarget = "${volumeTarget}:$($volumeOptions -join ',')"
         }
         $volumeArguments += $volumeTarget
     }
