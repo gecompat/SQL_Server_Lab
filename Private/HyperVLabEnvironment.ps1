@@ -391,7 +391,7 @@ function Get-HyperVUnattendedPostLoginScript {
             geoId = [int](Get-WinHomeLocation).GeoId
             systemLocale = [string](Get-WinSystemLocale)
             uiLanguage = [string](Get-WinUILanguageOverride)
-            inputLocale = [string](Get-WinDefaultInputMethodOverride)
+            inputLocale = [string](Get-WinDefaultInputMethodOverride).InputMethodTip
             timeZone = [string](Get-TimeZone).Id
             observedAt = [datetime]::UtcNow.ToString('o')
         }
