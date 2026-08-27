@@ -308,6 +308,7 @@ function Get-DockerInstanceStatus {
                 Running = $false
                 Healthy = $false
                 AutoStart = $false
+                Inspect  = $null
                 Raw     = $null
             }
         }
@@ -319,6 +320,7 @@ function Get-DockerInstanceStatus {
             Running = $item.State.Status -eq 'running'
             Healthy = $health -eq 'healthy'
             AutoStart = [string]$item.HostConfig.RestartPolicy.Name -in @('always', 'unless-stopped')
+            Inspect  = $item
             Raw     = [string]$item.State.Status
         }
     }
@@ -328,6 +330,7 @@ function Get-DockerInstanceStatus {
             Running = $false
             Healthy = $false
             AutoStart = $false
+            Inspect  = $null
             Raw     = $_.Exception.Message
         }
     }
