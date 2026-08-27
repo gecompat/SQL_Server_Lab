@@ -19,6 +19,7 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $sqlReadinessPath = Join-Path $repoRoot 'Private\SqlReadiness.ps1'
 $portAllocationPath = Join-Path $repoRoot 'Private\PortAllocation.ps1'
 $startPath = Join-Path $repoRoot 'Public\Start-SqlServerLab.ps1'
+$containerReconcilePath = Join-Path $repoRoot 'Public\Update-SqlServerLabContainer.ps1'
 $newLabPath = Join-Path $repoRoot 'Public\New-SqlServerLab.ps1'
 $menuPath = Join-Path $repoRoot 'Public\Invoke-SqlServerLab.ps1'
 $dockerProviderPath = Join-Path $repoRoot 'Providers\Docker\DockerProvider.ps1'
@@ -56,6 +57,7 @@ foreach ($path in @(
     $sqlReadinessPath,
     $portAllocationPath,
     $startPath,
+    $containerReconcilePath,
     $newLabPath,
     $menuPath,
     $dockerProviderPath,
@@ -72,6 +74,7 @@ if ($failures.Count -eq 0) {
     $sqlReadiness = Get-Content -LiteralPath $sqlReadinessPath -Raw -Encoding utf8
     $portAllocation = Get-Content -LiteralPath $portAllocationPath -Raw -Encoding utf8
     $start = Get-Content -LiteralPath $startPath -Raw -Encoding utf8
+    $containerReconcile = Get-Content -LiteralPath $containerReconcilePath -Raw -Encoding utf8
     $newLab = Get-Content -LiteralPath $newLabPath -Raw -Encoding utf8
     $menu = Get-Content -LiteralPath $menuPath -Raw -Encoding utf8
     $dockerProvider = Get-Content -LiteralPath $dockerProviderPath -Raw -Encoding utf8
@@ -97,6 +100,8 @@ if ($failures.Count -eq 0) {
     Assert-Contains $sqlReadiness 'if\s+\(\$KeepConnection\)[\s\S]+-i\s+\$tempScriptPath' 'KeepConnection fuehrt das Skript nicht in einem einzelnen sqlcmd-Prozess aus.'
     Assert-Contains $sqlReadiness 'WriteAllText\([\s\S]+UTF8Encoding\]::new\(\$true\)' 'KeepConnection erzeugt keine explizite UTF-8-BOM-Eingabedatei.'
     Assert-Contains $sqlReadiness '-X1[\s\S]+-x' 'KeepConnection deaktiviert die sqlcmd-Skriptebene nicht vollstaendig.'
+    Assert-Contains $sqlReadiness '\$IsWindows\s+-and\s+\$Query\.Length\s+-gt\s+7000[\s\S]+-i\s+\$tempQueryPath' 'Grosse Windows-Batches umgehen das CreateProcess-Kommandozeilenlimit nicht.'
+    Assert-Contains $sqlReadiness 'tempQueryPath[\s\S]+finally[\s\S]+Remove-Item' 'Temporaere grosse Query-Dateien werden nicht garantiert entfernt.'
 
     Assert-Contains $portAllocation 'function\s+Get-LabReservedSqlPorts' 'Runtimeuebergreifende Portermittlung fehlt.'
     Assert-Contains $portAllocation 'function\s+Find-LabAvailablePort' 'Gemeinsame freie Portsuche fehlt.'
@@ -121,7 +126,9 @@ if ($failures.Count -eq 0) {
     Assert-Contains $podmanBootstrap 'Elapsed\.TotalSeconds\s+-lt\s+\$TimeoutSeconds' 'Podman-Bootstrap wartet nicht begrenzt auf Erreichbarkeit.'
 
     Assert-Contains $start 'Wait-SqlReady' 'Start-SqlServerLab prueft die SQL-Readiness nicht.'
+    Assert-Contains $start '-Provider\s+\$readinessProvider[\s\S]+-ContainerIdOrName\s+\$readinessContainer' 'Start-SqlServerLab bindet Readiness nicht an den echten Providercontainer.'
     Assert-Contains $start 'Wait-LabDatabaseReady' 'Start-SqlServerLab wartet nicht auf gespeicherte Benutzerdatenbanken.'
+    Assert-Contains $containerReconcile 'Wait-SqlReady' 'Container-Port-Reconcile verwendet keine echte SQL-Readiness.'
     Assert-Contains $start '\$instance\.databases' 'Start-SqlServerLab verwendet die gespeicherten Datenbanken nicht.'
 
     Assert-Contains $menu 'function\s+Invoke-SqlServerLab' 'Interaktiver Einstiegspunkt fehlt.'

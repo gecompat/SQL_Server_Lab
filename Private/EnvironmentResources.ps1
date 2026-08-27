@@ -38,7 +38,7 @@ function Get-LabContainerResourceValues {
     else {
         Get-PodmanInstanceStatus -ContainerIdOrName $container
     }
-    $raw = if ($status -and $status.PSObject.Properties['Raw']) { @($status.Raw)[0] } else { $null }
+    $raw = if ($status -and $status.PSObject.Properties['Inspect']) { @($status.Inspect)[0] } else { $null }
     if (-not $status -or -not $status.Exists -or -not $raw) {
         return [pscustomobject]@{
             Available = $false
@@ -52,7 +52,7 @@ function Get-LabContainerResourceValues {
     }
 
     $memoryBytes = if ($raw.HostConfig -and $raw.HostConfig.Memory) { [long]$raw.HostConfig.Memory } else { 0L }
-    $processorCount = 0M
+    $processorCount = [decimal]0
     if ($raw.HostConfig -and [long]$raw.HostConfig.NanoCpus -gt 0) {
         $processorCount = [decimal]$raw.HostConfig.NanoCpus / [decimal]1000000000
     }

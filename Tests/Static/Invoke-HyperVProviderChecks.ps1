@@ -128,7 +128,7 @@ try {
     Add-TextContract `
         -Name 'Zusatz-VHDX werden explizit per SCSI angebunden' `
         -Text $provider `
-        -Pattern 'Add-VMHardDiskDrive[\s\S]+ControllerType\s+SCSI[\s\S]+ControllerNumber\s+0'
+        -Pattern 'Add-VMHardDiskDrive[\s\S]+ControllerType\s+SCSI[\s\S]+ControllerNumber\s+0[\s\S]+ControllerLocation'
     Add-CheckResult `
         -Name 'PowerShell Direct verwendet nur gültige Invoke-Command-Parameter' `
         -Success (
@@ -312,14 +312,19 @@ try {
         -Name 'Daten-VHDX-Initialisierung bleibt mit Windows PowerShell 5.1 im Gast kompatibel' `
         -Success (
             $provider.Contains('$DrivePlanJson | ConvertFrom-Json)') -and
-            -not $provider.Contains('$DrivePlanJson | ConvertFrom-Json -Depth')
+            -not $provider.Contains('$DrivePlanJson | ConvertFrom-Json -Depth') -and
+            $provider -match 'contractVersion = ''1''[\s\S]+drives = \$portablePlan' -and
+            $provider -match '\$specifications = @\(\$plan\.drives\)'
         )
     Add-CheckResult `
-        -Name 'Frische Daten-VHDX nutzt nur bei genau einer RAW-Nicht-Systemdisk einen sicheren Fallback' `
+        -Name 'Frische Daten-VHDX nutzt feste SCSI-Slots und Groesse als sicheren RAW-Fallback' `
         -Success (
-            $provider -match '\$matchingMethod = ''single-raw-disk-fallback''' -and
+            $provider -match '\$matchingMethod = ''scsi-location-raw-fallback''' -and
             $provider -match '\$rawCandidates\.Count -eq 1' -and
             $provider -match '\[string\]\$_.PartitionStyle -eq ''RAW''' -and
+            $provider -match '\[int\]\$_.Number -eq \[int\]\$specification.controllerLocation' -and
+            $provider -match '\[long\]\$_.Size -eq \[long\]\$specification.sizeBytes' -and
+            $provider -match 'GUEST_DISK_ALREADY_CLAIMED' -and
             $provider -match 'GUEST_DISK_IDENTIFIER_MATCH_COUNT'
         )
     Add-CheckResult `
@@ -463,6 +468,13 @@ try {
             $sqlReadinessContract.Notes -match 'SQL_READY_RUN' -and
             $sqlReadinessContract.Notes -notmatch [regex]::Escape($specializationPassword) -and
             $sqlReadinessContract.Notes -notmatch [regex]::Escape($sqlSaPasswordText)
+        )
+    Add-CheckResult `
+        -Name 'SQL-Readiness verwendet unter Windows PowerShell 5.1 kanonische Connection-String-Keywords' `
+        -Success (
+            $provider -match "\`$builder\['Data Source'\]" -and
+            $provider -match "\`$builder\['Initial Catalog'\]" -and
+            $provider -notmatch '\$builder\.DataSource\s*='
         )
 
     $pathContract = & $module {

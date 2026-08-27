@@ -1,8 +1,6 @@
 name: Runtime Smoke - Fresh Hyper-V SQL Acceptance
 
 on:
-  schedule:
-    - cron: '0 2 * * 0'
   workflow_dispatch:
     inputs:
       media_root:

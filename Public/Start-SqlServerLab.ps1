@@ -260,11 +260,15 @@ function Start-SqlServerLab {
                 }
 
                 try {
+                    $readinessProvider = ([string]$instance.provider).ToLowerInvariant()
+                    $readinessContainer = @([string]$instance.containerId, [string]$instance.containerName) | Where-Object { $_ } | Select-Object -First 1
                     $sqlReadiness = Wait-SqlReady `
                         -HostName $(if ($instance.host) { $instance.host } else { '127.0.0.1' }) `
                         -Port $instance.port `
                         -SaPassword $saPassword `
-                        -TimeoutSeconds $TimeoutSeconds
+                        -TimeoutSeconds $TimeoutSeconds `
+                        -Provider $readinessProvider `
+                        -ContainerIdOrName $readinessContainer
 
                     if (-not $sqlReadiness.Ready) {
                         throw $sqlReadiness.Message

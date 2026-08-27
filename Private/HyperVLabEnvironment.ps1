@@ -387,11 +387,12 @@ function Get-HyperVUnattendedPostLoginScript {
         Remove-Item -LiteralPath "$env:WINDIR\Setup\Scripts\SetupComplete.cmd" -Force -ErrorAction SilentlyContinue
         [PSCustomObject]@{
             runId = $ExpectedRunId
+            computerName = [Environment]::MachineName
             imageState = [string](Get-ItemPropertyValue -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State' -Name ImageState)
             geoId = [int](Get-WinHomeLocation).GeoId
             systemLocale = [string](Get-WinSystemLocale)
             uiLanguage = [string](Get-WinUILanguageOverride)
-            inputLocale = [string](Get-WinDefaultInputMethodOverride)
+            inputLocale = [string](Get-WinDefaultInputMethodOverride).InputMethodTip
             timeZone = [string](Get-TimeZone).Id
             observedAt = [datetime]::UtcNow.ToString('o')
         }
@@ -524,14 +525,43 @@ function Invoke-HyperVLabUnattendedProvision {
         -ArgumentList @([string]$lab.Run.runId, $localeSettings.GeoId, $localeSettings.SystemLocale, $localeSettings.UiLanguage, $localeSettings.InputLocale, $localeSettings.TimeZone) `
         -ScriptBlock $postLoginScript
     $receipt = @($receipt)[-1]
-    if (-not $receipt -or [string]$receipt.runId -ne [string]$lab.Run.runId -or
-        [string]$receipt.imageState -ne 'IMAGE_STATE_COMPLETE' -or [int]$receipt.geoId -ne $localeSettings.GeoId -or
-        [string]$receipt.systemLocale -ne $localeSettings.SystemLocale -or
-        [string]$receipt.uiLanguage -ne $localeSettings.UiLanguage -or
-        [string]$receipt.inputLocale -ne $localeSettings.InputLocale -or
-        [string]$receipt.timeZone -ne $localeSettings.TimeZone) {
-        throw 'HYPERV_LAB_UNATTENDED_OOBE_RECEIPT_INVALID'
+    $receiptMismatches = [Collections.Generic.List[string]]::new()
+    if (-not $receipt) {
+        $receiptMismatches.Add('receipt=<null>')
     }
+    else {
+        foreach ($field in @(
+            @{ Name='runId'; Expected=[string]$lab.Run.runId; Actual=[string]$receipt.runId },
+            @{ Name='imageState'; Expected='IMAGE_STATE_COMPLETE'; Actual=[string]$receipt.imageState },
+            @{ Name='geoId'; Expected=[string]$localeSettings.GeoId; Actual=[string][int]$receipt.geoId },
+            @{ Name='systemLocale'; Expected=[string]$localeSettings.SystemLocale; Actual=[string]$receipt.systemLocale },
+            @{ Name='uiLanguage'; Expected=[string]$localeSettings.UiLanguage; Actual=[string]$receipt.uiLanguage },
+            @{ Name='inputLocale'; Expected=[string]$localeSettings.InputLocale; Actual=[string]$receipt.inputLocale },
+            @{ Name='timeZone'; Expected=[string]$localeSettings.TimeZone; Actual=[string]$receipt.timeZone }
+        )) {
+            if ($field.Actual -ne $field.Expected) {
+                $receiptMismatches.Add("$($field.Name): expected='$($field.Expected)', actual='$($field.Actual)'")
+            }
+        }
+        if ([string]::IsNullOrWhiteSpace([string]$receipt.computerName)) {
+            $receiptMismatches.Add('computerName=<empty>')
+        }
+    }
+    if ($receiptMismatches.Count -gt 0) {
+        throw "HYPERV_LAB_UNATTENDED_OOBE_RECEIPT_INVALID: $($receiptMismatches -join '; ')"
+    }
+    $managedAfterOobe = Get-HyperVManagedVM -VMName ([string]$lab.Instance.vmName) `
+        -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
+    $null = Set-HyperVManagedVMIdentityProperty -ManagedVM $managedAfterOobe `
+        -PropertyName windowsSpecialization -ContractVersion '0.5' `
+        -Value ([PSCustomObject]@{
+            status = 'WINDOWS_SPECIALIZED'
+            computerName = [string]$receipt.computerName
+            imageState = [string]$receipt.imageState
+            rebooted = $false
+            source = 'unattended-oobe'
+            observedAt = [string]$receipt.observedAt
+        })
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
     $lab.Instance | Add-Member -NotePropertyName oobeAutomation -NotePropertyValue ([PSCustomObject]@{
         status = 'COMPLETED'; passwordSource = $PasswordSource; passwordStorage = 'host-dpapi'

@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING_LIMITATIONS` |
-| Stand | 2026-08-20 |
+| Stand | 2026-08-27 |
 
 Dieses Dokument beschreibt bekannte Grenzen des aktuell implementierten Runtimepfads. Es ist Teil des öffentlichen Projektvertrags. Ein Feld im JSON-Schema oder ein Planungsdokument gilt nicht automatisch als Implementierungsnachweis.
 
@@ -14,8 +14,9 @@ Dieses Dokument beschreibt bekannte Grenzen des aktuell implementierten Runtimep
 Docker und Podman sind implementiert. Start, Stop und Live-Status verwenden den
 pro Instanz in `connection-info.json` gespeicherten Provider.
 
-Der aktuelle Nachweis vom 2026-08-20 ist für Docker 29.7.2 und Podman 6.0.2
-einschliesslich providerneutraler Batchlaeufe positiv. Der laufende Core-Gate verwendet ausschließlich SQL Server 2025;
+Der aktuelle vertiefte Nachweis vom 2026-08-27 ist fuer Docker und Podman mit
+einem repraesentativen SQL Server 2022 CU18 einschliesslich Chinook, Storage,
+Ressourcen, Reconcile, Lifecycle und Cleanup positiv. Der laufende Core-Gate verwendet ausschließlich SQL Server 2025;
 Mehrversions-Kompatibilität wird in SQL Analyze und Toolbelt abgenommen. Der
 Core-Gate verwendet die native Containercollation
 `SQL_Latin1_General_CP1_CI_AS`. Beim expliziten SQL-2025-Systemdatenbankumbau
@@ -24,7 +25,7 @@ Loginfehler 18456/State 115 auf. SQL_Server_Lab erkennt nur diesen Diagnosefall
 und erstellt den scopegebundenen Container genau einmal neu; wiederholt sich
 der Zustand oder tritt ein anderer Readiness-Fehler auf, bleibt der Lauf
 fail-closed. Alle Testressourcen wurden scopegebunden bereinigt. Details stehen im
-[Validierungsbericht vom 2026-08-20](VALIDATION_RESULT_2026-08-20.md).
+[Validierungsbericht vom 2026-08-27](VALIDATION_RESULT_2026-08-27.md).
 
 ### Gemischte Containerprovider in einem Run
 
@@ -147,10 +148,14 @@ danach weiter unbeaufsichtigt.
 Freie run-lokale Manifest-Drives werden inzwischen deklarativ auf zusätzliche
 Hyper-V-VHDX und deren Disk-ID-gebundene Gastinitialisierung abgebildet. Noch
 nicht implementiert ist die vollständige Bindung an den Datenbank-, Software-,
-Post-Provisioning- und Netzwerkvertrag. Der enge Klonpfad führt für ein `SQL_PREPARED_SEALED`-Image `CompleteImage` bereits aus; offen bleiben der
-vollautomatische OS-Factory-Build, ein allgemeiner Hyper-V-SQL-Runtimepfad mit
-realem End-to-End-Nachweis, runtimeübergreifende Network Intents, zentraler IPAM,
-Reconcile und der automatische Artifact Refresh. Der verbindliche Zielvertrag steht in
+Post-Provisioning- und Netzwerkvertrag. Der enge Klonpfad führt für ein
+`SQL_PREPARED_SEALED`-Image im Prepared-Image-Klonpfad `CompleteImage` aus. Ein echter
+CLI-Vertical-Slice aus einem frischen `OS_SEALED`-Slot ist fuer SQL Server 2025
+einschliesslich Installation, Storage, TempDB, Ressourcenwechsel, Datenpersistenz
+und Cleanup akzeptiert. Offen bleiben der vollautomatische OS-Factory-Build,
+der allgemeine deklarative Hyper-V-SQL-Runtimepfad, runtimeübergreifende Network
+Intents, zentraler IPAM, erweitertes Reconcile und der automatische Artifact
+Refresh. Der verbindliche Zielvertrag steht in
 [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](../Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md).
 
 ## Manifest und Schema
