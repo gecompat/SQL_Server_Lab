@@ -179,3 +179,27 @@ $password = Read-Host 'Gast-Administratorpasswort' -AsSecureString
 
 `-KeepOnFailure` behält Ressourcen ausschließlich nach einem fehlgeschlagenen
 Lauf für die lokale Diagnose.
+
+## Invoke-ExternalRuntimeHyperVAcceptance.ps1
+
+Der Hyper-V-External-Runtime-Runner baut auf einer veröffentlichten
+`OS_SEALED`-Baseline auf, installiert SQL Server 2022 mit
+`ADVANCEDANALYTICS`, legt ausschließlich SHA-256-verifizierte Windows-
+Offlinemedien in den Gast und prüft Python, R und Java durch echte
+`sp_execute_external_script`-Roundtrips. Für Java werden External Language,
+SDK-Library und synthetische Probe-Library datenbankgebunden registriert und
+gegen ihre Content-Hashes geprüft. Dieselben Postconditions werden nach
+einem Dienstneustart und nach einem VM-Cold-Start wiederholt. Evidence und
+Receipts enthalten weder Secrets noch Hostpfade.
+
+Der Runner muss in einer erhöhten PowerShell-7-Sitzung auf dem Hyper-V-Host
+laufen. Ein bereits vorbereiteter Run kann anhand seiner ID fortgesetzt
+werden:
+
+```powershell
+.\Tests\Integration\Invoke-ExternalRuntimeHyperVAcceptance.ps1 `
+    -RunId '<existing-run-id>'
+```
+
+Die katalogisierten Windows-Varianten bleiben bis zu diesem positiven nativen
+Nachweis `PREVIEW`.

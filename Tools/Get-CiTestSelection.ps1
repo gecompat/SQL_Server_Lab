@@ -71,8 +71,9 @@ end {
         @{ Pattern = '(?i)(LabNetwork|PortAllocation)'; Checks = @('Invoke-LabNetworkChecks.ps1') },
         @{ Pattern = '(?i)(LabPreferences|PersistentLabData|StorageContract|SecretProvider|TestEnvironment)'; Checks = @('Invoke-DataRootChecks.ps1','Invoke-StorageMigrationChecks.ps1','Invoke-TestEnvironmentChecks.ps1') },
         @{ Pattern = '(?i)(VersionCatalog|sql-server-versions)'; Checks = @('Invoke-VersionCatalogChecks.ps1') },
-        @{ Pattern = '(?i)(SoftwareCatalog|software-catalog|Catalogs/software\.json)'; Checks = @('Invoke-SoftwareCatalogChecks.ps1','Invoke-ExternalRuntimeContainerImageChecks.ps1','Invoke-InstanceIntentChecks.ps1') },
-        @{ Pattern = '(?i)(ContainerImageArtifact|ExternalRuntimeLifecycle|Images[\\/]ExternalLanguages|Providers[\\/](Docker|Podman)[\\/]|Public[\\/]New-SqlServerLab\.ps1)'; Checks = @('Invoke-ExternalRuntimeContainerImageChecks.ps1','Invoke-SoftwareCatalogChecks.ps1','Invoke-ReadinessContractChecks.ps1') },
+        @{ Pattern = '(?i)(SoftwareCatalog|software-catalog|Catalogs/software\.json)'; Checks = @('Invoke-SoftwareCatalogChecks.ps1','Invoke-ExternalRuntimeContainerImageChecks.ps1','Invoke-ExternalRuntimeWindowsChecks.ps1','Invoke-InstanceIntentChecks.ps1') },
+        @{ Pattern = '(?i)(ContainerImageArtifact|ExternalRuntimeLifecycle|Images[\\/]ExternalLanguages|Providers[\\/](Docker|Podman)[\\/]|Public[\\/]New-SqlServerLab\.ps1)'; Checks = @('Invoke-ExternalRuntimeContainerImageChecks.ps1','Invoke-ExternalRuntimeWindowsChecks.ps1','Invoke-SoftwareCatalogChecks.ps1','Invoke-ReadinessContractChecks.ps1') },
+        @{ Pattern = '(?i)(ExternalRuntimeWindows|Images[\\/]ExternalLanguages[\\/]Windows|ExternalRuntimeHyperVAcceptance)'; Checks = @('Invoke-ExternalRuntimeWindowsChecks.ps1','Invoke-SoftwareCatalogChecks.ps1','Invoke-HyperVLabEnvironmentChecks.ps1','Invoke-HyperVSqlImageBuilderChecks.ps1') },
         @{ Pattern = '(?i)(New-SqlServerLabDatabase|DatabaseCommand)'; Checks = @('Invoke-DatabaseCommandChecks.ps1') },
         @{ Pattern = '(?i)(SqlReadiness|Readiness)'; Checks = @('Invoke-ReadinessContractChecks.ps1') },
         @{ Pattern = '(?i)(DesiredState|ReconcileContract|Get-SqlServerLabReconcilePlan)'; Checks = @('Invoke-ReconcileContractChecks.ps1','Invoke-ReconcileActionContractChecks.ps1') },
@@ -116,7 +117,7 @@ end {
         if (Test-AnyPath '(?i)(^Providers/Docker/|runtime-smoke-docker\.yml|Invoke-Smoke(Matrix|Test)|Invoke-RestoreSmokeTest|BatchWorkflow|BatchConsole|lab-batch)') { $runtime.Docker = $true }
         if (Test-AnyPath '(?i)(^Providers/Podman/|runtime-smoke-podman\.yml|PodmanBootstrap|Initialize-PodmanRuntime)') { $runtime.Podman = $true }
         if (Test-AnyPath '(?i)(runtime-smoke-mixed-providers\.yml|MixedProvider|ProviderCapability|DesiredState|ReconcileContract|ProviderSubRun)') { $runtime.Mixed = $true }
-        if (Test-AnyPath '(?i)(^Providers/HyperV/|runtime-smoke-hyperv\.yml|/HyperV|^Private/HyperV|HyperVSmokeTest)') { $runtime.HyperV = $true }
+        if (Test-AnyPath '(?i)(^Providers/HyperV/|runtime-smoke-hyperv\.yml|/HyperV|^Private/HyperV|HyperVSmokeTest|^Private/ExternalRuntimeWindows|Images/ExternalLanguages/Windows|ExternalRuntimeHyperVAcceptance)') { $runtime.HyperV = $true }
         if (Test-AnyPath '(?i)(^Adapters/|ProjectAdapter|adapter-smoke|project-adapter)') { $runtime.Adapter = $true }
 
         $knownDomainChange = $runtime.Docker -or $runtime.Podman -or $runtime.Mixed -or $runtime.HyperV -or $runtime.Adapter

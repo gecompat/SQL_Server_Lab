@@ -1,0 +1,42 @@
+{
+  "contract": {
+    "name": "SqlServerLab.ExternalRuntimeWindowsRecipe",
+    "version": "1.0"
+  },
+  "recipeVersion": "1",
+  "sqlMajorVersion": 16,
+  "operatingSystem": "windows-server",
+  "architecture": "x86_64",
+  "instanceName": "MSSQLSERVER",
+  "guestRoot": "C:\\SqlServerLab\\ExternalRuntimes",
+  "languages": {
+    "Python": {
+      "runtimeVersion": "3.10.11",
+      "runtimeHome": "C:\\Program Files\\Python310",
+      "registrationTool": "Lib\\site-packages\\revoscalepy\\rxLibs\\RegisterRext.exe",
+      "requiredPackages": {
+        "numpy": "1.22.0",
+        "pandas": "1.3.5",
+        "revoscalepy": "10.0.1"
+      }
+    },
+    "R": {
+      "runtimeVersion": "4.2.3",
+      "runtimeHome": "C:\\Program Files\\R\\R-4.2.3",
+      "registrationTool": "library\\RevoScaleR\\rxLibs\\x64\\RegisterRext.exe",
+      "requiredPackages": {
+        "jsonlite": "1.8.8",
+        "RevoScaleR": "10.0.1"
+      }
+    },
+    "Java": {
+      "runtimeVersion": "17.0.20.1",
+      "runtimeHome": "C:\\Program Files\\Microsoft\\jdk-17.0.20.1+1",
+      "extensionVersion": "1.1.0",
+      "probeSource": "Images/ExternalLanguages/Linux/java/SqlServerLabExternalRuntimeProbe.java",
+      "probeSourceSha256": "6743d0bb6dcaa56bf9b536305fff3541f391ea0d7e1779c20fda91c87c000048",
+      "extensionDllSha256": "596beea897935d0669f01a1e3a3ba6c6c203abc333b323f6e38aa5e25686814b",
+      "bundledSdkSha256": "8f55e54880233f1a835486802ff4339f1ca32d1ee22491b4c441cb0685340533"
+    }
+  }
+}

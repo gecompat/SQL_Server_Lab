@@ -25,6 +25,14 @@ Add-CheckResult -Name 'Hyper-V-Aenderung aktiviert Hyper-V-Vertraege und Runtime
     $hyperV.HyperV -and 'Invoke-HyperVLabEnvironmentChecks.ps1' -in $hyperV.StaticChecks -and -not $hyperV.Docker
 )
 
+$externalRuntimeWindows = & $selector -ChangedPath @('Private/ExternalRuntimeWindows.ps1')
+Add-CheckResult -Name 'Windows-External-Runtime-Aenderung aktiviert Katalog-, Gast- und Hyper-V-Vertraege' -Success (
+    $externalRuntimeWindows.HyperV -and
+    'Invoke-ExternalRuntimeWindowsChecks.ps1' -in $externalRuntimeWindows.StaticChecks -and
+    'Invoke-SoftwareCatalogChecks.ps1' -in $externalRuntimeWindows.StaticChecks -and
+    'Invoke-HyperVLabEnvironmentChecks.ps1' -in $externalRuntimeWindows.StaticChecks
+)
+
 $shared = & $selector -ChangedPath @('Private/Common.ps1')
 Add-CheckResult -Name 'Unbekannte produktive Aenderung faellt sicher auf Docker zurueck' -Success $shared.Docker
 

@@ -689,6 +689,8 @@ function Set-HyperVLabSqlDeploymentPlan {
         [Parameter(Mandatory)][ValidateSet('sql-pool-slot', 'adhoc-install')][string]$DeploymentMode,
         [ValidateSet('Eval', 'Enterprise', 'Standard')][string]$MediaEdition = 'Enterprise',
         [Parameter(Mandatory)][string]$SqlMediaPath,
+        [ValidateSet('SQLENGINE', 'FULLTEXT', 'REPLICATION', 'ADVANCEDANALYTICS')]
+        [string[]]$SqlFeatures = @('SQLENGINE', 'FULLTEXT', 'REPLICATION'),
         [ValidateRange(1, 64)][int]$ProcessorCount = 4,
         [ValidateRange(0, 1000000)][long]$MaximumDataIops = 0,
         [ValidateRange(0, 1048576)][int]$MemoryStartupMB = 0,
@@ -721,9 +723,13 @@ function Set-HyperVLabSqlDeploymentPlan {
         $null = Set-VMMemory -VM $managed.VM -DynamicMemoryEnabled $true -MinimumBytes $minimumBytes `
             -StartupBytes $startupBytes -MaximumBytes $maximumBytes -ErrorAction Stop
     }
+    $normalizedFeatures = @($SqlFeatures | ForEach-Object { ([string]$_).ToUpperInvariant() } | Sort-Object -Unique)
+    if ($normalizedFeatures.Count -eq 0 -or $normalizedFeatures -notcontains 'SQLENGINE') {
+        throw 'HYPERV_LAB_SQL_FEATURES_REQUIRE_SQLENGINE'
+    }
     $lab.Instance | Add-Member -NotePropertyName sqlDeploymentPlan -NotePropertyValue ([PSCustomObject]@{
         state = 'PLANNED'; sqlVersion = $SqlVersion; mediaEdition = $MediaEdition; sqlMediaPath = $SqlMediaPath
-        deploymentMode = $DeploymentMode; features = @('SQLENGINE', 'FULLTEXT', 'REPLICATION')
+        deploymentMode = $DeploymentMode; features = $normalizedFeatures
         processorCount = $ProcessorCount; memoryStartupMB = $MemoryStartupMB; maximumDataIops = $MaximumDataIops
         collation = $Collation; sqlPort = $SqlPort; networkMode = $NetworkMode
         serverConfig = $ServerConfig; storage = $StorageConfiguration
