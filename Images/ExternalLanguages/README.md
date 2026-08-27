@@ -18,6 +18,16 @@ Podman verwenden denselben Key, führen Build und Native Acceptance aber
 getrennt aus. Lokale Receipts werden providerbezogen im State Root gehalten;
 das normale Run-Cleanup entfernt wiederverwendbare Images nicht.
 
+Das Rezept besitzt feste Zielstages für Python, R sowie die Kombination aus R
+und Python. Der R-Build verwendet ein per linux/amd64-Manifestdigest gebundenes
+Rocker-R-4.2.3-Image nur als Buildstage. Sechs exakt versionierte und
+SHA-256-gebundene Archive installieren die SQL-Komponenten RevoScaleR und
+CompatibilityAPI einschließlich ihrer R-Abhängigkeiten. In das SQL-Zielimage
+gelangen nur die installierte R-Laufzeit, Pakete und die erforderlichen
+ABI-Laufzeitbibliotheken; Compiler und Buildwerkzeuge bleiben im Buildstage.
+Die Python- und R-Lockdateien sind getrennt und müssen jeweils exakt mit den
+Artefakten in `Linux/recipe.json` übereinstimmen.
+
 SQL Server 2022 `launchpadd` benötigt im sicheren Namespace-Modus eine
 cgroup-v1-Hierarchie und beim Containerstart `SYS_ADMIN`. Der Provider fügt
 diese Capability ausschließlich für ein intern verifiziertes Image-Artefakt

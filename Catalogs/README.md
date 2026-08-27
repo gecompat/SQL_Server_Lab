@@ -72,12 +72,14 @@ deklariert. Die vorbereiteten SQL-2022-Varianten für Python, R und Java bleiben
 bis zum Derived-Image- beziehungsweise Hyper-V-Nachweis `PREVIEW` und werden
 vor jeder Mutation als `DECLARED_UNSUPPORTED` abgelehnt.
 
-Die Linux-Python-Variante besitzt bereits vollständige Basisimage-, DEB- und
-Wheel-Artefakte. `Images/ExternalLanguages/Linux/recipe.json` und die
-Lockdatei müssen dieselben IDs, Versionen, Quellen und SHA-256-Werte enthalten.
-Diese Artefaktvollständigkeit allein hebt den Status nicht an: Docker und
-Podman benötigen je eine echte Native Acceptance im sicheren
-`sql2022-namespace-v1`-Modus.
+Die Linux-Varianten für Python und R besitzen vollständige Basisimage-, DEB-,
+Wheel- beziehungsweise R-Paketartefakte. Die R-Laufzeit selbst ist zusätzlich
+über einen linux/amd64-OCI-Manifestdigest gebunden.
+`Images/ExternalLanguages/Linux/recipe.json` und die jeweilige Lockdatei müssen
+dieselben IDs, Versionen, Quellen und SHA-256-Werte enthalten. Diese
+Artefaktvollständigkeit und ein erfolgreicher lokaler Image-Build allein heben
+den Status nicht an: Docker und Podman benötigen je eine echte Native
+Acceptance im sicheren `sql2022-namespace-v1`-Modus.
 
 Freie Installationsbefehle und nicht katalogisierte Zusatzpakete sind für
 External Runtimes nicht zulässig. Der geheimnisfreie Desired State enthält nur

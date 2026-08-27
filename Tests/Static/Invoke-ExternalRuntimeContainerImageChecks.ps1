@@ -29,8 +29,16 @@ try {
         }
         $dockerSoftwarePlan = Resolve-LabExternalRuntimePlan -SoftwareItem $request -SqlVersion 2022 -Provider docker -OperatingSystem linux
         $podmanSoftwarePlan = Resolve-LabExternalRuntimePlan -SoftwareItem $request -SqlVersion 2022 -Provider podman -OperatingSystem linux
+        $rRequest = $request | Select-Object *
+        $rRequest.Id = 'sql-r'
+        $dockerRSoftwarePlan = Resolve-LabExternalRuntimePlan -SoftwareItem $rRequest -SqlVersion 2022 -Provider docker -OperatingSystem linux
+        $podmanRSoftwarePlan = Resolve-LabExternalRuntimePlan -SoftwareItem $rRequest -SqlVersion 2022 -Provider podman -OperatingSystem linux
         $dockerImagePlan = New-LabExternalRuntimeContainerImagePlan -Provider docker -SqlVersion 2022 -SoftwarePlans @($dockerSoftwarePlan) -AllowPreview
         $podmanImagePlan = New-LabExternalRuntimeContainerImagePlan -Provider podman -SqlVersion 2022 -SoftwarePlans @($podmanSoftwarePlan) -AllowPreview
+        $dockerRImagePlan = New-LabExternalRuntimeContainerImagePlan -Provider docker -SqlVersion 2022 -SoftwarePlans @($dockerRSoftwarePlan) -AllowPreview
+        $podmanRImagePlan = New-LabExternalRuntimeContainerImagePlan -Provider podman -SqlVersion 2022 -SoftwarePlans @($podmanRSoftwarePlan) -AllowPreview
+        $combinedImagePlan = New-LabExternalRuntimeContainerImagePlan -Provider docker -SqlVersion 2022 `
+            -SoftwarePlans @($dockerSoftwarePlan, $dockerRSoftwarePlan) -AllowPreview
 
         $arbitraryRejected = $false
         try {
@@ -56,6 +64,9 @@ try {
             Recipe = Get-LabExternalRuntimeContainerRecipe
             DockerPlan = $dockerImagePlan
             PodmanPlan = $podmanImagePlan
+            DockerRPlan = $dockerRImagePlan
+            PodmanRPlan = $podmanRImagePlan
+            CombinedPlan = $combinedImagePlan
             ArbitraryRejected = $arbitraryRejected
             ReceiptSanitized = $receiptText -notmatch '(?i)https?://|[A-Z]:\\|/usr/|RecipeRoot|Containerfile'
             ReceiptContract = ($receiptText | ConvertFrom-Json -Depth 30).contract.name
@@ -71,6 +82,12 @@ try {
         @($result.Recipe.runtimes.Python.artifacts).Count -eq 8 -and
         @($result.Recipe.runtimes.Python.artifacts | Where-Object { [string]$_.sha256 -match '^[a-f0-9]{64}$' }).Count -eq 8
     )
+    Add-CheckResult -Name 'R-Rezept bindet R 4.2.3, OCI-Stage und sechs Paketarchive per SHA-256' -Success (
+        $result.Recipe.runtimes.R.runtimeVersion -eq '4.2.3' -and
+        $result.Recipe.runtimes.R.runtimeImage.reference -match '@sha256:[a-f0-9]{64}$' -and
+        @($result.Recipe.runtimes.R.artifacts).Count -eq 6 -and
+        @($result.Recipe.runtimes.R.artifacts | Where-Object { [string]$_.sha256 -match '^[a-f0-9]{64}$' }).Count -eq 6
+    )
     Add-CheckResult -Name 'Docker und Podman konsumieren denselben providerneutralen OCI-Image-Key' -Success (
         $result.DockerPlan.ImageKey -eq $result.PodmanPlan.ImageKey -and
         $result.DockerPlan.Image -eq $result.PodmanPlan.Image -and
@@ -80,6 +97,18 @@ try {
         @($result.DockerPlan.ContextEvidence).Count -eq 6 -and
         @($result.DockerPlan.ContextEvidence | Where-Object { $_.sha256 -match '^[a-f0-9]{64}$' }).Count -eq 6
     )
+    Add-CheckResult -Name 'R-Image-Key ist providerneutral und bindet genau den runtime-r-Stage' -Success (
+        $result.DockerRPlan.ImageKey -eq $result.PodmanRPlan.ImageKey -and
+        $result.DockerRPlan.BuildStage -eq 'runtime-r' -and
+        $result.DockerRPlan.BuildTokens -join ',' -eq 'r' -and
+        @($result.DockerRPlan.ContextEvidence).Count -eq 5
+    )
+    Add-CheckResult -Name 'Kombinierter R-Python-Plan verwendet kanonische Reihenfolge und vollständigen Kontext' -Success (
+        $result.CombinedPlan.BuildStage -eq 'runtime-r-python' -and
+        $result.CombinedPlan.BuildTokens -join ',' -eq 'r,python' -and
+        @($result.CombinedPlan.ContextEvidence).Count -eq 8 -and
+        $result.CombinedPlan.ImageKey -notin @($result.DockerPlan.ImageKey, $result.DockerRPlan.ImageKey)
+    )
     Add-CheckResult -Name 'Beliebig behauptete Softwareplan-Status werden abgelehnt' -Success $result.ArbitraryRejected
     Add-CheckResult -Name 'Run-Receipt bleibt geheimnis- und hostpfadfrei' -Success (
         $result.ReceiptSanitized -and $result.ReceiptContract -eq 'SqlServerLab.RunSoftwareInstallationReceipts'
@@ -87,6 +116,7 @@ try {
 
     $containerfile = Get-Content -LiteralPath (Join-Path $repoRoot 'Images/ExternalLanguages/Linux/Containerfile') -Raw -Encoding utf8
     $launcher = Get-Content -LiteralPath (Join-Path $repoRoot 'Images/ExternalLanguages/Linux/launch-external-runtime.sh') -Raw -Encoding utf8
+    $rInstaller = Get-Content -LiteralPath (Join-Path $repoRoot 'Images/ExternalLanguages/Linux/install-r-runtime.sh') -Raw -Encoding utf8
     Add-CheckResult -Name 'Containerfile bindet Microsoft-Paket, EULA und sichere Launch-Metadaten' -Success (
         $containerfile -match 'mssql-server-extensibility_16\.0\.4265\.3-1_amd64\.deb' -and
         $containerfile -match '50df89ac3d1176f6227a9db46d1d8128cb3a326718515082f5ca161028610226' -and
@@ -99,15 +129,29 @@ try {
         $launcher -match '/opt/mssql/bin/launchpadd &' -and
         $launcher -notmatch '(?i)-usens=false|enableOutboundAccess=true'
     )
+    Add-CheckResult -Name 'R-Build bleibt hashgebunden, compilerfrei im Ziel und ABI-minimal' -Success (
+        $containerfile -match 'rocker/r-ver@sha256:22202dfb31f3a1b515936bac559a9f56b67585adce2c14d063f97478940d374a' -and
+        $containerfile -match 'FROM runtime-base AS runtime-r' -and
+        $containerfile -match 'FROM runtime-r AS runtime-r-python' -and
+        $containerfile -match 'libgfortran\.so\.5' -and $containerfile -match 'liblapack\.so\.3' -and
+        $containerfile -notmatch '(?m)^FROM runtime-r.*\b(gcc|g\+\+|build-essential)\b' -and
+        $rInstaller -match 'sha256sum --check --strict' -and
+        $rInstaller -notmatch 'install\.packages\s*\('
+    )
 
     $artifactSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/ContainerImageArtifact.ps1') -Raw -Encoding utf8
     $dockerSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Providers/Docker/DockerProvider.ps1') -Raw -Encoding utf8
     $podmanSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Providers/Podman/PodmanProvider.ps1') -Raw -Encoding utf8
     $newLabSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/New-SqlServerLab.ps1') -Raw -Encoding utf8
+    $lifecycleSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/ExternalRuntimeLifecycle.ps1') -Raw -Encoding utf8
     Add-CheckResult -Name 'Build akzeptiert nur bekannte Provider und arraygebundene Argumente' -Success (
         $artifactSource -match "ValidateSet\('docker', 'podman'\)" -and
         $artifactSource -match '& \$provider @buildArguments' -and
         $artifactSource -notmatch '(?i)Invoke-Expression|ScriptBlock\.Create'
+    )
+    Add-CheckResult -Name 'Paketlocks binden sichere Dateinamen an den exakten URL-Pfad' -Success (
+        $artifactSource -match 'EXTERNAL_RUNTIME_PACKAGE_LOCK_FILENAME_MISMATCH' -and
+        $artifactSource -match 'GetFileName\(\$sourceUri\.AbsolutePath\)'
     )
     Add-CheckResult -Name 'Image-Reuse und Build sind je Artifact Store serialisiert' -Success (
         $artifactSource -match '(?s)function Invoke-LabExternalRuntimeContainerImageBuild\s*\{.*?Invoke-LabArtifactStoreLock.*?Invoke-LabExternalRuntimeContainerImageBuildCore'
@@ -131,6 +175,13 @@ try {
         $newLabSource -match "Status = 'IMAGE_READY'" -and
         $newLabSource -match "ExternalRuntime\.Status = 'EXTENSIONS_READY_RUN'" -and
         $newLabSource -match 'externalRuntime\s+= \$_\.ExternalRuntime'
+    )
+    Add-CheckResult -Name 'R-Postcondition prueft SQL-Datenroundtrip, Paketversionen und Workeridentitaet' -Success (
+        $lifecycleSource -match "@language = N'R'" -and
+        $lifecycleSource -match "EXTERNAL_RUNTIME_R_EVIDENCE_INVALID" -and
+        $lifecycleSource -match 'packageVersion\("RevoScaleR"\)' -and
+        $lifecycleSource -match 'packageVersion\("jsonlite"\)' -and
+        $lifecycleSource -match "mssql_satellite"
     )
 }
 finally {

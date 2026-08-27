@@ -33,7 +33,7 @@
           "architecture": "x86_64",
           "providers": ["docker", "podman"],
           "installMethod": "derived-image",
-          "recipeVersion": "1",
+          "recipeVersion": "2",
           "requiresCapabilities": ["software-catalog-planning", "derived-image-build", "sql-external-runtime"],
           "sourceUrls": [
             "https://learn.microsoft.com/en-us/sql/linux/install-upgrade/setup-machine-learning-sql-2022?view=sql-server-ver17"
@@ -183,9 +183,9 @@
         {
           "id": "sql2022-r42-ubuntu2204-derived",
           "status": "PREVIEW",
-          "reason": "Derived-Image-Handler, vollständige Artifact Locks und native Docker-/Podman-Evidence fehlen.",
+          "reason": "Der reproduzierbare R-Derived-Image-Pfad ist katalogisiert; getrennte native Docker-/Podman-Evidence im erforderlichen cgroup-v1-Namespace-Modus fehlt noch.",
           "language": "R",
-          "runtimeVersion": "4.2",
+          "runtimeVersion": "4.2.3",
           "extensionVersion": "SQL Server 2022 Machine Learning Services",
           "sqlMajorVersions": [16],
           "minimumCu": null,
@@ -194,19 +194,138 @@
           "architecture": "x86_64",
           "providers": ["docker", "podman"],
           "installMethod": "derived-image",
-          "recipeVersion": "1",
+          "recipeVersion": "2",
           "requiresCapabilities": ["software-catalog-planning", "derived-image-build", "sql-external-runtime"],
           "sourceUrls": [
             "https://learn.microsoft.com/en-us/sql/linux/install-upgrade/setup-machine-learning-sql-2022?view=sql-server-ver17"
           ],
-          "artifacts": [],
-          "packageLocks": [],
+          "artifacts": [
+            {
+              "id": "mssql-server-linux-2022-cu26",
+              "sourceType": "container-base",
+              "source": "oci://mcr.microsoft.com/mssql/server@sha256:ba4c8329f48fb8f02e1416be6a930ebfd71268caee78aa985f3af4315e457c89",
+              "version": "16.0.4265.3",
+              "sha256": "ba4c8329f48fb8f02e1416be6a930ebfd71268caee78aa985f3af4315e457c89",
+              "integrityOrigin": "Microsoft Container Registry manifest digest",
+              "license": "Microsoft SQL Server container EULA"
+            },
+            {
+              "id": "mssql-server-extensibility",
+              "sourceType": "os-package",
+              "source": "https://packages.microsoft.com/ubuntu/22.04/mssql-server-2022/pool/main/m/mssql-server-extensibility/mssql-server-extensibility_16.0.4265.3-1_amd64.deb",
+              "version": "16.0.4265.3-1",
+              "sha256": "50df89ac3d1176f6227a9db46d1d8128cb3a326718515082f5ca161028610226",
+              "integrityOrigin": "SHA-256 verified against the downloaded Microsoft package on 2026-08-27",
+              "license": "Microsoft SQL Server Machine Learning Services EULA"
+            },
+            {
+              "id": "rocker-r-ver-4.2.3",
+              "sourceType": "container-base",
+              "source": "oci://docker.io/rocker/r-ver@sha256:22202dfb31f3a1b515936bac559a9f56b67585adce2c14d063f97478940d374a",
+              "version": "4.2.3",
+              "sha256": "22202dfb31f3a1b515936bac559a9f56b67585adce2c14d063f97478940d374a",
+              "integrityOrigin": "linux/amd64 OCI manifest digest",
+              "license": "GPL-2.0-or-later"
+            },
+            {
+              "id": "iterators",
+              "sourceType": "archive",
+              "source": "https://cran.r-project.org/src/contrib/iterators_1.0.14.tar.gz",
+              "version": "1.0.14",
+              "sha256": "cef3075a0930e1408c764e4da56bbadd4f7d14315809df8f38dd51f80ccc677b",
+              "integrityOrigin": "SHA-256 verified against the CRAN release archive on 2026-08-27",
+              "license": "Apache-2.0"
+            },
+            {
+              "id": "foreach",
+              "sourceType": "archive",
+              "source": "https://cran.r-project.org/src/contrib/foreach_1.5.2.tar.gz",
+              "version": "1.5.2",
+              "sha256": "56338d8753f9f68f262cf532fd8a6d0fe25a71a2ff0107f3ce378feb926bafe4",
+              "integrityOrigin": "SHA-256 verified against the CRAN release archive on 2026-08-27",
+              "license": "Apache-2.0"
+            },
+            {
+              "id": "R6",
+              "sourceType": "archive",
+              "source": "https://cran.r-project.org/src/contrib/Archive/R6/R6_2.5.1.tar.gz",
+              "version": "2.5.1",
+              "sha256": "8d92bd29c2ed7bf15f2778618ffe4a95556193d21d8431a7f75e7e5fc102bf48",
+              "integrityOrigin": "SHA-256 verified against the CRAN archive on 2026-08-27",
+              "license": "MIT"
+            },
+            {
+              "id": "jsonlite",
+              "sourceType": "archive",
+              "source": "https://cran.r-project.org/src/contrib/Archive/jsonlite/jsonlite_1.8.4.tar.gz",
+              "version": "1.8.4",
+              "sha256": "79eaabe042226b0918aa828cc63d54fee8be67ae7c67f5e0d3010f468efb1278",
+              "integrityOrigin": "SHA-256 verified against the CRAN archive on 2026-08-27",
+              "license": "MIT"
+            },
+            {
+              "id": "CompatibilityAPI",
+              "sourceType": "archive",
+              "source": "https://aka.ms/sqlml/r4.2/linux/CompatibilityAPI_1.1.0_R_x86_64-pc-linux-gnu.tar.gz",
+              "version": "1.1.0",
+              "sha256": "9777c87990142e8ea4615d00ff826931f9ac532bea6005ce728583a521577998",
+              "integrityOrigin": "SHA-256 verified against the Microsoft download on 2026-08-27",
+              "license": "Microsoft Machine Learning components license"
+            },
+            {
+              "id": "RevoScaleR",
+              "sourceType": "archive",
+              "source": "https://aka.ms/sqlml/r4.2/linux/RevoScaleR_10.0.1_R_x86_64-pc-linux-gnu.tar.gz",
+              "version": "10.0.1",
+              "sha256": "656e8bf76a12088364548b02809cbbaf6376f54dd3a4d2e5c21aa193306d2a6b",
+              "integrityOrigin": "SHA-256 verified against the Microsoft download on 2026-08-27",
+              "license": "Microsoft Machine Learning components license"
+            }
+          ],
+          "packageLocks": [
+            {
+              "name": "iterators",
+              "version": "1.0.14",
+              "sha256": "cef3075a0930e1408c764e4da56bbadd4f7d14315809df8f38dd51f80ccc677b",
+              "source": "https://cran.r-project.org/package=iterators"
+            },
+            {
+              "name": "foreach",
+              "version": "1.5.2",
+              "sha256": "56338d8753f9f68f262cf532fd8a6d0fe25a71a2ff0107f3ce378feb926bafe4",
+              "source": "https://cran.r-project.org/package=foreach"
+            },
+            {
+              "name": "R6",
+              "version": "2.5.1",
+              "sha256": "8d92bd29c2ed7bf15f2778618ffe4a95556193d21d8431a7f75e7e5fc102bf48",
+              "source": "https://cran.r-project.org/package=R6"
+            },
+            {
+              "name": "jsonlite",
+              "version": "1.8.4",
+              "sha256": "79eaabe042226b0918aa828cc63d54fee8be67ae7c67f5e0d3010f468efb1278",
+              "source": "https://cran.r-project.org/package=jsonlite"
+            },
+            {
+              "name": "CompatibilityAPI",
+              "version": "1.1.0",
+              "sha256": "9777c87990142e8ea4615d00ff826931f9ac532bea6005ce728583a521577998",
+              "source": "https://aka.ms/sqlml/r4.2/linux/CompatibilityAPI_1.1.0_R_x86_64-pc-linux-gnu.tar.gz"
+            },
+            {
+              "name": "RevoScaleR",
+              "version": "10.0.1",
+              "sha256": "656e8bf76a12088364548b02809cbbaf6376f54dd3a4d2e5c21aa193306d2a6b",
+              "source": "https://aka.ms/sqlml/r4.2/linux/RevoScaleR_10.0.1_R_x86_64-pc-linux-gnu.tar.gz"
+            }
+          ],
           "restart": { "sqlServer": true, "launchpad": true, "guest": false },
           "validation": {
             "type": "spExecuteExternalScript",
             "language": "R",
             "probeId": "r-runtime-version",
-            "expectedRuntimeVersion": "4.2"
+            "expectedRuntimeVersion": "4.2.3"
           }
         },
         {
