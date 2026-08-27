@@ -58,6 +58,7 @@ sources_of_truth:
   validation_batch_workflow: Tests/Static/Invoke-BatchWorkflowChecks.ps1
   validation_runtime_matrix: Tests/Integration/Invoke-SmokeMatrix.ps1
   latest_validation_result: Documentation/Quality/VALIDATION_RESULT_2026-08-20.md
+  repository_continuity_runbook: Documentation/Quality/REPOSITORY_CONTINUITY_RUNBOOK.md
 
 foundation_integration:
   source_repository: gecompat/AI_Repository_Foundation
@@ -107,8 +108,35 @@ foundation_integration:
       repository-continuity-break-glass: RECOMMENDED
       semantic-integration: APPLY_DEFAULT
       semantic-upgrade-applicability: APPLY_DEFAULT
-    open_recommendations:
-      - repository-continuity-break-glass
+    open_recommendations: []
+    resolved_recommendations:
+      repository-continuity-break-glass:
+        decision: IMPLEMENTED
+        decided_on: "2026-08-27"
+        authority: Documentation/Quality/REPOSITORY_CONTINUITY_RUNBOOK.md
+  repository_continuity:
+    status: IMPLEMENTED
+    target: refs/heads/main
+    core_safety_ruleset:
+      name: Core safety - main
+      enforcement: active
+      bypass_actors: []
+      requires_pull_request: true
+      blocks_deletion: true
+      blocks_force_push: true
+    ci_gates_ruleset:
+      name: CI gates - main
+      enforcement: active
+      required_status_check: PR Gate
+      strict_required_status_checks: true
+      bypass_actor: repository_owner
+      bypass_mode: pull_request
+    decision_rule:
+      allowed: INFRASTRUCTURE_UNAVAILABLE
+      prohibited:
+        - VALIDATION_FAILURE
+        - UNKNOWN
+    deferred_validation_required: true
   unresolved_conflicts: []
 
 public_commands:
