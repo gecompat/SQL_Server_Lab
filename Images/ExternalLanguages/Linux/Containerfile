@@ -1,11 +1,19 @@
 ARG BASE_IMAGE=mcr.microsoft.com/mssql/server@sha256:ba4c8329f48fb8f02e1416be6a930ebfd71268caee78aa985f3af4315e457c89
-FROM ${BASE_IMAGE}
+ARG R_RUNTIME_IMAGE=docker.io/rocker/r-ver@sha256:22202dfb31f3a1b515936bac559a9f56b67585adce2c14d063f97478940d374a
+ARG EXTERNAL_RUNTIME_STAGE=runtime-python
+
+FROM ${R_RUNTIME_IMAGE} AS r-runtime
+USER root
+COPY r-packages.lock /opt/sql-server-lab/locks/r-packages.lock
+COPY install-r-runtime.sh /opt/sql-server-lab/bin/install-r-runtime.sh
+RUN chmod 0755 /opt/sql-server-lab/bin/install-r-runtime.sh; \
+    /opt/sql-server-lab/bin/install-r-runtime.sh /opt/sql-server-lab/locks/r-packages.lock
+
+FROM ${BASE_IMAGE} AS runtime-base
 
 ARG EXTENSIBILITY_DEB_URL=https://packages.microsoft.com/ubuntu/22.04/mssql-server-2022/pool/main/m/mssql-server-extensibility/mssql-server-extensibility_16.0.4265.3-1_amd64.deb
 ARG EXTENSIBILITY_DEB_SHA256=50df89ac3d1176f6227a9db46d1d8128cb3a326718515082f5ca161028610226
 ARG EXTENSIBILITY_DEB_VERSION=16.0.4265.3-1
-ARG EXTERNAL_RUNTIMES=python
-ARG IMAGE_KEY=characterization
 
 USER root
 
@@ -22,29 +30,60 @@ RUN set -eux; \
     /opt/mssql/bin/checkinstallextensibility.sh; \
     mkdir -p /var/opt/mssql-extensibility/data /var/opt/mssql-extensibility/log; \
     chown -R mssql:root /var/opt/mssql-extensibility; \
-    chmod 0770 /var/opt/mssql-extensibility /var/opt/mssql-extensibility/data /var/opt/mssql-extensibility/log
+    chmod 0770 /var/opt/mssql-extensibility /var/opt/mssql-extensibility/data /var/opt/mssql-extensibility/log; \
+    /opt/mssql/bin/mssql-conf set EULA accepteulaml Y
 
 COPY launch-external-runtime.sh /opt/sql-server-lab/bin/launch-external-runtime.sh
 COPY python-wheels.lock /opt/sql-server-lab/locks/python-wheels.lock
 COPY install-python-runtime.sh /opt/sql-server-lab/bin/install-python-runtime.sh
 COPY install-python-wheels.py /opt/sql-server-lab/bin/install-python-wheels.py
 
-RUN set -eux; \
-    chmod 0755 /opt/sql-server-lab/bin/launch-external-runtime.sh /opt/sql-server-lab/bin/install-python-runtime.sh /opt/sql-server-lab/bin/install-python-wheels.py; \
-    case "${EXTERNAL_RUNTIMES}" in \
-        python) /opt/sql-server-lab/bin/install-python-runtime.sh /opt/sql-server-lab/locks/python-wheels.lock ;; \
-        *) echo "Unsupported external runtime set: ${EXTERNAL_RUNTIMES}" >&2; exit 64 ;; \
-    esac; \
-    /opt/mssql/bin/mssql-conf set EULA accepteulaml Y; \
+RUN chmod 0755 /opt/sql-server-lab/bin/launch-external-runtime.sh \
+        /opt/sql-server-lab/bin/install-python-runtime.sh \
+        /opt/sql-server-lab/bin/install-python-wheels.py
+
+FROM runtime-base AS runtime-python
+RUN /opt/sql-server-lab/bin/install-python-runtime.sh /opt/sql-server-lab/locks/python-wheels.lock; \
     /opt/mssql/bin/mssql-conf set extensibility pythonbinpath /usr/bin/python3.10; \
     /opt/mssql/bin/mssql-conf set extensibility datadirectories /usr/lib:/usr/lib/python3.10/dist-packages
+
+FROM runtime-base AS runtime-r
+COPY --from=r-runtime /usr/local/lib/R /usr/local/lib/R
+COPY --from=r-runtime /usr/local/bin/R /usr/local/bin/R
+COPY --from=r-runtime /usr/local/bin/Rscript /usr/local/bin/Rscript
+COPY --from=r-runtime /usr/lib/x86_64-linux-gnu/openblas-pthread /usr/lib/x86_64-linux-gnu/openblas-pthread
+COPY --from=r-runtime /usr/lib/x86_64-linux-gnu/libgfortran.so.5* /usr/lib/x86_64-linux-gnu/
+COPY --from=r-runtime /usr/lib/x86_64-linux-gnu/libquadmath.so.0* /usr/lib/x86_64-linux-gnu/
+COPY --from=r-runtime /usr/lib/x86_64-linux-gnu/libgomp.so.1* /usr/lib/x86_64-linux-gnu/
+COPY --from=r-runtime /usr/lib/x86_64-linux-gnu/libtirpc.so.3* /usr/lib/x86_64-linux-gnu/
+RUN ln -s openblas-pthread/libblas.so.3 /usr/lib/x86_64-linux-gnu/libblas.so.3; \
+    ln -s openblas-pthread/libopenblasp-r0.3.20.so /usr/lib/x86_64-linux-gnu/libopenblas.so.0; \
+    ln -s openblas-pthread/liblapack.so.3 /usr/lib/x86_64-linux-gnu/liblapack.so.3; \
+    Rscript --vanilla -e 'stopifnot(getRversion() == "4.2.3", as.character(packageVersion("RevoScaleR")) == "10.0.1")'; \
+    /opt/mssql/bin/mssql-conf set extensibility rbinpath /usr/local/lib/R/bin/R; \
+    /opt/mssql/bin/mssql-conf set extensibility datadirectories /usr/local/lib/R
+
+FROM runtime-r AS runtime-r-python
+RUN /opt/sql-server-lab/bin/install-python-runtime.sh /opt/sql-server-lab/locks/python-wheels.lock; \
+    /opt/mssql/bin/mssql-conf set extensibility pythonbinpath /usr/bin/python3.10; \
+    /opt/mssql/bin/mssql-conf set extensibility datadirectories /usr/local/lib/R:/usr/lib:/usr/lib/python3.10/dist-packages
+
+FROM ${EXTERNAL_RUNTIME_STAGE} AS selected-runtime
+ARG EXTERNAL_RUNTIMES=python
+ARG CONTENT_ID=characterization
+
+USER root
+RUN case "${EXTERNAL_RUNTIMES}" in \
+        python|r|r,python) true ;; \
+        *) echo "Unsupported external runtime set: ${EXTERNAL_RUNTIMES}" >&2; exit 64 ;; \
+    esac
 
 USER mssql
 
 LABEL org.opencontainers.image.title="SQL Server Lab External Runtime" \
       org.opencontainers.image.vendor="SQL_Server_Lab" \
       sql-server-lab.external-runtime.contract="1.0" \
-      sql-server-lab.external-runtime.image-key="${IMAGE_KEY}" \
+      sql-server-lab.external-runtime.image-key="${CONTENT_ID}" \
       sql-server-lab.external-runtime.languages="${EXTERNAL_RUNTIMES}" \
       sql-server-lab.external-runtime.launch-mode="sql2022-namespace-v1" \
       sql-server-lab.external-runtime.required-cgroup-version="1" \

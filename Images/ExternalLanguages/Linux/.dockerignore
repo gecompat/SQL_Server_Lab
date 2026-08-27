@@ -5,3 +5,5 @@
 !install-python-runtime.sh
 !install-python-wheels.py
 !python-wheels.lock
+!install-r-runtime.sh
+!r-packages.lock
