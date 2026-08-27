@@ -10,6 +10,7 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 | `lab-batch.schema.json` | Mengenfähiger Vertrag `SqlServerLab.BatchManifest/1.0` mit Defaults, Positionen, Anzahl, Intent und Overrides |
 | `version-catalog.schema.json` | Struktur von `Catalogs/sql-server-versions.json` |
 | `sample-databases.schema.json` | Struktur von `Catalogs/sample-databases.json` |
+| `software-catalog.schema.json` | Versionierter Katalogvertrag für SQL-bezogene Python-, R- und Java-Runtimes |
 | `sample-baseline-registry.schema.json` | Portables Register verifizierter, inhaltsadressierter Single-Backup- und Multi-Database-ZIP-`LAB_GENERATED`-Objekte |
 | `project-adapter.schema.json` | Adaptervertrag konsumierender Projekte (`Adapters/`), Version `0.1-draft` |
 | `test-environment.schema.json` | Vertrag `SqlServerLab.TestEnvironment/1.0` für den lokalen Export automatisierter Testumgebungen |
@@ -22,7 +23,7 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 | `example-restore-lab.json` | Restore einer `.bak`-Quelle | ausführbar bei erreichbarer Quelle |
 | `example-performance-lab.json` | Volumes, Data-/Log-Pfade, TempDB, Memory, MaxDOP und DB-Optionen | ausführbar mit ausreichenden Ressourcen |
 | `example-cu-comparison.json` | zwei katalogisierte SQL-2022-CU-Stände mit identischer Sample-Datenbank | ausführbar über den Sample-Backup-Handler; ohne Katalog-SHA-256 fragt ein interaktiver Lauf einmalig nach Vertrauen |
-| `example-ml-services.json` | External-Languages-Konfiguration mit Sample-Referenz | umgebungsabhängig; Sample-Anteil ausführbar über den Backup-Handler mit Trust-Pfad |
+| `example-ml-services.json` | Legacy-External-Languages-Konfiguration mit Sample-Referenz | External-Runtime-Anteil wird sicher als `NON_REPRODUCIBLE` abgelehnt; Sample-Anteil ist separat über den Backup-Handler ausführbar |
 | `example-performance-tuning.json` | Performance-Konfiguration mit Sample-Referenz | vorbereitet; referenzierte StackOverflow-Variante ist ein Attach-Archiv und bleibt beschreibend |
 | `example-mixed-provider-lab.json` | zwei kompakte Instanzen mit Docker und Podman in einem Run | ausführbar, wenn beide Runtimes erreichbar sind; keine gemeinsame Netzwerktopologie |
 | `example-hyperv-drive-lab.json` | SQL-Prepared-Hyper-V-VM mit run-lokalen Data-/Log-VHDX und Guest-Initialisierung | ausführbar, wenn die referenzierte lokale Sealed-Artifact-ID vorhanden ist |
@@ -64,7 +65,9 @@ Weitere `example-*.json`-Dateien können spezialisierte oder vorbereitete Szenar
 - `costThreshold`
 - `traceFlags`
 - `spConfigure`
-- `externalScripts` mit den dokumentierten Einschränkungen
+- `externalScripts.enabled` und Resource-Governor-Werte; die Legacy-Sprachliste
+  wird in Software-Intents normalisiert und bleibt ohne freigegebene
+  Katalogvariante nicht ausführbar
 
 Das Schema enthält teilweise vorbereitete Erweiterungsfelder. Die verbindlichen Grenzen stehen in [`KNOWN_LIMITATIONS.md`](../Documentation/Quality/KNOWN_LIMITATIONS.md).
 

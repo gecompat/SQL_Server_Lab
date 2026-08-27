@@ -405,13 +405,40 @@ function Resolve-ManifestDefaults {
         if ($instance.software) {
             foreach ($softwareItem in $instance.software) {
                 $resolved.software += [PSCustomObject]@{
-                    id       = $softwareItem.id
-                    source   = $softwareItem.source
-                    package  = $softwareItem.package
-                    url      = $softwareItem.url
-                    command  = $softwareItem.command
-                    optional = if ($null -ne $softwareItem.optional) { [bool]$softwareItem.optional } else { $true }
+                    id            = $softwareItem.id
+                    version       = [string]$softwareItem.version
+                    variant       = [string]$softwareItem.variant
+                    scope         = if ($softwareItem.scope) { [string]$softwareItem.scope } elseif ([string]$softwareItem.id -in @('sql-python', 'sql-r', 'sql-java')) { 'sqlExternalRuntime' } else { 'instance' }
+                    installMethod = if ($softwareItem.installMethod) { [string]$softwareItem.installMethod } else { 'catalog' }
+                    packages      = @($softwareItem.packages)
+                    source        = $softwareItem.source
+                    package       = $softwareItem.package
+                    url           = $softwareItem.url
+                    command       = $softwareItem.command
+                    optional      = if ($null -ne $softwareItem.optional) { [bool]$softwareItem.optional } elseif ([string]$softwareItem.id -in @('sql-python', 'sql-r', 'sql-java')) { $false } else { $true }
+                    requestSource = 'software'
                 }
+            }
+        }
+
+        $legacyRuntimeRequests = @(ConvertTo-LabExternalRuntimeRequests `
+            -Software @($resolved.software) `
+            -ExternalScripts $(if ($resolved.serverConfig) { $resolved.serverConfig.externalScripts } else { $null }) |
+            Where-Object RequestSource -eq 'externalScripts-legacy')
+        foreach ($request in $legacyRuntimeRequests) {
+            $resolved.software += [PSCustomObject]@{
+                id            = [string]$request.Id
+                version       = [string]$request.Version
+                variant       = [string]$request.Variant
+                scope         = [string]$request.Scope
+                installMethod = [string]$request.InstallMethod
+                packages      = @($request.Packages)
+                source        = $null
+                package       = $null
+                url           = $null
+                command       = $null
+                optional      = [bool]$request.Optional
+                requestSource = 'externalScripts-legacy'
             }
         }
 

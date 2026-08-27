@@ -1,0 +1,179 @@
+#Requires -Version 7.2
+<#
+.SYNOPSIS
+    Prueft Softwarekatalog, External-Runtime-Resolver und sichere Legacy-Grenze.
+#>
+[CmdletBinding()]
+param()
+
+$ErrorActionPreference = 'Stop'
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+$failures = [System.Collections.Generic.List[string]]::new()
+$passed = 0
+. (Join-Path $PSScriptRoot '..' 'Common' 'CheckResult.ps1')
+
+Write-Host ''
+Write-Host 'SQL_Server_Lab - Software Catalog Checks' -ForegroundColor Cyan
+
+$catalogPath = Join-Path $repoRoot 'Catalogs/software.json'
+$schemaPath = Join-Path $repoRoot 'Schemas/software-catalog.schema.json'
+$catalogValid = Get-Content -LiteralPath $catalogPath -Raw -Encoding utf8 |
+    Test-Json -SchemaFile $schemaPath -ErrorAction Stop
+Add-CheckResult -Name 'Softwarekatalog entspricht dem versionierten JSON-Schema' -Success $catalogValid
+
+$catalog = Get-Content -LiteralPath $catalogPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 50
+$softwareIds = @($catalog.software | ForEach-Object { [string]$_.id })
+$variants = @($catalog.software | ForEach-Object { @($_.variants) })
+Add-CheckResult -Name 'Python, R und Java besitzen eindeutige Katalog-IDs und Varianten' -Success (
+    (@($softwareIds | Sort-Object) -join ',') -eq 'sql-java,sql-python,sql-r' -and
+    @($softwareIds | Sort-Object -Unique).Count -eq $softwareIds.Count -and
+    @($variants.id | Sort-Object -Unique).Count -eq $variants.Count
+)
+
+$invalidSupportedVariants = @($variants | Where-Object {
+    [string]$_.status -eq 'SUPPORTED' -and
+    (@($_.artifacts).Count -eq 0 -or @($_.artifacts | Where-Object {
+        -not $_.version -or [string]$_.sha256 -notmatch '^[A-Fa-f0-9]{64}$' -or -not $_.integrityOrigin
+    }).Count -gt 0)
+})
+Add-CheckResult -Name 'SUPPORTED erfordert versionierte Artefakte mit SHA-256 und Herkunft' -Success ($invalidSupportedVariants.Count -eq 0)
+
+Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
+Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -ErrorAction Stop
+$module = Get-Module SqlServerLab
+
+$result = & $module {
+    $legacyConfig = [PSCustomObject]@{
+        enabled = $true
+        installMethod = 'post-start'
+        languages = @([PSCustomObject]@{ name = 'Python'; packages = @() })
+    }
+    $legacyRequest = @(ConvertTo-LabExternalRuntimeRequests -Software @() -ExternalScripts $legacyConfig)[0]
+    $legacyPlan = Resolve-LabExternalRuntimePlan -SoftwareItem $legacyRequest -SqlVersion '2022' -Provider docker -OperatingSystem linux
+
+    $catalogRequest = [PSCustomObject]@{
+        Id = 'sql-python'; Version = $null; Variant = $null; Scope = 'sqlExternalRuntime'
+        InstallMethod = 'catalog'; Optional = $false; Packages = @(); RequestSource = 'software'
+    }
+    $previewPlan = Resolve-LabExternalRuntimePlan -SoftwareItem $catalogRequest -SqlVersion '2022' -Provider podman -OperatingSystem linux
+    $sql2025Plan = Resolve-LabExternalRuntimePlan -SoftwareItem $catalogRequest -SqlVersion '2025' -Provider docker -OperatingSystem linux
+
+    $packageRequest = [PSCustomObject]@{
+        Id = 'sql-python'; Version = $null; Variant = $null; Scope = 'sqlExternalRuntime'
+        InstallMethod = 'catalog'; Optional = $false
+        Packages = @([PSCustomObject]@{ Name = 'pandas'; Version = '1.5.3'; Scope = 'instance' })
+        RequestSource = 'software'
+    }
+    $packagePlan = Resolve-LabExternalRuntimePlan -SoftwareItem $packageRequest -SqlVersion '2022' -Provider docker -OperatingSystem linux
+
+    $javaRequest = [PSCustomObject]@{
+        Id = 'sql-java'; Version = '11'; Variant = $null; Scope = 'sqlExternalRuntime'
+        InstallMethod = 'catalog'; Optional = $false; Packages = @(); RequestSource = 'software'
+    }
+    $javaPlan = Resolve-LabExternalRuntimePlan -SoftwareItem $javaRequest -SqlVersion '2022' -Provider hyperv -OperatingSystem windows
+
+    $duplicateRejected = $false
+    try {
+        $null = ConvertTo-LabExternalRuntimeRequests -Software @([PSCustomObject]@{
+            id = 'sql-python'; scope = 'sqlExternalRuntime'; optional = $false
+        }) -ExternalScripts $legacyConfig
+    }
+    catch { $duplicateRejected = $_.Exception.Message -match 'EXTERNAL_RUNTIME_REQUEST_DUPLICATE' }
+
+    $receiptRejected = $false
+    try { $null = New-LabSoftwareInstallationReceipt -Plan $previewPlan -Postconditions @() }
+    catch { $receiptRejected = $_.Exception.Message -match 'SOFTWARE_RECEIPT_REQUIRES_RESOLVED_PLAN' }
+
+    $resolved = [PSCustomObject]@{
+        name = 'Software intent check'
+        instances = @([PSCustomObject]@{
+            id = 'sql'; provider = 'docker'; os = 'linux'; version = '2022'; profile = 'standard'; autostart = 'off'
+            databases = @(); drives = @(); networkName = $null; hyperv = $null; serverConfig = $null
+            software = @([PSCustomObject]@{
+                id = 'sql-python'; version = $null; variant = $null; scope = 'sqlExternalRuntime'
+                installMethod = 'catalog'; packages = @(); optional = $false; requestSource = 'software'
+            })
+        })
+    }
+    $snapshot = New-LabDesiredStateSnapshot -ResolvedLab $resolved -ProvisioningMode manifest -PersistentData $false
+    $softwareIntent = $snapshot.Instances[0].Intents.Software
+    $serialized = $snapshot | ConvertTo-Json -Depth 30
+
+    $legacyManifest = [PSCustomObject]@{
+        name = 'legacy-normalization'
+        instances = @([PSCustomObject]@{
+            id = 'sql'; version = '2022'; provider = 'docker'; os = 'linux'; profile = 'standard'
+            databases = @(); drives = @(); software = @(); postProvision = @(); hyperv = $null
+            serverConfig = [PSCustomObject]@{ externalScripts = $legacyConfig }
+        })
+    }
+    $normalizedLegacy = (Resolve-ManifestDefaults -Manifest $legacyManifest -ManifestPath (Join-Path $PWD 'legacy.json')).instances[0].software[0]
+
+    [PSCustomObject]@{
+        Legacy = $legacyRequest.RequestSource -eq 'externalScripts-legacy' -and
+            $legacyPlan.Status -eq 'NON_REPRODUCIBLE' -and
+            $legacyPlan.ReasonCode -eq 'LEGACY_POST_START_MUTATION'
+        Preview = $previewPlan.Status -eq 'DECLARED_UNSUPPORTED' -and
+            $previewPlan.ReasonCode -eq 'VARIANT_PREVIEW' -and
+            $previewPlan.VariantId -eq 'sql2022-python310-ubuntu2204-derived'
+        Sql2025 = $sql2025Plan.Status -eq 'DECLARED_UNSUPPORTED' -and
+            $sql2025Plan.ReasonCode -eq 'RUNTIME_COMBINATION_NOT_CATALOGUED'
+        PackageLock = $packagePlan.ReasonCode -eq 'PACKAGE_NOT_LOCKED'
+        HyperVJava = $javaPlan.ReasonCode -eq 'VARIANT_PREVIEW' -and
+            $javaPlan.VariantId -eq 'sql2022-java11-windows-hyperv'
+        DuplicateRejected = $duplicateRejected
+        ReceiptRejected = $receiptRejected
+        Intent = $softwareIntent.RequiredCapability -eq 'software-catalog-planning' -and
+            $softwareIntent.PlanningCapabilityStatus -eq 'DECLARED_SUPPORTED' -and
+            $softwareIntent.CapabilityStatus -eq 'DECLARED_UNSUPPORTED' -and
+            $softwareIntent.Items[0].ReasonCode -eq 'VARIANT_PREVIEW'
+        Sanitized = $serialized -notmatch '(?i)learn\.microsoft|sourceUrls|Program Files|/usr/|https://'
+        ParserNormalization = $normalizedLegacy.id -eq 'sql-python' -and
+            $normalizedLegacy.scope -eq 'sqlExternalRuntime' -and
+            $normalizedLegacy.installMethod -eq 'legacy-post-start' -and
+            $normalizedLegacy.requestSource -eq 'externalScripts-legacy'
+    }
+}
+
+Add-CheckResult -Name 'Legacy-post-start bleibt vor jeder Mutation NON_REPRODUCIBLE' -Success $result.Legacy
+Add-CheckResult -Name 'SQL-2022-Python wird deterministisch auf PREVIEW statt Supported aufgeloest' -Success $result.Preview
+Add-CheckResult -Name 'SQL Server 2025 erbt keine unbelegte SQL-2022-Runtimeannahme' -Success $result.Sql2025
+Add-CheckResult -Name 'Nicht katalogisierte Zusatzpakete werden vor der Mutation abgelehnt' -Success $result.PackageLock
+Add-CheckResult -Name 'Hyper-V/Windows-Java besitzt einen getrennten deterministischen Preview-Plan' -Success $result.HyperVJava
+Add-CheckResult -Name 'Doppelte Legacy- und software-Anforderung wird abgelehnt' -Success $result.DuplicateRejected
+Add-CheckResult -Name 'Installation Receipt erfordert einen RESOLVED-Plan' -Success $result.ReceiptRejected
+Add-CheckResult -Name 'Desired State trennt Planning-Capability und Runtimefreigabe' -Success $result.Intent
+Add-CheckResult -Name 'Desired State persistiert keine Quellen- oder Gastpfade' -Success $result.Sanitized
+Add-CheckResult -Name 'Manifestparser normalisiert Legacy-Sprachen in Software-Intents' -Success $result.ParserNormalization
+
+$example = Get-Content -LiteralPath (Join-Path $repoRoot 'Schemas/example-lab.json') -Raw -Encoding utf8 | ConvertFrom-Json -Depth 50
+$example.instances[0] | Add-Member -NotePropertyName software -NotePropertyValue @([PSCustomObject]@{
+    id = 'sql-python'; scope = 'sqlExternalRuntime'; optional = $false; command = 'python -c unsafe'
+}) -Force
+$unsafeJson = $example | ConvertTo-Json -Depth 50
+$unsafeValid = $unsafeJson | Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/lab-manifest.schema.json') -ErrorAction SilentlyContinue
+Add-CheckResult -Name 'External Runtimes verbieten freie command-Ausfuehrung im Manifest-Schema' -Success (-not $unsafeValid)
+
+$serverConfigSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/ServerConfig.ps1') -Raw -Encoding utf8
+$newLabSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/New-SqlServerLab.ps1') -Raw -Encoding utf8
+$planGuardPosition = $serverConfigSource.IndexOf('Resolve-LabExternalRuntimePlan')
+$providerMutationPosition = $serverConfigSource.LastIndexOf('Resolve-LabContainerProvider')
+Add-CheckResult -Name 'Legacy-Installer prueft den Softwareplan vor jeder Providermutation' -Success (
+    $planGuardPosition -ge 0 -and $providerMutationPosition -gt $planGuardPosition
+)
+Add-CheckResult -Name 'Provisionierung bindet SQL-Version und gespeicherten Provider an External Languages' -Success (
+    $newLabSource -match '-SqlVersion\s+\$instance\.version' -and
+    $newLabSource -match '-Provider\s+\$instance\.provider'
+)
+
+$legacyExampleResult = Test-SqlServerLabManifest -Path (Join-Path $repoRoot 'Schemas/example-ml-services.json')
+Add-CheckResult -Name 'Legacy-ML-Beispiel wird vor Provisionierung sichtbar als nicht reproduzierbar abgelehnt' -Success (
+    -not $legacyExampleResult.IsValid -and
+    ($legacyExampleResult.Errors -join ' ') -match 'LEGACY_POST_START_MUTATION'
+)
+
+if ($failures.Count -gt 0) {
+    foreach ($failure in $failures) { Write-Host "FAIL: $failure" -ForegroundColor Red }
+    exit 1
+}
+Write-Host "Software Catalog Checks: $passed PASS" -ForegroundColor Green

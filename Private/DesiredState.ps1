@@ -74,20 +74,55 @@ function New-LabInstanceIntentSnapshot {
         CapabilityStatus = Get-LabDeclaredIntentCapabilityStatus -ProviderCapability $ProviderCapability -RequiredCapability $networkCapability
     }
 
-    $softwareItems = @($Instance.software | Where-Object { $_ } | ForEach-Object {
+    $externalRuntimePlans = @(Resolve-LabExternalRuntimePlansForInstance -Instance $Instance)
+    $generalSoftwareItems = @($Instance.software | Where-Object {
+        $_ -and [string]$_.id -notin @('sql-python', 'sql-r', 'sql-java')
+    } | ForEach-Object {
         [PSCustomObject]@{
             Id = [string]$_.id
             Optional = if ($null -ne $_.optional) { [bool]$_.optional } else { $true }
+            Scope = if ($_.scope) { [string]$_.scope } else { 'instance' }
+            Status = 'DECLARED_UNSUPPORTED'
+            ReasonCode = 'SOFTWARE_NOT_CATALOGUED'
         }
     })
+    $externalRuntimeItems = @($externalRuntimePlans | ForEach-Object {
+        [PSCustomObject]@{
+            Id = [string]$_.SoftwareId
+            Optional = $false
+            Scope = 'sqlExternalRuntime'
+            Status = [string]$_.Status
+            ReasonCode = [string]$_.ReasonCode
+            VariantId = [string]$_.VariantId
+            RuntimeVersion = [string]$_.RuntimeVersion
+            InstallationMethod = [string]$_.InstallationMethod
+            RequiredCapabilities = @($_.RequiredCapabilities)
+            ArtifactRefs = @($_.ArtifactRefs)
+            PackageLocks = @($_.PackageLocks)
+            Restart = $_.Restart
+            Validation = $_.Validation
+        }
+    })
+    $softwareItems = @($generalSoftwareItems) + @($externalRuntimeItems)
+    $planningCapabilityStatus = if ($softwareItems.Count -eq 0) {
+        'NOT_REQUESTED'
+    }
+    else {
+        Get-LabDeclaredIntentCapabilityStatus -ProviderCapability $ProviderCapability -RequiredCapability 'software-catalog-planning'
+    }
     $software = [PSCustomObject]@{
         Items = $softwareItems
-        RequiredCapability = if ($softwareItems.Count -gt 0) { 'software-installation' } else { $null }
+        RequiredCapability = if ($softwareItems.Count -gt 0) { 'software-catalog-planning' } else { $null }
+        PlanningCapabilityStatus = $planningCapabilityStatus
         CapabilityStatus = if ($softwareItems.Count -eq 0) {
             'NOT_REQUESTED'
         }
+        elseif ($planningCapabilityStatus -ne 'DECLARED_SUPPORTED' -or
+            @($softwareItems | Where-Object Status -ne 'RESOLVED').Count -gt 0) {
+            'DECLARED_UNSUPPORTED'
+        }
         else {
-            Get-LabDeclaredIntentCapabilityStatus -ProviderCapability $ProviderCapability -RequiredCapability 'software-installation'
+            'DECLARED_SUPPORTED'
         }
     }
 
