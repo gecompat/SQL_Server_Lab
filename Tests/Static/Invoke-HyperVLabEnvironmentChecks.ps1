@@ -202,10 +202,11 @@ try {
         function Set-HyperVSqlOfflineUnattend { param($VhdxPath, $MountRoot, $UnattendXml, $BootstrapScript) if ($VhdxPath -ne $child) { throw 'WINDOWS_UNATTEND_INJECTION_INVALID' } }
         function Start-HyperVLabEnvironment { [PSCustomObject]@{ State = 'Running' } }
         function Wait-HyperVPowerShellDirect { [PSCustomObject]@{ Ready = $true; Message = 'ready' } }
+        function Set-HyperVManagedVMIdentityProperty { param($ManagedVM,$PropertyName,$Value,$ContractVersion); $script:windowsOobeIdentity = $Value }
         function Invoke-HyperVPowerShellDirect {
             param($ArgumentList)
             [PSCustomObject]@{
-                runId = $ArgumentList[0]; imageState = 'IMAGE_STATE_COMPLETE'; geoId = $ArgumentList[1]
+                runId = $ArgumentList[0]; computerName = 'WINDOWS-MOCK'; imageState = 'IMAGE_STATE_COMPLETE'; geoId = $ArgumentList[1]
                 systemLocale = $ArgumentList[2]; uiLanguage = $ArgumentList[3]; inputLocale = $ArgumentList[4]
                 timeZone = $ArgumentList[5]; observedAt = '2026-08-07T12:00:00.0000000Z'
             }
@@ -232,11 +233,12 @@ try {
         function Set-HyperVSqlOfflineUnattend { param($VhdxPath, $MountRoot, $UnattendXml, $BootstrapScript) if ($VhdxPath -ne $child -or $UnattendXml -notmatch 'AdministratorPassword' -or $UnattendXml -notmatch '<TimeZone>Central Europe Standard Time</TimeZone>' -or $BootstrapScript -notmatch 'Enable-PSRemoting') { throw 'UNATTEND_INJECTION_INVALID' } }
         function Start-HyperVLabEnvironment { [PSCustomObject]@{ State = 'Running' } }
         function Wait-HyperVPowerShellDirect { param($FallbackAddress) if (-not $FallbackAddress) { throw 'LAB_NETWORK_FALLBACK_INVALID' }; [PSCustomObject]@{ Ready = $true; Message = 'ready' } }
+        function Set-HyperVManagedVMIdentityProperty { param($ManagedVM,$PropertyName,$Value,$ContractVersion); $script:sqlOobeIdentity = $Value }
         function Invoke-HyperVPowerShellDirect {
             param($ArgumentList, $FallbackAddress)
             if (-not $FallbackAddress) { throw 'LAB_NETWORK_FALLBACK_INVALID' }
             [PSCustomObject]@{
-                runId = $ArgumentList[0]; imageState = 'IMAGE_STATE_COMPLETE'; geoId = $ArgumentList[1]
+                runId = $ArgumentList[0]; computerName = 'SQL-MOCK'; imageState = 'IMAGE_STATE_COMPLETE'; geoId = $ArgumentList[1]
                 systemLocale = $ArgumentList[2]; uiLanguage = $ArgumentList[3]; inputLocale = $ArgumentList[4]
                 timeZone = $ArgumentList[5]; observedAt = '2026-08-07T12:00:00.0000000Z'
             }
@@ -317,7 +319,9 @@ try {
     )
     Add-CheckResult -Name 'Unattended Hyper-V-Provisionierung initialisiert freie Gast-Drives über den stabilen Providerpfad' -Success (
         $environmentText -match 'Initialize-HyperVWindowsGuestDrives' -and
-        $environmentText -match 'additionalDrives'
+        $environmentText -match 'additionalDrives' -and
+        $environmentText -match "source = 'unattended-oobe'" -and
+        $environmentText -match "PropertyName windowsSpecialization -ContractVersion '0\.5'"
     )
     $runtimeName = & $module { Get-HyperVLabRuntimeName -LabName 'Mein SQL Lab' -RunId '12345678-0000-0000-0000-000000000000' }
     Add-CheckResult -Name 'Hyper-V-Runtime-Name zeigt Projektnamen und eindeutiges Run-Präfix' -Success ($runtimeName -eq 'Mein SQL Lab-12345678')
