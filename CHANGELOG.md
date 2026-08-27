@@ -4,6 +4,30 @@ Dieses Changelog dokumentiert Änderungen am öffentlichen Verhalten, an maschin
 
 Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher nach Datum geführt. Neue Einträge werden oben ergänzt.
 
+## 2026-08-27
+
+### Hinzugefügt
+
+- Die AI Repository Foundation 1.7 ist als geschützte Mindest-Governance integriert
+  und von den projektspezifischen Regeln aus `AGENTS.md` transitiv erreichbar.
+- Getrennte GitHub-Rulesets schützen den unveränderlichen Kern von `main` und
+  erlauben dem Repository-Owner ausschließlich bei bestätigtem Ausfall der
+  CI-Infrastruktur einen PR-basierten, auditierbaren CI-Notfallweg. Der Ablauf,
+  die Nachweispflichten und die nachzuholende Validierung sind im
+  Repository-Continuity-Runbook verbindlich beschrieben.
+
+### Behoben
+
+- Der statische SQL-2025-Workflowvertrag berücksichtigt Restore- und
+  Batch-Smokes je Containerprovider semantisch statt über einen veralteten
+  globalen Trefferzähler.
+- Der GitHub-gehostete Adapter-Smoke verwirft fehlerhafte Microsoft-
+  Paketdownloads frühzeitig und wiederholt transiente HTTP-Fehler kontrolliert.
+- Der Hyper-V-Workflow bietet einen gezielten erhöhten `slot-batch`-Modus, der
+  zwei isolierte OS-Slots aus einem vorhandenen `OS_SEALED`-Artifact prüft und
+  anschließend scopegebunden freigibt, ohne die gesamte Nightly-Matrix zu
+  wiederholen.
+
 ## 2026-08-13
 
 ### Hinzugefügt

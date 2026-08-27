@@ -24,7 +24,11 @@ jobs:
       - name: Install sqlcmd (mssql-tools18)
         run: |
           set -euo pipefail
-          curl -sSL -O "https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/packages-microsoft-prod.deb"
+          package_url="https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/packages-microsoft-prod.deb"
+          curl --fail --show-error --silent --location \
+            --retry 5 --retry-delay 2 --retry-all-errors \
+            --output packages-microsoft-prod.deb "$package_url"
+          dpkg-deb --info packages-microsoft-prod.deb >/dev/null
           sudo dpkg -i packages-microsoft-prod.deb
           sudo apt-get update
           sudo ACCEPT_EULA=Y apt-get install -y mssql-tools18 unixodbc-dev
