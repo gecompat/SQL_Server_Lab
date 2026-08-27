@@ -524,13 +524,27 @@ function Invoke-HyperVLabUnattendedProvision {
         -ArgumentList @([string]$lab.Run.runId, $localeSettings.GeoId, $localeSettings.SystemLocale, $localeSettings.UiLanguage, $localeSettings.InputLocale, $localeSettings.TimeZone) `
         -ScriptBlock $postLoginScript
     $receipt = @($receipt)[-1]
-    if (-not $receipt -or [string]$receipt.runId -ne [string]$lab.Run.runId -or
-        [string]$receipt.imageState -ne 'IMAGE_STATE_COMPLETE' -or [int]$receipt.geoId -ne $localeSettings.GeoId -or
-        [string]$receipt.systemLocale -ne $localeSettings.SystemLocale -or
-        [string]$receipt.uiLanguage -ne $localeSettings.UiLanguage -or
-        [string]$receipt.inputLocale -ne $localeSettings.InputLocale -or
-        [string]$receipt.timeZone -ne $localeSettings.TimeZone) {
-        throw 'HYPERV_LAB_UNATTENDED_OOBE_RECEIPT_INVALID'
+    $receiptMismatches = [Collections.Generic.List[string]]::new()
+    if (-not $receipt) {
+        $receiptMismatches.Add('receipt=<null>')
+    }
+    else {
+        foreach ($field in @(
+            @{ Name='runId'; Expected=[string]$lab.Run.runId; Actual=[string]$receipt.runId },
+            @{ Name='imageState'; Expected='IMAGE_STATE_COMPLETE'; Actual=[string]$receipt.imageState },
+            @{ Name='geoId'; Expected=[string]$localeSettings.GeoId; Actual=[string][int]$receipt.geoId },
+            @{ Name='systemLocale'; Expected=[string]$localeSettings.SystemLocale; Actual=[string]$receipt.systemLocale },
+            @{ Name='uiLanguage'; Expected=[string]$localeSettings.UiLanguage; Actual=[string]$receipt.uiLanguage },
+            @{ Name='inputLocale'; Expected=[string]$localeSettings.InputLocale; Actual=[string]$receipt.inputLocale },
+            @{ Name='timeZone'; Expected=[string]$localeSettings.TimeZone; Actual=[string]$receipt.timeZone }
+        )) {
+            if ($field.Actual -ne $field.Expected) {
+                $receiptMismatches.Add("$($field.Name): expected='$($field.Expected)', actual='$($field.Actual)'")
+            }
+        }
+    }
+    if ($receiptMismatches.Count -gt 0) {
+        throw "HYPERV_LAB_UNATTENDED_OOBE_RECEIPT_INVALID: $($receiptMismatches -join '; ')"
     }
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
     $lab.Instance | Add-Member -NotePropertyName oobeAutomation -NotePropertyValue ([PSCustomObject]@{
