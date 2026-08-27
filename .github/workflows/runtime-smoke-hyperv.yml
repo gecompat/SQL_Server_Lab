@@ -22,6 +22,7 @@ on:
         options:
           - lifecycle
           - slot-batch
+          - shared-environments
       image_artifact_id:
         description: Optionales OS_SEALED-Artifact; leer waehlt das neueste passende Artifact
         required: false
@@ -36,7 +37,7 @@ concurrency:
 
 jobs:
   hyperv-lifecycle-smoke:
-    name: Hyper-V lifecycle or isolated OS-slot batch
+    name: Hyper-V lifecycle, isolated OS-slot batch, or shared environments
     runs-on: [self-hosted, SQL_Lab, Hyper-V]
     timeout-minutes: 30
 
@@ -81,3 +82,15 @@ jobs:
           .\Tests\Integration\Invoke-BatchWorkflowSmokeTest.ps1 `
             -Provider hyperv `
             -ArtifactId $artifactId
+
+      - name: Recover registered Windows test environments
+        if: inputs.mode == 'shared-environments'
+        run: |
+          $ErrorActionPreference = 'Stop'
+          .\Tests\Integration\Invoke-TestEnvironmentRuntimeReadiness.ps1 -Recover
+
+      - name: Accept all shared SQL test environments and CMS
+        if: inputs.mode == 'shared-environments'
+        run: |
+          $ErrorActionPreference = 'Stop'
+          .\Tests\Integration\Invoke-TestEnvironmentAcceptance.ps1

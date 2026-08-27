@@ -187,6 +187,7 @@ try {
     $hyperVLabText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVLabEnvironment.ps1') -Raw -Encoding utf8
     $clearText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Clear-SqlServerLab.ps1') -Raw -Encoding utf8
     $connectionCenterText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Sync-SqlServerLabConnectionCenter.ps1') -Raw -Encoding utf8
+    $runtimeReadinessText = Get-Content -LiteralPath (Join-Path $repoRoot 'Tests/Integration/Invoke-TestEnvironmentRuntimeReadiness.ps1') -Raw -Encoding utf8
     $lifecycleText = @(
         'Start-SqlServerLab.ps1','Stop-SqlServerLab.ps1','Restart-SqlServerLab.ps1','Remove-SqlServerLab.ps1','Update-SqlServerLabContainer.ps1'
     ) | ForEach-Object { Get-Content -LiteralPath (Join-Path $repoRoot "Public/$_") -Raw -Encoding utf8 }
@@ -267,6 +268,15 @@ try {
         @($lifecycleText | Where-Object { $_ -match 'TEST_ENVIRONMENT_GROUP_PROTECTED' }).Count -eq 5 -and
         $clearText -match 'Get-LabAutomatedTestEnvironmentRunIds' -and
         $clearText -match 'geschützte automatisierte Test-Runs'
+    )
+    Add-CheckResult -Name 'Gezielte Laufzeitreparatur bleibt auf registrierte Windows-Test-Runs begrenzt' -Success (
+        $runtimeReadinessText -match "platform -eq 'windows'" -and
+        $runtimeReadinessText -match 'Get-HyperVLabWorkflowRun -RunId \$RunId' -and
+        $runtimeReadinessText -match 'ExpectedRunId' -and
+        $runtimeReadinessText -match 'ExpectedScopeId' -and
+        $runtimeReadinessText -match 'Start-HyperVLabEnvironment' -and
+        $runtimeReadinessText -match 'Invoke-HyperVPowerShellDirect' -and
+        $runtimeReadinessText -notmatch 'Remove-SqlServerLab|Clear-SqlServerLabAutomatedTestEnvironment'
     )
 }
 finally {

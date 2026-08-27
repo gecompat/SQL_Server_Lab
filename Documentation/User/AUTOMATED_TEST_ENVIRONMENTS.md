@@ -31,6 +31,10 @@ Alle Testumgebungen bilden eine gemeinsame, geschützte Lifecycle-Gruppe:
 
 - Jede Linux- und Windows-Umgebung wird mit `AutoStart = on` erstellt.
 - Die Gruppe ist nur verwendbar, wenn wirklich alle registrierten Ziele bereit sind.
+- Der gezielte CI-Modus `shared-environments` darf eine ausgeschaltete,
+  registrierte Windows-VM und deren vorhandene SQL-Engine-Dienste reaktivieren.
+  Er verändert weder die Gruppenzusammensetzung noch provisioniert oder löscht
+  er Slots; nach der Reparatur nimmt er alle sechs Ziele und den CMS gemeinsam ab.
 - Normale Start-, Stopp-, Neustart-, Ressourcen-, Umbenennungs- und
   Löschmenüs zeigen die Runs an, lassen sie dort aber nicht auswählen.
 - Auch `Clear-SqlServerLab` überspringt die geschützte Testgruppe.
