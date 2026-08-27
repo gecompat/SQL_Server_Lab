@@ -230,9 +230,9 @@ try {
     Assert-HyperVCli $sampleResult.Success 'Chinook-Skript wurde ueber die CLI ohne fehlgeschlagenen Batch ausgefuehrt' $sampleResult.Message
     Assert-HyperVCli ([long](Invoke-WindowsAcceptanceQuery 'SET NOCOUNT ON; SELECT COUNT_BIG(*) FROM dbo.Artist;' -Database Chinook) -gt 0) 'Reale Chinook-Testdatenbank wurde installiert'
 
+    Stop-SqlServerLab -RunId $lab.RunId -StateRoot $StateRoot -Force -Confirm:$false | Out-Null
     $rename = Invoke-SqlServerLabWorkflowAction -Action RenameLab -BuildId $lab.RunId -LabName "$labName-renamed"
     Assert-HyperVCli $rename.Result.Changed 'Lab und Hyper-V-VM wurden ueber die Workflow-CLI umbenannt'
-    Stop-SqlServerLab -RunId $lab.RunId -StateRoot $StateRoot -Force -Confirm:$false | Out-Null
     $resources = Invoke-SqlServerLabWorkflowAction -Action SetLabResources -BuildId $lab.RunId -MemoryMB 5120 -ProcessorCount 3
     Assert-HyperVCli ($resources.Result.Changed -and $resources.Result.Instances[0].MemoryStartupMB -eq 5120 -and $resources.Result.Instances[0].ProcessorCount -eq 3) 'Hyper-V-vCPU und RAM wurden ueber die CLI geaendert'
     Start-SqlServerLab -RunId $lab.RunId -StateRoot $StateRoot -TimeoutSeconds 1200 | Out-Null
