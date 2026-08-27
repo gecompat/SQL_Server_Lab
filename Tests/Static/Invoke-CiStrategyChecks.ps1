@@ -80,6 +80,7 @@ Add-CheckResult -Name 'Docker- und Podman-Gates enthalten den realen Batch-Smoke
 Add-CheckResult -Name 'Hyper-V-Workflow bietet gezielten OS-Slot-Batch mit scopegebundenem Cleanup' -Success (
     $hyperVWorkflow -match '(?m)^\s*- slot-batch\s*$' -and
     $hyperVWorkflow -match "inputs\.mode == 'slot-batch'" -and
+    $hyperVWorkflow -match 'Sort-Object \{ \[datetime\]\$_\.registeredAt \} -Descending' -and
     $hyperVWorkflow -match 'Invoke-BatchWorkflowSmokeTest\.ps1\s+`' -and
     $hyperVWorkflow -match '(?m)^\s+-Provider hyperv\s+`' -and
     $hyperVWorkflow -match '-ArtifactId \$artifactId'

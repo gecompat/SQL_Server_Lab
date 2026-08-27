@@ -73,7 +73,7 @@ jobs:
               @(Get-HyperVImageArtifact -SkipIntegrityCheck | Where-Object {
                 [string]$_.artifactState -eq 'OS_SEALED' -and
                 [string]$_.licenseType -ne 'test-only'
-              } | Sort-Object { [datetime]$_.createdAt } -Descending | Select-Object -First 1)[0]
+              } | Sort-Object { [datetime]$_.registeredAt } -Descending | Select-Object -First 1)[0]
             }
             if (-not $artifact) { throw 'HYPERV_SLOT_BATCH_OS_SEALED_ARTIFACT_NOT_FOUND' }
             $artifactId = [string]$artifact.artifactId
