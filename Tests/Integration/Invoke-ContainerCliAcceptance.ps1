@@ -106,7 +106,8 @@ try {
     $containerName = [string]$instance.ContainerName
     $ownedVolumeNames = @((& $Provider inspect $containerName | ConvertFrom-Json -Depth 50).Mounts | Where-Object Type -eq volume | ForEach-Object Name)
 
-    Restart-SqlServerLab -RunId $lab.RunId -TimeoutSeconds 180 -Force | Out-Null
+    $initialRestart = Restart-SqlServerLab -RunId $lab.RunId -TimeoutSeconds 180 -Force
+    Assert-Acceptance ($initialRestart.Status -eq 'RUNNING' -and $initialRestart.Errors -eq 0) 'Erster Stop/Start-Zyklus erreicht stabile SQL-Readiness'
     $versionEvidence = Invoke-AcceptanceQuery "SET NOCOUNT ON; SELECT CAST(SERVERPROPERTY('ProductMajorVersion') AS varchar(8)) + '|' + @@VERSION;"
     Assert-Acceptance ($versionEvidence -match '^16\|' -and $versionEvidence -match 'CU18') 'Repraesentativer SQL Server 2022 CU18 laeuft' $versionEvidence
 
@@ -176,9 +177,12 @@ GO
     $persistentEvidence = Invoke-AcceptanceQuery 'SET NOCOUNT ON; SELECT Evidence FROM dbo.CliAcceptance WHERE Id=1;' -Database CliStorageEvidence -Port $newPort
     Assert-Acceptance ($persistentEvidence -eq 'persisted-before-reconcile') 'Daten, Mounts und Testdatenbank ueberstehen das Reconcile'
 
-    Stop-SqlServerLab -RunId $lab.RunId -StateRoot $stateRoot -Force | Out-Null
-    Start-SqlServerLab -RunId $lab.RunId -StateRoot $stateRoot -TimeoutSeconds 180 | Out-Null
-    Restart-SqlServerLab -RunId $lab.RunId -TimeoutSeconds 180 -Force | Out-Null
+    $stopResult = Stop-SqlServerLab -RunId $lab.RunId -StateRoot $stateRoot -Force
+    Assert-Acceptance ($stopResult.Status -eq 'STOPPED' -and $stopResult.Errors -eq 0) 'Stop meldet einen fehlerfreien Providerzustand'
+    $startResult = Start-SqlServerLab -RunId $lab.RunId -StateRoot $stateRoot -TimeoutSeconds 180
+    Assert-Acceptance ($startResult.Status -eq 'RUNNING' -and $startResult.Errors -eq 0) 'Start erreicht stabile SQL-Readiness'
+    $restartResult = Restart-SqlServerLab -RunId $lab.RunId -TimeoutSeconds 180 -Force
+    Assert-Acceptance ($restartResult.Status -eq 'RUNNING' -and $restartResult.Errors -eq 0) 'Restart erreicht stabile SQL-Readiness'
     Assert-Acceptance ((Invoke-AcceptanceQuery 'SET NOCOUNT ON; SELECT COUNT_BIG(*) FROM dbo.CliAcceptance;' -Database CliStorageEvidence -Port $newPort) -eq '1') 'Stop, Start und Restart erhalten den Datenzustand'
 
     Remove-SqlServerLab -RunId $lab.RunId -StateRoot $stateRoot -Force -Confirm:$false | Out-Null
