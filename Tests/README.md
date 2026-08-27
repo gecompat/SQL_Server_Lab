@@ -140,6 +140,12 @@ Self-hosted Runner ausführen, ohne den Nightly-Lauf zu wiederholen. Der Modus
 `slot-batch` wählt ohne explizite Artifact-ID das neueste reale `OS_SEALED`-
 Artifact und entfernt beide erzeugten Slot-Scopes nach dem Test.
 
+Der Modus `shared-environments` ist der eng begrenzte Bereitschaftsnachweis für
+die dauerhaft registrierte Testgruppe. Er startet nur gebundene Windows-VMs und
+vorhandene SQL-Engine-Dienste, falls sie nicht laufen, und führt anschließend
+die bestehende SQL-/CMS-Abnahme für alle sechs Ziele aus. Er provisioniert oder
+löscht keine Testumgebung und ersetzt keinen Nightly-Lauf.
+
 ## Backup-/Restore-Smoke-Test
 
 Der echte Restore-Test verwendet ausschliesslich eine zur Laufzeit erzeugte

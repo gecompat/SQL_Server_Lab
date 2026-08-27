@@ -85,6 +85,12 @@ Add-CheckResult -Name 'Hyper-V-Workflow bietet gezielten OS-Slot-Batch mit scope
     $hyperVWorkflow -match '(?m)^\s+-Provider hyperv\s+`' -and
     $hyperVWorkflow -match '-ArtifactId \$artifactId'
 )
+Add-CheckResult -Name 'Hyper-V-Workflow kann geschuetzte Testumgebungen gezielt reaktivieren und abnehmen' -Success (
+    $hyperVWorkflow -match '(?m)^\s*- shared-environments\s*$' -and
+    $hyperVWorkflow -match "inputs\.mode == 'shared-environments'" -and
+    $hyperVWorkflow -match 'Invoke-TestEnvironmentRuntimeReadiness\.ps1 -Recover' -and
+    $hyperVWorkflow -match 'Invoke-TestEnvironmentAcceptance\.ps1'
+)
 
 $prWorkflow = Get-Content -LiteralPath (Join-Path $repoRoot '.github/workflows/static-contracts.yml') -Raw -Encoding utf8
 Add-CheckResult -Name 'PR-Gate laeuft nicht erneut bei Push auf main' -Success ($prWorkflow -notmatch '(?m)^\s*push:\s*$')
