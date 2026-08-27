@@ -3,7 +3,7 @@
     "name": "SqlServerLab.ExternalRuntimeContainerRecipe",
     "version": "1.0"
   },
-  "recipeVersion": "1",
+  "recipeVersion": "2",
   "operatingSystem": "ubuntu-22.04",
   "architecture": "x86_64",
   "baseImage": {
@@ -25,6 +25,7 @@
   "runtimes": {
     "Python": {
       "runtimeVersion": "3.10",
+      "buildOrder": 20,
       "buildToken": "python",
       "lockFile": "python-wheels.lock",
       "contextFiles": [
@@ -96,6 +97,75 @@
           "sha256": "8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254",
           "integrityOrigin": "PyPI release-file SHA-256",
           "license": "MIT"
+        }
+      ]
+    },
+    "R": {
+      "runtimeVersion": "4.2.3",
+      "buildOrder": 10,
+      "buildToken": "r",
+      "lockFile": "r-packages.lock",
+      "contextFiles": [
+        "install-r-runtime.sh",
+        "r-packages.lock"
+      ],
+      "runtimeImage": {
+        "id": "rocker-r-ver-4.2.3",
+        "source": "https://github.com/rocker-org/rocker-versioned2",
+        "reference": "docker.io/rocker/r-ver@sha256:22202dfb31f3a1b515936bac559a9f56b67585adce2c14d063f97478940d374a",
+        "version": "4.2.3",
+        "sha256": "22202dfb31f3a1b515936bac559a9f56b67585adce2c14d063f97478940d374a",
+        "integrityOrigin": "linux/amd64 OCI manifest digest",
+        "license": "GPL-2.0-or-later"
+      },
+      "artifacts": [
+        {
+          "id": "iterators",
+          "source": "https://cran.r-project.org/src/contrib/iterators_1.0.14.tar.gz",
+          "version": "1.0.14",
+          "sha256": "cef3075a0930e1408c764e4da56bbadd4f7d14315809df8f38dd51f80ccc677b",
+          "integrityOrigin": "SHA-256 verified against the CRAN release archive on 2026-08-27",
+          "license": "Apache-2.0"
+        },
+        {
+          "id": "foreach",
+          "source": "https://cran.r-project.org/src/contrib/foreach_1.5.2.tar.gz",
+          "version": "1.5.2",
+          "sha256": "56338d8753f9f68f262cf532fd8a6d0fe25a71a2ff0107f3ce378feb926bafe4",
+          "integrityOrigin": "SHA-256 verified against the CRAN release archive on 2026-08-27",
+          "license": "Apache-2.0"
+        },
+        {
+          "id": "R6",
+          "source": "https://cran.r-project.org/src/contrib/Archive/R6/R6_2.5.1.tar.gz",
+          "version": "2.5.1",
+          "sha256": "8d92bd29c2ed7bf15f2778618ffe4a95556193d21d8431a7f75e7e5fc102bf48",
+          "integrityOrigin": "SHA-256 verified against the CRAN archive on 2026-08-27",
+          "license": "MIT"
+        },
+        {
+          "id": "jsonlite",
+          "source": "https://cran.r-project.org/src/contrib/Archive/jsonlite/jsonlite_1.8.4.tar.gz",
+          "version": "1.8.4",
+          "sha256": "79eaabe042226b0918aa828cc63d54fee8be67ae7c67f5e0d3010f468efb1278",
+          "integrityOrigin": "SHA-256 verified against the CRAN archive on 2026-08-27",
+          "license": "MIT"
+        },
+        {
+          "id": "CompatibilityAPI",
+          "source": "https://aka.ms/sqlml/r4.2/linux/CompatibilityAPI_1.1.0_R_x86_64-pc-linux-gnu.tar.gz",
+          "version": "1.1.0",
+          "sha256": "9777c87990142e8ea4615d00ff826931f9ac532bea6005ce728583a521577998",
+          "integrityOrigin": "SHA-256 verified against the Microsoft download on 2026-08-27",
+          "license": "Microsoft Machine Learning components license"
+        },
+        {
+          "id": "RevoScaleR",
+          "source": "https://aka.ms/sqlml/r4.2/linux/RevoScaleR_10.0.1_R_x86_64-pc-linux-gnu.tar.gz",
+          "version": "10.0.1",
+          "sha256": "656e8bf76a12088364548b02809cbbaf6376f54dd3a4d2e5c21aa193306d2a6b",
+          "integrityOrigin": "SHA-256 verified against the Microsoft download on 2026-08-27",
+          "license": "Microsoft Machine Learning components license"
         }
       ]
     }
