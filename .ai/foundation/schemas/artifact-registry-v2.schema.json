@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/ai-repository-foundation/artifact-registry-v2.schema.json",
+  "title": "AI Repository Foundation Central Artifact Registry v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "profile", "prefixes", "artifacts"],
+  "properties": {
+    "schema_version": {"const": 2},
+    "profile": {"const": "foundation-artifact-registry/v2"},
+    "prefixes": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {"pattern": "^[A-Z][A-Z0-9_]*$"},
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "width"],
+        "properties": {
+          "kind": {"type": "string", "minLength": 1},
+          "width": {"type": "integer", "minimum": 1, "maximum": 12}
+        }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "propertyNames": {"pattern": "^[A-Z][A-Z0-9_]*-[0-9]+$"},
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["artifact_uid", "kind", "title", "registration_state"],
+        "properties": {
+          "artifact_uid": {
+            "type": "string",
+            "pattern": "^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "kind": {"type": "string", "minLength": 1},
+          "title": {"type": "string", "minLength": 1},
+          "registration_state": {"enum": ["DRAFT", "REGISTERED", "RETIRED"]},
+          "status": {"type": ["string", "null"]},
+          "priority": {"type": ["string", "null"]},
+          "acceptance_criteria": {"type": ["string", "null"]},
+          "aliases": {
+            "type": "array",
+            "items": {"type": "string", "minLength": 1},
+            "uniqueItems": true,
+            "default": []
+          },
+          "external_refs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["system", "value"],
+              "properties": {
+                "system": {"type": "string", "minLength": 1},
+                "value": {"type": "string", "minLength": 1}
+              },
+              "additionalProperties": true
+            },
+            "default": []
+          },
+          "relations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["type", "target"],
+              "properties": {
+                "type": {"type": "string", "minLength": 1},
+                "target": {"type": "string", "minLength": 1}
+              },
+              "additionalProperties": true
+            },
+            "default": []
+          }
+        }
+      }
+    }
+  }
+}

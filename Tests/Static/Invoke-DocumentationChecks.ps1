@@ -450,9 +450,16 @@ $coreFiles = @(
     '.ai/foundation/SEMANTIC_INTEGRATION_POLICY.md'
     '.ai/foundation/PERSISTENT_IDENTITY_POLICY.md'
     '.ai/foundation/ARTIFACT_REGISTRATION_POLICY.md'
+    '.ai/foundation/CENTRAL_ARTIFACT_REGISTRY_POLICY.md'
+    '.ai/foundation/UPGRADE_APPLICABILITY_POLICY.md'
+    '.ai/foundation/REPOSITORY_CONTINUITY_POLICY.md'
+    '.ai/foundation/feature_catalog.json'
     '.ai/foundation/schemas/artifact-record.schema.json'
     '.ai/foundation/schemas/artifact-registry.schema.json'
+    '.ai/foundation/schemas/artifact-registry-v2.schema.json'
     '.ai/foundation/schemas/artifact-registration-request.schema.json'
+    '.ai/foundation/schemas/feature-catalog.schema.json'
+    '.ai/foundation/schemas/upgrade-assessment.schema.json'
     '.ai/foundation/WORKING_RULES.md'
     '.ai/foundation/MODEL_ROUTING_POLICY.md'
     '.ai/foundation/VALIDATION_POLICY.md'
@@ -545,6 +552,8 @@ $repoMap = Get-Content -LiteralPath (Join-Path $repoRoot '.ai\repo_map.yaml') -R
 $foundationRuleset = Get-Content -LiteralPath (Join-Path $repoRoot '.ai\foundation\FOUNDATION_RULESET.md') -Raw -Encoding utf8
 $foundationRepoMap = Get-Content -LiteralPath (Join-Path $repoRoot '.ai\foundation\repo_map.yaml') -Raw -Encoding utf8
 $foundationNotice = Get-Content -LiteralPath (Join-Path $repoRoot '.ai\foundation\AI_REPOSITORY_FOUNDATION_NOTICE.md') -Raw -Encoding utf8
+$foundationFeatureCatalog = Get-Content -LiteralPath (Join-Path $repoRoot '.ai\foundation\feature_catalog.json') -Raw -Encoding utf8
+$identityRegistrationMapping = Get-Content -LiteralPath (Join-Path $repoRoot '.ai\IDENTITY_AND_ARTIFACT_REGISTRATION.md') -Raw -Encoding utf8
 $copilotAdapter = Get-Content -LiteralPath (Join-Path $repoRoot '.github\copilot-instructions.md') -Raw -Encoding utf8
 $sqlCuPolicy = Get-Content -LiteralPath (Join-Path $repoRoot 'ops\sql-cu-policy.md') -Raw -Encoding utf8
 $masterImplementationPlan = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\MASTER_IMPLEMENTATION_PLAN.md') -Raw -Encoding utf8
@@ -629,10 +638,12 @@ Add-ValidationResult `
     -Message "BEGIN=$foundationBridgeBeginCount; END=$foundationBridgeEndCount"
 
 Add-ValidationResult `
-    -Name 'Foundation-Ruleset und Index sind auf Version 1.4.0 gebunden' `
-    -Success ($foundationRuleset -match 'Ruleset version: 1\.4\.0' -and
-        $foundationRepoMap -match 'foundation_ruleset_version: 1\.4\.0' -and
-        $foundationRuleset -match [regex]::Escape('SEMANTIC_INTEGRATION_POLICY.md'))
+    -Name 'Foundation-Ruleset, Index und Feature-Katalog sind auf Version 1.7.0 gebunden' `
+    -Success ($foundationRuleset -match 'Ruleset version: 1\.7\.0' -and
+        $foundationRepoMap -match 'foundation_ruleset_version: 1\.7\.0' -and
+        $foundationFeatureCatalog -match '"ruleset_version"\s*:\s*"1\.7\.0"' -and
+        $foundationRuleset -match [regex]::Escape('UPGRADE_APPLICABILITY_POLICY.md') -and
+        $foundationRuleset -match [regex]::Escape('REPOSITORY_CONTINUITY_POLICY.md'))
 
 Add-ValidationResult `
     -Name 'Foundation-Provenienz enthaelt den vollstaendigen MIT-Hinweis' `
@@ -642,11 +653,26 @@ Add-ValidationResult `
 
 Add-ValidationResult `
     -Name 'Repo-Map dokumentiert Foundation-Quelle, Adapter und semantische Zuordnung' `
-    -Success ($repoMap -match 'source_commit: 2c9de5d5299a0eefec59fdc6131519886dc5e195' -and
-        $repoMap -match 'ruleset_version: "1\.4\.0"' -and
+    -Success ($repoMap -match 'source_commit: d49f978f33001fcc098998ff7c04ffb209b28033' -and
+        $repoMap -match 'ruleset_version: "1\.7\.0"' -and
         $repoMap -match 'github-copilot' -and
         $repoMap -match 'sql_cu_watch_policy: ops/sql-cu-policy\.md' -and
         $repoMap -match 'unresolved_conflicts: \[\]')
+
+Add-ValidationResult `
+    -Name 'Foundation-Upgrade bewertet alle sechs Kandidaten ohne stille Auslassung' `
+    -Success ($repoMap -match 'artifact-registration: ALREADY_EQUIVALENT' -and
+        $repoMap -match 'central-artifact-registry: NOT_APPLICABLE' -and
+        $repoMap -match 'layered-validation: APPLY_DEFAULT' -and
+        $repoMap -match 'repository-continuity-break-glass: RECOMMENDED' -and
+        $repoMap -match 'semantic-integration: APPLY_DEFAULT' -and
+        $repoMap -match 'semantic-upgrade-applicability: APPLY_DEFAULT')
+
+Add-ValidationResult `
+    -Name 'Projektmapping migriert keine Runtime-Authority auf die zentrale Foundation-Registry' `
+    -Success ($identityRegistrationMapping -match 'Foundation 1\.7 identity and registration baseline' -and
+        $identityRegistrationMapping -match 'no repository-native JSON Registration Authority' -and
+        $identityRegistrationMapping -match '`artifact-registry-github` capability is not selected')
 
 Add-ValidationResult `
     -Name 'Copilot-Adapter bleibt eine duenne Discovery-Bruecke' `
@@ -681,7 +707,10 @@ Add-ValidationResult `
     -Success ($localValidationStrategy -match 'FOUNDATION_INTEGRITY' -and
         $localValidationStrategy -match 'PROJECT_SEMANTIC' -and
         $localValidationStrategy -match 'RUNTIME_EMPIRICAL' -and
-        $localValidationStrategy -match '(?s)Foundation-Validator.*kein Nachweis')
+        $localValidationStrategy -match '(?s)Foundation-Validator.*kein Nachweis' -and
+        $localValidationStrategy -match 'VALIDATION_FAILURE' -and
+        $localValidationStrategy -match 'INFRASTRUCTURE_UNAVAILABLE' -and
+        $localValidationStrategy -match 'LF-/CRLF-Unterschiede')
 
 Add-ValidationResult `
     -Name 'Kosteneffiziente Entwicklung bindet lokale Testauswahl und Logaggregation' `
