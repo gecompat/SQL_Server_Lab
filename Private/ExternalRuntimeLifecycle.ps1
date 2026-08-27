@@ -79,6 +79,50 @@ WITH RESULT SETS ((evidence nvarchar(4000) NOT NULL));
     }
 }
 
+function Invoke-LabRExternalRuntimeProbe {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Plan,
+        [string]$HostName = '127.0.0.1',
+        [Parameter(Mandatory)][int]$Port,
+        [Parameter(Mandatory)][SecureString]$SaPassword
+    )
+
+    $expectedRuntime = [string]$Plan.RuntimeVersion
+    if ($expectedRuntime -ne '4.2.3') {
+        throw "EXTERNAL_RUNTIME_R_EXPECTATION_INVALID: $expectedRuntime"
+    }
+    $query = @"
+SET NOCOUNT ON;
+EXEC sp_execute_external_script
+    @language = N'R',
+    @script = N'library(RevoScaleR)
+worker <- unname(Sys.info()[["effective_user"]])
+runtime <- paste(R.version[["major"]], R.version[["minor"]], sep=".")
+evidence <- paste("SQLLAB_EXTERNAL", "R", runtime, as.character(packageVersion("RevoScaleR")), as.character(packageVersion("jsonlite")), as.integer(InputDataSet[[1]][1]), worker, sep="|")
+OutputDataSet <- data.frame(evidence=evidence, stringsAsFactors=FALSE)',
+    @input_data_1 = N'SELECT CAST(42 AS int) AS value'
+WITH RESULT SETS ((evidence nvarchar(4000) NOT NULL));
+"@
+    $saPlain = ConvertFrom-LabSecureString -SecureString $SaPassword
+    try {
+        $output = @(Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $saPlain -Query $query -TimeoutSeconds 90)
+    }
+    finally { $saPlain = $null }
+    $marker = @($output | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ -like 'SQLLAB_EXTERNAL|R|*' } | Select-Object -Last 1)[0]
+    if (-not $marker) { throw "EXTERNAL_RUNTIME_R_EVIDENCE_MISSING: $(@($output) -join ' ')" }
+    $parts = @($marker.Split('|'))
+    if ($parts.Count -ne 7 -or $parts[2] -ne '4.2.3' -or $parts[3] -ne '10.0.1' -or
+        $parts[4] -ne '1.8.4' -or $parts[5] -ne '42' -or $parts[6] -ne 'mssql_satellite') {
+        throw "EXTERNAL_RUNTIME_R_EVIDENCE_INVALID: $marker"
+    }
+    return [PSCustomObject]@{
+        Id='r-data-roundtrip'; Status='PASS'; Language='R'; RuntimeVersion=$parts[2]
+        Package='jsonlite'; PackageVersion=$parts[4]; SqlExtensionPackage='RevoScaleR'; SqlExtensionPackageVersion=$parts[3]
+        InputValue=42; OutputValue=42; WorkerIdentity=$parts[6]
+    }
+}
+
 function Save-LabExternalRuntimeInstallationReceipts {
     [CmdletBinding()]
     param(
@@ -161,6 +205,10 @@ RECONFIGURE WITH OVERRIDE;
         $probe = switch ([string]$plan.Language) {
             'Python' {
                 Invoke-LabPythonExternalRuntimeProbe -Plan $plan -HostName ([string]$LabInstance.Host) `
+                    -Port ([int]$LabInstance.Port) -SaPassword $SaPassword
+            }
+            'R' {
+                Invoke-LabRExternalRuntimeProbe -Plan $plan -HostName ([string]$LabInstance.Host) `
                     -Port ([int]$LabInstance.Port) -SaPassword $SaPassword
             }
             default { throw "EXTERNAL_RUNTIME_PROBE_NOT_IMPLEMENTED: $($plan.Language)" }

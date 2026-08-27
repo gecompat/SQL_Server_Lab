@@ -48,7 +48,10 @@ function Get-LabExternalRuntimeContainerRecipe {
     }
 
     $artifacts = @($recipe.extensibility) + @(
-        $recipe.runtimes.PSObject.Properties | ForEach-Object { @($_.Value.artifacts) }
+        $recipe.runtimes.PSObject.Properties | ForEach-Object {
+            if ($_.Value.runtimeImage) { $_.Value.runtimeImage }
+            @($_.Value.artifacts)
+        }
     )
     foreach ($artifact in $artifacts) {
         $uri = $null
@@ -81,28 +84,45 @@ function Get-LabExternalRuntimeContainerRecipe {
 
     foreach ($runtimeProperty in $recipe.runtimes.PSObject.Properties) {
         $runtime = $runtimeProperty.Value
+        if ([int]$runtime.buildOrder -lt 1 -or [string]$runtime.buildToken -notmatch '^[a-z][a-z0-9-]*$') {
+            throw "EXTERNAL_RUNTIME_RECIPE_BUILD_STAGE_INVALID: $($runtimeProperty.Name)"
+        }
+        if ($runtime.runtimeImage -and
+            ([string]$runtime.runtimeImage.reference -notmatch '^docker\.io/[a-z0-9./_-]+@sha256:([a-f0-9]{64})$' -or
+             [string]$runtime.runtimeImage.sha256 -ne $Matches[1])) {
+            throw "EXTERNAL_RUNTIME_RECIPE_RUNTIME_IMAGE_INVALID: $($runtimeProperty.Name)"
+        }
         $lockPath = Join-Path $recipeRoot ([string]$runtime.lockFile)
         if (-not (Test-Path -LiteralPath $lockPath -PathType Leaf)) {
             throw "EXTERNAL_RUNTIME_RECIPE_LOCK_NOT_FOUND: $($runtime.lockFile)"
         }
-        if ([string]$runtimeProperty.Name -eq 'Python') {
-            $lockRecords = @(Get-Content -LiteralPath $lockPath -Encoding utf8 | Where-Object {
-                $_ -and -not $_.StartsWith('#')
-            } | ForEach-Object {
-                $parts = $_.Split('|')
-                if ($parts.Count -ne 5) { throw 'EXTERNAL_RUNTIME_PYTHON_LOCK_INVALID' }
-                [PSCustomObject]@{ id=$parts[0]; version=$parts[1]; sha256=$parts[3]; source=$parts[4] }
-            })
-            $runtimeArtifacts = @($runtime.artifacts)
-            if ($lockRecords.Count -ne $runtimeArtifacts.Count) {
-                throw 'EXTERNAL_RUNTIME_PYTHON_LOCK_RECIPE_MISMATCH'
+        $lockRecords = @(Get-Content -LiteralPath $lockPath -Encoding utf8 | Where-Object {
+            $_ -and -not $_.StartsWith('#')
+        } | ForEach-Object {
+            $parts = $_.Split('|')
+            if ($parts.Count -ne 5 -or [string]$parts[0] -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$' -or
+                [string]$parts[2] -notmatch '^[A-Za-z0-9][A-Za-z0-9._+-]*$' -or
+                [string]$parts[3] -notmatch '^[a-f0-9]{64}$') {
+                throw "EXTERNAL_RUNTIME_PACKAGE_LOCK_INVALID: $($runtimeProperty.Name)"
             }
-            foreach ($record in $lockRecords) {
-                $match = @($runtimeArtifacts | Where-Object {
-                    [string]$_.id -eq $record.id -and [string]$_.version -eq $record.version -and
-                    [string]$_.sha256 -eq $record.sha256 -and [string]$_.source -eq $record.source
-                })
-                if ($match.Count -ne 1) { throw "EXTERNAL_RUNTIME_PYTHON_LOCK_RECIPE_MISMATCH: $($record.id)" }
+            $sourceUri = [Uri]$parts[4]
+            if ([IO.Path]::GetFileName($sourceUri.AbsolutePath) -cne [string]$parts[2]) {
+                throw "EXTERNAL_RUNTIME_PACKAGE_LOCK_FILENAME_MISMATCH: $($runtimeProperty.Name)"
+            }
+            [PSCustomObject]@{ id=$parts[0]; version=$parts[1]; filename=$parts[2]; sha256=$parts[3]; source=$parts[4] }
+        })
+        $runtimeArtifacts = @($runtime.artifacts)
+        if ($lockRecords.Count -ne $runtimeArtifacts.Count) {
+            throw "EXTERNAL_RUNTIME_PACKAGE_LOCK_RECIPE_MISMATCH: $($runtimeProperty.Name)"
+        }
+        foreach ($record in $lockRecords) {
+            $match = @($runtimeArtifacts | Where-Object {
+                [string]$_.id -eq $record.id -and [string]$_.version -eq $record.version -and
+                [string]$_.sha256 -eq $record.sha256 -and
+                [string]$_.source -eq $record.source
+            })
+            if ($match.Count -ne 1) {
+                throw "EXTERNAL_RUNTIME_PACKAGE_LOCK_RECIPE_MISMATCH: $($runtimeProperty.Name) / $($record.id)"
             }
         }
     }
@@ -165,7 +185,9 @@ function New-LabExternalRuntimeContainerImagePlan {
     $distinctLanguages = @($languages | Sort-Object -Unique)
     if ($distinctLanguages.Count -ne $languages.Count) { throw 'EXTERNAL_RUNTIME_CONTAINER_DUPLICATE_LANGUAGE' }
     $requiredArtifacts = @($recipe.baseImage, $recipe.extensibility) + @($distinctLanguages | ForEach-Object {
-        @($recipe.runtimes.PSObject.Properties[$_].Value.artifacts)
+        $runtime = $recipe.runtimes.PSObject.Properties[$_].Value
+        if ($runtime.runtimeImage) { $runtime.runtimeImage }
+        @($runtime.artifacts)
     })
     foreach ($required in $requiredArtifacts) {
         $catalogMatch = @($catalogArtifacts | Where-Object {
@@ -188,9 +210,15 @@ function New-LabExternalRuntimeContainerImagePlan {
     $contextEvidence = @($contextFiles | Sort-Object | ForEach-Object {
         [ordered]@{ path = $_; sha256 = Get-LabLowerFileSha256 -Path (Join-Path $recipe.RecipeRoot $_) }
     })
-    $buildTokens = @($distinctLanguages | ForEach-Object {
-        [string]$recipe.runtimes.PSObject.Properties[$_].Value.buildToken
-    } | Sort-Object)
+    $runtimeBuilds = @($distinctLanguages | ForEach-Object {
+        $runtime = $recipe.runtimes.PSObject.Properties[$_].Value
+        [PSCustomObject]@{ Language=$_; BuildOrder=[int]$runtime.buildOrder; BuildToken=[string]$runtime.buildToken }
+    } | Sort-Object BuildOrder, Language)
+    if (@($runtimeBuilds.BuildOrder | Sort-Object -Unique).Count -ne $runtimeBuilds.Count) {
+        throw 'EXTERNAL_RUNTIME_CONTAINER_BUILD_ORDER_AMBIGUOUS'
+    }
+    $buildTokens = @($runtimeBuilds | ForEach-Object { $_.BuildToken })
+    $buildStage = "runtime-$($buildTokens -join '-')"
     $keyInput = [ordered]@{
         contract = 'SqlServerLab.ExternalRuntimeContainerImageKey/1.0'
         recipeVersion = [string]$recipe.recipeVersion
@@ -219,6 +247,7 @@ function New-LabExternalRuntimeContainerImagePlan {
         VariantIds = @($variantIds | Sort-Object)
         Languages = $distinctLanguages
         BuildTokens = $buildTokens
+        BuildStage = $buildStage
         ContextEvidence = $contextEvidence
         RecipeRoot = [string]$recipe.RecipeRoot
         Containerfile = Join-Path $recipe.RecipeRoot 'Containerfile'
@@ -391,8 +420,10 @@ function Invoke-LabExternalRuntimeContainerImageBuildCore {
         '--file', [string]$ImagePlan.Containerfile,
         '--tag', $temporaryTag,
         '--build-arg', "BASE_IMAGE=$($ImagePlan.BaseImage)",
+        '--build-arg', "R_RUNTIME_IMAGE=$([string](Get-LabExternalRuntimeContainerRecipe).runtimes.R.runtimeImage.reference)",
+        '--build-arg', "EXTERNAL_RUNTIME_STAGE=$($ImagePlan.BuildStage)",
         '--build-arg', "EXTERNAL_RUNTIMES=$(@($ImagePlan.BuildTokens) -join ',')",
-        '--build-arg', "IMAGE_KEY=$($ImagePlan.ImageKey)",
+        '--build-arg', "CONTENT_ID=$($ImagePlan.ImageKey)",
         [string]$ImagePlan.RecipeRoot
     )
     $built = $false
@@ -406,6 +437,7 @@ function Invoke-LabExternalRuntimeContainerImageBuildCore {
         $evidence = Get-LabExternalRuntimeLocalImageEvidence -Provider $provider -Image $temporaryTag
         if (-not $evidence -or [string]$evidence.User -ne 'mssql' -or
             [string]$evidence.ImageKey -ne [string]$ImagePlan.ImageKey -or
+            [string]$evidence.Languages -ne (@($ImagePlan.BuildTokens) -join ',') -or
             [string]$evidence.LaunchMode -ne [string]$ImagePlan.LaunchMode -or
             [string]$evidence.NamespaceIsolation -ne 'true' -or [string]$evidence.OutboundAccess -ne 'false') {
             throw 'EXTERNAL_RUNTIME_CONTAINER_IMAGE_POSTCONDITION_FAILED'
@@ -423,6 +455,7 @@ function Invoke-LabExternalRuntimeContainerImageBuildCore {
             recipeVersion = [string]$ImagePlan.RecipeVersion
             variantIds = @($ImagePlan.VariantIds)
             languages = @($ImagePlan.Languages)
+            buildStage = [string]$ImagePlan.BuildStage
             launchMode = [string]$ImagePlan.LaunchMode
             requiredCgroupVersion = [string]$ImagePlan.RequiredCgroupVersion
             requiredLinuxCapabilities = @($ImagePlan.RequiredLinuxCapabilities)

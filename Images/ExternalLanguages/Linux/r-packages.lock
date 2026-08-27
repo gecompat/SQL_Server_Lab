@@ -1,0 +1,7 @@
+# package|version|filename|sha256|url
+iterators|1.0.14|iterators_1.0.14.tar.gz|cef3075a0930e1408c764e4da56bbadd4f7d14315809df8f38dd51f80ccc677b|https://cran.r-project.org/src/contrib/iterators_1.0.14.tar.gz
+foreach|1.5.2|foreach_1.5.2.tar.gz|56338d8753f9f68f262cf532fd8a6d0fe25a71a2ff0107f3ce378feb926bafe4|https://cran.r-project.org/src/contrib/foreach_1.5.2.tar.gz
+R6|2.5.1|R6_2.5.1.tar.gz|8d92bd29c2ed7bf15f2778618ffe4a95556193d21d8431a7f75e7e5fc102bf48|https://cran.r-project.org/src/contrib/Archive/R6/R6_2.5.1.tar.gz
+jsonlite|1.8.4|jsonlite_1.8.4.tar.gz|79eaabe042226b0918aa828cc63d54fee8be67ae7c67f5e0d3010f468efb1278|https://cran.r-project.org/src/contrib/Archive/jsonlite/jsonlite_1.8.4.tar.gz
+CompatibilityAPI|1.1.0|CompatibilityAPI_1.1.0_R_x86_64-pc-linux-gnu.tar.gz|9777c87990142e8ea4615d00ff826931f9ac532bea6005ce728583a521577998|https://aka.ms/sqlml/r4.2/linux/CompatibilityAPI_1.1.0_R_x86_64-pc-linux-gnu.tar.gz
+RevoScaleR|10.0.1|RevoScaleR_10.0.1_R_x86_64-pc-linux-gnu.tar.gz|656e8bf76a12088364548b02809cbbaf6376f54dd3a4d2e5c21aa193306d2a6b|https://aka.ms/sqlml/r4.2/linux/RevoScaleR_10.0.1_R_x86_64-pc-linux-gnu.tar.gz

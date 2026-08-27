@@ -381,20 +381,23 @@ nicht gesperrte Zusatzpakete und der bisherige `post-start`-Installer werden
 vor der Mutation sichtbar abgelehnt. Die katalogisierten SQL-2022-Varianten
 bleiben deshalb derzeit `PREVIEW` und nicht `SUPPORTED`.
 
-Für SQL Server 2022/Python existieren inzwischen ein per MCR-Digest gebundener
-Buildkontext, vollständige DEB-/Wheel-Locks, ein providerneutraler Image-Key,
-getrennte Docker-/Podman-Buildreceipts, sichere Providerbindung und eine echte
-Python-Postcondition mit Daten-In/Daten-Out und Worker-Identitätsprüfung. Der
-lokale Image-Build wurde ausgeführt; dies ist noch kein Runtime-Nachweis.
+Für SQL Server 2022/Python und R existieren inzwischen ein per MCR-Digest
+gebundener Buildkontext, vollständige DEB-, Wheel-, R-Paket- und OCI-Locks, ein
+providerneutraler Image-Key, getrennte Docker-/Podman-Buildreceipts, sichere
+Providerbindung und echte Python- beziehungsweise R-Postconditions mit
+Daten-In/Daten-Out und Worker-Identitätsprüfung. Das einzelne Python-Image,
+das einzelne R-Image und das kombinierte R-/Python-Image wurden lokal gebaut;
+die Zielimages wurden auf Runtime- und Paketversionen sowie die compilerfreie
+R-Buildgrenze geprüft. Dies ist noch kein SQL-Runtime-Nachweis.
 
 Der sichere `launchpadd`-Namespace-Modus benötigt cgroup v1 und die gezielt
 gebundene Container-Capability `SYS_ADMIN`. Der aktuelle Docker-Desktop-Host
 stellt cgroup v2 bereit und wird deshalb vor State und Mutation abgelehnt. Der
 Modus ohne Namespace-Isolation würde gleichzeitig Outbound-Zugriff der Worker
 erfordern und ist bewusst kein stiller Fallback. Getrennte positive Docker-
-und Podman-Native-Acceptance auf geeigneten Hosts fehlt weiterhin; Python
-bleibt daher `PREVIEW`. R-Artefakte, Java-DDL/JAR und alle Hyper-V-Gastpfade
-sind ebenfalls noch nicht implementiert.
+und Podman-Native-Acceptance auf geeigneten Hosts fehlt weiterhin; Python und R
+bleiben daher `PREVIEW`. Java-DDL/JAR und alle Hyper-V-Gastpfade sind ebenfalls
+noch nicht implementiert.
 
 `customImage` wird weiterhin nicht als ungeprüfte Manifestquelle in die
 Provider-Imageauswahl übernommen. Ein Softwareplan, erfolgreicher Image-Build
