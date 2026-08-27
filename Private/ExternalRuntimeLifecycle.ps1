@@ -48,13 +48,19 @@ function Invoke-LabPythonExternalRuntimeProbe {
     if ($expectedRuntime -notmatch '^3\.10(?:\.|$)') {
         throw "EXTERNAL_RUNTIME_PYTHON_EXPECTATION_INVALID: $expectedRuntime"
     }
+    $workerExpression = if ([string]$Plan.OperatingSystem -eq 'windows') {
+        "import getpass`nworker = getpass.getuser()"
+    }
+    else {
+        "import pwd`nworker = pwd.getpwuid(os.getuid()).pw_name"
+    }
     $query = @"
 SET NOCOUNT ON;
 EXEC sp_execute_external_script
     @language = N'Python',
-    @script = N'import os, pwd, sys, numpy, pandas
+    @script = N'import os, sys, numpy, pandas
 from importlib.metadata import version
-worker = pwd.getpwuid(os.getuid()).pw_name
+$workerExpression
 evidence = ''|''.join([''SQLLAB_EXTERNAL'', ''Python'', sys.version.split()[0], numpy.__version__, version(''revoscalepy''), str(int(InputDataSet.iloc[0, 0])), worker])
 OutputDataSet = pandas.DataFrame(dict(evidence=[evidence]))',
     @input_data_1 = N'SELECT CAST(42 AS int) AS value'
@@ -68,8 +74,11 @@ WITH RESULT SETS ((evidence nvarchar(4000) NOT NULL));
     $marker = @($output | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ -like 'SQLLAB_EXTERNAL|Python|*' } | Select-Object -Last 1)[0]
     if (-not $marker) { throw "EXTERNAL_RUNTIME_PYTHON_EVIDENCE_MISSING: $(@($output) -join ' ')" }
     $parts = @($marker.Split('|'))
+    $workerValid = $parts.Count -eq 7 -and $(if ([string]$Plan.OperatingSystem -eq 'windows') {
+        -not [string]::IsNullOrWhiteSpace([string]$parts[6])
+    } else { $parts[6] -eq 'mssql_satellite' })
     if ($parts.Count -ne 7 -or $parts[2] -notlike '3.10.*' -or $parts[3] -ne '1.22.0' -or
-        $parts[4] -ne '10.0.1' -or $parts[5] -ne '42' -or $parts[6] -ne 'mssql_satellite') {
+        $parts[4] -ne '10.0.1' -or $parts[5] -ne '42' -or -not $workerValid) {
         throw "EXTERNAL_RUNTIME_PYTHON_EVIDENCE_INVALID: $marker"
     }
     return [PSCustomObject]@{
@@ -112,8 +121,12 @@ WITH RESULT SETS ((evidence nvarchar(4000) NOT NULL));
     $marker = @($output | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ -like 'SQLLAB_EXTERNAL|R|*' } | Select-Object -Last 1)[0]
     if (-not $marker) { throw "EXTERNAL_RUNTIME_R_EVIDENCE_MISSING: $(@($output) -join ' ')" }
     $parts = @($marker.Split('|'))
+    $expectedJsonlite = if ([string]$Plan.OperatingSystem -eq 'windows') { '1.8.8' } else { '1.8.4' }
+    $workerValid = $parts.Count -eq 7 -and $(if ([string]$Plan.OperatingSystem -eq 'windows') {
+        -not [string]::IsNullOrWhiteSpace([string]$parts[6])
+    } else { $parts[6] -eq 'mssql_satellite' })
     if ($parts.Count -ne 7 -or $parts[2] -ne '4.2.3' -or $parts[3] -ne '10.0.1' -or
-        $parts[4] -ne '1.8.4' -or $parts[5] -ne '42' -or $parts[6] -ne 'mssql_satellite') {
+        $parts[4] -ne $expectedJsonlite -or $parts[5] -ne '42' -or -not $workerValid) {
         throw "EXTERNAL_RUNTIME_R_EVIDENCE_INVALID: $marker"
     }
     return [PSCustomObject]@{
@@ -137,6 +150,35 @@ function Get-LabJavaExternalRuntimeArtifactSha256 {
     return ([string](($artifactMatches[0]).Sha256))
 }
 
+function Get-LabJavaExternalRuntimePlatformContract {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Plan)
+
+    if ([string]$Plan.OperatingSystem -eq 'windows') {
+        return [PSCustomObject]@{
+            Platform = 'WINDOWS'
+            ExtensionFileName = 'javaextension.dll'
+            ExtensionPath = 'C:\SqlServerLab\ExternalRuntimes\Java\extension\java-lang-extension-windows-release.zip'
+            Environment = '{"JAVAHOME":"C:\\Program Files\\Microsoft\\jdk-17.0.20.1+1"}'
+            SdkArtifactId = 'mssql-java-lang-extension-windows'
+            SdkPath = 'C:\SqlServerLab\ExternalRuntimes\Java\libraries\mssql-java-lang-extension-windows.jar'
+            ProbePath = 'C:\SqlServerLab\ExternalRuntimes\Java\libraries\sql-server-lab-java-probe-1.0.0.jar'
+        }
+    }
+    if ([string]$Plan.OperatingSystem -ne 'linux') {
+        throw "EXTERNAL_RUNTIME_JAVA_OPERATING_SYSTEM_UNSUPPORTED: $($Plan.OperatingSystem)"
+    }
+    return [PSCustomObject]@{
+        Platform = 'LINUX'
+        ExtensionFileName = 'libJavaExtension.so.1.0'
+        ExtensionPath = '/opt/sql-server-lab/java/extension/java-lang-extension-linux-release.zip'
+        Environment = '{"JRE_HOME":"/opt/sql-server-lab/java/jre"}'
+        SdkArtifactId = 'mssql-java-lang-extension-linux'
+        SdkPath = '/opt/sql-server-lab/java/libraries/mssql-java-lang-extension-linux.jar'
+        ProbePath = '/opt/sql-server-lab/java/libraries/sql-server-lab-java-probe-1.0.0.jar'
+    }
+}
+
 function Register-LabJavaExternalRuntimeDatabaseObjects {
     [CmdletBinding()]
     param(
@@ -147,15 +189,16 @@ function Register-LabJavaExternalRuntimeDatabaseObjects {
         [Parameter(Mandatory)][ValidatePattern('^[A-Za-z][A-Za-z0-9_]{0,127}$')][string]$Database
     )
 
+    $platformContract = Get-LabJavaExternalRuntimePlatformContract -Plan $Plan
     $extensionSha256 = Get-LabJavaExternalRuntimeArtifactSha256 -Plan $Plan -ArtifactId 'java-language-extension'
-    $sdkSha256 = Get-LabJavaExternalRuntimeArtifactSha256 -Plan $Plan -ArtifactId 'mssql-java-lang-extension-linux'
+    $sdkSha256 = Get-LabJavaExternalRuntimeArtifactSha256 -Plan $Plan -ArtifactId ([string]$platformContract.SdkArtifactId)
     $probeSha256 = Get-LabJavaExternalRuntimeArtifactSha256 -Plan $Plan -ArtifactId 'sql-server-lab-java-probe'
     $query = @"
 SET NOCOUNT ON;
 DECLARE @createdLanguage bit = 0;
 DECLARE @createdSdk bit = 0;
 DECLARE @createdProbe bit = 0;
-DECLARE @expectedEnvironment nvarchar(4000) = N'{"JRE_HOME":"/opt/sql-server-lab/java/jre"}';
+DECLARE @expectedEnvironment nvarchar(4000) = N'$($platformContract.Environment)';
 
 BEGIN TRY
     IF EXISTS (SELECT 1 FROM sys.external_languages WHERE language = N'Java')
@@ -165,8 +208,8 @@ BEGIN TRY
             FROM sys.external_languages AS l
             INNER JOIN sys.external_language_files AS f ON f.external_language_id = l.external_language_id
             WHERE l.language = N'Java'
-              AND f.platform_desc = N'LINUX'
-              AND f.file_name = N'libJavaExtension.so.1.0'
+              AND f.platform_desc = N'$($platformContract.Platform)'
+              AND f.file_name = N'$($platformContract.ExtensionFileName)'
               AND f.environment_variables = @expectedEnvironment
               AND HASHBYTES('SHA2_256', f.content) = 0x$extensionSha256
         )
@@ -176,10 +219,10 @@ BEGIN TRY
     BEGIN
         CREATE EXTERNAL LANGUAGE Java
         FROM (
-            CONTENT = N'/opt/sql-server-lab/java/extension/java-lang-extension-linux-release.zip',
-            FILE_NAME = 'libJavaExtension.so.1.0',
-            PLATFORM = LINUX,
-            ENVIRONMENT_VARIABLES = N'{"JRE_HOME":"/opt/sql-server-lab/java/jre"}'
+            CONTENT = N'$($platformContract.ExtensionPath)',
+            FILE_NAME = '$($platformContract.ExtensionFileName)',
+            PLATFORM = $($platformContract.Platform),
+            ENVIRONMENT_VARIABLES = N'$($platformContract.Environment)'
         );
         SET @createdLanguage = 1;
     END;
@@ -193,7 +236,7 @@ BEGIN TRY
             WHERE l.name = N'SqlServerLabJavaSdk'
               AND l.language = N'Java'
               AND l.scope = 0
-              AND f.platform_desc = N'LINUX'
+              AND f.platform_desc = N'$($platformContract.Platform)'
               AND HASHBYTES('SHA2_256', f.content) = 0x$sdkSha256
         )
             THROW 51001, 'EXTERNAL_RUNTIME_JAVA_SDK_DRIFT', 1;
@@ -201,7 +244,7 @@ BEGIN TRY
     ELSE
     BEGIN
         CREATE EXTERNAL LIBRARY SqlServerLabJavaSdk
-        FROM (CONTENT = N'/opt/sql-server-lab/java/libraries/mssql-java-lang-extension-linux.jar')
+        FROM (CONTENT = N'$($platformContract.SdkPath)')
         WITH (LANGUAGE = 'Java');
         SET @createdSdk = 1;
     END;
@@ -215,7 +258,7 @@ BEGIN TRY
             WHERE l.name = N'SqlServerLabJavaProbe'
               AND l.language = N'Java'
               AND l.scope = 0
-              AND f.platform_desc = N'LINUX'
+              AND f.platform_desc = N'$($platformContract.Platform)'
               AND HASHBYTES('SHA2_256', f.content) = 0x$probeSha256
         )
             THROW 51002, 'EXTERNAL_RUNTIME_JAVA_PROBE_DRIFT', 1;
@@ -223,7 +266,7 @@ BEGIN TRY
     ELSE
     BEGIN
         CREATE EXTERNAL LIBRARY SqlServerLabJavaProbe
-        FROM (CONTENT = N'/opt/sql-server-lab/java/libraries/sql-server-lab-java-probe-1.0.0.jar')
+        FROM (CONTENT = N'$($platformContract.ProbePath)')
         WITH (LANGUAGE = 'Java');
         SET @createdProbe = 1;
     END;
@@ -307,7 +350,8 @@ function Invoke-LabJavaExternalRuntimeProbe {
         [Parameter(Mandatory)][ValidatePattern('^[A-Za-z][A-Za-z0-9_]{0,127}$')][string]$Database
     )
 
-    if ([string]$Plan.RuntimeVersion -ne '11') {
+    $expectedMajor = if ([string]$Plan.OperatingSystem -eq 'windows') { '17' } else { '11' }
+    if ([string]$Plan.RuntimeVersion -ne $expectedMajor) {
         throw "EXTERNAL_RUNTIME_JAVA_EXPECTATION_INVALID: $($Plan.RuntimeVersion)"
     }
     $registration = Register-LabJavaExternalRuntimeDatabaseObjects -Plan $Plan -HostName $HostName `
@@ -329,8 +373,11 @@ WITH RESULT SETS ((evidence nvarchar(4000) NOT NULL));
         $marker = @($output | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ -like 'SQLLAB_EXTERNAL|Java|*' } | Select-Object -Last 1)[0]
         if (-not $marker) { throw "EXTERNAL_RUNTIME_JAVA_EVIDENCE_MISSING: $Database / $(@($output) -join ' ')" }
         $parts = @($marker.Split('|'))
-        if ($parts.Count -ne 6 -or $parts[2] -ne '1.0.0' -or $parts[3] -notlike '11.*' -or
-            $parts[4] -ne '42' -or $parts[5] -ne 'mssql_satellite') {
+        $workerValid = $parts.Count -eq 6 -and $(if ([string]$Plan.OperatingSystem -eq 'windows') {
+            -not [string]::IsNullOrWhiteSpace($parts[5])
+        } else { $parts[5] -eq 'mssql_satellite' })
+        if ($parts.Count -ne 6 -or $parts[2] -ne '1.0.0' -or $parts[3] -notlike "$expectedMajor.*" -or
+            $parts[4] -ne '42' -or -not $workerValid) {
             throw "EXTERNAL_RUNTIME_JAVA_EVIDENCE_INVALID: $Database / $marker"
         }
     }

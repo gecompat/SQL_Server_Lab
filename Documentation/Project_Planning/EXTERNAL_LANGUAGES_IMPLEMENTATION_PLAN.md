@@ -2,8 +2,8 @@
 
 | Merkmal | Wert |
 |---|---|
-| Status | `PLANNED` |
-| Stand | 2026-08-27 |
+| Status | `IN_IMPLEMENTATION` |
+| Stand | 2026-08-28 |
 | Bestehende Arbeitspakete | `SFT-711`, `SFT-712` |
 | Zielprovider | Hyper-V/Windows, Docker/Linux, Podman/Linux |
 | Zielsprachen | Python, R, Java |
@@ -294,6 +294,11 @@ Gate: Frischer Windows-Gast, SQL-Feature, Runtime, Launchpad, External Script,
 Resume nach Reboot und vollständiges Cleanup sind in einem echten Hyper-V-Lauf
 nachgewiesen.
 
+Implementierungsstand 2026-08-28: SQL-Feature-Vertrag, SHA-256-gebundene
+Offlinemedien, Gastinstaller, ACLs, RegisterRext, State/Recovery und der native
+Acceptance-Runner sind implementiert. Der positive reale Hyper-V-Nachweis ist
+noch offen; die Varianten bleiben `PREVIEW`.
+
 ### Welle 6 – Hyper-V/Windows für Java
 
 1. Language-Extensions-Feature im SQL-Setup-Plan sicherstellen.
@@ -305,6 +310,12 @@ nachgewiesen.
 
 Gate: Die gleiche fachliche Java-Postcondition wie unter Linux ist erfüllt;
 nur die Installations- und Guest-Execution-Adapter unterscheiden sich.
+
+Implementierungsstand 2026-08-28: Microsoft OpenJDK 17.0.20.1, Windows
+Language Extension 1.1.0, das darin enthaltene SDK sowie das reproduzierbare
+Probe-JAR sind SHA-256-gebunden. Offlineinstallation, DDL, Driftprüfung,
+Kompensation und Cold-Start-Probe sind implementiert. Der positive reale
+Hyper-V-JAR-Nachweis ist noch offen; die Variante bleibt `PREVIEW`.
 
 ### Welle 7 – SQL Server 2025 und SQL Server 2019
 

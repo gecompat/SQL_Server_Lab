@@ -403,8 +403,17 @@ erfordern und ist bewusst kein stiller Fallback. Getrennte positive Docker-
 und Podman-Native-Acceptance auf geeigneten Hosts fehlt weiterhin; Python, R
 und Java bleiben daher `PREVIEW`. Der Java-JAR-Aufruf erreicht auf dem aktuellen
 cgroup-v2-Host erwartungsgemäß keine bereitgestellte Language Runtime und wird
-nicht als positiver Nachweis gewertet. Alle Hyper-V-Gastpfade sind ebenfalls
-noch nicht implementiert.
+nicht als positiver Nachweis gewertet.
+
+Für Hyper-V/Windows sind der SHA-256-gebundene Offline-Media-Pfad, der
+deterministische Gastplan, die Python-/R-/Java-Installation,
+SQL-Feature-Bindung, State/Recovery und der native Acceptance-Runner
+implementiert. Java bindet Microsoft OpenJDK 17.0.20.1, den letzten
+verfügbaren Windows-Extension-Release 1.1.0, dessen SDK und ein reproduzierbar
+erzeugtes Probe-JAR. Ein positiver realer External-Script-Nachweis für alle drei
+Sprachen steht noch aus und erfordert eine erhöht gestartete
+PowerShell-Sitzung auf dem Hyper-V-Host; die Varianten bleiben deshalb
+`PREVIEW`.
 
 `customImage` wird weiterhin nicht als ungeprüfte Manifestquelle in die
 Provider-Imageauswahl übernommen. Ein Softwareplan, erfolgreicher Image-Build

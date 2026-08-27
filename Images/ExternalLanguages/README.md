@@ -51,3 +51,16 @@ kein implementierter Fallback.
 Der Kontext allein ist kein Supportnachweis. Erst ein katalogisierter
 Buildplan, ein persistierter Image-Digest und die native Ausführung über
 `sp_execute_external_script` dürfen eine Variante auf `SUPPORTED` heben.
+
+`Windows/recipe.json` und `Windows/Install-ExternalRuntimes.ps1` bilden den
+Hyper-V-Gastpfad. Der Host löst Python- und R-Artefakte ausschließlich über
+Katalog-URL und SHA-256 in den Media-Root auf; der Gast erhält nur einen
+deterministischen Plan und lokale Dateien. Der Installer verwendet keine
+Paketquelle und kein Netzwerk, registriert die SQL-Runtimes, setzt die
+Launchpad-Zugriffsrechte und gibt ein sanitisiertes Receipt zurück. Der
+zugehörige Hyper-V-Acceptance-Runner prüft die External-Script-Roundtrips nach
+Installation, Dienstneustart und Cold Start. Java verwendet das letzte
+verfügbare Windows-Extension-Artefakt 1.1.0, das dazu passende Microsoft
+OpenJDK 17.0.20.1, das im Extension-Archiv enthaltene hashgebundene SDK und
+ein reproduzierbar erzeugtes Probe-JAR. Bis der native Lauf für alle drei Sprachen positiv belegt ist,
+bleiben die Windows-Varianten `PREVIEW`.

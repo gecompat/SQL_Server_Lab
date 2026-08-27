@@ -500,6 +500,16 @@ function New-SqlServerLab {
         if ($artifactState -eq 'SQL_PREPARED_SEALED' -and [string]$artifact.sql.version -ne [string]$instance.version) {
             throw "HYPERV_MANIFEST_SQL_VERSION_MISMATCH: Manifest $($instance.version), Image $($artifact.sql.version)"
         }
+        $hyperVExternalRuntimePlans = @($externalRuntimePlansByInstance[[string]$instance.id])
+        if ($hyperVExternalRuntimePlans.Count -gt 0) {
+            if ($artifactState -ne 'SQL_PREPARED_SEALED') {
+                throw 'HYPERV_EXTERNAL_RUNTIME_SQL_PREPARED_IMAGE_REQUIRED'
+            }
+            $preparedFeatures = @($artifact.sql.features | ForEach-Object { ([string]$_).ToUpperInvariant() })
+            if ($preparedFeatures -notcontains 'ADVANCEDANALYTICS') {
+                throw 'HYPERV_EXTERNAL_RUNTIME_ADVANCED_ANALYTICS_REQUIRED'
+            }
+        }
 
         $guestPasswordMode = if ($hyperVSettings -and $hyperVSettings.PSObject.Properties['guestPasswordMode']) {
             [string]$hyperVSettings.guestPasswordMode
@@ -555,8 +565,19 @@ function New-SqlServerLab {
         if ($PersistentData) {
             $null = Enable-HyperVLabPersistentData -RunId $lab.RunId -DataRoot $DataRoot -SizeGB ([int]$resolved.persistentData.dataDiskGB) -StateRoot $hyperVLab.StateRoot
         }
+        $effectiveHyperVSqlSaPassword = if ($SqlSaPassword) { $SqlSaPassword } else { $GuestPassword }
         $provisioning = Invoke-HyperVLabUnattendedProvision -RunId $lab.RunId -AdministratorPassword $GuestPassword -SqlSaPassword $SqlSaPassword -PasswordSource $passwordSource -Region $Region -SystemLocale $SystemLocale -UiLanguage $UiLanguage -InputLocale $InputLocale -TimeZone $TimeZone -StateRoot $hyperVLab.StateRoot
         $hyperVLab = Get-HyperVLabWorkflowRun -RunId $lab.RunId -StateRoot $hyperVLab.StateRoot
+        if ($hyperVExternalRuntimePlans.Count -gt 0) {
+            $mediaRoot = Get-LabMediaRootDefault
+            if (-not $mediaRoot) { throw 'HYPERV_EXTERNAL_RUNTIME_MEDIA_ROOT_REQUIRED' }
+            Write-LabInfo "External Runtimes auf '$($instance.id)' im Windows-Gast installieren und über SQL verifizieren..."
+            $guestCredential = [PSCredential]::new('Administrator', $GuestPassword)
+            $null = Install-LabHyperVExternalRuntimes -SoftwarePlans $hyperVExternalRuntimePlans -RunId $lab.RunId `
+                -Credential $guestCredential -SqlSaPassword $effectiveHyperVSqlSaPassword -MediaRoot $mediaRoot `
+                -StateRoot $hyperVLab.StateRoot
+            $hyperVLab = Get-HyperVLabWorkflowRun -RunId $lab.RunId -StateRoot $hyperVLab.StateRoot
+        }
         return [PSCustomObject]@{
             RunId = $lab.RunId; ScopeId = $lab.ScopeId; State = 'RUNNING'; Name = $resolved.name; Instances = @($hyperVLab.Instance)
             StateRoot = $hyperVLab.StateRoot; DataRoot = if ($PersistentData) { $DataRoot } else { $null }; Provisioning = $provisioning

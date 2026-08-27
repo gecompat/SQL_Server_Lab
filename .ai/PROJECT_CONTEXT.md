@@ -98,6 +98,11 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   Java besitzt zusätzlich datenbankgebundene, idempotente DDL-, Drift- und
   Fehlerkompensationsverträge, die positive SQL-Native-Acceptance steht noch
   aus;
+- Hyper-V-/Windows-External-Runtime-Pfad für Python, R und Java mit
+  SHA-256-gebundenen Offlinemedien, geschlossenem PowerShell-Direct-
+  Gastinstaller, SQL-Feature-/State-/Recovery-Vertrag sowie echtem
+  External-Script-Acceptance-Runner; die positive native Evidence steht noch
+  aus und alle Varianten bleiben `PREVIEW`;
 
 ### Geplant oder unvollständig
 
@@ -110,9 +115,9 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 - nicht freigegebene Archive und Attach-Szenarien;
 - kontextreiche Manifest-Menüführung mit Navigation und Planvorschau;
 - Hyper-V-Export und -Nutzung von `LAB_GENERATED`-Baselines;
-- freigegebene External Runtimes einschließlich positiver Docker-/Podman-
-  Native Acceptance, Hyper-V-Gastinstallation und realer
-  `sp_execute_external_script`-Nachweise;
+- freigegebene External Runtimes einschließlich positiver Docker-, Podman- und
+  Hyper-V-Native-Acceptance sowie realer `sp_execute_external_script`-
+  Nachweise;
 - Reconcile-Aktionen über START/STOP hinaus, insbesondere für Ressourcen- und
   Konfigurationsänderungen;
 - versionierter Refresh-/Rebuild-Lifecycle für Medien, VHDX und Container-Images;

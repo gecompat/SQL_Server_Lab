@@ -295,6 +295,16 @@ internal_components:
       - "Docker- und Podman-Buildreceipts getrennt und ohne Hostpfade persistieren"
       - "cgroup-v1- und Namespace-Sicherheitsvertrag vor Container-Mutation erzwingen"
       - "wiederverwendbare Images außerhalb des normalen Run-Cleanups halten"
+  - name: ExternalRuntimeWindows
+    source: Private/ExternalRuntimeWindows.ps1
+    recipe: Images/ExternalLanguages/Windows/recipe.json
+    guest_installer: Images/ExternalLanguages/Windows/Install-ExternalRuntimes.ps1
+    responsibilities:
+      - "SHA-256-gebundene Python-/R-/Java-Offlinemedien in einen inhaltsadressierten Media-Root aufloesen"
+      - "einen hostpfad- und quellfreien Gastinstallationsplan erzeugen und ueber PowerShell Direct ausfuehren"
+      - "INSTALLING-, RECOVERY_REQUIRED- und EXTENSIONS_READY_RUN-State vor und nach Gastmutationen persistieren"
+      - "SQL-External-Scripts aktivieren und echte Python-/R-/Java-Postconditions im Windows-Gast pruefen"
+      - "Java-SDK aus dem gesperrten Extension-Archiv extrahieren, das synthetische Probe-JAR reproduzierbar erzeugen und beide per Content-Hash binden"
   - name: ExternalRuntimeLifecycle
     source: Private/ExternalRuntimeLifecycle.ps1
     responsibilities:
@@ -553,6 +563,15 @@ validation:
       - readiness
       - interactive_menu
       - atomic_port_allocation
+  static_external_runtime_windows:
+    command: '.\Tests\Static\Invoke-ExternalRuntimeWindowsChecks.ps1'
+    source: Tests/Static/Invoke-ExternalRuntimeWindowsChecks.ps1
+    covers:
+      - sha256_bound_offline_media
+      - deterministic_source_free_guest_plan
+      - python_r_and_java_guest_installation
+      - windows_java_ddl_and_jar_probe
+      - hyperv_state_recovery_and_sql_feature_gate
   static_mixed_provider_contracts:
     command: '.\Tests\Static\Invoke-MixedProviderLifecycleChecks.ps1'
     source: Tests/Static/Invoke-MixedProviderLifecycleChecks.ps1
@@ -653,6 +672,16 @@ validation:
       - no_sql_instance_in_os_baseline
       - scope_bound_cleanup
       - immutable_parent_after_cleanup
+  hyperv_external_runtime_acceptance:
+    source: Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1
+    command: '.\Tests\Integration\Invoke-ExternalRuntimeHyperVAcceptance.ps1 -RunId <existing-run-id>'
+    execution_status: "implementiert; positiver nativer Python-/R-/Java-Nachweis in einer erhoehten PowerShell-Sitzung ausstehend"
+    checks:
+      - sql_2022_advanced_analytics_feature
+      - offline_python_r_and_java_guest_installation
+      - python_r_and_java_external_script_roundtrip
+      - warm_restart_and_cold_start_postconditions
+      - sanitized_evidence_and_scope_bound_cleanup
   cli_acceptance:
     authority: Documentation/Quality/CLI_ACCEPTANCE_MATRIX.md
     container_source: Tests/Integration/Invoke-ContainerCliAcceptance.ps1
