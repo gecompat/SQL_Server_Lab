@@ -469,6 +469,13 @@ try {
             $sqlReadinessContract.Notes -notmatch [regex]::Escape($specializationPassword) -and
             $sqlReadinessContract.Notes -notmatch [regex]::Escape($sqlSaPasswordText)
         )
+    Add-CheckResult `
+        -Name 'SQL-Readiness verwendet unter Windows PowerShell 5.1 kanonische Connection-String-Keywords' `
+        -Success (
+            $provider -match "\`$builder\['Data Source'\]" -and
+            $provider -match "\`$builder\['Initial Catalog'\]" -and
+            $provider -notmatch '\$builder\.DataSource\s*='
+        )
 
     $pathContract = & $module {
         $runDirectory = Join-Path ([System.IO.Path]::GetTempPath()) 'sql-lab-hyperv-static-run'
