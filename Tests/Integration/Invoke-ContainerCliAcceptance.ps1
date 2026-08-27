@@ -27,6 +27,7 @@ $previousStateRoot = $env:SQL_SERVER_LAB_STATE
 $previousTestDataRoot = $env:SQL_SERVER_LAB_TEST_DATA_ROOT
 $lab = $null
 $saPlain = $null
+$sqlHost = '127.0.0.1'
 $completed = $false
 
 function Assert-Acceptance {
@@ -44,7 +45,7 @@ function ConvertFrom-AcceptanceSecureString {
 
 function Invoke-AcceptanceQuery {
     param([Parameter(Mandatory)][string]$Query, [string]$Database = 'master', [int]$Port = $lab.Instances[0].Port)
-    $output = @(& sqlcmd -S "127.0.0.1,$Port" -U sa -P $saPlain -C -b -d $Database -Q $Query -h -1 -W 2>&1)
+    $output = @(& sqlcmd -S "$sqlHost,$Port" -U sa -P $saPlain -C -b -d $Database -Q $Query -h -1 -W 2>&1)
     if ($LASTEXITCODE -ne 0) { throw "SQLCMD_FAILED: $(($output | ForEach-Object { [string]$_ }) -join "`n")" }
     return (($output | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ -and $_ -notmatch '^Changed database context' }) -join "`n")
 }
@@ -101,6 +102,7 @@ try {
         -SaPassword $saPassword -StateRoot $stateRoot -SkipAssessment
     Assert-Acceptance ($lab.State -eq 'Running') 'Lab wurde vollstaendig provisioniert'
     $instance = $lab.Instances[0]
+    $sqlHost = if ($instance.Host) { [string]$instance.Host } else { '127.0.0.1' }
     $containerName = [string]$instance.ContainerName
     $ownedVolumeNames = @((& $Provider inspect $containerName | ConvertFrom-Json -Depth 50).Mounts | Where-Object Type -eq volume | ForEach-Object Name)
 
@@ -166,6 +168,8 @@ GO
             -ReadinessTimeoutSeconds 180 -StateRoot $Root -Confirm:$false
     } $lab.RunId $newPort $stateRoot
     Assert-Acceptance ($reconcile.Recreated -and $reconcile.Port -eq $newPort) 'Hostport wurde durch kontrolliertes Container-Reconcile geaendert'
+    $databaseReadiness = Wait-LabDatabaseReady -HostName $sqlHost -Port $newPort -SaPassword $saPassword -Database CliStorageEvidence -TimeoutSeconds 180
+    Assert-Acceptance $databaseReadiness.Ready 'Eigene Testdatenbank ist nach dem Reconcile bereit'
     $persistentEvidence = Invoke-AcceptanceQuery 'SET NOCOUNT ON; SELECT Evidence FROM dbo.CliAcceptance WHERE Id=1;' -Database CliStorageEvidence -Port $newPort
     Assert-Acceptance ($persistentEvidence -eq 'persisted-before-reconcile') 'Daten, Mounts und Testdatenbank ueberstehen das Reconcile'
 
