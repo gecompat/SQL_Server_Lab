@@ -156,10 +156,14 @@ Add-CheckResult -Name 'External Runtimes verbieten freie command-Ausfuehrung im 
 
 $serverConfigSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/ServerConfig.ps1') -Raw -Encoding utf8
 $newLabSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/New-SqlServerLab.ps1') -Raw -Encoding utf8
-$planGuardPosition = $serverConfigSource.IndexOf('Resolve-LabExternalRuntimePlan')
-$providerMutationPosition = $serverConfigSource.LastIndexOf('Resolve-LabContainerProvider')
-Add-CheckResult -Name 'Legacy-Installer prueft den Softwareplan vor jeder Providermutation' -Success (
-    $planGuardPosition -ge 0 -and $providerMutationPosition -gt $planGuardPosition
+$legacyInstallerSource = [regex]::Match(
+    $serverConfigSource,
+    '(?s)function Install-LabExternalLanguages\s*\{.*?(?=\r?\nfunction\s|\z)'
+).Value
+Add-CheckResult -Name 'Legacy-Installer bleibt nach Katalogpruefung mutationsfrei deaktiviert' -Success (
+    $legacyInstallerSource -match 'Resolve-LabExternalRuntimePlan' -and
+    $legacyInstallerSource -match 'EXTERNAL_RUNTIME_LEGACY_POST_START_DISABLED' -and
+    $legacyInstallerSource -notmatch 'Resolve-LabContainerProvider|apt-get|&\s+\$runtime|mssql-conf|install\.packages|pip install'
 )
 Add-CheckResult -Name 'Provisionierung bindet SQL-Version und gespeicherten Provider an External Languages' -Success (
     $newLabSource -match '-SqlVersion\s+\$instance\.version' -and

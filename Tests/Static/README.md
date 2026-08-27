@@ -28,6 +28,7 @@ Container, Datenbanken oder Run-States.
 | `Invoke-ReconcileActionContractChecks.ps1` | Executor-Phasen für Reconcile-Aktionen inkl. `WhatIf`, unterstützte/unsupported-Pläne und Leak-Schutz | `.\Tests\Static\Invoke-ReconcileActionContractChecks.ps1` |
 | `Invoke-InstanceIntentChecks.ps1` | Providerneutrale Drive-, Network- und Software-Intents mit deklarativer Capability-Evidenz und Privacy-Grenze | `.\Tests\Static\Invoke-InstanceIntentChecks.ps1` |
 | `Invoke-SoftwareCatalogChecks.ps1` | Softwarekatalog, SQL-/OS-/Provider-Resolver, Package-/Integrity-Gates, Legacy-Grenze und sanitisiertes Receipt | `.\Tests\Static\Invoke-SoftwareCatalogChecks.ps1` |
+| `Invoke-ExternalRuntimeContainerImageChecks.ps1` | Derived-Image-Key, Rezept-/Lock-Konsistenz, sichere cgroup-/Capability-Grenze, Providerbindung, Retention und sanitisiertes Run-Receipt | `.\Tests\Static\Invoke-ExternalRuntimeContainerImageChecks.ps1` |
 | `Invoke-MixedProviderLifecycleChecks.ps1` | ProviderSubRun-State, gruppierter Lifecycle, Cleanup-Zuordnung und Mixed-Provider-Beispiel ohne Provider-Mutation | `.\Tests\Static\Invoke-MixedProviderLifecycleChecks.ps1` |
 
 Alle Skripte beenden sich bei einem fehlgeschlagenen Vertrag mit einem Exitcode

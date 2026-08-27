@@ -1,0 +1,56 @@
+ARG BASE_IMAGE=mcr.microsoft.com/mssql/server@sha256:ba4c8329f48fb8f02e1416be6a930ebfd71268caee78aa985f3af4315e457c89
+FROM ${BASE_IMAGE}
+
+ARG EXTENSIBILITY_DEB_URL=https://packages.microsoft.com/ubuntu/22.04/mssql-server-2022/pool/main/m/mssql-server-extensibility/mssql-server-extensibility_16.0.4265.3-1_amd64.deb
+ARG EXTENSIBILITY_DEB_SHA256=50df89ac3d1176f6227a9db46d1d8128cb3a326718515082f5ca161028610226
+ARG EXTENSIBILITY_DEB_VERSION=16.0.4265.3-1
+ARG EXTERNAL_RUNTIMES=python
+ARG IMAGE_KEY=characterization
+
+USER root
+
+RUN set -eux; \
+    test -n "${EXTENSIBILITY_DEB_URL}"; \
+    test -n "${EXTENSIBILITY_DEB_SHA256}"; \
+    test -n "${EXTENSIBILITY_DEB_VERSION}"; \
+    wget -q --https-only --secure-protocol=TLSv1_2 --timeout=30 --tries=3 \
+        "${EXTENSIBILITY_DEB_URL}" -O /tmp/mssql-server-extensibility.deb; \
+    echo "${EXTENSIBILITY_DEB_SHA256}  /tmp/mssql-server-extensibility.deb" | sha256sum --check --strict; \
+    test "$(dpkg-deb -f /tmp/mssql-server-extensibility.deb Version)" = "${EXTENSIBILITY_DEB_VERSION}"; \
+    dpkg --force-depends -i /tmp/mssql-server-extensibility.deb; \
+    rm -f /tmp/mssql-server-extensibility.deb; \
+    /opt/mssql/bin/checkinstallextensibility.sh; \
+    mkdir -p /var/opt/mssql-extensibility/data /var/opt/mssql-extensibility/log; \
+    chown -R mssql:root /var/opt/mssql-extensibility; \
+    chmod 0770 /var/opt/mssql-extensibility /var/opt/mssql-extensibility/data /var/opt/mssql-extensibility/log
+
+COPY launch-external-runtime.sh /opt/sql-server-lab/bin/launch-external-runtime.sh
+COPY python-wheels.lock /opt/sql-server-lab/locks/python-wheels.lock
+COPY install-python-runtime.sh /opt/sql-server-lab/bin/install-python-runtime.sh
+COPY install-python-wheels.py /opt/sql-server-lab/bin/install-python-wheels.py
+
+RUN set -eux; \
+    chmod 0755 /opt/sql-server-lab/bin/launch-external-runtime.sh /opt/sql-server-lab/bin/install-python-runtime.sh /opt/sql-server-lab/bin/install-python-wheels.py; \
+    case "${EXTERNAL_RUNTIMES}" in \
+        python) /opt/sql-server-lab/bin/install-python-runtime.sh /opt/sql-server-lab/locks/python-wheels.lock ;; \
+        *) echo "Unsupported external runtime set: ${EXTERNAL_RUNTIMES}" >&2; exit 64 ;; \
+    esac; \
+    /opt/mssql/bin/mssql-conf set EULA accepteulaml Y; \
+    /opt/mssql/bin/mssql-conf set extensibility pythonbinpath /usr/bin/python3.10; \
+    /opt/mssql/bin/mssql-conf set extensibility datadirectories /usr/lib:/usr/lib/python3.10/dist-packages
+
+USER mssql
+
+LABEL org.opencontainers.image.title="SQL Server Lab External Runtime" \
+      org.opencontainers.image.vendor="SQL_Server_Lab" \
+      sql-server-lab.external-runtime.contract="1.0" \
+      sql-server-lab.external-runtime.image-key="${IMAGE_KEY}" \
+      sql-server-lab.external-runtime.languages="${EXTERNAL_RUNTIMES}" \
+      sql-server-lab.external-runtime.launch-mode="sql2022-namespace-v1" \
+      sql-server-lab.external-runtime.required-cgroup-version="1" \
+      sql-server-lab.external-runtime.required-capabilities="SYS_ADMIN" \
+      sql-server-lab.external-runtime.namespace-isolation="true" \
+      sql-server-lab.external-runtime.outbound-access="false"
+
+ENTRYPOINT ["/opt/sql-server-lab/bin/launch-external-runtime.sh"]
+CMD ["/opt/mssql/bin/sqlservr"]
