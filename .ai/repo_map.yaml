@@ -289,8 +289,9 @@ internal_components:
     source: Private/ContainerImageArtifact.ps1
     recipe: Images/ExternalLanguages/Linux/recipe.json
     responsibilities:
-      - "providerneutralen Python-, R- oder kombinierten Image-Key aus Basisdigest, Varianten, Locks und Kontext-SHA-256 bilden"
+      - "providerneutralen Python-, R-, Java- oder kombinierten Image-Key aus Basisdigest, Varianten, Locks und Kontext-SHA-256 bilden"
       - "R 4.2.3 und RevoScaleR aus einem digestgebundenen Buildstage ohne Compiler im Zielimage bereitstellen"
+      - "Java 11, Language Extension 1.1.1, SDK und synthetisches Probe-JAR aus SHA-256-gebundenen Quellen reproduzierbar und compilerfrei bereitstellen"
       - "Docker- und Podman-Buildreceipts getrennt und ohne Hostpfade persistieren"
       - "cgroup-v1- und Namespace-Sicherheitsvertrag vor Container-Mutation erzwingen"
       - "wiederverwendbare Images außerhalb des normalen Run-Cleanups halten"
@@ -298,7 +299,8 @@ internal_components:
     source: Private/ExternalRuntimeLifecycle.ps1
     responsibilities:
       - "external scripts enabled aktivieren und den gebundenen Container kontrolliert neu starten"
-      - "launchpadd-Readiness und echte Python-/R-sp_execute_external_script-Postconditions prüfen"
+      - "launchpadd-Readiness und echte Python-/R-/Java-sp_execute_external_script-Postconditions prüfen"
+      - "Java-Sprache und -Libraries pro Zieldatenbank idempotent registrieren, Drift ablehnen und fehlgeschlagene Neuanlagen kompensieren"
       - "sanitisierte Runtime-Installation-Receipts im Run persistieren"
   - name: ResourceAssessment
     source: Private/ResourceAssessment.ps1

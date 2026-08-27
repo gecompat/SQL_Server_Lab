@@ -33,7 +33,7 @@
           "architecture": "x86_64",
           "providers": ["docker", "podman"],
           "installMethod": "derived-image",
-          "recipeVersion": "2",
+        "recipeVersion": "3",
           "requiresCapabilities": ["software-catalog-planning", "derived-image-build", "sql-external-runtime"],
           "sourceUrls": [
             "https://learn.microsoft.com/en-us/sql/linux/install-upgrade/setup-machine-learning-sql-2022?view=sql-server-ver17"
@@ -194,7 +194,7 @@
           "architecture": "x86_64",
           "providers": ["docker", "podman"],
           "installMethod": "derived-image",
-          "recipeVersion": "2",
+        "recipeVersion": "3",
           "requiresCapabilities": ["software-catalog-planning", "derived-image-build", "sql-external-runtime"],
           "sourceUrls": [
             "https://learn.microsoft.com/en-us/sql/linux/install-upgrade/setup-machine-learning-sql-2022?view=sql-server-ver17"
@@ -367,10 +367,10 @@
         {
           "id": "sql2022-java11-ubuntu2204-derived",
           "status": "PREVIEW",
-          "reason": "Extension-Binary-Build, JRE-/JAR-Locks und native Docker-/Podman-Evidence fehlen.",
+          "reason": "Der reproduzierbare Java-Derived-Image-, DDL- und JAR-Probe-Pfad ist katalogisiert; getrennte native Docker-/Podman-Evidence im erforderlichen cgroup-v1-Namespace-Modus fehlt noch.",
           "language": "Java",
           "runtimeVersion": "11",
-          "extensionVersion": null,
+          "extensionVersion": "1.1.1",
           "sqlMajorVersions": [16],
           "minimumCu": null,
           "operatingSystem": "linux",
@@ -378,13 +378,122 @@
           "architecture": "x86_64",
           "providers": ["docker", "podman"],
           "installMethod": "derived-image",
-          "recipeVersion": "1",
+          "recipeVersion": "3",
           "requiresCapabilities": ["software-catalog-planning", "derived-image-build", "sql-external-runtime"],
           "sourceUrls": [
-            "https://learn.microsoft.com/en-us/sql/linux/install-upgrade/setup-language-extensions-java?view=sql-server-ver17"
+            "https://learn.microsoft.com/en-us/sql/linux/install-upgrade/setup-language-extensions-java?view=sql-server-ver17",
+            "https://github.com/microsoft/sql-server-language-extensions/releases/tag/Java-v1.1.1",
+            "https://learn.microsoft.com/en-us/java/openjdk/download"
           ],
-          "artifacts": [],
-          "packageLocks": [],
+          "artifacts": [
+            {
+              "id": "mssql-server-linux-2022-cu26",
+              "sourceType": "container-base",
+              "source": "oci://mcr.microsoft.com/mssql/server@sha256:ba4c8329f48fb8f02e1416be6a930ebfd71268caee78aa985f3af4315e457c89",
+              "version": "16.0.4265.3",
+              "sha256": "ba4c8329f48fb8f02e1416be6a930ebfd71268caee78aa985f3af4315e457c89",
+              "integrityOrigin": "Microsoft Container Registry manifest digest",
+              "license": "Microsoft SQL Server container EULA"
+            },
+            {
+              "id": "mssql-server-extensibility",
+              "sourceType": "os-package",
+              "source": "https://packages.microsoft.com/ubuntu/22.04/mssql-server-2022/pool/main/m/mssql-server-extensibility/mssql-server-extensibility_16.0.4265.3-1_amd64.deb",
+              "version": "16.0.4265.3-1",
+              "sha256": "50df89ac3d1176f6227a9db46d1d8128cb3a326718515082f5ca161028610226",
+              "integrityOrigin": "SHA-256 verified against the downloaded Microsoft package on 2026-08-27",
+              "license": "Microsoft SQL Server Machine Learning Services EULA"
+            },
+            {
+              "id": "msopenjdk-11",
+              "sourceType": "os-package",
+              "source": "https://packages.microsoft.com/ubuntu/22.04/prod/pool/main/m/msopenjdk-11/msopenjdk-11_11.0.32-1_amd64.deb",
+              "version": "11.0.32-1",
+              "sha256": "ee8cf54a79360a72833c9170702ed0cb6bfe3a7888e26263ec361521295c5521",
+              "integrityOrigin": "Microsoft Ubuntu 22.04 repository package index SHA-256",
+              "license": "GPL-2.0-only WITH Classpath-exception-2.0"
+            },
+            {
+              "id": "java-language-extension",
+              "sourceType": "archive",
+              "source": "https://github.com/microsoft/sql-server-language-extensions/releases/download/Java-v1.1.1/java-lang-extension-linux-release.zip",
+              "version": "1.1.1",
+              "sha256": "4c39905999bcf0eb3a3f7e35126734c0b2a0f326daf9b3d278686e4cb0bbb83d",
+              "integrityOrigin": "SHA-256 verified against the Microsoft GitHub release asset on 2026-08-27",
+              "license": "MIT"
+            },
+            {
+              "id": "java-sdk-dataset-source",
+              "sourceType": "archive",
+              "source": "https://raw.githubusercontent.com/microsoft/sql-server-language-extensions/Java-v1.1.1/language-extensions/java/sdk/src/java/main/java/com/microsoft/sqlserver/javalangextension/AbstractSqlServerExtensionDataset.java",
+              "version": "1.1.1",
+              "sha256": "90a27a27f29ab1be2145bbba5aa25ac1e3bad947d1d5abe86a37c758e81ea8b9",
+              "integrityOrigin": "SHA-256 verified against the immutable Java-v1.1.1 tag on 2026-08-27",
+              "license": "MIT"
+            },
+            {
+              "id": "java-sdk-executor-source",
+              "sourceType": "archive",
+              "source": "https://raw.githubusercontent.com/microsoft/sql-server-language-extensions/Java-v1.1.1/language-extensions/java/sdk/src/java/main/java/com/microsoft/sqlserver/javalangextension/AbstractSqlServerExtensionExecutor.java",
+              "version": "1.1.1",
+              "sha256": "6e583683286609faa7343e27867a687d6eb76a3f9d8686fbebcc7b420de0337e",
+              "integrityOrigin": "SHA-256 verified against the immutable Java-v1.1.1 tag on 2026-08-27",
+              "license": "MIT"
+            },
+            {
+              "id": "java-sdk-primitive-source",
+              "sourceType": "archive",
+              "source": "https://raw.githubusercontent.com/microsoft/sql-server-language-extensions/Java-v1.1.1/language-extensions/java/sdk/src/java/main/java/com/microsoft/sqlserver/javalangextension/PrimitiveDataset.java",
+              "version": "1.1.1",
+              "sha256": "98c70afbf333c5752b7811e1b401355555217896d0581f5deee6be5cdd8cc6b3",
+              "integrityOrigin": "SHA-256 verified against the immutable Java-v1.1.1 tag on 2026-08-27",
+              "license": "MIT"
+            },
+            {
+              "id": "mssql-java-lang-extension-linux",
+              "sourceType": "generated",
+              "source": "repository://Images/ExternalLanguages/Linux/java-artifacts.lock",
+              "version": "1.1.1",
+              "sha256": "087ef4e0d1b9bee661c7fed19cbb01a17c7c2a2a341a4bc178c1205bae4d0f00",
+              "integrityOrigin": "Reproducibly compiled with locked Microsoft OpenJDK 11.0.32-1 from the three SHA-256-bound Java-v1.1.1 SDK sources",
+              "license": "MIT"
+            },
+            {
+              "id": "sql-server-lab-java-probe",
+              "sourceType": "generated",
+              "source": "repository://Images/ExternalLanguages/Linux/java/SqlServerLabExternalRuntimeProbe.java",
+              "version": "1.0.0",
+              "sha256": "e9604092b910fbc52d084d3c66ec55e3d2920cc703b382f8d4c865677b5910a0",
+              "integrityOrigin": "Deterministic Java 8 bytecode and timestamp-normalized JAR built with locked Microsoft OpenJDK 11.0.32-1",
+              "license": "SQL_Server_Lab Attribution & Non-Commercial Redistribution (LICENCE.md)"
+            }
+          ],
+          "packageLocks": [
+            {
+              "name": "msopenjdk-11",
+              "version": "11.0.32-1",
+              "sha256": "ee8cf54a79360a72833c9170702ed0cb6bfe3a7888e26263ec361521295c5521",
+              "source": "https://packages.microsoft.com/ubuntu/22.04/prod/pool/main/m/msopenjdk-11/msopenjdk-11_11.0.32-1_amd64.deb"
+            },
+            {
+              "name": "java-language-extension",
+              "version": "1.1.1",
+              "sha256": "4c39905999bcf0eb3a3f7e35126734c0b2a0f326daf9b3d278686e4cb0bbb83d",
+              "source": "https://github.com/microsoft/sql-server-language-extensions/releases/download/Java-v1.1.1/java-lang-extension-linux-release.zip"
+            },
+            {
+              "name": "mssql-java-lang-extension-linux",
+              "version": "1.1.1",
+              "sha256": "087ef4e0d1b9bee661c7fed19cbb01a17c7c2a2a341a4bc178c1205bae4d0f00",
+              "source": "https://github.com/microsoft/sql-server-language-extensions/tree/Java-v1.1.1/language-extensions/java/sdk"
+            },
+            {
+              "name": "sql-server-lab-java-probe",
+              "version": "1.0.0",
+              "sha256": "e9604092b910fbc52d084d3c66ec55e3d2920cc703b382f8d4c865677b5910a0",
+              "source": "https://github.com/gecompat/SQL_Server_Lab/blob/main/Images/ExternalLanguages/Linux/java/SqlServerLabExternalRuntimeProbe.java"
+            }
+          ],
           "restart": { "sqlServer": true, "launchpad": true, "guest": false },
           "validation": {
             "type": "spExecuteExternalScript",
