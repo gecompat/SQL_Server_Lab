@@ -489,7 +489,7 @@ function New-HyperVSqlImageBuildPlan {
     $sha256 = (Get-FileHash -LiteralPath $resolvedIso -Algorithm SHA256).Hash.ToLowerInvariant()
     if ($sha256 -ne $ExpectedSha256.ToLowerInvariant()) { throw 'HYPERV_SQL_MEDIA_INTEGRITY_MISMATCH' }
     $normalizedFeatures = @($SqlFeatures | ForEach-Object { ([string]$_).ToUpperInvariant() } | Sort-Object -Unique)
-    if ($normalizedFeatures.Count -eq 0 -or @($normalizedFeatures | Where-Object { $_ -notin @('SQLENGINE', 'FULLTEXT', 'REPLICATION') }).Count -gt 0) {
+    if ($normalizedFeatures.Count -eq 0 -or @($normalizedFeatures | Where-Object { $_ -notin @('SQLENGINE', 'FULLTEXT', 'REPLICATION', 'ADVANCEDANALYTICS') }).Count -gt 0) {
         throw 'HYPERV_SQL_FEATURES_UNSUPPORTED'
     }
 
@@ -573,7 +573,7 @@ function New-HyperVSqlFreshImageBuildPlan {
     if ($windowsSha256 -ne $ExpectedWindowsSha256.ToLowerInvariant()) { throw 'HYPERV_SQL_WINDOWS_MEDIA_INTEGRITY_MISMATCH' }
     if ($sqlSha256 -ne $ExpectedSqlSha256.ToLowerInvariant()) { throw 'HYPERV_SQL_MEDIA_INTEGRITY_MISMATCH' }
     $features = @($SqlFeatures | ForEach-Object { ([string]$_).ToUpperInvariant() } | Sort-Object -Unique)
-    if ($features.Count -eq 0 -or @($features | Where-Object { $_ -notin @('SQLENGINE', 'FULLTEXT', 'REPLICATION') }).Count -gt 0) {
+    if ($features.Count -eq 0 -or @($features | Where-Object { $_ -notin @('SQLENGINE', 'FULLTEXT', 'REPLICATION', 'ADVANCEDANALYTICS') }).Count -gt 0) {
         throw 'HYPERV_SQL_FEATURES_UNSUPPORTED'
     }
 

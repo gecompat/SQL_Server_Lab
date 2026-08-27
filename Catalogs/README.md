@@ -83,6 +83,13 @@ Artefaktvollständigkeit und ein erfolgreicher lokaler Image-Build allein heben
 den Status nicht an: Docker und Podman benötigen je eine echte Native
 Acceptance im sicheren `sql2022-namespace-v1`-Modus.
 
+Die Windows-Varianten binden Python- und R-Installer samt Offlinepaketen sowie
+Microsoft OpenJDK 17.0.20.1, Java Language Extension 1.1.0, das darin
+enthaltene SDK und die Probe-Quelle vollständig per SHA-256. Der Gast erzeugt
+das Probe-JAR reproduzierbar und prüft alle katalogisierten Hashes. Auch hier bleibt
+`PREVIEW` bestehen, bis der echte Hyper-V-Runner alle drei External-Script-
+Roundtrips nach Installation und Cold Start positiv belegt.
+
 Freie Installationsbefehle und nicht katalogisierte Zusatzpakete sind für
 External Runtimes nicht zulässig. Der geheimnisfreie Desired State enthält nur
 IDs, Versionen, Hashes, Rezept- und Postcondition-Metadaten, aber keine
