@@ -1,0 +1,202 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SQL_Server_Lab Software Catalog",
+  "type": "object",
+  "required": ["contract", "catalogMetadata", "software"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "contract": {
+      "type": "object",
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "const": "SqlServerLab.SoftwareCatalog" },
+        "version": { "const": "1.0" }
+      },
+      "additionalProperties": false
+    },
+    "catalogMetadata": {
+      "type": "object",
+      "required": ["lastVerified", "sources"],
+      "properties": {
+        "lastVerified": { "type": "string", "format": "date" },
+        "sources": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "format": "uri" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "software": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/software" }
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "software": {
+      "type": "object",
+      "required": ["id", "kind", "displayName", "variants"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "enum": ["sql-python", "sql-r", "sql-java"]
+        },
+        "kind": { "const": "sqlExternalRuntime" },
+        "displayName": { "type": "string", "minLength": 1 },
+        "variants": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/definitions/variant" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "variant": {
+      "type": "object",
+      "required": [
+        "id", "status", "language", "runtimeVersion", "sqlMajorVersions",
+        "operatingSystem", "distributions", "architecture", "providers",
+        "installMethod", "recipeVersion", "requiresCapabilities", "sourceUrls",
+        "artifacts", "packageLocks", "restart", "validation"
+      ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9.-]+$" },
+        "status": {
+          "type": "string",
+          "enum": ["SUPPORTED", "PREVIEW", "DEPRECATED", "RETIRED", "BLOCKED"]
+        },
+        "reason": { "type": "string", "minLength": 1 },
+        "language": { "type": "string", "enum": ["Python", "R", "Java"] },
+        "runtimeVersion": { "type": "string", "minLength": 1 },
+        "extensionVersion": { "type": ["string", "null"] },
+        "sqlMajorVersions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "integer", "minimum": 15, "maximum": 17 }
+        },
+        "minimumCu": { "type": ["integer", "null"], "minimum": 1 },
+        "operatingSystem": { "type": "string", "enum": ["linux", "windows"] },
+        "distributions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "architecture": { "const": "x86_64" },
+        "providers": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "enum": ["docker", "podman", "hyperv"] }
+        },
+        "installMethod": {
+          "type": "string",
+          "enum": ["derived-image", "guest-offline-media"]
+        },
+        "recipeVersion": { "type": "string", "pattern": "^[1-9][0-9]*$" },
+        "requiresCapabilities": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "sourceUrls": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "format": "uri" }
+        },
+        "artifacts": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/artifact" }
+        },
+        "packageLocks": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/packageLock" }
+        },
+        "restart": {
+          "type": "object",
+          "required": ["sqlServer", "launchpad", "guest"],
+          "properties": {
+            "sqlServer": { "type": "boolean" },
+            "launchpad": { "type": "boolean" },
+            "guest": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        },
+        "validation": {
+          "type": "object",
+          "required": ["type", "language", "probeId", "expectedRuntimeVersion"],
+          "properties": {
+            "type": { "const": "spExecuteExternalScript" },
+            "language": { "type": "string", "enum": ["Python", "R", "Java"] },
+            "probeId": { "type": "string", "pattern": "^[a-z][a-z0-9-]+$" },
+            "expectedRuntimeVersion": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "SUPPORTED" } } },
+          "then": {
+            "properties": {
+              "artifacts": {
+                "minItems": 1,
+                "items": {
+                  "allOf": [
+                    { "$ref": "#/definitions/artifact" },
+                    {
+                      "properties": {
+                        "version": { "type": "string", "minLength": 1 },
+                        "sha256": { "type": "string", "pattern": "^[A-Fa-f0-9]{64}$" },
+                        "integrityOrigin": { "type": "string", "minLength": 1 }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "else": { "required": ["reason"] }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["id", "sourceType", "version", "sha256", "integrityOrigin", "license"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]+$" },
+        "sourceType": {
+          "type": "string",
+          "enum": ["os-package", "archive", "installer", "container-base"]
+        },
+        "version": { "type": ["string", "null"] },
+        "sha256": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "string", "pattern": "^[A-Fa-f0-9]{64}$" }
+          ]
+        },
+        "integrityOrigin": { "type": ["string", "null"] },
+        "license": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "packageLock": {
+      "type": "object",
+      "required": ["name", "version", "sha256", "source"],
+      "properties": {
+        "name": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]+$" },
+        "version": { "type": "string", "minLength": 1 },
+        "sha256": { "type": "string", "pattern": "^[A-Fa-f0-9]{64}$" },
+        "source": { "type": "string", "format": "uri" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -8,6 +8,7 @@ Die Kataloge sind maschinenlesbare Runtimeeingaben. Änderungen müssen mit Sche
 |---|---|---|
 | `sql-server-versions.json` | SQL-Server-Versionen, Major Version, Compatibility Level, Status, Images, CU-Builds und Ressourcenprofile | `../Schemas/version-catalog.schema.json` |
 | `sample-databases.json` | Metadaten öffentlicher Testdatenbanken, Varianten, Lizenzen, URLs und Mindestversionen | `sample-databases.schema.json` → `../Schemas/sample-databases.schema.json` |
+| `software.json` | Providerneutrale SQL-bezogene Software- und External-Runtime-Varianten mit Support-, Integrity- und Verification-Metadaten | `../Schemas/software-catalog.schema.json` |
 
 ## Versionskatalog
 
@@ -59,6 +60,22 @@ Vereinfachte Struktur:
 6. README, Known Limitations und Changelog prüfen.
 
 Der Katalog wird nicht automatisch aktuell gehalten. Build- und CU-Angaben müssen fachlich verifiziert werden.
+
+## Softwarekatalog
+
+`software.json` trennt die deklarative Anforderung von der konkreten
+Installation. Der Resolver bindet SQL-Major-Version, Betriebssystem,
+Architektur und Provider an genau eine Variante. Eine Variante ist erst
+`SUPPORTED`, wenn alle erforderlichen Artefakte mit Version, SHA-256 und
+Herkunft gebunden sind und der Provider die notwendigen Capabilities
+deklariert. Die vorbereiteten SQL-2022-Varianten für Python, R und Java bleiben
+bis zum Derived-Image- beziehungsweise Hyper-V-Nachweis `PREVIEW` und werden
+vor jeder Mutation als `DECLARED_UNSUPPORTED` abgelehnt.
+
+Freie Installationsbefehle und nicht katalogisierte Zusatzpakete sind für
+External Runtimes nicht zulässig. Der geheimnisfreie Desired State enthält nur
+IDs, Versionen, Hashes, Rezept- und Postcondition-Metadaten, aber keine
+Download- oder lokalen Gastpfade.
 
 ## Sample-Datenbank-Katalog
 

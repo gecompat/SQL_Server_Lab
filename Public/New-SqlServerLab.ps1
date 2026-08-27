@@ -741,9 +741,11 @@ function New-SqlServerLab {
                 $null = Install-LabExternalLanguages `
                     -ContainerName $labInstance.ContainerName `
                     -Config $instance.serverConfig.externalScripts `
+                    -SqlVersion $instance.version `
                     -HostName $labInstance.Host `
                     -Port $labInstance.Port `
-                    -SaPassword $SaPassword
+                    -SaPassword $SaPassword `
+                    -Provider $instance.provider
             }
         }
 

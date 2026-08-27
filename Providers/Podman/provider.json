@@ -11,7 +11,8 @@
     "managed-lab-network",
     "isolated-network",
     "resource-limits",
-    "rootless"
+    "rootless",
+    "software-catalog-planning"
   ],
   "limitations": [
     "no-gui",

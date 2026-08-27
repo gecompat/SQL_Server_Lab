@@ -677,7 +677,9 @@ function Get-LabManifestValidationResult {
                 }
             }
         }
-        elseif ($instance.software) {
+        elseif (@($instance.software | Where-Object {
+            $_ -and [string]$_.id -notin @('sql-python', 'sql-r', 'sql-java')
+        }).Count -gt 0) {
             $errors.Add("$instancePath.software: Software-Installationen benötigen den Hyper-V-Manifestpfad.")
         }
 
@@ -699,6 +701,35 @@ function Get-LabManifestValidationResult {
         }
 
         $versionDefinition = Get-SqlServerVersion -VersionId $instance.version
+        if ($effectiveProvider -in @('docker', 'podman', 'hyperv')) {
+            try {
+                $runtimeRequests = @(ConvertTo-LabExternalRuntimeRequests `
+                    -Software @($instance.software) `
+                    -ExternalScripts $(if ($instance.serverConfig) { $instance.serverConfig.externalScripts } else { $null }))
+                $effectiveOperatingSystem = if ($instance.os) {
+                    [string]$instance.os
+                }
+                elseif ($effectiveProvider -eq 'hyperv') {
+                    'windows'
+                }
+                else {
+                    'linux'
+                }
+                foreach ($runtimeRequest in $runtimeRequests) {
+                    $runtimePlan = Resolve-LabExternalRuntimePlan `
+                        -SoftwareItem $runtimeRequest `
+                        -SqlVersion ([string]$instance.version) `
+                        -Provider $effectiveProvider `
+                        -OperatingSystem $effectiveOperatingSystem
+                    if ([string]$runtimePlan.Status -ne 'RESOLVED') {
+                        $errors.Add("$instancePath.software[$($runtimePlan.SoftwareId)]: $($runtimePlan.ReasonCode) - $($runtimePlan.Reason)")
+                    }
+                }
+            }
+            catch {
+                $errors.Add("$instancePath.software: $($_.Exception.Message)")
+            }
+        }
         $databases = @($instance.databases | Where-Object { $null -ne $_ })
         $databaseNames = @($databases | ForEach-Object { [string]$_.name })
         foreach ($duplicateDatabase in @($databaseNames | Group-Object | Where-Object Count -gt 1)) {
