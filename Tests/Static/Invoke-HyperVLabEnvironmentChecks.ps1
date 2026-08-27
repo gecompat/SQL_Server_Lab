@@ -308,6 +308,9 @@ try {
         $regionGeoIds.Austria -ne $regionGeoIds.Germany
     )
     $environmentText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private\HyperVLabEnvironment.ps1') -Raw -Encoding utf8
+    Add-CheckResult -Name 'Windows-Input-Locale-Receipt liest den InputMethodTip statt des WinKeyboardInfo-Typnamens' -Success (
+        $environmentText -match '\(Get-WinDefaultInputMethodOverride\)\.InputMethodTip'
+    )
     Add-CheckResult -Name 'SQL CompleteImage wertet den Gast-Exit-Code als Integer aus' -Success (
         $environmentText -match '\$exitCode = \[int\]\$process\.ExitCode' -and
         $environmentText -match '\$exitCode -ne 0 -and \$exitCode -ne 3010'
