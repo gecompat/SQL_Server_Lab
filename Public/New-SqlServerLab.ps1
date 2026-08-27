@@ -62,10 +62,26 @@ function New-LabProviderContainer {
         [Parameter(Mandatory)]$Instance,
         [Parameter(Mandatory)]$RunState,
         [Parameter(Mandatory)][SecureString]$SaPassword,
-        [int]$Port = 0
+        [int]$Port = 0,
+        $ContainerImageArtifact
     )
 
     $labName = Resolve-LabRuntimeName -RunState $RunState
+    $resolvedImage = $null
+    $externalRuntimeLaunchMode = 'none'
+    if ($ContainerImageArtifact) {
+        if (-not $ContainerImageArtifact.Contract -or
+            [string]$ContainerImageArtifact.Contract.Name -ne 'SqlServerLab.ExternalRuntimeContainerImageArtifact' -or
+            [string]$ContainerImageArtifact.Contract.Version -ne '1.0' -or
+            [string]$ContainerImageArtifact.Provider -ne [string]$Instance.provider -or
+            [string]$ContainerImageArtifact.ImageKey -notmatch '^[a-f0-9]{64}$' -or
+            [string]$ContainerImageArtifact.LaunchMode -ne 'sql2022-namespace-v1' -or
+            (@($ContainerImageArtifact.RequiredLinuxCapabilities) -join ',') -ne 'SYS_ADMIN') {
+            throw "EXTERNAL_RUNTIME_CONTAINER_IMAGE_ARTIFACT_INVALID: $($Instance.id)"
+        }
+        $resolvedImage = [string]$ContainerImageArtifact.Image
+        $externalRuntimeLaunchMode = [string]$ContainerImageArtifact.LaunchMode
+    }
 
     switch ($Instance.provider) {
         'docker' {
@@ -83,7 +99,9 @@ function New-LabProviderContainer {
                 -Cpu $Instance.runtimeResources.cpu `
                 -MemoryMB $Instance.runtimeResources.memoryMB `
                 -AutoStart $Instance.autostart `
-                -Collation $Instance.collation
+                -Collation $Instance.collation `
+                -ResolvedImage $resolvedImage `
+                -ExternalRuntimeLaunchMode $externalRuntimeLaunchMode
         }
         'podman' {
             return New-PodmanInstance `
@@ -100,7 +118,9 @@ function New-LabProviderContainer {
                 -Cpu $Instance.runtimeResources.cpu `
                 -MemoryMB $Instance.runtimeResources.memoryMB `
                 -AutoStart $Instance.autostart `
-                -Collation $Instance.collation
+                -Collation $Instance.collation `
+                -ResolvedImage $resolvedImage `
+                -ExternalRuntimeLaunchMode $externalRuntimeLaunchMode
         }
         default {
             throw "Provider '$($Instance.provider)' ist noch nicht implementiert."
@@ -431,6 +451,26 @@ function New-SqlServerLab {
     Write-LabInfo "Umgebung: $($resolved.name) ($($resolved.instances.Count) Instanz(en))"
 
     $providers = @($resolved.instances | ForEach-Object { $_.provider } | Sort-Object -Unique)
+    $externalRuntimePlansByInstance = @{}
+    $externalRuntimeImagePlansByInstance = @{}
+    foreach ($instance in $resolved.instances) {
+        $softwarePlans = @(Resolve-LabExternalRuntimePlansForInstance -Instance $instance)
+        $externalRuntimePlansByInstance[[string]$instance.id] = $softwarePlans
+        $rejectedPlans = @($softwarePlans | Where-Object { [string]$_.Status -ne 'RESOLVED' })
+        if ($rejectedPlans.Count -gt 0) {
+            $rejected = $rejectedPlans[0]
+            throw "EXTERNAL_RUNTIME_PLAN_REJECTED: $($instance.id) / $($rejected.SoftwareId) / $($rejected.ReasonCode) - $($rejected.Reason)"
+        }
+        if ($softwarePlans.Count -gt 0 -and [string]$instance.provider -in @('docker', 'podman')) {
+            $imagePlan = New-LabExternalRuntimeContainerImagePlan -Provider ([string]$instance.provider) `
+                -SqlVersion ([string]$instance.version) -SoftwarePlans $softwarePlans
+            $hostStatus = Test-LabExternalRuntimeContainerHost -Provider ([string]$instance.provider) -ImagePlan $imagePlan
+            if ([string]$hostStatus.Status -ne 'READY') {
+                throw "EXTERNAL_RUNTIME_CONTAINER_HOST_REJECTED: $($instance.id) / $($hostStatus.Status) - $($hostStatus.Reason)"
+            }
+            $externalRuntimeImagePlansByInstance[[string]$instance.id] = $imagePlan
+        }
+    }
 
     # Ein Manifest kann eine reguläre Hyper-V-Lab-VM vollständig aus einem
     # bereits veröffentlichten OS_SEALED- oder SQL_PREPARED_SEALED-Image
@@ -644,6 +684,16 @@ function New-SqlServerLab {
             -Reason 'Provider-Start' `
             -StateRoot $effectiveStateRoot
 
+        $containerImageArtifactsByInstance = @{}
+        foreach ($instance in @($resolved.instances | Where-Object {
+            $externalRuntimeImagePlansByInstance.ContainsKey([string]$_.id)
+        })) {
+            Write-LabInfo "Derived External-Runtime-Image für '$($instance.id)' aufbauen oder wiederverwenden..."
+            $containerImageArtifactsByInstance[[string]$instance.id] = Invoke-LabExternalRuntimeContainerImageBuild `
+                -ImagePlan $externalRuntimeImagePlansByInstance[[string]$instance.id] `
+                -StateRoot $effectiveStateRoot
+        }
+
         $labInstances = @()
 
         foreach ($instance in $resolved.instances) {
@@ -658,7 +708,8 @@ function New-SqlServerLab {
                     -Instance $instance `
                     -RunState $runState `
                     -SaPassword $SaPassword `
-                    -Port $Port
+                    -Port $Port `
+                    -ContainerImageArtifact $containerImageArtifactsByInstance[[string]$instance.id]
 
                 $containerHost = if ([string]$container.Provider -eq 'podman') {
                     Resolve-PodmanWindowsHostName
@@ -707,6 +758,19 @@ function New-SqlServerLab {
                 ContainerName    = $container.ContainerName
                 ConnectionString = New-SqlConnectionString -HostName $containerHost -Port $container.Port
                 Databases        = @()
+                ExternalRuntime  = if ($containerImageArtifactsByInstance.ContainsKey([string]$instance.id)) {
+                    $artifact = $containerImageArtifactsByInstance[[string]$instance.id]
+                    $imagePlan = $externalRuntimeImagePlansByInstance[[string]$instance.id]
+                    [PSCustomObject]@{
+                        ImageKey = [string]$artifact.ImageKey
+                        LaunchMode = [string]$artifact.LaunchMode
+                        VariantIds = @($imagePlan.VariantIds)
+                        Languages = @($imagePlan.Languages)
+                        Status = 'IMAGE_READY'
+                        Receipts = @()
+                    }
+                }
+                else { $null }
                 Status           = 'Running'
             }
         }
@@ -736,17 +800,31 @@ function New-SqlServerLab {
                 -SaPassword $SaPassword `
                 -ContainerName $labInstance.ContainerName
 
-            if ($instance.serverConfig.externalScripts -and $instance.serverConfig.externalScripts.languages) {
-                Write-LabInfo "External Languages auf '$($instance.id)' installieren..."
-                $null = Install-LabExternalLanguages `
-                    -ContainerName $labInstance.ContainerName `
-                    -Config $instance.serverConfig.externalScripts `
-                    -SqlVersion $instance.version `
-                    -HostName $labInstance.Host `
-                    -Port $labInstance.Port `
-                    -SaPassword $SaPassword `
-                    -Provider $instance.provider
-            }
+        }
+
+        foreach ($instance in @($resolved.instances | Where-Object {
+            @($externalRuntimePlansByInstance[[string]$_.id]).Count -gt 0
+        })) {
+            $labInstance = $labInstances |
+                Where-Object { $_.Id -eq $instance.id } |
+                Select-Object -First 1
+            Write-LabInfo "External Runtimes auf '$($instance.id)' aktivieren und über SQL verifizieren..."
+            $softwareReceipts = @(Initialize-LabExternalRuntimes `
+                -SoftwarePlans @($externalRuntimePlansByInstance[[string]$instance.id]) `
+                -LabInstance $labInstance `
+                -ImageArtifact $containerImageArtifactsByInstance[[string]$instance.id] `
+                -SaPassword $SaPassword `
+                -RunDirectory $runState.RunDir)
+            $labInstance.ExternalRuntime.Status = 'EXTENSIONS_READY_RUN'
+            $labInstance.ExternalRuntime.Receipts = @($softwareReceipts | ForEach-Object {
+                [PSCustomObject]@{
+                    SoftwareId = [string]$_.SoftwareId
+                    VariantId = [string]$_.VariantId
+                    RuntimeVersion = [string]$_.RuntimeVersion
+                    Status = [string]$_.Status
+                    CompletedAt = [string]$_.CompletedAt
+                }
+            })
         }
 
         $createdDatabaseCount = 0
@@ -935,6 +1013,7 @@ function New-SqlServerLab {
                     connectionString = $_.ConnectionString
                     databases        = @($_.Databases)
                     persistentStorage = $_.PersistentStorage
+                    externalRuntime  = $_.ExternalRuntime
                 }
             })
         }

@@ -22,7 +22,7 @@
         {
           "id": "sql2022-python310-ubuntu2204-derived",
           "status": "PREVIEW",
-          "reason": "Derived-Image-Handler, vollständige Artifact Locks und native Docker-/Podman-Evidence fehlen.",
+          "reason": "Der reproduzierbare Derived-Image-Pfad ist katalogisiert; getrennte native Docker-/Podman-Evidence im erforderlichen cgroup-v1-Namespace-Modus fehlt noch.",
           "language": "Python",
           "runtimeVersion": "3.10",
           "extensionVersion": "SQL Server 2022 Machine Learning Services",
@@ -38,8 +38,104 @@
           "sourceUrls": [
             "https://learn.microsoft.com/en-us/sql/linux/install-upgrade/setup-machine-learning-sql-2022?view=sql-server-ver17"
           ],
-          "artifacts": [],
-          "packageLocks": [],
+          "artifacts": [
+            {
+              "id": "mssql-server-linux-2022-cu26",
+              "sourceType": "container-base",
+              "source": "oci://mcr.microsoft.com/mssql/server@sha256:ba4c8329f48fb8f02e1416be6a930ebfd71268caee78aa985f3af4315e457c89",
+              "version": "16.0.4265.3",
+              "sha256": "ba4c8329f48fb8f02e1416be6a930ebfd71268caee78aa985f3af4315e457c89",
+              "integrityOrigin": "Microsoft Container Registry manifest digest",
+              "license": "Microsoft SQL Server container EULA"
+            },
+            {
+              "id": "mssql-server-extensibility",
+              "sourceType": "os-package",
+              "source": "https://packages.microsoft.com/ubuntu/22.04/mssql-server-2022/pool/main/m/mssql-server-extensibility/mssql-server-extensibility_16.0.4265.3-1_amd64.deb",
+              "version": "16.0.4265.3-1",
+              "sha256": "50df89ac3d1176f6227a9db46d1d8128cb3a326718515082f5ca161028610226",
+              "integrityOrigin": "SHA-256 verified against the downloaded Microsoft package on 2026-08-27",
+              "license": "Microsoft SQL Server Machine Learning Services EULA"
+            },
+            {
+              "id": "revoscalepy",
+              "sourceType": "archive",
+              "source": "https://aka.ms/sqlml/python3.10/linux/revoscalepy-10.0.1-py3-none-any.whl",
+              "version": "10.0.1",
+              "sha256": "0afa1edbab44b4af36cbe4d4136d394073548468254d7d8e98a171de8215c6ae",
+              "integrityOrigin": "SHA-256 verified against the Microsoft download on 2026-08-27",
+              "license": "Microsoft Machine Learning components license"
+            },
+            {
+              "id": "numpy",
+              "sourceType": "archive",
+              "source": "https://files.pythonhosted.org/packages/5b/9a/cce6992d25096371412f1a58e5c50f144299261d01dfc4c00fd563a589e7/numpy-1.22.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+              "version": "1.22.0",
+              "sha256": "a97e82c39d9856fe7d4f9b86d8a1e66eff99cf3a8b7ba48202f659703d27c46f",
+              "integrityOrigin": "PyPI release-file SHA-256",
+              "license": "BSD-3-Clause"
+            },
+            {
+              "id": "pandas",
+              "sourceType": "archive",
+              "source": "https://files.pythonhosted.org/packages/ab/80/c3def79fb1c8a4c5a91d1efa5f611e81529bbab947ac1e9fcd736fd4dcc3/pandas-1.4.2-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+              "version": "1.4.2",
+              "sha256": "5b79af3a69e5175c6fa7b4e046b21a646c8b74e92c6581a9d825687d92071b51",
+              "integrityOrigin": "PyPI release-file SHA-256",
+              "license": "BSD-3-Clause"
+            },
+            {
+              "id": "dill",
+              "sourceType": "archive",
+              "source": "https://files.pythonhosted.org/packages/12/ff/3b1a8f5d59600393506c64fa14d13afdfe6fe79ed65a18d64026fe9f8356/dill-0.3.5.1-py2.py3-none-any.whl",
+              "version": "0.3.5.1",
+              "sha256": "33501d03270bbe410c72639b350e941882a8b0fd55357580fbc873fba0c59302",
+              "integrityOrigin": "PyPI release-file SHA-256",
+              "license": "BSD-3-Clause"
+            },
+            {
+              "id": "patsy",
+              "sourceType": "archive",
+              "source": "https://files.pythonhosted.org/packages/87/7f/d37cd027c25145eeba92b1a756976931c831803d92547c8637a3400c339f/patsy-0.5.2-py2.py3-none-any.whl",
+              "version": "0.5.2",
+              "sha256": "cc80955ae8c13a7e7c4051eda7b277c8f909f50bc7d73e124bc38e2ee3d95041",
+              "integrityOrigin": "PyPI release-file SHA-256",
+              "license": "BSD-2-Clause"
+            },
+            {
+              "id": "python-dateutil",
+              "sourceType": "archive",
+              "source": "https://files.pythonhosted.org/packages/36/7a/87837f39d0296e723bb9b62bbb257d0355c7f6128853c78955f57342a56d/python_dateutil-2.8.2-py2.py3-none-any.whl",
+              "version": "2.8.2",
+              "sha256": "961d03dc3453ebbc59dbdea9e4e11c5651520a876d0f4db161e8674aae935da9",
+              "integrityOrigin": "PyPI release-file SHA-256",
+              "license": "Apache-2.0 and BSD-3-Clause"
+            },
+            {
+              "id": "pytz",
+              "sourceType": "archive",
+              "source": "https://files.pythonhosted.org/packages/60/2e/dec1cc18c51b8df33c7c4d0a321b084cf38e1733b98f9d15018880fb4970/pytz-2022.1-py2.py3-none-any.whl",
+              "version": "2022.1",
+              "sha256": "e68985985296d9a66a881eb3193b0906246245294a881e7c8afe623866ac6a5c",
+              "integrityOrigin": "PyPI release-file SHA-256",
+              "license": "MIT"
+            },
+            {
+              "id": "six",
+              "sourceType": "archive",
+              "source": "https://files.pythonhosted.org/packages/d9/5a/e7c31adbe875f2abbb91bd84cf2dc52d792b5a01506781dbcf25c91daf11/six-1.16.0-py2.py3-none-any.whl",
+              "version": "1.16.0",
+              "sha256": "8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254",
+              "integrityOrigin": "PyPI release-file SHA-256",
+              "license": "MIT"
+            }
+          ],
+          "packageLocks": [
+            { "name": "numpy", "version": "1.22.0", "sha256": "a97e82c39d9856fe7d4f9b86d8a1e66eff99cf3a8b7ba48202f659703d27c46f", "source": "https://pypi.org/project/numpy/1.22.0/" },
+            { "name": "pandas", "version": "1.4.2", "sha256": "5b79af3a69e5175c6fa7b4e046b21a646c8b74e92c6581a9d825687d92071b51", "source": "https://pypi.org/project/pandas/1.4.2/" },
+            { "name": "dill", "version": "0.3.5.1", "sha256": "33501d03270bbe410c72639b350e941882a8b0fd55357580fbc873fba0c59302", "source": "https://pypi.org/project/dill/0.3.5.1/" },
+            { "name": "patsy", "version": "0.5.2", "sha256": "cc80955ae8c13a7e7c4051eda7b277c8f909f50bc7d73e124bc38e2ee3d95041", "source": "https://pypi.org/project/patsy/0.5.2/" }
+          ],
           "restart": { "sqlServer": true, "launchpad": true, "guest": false },
           "validation": {
             "type": "spExecuteExternalScript",

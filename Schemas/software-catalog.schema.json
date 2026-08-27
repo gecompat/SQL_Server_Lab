@@ -168,13 +168,14 @@
     },
     "artifact": {
       "type": "object",
-      "required": ["id", "sourceType", "version", "sha256", "integrityOrigin", "license"],
+      "required": ["id", "sourceType", "source", "version", "sha256", "integrityOrigin", "license"],
       "properties": {
         "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]+$" },
         "sourceType": {
           "type": "string",
           "enum": ["os-package", "archive", "installer", "container-base"]
         },
+        "source": { "type": "string", "minLength": 1 },
         "version": { "type": ["string", "null"] },
         "sha256": {
           "oneOf": [
