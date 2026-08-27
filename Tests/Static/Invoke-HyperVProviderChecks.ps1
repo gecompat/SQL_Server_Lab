@@ -312,7 +312,9 @@ try {
         -Name 'Daten-VHDX-Initialisierung bleibt mit Windows PowerShell 5.1 im Gast kompatibel' `
         -Success (
             $provider.Contains('$DrivePlanJson | ConvertFrom-Json)') -and
-            -not $provider.Contains('$DrivePlanJson | ConvertFrom-Json -Depth')
+            -not $provider.Contains('$DrivePlanJson | ConvertFrom-Json -Depth') -and
+            $provider -match 'contractVersion = ''1''[\s\S]+drives = \$portablePlan' -and
+            $provider -match '\$specifications = @\(\$plan\.drives\)'
         )
     Add-CheckResult `
         -Name 'Frische Daten-VHDX nutzt nur bei genau einer RAW-Nicht-Systemdisk einen sicheren Fallback' `

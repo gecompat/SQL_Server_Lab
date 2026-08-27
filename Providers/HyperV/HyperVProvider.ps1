@@ -1192,7 +1192,13 @@ function Initialize-HyperVWindowsGuestDrives {
             }
         }
     )
-    $planJson = $portablePlan | ConvertTo-Json -Compress -Depth 10
+    # Windows PowerShell 5.1 liefert ein JSON-Top-Level-Array über Remoting
+    # als einzelnes verschachteltes Object[] zurück. Ein benannter Envelope
+    # hält die Elementgrenze provider- und PowerShell-versionsstabil.
+    $planJson = [PSCustomObject]@{
+        contractVersion = '1'
+        drives = $portablePlan
+    } | ConvertTo-Json -Compress -Depth 10
     $receipt = Invoke-HyperVPowerShellDirect `
         -VMName $VMName `
         -ExpectedRunId $ExpectedRunId `
@@ -1205,7 +1211,11 @@ function Initialize-HyperVWindowsGuestDrives {
             # Der Gast bringt je nach Windows-Version noch Windows PowerShell
             # 5.1 mit; dessen ConvertFrom-Json kennt keinen -Depth-Parameter.
             # Der Plan ist bewusst flach und benötigt keine spezielle Tiefe.
-            $specifications = @($DrivePlanJson | ConvertFrom-Json)
+            $plan = ($DrivePlanJson | ConvertFrom-Json)
+            if ([string]$plan.contractVersion -ne '1') {
+                throw 'GUEST_DRIVE_PLAN_CONTRACT_INVALID'
+            }
+            $specifications = @($plan.drives)
 
             function ConvertTo-NormalizedDiskIdentifier {
                 param([string]$Value)
