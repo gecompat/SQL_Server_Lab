@@ -225,7 +225,8 @@ try {
     Invoke-WebRequest -Uri $sampleUrl -OutFile $samplePath -UseBasicParsing
     $sampleHash = (Get-FileHash -LiteralPath $samplePath -Algorithm SHA256).Hash.ToLowerInvariant()
     Assert-HyperVCli ($sampleHash -eq '5ea75c9e925ead917d3fabea6ed3cc8c1ff1d036b61e915c94631aafa2b0802b') 'Chinook-Download entspricht dem Katalog-Hash'
-    Invoke-SqlServerLabScript -ScriptPath $samplePath -HostName $script:sqlAddress -Port 1433 -SaPassword $saPassword | Out-Null
+    $sampleResult = Invoke-SqlServerLabScript -ScriptPath $samplePath -HostName $script:sqlAddress -Port 1433 -SaPassword $saPassword
+    Assert-HyperVCli $sampleResult.Success 'Chinook-Skript wurde ueber die CLI ohne fehlgeschlagenen Batch ausgefuehrt' $sampleResult.Message
     Assert-HyperVCli ([long](Invoke-WindowsAcceptanceQuery 'SET NOCOUNT ON; SELECT COUNT_BIG(*) FROM dbo.Artist;' -Database Chinook) -gt 0) 'Reale Chinook-Testdatenbank wurde installiert'
 
     $rename = Invoke-SqlServerLabWorkflowAction -Action RenameLab -BuildId $lab.RunId -LabName "$labName-renamed"

@@ -426,19 +426,32 @@ function Invoke-SqlQuery {
     }
 
     $loginTimeoutSeconds = [Math]::Max(2, [Math]::Min($TimeoutSeconds, 30))
-    $output = sqlcmd `
-        -S "${HostName},${Port}" `
-        -U sa `
-        -P $SaPlain `
-        -C `
-        -d $Database `
-        -Q $Query `
-        -b `
-        -l $loginTimeoutSeconds `
-        -t $TimeoutSeconds `
-        -W 2>&1
-    $exitCode = $LASTEXITCODE
-    $outputText = ($output | ForEach-Object { [string]$_ }) -join "`n"
+    $tempQueryPath = $null
+    try {
+        if ($IsWindows -and $Query.Length -gt 7000) {
+            # CreateProcess besitzt unter Windows ein hartes Kommandozeilenlimit.
+            # Grosse, weiterhin einzelne T-SQL-Batches werden deshalb als
+            # UTF-8-BOM-Datei uebergeben. Die sqlcmd-Skriptebene bleibt wie im
+            # Single-Connection-Pfad vollstaendig deaktiviert.
+            $tempQueryPath = [System.IO.Path]::GetTempFileName()
+            [System.IO.File]::WriteAllText($tempQueryPath, $Query, [System.Text.UTF8Encoding]::new($true))
+            $output = sqlcmd `
+                -S "${HostName},${Port}" -U sa -P $SaPlain -C -d $Database `
+                -i $tempQueryPath -b -X1 -x -l $loginTimeoutSeconds -t $TimeoutSeconds -W 2>&1
+        }
+        else {
+            $output = sqlcmd `
+                -S "${HostName},${Port}" -U sa -P $SaPlain -C -d $Database `
+                -Q $Query -b -l $loginTimeoutSeconds -t $TimeoutSeconds -W 2>&1
+        }
+        $exitCode = $LASTEXITCODE
+        $outputText = ($output | ForEach-Object { [string]$_ }) -join "`n"
+    }
+    finally {
+        if ($tempQueryPath -and (Test-Path -LiteralPath $tempQueryPath)) {
+            Remove-Item -LiteralPath $tempQueryPath -Force -ErrorAction SilentlyContinue
+        }
+    }
 
     if (Test-LabSqlcmdFailure -ExitCode $exitCode -OutputText $outputText) {
         throw "SQL-Query fehlgeschlagen: $outputText"
