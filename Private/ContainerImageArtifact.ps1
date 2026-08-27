@@ -64,13 +64,27 @@ function Get-LabExternalRuntimeContainerRecipe {
             throw "EXTERNAL_RUNTIME_RECIPE_ARTIFACT_INVALID: $($artifact.id)"
         }
     }
+    foreach ($runtimeProperty in $recipe.runtimes.PSObject.Properties) {
+        foreach ($artifact in @($runtimeProperty.Value.generatedArtifacts | Where-Object { $_ })) {
+            if ([string]$artifact.id -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]+$' -or
+                [string]$artifact.source -notmatch '^repository://[A-Za-z0-9][A-Za-z0-9._/-]+$' -or
+                [string]$artifact.sourcePath -notmatch '^[A-Za-z0-9][A-Za-z0-9._/-]+$' -or
+                [string]$artifact.sourcePath -match '(^|/)\.\.(/|$)' -or
+                [string]$artifact.version -notmatch '^[A-Za-z0-9][A-Za-z0-9._+-]*$' -or
+                [string]$artifact.sha256 -notmatch '^[a-f0-9]{64}$' -or
+                [string]::IsNullOrWhiteSpace([string]$artifact.integrityOrigin) -or
+                [string]::IsNullOrWhiteSpace([string]$artifact.license)) {
+                throw "EXTERNAL_RUNTIME_RECIPE_GENERATED_ARTIFACT_INVALID: $($artifact.id)"
+            }
+        }
+    }
 
     $allContextFiles = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
     foreach ($relativePath in @($recipe.contextFiles) + @(
         $recipe.runtimes.PSObject.Properties | ForEach-Object { @($_.Value.contextFiles) }
     )) {
         $relative = [string]$relativePath
-        if ($relative -notmatch '^[A-Za-z0-9][A-Za-z0-9._/-]+$' -or $relative.Contains('..') -or
+        if ($relative -notmatch '^(\.dockerignore|[A-Za-z0-9][A-Za-z0-9._/-]+)$' -or $relative.Contains('..') -or
             -not $allContextFiles.Add($relative)) {
             if ($allContextFiles.Contains($relative)) { continue }
             throw "EXTERNAL_RUNTIME_RECIPE_CONTEXT_PATH_INVALID: $relative"
@@ -79,6 +93,15 @@ function Get-LabExternalRuntimeContainerRecipe {
         if (-not $fullPath.StartsWith(([IO.Path]::GetFullPath($recipeRoot) + [IO.Path]::DirectorySeparatorChar), [StringComparison]::OrdinalIgnoreCase) -or
             -not (Test-Path -LiteralPath $fullPath -PathType Leaf)) {
             throw "EXTERNAL_RUNTIME_RECIPE_CONTEXT_FILE_INVALID: $relative"
+        }
+    }
+    foreach ($runtimeProperty in $recipe.runtimes.PSObject.Properties) {
+        foreach ($artifact in @($runtimeProperty.Value.generatedArtifacts | Where-Object { $_ })) {
+            $sourcePath = [string]$artifact.sourcePath
+            if (-not $allContextFiles.Contains($sourcePath) -or
+                -not ([string]$artifact.source).EndsWith("/$sourcePath", [StringComparison]::Ordinal)) {
+                throw "EXTERNAL_RUNTIME_RECIPE_GENERATED_ARTIFACT_SOURCE_INVALID: $($artifact.id)"
+            }
         }
     }
 
@@ -188,6 +211,7 @@ function New-LabExternalRuntimeContainerImagePlan {
         $runtime = $recipe.runtimes.PSObject.Properties[$_].Value
         if ($runtime.runtimeImage) { $runtime.runtimeImage }
         @($runtime.artifacts)
+        @($runtime.generatedArtifacts | Where-Object { $_ })
     })
     foreach ($required in $requiredArtifacts) {
         $catalogMatch = @($catalogArtifacts | Where-Object {
@@ -381,6 +405,32 @@ function Get-LabExternalRuntimeLocalImageEvidence {
     }
 }
 
+function Test-LabExternalRuntimeJavaImagePostcondition {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][ValidateSet('docker', 'podman')][string]$Provider,
+        [Parameter(Mandatory)][string]$Image
+    )
+
+    $command = @(
+        'run', '--rm', '--network', 'none', '--user', 'mssql',
+        '--entrypoint', '/bin/bash', $Image, '-lc',
+        'set -e; test ! -e /opt/sql-server-lab/java/jre/bin/javac; test ! -d /opt/sql-server-lab/java/jre/jmods; test -x /opt/sql-server-lab/java/jre/lib/jspawnhelper; /opt/sql-server-lab/java/jre/bin/java -version'
+    )
+    $output = @(& $Provider @command 2>&1)
+    if ($LASTEXITCODE -ne 0) {
+        throw "EXTERNAL_RUNTIME_JAVA_IMAGE_POSTCONDITION_FAILED: $(@($output) -join ' ')"
+    }
+    $runtimeLine = @($output | ForEach-Object { [string]$_ } | Where-Object { $_ -match '^openjdk version "11\.[0-9.]+' } | Select-Object -First 1)[0]
+    if (-not $runtimeLine -or $runtimeLine -notmatch '^openjdk version "(?<version>11\.[0-9.]+)') {
+        throw "EXTERNAL_RUNTIME_JAVA_IMAGE_VERSION_MISSING: $(@($output) -join ' ')"
+    }
+    return [PSCustomObject]@{
+        Id='java-image-runtime'; Status='PASS'; RuntimeVersion=[string]$Matches.version
+        CompilerPresent=$false; NetworkMode='none'; ContainerUser='mssql'
+    }
+}
+
 function Invoke-LabExternalRuntimeContainerImageBuildCore {
     [CmdletBinding()]
     param(
@@ -442,6 +492,10 @@ function Invoke-LabExternalRuntimeContainerImageBuildCore {
             [string]$evidence.NamespaceIsolation -ne 'true' -or [string]$evidence.OutboundAccess -ne 'false') {
             throw 'EXTERNAL_RUNTIME_CONTAINER_IMAGE_POSTCONDITION_FAILED'
         }
+        $imagePostconditions = @()
+        if (@($ImagePlan.Languages) -contains 'Java') {
+            $imagePostconditions = @(Test-LabExternalRuntimeJavaImagePostcondition -Provider $provider -Image $temporaryTag)
+        }
         & $provider tag $temporaryTag ([string]$ImagePlan.Image) 2>&1 | Out-Null
         if ($LASTEXITCODE -ne 0) { throw 'EXTERNAL_RUNTIME_CONTAINER_IMAGE_TAG_FAILED' }
 
@@ -462,6 +516,7 @@ function Invoke-LabExternalRuntimeContainerImageBuildCore {
             namespaceIsolation = $true
             outboundAccess = $false
             contextEvidence = @($ImagePlan.ContextEvidence)
+            imagePostconditions = @($imagePostconditions)
             status = 'IMAGE_READY'
             retention = 'reusable-explicit-removal'
             builtAt = Get-LabTimestamp

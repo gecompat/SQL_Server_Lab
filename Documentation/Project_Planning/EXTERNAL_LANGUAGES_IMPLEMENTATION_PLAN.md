@@ -265,6 +265,14 @@ Gate je Provider:
 Gate: Java gilt erst als bereit, wenn ein katalogisiertes Test-JAR innerhalb
 von SQL Server ausgeführt wurde; `java -version` allein reicht nicht.
 
+Implementierungsstand 2026-08-28: JDK, Extension, SDK-Quellen und synthetisches
+Probe-JAR sind versioniert und SHA-256-gebunden; das compilerfreie Java-Image
+und alle Python-/R-/Java-Kombinationsstages bauen. Die datenbankgebundene DDL,
+Content-Driftprüfung, Idempotenz und Fehlerkompensation sind gegen SQL Server
+2022 nachgewiesen. Der positive JAR-Aufruf bleibt offen, weil der verfügbare
+cgroup-v2-Host den verpflichtenden sicheren `launchpadd`-Modus nicht starten
+kann; die Variante bleibt daher korrekt `PREVIEW`.
+
 ### Welle 5 – Hyper-V/Windows für Python und R
 
 Voraussetzung ist ein real validierter Windows-SQL-Pfad mit den für Machine
