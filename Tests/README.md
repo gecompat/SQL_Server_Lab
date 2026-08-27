@@ -135,6 +135,11 @@ Prozessvariable an die Worker vererbt.
     -ArtifactId 'hyperv-os-sealed-<sha256>'
 ```
 
+Der Hyper-V-Workflow kann denselben Nachweis gezielt und erhöht auf dem
+Self-hosted Runner ausführen, ohne den Nightly-Lauf zu wiederholen. Der Modus
+`slot-batch` wählt ohne explizite Artifact-ID das neueste reale `OS_SEALED`-
+Artifact und entfernt beide erzeugten Slot-Scopes nach dem Test.
+
 ## Backup-/Restore-Smoke-Test
 
 Der echte Restore-Test verwendet ausschliesslich eine zur Laufzeit erzeugte

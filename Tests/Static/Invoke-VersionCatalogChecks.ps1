@@ -59,14 +59,16 @@ $runtimeWorkflowPaths = @(
     (Join-Path $repoRoot '.github/workflows/runtime-smoke-docker.yml'),
     (Join-Path $repoRoot '.github/workflows/runtime-smoke-podman.yml')
 )
-$runtimeWorkflowText = ($runtimeWorkflowPaths | ForEach-Object {
-    Get-Content -LiteralPath $_ -Raw -Encoding utf8
-}) -join "`n"
+$invalidRuntimeWorkflows = @($runtimeWorkflowPaths | Where-Object {
+    $workflowText = Get-Content -LiteralPath $_ -Raw -Encoding utf8
+    $workflowText -match '(?m)-FullMatrix|(?m)-IncludeParallel' -or
+    @([regex]::Matches($workflowText, '(?m)-ReferenceVersion\s+2025')).Count -ne 1 -or
+    @([regex]::Matches($workflowText, '(?m)-Version\s+2025')).Count -ne 2 -or
+    $workflowText -match '(?m)-(?:Reference)?Version\s+(?:2017|2019|2022)'
+})
 Add-CheckResult -Name 'Docker- und Podman-Gates verwenden nur die SQL-2025-Referenzversion' -Success (
-    $runtimeWorkflowText -notmatch '(?m)-FullMatrix|(?m)-IncludeParallel' -and
-    @([regex]::Matches($runtimeWorkflowText, '(?m)-ReferenceVersion\s+2025')).Count -eq 2 -and
-    @([regex]::Matches($runtimeWorkflowText, '(?m)-Version\s+2025')).Count -eq 2
-)
+    $invalidRuntimeWorkflows.Count -eq 0
+) -Message (($invalidRuntimeWorkflows | ForEach-Object { Split-Path -Leaf $_ }) -join ', ')
 
 $referenceFiles = @(
     (Join-Path $repoRoot 'Tests/Integration/Invoke-RestoreSmokeTest.ps1'),

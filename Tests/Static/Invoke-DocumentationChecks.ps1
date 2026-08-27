@@ -544,6 +544,7 @@ $documentationIndex = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentati
 $gettingStarted = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\User\Getting_Started.md') -Raw -Encoding utf8
 $testsReadme = Get-Content -LiteralPath (Join-Path $repoRoot 'Tests\README.md') -Raw -Encoding utf8
 $localValidationStrategy = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Quality\LOCAL_VALIDATION_STRATEGY.md') -Raw -Encoding utf8
+$repositoryContinuityRunbook = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Quality\REPOSITORY_CONTINUITY_RUNBOOK.md') -Raw -Encoding utf8
 $costEfficientDevelopment = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Quality\COST_EFFICIENT_DEVELOPMENT.md') -Raw -Encoding utf8
 $agentContract = Get-Content -LiteralPath (Join-Path $repoRoot 'AGENTS.md') -Raw -Encoding utf8
 $modelRoutingPolicy = Get-Content -LiteralPath (Join-Path $repoRoot '.ai\MODEL_ROUTING_POLICY.md') -Raw -Encoding utf8
@@ -667,6 +668,20 @@ Add-ValidationResult `
         $repoMap -match 'repository-continuity-break-glass: RECOMMENDED' -and
         $repoMap -match 'semantic-integration: APPLY_DEFAULT' -and
         $repoMap -match 'semantic-upgrade-applicability: APPLY_DEFAULT')
+
+Add-ValidationResult `
+    -Name 'Repository-Continuity ist mit unveraenderlichem Kernschutz und PR-only Break-Glass umgesetzt' `
+    -Success ($repoMap -match 'repository-continuity-break-glass:\s*\r?\n\s+decision: IMPLEMENTED' -and
+        $repoMap -match 'core_safety_ruleset:' -and
+        $repoMap -match 'bypass_actors: \[\]' -and
+        $repoMap -match 'required_status_check: PR Gate' -and
+        $repoMap -match 'bypass_mode: pull_request' -and
+        $repositoryContinuityRunbook -match 'VALIDATION_FAILURE' -and
+        $repositoryContinuityRunbook -match 'INFRASTRUCTURE_UNAVAILABLE' -and
+        $repositoryContinuityRunbook -match 'UNKNOWN' -and
+        $repositoryContinuityRunbook -match 'Core safety - main' -and
+        $repositoryContinuityRunbook -match 'CI gates - main' -and
+        $repositoryContinuityRunbook -match 'Nachholvalidierung')
 
 Add-ValidationResult `
     -Name 'Projektmapping migriert keine Runtime-Authority auf die zentrale Foundation-Registry' `

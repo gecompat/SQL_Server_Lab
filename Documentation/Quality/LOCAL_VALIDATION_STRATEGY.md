@@ -47,9 +47,11 @@ Blockierte Pflichtprüfungen werden als `VALIDATION_FAILURE`,
 `INFRASTRUCTURE_UNAVAILABLE` oder `UNKNOWN` klassifiziert. Ein inhaltlich
 fehlgeschlagener oder nicht eindeutig klassifizierter Check darf nicht über
 einen Continuity-Pfad umgangen werden. Bei Infrastrukturunverfügbarkeit bleibt
-die Prüfung bis zum erfolgreichen Nachlauf ausstehend. Diese Foundation-
-Integration konfiguriert keine GitHub-Rulesets, Bypass-Akteure oder sonstige
-Repository-Administration.
+die Prüfung bis zum erfolgreichen Nachlauf ausstehend. Der verbindliche
+Notfallablauf und die tatsächlich aktiven, geschichteten GitHub-Rulesets stehen
+im [Repository-Continuity-Runbook](REPOSITORY_CONTINUITY_RUNBOOK.md). Der
+Break-Glass-Akteur darf ausschließlich über einen Pull Request umgehen;
+PR-Pflicht, Löschschutz und Force-Push-Schutz besitzen keinen Bypass.
 
 Der Foundation-Validator wird aus einem Checkout der Foundation ausgeführt:
 

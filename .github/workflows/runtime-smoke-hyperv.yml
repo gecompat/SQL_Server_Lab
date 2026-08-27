@@ -2,7 +2,30 @@ name: Runtime Smoke - Hyper-V Lifecycle
 
 on:
   workflow_call:
+    inputs:
+      mode:
+        description: Auszufuehrender Hyper-V-Nachweis
+        required: false
+        default: lifecycle
+        type: string
+      image_artifact_id:
+        description: Optionales OS_SEALED-Artifact fuer den Slot-Batch
+        required: false
+        type: string
   workflow_dispatch:
+    inputs:
+      mode:
+        description: Auszufuehrender Hyper-V-Nachweis
+        required: true
+        default: lifecycle
+        type: choice
+        options:
+          - lifecycle
+          - slot-batch
+      image_artifact_id:
+        description: Optionales OS_SEALED-Artifact; leer waehlt das neueste passende Artifact
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -13,9 +36,9 @@ concurrency:
 
 jobs:
   hyperv-lifecycle-smoke:
-    name: Hyper-V Generation 2 lifecycle foundation
+    name: Hyper-V lifecycle or isolated OS-slot batch
     runs-on: [self-hosted, SQL_Lab, Hyper-V]
-    timeout-minutes: 15
+    timeout-minutes: 30
 
     defaults:
       run:
@@ -33,6 +56,28 @@ jobs:
           Get-Command New-VM, New-VHD, Get-VMFirmware -ErrorAction Stop
 
       - name: Hyper-V lifecycle smoke
+        if: inputs.mode == 'lifecycle'
         run: |
           $ErrorActionPreference = 'Stop'
           .\Tests\Integration\Invoke-HyperVSmokeTest.ps1
+
+      - name: Hyper-V OS-slot batch with scoped cleanup
+        if: inputs.mode == 'slot-batch'
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Import-Module .\SqlServerLab.psd1 -Force
+          $module = Get-Module SqlServerLab
+          $artifactId = '${{ inputs.image_artifact_id }}'
+          if ([string]::IsNullOrWhiteSpace($artifactId)) {
+            $artifact = & $module {
+              @(Get-HyperVImageArtifact -SkipIntegrityCheck | Where-Object {
+                [string]$_.artifactState -eq 'OS_SEALED' -and
+                [string]$_.licenseType -ne 'test-only'
+              } | Sort-Object { [datetime]$_.createdAt } -Descending | Select-Object -First 1)[0]
+            }
+            if (-not $artifact) { throw 'HYPERV_SLOT_BATCH_OS_SEALED_ARTIFACT_NOT_FOUND' }
+            $artifactId = [string]$artifact.artifactId
+          }
+          .\Tests\Integration\Invoke-BatchWorkflowSmokeTest.ps1 `
+            -Provider hyperv `
+            -ArtifactId $artifactId
