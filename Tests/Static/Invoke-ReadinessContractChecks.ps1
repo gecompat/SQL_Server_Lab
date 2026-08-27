@@ -124,6 +124,7 @@ if ($failures.Count -eq 0) {
     Assert-Contains $podmanBootstrap 'Elapsed\.TotalSeconds\s+-lt\s+\$TimeoutSeconds' 'Podman-Bootstrap wartet nicht begrenzt auf Erreichbarkeit.'
 
     Assert-Contains $start 'Wait-SqlReady' 'Start-SqlServerLab prueft die SQL-Readiness nicht.'
+    Assert-Contains $start '-Provider\s+\$readinessProvider[\s\S]+-ContainerIdOrName\s+\$readinessContainer' 'Start-SqlServerLab bindet Readiness nicht an den echten Providercontainer.'
     Assert-Contains $start 'Wait-LabDatabaseReady' 'Start-SqlServerLab wartet nicht auf gespeicherte Benutzerdatenbanken.'
     Assert-Contains $containerReconcile 'Wait-SqlReady' 'Container-Port-Reconcile verwendet keine echte SQL-Readiness.'
     Assert-Contains $start '\$instance\.databases' 'Start-SqlServerLab verwendet die gespeicherten Datenbanken nicht.'
