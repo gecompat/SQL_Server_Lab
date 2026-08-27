@@ -75,7 +75,10 @@ function Update-SqlServerLabContainer {
             $arguments += @('-v',"$($mount.Source):$($mount.Destination)$suffix")
         }
         elseif ([string]$mount.Type -eq 'volume' -and $mount.Name) {
-            $suffix = if (-not [bool]$mount.RW) { ':ro' } else { '' }
+            $volumeOptions = @()
+            if ($runtime -eq 'podman') { $volumeOptions += 'U' }
+            if (-not [bool]$mount.RW) { $volumeOptions += 'ro' }
+            $suffix = if ($volumeOptions.Count -gt 0) { ":$($volumeOptions -join ',')" } else { '' }
             $arguments += @('-v',"$($mount.Name):$($mount.Destination)$suffix")
         }
     }
