@@ -89,12 +89,15 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 - providerneutraler Softwarekatalog und External-Runtime-Resolver mit
   SQL-/OS-/Provider-Capability-Gates, sicherer Legacy-`post-start`-Grenze und
   geheimnisfreien Software-Intents für Python, R und Java;
-- sicherer SQL-2022-Derived-Image-Buildvertrag für Python und R mit
-  MCR-Basisdigest, vollständigen DEB-, Wheel-, R-Paket- und OCI-Locks,
+- sicherer SQL-2022-Derived-Image-Buildvertrag für Python, R und Java mit
+  MCR-Basisdigest, vollständigen DEB-, Wheel-, R-Paket-, JDK-, Java-Extension-
+  und OCI-Locks,
   providerneutralem Image-Key, getrennten Docker-/Podman-Receipts,
   cgroup-v1-Preflight und scopebegrenzter `SYS_ADMIN`-Bindung; die einzelnen
-  Python-, R- und kombinierten Images wurden lokal gebaut und geprüft, die
-  positive SQL-Native-Acceptance steht noch aus;
+  Python-, R-, Java- und kombinierten Images wurden lokal gebaut und geprüft;
+  Java besitzt zusätzlich datenbankgebundene, idempotente DDL-, Drift- und
+  Fehlerkompensationsverträge, die positive SQL-Native-Acceptance steht noch
+  aus;
 
 ### Geplant oder unvollständig
 
@@ -108,8 +111,8 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 - kontextreiche Manifest-Menüführung mit Navigation und Planvorschau;
 - Hyper-V-Export und -Nutzung von `LAB_GENERATED`-Baselines;
 - freigegebene External Runtimes einschließlich positiver Docker-/Podman-
-  Native Acceptance, Hyper-V-Gastinstallation, Java-Library-Registrierung und
-  realer `sp_execute_external_script`-Nachweise;
+  Native Acceptance, Hyper-V-Gastinstallation und realer
+  `sp_execute_external_script`-Nachweise;
 - Reconcile-Aktionen über START/STOP hinaus, insbesondere für Ressourcen- und
   Konfigurationsänderungen;
 - versionierter Refresh-/Rebuild-Lifecycle für Medien, VHDX und Container-Images;

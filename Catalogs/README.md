@@ -72,9 +72,11 @@ deklariert. Die vorbereiteten SQL-2022-Varianten für Python, R und Java bleiben
 bis zum Derived-Image- beziehungsweise Hyper-V-Nachweis `PREVIEW` und werden
 vor jeder Mutation als `DECLARED_UNSUPPORTED` abgelehnt.
 
-Die Linux-Varianten für Python und R besitzen vollständige Basisimage-, DEB-,
-Wheel- beziehungsweise R-Paketartefakte. Die R-Laufzeit selbst ist zusätzlich
-über einen linux/amd64-OCI-Manifestdigest gebunden.
+Die Linux-Varianten für Python, R und Java besitzen vollständige Basisimage-,
+DEB-, Wheel-, R-Paket-, JDK-, Extension-, SDK- beziehungsweise
+Probe-JAR-Artefakte. Die R-Laufzeit selbst ist zusätzlich über einen
+linux/amd64-OCI-Manifestdigest gebunden; Java-SDK und Probe werden aus
+hashgebundenen Quellen deterministisch erzeugt.
 `Images/ExternalLanguages/Linux/recipe.json` und die jeweilige Lockdatei müssen
 dieselben IDs, Versionen, Quellen und SHA-256-Werte enthalten. Diese
 Artefaktvollständigkeit und ein erfolgreicher lokaler Image-Build allein heben

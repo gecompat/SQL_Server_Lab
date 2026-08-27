@@ -802,31 +802,6 @@ function New-SqlServerLab {
 
         }
 
-        foreach ($instance in @($resolved.instances | Where-Object {
-            @($externalRuntimePlansByInstance[[string]$_.id]).Count -gt 0
-        })) {
-            $labInstance = $labInstances |
-                Where-Object { $_.Id -eq $instance.id } |
-                Select-Object -First 1
-            Write-LabInfo "External Runtimes auf '$($instance.id)' aktivieren und über SQL verifizieren..."
-            $softwareReceipts = @(Initialize-LabExternalRuntimes `
-                -SoftwarePlans @($externalRuntimePlansByInstance[[string]$instance.id]) `
-                -LabInstance $labInstance `
-                -ImageArtifact $containerImageArtifactsByInstance[[string]$instance.id] `
-                -SaPassword $SaPassword `
-                -RunDirectory $runState.RunDir)
-            $labInstance.ExternalRuntime.Status = 'EXTENSIONS_READY_RUN'
-            $labInstance.ExternalRuntime.Receipts = @($softwareReceipts | ForEach-Object {
-                [PSCustomObject]@{
-                    SoftwareId = [string]$_.SoftwareId
-                    VariantId = [string]$_.VariantId
-                    RuntimeVersion = [string]$_.RuntimeVersion
-                    Status = [string]$_.Status
-                    CompletedAt = [string]$_.CompletedAt
-                }
-            })
-        }
-
         $createdDatabaseCount = 0
         foreach ($instance in $resolved.instances) {
             $labInstance = $labInstances |
@@ -950,6 +925,31 @@ function New-SqlServerLab {
                     }
                 }
             }
+        }
+
+        foreach ($instance in @($resolved.instances | Where-Object {
+            @($externalRuntimePlansByInstance[[string]$_.id]).Count -gt 0
+        })) {
+            $labInstance = $labInstances |
+                Where-Object { $_.Id -eq $instance.id } |
+                Select-Object -First 1
+            Write-LabInfo "External Runtimes auf '$($instance.id)' aktivieren und über SQL verifizieren..."
+            $softwareReceipts = @(Initialize-LabExternalRuntimes `
+                -SoftwarePlans @($externalRuntimePlansByInstance[[string]$instance.id]) `
+                -LabInstance $labInstance `
+                -ImageArtifact $containerImageArtifactsByInstance[[string]$instance.id] `
+                -SaPassword $SaPassword `
+                -RunDirectory $runState.RunDir)
+            $labInstance.ExternalRuntime.Status = 'EXTENSIONS_READY_RUN'
+            $labInstance.ExternalRuntime.Receipts = @($softwareReceipts | ForEach-Object {
+                [PSCustomObject]@{
+                    SoftwareId = [string]$_.SoftwareId
+                    VariantId = [string]$_.VariantId
+                    RuntimeVersion = [string]$_.RuntimeVersion
+                    Status = [string]$_.Status
+                    CompletedAt = [string]$_.CompletedAt
+                }
+            })
         }
 
         $hasPostProvision = $resolved.instances |
