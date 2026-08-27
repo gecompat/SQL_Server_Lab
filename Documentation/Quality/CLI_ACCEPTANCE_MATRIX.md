@@ -74,6 +74,8 @@ gh workflow run runtime-smoke-podman.yml --ref <branch> -f mode=cli-acceptance
 gh workflow run runtime-smoke-hyperv.yml --ref <branch> -f mode=cli-acceptance -f media_root='D:\Lab_Base'
 ```
 
-Die drei Aufrufe verwenden den gemeinsamen hostweiten Runtime-Lock. Der
-Hyper-V-Lauf besitzt zusaetzlich einen eigenen Akzeptanz-Mutex und gibt seine
-VM sowie alle run-eigenen VHDX im `finally`-Pfad wieder frei.
+Docker und Podman verwenden den gemeinsamen hostweiten Runtime-Lock. Der
+Hyper-V-Lauf besitzt einen eigenen Akzeptanz-Mutex; auf dem einzelnen
+Self-hosted Runner werden die Jobs zusaetzlich durch die Runner-Queue
+serialisiert. Hyper-V gibt seine VM und alle run-eigenen VHDX im `finally`-Pfad
+wieder frei.

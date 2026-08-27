@@ -108,6 +108,35 @@ function Find-AvailablePort {
     return Find-LabAvailablePort -RangeStart $RangeStart -RangeEnd $RangeEnd
 }
 
+function Initialize-DockerSqlNamedVolume {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$')][string]$VolumeName,
+        [Parameter(Mandatory)][string]$Image,
+        [Parameter(Mandatory)][string]$RunId,
+        [Parameter(Mandatory)][string]$ScopeId
+    )
+
+    $null = docker volume inspect $VolumeName 2>$null
+    if ($LASTEXITCODE -eq 0) { return $false }
+
+    $created = docker volume create `
+        --label "sql-server-lab.run-id=$RunId" `
+        --label "sql-server-lab.scope-id=$ScopeId" `
+        $VolumeName 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw "DOCKER_SQL_VOLUME_CREATE_FAILED: $VolumeName - $(@($created) -join ' ')"
+    }
+
+    $initialized = docker run --rm --user 0:0 --entrypoint /bin/sh `
+        -v "${VolumeName}:/sql-lab-volume-init" $Image `
+        -c 'chown -R 10001:0 /sql-lab-volume-init && chmod 0770 /sql-lab-volume-init' 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw "DOCKER_SQL_VOLUME_INITIALIZATION_FAILED: $VolumeName - $(@($initialized) -join ' ')"
+    }
+    return $true
+}
+
 function New-DockerInstance {
     [CmdletBinding()]
     param(
@@ -151,6 +180,10 @@ function New-DockerInstance {
         }
         else {
             "sql-lab-${containerName}-$($drive.id)"
+        }
+
+        if (-not $drive.hostPath) {
+            $null = Initialize-DockerSqlNamedVolume -VolumeName $volumeSource -Image $image -RunId $RunId -ScopeId $ScopeId
         }
 
         $volumeArguments += '-v'

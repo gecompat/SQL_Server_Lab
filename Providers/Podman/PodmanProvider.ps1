@@ -54,6 +54,35 @@ function Find-PodmanAvailablePort {
     return Find-LabAvailablePort -RangeStart $RangeStart -RangeEnd $RangeEnd
 }
 
+function Initialize-PodmanSqlNamedVolume {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$')][string]$VolumeName,
+        [Parameter(Mandatory)][string]$Image,
+        [Parameter(Mandatory)][string]$RunId,
+        [Parameter(Mandatory)][string]$ScopeId
+    )
+
+    $null = podman volume inspect $VolumeName 2>$null
+    if ($LASTEXITCODE -eq 0) { return $false }
+
+    $created = podman volume create `
+        --label "sql-server-lab.run-id=$RunId" `
+        --label "sql-server-lab.scope-id=$ScopeId" `
+        $VolumeName 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw "PODMAN_SQL_VOLUME_CREATE_FAILED: $VolumeName - $(@($created) -join ' ')"
+    }
+
+    $initialized = podman run --rm --user 0:0 --entrypoint /bin/sh `
+        -v "${VolumeName}:/sql-lab-volume-init" $Image `
+        -c 'chown -R 10001:0 /sql-lab-volume-init && chmod 0770 /sql-lab-volume-init' 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw "PODMAN_SQL_VOLUME_INITIALIZATION_FAILED: $VolumeName - $(@($initialized) -join ' ')"
+    }
+    return $true
+}
+
 function New-PodmanInstance {
     [CmdletBinding()]
     param(
@@ -97,6 +126,10 @@ function New-PodmanInstance {
         }
         else {
             "sql-lab-${containerName}-$($drive.id)"
+        }
+
+        if (-not $drive.hostPath) {
+            $null = Initialize-PodmanSqlNamedVolume -VolumeName $volumeSource -Image $image -RunId $RunId -ScopeId $ScopeId
         }
 
         $volumeArguments += '-v'
