@@ -72,9 +72,17 @@ Add-CheckResult -Name 'Runtime-Workflows wiederholen keine statische Vollregress
 
 $dockerWorkflow = Get-Content -LiteralPath (Join-Path $repoRoot '.github/workflows/runtime-smoke-docker.yml') -Raw -Encoding utf8
 $podmanWorkflow = Get-Content -LiteralPath (Join-Path $repoRoot '.github/workflows/runtime-smoke-podman.yml') -Raw -Encoding utf8
+$hyperVWorkflow = Get-Content -LiteralPath (Join-Path $repoRoot '.github/workflows/runtime-smoke-hyperv.yml') -Raw -Encoding utf8
 Add-CheckResult -Name 'Docker- und Podman-Gates enthalten den realen Batch-Smoke' -Success (
     $dockerWorkflow -match 'Invoke-BatchWorkflowSmokeTest\.ps1\s+`?\s*-Provider docker' -and
     $podmanWorkflow -match 'Invoke-BatchWorkflowSmokeTest\.ps1\s+`?\s*-Provider podman'
+)
+Add-CheckResult -Name 'Hyper-V-Workflow bietet gezielten OS-Slot-Batch mit scopegebundenem Cleanup' -Success (
+    $hyperVWorkflow -match '(?m)^\s*- slot-batch\s*$' -and
+    $hyperVWorkflow -match "inputs\.mode == 'slot-batch'" -and
+    $hyperVWorkflow -match 'Invoke-BatchWorkflowSmokeTest\.ps1\s+`' -and
+    $hyperVWorkflow -match '(?m)^\s+-Provider hyperv\s+`' -and
+    $hyperVWorkflow -match '-ArtifactId \$artifactId'
 )
 
 $prWorkflow = Get-Content -LiteralPath (Join-Path $repoRoot '.github/workflows/static-contracts.yml') -Raw -Encoding utf8
