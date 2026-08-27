@@ -100,10 +100,21 @@ function New-PodmanInstance {
         [ValidateRange(0,64)][decimal]$Cpu = 0,
         [ValidateRange(0,1048576)][int]$MemoryMB = 0,
         [ValidateSet('on', 'off')][string]$AutoStart = 'off',
-        [ValidatePattern('^[A-Za-z0-9_]{1,128}$')][string]$Collation = 'SQL_Latin1_General_CP1_CI_AS'
+        [ValidatePattern('^[A-Za-z0-9_]{1,128}$')][string]$Collation = 'SQL_Latin1_General_CP1_CI_AS',
+        [string]$ResolvedImage,
+        [ValidateSet('none', 'sql2022-namespace-v1')][string]$ExternalRuntimeLaunchMode = 'none'
     )
 
-    $image = Get-SqlServerDockerImage -VersionId $VersionId
+    if ($ResolvedImage -and $ResolvedImage -notmatch '^[a-z0-9][a-z0-9./_-]+:[a-z0-9][a-z0-9._-]+$') {
+        throw 'PODMAN_RESOLVED_IMAGE_INVALID'
+    }
+    if ($ExternalRuntimeLaunchMode -ne 'none' -and -not $ResolvedImage) {
+        throw 'PODMAN_EXTERNAL_RUNTIME_IMAGE_REQUIRED'
+    }
+    if ($ResolvedImage -and $ExternalRuntimeLaunchMode -eq 'none') {
+        throw 'PODMAN_RESOLVED_IMAGE_LAUNCH_MODE_REQUIRED'
+    }
+    $image = if ($ResolvedImage) { $ResolvedImage } else { Get-SqlServerDockerImage -VersionId $VersionId }
     $profileDefinition = Get-LabResourceProfile -Name $Profile
     $effectiveMemoryMB = if ($MemoryMB -gt 0) { $MemoryMB } else { [int]$profileDefinition.maxMemoryMB }
     $effectiveCpu = if ($Cpu -gt 0) { $Cpu } else { [decimal]$profileDefinition.maxCpus }
@@ -148,6 +159,10 @@ function New-PodmanInstance {
         $collationArguments = @('-e', "MSSQL_COLLATION=$Collation")
     }
     $restartArguments = if ($AutoStart -eq 'on') { @('--restart', 'unless-stopped') } else { @() }
+    $externalRuntimeArguments = if ($ExternalRuntimeLaunchMode -eq 'sql2022-namespace-v1') {
+        @('--cap-add', 'SYS_ADMIN')
+    }
+    else { @() }
 
     $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword)
     try {
@@ -181,7 +196,7 @@ function New-PodmanInstance {
                     '-e', "MSSQL_SA_PASSWORD=$saPlain",
                     '-e', 'MSSQL_PID=Developer',
                     '-e', 'MSSQL_AGENT_ENABLED=true'
-                ) + $collationArguments + $restartArguments + @(
+                ) + $collationArguments + $restartArguments + $externalRuntimeArguments + @(
                     '--memory', $memoryLimit,
                     '--cpus', $cpuLimit,
                     '--label', "sql-server-lab.run-id=$RunId",
@@ -234,6 +249,7 @@ function New-PodmanInstance {
                 Provider      = 'podman'
                 Image         = $image
                 AutoStart     = $AutoStart
+                ExternalRuntimeLaunchMode = $ExternalRuntimeLaunchMode
                 Status        = 'Created'
             }
         }

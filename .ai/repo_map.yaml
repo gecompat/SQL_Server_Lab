@@ -285,6 +285,20 @@ internal_components:
       - "SQL-Version, Betriebssystem, Architektur, Provider und Runtimevariante deterministisch aufloesen"
       - "unbelegte Varianten, freie Commands und nicht gesperrte Pakete vor Provider-Mutationen ablehnen"
       - "sanitisierte Softwareplaene und Installation-Receipt-Vertraege bereitstellen"
+  - name: ExternalRuntimeContainerImage
+    source: Private/ContainerImageArtifact.ps1
+    recipe: Images/ExternalLanguages/Linux/recipe.json
+    responsibilities:
+      - "providerneutralen Image-Key aus Basisdigest, Varianten, Locks und Kontext-SHA-256 bilden"
+      - "Docker- und Podman-Buildreceipts getrennt und ohne Hostpfade persistieren"
+      - "cgroup-v1- und Namespace-Sicherheitsvertrag vor Container-Mutation erzwingen"
+      - "wiederverwendbare Images außerhalb des normalen Run-Cleanups halten"
+  - name: ExternalRuntimeLifecycle
+    source: Private/ExternalRuntimeLifecycle.ps1
+    responsibilities:
+      - "external scripts enabled aktivieren und den gebundenen Container kontrolliert neu starten"
+      - "launchpadd-Readiness und echte sp_execute_external_script-Postconditions prüfen"
+      - "sanitisierte Runtime-Installation-Receipts im Run persistieren"
   - name: ResourceAssessment
     source: Private/ResourceAssessment.ps1
     responsibilities:
