@@ -168,7 +168,10 @@ GO
             -ReadinessTimeoutSeconds 180 -StateRoot $Root -Confirm:$false
     } $lab.RunId $newPort $stateRoot
     Assert-Acceptance ($reconcile.Recreated -and $reconcile.Port -eq $newPort) 'Hostport wurde durch kontrolliertes Container-Reconcile geaendert'
-    $databaseReadiness = Wait-LabDatabaseReady -HostName $sqlHost -Port $newPort -SaPassword $saPassword -Database CliStorageEvidence -TimeoutSeconds 180
+    $databaseReadiness = & $module {
+        param($HostName,$Port,$Password)
+        Wait-LabDatabaseReady -HostName $HostName -Port $Port -SaPassword $Password -Database CliStorageEvidence -TimeoutSeconds 180
+    } $sqlHost $newPort $saPassword
     Assert-Acceptance $databaseReadiness.Ready 'Eigene Testdatenbank ist nach dem Reconcile bereit'
     $persistentEvidence = Invoke-AcceptanceQuery 'SET NOCOUNT ON; SELECT Evidence FROM dbo.CliAcceptance WHERE Id=1;' -Database CliStorageEvidence -Port $newPort
     Assert-Acceptance ($persistentEvidence -eq 'persisted-before-reconcile') 'Daten, Mounts und Testdatenbank ueberstehen das Reconcile'
