@@ -1054,13 +1054,13 @@ function Wait-HyperVGuestSqlReady {
             try {
                 $plainPassword = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
                 $builder = [System.Data.SqlClient.SqlConnectionStringBuilder]::new()
-                $builder.DataSource = $serverName
-                $builder.InitialCatalog = 'master'
-                $builder.UserID = 'sa'
-                $builder.Password = $plainPassword
-                $builder.Encrypt = $true
-                $builder.TrustServerCertificate = $true
-                $builder.ConnectTimeout = [Math]::Min(15, [Math]::Max(1, [int]$Timeout))
+                $builder['Data Source'] = $serverName
+                $builder['Initial Catalog'] = 'master'
+                $builder['User ID'] = 'sa'
+                $builder['Password'] = $plainPassword
+                $builder['Encrypt'] = $true
+                $builder['TrustServerCertificate'] = $true
+                $builder['Connect Timeout'] = [Math]::Min(15, [Math]::Max(1, [int]$Timeout))
 
                 $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
                 $lastError = ''
