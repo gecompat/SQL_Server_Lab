@@ -387,6 +387,7 @@ function Get-HyperVUnattendedPostLoginScript {
         Remove-Item -LiteralPath "$env:WINDIR\Setup\Scripts\SetupComplete.cmd" -Force -ErrorAction SilentlyContinue
         [PSCustomObject]@{
             runId = $ExpectedRunId
+            computerName = [Environment]::MachineName
             imageState = [string](Get-ItemPropertyValue -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State' -Name ImageState)
             geoId = [int](Get-WinHomeLocation).GeoId
             systemLocale = [string](Get-WinSystemLocale)
@@ -542,10 +543,25 @@ function Invoke-HyperVLabUnattendedProvision {
                 $receiptMismatches.Add("$($field.Name): expected='$($field.Expected)', actual='$($field.Actual)'")
             }
         }
+        if ([string]::IsNullOrWhiteSpace([string]$receipt.computerName)) {
+            $receiptMismatches.Add('computerName=<empty>')
+        }
     }
     if ($receiptMismatches.Count -gt 0) {
         throw "HYPERV_LAB_UNATTENDED_OOBE_RECEIPT_INVALID: $($receiptMismatches -join '; ')"
     }
+    $managedAfterOobe = Get-HyperVManagedVM -VMName ([string]$lab.Instance.vmName) `
+        -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
+    $null = Set-HyperVManagedVMIdentityProperty -ManagedVM $managedAfterOobe `
+        -PropertyName windowsSpecialization -ContractVersion '0.5' `
+        -Value ([PSCustomObject]@{
+            status = 'WINDOWS_SPECIALIZED'
+            computerName = [string]$receipt.computerName
+            imageState = [string]$receipt.imageState
+            rebooted = $false
+            source = 'unattended-oobe'
+            observedAt = [string]$receipt.observedAt
+        })
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
     $lab.Instance | Add-Member -NotePropertyName oobeAutomation -NotePropertyValue ([PSCustomObject]@{
         status = 'COMPLETED'; passwordSource = $PasswordSource; passwordStorage = 'host-dpapi'
