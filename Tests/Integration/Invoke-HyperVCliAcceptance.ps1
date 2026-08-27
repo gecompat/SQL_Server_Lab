@@ -220,6 +220,7 @@ try {
         -Options ([PSCustomObject]@{ queryStore=$true; compatibility=[int]($expectedMajor+'0') }) | Out-Null
     $dbEvidence = Invoke-WindowsAcceptanceQuery "SET NOCOUNT ON; SELECT physical_name FROM CliStorageEvidence.sys.database_files ORDER BY file_id;"
     Assert-HyperVCli ($dbEvidence -match 'E:\\SQLData\\CliStorage_Data1\.mdf' -and $dbEvidence -match 'L:\\SQLLog\\CliStorage_Log\.ldf') 'CLI erstellt Datenbank mit getrennten Daten- und Log-VHDX' $dbEvidence
+    Invoke-WindowsAcceptanceQuery 'SET NOCOUNT ON; CREATE TABLE dbo.LifecycleEvidence(Id int NOT NULL PRIMARY KEY, Marker nvarchar(64) NOT NULL); INSERT dbo.LifecycleEvidence VALUES(1,N''persisted-after-resource-change'');' -Database CliStorageEvidence | Out-Null
 
     $sampleUrl = 'https://raw.githubusercontent.com/lerocha/chinook-database/7f67772503d71ba90f19283c38e93923addb43fa/ChinookDatabase/DataSources/Chinook_SqlServer.sql'
     Invoke-WebRequest -Uri $sampleUrl -OutFile $samplePath -UseBasicParsing
@@ -238,7 +239,8 @@ try {
     Start-SqlServerLab -RunId $lab.RunId -StateRoot $StateRoot -TimeoutSeconds 1200 | Out-Null
     $resourceReadiness = Wait-WindowsAcceptanceSqlReady -ExpectedMajorVersion $expectedMajor
     Assert-HyperVCli $resourceReadiness.Ready 'SQL ist nach Ressourcenwechsel und Start wieder bereit'
-    Assert-HyperVCli ((Invoke-WindowsAcceptanceQuery "SET NOCOUNT ON; SELECT COUNT_BIG(*) FROM CliStorageEvidence.sys.tables;") -gt 0) 'Datenzustand bleibt nach Ressourcenwechsel und Neustart erreichbar'
+    $persistenceEvidence = Invoke-WindowsAcceptanceQuery "SET NOCOUNT ON; SELECT COUNT_BIG(*) FROM dbo.LifecycleEvidence WHERE Id=1 AND Marker=N'persisted-after-resource-change';" -Database CliStorageEvidence
+    Assert-HyperVCli ([long]$persistenceEvidence -eq 1) 'Datenzustand bleibt nach Ressourcenwechsel und Neustart erreichbar' $persistenceEvidence
 
     Remove-SqlServerLab -RunId $lab.RunId -StateRoot $StateRoot -Force -Confirm:$false | Out-Null
     $lab = $null
