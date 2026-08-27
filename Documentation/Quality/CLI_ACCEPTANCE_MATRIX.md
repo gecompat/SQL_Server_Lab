@@ -80,3 +80,15 @@ Hyper-V-Lauf besitzt einen eigenen Akzeptanz-Mutex; auf dem einzelnen
 Self-hosted Runner werden die Jobs zusaetzlich durch die Runner-Queue
 serialisiert. Hyper-V gibt seine VM und alle run-eigenen VHDX im `finally`-Pfad
 wieder frei.
+
+## Ausgefuehrte Evidence vom 2026-08-27
+
+| Provider | Ergebnis | Runtime-Evidence |
+|---|---|---|
+| Docker | `PASS` | [GitHub Actions 33086787082](https://github.com/gecompat/SQL_Server_Lab/actions/runs/33086787082): SQL Server 2022 CU18, Chinook, SQL-/Containerressourcen, getrennte Daten-/Log-/TempDB-/Backup-Volumes, Reconcile, Lifecycle und Cleanup `7/7` |
+| Podman | `PASS` | [GitHub Actions 33088515413](https://github.com/gecompat/SQL_Server_Lab/actions/runs/33088515413): SQL Server 2022 CU18, Chinook, SQL-/Containerressourcen, getrennte Daten-/Log-/TempDB-/Backup-Volumes, Reconcile, Lifecycle und Cleanup `7/7` |
+| Hyper-V / Windows | `PASS` | [GitHub Actions 33099393670](https://github.com/gecompat/SQL_Server_Lab/actions/runs/33099393670): frischer Windows-Slot, SQL Server 2025 RTM, Chinook, SQL-/VM-Ressourcen, getrennte Daten-/Log-/TempDB-/Backup-VHDX, Rename, Lifecycle, Persistenz und Cleanup `7/7` |
+
+Die drei Laeufe wurden gezielt fuer den geaenderten Frameworkstand ausgeloest.
+Der Hyper-V-Host enthielt nach dem Lauf weder eine `win-cli-*`-VM noch ein
+run-eigenes VHDX-Artefakt; der verwendete OS-Slot ist wieder frei.

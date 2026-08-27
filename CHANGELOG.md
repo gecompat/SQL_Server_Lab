@@ -15,6 +15,11 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   CI-Infrastruktur einen PR-basierten, auditierbaren CI-Notfallweg. Der Ablauf,
   die Nachweispflichten und die nachzuholende Validierung sind im
   Repository-Continuity-Runbook verbindlich beschrieben.
+- Eine ausführbare CLI-Akzeptanzmatrix prüft Docker und Podman mit einem
+  repräsentativen SQL-Server-2022-CU18 sowie Hyper-V mit einer frischen
+  Windows-/SQL-Server-2025-Installation. Chinook, getrennte Daten-/Log-/TempDB-
+  Speicher, SQL- und Runtime-Ressourcen, Lifecycle, Persistenz und
+  scopegebundener Cleanup sind für alle drei Provider real nachgewiesen.
 
 ### Behoben
 
@@ -27,6 +32,25 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   zwei isolierte OS-Slots aus einem vorhandenen `OS_SEALED`-Artifact prüft und
   anschließend scopegebunden freigibt, ohne die gesamte Nightly-Matrix zu
   wiederholen.
+- Container verwenden ein run-eigenes SQL-Systemvolume und initialisieren
+  leere Named Volumes mit providergeeigneten Besitzrechten. Dadurch bleiben
+  Systemdatenbanken, Testdaten und Storage-Bindungen über Reconcile und
+  Stop/Start/Restart erhalten; Podman nutzt dafür die kontrollierte `:U`-
+  Zuordnung.
+- SQL-Readiness nach Container- und Hyper-V-Lifecycle-Aktionen ist an die
+  tatsächlich betroffene Runtime gebunden. Dezimale Speichergrenzen, reine
+  TCP-Reconcile-Pfade und Windows-PowerShell-5.1-SQL-Verbindungsstrings werden
+  korrekt behandelt.
+- Die Hyper-V-Gastinitialisierung bindet Zusatz-VHDX über stabile SCSI-Slots,
+  persistiert die Windows-Specialization und führt große Mehrbatch-SQL-Skripte
+  über eine UTF-8-Datei in derselben Verbindung aus.
+
+### Geändert
+
+- Teure Nightly-Runtime-Läufe werden nur ausgelöst, wenn sich der relevante
+  Frameworkstand gegenüber dem letzten erfolgreichen Lauf geändert hat.
+- Die Docker-/Podman-Workflowtitel benennen die tatsächlich gewählte Runtime-
+  beziehungsweise CLI-Akzeptanz statt pauschal SQL Server 2025.
 
 ## 2026-08-13
 
