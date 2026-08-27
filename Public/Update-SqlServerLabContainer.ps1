@@ -63,6 +63,9 @@ function Update-SqlServerLabContainer {
     if ($occupied) { throw "CONTAINER_RECONCILE_PORT_IN_USE: $Port" }
     $backupName = "$name-reconcile-$([guid]::NewGuid().ToString('N').Substring(0,8))"
     $image = [string]$inspect.Config.Image
+    $containerHost = if ($instance.host) { [string]$instance.host } else { '127.0.0.1' }
+    $saPassword = if ($wasRunning) { Get-LabSecret -Path $runDirectory -Name 'sa-password' } else { $null }
+    if ($wasRunning -and -not $saPassword) { throw 'CONTAINER_RECONCILE_SA_SECRET_MISSING' }
     $arguments = @('run','-d','--name',$name,'-p',"${Port}:1433",'--cpus',$cpuArgument,'--memory',"${MemoryMB}m")
     foreach ($entry in @($inspect.Config.Env)) { $arguments += @('-e',[string]$entry) }
     foreach ($property in @($inspect.Config.Labels.PSObject.Properties)) { $arguments += @('--label',"$($property.Name)=$($property.Value)") }
@@ -72,7 +75,10 @@ function Update-SqlServerLabContainer {
             $arguments += @('-v',"$($mount.Source):$($mount.Destination)$suffix")
         }
         elseif ([string]$mount.Type -eq 'volume' -and $mount.Name) {
-            $suffix = if (-not [bool]$mount.RW) { ':ro' } else { '' }
+            $volumeOptions = @()
+            if ($runtime -eq 'podman') { $volumeOptions += 'U' }
+            if (-not [bool]$mount.RW) { $volumeOptions += 'ro' }
+            $suffix = if ($volumeOptions.Count -gt 0) { ":$($volumeOptions -join ',')" } else { '' }
             $arguments += @('-v',"$($mount.Name):$($mount.Destination)$suffix")
         }
     }
@@ -92,13 +98,14 @@ function Update-SqlServerLabContainer {
         $replacementCreated = $true
         if (-not $wasRunning) { $null = & $runtime stop $name 2>&1 }
         else {
-            $deadline = [datetime]::UtcNow.AddSeconds($ReadinessTimeoutSeconds)
-            do {
-                $ready = Test-NetConnection -ComputerName 127.0.0.1 -Port $Port -InformationLevel Quiet -WarningAction SilentlyContinue
-                if ($ready) { break }
-                Start-Sleep -Seconds 2
-            } while ([datetime]::UtcNow -lt $deadline)
-            if (-not $ready) { throw "CONTAINER_RECONCILE_READINESS_TIMEOUT: 127.0.0.1:$Port" }
+            $readiness = Wait-SqlReady `
+                -HostName $containerHost `
+                -Port $Port `
+                -SaPassword $saPassword `
+                -TimeoutSeconds $ReadinessTimeoutSeconds `
+                -Provider $runtime `
+                -ContainerIdOrName $name
+            if (-not $readiness.Ready) { throw "CONTAINER_RECONCILE_READINESS_TIMEOUT: $($readiness.Message)" }
         }
         $removeOutput = & $runtime rm -f $backupName 2>&1
         if ($LASTEXITCODE -ne 0) { throw "CONTAINER_RECONCILE_BACKUP_REMOVE_FAILED: $($removeOutput -join ' ')" }
@@ -108,7 +115,7 @@ function Update-SqlServerLabContainer {
         $instance | Add-Member -NotePropertyName port -NotePropertyValue $Port -Force
         $instance | Add-Member -NotePropertyName cpu -NotePropertyValue $Cpu -Force
         $instance | Add-Member -NotePropertyName memoryMB -NotePropertyValue $MemoryMB -Force
-        $instance | Add-Member -NotePropertyName connectionString -NotePropertyValue (New-SqlConnectionString -HostName '127.0.0.1' -Port $Port) -Force
+        $instance | Add-Member -NotePropertyName connectionString -NotePropertyValue (New-SqlConnectionString -HostName $containerHost -Port $Port) -Force
         Write-LabArtifactJsonAtomic -Path $connectionPath -InputObject $connection
         return [PSCustomObject]@{ RunId=$RunId; Provider=$runtime; Container=$name; Changed=$true; Recreated=$true; Port=$Port; Cpu=$Cpu; MemoryMB=$MemoryMB }
     }

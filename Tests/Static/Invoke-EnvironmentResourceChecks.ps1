@@ -43,12 +43,42 @@ try {
     $unchanged = Set-LabEnvironmentResources -RunId $runId -MemoryMB 6144 -ProcessorCount 6 -StateRoot $testRoot
     if ($unchanged.Changed -or -not $unchanged.NoChange) { throw 'Identische Ressourcenwerte muessen NoChange liefern.' }
 
+    function Get-DockerInstanceStatus {
+        [pscustomobject]@{
+            Exists = $true
+            Running = $true
+            Healthy = $false
+            AutoStart = $false
+            Inspect = [pscustomobject]@{
+                HostConfig = [pscustomobject]@{ Memory = [long](2560MB); NanoCpus = [long](1000000000); CpuQuota = 0; CpuPeriod = 0 }
+                State = [pscustomobject]@{ Status = 'running' }
+                Config = [pscustomobject]@{ Labels = [pscustomobject]@{ 'sql-server-lab.run-id'=$runId; 'sql-server-lab.scope-id'='resource-test-scope' } }
+            }
+            Raw = 'running'
+        }
+    }
+    $containerConnection = [pscustomobject]@{
+        instances = @([pscustomobject]@{ id='primary'; provider='docker'; containerId='container-id'; containerName='container-name' })
+    }
+    $containerConnection | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $runDirectory 'connection-info.json') -Encoding utf8
+    $containerResources = Get-LabEnvironmentResources -RunId $runId -StateRoot $testRoot
+    if ($containerResources.Instances.Count -ne 1 -or $containerResources.Instances[0].MemoryLimitMB -ne 2560 -or $containerResources.Instances[0].ProcessorCount -ne 1) {
+        throw "Get-LabEnvironmentResources wertet das strukturierte Container-Inspect-Ergebnis nicht aus: $($containerResources.Instances | ConvertTo-Json -Depth 10 -Compress)"
+    }
+
+    foreach ($providerPath in @('Providers/Docker/DockerProvider.ps1', 'Providers/Podman/PodmanProvider.ps1')) {
+        $providerSource = Get-Content -LiteralPath (Join-Path $repoRoot $providerPath) -Raw
+        if ($providerSource -notmatch 'Inspect\s*=\s*\$item') {
+            throw "Providerstatus stellt kein strukturiertes Inspect-Ergebnis bereit: $providerPath"
+        }
+    }
+
     $entrySource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Invoke-SqlServerLab.ps1') -Raw
     $resourceAction = [regex]::Match($entrySource, 'function Set-LabResourcesInteractive \{[\s\S]+?(?=\r?\nfunction Manage-LabEnvironmentInteractive)')
     if (-not $resourceAction.Success -or $resourceAction.Value -notmatch 'catch \{[\s\S]+?Write-LabError[\s\S]+?Wait-LabConsoleAcknowledgement') {
         throw 'Interaktive Ressourcenfehler warten nicht auf eine Rueckkehrbestaetigung.'
     }
-    Write-Host 'Environment resource checks: 4 PASS, 0 FAIL' -ForegroundColor Green
+    Write-Host 'Environment resource checks: 6 PASS, 0 FAIL' -ForegroundColor Green
 }
 finally {
     $resolvedTestRoot = [IO.Path]::GetFullPath($testRoot)

@@ -543,9 +543,9 @@ function Test-HyperVSqlAcceptanceEnvironment {
             try {
                 $plainPassword = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
                 $builder = [System.Data.SqlClient.SqlConnectionStringBuilder]::new()
-                $builder.DataSource = 'localhost'; $builder.InitialCatalog = 'master'; $builder.UserID = 'sa'
-                $builder.Password = $plainPassword; $builder.Encrypt = $true; $builder.TrustServerCertificate = $true
-                $builder.ConnectTimeout = [Math]::Min(15, [int]$Timeout)
+                $builder['Data Source'] = 'localhost'; $builder['Initial Catalog'] = 'master'; $builder['User ID'] = 'sa'
+                $builder['Password'] = $plainPassword; $builder['Encrypt'] = $true; $builder['TrustServerCertificate'] = $true
+                $builder['Connect Timeout'] = [Math]::Min(15, [int]$Timeout)
                 $connection = [System.Data.SqlClient.SqlConnection]::new($builder.ConnectionString); $connection.Open()
                 $command = $connection.CreateCommand(); $command.CommandTimeout = [int]$Timeout
                 $command.CommandText = @"

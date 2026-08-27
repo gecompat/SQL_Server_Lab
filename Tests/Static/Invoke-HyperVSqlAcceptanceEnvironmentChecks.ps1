@@ -171,6 +171,11 @@ try {
         $acceptanceText -match "SERVERPROPERTY\('ProductMajorVersion'\)" -and
         $acceptanceText -match 'BACKUP DATABASE[\s\S]+CHECKSUM' -and $acceptanceText -match 'RESTORE VERIFYONLY'
     )
+    Add-CheckResult -Name 'SQL-Abnahme verwendet Windows-PowerShell-5.1-kompatible Connection-String-Keywords' -Success (
+        $acceptanceText -match "\`$builder\['Data Source'\]" -and
+        $acceptanceText -match "\`$builder\['Initial Catalog'\]" -and
+        $acceptanceText -notmatch '\$builder\.DataSource\s*='
+    )
     Add-CheckResult -Name 'Gast-Unattend wird nach OOBE entfernt' -Success (
         $acceptanceText -match 'Panther\\Unattend\.xml[\s\S]+Remove-Item'
     )

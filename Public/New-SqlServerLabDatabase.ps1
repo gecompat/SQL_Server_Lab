@@ -4,7 +4,9 @@
 .DESCRIPTION
     Erzeugt CREATE DATABASE T-SQL mit konfigurierbaren Data- und Log-Dateien,
     sicheren einfachen Bezeichnern, Collation und optionalen Basiseinstellungen.
-    Das Feld path wird als absoluter Linux-Containerpfad verwendet.
+    Das Feld path akzeptiert einen absoluten Linux-Containerpfad oder einen
+    absoluten Windows-Laufwerkspfad. Dadurch kann derselbe CLI-Vertrag fuer
+    Docker, Podman und direkt erreichbare Hyper-V-SQL-Instanzen verwendet werden.
 .PARAMETER HostName
     Hostname oder IP-Adresse des SQL Servers. Standard ist 127.0.0.1.
 .PARAMETER Port
@@ -55,6 +57,12 @@ function New-SqlServerLabDatabase {
         throw "Port '$Port' liegt ausserhalb des gueltigen TCP-Portbereichs."
     }
 
+    $isAbsoluteSqlPath = {
+        param([string]$Path)
+        if ([string]::IsNullOrWhiteSpace($Path)) { return $false }
+        return $Path.StartsWith('/') -or $Path -match '^[A-Za-z]:\\[^<>:"|?*\r\n]+$'
+    }
+
     if ($DataFiles.Count -eq 0) {
         $DataFiles = @(
             [PSCustomObject]@{
@@ -92,8 +100,8 @@ function New-SqlServerLabDatabase {
         if ($size -le 0 -or $growth -le 0) {
             throw "Data-File '$name' benoetigt positive Werte fuer sizeMB und filegrowthMB."
         }
-        if ($configuredPath -and -not $configuredPath.StartsWith('/')) {
-            throw "Data-File-Pfad '$configuredPath' muss ein absoluter Linux-Containerpfad sein."
+        if ($configuredPath -and -not (& $isAbsoluteSqlPath $configuredPath)) {
+            throw "Data-File-Pfad '$configuredPath' muss ein absoluter Linux- oder Windows-SQL-Pfad sein."
         }
 
         $extension = if ($index -eq 0) { 'mdf' } else { 'ndf' }
@@ -122,8 +130,8 @@ function New-SqlServerLabDatabase {
         if ($size -le 0 -or $growth -le 0) {
             throw "Log-File '$name' benoetigt positive Werte fuer sizeMB und filegrowthMB."
         }
-        if ($configuredPath -and -not $configuredPath.StartsWith('/')) {
-            throw "Log-File-Pfad '$configuredPath' muss ein absoluter Linux-Containerpfad sein."
+        if ($configuredPath -and -not (& $isAbsoluteSqlPath $configuredPath)) {
+            throw "Log-File-Pfad '$configuredPath' muss ein absoluter Linux- oder Windows-SQL-Pfad sein."
         }
 
         $path = if ($configuredPath) { $configuredPath } else { "/var/opt/mssql/data/${name}.ldf" }

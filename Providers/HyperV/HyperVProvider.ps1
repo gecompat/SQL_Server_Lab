@@ -106,6 +106,8 @@ function ConvertTo-HyperVLabNotes {
                     vhdType = [string]$_.VhdType
                     path = [System.IO.Path]::GetFullPath([string]$_.Path)
                     diskIdentifier = [string]$_.DiskIdentifier
+                    controllerNumber = [int]$_.ControllerNumber
+                    controllerLocation = [int]$_.ControllerLocation
                     guestPath = if ($_.GuestPath) { [string]$_.GuestPath } else { $null }
                     driveLetter = if ($_.DriveLetter) { [string]$_.DriveLetter } else { $null }
                     fileSystem = [string]$_.FileSystem
@@ -216,6 +218,10 @@ function Resolve-HyperVAdditionalDrivePlan {
             VhdType = $vhdType
             Path = [System.IO.Path]::GetFullPath($path)
             DiskIdentifier = $null
+            ControllerNumber = 0
+            # Generation-2-VMs verwenden fuer die OS-VHDX SCSI 0:0.
+            # Zusatzdisks erhalten deshalb explizit stabile Slots 0:1..0:16.
+            ControllerLocation = $plan.Count + 1
             GuestPath = $guestPath
             DriveLetter = $driveLetter
             FileSystem = 'NTFS'
@@ -492,6 +498,7 @@ function New-HyperVInstance {
             -VM $vm `
             -ControllerType SCSI `
             -ControllerNumber 0 `
+            -ControllerLocation ([int]$drive.ControllerLocation) `
             -Path $drive.Path `
             -ErrorAction Stop
         if ([long]$drive.MaximumIops -gt 0) {
@@ -1047,13 +1054,13 @@ function Wait-HyperVGuestSqlReady {
             try {
                 $plainPassword = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
                 $builder = [System.Data.SqlClient.SqlConnectionStringBuilder]::new()
-                $builder.DataSource = $serverName
-                $builder.InitialCatalog = 'master'
-                $builder.UserID = 'sa'
-                $builder.Password = $plainPassword
-                $builder.Encrypt = $true
-                $builder.TrustServerCertificate = $true
-                $builder.ConnectTimeout = [Math]::Min(15, [Math]::Max(1, [int]$Timeout))
+                $builder['Data Source'] = $serverName
+                $builder['Initial Catalog'] = 'master'
+                $builder['User ID'] = 'sa'
+                $builder['Password'] = $plainPassword
+                $builder['Encrypt'] = $true
+                $builder['TrustServerCertificate'] = $true
+                $builder['Connect Timeout'] = [Math]::Min(15, [Math]::Max(1, [int]$Timeout))
 
                 $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
                 $lastError = ''
@@ -1184,6 +1191,9 @@ function Initialize-HyperVWindowsGuestDrives {
             [PSCustomObject]@{
                 id = [string]$_.id
                 diskIdentifier = [string]$_.diskIdentifier
+                sizeBytes = [long]$_.sizeBytes
+                controllerNumber = [int]$_.controllerNumber
+                controllerLocation = [int]$_.controllerLocation
                 guestPath = [string]$_.guestPath
                 driveLetter = [string]$_.driveLetter
                 fileSystem = [string]$_.fileSystem
@@ -1192,7 +1202,13 @@ function Initialize-HyperVWindowsGuestDrives {
             }
         }
     )
-    $planJson = $portablePlan | ConvertTo-Json -Compress -Depth 10
+    # Windows PowerShell 5.1 liefert ein JSON-Top-Level-Array über Remoting
+    # als einzelnes verschachteltes Object[] zurück. Ein benannter Envelope
+    # hält die Elementgrenze provider- und PowerShell-versionsstabil.
+    $planJson = [PSCustomObject]@{
+        contractVersion = '1'
+        drives = $portablePlan
+    } | ConvertTo-Json -Compress -Depth 10
     $receipt = Invoke-HyperVPowerShellDirect `
         -VMName $VMName `
         -ExpectedRunId $ExpectedRunId `
@@ -1205,7 +1221,11 @@ function Initialize-HyperVWindowsGuestDrives {
             # Der Gast bringt je nach Windows-Version noch Windows PowerShell
             # 5.1 mit; dessen ConvertFrom-Json kennt keinen -Depth-Parameter.
             # Der Plan ist bewusst flach und benötigt keine spezielle Tiefe.
-            $specifications = @($DrivePlanJson | ConvertFrom-Json)
+            $plan = ($DrivePlanJson | ConvertFrom-Json)
+            if ([string]$plan.contractVersion -ne '1') {
+                throw 'GUEST_DRIVE_PLAN_CONTRACT_INVALID'
+            }
+            $specifications = @($plan.drives)
 
             function ConvertTo-NormalizedDiskIdentifier {
                 param([string]$Value)
@@ -1214,6 +1234,7 @@ function Initialize-HyperVWindowsGuestDrives {
 
             $null = Update-HostStorageCache
             $allDisks = @(Get-Disk)
+            $claimedDiskNumbers = [Collections.Generic.HashSet[int]]::new()
             $results = @()
             foreach ($specification in $specifications) {
                 $expectedIdentifier = ConvertTo-NormalizedDiskIdentifier $specification.diskIdentifier
@@ -1225,20 +1246,24 @@ function Initialize-HyperVWindowsGuestDrives {
                 $matchingMethod = 'disk-identifier'
                 # Frische VHDX-Dateien besitzen vor der ersten GPT-
                 # Initialisierung im Gast je nach Windows-/Hyper-V-Version
-                # keinen zu Get-VHD passenden UniqueId-Wert. Als kontrollierte
-                # Rückfallregel ist ausschließlich genau eine nicht-System-RAW-
-                # Disk zulässig; mehrere Kandidaten bleiben ein harter Fehler.
+                # keinen zu Get-VHD passenden UniqueId-Wert. Die VHDX wurden
+                # deshalb explizit auf SCSI 0:1..0:16 gebunden. In einer
+                # Generation-2-VM belegt die OS-Disk 0:0; der initiale
+                # Gast-DiskNumber entspricht dem festen ControllerLocation.
                 if ($matches.Count -eq 0) {
                     $rawCandidates = @(
                         $allDisks | Where-Object {
                             [string]$_.PartitionStyle -eq 'RAW' -and
                             -not [bool]$_.IsBoot -and
-                            -not [bool]$_.IsSystem
+                            -not [bool]$_.IsSystem -and
+                            [int]$_.Number -eq [int]$specification.controllerLocation -and
+                            [long]$_.Size -eq [long]$specification.sizeBytes -and
+                            -not $claimedDiskNumbers.Contains([int]$_.Number)
                         }
                     )
                     if ($rawCandidates.Count -eq 1) {
                         $matches = $rawCandidates
-                        $matchingMethod = 'single-raw-disk-fallback'
+                        $matchingMethod = 'scsi-location-raw-fallback'
                     }
                 }
                 if ($matches.Count -ne 1) {
@@ -1246,6 +1271,9 @@ function Initialize-HyperVWindowsGuestDrives {
                 }
 
                 $disk = $matches[0]
+                if (-not $claimedDiskNumbers.Add([int]$disk.Number)) {
+                    throw "GUEST_DISK_ALREADY_CLAIMED_$($specification.id)_$($disk.Number)"
+                }
                 if ($disk.IsOffline) {
                     Set-Disk -Number $disk.Number -IsOffline $false -ErrorAction Stop
                 }

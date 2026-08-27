@@ -12,6 +12,16 @@ on:
         description: Optionales OS_SEALED-Artifact fuer den Slot-Batch
         required: false
         type: string
+      media_root:
+        description: Media Root fuer die vollstaendige CLI-Akzeptanz
+        required: false
+        default: D:\Lab_Base
+        type: string
+      media_edition:
+        description: SQL-Medienedition fuer die vollstaendige CLI-Akzeptanz
+        required: false
+        default: Enterprise
+        type: string
   workflow_dispatch:
     inputs:
       mode:
@@ -23,10 +33,25 @@ on:
           - lifecycle
           - slot-batch
           - shared-environments
+          - cli-acceptance
       image_artifact_id:
         description: Optionales OS_SEALED-Artifact; leer waehlt das neueste passende Artifact
         required: false
         type: string
+      media_root:
+        description: Media Root mit hashregistrierter SQL-ISO
+        required: false
+        default: D:\Lab_Base
+        type: string
+      media_edition:
+        description: SQL-Medienedition fuer die vollstaendige CLI-Akzeptanz
+        required: true
+        default: Enterprise
+        type: choice
+        options:
+          - Enterprise
+          - Standard
+          - Eval
 
 permissions:
   contents: read
@@ -39,7 +64,7 @@ jobs:
   hyperv-lifecycle-smoke:
     name: Hyper-V lifecycle, isolated OS-slot batch, or shared environments
     runs-on: [self-hosted, SQL_Lab, Hyper-V]
-    timeout-minutes: 30
+    timeout-minutes: 180
 
     defaults:
       run:
@@ -94,3 +119,16 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           .\Tests\Integration\Invoke-TestEnvironmentAcceptance.ps1
+
+      - name: Fresh Windows slot and complete SQL CLI acceptance
+        if: inputs.mode == 'cli-acceptance'
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $arguments = @{
+            MediaRoot = '${{ inputs.media_root }}'
+            SqlVersion = '2025'
+            MediaEdition = '${{ inputs.media_edition }}'
+          }
+          $artifactId = '${{ inputs.image_artifact_id }}'
+          if (-not [string]::IsNullOrWhiteSpace($artifactId)) { $arguments.ArtifactId = $artifactId }
+          .\Tests\Integration\Invoke-HyperVCliAcceptance.ps1 @arguments

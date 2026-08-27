@@ -83,6 +83,18 @@ try {
         $backupDrive -and $backupDrive.containerPath -eq '/var/opt/mssql/backup' -and
         $backupDrive.hostPath -eq (Join-Path $temporaryRoot 'Labs/persistent-test/Instances/docker/primary/SqlServer/2025/backups')
     )
+    $runScopedDriveContract = & $module {
+        $instance = [PSCustomObject]@{ drives = @([PSCustomObject]@{ id='data'; containerPath='/sqldata' }) }
+        $null = Add-LabRunScopedContainerSystemDrive -Instance $instance
+        $null = Add-LabRunScopedContainerSystemDrive -Instance $instance
+        return $instance.drives
+    }
+    $runScopedSystemDrives = @($runScopedDriveContract | Where-Object containerPath -eq '/var/opt/mssql')
+    Add-CheckResult -Name 'Kurzlebige Container-Labs behalten SQL-Systemdaten ueber einen Recreate' -Success (
+        $runScopedSystemDrives.Count -eq 1 -and
+        $runScopedSystemDrives[0].id -eq 'runtime-mssql' -and
+        $runScopedSystemDrives[0].persistence -eq 'run-scoped-runtime-volume'
+    )
 }
 catch { Add-CheckResult -Name 'Data-Root-Testausfuehrung' -Success $false -Message $_.Exception.Message }
 finally {
