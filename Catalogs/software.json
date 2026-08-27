@@ -147,9 +147,9 @@
         {
           "id": "sql2022-python-windows-hyperv",
           "status": "PREVIEW",
-          "reason": "Verifizierte Offline-Medien, Guest-Installer und echte Hyper-V-Evidence fehlen.",
+          "reason": "Verifizierte Offline-Medien und Guest-Installer sind implementiert; echte Hyper-V-External-Script-Evidence steht noch aus.",
           "language": "Python",
-          "runtimeVersion": "3.10",
+          "runtimeVersion": "3.10.11",
           "extensionVersion": "SQL Server 2022 Machine Learning Services",
           "sqlMajorVersions": [16],
           "minimumCu": null,
@@ -163,14 +163,119 @@
           "sourceUrls": [
             "https://learn.microsoft.com/en-us/sql/machine-learning/install/sql-machine-learning-services-windows-install-sql-2022?view=sql-server-ver17"
           ],
-          "artifacts": [],
-          "packageLocks": [],
+          "artifacts": [
+            {
+              "id": "python-win-3.10.11",
+              "sourceType": "installer",
+              "source": "https://www.python.org/ftp/python/3.10.11/python-3.10.11-amd64.exe",
+              "version": "3.10.11",
+              "sha256": "d8dede5005564b408ba50317108b765ed9c3c510342a598f9fd42681cbe0648b",
+              "integrityOrigin": "local-characterization-2026-08-28",
+              "license": "Python-2.0"
+            },
+            {
+              "id": "dill-win-0.3.4",
+              "sourceType": "archive",
+              "source": "https://files.pythonhosted.org/packages/b6/c3/973676ceb86b60835bb3978c6db67a5dc06be6cfdbd14ef0f5a13e3fc9fd/dill-0.3.4-py2.py3-none-any.whl",
+              "version": "0.3.4",
+              "sha256": "7e40e4a70304fd9ceab3535d36e58791d9c4a776b38ec7f7ec9afc8d3dca4d4f",
+              "integrityOrigin": "pypi-release-file-sha256",
+              "license": "BSD-3-Clause"
+            },
+            {
+              "id": "numpy-win-1.22.0",
+              "sourceType": "archive",
+              "source": "https://files.pythonhosted.org/packages/ba/0f/dccae97d723f67e77994acdc6f5408361e6ea291bdefe980b79bd4c4eed6/numpy-1.22.0-cp310-cp310-win_amd64.whl",
+              "version": "1.22.0",
+              "sha256": "e41e8951749c4b5c9a2dc5fdbc1a4eec6ab2a140fdae9b460b0f557eed870f4d",
+              "integrityOrigin": "pypi-release-file-sha256",
+              "license": "BSD-3-Clause"
+            },
+            {
+              "id": "pandas-win-1.3.5",
+              "sourceType": "archive",
+              "source": "https://files.pythonhosted.org/packages/68/a7/96cde70dd2723a9cb79978a390cb3de448a72baafc949ef1fce1e804dbd0/pandas-1.3.5-cp310-cp310-win_amd64.whl",
+              "version": "1.3.5",
+              "sha256": "aaf183a615ad790801fa3cf2fa450e5b6d23a54684fe386f7e3208f8b9bfbef6",
+              "integrityOrigin": "pypi-release-file-sha256",
+              "license": "BSD-3-Clause"
+            },
+            {
+              "id": "patsy-win-0.5.2",
+              "sourceType": "archive",
+              "source": "https://files.pythonhosted.org/packages/87/7f/d37cd027c25145eeba92b1a756976931c831803d92547c8637a3400c339f/patsy-0.5.2-py2.py3-none-any.whl",
+              "version": "0.5.2",
+              "sha256": "cc80955ae8c13a7e7c4051eda7b277c8f909f50bc7d73e124bc38e2ee3d95041",
+              "integrityOrigin": "pypi-release-file-sha256",
+              "license": "BSD-2-Clause"
+            },
+            {
+              "id": "python-dateutil-win-2.8.2",
+              "sourceType": "archive",
+              "source": "https://files.pythonhosted.org/packages/36/7a/87837f39d0296e723bb9b62bbb257d0355c7f6128853c78955f57342a56d/python_dateutil-2.8.2-py2.py3-none-any.whl",
+              "version": "2.8.2",
+              "sha256": "961d03dc3453ebbc59dbdea9e4e11c5651520a876d0f4db161e8674aae935da9",
+              "integrityOrigin": "pypi-release-file-sha256",
+              "license": "Apache-2.0 OR BSD-3-Clause"
+            },
+            {
+              "id": "packaging-win-21.3",
+              "sourceType": "archive",
+              "source": "https://files.pythonhosted.org/packages/05/8e/8de486cbd03baba4deef4142bd643a3e7bbe954a784dc1bb17142572d127/packaging-21.3-py3-none-any.whl",
+              "version": "21.3",
+              "sha256": "ef103e05f519cdc783ae24ea4e2e0f508a9c99b2d4969652eed6a2e1ea5bd522",
+              "integrityOrigin": "pypi-release-file-sha256",
+              "license": "Apache-2.0 OR BSD-2-Clause"
+            },
+            {
+              "id": "pyparsing-win-3.0.9",
+              "sourceType": "archive",
+              "source": "https://files.pythonhosted.org/packages/6c/10/a7d0fa5baea8fe7b50f448ab742f26f52b80bfca85ac2be9d35cdd9a3246/pyparsing-3.0.9-py3-none-any.whl",
+              "version": "3.0.9",
+              "sha256": "5026bae9a10eeaefb61dab2f09052b9f4307d44aee4eda64b309723d8d206bbc",
+              "integrityOrigin": "pypi-release-file-sha256",
+              "license": "MIT"
+            },
+            {
+              "id": "six-win-1.16.0",
+              "sourceType": "archive",
+              "source": "https://files.pythonhosted.org/packages/d9/5a/e7c31adbe875f2abbb91bd84cf2dc52d792b5a01506781dbcf25c91daf11/six-1.16.0-py2.py3-none-any.whl",
+              "version": "1.16.0",
+              "sha256": "8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254",
+              "integrityOrigin": "pypi-release-file-sha256",
+              "license": "MIT"
+            },
+            {
+              "id": "pytz-win-2021.3",
+              "sourceType": "archive",
+              "source": "https://files.pythonhosted.org/packages/d3/e3/d9f046b5d1c94a3aeab15f1f867aa414f8ee9d196fae6865f1d6a0ee1a0b/pytz-2021.3-py2.py3-none-any.whl",
+              "version": "2021.3",
+              "sha256": "3672058bc3453457b622aab7a1c3bfd5ab0bdae451512f6cf25f64ed37f5b87c",
+              "integrityOrigin": "pypi-release-file-sha256",
+              "license": "MIT"
+            },
+            {
+              "id": "revoscalepy-win-10.0.1",
+              "sourceType": "archive",
+              "source": "https://aka.ms/sqlml/python3.10/windows/revoscalepy-10.0.1-py3-none-any.whl",
+              "version": "10.0.1",
+              "sha256": "30d1daa5738fa78b064aa48fb1d5c8259a48fd0596dfec410512707c4cce3d1e",
+              "integrityOrigin": "local-characterization-2026-08-28",
+              "license": "Microsoft Machine Learning Services EULA"
+            }
+          ],
+          "packageLocks": [
+            { "name": "numpy", "version": "1.22.0", "sha256": "e41e8951749c4b5c9a2dc5fdbc1a4eec6ab2a140fdae9b460b0f557eed870f4d", "source": "https://pypi.org/project/numpy/1.22.0/" },
+            { "name": "pandas", "version": "1.3.5", "sha256": "aaf183a615ad790801fa3cf2fa450e5b6d23a54684fe386f7e3208f8b9bfbef6", "source": "https://pypi.org/project/pandas/1.3.5/" },
+            { "name": "dill", "version": "0.3.4", "sha256": "7e40e4a70304fd9ceab3535d36e58791d9c4a776b38ec7f7ec9afc8d3dca4d4f", "source": "https://pypi.org/project/dill/0.3.4/" },
+            { "name": "patsy", "version": "0.5.2", "sha256": "cc80955ae8c13a7e7c4051eda7b277c8f909f50bc7d73e124bc38e2ee3d95041", "source": "https://pypi.org/project/patsy/0.5.2/" }
+          ],
           "restart": { "sqlServer": true, "launchpad": true, "guest": true },
           "validation": {
             "type": "spExecuteExternalScript",
             "language": "Python",
             "probeId": "python-runtime-version",
-            "expectedRuntimeVersion": "3.10"
+            "expectedRuntimeVersion": "3.10.11"
           }
         }
       ]
@@ -331,9 +436,9 @@
         {
           "id": "sql2022-r-windows-hyperv",
           "status": "PREVIEW",
-          "reason": "Verifizierte Offline-Medien, Guest-Installer und echte Hyper-V-Evidence fehlen.",
+          "reason": "Verifizierte Offline-Medien und Guest-Installer sind implementiert; echte Hyper-V-External-Script-Evidence steht noch aus.",
           "language": "R",
-          "runtimeVersion": "4.2",
+          "runtimeVersion": "4.2.3",
           "extensionVersion": "SQL Server 2022 Machine Learning Services",
           "sqlMajorVersions": [16],
           "minimumCu": null,
@@ -347,14 +452,85 @@
           "sourceUrls": [
             "https://learn.microsoft.com/en-us/sql/machine-learning/install/sql-machine-learning-services-windows-install-sql-2022?view=sql-server-ver17"
           ],
-          "artifacts": [],
-          "packageLocks": [],
+          "artifacts": [
+            {
+              "id": "r-win-4.2.3",
+              "sourceType": "installer",
+              "source": "https://cran.r-project.org/bin/windows/base/old/4.2.3/R-4.2.3-win.exe",
+              "version": "4.2.3",
+              "sha256": "655852cbfcd50cb5410c55e022241eba6edd88706a93dadf6294e5cd05ff3b2d",
+              "integrityOrigin": "local-characterization-2026-08-28",
+              "license": "GPL-2.0-or-later"
+            },
+            {
+              "id": "iterators-win-1.0.14",
+              "sourceType": "archive",
+              "source": "https://cran.r-project.org/bin/windows/contrib/4.2/iterators_1.0.14.zip",
+              "version": "1.0.14",
+              "sha256": "9636c8e3f5e34c759273b01dd5eabe5f4579dc9adea32aa01a3412cf5e2c8f65",
+              "integrityOrigin": "local-characterization-2026-08-28",
+              "license": "Apache-2.0"
+            },
+            {
+              "id": "foreach-win-1.5.2",
+              "sourceType": "archive",
+              "source": "https://cran.r-project.org/bin/windows/contrib/4.2/foreach_1.5.2.zip",
+              "version": "1.5.2",
+              "sha256": "315e54be5e3d51eee75adafc747dd57b5d05fbbb3d7126f09d1f30979951d1d3",
+              "integrityOrigin": "local-characterization-2026-08-28",
+              "license": "Apache-2.0"
+            },
+            {
+              "id": "r6-win-2.5.1",
+              "sourceType": "archive",
+              "source": "https://cran.r-project.org/bin/windows/contrib/4.2/R6_2.5.1.zip",
+              "version": "2.5.1",
+              "sha256": "252e2005562b95a95dcf9dae7a5a06860abee76006df2ea16187544cada4d281",
+              "integrityOrigin": "local-characterization-2026-08-28",
+              "license": "MIT"
+            },
+            {
+              "id": "jsonlite-win-1.8.8",
+              "sourceType": "archive",
+              "source": "https://cran.r-project.org/bin/windows/contrib/4.2/jsonlite_1.8.8.zip",
+              "version": "1.8.8",
+              "sha256": "12d001f34c4ddec1ab76412b7364578b5f8890f61fc7327918fdc30faf12598a",
+              "integrityOrigin": "local-characterization-2026-08-28",
+              "license": "MIT"
+            },
+            {
+              "id": "compatibilityapi-win-1.1.0",
+              "sourceType": "archive",
+              "source": "https://aka.ms/sqlml/r4.2/windows/CompatibilityAPI_1.1.0.zip",
+              "version": "1.1.0",
+              "sha256": "4567be1d195b15c45dcc32265e217fa7bfe552fb67bdf68083572a092115c318",
+              "integrityOrigin": "local-characterization-2026-08-28",
+              "license": "Microsoft Machine Learning Services EULA"
+            },
+            {
+              "id": "revoscaler-win-10.0.1",
+              "sourceType": "archive",
+              "source": "https://aka.ms/sqlml/r4.2/windows/RevoScaleR_10.0.1.zip",
+              "version": "10.0.1",
+              "sha256": "76c07f6b56073a4ab643bf03de986aed8afb91bf2f4454eaf92633b503f76105",
+              "integrityOrigin": "local-characterization-2026-08-28",
+              "license": "Microsoft Machine Learning Services EULA"
+            }
+          ],
+          "packageLocks": [
+            { "name": "iterators", "version": "1.0.14", "sha256": "9636c8e3f5e34c759273b01dd5eabe5f4579dc9adea32aa01a3412cf5e2c8f65", "source": "https://cran.r-project.org/package=iterators" },
+            { "name": "foreach", "version": "1.5.2", "sha256": "315e54be5e3d51eee75adafc747dd57b5d05fbbb3d7126f09d1f30979951d1d3", "source": "https://cran.r-project.org/package=foreach" },
+            { "name": "R6", "version": "2.5.1", "sha256": "252e2005562b95a95dcf9dae7a5a06860abee76006df2ea16187544cada4d281", "source": "https://cran.r-project.org/package=R6" },
+            { "name": "jsonlite", "version": "1.8.8", "sha256": "12d001f34c4ddec1ab76412b7364578b5f8890f61fc7327918fdc30faf12598a", "source": "https://cran.r-project.org/package=jsonlite" },
+            { "name": "CompatibilityAPI", "version": "1.1.0", "sha256": "4567be1d195b15c45dcc32265e217fa7bfe552fb67bdf68083572a092115c318", "source": "https://aka.ms/sqlml/r4.2/windows/CompatibilityAPI_1.1.0.zip" },
+            { "name": "RevoScaleR", "version": "10.0.1", "sha256": "76c07f6b56073a4ab643bf03de986aed8afb91bf2f4454eaf92633b503f76105", "source": "https://aka.ms/sqlml/r4.2/windows/RevoScaleR_10.0.1.zip" }
+          ],
           "restart": { "sqlServer": true, "launchpad": true, "guest": true },
           "validation": {
             "type": "spExecuteExternalScript",
             "language": "R",
             "probeId": "r-runtime-version",
-            "expectedRuntimeVersion": "4.2"
+            "expectedRuntimeVersion": "4.2.3"
           }
         }
       ]
@@ -503,12 +679,12 @@
           }
         },
         {
-          "id": "sql2022-java11-windows-hyperv",
+          "id": "sql2022-java17-windows-hyperv",
           "status": "PREVIEW",
-          "reason": "Verifizierte JRE-/Extension-Medien, Guest-Installer und echte Hyper-V-Evidence fehlen.",
+          "reason": "Der SHA-256-gebundene Offline-JDK-/Extension-/JAR-Pfad und der Guest-Installer sind implementiert; echte Hyper-V-JAR-Evidence fehlt noch.",
           "language": "Java",
-          "runtimeVersion": "11",
-          "extensionVersion": null,
+          "runtimeVersion": "17",
+          "extensionVersion": "1.1.0",
           "sqlMajorVersions": [16],
           "minimumCu": null,
           "operatingSystem": "windows",
@@ -519,16 +695,80 @@
           "recipeVersion": "1",
           "requiresCapabilities": ["software-catalog-planning", "powershell-direct-software-installation", "sql-external-runtime"],
           "sourceUrls": [
-            "https://learn.microsoft.com/en-us/sql/language-extensions/install/windows-java?view=sql-server-ver17"
+            "https://learn.microsoft.com/en-us/sql/language-extensions/install/windows-java?view=sql-server-ver17",
+            "https://github.com/microsoft/sql-server-language-extensions/releases/tag/Java-v1.1.0",
+            "https://learn.microsoft.com/en-us/java/openjdk/download"
           ],
-          "artifacts": [],
-          "packageLocks": [],
-          "restart": { "sqlServer": true, "launchpad": true, "guest": true },
+          "artifacts": [
+            {
+              "id": "msopenjdk-17-windows",
+              "sourceType": "archive",
+              "source": "https://aka.ms/download-jdk/microsoft-jdk-17.0.20.1-windows-x64.zip",
+              "version": "17.0.20.1",
+              "sha256": "3d9006956fc8af5601cd24ffc4f468bef48279c7ebd8171b9bdf90d0aabfbf1f",
+              "integrityOrigin": "SHA-256 verified against the Microsoft aka.ms OpenJDK archive on 2026-08-28",
+              "license": "GPL-2.0-only WITH Classpath-exception-2.0"
+            },
+            {
+              "id": "java-language-extension",
+              "sourceType": "archive",
+              "source": "https://github.com/microsoft/sql-server-language-extensions/releases/download/Java-v1.1.0/java-lang-extension-windows-release.zip",
+              "version": "1.1.0",
+              "sha256": "e2f088f1a8f412844cc6f850a2e79ad566bf08f0ebef2606eac1deac1293fb0f",
+              "integrityOrigin": "SHA-256 verified against the Microsoft GitHub release asset on 2026-08-28",
+              "license": "MIT"
+            },
+            {
+              "id": "mssql-java-lang-extension-windows",
+              "sourceType": "generated",
+              "source": "https://github.com/microsoft/sql-server-language-extensions/releases/download/Java-v1.1.0/java-lang-extension-windows-release.zip",
+              "version": "1.1.0",
+              "sha256": "8f55e54880233f1a835486802ff4339f1ca32d1ee22491b4c441cb0685340533",
+              "integrityOrigin": "SDK JAR extracted from the SHA-256-bound Microsoft Java-v1.1.0 Windows release archive",
+              "license": "MIT"
+            },
+            {
+              "id": "sql-server-lab-java-probe",
+              "sourceType": "generated",
+              "source": "repository://Images/ExternalLanguages/Linux/java/SqlServerLabExternalRuntimeProbe.java",
+              "version": "1.0.0",
+              "sha256": "f3a4e59c21b88fc3c3f29c98c60177c35da9b7d41635d194d62eaaa2bf6f498f",
+              "integrityOrigin": "Deterministic Java 8 bytecode and UTC/timestamp-normalized JAR built with locked Microsoft OpenJDK 17.0.20.1 on Windows",
+              "license": "SQL_Server_Lab Attribution & Non-Commercial Redistribution (LICENCE.md)"
+            }
+          ],
+          "packageLocks": [
+            {
+              "name": "msopenjdk-17-windows",
+              "version": "17.0.20.1",
+              "sha256": "3d9006956fc8af5601cd24ffc4f468bef48279c7ebd8171b9bdf90d0aabfbf1f",
+              "source": "https://aka.ms/download-jdk/microsoft-jdk-17.0.20.1-windows-x64.zip"
+            },
+            {
+              "name": "java-language-extension",
+              "version": "1.1.0",
+              "sha256": "e2f088f1a8f412844cc6f850a2e79ad566bf08f0ebef2606eac1deac1293fb0f",
+              "source": "https://github.com/microsoft/sql-server-language-extensions/releases/download/Java-v1.1.0/java-lang-extension-windows-release.zip"
+            },
+            {
+              "name": "mssql-java-lang-extension-windows",
+              "version": "1.1.0",
+              "sha256": "8f55e54880233f1a835486802ff4339f1ca32d1ee22491b4c441cb0685340533",
+              "source": "https://github.com/microsoft/sql-server-language-extensions/releases/download/Java-v1.1.0/java-lang-extension-windows-release.zip"
+            },
+            {
+              "name": "sql-server-lab-java-probe",
+              "version": "1.0.0",
+              "sha256": "f3a4e59c21b88fc3c3f29c98c60177c35da9b7d41635d194d62eaaa2bf6f498f",
+              "source": "https://github.com/gecompat/SQL_Server_Lab/blob/main/Images/ExternalLanguages/Linux/java/SqlServerLabExternalRuntimeProbe.java"
+            }
+          ],
+          "restart": { "sqlServer": true, "launchpad": true, "guest": false },
           "validation": {
             "type": "spExecuteExternalScript",
             "language": "Java",
             "probeId": "java-synthetic-library",
-            "expectedRuntimeVersion": "11"
+            "expectedRuntimeVersion": "17"
           }
         }
       ]

@@ -74,7 +74,7 @@ $result = & $module {
     $packagePlan = Resolve-LabExternalRuntimePlan -SoftwareItem $packageRequest -SqlVersion '2022' -Provider docker -OperatingSystem linux
 
     $javaRequest = [PSCustomObject]@{
-        Id = 'sql-java'; Version = '11'; Variant = $null; Scope = 'sqlExternalRuntime'
+        Id = 'sql-java'; Version = '17'; Variant = $null; Scope = 'sqlExternalRuntime'
         InstallMethod = 'catalog'; Optional = $false; Packages = @(); RequestSource = 'software'
     }
     $javaPlan = Resolve-LabExternalRuntimePlan -SoftwareItem $javaRequest -SqlVersion '2022' -Provider hyperv -OperatingSystem windows
@@ -127,7 +127,7 @@ $result = & $module {
             $sql2025Plan.ReasonCode -eq 'RUNTIME_COMBINATION_NOT_CATALOGUED'
         PackageLock = $packagePlan.ReasonCode -eq 'PACKAGE_NOT_LOCKED'
         HyperVJava = $javaPlan.ReasonCode -eq 'VARIANT_PREVIEW' -and
-            $javaPlan.VariantId -eq 'sql2022-java11-windows-hyperv'
+            $javaPlan.VariantId -eq 'sql2022-java17-windows-hyperv'
         DuplicateRejected = $duplicateRejected
         ReceiptRejected = $receiptRejected
         Intent = $softwareIntent.RequiredCapability -eq 'software-catalog-planning' -and
