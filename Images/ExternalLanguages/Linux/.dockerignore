@@ -7,3 +7,8 @@
 !python-wheels.lock
 !install-r-runtime.sh
 !r-packages.lock
+!install-java-runtime.sh
+!java-artifacts.lock
+!java/
+!java/SqlServerLabExternalRuntimeProbe.java
+!java/MICROSOFT-JAVA-EXTENSION-LICENSE.txt

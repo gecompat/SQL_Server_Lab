@@ -428,10 +428,11 @@ function Invoke-SqlQuery {
     $loginTimeoutSeconds = [Math]::Max(2, [Math]::Min($TimeoutSeconds, 30))
     $tempQueryPath = $null
     try {
-        if ($IsWindows -and $Query.Length -gt 7000) {
+        if ($IsWindows -and ($Query.Length -gt 7000 -or $Query.Contains('"'))) {
             # CreateProcess besitzt unter Windows ein hartes Kommandozeilenlimit.
-            # Grosse, weiterhin einzelne T-SQL-Batches werden deshalb als
-            # UTF-8-BOM-Datei uebergeben. Die sqlcmd-Skriptebene bleibt wie im
+            # Grosse oder doppelte Anfuehrungszeichen enthaltende, weiterhin
+            # einzelne T-SQL-Batches werden deshalb als UTF-8-BOM-Datei
+            # uebergeben. Die sqlcmd-Skriptebene bleibt wie im
             # Single-Connection-Pfad vollstaendig deaktiviert.
             $tempQueryPath = [System.IO.Path]::GetTempFileName()
             [System.IO.File]::WriteAllText($tempQueryPath, $Query, [System.Text.UTF8Encoding]::new($true))

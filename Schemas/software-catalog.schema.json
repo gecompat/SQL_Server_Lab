@@ -173,7 +173,7 @@
         "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]+$" },
         "sourceType": {
           "type": "string",
-          "enum": ["os-package", "archive", "installer", "container-base"]
+          "enum": ["os-package", "archive", "installer", "container-base", "generated"]
         },
         "source": { "type": "string", "minLength": 1 },
         "version": { "type": ["string", "null"] },

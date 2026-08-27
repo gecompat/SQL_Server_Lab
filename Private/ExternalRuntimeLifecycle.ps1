@@ -123,6 +123,236 @@ WITH RESULT SETS ((evidence nvarchar(4000) NOT NULL));
     }
 }
 
+function Get-LabJavaExternalRuntimeArtifactSha256 {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Plan,
+        [Parameter(Mandatory)][string]$ArtifactId
+    )
+
+    $artifactMatches = @($Plan.ArtifactRefs | Where-Object { [string]$_.Id -eq $ArtifactId })
+    if ($artifactMatches.Count -ne 1 -or [string]$artifactMatches[0].Sha256 -notmatch '^[a-f0-9]{64}$') {
+        throw "EXTERNAL_RUNTIME_JAVA_ARTIFACT_MISSING: $ArtifactId"
+    }
+    return ([string](($artifactMatches[0]).Sha256))
+}
+
+function Register-LabJavaExternalRuntimeDatabaseObjects {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Plan,
+        [string]$HostName = '127.0.0.1',
+        [Parameter(Mandatory)][int]$Port,
+        [Parameter(Mandatory)][SecureString]$SaPassword,
+        [Parameter(Mandatory)][ValidatePattern('^[A-Za-z][A-Za-z0-9_]{0,127}$')][string]$Database
+    )
+
+    $extensionSha256 = Get-LabJavaExternalRuntimeArtifactSha256 -Plan $Plan -ArtifactId 'java-language-extension'
+    $sdkSha256 = Get-LabJavaExternalRuntimeArtifactSha256 -Plan $Plan -ArtifactId 'mssql-java-lang-extension-linux'
+    $probeSha256 = Get-LabJavaExternalRuntimeArtifactSha256 -Plan $Plan -ArtifactId 'sql-server-lab-java-probe'
+    $query = @"
+SET NOCOUNT ON;
+DECLARE @createdLanguage bit = 0;
+DECLARE @createdSdk bit = 0;
+DECLARE @createdProbe bit = 0;
+DECLARE @expectedEnvironment nvarchar(4000) = N'{"JRE_HOME":"/opt/sql-server-lab/java/jre"}';
+
+BEGIN TRY
+    IF EXISTS (SELECT 1 FROM sys.external_languages WHERE language = N'Java')
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1
+            FROM sys.external_languages AS l
+            INNER JOIN sys.external_language_files AS f ON f.external_language_id = l.external_language_id
+            WHERE l.language = N'Java'
+              AND f.platform_desc = N'LINUX'
+              AND f.file_name = N'libJavaExtension.so.1.0'
+              AND f.environment_variables = @expectedEnvironment
+              AND HASHBYTES('SHA2_256', f.content) = 0x$extensionSha256
+        )
+            THROW 51000, 'EXTERNAL_RUNTIME_JAVA_LANGUAGE_DRIFT', 1;
+    END
+    ELSE
+    BEGIN
+        CREATE EXTERNAL LANGUAGE Java
+        FROM (
+            CONTENT = N'/opt/sql-server-lab/java/extension/java-lang-extension-linux-release.zip',
+            FILE_NAME = 'libJavaExtension.so.1.0',
+            PLATFORM = LINUX,
+            ENVIRONMENT_VARIABLES = N'{"JRE_HOME":"/opt/sql-server-lab/java/jre"}'
+        );
+        SET @createdLanguage = 1;
+    END;
+
+    IF EXISTS (SELECT 1 FROM sys.external_libraries WHERE name = N'SqlServerLabJavaSdk')
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1
+            FROM sys.external_libraries AS l
+            INNER JOIN sys.external_library_files AS f ON f.external_library_id = l.external_library_id
+            WHERE l.name = N'SqlServerLabJavaSdk'
+              AND l.language = N'Java'
+              AND l.scope = 0
+              AND f.platform_desc = N'LINUX'
+              AND HASHBYTES('SHA2_256', f.content) = 0x$sdkSha256
+        )
+            THROW 51001, 'EXTERNAL_RUNTIME_JAVA_SDK_DRIFT', 1;
+    END
+    ELSE
+    BEGIN
+        CREATE EXTERNAL LIBRARY SqlServerLabJavaSdk
+        FROM (CONTENT = N'/opt/sql-server-lab/java/libraries/mssql-java-lang-extension-linux.jar')
+        WITH (LANGUAGE = 'Java');
+        SET @createdSdk = 1;
+    END;
+
+    IF EXISTS (SELECT 1 FROM sys.external_libraries WHERE name = N'SqlServerLabJavaProbe')
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1
+            FROM sys.external_libraries AS l
+            INNER JOIN sys.external_library_files AS f ON f.external_library_id = l.external_library_id
+            WHERE l.name = N'SqlServerLabJavaProbe'
+              AND l.language = N'Java'
+              AND l.scope = 0
+              AND f.platform_desc = N'LINUX'
+              AND HASHBYTES('SHA2_256', f.content) = 0x$probeSha256
+        )
+            THROW 51002, 'EXTERNAL_RUNTIME_JAVA_PROBE_DRIFT', 1;
+    END
+    ELSE
+    BEGIN
+        CREATE EXTERNAL LIBRARY SqlServerLabJavaProbe
+        FROM (CONTENT = N'/opt/sql-server-lab/java/libraries/sql-server-lab-java-probe-1.0.0.jar')
+        WITH (LANGUAGE = 'Java');
+        SET @createdProbe = 1;
+    END;
+
+    SELECT CONCAT(
+        N'SQLLAB_JAVA_REGISTRATION|',
+        CONVERT(nvarchar(1), @createdLanguage), N'|',
+        CONVERT(nvarchar(1), @createdSdk), N'|',
+        CONVERT(nvarchar(1), @createdProbe)
+    );
+END TRY
+BEGIN CATCH
+    IF @createdProbe = 1 AND EXISTS (SELECT 1 FROM sys.external_libraries WHERE name = N'SqlServerLabJavaProbe')
+        DROP EXTERNAL LIBRARY SqlServerLabJavaProbe;
+    IF @createdSdk = 1 AND EXISTS (SELECT 1 FROM sys.external_libraries WHERE name = N'SqlServerLabJavaSdk')
+        DROP EXTERNAL LIBRARY SqlServerLabJavaSdk;
+    IF @createdLanguage = 1 AND EXISTS (SELECT 1 FROM sys.external_languages WHERE language = N'Java')
+        DROP EXTERNAL LANGUAGE Java;
+    THROW;
+END CATCH;
+"@
+    $saPlain = ConvertFrom-LabSecureString -SecureString $SaPassword
+    try {
+        $output = @(Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $saPlain -Database $Database -Query $query -TimeoutSeconds 180)
+    }
+    finally { $saPlain = $null }
+    $marker = @($output | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ -like 'SQLLAB_JAVA_REGISTRATION|*' } | Select-Object -Last 1)[0]
+    if (-not $marker) { throw "EXTERNAL_RUNTIME_JAVA_REGISTRATION_EVIDENCE_MISSING: $Database / $(@($output) -join ' ')" }
+    $parts = @($marker.Split('|'))
+    if ($parts.Count -ne 4 -or @($parts[1..3] | Where-Object { $_ -notin @('0', '1') }).Count -gt 0) {
+        throw "EXTERNAL_RUNTIME_JAVA_REGISTRATION_EVIDENCE_INVALID: $marker"
+    }
+    return [PSCustomObject]@{
+        Database=$Database
+        CreatedLanguage=($parts[1] -eq '1')
+        CreatedSdk=($parts[2] -eq '1')
+        CreatedProbe=($parts[3] -eq '1')
+    }
+}
+
+function Undo-LabJavaExternalRuntimeDatabaseObjects {
+    [CmdletBinding()]
+    param(
+        [string]$HostName = '127.0.0.1',
+        [Parameter(Mandatory)][int]$Port,
+        [Parameter(Mandatory)][SecureString]$SaPassword,
+        [Parameter(Mandatory)][ValidatePattern('^[A-Za-z][A-Za-z0-9_]{0,127}$')][string]$Database,
+        [Parameter(Mandatory)]$Registration
+    )
+
+    $dropProbe = if ([bool]$Registration.CreatedProbe) { '1' } else { '0' }
+    $dropSdk = if ([bool]$Registration.CreatedSdk) { '1' } else { '0' }
+    $dropLanguage = if ([bool]$Registration.CreatedLanguage) { '1' } else { '0' }
+    $query = @"
+SET NOCOUNT ON;
+IF $dropProbe = 1 AND EXISTS (SELECT 1 FROM sys.external_libraries WHERE name = N'SqlServerLabJavaProbe')
+    DROP EXTERNAL LIBRARY SqlServerLabJavaProbe;
+IF $dropSdk = 1 AND EXISTS (SELECT 1 FROM sys.external_libraries WHERE name = N'SqlServerLabJavaSdk')
+    DROP EXTERNAL LIBRARY SqlServerLabJavaSdk;
+IF $dropLanguage = 1 AND EXISTS (SELECT 1 FROM sys.external_languages WHERE language = N'Java')
+    DROP EXTERNAL LANGUAGE Java;
+SELECT N'SQLLAB_JAVA_COMPENSATION|PASS';
+"@
+    $saPlain = ConvertFrom-LabSecureString -SecureString $SaPassword
+    try {
+        $output = @(Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $saPlain -Database $Database -Query $query -TimeoutSeconds 90)
+    }
+    finally { $saPlain = $null }
+    if (@($output | ForEach-Object { ([string]$_).Trim() }) -notcontains 'SQLLAB_JAVA_COMPENSATION|PASS') {
+        throw "EXTERNAL_RUNTIME_JAVA_COMPENSATION_FAILED: $Database"
+    }
+}
+
+function Invoke-LabJavaExternalRuntimeProbe {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Plan,
+        [string]$HostName = '127.0.0.1',
+        [Parameter(Mandatory)][int]$Port,
+        [Parameter(Mandatory)][SecureString]$SaPassword,
+        [Parameter(Mandatory)][ValidatePattern('^[A-Za-z][A-Za-z0-9_]{0,127}$')][string]$Database
+    )
+
+    if ([string]$Plan.RuntimeVersion -ne '11') {
+        throw "EXTERNAL_RUNTIME_JAVA_EXPECTATION_INVALID: $($Plan.RuntimeVersion)"
+    }
+    $registration = Register-LabJavaExternalRuntimeDatabaseObjects -Plan $Plan -HostName $HostName `
+        -Port $Port -SaPassword $SaPassword -Database $Database
+    $query = @"
+SET NOCOUNT ON;
+EXEC sp_execute_external_script
+    @language = N'Java',
+    @script = N'sqlserverlab.SqlServerLabExternalRuntimeProbe',
+    @input_data_1 = N'SELECT CAST(42 AS int) AS value'
+WITH RESULT SETS ((evidence nvarchar(4000) NOT NULL));
+"@
+    try {
+        $saPlain = ConvertFrom-LabSecureString -SecureString $SaPassword
+        try {
+            $output = @(Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $saPlain -Database $Database -Query $query -TimeoutSeconds 180)
+        }
+        finally { $saPlain = $null }
+        $marker = @($output | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ -like 'SQLLAB_EXTERNAL|Java|*' } | Select-Object -Last 1)[0]
+        if (-not $marker) { throw "EXTERNAL_RUNTIME_JAVA_EVIDENCE_MISSING: $Database / $(@($output) -join ' ')" }
+        $parts = @($marker.Split('|'))
+        if ($parts.Count -ne 6 -or $parts[2] -ne '1.0.0' -or $parts[3] -notlike '11.*' -or
+            $parts[4] -ne '42' -or $parts[5] -ne 'mssql_satellite') {
+            throw "EXTERNAL_RUNTIME_JAVA_EVIDENCE_INVALID: $Database / $marker"
+        }
+    }
+    catch {
+        $probeFailure = $_
+        try {
+            Undo-LabJavaExternalRuntimeDatabaseObjects -HostName $HostName -Port $Port -SaPassword $SaPassword `
+                -Database $Database -Registration $registration
+        }
+        catch {
+            throw "EXTERNAL_RUNTIME_JAVA_PROBE_AND_COMPENSATION_FAILED: $($probeFailure.Exception.Message) / $($_.Exception.Message)"
+        }
+        throw $probeFailure
+    }
+    return [PSCustomObject]@{
+        Id='java-data-roundtrip'; Status='PASS'; Language='Java'; Database=$Database
+        RuntimeVersion=$parts[3]; ProbeVersion=$parts[2]; InputValue=42; OutputValue=42
+        WorkerIdentity=$parts[5]; Registration=if ($registration.CreatedLanguage -or $registration.CreatedSdk -or $registration.CreatedProbe) { 'CREATED' } else { 'REUSED' }
+        RegistrationDetails=$registration
+    }
+}
+
 function Save-LabExternalRuntimeInstallationReceipts {
     [CmdletBinding()]
     param(
@@ -201,24 +431,60 @@ RECONFIGURE WITH OVERRIDE;
         -ContainerIdOrName ([string]$LabInstance.ContainerId)
 
     $receipts = [Collections.Generic.List[object]]::new()
-    foreach ($plan in @($SoftwarePlans | Sort-Object SoftwareId)) {
-        $probe = switch ([string]$plan.Language) {
-            'Python' {
-                Invoke-LabPythonExternalRuntimeProbe -Plan $plan -HostName ([string]$LabInstance.Host) `
-                    -Port ([int]$LabInstance.Port) -SaPassword $SaPassword
-            }
-            'R' {
-                Invoke-LabRExternalRuntimeProbe -Plan $plan -HostName ([string]$LabInstance.Host) `
-                    -Port ([int]$LabInstance.Port) -SaPassword $SaPassword
-            }
-            default { throw "EXTERNAL_RUNTIME_PROBE_NOT_IMPLEMENTED: $($plan.Language)" }
+    $javaCompensations = [Collections.Generic.List[object]]::new()
+    try {
+        $orderedPlans = @($SoftwarePlans | Sort-Object `
+            @{ Expression = { if ([string]$_.Language -eq 'Java') { 1 } else { 0 } } }, SoftwareId)
+        foreach ($plan in $orderedPlans) {
+            $probes = @(switch ([string]$plan.Language) {
+                'Python' {
+                    Invoke-LabPythonExternalRuntimeProbe -Plan $plan -HostName ([string]$LabInstance.Host) `
+                        -Port ([int]$LabInstance.Port) -SaPassword $SaPassword
+                }
+                'R' {
+                    Invoke-LabRExternalRuntimeProbe -Plan $plan -HostName ([string]$LabInstance.Host) `
+                        -Port ([int]$LabInstance.Port) -SaPassword $SaPassword
+                }
+                'Java' {
+                    $databaseNames = @($LabInstance.Databases | ForEach-Object { [string]$_ } | Sort-Object -Unique)
+                    if ($databaseNames.Count -eq 0) { $databaseNames = @('master') }
+                    foreach ($databaseName in $databaseNames) {
+                        $javaProbe = Invoke-LabJavaExternalRuntimeProbe -Plan $plan -HostName ([string]$LabInstance.Host) `
+                            -Port ([int]$LabInstance.Port) -SaPassword $SaPassword -Database $databaseName
+                        $javaCompensations.Add([PSCustomObject]@{
+                            Database=$databaseName
+                            Registration=$javaProbe.RegistrationDetails
+                        })
+                        $javaProbe.PSObject.Properties.Remove('RegistrationDetails')
+                        $javaProbe
+                    }
+                }
+                default { throw "EXTERNAL_RUNTIME_PROBE_NOT_IMPLEMENTED: $($plan.Language)" }
+            })
+            $installationReceipt = New-LabSoftwareInstallationReceipt -Plan $plan -Postconditions (@($launchpad) + @($probes))
+            $installationReceipt | Add-Member -NotePropertyName ImageKey -NotePropertyValue ([string]$ImageArtifact.ImageKey) -Force
+            $installationReceipt | Add-Member -NotePropertyName LocalImageId -NotePropertyValue ([string]$ImageArtifact.LocalImageId) -Force
+            $receipts.Add($installationReceipt)
         }
-        $installationReceipt = New-LabSoftwareInstallationReceipt -Plan $plan -Postconditions @($launchpad, $probe)
-        $installationReceipt | Add-Member -NotePropertyName ImageKey -NotePropertyValue ([string]$ImageArtifact.ImageKey) -Force
-        $installationReceipt | Add-Member -NotePropertyName LocalImageId -NotePropertyValue ([string]$ImageArtifact.LocalImageId) -Force
-        $receipts.Add($installationReceipt)
+        $null = Save-LabExternalRuntimeInstallationReceipts -RunDirectory $RunDirectory `
+            -InstanceId ([string]$LabInstance.Id) -Receipts @($receipts)
+        return @($receipts)
     }
-    $null = Save-LabExternalRuntimeInstallationReceipts -RunDirectory $RunDirectory `
-        -InstanceId ([string]$LabInstance.Id) -Receipts @($receipts)
-    return @($receipts)
+    catch {
+        $initialFailure = $_
+        $compensationFailures = [Collections.Generic.List[string]]::new()
+        for ($index = $javaCompensations.Count - 1; $index -ge 0; $index--) {
+            $record = $javaCompensations[$index]
+            try {
+                Undo-LabJavaExternalRuntimeDatabaseObjects -HostName ([string]$LabInstance.Host) `
+                    -Port ([int]$LabInstance.Port) -SaPassword $SaPassword -Database ([string]$record.Database) `
+                    -Registration $record.Registration
+            }
+            catch { $compensationFailures.Add($_.Exception.Message) }
+        }
+        if ($compensationFailures.Count -gt 0) {
+            throw "EXTERNAL_RUNTIME_INITIALIZATION_AND_COMPENSATION_FAILED: $($initialFailure.Exception.Message) / $($compensationFailures -join ' | ')"
+        }
+        throw $initialFailure
+    }
 }

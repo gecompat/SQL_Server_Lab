@@ -38,6 +38,13 @@ $invalidSupportedVariants = @($variants | Where-Object {
 })
 Add-CheckResult -Name 'SUPPORTED erfordert versionierte Artefakte mit SHA-256 und Herkunft' -Success ($invalidSupportedVariants.Count -eq 0)
 
+$javaLinux = @($variants | Where-Object { [string]$_.id -eq 'sql2022-java11-ubuntu2204-derived' })[0]
+Add-CheckResult -Name 'Java katalogisiert SDK und synthetisches Probe-JAR als reproduzierbar erzeugte Artefakte' -Success (
+    @($javaLinux.artifacts | Where-Object {
+        [string]$_.sourceType -eq 'generated' -and [string]$_.id -in @('mssql-java-lang-extension-linux', 'sql-server-lab-java-probe')
+    }).Count -eq 2
+)
+
 Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
 Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -ErrorAction Stop
 $module = Get-Module SqlServerLab
