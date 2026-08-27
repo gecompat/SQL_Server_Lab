@@ -83,6 +83,16 @@ Add-CheckResult -Name 'PR-Gate besitzt stabilen Abschlusscheck' -Success ($prWor
 Add-CheckResult -Name 'PR-Gate schützt Self-hosted Runner vor Fork-Code' -Success (
     $prWorkflow -match 'pull_request\.head\.repo\.full_name == github\.repository'
 )
+Add-CheckResult -Name 'PR-Gate validiert betroffene Foundation-Aenderungen gegen den gebundenen Quellcommit' -Success (
+    $prWorkflow -match '(?m)^\s{2}foundation-integrity:\s*$' -and
+    $prWorkflow -match 'if:\s*needs\.classify\.outputs\.foundation == ''true''' -and
+    $prWorkflow -match 'repository:\s*gecompat/AI_Repository_Foundation' -and
+    $prWorkflow -match 'ref:\s*d49f978f33001fcc098998ff7c04ffb209b28033' -and
+    $prWorkflow -match 'foundation_validator\.py' -and
+    $prWorkflow -match '--adapters github-copilot' -and
+    $prWorkflow -match '--capabilities none' -and
+    $prWorkflow -match "foundation = '\$\{\{ needs\.foundation-integrity\.result \}\}'"
+)
 
 $nightly = Get-Content -LiteralPath (Join-Path $repoRoot '.github/workflows/nightly-regression.yml') -Raw -Encoding utf8
 Add-CheckResult -Name 'Nightly enthaelt Vollregression und taeglichen Zeitplan' -Success (

@@ -433,7 +433,13 @@ Lokale Produktfunktion und Native-Tests dürfen nicht von GitHub-hosted Runnern 
 
 Der Workflow `PR Gate` klassifiziert geänderte Pfade, führt auf Windows und
 Ubuntu nur betroffene statische Suites aus und schaltet ausschließlich passende
-Runtime-Smokes zu. Auf einen Merge nach `main` folgt keine zweite Vollmatrix.
+Runtime-Smokes zu. Änderungen am Foundation-Core, Root-Agentenvertrag,
+Copilot-Adapter oder PR-Gate starten zusätzlich den Job `Foundation integrity`.
+Dieser checkt den in `.ai/repo_map.yaml` gebundenen Foundation-Quellcommit aus
+und führt den Foundation-Validator mit den projektspezifisch ausgewählten
+Adaptern und Capabilities aus. Sein Ergebnis fließt in den geschützten
+Abschlusscheck `PR Gate` ein. Auf einen Merge nach `main` folgt keine zweite
+Vollmatrix.
 Die vollständige statische und native Regression läuft täglich gebündelt als
 `Nightly Regression`; eine frische Hyper-V-/SQL-Installation läuft wöchentlich
 oder manuell. Nightly-Fehler werden über ein dauerhaftes Tracking-Issue sichtbar.

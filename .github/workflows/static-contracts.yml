@@ -19,6 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       changed_paths: ${{ steps.selection.outputs.changed_paths }}
+      foundation: ${{ steps.selection.outputs.foundation }}
       docker: ${{ steps.selection.outputs.docker }}
       podman: ${{ steps.selection.outputs.podman }}
       mixed: ${{ steps.selection.outputs.mixed }}
@@ -45,7 +46,37 @@ jobs:
           $json = ConvertTo-Json -InputObject $paths -Compress
           $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($json))
           "changed_paths=$encoded" | Out-File -LiteralPath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          $foundationRequired = @(
+            $paths | Where-Object {
+              $_ -match '^(?:AGENTS\.md|\.ai/foundation/|\.github/copilot-instructions\.md|\.github/workflows/static-contracts\.yml)$'
+            }
+          ).Count -gt 0
+          "foundation=$($foundationRequired.ToString().ToLowerInvariant())" | Out-File -LiteralPath $env:GITHUB_OUTPUT -Encoding utf8 -Append
           ./Tools/Get-CiTestSelection.ps1 -ChangedPath $paths -WriteGitHubOutput | Format-List
+
+  foundation-integrity:
+    name: Foundation integrity
+    needs: classify
+    if: needs.classify.outputs.foundation == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Checkout pinned Foundation source
+        uses: actions/checkout@v7
+        with:
+          repository: gecompat/AI_Repository_Foundation
+          ref: d49f978f33001fcc098998ff7c04ffb209b28033
+          path: .foundation-source
+
+      - name: Validate installed Foundation rules
+        shell: bash
+        run: >-
+          python3 .foundation-source/tools/foundation_validator.py
+          --target "$GITHUB_WORKSPACE"
+          --adapters github-copilot
+          --capabilities none
 
   static-contracts:
     name: Static contracts (${{ matrix.os }})
@@ -101,6 +132,7 @@ jobs:
     if: always()
     needs:
       - classify
+      - foundation-integrity
       - static-contracts
       - docker-runtime
       - podman-runtime
@@ -117,6 +149,7 @@ jobs:
             static = '${{ needs.static-contracts.result }}'
           }
           $optional = @{
+            foundation = '${{ needs.foundation-integrity.result }}'
             docker = '${{ needs.docker-runtime.result }}'
             podman = '${{ needs.podman-runtime.result }}'
             mixed = '${{ needs.mixed-runtime.result }}'

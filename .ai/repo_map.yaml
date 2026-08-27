@@ -601,6 +601,16 @@ validation:
       - scope_bound_cleanup
       - immutable_parent_after_cleanup
   remote_workflows:
+    foundation_integrity:
+      source: .github/workflows/static-contracts.yml
+      job: foundation-integrity
+      runner: ubuntu-latest
+      foundation_repository: gecompat/AI_Repository_Foundation
+      foundation_ref: d49f978f33001fcc098998ff7c04ffb209b28033
+      selected_adapters:
+        - github-copilot
+      selected_capabilities: []
+      required_via_pr_gate_when_affected: true
     static_contracts:
       source: .github/workflows/static-contracts.yml
       runners:
