@@ -6,6 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: read
   contents: read
   issues: write
 
@@ -14,8 +15,41 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  change-gate:
+    name: Framework change gate
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.gate.outputs.should_run }}
+      baseline_sha: ${{ steps.gate.outputs.baseline_sha }}
+    steps:
+      - name: Run only after a repository change
+        id: gate
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+          CURRENT_RUN_ID: ${{ github.run_id }}
+          CURRENT_SHA: ${{ github.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:EVENT_NAME -eq 'workflow_dispatch') {
+            "should_run=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+            "baseline_sha=manual" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+            exit 0
+          }
+          $runs = gh api "repos/$env:REPOSITORY/actions/workflows/nightly-regression.yml/runs?status=success&per_page=20" | ConvertFrom-Json
+          $previous = @($runs.workflow_runs | Where-Object { [string]$_.id -ne $env:CURRENT_RUN_ID } | Select-Object -First 1)[0]
+          $baseline = if ($previous) { [string]$previous.head_sha } else { '' }
+          $shouldRun = -not $baseline -or $baseline -ne $env:CURRENT_SHA
+          "should_run=$($shouldRun.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "baseline_sha=$baseline" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          if (-not $shouldRun) { Write-Host "Kein Framework-Commit seit $baseline; Regression bleibt aus." }
+
   full-static-contracts:
     name: Full static regression (${{ matrix.os }})
+    needs: change-gate
+    if: needs.change-gate.outputs.should_run == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -31,22 +65,34 @@ jobs:
         run: ./Tests/Static/Invoke-AllChecks.ps1
 
   docker-runtime:
+    needs: change-gate
+    if: needs.change-gate.outputs.should_run == 'true'
     uses: ./.github/workflows/runtime-smoke-docker.yml
 
   podman-runtime:
+    needs: change-gate
+    if: needs.change-gate.outputs.should_run == 'true'
     uses: ./.github/workflows/runtime-smoke-podman.yml
 
   mixed-runtime:
+    needs: change-gate
+    if: needs.change-gate.outputs.should_run == 'true'
     uses: ./.github/workflows/runtime-smoke-mixed-providers.yml
 
   hyperv-runtime:
+    needs: change-gate
+    if: needs.change-gate.outputs.should_run == 'true'
     uses: ./.github/workflows/runtime-smoke-hyperv.yml
 
   adapter-runtime:
+    needs: change-gate
+    if: needs.change-gate.outputs.should_run == 'true'
     uses: ./.github/workflows/adapter-smoke-github-hosted.yml
 
   test-environments:
     name: Six shared SQL test environments and CMS
+    needs: change-gate
+    if: needs.change-gate.outputs.should_run == 'true'
     runs-on: [self-hosted, SQL_Lab, Hyper-V]
     timeout-minutes: 30
     defaults:
@@ -61,8 +107,9 @@ jobs:
 
   nightly-report:
     name: Nightly result
-    if: always()
+    if: always() && needs.change-gate.outputs.should_run == 'true'
     needs:
+      - change-gate
       - full-static-contracts
       - docker-runtime
       - podman-runtime

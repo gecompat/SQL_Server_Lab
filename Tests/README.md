@@ -30,6 +30,16 @@ Bei Hyper-V-relevanten Änderungen zusätzlich:
 .\Tests\Integration\Invoke-HyperVSmokeTest.ps1
 ```
 
+Die vertiefte Matrix fuer reale Samples, Ressourcen- und Storageaenderungen ist
+in [CLI_ACCEPTANCE_MATRIX.md](../Documentation/Quality/CLI_ACCEPTANCE_MATRIX.md)
+dokumentiert. Ihre ausfuehrbaren Einstiege sind:
+
+```powershell
+.\Tests\Integration\Invoke-ContainerCliAcceptance.ps1 -Provider docker -Version 2022-CU18
+.\Tests\Integration\Invoke-ContainerCliAcceptance.ps1 -Provider podman -Version 2022-CU18
+.\Tests\Integration\Invoke-HyperVCliAcceptance.ps1 -MediaRoot D:\Lab_Base -SqlVersion 2025
+```
+
 Interpretation:
 
 - `SKIP`: Provider nicht erreichbar/fehlend oder fehlende Elevation

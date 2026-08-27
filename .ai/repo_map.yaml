@@ -57,6 +57,7 @@ sources_of_truth:
   validation_manifest_builder: Tests/Static/Invoke-ManifestBuilderChecks.ps1
   validation_batch_workflow: Tests/Static/Invoke-BatchWorkflowChecks.ps1
   validation_runtime_matrix: Tests/Integration/Invoke-SmokeMatrix.ps1
+  cli_acceptance_matrix: Documentation/Quality/CLI_ACCEPTANCE_MATRIX.md
   latest_validation_result: Documentation/Quality/VALIDATION_RESULT_2026-08-20.md
   repository_continuity_runbook: Documentation/Quality/REPOSITORY_CONTINUITY_RUNBOOK.md
 
@@ -227,7 +228,7 @@ public_commands:
     mutates_host: true
   - name: New-SqlServerLabDatabase
     source: Public/New-SqlServerLabDatabase.ps1
-    purpose: "Datenbank mit konfigurierbaren Dateien und Containerpfaden erstellen"
+    purpose: "Datenbank mit konfigurierbaren Dateien und absoluten Linux- oder Windows-SQL-Pfaden erstellen"
     mutates_sql: true
   - name: Restore-SqlServerLabDatabase
     source: Public/Restore-SqlServerLabDatabase.ps1
@@ -374,14 +375,14 @@ providers:
     windows_networking: Documentation/HowTo/PODMAN_WINDOWS_NETWORKING.md
     port_binding: "gemeinsame Portermittlung plus Runtime-Retry innerhalb des hostweiten Locks"
   hyperv:
-    status: partial_manifest_clone_specialization_readiness_orchestration
+    status: windows_slot_sql_install_and_specialization_readiness_orchestration
     implementation: Providers/HyperV/HyperVProvider.ps1
     image_registry: Private/HyperVImageRegistry.ps1
     image_builder: Private/HyperVImageBuilder.ps1
     metadata: Providers/HyperV/provider.json
     documentation: Providers/HyperV/README.md
     command: Get-VMHost
-    sql_provisioning: "partial_prepared_image_clone_only; realer allgemeiner SQL-End-to-End-Nachweis offen"
+    sql_provisioning: "partial_prepared_image_clone_only fuer CompleteImage plus OS_SEALED-Ad-hoc-Installation; vertiefter CLI-Akzeptanzpfad vorhanden"
     native_smoke: Tests/Integration/Invoke-HyperVSmokeTest.ps1
     registry_static_checks: Tests/Static/Invoke-HyperVImageRegistryChecks.ps1
     builder_static_checks: Tests/Static/Invoke-HyperVImageBuilderChecks.ps1
@@ -628,6 +629,20 @@ validation:
       - no_sql_instance_in_os_baseline
       - scope_bound_cleanup
       - immutable_parent_after_cleanup
+  cli_acceptance:
+    authority: Documentation/Quality/CLI_ACCEPTANCE_MATRIX.md
+    container_source: Tests/Integration/Invoke-ContainerCliAcceptance.ps1
+    hyperv_source: Tests/Integration/Invoke-HyperVCliAcceptance.ps1
+    docker: '.\Tests\Integration\Invoke-ContainerCliAcceptance.ps1 -Provider docker -Version 2022-CU18'
+    podman: '.\Tests\Integration\Invoke-ContainerCliAcceptance.ps1 -Provider podman -Version 2022-CU18'
+    hyperv: '.\Tests\Integration\Invoke-HyperVCliAcceptance.ps1 -MediaRoot D:\Lab_Base -SqlVersion 2025'
+    cu_policy: "ein repraesentativer katalogisierter CU je Containerprovider; keine Vollmatrix aller CUs"
+    checks:
+      - catalog_verified_sample_download_and_install
+      - separated_data_log_tempdb_and_backup_storage
+      - sql_and_runtime_resource_changes
+      - lifecycle_and_reconcile_persistence
+      - scope_bound_cleanup
   remote_workflows:
     foundation_integrity:
       source: .github/workflows/static-contracts.yml

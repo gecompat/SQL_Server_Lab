@@ -2,7 +2,22 @@ name: Runtime Smoke - Podman
 
 on:
   workflow_call:
+    inputs:
+      mode:
+        description: Auszufuehrender Podman-Nachweis
+        required: false
+        default: lifecycle
+        type: string
   workflow_dispatch:
+    inputs:
+      mode:
+        description: Auszufuehrender Podman-Nachweis
+        required: true
+        default: lifecycle
+        type: choice
+        options:
+          - lifecycle
+          - cli-acceptance
 
 permissions:
   contents: read
@@ -15,7 +30,7 @@ jobs:
   podman-smoke:
     name: Podman provider with SQL Server 2025
     runs-on: [self-hosted, SQL_Lab, Podman]
-    timeout-minutes: 25
+    timeout-minutes: 45
 
     defaults:
       run:
@@ -44,24 +59,32 @@ jobs:
             $acquired = $mutex.WaitOne([TimeSpan]::FromMinutes(10))
             if (-not $acquired) { throw 'Runtime-Smoke-Hostlock konnte innerhalb von 10 Minuten nicht erworben werden.' }
 
-            & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-SmokeMatrix.ps1 `
-              -Provider podman `
-              -ReferenceVersion 2025 `
-              -TestAutoStart 2>&1 | Tee-Object -FilePath $logPath
-            $matrixExitCode = $LASTEXITCODE
-            if ($matrixExitCode -ne 0) { throw "Podman Smoke Matrix endete mit Exitcode $matrixExitCode." }
+            if ('${{ inputs.mode }}' -eq 'cli-acceptance') {
+              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-ContainerCliAcceptance.ps1 `
+                -Provider podman `
+                -Version 2022-CU18 2>&1 | Tee-Object -FilePath $logPath
+              if ($LASTEXITCODE -ne 0) { throw "Podman CLI Acceptance endete mit Exitcode $LASTEXITCODE." }
+            }
+            else {
+              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-SmokeMatrix.ps1 `
+                -Provider podman `
+                -ReferenceVersion 2025 `
+                -TestAutoStart 2>&1 | Tee-Object -FilePath $logPath
+              $matrixExitCode = $LASTEXITCODE
+              if ($matrixExitCode -ne 0) { throw "Podman Smoke Matrix endete mit Exitcode $matrixExitCode." }
 
-            & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-RestoreSmokeTest.ps1 `
-              -Provider podman `
-              -Version 2025 2>&1 | Tee-Object -FilePath $logPath -Append
-            $restoreExitCode = $LASTEXITCODE
-            if ($restoreExitCode -ne 0) { throw "Podman Restore Smoke Test endete mit Exitcode $restoreExitCode." }
+              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-RestoreSmokeTest.ps1 `
+                -Provider podman `
+                -Version 2025 2>&1 | Tee-Object -FilePath $logPath -Append
+              $restoreExitCode = $LASTEXITCODE
+              if ($restoreExitCode -ne 0) { throw "Podman Restore Smoke Test endete mit Exitcode $restoreExitCode." }
 
-            & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-BatchWorkflowSmokeTest.ps1 `
-              -Provider podman `
-              -Version 2025 2>&1 | Tee-Object -FilePath $logPath -Append
-            $batchExitCode = $LASTEXITCODE
-            if ($batchExitCode -ne 0) { throw "Podman Batch Workflow Smoke Test endete mit Exitcode $batchExitCode." }
+              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-BatchWorkflowSmokeTest.ps1 `
+                -Provider podman `
+                -Version 2025 2>&1 | Tee-Object -FilePath $logPath -Append
+              $batchExitCode = $LASTEXITCODE
+              if ($batchExitCode -ne 0) { throw "Podman Batch Workflow Smoke Test endete mit Exitcode $batchExitCode." }
+            }
           }
           finally {
             if ($acquired) { $mutex.ReleaseMutex() }
