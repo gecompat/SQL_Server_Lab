@@ -619,6 +619,10 @@ function New-SqlServerLab {
             Write-LabInfo "Persistenter Data Root wird eingebunden: $DataRoot"
         }
 
+        foreach ($instance in @($resolved.instances | Where-Object { $_.provider -in @('docker', 'podman') })) {
+            $null = Add-LabRunScopedContainerSystemDrive -Instance $instance
+        }
+
         foreach ($instance in $resolved.instances) {
             Add-LabInstanceCleanupPlan -Instance $instance -RunState $runState
         }

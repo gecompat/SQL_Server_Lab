@@ -19,6 +19,7 @@ Statische Vertragspruefungen und Runtime-Nachweise sind getrennte Evidence.
 | echte Provisionierung | `2022-CU18` | `2022-CU18` | frischer `OS_SEALED`-Klon, danach SQL-Setup |
 | CU-Abdeckung | ein beliebiger katalogisierter CU: CU18 | ein beliebiger katalogisierter CU: CU18 | kein CU-Zwang; optional nur mit lokal verifiziertem Paket |
 | reale Testdatenbank | Chinook, katalogisierter SHA-256 | Chinook, katalogisierter SHA-256 | Chinook, katalogisierter SHA-256 |
+| SQL-Systemzustand | run-scoped `/var/opt/mssql`-Volume | run-scoped `/var/opt/mssql`-Volume | Child-VHDX der VM |
 | getrennte Daten/Log-Pfade | `/sqldata`, `/sqllog` | `/sqldata`, `/sqllog` | `E:\SQLData`, `L:\SQLLog` auf eigenen VHDX |
 | TempDB auf mehreren Datentraegern | `/sqltemp1`, `/sqltemp2` | `/sqltemp1`, `/sqltemp2` | `T:\TempDB`, `U:\TempDB` auf eigenen VHDX |
 | Backup-Speicher | eigenes `/sqlbackup`-Volume | eigenes `/sqlbackup`-Volume | `R:\SQLBackup` auf eigener VHDX |
