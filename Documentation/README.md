@@ -70,7 +70,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | Öffentliche API | 45 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
 | Docker | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman | implementiert | `Providers/Podman/PodmanProvider.ps1` |
-| Hyper-V | Lifecycle, sealed Registry und enger Manifestpfad aus SQL-Prepared-Image; echter SQL-End-to-End-Nachweis bleibt offen | `Providers/HyperV/HyperVProvider.ps1`, `Private/HyperVImageRegistry.ps1` |
+| Hyper-V | Lifecycle, sealed Registry und enger Manifestpfad aus SQL-Prepared-Image; echter SQL-2025-Vertical-Slice aus frischem Windows-Slot einschließlich Storage, Ressourcenwechsel, Datenpersistenz und Cleanup akzeptiert | `Providers/HyperV/HyperVProvider.ps1`, `Private/HyperVImageRegistry.ps1`, `../Tests/Integration/Invoke-HyperVCliAcceptance.ps1` |
 | Versions- und Buildauflösung | implementiert | `Catalogs/sql-server-versions.json`, `Private/VersionCatalog.ps1` |
 | Sample-Katalog | typisierter Artifact-Vertrag; direkte Backups, sichere ZIP-Backups und gepinnte Einzelskripte ausführbar | `Catalogs/sample-databases.json`, `Schemas/sample-databases.schema.json`, `Private/SampleArtifactHandlers.ps1` |
 | Manifestparser | implementiert | `Private/ManifestParser.ps1` |

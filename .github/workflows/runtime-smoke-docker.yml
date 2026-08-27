@@ -28,7 +28,7 @@ concurrency:
 
 jobs:
   docker-smoke:
-    name: Docker provider with SQL Server 2025
+    name: Docker provider runtime / CLI acceptance
     runs-on: [self-hosted, SQL_Lab, Docker]
     timeout-minutes: 45
 
@@ -49,7 +49,7 @@ jobs:
           sqlcmd -?
           if ($LASTEXITCODE -ne 0) { throw 'sqlcmd ist nicht verwendbar.' }
 
-      - name: Docker SQL Server lifecycle
+      - name: Docker SQL Server lifecycle / CLI acceptance
         run: |
           $ErrorActionPreference = 'Stop'
           $logPath = Join-Path $env:RUNNER_TEMP 'docker-smoke-matrix.log'

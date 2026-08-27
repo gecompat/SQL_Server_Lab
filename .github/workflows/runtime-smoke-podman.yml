@@ -28,7 +28,7 @@ concurrency:
 
 jobs:
   podman-smoke:
-    name: Podman provider with SQL Server 2025
+    name: Podman provider runtime / CLI acceptance
     runs-on: [self-hosted, SQL_Lab, Podman]
     timeout-minutes: 45
 
@@ -48,7 +48,7 @@ jobs:
           sqlcmd -?
           if ($LASTEXITCODE -ne 0) { throw 'sqlcmd ist nicht verwendbar.' }
 
-      - name: Podman SQL Server 2025 lifecycle
+      - name: Podman SQL Server lifecycle / CLI acceptance
         run: |
           $ErrorActionPreference = 'Stop'
           $logPath = Join-Path $env:RUNNER_TEMP 'podman-smoke-matrix.log'

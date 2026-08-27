@@ -697,16 +697,15 @@ offen und führen zunächst zu `MANUAL_ACTION_REQUIRED`.
 - Start, Stop, Status, Remove und scope-sicherer Cleanup;
 - eigener Smoke Test auf `SQL_Lab` plus `Hyper-V`.
 
-Stand 2026-08-09: Die Lifecycle-Grundlage und der synthetische Native-Smoke-Test
-sind implementiert. Zusätzlich steht ein realer Windows-Baseline-Acceptance-
-Runner für OOBE, PowerShell Direct, Reconcile-Cold-Start und Cleanup bereit;
-sein positiver hostlokaler Lauf ist noch nicht dokumentiert. Die PowerShell-
-Direct-Sysprep-Orchestrierung und ihre technischen Postconditions sind statisch
-abgedeckt; ein echter positiver Windows-Gast-End-to-End-Nachweis bleibt offen.
-Die run-lokale Windows-Specialization setzt
-einen validierten Computernamen, persistiert ihren Reboot-Zustand und wartet
-begrenzt auf den PowerShell-Direct-Reconnect; auch dieser Pfad ist mangels einer
-realen sealed Baseline bislang nur statisch abgedeckt.
+Stand 2026-08-27: Die Lifecycle-Grundlage, der synthetische Native-Smoke-Test
+und der reale Windows-/SQL-Vertical-Slice sind implementiert und ausgefuehrt.
+Die CLI-Akzeptanz bootet einen frischen `OS_SEALED`-Slot, automatisiert OOBE,
+PowerShell Direct und Windows-Specialization, installiert SQL Server 2025,
+prueft Storage, TempDB, SQL-/VM-Ressourcen und Datenpersistenz und entfernt die
+VM sowie alle run-eigenen VHDX scopegebunden. Die gesonderte PowerShell-Direct-
+Sysprep-Orchestrierung des Prepared-Image-Builders und ihre technischen
+Postconditions bleiben statisch abgedeckt; sie werden durch diesen Ad-hoc-
+Installationsnachweis nicht als real ausgefuehrt klassifiziert.
 
 ### Welle 5 – Drives und SQL Server
 

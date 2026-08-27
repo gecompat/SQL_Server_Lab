@@ -37,7 +37,7 @@ testet seinen Core je Provider nur mit SQL Server 2025.
 
 ## Aktueller Status
 
-**Status:** `CONTAINER_CORE_IMPLEMENTED_HYPERV_SPECIALIZATION_READINESS_ORCHESTRATION`
+**Status:** `CONTAINER_CORE_IMPLEMENTED_HYPERV_SQL_CLI_ACCEPTED`
 
 | Bereich | Status | Nachweis |
 |---|---|---|
@@ -45,7 +45,7 @@ testet seinen Core je Provider nur mit SQL Server 2025.
 | Docker-Provider | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman-Provider | implementiert | `Providers/Podman/PodmanProvider.ps1` |
 | Gemischter Docker-/Podman-Lifecycle | implementiert | `Documentation/Architecture/MIXED_PROVIDER_LIFECYCLE.md` |
-| Hyper-V-Provider | Lifecycle einschließlich Gast-Drives, Windows-Specialization, SQL-Readiness, Image-Registry, Windows-Builder und resumierbarem SQL-`PrepareImage`-Builder implementiert; realer Windows-2025-VHDX-Boot verifiziert, echter SQL-End-to-End-Nachweis noch offen | `Providers/HyperV/HyperVProvider.ps1`, `Private/HyperVImageBuilder.ps1`, `Private/HyperVSqlImageBuilder.ps1` |
+| Hyper-V-Provider | Lifecycle einschließlich Gast-Drives, Windows-Specialization, SQL-Readiness, Image-Registry, Windows-Builder und resumierbarem SQL-`PrepareImage`-Builder implementiert; frischer Windows-Slot mit echter SQL-2025-Installation, Datenbank-/Storage-/Ressourcenänderungen, Lifecycle und Cleanup CLI-seitig akzeptiert | `Providers/HyperV/HyperVProvider.ps1`, `Private/HyperVImageBuilder.ps1`, `Private/HyperVSqlImageBuilder.ps1`, `Tests/Integration/Invoke-HyperVCliAcceptance.ps1` |
 | Ad-hoc-Provisionierung | implementiert | `New-SqlServerLab -Version ... -Provider ...` |
 | Providerneutrale Batch-, Queue- und Resume-Provisionierung | implementiert | `Private/BatchWorkflow.ps1`, `Public/BatchWorkflow.ps1`, `Schemas/lab-batch.schema.json` |
 | Manifest-Provisionierung | primärer unbeaufsichtigter Containerpfad; externe Secret-Referenzen, SHA-256-Restores und sichere Mount-Defaults | `Schemas/lab-manifest.schema.json`, `Documentation/Architecture/TEMPLATE_POOL_AND_AUTOMATED_MANIFESTS.md` |

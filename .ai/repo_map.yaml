@@ -16,7 +16,7 @@ project:
       environment_matrix: windows_linux_sql_2019_2022_2025
   module_manifest: SqlServerLab.psd1
   module_loader: SqlServerLab.psm1
-  runtime_status: CONTAINER_CORE_IMPLEMENTED_HYPERV_SPECIALIZATION_READINESS_ORCHESTRATION
+  runtime_status: CONTAINER_CORE_IMPLEMENTED_HYPERV_SQL_CLI_ACCEPTED
 
 sources_of_truth:
   agent_working_contract: AGENTS.md
@@ -58,7 +58,7 @@ sources_of_truth:
   validation_batch_workflow: Tests/Static/Invoke-BatchWorkflowChecks.ps1
   validation_runtime_matrix: Tests/Integration/Invoke-SmokeMatrix.ps1
   cli_acceptance_matrix: Documentation/Quality/CLI_ACCEPTANCE_MATRIX.md
-  latest_validation_result: Documentation/Quality/VALIDATION_RESULT_2026-08-20.md
+  latest_validation_result: Documentation/Quality/VALIDATION_RESULT_2026-08-27.md
   repository_continuity_runbook: Documentation/Quality/REPOSITORY_CONTINUITY_RUNBOOK.md
 
 foundation_integration:
@@ -621,7 +621,7 @@ validation:
   hyperv_windows_baseline_acceptance:
     source: Tests/Integration/Invoke-HyperVWindowsBaselineAcceptanceRun.ps1
     command: '.\Tests\Integration\Invoke-HyperVWindowsBaselineAcceptanceRun.ps1 -ArtifactId <hyperv-os-sealed-id> -AdministratorPassword <SecureString>'
-    execution_status: "implementiert; positiver hostlokaler Lauf noch offen"
+    execution_status: "implementiert; OOBE-, PowerShell-Direct- und Cleanup-Pfad im vollstaendigen CLI-Akzeptanzlauf positiv ausgefuehrt"
     checks:
       - unattended_windows_oobe_and_locale
       - reconcile_stop_start
@@ -691,11 +691,11 @@ validation:
     static_push_trigger: true
     runtime_push_trigger: false
   last_confirmed_result:
-    date: "2026-08-20"
-    source: Documentation/Quality/VALIDATION_RESULT_2026-08-20.md
-    docker: "PASS – SQL-2025-Batch, Lifecycle, Adapter und Cleanup"
-    podman: "PASS – SQL-2025-Batch, Mixed-Provider und Cleanup"
-    hyperv: "PASS – Batch und Generation-2-Lifecycle; allgemeine SQL-2025-Acceptance durch fehlende Eval-ISO im Media-Root blockiert"
+    date: "2026-08-27"
+    source: Documentation/Quality/VALIDATION_RESULT_2026-08-27.md
+    docker: "PASS – SQL Server 2022 CU18, Chinook, Storage, Ressourcen, Lifecycle, Reconcile und Cleanup"
+    podman: "PASS – SQL Server 2022 CU18, Chinook, Storage, Ressourcen, Lifecycle, Reconcile und Cleanup"
+    hyperv: "PASS – frischer Windows-Slot, SQL Server 2025, Chinook, Storage, Ressourcen, Lifecycle, Persistenz und Cleanup"
 
 change_coupling:
   public_command_change:
@@ -740,7 +740,7 @@ change_coupling:
 known_limitations:
   binding_document: Documentation/Quality/KNOWN_LIMITATIONS.md
   highlights:
-    - "Hyper-V sealed VHDX Registry, Builder-/Resume-Grundlage, enger Manifest-Klonpfad, freie Manifest-Drives und Windows-Baseline-Acceptance-Runner implementiert; dessen positiver hostlokaler Lauf, die vollautomatische OS-Factory, Datenbank-/Software-/Post-Provision-/Netzwerk-Binding und echter SQL-End-to-End-Nachweis bleiben offen"
+    - "Hyper-V sealed VHDX Registry, Builder-/Resume-Grundlage, enger Manifest-Klonpfad, freie Manifest-Drives und echter SQL-2025-CLI-Vertical-Slice implementiert und positiv ausgefuehrt; vollautomatische OS-Factory sowie allgemeines Datenbank-/Software-/Post-Provision-/Netzwerk-Binding bleiben offen"
     - "Container-Manifeste laufen standardmäßig unattended mit externen Secret-Referenzen, SHA-256-/Trust-Schutz und read-only Host-Mount-Default"
     - "providerneutrale Network Intents und Exposure Policy sind nicht implementiert; Reconcile ist auf den Lifecycle START/STOP begrenzt"
     - "Artifact Refresh und Rebuild für Medien, VHDX und Derived Images nicht implementiert"
