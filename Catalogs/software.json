@@ -1,0 +1,213 @@
+{
+  "$schema": "../Schemas/software-catalog.schema.json",
+  "contract": {
+    "name": "SqlServerLab.SoftwareCatalog",
+    "version": "1.0"
+  },
+  "catalogMetadata": {
+    "lastVerified": "2026-08-27",
+    "sources": [
+      "https://learn.microsoft.com/en-us/sql/machine-learning/install/sql-machine-learning-services-windows-install-sql-2022?view=sql-server-ver17",
+      "https://learn.microsoft.com/en-us/sql/linux/install-upgrade/setup-machine-learning-sql-2022?view=sql-server-ver17",
+      "https://learn.microsoft.com/en-us/sql/language-extensions/install/windows-java?view=sql-server-ver17",
+      "https://learn.microsoft.com/en-us/sql/linux/install-upgrade/setup-language-extensions-java?view=sql-server-ver17"
+    ]
+  },
+  "software": [
+    {
+      "id": "sql-python",
+      "kind": "sqlExternalRuntime",
+      "displayName": "Python für SQL Server External Scripts",
+      "variants": [
+        {
+          "id": "sql2022-python310-ubuntu2204-derived",
+          "status": "PREVIEW",
+          "reason": "Derived-Image-Handler, vollständige Artifact Locks und native Docker-/Podman-Evidence fehlen.",
+          "language": "Python",
+          "runtimeVersion": "3.10",
+          "extensionVersion": "SQL Server 2022 Machine Learning Services",
+          "sqlMajorVersions": [16],
+          "minimumCu": null,
+          "operatingSystem": "linux",
+          "distributions": ["ubuntu-22.04"],
+          "architecture": "x86_64",
+          "providers": ["docker", "podman"],
+          "installMethod": "derived-image",
+          "recipeVersion": "1",
+          "requiresCapabilities": ["software-catalog-planning", "derived-image-build", "sql-external-runtime"],
+          "sourceUrls": [
+            "https://learn.microsoft.com/en-us/sql/linux/install-upgrade/setup-machine-learning-sql-2022?view=sql-server-ver17"
+          ],
+          "artifacts": [],
+          "packageLocks": [],
+          "restart": { "sqlServer": true, "launchpad": true, "guest": false },
+          "validation": {
+            "type": "spExecuteExternalScript",
+            "language": "Python",
+            "probeId": "python-runtime-version",
+            "expectedRuntimeVersion": "3.10"
+          }
+        },
+        {
+          "id": "sql2022-python-windows-hyperv",
+          "status": "PREVIEW",
+          "reason": "Verifizierte Offline-Medien, Guest-Installer und echte Hyper-V-Evidence fehlen.",
+          "language": "Python",
+          "runtimeVersion": "3.10",
+          "extensionVersion": "SQL Server 2022 Machine Learning Services",
+          "sqlMajorVersions": [16],
+          "minimumCu": null,
+          "operatingSystem": "windows",
+          "distributions": ["windows-server"],
+          "architecture": "x86_64",
+          "providers": ["hyperv"],
+          "installMethod": "guest-offline-media",
+          "recipeVersion": "1",
+          "requiresCapabilities": ["software-catalog-planning", "powershell-direct-software-installation", "sql-external-runtime"],
+          "sourceUrls": [
+            "https://learn.microsoft.com/en-us/sql/machine-learning/install/sql-machine-learning-services-windows-install-sql-2022?view=sql-server-ver17"
+          ],
+          "artifacts": [],
+          "packageLocks": [],
+          "restart": { "sqlServer": true, "launchpad": true, "guest": true },
+          "validation": {
+            "type": "spExecuteExternalScript",
+            "language": "Python",
+            "probeId": "python-runtime-version",
+            "expectedRuntimeVersion": "3.10"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sql-r",
+      "kind": "sqlExternalRuntime",
+      "displayName": "R für SQL Server External Scripts",
+      "variants": [
+        {
+          "id": "sql2022-r42-ubuntu2204-derived",
+          "status": "PREVIEW",
+          "reason": "Derived-Image-Handler, vollständige Artifact Locks und native Docker-/Podman-Evidence fehlen.",
+          "language": "R",
+          "runtimeVersion": "4.2",
+          "extensionVersion": "SQL Server 2022 Machine Learning Services",
+          "sqlMajorVersions": [16],
+          "minimumCu": null,
+          "operatingSystem": "linux",
+          "distributions": ["ubuntu-22.04"],
+          "architecture": "x86_64",
+          "providers": ["docker", "podman"],
+          "installMethod": "derived-image",
+          "recipeVersion": "1",
+          "requiresCapabilities": ["software-catalog-planning", "derived-image-build", "sql-external-runtime"],
+          "sourceUrls": [
+            "https://learn.microsoft.com/en-us/sql/linux/install-upgrade/setup-machine-learning-sql-2022?view=sql-server-ver17"
+          ],
+          "artifacts": [],
+          "packageLocks": [],
+          "restart": { "sqlServer": true, "launchpad": true, "guest": false },
+          "validation": {
+            "type": "spExecuteExternalScript",
+            "language": "R",
+            "probeId": "r-runtime-version",
+            "expectedRuntimeVersion": "4.2"
+          }
+        },
+        {
+          "id": "sql2022-r-windows-hyperv",
+          "status": "PREVIEW",
+          "reason": "Verifizierte Offline-Medien, Guest-Installer und echte Hyper-V-Evidence fehlen.",
+          "language": "R",
+          "runtimeVersion": "4.2",
+          "extensionVersion": "SQL Server 2022 Machine Learning Services",
+          "sqlMajorVersions": [16],
+          "minimumCu": null,
+          "operatingSystem": "windows",
+          "distributions": ["windows-server"],
+          "architecture": "x86_64",
+          "providers": ["hyperv"],
+          "installMethod": "guest-offline-media",
+          "recipeVersion": "1",
+          "requiresCapabilities": ["software-catalog-planning", "powershell-direct-software-installation", "sql-external-runtime"],
+          "sourceUrls": [
+            "https://learn.microsoft.com/en-us/sql/machine-learning/install/sql-machine-learning-services-windows-install-sql-2022?view=sql-server-ver17"
+          ],
+          "artifacts": [],
+          "packageLocks": [],
+          "restart": { "sqlServer": true, "launchpad": true, "guest": true },
+          "validation": {
+            "type": "spExecuteExternalScript",
+            "language": "R",
+            "probeId": "r-runtime-version",
+            "expectedRuntimeVersion": "4.2"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sql-java",
+      "kind": "sqlExternalRuntime",
+      "displayName": "Java für SQL Server Language Extensions",
+      "variants": [
+        {
+          "id": "sql2022-java11-ubuntu2204-derived",
+          "status": "PREVIEW",
+          "reason": "Extension-Binary-Build, JRE-/JAR-Locks und native Docker-/Podman-Evidence fehlen.",
+          "language": "Java",
+          "runtimeVersion": "11",
+          "extensionVersion": null,
+          "sqlMajorVersions": [16],
+          "minimumCu": null,
+          "operatingSystem": "linux",
+          "distributions": ["ubuntu-22.04"],
+          "architecture": "x86_64",
+          "providers": ["docker", "podman"],
+          "installMethod": "derived-image",
+          "recipeVersion": "1",
+          "requiresCapabilities": ["software-catalog-planning", "derived-image-build", "sql-external-runtime"],
+          "sourceUrls": [
+            "https://learn.microsoft.com/en-us/sql/linux/install-upgrade/setup-language-extensions-java?view=sql-server-ver17"
+          ],
+          "artifacts": [],
+          "packageLocks": [],
+          "restart": { "sqlServer": true, "launchpad": true, "guest": false },
+          "validation": {
+            "type": "spExecuteExternalScript",
+            "language": "Java",
+            "probeId": "java-synthetic-library",
+            "expectedRuntimeVersion": "11"
+          }
+        },
+        {
+          "id": "sql2022-java11-windows-hyperv",
+          "status": "PREVIEW",
+          "reason": "Verifizierte JRE-/Extension-Medien, Guest-Installer und echte Hyper-V-Evidence fehlen.",
+          "language": "Java",
+          "runtimeVersion": "11",
+          "extensionVersion": null,
+          "sqlMajorVersions": [16],
+          "minimumCu": null,
+          "operatingSystem": "windows",
+          "distributions": ["windows-server"],
+          "architecture": "x86_64",
+          "providers": ["hyperv"],
+          "installMethod": "guest-offline-media",
+          "recipeVersion": "1",
+          "requiresCapabilities": ["software-catalog-planning", "powershell-direct-software-installation", "sql-external-runtime"],
+          "sourceUrls": [
+            "https://learn.microsoft.com/en-us/sql/language-extensions/install/windows-java?view=sql-server-ver17"
+          ],
+          "artifacts": [],
+          "packageLocks": [],
+          "restart": { "sqlServer": true, "launchpad": true, "guest": true },
+          "validation": {
+            "type": "spExecuteExternalScript",
+            "language": "Java",
+            "probeId": "java-synthetic-library",
+            "expectedRuntimeVersion": "11"
+          }
+        }
+      ]
+    }
+  ]
+}

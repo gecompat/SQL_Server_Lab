@@ -8,6 +8,12 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- Ein providerneutraler Softwarekatalog und Capability Resolver normalisieren
+  Python-, R- und Java-Anforderungen nach SQL-Version, Betriebssystem,
+  Architektur und Provider. Unbelegte Varianten, freie External-Runtime-
+  Commands, nicht gesperrte Pakete und der nicht reproduzierbare
+  `post-start`-Pfad werden vor jeder Mutation abgelehnt und geheimnisfrei im
+  Desired State ausgewiesen.
 - Die AI Repository Foundation 1.7 ist als geschützte Mindest-Governance integriert
   und von den projektspezifischen Regeln aus `AGENTS.md` transitiv erreichbar.
 - Getrennte GitHub-Rulesets schützen den unveränderlichen Kern von `main` und

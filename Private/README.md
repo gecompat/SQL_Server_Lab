@@ -13,6 +13,7 @@ Der Pfad `Private/` beschreibt primär die interne Architektur. Die tatsächlich
 | `PathSafety.ps1` | geschützte Pfade, Scope-Prüfung und Scope-Marker |
 | `SecretProvider.ps1` | lokales Speichern, Lesen und Entfernen von Secrets |
 | `VersionCatalog.ps1` | Versionen, CU-Builds, Images, Ressourcenprofile und Sample-Katalogzugriff |
+| `SoftwareCatalog.ps1` | Providerneutrale External-Runtime-Anforderungen, kataloggebundene Planauflösung und sanitisiertes Installation Receipt |
 | `StateMachine.ps1` | State-Root, Run-State, ProviderSubRuns, Übergänge, Historie und aktive Runs |
 | `DesiredState.ps1` | Geheimnisfreier Run-Sollzustand mit providerneutralen Drive-, Network- und Software-Intents |
 | `ArtifactResolver.ps1` | HTTP(S)-Backup-Acquisition, lokaler Trust Store, inhaltsadressierter Cache, Quarantäne und sanitisiertes Run Lock |
@@ -24,7 +25,7 @@ Der Pfad `Private/` beschreibt primär die interne Architektur. Die tatsächlich
 | `CleanupEngine.ps1` | Cleanup-Plan, ProviderSubRuns, Schritte und Compensation |
 | `ManifestBuilder.ps1` | Schema-gesteuerte Eingabe sowie Schema-, Katalog- und Runtime-Fachprüfung |
 | `ManifestParser.ps1` | Manifestvalidierung, Defaults, relative Pfade und Sample-Auflösung |
-| `ServerConfig.ps1` | Server- und Datenbankoptionen sowie External Languages |
+| `ServerConfig.ps1` | Server- und Datenbankoptionen sowie abgesicherte External-Languages-Aktivierungsgrenze |
 
 ## Zentrale Aufrufkette
 

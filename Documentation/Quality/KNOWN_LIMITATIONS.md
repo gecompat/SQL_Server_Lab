@@ -374,10 +374,18 @@ Distribution, Provider, Paketquellen und der jeweiligen Supportmatrix abhängig.
 Python ist ausdrücklich auch unter Linux und in Containern vorgesehen; es ist
 nicht auf Hyper-V beschränkt.
 
-Das aktuelle `software`-Schema und der External-Scripts-Pfad bilden diesen
-providerneutralen Zielvertrag noch nicht vollständig ab. `customImage` wird
-derzeit nicht in die Provider-Imageauswahl übernommen. Derived Container Images,
-Custom Runtimes und Java-JAR-Registrierung sind nicht automatisiert.
+Der providerneutrale Softwarekatalog und Capability Resolver normalisieren
+Python-, R- und Java-Anforderungen bereits nach SQL-Version, Betriebssystem,
+Architektur und Provider. Unvollständig belegte Varianten, freie Commands,
+nicht gesperrte Zusatzpakete und der bisherige `post-start`-Installer werden
+vor der Mutation sichtbar abgelehnt. Die katalogisierten SQL-2022-Varianten
+bleiben deshalb derzeit `PREVIEW` und nicht `SUPPORTED`.
+
+`customImage` wird weiterhin nicht in die Provider-Imageauswahl übernommen.
+Derived Container Images, verifizierte Custom Runtimes, echte
+`sp_execute_external_script`-Postconditions und Java-JAR-Registrierung sind
+noch nicht automatisiert. Ein Softwareplan oder statischer Resolver-Test ist
+kein Runtime-Nachweis.
 
 ## Tests
 

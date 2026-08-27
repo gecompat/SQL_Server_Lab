@@ -28,7 +28,8 @@
     "in-guest-sql-readiness",
     "prepared-image-manifest-clone",
     "sql-complete-image-clone-specialization",
-    "sealed-image-publication"
+    "sealed-image-publication",
+    "software-catalog-planning"
   ],
   "limitations": [
     "no-unattended-os-build",

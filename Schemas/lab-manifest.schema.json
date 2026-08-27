@@ -218,7 +218,7 @@
         },
         "software": {
           "type": "array",
-          "description": "Optionale Software-Installationen (nur HyperV)",
+          "description": "Providerneutrale SQL-bezogene Software- und External-Runtime-Anforderungen",
           "items": {
             "$ref": "#/definitions/software"
           }
@@ -565,8 +565,44 @@
             "az-data-studio",
             "vscode",
             "sqlpackage",
-            "visual-studio"
+            "visual-studio",
+            "sql-python",
+            "sql-r",
+            "sql-java"
           ]
+        },
+        "version": {
+          "type": "string",
+          "description": "Gewuenschte katalogisierte Runtimeversion"
+        },
+        "variant": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9.-]+$",
+          "description": "Optionale exakte Variante aus dem Softwarekatalog"
+        },
+        "scope": {
+          "type": "string",
+          "enum": ["instance", "database", "sqlExternalRuntime"],
+          "default": "instance"
+        },
+        "installMethod": {
+          "type": "string",
+          "enum": ["catalog", "legacy-post-start", "custom-image", "pre-built"],
+          "default": "catalog"
+        },
+        "packages": {
+          "type": "array",
+          "description": "Nur im Softwarekatalog mit Version und SHA-256 gebundene Zusatzpakete",
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "properties": {
+              "name": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]+$" },
+              "version": { "type": "string" },
+              "scope": { "type": "string", "enum": ["instance", "database"], "default": "instance" }
+            },
+            "additionalProperties": false
+          }
         },
         "source": {
           "type": "string",
@@ -588,6 +624,30 @@
           "default": true
         }
       },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "id": { "enum": ["sql-python", "sql-r", "sql-java"] }
+            },
+            "required": ["id"]
+          },
+          "then": {
+            "properties": {
+              "optional": { "const": false },
+              "scope": { "const": "sqlExternalRuntime" }
+            },
+            "not": {
+              "anyOf": [
+                { "required": ["source"] },
+                { "required": ["package"] },
+                { "required": ["url"] },
+                { "required": ["command"] }
+              ]
+            }
+          }
+        }
+      ],
       "additionalProperties": false
     },
     "serverConfig": {
@@ -831,7 +891,7 @@
             },
             "languages": {
               "type": "array",
-              "description": "Zu installierende Sprachen",
+              "description": "Legacy-Anforderung; wird in providerneutrale Software-Intents normalisiert und ist ohne katalogisierten Runtimepfad nicht ausfuehrbar",
               "items": {
                 "type": "object",
                 "properties": {
@@ -880,7 +940,7 @@
                 ],
                 "additionalProperties": false
               },
-              "x-runtimeStatus": "executable"
+              "x-runtimeStatus": "partially-executable"
             },
             "resourceGovernor": {
               "type": "object",
