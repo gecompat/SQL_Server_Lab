@@ -41,6 +41,7 @@ $checks = @(
     'Invoke-CleanupAuditChecks.ps1',
     'Invoke-PodmanBootstrapChecks.ps1',
     'Invoke-ContainerAutoStartChecks.ps1',
+    'Invoke-ContainerVolumeContractChecks.ps1',
     'Invoke-LabNetworkChecks.ps1',
     'Invoke-MediaRootLayoutChecks.ps1',
     'Invoke-HyperVProviderChecks.ps1',
