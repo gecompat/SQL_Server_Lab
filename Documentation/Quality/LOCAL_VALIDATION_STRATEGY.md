@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `IMPLEMENTED_WITH_GAPS` |
-| Stand | 2026-08-24 |
+| Stand | 2026-08-27 |
 | CI/CD | keine Voraussetzung für die lokale Produktfunktion |
 | Ziel | reproduzierbare lokale Prüfung von Verträgen und Provider-Runtime |
 
@@ -30,7 +30,26 @@ Nachweise werden getrennt ausgewiesen:
 | `PROJECT_SEMANTIC` | vorhandene statische Projektverträge, insbesondere `Invoke-DocumentationChecks.ps1`, `Invoke-PrivacyScannerChecks.ps1` und die betroffene Auswahl über `Invoke-ImpactedChecks.ps1` |
 | `RUNTIME_EMPIRICAL` | Builds, Provider-Smokes, Integrationsprüfungen und manuelle Abnahmen, wenn der Änderungsscope Runtimeverhalten berührt |
 
-Die Foundation-1.4-Identity- und Registration-Policies werden unter `FOUNDATION_INTEGRITY` auf Datei-, Schema- und Indexebene geprüft. Die projektspezifische Scope- und Authority-Zuordnung steht in `.ai/IDENTITY_AND_ARTIFACT_REGISTRATION.md` und wird unter `PROJECT_SEMANTIC` geprüft. Lokale Runtime-Registries bleiben unveränderte, nicht versionierte Betriebsdaten; ohne Runtime-Änderung ist kein Provider-Smoke durch diese Governance-Integration betroffen.
+Die Foundation-1.7-Identity-, Registration-, Upgrade- und Continuity-Policies
+werden unter `FOUNDATION_INTEGRITY` auf Datei-, Schema-, Katalog- und
+Indexebene geprüft. Die projektspezifische Scope- und Authority-Zuordnung steht
+in `.ai/IDENTITY_AND_ARTIFACT_REGISTRATION.md` und wird unter
+`PROJECT_SEMANTIC` geprüft. Lokale Runtime-Registries bleiben unveränderte,
+nicht versionierte Betriebsdaten; ohne Runtime-Änderung ist kein Provider-Smoke
+durch diese Governance-Integration betroffen.
+
+Der Foundation-Validator behandelt bei verwaltetem UTF-8-Text ausschließlich
+LF-/CRLF-Unterschiede als äquivalent. Andere Inhalts-, Final-Newline-, Lone-CR-
+oder Binärunterschiede bleiben echte Drift. Die Projektkonfiguration für
+`.gitattributes` wird dadurch nicht verändert.
+
+Blockierte Pflichtprüfungen werden als `VALIDATION_FAILURE`,
+`INFRASTRUCTURE_UNAVAILABLE` oder `UNKNOWN` klassifiziert. Ein inhaltlich
+fehlgeschlagener oder nicht eindeutig klassifizierter Check darf nicht über
+einen Continuity-Pfad umgangen werden. Bei Infrastrukturunverfügbarkeit bleibt
+die Prüfung bis zum erfolgreichen Nachlauf ausstehend. Diese Foundation-
+Integration konfiguriert keine GitHub-Rulesets, Bypass-Akteure oder sonstige
+Repository-Administration.
 
 Der Foundation-Validator wird aus einem Checkout der Foundation ausgeführt:
 
