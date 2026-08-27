@@ -1,11 +1,11 @@
 # Persistent Identity and Artifact Registration
 
 Status: AUTHORITATIVE PROJECT MAPPING
-Stand: 2026-08-24
+Stand: 2026-08-27
 
 ## Purpose
 
-This document maps the Foundation 1.4 identity and registration baseline to
+This document maps the Foundation 1.7 identity and registration baseline to
 SQL_Server_Lab. It preserves established project identities and local runtime
 registries; it does not introduce a global sequential identifier scheme.
 
@@ -34,6 +34,19 @@ for this existing repository. Any prospective change requires an explicit
 Humans and AI use the same project code path for each listed scope. The
 Foundation reference-client capability is intentionally unselected; Python is
 not required and no Foundation client replaces a project authority.
+
+## Central registry applicability
+
+SQL_Server_Lab has no repository-native JSON Registration Authority for final
+human references. The Foundation-v2 central-registry profile therefore does
+not migrate or replace the scoped runtime authorities listed above. Their
+registries remain non-versioned operational State outside the repository.
+
+The optional `artifact-registry-github` capability is not selected. Introducing
+a central project-artifact registry, generated planning views or semantic
+GitHub merge gates requires a separate project decision that defines scope,
+authority, migration, concurrency and recovery. Foundation installation alone
+does not authorize that storage-model change.
 
 ## Human-reference boundary
 

@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "ruleset_version": "1.7.0",
+  "assessment_classifications": ["NOT_APPLICABLE", "ALREADY_EQUIVALENT", "PROJECT_STRONGER", "APPLY_DEFAULT", "RECOMMENDED", "DECISION_REQUIRED", "CONFLICT"],
+  "features": {
+    "foundation-baseline": {
+      "title": "Vendor-neutral repository governance baseline",
+      "introduced_in": "1.0.0",
+      "change_history": [],
+      "transfer_sources": ["foundation/AGENTS.template.md", "foundation/FOUNDATION_RULESET.template.md", ".ai/PROJECT_RULES.md", ".ai/WORKING_RULES.md", "Documentation/Standards/SECURITY_AND_SAFE_OPERATIONS.md", "Documentation/Standards/DOCUMENTATION_POLICY.md", "Documentation/Standards/THIRD_PARTY_AND_LICENSING.md", "Documentation/Standards/SOURCE_AND_EVIDENCE_POLICY.md", "Documentation/Standards/DEPENDENCY_POLICY.md", "foundation/repo_map.template.yaml"],
+      "applicability": {"mode": "ALWAYS", "signals": ["repository_uses_foundation"], "questions": ["Does the target already provide equivalent or stronger repository governance?", "Which project-specific rules must remain authoritative?"]},
+      "recommendation": {"when_applicable": "APPLY_DEFAULT", "summary": "Integrate the reusable baseline while preserving equivalent or stronger target governance.", "decision_required_when": []}
+    },
+    "rules-only-transfer": {
+      "title": "Rules-only explicit-whitelist transfer",
+      "introduced_in": "1.1.0",
+      "change_history": [],
+      "transfer_sources": ["foundation/AGENTS.template.md", "foundation/FOUNDATION_RULESET.template.md", "foundation/AI_REPOSITORY_FOUNDATION_NOTICE.md", "foundation/repo_map.template.yaml"],
+      "applicability": {"mode": "ALWAYS", "signals": ["foundation_install_or_upgrade"], "questions": ["Does the target contain existing files that require semantic merge rather than replacement?"]},
+      "recommendation": {"when_applicable": "APPLY_DEFAULT", "summary": "Use manifest-whitelisted transfer and never copy Foundation project artifacts into the target.", "decision_required_when": []}
+    },
+    "authorization-envelope": {
+      "title": "Authorization envelope for ordinary project operations",
+      "introduced_in": "1.1.0",
+      "change_history": [],
+      "transfer_sources": [".ai/PROJECT_RULES.md", ".ai/WORKING_RULES.md", "Documentation/Standards/SECURITY_AND_SAFE_OPERATIONS.md"],
+      "applicability": {"mode": "ALWAYS", "signals": ["ai_or_human_mutates_project_state"], "questions": ["Does the target already define stricter approval or mutation boundaries?"]},
+      "recommendation": {"when_applicable": "APPLY_DEFAULT", "summary": "Use the task authorization envelope while preserving stricter compatible target approvals.", "decision_required_when": []}
+    },
+    "privacy-classification": {
+      "title": "Data-classification-based privacy handling",
+      "introduced_in": "1.1.0",
+      "change_history": [],
+      "transfer_sources": [".ai/PROJECT_RULES.md", "Documentation/Standards/DATA_PRIVACY_AND_CONFIDENTIALITY.md"],
+      "applicability": {"mode": "ALWAYS", "signals": ["project_handles_data_or_external_transfers"], "questions": ["Does the target already impose stricter data-handling restrictions?"]},
+      "recommendation": {"when_applicable": "APPLY_DEFAULT", "summary": "Classify by sensitivity, destination, and authority rather than treating all real data as confidential.", "decision_required_when": []}
+    },
+    "foundation-attribution": {
+      "title": "Dedicated attribution notice without target-license replacement",
+      "introduced_in": "1.1.1",
+      "change_history": [],
+      "transfer_sources": ["foundation/AI_REPOSITORY_FOUNDATION_NOTICE.md", "Documentation/Standards/THIRD_PARTY_AND_LICENSING.md"],
+      "applicability": {"mode": "ALWAYS", "signals": ["foundation_material_is_copied"], "questions": ["Is the complete Foundation notice retained without altering the target root license?"]},
+      "recommendation": {"when_applicable": "APPLY_DEFAULT", "summary": "Install the namespaced Foundation notice and leave the target project's root license untouched.", "decision_required_when": []}
+    },
+    "layered-validation": {
+      "title": "Layered Foundation/project/runtime validation ownership",
+      "introduced_in": "1.1.2",
+      "change_history": [{"version": "1.7.0", "impact": "MATERIAL", "summary": "Validation now normalizes UTF-8 LF/CRLF-only working-tree differences and explicitly distinguishes substantive validation failure from validation-infrastructure unavailability so break-glass cannot turn a known red result into green."}],
+      "transfer_sources": [".ai/VALIDATION_POLICY.md"],
+      "applicability": {"mode": "ALWAYS", "signals": ["project_has_validation_or_tests"], "questions": ["Which target semantic and runtime checks remain authoritative beyond Foundation integrity?"]},
+      "recommendation": {"when_applicable": "APPLY_DEFAULT", "summary": "Separate FOUNDATION_INTEGRITY from PROJECT_SEMANTIC and RUNTIME_EMPIRICAL validation and preserve truthful unavailable/failed/validated distinctions.", "decision_required_when": []}
+    },
+    "semantic-integration": {
+      "title": "Semantic integration of mature target governance",
+      "introduced_in": "1.2.0",
+      "change_history": [{"version": "1.5.0", "impact": "MATERIAL", "summary": "Foundation upgrades now include complete feature-delta applicability assessment before semantic integration is declared complete."}],
+      "transfer_sources": ["Documentation/Standards/SEMANTIC_INTEGRATION_POLICY.md", ".ai/PROJECT_RULES.md", "foundation/repo_map.template.yaml"],
+      "applicability": {"mode": "REPOSITORY_EVIDENCE", "signals": ["existing_repository", "existing_project_governance", "existing_ai_instructions", "existing_repo_map"], "questions": ["Which existing rules are equivalent, stronger, selectable overrides, complementary, conflicting, or orphaned?", "Are active project authorities still discoverable after the upgrade?"]},
+      "recommendation": {"when_applicable": "APPLY_DEFAULT", "summary": "Integrate semantically rather than normalizing mature project governance to Foundation wording.", "decision_required_when": ["a true FOUNDATION_REQUIRED_CONFLICT cannot be resolved mechanically"]}
+    },
+    "model-routing-interoperability": {
+      "title": "Portable model/resource routing semantics",
+      "introduced_in": "1.2.0",
+      "change_history": [],
+      "transfer_sources": [".ai/MODEL_ROUTING_POLICY.md"],
+      "applicability": {"mode": "REPOSITORY_EVIDENCE", "signals": ["ai_model_routing", "cost_policy", "local_model_policy", "multiple_model_tiers"], "questions": ["Does the target already have a richer routing taxonomy that should be preserved and mapped?"]},
+      "recommendation": {"when_applicable": "RECOMMENDED", "summary": "Map richer target routing to portable Foundation tiers without discarding project detail.", "decision_required_when": []}
+    },
+    "persistent-identity": {
+      "title": "Persistent artifact identity and stable human references",
+      "introduced_in": "1.3.0",
+      "change_history": [],
+      "transfer_sources": ["Documentation/Standards/PERSISTENT_IDENTITY_POLICY.md", ".ai/PROJECT_RULES.md", "foundation/repo_map.template.yaml"],
+      "applicability": {"mode": "REPOSITORY_EVIDENCE", "signals": ["durable_planning_identifiers", "decision_identifiers", "requirement_identifiers", "risk_identifiers", "test_identifiers", "release_identifiers", "incident_identifiers", "operational_identifiers", "cross_referenced_artifacts"], "questions": ["Does the repository contain durable identifiers that encode mutable hierarchy, phase, status, owner, or location?", "Is the existing convention equivalent/stronger, or would layered identity improve stability and machine resolution?", "Should new identifiers use the improved convention prospectively while historical references remain unchanged?"]},
+      "recommendation": {"when_applicable": "RECOMMENDED", "summary": "If the existing convention is materially weaker, recommend ADOPT_FORWARD: preserve historical IDs and use the improved layered identity/nomenclature prospectively.", "decision_required_when": ["changing the future project identifier convention", "selecting MIGRATE_EXPLICIT for historical identifiers"]}
+    },
+    "artifact-registration": {
+      "title": "Language-neutral Registration Authority for human and AI creation",
+      "introduced_in": "1.4.0",
+      "change_history": [{"version": "1.6.0", "impact": "MATERIAL", "summary": "Repository-native JSON authorities now default to the central v2 profile; allocation state is derived rather than stored."}],
+      "transfer_sources": ["Documentation/Standards/ARTIFACT_REGISTRATION_POLICY.md", "foundation/schemas/artifact-record.schema.json", "foundation/schemas/artifact-registry.schema.json", "foundation/schemas/artifact-registry-v2.schema.json", "foundation/schemas/artifact-registration-request.schema.json", ".ai/PROJECT_RULES.md", "foundation/repo_map.template.yaml", "tools/identity/artifact_reference.py", "tools/identity/ArtifactReference.ps1"],
+      "dependencies": ["persistent-identity"],
+      "applicability": {"mode": "REPOSITORY_EVIDENCE", "signals": ["humans_create_durable_artifacts", "ai_creates_durable_artifacts", "sequential_human_references", "multiple_writers", "offline_or_branch_creation"], "questions": ["Who allocates final human references today?", "Do humans and AI use the same authority?", "Can allocation be serialized, or is DEFERRED creation required?", "Does an existing central allocator already provide equivalent or stronger behavior?"]},
+      "recommendation": {"when_applicable": "RECOMMENDED", "summary": "Use one project Registration Authority for humans and AI; preserve a compatible existing central allocator and use Foundation reference clients only when useful.", "decision_required_when": ["choosing or replacing the project's durable Registration Authority"]}
+    },
+    "semantic-upgrade-applicability": {
+      "title": "Complete semantic feature-delta assessment for Foundation upgrades",
+      "introduced_in": "1.5.0",
+      "change_history": [{"version": "1.6.0", "impact": "NON_MATERIAL", "summary": "Feature catalog extended for the central registry feature; assessment mechanics are unchanged."}, {"version": "1.7.0", "impact": "NON_MATERIAL", "summary": "Catalog and version mirrors advanced for portable EOL validation and repository-continuity governance; upgrade-assessment mechanics are unchanged."}],
+      "transfer_sources": ["Documentation/Standards/UPGRADE_APPLICABILITY_POLICY.md", "foundation/feature_catalog.json", "foundation/schemas/feature-catalog.schema.json", "foundation/schemas/upgrade-assessment.schema.json", "Documentation/Standards/SEMANTIC_INTEGRATION_POLICY.md", ".ai/PROJECT_RULES.md", "foundation/FOUNDATION_RULESET.template.md", "foundation/repo_map.template.yaml"],
+      "dependencies": ["semantic-integration"],
+      "applicability": {"mode": "ALWAYS", "signals": ["installed_foundation_version_is_older_than_source"], "questions": ["What features were introduced or materially changed since the installed version?", "What repository evidence applies to each candidate?", "Which recommendations or project decisions must be surfaced explicitly?"]},
+      "recommendation": {"when_applicable": "APPLY_DEFAULT", "summary": "Compute and classify the complete semantic feature delta; no candidate may be silently skipped.", "decision_required_when": ["a candidate feature itself requires a durable project choice"]}
+    },
+    "central-artifact-registry": {
+      "title": "Central JSON artifact registry with semantic GitHub merge gates",
+      "introduced_in": "1.6.0",
+      "change_history": [],
+      "transfer_sources": ["Documentation/Standards/CENTRAL_ARTIFACT_REGISTRY_POLICY.md", "foundation/schemas/artifact-registry-v2.schema.json", "foundation/FOUNDATION_RULESET.template.md", "foundation/repo_map.template.yaml", "foundation/capabilities/artifact-registry-github/registry_semantic.py", "foundation/capabilities/artifact-registry-github/artifact-registry-integrity.yml"],
+      "dependencies": ["artifact-registration"],
+      "applicability": {"mode": "REPOSITORY_EVIDENCE", "signals": ["json_file_registration_authority", "repository_native_planning_database", "multiple_pull_requests_modify_artifacts", "generated_backlog_views", "github_pull_request_workflow"], "questions": ["Would one canonical JSON registry reduce duplicated planning state?", "Does the repository need early cross-PR collision detection?", "Can GitHub Actions or an equivalent CI system run object-level three-way merge validation before merge?", "Does an existing stronger database/service authority already solve this problem?"]},
+      "recommendation": {"when_applicable": "RECOMMENDED", "summary": "For repository-native JSON authorities, prefer the v2 central registry: derive the next sequence from canonical keys, validate cross-record integrity, merge JSON on object/property semantics, and verify Git's actual merge result against the semantic result.", "decision_required_when": ["migrating an existing allocation-only or split-artifact registry", "changing the project's Registration Authority storage model"]}
+    },
+    "repository-continuity-break-glass": {
+      "title": "Repository continuity with controlled validation-infrastructure break-glass",
+      "introduced_in": "1.7.0",
+      "change_history": [],
+      "transfer_sources": ["Documentation/Standards/REPOSITORY_CONTINUITY_POLICY.md", ".ai/VALIDATION_POLICY.md", "foundation/FOUNDATION_RULESET.template.md", "foundation/repo_map.template.yaml"],
+      "dependencies": ["layered-validation"],
+      "applicability": {"mode": "REPOSITORY_EVIDENCE", "signals": ["required_ci_checks", "external_ci_dependency", "repository_is_agent_coordination_channel", "protected_default_branch", "github_rulesets_or_equivalent"], "questions": ["Would an outage of the required CI provider completely block durable repository coordination?", "Can core branch safety remain enforced while only unavailable CI gates are bypassed?", "Who is authorized to classify INFRASTRUCTURE_UNAVAILABLE and use break-glass?", "How will deferred validation be rerun and recorded after recovery?"]},
+      "recommendation": {"when_applicable": "RECOMMENDED", "summary": "If required CI is an availability single point of failure, define a narrow audited break-glass path that preserves PR/core branch safety and bypasses only infrastructure-unavailable validation gates; never bypass a known substantive validation failure.", "decision_required_when": ["enabling a repository break-glass path", "selecting bypass actors or authorization thresholds"]}
+    }
+  }
+}
