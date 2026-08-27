@@ -17,7 +17,10 @@ Die lokale Validierung besteht aktuell aus drei produktiven Ebenen:
 2. mutierender End-to-End-Smoke-Test für einen ausgewählten Laufzeitprovider (oder Auto-Auswahl);
 3. Übergreifender Referenztest (`Invoke-SmokeMatrix`) über erreichbare Provider mit SQL Server 2025 und optionaler Parallelitätsprüfung.
 
-Es gibt weiterhin Restlücken (z. B. Hyper-V-Postcondition- und SQL-Readiness auf echter Host-VM), aber Versions-/Provider-Matrix, Restore-Smoke und Hyper-V-Grundlage sind als lokale Pfade dokumentiert und getestet.
+Die vertiefte, providergetrennte CLI-Abnahme ist in der
+[CLI-Akzeptanzmatrix](CLI_ACCEPTANCE_MATRIX.md) festgelegt. Sie ergaenzt die
+kleinen Smokes um reale Samples, getrennte Storagepfade, TempDB auf mehreren
+Datentraegern, Ressourcenwechsel und den Cleanup echter Windows-SQL-Slots.
 
 ### 1.1 Validierungsscope der AI Repository Foundation
 
@@ -93,6 +96,18 @@ Projektstatus und dürfen nicht als `validated` dargestellt werden.
 ```
 
 Der Auto-Modus wählt für den mutierenden Lifecycle genau eine Runtime: Docker vor Podman. Er ist kein Ersatz für zwei getrennte Providerläufe.
+
+### Vertiefte CLI-Akzeptanz
+
+```powershell
+.\Tests\Integration\Invoke-ContainerCliAcceptance.ps1 -Provider docker -Version 2022-CU18
+.\Tests\Integration\Invoke-ContainerCliAcceptance.ps1 -Provider podman -Version 2022-CU18
+.\Tests\Integration\Invoke-HyperVCliAcceptance.ps1 -MediaRoot D:\Lab_Base -SqlVersion 2025
+```
+
+Es werden bewusst nicht alle CUs getestet. Docker und Podman verwenden je
+einen repraesentativen katalogisierten CU; Windows prueft die frische
+Basisinstallation und verwendet ein CU nur bei vorhandenem verifiziertem Paket.
 Der empfohlene operative Push-Pfad ist in der lokalen Readiness-Checkliste beschrieben:
 
 ```text
@@ -219,13 +234,13 @@ Worker gelesen und nicht im Workflow-State persistiert.
 | Resource Assessment | implementiert | implementiert | Lifecycle-Verfügbarkeit implementiert |
 | sealed Image-Registry | nicht zutreffend | nicht zutreffend | Import, Integrity, Auswahl und Run Lock implementiert |
 | einzelne SQL-Instanz | implementiert | implementiert | eingeschränkter Manifest-Klonpfad aus `OS_SEALED` oder `SQL_PREPARED_SEALED` implementiert; allgemeiner Providerpfad geplant |
-| Health und SQL Readiness | implementiert | implementiert | Orchestrierung im Manifest-Klonpfad implementiert; realer Windows-/SQL-End-to-End-Nachweis offen |
-| Datenbankerstellung | implementiert | implementiert | geplant |
-| T-SQL-Skriptausführung | implementiert | implementiert | geplant |
+| Health und SQL Readiness | implementiert | implementiert | OS-Slot-Installation und Host-SQL-Readiness implementiert |
+| Datenbankerstellung | implementiert | implementiert | mit absoluten Windows-Pfaden implementiert |
+| T-SQL-Skriptausführung | implementiert | implementiert | ueber Host-SQL-Zugriff implementiert |
 | Live-Status | implementiert | implementiert | Lifecycle-Grundlage implementiert |
 | Stop und Start | implementiert | implementiert | Lifecycle-Grundlage implementiert |
 | Remove | implementiert | implementiert | scopegebundene Grundlage implementiert |
-| eigener Smoke-Test-Aufruf | vorhanden | vorhanden | vorhanden, ohne OS/SQL |
+| eigener Smoke-Test-Aufruf | Lifecycle und CLI-Akzeptanz | Lifecycle und CLI-Akzeptanz | Lifecycle, Windows-Baseline und vollstaendige CLI-Akzeptanz |
 | gemischter Provider-Run | implementiert mit Podman-ProviderSubRun | implementiert mit Docker-ProviderSubRun | nicht unterstützt |
 
 `implementiert` bedeutet, dass Code und Testpfad vorhanden sind. `validiert` darf nur für einen tatsächlich erfolgreich ausgeführten lokalen Lauf verwendet werden.

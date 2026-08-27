@@ -70,6 +70,7 @@ end {
         @{ Pattern = '(?i)(LabNetwork|PortAllocation)'; Checks = @('Invoke-LabNetworkChecks.ps1') },
         @{ Pattern = '(?i)(LabPreferences|PersistentLabData|StorageContract|SecretProvider|TestEnvironment)'; Checks = @('Invoke-DataRootChecks.ps1','Invoke-StorageMigrationChecks.ps1','Invoke-TestEnvironmentChecks.ps1') },
         @{ Pattern = '(?i)(VersionCatalog|sql-server-versions|Catalogs/)'; Checks = @('Invoke-VersionCatalogChecks.ps1') },
+        @{ Pattern = '(?i)(New-SqlServerLabDatabase|DatabaseCommand)'; Checks = @('Invoke-DatabaseCommandChecks.ps1') },
         @{ Pattern = '(?i)(SqlReadiness|Readiness)'; Checks = @('Invoke-ReadinessContractChecks.ps1') },
         @{ Pattern = '(?i)(DesiredState|ReconcileContract|Get-SqlServerLabReconcilePlan)'; Checks = @('Invoke-ReconcileContractChecks.ps1','Invoke-ReconcileActionContractChecks.ps1') },
         @{ Pattern = '(?i)(ProviderCapability|provider\.json)'; Checks = @('Invoke-ProviderCapabilityChecks.ps1') },

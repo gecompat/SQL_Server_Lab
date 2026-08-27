@@ -56,6 +56,7 @@ $checks = @(
     'Invoke-DataRootChecks.ps1',
     'Invoke-StorageMigrationChecks.ps1',
     'Invoke-VersionCatalogChecks.ps1',
+    'Invoke-DatabaseCommandChecks.ps1',
     'Invoke-ReadinessContractChecks.ps1',
     'Invoke-ReconcileContractChecks.ps1',
     'Invoke-ReconcileActionContractChecks.ps1',
