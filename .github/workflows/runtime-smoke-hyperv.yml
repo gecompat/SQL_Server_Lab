@@ -17,6 +17,11 @@ on:
         required: false
         default: D:\Lab_Base
         type: string
+      media_edition:
+        description: SQL-Medienedition fuer die vollstaendige CLI-Akzeptanz
+        required: false
+        default: Enterprise
+        type: string
   workflow_dispatch:
     inputs:
       mode:
@@ -38,6 +43,15 @@ on:
         required: false
         default: D:\Lab_Base
         type: string
+      media_edition:
+        description: SQL-Medienedition fuer die vollstaendige CLI-Akzeptanz
+        required: true
+        default: Enterprise
+        type: choice
+        options:
+          - Enterprise
+          - Standard
+          - Eval
 
 permissions:
   contents: read
@@ -113,7 +127,7 @@ jobs:
           $arguments = @{
             MediaRoot = '${{ inputs.media_root }}'
             SqlVersion = '2025'
-            MediaEdition = 'Eval'
+            MediaEdition = '${{ inputs.media_edition }}'
           }
           $artifactId = '${{ inputs.image_artifact_id }}'
           if (-not [string]::IsNullOrWhiteSpace($artifactId)) { $arguments.ArtifactId = $artifactId }
