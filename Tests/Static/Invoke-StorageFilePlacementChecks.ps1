@@ -225,12 +225,14 @@ try {
     $null = & $module {
         param($path,$runDirectory,$root)
         function Get-VM { @() }
+        function Get-VMHardDiskDrive { @() }
         Remove-HyperVVhdxForCleanup -Path $path -ExpectedRunDirectory $runDirectory -SafetyRoot $root
     } $ownedVhdxPath $cleanupRunDirectory $ownedRoot
     $foreignRunCleanupRejected = try {
         $null = & $module {
             param($path,$runDirectory,$root)
             function Get-VM { @() }
+            function Get-VMHardDiskDrive { @() }
             Remove-HyperVVhdxForCleanup -Path $path -ExpectedRunDirectory $runDirectory -SafetyRoot $root
         } $foreignRunVhdxPath $cleanupRunDirectory $ownedRoot
         $false
