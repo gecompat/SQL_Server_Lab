@@ -142,18 +142,25 @@ VM-Notizen oder Evidence gespeichert. Der credentialfreie allgemeine Status
 zeigt nur die letzte Readiness-Evidenz und setzt `SqlReady` bewusst nicht aus
 einem möglicherweise veralteten Receipt auf `true`.
 
-Windows-Specialization, Reboot/Reconnect und SQL-Readiness sind weiterhin nur
-statisch mit Mocks abgedeckt. Die reale Datacenter-VHDX wurde ohne bekannte
-Gast-Credentials ausschließlich bis zum Hyper-V-Heartbeat gebootet; der
-synthetische Native-Smoke beweist diese Gastpfade ebenfalls nicht.
+Der allgemeine Prepared-Image-Klonpfad aus `SQL_PREPARED_SEALED` mit
+Windows-Specialization, `CompleteImage`, Reboot/Reconnect und SQL-Readiness ist
+weiterhin nur statisch mit Mocks abgedeckt. Der reale CLI-Vertical-Slice aus
+`OS_SEALED` belegt dagegen bereits OOBE, PowerShell Direct, eine vollständige
+SQL-2025-Installation und SQL-Readiness. Die ältere reale Datacenter-VHDX wurde
+ohne bekannte Gast-Credentials ausschließlich bis zum Hyper-V-Heartbeat
+gebootet; der synthetische Native-Smoke beweist die Prepared-Klon-Gastpfade
+ebenfalls nicht.
 Ein resumierbarer SQL-Image-Builder erstellt inzwischen je Prepared-Image eine
 frische Windows-Server-2025-VHDX und bindet SHA-256-geprüfte Windows- sowie
 SQL-2019-, SQL-2022- oder SQL-2025-Medien ein. Er führt `PrepareImage` und
 genau einen finalen Windows-Sysprep über PowerShell Direct aus, speichert keine
 Gast-Credentials und veröffentlicht die VHDX transaktional als
-`SQL_PREPARED_SEALED`. Dieser Pfad
-ist statisch getestet; ein positiver realer Lauf mit jedem bereitgestellten
-SQL-Medium steht noch aus. Die OOBE-Automatisierung kann `Unattend.xml` offline
+`SQL_PREPARED_SEALED`. Der positive reale Lauf ist für Windows Server 2025
+Standard Evaluation (Desktop Experience) mit SQL Server 2025 Enterprise
+Developer belegt: Medien-Sidecars, frische Installation, OOBE, `PrepareImage`,
+finaler Sysprep, immutable testlokale Publikation und Cleanup waren grün. Reale
+positive Läufe für die übrigen bereitgestellten SQL-Versionen und Editionen
+stehen noch aus. Die OOBE-Automatisierung kann `Unattend.xml` offline
 in die Child-VHDX schreiben, benötigt dafür aber einen erhöht gestarteten
 Windows-Runner. Ein nur der Gruppe `Hyper-V-Administratoren` angehörender,
 nicht erhöhter Prozess kann VMs verwalten, besitzt jedoch nicht zwingend das
@@ -508,6 +515,13 @@ Builder-VHDX real wiederholt: Installations-Receipt, Sysprep-Exitcode 0,
 Evidence, testlokale immutable `OS_SEALED`-Publikation und Cleanup waren grün.
 Eine bereits generalisierte Baseline ist wegen des begrenzten Windows-Lizenz-
 Rearm-Vertrags keine zulässige positive Generalize-Testquelle.
+
+Der reale SQL-Prepared-Image-Runner installiert Windows Server 2025 und SQL
+Server 2025 Enterprise Developer aus hashverifizierten Medien auf einer neuen
+VHDX. `PrepareImage`, der finale Sysprep-Receipt, die immutable testlokale
+`SQL_PREPARED_SEALED`-Publikation und das vollständige Cleanup sind positiv
+ausgeführt. Noch offen ist der anschließende reale Prepared-Image-Klon mit
+`CompleteImage` und normalem Manifestlauf bis `SQL_READY_RUN`.
 
 Lifecycle-Schnellmenüs verwenden inzwischen `ActionResult/1.0`: `Cancelled`,
 `NoChange`, `Skipped`, Ablehnung und Fehler lösen weder Connection-Center- noch

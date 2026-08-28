@@ -559,6 +559,7 @@ $identityRegistrationMapping = Get-Content -LiteralPath (Join-Path $repoRoot '.a
 $copilotAdapter = Get-Content -LiteralPath (Join-Path $repoRoot '.github\copilot-instructions.md') -Raw -Encoding utf8
 $sqlCuPolicy = Get-Content -LiteralPath (Join-Path $repoRoot 'ops\sql-cu-policy.md') -Raw -Encoding utf8
 $masterImplementationPlan = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\MASTER_IMPLEMENTATION_PLAN.md') -Raw -Encoding utf8
+$developmentExecutionPlan = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md') -Raw -Encoding utf8
 $batchWorkflowPlan = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\PROVIDER_NEUTRAL_BATCH_QUEUE_RESUME_WORKFLOW_2026-08-13.md') -Raw -Encoding utf8
 $futureUseCases = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Architecture\FUTURE_USE_CASES_AND_EXTENSION_GUARDRAILS.md') -Raw -Encoding utf8
 $knownLimitations = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Quality\KNOWN_LIMITATIONS.md') -Raw -Encoding utf8
@@ -759,6 +760,19 @@ Add-ValidationResult `
     -Name 'Repo-Map beschreibt den real abgeschlossenen Generalize-Vertrag nicht als offen' `
     -Success ($repoMap -match 'IN_PROGRESS_CONTROL_AND_GENERALIZE_GATES_COMPLETE_STORAGE_AND_STATUS_OPEN' -and
         $repoMap -notmatch 'GENERALIZE_OPEN')
+
+$sqlPreparedAcceptancePath = Join-Path $repoRoot 'Tests\Integration\Invoke-HyperVSqlPreparedImageAcceptance.ps1'
+Add-ValidationResult `
+    -Name 'Roadmap und Masterplan führen den real begonnenen N4-Pfad als in Arbeit' `
+    -Success ($developmentExecutionPlan -match '(?m)^\| N4 \| `IN_PROGRESS` \|' -and
+        $masterImplementationPlan -match '(?m)^\| N4 – Hyper-V Windows-/SQL-End-to-End \| Welle 4 \| `IN_PROGRESS` \|')
+
+Add-ValidationResult `
+    -Name 'Reale SQL-Prepared-Image-Abnahme ist ausführbar und dokumentiert' `
+    -Success ((Test-Path -LiteralPath $sqlPreparedAcceptancePath -PathType Leaf) -and
+        $localValidationStrategy -match [regex]::Escape('Invoke-HyperVSqlPreparedImageAcceptance.ps1') -and
+        $knownLimitations -match '(?s)SQL_PREPARED_SEALED.*positiv' -and
+        $repoMap -match 'sql_prepared_build_acceptance: Tests/Integration/Invoke-HyperVSqlPreparedImageAcceptance.ps1')
 
 Add-ValidationResult `
     -Name 'Masterplan trennt lokale Produktfunktion von optionaler CI-Validierung' `

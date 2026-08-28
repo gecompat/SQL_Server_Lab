@@ -700,7 +700,7 @@ Runtime-Nachweis; maßgeblich bleiben die jeweils genannten Tests und Evidence.
 | N1 | `COMPLETE` | Nightly-Ursache klassifiziert, persistente Windows-Testumgebungen gezielt wiederhergestellt, CU-Katalog fachlich aktualisiert und zwei aufeinanderfolgende Nightlies vollständig grün. |
 | N2 | `COMPLETE` | ActionResult-/Sync-, Portbindungs-, UAC- und Privilegverträge sind implementiert und fokussiert geprüft; GUI-Abbruch, Scheduler-Abbruch/Recovery, Manifest-Rerun, PowerShell-Console, Windows-User-Gate und der positive Windows-Generalize-/Publish-Pfad sind real belegt. |
 | N3 | `PLANNED_NOT_STARTED` | Die drei Partnerrepository-Piloten sind nicht nachgewiesen. |
-| N4 | `PLANNED_NOT_STARTED` | Vorhandene Hyper-V-Teilpfade und persistente Testumgebungen ersetzen den geforderten Cold-Path nicht. |
+| N4 | `IN_PROGRESS` | Medienprüfung, frische Windows-2025-Installation, SQL-2025-`PrepareImage`, finaler Sysprep, immutable `SQL_PREPARED_SEALED`-Publikation und Cleanup sind real belegt; der Prepared-Image-`CompleteImage`-/Manifestlauf bis `SQL_READY_RUN` bleibt offen. |
 | N5 | `PLANNED_NOT_STARTED` | Vorhandene Storage-/Reconcile-Teile ersetzen den vollständigen Vertical Slice nicht. |
 
 ### Welle N1 – Baseline, Regressionen und Katalogwartung
@@ -830,6 +830,20 @@ und bereinigen scopegebunden. Es existiert keine duplizierte Providerlogik, und
 der Adaptervertrag bleibt bis zum Abschluss aller drei Piloten `0.1-draft`.
 
 ### Welle N4 – Hyper-V Windows-/SQL-End-to-End
+
+**Status:** `IN_PROGRESS` seit 2026-08-28.
+
+**Aktuelle Evidence:**
+`Tests/Integration/Invoke-HyperVSqlPreparedImageAcceptance.ps1` hat Windows Server
+2025 Standard Evaluation (Desktop Experience) und SQL Server 2025 Enterprise
+Developer aus SHA-256-gebundenen Originalmedien auf einer neuen eigenständigen
+80-GB-VHDX real installiert. OOBE und PowerShell Direct, genau ein erkanntes
+SQL-2025-Setup, `PrepareImage`, der finale Sysprep-Receipt mit
+`IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE`, testlokale immutable
+`SQL_PREPARED_SEALED`-Publikation sowie vollständiges VM-/VHDX-/State-/Secret-
+Cleanup waren grün. Offen bleibt der reale Klon dieses Prepared-Images mit
+`CompleteImage`, Windows-Specialization und einem normalen Manifestlauf bis
+`SQL_READY_RUN`; deshalb ist Gate N4 noch nicht geschlossen.
 
 **Ziel:** Den vorhandenen partiellen Hyper-V-Pfad mit hashverifizierten Medien
 bis zu einem realen Windows-2025-/SQL-2025-Gastnachweis führen.
