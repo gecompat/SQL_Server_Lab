@@ -18,6 +18,9 @@
 .PARAMETER AbortSchedulerOnce
     Beendet den ersten Scheduler-Prozess hart, sobald eine echte Providerressource
     des Batch sichtbar ist, und prueft danach Recovery und idempotentes Resume.
+.PARAMETER ManifestRerun
+    Erstellt den Batch aus einem temporaeren Manifest, prueft die deduplizierte
+    offene Einreichung und fuehrt das abgeschlossene Manifest nach Cleanup erneut aus.
 .PARAMETER KeepOnFailure
     Behaelt State und Labressourcen nach einem Fehler fuer die Diagnose.
 .EXAMPLE
@@ -36,6 +39,8 @@ param(
 
     [switch]$AbortSchedulerOnce,
 
+    [switch]$ManifestRerun,
+
     [switch]$KeepOnFailure
 )
 
@@ -53,6 +58,7 @@ $testArtifactDirectory = $null
 $schedulerProcess = $null
 $abortedOwnedRunId = $null
 $interruptedOperationIds = @()
+$manifestPath = $null
 
 function Assert-BatchSmoke {
     param(
@@ -191,18 +197,31 @@ try {
     }
     $kind = if ($Provider -eq 'hyperv') { 'WindowsSlot' } else { 'SqlEnvironment' }
 
-    $batch = New-SqlServerLabBatch `
-        -Name "Batch smoke $Provider" `
-        -StateRoot $stateRoot `
-        -Defaults $defaults `
-        -Items @(
-            [pscustomobject]@{
-                id = 'sql-runtime'
-                kind = $kind
-                count = 2
-                intent = [pscustomobject]@{ LabName = "batch-smoke-$Provider" }
-            }
-        )
+    $batchItems = @(
+        [pscustomobject]@{
+            id = 'sql-runtime'
+            kind = $kind
+            count = 2
+            intent = [pscustomobject]@{ LabName = "batch-smoke-$Provider" }
+        }
+    )
+    if ($ManifestRerun) {
+        $manifestPath = Join-Path $stateRoot 'batch-smoke.manifest.json'
+        [pscustomobject][ordered]@{
+            contract = 'SqlServerLab.BatchManifest/1.0'
+            name = "Batch manifest smoke $Provider"
+            priority = 'Normal'
+            defaults = $defaults
+            items = $batchItems
+        } | ConvertTo-Json -Depth 30 | Set-Content -LiteralPath $manifestPath -Encoding utf8
+        $batch = New-SqlServerLabBatch -Manifest $manifestPath -StateRoot $stateRoot
+        $sameOpenBatch = New-SqlServerLabBatch -Manifest $manifestPath -StateRoot $stateRoot
+        Assert-BatchSmoke -Condition ($sameOpenBatch.batchId -eq $batch.batchId) -Description 'Erneute offene Manifest-Einreichung verwendete denselben Batch'
+        Assert-BatchSmoke -Condition ((@($sameOpenBatch.operationIds) -join ',') -eq (@($batch.operationIds) -join ',')) -Description 'Erneute offene Manifest-Einreichung erzeugte keine doppelten Operationen'
+    }
+    else {
+        $batch = New-SqlServerLabBatch -Name "Batch smoke $Provider" -StateRoot $stateRoot -Defaults $defaults -Items $batchItems
+    }
 
     Assert-BatchSmoke -Condition ($batch.status -eq 'Queued') -Description 'Batch wurde atomar eingereiht'
     Assert-BatchSmoke -Condition (@($batch.operationIds).Count -eq 2) -Description 'count=2 erzeugte zwei persistente Operationen'
@@ -313,6 +332,42 @@ try {
     } $stateRoot
     $operations = @(Get-SqlServerLabOperation -BatchId $batch.batchId -StateRoot $stateRoot)
     Assert-BatchSmoke -Condition (@($operations | Where-Object { $_.cleanupResult.success -and @($_.cleanupResult.remaining).Count -eq 0 }).Count -eq 2) -Description 'Scopegebundener Batch-Cleanup war fuer beide Runs erfolgreich'
+
+    if ($ManifestRerun) {
+        $firstBatchId = [string]$batch.batchId
+        $firstOperationIds = @($batch.operationIds)
+        $batch = New-SqlServerLabBatch -Manifest $manifestPath -StateRoot $stateRoot
+        Assert-BatchSmoke -Condition ($batch.batchId -ne $firstBatchId) -Description 'Abgeschlossenes und bereinigtes Manifest erzeugte einen neuen Batch'
+        $sameRerunBatch = New-SqlServerLabBatch -Manifest $manifestPath -StateRoot $stateRoot
+        Assert-BatchSmoke -Condition ($sameRerunBatch.batchId -eq $batch.batchId) -Description 'Offene Manifest-Wiederholung blieb auch im zweiten Lauf dedupliziert'
+
+        & $module {
+            param($Root)
+            Invoke-SqlServerLabScheduler -UntilIdle -MaxWorkers 2 -StateRoot $Root | Out-Null
+        } $stateRoot
+        $rerunBatch = Get-SqlServerLabBatch -BatchId $batch.batchId -StateRoot $stateRoot
+        $rerunOperations = @(Get-SqlServerLabOperation -BatchId $batch.batchId -StateRoot $stateRoot)
+        Assert-BatchSmoke -Condition ($rerunBatch.status -eq 'Completed' -and @($rerunOperations | Where-Object status -eq 'Completed').Count -eq 2) -Description 'Manifest-Rerun wurde mit beiden Operationen abgeschlossen'
+        $rerunIds = @($rerunOperations.runId)
+        Assert-BatchSmoke -Condition (@($rerunIds | Where-Object { $_ -in $runIds }).Count -eq 0) -Description 'Manifest-Rerun erhielt neue RunIds statt alte Ressourcen zu uebernehmen'
+        Assert-BatchSmoke -Condition (@(Get-BatchOwnedRunState -OperationId $firstOperationIds).Count -eq 0) -Description 'Erster Manifest-Lauf hinterliess nach Cleanup keine aktiven operationseigenen Runs'
+        Assert-BatchSmoke -Condition (@(Get-BatchOwnedRunState -OperationId @($batch.operationIds)).Count -eq 2) -Description 'Manifest-Rerun besitzt genau einen aktiven Run je Position'
+
+        & $module {
+            param($Root)
+            Invoke-SqlServerLabScheduler -UntilIdle -MaxWorkers 2 -StateRoot $Root | Out-Null
+        } $stateRoot
+        $rerunAfterResume = @(Get-SqlServerLabOperation -BatchId $batch.batchId -StateRoot $stateRoot)
+        Assert-BatchSmoke -Condition ((@($rerunAfterResume.runId | Sort-Object -Unique) -join ',') -eq (@($rerunIds | Sort-Object -Unique) -join ',')) -Description 'Manifest-Rerun blieb bei erneutem Scheduler-Aufruf idempotent'
+
+        Stop-SqlServerLabBatch -BatchId $batch.batchId -Cleanup -IncludeCompleted -StateRoot $stateRoot -Confirm:$false | Out-Null
+        & $module {
+            param($Root)
+            Invoke-SqlServerLabScheduler -UntilIdle -MaxWorkers 2 -StateRoot $Root | Out-Null
+        } $stateRoot
+        $rerunOperations = @(Get-SqlServerLabOperation -BatchId $batch.batchId -StateRoot $stateRoot)
+        Assert-BatchSmoke -Condition (@($rerunOperations | Where-Object { $_.cleanupResult.success -and @($_.cleanupResult.remaining).Count -eq 0 }).Count -eq 2) -Description 'Manifest-Rerun wurde vollstaendig scopegebunden bereinigt'
+    }
     $batch = $null
 }
 catch {
