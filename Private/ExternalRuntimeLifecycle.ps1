@@ -262,7 +262,7 @@ BEGIN TRY
     BEGIN
         CREATE EXTERNAL LIBRARY SqlServerLabJavaSdk
         FROM (CONTENT = N'$($platformContract.SdkPath)')
-        WITH (LANGUAGE = 'Java');
+        WITH (LANGUAGE = 'Java', PLATFORM = $($platformContract.Platform));
         SET @createdSdk = 1;
     END;
 
@@ -284,7 +284,7 @@ BEGIN TRY
     BEGIN
         CREATE EXTERNAL LIBRARY SqlServerLabJavaProbe
         FROM (CONTENT = N'$($platformContract.ProbePath)')
-        WITH (LANGUAGE = 'Java');
+        WITH (LANGUAGE = 'Java', PLATFORM = $($platformContract.Platform));
         SET @createdProbe = 1;
     END;
 
