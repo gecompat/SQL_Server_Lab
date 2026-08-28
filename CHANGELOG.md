@@ -8,6 +8,14 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- Der SQL-Versionskatalog ist gegen die offiziellen Microsoft-Buildtabellen auf
+  SQL Server 2019 CU32, SQL Server 2022 CU26 und SQL Server 2025 CU8
+  aktualisiert. Bestehende 2019-/2022-KB-, Build- und Release-Zuordnungen wurden
+  berichtigt; der CU-Wächter meldet für alle drei unterstützten Versionen
+  `NO CHANGE`.
+- Der kanonische Ausführungsplan führt den tatsächlichen N1-Status und die
+  Nightly-, Recovery- und Katalog-Evidence, statt alle fünf nächsten Wellen
+  pauschal als nicht begonnen auszuweisen.
 - `Get-SqlServerLabReconcilePlan` und `Invoke-SqlServerLabReconcileAction`
   unterstützen einen additiven, resolvergebundenen External-Runtime-Refresh für
   laufende SQL-Server-2022-Docker-/Podman-Runs. Ein neues Derived Image wird vor
