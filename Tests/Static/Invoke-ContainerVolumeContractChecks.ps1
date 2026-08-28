@@ -24,6 +24,10 @@ foreach ($entry in $providers.GetEnumerator()) {
     Assert-VolumeContract ($text -match '10001:0 /sql-lab-volume-init') "$name setzt die SQL-Server-UID auf neuen Named Volumes"
     Assert-VolumeContract ($text -match "(?s)if \(-not \`$drive\.hostPath\).*?Initialize-$($name.Substring(0,1).ToUpperInvariant())$($name.Substring(1))SqlNamedVolume") "$name veraendert keine Host-Bind-Mounts"
     Assert-VolumeContract ($text -match '(?s)volume inspect.*?return \$false') "$name initialisiert bestehende Volumes nicht erneut"
+    Assert-VolumeContract (
+        $text -match "SyncImageContent:\(\`$ExternalRuntimeLaunchMode -eq 'sql2022-namespace-v1' -and \[string\]\`$drive\.containerPath -eq '/var/opt/mssql-extensibility'\)" -and
+        $text -match "cp -a '\`$ContainerPath'/\. /sql-lab-volume-init/"
+    ) "$name synchronisiert Image-Inhalt nur in das External-Runtime-Extensibility-Volume"
 }
 
 Assert-VolumeContract ($providers.podman -match "if \(-not \`$drive\.hostPath -and \`$ExternalRuntimeLaunchMode -eq 'none'\) \{ \`$volumeOptions \+= 'U' \}") 'podman verwendet die user-namespace-sichere U-Option nur fuer normale rootless Named Volumes'
