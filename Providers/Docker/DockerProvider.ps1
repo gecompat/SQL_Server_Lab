@@ -133,10 +133,15 @@ function Initialize-DockerSqlNamedVolume {
     }
     if ($volumeExists -and -not $SyncImageContent) { return $false }
 
-    $copyCommand = if ($SyncImageContent) { "if [ -d '$ContainerPath' ]; then cp -a '$ContainerPath'/. /sql-lab-volume-init/; fi; " } else { '' }
+    $initializationCommand = if ($SyncImageContent) {
+        "if [ ! -d '$ContainerPath' ]; then exit 1; fi; cp -a '$ContainerPath'/. /sql-lab-volume-init/; chown --reference='$ContainerPath' /sql-lab-volume-init && chmod --reference='$ContainerPath' /sql-lab-volume-init"
+    }
+    else {
+        'chown -R 10001:0 /sql-lab-volume-init && chmod 0770 /sql-lab-volume-init'
+    }
     $initialized = docker run --rm --user 0:0 --entrypoint /bin/sh `
         -v "${VolumeName}:/sql-lab-volume-init" $Image `
-        -c "${copyCommand}chown -R 10001:0 /sql-lab-volume-init && chmod 0770 /sql-lab-volume-init" 2>&1
+        -c $initializationCommand 2>&1
     if ($LASTEXITCODE -ne 0) {
         throw "DOCKER_SQL_VOLUME_INITIALIZATION_FAILED: $VolumeName - $(@($initialized) -join ' ')"
     }
