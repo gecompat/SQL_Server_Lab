@@ -1,5 +1,4 @@
 #Requires -Version 7.2
-#Requires -RunAsAdministrator
 [CmdletBinding()]
 param(
     [string]$RunId,
@@ -9,6 +8,9 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+if (-not $IsWindows -or -not (Get-Command Get-VM -ErrorAction SilentlyContinue)) {
+    throw 'HYPERV_EXTERNAL_RUNTIME_ACCEPTANCE_REQUIRES_WINDOWS_HYPERV'
+}
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force
 $module = Get-Module SqlServerLab
@@ -39,7 +41,11 @@ $module = Get-Module SqlServerLab
         }
         $credential = [PSCredential]::new('Administrator', $guestPassword)
 
-        if (-not $lab.Instance.oobeAutomation -or [string]$lab.Instance.oobeAutomation.status -ne 'COMPLETED') {
+        $windowsSlotReady = $lab.Instance.windowsProvisioning -and
+            [string]$lab.Instance.windowsProvisioning.state -eq 'COMPLETE'
+        $oobeReady = $lab.Instance.oobeAutomation -and
+            [string]$lab.Instance.oobeAutomation.status -eq 'COMPLETED'
+        if (-not $windowsSlotReady -and -not $oobeReady) {
             $null = Invoke-HyperVLabUnattendedProvision -RunId $runId -AdministratorPassword $guestPassword `
                 -PasswordSource generated -StateRoot $lab.StateRoot
             $lab = Get-HyperVLabWorkflowRun -RunId $runId -StateRoot $lab.StateRoot
@@ -127,8 +133,8 @@ $module = Get-Module SqlServerLab
         Write-Host "NATIVE_EVIDENCE_PATH=$evidencePath"
 
         if ($CleanupOnSuccess) {
-            $cleanup = Remove-HyperVLabEnvironment -RunId $runId -StateRoot $lab.StateRoot
-            if ([string]$cleanup.Status -notin @('CLEANED_UP','CLEANED_UP_WITH_RETAINED_DATA')) {
+            $cleanup = Remove-SqlServerLab -RunId $runId -StateRoot $lab.StateRoot -Force -Confirm:$false
+            if ([string]$cleanup.Status -ne 'REMOVED') {
                 throw "HYPERV_EXTERNAL_RUNTIME_CLEANUP_FAILED: $($cleanup.Status)"
             }
         }

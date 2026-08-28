@@ -675,7 +675,7 @@ validation:
   hyperv_external_runtime_acceptance:
     source: Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1
     command: '.\Tests\Integration\Invoke-ExternalRuntimeHyperVAcceptance.ps1 -RunId <existing-run-id>'
-    execution_status: "implementiert; positiver nativer Python-/R-/Java-Nachweis in einer erhoehten PowerShell-Sitzung ausstehend"
+    execution_status: "implementiert; positiver nativer Python-/R-/Java-Nachweis ausstehend; frische OOBE erfordert Elevation, ein dedizierter bereits spezialisierter Windows-Slot kann capability-basiert fortgesetzt werden"
     checks:
       - sql_2022_advanced_analytics_feature
       - offline_python_r_and_java_guest_installation

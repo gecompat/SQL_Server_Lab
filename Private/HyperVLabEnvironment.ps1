@@ -939,7 +939,9 @@ function Invoke-HyperVLabSqlSlotInstall {
             $guestFolder='C:\SqlServerLab\Updates'
             $guestUpdatePath=Join-Path $guestFolder (Split-Path -Leaf ([string]$plan.sqlUpdatePath))
             $null=Invoke-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $credential -ArgumentList @($guestFolder) -ScriptBlock {param($Path);$null=New-Item -ItemType Directory -Path $Path -Force}
-            $guestService=Get-VMIntegrationService -VMName ([string]$lab.Instance.vmName) -ErrorAction Stop | Where-Object {$_.Id -eq [guid]'6C09BB55-D683-4DA0-8931-C9BF705F6480'} | Select-Object -First 1
+            $guestService=Get-VMIntegrationService -VMName ([string]$lab.Instance.vmName) -ErrorAction Stop |
+                Where-Object { ([string]$_.Id).EndsWith('6C09BB55-D683-4DA0-8931-C9BF705F6480', [StringComparison]::OrdinalIgnoreCase) } |
+                Select-Object -First 1
             if(-not $guestService){throw 'HYPERV_GUEST_FILE_COPY_SERVICE_NOT_FOUND'}
             if(-not $guestService.Enabled){$null=Enable-VMIntegrationService -VMIntegrationService $guestService -ErrorAction Stop}
             Copy-VMFile -VMName ([string]$lab.Instance.vmName) -SourcePath ([string]$plan.sqlUpdatePath) -DestinationPath $guestUpdatePath -FileSource Host -CreateFullPath -Force -ErrorAction Stop
