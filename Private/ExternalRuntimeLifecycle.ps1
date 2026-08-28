@@ -458,6 +458,25 @@ function Save-LabExternalRuntimeInstallationReceipts {
     return $path
 }
 
+function Invoke-LabExternalRuntimeProbeWithRetry {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][scriptblock]$Operation,
+        [ValidateRange(1,3)][int]$MaximumAttempts = 2,
+        [ValidateRange(0,10)][int]$RetryDelaySeconds = 3
+    )
+
+    for ($attempt = 1; $attempt -le $MaximumAttempts; $attempt++) {
+        try { return @(& $Operation) }
+        catch {
+            $isTransientLaunchpadFailure = $_.Exception.Message -match '(?s)Msg 3901[12].*Unable to communicate with the runtime'
+            if (-not $isTransientLaunchpadFailure -or $attempt -ge $MaximumAttempts) { throw }
+            Write-LabWarning "Transiente LaunchPad-Kommunikationsstoerung; Runtime-Probe wird einmal wiederholt."
+            if ($RetryDelaySeconds -gt 0) { Start-Sleep -Seconds $RetryDelaySeconds }
+        }
+    }
+}
+
 function Initialize-LabExternalRuntimes {
     [CmdletBinding()]
     param(
@@ -511,19 +530,25 @@ RECONFIGURE WITH OVERRIDE;
         foreach ($plan in $orderedPlans) {
             $probes = @(switch ([string]$plan.Language) {
                 'Python' {
-                    Invoke-LabPythonExternalRuntimeProbe -Plan $plan -HostName ([string]$LabInstance.Host) `
-                        -Port ([int]$LabInstance.Port) -SaPassword $SaPassword
+                    Invoke-LabExternalRuntimeProbeWithRetry -Operation {
+                        Invoke-LabPythonExternalRuntimeProbe -Plan $plan -HostName ([string]$LabInstance.Host) `
+                            -Port ([int]$LabInstance.Port) -SaPassword $SaPassword
+                    }
                 }
                 'R' {
-                    Invoke-LabRExternalRuntimeProbe -Plan $plan -HostName ([string]$LabInstance.Host) `
-                        -Port ([int]$LabInstance.Port) -SaPassword $SaPassword
+                    Invoke-LabExternalRuntimeProbeWithRetry -Operation {
+                        Invoke-LabRExternalRuntimeProbe -Plan $plan -HostName ([string]$LabInstance.Host) `
+                            -Port ([int]$LabInstance.Port) -SaPassword $SaPassword
+                    }
                 }
                 'Java' {
                     $databaseNames = @($LabInstance.Databases | ForEach-Object { [string]$_ } | Sort-Object -Unique)
                     if ($databaseNames.Count -eq 0) { $databaseNames = @('master') }
                     foreach ($databaseName in $databaseNames) {
-                        $javaProbe = Invoke-LabJavaExternalRuntimeProbe -Plan $plan -HostName ([string]$LabInstance.Host) `
-                            -Port ([int]$LabInstance.Port) -SaPassword $SaPassword -Database $databaseName
+                        $javaProbe = @(Invoke-LabExternalRuntimeProbeWithRetry -Operation {
+                            Invoke-LabJavaExternalRuntimeProbe -Plan $plan -HostName ([string]$LabInstance.Host) `
+                                -Port ([int]$LabInstance.Port) -SaPassword $SaPassword -Database $databaseName
+                        })[0]
                         $javaCompensations.Add([PSCustomObject]@{
                             Database=$databaseName
                             Registration=$javaProbe.RegistrationDetails
