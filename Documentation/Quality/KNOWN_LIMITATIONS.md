@@ -456,16 +456,24 @@ binden Umschaltung und Rollback. Der alte Container wird erst nach atomarem
 Connection-/Desired-State-Commit entfernt, das alte Image bleibt erhalten.
 Der vollständige Umschaltpfad bestand am 2026-08-28 getrennte native Docker-
 und Podman-Abnahmen auf einem isolierten Ubuntu-22.04-/cgroup-v1-Gast: ausgehend
-von Python-only wurden R und Java additiv ergänzt, das Journal erreichte
-`COMPLETED`, alle drei Sprachprobes bestanden nach Restart und beide Images
-blieben bis zum expliziten test-eigenen Cleanup erhalten. Der erste Podman-
-Versuch traf vor dem Refresh einmalig die bekannte transiente LaunchPad-
-Kommunikationsstörung `Msg 39011`; die unveränderte gezielte Wiederholung im
-erhaltenen Gast bestand vollständig.
+von Python-only wurden R und Java additiv ergänzt, Java anschließend wieder
+entfernt und Python/R nach einem Provider-Restart erneut ausgeführt. Die
+Journale erreichten `COMPLETED`; der eigentumsgebundene Java-DDL-Cleanup
+entfernte nur die vom Lab erzeugte Sprache, SDK-Library und Probe-Library.
+Ein SQL-Datenmarker blieb über beide Containerwechsel und den Restart erhalten.
 
-Noch nicht unterstützt sind Runtime-Entfernung samt Java-DDL-Cleanup, freie
-Packagewechsel, der allgemeine Hyper-V-Softwarepfad sowie Hyper-V-Artifact-
-Refresh und automatische Gastumschaltung.
+Container speichern `/var/opt/mssql` sowie die beiden langlebigen
+External-Runtime-Artefaktpfade `externallanguages` und `externallibraries` in
+drei getrennten, scopegebundenen Volumes. LaunchPad-Arbeitsdaten und Sandboxes
+bleiben containerlokal. Der Startadapter synchronisiert die katalogisierte
+ML-EULA und die Runtime-Artefakte providerneutral, sodass Docker und Podman
+denselben Persistenzvertrag erfüllen. Für die transienten SQL-Fehler `39011`
+und `39012` ist genau ein Container-Restart mit anschließendem Probe-Retry
+zulässig; Java-Registrierungseigentum wird dabei versuchsübergreifend erhalten,
+damit Compensation und spätere Removal-Aktionen vollständig bleiben.
+
+Noch nicht unterstützt sind freie Packagewechsel, der allgemeine Hyper-V-
+Softwarepfad sowie Hyper-V-Artifact-Refresh und automatische Gastumschaltung.
 
 ## Tests
 

@@ -106,9 +106,10 @@ auch einzeln geprüft werden. `EvidencePath` liegt außerhalb des Repositorys:
 .\Tests\Integration\Invoke-ExternalRuntimeContainerAcceptance.ps1 -Provider podman -EvidencePath <path>
 ```
 
-Beide Läufe prüfen Python, R und Java über echte SQL-Datenroundtrips vor und
-nach providergebundenem Neustart sowie den registrierten und expliziten
-Cleanup. Docker-Evidence gilt nicht für Podman und umgekehrt.
+Beide Läufe prüfen Python, R und Java über echte SQL-Datenroundtrips, einen
+additiven Refresh, eigentumsgebundenes Java-Removal, SQL-/Artefaktpersistenz,
+Python-/R-Probes nach providergebundenem Neustart sowie den registrierten und
+expliziten Cleanup. Docker-Evidence gilt nicht für Podman und umgekehrt.
 
 ### Auto-Modus
 

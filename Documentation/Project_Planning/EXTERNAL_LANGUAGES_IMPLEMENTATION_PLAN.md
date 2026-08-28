@@ -389,6 +389,21 @@ Der vollständige Python-only-zu-Python/R/Java-Umschaltpfad bestand getrennte
 native Docker- und Podman-Abnahmen auf Ubuntu 22.04 mit cgroup v1 einschließlich
 Journal `COMPLETED`, Restart-Probes und Cleanup.
 
+Implementierungsstand Welle 8C, 2026-08-28: Der Container-Reconcile-Pfad
+unterstützt nun auch die explizite Entfernung einer Runtime. Für Java sind
+External Language, SDK-Library und Probe-Library eigentumsgebunden registriert,
+journalisiert und kompensierbar; `PLATFORM = LINUX` ist Bestandteil der
+jeweiligen `CREATE EXTERNAL LIBRARY`-Dateispezifikation. SQL-Daten und die
+beiden langlebigen Runtime-Artefaktverzeichnisse werden in drei getrennten
+Volumes über Replacement-Container hinweg erhalten, während LaunchPad-Daten
+und Sandboxes containerlokal bleiben. Der Startadapter synchronisiert ML-EULA,
+Runtime-Konfiguration und Artefaktbesitz für Docker und Podman. Transiente
+LaunchPad-Fehler `39011`/`39012` erlauben genau einen Container-Restart und
+Probe-Retry; der Java-Ownership-Tracker bleibt dabei erhalten. Die native
+Docker-/Podman-Abnahme bewies Python-only-Provisionierung, additiven
+Python/R/Java-Refresh, Java-Removal, Python/R-Restart-Probes, SQL-Datenpersistenz
+und vollständigen Cleanup aller vier run-eigenen Ressourcen.
+
 ## 6. Betroffene Repositoryverträge
 
 Mindestens gemeinsam zu prüfen und je Welle kohärent zu ändern sind:
