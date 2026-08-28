@@ -106,6 +106,7 @@ Invoke-SqlServerLabScript             # T-SQL-Skript ausfuehren
 Get-SqlServerLabGeneratedSqlAccess      # Hyper-V-Generierte SQL-Accessdaten (ConnectionString/Passwort) abrufen
 New-SqlServerLabAutomatedTestEnvironment # Automatisierte Linux-Testumgebungen und Maschinenvertrag erzeugen
 Export-SqlServerLabTestEnvironment      # TestUmgebung.env/JSON/JSON-Schema/Markdown unter Lab_Data aktualisieren
+Repair-SqlServerLabAutomatedTestEnvironment # Linux-Mitglieder der geschützten Gruppe kontrolliert reparieren
 Clear-SqlServerLabAutomatedTestEnvironment # Geschützte Testgruppe vollständig entfernen
 
 # Pruefung
