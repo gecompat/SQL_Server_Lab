@@ -402,6 +402,20 @@ Ohne `-Quiet` gibt das Cmdlet ein Ergebnisobjekt zurück:
 | `IsValid` | `Boolean` | `True`, wenn keine Validierungsfehler gefunden wurden |
 | `Errors` | `String[]` | Schema-, Katalog-, Pfad- und fachliche Fehler |
 | `Warnings` | `String[]` | Risiken oder akzeptierte Felder mit eingeschränkter Runtime-Unterstützung |
+| `Plan` | `PSCustomObject` | Mutationsfreie External-Runtime-Planvorschau je Instanz |
+
+Der Wizard bietet unter `instances[].software` nur External-Runtime-Varianten
+an, die der Resolver fuer die bereits gewählte SQL-Version, den Provider und
+das Betriebssystem als `RESOLVED` freigibt. `Plan.Instances[].ExternalRuntimes`
+nennt fuer dieselbe Auflösung Downloads, Derived-Image-Build oder Gastmutation,
+Restarts, Downtime, Package Locks und Verification. Der Aenderungsweg trennt
+Artifact-`rebuild`, Service-`restart`, Container-`recreate` und sichere
+Gast-`reprovision`; identische portable `PlanKey`-Werte ergeben `no-op`.
+
+```powershell
+$validation.Plan.Instances |
+    Select-Object InstanceId, Provider, ExternalRuntimes
+```
 
 Mit `-Quiet` wird ausschließlich `True` oder `False` zurückgegeben. Der Switch
 ist standardmäßig ausgeschaltet:
@@ -431,7 +445,9 @@ umfasst derzeit:
 8. vorhandene `postProvision`-Skripte;
 9. fachliche Beziehungen wie `minMB <= maxMB` und alternative
    Dateiwachstumsangaben;
-10. riskante SQL-Optionen und Schemafelder, die von der Runtime noch nicht
+10. resolverfreigegebene External-Runtime-Varianten und deren mutationsfreie
+    Software-Planvorschau;
+11. riskante SQL-Optionen und Schemafelder, die von der Runtime noch nicht
     zuverlässig oder vollständig angewendet werden.
 
 Nicht geprüft werden unter anderem Runtime-Erreichbarkeit, freie Ports,

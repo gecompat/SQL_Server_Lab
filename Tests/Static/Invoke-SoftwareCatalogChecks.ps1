@@ -78,6 +78,14 @@ $result = & $module {
         InstallMethod = 'catalog'; Optional = $false; Packages = @(); RequestSource = 'software'
     }
     $javaPlan = Resolve-LabExternalRuntimePlan -SoftwareItem $javaRequest -SqlVersion '2022' -Provider hyperv -OperatingSystem windows
+    $dockerOptions = @(Get-LabExternalRuntimeSelectionOptions -SqlVersion '2022' -Provider docker -OperatingSystem linux)
+    $sql2025Options = @(Get-LabExternalRuntimeSelectionOptions -SqlVersion '2025' -Provider docker -OperatingSystem linux)
+    $containerPreview = Get-LabExternalRuntimePlanPreview -DesiredPlans @($supportedPlan)
+    $noOpPreview = Get-LabExternalRuntimePlanPreview -DesiredPlans @($supportedPlan) -CurrentPlans @($supportedPlan)
+    $windowsPreview = Get-LabExternalRuntimePlanPreview -DesiredPlans @($javaPlan)
+    $receipt = New-LabSoftwareInstallationReceipt -Plan $supportedPlan -Postconditions @(
+        [PSCustomObject]@{ Type='synthetic'; Status='PASS' }
+    )
 
     $duplicateRejected = $false
     try {
@@ -131,6 +139,30 @@ $result = & $module {
             $javaPlan.VariantId -eq 'sql2022-java17-windows-hyperv'
         DuplicateRejected = $duplicateRejected
         ReceiptRejected = $receiptRejected
+        Selection = $dockerOptions.Count -eq 3 -and
+            (@($dockerOptions.SoftwareId | Sort-Object) -join ',') -eq 'sql-java,sql-python,sql-r' -and
+            @($dockerOptions | Where-Object { [string]$_.PlanKey -notmatch '^[a-f0-9]{64}$' }).Count -eq 0 -and
+            $sql2025Options.Count -eq 0
+        PlanIdentity = [string]$supportedPlan.PlanKey -match '^[a-f0-9]{64}$' -and
+            @($supportedPlan.PackageLocks).Count -gt 0 -and
+            (($supportedPlan | ConvertTo-Json -Depth 30) -notmatch '(?i)https?://|Program Files|/usr/')
+        ContainerPreview = $containerPreview.Entries.Count -eq 1 -and
+            $containerPreview.Entries[0].BuildDerivedImage -and
+            -not $containerPreview.Entries[0].GuestMutation -and
+            $containerPreview.Entries[0].ChangeClassification.Artifact -eq 'rebuild' -and
+            $containerPreview.Entries[0].ChangeClassification.Service -eq 'restart' -and
+            $containerPreview.Entries[0].ChangeClassification.Activation -eq 'recreate' -and
+            $containerPreview.Entries[0].Downtime -eq 'required' -and
+            @($containerPreview.Entries[0].Downloads).Count -gt 0 -and
+            @($containerPreview.Entries[0].PackageLocks).Count -gt 0 -and
+            $containerPreview.Entries[0].Verification.type -eq 'spExecuteExternalScript'
+        ChangePlanning = $noOpPreview.IsNoOp -and
+            $noOpPreview.Entries[0].ChangeClassification.Highest -eq 'no-op' -and
+            $windowsPreview.Entries[0].GuestMutation -and
+            $windowsPreview.Entries[0].ChangeClassification.Activation -eq 'reprovision'
+        ReceiptPlanBinding = $receipt.PlanKey -eq $supportedPlan.PlanKey -and
+            $receipt.PlanContract.Name -eq 'SqlServerLab.SoftwarePlan' -and
+            $receipt.ChangeClassification.Activation -eq 'recreate'
         Intent = $softwareIntent.RequiredCapability -eq 'software-catalog-planning' -and
             $softwareIntent.PlanningCapabilityStatus -eq 'DECLARED_SUPPORTED' -and
             $softwareIntent.CapabilityStatus -eq 'DECLARED_SUPPORTED' -and
@@ -151,6 +183,11 @@ Add-CheckResult -Name 'Nicht katalogisierte Zusatzpakete werden vor der Mutation
 Add-CheckResult -Name 'Hyper-V/Windows-Java besitzt einen nativ belegten deterministischen Plan' -Success $result.HyperVJava
 Add-CheckResult -Name 'Doppelte Legacy- und software-Anforderung wird abgelehnt' -Success $result.DuplicateRejected
 Add-CheckResult -Name 'Installation Receipt erfordert einen RESOLVED-Plan' -Success $result.ReceiptRejected
+Add-CheckResult -Name 'Wizard-Auswahl enthaelt nur resolverfreigegebene Varianten des Instanzkontexts' -Success $result.Selection
+Add-CheckResult -Name 'Softwareplan bindet alle Package Locks und eine portable PlanKey-Identitaet' -Success $result.PlanIdentity
+Add-CheckResult -Name 'Planvorschau nennt Downloads, Build, Restart, Recreate, Downtime, Locks und Verification' -Success $result.ContainerPreview
+Add-CheckResult -Name 'Aenderungsplanung unterscheidet No-op und sichere Gast-Reprovisionierung' -Success $result.ChangePlanning
+Add-CheckResult -Name 'Installation Receipt bindet denselben Softwareplan und Aenderungsweg' -Success $result.ReceiptPlanBinding
 Add-CheckResult -Name 'Desired State bindet Planning-Capability und freigegebene Runtime getrennt' -Success $result.Intent
 Add-CheckResult -Name 'Desired State persistiert keine Quellen- oder Gastpfade' -Success $result.Sanitized
 Add-CheckResult -Name 'Manifestparser normalisiert Legacy-Sprachen in Software-Intents' -Success $result.ParserNormalization

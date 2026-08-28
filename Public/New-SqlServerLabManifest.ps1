@@ -72,6 +72,7 @@ function New-SqlServerLabManifest {
             -Json $json `
             -ManifestPath $fullPath
 
+        Write-LabManifestPlanPreview -Plan $validation.Plan
         foreach ($warning in $validation.Warnings) {
             Write-LabWarning $warning
         }
@@ -152,7 +153,10 @@ function Test-SqlServerLabManifest {
         System.Object. Ein Manifestobjekt kann an InputObject gebunden werden.
     .OUTPUTS
         System.Management.Automation.PSCustomObject. Ohne Quiet enthaelt das
-        Ergebnis IsValid (Boolean), Errors (String[]) und Warnings (String[]).
+        Ergebnis IsValid (Boolean), Errors (String[]), Warnings (String[]) und
+        Plan. Plan beschreibt External-Runtime-Downloads, Build- oder
+        Gastmutation, Restarts, Downtime, Package Locks, Verification und den
+        erforderlichen Aenderungsweg ohne eine Labressource zu veraendern.
 
         System.Boolean. Mit Quiet wird nur IsValid zurueckgegeben.
     .EXAMPLE
