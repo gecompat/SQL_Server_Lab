@@ -457,6 +457,12 @@ oder wiederholte Imports nicht bei jedem Run erneut ausgeführt werden.
 Eine Baseline ist nur gültig, wenn sie selbst SHA-256-verifiziert und vollständig
 auf ihren Ursprung zurückführbar ist.
 
+Bei einer Baseline-Auswahl bindet das Run-spezifische Manifest Lock weiterhin
+den portablen Originalartifact-Vertrag. Zusätzlich hält `resolvedArtifact` die
+ausgewählte `LAB_GENERATED`-Key-ID, den exakten oder kompatiblen Match-Typ, den
+Backup-SHA-256 und das Artifact-Format fest. Lokale Baselinepfade werden nicht
+in den Lock übernommen.
+
 ### 10.2 Baseline-Key
 
 Mindestens folgende Werte bestimmen die Identität:
