@@ -52,6 +52,59 @@ Add-CheckResult -Name 'Rollback kompensiert neue Java-DDL vor der Providerwieder
     $source.IndexOf('Undo-LabJavaExternalRuntimeDatabaseObjects') -lt $source.LastIndexOf('Repair-LabExternalRuntimeRefreshJournal -Context')
 )
 
+$replacementBinding = & $module {
+    $instance = [PSCustomObject]@{
+        id='external-runtime'; drives=@(
+            [PSCustomObject]@{ id='runtime-mssql'; containerPath='/var/opt/mssql'; persistence='run-scoped-runtime-volume' },
+            [PSCustomObject]@{ id='data'; containerPath='/sqldata'; persistence='run-scoped-runtime-volume' },
+            [PSCustomObject]@{ id='scripts'; containerPath='/scripts'; hostPath='/host/scripts'; readOnly=$true }
+        )
+    }
+    New-LabExternalRuntimeReplacementInstance -ResolvedInstance $instance -ContainerInspect ([PSCustomObject]@{
+        Mounts=@(
+            [PSCustomObject]@{ Type='volume'; Name='stable-system-volume'; Destination='/var/opt/mssql' },
+            [PSCustomObject]@{ Type='volume'; Name='stable-data-volume'; Destination='/sqldata' },
+            [PSCustomObject]@{ Type='bind'; Source='/host/scripts'; Destination='/scripts' }
+        )
+    })
+}
+Add-CheckResult -Name 'Refresh bindet bestehende SQL-Volumes statt neue Namen abzuleiten' -Success (
+    @($replacementBinding.drives | Where-Object id -eq 'runtime-mssql')[0].volumeName -eq 'stable-system-volume' -and
+    @($replacementBinding.drives | Where-Object id -eq 'data')[0].volumeName -eq 'stable-data-volume' -and
+    @($replacementBinding.drives | Where-Object id -eq 'scripts')[0].hostPath -eq '/host/scripts' -and
+    $source -match '-ContainerName \$name'
+)
+
+$javaCleanupPlan = & $module {
+    $context = [PSCustomObject]@{
+        RemovedIds=@('sql-java')
+        CurrentPlans=@([PSCustomObject]@{
+            SoftwareId='sql-java'; PlanKey=('b' * 64)
+            VariantId='sql2022-java11-ubuntu2204-derived'; RuntimeVersion='11'
+        })
+        ConnectionInstance=[PSCustomObject]@{ id='external-runtime' }
+    }
+    $receipts = [PSCustomObject]@{ instances=@([PSCustomObject]@{
+        instanceId='external-runtime'; receipts=@([PSCustomObject]@{
+            SoftwareId='sql-java'; PlanKey=('b' * 64); Postconditions=@([PSCustomObject]@{
+                Language='Java'; Database='app'; ManagedObjects=[PSCustomObject]@{
+                    CreatedLanguage=$true; CreatedSdk=$true; CreatedProbe=$false
+                }
+            })
+        })
+    }) }
+    Get-LabExternalRuntimeJavaCleanupPlan -Context $context -PreviousReceipts $receipts
+}
+Add-CheckResult -Name 'Java-Removal bindet nur receiptbelegte Lab-Objekte und Datenbanken' -Success (
+    $javaCleanupPlan.Software.SoftwareId -eq 'sql-java' -and
+    @($javaCleanupPlan.Records).Count -eq 1 -and $javaCleanupPlan.Records[0].Database -eq 'app' -and
+    $javaCleanupPlan.Records[0].Registration.CreatedLanguage -and
+    $javaCleanupPlan.Records[0].Registration.CreatedSdk -and
+    -not $javaCleanupPlan.Records[0].Registration.CreatedProbe -and
+    $source -match "-Status 'JAVA_CLEANUP_PREPARED'" -and
+    $source -match 'Restore-LabExternalRuntimeManagedJavaObjects'
+)
+
 $tempRoot = Join-Path ([IO.Path]::GetTempPath()) ("sql-lab-runtime-reconcile-" + [guid]::NewGuid().ToString('N'))
 try {
     New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
@@ -59,6 +112,7 @@ try {
     $desiredManifestPath = Join-Path $tempRoot 'desired.json'
     $driftManifestPath = Join-Path $tempRoot 'drift.json'
     $removalManifestPath = Join-Path $tempRoot 'removal.json'
+    $lastRemovalManifestPath = Join-Path $tempRoot 'last-removal.json'
     $baseInstance = [ordered]@{
         id='external-runtime'; version='2022'; provider='docker'; os='linux'; profile='standard'; autostart='off'
         databases=@([ordered]@{ name='app' })
@@ -76,6 +130,10 @@ try {
     [ordered]@{ name='runtime-reconcile'; instances=@($driftInstance) } | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $driftManifestPath -Encoding utf8
     $removalInstance = $baseInstance | ConvertTo-Json -Depth 20 | ConvertFrom-Json -AsHashtable; $removalInstance.software = @([ordered]@{ id='sql-r'; scope='sqlExternalRuntime' })
     [ordered]@{ name='runtime-reconcile'; instances=@($removalInstance) } | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $removalManifestPath -Encoding utf8
+    $lastRemovalInstance = $baseInstance | ConvertTo-Json -Depth 20 | ConvertFrom-Json -AsHashtable
+    $lastRemovalInstance.software = @()
+    $lastRemovalInstance.serverConfig.externalScripts.enabled = $false
+    [ordered]@{ name='runtime-reconcile'; instances=@($lastRemovalInstance) } | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $lastRemovalManifestPath -Encoding utf8
 
     $fixture = & $module {
         param($Root,$ManifestPath)
@@ -126,10 +184,16 @@ try {
     try { $null = Get-SqlServerLabReconcilePlan -RunId $fixture.RunId -ManifestPath $driftManifestPath -InstanceId external-runtime -StateRoot $fixture.StateRoot }
     catch { $driftRejected = $_.Exception.Message -match 'NON_SOFTWARE_DRIFT' }
     Add-CheckResult -Name 'Nicht-Software-Drift wird vor jeder Mutation abgelehnt' -Success $driftRejected
-    $removalRejected = $false
-    try { $null = Get-SqlServerLabReconcilePlan -RunId $fixture.RunId -ManifestPath $removalManifestPath -InstanceId external-runtime -StateRoot $fixture.StateRoot }
-    catch { $removalRejected = $_.Exception.Message -match 'REMOVAL_UNSUPPORTED' }
-    Add-CheckResult -Name 'Runtime-Entfernung bleibt ohne DDL-Cleanup-Vertrag fail-closed' -Success $removalRejected
+    $removalPlan = Get-SqlServerLabReconcilePlan -RunId $fixture.RunId -ManifestPath $removalManifestPath -InstanceId external-runtime -StateRoot $fixture.StateRoot
+    Add-CheckResult -Name 'Einzelne Runtime-Entfernung wird als sanitisiertes Recreate geplant' -Success (
+        @($removalPlan.Diff | Where-Object { $_.SoftwareId -eq 'sql-python' -and $_.ChangeClassification.Intent -eq 'remove' }).Count -eq 1 -and
+        @($removalPlan.Diff | Where-Object SoftwareId -eq 'sql-r').Count -eq 1 -and
+        $removalPlan.HighestChangeClass -eq 'recreate'
+    )
+    $lastRemovalRejected = $false
+    try { $null = Get-SqlServerLabReconcilePlan -RunId $fixture.RunId -ManifestPath $lastRemovalManifestPath -InstanceId external-runtime -StateRoot $fixture.StateRoot }
+    catch { $lastRemovalRejected = $_.Exception.Message -match 'LAST_RUNTIME_REMOVAL_UNSUPPORTED' }
+    Add-CheckResult -Name 'Entfernung der letzten Runtime bleibt bis zum Basisimage-Rueckweg fail-closed' -Success $lastRemovalRejected
 }
 finally {
     if (Test-Path -LiteralPath $tempRoot) { Remove-Item -LiteralPath $tempRoot -Recurse -Force }
