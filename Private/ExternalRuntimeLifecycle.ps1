@@ -203,8 +203,7 @@ function Register-LabJavaExternalRuntimeDatabaseObjects {
         [string]$HostName = '127.0.0.1',
         [Parameter(Mandatory)][int]$Port,
         [Parameter(Mandatory)][SecureString]$SaPassword,
-        [Parameter(Mandatory)][ValidatePattern('^[A-Za-z][A-Za-z0-9_]{0,127}$')][string]$Database,
-        $RegistrationTracker
+        [Parameter(Mandatory)][ValidatePattern('^[A-Za-z][A-Za-z0-9_]{0,127}$')][string]$Database
     )
 
     $platformContract = Get-LabJavaExternalRuntimePlatformContract -Plan $Plan
@@ -365,7 +364,8 @@ function Invoke-LabJavaExternalRuntimeProbe {
         [string]$HostName = '127.0.0.1',
         [Parameter(Mandatory)][int]$Port,
         [Parameter(Mandatory)][SecureString]$SaPassword,
-        [Parameter(Mandatory)][ValidatePattern('^[A-Za-z][A-Za-z0-9_]{0,127}$')][string]$Database
+        [Parameter(Mandatory)][ValidatePattern('^[A-Za-z][A-Za-z0-9_]{0,127}$')][string]$Database,
+        $RegistrationTracker
     )
 
     $expectedMajor = if ([string]$Plan.OperatingSystem -eq 'windows') { '17' } else { '11' }
