@@ -145,6 +145,77 @@ function Ensure-LabDockerNetwork {
     return $network
 }
 
+function Get-LabPodmanCniNetworkConfigPath {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Name)
+
+    $fileName = "$Name.conflist"
+    $candidates = [Collections.Generic.List[string]]::new()
+    $candidates.Add((Join-Path '/etc/cni/net.d' $fileName))
+    if (-not [string]::IsNullOrWhiteSpace([string]$env:XDG_CONFIG_HOME)) {
+        $candidates.Add((Join-Path (Join-Path $env:XDG_CONFIG_HOME 'cni/net.d') $fileName))
+    }
+    if (-not [string]::IsNullOrWhiteSpace([string]$HOME)) {
+        $candidates.Add((Join-Path (Join-Path $HOME '.config/cni/net.d') $fileName))
+    }
+    $matches = @($candidates | Sort-Object -Unique | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf })
+    if ($matches.Count -gt 1) { throw "LAB_NETWORK_PODMAN_CNI_CONFIG_AMBIGUOUS: $Name" }
+    return $(if ($matches.Count -eq 1) { [string]$matches[0] } else { $null })
+}
+
+function Repair-LabPodmanCniVersionCompatibility {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$NetworkConfigPath,
+        [Parameter(Mandatory)][string]$NetworkName,
+        [Parameter(Mandatory)][string]$PodmanVersion
+    )
+
+    if ($PodmanVersion -notmatch '^3\.4\.4(?:$|[-+])') { return $false }
+    if ([IO.Path]::GetFileName($NetworkConfigPath) -cne "$NetworkName.conflist" -or
+        -not (Test-Path -LiteralPath $NetworkConfigPath -PathType Leaf)) {
+        throw "LAB_NETWORK_PODMAN_CNI_CONFIG_INVALID: $NetworkName"
+    }
+    $config = Get-Content -LiteralPath $NetworkConfigPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 30
+    if ([string]$config.name -cne $NetworkName -or @($config.plugins).Count -eq 0) {
+        throw "LAB_NETWORK_PODMAN_CNI_CONFIG_INVALID: $NetworkName"
+    }
+    if ([string]$config.cniVersion -eq '0.4.0') { return $false }
+    if ([string]$config.cniVersion -ne '1.0.0') { return $false }
+
+    $config.cniVersion = '0.4.0'
+    $config | ConvertTo-Json -Depth 30 | Set-Content -LiteralPath $NetworkConfigPath -Encoding utf8
+    $verified = Get-Content -LiteralPath $NetworkConfigPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 30
+    if ([string]$verified.name -cne $NetworkName -or [string]$verified.cniVersion -ne '0.4.0' -or
+        @($verified.plugins).Count -ne @($config.plugins).Count) {
+        throw "LAB_NETWORK_PODMAN_CNI_COMPATIBILITY_FAILED: $NetworkName"
+    }
+    return $true
+}
+
+function Get-LabPodmanNetworkContractFromInspect {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Inspect)
+
+    if ($Inspect.PSObject.Properties.Name -contains 'subnets') {
+        return [PSCustomObject]@{
+            Subnet = [string]@($Inspect.subnets)[0].subnet
+            Internal = [bool]$Inspect.internal
+        }
+    }
+    $bridge = @($Inspect.plugins | Where-Object { [string]$_.type -eq 'bridge' })
+    if ($bridge.Count -ne 1 -or @($bridge[0].ipam.ranges).Count -eq 0) {
+        throw "LAB_NETWORK_PODMAN_INSPECT_INVALID: $($Inspect.name)"
+    }
+    $range = @($bridge[0].ipam.ranges)[0]
+    $subnet = [string]@($range)[0].subnet
+    $hasDefaultRoute = @($bridge[0].ipam.routes | Where-Object { [string]$_.dst -eq '0.0.0.0/0' }).Count -gt 0
+    if ($subnet -notmatch '^\d+\.\d+\.\d+\.\d+/\d+$') {
+        throw "LAB_NETWORK_PODMAN_INSPECT_INVALID: $($Inspect.name)"
+    }
+    return [PSCustomObject]@{ Subnet=$subnet; Internal=(-not $hasDefaultRoute) }
+}
+
 function Ensure-LabPodmanNetwork {
     [CmdletBinding()]
     param([string]$Name, [string]$Subnet)
@@ -153,13 +224,30 @@ function Ensure-LabPodmanNetwork {
     if ($Name) { $network.Name = $Name }; if ($Subnet) { $network.Subnet = (ConvertTo-LabIpv4Subnet -Subnet $Subnet).Cidr }
     $existing = @(podman network inspect $network.Name 2>$null | ConvertFrom-Json -Depth 30)[0]
     if ($existing) {
-        $actualSubnet = [string]@($existing.subnets)[0].subnet
-        if ($actualSubnet -ne $network.Subnet -or [bool]$existing.internal) { throw "LAB_NETWORK_CONTRACT_MISMATCH: $($network.Name)" }
+        $existingContract = Get-LabPodmanNetworkContractFromInspect -Inspect $existing
+        if ($existingContract.Subnet -ne $network.Subnet -or $existingContract.Internal) { throw "LAB_NETWORK_CONTRACT_MISMATCH: $($network.Name)" }
+        $podmanVersion = [string](& podman version --format '{{.Version}}' 2>$null)
+        $configPath = Get-LabPodmanCniNetworkConfigPath -Name $network.Name
+        if ($configPath -and (Repair-LabPodmanCniVersionCompatibility -NetworkConfigPath $configPath -NetworkName $network.Name -PodmanVersion $podmanVersion.Trim())) {
+            Write-LabInfo "Podman-3.4.4-CNI-Vertrag fuer '$($network.Name)' auf 0.4.0 korrigiert."
+        }
         return $network
     }
     Assert-LabRuntimeNetworkAvailable -Network $network -KnownSubnets (Get-LabKnownIpv4Subnets -Provider podman)
-    $null = podman network create --subnet $network.Subnet --label sql-server-lab.network=managed $network.Name
+    $createOutput = @(podman network create --subnet $network.Subnet --label sql-server-lab.network=managed $network.Name)
     if ($LASTEXITCODE -ne 0) { throw "LAB_NETWORK_CREATE_FAILED: Podman $($network.Name)" }
+    $podmanVersion = [string](& podman version --format '{{.Version}}' 2>$null)
+    $configPath = @($createOutput | Where-Object { Test-Path -LiteralPath ([string]$_) -PathType Leaf } | Select-Object -First 1)
+    if ($configPath.Count -eq 0) { $configPath = @(Get-LabPodmanCniNetworkConfigPath -Name $network.Name) }
+    if ($configPath.Count -eq 1 -and $configPath[0] -and
+        (Repair-LabPodmanCniVersionCompatibility -NetworkConfigPath ([string]$configPath[0]) -NetworkName $network.Name -PodmanVersion $podmanVersion.Trim())) {
+        Write-LabInfo "Podman-3.4.4-CNI-Vertrag fuer '$($network.Name)' auf 0.4.0 korrigiert."
+    }
+    $created = @(podman network inspect $network.Name 2>$null | ConvertFrom-Json -Depth 30)[0]
+    $createdContract = if ($created) { Get-LabPodmanNetworkContractFromInspect -Inspect $created } else { $null }
+    if (-not $createdContract -or $createdContract.Subnet -ne $network.Subnet -or $createdContract.Internal) {
+        throw "LAB_NETWORK_CONTRACT_MISMATCH: $($network.Name)"
+    }
     return $network
 }
 

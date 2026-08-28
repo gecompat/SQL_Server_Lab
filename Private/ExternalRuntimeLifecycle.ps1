@@ -15,9 +15,19 @@ function Restart-LabExternalRuntimeContainer {
         [Parameter(Mandatory)][string]$ContainerIdOrName
     )
 
-    & $Provider restart $ContainerIdOrName 1>$null 2>$null
-    if ($LASTEXITCODE -ne 0) {
-        throw "EXTERNAL_RUNTIME_CONTAINER_RESTART_FAILED: $Provider / $ContainerIdOrName"
+    try {
+        if ($Provider -eq 'podman') {
+            Restart-PodmanInstance -ContainerIdOrName $ContainerIdOrName -TimeoutSeconds 30
+            return
+        }
+
+        $output = @(& $Provider restart $ContainerIdOrName 2>&1)
+        if ($LASTEXITCODE -ne 0) {
+            throw "$(@($output) -join ' ')"
+        }
+    }
+    catch {
+        throw "EXTERNAL_RUNTIME_CONTAINER_RESTART_FAILED: $Provider / $ContainerIdOrName - $($_.Exception.Message)"
     }
 }
 

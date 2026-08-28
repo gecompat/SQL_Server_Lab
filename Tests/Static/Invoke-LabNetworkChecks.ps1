@@ -31,6 +31,37 @@ try {
     )
     $overlap = & $module { [PSCustomObject]@{ Overlap = Test-LabIpv4SubnetOverlap -Left '172.26.0.0/16' -Right '172.26.12.0/24'; Separate = Test-LabIpv4SubnetOverlap -Left '172.26.0.0/16' -Right '172.27.0.0/16' } }
     Add-CheckResult -Name 'CIDR-Pruefung erkennt Ueberlappungen' -Success ($overlap.Overlap -and -not $overlap.Separate)
+    $podmanCniRoot = Join-Path ([IO.Path]::GetTempPath()) "sql-lab-podman-cni-$([guid]::NewGuid().ToString('N'))"
+    New-Item -Path $podmanCniRoot -ItemType Directory -Force | Out-Null
+    try {
+        $podmanCniPath = Join-Path $podmanCniRoot 'SQL_LAB_TEST.conflist'
+        [ordered]@{
+            cniVersion='1.0.0'; name='SQL_LAB_TEST'; plugins=@([ordered]@{ type='bridge' }, [ordered]@{ type='firewall' })
+        } | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $podmanCniPath -Encoding utf8
+        $podmanCniResult = & $module {
+            param($Path)
+            $repaired = Repair-LabPodmanCniVersionCompatibility -NetworkConfigPath $Path -NetworkName 'SQL_LAB_TEST' -PodmanVersion '3.4.4'
+            $document = Get-Content -LiteralPath $Path -Raw -Encoding utf8 | ConvertFrom-Json -Depth 10
+            [PSCustomObject]@{ Repaired=$repaired; Version=[string]$document.cniVersion; Plugins=@($document.plugins).Count }
+        } $podmanCniPath
+        Add-CheckResult -Name 'Podman 3.4.4 wird eng begrenzt auf den von Ubuntu 22.04 unterstuetzten CNI-Vertrag korrigiert' -Success (
+            $podmanCniResult.Repaired -and $podmanCniResult.Version -eq '0.4.0' -and $podmanCniResult.Plugins -eq 2
+        )
+        $legacyPodmanContract = & $module {
+            Get-LabPodmanNetworkContractFromInspect -Inspect ([PSCustomObject]@{
+                name='SQL_LAB_TEST'; cniVersion='0.4.0'; plugins=@([PSCustomObject]@{
+                    type='bridge'; ipam=[PSCustomObject]@{
+                        ranges=@(@([PSCustomObject]@{ subnet='10.254.27.0/24'; gateway='10.254.27.1' }))
+                        routes=@([PSCustomObject]@{ dst='0.0.0.0/0' })
+                    }
+                })
+            })
+        }
+        Add-CheckResult -Name 'Podman-3.4-CNI-Inspect wird auf denselben Subnetz- und Internal-Vertrag normalisiert' -Success (
+            $legacyPodmanContract.Subnet -eq '10.254.27.0/24' -and -not $legacyPodmanContract.Internal
+        )
+    }
+    finally { Remove-Item -LiteralPath $podmanCniRoot -Recurse -Force -ErrorAction SilentlyContinue }
     $previous = [Environment]::GetEnvironmentVariable('SQL_SERVER_LAB_DOCKER_SUBNET')
     try {
         [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_DOCKER_SUBNET', '172.29.0.0/16', 'Process')

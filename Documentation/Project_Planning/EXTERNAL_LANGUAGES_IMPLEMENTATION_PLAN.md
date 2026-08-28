@@ -2,15 +2,16 @@
 
 | Merkmal | Wert |
 |---|---|
-| Status | `IN_IMPLEMENTATION` |
+| Status | `IMPLEMENTED_SQL2022_REFERENCE` |
 | Stand | 2026-08-28 |
 | Bestehende Arbeitspakete | `SFT-711`, `SFT-712` |
 | Zielprovider | Hyper-V/Windows, Docker/Linux, Podman/Linux |
 | Zielsprachen | Python, R, Java |
 
-Dieses Dokument plant die Umsetzung von SQL Server External Languages im
-providerneutralen Lab-Core. Es ist kein Nachweis für implementiertes oder
-validiertes Runtimeverhalten.
+Dieses Dokument beschreibt Planung und abgeschlossenen SQL-2022-Referenzumfang
+für SQL Server External Languages im providerneutralen Lab-Core. Es bleibt
+selbst kein Runtime-Nachweis; maßgeblich sind Katalog, Code und die tatsächlich
+ausgeführten providergetrennten Acceptances.
 
 ## 1. Ziel und Abgrenzung
 
@@ -248,6 +249,13 @@ Gate je Provider:
 - Remove bereinigt Run-Ressourcen, ohne wiederverwendbare Images unkontrolliert
   zu löschen.
 
+Implementierungsstand 2026-08-28: Das Rezept v4 bindet das SQL-2022-Basisimage,
+Python-, R- und Java-Artefakte, SQL-Satellite-OpenSSL-Kompatibilität und den
+sicheren Namespace-Launchvertrag vollständig. Docker und Podman bestanden
+getrennte native Acceptances mit Python- und R-Datenroundtrip, Package- und
+Worker-Identität vor und nach providergebundenem Neustart. Run-Ressourcen,
+Derived Image und das test-eigene Podman-Netz wurden vollständig bereinigt.
+
 ### Welle 4 – Java in Linux-Containern
 
 1. JRE/JDK und Language-Extension-Binary als getrennte katalogisierte
@@ -267,11 +275,11 @@ von SQL Server ausgeführt wurde; `java -version` allein reicht nicht.
 
 Implementierungsstand 2026-08-28: JDK, Extension, SDK-Quellen und synthetisches
 Probe-JAR sind versioniert und SHA-256-gebunden; das compilerfreie Java-Image
-und alle Python-/R-/Java-Kombinationsstages bauen. Die datenbankgebundene DDL,
+und alle Python-/R-/Java-Kombinationsstages bauen. Datenbankgebundene DDL,
 Content-Driftprüfung, Idempotenz und Fehlerkompensation sind gegen SQL Server
-2022 nachgewiesen. Der positive JAR-Aufruf bleibt offen, weil der verfügbare
-cgroup-v2-Host den verpflichtenden sicheren `launchpadd`-Modus nicht starten
-kann; die Variante bleibt daher korrekt `PREVIEW`.
+2022 nachgewiesen. Docker und Podman bestanden jeweils den echten SQL-JAR-
+Datenroundtrip samt Worker-Identität vor und nach providergebundenem Neustart;
+die Linux-Java-Variante ist `SUPPORTED`.
 
 ### Welle 5 – Hyper-V/Windows für Python und R
 
@@ -420,9 +428,9 @@ Jede freigegebene Zelle wird eigenständig ausgeführt und berichtet
 
 | Sprache | Docker/Linux | Podman/Linux | Hyper-V/Windows |
 |---|---:|---:|---:|
-| Python | eigener Build- und Runtime-Smoke | eigener Build- und Runtime-Smoke | echter Gast-Smoke |
-| R | eigener Build- und Runtime-Smoke | eigener Build- und Runtime-Smoke | echter Gast-Smoke |
-| Java | eigener Build-, DDL- und JAR-Smoke | eigener Build-, DDL- und JAR-Smoke | echter Gast-, DDL- und JAR-Smoke |
+| Python | `PASS` – nativer Build, SQL-Roundtrip, Restart, Cleanup | `PASS` – nativer Build, SQL-Roundtrip, Restart, Cleanup | `PASS` – Gastinstallation, SQL-Roundtrip, VM-Kaltstart, Cleanup |
+| R | `PASS` – nativer Build, SQL-Roundtrip, Restart, Cleanup | `PASS` – nativer Build, SQL-Roundtrip, Restart, Cleanup | `PASS` – Gastinstallation, SQL-Roundtrip, VM-Kaltstart, Cleanup |
+| Java | `PASS` – nativer Build, DDL, JAR-Roundtrip, Restart, Cleanup | `PASS` – nativer Build, DDL, JAR-Roundtrip, Restart, Cleanup | `PASS` – Gastinstallation, DDL, JAR-Roundtrip, VM-Kaltstart, Cleanup |
 
 Ein vollständiger positiver Nachweis prüft:
 
@@ -445,20 +453,27 @@ nicht aus.
 
 ## 9. Definition of Done
 
-Die erste Ausbaustufe ist abgeschlossen, wenn:
+Der SQL-2022-Referenzumfang der ersten Ausbaustufe ist abgeschlossen. Python,
+R und Java werden über denselben Softwarevertrag für Docker, Podman und
+Hyper-V geplant und jede der neun Provider-/Sprachzellen hat die definierte
+Native Acceptance bestanden. SQL Server 2019 und 2025 bleiben ohne eigene
+freigegebene Varianten ehrlich `DECLARED_UNSUPPORTED`; Refresh-/Rebuild- und
+weitergehende Reconcile-Funktionen bleiben eigenständige Folgearbeit.
 
-- Python, R und Java über denselben providerneutralen Softwarevertrag geplant
-  werden;
-- SQL Server 2022 auf Docker, Podman und Hyper-V/Windows je Sprache die
-  definierte Native Acceptance bestanden hat;
-- Container standardmäßig Derived Images statt Laufzeitmutation verwenden;
-- Hyper-V-Installationen resumierbar und durch Media-/Integrity-Evidence
-  gebunden sind;
-- SQL Server 2025 und 2019 einen ehrlichen, quellengestützten Status pro
-  Kombination besitzen;
-- External Language, External Library, Package- und Instanz-Scope korrekt
-  getrennt sind;
-- State, Cleanup, Recovery, Refresh und Reconcile den Softwarevertrag kennen;
+Die erreichten Abnahmekriterien sind:
+
+- Python, R und Java sind über denselben providerneutralen Softwarevertrag
+  geplant;
+- SQL Server 2022 hat auf Docker, Podman und Hyper-V/Windows je Sprache die
+  definierte Native Acceptance bestanden;
+- Container verwenden standardmäßig Derived Images statt Laufzeitmutation;
+- Hyper-V-Installationen sind resumierbar und durch Media-/Integrity-Evidence
+  gebunden;
+- SQL Server 2025 und 2019 besitzen ohne freigegebene Variante den ehrlichen
+  Status `DECLARED_UNSUPPORTED`;
+- External Language, External Library, Package- und Instanz-Scope sind korrekt
+  getrennt;
+- State, Cleanup und Recovery kennen den Softwarevertrag;
 - Front-Door-Dokumentation, Schema, Beispiele, Known Limitations und Repo-Map
   den tatsächlichen Stand wiedergeben;
 - nur tatsächlich ausgeführte Providerprüfungen als `PASS` oder `validated`

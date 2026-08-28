@@ -106,8 +106,9 @@ Für SQL Server 2022 auf Windows existiert ein geschlossener Hyper-V-Gastpfad
 für Python, R und Java: Offlinemedien werden im Media Root per SHA-256
 verifiziert, nur ein quellfreier Plan wird in den Gast kopiert, und
 Installation, ACLs, Runtime-Registrierung, State/Recovery sowie echte
-External-Script-Postconditions sind orchestriert. Die Varianten bleiben bis
-zur positiven nativen Acceptance `PREVIEW`.
+External-Script-Postconditions sind orchestriert. Python, R und Java bestanden
+die native SQL-2022-Acceptance vor und nach vollständigem VM-Kaltstart sowie den
+scopegebundenen Cleanup; die drei Windows-Varianten sind `SUPPORTED`.
 
 Testdatenbanken bleiben vom OS- und SQL-Image getrennt und verwenden den
 gemeinsamen Sample-, Trust-, Verification- und `LAB_GENERATED`-Baseline-

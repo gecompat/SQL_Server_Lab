@@ -10,7 +10,9 @@
     "managed-lab-network",
     "isolated-network",
     "resource-limits",
-    "software-catalog-planning"
+    "software-catalog-planning",
+    "derived-image-build",
+    "sql-external-runtime"
   ],
   "limitations": [
     "no-gui",
