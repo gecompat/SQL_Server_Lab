@@ -431,14 +431,14 @@ providers:
     port_binding: "gemeinsame Portermittlung plus Runtime-Retry innerhalb des hostweiten Locks"
     memory_binding: "cgroup-Limit plus MSSQL_MEMORY_LIMIT_MB mit 20 Prozent Headroom"
   hyperv:
-    status: windows_slot_sql_install_and_specialization_readiness_orchestration_with_real_sql_prepared_build
+    status: windows_2025_sql_2025_prepared_build_and_manifest_clone_to_sql_ready_run_real_validated
     implementation: Providers/HyperV/HyperVProvider.ps1
     image_registry: Private/HyperVImageRegistry.ps1
     image_builder: Private/HyperVImageBuilder.ps1
     metadata: Providers/HyperV/provider.json
     documentation: Providers/HyperV/README.md
     command: Get-VMHost
-    sql_provisioning: "partial_prepared_image_clone_only fuer CompleteImage plus OS_SEALED-Ad-hoc-Installation; vertiefter CLI-Akzeptanzpfad vorhanden"
+    sql_provisioning: "real_prepared_image_manifest_clone_to_SQL_READY_RUN fuer Windows 2025 und SQL 2025 plus OS_SEALED-Ad-hoc-Installation; breite Manifestbindung bleibt partiell"
     native_smoke: Tests/Integration/Invoke-HyperVSmokeTest.ps1
     registry_static_checks: Tests/Static/Invoke-HyperVImageRegistryChecks.ps1
     builder_static_checks: Tests/Static/Invoke-HyperVImageBuilderChecks.ps1
@@ -856,7 +856,7 @@ change_coupling:
 known_limitations:
   binding_document: Documentation/Quality/KNOWN_LIMITATIONS.md
   highlights:
-    - "Hyper-V sealed VHDX Registry, Builder-/Resume-Grundlage, enger Manifest-Klonpfad, freie Manifest-Drives und echter SQL-2025-CLI-Vertical-Slice implementiert und positiv ausgefuehrt; vollautomatische OS-Factory sowie allgemeines Datenbank-/Software-/Post-Provision-/Netzwerk-Binding bleiben offen"
+    - "Hyper-V sealed VHDX Registry, Builder-/Resume-Grundlage, realer Windows-2025-/SQL-2025-Prepared-Manifest-Klon bis SQL_READY_RUN, freie Manifest-Drives und echter SQL-2025-CLI-Vertical-Slice implementiert und positiv ausgefuehrt; vollautomatische OS-Factory sowie allgemeines Datenbank-/Software-/Post-Provision-/Netzwerk-Binding bleiben offen"
     - "Container-Manifeste laufen standardmäßig unattended mit externen Secret-Referenzen, SHA-256-/Trust-Schutz und read-only Host-Mount-Default"
     - "providerneutrale Network Intents und Exposure Policy sind nicht implementiert; Reconcile ist auf den Lifecycle START/STOP begrenzt"
     - "Artifact Refresh und Rebuild für Medien, VHDX und Derived Images nicht implementiert"

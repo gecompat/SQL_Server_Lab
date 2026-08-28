@@ -142,14 +142,15 @@ VM-Notizen oder Evidence gespeichert. Der credentialfreie allgemeine Status
 zeigt nur die letzte Readiness-Evidenz und setzt `SqlReady` bewusst nicht aus
 einem möglicherweise veralteten Receipt auf `true`.
 
-Der allgemeine Prepared-Image-Klonpfad aus `SQL_PREPARED_SEALED` mit
-Windows-Specialization, `CompleteImage`, Reboot/Reconnect und SQL-Readiness ist
-weiterhin nur statisch mit Mocks abgedeckt. Der reale CLI-Vertical-Slice aus
-`OS_SEALED` belegt dagegen bereits OOBE, PowerShell Direct, eine vollständige
-SQL-2025-Installation und SQL-Readiness. Die ältere reale Datacenter-VHDX wurde
-ohne bekannte Gast-Credentials ausschließlich bis zum Hyper-V-Heartbeat
-gebootet; der synthetische Native-Smoke beweist die Prepared-Klon-Gastpfade
-ebenfalls nicht.
+Der Prepared-Image-Klonpfad aus `SQL_PREPARED_SEALED` ist für Windows Server
+2025 Standard Evaluation (Desktop Experience) und SQL Server 2025 Enterprise
+Developer real belegt: ein normaler Manifestlauf verwendete eine
+differenzierende Child-VHDX, führte Windows-Specialization und `CompleteImage`
+aus und erreichte `SQL_READY_RUN` mit SQL Major 17 und vier Online-
+Systemdatenbanken. Hash und Schreibschutz des Prepared-Parents blieben
+unverändert; VM, Child-VHDX und rungebundene Secrets wurden anschließend
+scopegebunden entfernt. Diese Referenz-Evidence ersetzt keine positive Matrix
+für weitere Windows-/SQL-Versionen oder Editionen.
 Ein resumierbarer SQL-Image-Builder erstellt inzwischen je Prepared-Image eine
 frische Windows-Server-2025-VHDX und bindet SHA-256-geprüfte Windows- sowie
 SQL-2019-, SQL-2022- oder SQL-2025-Medien ein. Er führt `PrepareImage` und
@@ -171,11 +172,13 @@ danach weiter unbeaufsichtigt.
 Freie run-lokale Manifest-Drives werden inzwischen deklarativ auf zusätzliche
 Hyper-V-VHDX und deren Disk-ID-gebundene Gastinitialisierung abgebildet. Noch
 nicht implementiert ist die vollständige Bindung an den Datenbank-, Software-,
-Post-Provisioning- und Netzwerkvertrag. Der enge Klonpfad führt für ein
-`SQL_PREPARED_SEALED`-Image im Prepared-Image-Klonpfad `CompleteImage` aus. Ein echter
-CLI-Vertical-Slice aus einem frischen `OS_SEALED`-Slot ist fuer SQL Server 2025
-einschliesslich Installation, Storage, TempDB, Ressourcenwechsel, Datenpersistenz
-und Cleanup akzeptiert. Offen bleiben der vollautomatische OS-Factory-Build,
+Post-Provisioning- und Netzwerkvertrag. Der Prepared-Image-Klonpfad führt für
+ein `SQL_PREPARED_SEALED`-Image `CompleteImage` aus und ist für den Windows-
+2025-/SQL-2025-Referenzfall bis `SQL_READY_RUN` real akzeptiert. Ein weiterer
+echter CLI-Vertical-Slice aus einem frischen `OS_SEALED`-Slot ist für SQL
+Server 2025 einschließlich Installation, Storage, TempDB, Ressourcenwechsel,
+Datenpersistenz und Cleanup akzeptiert. Offen bleiben der vollautomatische
+OS-Factory-Build,
 der allgemeine deklarative Hyper-V-SQL-Runtimepfad, runtimeübergreifende Network
 Intents, zentraler IPAM, erweitertes Reconcile und der automatische Artifact
 Refresh. Der verbindliche Zielvertrag steht in
@@ -518,10 +521,12 @@ Rearm-Vertrags keine zulässige positive Generalize-Testquelle.
 
 Der reale SQL-Prepared-Image-Runner installiert Windows Server 2025 und SQL
 Server 2025 Enterprise Developer aus hashverifizierten Medien auf einer neuen
-VHDX. `PrepareImage`, der finale Sysprep-Receipt, die immutable testlokale
-`SQL_PREPARED_SEALED`-Publikation und das vollständige Cleanup sind positiv
-ausgeführt. Noch offen ist der anschließende reale Prepared-Image-Klon mit
-`CompleteImage` und normalem Manifestlauf bis `SQL_READY_RUN`.
+VHDX. `PrepareImage`, der finale Sysprep-Receipt und die immutable testlokale
+`SQL_PREPARED_SEALED`-Publikation sind positiv ausgeführt. Anschließend klont
+derselbe Runner dieses Parent-Artifact über ein normales Manifest,
+spezialisiert Windows, führt `CompleteImage` aus und bestätigt
+`SQL_READY_RUN`, SQL Major 17, vier Online-Systemdatenbanken, unveränderten
+Parent-Hash sowie vollständigen Builder- und Manifest-Cleanup.
 
 Lifecycle-Schnellmenüs verwenden inzwischen `ActionResult/1.0`: `Cancelled`,
 `NoChange`, `Skipped`, Ablehnung und Fehler lösen weder Connection-Center- noch

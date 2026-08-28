@@ -1,12 +1,14 @@
 #Requires -Version 7.2
 <#
 .SYNOPSIS
-    Fuehrt den realen positiven SQL-Prepared-Image-Build aus.
+    Fuehrt den realen SQL-Prepared-Image-Build und Manifest-Klon aus.
 .DESCRIPTION
     Installiert Windows Server 2025 aus einem hashverifizierten Eval-Medium
     unbeaufsichtigt auf einer neuen VHDX, fuehrt SQL Server 2025 PrepareImage
     aus, generalisiert Windows genau einmal und veroeffentlicht das Ergebnis
-    testlokal als immutable SQL_PREPARED_SEALED-Artifact.
+    testlokal als immutable SQL_PREPARED_SEALED-Artifact. Dieses Artifact wird
+    anschliessend ueber den normalen Manifestpfad differenzierend geklont,
+    per CompleteImage vervollstaendigt und bis SQL_READY_RUN verifiziert.
 
     Produktive Artifact Registry und Medien bleiben unveraendert. VM,
     Builder-Disk, Antwort-ISO, Credential und temporaerer State werden auch
@@ -37,7 +39,12 @@ $builderDiskPath = $null
 $answerDirectory = $null
 $answerIsoPath = $null
 $adminPassword = $null
+$saPassword = $null
 $credential = $null
+$manifestPath = $null
+$manifestRunId = $null
+$manifestVmName = $null
+$manifestChildVhdxPath = $null
 $testFailed = $false
 $cleanupFailed = $false
 
@@ -168,6 +175,12 @@ $rootElement
 
 try {
     Write-Host 'Reale Hyper-V-SQL-Prepared-Image-Abnahme' -ForegroundColor Cyan
+    $principal = [Security.Principal.WindowsPrincipal]::new(
+        [Security.Principal.WindowsIdentity]::GetCurrent())
+    if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+        throw 'SQL_PREPARED_ACCEPTANCE_REQUIRES_ELEVATED_RUNNER'
+    }
+    Assert-SqlPreparedAcceptance -Condition $true -Description 'Runner arbeitet erhoeht'
     Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
     Import-Module $modulePath -Force
     $module = Get-Module SqlServerLab
@@ -352,6 +365,75 @@ try {
         -not (Get-VM -Name $builderVmName -ErrorAction SilentlyContinue) -and
         -not (Test-Path -LiteralPath $builderDiskPath -PathType Leaf)
     ) -Description 'Publish entfernte Builder-VM und buildlokale VHDX scopegebunden'
+
+    $preparedArtifactPath = [string]$published.Artifact.Path
+    $preparedArtifactHash = (Get-FileHash -LiteralPath $preparedArtifactPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $saPassword = [Security.SecureString]::new()
+    $saPasswordToken = "SqlReady_$([guid]::NewGuid().ToString('N'))!Bb8"
+    foreach ($character in $saPasswordToken.ToCharArray()) { $saPassword.AppendChar($character) }
+    $saPasswordToken = $null
+    $saPassword.MakeReadOnly()
+
+    $manifestPath = Join-Path $stateRoot 'n4-sql-ready-manifest.json'
+    $manifest = [ordered]@{
+        name = 'n4-sql-ready-manifest'
+        instances = @(
+            [ordered]@{
+                id = 'primary'; version = '2025'; provider = 'hyperv'; os = 'windows'
+                profile = 'standard'
+                hyperv = [ordered]@{
+                    preparedImageId = [string]$published.Artifact.artifactId
+                    memoryStartupMB = 4096; processorCount = 2
+                    autostart = 'off'; guestPasswordMode = 'prompt'
+                }
+            }
+        )
+    }
+    [IO.File]::WriteAllText($manifestPath, ($manifest | ConvertTo-Json -Depth 20), [Text.UTF8Encoding]::new($false))
+    $manifest = $null
+    $manifestResult = New-SqlServerLab -Manifest $manifestPath -GuestPassword $adminPassword `
+        -SqlSaPassword $saPassword -NonInteractive -StateRoot $stateRoot
+    $manifestRunId = [string]$manifestResult.RunId
+    $manifestVmName = [string]$manifestResult.Instances[0].vmName
+    $manifestContext = & $module {
+        param($Id, $Root)
+        Get-HyperVLabWorkflowRun -RunId $Id -StateRoot $Root
+    } $manifestRunId $stateRoot
+    $managedManifestVm = & $module {
+        param($VmName, $RunId, $ScopeId)
+        Get-HyperVManagedVM -VMName $VmName -ExpectedRunId $RunId -ExpectedScopeId $ScopeId
+    } $manifestVmName $manifestRunId ([string]$manifestContext.Run.scopeId)
+    $manifestChildVhdxPath = [string]$managedManifestVm.Identity.childVhdxPath
+    $readiness = $manifestContext.Instance.sqlReadiness
+    Assert-SqlPreparedAcceptance -Condition (
+        [string]$manifestResult.State -eq 'RUNNING' -and
+        [string]$manifestResult.Provisioning.SqlCompletion.sqlReadiness.status -eq 'SQL_READY_RUN' -and
+        [string]$readiness.status -eq 'SQL_READY_RUN' -and
+        [string]$readiness.provider -eq 'hyperv' -and
+        [int]$readiness.majorVersion -eq 17 -and
+        [int]$readiness.onlineSystemDatabases -eq 4
+    ) -Description 'Normaler Manifestpfad erreichte im echten Gast SQL_READY_RUN mit SQL-Major 17 und vier Online-Systemdatenbanken'
+    Assert-SqlPreparedAcceptance -Condition (
+        [string]$manifestContext.Instance.sqlCompletion.state -eq 'COMPLETE' -and
+        [string]$manifestContext.Instance.sqlCompletion.serviceStatus -eq 'Running' -and
+        [string]$manifestContext.Instance.hostSqlAccess.state -eq 'READY' -and
+        -not [string]::IsNullOrWhiteSpace([string]$manifestContext.Instance.host) -and
+        [int]$manifestContext.Instance.port -eq 1433
+    ) -Description 'CompleteImage, Windows-Specialization, WMI und Hyper-V-Hostzugriff sind real gebunden'
+    Assert-SqlPreparedAcceptance -Condition (
+        (Test-Path -LiteralPath $manifestChildVhdxPath -PathType Leaf) -and
+        (Get-VHD -Path $manifestChildVhdxPath -ErrorAction Stop).ParentPath -and
+        (Get-Item -LiteralPath $preparedArtifactPath -Force).IsReadOnly -and
+        (Get-FileHash -LiteralPath $preparedArtifactPath -Algorithm SHA256).Hash.ToLowerInvariant() -eq $preparedArtifactHash
+    ) -Description 'Manifestklon verwendet eine Child-VHDX und ließ Hash sowie Schreibschutz des Prepared-Parents unverändert'
+
+    $manifestCleanup = Remove-SqlServerLab -RunId $manifestRunId -StateRoot $stateRoot -Force -Confirm:$false
+    Assert-SqlPreparedAcceptance -Condition (
+        [string]$manifestCleanup.Status -eq 'REMOVED' -and
+        [string]$manifestCleanup.Cleanup -eq 'CLEANUP_SUCCEEDED' -and
+        -not (Get-VM -Name $manifestVmName -ErrorAction SilentlyContinue) -and
+        -not (Test-Path -LiteralPath $manifestChildVhdxPath -PathType Leaf)
+    ) -Description 'Normaler Manifest-Cleanup entfernte VM, Child-VHDX und Secrets scopegebunden'
 }
 catch {
     $testFailed = $true
@@ -369,6 +451,30 @@ finally {
             if ($answerDrives) { $answerDrives | Remove-VMDvdDrive -ErrorAction SilentlyContinue }
         }
         catch { }
+    }
+
+    if ($stateRoot -and (Test-Path -LiteralPath $stateRoot -PathType Container)) {
+        try {
+            $module = Get-Module SqlServerLab
+            $activeManifestRuns = @(& $module {
+                param($Root)
+                Get-LabActiveRuns -StateRoot $Root | Where-Object {
+                    [string]$_.metadata.workflowKind -eq 'hyperv-lab'
+                }
+            } $stateRoot)
+            foreach ($activeManifestRun in $activeManifestRuns) {
+                $manifestCleanup = Remove-SqlServerLab -RunId ([string]$activeManifestRun.runId) `
+                    -StateRoot $stateRoot -Force -Confirm:$false
+                if ([string]$manifestCleanup.Status -ne 'REMOVED') {
+                    throw "SQL_PREPARED_MANIFEST_CLEANUP_INCOMPLETE: $($manifestCleanup.Status)"
+                }
+            }
+        }
+        catch {
+            $cleanupFailed = $true
+            $testFailed = $true
+            Write-Host "SQL-Prepared-Manifest-Cleanup-Fehler: $($_.Exception.Message)" -ForegroundColor Red
+        }
     }
 
     if ($buildId -and $stateRoot -and (Test-Path -LiteralPath $stateRoot -PathType Container)) {
@@ -399,6 +505,7 @@ finally {
 
     $credential = $null
     if ($adminPassword) { $adminPassword.Dispose() }
+    if ($saPassword) { $saPassword.Dispose() }
     $env:SQL_SERVER_LAB_STATE = $previousStateRoot
 
     foreach ($sensitivePath in @($answerIsoPath,$answerDirectory)) {
