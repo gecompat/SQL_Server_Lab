@@ -64,6 +64,8 @@ $replacementBinding = & $module {
         Mounts=@(
             [PSCustomObject]@{ Type='volume'; Name='stable-system-volume'; Destination='/var/opt/mssql' },
             [PSCustomObject]@{ Type='volume'; Name='stable-extensibility-volume'; Destination='/var/opt/mssql-extensibility' },
+            [PSCustomObject]@{ Type='volume'; Name='stable-external-languages-volume'; Destination='/var/opt/mssql-extensibility/externallanguages' },
+            [PSCustomObject]@{ Type='volume'; Name='stable-external-libraries-volume'; Destination='/var/opt/mssql-extensibility/externallibraries' },
             [PSCustomObject]@{ Type='volume'; Name='stable-data-volume'; Destination='/sqldata' },
             [PSCustomObject]@{ Type='bind'; Source='/host/scripts'; Destination='/scripts'; RW=$false },
             [PSCustomObject]@{ Type='bind'; Source='/host/backups'; Destination='/var/opt/mssql/backup'; RW=$true },
@@ -74,6 +76,8 @@ $replacementBinding = & $module {
 Add-CheckResult -Name 'Refresh bindet bestehende SQL-Volumes statt neue Namen abzuleiten' -Success (
     @($replacementBinding.drives | Where-Object id -eq 'runtime-mssql')[0].volumeName -eq 'stable-system-volume' -and
     @($replacementBinding.drives | Where-Object containerPath -eq '/var/opt/mssql-extensibility').Count -eq 0 -and
+    @($replacementBinding.drives | Where-Object containerPath -eq '/var/opt/mssql-extensibility/externallanguages')[0].volumeName -eq 'stable-external-languages-volume' -and
+    @($replacementBinding.drives | Where-Object containerPath -eq '/var/opt/mssql-extensibility/externallibraries')[0].volumeName -eq 'stable-external-libraries-volume' -and
     @($replacementBinding.drives | Where-Object id -eq 'data')[0].volumeName -eq 'stable-data-volume' -and
     @($replacementBinding.drives | Where-Object id -eq 'scripts')[0].hostPath -eq '/host/scripts' -and
     @($replacementBinding.drives | Where-Object containerPath -eq '/var/opt/mssql/backup')[0].hostPath -eq '/host/backups' -and

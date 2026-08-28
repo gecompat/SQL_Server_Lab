@@ -216,11 +216,12 @@ function New-LabExternalRuntimeReplacementInstance {
 
     # Recreate must bind the exact volumes already carrying master/model/msdb
     # and user databases. Deriving fresh volume names from a mutable lab display
-    # name would silently create an empty SQL data root. LaunchPad data and
-    # sandboxes are deliberately container-local: reusing their mount across a
-    # namespace recreate leaves ownership and nested-mount state behind.
+    # name would silently create an empty SQL data root. External-language and
+    # library artifacts must survive with their database metadata, while
+    # LaunchPad data and sandboxes remain container-local to avoid retaining
+    # namespace ownership and nested-mount state.
     $replacement = $ResolvedInstance | ConvertTo-Json -Depth 50 | ConvertFrom-Json -Depth 50
-    $null = Add-LabRunScopedContainerSystemDrive -Instance $replacement
+    $null = Add-LabRunScopedContainerSystemDrive -Instance $replacement -IncludeExternalRuntimeState
     $drives = @($replacement.drives | Where-Object { [string]$_.containerPath -ne '/var/opt/mssql-extensibility' })
     foreach ($drive in $drives) {
         if (-not $drive -or -not $drive.containerPath) { continue }
