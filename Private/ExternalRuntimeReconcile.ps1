@@ -218,16 +218,51 @@ function New-LabExternalRuntimeReplacementInstance {
     # and user databases. Deriving fresh volume names from a mutable lab display
     # name would silently create an empty SQL data root.
     $replacement = $ResolvedInstance | ConvertTo-Json -Depth 50 | ConvertFrom-Json -Depth 50
+    $null = Add-LabRunScopedContainerSystemDrive -Instance $replacement
     $drives = @($replacement.drives)
     foreach ($drive in $drives) {
-        if (-not $drive -or -not $drive.containerPath -or $drive.hostPath) { continue }
+        if (-not $drive -or -not $drive.containerPath) { continue }
         $mount = @($ContainerInspect.Mounts | Where-Object {
-            [string]$_.Destination -eq [string]$drive.containerPath -and [string]$_.Type -eq 'volume'
+            [string]$_.Destination -eq [string]$drive.containerPath
         })
-        if ($mount.Count -ne 1 -or [string]::IsNullOrWhiteSpace([string]$mount[0].Name)) {
+        if ($mount.Count -ne 1 -or [string]$mount[0].Type -notin @('volume','bind')) {
             throw "EXTERNAL_RUNTIME_REFRESH_VOLUME_BINDING_INVALID: $($drive.containerPath)"
         }
-        $drive | Add-Member -NotePropertyName volumeName -NotePropertyValue ([string]$mount[0].Name) -Force
+        if ([string]$mount[0].Type -eq 'volume') {
+            if ([string]::IsNullOrWhiteSpace([string]$mount[0].Name)) {
+                throw "EXTERNAL_RUNTIME_REFRESH_VOLUME_BINDING_INVALID: $($drive.containerPath)"
+            }
+            $drive | Add-Member -NotePropertyName volumeName -NotePropertyValue ([string]$mount[0].Name) -Force
+            $drive.PSObject.Properties.Remove('hostPath')
+        }
+        else {
+            if ([string]::IsNullOrWhiteSpace([string]$mount[0].Source)) {
+                throw "EXTERNAL_RUNTIME_REFRESH_BINDING_INVALID: $($drive.containerPath)"
+            }
+            $drive | Add-Member -NotePropertyName hostPath -NotePropertyValue ([string]$mount[0].Source) -Force
+            $drive | Add-Member -NotePropertyName readOnly -NotePropertyValue (-not [bool]$mount[0].RW) -Force
+            $drive.PSObject.Properties.Remove('volumeName')
+        }
+    }
+    $boundDestinations = @($drives | ForEach-Object { [string]$_.containerPath })
+    $additionalIndex = 0
+    foreach ($mount in @($ContainerInspect.Mounts | Where-Object {
+        [string]$_.Destination -ne '/sys/fs/cgroup' -and [string]$_.Destination -notin $boundDestinations
+    })) {
+        $additionalIndex++
+        if ([string]$mount.Type -eq 'volume' -and -not [string]::IsNullOrWhiteSpace([string]$mount.Name)) {
+            $drives += [PSCustomObject]@{
+                id="existing-volume-$additionalIndex"; containerPath=[string]$mount.Destination
+                volumeName=[string]$mount.Name; persistence='existing-runtime-binding'
+            }
+        }
+        elseif ([string]$mount.Type -eq 'bind' -and -not [string]::IsNullOrWhiteSpace([string]$mount.Source)) {
+            $drives += [PSCustomObject]@{
+                id="existing-bind-$additionalIndex"; containerPath=[string]$mount.Destination
+                hostPath=[string]$mount.Source; readOnly=(-not [bool]$mount.RW); persistence='existing-runtime-binding'
+            }
+        }
+        else { throw "EXTERNAL_RUNTIME_REFRESH_UNSUPPORTED_MOUNT: $($mount.Destination)" }
     }
     $replacement | Add-Member -NotePropertyName drives -NotePropertyValue $drives -Force
     return $replacement

@@ -64,7 +64,9 @@ $replacementBinding = & $module {
         Mounts=@(
             [PSCustomObject]@{ Type='volume'; Name='stable-system-volume'; Destination='/var/opt/mssql' },
             [PSCustomObject]@{ Type='volume'; Name='stable-data-volume'; Destination='/sqldata' },
-            [PSCustomObject]@{ Type='bind'; Source='/host/scripts'; Destination='/scripts' }
+            [PSCustomObject]@{ Type='bind'; Source='/host/scripts'; Destination='/scripts'; RW=$false },
+            [PSCustomObject]@{ Type='bind'; Source='/host/backups'; Destination='/var/opt/mssql/backup'; RW=$true },
+            [PSCustomObject]@{ Type='bind'; Source='/sys/fs/cgroup'; Destination='/sys/fs/cgroup'; RW=$true }
         )
     })
 }
@@ -72,6 +74,8 @@ Add-CheckResult -Name 'Refresh bindet bestehende SQL-Volumes statt neue Namen ab
     @($replacementBinding.drives | Where-Object id -eq 'runtime-mssql')[0].volumeName -eq 'stable-system-volume' -and
     @($replacementBinding.drives | Where-Object id -eq 'data')[0].volumeName -eq 'stable-data-volume' -and
     @($replacementBinding.drives | Where-Object id -eq 'scripts')[0].hostPath -eq '/host/scripts' -and
+    @($replacementBinding.drives | Where-Object containerPath -eq '/var/opt/mssql/backup')[0].hostPath -eq '/host/backups' -and
+    @($replacementBinding.drives | Where-Object containerPath -eq '/sys/fs/cgroup').Count -eq 0 -and
     $source -match '-ContainerName \$name'
 )
 
