@@ -62,8 +62,7 @@ function Initialize-PodmanSqlNamedVolume {
         [Parameter(Mandatory)][string]$RunId,
         [Parameter(Mandatory)][string]$ScopeId,
         [Parameter(Mandatory)][ValidatePattern('^/[A-Za-z0-9._/-]+$')][string]$ContainerPath,
-        [switch]$SyncImageContent,
-        [switch]$SyncExternalRuntimeConfiguration
+        [switch]$SyncImageContent
     )
 
     $null = podman volume inspect $VolumeName 2>$null
@@ -78,44 +77,17 @@ function Initialize-PodmanSqlNamedVolume {
             throw "PODMAN_SQL_VOLUME_CREATE_FAILED: $VolumeName - $(@($created) -join ' ')"
         }
     }
-    if ($volumeExists -and -not $SyncImageContent -and -not $SyncExternalRuntimeConfiguration) { return $false }
+    if ($volumeExists -and -not $SyncImageContent) { return $false }
 
-    $initializationCommands = [Collections.Generic.List[string]]::new()
-    if (-not $volumeExists) {
-        $initializationCommands.Add('chown -R 10001:0 /sql-lab-volume-init && chmod 0770 /sql-lab-volume-init')
+    $initializationCommand = if ($SyncImageContent) {
+        "if [ ! -d '$ContainerPath' ]; then exit 1; fi; cp -a '$ContainerPath'/. /sql-lab-volume-init/; chown --reference='$ContainerPath' /sql-lab-volume-init && chmod --reference='$ContainerPath' /sql-lab-volume-init"
     }
-    if ($SyncImageContent) {
-        $initializationCommands.Add("if [ ! -d '$ContainerPath' ]; then exit 1; fi; cp -a '$ContainerPath'/. /sql-lab-volume-init/; chown --reference='$ContainerPath' /sql-lab-volume-init && chmod --reference='$ContainerPath' /sql-lab-volume-init")
+    else {
+        'chown -R 10001:0 /sql-lab-volume-init && chmod 0770 /sql-lab-volume-init'
     }
-    if ($SyncExternalRuntimeConfiguration) {
-        $initializationCommands.Add(@'
-if [ ! -f /var/opt/mssql/mssql.conf ]; then exit 1; fi
-pythonbinpath="$(sed -n '/^\[extensibility\]$/,/^\[/ { /^[[:space:]]*pythonbinpath[[:space:]]*=/ { s/^[^=]*=[[:space:]]*//; p; } }' /var/opt/mssql/mssql.conf)"
-if [ -n "$pythonbinpath" ]; then
-    MSSQL_CONF_DIR=/sql-lab-volume-init /opt/mssql/bin/mssql-conf set extensibility.pythonbinpath "$pythonbinpath"
-else
-    MSSQL_CONF_DIR=/sql-lab-volume-init /opt/mssql/bin/mssql-conf unset extensibility.pythonbinpath >/dev/null 2>&1 || true
-fi
-rbinpath="$(sed -n '/^\[extensibility\]$/,/^\[/ { /^[[:space:]]*rbinpath[[:space:]]*=/ { s/^[^=]*=[[:space:]]*//; p; } }' /var/opt/mssql/mssql.conf)"
-if [ -n "$rbinpath" ]; then
-    MSSQL_CONF_DIR=/sql-lab-volume-init /opt/mssql/bin/mssql-conf set extensibility.rbinpath "$rbinpath"
-else
-    MSSQL_CONF_DIR=/sql-lab-volume-init /opt/mssql/bin/mssql-conf unset extensibility.rbinpath >/dev/null 2>&1 || true
-fi
-datadirectories="$(sed -n '/^\[extensibility\]$/,/^\[/ { /^[[:space:]]*datadirectories[[:space:]]*=/ { s/^[^=]*=[[:space:]]*//; p; } }' /var/opt/mssql/mssql.conf)"
-if [ -n "$datadirectories" ]; then
-    MSSQL_CONF_DIR=/sql-lab-volume-init /opt/mssql/bin/mssql-conf set extensibility.datadirectories "$datadirectories"
-else
-    MSSQL_CONF_DIR=/sql-lab-volume-init /opt/mssql/bin/mssql-conf unset extensibility.datadirectories >/dev/null 2>&1 || true
-fi
-'@)
-    }
-    $initializationScript = ($initializationCommands -join "`n") -replace "`r`n", "`n"
-    $initializationBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($initializationScript))
-    $executionCommand = "printf '%s' '$initializationBase64' | base64 -d | /bin/sh"
     $initialized = podman run --rm --user 0:0 --entrypoint /bin/sh `
         -v "${VolumeName}:/sql-lab-volume-init" $Image `
-        -c $executionCommand 2>&1
+        -c $initializationCommand 2>&1
     if ($LASTEXITCODE -ne 0) {
         throw "PODMAN_SQL_VOLUME_INITIALIZATION_FAILED: $VolumeName - $(@($initialized) -join ' ')"
     }
@@ -183,8 +155,7 @@ function New-PodmanInstance {
         if (-not $drive.hostPath) {
             $null = Initialize-PodmanSqlNamedVolume -VolumeName $volumeSource -Image $image -RunId $RunId -ScopeId $ScopeId `
                 -ContainerPath ([string]$drive.containerPath) `
-                -SyncImageContent:($ExternalRuntimeLaunchMode -eq 'sql2022-namespace-v1' -and [string]$drive.containerPath -eq '/var/opt/mssql-extensibility') `
-                -SyncExternalRuntimeConfiguration:($ExternalRuntimeLaunchMode -eq 'sql2022-namespace-v1' -and [string]$drive.containerPath -eq '/var/opt/mssql')
+                -SyncImageContent:($ExternalRuntimeLaunchMode -eq 'sql2022-namespace-v1' -and [string]$drive.containerPath -eq '/var/opt/mssql-extensibility')
         }
 
         $volumeArguments += '-v'
