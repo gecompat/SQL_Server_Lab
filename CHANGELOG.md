@@ -40,6 +40,10 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Behoben
 
+- Der reale Batch-Smoke deckt jetzt den vollständigen Manifest-Rerun ab:
+  offene identische Einreichungen werden dedupliziert; nach Abschluss und
+  Cleanup erzeugt dasselbe Manifest einen neuen Batch mit neuen RunIds, ohne
+  Scheduler-Duplikate oder zurückbleibende Ressourcen.
 - Batch-Worker binden neu angelegte Runs jetzt persistent an ihre Operation.
   Nach einem harten Scheduler-Prozessabbruch wird ein vollständig persistierter
   Run wiederverwendet oder ein unvollständiger operationseigener Run vor dem

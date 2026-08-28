@@ -164,6 +164,10 @@ try {
     Assert-Check ($batchSmokeSource -match [regex]::Escape('[switch]$AbortSchedulerOnce') -and
         $batchSmokeSource -match [regex]::Escape('Stop-Process -Id $schedulerProcess.Id -Force') -and
         $batchSmokeSource -match [regex]::Escape("Where-Object type -eq 'WorkerRecovered'")) 'Batch-Smoke weist keinen echten Scheduler-Prozessabbruch mit Recovery-Receipt nach.'
+    Assert-Check ($batchSmokeSource -match [regex]::Escape('[switch]$ManifestRerun') -and
+        $batchSmokeSource -match [regex]::Escape('New-SqlServerLabBatch -Manifest $manifestPath') -and
+        $batchSmokeSource -match [regex]::Escape('Abgeschlossenes und bereinigtes Manifest erzeugte einen neuen Batch') -and
+        $batchSmokeSource -match [regex]::Escape('Manifest-Rerun wurde vollstaendig scopegebunden bereinigt')) 'Batch-Smoke weist keinen deduplizierten offenen und vollstaendigen realen Manifest-Rerun nach.'
     Assert-Check ($batchSmokeSource -match [regex]::Escape('New-Item -ItemType Junction') -and
         $batchSmokeSource -match [regex]::Escape('TEMP_ARTIFACT_LINK_NOT_REPARSE_POINT') -and
         $batchSmokeSource -notmatch [regex]::Escape('New-Item -ItemType HardLink')) 'Hyper-V-Smoke bindet das immutable Parent nicht ueber eine sicher gepruefte Junction ein.'

@@ -205,7 +205,7 @@ Container-Volumes gehören dagegen in den normalen Storage-Pfad.
 | M0 Statuswahrheit | `validated` | Drift weiter statisch verhindern |
 | Providerneutraler Instanz-Autostart | `implemented_runtime_partial` | Docker-/SQL-2025-Runtime ist grün; Podman-Self-hosted-Gate und nativen Hyper-V-Lifecycle fortlaufend grün halten |
 | M1 Desired State und Planner | `implemented_partial` | Journal/Resume und weitere Änderungsklassen |
-| M2 UI und Container-Reconcile | `implemented_partial` | Batch/Queue real verifiziert: Docker und Podman mit je zwei SQL-2025-Runs, Hyper-V mit zwei Windows-2025-Slots, Resume und Cleanup; Prozessabbruch/Manifest-Rerun sowie reale `live`-/`recreate`-Änderungen offen |
+| M2 UI und Container-Reconcile | `implemented_partial` | Batch/Queue real verifiziert: Docker und Podman mit je zwei SQL-2025-Runs, Hyper-V mit zwei Windows-2025-Slots, harter Docker-Scheduler-Abbruch, Manifest-Rerun, Resume und Cleanup; reale `live`-/`recreate`-Änderungen offen |
 | M3 Adapterpiloten | `planned_external_scope` | je ein Pilot in den drei Konsumenten-Repositories |
 | M4 Hyper-V OS Cold Path | `implemented_partial` | realer unattended Windows-2025-Cold-Path |
 | M5 Hyper-V SQL und Resolver | `implemented_partial` | realer OS-zu-SQL-Cold-Path und Manifestparität |
@@ -763,15 +763,17 @@ Löschbestätigungen und leert Passwortfelder. Diese Nachweise schließen Gate N
 noch nicht. Ein separater Scheduler wurde zusätzlich nach real sichtbaren
 Docker-Ressourcen hart beendet; der Folgelauf erkannte beide betroffenen Worker,
 bereinigte unvollständige operationseigene Runs und hinterließ nach
-idempotentem Resume genau einen Run je Position. Offen bleiben Manifest-Rerun,
+idempotentem Resume genau einen Run je Position. Ein reales Docker-Manifest
+wurde offen dedupliziert, nach vollständigem Cleanup als neuer Batch mit neuen
+RunIds erneut ausgeführt und wieder scopegebunden bereinigt. Offen bleiben
 Windows-User-Gate, PowerShell-Console-`Ctrl+C`/Fallback und der positive reale
 Generalize-Receipt-Pfad.
 
 **Ziel:** Alle bereits identifizierten P0-Lücken schließen, bevor Komfort- oder
 Breitenausbau beginnt.
 
-- Manifest-Rerun für den Batch-/Queue-Kern real abnehmen; harter
-  Scheduler-Prozessabbruch und idempotentes Resume sind für Docker real belegt;
+- Batch-/Queue-Manifest-Rerun, harter Scheduler-Prozessabbruch und idempotentes
+  Resume sind für Docker real belegt;
 - Windows-User-Gates so prüfen, dass read-only Probes höchstens
   `CandidateSatisfied` setzen und ohne ausdrückliche Bestätigung nichts
   fortgesetzt wird;
