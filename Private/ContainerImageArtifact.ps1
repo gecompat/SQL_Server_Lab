@@ -47,7 +47,7 @@ function Get-LabExternalRuntimeContainerRecipe {
         throw 'EXTERNAL_RUNTIME_BASE_IMAGE_NOT_DIGEST_BOUND'
     }
 
-    $artifacts = @($recipe.extensibility) + @(
+    $artifacts = @($recipe.extensibility) + @($recipe.runtimeLibraries | ForEach-Object { $_.artifact }) + @(
         $recipe.runtimes.PSObject.Properties | ForEach-Object {
             if ($_.Value.runtimeImage) { $_.Value.runtimeImage }
             @($_.Value.artifacts)
@@ -62,6 +62,14 @@ function Get-LabExternalRuntimeContainerRecipe {
             [string]::IsNullOrWhiteSpace([string]$artifact.integrityOrigin) -or
             [string]::IsNullOrWhiteSpace([string]$artifact.license)) {
             throw "EXTERNAL_RUNTIME_RECIPE_ARTIFACT_INVALID: $($artifact.id)"
+        }
+    }
+    foreach ($library in @($recipe.runtimeLibraries)) {
+        if ([string]$library.id -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]+$' -or
+            @($library.languages).Count -eq 0 -or
+            @($library.languages | Where-Object { [string]$_ -notin @('Python','R','Java') }).Count -gt 0 -or
+            -not $library.artifact) {
+            throw "EXTERNAL_RUNTIME_RECIPE_LIBRARY_INVALID: $($library.id)"
         }
     }
     foreach ($runtimeProperty in $recipe.runtimes.PSObject.Properties) {
@@ -211,7 +219,9 @@ function New-LabExternalRuntimeContainerImagePlan {
 
     $distinctLanguages = @($languages | Sort-Object -Unique)
     if ($distinctLanguages.Count -ne $languages.Count) { throw 'EXTERNAL_RUNTIME_CONTAINER_DUPLICATE_LANGUAGE' }
-    $requiredArtifacts = @($recipe.baseImage, $recipe.extensibility) + @($distinctLanguages | ForEach-Object {
+    $requiredArtifacts = @($recipe.baseImage, $recipe.extensibility) + @($recipe.runtimeLibraries | Where-Object {
+        @($_.languages | Where-Object { [string]$_ -in $distinctLanguages }).Count -gt 0
+    } | ForEach-Object { $_.artifact }) + @($distinctLanguages | ForEach-Object {
         $runtime = $recipe.runtimes.PSObject.Properties[$_].Value
         if ($runtime.runtimeImage) { $runtime.runtimeImage }
         @($runtime.artifacts)

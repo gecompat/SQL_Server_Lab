@@ -4,6 +4,27 @@ Dieses Changelog dokumentiert Änderungen am öffentlichen Verhalten, an maschin
 
 Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher nach Datum geführt. Neue Einträge werden oben ergänzt.
 
+## 2026-08-28
+
+### Hinzugefügt
+
+- `Get-SqlServerLabReconcilePlan` und `Invoke-SqlServerLabReconcileAction`
+  unterstützen einen additiven, resolvergebundenen External-Runtime-Refresh für
+  laufende SQL-Server-2022-Docker-/Podman-Runs. Ein neues Derived Image wird vor
+  der Mutation gebaut; Scope-Prüfung, Journal, Ersatzcontainer, SQL-Readiness,
+  echte Sprachpostconditions, atomarer State-Commit und Rollback schützen die
+  Umschaltung. Alte Images bleiben gemäß Retention erhalten.
+- Der persistierte Desired-State-Softwarevertrag enthält die portable
+  `PlanKey`; eine fokussierte Suite bindet Drift-, Removal-, Leak-, `WhatIf`-,
+  Recovery- und Umschaltgrenzen.
+
+### Behoben
+
+- Python-only-Derived-Images enthalten jetzt die von `revoscalepy` benötigte
+  `libgomp.so.1`. Das Ubuntu-22.04-`libgomp1`-Paket ist mit exakter Version und
+  SHA-256 an Rezeptversion 5 gebunden; Python- und R-Zielstages übernehmen nur
+  die Runtimebibliothek, keinen Compiler.
+
 ## 2026-08-27
 
 ### Hinzugefügt

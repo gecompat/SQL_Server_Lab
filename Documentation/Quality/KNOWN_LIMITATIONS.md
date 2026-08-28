@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING_LIMITATIONS` |
-| Stand | 2026-08-27 |
+| Stand | 2026-08-28 |
 
 Dieses Dokument beschreibt bekannte Grenzen des aktuell implementierten Runtimepfads. Es ist Teil des öffentlichen Projektvertrags. Ein Feld im JSON-Schema oder ein Planungsdokument gilt nicht automatisch als Implementierungsnachweis.
 
@@ -399,6 +399,12 @@ SQL-2022-Zieldatenbank erstellt, gegen ihre Content-Hashes geprüft, idempotent
 wiederverwendet und nach einem absichtlich fehlgeschlagenen neuen Probeversuch
 vollständig kompensiert.
 
+Die Wave-8B-Native-Charakterisierung fand außerdem, dass ein zuvor nicht separat
+abgenommener Python-only-Stage die von `revoscalepy` benötigte OpenMP-Laufzeit
+`libgomp.so.1` nur indirekt über kombinierte R-Images erhielt. Rezeptversion 5
+bindet deshalb `libgomp1` als eigenes Ubuntu-22.04-Paket per Version und SHA-256
+und extrahiert dieselben Runtimebytes compilerfrei in Python- und R-Zielstages.
+
 Der sichere `launchpadd`-Namespace-Modus benötigt rootful Linux, cgroup v1,
 einen schreibbaren cgroup-Bind sowie die im Rezept exakt gebundenen Linux-
 Capabilities und Security-Optionen. Ungeeignete Hosts werden vor State und
@@ -438,10 +444,28 @@ Service-`restart`, Container-`recreate` oder Gast-`reprovision` klassifiziert;
 die `PlanKey` wird in Installation Receipt, Derived-Image-Plan, Buildreceipt,
 Run-State und Cleanup-/Recovery-Bindung übernommen. Run-lokale Ressourcen
 werden damit scopegebunden entfernt, während wiederverwendbare Softwareartefakte
-ausdrücklich erhalten bleiben. Das ist noch kein ausführbarer allgemeiner
-Reconcile- oder Artifact-Refresh-Pfad. Insbesondere
-bleiben der Hyper-V-Softwarepfad im allgemeinen Manifest und das automatische
-Umschalten auf neu gebaute Artifacts gesperrt.
+ausdrücklich erhalten bleiben.
+
+Ein ausführbarer erster Refresh-Slice ist für laufende SQL-2022-Docker-/Podman-
+Runs mit bereits verifizierter External Runtime implementiert. Er akzeptiert nur
+additive, erneut vom Resolver freigegebene Runtime-Anforderungen. Provider,
+SQL-Version, Profil, Storage, Netzwerk, Datenbanken und andere Instanzen müssen
+unverändert bleiben. Das neue Derived Image wird vor der Container-Mutation
+gebaut; Journal, Scope-Prüfung, SQL-Readiness und echte Sprachpostconditions
+binden Umschaltung und Rollback. Der alte Container wird erst nach atomarem
+Connection-/Desired-State-Commit entfernt, das alte Image bleibt erhalten.
+Der vollständige Umschaltpfad bestand am 2026-08-28 getrennte native Docker-
+und Podman-Abnahmen auf einem isolierten Ubuntu-22.04-/cgroup-v1-Gast: ausgehend
+von Python-only wurden R und Java additiv ergänzt, das Journal erreichte
+`COMPLETED`, alle drei Sprachprobes bestanden nach Restart und beide Images
+blieben bis zum expliziten test-eigenen Cleanup erhalten. Der erste Podman-
+Versuch traf vor dem Refresh einmalig die bekannte transiente LaunchPad-
+Kommunikationsstörung `Msg 39011`; die unveränderte gezielte Wiederholung im
+erhaltenen Gast bestand vollständig.
+
+Noch nicht unterstützt sind Runtime-Entfernung samt Java-DDL-Cleanup, freie
+Packagewechsel, der allgemeine Hyper-V-Softwarepfad sowie Hyper-V-Artifact-
+Refresh und automatische Gastumschaltung.
 
 ## Tests
 

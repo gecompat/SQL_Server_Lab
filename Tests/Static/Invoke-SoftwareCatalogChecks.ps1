@@ -131,7 +131,7 @@ $result = & $module {
         Supported = $supportedPlan.Status -eq 'RESOLVED' -and
             -not $supportedPlan.ReasonCode -and
             $supportedPlan.VariantId -eq 'sql2022-python310-ubuntu2204-derived' -and
-            $supportedPlan.RecipeVersion -eq '4'
+            $supportedPlan.RecipeVersion -eq '5'
         Sql2025 = $sql2025Plan.Status -eq 'DECLARED_UNSUPPORTED' -and
             $sql2025Plan.ReasonCode -eq 'RUNTIME_COMBINATION_NOT_CATALOGUED'
         PackageLock = $packagePlan.ReasonCode -eq 'PACKAGE_NOT_LOCKED'

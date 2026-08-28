@@ -113,12 +113,12 @@ COMMANDS
         Synchronisiert einen verwalteten lokalen CMS mit dem aktuellen Endpunktkatalog.
 
     Get-SqlServerLabReconcilePlan
-        Liefert einen read-only Desired/Actual/Diff/Action-Plan fuer den
-        Lifecycle eines bestehenden Runs.
+        Liefert einen read-only Lifecycle- oder resolvergebundenen External-
+        Runtime-Refresh-Plan fuer einen bestehenden Run.
 
     Invoke-SqlServerLabReconcileAction
-        Fuehrt einen eindeutig zuordenbaren Reconcile-Plan (Start oder Stopp)
-        fuer einen Run aus.
+        Fuehrt Start/Stopp oder einen additiven, validierten SQL-Server-2022-
+        Docker-/Podman-External-Runtime-Refresh aus.
 
     Invoke-SqlServerLabWorkflowAction
         Fuehrt eine explizite, nicht interaktive Hyper-V-Workflow-Aktion fuer

@@ -513,8 +513,8 @@ Invoke-SqlServerLabScheduler -UntilIdle
 | `Export-SqlServerLabCmsSyncScript` | Idempotentes Synchronisationsskript für einen vorhandenen CMS erzeugen |
 | `Initialize-SqlServerLabCms` | Kompakten persistenten Docker-/Podman-CMS nach expliziter Auswahl anlegen |
 | `Sync-SqlServerLabCms` | Verwalteten lokalen CMS mit dem aktuellen Endpunktkatalog abgleichen |
-| `Get-SqlServerLabReconcilePlan` | Read-only Desired/Actual/Diff/Action-Plan für einen bestehenden Lifecycle-Run |
-| `Invoke-SqlServerLabReconcileAction` | Reconcile-Plan für einen laufenden Run ausführen (`START` oder `STOP`) |
+| `Get-SqlServerLabReconcilePlan` | Read-only Plan für Lifecycle oder resolvergebundenen External-Runtime-Refresh |
+| `Invoke-SqlServerLabReconcileAction` | `START`/`STOP` oder validierten External-Runtime-Container-Refresh ausführen |
 | `Invoke-SqlServerLabWorkflowAction` | Nicht interaktive Hyper-V-Workflow-Aktion für die lokale Oberfläche |
 | `New-SqlServerLabManifest` | Schema-gesteuertes Manifest in der Konsole erstellen |
 | `Test-SqlServerLabManifest` | Manifest ohne Provisionierung strukturell und fachlich prüfen |

@@ -115,8 +115,8 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `Export-SqlServerLabCmsSyncScript` | Idempotentes CMS-Synchronisationsskript erzeugen |
 | `Initialize-SqlServerLabCms` | Kompakten persistenten Docker-/Podman-CMS nach expliziter Auswahl erstellen |
 | `Sync-SqlServerLabCms` | Verwalteten lokalen CMS mit dem Endpunktkatalog abgleichen |
-| `Get-SqlServerLabReconcilePlan` | Read-only Desired/Actual/Diff/Action-Plan für einen bestehenden Lifecycle-Run |
-| `Invoke-SqlServerLabReconcileAction` | Start/Stop-Executor für einen vorhandenen Reconcile-Plan (mit `-WhatIf`) |
+| `Get-SqlServerLabReconcilePlan` | Read-only Lifecycle- oder External-Runtime-Refresh-Plan |
+| `Invoke-SqlServerLabReconcileAction` | Start/Stop oder validierter additiver SQL-2022-Container-Runtime-Refresh (mit `-WhatIf`) |
 | `Invoke-SqlServerLabWorkflowAction` | Nicht interaktive UI-Aktion für einen Hyper-V-Workflow-Schritt |
 | `New-SqlServerLabManifest` | Manifest schema-gesteuert erstellen |
 | `Test-SqlServerLabManifest` | Manifest ohne Provisionierung prüfen |

@@ -5,12 +5,13 @@
     "version": "1.0"
   },
   "catalogMetadata": {
-    "lastVerified": "2026-08-27",
+    "lastVerified": "2026-08-28",
     "sources": [
       "https://learn.microsoft.com/en-us/sql/machine-learning/install/sql-machine-learning-services-windows-install-sql-2022?view=sql-server-ver17",
       "https://learn.microsoft.com/en-us/sql/linux/install-upgrade/setup-machine-learning-sql-2022?view=sql-server-ver17",
       "https://learn.microsoft.com/en-us/sql/language-extensions/install/windows-java?view=sql-server-ver17",
-      "https://learn.microsoft.com/en-us/sql/linux/install-upgrade/setup-language-extensions-java?view=sql-server-ver17"
+      "https://learn.microsoft.com/en-us/sql/linux/install-upgrade/setup-language-extensions-java?view=sql-server-ver17",
+      "https://packages.ubuntu.com/jammy/amd64/libgomp1/download"
     ]
   },
   "software": [
@@ -33,7 +34,7 @@
           "architecture": "x86_64",
           "providers": ["docker", "podman"],
           "installMethod": "derived-image",
-          "recipeVersion": "4",
+          "recipeVersion": "5",
           "requiresCapabilities": ["software-catalog-planning", "derived-image-build", "sql-external-runtime"],
           "sourceUrls": [
             "https://learn.microsoft.com/en-us/sql/linux/install-upgrade/setup-machine-learning-sql-2022?view=sql-server-ver17"
@@ -56,6 +57,15 @@
               "sha256": "50df89ac3d1176f6227a9db46d1d8128cb3a326718515082f5ca161028610226",
               "integrityOrigin": "SHA-256 verified against the downloaded Microsoft package on 2026-08-27",
               "license": "Microsoft SQL Server Machine Learning Services EULA"
+            },
+            {
+              "id": "ubuntu-jammy-libgomp1",
+              "sourceType": "os-package",
+              "source": "https://archive.ubuntu.com/ubuntu/pool/main/g/gcc-12/libgomp1_12.3.0-1ubuntu1~22.04.3_amd64.deb",
+              "version": "12.3.0-1ubuntu1~22.04.3",
+              "sha256": "870c27299185a5dd4accad3b15bf82a7409fd7073cccaa8025875307da4d0ce2",
+              "integrityOrigin": "SHA-256 verified against the official Ubuntu archive package on 2026-08-28",
+              "license": "GPL-3.0-only WITH GCC-exception-3.1"
             },
             {
               "id": "revoscalepy",
@@ -299,7 +309,7 @@
           "architecture": "x86_64",
           "providers": ["docker", "podman"],
           "installMethod": "derived-image",
-          "recipeVersion": "4",
+          "recipeVersion": "5",
           "requiresCapabilities": ["software-catalog-planning", "derived-image-build", "sql-external-runtime"],
           "sourceUrls": [
             "https://learn.microsoft.com/en-us/sql/linux/install-upgrade/setup-machine-learning-sql-2022?view=sql-server-ver17"
@@ -322,6 +332,15 @@
               "sha256": "50df89ac3d1176f6227a9db46d1d8128cb3a326718515082f5ca161028610226",
               "integrityOrigin": "SHA-256 verified against the downloaded Microsoft package on 2026-08-27",
               "license": "Microsoft SQL Server Machine Learning Services EULA"
+            },
+            {
+              "id": "ubuntu-jammy-libgomp1",
+              "sourceType": "os-package",
+              "source": "https://archive.ubuntu.com/ubuntu/pool/main/g/gcc-12/libgomp1_12.3.0-1ubuntu1~22.04.3_amd64.deb",
+              "version": "12.3.0-1ubuntu1~22.04.3",
+              "sha256": "870c27299185a5dd4accad3b15bf82a7409fd7073cccaa8025875307da4d0ce2",
+              "integrityOrigin": "SHA-256 verified against the official Ubuntu archive package on 2026-08-28",
+              "license": "GPL-3.0-only WITH GCC-exception-3.1"
             },
             {
               "id": "rocker-r-ver-4.2.3",
@@ -554,7 +573,7 @@
           "architecture": "x86_64",
           "providers": ["docker", "podman"],
           "installMethod": "derived-image",
-          "recipeVersion": "4",
+          "recipeVersion": "5",
           "requiresCapabilities": ["software-catalog-planning", "derived-image-build", "sql-external-runtime"],
           "sourceUrls": [
             "https://learn.microsoft.com/en-us/sql/linux/install-upgrade/setup-language-extensions-java?view=sql-server-ver17",
