@@ -203,7 +203,8 @@ function Register-LabJavaExternalRuntimeDatabaseObjects {
         [string]$HostName = '127.0.0.1',
         [Parameter(Mandatory)][int]$Port,
         [Parameter(Mandatory)][SecureString]$SaPassword,
-        [Parameter(Mandatory)][ValidatePattern('^[A-Za-z][A-Za-z0-9_]{0,127}$')][string]$Database
+        [Parameter(Mandatory)][ValidatePattern('^[A-Za-z][A-Za-z0-9_]{0,127}$')][string]$Database,
+        $RegistrationTracker
     )
 
     $platformContract = Get-LabJavaExternalRuntimePlatformContract -Plan $Plan
@@ -373,6 +374,15 @@ function Invoke-LabJavaExternalRuntimeProbe {
     }
     $registration = Register-LabJavaExternalRuntimeDatabaseObjects -Plan $Plan -HostName $HostName `
         -Port $Port -SaPassword $SaPassword -Database $Database
+    if ($RegistrationTracker -and $RegistrationTracker.Registration) {
+        $prior = $RegistrationTracker.Registration
+        $registration.CreatedLanguage = [bool]$registration.CreatedLanguage -or [bool]$prior.CreatedLanguage
+        $registration.CreatedSdk = [bool]$registration.CreatedSdk -or [bool]$prior.CreatedSdk
+        $registration.CreatedProbe = [bool]$registration.CreatedProbe -or [bool]$prior.CreatedProbe
+    }
+    if ($RegistrationTracker) {
+        $RegistrationTracker.Registration = $registration
+    }
     $query = @"
 SET NOCOUNT ON;
 EXEC sp_execute_external_script
@@ -400,12 +410,14 @@ WITH RESULT SETS ((evidence nvarchar(4000) NOT NULL));
     }
     catch {
         $probeFailure = $_
-        try {
-            Undo-LabJavaExternalRuntimeDatabaseObjects -HostName $HostName -Port $Port -SaPassword $SaPassword `
-                -Database $Database -Registration $registration
-        }
-        catch {
-            throw "EXTERNAL_RUNTIME_JAVA_PROBE_AND_COMPENSATION_FAILED: $($probeFailure.Exception.Message) / $($_.Exception.Message)"
+        if (-not $RegistrationTracker) {
+            try {
+                Undo-LabJavaExternalRuntimeDatabaseObjects -HostName $HostName -Port $Port -SaPassword $SaPassword `
+                    -Database $Database -Registration $registration
+            }
+            catch {
+                throw "EXTERNAL_RUNTIME_JAVA_PROBE_AND_COMPENSATION_FAILED: $($probeFailure.Exception.Message) / $($_.Exception.Message)"
+            }
         }
         throw $probeFailure
     }
@@ -558,14 +570,13 @@ RECONFIGURE WITH OVERRIDE;
                     $databaseNames = @($LabInstance.Databases | ForEach-Object { [string]$_ } | Sort-Object -Unique)
                     if ($databaseNames.Count -eq 0) { $databaseNames = @('master') }
                     foreach ($databaseName in $databaseNames) {
+                        $registrationTracker = [PSCustomObject]@{ Database=$databaseName; Registration=$null }
+                        $javaCompensations.Add($registrationTracker)
                         $javaProbe = @(Invoke-LabExternalRuntimeProbeWithRetry -RecoveryOperation $recoverProbeReadiness -Operation {
                             Invoke-LabJavaExternalRuntimeProbe -Plan $plan -HostName ([string]$LabInstance.Host) `
-                                -Port ([int]$LabInstance.Port) -SaPassword $SaPassword -Database $databaseName
+                                -Port ([int]$LabInstance.Port) -SaPassword $SaPassword -Database $databaseName `
+                                -RegistrationTracker $registrationTracker
                         })[0]
-                        $javaCompensations.Add([PSCustomObject]@{
-                            Database=$databaseName
-                            Registration=$javaProbe.RegistrationDetails
-                        })
                         $javaProbe.PSObject.Properties.Remove('RegistrationDetails')
                         $javaProbe
                     }
@@ -592,6 +603,7 @@ RECONFIGURE WITH OVERRIDE;
         $compensationFailures = [Collections.Generic.List[string]]::new()
         for ($index = $javaCompensations.Count - 1; $index -ge 0; $index--) {
             $record = $javaCompensations[$index]
+            if (-not $record.Registration) { continue }
             try {
                 Undo-LabJavaExternalRuntimeDatabaseObjects -HostName ([string]$LabInstance.Host) `
                     -Port ([int]$LabInstance.Port) -SaPassword $SaPassword -Database ([string]$record.Database) `
