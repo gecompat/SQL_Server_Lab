@@ -11,7 +11,12 @@ $module = Get-Module SqlServerLab
 $result = & $module { @(Get-LabProviderCapabilityContract) }
 Add-CheckResult -Name 'Capability-Projektion enthält alle Provider sortiert' -Success ((@($result.Provider) -join ',') -eq 'docker,hyperv,podman')
 $hyperv = @($result | Where-Object Provider -eq 'hyperv')[0]
-Add-CheckResult -Name 'Hyper-V deklariert nur den begrenzten Prepared-Image-Klonpfad' -Success ($hyperv.SqlProvisioningScope -eq 'prepared-image-clone-only' -and @($hyperv.Limitations.SourceKey) -contains 'no-real-windows-sql-e2e-evidence')
+Add-CheckResult -Name 'Hyper-V trennt Prepared-Image-Grenze von nativ belegten External-Runtime-Faehigkeiten' -Success (
+    $hyperv.SqlProvisioningScope -eq 'prepared-image-clone-only' -and
+    @($hyperv.Limitations.SourceKey) -notcontains 'no-real-windows-sql-e2e-evidence' -and
+    @($hyperv.Capabilities.SourceKey) -contains 'powershell-direct-software-installation' -and
+    @($hyperv.Capabilities.SourceKey) -contains 'sql-external-runtime'
+)
 $serialized = $result | ConvertTo-Json -Depth 20
 Add-CheckResult -Name 'Capability-Vertrag ist serialisierbar und enthält keine Runtimewerte' -Success ($serialized -notmatch 'containerId|connectionString|HostName|\\\\')
 $workflow = Get-SqlServerLabWorkflow

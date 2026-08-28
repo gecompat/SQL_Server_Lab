@@ -2,12 +2,16 @@
 [CmdletBinding()]
 param(
     [string]$RunId,
+    [string]$CloneSourceRunId,
     [string]$MediaRoot = 'D:\Lab_Base',
     [string]$ArtifactId = 'hyperv-os-sealed-01f5d9a11f91ee9641eb2cde936431b4d6258333b4f7a0e6e51032df74878be5',
     [switch]$CleanupOnSuccess
 )
 
 $ErrorActionPreference = 'Stop'
+if ($RunId -and $CloneSourceRunId) {
+    throw 'HYPERV_EXTERNAL_RUNTIME_ACCEPTANCE_RUN_SOURCE_AMBIGUOUS'
+}
 if (-not $IsWindows -or -not (Get-Command Get-VM -ErrorAction SilentlyContinue)) {
     throw 'HYPERV_EXTERNAL_RUNTIME_ACCEPTANCE_REQUIRES_WINDOWS_HYPERV'
 }
@@ -16,11 +20,187 @@ Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force
 $module = Get-Module SqlServerLab
 
 & $module {
-    param($RequestedRunId,$MediaRoot,$ArtifactId,$CleanupOnSuccess)
+    param($RequestedRunId,$CloneSourceRunId,$MediaRoot,$ArtifactId,$CleanupOnSuccess)
+
+    function New-ExternalRuntimeAcceptanceClone {
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory)][string]$SourceRunId,
+            [Parameter(Mandatory)][string]$StateRoot
+        )
+
+        $sourceLab = Get-HyperVLabWorkflowRun -RunId $SourceRunId -StateRoot $StateRoot
+        if ([string]$sourceLab.Instance.workload -ne 'windows' -or
+            [string]$sourceLab.Instance.baseKind -ne 'windows-baseline' -or
+            -not $sourceLab.Instance.windowsProvisioning -or
+            [string]$sourceLab.Instance.windowsProvisioning.state -ne 'COMPLETE' -or
+            $sourceLab.Instance.sqlDeploymentPlan) {
+            throw 'HYPERV_EXTERNAL_RUNTIME_ACCEPTANCE_CLONE_REQUIRES_SPECIALIZED_WINDOWS_SOURCE'
+        }
+
+        $sourceVm = Get-HyperVManagedVM -VMName ([string]$sourceLab.Instance.vmName) `
+            -ExpectedRunId ([string]$sourceLab.Run.runId) -ExpectedScopeId ([string]$sourceLab.Run.scopeId)
+        if (-not $sourceVm -or [string]$sourceVm.VM.State -ne 'Off') {
+            throw 'HYPERV_EXTERNAL_RUNTIME_ACCEPTANCE_CLONE_SOURCE_MUST_BE_OFF'
+        }
+
+        $sourceDisks = @(Get-VMHardDiskDrive -VMName ([string]$sourceLab.Instance.vmName) -ErrorAction Stop)
+        if ($sourceDisks.Count -ne 1 -or -not $sourceDisks[0].Path -or
+            [IO.Path]::GetExtension([string]$sourceDisks[0].Path) -ine '.vhdx') {
+            throw 'HYPERV_EXTERNAL_RUNTIME_ACCEPTANCE_CLONE_SOURCE_DISK_INVALID'
+        }
+        $sourceDiskPath = [IO.Path]::GetFullPath([string]$sourceDisks[0].Path)
+        if (-not (Test-HyperVPathWithinRunDirectory -Path $sourceDiskPath -RunDirectory $sourceLab.RunDirectory)) {
+            throw 'HYPERV_EXTERNAL_RUNTIME_ACCEPTANCE_CLONE_SOURCE_SCOPE_VIOLATION'
+        }
+        $identityDiskPath = [IO.Path]::GetFullPath([string]$sourceVm.Identity.childVhdxPath)
+        if (-not $sourceDiskPath.Equals($identityDiskPath, [StringComparison]::OrdinalIgnoreCase)) {
+            throw 'HYPERV_EXTERNAL_RUNTIME_ACCEPTANCE_CLONE_SOURCE_IDENTITY_MISMATCH'
+        }
+
+        $artifactId = [string]$sourceLab.Instance.imageArtifactId
+        $artifact = Get-HyperVImageArtifact -ArtifactId $artifactId -StateRoot $StateRoot -SkipIntegrityCheck
+        if (-not $artifact -or [string]$artifact.artifactState -ne 'OS_SEALED' -or
+            -not [bool]$artifact.generalized -or [string]$artifact.license.type -ne 'evaluation') {
+            throw 'HYPERV_EXTERNAL_RUNTIME_ACCEPTANCE_CLONE_REQUIRES_EVALUATION_ARTIFACT'
+        }
+        if ($artifact.license.evaluationExpiresAt -and
+            ([datetime]$artifact.license.evaluationExpiresAt).ToUniversalTime() -le [datetime]::UtcNow) {
+            throw 'HYPERV_EXTERNAL_RUNTIME_ACCEPTANCE_CLONE_EVALUATION_EXPIRED'
+        }
+
+        $guestPassword = Get-LabSecret -Path $sourceLab.RunDirectory -Name 'guest-administrator-password'
+        if (-not $guestPassword) {
+            throw 'HYPERV_EXTERNAL_RUNTIME_ACCEPTANCE_CLONE_GUEST_SECRET_MISSING'
+        }
+        $networkName = [string]$sourceLab.Instance.labNetwork.name
+        if (-not $networkName) {
+            throw 'HYPERV_EXTERNAL_RUNTIME_ACCEPTANCE_CLONE_NETWORK_REQUIRED'
+        }
+        $labNetwork = Resolve-LabHyperVNetwork -SwitchName $networkName
+
+        $run = New-LabRunState -StateRoot $StateRoot -Metadata @{
+            name = 'external-runtime-native-clone'; workflowKind = 'hyperv-lab'
+            baseKind = 'managed-run-acceptance-clone'; workload = 'windows'; autostart = 'off'
+            sourceRunId = $SourceRunId; imageArtifactId = $artifactId; network = $labNetwork.Name
+            purpose = 'external-runtime-native-evidence'
+        } -ProviderSubRuns @([PSCustomObject]@{
+            id = 'provider-hyperv'; provider = 'hyperv'; instanceIds = @('sql2022-ext')
+        })
+        try {
+            $null = New-CleanupPlan -RunDir $run.RunDir -RunId $run.RunId -ScopeId $run.ScopeId `
+                -ProviderSubRuns @([PSCustomObject]@{
+                    id = 'provider-hyperv'; provider = 'hyperv'; instanceIds = @('sql2022-ext')
+                })
+            $null = Set-LabRunState -RunId $run.RunId -NewState PROVISIONING `
+                -Reason 'Isolierter External-Runtime-Acceptance-Clone wird erstellt.' -StateRoot $StateRoot
+            Set-LabProviderSubRunState -RunId $run.RunId -Provider hyperv -NewState PROVISIONING `
+                -Reason 'Spezialisierte Windows-Quelle wird unverändert kopiert.' -StateRoot $StateRoot
+
+            $resourceRoot = Join-Path (Join-Path $run.RunDir 'resources') 'hyperv'
+            $parentCopyPath = Join-Path $resourceRoot 'sql2022-ext-source-parent.vhdx'
+            if (-not (Test-HyperVPathWithinRunDirectory -Path $parentCopyPath -RunDirectory $run.RunDir)) {
+                throw 'HYPERV_EXTERNAL_RUNTIME_ACCEPTANCE_CLONE_TARGET_SCOPE_VIOLATION'
+            }
+            $null = Add-CleanupStep -RunDir $run.RunDir -ResourceType vhdx -ResourceId $parentCopyPath `
+                -Action remove -Provider hyperv -ProviderSubRunId provider-hyperv `
+                -Compensation 'Remove isolated External Runtime acceptance parent copy'
+            $null = New-Item -ItemType Directory -Path $resourceRoot -Force
+
+            Write-Host "NATIVE_CLONE_SOURCE_RUN_ID=$SourceRunId"
+            Write-LabInfo 'Acceptance-Clone: spezialisierte Quell-VHDX wird vollständig in den neuen Run kopiert.'
+            Convert-VHD -Path $sourceDiskPath -DestinationPath $parentCopyPath -VHDType Dynamic -ErrorAction Stop
+            $parentItem = Get-Item -LiteralPath $parentCopyPath -Force
+            $parentItem.IsReadOnly = $true
+            $parentHash = (Get-FileHash -LiteralPath $parentCopyPath -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()
+
+            $vm = New-HyperVInstance -ParentVhdxPath $parentCopyPath -ParentSha256 $parentHash `
+                -RunDirectory $run.RunDir -RunId $run.RunId -ScopeId $run.ScopeId -InstanceId 'sql2022-ext' `
+                -LabName 'external-runtime-native-clone' -MemoryStartupBytes 8GB -ProcessorCount 4 `
+                -AutoStart off -SwitchName $labNetwork.Name
+            $connection = [PSCustomObject]@{
+                schemaVersion = 1
+                instances = @([PSCustomObject]@{
+                    id = 'sql2022-ext'; provider = 'hyperv'; vmName = $vm.VMName; vmId = $vm.VMId
+                    autostart = 'off'; workload = 'windows'; baseKind = 'managed-run-acceptance-clone'
+                    imageArtifactId = $artifactId; sourceRunId = $SourceRunId
+                    sourceParentCopyPath = $parentCopyPath; sourceParentSha256 = $parentHash
+                    sqlVersion = $null; sqlEdition = $null; host = $null; port = $null
+                    windowsProvisioning = [PSCustomObject]@{
+                        state = 'COMPLETE'; mode = 'managed-run-acceptance-clone'
+                        computerName = [string]$sourceLab.Instance.windowsProvisioning.computerName
+                        imageState = [string]$sourceLab.Instance.windowsProvisioning.imageState
+                        completedAt = Get-LabTimestamp
+                    }
+                    labNetwork = [PSCustomObject]@{
+                        name = $labNetwork.Name; subnet = $labNetwork.Subnet
+                        prefixLength = $labNetwork.PrefixLength; hostAddress = $labNetwork.HostAddress
+                    }
+                })
+            }
+            Save-LabSecret -Path $run.RunDir -Name 'guest-administrator-password' -Secret $guestPassword
+            Write-LabArtifactJsonAtomic -Path (Join-Path $run.RunDir 'connection-info.json') -InputObject $connection
+
+            foreach ($state in @('SQL_READY','DATABASES_CREATED','RUNNING','STOPPED')) {
+                $null = Set-LabRunState -RunId $run.RunId -NewState $state `
+                    -Reason "Acceptance-Clone: $state" -StateRoot $StateRoot
+                Set-LabProviderSubRunState -RunId $run.RunId -Provider hyperv -NewState $state `
+                    -Reason "Acceptance-Clone: $state" -StateRoot $StateRoot
+            }
+            return [PSCustomObject]@{
+                RunId = $run.RunId; ScopeId = $run.ScopeId; StateRoot = $StateRoot
+                VMName = $vm.VMName; SourceRunId = $SourceRunId; State = 'STOPPED'
+            }
+        }
+        catch {
+            try {
+                $current = Get-LabRunState -RunId $run.RunId -StateRoot $StateRoot
+                if ([string]$current.state -notin @('CLEANUP_PENDING','CLEANUP_RUNNING','CLEANED_UP','REMOVED')) {
+                    $null = Set-LabRunState -RunId $run.RunId -NewState CLEANUP_PENDING `
+                        -Reason 'Erstellung des isolierten External-Runtime-Acceptance-Clones fehlgeschlagen.' `
+                        -StateRoot $StateRoot
+                }
+            }
+            catch { }
+            throw
+        }
+    }
 
     $stateRoot = Get-LabStateRoot
+    $sqlMedia = Resolve-HyperVSqlInstallationMedia -MediaRoot $MediaRoot -SqlVersion 2022 `
+        -MediaEdition Eval -SqlMediaPath 'SQL/2022/Eval/ISO/SQLServer2022-x64-ENU.iso'
+    if ([string]$sqlMedia.HashStatus -ne 'SIDECAR_READY') {
+        $sqlMedia = New-HyperVSqlMediaHashSidecar -MediaRoot $MediaRoot -SqlVersion 2022 `
+            -MediaEdition Eval -SqlMediaPath 'SQL/2022/Eval/ISO/SQLServer2022-x64-ENU.iso' -Confirm:$false
+    }
+    if ([string]$sqlMedia.HashStatus -ne 'SIDECAR_READY') {
+        throw 'HYPERV_EXTERNAL_RUNTIME_SQL_MEDIA_HASH_REQUIRED'
+    }
+    $null = Confirm-HyperVSqlInstallationMediaVersion -IsoPath $sqlMedia.IsoPath -SqlVersion 2022
+
+    $plans = @()
+    foreach ($softwareId in @('sql-python','sql-r','sql-java')) {
+        $request = [PSCustomObject]@{
+            Id=$softwareId; Version=$null; Variant=$null; InstallMethod=$null
+            Packages=@(); RequestSource='native-evidence'
+        }
+        $plan = Resolve-LabExternalRuntimePlan -SoftwareItem $request -SqlVersion 2022 `
+            -Provider hyperv -OperatingSystem windows
+        if ([string]$plan.Status -ne 'RESOLVED') {
+            throw "HYPERV_EXTERNAL_RUNTIME_CHARACTERIZATION_PLAN_UNEXPECTED: $softwareId / $($plan.ReasonCode)"
+        }
+        $plans += $plan
+    }
+    $runtimeMedia = @(Resolve-LabExternalRuntimeWindowsMedia -SoftwarePlans $plans -MediaRoot $MediaRoot -Acquire)
+    if ($runtimeMedia.Count -lt 1) { throw 'HYPERV_EXTERNAL_RUNTIME_MEDIA_PREFLIGHT_EMPTY' }
+    Write-Host "NATIVE_MEDIA_PREFLIGHT_COUNT=$($runtimeMedia.Count)"
+
     if ($RequestedRunId) {
         $lab = Get-HyperVLabWorkflowRun -RunId $RequestedRunId -StateRoot $stateRoot
+    }
+    elseif ($CloneSourceRunId) {
+        $created = New-ExternalRuntimeAcceptanceClone -SourceRunId $CloneSourceRunId -StateRoot $stateRoot
+        $lab = Get-HyperVLabWorkflowRun -RunId $created.RunId -StateRoot $stateRoot
     }
     else {
         $guestPassword = New-HyperVSqlUnattendedPassword
@@ -70,24 +250,11 @@ $module = Get-Module SqlServerLab
 
         $sqlPassword = Get-LabSecret -Path $lab.RunDirectory -Name 'sa-password'
         if (-not $sqlPassword) { throw 'HYPERV_EXTERNAL_RUNTIME_SQL_PASSWORD_NOT_STORED' }
-        $plans = @()
-        foreach ($softwareId in @('sql-python','sql-r','sql-java')) {
-            $request = [PSCustomObject]@{
-                Id=$softwareId; Version=$null; Variant=$null; InstallMethod=$null
-                Packages=@(); RequestSource='native-evidence'
-            }
-            $plan = Resolve-LabExternalRuntimePlan -SoftwareItem $request -SqlVersion 2022 `
-                -Provider hyperv -OperatingSystem windows
-            if ([string]$plan.ReasonCode -ne 'VARIANT_PREVIEW') {
-                throw "HYPERV_EXTERNAL_RUNTIME_CHARACTERIZATION_PLAN_UNEXPECTED: $softwareId / $($plan.ReasonCode)"
-            }
-            $plan.Status = 'RESOLVED'; $plan.ReasonCode = $null; $plan.Reason = $null
-            $plans += $plan
-        }
-
         $receipts = @(Install-LabHyperVExternalRuntimes -SoftwarePlans $plans -RunId $runId `
-            -Credential $credential -SqlSaPassword $sqlPassword -MediaRoot $MediaRoot -StateRoot $lab.StateRoot)
-        if (@($receipts | Where-Object Status -ne 'INSTALLED').Count -gt 0 -or $receipts.Count -ne 3) {
+            -Credential $credential -SqlSaPassword $sqlPassword -MediaRoot $MediaRoot `
+            -ResourceGovernorConfig ([PSCustomObject]@{ maxMemoryPercent=40; maxProcesses=32 }) `
+            -StateRoot $lab.StateRoot)
+        if (@($receipts | Where-Object Status -ne 'EXTENSIONS_READY_RUN').Count -gt 0 -or $receipts.Count -ne 3) {
             throw 'HYPERV_EXTERNAL_RUNTIME_RECEIPTS_INVALID'
         }
 
@@ -141,4 +308,4 @@ $module = Get-Module SqlServerLab
         return $evidence
     }
     finally { Stop-Transcript -ErrorAction SilentlyContinue | Out-Null }
-} $RunId $MediaRoot $ArtifactId $CleanupOnSuccess
+} $RunId $CloneSourceRunId $MediaRoot $ArtifactId $CleanupOnSuccess

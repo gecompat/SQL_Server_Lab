@@ -378,8 +378,9 @@ Der providerneutrale Softwarekatalog und Capability Resolver normalisieren
 Python-, R- und Java-Anforderungen bereits nach SQL-Version, Betriebssystem,
 Architektur und Provider. Unvollständig belegte Varianten, freie Commands,
 nicht gesperrte Zusatzpakete und der bisherige `post-start`-Installer werden
-vor der Mutation sichtbar abgelehnt. Die katalogisierten SQL-2022-Varianten
-bleiben deshalb derzeit `PREVIEW` und nicht `SUPPORTED`.
+vor der Mutation sichtbar abgelehnt. Die Linux-Container-Varianten bleiben
+ohne getrennte native Docker-/Podman-Evidence `PREVIEW`; die nativ belegten
+Hyper-V-/Windows-Varianten sind `SUPPORTED`.
 
 Für SQL Server 2022/Python, R und Java existieren inzwischen ein per MCR-Digest
 gebundener Buildkontext, vollständige DEB-, Wheel-, R-Paket-, JDK-, Java-
@@ -411,9 +412,12 @@ SQL-Feature-Bindung, State/Recovery und der native Acceptance-Runner
 implementiert. Java bindet Microsoft OpenJDK 17.0.20.1, den letzten
 verfügbaren Windows-Extension-Release 1.1.0, dessen SDK und ein reproduzierbar
 erzeugtes Probe-JAR. Ein positiver realer External-Script-Nachweis für alle drei
-Sprachen steht noch aus und erfordert eine erhöht gestartete
-PowerShell-Sitzung auf dem Hyper-V-Host; die Varianten bleiben deshalb
-`PREVIEW`.
+Sprachen wurde auf SQL Server 2022 unter Windows Server 2025 erbracht: Python,
+R und Java bestanden Datenroundtrip, Versions- und Worker-Identitätsprüfung vor
+und nach einem vollständigen VM-Kaltstart. Der isolierte Acceptance-Klon und
+beide VHDX-Kopien wurden danach über den registrierten Cleanup-Plan entfernt.
+Diese drei Hyper-V-Varianten sind deshalb `SUPPORTED`. Andere Windows-/SQL-
+Versionen erben diesen Status nicht.
 
 `customImage` wird weiterhin nicht als ungeprüfte Manifestquelle in die
 Provider-Imageauswahl übernommen. Ein Softwareplan, erfolgreicher Image-Build
