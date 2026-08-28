@@ -49,6 +49,19 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   zuverlässig mit `Escape`. Der gemeinsame Abbruchpfad verwirft ausstehende
   Löschbestätigungen und leert Passwortfelder ebenso wie die sichtbaren
   Abbrechen-/Schließen-Schaltflächen.
+- Docker und Podman setzen neben dem cgroup-Limit jetzt ein um 20 Prozent
+  niedrigeres `MSSQL_MEMORY_LIMIT_MB`; dadurch bleibt insbesondere SQL Server
+  2019 auf cgroup-v2-Hosts unter der harten Containergrenze. Automatisierte
+  Linux-Testziele verwenden fuer Projektvolltests 4 GB Container-RAM und 3 GB
+  `max server memory`.
+- Container-Healthchecks funktionieren mit ODBC Driver 18 und dem run-lokalen
+  selbstsignierten Zertifikat. Der Testumgebungs-Export prüft den gebundenen
+  Live-Container und meldet `UNHEALTHY` fail-closed als unvollständige Gruppe,
+  statt gespeichertes `RUNNING` als `READY` zu veröffentlichen.
+- `Repair-SqlServerLabAutomatedTestEnvironment` gleicht veraltete Linux-
+  Mitglieder der geschützten Testgruppe einzeln und mit Rollback auf den neuen
+  Ressourcen- und Health-Vertrag ab, ohne Windows-Runs, Ports, Volumes oder
+  Kennwörter zu ersetzen.
 - Python-only-Derived-Images enthalten jetzt die von `revoscalepy` benötigte
   `libgomp.so.1`. Das Ubuntu-22.04-`libgomp1`-Paket ist mit exakter Version und
   SHA-256 an Rezeptversion 5 gebunden; Python- und R-Zielstages übernehmen nur

@@ -14,6 +14,14 @@ Dieses Dokument beschreibt bekannte Grenzen des aktuell implementierten Runtimep
 Docker und Podman sind implementiert. Start, Stop und Live-Status verwenden den
 pro Instanz in `connection-info.json` gespeicherten Provider.
 
+Container erhalten neben dem harten Runtime-Limit ein SQL-internes
+`MSSQL_MEMORY_LIMIT_MB` mit 20 Prozent Headroom. Das ist insbesondere fuer SQL
+Server 2019 auf cgroup-v2-Hosts erforderlich. Automatisierte Linux-Testziele
+verwenden fuer Projektvolltests 4 GB Container-RAM und 3 GB
+`max server memory`. Der Testumgebungs-Export liest den gebundenen
+Containerstatus live und gibt bei einem fehlgeschlagenen Healthcheck keine
+Umgebung als `READY` frei.
+
 Der aktuelle vertiefte Nachweis vom 2026-08-27 ist fuer Docker und Podman mit
 einem repraesentativen SQL Server 2022 CU18 einschliesslich Chinook, Storage,
 Ressourcen, Reconcile, Lifecycle und Cleanup positiv. Der laufende Core-Gate verwendet ausschließlich SQL Server 2025;
