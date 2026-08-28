@@ -144,16 +144,24 @@ function Initialize-DockerSqlNamedVolume {
     if ($SyncExternalRuntimeConfiguration) {
         $initializationCommands.Add(@'
 if [ ! -f /var/opt/mssql/mssql.conf ]; then exit 1; fi
-sync_extensibility_setting() {
-    setting="$1"
-    value="$(awk -F= -v wanted="$setting" '/^\[extensibility\]$/ { active=1; next } /^\[/ { active=0 } active { key=$1; gsub(/^[[:space:]]+|[[:space:]]+$/, "", key); if (key == wanted) { sub(/^[^=]*=[[:space:]]*/, "", $0); print; exit } }' /var/opt/mssql/mssql.conf)"
-    if [ -n "$value" ]; then
-        MSSQL_CONF_DIR=/sql-lab-volume-init /opt/mssql/bin/mssql-conf set "extensibility.$setting" "$value"
-    else
-        MSSQL_CONF_DIR=/sql-lab-volume-init /opt/mssql/bin/mssql-conf unset "extensibility.$setting" >/dev/null 2>&1 || true
-    fi
-}
-for setting in pythonbinpath rbinpath datadirectories; do sync_extensibility_setting "$setting"; done
+pythonbinpath="$(sed -n '/^\[extensibility\]$/,/^\[/ { /^[[:space:]]*pythonbinpath[[:space:]]*=/ { s/^[^=]*=[[:space:]]*//; p; } }' /var/opt/mssql/mssql.conf)"
+if [ -n "$pythonbinpath" ]; then
+    MSSQL_CONF_DIR=/sql-lab-volume-init /opt/mssql/bin/mssql-conf set extensibility.pythonbinpath "$pythonbinpath"
+else
+    MSSQL_CONF_DIR=/sql-lab-volume-init /opt/mssql/bin/mssql-conf unset extensibility.pythonbinpath >/dev/null 2>&1 || true
+fi
+rbinpath="$(sed -n '/^\[extensibility\]$/,/^\[/ { /^[[:space:]]*rbinpath[[:space:]]*=/ { s/^[^=]*=[[:space:]]*//; p; } }' /var/opt/mssql/mssql.conf)"
+if [ -n "$rbinpath" ]; then
+    MSSQL_CONF_DIR=/sql-lab-volume-init /opt/mssql/bin/mssql-conf set extensibility.rbinpath "$rbinpath"
+else
+    MSSQL_CONF_DIR=/sql-lab-volume-init /opt/mssql/bin/mssql-conf unset extensibility.rbinpath >/dev/null 2>&1 || true
+fi
+datadirectories="$(sed -n '/^\[extensibility\]$/,/^\[/ { /^[[:space:]]*datadirectories[[:space:]]*=/ { s/^[^=]*=[[:space:]]*//; p; } }' /var/opt/mssql/mssql.conf)"
+if [ -n "$datadirectories" ]; then
+    MSSQL_CONF_DIR=/sql-lab-volume-init /opt/mssql/bin/mssql-conf set extensibility.datadirectories "$datadirectories"
+else
+    MSSQL_CONF_DIR=/sql-lab-volume-init /opt/mssql/bin/mssql-conf unset extensibility.datadirectories >/dev/null 2>&1 || true
+fi
 '@)
     }
     $initializationScript = $initializationCommands -join "`n"

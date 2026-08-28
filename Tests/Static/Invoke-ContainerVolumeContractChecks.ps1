@@ -32,9 +32,9 @@ foreach ($entry in $providers.GetEnumerator()) {
     ) "$name synchronisiert Image-Inhalt und dessen Wurzelrechte nur in das External-Runtime-Extensibility-Volume"
     Assert-VolumeContract (
         $text -match "SyncExternalRuntimeConfiguration:\(\`$ExternalRuntimeLaunchMode -eq 'sql2022-namespace-v1' -and \[string\]\`$drive\.containerPath -eq '/var/opt/mssql'\)" -and
-        $text -match 'for setting in pythonbinpath rbinpath datadirectories' -and
-        $text -match 'MSSQL_CONF_DIR=/sql-lab-volume-init /opt/mssql/bin/mssql-conf set' -and
-        $text -match 'MSSQL_CONF_DIR=/sql-lab-volume-init /opt/mssql/bin/mssql-conf unset' -and
+        @('pythonbinpath','rbinpath','datadirectories' | Where-Object {
+            $text -notmatch "mssql-conf set extensibility\.$_" -or $text -notmatch "mssql-conf unset extensibility\.$_"
+        }).Count -eq 0 -and
         $text -match '\[Convert\]::ToBase64String' -and
         $text -match "base64 -d \| /bin/sh"
     ) "$name synchronisiert nur die imagegebundene Extensibility-Konfiguration in das persistente SQL-Systemvolume"
