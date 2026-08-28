@@ -9,8 +9,16 @@
     "PlanId": { "type": "string", "format": "uuid" },
     "ControllerId": { "type": "string", "format": "uuid" },
     "Status": { "enum": ["READY", "BLOCKED"] },
-    "Source": { "type": "object" },
-    "Target": { "type": "object" },
+    "Source": {
+      "type": "object",
+      "required": ["LocationId", "VolumeId", "LabDataRoot"],
+      "properties": { "LocationId": { "type": "string", "format": "uuid" } }
+    },
+    "Target": {
+      "type": "object",
+      "required": ["LocationId", "VolumeId", "LabDataParent", "LabDataRoot"],
+      "properties": { "LocationId": { "type": "string", "format": "uuid" } }
+    },
     "Inventory": {
       "type": "object",
       "required": ["FileCount", "TotalBytes", "RequiredBytes", "AvailableBytes"]

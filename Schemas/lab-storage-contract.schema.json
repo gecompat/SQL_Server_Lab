@@ -3,24 +3,45 @@
   "$id": "https://sql-server-lab.local/schemas/lab-storage-contract.schema.json",
   "title": "SqlServerLab.Storage/2.0",
   "type": "object",
-  "required": ["ContractVersion", "ControllerId", "DefaultDataRoot", "LabDataLocations"],
+  "required": ["ContractVersion", "ControllerId", "DefaultLocationId", "DefaultDataRoot", "LabDataLocations"],
   "properties": {
     "ContractVersion": { "const": "SqlServerLab.Storage/2.0" },
     "ControllerId": { "type": "string", "format": "uuid" },
+    "DefaultLocationId": { "type": "string", "format": "uuid" },
     "DefaultDataRoot": { "type": "string", "minLength": 1 },
     "LabDataLocations": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["VolumeId", "LabDataParent", "LabDataRoot"],
+        "required": ["LocationId", "ControllerId", "VolumeId", "LabDataParent", "LabDataRoot", "BackingDeviceIds", "TopologyStatus", "MediaType", "BusType", "HealthStatus", "FreeBytes"],
         "properties": {
+          "LocationId": { "type": "string", "format": "uuid" },
+          "ControllerId": { "type": "string", "format": "uuid" },
           "VolumeId": { "type": "string", "minLength": 1 },
           "DriveLetter": { "type": "string" },
           "LabDataParent": { "type": "string", "minLength": 1 },
-          "LabDataRoot": { "type": "string", "pattern": "(?i)[\\\\/]Lab_Data$" }
+          "LabDataRoot": { "type": "string", "pattern": "(?i)[\\\\/]Lab_Data$" },
+          "BackingDeviceIds": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+          "TopologyStatus": { "enum": ["Proven", "LogicalOnly", "Unknown"] },
+          "MediaType": { "type": "string", "minLength": 1 },
+          "BusType": { "type": "string", "minLength": 1 },
+          "HealthStatus": { "type": "string", "minLength": 1 },
+          "FreeBytes": { "type": "integer", "minimum": 0 }
         },
         "additionalProperties": false
       }
+    },
+    "LegacyMigrationReceipt": {
+      "type": ["object", "null"],
+      "properties": {
+        "ContractVersion": { "const": "SqlServerLab.StorageLegacyMigrationReceipt/1.0" },
+        "Status": { "enum": ["IN_MEMORY_UPGRADE", "PERSISTED"] },
+        "Source": { "type": "string", "minLength": 1 },
+        "DefaultPreserved": { "type": "boolean" },
+        "PersistedAt": { "type": "string" }
+      },
+      "required": ["ContractVersion", "Status", "Source", "DefaultPreserved"],
+      "additionalProperties": false
     }
   },
   "additionalProperties": true

@@ -54,6 +54,7 @@ try {
         @($second.CreatedDirectories).Count -eq 0 -and @($second.SkippedReadmeFiles).Count -eq 0
     )
     $consoleText = Get-Content -LiteralPath $consolePath -Raw -Encoding utf8
+    $storageContractText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/StorageContract.ps1') -Raw -Encoding utf8
     Add-CheckResult -Name 'Konsolen-Neuanlage bietet den gespeicherten Data Root optional an' -Success (
         $consoleText -match 'Get-LabDataRootDefault' -and
         $consoleText -match 'SQL-System- und Datenbanken persistent im Data Root einbinden' -and
@@ -64,7 +65,21 @@ try {
         $consoleText -match "'DataRoot'\s*\{\s*Invoke-LabStorageInteractive" -and
         $consoleText -match 'Invoke-LabStorageInteractive'
     )
+    Add-CheckResult -Name 'Storage-UI zeigt das normalisierte Ziel vor der bestätigten Mutation' -Success (
+        $storageContractText -match 'Normalisiertes Ziel:' -and
+        $storageContractText -match 'Diese Lab_Data-Location initialisieren und registrieren\?' -and
+        $storageContractText -match 'Set-LabDataLocation\s+-LabDataParent\s+\$parent\s+-Confirm:\$false'
+    )
     $module = Import-Module $modulePath -Force -PassThru -ErrorAction Stop
+    $legacyConfiguration = & $module { Get-LabStorageConfiguration }
+    $legacyLocationId = [string]$legacyConfiguration.LabDataLocations[0].LocationId
+    Add-CheckResult -Name 'Legacy-Storage-Katalog wird mit stabilem LocationId und erhaltener Default-Bindung gelesen' -Success (
+        $legacyLocationId -match '^[0-9a-f-]{36}$' -and
+        [string]$legacyConfiguration.DefaultLocationId -eq $legacyLocationId -and
+        [string]$legacyConfiguration.DefaultDataRoot -eq $temporaryRoot -and
+        [string]$legacyConfiguration.LegacyMigrationReceipt.Status -eq 'IN_MEMORY_UPGRADE' -and
+        [bool]$legacyConfiguration.LegacyMigrationReceipt.DefaultPreserved
+    )
     $persistentDriveContract = & $module {
         param($root)
         $storage = Get-LabPersistentInstanceStorage -DataRoot $root -LabName 'persistent-test' -Provider docker -InstanceId primary -SqlVersion 2025 -Create
@@ -116,6 +131,93 @@ try {
             '/var/opt/mssql-extensibility/data',
             '/var/opt/mssql-extensibility/sandboxes'
         )).Count -eq 0
+    )
+
+    $secondaryRoot = Join-Path (Join-Path $temporaryParent 'secondary') 'Lab_Data'
+    & $module {
+        $script:StorageContractTestSecondaryDrive = 'E:'
+        Set-Item -Path Function:script:Get-LabVolumeIdentity -Value {
+            param([Parameter(Mandatory)][string]$Path)
+            $fullPath = [IO.Path]::GetFullPath($Path)
+            $secondary = $fullPath -match '[\\/]secondary[\\/]'
+            return [PSCustomObject]@{
+                VolumeId = if ($secondary) { 'test-volume-secondary' } else { 'test-volume-primary' }
+                DriveLetter = if ($secondary) { $script:StorageContractTestSecondaryDrive } else { 'D:' }
+                VolumeRoot = [IO.Path]::GetPathRoot($fullPath)
+            }
+        }
+        Set-Item -Path Function:script:Get-LabStorageTopology -Value {
+            param([Parameter(Mandatory)][string]$Path, $VolumeIdentity)
+            return [PSCustomObject]@{
+                BackingDeviceIds = @("device-$($VolumeIdentity.VolumeId)")
+                TopologyStatus = 'Proven'; MediaType = 'SSD'; BusType = 'NVMe'
+                HealthStatus = 'Healthy'; FreeBytes = [long]1TB
+            }
+        }
+        Set-Item -Path Function:script:Get-LabActiveRuns -Value { return @() }
+        Set-Item -Path Function:script:Get-LabHyperVHardDiskDriveInventory -Value { return @() }
+    }
+    $primaryBeforeRegistration = & $module { Get-LabStorageConfiguration }
+    $primaryLocationId = [string]$primaryBeforeRegistration.LabDataLocations[0].LocationId
+    $controllerId = [string]$primaryBeforeRegistration.ControllerId
+    & $module {
+        param($root, $controller)
+        $null = Initialize-LabManagedDataRoot -DataRoot $root -ControllerId $controller -Confirm:$false
+        $null = Register-LabDataRoot -DataRoot $root
+    } $secondaryRoot $controllerId
+    $registeredConfiguration = & $module { Get-LabStorageConfiguration }
+    $secondaryLocation = @($registeredConfiguration.LabDataLocations | Where-Object LabDataRoot -eq $secondaryRoot)[0]
+    Add-CheckResult -Name 'Zusätzliche Location ändert den bestehenden Default nicht implizit' -Success (
+        @($registeredConfiguration.LabDataLocations).Count -eq 2 -and
+        [string]$registeredConfiguration.DefaultLocationId -eq $primaryLocationId -and
+        [string]$registeredConfiguration.DefaultDataRoot -eq $temporaryRoot
+    )
+    Add-CheckResult -Name 'Storage-Registry persistiert Topologiebeleg und Legacy-Migrationsreceipt auf allen Roots' -Success (
+        [string]$secondaryLocation.TopologyStatus -eq 'Proven' -and
+        @($secondaryLocation.BackingDeviceIds) -contains 'device-test-volume-secondary' -and
+        [string]$registeredConfiguration.LegacyMigrationReceipt.Status -eq 'PERSISTED' -and
+        (Test-Path -LiteralPath (Join-Path $secondaryRoot 'Catalog/storage-locations.json') -PathType Leaf)
+    )
+    $storageCatalogJson = Get-Content -LiteralPath (Join-Path $secondaryRoot 'Catalog/storage-locations.json') -Raw -Encoding utf8
+    Add-CheckResult -Name 'Persistierter Storage-Katalog erfüllt das aktuelle JSON-Schema' -Success (
+        $storageCatalogJson | Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/lab-storage-contract.schema.json') -ErrorAction SilentlyContinue
+    )
+    $driveRelativeRejected = try { & $module { Resolve-LabStorageParentPath -Path 'D:' }; $false } catch { $_.Exception.Message -match 'LAB_STORAGE_PARENT_NOT_FULLY_QUALIFIED' }
+    Add-CheckResult -Name 'Drive-relative Eingabe D: wird abgewiesen' -Success $driveRelativeRejected
+
+    & $module { $script:StorageContractTestSecondaryDrive = 'Z:' }
+    $afterDriveLetterChange = & $module { Get-LabStorageConfiguration }
+    $secondaryAfterDriveLetterChange = @($afterDriveLetterChange.LabDataLocations | Where-Object LabDataRoot -eq $secondaryRoot)[0]
+    Add-CheckResult -Name 'LocationId bleibt bei geändertem Laufwerksbuchstaben stabil' -Success (
+        [string]$secondaryAfterDriveLetterChange.LocationId -eq [string]$secondaryLocation.LocationId -and
+        [string]$secondaryAfterDriveLetterChange.DriveLetter -eq 'Z:'
+    )
+
+    $secondaryLocationId = [string]$secondaryLocation.LocationId
+    $null = & $module { param($id) Set-LabDefaultDataLocation -LocationId $id -ProcessEnvironmentOnly -Confirm:$false } $secondaryLocationId
+    $afterDefaultSwitch = & $module { param($root) Get-LabStorageConfiguration -DataRoot $root } $temporaryRoot
+    Add-CheckResult -Name 'Default-Wechsel erfolgt nur über die explizite LocationId-Aktion' -Success (
+        [string]$afterDefaultSwitch.DefaultLocationId -eq $secondaryLocationId -and
+        [string]$afterDefaultSwitch.DefaultDataRoot -eq $secondaryRoot -and
+        [string]$env:SQL_SERVER_LAB_DATA_ROOT -eq $secondaryRoot
+    )
+    $defaultRemovalRejected = try { & $module { param($id) Unregister-LabDataLocation -LocationId $id -Confirm:$false } $secondaryLocationId; $false } catch { $_.Exception.Message -match 'LAB_STORAGE_DEFAULT_LOCATION_PROTECTED' }
+    Add-CheckResult -Name 'Default-Location kann nicht deregistriert werden' -Success $defaultRemovalRejected
+
+    & $module {
+        Set-Item -Path Function:script:Get-LabDataLocationReferences -Value {
+            return @([PSCustomObject]@{ Kind='run'; Id='referenced-test-run' })
+        }
+    }
+    $referencedRemovalRejected = try { & $module { param($id) Unregister-LabDataLocation -LocationId $id -Confirm:$false } $primaryLocationId; $false } catch { $_.Exception.Message -match 'LAB_STORAGE_LOCATION_REFERENCED.*referenced-test-run' }
+    Add-CheckResult -Name 'Noch referenzierte Nicht-Default-Location bleibt geschützt' -Success $referencedRemovalRejected
+    & $module { Set-Item -Path Function:script:Get-LabDataLocationReferences -Value { return @() } }
+    $removed = & $module { param($id) Unregister-LabDataLocation -LocationId $id -Confirm:$false } $primaryLocationId
+    $removedRootCatalog = Get-Content -LiteralPath (Join-Path $temporaryRoot 'Catalog/storage-locations.json') -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
+    Add-CheckResult -Name 'Unreferenzierte Location wird registry-only und ohne veralteten Root-Katalog deregistriert' -Success (
+        $removed -and @($removedRootCatalog.LabDataLocations).Count -eq 1 -and
+        [string]$removedRootCatalog.DefaultLocationId -eq $secondaryLocationId -and
+        (Test-Path -LiteralPath $temporaryRoot -PathType Container)
     )
 }
 catch { Add-CheckResult -Name 'Data-Root-Testausfuehrung' -Success $false -Message $_.Exception.Message }

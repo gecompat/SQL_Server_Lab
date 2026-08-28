@@ -37,6 +37,12 @@ sources_of_truth:
   state_contract: Private/StateMachine.ps1
   cleanup_contract: Private/CleanupEngine.ps1
   port_allocation_contract: Private/PortAllocation.ps1
+  storage_contract: Private/StorageContract.ps1
+  storage_contract_schema: Schemas/lab-storage-contract.schema.json
+  storage_migration_plan_schema: Schemas/lab-storage-migration-plan.schema.json
+  storage_migration_journal_schema: Schemas/lab-storage-migration-journal.schema.json
+  validation_storage_contract: Tests/Static/Invoke-DataRootChecks.ps1
+  validation_storage_migration: Tests/Static/Invoke-StorageMigrationChecks.ps1
   runtime_limitations: Documentation/Quality/KNOWN_LIMITATIONS.md
   sample_artifact_and_manifest_wizard_target: Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md
   mixed_provider_lifecycle: Documentation/Architecture/MIXED_PROVIDER_LIFECYCLE.md
