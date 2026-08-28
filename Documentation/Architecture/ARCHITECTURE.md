@@ -107,6 +107,8 @@ Get-SqlServerLabGeneratedSqlAccess      # Hyper-V-Generierte SQL-Accessdaten (Co
 New-SqlServerLabAutomatedTestEnvironment # Automatisierte Linux-Testumgebungen und Maschinenvertrag erzeugen
 Export-SqlServerLabTestEnvironment      # TestUmgebung.env/JSON/JSON-Schema/Markdown unter Lab_Data aktualisieren
 Repair-SqlServerLabAutomatedTestEnvironment # Linux-Mitglieder der geschützten Gruppe kontrolliert reparieren
+Start-SqlServerLabAutomatedTestEnvironment # Registrierte Windows-Mitglieder und SQL-Dienste gruppenweise bereitstellen
+Stop-SqlServerLabAutomatedTestEnvironment # Registrierte Windows-Mitglieder nicht-destruktiv stoppen und Export sperren
 Clear-SqlServerLabAutomatedTestEnvironment # Geschützte Testgruppe vollständig entfernen
 
 # Pruefung

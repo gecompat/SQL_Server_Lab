@@ -245,6 +245,10 @@ repräsentativen Fallback.
 Ein Push auf `main` startet keine erneute Vollmatrix. Der tägliche Workflow
 `Nightly Regression` führt stattdessen alle statischen Suites, alle Runtime-
 Smokes sowie die SQL-/CMS-Abnahme der gemeinsam exportierten Testumgebungen aus.
+Der native Gruppen-Lifecycle kann ergänzend mit
+`Invoke-TestEnvironmentGroupLifecycle.ps1` ausgeführt werden; er beweist den
+öffentlichen Ablauf Start, Live-Export `READY`, nicht-destruktiver Windows-Stopp
+und fail-closed Export bei unveränderten Registrierungen und Linux-Mitgliedern.
 Fehler werden in einem wiederverwendeten GitHub-Issue sichtbar gehalten. Die
 frische Hyper-V-/SQL-Installation läuft zusätzlich wöchentlich oder manuell.
 

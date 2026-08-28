@@ -34,10 +34,13 @@ Alle Testumgebungen bilden eine gemeinsame, geschützte Lifecycle-Gruppe:
   mit 4 GB Container-RAM, 4 vCPU, 3 GB `max server memory` und einem davon
   getrennten SQL-Linux-Memory-Limit unterhalb der cgroup-Grenze.
 - Die Gruppe ist nur verwendbar, wenn wirklich alle registrierten Ziele bereit sind.
-- Der gezielte CI-Modus `shared-environments` darf eine ausgeschaltete,
-  registrierte Windows-VM und deren vorhandene SQL-Engine-Dienste reaktivieren.
-  Er verändert weder die Gruppenzusammensetzung noch provisioniert oder löscht
-  er Slots; nach der Reparatur nimmt er alle sechs Ziele und den CMS gemeinsam ab.
+- `Start-SqlServerLabAutomatedTestEnvironment` darf die registrierten Windows-
+  VMs als Gruppe reaktivieren, vorhandene SQL-Engine-Dienste starten und ihre
+  SQL-Bereitschaft authentifiziert prüfen. Erst der danach live erneuerte
+  Gesamtvertrag darf `READY` melden.
+- `Stop-SqlServerLabAutomatedTestEnvironment` schaltet dieselben Windows-VMs
+  gemeinsam aus und gibt ihre Hostkapazität frei. Die Slotregistrierungen,
+  Runs, Secrets, VHDX-Dateien und Linux-Mitglieder bleiben erhalten.
 - Normale Start-, Stopp-, Neustart-, Ressourcen-, Umbenennungs- und
   Löschmenüs zeigen die Runs an, lassen sie dort aber nicht auswählen.
 - Auch `Clear-SqlServerLab` überspringt die geschützte Testgruppe.
@@ -196,6 +199,47 @@ Schritt jederzeit erneuert werden:
 ```powershell
 Export-SqlServerLabTestEnvironment
 ```
+
+## Nicht destruktiver Windows-Gruppen-Lifecycle
+
+Die geschützten Windows-Mitglieder werden nicht über die gesperrten Einzel-
+Cmdlets gestartet oder gestoppt. Dafür gibt es zwei idempotente öffentliche
+Gruppenaufrufe:
+
+```powershell
+Start-SqlServerLabAutomatedTestEnvironment -WhatIf
+$start = Start-SqlServerLabAutomatedTestEnvironment -Force -Confirm:$false
+
+$start.Status
+$start.Export.GroupStatus
+```
+
+`Status = READY` ist nur möglich, wenn jede registrierte Windows-VM läuft,
+mindestens ein vorhandener SQL-Engine-Dienst im Gast läuft, die gebundene SQL-
+Instanz erreichbar ist und der anschließend live erzeugte Gesamtexport
+`GroupStatus = READY` meldet. Einzelne Fehler werden secretfrei unter
+`Details` als `FAILED/PARTIAL` zurückgegeben; der Gesamtstatus bleibt dann
+`INCOMPLETE`.
+
+Nach der Testlast werden ausschließlich die Windows-VMs ausgeschaltet:
+
+```powershell
+Stop-SqlServerLabAutomatedTestEnvironment -WhatIf
+$stop = Stop-SqlServerLabAutomatedTestEnvironment -Force -Confirm:$false
+
+$stop.Status
+$stop.Export.GroupStatus
+```
+
+Nach erfolgreichem Stopp lautet `Status = STOPPED`. Der erneuerte Export ist
+absichtlich fail-closed: `GroupStatus = INCOMPLETE`, die Windows-Einträge haben
+`runtimeStatus = STOPPED`, und kein Einzelziel wird als verwendbar freigegeben.
+`-Force` unterdrückt nur die zusätzliche Gruppenrückfrage; `SupportsShouldProcess`,
+`-WhatIf` und `-Confirm` bleiben wirksam. Beide Aufrufe verändern weder die
+Gruppenzusammensetzung noch Linux-Mitglieder und löschen keine Ressourcen.
+Der reale Hostnachweis vom 2026-08-28 ist im
+[Validierungsbericht zum geschützten Testgruppen-Lifecycle](../Quality/VALIDATION_RESULT_2026-08-28_TEST_ENVIRONMENT_LIFECYCLE.md)
+dokumentiert.
 
 Ist nur der Ressourcen- oder Health-Vertrag der registrierten Linux-Container
 veraltet, wird die geschützte Gruppe nicht gelöscht. Der öffentliche

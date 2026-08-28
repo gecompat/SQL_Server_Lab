@@ -54,6 +54,14 @@ Start, Stop, PowerShell Direct und scopegebundener Cleanup. Der Native-
 Smoke-Test verwendet bewusst eine synthetische leere Parent-VHDX und beweist
 weder Betriebssystem- noch SQL-Bereitschaft.
 
+Für die registrierten Windows-Mitglieder der geschützten automatisierten
+Testgruppe existiert ein eigener öffentlicher Gruppen-Lifecycle. Er kann
+vorhandene VMs und SQL-Engine-Dienste idempotent starten, authentifizierte SQL-
+Readiness prüfen und die VMs danach ohne Löschung wieder stoppen. Dieser enge
+Vertrag ist keine allgemeine Hyper-V-Gruppenverwaltung: Er verändert keine
+Registrierungen, erstellt keine Slots und repariert keine unvollständige SQL-
+Installation. Ein Teilfehler hält den erneuerten Export fail-closed.
+
 Builder und reguläre Lab-VMs deaktivieren automatische Hyper-V-Checkpoints.
 Die Publikation bleibt fail-closed, wenn dennoch ein Checkpoint vorhanden ist,
 und übernimmt eine VHDX erst nach erfolgreicher, hashverifizierter Registry-
