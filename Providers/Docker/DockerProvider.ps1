@@ -164,7 +164,7 @@ else
 fi
 '@)
     }
-    $initializationScript = $initializationCommands -join "`n"
+    $initializationScript = ($initializationCommands -join "`n") -replace "`r`n", "`n"
     $initializationBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($initializationScript))
     $executionCommand = "printf '%s' '$initializationBase64' | base64 -d | /bin/sh"
     $initialized = docker run --rm --user 0:0 --entrypoint /bin/sh `
