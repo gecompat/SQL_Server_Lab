@@ -68,8 +68,46 @@ Add-CheckResult -Name 'Docker und Podman setzen Restart-Policy und Autostart-Lab
 Add-CheckResult -Name 'Hostkoordinator deckt Windows und natives Podman/Linux ab' -Success (
     $coordinator -match 'Register-ScheduledTask' -and $coordinator -match 'machine start' -and
     $coordinator -match 'podman-restart\.service' -and $coordinator -match 'enable-linger' -and
-    $coordinator -match 'is-enabled docker\.service' -and $coordinator -match 'label=sql-server-lab\.autostart=on'
+    $coordinator -match 'is-enabled docker\.service' -and $coordinator -match 'label=sql-server-lab\.autostart=on' -and
+    $coordinator -match 'Test-LabWindowsContainerAutoStartTaskReusable'
 )
+
+$testPowerShellPath = 'C:\Program Files\PowerShell\7\pwsh.exe'
+$testScriptPath = 'C:\Users\test-user\AppData\Local\SQL_Server_Lab\autostart\Start-docker-Labs.ps1'
+$testArguments = "-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$testScriptPath`""
+$testCurrentUser = "$([Environment]::MachineName)\test-user"
+$validExistingTask = [PSCustomObject]@{
+    Actions = @([PSCustomObject]@{ Execute = $testPowerShellPath; Arguments = $testArguments })
+    Triggers = @([PSCustomObject]@{ UserId = $testCurrentUser; Enabled = $true })
+    Principal = [PSCustomObject]@{ UserId = 'test-user'; LogonType = 'Interactive'; RunLevel = 'Limited' }
+}
+$existingTaskReusable = & $module {
+    param($task, $powerShellPath, $arguments, $currentUser)
+    Test-LabWindowsContainerAutoStartTaskReusable -Task $task -PowerShellPath $powerShellPath -Arguments $arguments -CurrentUser $currentUser
+} $validExistingTask $testPowerShellPath $testArguments $testCurrentUser
+Add-CheckResult -Name 'Gültiger bestehender Windows-Koordinator ist idempotent wiederverwendbar' -Success $existingTaskReusable
+
+$foreignTask = [PSCustomObject]@{
+    Actions = $validExistingTask.Actions
+    Triggers = $validExistingTask.Triggers
+    Principal = [PSCustomObject]@{ UserId = 'other-user'; LogonType = 'Interactive'; RunLevel = 'Limited' }
+}
+$foreignTaskReusable = & $module {
+    param($task, $powerShellPath, $arguments, $currentUser)
+    Test-LabWindowsContainerAutoStartTaskReusable -Task $task -PowerShellPath $powerShellPath -Arguments $arguments -CurrentUser $currentUser
+} $foreignTask $testPowerShellPath $testArguments $testCurrentUser
+Add-CheckResult -Name 'Fremder Windows-Koordinator wird nicht wiederverwendet' -Success (-not $foreignTaskReusable)
+
+$driftedTask = [PSCustomObject]@{
+    Actions = @([PSCustomObject]@{ Execute = $testPowerShellPath; Arguments = '-NoProfile -File C:\unexpected.ps1' })
+    Triggers = $validExistingTask.Triggers
+    Principal = $validExistingTask.Principal
+}
+$driftedTaskReusable = & $module {
+    param($task, $powerShellPath, $arguments, $currentUser)
+    Test-LabWindowsContainerAutoStartTaskReusable -Task $task -PowerShellPath $powerShellPath -Arguments $arguments -CurrentUser $currentUser
+} $driftedTask $testPowerShellPath $testArguments $testCurrentUser
+Add-CheckResult -Name 'Abweichender Windows-Koordinator bleibt fail-closed' -Success (-not $driftedTaskReusable)
 Add-CheckResult -Name 'Provisionierung aktiviert den Hostkoordinator nur bei autostart=on' -Success (
     $newLab -match "instance\.autostart -eq 'on'" -and $newLab -match 'Enable-LabContainerHostAutoStart'
 )
