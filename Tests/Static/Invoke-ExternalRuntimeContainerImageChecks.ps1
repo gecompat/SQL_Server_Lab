@@ -382,7 +382,8 @@ try {
         $acceptanceSource -notmatch '(?m)\$variant\.status\s*=' -and
         $acceptanceSource -notmatch '(?m)\$providerDefinition\.capabilities\s*=' -and
         $hostAcceptanceSource -match 'foreach \(\$provider in @\(''docker'',''podman''\)\)' -and
-        $hostAcceptanceSource -match 'sudo pwsh[^\r\n]+Invoke-ExternalRuntimeContainerAcceptance\.ps1'
+        $hostAcceptanceSource -match 'sudo pwsh[^\r\n]+Invoke-ExternalRuntimeContainerAcceptance\.ps1' -and
+        $hostAcceptanceSource -match "if \(\`$KeepOnFailure\) \{ ' -KeepOnFailure' \}"
     )
     Add-CheckResult -Name 'Root/cgroup und minimale Capabilities werden nur durch den exakten Launchmodus gebunden' -Success (
         ($result.Recipe.launchContract.requiredLinuxCapabilities -join ',') -eq ($requiredLaunchCapabilities -join ',') -and
