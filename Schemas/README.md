@@ -17,7 +17,7 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 | `lab-storage-contract.schema.json` | Lokale Multi-Root-Registry mit stabilen Location-IDs, Anzeigenamen, Selektoren und Topologiebeleg |
 | `lab-storage-intent.schema.json` | Portabler Manifestvertrag `SqlServerLab.StorageIntent/1.0` ohne lokale Pfade oder Geräte-IDs |
 | `lab-storage-bound-plan.schema.json` | Lokaler read-only Vertrag `SqlServerLab.StorageBoundPlan/1.0` für Selector-, Location-, Topologie- und Dateibindung |
-| `lab-storage-runtime-receipt.schema.json` | Getrennter Evidence-Vertrag für die noch nicht implementierte Provider-/Gast-/SQL-Anwendung |
+| `lab-storage-runtime-receipt.schema.json` | Getrennter Evidence-Vertrag für Hyper-V-VHDX, Gastdisk, SQL-Dateipfad, Dienstrestart, Postconditions und Recovery |
 
 ## Beispiele
 
@@ -75,6 +75,14 @@ Weitere `example-*.json`-Dateien können spezialisierte oder vorbereitete Szenar
   Katalogvariante nicht ausführbar
 
 Das Schema enthält teilweise vorbereitete Erweiterungsfelder. Die verbindlichen Grenzen stehen in [`KNOWN_LIMITATIONS.md`](../Documentation/Quality/KNOWN_LIMITATIONS.md).
+
+Ein `storageIntent` wird im Hyper-V-Manifestpfad lokal an registrierte,
+controller-eigene `Lab_Data`-Locations gebunden. Pro Selector entsteht eine
+dynamische Storage-VHDX; nach der stabilen Gastinitialisierung werden
+Instanz-Defaultpfade und der vollständige TempDB-Dateiplan angewendet. Erst ein
+SQL-Dienstrestart mit erfolgreichen Defaultpfad- und `sys.master_files`-
+Postconditions setzt das getrennte Runtime-Receipt auf `VERIFIED`. Container
+bleiben bei physischen Trennungsanforderungen ausdrücklich unsupported.
 
 Jede direkte Eigenschaft unter `serverConfig` ist deshalb maschinenlesbar mit
 `x-runtimeStatus` klassifiziert:

@@ -114,6 +114,9 @@ function ConvertTo-HyperVLabNotes {
                     allocationUnitKB = [int]$_.AllocationUnitKB
                     volumeLabel = [string]$_.VolumeLabel
                     maximumIops = [long]$_.MaximumIops
+                    hostRoot = if ($_.HostRoot) { [string]$_.HostRoot } else { $null }
+                    locationId = if ($_.LocationId) { [string]$_.LocationId } else { $null }
+                    selector = if ($_.Selector) { [string]$_.Selector } else { $null }
                 }
             }
         )
@@ -204,9 +207,32 @@ function Resolve-HyperVAdditionalDrivePlan {
         if ($maximumIops -lt 0 -or $maximumIops -gt 1000000) { throw "HYPERV_ADDITIONAL_DRIVE_IOPS_INVALID: $id" }
 
         $safeId = $id -replace '_', '-'
-        $path = Join-Path $ResourceRoot "$VMName-$safeId.vhdx"
-        if (-not (Test-HyperVPathWithinRunDirectory -Path $path -RunDirectory $RunDirectory)) {
-            throw 'HYPERV_RESOURCE_SCOPE_VIOLATION'
+        $hostRoot = if ($drive.hostRoot) { [IO.Path]::GetFullPath([string]$drive.hostRoot).TrimEnd('\', '/') } else { $null }
+        $hostPath = if ($drive.hostPath) { [IO.Path]::GetFullPath([string]$drive.hostPath).TrimEnd('\', '/') } else { $null }
+        if ([bool]$hostRoot -ne [bool]$hostPath) { throw "HYPERV_ADDITIONAL_DRIVE_HOST_BINDING_INCOMPLETE: $id" }
+        if ($hostRoot) {
+            $configuration = Get-LabStorageConfiguration -DataRoot $hostRoot
+            $registered = @($configuration.LabDataLocations | Where-Object {
+                [string]::Equals([IO.Path]::GetFullPath([string]$_.LabDataRoot).TrimEnd('\', '/'), $hostRoot, [StringComparison]::OrdinalIgnoreCase)
+            })
+            $boundary = Test-LabPathWithinRoot -Root $hostRoot -Path $hostPath
+            $relativeHostPath = if ($boundary.Valid) { [IO.Path]::GetRelativePath($hostRoot, $hostPath) } else { '' }
+            if ($registered.Count -ne 1 -or
+                -not (Test-LabDataRootOwnership -DataRoot $hostRoot -ControllerId ([string]$configuration.ControllerId)) -or
+                -not $boundary.Valid -or
+                -not $drive.locationId -or [string]$drive.locationId -ne [string]$registered[0].LocationId -or
+                -not $drive.selector -or [string]$drive.selector -notin @($registered[0].Selectors) -or
+                $relativeHostPath -notmatch '^Labs[\\/][^\\/]+[\\/]Instances[\\/]hyperv[\\/][^\\/]+[\\/]Storage[\\/]([^\\/]+)$' -or
+                [string]$Matches[1] -ne [string]$drive.selector) {
+                throw "HYPERV_ADDITIONAL_DRIVE_HOST_BINDING_NOT_OWNED: $id"
+            }
+            $path = Join-Path $hostPath "$VMName-$safeId.vhdx"
+        }
+        else {
+            $path = Join-Path $ResourceRoot "$VMName-$safeId.vhdx"
+            if (-not (Test-HyperVPathWithinRunDirectory -Path $path -RunDirectory $RunDirectory)) {
+                throw 'HYPERV_RESOURCE_SCOPE_VIOLATION'
+            }
         }
         if (Test-Path -LiteralPath $path) {
             throw "Hyper-V-Zusatz-VHDX existiert bereits: $path"
@@ -228,6 +254,9 @@ function Resolve-HyperVAdditionalDrivePlan {
             AllocationUnitKB = $allocationUnitKB
             VolumeLabel = $volumeLabel
             MaximumIops = $maximumIops
+            HostRoot = $hostRoot
+            LocationId = if ($drive.locationId) { [string]$drive.locationId } else { $null }
+            Selector = if ($drive.selector) { [string]$drive.selector } else { $null }
         }
     }
     return @($plan)
@@ -424,6 +453,7 @@ function New-HyperVInstance {
             -Action 'remove' `
             -Provider 'hyperv' `
             -ProviderSubRunId 'provider-hyperv' `
+            -SafetyRoot ([string]$drive.HostRoot) `
             -Compensation "Remove Hyper-V $($drive.Role) VHDX $($drive.Id) for $vmName"
     }
     $null = Add-CleanupStep `
@@ -438,6 +468,10 @@ function New-HyperVInstance {
     $null = New-Item -ItemType Directory -Path $resourceRoot -Force
     $null = New-VHD -Path $childVhdxPath -ParentPath $resolvedParent -Differencing -ErrorAction Stop
     foreach ($drive in $additionalDrivePlan) {
+        $driveDirectory = Split-Path -Parent ([string]$drive.Path)
+        if (-not (Test-Path -LiteralPath $driveDirectory -PathType Container)) {
+            $null = New-Item -ItemType Directory -Path $driveDirectory -Force -ErrorAction Stop
+        }
         $newVhdParameters = @{
             Path = $drive.Path
             SizeBytes = $drive.SizeBytes
@@ -1459,12 +1493,39 @@ function Remove-HyperVVhdxForCleanup {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$Path,
-        [Parameter(Mandatory)][string]$ExpectedRunDirectory
+        [Parameter(Mandatory)][string]$ExpectedRunDirectory,
+        [string]$SafetyRoot
     )
 
     $resolvedPath = [System.IO.Path]::GetFullPath($Path)
-    if (-not (Test-HyperVPathWithinRunDirectory -Path $resolvedPath -RunDirectory $ExpectedRunDirectory)) {
-        throw 'HYPERV_RESOURCE_SCOPE_VIOLATION'
+    $runLocal = Test-HyperVPathWithinRunDirectory -Path $resolvedPath -RunDirectory $ExpectedRunDirectory
+    if (-not $runLocal) {
+        if (-not $SafetyRoot) { throw 'HYPERV_RESOURCE_SCOPE_VIOLATION' }
+        $resolvedSafetyRoot = [IO.Path]::GetFullPath($SafetyRoot).TrimEnd('\', '/')
+        $configuration = Get-LabStorageConfiguration -DataRoot $resolvedSafetyRoot
+        $registered = @($configuration.LabDataLocations | Where-Object {
+            [string]::Equals([IO.Path]::GetFullPath([string]$_.LabDataRoot).TrimEnd('\', '/'), $resolvedSafetyRoot, [StringComparison]::OrdinalIgnoreCase)
+        })
+        $boundary = Test-LabPathWithinRoot -Root $resolvedSafetyRoot -Path $resolvedPath
+        $relative = if ($boundary.Valid) { [IO.Path]::GetRelativePath($resolvedSafetyRoot, $resolvedPath) } else { '' }
+        $runStatePath = Join-Path $ExpectedRunDirectory 'run-state.json'
+        $runPrefix = $null
+        if (Test-Path -LiteralPath $runStatePath -PathType Leaf) {
+            try {
+                $runState = Get-Content -LiteralPath $runStatePath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 10
+                if ([string]$runState.runId -match '^[0-9a-fA-F-]{36}$') {
+                    $runPrefix = ([string]$runState.runId).Replace('-', '').Substring(0, 8).ToLowerInvariant()
+                }
+            }
+            catch { $runPrefix = $null }
+        }
+        if ($registered.Count -ne 1 -or
+            -not (Test-LabDataRootOwnership -DataRoot $resolvedSafetyRoot -ControllerId ([string]$configuration.ControllerId)) -or
+            -not $boundary.Valid -or
+            $relative -notmatch '^Labs[\\/][^\\/]+[\\/]Instances[\\/]hyperv[\\/][^\\/]+[\\/]Storage[\\/][^\\/]+[\\/][^\\/]+\.vhdx$' -or
+            -not $runPrefix -or (Split-Path -Leaf $resolvedPath) -notmatch "-$runPrefix-sfp-\d{2}\.vhdx$") {
+            throw 'HYPERV_RESOURCE_SCOPE_VIOLATION'
+        }
     }
     if ([System.IO.Path]::GetExtension($resolvedPath) -ne '.vhdx') {
         throw 'Nur scopegebundene run-lokale VHDX duerfen entfernt werden.'

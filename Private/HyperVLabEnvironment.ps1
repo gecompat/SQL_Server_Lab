@@ -229,6 +229,7 @@ function New-HyperVLabEnvironment {
         [string]$SwitchName,
         [switch]$Isolated,
         [object[]]$AdditionalDrives = @(),
+        $StorageIntent,
         $DesiredState,
         [string]$StateRoot
     )
@@ -245,6 +246,15 @@ function New-HyperVLabEnvironment {
     }
     $workload = if ($artifactState -eq 'SQL_PREPARED_SEALED') { 'sql' } else { 'windows' }
     $baseKind = if ($workload -eq 'sql') { 'sql-prepared' } else { 'windows-baseline' }
+    if ($StorageIntent) {
+        if ($workload -ne 'sql') { throw 'HYPERV_STORAGE_INTENT_SQL_PREPARED_IMAGE_REQUIRED' }
+        if (@($AdditionalDrives).Count -gt 0) { throw 'HYPERV_STORAGE_INTENT_ADDITIONAL_DRIVE_CONFLICT' }
+        $storagePreflight = New-LabStorageBoundPlan -StorageIntent $StorageIntent -RunId ([Guid]::NewGuid().ToString('D')) `
+            -LabName $LabName -InstanceId $InstanceId -Provider hyperv
+        if ([string]$storagePreflight.Status -ne 'READY') {
+            throw "HYPERV_STORAGE_INTENT_BINDING_BLOCKED: $(@($storagePreflight.Blockers) -join ', ')"
+        }
+    }
     $labNetwork = Resolve-LabHyperVNetwork -SwitchName $SwitchName -Isolated:$Isolated
 
     Write-LabInfo 'Schritt 2/5: Workflow-Run und rückgängig ausführbarer Cleanup-Plan werden angelegt.'
@@ -261,6 +271,17 @@ function New-HyperVLabEnvironment {
         -ProviderSubRuns @([PSCustomObject]@{ id = 'provider-hyperv'; provider = 'hyperv'; instanceIds = @($InstanceId) })
     try {
         $null = New-CleanupPlan -RunDir $run.RunDir -RunId $run.RunId -ScopeId $run.ScopeId -ProviderSubRuns @([PSCustomObject]@{ id = 'provider-hyperv'; provider = 'hyperv'; instanceIds = @($InstanceId) })
+        $storageBoundPlan = $null
+        if ($StorageIntent) {
+            $storageBoundPlan = New-LabStorageBoundPlan -StorageIntent $StorageIntent -RunId $run.RunId `
+                -LabName $LabName -InstanceId $InstanceId -Provider hyperv
+            if ([string]$storageBoundPlan.Status -ne 'READY') {
+                throw "HYPERV_STORAGE_INTENT_BINDING_BLOCKED: $(@($storageBoundPlan.Blockers) -join ', ')"
+            }
+            $AdditionalDrives = @(ConvertTo-LabHyperVStorageDrivePlan -Plan $storageBoundPlan)
+            $null = Assert-LabStorageBoundPlan -Plan $storageBoundPlan
+            Write-LabArtifactJsonAtomic -Path (Join-Path $run.RunDir 'storage-bound-plan.json') -InputObject $storageBoundPlan
+        }
         $sourceDescription = if ($workload -eq 'sql') { 'SQL-Prepared-Image' } else { 'Windows-OS-Baseline' }
         $null = Set-LabRunState -RunId $run.RunId -NewState PROVISIONING -Reason "Hyper-V-Lab wird aus $sourceDescription erstellt." -StateRoot $run.StateRoot
         Set-LabProviderSubRunState -RunId $run.RunId -Provider hyperv -NewState PROVISIONING -Reason "Hyper-V-Lab wird aus $sourceDescription erstellt." -StateRoot $run.StateRoot
@@ -273,12 +294,14 @@ function New-HyperVLabEnvironment {
                 sqlEdition = if ($workload -eq 'sql') { [string]$artifact.sql.edition } else { $null }
                 workload = $workload; baseKind = $baseKind; imageArtifactId = $ArtifactId; host = $null; port = $null
                 labNetwork = if ($labNetwork) { [PSCustomObject]@{ name = $labNetwork.Name; subnet = $labNetwork.Subnet; prefixLength = $labNetwork.PrefixLength; hostAddress = $labNetwork.HostAddress } } else { $null }
+                storageBoundPlan = if ($storageBoundPlan) { [PSCustomObject]@{ planId=[string]$storageBoundPlan.PlanId; status='READY_TO_APPLY'; artifact='storage-bound-plan.json' } } else { $null }
                 additionalDrives = @($vm.AdditionalDrives | ForEach-Object {
                     [PSCustomObject]@{
                         id = [string]$_.Id; role = [string]$_.Role; sizeBytes = [long]$_.SizeBytes
                         vhdType = [string]$_.VhdType; diskIdentifier = [string]$_.DiskIdentifier
                         guestPath = [string]$_.GuestPath; allocationUnitKB = [int]$_.AllocationUnitKB
                         volumeLabel = [string]$_.VolumeLabel; maximumIops = [long]$_.MaximumIops
+                        locationId = [string]$_.LocationId; selector = [string]$_.Selector
                         state = 'ATTACHED_PENDING_INITIALIZATION'
                     }
                 })
@@ -620,6 +643,20 @@ function Invoke-HyperVLabUnattendedProvision {
     }
     Write-LabInfo 'Schritt 6/6b: SQL CompleteImage, WMI-Prüfung sowie TCP/IP-Hostzugriff werden in der laufenden Klon-VM automatisch ausgeführt.'
     $sqlCompletion = Complete-HyperVLabSqlImage -RunId $RunId -Credential $credential -SqlSaPassword $SqlSaPassword -MediaRoot $MediaRoot -StateRoot $lab.StateRoot
+    $storageRuntime = $null
+    $storagePlanPath = Join-Path $lab.RunDirectory 'storage-bound-plan.json'
+    if (Test-Path -LiteralPath $storagePlanPath -PathType Leaf) {
+        Write-LabInfo 'SQL-Defaultpfade und TempDB-Dateiplan werden auf die initialisierten Storage-Lanes angewendet und nach Dienstrestart geprüft.'
+        $storagePlan = Get-Content -LiteralPath $storagePlanPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 40
+        $storageRuntime = Invoke-HyperVLabStoragePlan -RunId $RunId -Plan $storagePlan -Credential $credential `
+            -SqlSaPassword $SqlSaPassword -StateRoot $lab.StateRoot
+        $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
+        $lab.Instance.storageBoundPlan.status = 'VERIFIED'
+        $lab.Instance | Add-Member -NotePropertyName storageRuntime -NotePropertyValue ([PSCustomObject]@{
+            status=[string]$storageRuntime.Status; planId=[string]$storageRuntime.PlanId; artifact='storage-runtime-receipt.json'
+        }) -Force
+        Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
+    }
     $hostAccess = if ($sqlCompletion.PSObject.Properties['hostSqlAccess']) { $sqlCompletion.hostSqlAccess } else { $null }
     $generatedSqlAccess = New-HyperVTransientGeneratedSqlAccess -HostSqlAccess $hostAccess -SqlSaPassword $SqlSaPassword `
         -Generated:$generatedSqlPassword -Persisted:$generatedSqlPassword
@@ -632,7 +669,7 @@ function Invoke-HyperVLabUnattendedProvision {
     }
     Write-LabSuccess 'Unbeaufsichtigte OOBE, SQL CompleteImage, WMI und der TCP/IP-Hostzugriff sind abgeschlossen.'
     return [PSCustomObject]@{
-        RunId = $RunId; OobeState = 'COMPLETED'; SqlCompletion = $sqlCompletion
+        RunId = $RunId; OobeState = 'COMPLETED'; SqlCompletion = $sqlCompletion; StorageRuntime = $storageRuntime
         HostSqlAccess = $hostAccess; GeneratedSqlAccess = $generatedSqlAccess; PasswordSource = $PasswordSource
     }
 }
