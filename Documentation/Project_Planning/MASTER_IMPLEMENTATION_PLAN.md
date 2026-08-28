@@ -987,7 +987,7 @@ Jedes Dokument führt seine eigene Wellenzählung.
 | Welle 1 – Verträge und CLI-Skelett | teilweise, mit bewusster Abweichung | Statt getrennter Run-Request-/Scenario-/Topology-Schemas existiert `Schemas/lab-manifest.schema.json` mit Wizard und Fachvalidierung; Preflight ist `Test-SqlServerLabPrerequisite`; Adapter- sowie Batch-/Operation-Verträge sind implementiert. Scenario- und breite Capability-Schemas sind offen |
 | Welle 2 – Container Quick Environment | umgesetzt | Docker und Podman über direkte Provider-Adapter (kein Compose-Core), Menü und nicht interaktive Parameter, Profile, Health-/SQL-/Versionsprüfung, Lifecycle und scopegebundener Cleanup; zusätzlich implementiert: gemischter Docker-/Podman-Run, Sample-Backup-Handler sowie providerneutraler Batch-/Queue-/Resume-Kern. Docker-/Podman-SQL-Bulk und Hyper-V-Windows-Slot-Bulk samt Resume und Cleanup sind real verifiziert |
 | Welle 3 – Migration des Analyze-QuickTest-Lifecycle | teilweise | Übergangszustände vor Mutation, Recovery-Status, Run-ID-/Scope-Validierung und lokale Secret-Verwaltung sind im Core vorhanden; Reset-Vertrag, Apply-Adapter und Compatibility Wrapper für `SQL_Server_Analyze` sind offen |
-| Welle 4 – Hyper-V Provider | teilweise; nativer Lifecycle validiert | Immutable Image-Registry, Baseline-Auswahl, Generation-2-/Secure-Boot-/Parent-Child-VHDX-Lifecycle, Gast-Drives, Windows-Specialization, SQL-`CompleteImage` im engen Prepared-Image-Klonpfad und interne SQL-Readiness-Orchestrierung implementiert; VM-/VHDX-/Start-/Stop-/Reconcile-/Cleanup-Lifecycle ist auf einem erhöhten Runner grün. Vollautomatische OS-Factory, breites Netzwerk-/Manifest-Binding und echter Windows-/SQL-2025-Gastnachweis sind offen |
+| Welle 4 – Hyper-V Provider | teilweise; nativer Lifecycle und Prepared-Image-Build real validiert | Immutable Image-Registry, Baseline-Auswahl, Generation-2-/Secure-Boot-/Parent-Child-VHDX-Lifecycle, Gast-Drives, Windows-Specialization, SQL-`CompleteImage` im engen Prepared-Image-Klonpfad und interne SQL-Readiness-Orchestrierung implementiert; VM-/VHDX-/Start-/Stop-/Reconcile-/Cleanup-Lifecycle sowie ein frischer Windows-2025-/SQL-2025-`PrepareImage`-/Sysprep-/Publish-Lauf sind real grün. Der reale Prepared-Image-Klon bis `SQL_READY_RUN`, breites Netzwerk-/Manifest-Binding und die allgemeine vollautomatische OS-Factory bleiben offen |
 | Welle 5 – Scenario Engine und Fault Injection | nicht begonnen | |
 | Welle 6 – Adapter `SQL_PerformanceSchulung` | begonnen | Adaptervertrag, Resolver, `Test-/Install-SqlServerLabAdapter` und synthetischer Beispieladapter sind implementiert (`ADP-001`/`ADP-002`/`ADP-005`); der Pilot im Schulungsrepository ist offen, siehe [Project-Adapter-Priorisierung](PROJECT_ADAPTER_PRIORITIZATION.md) |
 | Welle 7 – Adapter `SQL_Server_Analyze` | begonnen | gleiche Adapterbasis; der Pilot im Analyze-Repository ist offen |
@@ -1099,10 +1099,10 @@ Master-Plan-Welle zu verändern oder eine Umsetzung zu starten.
 
 | Nächste Welle | Zuordnung zu diesem Master-Plan | Status |
 |---|---|---|
-| N1 – Baseline, Regressionen und Katalogwartung | Wellen 0, 1 und 9; fortlaufende Statuswahrheit | `PLANNED_NOT_STARTED` |
-| N2 – P0-Steuerungs-, Abbruch- und Recovery-Verträge | Wellen 1, 2, 3 und 9; vorgeschaltete Konsolidierungswelle | `PLANNED_NOT_STARTED` |
+| N1 – Baseline, Regressionen und Katalogwartung | Wellen 0, 1 und 9; fortlaufende Statuswahrheit | `COMPLETE` |
+| N2 – P0-Steuerungs-, Abbruch- und Recovery-Verträge | Wellen 1, 2, 3 und 9; vorgeschaltete Konsolidierungswelle | `COMPLETE` |
 | N3 – Drei reale Project-Adapter-Piloten | Wellen 6, 7 und 7a | `PLANNED_NOT_STARTED` |
-| N4 – Hyper-V Windows-/SQL-End-to-End | Welle 4 | `PLANNED_NOT_STARTED` |
+| N4 – Hyper-V Windows-/SQL-End-to-End | Welle 4 | `IN_PROGRESS` |
 | N5 – Storage- und Reconcile-Vertical-Slice | Wellen 1, 3, 4 und 5; Storage-Konsolidierungsplan | `PLANNED_NOT_STARTED` |
 
 Die fünf Wellen bilden den nächsten Planungshorizont. Scenario Engine, breite

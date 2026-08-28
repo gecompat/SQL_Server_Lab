@@ -150,6 +150,23 @@ nicht als Generalize-Quelle wiederverwendet.
     -ArtifactId 'hyperv-os-sealed-<sha256>'
 ```
 
+### Reale SQL-Prepared-Image-Abnahme
+
+Dieser Runner verifiziert Windows-Server-2025- und SQL-Server-2025-Medien samt
+SHA-256-Sidecars, installiert Windows unbeaufsichtigt auf einer neuen VHDX und
+führt den produktiven SQL-`PrepareImage`-/finalen-Sysprep-/Publish-Pfad aus. Das
+resultierende `SQL_PREPARED_SEALED`-Artifact liegt ausschließlich im temporären
+Test-StateRoot und wird zusammen mit VM, VHDX, Antwort-ISO und Credential
+scopegebunden entfernt.
+
+```powershell
+.\Tests\Integration\Invoke-HyperVSqlPreparedImageAcceptance.ps1
+```
+
+Dieser Nachweis deckt den Prepared-Image-Build ab. Der reale
+`CompleteImage`-Klon und der normale Manifestlauf bis `SQL_READY_RUN` bleiben
+Teil des noch offenen allgemeinen Providerpfads.
+
 ## 3. Voraussetzungen
 
 ### Statische Prüfung

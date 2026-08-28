@@ -431,7 +431,7 @@ providers:
     port_binding: "gemeinsame Portermittlung plus Runtime-Retry innerhalb des hostweiten Locks"
     memory_binding: "cgroup-Limit plus MSSQL_MEMORY_LIMIT_MB mit 20 Prozent Headroom"
   hyperv:
-    status: windows_slot_sql_install_and_specialization_readiness_orchestration
+    status: windows_slot_sql_install_and_specialization_readiness_orchestration_with_real_sql_prepared_build
     implementation: Providers/HyperV/HyperVProvider.ps1
     image_registry: Private/HyperVImageRegistry.ps1
     image_builder: Private/HyperVImageBuilder.ps1
@@ -442,6 +442,7 @@ providers:
     native_smoke: Tests/Integration/Invoke-HyperVSmokeTest.ps1
     registry_static_checks: Tests/Static/Invoke-HyperVImageRegistryChecks.ps1
     builder_static_checks: Tests/Static/Invoke-HyperVImageBuilderChecks.ps1
+    sql_prepared_build_acceptance: Tests/Integration/Invoke-HyperVSqlPreparedImageAcceptance.ps1
     template_pool: "Maximal 20 immutable OS_SEALED-/SQL_PREPARED_SEALED-Images; aktive Builder und Lab-Klone blockieren Parent-Löschung"
 
 catalogs:

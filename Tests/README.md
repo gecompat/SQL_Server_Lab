@@ -38,6 +38,7 @@ dokumentiert. Ihre ausfuehrbaren Einstiege sind:
 .\Tests\Integration\Invoke-ContainerCliAcceptance.ps1 -Provider docker -Version 2022-CU18
 .\Tests\Integration\Invoke-ContainerCliAcceptance.ps1 -Provider podman -Version 2022-CU18
 .\Tests\Integration\Invoke-HyperVCliAcceptance.ps1 -MediaRoot D:\Lab_Base -SqlVersion 2025
+.\Tests\Integration\Invoke-HyperVSqlPreparedImageAcceptance.ps1
 ```
 
 Interpretation:
