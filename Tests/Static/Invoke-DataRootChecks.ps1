@@ -193,6 +193,25 @@ try {
         [string]$secondaryAfterDriveLetterChange.DriveLetter -eq 'Z:'
     )
 
+    $metadataLocationId = [string]$secondaryLocation.LocationId
+    $null = & $module {
+        param($id)
+        Set-LabDataLocationMetadata -LocationId $id -DisplayName 'Schnelle Daten' -Selectors @('DATA-FAST','temp-01') -Confirm:$false
+    } $metadataLocationId
+    $afterMetadata = & $module { param($root) Get-LabStorageConfiguration -DataRoot $root } $temporaryRoot
+    $secondaryAfterMetadata = @($afterMetadata.LabDataLocations | Where-Object { [string]$_.LocationId -eq $metadataLocationId })[0]
+    Add-CheckResult -Name 'Anzeigename und portable Selektoren werden normalisiert und persistiert' -Success (
+        [string]$secondaryAfterMetadata.DisplayName -eq 'Schnelle Daten' -and
+        @($secondaryAfterMetadata.Selectors).Count -eq 2 -and
+        @($secondaryAfterMetadata.Selectors) -contains 'data-fast' -and
+        @($secondaryAfterMetadata.Selectors) -contains 'temp-01'
+    ) -Message ("DisplayName={0}; Selectors={1}" -f $secondaryAfterMetadata.DisplayName, (@($secondaryAfterMetadata.Selectors) -join ','))
+    $selectorConflictRejected = try {
+        & $module { param($id) Set-LabDataLocationMetadata -LocationId $id -DisplayName 'Konflikt' -Selectors @('data-fast') -Confirm:$false } $primaryLocationId
+        $false
+    } catch { $_.Exception.Message -match 'LAB_STORAGE_SELECTOR_NOT_UNIQUE' }
+    Add-CheckResult -Name 'Portable Selektoren bleiben registry-weit eindeutig' -Success $selectorConflictRejected
+
     $secondaryLocationId = [string]$secondaryLocation.LocationId
     $null = & $module { param($id) Set-LabDefaultDataLocation -LocationId $id -ProcessEnvironmentOnly -Confirm:$false } $secondaryLocationId
     $afterDefaultSwitch = & $module { param($root) Get-LabStorageConfiguration -DataRoot $root } $temporaryRoot

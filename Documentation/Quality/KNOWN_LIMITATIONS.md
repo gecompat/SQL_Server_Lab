@@ -240,12 +240,14 @@ Volume- und Backing-Device-Topologie, übernimmt Legacy-Defaults mit Receipt und
 schützt Default- sowie referenzierte Locations. Laufwerksrelative Eingaben wie
 `D:` werden blockiert; das normalisierte Ziel wird vor der Bestätigung gezeigt.
 
-Registrierte `Lab_Data`-Roots können aber noch nicht Default-Data, Default-Log,
-Backup, einzelnen TempDB-Datenfiles oder dem TempDB-Log zugeordnet werden. Die
-Topologieerfassung allein ist außerdem noch kein realer Vier-Geräte-Nachweis:
-Vier Laufwerksbuchstaben oder Partitionen auf derselben Festplatte dürfen nicht
-als vier physisch getrennte TempDB-Ziele bewertet werden. Das bleibt Scope von
-`SFP-001` bis `SFP-003`, `HVS-001`/`HVS-002` und `SQLS-001` bis `SQLS-003`.
+Registrierte `Lab_Data`-Roots können über portable Selektoren jetzt read-only an
+Default-Data, Default-Log, Backup, einzelne TempDB-Datenfiles, TempDB-Log,
+Datenbankdateien und Restore-Regeln gebunden werden. Der Bound Plan prüft
+Volume- und Backing-Device-Anforderungen fail-closed und verspricht ausdrücklich
+noch keine Runtime-Anwendung (`PLANNED_NOT_IMPLEMENTED`). VHDX-Erzeugung,
+Gastinitialisierung, SQL-Default-/TempDB-Anwendung, Datenbankdateien und Restore-
+`MOVE` bleiben Scope von `HVS-001`/`HVS-002` und `SQLS-001` bis `SQLS-003`.
+Der reale Vier-Geräte-Nachweis ist deshalb weiterhin offen.
 
 Das Feld `sizeLimitGB` bei Drives ist derzeit Metadatum; Docker- oder Podman-Volumes werden dadurch nicht physisch auf diese Größe begrenzt.
 

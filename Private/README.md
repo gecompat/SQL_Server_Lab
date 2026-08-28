@@ -16,6 +16,8 @@ Der Pfad `Private/` beschreibt primär die interne Architektur. Die tatsächlich
 | `SoftwareCatalog.ps1` | Providerneutrale External-Runtime-Anforderungen, kataloggebundene Planauflösung und sanitisiertes Installation Receipt |
 | `StateMachine.ps1` | State-Root, Run-State, ProviderSubRuns, Übergänge, Historie und aktive Runs |
 | `DesiredState.ps1` | Geheimnisfreier Run-Sollzustand mit providerneutralen Drive-, Network- und Software-Intents |
+| `StorageContract.ps1` | Controllergebundene Multi-Root-Registry, stabile Location-Metadaten, Topologie und Migrationseinstieg |
+| `StorageFilePlacement.ps1` | Read-only Bindung portabler SQL-Storage-Intents an lokale Locations, Topologie, Gastpfade und reviewbare SQL-Dateien |
 | `ArtifactResolver.ps1` | HTTP(S)-Backup-Acquisition, lokaler Trust Store, inhaltsadressierter Cache, Quarantäne und sanitisiertes Run Lock |
 | `SampleArtifactHandlers.ps1` | Backup-, Archiv-, Einzel-Skript- und sichere Multi-Output-Script-Bundle-Installation |
 | `SampleBaselineRegistry.ps1` | Inhaltsadressiertes `LAB_GENERATED`-Register, deterministische Keys, exakte/kompatible Auswahl und Quarantäne |

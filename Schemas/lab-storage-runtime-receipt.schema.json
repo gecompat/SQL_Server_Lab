@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sql-server-lab.local/schemas/lab-storage-runtime-receipt.schema.json",
+  "title": "SqlServerLab.StorageRuntimeReceipt/1.0",
+  "type": "object",
+  "required": ["ContractVersion", "PlanId", "RunId", "InstanceId", "Provider", "Status", "FileBindings", "Postconditions", "Recovery"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.StorageRuntimeReceipt/1.0" },
+    "PlanId": { "type": "string", "format": "uuid" },
+    "RunId": { "type": "string", "format": "uuid" },
+    "InstanceId": { "type": "string", "minLength": 1 },
+    "Provider": { "enum": ["docker", "podman", "hyperv"] },
+    "Status": { "enum": ["APPLYING", "APPLIED", "VERIFIED", "RECOVERY_REQUIRED"] },
+    "FileBindings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["Role", "LogicalName", "LocationId", "HostPath", "RuntimeStorageId", "GuestDiskId", "GuestPath", "SqlPhysicalPath"],
+        "properties": {
+          "Role": { "type": "string" },
+          "LogicalName": { "type": "string" },
+          "LocationId": { "type": "string", "format": "uuid" },
+          "HostPath": { "type": "string" },
+          "RuntimeStorageId": { "type": "string" },
+          "GuestDiskId": { "type": "string" },
+          "GuestPath": { "type": "string" },
+          "SqlPhysicalPath": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "Postconditions": { "type": "array", "items": { "type": "object" } },
+    "Recovery": { "type": "object" }
+  },
+  "additionalProperties": false
+}

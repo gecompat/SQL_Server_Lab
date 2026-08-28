@@ -153,6 +153,8 @@ function New-LabStorageLocationRecord {
     }
     return [PSCustomObject]@{
         LocationId = $locationId
+        DisplayName = if ($ExistingLocation -and [string]$ExistingLocation.DisplayName) { [string]$ExistingLocation.DisplayName } elseif ($volume.DriveLetter) { "Storage $($volume.DriveLetter)" } else { "Storage $locationId" }
+        Selectors = @($(if ($ExistingLocation) { @($ExistingLocation.Selectors) } else { @() }) | ForEach-Object { [string]$_ } | Where-Object { $_ } | Sort-Object -Unique)
         ControllerId = $ControllerId
         VolumeId = [string]$volume.VolumeId
         DriveLetter = [string]$volume.DriveLetter
@@ -261,7 +263,9 @@ function Get-LabStorageConfiguration {
     $locations = @(
         foreach ($location in @($rawConfiguration.LabDataLocations)) {
             if (-not $location.LabDataRoot) { continue }
-            if (-not $location.LocationId -or -not $location.TopologyStatus -or -not $location.PSObject.Properties['BackingDeviceIds']) {
+            if (-not $location.LocationId -or -not $location.DisplayName -or
+                -not $location.PSObject.Properties['Selectors'] -or -not $location.TopologyStatus -or
+                -not $location.PSObject.Properties['BackingDeviceIds']) {
                 $upgraded = $true
             }
             New-LabStorageLocationRecord -ControllerId $controllerId `
@@ -429,6 +433,32 @@ function Set-LabDefaultDataLocation {
     }
     $null = Set-LabTestEnvironmentDiscoveryEnvironment -DataRoot ([string]$document.DefaultDataRoot) -ProcessEnvironmentOnly:$ProcessEnvironmentOnly
     return [string]$document.DefaultDataRoot
+}
+
+function Set-LabDataLocationMetadata {
+    [CmdletBinding(SupportsShouldProcess, ConfirmImpact='Medium')]
+    param(
+        [Parameter(Mandatory)][ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$LocationId,
+        [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$DisplayName,
+        [string[]]$Selectors = @()
+    )
+
+    $normalizedSelectors = @($Selectors | ForEach-Object { ([string]$_).Trim().ToLowerInvariant() } | Where-Object { $_ } | Sort-Object -Unique)
+    foreach ($selector in $normalizedSelectors) {
+        if ($selector -notmatch '^[a-z][a-z0-9-]{0,62}$') { throw "LAB_STORAGE_SELECTOR_INVALID: $selector" }
+    }
+    $configuration = Get-LabStorageConfiguration
+    $location = @($configuration.LabDataLocations | Where-Object LocationId -eq $LocationId | Select-Object -First 1)
+    if ($location.Count -ne 1) { throw "LAB_STORAGE_LOCATION_NOT_FOUND: $LocationId" }
+    $conflicts = @($configuration.LabDataLocations | Where-Object {
+        [string]$_.LocationId -ne $LocationId -and @($_.Selectors | Where-Object { $_ -in $normalizedSelectors }).Count -gt 0
+    })
+    if ($conflicts.Count -gt 0) { throw "LAB_STORAGE_SELECTOR_NOT_UNIQUE: $(@($conflicts.Selectors | Where-Object { $_ -in $normalizedSelectors }) -join ', ')" }
+    if (-not $PSCmdlet.ShouldProcess([string]$location[0].LabDataRoot, 'Storage-Anzeigename und portable Selektoren ändern')) { return $null }
+    $location[0].DisplayName = $DisplayName.Trim()
+    $location[0].Selectors = $normalizedSelectors
+    $null = Write-LabStorageConfiguration -Configuration $configuration
+    return $location[0]
 }
 
 function Get-LabDataLocationReferences {
@@ -823,10 +853,12 @@ function Invoke-LabStorageInteractive {
         $menu = Invoke-LabConsoleMenu -ScreenId 'storage-management' -Title 'Storage verwalten' -Subtitle $subtitle -Items @(
             New-LabConsoleItem -Id 'add' -Label 'Lab_Data-Location hinzufügen' -Value 'ändert einen vorhandenen Standard nicht' -Shortcut '1'
             New-LabConsoleItem -Id 'show' -Label 'Locations und Topologie aktualisieren' -Shortcut '2'
-            New-LabConsoleItem -Id 'default' -Label 'Globalen Fallback explizit festlegen' -Shortcut '3' -Disabled:(@($configuration.LabDataLocations).Count -lt 2)
-            New-LabConsoleItem -Id 'remove' -Label 'Unbenutzte Location deregistrieren' -Value 'Default und Referenzen sind geschützt' -Shortcut '4' -Disabled:(@($configuration.LabDataLocations).Count -lt 2)
-            New-LabConsoleItem -Id 'plan' -Label 'Parent-Migration planen' -Shortcut '5' -Disabled:(@($configuration.LabDataLocations).Count -eq 0)
-            New-LabConsoleItem -Id 'execute' -Label 'Freigegebenen Migrationsplan ausführen' -Shortcut '6'
+            New-LabConsoleItem -Id 'metadata' -Label 'Anzeigename und portable Selektoren ändern' -Shortcut '3' -Disabled:(@($configuration.LabDataLocations).Count -eq 0)
+            New-LabConsoleItem -Id 'default' -Label 'Globalen Fallback explizit festlegen' -Shortcut '4' -Disabled:(@($configuration.LabDataLocations).Count -lt 2)
+            New-LabConsoleItem -Id 'remove' -Label 'Unbenutzte Location deregistrieren' -Value 'Default und Referenzen sind geschützt' -Shortcut '5' -Disabled:(@($configuration.LabDataLocations).Count -lt 2)
+            New-LabConsoleItem -Id 'plan' -Label 'Parent-Migration planen' -Shortcut '6' -Disabled:(@($configuration.LabDataLocations).Count -eq 0)
+            New-LabConsoleItem -Id 'execute' -Label 'Freigegebenen Migrationsplan ausführen' -Shortcut '7'
+            New-LabConsoleItem -Id 'file-plan' -Label 'SQL-Dateiplatzierung lokal binden und prüfen' -Shortcut '8' -Disabled:(@($configuration.LabDataLocations).Count -eq 0)
             New-LabConsoleItem -Id 'back' -Label 'Zurück' -Shortcut '0'
         )
         if ($menu.Status -ne 'Selected' -or [string]$menu.SelectedItem.Id -eq 'back') { return }
@@ -844,12 +876,25 @@ function Invoke-LabStorageInteractive {
                 'show' {
                     foreach ($location in @($configuration.LabDataLocations)) {
                         $marker = if ([string]$location.LocationId -eq [string]$configuration.DefaultLocationId) { ' [STANDARD]' } else { '' }
-                        Write-Host ("  {0}{1}`n    Root={2}`n    Volume={3}; Topologie={4}; Backing={5}; Bus={6}; Medium={7}; Health={8}; Frei={9}" -f
-                            $location.LocationId, $marker, $location.LabDataRoot, $location.VolumeId,
+                        Write-Host ("  {0} · {1}{2}`n    Selektoren={3}`n    Root={4}`n    Volume={5}; Topologie={6}; Backing={7}; Bus={8}; Medium={9}; Health={10}; Frei={11}" -f
+                            $location.LocationId, $location.DisplayName, $marker, (@($location.Selectors) -join ', '), $location.LabDataRoot, $location.VolumeId,
                             $location.TopologyStatus, (@($location.BackingDeviceIds) -join ', '), $location.BusType,
                             $location.MediaType, $location.HealthStatus, $location.FreeBytes)
                     }
                     $null = Read-Host '  Enter zum Fortsetzen'
+                }
+                'metadata' {
+                    $location = Select-LabDataLocationInteractive -Configuration $configuration -Title 'Storage-Location benennen und Selektoren zuordnen'
+                    if (-not $location) { continue }
+                    $displayName = Read-Host "  Anzeigename [$($location.DisplayName)]"
+                    if (-not $displayName) { $displayName = [string]$location.DisplayName }
+                    $selectorsText = Read-Host "  Portable Selektoren, kommasepariert [$(@($location.Selectors) -join ',')]"
+                    $selectors = if ($selectorsText) { @($selectorsText -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ }) } else { @($location.Selectors) }
+                    Write-LabInfo "Location=$($location.LocationId); Anzeigename=$displayName; Selektoren=$($selectors -join ', ')"
+                    if (Read-LabConfirm -Prompt '  Metadaten jetzt speichern?' -Default $false) {
+                        $null = Set-LabDataLocationMetadata -LocationId ([string]$location.LocationId) -DisplayName $displayName -Selectors $selectors -Confirm:$false
+                        Write-LabSuccess 'Storage-Metadaten gespeichert.'
+                    }
                 }
                 'default' {
                     $location = Select-LabDataLocationInteractive -Configuration $configuration -Title 'Neuen globalen Lab_Data-Fallback wählen'
@@ -888,6 +933,9 @@ function Invoke-LabStorageInteractive {
                         Write-LabSuccess "Storage-Migration abgeschlossen: $($result.DataRoot)"
                         Write-LabInfo "Journal: $($result.JournalPath)"
                     }
+                }
+                'file-plan' {
+                    Invoke-LabStorageFilePlacementInteractive
                 }
             }
         }

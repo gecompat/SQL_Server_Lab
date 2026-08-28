@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sql-server-lab.local/schemas/lab-storage-bound-plan.schema.json",
+  "title": "SqlServerLab.StorageBoundPlan/1.0",
+  "type": "object",
+  "required": ["ContractVersion", "PlanId", "IntentSha256", "RunId", "InstanceId", "Provider", "Status", "Bindings", "SqlFiles", "TopologyEvidence", "Blockers", "RuntimeApplicationStatus"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.StorageBoundPlan/1.0" },
+    "PlanId": { "type": "string", "format": "uuid" },
+    "IntentSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "RunId": { "type": "string", "format": "uuid" },
+    "InstanceId": { "type": "string", "minLength": 1 },
+    "Provider": { "enum": ["docker", "podman", "hyperv"] },
+    "Status": { "enum": ["READY", "BLOCKED"] },
+    "Bindings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["Selector", "LocationId", "VolumeId", "BackingDeviceIds", "TopologyStatus", "HostRoot", "HostPath", "GuestRoot"],
+        "properties": {
+          "Selector": { "type": "string" },
+          "LocationId": { "type": "string", "format": "uuid" },
+          "VolumeId": { "type": "string" },
+          "BackingDeviceIds": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+          "TopologyStatus": { "enum": ["Proven", "LogicalOnly", "Unknown"] },
+          "HostRoot": { "type": "string" },
+          "HostPath": { "type": "string" },
+          "GuestRoot": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "SqlFiles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["Role", "LogicalName", "FileName", "Selector", "LocationId", "GuestPath", "SizeMB", "Growth"],
+        "properties": {
+          "Role": { "enum": ["default-data", "default-log", "backup", "tempdb-data", "tempdb-log", "database-data", "database-log", "restore-data-rule", "restore-log-rule"] },
+          "Database": { "type": ["string", "null"] },
+          "LogicalName": { "type": "string" },
+          "FileName": { "type": ["string", "null"] },
+          "Selector": { "type": "string" },
+          "LocationId": { "type": "string", "format": "uuid" },
+          "GuestPath": { "type": "string" },
+          "SizeMB": { "type": ["integer", "null"], "minimum": 8 },
+          "Growth": { "type": ["string", "null"], "pattern": "^\\d+(MB|%)$" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "TopologyEvidence": {
+      "type": "object",
+      "required": ["Distribution", "PhysicalIsolation", "Status", "DistinctVolumeCount", "DistinctBackingDeviceCount"],
+      "properties": {
+        "Distribution": { "type": "string" },
+        "PhysicalIsolation": { "type": "string" },
+        "Status": { "enum": ["PASS", "NOT_REQUIRED", "BLOCKED", "UNKNOWN"] },
+        "DistinctVolumeCount": { "type": "integer", "minimum": 0 },
+        "DistinctBackingDeviceCount": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "Blockers": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "RuntimeApplicationStatus": { "const": "PLANNED_NOT_IMPLEMENTED" }
+  },
+  "additionalProperties": false
+}

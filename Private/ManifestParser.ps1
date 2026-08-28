@@ -22,10 +22,22 @@ function Test-LabManifestSchema {
         throw "Manifest-Schema nicht gefunden: $schemaPath"
     }
 
+    $schema = Get-Content -LiteralPath $schemaPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 100
+    $storageIntentPath = Join-Path $script:SchemasPath 'lab-storage-intent.schema.json'
+    if (-not (Test-Path -LiteralPath $storageIntentPath -PathType Leaf)) {
+        throw "Storage-Intent-Schema nicht gefunden: $storageIntentPath"
+    }
+    $storageIntentSchema = Get-Content -LiteralPath $storageIntentPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 100
+    $storageIntentSchema.PSObject.Properties.Remove('$schema')
+    $storageIntentSchema.PSObject.Properties.Remove('$id')
+    $schema.definitions | Add-Member -MemberType NoteProperty -Name storageIntent -Value $storageIntentSchema -Force
+    $schema.definitions.instance.properties.storageIntent.PSObject.Properties['$ref'].Value = '#/definitions/storageIntent'
+    $validationSchema = $schema | ConvertTo-Json -Depth 100
+
     $schemaErrors = @()
     $isValid = Test-Json `
         -Json $Json `
-        -SchemaFile $schemaPath `
+        -Schema $validationSchema `
         -ErrorAction SilentlyContinue `
         -ErrorVariable schemaErrors
 
@@ -299,6 +311,7 @@ function Resolve-ManifestDefaults {
             collation     = if ($instance.collation) { $instance.collation } else { 'SQL_Latin1_General_CP1_CI_AS' }
             databases     = @()
             drives        = @()
+            storageIntent = $null
             serverConfig  = $null
             software      = @()
             postProvision = @()
@@ -370,6 +383,10 @@ function Resolve-ManifestDefaults {
                     type          = if ($drive.type) { $drive.type } else { 'auto' }
                 }
             }
+        }
+
+        if ($instance.storageIntent) {
+            $resolved.storageIntent = $instance.storageIntent | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
         }
 
         if ($instance.serverConfig) {

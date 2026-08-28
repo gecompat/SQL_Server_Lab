@@ -59,6 +59,7 @@ $checks = @(
     'Invoke-HyperVWindowsBaselineAcceptanceChecks.ps1',
     'Invoke-DataRootChecks.ps1',
     'Invoke-StorageMigrationChecks.ps1',
+    'Invoke-StorageFilePlacementChecks.ps1',
     'Invoke-VersionCatalogChecks.ps1',
     'Invoke-SoftwareCatalogChecks.ps1',
     'Invoke-ExternalRuntimeContainerImageChecks.ps1',

@@ -14,6 +14,10 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 | `sample-baseline-registry.schema.json` | Portables Register verifizierter, inhaltsadressierter Single-Backup- und Multi-Database-ZIP-`LAB_GENERATED`-Objekte |
 | `project-adapter.schema.json` | Adaptervertrag konsumierender Projekte (`Adapters/`), Version `0.1-draft` |
 | `test-environment.schema.json` | Vertrag `SqlServerLab.TestEnvironment/1.0` für den lokalen Export automatisierter Testumgebungen |
+| `lab-storage-contract.schema.json` | Lokale Multi-Root-Registry mit stabilen Location-IDs, Anzeigenamen, Selektoren und Topologiebeleg |
+| `lab-storage-intent.schema.json` | Portabler Manifestvertrag `SqlServerLab.StorageIntent/1.0` ohne lokale Pfade oder Geräte-IDs |
+| `lab-storage-bound-plan.schema.json` | Lokaler read-only Vertrag `SqlServerLab.StorageBoundPlan/1.0` für Selector-, Location-, Topologie- und Dateibindung |
+| `lab-storage-runtime-receipt.schema.json` | Getrennter Evidence-Vertrag für die noch nicht implementierte Provider-/Gast-/SQL-Anwendung |
 
 ## Beispiele
 
@@ -42,6 +46,7 @@ Weitere `example-*.json`-Dateien können spezialisierte oder vorbereitete Szenar
 - `collation` als Default für neu angelegte Datenbanken
 - `drives`
 - `serverConfig`
+- `storageIntent` für portable Rollen-, TempDB-, Datenbankdatei- und Restore-Platzierungsanforderungen
 - `databases`
 - `postProvision`
 

@@ -264,6 +264,10 @@
             "$ref": "#/definitions/drive"
           }
         },
+        "storageIntent": {
+          "$ref": "lab-storage-intent.schema.json",
+          "description": "Portabler SQL-Dateiplatzierungsintent. Er enthält nur Selektoren; konkrete LocationIds, Hostgeräte und Pfade werden lokal gebunden."
+        },
         "hyperv": {
           "type": "object",
           "description": "Hyper-V-spezifische Bereitstellung. Ohne preparedImageId wird die höchste lokale SQL_PREPARED_SEALED-Vorlage auf Windows Server Standard Evaluation mit Desktop Experience gewählt. Passwörter gehören nie in das Manifest.",
