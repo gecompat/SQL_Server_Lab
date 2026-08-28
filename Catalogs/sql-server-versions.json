@@ -1,9 +1,11 @@
 {
   "$schema": "../Schemas/version-catalog.schema.json",
   "catalogMetadata": {
-    "lastVerified": "2026-07-16",
+    "lastVerified": "2026-08-28",
     "maintainedBy": "monthly-catalog-agent",
     "sources": [
+      "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2019/build-versions",
+      "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2022/build-versions",
       "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2025/build-versions"
     ]
   },
@@ -41,22 +43,60 @@
         "minMemoryMB": 2048,
         "builds": [
           {
+            "tag": "2019-CU32-ubuntu-20.04",
+            "cu": "CU32",
+            "build": "15.0.4430.1",
+            "kb": "KB5054833",
+            "released": "2025-02-27"
+          },
+          {
+            "tag": "2019-CU31-ubuntu-20.04",
+            "cu": "CU31",
+            "build": "15.0.4420.2",
+            "kb": "KB5049296",
+            "released": "2025-02-13"
+          },
+          {
+            "tag": "2019-CU30-ubuntu-20.04",
+            "cu": "CU30",
+            "build": "15.0.4415.2",
+            "kb": "KB5049235",
+            "released": "2024-12-12"
+          },
+          {
+            "tag": "2019-CU29-ubuntu-20.04",
+            "cu": "CU29",
+            "build": "15.0.4405.4",
+            "kb": "KB5046365",
+            "released": "2024-10-31"
+          },
+          {
             "tag": "2019-CU28-ubuntu-20.04",
             "cu": "CU28",
+            "build": "15.0.4385.2",
             "kb": "KB5039747",
-            "released": "2024-06-13"
+            "released": "2024-08-01"
           },
           {
             "tag": "2019-CU27-ubuntu-20.04",
             "cu": "CU27",
+            "build": "15.0.4375.4",
             "kb": "KB5037331",
-            "released": "2024-03-14"
+            "released": "2024-06-13"
+          },
+          {
+            "tag": "2019-CU26-ubuntu-20.04",
+            "cu": "CU26",
+            "build": "15.0.4365.2",
+            "kb": "KB5035123",
+            "released": "2024-04-11"
           },
           {
             "tag": "2019-CU25-ubuntu-20.04",
             "cu": "CU25",
+            "build": "15.0.4355.3",
             "kb": "KB5033688",
-            "released": "2023-11-15"
+            "released": "2024-02-15"
           }
         ]
       },
@@ -76,40 +116,102 @@
         "minMemoryMB": 2048,
         "builds": [
           {
+            "tag": "2022-CU26-ubuntu-22.04",
+            "cu": "CU26",
+            "build": "16.0.4265.3",
+            "kb": "KB5093420",
+            "released": "2026-07-16"
+          },
+          {
+            "tag": "2022-CU25-ubuntu-22.04",
+            "cu": "CU25",
+            "build": "16.0.4255.1",
+            "kb": "KB5081477",
+            "released": "2026-05-20"
+          },
+          {
+            "tag": "2022-CU24-ubuntu-22.04",
+            "cu": "CU24",
+            "build": "16.0.4245.2",
+            "kb": "KB5080999",
+            "released": "2026-03-12"
+          },
+          {
+            "tag": "2022-CU23-ubuntu-22.04",
+            "cu": "CU23",
+            "build": "16.0.4236.2",
+            "kb": "KB5078297",
+            "released": "2026-01-29"
+          },
+          {
+            "tag": "2022-CU22-ubuntu-22.04",
+            "cu": "CU22",
+            "build": "16.0.4225.2",
+            "kb": "KB5068450",
+            "released": "2025-11-13"
+          },
+          {
+            "tag": "2022-CU21-ubuntu-22.04",
+            "cu": "CU21",
+            "build": "16.0.4215.2",
+            "kb": "KB5065865",
+            "released": "2025-09-11"
+          },
+          {
+            "tag": "2022-CU20-ubuntu-22.04",
+            "cu": "CU20",
+            "build": "16.0.4205.1",
+            "kb": "KB5059390",
+            "released": "2025-07-10"
+          },
+          {
+            "tag": "2022-CU19-ubuntu-22.04",
+            "cu": "CU19",
+            "build": "16.0.4195.2",
+            "kb": "KB5054531",
+            "released": "2025-05-15"
+          },
+          {
             "tag": "2022-CU18-ubuntu-22.04",
             "cu": "CU18",
-            "kb": "KB5044865",
-            "released": "2025-02-13"
+            "build": "16.0.4185.3",
+            "kb": "KB5050771",
+            "released": "2025-03-13"
           },
           {
             "tag": "2022-CU17-ubuntu-22.04",
             "cu": "CU17",
-            "kb": "KB5042578",
-            "released": "2024-10-10"
+            "build": "16.0.4175.1",
+            "kb": "KB5048038",
+            "released": "2025-01-16"
           },
           {
             "tag": "2022-CU16-ubuntu-22.04",
             "cu": "CU16",
-            "kb": "KB5041865",
-            "released": "2024-08-08"
+            "build": "16.0.4165.4",
+            "kb": "KB5048033",
+            "released": "2024-11-14"
           },
           {
             "tag": "2022-CU15-ubuntu-22.04",
             "cu": "CU15",
-            "kb": "KB5039731",
-            "released": "2024-06-13"
+            "build": "16.0.4145.4",
+            "kb": "KB5041321",
+            "released": "2024-09-25"
           },
           {
             "tag": "2022-CU14-ubuntu-22.04",
             "cu": "CU14",
+            "build": "16.0.4135.4",
             "kb": "KB5038325",
-            "released": "2024-04-11"
+            "released": "2024-07-23"
           },
           {
             "tag": "2022-CU13-ubuntu-22.04",
             "cu": "CU13",
+            "build": "16.0.4125.3",
             "kb": "KB5036432",
-            "released": "2024-02-15"
+            "released": "2024-05-16"
           }
         ]
       },
@@ -128,6 +230,19 @@
         "image": "mcr.microsoft.com/mssql/server:2025-latest",
         "minMemoryMB": 2048,
         "builds": [
+          {
+            "tag": "2025-CU8-ubuntu-24.04",
+            "cu": "CU8",
+            "build": "17.0.4075.5",
+            "kb": "KB5104822",
+            "released": "2026-08-13",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2025/cumulativeupdate8",
+            "windows": {
+              "relativePath": "SQL/2025/Updates/CU8/SQLServer2025-KB5104822-x64.exe",
+              "downloadUrl": null,
+              "sha256": null
+            }
+          },
           {
             "tag": "2025-CU7-ubuntu-24.04",
             "cu": "CU7",

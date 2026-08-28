@@ -692,13 +692,35 @@ Dieser Abschnitt ist die kanonische Reihenfolge für die nächste
 Weiterentwicklung. Die Wellen bündeln vorhandene Task-IDs aus den
 Meilensteinen und Spezialplänen; sie erfinden keine parallelen Verträge.
 
-Alle fünf Wellen besitzen zum Stand dieses Dokuments den Status
-`PLANNED_NOT_STARTED`. Ihre Aufnahme in diesen Plan startet keine Umsetzung und
-ist kein Implementierungs- oder Runtime-Nachweis. Jede Welle wird später in
-kleine, einzeln prüfbare Pull Requests zerlegt und erst nach ihrem eigenen Gate
-als begonnen oder abgeschlossen ausgewiesen.
+Der Status wird pro Welle geführt. Ein Status ist kein Implementierungs- oder
+Runtime-Nachweis; maßgeblich bleiben die jeweils genannten Tests und Evidence.
+
+| Welle | Status am 2026-08-28 | Einordnung |
+|---|---|---|
+| N1 | `IN_PROGRESS` | Nightly-Ursache klassifiziert, persistente Windows-Testumgebungen gezielt wiederhergestellt und CU-Katalog fachlich aktualisiert; zwei aufeinanderfolgende grüne Nightlies stehen noch aus. |
+| N2 | `PLANNED_NOT_STARTED` | Vorhandene Teilverträge und statische Checks ersetzen die geforderte reale P0-Abnahme nicht. |
+| N3 | `PLANNED_NOT_STARTED` | Die drei Partnerrepository-Piloten sind nicht nachgewiesen. |
+| N4 | `PLANNED_NOT_STARTED` | Vorhandene Hyper-V-Teilpfade und persistente Testumgebungen ersetzen den geforderten Cold-Path nicht. |
+| N5 | `PLANNED_NOT_STARTED` | Vorhandene Storage-/Reconcile-Teile ersetzen den vollständigen Vertical Slice nicht. |
 
 ### Welle N1 – Baseline, Regressionen und Katalogwartung
+
+**Status:** `IN_PROGRESS` seit 2026-08-28.
+
+**Aktuelle Evidence:** Der Nightly-Lauf
+[`33171213718`](https://github.com/gecompat/SQL_Server_Lab/actions/runs/33171213718)
+bestand beide statischen Plattform-Suites sowie Docker-, Podman-, Mixed-,
+Adapter- und Hyper-V-Lifecycle-Jobs. Der Fehler war auf die ausgeschaltete,
+weiterhin als `READY` registrierte persistente Umgebung `WINDOWS_2019_BASE`
+begrenzt. Die vorgesehene Runtime-Recovery startete anschließend alle drei
+registrierten Windows-Test-VMs; die lokale Akzeptanz bestätigte sechs SQL-Ziele
+mit echten Create/Drop-Abfragen und einen konsistenten CMS. Der CU-Abgleich vom
+2026-08-28 meldet für SQL Server 2019 CU32, SQL Server 2022 CU26 und SQL Server
+2025 CU8 jeweils `NO CHANGE` gegenüber der offiziellen Microsoft-Quelle. Der
+erneute Nightly-Gesamtlauf
+[`33186781267`](https://github.com/gecompat/SQL_Server_Lab/actions/runs/33186781267)
+läuft auf dem aktuellen `main`; erst sein Ergebnis und ein unmittelbar
+folgender zweiter grüner Lauf erfüllen das Stabilitätsgate.
 
 **Ziel:** Vor neuen Produktänderungen eine widerspruchsfreie, grüne und fachlich
 aktuelle Ausgangsbasis herstellen.

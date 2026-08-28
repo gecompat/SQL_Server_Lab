@@ -2,7 +2,7 @@
 
 | Dokument | Inhalt |
 |---|---|
-| DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md | Kanonische Ausführungsreihenfolge; Abschnitt 12 verankert die nächsten fünf noch nicht begonnenen Wellen für Baseline, P0-Recovery, drei Adapterpiloten, Hyper-V-End-to-End sowie Storage/Reconcile |
+| DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md | Kanonische Ausführungsreihenfolge; Abschnitt 12 führt den evidenzgebundenen Status der fünf Wellen für Baseline, P0-Recovery, drei Adapterpiloten, Hyper-V-End-to-End sowie Storage/Reconcile |
 | MASTER_IMPLEMENTATION_PLAN.md | Gesamtziel, Wellen, Abnahmekriterien und Umsetzungsstand |
 | MASTER_IMPLEMENTATION_PLAN_SCOPE_ADDENDUM.md | Vorrangige Scope-Regeln |
 | FUTURE_UI_WORKFLOW_PLAN_2026-08-08.md | Zukunftsplanung für CLI-/UI-Menüführung, Reconcile-Aktionen und Infrastruktur-Changes (Hyper-V + Container) |
