@@ -375,12 +375,13 @@ Python ist ausdrücklich auch unter Linux und in Containern vorgesehen; es ist
 nicht auf Hyper-V beschränkt.
 
 Der providerneutrale Softwarekatalog und Capability Resolver normalisieren
-Python-, R- und Java-Anforderungen bereits nach SQL-Version, Betriebssystem,
+Python-, R- und Java-Anforderungen nach SQL-Version, Betriebssystem,
 Architektur und Provider. Unvollständig belegte Varianten, freie Commands,
 nicht gesperrte Zusatzpakete und der bisherige `post-start`-Installer werden
-vor der Mutation sichtbar abgelehnt. Die Linux-Container-Varianten bleiben
-ohne getrennte native Docker-/Podman-Evidence `PREVIEW`; die nativ belegten
-Hyper-V-/Windows-Varianten sind `SUPPORTED`.
+vor der Mutation sichtbar abgelehnt. Die nativ belegten SQL-2022-Varianten für
+Docker/Linux, Podman/Linux und Hyper-V/Windows sind `SUPPORTED`. SQL Server
+2019, SQL Server 2025 und andere OS-/Providerkombinationen erben diesen Status
+nicht.
 
 Für SQL Server 2022/Python, R und Java existieren inzwischen ein per MCR-Digest
 gebundener Buildkontext, vollständige DEB-, Wheel-, R-Paket-, JDK-, Java-
@@ -394,17 +395,20 @@ Language Extension 1.1.1, das reproduzierbar gebaute SDK und das synthetische
 Probe-JAR sind hashgebunden. Java-Sprache und -Libraries wurden in einer echten
 SQL-2022-Zieldatenbank erstellt, gegen ihre Content-Hashes geprüft, idempotent
 wiederverwendet und nach einem absichtlich fehlgeschlagenen neuen Probeversuch
-vollständig kompensiert. Dies ist noch kein positiver SQL-JAR-Runtime-Nachweis.
+vollständig kompensiert.
 
-Der sichere `launchpadd`-Namespace-Modus benötigt cgroup v1 und die gezielt
-gebundene Container-Capability `SYS_ADMIN`. Der aktuelle Docker-Desktop-Host
-stellt cgroup v2 bereit und wird deshalb vor State und Mutation abgelehnt. Der
-Modus ohne Namespace-Isolation würde gleichzeitig Outbound-Zugriff der Worker
-erfordern und ist bewusst kein stiller Fallback. Getrennte positive Docker-
-und Podman-Native-Acceptance auf geeigneten Hosts fehlt weiterhin; Python, R
-und Java bleiben daher `PREVIEW`. Der Java-JAR-Aufruf erreicht auf dem aktuellen
-cgroup-v2-Host erwartungsgemäß keine bereitgestellte Language Runtime und wird
-nicht als positiver Nachweis gewertet.
+Der sichere `launchpadd`-Namespace-Modus benötigt rootful Linux, cgroup v1,
+einen schreibbaren cgroup-Bind sowie die im Rezept exakt gebundenen Linux-
+Capabilities und Security-Optionen. Ungeeignete Hosts werden vor State und
+Mutation abgelehnt; es gibt keinen stillen Fallback ohne Namespace-Isolation.
+Docker und Podman bestanden auf einem isolierten Ubuntu-22.04-/cgroup-v1-Gast
+je eine vollständige Native Acceptance: Python, R und Java lieferten echte
+SQL-Datenroundtrips und Worker-Identität vor und nach providergebundenem
+Neustart; Run-Ressourcen, Derived Image und das test-eigene Podman-Netz wurden
+vollständig bereinigt. Podman 3.4.4 benötigt dabei die eng begrenzte
+CNI-0.4.0-Kompatibilitätskorrektur und einen Retry für seine sofortige
+Portfreigabe-Race. Rootless Podman bleibt für allgemeine Labs unterstützt,
+nicht jedoch für diesen SQL-2022-External-Runtime-Modus.
 
 Für Hyper-V/Windows sind der SHA-256-gebundene Offline-Media-Pfad, der
 deterministische Gastplan, die Python-/R-/Java-Installation,

@@ -21,8 +21,8 @@
       "variants": [
         {
           "id": "sql2022-python310-ubuntu2204-derived",
-          "status": "PREVIEW",
-          "reason": "Der reproduzierbare Derived-Image-Pfad ist katalogisiert; getrennte native Docker-/Podman-Evidence im erforderlichen cgroup-v1-Namespace-Modus fehlt noch.",
+          "status": "SUPPORTED",
+          "reason": "Getrennte native Docker- und Podman-Evidence belegt den digestgebundenen Derived-Image-Pfad, Python-Datenroundtrip, Worker-Identitaet, providergebundenen Neustart und Cleanup auf SQL Server 2022/Ubuntu 22.04 mit cgroup v1.",
           "language": "Python",
           "runtimeVersion": "3.10",
           "extensionVersion": "SQL Server 2022 Machine Learning Services",
@@ -33,7 +33,7 @@
           "architecture": "x86_64",
           "providers": ["docker", "podman"],
           "installMethod": "derived-image",
-        "recipeVersion": "3",
+          "recipeVersion": "4",
           "requiresCapabilities": ["software-catalog-planning", "derived-image-build", "sql-external-runtime"],
           "sourceUrls": [
             "https://learn.microsoft.com/en-us/sql/linux/install-upgrade/setup-machine-learning-sql-2022?view=sql-server-ver17"
@@ -287,8 +287,8 @@
       "variants": [
         {
           "id": "sql2022-r42-ubuntu2204-derived",
-          "status": "PREVIEW",
-          "reason": "Der reproduzierbare R-Derived-Image-Pfad ist katalogisiert; getrennte native Docker-/Podman-Evidence im erforderlichen cgroup-v1-Namespace-Modus fehlt noch.",
+          "status": "SUPPORTED",
+          "reason": "Getrennte native Docker- und Podman-Evidence belegt den digestgebundenen R-Derived-Image-Pfad, R-Datenroundtrip, Paket- und Worker-Identitaet, providergebundenen Neustart und Cleanup auf SQL Server 2022/Ubuntu 22.04 mit cgroup v1.",
           "language": "R",
           "runtimeVersion": "4.2.3",
           "extensionVersion": "SQL Server 2022 Machine Learning Services",
@@ -299,7 +299,7 @@
           "architecture": "x86_64",
           "providers": ["docker", "podman"],
           "installMethod": "derived-image",
-        "recipeVersion": "3",
+          "recipeVersion": "4",
           "requiresCapabilities": ["software-catalog-planning", "derived-image-build", "sql-external-runtime"],
           "sourceUrls": [
             "https://learn.microsoft.com/en-us/sql/linux/install-upgrade/setup-machine-learning-sql-2022?view=sql-server-ver17"
@@ -542,8 +542,8 @@
       "variants": [
         {
           "id": "sql2022-java11-ubuntu2204-derived",
-          "status": "PREVIEW",
-          "reason": "Der reproduzierbare Java-Derived-Image-, DDL- und JAR-Probe-Pfad ist katalogisiert; getrennte native Docker-/Podman-Evidence im erforderlichen cgroup-v1-Namespace-Modus fehlt noch.",
+          "status": "SUPPORTED",
+          "reason": "Getrennte native Docker- und Podman-Evidence belegt den digestgebundenen Java-Derived-Image-Pfad, datenbankgebundene DDL, JAR-Datenroundtrip, Worker-Identitaet, providergebundenen Neustart und Cleanup auf SQL Server 2022/Ubuntu 22.04 mit cgroup v1.",
           "language": "Java",
           "runtimeVersion": "11",
           "extensionVersion": "1.1.1",
@@ -554,7 +554,7 @@
           "architecture": "x86_64",
           "providers": ["docker", "podman"],
           "installMethod": "derived-image",
-          "recipeVersion": "3",
+          "recipeVersion": "4",
           "requiresCapabilities": ["software-catalog-planning", "derived-image-build", "sql-external-runtime"],
           "sourceUrls": [
             "https://learn.microsoft.com/en-us/sql/linux/install-upgrade/setup-language-extensions-java?view=sql-server-ver17",

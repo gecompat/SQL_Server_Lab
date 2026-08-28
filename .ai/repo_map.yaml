@@ -293,7 +293,8 @@ internal_components:
       - "R 4.2.3 und RevoScaleR aus einem digestgebundenen Buildstage ohne Compiler im Zielimage bereitstellen"
       - "Java 11, Language Extension 1.1.1, SDK und synthetisches Probe-JAR aus SHA-256-gebundenen Quellen reproduzierbar und compilerfrei bereitstellen"
       - "Docker- und Podman-Buildreceipts getrennt und ohne Hostpfade persistieren"
-      - "cgroup-v1- und Namespace-Sicherheitsvertrag vor Container-Mutation erzwingen"
+      - "rootful-cgroup-v1-, Capability-, Security-Option- und Namespace-Sicherheitsvertrag vor Container-Mutation erzwingen"
+      - "SQL-Satellite-OpenSSL-Aufloesung und Java-Sandbox-Datenverzeichnisse reproduzierbar im Image binden"
       - "wiederverwendbare Images außerhalb des normalen Run-Cleanups halten"
   - name: ExternalRuntimeWindows
     source: Private/ExternalRuntimeWindows.ps1
@@ -572,6 +573,16 @@ validation:
       - python_r_and_java_guest_installation
       - windows_java_ddl_and_jar_probe
       - hyperv_state_recovery_and_sql_feature_gate
+  static_external_runtime_container_image:
+    command: '.\Tests\Static\Invoke-ExternalRuntimeContainerImageChecks.ps1'
+    source: Tests/Static/Invoke-ExternalRuntimeContainerImageChecks.ps1
+    covers:
+      - supported_linux_catalog_and_provider_capabilities
+      - provider_neutral_digest_and_context_bound_image_key
+      - python_r_java_and_combination_stages
+      - rootful_cgroup_v1_launch_contract
+      - docker_and_podman_native_acceptance_contract
+      - state_receipts_restart_and_cleanup_boundaries
   static_mixed_provider_contracts:
     command: '.\Tests\Static\Invoke-MixedProviderLifecycleChecks.ps1'
     source: Tests/Static/Invoke-MixedProviderLifecycleChecks.ps1
@@ -675,13 +686,29 @@ validation:
   hyperv_external_runtime_acceptance:
     source: Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1
     command: '.\Tests\Integration\Invoke-ExternalRuntimeHyperVAcceptance.ps1 -CloneSourceRunId <specialized-windows-source-run-id> -CleanupOnSuccess'
-    execution_status: "implementiert; positiver nativer Python-/R-/Java-Nachweis ausstehend; frische OOBE erfordert Elevation, der isolierte Clone-Modus kopiert einen ausgeschalteten spezialisierten Evaluation-Slot ohne Mutation der Quelle"
+    execution_status: "implementiert und positiv ausgefuehrt; Python, R und Java bestanden SQL-Roundtrip, Worker-Identitaet, vollstaendigen VM-Kaltstart und scopegebundenen Cleanup im isolierten Clone-Modus"
     checks:
       - sql_2022_advanced_analytics_feature
       - offline_python_r_and_java_guest_installation
       - python_r_and_java_external_script_roundtrip
       - warm_restart_and_cold_start_postconditions
       - sanitized_evidence_and_scope_bound_cleanup
+  external_runtime_container_acceptance:
+    source: Tests/Integration/Invoke-ExternalRuntimeContainerAcceptance.ps1
+    docker: '.\Tests\Integration\Invoke-ExternalRuntimeContainerAcceptance.ps1 -Provider docker -EvidencePath <external-evidence-path>'
+    podman: '.\Tests\Integration\Invoke-ExternalRuntimeContainerAcceptance.ps1 -Provider podman -EvidencePath <external-evidence-path>'
+    execution_status: "Docker und Podman auf isoliertem Ubuntu 22.04 mit rootful cgroup v1 positiv ausgefuehrt"
+    checks:
+      - supported_catalog_without_process_local_mutation
+      - digest_and_context_bound_derived_image
+      - python_r_and_java_external_script_roundtrip
+      - provider_bound_restart_and_repeat_probes
+      - sanitized_receipts_and_scope_bound_cleanup
+      - explicit_reusable_image_and_test_network_cleanup
+  external_runtime_container_hyperv_host:
+    source: Tests/Integration/Invoke-ExternalRuntimeContainerHyperVHost.ps1
+    command: '.\Tests\Integration\Invoke-ExternalRuntimeContainerHyperVHost.ps1'
+    execution_status: "implementiert; erzeugt einen isolierten hashgebundenen Ubuntu-22.04-Gast und fuehrt Docker und Podman getrennt rootful aus"
   cli_acceptance:
     authority: Documentation/Quality/CLI_ACCEPTANCE_MATRIX.md
     container_source: Tests/Integration/Invoke-ContainerCliAcceptance.ps1

@@ -211,7 +211,23 @@ function New-DockerInstance {
     }
     $restartArguments = if ($AutoStart -eq 'on') { @('--restart', 'unless-stopped') } else { @() }
     $externalRuntimeArguments = if ($ExternalRuntimeLaunchMode -eq 'sql2022-namespace-v1') {
-        @('--cap-add', 'SYS_ADMIN')
+        @(
+            '--user', '0:0',
+            '--cap-add', 'CHOWN',
+            '--cap-add', 'DAC_OVERRIDE',
+            '--cap-add', 'KILL',
+            '--cap-add', 'SETGID',
+            '--cap-add', 'SETUID',
+            '--cap-add', 'SYS_ADMIN',
+            '--cap-add', 'MKNOD',
+            '--cap-add', 'SETPCAP',
+            '--cap-add', 'NET_ADMIN',
+            '--cap-add', 'NET_RAW',
+            '--cap-add', 'SYS_PTRACE',
+            '--security-opt', 'apparmor=unconfined',
+            '--security-opt', 'seccomp=unconfined',
+            '--volume', '/sys/fs/cgroup:/sys/fs/cgroup:rw'
+        )
     }
     else { @() }
 

@@ -37,22 +37,22 @@ try {
         $javaRequest.Id = 'sql-java'
         $dockerJavaSoftwarePlan = Resolve-LabExternalRuntimePlan -SoftwareItem $javaRequest -SqlVersion 2022 -Provider docker -OperatingSystem linux
         $podmanJavaSoftwarePlan = Resolve-LabExternalRuntimePlan -SoftwareItem $javaRequest -SqlVersion 2022 -Provider podman -OperatingSystem linux
-        $dockerImagePlan = New-LabExternalRuntimeContainerImagePlan -Provider docker -SqlVersion 2022 -SoftwarePlans @($dockerSoftwarePlan) -AllowPreview
-        $podmanImagePlan = New-LabExternalRuntimeContainerImagePlan -Provider podman -SqlVersion 2022 -SoftwarePlans @($podmanSoftwarePlan) -AllowPreview
-        $dockerRImagePlan = New-LabExternalRuntimeContainerImagePlan -Provider docker -SqlVersion 2022 -SoftwarePlans @($dockerRSoftwarePlan) -AllowPreview
-        $podmanRImagePlan = New-LabExternalRuntimeContainerImagePlan -Provider podman -SqlVersion 2022 -SoftwarePlans @($podmanRSoftwarePlan) -AllowPreview
+        $dockerImagePlan = New-LabExternalRuntimeContainerImagePlan -Provider docker -SqlVersion 2022 -SoftwarePlans @($dockerSoftwarePlan)
+        $podmanImagePlan = New-LabExternalRuntimeContainerImagePlan -Provider podman -SqlVersion 2022 -SoftwarePlans @($podmanSoftwarePlan)
+        $dockerRImagePlan = New-LabExternalRuntimeContainerImagePlan -Provider docker -SqlVersion 2022 -SoftwarePlans @($dockerRSoftwarePlan)
+        $podmanRImagePlan = New-LabExternalRuntimeContainerImagePlan -Provider podman -SqlVersion 2022 -SoftwarePlans @($podmanRSoftwarePlan)
         $combinedImagePlan = New-LabExternalRuntimeContainerImagePlan -Provider docker -SqlVersion 2022 `
-            -SoftwarePlans @($dockerSoftwarePlan, $dockerRSoftwarePlan) -AllowPreview
+            -SoftwarePlans @($dockerSoftwarePlan, $dockerRSoftwarePlan)
         $dockerJavaImagePlan = New-LabExternalRuntimeContainerImagePlan -Provider docker -SqlVersion 2022 `
-            -SoftwarePlans @($dockerJavaSoftwarePlan) -AllowPreview
+            -SoftwarePlans @($dockerJavaSoftwarePlan)
         $podmanJavaImagePlan = New-LabExternalRuntimeContainerImagePlan -Provider podman -SqlVersion 2022 `
-            -SoftwarePlans @($podmanJavaSoftwarePlan) -AllowPreview
+            -SoftwarePlans @($podmanJavaSoftwarePlan)
         $pythonJavaImagePlan = New-LabExternalRuntimeContainerImagePlan -Provider docker -SqlVersion 2022 `
-            -SoftwarePlans @($dockerSoftwarePlan, $dockerJavaSoftwarePlan) -AllowPreview
+            -SoftwarePlans @($dockerSoftwarePlan, $dockerJavaSoftwarePlan)
         $rJavaImagePlan = New-LabExternalRuntimeContainerImagePlan -Provider docker -SqlVersion 2022 `
-            -SoftwarePlans @($dockerRSoftwarePlan, $dockerJavaSoftwarePlan) -AllowPreview
+            -SoftwarePlans @($dockerRSoftwarePlan, $dockerJavaSoftwarePlan)
         $allImagePlan = New-LabExternalRuntimeContainerImagePlan -Provider docker -SqlVersion 2022 `
-            -SoftwarePlans @($dockerSoftwarePlan, $dockerRSoftwarePlan, $dockerJavaSoftwarePlan) -AllowPreview
+            -SoftwarePlans @($dockerSoftwarePlan, $dockerRSoftwarePlan, $dockerJavaSoftwarePlan)
 
         $compensationRoot = Join-Path $Root 'java-compensation-run'
         New-Item -Path $compensationRoot -ItemType Directory -Force | Out-Null
@@ -155,6 +155,7 @@ try {
             PythonJavaPlan = $pythonJavaImagePlan
             RJavaPlan = $rJavaImagePlan
             AllPlan = $allImagePlan
+            SoftwarePlans = @($dockerSoftwarePlan,$podmanSoftwarePlan,$dockerRSoftwarePlan,$podmanRSoftwarePlan,$dockerJavaSoftwarePlan,$podmanJavaSoftwarePlan)
             MultiDatabaseCompensation = $multiDatabaseCompensation
             ArbitraryRejected = $arbitraryRejected
             ReceiptSanitized = $receiptText -notmatch '(?i)https?://|[A-Z]:\\|/usr/|RecipeRoot|Containerfile'
@@ -184,6 +185,22 @@ try {
         @($result.Recipe.runtimes.Java.artifacts + $result.Recipe.runtimes.Java.generatedArtifacts | Where-Object {
             [string]$_.sha256 -match '^[a-f0-9]{64}$'
         }).Count -eq 7
+    )
+    Add-CheckResult -Name 'SQL-Satellite-OpenSSL-Vertrag bindet nur die digestgebundenen Runtimebibliotheken' -Success (
+        $result.Recipe.recipeVersion -eq '4' -and
+        $result.Recipe.sqlSatelliteCompatibility.id -eq 'sql-server-2022-ubuntu-openssl-runtime-links' -and
+        @($result.Recipe.sqlSatelliteCompatibility.links).Count -eq 2 -and
+        $result.Recipe.sqlSatelliteCompatibility.links[0].path -eq '/usr/lib/x86_64-linux-gnu/libssl.so' -and
+        $result.Recipe.sqlSatelliteCompatibility.links[0].target -eq 'libssl.so.3' -and
+        $result.Recipe.sqlSatelliteCompatibility.links[1].path -eq '/usr/lib/x86_64-linux-gnu/libcrypto.so' -and
+        $result.Recipe.sqlSatelliteCompatibility.links[1].target -eq 'libcrypto.so.3'
+    )
+    Add-CheckResult -Name 'Freigegebene Linux-Varianten loesen ohne Preview-Bypass fuer beide Provider auf' -Success (
+        @($result.SoftwarePlans).Count -eq 6 -and
+        @($result.SoftwarePlans | Where-Object Status -ne 'RESOLVED').Count -eq 0 -and
+        @($result.SoftwarePlans | Where-Object RecipeVersion -ne '4').Count -eq 0 -and
+        $result.DockerPlan.EvidenceStatus -eq 'SUPPORTED' -and
+        $result.PodmanPlan.EvidenceStatus -eq 'SUPPORTED'
     )
     Add-CheckResult -Name 'Docker und Podman konsumieren denselben providerneutralen OCI-Image-Key' -Success (
         $result.DockerPlan.ImageKey -eq $result.PodmanPlan.ImageKey -and
@@ -227,6 +244,7 @@ try {
 
     $containerfile = Get-Content -LiteralPath (Join-Path $repoRoot 'Images/ExternalLanguages/Linux/Containerfile') -Raw -Encoding utf8
     $launcher = Get-Content -LiteralPath (Join-Path $repoRoot 'Images/ExternalLanguages/Linux/launch-external-runtime.sh') -Raw -Encoding utf8
+    $pythonWheelInstaller = Get-Content -LiteralPath (Join-Path $repoRoot 'Images/ExternalLanguages/Linux/install-python-wheels.py') -Raw -Encoding utf8
     $rInstaller = Get-Content -LiteralPath (Join-Path $repoRoot 'Images/ExternalLanguages/Linux/install-r-runtime.sh') -Raw -Encoding utf8
     $javaInstaller = Get-Content -LiteralPath (Join-Path $repoRoot 'Images/ExternalLanguages/Linux/install-java-runtime.sh') -Raw -Encoding utf8
     Add-CheckResult -Name 'Containerfile bindet Microsoft-Paket, EULA und sichere Launch-Metadaten' -Success (
@@ -237,9 +255,21 @@ try {
         $containerfile -match 'namespace-isolation="true"' -and
         $containerfile -match 'outbound-access="false"'
     )
+    Add-CheckResult -Name 'Containerfile behebt SQL-Satellite-OpenSSL-Aufloesung ohne ungesperrte Pakete' -Success (
+        $containerfile -match 'test -e /usr/lib/x86_64-linux-gnu/libssl\.so\.3' -and
+        $containerfile -match 'test -e /usr/lib/x86_64-linux-gnu/libcrypto\.so\.3' -and
+        $containerfile -match 'ln -s libssl\.so\.3 /usr/lib/x86_64-linux-gnu/libssl\.so' -and
+        $containerfile -match 'ln -s libcrypto\.so\.3 /usr/lib/x86_64-linux-gnu/libcrypto\.so' -and
+        $containerfile -notmatch '(?i)apt-get\s+install[^\r\n]*libssl-dev'
+    )
     Add-CheckResult -Name 'Launcher deaktiviert weder Namespace-Isolation noch Outbound-Schutz' -Success (
-        $launcher -match '/opt/mssql/bin/launchpadd &' -and
+        $launcher -match 'runuser -u mssql_launchpadd -- /opt/mssql/bin/launchpadd &' -and
+        $launcher -match 'runuser -u mssql -- "\$@" &' -and
         $launcher -notmatch '(?i)-usens=false|enableOutboundAccess=true'
+    )
+    Add-CheckResult -Name 'Wheel-Installation erhaelt nur sichere ausfuehrbare Modusbits' -Success (
+        $pythonWheelInstaller -match 'member\.external_attr >> 16' -and
+        $pythonWheelInstaller -match '0o755 if archive_mode & 0o111 else 0o644'
     )
     Add-CheckResult -Name 'R-Build bleibt hashgebunden, compilerfrei im Ziel und ABI-minimal' -Success (
         $containerfile -match 'rocker/r-ver@sha256:22202dfb31f3a1b515936bac559a9f56b67585adce2c14d063f97478940d374a' -and
@@ -262,12 +292,24 @@ try {
         $javaInstaller -match 'test -x .*jre/lib/jspawnhelper' -and
         $javaInstaller -notmatch '(?i)apt-get|curl\s'
     )
+    Add-CheckResult -Name 'Jede Java-Stage bindet die compilerfreie JRE in den Launchpad-Sandboxvertrag ein' -Success (
+        ([regex]::Matches($containerfile, 'mssql-conf set extensibility datadirectories[^\r\n]*/opt/sql-server-lab/java')).Count -eq 4 -and
+        $containerfile -match 'runtime-java[\s\S]*?datadirectories /opt/sql-server-lab/java' -and
+        $containerfile -match 'runtime-r-java[\s\S]*?datadirectories /usr/local/lib/R:/opt/sql-server-lab/java' -and
+        $containerfile -match 'runtime-python-java[\s\S]*?datadirectories /usr/lib:/usr/lib/python3\.10/dist-packages:/opt/sql-server-lab/java' -and
+        $containerfile -match 'runtime-r-python-java[\s\S]*?datadirectories /usr/local/lib/R:/usr/lib:/usr/lib/python3\.10/dist-packages:/opt/sql-server-lab/java'
+    )
 
     $artifactSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/ContainerImageArtifact.ps1') -Raw -Encoding utf8
     $dockerSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Providers/Docker/DockerProvider.ps1') -Raw -Encoding utf8
     $podmanSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Providers/Podman/PodmanProvider.ps1') -Raw -Encoding utf8
     $newLabSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/New-SqlServerLab.ps1') -Raw -Encoding utf8
     $lifecycleSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/ExternalRuntimeLifecycle.ps1') -Raw -Encoding utf8
+    $acceptanceSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Tests/Integration/Invoke-ExternalRuntimeContainerAcceptance.ps1') -Raw -Encoding utf8
+    $hostAcceptanceSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Tests/Integration/Invoke-ExternalRuntimeContainerHyperVHost.ps1') -Raw -Encoding utf8
+    $dockerDefinition = Get-Content -LiteralPath (Join-Path $repoRoot 'Providers/Docker/provider.json') -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
+    $podmanDefinition = Get-Content -LiteralPath (Join-Path $repoRoot 'Providers/Podman/provider.json') -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
+    $requiredLaunchCapabilities = @('CHOWN','DAC_OVERRIDE','KILL','SETGID','SETUID','SYS_ADMIN','MKNOD','SETPCAP','NET_ADMIN','NET_RAW','SYS_PTRACE')
     Add-CheckResult -Name 'Build akzeptiert nur bekannte Provider und arraygebundene Argumente' -Success (
         $artifactSource -match "ValidateSet\('docker', 'podman'\)" -and
         $artifactSource -match '& \$provider @buildArguments' -and
@@ -280,11 +322,54 @@ try {
     Add-CheckResult -Name 'Image-Reuse und Build sind je Artifact Store serialisiert' -Success (
         $artifactSource -match '(?s)function Invoke-LabExternalRuntimeContainerImageBuild\s*\{.*?Invoke-LabArtifactStoreLock.*?Invoke-LabExternalRuntimeContainerImageBuildCore'
     )
-    Add-CheckResult -Name 'SYS_ADMIN wird in beiden Providern nur durch den exakten Launchmodus gebunden' -Success (
+    Add-CheckResult -Name 'Podman-Neustart behandelt nur die bekannte Portfreigabe-Race zeitlich begrenzt' -Success (
+        $lifecycleSource -match 'if \(\$Provider -eq ''podman''\)' -and
+        $lifecycleSource -match 'Restart-PodmanInstance' -and
+        $podmanSource -match '(?s)function Restart-PodmanInstance\s*\{.*?Stop-PodmanInstance.*?Start-PodmanInstance' -and
+        $podmanSource -match 'cannot listen on the TCP port\.\*address already in use' -and
+        $podmanSource -match 'Stopwatch' -and
+        $podmanSource -match 'PODMAN_CONTAINER_START_PORT_RELEASE_TIMEOUT' -and
+        $podmanSource -notmatch '(?m)^\s*podman restart '
+    )
+    Add-CheckResult -Name 'Native Acceptance prueft den unveraenderten freigegebenen Katalog providergetrennt' -Success (
+        @('derived-image-build','sql-external-runtime' | Where-Object { @($dockerDefinition.capabilities) -notcontains $_ }).Count -eq 0 -and
+        @('derived-image-build','sql-external-runtime' | Where-Object { @($podmanDefinition.capabilities) -notcontains $_ }).Count -eq 0 -and
+        $acceptanceSource -match "ValidateSet\('docker', 'podman'\)" -and
+        $acceptanceSource -match "variant\.status -ne 'SUPPORTED'" -and
+        $acceptanceSource -match 'catalog-supported-native-acceptance' -and
+        $acceptanceSource -notmatch '(?m)\$variant\.status\s*=' -and
+        $acceptanceSource -notmatch '(?m)\$providerDefinition\.capabilities\s*=' -and
+        $hostAcceptanceSource -match 'foreach \(\$provider in @\(''docker'',''podman''\)\)' -and
+        $hostAcceptanceSource -match 'sudo pwsh[^\r\n]+Invoke-ExternalRuntimeContainerAcceptance\.ps1'
+    )
+    Add-CheckResult -Name 'Root/cgroup und minimale Capabilities werden nur durch den exakten Launchmodus gebunden' -Success (
+        ($result.Recipe.launchContract.requiredLinuxCapabilities -join ',') -eq ($requiredLaunchCapabilities -join ',') -and
+        $containerfile -match 'required-capabilities="CHOWN,DAC_OVERRIDE,KILL,SETGID,SETUID,SYS_ADMIN,MKNOD,SETPCAP,NET_ADMIN,NET_RAW,SYS_PTRACE"' -and
+        $artifactSource -match 'CHOWN,DAC_OVERRIDE,KILL,SETGID,SETUID,SYS_ADMIN,MKNOD,SETPCAP,NET_ADMIN,NET_RAW,SYS_PTRACE' -and
+        $newLabSource -match 'CHOWN,DAC_OVERRIDE,KILL,SETGID,SETUID,SYS_ADMIN,MKNOD,SETPCAP,NET_ADMIN,NET_RAW,SYS_PTRACE' -and
         $dockerSource -match "ExternalRuntimeLaunchMode -eq 'sql2022-namespace-v1'" -and
-        $dockerSource -match "@\('--cap-add', 'SYS_ADMIN'\)" -and
+        $dockerSource -match "'--user', '0:0'" -and
+        @($requiredLaunchCapabilities | Where-Object { $dockerSource -notmatch "'--cap-add', '$_'" }).Count -eq 0 -and
+        $dockerSource -match "'--cap-add', 'SYS_ADMIN'" -and
+        $dockerSource -match "'--cap-add', 'NET_ADMIN'" -and
+        $dockerSource -match "'--cap-add', 'SYS_PTRACE'" -and
+        $dockerSource -match "'--security-opt', 'apparmor=unconfined'" -and
+        $dockerSource -match "'--security-opt', 'seccomp=unconfined'" -and
+        $dockerSource -match "'/sys/fs/cgroup:/sys/fs/cgroup:rw'" -and
+        $dockerSource -notmatch "'--privileged'" -and
         $podmanSource -match "ExternalRuntimeLaunchMode -eq 'sql2022-namespace-v1'" -and
-        $podmanSource -match "@\('--cap-add', 'SYS_ADMIN'\)"
+        $podmanSource -match "'--user', '0:0'" -and
+        @($requiredLaunchCapabilities | Where-Object { $podmanSource -notmatch "'--cap-add', '$_'" }).Count -eq 0 -and
+        $podmanSource -match "'--cap-add', 'SYS_ADMIN'" -and
+        $podmanSource -match "'--cap-add', 'NET_ADMIN'" -and
+        $podmanSource -match "'--cap-add', 'SYS_PTRACE'" -and
+        $podmanSource -match "'--security-opt', 'apparmor=unconfined'" -and
+        $podmanSource -match "'--security-opt', 'seccomp=unconfined'" -and
+        $podmanSource -match "'/sys/fs/cgroup:/sys/fs/cgroup:rw'" -and
+        $podmanSource -match 'cp -a /var/opt/mssql/\. /sql-lab-volume-init/' -and
+        $podmanSource -match 'ExternalRuntimeLaunchMode -eq ''none''\) \{ \$volumeOptions \+= ''U'' \}' -and
+        $podmanSource -notmatch "'--privileged'" -and
+        $artifactSource -match 'if \(\$rootless\)'
     )
     Add-CheckResult -Name 'Software- und Host-Gates laufen vor Run-State und jeder Provider-Mutation' -Success (
         $newLabSource.IndexOf('Resolve-LabExternalRuntimePlansForInstance') -ge 0 -and

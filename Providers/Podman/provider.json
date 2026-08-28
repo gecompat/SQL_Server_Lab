@@ -1,7 +1,7 @@
 {
   "name": "podman",
-  "displayName": "Podman (Rootless Containers)",
-  "description": "Container-basierte SQL-Server-Instanzen via Podman, einschliesslich rootless Betrieb.",
+  "displayName": "Podman Containers",
+  "description": "Container-basierte SQL-Server-Instanzen via Podman; allgemeine Labs unterstuetzen rootless Betrieb, SQL Server 2022 External Runtimes erfordern rootful Linux mit cgroup v1.",
   "capabilities": [
     "linux",
     "multi-instance",
@@ -12,13 +12,16 @@
     "isolated-network",
     "resource-limits",
     "rootless",
-    "software-catalog-planning"
+    "software-catalog-planning",
+    "derived-image-build",
+    "sql-external-runtime"
   ],
   "limitations": [
     "no-gui",
     "no-windows-os",
     "limited-io-simulation",
-    "limited-network-simulation"
+    "limited-network-simulation",
+    "external-runtime-requires-rootful-linux-cgroup-v1"
   ],
   "detectionCommand": "podman info",
   "healthCheck": "podman ps --format '{{.ID}}'",

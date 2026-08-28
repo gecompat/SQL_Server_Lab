@@ -7,10 +7,10 @@ set -eo pipefail
 /opt/mssql/bin/permissions_check.sh
 source /opt/mssql/bin/init_custom_setup.sh
 
-/opt/mssql/bin/launchpadd &
+runuser -u mssql_launchpadd -- /opt/mssql/bin/launchpadd &
 launchpad_pid="$!"
 
-"$@" &
+runuser -u mssql -- "$@" &
 sql_pid="$!"
 
 terminate_children() {
