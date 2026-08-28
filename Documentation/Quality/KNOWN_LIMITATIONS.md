@@ -243,11 +243,19 @@ schützt Default- sowie referenzierte Locations. Laufwerksrelative Eingaben wie
 Registrierte `Lab_Data`-Roots können über portable Selektoren jetzt read-only an
 Default-Data, Default-Log, Backup, einzelne TempDB-Datenfiles, TempDB-Log,
 Datenbankdateien und Restore-Regeln gebunden werden. Der Bound Plan prüft
-Volume- und Backing-Device-Anforderungen fail-closed und verspricht ausdrücklich
-noch keine Runtime-Anwendung (`PLANNED_NOT_IMPLEMENTED`). VHDX-Erzeugung,
-Gastinitialisierung, SQL-Default-/TempDB-Anwendung, Datenbankdateien und Restore-
-`MOVE` bleiben Scope von `HVS-001`/`HVS-002` und `SQLS-001` bis `SQLS-003`.
-Der reale Vier-Geräte-Nachweis ist deshalb weiterhin offen.
+Volume- und Backing-Device-Anforderungen fail-closed. Der Hyper-V-Manifestpfad
+erzeugt pro Selector eine controller-eigene dynamische VHDX, initialisiert die
+Gastdisks stabil und wendet Instanz-Defaultpfade sowie den vollständigen TempDB-
+Plan an. Ein getrenntes Runtime-Receipt verbindet Hostpfad, VHDX-ID, Gastdisk
+und SQL-Pfad; `VERIFIED` erfordert Dienstrestart und vollständige SQL-
+Postconditions. Diese Implementierung ist statisch und synthetisch geprüft,
+aber noch nicht durch den realen Vier-Geräte-Referenzlauf abgenommen.
+Dateigenaue neue Datenbanken und Restore-`MOVE` bleiben Scope von `SQLS-002`
+und `SQLS-003`; physische Containertrennung bleibt unsupported.
+Die virtuelle Lane-Kapazität wird im Bound Plan deterministisch abgeleitet:
+mindestens 32 GB für offen wachsende Data-/Log-/Backup-Rollen, mindestens 4 GB
+für reine TempDB-Lanes und jeweils mindestens die expliziten Dateigrößen plus
+1 GB Reserve. Die VHDX bleibt dynamisch und belegt diese Größe nicht sofort.
 
 Das Feld `sizeLimitGB` bei Drives ist derzeit Metadatum; Docker- oder Podman-Volumes werden dadurch nicht physisch auf diese Größe begrenzt.
 

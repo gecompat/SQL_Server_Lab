@@ -74,6 +74,19 @@ function Get-LabStorageGuestChildPath {
     return "$($Root.TrimEnd('/'))/$($Child.TrimStart('/'))"
 }
 
+function Get-LabStorageBindingRuntimeSizeBytes {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][object[]]$SqlFiles)
+
+    $explicitSizeMB = [long](($SqlFiles | Where-Object { $null -ne $_.SizeMB } | Measure-Object SizeMB -Sum).Sum)
+    $hasOpenEndedRole = @($SqlFiles | Where-Object Role -in @(
+        'default-data','default-log','backup','database-data','database-log','restore-data-rule','restore-log-rule'
+    )).Count -gt 0
+    $minimumBytes = if ($hasOpenEndedRole) { [long]32GB } else { [long]4GB }
+    $requiredBytes = [long][Math]::Ceiling(([double]($explicitSizeMB + 1024) * 1MB) / 1GB) * 1GB
+    return [long][Math]::Max([double]$minimumBytes, [double]$requiredBytes)
+}
+
 function New-LabStorageBoundPlan {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification='Erzeugt ausschließlich einen in-memory Bound Plan.')]
     [CmdletBinding()]
@@ -144,6 +157,7 @@ function New-LabStorageBoundPlan {
             Selector = $selector; LocationId = [string]$location.LocationId; VolumeId = [string]$location.VolumeId
             BackingDeviceIds = @($location.BackingDeviceIds); TopologyStatus = [string]$location.TopologyStatus
             HostRoot = [string]$location.LabDataRoot; HostPath = $hostPath; GuestRoot = $guestRoot
+            RuntimeStorageSizeBytes = [long]0
         }
         $bindings.Add($binding); $bindingBySelector[$selector] = $binding; $bindingIndex++
     }
@@ -208,6 +222,10 @@ function New-LabStorageBoundPlan {
         Add-SqlFileBinding -Role 'restore-log-rule' -Database ([string]$rule.Database) -LogicalName 'RESTORE_LOG_FILES' `
             -Selector ([string]$rule.LogSelector) -Subdirectory 'Log'
     }
+    foreach ($binding in $bindings) {
+        $binding.RuntimeStorageSizeBytes = Get-LabStorageBindingRuntimeSizeBytes `
+            -SqlFiles @($sqlFiles | Where-Object { [string]$_.Selector -eq [string]$binding.Selector })
+    }
 
     $tempBindings = @($dataFileSpecs | ForEach-Object { $bindingBySelector[[string]$_.Selector] } | Where-Object { $_ })
     $distinctVolumes = @($tempBindings.VolumeId | Sort-Object -Unique)
@@ -253,7 +271,240 @@ function New-LabStorageBoundPlan {
             Distribution=$distribution; PhysicalIsolation=[string]$StorageIntent.PhysicalIsolation; Status=$topologyStatus
             DistinctVolumeCount=$distinctVolumes.Count; DistinctBackingDeviceCount=$distinctDevices.Count
         }
-        Blockers=$blockers; RuntimeApplicationStatus='PLANNED_NOT_IMPLEMENTED'
+        Blockers=$blockers
+        RuntimeApplicationStatus=$(if ($Provider -eq 'hyperv' -and $blockers.Count -eq 0) { 'READY_TO_APPLY' } else { 'PROVIDER_APPLY_UNAVAILABLE' })
+    }
+}
+
+function ConvertTo-LabHyperVStorageDrivePlan {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification='Erzeugt ausschließlich einen in-memory Providerplan.')]
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Plan)
+
+    if ([string]$Plan.Provider -ne 'hyperv' -or [string]$Plan.Status -ne 'READY') {
+        throw 'LAB_STORAGE_HYPERV_READY_PLAN_REQUIRED'
+    }
+    $result = [Collections.Generic.List[object]]::new()
+    $index = 0
+    foreach ($binding in @($Plan.Bindings | Sort-Object Selector)) {
+        $files = @($Plan.SqlFiles | Where-Object Selector -eq [string]$binding.Selector)
+        $sizeBytes = [long]$binding.RuntimeStorageSizeBytes
+        if ($sizeBytes -lt 4GB) { throw "LAB_STORAGE_RUNTIME_SIZE_INVALID: $($binding.Selector)" }
+        $role = if (@($files | Where-Object Role -eq 'backup').Count -eq $files.Count) { 'backup' }
+            elseif (@($files | Where-Object Role -like 'tempdb-*').Count -eq $files.Count) { 'tempdb' }
+            elseif (@($files | Where-Object Role -in @('default-log','database-log','restore-log-rule')).Count -gt 0) { 'sqlLog' }
+            elseif (@($files | Where-Object Role -in @('default-data','database-data','restore-data-rule')).Count -gt 0) { 'sqlData' }
+            else { 'general' }
+        $result.Add([PSCustomObject]@{
+            id = 'sfp-{0:d2}' -f ($index + 1); role = $role; sizeBytes = $sizeBytes
+            vhdType = 'dynamic'; guestPath = [string]$binding.GuestRoot
+            allocationUnitKB = 64; fileSystem = 'NTFS'
+            volumeLabel = ('SQLLAB_SFP_{0:d2}' -f ($index + 1)); maximumIops = 0
+            hostRoot = [string]$binding.HostRoot; hostPath = [string]$binding.HostPath
+            locationId = [string]$binding.LocationId; selector = [string]$binding.Selector
+        })
+        $index++
+    }
+    return @($result)
+}
+
+function Assert-LabStorageBoundPlan {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Plan)
+
+    $schemaPath = Join-Path $script:SchemasPath 'lab-storage-bound-plan.schema.json'
+    if (-not (($Plan | ConvertTo-Json -Depth 40) | Test-Json -SchemaFile $schemaPath -ErrorAction SilentlyContinue)) {
+        throw 'LAB_STORAGE_BOUND_PLAN_SCHEMA_INVALID'
+    }
+    return $true
+}
+
+function Assert-LabStorageRuntimeReceipt {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Receipt)
+
+    $schemaPath = Join-Path $script:SchemasPath 'lab-storage-runtime-receipt.schema.json'
+    if (-not (($Receipt | ConvertTo-Json -Depth 40) | Test-Json -SchemaFile $schemaPath -ErrorAction SilentlyContinue)) {
+        throw 'LAB_STORAGE_RUNTIME_RECEIPT_SCHEMA_INVALID'
+    }
+    return $true
+}
+
+function Resolve-LabStorageRuntimeSqlPlan {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Plan,
+        [Parameter(Mandatory)][object[]]$DriveReceipts,
+        [Parameter(Mandatory)][object[]]$ManagedDrives
+    )
+
+    $runtimeBindings = [Collections.Generic.List[object]]::new()
+    $runtimeFiles = [Collections.Generic.List[object]]::new()
+    $index = 0
+    foreach ($binding in @($Plan.Bindings | Sort-Object Selector)) {
+        $driveId = 'sfp-{0:d2}' -f ($index + 1)
+        $receipt = @($DriveReceipts | Where-Object { [string]$_.id -eq $driveId })
+        $managed = @($ManagedDrives | Where-Object { [string]$_.id -eq $driveId })
+        if ($receipt.Count -ne 1 -or $managed.Count -ne 1 -or -not $receipt[0].guestPath -or -not $managed[0].path) {
+            throw "LAB_STORAGE_RUNTIME_DRIVE_BINDING_MISSING: $driveId"
+        }
+        $runtimeBindings.Add([PSCustomObject]@{
+            Selector=[string]$binding.Selector; LocationId=[string]$binding.LocationId
+            HostPath=[string]$managed[0].path; RuntimeStorageId=[string]$managed[0].diskIdentifier
+            GuestDiskId=[string]$receipt[0].diskIdentifier; PlannedGuestRoot=[string]$binding.GuestRoot
+            GuestRoot=[string]$receipt[0].guestPath
+        })
+        $index++
+    }
+    foreach ($file in @($Plan.SqlFiles)) {
+        $binding = @($runtimeBindings | Where-Object { [string]$_.Selector -eq [string]$file.Selector })
+        if ($binding.Count -ne 1) { throw "LAB_STORAGE_RUNTIME_FILE_BINDING_MISSING: $($file.LogicalName)" }
+        $plannedRoot = ([string]$binding[0].PlannedGuestRoot).TrimEnd('\', '/')
+        $plannedPath = [string]$file.GuestPath
+        if (-not $plannedPath.StartsWith($plannedRoot, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "LAB_STORAGE_RUNTIME_GUEST_PATH_OUTSIDE_BINDING: $($file.LogicalName)"
+        }
+        $suffix = $plannedPath.Substring($plannedRoot.Length).TrimStart('\', '/')
+        $runtimePath = Get-LabStorageGuestChildPath -Root ([string]$binding[0].GuestRoot) -Child $suffix
+        $runtimeFiles.Add([PSCustomObject]@{
+            Role=[string]$file.Role; Database=$file.Database; LogicalName=[string]$file.LogicalName
+            FileName=$file.FileName; Selector=[string]$file.Selector; LocationId=[string]$file.LocationId
+            HostPath=[string]$binding[0].HostPath; RuntimeStorageId=[string]$binding[0].RuntimeStorageId
+            GuestDiskId=[string]$binding[0].GuestDiskId; GuestPath=$runtimePath; SqlPhysicalPath=$runtimePath
+            SizeMB=$file.SizeMB; Growth=$file.Growth
+        })
+    }
+    return [PSCustomObject]@{ Bindings=@($runtimeBindings); SqlFiles=@($runtimeFiles) }
+}
+
+function New-LabStorageSqlApplyQuery {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][object[]]$SqlFiles)
+
+    $statements = [Collections.Generic.List[string]]::new()
+    foreach ($default in @(
+        @{ Role='default-data'; Name='DefaultData' },
+        @{ Role='default-log'; Name='DefaultLog' },
+        @{ Role='backup'; Name='BackupDirectory' }
+    )) {
+        $file = @($SqlFiles | Where-Object Role -eq $default.Role)
+        if ($file.Count -gt 1) { throw "LAB_STORAGE_SQL_DEFAULT_ROLE_DUPLICATE: $($default.Role)" }
+        if ($file.Count -eq 1) {
+            Assert-LabContainerPath -Path ([string]$file[0].SqlPhysicalPath) -Label $default.Role
+            $path = ([string]$file[0].SqlPhysicalPath).Replace("'", "''")
+            $statements.Add("EXEC master.dbo.xp_instance_regwrite N'HKEY_LOCAL_MACHINE', N'Software\Microsoft\MSSQLServer\MSSQLServer', N'$($default.Name)', REG_SZ, N'$path';")
+        }
+    }
+    $tempFiles = @($SqlFiles | Where-Object Role -in @('tempdb-data','tempdb-log'))
+    foreach ($file in $tempFiles) {
+        Assert-LabContainerPath -Path ([string]$file.SqlPhysicalPath) -Label $file.Role
+        $logical = ([string]$file.LogicalName).Replace("'", "''")
+        $path = ([string]$file.SqlPhysicalPath).Replace("'", "''")
+        $size = [int]$file.SizeMB
+        $growth = ConvertTo-LabGrowthClause -Growth ([string]$file.Growth)
+        if ([string]$file.Role -eq 'tempdb-data' -and [string]$file.LogicalName -ne 'tempdev') {
+            $statements.Add("IF EXISTS (SELECT 1 FROM tempdb.sys.database_files WHERE name=N'$logical') ALTER DATABASE tempdb MODIFY FILE (NAME=N'$logical', FILENAME=N'$path', SIZE=${size}MB, FILEGROWTH=$growth) ELSE ALTER DATABASE tempdb ADD FILE (NAME=N'$logical', FILENAME=N'$path', SIZE=${size}MB, FILEGROWTH=$growth);")
+        }
+        else {
+            $statements.Add("ALTER DATABASE tempdb MODIFY FILE (NAME=N'$logical', FILENAME=N'$path', SIZE=${size}MB, FILEGROWTH=$growth);")
+        }
+    }
+    $desiredDataNames = @($tempFiles | Where-Object Role -eq 'tempdb-data' | ForEach-Object { "N'$(([string]$_.LogicalName).Replace("'", "''"))'" })
+    if ($desiredDataNames.Count -gt 0) {
+        $statements.Add("DECLARE @n sysname,@s nvarchar(max); DECLARE c CURSOR LOCAL FAST_FORWARD FOR SELECT name FROM tempdb.sys.database_files WHERE type=0 AND name NOT IN ($($desiredDataNames -join ',')); OPEN c; FETCH NEXT FROM c INTO @n; WHILE @@FETCH_STATUS=0 BEGIN SET @s=N'USE tempdb; DBCC SHRINKFILE ('+QUOTENAME(@n,'''')+N', EMPTYFILE) WITH NO_INFOMSGS; ALTER DATABASE tempdb REMOVE FILE '+QUOTENAME(@n)+N';'; EXEC sys.sp_executesql @s; FETCH NEXT FROM c INTO @n; END; CLOSE c; DEALLOCATE c;")
+    }
+    return $statements -join "`n"
+}
+
+function Invoke-HyperVLabStoragePlan {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RunId,
+        [Parameter(Mandatory)]$Plan,
+        [Parameter(Mandatory)][PSCredential]$Credential,
+        [Parameter(Mandatory)][SecureString]$SqlSaPassword,
+        [string]$StateRoot
+    )
+
+    if ([string]$Plan.RunId -ne $RunId -or [string]$Plan.Provider -ne 'hyperv' -or [string]$Plan.Status -ne 'READY') {
+        throw 'LAB_STORAGE_RUNTIME_READY_HYPERV_PLAN_REQUIRED'
+    }
+    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
+    $managed = Get-HyperVManagedVM -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
+    if (-not $managed) { throw 'LAB_STORAGE_RUNTIME_HYPERV_VM_REQUIRED' }
+    $driveReceipts = @($managed.Identity.guestDriveInitialization)
+    $runtime = Resolve-LabStorageRuntimeSqlPlan -Plan $Plan -DriveReceipts $driveReceipts -ManagedDrives @($managed.Identity.additionalDrives)
+    $fileBindings = @($runtime.SqlFiles | ForEach-Object {
+        [PSCustomObject]@{
+            Role=$_.Role; LogicalName=$_.LogicalName; LocationId=$_.LocationId; HostPath=$_.HostPath
+            RuntimeStorageId=$_.RuntimeStorageId; GuestDiskId=$_.GuestDiskId; GuestPath=$_.GuestPath; SqlPhysicalPath=$_.SqlPhysicalPath
+        }
+    })
+    $receiptPath = Join-Path $lab.RunDirectory 'storage-runtime-receipt.json'
+    $receipt = [PSCustomObject]@{
+        ContractVersion='SqlServerLab.StorageRuntimeReceipt/1.0'; PlanId=[string]$Plan.PlanId
+        RunId=$RunId; InstanceId=[string]$Plan.InstanceId; Provider='hyperv'; Status='APPLYING'
+        FileBindings=$fileBindings; Postconditions=@()
+        Recovery=[PSCustomObject]@{ Status='RETRY_APPLY'; ReceiptPath=$receiptPath }
+    }
+    $null = Assert-LabStorageRuntimeReceipt -Receipt $receipt
+    Write-LabArtifactJsonAtomic -Path $receiptPath -InputObject $receipt
+    try {
+        $query = New-LabStorageSqlApplyQuery -SqlFiles @($runtime.SqlFiles)
+        $verification = [PSCustomObject]@{
+            Defaults=@($runtime.SqlFiles | Where-Object Role -in @('default-data','default-log','backup') | ForEach-Object { [PSCustomObject]@{ Role=$_.Role; Path=$_.SqlPhysicalPath } })
+            TempDb=@($runtime.SqlFiles | Where-Object Role -in @('tempdb-data','tempdb-log') | ForEach-Object { [PSCustomObject]@{ Role=$_.Role; LogicalName=$_.LogicalName; Path=$_.SqlPhysicalPath; SizeMB=$_.SizeMB; Growth=$_.Growth } })
+        }
+        $verificationJson = $verification | ConvertTo-Json -Compress -Depth 10
+        $directories = @($runtime.SqlFiles | ForEach-Object {
+            if ($_.FileName) { Split-Path -Parent ([string]$_.SqlPhysicalPath) } else { [string]$_.SqlPhysicalPath }
+        } | Sort-Object -Unique)
+        $result = Invoke-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId `
+            -ExpectedScopeId $lab.Run.scopeId -Credential $Credential -ArgumentList @($query, $verificationJson, $directories, $SqlSaPassword) -ScriptBlock {
+            param($ApplyQuery,$VerificationJson,$Directories,$SaPassword)
+            $ErrorActionPreference='Stop'
+            foreach($directory in @($Directories)){if(-not(Test-Path -LiteralPath $directory)){New-Item -Path $directory -ItemType Directory -Force -ErrorAction Stop|Out-Null}}
+            $expected=$VerificationJson|ConvertFrom-Json
+            $bstr=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword);$plain=$null
+            try{
+                $plain=[Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+                $builder=[Data.SqlClient.SqlConnectionStringBuilder]::new();$builder.DataSource='localhost';$builder.InitialCatalog='master';$builder.UserID='sa';$builder.Password=$plain;$builder.Encrypt=$true;$builder.TrustServerCertificate=$true;$builder.ConnectTimeout=30;$connectionString=$builder.ConnectionString
+                $connection=[Data.SqlClient.SqlConnection]::new($connectionString)
+                try{$connection.Open();$command=$connection.CreateCommand();$command.CommandTimeout=180;$command.CommandText=$ApplyQuery;$null=$command.ExecuteNonQuery()}finally{$connection.Dispose()}
+                Restart-Service -Name MSSQLSERVER -Force -ErrorAction Stop
+                $service=Get-Service -Name MSSQLSERVER -ErrorAction Stop;$service.WaitForStatus('Running',[TimeSpan]::FromMinutes(3))
+                $connection=[Data.SqlClient.SqlConnection]::new($connectionString)
+                try{
+                    $connection.Open();$command=$connection.CreateCommand();$command.CommandText="SELECT CAST(SERVERPROPERTY('InstanceDefaultDataPath') AS nvarchar(4000)),CAST(SERVERPROPERTY('InstanceDefaultLogPath') AS nvarchar(4000));";$reader=$command.ExecuteReader();$null=$reader.Read();$actualDefaults=@{ 'default-data'=[string]$reader.GetValue(0);'default-log'=[string]$reader.GetValue(1)};$reader.Dispose()
+                    $command=$connection.CreateCommand();$command.CommandText="DECLARE @p nvarchar(4000); EXEC master.dbo.xp_instance_regread N'HKEY_LOCAL_MACHINE',N'Software\Microsoft\MSSQLServer\MSSQLServer',N'BackupDirectory',@p OUTPUT; SELECT @p;";$actualDefaults['backup']=[string]$command.ExecuteScalar()
+                    foreach($item in @($expected.Defaults)){if(-not([string]$actualDefaults[[string]$item.Role]).TrimEnd('\').Equals(([string]$item.Path).TrimEnd('\'),[StringComparison]::OrdinalIgnoreCase)){throw "SQL_STORAGE_DEFAULT_POSTCONDITION_FAILED_$($item.Role)"}}
+                    $command=$connection.CreateCommand();$command.CommandText="SELECT name,physical_name,size/128 AS size_mb,CASE WHEN is_percent_growth=1 THEN CAST(growth AS varchar(20))+'%' ELSE CAST(growth/128 AS varchar(20))+'MB' END AS growth,type FROM sys.master_files WHERE database_id=2;";$reader=$command.ExecuteReader();$actual=@{};while($reader.Read()){$actual[[string]$reader.GetString(0)]=[PSCustomObject]@{Path=[string]$reader.GetString(1);SizeMB=[int]$reader.GetInt32(2);Growth=[string]$reader.GetString(3);Type=[int]$reader.GetInt32(4)}};$reader.Dispose()
+                    foreach($item in @($expected.TempDb)){$file=$actual[[string]$item.LogicalName];if(-not$file -or -not([string]$file.Path).Equals([string]$item.Path,[StringComparison]::OrdinalIgnoreCase) -or [int]$file.SizeMB -lt [int]$item.SizeMB -or [string]$file.Growth -ne [string]$item.Growth){throw "SQL_STORAGE_TEMPDB_POSTCONDITION_FAILED_$($item.LogicalName)"}}
+                    $expectedData=@($expected.TempDb|Where-Object Role -eq 'tempdb-data').Count;$actualData=@($actual.Values|Where-Object Type -eq 0).Count;if($actualData -ne $expectedData){throw 'SQL_STORAGE_TEMPDB_FILE_COUNT_POSTCONDITION_FAILED'}
+                }finally{$connection.Dispose()}
+                [PSCustomObject]@{Status='VERIFIED';Service='MSSQLSERVER';ServiceStatus='Running';DefaultPaths='PASS';TempDb='PASS';ObservedAt=[datetime]::UtcNow.ToString('o')}
+            }finally{$plain=$null;[Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)}
+        }
+        $result = @($result)[-1]
+        if (-not $result -or [string]$result.Status -ne 'VERIFIED') { throw 'LAB_STORAGE_RUNTIME_RECEIPT_INVALID' }
+        $receipt.Status='VERIFIED'
+        $receipt.Postconditions=@(
+            [PSCustomObject]@{ Name='sql-service-restart'; Status='PASS'; ServiceStatus=[string]$result.ServiceStatus },
+            [PSCustomObject]@{ Name='instance-default-paths'; Status=[string]$result.DefaultPaths },
+            [PSCustomObject]@{ Name='tempdb-master-files'; Status=[string]$result.TempDb; ObservedAt=[string]$result.ObservedAt }
+        )
+        $receipt.Recovery=[PSCustomObject]@{ Status='NOT_REQUIRED' }
+        $null = Assert-LabStorageRuntimeReceipt -Receipt $receipt
+        Write-LabArtifactJsonAtomic -Path $receiptPath -InputObject $receipt
+        return $receipt
+    }
+    catch {
+        $receipt.Status='RECOVERY_REQUIRED'
+        $errorCode = if ($_.Exception.Message -cmatch '[A-Z][A-Z0-9_]{5,127}') { ([string]$Matches[0]).TrimEnd('_') } else { [string]$_.Exception.GetType().Name }
+        $receipt.Recovery=[PSCustomObject]@{ Status='RETRY_APPLY'; ErrorCode=$errorCode; ReceiptPath=$receiptPath }
+        $null = Assert-LabStorageRuntimeReceipt -Receipt $receipt
+        Write-LabArtifactJsonAtomic -Path $receiptPath -InputObject $receipt
+        throw
     }
 }
 
@@ -261,9 +512,7 @@ function Save-LabStorageBoundPlan {
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact='Medium')]
     param([Parameter(Mandatory)]$Plan, [string]$DataRoot)
 
-    $schemaPath = Join-Path $script:SchemasPath 'lab-storage-bound-plan.schema.json'
-    $json = $Plan | ConvertTo-Json -Depth 40
-    if (-not ($json | Test-Json -SchemaFile $schemaPath -ErrorAction SilentlyContinue)) { throw 'LAB_STORAGE_BOUND_PLAN_SCHEMA_INVALID' }
+    $null = Assert-LabStorageBoundPlan -Plan $Plan
     if (-not $DataRoot) { $DataRoot = [string](Get-LabStorageConfiguration).DefaultDataRoot }
     if (-not $DataRoot) { throw 'LAB_STORAGE_CONFIGURATION_REQUIRED' }
     $configuration = Get-LabStorageConfiguration -DataRoot $DataRoot
@@ -309,7 +558,7 @@ function Invoke-LabStorageFilePlacementInteractive {
         Write-Host ("  {0} · {1} -> {2}" -f $file.Role, $file.LogicalName, $file.GuestPath)
     }
     foreach ($blocker in @($plan.Blockers)) { Write-LabWarning $blocker }
-    Write-LabWarning 'Dieser Slice plant und prüft die Bindung; die Provider-/SQL-Anwendung ist noch nicht freigeschaltet.'
+    Write-LabWarning 'Diese Review-Ansicht mutiert keine Runtime. Die geprüfte Hyper-V-/SQL-Anwendung erfolgt ausschließlich im Manifest-Lifecycle mit eigenem Runtime-Receipt.'
     if (Read-LabConfirm -Prompt '  Lokalen Bound Plan als Review-Artefakt speichern?' -Default $false) {
         $path = Save-LabStorageBoundPlan -Plan $plan -Confirm:$false
         Write-LabSuccess "Bound Plan gespeichert: $path"

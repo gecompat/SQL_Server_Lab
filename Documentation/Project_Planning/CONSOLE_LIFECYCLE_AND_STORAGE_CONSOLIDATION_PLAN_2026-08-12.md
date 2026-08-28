@@ -560,18 +560,19 @@ Der reale Vier-Geräte-Nachweis gehört zu Phase D und Gate N5.
 
 ### Phase D – File Placement und Providerbindung
 
-**Status:** `IN_PROGRESS` seit 2026-08-29. `SFP-001` bis `SFP-003` sind als
-read-only Plan-/Schema-/UI-Slice implementiert und fokussiert geprüft. Die
-Runtime-Anwendung über Hyper-V und SQL (`HVS-*`, `SQLS-*`) bleibt offen.
+**Status:** `IN_PROGRESS` seit 2026-08-29. `SFP-001` bis `SFP-003` sowie die
+Implementierung von `HVS-001`, `HVS-002` und `SQLS-001` sind statisch und
+synthetisch geprüft. Der reale Vier-Geräte-/SQL-Restart-Nachweis und
+`SQLS-002`/`SQLS-003` bleiben offen.
 
 | ID | Schritt | Abschlusskriterium |
 |---|---|---|
 | `SFP-001` | Storage-Intent-, Bound-Plan- und Receipt-Schemas versionieren | Implementiert: portable Anforderungen, lokale Bindings und Runtime-Evidence besitzen getrennte Verträge. |
 | `SFP-002` | UI für Default Data, Default Log, Backup, TempDB-Data-Files und TempDB-Log erstellen | Implementiert: jede Datei/Role und jeder Zielpfad ist im read-only Review sichtbar. |
 | `SFP-003` | Modi `single`, `round-robin`, `explicit`, `one-file-per-volume` und `one-file-per-physical-device` planen | Implementiert: unzureichende, überlappende oder unbekannte Topologie blockiert strikte Anforderungen fail-closed. |
-| `HVS-001` | Hyper-V-VHDX pro Location/I/O-Lane erzeugen und binden | Hostpfad, VHDX-ID, Gastdisk und SQL-Ziel sind durch Receipts verbunden. |
-| `HVS-002` | Gastinitialisierung und stabile Pfadvergabe für mehrere Storage-Lanes erweitern | vier TempDB-Lanes lassen sich eindeutig initialisieren und wiederaufnehmen. |
-| `SQLS-001` | SQL-Defaultpfade und TempDB-Fileplan anwenden | Dienstrestart und SQL-Postconditions stimmen vollständig. |
+| `HVS-001` | Hyper-V-VHDX pro Location/I/O-Lane erzeugen und binden | Implementiert: controller-eigene Hostpfade, VHDX-ID, Gastdisk und SQL-Ziel sind durch getrennte Receipts verbunden; Realnachweis offen. |
+| `HVS-002` | Gastinitialisierung und stabile Pfadvergabe für mehrere Storage-Lanes erweitern | Implementiert: SCSI-/Disk-ID-Bindung, idempotente GPT-/NTFS-Initialisierung und tatsächliche Gastpfade; Vier-Geräte-Realnachweis offen. |
+| `SQLS-001` | SQL-Defaultpfade und TempDB-Fileplan anwenden | Implementiert: Defaultpfade, vollständiger TempDB-Plan, Dienstrestart, Postconditions und Recovery-Receipt; SQL-Realnachweis offen. |
 | `SQLS-002` | `New-SqlServerLabDatabase` an dateigenaue Bindings koppeln | Data- und Log-Files landen auf den geplanten Zielen. |
 | `SQLS-003` | Restore-`MOVE` aus Filelist und Bound Plan erzeugen | jedes Backupfile besitzt genau ein verifiziertes Ziel. |
 | `CNTS-001` | Container-Capabilities ehrlich klassifizieren | logische Trennung wird nicht als physische Hosttrennung ausgegeben. |

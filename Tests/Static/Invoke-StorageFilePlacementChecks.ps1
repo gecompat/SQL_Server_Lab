@@ -88,6 +88,72 @@ try {
     Add-CheckResult -Name 'Bound Plan erfüllt sein JSON-Schema' -Success (
         ($plan | ConvertTo-Json -Depth 30) | Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/lab-storage-bound-plan.schema.json') -ErrorAction SilentlyContinue)
 
+    $hyperVDrives = & $module { param($p) ConvertTo-LabHyperVStorageDrivePlan -Plan $p } $plan
+    Add-CheckResult -Name 'Jede lokale Storage-Bindung erzeugt genau eine externe Hyper-V-Lane' -Success (
+        @($hyperVDrives).Count -eq @($plan.Bindings).Count -and
+        @($hyperVDrives.id | Sort-Object -Unique).Count -eq @($hyperVDrives).Count -and
+        @($hyperVDrives | Where-Object { -not $_.hostRoot -or -not $_.hostPath -or $_.sizeBytes -lt 4GB }).Count -eq 0 -and
+        @($hyperVDrives | Where-Object vhdType -ne 'dynamic').Count -eq 0)
+
+    $mockDriveReceipts = @($hyperVDrives | ForEach-Object {
+        [PSCustomObject]@{ id=$_.id; diskIdentifier="guest-$($_.id)"; guestPath=$_.guestPath }
+    })
+    $mockManagedDrives = @($hyperVDrives | ForEach-Object {
+        [PSCustomObject]@{ id=$_.id; diskIdentifier="vhdx-$($_.id)"; path=(Join-Path $_.hostPath "$($_.id).vhdx") }
+    })
+    $runtimePlan = & $module { param($p,$r,$m) Resolve-LabStorageRuntimeSqlPlan -Plan $p -DriveReceipts $r -ManagedDrives $m } $plan $mockDriveReceipts $mockManagedDrives
+    $sqlApplyQuery = & $module { param($f) New-LabStorageSqlApplyQuery -SqlFiles $f } @($runtimePlan.SqlFiles)
+    Add-CheckResult -Name 'Runtime-Plan verbindet Host-VHDX, Gastdisk und jede SQL-Datei lückenlos' -Success (
+        @($runtimePlan.SqlFiles).Count -eq @($plan.SqlFiles).Count -and
+        @($runtimePlan.SqlFiles | Where-Object { -not $_.HostPath -or -not $_.RuntimeStorageId -or -not $_.GuestDiskId -or -not $_.SqlPhysicalPath }).Count -eq 0)
+    Add-CheckResult -Name 'SQL-Anwendungsplan enthält Defaultpfade, vollständigen TempDB-Plan und Extra-File-Abgleich' -Success (
+        $sqlApplyQuery -match 'xp_instance_regwrite' -and $sqlApplyQuery -match "N'DefaultData'" -and
+        $sqlApplyQuery -match "N'DefaultLog'" -and $sqlApplyQuery -match "N'BackupDirectory'" -and
+        ([regex]::Matches($sqlApplyQuery, 'ALTER DATABASE tempdb')).Count -ge 5 -and $sqlApplyQuery -match 'REMOVE FILE')
+
+    $runtimeReceiptDirectory = Join-Path $temporaryParent 'runtime-receipt'
+    $null = New-Item -Path $runtimeReceiptDirectory -ItemType Directory -Force
+    $verifiedRuntimeReceipt = & $module {
+        param($p,$r,$m,$directory)
+        function Get-HyperVLabWorkflowRun {
+            [PSCustomObject]@{
+                RunDirectory=$directory; StateRoot=$directory
+                Run=[PSCustomObject]@{ runId=[string]$p.RunId; scopeId=[Guid]::NewGuid().ToString('D') }
+                Instance=[PSCustomObject]@{ vmName='storage-runtime-mock' }
+            }
+        }
+        function Get-HyperVManagedVM { [PSCustomObject]@{ Identity=[PSCustomObject]@{ guestDriveInitialization=$r; additionalDrives=$m } } }
+        function Invoke-HyperVPowerShellDirect { [PSCustomObject]@{ Status='VERIFIED'; ServiceStatus='Running'; DefaultPaths='PASS'; TempDb='PASS'; ObservedAt=[datetime]::UtcNow.ToString('o') } }
+        $password=New-HyperVSqlUnattendedPassword
+        Invoke-HyperVLabStoragePlan -RunId ([string]$p.RunId) -Plan $p -Credential ([PSCredential]::new('Administrator',$password)) -SqlSaPassword $password
+    } $plan $mockDriveReceipts $mockManagedDrives $runtimeReceiptDirectory
+    Add-CheckResult -Name 'Runtime-Anwendung schreibt erst APPLYING und endet nur mit vollständigem VERIFIED-Receipt' -Success (
+        $verifiedRuntimeReceipt.Status -eq 'VERIFIED' -and $verifiedRuntimeReceipt.Recovery.Status -eq 'NOT_REQUIRED' -and
+        @($verifiedRuntimeReceipt.Postconditions | Where-Object Status -ne 'PASS').Count -eq 0 -and
+        ((Get-Content -LiteralPath (Join-Path $runtimeReceiptDirectory 'storage-runtime-receipt.json') -Raw -Encoding utf8) |
+            Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/lab-storage-runtime-receipt.schema.json') -ErrorAction SilentlyContinue))
+    $recoveryReceiptDirectory = Join-Path $temporaryParent 'runtime-recovery'
+    $null = New-Item -Path $recoveryReceiptDirectory -ItemType Directory -Force
+    $recoveryThrown = try {
+        $null = & $module {
+            param($p,$r,$m,$directory)
+            function Get-HyperVLabWorkflowRun { [PSCustomObject]@{ RunDirectory=$directory; StateRoot=$directory; Run=[PSCustomObject]@{ runId=[string]$p.RunId; scopeId=[Guid]::NewGuid().ToString('D') }; Instance=[PSCustomObject]@{ vmName='storage-recovery-mock' } } }
+            function Get-HyperVManagedVM { [PSCustomObject]@{ Identity=[PSCustomObject]@{ guestDriveInitialization=$r; additionalDrives=$m } } }
+            function Invoke-HyperVPowerShellDirect { throw 'SQL_STORAGE_TEMPDB_POSTCONDITION_FAILED_tempdev sensitive-detail' }
+            $password=New-HyperVSqlUnattendedPassword
+            Invoke-HyperVLabStoragePlan -RunId ([string]$p.RunId) -Plan $p -Credential ([PSCredential]::new('Administrator',$password)) -SqlSaPassword $password
+        } $plan $mockDriveReceipts $mockManagedDrives $recoveryReceiptDirectory
+        $false
+    }
+    catch { $true }
+    $recoveryReceipt = Get-Content -LiteralPath (Join-Path $recoveryReceiptDirectory 'storage-runtime-receipt.json') -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
+    Add-CheckResult -Name 'Fehler hinterlassen ein schema-valides, sanitisiertes Recovery-Receipt' -Success (
+        $recoveryThrown -and $recoveryReceipt.Status -eq 'RECOVERY_REQUIRED' -and
+        $recoveryReceipt.Recovery.Status -eq 'RETRY_APPLY' -and
+        $recoveryReceipt.Recovery.ErrorCode -eq 'SQL_STORAGE_TEMPDB_POSTCONDITION_FAILED' -and
+        (($recoveryReceipt | ConvertTo-Json -Depth 20) | Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/lab-storage-runtime-receipt.schema.json') -ErrorAction SilentlyContinue)) `
+        -Message ($recoveryReceipt | ConvertTo-Json -Compress -Depth 8)
+
     $reorderedIntent = $intent | Select-Object restoreRules,databaseFiles,tempDb,roles,physicalIsolation,placementPolicy,contractVersion
     $hashes = & $module { param($a,$b) @((Get-LabStorageIntentSha256 $a),(Get-LabStorageIntentSha256 $b)) } $intent $reorderedIntent
     Add-CheckResult -Name 'Intent-Hash ist unabhängig von der Property-Reihenfolge' -Success ($hashes[0] -eq $hashes[1])
@@ -122,6 +188,57 @@ try {
     Add-CheckResult -Name 'Explizite TempDB-Dateianzahl wird semantisch geprüft' -Success $invalidRejected
 
     $null = & $module { param($root,$controller) Initialize-LabManagedDataRoot -DataRoot $root -ControllerId $controller -Confirm:$false } $ownedRoot $controllerId
+    $null = & $module { param($c) Write-LabStorageConfiguration -Configuration $c } $configuration
+    $ownedDriveIntent = @($hyperVDrives | Where-Object { [string]$_.hostRoot -eq $ownedRoot }) | Select-Object -First 1
+    $externalProviderPlan = & $module {
+        param($drive,$runDirectory)
+        Resolve-HyperVAdditionalDrivePlan -AdditionalDrives @($drive) -ResourceRoot (Join-Path $runDirectory 'resources/hyperv') `
+            -VMName 'storage-owned-static' -RunDirectory $runDirectory
+    } $ownedDriveIntent (Join-Path $temporaryParent 'provider-run')
+    $unownedProviderRejected = try {
+        $foreignDrive = $ownedDriveIntent | ConvertTo-Json -Depth 10 | ConvertFrom-Json -Depth 10
+        $foreignDrive.hostRoot = Join-Path $temporaryParent 'foreign-root'
+        $foreignDrive.hostPath = Join-Path $foreignDrive.hostRoot 'Labs/lab/Instances/hyperv/sql01/Storage/data-fast'
+        $null = & $module {
+            param($drive,$runDirectory)
+            Resolve-HyperVAdditionalDrivePlan -AdditionalDrives @($drive) -ResourceRoot (Join-Path $runDirectory 'resources/hyperv') `
+                -VMName 'storage-foreign-static' -RunDirectory $runDirectory
+        } $foreignDrive (Join-Path $temporaryParent 'provider-run')
+        $false
+    }
+    catch { $_.Exception.Message -match 'HOST_BINDING_NOT_OWNED' }
+    Add-CheckResult -Name 'Provider akzeptiert externe VHDX nur unter registriertem controller-eigenem Root' -Success (
+        @($externalProviderPlan).Count -eq 1 -and [string]$externalProviderPlan[0].HostRoot -eq $ownedRoot -and
+        ([string]$externalProviderPlan[0].Path).StartsWith([string]$ownedDriveIntent.hostPath,[StringComparison]::OrdinalIgnoreCase) -and
+        $unownedProviderRejected)
+    $cleanupRunDirectory = Join-Path $temporaryParent 'cleanup-run'
+    $null = New-Item -Path $cleanupRunDirectory -ItemType Directory -Force
+    $null = & $module { param($path,$id) Write-LabArtifactJsonAtomic -Path $path -InputObject ([PSCustomObject]@{ runId=$id }) } `
+        (Join-Path $cleanupRunDirectory 'run-state.json') $runId
+    $runPrefix = $runId.Replace('-','').Substring(0,8).ToLowerInvariant()
+    $ownedVhdxDirectory = [string]$ownedDriveIntent.hostPath
+    $null = New-Item -Path $ownedVhdxDirectory -ItemType Directory -Force
+    $ownedVhdxPath = Join-Path $ownedVhdxDirectory "placement-test-$runPrefix-sfp-02.vhdx"
+    $foreignRunVhdxPath = Join-Path $ownedVhdxDirectory 'placement-test-deadbeef-sfp-02.vhdx'
+    $null = New-Item -Path $ownedVhdxPath -ItemType File -Force
+    $null = New-Item -Path $foreignRunVhdxPath -ItemType File -Force
+    $null = & $module {
+        param($path,$runDirectory,$root)
+        function Get-VM { @() }
+        Remove-HyperVVhdxForCleanup -Path $path -ExpectedRunDirectory $runDirectory -SafetyRoot $root
+    } $ownedVhdxPath $cleanupRunDirectory $ownedRoot
+    $foreignRunCleanupRejected = try {
+        $null = & $module {
+            param($path,$runDirectory,$root)
+            function Get-VM { @() }
+            Remove-HyperVVhdxForCleanup -Path $path -ExpectedRunDirectory $runDirectory -SafetyRoot $root
+        } $foreignRunVhdxPath $cleanupRunDirectory $ownedRoot
+        $false
+    }
+    catch { $_.Exception.Message -match 'HYPERV_RESOURCE_SCOPE_VIOLATION' }
+    Add-CheckResult -Name 'Externer VHDX-Cleanup ist zusätzlich an die Run-ID im Dateinamen gebunden' -Success (
+        -not (Test-Path -LiteralPath $ownedVhdxPath) -and $foreignRunCleanupRejected -and
+        (Test-Path -LiteralPath $foreignRunVhdxPath -PathType Leaf))
     $savedPath = & $module { param($p,$root) Save-LabStorageBoundPlan -Plan $p -DataRoot $root -Confirm:$false } $plan $ownedRoot
     Add-CheckResult -Name 'Explizites Speichern schreibt nur in einen verwalteten Root' -Success (
         (Test-Path -LiteralPath $savedPath -PathType Leaf) -and
@@ -136,7 +253,7 @@ try {
     }
     Add-CheckResult -Name 'Separater Runtime-Receipt-Vertrag bildet die gesamte Pfadkette ab' -Success (
         (($receipt | ConvertTo-Json -Depth 20) | Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/lab-storage-runtime-receipt.schema.json') -ErrorAction SilentlyContinue) -and
-        $plan.RuntimeApplicationStatus -eq 'PLANNED_NOT_IMPLEMENTED')
+        $plan.RuntimeApplicationStatus -eq 'READY_TO_APPLY')
 
     $snapshot = & $module { param($instance) New-LabInstanceIntentSnapshot -Instance $instance -ProviderCapability ([PSCustomObject]@{ Capabilities=@() }) } ([PSCustomObject]@{ storageIntent=$intent; drives=@(); software=@() })
     $snapshotJson = $snapshot.Storage | ConvertTo-Json -Depth 30
@@ -149,9 +266,15 @@ try {
 
     $uiText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/StorageContract.ps1') -Raw -Encoding utf8
     $placementText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/StorageFilePlacement.ps1') -Raw -Encoding utf8
+    $hyperVEnvironmentText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVLabEnvironment.ps1') -Raw -Encoding utf8
     Add-CheckResult -Name 'Storage-UI bietet Metadaten und vollständige Dateiplan-Prüfung an' -Success (
         $uiText -match "-Id 'metadata'" -and $uiText -match "-Id 'file-plan'" -and
         $placementText -match 'foreach \(\$file in @\(\$plan\.SqlFiles\)\)')
+    Add-CheckResult -Name 'Hyper-V-Lifecycle bindet, appliziert und quittiert den Storage-Plan' -Success (
+        $hyperVEnvironmentText -match 'New-LabStorageBoundPlan' -and
+        $hyperVEnvironmentText -match 'ConvertTo-LabHyperVStorageDrivePlan' -and
+        $hyperVEnvironmentText -match 'Invoke-HyperVLabStoragePlan' -and
+        $placementText -match "Status='RECOVERY_REQUIRED'" -and $placementText -match "Status='VERIFIED'")
 }
 catch { Add-CheckResult -Name 'Storage-File-Placement-Testausführung' -Success $false -Message $_.Exception.Message }
 finally {
