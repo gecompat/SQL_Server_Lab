@@ -385,9 +385,15 @@ der vollständige Datenbank-/Backup-Test führt zu `TESTS_PASSED`.
 ## 10. Aktueller Nachweisstand
 
 Der Host-Lifecycle, Medienresolver, resumierbare Receipts, Secret-Freiheit,
-Publikation nach VHDX-Konvertierung und Menüpfad sind automatisiert getestet. Der reale
-`PrepareImage`-Lauf mit den bereitgestellten Microsoft-ISOs und die direkte
-SQL-2019/2022/2025-Abnahmematrix sind die nächsten nativen Schritte. Auf einem
-nicht erhöhten Runner bleibt der dokumentierte OOBE-Fallback einmalig nötig.
-Der feste interne Hyper-V-Hostzugriff ist implementiert; runtimeübergreifende
+Publikation nach VHDX-Konvertierung und Menüpfad sind automatisiert getestet.
+Der reale Referenzlauf für Windows Server 2025 Standard Evaluation (Desktop
+Experience) und SQL Server 2025 Enterprise Developer ist vollständig grün: Er
+erstellt aus den SHA-256-verifizierten Microsoft-ISOs ein immutable
+`SQL_PREPARED_SEALED`-Artifact, klont es über ein normales Manifest,
+spezialisiert Windows, führt `CompleteImage` aus und bestätigt
+`SQL_READY_RUN`, SQL Major 17 sowie vier Online-Systemdatenbanken. Parent-Hash
+und Schreibschutz bleiben unverändert; Builder- und Klonressourcen werden
+scopegebunden entfernt. Der Runner prüft Administratorrechte vor dem teuren
+Build, weil der Offline-Mount der Child-VHDX einen erhöhten Windows-Prozess
+benötigt. Die direkte SQL-2019/2022/2025-Abnahmematrix, runtimeübergreifende
 Netze und kontrollierter Internet-Egress sind nicht Teil dieses Nachweises.
