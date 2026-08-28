@@ -39,16 +39,31 @@ Add-CheckResult -Name 'Alle katalogisierten SQL-2022-CUs lösen auf ihren unver�
     $invalid2022Resolutions.Count -eq 0
 )
 
+$sql2019Builds = & $module { @(Get-SqlServerBuilds -VersionId '2019') }
+Add-CheckResult -Name 'Unterstützte SQL-Versionen sind auf den verifizierten CU-Ständen katalogisiert' -Success (
+    $sql2019Builds[0].cu -eq 'CU32' -and $sql2019Builds[0].build -eq '15.0.4430.1' -and
+    $sql2019Builds[0].kb -eq 'KB5054833' -and $sql2019Builds[0].released -eq '2025-02-27' -and
+    $sql2022Builds[0].cu -eq 'CU26' -and $sql2022Builds[0].build -eq '16.0.4265.3' -and
+    $sql2022Builds[0].kb -eq 'KB5093420' -and $sql2022Builds[0].released -eq '2026-07-16'
+)
+
 $sql2025Builds = & $module { @(Get-SqlServerBuilds -VersionId '2025') }
-Add-CheckResult -Name 'SQL Server 2025 enthält CU1 bis CU7 ohne alten CTP-Eintrag' -Success (
-    $sql2025Builds.Count -eq 7 -and @($sql2025Builds.cu) -notcontains 'CTP'
+Add-CheckResult -Name 'SQL Server 2025 enthält CU1 bis CU8 ohne alten CTP-Eintrag' -Success (
+    $sql2025Builds.Count -eq 8 -and @($sql2025Builds.cu) -notcontains 'CTP' -and
+    $sql2025Builds[0].cu -eq 'CU8' -and $sql2025Builds[0].build -eq '17.0.4075.5' -and
+    $sql2025Builds[0].kb -eq 'KB5104822' -and $sql2025Builds[0].released -eq '2026-08-13'
 )
 
 $catalog = Get-Content -LiteralPath (Join-Path $repoRoot 'Catalogs\sql-server-versions.json') -Raw | ConvertFrom-Json -Depth 30
 $sql2025 = $catalog.versions | Where-Object id -eq '2025' | Select-Object -First 1
 $sql2025Cus = @($sql2025.docker.builds | Where-Object { $_.cu -match '^CU\d+$' })
+Add-CheckResult -Name 'Alle katalogisierten Builds unterstützter SQL-Versionen besitzen verifizierbare Kernmetadaten' -Success (
+    @($catalog.versions | Where-Object status -eq 'SUPPORTED' | ForEach-Object { $_.docker.builds } | Where-Object {
+        -not $_.build -or -not $_.kb -or -not $_.released
+    }).Count -eq 0
+)
 Add-CheckResult -Name 'Windows-CU-Metadaten sind vollständig und Downloads nur mit SHA-256 erlaubt' -Success (
-    $sql2025Cus.Count -eq 7 -and
+    $sql2025Cus.Count -eq 8 -and
     @($sql2025Cus | Where-Object {
         -not $_.build -or -not $_.kb -or -not $_.released -or -not $_.windows.relativePath -or
         ($_.windows.downloadUrl -and -not $_.windows.sha256)
