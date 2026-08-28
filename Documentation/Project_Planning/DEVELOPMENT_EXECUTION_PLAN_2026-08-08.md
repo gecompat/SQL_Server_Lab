@@ -702,7 +702,7 @@ Runtime-Nachweis; maßgeblich bleiben die jeweils genannten Tests und Evidence.
 | N2 | `COMPLETE` | ActionResult-/Sync-, Portbindungs-, UAC- und Privilegverträge sind implementiert und fokussiert geprüft; GUI-Abbruch, Scheduler-Abbruch/Recovery, Manifest-Rerun, PowerShell-Console, Windows-User-Gate und der positive Windows-Generalize-/Publish-Pfad sind real belegt. |
 | N3 | `PLANNED_NOT_STARTED` | Die drei Partnerrepository-Piloten sind nicht nachgewiesen. |
 | N4 | `COMPLETE` | Der reale Windows-2025-/SQL-2025-Lauf belegt Build, immutable Prepared-Parent, normalen differenzierenden Manifest-Klon, Windows-Specialization, `CompleteImage`, `SQL_READY_RUN`, unveränderten Parent-Hash und vollständigen Cleanup. |
-| N5 | `IN_PROGRESS` | `STO-009` bis `STO-013` und der read-only Slice `SFP-001` bis `SFP-003` sind implementiert und fokussiert geprüft; Hyper-V-/SQL-Runtimebindung und reale Live-/Recreate-Evidence bleiben offen. |
+| N5 | `IN_PROGRESS` | `STO-009` bis `STO-013`, `SFP-001` bis `SFP-003` sowie die Implementierung von `HVS-001`, `HVS-002` und `SQLS-001` sind statisch/synthetisch geprüft; Vier-Geräte-/SQL-Runtime-, SQLS-002/003- und reale Live-/Recreate-Evidence bleiben offen. |
 
 ### Welle N1 – Baseline, Regressionen und Katalogwartung
 
@@ -872,9 +872,10 @@ Lifecycle-Tests reichen für dieses Gate nicht aus.
 ### Welle N5 – Storage- und Reconcile-Vertical-Slice
 
 **Status:** `IN_PROGRESS` seit 2026-08-29. Die gehärtete Storage-Registry
-(`STO-009` bis `STO-013`) und der read-only File-Placement-Slice (`SFP-001` bis
-`SFP-003`) sind implementiert; HVS-/SQLS-Pakete und das Gate bleiben bis zu
-ihren jeweiligen Runtime-Nachweisen offen.
+(`STO-009` bis `STO-013`), der File-Placement-Slice (`SFP-001` bis
+`SFP-003`) und die Runtime-Implementierung für `HVS-001`, `HVS-002` und
+`SQLS-001` sind statisch/synthetisch geprüft. Deren Realnachweis,
+`SQLS-002`/`SQLS-003` und das Gate bleiben offen.
 
 **Ziel:** Den providerneutralen Storagevertrag und die ersten über START/STOP
 hinausgehenden Reconcile-Klassen als durchgängigen vertikalen Slice umsetzen.

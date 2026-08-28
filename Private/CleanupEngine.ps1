@@ -67,7 +67,8 @@ function Add-CleanupStep {
         [string]$ProviderSubRunId,
         [string]$Compensation = '',
         [string[]]$DependsOn = @(),
-        $SoftwareContract
+        $SoftwareContract,
+        [string]$SafetyRoot
     )
 
     $planPath = Join-Path $RunDir 'cleanup-plan.json'
@@ -87,6 +88,7 @@ function Add-CleanupStep {
         compensation = $Compensation
         dependsOn    = @($DependsOn)
         softwareContract = $SoftwareContract
+        safetyRoot    = if ($SafetyRoot) { [IO.Path]::GetFullPath($SafetyRoot) } else { $null }
         state        = 'PENDING'
         executedAt   = $null
         error        = $null
@@ -184,7 +186,8 @@ function Remove-LabHyperVResourceForCleanup {
         [Parameter(Mandatory)][ValidateSet('vm', 'vhdx')][string]$ResourceType,
         [Parameter(Mandatory)][string]$ResourceId,
         [Parameter(Mandatory)][string]$ExpectedScopeId,
-        [Parameter(Mandatory)][string]$RunDir
+        [Parameter(Mandatory)][string]$RunDir,
+        [string]$SafetyRoot
     )
 
     switch ($ResourceType) {
@@ -198,7 +201,8 @@ function Remove-LabHyperVResourceForCleanup {
         'vhdx' {
             $null = Remove-HyperVVhdxForCleanup `
                 -Path $ResourceId `
-                -ExpectedRunDirectory $RunDir
+                -ExpectedRunDirectory $RunDir `
+                -SafetyRoot $SafetyRoot
         }
     }
 }
@@ -357,7 +361,8 @@ function Invoke-CleanupPlan {
                         -ResourceType 'vhdx' `
                         -ResourceId $step.resourceId `
                         -ExpectedScopeId $ScopeId `
-                        -RunDir $RunDir
+                        -RunDir $RunDir `
+                        -SafetyRoot $(if ($step.PSObject.Properties['safetyRoot']) { [string]$step.safetyRoot } else { $null })
                 }
                 default {
                     throw "Unbekannter Cleanup-Ressourcentyp: $($step.resourceType)"

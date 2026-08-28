@@ -16,7 +16,7 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["Selector", "LocationId", "VolumeId", "BackingDeviceIds", "TopologyStatus", "HostRoot", "HostPath", "GuestRoot"],
+        "required": ["Selector", "LocationId", "VolumeId", "BackingDeviceIds", "TopologyStatus", "HostRoot", "HostPath", "GuestRoot", "RuntimeStorageSizeBytes"],
         "properties": {
           "Selector": { "type": "string" },
           "LocationId": { "type": "string", "format": "uuid" },
@@ -25,7 +25,8 @@
           "TopologyStatus": { "enum": ["Proven", "LogicalOnly", "Unknown"] },
           "HostRoot": { "type": "string" },
           "HostPath": { "type": "string" },
-          "GuestRoot": { "type": "string" }
+          "GuestRoot": { "type": "string" },
+          "RuntimeStorageSizeBytes": { "type": "integer", "minimum": 4294967296, "description": "Deterministisch abgeleitete virtuelle Lane-Kapazität; die Runtime erzeugt eine dynamische VHDX." }
         },
         "additionalProperties": false
       }
@@ -62,7 +63,7 @@
       "additionalProperties": false
     },
     "Blockers": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
-    "RuntimeApplicationStatus": { "const": "PLANNED_NOT_IMPLEMENTED" }
+    "RuntimeApplicationStatus": { "enum": ["READY_TO_APPLY", "PROVIDER_APPLY_UNAVAILABLE"] }
   },
   "additionalProperties": false
 }
