@@ -10,6 +10,7 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
 $implementationPath = Join-Path $repoRoot 'Private\ExternalRuntimeReconcile.ps1'
+$lifecyclePath = Join-Path $repoRoot 'Private\ExternalRuntimeLifecycle.ps1'
 $failures = [System.Collections.Generic.List[string]]::new()
 $passed = 0
 . (Join-Path $PSScriptRoot '..' 'Common' 'CheckResult.ps1')
@@ -29,6 +30,7 @@ Add-CheckResult -Name 'Public Reconcile APIs besitzen getrennten ExternalRuntime
 )
 
 $source = Get-Content -LiteralPath $implementationPath -Raw -Encoding utf8
+$lifecycleSource = Get-Content -LiteralPath $lifecyclePath -Raw -Encoding utf8
 $buildIndex = $source.IndexOf('Invoke-LabExternalRuntimeContainerImageBuild -ImagePlan')
 $journalIndex = $source.IndexOf("status='PREPARED'")
 $renameIndex = $source.IndexOf('& $provider rename $name $backupName')
@@ -139,7 +141,8 @@ $retryContract = & $module {
 }
 Add-CheckResult -Name 'Probe-Retry ist auf transiente LaunchPad-39011/39012-Fehler begrenzt' -Success (
     $retryContract.Attempts -eq 2 -and $retryContract.Recoveries -eq 1 -and $retryContract.Status -eq 'PASS' -and
-    $retryContract.NonTransientAttempts -eq 1 -and $retryContract.NonTransientRejected
+    $retryContract.NonTransientAttempts -eq 1 -and $retryContract.NonTransientRejected -and
+    $lifecycleSource -match '(?s)\$recoverProbeReadiness = \{.*?Restart-LabExternalRuntimeContainer.*?Wait-SqlReady'
 )
 
 $hostnameContract = & $module {
