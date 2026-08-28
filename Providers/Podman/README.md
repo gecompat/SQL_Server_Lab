@@ -14,6 +14,8 @@ SQL Server 2022 External Runtimes benötigen rootful Linux mit cgroup v1.
 - Windows/Mac: `podman machine` muss laufen
 - stderr-Warnings werden als Strings konvertiert (ErrorRecord-Fix)
 - Container-ID per Hex-Regex extrahiert
+- SQL-internes Memory-Limit mit 20 Prozent Headroom unterhalb des
+  Containerlimits sowie TLS-vertraulicher Healthcheck
 - Autostart über `--restart unless-stopped` und das Lab-Label; auf nativem Linux
   werden `podman-restart.service` und systemd-Linger aktiviert, unter Windows startet ein verwalteter
   Benutzer-Anmeldeauftrag zuerst die Podman Machine

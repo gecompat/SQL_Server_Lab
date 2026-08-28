@@ -11,11 +11,12 @@ function Update-SqlServerLabContainer {
         [ValidateRange(512, 1048576)][int]$MemoryMB,
         [ValidateRange(1024, 65535)][int]$Port,
         [ValidateRange(10, 600)][int]$ReadinessTimeoutSeconds = 180,
+        [switch]$RepairSqlRuntimeContract,
         [string]$StateRoot
     )
 
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
-    if (Test-LabAutomatedTestEnvironmentRun -RunId $RunId) {
+    if ((Test-LabAutomatedTestEnvironmentRun -RunId $RunId) -and -not $script:LabAutomatedTestEnvironmentGroupOperation) {
         throw 'TEST_ENVIRONMENT_GROUP_PROTECTED: Containeränderung ist für einzelne Testumgebungen gesperrt.'
     }
     $runDirectory = Join-Path (Join-Path $StateRoot 'runs') $RunId
@@ -44,13 +45,18 @@ function Update-SqlServerLabContainer {
     if (-not $PSBoundParameters.ContainsKey('Cpu')) { $Cpu = $currentCpu }
     if (-not $PSBoundParameters.ContainsKey('MemoryMB')) { $MemoryMB = $currentMemoryMB }
     if (-not $PSBoundParameters.ContainsKey('Port')) { $Port = $currentPort }
-    if ($Cpu -eq $currentCpu -and $MemoryMB -eq $currentMemoryMB -and $Port -eq $currentPort) {
+    $sqlMemoryLimitMB = [math]::Max(1024, [math]::Floor($MemoryMB * 0.8))
+    $configuredSqlMemoryLimit = @($inspect.Config.Env | Where-Object { [string]$_ -match '^MSSQL_MEMORY_LIMIT_MB=' } | Select-Object -First 1)
+    $healthCommand = [string](@($inspect.Config.Healthcheck.Test) -join ' ')
+    $sqlRuntimeContractCurrent = $configuredSqlMemoryLimit -eq "MSSQL_MEMORY_LIMIT_MB=$sqlMemoryLimitMB" -and $healthCommand -match '(?:^|\s)-C(?:\s|$)'
+    $requiresRecreation = $Port -ne $currentPort -or ($RepairSqlRuntimeContract -and -not $sqlRuntimeContractCurrent)
+    if ($Cpu -eq $currentCpu -and $MemoryMB -eq $currentMemoryMB -and $Port -eq $currentPort -and -not $requiresRecreation) {
         return [PSCustomObject]@{ RunId=$RunId; Provider=$runtime; Container=$name; Changed=$false; Port=$currentPort; Cpu=$currentCpu; MemoryMB=$currentMemoryMB }
     }
     if (-not $PSCmdlet.ShouldProcess($name, "Containerzustand auf CPU=$Cpu, RAM=${MemoryMB}MB, Port=$Port abgleichen")) { return }
 
     $cpuArgument = $Cpu.ToString('0.##', [System.Globalization.CultureInfo]::InvariantCulture)
-    if ($Port -eq $currentPort) {
+    if ($Port -eq $currentPort -and -not $requiresRecreation) {
         $output = & $runtime update --cpus $cpuArgument --memory "${MemoryMB}m" $name 2>&1
         if ($LASTEXITCODE -ne 0) { throw "CONTAINER_RECONCILE_UPDATE_FAILED: $($output -join ' ')" }
         $instance | Add-Member -NotePropertyName cpu -NotePropertyValue $Cpu -Force
@@ -67,7 +73,14 @@ function Update-SqlServerLabContainer {
     $saPassword = if ($wasRunning) { Get-LabSecret -Path $runDirectory -Name 'sa-password' } else { $null }
     if ($wasRunning -and -not $saPassword) { throw 'CONTAINER_RECONCILE_SA_SECRET_MISSING' }
     $arguments = @('run','-d','--name',$name,'-p',"${Port}:1433",'--cpus',$cpuArgument,'--memory',"${MemoryMB}m")
-    foreach ($entry in @($inspect.Config.Env)) { $arguments += @('-e',[string]$entry) }
+    if ($inspect.Config.Hostname) { $arguments += @('--hostname',[string]$inspect.Config.Hostname) }
+    $networkNames = @($inspect.NetworkSettings.Networks.PSObject.Properties.Name)
+    if ($networkNames.Count -gt 0) { $arguments += @('--network',[string]$networkNames[0]) }
+    foreach ($entry in @($inspect.Config.Env)) {
+        if ([string]$entry -match '^MSSQL_MEMORY_LIMIT_MB=') { continue }
+        $arguments += @('-e',[string]$entry)
+    }
+    $arguments += @('-e',"MSSQL_MEMORY_LIMIT_MB=$sqlMemoryLimitMB")
     foreach ($property in @($inspect.Config.Labels.PSObject.Properties)) { $arguments += @('--label',"$($property.Name)=$($property.Value)") }
     foreach ($mount in @($inspect.Mounts)) {
         if ([string]$mount.Type -eq 'bind') {
@@ -85,6 +98,12 @@ function Update-SqlServerLabContainer {
     if ($inspect.HostConfig.RestartPolicy.Name -and [string]$inspect.HostConfig.RestartPolicy.Name -ne 'no') {
         $arguments += @('--restart',[string]$inspect.HostConfig.RestartPolicy.Name)
     }
+    $arguments += @(
+        '--health-cmd', '/opt/mssql-tools*/bin/sqlcmd -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -C -Q "SELECT 1" -b',
+        '--health-interval', '5s',
+        '--health-timeout', '3s',
+        '--health-retries', '30'
+    )
     $arguments += $image
     $originalRenamed = $false
     $replacementCreated = $false
@@ -117,7 +136,7 @@ function Update-SqlServerLabContainer {
         $instance | Add-Member -NotePropertyName memoryMB -NotePropertyValue $MemoryMB -Force
         $instance | Add-Member -NotePropertyName connectionString -NotePropertyValue (New-SqlConnectionString -HostName $containerHost -Port $Port) -Force
         Write-LabArtifactJsonAtomic -Path $connectionPath -InputObject $connection
-        return [PSCustomObject]@{ RunId=$RunId; Provider=$runtime; Container=$name; Changed=$true; Recreated=$true; Port=$Port; Cpu=$Cpu; MemoryMB=$MemoryMB }
+        return [PSCustomObject]@{ RunId=$RunId; Provider=$runtime; Container=$name; Changed=$true; Recreated=$true; Port=$Port; Cpu=$Cpu; MemoryMB=$MemoryMB; SqlMemoryLimitMB=$sqlMemoryLimitMB }
     }
     catch {
         if ($replacementCreated) { $null = & $runtime rm -f $name 2>&1 }
