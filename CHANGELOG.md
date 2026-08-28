@@ -8,6 +8,12 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- `Invoke-HyperVWindowsGeneralizeAcceptance.ps1` installiert Windows Server
+  2025 Standard Evaluation unbeaufsichtigt aus dem SHA-256-verifizierten ISO
+  auf einer neuen Builder-VHDX und belegt real Installations-Receipt, Sysprep-
+  Generalize, hashgebundene PowerShell-Direct-Evidence, testlokale immutable
+  `OS_SEALED`-Publikation und vollständigen Cleanup.
+
 - `Start-SqlServerLabAutomatedTestEnvironment` und
   `Stop-SqlServerLabAutomatedTestEnvironment` steuern die registrierten
   Windows-Hyper-V-Mitglieder der geschützten Testgruppe gemeinsam und
@@ -49,6 +55,15 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   Recovery- und Umschaltgrenzen.
 
 ### Behoben
+
+- Der initiale Hyper-V-DVD-Boot deckt das real beobachtete UEFI-Zeitfenster
+  jetzt mit 30 einmaligen Tastenzustellungen über gut 22 Sekunden ab. Dadurch
+  wird ein erfolgreicher WMI-Tastaturaufruf nicht mehr fälschlich als
+  tatsächlich angenommener „Press any key“-Boot interpretiert.
+- Windows-Generalize wartet begrenzt auf den finalen Microsoft-ImageState und
+  liefert bei einem Fehler die relevanten begrenzten Panther-Zeilen. Der
+  reale Nachweis trennt damit Produktfehler von unzulässigen erneuten Rearms
+  bereits generalisierter Windows-Baselines.
 
 - Persistente Hyper-V-Windows-User-Gates verwenden jetzt den tatsächlichen,
   rungebundenen VM-Namen aus `connection-info.json`, statt bei älterem State

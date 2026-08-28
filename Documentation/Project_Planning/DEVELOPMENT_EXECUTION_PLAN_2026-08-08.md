@@ -698,7 +698,7 @@ Runtime-Nachweis; maßgeblich bleiben die jeweils genannten Tests und Evidence.
 | Welle | Status am 2026-08-28 | Einordnung |
 |---|---|---|
 | N1 | `COMPLETE` | Nightly-Ursache klassifiziert, persistente Windows-Testumgebungen gezielt wiederhergestellt, CU-Katalog fachlich aktualisiert und zwei aufeinanderfolgende Nightlies vollständig grün. |
-| N2 | `IN_PROGRESS` | ActionResult-/Sync-, Portbindungs-, UAC- und Privilegverträge sind implementiert und fokussiert geprüft; GUI-Abbruch, Scheduler-Abbruch/Recovery, Manifest-Rerun, PowerShell-Console und Windows-User-Gate sind real belegt. Nur der positive Generalize-Receipt-Pfad bleibt offen. |
+| N2 | `COMPLETE` | ActionResult-/Sync-, Portbindungs-, UAC- und Privilegverträge sind implementiert und fokussiert geprüft; GUI-Abbruch, Scheduler-Abbruch/Recovery, Manifest-Rerun, PowerShell-Console, Windows-User-Gate und der positive Windows-Generalize-/Publish-Pfad sind real belegt. |
 | N3 | `PLANNED_NOT_STARTED` | Die drei Partnerrepository-Piloten sind nicht nachgewiesen. |
 | N4 | `PLANNED_NOT_STARTED` | Vorhandene Hyper-V-Teilpfade und persistente Testumgebungen ersetzen den geforderten Cold-Path nicht. |
 | N5 | `PLANNED_NOT_STARTED` | Vorhandene Storage-/Reconcile-Teile ersetzen den vollständigen Vertical Slice nicht. |
@@ -748,7 +748,7 @@ werden erst nach tatsächlich grünen Läufen als stabil gewertet.
 
 ### Welle N2 – P0-Steuerungs-, Abbruch- und Recovery-Verträge
 
-**Status:** `IN_PROGRESS` seit 2026-08-28.
+**Status:** `COMPLETE` seit 2026-08-28.
 
 **Aktuelle Evidence:** `ActionResult/1.0` trennt `Changed`, `NoChange`,
 `Cancelled` und `Failed`; Connection Center und CMS werden nur noch bei einer
@@ -773,8 +773,16 @@ Hyper-V-Windows-User-Gate bleibt nach einem read-only Probe ausschließlich
 `CandidateSatisfied`, setzt weder Step noch Receipt fort, lehnt Bestätigung ohne
 Credential fail-closed ab, verifiziert ein echtes Gast-Credential über
 PowerShell Direct und erzeugt danach genau ein Receipt. VM, Child-VHDX und
-temporärer State wurden scopegebunden entfernt. Offen bleibt nur der positive
-reale Generalize-Receipt-Pfad.
+temporärer State wurden scopegebunden entfernt. Der positive Generalize-Pfad
+wurde anschließend aus dem hashverifizierten Windows-Server-2025-Eval-ISO auf
+einer neuen eigenständigen Builder-VHDX real ausgeführt. Unbeaufsichtigtes Setup
+und OOBE, der gastgebundene Installations-Receipt, Sysprep mit Exitcode 0 und
+`IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE`, hashgebundene Generalize-Evidence,
+testlokale immutable `OS_SEALED`-Publikation und vollständiger Cleanup waren
+grün. Das produktive Referenz-Artifact blieb read-only; Passwort- und Antwort-
+ISO wurden vor Sysprep entfernt. Ein dabei real gefundenes zu kurzes UEFI-DVD-
+Bootfenster ist durch 30 einmalige Tastenzustellungen über gut 22 Sekunden
+abgesichert.
 
 **Ziel:** Alle bereits identifizierten P0-Lücken schließen, bevor Komfort- oder
 Breitenausbau beginnt.
