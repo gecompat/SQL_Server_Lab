@@ -59,6 +59,7 @@ $checks = @(
     'Invoke-VersionCatalogChecks.ps1',
     'Invoke-SoftwareCatalogChecks.ps1',
     'Invoke-ExternalRuntimeContainerImageChecks.ps1',
+    'Invoke-ExternalRuntimeReconcileChecks.ps1',
     'Invoke-DatabaseCommandChecks.ps1',
     'Invoke-ReadinessContractChecks.ps1',
     'Invoke-ReconcileContractChecks.ps1',

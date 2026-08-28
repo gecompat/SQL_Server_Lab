@@ -64,8 +64,24 @@ RUN chmod 0755 /opt/sql-server-lab/bin/install-java-runtime.sh; \
         /opt/sql-server-lab/java-source/SqlServerLabExternalRuntimeProbe.java \
         /opt/sql-server-lab/java-source/MICROSOFT-JAVA-EXTENSION-LICENSE.txt
 
+FROM runtime-base AS runtime-openmp
+ARG LIBGOMP_DEB_URL=https://archive.ubuntu.com/ubuntu/pool/main/g/gcc-12/libgomp1_12.3.0-1ubuntu1~22.04.3_amd64.deb
+ARG LIBGOMP_DEB_SHA256=870c27299185a5dd4accad3b15bf82a7409fd7073cccaa8025875307da4d0ce2
+ARG LIBGOMP_DEB_VERSION=12.3.0-1ubuntu1~22.04.3
+RUN set -eux; \
+    wget -q --https-only --secure-protocol=TLSv1_2 --timeout=30 --tries=3 \
+        "${LIBGOMP_DEB_URL}" -O /tmp/libgomp1.deb; \
+    echo "${LIBGOMP_DEB_SHA256}  /tmp/libgomp1.deb" | sha256sum --check --strict; \
+    test "$(dpkg-deb -f /tmp/libgomp1.deb Version)" = "${LIBGOMP_DEB_VERSION}"; \
+    mkdir -p /opt/sql-server-lab/runtime-libraries/libgomp1; \
+    dpkg-deb -x /tmp/libgomp1.deb /opt/sql-server-lab/runtime-libraries/libgomp1; \
+    rm -f /tmp/libgomp1.deb; \
+    test -e /opt/sql-server-lab/runtime-libraries/libgomp1/usr/lib/x86_64-linux-gnu/libgomp.so.1
+
 FROM runtime-base AS runtime-python
+COPY --from=runtime-openmp /opt/sql-server-lab/runtime-libraries/libgomp1/usr/lib/x86_64-linux-gnu/libgomp.so.1* /usr/lib/x86_64-linux-gnu/
 RUN /opt/sql-server-lab/bin/install-python-runtime.sh /opt/sql-server-lab/locks/python-wheels.lock; \
+    test -e /usr/lib/x86_64-linux-gnu/libgomp.so.1; \
     /opt/mssql/bin/mssql-conf set extensibility pythonbinpath /usr/bin/python3.10; \
     /opt/mssql/bin/mssql-conf set extensibility datadirectories /usr/lib:/usr/lib/python3.10/dist-packages
 
@@ -76,7 +92,7 @@ COPY --from=r-runtime /usr/local/bin/Rscript /usr/local/bin/Rscript
 COPY --from=r-runtime /usr/lib/x86_64-linux-gnu/openblas-pthread /usr/lib/x86_64-linux-gnu/openblas-pthread
 COPY --from=r-runtime /usr/lib/x86_64-linux-gnu/libgfortran.so.5* /usr/lib/x86_64-linux-gnu/
 COPY --from=r-runtime /usr/lib/x86_64-linux-gnu/libquadmath.so.0* /usr/lib/x86_64-linux-gnu/
-COPY --from=r-runtime /usr/lib/x86_64-linux-gnu/libgomp.so.1* /usr/lib/x86_64-linux-gnu/
+COPY --from=runtime-openmp /opt/sql-server-lab/runtime-libraries/libgomp1/usr/lib/x86_64-linux-gnu/libgomp.so.1* /usr/lib/x86_64-linux-gnu/
 COPY --from=r-runtime /usr/lib/x86_64-linux-gnu/libtirpc.so.3* /usr/lib/x86_64-linux-gnu/
 RUN ln -s openblas-pthread/libblas.so.3 /usr/lib/x86_64-linux-gnu/libblas.so.3; \
     ln -s openblas-pthread/libopenblasp-r0.3.20.so /usr/lib/x86_64-linux-gnu/libopenblas.so.0; \

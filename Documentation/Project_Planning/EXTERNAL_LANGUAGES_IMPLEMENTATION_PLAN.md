@@ -249,9 +249,11 @@ Gate je Provider:
 - Remove bereinigt Run-Ressourcen, ohne wiederverwendbare Images unkontrolliert
   zu löschen.
 
-Implementierungsstand 2026-08-28: Das Rezept v4 bindet das SQL-2022-Basisimage,
+Implementierungsstand 2026-08-28: Das Rezept v5 bindet das SQL-2022-Basisimage,
 Python-, R- und Java-Artefakte, SQL-Satellite-OpenSSL-Kompatibilität und den
-sicheren Namespace-Launchvertrag vollständig. Docker und Podman bestanden
+sicheren Namespace-Launchvertrag vollständig. Die Python- und R-Stages binden
+die benötigte Ubuntu-`libgomp1`-Laufzeit eigenständig per Version und SHA-256.
+Docker und Podman bestanden
 getrennte native Acceptances mit Python- und R-Datenroundtrip, Package- und
 Worker-Identität vor und nach providergebundenem Neustart. Run-Ressourcen,
 Derived Image und das test-eigene Podman-Netz wurden vollständig bereinigt.
@@ -371,6 +373,21 @@ Vorschau trennt `rebuild`, `restart`, `recreate`, `reprovision` und `no-op`. Der
 allgemeine Reconcile- sowie der versionierte Refresh-/Umschaltpfad bleiben
 eigenständige Folgearbeit und sind durch diesen read-only Slice nicht als
 implementiert ausgewiesen.
+
+Implementierungsstand Welle 8B, 2026-08-28: Für laufende SQL-2022-Docker- und
+Podman-Runs mit bereits verifizierter External Runtime kann der öffentliche
+Reconcile-Vertrag additive Runtime-Anforderungen aus einem Zielmanifest planen
+und ausführen. Nicht-Software-Drift wird vor der Mutation abgelehnt. Der Apply-
+Pfad baut das neue inhaltsadressierte Derived Image zuerst, journalisiert die
+Umschaltung, erstellt den Ersatzcontainer über denselben Providervertrag wie die
+Erstprovisionierung und übernimmt ihn erst nach SQL-Readiness sowie echten
+`sp_execute_external_script`-Postconditions. Vor dem State-Commit wird auf den
+alten Container zurückgerollt; danach wird dessen Cleanup resumierbar
+abgeschlossen. Alte Images bleiben gemäß Retention erhalten. Runtime-Entfernung,
+allgemeiner Packagewechsel und Hyper-V-Artifact-Refresh bleiben Folgearbeit.
+Der vollständige Python-only-zu-Python/R/Java-Umschaltpfad bestand getrennte
+native Docker- und Podman-Abnahmen auf Ubuntu 22.04 mit cgroup v1 einschließlich
+Journal `COMPLETED`, Restart-Probes und Cleanup.
 
 ## 6. Betroffene Repositoryverträge
 

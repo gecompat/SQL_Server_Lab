@@ -461,7 +461,8 @@ function Initialize-LabExternalRuntimes {
         [Parameter(Mandatory)]$ImageArtifact,
         [Parameter(Mandatory)][SecureString]$SaPassword,
         [Parameter(Mandatory)][string]$RunDirectory,
-        $ResourceGovernorConfig
+        $ResourceGovernorConfig,
+        [ref]$CompensationRecords
     )
 
     if (@($SoftwarePlans).Count -eq 0) { return @() }
@@ -536,6 +537,9 @@ RECONFIGURE WITH OVERRIDE;
         }
         $null = Save-LabExternalRuntimeInstallationReceipts -RunDirectory $RunDirectory `
             -InstanceId ([string]$LabInstance.Id) -Receipts @($receipts)
+        if ($CompensationRecords) {
+            $CompensationRecords.Value = @($javaCompensations)
+        }
         return @($receipts)
     }
     catch {
