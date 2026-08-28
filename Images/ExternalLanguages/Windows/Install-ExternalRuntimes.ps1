@@ -67,14 +67,79 @@ function Grant-ExternalRuntimeReadExecute {
     $serviceAccount = "NT Service\$LaunchpadServiceName"
     $sqlServiceAccount = if ($InstanceName -eq 'MSSQLSERVER') { 'NT Service\MSSQLSERVER' } else { "NT Service\MSSQL`$$InstanceName" }
     $sqlRUserGroup = if ($InstanceName -eq 'MSSQLSERVER') { 'SQLRUsergroup' } else { "SQLRUsergroup$InstanceName" }
-    $null = Invoke-CheckedProcess -FilePath (Join-Path $env:SystemRoot 'System32\icacls.exe') `
-        -ArgumentList @($Path, '/grant', "$serviceAccount`:(OI)(CI)RX", '/T', '/C') -AllowedExitCodes @(0)
-    $null = Invoke-CheckedProcess -FilePath (Join-Path $env:SystemRoot 'System32\icacls.exe') `
-        -ArgumentList @($Path, '/grant', "$sqlServiceAccount`:(OI)(CI)RX", '/T', '/C') -AllowedExitCodes @(0)
-    $null = Invoke-CheckedProcess -FilePath (Join-Path $env:SystemRoot 'System32\icacls.exe') `
-        -ArgumentList @($Path, '/grant', "$sqlRUserGroup`:(OI)(CI)RX", '/T', '/C') -AllowedExitCodes @(0)
-    $null = Invoke-CheckedProcess -FilePath (Join-Path $env:SystemRoot 'System32\icacls.exe') `
-        -ArgumentList @($Path, '/grant', '*S-1-15-2-1:(OI)(CI)RX', '/T', '/C') -AllowedExitCodes @(0)
+    $principalSids = [Collections.Generic.List[Security.Principal.SecurityIdentifier]]::new()
+    foreach ($principal in @($serviceAccount,$sqlServiceAccount,$sqlRUserGroup)) {
+        try {
+            $account = [Security.Principal.NTAccount]::new($principal)
+            $principalSids.Add($account.Translate([Security.Principal.SecurityIdentifier]))
+        }
+        catch {
+            throw "EXTERNAL_RUNTIME_WINDOWS_ACL_PRINCIPAL_NOT_FOUND: $principal"
+        }
+    }
+    $principalSids.Add([Security.Principal.SecurityIdentifier]::new('S-1-15-2-1'))
+
+    $icacls = Join-Path $env:SystemRoot 'System32\icacls.exe'
+    foreach ($sid in $principalSids) {
+        $grant = '*{0}:(OI)(CI)RX' -f $sid.Value
+        $null = Invoke-CheckedProcess -FilePath $icacls `
+            -ArgumentList @($Path, '/grant', $grant, '/T', '/C') -AllowedExitCodes @(0)
+    }
+
+    $requiredRights = [Security.AccessControl.FileSystemRights]::ReadAndExecute
+    foreach ($target in @((Get-Item -LiteralPath $Path -Force)) + @(Get-ChildItem -LiteralPath $Path -Recurse -Force)) {
+        $acl = Get-Acl -LiteralPath $target.FullName -ErrorAction Stop
+        $sddl = $acl.GetSecurityDescriptorSddlForm([Security.AccessControl.AccessControlSections]::Access)
+        $rawDescriptor = [Security.AccessControl.RawSecurityDescriptor]::new($sddl)
+        $missingSids = [Collections.Generic.List[Security.Principal.SecurityIdentifier]]::new()
+        foreach ($sid in $principalSids) {
+            $matchingRule = @($rawDescriptor.DiscretionaryAcl | Where-Object {
+                $_.PSObject.Properties['SecurityIdentifier'] -and
+                $_.PSObject.Properties['AceQualifier'] -and
+                $_.PSObject.Properties['AccessMask'] -and
+                $_.SecurityIdentifier.Value -eq $sid.Value -and
+                $_.AceQualifier -eq [Security.AccessControl.AceQualifier]::AccessAllowed -and
+                (([int]$_.AccessMask -band [int]$requiredRights) -eq [int]$requiredRights)
+            }) | Select-Object -First 1
+            if (-not $matchingRule) {
+                $missingSids.Add($sid)
+            }
+        }
+        if ($missingSids.Count -gt 0) {
+            $inheritanceFlags = if ($target.PSIsContainer) {
+                [Security.AccessControl.InheritanceFlags]::ContainerInherit -bor
+                    [Security.AccessControl.InheritanceFlags]::ObjectInherit
+            }
+            else { [Security.AccessControl.InheritanceFlags]::None }
+            foreach ($sid in $missingSids) {
+                $rule = [Security.AccessControl.FileSystemAccessRule]::new(
+                    $sid,
+                    $requiredRights,
+                    $inheritanceFlags,
+                    [Security.AccessControl.PropagationFlags]::None,
+                    [Security.AccessControl.AccessControlType]::Allow
+                )
+                $null = $acl.AddAccessRule($rule)
+            }
+            Set-Acl -LiteralPath $target.FullName -AclObject $acl -ErrorAction Stop
+            $acl = Get-Acl -LiteralPath $target.FullName -ErrorAction Stop
+            $sddl = $acl.GetSecurityDescriptorSddlForm([Security.AccessControl.AccessControlSections]::Access)
+            $rawDescriptor = [Security.AccessControl.RawSecurityDescriptor]::new($sddl)
+        }
+        foreach ($sid in $principalSids) {
+            $matchingRule = @($rawDescriptor.DiscretionaryAcl | Where-Object {
+                $_.PSObject.Properties['SecurityIdentifier'] -and
+                $_.PSObject.Properties['AceQualifier'] -and
+                $_.PSObject.Properties['AccessMask'] -and
+                $_.SecurityIdentifier.Value -eq $sid.Value -and
+                $_.AceQualifier -eq [Security.AccessControl.AceQualifier]::AccessAllowed -and
+                (([int]$_.AccessMask -band [int]$requiredRights) -eq [int]$requiredRights)
+            }) | Select-Object -First 1
+            if (-not $matchingRule) {
+                throw "EXTERNAL_RUNTIME_WINDOWS_ACL_POSTCONDITION_FAILED: $($target.Name) / $($sid.Value)"
+            }
+        }
+    }
 }
 
 function Install-PythonExternalRuntime {
@@ -115,7 +180,38 @@ function Install-PythonExternalRuntime {
     $null = Invoke-CheckedProcess -FilePath $registerRext `
         -ArgumentList @('/configure', "/pythonhome:$runtimeHome", "/instance:$InstanceName") -AllowedExitCodes @(0)
 
-    $versionEvidence = [string](& $python -c 'import platform,numpy,pandas; from importlib.metadata import version; print("|".join([platform.python_version(),numpy.__version__,pandas.__version__,version("revoscalepy")]))')
+    $probeCaptureId = [guid]::NewGuid().ToString('N')
+    $probeScriptPath = Join-Path $env:TEMP "sqlserverlab-python-version-$probeCaptureId.py"
+    $probeStdoutPath = Join-Path $env:TEMP "sqlserverlab-python-version-$probeCaptureId.out"
+    $probeStderrPath = Join-Path $env:TEMP "sqlserverlab-python-version-$probeCaptureId.err"
+    try {
+        $probeSource = @'
+import platform
+import numpy
+import pandas
+from importlib.metadata import version
+print("|".join([platform.python_version(), numpy.__version__, pandas.__version__, version("revoscalepy")]))
+'@
+        [IO.File]::WriteAllText($probeScriptPath, $probeSource, [Text.UTF8Encoding]::new($false))
+        $probeProcess = Start-Process -FilePath $python -ArgumentList @($probeScriptPath) `
+            -PassThru -NoNewWindow -RedirectStandardOutput $probeStdoutPath `
+            -RedirectStandardError $probeStderrPath
+        if (-not $probeProcess.WaitForExit(120000)) {
+            Stop-Process -Id $probeProcess.Id -Force -ErrorAction SilentlyContinue
+            throw 'EXTERNAL_RUNTIME_WINDOWS_PYTHON_VERSION_TIMEOUT'
+        }
+        if ([int]$probeProcess.ExitCode -ne 0) {
+            throw "EXTERNAL_RUNTIME_WINDOWS_PYTHON_VERSION_COMMAND_FAILED: $([int]$probeProcess.ExitCode)"
+        }
+        $versionEvidence = Get-Content -LiteralPath $probeStdoutPath -Raw -ErrorAction Stop
+    }
+    finally {
+        foreach ($capturePath in @($probeScriptPath,$probeStdoutPath,$probeStderrPath)) {
+            if (Test-Path -LiteralPath $capturePath -PathType Leaf) {
+                Remove-Item -LiteralPath $capturePath -Force
+            }
+        }
+    }
     if ($versionEvidence.Trim() -ne '3.10.11|1.22.0|1.3.5|10.0.1') {
         throw "EXTERNAL_RUNTIME_WINDOWS_PYTHON_VERSION_MISMATCH: $versionEvidence"
     }
@@ -134,7 +230,35 @@ function Install-RExternalRuntime {
     $rscript = Join-Path $runtimeHome 'bin\Rscript.exe'
     $installer = Get-VerifiedArtifactPath -Id 'r-win-4.2.3'
     $installedVersion = if (Test-Path -LiteralPath $rscript -PathType Leaf) {
-        [string](& $rscript --vanilla -e 'cat(paste(R.version$major,R.version$minor,sep="."))' 2>$null)
+        $installedCaptureId = [guid]::NewGuid().ToString('N')
+        $installedScriptPath = Join-Path $env:TEMP "sqlserverlab-r-installed-version-$installedCaptureId.R"
+        $installedStdoutPath = Join-Path $env:TEMP "sqlserverlab-r-installed-version-$installedCaptureId.out"
+        $installedStderrPath = Join-Path $env:TEMP "sqlserverlab-r-installed-version-$installedCaptureId.err"
+        try {
+            [IO.File]::WriteAllText(
+                $installedScriptPath,
+                'cat(paste(R.version$major, R.version$minor, sep="."))',
+                [Text.UTF8Encoding]::new($false)
+            )
+            $installedProcess = Start-Process -FilePath $rscript -ArgumentList @('--vanilla',$installedScriptPath) `
+                -PassThru -NoNewWindow -RedirectStandardOutput $installedStdoutPath `
+                -RedirectStandardError $installedStderrPath
+            if (-not $installedProcess.WaitForExit(120000)) {
+                Stop-Process -Id $installedProcess.Id -Force -ErrorAction SilentlyContinue
+                throw 'EXTERNAL_RUNTIME_WINDOWS_R_INSTALLED_VERSION_TIMEOUT'
+            }
+            if ([int]$installedProcess.ExitCode -ne 0) {
+                throw "EXTERNAL_RUNTIME_WINDOWS_R_INSTALLED_VERSION_COMMAND_FAILED: $([int]$installedProcess.ExitCode)"
+            }
+            [string](Get-Content -LiteralPath $installedStdoutPath -Raw -ErrorAction Stop).Trim()
+        }
+        finally {
+            foreach ($capturePath in @($installedScriptPath,$installedStdoutPath,$installedStderrPath)) {
+                if (Test-Path -LiteralPath $capturePath -PathType Leaf) {
+                    Remove-Item -LiteralPath $capturePath -Force
+                }
+            }
+        }
     } else { $null }
     if ($installedVersion -ne '4.2.3') {
         $null = Invoke-CheckedProcess -FilePath $installer -ArgumentList @(
@@ -163,7 +287,34 @@ function Install-RExternalRuntime {
     $null = Invoke-CheckedProcess -FilePath $registerRext `
         -ArgumentList @('/configure', "/rhome:$runtimeHome", "/instance:$InstanceName") -AllowedExitCodes @(0)
 
-    $versionEvidence = [string](& $rscript --vanilla -e 'cat(paste(paste(R.version$major,R.version$minor,sep="."),as.character(packageVersion("jsonlite")),as.character(packageVersion("RevoScaleR")),sep="|"))')
+    $probeCaptureId = [guid]::NewGuid().ToString('N')
+    $probeScriptPath = Join-Path $env:TEMP "sqlserverlab-r-version-$probeCaptureId.R"
+    $probeStdoutPath = Join-Path $env:TEMP "sqlserverlab-r-version-$probeCaptureId.out"
+    $probeStderrPath = Join-Path $env:TEMP "sqlserverlab-r-version-$probeCaptureId.err"
+    try {
+        $probeSource = @'
+cat(paste(paste(R.version$major, R.version$minor, sep="."), as.character(packageVersion("jsonlite")), as.character(packageVersion("RevoScaleR")), sep="|"))
+'@
+        [IO.File]::WriteAllText($probeScriptPath, $probeSource, [Text.UTF8Encoding]::new($false))
+        $probeProcess = Start-Process -FilePath $rscript -ArgumentList @('--vanilla',$probeScriptPath) `
+            -PassThru -NoNewWindow -RedirectStandardOutput $probeStdoutPath `
+            -RedirectStandardError $probeStderrPath
+        if (-not $probeProcess.WaitForExit(120000)) {
+            Stop-Process -Id $probeProcess.Id -Force -ErrorAction SilentlyContinue
+            throw 'EXTERNAL_RUNTIME_WINDOWS_R_VERSION_TIMEOUT'
+        }
+        if ([int]$probeProcess.ExitCode -ne 0) {
+            throw "EXTERNAL_RUNTIME_WINDOWS_R_VERSION_COMMAND_FAILED: $([int]$probeProcess.ExitCode)"
+        }
+        $versionEvidence = Get-Content -LiteralPath $probeStdoutPath -Raw -ErrorAction Stop
+    }
+    finally {
+        foreach ($capturePath in @($probeScriptPath,$probeStdoutPath,$probeStderrPath)) {
+            if (Test-Path -LiteralPath $capturePath -PathType Leaf) {
+                Remove-Item -LiteralPath $capturePath -Force
+            }
+        }
+    }
     if ($versionEvidence.Trim() -ne '4.2.3|1.8.8|10.0.1') {
         throw "EXTERNAL_RUNTIME_WINDOWS_R_VERSION_MISMATCH: $versionEvidence"
     }
@@ -212,7 +363,32 @@ function Install-JavaExternalRuntime {
     if (-not (Test-Path -LiteralPath $javac -PathType Leaf) -or -not (Test-Path -LiteralPath $jar -PathType Leaf)) {
         throw 'EXTERNAL_RUNTIME_WINDOWS_JAVA_TOOLCHAIN_MISSING'
     }
-    $versionEvidence = (& $java -XshowSettings:properties -version 2>&1 | Out-String)
+    $versionCaptureId = [guid]::NewGuid().ToString('N')
+    $versionStdoutPath = Join-Path $env:TEMP "sqlserverlab-java-version-$versionCaptureId.out"
+    $versionStderrPath = Join-Path $env:TEMP "sqlserverlab-java-version-$versionCaptureId.err"
+    try {
+        $versionProcess = Start-Process -FilePath $java -ArgumentList @('-XshowSettings:properties','-version') `
+            -PassThru -NoNewWindow -RedirectStandardOutput $versionStdoutPath `
+            -RedirectStandardError $versionStderrPath
+        if (-not $versionProcess.WaitForExit(120000)) {
+            Stop-Process -Id $versionProcess.Id -Force -ErrorAction SilentlyContinue
+            throw 'EXTERNAL_RUNTIME_WINDOWS_JAVA_VERSION_TIMEOUT'
+        }
+        if ([int]$versionProcess.ExitCode -ne 0) {
+            throw "EXTERNAL_RUNTIME_WINDOWS_JAVA_VERSION_COMMAND_FAILED: $([int]$versionProcess.ExitCode)"
+        }
+        $versionEvidence = @(
+            Get-Content -LiteralPath $versionStdoutPath -Raw -ErrorAction SilentlyContinue
+            Get-Content -LiteralPath $versionStderrPath -Raw -ErrorAction SilentlyContinue
+        ) -join [Environment]::NewLine
+    }
+    finally {
+        foreach ($capturePath in @($versionStdoutPath,$versionStderrPath)) {
+            if (Test-Path -LiteralPath $capturePath -PathType Leaf) {
+                Remove-Item -LiteralPath $capturePath -Force
+            }
+        }
+    }
     if ($versionEvidence -notmatch '(?m)^\s*java\.version\s*=\s*17\.0\.20\.1\s*$') {
         throw 'EXTERNAL_RUNTIME_WINDOWS_JAVA_VERSION_MISMATCH'
     }
@@ -304,11 +480,8 @@ foreach ($language in @($script:Plan.languages | ForEach-Object { [string]$_ }))
 
 Restart-Service -Name $sqlServiceName -Force -ErrorAction Stop
 (Get-Service -Name $sqlServiceName).WaitForStatus('Running', [TimeSpan]::FromMinutes(5))
-$launchpad = Get-Service -Name $launchpadServiceName -ErrorAction Stop
-if ($launchpad.Status -ne 'Running') {
-    Start-Service -Name $launchpadServiceName -ErrorAction Stop
-    (Get-Service -Name $launchpadServiceName).WaitForStatus('Running', [TimeSpan]::FromMinutes(2))
-}
+Restart-Service -Name $launchpadServiceName -Force -ErrorAction Stop
+(Get-Service -Name $launchpadServiceName).WaitForStatus('Running', [TimeSpan]::FromMinutes(2))
 
 [PSCustomObject]@{
     contractVersion = '1.0'

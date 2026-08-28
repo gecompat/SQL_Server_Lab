@@ -64,9 +64,11 @@ $invalidRuntimeWorkflows = @($runtimeWorkflowPaths | Where-Object {
     $workflowText -match '(?m)-FullMatrix|(?m)-IncludeParallel' -or
     @([regex]::Matches($workflowText, '(?m)-ReferenceVersion\s+2025')).Count -ne 1 -or
     @([regex]::Matches($workflowText, '(?m)-Version\s+2025')).Count -ne 2 -or
-    $workflowText -match '(?m)-(?:Reference)?Version\s+(?:2017|2019|2022)'
+    @([regex]::Matches($workflowText, '(?m)-Version\s+2022-CU18')).Count -ne 1 -or
+    $workflowText -match '(?m)-(?:Reference)?Version\s+(?:2017|2019)(?:\s|$)' -or
+    $workflowText -match '(?m)-(?:Reference)?Version\s+2022(?!-CU18)(?:\s|$)'
 })
-Add-CheckResult -Name 'Docker- und Podman-Gates verwenden nur die SQL-2025-Referenzversion' -Success (
+Add-CheckResult -Name 'Docker- und Podman-Gates trennen SQL-2025-Lifecycle von SQL-2022-CU18-CLI-Acceptance' -Success (
     $invalidRuntimeWorkflows.Count -eq 0
 ) -Message (($invalidRuntimeWorkflows | ForEach-Object { Split-Path -Leaf $_ }) -join ', ')
 

@@ -126,7 +126,7 @@ $result = & $module {
         Sql2025 = $sql2025Plan.Status -eq 'DECLARED_UNSUPPORTED' -and
             $sql2025Plan.ReasonCode -eq 'RUNTIME_COMBINATION_NOT_CATALOGUED'
         PackageLock = $packagePlan.ReasonCode -eq 'PACKAGE_NOT_LOCKED'
-        HyperVJava = $javaPlan.ReasonCode -eq 'VARIANT_PREVIEW' -and
+        HyperVJava = $javaPlan.Status -eq 'RESOLVED' -and -not $javaPlan.ReasonCode -and
             $javaPlan.VariantId -eq 'sql2022-java17-windows-hyperv'
         DuplicateRejected = $duplicateRejected
         ReceiptRejected = $receiptRejected
@@ -146,7 +146,7 @@ Add-CheckResult -Name 'Legacy-post-start bleibt vor jeder Mutation NON_REPRODUCI
 Add-CheckResult -Name 'SQL-2022-Python wird deterministisch auf PREVIEW statt Supported aufgeloest' -Success $result.Preview
 Add-CheckResult -Name 'SQL Server 2025 erbt keine unbelegte SQL-2022-Runtimeannahme' -Success $result.Sql2025
 Add-CheckResult -Name 'Nicht katalogisierte Zusatzpakete werden vor der Mutation abgelehnt' -Success $result.PackageLock
-Add-CheckResult -Name 'Hyper-V/Windows-Java besitzt einen getrennten deterministischen Preview-Plan' -Success $result.HyperVJava
+Add-CheckResult -Name 'Hyper-V/Windows-Java besitzt einen nativ belegten deterministischen Plan' -Success $result.HyperVJava
 Add-CheckResult -Name 'Doppelte Legacy- und software-Anforderung wird abgelehnt' -Success $result.DuplicateRejected
 Add-CheckResult -Name 'Installation Receipt erfordert einen RESOLVED-Plan' -Success $result.ReceiptRejected
 Add-CheckResult -Name 'Desired State trennt Planning-Capability und Runtimefreigabe' -Success $result.Intent

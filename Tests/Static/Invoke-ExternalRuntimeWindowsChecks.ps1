@@ -22,7 +22,8 @@ try {
         Where-Object id -eq 'sql2022-java17-windows-hyperv'
     Add-CheckResult -Name 'Windows-Rezept bindet SQL 2022, Python 3.10.11, R 4.2.3 und Java 17' -Success (
         $recipe.sqlMajorVersion -eq 16 -and $recipe.languages.Python.runtimeVersion -eq '3.10.11' -and
-        $recipe.languages.R.runtimeVersion -eq '4.2.3' -and $recipe.languages.Java.runtimeVersion -eq '17.0.20.1'
+        $recipe.languages.R.runtimeVersion -eq '4.2.3' -and $recipe.languages.Java.runtimeVersion -eq '17.0.20.1' -and
+        @($python,$r,$java | Where-Object status -eq 'SUPPORTED').Count -eq 3
     )
     Add-CheckResult -Name 'Python-Windows-Variante bindet Installer und zehn Offline-Wheels per SHA-256' -Success (
         @($python.artifacts).Count -eq 11 -and @($python.artifacts | Where-Object { $_.sha256 -notmatch '^[a-f0-9]{64}$' }).Count -eq 0 -and
@@ -69,13 +70,35 @@ try {
         $guestText -match '--no-index' -and $guestText -match '--no-deps'
     )
     Add-CheckResult -Name 'Guest-Installer prüft Hash, ACL, RegisterRext und Services' -Success (
-        $guestText -match 'Get-FileHash' -and $guestText -match '\*S-1-15-2-1' -and
-        $guestText -match 'RegisterRext\.exe' -and $guestText -match 'Restart-Service -Name \$sqlServiceName'
+        $guestText -match 'Get-FileHash' -and $guestText -match "SecurityIdentifier\]::new\('S-1-15-2-1'\)" -and
+        $guestText -match 'RegisterRext\.exe' -and $guestText -match 'Restart-Service -Name \$sqlServiceName' -and
+        $guestText -match 'Restart-Service -Name \$launchpadServiceName -Force' -and
+        $guestText -match 'NTAccount\][\s\S]+Translate\(\[Security\.Principal\.SecurityIdentifier\]\)' -and
+        $guestText -match '\$grant = ''\*\{0\}:\(OI\)\(CI\)RX'' -f \$sid\.Value' -and
+        $guestText -match 'RawSecurityDescriptor' -and
+        $guestText -match "PSObject\.Properties\['AccessMask'\]" -and
+        $guestText -match 'SecurityIdentifier\.Value -eq \$sid\.Value' -and
+        $guestText -match 'AceQualifier.*AccessAllowed' -and
+        $guestText -match 'FileSystemAccessRule' -and
+        $guestText -match 'Set-Acl -LiteralPath \$target\.FullName' -and
+        $guestText -match 'EXTERNAL_RUNTIME_WINDOWS_ACL_POSTCONDITION_FAILED' -and
+        $guestText -notmatch '& \$python -c .*from importlib\.metadata' -and
+        $guestText -match 'sqlserverlab-python-version-\$probeCaptureId\.py' -and
+        $guestText -match 'EXTERNAL_RUNTIME_WINDOWS_PYTHON_VERSION_COMMAND_FAILED' -and
+        $guestText -notmatch '& \$rscript --vanilla -e' -and
+        $guestText -match 'sqlserverlab-r-installed-version-\$installedCaptureId\.R' -and
+        $guestText -match 'EXTERNAL_RUNTIME_WINDOWS_R_INSTALLED_VERSION_COMMAND_FAILED' -and
+        $guestText -match 'sqlserverlab-r-version-\$probeCaptureId\.R' -and
+        $guestText -match 'EXTERNAL_RUNTIME_WINDOWS_R_VERSION_COMMAND_FAILED'
     )
     Add-CheckResult -Name 'Guest-Installer extrahiert das Java-SDK, baut das Probe-JAR offline und bindet JRE_HOME' -Success (
         $guestText -match 'Install-JavaExternalRuntime' -and $guestText -match 'sdkJarSha256' -and
         $guestText -match 'probeJarSha256' -and $guestText -match "SetEnvironmentVariable\('JRE_HOME'" -and
-        $guestText -notmatch 'JAVA_INSTALLATION_NOT_IMPLEMENTED'
+        $guestText -notmatch 'JAVA_INSTALLATION_NOT_IMPLEMENTED' -and
+        $guestText -notmatch '& \$java -XshowSettings:properties' -and
+        $guestText -match 'RedirectStandardError \$versionStderrPath' -and
+        $guestText -match 'EXTERNAL_RUNTIME_WINDOWS_JAVA_VERSION_COMMAND_FAILED' -and
+        $guestText -match 'Remove-Item -LiteralPath \$capturePath -Force'
     )
 
     $javaRuntimePlan = [PSCustomObject]@{
@@ -85,6 +108,33 @@ try {
     }
     $securePassword = [Security.SecureString]::new()
     foreach ($character in @('T','e','s','t','_','1','!')) { $securePassword.AppendChar($character) }
+    $resourceGovernorContract = & $module {
+        param($Password)
+        $script:resourceGovernorQuery = $null
+        function Invoke-LabConfigurationQuery {
+            param($HostName,$Port,$SaPassword,$Query)
+            $script:resourceGovernorQuery = [string]$Query
+        }
+        $receipt = Set-LabExternalRuntimeResourceGovernor -HostName 127.0.0.1 -Port 1433 -SaPassword $Password
+        $invalidRejected = $false
+        try {
+            $null = Set-LabExternalRuntimeResourceGovernor -HostName 127.0.0.1 -Port 1433 -SaPassword $Password `
+                -ResourceGovernor ([PSCustomObject]@{ maxMemoryPercent=71; maxProcesses=4 })
+        }
+        catch { $invalidRejected = $_.Exception.Message -eq 'EXTERNAL_RUNTIME_RESOURCE_GOVERNOR_MEMORY_INVALID' }
+        [PSCustomObject]@{ Receipt=$receipt; Query=$script:resourceGovernorQuery; InvalidRejected=$invalidRejected }
+    } $securePassword
+    Add-CheckResult -Name 'Resource-Governor wird geschlossen, idempotent und mit SQL-Postcondition konfiguriert' -Success (
+        $resourceGovernorContract.Receipt.Status -eq 'PASS' -and
+        $resourceGovernorContract.Receipt.MaxMemoryPercent -eq 40 -and
+        $resourceGovernorContract.Receipt.MaxProcesses -eq 32 -and
+        $resourceGovernorContract.Query -match 'ALTER EXTERNAL RESOURCE POOL \[default\]' -and
+        $resourceGovernorContract.Query -match 'MAX_MEMORY_PERCENT = 40' -and
+        $resourceGovernorContract.Query -match 'MAX_PROCESSES = 32' -and
+        $resourceGovernorContract.Query -match 'ALTER RESOURCE GOVERNOR RECONFIGURE' -and
+        $resourceGovernorContract.Query -match 'sys\.resource_governor_external_resource_pools' -and
+        $resourceGovernorContract.InvalidRejected
+    )
     $javaSqlContract = & $module {
         param($Plan,$Password)
         $script:windowsJavaQueries = [Collections.Generic.List[string]]::new()
@@ -104,9 +154,15 @@ try {
     )
 
     $hostText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/ExternalRuntimeWindows.ps1') -Raw
+    $lifecycleText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/ExternalRuntimeLifecycle.ps1') -Raw
+    $initializeLifecycleText = [regex]::Match(
+        $lifecycleText,
+        '(?s)function Initialize-LabExternalRuntimes\s*\{.*\z'
+    ).Value
     $newText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/New-SqlServerLab.ps1') -Raw
     $imageBuilderText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVSqlImageBuilder.ps1') -Raw
     $labEnvironmentText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVLabEnvironment.ps1') -Raw
+    $hyperVProvider = Get-Content -LiteralPath (Join-Path $repoRoot 'Providers/HyperV/provider.json') -Raw | ConvertFrom-Json
     $acceptanceText = Get-Content -LiteralPath (Join-Path $repoRoot 'Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1') -Raw
     Add-CheckResult -Name 'Hostpfad verwendet content-addressed Media Root und atomare verifizierte Downloads' -Success (
         $hostText -match 'ExternalLanguages/Windows/\$\(\(\[string\]\$artifact\.sha256\)' -and
@@ -120,6 +176,9 @@ try {
     )
     Add-CheckResult -Name 'Fehler bleibt sichtbar RECOVERY_REQUIRED; Erfolg erst nach SQL-Probe ready' -Success (
         $hostText -match 'RECOVERY_REQUIRED' -and $hostText -match 'EXTENSIONS_READY_RUN' -and
+        $hostText -match 'Restart-Service -Name MSSQLLaunchpad -Force' -and
+        $hostText -match '\$receiptInstanceId = \[string\]\$lab\.Instance\.id' -and
+        $hostText -match 'EXTERNAL_RUNTIME_WINDOWS_INSTANCE_ID_MISSING' -and
         $hostText.IndexOf('Invoke-LabPythonExternalRuntimeProbe') -lt $hostText.IndexOf('-Status EXTENSIONS_READY_RUN') -and
         $hostText.IndexOf('Invoke-LabJavaExternalRuntimeProbe') -lt $hostText.IndexOf('-Status EXTENSIONS_READY_RUN')
     )
@@ -139,6 +198,40 @@ try {
         $acceptanceText -match "windowsProvisioning\.state -eq 'COMPLETE'" -and
         $acceptanceText -match 'Remove-SqlServerLab[\s\S]+-Confirm:\$false' -and
         $acceptanceText -notmatch 'Remove-HyperVLabEnvironment'
+    )
+    Add-CheckResult -Name 'Hyper-V-Provider deklariert die nativ belegten External-Runtime-Faehigkeiten' -Success (
+        @($hyperVProvider.capabilities) -contains 'powershell-direct-software-installation' -and
+        @($hyperVProvider.capabilities) -contains 'sql-external-runtime' -and
+        @($hyperVProvider.limitations) -notcontains 'no-real-windows-sql-e2e-evidence'
+    )
+    Add-CheckResult -Name 'Manifest-Resource-Governor wird fuer Hyper-V und Container vor Runtime-Probes angewandt' -Success (
+        $newText -match '-ResourceGovernorConfig \$instance\.serverConfig\.externalScripts\.resourceGovernor' -and
+        $hostText.IndexOf('Set-LabExternalRuntimeResourceGovernor') -lt $hostText.IndexOf('Invoke-LabPythonExternalRuntimeProbe') -and
+        $initializeLifecycleText.IndexOf('Set-LabExternalRuntimeResourceGovernor') -lt $initializeLifecycleText.IndexOf('Invoke-LabPythonExternalRuntimeProbe') -and
+        $hostText -match 'Id=''windows-guest-installation''[\s\S]+@\(\$resourceGovernor\)' -and
+        $lifecycleText -match 'Postconditions \(@\(\$resourceGovernor\)'
+    )
+    Add-CheckResult -Name 'Windows-Python-Probe ermittelt AppContainer-Identitaet ohne Unix-pwd-Fallback' -Success (
+        $lifecycleText -match 'GetUserNameW\(worker_buffer, ctypes\.byref\(worker_buffer_size\)\)' -and
+        $lifecycleText -notmatch 'getpass\.getuser\(\)'
+    )
+    Add-CheckResult -Name 'Native Acceptance kann einen spezialisierten Evaluation-Slot ohne Quellmutation isoliert klonen' -Success (
+        $acceptanceText -match '\[string\]\$CloneSourceRunId' -and
+        $acceptanceText -match 'HYPERV_EXTERNAL_RUNTIME_ACCEPTANCE_RUN_SOURCE_AMBIGUOUS' -and
+        $acceptanceText -match 'New-ExternalRuntimeAcceptanceClone' -and
+        $acceptanceText -match 'CLONE_REQUIRES_SPECIALIZED_WINDOWS_SOURCE' -and
+        $acceptanceText -match 'CLONE_SOURCE_MUST_BE_OFF' -and
+        $acceptanceText -match 'Test-HyperVPathWithinRunDirectory[\s\S]+CLONE_SOURCE_SCOPE_VIOLATION' -and
+        $acceptanceText -match 'sourceDiskPath\.Equals\(\$identityDiskPath' -and
+        $acceptanceText -match "artifact\.license\.type -ne 'evaluation'" -and
+        $acceptanceText -match 'CLONE_EVALUATION_EXPIRED' -and
+        $acceptanceText.IndexOf('Resolve-LabExternalRuntimeWindowsMedia') -lt $acceptanceText.IndexOf('New-ExternalRuntimeAcceptanceClone -SourceRunId') -and
+        $acceptanceText.IndexOf('Add-CleanupStep') -lt $acceptanceText.IndexOf('Convert-VHD -Path $sourceDiskPath') -and
+        $acceptanceText -match "baseKind = 'managed-run-acceptance-clone'" -and
+        $acceptanceText -match "purpose = 'external-runtime-native-evidence'" -and
+        $acceptanceText -match "plan.Status -ne 'RESOLVED'" -and
+        $acceptanceText -notmatch "plan.Status = 'RESOLVED'" -and
+        $acceptanceText -match "Where-Object Status -ne 'EXTENSIONS_READY_RUN'"
     )
 }
 catch { Add-CheckResult -Name 'External-Runtime-Windows-Testausführung' -Success $false -Message $_.Exception.Message }

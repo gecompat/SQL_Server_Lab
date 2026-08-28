@@ -29,7 +29,9 @@
     "prepared-image-manifest-clone",
     "sql-complete-image-clone-specialization",
     "sealed-image-publication",
-    "software-catalog-planning"
+    "software-catalog-planning",
+    "powershell-direct-software-installation",
+    "sql-external-runtime"
   ],
   "limitations": [
     "no-unattended-os-build",
@@ -37,8 +39,7 @@
     "no-real-windows-guest-sysprep-ci",
     "no-general-sql-manifest-provisioning",
     "no-broad-network-binding",
-    "no-real-windows-guest-specialization-ci",
-    "no-real-windows-sql-e2e-evidence"
+    "no-real-windows-guest-specialization-ci"
   ],
   "detectionCommand": "Get-VMHost",
   "healthCheck": "Get-VMHost",

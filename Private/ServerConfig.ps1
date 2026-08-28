@@ -109,6 +109,64 @@ function Invoke-LabConfigurationQuery {
     }
 }
 
+function Set-LabExternalRuntimeResourceGovernor {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$HostName,
+        [Parameter(Mandatory)][int]$Port,
+        [Parameter(Mandatory)][SecureString]$SaPassword,
+        $ResourceGovernor
+    )
+
+    # SQL Server installiert den default External Resource Pool mit 20 Prozent.
+    # Dieser Wert reicht fuer die kataloggebundene Python-/Pandas-Probe nicht
+    # zuverlaessig aus. Der Default folgt deshalb der dokumentierten Microsoft-
+    # Konfiguration fuer Machine-Learning-Workloads; ein Manifest darf ihn nur
+    # innerhalb der engeren Schema-Grenzen ueberschreiben.
+    $maxMemoryPercent = 40
+    # Ein sauber gestarteter kombinierter Python-/R-Lauf erreicht einschliesslich
+    # Worker- und Satellite-Kindprozessen mehr als 20 vom Resource Governor
+    # gezaehlte Prozesse. 32 erlaubt den katalogisierten Python-/R-/Java-Mix,
+    # bleibt aber im Gegensatz zum SQL-Default 0 weiterhin explizit begrenzt.
+    $maxProcesses = 32
+    if ($ResourceGovernor) {
+        if ($ResourceGovernor.PSObject.Properties['maxMemoryPercent']) {
+            $maxMemoryPercent = [int]$ResourceGovernor.maxMemoryPercent
+        }
+        if ($ResourceGovernor.PSObject.Properties['maxProcesses']) {
+            $maxProcesses = [int]$ResourceGovernor.maxProcesses
+        }
+    }
+    if ($maxMemoryPercent -lt 5 -or $maxMemoryPercent -gt 70) {
+        throw 'EXTERNAL_RUNTIME_RESOURCE_GOVERNOR_MEMORY_INVALID'
+    }
+    if ($maxProcesses -lt 1) {
+        throw 'EXTERNAL_RUNTIME_RESOURCE_GOVERNOR_PROCESSES_INVALID'
+    }
+
+    $query = @"
+ALTER EXTERNAL RESOURCE POOL [default]
+WITH (MAX_MEMORY_PERCENT = $maxMemoryPercent, MAX_PROCESSES = $maxProcesses);
+ALTER RESOURCE GOVERNOR RECONFIGURE;
+IF NOT EXISTS (
+    SELECT 1
+    FROM sys.resource_governor_external_resource_pools
+    WHERE [name] = N'default'
+      AND max_memory_percent = $maxMemoryPercent
+      AND max_processes = $maxProcesses
+)
+    THROW 51000, 'EXTERNAL_RUNTIME_RESOURCE_GOVERNOR_POSTCONDITION_FAILED', 1;
+"@
+    Invoke-LabConfigurationQuery -HostName $HostName -Port $Port -SaPassword $SaPassword -Query $query
+    return [PSCustomObject]@{
+        Id = 'external-runtime-resource-governor'
+        Status = 'PASS'
+        Pool = 'default'
+        MaxMemoryPercent = $maxMemoryPercent
+        MaxProcesses = $maxProcesses
+    }
+}
+
 function ConvertTo-LabGrowthClause {
     [CmdletBinding()]
     param(

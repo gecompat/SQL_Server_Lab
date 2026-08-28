@@ -575,6 +575,7 @@ function New-SqlServerLab {
             $guestCredential = [PSCredential]::new('Administrator', $GuestPassword)
             $null = Install-LabHyperVExternalRuntimes -SoftwarePlans $hyperVExternalRuntimePlans -RunId $lab.RunId `
                 -Credential $guestCredential -SqlSaPassword $effectiveHyperVSqlSaPassword -MediaRoot $mediaRoot `
+                -ResourceGovernorConfig $instance.serverConfig.externalScripts.resourceGovernor `
                 -StateRoot $hyperVLab.StateRoot
             $hyperVLab = Get-HyperVLabWorkflowRun -RunId $lab.RunId -StateRoot $hyperVLab.StateRoot
         }
@@ -960,6 +961,7 @@ function New-SqlServerLab {
                 -LabInstance $labInstance `
                 -ImageArtifact $containerImageArtifactsByInstance[[string]$instance.id] `
                 -SaPassword $SaPassword `
+                -ResourceGovernorConfig $instance.serverConfig.externalScripts.resourceGovernor `
                 -RunDirectory $runState.RunDir)
             $labInstance.ExternalRuntime.Status = 'EXTENSIONS_READY_RUN'
             $labInstance.ExternalRuntime.Receipts = @($softwareReceipts | ForEach-Object {
