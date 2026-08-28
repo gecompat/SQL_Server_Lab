@@ -413,6 +413,11 @@ WITH RESULT SETS ((evidence nvarchar(4000) NOT NULL));
         Id='java-data-roundtrip'; Status='PASS'; Language='Java'; Database=$Database
         RuntimeVersion=$parts[3]; ProbeVersion=$parts[2]; InputValue=42; OutputValue=42
         WorkerIdentity=$parts[5]; Registration=if ($registration.CreatedLanguage -or $registration.CreatedSdk -or $registration.CreatedProbe) { 'CREATED' } else { 'REUSED' }
+        ManagedObjects=[PSCustomObject]@{
+            CreatedLanguage=[bool]$registration.CreatedLanguage
+            CreatedSdk=[bool]$registration.CreatedSdk
+            CreatedProbe=[bool]$registration.CreatedProbe
+        }
         RegistrationDetails=$registration
     }
 }

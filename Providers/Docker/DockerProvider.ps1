@@ -145,6 +145,7 @@ function New-DockerInstance {
         [Parameter(Mandatory)][string]$ScopeId,
         [Parameter(Mandatory)][string]$InstanceId,
         [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9 _-]{0,63}$')][string]$LabName,
+        [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$')][string]$ContainerName,
         [int]$Port = 0,
         [Parameter(Mandatory)][SecureString]$SaPassword,
         [ValidateSet('compact', 'standard', 'performance')]
@@ -174,7 +175,7 @@ function New-DockerInstance {
     $effectiveCpu = if ($Cpu -gt 0) { $Cpu } else { [decimal]$profileDefinition.maxCpus }
     $memoryLimit = "${effectiveMemoryMB}m"
     $cpuLimit = $effectiveCpu.ToString('0.##', [Globalization.CultureInfo]::InvariantCulture)
-    $containerName = if ($LabName) { Get-LabContainerRuntimeName -LabName $LabName -InstanceId $InstanceId -RunId $RunId } else { "sql-lab-$InstanceId-$($RunId.Substring(0, 8))" }
+    $containerName = if ($ContainerName) { $ContainerName } elseif ($LabName) { Get-LabContainerRuntimeName -LabName $LabName -InstanceId $InstanceId -RunId $RunId } else { "sql-lab-$InstanceId-$($RunId.Substring(0, 8))" }
     $labNetwork = Ensure-LabDockerNetwork -Name $NetworkName
 
     $volumeArguments = @()

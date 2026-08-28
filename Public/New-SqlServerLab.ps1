@@ -77,7 +77,8 @@ function New-LabProviderContainer {
         [Parameter(Mandatory)]$RunState,
         [Parameter(Mandatory)][SecureString]$SaPassword,
         [int]$Port = 0,
-        $ContainerImageArtifact
+        $ContainerImageArtifact,
+        [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$')][string]$ContainerName
     )
 
     $labName = Resolve-LabRuntimeName -RunState $RunState
@@ -106,6 +107,7 @@ function New-LabProviderContainer {
                 -ScopeId $RunState.ScopeId `
                 -InstanceId $Instance.id `
                 -LabName $labName `
+                -ContainerName $ContainerName `
                 -Port $Port `
                 -SaPassword $SaPassword `
                 -Profile $Instance.profile `
@@ -125,6 +127,7 @@ function New-LabProviderContainer {
                 -ScopeId $RunState.ScopeId `
                 -InstanceId $Instance.id `
                 -LabName $labName `
+                -ContainerName $ContainerName `
                 -Port $Port `
                 -SaPassword $SaPassword `
                 -Profile $Instance.profile `
