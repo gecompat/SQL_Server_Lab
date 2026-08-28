@@ -525,6 +525,8 @@ RECONFIGURE WITH OVERRIDE;
     $launchpad = Test-LabExternalRuntimeLaunchpadProcess -Provider ([string]$LabInstance.Provider) `
         -ContainerIdOrName ([string]$LabInstance.ContainerId)
     $recoverProbeReadiness = {
+        Restart-LabExternalRuntimeContainer -Provider ([string]$LabInstance.Provider) `
+            -ContainerIdOrName ([string]$LabInstance.ContainerId)
         $recovered = Wait-SqlReady -HostName ([string]$LabInstance.Host) -Port ([int]$LabInstance.Port) `
             -SaPassword $SaPassword -TimeoutSeconds 300 -ExpectedMajorVersion ([int]$versionDefinition.major) `
             -Provider ([string]$LabInstance.Provider) -ContainerIdOrName ([string]$LabInstance.ContainerId)
