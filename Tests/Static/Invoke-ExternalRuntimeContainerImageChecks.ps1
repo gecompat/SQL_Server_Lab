@@ -299,6 +299,7 @@ try {
         $result.Recipe.runtimeLibraries[0].artifact.id -eq 'ubuntu-jammy-libgomp1' -and
         $result.Recipe.runtimeLibraries[0].artifact.sha256 -eq '870c27299185a5dd4accad3b15bf82a7409fd7073cccaa8025875307da4d0ce2' -and
         @($result.Recipe.runtimeLibraries[0].languages | Sort-Object) -join ',' -eq 'Python,R' -and
+        $containerfile -match 'mkdir -p /opt/sql-server-lab/runtime-libraries/libgomp1' -and
         $containerfile -match 'dpkg-deb -x /tmp/libgomp1\.deb' -and
         $containerfile -match 'sha256sum --check --strict' -and
         @([regex]::Matches($containerfile, 'COPY --from=runtime-openmp .*libgomp\.so\.1\*')).Count -eq 2

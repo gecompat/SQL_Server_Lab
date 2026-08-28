@@ -73,6 +73,7 @@ RUN set -eux; \
         "${LIBGOMP_DEB_URL}" -O /tmp/libgomp1.deb; \
     echo "${LIBGOMP_DEB_SHA256}  /tmp/libgomp1.deb" | sha256sum --check --strict; \
     test "$(dpkg-deb -f /tmp/libgomp1.deb Version)" = "${LIBGOMP_DEB_VERSION}"; \
+    mkdir -p /opt/sql-server-lab/runtime-libraries/libgomp1; \
     dpkg-deb -x /tmp/libgomp1.deb /opt/sql-server-lab/runtime-libraries/libgomp1; \
     rm -f /tmp/libgomp1.deb; \
     test -e /opt/sql-server-lab/runtime-libraries/libgomp1/usr/lib/x86_64-linux-gnu/libgomp.so.1
