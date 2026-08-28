@@ -545,6 +545,11 @@ vorweggenommen.
 
 ### Phase C – Storage-Registry härten
 
+**Status:** `IMPLEMENTED_STATICALLY` seit 2026-08-29. Legacy-Übernahme,
+Pfadnormalisierung, expliziter Defaultwechsel, Referenzschutz, Topologiebeleg
+und Location-basierte Parent-Migration sind fokussiert und schema-validiert.
+Der reale Vier-Geräte-Nachweis gehört zu Phase D und Gate N5.
+
 | ID | Schritt | Abschlusskriterium |
 |---|---|---|
 | `STO-009` | Legacy-Default idempotent in Storage/2.x übernehmen | Ein vorhandenes D bleibt beim Hinzufügen von C Standard. |

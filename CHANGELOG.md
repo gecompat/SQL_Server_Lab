@@ -4,6 +4,29 @@ Dieses Changelog dokumentiert Änderungen am öffentlichen Verhalten, an maschin
 
 Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher nach Datum geführt. Neue Einträge werden oben ergänzt.
 
+## 2026-08-29
+
+### Hinzugefügt
+
+- Der lokale Storage-Katalog führt stabile `LocationId`-Werte, Controller- und
+  Volume-Bindung sowie getrennte Topologieangaben für logische Volumes und
+  nachweisbare Backing Devices. Legacy-Kataloge werden abwärtslesbar übernommen
+  und beim nächsten Schreibvorgang mit einem Receipt persistiert.
+- Die Storage-Konsole verwendet das gemeinsame Untermenü, zeigt normalisierte
+  Ziele vor der Bestätigung und bietet explizite Aktionen für Default-Wechsel,
+  Topologieanzeige, geschützte Deregistrierung und Parent-Migration.
+
+### Behoben
+
+- Das Hinzufügen einer weiteren `Lab_Data`-Location ändert einen vorhandenen
+  Default nicht mehr implizit. Laufwerksrelative Parents wie `D:` werden vor
+  jeder Mutation blockiert; `D:\` wird als `D:\Lab_Data` angezeigt.
+- Default- und noch referenzierte Storage-Locations können nicht deregistriert
+  werden. Eine erlaubte registry-only Deregistrierung aktualisiert auch den
+  Katalog am entfernten, weiterhin erhaltenen Root.
+- Storage-Migrationsplan und -journal binden Parent-Wechsel an die stabile
+  `LocationId`; ein Laufwerksbuchstabenwechsel verändert diese Identität nicht.
+
 ## 2026-08-28
 
 ### Hinzugefügt
