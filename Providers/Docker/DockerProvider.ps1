@@ -185,6 +185,10 @@ function New-DockerInstance {
     $effectiveMemoryMB = if ($MemoryMB -gt 0) { $MemoryMB } else { [int]$profileDefinition.maxMemoryMB }
     $effectiveCpu = if ($Cpu -gt 0) { $Cpu } else { [decimal]$profileDefinition.maxCpus }
     $memoryLimit = "${effectiveMemoryMB}m"
+    # SQL Server 2019 erkennt cgroup-v2-Grenzen nicht zuverlaessig. Das eigene
+    # SQL-Linux-Limit bleibt deshalb explizit unter dem harten Containerlimit
+    # und reserviert 20 Prozent fuer SQLPAL, Agent und weitere Gastprozesse.
+    $sqlMemoryLimitMB = [math]::Max(1024, [math]::Floor($effectiveMemoryMB * 0.8))
     $cpuLimit = $effectiveCpu.ToString('0.##', [Globalization.CultureInfo]::InvariantCulture)
     $containerName = if ($ContainerName) { $ContainerName } elseif ($LabName) { Get-LabContainerRuntimeName -LabName $LabName -InstanceId $InstanceId -RunId $RunId } else { "sql-lab-$InstanceId-$($RunId.Substring(0, 8))" }
     $containerHostname = Get-LabContainerRuntimeHostname -RuntimeName $containerName
@@ -286,6 +290,7 @@ function New-DockerInstance {
                     '-e', 'ACCEPT_EULA=Y',
                     '-e', "MSSQL_SA_PASSWORD=$saPlain",
                     '-e', 'MSSQL_PID=Developer',
+                    '-e', "MSSQL_MEMORY_LIMIT_MB=$sqlMemoryLimitMB",
                     '-e', 'MSSQL_AGENT_ENABLED=true'
                 ) + $collationArguments + $restartArguments + $externalRuntimeArguments + @(
                     '--memory', $memoryLimit,
@@ -297,7 +302,7 @@ function New-DockerInstance {
                     '--label', 'sql-server-lab.provider=docker',
                     '--label', "sql-server-lab.autostart=$AutoStart",
                     '--label', "sql-server-lab.created-at=$(Get-LabTimestamp)",
-                    '--health-cmd', '/opt/mssql-tools*/bin/sqlcmd -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -Q "SELECT 1" -b',
+                    '--health-cmd', '/opt/mssql-tools*/bin/sqlcmd -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -C -Q "SELECT 1" -b',
                     '--health-interval', '5s',
                     '--health-timeout', '3s',
                     '--health-retries', '30',

@@ -407,6 +407,7 @@ providers:
     metadata: Providers/Docker/provider.json
     command: docker
     port_binding: "gemeinsame Portermittlung plus Runtime-Retry innerhalb des hostweiten Locks"
+    memory_binding: "cgroup-Limit plus MSSQL_MEMORY_LIMIT_MB mit 20 Prozent Headroom"
   podman:
     status: implemented
     implementation: Providers/Podman/PodmanProvider.ps1
@@ -414,6 +415,7 @@ providers:
     command: podman
     windows_networking: Documentation/HowTo/PODMAN_WINDOWS_NETWORKING.md
     port_binding: "gemeinsame Portermittlung plus Runtime-Retry innerhalb des hostweiten Locks"
+    memory_binding: "cgroup-Limit plus MSSQL_MEMORY_LIMIT_MB mit 20 Prozent Headroom"
   hyperv:
     status: windows_slot_sql_install_and_specialization_readiness_orchestration
     implementation: Providers/HyperV/HyperVProvider.ps1

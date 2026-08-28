@@ -74,6 +74,10 @@ ein Lab-Label. Unter Windows startet ein benutzergebundener Auftrag nach der
 Anmeldung Docker Desktop beziehungsweise die Podman Machine und anschließend
 nur markierte Lab-Container. Ohne Angabe bleibt Autostart ausgeschaltet;
 `instances[].hyperv.autostart` bleibt als Kompatibilitätsalias lesbar.
+Docker und Podman trennen das harte Containerlimit von einem niedrigeren
+SQL-internen Memory-Limit. Automatisierte Linux-Testziele verwenden 4 GB
+Container-RAM und 3 GB `max server memory`; ihr Export wird nur bei einem
+laufenden und gesunden gebundenen Container als `READY` veröffentlicht.
 Vollständige deklarative Hyper-V-Drives, Datenbanken und Network Intents bleiben
 bis zu ihrem echten End-to-End-Nachweis begrenzt.
 
@@ -531,6 +535,7 @@ Invoke-SqlServerLabScheduler -UntilIdle
 | `Get-SqlServerLabGeneratedSqlAccess` | Hyper-V SQL-Zugriffsdaten (ConnectionString + generiertes SA-Passwort) aus dem Run abrufen |
 | `New-SqlServerLabAutomatedTestEnvironment` | Linux-Testumgebungen mit getrennten Zufallskennwörtern erstellen und nach Lab_Data exportieren |
 | `Export-SqlServerLabTestEnvironment` | Registrierte Testumgebungen als dotenv, schema-validierbares JSON, portablen Agenten-Prompt und Markdown exportieren |
+| `Repair-SqlServerLabAutomatedTestEnvironment` | Ressourcen- und Health-Vertrag der registrierten Linux-Mitglieder mit einzelnem Rollback reparieren |
 | `Clear-SqlServerLabAutomatedTestEnvironment` | Alle automatisierten Testumgebungen als geschützte Gruppe gemeinsam entfernen |
 | `Test-SqlServerLabPrerequisite` | Provider, RAM, Storage und Ports prüfen |
 | `Test-SqlServerLabAdapter` | Project Adapter gegen Schema, Pfadgrenzen und optional einen Run prüfen |
