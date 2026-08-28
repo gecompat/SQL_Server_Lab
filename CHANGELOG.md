@@ -43,6 +43,12 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Behoben
 
+- Persistente Hyper-V-Windows-User-Gates verwenden jetzt den tatsächlichen,
+  rungebundenen VM-Namen aus `connection-info.json`, statt bei älterem State
+  versehentlich die RunId als VM-Namen abzufragen. Der reale Acceptance-Test
+  bindet `CandidateSatisfied` ohne Fortschritt, fail-closed Bestätigung, echte
+  PowerShell-Direct-Credential-Verifikation, genau ein Receipt und vollständigen
+  VM-/Child-VHDX-Cleanup.
 - Die gemeinsame Console-UI reicht `Ctrl+C` jetzt aus Cursor-, Text-, Secret-
   und Bestätigungseingaben als `PipelineStoppedException` durch, statt das
   Signal zu ignorieren oder nach einem Menüfehler in den Fallback zu wechseln.
