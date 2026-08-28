@@ -68,9 +68,11 @@ Installation. Der Resolver bindet SQL-Major-Version, Betriebssystem,
 Architektur und Provider an genau eine Variante. Eine Variante ist erst
 `SUPPORTED`, wenn alle erforderlichen Artefakte mit Version, SHA-256 und
 Herkunft gebunden sind und der Provider die notwendigen Capabilities
-deklariert. Die vorbereiteten SQL-2022-Varianten für Python, R und Java bleiben
-bis zum Derived-Image- beziehungsweise Hyper-V-Nachweis `PREVIEW` und werden
-vor jeder Mutation als `DECLARED_UNSUPPORTED` abgelehnt.
+deklariert. Die SQL-2022-Varianten für Python, R und Java sind für
+Docker/Linux, Podman/Linux und Hyper-V/Windows `SUPPORTED`, nachdem jeder
+Provider seinen eigenen External-Script-, Restart- und Cleanup-Nachweis
+bestanden hat. Andere SQL-, OS- oder Providerkombinationen erben diesen Status
+nicht und werden ohne eigene freigegebene Variante vor der Mutation abgelehnt.
 
 Die Linux-Varianten für Python, R und Java besitzen vollständige Basisimage-,
 DEB-, Wheel-, R-Paket-, JDK-, Extension-, SDK- beziehungsweise
@@ -80,15 +82,17 @@ hashgebundenen Quellen deterministisch erzeugt.
 `Images/ExternalLanguages/Linux/recipe.json` und die jeweilige Lockdatei müssen
 dieselben IDs, Versionen, Quellen und SHA-256-Werte enthalten. Diese
 Artefaktvollständigkeit und ein erfolgreicher lokaler Image-Build allein heben
-den Status nicht an: Docker und Podman benötigen je eine echte Native
-Acceptance im sicheren `sql2022-namespace-v1`-Modus.
+den Status nicht an. Docker und Podman haben getrennte Native Acceptances im
+sicheren `sql2022-namespace-v1`-Modus mit Python-, R- und Java-Datenroundtrip
+vor und nach providergebundenem Neustart sowie vollständigem Cleanup bestanden.
 
 Die Windows-Varianten binden Python- und R-Installer samt Offlinepaketen sowie
 Microsoft OpenJDK 17.0.20.1, Java Language Extension 1.1.0, das darin
 enthaltene SDK und die Probe-Quelle vollständig per SHA-256. Der Gast erzeugt
-das Probe-JAR reproduzierbar und prüft alle katalogisierten Hashes. Auch hier bleibt
-`PREVIEW` bestehen, bis der echte Hyper-V-Runner alle drei External-Script-
-Roundtrips nach Installation und Cold Start positiv belegt.
+das Probe-JAR reproduzierbar und prüft alle katalogisierten Hashes. Der echte
+Hyper-V-Runner hat alle drei External-Script-Roundtrips nach Installation und
+vollständigem VM-Kaltstart positiv belegt; die drei Windows-Varianten sind
+`SUPPORTED`.
 
 Freie Installationsbefehle und nicht katalogisierte Zusatzpakete sind für
 External Runtimes nicht zulässig. Der geheimnisfreie Desired State enthält nur

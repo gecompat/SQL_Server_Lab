@@ -62,7 +62,7 @@ $result = & $module {
         Id = 'sql-python'; Version = $null; Variant = $null; Scope = 'sqlExternalRuntime'
         InstallMethod = 'catalog'; Optional = $false; Packages = @(); RequestSource = 'software'
     }
-    $previewPlan = Resolve-LabExternalRuntimePlan -SoftwareItem $catalogRequest -SqlVersion '2022' -Provider podman -OperatingSystem linux
+    $supportedPlan = Resolve-LabExternalRuntimePlan -SoftwareItem $catalogRequest -SqlVersion '2022' -Provider podman -OperatingSystem linux
     $sql2025Plan = Resolve-LabExternalRuntimePlan -SoftwareItem $catalogRequest -SqlVersion '2025' -Provider docker -OperatingSystem linux
 
     $packageRequest = [PSCustomObject]@{
@@ -88,7 +88,7 @@ $result = & $module {
     catch { $duplicateRejected = $_.Exception.Message -match 'EXTERNAL_RUNTIME_REQUEST_DUPLICATE' }
 
     $receiptRejected = $false
-    try { $null = New-LabSoftwareInstallationReceipt -Plan $previewPlan -Postconditions @() }
+    try { $null = New-LabSoftwareInstallationReceipt -Plan $sql2025Plan -Postconditions @() }
     catch { $receiptRejected = $_.Exception.Message -match 'SOFTWARE_RECEIPT_REQUIRES_RESOLVED_PLAN' }
 
     $resolved = [PSCustomObject]@{
@@ -120,9 +120,10 @@ $result = & $module {
         Legacy = $legacyRequest.RequestSource -eq 'externalScripts-legacy' -and
             $legacyPlan.Status -eq 'NON_REPRODUCIBLE' -and
             $legacyPlan.ReasonCode -eq 'LEGACY_POST_START_MUTATION'
-        Preview = $previewPlan.Status -eq 'DECLARED_UNSUPPORTED' -and
-            $previewPlan.ReasonCode -eq 'VARIANT_PREVIEW' -and
-            $previewPlan.VariantId -eq 'sql2022-python310-ubuntu2204-derived'
+        Supported = $supportedPlan.Status -eq 'RESOLVED' -and
+            -not $supportedPlan.ReasonCode -and
+            $supportedPlan.VariantId -eq 'sql2022-python310-ubuntu2204-derived' -and
+            $supportedPlan.RecipeVersion -eq '4'
         Sql2025 = $sql2025Plan.Status -eq 'DECLARED_UNSUPPORTED' -and
             $sql2025Plan.ReasonCode -eq 'RUNTIME_COMBINATION_NOT_CATALOGUED'
         PackageLock = $packagePlan.ReasonCode -eq 'PACKAGE_NOT_LOCKED'
@@ -132,8 +133,9 @@ $result = & $module {
         ReceiptRejected = $receiptRejected
         Intent = $softwareIntent.RequiredCapability -eq 'software-catalog-planning' -and
             $softwareIntent.PlanningCapabilityStatus -eq 'DECLARED_SUPPORTED' -and
-            $softwareIntent.CapabilityStatus -eq 'DECLARED_UNSUPPORTED' -and
-            $softwareIntent.Items[0].ReasonCode -eq 'VARIANT_PREVIEW'
+            $softwareIntent.CapabilityStatus -eq 'DECLARED_SUPPORTED' -and
+            $softwareIntent.Items[0].Status -eq 'RESOLVED' -and
+            -not $softwareIntent.Items[0].ReasonCode
         Sanitized = $serialized -notmatch '(?i)learn\.microsoft|sourceUrls|Program Files|/usr/|https://'
         ParserNormalization = $normalizedLegacy.id -eq 'sql-python' -and
             $normalizedLegacy.scope -eq 'sqlExternalRuntime' -and
@@ -143,13 +145,13 @@ $result = & $module {
 }
 
 Add-CheckResult -Name 'Legacy-post-start bleibt vor jeder Mutation NON_REPRODUCIBLE' -Success $result.Legacy
-Add-CheckResult -Name 'SQL-2022-Python wird deterministisch auf PREVIEW statt Supported aufgeloest' -Success $result.Preview
+Add-CheckResult -Name 'SQL-2022-Python wird fuer Podman deterministisch als freigegeben aufgeloest' -Success $result.Supported
 Add-CheckResult -Name 'SQL Server 2025 erbt keine unbelegte SQL-2022-Runtimeannahme' -Success $result.Sql2025
 Add-CheckResult -Name 'Nicht katalogisierte Zusatzpakete werden vor der Mutation abgelehnt' -Success $result.PackageLock
 Add-CheckResult -Name 'Hyper-V/Windows-Java besitzt einen nativ belegten deterministischen Plan' -Success $result.HyperVJava
 Add-CheckResult -Name 'Doppelte Legacy- und software-Anforderung wird abgelehnt' -Success $result.DuplicateRejected
 Add-CheckResult -Name 'Installation Receipt erfordert einen RESOLVED-Plan' -Success $result.ReceiptRejected
-Add-CheckResult -Name 'Desired State trennt Planning-Capability und Runtimefreigabe' -Success $result.Intent
+Add-CheckResult -Name 'Desired State bindet Planning-Capability und freigegebene Runtime getrennt' -Success $result.Intent
 Add-CheckResult -Name 'Desired State persistiert keine Quellen- oder Gastpfade' -Success $result.Sanitized
 Add-CheckResult -Name 'Manifestparser normalisiert Legacy-Sprachen in Software-Intents' -Success $result.ParserNormalization
 

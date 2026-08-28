@@ -36,10 +36,13 @@ def install_wheel(wheel: pathlib.Path, target: pathlib.Path) -> None:
             destination.resolve().relative_to(target.resolve())
             if member.is_dir():
                 destination.mkdir(parents=True, exist_ok=True)
+                destination.chmod(0o755)
                 continue
             destination.parent.mkdir(parents=True, exist_ok=True)
             with archive.open(member) as source, destination.open("wb") as output:
                 shutil.copyfileobj(source, output)
+            archive_mode = (member.external_attr >> 16) & 0o777
+            destination.chmod(0o755 if archive_mode & 0o111 else 0o644)
 
 
 def main() -> int:

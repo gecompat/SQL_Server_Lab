@@ -3,7 +3,7 @@
     "name": "SqlServerLab.ExternalRuntimeContainerRecipe",
     "version": "1.0"
   },
-  "recipeVersion": "3",
+  "recipeVersion": "4",
   "operatingSystem": "ubuntu-22.04",
   "architecture": "x86_64",
   "baseImage": {
@@ -21,6 +21,21 @@
     "sha256": "50df89ac3d1176f6227a9db46d1d8128cb3a326718515082f5ca161028610226",
     "integrityOrigin": "SHA-256 verified against the downloaded Microsoft package on 2026-08-27",
     "license": "Microsoft SQL Server Machine Learning Services EULA"
+  },
+  "sqlSatelliteCompatibility": {
+    "id": "sql-server-2022-ubuntu-openssl-runtime-links",
+    "reference": "https://learn.microsoft.com/en-us/sql/machine-learning/troubleshooting/known-issues-for-sql-server-machine-learning-services?view=sql-server-ver17#generic-error-when-running-sp_execute_external_script-on-ubuntu-2004-with-sql-server-2022-cu6-on-linux",
+    "reason": "SQL Satellite dynamically resolves the unversioned OpenSSL library names; the digest-bound Ubuntu 22.04 base image contains only the versioned OpenSSL 3 runtime objects.",
+    "links": [
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libssl.so",
+        "target": "libssl.so.3"
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libcrypto.so",
+        "target": "libcrypto.so.3"
+      }
+    ]
   },
   "runtimes": {
     "Python": {
@@ -254,9 +269,12 @@
     "mode": "sql2022-namespace-v1",
     "namespaceIsolation": true,
     "requiredCgroupVersion": "1",
-    "requiredLinuxCapabilities": ["SYS_ADMIN"],
+    "requiredLinuxCapabilities": ["CHOWN", "DAC_OVERRIDE", "KILL", "SETGID", "SETUID", "SYS_ADMIN", "MKNOD", "SETPCAP", "NET_ADMIN", "NET_RAW", "SYS_PTRACE"],
+    "requiredSecurityOptions": ["apparmor=unconfined", "seccomp=unconfined"],
     "outboundAccess": false,
-    "containerUser": "mssql",
+    "containerUser": "root",
+    "launchpadUser": "mssql_launchpadd",
+    "sqlServerUser": "mssql",
     "workerUser": "mssql_satellite"
   }
 }
