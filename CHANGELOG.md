@@ -40,6 +40,10 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Behoben
 
+- Die grafische Workflow-Oberfläche schließt den obersten Dialog jetzt
+  zuverlässig mit `Escape`. Der gemeinsame Abbruchpfad verwirft ausstehende
+  Löschbestätigungen und leert Passwortfelder ebenso wie die sichtbaren
+  Abbrechen-/Schließen-Schaltflächen.
 - Python-only-Derived-Images enthalten jetzt die von `revoscalepy` benötigte
   `libgomp.so.1`. Das Ubuntu-22.04-`libgomp1`-Paket ist mit exakter Version und
   SHA-256 an Rezeptversion 5 gebunden; Python- und R-Zielstages übernehmen nur

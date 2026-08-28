@@ -1344,11 +1344,26 @@ $('#container-operation-form').addEventListener('submit', async (event) => {
 
 $('#container-sample').addEventListener('change', updateContainerSampleSelection);
 
+function cancelDialog(dialog) {
+  if (!dialog?.open) return;
+  if (dialog.id === 'confirmation-dialog') pendingConfirmation = null;
+  dialog.querySelectorAll('input[type="password"]').forEach((input) => { input.value = ''; });
+  dialog.close('cancel');
+}
+
 document.addEventListener('click', (event) => {
   const cancel = event.target.closest('[value="cancel"], [data-confirmation-cancel]');
   if (!cancel) return;
-  if (cancel.hasAttribute('data-confirmation-cancel')) pendingConfirmation = null;
-  cancel.closest('dialog')?.close();
+  cancelDialog(cancel.closest('dialog'));
+});
+
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') return;
+  const openDialogs = Array.from(document.querySelectorAll('dialog[open]'));
+  const dialog = openDialogs.at(-1);
+  if (!dialog) return;
+  event.preventDefault();
+  cancelDialog(dialog);
 });
 
 $('#confirmation-form').addEventListener('submit', async (event) => {
