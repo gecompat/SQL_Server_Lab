@@ -27,10 +27,17 @@ RUN set -eux; \
     test "$(dpkg-deb -f /tmp/mssql-server-extensibility.deb Version)" = "${EXTENSIBILITY_DEB_VERSION}"; \
     dpkg --force-depends -i /tmp/mssql-server-extensibility.deb; \
     rm -f /tmp/mssql-server-extensibility.deb; \
+    test -e /usr/lib/x86_64-linux-gnu/libssl.so.3; \
+    test -e /usr/lib/x86_64-linux-gnu/libcrypto.so.3; \
+    test ! -e /usr/lib/x86_64-linux-gnu/libssl.so; \
+    test ! -e /usr/lib/x86_64-linux-gnu/libcrypto.so; \
+    ln -s libssl.so.3 /usr/lib/x86_64-linux-gnu/libssl.so; \
+    ln -s libcrypto.so.3 /usr/lib/x86_64-linux-gnu/libcrypto.so; \
+    test "$(readlink /usr/lib/x86_64-linux-gnu/libssl.so)" = 'libssl.so.3'; \
+    test "$(readlink /usr/lib/x86_64-linux-gnu/libcrypto.so)" = 'libcrypto.so.3'; \
     /opt/mssql/bin/checkinstallextensibility.sh; \
-    mkdir -p /var/opt/mssql-extensibility/data /var/opt/mssql-extensibility/log; \
-    chown -R mssql:root /var/opt/mssql-extensibility; \
-    chmod 0770 /var/opt/mssql-extensibility /var/opt/mssql-extensibility/data /var/opt/mssql-extensibility/log; \
+    test "$(stat -c '%U:%G' /var/opt/mssql-extensibility)" = 'mssql_launchpadd:mssql_launchpadd'; \
+    test "$(stat -c '%a' /var/opt/mssql-extensibility)" = '771'; \
     /opt/mssql/bin/mssql-conf set EULA accepteulaml Y
 
 COPY launch-external-runtime.sh /opt/sql-server-lab/bin/launch-external-runtime.sh
@@ -87,25 +94,29 @@ FROM runtime-base AS runtime-java
 COPY --from=java-build --chown=mssql:root /opt/sql-server-lab/java /opt/sql-server-lab/java
 RUN /opt/sql-server-lab/java/jre/bin/java -version; \
     test ! -e /opt/sql-server-lab/java/jre/bin/javac; \
-    test -x /opt/sql-server-lab/java/jre/lib/jspawnhelper
+    test -x /opt/sql-server-lab/java/jre/lib/jspawnhelper; \
+    /opt/mssql/bin/mssql-conf set extensibility datadirectories /opt/sql-server-lab/java
 
 FROM runtime-r AS runtime-r-java
 COPY --from=java-build --chown=mssql:root /opt/sql-server-lab/java /opt/sql-server-lab/java
 RUN /opt/sql-server-lab/java/jre/bin/java -version; \
     test ! -e /opt/sql-server-lab/java/jre/bin/javac; \
-    test -x /opt/sql-server-lab/java/jre/lib/jspawnhelper
+    test -x /opt/sql-server-lab/java/jre/lib/jspawnhelper; \
+    /opt/mssql/bin/mssql-conf set extensibility datadirectories /usr/local/lib/R:/opt/sql-server-lab/java
 
 FROM runtime-python AS runtime-python-java
 COPY --from=java-build --chown=mssql:root /opt/sql-server-lab/java /opt/sql-server-lab/java
 RUN /opt/sql-server-lab/java/jre/bin/java -version; \
     test ! -e /opt/sql-server-lab/java/jre/bin/javac; \
-    test -x /opt/sql-server-lab/java/jre/lib/jspawnhelper
+    test -x /opt/sql-server-lab/java/jre/lib/jspawnhelper; \
+    /opt/mssql/bin/mssql-conf set extensibility datadirectories /usr/lib:/usr/lib/python3.10/dist-packages:/opt/sql-server-lab/java
 
 FROM runtime-r-python AS runtime-r-python-java
 COPY --from=java-build --chown=mssql:root /opt/sql-server-lab/java /opt/sql-server-lab/java
 RUN /opt/sql-server-lab/java/jre/bin/java -version; \
     test ! -e /opt/sql-server-lab/java/jre/bin/javac; \
-    test -x /opt/sql-server-lab/java/jre/lib/jspawnhelper
+    test -x /opt/sql-server-lab/java/jre/lib/jspawnhelper; \
+    /opt/mssql/bin/mssql-conf set extensibility datadirectories /usr/local/lib/R:/usr/lib:/usr/lib/python3.10/dist-packages:/opt/sql-server-lab/java
 
 FROM ${EXTERNAL_RUNTIME_STAGE} AS selected-runtime
 ARG EXTERNAL_RUNTIMES=python
@@ -117,7 +128,7 @@ RUN case "${EXTERNAL_RUNTIMES}" in \
         *) echo "Unsupported external runtime set: ${EXTERNAL_RUNTIMES}" >&2; exit 64 ;; \
     esac
 
-USER mssql
+USER root
 
 LABEL org.opencontainers.image.title="SQL Server Lab External Runtime" \
       org.opencontainers.image.vendor="SQL_Server_Lab" \
@@ -126,7 +137,8 @@ LABEL org.opencontainers.image.title="SQL Server Lab External Runtime" \
       sql-server-lab.external-runtime.languages="${EXTERNAL_RUNTIMES}" \
       sql-server-lab.external-runtime.launch-mode="sql2022-namespace-v1" \
       sql-server-lab.external-runtime.required-cgroup-version="1" \
-      sql-server-lab.external-runtime.required-capabilities="SYS_ADMIN" \
+      sql-server-lab.external-runtime.required-capabilities="CHOWN,DAC_OVERRIDE,KILL,SETGID,SETUID,SYS_ADMIN,MKNOD,SETPCAP,NET_ADMIN,NET_RAW,SYS_PTRACE" \
+      sql-server-lab.external-runtime.required-security-options="apparmor=unconfined,seccomp=unconfined" \
       sql-server-lab.external-runtime.namespace-isolation="true" \
       sql-server-lab.external-runtime.outbound-access="false"
 

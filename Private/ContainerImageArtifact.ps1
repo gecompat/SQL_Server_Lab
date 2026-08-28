@@ -278,6 +278,7 @@ function New-LabExternalRuntimeContainerImagePlan {
         LaunchMode = [string]$recipe.launchContract.mode
         RequiredCgroupVersion = [string]$recipe.launchContract.requiredCgroupVersion
         RequiredLinuxCapabilities = @($recipe.launchContract.requiredLinuxCapabilities | ForEach-Object { [string]$_ })
+        RequiredSecurityOptions = @($recipe.launchContract.requiredSecurityOptions | ForEach-Object { [string]$_ })
         NamespaceIsolation = [bool]$recipe.launchContract.namespaceIsolation
         OutboundAccess = [bool]$recipe.launchContract.outboundAccess
         EvidenceStatus = if ($AllowPreview) { 'PREVIEW_CHARACTERIZATION' } else { 'SUPPORTED' }
@@ -292,7 +293,8 @@ function Test-LabExternalRuntimeContainerHost {
     )
 
     if ([string]$ImagePlan.LaunchMode -ne 'sql2022-namespace-v1' -or
-        @($ImagePlan.RequiredLinuxCapabilities) -join ',' -ne 'SYS_ADMIN' -or
+        @($ImagePlan.RequiredLinuxCapabilities) -join ',' -ne 'CHOWN,DAC_OVERRIDE,KILL,SETGID,SETUID,SYS_ADMIN,MKNOD,SETPCAP,NET_ADMIN,NET_RAW,SYS_PTRACE' -or
+        @($ImagePlan.RequiredSecurityOptions) -join ',' -ne 'apparmor=unconfined,seccomp=unconfined' -or
         $ImagePlan.NamespaceIsolation -ne $true -or $ImagePlan.OutboundAccess -ne $false) {
         throw 'EXTERNAL_RUNTIME_CONTAINER_LAUNCH_CONTRACT_INVALID'
     }
@@ -317,7 +319,7 @@ function Test-LabExternalRuntimeContainerHost {
     if ($Provider -eq 'docker') {
         $operatingSystem = [string]$info.OSType
         $cgroupVersion = [string]$info.CgroupVersion
-        $rootless = $false
+        $rootless = @($info.SecurityOptions | Where-Object { [string]$_ -match '(?i)rootless' }).Count -gt 0
     }
     else {
         $operatingSystem = [string]$info.host.os
@@ -335,9 +337,16 @@ function Test-LabExternalRuntimeContainerHost {
             Reason="SQL Server 2022 launchpadd benötigt für den isolierten Namespace-Modus cgroup v$($ImagePlan.RequiredCgroupVersion); erkannt wurde cgroup v$normalizedCgroup."
         }
     }
+    if ($rootless) {
+        return [PSCustomObject]@{
+            Status='DECLARED_UNSUPPORTED'; Provider=$Provider; CgroupVersion=$normalizedCgroup; Rootless=$true
+            Reason='Der SQL-Server-2022-Namespace-Modus benötigt einen rootful Provider für den schreibbaren cgroup-v1-Bind.'
+        }
+    }
     return [PSCustomObject]@{
         Status='READY'; Provider=$Provider; CgroupVersion=$normalizedCgroup; Rootless=$rootless
         Reason=$null; RequiredLinuxCapabilities=@($ImagePlan.RequiredLinuxCapabilities)
+        RequiredSecurityOptions=@($ImagePlan.RequiredSecurityOptions)
     }
 }
 
@@ -400,6 +409,8 @@ function Get-LabExternalRuntimeLocalImageEvidence {
         ImageKey = [string]$inspect.Config.Labels.'sql-server-lab.external-runtime.image-key'
         Languages = [string]$inspect.Config.Labels.'sql-server-lab.external-runtime.languages'
         LaunchMode = [string]$inspect.Config.Labels.'sql-server-lab.external-runtime.launch-mode'
+        RequiredCapabilities = [string]$inspect.Config.Labels.'sql-server-lab.external-runtime.required-capabilities'
+        RequiredSecurityOptions = [string]$inspect.Config.Labels.'sql-server-lab.external-runtime.required-security-options'
         NamespaceIsolation = [string]$inspect.Config.Labels.'sql-server-lab.external-runtime.namespace-isolation'
         OutboundAccess = [string]$inspect.Config.Labels.'sql-server-lab.external-runtime.outbound-access'
     }
@@ -454,7 +465,7 @@ function Invoke-LabExternalRuntimeContainerImageBuildCore {
                 Contract=[PSCustomObject]@{ Name='SqlServerLab.ExternalRuntimeContainerImageArtifact'; Version='1.0' }
                 Provider=$provider; Image=[string]$existingReceipt.image; ImageKey=[string]$ImagePlan.ImageKey
                 LocalImageId=[string]$existingReceipt.localImageId; LaunchMode=[string]$ImagePlan.LaunchMode
-                RequiredLinuxCapabilities=@($ImagePlan.RequiredLinuxCapabilities); Reused=$true; Receipt=$existingReceipt
+                RequiredLinuxCapabilities=@($ImagePlan.RequiredLinuxCapabilities); RequiredSecurityOptions=@($ImagePlan.RequiredSecurityOptions); Reused=$true; Receipt=$existingReceipt
             }
         }
     }
@@ -485,10 +496,12 @@ function Invoke-LabExternalRuntimeContainerImageBuildCore {
         }
         $built = $true
         $evidence = Get-LabExternalRuntimeLocalImageEvidence -Provider $provider -Image $temporaryTag
-        if (-not $evidence -or [string]$evidence.User -ne 'mssql' -or
+        if (-not $evidence -or [string]$evidence.User -ne 'root' -or
             [string]$evidence.ImageKey -ne [string]$ImagePlan.ImageKey -or
             [string]$evidence.Languages -ne (@($ImagePlan.BuildTokens) -join ',') -or
             [string]$evidence.LaunchMode -ne [string]$ImagePlan.LaunchMode -or
+            [string]$evidence.RequiredCapabilities -ne (@($ImagePlan.RequiredLinuxCapabilities) -join ',') -or
+            [string]$evidence.RequiredSecurityOptions -ne (@($ImagePlan.RequiredSecurityOptions) -join ',') -or
             [string]$evidence.NamespaceIsolation -ne 'true' -or [string]$evidence.OutboundAccess -ne 'false') {
             throw 'EXTERNAL_RUNTIME_CONTAINER_IMAGE_POSTCONDITION_FAILED'
         }
@@ -513,6 +526,7 @@ function Invoke-LabExternalRuntimeContainerImageBuildCore {
             launchMode = [string]$ImagePlan.LaunchMode
             requiredCgroupVersion = [string]$ImagePlan.RequiredCgroupVersion
             requiredLinuxCapabilities = @($ImagePlan.RequiredLinuxCapabilities)
+            requiredSecurityOptions = @($ImagePlan.RequiredSecurityOptions)
             namespaceIsolation = $true
             outboundAccess = $false
             contextEvidence = @($ImagePlan.ContextEvidence)
@@ -527,7 +541,7 @@ function Invoke-LabExternalRuntimeContainerImageBuildCore {
             Contract=[PSCustomObject]@{ Name='SqlServerLab.ExternalRuntimeContainerImageArtifact'; Version='1.0' }
             Provider=$provider; Image=[string]$ImagePlan.Image; ImageKey=[string]$ImagePlan.ImageKey
             LocalImageId=[string]$evidence.ImageId; LaunchMode=[string]$ImagePlan.LaunchMode
-            RequiredLinuxCapabilities=@($ImagePlan.RequiredLinuxCapabilities); Reused=$false; Receipt=$receipt
+            RequiredLinuxCapabilities=@($ImagePlan.RequiredLinuxCapabilities); RequiredSecurityOptions=@($ImagePlan.RequiredSecurityOptions); Reused=$false; Receipt=$receipt
         }
     }
     finally {

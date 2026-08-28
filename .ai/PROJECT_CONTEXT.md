@@ -93,16 +93,16 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   MCR-Basisdigest, vollständigen DEB-, Wheel-, R-Paket-, JDK-, Java-Extension-
   und OCI-Locks,
   providerneutralem Image-Key, getrennten Docker-/Podman-Receipts,
-  cgroup-v1-Preflight und scopebegrenzter `SYS_ADMIN`-Bindung; die einzelnen
-  Python-, R-, Java- und kombinierten Images wurden lokal gebaut und geprüft;
-  Java besitzt zusätzlich datenbankgebundene, idempotente DDL-, Drift- und
-  Fehlerkompensationsverträge, die positive SQL-Native-Acceptance steht noch
-  aus;
+  rootful-cgroup-v1-Preflight und exakt gebundenem Launch-Capability-Vertrag;
+  Docker und Podman bestanden getrennt echte Python-, R- und Java-
+  SQL-Datenroundtrips vor und nach providergebundenem Neustart samt
+  vollständigem Cleanup; Java besitzt zusätzlich datenbankgebundene,
+  idempotente DDL-, Drift- und Fehlerkompensationsverträge;
 - Hyper-V-/Windows-External-Runtime-Pfad für Python, R und Java mit
   SHA-256-gebundenen Offlinemedien, geschlossenem PowerShell-Direct-
   Gastinstaller, SQL-Feature-/State-/Recovery-Vertrag sowie echtem
-  External-Script-Acceptance-Runner; die positive native Evidence steht noch
-  aus und alle Varianten bleiben `PREVIEW`;
+  External-Script-Acceptance-Runner; Python, R und Java bestanden die native
+  SQL-2022-Evidence vor und nach vollständigem VM-Kaltstart samt Cleanup;
 
 ### Geplant oder unvollständig
 
@@ -115,9 +115,8 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 - nicht freigegebene Archive und Attach-Szenarien;
 - kontextreiche Manifest-Menüführung mit Navigation und Planvorschau;
 - Hyper-V-Export und -Nutzung von `LAB_GENERATED`-Baselines;
-- freigegebene External Runtimes einschließlich positiver Docker-, Podman- und
-  Hyper-V-Native-Acceptance sowie realer `sp_execute_external_script`-
-  Nachweise;
+- External-Runtime-Varianten für SQL Server 2019, SQL Server 2025 und weitere
+  OS-/Providerkombinationen; der positive SQL-2022-Status wird nicht vererbt;
 - Reconcile-Aktionen über START/STOP hinaus, insbesondere für Ressourcen- und
   Konfigurationsänderungen;
 - versionierter Refresh-/Rebuild-Lifecycle für Medien, VHDX und Container-Images;

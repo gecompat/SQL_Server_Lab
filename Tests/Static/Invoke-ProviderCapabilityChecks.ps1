@@ -17,6 +17,14 @@ Add-CheckResult -Name 'Hyper-V trennt Prepared-Image-Grenze von nativ belegten E
     @($hyperv.Capabilities.SourceKey) -contains 'powershell-direct-software-installation' -and
     @($hyperv.Capabilities.SourceKey) -contains 'sql-external-runtime'
 )
+$docker = @($result | Where-Object Provider -eq 'docker')[0]
+$podman = @($result | Where-Object Provider -eq 'podman')[0]
+Add-CheckResult -Name 'Docker und Podman deklarieren den nativ belegten SQL-2022-External-Runtime-Vertrag' -Success (
+    @('derived-image-build','sql-external-runtime' | Where-Object { @($docker.Capabilities.SourceKey) -notcontains $_ }).Count -eq 0 -and
+    @('derived-image-build','sql-external-runtime' | Where-Object { @($podman.Capabilities.SourceKey) -notcontains $_ }).Count -eq 0 -and
+    @($podman.Capabilities.SourceKey) -contains 'rootless' -and
+    @($podman.Limitations.SourceKey) -contains 'external-runtime-requires-rootful-linux-cgroup-v1'
+)
 $serialized = $result | ConvertTo-Json -Depth 20
 Add-CheckResult -Name 'Capability-Vertrag ist serialisierbar und enthält keine Runtimewerte' -Success ($serialized -notmatch 'containerId|connectionString|HostName|\\\\')
 $workflow = Get-SqlServerLabWorkflow

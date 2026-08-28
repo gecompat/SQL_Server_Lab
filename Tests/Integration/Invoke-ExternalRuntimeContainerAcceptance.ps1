@@ -1,0 +1,255 @@
+#Requires -Version 7.2
+<#
+.SYNOPSIS
+    Fuehrt die native External-Runtime-Abnahme fuer Docker oder Podman aus.
+.DESCRIPTION
+    Prueft die als SUPPORTED katalogisierten Linux-Varianten ohne Katalog- oder
+    Provider-Mutation. Der normale New-SqlServerLab-Pfad baut das
+    digestgebundene Derived Image, startet SQL Server im sicheren
+    launchpadd-Namespace-Modus und prueft Python, R und Java ueber
+    sp_execute_external_script. Nach einem Restart werden die fachlichen
+    Postconditions erneut ausgefuehrt. Run-Ressourcen und das explizit
+    test-eigene, wiederverwendbare Image werden getrennt bereinigt.
+.PARAMETER Provider
+    Der nativ zu pruefende Linux-Containerprovider.
+.PARAMETER EvidencePath
+    Ziel fuer die sanitisierte JSON-Evidence. Der Pfad muss ausserhalb des
+    Repositorys liegen, wenn die Evidence nicht absichtlich separat behandelt
+    wird.
+.PARAMETER KeepOnFailure
+    Behaelt Run und Derived Image bei einem Fehler fuer eine manuelle Diagnose.
+#>
+[CmdletBinding()]
+param(
+    [Parameter(Mandatory)][ValidateSet('docker', 'podman')][string]$Provider,
+    [Parameter(Mandatory)][string]$EvidencePath,
+    [switch]$KeepOnFailure
+)
+
+$ErrorActionPreference = 'Stop'
+if (-not $IsLinux) {
+    throw 'EXTERNAL_RUNTIME_CONTAINER_ACCEPTANCE_REQUIRES_LINUX'
+}
+
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+$modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
+$testRoot = Join-Path ([IO.Path]::GetTempPath()) "sql-server-lab-external-runtime-$Provider-$([guid]::NewGuid().ToString('N'))"
+$stateRoot = Join-Path $testRoot 'state'
+$manifestPath = Join-Path $testRoot 'manifest.json'
+$previousStateRoot = $env:SQL_SERVER_LAB_STATE
+$previousPodmanNetwork = $env:SQL_SERVER_LAB_PODMAN_NETWORK
+$previousPodmanSubnet = $env:SQL_SERVER_LAB_PODMAN_SUBNET
+$lab = $null
+$imageName = $null
+$completed = $false
+$acceptanceNetworkName = $null
+
+function Assert-ExternalRuntimeAcceptance {
+    param(
+        [Parameter(Mandatory)][bool]$Condition,
+        [Parameter(Mandatory)][string]$Description,
+        [string]$Evidence
+    )
+    if (-not $Condition) {
+        throw "EXTERNAL_RUNTIME_CONTAINER_ACCEPTANCE_FAILED: $Description$(if ($Evidence) { ": $Evidence" })"
+    }
+    Write-Host "PASS: $Description" -ForegroundColor Green
+}
+
+try {
+    if ($Provider -eq 'podman') {
+        $acceptanceNetworkName = 'SQL_LAB_EXTLANG_PODMAN'
+        $env:SQL_SERVER_LAB_PODMAN_NETWORK = $acceptanceNetworkName
+        $env:SQL_SERVER_LAB_PODMAN_SUBNET = '10.254.27.0/24'
+    }
+    foreach ($command in @($Provider, 'sqlcmd')) {
+        Assert-ExternalRuntimeAcceptance ([bool](Get-Command $command -ErrorAction SilentlyContinue)) "Befehl '$command' ist verfuegbar"
+    }
+    & $Provider info 1>$null 2>$null
+    Assert-ExternalRuntimeAcceptance ($LASTEXITCODE -eq 0) "Runtime '$Provider' ist erreichbar"
+
+    New-Item -Path $testRoot -ItemType Directory -Force | Out-Null
+    $env:SQL_SERVER_LAB_STATE = $stateRoot
+    $token = [guid]::NewGuid().ToString('N').Substring(0, 16)
+    $saPassword = ConvertTo-SecureString "ExtLang_${token}!Aa7" -AsPlainText -Force
+    $manifest = [ordered]@{
+        name = "external-runtime-$Provider-native"
+        automation = [ordered]@{ mode = 'unattended' }
+        instances = @([ordered]@{
+            id = 'external-runtime'
+            version = '2022'
+            provider = $Provider
+            profile = 'performance'
+            software = @(
+                [ordered]@{ id='sql-python'; scope='sqlExternalRuntime' },
+                [ordered]@{ id='sql-r'; scope='sqlExternalRuntime' },
+                [ordered]@{ id='sql-java'; scope='sqlExternalRuntime' }
+            )
+            serverConfig = [ordered]@{
+                externalScripts = [ordered]@{
+                    enabled = $true
+                    resourceGovernor = [ordered]@{ maxMemoryPercent=40; maxProcesses=32 }
+                }
+            }
+        })
+    }
+    $manifest | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $manifestPath -Encoding utf8
+
+    Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
+    $module = Import-Module $modulePath -Force -PassThru
+    $catalogState = & $module {
+        param($ProviderName)
+        $expectedIds = @(
+            'sql2022-python310-ubuntu2204-derived',
+            'sql2022-r42-ubuntu2204-derived',
+            'sql2022-java11-ubuntu2204-derived'
+        )
+        $catalog = Get-LabSoftwareCatalog
+        $variants = @($catalog.software | ForEach-Object { @($_.variants) } |
+            Where-Object { [string]$_.id -in $expectedIds })
+        if ($variants.Count -ne 3) { throw 'EXTERNAL_RUNTIME_CONTAINER_ACCEPTANCE_VARIANTS_MISSING' }
+        foreach ($variant in $variants) {
+            if ([string]$variant.status -ne 'SUPPORTED' -or @($variant.providers) -notcontains $ProviderName) {
+                throw "EXTERNAL_RUNTIME_CONTAINER_ACCEPTANCE_VARIANT_STATE_UNEXPECTED: $($variant.id) / $($variant.status)"
+            }
+        }
+        $providerDefinition = $script:RegisteredProviders[$ProviderName].Definition
+        foreach ($capability in @('derived-image-build','sql-external-runtime')) {
+            if (@($providerDefinition.capabilities) -notcontains $capability) {
+                throw "EXTERNAL_RUNTIME_CONTAINER_ACCEPTANCE_CAPABILITY_MISSING: $ProviderName / $capability"
+            }
+        }
+        return @($variants | Sort-Object id | ForEach-Object {
+            [PSCustomObject]@{ variantId=[string]$_.id; status=[string]$_.status }
+        })
+    } $Provider
+    Assert-ExternalRuntimeAcceptance (@($catalogState | Where-Object status -ne 'SUPPORTED').Count -eq 0) 'Alle drei Linux-Varianten und Provider-Capabilities sind freigegeben'
+
+    $lab = New-SqlServerLab -Manifest $manifestPath -SaPassword $saPassword -StateRoot $stateRoot -SkipAssessment -NonInteractive
+    Assert-ExternalRuntimeAcceptance ([string]$lab.State -eq 'Running') 'Lab wurde ueber den normalen Produktpfad provisioniert'
+    $instance = @($lab.Instances)[0]
+    Assert-ExternalRuntimeAcceptance ([string]$instance.ExternalRuntime.Status -eq 'EXTENSIONS_READY_RUN') 'External-Runtime-State ist EXTENSIONS_READY_RUN'
+    Assert-ExternalRuntimeAcceptance (@($instance.ExternalRuntime.Receipts).Count -eq 3) 'Python, R und Java besitzen Installation-Receipts'
+
+    $receiptPath = Join-Path (Join-Path (Join-Path $stateRoot 'runs') $lab.RunId) 'software-installation-receipts.json'
+    Assert-ExternalRuntimeAcceptance (Test-Path -LiteralPath $receiptPath -PathType Leaf) 'Sanitisierte Installation-Receipts wurden persistiert'
+    $receiptDocument = Get-Content -LiteralPath $receiptPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 100
+    $receipts = @($receiptDocument.instances | Where-Object instanceId -eq 'external-runtime' | ForEach-Object { @($_.receipts) })
+    Assert-ExternalRuntimeAcceptance ($receipts.Count -eq 3 -and @($receipts | Where-Object status -ne 'EXTENSIONS_READY_RUN').Count -eq 0) 'Persistierte Receipts sind vollstaendig und bereit'
+
+    $hostAndImage = & $module {
+        param($ProviderName,$ImageKey,$StateRootPath)
+        $plans = @(@('sql-python','sql-r','sql-java') | ForEach-Object {
+            Resolve-LabExternalRuntimePlan -SoftwareItem ([PSCustomObject]@{
+                Id=$_; Version=$null; Variant=$null; InstallMethod=$null; Packages=@(); RequestSource='native-acceptance'
+            }) -SqlVersion '2022' -Provider $ProviderName -OperatingSystem linux
+        })
+        $imagePlan = New-LabExternalRuntimeContainerImagePlan -Provider $ProviderName -SqlVersion '2022' -SoftwarePlans $plans
+        if ([string]$imagePlan.ImageKey -ne $ImageKey) { throw 'EXTERNAL_RUNTIME_CONTAINER_ACCEPTANCE_IMAGE_KEY_DRIFT' }
+        $hostStatus = Test-LabExternalRuntimeContainerHost -Provider $ProviderName -ImagePlan $imagePlan
+        $imageReceipt = Get-LabExternalRuntimeContainerImageReceipt -ImageKey $ImageKey -Provider $ProviderName -StateRoot $StateRootPath
+        [PSCustomObject]@{ Host=$hostStatus; ImageReceipt=$imageReceipt; Plans=$plans }
+    } $Provider ([string]$instance.ExternalRuntime.ImageKey) $stateRoot
+    Assert-ExternalRuntimeAcceptance ([string]$hostAndImage.Host.Status -eq 'READY' -and [string]$hostAndImage.Host.CgroupVersion -eq '1') 'Provider laeuft nativ auf Linux mit cgroup v1'
+    Assert-ExternalRuntimeAcceptance ([string]$hostAndImage.ImageReceipt.status -eq 'IMAGE_READY') 'Digest- und Context-gebundenes Derived Image ist nachgewiesen'
+    $imageName = [string]$hostAndImage.ImageReceipt.image
+
+    $restart = Restart-SqlServerLab -RunId $lab.RunId -TimeoutSeconds 300 -Force
+    Assert-ExternalRuntimeAcceptance ([string]$restart.Status -eq 'RUNNING' -and [int]$restart.Errors -eq 0) 'Providergebundener Restart erreicht SQL-Readiness'
+    $postRestart = & $module {
+        param($Plans,$LabInstance,$Password)
+        $launchpad = Test-LabExternalRuntimeLaunchpadProcess -Provider ([string]$LabInstance.Provider) -ContainerIdOrName ([string]$LabInstance.ContainerId)
+        $probes = foreach ($plan in @($Plans)) {
+            switch ([string]$plan.Language) {
+                'Python' { Invoke-LabPythonExternalRuntimeProbe -Plan $plan -HostName ([string]$LabInstance.Host) -Port ([int]$LabInstance.Port) -SaPassword $Password }
+                'R' { Invoke-LabRExternalRuntimeProbe -Plan $plan -HostName ([string]$LabInstance.Host) -Port ([int]$LabInstance.Port) -SaPassword $Password }
+                'Java' { Invoke-LabJavaExternalRuntimeProbe -Plan $plan -HostName ([string]$LabInstance.Host) -Port ([int]$LabInstance.Port) -SaPassword $Password -Database master }
+            }
+        }
+        [PSCustomObject]@{ Launchpad=$launchpad; Probes=@($probes) }
+    } @($hostAndImage.Plans) $instance $saPassword
+    Assert-ExternalRuntimeAcceptance ([string]$postRestart.Launchpad.Status -eq 'PASS') 'launchpadd ist nach Restart bereit'
+    Assert-ExternalRuntimeAcceptance (@($postRestart.Probes).Count -eq 3 -and @($postRestart.Probes | Where-Object Status -ne 'PASS').Count -eq 0) 'Python, R und Java bestehen nach Restart erneut'
+
+    $cleanup = Remove-SqlServerLab -RunId $lab.RunId -StateRoot $stateRoot -Force -Confirm:$false
+    Assert-ExternalRuntimeAcceptance ([string]$cleanup.Status -eq 'REMOVED') 'Run-Ressourcen wurden ueber den registrierten Cleanup entfernt'
+    $lab = $null
+
+    $imageExistsAfterRunCleanup = @(& $Provider image inspect $imageName 2>$null).Count -gt 0 -and $LASTEXITCODE -eq 0
+    Assert-ExternalRuntimeAcceptance $imageExistsAfterRunCleanup 'Wiederverwendbares Image bleibt vom normalen Run-Cleanup getrennt'
+    & $Provider image rm --force $imageName 1>$null
+    Assert-ExternalRuntimeAcceptance ($LASTEXITCODE -eq 0) 'Test-eigenes Derived Image wurde explizit entfernt'
+    if ($acceptanceNetworkName) {
+        & $Provider network rm $acceptanceNetworkName 1>$null
+        Assert-ExternalRuntimeAcceptance ($LASTEXITCODE -eq 0) 'Test-eigenes konfliktfreies Podman-Netz wurde explizit entfernt'
+    }
+
+    $evidence = [ordered]@{
+        contract = [ordered]@{ name='SqlServerLab.ExternalRuntimeContainerAcceptance'; version='1.1' }
+        status = 'PASS'
+        provider = $Provider
+        platform = 'linux'
+        sqlVersion = '2022'
+        cgroupVersion = [string]$hostAndImage.Host.CgroupVersion
+        rootless = [bool]$hostAndImage.Host.Rootless
+        catalogState = @($catalogState)
+        characterization = 'catalog-supported-native-acceptance'
+        image = [ordered]@{
+            imageKey = [string]$instance.ExternalRuntime.ImageKey
+            baseImageDigest = [string]$hostAndImage.ImageReceipt.baseImageDigest
+            variantIds = @($hostAndImage.ImageReceipt.variantIds)
+            launchMode = [string]$hostAndImage.ImageReceipt.launchMode
+            namespaceIsolation = [bool]$hostAndImage.ImageReceipt.namespaceIsolation
+            outboundAccess = [bool]$hostAndImage.ImageReceipt.outboundAccess
+            retainedAfterRunCleanup = $imageExistsAfterRunCleanup
+            explicitlyRemoved = $true
+        }
+        languages = @($receipts | Sort-Object softwareId | ForEach-Object {
+            $runtimeProbe = @($_.postconditions | Where-Object { [string]$_.Language -in @('Python','R','Java') -or [string]$_.Id -match '^(python|r|java)-' }) | Select-Object -Last 1
+            [ordered]@{
+                softwareId = [string]$_.softwareId
+                variantId = [string]$_.variantId
+                runtimeVersion = [string]$_.runtimeVersion
+                workerIdentity = if ($runtimeProbe) { [string]$runtimeProbe.WorkerIdentity } else { $null }
+                status = [string]$_.status
+            }
+        })
+        restart = [ordered]@{
+            status = [string]$restart.Status
+            launchpad = [string]$postRestart.Launchpad.Status
+            probes = @($postRestart.Probes | ForEach-Object {
+                [ordered]@{ id=[string]$_.Id; language=[string]$_.Language; runtimeVersion=[string]$_.RuntimeVersion; workerIdentity=[string]$_.WorkerIdentity; status=[string]$_.Status }
+            })
+        }
+        cleanup = [ordered]@{
+            runStatus=[string]$cleanup.Status
+            reusableImageExplicitlyRemoved=$true
+            acceptanceNetworkExplicitlyRemoved=[bool]$acceptanceNetworkName
+        }
+        completedAt = [DateTimeOffset]::UtcNow.ToString('o')
+    }
+    $evidenceDirectory = Split-Path -Parent $EvidencePath
+    if ($evidenceDirectory) { New-Item -Path $evidenceDirectory -ItemType Directory -Force | Out-Null }
+    $evidence | ConvertTo-Json -Depth 30 | Set-Content -LiteralPath $EvidencePath -Encoding utf8
+    $completed = $true
+    Write-Host "External-Runtime-Akzeptanz erfolgreich: $Provider" -ForegroundColor Green
+    Write-Host "Evidence: $EvidencePath" -ForegroundColor Cyan
+}
+finally {
+    if ($lab -and -not $KeepOnFailure) {
+        try { Remove-SqlServerLab -RunId $lab.RunId -StateRoot $stateRoot -Force -Confirm:$false | Out-Null }
+        catch { Write-Warning "Fehler-Cleanup des Runs schlug fehl: $($_.Exception.Message)" }
+    }
+    if ($imageName -and -not $completed -and -not $KeepOnFailure) {
+        try { & $Provider image rm --force $imageName 1>$null 2>$null } catch { }
+    }
+    if ($acceptanceNetworkName -and -not $completed -and -not $KeepOnFailure) {
+        try { & $Provider network rm $acceptanceNetworkName 1>$null 2>$null } catch { }
+    }
+    if (($completed -or -not $KeepOnFailure) -and (Test-Path -LiteralPath $testRoot)) {
+        Remove-Item -LiteralPath $testRoot -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    $env:SQL_SERVER_LAB_STATE = $previousStateRoot
+    $env:SQL_SERVER_LAB_PODMAN_NETWORK = $previousPodmanNetwork
+    $env:SQL_SERVER_LAB_PODMAN_SUBNET = $previousPodmanSubnet
+}

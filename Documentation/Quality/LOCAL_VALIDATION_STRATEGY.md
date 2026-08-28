@@ -89,6 +89,27 @@ Projektstatus und dürfen nicht als `validated` dargestellt werden.
 .\Tests\Integration\Invoke-SmokeTest.ps1 -Provider podman
 ```
 
+### SQL Server 2022 External Languages
+
+Der Gast-Runner erzeugt einen isolierten, SHA-256-gebundenen
+Ubuntu-22.04-/cgroup-v1-Hyper-V-Gast und führt Docker und Podman getrennt aus:
+
+```powershell
+.\Tests\Integration\Invoke-ExternalRuntimeContainerHyperVHost.ps1
+```
+
+In einem bereits geeigneten rootful Linux-/cgroup-v1-Gast können die Provider
+auch einzeln geprüft werden. `EvidencePath` liegt außerhalb des Repositorys:
+
+```powershell
+.\Tests\Integration\Invoke-ExternalRuntimeContainerAcceptance.ps1 -Provider docker -EvidencePath <path>
+.\Tests\Integration\Invoke-ExternalRuntimeContainerAcceptance.ps1 -Provider podman -EvidencePath <path>
+```
+
+Beide Läufe prüfen Python, R und Java über echte SQL-Datenroundtrips vor und
+nach providergebundenem Neustart sowie den registrierten und expliziten
+Cleanup. Docker-Evidence gilt nicht für Podman und umgekehrt.
+
 ### Auto-Modus
 
 ```powershell
@@ -242,6 +263,7 @@ Worker gelesen und nicht im Workflow-State persistiert.
 | Remove | implementiert | implementiert | scopegebundene Grundlage implementiert |
 | eigener Smoke-Test-Aufruf | Lifecycle und CLI-Akzeptanz | Lifecycle und CLI-Akzeptanz | Lifecycle, Windows-Baseline und vollstaendige CLI-Akzeptanz |
 | gemischter Provider-Run | implementiert mit Podman-ProviderSubRun | implementiert mit Docker-ProviderSubRun | nicht unterstützt |
+| SQL-2022-Python/R/Java | nativ validiert auf rootful Linux/cgroup v1 | nativ validiert auf rootful Linux/cgroup v1 | nativ validiert im isolierten Windows-Gast einschließlich VM-Kaltstart |
 
 `implementiert` bedeutet, dass Code und Testpfad vorhanden sind. `validiert` darf nur für einen tatsächlich erfolgreich ausgeführten lokalen Lauf verwendet werden.
 

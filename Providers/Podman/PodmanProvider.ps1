@@ -76,7 +76,7 @@ function Initialize-PodmanSqlNamedVolume {
 
     $initialized = podman run --rm --user 0:0 --entrypoint /bin/sh `
         -v "${VolumeName}:/sql-lab-volume-init" $Image `
-        -c 'chown -R 10001:0 /sql-lab-volume-init && chmod 0770 /sql-lab-volume-init' 2>&1
+        -c 'cp -a /var/opt/mssql/. /sql-lab-volume-init/ && chown -R 10001:0 /sql-lab-volume-init && chmod 0770 /sql-lab-volume-init' 2>&1
     if ($LASTEXITCODE -ne 0) {
         throw "PODMAN_SQL_VOLUME_INITIALIZATION_FAILED: $VolumeName - $(@($initialized) -join ' ')"
     }
@@ -146,7 +146,7 @@ function New-PodmanInstance {
         $volumeArguments += '-v'
         $volumeTarget = "${volumeSource}:$($drive.containerPath)"
         $volumeOptions = @()
-        if (-not $drive.hostPath) { $volumeOptions += 'U' }
+        if (-not $drive.hostPath -and $ExternalRuntimeLaunchMode -eq 'none') { $volumeOptions += 'U' }
         if ($drive.readOnly -eq $true) { $volumeOptions += 'ro' }
         if ($volumeOptions.Count -gt 0) {
             $volumeTarget = "${volumeTarget}:$($volumeOptions -join ',')"
@@ -160,7 +160,23 @@ function New-PodmanInstance {
     }
     $restartArguments = if ($AutoStart -eq 'on') { @('--restart', 'unless-stopped') } else { @() }
     $externalRuntimeArguments = if ($ExternalRuntimeLaunchMode -eq 'sql2022-namespace-v1') {
-        @('--cap-add', 'SYS_ADMIN')
+        @(
+            '--user', '0:0',
+            '--cap-add', 'CHOWN',
+            '--cap-add', 'DAC_OVERRIDE',
+            '--cap-add', 'KILL',
+            '--cap-add', 'SETGID',
+            '--cap-add', 'SETUID',
+            '--cap-add', 'SYS_ADMIN',
+            '--cap-add', 'MKNOD',
+            '--cap-add', 'SETPCAP',
+            '--cap-add', 'NET_ADMIN',
+            '--cap-add', 'NET_RAW',
+            '--cap-add', 'SYS_PTRACE',
+            '--security-opt', 'apparmor=unconfined',
+            '--security-opt', 'seccomp=unconfined',
+            '--volume', '/sys/fs/cgroup:/sys/fs/cgroup:rw'
+        )
     }
     else { @() }
 
@@ -304,13 +320,41 @@ function Get-PodmanInstanceStatus {
 function Start-PodmanInstance {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory)][string]$ContainerIdOrName
+        [Parameter(Mandatory)][string]$ContainerIdOrName,
+        [ValidateRange(1, 300)][int]$TimeoutSeconds = 30
     )
 
-    podman start $ContainerIdOrName | Out-Null
-    if ($LASTEXITCODE -ne 0) {
-        throw "Podman-Container konnte nicht gestartet werden: $ContainerIdOrName"
-    }
+    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+    $lastOutput = @()
+    do {
+        $lastOutput = @(& podman start $ContainerIdOrName 2>&1)
+        $exitCode = $LASTEXITCODE
+        if ($exitCode -eq 0) {
+            return
+        }
+
+        $message = @($lastOutput | ForEach-Object { [string]$_ }) -join ' '
+        $isKnownPortReleaseRace = $message -match '(?i)cannot listen on the TCP port.*address already in use'
+        if (-not $isKnownPortReleaseRace) {
+            throw "PODMAN_CONTAINER_START_FAILED: $ContainerIdOrName - $message"
+        }
+
+        Start-Sleep -Milliseconds 500
+    } while ($stopwatch.Elapsed.TotalSeconds -lt $TimeoutSeconds)
+
+    $lastMessage = @($lastOutput | ForEach-Object { [string]$_ }) -join ' '
+    throw "PODMAN_CONTAINER_START_PORT_RELEASE_TIMEOUT: $ContainerIdOrName - $lastMessage"
+}
+
+function Restart-PodmanInstance {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$ContainerIdOrName,
+        [ValidateRange(1, 300)][int]$TimeoutSeconds = 30
+    )
+
+    Stop-PodmanInstance -ContainerIdOrName $ContainerIdOrName -TimeoutSeconds $TimeoutSeconds
+    Start-PodmanInstance -ContainerIdOrName $ContainerIdOrName -TimeoutSeconds $TimeoutSeconds
 }
 
 function Stop-PodmanInstance {
@@ -320,9 +364,9 @@ function Stop-PodmanInstance {
         [int]$TimeoutSeconds = 30
     )
 
-    podman stop -t $TimeoutSeconds $ContainerIdOrName | Out-Null
+    $output = @(podman stop -t $TimeoutSeconds $ContainerIdOrName 2>&1)
     if ($LASTEXITCODE -ne 0) {
-        throw "Podman-Container konnte nicht gestoppt werden: $ContainerIdOrName"
+        throw "PODMAN_CONTAINER_STOP_FAILED: $ContainerIdOrName - $(@($output) -join ' ')"
     }
 }
 

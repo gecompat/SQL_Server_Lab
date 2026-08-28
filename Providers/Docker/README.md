@@ -17,3 +17,6 @@ Container-basierte SQL-Server-Instanzen via Docker Desktop oder Docker Engine.
 - providerneutraler Autostart über `--restart unless-stopped`,
   `sql-server-lab.autostart=on` und unter Windows einen verwalteten
   Benutzer-Anmeldeauftrag für Docker Desktop
+- SQL Server 2022 External Runtimes für Python, R und Java über ein
+  digestgebundenes Derived Image; der sichere Namespace-Modus erfordert einen
+  rootful Linux-Host mit cgroup v1 und wird vor jeder Mutation geprüft
