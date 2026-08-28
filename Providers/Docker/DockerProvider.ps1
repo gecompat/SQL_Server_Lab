@@ -145,7 +145,7 @@ function New-DockerInstance {
         [Parameter(Mandatory)][string]$ScopeId,
         [Parameter(Mandatory)][string]$InstanceId,
         [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9 _-]{0,63}$')][string]$LabName,
-        [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$')][string]$ContainerName,
+        [ValidatePattern('^$|^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$')][string]$ContainerName,
         [int]$Port = 0,
         [Parameter(Mandatory)][SecureString]$SaPassword,
         [ValidateSet('compact', 'standard', 'performance')]
