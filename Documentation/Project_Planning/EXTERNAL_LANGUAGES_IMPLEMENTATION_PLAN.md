@@ -99,7 +99,7 @@ Das Zielmanifest soll sinngemäß folgenden Vertrag ausdrücken:
   "serverConfig": {
     "externalScripts": {
       "enabled": true,
-      "resourceGovernor": { "maxMemoryPercent": 30 }
+      "resourceGovernor": { "maxMemoryPercent": 40 }
     }
   }
 }
@@ -296,8 +296,11 @@ nachgewiesen.
 
 Implementierungsstand 2026-08-28: SQL-Feature-Vertrag, SHA-256-gebundene
 Offlinemedien, Gastinstaller, ACLs, RegisterRext, State/Recovery und der native
-Acceptance-Runner sind implementiert. Der positive reale Hyper-V-Nachweis ist
-noch offen; die Varianten bleiben `PREVIEW`.
+Acceptance-Runner sind implementiert. Python 3.10.11 und R 4.2.3 bestanden im
+isolierten Windows-Server-2025-Klon den SQL-Datenroundtrip samt Runtime-, Paket-
+und Worker-Identitätsprüfung vor und nach vollständigem VM-Kaltstart. Der
+registrierte Cleanup-Plan entfernte VM, Child-VHDX und Parent-Kopie; der
+ausgeschaltete Quell-Slot blieb unverändert. Die Varianten sind `SUPPORTED`.
 
 ### Welle 6 – Hyper-V/Windows für Java
 
@@ -314,8 +317,10 @@ nur die Installations- und Guest-Execution-Adapter unterscheiden sich.
 Implementierungsstand 2026-08-28: Microsoft OpenJDK 17.0.20.1, Windows
 Language Extension 1.1.0, das darin enthaltene SDK sowie das reproduzierbare
 Probe-JAR sind SHA-256-gebunden. Offlineinstallation, DDL, Driftprüfung,
-Kompensation und Cold-Start-Probe sind implementiert. Der positive reale
-Hyper-V-JAR-Nachweis ist noch offen; die Variante bleibt `PREVIEW`.
+Kompensation und Cold-Start-Probe sind implementiert. Java 17.0.20.1 bestand
+im selben isolierten Hyper-V-Lauf den echten SQL-JAR-Datenroundtrip samt
+Worker-Identitätsprüfung vor und nach vollständigem VM-Kaltstart. Das
+registrierte Cleanup war vollständig; die Variante ist `SUPPORTED`.
 
 ### Welle 7 – SQL Server 2025 und SQL Server 2019
 

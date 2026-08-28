@@ -674,8 +674,8 @@ validation:
       - immutable_parent_after_cleanup
   hyperv_external_runtime_acceptance:
     source: Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1
-    command: '.\Tests\Integration\Invoke-ExternalRuntimeHyperVAcceptance.ps1 -RunId <existing-run-id>'
-    execution_status: "implementiert; positiver nativer Python-/R-/Java-Nachweis ausstehend; frische OOBE erfordert Elevation, ein dedizierter bereits spezialisierter Windows-Slot kann capability-basiert fortgesetzt werden"
+    command: '.\Tests\Integration\Invoke-ExternalRuntimeHyperVAcceptance.ps1 -CloneSourceRunId <specialized-windows-source-run-id> -CleanupOnSuccess'
+    execution_status: "implementiert; positiver nativer Python-/R-/Java-Nachweis ausstehend; frische OOBE erfordert Elevation, der isolierte Clone-Modus kopiert einen ausgeschalteten spezialisierten Evaluation-Slot ohne Mutation der Quelle"
     checks:
       - sql_2022_advanced_analytics_feature
       - offline_python_r_and_java_guest_installation
