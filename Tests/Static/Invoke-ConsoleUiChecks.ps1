@@ -17,6 +17,19 @@ function Add-ConsoleUiCheck {
 }
 
 Write-Host "`nSQL_Server_Lab - Console UI Checks" -ForegroundColor Cyan
+$previousConsoleMode = $script:LabConsoleMode
+$script:LabConsoleMode = 'Fallback'
+$forcedFallbackCapability = Test-LabConsoleCapability
+$script:LabConsoleMode = $previousConsoleMode
+Add-ConsoleUiCheck 'Diagnostischer ConsoleMode erzwingt Fallback ohne Host-Raten' (
+    -not $forcedFallbackCapability.Supported -and
+    $forcedFallbackCapability.Mode -eq 'READ_HOST' -and
+    @($forcedFallbackCapability.Reasons) -contains 'FORCED_FALLBACK'
+)
+
+$ctrlCKey = [PSCustomObject]@{ Key='C'; KeyChar=[char]3; Modifiers=[ConsoleModifiers]::Control }
+Add-ConsoleUiCheck 'Ctrl+C wird als globaler Pipeline-Interrupt erkannt' (Test-LabConsoleInterruptKey -Key $ctrlCKey)
+
 $items = @(
     New-LabConsoleItem -Id 'one' -Label 'One' -Shortcut '1'
     New-LabConsoleItem -Id 'two' -Label 'Two' -Shortcut '2'
@@ -95,6 +108,8 @@ Add-ConsoleUiCheck 'Informationsansicht wartet genau bis Enter oder Escape' ($ac
 
 $fallback = Invoke-LabConsoleMenu -ScreenId 'fallback' -Title 'Fallback' -Items $items -ForceFallback -ReadInput { param($prompt) '2' }
 Add-ConsoleUiCheck 'Read-Host-Fallback waehlt nummeriert' ($fallback.Status -eq 'Selected' -and $fallback.SelectedItem.Id -eq 'two')
+$cancelledFallback = Invoke-LabConsoleMenu -ScreenId 'fallback-cancel' -Title 'Fallback' -Items $items -ForceFallback -ReadInput { param($prompt) '0' }
+Add-ConsoleUiCheck 'Read-Host-Fallback bricht mit 0 kontrolliert ab' ($cancelledFallback.Status -eq 'Cancelled' -and $null -eq $cancelledFallback.SelectedItem)
 
 $invalidFallback = Invoke-LabConsoleMenu -ScreenId 'fallback-invalid' -Title 'Fallback' -Items $items -ForceFallback -ReadInput { param($prompt) '99' }
 $disabledFallback = Invoke-LabConsoleMenu -ScreenId 'fallback-disabled' -Title 'Fallback' -Items @(
@@ -203,8 +218,22 @@ Add-ConsoleUiCheck 'Sensitive Klartextwerte gelangen nicht in den UI-State' $sen
 $consoleSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/ConsoleUi.ps1') -Raw
 $containerSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Update-SqlServerLabContainer.ps1') -Raw
 Add-ConsoleUiCheck 'Key-Loops verwenden kein Clear-Host' ($consoleSource -notmatch 'Clear-Host' -and $containerSource -notmatch 'Clear-Host')
+Add-ConsoleUiCheck 'Alle Console-Key-Loops reichen Ctrl+C als PipelineStoppedException durch' (
+    ([regex]::Matches($consoleSource, 'Assert-LabConsoleKeyNotInterrupted -Key \$key')).Count -eq 4 -and
+    ([regex]::Matches($consoleSource, 'Read-LabConsoleKey -ReadKey \$ReadKey')).Count -eq 4 -and
+    $consoleSource -match '\[Console\]::TreatControlCAsInput = \$true' -and
+    $consoleSource -match '\[Console\]::TreatControlCAsInput = \$previousTreatControlCAsInput' -and
+    $consoleSource -match 'throw \[Management\.Automation\.PipelineStoppedException\]::new\(\)' -and
+    ([regex]::Matches($consoleSource, 'catch \[Management\.Automation\.PipelineStoppedException\]')).Count -eq 2
+)
 
 $entrySource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Invoke-SqlServerLab.ps1') -Raw
+$standaloneEntrySource = Get-Content -LiteralPath (Join-Path $repoRoot 'Invoke-SqlServerLab.ps1') -Raw
+Add-ConsoleUiCheck 'PowerShell-7-Einstieg reicht ConsoleMode Auto oder Fallback durch' (
+    $entrySource -match "ValidateSet\('Auto', 'Fallback'\)" -and
+    $standaloneEntrySource -match "ValidateSet\('Auto', 'Fallback'\)" -and
+    $standaloneEntrySource -match 'Invoke-SqlServerLab -ConsoleMode \$ConsoleMode'
+)
 $connectionCenterSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Sync-SqlServerLabConnectionCenter.ps1') -Raw
     $sqlIntentMatch = [regex]::Match($entrySource, 'function Read-LabSqlEnvironmentIntentInteractive \{[\s\S]+?\n\}(?=\r?\n\r?\nfunction Resolve-LabSqlIntentProvider)')
 Add-ConsoleUiCheck 'SQL-Zielkonfiguration verwendet gemeinsames Formular und Review' ($sqlIntentMatch.Success -and $sqlIntentMatch.Value -match 'Invoke-LabConsoleForm' -and $sqlIntentMatch.Value -match 'New-LabConsoleField')

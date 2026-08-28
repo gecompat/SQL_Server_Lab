@@ -504,7 +504,9 @@ CMS-Synchronisation aus; eine erfolgreiche endpunktrelevante Mutation genau
 eine. Der Aufrufzähler ist lokal synthetisch gebunden. Der gemeinsame
 Dialogabbruch der grafischen Workflow-UI ist im lokalen Browser real mit
 `Escape`, Löschbestätigung und Passwortverwerfung geprüft. Die PowerShell-
-Konsolenabnahme für `Ctrl+C` und Fallback bleibt Teil des offenen N2-Gates.
+Konsole ist im realen PowerShell-7-PTY für Cursor- und erzwungenen Fallback-
+Modus geprüft: `Ctrl+C` beendet die aktuelle Verarbeitung, der Fallback ist über
+`-ConsoleMode Fallback` reproduzierbar und `0` beendet ihn kontrolliert.
 Der harte Scheduler-Prozessabbruch ist dagegen mit zwei realen Docker-
 Ressourcen, persistenter `WorkerRecovered`-Evidence, eindeutigem Operation-zu-
 Run-Eigentum, idempotentem Resume und scopegebundenem Cleanup belegt.
