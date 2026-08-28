@@ -190,6 +190,10 @@ function Resolve-LabManifestSchemaNode {
     if (-not $reference) {
         return $Node
     }
+    if ($reference -eq 'lab-storage-intent.schema.json') {
+        $schemaPath = Join-Path $script:SchemasPath 'lab-storage-intent.schema.json'
+        return Get-Content -LiteralPath $schemaPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 40
+    }
     if ($reference -notmatch '^#/definitions/([^/]+)$') {
         throw "Nicht unterstuetzte Schema-Referenz: $reference"
     }

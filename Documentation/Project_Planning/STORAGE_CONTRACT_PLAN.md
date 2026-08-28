@@ -153,9 +153,9 @@ und Run-State absolute Pfade enthalten koennen.
 | STO-011 | Expliziter Default- und Referenzschutz | Implementiert: Defaultwechsel ist eine eigene bestaetigte Aktion; aktive Bindings verhindern Deregistrierung |
 | STO-012 | Volume- und Backing-Device-Topologie | Implementiert: logische Volume-Trennung und lokal nachweisbare physische Geraetetrennung werden getrennt ausgewiesen; reale Vier-Geräte-Abnahme bleibt bei SFP/HVS |
 | STO-013 | Location-basierte Migration | Implementiert: Plan und Journal verwenden stabile Location-/Volume-IDs statt fluechtiger Laufwerksbuchstaben |
-| SFP-001 | Storage-Intent und lokaler Bound Plan | Portable Rollenanforderungen und konkrete lokale Location-/Geraetebindungen sind getrennt versioniert |
-| SFP-002 | Dateigenaue SQL-Platzierung | User-Data, User-Log, Backup, jedes TempDB-Datenfile und TempDB-Log sind einzeln plan- und reviewbar |
-| SFP-003 | TempDB-Verteilungsregeln | Explizite, Round-Robin-, Volume- und physische Geraetemodi blockieren unzureichende oder unbekannte Topologie |
+| SFP-001 | Storage-Intent und lokaler Bound Plan | Implementiert: portable Rollenanforderungen, konkrete lokale Location-/Geraetebindungen und Runtime-Receipts sind getrennt versioniert |
+| SFP-002 | Dateigenaue SQL-Platzierung | Implementiert als read-only Plan: User-Data, User-Log, Backup, jedes TempDB-Datenfile und TempDB-Log sind einzeln plan- und reviewbar |
+| SFP-003 | TempDB-Verteilungsregeln | Implementiert als read-only Plan: Explizite, Round-Robin-, Volume- und physische Geraetemodi blockieren unzureichende, überlappende oder unbekannte Topologie |
 
 ## Abnahmekriterien
 

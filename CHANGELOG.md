@@ -15,6 +15,15 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 - Die Storage-Konsole verwendet das gemeinsame Untermenü, zeigt normalisierte
   Ziele vor der Bestätigung und bietet explizite Aktionen für Default-Wechsel,
   Topologieanzeige, geschützte Deregistrierung und Parent-Migration.
+- `SqlServerLab.StorageIntent/1.0` kann im Manifest portable Selektoren für
+  Default Data/Log, Backup, einzelne TempDB-Dateien, Datenbankdateien und
+  Restore-Regeln beschreiben. Der lokale `StorageBoundPlan/1.0` löst sie ohne
+  Mutation auf Locations, Topologie und Gastpfade auf; ein separater Runtime-
+  Receipt-Vertrag hält die noch offene Anwendung ausdrücklich getrennt.
+- Storage-Locations besitzen editierbare Anzeigenamen und registry-weit
+  eindeutige portable Selektoren. Die Konsole zeigt jede geplante SQL-Datei und
+  blockiert strikte Volume-/Geräteverteilung bei unzureichender, unbekannter
+  oder überlappender Topologie.
 
 ### Behoben
 

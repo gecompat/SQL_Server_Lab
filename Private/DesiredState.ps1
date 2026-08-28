@@ -127,11 +127,27 @@ function New-LabInstanceIntentSnapshot {
         }
     }
 
+    $storage = if ($Instance.storageIntent) {
+        $intent = $Instance.storageIntent
+        [PSCustomObject]@{
+            ContractVersion = [string]$intent.ContractVersion
+            PlacementPolicy = [string]$intent.PlacementPolicy
+            PhysicalIsolation = [string]$intent.PhysicalIsolation
+            Roles = $intent.Roles
+            TempDb = $intent.TempDb
+            DatabaseFiles = @($intent.DatabaseFiles)
+            RestoreRules = @($intent.RestoreRules)
+            BindingStatus = 'LOCAL_BINDING_REQUIRED'
+        }
+    }
+    else { $null }
+
     return [PSCustomObject]@{
         Contract = [PSCustomObject]@{ Name = 'SqlServerLab.InstanceIntent'; Version = '1.0'; EvidenceBoundary = 'provider-metadata' }
         Drives = $drives
         Network = $network
         Software = $software
+        Storage = $storage
     }
 }
 

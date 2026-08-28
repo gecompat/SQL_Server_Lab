@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sql-server-lab.local/schemas/lab-storage-intent.schema.json",
+  "title": "SqlServerLab.StorageIntent/1.0",
+  "type": "object",
+  "required": ["contractVersion", "placementPolicy", "physicalIsolation", "roles", "tempDb"],
+  "properties": {
+    "contractVersion": { "type": "string", "const": "SqlServerLab.StorageIntent/1.0", "default": "SqlServerLab.StorageIntent/1.0" },
+    "placementPolicy": {
+      "type": "string",
+      "enum": ["explicit", "logical-only"],
+      "default": "explicit",
+      "description": "Portable Platzierungsstrategie; konkrete lokale Pfade oder LocationIds sind nicht zulässig."
+    },
+    "physicalIsolation": {
+      "type": "string",
+      "enum": ["not-required", "preferred", "required"],
+      "default": "not-required",
+      "description": "Anforderung an nachweislich disjunkte physische Backing Devices."
+    },
+    "roles": {
+      "type": "object",
+      "properties": {
+        "defaultData": { "type": "object", "required": ["selector"], "properties": { "selector": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,62}$" } }, "additionalProperties": false },
+        "defaultLog": { "type": "object", "required": ["selector"], "properties": { "selector": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,62}$" } }, "additionalProperties": false },
+        "backup": { "type": "object", "required": ["selector"], "properties": { "selector": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,62}$" } }, "additionalProperties": false }
+      },
+      "additionalProperties": false
+    },
+    "tempDb": {
+      "type": "object",
+      "required": ["distribution", "dataFileCount", "dataLocationSelectors", "logPlacement"],
+      "properties": {
+        "distribution": {
+          "type": "string",
+          "enum": ["single-location", "round-robin", "explicit", "one-file-per-volume", "one-file-per-physical-device"]
+        },
+        "dataFileCount": { "type": "integer", "minimum": 1, "maximum": 8 },
+        "dataLocationSelectors": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,62}$" },
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true
+        },
+        "dataFiles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["logicalName", "fileName", "selector", "sizeMB", "growth"],
+            "properties": {
+              "logicalName": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]{0,127}$" },
+              "fileName": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+\\.(mdf|ndf)$" },
+              "selector": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,62}$" },
+              "sizeMB": { "type": "integer", "minimum": 8 },
+              "growth": { "type": "string", "pattern": "^\\d+(MB|%)$" }
+            },
+            "additionalProperties": false
+          },
+          "minItems": 1,
+          "maxItems": 8
+        },
+        "logPlacement": {
+          "type": "object",
+          "required": ["selector", "logicalName", "fileName", "sizeMB", "growth"],
+          "properties": {
+            "selector": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,62}$" },
+            "logicalName": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]{0,127}$", "default": "templog" },
+            "fileName": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+\\.ldf$", "default": "templog.ldf" },
+            "sizeMB": { "type": "integer", "minimum": 8 },
+            "growth": { "type": "string", "pattern": "^\\d+(MB|%)$" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "databaseFiles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["database", "logicalName", "fileType", "fileName", "selector"],
+        "properties": {
+          "database": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]{0,127}$" },
+          "logicalName": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]{0,127}$" },
+          "fileType": { "type": "string", "enum": ["data", "log"] },
+          "fileName": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+\\.(mdf|ndf|ldf)$" },
+          "selector": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,62}$" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "restoreRules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["database", "dataSelector", "logSelector"],
+        "properties": {
+          "database": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]{0,127}$" },
+          "dataSelector": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,62}$" },
+          "logSelector": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,62}$" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
