@@ -113,7 +113,7 @@ $retryContract = & $module {
     $retryState = [PSCustomObject]@{ Attempts=0; NonTransientAttempts=0 }
     $result = Invoke-LabExternalRuntimeProbeWithRetry -RetryDelaySeconds 0 -Operation {
         $retryState.Attempts++
-        if ($retryState.Attempts -eq 1) { throw "Msg 39012`nUnable to communicate with the runtime for 'R' script" }
+        if ($retryState.Attempts -eq 1) { throw "Msg 39011`nSQL Server was unable to communicate with the LaunchPad service" }
         [PSCustomObject]@{ Status='PASS' }
     }
     $nonTransientRejected = $false
