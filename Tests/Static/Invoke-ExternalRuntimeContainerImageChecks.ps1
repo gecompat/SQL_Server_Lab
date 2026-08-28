@@ -204,7 +204,7 @@ try {
         }).Count -eq 7
     )
     Add-CheckResult -Name 'SQL-Satellite-OpenSSL-Vertrag bindet nur die digestgebundenen Runtimebibliotheken' -Success (
-        $result.Recipe.recipeVersion -eq '4' -and
+        $result.Recipe.recipeVersion -eq '5' -and
         $result.Recipe.sqlSatelliteCompatibility.id -eq 'sql-server-2022-ubuntu-openssl-runtime-links' -and
         @($result.Recipe.sqlSatelliteCompatibility.links).Count -eq 2 -and
         $result.Recipe.sqlSatelliteCompatibility.links[0].path -eq '/usr/lib/x86_64-linux-gnu/libssl.so' -and
@@ -215,7 +215,7 @@ try {
     Add-CheckResult -Name 'Freigegebene Linux-Varianten loesen ohne Preview-Bypass fuer beide Provider auf' -Success (
         @($result.SoftwarePlans).Count -eq 6 -and
         @($result.SoftwarePlans | Where-Object Status -ne 'RESOLVED').Count -eq 0 -and
-        @($result.SoftwarePlans | Where-Object RecipeVersion -ne '4').Count -eq 0 -and
+        @($result.SoftwarePlans | Where-Object RecipeVersion -ne '5').Count -eq 0 -and
         $result.DockerPlan.EvidenceStatus -eq 'SUPPORTED' -and
         $result.PodmanPlan.EvidenceStatus -eq 'SUPPORTED'
     )
@@ -293,6 +293,15 @@ try {
         $containerfile -match 'ln -s libssl\.so\.3 /usr/lib/x86_64-linux-gnu/libssl\.so' -and
         $containerfile -match 'ln -s libcrypto\.so\.3 /usr/lib/x86_64-linux-gnu/libcrypto\.so' -and
         $containerfile -notmatch '(?i)apt-get\s+install[^\r\n]*libssl-dev'
+    )
+    Add-CheckResult -Name 'Python- und R-Zielstages binden die native libgomp-Laufzeit hashverifiziert' -Success (
+        @($result.Recipe.runtimeLibraries).Count -eq 1 -and
+        $result.Recipe.runtimeLibraries[0].artifact.id -eq 'ubuntu-jammy-libgomp1' -and
+        $result.Recipe.runtimeLibraries[0].artifact.sha256 -eq '870c27299185a5dd4accad3b15bf82a7409fd7073cccaa8025875307da4d0ce2' -and
+        @($result.Recipe.runtimeLibraries[0].languages | Sort-Object) -join ',' -eq 'Python,R' -and
+        $containerfile -match 'dpkg-deb -x /tmp/libgomp1\.deb' -and
+        $containerfile -match 'sha256sum --check --strict' -and
+        @([regex]::Matches($containerfile, 'COPY --from=runtime-openmp .*libgomp\.so\.1\*')).Count -eq 2
     )
     Add-CheckResult -Name 'Launcher deaktiviert weder Namespace-Isolation noch Outbound-Schutz' -Success (
         $launcher -match 'runuser -u mssql_launchpadd -- /opt/mssql/bin/launchpadd &' -and

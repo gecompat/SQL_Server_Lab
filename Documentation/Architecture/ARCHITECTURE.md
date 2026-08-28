@@ -84,8 +84,8 @@ Export-SqlServerLabSsmsRegistration    # Kennwortfreien SSMS-.regsrvr-Export erz
 Export-SqlServerLabCmsSyncScript       # CMS-Synchronisationsskript erzeugen
 Initialize-SqlServerLabCms             # Kompakten persistenten lokalen CMS erstellen
 Sync-SqlServerLabCms                   # Verwalteten CMS mit Endpunkten abgleichen
-Get-SqlServerLabReconcilePlan          # Read-only Desired/Actual/Diff/Action-Plan eines Runs
-Invoke-SqlServerLabReconcileAction     # Start/Stop aus einem Reconcile-Plan ausfuehren
+Get-SqlServerLabReconcilePlan          # Read-only Lifecycle- oder External-Runtime-Refresh-Plan
+Invoke-SqlServerLabReconcileAction     # Start/Stop oder validierten Container-Runtime-Refresh ausfuehren
 Invoke-SqlServerLabWorkflowAction      # UI-tauglicher, nicht interaktiver Hyper-V-Schritt
 New-SqlServerLab                       # Neue Umgebung
 Get-SqlServerLab                       # Status

@@ -42,7 +42,7 @@ Statische Vertragspruefungen und Runtime-Nachweise sind getrennte Evidence.
 | `Initialize-SqlServerLabCms`, `Sync-SqlServerLabCms`, `Export-SqlServerLabCmsSyncScript` | CMS-Suites | gemeinsame Sechs-Umgebungen-/CMS-Abnahme |
 | `New/Get/Stop-SqlServerLabBatch` | Batch-Vertrag | Zwei-Lab-Batch-Smoke fuer Docker, Podman und Hyper-V-Slots |
 | `Get/Move/SetPriority/Suspend/Resume/Stop/Confirm-SqlServerLabOperation`, `Get-SqlServerLabQueue`, `Invoke-SqlServerLabScheduler` | Queue-, Prioritaets-, User-Gate- und Scheduler-Suites | Batch-Smokes fuer beide Containerprovider; Hyper-V-Slot-Batch |
-| `Get-SqlServerLabReconcilePlan`, `Invoke-SqlServerLabReconcileAction` | Reconcile-Plan-/Executor-Suites | Container-Smokes und Windows-Baseline-Akzeptanz |
+| `Get-SqlServerLabReconcilePlan`, `Invoke-SqlServerLabReconcileAction` | Lifecycle- und External-Runtime-Reconcile-Suites | Container-Smokes, native Docker-/Podman-External-Runtime-Refresh-Abnahme und Windows-Baseline-Akzeptanz |
 | `Invoke-SqlServerLabWorkflowAction` | Workflow-Action-Vertrag | Rename und Ressourcenwechsel in den vertieften Akzeptanzlaeufen |
 | `New/Clear/Export-SqlServerLabAutomatedTestEnvironment` | Testumgebungs- und Recovery-Suites | sechs gemeinsam registrierte SQL-Ziele und CMS |
 | `Install/Test-SqlServerLabAdapter` | Adapter-Schema und Capability-Gates | GitHub-hosted Adapter-Smoke |

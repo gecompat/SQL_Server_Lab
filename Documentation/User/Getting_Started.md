@@ -763,6 +763,38 @@ Invoke-SqlServerLabReconcileAction -RunId $lab.RunId -TargetState RUNNING
 Mit `-WhatIf` kann vorab geprüft werden, ob der Executor tatsächlich
 Ausführungsversuche durchführt.
 
+### External Runtime eines Containers aktualisieren
+
+Für einen laufenden SQL-Server-2022-Docker-/Podman-Run mit bereits verifizierter
+External Runtime kann ein Zielmanifest zusätzliche resolverfreigegebene
+Sprachen deklarieren. Zuerst wird der read-only Plan geprüft, danach baut der
+Executor das neue Derived Image. Der alte Container bleibt bis zum erfolgreichen
+SQL-Datenroundtrip als Rollback-Ziel erhalten; alte Images werden nicht durch
+den Run-Cleanup gelöscht.
+
+```powershell
+$plan = Get-SqlServerLabReconcilePlan `
+    -RunId $lab.RunId `
+    -ManifestPath .\lab-with-python-r-java.json `
+    -InstanceId external-runtime
+
+Invoke-SqlServerLabReconcileAction `
+    -RunId $lab.RunId `
+    -ManifestPath .\lab-with-python-r-java.json `
+    -InstanceId external-runtime `
+    -WhatIf
+
+Invoke-SqlServerLabReconcileAction `
+    -RunId $lab.RunId `
+    -ManifestPath .\lab-with-python-r-java.json `
+    -InstanceId external-runtime
+```
+
+Der erste ausführbare Umfang ist bewusst eng: nur additive External-Runtime-
+Änderungen, nur SQL Server 2022 auf Docker/Podman und keine gleichzeitigen
+Änderungen an Provider, Profil, Storage, Netzwerk oder Datenbanken. Entfernung
+einer Sprache und Hyper-V-Artifact-Refresh bleiben fail-closed.
+
 ## 16. Umgebung entfernen
 
 ```powershell

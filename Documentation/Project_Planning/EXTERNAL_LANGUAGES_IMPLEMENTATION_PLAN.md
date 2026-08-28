@@ -372,6 +372,18 @@ allgemeine Reconcile- sowie der versionierte Refresh-/Umschaltpfad bleiben
 eigenständige Folgearbeit und sind durch diesen read-only Slice nicht als
 implementiert ausgewiesen.
 
+Implementierungsstand Welle 8B, 2026-08-28: Für laufende SQL-2022-Docker- und
+Podman-Runs mit bereits verifizierter External Runtime kann der öffentliche
+Reconcile-Vertrag additive Runtime-Anforderungen aus einem Zielmanifest planen
+und ausführen. Nicht-Software-Drift wird vor der Mutation abgelehnt. Der Apply-
+Pfad baut das neue inhaltsadressierte Derived Image zuerst, journalisiert die
+Umschaltung, erstellt den Ersatzcontainer über denselben Providervertrag wie die
+Erstprovisionierung und übernimmt ihn erst nach SQL-Readiness sowie echten
+`sp_execute_external_script`-Postconditions. Vor dem State-Commit wird auf den
+alten Container zurückgerollt; danach wird dessen Cleanup resumierbar
+abgeschlossen. Alte Images bleiben gemäß Retention erhalten. Runtime-Entfernung,
+allgemeiner Packagewechsel und Hyper-V-Artifact-Refresh bleiben Folgearbeit.
+
 ## 6. Betroffene Repositoryverträge
 
 Mindestens gemeinsam zu prüfen und je Welle kohärent zu ändern sind:
