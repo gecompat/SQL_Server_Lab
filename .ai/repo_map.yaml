@@ -42,6 +42,7 @@ sources_of_truth:
   storage_migration_plan_schema: Schemas/lab-storage-migration-plan.schema.json
   storage_migration_journal_schema: Schemas/lab-storage-migration-journal.schema.json
   storage_file_placement: Private/StorageFilePlacement.ps1
+  sql_storage_operations: Private/SqlStorageOperations.ps1
   storage_intent_schema: Schemas/lab-storage-intent.schema.json
   storage_bound_plan_schema: Schemas/lab-storage-bound-plan.schema.json
   storage_runtime_receipt_schema: Schemas/lab-storage-runtime-receipt.schema.json

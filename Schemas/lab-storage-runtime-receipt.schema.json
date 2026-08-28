@@ -17,6 +17,8 @@
         "type": "object",
         "required": ["Role", "LogicalName", "LocationId", "HostPath", "RuntimeStorageId", "GuestDiskId", "GuestPath", "SqlPhysicalPath"],
         "properties": {
+          "OperationId": { "type": "string" },
+          "Database": { "type": ["string", "null"] },
           "Role": { "type": "string" },
           "LogicalName": { "type": "string" },
           "LocationId": { "type": "string", "format": "uuid" },

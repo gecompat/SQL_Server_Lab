@@ -436,7 +436,7 @@ function Invoke-HyperVLabStoragePlan {
     $runtime = Resolve-LabStorageRuntimeSqlPlan -Plan $Plan -DriveReceipts $driveReceipts -ManagedDrives @($managed.Identity.additionalDrives)
     $fileBindings = @($runtime.SqlFiles | ForEach-Object {
         [PSCustomObject]@{
-            Role=$_.Role; LogicalName=$_.LogicalName; LocationId=$_.LocationId; HostPath=$_.HostPath
+            Database=$_.Database; Role=$_.Role; LogicalName=$_.LogicalName; LocationId=$_.LocationId; HostPath=$_.HostPath
             RuntimeStorageId=$_.RuntimeStorageId; GuestDiskId=$_.GuestDiskId; GuestPath=$_.GuestPath; SqlPhysicalPath=$_.SqlPhysicalPath
         }
     })

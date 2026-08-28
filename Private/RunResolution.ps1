@@ -35,17 +35,22 @@ function Resolve-LabRunInstance {
     }
 
     $instance = $instances[0]
-    if ([string]::IsNullOrWhiteSpace([string]$instance.provider) -or
-        [string]::IsNullOrWhiteSpace([string]$instance.containerName) -or
-        -not $instance.port) {
+    $provider = [string]$instance.provider
+    $containerTargetInvalid = $provider -in @('docker','podman') -and
+        [string]::IsNullOrWhiteSpace([string]$instance.containerName)
+    $hyperVTargetInvalid = $provider -eq 'hyperv' -and
+        [string]::IsNullOrWhiteSpace([string]$instance.vmName)
+    if ([string]::IsNullOrWhiteSpace($provider) -or $provider -notin @('docker','podman','hyperv') -or
+        $containerTargetInvalid -or $hyperVTargetInvalid -or -not $instance.port) {
         throw "Connection-Info fuer Instanz '$InstanceId' in Run '$RunId' ist unvollstaendig."
     }
 
     return [PSCustomObject]@{
         HostName      = if ($instance.host) { [string]$instance.host } else { '127.0.0.1' }
         Port          = [int]$instance.port
-        Provider      = [string]$instance.provider
+        Provider      = $provider
         ContainerName = [string]$instance.containerName
+        VMName        = [string]$instance.vmName
         Version       = [string]$instance.version
     }
 }

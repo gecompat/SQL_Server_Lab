@@ -250,8 +250,15 @@ Plan an. Ein getrenntes Runtime-Receipt verbindet Hostpfad, VHDX-ID, Gastdisk
 und SQL-Pfad; `VERIFIED` erfordert Dienstrestart und vollständige SQL-
 Postconditions. Diese Implementierung ist statisch und synthetisch geprüft,
 aber noch nicht durch den realen Vier-Geräte-Referenzlauf abgenommen.
-Dateigenaue neue Datenbanken und Restore-`MOVE` bleiben Scope von `SQLS-002`
-und `SQLS-003`; physische Containertrennung bleibt unsupported.
+`SQLS-002` und `SQLS-003` sind für den Hyper-V-Manifestpfad statisch und
+synthetisch implementiert: CREATE verwendet ausschließlich dateigenaue
+Plan-/Receipt-Bindings, Restore erzeugt aus `FILELISTONLY` für jede Data-, Log-
+und unterstützte Spezialdatei genau ein typgerechtes `MOVE`-Ziel, und beide
+Operationen quittieren erst nach exaktem `sys.master_files`-Abgleich. Fehler
+hinterlassen ein sanitisiertes `RECOVERY_REQUIRED`-Receipt. Der reale
+Hyper-V-Nachweis für CREATE und Restore bleibt ebenso offen wie der
+Vier-Geräte-Referenzlauf; Sample-Restores im neuen Hyper-V-Storagepfad sind
+noch unsupported. Physische Containertrennung bleibt unsupported.
 Die virtuelle Lane-Kapazität wird im Bound Plan deterministisch abgeleitet:
 mindestens 32 GB für offen wachsende Data-/Log-/Backup-Rollen, mindestens 4 GB
 für reine TempDB-Lanes und jeweils mindestens die expliziten Dateigrößen plus
