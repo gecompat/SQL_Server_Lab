@@ -721,6 +721,125 @@ function Get-LabPriorityRank {
     }
 }
 
+function Invoke-WithLabWorkflowOperationContext {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$OperationId,
+
+        [Parameter(Mandatory)]
+        [scriptblock]$ScriptBlock,
+
+        [object[]]$ArgumentList = @()
+    )
+
+    $hadPrevious = Test-Path variable:script:LabWorkflowOperationId
+    $previous = if ($hadPrevious) { $script:LabWorkflowOperationId } else { $null }
+    try {
+        $script:LabWorkflowOperationId = $OperationId
+        return & $ScriptBlock @ArgumentList
+    }
+    finally {
+        if ($hadPrevious) {
+            $script:LabWorkflowOperationId = $previous
+        }
+        else {
+            Remove-Variable -Name LabWorkflowOperationId -Scope Script -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+function Get-LabWorkflowOperationContext {
+    [CmdletBinding()]
+    param()
+
+    if (-not (Test-Path variable:script:LabWorkflowOperationId)) {
+        return $null
+    }
+    return [string]$script:LabWorkflowOperationId
+}
+
+function Get-LabOperationOwnedRun {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$OperationId,
+
+        [string]$StateRoot
+    )
+
+    $root = Initialize-LabWorkflowStore -StateRoot $StateRoot
+    $runsRoot = Join-Path $root 'runs'
+    $matches = @(
+        Get-ChildItem -LiteralPath $runsRoot -Directory -ErrorAction SilentlyContinue |
+            ForEach-Object { Read-LabWorkflowJson -Path (Join-Path $_.FullName 'run-state.json') } |
+            Where-Object {
+                $null -ne $_ -and
+                [string](Get-LabWorkflowValue -InputObject $_.metadata -Name 'workflowOperationId' -Default '') -eq $OperationId -and
+                [string]$_.state -notin @('CLEANED_UP', 'REMOVED')
+            }
+    )
+    if ($matches.Count -gt 1) {
+        throw "BATCH_OPERATION_OWNERSHIP_AMBIGUOUS: Vorgang '$OperationId' besitzt mehrere aktive Runs."
+    }
+    return $matches | Select-Object -First 1
+}
+
+function Resolve-LabOperationOwnedRun {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object]$Operation,
+
+        [string]$StateRoot
+    )
+
+    $owned = Get-LabOperationOwnedRun -OperationId ([string]$Operation.operationId) -StateRoot $StateRoot
+    if ($null -eq $owned) {
+        return [pscustomobject]@{ action = 'None'; runId = $null; previousState = $null }
+    }
+
+    $root = Initialize-LabWorkflowStore -StateRoot $StateRoot
+    $runId = [string]$owned.runId
+    $runDirectory = Join-Path (Join-Path $root 'runs') $runId
+    $connectionPath = Join-Path $runDirectory 'connection-info.json'
+    $connection = Read-LabWorkflowJson -Path $connectionPath
+    $providerBound = @(
+        Get-LabWorkflowValue -InputObject $connection -Name 'instances' -Default @() |
+            Where-Object { [string]$_.provider -eq [string]$Operation.provider }
+    ).Count -gt 0
+    if ([string]$owned.state -in @('RUNNING', 'STOPPED') -and $providerBound) {
+        return [pscustomobject]@{ action = 'Reuse'; runId = $runId; previousState = [string]$owned.state }
+    }
+
+    $cleanupPlanPath = Join-Path $runDirectory 'cleanup-plan.json'
+    if (Test-Path -LiteralPath $cleanupPlanPath -PathType Leaf) {
+        $cleanup = Remove-SqlServerLab -RunId $runId -StateRoot $root -Force -Confirm:$false
+        if ([string]$cleanup.Status -ne 'REMOVED') {
+            throw "BATCH_OPERATION_OWNED_RUN_CLEANUP_FAILED: Run '$runId' endete mit '$($cleanup.Status)'."
+        }
+    }
+    elseif ([string]$owned.state -eq 'INITIALIZING') {
+        $null = Set-LabRunState -RunId $runId -NewState 'CLEANUP_PENDING' -Reason 'Verlassene Batch-Reservierung ohne Provider-Mutation.' -StateRoot $root
+        foreach ($providerSubRun in @(Get-LabProviderSubRuns -RunId $runId -StateRoot $root)) {
+            Set-LabProviderSubRunState -RunId $runId -Provider ([string]$providerSubRun.provider) -NewState 'CLEANUP_PENDING' -Reason 'Verlassene Batch-Reservierung ohne Provider-Mutation.' -StateRoot $root
+        }
+        $null = Set-LabRunState -RunId $runId -NewState 'CLEANUP_RUNNING' -Reason 'Leere Batch-Reservierung wird finalisiert.' -StateRoot $root
+        foreach ($providerSubRun in @(Get-LabProviderSubRuns -RunId $runId -StateRoot $root)) {
+            Set-LabProviderSubRunState -RunId $runId -Provider ([string]$providerSubRun.provider) -NewState 'CLEANUP_RUNNING' -Reason 'Leere Batch-Reservierung wird finalisiert.' -StateRoot $root
+        }
+        $null = Set-LabRunState -RunId $runId -NewState 'REMOVED' -Reason 'Leere Batch-Reservierung finalisiert.' -StateRoot $root
+        foreach ($providerSubRun in @(Get-LabProviderSubRuns -RunId $runId -StateRoot $root)) {
+            Set-LabProviderSubRunState -RunId $runId -Provider ([string]$providerSubRun.provider) -NewState 'REMOVED' -Reason 'Leere Batch-Reservierung finalisiert.' -StateRoot $root
+        }
+    }
+    else {
+        throw "BATCH_OPERATION_OWNED_RUN_CLEANUP_PLAN_MISSING: Run '$runId' im Zustand '$($owned.state)' kann nicht sicher fortgesetzt werden."
+    }
+
+    return [pscustomobject]@{ action = 'Cleaned'; runId = $runId; previousState = [string]$owned.state }
+}
+
 function Test-LabOperationTerminal {
     [CmdletBinding()]
     param([string]$Status)
@@ -977,6 +1096,14 @@ function Invoke-LabOperationStepAction {
                 catch {
                 }
             }
+            $recovery = Resolve-LabOperationOwnedRun -Operation $Operation -StateRoot $StateRoot
+            if ([string]$recovery.action -eq 'Reuse') {
+                return [pscustomobject]@{
+                    state = 'Completed'
+                    runId = [string]$recovery.runId
+                    receipt = [pscustomobject]@{ action = 'ReuseOwnedRun'; runId = [string]$recovery.runId; changed = $false; recovered = $true }
+                }
+            }
             $parameters = @{
                 Provider = [string]$Operation.provider
                 Version = [string](Get-LabWorkflowValue -InputObject $effective -Name 'Version' -Default (Get-LabWorkflowValue -InputObject $effective -Name 'SqlVersion' -Default '2022'))
@@ -1006,7 +1133,10 @@ function Invoke-LabOperationStepAction {
             if ($null -ne $autoStartValue -and -not [string]::IsNullOrWhiteSpace([string]$autoStartValue)) {
                 $parameters['AutoStart'] = [string]$autoStartValue
             }
-            $created = New-SqlServerLab @parameters
+            $created = Invoke-WithLabWorkflowOperationContext -OperationId ([string]$Operation.operationId) -ScriptBlock {
+                param($CreateParameters)
+                New-SqlServerLab @CreateParameters
+            } -ArgumentList @($parameters)
             $result = @($created) | Select-Object -Last 1
             $runId = [string](Get-LabWorkflowValue -InputObject $result -Name 'RunId' -Default (Get-LabWorkflowValue -InputObject $result -Name 'runId' -Default ''))
             if ([string]::IsNullOrWhiteSpace($runId)) {
@@ -1023,6 +1153,14 @@ function Invoke-LabOperationStepAction {
                     }
                 }
                 catch {
+                }
+            }
+            $recovery = Resolve-LabOperationOwnedRun -Operation $Operation -StateRoot $StateRoot
+            if ([string]$recovery.action -eq 'Reuse') {
+                return [pscustomobject]@{
+                    state = 'Completed'
+                    runId = [string]$recovery.runId
+                    receipt = [pscustomobject]@{ action = 'ReuseOwnedRun'; runId = [string]$recovery.runId; changed = $false; recovered = $true }
                 }
             }
             $artifactId = Resolve-LabOperationArtifactId -Operation $Operation -StateRoot $StateRoot
@@ -1047,7 +1185,10 @@ function Invoke-LabOperationStepAction {
                     $parameters[$name] = $value
                 }
             }
-            $created = New-HyperVLabEnvironment @parameters
+            $created = Invoke-WithLabWorkflowOperationContext -OperationId ([string]$Operation.operationId) -ScriptBlock {
+                param($CreateParameters)
+                New-HyperVLabEnvironment @CreateParameters
+            } -ArgumentList @($parameters)
             $runId = [string](Get-LabWorkflowValue -InputObject $created -Name 'RunId' -Default (Get-LabWorkflowValue -InputObject $created -Name 'runId' -Default ''))
             if ([string]::IsNullOrWhiteSpace($runId)) {
                 throw 'Die Hyper-V-Erstellung lieferte keine RunId.'
