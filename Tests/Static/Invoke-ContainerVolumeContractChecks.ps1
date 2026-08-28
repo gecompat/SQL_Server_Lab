@@ -35,6 +35,7 @@ foreach ($entry in $providers.GetEnumerator()) {
         @('pythonbinpath','rbinpath','datadirectories' | Where-Object {
             $text -notmatch "mssql-conf set extensibility\.$_" -or $text -notmatch "mssql-conf unset extensibility\.$_"
         }).Count -eq 0 -and
+        $text -match '\(\$initializationCommands -join "`n"\) -replace "`r`n", "`n"' -and
         $text -match '\[Convert\]::ToBase64String' -and
         $text -match "base64 -d \| /bin/sh"
     ) "$name synchronisiert nur die imagegebundene Extensibility-Konfiguration in das persistente SQL-Systemvolume"
