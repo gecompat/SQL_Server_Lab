@@ -468,7 +468,7 @@ planning_contracts:
   console_lifecycle_storage_consolidation:
     source: Documentation/Project_Planning/CONSOLE_LIFECYCLE_AND_STORAGE_CONSOLIDATION_PLAN_2026-08-12.md
     status: PLANNED_FROM_MANUAL_ACCEPTANCE
-    runtime_status: IN_PROGRESS_STATIC_CONTROL_CONTRACTS_REAL_ABORT_AND_GENERALIZE_OPEN
+    runtime_status: IN_PROGRESS_CONTROL_AND_GENERALIZE_GATES_COMPLETE_STORAGE_AND_STATUS_OPEN
     covers:
       - lifecycle_action_results_and_cms_sync_gate
       - complete_console_ui_migration_and_fallback_test_mode
