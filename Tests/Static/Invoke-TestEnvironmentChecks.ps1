@@ -38,6 +38,8 @@ try {
         $module.ExportedCommands.ContainsKey('New-SqlServerLabAutomatedTestEnvironment') -and
         $module.ExportedCommands.ContainsKey('Export-SqlServerLabTestEnvironment') -and
         $module.ExportedCommands.ContainsKey('Repair-SqlServerLabAutomatedTestEnvironment') -and
+        $module.ExportedCommands.ContainsKey('Start-SqlServerLabAutomatedTestEnvironment') -and
+        $module.ExportedCommands.ContainsKey('Stop-SqlServerLabAutomatedTestEnvironment') -and
         $module.ExportedCommands.ContainsKey('Clear-SqlServerLabAutomatedTestEnvironment')
     )
     & $module {
@@ -217,6 +219,8 @@ try {
     $clearText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Clear-SqlServerLab.ps1') -Raw -Encoding utf8
     $connectionCenterText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Sync-SqlServerLabConnectionCenter.ps1') -Raw -Encoding utf8
     $runtimeReadinessText = Get-Content -LiteralPath (Join-Path $repoRoot 'Tests/Integration/Invoke-TestEnvironmentRuntimeReadiness.ps1') -Raw -Encoding utf8
+    $groupLifecycleText = Get-Content -LiteralPath (Join-Path $repoRoot 'Tests/Integration/Invoke-TestEnvironmentGroupLifecycle.ps1') -Raw -Encoding utf8
+    $groupLifecycleCommandText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/TestEnvironmentLifecycle.ps1') -Raw -Encoding utf8
     $lifecycleText = @(
         'Start-SqlServerLab.ps1','Stop-SqlServerLab.ps1','Restart-SqlServerLab.ps1','Remove-SqlServerLab.ps1','Update-SqlServerLabContainer.ps1'
     ) | ForEach-Object { Get-Content -LiteralPath (Join-Path $repoRoot "Public/$_") -Raw -Encoding utf8 }
@@ -314,14 +318,30 @@ try {
         $clearText -match 'Get-LabAutomatedTestEnvironmentRunIds' -and
         $clearText -match 'geschützte automatisierte Test-Runs'
     )
-    Add-CheckResult -Name 'Gezielte Laufzeitreparatur bleibt auf registrierte Windows-Test-Runs begrenzt' -Success (
-        $runtimeReadinessText -match "platform -eq 'windows'" -and
-        $runtimeReadinessText -match 'Get-HyperVLabWorkflowRun -RunId \$RunId' -and
-        $runtimeReadinessText -match 'ExpectedRunId' -and
-        $runtimeReadinessText -match 'ExpectedScopeId' -and
-        $runtimeReadinessText -match 'Start-HyperVLabEnvironment' -and
-        $runtimeReadinessText -match 'Invoke-HyperVPowerShellDirect' -and
-        $runtimeReadinessText -notmatch 'Remove-SqlServerLab|Clear-SqlServerLabAutomatedTestEnvironment'
+    Add-CheckResult -Name 'Oeffentlicher Gruppen-Lifecycle bleibt scopegebunden, bestaetigt und nicht-destruktiv' -Success (
+        $groupLifecycleCommandText -match 'function Start-SqlServerLabAutomatedTestEnvironment' -and
+        $groupLifecycleCommandText -match 'function Stop-SqlServerLabAutomatedTestEnvironment' -and
+        @($groupLifecycleCommandText -split '\r?\n' | Where-Object { $_ -match 'CmdletBinding\(SupportsShouldProcess' }).Count -eq 2 -and
+        $groupLifecycleCommandText -match "platform -eq 'windows'" -and
+        $groupLifecycleCommandText -match 'ExpectedRunId' -and
+        $groupLifecycleCommandText -match 'ExpectedScopeId' -and
+        $groupLifecycleCommandText -match 'Invoke-HyperVPowerShellDirect' -and
+        $groupLifecycleCommandText -match 'Wait-SqlReady' -and
+        $groupLifecycleCommandText -match 'Start-HyperVLabEnvironment' -and
+        $groupLifecycleCommandText -match 'Stop-HyperVLabEnvironment' -and
+        @($groupLifecycleCommandText -split '\r?\n' | Where-Object { $_ -match 'Export-SqlServerLabTestEnvironment' }).Count -eq 2 -and
+        $groupLifecycleCommandText -notmatch 'Remove-SqlServerLab|Clear-SqlServerLabAutomatedTestEnvironment|Remove-VM'
+    )
+    Add-CheckResult -Name 'Recovery und Runtime-Nachweis verwenden nur den oeffentlichen Gruppen-Lifecycle' -Success (
+        $runtimeReadinessText -match 'Start-SqlServerLabAutomatedTestEnvironment' -and
+        $runtimeReadinessText -notmatch 'Get-LabSecret|Start-HyperVLabEnvironment|Invoke-HyperVPowerShellDirect' -and
+        $groupLifecycleText -match 'Start-SqlServerLabAutomatedTestEnvironment' -and
+        $groupLifecycleText -match 'finally' -and
+        $groupLifecycleText -match 'Stop-SqlServerLabAutomatedTestEnvironment' -and
+        $groupLifecycleText -match 'BindingsPreserved' -and
+        $groupLifecycleText -match 'LinuxPreserved' -and
+        $groupLifecycleText -match "GroupStatus -ne 'INCOMPLETE'" -and
+        $groupLifecycleText -notmatch 'Remove-SqlServerLab|Clear-SqlServerLabAutomatedTestEnvironment'
     )
 }
 finally {

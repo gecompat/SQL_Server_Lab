@@ -173,6 +173,23 @@ fuer synthetische Medien in der Runtime explizit gesperrt.
 .\Tests\Integration\Invoke-HyperVSmokeTest.ps1
 ```
 
+## Invoke-TestEnvironmentGroupLifecycle.ps1
+
+Dieser native Nachweis verwendet ausschließlich die öffentliche geschützte
+Gruppen-API. Er startet alle registrierten Windows-Hyper-V-Mitglieder, bringt
+vorhandene SQL-Engine-Dienste hoch, fordert SQL-Readiness und einen vollständigen
+`READY`-Export. Im garantierten `finally`-Cleanup stoppt er alle Windows-
+Mitglieder wieder und prüft `runtimeStatus = STOPPED` sowie den fail-closed
+Gesamtstatus `INCOMPLETE`. Registrierungsbindungen und Linux-Livestatus müssen
+vor und nach dem Lauf identisch sein.
+
+```powershell
+.\Tests\Integration\Invoke-TestEnvironmentGroupLifecycle.ps1
+```
+
+Das Skript löscht weder Runs, Secrets, Registrierungen noch VHDX-Dateien und
+gibt keine Zugangsdaten oder vollständigen Connection Strings aus.
+
 ## Invoke-HyperVWindowsBaselineAcceptanceRun.ps1
 
 Der Windows-Baseline-Acceptance-Runner ist der reale Gegenpart zum
