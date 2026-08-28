@@ -180,6 +180,7 @@ function New-LabExternalRuntimeContainerImagePlan {
     $recipe = Get-LabExternalRuntimeContainerRecipe
     $variantIds = [Collections.Generic.List[string]]::new()
     $languages = [Collections.Generic.List[string]]::new()
+    $softwarePlanKeys = [Collections.Generic.List[string]]::new()
     $catalogArtifacts = [Collections.Generic.List[object]]::new()
     foreach ($softwarePlan in @($SoftwarePlans)) {
         $isResolved = [string]$softwarePlan.Status -eq 'RESOLVED'
@@ -202,6 +203,9 @@ function New-LabExternalRuntimeContainerImagePlan {
         }
         $variantIds.Add([string]$variant.id)
         $languages.Add($language)
+        if ([string]$softwarePlan.PlanKey -match '^[a-f0-9]{64}$') {
+            $softwarePlanKeys.Add([string]$softwarePlan.PlanKey)
+        }
         foreach ($artifact in @($variant.artifacts)) { $catalogArtifacts.Add($artifact) }
     }
 
@@ -269,6 +273,7 @@ function New-LabExternalRuntimeContainerImagePlan {
         BaseImageDigest = [string]$recipe.baseImage.sha256
         RecipeVersion = [string]$recipe.recipeVersion
         VariantIds = @($variantIds | Sort-Object)
+        SoftwarePlanKeys = @($softwarePlanKeys | Sort-Object -Unique)
         Languages = $distinctLanguages
         BuildTokens = $buildTokens
         BuildStage = $buildStage
@@ -464,6 +469,7 @@ function Invoke-LabExternalRuntimeContainerImageBuildCore {
             return [PSCustomObject]@{
                 Contract=[PSCustomObject]@{ Name='SqlServerLab.ExternalRuntimeContainerImageArtifact'; Version='1.0' }
                 Provider=$provider; Image=[string]$existingReceipt.image; ImageKey=[string]$ImagePlan.ImageKey
+                SoftwarePlanKeys=@($existingReceipt.softwarePlanKeys)
                 LocalImageId=[string]$existingReceipt.localImageId; LaunchMode=[string]$ImagePlan.LaunchMode
                 RequiredLinuxCapabilities=@($ImagePlan.RequiredLinuxCapabilities); RequiredSecurityOptions=@($ImagePlan.RequiredSecurityOptions); Reused=$true; Receipt=$existingReceipt
             }
@@ -521,6 +527,7 @@ function Invoke-LabExternalRuntimeContainerImageBuildCore {
             baseImageDigest = [string]$ImagePlan.BaseImageDigest
             recipeVersion = [string]$ImagePlan.RecipeVersion
             variantIds = @($ImagePlan.VariantIds)
+            softwarePlanKeys = @($ImagePlan.SoftwarePlanKeys)
             languages = @($ImagePlan.Languages)
             buildStage = [string]$ImagePlan.BuildStage
             launchMode = [string]$ImagePlan.LaunchMode
@@ -540,6 +547,7 @@ function Invoke-LabExternalRuntimeContainerImageBuildCore {
         return [PSCustomObject]@{
             Contract=[PSCustomObject]@{ Name='SqlServerLab.ExternalRuntimeContainerImageArtifact'; Version='1.0' }
             Provider=$provider; Image=[string]$ImagePlan.Image; ImageKey=[string]$ImagePlan.ImageKey
+            SoftwarePlanKeys=@($ImagePlan.SoftwarePlanKeys)
             LocalImageId=[string]$evidence.ImageId; LaunchMode=[string]$ImagePlan.LaunchMode
             RequiredLinuxCapabilities=@($ImagePlan.RequiredLinuxCapabilities); RequiredSecurityOptions=@($ImagePlan.RequiredSecurityOptions); Reused=$false; Receipt=$receipt
         }

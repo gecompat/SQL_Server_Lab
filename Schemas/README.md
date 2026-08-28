@@ -135,7 +135,8 @@ Der Manifestparser akzeptiert nur als `executable` katalogisierte Varianten. Unt
 ```powershell
 Import-Module .\SqlServerLab.psd1 -Force
 New-SqlServerLabManifest -Path .\mein-lab.json
-Test-SqlServerLabManifest -Path .\mein-lab.json
+$validation = Test-SqlServerLabManifest -Path .\mein-lab.json
+$validation.Plan.Instances.ExternalRuntimes.Entries
 $env:SQL_SERVER_LAB_SECRET_SA_PASSWORD = '<aus Secret Store oder CI-Injection>'
 New-SqlServerLab -Manifest .\Schemas\example-performance-lab.json
 Remove-Item Env:SQL_SERVER_LAB_SECRET_SA_PASSWORD
@@ -146,7 +147,10 @@ Remove-Item Env:SQL_SERVER_LAB_SECRET_SA_PASSWORD
 Konsolen-Wizard angeboten. `x-ui`-Metadaten ergänzen die generische Eingabe um
 kontextreiche Hinweise. Die anschliessende Fachvalidierung prueft zusaetzlich
 unter anderem Versionskatalog, Compatibility Level, Providerkombinationen,
-Samplevarianten und lokale Dateipfade.
+Samplevarianten und lokale Dateipfade. Fuer `software` bietet der Wizard nur
+vom Resolver freigegebene External-Runtime-Varianten an; die Planvorschau zeigt
+Downloads, Build- oder Gastmutation, Restarts, Downtime, Package Locks,
+Verification und Aenderungsklasse ohne Runtime-Mutation.
 
 ## Validierung
 

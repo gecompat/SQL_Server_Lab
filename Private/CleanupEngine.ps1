@@ -66,7 +66,8 @@ function Add-CleanupStep {
         [string]$Provider,
         [string]$ProviderSubRunId,
         [string]$Compensation = '',
-        [string[]]$DependsOn = @()
+        [string[]]$DependsOn = @(),
+        $SoftwareContract
     )
 
     $planPath = Join-Path $RunDir 'cleanup-plan.json'
@@ -85,6 +86,7 @@ function Add-CleanupStep {
         provider     = $Provider
         compensation = $Compensation
         dependsOn    = @($DependsOn)
+        softwareContract = $SoftwareContract
         state        = 'PENDING'
         executedAt   = $null
         error        = $null

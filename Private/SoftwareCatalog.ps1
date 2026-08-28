@@ -167,6 +167,7 @@ function New-LabUnsupportedSoftwarePlan {
         ArtifactRefs = if ($Variant) { @($Variant.artifacts | ForEach-Object {
             [PSCustomObject]@{
                 Id = [string]$_.id
+                SourceType = [string]$_.sourceType
                 Version = [string]$_.version
                 Sha256 = [string]$_.sha256
                 IntegrityOrigin = [string]$_.integrityOrigin
@@ -243,7 +244,7 @@ function Resolve-LabExternalRuntimePlan {
     }
 
     $lockedPackages = @($variant.packageLocks)
-    $resolvedLocks = [System.Collections.Generic.List[object]]::new()
+    $requestedPackageScopes = @{}
     foreach ($requestedPackage in @($SoftwareItem.Packages | Where-Object { $_ })) {
         $lock = $lockedPackages | Where-Object {
             [string]$_.name -ieq [string]$requestedPackage.Name -and
@@ -254,12 +255,7 @@ function Resolve-LabExternalRuntimePlan {
                 -OperatingSystem $OperatingSystem -Variant $variant -ReasonCode 'PACKAGE_NOT_LOCKED' `
                 -Reason "Paket '$($requestedPackage.Name)' ist fuer Variante '$($variant.id)' nicht mit Version und SHA-256 gebunden."
         }
-        $resolvedLocks.Add([PSCustomObject]@{
-            Name = [string]$lock.name
-            Version = [string]$lock.version
-            Sha256 = ([string]$lock.sha256).ToLowerInvariant()
-            Scope = [string]$requestedPackage.Scope
-        })
+        $requestedPackageScopes[[string]$lock.name] = [string]$requestedPackage.Scope
     }
 
     if ([string]$variant.status -ne 'SUPPORTED') {
@@ -286,8 +282,32 @@ function Resolve-LabExternalRuntimePlan {
             -Reason "Variante '$($variant.id)' besitzt keine vollstaendige Version-/SHA-256-/Herkunftsbindung."
     }
 
-    return [PSCustomObject]@{
+    $invalidPackageLocks = @($lockedPackages | Where-Object {
+        -not $_.name -or -not $_.version -or [string]$_.sha256 -notmatch '^[A-Fa-f0-9]{64}$'
+    })
+    if ($invalidPackageLocks.Count -gt 0) {
+        return New-LabUnsupportedSoftwarePlan -Request $SoftwareItem -SqlVersion $SqlVersion -Provider $Provider `
+            -OperatingSystem $OperatingSystem -Variant $variant -ReasonCode 'PACKAGE_LOCK_INTEGRITY_INCOMPLETE' `
+            -Reason "Variante '$($variant.id)' besitzt unvollstaendige Package Locks."
+    }
+
+    $resolvedLocks = @($lockedPackages | Sort-Object name, version | ForEach-Object {
+        [PSCustomObject]@{
+            Name = [string]$_.name
+            Version = [string]$_.version
+            Sha256 = ([string]$_.sha256).ToLowerInvariant()
+            Scope = if ($requestedPackageScopes.ContainsKey([string]$_.name)) {
+                [string]$requestedPackageScopes[[string]$_.name]
+            }
+            else {
+                'catalog'
+            }
+        }
+    })
+
+    $plan = [PSCustomObject]@{
         Contract = [PSCustomObject]@{ Name = 'SqlServerLab.SoftwarePlan'; Version = '1.0'; EvidenceBoundary = 'catalog-and-provider-metadata' }
+        PlanKey = $null
         SoftwareId = [string]$definition.id
         Kind = [string]$definition.kind
         Language = [string]$variant.language
@@ -308,6 +328,7 @@ function Resolve-LabExternalRuntimePlan {
         ArtifactRefs = @($variant.artifacts | ForEach-Object {
             [PSCustomObject]@{
                 Id = [string]$_.id
+                SourceType = [string]$_.sourceType
                 Version = [string]$_.version
                 Sha256 = ([string]$_.sha256).ToLowerInvariant()
                 IntegrityOrigin = [string]$_.integrityOrigin
@@ -318,6 +339,8 @@ function Resolve-LabExternalRuntimePlan {
         Validation = $variant.validation
         RequestSource = [string]$SoftwareItem.RequestSource
     }
+    $plan.PlanKey = Get-LabSoftwarePlanKey -Plan $plan
+    return $plan
 }
 
 function Resolve-LabExternalRuntimePlansForInstance {
@@ -331,6 +354,187 @@ function Resolve-LabExternalRuntimePlansForInstance {
         Resolve-LabExternalRuntimePlan -SoftwareItem $_ -SqlVersion ([string]$Instance.version) `
             -Provider ([string]$Instance.provider) -OperatingSystem ([string]$Instance.os)
     })
+}
+
+function Get-LabSoftwarePlanKey {
+    <#
+    .SYNOPSIS
+        Erzeugt die portable Identitaet eines aufgeloesten Softwareplans.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Plan)
+
+    if ([string]$Plan.Status -ne 'RESOLVED') {
+        return $null
+    }
+
+    $keyInput = [ordered]@{
+        contract = 'SqlServerLab.SoftwarePlanKey/1.0'
+        softwareId = [string]$Plan.SoftwareId
+        variantId = [string]$Plan.VariantId
+        runtimeVersion = [string]$Plan.RuntimeVersion
+        recipeVersion = [string]$Plan.RecipeVersion
+        sqlVersion = [string]$Plan.SqlVersion
+        provider = [string]$Plan.Provider
+        operatingSystem = [string]$Plan.OperatingSystem
+        architecture = [string]$Plan.Architecture
+        installationMethod = [string]$Plan.InstallationMethod
+        artifacts = @($Plan.ArtifactRefs | Sort-Object Id | ForEach-Object {
+            [ordered]@{
+                id = [string]$_.Id
+                sourceType = [string]$_.SourceType
+                version = [string]$_.Version
+                sha256 = ([string]$_.Sha256).ToLowerInvariant()
+                integrityOrigin = [string]$_.IntegrityOrigin
+            }
+        })
+        packageLocks = @($Plan.PackageLocks | Sort-Object Name, Version | ForEach-Object {
+            [ordered]@{
+                name = [string]$_.Name
+                version = [string]$_.Version
+                sha256 = ([string]$_.Sha256).ToLowerInvariant()
+                scope = [string]$_.Scope
+            }
+        })
+        restart = [ordered]@{
+            sqlServer = [bool]$Plan.Restart.sqlServer
+            launchpad = [bool]$Plan.Restart.launchpad
+            guest = [bool]$Plan.Restart.guest
+        }
+        validation = [ordered]@{
+            type = [string]$Plan.Validation.type
+            language = [string]$Plan.Validation.language
+            probeId = [string]$Plan.Validation.probeId
+            expectedRuntimeVersion = [string]$Plan.Validation.expectedRuntimeVersion
+        }
+    }
+    $json = $keyInput | ConvertTo-Json -Depth 30 -Compress
+    return [Convert]::ToHexString(
+        [Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($json))
+    ).ToLowerInvariant()
+}
+
+function Get-LabExternalRuntimeSelectionOptions {
+    <#
+    .SYNOPSIS
+        Liefert ausschliesslich vom Resolver freigegebene External-Runtime-Varianten.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$SqlVersion,
+        [Parameter(Mandatory)][ValidateSet('docker', 'podman', 'hyperv')][string]$Provider,
+        [Parameter(Mandatory)][ValidateSet('linux', 'windows')][string]$OperatingSystem
+    )
+
+    $options = [System.Collections.Generic.List[object]]::new()
+    foreach ($definition in @((Get-LabSoftwareCatalog).software | Sort-Object id)) {
+        foreach ($variant in @($definition.variants | Sort-Object id)) {
+            $request = [PSCustomObject]@{
+                Id = [string]$definition.id
+                Version = [string]$variant.runtimeVersion
+                Variant = [string]$variant.id
+                Scope = 'sqlExternalRuntime'
+                InstallMethod = 'catalog'
+                Optional = $false
+                Packages = @()
+                RequestSource = 'manifest-wizard'
+            }
+            $plan = Resolve-LabExternalRuntimePlan -SoftwareItem $request -SqlVersion $SqlVersion `
+                -Provider $Provider -OperatingSystem $OperatingSystem
+            if ([string]$plan.Status -ne 'RESOLVED') {
+                continue
+            }
+            $options.Add([PSCustomObject]@{
+                SoftwareId = [string]$plan.SoftwareId
+                Language = [string]$plan.Language
+                VariantId = [string]$plan.VariantId
+                RuntimeVersion = [string]$plan.RuntimeVersion
+                Provider = [string]$plan.Provider
+                OperatingSystem = [string]$plan.OperatingSystem
+                InstallationMethod = [string]$plan.InstallationMethod
+                ArtifactCount = @($plan.ArtifactRefs).Count
+                PackageLockCount = @($plan.PackageLocks).Count
+                PlanKey = [string]$plan.PlanKey
+                Plan = $plan
+            })
+        }
+    }
+    return @($options | Sort-Object Language, RuntimeVersion, VariantId)
+}
+
+function Get-LabExternalRuntimePlanPreview {
+    <#
+    .SYNOPSIS
+        Erzeugt eine geheimnisfreie Plan- und Aenderungsvorschau ohne Mutation.
+    #>
+    [CmdletBinding()]
+    param(
+        [AllowEmptyCollection()][object[]]$DesiredPlans = @(),
+        [AllowEmptyCollection()][object[]]$CurrentPlans = @()
+    )
+
+    $entries = [System.Collections.Generic.List[object]]::new()
+    foreach ($plan in @($DesiredPlans | Sort-Object SoftwareId)) {
+        $current = @($CurrentPlans | Where-Object { [string]$_.SoftwareId -eq [string]$plan.SoftwareId } | Select-Object -First 1)
+        if ([string]$plan.Status -ne 'RESOLVED') {
+            $entries.Add([PSCustomObject]@{
+                SoftwareId = [string]$plan.SoftwareId
+                Status = [string]$plan.Status
+                ReasonCode = [string]$plan.ReasonCode
+                Reason = [string]$plan.Reason
+                PlanKey = $null
+                ChangeClassification = [PSCustomObject]@{ Artifact='none'; Service='none'; Activation='none'; Highest='unsupported' }
+                Downloads = @(); BuildDerivedImage = $false; GuestMutation = $false
+                Reboots = @(); Downtime = 'unknown'; PackageLocks = @(); Verification = $null
+            })
+            continue
+        }
+
+        $isNoOp = $current.Count -eq 1 -and [string]$current[0].PlanKey -eq [string]$plan.PlanKey
+        $isDerivedImage = [string]$plan.InstallationMethod -eq 'derived-image'
+        $artifactClass = if ($isNoOp -or -not $isDerivedImage) { 'none' } else { 'rebuild' }
+        $activationClass = if ($isNoOp) { 'none' } elseif ($isDerivedImage) { 'recreate' } else { 'reprovision' }
+        $restartRequired = [bool]$plan.Restart.sqlServer -or [bool]$plan.Restart.launchpad -or [bool]$plan.Restart.guest
+        $serviceClass = if ($isNoOp -or -not $restartRequired) { 'none' } else { 'restart' }
+        $highestClass = if ($isNoOp) { 'no-op' } elseif ($activationClass -ne 'none') { $activationClass } elseif ($artifactClass -ne 'none') { $artifactClass } else { $serviceClass }
+        $reboots = @(
+            if ([bool]$plan.Restart.guest) { 'guest' }
+            if ([bool]$plan.Restart.sqlServer) { 'sql-server' }
+            if ([bool]$plan.Restart.launchpad) { 'launchpad' }
+        )
+
+        $entries.Add([PSCustomObject]@{
+            SoftwareId = [string]$plan.SoftwareId
+            Language = [string]$plan.Language
+            VariantId = [string]$plan.VariantId
+            RuntimeVersion = [string]$plan.RuntimeVersion
+            Provider = [string]$plan.Provider
+            OperatingSystem = [string]$plan.OperatingSystem
+            Status = 'RESOLVED'
+            ReasonCode = $null
+            Reason = $null
+            PlanKey = [string]$plan.PlanKey
+            ChangeClassification = [PSCustomObject]@{
+                Artifact = $artifactClass
+                Service = $serviceClass
+                Activation = $activationClass
+                Highest = $highestClass
+            }
+            Downloads = @($plan.ArtifactRefs | Where-Object { [string]$_.SourceType -ne 'generated' })
+            BuildDerivedImage = $isDerivedImage -and -not $isNoOp
+            GuestMutation = ([string]$plan.InstallationMethod -eq 'guest-offline-media') -and -not $isNoOp
+            Reboots = $reboots
+            Downtime = if ($isNoOp) { 'none' } elseif ($restartRequired -or $activationClass -ne 'none') { 'required' } else { 'none' }
+            PackageLocks = @($plan.PackageLocks)
+            Verification = $plan.Validation
+        })
+    }
+
+    return [PSCustomObject]@{
+        Contract = [PSCustomObject]@{ Name='SqlServerLab.SoftwarePlanPreview'; Version='1.0' }
+        IsNoOp = @($entries | Where-Object { [string]$_.ChangeClassification.Highest -ne 'no-op' }).Count -eq 0
+        Entries = @($entries)
+    }
 }
 
 function New-LabSoftwareInstallationReceipt {
@@ -348,6 +552,8 @@ function New-LabSoftwareInstallationReceipt {
     }
     return [PSCustomObject]@{
         Contract = [PSCustomObject]@{ Name = 'SqlServerLab.SoftwareInstallationReceipt'; Version = '1.0' }
+        PlanContract = $Plan.Contract
+        PlanKey = [string]$Plan.PlanKey
         SoftwareId = [string]$Plan.SoftwareId
         VariantId = [string]$Plan.VariantId
         RuntimeVersion = [string]$Plan.RuntimeVersion
@@ -356,6 +562,7 @@ function New-LabSoftwareInstallationReceipt {
         ArtifactRefs = @($Plan.ArtifactRefs)
         PackageLocks = @($Plan.PackageLocks)
         Status = 'EXTENSIONS_READY_RUN'
+        ChangeClassification = (Get-LabExternalRuntimePlanPreview -DesiredPlans @($Plan)).Entries[0].ChangeClassification
         Postconditions = @($Postconditions)
         CompletedAt = Get-LabTimestamp
     }

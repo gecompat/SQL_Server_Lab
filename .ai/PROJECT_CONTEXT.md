@@ -113,7 +113,10 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   eines Runs;
 - vollständige Ausführung aller im Schema vorbereiteten `serverConfig`-Felder;
 - nicht freigegebene Archive und Attach-Szenarien;
-- kontextreiche Manifest-Menüführung mit Navigation und Planvorschau;
+- vollständige kontextreiche Manifest-Menüführung mit Navigation; die
+  resolvergebundene External-Runtime-Auswahl und -Planvorschau ist
+  implementiert, Zurück-Navigation sowie allgemeine Sample-/Artifact-
+  Planvorschau bleiben offen;
 - Hyper-V-Export und -Nutzung von `LAB_GENERATED`-Baselines;
 - External-Runtime-Varianten für SQL Server 2019, SQL Server 2025 und weitere
   OS-/Providerkombinationen; der positive SQL-2022-Status wird nicht vererbt;

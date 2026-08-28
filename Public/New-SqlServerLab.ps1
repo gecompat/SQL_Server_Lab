@@ -2,11 +2,23 @@ function Add-LabInstanceCleanupPlan {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]$Instance,
-        [Parameter(Mandatory)]$RunState
+        [Parameter(Mandatory)]$RunState,
+        [AllowEmptyCollection()][object[]]$SoftwarePlans = @()
     )
 
     $labName = Resolve-LabRuntimeName -RunState $RunState
     $containerName = Get-LabContainerRuntimeName -LabName $labName -InstanceId ([string]$Instance.id) -RunId $RunState.RunId
+    $softwareContract = if (@($SoftwarePlans).Count -gt 0) {
+        [PSCustomObject]@{
+            contract = [PSCustomObject]@{ name='SqlServerLab.SoftwareCleanupBinding'; version='1.0' }
+            planKeys = @($SoftwarePlans.PlanKey | Where-Object { [string]$_ -match '^[a-f0-9]{64}$' } | Sort-Object -Unique)
+            softwareIds = @($SoftwarePlans.SoftwareId | Sort-Object -Unique)
+            artifactRetention = 'reusable-artifacts-retained'
+        }
+    }
+    else {
+        $null
+    }
 
     foreach ($drive in @($Instance.drives | Where-Object {
         $_ -and $_.containerPath -and -not $_.hostPath -and $_.persistence -ne 'data-root-runtime-volume'
@@ -19,6 +31,7 @@ function Add-LabInstanceCleanupPlan {
             -Action 'remove' `
             -Provider $Instance.provider `
             -ProviderSubRunId "provider-$($Instance.provider)" `
+            -SoftwareContract $softwareContract `
             -Compensation "$($Instance.provider) volume rm $volumeName"
     }
 
@@ -31,6 +44,7 @@ function Add-LabInstanceCleanupPlan {
         -Action 'remove' `
         -Provider $Instance.provider `
         -ProviderSubRunId "provider-$($Instance.provider)" `
+        -SoftwareContract $softwareContract `
         -Compensation "$($Instance.provider) rm -f $containerName"
 }
 
@@ -687,7 +701,8 @@ function New-SqlServerLab {
         }
 
         foreach ($instance in $resolved.instances) {
-            Add-LabInstanceCleanupPlan -Instance $instance -RunState $runState
+            Add-LabInstanceCleanupPlan -Instance $instance -RunState $runState `
+                -SoftwarePlans @($externalRuntimePlansByInstance[[string]$instance.id])
         }
 
         $null = Save-LabSecret `
@@ -786,6 +801,7 @@ function New-SqlServerLab {
                     $imagePlan = $externalRuntimeImagePlansByInstance[[string]$instance.id]
                     [PSCustomObject]@{
                         ImageKey = [string]$artifact.ImageKey
+                        SoftwarePlanKeys = @($imagePlan.SoftwarePlanKeys)
                         LaunchMode = [string]$artifact.LaunchMode
                         VariantIds = @($imagePlan.VariantIds)
                         Languages = @($imagePlan.Languages)
@@ -968,6 +984,7 @@ function New-SqlServerLab {
             $labInstance.ExternalRuntime.Receipts = @($softwareReceipts | ForEach-Object {
                 [PSCustomObject]@{
                     SoftwareId = [string]$_.SoftwareId
+                    PlanKey = [string]$_.PlanKey
                     VariantId = [string]$_.VariantId
                     RuntimeVersion = [string]$_.RuntimeVersion
                     Status = [string]$_.Status
