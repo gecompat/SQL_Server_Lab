@@ -358,7 +358,7 @@ function Add-LabArtifactManifestLockEntry {
         [PSCustomObject]@{ formatVersion = '1'; artifacts = @() }
     }
 
-    $entry = [PSCustomObject]@{
+    $entryData = [ordered]@{
         sampleId                = $Artifact.SampleId
         sampleVariant           = $Artifact.SampleVariant
         artifactType            = $Artifact.ArtifactType
@@ -369,10 +369,21 @@ function Add-LabArtifactManifestLockEntry {
         compatibility           = $Artifact.Compatibility
         expectedOutputs         = @($Artifact.ExpectedOutputs)
     }
+    if ($Artifact.PSObject.Properties['ResolvedArtifact'] -and $Artifact.ResolvedArtifact) {
+        $entryData.resolvedArtifact = [PSCustomObject][ordered]@{
+            origin         = [string]$Artifact.ResolvedArtifact.Origin
+            keyId          = [string]$Artifact.ResolvedArtifact.KeyId
+            matchType      = [string]$Artifact.ResolvedArtifact.MatchType
+            sha256         = ([string]$Artifact.ResolvedArtifact.Sha256).ToLowerInvariant()
+            artifactFormat = [string]$Artifact.ResolvedArtifact.ArtifactFormat
+        }
+    }
+    $entry = [PSCustomObject]$entryData
     $existing = @($lock.artifacts | Where-Object {
         $_.source -eq $entry.source -and $_.sha256 -eq $entry.sha256 -and
         ([string]$_.sampleId -eq [string]$entry.sampleId) -and
-        ([string]$_.sampleVariant -eq [string]$entry.sampleVariant)
+        ([string]$_.sampleVariant -eq [string]$entry.sampleVariant) -and
+        ([string]$_.resolvedArtifact.sha256 -eq [string]$entry.resolvedArtifact.sha256)
     })
     if ($existing.Count -eq 0) {
         $lock.artifacts = @($lock.artifacts + $entry)
