@@ -69,21 +69,18 @@ try {
         param($root)
         $storage = Get-LabPersistentInstanceStorage -DataRoot $root -LabName 'persistent-test' -Provider docker -InstanceId primary -SqlVersion 2025 -Create
         $instance = [PSCustomObject]@{ drives = @() }
-        $null = Add-LabPersistentContainerDrive -Instance $instance -Storage $storage -IncludeExternalRuntimeState
+        $null = Add-LabPersistentContainerDrive -Instance $instance -Storage $storage
         return $instance.drives
     } $temporaryRoot
     $sqlSystemDrive = @($persistentDriveContract | Where-Object id -eq 'persistent-mssql')[0]
-    $sqlExtensibilityDrive = @($persistentDriveContract | Where-Object id -eq 'persistent-mssql-extensibility')[0]
     $backupDrive = @($persistentDriveContract | Where-Object id -eq 'persistent-backups')[0]
     Add-CheckResult -Name 'Container-SQL-System nutzt ein stabiles Runtime-Volume statt eines NTFS-Bind-Mounts' -Success (
         $sqlSystemDrive -and $sqlSystemDrive.containerPath -eq '/var/opt/mssql' -and
         $sqlSystemDrive.volumeName -match '^sql-lab-persistent-' -and -not $sqlSystemDrive.hostPath -and
         $sqlSystemDrive.persistence -eq 'data-root-runtime-volume'
     )
-    Add-CheckResult -Name 'Persistente Container-Labs binden LaunchPad-Zustand an ein eigenes stabiles Volume' -Success (
-        $sqlExtensibilityDrive.containerPath -eq '/var/opt/mssql-extensibility' -and
-        $sqlExtensibilityDrive.volumeName -eq "$($sqlSystemDrive.volumeName)-extensibility" -and
-        $sqlExtensibilityDrive.persistence -eq 'data-root-runtime-volume'
+    Add-CheckResult -Name 'Persistente Container-Labs halten LaunchPad-Arbeitszustand containerlokal' -Success (
+        @($persistentDriveContract | Where-Object containerPath -eq '/var/opt/mssql-extensibility').Count -eq 0
     )
     Add-CheckResult -Name 'Container-Backups bleiben im sichtbaren Data Root eingebunden' -Success (
         $backupDrive -and $backupDrive.containerPath -eq '/var/opt/mssql/backup' -and
@@ -91,21 +88,18 @@ try {
     )
     $runScopedDriveContract = & $module {
         $instance = [PSCustomObject]@{ drives = @([PSCustomObject]@{ id='data'; containerPath='/sqldata' }) }
-        $null = Add-LabRunScopedContainerSystemDrive -Instance $instance -IncludeExternalRuntimeState
-        $null = Add-LabRunScopedContainerSystemDrive -Instance $instance -IncludeExternalRuntimeState
+        $null = Add-LabRunScopedContainerSystemDrive -Instance $instance
+        $null = Add-LabRunScopedContainerSystemDrive -Instance $instance
         return $instance.drives
     }
     $runScopedSystemDrives = @($runScopedDriveContract | Where-Object containerPath -eq '/var/opt/mssql')
-    $runScopedExtensibilityDrives = @($runScopedDriveContract | Where-Object containerPath -eq '/var/opt/mssql-extensibility')
     Add-CheckResult -Name 'Kurzlebige Container-Labs behalten SQL-Systemdaten ueber einen Recreate' -Success (
         $runScopedSystemDrives.Count -eq 1 -and
         $runScopedSystemDrives[0].id -eq 'runtime-mssql' -and
         $runScopedSystemDrives[0].persistence -eq 'run-scoped-runtime-volume'
     )
-    Add-CheckResult -Name 'Kurzlebige Container-Labs behalten LaunchPad-Identitaet ueber einen Recreate' -Success (
-        $runScopedExtensibilityDrives.Count -eq 1 -and
-        $runScopedExtensibilityDrives[0].id -eq 'runtime-mssql-extensibility' -and
-        $runScopedExtensibilityDrives[0].persistence -eq 'run-scoped-runtime-volume'
+    Add-CheckResult -Name 'Kurzlebige Container-Labs persistieren keine LaunchPad-Arbeitsverzeichnisse' -Success (
+        @($runScopedDriveContract | Where-Object containerPath -eq '/var/opt/mssql-extensibility').Count -eq 0
     )
 }
 catch { Add-CheckResult -Name 'Data-Root-Testausfuehrung' -Success $false -Message $_.Exception.Message }

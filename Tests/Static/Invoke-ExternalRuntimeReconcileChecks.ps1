@@ -73,7 +73,7 @@ $replacementBinding = & $module {
 }
 Add-CheckResult -Name 'Refresh bindet bestehende SQL-Volumes statt neue Namen abzuleiten' -Success (
     @($replacementBinding.drives | Where-Object id -eq 'runtime-mssql')[0].volumeName -eq 'stable-system-volume' -and
-    @($replacementBinding.drives | Where-Object id -eq 'runtime-mssql-extensibility')[0].volumeName -eq 'stable-extensibility-volume' -and
+    @($replacementBinding.drives | Where-Object containerPath -eq '/var/opt/mssql-extensibility').Count -eq 0 -and
     @($replacementBinding.drives | Where-Object id -eq 'data')[0].volumeName -eq 'stable-data-volume' -and
     @($replacementBinding.drives | Where-Object id -eq 'scripts')[0].hostPath -eq '/host/scripts' -and
     @($replacementBinding.drives | Where-Object containerPath -eq '/var/opt/mssql/backup')[0].hostPath -eq '/host/backups' -and

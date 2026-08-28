@@ -216,10 +216,12 @@ function New-LabExternalRuntimeReplacementInstance {
 
     # Recreate must bind the exact volumes already carrying master/model/msdb
     # and user databases. Deriving fresh volume names from a mutable lab display
-    # name would silently create an empty SQL data root.
+    # name would silently create an empty SQL data root. LaunchPad data and
+    # sandboxes are deliberately container-local: reusing their mount across a
+    # namespace recreate leaves ownership and nested-mount state behind.
     $replacement = $ResolvedInstance | ConvertTo-Json -Depth 50 | ConvertFrom-Json -Depth 50
-    $null = Add-LabRunScopedContainerSystemDrive -Instance $replacement -IncludeExternalRuntimeState
-    $drives = @($replacement.drives)
+    $null = Add-LabRunScopedContainerSystemDrive -Instance $replacement
+    $drives = @($replacement.drives | Where-Object { [string]$_.containerPath -ne '/var/opt/mssql-extensibility' })
     foreach ($drive in $drives) {
         if (-not $drive -or -not $drive.containerPath) { continue }
         $mount = @($ContainerInspect.Mounts | Where-Object {
@@ -247,7 +249,8 @@ function New-LabExternalRuntimeReplacementInstance {
     $boundDestinations = @($drives | ForEach-Object { [string]$_.containerPath })
     $additionalIndex = 0
     foreach ($mount in @($ContainerInspect.Mounts | Where-Object {
-        [string]$_.Destination -ne '/sys/fs/cgroup' -and [string]$_.Destination -notin $boundDestinations
+        [string]$_.Destination -notin @('/sys/fs/cgroup','/var/opt/mssql-extensibility') -and
+        [string]$_.Destination -notin $boundDestinations
     })) {
         $additionalIndex++
         if ([string]$mount.Type -eq 'volume' -and -not [string]::IsNullOrWhiteSpace([string]$mount.Name)) {
