@@ -34,7 +34,9 @@ foreach ($entry in $providers.GetEnumerator()) {
         $text -match "SyncExternalRuntimeConfiguration:\(\`$ExternalRuntimeLaunchMode -eq 'sql2022-namespace-v1' -and \[string\]\`$drive\.containerPath -eq '/var/opt/mssql'\)" -and
         $text -match 'for setting in pythonbinpath rbinpath datadirectories' -and
         $text -match 'MSSQL_CONF_DIR=/sql-lab-volume-init /opt/mssql/bin/mssql-conf set' -and
-        $text -match 'MSSQL_CONF_DIR=/sql-lab-volume-init /opt/mssql/bin/mssql-conf unset'
+        $text -match 'MSSQL_CONF_DIR=/sql-lab-volume-init /opt/mssql/bin/mssql-conf unset' -and
+        $text -match '\[Convert\]::ToBase64String' -and
+        $text -match "base64 -d \| /bin/sh"
     ) "$name synchronisiert nur die imagegebundene Extensibility-Konfiguration in das persistente SQL-Systemvolume"
 }
 
