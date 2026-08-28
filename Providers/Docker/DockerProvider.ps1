@@ -176,6 +176,7 @@ function New-DockerInstance {
     $memoryLimit = "${effectiveMemoryMB}m"
     $cpuLimit = $effectiveCpu.ToString('0.##', [Globalization.CultureInfo]::InvariantCulture)
     $containerName = if ($ContainerName) { $ContainerName } elseif ($LabName) { Get-LabContainerRuntimeName -LabName $LabName -InstanceId $InstanceId -RunId $RunId } else { "sql-lab-$InstanceId-$($RunId.Substring(0, 8))" }
+    $containerHostname = Get-LabContainerRuntimeHostname -RuntimeName $containerName
     $labNetwork = Ensure-LabDockerNetwork -Name $NetworkName
 
     $volumeArguments = @()
@@ -258,6 +259,7 @@ function New-DockerInstance {
                 $dockerArguments = @(
                     'run', '-d',
                     '--name', $containerName,
+                    '--hostname', $containerHostname,
                     '--network', $labNetwork.Name,
                     '-p', "${selectedPort}:1433",
                     '-e', 'ACCEPT_EULA=Y',
