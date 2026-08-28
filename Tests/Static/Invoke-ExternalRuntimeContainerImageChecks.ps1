@@ -441,6 +441,7 @@ try {
     Add-CheckResult -Name 'Java-Postcondition registriert datenbankgebunden, prueft Drift und kompensiert nur neu erzeugte Objekte' -Success (
         $lifecycleSource -match 'Register-LabJavaExternalRuntimeDatabaseObjects' -and
         $lifecycleSource -match "@language = N'Java'" -and
+        @([regex]::Matches($lifecycleSource, 'WITH \(LANGUAGE = ''Java'', PLATFORM = \$\(\$platformContract\.Platform\)\)')).Count -eq 2 -and
         $lifecycleSource -match 'sqlserverlab\.SqlServerLabExternalRuntimeProbe' -and
         $lifecycleSource -match 'EXTERNAL_RUNTIME_JAVA_LANGUAGE_DRIFT' -and
         $lifecycleSource -match 'Undo-LabJavaExternalRuntimeDatabaseObjects' -and
