@@ -184,7 +184,13 @@ function Set-LabDataRootDefault {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$DataRoot)
 
-    return Register-LabDataRoot -DataRoot $DataRoot -SetDefault
+    $root = Register-LabDataRoot -DataRoot $DataRoot
+    $configuration = Get-LabStorageConfiguration
+    $location = @($configuration.LabDataLocations | Where-Object {
+        [string]::Equals([string]$_.LabDataRoot, $root, [StringComparison]::OrdinalIgnoreCase)
+    } | Select-Object -First 1)
+    if ($location.Count -ne 1) { throw 'LAB_STORAGE_DEFAULT_LOCATION_NOT_FOUND' }
+    return Set-LabDefaultDataLocation -LocationId ([string]$location[0].LocationId) -Confirm:$false
 }
 
 function Get-LabHyperVSwitchDefault {

@@ -38,6 +38,135 @@ function Get-LabVolumeIdentity {
     return [PSCustomObject]@{ VolumeId = $volumeId; DriveLetter = $driveLetter; VolumeRoot = $volumeRoot }
 }
 
+function Get-LabStableStorageLocationId {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$ControllerId,
+        [Parameter(Mandatory)][string]$VolumeId
+    )
+
+    $material = "$($ControllerId.Trim().ToLowerInvariant())`n$($VolumeId.Trim().ToLowerInvariant())"
+    $hash = [Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($material))
+    $guidBytes = [byte[]]::new(16)
+    [Array]::Copy($hash, $guidBytes, 16)
+    $guidBytes[7] = ($guidBytes[7] -band 0x0f) -bor 0x50
+    $guidBytes[8] = ($guidBytes[8] -band 0x3f) -bor 0x80
+    return [Guid]::new($guidBytes).ToString('D')
+}
+
+function Resolve-LabStorageParentPath {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Path)
+
+    $candidate = $Path.Trim()
+    if ([string]::IsNullOrWhiteSpace($candidate) -or
+        $candidate -match '^[A-Za-z]:$' -or
+        -not [IO.Path]::IsPathFullyQualified($candidate)) {
+        throw 'LAB_STORAGE_PARENT_NOT_FULLY_QUALIFIED'
+    }
+    try { $fullPath = [IO.Path]::GetFullPath($candidate) }
+    catch { throw "LAB_STORAGE_PARENT_INVALID: $($_.Exception.Message)" }
+    $volumeRoot = [IO.Path]::GetPathRoot($fullPath)
+    if ([string]::IsNullOrWhiteSpace($volumeRoot)) { throw 'LAB_STORAGE_PARENT_VOLUME_REQUIRED' }
+    $parent = if ($fullPath.TrimEnd('\', '/') -eq $volumeRoot.TrimEnd('\', '/')) {
+        $volumeRoot
+    }
+    else {
+        $fullPath.TrimEnd('\', '/')
+    }
+    return [PSCustomObject]@{
+        InputPath = $Path
+        LabDataParent = $parent
+        LabDataRoot = Join-Path $parent 'Lab_Data'
+        VolumeRoot = $volumeRoot
+    }
+}
+
+function Get-LabStorageTopology {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        $VolumeIdentity
+    )
+
+    if (-not $VolumeIdentity) { $VolumeIdentity = Get-LabVolumeIdentity -Path $Path }
+    $backingDeviceIds = [System.Collections.Generic.List[string]]::new()
+    $mediaType = 'Unknown'; $busType = 'Unknown'; $healthStatus = 'Unknown'
+    $topologyStatus = if ($VolumeIdentity.VolumeId) { 'LogicalOnly' } else { 'Unknown' }
+    $freeBytes = [long]0
+    try { $freeBytes = [long][IO.DriveInfo]::new([string]$VolumeIdentity.VolumeRoot).AvailableFreeSpace }
+    catch { Write-Verbose "Freier Speicher konnte für '$($VolumeIdentity.VolumeRoot)' nicht ermittelt werden: $($_.Exception.Message)" }
+
+    if ($IsWindows -and [string]$VolumeIdentity.DriveLetter -match '^[A-Z]:$' -and
+        (Get-Command Get-Partition -ErrorAction SilentlyContinue) -and
+        (Get-Command Get-Disk -ErrorAction SilentlyContinue)) {
+        try {
+            $partition = Get-Partition -DriveLetter ([string]$VolumeIdentity.DriveLetter).Substring(0, 1) -ErrorAction Stop
+            $disks = @($partition | Get-Disk -ErrorAction Stop)
+            foreach ($disk in $disks) {
+                $deviceId = @([string]$disk.UniqueId, [string]$disk.SerialNumber, "disk-number:$([int]$disk.Number)") |
+                    Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -First 1
+                if ($deviceId -and $deviceId -notin $backingDeviceIds) { $backingDeviceIds.Add($deviceId.Trim()) }
+            }
+            if ($disks.Count -gt 0) {
+                $mediaType = (@($disks | ForEach-Object { [string]$_.MediaType } | Where-Object { $_ -and $_ -ne 'Unspecified' } | Sort-Object -Unique) -join ',')
+                if (-not $mediaType) { $mediaType = 'Unknown' }
+                $busType = (@($disks | ForEach-Object { [string]$_.BusType } | Where-Object { $_ } | Sort-Object -Unique) -join ',')
+                if (-not $busType) { $busType = 'Unknown' }
+                $healthStatus = (@($disks | ForEach-Object { [string]$_.HealthStatus } | Where-Object { $_ } | Sort-Object -Unique) -join ',')
+                if (-not $healthStatus) { $healthStatus = 'Unknown' }
+                $unprovenBusTypes = @('Unknown', 'RAID', 'iSCSI', 'File Backed Virtual', 'Storage Spaces', 'Virtual')
+                if ($backingDeviceIds.Count -gt 0 -and @($disks | Where-Object { [string]$_.BusType -in $unprovenBusTypes }).Count -eq 0) {
+                    $topologyStatus = 'Proven'
+                }
+            }
+        }
+        catch { $topologyStatus = 'LogicalOnly' }
+    }
+    return [PSCustomObject]@{
+        BackingDeviceIds = @($backingDeviceIds)
+        TopologyStatus = $topologyStatus
+        MediaType = $mediaType
+        BusType = $busType
+        HealthStatus = $healthStatus
+        FreeBytes = $freeBytes
+    }
+}
+
+function New-LabStorageLocationRecord {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification='Erzeugt ausschließlich einen in-memory Location-Datensatz.')]
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$ControllerId,
+        [Parameter(Mandatory)][string]$LabDataRoot,
+        $ExistingLocation
+    )
+
+    $root = [IO.Path]::GetFullPath($LabDataRoot).TrimEnd('\', '/')
+    $volume = Get-LabVolumeIdentity -Path $root
+    $topology = Get-LabStorageTopology -Path $root -VolumeIdentity $volume
+    $locationId = if ($ExistingLocation -and [string]$ExistingLocation.LocationId) {
+        [string]$ExistingLocation.LocationId
+    }
+    else {
+        Get-LabStableStorageLocationId -ControllerId $ControllerId -VolumeId ([string]$volume.VolumeId)
+    }
+    return [PSCustomObject]@{
+        LocationId = $locationId
+        ControllerId = $ControllerId
+        VolumeId = [string]$volume.VolumeId
+        DriveLetter = [string]$volume.DriveLetter
+        LabDataParent = Split-Path -Parent $root
+        LabDataRoot = $root
+        BackingDeviceIds = @($topology.BackingDeviceIds)
+        TopologyStatus = [string]$topology.TopologyStatus
+        MediaType = [string]$topology.MediaType
+        BusType = [string]$topology.BusType
+        HealthStatus = [string]$topology.HealthStatus
+        FreeBytes = [long]$topology.FreeBytes
+    }
+}
+
 function Initialize-LabManagedDataRoot {
     [CmdletBinding(SupportsShouldProcess)]
     param(
@@ -99,20 +228,118 @@ function Get-LabStorageConfiguration {
     param([string]$DataRoot)
 
     if (-not $DataRoot) { $DataRoot = Get-LabDataRootDefault }
-    $empty = [PSCustomObject]@{ ContractVersion = 'SqlServerLab.Storage/2.0'; ControllerId = $null; DefaultDataRoot = $null; LabDataLocations = @() }
+    $empty = [PSCustomObject]@{
+        ContractVersion = 'SqlServerLab.Storage/2.0'; ControllerId = $null
+        DefaultLocationId = $null; DefaultDataRoot = $null; LabDataLocations = @()
+        LegacyMigrationReceipt = $null
+    }
     if (-not $DataRoot) { return $empty }
     $path = Join-Path (Join-Path $DataRoot 'Catalog') 'storage-locations.json'
+    $rawConfiguration = $null; $source = 'storage-catalog'
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
         $marker = Get-LabDataRootMarker -DataRoot $DataRoot
         if (-not $marker) { return $empty }
-        $volume = Get-LabVolumeIdentity -Path $DataRoot
-        return [PSCustomObject]@{
-            ContractVersion = 'SqlServerLab.Storage/2.0'; ControllerId = [string]$marker.ControllerId; DefaultDataRoot = $DataRoot
-            LabDataLocations = @([PSCustomObject]@{ VolumeId=$volume.VolumeId; DriveLetter=$volume.DriveLetter; LabDataParent=(Split-Path -Parent $DataRoot); LabDataRoot=$DataRoot })
+        $rawConfiguration = [PSCustomObject]@{
+            ContractVersion = 'SqlServerLab.Storage/2.0'; ControllerId = [string]$marker.ControllerId
+            DefaultDataRoot = [IO.Path]::GetFullPath($DataRoot).TrimEnd('\', '/')
+            LabDataLocations = @([PSCustomObject]@{ LabDataRoot=[IO.Path]::GetFullPath($DataRoot).TrimEnd('\', '/') })
+        }
+        $source = 'legacy-data-root-marker'
+    }
+    else {
+        try { $rawConfiguration = Get-Content -LiteralPath $path -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20 }
+        catch { throw "LAB_STORAGE_CONFIGURATION_INVALID: $($_.Exception.Message)" }
+    }
+
+    $controllerId = [string]$rawConfiguration.ControllerId
+    if ([string]::IsNullOrWhiteSpace($controllerId)) {
+        $marker = Get-LabDataRootMarker -DataRoot $DataRoot
+        $controllerId = [string]$marker.ControllerId
+    }
+    if ([string]::IsNullOrWhiteSpace($controllerId)) { throw 'LAB_STORAGE_CONTROLLER_ID_REQUIRED' }
+    $upgraded = $source -ne 'storage-catalog' -or -not $rawConfiguration.DefaultLocationId
+    $locations = @(
+        foreach ($location in @($rawConfiguration.LabDataLocations)) {
+            if (-not $location.LabDataRoot) { continue }
+            if (-not $location.LocationId -or -not $location.TopologyStatus -or -not $location.PSObject.Properties['BackingDeviceIds']) {
+                $upgraded = $true
+            }
+            New-LabStorageLocationRecord -ControllerId $controllerId `
+                -LabDataRoot ([string]$location.LabDataRoot) -ExistingLocation $location
+        }
+    )
+    $defaultRoot = if ($rawConfiguration.DefaultDataRoot) {
+        [IO.Path]::GetFullPath([string]$rawConfiguration.DefaultDataRoot).TrimEnd('\', '/')
+    }
+    elseif ($locations.Count -eq 1) { [string]$locations[0].LabDataRoot }
+    else { $null }
+    $defaultLocation = if ([string]$rawConfiguration.DefaultLocationId) {
+        @($locations | Where-Object { [string]$_.LocationId -eq [string]$rawConfiguration.DefaultLocationId } | Select-Object -First 1)
+    }
+    elseif ($defaultRoot) {
+        @($locations | Where-Object {
+            [string]::Equals([string]$_.LabDataRoot, $defaultRoot, [StringComparison]::OrdinalIgnoreCase)
+        } | Select-Object -First 1)
+    }
+    else { @() }
+    $defaultLocationId = if ($defaultLocation.Count -eq 1) { [string]$defaultLocation[0].LocationId } else { $null }
+    $receipt = if ($rawConfiguration.LegacyMigrationReceipt) { $rawConfiguration.LegacyMigrationReceipt } elseif ($upgraded) {
+        [PSCustomObject]@{
+            ContractVersion = 'SqlServerLab.StorageLegacyMigrationReceipt/1.0'
+            Status = 'IN_MEMORY_UPGRADE'
+            Source = $source
+            DefaultPreserved = [bool]$defaultLocationId
         }
     }
-    try { return Get-Content -LiteralPath $path -Raw -Encoding utf8 | ConvertFrom-Json -Depth 12 }
-    catch { throw "LAB_STORAGE_CONFIGURATION_INVALID: $($_.Exception.Message)" }
+    else { $null }
+    return [PSCustomObject]@{
+        ContractVersion = 'SqlServerLab.Storage/2.0'
+        ControllerId = $controllerId
+        DefaultLocationId = $defaultLocationId
+        DefaultDataRoot = if ($defaultLocation.Count -eq 1) { [string]$defaultLocation[0].LabDataRoot } else { $defaultRoot }
+        LabDataLocations = @($locations | Sort-Object LocationId)
+        LegacyMigrationReceipt = $receipt
+        UpdatedAt = [string]$rawConfiguration.UpdatedAt
+    }
+}
+
+function Write-LabStorageConfiguration {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Configuration,
+        [string[]]$AdditionalRoots = @()
+    )
+
+    $receipt = $Configuration.LegacyMigrationReceipt
+    if ($receipt -and [string]$receipt.Status -eq 'IN_MEMORY_UPGRADE') {
+        $receipt = [PSCustomObject]@{
+            ContractVersion = 'SqlServerLab.StorageLegacyMigrationReceipt/1.0'
+            Status = 'PERSISTED'
+            Source = [string]$receipt.Source
+            DefaultPreserved = [bool]$receipt.DefaultPreserved
+            PersistedAt = Get-LabTimestamp
+        }
+    }
+    $document = [PSCustomObject]@{
+        ContractVersion = 'SqlServerLab.Storage/2.0'
+        ControllerId = [string]$Configuration.ControllerId
+        DefaultLocationId = [string]$Configuration.DefaultLocationId
+        DefaultDataRoot = [string]$Configuration.DefaultDataRoot
+        LabDataLocations = @($Configuration.LabDataLocations | Sort-Object LocationId)
+        LegacyMigrationReceipt = $receipt
+        UpdatedAt = Get-LabTimestamp
+    }
+    $catalogRoots = @(
+        @($document.LabDataLocations | ForEach-Object { [string]$_.LabDataRoot })
+        @($AdditionalRoots)
+    ) | Where-Object { $_ } | Sort-Object -Unique
+    foreach ($root in $catalogRoots) {
+        if ((Test-Path -LiteralPath $root -PathType Container) -and
+            (Test-LabDataRootOwnership -DataRoot $root -ControllerId ([string]$document.ControllerId))) {
+            Write-LabArtifactJsonAtomic -Path (Join-Path (Join-Path $root 'Catalog') 'storage-locations.json') -InputObject $document
+        }
+    }
+    return $document
 }
 
 function Register-LabDataRoot {
@@ -133,16 +360,18 @@ function Register-LabDataRoot {
     if ($existingVolume.Count -gt 0 -and -not [string]::Equals([string]$existingVolume[0].LabDataRoot, $root, [StringComparison]::OrdinalIgnoreCase)) {
         throw "LAB_DATA_ROOT_MIGRATION_REQUIRED: Volume $($volume.DriveLetter) ist bereits mit $($existingVolume[0].LabDataRoot) registriert. Parent-Wechsel nur ueber eine Storage-Migration."
     }
-    if ($existingVolume.Count -eq 0) {
-        $locations += [PSCustomObject]@{ VolumeId=$volume.VolumeId; DriveLetter=$volume.DriveLetter; LabDataParent=(Split-Path -Parent $root); LabDataRoot=$root }
-    }
-    $defaultRoot = if ($SetDefault -or -not $configuration.DefaultDataRoot) { $root } else { [string]$configuration.DefaultDataRoot }
-    $targetConfigRoot = $defaultRoot
-    $document = [PSCustomObject]@{
-        ContractVersion = 'SqlServerLab.Storage/2.0'; ControllerId = $controllerId; DefaultDataRoot = $defaultRoot
-        LabDataLocations = @($locations | Sort-Object DriveLetter); UpdatedAt = Get-LabTimestamp
-    }
-    Write-LabArtifactJsonAtomic -Path (Join-Path (Join-Path $targetConfigRoot 'Catalog') 'storage-locations.json') -InputObject $document
+    $location = New-LabStorageLocationRecord -ControllerId $controllerId -LabDataRoot $root `
+        -ExistingLocation $(if ($existingVolume.Count -eq 1) { $existingVolume[0] } else { $null })
+    $locations = @($locations | Where-Object { [string]$_.VolumeId -ne [string]$volume.VolumeId }) + @($location)
+    $defaultLocationId = if (-not $configuration.DefaultLocationId) { [string]$location.LocationId } else { [string]$configuration.DefaultLocationId }
+    if ($SetDefault) { $defaultLocationId = [string]$location.LocationId }
+    $defaultLocation = @($locations | Where-Object LocationId -eq $defaultLocationId | Select-Object -First 1)
+    if ($defaultLocation.Count -ne 1) { throw 'LAB_STORAGE_DEFAULT_LOCATION_NOT_FOUND' }
+    $null = Write-LabStorageConfiguration -Configuration ([PSCustomObject]@{
+        ContractVersion = 'SqlServerLab.Storage/2.0'; ControllerId = $controllerId
+        DefaultLocationId = $defaultLocationId; DefaultDataRoot = [string]$defaultLocation[0].LabDataRoot
+        LabDataLocations = $locations; LegacyMigrationReceipt = $configuration.LegacyMigrationReceipt
+    })
     if ($SetDefault -or -not $currentDefault) {
         $env:SQL_SERVER_LAB_DATA_ROOT = $root
         [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_DATA_ROOT', $root, 'User')
@@ -155,17 +384,107 @@ function Register-LabDataRoot {
 }
 
 function Set-LabDataLocation {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess, ConfirmImpact='Medium')]
     param([Parameter(Mandatory)][string]$LabDataParent, [switch]$SetDefault)
 
-    $parentPath = [System.IO.Path]::GetFullPath($LabDataParent)
-    $volumeRoot = [System.IO.Path]::GetPathRoot($parentPath)
-    $parent = if ($parentPath.TrimEnd('\', '/') -eq $volumeRoot.TrimEnd('\', '/')) { $volumeRoot } else { $parentPath.TrimEnd('\', '/') }
-    $dataRoot = Join-Path $parent 'Lab_Data'
+    $resolvedParent = Resolve-LabStorageParentPath -Path $LabDataParent
+    $parent = [string]$resolvedParent.LabDataParent
+    $dataRoot = [string]$resolvedParent.LabDataRoot
+    if (-not $PSCmdlet.ShouldProcess($dataRoot, 'Normalisierte Lab_Data-Location initialisieren und registrieren')) { return $null }
     $configuration = Get-LabStorageConfiguration
     $marker = Initialize-LabManagedDataRoot -DataRoot $dataRoot -ControllerId ([string]$configuration.ControllerId)
     $null = Register-LabDataRoot -DataRoot $dataRoot -SetDefault:$SetDefault
-    return [PSCustomObject]@{ LabDataParent=$parent; LabDataRoot=$dataRoot; ControllerId=$marker.ControllerId; Volume=(Get-LabVolumeIdentity -Path $dataRoot) }
+    $updated = Get-LabStorageConfiguration -DataRoot $(if ($configuration.DefaultDataRoot) { [string]$configuration.DefaultDataRoot } else { $dataRoot })
+    $location = @($updated.LabDataLocations | Where-Object { [string]::Equals([string]$_.LabDataRoot, $dataRoot, [StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 1)
+    return [PSCustomObject]@{
+        LocationId = [string]$location.LocationId; LabDataParent=$parent; LabDataRoot=$dataRoot
+        ControllerId=$marker.ControllerId; Volume=(Get-LabVolumeIdentity -Path $dataRoot)
+        TopologyStatus=[string]$location.TopologyStatus; BackingDeviceIds=@($location.BackingDeviceIds)
+    }
+}
+
+function Set-LabDefaultDataLocation {
+    [CmdletBinding(SupportsShouldProcess, ConfirmImpact='Medium')]
+    param(
+        [Parameter(Mandatory)][ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$LocationId,
+        [switch]$ProcessEnvironmentOnly
+    )
+
+    $configuration = Get-LabStorageConfiguration
+    $location = @($configuration.LabDataLocations | Where-Object LocationId -eq $LocationId | Select-Object -First 1)
+    if ($location.Count -ne 1) { throw "LAB_STORAGE_LOCATION_NOT_FOUND: $LocationId" }
+    if ([string]$configuration.DefaultLocationId -eq $LocationId) { return [string]$location[0].LabDataRoot }
+    if (-not $PSCmdlet.ShouldProcess([string]$location[0].LabDataRoot, 'Globalen Lab_Data-Fallback explizit ändern')) { return $null }
+    $configuration.DefaultLocationId = $LocationId
+    $configuration.DefaultDataRoot = [string]$location[0].LabDataRoot
+    $document = Write-LabStorageConfiguration -Configuration $configuration
+    $env:SQL_SERVER_LAB_DATA_ROOT = [string]$document.DefaultDataRoot
+    $env:SQL_SERVER_LAB_CONTROLLER_ID = [string]$document.ControllerId
+    if (-not $ProcessEnvironmentOnly) {
+        [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_DATA_ROOT', [string]$document.DefaultDataRoot, 'User')
+        [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_CONTROLLER_ID', [string]$document.ControllerId, 'User')
+    }
+    if (-not $ProcessEnvironmentOnly) {
+        Set-LabProjectPreferenceValue -Name dataRoot -Value ([string]$document.DefaultDataRoot)
+    }
+    $null = Set-LabTestEnvironmentDiscoveryEnvironment -DataRoot ([string]$document.DefaultDataRoot) -ProcessEnvironmentOnly:$ProcessEnvironmentOnly
+    return [string]$document.DefaultDataRoot
+}
+
+function Get-LabDataLocationReferences {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Location, $Configuration)
+
+    if (-not $Configuration) { $Configuration = Get-LabStorageConfiguration }
+    $references = [System.Collections.Generic.List[object]]::new()
+    $root = [IO.Path]::GetFullPath([string]$Location.LabDataRoot).TrimEnd('\', '/')
+    foreach ($run in @(Get-LabActiveRuns)) {
+        $runRoot = [string]$run.metadata.dataRoot
+        if ($runRoot -and [string]::Equals([IO.Path]::GetFullPath($runRoot).TrimEnd('\', '/'), $root, [StringComparison]::OrdinalIgnoreCase)) {
+            $references.Add([PSCustomObject]@{ Kind='run'; Id=[string]$run.runId })
+        }
+    }
+    if ($IsWindows) {
+        foreach ($drive in @(Get-LabHyperVHardDiskDriveInventory)) {
+            if (-not $drive.Path) { continue }
+            $path = [IO.Path]::GetFullPath([string]$drive.Path)
+            if ($path.Equals($root, [StringComparison]::OrdinalIgnoreCase) -or
+                $path.StartsWith($root + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
+                $references.Add([PSCustomObject]@{ Kind='hyperv-vhdx'; Id=[string]$drive.VMName })
+            }
+        }
+    }
+    foreach ($configurationRoot in @($Configuration.LabDataLocations | ForEach-Object { [string]$_.LabDataRoot } | Where-Object { $_ })) {
+        foreach ($file in @(Get-ChildItem -LiteralPath (Join-Path $configurationRoot 'Catalog') -Filter '*.json' -File -Recurse -ErrorAction SilentlyContinue)) {
+            if ($file.Name -eq 'storage-locations.json') { continue }
+            $content = Get-Content -LiteralPath $file.FullName -Raw -Encoding utf8
+            if ($content.Contains([string]$Location.LocationId, [StringComparison]::OrdinalIgnoreCase) -or
+                $content.Contains($root, [StringComparison]::OrdinalIgnoreCase)) {
+                $references.Add([PSCustomObject]@{ Kind='plan-or-journal'; Id=$file.FullName })
+            }
+        }
+    }
+    return @($references)
+}
+
+function Unregister-LabDataLocation {
+    [CmdletBinding(SupportsShouldProcess, ConfirmImpact='High')]
+    param([Parameter(Mandatory)][ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$LocationId)
+
+    $configuration = Get-LabStorageConfiguration
+    $location = @($configuration.LabDataLocations | Where-Object LocationId -eq $LocationId | Select-Object -First 1)
+    if ($location.Count -ne 1) { throw "LAB_STORAGE_LOCATION_NOT_FOUND: $LocationId" }
+    if ([string]$configuration.DefaultLocationId -eq $LocationId) { throw 'LAB_STORAGE_DEFAULT_LOCATION_PROTECTED' }
+    $references = @(Get-LabDataLocationReferences -Location $location[0] -Configuration $configuration)
+    if ($references.Count -gt 0) {
+        $referenceSummary = @($references | ForEach-Object { "$($_.Kind):$($_.Id)" }) -join ', '
+        throw "LAB_STORAGE_LOCATION_REFERENCED: $referenceSummary"
+    }
+    if (-not $PSCmdlet.ShouldProcess([string]$location[0].LabDataRoot, 'Unbenutzte Storage-Location deregistrieren')) { return $false }
+    $removedRoot = [string]$location[0].LabDataRoot
+    $configuration.LabDataLocations = @($configuration.LabDataLocations | Where-Object LocationId -ne $LocationId)
+    $null = Write-LabStorageConfiguration -Configuration $configuration -AdditionalRoots $removedRoot
+    return $true
 }
 
 function Resolve-LabDataRootForUse {
@@ -193,10 +512,9 @@ function New-LabDataMigrationPlan {
     $sourceLocation = @($configuration.LabDataLocations | Where-Object { [string]::Equals([string]$_.LabDataRoot, $sourceRoot, [StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 1)
     if ($sourceLocation.Count -eq 0) { throw "LAB_DATA_ROOT_NOT_REGISTERED: $sourceRoot" }
 
-    $targetParentPath = [System.IO.Path]::GetFullPath($TargetParent)
-    $targetVolumeRoot = [System.IO.Path]::GetPathRoot($targetParentPath)
-    $normalizedTargetParent = if ($targetParentPath.TrimEnd('\', '/') -eq $targetVolumeRoot.TrimEnd('\', '/')) { $targetVolumeRoot } else { $targetParentPath.TrimEnd('\', '/') }
-    $targetRoot = Join-Path $normalizedTargetParent 'Lab_Data'
+    $resolvedTarget = Resolve-LabStorageParentPath -Path $TargetParent
+    $normalizedTargetParent = [string]$resolvedTarget.LabDataParent
+    $targetRoot = [string]$resolvedTarget.LabDataRoot
     $sourceVolume = Get-LabVolumeIdentity -Path $sourceRoot
     $targetVolume = Get-LabVolumeIdentity -Path $targetRoot
     $blockers = [System.Collections.Generic.List[string]]::new()
@@ -245,8 +563,14 @@ function New-LabDataMigrationPlan {
         CreatedAt = Get-LabTimestamp
         ControllerId = [string]$configuration.ControllerId
         Status = if ($blockers.Count -eq 0) { 'READY' } else { 'BLOCKED' }
-        Source = [PSCustomObject]@{ VolumeId=$sourceVolume.VolumeId; DriveLetter=$sourceVolume.DriveLetter; LabDataRoot=$sourceRoot }
-        Target = [PSCustomObject]@{ VolumeId=$targetVolume.VolumeId; DriveLetter=$targetVolume.DriveLetter; LabDataParent=$normalizedTargetParent; LabDataRoot=$targetRoot }
+        Source = [PSCustomObject]@{
+            LocationId=[string]$sourceLocation[0].LocationId; VolumeId=$sourceVolume.VolumeId
+            DriveLetter=$sourceVolume.DriveLetter; LabDataRoot=$sourceRoot
+        }
+        Target = [PSCustomObject]@{
+            LocationId=[string]$sourceLocation[0].LocationId; VolumeId=$targetVolume.VolumeId
+            DriveLetter=$targetVolume.DriveLetter; LabDataParent=$normalizedTargetParent; LabDataRoot=$targetRoot
+        }
         Inventory = [PSCustomObject]@{ FileCount=$files.Count; TotalBytes=$totalBytes; RequiredBytes=$requiredBytes; AvailableBytes=$availableBytes }
         AffectedRuns = @($affectedRuns)
         RequiredActions = @('Stop affected environments', 'Create migration journal', 'Copy and verify data', 'Update provider and state references', 'Switch authoritative storage catalog', 'Remove empty managed source root')
@@ -317,6 +641,14 @@ function Invoke-LabDataMigration {
     $targetRoot = [System.IO.Path]::GetFullPath([string]$plan.Target.LabDataRoot).TrimEnd('\', '/')
     $configuration = Get-LabStorageConfiguration -DataRoot $sourceRoot
     if ([string]$configuration.ControllerId -ne [string]$plan.ControllerId) { throw 'LAB_STORAGE_MIGRATION_CONTROLLER_MISMATCH' }
+    $sourceLocation = @($configuration.LabDataLocations | Where-Object {
+        (([string]$plan.Source.LocationId) -and [string]$_.LocationId -eq [string]$plan.Source.LocationId) -or
+        (-not [string]$plan.Source.LocationId -and [string]::Equals([string]$_.LabDataRoot, $sourceRoot, [StringComparison]::OrdinalIgnoreCase))
+    } | Select-Object -First 1)
+    if ($sourceLocation.Count -ne 1 -or
+        -not [string]::Equals([string]$sourceLocation[0].LabDataRoot, $sourceRoot, [StringComparison]::OrdinalIgnoreCase)) {
+        throw 'LAB_STORAGE_MIGRATION_LOCATION_ID_MISMATCH'
+    }
     if (-not (Test-LabDataRootOwnership -DataRoot $sourceRoot -ControllerId ([string]$plan.ControllerId))) { throw 'LAB_STORAGE_MIGRATION_SOURCE_OWNERSHIP_INVALID' }
     if (-not $PSCmdlet.ShouldProcess("$sourceRoot -> $targetRoot", 'Lab_Data journalisiert migrieren')) { return $null }
 
@@ -330,6 +662,7 @@ function Invoke-LabDataMigration {
     else {
         [PSCustomObject]@{
             ContractVersion='SqlServerLab.StorageMigrationJournal/1.0'; PlanId=[string]$plan.PlanId; PlanSha256=$planHash
+            LocationId=[string]$sourceLocation[0].LocationId
             Status='PREPARING'; CreatedAt=Get-LabTimestamp; UpdatedAt=Get-LabTimestamp; CurrentStep='validate'
             CompletedAt=$null; CopiedFiles=@(); ReboundResources=@(); UpdatedReferences=@(); Errors=@()
         }
@@ -403,23 +736,27 @@ function Invoke-LabDataMigration {
 
         $journal.Status = 'SWITCHING'; $journal.CurrentStep = 'references-and-catalog'
         $journal.UpdatedReferences = @(Update-LabMigratedJsonReferences -Root $targetRoot -SourceRoot $sourceRoot -TargetRoot $targetRoot)
+        $null = Initialize-LabManagedDataRoot -DataRoot $targetRoot -ControllerId ([string]$configuration.ControllerId) -Confirm:$false
         $locations = @($configuration.LabDataLocations | ForEach-Object {
             if ([string]::Equals([string]$_.LabDataRoot, $sourceRoot, [StringComparison]::OrdinalIgnoreCase)) {
-                [PSCustomObject]@{ VolumeId=[string]$plan.Target.VolumeId; DriveLetter=[string]$plan.Target.DriveLetter; LabDataParent=[string]$plan.Target.LabDataParent; LabDataRoot=$targetRoot }
+                New-LabStorageLocationRecord -ControllerId ([string]$configuration.ControllerId) `
+                    -LabDataRoot $targetRoot -ExistingLocation $_
             }
             else { $_ }
         })
         $newConfiguration = [PSCustomObject]@{
             ContractVersion='SqlServerLab.Storage/2.0'; ControllerId=[string]$configuration.ControllerId
+            DefaultLocationId=[string]$configuration.DefaultLocationId
             DefaultDataRoot=if ([string]::Equals([string]$configuration.DefaultDataRoot, $sourceRoot, [StringComparison]::OrdinalIgnoreCase)) { $targetRoot } else { [string]$configuration.DefaultDataRoot }
-            LabDataLocations=$locations; UpdatedAt=Get-LabTimestamp
+            LabDataLocations=$locations; LegacyMigrationReceipt=$configuration.LegacyMigrationReceipt
         }
-        $null = Initialize-LabManagedDataRoot -DataRoot $targetRoot -ControllerId ([string]$configuration.ControllerId) -Confirm:$false
-        Write-LabArtifactJsonAtomic -Path (Join-Path (Join-Path $targetRoot 'Catalog') 'storage-locations.json') -InputObject $newConfiguration
+        $newConfiguration = Write-LabStorageConfiguration -Configuration $newConfiguration
         if ([string]::Equals([string]$newConfiguration.DefaultDataRoot, $targetRoot, [StringComparison]::OrdinalIgnoreCase)) {
             $env:SQL_SERVER_LAB_DATA_ROOT = $targetRoot
-            if (-not $ProcessEnvironmentOnly) { [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_DATA_ROOT', $targetRoot, 'User') }
-            Set-LabProjectPreferenceValue -Name dataRoot -Value $targetRoot
+            if (-not $ProcessEnvironmentOnly) {
+                [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_DATA_ROOT', $targetRoot, 'User')
+                Set-LabProjectPreferenceValue -Name dataRoot -Value $targetRoot
+            }
             $null = Set-LabTestEnvironmentDiscoveryEnvironment -DataRoot $targetRoot -ProcessEnvironmentOnly:$ProcessEnvironmentOnly
         }
 
@@ -449,60 +786,113 @@ function Invoke-LabDataMigration {
     }
 }
 
+function Select-LabDataLocationInteractive {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Configuration,
+        [Parameter(Mandatory)][string]$Title,
+        [switch]$ExcludeDefault
+    )
+
+    $locations = @($Configuration.LabDataLocations | Where-Object {
+        -not $ExcludeDefault -or [string]$_.LocationId -ne [string]$Configuration.DefaultLocationId
+    })
+    if ($locations.Count -eq 0) { return $null }
+    $items = for ($index = 0; $index -lt $locations.Count; $index++) {
+        $location = $locations[$index]
+        $defaultMarker = if ([string]$location.LocationId -eq [string]$Configuration.DefaultLocationId) { ' · Standard' } else { '' }
+        New-LabConsoleItem -Id ([string]$location.LocationId) -Label ([string]$location.LabDataRoot) `
+            -Value ("{0} · {1} Backing Device(s){2}" -f $location.TopologyStatus, @($location.BackingDeviceIds).Count, $defaultMarker) `
+            -Shortcut ([string]($index + 1)) -Data $location
+    }
+    $selection = Invoke-LabConsoleMenu -ScreenId 'storage-location-select' -Title $Title -Items $items
+    if ($selection.Status -ne 'Selected') { return $null }
+    return $selection.SelectedItem.Data
+}
+
 function Invoke-LabStorageInteractive {
     [CmdletBinding()]
     param()
 
-    $configuration = Get-LabStorageConfiguration
-    Write-Host '  Storage-Verwaltung' -ForegroundColor Cyan
-    Write-Host '  ---------------------------------------------------------------------' -ForegroundColor DarkCyan
-    Write-Host "    Standard: $(if ($configuration.DefaultDataRoot) { $configuration.DefaultDataRoot } else { '<nicht konfiguriert>' })"
-    foreach ($location in @($configuration.LabDataLocations)) {
-        Write-Host ("    {0} -> {1}" -f $location.DriveLetter, $location.LabDataRoot) -ForegroundColor DarkGray
-    }
-    Write-Host '    [1] Lab_Data-Parent eines Volumes konfigurieren'
-    Write-Host '    [2] Storage-Konfiguration erneut anzeigen'
-    Write-Host '    [3] Parent-Wechsel als Migrationsplan pruefen'
-    Write-Host '    [4] Freigegebenen Migrationsplan ausfuehren'
-    Write-Host '    [0] Zurueck'
-    $choice = Read-Host '  Auswahl'
-    if ($choice -eq '1') {
-        $parent = Read-Host '  Fester Parent auf dem Zielvolume (Volume-Root ist erlaubt)'
-        if ([string]::IsNullOrWhiteSpace($parent)) { return }
-        try {
-            $setDefault = -not $configuration.DefaultDataRoot -or (Read-LabConfirm -Prompt '  Diese Lab_Data-Wurzel als Standard verwenden?' -Default $false)
-            $result = Set-LabDataLocation -LabDataParent $parent -SetDefault:$setDefault
-            Write-LabSuccess "Lab_Data registriert: $($result.LabDataRoot)"
+    while ($true) {
+        $configuration = Get-LabStorageConfiguration
+        $subtitle = if ($configuration.DefaultDataRoot) {
+            "Standard: $($configuration.DefaultDataRoot) · $(@($configuration.LabDataLocations).Count) Location(s)"
         }
-        catch { Write-LabError $_.Exception.Message }
-    }
-    elseif ($choice -eq '3') {
-        $locations = @($configuration.LabDataLocations)
-        if ($locations.Count -eq 0) { Write-LabWarning 'Keine Lab_Data-Wurzel registriert.'; return }
-        for ($index = 0; $index -lt $locations.Count; $index++) { Write-Host ('    [{0}] {1}' -f ($index + 1), $locations[$index].LabDataRoot) }
-        $selection = Read-Host '  Quell-Root [1]'
-        if (-not $selection) { $selection = '1' }
-        $number = 0
-        if (-not [int]::TryParse($selection, [ref]$number) -or $number -lt 1 -or $number -gt $locations.Count) { Write-LabWarning 'Ungueltige Auswahl.'; return }
-        $targetParent = Read-Host '  Neuer fester Parent auf demselben Volume'
-        if (-not $targetParent) { return }
+        else { 'Noch keine verwaltete Lab_Data-Location' }
+        $menu = Invoke-LabConsoleMenu -ScreenId 'storage-management' -Title 'Storage verwalten' -Subtitle $subtitle -Items @(
+            New-LabConsoleItem -Id 'add' -Label 'Lab_Data-Location hinzufügen' -Value 'ändert einen vorhandenen Standard nicht' -Shortcut '1'
+            New-LabConsoleItem -Id 'show' -Label 'Locations und Topologie aktualisieren' -Shortcut '2'
+            New-LabConsoleItem -Id 'default' -Label 'Globalen Fallback explizit festlegen' -Shortcut '3' -Disabled:(@($configuration.LabDataLocations).Count -lt 2)
+            New-LabConsoleItem -Id 'remove' -Label 'Unbenutzte Location deregistrieren' -Value 'Default und Referenzen sind geschützt' -Shortcut '4' -Disabled:(@($configuration.LabDataLocations).Count -lt 2)
+            New-LabConsoleItem -Id 'plan' -Label 'Parent-Migration planen' -Shortcut '5' -Disabled:(@($configuration.LabDataLocations).Count -eq 0)
+            New-LabConsoleItem -Id 'execute' -Label 'Freigegebenen Migrationsplan ausführen' -Shortcut '6'
+            New-LabConsoleItem -Id 'back' -Label 'Zurück' -Shortcut '0'
+        )
+        if ($menu.Status -ne 'Selected' -or [string]$menu.SelectedItem.Id -eq 'back') { return }
         try {
-            $result = New-LabDataMigrationPlan -SourceDataRoot ([string]$locations[$number - 1].LabDataRoot) -TargetParent $targetParent
-            Write-LabInfo "Migrationsplan: $($result.Path)"
-            Write-Host ("    Status={0}, Dateien={1}, Bytes={2}, Blocker={3}" -f $result.Plan.Status, $result.Plan.Inventory.FileCount, $result.Plan.Inventory.TotalBytes, @($result.Plan.Blockers).Count) -ForegroundColor DarkGray
-            foreach ($blocker in @($result.Plan.Blockers)) { Write-LabWarning $blocker }
+            switch ([string]$menu.SelectedItem.Id) {
+                'add' {
+                    $parent = Read-Host '  Vollqualifizierter Parent auf dem Zielvolume (Volume-Root ist erlaubt)'
+                    $resolved = Resolve-LabStorageParentPath -Path $parent
+                    Write-LabInfo "Normalisiertes Ziel: $($resolved.LabDataRoot)"
+                    if (-not (Read-LabConfirm -Prompt '  Diese Lab_Data-Location initialisieren und registrieren?' -Default $false)) { continue }
+                    $result = Set-LabDataLocation -LabDataParent $parent -Confirm:$false
+                    Write-LabSuccess "Lab_Data registriert: $($result.LabDataRoot)"
+                    Write-LabInfo "LocationId=$($result.LocationId); Topologie=$($result.TopologyStatus); Standard blieb unverändert."
+                }
+                'show' {
+                    foreach ($location in @($configuration.LabDataLocations)) {
+                        $marker = if ([string]$location.LocationId -eq [string]$configuration.DefaultLocationId) { ' [STANDARD]' } else { '' }
+                        Write-Host ("  {0}{1}`n    Root={2}`n    Volume={3}; Topologie={4}; Backing={5}; Bus={6}; Medium={7}; Health={8}; Frei={9}" -f
+                            $location.LocationId, $marker, $location.LabDataRoot, $location.VolumeId,
+                            $location.TopologyStatus, (@($location.BackingDeviceIds) -join ', '), $location.BusType,
+                            $location.MediaType, $location.HealthStatus, $location.FreeBytes)
+                    }
+                    $null = Read-Host '  Enter zum Fortsetzen'
+                }
+                'default' {
+                    $location = Select-LabDataLocationInteractive -Configuration $configuration -Title 'Neuen globalen Lab_Data-Fallback wählen'
+                    if (-not $location -or [string]$location.LocationId -eq [string]$configuration.DefaultLocationId) { continue }
+                    Write-LabWarning "Neue persistente Labs verwenden danach standardmäßig: $($location.LabDataRoot)"
+                    if (Read-LabConfirm -Prompt '  Globalen Fallback jetzt explizit ändern?' -Default $false) {
+                        $null = Set-LabDefaultDataLocation -LocationId ([string]$location.LocationId) -Confirm:$false
+                        Write-LabSuccess "Globaler Fallback geändert: $($location.LabDataRoot)"
+                    }
+                }
+                'remove' {
+                    $location = Select-LabDataLocationInteractive -Configuration $configuration -Title 'Unbenutzte Location deregistrieren' -ExcludeDefault
+                    if (-not $location) { continue }
+                    Write-LabWarning 'Die Daten werden nicht gelöscht; nur die Registry-Bindung wird entfernt.'
+                    if (Read-LabConfirm -Prompt "  Location $($location.LocationId) deregistrieren?" -Default $false) {
+                        $null = Unregister-LabDataLocation -LocationId ([string]$location.LocationId) -Confirm:$false
+                        Write-LabSuccess "Location deregistriert: $($location.LabDataRoot)"
+                    }
+                }
+                'plan' {
+                    $location = Select-LabDataLocationInteractive -Configuration $configuration -Title 'Quell-Location für Parent-Migration wählen'
+                    if (-not $location) { continue }
+                    $targetParent = Read-Host '  Neuer vollqualifizierter Parent auf demselben Volume'
+                    $result = New-LabDataMigrationPlan -SourceDataRoot ([string]$location.LabDataRoot) -TargetParent $targetParent
+                    Write-LabInfo "Migrationsplan: $($result.Path)"
+                    Write-Host ("    LocationId={0}; Status={1}; Dateien={2}; Bytes={3}; Blocker={4}" -f
+                        $result.Plan.Source.LocationId, $result.Plan.Status, $result.Plan.Inventory.FileCount,
+                        $result.Plan.Inventory.TotalBytes, @($result.Plan.Blockers).Count) -ForegroundColor DarkGray
+                    foreach ($blocker in @($result.Plan.Blockers)) { Write-LabWarning $blocker }
+                }
+                'execute' {
+                    $planPath = Read-Host '  Vollständiger Pfad zur *.plan.json'
+                    Write-LabWarning 'Die Migration kopiert und prüft alle Dateien, bindet Hyper-V-VHDX um und schaltet erst danach den Katalog um.'
+                    if (Read-LabConfirm -Prompt '  Migrationsplan jetzt ausführen?' -Default $false) {
+                        $result = Invoke-LabDataMigration -PlanPath $planPath -Confirm:$false
+                        Write-LabSuccess "Storage-Migration abgeschlossen: $($result.DataRoot)"
+                        Write-LabInfo "Journal: $($result.JournalPath)"
+                    }
+                }
+            }
         }
-        catch { Write-LabError $_.Exception.Message }
-    }
-    elseif ($choice -eq '4') {
-        $planPath = Read-Host '  Vollstaendiger Pfad zur *.plan.json'
-        if (-not $planPath) { return }
-        Write-LabWarning 'Die Migration kopiert und prueft alle Dateien, bindet Hyper-V-VHDX um und schaltet erst danach den Katalog um.'
-        if (-not (Read-LabConfirm -Prompt '  Migrationsplan jetzt ausfuehren?' -Default $false)) { return }
-        try {
-            $result = Invoke-LabDataMigration -PlanPath $planPath -Confirm:$false
-            Write-LabSuccess "Storage-Migration abgeschlossen: $($result.DataRoot)"
-            Write-LabInfo "Journal: $($result.JournalPath)"
+        catch [OperationCanceledException] {
+            if (-not (Test-LabConsoleInputCancellation $_)) { throw }
         }
         catch { Write-LabError $_.Exception.Message }
     }
