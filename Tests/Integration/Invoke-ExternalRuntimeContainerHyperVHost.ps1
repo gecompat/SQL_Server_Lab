@@ -438,7 +438,8 @@ runcmd:
     foreach ($provider in @('docker','podman')) {
         Write-Host "Starte native $provider-External-Runtime-Abnahme..." -ForegroundColor Cyan
         $remoteEvidence = "/var/tmp/external-runtime-$provider-evidence.json"
-        Invoke-GuestSsh -Address $guestAddress -Command "cd $remoteRoot && sudo pwsh -NoProfile -File ./Tests/Integration/Invoke-ExternalRuntimeContainerAcceptance.ps1 -Provider $provider -EvidencePath $remoteEvidence" | Out-Host
+        $keepGuestResources = if ($KeepOnFailure) { ' -KeepOnFailure' } else { '' }
+        Invoke-GuestSsh -Address $guestAddress -Command "cd $remoteRoot && sudo pwsh -NoProfile -File ./Tests/Integration/Invoke-ExternalRuntimeContainerAcceptance.ps1 -Provider $provider -EvidencePath $remoteEvidence$keepGuestResources" | Out-Host
         $localEvidence = Join-Path $evidenceRoot "external-runtime-$provider-$runToken.json"
         $scpArguments[-2] = "$sshUser@${guestAddress}:$remoteEvidence"
         $scpArguments[-1] = $localEvidence

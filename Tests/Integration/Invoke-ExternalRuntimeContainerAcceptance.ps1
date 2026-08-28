@@ -43,6 +43,7 @@ $previousPodmanSubnet = $env:SQL_SERVER_LAB_PODMAN_SUBNET
 $lab = $null
 $imageName = $null
 $initialImageName = $null
+$allRuntimeImageName = $null
 $completed = $false
 $acceptanceNetworkName = $null
 
@@ -73,7 +74,8 @@ try {
     New-Item -Path $testRoot -ItemType Directory -Force | Out-Null
     $env:SQL_SERVER_LAB_STATE = $stateRoot
     $token = [guid]::NewGuid().ToString('N').Substring(0, 16)
-    $saPassword = ConvertTo-SecureString "ExtLang_${token}!Aa7" -AsPlainText -Force
+    $saPlain = "ExtLang_${token}!Aa7"
+    $saPassword = ConvertTo-SecureString $saPlain -AsPlainText -Force
     $manifest = [ordered]@{
         name = "external-runtime-$Provider-native"
         automation = [ordered]@{ mode = 'unattended' }
@@ -131,6 +133,16 @@ try {
     Assert-ExternalRuntimeAcceptance ([string]$instance.ExternalRuntime.Status -eq 'EXTENSIONS_READY_RUN') 'External-Runtime-State ist EXTENSIONS_READY_RUN'
     Assert-ExternalRuntimeAcceptance (@($instance.ExternalRuntime.Receipts).Count -eq 1) 'Python besitzt vor dem Refresh ein Installation-Receipt'
 
+    $dataMarker = "persisted-$token"
+    $null = & $module {
+        param($LabInstance,$Password,$Marker)
+        Invoke-SqlQuery -HostName ([string]$LabInstance.Host) -Port ([int]$LabInstance.Port) -SaPlain $Password -TimeoutSeconds 90 -Query @"
+IF DB_ID(N'ExternalRuntimePersistence') IS NULL CREATE DATABASE [ExternalRuntimePersistence];
+EXEC(N'USE [ExternalRuntimePersistence]; IF OBJECT_ID(N''dbo.RefreshMarker'', N''U'') IS NULL CREATE TABLE dbo.RefreshMarker(marker nvarchar(128) NOT NULL); DELETE FROM dbo.RefreshMarker; INSERT dbo.RefreshMarker(marker) VALUES (N''$Marker'');');
+"@
+    } $instance $saPlain $dataMarker
+    Assert-ExternalRuntimeAcceptance $true 'Persistenter SQL-Datenmarker wurde vor dem Refresh geschrieben'
+
     $initialImageKey = [string]$instance.ExternalRuntime.ImageKey
     $initialImageReceipt = & $module {
         param($ImageKey,$ProviderName,$StateRootPath)
@@ -158,6 +170,13 @@ try {
     $journalPath = Join-Path (Join-Path (Join-Path $stateRoot 'runs') $lab.RunId) 'external-runtime-refresh.json'
     $journal = Get-Content -LiteralPath $journalPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 50
     Assert-ExternalRuntimeAcceptance ([string]$journal.status -eq 'COMPLETED') 'Refresh-Journal ist nach State-Commit und Alt-Container-Cleanup abgeschlossen'
+    Assert-ExternalRuntimeAcceptance ([string]$journal.containerName -eq [string]$instance.containerName) 'Ersatzcontainer behaelt den kanonischen Cleanup-Namen'
+    $markerAfterRefresh = & $module {
+        param($LabInstance,$Password)
+        @(Invoke-SqlQuery -HostName ([string]$LabInstance.Host) -Port ([int]$LabInstance.Port) -SaPlain $Password `
+            -Database ExternalRuntimePersistence -Query 'SET NOCOUNT ON; SELECT marker FROM dbo.RefreshMarker;' -TimeoutSeconds 90) -join "`n"
+    } $instance $saPlain
+    Assert-ExternalRuntimeAcceptance ($markerAfterRefresh -match [regex]::Escape($dataMarker)) 'SQL-Datenmarker blieb ueber den Container-Refresh erhalten'
 
     $receiptPath = Join-Path (Join-Path (Join-Path $stateRoot 'runs') $lab.RunId) 'software-installation-receipts.json'
     Assert-ExternalRuntimeAcceptance (Test-Path -LiteralPath $receiptPath -PathType Leaf) 'Sanitisierte Installation-Receipts wurden persistiert'
@@ -165,9 +184,53 @@ try {
     $receipts = @($receiptDocument.instances | Where-Object instanceId -eq 'external-runtime' | ForEach-Object { @($_.receipts) })
     Assert-ExternalRuntimeAcceptance ($receipts.Count -eq 3 -and @($receipts | Where-Object status -ne 'EXTENSIONS_READY_RUN').Count -eq 0) 'Persistierte Receipts sind vollstaendig und bereit'
 
+    $allRuntimeImageKey = [string]$instance.ExternalRuntime.ImageKey
+    $allRuntimeImageReceipt = & $module {
+        param($ImageKey,$ProviderName,$StateRootPath)
+        Get-LabExternalRuntimeContainerImageReceipt -ImageKey $ImageKey -Provider $ProviderName -StateRoot $StateRootPath
+    } $allRuntimeImageKey $Provider $stateRoot
+    $allRuntimeImageName = [string]$allRuntimeImageReceipt.image
+
+    $manifest.instances[0].software = @(
+        [ordered]@{ id='sql-python'; scope='sqlExternalRuntime' },
+        [ordered]@{ id='sql-r'; scope='sqlExternalRuntime' }
+    )
+    $manifest | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $manifestPath -Encoding utf8
+    $removalPlan = Get-SqlServerLabReconcilePlan -RunId $lab.RunId -ManifestPath $manifestPath `
+        -InstanceId external-runtime -StateRoot $stateRoot
+    Assert-ExternalRuntimeAcceptance (@($removalPlan.Diff | Where-Object {
+        $_.SoftwareId -eq 'sql-java' -and $_.ChangeClassification.Intent -eq 'remove'
+    }).Count -eq 1) 'Reconcile plant Java als explizite Runtime-Entfernung'
+    $removalRefresh = Invoke-SqlServerLabReconcileAction -RunId $lab.RunId -ManifestPath $manifestPath `
+        -InstanceId external-runtime -ReadinessTimeoutSeconds 300 -StateRoot $stateRoot -Confirm:$false
+    $removalErrors = @($removalRefresh.ExecutionSummary.Errors) -join ' | '
+    Assert-ExternalRuntimeAcceptance ([string]$removalRefresh.ExecutionSummary.Status -eq 'SUCCEEDED') `
+        "Java-Runtime wurde journalgebunden entfernt (Status=$($removalRefresh.ExecutionSummary.Status); Errors=$removalErrors)"
+    $connection = Get-Content -LiteralPath $connectionPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 50
+    $instance = @($connection.instances | Where-Object id -eq 'external-runtime')[0]
+    Assert-ExternalRuntimeAcceptance (@($instance.ExternalRuntime.Receipts).Count -eq 2 -and
+        @($instance.ExternalRuntime.Receipts.SoftwareId | Sort-Object) -join ',' -eq 'sql-python,sql-r') `
+        'Connection-State enthaelt nach Removal nur Python und R'
+    $removalJournal = Get-Content -LiteralPath $journalPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 50
+    Assert-ExternalRuntimeAcceptance ([string]$removalJournal.status -eq 'COMPLETED' -and
+        @($removalJournal.javaCleanup.records).Count -gt 0) 'Java-DDL-Cleanup ist eigentumsgebunden journalisiert und abgeschlossen'
+    $javaObjects = & $module {
+        param($LabInstance,$Password)
+        @(Invoke-SqlQuery -HostName ([string]$LabInstance.Host) -Port ([int]$LabInstance.Port) -SaPlain $Password -Database master -TimeoutSeconds 90 -Query @'
+SET NOCOUNT ON;
+SELECT CONCAT(N'SQLLAB_JAVA_OBJECTS|',
+    (SELECT COUNT(*) FROM sys.external_languages WHERE language = N'Java'), N'|',
+    (SELECT COUNT(*) FROM sys.external_libraries WHERE name IN (N'SqlServerLabJavaSdk', N'SqlServerLabJavaProbe')));
+'@) -join "`n"
+    } $instance $saPlain
+    Assert-ExternalRuntimeAcceptance ($javaObjects -match 'SQLLAB_JAVA_OBJECTS\|0\|0') 'Vom Lab erzeugte Java-Sprache und Libraries wurden entfernt'
+    $receiptDocument = Get-Content -LiteralPath $receiptPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 100
+    $receipts = @($receiptDocument.instances | Where-Object instanceId -eq 'external-runtime' | ForEach-Object { @($_.receipts) })
+    Assert-ExternalRuntimeAcceptance ($receipts.Count -eq 2 -and @($receipts | Where-Object status -ne 'EXTENSIONS_READY_RUN').Count -eq 0) 'Persistierte Receipts enthalten nach Removal nur bereite Zielruntimes'
+
     $hostAndImage = & $module {
-        param($ProviderName,$ImageKey,$StateRootPath)
-        $plans = @(@('sql-python','sql-r','sql-java') | ForEach-Object {
+        param($ProviderName,$ImageKey,$StateRootPath,$SoftwareIds)
+        $plans = @(@($SoftwareIds) | ForEach-Object {
             Resolve-LabExternalRuntimePlan -SoftwareItem ([PSCustomObject]@{
                 Id=$_; Version=$null; Variant=$null; InstallMethod=$null; Packages=@(); RequestSource='native-acceptance'
             }) -SqlVersion '2022' -Provider $ProviderName -OperatingSystem linux
@@ -177,7 +240,7 @@ try {
         $hostStatus = Test-LabExternalRuntimeContainerHost -Provider $ProviderName -ImagePlan $imagePlan
         $imageReceipt = Get-LabExternalRuntimeContainerImageReceipt -ImageKey $ImageKey -Provider $ProviderName -StateRoot $StateRootPath
         [PSCustomObject]@{ Host=$hostStatus; ImageReceipt=$imageReceipt; Plans=$plans }
-    } $Provider ([string]$instance.ExternalRuntime.ImageKey) $stateRoot
+    } $Provider ([string]$instance.ExternalRuntime.ImageKey) $stateRoot @($instance.ExternalRuntime.Receipts.SoftwareId)
     Assert-ExternalRuntimeAcceptance ([string]$hostAndImage.Host.Status -eq 'READY' -and [string]$hostAndImage.Host.CgroupVersion -eq '1') 'Provider laeuft nativ auf Linux mit cgroup v1'
     Assert-ExternalRuntimeAcceptance ([string]$hostAndImage.ImageReceipt.status -eq 'IMAGE_READY') 'Digest- und Context-gebundenes Derived Image ist nachgewiesen'
     $imageName = [string]$hostAndImage.ImageReceipt.image
@@ -197,7 +260,13 @@ try {
         [PSCustomObject]@{ Launchpad=$launchpad; Probes=@($probes) }
     } @($hostAndImage.Plans) $instance $saPassword
     Assert-ExternalRuntimeAcceptance ([string]$postRestart.Launchpad.Status -eq 'PASS') 'launchpadd ist nach Restart bereit'
-    Assert-ExternalRuntimeAcceptance (@($postRestart.Probes).Count -eq 3 -and @($postRestart.Probes | Where-Object Status -ne 'PASS').Count -eq 0) 'Python, R und Java bestehen nach Restart erneut'
+    Assert-ExternalRuntimeAcceptance (@($postRestart.Probes).Count -eq 2 -and @($postRestart.Probes | Where-Object Status -ne 'PASS').Count -eq 0) 'Python und R bestehen nach Java-Removal und Restart erneut'
+    $markerAfterRestart = & $module {
+        param($LabInstance,$Password)
+        @(Invoke-SqlQuery -HostName ([string]$LabInstance.Host) -Port ([int]$LabInstance.Port) -SaPlain $Password `
+            -Database ExternalRuntimePersistence -Query 'SET NOCOUNT ON; SELECT marker FROM dbo.RefreshMarker;' -TimeoutSeconds 90) -join "`n"
+    } $instance $saPlain
+    Assert-ExternalRuntimeAcceptance ($markerAfterRestart -match [regex]::Escape($dataMarker)) 'SQL-Datenmarker blieb auch ueber den Provider-Restart erhalten'
 
     $cleanup = Remove-SqlServerLab -RunId $lab.RunId -StateRoot $stateRoot -Force -Confirm:$false
     Assert-ExternalRuntimeAcceptance ([string]$cleanup.Status -eq 'REMOVED') 'Run-Ressourcen wurden ueber den registrierten Cleanup entfernt'
@@ -205,8 +274,9 @@ try {
 
     $imageExistsAfterRunCleanup = @(& $Provider image inspect $imageName 2>$null).Count -gt 0 -and $LASTEXITCODE -eq 0
     $initialImageExistsAfterRunCleanup = @(& $Provider image inspect $initialImageName 2>$null).Count -gt 0 -and $LASTEXITCODE -eq 0
-    Assert-ExternalRuntimeAcceptance ($imageExistsAfterRunCleanup -and $initialImageExistsAfterRunCleanup) 'Altes und neues wiederverwendbares Image bleiben vom normalen Run-Cleanup getrennt'
-    foreach ($testImage in @(@($imageName,$initialImageName) | Sort-Object -Unique)) {
+    $allRuntimeImageExistsAfterRunCleanup = @(& $Provider image inspect $allRuntimeImageName 2>$null).Count -gt 0 -and $LASTEXITCODE -eq 0
+    Assert-ExternalRuntimeAcceptance ($imageExistsAfterRunCleanup -and $initialImageExistsAfterRunCleanup -and $allRuntimeImageExistsAfterRunCleanup) 'Alle drei wiederverwendbaren Images bleiben vom normalen Run-Cleanup getrennt'
+    foreach ($testImage in @(@($imageName,$initialImageName,$allRuntimeImageName) | Sort-Object -Unique)) {
         & $Provider image rm --force $testImage 1>$null
         Assert-ExternalRuntimeAcceptance ($LASTEXITCODE -eq 0) "Test-eigenes Derived Image wurde explizit entfernt: $testImage"
     }
@@ -216,7 +286,7 @@ try {
     }
 
     $evidence = [ordered]@{
-        contract = [ordered]@{ name='SqlServerLab.ExternalRuntimeContainerAcceptance'; version='1.1' }
+        contract = [ordered]@{ name='SqlServerLab.ExternalRuntimeContainerAcceptance'; version='1.3' }
         status = 'PASS'
         provider = $Provider
         platform = 'linux'
@@ -230,8 +300,17 @@ try {
             changeClass = [string]$refreshPlan.HighestChangeClass
             journalStatus = [string]$journal.status
             previousImageKey = $initialImageKey
-            desiredImageKey = [string]$instance.ExternalRuntime.ImageKey
+            desiredImageKey = $allRuntimeImageKey
             previousImageRetainedAfterSwitch = $initialImageExistsAfterRunCleanup
+        }
+        removal = [ordered]@{
+            status = [string]$removalRefresh.ExecutionSummary.Status
+            softwareId = 'sql-java'
+            journalStatus = [string]$removalJournal.status
+            javaCleanupRecords = @($removalJournal.javaCleanup.records).Count
+            intermediateImageKey = $allRuntimeImageKey
+            desiredImageKey = [string]$instance.ExternalRuntime.ImageKey
+            intermediateImageRetainedAfterSwitch = $allRuntimeImageExistsAfterRunCleanup
         }
         image = [ordered]@{
             imageKey = [string]$instance.ExternalRuntime.ImageKey
@@ -284,6 +363,9 @@ finally {
     }
     if ($initialImageName -and -not $completed -and -not $KeepOnFailure) {
         try { & $Provider image rm --force $initialImageName 1>$null 2>$null } catch { }
+    }
+    if ($allRuntimeImageName -and -not $completed -and -not $KeepOnFailure) {
+        try { & $Provider image rm --force $allRuntimeImageName 1>$null 2>$null } catch { }
     }
     if ($acceptanceNetworkName -and -not $completed -and -not $KeepOnFailure) {
         try { & $Provider network rm $acceptanceNetworkName 1>$null 2>$null } catch { }

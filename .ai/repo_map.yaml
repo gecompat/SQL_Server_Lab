@@ -172,7 +172,7 @@ public_commands:
     writes_files: true
   - name: Get-SqlServerLabReconcilePlan
     source: Public/Get-SqlServerLabReconcilePlan.ps1
-    purpose: "Read-only Lifecycle- oder resolvergebundener External-Runtime-Refresh-Plan"
+    purpose: "Read-only Lifecycle- oder resolvergebundener External-Runtime-Reconcile-Plan"
     mutates_host: false
   - name: Invoke-SqlServerLabReconcileAction
     source: Public/Invoke-SqlServerLabReconcileAction.ps1
@@ -790,8 +790,8 @@ validation:
   last_confirmed_result:
     date: "2026-08-28"
     source: Documentation/Quality/VALIDATION_RESULT_2026-08-28.md
-    docker: "PASS – additiver SQL-2022-External-Runtime-Refresh, Journal, Python/R/Java, Restart und Cleanup"
-    podman: "PASS – additiver SQL-2022-External-Runtime-Refresh, Journal, Python/R/Java, Restart und Cleanup"
+    docker: "PASS – SQL-2022-External-Runtime-Refresh und Java-Removal, persistente Daten/Artefakte, Restart und Cleanup"
+    podman: "PASS – SQL-2022-External-Runtime-Refresh und Java-Removal, persistente Daten/Artefakte, Restart und Cleanup"
     hyperv: "PASS (übernommen vom 2026-08-27-Befund) – frischer Windows-Slot, SQL Server 2025, Lifecycle, Persistenz und Cleanup"
 
 change_coupling:

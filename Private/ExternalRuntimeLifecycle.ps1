@@ -261,7 +261,7 @@ BEGIN TRY
     ELSE
     BEGIN
         CREATE EXTERNAL LIBRARY SqlServerLabJavaSdk
-        FROM (CONTENT = N'$($platformContract.SdkPath)')
+        FROM (CONTENT = N'$($platformContract.SdkPath)', PLATFORM = $($platformContract.Platform))
         WITH (LANGUAGE = 'Java');
         SET @createdSdk = 1;
     END;
@@ -283,7 +283,7 @@ BEGIN TRY
     ELSE
     BEGIN
         CREATE EXTERNAL LIBRARY SqlServerLabJavaProbe
-        FROM (CONTENT = N'$($platformContract.ProbePath)')
+        FROM (CONTENT = N'$($platformContract.ProbePath)', PLATFORM = $($platformContract.Platform))
         WITH (LANGUAGE = 'Java');
         SET @createdProbe = 1;
     END;
@@ -364,7 +364,8 @@ function Invoke-LabJavaExternalRuntimeProbe {
         [string]$HostName = '127.0.0.1',
         [Parameter(Mandatory)][int]$Port,
         [Parameter(Mandatory)][SecureString]$SaPassword,
-        [Parameter(Mandatory)][ValidatePattern('^[A-Za-z][A-Za-z0-9_]{0,127}$')][string]$Database
+        [Parameter(Mandatory)][ValidatePattern('^[A-Za-z][A-Za-z0-9_]{0,127}$')][string]$Database,
+        $RegistrationTracker
     )
 
     $expectedMajor = if ([string]$Plan.OperatingSystem -eq 'windows') { '17' } else { '11' }
@@ -373,6 +374,15 @@ function Invoke-LabJavaExternalRuntimeProbe {
     }
     $registration = Register-LabJavaExternalRuntimeDatabaseObjects -Plan $Plan -HostName $HostName `
         -Port $Port -SaPassword $SaPassword -Database $Database
+    if ($RegistrationTracker -and $RegistrationTracker.Registration) {
+        $prior = $RegistrationTracker.Registration
+        $registration.CreatedLanguage = [bool]$registration.CreatedLanguage -or [bool]$prior.CreatedLanguage
+        $registration.CreatedSdk = [bool]$registration.CreatedSdk -or [bool]$prior.CreatedSdk
+        $registration.CreatedProbe = [bool]$registration.CreatedProbe -or [bool]$prior.CreatedProbe
+    }
+    if ($RegistrationTracker) {
+        $RegistrationTracker.Registration = $registration
+    }
     $query = @"
 SET NOCOUNT ON;
 EXEC sp_execute_external_script
@@ -400,12 +410,14 @@ WITH RESULT SETS ((evidence nvarchar(4000) NOT NULL));
     }
     catch {
         $probeFailure = $_
-        try {
-            Undo-LabJavaExternalRuntimeDatabaseObjects -HostName $HostName -Port $Port -SaPassword $SaPassword `
-                -Database $Database -Registration $registration
-        }
-        catch {
-            throw "EXTERNAL_RUNTIME_JAVA_PROBE_AND_COMPENSATION_FAILED: $($probeFailure.Exception.Message) / $($_.Exception.Message)"
+        if (-not $RegistrationTracker) {
+            try {
+                Undo-LabJavaExternalRuntimeDatabaseObjects -HostName $HostName -Port $Port -SaPassword $SaPassword `
+                    -Database $Database -Registration $registration
+            }
+            catch {
+                throw "EXTERNAL_RUNTIME_JAVA_PROBE_AND_COMPENSATION_FAILED: $($probeFailure.Exception.Message) / $($_.Exception.Message)"
+            }
         }
         throw $probeFailure
     }
@@ -413,6 +425,11 @@ WITH RESULT SETS ((evidence nvarchar(4000) NOT NULL));
         Id='java-data-roundtrip'; Status='PASS'; Language='Java'; Database=$Database
         RuntimeVersion=$parts[3]; ProbeVersion=$parts[2]; InputValue=42; OutputValue=42
         WorkerIdentity=$parts[5]; Registration=if ($registration.CreatedLanguage -or $registration.CreatedSdk -or $registration.CreatedProbe) { 'CREATED' } else { 'REUSED' }
+        ManagedObjects=[PSCustomObject]@{
+            CreatedLanguage=[bool]$registration.CreatedLanguage
+            CreatedSdk=[bool]$registration.CreatedSdk
+            CreatedProbe=[bool]$registration.CreatedProbe
+        }
         RegistrationDetails=$registration
     }
 }
@@ -451,6 +468,28 @@ function Save-LabExternalRuntimeInstallationReceipts {
     })
     Write-LabArtifactJsonAtomic -Path $path -InputObject $document
     return $path
+}
+
+function Invoke-LabExternalRuntimeProbeWithRetry {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][scriptblock]$Operation,
+        [ValidateRange(1,3)][int]$MaximumAttempts = 2,
+        [ValidateRange(0,10)][int]$RetryDelaySeconds = 3,
+        [scriptblock]$RecoveryOperation
+    )
+
+    for ($attempt = 1; $attempt -le $MaximumAttempts; $attempt++) {
+        try { return @(& $Operation) }
+        catch {
+            $isTransientLaunchpadFailure = $_.Exception.Message -match `
+                '(?s)Msg 3901[12].*(Unable to communicate with the runtime|unable to communicate with the LaunchPad service)'
+            if (-not $isTransientLaunchpadFailure -or $attempt -ge $MaximumAttempts) { throw }
+            Write-LabWarning "Transiente LaunchPad-Kommunikationsstoerung; Runtime-Probe wird einmal wiederholt."
+            if ($RetryDelaySeconds -gt 0) { Start-Sleep -Seconds $RetryDelaySeconds }
+            if ($RecoveryOperation) { $null = & $RecoveryOperation }
+        }
+    }
 }
 
 function Initialize-LabExternalRuntimes {
@@ -497,6 +536,16 @@ RECONFIGURE WITH OVERRIDE;
     }
     $launchpad = Test-LabExternalRuntimeLaunchpadProcess -Provider ([string]$LabInstance.Provider) `
         -ContainerIdOrName ([string]$LabInstance.ContainerId)
+    $recoverProbeReadiness = {
+        Restart-LabExternalRuntimeContainer -Provider ([string]$LabInstance.Provider) `
+            -ContainerIdOrName ([string]$LabInstance.ContainerId)
+        $recovered = Wait-SqlReady -HostName ([string]$LabInstance.Host) -Port ([int]$LabInstance.Port) `
+            -SaPassword $SaPassword -TimeoutSeconds 300 -ExpectedMajorVersion ([int]$versionDefinition.major) `
+            -Provider ([string]$LabInstance.Provider) -ContainerIdOrName ([string]$LabInstance.ContainerId)
+        if (-not $recovered.Ready) {
+            throw "EXTERNAL_RUNTIME_PROBE_RETRY_READINESS_FAILED: $($recovered.Message)"
+        }
+    }
 
     $receipts = [Collections.Generic.List[object]]::new()
     $javaCompensations = [Collections.Generic.List[object]]::new()
@@ -506,23 +555,28 @@ RECONFIGURE WITH OVERRIDE;
         foreach ($plan in $orderedPlans) {
             $probes = @(switch ([string]$plan.Language) {
                 'Python' {
-                    Invoke-LabPythonExternalRuntimeProbe -Plan $plan -HostName ([string]$LabInstance.Host) `
-                        -Port ([int]$LabInstance.Port) -SaPassword $SaPassword
+                    Invoke-LabExternalRuntimeProbeWithRetry -RecoveryOperation $recoverProbeReadiness -Operation {
+                        Invoke-LabPythonExternalRuntimeProbe -Plan $plan -HostName ([string]$LabInstance.Host) `
+                            -Port ([int]$LabInstance.Port) -SaPassword $SaPassword
+                    }
                 }
                 'R' {
-                    Invoke-LabRExternalRuntimeProbe -Plan $plan -HostName ([string]$LabInstance.Host) `
-                        -Port ([int]$LabInstance.Port) -SaPassword $SaPassword
+                    Invoke-LabExternalRuntimeProbeWithRetry -RecoveryOperation $recoverProbeReadiness -Operation {
+                        Invoke-LabRExternalRuntimeProbe -Plan $plan -HostName ([string]$LabInstance.Host) `
+                            -Port ([int]$LabInstance.Port) -SaPassword $SaPassword
+                    }
                 }
                 'Java' {
                     $databaseNames = @($LabInstance.Databases | ForEach-Object { [string]$_ } | Sort-Object -Unique)
                     if ($databaseNames.Count -eq 0) { $databaseNames = @('master') }
                     foreach ($databaseName in $databaseNames) {
-                        $javaProbe = Invoke-LabJavaExternalRuntimeProbe -Plan $plan -HostName ([string]$LabInstance.Host) `
-                            -Port ([int]$LabInstance.Port) -SaPassword $SaPassword -Database $databaseName
-                        $javaCompensations.Add([PSCustomObject]@{
-                            Database=$databaseName
-                            Registration=$javaProbe.RegistrationDetails
-                        })
+                        $registrationTracker = [PSCustomObject]@{ Database=$databaseName; Registration=$null }
+                        $javaCompensations.Add($registrationTracker)
+                        $javaProbe = @(Invoke-LabExternalRuntimeProbeWithRetry -RecoveryOperation $recoverProbeReadiness -Operation {
+                            Invoke-LabJavaExternalRuntimeProbe -Plan $plan -HostName ([string]$LabInstance.Host) `
+                                -Port ([int]$LabInstance.Port) -SaPassword $SaPassword -Database $databaseName `
+                                -RegistrationTracker $registrationTracker
+                        })[0]
                         $javaProbe.PSObject.Properties.Remove('RegistrationDetails')
                         $javaProbe
                     }
@@ -544,9 +598,12 @@ RECONFIGURE WITH OVERRIDE;
     }
     catch {
         $initialFailure = $_
+        $containerDiagnostic = Get-LabContainerReadinessDiagnostic -Provider ([string]$LabInstance.Provider) `
+            -ContainerIdOrName ([string]$LabInstance.ContainerId) -IncludeLogs
         $compensationFailures = [Collections.Generic.List[string]]::new()
         for ($index = $javaCompensations.Count - 1; $index -ge 0; $index--) {
             $record = $javaCompensations[$index]
+            if (-not $record.Registration) { continue }
             try {
                 Undo-LabJavaExternalRuntimeDatabaseObjects -HostName ([string]$LabInstance.Host) `
                     -Port ([int]$LabInstance.Port) -SaPassword $SaPassword -Database ([string]$record.Database) `
@@ -555,7 +612,11 @@ RECONFIGURE WITH OVERRIDE;
             catch { $compensationFailures.Add($_.Exception.Message) }
         }
         if ($compensationFailures.Count -gt 0) {
-            throw "EXTERNAL_RUNTIME_INITIALIZATION_AND_COMPENSATION_FAILED: $($initialFailure.Exception.Message) / $($compensationFailures -join ' | ')"
+            $diagnosticText = if ($containerDiagnostic) { " / $($containerDiagnostic.Message)" } else { '' }
+            throw "EXTERNAL_RUNTIME_INITIALIZATION_AND_COMPENSATION_FAILED: $($initialFailure.Exception.Message) / $($compensationFailures -join ' | ')$diagnosticText"
+        }
+        if ($containerDiagnostic) {
+            throw "EXTERNAL_RUNTIME_INITIALIZATION_FAILED: $($initialFailure.Exception.Message) / $($containerDiagnostic.Message)"
         }
         throw $initialFailure
     }

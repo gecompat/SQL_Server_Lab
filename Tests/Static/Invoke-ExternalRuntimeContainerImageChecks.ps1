@@ -80,16 +80,18 @@ try {
                 [PSCustomObject]@{ Id='launchpadd-process'; Status='PASS' }
             }
             Set-Item Function:Invoke-LabJavaExternalRuntimeProbe -Value {
-                param($Plan, $HostName, $Port, $SaPassword, $Database)
+                param($Plan, $HostName, $Port, $SaPassword, $Database, $RegistrationTracker)
                 $script:javaProbeCall++
                 if ($script:javaProbeCall -eq 2) { throw 'SYNTHETIC_SECOND_DATABASE_FAILURE' }
+                $registration = [PSCustomObject]@{
+                    Database=$Database; CreatedLanguage=$true; CreatedSdk=$true; CreatedProbe=$true
+                }
+                $RegistrationTracker.Registration = $registration
                 [PSCustomObject]@{
                     Id='java-data-roundtrip'; Status='PASS'; Language='Java'; Database=$Database
                     RuntimeVersion='11.0.32'; ProbeVersion='1.0.0'; InputValue=42; OutputValue=42
                     WorkerIdentity='mssql_satellite'; Registration='CREATED'
-                    RegistrationDetails=[PSCustomObject]@{
-                        Database=$Database; CreatedLanguage=$true; CreatedSdk=$true; CreatedProbe=$true
-                    }
+                    RegistrationDetails=$registration
                 }
             }
             Set-Item Function:Undo-LabJavaExternalRuntimeDatabaseObjects -Value {
@@ -309,6 +311,16 @@ try {
         $launcher -match 'runuser -u mssql -- "\$@" &' -and
         $launcher -notmatch '(?i)-usens=false|enableOutboundAccess=true'
     )
+    Add-CheckResult -Name 'Jedes Image synchronisiert EULA und Extensibility-Konfiguration rollback-sicher beim Start' -Success (
+        $containerfile -match 'external-runtime-mssql\.conf' -and
+        $launcher -match 'test "\$\{desired_ml_eula\}" = ''Y''' -and
+        $launcher -match 'mssql-conf set EULA accepteulaml "\$\{desired_ml_eula\}"' -and
+        $launcher -match 'for setting in pythonbinpath rbinpath datadirectories' -and
+        $launcher -match 'mssql-conf set "extensibility\.\$\{setting\}"' -and
+        $launcher -match 'mssql-conf unset "extensibility\.\$\{setting\}"' -and
+        $launcher -match '/var/opt/mssql-extensibility/data /var/opt/mssql-extensibility/sandboxes' -and
+        $launcher -notmatch '/var/opt/mssql-extensibility/externallibrar'
+    )
     Add-CheckResult -Name 'Wheel-Installation erhaelt nur sichere ausfuehrbare Modusbits' -Success (
         $pythonWheelInstaller -match 'member\.external_attr >> 16' -and
         $pythonWheelInstaller -match '0o755 if archive_mode & 0o111 else 0o644'
@@ -382,7 +394,8 @@ try {
         $acceptanceSource -notmatch '(?m)\$variant\.status\s*=' -and
         $acceptanceSource -notmatch '(?m)\$providerDefinition\.capabilities\s*=' -and
         $hostAcceptanceSource -match 'foreach \(\$provider in @\(''docker'',''podman''\)\)' -and
-        $hostAcceptanceSource -match 'sudo pwsh[^\r\n]+Invoke-ExternalRuntimeContainerAcceptance\.ps1'
+        $hostAcceptanceSource -match 'sudo pwsh[^\r\n]+Invoke-ExternalRuntimeContainerAcceptance\.ps1' -and
+        $hostAcceptanceSource -match "if \(\`$KeepOnFailure\) \{ ' -KeepOnFailure' \}"
     )
     Add-CheckResult -Name 'Root/cgroup und minimale Capabilities werden nur durch den exakten Launchmodus gebunden' -Success (
         ($result.Recipe.launchContract.requiredLinuxCapabilities -join ',') -eq ($requiredLaunchCapabilities -join ',') -and
@@ -408,7 +421,7 @@ try {
         $podmanSource -match "'--security-opt', 'apparmor=unconfined'" -and
         $podmanSource -match "'--security-opt', 'seccomp=unconfined'" -and
         $podmanSource -match "'/sys/fs/cgroup:/sys/fs/cgroup:rw'" -and
-        $podmanSource -match 'cp -a /var/opt/mssql/\. /sql-lab-volume-init/' -and
+        $podmanSource -match "cp -a '\`$ContainerPath'/\. /sql-lab-volume-init/" -and
         $podmanSource -match 'ExternalRuntimeLaunchMode -eq ''none''\) \{ \$volumeOptions \+= ''U'' \}' -and
         $podmanSource -notmatch "'--privileged'" -and
         $artifactSource -match 'if \(\$rootless\)'
@@ -432,12 +445,20 @@ try {
     Add-CheckResult -Name 'Java-Postcondition registriert datenbankgebunden, prueft Drift und kompensiert nur neu erzeugte Objekte' -Success (
         $lifecycleSource -match 'Register-LabJavaExternalRuntimeDatabaseObjects' -and
         $lifecycleSource -match "@language = N'Java'" -and
+        @([regex]::Matches($lifecycleSource, 'FROM \(CONTENT = N''\$\(\$platformContract\.[A-Za-z]+Path\)'', PLATFORM = \$\(\$platformContract\.Platform\)\)\s+WITH \(LANGUAGE = ''Java''\)')).Count -eq 2 -and
         $lifecycleSource -match 'sqlserverlab\.SqlServerLabExternalRuntimeProbe' -and
         $lifecycleSource -match 'EXTERNAL_RUNTIME_JAVA_LANGUAGE_DRIFT' -and
         $lifecycleSource -match 'Undo-LabJavaExternalRuntimeDatabaseObjects' -and
         $lifecycleSource -match 'javaCompensations' -and
+        $lifecycleSource -match '(?s)function Invoke-LabJavaExternalRuntimeProbe\s*\{.*?param\(.*?\$RegistrationTracker' -and
+        $lifecycleSource -match 'RegistrationTracker\.Registration' -and
+        $lifecycleSource -match '\[bool\]\$registration\.CreatedLanguage -or \[bool\]\$prior\.CreatedLanguage' -and
         $lifecycleSource -match "Language -eq 'Java'\) \{ 1 \}" -and
         $lifecycleSource -match 'mssql_satellite'
+    )
+    Add-CheckResult -Name 'Fehlgeschlagene Java-Kompensation bindet sanitisierte Containerdiagnose' -Success (
+        $lifecycleSource -match '(?s)catch \{\s*\$initialFailure = \$_.*?Get-LabContainerReadinessDiagnostic.*?-IncludeLogs.*?EXTERNAL_RUNTIME_INITIALIZATION_AND_COMPENSATION_FAILED' -and
+        $lifecycleSource -match 'EXTERNAL_RUNTIME_INITIALIZATION_FAILED:.*?\$containerDiagnostic\.Message'
     )
     Add-CheckResult -Name 'Datenbankgebundene Java-Registrierung laeuft erst nach Create und Restore' -Success (
         $newLabSource.IndexOf('New-SqlServerLabDatabase') -lt $newLabSource.IndexOf('Initialize-LabExternalRuntimes') -and

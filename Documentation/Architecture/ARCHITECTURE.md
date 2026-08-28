@@ -84,7 +84,7 @@ Export-SqlServerLabSsmsRegistration    # Kennwortfreien SSMS-.regsrvr-Export erz
 Export-SqlServerLabCmsSyncScript       # CMS-Synchronisationsskript erzeugen
 Initialize-SqlServerLabCms             # Kompakten persistenten lokalen CMS erstellen
 Sync-SqlServerLabCms                   # Verwalteten CMS mit Endpunkten abgleichen
-Get-SqlServerLabReconcilePlan          # Read-only Lifecycle- oder External-Runtime-Refresh-Plan
+Get-SqlServerLabReconcilePlan          # Read-only Lifecycle- oder External-Runtime-Reconcile-Plan
 Invoke-SqlServerLabReconcileAction     # Start/Stop oder validierten Container-Runtime-Refresh ausfuehren
 Invoke-SqlServerLabWorkflowAction      # UI-tauglicher, nicht interaktiver Hyper-V-Schritt
 New-SqlServerLab                       # Neue Umgebung
@@ -388,6 +388,17 @@ installieren. Docker und Podman verwenden für reproduzierbare Installationen
 bevorzugt versionierte Derived Images. Python, R und Java sind nicht auf
 Hyper-V oder Windows beschränkt; die konkrete SQL-, OS- und
 Provider-Supportmatrix ist maßgeblich.
+
+SQL-2022-Container mit External Runtimes behandeln Replacement als atomare
+Umschaltung zwischen inhaltsadressierten Images. Das SQL-Datenverzeichnis und
+die langlebigen External-Language-/External-Library-Artefakte besitzen getrennte
+scopegebundene Volumes; LaunchPad-Daten und Sandboxes sind absichtlich
+containerlokal. Vor der Postcondition synchronisiert der Startadapter die
+katalogisierte ML-EULA, Runtime-Konfiguration und Artifact-Ownership. Erst nach
+SQL-Readiness und echten Sprachprobes wird der neue Connection-/Desired-State
+atomar übernommen. Additive Änderungen und eigentumsgebundene Runtime-Removal-
+Aktionen verwenden dasselbe resumierbare Journal; alte Images unterliegen der
+separaten Artifact-Retention.
 
 ### 9.2 Quellen
 
