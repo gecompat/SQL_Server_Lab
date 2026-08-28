@@ -64,6 +64,8 @@ try {
 
         $stateRoot = Join-Path $Root 'state'
         $testDataRoot = Join-Path $Root 'testdata'
+        $runDirectory = Join-Path $stateRoot 'runs/runtime-baseline-check'
+        New-Item -Path $runDirectory -ItemType Directory -Force | Out-Null
         $sourceSha = 'c' * 64
         $restoreDefinition = [PSCustomObject]@{
             sampleId = 'runtime-baseline'
@@ -102,6 +104,7 @@ try {
             -RestoreDefinition $restoreDefinition `
             -SqlVersion '2022' `
             -NonInteractive `
+            -RunDirectory $runDirectory `
             -StateRoot $stateRoot `
             -TestDataRoot $testDataRoot
 
@@ -144,10 +147,20 @@ try {
             -RestoreDefinition $bundleDefinition `
             -SqlVersion '2022' `
             -NonInteractive `
+            -RunDirectory $runDirectory `
             -StateRoot $stateRoot `
             -TestDataRoot $testDataRoot
 
         $allBaselineSql = $script:baselineSql -join "`n"
+        $lockPath = Join-Path $runDirectory 'manifest.lock.json'
+        $manifestLock = if (Test-Path -LiteralPath $lockPath -PathType Leaf) {
+            Get-Content -LiteralPath $lockPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 30
+        }
+        else {
+            $null
+        }
+        $singleLock = @($manifestLock.artifacts | Where-Object sampleId -eq 'runtime-baseline')[0]
+        $bundleLock = @($manifestLock.artifacts | Where-Object sampleId -eq 'runtime-bundle')[0]
 
         [PSCustomObject]@{
             Generated = $generated.Status -eq 'BASELINE_REGISTERED' -and (Test-Path -LiteralPath $generated.Path -PathType Leaf)
@@ -156,6 +169,17 @@ try {
             OriginalSkipped = $script:originalResolverCalls -eq 0
             MultiGenerated = $generatedBundle.Record.artifactFormat -eq 'multi-database-zip' -and (Test-Path -LiteralPath $generatedBundle.Path -PathType Leaf)
             MultiPreferred = $bundleInstall.Success -and $bundleInstall.Artifact.ArtifactFormat -eq 'multi-database-zip' -and @($script:restoreSources | Where-Object { $_ -match 'Runtime(One|Two)\.bak$' }).Count -eq 2
+            BaselineLockBound = $manifestLock -and @($manifestLock.artifacts).Count -eq 2 -and
+                $singleLock.sha256 -eq $sourceSha -and
+                $singleLock.integrityOrigin -eq 'catalog-verified' -and
+                $singleLock.resolvedArtifact.origin -eq 'LAB_GENERATED' -and
+                $singleLock.resolvedArtifact.keyId -eq $generated.Record.keyId -and
+                $singleLock.resolvedArtifact.sha256 -eq $generated.Record.backupSha256 -and
+                $singleLock.resolvedArtifact.artifactFormat -eq 'database-backup' -and
+                $bundleLock.resolvedArtifact.keyId -eq $generatedBundle.Record.keyId -and
+                $bundleLock.resolvedArtifact.sha256 -eq $generatedBundle.Record.backupSha256 -and
+                $bundleLock.resolvedArtifact.artifactFormat -eq 'multi-database-zip'
+            BaselineLockPortable = $manifestLock -and (($manifestLock | ConvertTo-Json -Depth 30) -notmatch [regex]::Escape($Root))
         }
     } $temporaryRoot
 
@@ -165,6 +189,8 @@ try {
     Add-CheckResult -Name 'Originalresolver bleibt bei Baseline-Hit unangetastet' -Success $result.OriginalSkipped
     Add-CheckResult -Name 'Multi-Output-Sample wird als typisiertes ZIP registriert' -Success $result.MultiGenerated
     Add-CheckResult -Name 'Multi-Output-Baseline stellt exakt alle erwarteten Backups wieder her' -Success $result.MultiPreferred
+    Add-CheckResult -Name 'Baseline-Hit bindet Originalvertrag und aufgeloestes LAB_GENERATED-Artifact im Run Lock' -Success $result.BaselineLockBound
+    Add-CheckResult -Name 'Baseline-Run-Lock enthaelt keine lokalen Pfade' -Success $result.BaselineLockPortable
 }
 catch {
     Add-CheckResult -Name 'Sample Baseline Runtime Testausfuehrung' -Success $false -Message $_.Exception.Message
