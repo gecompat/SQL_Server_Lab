@@ -152,20 +152,24 @@ nicht als Generalize-Quelle wiederverwendet.
 
 ### Reale SQL-Prepared-Image-Abnahme
 
-Dieser Runner verifiziert Windows-Server-2025- und SQL-Server-2025-Medien samt
-SHA-256-Sidecars, installiert Windows unbeaufsichtigt auf einer neuen VHDX und
-führt den produktiven SQL-`PrepareImage`-/finalen-Sysprep-/Publish-Pfad aus. Das
-resultierende `SQL_PREPARED_SEALED`-Artifact liegt ausschließlich im temporären
-Test-StateRoot und wird zusammen mit VM, VHDX, Antwort-ISO und Credential
-scopegebunden entfernt.
+Dieser erhöhte Windows-Runner verifiziert Windows-Server-2025- und SQL-Server-
+2025-Medien samt SHA-256-Sidecars, installiert Windows unbeaufsichtigt auf
+einer neuen VHDX und führt den produktiven SQL-`PrepareImage`-/finalen-
+Sysprep-/Publish-Pfad aus. Das resultierende testlokale
+`SQL_PREPARED_SEALED`-Artifact wird danach über den normalen Manifestpfad als
+differenzierende VM geklont. Der Runner prüft Windows-Specialization,
+`CompleteImage`, WMI, TCP/IP-Hostzugriff und `SQL_READY_RUN` mit Major-Version
+und vier Online-Systemdatenbanken. Abschließend belegt er den unveränderten
+Parent-Hash sowie den scopegebundenen Cleanup von Builder- und Manifestlauf.
 
 ```powershell
 .\Tests\Integration\Invoke-HyperVSqlPreparedImageAcceptance.ps1
 ```
 
-Dieser Nachweis deckt den Prepared-Image-Build ab. Der reale
-`CompleteImage`-Klon und der normale Manifestlauf bis `SQL_READY_RUN` bleiben
-Teil des noch offenen allgemeinen Providerpfads.
+Dieser Nachweis schließt den Windows-2025-/SQL-2025-Prepared-Image-Referenzpfad
+vom frischen Build bis zum bereinigten Manifestklon. Weitere Windows-/SQL-
+Kombinationen und die breite Datenbank-, Software-, Post-Provisioning- und
+Network-Manifestbindung benötigen weiterhin eigene Nachweise.
 
 ## 3. Voraussetzungen
 
@@ -322,7 +326,7 @@ ersetzen den PTY-Nachweis nicht.
 |---|---:|---:|---:|
 | Resource Assessment | implementiert | implementiert | Lifecycle-Verfügbarkeit implementiert |
 | sealed Image-Registry | nicht zutreffend | nicht zutreffend | Import, Integrity, Auswahl und Run Lock implementiert |
-| einzelne SQL-Instanz | implementiert | implementiert | eingeschränkter Manifest-Klonpfad aus `OS_SEALED` oder `SQL_PREPARED_SEALED` implementiert; allgemeiner Providerpfad geplant |
+| einzelne SQL-Instanz | implementiert | implementiert | Windows-2025-/SQL-2025-Manifestklon aus `SQL_PREPARED_SEALED` real validiert; breite Manifestbindung partiell |
 | Health und SQL Readiness | implementiert | implementiert | OS-Slot-Installation und Host-SQL-Readiness implementiert |
 | Datenbankerstellung | implementiert | implementiert | mit absoluten Windows-Pfaden implementiert |
 | T-SQL-Skriptausführung | implementiert | implementiert | ueber Host-SQL-Zugriff implementiert |

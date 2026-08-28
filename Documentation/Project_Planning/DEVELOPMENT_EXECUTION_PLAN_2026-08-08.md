@@ -4,7 +4,7 @@
 |---|---|
 | Projekt | `gecompat/SQL_Server_Lab` |
 | Status | `ACTIVE_EXECUTION_BACKLOG` |
-| Stand | 2026-08-24 |
+| Stand | 2026-08-28 |
 | Ausgangsstand | Planungsabgleich gegen `origin/main`, Known Limitations, offene Regressionen und den lokalen sowie CI-gestützten Validierungsbericht vom 2026-08-20; Commit-IDs sind kein Planungsvertrag |
 | Ziel | eine einzige ausführbare Lieferreihenfolge für Core, UI, Adapter, Hyper-V, Datenartefakte, Qualität und spätere Erweiterungen |
 | Runtime-Nachweis | ausschließlich Code, passende Tests, [KNOWN_LIMITATIONS.md](../Quality/KNOWN_LIMITATIONS.md) und datierte Validierungsnachweise |
@@ -110,8 +110,9 @@ Batch-Provider-Matrix erneut ausgeführt:
 Die datierten lokalen und CI-gestützten Ergebnisse für Docker, Podman, Mixed
 Provider, Adapter, Batch und Hyper-V stehen in
 [VALIDATION_RESULT_2026-08-20.md](../Quality/VALIDATION_RESULT_2026-08-20.md).
-Die allgemeine echte Hyper-V-/SQL-2025-Acceptance aus frischer
-Installationsmedia bleibt wegen fehlender Eval-ISO blockiert.
+Die echte Hyper-V-/SQL-2025-Acceptance ist aus hashverifizierten Windows- und
+SQL-Originalmedien bis zum unveränderlichen Prepared-Parent sowie über einen
+normalen Manifest-Klon bis `SQL_READY_RUN` positiv ausgeführt.
 
 ### 3.2 Offene Kernlücken
 
@@ -119,7 +120,7 @@ Installationsmedia bleibt wegen fehlender Eval-ISO blockiert.
 |---|---|
 | der Desired-/Actual-/Diff-/Plan-Vertrag deckt bisher nur read-only Planung und START/STOP ab | weitere Reconcile-Klassen benötigen persistente Verträge und Executor |
 | bestehende Hyper-V-Standardwege enthalten noch Factory-/manuelle Übergänge | ein normaler Lablauf ist noch nicht durchgehend Zero-Touch nachgewiesen |
-| kein positiver realer Hyper-V-Cold-Path von generalisierter OS-Basis bis SQL `READY` für die Zielmatrix | Mocks und Lifecycle-Smoke beweisen weder OOBE- noch SQL-End-to-End-Bereitschaft |
+| der positive reale Hyper-V-Cold-Path ist nur für Windows Server 2025 und SQL Server 2025 belegt | weitere freigegebene Windows-/SQL-Kombinationen benötigen getrennte Runtime-Evidence |
 | Hyper-V-Manifestbindung für Datenbanken, Software, Post-Provisioning und Network Intents ist unvollständig | UI-/Manifestparität fehlt trotz gebundener freier Drives weiterhin |
 | Reconcile-Executor und Actual-State-Collector sind auf Lifecycle START/STOP begrenzt | Ressourcen- und Konfigurationsänderungen fehlen |
 | drei reale Adapterpiloten fehlen | der Vertrag ist noch nicht an den drei Konsumenten und ihren unterschiedlichen Rollen bewiesen |
@@ -207,8 +208,8 @@ Container-Volumes gehören dagegen in den normalen Storage-Pfad.
 | M1 Desired State und Planner | `implemented_partial` | Journal/Resume und weitere Änderungsklassen |
 | M2 UI und Container-Reconcile | `implemented_partial` | Batch/Queue real verifiziert: Docker und Podman mit je zwei SQL-2025-Runs, Hyper-V mit zwei Windows-2025-Slots, harter Docker-Scheduler-Abbruch, Manifest-Rerun, Resume und Cleanup; reale `live`-/`recreate`-Änderungen offen |
 | M3 Adapterpiloten | `planned_external_scope` | je ein Pilot in den drei Konsumenten-Repositories |
-| M4 Hyper-V OS Cold Path | `implemented_partial` | realer unattended Windows-2025-Cold-Path |
-| M5 Hyper-V SQL und Resolver | `implemented_partial` | realer OS-zu-SQL-Cold-Path und Manifestparität |
+| M4 Hyper-V OS Cold Path | `validated_reference` | weitere freigegebene Windows-Varianten getrennt belegen |
+| M5 Hyper-V SQL und Resolver | `validated_reference_partial_manifest` | Datenbank-, Software-, Post-Provisioning- und Network-Manifestparität |
 | M6 Reconcile-Breite | `planned` | Hardware-, Netzwerk-, Storage- und SQL-Änderungsklassen |
 | M7 Artifacts und Baselines | `implemented_partial` | Hyper-V-Export/-Nutzung und weitere typisierte Handler |
 | M8 Scenarios und Migration | `planned` | Scenario-Vertrag nach den Adapterpiloten |
@@ -700,7 +701,7 @@ Runtime-Nachweis; maßgeblich bleiben die jeweils genannten Tests und Evidence.
 | N1 | `COMPLETE` | Nightly-Ursache klassifiziert, persistente Windows-Testumgebungen gezielt wiederhergestellt, CU-Katalog fachlich aktualisiert und zwei aufeinanderfolgende Nightlies vollständig grün. |
 | N2 | `COMPLETE` | ActionResult-/Sync-, Portbindungs-, UAC- und Privilegverträge sind implementiert und fokussiert geprüft; GUI-Abbruch, Scheduler-Abbruch/Recovery, Manifest-Rerun, PowerShell-Console, Windows-User-Gate und der positive Windows-Generalize-/Publish-Pfad sind real belegt. |
 | N3 | `PLANNED_NOT_STARTED` | Die drei Partnerrepository-Piloten sind nicht nachgewiesen. |
-| N4 | `IN_PROGRESS` | Medienprüfung, frische Windows-2025-Installation, SQL-2025-`PrepareImage`, finaler Sysprep, immutable `SQL_PREPARED_SEALED`-Publikation und Cleanup sind real belegt; der Prepared-Image-`CompleteImage`-/Manifestlauf bis `SQL_READY_RUN` bleibt offen. |
+| N4 | `COMPLETE` | Der reale Windows-2025-/SQL-2025-Lauf belegt Build, immutable Prepared-Parent, normalen differenzierenden Manifest-Klon, Windows-Specialization, `CompleteImage`, `SQL_READY_RUN`, unveränderten Parent-Hash und vollständigen Cleanup. |
 | N5 | `PLANNED_NOT_STARTED` | Vorhandene Storage-/Reconcile-Teile ersetzen den vollständigen Vertical Slice nicht. |
 
 ### Welle N1 – Baseline, Regressionen und Katalogwartung
@@ -831,7 +832,7 @@ der Adaptervertrag bleibt bis zum Abschluss aller drei Piloten `0.1-draft`.
 
 ### Welle N4 – Hyper-V Windows-/SQL-End-to-End
 
-**Status:** `IN_PROGRESS` seit 2026-08-28.
+**Status:** `COMPLETE` seit 2026-08-28.
 
 **Aktuelle Evidence:**
 `Tests/Integration/Invoke-HyperVSqlPreparedImageAcceptance.ps1` hat Windows Server
@@ -840,10 +841,14 @@ Developer aus SHA-256-gebundenen Originalmedien auf einer neuen eigenständigen
 80-GB-VHDX real installiert. OOBE und PowerShell Direct, genau ein erkanntes
 SQL-2025-Setup, `PrepareImage`, der finale Sysprep-Receipt mit
 `IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE`, testlokale immutable
-`SQL_PREPARED_SEALED`-Publikation sowie vollständiges VM-/VHDX-/State-/Secret-
-Cleanup waren grün. Offen bleibt der reale Klon dieses Prepared-Images mit
-`CompleteImage`, Windows-Specialization und einem normalen Manifestlauf bis
-`SQL_READY_RUN`; deshalb ist Gate N4 noch nicht geschlossen.
+`SQL_PREPARED_SEALED`-Publikation sowie vollständiges Builder-Cleanup waren
+grün. Dasselbe testlokale Artifact wurde anschließend über den normalen
+Manifestpfad differenzierend geklont. Offline-Unattend mutierte ausschließlich
+die Child-VHDX; Windows-Specialization, `CompleteImage`, WMI, TCP/IP-
+Hostzugriff und der persistierte `SQL_READY_RUN`-Receipt mit SQL Major 17 und
+vier Online-Systemdatenbanken waren grün. Hash und Schreibschutz des Prepared-
+Parents blieben unverändert; der normale Cleanup entfernte VM, Child-VHDX und
+rungebundene Secrets. Damit ist Gate N4 geschlossen.
 
 **Ziel:** Den vorhandenen partiellen Hyper-V-Pfad mit hashverifizierten Medien
 bis zu einem realen Windows-2025-/SQL-2025-Gastnachweis führen.
