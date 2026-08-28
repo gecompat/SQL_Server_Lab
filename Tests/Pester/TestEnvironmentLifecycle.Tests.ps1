@@ -1,15 +1,17 @@
 #Requires -Version 7.2
 
-$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
-$modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
-$null = Import-Module -Name $modulePath -Force -ErrorAction Stop
-
-function Assert-LifecycleValue {
-    param($Actual, $Expected, [string]$Name)
-    if ($Actual -ne $Expected) { throw "$Name expected '$Expected', got '$Actual'." }
-}
-
 Describe 'Geschuetzter Windows-Testumgebungs-Lifecycle' {
+    BeforeAll {
+        $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+        $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
+        $null = Import-Module -Name $modulePath -Force -ErrorAction Stop
+
+        function Assert-LifecycleValue {
+            param($Actual, $Expected, [string]$Name)
+            if ($Actual -ne $Expected) { throw "$Name expected '$Expected', got '$Actual'." }
+        }
+    }
+
     BeforeEach {
         Mock Get-LabStateRoot { 'state' } -ModuleName SqlServerLab
         Mock Get-LabTestEnvironmentExportDirectory { 'exports' } -ModuleName SqlServerLab
