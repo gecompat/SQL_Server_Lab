@@ -561,9 +561,9 @@ Der reale Vier-Geräte-Nachweis gehört zu Phase D und Gate N5.
 ### Phase D – File Placement und Providerbindung
 
 **Status:** `IN_PROGRESS` seit 2026-08-29. `SFP-001` bis `SFP-003` sowie die
-Implementierung von `HVS-001`, `HVS-002` und `SQLS-001` sind statisch und
-synthetisch geprüft. Der reale Vier-Geräte-/SQL-Restart-Nachweis und
-`SQLS-002`/`SQLS-003` bleiben offen.
+Implementierung von `HVS-001`, `HVS-002` und `SQLS-001` bis `SQLS-003` sind
+statisch und synthetisch geprüft. Der reale Vier-Geräte-/SQL-Restart-, CREATE-
+und Restore-Nachweis bleibt offen.
 
 | ID | Schritt | Abschlusskriterium |
 |---|---|---|
@@ -573,8 +573,8 @@ synthetisch geprüft. Der reale Vier-Geräte-/SQL-Restart-Nachweis und
 | `HVS-001` | Hyper-V-VHDX pro Location/I/O-Lane erzeugen und binden | Implementiert: controller-eigene Hostpfade, VHDX-ID, Gastdisk und SQL-Ziel sind durch getrennte Receipts verbunden; Realnachweis offen. |
 | `HVS-002` | Gastinitialisierung und stabile Pfadvergabe für mehrere Storage-Lanes erweitern | Implementiert: SCSI-/Disk-ID-Bindung, idempotente GPT-/NTFS-Initialisierung und tatsächliche Gastpfade; Vier-Geräte-Realnachweis offen. |
 | `SQLS-001` | SQL-Defaultpfade und TempDB-Fileplan anwenden | Implementiert: Defaultpfade, vollständiger TempDB-Plan, Dienstrestart, Postconditions und Recovery-Receipt; SQL-Realnachweis offen. |
-| `SQLS-002` | `New-SqlServerLabDatabase` an dateigenaue Bindings koppeln | Data- und Log-Files landen auf den geplanten Zielen. |
-| `SQLS-003` | Restore-`MOVE` aus Filelist und Bound Plan erzeugen | jedes Backupfile besitzt genau ein verifiziertes Ziel. |
+| `SQLS-002` | `New-SqlServerLabDatabase` an dateigenaue Bindings koppeln | Implementiert: Data- und Log-Files stammen ausschließlich aus verifiziertem Plan und Receipt; exakter `sys.master_files`-Abgleich vor Erfolgsquittung; Realnachweis offen. |
+| `SQLS-003` | Restore-`MOVE` aus Filelist und Bound Plan erzeugen | Implementiert: jede `FILELISTONLY`-Datei besitzt genau ein typgerechtes, eindeutiges Ziel und wird nach Restore exakt verifiziert; Realnachweis offen. |
 | `CNTS-001` | Container-Capabilities ehrlich klassifizieren | logische Trennung wird nicht als physische Hosttrennung ausgegeben. |
 | `CNTS-002` | optionalen Hostbinding-Pfad erst nach realer Runtimeabnahme freigeben | ohne Nachweis routet physische Trennung zu Hyper-V oder `UNSUPPORTED`. |
 

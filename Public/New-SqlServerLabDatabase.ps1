@@ -28,6 +28,13 @@
 .PARAMETER Options
     Optionales Objekt mit Datenbankoptionen, die nach CREATE DATABASE
     angewendet werden.
+.PARAMETER RunId
+    Optionaler Run mit verifiziertem Storage-Bound-Plan. Data- und Logdateien
+    werden dann vollständig und exakt aus dessen Runtime-Receipt aufgelöst.
+.PARAMETER InstanceId
+    Instanz-ID des Storage-Plans. Standard ist primary.
+.PARAMETER StateRoot
+    Optionaler State-Root für Bound Plan und Runtime-Receipt.
 .OUTPUTS
     System.Management.Automation.PSCustomObject. Liefert das Ergebnis der
     ausgefuehrten SQL-Batches.
@@ -44,7 +51,10 @@ function New-SqlServerLabDatabase {
         [string]$Collation = 'SQL_Latin1_General_CP1_CI_AS',
         [array]$DataFiles = @(),
         [array]$LogFiles = @(),
-        $Options = $null
+        $Options = $null,
+        [string]$RunId,
+        [string]$InstanceId = 'primary',
+        [string]$StateRoot
     )
 
     if ($DatabaseName -notmatch '^[A-Za-z][A-Za-z0-9_]{0,127}$') {
@@ -83,6 +93,17 @@ function New-SqlServerLabDatabase {
                 filegrowthMB = 32
             }
         )
+    }
+
+    $storageContext = $null
+    $storageOperationId = $null
+    if ($RunId) {
+        $storageContext = Get-LabVerifiedStorageRuntimeContext -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
+        $storageFiles = Resolve-LabStorageDatabaseFilePlan -Context $storageContext -DatabaseName $DatabaseName `
+            -DataFiles @($DataFiles) -LogFiles @($LogFiles)
+        $DataFiles = @($storageFiles.DataFiles)
+        $LogFiles = @($storageFiles.LogFiles)
+        $storageOperationId = "create:$DatabaseName"
     }
 
     $sql = "CREATE DATABASE [$DatabaseName]`nON PRIMARY`n"
@@ -169,6 +190,10 @@ function New-SqlServerLabDatabase {
     }
 
     try {
+        if ($storageContext) {
+            $storageContext = Start-LabStorageSqlOperation -Context $storageContext -OperationId $storageOperationId `
+                -Kind create -DatabaseName $DatabaseName
+        }
         $null = Invoke-SqlQuery `
             -HostName $HostName `
             -Port $Port `
@@ -185,6 +210,15 @@ function New-SqlServerLabDatabase {
                 -TimeoutSeconds 30
         }
 
+        if ($storageContext) {
+            $verificationQuery = New-LabStorageMasterFilesVerificationQuery -DatabaseName $DatabaseName `
+                -FilePlan @($DataFiles + $LogFiles)
+            $null = Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $saPlain `
+                -Query $verificationQuery -TimeoutSeconds 60
+            $null = Complete-LabStorageSqlOperation -Context $storageContext -OperationId $storageOperationId `
+                -Kind create -DatabaseName $DatabaseName -Files @($DataFiles + $LogFiles)
+        }
+
         Write-LabSuccess "Datenbank erstellt: $DatabaseName ($($DataFiles.Count) Data, $($LogFiles.Count) Log Files)"
 
         return [PSCustomObject]@{
@@ -193,9 +227,13 @@ function New-SqlServerLabDatabase {
             DataFiles    = $DataFiles.Count
             LogFiles     = $LogFiles.Count
             Collation    = $Collation
+            StoragePlanId = if ($storageContext) { [string]$storageContext.Plan.PlanId } else { $null }
         }
     }
     catch {
+        if ($storageContext -and $storageOperationId) {
+            $null = Fail-LabStorageSqlOperation -Context $storageContext -OperationId $storageOperationId -ErrorMessage $_.Exception.Message
+        }
         Write-LabError "Datenbank-Erstellung fehlgeschlagen: $($_.Exception.Message)"
         throw
     }
