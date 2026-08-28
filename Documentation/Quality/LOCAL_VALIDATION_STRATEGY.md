@@ -244,6 +244,8 @@ idempotentes Resume und scopegebundenen Cleanup:
 .\Tests\Integration\Invoke-BatchWorkflowSmokeTest.ps1 `
     -Provider hyperv `
     -ArtifactId 'hyperv-os-sealed-<sha256>'
+.\Tests\Integration\Invoke-BatchUserGateAcceptance.ps1 `
+    -ArtifactId 'hyperv-os-sealed-<sha256>'
 ```
 
 Container-Batchpositionen müssen dazu in `defaults`, `intent`, `manifest` oder
@@ -260,6 +262,15 @@ idempotentes Resume und vollständigen scopegebundenen Cleanup.
 denselben Batch und dieselben Operationen zurückgibt. Nach Abschluss und Cleanup
 erzeugt dasselbe Manifest einen neuen Batch mit neuen RunIds, bleibt beim
 Scheduler-Rerun idempotent und wird erneut vollständig bereinigt.
+
+`Invoke-BatchUserGateAcceptance.ps1` benötigt für den testlokalen Offline-Mount
+des operationseigenen Child-VHDX eine erhöhte Sitzung. Das immutable Parent
+bleibt read-only. Der Test bindet auf einer realen Windows-VM den reinen
+`CandidateSatisfied`-Probe ohne Step-/Receipt-Fortschritt, die fail-closed
+Bestätigung, echte PowerShell-Direct-Credential-Verifikation, genau ein
+`UserGateConfirmed`-Receipt sowie vollständigen VM-, Child-VHDX- und
+State-Cleanup. Ein unverändert grüner Realnachweis wird nicht ohne neue Evidence
+wiederholt.
 
 Der diagnostische Konsolen-Fallback wird im selben PowerShell-7-Terminal
 gestartet:

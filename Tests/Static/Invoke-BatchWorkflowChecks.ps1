@@ -28,7 +28,10 @@ try {
     Assert-Check ($queue.maxWorkers -eq 2) 'Scheduler-Default ist nicht zwei Worker.'
     Assert-Check ($queue.length -eq 3) 'Queue enthaelt nicht alle Kindvorgaenge.'
 
-    & $module { param($Root) Invoke-SqlServerLabScheduler -UntilIdle -StateRoot $Root | Out-Null } $testRoot
+    # Expansion und Reihenfolge sind hier der Vertrag. Die reale Zwei-Worker-
+    # Parallelitaet wird im Batch-Smoke belegt; ein einzelner Worker verhindert,
+    # dass ThreadJob-Startlatenz diesen statischen Vertragstest flakey macht.
+    & $module { param($Root) Invoke-SqlServerLabScheduler -UntilIdle -MaxWorkers 1 -StateRoot $Root | Out-Null } $testRoot
     $expandedOperations = @(Get-SqlServerLabOperation -BatchId $batch.batchId -StateRoot $testRoot)
     Assert-Check (@($expandedOperations | Where-Object status -eq 'Completed').Count -eq 3) 'Expandierte Vorgaenge wurden nicht abgeschlossen.'
 
@@ -65,6 +68,35 @@ try {
     $confirmation = Confirm-SqlServerLabOperationUserAction -OperationId $gateOperation.operationId -StateRoot $testRoot
     Assert-Check ($confirmation.success) 'User-Gate-Bestaetigung wurde nicht akzeptiert.'
     Assert-Check ((Get-SqlServerLabOperation -OperationId $gateOperation.operationId -StateRoot $testRoot).status -eq 'Completed') 'Bestaetigtes Gate wurde nicht abgeschlossen.'
+
+    $persistedVmProbe = & $module {
+        param($Root)
+        $originalStatus = Get-Item Function:Get-HyperVInstanceStatus
+        try {
+            function Get-HyperVInstanceStatus {
+                param($VMName, $ExpectedRunId)
+                if ($VMName -ne 'persisted-user-gate-vm' -or $ExpectedRunId -ne 'persisted-user-gate-run') {
+                    throw 'PERSISTED_USER_GATE_BINDING_INVALID'
+                }
+                [pscustomobject]@{ Exists=$true; State='Running'; VMName=$VMName; RunId=$ExpectedRunId }
+            }
+            $operation = [pscustomobject]@{
+                operationId = 'persisted-user-gate-operation'
+                runId = 'persisted-user-gate-run'
+                userGate = [pscustomobject]@{
+                    verification = [pscustomobject]@{
+                        type = 'HyperVWindowsSetup'
+                        data = [pscustomobject]@{ runId='persisted-user-gate-run'; vmName='persisted-user-gate-vm' }
+                    }
+                }
+            }
+            Test-LabOperationUserGateVerification -Operation $operation -StateRoot $Root -ProbeOnly
+        }
+        finally {
+            Set-Item Function:Get-HyperVInstanceStatus -Value $originalStatus
+        }
+    } $testRoot
+    Assert-Check (-not $persistedVmProbe.success -and $persistedVmProbe.candidate -and $persistedVmProbe.result.VMName -eq 'persisted-user-gate-vm') 'Windows-Probe verwendet den persistenten Gate-VM-Namen nicht als read-only Kandidatenbindung.'
 
     $control = New-SqlServerLabBatch -Name 'Queue Steuerung' -StateRoot $testRoot -Items @(
         [pscustomobject]@{ id = 'first'; kind = 'Test'; intent = [pscustomobject]@{} }
@@ -156,6 +188,10 @@ try {
     Assert-Check ($batchRuntimeSource -match [regex]::Escape("if (`$autoStartValue) { 'on' } else { 'off' }")) 'Container-Batches normalisieren boolesches AutoStart nicht auf den oeffentlichen on/off-Vertrag.'
     Assert-Check ($batchRuntimeSource -match [regex]::Escape('BATCH_SA_PASSWORD_ENVIRONMENT_VARIABLE_REQUIRED')) 'Container-Batches brechen ohne Secret-Referenz nicht eindeutig ab.'
     Assert-Check ($batchRuntimeSource -match [regex]::Escape("Get-LabManifestEnvironmentSecret -Name `$saPasswordEnvironmentVariable")) 'Container-Batches loesen die eng benannte Secret-Referenz nicht erst im Worker auf.'
+    Assert-Check ($batchRuntimeSource -match [regex]::Escape('function Get-LabRunHyperVVmName') -and
+        $batchRuntimeSource -match [regex]::Escape("Get-LabWorkflowValue -InputObject `$verification.data -Name 'vmName' -Default ''") -and
+        $batchRuntimeSource -match [regex]::Escape("Add-Member -NotePropertyName 'vmName' -NotePropertyValue `$resolvedVmName -Force") -and
+        $batchRuntimeSource -match [regex]::Escape('Das persistente Windows-User-Gate enthaelt keinen pruefbaren VM-Namen.')) 'Windows-User-Gate-Probes verwenden den persistenten VM-Namen nicht fail-closed.'
 
     $batchSmokePath = Join-Path $repoRoot 'Tests\Integration\Invoke-BatchWorkflowSmokeTest.ps1'
     Assert-Check (Test-Path -LiteralPath $batchSmokePath -PathType Leaf) 'Realer Batch-/Queue-Runtime-Smoke fehlt.'
@@ -171,6 +207,15 @@ try {
     Assert-Check ($batchSmokeSource -match [regex]::Escape('New-Item -ItemType Junction') -and
         $batchSmokeSource -match [regex]::Escape('TEMP_ARTIFACT_LINK_NOT_REPARSE_POINT') -and
         $batchSmokeSource -notmatch [regex]::Escape('New-Item -ItemType HardLink')) 'Hyper-V-Smoke bindet das immutable Parent nicht ueber eine sicher gepruefte Junction ein.'
+
+    $userGateAcceptancePath = Join-Path $repoRoot 'Tests\Integration\Invoke-BatchUserGateAcceptance.ps1'
+    Assert-Check (Test-Path -LiteralPath $userGateAcceptancePath -PathType Leaf) 'Reale Windows-User-Gate-Abnahme fehlt.'
+    $userGateAcceptanceSource = Get-Content -LiteralPath $userGateAcceptancePath -Raw -Encoding utf8
+    Assert-Check ($userGateAcceptanceSource -match [regex]::Escape('Read-only Probe setzte nur CandidateSatisfied') -and
+        $userGateAcceptanceSource -match [regex]::Escape('Scheduler-Rerun setzte CandidateSatisfied ohne Benutzerbestaetigung nicht fort') -and
+        $userGateAcceptanceSource -match [regex]::Escape('Confirm-SqlServerLabOperationUserAction -OperationId $operation.operationId -Credential $credential') -and
+        $userGateAcceptanceSource -match [regex]::Escape('UserGateConfirmed') -and
+        $userGateAcceptanceSource -match [regex]::Escape('User-Gate-Batch wurde scopegebunden vollstaendig bereinigt')) 'Windows-User-Gate-Abnahme bindet Probe, explizite Credential-Bestaetigung und Cleanup nicht real.'
 
     Write-Host 'BATCH-/QUEUE-/RESUME-VERTRAGSPRUEFUNGEN: PASS' -ForegroundColor Green
 }

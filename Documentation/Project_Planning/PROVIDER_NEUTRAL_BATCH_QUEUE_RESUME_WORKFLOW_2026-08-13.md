@@ -46,15 +46,15 @@ Dieses Dokument hält Zielbild und Statusabgleich fest. Code und passende Tests
 bleiben der Implementierungsnachweis; die folgende Tabelle ordnet diesen
 Nachweis ein.
 
-Stand 2026-08-20 gilt:
+Stand 2026-08-28 gilt:
 
 | Bereich | Status |
 |---|---|
 | Vollständige Batch-/Operation-Verträge | `VERIFIED` durch synthetischen lokalen Contract-Test |
 | Persistente Queue und Scheduler-Lease | `VERIFIED` durch Resume-, Worker-, Lease- und Fehlerisolationstest |
-| User-Gates mit Read-only-Probes | `VERIFIED` für synthetischen Probe-/Bestätigungsvertrag |
+| User-Gates mit Read-only-Probes | `VERIFIED` synthetisch und real auf Hyper-V: Candidate ohne Fortschritt, fail-closed Credential-Verifikation, genau ein Receipt und Cleanup |
 | Mengenfähiger Composer | `IMPLEMENTED_UNVERIFIED`; Console-Vertrag statisch geprüft, reale Bulk-Abnahme offen |
-| Providerneutrale Erstellung | `IN_PROGRESS`; Docker-/Podman-Bulk sowie Hyper-V-Slot-Bulk, harter Docker-Scheduler-Abbruch, Manifest-Rerun, Resume und Cleanup real verifiziert; User-Gates offen |
+| Providerneutrale Erstellung | `IN_PROGRESS`; Docker-/Podman-Bulk sowie Hyper-V-Slot-Bulk, harter Docker-Scheduler-Abbruch, Manifest-Rerun, Windows-User-Gate, Resume und Cleanup real verifiziert |
 | Batch-Manifest | `VERIFIED` für Schema, deterministische Expansion, offene Deduplizierung und realen Docker-Rerun nach Cleanup |
 | Browseradapter für persistente Vorgänge | `IMPLEMENTED_UNVERIFIED`; Queue-Anzeige und persistente Übergabe vorhanden |
 | Neue konsolidierte Menüstruktur | `IMPLEMENTED_UNVERIFIED`; zentrale UI-Checks grün, Restmigration bleibt offen |
@@ -553,11 +553,11 @@ Dieser Abschnitt ist bei jeder Implementierungswelle zu aktualisieren.
 | 1 Persistenter Kern | `VERIFIED` | `Invoke-BatchWorkflowChecks.ps1`: Vertrag, Expansion, Persistenz | reale Provider-Receipts bleiben Teil von Welle 5 |
 | 2 Scheduler | `VERIFIED` | zwei Worker, ein `HyperVHeavy`, Resume und Fehlerisolation synthetisch grün; harter Scheduler-Prozessabbruch mit zwei realen Docker-Ressourcen, `WorkerRecovered` und Cleanup grün | keine offene Scheduler-Kernabnahme |
 | 3 Console Composer | `IMPLEMENTED_UNVERIFIED` | Composer und Queue-Menü vorhanden; Console-UI-Checks grün | reale Bulk-Erfassung und Abbruchpfade |
-| 4 User-Gates | `VERIFIED` | Probe, `CandidateSatisfied` und Bestätigung synthetisch grün | reale Hyper-V-Windows-Gates und Credential-Verifikation |
+| 4 User-Gates | `VERIFIED` | Probe und `CandidateSatisfied` ohne Fortschritt, fail-closed Bestätigung, echte PowerShell-Direct-Credential-Verifikation, genau ein Receipt und Cleanup auf einem realen Hyper-V-Windows-Slot grün | keine offene User-Gate-Kernabnahme |
 | 5 Providerneutrale Erstellung | `IN_PROGRESS` | Docker und Podman: je zwei SQL-2025-Runs; Hyper-V: zwei Windows-2025-Slots seriell; harter Docker-Scheduler-Abbruch, Manifest-Rerun, Resume und Cleanup mit `Invoke-BatchWorkflowSmokeTest.ps1` verifiziert | fehlende Shared-Artifact-Abhängigkeit |
 | 6 Menükonsolidierung | `IMPLEMENTED_UNVERIFIED` | providerneutrale Arbeitsbereiche und 54 Console-UI-Checks | `CUI-012` bis `CUI-019` und manuelle Navigation |
 | 7 Browser und Manifest | `IN_PROGRESS` | Batchschema, offene Manifest-Deduplizierung, realer Docker-Rerun samt Cleanup, persistente Browserübergabe und Queue-Ansicht vorhanden | Browser-End-to-End |
-| 8 Abnahme und Veröffentlichung | `IN_PROGRESS` | PR #68/#70/#73/#105 gemergt; statische und GitHub-Gates sowie Docker-/Podman-/Hyper-V-Batch-Cleanup, realer Docker-Scheduler-Abbruch und Manifest-Rerun grün | User-Gate und übrige manuelle Abnahme |
+| 8 Abnahme und Veröffentlichung | `IN_PROGRESS` | PR #68/#70/#73/#104/#105/#107/#108 gemergt; statische und GitHub-Gates sowie Docker-/Podman-/Hyper-V-Batch-Cleanup, realer Docker-Scheduler-Abbruch, Manifest-Rerun, GUI-/Console-Abbruch und Windows-User-Gate grün | positive reale Hyper-V-Generalize-Abnahme und übrige manuelle Abnahme |
 
 Statuswerte dürfen nur mit konkretem Nachweis geändert werden:
 

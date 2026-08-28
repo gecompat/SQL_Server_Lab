@@ -985,6 +985,22 @@ function Get-LabRunVmName {
     return $null
 }
 
+function Get-LabRunHyperVVmName {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RunId,
+        [string]$StateRoot
+    )
+
+    if ([string]::IsNullOrWhiteSpace($StateRoot)) { $StateRoot = Get-LabStateRoot }
+    $connectionPath = Join-Path (Join-Path (Join-Path $StateRoot 'runs') $RunId) 'connection-info.json'
+    $connection = Read-LabWorkflowJson -Path $connectionPath
+    if ($null -eq $connection) { return $null }
+    $instance = @($connection.instances | Where-Object { [string]$_.provider -eq 'hyperv' } | Select-Object -First 1)
+    if ($instance.Count -eq 0 -or [string]::IsNullOrWhiteSpace([string]$instance[0].vmName)) { return $null }
+    return [string]$instance[0].vmName
+}
+
 function Resolve-LabOperationArtifactId {
     [CmdletBinding()]
     param(
@@ -1204,7 +1220,10 @@ function Invoke-LabOperationStepAction {
         }
         'WaitForWindowsUserAction' {
             $run = Get-LabRunState -RunId $Operation.runId -StateRoot $StateRoot
-            $vmName = Get-LabRunVmName -Run $run
+            $vmName = Get-LabRunHyperVVmName -RunId $Operation.runId -StateRoot $StateRoot
+            if ([string]::IsNullOrWhiteSpace($vmName)) {
+                $vmName = Get-LabRunVmName -Run $run
+            }
             if ([string]::IsNullOrWhiteSpace($vmName)) {
                 $vmName = [string]$Operation.runId
             }
@@ -1433,8 +1452,21 @@ function Test-LabOperationUserGateVerification {
             $runId = [string](Get-LabWorkflowValue -InputObject $verification.data -Name 'runId' -Default $Operation.runId)
             if ($ProbeOnly) {
                 try {
-                    $run = Get-LabRunState -RunId $runId -StateRoot $StateRoot
-                    $vmName = Get-LabRunVmName -Run $run
+                    $vmName = [string](Get-LabWorkflowValue -InputObject $verification.data -Name 'vmName' -Default '')
+                    if ([string]::IsNullOrWhiteSpace($vmName) -or $vmName -eq $runId) {
+                        $resolvedVmName = Get-LabRunHyperVVmName -RunId $runId -StateRoot $StateRoot
+                        if (-not [string]::IsNullOrWhiteSpace($resolvedVmName)) {
+                            $vmName = $resolvedVmName
+                            $verification.data | Add-Member -NotePropertyName 'vmName' -NotePropertyValue $resolvedVmName -Force
+                        }
+                    }
+                    if ([string]::IsNullOrWhiteSpace($vmName) -or $vmName -eq $runId) {
+                        $run = Get-LabRunState -RunId $runId -StateRoot $StateRoot
+                        $vmName = Get-LabRunVmName -Run $run
+                    }
+                    if ([string]::IsNullOrWhiteSpace($vmName)) {
+                        return [pscustomobject]@{ success = $false; candidate = $false; message = 'Das persistente Windows-User-Gate enthaelt keinen pruefbaren VM-Namen.'; result = $null }
+                    }
                     $status = Get-HyperVInstanceStatus -VMName $vmName -ExpectedRunId $runId
                     $state = [string](Get-LabWorkflowValue -InputObject $status -Name 'State' -Default (Get-LabWorkflowValue -InputObject $status -Name 'VMState' -Default ''))
                     $candidate = $state -match 'Running|Off|Stopped'
