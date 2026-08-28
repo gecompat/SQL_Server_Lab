@@ -30,15 +30,6 @@ foreach ($entry in $providers.GetEnumerator()) {
         $text -match "chown --reference='\`$ContainerPath' /sql-lab-volume-init" -and
         $text -match "chmod --reference='\`$ContainerPath' /sql-lab-volume-init"
     ) "$name synchronisiert Image-Inhalt und dessen Wurzelrechte nur in das External-Runtime-Extensibility-Volume"
-    Assert-VolumeContract (
-        $text -match "SyncExternalRuntimeConfiguration:\(\`$ExternalRuntimeLaunchMode -eq 'sql2022-namespace-v1' -and \[string\]\`$drive\.containerPath -eq '/var/opt/mssql'\)" -and
-        @('pythonbinpath','rbinpath','datadirectories' | Where-Object {
-            $text -notmatch "mssql-conf set extensibility\.$_" -or $text -notmatch "mssql-conf unset extensibility\.$_"
-        }).Count -eq 0 -and
-        $text -match '\(\$initializationCommands -join "`n"\) -replace "`r`n", "`n"' -and
-        $text -match '\[Convert\]::ToBase64String' -and
-        $text -match "base64 -d \| /bin/sh"
-    ) "$name synchronisiert nur die imagegebundene Extensibility-Konfiguration in das persistente SQL-Systemvolume"
 }
 
 Assert-VolumeContract ($providers.podman -match "if \(-not \`$drive\.hostPath -and \`$ExternalRuntimeLaunchMode -eq 'none'\) \{ \`$volumeOptions \+= 'U' \}") 'podman verwendet die user-namespace-sichere U-Option nur fuer normale rootless Named Volumes'

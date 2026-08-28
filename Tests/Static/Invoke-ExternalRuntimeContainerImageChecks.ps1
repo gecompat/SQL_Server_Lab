@@ -309,6 +309,14 @@ try {
         $launcher -match 'runuser -u mssql -- "\$@" &' -and
         $launcher -notmatch '(?i)-usens=false|enableOutboundAccess=true'
     )
+    Add-CheckResult -Name 'Jedes Image synchronisiert seine Extensibility-Konfiguration rollback-sicher beim Start' -Success (
+        $containerfile -match 'external-runtime-mssql\.conf' -and
+        $launcher -match 'for setting in pythonbinpath rbinpath datadirectories' -and
+        $launcher -match 'mssql-conf set "extensibility\.\$\{setting\}"' -and
+        $launcher -match 'mssql-conf unset "extensibility\.\$\{setting\}"' -and
+        $launcher -match '/var/opt/mssql-extensibility/data /var/opt/mssql-extensibility/sandboxes' -and
+        $launcher -notmatch '/var/opt/mssql-extensibility/externallibrar'
+    )
     Add-CheckResult -Name 'Wheel-Installation erhaelt nur sichere ausfuehrbare Modusbits' -Success (
         $pythonWheelInstaller -match 'member\.external_attr >> 16' -and
         $pythonWheelInstaller -match '0o755 if archive_mode & 0o111 else 0o644'
