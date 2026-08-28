@@ -408,7 +408,7 @@ try {
         $podmanSource -match "'--security-opt', 'apparmor=unconfined'" -and
         $podmanSource -match "'--security-opt', 'seccomp=unconfined'" -and
         $podmanSource -match "'/sys/fs/cgroup:/sys/fs/cgroup:rw'" -and
-        $podmanSource -match 'cp -a /var/opt/mssql/\. /sql-lab-volume-init/' -and
+        $podmanSource -match "cp -a '\`$ContainerPath'/\. /sql-lab-volume-init/" -and
         $podmanSource -match 'ExternalRuntimeLaunchMode -eq ''none''\) \{ \$volumeOptions \+= ''U'' \}' -and
         $podmanSource -notmatch "'--privileged'" -and
         $artifactSource -match 'if \(\$rootless\)'
