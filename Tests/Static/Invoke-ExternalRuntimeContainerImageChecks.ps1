@@ -450,6 +450,7 @@ try {
         $lifecycleSource -match 'EXTERNAL_RUNTIME_JAVA_LANGUAGE_DRIFT' -and
         $lifecycleSource -match 'Undo-LabJavaExternalRuntimeDatabaseObjects' -and
         $lifecycleSource -match 'javaCompensations' -and
+        $lifecycleSource -match '(?s)function Invoke-LabJavaExternalRuntimeProbe\s*\{.*?param\(.*?\$RegistrationTracker' -and
         $lifecycleSource -match 'RegistrationTracker\.Registration' -and
         $lifecycleSource -match '\[bool\]\$registration\.CreatedLanguage -or \[bool\]\$prior\.CreatedLanguage' -and
         $lifecycleSource -match "Language -eq 'Java'\) \{ 1 \}" -and
