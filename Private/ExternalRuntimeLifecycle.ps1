@@ -463,7 +463,8 @@ function Invoke-LabExternalRuntimeProbeWithRetry {
     param(
         [Parameter(Mandatory)][scriptblock]$Operation,
         [ValidateRange(1,3)][int]$MaximumAttempts = 2,
-        [ValidateRange(0,10)][int]$RetryDelaySeconds = 3
+        [ValidateRange(0,10)][int]$RetryDelaySeconds = 3,
+        [scriptblock]$RecoveryOperation
     )
 
     for ($attempt = 1; $attempt -le $MaximumAttempts; $attempt++) {
@@ -474,6 +475,7 @@ function Invoke-LabExternalRuntimeProbeWithRetry {
             if (-not $isTransientLaunchpadFailure -or $attempt -ge $MaximumAttempts) { throw }
             Write-LabWarning "Transiente LaunchPad-Kommunikationsstoerung; Runtime-Probe wird einmal wiederholt."
             if ($RetryDelaySeconds -gt 0) { Start-Sleep -Seconds $RetryDelaySeconds }
+            if ($RecoveryOperation) { $null = & $RecoveryOperation }
         }
     }
 }
@@ -522,6 +524,14 @@ RECONFIGURE WITH OVERRIDE;
     }
     $launchpad = Test-LabExternalRuntimeLaunchpadProcess -Provider ([string]$LabInstance.Provider) `
         -ContainerIdOrName ([string]$LabInstance.ContainerId)
+    $recoverProbeReadiness = {
+        $recovered = Wait-SqlReady -HostName ([string]$LabInstance.Host) -Port ([int]$LabInstance.Port) `
+            -SaPassword $SaPassword -TimeoutSeconds 300 -ExpectedMajorVersion ([int]$versionDefinition.major) `
+            -Provider ([string]$LabInstance.Provider) -ContainerIdOrName ([string]$LabInstance.ContainerId)
+        if (-not $recovered.Ready) {
+            throw "EXTERNAL_RUNTIME_PROBE_RETRY_READINESS_FAILED: $($recovered.Message)"
+        }
+    }
 
     $receipts = [Collections.Generic.List[object]]::new()
     $javaCompensations = [Collections.Generic.List[object]]::new()
@@ -531,13 +541,13 @@ RECONFIGURE WITH OVERRIDE;
         foreach ($plan in $orderedPlans) {
             $probes = @(switch ([string]$plan.Language) {
                 'Python' {
-                    Invoke-LabExternalRuntimeProbeWithRetry -Operation {
+                    Invoke-LabExternalRuntimeProbeWithRetry -RecoveryOperation $recoverProbeReadiness -Operation {
                         Invoke-LabPythonExternalRuntimeProbe -Plan $plan -HostName ([string]$LabInstance.Host) `
                             -Port ([int]$LabInstance.Port) -SaPassword $SaPassword
                     }
                 }
                 'R' {
-                    Invoke-LabExternalRuntimeProbeWithRetry -Operation {
+                    Invoke-LabExternalRuntimeProbeWithRetry -RecoveryOperation $recoverProbeReadiness -Operation {
                         Invoke-LabRExternalRuntimeProbe -Plan $plan -HostName ([string]$LabInstance.Host) `
                             -Port ([int]$LabInstance.Port) -SaPassword $SaPassword
                     }
@@ -546,7 +556,7 @@ RECONFIGURE WITH OVERRIDE;
                     $databaseNames = @($LabInstance.Databases | ForEach-Object { [string]$_ } | Sort-Object -Unique)
                     if ($databaseNames.Count -eq 0) { $databaseNames = @('master') }
                     foreach ($databaseName in $databaseNames) {
-                        $javaProbe = @(Invoke-LabExternalRuntimeProbeWithRetry -Operation {
+                        $javaProbe = @(Invoke-LabExternalRuntimeProbeWithRetry -RecoveryOperation $recoverProbeReadiness -Operation {
                             Invoke-LabJavaExternalRuntimeProbe -Plan $plan -HostName ([string]$LabInstance.Host) `
                                 -Port ([int]$LabInstance.Port) -SaPassword $SaPassword -Database $databaseName
                         })[0]
