@@ -30,6 +30,9 @@ Umgebung wird idempotent erkannt und nicht erneut installiert.
 Alle Testumgebungen bilden eine gemeinsame, geschützte Lifecycle-Gruppe:
 
 - Jede Linux- und Windows-Umgebung wird mit `AutoStart = on` erstellt.
+- Linux-Ziele verwenden fuer wiederholte Projektvolltests das Profil `standard`
+  mit 4 GB Container-RAM, 4 vCPU, 3 GB `max server memory` und einem davon
+  getrennten SQL-Linux-Memory-Limit unterhalb der cgroup-Grenze.
 - Die Gruppe ist nur verwendbar, wenn wirklich alle registrierten Ziele bereit sind.
 - Der gezielte CI-Modus `shared-environments` darf eine ausgeschaltete,
   registrierte Windows-VM und deren vorhandene SQL-Engine-Dienste reaktivieren.
@@ -91,10 +94,12 @@ explizit lesen oder nach der Konfiguration neu gestartet werden.
 4. oberstes `groupStatus`: muss `READY` sein;
 5. `status`: ausschließlich `READY` verwenden.
 
-Solange eine Umgebung noch provisioniert wird, fehlt oder nicht läuft, lautet
+Solange eine Umgebung noch provisioniert wird, fehlt, nicht läuft oder ihr
+gebundener Container-Healthcheck fehlschlaegt, lautet
 `groupStatus = INCOMPLETE` und alle Einträge erhalten
 `status = GROUP_INCOMPLETE`. Der jeweilige Einzelzustand bleibt in
-`runtimeStatus` sichtbar. Dadurch gilt für Verbraucher strikt: alle oder keine.
+`runtimeStatus` sichtbar, beispielsweise als `UNHEALTHY`. Dadurch gilt für
+Verbraucher strikt: alle oder keine.
 
 Danach stehen `host`, `port`, `database`, `username`, `password`, `encrypt`,
 `trustServerCertificate` und `connectionString` zur Verfügung. `runId` und
@@ -191,6 +196,20 @@ Schritt jederzeit erneuert werden:
 ```powershell
 Export-SqlServerLabTestEnvironment
 ```
+
+Ist nur der Ressourcen- oder Health-Vertrag der registrierten Linux-Container
+veraltet, wird die geschützte Gruppe nicht gelöscht. Der öffentliche
+Reparaturpfad ersetzt ausschließlich die betroffenen Docker-/Podman-Container
+einzeln und mit Rollback; Run-IDs, Hostports, Volumes und Kennwörter bleiben
+erhalten. Windows-Mitglieder werden dabei nicht verändert:
+
+```powershell
+Repair-SqlServerLabAutomatedTestEnvironment
+```
+
+Nach jedem Reparaturversuch wird der Export live erneuert. Erst
+`Status = READY` und `Export.GroupStatus = READY` geben die Gruppe wieder für
+Verbraucher frei.
 
 Die gesamte Gruppe lässt sich auch nicht interaktiv löschen:
 

@@ -13,7 +13,9 @@ Container-basierte SQL-Server-Instanzen via Docker Desktop oder Docker Engine.
 - Health-Check via sqlcmd
 - Labels fuer Lifecycle-Management (`sql-server-lab.*`)
 - MSSQL_AGENT_ENABLED=true (immer aktiv)
-- Ressourcen-Limits (Memory, CPUs) per Profile
+- Ressourcen-Limits (Memory, CPUs) per Profile; SQL Server erhaelt zusaetzlich
+  ein eigenes Memory-Limit mit 20 Prozent Headroom unterhalb des cgroup-Limits
+- TLS-vertraulicher Healthcheck gegen das run-lokale selbstsignierte Zertifikat
 - providerneutraler Autostart über `--restart unless-stopped`,
   `sql-server-lab.autostart=on` und unter Windows einen verwalteten
   Benutzer-Anmeldeauftrag für Docker Desktop
