@@ -89,6 +89,7 @@ function New-LabInstanceIntentSnapshot {
     $externalRuntimeItems = @($externalRuntimePlans | ForEach-Object {
         [PSCustomObject]@{
             Id = [string]$_.SoftwareId
+            PlanKey = [string]$_.PlanKey
             Optional = $false
             Scope = 'sqlExternalRuntime'
             Status = [string]$_.Status

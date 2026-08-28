@@ -6,8 +6,9 @@
     Prueft die als SUPPORTED katalogisierten Linux-Varianten ohne Katalog- oder
     Provider-Mutation. Der normale New-SqlServerLab-Pfad baut das
     digestgebundene Derived Image, startet SQL Server im sicheren
-    launchpadd-Namespace-Modus und prueft Python, R und Java ueber
-    sp_execute_external_script. Nach einem Restart werden die fachlichen
+    launchpadd-Namespace-Modus und prueft zuerst Python. Der Reconcile-Pfad
+    wechselt danach journalgebunden auf ein neues Python-/R-/Java-Image und
+    prueft alle Sprachen ueber sp_execute_external_script. Nach einem Restart werden die fachlichen
     Postconditions erneut ausgefuehrt. Run-Ressourcen und das explizit
     test-eigene, wiederverwendbare Image werden getrennt bereinigt.
 .PARAMETER Provider
@@ -41,6 +42,7 @@ $previousPodmanNetwork = $env:SQL_SERVER_LAB_PODMAN_NETWORK
 $previousPodmanSubnet = $env:SQL_SERVER_LAB_PODMAN_SUBNET
 $lab = $null
 $imageName = $null
+$initialImageName = $null
 $completed = $false
 $acceptanceNetworkName = $null
 
@@ -81,9 +83,7 @@ try {
             provider = $Provider
             profile = 'performance'
             software = @(
-                [ordered]@{ id='sql-python'; scope='sqlExternalRuntime' },
-                [ordered]@{ id='sql-r'; scope='sqlExternalRuntime' },
-                [ordered]@{ id='sql-java'; scope='sqlExternalRuntime' }
+                [ordered]@{ id='sql-python'; scope='sqlExternalRuntime' }
             )
             serverConfig = [ordered]@{
                 externalScripts = [ordered]@{
@@ -129,7 +129,33 @@ try {
     Assert-ExternalRuntimeAcceptance ([string]$lab.State -eq 'Running') 'Lab wurde ueber den normalen Produktpfad provisioniert'
     $instance = @($lab.Instances)[0]
     Assert-ExternalRuntimeAcceptance ([string]$instance.ExternalRuntime.Status -eq 'EXTENSIONS_READY_RUN') 'External-Runtime-State ist EXTENSIONS_READY_RUN'
-    Assert-ExternalRuntimeAcceptance (@($instance.ExternalRuntime.Receipts).Count -eq 3) 'Python, R und Java besitzen Installation-Receipts'
+    Assert-ExternalRuntimeAcceptance (@($instance.ExternalRuntime.Receipts).Count -eq 1) 'Python besitzt vor dem Refresh ein Installation-Receipt'
+
+    $initialImageKey = [string]$instance.ExternalRuntime.ImageKey
+    $initialImageReceipt = & $module {
+        param($ImageKey,$ProviderName,$StateRootPath)
+        Get-LabExternalRuntimeContainerImageReceipt -ImageKey $ImageKey -Provider $ProviderName -StateRoot $StateRootPath
+    } $initialImageKey $Provider $stateRoot
+    $initialImageName = [string]$initialImageReceipt.image
+    $manifest.instances[0].software = @(
+        [ordered]@{ id='sql-python'; scope='sqlExternalRuntime' },
+        [ordered]@{ id='sql-r'; scope='sqlExternalRuntime' },
+        [ordered]@{ id='sql-java'; scope='sqlExternalRuntime' }
+    )
+    $manifest | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $manifestPath -Encoding utf8
+    $refreshPlan = Get-SqlServerLabReconcilePlan -RunId $lab.RunId -ManifestPath $manifestPath `
+        -InstanceId external-runtime -StateRoot $stateRoot
+    Assert-ExternalRuntimeAcceptance ($refreshPlan.HighestChangeClass -eq 'recreate' -and @($refreshPlan.Actions).Count -eq 1) 'Reconcile plant einen einzelnen External-Runtime-Recreate'
+    $refresh = Invoke-SqlServerLabReconcileAction -RunId $lab.RunId -ManifestPath $manifestPath `
+        -InstanceId external-runtime -ReadinessTimeoutSeconds 300 -StateRoot $stateRoot -Confirm:$false
+    Assert-ExternalRuntimeAcceptance ([string]$refresh.ExecutionSummary.Status -eq 'SUCCEEDED' -and $refresh.MutationAllowed) 'Journalgebundener External-Runtime-Refresh wurde ausgefuehrt'
+    $connectionPath = Join-Path (Join-Path (Join-Path $stateRoot 'runs') $lab.RunId) 'connection-info.json'
+    $connection = Get-Content -LiteralPath $connectionPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 50
+    $instance = @($connection.instances | Where-Object id -eq 'external-runtime')[0]
+    Assert-ExternalRuntimeAcceptance (@($instance.ExternalRuntime.Receipts).Count -eq 3) 'Python, R und Java besitzen nach dem Refresh Installation-Receipts'
+    $journalPath = Join-Path (Join-Path (Join-Path $stateRoot 'runs') $lab.RunId) 'external-runtime-refresh.json'
+    $journal = Get-Content -LiteralPath $journalPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 50
+    Assert-ExternalRuntimeAcceptance ([string]$journal.status -eq 'COMPLETED') 'Refresh-Journal ist nach State-Commit und Alt-Container-Cleanup abgeschlossen'
 
     $receiptPath = Join-Path (Join-Path (Join-Path $stateRoot 'runs') $lab.RunId) 'software-installation-receipts.json'
     Assert-ExternalRuntimeAcceptance (Test-Path -LiteralPath $receiptPath -PathType Leaf) 'Sanitisierte Installation-Receipts wurden persistiert'
@@ -176,9 +202,12 @@ try {
     $lab = $null
 
     $imageExistsAfterRunCleanup = @(& $Provider image inspect $imageName 2>$null).Count -gt 0 -and $LASTEXITCODE -eq 0
-    Assert-ExternalRuntimeAcceptance $imageExistsAfterRunCleanup 'Wiederverwendbares Image bleibt vom normalen Run-Cleanup getrennt'
-    & $Provider image rm --force $imageName 1>$null
-    Assert-ExternalRuntimeAcceptance ($LASTEXITCODE -eq 0) 'Test-eigenes Derived Image wurde explizit entfernt'
+    $initialImageExistsAfterRunCleanup = @(& $Provider image inspect $initialImageName 2>$null).Count -gt 0 -and $LASTEXITCODE -eq 0
+    Assert-ExternalRuntimeAcceptance ($imageExistsAfterRunCleanup -and $initialImageExistsAfterRunCleanup) 'Altes und neues wiederverwendbares Image bleiben vom normalen Run-Cleanup getrennt'
+    foreach ($testImage in @(@($imageName,$initialImageName) | Sort-Object -Unique)) {
+        & $Provider image rm --force $testImage 1>$null
+        Assert-ExternalRuntimeAcceptance ($LASTEXITCODE -eq 0) "Test-eigenes Derived Image wurde explizit entfernt: $testImage"
+    }
     if ($acceptanceNetworkName) {
         & $Provider network rm $acceptanceNetworkName 1>$null
         Assert-ExternalRuntimeAcceptance ($LASTEXITCODE -eq 0) 'Test-eigenes konfliktfreies Podman-Netz wurde explizit entfernt'
@@ -194,6 +223,14 @@ try {
         rootless = [bool]$hostAndImage.Host.Rootless
         catalogState = @($catalogState)
         characterization = 'catalog-supported-native-acceptance'
+        refresh = [ordered]@{
+            status = [string]$refresh.ExecutionSummary.Status
+            changeClass = [string]$refreshPlan.HighestChangeClass
+            journalStatus = [string]$journal.status
+            previousImageKey = $initialImageKey
+            desiredImageKey = [string]$instance.ExternalRuntime.ImageKey
+            previousImageRetainedAfterSwitch = $initialImageExistsAfterRunCleanup
+        }
         image = [ordered]@{
             imageKey = [string]$instance.ExternalRuntime.ImageKey
             baseImageDigest = [string]$hostAndImage.ImageReceipt.baseImageDigest
@@ -242,6 +279,9 @@ finally {
     }
     if ($imageName -and -not $completed -and -not $KeepOnFailure) {
         try { & $Provider image rm --force $imageName 1>$null 2>$null } catch { }
+    }
+    if ($initialImageName -and -not $completed -and -not $KeepOnFailure) {
+        try { & $Provider image rm --force $initialImageName 1>$null 2>$null } catch { }
     }
     if ($acceptanceNetworkName -and -not $completed -and -not $KeepOnFailure) {
         try { & $Provider network rm $acceptanceNetworkName 1>$null 2>$null } catch { }

@@ -172,11 +172,11 @@ public_commands:
     writes_files: true
   - name: Get-SqlServerLabReconcilePlan
     source: Public/Get-SqlServerLabReconcilePlan.ps1
-    purpose: "Read-only Desired/Actual/Diff/Action-Plan fuer einen bestehenden Lifecycle-Run"
+    purpose: "Read-only Lifecycle- oder resolvergebundener External-Runtime-Refresh-Plan"
     mutates_host: false
   - name: Invoke-SqlServerLabReconcileAction
     source: Public/Invoke-SqlServerLabReconcileAction.ps1
-    purpose: "Reconcile-Plan fuer einen bestehenden Run ausfuehren (START/STOP), wenn eindeutig restartfaehig"
+    purpose: "START/STOP oder additiven SQL-2022-Container-Runtime-Refresh journal- und validierungsgebunden ausfuehren"
     mutates_host: true
   - name: Invoke-SqlServerLabWorkflowAction
     source: Public/Invoke-SqlServerLabWorkflowAction.ps1
@@ -591,6 +591,15 @@ validation:
       - docker_and_podman_native_acceptance_contract
       - state_receipts_restart_and_cleanup_boundaries
       - software_plan_key_image_receipt_cleanup_and_recovery_binding
+  static_external_runtime_reconcile:
+    command: '.\Tests\Static\Invoke-ExternalRuntimeReconcileChecks.ps1'
+    source: Tests/Static/Invoke-ExternalRuntimeReconcileChecks.ps1
+    covers:
+      - additive_resolver_bound_external_runtime_recreate_plan
+      - non_software_drift_and_runtime_removal_fail_closed
+      - sanitized_plan_and_whatif
+      - build_journal_validation_state_commit_cleanup_order
+      - rollback_and_resume_contract
   static_mixed_provider_contracts:
     command: '.\Tests\Static\Invoke-MixedProviderLifecycleChecks.ps1'
     source: Tests/Static/Invoke-MixedProviderLifecycleChecks.ps1
@@ -790,11 +799,13 @@ change_coupling:
     - SqlServerLab.psd1
     - Public/README.md
     - Public/Invoke-SqlServerLabReconcileAction.ps1
+    - Private/ExternalRuntimeReconcile.ps1
     - README.md
     - Documentation/README.md
     - Documentation/User/Getting_Started.md
     - .ai/repo_map.yaml
     - Tests/Static/Invoke-ReconcileActionContractChecks.ps1
+    - Tests/Static/Invoke-ExternalRuntimeReconcileChecks.ps1
     - Tests/Static/Invoke-DocumentationChecks.ps1
     - en-US/about_SqlServerLab.help.txt
     - de-DE/about_SqlServerLab.help.txt

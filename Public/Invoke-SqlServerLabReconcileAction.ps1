@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Wendet einen vorhandenen Reconcile-Plan ausfuehrlich auf einen Run an.
+    Wendet einen Lifecycle- oder External-Runtime-Reconcile-Plan auf einen Run an.
 .DESCRIPTION
     Liest zuerst den Reconcile-Plan aus. Eine Ausfuehrung erfolgt nur fuer den
     eindeutig-restartfaehigen Pfad mit genau einer Operation START oder STOP.
@@ -10,6 +10,12 @@
     Identifizierer des vorhandenen Runs.
 .PARAMETER TargetState
     Gewuenschter Zielzustand fuer den Run nach der Reconcile-Ausfuehrung.
+.PARAMETER ManifestPath
+    Zielmanifest fuer einen resolvergebundenen External-Runtime-Refresh.
+.PARAMETER InstanceId
+    Zielinstanz fuer den External-Runtime-Refresh.
+.PARAMETER ReadinessTimeoutSeconds
+    Maximale Wartezeit fuer die SQL-Readiness des Ersatzcontainers.
 .PARAMETER StateRoot
     Optionaler lokaler State-Root fuer einen reproduzierbaren Aufruf.
 .OUTPUTS
@@ -19,17 +25,61 @@
     Invoke-SqlServerLabReconcileAction -RunId $lab.RunId -TargetState STOPPED
 #>
 function Invoke-SqlServerLabReconcileAction {
-    [CmdletBinding(SupportsShouldProcess)]
+    [CmdletBinding(SupportsShouldProcess, DefaultParameterSetName = 'Lifecycle')]
     param(
         [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
         [string]$RunId,
 
-        [Parameter(Mandatory)]
+        [Parameter(Mandatory, ParameterSetName = 'Lifecycle')]
         [ValidateSet('RUNNING', 'STOPPED')]
         [string]$TargetState,
 
+        [Parameter(Mandatory, ParameterSetName = 'ExternalRuntime')]
+        [string]$ManifestPath,
+
+        [Parameter(ParameterSetName = 'ExternalRuntime')]
+        [string]$InstanceId,
+
+        [Parameter(ParameterSetName = 'ExternalRuntime')]
+        [ValidateRange(30, 900)]
+        [int]$ReadinessTimeoutSeconds = 300,
+
         [string]$StateRoot
     )
+
+    if ($PSCmdlet.ParameterSetName -eq 'ExternalRuntime') {
+        $plan = Get-SqlServerLabReconcilePlan -RunId $RunId -ManifestPath $ManifestPath -InstanceId $InstanceId -StateRoot $StateRoot
+        $wouldExecute = if ($plan.IsNoOp) { $false } else {
+            $PSCmdlet.ShouldProcess("Run '$RunId', Instanz '$($plan.InstanceId)'", 'External Runtime durch validierten Ersatzcontainer aktualisieren')
+        }
+        $entry = [ordered]@{
+            Operation='RefreshExternalRuntime'; Planned=(-not $plan.IsNoOp); Executed=$false
+            Status=if ($plan.IsNoOp) { 'NO_OP' } elseif ($wouldExecute) { 'PLANNED' } else { 'WOULD_EXECUTE' }
+            Reason=$null; Result=$null
+        }
+        $summary = [ordered]@{
+            Status=$entry.Status; PlannedActions=@($plan.Actions).Count; ExecutedActions=0
+            FailedActions=0; MutationAllowed=$false; Errors=@()
+        }
+        if (-not $plan.IsNoOp -and $wouldExecute) {
+            try {
+                $entry.Result = Invoke-LabExternalRuntimeReconcileRefresh -RunId $RunId -ManifestPath $ManifestPath `
+                    -InstanceId $InstanceId -ReadinessTimeoutSeconds $ReadinessTimeoutSeconds -StateRoot $StateRoot
+                $entry.Executed = $true; $entry.Status = [string]$entry.Result.Status
+                $summary.Status = [string]$entry.Result.Status; $summary.ExecutedActions = 1; $summary.MutationAllowed = $true
+            }
+            catch {
+                $entry.Executed = $true; $entry.Status = 'FAILED'; $entry.Reason = $_.Exception.Message
+                $summary.Status = 'FAILED'; $summary.ExecutedActions = 1; $summary.FailedActions = 1; $summary.Errors = @($_.Exception.Message)
+            }
+        }
+        return [PSCustomObject]@{
+            Contract=[PSCustomObject]@{ Name='SqlServerLab.ReconcileAction'; Version='1.1' }
+            RunId=$RunId; TargetState=$null; Plan=$plan; ExecutionPlan=@([PSCustomObject]$entry)
+            ExecutionSummary=[PSCustomObject]$summary; MutationAllowed=[bool]$summary.MutationAllowed
+            Warnings=@($plan.Warnings)
+        }
+    }
 
     $plan = Get-SqlServerLabReconcilePlan -RunId $RunId -TargetState $TargetState -StateRoot $StateRoot
     $planActions = @($plan.Actions)
