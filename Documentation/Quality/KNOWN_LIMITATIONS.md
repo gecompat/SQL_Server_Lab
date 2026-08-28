@@ -493,10 +493,11 @@ PowerShell-Direct-Abnahme nicht.
 Lifecycle-Schnellmenüs verwenden inzwischen `ActionResult/1.0`: `Cancelled`,
 `NoChange`, `Skipped`, Ablehnung und Fehler lösen weder Connection-Center- noch
 CMS-Synchronisation aus; eine erfolgreiche endpunktrelevante Mutation genau
-eine. Der Aufrufzähler ist lokal synthetisch gebunden. Die reale Konsolenabnahme
-für `Escape`, `Ctrl+C` und Fallback sowie der echte Prozessabbruch bleiben Teil
-des offenen N2-Gates und dürfen durch diesen statischen Nachweis nicht als
-abgeschlossen gelten.
+eine. Der Aufrufzähler ist lokal synthetisch gebunden. Der gemeinsame
+Dialogabbruch der grafischen Workflow-UI ist im lokalen Browser real mit
+`Escape`, Löschbestätigung und Passwortverwerfung geprüft. Die PowerShell-
+Konsolenabnahme für `Ctrl+C` und Fallback sowie der echte Prozessabbruch bleiben
+Teil des offenen N2-Gates und dürfen dadurch nicht als abgeschlossen gelten.
 
 ## Lokale State- und Secret-Daten
 
