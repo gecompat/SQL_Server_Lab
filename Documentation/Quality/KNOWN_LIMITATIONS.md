@@ -454,8 +454,14 @@ unverändert bleiben. Das neue Derived Image wird vor der Container-Mutation
 gebaut; Journal, Scope-Prüfung, SQL-Readiness und echte Sprachpostconditions
 binden Umschaltung und Rollback. Der alte Container wird erst nach atomarem
 Connection-/Desired-State-Commit entfernt, das alte Image bleibt erhalten.
-Eine positive native Docker-/Podman-Abnahme dieses neuen Umschaltpfads ist im
-aktuellen Änderungsscope noch auszuführen und wird bis dahin nicht behauptet.
+Der vollständige Umschaltpfad bestand am 2026-08-28 getrennte native Docker-
+und Podman-Abnahmen auf einem isolierten Ubuntu-22.04-/cgroup-v1-Gast: ausgehend
+von Python-only wurden R und Java additiv ergänzt, das Journal erreichte
+`COMPLETED`, alle drei Sprachprobes bestanden nach Restart und beide Images
+blieben bis zum expliziten test-eigenen Cleanup erhalten. Der erste Podman-
+Versuch traf vor dem Refresh einmalig die bekannte transiente LaunchPad-
+Kommunikationsstörung `Msg 39011`; die unveränderte gezielte Wiederholung im
+erhaltenen Gast bestand vollständig.
 
 Noch nicht unterstützt sind Runtime-Entfernung samt Java-DDL-Cleanup, freie
 Packagewechsel, der allgemeine Hyper-V-Softwarepfad sowie Hyper-V-Artifact-
