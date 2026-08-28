@@ -112,8 +112,10 @@ Add-CheckResult -Name 'Java-Removal bindet nur receiptbelegte Lab-Objekte und Da
 )
 
 $retryContract = & $module {
-    $retryState = [PSCustomObject]@{ Attempts=0; NonTransientAttempts=0 }
-    $result = Invoke-LabExternalRuntimeProbeWithRetry -RetryDelaySeconds 0 -Operation {
+    $retryState = [PSCustomObject]@{ Attempts=0; Recoveries=0; NonTransientAttempts=0 }
+    $result = Invoke-LabExternalRuntimeProbeWithRetry -RetryDelaySeconds 0 -RecoveryOperation {
+        $retryState.Recoveries++
+    } -Operation {
         $retryState.Attempts++
         if ($retryState.Attempts -eq 1) { throw "Msg 39011`nSQL Server was unable to communicate with the LaunchPad service" }
         [PSCustomObject]@{ Status='PASS' }
@@ -127,12 +129,12 @@ $retryContract = & $module {
     }
     catch { $nonTransientRejected = $_.Exception.Message -eq 'SQL semantic failure' }
     [PSCustomObject]@{
-        Attempts=$retryState.Attempts; Status=[string]$result.Status
+        Attempts=$retryState.Attempts; Recoveries=$retryState.Recoveries; Status=[string]$result.Status
         NonTransientAttempts=$retryState.NonTransientAttempts; NonTransientRejected=$nonTransientRejected
     }
 }
 Add-CheckResult -Name 'Probe-Retry ist auf transiente LaunchPad-39011/39012-Fehler begrenzt' -Success (
-    $retryContract.Attempts -eq 2 -and $retryContract.Status -eq 'PASS' -and
+    $retryContract.Attempts -eq 2 -and $retryContract.Recoveries -eq 1 -and $retryContract.Status -eq 'PASS' -and
     $retryContract.NonTransientAttempts -eq 1 -and $retryContract.NonTransientRejected
 )
 
