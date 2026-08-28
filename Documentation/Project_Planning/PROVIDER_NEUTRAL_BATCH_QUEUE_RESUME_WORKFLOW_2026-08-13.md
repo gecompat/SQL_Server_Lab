@@ -557,7 +557,7 @@ Dieser Abschnitt ist bei jeder Implementierungswelle zu aktualisieren.
 | 5 Providerneutrale Erstellung | `IN_PROGRESS` | Docker und Podman: je zwei SQL-2025-Runs; Hyper-V: zwei Windows-2025-Slots seriell; harter Docker-Scheduler-Abbruch, Manifest-Rerun, Resume und Cleanup mit `Invoke-BatchWorkflowSmokeTest.ps1` verifiziert | fehlende Shared-Artifact-Abhängigkeit |
 | 6 Menükonsolidierung | `IMPLEMENTED_UNVERIFIED` | providerneutrale Arbeitsbereiche und 54 Console-UI-Checks | `CUI-012` bis `CUI-019` und manuelle Navigation |
 | 7 Browser und Manifest | `IN_PROGRESS` | Batchschema, offene Manifest-Deduplizierung, realer Docker-Rerun samt Cleanup, persistente Browserübergabe und Queue-Ansicht vorhanden | Browser-End-to-End |
-| 8 Abnahme und Veröffentlichung | `IN_PROGRESS` | PR #68/#70/#73/#104/#105/#107/#108 gemergt; statische und GitHub-Gates sowie Docker-/Podman-/Hyper-V-Batch-Cleanup, realer Docker-Scheduler-Abbruch, Manifest-Rerun, GUI-/Console-Abbruch und Windows-User-Gate grün | positive reale Hyper-V-Generalize-Abnahme und übrige manuelle Abnahme |
+| 8 Abnahme und Veröffentlichung | `IN_PROGRESS` | PR #68/#70/#73/#104/#105/#107/#108 gemergt; statische und GitHub-Gates sowie Docker-/Podman-/Hyper-V-Batch-Cleanup, realer Docker-Scheduler-Abbruch, Manifest-Rerun, GUI-/Console-Abbruch, Windows-User-Gate und positive reale Hyper-V-Generalize-/Publish-Abnahme grün | übrige manuelle Abnahme |
 
 Statuswerte dürfen nur mit konkretem Nachweis geändert werden:
 

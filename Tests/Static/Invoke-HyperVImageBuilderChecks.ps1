@@ -63,6 +63,10 @@ try {
         $operatorText -match 'TypeKey' -and
         $operatorText -match 'initialMediaBootReceipt'
     )
+    Add-CheckResult -Name 'Initialer Medienboot deckt das reale UEFI-DVD-Zeitfenster ab' -Success (
+        $operatorText -match '\[int\]\$Attempts\s*=\s*30' -and
+        $operatorText -match '\[int\]\$IntervalMilliseconds\s*=\s*750'
+    )
     Add-CheckResult -Name 'Manual Action wird persistent modelliert' -Success ($builderText -match 'MANUAL_ACTION_REQUIRED')
     $ready = & $module { param($Id,$Root) Set-HyperVImageBuildState -BuildId $Id -State BUILDER_READY -Reason test -StateRoot $Root } $plan.buildId $temporaryRoot
     $manual = & $module { param($Id,$Root) Set-HyperVImageBuildManualAction -BuildId $Id -StateRoot $Root } $plan.buildId $temporaryRoot
@@ -100,7 +104,14 @@ try {
         $sealedIndex -gt $removeIndex
     )
     Add-CheckResult -Name 'Sysprep verwendet Generalize, OOBE, VM-Mode und Quit' -Success ($builderText -match "'/generalize',[^\r\n]+'/oobe',[^\r\n]+'/mode:vm',[^\r\n]+'/quit',[^\r\n]+'/quiet'")
-    Add-CheckResult -Name 'Sysprep prueft Microsoft ImageState vor Shutdown' -Success ($builderText -match 'IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE[\s\S]+shutdown\.exe')
+    Add-CheckResult -Name 'Sysprep wartet begrenzt auf Microsoft ImageState vor Shutdown' -Success (
+        $builderText -match 'imageStateDeadline\s*=\s*\[datetime\]::UtcNow\.AddSeconds\(180\)' -and
+        $builderText -match "IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE'\) \{ break \}" -and
+        $builderText -match 'Start-Sleep -Seconds 2' -and
+        $builderText -match [regex]::Escape("Join-Path `$env:WINDIR 'System32\Sysprep\Panther'") -and
+        $builderText -match [regex]::Escape("Where-Object { `$_ -match 'error|fail' }") -and
+        $builderText -match 'IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE[\s\S]+shutdown\.exe'
+    )
     Add-CheckResult -Name 'Automatische Generalisierung persistiert REBOOT_REQUIRED' -Success ($builderText -match 'Set-HyperVImageBuildState[^\r\n]+-State REBOOT_REQUIRED')
     Add-CheckResult -Name 'Automatisches Sysprep ist fuer Testmedien gesperrt' -Success ($builderText -match 'HYPERV_SYSPREP_NOT_ALLOWED_FOR_TEST_MEDIA')
 
@@ -181,10 +192,10 @@ try {
         [PSCustomObject]@{ First = $first; Second = $second; TypedKeys = $script:typedKeys; Stored = $stored }
     } $isoPath $sha $bootRoot
     Add-CheckResult -Name 'Leertaste wird nur beim ersten Builder-Start gesendet und als sanitisiertes Receipt gespeichert' -Success (
-        $bootResult.TypedKeys -eq 12 -and
+        $bootResult.TypedKeys -eq 30 -and
         $bootResult.First.InitialMediaBoot.status -eq 'SENT' -and
         $bootResult.Second.InitialMediaBoot.status -eq 'SENT' -and
-        $bootResult.Stored.initialMediaBootReceipt.successfulSends -eq 12
+        $bootResult.Stored.initialMediaBootReceipt.successfulSends -eq 30
     )
 
     $noInputBootRoot = Join-Path $temporaryRoot 'boot-interaction-none'
