@@ -320,7 +320,7 @@ try {
             }
             if ($path -eq '/api/jobs' -and $context.Request.HttpMethod -eq 'GET') {
                 $snapshot = @($jobs.Values | ForEach-Object { Get-UiJobSnapshot -Record $_ } | Sort-Object StartedAt -Descending)
-                Write-UiResponse -Context $context -Body ($snapshot | ConvertTo-Json -Depth 8) -ContentType 'application/json; charset=utf-8'
+                Write-UiResponse -Context $context -Body (ConvertTo-Json -InputObject $snapshot -Depth 8) -ContentType 'application/json; charset=utf-8'
                 continue
             }
             if ($path -eq '/api/config' -and $context.Request.HttpMethod -eq 'GET') {
