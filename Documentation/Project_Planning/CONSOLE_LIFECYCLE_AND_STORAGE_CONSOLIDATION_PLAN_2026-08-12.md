@@ -536,6 +536,13 @@ profilbezogene Messung, niemals als garantierten Maximalwert.
 | `CUI-020` | direkte Werteingaben auf einen gemeinsamen Eingabevertrag `Confirmed|Cancelled|Aborted` migrieren | `Escape` verwirft die aktuelle Erfassung und navigiert genau eine Ebene zurück; kein direkter `Read-Host`-Pfad umgeht den Vertrag. |
 | `CUI-021` | globalen `Ctrl+C`-Vertrag für UI, PowerShell-Pipelines, Warteoperationen und native Prozesse implementieren | Nutzerabbruch beendet die laufende Verarbeitung; `PipelineStoppedException` wird nicht verschluckt; atomare Operationen rollen zurück oder markieren `RECOVERY_REQUIRED`. |
 
+Stand 2026-08-28 ist `CUI-019` implementiert und im realen PowerShell-7-PTY
+abgenommen. Der Console-UI-Anteil von `CUI-021` ist ebenfalls real belegt:
+Cursor- und erzwungener Fallback-Modus beenden bei `Ctrl+C` die gesamte aktuelle
+Verarbeitung. Die breitere `CUI-021`-Abnahme für Warteoperationen und native
+Kindprozesse bleibt ein eigener Nachweis und wird durch diese Menüabnahme nicht
+vorweggenommen.
+
 ### Phase C – Storage-Registry härten
 
 | ID | Schritt | Abschlusskriterium |

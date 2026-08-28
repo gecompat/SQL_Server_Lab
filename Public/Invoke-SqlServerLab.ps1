@@ -6,6 +6,9 @@
     alle Operationen ueber nummerierte Auswahl an.
 .PARAMETER Action
     Optionale Direkt-Aktion (ueberspringt das Menue).
+.PARAMETER ConsoleMode
+    Waehlt die Cursoransicht automatisch oder erzwingt den diagnostischen
+    nummerierten Fallback im selben PowerShell-7-Terminal.
 .OUTPUTS
     Keine. Die Funktion ist eine interaktive Benutzeroberflaeche und delegiert
     die gewaehlte Aktion an die entsprechenden SqlServerLab-Commands.
@@ -18,9 +21,15 @@ function Invoke-SqlServerLab {
     [CmdletBinding()]
     param(
         [ValidateSet('New', 'BatchPlan', 'Queue', 'AutomatedTestEnvironment', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'Script', 'Database', 'Image', 'MediaRoot', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip', 'Catalog', 'ConnectionCenter')]
-        [string]$Action
+        [string]$Action,
+
+        [ValidateSet('Auto', 'Fallback')]
+        [string]$ConsoleMode = 'Auto'
     )
 
+    $previousConsoleMode = $script:LabConsoleMode
+    $script:LabConsoleMode = $ConsoleMode
+    try {
     # Das Modul darf sich waehrend einer laufenden Modul-Funktion nicht selbst
     # mit -Force neu laden. Dabei werden die aktuelle Funktion und ihre
     # Hilfsfunktionen aus dem Session-State entfernt.
@@ -61,6 +70,10 @@ function Invoke-SqlServerLab {
 
     Write-Host ""
     Write-LabInfo "Auf Wiedersehen."
+    }
+    finally {
+        $script:LabConsoleMode = $previousConsoleMode
+    }
 }
 
 # =============================================================================
