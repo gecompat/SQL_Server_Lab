@@ -8,6 +8,7 @@
 | Provider | Docker und Podman |
 | SQL-Referenz | SQL Server 2022 External Runtimes |
 | Image-Rezept | Version 5 |
+| Vorheriger Gesamtbefund | [CLI- und Provider-Validierung 2026-08-27](VALIDATION_RESULT_2026-08-27.md) |
 
 ## Ergebnis
 
@@ -15,6 +16,10 @@ Der additive External-Runtime-Refresh bestand den echten Produktpfad getrennt
 für Docker und Podman. Jeder positive Lauf provisionierte zunächst eine
 Python-only-Instanz, änderte anschließend das Zielmanifest auf Python, R und
 Java und führte den öffentlichen Reconcile-Plan samt Apply aus.
+
+Dieser fokussierte Nachweis erweitert den vollständigen CLI-/Providerbefund vom
+2026-08-27. Der dortige Hyper-V-/Windows-Befund wurde nicht erneut ausgeführt
+und wird in der Repository-Map ausdrücklich als übernommener Befund bezeichnet.
 
 Beide Provider bestätigten:
 

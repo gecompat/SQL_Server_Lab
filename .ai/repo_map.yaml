@@ -788,11 +788,11 @@ validation:
     static_push_trigger: true
     runtime_push_trigger: false
   last_confirmed_result:
-    date: "2026-08-27"
-    source: Documentation/Quality/VALIDATION_RESULT_2026-08-27.md
-    docker: "PASS – SQL Server 2022 CU18, Chinook, Storage, Ressourcen, Lifecycle, Reconcile und Cleanup"
-    podman: "PASS – SQL Server 2022 CU18, Chinook, Storage, Ressourcen, Lifecycle, Reconcile und Cleanup"
-    hyperv: "PASS – frischer Windows-Slot, SQL Server 2025, Chinook, Storage, Ressourcen, Lifecycle, Persistenz und Cleanup"
+    date: "2026-08-28"
+    source: Documentation/Quality/VALIDATION_RESULT_2026-08-28.md
+    docker: "PASS – additiver SQL-2022-External-Runtime-Refresh, Journal, Python/R/Java, Restart und Cleanup"
+    podman: "PASS – additiver SQL-2022-External-Runtime-Refresh, Journal, Python/R/Java, Restart und Cleanup"
+    hyperv: "PASS (übernommen vom 2026-08-27-Befund) – frischer Windows-Slot, SQL Server 2025, Lifecycle, Persistenz und Cleanup"
 
 change_coupling:
   public_command_change:
