@@ -15,7 +15,8 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   `NO CHANGE`.
 - Der kanonische Ausführungsplan führt den tatsächlichen N1-Status und die
   Nightly-, Recovery- und Katalog-Evidence, statt alle fünf nächsten Wellen
-  pauschal als nicht begonnen auszuweisen.
+  pauschal als nicht begonnen auszuweisen. Zwei aufeinanderfolgende vollständige
+  Nightlies auf den Runs `33186781267` und `33187726632` schließen Gate N1 ab.
 - `Get-SqlServerLabReconcilePlan` und `Invoke-SqlServerLabReconcileAction`
   unterstützen einen additiven, resolvergebundenen External-Runtime-Refresh für
   laufende SQL-Server-2022-Docker-/Podman-Runs. Ein neues Derived Image wird vor
