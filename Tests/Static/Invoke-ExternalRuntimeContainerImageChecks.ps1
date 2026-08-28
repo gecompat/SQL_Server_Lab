@@ -143,6 +143,22 @@ try {
         $null = Save-LabExternalRuntimeInstallationReceipts -RunDirectory $runDirectory -InstanceId sql -Receipts @($receipt)
         $receiptText = Get-Content -LiteralPath (Join-Path $runDirectory 'software-installation-receipts.json') -Raw -Encoding utf8
 
+        $cleanupDirectory = Join-Path $Root 'cleanup-binding'
+        New-Item -Path $cleanupDirectory -ItemType Directory -Force | Out-Null
+        $cleanupRunState = [PSCustomObject]@{
+            RunId='external-runtime-plan-key'; ScopeId='scope-external-runtime-plan-key'; RunDir=$cleanupDirectory
+            metadata=[PSCustomObject]@{ name='external-runtime-plan-key' }
+        }
+        $null = New-CleanupPlan -RunDir $cleanupDirectory -RunId $cleanupRunState.RunId `
+            -ScopeId $cleanupRunState.ScopeId -ProviderSubRuns @(
+                [PSCustomObject]@{ id='provider-docker'; provider='docker' }
+            )
+        $null = Add-LabInstanceCleanupPlan -Instance ([PSCustomObject]@{
+            id='sql'; provider='docker'; drives=@()
+        }) -RunState $cleanupRunState -SoftwarePlans @($dockerSoftwarePlan)
+        $cleanupPlan = Get-Content -LiteralPath (Join-Path $cleanupDirectory 'cleanup-plan.json') `
+            -Raw -Encoding utf8 | ConvertFrom-Json -Depth 30
+
         [PSCustomObject]@{
             Recipe = Get-LabExternalRuntimeContainerRecipe
             DockerPlan = $dockerImagePlan
@@ -160,6 +176,7 @@ try {
             ArbitraryRejected = $arbitraryRejected
             ReceiptSanitized = $receiptText -notmatch '(?i)https?://|[A-Z]:\\|/usr/|RecipeRoot|Containerfile'
             ReceiptContract = ($receiptText | ConvertFrom-Json -Depth 30).contract.name
+            CleanupPlan = $cleanupPlan
         }
     } $testRoot
 
@@ -207,6 +224,14 @@ try {
         $result.DockerPlan.Image -eq $result.PodmanPlan.Image -and
         $result.DockerPlan.ImageKey -match '^[a-f0-9]{64}$'
     )
+    Add-CheckResult -Name 'Derived-Image-Plaene binden die exakten Resolver-PlanKeys' -Success (
+        @($result.DockerPlan.SoftwarePlanKeys).Count -eq 1 -and
+        $result.DockerPlan.SoftwarePlanKeys[0] -eq $result.SoftwarePlans[0].PlanKey -and
+        @($result.CombinedPlan.SoftwarePlanKeys).Count -eq 2 -and
+        @($result.CombinedPlan.SoftwarePlanKeys | Where-Object { $_ -notin @(
+            $result.SoftwarePlans[0].PlanKey, $result.SoftwarePlans[2].PlanKey
+        ) }).Count -eq 0
+    )
     Add-CheckResult -Name 'Image-Key bindet alle sieben Python-Kontextdateien mit SHA-256' -Success (
         @($result.DockerPlan.ContextEvidence).Count -eq 7 -and
         @($result.DockerPlan.ContextEvidence | Where-Object { $_.sha256 -match '^[a-f0-9]{64}$' }).Count -eq 7
@@ -240,6 +265,13 @@ try {
     Add-CheckResult -Name 'Beliebig behauptete Softwareplan-Status werden abgelehnt' -Success $result.ArbitraryRejected
     Add-CheckResult -Name 'Run-Receipt bleibt geheimnis- und hostpfadfrei' -Success (
         $result.ReceiptSanitized -and $result.ReceiptContract -eq 'SqlServerLab.RunSoftwareInstallationReceipts'
+    )
+    Add-CheckResult -Name 'Cleanup bindet Resolver-PlanKey und behaelt wiederverwendbare Image-Artefakte' -Success (
+        @($result.CleanupPlan.steps).Count -eq 1 -and
+        $result.CleanupPlan.steps[0].softwareContract.contract.name -eq 'SqlServerLab.SoftwareCleanupBinding' -and
+        $result.CleanupPlan.steps[0].softwareContract.planKeys[0] -eq $result.SoftwarePlans[0].PlanKey -and
+        $result.CleanupPlan.steps[0].softwareContract.softwareIds[0] -eq 'sql-python' -and
+        $result.CleanupPlan.steps[0].softwareContract.artifactRetention -eq 'reusable-artifacts-retained'
     )
 
     $containerfile = Get-Content -LiteralPath (Join-Path $repoRoot 'Images/ExternalLanguages/Linux/Containerfile') -Raw -Encoding utf8
@@ -383,6 +415,8 @@ try {
     Add-CheckResult -Name 'Run-State persistiert Image-Key und verifizierte Software-Receipt-Zusammenfassung' -Success (
         $newLabSource -match "Status = 'IMAGE_READY'" -and
         $newLabSource -match "ExternalRuntime\.Status = 'EXTENSIONS_READY_RUN'" -and
+        $newLabSource -match 'SoftwarePlanKeys\s*=\s*@\(\$imagePlan\.SoftwarePlanKeys\)' -and
+        $newLabSource -match 'PlanKey\s*=\s*\[string\]\$_.PlanKey' -and
         $newLabSource -match 'externalRuntime\s+= \$_\.ExternalRuntime'
     )
     Add-CheckResult -Name 'Java-Postcondition registriert datenbankgebunden, prueft Drift und kompensiert nur neu erzeugte Objekte' -Success (

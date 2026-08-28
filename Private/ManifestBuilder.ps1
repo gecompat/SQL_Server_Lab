@@ -304,6 +304,103 @@ function Select-LabManifestSampleReference {
     }
 }
 
+function Select-LabManifestExternalRuntimeReferences {
+    <#
+    .SYNOPSIS
+        Katalogauswahl der im aktuellen Instanzkontext freigegebenen External Runtimes.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][System.Collections.IDictionary]$InstanceDraft,
+        [string]$Path = 'software'
+    )
+
+    $instance = [PSCustomObject]$InstanceDraft
+    $provider = if ($InstanceDraft.Contains('provider')) { [string]$InstanceDraft['provider'] } else { Resolve-ProviderAutoSelect -Instance $instance }
+    $operatingSystem = if ($InstanceDraft.Contains('os')) {
+        [string]$InstanceDraft['os']
+    }
+    elseif ($provider -eq 'hyperv') {
+        'windows'
+    }
+    else {
+        'linux'
+    }
+    $sqlVersion = [string]$InstanceDraft['version']
+
+    if ($provider -eq 'hyperv') {
+        Write-LabWarning "${Path}: Der Hyper-V-Manifestpfad bindet Software noch nicht atomar; es wird keine Variante angeboten."
+        Write-Output -NoEnumerate ([object[]]@())
+        return
+    }
+
+    $options = @(Get-LabExternalRuntimeSelectionOptions -SqlVersion $sqlVersion `
+        -Provider $provider -OperatingSystem $operatingSystem)
+    if ($options.Count -eq 0) {
+        Write-LabWarning "${Path}: Fuer SQL $sqlVersion und $provider/$operatingSystem ist keine freigegebene External-Runtime-Variante vorhanden."
+        Write-Output -NoEnumerate ([object[]]@())
+        return
+    }
+
+    $selected = [System.Collections.Generic.List[object]]::new()
+    while ($true) {
+        $remaining = @($options | Where-Object { @($selected.SoftwareId) -notcontains [string]$_.SoftwareId })
+        if ($remaining.Count -eq 0) {
+            break
+        }
+        $labels = @($remaining | ForEach-Object {
+            "$($_.Language) $($_.RuntimeVersion) [$($_.VariantId)] - $($_.InstallationMethod), $($_.ArtifactCount) Artifacts, $($_.PackageLockCount) Package Locks"
+        }) + 'Auswahl abschliessen'
+        $choice = Read-LabChoice -Options $labels -Prompt "$Path - freigegebene Variante"
+        if ($choice -ge $remaining.Count) {
+            break
+        }
+        $selected.Add($remaining[$choice])
+    }
+
+    $manifestItems = @($selected | ForEach-Object {
+        [ordered]@{
+            id = [string]$_.SoftwareId
+            version = [string]$_.RuntimeVersion
+            variant = [string]$_.VariantId
+            scope = 'sqlExternalRuntime'
+            installMethod = 'catalog'
+            optional = $false
+        }
+    })
+    Write-Output -NoEnumerate ([object[]]$manifestItems)
+}
+
+function Write-LabManifestPlanPreview {
+    <#
+    .SYNOPSIS
+        Zeigt die strukturierte, mutationsfreie External-Runtime-Planvorschau.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Plan)
+
+    $entries = @($Plan.Instances | ForEach-Object { @($_.ExternalRuntimes.Entries) })
+    if ($entries.Count -eq 0) {
+        return
+    }
+
+    Write-LabHeader 'External-Runtime-Planvorschau'
+    foreach ($instancePlan in @($Plan.Instances)) {
+        foreach ($entry in @($instancePlan.ExternalRuntimes.Entries)) {
+            Write-LabStatus -Label "$($instancePlan.InstanceId) / $($entry.Language)" `
+                -Value "$($entry.Status), $($entry.ChangeClassification.Highest)"
+            if ([string]$entry.Status -ne 'RESOLVED') {
+                Write-LabWarning "  $($entry.ReasonCode): $($entry.Reason)"
+                continue
+            }
+            Write-LabInfo "  Variante: $($entry.VariantId); Runtime: $($entry.RuntimeVersion); PlanKey: $($entry.PlanKey.Substring(0, 16))"
+            Write-LabInfo "  Downloads: $(@($entry.Downloads).Count); Derived-Image-Build: $($entry.BuildDerivedImage); Gastmutation: $($entry.GuestMutation)"
+            Write-LabInfo "  Reboots/Restarts: $(@($entry.Reboots) -join ', '); Downtime: $($entry.Downtime); Package Locks: $(@($entry.PackageLocks).Count)"
+            Write-LabInfo "  Verification: $($entry.Verification.type) / $($entry.Verification.probeId)"
+        }
+    }
+}
+
 function Read-LabManifestScalar {
     [CmdletBinding()]
     param(
@@ -472,12 +569,17 @@ function Read-LabManifestSchemaValue {
                 }
 
                 if ($include) {
-                    $result[$property.Name] = Read-LabManifestSchemaValue `
-                        -Node $property.Value `
-                        -RootSchema $RootSchema `
-                        -Path $propertyPath `
-                        -ManifestDirectory $ManifestDirectory `
-                        -SuppressInputContext:(!$isRequired)
+                    $result[$property.Name] = if ($property.Name -eq 'software' -and $Path -match '^manifest\.instances\[\d+\]$') {
+                        Select-LabManifestExternalRuntimeReferences -InstanceDraft $result -Path $propertyPath
+                    }
+                    else {
+                        Read-LabManifestSchemaValue `
+                            -Node $property.Value `
+                            -RootSchema $RootSchema `
+                            -Path $propertyPath `
+                            -ManifestDirectory $ManifestDirectory `
+                            -SuppressInputContext:(!$isRequired)
+                    }
                 }
             }
 
@@ -596,6 +698,7 @@ function Get-LabManifestValidationResult {
 
     $errors = [System.Collections.Generic.List[string]]::new()
     $warnings = [System.Collections.Generic.List[string]]::new()
+    $instancePlanPreviews = [System.Collections.Generic.List[object]]::new()
     $schemaResult = Test-LabManifestSchema -Json $Json
     foreach ($schemaError in $schemaResult.Errors) {
         $errors.Add("Schema: $schemaError")
@@ -606,6 +709,10 @@ function Get-LabManifestValidationResult {
             IsValid  = $false
             Errors   = @($errors | Select-Object -Unique)
             Warnings = @()
+            Plan     = [PSCustomObject]@{
+                Contract = [PSCustomObject]@{ Name='SqlServerLab.ManifestPlanPreview'; Version='1.0' }
+                Instances = @()
+            }
         }
     }
 
@@ -624,6 +731,7 @@ function Get-LabManifestValidationResult {
     $effectiveProviders = [System.Collections.Generic.List[string]]::new()
     foreach ($instance in @($Manifest.instances)) {
         $instancePath = "instances[$($instance.id)]"
+        $runtimePlans = [System.Collections.Generic.List[object]]::new()
         $effectiveProvider = if ($instance.provider) {
             [string]$instance.provider
         }
@@ -721,6 +829,7 @@ function Get-LabManifestValidationResult {
                         -SqlVersion ([string]$instance.version) `
                         -Provider $effectiveProvider `
                         -OperatingSystem $effectiveOperatingSystem
+                    $runtimePlans.Add($runtimePlan)
                     if ([string]$runtimePlan.Status -ne 'RESOLVED') {
                         $errors.Add("$instancePath.software[$($runtimePlan.SoftwareId)]: $($runtimePlan.ReasonCode) - $($runtimePlan.Reason)")
                     }
@@ -730,6 +839,13 @@ function Get-LabManifestValidationResult {
                 $errors.Add("$instancePath.software: $($_.Exception.Message)")
             }
         }
+        $instancePlanPreviews.Add([PSCustomObject]@{
+            InstanceId = [string]$instance.id
+            SqlVersion = [string]$instance.version
+            Provider = $effectiveProvider
+            OperatingSystem = if ($instance.os) { [string]$instance.os } elseif ($effectiveProvider -eq 'hyperv') { 'windows' } else { 'linux' }
+            ExternalRuntimes = Get-LabExternalRuntimePlanPreview -DesiredPlans @($runtimePlans)
+        })
         $databases = @($instance.databases | Where-Object { $null -ne $_ })
         $databaseNames = @($databases | ForEach-Object { [string]$_.name })
         foreach ($duplicateDatabase in @($databaseNames | Group-Object | Where-Object Count -gt 1)) {
@@ -914,5 +1030,9 @@ function Get-LabManifestValidationResult {
         IsValid  = $errors.Count -eq 0
         Errors   = @($errors | Select-Object -Unique)
         Warnings = @($warnings | Select-Object -Unique)
+        Plan     = [PSCustomObject]@{
+            Contract = [PSCustomObject]@{ Name='SqlServerLab.ManifestPlanPreview'; Version='1.0' }
+            Instances = @($instancePlanPreviews)
+        }
     }
 }

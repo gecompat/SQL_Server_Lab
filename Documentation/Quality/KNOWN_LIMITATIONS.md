@@ -308,8 +308,10 @@ implementierten Attach-Handler enthalten – sie werden nicht als `.bak`
 umgedeutet.
 
 Noch nicht implementiert sind Attach-Handler, Hyper-V-`LAB_GENERATED`-Backups,
-das Überschreiben der erwarteten Zieldatenbanknamen sowie die Wizard-Navigation
-mit Zurück/Planvorschau. Single- und Multi-Output-Container-Samples erzeugen
+das Überschreiben der erwarteten Zieldatenbanknamen sowie die vollständige
+Wizard-Navigation mit Zurück und Sample-/Artifact-Planvorschau. Die getrennte
+External-Runtime-Planvorschau ist implementiert. Single- und
+Multi-Output-Container-Samples erzeugen
 nach erfolgreicher Verifikation geprüfte Backups und
 bevorzugen es in Folge-Runs über das portable Register. Script Bundles können
 Datenbanken als eine Installation erzeugen; bei einem Teilfehler bleibt der
@@ -426,6 +428,20 @@ Versionen erben diesen Status nicht.
 `customImage` wird weiterhin nicht als ungeprüfte Manifestquelle in die
 Provider-Imageauswahl übernommen. Ein Softwareplan, erfolgreicher Image-Build
 oder statischer Resolver-Test ist kein `sp_execute_external_script`-Nachweis.
+
+Der Manifest-Wizard bietet External Runtimes nur aus der resolverfreigegebenen
+Kombination von SQL-Version, Provider und Betriebssystem an. Die read-only
+Manifestprüfung liefert denselben portabel identifizierten Softwareplan mit
+Downloads, Derived-Image-Build oder Gastmutation, Restart-/Downtime-Bedarf,
+Package Locks und Verification. Aenderungen werden als Artifact-`rebuild`,
+Service-`restart`, Container-`recreate` oder Gast-`reprovision` klassifiziert;
+die `PlanKey` wird in Installation Receipt, Derived-Image-Plan, Buildreceipt,
+Run-State und Cleanup-/Recovery-Bindung übernommen. Run-lokale Ressourcen
+werden damit scopegebunden entfernt, während wiederverwendbare Softwareartefakte
+ausdrücklich erhalten bleiben. Das ist noch kein ausführbarer allgemeiner
+Reconcile- oder Artifact-Refresh-Pfad. Insbesondere
+bleiben der Hyper-V-Softwarepfad im allgemeinen Manifest und das automatische
+Umschalten auf neu gebaute Artifacts gesperrt.
 
 ## Tests
 

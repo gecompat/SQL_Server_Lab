@@ -301,11 +301,18 @@ Ein vorhandenes Manifest kann ohne Provisionierung geprueft werden:
 $result = Test-SqlServerLabManifest -Path '.\mein-lab.json'
 $result.Errors
 $result.Warnings
+$result.Plan.Instances.ExternalRuntimes.Entries
 ```
 
 Fehler verhindern das Speichern beziehungsweise Provisionieren. Warnungen
 kennzeichnen unter anderem vorbereitete Schemafelder ohne stabilen Runtimepfad
-und riskante SQL-Konfigurationen. Ein gespeichertes Manifest läuft standardmäßig
+und riskante SQL-Konfigurationen. Bei `software` bietet der interaktive Wizard
+nur Varianten an, die der Software-Resolver fuer die bereits gewählte
+SQL-Version, den Provider und das Betriebssystem als `RESOLVED` freigibt. Die
+mutationsfreie Planvorschau nennt Artifact-Downloads, Derived-Image-Build oder
+Gastmutation, Restarts, Downtime, Package Locks, Verification und den sicheren
+Aenderungsweg (`rebuild`, `restart`, `recreate` oder `reprovision`). Ein
+gespeichertes Manifest läuft standardmäßig
 unbeaufsichtigt: fehlende Voraussetzungen stoppen mit einem Fehler statt eine
 Passwort- oder Trust-Abfrage zu öffnen.
 

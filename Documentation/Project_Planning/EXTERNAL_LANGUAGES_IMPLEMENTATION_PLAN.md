@@ -359,6 +359,19 @@ freigegebene Kombination überein.
 Gate: CLI, Manifest, Desired State, Runtime, Reconcile und Cleanup verwenden
 denselben aufgelösten Softwarevertrag.
 
+Implementierungsstand Welle 8A, 2026-08-28: Der Manifest-Wizard bietet nur die
+für SQL-Version, Provider und Betriebssystem als `RESOLVED` aufgelösten
+External-Runtime-Varianten an. `Test-SqlServerLabManifest` liefert denselben
+geheimnisfreien Plan mit Downloads, Derived-Image-Build oder Gastmutation,
+Restart-/Downtime-Bedarf, vollständigen Package Locks und Verification. Eine
+portable `PlanKey` bindet Plan, Installation Receipt, Derived-Image-Plan,
+Buildreceipt, Run-State sowie Cleanup-/Recovery-Vertrag; Run-Cleanup entfernt
+die gebundenen Laufzeitressourcen und behält wiederverwendbare Artefakte. Die
+Vorschau trennt `rebuild`, `restart`, `recreate`, `reprovision` und `no-op`. Der ausführbare
+allgemeine Reconcile- sowie der versionierte Refresh-/Umschaltpfad bleiben
+eigenständige Folgearbeit und sind durch diesen read-only Slice nicht als
+implementiert ausgewiesen.
+
 ## 6. Betroffene Repositoryverträge
 
 Mindestens gemeinsam zu prüfen und je Welle kohärent zu ändern sind:
