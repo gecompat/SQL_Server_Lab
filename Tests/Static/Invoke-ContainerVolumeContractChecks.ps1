@@ -28,9 +28,10 @@ foreach ($entry in $providers.GetEnumerator()) {
 
 Assert-VolumeContract ($providers.podman -match "if \(-not \`$drive\.hostPath -and \`$ExternalRuntimeLaunchMode -eq 'none'\) \{ \`$volumeOptions \+= 'U' \}") 'podman verwendet die user-namespace-sichere U-Option nur fuer normale rootless Named Volumes'
 Assert-VolumeContract (
-    $providers.podman -match 'cp -a /var/opt/mssql/\. /sql-lab-volume-init/' -and
+    $providers.podman -match "cp -a '\`$ContainerPath'/\. /sql-lab-volume-init/" -and
+    $providers.podman -match '-ContainerPath \(\[string\]\$drive\.containerPath\)' -and
     $providers.podman -match 'chown -R 10001:0 /sql-lab-volume-init'
-) 'Podman-External-Runtime-Volumes uebernehmen Image-Inhalt mit SQL-Server-Eigentuemerschaft'
+) 'Podman-Named-Volumes uebernehmen den Inhalt ihres exakten Containerzielpfads'
 $reconcile = Get-Content (Join-Path $repoRoot 'Public/Update-SqlServerLabContainer.ps1') -Raw -Encoding utf8
 Assert-VolumeContract ($reconcile -match "(?s)if \(\`$runtime -eq 'podman'\) \{ \`$volumeOptions \+= 'U' \}") 'Podman-Reconcile erhaelt die user-namespace-sichere Volume-Eigentuemerschaft'
 

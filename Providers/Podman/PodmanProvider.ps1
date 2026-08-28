@@ -60,7 +60,8 @@ function Initialize-PodmanSqlNamedVolume {
         [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$')][string]$VolumeName,
         [Parameter(Mandatory)][string]$Image,
         [Parameter(Mandatory)][string]$RunId,
-        [Parameter(Mandatory)][string]$ScopeId
+        [Parameter(Mandatory)][string]$ScopeId,
+        [Parameter(Mandatory)][ValidatePattern('^/[A-Za-z0-9._/-]+$')][string]$ContainerPath
     )
 
     $null = podman volume inspect $VolumeName 2>$null
@@ -76,7 +77,7 @@ function Initialize-PodmanSqlNamedVolume {
 
     $initialized = podman run --rm --user 0:0 --entrypoint /bin/sh `
         -v "${VolumeName}:/sql-lab-volume-init" $Image `
-        -c 'cp -a /var/opt/mssql/. /sql-lab-volume-init/ && chown -R 10001:0 /sql-lab-volume-init && chmod 0770 /sql-lab-volume-init' 2>&1
+        -c "if [ -d '$ContainerPath' ]; then cp -a '$ContainerPath'/. /sql-lab-volume-init/; fi; chown -R 10001:0 /sql-lab-volume-init && chmod 0770 /sql-lab-volume-init" 2>&1
     if ($LASTEXITCODE -ne 0) {
         throw "PODMAN_SQL_VOLUME_INITIALIZATION_FAILED: $VolumeName - $(@($initialized) -join ' ')"
     }
@@ -142,7 +143,8 @@ function New-PodmanInstance {
         }
 
         if (-not $drive.hostPath) {
-            $null = Initialize-PodmanSqlNamedVolume -VolumeName $volumeSource -Image $image -RunId $RunId -ScopeId $ScopeId
+            $null = Initialize-PodmanSqlNamedVolume -VolumeName $volumeSource -Image $image -RunId $RunId -ScopeId $ScopeId `
+                -ContainerPath ([string]$drive.containerPath)
         }
 
         $volumeArguments += '-v'
