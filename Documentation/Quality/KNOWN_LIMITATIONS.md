@@ -500,11 +500,14 @@ Der Integration-Smoke-Test benötigt eine laufende lokale Runtime und `sqlcmd`.
 Die statische Konsistenzprüfung ersetzt keinen echten Docker- oder Podman-End-to-End-Test.
 
 Die reale Hyper-V-Abnahme hatte im Windows-Generalize-Pfad einen nicht gültigen
-Aufruf `Invoke-Command -Passthru` gefunden. Der Aufruf ist entfernt und
-`Invoke-HyperVProviderChecks.ps1` bindet den gültigen Parametervertrag
-inzwischen statisch. Der positive reale Windows-Generalize-/Publish-Nachweis
-nach dieser Korrektur bleibt offen; der statische Test ersetzt die erneute
-PowerShell-Direct-Abnahme nicht.
+Aufruf `Invoke-Command -Passthru` und anschließend ein zu kurzes UEFI-DVD-
+Bootfenster gefunden. Beide Fehler sind korrigiert. Der positive Pfad wurde mit
+einer frischen unbeaufsichtigten Windows-Server-2025-Evaluation auf einer neuen
+Builder-VHDX real wiederholt: Installations-Receipt, Sysprep-Exitcode 0,
+`IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE`, hashgebundene PowerShell-Direct-
+Evidence, testlokale immutable `OS_SEALED`-Publikation und Cleanup waren grün.
+Eine bereits generalisierte Baseline ist wegen des begrenzten Windows-Lizenz-
+Rearm-Vertrags keine zulässige positive Generalize-Testquelle.
 
 Lifecycle-Schnellmenüs verwenden inzwischen `ActionResult/1.0`: `Cancelled`,
 `NoChange`, `Skipped`, Ablehnung und Fehler lösen weder Connection-Center- noch
@@ -530,19 +533,15 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
 
 ## Priorisierte nächste technische Schritte
 
-1. Nach der erfolgreichen Docker-/Podman-/Hyper-V-Batchmatrix, dem realen
-   Docker-Manifest-Rerun und dem Windows-User-Gate den korrigierten positiven
-   Hyper-V-Windows-Generalize-/Publish-Pfad erneut über PowerShell Direct
-   abnehmen.
-2. Die verbleibenden P0-Fehler und unerwünschten Seiteneffekte aus der manuellen Abnahme nach
+1. Die verbleibenden P0-Fehler und unerwünschten Seiteneffekte aus der manuellen Abnahme nach
    dem [Konsolidierungsplan](../Project_Planning/CONSOLE_LIFECYCLE_AND_STORAGE_CONSOLIDATION_PLAN_2026-08-12.md)
    schließen und real regressieren.
-3. Multi-Root-Storage sowie dateigenaue Data-/Log-/TempDB-Platzierung inklusive
+2. Multi-Root-Storage sowie dateigenaue Data-/Log-/TempDB-Platzierung inklusive
    Nachweis physischer Backing Devices umsetzen.
-4. `LAB_GENERATED`-Erzeugung und Auswahl an den Hyper-V-Export binden (Sample-Welle 5/6).
-5. Die implementierten providerneutralen Network- und Software-Intents an Hyper-V-LAN/NAT/IPAM und Software-Runtime binden.
-6. Artifact Registry, Refresh/Rebuild und Evaluierungsablauf implementieren.
-7. Den bereits validierten nativen Hyper-V-Lifecycle in getrennten Wellen bis
+3. `LAB_GENERATED`-Erzeugung und Auswahl an den Hyper-V-Export binden (Sample-Welle 5/6).
+4. Die implementierten providerneutralen Network- und Software-Intents an Hyper-V-LAN/NAT/IPAM und Software-Runtime binden.
+5. Artifact Registry, Refresh/Rebuild und Evaluierungsablauf implementieren.
+6. Den bereits validierten nativen Hyper-V-Lifecycle in getrennten Wellen bis
    zum realen Windows-/SQL-2025-Cold-Path und zur vollständigen Manifestbindung
    ausbauen.
-8. Katalogaktualität, verifizierte Prüfsummen (`catalog-verified`) und Baseline-Kompatibilität kontrolliert pflegen.
+7. Katalogaktualität, verifizierte Prüfsummen (`catalog-verified`) und Baseline-Kompatibilität kontrolliert pflegen.
