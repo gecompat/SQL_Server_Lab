@@ -760,13 +760,14 @@ Add-ValidationResult `
     -Success ($masterImplementationPlan -notmatch 'keine CI/CD-Artefakte vorhanden' -and $masterImplementationPlan -match 'keine Produktabhängigkeit')
 
 Add-ValidationResult `
-    -Name 'Batch-Plan bildet implementierten Kern und offene Runtime-Abnahme ab' `
+    -Name 'Batch-Plan bildet implementierten Kern und real belegte Runtime-Abnahme ab' `
     -Success ($batchWorkflowPlan -match 'IMPLEMENTED_WITH_OPEN_RUNTIME_ACCEPTANCE' -and
         $batchWorkflowPlan -notmatch [regex]::Escape('| 1 Persistenter Kern | `PLANNED`') -and
         $batchWorkflowPlan -match 'Docker-/Podman-Bulk sowie Hyper-V-Slot-Bulk' -and
         $batchWorkflowPlan -match 'harter Docker-Scheduler-Abbruch' -and
-        $batchWorkflowPlan -match 'Manifest-Rerun, Resume und Cleanup real verifiziert; User-Gates offen' -and
-        $batchWorkflowPlan -notmatch 'Manifest-Rerun und User-Gates offen')
+        $batchWorkflowPlan -match 'Manifest-Rerun, Windows-User-Gate, Resume und Cleanup real verifiziert' -and
+        $batchWorkflowPlan -match 'keine offene User-Gate-Kernabnahme' -and
+        $batchWorkflowPlan -notmatch 'User-Gates offen')
 
 Add-ValidationResult `
     -Name 'Historischer Architekturstatus ist als Snapshot gekennzeichnet' `

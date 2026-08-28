@@ -116,6 +116,27 @@ verändert das Parent nicht und entfernt nach dem Lauf beide VMs, Child-VHDX,
 die Junction und den temporären State. Vor dem rekursiven Temp-Cleanup wird
 explizit geprüft, dass das Ziel tatsächlich ein Reparse Point ist.
 
+## Invoke-BatchUserGateAcceptance.ps1
+
+Die reale Windows-User-Gate-Abnahme erzeugt aus einem vorhandenen
+`OS_SEALED`-Artefakt genau einen Hyper-V-Windows-Slot. Sie prüft, dass ein
+read-only Probe ausschließlich `CandidateSatisfied` meldet, Scheduler-Reruns
+keinen Step oder Receipt vorziehen und eine Bestätigung ohne verifiziertes
+Credential fail-closed bleibt. Nach testlokaler OOBE-Injektion in das
+operationseigene Child-VHDX verifiziert sie ein temporäres Credential über
+PowerShell Direct, erwartet genau ein `UserGateConfirmed`-Receipt und den
+vollständigen Batchabschluss.
+
+```powershell
+.\Tests\Integration\Invoke-BatchUserGateAcceptance.ps1 `
+    -ArtifactId 'hyperv-os-sealed-<sha256>'
+```
+
+Der Offline-Mount des Child-VHDX benötigt eine erhöhte Sitzung. Das immutable
+Parent wird nur über eine kontrollierte read-only Junction eingebunden. VM,
+Child-VHDX, Junction, temporärer State und das nur im Prozess gehaltene Secret
+werden im `finally`-Pfad scopegebunden entfernt.
+
 ## Invoke-RestoreSmokeTest.ps1
 
 Der Restore-Smoke-Test erzeugt im Lab eine kleine synthetische Datenbank mit

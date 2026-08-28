@@ -510,6 +510,11 @@ Modus geprüft: `Ctrl+C` beendet die aktuelle Verarbeitung, der Fallback ist üb
 Der harte Scheduler-Prozessabbruch ist dagegen mit zwei realen Docker-
 Ressourcen, persistenter `WorkerRecovered`-Evidence, eindeutigem Operation-zu-
 Run-Eigentum, idempotentem Resume und scopegebundenem Cleanup belegt.
+Das Hyper-V-Windows-User-Gate ist ebenfalls real belegt: Ein read-only Probe
+setzt nur `CandidateSatisfied`, Bestätigung ohne verifiziertes Credential bleibt
+fail-closed, PowerShell Direct bestätigt das echte Gast-Credential und genau ein
+Receipt setzt den Scheduler fort. Der Acceptance-Test entfernt VM, Child-VHDX
+und temporären State scopegebunden.
 
 ## Lokale State- und Secret-Daten
 
@@ -517,9 +522,10 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
 
 ## Priorisierte nächste technische Schritte
 
-1. Nach der erfolgreichen Docker-/Podman-/Hyper-V-Batchmatrix und dem realen
-   Docker-Manifest-Rerun den Batch-/Queue-/Resume-Kern noch mit dem technisch
-   verifizierten Windows-User-Gate abnehmen.
+1. Nach der erfolgreichen Docker-/Podman-/Hyper-V-Batchmatrix, dem realen
+   Docker-Manifest-Rerun und dem Windows-User-Gate den korrigierten positiven
+   Hyper-V-Windows-Generalize-/Publish-Pfad erneut über PowerShell Direct
+   abnehmen.
 2. Die verbleibenden P0-Fehler und unerwünschten Seiteneffekte aus der manuellen Abnahme nach
    dem [Konsolidierungsplan](../Project_Planning/CONSOLE_LIFECYCLE_AND_STORAGE_CONSOLIDATION_PLAN_2026-08-12.md)
    schließen und real regressieren.
