@@ -739,6 +739,26 @@ ursprünglichen Provider gebunden. Ein Manifest kann beide Containerprovider in
 einem Run kombinieren; Details und Grenzen stehen im
 [Gemischten Container-Provider-Lifecycle](../Architecture/MIXED_PROVIDER_LIFECYCLE.md).
 
+Registrierte Mitglieder der geschützten automatisierten Testgruppe bleiben für
+diese Einzel-Cmdlets gesperrt. Die Windows-Hyper-V-Mitglieder werden stattdessen
+gemeinsam, idempotent und ohne Löschung bereitgestellt beziehungsweise gestoppt:
+
+```powershell
+Start-SqlServerLabAutomatedTestEnvironment -WhatIf
+$start = Start-SqlServerLabAutomatedTestEnvironment -Force -Confirm:$false
+# Nur $start.Status = READY und $start.Export.GroupStatus = READY freigeben.
+
+Stop-SqlServerLabAutomatedTestEnvironment -WhatIf
+$stop = Stop-SqlServerLabAutomatedTestEnvironment -Force -Confirm:$false
+# Danach: $stop.Status = STOPPED, Export.GroupStatus = INCOMPLETE.
+```
+
+Der Start bringt vorhandene SQL-Engine-Dienste im Gast hoch, prüft SQL-
+Readiness und erneuert den kanonischen Export live. Der Stopp gibt die durch
+Windows-VMs belegte Hostkapazität frei, erhält jedoch Runs, Secrets,
+Registrierungen, VHDX-Dateien und alle Linux-Mitglieder. Details stehen unter
+[Automatisierte Testumgebungen](AUTOMATED_TEST_ENVIRONMENTS.md).
+
 ### Read-only Reconcile-Vorschau
 
 Der aktuelle Plan kann ohne Mutation gelesen werden. Der Vertrag enthält keine

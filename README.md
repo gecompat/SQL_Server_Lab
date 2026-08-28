@@ -536,6 +536,8 @@ Invoke-SqlServerLabScheduler -UntilIdle
 | `New-SqlServerLabAutomatedTestEnvironment` | Linux-Testumgebungen mit getrennten Zufallskennwörtern erstellen und nach Lab_Data exportieren |
 | `Export-SqlServerLabTestEnvironment` | Registrierte Testumgebungen als dotenv, schema-validierbares JSON, portablen Agenten-Prompt und Markdown exportieren |
 | `Repair-SqlServerLabAutomatedTestEnvironment` | Ressourcen- und Health-Vertrag der registrierten Linux-Mitglieder mit einzelnem Rollback reparieren |
+| `Start-SqlServerLabAutomatedTestEnvironment` | Registrierte Windows-Hyper-V-Mitglieder als Gruppe starten, SQL-Dienste bereitstellen und live bis `READY` prüfen |
+| `Stop-SqlServerLabAutomatedTestEnvironment` | Registrierte Windows-Hyper-V-Mitglieder nicht-destruktiv stoppen, Hostkapazität freigeben und den Export fail-closed erneuern |
 | `Clear-SqlServerLabAutomatedTestEnvironment` | Alle automatisierten Testumgebungen als geschützte Gruppe gemeinsam entfernen |
 | `Test-SqlServerLabPrerequisite` | Provider, RAM, Storage und Ports prüfen |
 | `Test-SqlServerLabAdapter` | Project Adapter gegen Schema, Pfadgrenzen und optional einen Run prüfen |

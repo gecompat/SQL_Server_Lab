@@ -183,6 +183,16 @@ COMMANDS
         Repariert den Ressourcen- und Health-Vertrag der registrierten Linux-
         Mitglieder, ohne Windows-Mitglieder, Ports oder Volumes zu ersetzen.
 
+    Start-SqlServerLabAutomatedTestEnvironment
+        Startet die registrierten Windows-Hyper-V-Mitglieder als geschützte
+        Gruppe, bringt vorhandene SQL-Dienste hoch, prüft SQL-Readiness und
+        erneuert den Testumgebungs-Export live.
+
+    Stop-SqlServerLabAutomatedTestEnvironment
+        Stoppt die registrierten Windows-Hyper-V-Mitglieder nicht-destruktiv,
+        gibt Hostkapazität frei und erneuert den Export fail-closed. Runs,
+        Registrierungen, Secrets und Linux-Mitglieder bleiben erhalten.
+
     Clear-SqlServerLabAutomatedTestEnvironment
         Entfernt alle automatisierten Testumgebungen gemeinsam und löscht den
         zugehörigen TestUmgebung-Export.
