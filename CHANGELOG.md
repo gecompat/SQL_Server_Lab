@@ -8,6 +8,17 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- `SqlServerLab.ActionResult/1.0` normalisiert mutierende GUI-Aktionen als
+  `Changed`, `NoChange`, `Cancelled` oder `Failed` und bindet den
+  Connection-Center-/CMS-Sync an den konkreten Runtime-, Endpoint- oder
+  Anzeigenamen-Impact. Nicht mutierende Ergebnisse bleiben synchronisationsfrei.
+- Explizite SQL-Hostports erhalten einen read-only Review-Befund mit Besitzer
+  und Grund. Docker und Podman wiederholen diese Prüfung unter dem hostweiten
+  Port-Lock unmittelbar vor dem Container-Create.
+- UI-Aktionen sind als `User`, `RuntimeAccess` oder `Administrator`
+  klassifiziert. Die Hyper-V-Erhöhung erklärt Zweck und Umfang, ist
+  standardmäßig abgelehnt und startet erst nach Zustimmung genau einen
+  separaten Prozess.
 - Der SQL-Versionskatalog ist gegen die offiziellen Microsoft-Buildtabellen auf
   SQL Server 2019 CU32, SQL Server 2022 CU26 und SQL Server 2025 CU8
   aktualisiert. Bestehende 2019-/2022-KB-, Build- und Release-Zuordnungen wurden

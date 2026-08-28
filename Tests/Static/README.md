@@ -8,6 +8,9 @@ Container, Datenbanken oder Run-States.
 | `Invoke-AllChecks.ps1` | Fuehrt alle statischen Suites isoliert aus und erzwingt deren Exitcodes | `.\Tests\Static\Invoke-AllChecks.ps1` |
 | `Invoke-ImpactedChecks.ps1` | Fuehrt anhand geaenderter Repositorypfade nur die betroffenen Suites aus | `.\Tests\Static\Invoke-ImpactedChecks.ps1 -ChangedPath $paths` |
 | `Invoke-CiStrategyChecks.ps1` | Prueft Pfadklassifikation, PR-/Nightly-Trennung und das Verbot redundanter Volltests | `.\Tests\Static\Invoke-CiStrategyChecks.ps1` |
+| `Invoke-ActionResultChecks.ps1` | `ActionResult/1.0`, No-op-/Abbruchgrenzen und exakt ein Connection-Center-/CMS-Sync fuer endpunktrelevante Mutationen | `.\Tests\Static\Invoke-ActionResultChecks.ps1` |
+| `Invoke-ElevationChecks.ps1` | UAC-Vorschau, Ablehnung, Zustimmung und bereits erhöhte Sitzung ohne vorsorglichen Prozessstart | `.\Tests\Static\Invoke-ElevationChecks.ps1` |
+| `Invoke-PortAllocationChecks.ps1` | Read-only-Pruefung expliziter SQL-Hostports mit Besitzer/Grund sowie erneutes Docker-/Podman-Gate innerhalb des atomaren Port-Locks | `.\Tests\Static\Invoke-PortAllocationChecks.ps1` |
 | `Invoke-CleanupRecoveryChecks.ps1` | Simulierter Providerfehler, `RECOVERY_REQUIRED`, persistierte Fehlerursache und erfolgreicher Cleanup-Retry | `.\Tests\Static\Invoke-CleanupRecoveryChecks.ps1` |
 | `Invoke-PodmanBootstrapChecks.ps1` | Ready-, Start-, Fehler-, Timeout- und Parallelpfade des Podman-Bootstraps ohne echte Runtime | `.\Tests\Static\Invoke-PodmanBootstrapChecks.ps1` |
 | `Invoke-LabNetworkChecks.ps1` | Feste, konfigurierbare Docker-, Podman- und Hyper-V-Labnetze, CIDR-Kollisionsschutz sowie Hostzugriffsvertrag | `.\Tests\Static\Invoke-LabNetworkChecks.ps1` |

@@ -270,6 +270,13 @@ function New-DockerInstance {
                     $Port
                 }
 
+                if (-not $automaticPort) {
+                    $binding = Test-LabEndpointBinding -Port $selectedPort
+                    if (-not $binding.Available) {
+                        throw "LAB_ENDPOINT_BINDING_CONFLICT: Port $selectedPort ist belegt. Besitzer: $($binding.Owner). Grund: $($binding.Reason)"
+                    }
+                }
+
                 $dockerArguments = @(
                     'run', '-d',
                     '--name', $containerName,

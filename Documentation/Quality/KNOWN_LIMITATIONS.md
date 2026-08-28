@@ -490,10 +490,13 @@ inzwischen statisch. Der positive reale Windows-Generalize-/Publish-Nachweis
 nach dieser Korrektur bleibt offen; der statische Test ersetzt die erneute
 PowerShell-Direct-Abnahme nicht.
 
-Beim bloßen Öffnen und Abbrechen bestimmter Lifecycle-Schnellmenüs kann derzeit
-eine automatische Connection-Center-/CMS-Synchronisation ausgelöst werden.
-Bis zur Einführung des strukturierten Aktionsergebnisses gilt: Menüabbruch ist
-nicht als nachgewiesen seiteneffektfrei zu betrachten.
+Lifecycle-Schnellmenüs verwenden inzwischen `ActionResult/1.0`: `Cancelled`,
+`NoChange`, `Skipped`, Ablehnung und Fehler lösen weder Connection-Center- noch
+CMS-Synchronisation aus; eine erfolgreiche endpunktrelevante Mutation genau
+eine. Der Aufrufzähler ist lokal synthetisch gebunden. Die reale Konsolenabnahme
+für `Escape`, `Ctrl+C` und Fallback sowie der echte Prozessabbruch bleiben Teil
+des offenen N2-Gates und dürfen durch diesen statischen Nachweis nicht als
+abgeschlossen gelten.
 
 ## Lokale State- und Secret-Daten
 

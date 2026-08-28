@@ -30,12 +30,7 @@ function Invoke-SqlServerLab {
         try {
             if ($Action -eq 'BatchPlan') { Invoke-LabBatchComposerInteractive; return }
             if ($Action -eq 'Queue') { Invoke-LabQueueInteractive; return }
-            $before = Get-LabWorkflowLifecycleFingerprint
-            Invoke-LabAction -ActionName $Action
-            $after = Get-LabWorkflowLifecycleFingerprint
-            if ($Action -in @('New', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'Rename', 'Resources', 'UpdateContainer', 'Manage') -and $null -ne $before -and $before -ne $after) {
-                Sync-LabConnectionCenterAfterLifecycle
-            }
+            $null = Invoke-LabActionWithResult -ActionName $Action
         }
         catch { if (-not (Test-LabConsoleInputCancellation -InputObject $_)) { throw } }
         return
@@ -92,6 +87,24 @@ function Sync-LabConnectionCenterAfterLifecycle {
     }
 }
 
+function Invoke-LabActionWithResult {
+    <# .SYNOPSIS Fuehrt eine UI-Aktion aus und synchronisiert nur nach dem ActionResult-Vertrag. #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$ActionName)
+
+    $privilegeClass = Get-LabActionPrivilegeClass -Action $ActionName
+    Write-Verbose "UI-Aktion '$ActionName' verwendet Privilegklasse '$privilegeClass'."
+    $before = Get-LabWorkflowLifecycleFingerprint
+    $rawResult = @(Invoke-LabAction -ActionName $ActionName)
+    $after = Get-LabWorkflowLifecycleFingerprint
+    $actionResult = ConvertTo-LabActionResult -Action $ActionName -InputObject $rawResult `
+        -BeforeFingerprint $before -AfterFingerprint $after
+    $actionResult | Add-Member -NotePropertyName PrivilegeClass -NotePropertyValue $privilegeClass -Force
+    $null = Invoke-LabActionResultSynchronization -ActionResult $actionResult `
+        -SynchronizationAction { Sync-LabConnectionCenterAfterLifecycle }
+    return $actionResult
+}
+
 function Invoke-LabMenuAction {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$ActionName)
@@ -104,22 +117,17 @@ function Invoke-LabMenuAction {
     if ($ActionName -eq 'BulkSlots') { Invoke-LabBatchComposerInteractive -SlotMode; return }
     if ($ActionName -eq 'queue') { Invoke-LabQueueInteractive; return }
 
-    $before = Get-LabWorkflowLifecycleFingerprint
     if ($ActionName -eq 'HyperVManage') {
         Manage-LabHyperVEnvironmentInteractive
     }
     else {
-        Invoke-LabAction -ActionName $ActionName
+        $null = Invoke-LabActionWithResult -ActionName $ActionName
     }
 
     if ($ActionName -in @('Status', 'CleanupAudit', 'Catalog')) {
         Wait-LabConsoleAcknowledgement
     }
 
-    $after = Get-LabWorkflowLifecycleFingerprint
-    if ($ActionName -in @('New', 'AutomatedTestEnvironment', 'ClearAutomatedTestEnvironment', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'Rename', 'Resources', 'Manage', 'UpdateContainer') -and $null -ne $before -and $before -ne $after) {
-        Sync-LabConnectionCenterAfterLifecycle
-    }
 }
 
 function Show-LabSubMenu {
@@ -1089,7 +1097,7 @@ function Read-LabSqlEnvironmentIntentInteractive {
         New-LabConsoleField -Id 'patch' -Label 'Patchstand' -Value $patch -Shortcut '3' -Editor $selectPatch -Formatter { param($value) [string]$value.VersionId }
         New-LabConsoleField -Id 'cpu' -Label 'vCPU (1..64)' -Value $defaultCpu -Shortcut '4' -Editor { param($current,$values) Read-LabDecimalIntentValue -Prompt 'vCPU (1..64)' -Default ([decimal]$current) -Minimum 1 -Maximum 64 }
         New-LabConsoleField -Id 'memoryMB' -Label $memoryPrompt -Value $defaultMemoryMB -Shortcut '5' -Editor { param($current,$values) Read-LabIntegerIntentValue -Prompt $memoryPrompt -Default ([int]$current) -Minimum 2048 -Maximum 1048576 }
-        New-LabConsoleField -Id 'hostPort' -Label 'SQL-Hostport (0 = automatisch)' -Value 0 -Shortcut '6' -Editor { param($current,$values) if([string]$values['networkMode'] -ne 'host-access'){0}else{Read-LabIntegerIntentValue -Prompt 'SQL-Hostport (0 = automatisch)' -Default ([int]$current) -Minimum 0 -Maximum 65535} } -Validator { param($value,$values) if([string]$values['networkMode'] -eq 'host-access' -and [int]$value -gt 0 -and [int]$value -lt 1024){'Ports unter 1024 sind nicht zulaessig.'}elseif([string]$values['networkMode'] -ne 'host-access' -and [int]$value -ne 0){'Ohne Hostzugriff muss der Hostport 0 sein.'} }
+        New-LabConsoleField -Id 'hostPort' -Label 'SQL-Hostport (0 = automatisch)' -Value 0 -Shortcut '6' -Editor { param($current,$values) if([string]$values['networkMode'] -ne 'host-access'){0}else{Read-LabIntegerIntentValue -Prompt 'SQL-Hostport (0 = automatisch)' -Default ([int]$current) -Minimum 0 -Maximum 65535} } -Validator { param($value,$values) if([string]$values['networkMode'] -eq 'host-access' -and [int]$value -gt 0 -and [int]$value -lt 1024){'Ports unter 1024 sind nicht zulaessig.'}elseif([string]$values['networkMode'] -ne 'host-access' -and [int]$value -ne 0){'Ohne Hostzugriff muss der Hostport 0 sein.'}elseif([string]$values['networkMode'] -eq 'host-access' -and [int]$value -gt 0){$binding=Test-LabEndpointBinding -Port ([int]$value);if(-not $binding.Available){"Port $value ist belegt. Besitzer: $($binding.Owner). Grund: $($binding.Reason)"}} }
     )
     if ($custom) {
         $fields += @(
@@ -1653,6 +1661,7 @@ function Invoke-LabHyperVImageAction {
             if ($elevation.Started) {
                 Write-LabInfo 'Hyper-V-Aktion wird in einem erhoehten PowerShell-Fenster fortgesetzt.'
             }
+            return $elevation
         }
         catch {
             Write-LabError "Hyper-V-Aktion benoetigt Administratorrechte: $($_.Exception.Message)"
@@ -3830,6 +3839,13 @@ function Manage-LabHyperVEnvironmentInteractive {
     $actionResult = Invoke-LabConsoleMenu -ScreenId 'hyperv-environment-actions' -Title 'Hyper-V-Umgebung verwalten' -Subtitle "$($selectedLab.Run.name) | VM: $($selectedLab.Instance.vmName)" -Items $actionItems
     if ($actionResult.Status -ne 'Selected') { return }
     $action = [string]$actionResult.SelectedItem.Id
+    $actionBefore = Get-LabWorkflowLifecycleFingerprint
+    $connectionCenterImpact = switch ($action) {
+        { $_ -in @('s', 'p') } { 'RuntimeState'; break }
+        'e' { 'EndpointSet'; break }
+        'h' { 'EndpointSet'; break }
+        default { 'None' }
+    }
     $planSqlDeployment = {
         param([Parameter(Mandatory)] [string] $RunId)
         New-LabHyperVSqlDeploymentPlanInteractive -RunId $RunId
@@ -4006,7 +4022,14 @@ function Manage-LabHyperVEnvironmentInteractive {
             default { Write-LabWarning 'Ungültige Aktion.' }
         }
     }
-    catch { Write-LabError $_.Exception.Message }
+    catch {
+        Write-LabError $_.Exception.Message
+        return New-LabActionResult -Action Manage -Status Failed -ErrorCode 'LAB_HYPERV_MANAGE_ACTION_FAILED'
+    }
+
+    $actionAfter = Get-LabWorkflowLifecycleFingerprint
+    $status = if ($actionBefore -ne $actionAfter) { 'Changed' } else { 'NoChange' }
+    return New-LabActionResult -Action Manage -Status $status -ConnectionCenterImpact $connectionCenterImpact
 }
 
 function Get-AvailableLabProviders {
@@ -4221,6 +4244,13 @@ function Manage-LabEnvironmentInteractive {
     $actionResult = Invoke-LabConsoleMenu -ScreenId 'environment-actions' -Title ("Umgebung verwalten: {0}" -f $run.metadata.name) -Subtitle ("Status: {0}{1}" -f $synced.Runtime.State, $(if ($connectionLabel) { " - SQL: $connectionLabel" } else { '' })) -Items $actionItems -Footer 'Pfeile: Navigation  Enter/Shortcut: Aktion  Esc: Zurueck' -FallbackPrompt '  Aktion (Buchstabe)'
     if ($actionResult.Status -ne 'Selected') { return }
     $action = [string]$actionResult.SelectedItem.Shortcut
+    $actionBefore = Get-LabWorkflowLifecycleFingerprint
+    $connectionCenterImpact = switch ($action) {
+        's' { 'RuntimeState'; break }
+        'n' { 'DisplayMetadata'; break }
+        'e' { 'EndpointSet'; break }
+        default { 'None' }
+    }
     try {
         switch ($action) {
             's' { if ([string]$synced.Runtime.State -eq 'RUNNING') { Stop-SqlServerLab -RunId $runId } else { Start-SqlServerLab -RunId $runId } }
@@ -4233,7 +4263,14 @@ function Manage-LabEnvironmentInteractive {
             default { Write-LabWarning 'Ungültige Aktion.' }
         }
     }
-    catch { Write-LabError $_.Exception.Message }
+    catch {
+        Write-LabError $_.Exception.Message
+        return New-LabActionResult -Action Manage -Status Failed -ErrorCode 'LAB_CONTAINER_MANAGE_ACTION_FAILED'
+    }
+
+    $actionAfter = Get-LabWorkflowLifecycleFingerprint
+    $status = if ($actionBefore -ne $actionAfter) { 'Changed' } else { 'NoChange' }
+    return New-LabActionResult -Action Manage -Status $status -ConnectionCenterImpact $connectionCenterImpact
 }
 
 function Rename-LabEnvironmentInteractive {
