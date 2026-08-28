@@ -107,6 +107,7 @@ try {
     $newText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/New-SqlServerLab.ps1') -Raw
     $imageBuilderText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVSqlImageBuilder.ps1') -Raw
     $labEnvironmentText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVLabEnvironment.ps1') -Raw
+    $acceptanceText = Get-Content -LiteralPath (Join-Path $repoRoot 'Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1') -Raw
     Add-CheckResult -Name 'Hostpfad verwendet content-addressed Media Root und atomare verifizierte Downloads' -Success (
         $hostText -match 'ExternalLanguages/Windows/\$\(\(\[string\]\$artifact\.sha256\)' -and
         $hostText -match '\.partial-' -and $hostText -match 'MEDIA_HASH_MISMATCH' -and
@@ -114,7 +115,8 @@ try {
     )
     Add-CheckResult -Name 'PowerShell Direct kopiert nur geschlossenen Plan, Artefakte und Repositoryskript' -Success (
         $hostText -match 'Copy-VMFile' -and $hostText -match 'Install-ExternalRuntimes\.ps1' -and
-        $hostText -match 'SqlServerLab\.ExternalRuntimeWindowsGuestPlan'
+        $hostText -match 'SqlServerLab\.ExternalRuntimeWindowsGuestPlan' -and
+        $hostText -match "EndsWith\('6C09BB55-D683-4DA0-8931-C9BF705F6480'"
     )
     Add-CheckResult -Name 'Fehler bleibt sichtbar RECOVERY_REQUIRED; Erfolg erst nach SQL-Probe ready' -Success (
         $hostText -match 'RECOVERY_REQUIRED' -and $hostText -match 'EXTENSIONS_READY_RUN' -and
@@ -129,6 +131,14 @@ try {
     Add-CheckResult -Name 'Prepared-Image- und SQL-Slot-Pläne erlauben AdvancedAnalytics explizit' -Success (
         $imageBuilderText -match "'ADVANCEDANALYTICS'" -and
         $labEnvironmentText -match "ValidateSet\('SQLENGINE', 'FULLTEXT', 'REPLICATION', 'ADVANCEDANALYTICS'\)"
+    )
+    Add-CheckResult -Name 'Native Acceptance kann einen bereits spezialisierten Windows-Slot ohne pauschale UAC-Erhöhung fortsetzen' -Success (
+        $acceptanceText -notmatch '#Requires\s+-RunAsAdministrator' -and
+        $acceptanceText -match 'HYPERV_EXTERNAL_RUNTIME_ACCEPTANCE_REQUIRES_WINDOWS_HYPERV' -and
+        $acceptanceText -match 'windowsProvisioning' -and
+        $acceptanceText -match "windowsProvisioning\.state -eq 'COMPLETE'" -and
+        $acceptanceText -match 'Remove-SqlServerLab[\s\S]+-Confirm:\$false' -and
+        $acceptanceText -notmatch 'Remove-HyperVLabEnvironment'
     )
 }
 catch { Add-CheckResult -Name 'External-Runtime-Windows-Testausführung' -Success $false -Message $_.Exception.Message }
