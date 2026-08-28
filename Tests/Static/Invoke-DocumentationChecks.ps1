@@ -756,6 +756,11 @@ Add-ValidationResult `
     -Success ($repoMap -notmatch 'SQL-Skript-, Bundle-, Archiv- und Attach-Handler noch nicht implementiert' -and $repoMap -notmatch 'unattended OS-/SQL-Image-Build und Resume nicht implementiert')
 
 Add-ValidationResult `
+    -Name 'Repo-Map beschreibt den real abgeschlossenen Generalize-Vertrag nicht als offen' `
+    -Success ($repoMap -match 'IN_PROGRESS_CONTROL_AND_GENERALIZE_GATES_COMPLETE_STORAGE_AND_STATUS_OPEN' -and
+        $repoMap -notmatch 'GENERALIZE_OPEN')
+
+Add-ValidationResult `
     -Name 'Masterplan trennt lokale Produktfunktion von optionaler CI-Validierung' `
     -Success ($masterImplementationPlan -notmatch 'keine CI/CD-Artefakte vorhanden' -and $masterImplementationPlan -match 'keine Produktabhängigkeit')
 
