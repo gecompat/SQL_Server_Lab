@@ -111,6 +111,29 @@ try {
         $sqlApplyQuery -match "N'DefaultLog'" -and $sqlApplyQuery -match "N'BackupDirectory'" -and
         ([regex]::Matches($sqlApplyQuery, 'ALTER DATABASE tempdb')).Count -ge 5 -and $sqlApplyQuery -match 'REMOVE FILE')
 
+    $coverageDatabases = @(
+        [PSCustomObject]@{
+            name='AppDb'; restore=$null
+            files=[PSCustomObject]@{
+                data=@([PSCustomObject]@{ name='AppDb'; path=$null; sizeMB=64; filegrowthMB=64 })
+                log=@([PSCustomObject]@{ name='AppDb_log'; path=$null; sizeMB=32; filegrowthMB=32 })
+            }
+        },
+        [PSCustomObject]@{
+            name='RestoreDb'; files=[PSCustomObject]@{ data=@(); log=@() }
+            restore=[PSCustomObject]@{ source='fixture.bak'; replace=$true }
+        }
+    )
+    $coverageAccepted = & $module { param($i,$d) Assert-LabStorageManifestDatabaseCoverage -StorageIntent $i -Databases $d } $intent $coverageDatabases
+    $coverageMismatchRejected = try {
+        $bad = $coverageDatabases | ConvertTo-Json -Depth 20 | ConvertFrom-Json -Depth 20
+        $bad[0].files.log[0].name = 'UnplannedLog'
+        $null = & $module { param($i,$d) Assert-LabStorageManifestDatabaseCoverage -StorageIntent $i -Databases $d } $intent $bad
+        $false
+    } catch { $_.Exception.Message -match 'DATABASE_FILE_COVERAGE_MISMATCH' }
+    Add-CheckResult -Name 'Manifestdatenbanken sind vor Mutation exakt durch Create-Dateien oder Restore-Regel abgedeckt' -Success (
+        $coverageAccepted -and $coverageMismatchRejected)
+
     $runtimeReceiptDirectory = Join-Path $temporaryParent 'runtime-receipt'
     $null = New-Item -Path $runtimeReceiptDirectory -ItemType Directory -Force
     $verifiedRuntimeReceipt = & $module {
@@ -132,6 +155,49 @@ try {
         @($verifiedRuntimeReceipt.Postconditions | Where-Object Status -ne 'PASS').Count -eq 0 -and
         ((Get-Content -LiteralPath (Join-Path $runtimeReceiptDirectory 'storage-runtime-receipt.json') -Raw -Encoding utf8) |
             Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/lab-storage-runtime-receipt.schema.json') -ErrorAction SilentlyContinue))
+
+    $sqlOperationReceiptPath = Join-Path $runtimeReceiptDirectory 'storage-sql-operation-receipt.json'
+    $sqlOperationContext = [PSCustomObject]@{
+        Plan=$plan
+        Receipt=($verifiedRuntimeReceipt | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30)
+        ReceiptPath=$sqlOperationReceiptPath
+    }
+    $databaseFilePlan = & $module {
+        param($context)
+        Resolve-LabStorageDatabaseFilePlan -Context $context -DatabaseName AppDb `
+            -DataFiles @([PSCustomObject]@{name='AppDb';path=$null;sizeMB=64;filegrowthMB=64}) `
+            -LogFiles @([PSCustomObject]@{name='AppDb_log';path=$null;sizeMB=32;filegrowthMB=32})
+    } $sqlOperationContext
+    $restoreFilePlan = & $module {
+        param($context)
+        Resolve-LabStorageRestoreFilePlan -Context $context -DatabaseName RestoreDb -FileListOutput @(
+            'RestorePrimary|x|D|x','RestoreLog|x|L|x','RestoreMemory|x|S|x','RestoreFullText|x|F|x'
+        )
+    } $sqlOperationContext
+    $moveStatements = & $module { param($files) New-LabStorageRestoreMoveStatements -FilePlan $files } $restoreFilePlan
+    $verificationQuery = & $module { param($files) New-LabStorageMasterFilesVerificationQuery -DatabaseName RestoreDb -FilePlan $files } $restoreFilePlan
+    Add-CheckResult -Name 'SQLS-002 löst jede CREATE-Datei exakt aus Plan und verifiziertem Runtime-Receipt auf' -Success (
+        @($databaseFilePlan.DataFiles).Count -eq 1 -and @($databaseFilePlan.LogFiles).Count -eq 1 -and
+        [string]$databaseFilePlan.DataFiles[0].path -eq [string]($runtimePlan.SqlFiles | Where-Object { $_.Database -eq 'AppDb' -and $_.Role -eq 'database-data' }).SqlPhysicalPath -and
+        [string]$databaseFilePlan.LogFiles[0].path -eq [string]($runtimePlan.SqlFiles | Where-Object { $_.Database -eq 'AppDb' -and $_.Role -eq 'database-log' }).SqlPhysicalPath)
+    Add-CheckResult -Name 'SQLS-003 erzeugt für jede FILELIST-Datei genau ein typgerechtes und eindeutiges MOVE-Ziel' -Success (
+        @($restoreFilePlan).Count -eq 4 -and @($restoreFilePlan.SqlPhysicalPath | Sort-Object -Unique).Count -eq 4 -and
+        @($moveStatements).Count -eq 4 -and @($restoreFilePlan | Where-Object Role -eq 'restore-log').Count -eq 1 -and
+        @($restoreFilePlan | Where-Object Role -in @('restore-data','restore-special','restore-fulltext')).Count -eq 3 -and
+        $verificationQuery -match 'LAB_STORAGE_SQL_MASTER_FILES_POSTCONDITION_FAILED')
+    $sqlOperationContext = & $module {
+        param($context)
+        Start-LabStorageSqlOperation -Context $context -OperationId 'restore:RestoreDb' -Kind restore -DatabaseName RestoreDb
+    } $sqlOperationContext
+    $completedOperationReceipt = & $module {
+        param($context,$files)
+        Complete-LabStorageSqlOperation -Context $context -OperationId 'restore:RestoreDb' -Kind restore -DatabaseName RestoreDb -Files $files
+    } $sqlOperationContext $restoreFilePlan
+    Add-CheckResult -Name 'SQL-Storage-Operation quittiert erst nach vollständiger master_files-Postcondition' -Success (
+        $completedOperationReceipt.Status -eq 'VERIFIED' -and
+        @($completedOperationReceipt.Postconditions | Where-Object { $_.OperationId -eq 'restore:RestoreDb' -and $_.Status -eq 'PASS' }).Count -eq 1 -and
+        @($completedOperationReceipt.FileBindings | Where-Object OperationId -eq 'restore:RestoreDb').Count -eq 4 -and
+        (($completedOperationReceipt | ConvertTo-Json -Depth 30) | Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/lab-storage-runtime-receipt.schema.json') -ErrorAction SilentlyContinue))
     $recoveryReceiptDirectory = Join-Path $temporaryParent 'runtime-recovery'
     $null = New-Item -Path $recoveryReceiptDirectory -ItemType Directory -Force
     $recoveryThrown = try {
