@@ -155,7 +155,8 @@ function New-PodmanInstance {
         if (-not $drive.hostPath) {
             $null = Initialize-PodmanSqlNamedVolume -VolumeName $volumeSource -Image $image -RunId $RunId -ScopeId $ScopeId `
                 -ContainerPath ([string]$drive.containerPath) `
-                -SyncImageContent:($ExternalRuntimeLaunchMode -eq 'sql2022-namespace-v1' -and [string]$drive.containerPath -eq '/var/opt/mssql-extensibility')
+                -SyncImageContent:($ExternalRuntimeLaunchMode -eq 'sql2022-namespace-v1' -and
+                    [string]$drive.containerPath -in @('/var/opt/mssql-extensibility/externallanguages','/var/opt/mssql-extensibility/externallibraries'))
         }
 
         $volumeArguments += '-v'

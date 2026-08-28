@@ -74,7 +74,11 @@ function Add-LabPersistentContainerDrive {
     }
     if ($IncludeExternalRuntimeState) {
         $Instance.drives += [PSCustomObject]@{
-            id = 'persistent-mssql-extensibility'; containerPath = '/var/opt/mssql-extensibility'; volumeName = "${volumeName}-extensibility"
+            id = 'persistent-mssql-external-languages'; containerPath = '/var/opt/mssql-extensibility/externallanguages'; volumeName = "${volumeName}-external-languages"
+            persistence = 'data-root-runtime-volume'
+        }
+        $Instance.drives += [PSCustomObject]@{
+            id = 'persistent-mssql-external-libraries'; containerPath = '/var/opt/mssql-extensibility/externallibraries'; volumeName = "${volumeName}-external-libraries"
             persistence = 'data-root-runtime-volume'
         }
     }
@@ -92,12 +96,15 @@ function Add-LabRunScopedContainerSystemDrive {
     $currentDrives = @($Instance.drives)
     # Auch eine kurzlebige Lab-Umgebung muss einen kontrollierten Container-
     # Recreate ohne Verlust von master/model/msdb, Datenbankregistrierungen und
-    # der zugehoerigen LaunchPad-/Extensibility-Identitaet ueberstehen. Diese
-    # Volumes werden beim rungebundenen Lab-Cleanup entfernt und sind daher
-    # nicht mit dem langlebigen Data-Root-Vertrag gleichzusetzen.
+    # der zugehoerigen External-Language-/Library-Artefakte ueberstehen. Die
+    # fluechtigen LaunchPad-Verzeichnisse data und sandboxes bleiben bewusst
+    # containerlokal. Diese Volumes werden beim rungebundenen Lab-Cleanup
+    # entfernt und sind daher nicht mit dem langlebigen Data-Root-Vertrag
+    # gleichzusetzen.
     $required = @([PSCustomObject]@{ id='runtime-mssql'; containerPath='/var/opt/mssql'; persistence='run-scoped-runtime-volume' })
     if ($IncludeExternalRuntimeState) {
-        $required += [PSCustomObject]@{ id='runtime-mssql-extensibility'; containerPath='/var/opt/mssql-extensibility'; persistence='run-scoped-runtime-volume' }
+        $required += [PSCustomObject]@{ id='runtime-mssql-external-languages'; containerPath='/var/opt/mssql-extensibility/externallanguages'; persistence='run-scoped-runtime-volume' }
+        $required += [PSCustomObject]@{ id='runtime-mssql-external-libraries'; containerPath='/var/opt/mssql-extensibility/externallibraries'; persistence='run-scoped-runtime-volume' }
     }
     $missing = @($required | Where-Object { $path = $_.containerPath; @($currentDrives | Where-Object containerPath -eq $path).Count -eq 0 })
     $Instance | Add-Member -NotePropertyName drives -NotePropertyValue (@($missing) + $currentDrives) -Force
