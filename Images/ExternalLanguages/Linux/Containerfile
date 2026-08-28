@@ -142,7 +142,9 @@ USER root
 RUN case "${EXTERNAL_RUNTIMES}" in \
         python|r|java|r,python|r,java|python,java|r,python,java) true ;; \
         *) echo "Unsupported external runtime set: ${EXTERNAL_RUNTIMES}" >&2; exit 64 ;; \
-    esac
+    esac; \
+    install -d -m 0755 /opt/sql-server-lab/config; \
+    install -m 0644 /var/opt/mssql/mssql.conf /opt/sql-server-lab/config/external-runtime-mssql.conf
 
 USER root
 

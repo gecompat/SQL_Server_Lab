@@ -60,27 +60,38 @@ function Initialize-PodmanSqlNamedVolume {
         [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$')][string]$VolumeName,
         [Parameter(Mandatory)][string]$Image,
         [Parameter(Mandatory)][string]$RunId,
-        [Parameter(Mandatory)][string]$ScopeId
+        [Parameter(Mandatory)][string]$ScopeId,
+        [Parameter(Mandatory)][ValidatePattern('^/[A-Za-z0-9._/-]+$')][string]$ContainerPath,
+        [switch]$SyncImageContent
     )
 
     $null = podman volume inspect $VolumeName 2>$null
-    if ($LASTEXITCODE -eq 0) { return $false }
+    $volumeExists = $LASTEXITCODE -eq 0
 
-    $created = podman volume create `
-        --label "sql-server-lab.run-id=$RunId" `
-        --label "sql-server-lab.scope-id=$ScopeId" `
-        $VolumeName 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        throw "PODMAN_SQL_VOLUME_CREATE_FAILED: $VolumeName - $(@($created) -join ' ')"
+    if (-not $volumeExists) {
+        $created = podman volume create `
+            --label "sql-server-lab.run-id=$RunId" `
+            --label "sql-server-lab.scope-id=$ScopeId" `
+            $VolumeName 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            throw "PODMAN_SQL_VOLUME_CREATE_FAILED: $VolumeName - $(@($created) -join ' ')"
+        }
     }
+    if ($volumeExists -and -not $SyncImageContent) { return $false }
 
+    $initializationCommand = if ($SyncImageContent) {
+        "if [ ! -d '$ContainerPath' ]; then exit 1; fi; cp -a '$ContainerPath'/. /sql-lab-volume-init/; chown --reference='$ContainerPath' /sql-lab-volume-init && chmod --reference='$ContainerPath' /sql-lab-volume-init"
+    }
+    else {
+        'chown -R 10001:0 /sql-lab-volume-init && chmod 0770 /sql-lab-volume-init'
+    }
     $initialized = podman run --rm --user 0:0 --entrypoint /bin/sh `
         -v "${VolumeName}:/sql-lab-volume-init" $Image `
-        -c 'cp -a /var/opt/mssql/. /sql-lab-volume-init/ && chown -R 10001:0 /sql-lab-volume-init && chmod 0770 /sql-lab-volume-init' 2>&1
+        -c $initializationCommand 2>&1
     if ($LASTEXITCODE -ne 0) {
         throw "PODMAN_SQL_VOLUME_INITIALIZATION_FAILED: $VolumeName - $(@($initialized) -join ' ')"
     }
-    return $true
+    return (-not $volumeExists)
 }
 
 function New-PodmanInstance {
@@ -91,6 +102,7 @@ function New-PodmanInstance {
         [Parameter(Mandatory)][string]$ScopeId,
         [Parameter(Mandatory)][string]$InstanceId,
         [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9 _-]{0,63}$')][string]$LabName,
+        [ValidatePattern('^$|^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$')][string]$ContainerName,
         [int]$Port = 0,
         [Parameter(Mandatory)][SecureString]$SaPassword,
         [ValidateSet('compact', 'standard', 'performance')]
@@ -120,7 +132,8 @@ function New-PodmanInstance {
     $effectiveCpu = if ($Cpu -gt 0) { $Cpu } else { [decimal]$profileDefinition.maxCpus }
     $memoryLimit = "${effectiveMemoryMB}m"
     $cpuLimit = $effectiveCpu.ToString('0.##', [Globalization.CultureInfo]::InvariantCulture)
-    $containerName = if ($LabName) { Get-LabContainerRuntimeName -LabName $LabName -InstanceId $InstanceId -RunId $RunId } else { "sql-lab-$InstanceId-$($RunId.Substring(0, 8))" }
+    $containerName = if ($ContainerName) { $ContainerName } elseif ($LabName) { Get-LabContainerRuntimeName -LabName $LabName -InstanceId $InstanceId -RunId $RunId } else { "sql-lab-$InstanceId-$($RunId.Substring(0, 8))" }
+    $containerHostname = Get-LabContainerRuntimeHostname -RuntimeName $containerName
     $labNetwork = Ensure-LabPodmanNetwork -Name $NetworkName
 
     $volumeArguments = @()
@@ -140,7 +153,10 @@ function New-PodmanInstance {
         }
 
         if (-not $drive.hostPath) {
-            $null = Initialize-PodmanSqlNamedVolume -VolumeName $volumeSource -Image $image -RunId $RunId -ScopeId $ScopeId
+            $null = Initialize-PodmanSqlNamedVolume -VolumeName $volumeSource -Image $image -RunId $RunId -ScopeId $ScopeId `
+                -ContainerPath ([string]$drive.containerPath) `
+                -SyncImageContent:($ExternalRuntimeLaunchMode -eq 'sql2022-namespace-v1' -and
+                    [string]$drive.containerPath -in @('/var/opt/mssql-extensibility/externallanguages','/var/opt/mssql-extensibility/externallibraries'))
         }
 
         $volumeArguments += '-v'
@@ -206,6 +222,7 @@ function New-PodmanInstance {
                 $podmanArguments = @(
                     'run', '-d',
                     '--name', $containerName,
+                    '--hostname', $containerHostname,
                     '--network', $labNetwork.Name,
                     '-p', "${selectedPort}:1433",
                     '-e', 'ACCEPT_EULA=Y',

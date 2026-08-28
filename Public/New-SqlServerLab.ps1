@@ -77,7 +77,8 @@ function New-LabProviderContainer {
         [Parameter(Mandatory)]$RunState,
         [Parameter(Mandatory)][SecureString]$SaPassword,
         [int]$Port = 0,
-        $ContainerImageArtifact
+        $ContainerImageArtifact,
+        [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$')][string]$ContainerName
     )
 
     $labName = Resolve-LabRuntimeName -RunState $RunState
@@ -106,6 +107,7 @@ function New-LabProviderContainer {
                 -ScopeId $RunState.ScopeId `
                 -InstanceId $Instance.id `
                 -LabName $labName `
+                -ContainerName $ContainerName `
                 -Port $Port `
                 -SaPassword $SaPassword `
                 -Profile $Instance.profile `
@@ -125,6 +127,7 @@ function New-LabProviderContainer {
                 -ScopeId $RunState.ScopeId `
                 -InstanceId $Instance.id `
                 -LabName $labName `
+                -ContainerName $ContainerName `
                 -Port $Port `
                 -SaPassword $SaPassword `
                 -Profile $Instance.profile `
@@ -686,7 +689,10 @@ function New-SqlServerLab {
         if ($PersistentData) {
             foreach ($instance in $resolved.instances) {
                 $storage = Get-LabPersistentInstanceStorage -DataRoot $DataRoot -LabName $resolved.name -Provider $instance.provider -InstanceId $instance.id -SqlVersion $instance.version -Create
-                $null = Add-LabPersistentContainerDrive -Instance $instance -Storage $storage
+                $hasExternalRuntime = $instance.provider -in @('docker', 'podman') -and
+                    @($externalRuntimePlansByInstance[[string]$instance.id]).Count -gt 0
+                $null = Add-LabPersistentContainerDrive -Instance $instance -Storage $storage `
+                    -IncludeExternalRuntimeState:$hasExternalRuntime
                 $instance | Add-Member -NotePropertyName persistentStorage -NotePropertyValue ([PSCustomObject]@{
                     mode = 'data-root-runtime-volume'; root = [string]$storage.SqlRoot
                     containerVolume = [string](($instance.drives | Where-Object { $_.id -eq 'persistent-mssql' } | Select-Object -First 1).volumeName)
@@ -697,7 +703,9 @@ function New-SqlServerLab {
         }
 
         foreach ($instance in @($resolved.instances | Where-Object { $_.provider -in @('docker', 'podman') })) {
-            $null = Add-LabRunScopedContainerSystemDrive -Instance $instance
+            $hasExternalRuntime = @($externalRuntimePlansByInstance[[string]$instance.id]).Count -gt 0
+            $null = Add-LabRunScopedContainerSystemDrive -Instance $instance `
+                -IncludeExternalRuntimeState:$hasExternalRuntime
         }
 
         foreach ($instance in $resolved.instances) {
