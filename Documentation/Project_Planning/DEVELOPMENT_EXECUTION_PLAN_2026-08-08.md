@@ -757,10 +757,12 @@ synchronisiert. Explizite SQL-Hostports werden im Review read-only mit
 Besitzer/Grund und unter dem hostweiten Allocation-Lock unmittelbar vor Docker-
 oder Podman-Create erneut geprüft. UAC-Vorschau und Privilegklassen sind
 getestet: Ablehnung startet keinen Prozess, Zustimmung genau einen, eine bereits
-erhöhte Sitzung keinen zweiten. Diese statischen und lokalen Verträge schließen
-Gate N2 noch nicht: Manifest-Rerun, echter Scheduler-Prozessabbruch, Windows-
-User-Gate, `Escape`/`Ctrl+C`/Fallback und der positive reale Generalize-
-Receipt-Pfad sind weiterhin real abzunehmen.
+erhöhte Sitzung keinen zweiten. Die grafische Workflow-UI wurde real im lokalen
+Browser geprüft; ihr gemeinsamer Dialogabbruch schließt mit `Escape`, verwirft
+Löschbestätigungen und leert Passwortfelder. Diese Nachweise schließen Gate N2
+noch nicht: Manifest-Rerun, echter Scheduler-Prozessabbruch, Windows-User-Gate,
+PowerShell-Console-`Ctrl+C`/Fallback und der positive reale Generalize-Receipt-
+Pfad sind weiterhin real abzunehmen.
 
 **Ziel:** Alle bereits identifizierten P0-Lücken schließen, bevor Komfort- oder
 Breitenausbau beginnt.
