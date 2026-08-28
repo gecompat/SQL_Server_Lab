@@ -109,6 +109,31 @@ Add-CheckResult -Name 'Java-Removal bindet nur receiptbelegte Lab-Objekte und Da
     $source -match 'Restore-LabExternalRuntimeManagedJavaObjects'
 )
 
+$retryContract = & $module {
+    $retryState = [PSCustomObject]@{ Attempts=0; NonTransientAttempts=0 }
+    $result = Invoke-LabExternalRuntimeProbeWithRetry -RetryDelaySeconds 0 -Operation {
+        $retryState.Attempts++
+        if ($retryState.Attempts -eq 1) { throw "Msg 39012`nUnable to communicate with the runtime for 'R' script" }
+        [PSCustomObject]@{ Status='PASS' }
+    }
+    $nonTransientRejected = $false
+    try {
+        $null = Invoke-LabExternalRuntimeProbeWithRetry -RetryDelaySeconds 0 -Operation {
+            $retryState.NonTransientAttempts++
+            throw 'SQL semantic failure'
+        }
+    }
+    catch { $nonTransientRejected = $_.Exception.Message -eq 'SQL semantic failure' }
+    [PSCustomObject]@{
+        Attempts=$retryState.Attempts; Status=[string]$result.Status
+        NonTransientAttempts=$retryState.NonTransientAttempts; NonTransientRejected=$nonTransientRejected
+    }
+}
+Add-CheckResult -Name 'Probe-Retry ist auf transiente LaunchPad-39011/39012-Fehler begrenzt' -Success (
+    $retryContract.Attempts -eq 2 -and $retryContract.Status -eq 'PASS' -and
+    $retryContract.NonTransientAttempts -eq 1 -and $retryContract.NonTransientRejected
+)
+
 $tempRoot = Join-Path ([IO.Path]::GetTempPath()) ("sql-lab-runtime-reconcile-" + [guid]::NewGuid().ToString('N'))
 try {
     New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
