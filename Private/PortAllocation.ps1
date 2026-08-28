@@ -52,6 +52,117 @@ function Get-LabReservedSqlPorts {
     return @($ports | Sort-Object)
 }
 
+function Test-LabEndpointBinding {
+    <#
+    .SYNOPSIS
+        Prueft einen expliziten SQL-Hostport ohne ihn zu reservieren oder zu aendern.
+    .DESCRIPTION
+        Liefert fuer die UI-Pruefung und den atomaren Runtime-Bindungsschritt
+        einen stabilen Befund mit Besitzer und Grund. Containerzuordnungen werden
+        vor generischen TCP-Listenern ausgewertet, damit die Diagnose moeglichst
+        konkret bleibt.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateRange(1, 65535)]
+        [int]$Port
+    )
+
+    foreach ($runtime in @('docker', 'podman')) {
+        if (-not (Get-Command $runtime -ErrorAction SilentlyContinue)) {
+            continue
+        }
+
+        try {
+            $containerLines = & $runtime ps -a --format '{{.ID}}|{{.Names}}|{{.Ports}}' 2>$null
+            if ($LASTEXITCODE -ne 0) {
+                continue
+            }
+
+            foreach ($line in @($containerLines)) {
+                $parts = ([string]$line).Split('|', 3)
+                if ($parts.Count -lt 3 -or [string]::IsNullOrWhiteSpace($parts[2])) {
+                    continue
+                }
+                $mappedPorts = @([regex]::Matches($parts[2], '(?<!\d)(\d{1,5})->1433(?:/tcp)?') |
+                    ForEach-Object { [int]$_.Groups[1].Value })
+                if ($Port -notin $mappedPorts) {
+                    continue
+                }
+
+                return [PSCustomObject]@{
+                    Port = $Port
+                    Available = $false
+                    Owner = "${runtime}:$($parts[1]) ($($parts[0]))"
+                    Reason = "Der Port ist bereits als SQL-Hostport eines $runtime-Containers veroeffentlicht."
+                }
+            }
+        }
+        catch {
+            Write-Verbose "Endpoint-Bindungen von '$runtime' konnten nicht gelesen werden: $($_.Exception.Message)"
+        }
+    }
+
+    try {
+        $listeners = @([System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().GetActiveTcpListeners() |
+            Where-Object { [int]$_.Port -eq $Port })
+        if ($listeners.Count -gt 0) {
+            $owner = 'lokaler TCP-Listener'
+            $getNetTcpConnection = Get-Command Get-NetTCPConnection -ErrorAction SilentlyContinue
+            if ($getNetTcpConnection) {
+                try {
+                    $connection = @(Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction Stop | Select-Object -First 1)
+                    if ($connection.Count -gt 0 -and [int]$connection[0].OwningProcess -gt 0) {
+                        $processId = [int]$connection[0].OwningProcess
+                        $process = Get-Process -Id $processId -ErrorAction SilentlyContinue
+                        $owner = if ($process) { "$($process.ProcessName) (PID $processId)" } else { "PID $processId" }
+                    }
+                }
+                catch {
+                    Write-Verbose "Besitzer des TCP-Listeners auf Port $Port konnte nicht ermittelt werden: $($_.Exception.Message)"
+                }
+            }
+
+            return [PSCustomObject]@{
+                Port = $Port
+                Available = $false
+                Owner = $owner
+                Reason = "Auf $($listeners[0].Address):$Port lauscht bereits ein TCP-Endpunkt."
+            }
+        }
+    }
+    catch {
+        Write-Verbose "Aktive TCP-Listener konnten fuer Port $Port nicht vollstaendig gelesen werden: $($_.Exception.Message)"
+    }
+
+    $probe = $null
+    try {
+        $probe = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Any, $Port)
+        $probe.Start()
+    }
+    catch {
+        return [PSCustomObject]@{
+            Port = $Port
+            Available = $false
+            Owner = 'nicht ermittelbarer lokaler Endpunkt'
+            Reason = "Der Betriebssystem-Bindungstest ist fehlgeschlagen: $($_.Exception.Message)"
+        }
+    }
+    finally {
+        if ($probe) {
+            $probe.Stop()
+        }
+    }
+
+    return [PSCustomObject]@{
+        Port = $Port
+        Available = $true
+        Owner = $null
+        Reason = 'Kein aktiver TCP-Listener und keine Docker-/Podman-SQL-Zuordnung gefunden.'
+    }
+}
+
 function Find-LabAvailablePort {
     [CmdletBinding()]
     param(
