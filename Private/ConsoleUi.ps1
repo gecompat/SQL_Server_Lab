@@ -1,8 +1,20 @@
+if ([string]::IsNullOrWhiteSpace([string]$script:LabConsoleMode)) {
+    $script:LabConsoleMode = 'Auto'
+}
+
 function Test-LabConsoleCapability {
     [CmdletBinding()]
     param()
 
     $reasons = [System.Collections.Generic.List[string]]::new()
+    if ([string]$script:LabConsoleMode -eq 'Fallback') {
+        $reasons.Add('FORCED_FALLBACK')
+        return [PSCustomObject]@{
+            Supported = $false
+            Mode = 'READ_HOST'
+            Reasons = @($reasons)
+        }
+    }
     try {
         if ([Console]::IsInputRedirected) { $reasons.Add('INPUT_REDIRECTED') }
         if ([Console]::IsOutputRedirected) { $reasons.Add('OUTPUT_REDIRECTED') }
@@ -24,6 +36,41 @@ function Test-LabConsoleCapability {
         Supported = ($reasons.Count -eq 0)
         Mode = if ($reasons.Count -eq 0) { 'CURSOR' } else { 'READ_HOST' }
         Reasons = @($reasons)
+    }
+}
+
+function Test-LabConsoleInterruptKey {
+    [CmdletBinding()]
+    param([AllowNull()][object]$Key)
+
+    if ($null -eq $Key) { return $false }
+    $keyCharacter = [string]$Key.KeyChar
+    $isControlCharacter = $keyCharacter.Length -gt 0 -and [int][char]$keyCharacter[0] -eq 3
+    $isModifiedC = [string]$Key.Key -eq 'C' -and [string]$Key.Modifiers -match 'Control'
+    return $isControlCharacter -or $isModifiedC
+}
+
+function Assert-LabConsoleKeyNotInterrupted {
+    [CmdletBinding()]
+    param([AllowNull()][object]$Key)
+
+    if (Test-LabConsoleInterruptKey -Key $Key) {
+        throw [Management.Automation.PipelineStoppedException]::new()
+    }
+}
+
+function Read-LabConsoleKey {
+    [CmdletBinding()]
+    param([scriptblock]$ReadKey)
+
+    if ($ReadKey) { return & $ReadKey }
+    $previousTreatControlCAsInput = [Console]::TreatControlCAsInput
+    try {
+        [Console]::TreatControlCAsInput = $true
+        return [Console]::ReadKey($true)
+    }
+    finally {
+        [Console]::TreatControlCAsInput = $previousTreatControlCAsInput
     }
 }
 
@@ -58,7 +105,8 @@ function Read-LabConsoleTextInput {
     $length = 0
     & $write "$promptText (Esc: Abbruch): "
     while ($true) {
-        $key = if ($ReadKey) { & $ReadKey } else { [Console]::ReadKey($true) }
+        $key = Read-LabConsoleKey -ReadKey $ReadKey
+        Assert-LabConsoleKeyNotInterrupted -Key $key
         switch ([string]$key.Key) {
             'Escape' {
                 if ($secureValue) { $secureValue.Dispose() }
@@ -113,7 +161,8 @@ function Wait-LabConsoleAcknowledgement {
     }
     & $write "$Prompt "
     while ($true) {
-        $key = if ($ReadKey) { & $ReadKey } else { [Console]::ReadKey($true) }
+        $key = Read-LabConsoleKey -ReadKey $ReadKey
+        Assert-LabConsoleKeyNotInterrupted -Key $key
         if ([string]$key.Key -in @('Enter','Escape')) {
             & $write [Environment]::NewLine
             return
@@ -502,6 +551,7 @@ function Invoke-LabConsoleMenu {
         }
         $answer = if ($ReadInput) { & $ReadInput $FallbackPrompt } else { Read-Host $FallbackPrompt }
         if (-not $answer) { return [PSCustomObject]@{ Status='Cancelled'; SelectedItem=$null; State=$null } }
+        if ([string]$answer -eq '0') { return [PSCustomObject]@{ Status='Cancelled'; SelectedItem=$null; State=$null } }
         for ($index = 0; $index -lt $Items.Count; $index++) {
             $item = $Items[$index]
             if ([bool]$item.Disabled) { continue }
@@ -525,7 +575,8 @@ function Invoke-LabConsoleMenu {
             $height = if ($viewport) { [Math]::Max(6, [int]$viewport.Height) } elseif ($FrameWriter) { 25 } else { [Console]::WindowHeight }
             $frame = Get-LabConsoleFrame -State $state -Title $Title -Subtitle $Subtitle -Footer $Footer -Width $width -Height $height
             if ($FrameWriter) { & $FrameWriter $session $frame } else { Write-LabConsoleFrame -Session $session -Frame $frame }
-            $key = if ($ReadKey) { & $ReadKey } else { [Console]::ReadKey($true) }
+            $key = Read-LabConsoleKey -ReadKey $ReadKey
+            Assert-LabConsoleKeyNotInterrupted -Key $key
             $keyName = [string]$key.Key
             $keyCharacter = [string]$key.KeyChar
             switch ($keyName) {
@@ -591,6 +642,9 @@ function Invoke-LabConsoleMenu {
                 }
             }
         }
+    }
+    catch [Management.Automation.PipelineStoppedException] {
+        throw
     }
     catch {
         $consoleFailure = $_
@@ -714,7 +768,8 @@ function Invoke-LabConsoleMultiSelect {
             $height = if ($viewport) { [Math]::Max(6, [int]$viewport.Height) } elseif ($FrameWriter) { 25 } else { [Console]::WindowHeight }
             $frame = Get-LabConsoleFrame -State $state -Title $Title -Subtitle $Subtitle -Footer $Footer -Width $width -Height $height
             if ($FrameWriter) { & $FrameWriter $session $frame } else { Write-LabConsoleFrame -Session $session -Frame $frame }
-            $key = if ($ReadKey) { & $ReadKey } else { [Console]::ReadKey($true) }
+            $key = Read-LabConsoleKey -ReadKey $ReadKey
+            Assert-LabConsoleKeyNotInterrupted -Key $key
             $selectedDisplayItem = if ($state.SelectedIndex -ge 0) { $state.Items[$state.SelectedIndex] } else { $null }
             switch ([string]$key.Key) {
                 'UpArrow'   { $numericShortcutBuffer=''; $null = Move-LabConsoleSelection -State $state -Direction Up }
@@ -778,6 +833,9 @@ function Invoke-LabConsoleMultiSelect {
                 }
             }
         }
+    }
+    catch [Management.Automation.PipelineStoppedException] {
+        throw
     }
     catch {
         $consoleFailure = $_

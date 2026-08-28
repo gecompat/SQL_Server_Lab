@@ -10,6 +10,9 @@
     Ohne Angabe startet das interaktive Menue.
 .PARAMETER Manifest
     Pfad zu einer Manifest-JSON-Datei fuer New-SqlServerLab.
+.PARAMETER ConsoleMode
+    Auto verwendet die Cursoransicht, wenn sie verfuegbar ist. Fallback erzwingt
+    die nummerierte Diagnoseansicht im selben PowerShell-7-Terminal.
 .EXAMPLE
     ./Invoke-SqlServerLab.ps1
     # Startet interaktives Menue
@@ -28,7 +31,10 @@ param(
     [ValidateSet('New', 'Status', 'Start', 'Stop', 'Restart', 'Remove', 'Clear', 'Script', 'Database', 'Image')]
     [string]$Action,
 
-    [string]$Manifest
+    [string]$Manifest,
+
+    [ValidateSet('Auto', 'Fallback')]
+    [string]$ConsoleMode = 'Auto'
 )
 
 $showHelpRequested = $ShowHelp.IsPresent -or
@@ -52,13 +58,14 @@ param(
     Write-Host '  oder fuehrt eine Direkt-Aktion aus.' -ForegroundColor Cyan
     Write-Host ''
     Write-Host 'Aufruf:' -ForegroundColor Magenta
-    Write-Host "  .\$ScriptName [--ShowHelp]" -ForegroundColor Cyan
+    Write-Host "  .\$ScriptName [-ConsoleMode <Auto|Fallback>] [--ShowHelp]" -ForegroundColor Cyan
     Write-Host "  .\$ScriptName -Action <Action> [-Manifest <Pfad>]" -ForegroundColor Cyan
     Write-Host "  .\$ScriptName -ShowHelp" -ForegroundColor Cyan
     Write-Host ''
     Write-Host 'Parameter:' -ForegroundColor Magenta
     Write-Host '  -Action <string>      Direkt-Aktion (New, Status, Start, Stop, Restart, Remove, Clear, Script, Database, Image).' -ForegroundColor Cyan
     Write-Host '  -Manifest <string>    Optionaler Pfad zu Manifest fuer New-SqlServerLab.' -ForegroundColor Cyan
+    Write-Host '  -ConsoleMode <string> Auto oder diagnostischer Fallback fuer interaktive Menues.' -ForegroundColor Cyan
     Write-Host '  -ShowHelp             Zeigt diese Hilfe.' -ForegroundColor Cyan
     Write-Host '  -RemainingArgs         Intern fuer unbekannte Hilfeschalter.' -ForegroundColor Cyan
     Write-Host ''
@@ -106,10 +113,10 @@ if ($Manifest) {
     New-SqlServerLab -Manifest $Manifest
 }
 elseif ($Action) {
-    Invoke-SqlServerLab -Action $Action
+    Invoke-SqlServerLab -Action $Action -ConsoleMode $ConsoleMode
 }
 else {
-    Invoke-SqlServerLab
+    Invoke-SqlServerLab -ConsoleMode $ConsoleMode
 }
 
 

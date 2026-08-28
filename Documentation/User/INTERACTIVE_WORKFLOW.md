@@ -136,6 +136,11 @@ mit einem bloßen Fehler:
   gespeicherten Snapshot neu und lösen keine Docker-/Podman-Abfragen aus. In
   Hosts ohne sichere `System.Console`-Steuerung bleibt der nummerierte
   `Read-Host`-Fallback vollständig bedienbar.
+- Mit `./Invoke-SqlServerLab.ps1 -ConsoleMode Fallback` lässt sich derselbe
+  nummerierte Fallback im normalen PowerShell-7-Terminal bewusst erzwingen.
+  `0` bricht die aktuelle Auswahl kontrolliert ab. `Ctrl+C` beendet sowohl im
+  Cursor- als auch im Fallback-Modus die gesamte aktuelle Verarbeitung und wird
+  nicht als normaler Menüfehler fortgesetzt.
 - Der stabile Footer zeigt offene Punkte aus einem gemeinsamen read-only Snapshot:
   fehlende aktuelle CU-Windows-Pakete, veralteten CU-Katalog, niedrigen SQL-Slot-
   oder Vorlagenbestand, offene Image-Builder sowie Recovery/Cleanup. Pfeiltasten

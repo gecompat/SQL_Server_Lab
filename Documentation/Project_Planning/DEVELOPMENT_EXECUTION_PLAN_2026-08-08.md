@@ -698,7 +698,7 @@ Runtime-Nachweis; maßgeblich bleiben die jeweils genannten Tests und Evidence.
 | Welle | Status am 2026-08-28 | Einordnung |
 |---|---|---|
 | N1 | `COMPLETE` | Nightly-Ursache klassifiziert, persistente Windows-Testumgebungen gezielt wiederhergestellt, CU-Katalog fachlich aktualisiert und zwei aufeinanderfolgende Nightlies vollständig grün. |
-| N2 | `IN_PROGRESS` | ActionResult-/Sync-, Portbindungs-, UAC- und Privilegverträge sind implementiert und fokussiert geprüft; die reale Abbruch-, User-Gate-, Console- und Generalize-Abnahme bleibt offen. |
+| N2 | `IN_PROGRESS` | ActionResult-/Sync-, Portbindungs-, UAC- und Privilegverträge sind implementiert und fokussiert geprüft; GUI-Abbruch, Scheduler-Abbruch/Recovery, Manifest-Rerun und PowerShell-Console sind real belegt. Windows-User-Gate und Generalize bleiben offen. |
 | N3 | `PLANNED_NOT_STARTED` | Die drei Partnerrepository-Piloten sind nicht nachgewiesen. |
 | N4 | `PLANNED_NOT_STARTED` | Vorhandene Hyper-V-Teilpfade und persistente Testumgebungen ersetzen den geforderten Cold-Path nicht. |
 | N5 | `PLANNED_NOT_STARTED` | Vorhandene Storage-/Reconcile-Teile ersetzen den vollständigen Vertical Slice nicht. |
@@ -765,9 +765,11 @@ Docker-Ressourcen hart beendet; der Folgelauf erkannte beide betroffenen Worker,
 bereinigte unvollständige operationseigene Runs und hinterließ nach
 idempotentem Resume genau einen Run je Position. Ein reales Docker-Manifest
 wurde offen dedupliziert, nach vollständigem Cleanup als neuer Batch mit neuen
-RunIds erneut ausgeführt und wieder scopegebunden bereinigt. Offen bleiben
-Windows-User-Gate, PowerShell-Console-`Ctrl+C`/Fallback und der positive reale
-Generalize-Receipt-Pfad.
+RunIds erneut ausgeführt und wieder scopegebunden bereinigt. Die PowerShell-
+Console wurde in einem realen PTY geschlossen: `Ctrl+C` beendet Cursor- und
+erzwungenen Fallback-Modus ohne Weiterlauf; `-ConsoleMode Fallback` ist am
+Standalone-Einstieg reproduzierbar und `0` beendet ihn kontrolliert. Offen
+bleiben Windows-User-Gate und der positive reale Generalize-Receipt-Pfad.
 
 **Ziel:** Alle bereits identifizierten P0-Lücken schließen, bevor Komfort- oder
 Breitenausbau beginnt.

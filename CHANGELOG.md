@@ -8,6 +8,9 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- Der PowerShell-7-Einstieg akzeptiert `-ConsoleMode Auto|Fallback`. Damit ist
+  der nummerierte Fallback im selben Terminal gezielt reproduzierbar; `0`
+  beendet ihn kontrolliert.
 - `SqlServerLab.ActionResult/1.0` normalisiert mutierende GUI-Aktionen als
   `Changed`, `NoChange`, `Cancelled` oder `Failed` und bindet den
   Connection-Center-/CMS-Sync an den konkreten Runtime-, Endpoint- oder
@@ -40,6 +43,10 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Behoben
 
+- Die gemeinsame Console-UI reicht `Ctrl+C` jetzt aus Cursor-, Text-, Secret-
+  und Bestätigungseingaben als `PipelineStoppedException` durch, statt das
+  Signal zu ignorieren oder nach einem Menüfehler in den Fallback zu wechseln.
+  Der reale PTY-Nachweis ist für Cursor- und erzwungenen Fallback-Modus grün.
 - Der reale Batch-Smoke deckt jetzt den vollständigen Manifest-Rerun ab:
   offene identische Einreichungen werden dedupliziert; nach Abschluss und
   Cleanup erzeugt dasselbe Manifest einen neuen Batch mit neuen RunIds, ohne

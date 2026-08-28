@@ -261,6 +261,19 @@ denselben Batch und dieselben Operationen zurückgibt. Nach Abschluss und Cleanu
 erzeugt dasselbe Manifest einen neuen Batch mit neuen RunIds, bleibt beim
 Scheduler-Rerun idempotent und wird erneut vollständig bereinigt.
 
+Der diagnostische Konsolen-Fallback wird im selben PowerShell-7-Terminal
+gestartet:
+
+```powershell
+.\Invoke-SqlServerLab.ps1 -ConsoleMode Fallback
+```
+
+Die reale Konsolenabnahme prüft getrennt: `0` beendet den Fallback mit Exitcode
+0; `Ctrl+C` beendet Cursor- und Fallback-Verarbeitung mit einem Prozessabbruch,
+ohne Ergebnis-/Fortsetzungsmarker und ohne Wechsel vom Cursor in den Fallback.
+Die statische Ergänzung ist `Invoke-ConsoleUiChecks.ps1`; simulierte Keys allein
+ersetzen den PTY-Nachweis nicht.
+
 ## 6. Provider-Abnahme
 
 | Fähigkeit | Docker | Podman | Hyper-V |
