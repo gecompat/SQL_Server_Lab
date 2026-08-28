@@ -26,15 +26,17 @@ foreach ($entry in $providers.GetEnumerator()) {
     Assert-VolumeContract ($text -match '(?s)volume inspect.*?return \$false') "$name initialisiert bestehende Volumes nicht erneut"
     Assert-VolumeContract (
         $text -match "SyncImageContent:\(\`$ExternalRuntimeLaunchMode -eq 'sql2022-namespace-v1' -and \[string\]\`$drive\.containerPath -eq '/var/opt/mssql-extensibility'\)" -and
-        $text -match "cp -a '\`$ContainerPath'/\. /sql-lab-volume-init/"
-    ) "$name synchronisiert Image-Inhalt nur in das External-Runtime-Extensibility-Volume"
+        $text -match "cp -a '\`$ContainerPath'/\. /sql-lab-volume-init/" -and
+        $text -match "chown --reference='\`$ContainerPath' /sql-lab-volume-init" -and
+        $text -match "chmod --reference='\`$ContainerPath' /sql-lab-volume-init"
+    ) "$name synchronisiert Image-Inhalt und dessen Wurzelrechte nur in das External-Runtime-Extensibility-Volume"
 }
 
 Assert-VolumeContract ($providers.podman -match "if \(-not \`$drive\.hostPath -and \`$ExternalRuntimeLaunchMode -eq 'none'\) \{ \`$volumeOptions \+= 'U' \}") 'podman verwendet die user-namespace-sichere U-Option nur fuer normale rootless Named Volumes'
 Assert-VolumeContract (
     $providers.podman -match "cp -a '\`$ContainerPath'/\. /sql-lab-volume-init/" -and
     $providers.podman -match '-ContainerPath \(\[string\]\$drive\.containerPath\)' -and
-    $providers.podman -match 'chown -R 10001:0 /sql-lab-volume-init'
+    $providers.podman -match "chown --reference='\`$ContainerPath' /sql-lab-volume-init"
 ) 'Podman-Named-Volumes uebernehmen den Inhalt ihres exakten Containerzielpfads'
 $reconcile = Get-Content (Join-Path $repoRoot 'Public/Update-SqlServerLabContainer.ps1') -Raw -Encoding utf8
 Assert-VolumeContract ($reconcile -match "(?s)if \(\`$runtime -eq 'podman'\) \{ \`$volumeOptions \+= 'U' \}") 'Podman-Reconcile erhaelt die user-namespace-sichere Volume-Eigentuemerschaft'
