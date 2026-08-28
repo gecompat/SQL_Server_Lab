@@ -37,6 +37,7 @@ try {
     Add-CheckResult -Name 'Öffentliche Cmdlets sind über das Modul verfügbar' -Success (
         $module.ExportedCommands.ContainsKey('New-SqlServerLabAutomatedTestEnvironment') -and
         $module.ExportedCommands.ContainsKey('Export-SqlServerLabTestEnvironment') -and
+        $module.ExportedCommands.ContainsKey('Repair-SqlServerLabAutomatedTestEnvironment') -and
         $module.ExportedCommands.ContainsKey('Clear-SqlServerLabAutomatedTestEnvironment')
     )
     & $module {
@@ -76,6 +77,33 @@ try {
         -not $statusSnapshot.Entries[0].PSObject.Properties['Password'] -and
         -not $statusSnapshot.Entries[0].PSObject.Properties['ConnectionString']
     )
+    $unavailableExport = Export-SqlServerLabTestEnvironment -OutputDirectory $outputRoot -StateRoot $stateRoot
+    $unavailableJson = Get-Content -LiteralPath $unavailableExport.JsonPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
+    Add-CheckResult -Name 'Gespeichertes RUNNING ohne erreichbaren Live-Provider wird nicht als READY exportiert' -Success (
+        $unavailableJson.groupStatus -eq 'INCOMPLETE' -and
+        $unavailableJson.environments[0].status -eq 'GROUP_INCOMPLETE' -and
+        $unavailableJson.environments[0].runtimeStatus -eq 'UNAVAILABLE'
+    )
+    $originalDockerStatus = & $module { (Get-Command Get-DockerInstanceStatus).ScriptBlock }
+    & $module {
+        Set-Item Function:Get-DockerInstanceStatus -Value {
+            param([string]$ContainerIdOrName)
+            [PSCustomObject]@{ Exists=$true; Running=$true; Healthy=$false; AutoStart=$true; Inspect=$null; Raw='running' }
+        }
+    }
+    $unhealthyExport = Export-SqlServerLabTestEnvironment -OutputDirectory $outputRoot -StateRoot $stateRoot
+    $unhealthyJson = Get-Content -LiteralPath $unhealthyExport.JsonPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
+    Add-CheckResult -Name 'Gespeichertes RUNNING mit ungesundem Live-Container wird fail-closed exportiert' -Success (
+        $unhealthyJson.groupStatus -eq 'INCOMPLETE' -and
+        $unhealthyJson.environments[0].status -eq 'GROUP_INCOMPLETE' -and
+        $unhealthyJson.environments[0].runtimeStatus -eq 'UNHEALTHY'
+    )
+    & $module {
+        Set-Item Function:Get-DockerInstanceStatus -Value {
+            param([string]$ContainerIdOrName)
+            [PSCustomObject]@{ Exists=$true; Running=$true; Healthy=$true; AutoStart=$true; Inspect=$null; Raw='running' }
+        }
+    }
     $export = Export-SqlServerLabTestEnvironment -OutputDirectory $outputRoot -StateRoot $stateRoot
     $jsonText = Get-Content -LiteralPath $export.JsonPath -Raw -Encoding utf8
     $json = $jsonText | ConvertFrom-Json -Depth 20
@@ -148,6 +176,7 @@ try {
         @($incompleteJson.environments | Where-Object key -eq 'LINUX_2022_LATEST').Count -eq 1 -and
         @($incompleteJson.environments | Where-Object key -eq 'LINUX_2022_LATEST_2').Count -eq 1
     )
+    & $module { param($Original) Set-Item Function:Get-DockerInstanceStatus -Value $Original } $originalDockerStatus
     $passwords = & $module {
         $values = foreach ($unused in 1..2) {
             $secret = New-HyperVSqlUnattendedPassword
@@ -251,6 +280,22 @@ try {
     Add-CheckResult -Name 'Batch-Linux-Erfolg hängt nicht vom noch unvollständigen Gruppenstatus ab' -Success (
         $menuText -match 'TEST_ENVIRONMENT_CREATION_FAILED' -and
         $menuText -notmatch 'TEST_ENVIRONMENT_GROUP_INCOMPLETE'
+    )
+    Add-CheckResult -Name 'Automatisierte Linux-Ziele verwenden belastbare Runtime- und SQL-Memory-Grenzen' -Success (
+        $testEnvironmentText -match '-Profile standard' -and
+        $testEnvironmentText -match '-Cpu 4 -MemoryMB 4096' -and
+        $testEnvironmentText -match 'maxMB = 3072' -and
+        $testEnvironmentText -notmatch 'New-SqlServerLab[^\r\n]+-Profile compact'
+    )
+    Add-CheckResult -Name 'Gruppenreparatur bleibt auf Linux beschränkt und erhält den geschützten Lifecycle' -Success (
+        $testEnvironmentText -match 'function Repair-SqlServerLabAutomatedTestEnvironment' -and
+        $testEnvironmentText -match "Where-Object \{ \[string\]\`$_.platform -eq 'linux'" -and
+        $testEnvironmentText -match 'Update-SqlServerLabContainer[^\r\n]+-Cpu 4 -MemoryMB 4096' -and
+        $testEnvironmentText -match '-RepairSqlRuntimeContract' -and
+        $testEnvironmentText -match 'Set-LabServerConfig' -and
+        $testEnvironmentText -match 'maxMB = 3072' -and
+        $testEnvironmentText -match 'Export-SqlServerLabTestEnvironment' -and
+        $testEnvironmentText -match 'LabAutomatedTestEnvironmentGroupOperation = \$true'
     )
     Add-CheckResult -Name 'Testgruppe synchronisiert Verbindungszentrale und CMS explizit und atomar sichtbar' -Success (
         $testEnvironmentText -match 'function Sync-LabAutomatedTestEnvironmentConnectionCenter' -and

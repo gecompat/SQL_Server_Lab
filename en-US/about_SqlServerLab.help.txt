@@ -177,6 +177,10 @@ COMMANDS
         TestUmgebung.prompt.md, and TestUmgebung.md to the
         configured Lab_Data export directory.
 
+    Repair-SqlServerLabAutomatedTestEnvironment
+        Repairs the resource and health contract of registered Linux members
+        without replacing Windows members, ports, or volumes.
+
     Clear-SqlServerLabAutomatedTestEnvironment
         Removes all automated test environments as one protected group and
         deletes the corresponding TestUmgebung export.
