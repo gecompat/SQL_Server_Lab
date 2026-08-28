@@ -114,27 +114,33 @@ function Initialize-DockerSqlNamedVolume {
         [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$')][string]$VolumeName,
         [Parameter(Mandatory)][string]$Image,
         [Parameter(Mandatory)][string]$RunId,
-        [Parameter(Mandatory)][string]$ScopeId
+        [Parameter(Mandatory)][string]$ScopeId,
+        [Parameter(Mandatory)][ValidatePattern('^/[A-Za-z0-9._/-]+$')][string]$ContainerPath,
+        [switch]$SyncImageContent
     )
 
     $null = docker volume inspect $VolumeName 2>$null
-    if ($LASTEXITCODE -eq 0) { return $false }
+    $volumeExists = $LASTEXITCODE -eq 0
 
-    $created = docker volume create `
-        --label "sql-server-lab.run-id=$RunId" `
-        --label "sql-server-lab.scope-id=$ScopeId" `
-        $VolumeName 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        throw "DOCKER_SQL_VOLUME_CREATE_FAILED: $VolumeName - $(@($created) -join ' ')"
+    if (-not $volumeExists) {
+        $created = docker volume create `
+            --label "sql-server-lab.run-id=$RunId" `
+            --label "sql-server-lab.scope-id=$ScopeId" `
+            $VolumeName 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            throw "DOCKER_SQL_VOLUME_CREATE_FAILED: $VolumeName - $(@($created) -join ' ')"
+        }
     }
+    if ($volumeExists -and -not $SyncImageContent) { return $false }
 
+    $copyCommand = if ($SyncImageContent) { "if [ -d '$ContainerPath' ]; then cp -a '$ContainerPath'/. /sql-lab-volume-init/; fi; " } else { '' }
     $initialized = docker run --rm --user 0:0 --entrypoint /bin/sh `
         -v "${VolumeName}:/sql-lab-volume-init" $Image `
-        -c 'chown -R 10001:0 /sql-lab-volume-init && chmod 0770 /sql-lab-volume-init' 2>&1
+        -c "${copyCommand}chown -R 10001:0 /sql-lab-volume-init && chmod 0770 /sql-lab-volume-init" 2>&1
     if ($LASTEXITCODE -ne 0) {
         throw "DOCKER_SQL_VOLUME_INITIALIZATION_FAILED: $VolumeName - $(@($initialized) -join ' ')"
     }
-    return $true
+    return (-not $volumeExists)
 }
 
 function New-DockerInstance {
@@ -196,7 +202,9 @@ function New-DockerInstance {
         }
 
         if (-not $drive.hostPath) {
-            $null = Initialize-DockerSqlNamedVolume -VolumeName $volumeSource -Image $image -RunId $RunId -ScopeId $ScopeId
+            $null = Initialize-DockerSqlNamedVolume -VolumeName $volumeSource -Image $image -RunId $RunId -ScopeId $ScopeId `
+                -ContainerPath ([string]$drive.containerPath) `
+                -SyncImageContent:($ExternalRuntimeLaunchMode -eq 'sql2022-namespace-v1' -and [string]$drive.containerPath -eq '/var/opt/mssql-extensibility')
         }
 
         $volumeArguments += '-v'

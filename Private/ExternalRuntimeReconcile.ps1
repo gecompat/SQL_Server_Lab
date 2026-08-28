@@ -218,7 +218,7 @@ function New-LabExternalRuntimeReplacementInstance {
     # and user databases. Deriving fresh volume names from a mutable lab display
     # name would silently create an empty SQL data root.
     $replacement = $ResolvedInstance | ConvertTo-Json -Depth 50 | ConvertFrom-Json -Depth 50
-    $null = Add-LabRunScopedContainerSystemDrive -Instance $replacement
+    $null = Add-LabRunScopedContainerSystemDrive -Instance $replacement -IncludeExternalRuntimeState
     $drives = @($replacement.drives)
     foreach ($drive in $drives) {
         if (-not $drive -or -not $drive.containerPath) { continue }

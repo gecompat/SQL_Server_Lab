@@ -61,19 +61,23 @@ function Initialize-PodmanSqlNamedVolume {
         [Parameter(Mandatory)][string]$Image,
         [Parameter(Mandatory)][string]$RunId,
         [Parameter(Mandatory)][string]$ScopeId,
-        [Parameter(Mandatory)][ValidatePattern('^/[A-Za-z0-9._/-]+$')][string]$ContainerPath
+        [Parameter(Mandatory)][ValidatePattern('^/[A-Za-z0-9._/-]+$')][string]$ContainerPath,
+        [switch]$SyncImageContent
     )
 
     $null = podman volume inspect $VolumeName 2>$null
-    if ($LASTEXITCODE -eq 0) { return $false }
+    $volumeExists = $LASTEXITCODE -eq 0
 
-    $created = podman volume create `
-        --label "sql-server-lab.run-id=$RunId" `
-        --label "sql-server-lab.scope-id=$ScopeId" `
-        $VolumeName 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        throw "PODMAN_SQL_VOLUME_CREATE_FAILED: $VolumeName - $(@($created) -join ' ')"
+    if (-not $volumeExists) {
+        $created = podman volume create `
+            --label "sql-server-lab.run-id=$RunId" `
+            --label "sql-server-lab.scope-id=$ScopeId" `
+            $VolumeName 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            throw "PODMAN_SQL_VOLUME_CREATE_FAILED: $VolumeName - $(@($created) -join ' ')"
+        }
     }
+    if ($volumeExists -and -not $SyncImageContent) { return $false }
 
     $initialized = podman run --rm --user 0:0 --entrypoint /bin/sh `
         -v "${VolumeName}:/sql-lab-volume-init" $Image `
@@ -81,7 +85,7 @@ function Initialize-PodmanSqlNamedVolume {
     if ($LASTEXITCODE -ne 0) {
         throw "PODMAN_SQL_VOLUME_INITIALIZATION_FAILED: $VolumeName - $(@($initialized) -join ' ')"
     }
-    return $true
+    return (-not $volumeExists)
 }
 
 function New-PodmanInstance {
@@ -144,7 +148,8 @@ function New-PodmanInstance {
 
         if (-not $drive.hostPath) {
             $null = Initialize-PodmanSqlNamedVolume -VolumeName $volumeSource -Image $image -RunId $RunId -ScopeId $ScopeId `
-                -ContainerPath ([string]$drive.containerPath)
+                -ContainerPath ([string]$drive.containerPath) `
+                -SyncImageContent:($ExternalRuntimeLaunchMode -eq 'sql2022-namespace-v1' -and [string]$drive.containerPath -eq '/var/opt/mssql-extensibility')
         }
 
         $volumeArguments += '-v'

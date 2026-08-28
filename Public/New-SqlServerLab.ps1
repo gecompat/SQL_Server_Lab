@@ -689,7 +689,8 @@ function New-SqlServerLab {
         if ($PersistentData) {
             foreach ($instance in $resolved.instances) {
                 $storage = Get-LabPersistentInstanceStorage -DataRoot $DataRoot -LabName $resolved.name -Provider $instance.provider -InstanceId $instance.id -SqlVersion $instance.version -Create
-                $null = Add-LabPersistentContainerDrive -Instance $instance -Storage $storage
+                $null = Add-LabPersistentContainerDrive -Instance $instance -Storage $storage `
+                    -IncludeExternalRuntimeState:$externalRuntimePlansByInstance.ContainsKey([string]$instance.id)
                 $instance | Add-Member -NotePropertyName persistentStorage -NotePropertyValue ([PSCustomObject]@{
                     mode = 'data-root-runtime-volume'; root = [string]$storage.SqlRoot
                     containerVolume = [string](($instance.drives | Where-Object { $_.id -eq 'persistent-mssql' } | Select-Object -First 1).volumeName)
@@ -700,7 +701,8 @@ function New-SqlServerLab {
         }
 
         foreach ($instance in @($resolved.instances | Where-Object { $_.provider -in @('docker', 'podman') })) {
-            $null = Add-LabRunScopedContainerSystemDrive -Instance $instance
+            $null = Add-LabRunScopedContainerSystemDrive -Instance $instance `
+                -IncludeExternalRuntimeState:$externalRuntimePlansByInstance.ContainsKey([string]$instance.id)
         }
 
         foreach ($instance in $resolved.instances) {

@@ -69,7 +69,7 @@ try {
         param($root)
         $storage = Get-LabPersistentInstanceStorage -DataRoot $root -LabName 'persistent-test' -Provider docker -InstanceId primary -SqlVersion 2025 -Create
         $instance = [PSCustomObject]@{ drives = @() }
-        $null = Add-LabPersistentContainerDrive -Instance $instance -Storage $storage
+        $null = Add-LabPersistentContainerDrive -Instance $instance -Storage $storage -IncludeExternalRuntimeState
         return $instance.drives
     } $temporaryRoot
     $sqlSystemDrive = @($persistentDriveContract | Where-Object id -eq 'persistent-mssql')[0]
@@ -91,8 +91,8 @@ try {
     )
     $runScopedDriveContract = & $module {
         $instance = [PSCustomObject]@{ drives = @([PSCustomObject]@{ id='data'; containerPath='/sqldata' }) }
-        $null = Add-LabRunScopedContainerSystemDrive -Instance $instance
-        $null = Add-LabRunScopedContainerSystemDrive -Instance $instance
+        $null = Add-LabRunScopedContainerSystemDrive -Instance $instance -IncludeExternalRuntimeState
+        $null = Add-LabRunScopedContainerSystemDrive -Instance $instance -IncludeExternalRuntimeState
         return $instance.drives
     }
     $runScopedSystemDrives = @($runScopedDriveContract | Where-Object containerPath -eq '/var/opt/mssql')

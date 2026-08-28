@@ -55,7 +55,7 @@ function Get-LabPersistentInstanceStorage {
 
 function Add-LabPersistentContainerDrive {
     [CmdletBinding()]
-    param([Parameter(Mandatory)]$Instance, [Parameter(Mandatory)]$Storage)
+    param([Parameter(Mandatory)]$Instance, [Parameter(Mandatory)]$Storage, [switch]$IncludeExternalRuntimeState)
 
     $existing = @($Instance.drives | Where-Object { $_ -and $_.containerPath -eq '/var/opt/mssql' })
     if ($existing.Count -gt 0) { throw 'LAB_DATA_CONTAINER_MSSQL_MOUNT_ALREADY_CONFIGURED' }
@@ -72,9 +72,11 @@ function Add-LabPersistentContainerDrive {
         id = 'persistent-mssql'; containerPath = '/var/opt/mssql'; volumeName = $volumeName
         persistence = 'data-root-runtime-volume'
     }
-    $Instance.drives += [PSCustomObject]@{
-        id = 'persistent-mssql-extensibility'; containerPath = '/var/opt/mssql-extensibility'; volumeName = "${volumeName}-extensibility"
-        persistence = 'data-root-runtime-volume'
+    if ($IncludeExternalRuntimeState) {
+        $Instance.drives += [PSCustomObject]@{
+            id = 'persistent-mssql-extensibility'; containerPath = '/var/opt/mssql-extensibility'; volumeName = "${volumeName}-extensibility"
+            persistence = 'data-root-runtime-volume'
+        }
     }
     $Instance.drives += [PSCustomObject]@{
         id = 'persistent-backups'; containerPath = '/var/opt/mssql/backup'; hostPath = [string]$Storage.BackupRoot
@@ -85,7 +87,7 @@ function Add-LabPersistentContainerDrive {
 
 function Add-LabRunScopedContainerSystemDrive {
     [CmdletBinding()]
-    param([Parameter(Mandatory)]$Instance)
+    param([Parameter(Mandatory)]$Instance, [switch]$IncludeExternalRuntimeState)
 
     $currentDrives = @($Instance.drives)
     # Auch eine kurzlebige Lab-Umgebung muss einen kontrollierten Container-
@@ -93,10 +95,10 @@ function Add-LabRunScopedContainerSystemDrive {
     # der zugehoerigen LaunchPad-/Extensibility-Identitaet ueberstehen. Diese
     # Volumes werden beim rungebundenen Lab-Cleanup entfernt und sind daher
     # nicht mit dem langlebigen Data-Root-Vertrag gleichzusetzen.
-    $required = @(
-        [PSCustomObject]@{ id='runtime-mssql'; containerPath='/var/opt/mssql'; persistence='run-scoped-runtime-volume' },
-        [PSCustomObject]@{ id='runtime-mssql-extensibility'; containerPath='/var/opt/mssql-extensibility'; persistence='run-scoped-runtime-volume' }
-    )
+    $required = @([PSCustomObject]@{ id='runtime-mssql'; containerPath='/var/opt/mssql'; persistence='run-scoped-runtime-volume' })
+    if ($IncludeExternalRuntimeState) {
+        $required += [PSCustomObject]@{ id='runtime-mssql-extensibility'; containerPath='/var/opt/mssql-extensibility'; persistence='run-scoped-runtime-volume' }
+    }
     $missing = @($required | Where-Object { $path = $_.containerPath; @($currentDrives | Where-Object containerPath -eq $path).Count -eq 0 })
     $Instance | Add-Member -NotePropertyName drives -NotePropertyValue (@($missing) + $currentDrives) -Force
     return $Instance
