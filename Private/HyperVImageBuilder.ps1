@@ -378,11 +378,33 @@ function Invoke-HyperVWindowsImageGeneralization {
                     -ArgumentList @('/generalize', '/oobe', '/mode:vm', '/quit', '/quiet') `
                     -Wait -PassThru -ErrorAction Stop
                 if ($process.ExitCode -ne 0) { throw "SYSPREP_EXIT_CODE_$($process.ExitCode)" }
-                $imageState = [string](Get-ItemProperty `
-                    -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State' `
-                    -Name ImageState -ErrorAction Stop).ImageState
+                # Sysprep.exe can return exit code 0 while Windows still reports
+                # IMAGE_STATE_UNDEPLOYABLE for a short transition. Wait for the
+                # documented reseal state before creating the success receipt.
+                $imageStatePath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State'
+                $imageStateDeadline = [datetime]::UtcNow.AddSeconds(180)
+                do {
+                    $imageState = [string](Get-ItemProperty -LiteralPath $imageStatePath `
+                        -Name ImageState -ErrorAction Stop).ImageState
+                    if ($imageState -eq 'IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE') { break }
+                    Start-Sleep -Seconds 2
+                } while ([datetime]::UtcNow -lt $imageStateDeadline)
                 if ($imageState -ne 'IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE') {
-                    throw "SYSPREP_IMAGE_STATE_INVALID_$imageState"
+                    $panther = Join-Path $env:WINDIR 'System32\Sysprep\Panther'
+                    $errorLines = @()
+                    $errorLog = Join-Path $panther 'setuperr.log'
+                    if (Test-Path -LiteralPath $errorLog -PathType Leaf) {
+                        $errorLines += @(Get-Content -LiteralPath $errorLog -Tail 20 -ErrorAction SilentlyContinue)
+                    }
+                    $actionLog = Join-Path $panther 'setupact.log'
+                    if (Test-Path -LiteralPath $actionLog -PathType Leaf) {
+                        $errorLines += @(Get-Content -LiteralPath $actionLog -Tail 120 -ErrorAction SilentlyContinue | `
+                            Where-Object { $_ -match 'error|fail' } | Select-Object -Last 20)
+                    }
+                    $diagnostic = (@($errorLines | Where-Object { $_ } | Select-Object -Last 30) -join ' | ').Trim()
+                    if ($diagnostic.Length -gt 3000) { $diagnostic = $diagnostic.Substring($diagnostic.Length - 3000) }
+                    $suffix = if ($diagnostic) { ": $diagnostic" } else { '' }
+                    throw "SYSPREP_IMAGE_STATE_INVALID_${imageState}$suffix"
                 }
                 & (Join-Path $env:WINDIR 'System32\shutdown.exe') /s /t 30 /f /d p:4:1 /c 'SQL_Server_Lab image sealing'
                 if ($LASTEXITCODE -ne 0) { throw "SYSPREP_SHUTDOWN_SCHEDULE_FAILED_$LASTEXITCODE" }

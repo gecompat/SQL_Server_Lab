@@ -136,6 +136,20 @@ Der empfohlene operative Push-Pfad ist in der lokalen Readiness-Checkliste besch
 .\Documentation\Quality\LOCAL_READINESS_CHECKLIST.md
 ```
 
+### Reale Windows-Generalize-/Publish-Abnahme
+
+Auf einem Hyper-V-Host mit freigegebenem Windows-Server-2025-Eval-ISO prüft
+dieser Runner eine frische unbeaufsichtigte Installation auf einer neuen VHDX,
+den produktiven PowerShell-Direct-Generalize-Receipt, die testlokale immutable
+Publikation und den garantierten Cleanup. Eine vorhandene `OS_SEALED`-Artifact-
+ID liefert ausschließlich die freigegebenen OS-/Lizenzmetadaten; ihre VHDX wird
+nicht als Generalize-Quelle wiederverwendet.
+
+```powershell
+.\Tests\Integration\Invoke-HyperVWindowsGeneralizeAcceptance.ps1 `
+    -ArtifactId 'hyperv-os-sealed-<sha256>'
+```
+
 ## 3. Voraussetzungen
 
 ### Statische Prüfung

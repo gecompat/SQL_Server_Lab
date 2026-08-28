@@ -591,8 +591,8 @@ function Invoke-HyperVInitialMediaBootInteraction {
     param(
         [Parameter(Mandatory)][string]$BuildId,
         [Parameter(Mandatory)][string]$VMName,
-        [ValidateRange(1, 30)][int]$Attempts = 12,
-        [ValidateRange(50, 2000)][int]$IntervalMilliseconds = 400,
+        [ValidateRange(1, 30)][int]$Attempts = 30,
+        [ValidateRange(50, 2000)][int]$IntervalMilliseconds = 750,
         [string]$StateRoot
     )
 

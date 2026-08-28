@@ -173,6 +173,29 @@ fuer synthetische Medien in der Runtime explizit gesperrt.
 .\Tests\Integration\Invoke-HyperVSmokeTest.ps1
 ```
 
+## Invoke-HyperVWindowsGeneralizeAcceptance.ps1
+
+Dieser reale positive Image-Factory-Nachweis verwendet die Betriebssystem- und
+Lizenzmetadaten einer veröffentlichten `OS_SEALED`-Referenz, kopiert diese VHDX
+aber bewusst nicht: Eine bereits generalisierte Baseline ist wegen des
+begrenzten Windows-Rearm-Vertrags keine zulässige Generalize-Testquelle. Der
+Runner installiert stattdessen Windows Server 2025 Standard Evaluation mit
+Desktop Experience aus dem passenden SHA-256-Sidecar-verifizierten ISO auf
+einer neuen eigenständigen Builder-VHDX. Ein testlokales Antwort-ISO steuert
+Setup und OOBE und wird zusammen mit dem Credential vor Sysprep entfernt.
+
+Danach durchläuft der Runner die produktiven Confirm-, Generalize- und Publish-
+Funktionen. Er verlangt Sysprep-Exitcode 0,
+`IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE`, hashgebundene PowerShell-Direct-
+Evidence, eine testlokale immutable `OS_SEALED`-Publikation und vollständigen
+VM-/VHDX-/State-Cleanup. Die Referenz und die produktive Registry bleiben
+unverändert.
+
+```powershell
+.\Tests\Integration\Invoke-HyperVWindowsGeneralizeAcceptance.ps1 `
+    -ArtifactId 'hyperv-os-sealed-<sha256>'
+```
+
 ## Invoke-TestEnvironmentGroupLifecycle.ps1
 
 Dieser native Nachweis verwendet ausschließlich die öffentliche geschützte
