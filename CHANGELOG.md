@@ -8,6 +8,12 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- `Invoke-HyperVSqlPreparedImageAcceptance.ps1` führt den realen Windows-2025-/
+  SQL-2025-Pfad jetzt vom frischen, hashverifizierten Build über
+  `SQL_PREPARED_SEALED` bis zum normalen differenzierenden Manifest-Klon aus.
+  Die Abnahme bindet Windows-Specialization, `CompleteImage`, SQL Major 17,
+  vier Online-Systemdatenbanken, unveränderten Parent-Hash und vollständigen
+  Builder-/Klon-Cleanup.
 - `Invoke-HyperVWindowsGeneralizeAcceptance.ps1` installiert Windows Server
   2025 Standard Evaluation unbeaufsichtigt aus dem SHA-256-verifizierten ISO
   auf einer neuen Builder-VHDX und belegt real Installations-Receipt, Sysprep-
@@ -56,6 +62,11 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Behoben
 
+- Der reguläre Hyper-V-Prepared-Image-Manifestpfad persistiert nach
+  `CompleteImage`, WMI und Hostzugriff nun einen echten `SQL_READY_RUN`-
+  Receipt. Ein fehlender oder falscher Major-/Systemdatenbanknachweis beendet
+  die Provisionierung fail-closed. Der reale Runner prüft außerdem
+  Administratorrechte vor dem zeitintensiven Image-Build.
 - Der initiale Hyper-V-DVD-Boot deckt das real beobachtete UEFI-Zeitfenster
   jetzt mit 30 einmaligen Tastenzustellungen über gut 22 Sekunden ab. Dadurch
   wird ein erfolgreicher WMI-Tastaturaufruf nicht mehr fälschlich als

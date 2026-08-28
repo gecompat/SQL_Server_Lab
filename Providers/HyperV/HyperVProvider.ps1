@@ -1158,6 +1158,7 @@ SELECT
         MajorVersion = [int]$receipt.majorVersion
         ProductVersion = [string]$receipt.productVersion
         Edition = [string]$receipt.edition
+        OnlineSystemDatabases = [int]$receipt.onlineSystemDatabases
         ObservedAt = [string]$receipt.observedAt
     }
 }

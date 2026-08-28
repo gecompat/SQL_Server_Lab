@@ -317,6 +317,13 @@ try {
         $environmentText -match '\$exitCode = \[int\]\$process\.ExitCode' -and
         $environmentText -match '\$exitCode -ne 0 -and \$exitCode -ne 3010'
     )
+    Add-CheckResult -Name 'Prepared-Image-Manifestpfad bindet CompleteImage an echten SQL_READY_RUN-Receipt' -Success (
+        $environmentText -match 'Wait-HyperVGuestSqlReady' -and
+        $environmentText -match 'Get-HyperVSqlMajorVersionFromVersion' -and
+        $environmentText -match "status = \[string\]\`$readiness\.Status" -and
+        $environmentText -match "onlineSystemDatabases = \[int\]\`$readiness\.OnlineSystemDatabases" -and
+        $environmentText -match 'HYPERV_LAB_SQL_READY_RUN_RECEIPT_INVALID'
+    )
     Add-CheckResult -Name 'Unattended Hyper-V-Provisionierung initialisiert freie Gast-Drives über den stabilen Providerpfad' -Success (
         $environmentText -match 'Initialize-HyperVWindowsGuestDrives' -and
         $environmentText -match 'additionalDrives' -and

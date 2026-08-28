@@ -465,6 +465,7 @@ try {
             $sqlReadinessContract.Result.Ready -and
             $sqlReadinessContract.Result.Status -eq 'SQL_READY_RUN' -and
             $sqlReadinessContract.Result.MajorVersion -eq 16 -and
+            $sqlReadinessContract.Result.OnlineSystemDatabases -eq 4 -and
             $sqlReadinessContract.Notes -match 'SQL_READY_RUN' -and
             $sqlReadinessContract.Notes -notmatch [regex]::Escape($specializationPassword) -and
             $sqlReadinessContract.Notes -notmatch [regex]::Escape($sqlSaPasswordText)

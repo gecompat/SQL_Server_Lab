@@ -763,15 +763,15 @@ Add-ValidationResult `
 
 $sqlPreparedAcceptancePath = Join-Path $repoRoot 'Tests\Integration\Invoke-HyperVSqlPreparedImageAcceptance.ps1'
 Add-ValidationResult `
-    -Name 'Roadmap und Masterplan führen den real begonnenen N4-Pfad als in Arbeit' `
-    -Success ($developmentExecutionPlan -match '(?m)^\| N4 \| `IN_PROGRESS` \|' -and
-        $masterImplementationPlan -match '(?m)^\| N4 – Hyper-V Windows-/SQL-End-to-End \| Welle 4 \| `IN_PROGRESS` \|')
+    -Name 'Roadmap und Masterplan führen den real abgeschlossenen N4-Pfad als vollständig' `
+    -Success ($developmentExecutionPlan -match '(?m)^\| N4 \| `COMPLETE` \|' -and
+        $masterImplementationPlan -match '(?m)^\| N4 – Hyper-V Windows-/SQL-End-to-End \| Welle 4 \| `COMPLETE` \|')
 
 Add-ValidationResult `
     -Name 'Reale SQL-Prepared-Image-Abnahme ist ausführbar und dokumentiert' `
     -Success ((Test-Path -LiteralPath $sqlPreparedAcceptancePath -PathType Leaf) -and
         $localValidationStrategy -match [regex]::Escape('Invoke-HyperVSqlPreparedImageAcceptance.ps1') -and
-        $knownLimitations -match '(?s)SQL_PREPARED_SEALED.*positiv' -and
+        $knownLimitations -match '(?s)SQL_PREPARED_SEALED.*SQL_READY_RUN.*Parent-Hash' -and
         $repoMap -match 'sql_prepared_build_acceptance: Tests/Integration/Invoke-HyperVSqlPreparedImageAcceptance.ps1')
 
 Add-ValidationResult `
@@ -797,14 +797,14 @@ $hyperVPreparedCloneImplemented = $hyperVManifestRuntime -match 'Invoke-HyperVLa
 if ($hyperVPreparedCloneImplemented) {
     Add-ValidationResult `
         -Name 'Statusdokumentation ordnet Hyper-V CompleteImage dem Prepared-Image-Klonpfad zu' `
-        -Success ($knownLimitations -match 'Klonpfad.*CompleteImage' -and
-            $masterImplementationPlan -match 'CompleteImage.*Prepared-Image-Klonpfad' -and
-            $repoMap -match 'partial_prepared_image_clone_only')
+        -Success ($knownLimitations -match '(?s)Klonpfad.{0,160}CompleteImage' -and
+            $masterImplementationPlan -match 'PrepareImage.*CompleteImage' -and
+            $repoMap -match 'real_prepared_image_manifest_clone_to_SQL_READY_RUN')
 
     Add-ValidationResult `
-        -Name 'Lokale Validierungsstrategie trennt Hyper-V-Klonpfad und allgemeinen Providerpfad' `
+        -Name 'Lokale Validierungsstrategie trennt validierten Referenzklon und breite offene Manifestbindung' `
         -Success ($localValidationStrategy -match 'SQL_PREPARED_SEALED' -and
-            $localValidationStrategy -match 'allgemeiner Providerpfad geplant')
+            $localValidationStrategy -match 'breite Datenbank-, Software-, Post-Provisioning- und')
 }
 
 if (Test-Path -LiteralPath (Join-Path $repoRoot 'Tests\Integration\Invoke-MixedProviderSmokeTest.ps1') -PathType Leaf) {

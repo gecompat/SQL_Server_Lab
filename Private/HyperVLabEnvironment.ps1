@@ -1773,7 +1773,30 @@ function Complete-HyperVLabSqlImage {
     else {
         Write-LabWarning 'Schritt 4/5 übersprungen: Die VM wurde ausdrücklich isoliert erstellt; ein Zugriff des Hosts oder anderer Anwendungen ist damit nicht möglich.'
     }
-    Write-LabSuccess 'Schritt 5/5: SQL Server, WMI und – im Labnetz – TCP/IP für Host-Anwendungen sind bereit.'
+    Write-LabInfo 'Schritt 5/5: SQL-Dienst, Hauptversion und alle vier Systemdatenbanken werden im echten Gast geprüft.'
+    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
+    $readiness = Wait-HyperVGuestSqlReady -VMName ([string]$lab.Instance.vmName) `
+        -ExpectedRunId ([string]$lab.Run.runId) -ExpectedScopeId ([string]$lab.Run.scopeId) `
+        -Credential $Credential -SaPassword $SqlSaPassword -FallbackAddress $fallbackAddress `
+        -ExpectedMajorVersion (Get-HyperVSqlMajorVersionFromVersion -SqlVersion ([string]$artifact.sql.version))
+    if (-not $readiness.Ready -or [string]$readiness.Status -ne 'SQL_READY_RUN' -or
+        [int]$readiness.OnlineSystemDatabases -ne 4) {
+        throw 'HYPERV_LAB_SQL_READY_RUN_RECEIPT_INVALID'
+    }
+    $readinessEvidence = [PSCustomObject]@{
+        status = [string]$readiness.Status
+        provider = [string]$readiness.Provider
+        instanceName = [string]$readiness.InstanceName
+        majorVersion = [int]$readiness.MajorVersion
+        productVersion = [string]$readiness.ProductVersion
+        edition = [string]$readiness.Edition
+        onlineSystemDatabases = [int]$readiness.OnlineSystemDatabases
+        observedAt = [string]$readiness.ObservedAt
+    }
+    $lab.Instance.sqlCompletion | Add-Member -NotePropertyName sqlReadiness -NotePropertyValue $readinessEvidence -Force
+    $lab.Instance | Add-Member -NotePropertyName sqlReadiness -NotePropertyValue $readinessEvidence -Force
+    Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
+    Write-LabSuccess 'SQL Server, WMI, SQL_READY_RUN und – im Labnetz – TCP/IP für Host-Anwendungen sind bereit.'
     return $lab.Instance.sqlCompletion
 }
 
