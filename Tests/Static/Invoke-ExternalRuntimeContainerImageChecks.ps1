@@ -80,16 +80,18 @@ try {
                 [PSCustomObject]@{ Id='launchpadd-process'; Status='PASS' }
             }
             Set-Item Function:Invoke-LabJavaExternalRuntimeProbe -Value {
-                param($Plan, $HostName, $Port, $SaPassword, $Database)
+                param($Plan, $HostName, $Port, $SaPassword, $Database, $RegistrationTracker)
                 $script:javaProbeCall++
                 if ($script:javaProbeCall -eq 2) { throw 'SYNTHETIC_SECOND_DATABASE_FAILURE' }
+                $registration = [PSCustomObject]@{
+                    Database=$Database; CreatedLanguage=$true; CreatedSdk=$true; CreatedProbe=$true
+                }
+                $RegistrationTracker.Registration = $registration
                 [PSCustomObject]@{
                     Id='java-data-roundtrip'; Status='PASS'; Language='Java'; Database=$Database
                     RuntimeVersion='11.0.32'; ProbeVersion='1.0.0'; InputValue=42; OutputValue=42
                     WorkerIdentity='mssql_satellite'; Registration='CREATED'
-                    RegistrationDetails=[PSCustomObject]@{
-                        Database=$Database; CreatedLanguage=$true; CreatedSdk=$true; CreatedProbe=$true
-                    }
+                    RegistrationDetails=$registration
                 }
             }
             Set-Item Function:Undo-LabJavaExternalRuntimeDatabaseObjects -Value {
@@ -448,6 +450,8 @@ try {
         $lifecycleSource -match 'EXTERNAL_RUNTIME_JAVA_LANGUAGE_DRIFT' -and
         $lifecycleSource -match 'Undo-LabJavaExternalRuntimeDatabaseObjects' -and
         $lifecycleSource -match 'javaCompensations' -and
+        $lifecycleSource -match 'RegistrationTracker\.Registration' -and
+        $lifecycleSource -match '\[bool\]\$registration\.CreatedLanguage -or \[bool\]\$prior\.CreatedLanguage' -and
         $lifecycleSource -match "Language -eq 'Java'\) \{ 1 \}" -and
         $lifecycleSource -match 'mssql_satellite'
     )
