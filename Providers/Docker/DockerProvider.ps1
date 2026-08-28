@@ -156,9 +156,12 @@ sync_extensibility_setting() {
 for setting in pythonbinpath rbinpath datadirectories; do sync_extensibility_setting "$setting"; done
 '@)
     }
+    $initializationScript = $initializationCommands -join "`n"
+    $initializationBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($initializationScript))
+    $executionCommand = "printf '%s' '$initializationBase64' | base64 -d | /bin/sh"
     $initialized = docker run --rm --user 0:0 --entrypoint /bin/sh `
         -v "${VolumeName}:/sql-lab-volume-init" $Image `
-        -c ($initializationCommands -join "`n") 2>&1
+        -c $executionCommand 2>&1
     if ($LASTEXITCODE -ne 0) {
         throw "DOCKER_SQL_VOLUME_INITIALIZATION_FAILED: $VolumeName - $(@($initialized) -join ' ')"
     }
