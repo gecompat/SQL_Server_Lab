@@ -87,6 +87,41 @@ try {
     & $module { param($Root) Invoke-SqlServerLabScheduler -UntilIdle -StateRoot $Root | Out-Null } $testRoot
     Assert-Check ((Get-SqlServerLabOperation -OperationId $abandoned.operationId -StateRoot $testRoot).status -eq 'Completed') 'Verlassener Worker wurde nicht am persistenten Schritt fortgesetzt.'
 
+    $operationContext = & $module {
+        Invoke-WithLabWorkflowOperationContext -OperationId 'op-context-check' -ScriptBlock {
+            Get-LabWorkflowOperationContext
+        }
+    }
+    Assert-Check ($operationContext -eq 'op-context-check') 'Operation-zu-Run-Kontext wird nicht runspacegebunden weitergegeben.'
+    Assert-Check ($null -eq (& $module { Get-LabWorkflowOperationContext })) 'Operation-zu-Run-Kontext bleibt nach der Ausführung im Modul erhalten.'
+
+    $readyRecovery = & $module {
+        param($Root)
+        $operationId = 'op-owned-ready'
+        $run = New-LabRunState -StateRoot $Root -Metadata @{ name = 'Owned ready'; workflowOperationId = $operationId } `
+            -ProviderSubRuns @([pscustomobject]@{ id = 'provider-docker'; provider = 'docker'; instanceIds = @('primary') })
+        $null = Set-LabRunState -RunId $run.RunId -NewState 'PROVISIONING' -Reason 'Test' -StateRoot $Root
+        $null = Set-LabRunState -RunId $run.RunId -NewState 'SQL_READY' -Reason 'Test' -StateRoot $Root
+        $null = Set-LabRunState -RunId $run.RunId -NewState 'DATABASES_CREATED' -Reason 'Test' -StateRoot $Root
+        $null = Set-LabRunState -RunId $run.RunId -NewState 'RUNNING' -Reason 'Test' -StateRoot $Root
+        Write-LabArtifactJsonAtomic -Path (Join-Path $run.RunDir 'connection-info.json') -InputObject ([pscustomobject]@{
+            schemaVersion = 1
+            instances = @([pscustomobject]@{ id = 'primary'; provider = 'docker'; containerName = 'synthetic-only' })
+        })
+        Resolve-LabOperationOwnedRun -Operation ([pscustomobject]@{ operationId = $operationId; provider = 'docker' }) -StateRoot $Root
+    } $testRoot
+    Assert-Check ($readyRecovery.action -eq 'Reuse' -and -not [string]::IsNullOrWhiteSpace([string]$readyRecovery.runId)) 'Fertig persistierter Operation-Run wird nach Workerabbruch nicht übernommen.'
+
+    $emptyRecovery = & $module {
+        param($Root)
+        $operationId = 'op-owned-empty'
+        $run = New-LabRunState -StateRoot $Root -Metadata @{ name = 'Owned empty'; workflowOperationId = $operationId } `
+            -ProviderSubRuns @([pscustomobject]@{ id = 'provider-docker'; provider = 'docker'; instanceIds = @('primary') })
+        $resolution = Resolve-LabOperationOwnedRun -Operation ([pscustomobject]@{ operationId = $operationId; provider = 'docker' }) -StateRoot $Root
+        [pscustomobject]@{ resolution = $resolution; state = Get-LabRunState -RunId $run.RunId -StateRoot $Root }
+    } $testRoot
+    Assert-Check ($emptyRecovery.resolution.action -eq 'Cleaned' -and $emptyRecovery.state.state -eq 'REMOVED') 'Leere Operation-Run-Reservierung wird nicht sicher finalisiert.'
+
     $heavy = New-SqlServerLabBatch -Name 'Heavy Limit' -StateRoot $testRoot -Items @(
         [pscustomobject]@{ id = 'heavy-a'; kind = 'Test'; intent = [pscustomobject]@{ ResourceClass = 'HyperVHeavy'; DelayMilliseconds = 80 } }
         [pscustomobject]@{ id = 'heavy-b'; kind = 'Test'; intent = [pscustomobject]@{ ResourceClass = 'HyperVHeavy'; DelayMilliseconds = 80 } }
@@ -126,6 +161,9 @@ try {
     Assert-Check (Test-Path -LiteralPath $batchSmokePath -PathType Leaf) 'Realer Batch-/Queue-Runtime-Smoke fehlt.'
     $batchSmokeSource = Get-Content -LiteralPath $batchSmokePath -Raw -Encoding utf8
     Assert-Check ($batchSmokeSource -match [regex]::Escape("[ValidateSet('docker', 'podman', 'hyperv')]")) 'Batch-Smoke deckt nicht alle drei Provider ab.'
+    Assert-Check ($batchSmokeSource -match [regex]::Escape('[switch]$AbortSchedulerOnce') -and
+        $batchSmokeSource -match [regex]::Escape('Stop-Process -Id $schedulerProcess.Id -Force') -and
+        $batchSmokeSource -match [regex]::Escape("Where-Object type -eq 'WorkerRecovered'")) 'Batch-Smoke weist keinen echten Scheduler-Prozessabbruch mit Recovery-Receipt nach.'
     Assert-Check ($batchSmokeSource -match [regex]::Escape('New-Item -ItemType Junction') -and
         $batchSmokeSource -match [regex]::Escape('TEMP_ARTIFACT_LINK_NOT_REPARSE_POINT') -and
         $batchSmokeSource -notmatch [regex]::Escape('New-Item -ItemType HardLink')) 'Hyper-V-Smoke bindet das immutable Parent nicht ueber eine sicher gepruefte Junction ein.'

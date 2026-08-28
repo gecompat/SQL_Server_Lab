@@ -760,15 +760,18 @@ getestet: Ablehnung startet keinen Prozess, Zustimmung genau einen, eine bereits
 erhöhte Sitzung keinen zweiten. Die grafische Workflow-UI wurde real im lokalen
 Browser geprüft; ihr gemeinsamer Dialogabbruch schließt mit `Escape`, verwirft
 Löschbestätigungen und leert Passwortfelder. Diese Nachweise schließen Gate N2
-noch nicht: Manifest-Rerun, echter Scheduler-Prozessabbruch, Windows-User-Gate,
-PowerShell-Console-`Ctrl+C`/Fallback und der positive reale Generalize-Receipt-
-Pfad sind weiterhin real abzunehmen.
+noch nicht. Ein separater Scheduler wurde zusätzlich nach real sichtbaren
+Docker-Ressourcen hart beendet; der Folgelauf erkannte beide betroffenen Worker,
+bereinigte unvollständige operationseigene Runs und hinterließ nach
+idempotentem Resume genau einen Run je Position. Offen bleiben Manifest-Rerun,
+Windows-User-Gate, PowerShell-Console-`Ctrl+C`/Fallback und der positive reale
+Generalize-Receipt-Pfad.
 
 **Ziel:** Alle bereits identifizierten P0-Lücken schließen, bevor Komfort- oder
 Breitenausbau beginnt.
 
-- Manifest-Rerun, echten Prozessabbruch und idempotentes Resume für den
-  Batch-/Queue-Kern real abnehmen;
+- Manifest-Rerun für den Batch-/Queue-Kern real abnehmen; harter
+  Scheduler-Prozessabbruch und idempotentes Resume sind für Docker real belegt;
 - Windows-User-Gates so prüfen, dass read-only Probes höchstens
   `CandidateSatisfied` setzen und ohne ausdrückliche Bestätigung nichts
   fortgesetzt wird;

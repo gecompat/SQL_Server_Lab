@@ -764,7 +764,9 @@ Add-ValidationResult `
     -Success ($batchWorkflowPlan -match 'IMPLEMENTED_WITH_OPEN_RUNTIME_ACCEPTANCE' -and
         $batchWorkflowPlan -notmatch [regex]::Escape('| 1 Persistenter Kern | `PLANNED`') -and
         $batchWorkflowPlan -match 'Docker-/Podman-Bulk sowie Hyper-V-Slot-Bulk' -and
-        $batchWorkflowPlan -match 'Prozessabbruch und User-Gates offen')
+        $batchWorkflowPlan -match 'harter Docker-Scheduler-Abbruch' -and
+        $batchWorkflowPlan -match 'Manifest-Rerun und User-Gates offen' -and
+        $batchWorkflowPlan -notmatch 'Prozessabbruch und User-Gates offen')
 
 Add-ValidationResult `
     -Name 'Historischer Architekturstatus ist als Snapshot gekennzeichnet' `
