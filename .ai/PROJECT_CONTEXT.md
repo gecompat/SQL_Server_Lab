@@ -284,7 +284,9 @@ Relative Pfade werden im Manifestparser aufgelöst:
 - `drives[].hostPath` relativ zum Manifest;
 - `postProvision` relativ zum Manifest.
 
-Data-, Log- und TempDB-Dateipfade sind Containerpfade.
+Data-, Log- und TempDB-Dateipfade sind providerbezogene SQL-Pfade: bei
+Containern Linux-Containerpfade, bei Hyper-V ausschließlich die aus Bound Plan
+und verifiziertem Runtime-Receipt aufgelösten absoluten Windows-Gastpfade.
 
 ## 9. Datenbankartefakte
 

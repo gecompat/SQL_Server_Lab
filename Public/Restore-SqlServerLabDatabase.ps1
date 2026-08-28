@@ -206,6 +206,9 @@ function Restore-SqlServerLabDatabase {
     .PARAMETER RunDirectory
         Optionales Verzeichnis eines bereits angelegten Lab-Runs. Der verifizierte
         Artifact-Vertrag wird dort vor dem Restore in manifest.lock.json abgelegt.
+    .PARAMETER GuestCredential
+        Gast-Administratorcredential für einen run-basierten Hyper-V-Restore.
+        Es wird ausschließlich für die scopegebundene Backupkopie verwendet.
     .OUTPUTS
         System.Management.Automation.PSCustomObject. Liefert das Ergebnis der
         Wiederherstellung einschliesslich Ziel- und Backupinformationen.
@@ -241,7 +244,8 @@ function Restore-SqlServerLabDatabase {
         [string]$DataPath = '/var/opt/mssql/data',
         [switch]$Replace,
         [string]$StateRoot,
-        [string]$RunDirectory
+        [string]$RunDirectory,
+        [PSCredential]$GuestCredential
     )
 
     $ErrorActionPreference = 'Stop'
@@ -255,6 +259,7 @@ function Restore-SqlServerLabDatabase {
         $Port = $runTarget.Port
         $Provider = $runTarget.Provider
         $ContainerName = $runTarget.ContainerName
+        $VMName = $runTarget.VMName
         if (-not $RunDirectory) {
             $effectiveStateRoot = if ($StateRoot) { $StateRoot } else { Get-LabStateRoot }
             $RunDirectory = Join-Path (Join-Path $effectiveStateRoot 'runs') $RunId
@@ -264,7 +269,7 @@ function Restore-SqlServerLabDatabase {
     if ($Port -lt 1 -or $Port -gt 65535) {
         throw "Port '$Port' liegt ausserhalb des gueltigen TCP-Portbereichs."
     }
-    if (-not $DataPath.StartsWith('/')) {
+    if ($Provider -ne 'hyperv' -and -not $DataPath.StartsWith('/')) {
         throw "DataPath '$DataPath' muss ein absoluter Linux-Containerpfad sein."
     }
 
@@ -304,30 +309,45 @@ function Restore-SqlServerLabDatabase {
         }
     }
 
-    # Ein nicht gesetzter Provider bedeutet bewusste Auto-Erkennung. Er darf
-    # nicht als leerer String an ValidateSet weitergereicht werden, weil dann
-    # die Auswahl noch vor docker/podman-Discovery fehlschlägt.
-    $restoreTargetArguments = @{
-        ContainerName = $ContainerName
-        Port          = $Port
-    }
-    if ($Provider) { $restoreTargetArguments.Provider = $Provider }
-    $restoreTarget = Resolve-LabRestoreContainer @restoreTargetArguments
-    $runtime = $restoreTarget.Provider
-    $ContainerName = $restoreTarget.ContainerName
-
-    $containerBackupPath = "/var/opt/mssql/backup/${DatabaseName}.bak"
-    Write-LabInfo "Kopiere Backup nach $runtime/${ContainerName}:${containerBackupPath}"
-
-    & $runtime exec $ContainerName mkdir -p /var/opt/mssql/backup 1>$null 2>$null
-    if ($LASTEXITCODE -ne 0) {
-        throw "Backup-Verzeichnis konnte im $runtime-Container nicht erstellt werden."
+    $storageContext = $null
+    $storageOperationId = $null
+    $guestBackupPath = $null
+    if ($Provider -eq 'hyperv') {
+        if (-not $RunId -or -not $GuestCredential) { throw 'HYPERV_STORAGE_RESTORE_RUN_AND_GUEST_CREDENTIAL_REQUIRED' }
+        $storageContext = Get-LabVerifiedStorageRuntimeContext -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
+        $storageOperationId = "restore:$DatabaseName"
+        $storageContext = Start-LabStorageSqlOperation -Context $storageContext -OperationId $storageOperationId `
+            -Kind restore -DatabaseName $DatabaseName
     }
 
-    & $runtime cp $backupPath "${ContainerName}:${containerBackupPath}" 1>$null 2>$null
-    if ($LASTEXITCODE -ne 0) {
-        throw "Backup-Kopie in den $runtime-Container ist fehlgeschlagen."
-    }
+    try {
+        if ($Provider -eq 'hyperv') {
+            $runtime = 'hyperv'
+            $backupBindings = @($storageContext.Receipt.FileBindings | Where-Object { [string]$_.Role -eq 'backup' })
+            if ($backupBindings.Count -ne 1) { throw 'LAB_STORAGE_BACKUP_BINDING_EXACTLY_ONE_REQUIRED' }
+            $backupHashPrefix = (Get-FileHash -LiteralPath $backupPath -Algorithm SHA256).Hash.Substring(0,12).ToLowerInvariant()
+            $guestBackupPath = Get-LabStorageGuestChildPath -Root ([string]$backupBindings[0].SqlPhysicalPath) `
+                -Child "${DatabaseName}-${backupHashPrefix}.bak"
+            Write-LabInfo "Kopiere Backup in die verifizierte Hyper-V-Storage-Lane: $guestBackupPath"
+            $null = Copy-LabFileToHyperVGuest -RunId $RunId -SourcePath $backupPath -DestinationPath $guestBackupPath `
+                -Credential $GuestCredential -StateRoot $StateRoot
+            $runtimeBackupPath = $guestBackupPath
+        }
+        else {
+            # Ein nicht gesetzter Provider bedeutet bewusste Auto-Erkennung. Er darf
+            # nicht als leerer String an ValidateSet weitergereicht werden.
+            $restoreTargetArguments = @{ ContainerName=$ContainerName; Port=$Port }
+            if ($Provider) { $restoreTargetArguments.Provider = $Provider }
+            $restoreTarget = Resolve-LabRestoreContainer @restoreTargetArguments
+            $runtime = $restoreTarget.Provider
+            $ContainerName = $restoreTarget.ContainerName
+            $runtimeBackupPath = "/var/opt/mssql/backup/${DatabaseName}.bak"
+            Write-LabInfo "Kopiere Backup nach $runtime/${ContainerName}:${runtimeBackupPath}"
+            & $runtime exec $ContainerName mkdir -p /var/opt/mssql/backup 1>$null 2>$null
+            if ($LASTEXITCODE -ne 0) { throw "Backup-Verzeichnis konnte im $runtime-Container nicht erstellt werden." }
+            & $runtime cp $backupPath "${ContainerName}:${runtimeBackupPath}" 1>$null 2>$null
+            if ($LASTEXITCODE -ne 0) { throw "Backup-Kopie in den $runtime-Container ist fehlgeschlagen." }
+        }
 
     $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword)
     try {
@@ -337,9 +357,8 @@ function Restore-SqlServerLabDatabase {
         [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
     }
 
-    try {
         Write-LabInfo 'Lese Backup-Metadaten mit RESTORE FILELISTONLY...'
-        $escapedContainerBackupPath = $containerBackupPath.Replace("'", "''")
+        $escapedContainerBackupPath = $runtimeBackupPath.Replace("'", "''")
         $fileListQuery = "RESTORE FILELISTONLY FROM DISK = N'$escapedContainerBackupPath';"
         $fileListOutput = sqlcmd `
             -S "$HostName,$Port" `
@@ -368,10 +387,17 @@ function Restore-SqlServerLabDatabase {
                 Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
         )
         if ($fileListLines.Count -eq 0) {
-            throw "FILELISTONLY lieferte keine Dateizeilen. Backup: $containerBackupPath. sqlcmd-Output: $fileListText"
+            throw "FILELISTONLY lieferte keine Dateizeilen. Backup: $runtimeBackupPath. sqlcmd-Output: $fileListText"
         }
 
-        $moveStatements = @(New-LabRestoreMoveStatements -FileListOutput $fileListLines -DataPath $DataPath -DatabaseName $DatabaseName)
+        $restoreFilePlan = if ($storageContext) {
+            @(Resolve-LabStorageRestoreFilePlan -Context $storageContext -DatabaseName $DatabaseName -FileListOutput $fileListLines)
+        } else { @() }
+        $moveStatements = if ($storageContext) {
+            @(New-LabStorageRestoreMoveStatements -FilePlan $restoreFilePlan)
+        } else {
+            @(New-LabRestoreMoveStatements -FileListOutput $fileListLines -DataPath $DataPath -DatabaseName $DatabaseName)
+        }
 
         if ($moveStatements.Count -eq 0) {
             throw "Keine logischen Dateien im Backup erkannt. FILELISTONLY-Output: $fileListText"
@@ -400,6 +426,9 @@ RESTORE DATABASE [$escapedDatabaseName]
         $restoreText = ($restoreOutput | ForEach-Object { [string]$_ }) -join "`n"
 
         if ($restoreExitCode -ne 0 -or $restoreText -match 'Msg \d+, Level (1[1-9]|[2-9]\d)') {
+            if ($storageContext) {
+                $null = Fail-LabStorageSqlOperation -Context $storageContext -OperationId $storageOperationId -ErrorMessage 'SQL_STORAGE_RESTORE_EXECUTION_FAILED'
+            }
             return [PSCustomObject]@{
                 Success      = $false
                 DatabaseName = $DatabaseName
@@ -409,6 +438,13 @@ RESTORE DATABASE [$escapedDatabaseName]
                 Duration     = $stopwatch.Elapsed
                 Files        = $moveStatements.Count
             }
+        }
+
+        if ($storageContext) {
+            $verificationQuery = New-LabStorageMasterFilesVerificationQuery -DatabaseName $DatabaseName -FilePlan $restoreFilePlan
+            $null = Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $saPlain -Query $verificationQuery -TimeoutSeconds 60
+            $null = Complete-LabStorageSqlOperation -Context $storageContext -OperationId $storageOperationId `
+                -Kind restore -DatabaseName $DatabaseName -Files $restoreFilePlan
         }
 
         Write-LabSuccess "Datenbank wiederhergestellt: $DatabaseName ($($moveStatements.Count) Dateien, $($stopwatch.Elapsed.TotalSeconds.ToString('F1'))s)"
@@ -421,9 +457,20 @@ RESTORE DATABASE [$escapedDatabaseName]
             Duration      = $stopwatch.Elapsed
             Files         = $moveStatements.Count
             Artifact      = $artifactResolution
+            StoragePlanId = if ($storageContext) { [string]$storageContext.Plan.PlanId } else { $null }
         }
+    }
+    catch {
+        if ($storageContext -and $storageOperationId) {
+            $null = Fail-LabStorageSqlOperation -Context $storageContext -OperationId $storageOperationId -ErrorMessage $_.Exception.Message
+        }
+        throw
     }
     finally {
         $saPlain = $null
+        if ($guestBackupPath) {
+            try { Remove-LabHyperVGuestFile -RunId $RunId -Path $guestBackupPath -Credential $GuestCredential -StateRoot $StateRoot }
+            catch { Write-LabWarning 'Temporäre Hyper-V-Backupkopie konnte nicht automatisch entfernt werden; Cleanup/Recovery bleibt erforderlich.' }
+        }
     }
 }

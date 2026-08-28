@@ -17,7 +17,7 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 | `lab-storage-contract.schema.json` | Lokale Multi-Root-Registry mit stabilen Location-IDs, Anzeigenamen, Selektoren und Topologiebeleg |
 | `lab-storage-intent.schema.json` | Portabler Manifestvertrag `SqlServerLab.StorageIntent/1.0` ohne lokale Pfade oder Geräte-IDs |
 | `lab-storage-bound-plan.schema.json` | Lokaler read-only Vertrag `SqlServerLab.StorageBoundPlan/1.0` für Selector-, Location-, Topologie- und Dateibindung |
-| `lab-storage-runtime-receipt.schema.json` | Getrennter Evidence-Vertrag für Hyper-V-VHDX, Gastdisk, SQL-Dateipfad, Dienstrestart, Postconditions und Recovery |
+| `lab-storage-runtime-receipt.schema.json` | Getrennter Evidence-Vertrag für Hyper-V-VHDX, Gastdisk, SQL-Dateipfad, CREATE-/Restore-Operationen, Dienstrestart, Postconditions und Recovery |
 
 ## Beispiele
 
@@ -81,8 +81,12 @@ controller-eigene `Lab_Data`-Locations gebunden. Pro Selector entsteht eine
 dynamische Storage-VHDX; nach der stabilen Gastinitialisierung werden
 Instanz-Defaultpfade und der vollständige TempDB-Dateiplan angewendet. Erst ein
 SQL-Dienstrestart mit erfolgreichen Defaultpfad- und `sys.master_files`-
-Postconditions setzt das getrennte Runtime-Receipt auf `VERIFIED`. Container
-bleiben bei physischen Trennungsanforderungen ausdrücklich unsupported.
+Postconditions setzt das getrennte Runtime-Receipt auf `VERIFIED`. Neue
+Datenbanken und direkte `.bak`-Restores verwenden anschließend ausschließlich
+dateigenaue Bindings dieses Plans; Restore ordnet jede `FILELISTONLY`-Datei
+genau einem typgerechten `MOVE`-Ziel zu und quittiert erst nach einer exakten
+`sys.master_files`-Postcondition. Container bleiben bei physischen
+Trennungsanforderungen ausdrücklich unsupported.
 
 Jede direkte Eigenschaft unter `serverConfig` ist deshalb maschinenlesbar mit
 `x-runtimeStatus` klassifiziert:
@@ -103,7 +107,8 @@ Relative Pfade werden wie folgt behandelt:
 - `postProvision`: relativ zum Manifest-Verzeichnis
 - lokales `restore.source`: relativ zum Manifest-Verzeichnis
 - `drives[].hostPath`: relativ zum Manifest-Verzeichnis
-- Datenbank- und TempDB-Dateipfade: Containerpfade, keine Hostpfade
+- Datenbank- und TempDB-Dateipfade: providerbezogene SQL-Pfade, keine
+  Hostpfade; Hyper-V-Pfade werden aus dem verifizierten Storage-Plan aufgelöst
 
 Die genannten Pfadfelder besitzen direkt im Schema `x-ui`-Metadaten. Der
 Wizard zeigt damit Bedeutung, Zielscope, Default, Bezugsbasis, Erzeugungsregel,
