@@ -26,6 +26,7 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $schemaPath = Join-Path $repoRoot 'Schemas\lab-manifest.schema.json'
 $manifestPath = Join-Path $repoRoot 'Schemas\example-mixed-provider-lab.json'
+$modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
 $stateMachinePath = Join-Path $repoRoot 'Private\StateMachine.ps1'
 $cleanupPath = Join-Path $repoRoot 'Private\CleanupEngine.ps1'
 $resourceAssessmentPath = Join-Path $repoRoot 'Private\ResourceAssessment.ps1'
@@ -61,6 +62,7 @@ function Assert-Contains {
 foreach ($path in @(
     $schemaPath,
     $manifestPath,
+    $modulePath,
     $stateMachinePath,
     $cleanupPath,
     $resourceAssessmentPath,
@@ -75,8 +77,9 @@ foreach ($path in @(
 
 if ($failures.Count -eq 0) {
     $manifestJson = Get-Content -LiteralPath $manifestPath -Raw -Encoding utf8
-    $schemaValid = Test-Json -Json $manifestJson -SchemaFile $schemaPath -ErrorAction SilentlyContinue
-    Assert-True -Condition $schemaValid -Description 'Mixed-Provider-Beispiel verletzt das Manifest-Schema.'
+    $null = Import-Module $modulePath -Force -ErrorAction Stop
+    $manifestResult = Test-SqlServerLabManifest -Path $manifestPath
+    Assert-True -Condition $manifestResult.IsValid -Description "Mixed-Provider-Beispiel verletzt die Manifestprüfung: $(@($manifestResult.Errors) -join '; ')"
 
     $manifest = $manifestJson | ConvertFrom-Json -Depth 30
     $providers = @($manifest.instances | ForEach-Object { $_.provider } | Sort-Object -Unique)

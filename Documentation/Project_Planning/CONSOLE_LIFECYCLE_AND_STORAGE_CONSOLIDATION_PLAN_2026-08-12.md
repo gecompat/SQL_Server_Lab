@@ -560,11 +560,15 @@ Der reale Vier-Geräte-Nachweis gehört zu Phase D und Gate N5.
 
 ### Phase D – File Placement und Providerbindung
 
+**Status:** `IN_PROGRESS` seit 2026-08-29. `SFP-001` bis `SFP-003` sind als
+read-only Plan-/Schema-/UI-Slice implementiert und fokussiert geprüft. Die
+Runtime-Anwendung über Hyper-V und SQL (`HVS-*`, `SQLS-*`) bleibt offen.
+
 | ID | Schritt | Abschlusskriterium |
 |---|---|---|
-| `SFP-001` | Storage-Intent-, Bound-Plan- und Receipt-Schemas versionieren | Portable Anforderungen und lokale Bindings sind getrennt. |
-| `SFP-002` | UI für Default Data, Default Log, Backup, TempDB-Data-Files und TempDB-Log erstellen | Jede Datei/Role ist in der Review sichtbar. |
-| `SFP-003` | Modi `single`, `round-robin`, `explicit`, `one-file-per-volume` und `one-file-per-physical-device` planen | Unzureichende oder unbekannte Topologie blockiert strikte Anforderungen. |
+| `SFP-001` | Storage-Intent-, Bound-Plan- und Receipt-Schemas versionieren | Implementiert: portable Anforderungen, lokale Bindings und Runtime-Evidence besitzen getrennte Verträge. |
+| `SFP-002` | UI für Default Data, Default Log, Backup, TempDB-Data-Files und TempDB-Log erstellen | Implementiert: jede Datei/Role und jeder Zielpfad ist im read-only Review sichtbar. |
+| `SFP-003` | Modi `single`, `round-robin`, `explicit`, `one-file-per-volume` und `one-file-per-physical-device` planen | Implementiert: unzureichende, überlappende oder unbekannte Topologie blockiert strikte Anforderungen fail-closed. |
 | `HVS-001` | Hyper-V-VHDX pro Location/I/O-Lane erzeugen und binden | Hostpfad, VHDX-ID, Gastdisk und SQL-Ziel sind durch Receipts verbunden. |
 | `HVS-002` | Gastinitialisierung und stabile Pfadvergabe für mehrere Storage-Lanes erweitern | vier TempDB-Lanes lassen sich eindeutig initialisieren und wiederaufnehmen. |
 | `SQLS-001` | SQL-Defaultpfade und TempDB-Fileplan anwenden | Dienstrestart und SQL-Postconditions stimmen vollständig. |

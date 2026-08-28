@@ -147,12 +147,32 @@ $schemaValidationTargets = @(
         }
 )
 
+$manifestSchemaPath = Join-Path $repoRoot 'Schemas/lab-manifest.schema.json'
+$manifestValidationSchema = $null
+if (Test-Path -LiteralPath $manifestSchemaPath -PathType Leaf) {
+    $manifestValidationSchemaObject = Get-Content -LiteralPath $manifestSchemaPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 100
+    $storageIntentSchemaPath = Join-Path $repoRoot 'Schemas/lab-storage-intent.schema.json'
+    if (Test-Path -LiteralPath $storageIntentSchemaPath -PathType Leaf) {
+        $storageIntentSchema = Get-Content -LiteralPath $storageIntentSchemaPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 100
+        $storageIntentSchema.PSObject.Properties.Remove('$schema')
+        $storageIntentSchema.PSObject.Properties.Remove('$id')
+        $manifestValidationSchemaObject.definitions | Add-Member -MemberType NoteProperty -Name storageIntent -Value $storageIntentSchema -Force
+        $manifestValidationSchemaObject.definitions.instance.properties.storageIntent.PSObject.Properties['$ref'].Value = '#/definitions/storageIntent'
+        $manifestValidationSchema = $manifestValidationSchemaObject | ConvertTo-Json -Depth 100
+    }
+}
+
 foreach ($target in $schemaValidationTargets) {
     $dataPath = Join-Path $repoRoot $target.Data
     $schemaPath = Join-Path $repoRoot $target.Schema
     try {
-        $valid = Get-Content -LiteralPath $dataPath -Raw -Encoding utf8 |
-            Test-Json -SchemaFile $schemaPath -ErrorAction Stop
+        $dataJson = Get-Content -LiteralPath $dataPath -Raw -Encoding utf8
+        $valid = if ($target.Schema -eq 'Schemas/lab-manifest.schema.json' -and $manifestValidationSchema) {
+            $dataJson | Test-Json -Schema $manifestValidationSchema -ErrorAction Stop
+        }
+        else {
+            $dataJson | Test-Json -SchemaFile $schemaPath -ErrorAction Stop
+        }
         Add-ValidationResult `
             -Name "Schema: $($target.Data)" `
             -Success $valid `
