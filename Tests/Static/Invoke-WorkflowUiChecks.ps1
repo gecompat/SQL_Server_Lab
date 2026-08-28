@@ -93,6 +93,13 @@ Add-CheckResult -Name 'Browser-Oberflaeche zeigt Workflow und Live-Log' -Success
     $scriptText -match 'CreateContainerDatabase' -and
     $scriptText -match 'dateToGerman'
 )
+Add-CheckResult -Name 'SQL-Aktionsdialog behaelt Passwortfeld und blendet katalogspezifische Hinweise passend ein' -Success (
+    $htmlText -match 'id="container-operation-password-text"' -and
+    $htmlText -match 'id="container-operation-password"' -and
+    $scriptText -match "container-operation-password-text'\)\.textContent" -and
+    $scriptText -notmatch "container-operation-password-label'\)\.textContent" -and
+    $scriptText -match "container-sample-note'\)\.hidden = !showContainerSamples"
+)
 Add-CheckResult -Name 'UI bietet erkannte Windows- und SQL-Medien ohne manuelle Editionsauswahl an' -Success (
     $workflowText -match 'WindowsInstallationMedia' -and
     $htmlText -match 'id="windows-media"' -and
@@ -268,6 +275,7 @@ Add-CheckResult -Name 'UI trennt reine Windows-VMs von SQL-Prepared-Hyper-V-Labs
     $htmlText -match 'id="new-hyperv-lab"' -and
     $htmlText -match 'id="hyperv-artifact"' -and
     $scriptText -match 'renderHyperVLabs' -and
+    $scriptText -match 'Array\.isArray\(item\.SqlInstances\)' -and
     $scriptText -match 'getHyperVArtifactCandidates' -and
     $scriptText -match "item.Workload !== 'windows'" -and
     $scriptText -match 'SQL, WMI und TCP/IP automatisch einrichten' -and
@@ -419,7 +427,10 @@ Add-CheckResult -Name 'UI-Jobs unterdrücken Modul-Ladeausgaben und zeigen Laufz
     $serverText -match 'DateTimeOffset\]::Parse' -and
     $serverText -match 'RoundtripKind' -and
     $scriptText -match 'job-progress' -and
-    $scriptText -match 'Array\.isArray\(payload\)'
+    $scriptText -match 'Array\.isArray\(payload\)' -and
+    $serverText -match 'ConvertTo-Json -InputObject \$snapshot -Depth 8' -and
+    $scriptText -match 'optimisticJobIds' -and
+    $scriptText -match 'isOptimisticOnly \? incomingLines'
 )
 Add-CheckResult -Name 'UI-Jobs leiten Labmeldungen ins Live-Log statt ins Terminal' -Success (
     $serverText -match 'SqlServerLabUiCaptureOutput' -and

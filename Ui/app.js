@@ -503,7 +503,7 @@ function renderHyperVLabs(items) {
   $('#hyperv-labs').innerHTML = items.length ? items.map((item) => {
     const running = item.State === 'RUNNING' && item.VMState === 'Running';
     const isSqlLab = item.Workload !== 'windows';
-    const sqlInstances = item.SqlInstances || [];
+    const sqlInstances = Array.isArray(item.SqlInstances) ? item.SqlInstances : (item.SqlInstances ? [item.SqlInstances] : []);
     const primarySqlInstance = sqlInstances.find((instance) => instance.IsDefault) || sqlInstances[0] || null;
     const sqlOperationInstanceId = primarySqlInstance && primarySqlInstance.InstanceId ? primarySqlInstance.InstanceId : item.InstanceId || 'primary';
     const sqlOperationPort = primarySqlInstance && primarySqlInstance.TcpPort ? Number(primarySqlInstance.TcpPort) : 1433;
@@ -625,6 +625,7 @@ async function refreshUiConfig() {
 function renderJobs(serverJobs) {
   const jobsByServer = serverJobs || [];
   const known = new Set(jobsByServer.map((job) => String(job.Id)));
+  const optimisticJobIds = new Set(optimisticJobs.map((job) => String(job.Id)));
   optimisticJobs = optimisticJobs.filter((job) => !known.has(String(job.Id)));
   const jobs = [...optimisticJobs, ...jobsByServer];
   activeJobCount = jobs.filter((job) => ['Running', 'NotStarted', 'Submitting'].includes(job.State)).length;
@@ -641,7 +642,8 @@ function renderJobs(serverJobs) {
     const jobId = String(job.Id);
     const previousLines = Array.isArray(jobLineCache[jobId]) ? jobLineCache[jobId] : [];
     const incomingLines = Array.isArray(job.Lines) ? job.Lines : [];
-    const mergedLines = [...previousLines, ...incomingLines].slice(-burstLimit);
+    const isOptimisticOnly = optimisticJobIds.has(jobId) && !known.has(jobId);
+    const mergedLines = (isOptimisticOnly ? incomingLines : [...previousLines, ...incomingLines]).slice(-burstLimit);
     jobLineCache[jobId] = mergedLines;
     const lines = [...mergedLines, ...(heartbeat ? [heartbeat] : [])].join('\n') || 'Aktion läuft …';
     return '<article class="job"><div class="job-header"><strong>' + escapeHtml(job.Action + runtime) + '</strong><span class="status ' + (job.State === 'Failed' ? 'failed' : job.State === 'Completed' ? 'done' : 'pending') + '">' + escapeHtml(job.State) + '</span></div>' + (running ? '<div class="job-progress" aria-label="Aktion läuft"></div>' : '') + '<pre class="log">' + escapeHtml(lines) + '</pre></article>';
@@ -809,14 +811,16 @@ function openContainerOperation(action, runId, port, instanceId, sqlVersion, kin
   $('#container-operation-host').value = host || '127.0.0.1';
   $('#container-operation-kind').value = operationKind;
   $('#container-operation-badge').textContent = 'LAB-AKTION';
-  $('#container-operation-password-label').textContent = operationKind === 'hyperv' ? 'Gastpasswort' : 'SA-Passwort';
+  $('#container-operation-password-text').textContent = operationKind === 'hyperv' ? 'Gastpasswort' : 'SA-Passwort';
   $('#container-operation-password-note').textContent = operationKind === 'hyperv'
     ? 'Das Passwort dient für PowerShell Direct und den SQL-Zugriff auf die laufende Hyper-V-VM.'
     : 'Das Passwort wird nicht gespeichert oder im Log angezeigt.';
   $('#container-operation-instance').value = instanceId || 'primary';
   $('#container-operation-title').textContent = databaseAction ? 'Datenbank anlegen' : 'SQL-Skript ausführen';
   $('#container-database-field').hidden = !databaseAction;
-  $('#container-sample-field').hidden = !(isCreateAction && operationKind === 'container');
+  const showContainerSamples = isCreateAction && operationKind === 'container';
+  $('#container-sample-field').hidden = !showContainerSamples;
+  $('#container-sample-note').hidden = !showContainerSamples;
   $('#container-sample-hash-field').hidden = true;
   $('#container-sample-trust-field').hidden = true;
   $('#container-sample-sha256').value = '';
