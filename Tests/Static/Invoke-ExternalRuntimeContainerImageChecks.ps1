@@ -448,6 +448,9 @@ try {
         $lifecycleSource -match "Language -eq 'Java'\) \{ 1 \}" -and
         $lifecycleSource -match 'mssql_satellite'
     )
+    Add-CheckResult -Name 'Fehlgeschlagene Java-Kompensation bindet sanitisierte Containerdiagnose' -Success (
+        $lifecycleSource -match '(?s)catch \{\s*\$initialFailure = \$_.*?Get-LabContainerReadinessDiagnostic.*?-IncludeLogs.*?EXTERNAL_RUNTIME_INITIALIZATION_AND_COMPENSATION_FAILED'
+    )
     Add-CheckResult -Name 'Datenbankgebundene Java-Registrierung laeuft erst nach Create und Restore' -Success (
         $newLabSource.IndexOf('New-SqlServerLabDatabase') -lt $newLabSource.IndexOf('Initialize-LabExternalRuntimes') -and
         $newLabSource.IndexOf('Install-LabSampleDatabase') -lt $newLabSource.IndexOf('Initialize-LabExternalRuntimes')

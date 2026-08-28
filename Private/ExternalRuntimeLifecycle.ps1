@@ -585,6 +585,8 @@ RECONFIGURE WITH OVERRIDE;
     }
     catch {
         $initialFailure = $_
+        $containerDiagnostic = Get-LabContainerReadinessDiagnostic -Provider ([string]$LabInstance.Provider) `
+            -ContainerIdOrName ([string]$LabInstance.ContainerId) -IncludeLogs
         $compensationFailures = [Collections.Generic.List[string]]::new()
         for ($index = $javaCompensations.Count - 1; $index -ge 0; $index--) {
             $record = $javaCompensations[$index]
@@ -596,7 +598,8 @@ RECONFIGURE WITH OVERRIDE;
             catch { $compensationFailures.Add($_.Exception.Message) }
         }
         if ($compensationFailures.Count -gt 0) {
-            throw "EXTERNAL_RUNTIME_INITIALIZATION_AND_COMPENSATION_FAILED: $($initialFailure.Exception.Message) / $($compensationFailures -join ' | ')"
+            $diagnosticText = if ($containerDiagnostic) { " / $($containerDiagnostic.Message)" } else { '' }
+            throw "EXTERNAL_RUNTIME_INITIALIZATION_AND_COMPENSATION_FAILED: $($initialFailure.Exception.Message) / $($compensationFailures -join ' | ')$diagnosticText"
         }
         throw $initialFailure
     }
