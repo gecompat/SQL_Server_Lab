@@ -11,9 +11,9 @@
 .PARAMETER TargetState
     Gewuenschter Zielzustand fuer den Run nach der Reconcile-Ausfuehrung.
 .PARAMETER ManifestPath
-    Zielmanifest fuer einen resolvergebundenen External-Runtime-Refresh.
+    Zielmanifest fuer einen resolvergebundenen External-Runtime-Reconcile.
 .PARAMETER InstanceId
-    Zielinstanz fuer den External-Runtime-Refresh.
+    Zielinstanz fuer den External-Runtime-Reconcile.
 .PARAMETER ReadinessTimeoutSeconds
     Maximale Wartezeit fuer die SQL-Readiness des Ersatzcontainers.
 .PARAMETER StateRoot

@@ -97,7 +97,9 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   Docker und Podman bestanden getrennt echte Python-, R- und Java-
   SQL-Datenroundtrips vor und nach providergebundenem Neustart samt
   vollständigem Cleanup; Java besitzt zusätzlich datenbankgebundene,
-  idempotente DDL-, Drift- und Fehlerkompensationsverträge;
+  idempotente DDL-, Drift- und Fehlerkompensationsverträge; der journalgebundene
+  Container-Refresh unterstützt additive Runtimes und eigentumsgebundene
+  Java-Removal-Aktionen bei persistierten SQL-/Runtime-Artefaktvolumes;
 - Hyper-V-/Windows-External-Runtime-Pfad für Python, R und Java mit
   SHA-256-gebundenen Offlinemedien, geschlossenem PowerShell-Direct-
   Gastinstaller, SQL-Feature-/State-/Recovery-Vertrag sowie echtem

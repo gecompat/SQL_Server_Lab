@@ -12,7 +12,7 @@
 .PARAMETER TargetState
     Gewuenschter Lifecycle-Zustand: RUNNING oder STOPPED.
 .PARAMETER ManifestPath
-    Zielmanifest fuer einen External-Runtime-Refresh. Ausserhalb des resolver-
+    Zielmanifest fuer einen External-Runtime-Reconcile. Ausserhalb des resolver-
     gebundenen Softwarevertrags darf es nicht vom persistierten Sollzustand
     abweichen.
 .PARAMETER InstanceId
