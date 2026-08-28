@@ -148,7 +148,9 @@ try {
     Assert-ExternalRuntimeAcceptance ($refreshPlan.HighestChangeClass -eq 'recreate' -and @($refreshPlan.Actions).Count -eq 1) 'Reconcile plant einen einzelnen External-Runtime-Recreate'
     $refresh = Invoke-SqlServerLabReconcileAction -RunId $lab.RunId -ManifestPath $manifestPath `
         -InstanceId external-runtime -ReadinessTimeoutSeconds 300 -StateRoot $stateRoot -Confirm:$false
-    Assert-ExternalRuntimeAcceptance ([string]$refresh.ExecutionSummary.Status -eq 'SUCCEEDED' -and $refresh.MutationAllowed) 'Journalgebundener External-Runtime-Refresh wurde ausgefuehrt'
+    $refreshErrors = @($refresh.ExecutionSummary.Errors) -join ' | '
+    Assert-ExternalRuntimeAcceptance ([string]$refresh.ExecutionSummary.Status -eq 'SUCCEEDED' -and $refresh.MutationAllowed) `
+        "Journalgebundener External-Runtime-Refresh wurde ausgefuehrt (Status=$($refresh.ExecutionSummary.Status); Errors=$refreshErrors)"
     $connectionPath = Join-Path (Join-Path (Join-Path $stateRoot 'runs') $lab.RunId) 'connection-info.json'
     $connection = Get-Content -LiteralPath $connectionPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 50
     $instance = @($connection.instances | Where-Object id -eq 'external-runtime')[0]
