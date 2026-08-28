@@ -13,9 +13,11 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["LocationId", "ControllerId", "VolumeId", "LabDataParent", "LabDataRoot", "BackingDeviceIds", "TopologyStatus", "MediaType", "BusType", "HealthStatus", "FreeBytes"],
+        "required": ["LocationId", "DisplayName", "Selectors", "ControllerId", "VolumeId", "LabDataParent", "LabDataRoot", "BackingDeviceIds", "TopologyStatus", "MediaType", "BusType", "HealthStatus", "FreeBytes"],
         "properties": {
           "LocationId": { "type": "string", "format": "uuid" },
+          "DisplayName": { "type": "string", "minLength": 1 },
+          "Selectors": { "type": "array", "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,62}$" }, "uniqueItems": true },
           "ControllerId": { "type": "string", "format": "uuid" },
           "VolumeId": { "type": "string", "minLength": 1 },
           "DriveLetter": { "type": "string" },

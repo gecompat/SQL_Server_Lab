@@ -58,6 +58,7 @@ Interpretation:
 .\Tests\Static\Invoke-ReconcileContractChecks.ps1
 .\Tests\Static\Invoke-ReconcileActionContractChecks.ps1
 .\Tests\Static\Invoke-ExternalRuntimeReconcileChecks.ps1
+.\Tests\Static\Invoke-StorageFilePlacementChecks.ps1
 .\Tests\Static\Invoke-MixedProviderLifecycleChecks.ps1
 .\Tests\Static\Invoke-ArtifactResolverChecks.ps1
 .\Tests\Static\Invoke-SampleHandlerChecks.ps1
@@ -90,6 +91,8 @@ Die statischen Prüfungen benötigen keine laufende SQL-Server-Instanz. Sie kont
 - External-Runtime-Reconcile-Vertrag: additiver SQL-2022-Container-Refresh,
   Nicht-Software-Drift-/Removal-Gates, sanitisiertes `-WhatIf`, Journal,
   Rollback und Umschaltreihenfolge;
+- portabler Storage-Intent, lokale Selector-/Topologiebindung, vollständige
+  SQL-Dateipläne und der getrennte Runtime-Receipt-Vertrag;
 - Pester-Vertrag: projektspezifische Baseline, Manifest-/Exportkonsistenz und
   deterministisch ausführbare Unit-/Contract-Tests unter `Tests/Pester`;
 - Ausschluss bekannter veralteter Beispiele und Statusangaben.
