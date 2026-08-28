@@ -54,11 +54,16 @@ sources_of_truth:
   manual_acceptance_consolidation_plan: Documentation/Project_Planning/CONSOLE_LIFECYCLE_AND_STORAGE_CONSOLIDATION_PLAN_2026-08-12.md
   validation_documentation: Tests/Static/Invoke-DocumentationChecks.ps1
   validation_runtime_contracts: Tests/Static/Invoke-ReadinessContractChecks.ps1
+  automated_test_environment_contract: Public/TestEnvironment.ps1
+  automated_test_environment_windows_lifecycle: Public/TestEnvironmentLifecycle.ps1
+  validation_test_environment_contract: Tests/Static/Invoke-TestEnvironmentChecks.ps1
+  validation_test_environment_group_lifecycle: Tests/Integration/Invoke-TestEnvironmentGroupLifecycle.ps1
   validation_manifest_builder: Tests/Static/Invoke-ManifestBuilderChecks.ps1
   validation_batch_workflow: Tests/Static/Invoke-BatchWorkflowChecks.ps1
   validation_runtime_matrix: Tests/Integration/Invoke-SmokeMatrix.ps1
   cli_acceptance_matrix: Documentation/Quality/CLI_ACCEPTANCE_MATRIX.md
   latest_validation_result: Documentation/Quality/VALIDATION_RESULT_2026-08-28.md
+  test_environment_group_lifecycle_validation: Documentation/Quality/VALIDATION_RESULT_2026-08-28_TEST_ENVIRONMENT_LIFECYCLE.md
   repository_continuity_runbook: Documentation/Quality/REPOSITORY_CONTINUITY_RUNBOOK.md
 
 foundation_integration:
@@ -240,6 +245,15 @@ public_commands:
     source: Public/Invoke-SqlServerLabScript.ps1
     purpose: "T-SQL-Skript ausführen"
     mutates_sql: true
+  - name: Start-SqlServerLabAutomatedTestEnvironment
+    source: Public/TestEnvironmentLifecycle.ps1
+    purpose: "Registrierte Windows-Hyper-V-Mitglieder gruppenweise starten, SQL-Dienste bereitstellen und Live-Export bis READY pruefen"
+    mutates_host: true
+    mutates_sql: true
+  - name: Stop-SqlServerLabAutomatedTestEnvironment
+    source: Public/TestEnvironmentLifecycle.ps1
+    purpose: "Registrierte Windows-Hyper-V-Mitglieder gruppenweise stoppen und den Testumgebungs-Export fail-closed erneuern"
+    mutates_host: true
   - name: Test-SqlServerLabPrerequisite
     source: Private/ResourceAssessment.ps1
     purpose: "Provider, RAM, Storage und Ports ohne Mutation prüfen"

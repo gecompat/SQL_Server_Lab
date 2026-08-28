@@ -40,6 +40,8 @@
         'Get-SqlServerLabGeneratedSqlAccess'
         'New-SqlServerLabAutomatedTestEnvironment'
         'Export-SqlServerLabTestEnvironment'
+        'Start-SqlServerLabAutomatedTestEnvironment'
+        'Stop-SqlServerLabAutomatedTestEnvironment'
         'Repair-SqlServerLabAutomatedTestEnvironment'
         'Clear-SqlServerLabAutomatedTestEnvironment'
         'Start-SqlServerLab'

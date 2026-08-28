@@ -8,6 +8,13 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- `Start-SqlServerLabAutomatedTestEnvironment` und
+  `Stop-SqlServerLabAutomatedTestEnvironment` steuern die registrierten
+  Windows-Hyper-V-Mitglieder der geschützten Testgruppe gemeinsam und
+  idempotent. Der Start bringt vorhandene SQL-Dienste hoch, prüft SQL-
+  Readiness und fordert einen live erzeugten `READY`-Export; der Stopp gibt
+  Hostkapazität frei und erneuert den Export fail-closed, ohne Runs,
+  Registrierungen, Secrets, VHDX-Dateien oder Linux-Mitglieder zu löschen.
 - Der PowerShell-7-Einstieg akzeptiert `-ConsoleMode Auto|Fallback`. Damit ist
   der nummerierte Fallback im selben Terminal gezielt reproduzierbar; `0`
   beendet ihn kontrolliert.

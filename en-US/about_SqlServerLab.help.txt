@@ -181,6 +181,16 @@ COMMANDS
         Repairs the resource and health contract of registered Linux members
         without replacing Windows members, ports, or volumes.
 
+    Start-SqlServerLabAutomatedTestEnvironment
+        Starts the registered Windows Hyper-V members as one protected group,
+        starts existing SQL services, verifies SQL readiness, and refreshes the
+        test environment export from live state.
+
+    Stop-SqlServerLabAutomatedTestEnvironment
+        Stops the registered Windows Hyper-V members without deleting them,
+        releases host capacity, and refreshes the export fail-closed. Runs,
+        registrations, secrets, and Linux members remain unchanged.
+
     Clear-SqlServerLabAutomatedTestEnvironment
         Removes all automated test environments as one protected group and
         deletes the corresponding TestUmgebung export.
