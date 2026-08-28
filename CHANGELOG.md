@@ -40,6 +40,11 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Behoben
 
+- Batch-Worker binden neu angelegte Runs jetzt persistent an ihre Operation.
+  Nach einem harten Scheduler-Prozessabbruch wird ein vollständig persistierter
+  Run wiederverwendet oder ein unvollständiger operationseigener Run vor dem
+  Resume scopegebunden bereinigt. Der reale Docker-Abbruch-Smoke prüft
+  `WorkerRecovered`, Duplikatfreiheit und vollständigen Cleanup.
 - Die grafische Workflow-Oberfläche schließt den obersten Dialog jetzt
   zuverlässig mit `Escape`. Der gemeinsame Abbruchpfad verwirft ausstehende
   Löschbestätigungen und leert Passwortfelder ebenso wie die sichtbaren

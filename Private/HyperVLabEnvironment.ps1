@@ -248,11 +248,17 @@ function New-HyperVLabEnvironment {
     $labNetwork = Resolve-LabHyperVNetwork -SwitchName $SwitchName -Isolated:$Isolated
 
     Write-LabInfo 'Schritt 2/5: Workflow-Run und rückgängig ausführbarer Cleanup-Plan werden angelegt.'
-    $run = New-LabRunState -StateRoot $StateRoot -Metadata @{
+    $runMetadata = @{
         name = $LabName; workflowKind = 'hyperv-lab'; imageArtifactId = $ArtifactId; workload = $workload; baseKind = $baseKind; autostart = $AutoStart
         network = if ($labNetwork) { $labNetwork.Name } else { $null }
         desiredState = $DesiredState
-    } -ProviderSubRuns @([PSCustomObject]@{ id = 'provider-hyperv'; provider = 'hyperv'; instanceIds = @($InstanceId) })
+    }
+    $workflowOperationId = Get-LabWorkflowOperationContext
+    if (-not [string]::IsNullOrWhiteSpace($workflowOperationId)) {
+        $runMetadata['workflowOperationId'] = $workflowOperationId
+    }
+    $run = New-LabRunState -StateRoot $StateRoot -Metadata $runMetadata `
+        -ProviderSubRuns @([PSCustomObject]@{ id = 'provider-hyperv'; provider = 'hyperv'; instanceIds = @($InstanceId) })
     try {
         $null = New-CleanupPlan -RunDir $run.RunDir -RunId $run.RunId -ScopeId $run.ScopeId -ProviderSubRuns @([PSCustomObject]@{ id = 'provider-hyperv'; provider = 'hyperv'; instanceIds = @($InstanceId) })
         $sourceDescription = if ($workload -eq 'sql') { 'SQL-Prepared-Image' } else { 'Windows-OS-Baseline' }

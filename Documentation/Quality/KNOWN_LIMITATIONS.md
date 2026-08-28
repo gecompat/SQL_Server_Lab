@@ -496,8 +496,10 @@ CMS-Synchronisation aus; eine erfolgreiche endpunktrelevante Mutation genau
 eine. Der Aufrufzähler ist lokal synthetisch gebunden. Der gemeinsame
 Dialogabbruch der grafischen Workflow-UI ist im lokalen Browser real mit
 `Escape`, Löschbestätigung und Passwortverwerfung geprüft. Die PowerShell-
-Konsolenabnahme für `Ctrl+C` und Fallback sowie der echte Prozessabbruch bleiben
-Teil des offenen N2-Gates und dürfen dadurch nicht als abgeschlossen gelten.
+Konsolenabnahme für `Ctrl+C` und Fallback bleibt Teil des offenen N2-Gates.
+Der harte Scheduler-Prozessabbruch ist dagegen mit zwei realen Docker-
+Ressourcen, persistenter `WorkerRecovered`-Evidence, eindeutigem Operation-zu-
+Run-Eigentum, idempotentem Resume und scopegebundenem Cleanup belegt.
 
 ## Lokale State- und Secret-Daten
 
@@ -506,8 +508,8 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
 ## Priorisierte nächste technische Schritte
 
 1. Nach der erfolgreichen Docker-/Podman-/Hyper-V-Batchmatrix den
-   Batch-/Queue-/Resume-Kern mit Manifest-Rerun, echtem Prozessabbruch und dem
-   technisch verifizierten Windows-User-Gate abnehmen.
+   Batch-/Queue-/Resume-Kern noch mit Manifest-Rerun und dem technisch
+   verifizierten Windows-User-Gate abnehmen.
 2. Die verbleibenden P0-Fehler und unerwünschten Seiteneffekte aus der manuellen Abnahme nach
    dem [Konsolidierungsplan](../Project_Planning/CONSOLE_LIFECYCLE_AND_STORAGE_CONSOLIDATION_PLAN_2026-08-12.md)
    schließen und real regressieren.

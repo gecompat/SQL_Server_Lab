@@ -15,6 +15,9 @@
     Fuer Hyper-V erforderliche veroeffentlichte OS- oder SQL-Prepared-ArtifactId.
 .PARAMETER ArtifactStateRoot
     Optionaler Quell-StateRoot des immutable Hyper-V-Artefakts.
+.PARAMETER AbortSchedulerOnce
+    Beendet den ersten Scheduler-Prozess hart, sobald eine echte Providerressource
+    des Batch sichtbar ist, und prueft danach Recovery und idempotentes Resume.
 .PARAMETER KeepOnFailure
     Behaelt State und Labressourcen nach einem Fehler fuer die Diagnose.
 .EXAMPLE
@@ -31,6 +34,8 @@ param(
 
     [string]$ArtifactStateRoot,
 
+    [switch]$AbortSchedulerOnce,
+
     [switch]$KeepOnFailure
 )
 
@@ -45,6 +50,9 @@ $batch = $null
 $operations = @()
 $testFailed = $false
 $testArtifactDirectory = $null
+$schedulerProcess = $null
+$abortedOwnedRunId = $null
+$interruptedOperationIds = @()
 
 function Assert-BatchSmoke {
     param(
@@ -66,6 +74,53 @@ function Test-BatchRuntime {
     }
     & $Name info 1>$null 2>$null
     return $LASTEXITCODE -eq 0
+}
+
+function Get-BatchOwnedRunState {
+    param(
+        [Parameter(Mandatory)][string[]]$OperationId,
+        [switch]$IncludeTerminal
+    )
+
+    $runsRoot = Join-Path $stateRoot 'runs'
+    if (-not (Test-Path -LiteralPath $runsRoot -PathType Container)) {
+        return @()
+    }
+    return @(
+        Get-ChildItem -LiteralPath $runsRoot -Directory -ErrorAction SilentlyContinue |
+            ForEach-Object {
+                $statePath = Join-Path $_.FullName 'run-state.json'
+                if (Test-Path -LiteralPath $statePath -PathType Leaf) {
+                    Get-Content -LiteralPath $statePath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
+                }
+            } |
+            Where-Object {
+                [string]$_.metadata.workflowOperationId -in $OperationId -and
+                ($IncludeTerminal -or [string]$_.state -notin @('CLEANED_UP', 'REMOVED'))
+            }
+    )
+}
+
+function Get-BatchProviderResourceId {
+    param(
+        [Parameter(Mandatory)][string]$RuntimeProvider,
+        [Parameter(Mandatory)][string]$RunId
+    )
+
+    if ($RuntimeProvider -in @('docker', 'podman')) {
+        $resourceIds = @(& $RuntimeProvider ps -a --filter "label=sql-server-lab.run-id=$RunId" --format '{{.ID}}' 2>$null)
+        if ($LASTEXITCODE -ne 0) { return @() }
+        return @($resourceIds | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ })
+    }
+
+    if ($RuntimeProvider -eq 'hyperv') {
+        return @(
+            Get-VM -ErrorAction Stop |
+                Where-Object { [string]$_.Notes -match [regex]::Escape(('"runId":"' + $RunId + '"')) } |
+                ForEach-Object { [string]$_.VMId }
+        )
+    }
+    return @()
 }
 
 try {
@@ -152,10 +207,63 @@ try {
     Assert-BatchSmoke -Condition ($batch.status -eq 'Queued') -Description 'Batch wurde atomar eingereiht'
     Assert-BatchSmoke -Condition (@($batch.operationIds).Count -eq 2) -Description 'count=2 erzeugte zwei persistente Operationen'
 
-    & $module {
-        param($Root)
-        Invoke-SqlServerLabScheduler -UntilIdle -MaxWorkers 2 -StateRoot $Root | Out-Null
-    } $stateRoot
+    if ($AbortSchedulerOnce) {
+        $moduleLiteral = $modulePath.Replace("'", "''")
+        $stateRootLiteral = $stateRoot.Replace("'", "''")
+        $schedulerCommand = "Import-Module '$moduleLiteral' -Force; Invoke-SqlServerLabScheduler -UntilIdle -MaxWorkers 2 -StateRoot '$stateRootLiteral' | Out-Null"
+        $encodedCommand = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($schedulerCommand))
+        $schedulerProcessParameters = @{
+            FilePath = (Get-Process -Id $PID).Path
+            ArgumentList = @('-NoLogo', '-NoProfile', '-EncodedCommand', $encodedCommand)
+            PassThru = $true
+        }
+        if ($IsWindows) { $schedulerProcessParameters['WindowStyle'] = 'Hidden' }
+        $schedulerProcess = Start-Process @schedulerProcessParameters
+
+        $deadline = [DateTime]::UtcNow.AddMinutes(4)
+        $abortOperation = $null
+        while ([DateTime]::UtcNow -lt $deadline -and -not $schedulerProcess.HasExited) {
+            $candidateOperations = @(Get-SqlServerLabOperation -BatchId $batch.batchId -StateRoot $stateRoot)
+            $runningOperation = @($candidateOperations | Where-Object status -eq 'Running' | Select-Object -First 1)
+            if ($runningOperation.Count -eq 1) {
+                $ownedRuns = @(Get-BatchOwnedRunState -OperationId @([string]$runningOperation[0].operationId))
+                foreach ($ownedRun in $ownedRuns) {
+                    $resourceIds = @(Get-BatchProviderResourceId -RuntimeProvider $Provider -RunId ([string]$ownedRun.runId))
+                    if ($resourceIds.Count -gt 0) {
+                        $abortOperation = $runningOperation[0]
+                        $abortedOwnedRunId = [string]$ownedRun.runId
+                        break
+                    }
+                }
+            }
+            if ($null -ne $abortOperation) { break }
+            Start-Sleep -Milliseconds 200
+            $schedulerProcess.Refresh()
+        }
+        Assert-BatchSmoke -Condition ($null -ne $abortOperation) -Description 'Scheduler-Abbruchpunkt mit echter Providerressource wurde erreicht'
+        Stop-Process -Id $schedulerProcess.Id -Force -ErrorAction Stop
+        Wait-Process -Id $schedulerProcess.Id -Timeout 30 -ErrorAction SilentlyContinue
+        $schedulerProcess.Refresh()
+        Assert-BatchSmoke -Condition $schedulerProcess.HasExited -Description 'Separater Scheduler-Prozess wurde waehrend einer realen Provideroperation beendet'
+
+        $interruptedOperations = @(
+            Get-SqlServerLabOperation -BatchId $batch.batchId -StateRoot $stateRoot |
+                Where-Object { $_.status -eq 'Running' -and [int]$_.worker.processId -eq $schedulerProcess.Id }
+        )
+        $interruptedOperationIds = @($interruptedOperations.operationId)
+        Assert-BatchSmoke -Condition ($interruptedOperationIds.Count -gt 0 -and $abortOperation.operationId -in $interruptedOperationIds) -Description 'Alle vom abgebrochenen Prozess beanspruchten Worker blieben fuer die deterministische Recovery persistent erkennbar'
+
+        & $module {
+            param($Root)
+            Invoke-SqlServerLabScheduler -UntilIdle -MaxWorkers 2 -StateRoot $Root | Out-Null
+        } $stateRoot
+    }
+    else {
+        & $module {
+            param($Root)
+            Invoke-SqlServerLabScheduler -UntilIdle -MaxWorkers 2 -StateRoot $Root | Out-Null
+        } $stateRoot
+    }
 
     $batch = Get-SqlServerLabBatch -BatchId $batch.batchId -StateRoot $stateRoot
     $operations = @(Get-SqlServerLabOperation -BatchId $batch.batchId -StateRoot $stateRoot)
@@ -167,6 +275,21 @@ try {
     }
     Assert-BatchSmoke -Condition ($batch.status -eq 'Completed') -Description 'Batch wurde vollstaendig abgeschlossen'
     Assert-BatchSmoke -Condition (@($operations | Where-Object status -eq 'Completed').Count -eq 2) -Description 'Beide Operationen wurden unabhaengig abgeschlossen'
+    if ($AbortSchedulerOnce) {
+        $recoveredOperationIds = @(
+            $operations |
+                Where-Object { @($_.events | Where-Object type -eq 'WorkerRecovered').Count -gt 0 } |
+                ForEach-Object operationId |
+                Sort-Object
+        )
+        Assert-BatchSmoke -Condition (($recoveredOperationIds -join ',') -eq (@($interruptedOperationIds | Sort-Object) -join ',')) -Description 'Jede vom Prozessabbruch betroffene Operation besitzt genau den erwarteten WorkerRecovered-Nachweis'
+        $allOwnedRuns = @(Get-BatchOwnedRunState -OperationId @($batch.operationIds) -IncludeTerminal)
+        $activeOwnedRuns = @($allOwnedRuns | Where-Object state -notin @('CLEANED_UP', 'REMOVED'))
+        Assert-BatchSmoke -Condition ($activeOwnedRuns.Count -eq 2) -Description 'Resume hinterliess genau einen aktiven Operation-Run je Batchposition'
+        Assert-BatchSmoke -Condition (@($activeOwnedRuns.metadata.workflowOperationId | Sort-Object -Unique).Count -eq 2) -Description 'Operation-zu-Run-Eigentum blieb nach Recovery eindeutig'
+        $abortedRunState = @($allOwnedRuns | Where-Object runId -eq $abortedOwnedRunId | Select-Object -First 1)
+        Assert-BatchSmoke -Condition ($abortedRunState.Count -eq 1 -and [string]$abortedRunState[0].state -in @('RUNNING', 'STOPPED', 'REMOVED')) -Description 'Der beim Abbruch sichtbare Run wurde uebernommen oder scopegebunden finalisiert'
+    }
 
     $runIds = @($operations | ForEach-Object runId)
     Assert-BatchSmoke -Condition (@($runIds | Sort-Object -Unique).Count -eq 2) -Description 'Operationen besitzen eindeutige RunIds'
@@ -197,6 +320,13 @@ catch {
     Write-Host "FAIL: $($_.Exception.Message)" -ForegroundColor Red
 }
 finally {
+    if ($schedulerProcess) {
+        $schedulerProcess.Refresh()
+        if (-not $schedulerProcess.HasExited) {
+            Stop-Process -Id $schedulerProcess.Id -Force -ErrorAction SilentlyContinue
+            Wait-Process -Id $schedulerProcess.Id -Timeout 30 -ErrorAction SilentlyContinue
+        }
+    }
     $canRemoveStateRoot = $true
     if ($batch -and -not $KeepOnFailure) {
         try {
