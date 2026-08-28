@@ -469,7 +469,8 @@ function Invoke-LabExternalRuntimeProbeWithRetry {
     for ($attempt = 1; $attempt -le $MaximumAttempts; $attempt++) {
         try { return @(& $Operation) }
         catch {
-            $isTransientLaunchpadFailure = $_.Exception.Message -match '(?s)Msg 3901[12].*Unable to communicate with the runtime'
+            $isTransientLaunchpadFailure = $_.Exception.Message -match `
+                '(?s)Msg 3901[12].*(Unable to communicate with the runtime|unable to communicate with the LaunchPad service)'
             if (-not $isTransientLaunchpadFailure -or $attempt -ge $MaximumAttempts) { throw }
             Write-LabWarning "Transiente LaunchPad-Kommunikationsstoerung; Runtime-Probe wird einmal wiederholt."
             if ($RetryDelaySeconds -gt 0) { Start-Sleep -Seconds $RetryDelaySeconds }
