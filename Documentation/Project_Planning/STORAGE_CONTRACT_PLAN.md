@@ -3,16 +3,16 @@
 ## Status
 
 Der versionierte Storage-Contract, Root-Marker, Volume-Mapping, zentrale
-Pfadauflösung und die Konsolenverwaltung sind implementiert. Die vollstaendige
-volumeuebergreifende Migration ist noch nicht implementiert und darf bis zu
-ihrem End-to-End-Nachweis nicht als verfuegbare Funktion dokumentiert werden.
+Pfadauflösung und die Konsolenverwaltung sind implementiert. Seit 2026-08-29
+sind auch Legacy-Default-Übernahme, stabile `LocationId`, vollständige
+Parent-Validierung, expliziter Defaultwechsel, Referenzschutz und lokale
+Backing-Device-Erfassung umgesetzt. Die vollstaendige volumeuebergreifende
+Migration ist weiterhin nicht implementiert und darf bis zu ihrem
+End-to-End-Nachweis nicht als verfuegbare Funktion dokumentiert werden.
 
-Die manuelle Abnahme vom 2026-08-12 hat weitere Luecken in der ersten
-Konsolenimplementierung nachgewiesen: Legacy-Defaults werden nicht in jedem
-Fall sicher uebernommen, laufwerksrelative Eingaben wie `D:` werden akzeptiert,
-Unteraktionen verlassen das Storage-Menue und SQL-Rollen beziehungsweise
-einzelne SQL-Dateien koennen noch nicht an verschiedene Locations gebunden
-werden. Die Korrektur und Erweiterung ist im
+Die dateigenaue Bindung von SQL-Rollen und einzelnen SQL-Dateien an diese
+Locations sowie deren realer Hyper-V-/SQL-Nachweis bleiben offen. Die weitere
+Erweiterung ist im
 [Konsolen-, Lifecycle- und Storage-Konsolidierungsplan](CONSOLE_LIFECYCLE_AND_STORAGE_CONSOLIDATION_PLAN_2026-08-12.md)
 detailliert geplant.
 
@@ -148,11 +148,11 @@ und Run-State absolute Pfade enthalten koennen.
 | STO-006 | Migrationsplan | Implementiert: unveraenderlicher Plan mit Kapazitaet, betroffenen Runs, Blockern und erforderlichen Aktionen |
 | STO-007 | Migration | Implementiert: journalisierte, fortsetzbare Copy/Verify/Switch/Cleanup-Migration; Hyper-V-Rebind automatisch, Container-Bind-Mounts bleiben expliziter Plan-Blocker |
 | STO-008 | Cleanup-Audit | Implementiert: read-only Nachweis ueber Datenwurzeln, State, Provider, externe Referenzen und Repository-Reste; Vorher-/Nachher-Audit in `Clear-SqlServerLab` |
-| STO-009 | Legacy-Default-Uebernahme | Vorhandene Roots bleiben beim Registrieren weiterer Locations autoritativ und werden mit Receipt uebernommen |
-| STO-010 | Location-Identitaet und Pfadvalidierung | Stabile `LocationId`; laufwerksrelative und nicht normalisierbare Parents werden vor Mutation blockiert |
-| STO-011 | Expliziter Default- und Referenzschutz | Defaultwechsel ist eine eigene bestaetigte Aktion; aktive Bindings verhindern Deregistrierung |
-| STO-012 | Volume- und Backing-Device-Topologie | Logische Volume-Trennung und nachgewiesene physische Geraetetrennung werden getrennt ausgewiesen |
-| STO-013 | Location-basierte Migration | Plan und Journal verwenden stabile Location-/Volume-IDs statt fluechtiger Laufwerksbuchstaben |
+| STO-009 | Legacy-Default-Uebernahme | Implementiert: vorhandene Roots bleiben beim Registrieren weiterer Locations autoritativ und werden mit Receipt uebernommen |
+| STO-010 | Location-Identitaet und Pfadvalidierung | Implementiert: stabile `LocationId`; laufwerksrelative und nicht normalisierbare Parents werden vor Mutation blockiert und das normalisierte Ziel wird angezeigt |
+| STO-011 | Expliziter Default- und Referenzschutz | Implementiert: Defaultwechsel ist eine eigene bestaetigte Aktion; aktive Bindings verhindern Deregistrierung |
+| STO-012 | Volume- und Backing-Device-Topologie | Implementiert: logische Volume-Trennung und lokal nachweisbare physische Geraetetrennung werden getrennt ausgewiesen; reale Vier-Geräte-Abnahme bleibt bei SFP/HVS |
+| STO-013 | Location-basierte Migration | Implementiert: Plan und Journal verwenden stabile Location-/Volume-IDs statt fluechtiger Laufwerksbuchstaben |
 | SFP-001 | Storage-Intent und lokaler Bound Plan | Portable Rollenanforderungen und konkrete lokale Location-/Geraetebindungen sind getrennt versioniert |
 | SFP-002 | Dateigenaue SQL-Platzierung | User-Data, User-Log, Backup, jedes TempDB-Datenfile und TempDB-Log sind einzeln plan- und reviewbar |
 | SFP-003 | TempDB-Verteilungsregeln | Explizite, Round-Robin-, Volume- und physische Geraetemodi blockieren unzureichende oder unbekannte Topologie |

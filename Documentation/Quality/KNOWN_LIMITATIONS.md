@@ -235,18 +235,17 @@ vorgesehen.
 
 `New-SqlServerLabDatabase` berücksichtigt `path` für Data- und Log-Files. Der angegebene Containerpfad muss vorher über `drives` beziehungsweise einen Volume-Mount bereitgestellt worden sein.
 
-Die aktuelle Multi-Root-Verwaltung kann registrierte `Lab_Data`-Roots noch
-nicht Default-Data, Default-Log, Backup, einzelnen TempDB-Datenfiles oder dem
-TempDB-Log zuordnen. Auch eine geforderte physische Trennung wird noch nicht
-über Backing Devices nachgewiesen. Vier Laufwerksbuchstaben oder Partitionen
-auf derselben Festplatte dürfen daher derzeit nicht als vier physisch getrennte
-TempDB-Ziele bewertet werden.
+Die Multi-Root-Verwaltung erfasst seit 2026-08-29 stabile `LocationId`,
+Volume- und Backing-Device-Topologie, übernimmt Legacy-Defaults mit Receipt und
+schützt Default- sowie referenzierte Locations. Laufwerksrelative Eingaben wie
+`D:` werden blockiert; das normalisierte Ziel wird vor der Bestätigung gezeigt.
 
-Die aktuelle Storage-Konsole verwendet außerdem noch direkte `Read-Host`-
-Auswahl, akzeptiert laufwerksrelative Eingaben wie `D:` und kann beim ersten
-Registrieren eines weiteren Roots einen bestehenden Legacy-Default übersehen.
-Bis `STO-009` bis `STO-013` und `SFP-001` bis `SFP-003` umgesetzt sind, müssen
-Default und resultierende Pfade vor jeder Mutation manuell geprüft werden.
+Registrierte `Lab_Data`-Roots können aber noch nicht Default-Data, Default-Log,
+Backup, einzelnen TempDB-Datenfiles oder dem TempDB-Log zugeordnet werden. Die
+Topologieerfassung allein ist außerdem noch kein realer Vier-Geräte-Nachweis:
+Vier Laufwerksbuchstaben oder Partitionen auf derselben Festplatte dürfen nicht
+als vier physisch getrennte TempDB-Ziele bewertet werden. Das bleibt Scope von
+`SFP-001` bis `SFP-003`, `HVS-001`/`HVS-002` und `SQLS-001` bis `SQLS-003`.
 
 Das Feld `sizeLimitGB` bei Drives ist derzeit Metadatum; Docker- oder Podman-Volumes werden dadurch nicht physisch auf diese Größe begrenzt.
 

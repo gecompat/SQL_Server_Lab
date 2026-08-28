@@ -702,7 +702,7 @@ Runtime-Nachweis; maßgeblich bleiben die jeweils genannten Tests und Evidence.
 | N2 | `COMPLETE` | ActionResult-/Sync-, Portbindungs-, UAC- und Privilegverträge sind implementiert und fokussiert geprüft; GUI-Abbruch, Scheduler-Abbruch/Recovery, Manifest-Rerun, PowerShell-Console, Windows-User-Gate und der positive Windows-Generalize-/Publish-Pfad sind real belegt. |
 | N3 | `PLANNED_NOT_STARTED` | Die drei Partnerrepository-Piloten sind nicht nachgewiesen. |
 | N4 | `COMPLETE` | Der reale Windows-2025-/SQL-2025-Lauf belegt Build, immutable Prepared-Parent, normalen differenzierenden Manifest-Klon, Windows-Specialization, `CompleteImage`, `SQL_READY_RUN`, unveränderten Parent-Hash und vollständigen Cleanup. |
-| N5 | `PLANNED_NOT_STARTED` | Vorhandene Storage-/Reconcile-Teile ersetzen den vollständigen Vertical Slice nicht. |
+| N5 | `IN_PROGRESS` | `STO-009` bis `STO-013` sind implementiert und fokussiert geprüft; SFP-, Hyper-V-/SQL-Dateibindung und reale Live-/Recreate-Evidence bleiben offen. |
 
 ### Welle N1 – Baseline, Regressionen und Katalogwartung
 
@@ -870,6 +870,10 @@ Secrets werden gemäß Persistenzpolicy bereinigt. Mock- und synthetische
 Lifecycle-Tests reichen für dieses Gate nicht aus.
 
 ### Welle N5 – Storage- und Reconcile-Vertical-Slice
+
+**Status:** `IN_PROGRESS` seit 2026-08-29. Die gehärtete Storage-Registry
+(`STO-009` bis `STO-013`) ist implementiert; die übrigen Pakete und das Gate
+bleiben bis zu ihren jeweiligen Runtime-Nachweisen offen.
 
 **Ziel:** Den providerneutralen Storagevertrag und die ersten über START/STOP
 hinausgehenden Reconcile-Klassen als durchgängigen vertikalen Slice umsetzen.

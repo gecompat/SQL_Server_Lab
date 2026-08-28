@@ -42,14 +42,23 @@ try {
     [PSCustomObject]@{ dataRoot=$sourceRoot; payload=$payloadPath } | ConvertTo-Json | Set-Content -LiteralPath $referencePath -Encoding utf8NoBOM
     $sourceHash = (Get-FileHash -LiteralPath $payloadPath -Algorithm SHA256).Hash
 
-    $result = & $module {
+    $migrationContract = & $module {
         param($source, $targetParentPath)
         $plan = New-LabDataMigrationPlan -SourceDataRoot $source -TargetParent $targetParentPath
         if ($plan.Plan.Status -ne 'READY') { throw "Plan ist blockiert: $(@($plan.Plan.Blockers) -join ', ')" }
-        return Invoke-LabDataMigration -PlanPath $plan.Path -ProcessEnvironmentOnly -Confirm:$false
+        $result = Invoke-LabDataMigration -PlanPath $plan.Path -ProcessEnvironmentOnly -Confirm:$false
+        return [PSCustomObject]@{ Plan=$plan.Plan; Result=$result }
     } $sourceRoot $targetParent
+    $result = $migrationContract.Result
 
     Add-CheckResult -Name 'Journalisierte Storage-Migration wird abgeschlossen' -Success ($result.Status -eq 'COMPLETED')
+    Add-CheckResult -Name 'Storage-Migrationsplan erfüllt das aktuelle JSON-Schema' -Success (
+        ($migrationContract.Plan | ConvertTo-Json -Depth 20) | Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/lab-storage-migration-plan.schema.json') -ErrorAction SilentlyContinue
+    )
+    Add-CheckResult -Name 'Parent-Migration bindet Quelle und Ziel an dieselbe stabile LocationId' -Success (
+        [string]$migrationContract.Plan.Source.LocationId -match '^[0-9a-f-]{36}$' -and
+        [string]$migrationContract.Plan.Source.LocationId -eq [string]$migrationContract.Plan.Target.LocationId
+    )
     Add-CheckResult -Name 'Migrierte Nutzdatei ist hashidentisch' -Success (
         (Test-Path -LiteralPath (Join-Path $targetRoot 'Labs/sample/payload.txt') -PathType Leaf) -and
         (Get-FileHash -LiteralPath (Join-Path $targetRoot 'Labs/sample/payload.txt') -Algorithm SHA256).Hash -eq $sourceHash
@@ -60,10 +69,23 @@ try {
     )
     $storage = Get-Content -LiteralPath (Join-Path $targetRoot 'Catalog/storage-locations.json') -Raw -Encoding utf8 | ConvertFrom-Json
     Add-CheckResult -Name 'Storage-Katalog wird erst auf den Zielroot umgeschaltet' -Success (
-        [string]$storage.DefaultDataRoot -eq $targetRoot -and @($storage.LabDataLocations | Where-Object LabDataRoot -eq $targetRoot).Count -eq 1
+        [string]$storage.DefaultDataRoot -eq $targetRoot -and
+        [string]$storage.DefaultLocationId -eq [string]$migrationContract.Plan.Source.LocationId -and
+        @($storage.LabDataLocations | Where-Object {
+            $_.LabDataRoot -eq $targetRoot -and $_.LocationId -eq $migrationContract.Plan.Source.LocationId
+        }).Count -eq 1
+    )
+    Add-CheckResult -Name 'ProcessEnvironmentOnly schreibt keine persistente Projektpräferenz' -Success (
+        -not (Test-Path -LiteralPath (Join-Path $targetRoot 'Catalog/preferences.json') -PathType Leaf)
     )
     $journal = Get-Content -LiteralPath $result.JournalPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
-    Add-CheckResult -Name 'Abschlussjournal bleibt am Ziel erhalten' -Success ($journal.Status -eq 'COMPLETED' -and $journal.PlanSha256 -match '^[a-f0-9]{64}$')
+    Add-CheckResult -Name 'Storage-Migrationsjournal erfüllt das aktuelle JSON-Schema' -Success (
+        (Get-Content -LiteralPath $result.JournalPath -Raw -Encoding utf8) | Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/lab-storage-migration-journal.schema.json') -ErrorAction SilentlyContinue
+    )
+    Add-CheckResult -Name 'Abschlussjournal bleibt mit Location-Bindung am Ziel erhalten' -Success (
+        $journal.Status -eq 'COMPLETED' -and $journal.PlanSha256 -match '^[a-f0-9]{64}$' -and
+        [string]$journal.LocationId -eq [string]$migrationContract.Plan.Source.LocationId
+    )
     Add-CheckResult -Name 'Verifizierter leerer Quellroot wird entfernt' -Success (-not (Test-Path -LiteralPath $sourceRoot))
 }
 catch { Add-CheckResult -Name 'Storage-Migration-Testausfuehrung' -Success $false -Message $_.Exception.Message }
