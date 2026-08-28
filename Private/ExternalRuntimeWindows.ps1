@@ -259,6 +259,7 @@ function Install-LabHyperVExternalRuntimes {
         [Parameter(Mandatory)][PSCredential]$Credential,
         [Parameter(Mandatory)][SecureString]$SqlSaPassword,
         [Parameter(Mandatory)][string]$MediaRoot,
+        $ResourceGovernorConfig,
         [string]$StateRoot
     )
 
@@ -298,13 +299,14 @@ RECONFIGURE WITH OVERRIDE;
 "@
         Invoke-LabConfigurationQuery -HostName ([string]$lab.Instance.host) -Port ([int]$lab.Instance.port) `
             -SaPassword $SqlSaPassword -Query $activationQuery
+        $resourceGovernor = Set-LabExternalRuntimeResourceGovernor -HostName ([string]$lab.Instance.host) `
+            -Port ([int]$lab.Instance.port) -SaPassword $SqlSaPassword -ResourceGovernor $ResourceGovernorConfig
         $null = Invoke-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) `
             -ExpectedRunId ([string]$lab.Run.runId) -ExpectedScopeId ([string]$lab.Run.scopeId) -Credential $Credential `
             -ScriptBlock {
                 Restart-Service -Name MSSQLSERVER -Force -ErrorAction Stop
                 (Get-Service -Name MSSQLSERVER).WaitForStatus('Running', [TimeSpan]::FromMinutes(5))
-                $launchpad = Get-Service -Name MSSQLLaunchpad -ErrorAction Stop
-                if ($launchpad.Status -ne 'Running') { Start-Service -Name MSSQLLaunchpad -ErrorAction Stop }
+                Restart-Service -Name MSSQLLaunchpad -Force -ErrorAction Stop
                 (Get-Service -Name MSSQLLaunchpad).WaitForStatus('Running', [TimeSpan]::FromMinutes(2))
                 [PSCustomObject]@{ sqlService='Running'; launchpadService='Running'; observedAt=[datetime]::UtcNow.ToString('o') }
             }
@@ -331,12 +333,14 @@ RECONFIGURE WITH OVERRIDE;
             })
             $postconditions = @([PSCustomObject]@{
                 Id='windows-guest-installation'; Status='PASS'; ScriptSha256=[string]$payload.ScriptSha256
-            }) + @($probes)
+            }) + @($resourceGovernor) + @($probes)
             $installationReceipt = New-LabSoftwareInstallationReceipt -Plan $plan -Postconditions $postconditions
             $receipts.Add($installationReceipt)
         }
+        $receiptInstanceId = [string]$lab.Instance.id
+        if (-not $receiptInstanceId) { throw 'EXTERNAL_RUNTIME_WINDOWS_INSTANCE_ID_MISSING' }
         $null = Save-LabExternalRuntimeInstallationReceipts -RunDirectory $lab.RunDirectory `
-            -InstanceId ([string]$lab.Instance.instanceId) -Receipts @($receipts)
+            -InstanceId $receiptInstanceId -Receipts @($receipts)
         $null = Set-LabHyperVExternalRuntimeStatus -RunId $RunId -Status EXTENSIONS_READY_RUN `
             -Receipts @($receipts | ForEach-Object {
                 [PSCustomObject]@{ SoftwareId=$_.SoftwareId; VariantId=$_.VariantId; RuntimeVersion=$_.RuntimeVersion; Status=$_.Status; CompletedAt=$_.CompletedAt }

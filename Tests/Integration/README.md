@@ -207,6 +207,26 @@ Freigabe.
     -RunId '<existing-run-id>'
 ```
 
+Für einen vorhandenen spezialisierten Windows-Poolslot ist der isolierte
+Clone-Modus vorzuziehen. Er akzeptiert ausschließlich eine ausgeschaltete,
+SQL-freie Windows-Quelle mit abgeschlossenem Provisioning aus einem noch
+gültigen registrierten Evaluation-Artefakt. Die Quell-VHDX muss scopegebunden
+zur signierten Run-Identität gehören. Der Runner konvertiert sie vollständig in
+eine neue run-lokale, schreibgeschützte Parent-Kopie und verändert weder
+Quell-VM noch Quell-State. VM, Child-VHDX und Parent-Kopie des neuen Runs werden
+vor der ersten Mutation in dessen Cleanup-Plan registriert:
+
+```powershell
+.\Tests\Integration\Invoke-ExternalRuntimeHyperVAcceptance.ps1 `
+    -CloneSourceRunId '<specialized-windows-source-run-id>' `
+    -CleanupOnSuccess
+```
+
+`-RunId` und `-CloneSourceRunId` sind gegenseitig exklusiv. Der Clone benötigt
+freien Speicher für eine vollständige dynamische Kopie der spezialisierten
+Systemdisk. Bei einem Fehler bleibt ausschließlich der neue Run sichtbar in
+`RECOVERY_REQUIRED` beziehungsweise `CLEANUP_PENDING`; die Quelle bleibt aus.
+
 `-CleanupOnSuccess` entfernt den verwendeten Run nach erfolgreicher Evidence
 über `Remove-SqlServerLab`; ohne den Switch bleibt er für die Auswertung
 erhalten. Ein fehlgeschlagener Lauf bleibt für Recovery sichtbar.

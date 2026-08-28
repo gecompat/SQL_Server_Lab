@@ -49,7 +49,14 @@ function Invoke-LabPythonExternalRuntimeProbe {
         throw "EXTERNAL_RUNTIME_PYTHON_EXPECTATION_INVALID: $expectedRuntime"
     }
     $workerExpression = if ([string]$Plan.OperatingSystem -eq 'windows') {
-        "import getpass`nworker = getpass.getuser()"
+        @"
+import ctypes
+worker_buffer = ctypes.create_unicode_buffer(256)
+worker_buffer_size = ctypes.c_ulong(len(worker_buffer))
+if not ctypes.windll.advapi32.GetUserNameW(worker_buffer, ctypes.byref(worker_buffer_size)):
+    raise OSError(ctypes.get_last_error(), "GetUserNameW failed")
+worker = worker_buffer.value
+"@
     }
     else {
         "import pwd`nworker = pwd.getpwuid(os.getuid()).pw_name"
@@ -443,7 +450,8 @@ function Initialize-LabExternalRuntimes {
         [Parameter(Mandatory)]$LabInstance,
         [Parameter(Mandatory)]$ImageArtifact,
         [Parameter(Mandatory)][SecureString]$SaPassword,
-        [Parameter(Mandatory)][string]$RunDirectory
+        [Parameter(Mandatory)][string]$RunDirectory,
+        $ResourceGovernorConfig
     )
 
     if (@($SoftwarePlans).Count -eq 0) { return @() }
@@ -465,6 +473,8 @@ RECONFIGURE WITH OVERRIDE;
 "@
     Invoke-LabConfigurationQuery -HostName ([string]$LabInstance.Host) -Port ([int]$LabInstance.Port) `
         -SaPassword $SaPassword -Query $activationQuery
+    $resourceGovernor = Set-LabExternalRuntimeResourceGovernor -HostName ([string]$LabInstance.Host) `
+        -Port ([int]$LabInstance.Port) -SaPassword $SaPassword -ResourceGovernor $ResourceGovernorConfig
     Restart-LabExternalRuntimeContainer -Provider ([string]$LabInstance.Provider) -ContainerIdOrName ([string]$LabInstance.ContainerId)
 
     $versionDefinition = Get-SqlServerVersion -VersionId ([string]$LabInstance.Version)
@@ -508,7 +518,8 @@ RECONFIGURE WITH OVERRIDE;
                 }
                 default { throw "EXTERNAL_RUNTIME_PROBE_NOT_IMPLEMENTED: $($plan.Language)" }
             })
-            $installationReceipt = New-LabSoftwareInstallationReceipt -Plan $plan -Postconditions (@($launchpad) + @($probes))
+            $installationReceipt = New-LabSoftwareInstallationReceipt -Plan $plan `
+                -Postconditions (@($resourceGovernor) + @($launchpad) + @($probes))
             $installationReceipt | Add-Member -NotePropertyName ImageKey -NotePropertyValue ([string]$ImageArtifact.ImageKey) -Force
             $installationReceipt | Add-Member -NotePropertyName LocalImageId -NotePropertyValue ([string]$ImageArtifact.LocalImageId) -Force
             $receipts.Add($installationReceipt)

@@ -146,8 +146,8 @@
         },
         {
           "id": "sql2022-python-windows-hyperv",
-          "status": "PREVIEW",
-          "reason": "Verifizierte Offline-Medien und Guest-Installer sind implementiert; echte Hyper-V-External-Script-Evidence steht noch aus.",
+          "status": "SUPPORTED",
+          "reason": "Native Hyper-V-Evidence belegt Offlineinstallation, Python-Datenroundtrip, Worker-Identitaet, Kaltstart und Cleanup auf SQL Server 2022/Windows Server 2025.",
           "language": "Python",
           "runtimeVersion": "3.10.11",
           "extensionVersion": "SQL Server 2022 Machine Learning Services",
@@ -435,8 +435,8 @@
         },
         {
           "id": "sql2022-r-windows-hyperv",
-          "status": "PREVIEW",
-          "reason": "Verifizierte Offline-Medien und Guest-Installer sind implementiert; echte Hyper-V-External-Script-Evidence steht noch aus.",
+          "status": "SUPPORTED",
+          "reason": "Native Hyper-V-Evidence belegt Offlineinstallation, R-Datenroundtrip, Worker-Identitaet, Kaltstart und Cleanup auf SQL Server 2022/Windows Server 2025.",
           "language": "R",
           "runtimeVersion": "4.2.3",
           "extensionVersion": "SQL Server 2022 Machine Learning Services",
@@ -680,8 +680,8 @@
         },
         {
           "id": "sql2022-java17-windows-hyperv",
-          "status": "PREVIEW",
-          "reason": "Der SHA-256-gebundene Offline-JDK-/Extension-/JAR-Pfad und der Guest-Installer sind implementiert; echte Hyper-V-JAR-Evidence fehlt noch.",
+          "status": "SUPPORTED",
+          "reason": "Native Hyper-V-Evidence belegt den SHA-256-gebundenen JDK-/Extension-/JAR-Pfad, Java-Datenroundtrip, Worker-Identitaet, Kaltstart und Cleanup auf SQL Server 2022/Windows Server 2025.",
           "language": "Java",
           "runtimeVersion": "17",
           "extensionVersion": "1.1.0",

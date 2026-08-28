@@ -54,8 +54,8 @@ try {
 
     Add-CheckResult -Name 'Metadaten registrieren hyperv' -Success ($metadata.name -eq 'hyperv')
     Add-CheckResult `
-        -Name 'SQL-Prepared-Image-Klonpfad ist getrennt vom allgemeinen Gastnachweis ausgewiesen' `
-        -Success ($metadata.runtimeStatus -eq 'windows-specialization-sql-readiness-orchestration' -and $metadata.sqlProvisioning -eq $false -and $metadata.sqlProvisioningScope -eq 'prepared-image-clone-only' -and $metadata.limitations -contains 'no-real-windows-sql-e2e-evidence' -and $metadata.limitations -notcontains 'no-sql-complete-image-runtime')
+        -Name 'SQL-Prepared-Image-Grenze und nativ belegte External-Runtime-Faehigkeiten sind getrennt ausgewiesen' `
+        -Success ($metadata.runtimeStatus -eq 'windows-specialization-sql-readiness-orchestration' -and $metadata.sqlProvisioning -eq $false -and $metadata.sqlProvisioningScope -eq 'prepared-image-clone-only' -and $metadata.limitations -notcontains 'no-real-windows-sql-e2e-evidence' -and $metadata.limitations -notcontains 'no-sql-complete-image-runtime' -and $metadata.capabilities -contains 'powershell-direct-software-installation' -and $metadata.capabilities -contains 'sql-external-runtime')
     Add-CheckResult `
         -Name 'Runner-Labels sind capability-spezifisch' `
         -Success ((@($metadata.requirements.runnerLabels) -join ',') -eq 'self-hosted,SQL_Lab,Hyper-V')

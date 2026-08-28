@@ -951,13 +951,13 @@
                   "description": "Max % des Server-RAM fuer externe Skripte",
                   "minimum": 5,
                   "maximum": 70,
-                  "default": 20
+                  "default": 40
                 },
                 "maxProcesses": {
                   "type": "integer",
                   "description": "Max parallele externe Prozesse",
                   "minimum": 1,
-                  "default": 4
+                  "default": 32
                 }
               },
               "additionalProperties": false,
