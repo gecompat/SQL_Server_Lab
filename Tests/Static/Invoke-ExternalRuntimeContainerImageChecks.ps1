@@ -309,8 +309,10 @@ try {
         $launcher -match 'runuser -u mssql -- "\$@" &' -and
         $launcher -notmatch '(?i)-usens=false|enableOutboundAccess=true'
     )
-    Add-CheckResult -Name 'Jedes Image synchronisiert seine Extensibility-Konfiguration rollback-sicher beim Start' -Success (
+    Add-CheckResult -Name 'Jedes Image synchronisiert EULA und Extensibility-Konfiguration rollback-sicher beim Start' -Success (
         $containerfile -match 'external-runtime-mssql\.conf' -and
+        $launcher -match 'test "\$\{desired_ml_eula\}" = ''Y''' -and
+        $launcher -match 'mssql-conf set EULA accepteulaml "\$\{desired_ml_eula\}"' -and
         $launcher -match 'for setting in pythonbinpath rbinpath datadirectories' -and
         $launcher -match 'mssql-conf set "extensibility\.\$\{setting\}"' -and
         $launcher -match 'mssql-conf unset "extensibility\.\$\{setting\}"' -and

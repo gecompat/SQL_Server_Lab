@@ -31,6 +31,22 @@ sync_extensibility_setting() {
 }
 
 test -f "${desired_config}"
+desired_ml_eula="$(awk -F= '
+    /^\[EULA\]$/ { active=1; next }
+    /^\[/ { active=0 }
+    active {
+        key=$1
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", key)
+        if (key == "accepteulaml") {
+            sub(/^[^=]*=[[:space:]]*/, "", $0)
+            print
+            exit
+        }
+    }
+' "${desired_config}")"
+test "${desired_ml_eula}" = 'Y'
+/opt/mssql/bin/mssql-conf set EULA accepteulaml "${desired_ml_eula}"
+
 for setting in pythonbinpath rbinpath datadirectories; do
     sync_extensibility_setting "${setting}"
 done
