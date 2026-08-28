@@ -54,7 +54,14 @@ function Get-LabSampleBaselineRequest {
         return $null
     }
 
+    $sourceIntegrityOrigin = $null
     $sourceSha256 = if ($RestoreDefinition.expectedSha256) {
+        $sourceIntegrityOrigin = if ($RestoreDefinition.integrityOrigin) {
+            [string]$RestoreDefinition.integrityOrigin
+        }
+        else {
+            'catalog-verified'
+        }
         ([string]$RestoreDefinition.expectedSha256).ToLowerInvariant()
     }
     else {
@@ -64,6 +71,7 @@ function Get-LabSampleBaselineRequest {
             -SampleVariant ([string]$RestoreDefinition.sampleVariant) `
             -StateRoot $StateRoot `
             -TestDataRoot $TestDataRoot
+        $sourceIntegrityOrigin = [string]$localStatus.TrustStatus
         [string]$localStatus.KnownSha256
     }
     if ([string]::IsNullOrWhiteSpace($sourceSha256)) {
@@ -87,6 +95,7 @@ function Get-LabSampleBaselineRequest {
         Key       = $key
         Selection = $selection
         SourceSha256 = $sourceSha256
+        SourceIntegrityOrigin = $sourceIntegrityOrigin
     }
 }
 

@@ -560,6 +560,27 @@ function Install-LabSampleDatabase {
         $result.Message = $artifactResolution.Message
         return [PSCustomObject]$result
     }
+    if ($baselineRequest -and $RunDirectory) {
+        $baselineLockArtifact = [PSCustomObject]@{
+            Source                 = [string]$RestoreDefinition.source
+            Sha256                 = [string]$baselineRequest.SourceSha256
+            IntegrityOrigin        = [string]$baselineRequest.SourceIntegrityOrigin
+            ArtifactType           = [string]$RestoreDefinition.artifactType
+            SampleId               = [string]$RestoreDefinition.sampleId
+            SampleVariant          = [string]$RestoreDefinition.sampleVariant
+            HandlerContractVersion = [string]$RestoreDefinition.handlerContractVersion
+            Compatibility          = $RestoreDefinition.compatibility
+            ExpectedOutputs        = @($RestoreDefinition.expectedOutputs)
+            ResolvedArtifact       = [PSCustomObject]@{
+                Origin         = 'LAB_GENERATED'
+                KeyId          = [string]$baselineRequest.Selection.KeyId
+                MatchType      = [string]$baselineRequest.Selection.MatchType
+                Sha256         = [string]$baselineRequest.Selection.Sha256
+                ArtifactFormat = [string]$baselineRequest.Selection.ArtifactFormat
+            }
+        }
+        Add-LabArtifactManifestLockEntry -RunDirectory $RunDirectory -Artifact $baselineLockArtifact | Out-Null
+    }
 
     $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword)
     $temporaryArchivePayload = $null
