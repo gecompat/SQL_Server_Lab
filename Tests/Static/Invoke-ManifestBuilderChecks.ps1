@@ -145,6 +145,62 @@ Add-CheckResult `
     -Success $minimalResult.IsValid `
     -Message ($minimalResult.Errors -join '; ')
 
+$externalRuntimeManifest = [ordered]@{
+    name = 'external-runtime-plan-check'
+    instances = @(
+        [ordered]@{
+            id = 'primary'; version = '2022'; provider = 'docker'; os = 'linux'
+            software = @([ordered]@{
+                id = 'sql-python'; version = '3.10'; variant = 'sql2022-python310-ubuntu2204-derived'
+                scope = 'sqlExternalRuntime'; installMethod = 'catalog'; optional = $false
+            })
+        }
+    )
+}
+$externalRuntimeResult = Test-SqlServerLabManifest -InputObject $externalRuntimeManifest
+$externalRuntimePlan = @($externalRuntimeResult.Plan.Instances[0].ExternalRuntimes.Entries)[0]
+Add-CheckResult `
+    -Name 'Manifestpruefung liefert eine strukturierte External-Runtime-Planvorschau' `
+    -Success ($externalRuntimeResult.IsValid -and
+        $externalRuntimeResult.Plan.Contract.Name -eq 'SqlServerLab.ManifestPlanPreview' -and
+        $externalRuntimePlan.Status -eq 'RESOLVED' -and
+        $externalRuntimePlan.ChangeClassification.Artifact -eq 'rebuild' -and
+        $externalRuntimePlan.ChangeClassification.Service -eq 'restart' -and
+        $externalRuntimePlan.ChangeClassification.Activation -eq 'recreate' -and
+        $externalRuntimePlan.BuildDerivedImage -and
+        @($externalRuntimePlan.Downloads).Count -gt 0 -and
+        @($externalRuntimePlan.PackageLocks).Count -gt 0 -and
+        $externalRuntimePlan.Verification.type -eq 'spExecuteExternalScript') `
+    -Message (($externalRuntimeResult.Errors + $externalRuntimeResult.Warnings) -join '; ')
+
+$wizardExternalRuntimeSelection = & $module {
+    $originalChoice = (Get-Command Read-LabChoice).ScriptBlock
+    $script:ExternalRuntimeChoiceCall = 0
+    try {
+        Set-Item Function:Read-LabChoice -Value {
+            param([string[]]$Options)
+            $script:ExternalRuntimeChoiceCall++
+            if ($script:ExternalRuntimeChoiceCall -eq 1) { return 0 }
+            return $Options.Count - 1
+        }
+        Select-LabManifestExternalRuntimeReferences -InstanceDraft ([ordered]@{
+            id='primary'; version='2022'; provider='podman'; os='linux'
+        }) -Path 'manifest.instances[1].software'
+    }
+    finally {
+        Set-Item Function:Read-LabChoice -Value $originalChoice
+        Remove-Variable ExternalRuntimeChoiceCall -Scope Script -ErrorAction SilentlyContinue
+    }
+}
+Add-CheckResult `
+    -Name 'Manifest-Wizard schreibt nur die exakt resolverfreigegebene Katalogvariante' `
+    -Success (@($wizardExternalRuntimeSelection).Count -eq 1 -and
+        [string]$wizardExternalRuntimeSelection[0].id -in @('sql-python', 'sql-r', 'sql-java') -and
+        [string]$wizardExternalRuntimeSelection[0].variant -match '^sql2022-' -and
+        [string]$wizardExternalRuntimeSelection[0].scope -eq 'sqlExternalRuntime' -and
+        [string]$wizardExternalRuntimeSelection[0].installMethod -eq 'catalog' -and
+        $wizardExternalRuntimeSelection[0].optional -eq $false)
+
 $automatedManifest = [ordered]@{
     name = 'automated-manifest-check'
     automation = [ordered]@{

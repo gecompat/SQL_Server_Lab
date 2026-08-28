@@ -261,6 +261,8 @@ internal_components:
     responsibilities:
       - "alle Manifestfelder dynamisch aus dem JSON-Schema erfassen"
       - "x-ui-Pfadsemantik, Scope und aufgeloeste Hostvorschau im Wizard anzeigen"
+      - "nur resolverfreigegebene External-Runtime-Varianten im Instanzkontext anbieten"
+      - "mutationsfreie Software-Planvorschau mit Downloads, Build/Gastmutation, Downtime, Locks, Verification und Aenderungsklassen liefern"
       - "Schema-, Katalog- und Runtime-Grenzen vor dem Speichern prüfen"
       - "Warnungen für vorbereitete oder riskante Konfigurationen erzeugen"
   - name: ManifestParser
@@ -284,7 +286,8 @@ internal_components:
       - "Python-, R- und Java-Anforderungen in providerneutrale Software-Intents normalisieren"
       - "SQL-Version, Betriebssystem, Architektur, Provider und Runtimevariante deterministisch aufloesen"
       - "unbelegte Varianten, freie Commands und nicht gesperrte Pakete vor Provider-Mutationen ablehnen"
-      - "sanitisierte Softwareplaene und Installation-Receipt-Vertraege bereitstellen"
+      - "sanitisierte Softwareplaene, portable PlanKey-Identitaet und Installation-Receipt-Vertraege bereitstellen"
+      - "Aenderungswege als rebuild, restart, recreate, reprovision oder no-op klassifizieren"
   - name: ExternalRuntimeContainerImage
     source: Private/ContainerImageArtifact.ps1
     recipe: Images/ExternalLanguages/Linux/recipe.json
@@ -293,6 +296,7 @@ internal_components:
       - "R 4.2.3 und RevoScaleR aus einem digestgebundenen Buildstage ohne Compiler im Zielimage bereitstellen"
       - "Java 11, Language Extension 1.1.1, SDK und synthetisches Probe-JAR aus SHA-256-gebundenen Quellen reproduzierbar und compilerfrei bereitstellen"
       - "Docker- und Podman-Buildreceipts getrennt und ohne Hostpfade persistieren"
+      - "Derived-Image-Plaene, Buildreceipts und wiederverwendete Image-Artefakte an die exakten Software-PlanKeys binden"
       - "rootful-cgroup-v1-, Capability-, Security-Option- und Namespace-Sicherheitsvertrag vor Container-Mutation erzwingen"
       - "SQL-Satellite-OpenSSL-Aufloesung und Java-Sandbox-Datenverzeichnisse reproduzierbar im Image binden"
       - "wiederverwendbare Images außerhalb des normalen Run-Cleanups halten"
@@ -372,6 +376,7 @@ internal_components:
     responsibilities:
       - "Cleanup-Plan und providergebundene Cleanup-SubRuns vor Mutation erzeugen"
       - "Compensation-Schritte je Provider speichern und ausführen"
+      - "Run-lokale Ressourcen an Software-PlanKeys binden und wiederverwendbare Softwareartefakte ausdrücklich behalten"
   - name: PortAllocation
     source: Private/PortAllocation.ps1
     responsibilities:
@@ -553,6 +558,8 @@ validation:
     covers:
       - schema_validation
       - semantic_validation
+      - resolver_approved_external_runtime_selection
+      - external_runtime_plan_preview
       - atomic_manifest_write
   static_documentation:
     command: '.\Tests\Static\Invoke-DocumentationChecks.ps1'
@@ -583,6 +590,7 @@ validation:
       - rootful_cgroup_v1_launch_contract
       - docker_and_podman_native_acceptance_contract
       - state_receipts_restart_and_cleanup_boundaries
+      - software_plan_key_image_receipt_cleanup_and_recovery_binding
   static_mixed_provider_contracts:
     command: '.\Tests\Static\Invoke-MixedProviderLifecycleChecks.ps1'
     source: Tests/Static/Invoke-MixedProviderLifecycleChecks.ps1
