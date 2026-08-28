@@ -507,8 +507,8 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
 
 ## Priorisierte nächste technische Schritte
 
-1. Nach der erfolgreichen Docker-/Podman-/Hyper-V-Batchmatrix den
-   Batch-/Queue-/Resume-Kern noch mit Manifest-Rerun und dem technisch
+1. Nach der erfolgreichen Docker-/Podman-/Hyper-V-Batchmatrix und dem realen
+   Docker-Manifest-Rerun den Batch-/Queue-/Resume-Kern noch mit dem technisch
    verifizierten Windows-User-Gate abnehmen.
 2. Die verbleibenden P0-Fehler und unerwünschten Seiteneffekte aus der manuellen Abnahme nach
    dem [Konsolidierungsplan](../Project_Planning/CONSOLE_LIFECYCLE_AND_STORAGE_CONSOLIDATION_PLAN_2026-08-12.md)

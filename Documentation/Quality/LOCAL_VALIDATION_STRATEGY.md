@@ -239,6 +239,7 @@ idempotentes Resume und scopegebundenen Cleanup:
 ```powershell
 .\Tests\Integration\Invoke-BatchWorkflowSmokeTest.ps1 -Provider docker
 .\Tests\Integration\Invoke-BatchWorkflowSmokeTest.ps1 -Provider docker -AbortSchedulerOnce
+.\Tests\Integration\Invoke-BatchWorkflowSmokeTest.ps1 -Provider docker -ManifestRerun
 .\Tests\Integration\Invoke-BatchWorkflowSmokeTest.ps1 -Provider podman
 .\Tests\Integration\Invoke-BatchWorkflowSmokeTest.ps1 `
     -Provider hyperv `
@@ -254,6 +255,11 @@ Worker gelesen und nicht im Workflow-State persistiert.
 auf eine reale operationseigene Providerressource, beendet den Prozess hart und
 prüft anschließend `WorkerRecovered`, eindeutiges Operation-zu-Run-Eigentum,
 idempotentes Resume und vollständigen scopegebundenen Cleanup.
+
+`-ManifestRerun` prüft, dass eine zweite offene Einreichung desselben Manifests
+denselben Batch und dieselben Operationen zurückgibt. Nach Abschluss und Cleanup
+erzeugt dasselbe Manifest einen neuen Batch mit neuen RunIds, bleibt beim
+Scheduler-Rerun idempotent und wird erneut vollständig bereinigt.
 
 ## 6. Provider-Abnahme
 
