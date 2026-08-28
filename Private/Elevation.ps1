@@ -18,17 +18,57 @@ function Test-LabAdministrator {
     return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
+function Get-LabActionPrivilegeClass {
+    <#
+    .SYNOPSIS
+        Klassifiziert UI-Aktionen nach ihrem maximal benoetigten Hostzugriff.
+    .DESCRIPTION
+        Die Klassifikation startet selbst keine Erhoehung. Administratoraktionen
+        muessen weiterhin an ihrer konkreten Action Preview bestaetigt werden.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Action)
+
+    switch ($Action) {
+        'Image' { 'Administrator' }
+        { $_ -in @(
+            'New', 'AutomatedTestEnvironment', 'ClearAutomatedTestEnvironment',
+            'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'Script', 'Database',
+            'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip'
+        ) } { 'RuntimeAccess' }
+        default { 'User' }
+    }
+}
+
 function Start-LabElevatedAction {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
         [ValidateSet('Image')]
-        [string]$Action
+        [string]$Action,
+        [scriptblock]$AdministratorProbe = { Test-LabAdministrator },
+        [scriptblock]$ConfirmationAction,
+        [scriptblock]$ProcessStarter,
+        [switch]$AssumeWindows
     )
 
-    if (-not $IsWindows) { throw 'LAB_ELEVATION_WINDOWS_REQUIRED' }
-    if (Test-LabAdministrator) {
-        return [PSCustomObject]@{ Started = $false; Reason = 'ALREADY_ELEVATED' }
+    if (-not $IsWindows -and -not $AssumeWindows) { throw 'LAB_ELEVATION_WINDOWS_REQUIRED' }
+
+    function New-ElevationActionResult {
+        param(
+            [Parameter(Mandatory)][ValidateSet('Changed','NoChange','Cancelled','Failed')][string]$Status,
+            [Parameter(Mandatory)][bool]$Started,
+            [Parameter(Mandatory)][string]$Reason
+        )
+        $mutations = if ($Started) { @([PSCustomObject]@{ Kind='ElevationProcess'; Result='STARTED' }) } else { @() }
+        $result = New-LabActionResult -Action $Action -Status $Status -Mutations $mutations -ConnectionCenterImpact None
+        $result | Add-Member -NotePropertyName Started -NotePropertyValue $Started -Force
+        $result | Add-Member -NotePropertyName Reason -NotePropertyValue $Reason -Force
+        return $result
+    }
+
+    if (& $AdministratorProbe) {
+        return New-ElevationActionResult -Status NoChange -Started $false -Reason 'ALREADY_ELEVATED'
     }
 
     $pwsh = Get-Command pwsh -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -43,9 +83,21 @@ function Start-LabElevatedAction {
     $command = "Import-Module '$escapedModulePath' -Force; Invoke-SqlServerLab -Action $Action"
     $encodedCommand = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
     Write-LabInfo "Für '$Action' wird ein neues PowerShell-Fenster mit Administratorrechten benötigt."
-    if (-not (Read-LabConfirm -Prompt '  Administratorfenster und anschließende Windows-Sicherheitsabfrage jetzt öffnen?' -Default $false)) {
-        return [PSCustomObject]@{ Started = $false; Reason = 'USER_DECLINED'; Action = $Action }
+    Write-LabInfo 'Die aktuelle Benutzersitzung bleibt unverändert; erst die bestätigte Hyper-V-Aktion wird erhöht fortgesetzt.'
+    $confirmed = if ($ConfirmationAction) {
+        [bool](& $ConfirmationAction)
     }
-    Start-Process -FilePath $pwsh.Source -Verb RunAs -ArgumentList @('-NoProfile', '-NoExit', '-EncodedCommand', $encodedCommand) -ErrorAction Stop
-    return [PSCustomObject]@{ Started = $true; Reason = 'UAC_PROMPTED'; Action = $Action }
+    else {
+        Read-LabConfirm -Prompt '  Administratorfenster und anschließende Windows-Sicherheitsabfrage jetzt öffnen?' -Default $false
+    }
+    if (-not $confirmed) {
+        return New-ElevationActionResult -Status Cancelled -Started $false -Reason 'USER_DECLINED'
+    }
+    if ($ProcessStarter) {
+        & $ProcessStarter $pwsh.Source @('-NoProfile', '-NoExit', '-EncodedCommand', $encodedCommand)
+    }
+    else {
+        Start-Process -FilePath $pwsh.Source -Verb RunAs -ArgumentList @('-NoProfile', '-NoExit', '-EncodedCommand', $encodedCommand) -ErrorAction Stop
+    }
+    return New-ElevationActionResult -Status Changed -Started $true -Reason 'UAC_PROMPTED'
 }

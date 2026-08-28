@@ -105,16 +105,19 @@ if ($failures.Count -eq 0) {
 
     Assert-Contains $portAllocation 'function\s+Get-LabReservedSqlPorts' 'Runtimeuebergreifende Portermittlung fehlt.'
     Assert-Contains $portAllocation 'function\s+Find-LabAvailablePort' 'Gemeinsame freie Portsuche fehlt.'
+    Assert-Contains $portAllocation 'function\s+Test-LabEndpointBinding' 'Read-only-Pruefung expliziter Endpoint-Bindungen fehlt.'
     Assert-Contains $portAllocation 'function\s+Invoke-LabPortAllocationLock' 'Hostweiter Port-Lock fehlt.'
     Assert-Contains $portAllocation 'Global\\SQL_Server_Lab_Port_Allocation' 'Windows-Port-Lock ist nicht global benannt.'
     Assert-Contains $portAllocation "@\('docker',\s*'podman'\)" 'Portermittlung prueft Docker und Podman nicht gemeinsam.'
 
     Assert-Contains $dockerProvider 'Invoke-LabPortAllocationLock[\s\S]+docker\s+@dockerArguments' 'Docker bindet den Port nicht innerhalb des atomaren Locks.'
+    Assert-Contains $dockerProvider 'Invoke-LabPortAllocationLock[\s\S]+Test-LabEndpointBinding[\s\S]+docker\s+@dockerArguments' 'Docker prueft explizite Portkonflikte nicht innerhalb des atomaren Locks.'
     Assert-Contains $dockerProvider 'Find-LabAvailablePort' 'Docker verwendet nicht die gemeinsame Portermittlung.'
     Assert-Contains $dockerProvider 'address already in use[\s\S]+\$nextPort\s*=\s*\$selectedPort\s*\+\s*1' 'Docker wiederholt automatische Portbindungskonflikte nicht mit dem naechsten Port.'
     Assert-Contains $dockerProvider 'docker\s+rm\s+-f\s+\$containerName' 'Docker entfernt einen bei Bindungsfehler teilweise angelegten Container nicht vor dem Retry.'
 
     Assert-Contains $podmanProvider 'Invoke-LabPortAllocationLock[\s\S]+podman\s+@podmanArguments' 'Podman bindet den Port nicht innerhalb des atomaren Locks.'
+    Assert-Contains $podmanProvider 'Invoke-LabPortAllocationLock[\s\S]+Test-LabEndpointBinding[\s\S]+podman\s+@podmanArguments' 'Podman prueft explizite Portkonflikte nicht innerhalb des atomaren Locks.'
     Assert-Contains $podmanProvider 'Find-LabAvailablePort' 'Podman verwendet nicht die gemeinsame Portermittlung.'
     Assert-Contains $podmanProvider 'cannot bind tcp port[\s\S]+\$nextPort\s*=\s*\$selectedPort\s*\+\s*1' 'Podman wiederholt automatische Portbindungskonflikte nicht mit dem naechsten Port.'
     Assert-Contains $podmanProvider 'podman\s+rm\s+-f\s+\$containerName' 'Podman entfernt einen bei Bindungsfehler teilweise angelegten Container nicht vor dem Retry.'
