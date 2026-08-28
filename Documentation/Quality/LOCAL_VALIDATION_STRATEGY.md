@@ -238,6 +238,7 @@ idempotentes Resume und scopegebundenen Cleanup:
 
 ```powershell
 .\Tests\Integration\Invoke-BatchWorkflowSmokeTest.ps1 -Provider docker
+.\Tests\Integration\Invoke-BatchWorkflowSmokeTest.ps1 -Provider docker -AbortSchedulerOnce
 .\Tests\Integration\Invoke-BatchWorkflowSmokeTest.ps1 -Provider podman
 .\Tests\Integration\Invoke-BatchWorkflowSmokeTest.ps1 `
     -Provider hyperv `
@@ -248,6 +249,11 @@ Container-Batchpositionen müssen dazu in `defaults`, `intent`, `manifest` oder
 `overrides` das Feld `SaPasswordEnvironmentVariable` mit dem Namen einer
 `SQL_SERVER_LAB_SECRET_*`-Prozessvariable referenzieren. Der Wert wird erst im
 Worker gelesen und nicht im Workflow-State persistiert.
+
+`-AbortSchedulerOnce` startet den Scheduler in einem separaten Prozess, wartet
+auf eine reale operationseigene Providerressource, beendet den Prozess hart und
+prüft anschließend `WorkerRecovered`, eindeutiges Operation-zu-Run-Eigentum,
+idempotentes Resume und vollständigen scopegebundenen Cleanup.
 
 ## 6. Provider-Abnahme
 

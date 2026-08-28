@@ -669,9 +669,19 @@ function New-SqlServerLab {
 
     $desiredProvisioningMode = if ($PSCmdlet.ParameterSetName -eq 'Manifest') { 'manifest' } else { 'adhoc' }
     $desiredState = New-LabDesiredStateSnapshot -ResolvedLab $resolved -ProvisioningMode $desiredProvisioningMode -PersistentData ([bool]$PersistentData)
+    $runMetadata = @{
+        name = $resolved.name
+        persistentData = [bool]$PersistentData
+        dataRoot = if ($PersistentData) { $DataRoot } else { $null }
+        desiredState = $desiredState
+    }
+    $workflowOperationId = Get-LabWorkflowOperationContext
+    if (-not [string]::IsNullOrWhiteSpace($workflowOperationId)) {
+        $runMetadata['workflowOperationId'] = $workflowOperationId
+    }
     $runState = New-LabRunState `
         -StateRoot $StateRoot `
-        -Metadata @{ name = $resolved.name; persistentData = [bool]$PersistentData; dataRoot = if ($PersistentData) { $DataRoot } else { $null }; desiredState = $desiredState } `
+        -Metadata $runMetadata `
         -ProviderSubRuns $providerSubRuns
     $effectiveStateRoot = $runState.StateRoot
     $cleanupStatus = 'NOT_STARTED'

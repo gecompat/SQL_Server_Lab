@@ -54,7 +54,7 @@ Stand 2026-08-20 gilt:
 | Persistente Queue und Scheduler-Lease | `VERIFIED` durch Resume-, Worker-, Lease- und Fehlerisolationstest |
 | User-Gates mit Read-only-Probes | `VERIFIED` für synthetischen Probe-/Bestätigungsvertrag |
 | Mengenfähiger Composer | `IMPLEMENTED_UNVERIFIED`; Console-Vertrag statisch geprüft, reale Bulk-Abnahme offen |
-| Providerneutrale Erstellung | `IN_PROGRESS`; Docker-/Podman-Bulk sowie Hyper-V-Slot-Bulk, Scheduler-Resume und Cleanup real verifiziert; Prozessabbruch und User-Gates offen |
+| Providerneutrale Erstellung | `IN_PROGRESS`; Docker-/Podman-Bulk sowie Hyper-V-Slot-Bulk, harter Docker-Scheduler-Abbruch, Resume und Cleanup real verifiziert; Manifest-Rerun und User-Gates offen |
 | Batch-Manifest | `VERIFIED` für Schema und deterministische Expansion |
 | Browseradapter für persistente Vorgänge | `IMPLEMENTED_UNVERIFIED`; Queue-Anzeige und persistente Übergabe vorhanden |
 | Neue konsolidierte Menüstruktur | `IMPLEMENTED_UNVERIFIED`; zentrale UI-Checks grün, Restmigration bleibt offen |
@@ -70,6 +70,7 @@ Konsolenkonsolidierung mit PR #70 und die reale Provider-Matrix mit PR #73 nach
 .\Tests\Static\Invoke-ModuleLoadContractChecks.ps1
 .\Tests\Static\Invoke-TestEnvironmentChecks.ps1
 .\Tests\Integration\Invoke-BatchWorkflowSmokeTest.ps1 -Provider docker
+.\Tests\Integration\Invoke-BatchWorkflowSmokeTest.ps1 -Provider docker -AbortSchedulerOnce
 .\Tests\Integration\Invoke-BatchWorkflowSmokeTest.ps1 -Provider podman
 .\Tests\Integration\Invoke-BatchWorkflowSmokeTest.ps1 -Provider hyperv -ArtifactId '<OS_SEALED-ID>'
 ```
@@ -79,7 +80,11 @@ UI-Bindings. Die Runtime-Smokes haben je zwei reale SQL-Server-2025-Umgebungen
 für Docker und Podman sowie zwei Windows-Server-2025-Slots aus einem immutable
 `OS_SEALED`-Parent für Hyper-V nachgewiesen. Geprüft wurden eindeutige RunIds,
 idempotentes Resume, das einzelne `HyperVHeavy`-Limit und vollständiger
-scopegebundener Cleanup. Offen bleiben echter Prozessabbruch/Resume,
+scopegebundener Cleanup. Am 2026-08-28 wurde zusätzlich ein separater Scheduler
+bei zwei laufenden Docker-Operationen nach real sichtbarer Providerressource hart
+beendet. Der Folgelauf erkannte beide toten Worker, bereinigte die unvollständigen
+operationseigenen Runs, erzeugte genau einen aktiven Run je Position und bestand
+den wiederholten idempotenten Scheduler-Lauf samt Cleanup. Offen bleiben
 Manifest-Rerun und das interaktive Windows-User-Gate.
 
 ### Verbindlicher Wiedereinstieg für eine spätere Sitzung
@@ -542,13 +547,13 @@ Dieser Abschnitt ist bei jeder Implementierungswelle zu aktualisieren.
 | Welle | Status | Nachweis | Offene Abnahme |
 |---|---|---|---|
 | 1 Persistenter Kern | `VERIFIED` | `Invoke-BatchWorkflowChecks.ps1`: Vertrag, Expansion, Persistenz | reale Provider-Receipts bleiben Teil von Welle 5 |
-| 2 Scheduler | `VERIFIED` | zwei Worker, ein `HyperVHeavy`, Resume und Fehlerisolation synthetisch grün | Prozess-/Providerabbruch mit realen Ressourcen |
+| 2 Scheduler | `VERIFIED` | zwei Worker, ein `HyperVHeavy`, Resume und Fehlerisolation synthetisch grün; harter Scheduler-Prozessabbruch mit zwei realen Docker-Ressourcen, `WorkerRecovered` und Cleanup grün | keine offene Scheduler-Kernabnahme |
 | 3 Console Composer | `IMPLEMENTED_UNVERIFIED` | Composer und Queue-Menü vorhanden; Console-UI-Checks grün | reale Bulk-Erfassung und Abbruchpfade |
 | 4 User-Gates | `VERIFIED` | Probe, `CandidateSatisfied` und Bestätigung synthetisch grün | reale Hyper-V-Windows-Gates und Credential-Verifikation |
-| 5 Providerneutrale Erstellung | `IN_PROGRESS` | Docker und Podman: je zwei SQL-2025-Runs; Hyper-V: zwei Windows-2025-Slots seriell; Resume und Cleanup mit `Invoke-BatchWorkflowSmokeTest.ps1` verifiziert | echter Prozessabbruch, Manifest-Rerun und fehlende Shared-Artifact-Abhängigkeit |
+| 5 Providerneutrale Erstellung | `IN_PROGRESS` | Docker und Podman: je zwei SQL-2025-Runs; Hyper-V: zwei Windows-2025-Slots seriell; harter Docker-Scheduler-Abbruch, Resume und Cleanup mit `Invoke-BatchWorkflowSmokeTest.ps1` verifiziert | Manifest-Rerun und fehlende Shared-Artifact-Abhängigkeit |
 | 6 Menükonsolidierung | `IMPLEMENTED_UNVERIFIED` | providerneutrale Arbeitsbereiche und 54 Console-UI-Checks | `CUI-012` bis `CUI-019` und manuelle Navigation |
 | 7 Browser und Manifest | `IMPLEMENTED_UNVERIFIED` | Batchschema, persistente Browserübergabe und Queue-Ansicht vorhanden | Browser-End-to-End, Manifest-Rerun und Cleanup |
-| 8 Abnahme und Veröffentlichung | `IN_PROGRESS` | PR #68/#70/#73 gemergt; statische und GitHub-Gates sowie Docker-/Podman-/Hyper-V-Batch-Cleanup grün | Prozessabbruch, Manifest-Rerun, User-Gate und übrige manuelle Abnahme |
+| 8 Abnahme und Veröffentlichung | `IN_PROGRESS` | PR #68/#70/#73 gemergt; statische und GitHub-Gates sowie Docker-/Podman-/Hyper-V-Batch-Cleanup und realer Docker-Scheduler-Abbruch grün | Manifest-Rerun, User-Gate und übrige manuelle Abnahme |
 
 Statuswerte dürfen nur mit konkretem Nachweis geändert werden:
 
