@@ -108,6 +108,22 @@ try {
         $newLabText -match 'HYPERV_MANIFEST_FALLBACK_IMAGE_NOT_FOUND' -and
         $newLabText -match 'Keine lokale SQL_PREPARED_SEALED-Vorlage'
     )
+    $storagePreflight = & $module {
+        $script:storagePreflightStateCalls = 0
+        function Test-HyperVAvailable { [PSCustomObject]@{ Available=$true; Message='mock' } }
+        function Get-HyperVImageArtifact { [PSCustomObject]@{ artifactId='storage-preflight'; artifactState='SQL_PREPARED_SEALED'; sql=[PSCustomObject]@{ version='2025'; edition='Enterprise' } } }
+        function New-LabStorageBoundPlan { [PSCustomObject]@{ Status='BLOCKED'; Blockers=@('SELECTOR_UNRESOLVED:test') } }
+        function New-LabRunState { $script:storagePreflightStateCalls++; throw 'STATE_MUST_NOT_BE_CREATED' }
+        $blocked = try {
+            $null = New-HyperVLabEnvironment -ArtifactId storage-preflight -LabName 'Storage Preflight' -InstanceId primary `
+                -StorageIntent ([PSCustomObject]@{ contractVersion='synthetic' }) -StateRoot ([IO.Path]::GetTempPath())
+            $false
+        }
+        catch { $_.Exception.Message -match 'HYPERV_STORAGE_INTENT_BINDING_BLOCKED' }
+        [PSCustomObject]@{ Blocked=$blocked; StateCalls=$script:storagePreflightStateCalls }
+    }
+    Add-CheckResult -Name 'Blockierter Storage-Intent scheitert vor Run-State und Provider-Mutation' -Success (
+        $storagePreflight.Blocked -and $storagePreflight.StateCalls -eq 0)
     $created = & $module {
         param($Root)
         function Test-HyperVAvailable { [PSCustomObject]@{ Available = $true; Message = 'mock' } }

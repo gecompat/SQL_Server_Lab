@@ -578,7 +578,8 @@ function New-SqlServerLab {
         $hyperVSwitchName = if ($hyperVSettings -and $hyperVSettings.PSObject.Properties['switchName']) { [string]$hyperVSettings.switchName } else { $null }
         $lab = New-HyperVLabEnvironment -ArtifactId ([string]$artifact.artifactId) -LabName ([string]$resolved.name) -InstanceId ([string]$instance.id) `
             -MemoryStartupMB $hyperVMemoryStartupMB -ProcessorCount $hyperVProcessorCount -AutoStart $hyperVAutoStart `
-            -SwitchName $hyperVSwitchName -AdditionalDrives $hyperVAdditionalDrives -DesiredState $hyperVDesiredState -StateRoot $StateRoot
+            -SwitchName $hyperVSwitchName -AdditionalDrives $hyperVAdditionalDrives -StorageIntent $instance.storageIntent `
+            -DesiredState $hyperVDesiredState -StateRoot $StateRoot
         $hyperVLab = Get-HyperVLabWorkflowRun -RunId $lab.RunId -StateRoot $StateRoot
         if ($PersistentData) {
             $null = Enable-HyperVLabPersistentData -RunId $lab.RunId -DataRoot $DataRoot -SizeGB ([int]$resolved.persistentData.dataDiskGB) -StateRoot $hyperVLab.StateRoot
