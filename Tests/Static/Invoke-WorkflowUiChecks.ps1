@@ -405,6 +405,13 @@ Add-CheckResult -Name 'Windows-Generalisierung fordert sichtbar das Gastpasswort
     $scriptText -match "\$\('#credential-note'\)" -and
     $htmlText -match 'id="credential-note"'
 )
+Add-CheckResult -Name 'Escape schließt den obersten Dialog ohne Mutation und verwirft sensible Eingaben' -Success (
+    $scriptText -match 'function\s+cancelDialog\s*\(' -and
+    $scriptText -match 'input\[type="password"\]' -and
+    $scriptText -match "event\.key\s*!==\s*'Escape'" -and
+    $scriptText -match "querySelectorAll\('dialog\[open\]'\)" -and
+    $scriptText -match "dialog\.close\('cancel'\)"
+)
 Add-CheckResult -Name 'UI räumt offene Hyper-V-Builder nur nach Bestätigung auf' -Success (
     $actionText -match 'CleanupWindowsBuild' -and
     $actionText -match 'CleanupSqlBuild' -and
