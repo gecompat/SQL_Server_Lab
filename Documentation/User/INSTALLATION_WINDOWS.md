@@ -310,3 +310,6 @@ SQL Server Lab stattdessen je Runtime einen Auftrag für das aktuelle
 Benutzerkonto an. Er startet die Runtime nach der Windows-Anmeldung und fährt
 nur markierte Lab-Container hoch. Desktop-/Rootless-Runtimes stehen damit erst
 nach der Anmeldung, nicht als systemweiter Dienst vor dem Login, bereit.
+Ein bereits vorhandener, in Benutzer, Trigger und Aktion unverändert passender
+Auftrag wird gemeinsam genutzt; abweichende oder fremde Aufgaben werden nicht
+stillschweigend übernommen.

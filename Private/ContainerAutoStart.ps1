@@ -84,6 +84,50 @@ foreach (`$containerId in `$containerIds) {
     Set-Content -LiteralPath $Path -Value $content -Encoding utf8
 }
 
+function Test-LabWindowsContainerAutoStartIdentity {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$TaskUser,
+        [Parameter(Mandatory)][string]$CurrentUser
+    )
+
+    if ([string]::Equals($TaskUser, $CurrentUser, [StringComparison]::OrdinalIgnoreCase)) { return $true }
+
+    $currentParts = @($CurrentUser -split '\\', 2)
+    return (
+        $TaskUser -notmatch '\\' -and
+        $currentParts.Count -eq 2 -and
+        [string]::Equals($currentParts[0], [Environment]::MachineName, [StringComparison]::OrdinalIgnoreCase) -and
+        [string]::Equals($TaskUser, $currentParts[1], [StringComparison]::OrdinalIgnoreCase)
+    )
+}
+
+function Test-LabWindowsContainerAutoStartTaskReusable {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Task,
+        [Parameter(Mandatory)][string]$PowerShellPath,
+        [Parameter(Mandatory)][string]$Arguments,
+        [Parameter(Mandatory)][string]$CurrentUser
+    )
+
+    $actions = @($Task.Actions)
+    $triggers = @($Task.Triggers)
+    if ($actions.Count -ne 1 -or $triggers.Count -ne 1 -or -not $Task.Principal) { return $false }
+
+    $principalMatches = Test-LabWindowsContainerAutoStartIdentity -TaskUser ([string]$Task.Principal.UserId) -CurrentUser $CurrentUser
+    $triggerMatches = Test-LabWindowsContainerAutoStartIdentity -TaskUser ([string]$triggers[0].UserId) -CurrentUser $CurrentUser
+    return (
+        $principalMatches -and
+        $triggerMatches -and
+        [string]$Task.Principal.LogonType -eq 'Interactive' -and
+        [string]$Task.Principal.RunLevel -eq 'Limited' -and
+        $triggers[0].Enabled -ne $false -and
+        [string]::Equals([string]$actions[0].Execute, $PowerShellPath, [StringComparison]::OrdinalIgnoreCase) -and
+        [string]::Equals([string]$actions[0].Arguments, $Arguments, [StringComparison]::Ordinal)
+    )
+}
+
 function Enable-LabWindowsContainerAutoStartCoordinator {
     [CmdletBinding()]
     param([Parameter(Mandatory)][ValidateSet('docker', 'podman')][string]$Provider)
@@ -91,7 +135,7 @@ function Enable-LabWindowsContainerAutoStartCoordinator {
     $runtimeCommand = Get-Command $Provider -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
     if (-not $runtimeCommand) { throw "LAB_CONTAINER_AUTOSTART_RUNTIME_NOT_FOUND: $Provider" }
 
-    $requiredCommands = @('New-ScheduledTaskAction', 'New-ScheduledTaskTrigger', 'New-ScheduledTaskPrincipal', 'New-ScheduledTaskSettingsSet', 'Register-ScheduledTask')
+    $requiredCommands = @('Get-ScheduledTask', 'New-ScheduledTaskAction', 'New-ScheduledTaskTrigger', 'New-ScheduledTaskPrincipal', 'New-ScheduledTaskSettingsSet', 'Register-ScheduledTask')
     foreach ($commandName in $requiredCommands) {
         if (-not (Get-Command $commandName -ErrorAction SilentlyContinue)) {
             throw "LAB_CONTAINER_AUTOSTART_SCHEDULED_TASKS_UNAVAILABLE: $commandName"
@@ -103,16 +147,26 @@ function Enable-LabWindowsContainerAutoStartCoordinator {
 
     $pwshPath = (Get-Process -Id $PID).Path
     $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent().Name
-    $action = New-ScheduledTaskAction -Execute $pwshPath -Argument "-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$scriptPath`""
+    $taskArguments = "-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$scriptPath`""
+    $taskName = Get-LabContainerAutoStartTaskName -Provider $Provider
+    $existingTask = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+    if ($existingTask -and (Test-LabWindowsContainerAutoStartTaskReusable -Task $existingTask -PowerShellPath $pwshPath -Arguments $taskArguments -CurrentUser $currentUser)) {
+        return [PSCustomObject]@{ Provider = $Provider; Mode = 'WindowsLogonTask'; Name = $taskName; ScriptPath = $scriptPath }
+    }
+
+    $action = New-ScheduledTaskAction -Execute $pwshPath -Argument $taskArguments
     $trigger = New-ScheduledTaskTrigger -AtLogOn -User $currentUser
     $principal = New-ScheduledTaskPrincipal -UserId $currentUser -LogonType Interactive -RunLevel Limited
     $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 10) -StartWhenAvailable -MultipleInstances IgnoreNew
-    $taskName = Get-LabContainerAutoStartTaskName -Provider $Provider
 
     try {
         $null = Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Description "Startet SQL_Server_Lab-$Provider-Instanzen mit autostart=on nach der Benutzeranmeldung." -Force -ErrorAction Stop
     }
     catch {
+        $existingTask = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+        if ($existingTask -and (Test-LabWindowsContainerAutoStartTaskReusable -Task $existingTask -PowerShellPath $pwshPath -Arguments $taskArguments -CurrentUser $currentUser)) {
+            return [PSCustomObject]@{ Provider = $Provider; Mode = 'WindowsLogonTask'; Name = $taskName; ScriptPath = $scriptPath }
+        }
         throw "LAB_CONTAINER_AUTOSTART_TASK_REGISTRATION_FAILED: $($_.Exception.Message)"
     }
 
