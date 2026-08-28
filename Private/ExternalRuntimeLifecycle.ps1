@@ -601,6 +601,9 @@ RECONFIGURE WITH OVERRIDE;
             $diagnosticText = if ($containerDiagnostic) { " / $($containerDiagnostic.Message)" } else { '' }
             throw "EXTERNAL_RUNTIME_INITIALIZATION_AND_COMPENSATION_FAILED: $($initialFailure.Exception.Message) / $($compensationFailures -join ' | ')$diagnosticText"
         }
+        if ($containerDiagnostic) {
+            throw "EXTERNAL_RUNTIME_INITIALIZATION_FAILED: $($initialFailure.Exception.Message) / $($containerDiagnostic.Message)"
+        }
         throw $initialFailure
     }
 }
