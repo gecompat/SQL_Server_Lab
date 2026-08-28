@@ -479,6 +479,27 @@ function Get-LabContainerRuntimeName {
     return "$stem-$InstanceId-$runPrefix"
 }
 
+function Get-LabContainerRuntimeHostname {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$')]
+        [string]$RuntimeName
+    )
+
+    $lowerName = $RuntimeName.ToLowerInvariant()
+    $stem = (($lowerName -replace '[^a-z0-9-]', '-') -replace '-+', '-').Trim('-')
+    if (-not $stem) { throw 'LAB_RUNTIME_HOSTNAME_REQUIRED' }
+    if ($stem.Length -le 63 -and $stem -ceq $lowerName) { return $stem }
+
+    $hash = [Convert]::ToHexString(
+        [Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($lowerName))
+    ).ToLowerInvariant().Substring(0, 8)
+    $prefixLength = [Math]::Min(54, $stem.Length)
+    $prefix = $stem.Substring(0, $prefixLength).TrimEnd('-')
+    return "$prefix-$hash"
+}
+
 function Rename-ContainerLabEnvironment {
     <#
     .SYNOPSIS

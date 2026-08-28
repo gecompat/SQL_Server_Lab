@@ -134,6 +134,23 @@ Add-CheckResult -Name 'Probe-Retry ist auf transiente LaunchPad-39011/39012-Fehl
     $retryContract.NonTransientAttempts -eq 1 -and $retryContract.NonTransientRejected
 )
 
+$hostnameContract = & $module {
+    [PSCustomObject]@{
+        Stable=(Get-LabContainerRuntimeHostname -RuntimeName 'lab-run-external-runtime-deadbeef')
+        Sanitized=(Get-LabContainerRuntimeHostname -RuntimeName 'lab_run.external-runtime-deadbeef')
+        Long=(Get-LabContainerRuntimeHostname -RuntimeName (('a' * 80) + '-deadbeef'))
+    }
+}
+$dockerProviderSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Providers\Docker\DockerProvider.ps1') -Raw -Encoding utf8
+$podmanProviderSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Providers\Podman\PodmanProvider.ps1') -Raw -Encoding utf8
+Add-CheckResult -Name 'Docker und Podman binden einen stabilen Linux-Hostname ueber Recreate' -Success (
+    $hostnameContract.Stable -eq 'lab-run-external-runtime-deadbeef' -and
+    $hostnameContract.Sanitized -match '^[a-z0-9-]+-[a-f0-9]{8}$' -and
+    $hostnameContract.Long.Length -le 63 -and
+    $dockerProviderSource.Contains("'--hostname', `$containerHostname") -and
+    $podmanProviderSource.Contains("'--hostname', `$containerHostname")
+)
+
 $tempRoot = Join-Path ([IO.Path]::GetTempPath()) ("sql-lab-runtime-reconcile-" + [guid]::NewGuid().ToString('N'))
 try {
     New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
