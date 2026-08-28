@@ -24,8 +24,11 @@ Im Repository unter PowerShell 7 starten:
 
 Danach wird die Oberfläche unter http://127.0.0.1:8484 geöffnet. Sie lauscht
 ausschließlich auf der Loopback-Adresse; ein Zugriff aus dem Netzwerk ist nicht
-vorgesehen. Der Prozess muss als Administrator laufen, wenn Hyper-V-Aktionen
-ausgeführt werden sollen.
+vorgesehen. Die normale Sitzung startet nicht erhöht. Read-only-Aktionen laufen
+als Benutzer, Container-Lifecycle-Aktionen mit den vorhandenen Runtimerechten.
+Eine privilegierte Hyper-V-Aktion zeigt zuerst Zweck und Umfang an und öffnet
+erst nach ausdrücklicher, standardmäßig abgelehnter Bestätigung einen separaten
+Administratorprozess; die aktuelle Sitzung bleibt unverändert.
 
 ## Workflow
 

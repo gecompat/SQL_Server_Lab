@@ -698,7 +698,7 @@ Runtime-Nachweis; maßgeblich bleiben die jeweils genannten Tests und Evidence.
 | Welle | Status am 2026-08-28 | Einordnung |
 |---|---|---|
 | N1 | `COMPLETE` | Nightly-Ursache klassifiziert, persistente Windows-Testumgebungen gezielt wiederhergestellt, CU-Katalog fachlich aktualisiert und zwei aufeinanderfolgende Nightlies vollständig grün. |
-| N2 | `PLANNED_NOT_STARTED` | Vorhandene Teilverträge und statische Checks ersetzen die geforderte reale P0-Abnahme nicht. |
+| N2 | `IN_PROGRESS` | ActionResult-/Sync-, Portbindungs-, UAC- und Privilegverträge sind implementiert und fokussiert geprüft; die reale Abbruch-, User-Gate-, Console- und Generalize-Abnahme bleibt offen. |
 | N3 | `PLANNED_NOT_STARTED` | Die drei Partnerrepository-Piloten sind nicht nachgewiesen. |
 | N4 | `PLANNED_NOT_STARTED` | Vorhandene Hyper-V-Teilpfade und persistente Testumgebungen ersetzen den geforderten Cold-Path nicht. |
 | N5 | `PLANNED_NOT_STARTED` | Vorhandene Storage-/Reconcile-Teile ersetzen den vollständigen Vertical Slice nicht. |
@@ -747,6 +747,20 @@ Schema und Dokumentation stimmen überein. Zwei aufeinanderfolgende Nightlies
 werden erst nach tatsächlich grünen Läufen als stabil gewertet.
 
 ### Welle N2 – P0-Steuerungs-, Abbruch- und Recovery-Verträge
+
+**Status:** `IN_PROGRESS` seit 2026-08-28.
+
+**Aktuelle Evidence:** `ActionResult/1.0` trennt `Changed`, `NoChange`,
+`Cancelled` und `Failed`; Connection Center und CMS werden nur noch bei einer
+tatsächlichen endpunkt-, runtime- oder anzeigenrelevanten Mutation einmalig
+synchronisiert. Explizite SQL-Hostports werden im Review read-only mit
+Besitzer/Grund und unter dem hostweiten Allocation-Lock unmittelbar vor Docker-
+oder Podman-Create erneut geprüft. UAC-Vorschau und Privilegklassen sind
+getestet: Ablehnung startet keinen Prozess, Zustimmung genau einen, eine bereits
+erhöhte Sitzung keinen zweiten. Diese statischen und lokalen Verträge schließen
+Gate N2 noch nicht: Manifest-Rerun, echter Scheduler-Prozessabbruch, Windows-
+User-Gate, `Escape`/`Ctrl+C`/Fallback und der positive reale Generalize-
+Receipt-Pfad sind weiterhin real abzunehmen.
 
 **Ziel:** Alle bereits identifizierten P0-Lücken schließen, bevor Komfort- oder
 Breitenausbau beginnt.
