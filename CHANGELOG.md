@@ -47,6 +47,11 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Behoben
 
+- Projektkontext, Repo-Map und Known Limitations bilden den belegten
+  Multi-Version-External-Runtime-, Batch-Recovery-, Hyper-V-SQL- und
+  Container-Reconcile-Stand wieder widerspruchsfrei ab. Statische
+  Dokumentationschecks blockieren die zuvor veralteten offenen Aussagen und
+  binden N5 sowie die drei Adapterpiloten als nächste Gates.
 - Escape und Enter schreiben in der cursorbasierten CLI wieder einen echten
   Zeilenumbruch; der Ausdruck `[Environment]::NewLine` erscheint nicht mehr
   kurzzeitig als sichtbarer Text.
