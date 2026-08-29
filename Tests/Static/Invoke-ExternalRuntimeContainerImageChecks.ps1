@@ -431,6 +431,7 @@ Add-CheckResult -Name 'Jeder finale Target übernimmt den versionsgebundenen Lau
         $acceptanceSource -match "ValidateSet\('docker', 'podman'\)" -and
         $acceptanceSource -match "variant\.status -ne 'SUPPORTED'" -and
         $acceptanceSource -match 'catalog-supported-native-acceptance' -and
+        $acceptanceSource -match 'Invoke-LabExternalRuntimeProbeWithRetry -RecoveryOperation \$recoverProbeReadiness' -and
         $acceptanceSource -notmatch '(?m)\$variant\.status\s*=' -and
         $acceptanceSource -notmatch '(?m)\$providerDefinition\.capabilities\s*=' -and
         $hostAcceptanceSource -match 'foreach \(\$provider in @\(''docker'',''podman''\)\)' -and
