@@ -36,7 +36,8 @@ function Start-SqlServerLab {
 
     process {
         $stateRoot = if ([string]::IsNullOrWhiteSpace($StateRoot)) { Get-LabStateRoot } else { $StateRoot }
-        if (Test-LabAutomatedTestEnvironmentRun -RunId $RunId) {
+        if ((Test-LabAutomatedTestEnvironmentRun -RunId $RunId) -and
+            -not [bool]$script:LabAutomatedTestEnvironmentGroupOperation) {
             throw 'TEST_ENVIRONMENT_GROUP_PROTECTED: Einzelnes Starten ist gesperrt; Testumgebungen verwenden AutoStart=on.'
         }
         $run = Get-LabRunState -RunId $RunId -StateRoot $stateRoot

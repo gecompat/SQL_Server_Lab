@@ -740,8 +740,11 @@ einem Run kombinieren; Details und Grenzen stehen im
 [Gemischten Container-Provider-Lifecycle](../Architecture/MIXED_PROVIDER_LIFECYCLE.md).
 
 Registrierte Mitglieder der geschützten automatisierten Testgruppe bleiben für
-diese Einzel-Cmdlets gesperrt. Die Windows-Hyper-V-Mitglieder werden stattdessen
-gemeinsam, idempotent und ohne Löschung bereitgestellt beziehungsweise gestoppt:
+diese Einzel-Cmdlets gesperrt. Docker-, Podman- und Hyper-V-Mitglieder werden
+stattdessen gemeinsam, idempotent und ohne Löschung bereitgestellt beziehungsweise
+gestoppt. Im Hauptmenü unter **Umgebungen** erscheint dafür abhängig vom
+Livezustand genau eine Aktion: **Automatisierte Testumgebung starten** oder
+**Automatisierte Testumgebung stoppen**.
 
 ```powershell
 Start-SqlServerLabAutomatedTestEnvironment -WhatIf
@@ -753,10 +756,10 @@ $stop = Stop-SqlServerLabAutomatedTestEnvironment -Force -Confirm:$false
 # Danach: $stop.Status = STOPPED, Export.GroupStatus = INCOMPLETE.
 ```
 
-Der Start bringt vorhandene SQL-Engine-Dienste im Gast hoch, prüft SQL-
-Readiness und erneuert den kanonischen Export live. Der Stopp gibt die durch
-Windows-VMs belegte Hostkapazität frei, erhält jedoch Runs, Secrets,
-Registrierungen, VHDX-Dateien und alle Linux-Mitglieder. Details stehen unter
+Der Start bringt Container, VMs und vorhandene SQL-Engine-Dienste hoch, prüft
+SQL-Readiness einschließlich der erwarteten Major-Version und erneuert den
+kanonischen Export live. Der Stopp gibt deren CPU- und RAM-Kapazität frei,
+erhält jedoch Runs, Secrets, Registrierungen, Volumes und VHDX-Dateien. Details stehen unter
 [Automatisierte Testumgebungen](AUTOMATED_TEST_ENVIRONMENTS.md).
 
 ### Read-only Reconcile-Vorschau
@@ -820,7 +823,11 @@ Invoke-SqlServerLabReconcileAction `
 
 Der ausführbare Umfang ist bewusst eng: nur SQL Server 2022 auf Docker/Podman
 und keine gleichzeitigen Änderungen an Provider, Profil, Storage, Netzwerk oder
-Datenbanken. Eine einzelne Sprache kann entfernt werden, solange mindestens
+Datenbanken. Docker und Podman besitzen dabei dieselbe Sprachfreigabe; Podman
+muss für den sicheren `launchpadd`-Namespace-Modus jedoch rootful auf einem
+Linux-Containerhost mit cgroup v1 laufen. Eine SQL-Server-2025-Podman-Umgebung
+zeigt den Menüpunkt deshalb deaktiviert, weil die SQL-Version nicht katalogisiert
+ist, nicht weil Podman als Provider ausgeschlossen wäre. Eine einzelne Sprache kann entfernt werden, solange mindestens
 eine External Runtime erhalten bleibt. Die Entfernung der letzten Runtime und
 Hyper-V-Nachinstallation/-Artifact-Refresh bleiben fail-closed. Im Hyper-V-
 Verwaltungsmenü wird dieser derzeit nicht atomare Pfad deshalb sichtbar, aber

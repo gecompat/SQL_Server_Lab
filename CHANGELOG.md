@@ -81,11 +81,17 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 - `Start-SqlServerLabAutomatedTestEnvironment` und
   `Stop-SqlServerLabAutomatedTestEnvironment` steuern die registrierten
-  Windows-Hyper-V-Mitglieder der geschützten Testgruppe gemeinsam und
-  idempotent. Der Start bringt vorhandene SQL-Dienste hoch, prüft SQL-
-  Readiness und fordert einen live erzeugten `READY`-Export; der Stopp gibt
+  Docker-, Podman- und Hyper-V-Mitglieder der geschützten Testgruppe gemeinsam
+  und idempotent. Unter **Umgebungen** erscheint zustandsabhängig genau eine
+  Start- oder Stoppaktion. Der Start prüft SQL-Readiness und erwartete Major-
+  Version und fordert einen live erzeugten `READY`-Export; der Stopp gibt
   Hostkapazität frei und erneuert den Export fail-closed, ohne Runs,
-  Registrierungen, Secrets, VHDX-Dateien oder Linux-Mitglieder zu löschen.
+  Registrierungen, Secrets, Volumes oder VHDX-Dateien zu löschen.
+- Die nachträgliche External-Languages-Auswahl behandelt Docker und Podman für
+  die freigegebenen SQL-Server-2022-Varianten Python, R und Java gleichwertig.
+  SQL Server 2025 bleibt wegen fehlender belegter Runtimekombination bewusst
+  deaktiviert; rootless Podman beziehungsweise cgroup v2 erfüllen den sicheren
+  `launchpadd`-Vertrag nicht.
 - Der PowerShell-7-Einstieg akzeptiert `-ConsoleMode Auto|Fallback`. Damit ist
   der nummerierte Fallback im selben Terminal gezielt reproduzierbar; `0`
   beendet ihn kontrolliert.

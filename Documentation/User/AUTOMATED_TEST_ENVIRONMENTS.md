@@ -34,13 +34,17 @@ Alle Testumgebungen bilden eine gemeinsame, geschützte Lifecycle-Gruppe:
   mit 4 GB Container-RAM, 4 vCPU, 3 GB `max server memory` und einem davon
   getrennten SQL-Linux-Memory-Limit unterhalb der cgroup-Grenze.
 - Die Gruppe ist nur verwendbar, wenn wirklich alle registrierten Ziele bereit sind.
-- `Start-SqlServerLabAutomatedTestEnvironment` darf die registrierten Windows-
-  VMs als Gruppe reaktivieren, vorhandene SQL-Engine-Dienste starten und ihre
-  SQL-Bereitschaft authentifiziert prüfen. Erst der danach live erneuerte
+- `Start-SqlServerLabAutomatedTestEnvironment` darf alle registrierten Docker-,
+  Podman- und Hyper-V-Mitglieder als Gruppe reaktivieren, vorhandene SQL-
+  Engine-Dienste starten und SQL-Bereitschaft einschließlich der erwarteten
+  Major-Version authentifiziert prüfen. Erst der danach live erneuerte
   Gesamtvertrag darf `READY` melden.
-- `Stop-SqlServerLabAutomatedTestEnvironment` schaltet dieselben Windows-VMs
-  gemeinsam aus und gibt ihre Hostkapazität frei. Die Slotregistrierungen,
-  Runs, Secrets, VHDX-Dateien und Linux-Mitglieder bleiben erhalten.
+- `Stop-SqlServerLabAutomatedTestEnvironment` schaltet dieselben Container und
+  VMs gemeinsam aus und gibt ihre Hostkapazität frei. Registrierungen, Runs,
+  Secrets, Volumes und VHDX-Dateien bleiben erhalten.
+- Unter **Umgebungen** bietet das Hauptmenü zustandsabhängig genau eine sichere
+  Gruppenaktion an: **Automatisierte Testumgebung starten** oder
+  **Automatisierte Testumgebung stoppen**.
 - Normale Start-, Stopp-, Neustart-, Ressourcen-, Umbenennungs- und
   Löschmenüs zeigen die Runs an, lassen sie dort aber nicht auswählen.
 - Auch `Clear-SqlServerLab` überspringt die geschützte Testgruppe.
@@ -200,11 +204,11 @@ Schritt jederzeit erneuert werden:
 Export-SqlServerLabTestEnvironment
 ```
 
-## Nicht destruktiver Windows-Gruppen-Lifecycle
+## Nicht destruktiver providerübergreifender Gruppen-Lifecycle
 
-Die geschützten Windows-Mitglieder werden nicht über die gesperrten Einzel-
-Cmdlets gestartet oder gestoppt. Dafür gibt es zwei idempotente öffentliche
-Gruppenaufrufe:
+Die geschützten Docker-, Podman- und Hyper-V-Mitglieder werden nicht über die
+gesperrten Einzel-Cmdlets gestartet oder gestoppt. Dafür gibt es zwei idempotente
+öffentliche Gruppenaufrufe:
 
 ```powershell
 Start-SqlServerLabAutomatedTestEnvironment -WhatIf
@@ -214,14 +218,14 @@ $start.Status
 $start.Export.GroupStatus
 ```
 
-`Status = READY` ist nur möglich, wenn jede registrierte Windows-VM läuft,
-mindestens ein vorhandener SQL-Engine-Dienst im Gast läuft, die gebundene SQL-
-Instanz erreichbar ist und der anschließend live erzeugte Gesamtexport
-`GroupStatus = READY` meldet. Einzelne Fehler werden secretfrei unter
+`Status = READY` ist nur möglich, wenn jeder registrierte Container und jede VM
+läuft, vorhandene SQL-Engine-Dienste im Gast laufen, jede gebundene SQL-Instanz
+mit der zur Registry passenden Major-Version erreichbar ist und der anschließend
+live erzeugte Gesamtexport `GroupStatus = READY` meldet. Einzelne Fehler werden secretfrei unter
 `Details` als `FAILED/PARTIAL` zurückgegeben; der Gesamtstatus bleibt dann
 `INCOMPLETE`.
 
-Nach der Testlast werden ausschließlich die Windows-VMs ausgeschaltet:
+Nach der Testlast werden alle Gruppenmitglieder ausgeschaltet:
 
 ```powershell
 Stop-SqlServerLabAutomatedTestEnvironment -WhatIf
@@ -232,13 +236,13 @@ $stop.Export.GroupStatus
 ```
 
 Nach erfolgreichem Stopp lautet `Status = STOPPED`. Der erneuerte Export ist
-absichtlich fail-closed: `GroupStatus = INCOMPLETE`, die Windows-Einträge haben
+absichtlich fail-closed: `GroupStatus = INCOMPLETE`, alle Einträge haben
 `runtimeStatus = STOPPED`, und kein Einzelziel wird als verwendbar freigegeben.
 `-Force` unterdrückt nur die zusätzliche Gruppenrückfrage; `SupportsShouldProcess`,
 `-WhatIf` und `-Confirm` bleiben wirksam. Beide Aufrufe verändern weder die
-Gruppenzusammensetzung noch Linux-Mitglieder und löschen keine Ressourcen.
-Der reale Hostnachweis vom 2026-08-28 ist im
-[Validierungsbericht zum geschützten Testgruppen-Lifecycle](../Quality/VALIDATION_RESULT_2026-08-28_TEST_ENVIRONMENT_LIFECYCLE.md)
+Gruppenzusammensetzung noch Providerbindungen und löschen keine Ressourcen.
+Der reale providerübergreifende Hostnachweis vom 2026-08-29 ist im
+[Validierungsbericht zum geschützten Testgruppen-Lifecycle](../Quality/VALIDATION_RESULT_2026-08-29_TEST_ENVIRONMENT_GROUP_LIFECYCLE.md)
 dokumentiert.
 
 Ist der Ressourcen-, Health-, Autostart- oder Namensvertrag veraltet, wird die
