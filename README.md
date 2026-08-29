@@ -147,6 +147,22 @@ Test-SqlServerLabPrerequisite -Provider docker
 Test-SqlServerLabPrerequisite -Provider podman
 ```
 
+Einen beliebigen katalogisierten CU vorab bereitstellen:
+
+```powershell
+# Windows: offizielles Paket nach Lab_Base; SHA-256 und Microsoft-Authenticode werden erzwungen
+Save-SqlServerLabCuResource -SqlVersion 2022 -Cu CU18 -Platform Windows -MediaRoot 'D:\Lab_Base'
+
+# Linux: exakten MCR-Tag in den lokalen Runtimecache ziehen
+Save-SqlServerLabCuResource -SqlVersion 2022 -Cu CU18 -Platform Linux -Provider Docker
+```
+
+Der gleiche Ablauf ist ohne Kommandozeilenkenntnisse unter **Medien,
+Testdaten und Speicher → SQL Server CU herunterladen oder prüfen** verfügbar.
+Der Katalog enthält alle 65 bei Microsoft weiterhin verfügbaren CUs für SQL
+Server 2019, 2022 und 2025; SQL Server 2019 CU7 bleibt wegen des Rückzugs durch
+Microsoft bewusst ausgeschlossen.
+
 Eine SQL-Server-2025-Umgebung erstellen:
 
 ```powershell
@@ -546,6 +562,7 @@ Invoke-SqlServerLabScheduler -UntilIdle
 | `Test-SqlServerLabAdapter` | Project Adapter gegen Schema, Pfadgrenzen und optional einen Run prüfen |
 | `Install-SqlServerLabAdapter` | Validierten Adapter-Entrypoint ohne Lifecycle-Seiteneffekt anwenden |
 | `Install-SqlServerLab7Zip` | 7-Zip für katalogisierte `.7z`-Backup-Payloads ausdrücklich und optional über `winget` installieren |
+| `Save-SqlServerLabCuResource` | Beliebigen katalogisierten Windows-CU hash- und Authenticode-geprüft in den Media Root oder den exakten Linux-MCR-Tag in Docker/Podman laden |
 
 `SqlServerLab.psd1` ist die autoritative Liste der exportierten Funktionen.
 

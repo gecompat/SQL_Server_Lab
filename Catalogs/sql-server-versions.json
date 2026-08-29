@@ -1,12 +1,14 @@
 {
   "$schema": "../Schemas/version-catalog.schema.json",
   "catalogMetadata": {
-    "lastVerified": "2026-08-28",
+    "lastVerified": "2026-08-29",
     "maintainedBy": "monthly-catalog-agent",
     "sources": [
       "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2019/build-versions",
       "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2022/build-versions",
-      "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2025/build-versions"
+      "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2025/build-versions",
+      "https://mcr.microsoft.com/v2/mssql/server/tags/list",
+      "https://www.catalog.update.microsoft.com/"
     ]
   },
   "versions": [
@@ -47,56 +49,403 @@
             "cu": "CU32",
             "build": "15.0.4430.1",
             "kb": "KB5054833",
-            "released": "2025-02-27"
+            "released": "2025-02-27",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2019/cumulativeupdate32",
+            "windows": {
+              "relativePath": "SQL/2019/Updates/CU32/SQLServer2019-KB5054833-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/updt/2025/02/sqlserver2019-kb5054833-x64_88b01079fe38ae7f7578653612e7974f85e21e79.exe",
+              "sha256": "864AA01854D124BD907920B26271F9F2ED3F5F82880ADB746DBBC681EF32B371"
+            }
           },
           {
             "tag": "2019-CU31-ubuntu-20.04",
             "cu": "CU31",
             "build": "15.0.4420.2",
             "kb": "KB5049296",
-            "released": "2025-02-13"
+            "released": "2025-02-13",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2019/cumulativeupdate31",
+            "windows": {
+              "relativePath": "SQL/2019/Updates/CU31/SQLServer2019-KB5049296-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/updt/2025/02/sqlserver2019-kb5049296-x64_df5a52a752a86ff79331698949a99e8a53c97d97.exe",
+              "sha256": "D73C16D0C8C42448F7351008EF5B10A43C54F42363F58731B2E5CBD49F24BDBA"
+            }
           },
           {
             "tag": "2019-CU30-ubuntu-20.04",
             "cu": "CU30",
             "build": "15.0.4415.2",
             "kb": "KB5049235",
-            "released": "2024-12-12"
+            "released": "2024-12-12",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2019/cumulativeupdate30",
+            "windows": {
+              "relativePath": "SQL/2019/Updates/CU30/SQLServer2019-KB5049235-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/updt/2024/12/sqlserver2019-kb5049235-x64_a17df28b9f89ec829ef865add26d75b4958ec802.exe",
+              "sha256": "25707A8487E4B170D257BF8070D247946B36DF4ABDCD110874AC394857586D4D"
+            }
           },
           {
             "tag": "2019-CU29-ubuntu-20.04",
             "cu": "CU29",
             "build": "15.0.4405.4",
             "kb": "KB5046365",
-            "released": "2024-10-31"
+            "released": "2024-10-31",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2019/cumulativeupdate29",
+            "windows": {
+              "relativePath": "SQL/2019/Updates/CU29/SQLServer2019-KB5046365-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/updt/2024/10/sqlserver2019-kb5046365-x64_a63710b852e352ccac4d12458e78e020c2990334.exe",
+              "sha256": "2B50A55EE3F8EDF54FE9EB1E5C70DEF24FDD3320C86AB2DC44276E675AFCDC29"
+            }
           },
           {
             "tag": "2019-CU28-ubuntu-20.04",
             "cu": "CU28",
             "build": "15.0.4385.2",
             "kb": "KB5039747",
-            "released": "2024-08-01"
+            "released": "2024-08-01",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2019/cumulativeupdate28",
+            "windows": {
+              "relativePath": "SQL/2019/Updates/CU28/SQLServer2019-KB5039747-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/updt/2024/08/sqlserver2019-kb5039747-x64_1cad9480c17058e2aad05c1876883b847a95b095.exe",
+              "sha256": "BC70570A217F4562710B88C35F80476474CB34107D2A93D1A2220090FB4E25AA"
+            }
           },
           {
             "tag": "2019-CU27-ubuntu-20.04",
             "cu": "CU27",
             "build": "15.0.4375.4",
             "kb": "KB5037331",
-            "released": "2024-06-13"
+            "released": "2024-06-13",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2019/cumulativeupdate27",
+            "windows": {
+              "relativePath": "SQL/2019/Updates/CU27/SQLServer2019-KB5037331-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2024/06/sqlserver2019-kb5037331-x64_51a3839385638495b5609cfd75acd432d87f0181.exe",
+              "sha256": "196DDC07628722ED996A801410E1019D109A6C8C7CE8ED5BC6736D897411F1AE"
+            }
           },
           {
             "tag": "2019-CU26-ubuntu-20.04",
             "cu": "CU26",
             "build": "15.0.4365.2",
             "kb": "KB5035123",
-            "released": "2024-04-11"
+            "released": "2024-04-11",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2019/cumulativeupdate26",
+            "windows": {
+              "relativePath": "SQL/2019/Updates/CU26/SQLServer2019-KB5035123-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/updt/2024/04/sqlserver2019-kb5035123-x64_f4c614713287412219caadffdc8ae0ff00698324.exe",
+              "sha256": "284A8582369D896F0229E8639BF21A3EB0FA354367BC9E92330B4178408EBF5C"
+            }
           },
           {
             "tag": "2019-CU25-ubuntu-20.04",
             "cu": "CU25",
             "build": "15.0.4355.3",
             "kb": "KB5033688",
-            "released": "2024-02-15"
+            "released": "2024-02-15",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2019/cumulativeupdate25",
+            "windows": {
+              "relativePath": "SQL/2019/Updates/CU25/SQLServer2019-KB5033688-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2024/02/sqlserver2019-kb5033688-x64_a781728ac862e8cd97c508314f3ea4886b70bd84.exe",
+              "sha256": "13104EA1F986CED164CD8B00E376E982904CD147131E00729B478075CC74379E"
+            }
+          },
+          {
+            "tag": "2019-CU24-ubuntu-20.04",
+            "cu": "CU24",
+            "build": "15.0.4345.5",
+            "kb": "KB5031908",
+            "released": "2023-12-14",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2019/cumulativeupdate24",
+            "windows": {
+              "relativePath": "SQL/2019/Updates/CU24/SQLServer2019-KB5031908-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/updt/2023/12/sqlserver2019-kb5031908-x64_47d88362e4ce0ea7e1d0c33c5b0cba2291444cdc.exe",
+              "sha256": "DA3FAC3717A28C3307EBB762E0607959D1E1300E028EDD4E35BA59AA4FA97599"
+            }
+          },
+          {
+            "tag": "2019-CU23-ubuntu-20.04",
+            "cu": "CU23",
+            "build": "15.0.4335.1",
+            "kb": "KB5030333",
+            "released": "2023-10-12",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2019/cumulativeupdate23",
+            "windows": {
+              "relativePath": "SQL/2019/Updates/CU23/SQLServer2019-KB5030333-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/updt/2023/10/sqlserver2019-kb5030333-x64_8a1e1b207018159cecbf5e8f92c1a4cae3112202.exe",
+              "sha256": "C79367EF48F653A31F98BB8A0CACF382B1C59D290F48E2A6F19D0F6171B31421"
+            }
+          },
+          {
+            "tag": "2019-CU22-ubuntu-20.04",
+            "cu": "CU22",
+            "build": "15.0.4322.2",
+            "kb": "KB5027702",
+            "released": "2023-08-14",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2019/cumulativeupdate22",
+            "windows": {
+              "relativePath": "SQL/2019/Updates/CU22/SQLServer2019-KB5027702-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/updt/2023/08/sqlserver2019-kb5027702-x64_068e588c1dddb42f5cdb334c55c64d42f5eec95e.exe",
+              "sha256": "485CA89F201C3E9E3990D43FDACF9AA70A1DDA589814E395F082C4B4E7C910D6"
+            }
+          },
+          {
+            "tag": "2019-CU21-ubuntu-20.04",
+            "cu": "CU21",
+            "build": "15.0.4316.3",
+            "kb": "KB5025808",
+            "released": "2023-06-15",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2019/cumulativeupdate21",
+            "windows": {
+              "relativePath": "SQL/2019/Updates/CU21/SQLServer2019-KB5025808-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/updt/2023/06/sqlserver2019-kb5025808-x64_b4935d744a9f5abb67d43fac573ff059cb82f8c1.exe",
+              "sha256": "CEB4C5C070E17EC83C4E4CA7B75109B40176673B614892C602D249DBE5FBA7D2"
+            }
+          },
+          {
+            "tag": "2019-CU20-ubuntu-20.04",
+            "cu": "CU20",
+            "build": "15.0.4312.2",
+            "kb": "KB5024276",
+            "released": "2023-04-13",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2019/cumulativeupdate20",
+            "windows": {
+              "relativePath": "SQL/2019/Updates/CU20/SQLServer2019-KB5024276-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/updt/2023/04/sqlserver2019-kb5024276-x64_767c3007f656fc2d29091d6f7d9660e804761260.exe",
+              "sha256": "FD387773E613FECF9664CAF1777B48F3AB8C48A0B7BD863DEA40446867B7209C"
+            }
+          },
+          {
+            "tag": "2019-CU19-ubuntu-20.04",
+            "cu": "CU19",
+            "build": "15.0.4298.1",
+            "kb": "KB5023049",
+            "released": "2023-02-16",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2019/cumulativeupdate19",
+            "windows": {
+              "relativePath": "SQL/2019/Updates/CU19/SQLServer2019-KB5023049-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/updt/2023/02/sqlserver2019-kb5023049-x64_a0df7db34758ce47d81286df13fd3d396c4abf51.exe",
+              "sha256": "E1E2C36AA7A3D713597BC12E2EEC2FCEBD126DD10BB45AAC2E5474903CD2C61E"
+            }
+          },
+          {
+            "tag": "2019-CU18-ubuntu-20.04",
+            "cu": "CU18",
+            "build": "15.0.4261.1",
+            "kb": "KB5017593",
+            "released": "2022-09-28",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2019/cumulativeupdate18",
+            "windows": {
+              "relativePath": "SQL/2019/Updates/CU18/SQLServer2019-KB5017593-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/updt/2022/09/sqlserver2019-kb5017593-x64_bd8ea599f044e3834b779bd99e8732a92ae869a8.exe",
+              "sha256": "ED5B8C473A8FDA2EC0FCB6B2F7A861985FBB506D5C704748063A192E1D3E4478"
+            }
+          },
+          {
+            "tag": "2019-CU17-ubuntu-20.04",
+            "cu": "CU17",
+            "build": "15.0.4249.2",
+            "kb": "KB5016394",
+            "released": "2022-08-11",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2019/cumulativeupdate17",
+            "windows": {
+              "relativePath": "SQL/2019/Updates/CU17/SQLServer2019-KB5016394-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2022/08/sqlserver2019-kb5016394-x64_b196811983841da3a07a6ef8b776c85d942a138f.exe",
+              "sha256": "B3AF212A50B79CA5B780D0EEB895572C6567ECD516135C0D221309CDF637C8AB"
+            }
+          },
+          {
+            "tag": "2019-CU16-ubuntu-20.04",
+            "cu": "CU16",
+            "build": "15.0.4223.1",
+            "kb": "KB5011644",
+            "released": "2022-04-18",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2019/cumulativeupdate16",
+            "windows": {
+              "relativePath": "SQL/2019/Updates/CU16/SQLServer2019-KB5011644-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2022/04/sqlserver2019-kb5011644-x64_a38427fc9ed638fdbc0011be2c71a7b32f811b9e.exe",
+              "sha256": "E1CE2B473829D7E2C69CBFA15D75435FDB32017972EE1439BF3D50E3132F7FEF"
+            }
+          },
+          {
+            "tag": "2019-CU15-ubuntu-20.04",
+            "cu": "CU15",
+            "build": "15.0.4198.2",
+            "kb": "KB5008996",
+            "released": "2022-01-27",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2019/cumulativeupdate15",
+            "windows": {
+              "relativePath": "SQL/2019/Updates/CU15/SQLServer2019-KB5008996-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2022/01/sqlserver2019-kb5008996-x64_f914e20d97650c2b2c09bd8f3d35d3f0feb1afd3.exe",
+              "sha256": "503A17BDCACD1E02FF1E6EE673E6F1EEDB0DAF674CAF4FAFFE607FDC4D230190"
+            }
+          },
+          {
+            "tag": "2019-CU14-ubuntu-20.04",
+            "cu": "CU14",
+            "build": "15.0.4188.2",
+            "kb": "KB5007182",
+            "released": "2021-11-22",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2019/cumulativeupdate14",
+            "windows": {
+              "relativePath": "SQL/2019/Updates/CU14/SQLServer2019-KB5007182-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2021/11/sqlserver2019-kb5007182-x64_f8b5c3398e9f347701066deb388c2fcd2d94eb31.exe",
+              "sha256": "19D2ABA52942A16659C2C7702A22373082CF1129A3F1D45D47B9D4929D1082C9"
+            }
+          },
+          {
+            "tag": "2019-CU13-ubuntu-20.04",
+            "cu": "CU13",
+            "build": "15.0.4178.1",
+            "kb": "KB5005679",
+            "released": "2021-10-05",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2019/cumulativeupdate13",
+            "windows": {
+              "relativePath": "SQL/2019/Updates/CU13/SQLServer2019-KB5005679-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2021/10/sqlserver2019-kb5005679-x64_a6e4ec3e93be461565550973f8b8cdfdd5580967.exe",
+              "sha256": "B5EC792CABFD905B8CFDF39F2F80F4CFC987D2BC87AEF1C7F682CF452ECF02EE"
+            }
+          },
+          {
+            "tag": "2019-CU12-ubuntu-20.04",
+            "cu": "CU12",
+            "build": "15.0.4153.1",
+            "kb": "KB5004524",
+            "released": "2021-08-04",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2019/cumulativeupdate12",
+            "windows": {
+              "relativePath": "SQL/2019/Updates/CU12/SQLServer2019-KB5004524-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2021/08/sqlserver2019-kb5004524-x64_f145a82e48219e5bf80c7dcf57ea3c902c4d395f.exe",
+              "sha256": "C6D7BD9EBC82A68EA2D70638312120CEA66DB7BD633E82943D94035EC73A9934"
+            }
+          },
+          {
+            "tag": "2019-CU11-ubuntu-20.04",
+            "cu": "CU11",
+            "build": "15.0.4138.2",
+            "kb": "KB5003249",
+            "released": "2021-06-10",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2019/cumulativeupdate11",
+            "windows": {
+              "relativePath": "SQL/2019/Updates/CU11/SQLServer2019-KB5003249-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2021/06/sqlserver2019-kb5003249-x64_a1b2d2845c5c66d7b9fced09309537d5fa7dc540.exe",
+              "sha256": "A5077EEED8B83696055C553BD8E6003CA97CE71EF33586CC42ADA9C95B2D98AB"
+            }
+          },
+          {
+            "tag": "2019-CU10-ubuntu-20.04",
+            "cu": "CU10",
+            "build": "15.0.4123.1",
+            "kb": "KB5001090",
+            "released": "2021-04-06",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2019/cumulativeupdate10",
+            "windows": {
+              "relativePath": "SQL/2019/Updates/CU10/SQLServer2019-KB5001090-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/updt/2021/04/sqlserver2019-kb5001090-x64_be37187855cc06466f38d4161ba6b9da24f2d2c6.exe",
+              "sha256": "1564D98CA6FE08DE31E33896CE16BD85F061AA19A9F36EAA97E5B89D34E36718"
+            }
+          },
+          {
+            "tag": "2019-CU9-ubuntu-18.04",
+            "cu": "CU9",
+            "build": "15.0.4102.2",
+            "kb": "KB5000642",
+            "released": "2021-02-11",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2019/cumulativeupdate9",
+            "windows": {
+              "relativePath": "SQL/2019/Updates/CU9/SQLServer2019-KB5000642-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2021/02/sqlserver2019-kb5000642-x64_7146ecc67a3b7bc33f743ebb2c19cb6a18857f00.exe",
+              "sha256": "EA4E1543FAFBAA811E4260EF506E62F966FEF1838031EF645A7FD1FD609620A2"
+            }
+          },
+          {
+            "tag": "2019-CU8-ubuntu-18.04",
+            "cu": "CU8",
+            "build": "15.0.4073.23",
+            "kb": "KB4577194",
+            "released": "2020-10-01",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2019/cumulativeupdate8",
+            "windows": {
+              "relativePath": "SQL/2019/Updates/CU8/SQLServer2019-KB4577194-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/updt/2020/10/sqlserver2019-kb4577194-x64_a09e2537b854ae384d965e998e53ce33cdc34f16.exe",
+              "sha256": "A92DBE0A85BA9F2EBEA6DBA76AFE7B30CA689BDEA841BE44AF16FEEBCB44F1B2"
+            }
+          },
+          {
+            "tag": "2019-CU6-ubuntu-18.04",
+            "cu": "CU6",
+            "build": "15.0.4053.23",
+            "kb": "KB4563110",
+            "released": "2020-08-04",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2019/cumulativeupdate6",
+            "windows": {
+              "relativePath": "SQL/2019/Updates/CU6/SQLServer2019-KB4563110-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2020/08/sqlserver2019-kb4563110-x64_505c6d0a8773909e87a0456978ffb43449a92309.exe",
+              "sha256": "398934EAAC156F6E4784C23DDEEE4E635585C7C29AEDB5E2BEF1E6F0B8422DC4"
+            }
+          },
+          {
+            "tag": "2019-CU5-ubuntu-18.04",
+            "cu": "CU5",
+            "build": "15.0.4043.16",
+            "kb": "KB4552255",
+            "released": "2020-06-22",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2019/cumulativeupdate5",
+            "windows": {
+              "relativePath": "SQL/2019/Updates/CU5/SQLServer2019-KB4552255-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/updt/2020/06/sqlserver2019-kb4552255-x64_c6a0778132b00ced30f06ee61875d58d7a7a70b2.exe",
+              "sha256": "4EC032408AA99C6F17DC935D8F62C62081B07B5A1A08921D312A7521AEDB18E4"
+            }
+          },
+          {
+            "tag": "2019-CU4-ubuntu-18.04",
+            "cu": "CU4",
+            "build": "15.0.4033.1",
+            "kb": "KB4548597",
+            "released": "2020-03-31",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2019/cumulativeupdate4",
+            "windows": {
+              "relativePath": "SQL/2019/Updates/CU4/SQLServer2019-KB4548597-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/updt/2020/03/sqlserver2019-kb4548597-x64_654ea92437fde8aad04745c6c380e9e72289babf.exe",
+              "sha256": "58D78AC13DD8BBA0B5E17AAFAA8FE38A9D9BBCD72DAD480B66C914E6962DB888"
+            }
+          },
+          {
+            "tag": "2019-CU3-ubuntu-18.04",
+            "cu": "CU3",
+            "build": "15.0.4023.6",
+            "kb": "KB4538853",
+            "released": "2020-03-12",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2019/cumulativeupdate3",
+            "windows": {
+              "relativePath": "SQL/2019/Updates/CU3/SQLServer2019-KB4538853-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/updt/2020/03/sqlserver2019-kb4538853-x64_e110a1af271b4e97840c713c1d8f44d159f2393e.exe",
+              "sha256": "D76CB8E8EE60535B602194BE66500FB79EE49EC2445002EBC0F7AABCBA5FAFCD"
+            }
+          },
+          {
+            "tag": "2019-CU2-ubuntu-16.04",
+            "cu": "CU2",
+            "build": "15.0.4013.40",
+            "kb": "KB4536075",
+            "released": "2020-02-13",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2019/cumulativeupdate2",
+            "windows": {
+              "relativePath": "SQL/2019/Updates/CU2/SQLServer2019-KB4536075-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2020/02/sqlserver2019-kb4536075-x64_b6c415cb0ce781e3e40e263d68dca6e3bc70a07d.exe",
+              "sha256": "C22C3FE73AB0AB18F3E86BE77E26A21B8E929101B94A99044084166DDD6098E9"
+            }
+          },
+          {
+            "tag": "2019-CU1-ubuntu-16.04",
+            "cu": "CU1",
+            "build": "15.0.4003.23",
+            "kb": "KB4527376",
+            "released": "2020-01-07",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2019/cumulativeupdate1",
+            "windows": {
+              "relativePath": "SQL/2019/Updates/CU1/SQLServer2019-KB4527376-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2020/01/sqlserver2019-kb4527376-x64_01dcaca398f0c3380264078463fc1a6cc859ec7c.exe",
+              "sha256": "4718B10E0F6F4A0F79D8157A7BC1D2D46F84977ACFACEEB680B0B1194E66E1E3"
+            }
           }
         ]
       },
@@ -120,98 +469,338 @@
             "cu": "CU26",
             "build": "16.0.4265.3",
             "kb": "KB5093420",
-            "released": "2026-07-16"
+            "released": "2026-07-16",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2022/cumulativeupdate26",
+            "windows": {
+              "relativePath": "SQL/2022/Updates/CU26/SQLServer2022-KB5093420-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2026/07/sqlserver2022-kb5093420-x64_2a737cc0e1efb6a1b6da23dc75d995af9bbcf719.exe",
+              "sha256": "A0FA6A60779CFE4C2273BDB7A9AA68E8A3B74D482650B20F1544E03386B226BC"
+            }
           },
           {
             "tag": "2022-CU25-ubuntu-22.04",
             "cu": "CU25",
             "build": "16.0.4255.1",
             "kb": "KB5081477",
-            "released": "2026-05-20"
+            "released": "2026-05-20",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2022/cumulativeupdate25",
+            "windows": {
+              "relativePath": "SQL/2022/Updates/CU25/SQLServer2022-KB5081477-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/updt/2026/05/sqlserver2022-kb5081477-x64_d6b081c55fd0a4dc3b21c25225654faccc508abe.exe",
+              "sha256": "16EC12DBFABC6F4CC52CC32C273AD98881E96078F3EA05085CFA11C2985E94C9"
+            }
           },
           {
             "tag": "2022-CU24-ubuntu-22.04",
             "cu": "CU24",
             "build": "16.0.4245.2",
             "kb": "KB5080999",
-            "released": "2026-03-12"
+            "released": "2026-03-12",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2022/cumulativeupdate24",
+            "windows": {
+              "relativePath": "SQL/2022/Updates/CU24/SQLServer2022-KB5080999-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2026/03/sqlserver2022-kb5080999-x64_eafd54a383c50032ed4e47137d5763a04327b896.exe",
+              "sha256": "57FC522E34FA4654F5EE8DBC9768EFE3265971C8D6854F32118022B2610D40E2"
+            }
           },
           {
             "tag": "2022-CU23-ubuntu-22.04",
             "cu": "CU23",
             "build": "16.0.4236.2",
             "kb": "KB5078297",
-            "released": "2026-01-29"
+            "released": "2026-01-29",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2022/cumulativeupdate23",
+            "windows": {
+              "relativePath": "SQL/2022/Updates/CU23/SQLServer2022-KB5078297-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2026/01/sqlserver2022-kb5078297-x64_7804e768f672a4a61d26259d126ee40e60c67c0d.exe",
+              "sha256": "0CE7132AD63F2CACA7805FFDF0A6375D97856ECFED5DC6104CA8F542F19CDDB3"
+            }
           },
           {
             "tag": "2022-CU22-ubuntu-22.04",
             "cu": "CU22",
             "build": "16.0.4225.2",
             "kb": "KB5068450",
-            "released": "2025-11-13"
+            "released": "2025-11-13",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2022/cumulativeupdate22",
+            "windows": {
+              "relativePath": "SQL/2022/Updates/CU22/SQLServer2022-KB5068450-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2025/11/sqlserver2022-kb5068450-x64_70c032e1bd645698a0048c2cccb2e7f8faa1b8c7.exe",
+              "sha256": "B06B59D7A41CC57BF0CC3EAEADB4E5FC196EA72E8FD1914C42760E31ADBF40E6"
+            }
           },
           {
             "tag": "2022-CU21-ubuntu-22.04",
             "cu": "CU21",
             "build": "16.0.4215.2",
             "kb": "KB5065865",
-            "released": "2025-09-11"
+            "released": "2025-09-11",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2022/cumulativeupdate21",
+            "windows": {
+              "relativePath": "SQL/2022/Updates/CU21/SQLServer2022-KB5065865-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2025/09/sqlserver2022-kb5065865-x64_d3f857bf4df7a52fc5597a040c5846aedff394e0.exe",
+              "sha256": "91B2659FA385584AA10278D3016531782F209BE0D94DB84BE3EE9F2094ED43A5"
+            }
           },
           {
             "tag": "2022-CU20-ubuntu-22.04",
             "cu": "CU20",
             "build": "16.0.4205.1",
             "kb": "KB5059390",
-            "released": "2025-07-10"
+            "released": "2025-07-10",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2022/cumulativeupdate20",
+            "windows": {
+              "relativePath": "SQL/2022/Updates/CU20/SQLServer2022-KB5059390-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2025/07/sqlserver2022-kb5059390-x64_cab0cf34309ddb2b37fb45a57dd22b4488d230c3.exe",
+              "sha256": "3565C4DE8D3ADB31BCD7B11528B1287FFC7A23E118A5817FCBCF92DC88270243"
+            }
           },
           {
             "tag": "2022-CU19-ubuntu-22.04",
             "cu": "CU19",
             "build": "16.0.4195.2",
             "kb": "KB5054531",
-            "released": "2025-05-15"
+            "released": "2025-05-15",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2022/cumulativeupdate19",
+            "windows": {
+              "relativePath": "SQL/2022/Updates/CU19/SQLServer2022-KB5054531-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2025/05/sqlserver2022-kb5054531-x64_1f9436d6f4ae16354819cab42a6aef9292f1fc06.exe",
+              "sha256": "6E58447853AF96373BB838E7E7A0B41237CC8DAC2EBDCB78E13A268BE27B2694"
+            }
           },
           {
             "tag": "2022-CU18-ubuntu-22.04",
             "cu": "CU18",
             "build": "16.0.4185.3",
             "kb": "KB5050771",
-            "released": "2025-03-13"
+            "released": "2025-03-13",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2022/cumulativeupdate18",
+            "windows": {
+              "relativePath": "SQL/2022/Updates/CU18/SQLServer2022-KB5050771-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2025/03/sqlserver2022-kb5050771-x64_233edb6efd3b6e183728490d060e3f030b930753.exe",
+              "sha256": "A7C178021008D6C8A081BEBBE576F4EEB845896DD7220730B046CAE0619FC2B5"
+            }
           },
           {
             "tag": "2022-CU17-ubuntu-22.04",
             "cu": "CU17",
             "build": "16.0.4175.1",
             "kb": "KB5048038",
-            "released": "2025-01-16"
+            "released": "2025-01-16",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2022/cumulativeupdate17",
+            "windows": {
+              "relativePath": "SQL/2022/Updates/CU17/SQLServer2022-KB5048038-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/updt/2025/01/sqlserver2022-kb5048038-x64_48e1b7799cfd98aa2b8577cd67ddc93fd41c45c3.exe",
+              "sha256": "1B3F57691F8A7B9950CB1F05EAF18E87B3275378FF6A0386E6A017E1543A7880"
+            }
           },
           {
             "tag": "2022-CU16-ubuntu-22.04",
             "cu": "CU16",
             "build": "16.0.4165.4",
             "kb": "KB5048033",
-            "released": "2024-11-14"
+            "released": "2024-11-14",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2022/cumulativeupdate16",
+            "windows": {
+              "relativePath": "SQL/2022/Updates/CU16/SQLServer2022-KB5048033-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/updt/2024/11/sqlserver2022-kb5048033-x64_b8a92ed52881f23458306553db4c39fda77ca333.exe",
+              "sha256": "169493E443AA9BDED1E18DE8F454560407AB634BA9F7A5FFA6A55F3A675F3A84"
+            }
           },
           {
             "tag": "2022-CU15-ubuntu-22.04",
             "cu": "CU15",
             "build": "16.0.4145.4",
             "kb": "KB5041321",
-            "released": "2024-09-25"
+            "released": "2024-09-25",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2022/cumulativeupdate15",
+            "windows": {
+              "relativePath": "SQL/2022/Updates/CU15/SQLServer2022-KB5041321-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/updt/2024/09/sqlserver2022-kb5041321-x64_1b40129fb51df67f28feb2a1ea139044c611b93f.exe",
+              "sha256": "758EE805FAA130028085114FB2BCE215765EE10C9648DDB80DAB40FD8D6AE51A"
+            }
           },
           {
             "tag": "2022-CU14-ubuntu-22.04",
             "cu": "CU14",
             "build": "16.0.4135.4",
             "kb": "KB5038325",
-            "released": "2024-07-23"
+            "released": "2024-07-23",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2022/cumulativeupdate14",
+            "windows": {
+              "relativePath": "SQL/2022/Updates/CU14/SQLServer2022-KB5038325-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/updt/2024/07/sqlserver2022-kb5038325-x64_1a2c366f2d46a39686be1460c1a3f9f5ad916c4b.exe",
+              "sha256": "954287B6D8E64612E93E9137379002D49A401CAF1E37B5697D340F127177AEDA"
+            }
           },
           {
             "tag": "2022-CU13-ubuntu-22.04",
             "cu": "CU13",
             "build": "16.0.4125.3",
             "kb": "KB5036432",
-            "released": "2024-05-16"
+            "released": "2024-05-16",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2022/cumulativeupdate13",
+            "windows": {
+              "relativePath": "SQL/2022/Updates/CU13/SQLServer2022-KB5036432-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2024/05/sqlserver2022-kb5036432-x64_01edc2be6c988f5795c010566bb80c343b7bb982.exe",
+              "sha256": "E78D2CF147BB596017615D50A5AB8CF3812A718AAB85CAB6C08C34A50D5935FB"
+            }
+          },
+          {
+            "tag": "2022-CU12-ubuntu-22.04",
+            "cu": "CU12",
+            "build": "16.0.4115.5",
+            "kb": "KB5033663",
+            "released": "2024-03-14",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2022/cumulativeupdate12",
+            "windows": {
+              "relativePath": "SQL/2022/Updates/CU12/SQLServer2022-KB5033663-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2024/03/sqlserver2022-kb5033663-x64_a58455d6f9dea34bcf2508d9cc40388422fe8388.exe",
+              "sha256": "A9FC6D06BAA5EAEC40A8426F8562E060E4402E86713781AE2826EC2DBB0810B0"
+            }
+          },
+          {
+            "tag": "2022-CU11-ubuntu-22.04",
+            "cu": "CU11",
+            "build": "16.0.4105.2",
+            "kb": "KB5032679",
+            "released": "2024-01-11",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2022/cumulativeupdate11",
+            "windows": {
+              "relativePath": "SQL/2022/Updates/CU11/SQLServer2022-KB5032679-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2024/01/sqlserver2022-kb5032679-x64_a3adcca15177b4b6e9e8bea669196bcf1f8a21cc.exe",
+              "sha256": "A7C447E35606C4B64817CD1C4CB6FB18DAAECC13D5998C052E81BC2AC574CB5D"
+            }
+          },
+          {
+            "tag": "2022-CU10-ubuntu-22.04",
+            "cu": "CU10",
+            "build": "16.0.4095.4",
+            "kb": "KB5031778",
+            "released": "2023-11-16",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2022/cumulativeupdate10",
+            "windows": {
+              "relativePath": "SQL/2022/Updates/CU10/SQLServer2022-KB5031778-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2023/11/sqlserver2022-kb5031778-x64_8e55c5f6d70155e9f7fc190383373917426668a2.exe",
+              "sha256": "CFB5CFDF000D9F2FFA40FD373FB99FF970353495D1BF8F572509AA26187F9B5E"
+            }
+          },
+          {
+            "tag": "2022-CU9-ubuntu-20.04",
+            "cu": "CU9",
+            "build": "16.0.4085.2",
+            "kb": "KB5030731",
+            "released": "2023-10-12",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2022/cumulativeupdate9",
+            "windows": {
+              "relativePath": "SQL/2022/Updates/CU9/SQLServer2022-KB5030731-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/updt/2023/10/sqlserver2022-kb5030731-x64_80421eb6076cf67677f77df86402c2f602178328.exe",
+              "sha256": "FB55DACF5D956F05BFFB7CA583C30D68A412621C316D1A24C8A828F86A473884"
+            }
+          },
+          {
+            "tag": "2022-CU8-ubuntu-20.04",
+            "cu": "CU8",
+            "build": "16.0.4075.1",
+            "kb": "KB5029666",
+            "released": "2023-09-14",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2022/cumulativeupdate8",
+            "windows": {
+              "relativePath": "SQL/2022/Updates/CU8/SQLServer2022-KB5029666-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2023/09/sqlserver2022-kb5029666-x64_30b8b3666963cf01cb09b35c26a34a04d89cde8d.exe",
+              "sha256": "505FF05430527FF1549DA0778C1710D433915D25C510CA261C850BF58C3EC2D2"
+            }
+          },
+          {
+            "tag": "2022-CU7-ubuntu-20.04",
+            "cu": "CU7",
+            "build": "16.0.4065.3",
+            "kb": "KB5028743",
+            "released": "2023-08-10",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2022/cumulativeupdate7",
+            "windows": {
+              "relativePath": "SQL/2022/Updates/CU7/SQLServer2022-KB5028743-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2023/08/sqlserver2022-kb5028743-x64_18dab43fdb947ffa86ef4ec669666bef2f4221c2.exe",
+              "sha256": "26D68D5EE50EDB740AB35E37638435FE5DF51E38EC5D089F22F3FEBB0E8EA766"
+            }
+          },
+          {
+            "tag": "2022-CU6-ubuntu-20.04",
+            "cu": "CU6",
+            "build": "16.0.4055.4",
+            "kb": "KB5027505",
+            "released": "2023-07-13",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2022/cumulativeupdate6",
+            "windows": {
+              "relativePath": "SQL/2022/Updates/CU6/SQLServer2022-KB5027505-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2023/07/sqlserver2022-kb5027505-x64_7e188a61f59eaf1011bc1625900202d7fbca6b0d.exe",
+              "sha256": "65591B7E4CE4FB5AFC424CEE903ED90B0A9997569F9263A1183581A48DE5AFF2"
+            }
+          },
+          {
+            "tag": "2022-CU5-ubuntu-20.04",
+            "cu": "CU5",
+            "build": "16.0.4045.3",
+            "kb": "KB5026806",
+            "released": "2023-06-15",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2022/cumulativeupdate5",
+            "windows": {
+              "relativePath": "SQL/2022/Updates/CU5/SQLServer2022-KB5026806-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/updt/2023/06/sqlserver2022-kb5026806-x64_acb1d3f77f574f335ac4315aadd8feaf6dfc2d4d.exe",
+              "sha256": "B78292D674D9499A3DCE15D5628E7E5226873FD015F9EEE382CA0197D7C60BAD"
+            }
+          },
+          {
+            "tag": "2022-CU4-ubuntu-20.04",
+            "cu": "CU4",
+            "build": "16.0.4035.4",
+            "kb": "KB5026717",
+            "released": "2023-05-11",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2022/cumulativeupdate4",
+            "windows": {
+              "relativePath": "SQL/2022/Updates/CU4/SQLServer2022-KB5026717-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2023/05/sqlserver2022-kb5026717-x64_d6abee2fc65b806a2db2dc77590ddda77f6fa79d.exe",
+              "sha256": "110B1B51DD804FD53315A4FEB58E90A3273AC08750CD3A3396C38B300D228B99"
+            }
+          },
+          {
+            "tag": "2022-CU3-ubuntu-20.04",
+            "cu": "CU3",
+            "build": "16.0.4025.1",
+            "kb": "KB5024396",
+            "released": "2023-04-13",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2022/cumulativeupdate3",
+            "windows": {
+              "relativePath": "SQL/2022/Updates/CU3/SQLServer2022-KB5024396-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2023/04/sqlserver2022-kb5024396-x64_dcdb0dcb05dce5f9be87e6355f3077a488291b70.exe",
+              "sha256": "FD9412F77876358473E08C9866F1678DDDC66739A2A9E81C8EC6514D61577405"
+            }
+          },
+          {
+            "tag": "2022-RTM-CU2-ubuntu-20.04",
+            "cu": "CU2",
+            "build": "16.0.4015.1",
+            "kb": "KB5023127",
+            "released": "2023-03-15",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2022/cumulativeupdate2",
+            "windows": {
+              "relativePath": "SQL/2022/Updates/CU2/SQLServer2022-KB5023127-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2023/03/sqlserver2022-kb5023127-x64_8773dc0f893badbbd32531e2e8cc7889ffcb7f54.exe",
+              "sha256": "076E99DF447AC3F977F6ABB3D94874F5D75EE8C6EB1AD772FB1C874F5D17CA35"
+            }
+          },
+          {
+            "tag": "2022-CU1-ubuntu-20.04",
+            "cu": "CU1",
+            "build": "16.0.4003.1",
+            "kb": "KB5022375",
+            "released": "2023-02-16",
+            "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2022/cumulativeupdate1",
+            "windows": {
+              "relativePath": "SQL/2022/Updates/CU1/SQLServer2022-KB5022375-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/updt/2023/03/sqlserver2022-kb5022375-x64_ab34fe7633beef56c7bce1e212a6cf56c91f4e57.exe",
+              "sha256": "589F5609A99EDC07AAAD2C73FFE53E1259B6BC1BCDE3ED950468C8219D2C9594"
+            }
           }
         ]
       },
@@ -239,8 +828,8 @@
             "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2025/cumulativeupdate8",
             "windows": {
               "relativePath": "SQL/2025/Updates/CU8/SQLServer2025-KB5104822-x64.exe",
-              "downloadUrl": null,
-              "sha256": null
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2026/08/sqlserver2025-kb5104822-x64_f81441d815648ba90c17c3020f80914cac8b9045.exe",
+              "sha256": "0730D5A44A0B51454B635CA08C4174BB49BD6406CE8D154B3351B2A01D833932"
             }
           },
           {
@@ -252,8 +841,8 @@
             "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2025/cumulativeupdate7",
             "windows": {
               "relativePath": "SQL/2025/Updates/CU7/SQLServer2025-KB5096981-x64.exe",
-              "downloadUrl": null,
-              "sha256": null
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2026/07/sqlserver2025-kb5096981-x64_9fa0966b760db526baf7f1e33feb2a650efb21d3.exe",
+              "sha256": "5FB70451BEF95B4A392B718B90C7A05EA389B2C0B29E07A3DE9768F7F3B736B5"
             }
           },
           {
@@ -265,8 +854,8 @@
             "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2025/cumulativeupdate6",
             "windows": {
               "relativePath": "SQL/2025/Updates/CU6/SQLServer2025-KB5093421-x64.exe",
-              "downloadUrl": null,
-              "sha256": null
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2026/06/sqlserver2025-kb5093421-x64_e901fba0737992c7114d5644aa3e46befa4ed876.exe",
+              "sha256": "1D91082726FD4331F7D48FF992BA3C7511599F881FBE3ABE431148AA9CE74441"
             }
           },
           {
@@ -278,8 +867,8 @@
             "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2025/cumulativeupdate5",
             "windows": {
               "relativePath": "SQL/2025/Updates/CU5/SQLServer2025-KB5084896-x64.exe",
-              "downloadUrl": null,
-              "sha256": null
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2026/05/sqlserver2025-kb5084896-x64_9f07a18fe63258121b55acd5dc92d82288b7acde.exe",
+              "sha256": "1CD6A4CCBCEABFAE58377079ADD3BE96EBD1051B095FD1C02A9C270BC9A718DA"
             }
           },
           {
@@ -291,8 +880,8 @@
             "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2025/cumulativeupdate4",
             "windows": {
               "relativePath": "SQL/2025/Updates/CU4/SQLServer2025-KB5081495-x64.exe",
-              "downloadUrl": null,
-              "sha256": null
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/updt/2026/04/sqlserver2025-kb5081495-x64_5e462684068e621539814fd2f3667388e8082cd7.exe",
+              "sha256": "E8050B7619939C6C0F2CA352DA50F8659F0BEFD63798A4EDC84210F084EA199B"
             }
           },
           {
@@ -304,8 +893,8 @@
             "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2025/cumulativeupdate3",
             "windows": {
               "relativePath": "SQL/2025/Updates/CU3/SQLServer2025-KB5077896-x64.exe",
-              "downloadUrl": null,
-              "sha256": null
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2026/03/sqlserver2025-kb5077896-x64_0344c9c245ee038514467a02bf8a1dbb88cf8d83.exe",
+              "sha256": "13575286CC307A4E52A056477FD8A17E79309680C6A216463F365D4ED919428D"
             }
           },
           {
@@ -317,8 +906,8 @@
             "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2025/cumulativeupdate2",
             "windows": {
               "relativePath": "SQL/2025/Updates/CU2/SQLServer2025-KB5075211-x64.exe",
-              "downloadUrl": null,
-              "sha256": null
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/updt/2026/02/sqlserver2025-kb5075211-x64_9174f62d7de60141202a08620369b31e8f026043.exe",
+              "sha256": "96ECDF19BBAA193D3689F22DE20E122656F9AD9357B851A3D0FA3FCBEECC9525"
             }
           },
           {
@@ -330,8 +919,8 @@
             "articleUrl": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2025/cumulativeupdate1",
             "windows": {
               "relativePath": "SQL/2025/Updates/CU1/SQLServer2025-KB5078298-x64.exe",
-              "downloadUrl": null,
-              "sha256": null
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2026/01/sqlserver2025-kb5078298-x64_7e9a2e1a3d5e40560ff007d65b62666156961ed3.exe",
+              "sha256": "436CCE96F805C12348809FA791E3A8839BB6D3BB408A5E0EFF6886D053B448EF"
             }
           }
         ]

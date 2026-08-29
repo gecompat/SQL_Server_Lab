@@ -98,6 +98,38 @@ Test-SqlServerLabPrerequisite -Provider podman
 
 Die Prüfung erzeugt keine Container. Sie bewertet unter anderem Runtime-Verfügbarkeit, RAM, Storage und Ports.
 
+### 4a. Beliebigen CU vorab bereitstellen
+
+Der Versionskatalog enthält alle 65 bei Microsoft weiterhin verfügbaren CUs
+für SQL Server 2019, 2022 und 2025. Windows-Pakete werden in den Media Root
+geschrieben und vor der Veröffentlichung gegen den katalogisierten SHA-256
+sowie eine gültige Microsoft-Authenticode-Signatur geprüft:
+
+```powershell
+Save-SqlServerLabCuResource `
+    -SqlVersion 2019 `
+    -Cu CU6 `
+    -Platform Windows `
+    -MediaRoot 'D:\Lab_Base'
+```
+
+Unter Linux wird derselbe CU über seinen expliziten MCR-Tag in den lokalen
+Docker- oder Podman-Cache gezogen:
+
+```powershell
+Save-SqlServerLabCuResource `
+    -SqlVersion 2019 `
+    -Cu CU6 `
+    -Platform Linux `
+    -Provider Docker
+```
+
+Ohne Parameterkenntnis führt das Konsolenmenü unter **Medien, Testdaten und
+Speicher → SQL Server CU herunterladen oder prüfen** durch Plattform, Version,
+CU und Container-Provider. Ein fehlender oder nicht katalogisierter CU wird
+fail-closed abgelehnt; SQL Server 2019 CU7 ist wegen des Microsoft-Rückzugs
+nicht auswählbar.
+
 ## 5. Erste Instanz erstellen
 
 Docker:
