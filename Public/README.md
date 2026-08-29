@@ -46,7 +46,7 @@ Dieses Verzeichnis enthält die öffentlichen PowerShell-Funktionen des Moduls. 
 | `Get-SqlServerLabGeneratedSqlAccess` | `Get-SqlServerLabGeneratedSqlAccess.ps1` | Hyper-V-SQL-Laufzeit passwortgesicherte SA-Zugriffsdaten mit ConnectionString als kopierfertiges Objekt zurückgeben |
 | `New-SqlServerLabAutomatedTestEnvironment` | `TestEnvironment.ps1` | Linux-Testumgebungen mit getrennten Zufallskennwörtern erstellen und nach Lab_Data exportieren |
 | `Export-SqlServerLabTestEnvironment` | `TestEnvironment.ps1` | Registrierte Testumgebungen mit gebundener Live-Health-Prüfung als dotenv, schema-validierbares JSON, portablen Agenten-Prompt und Markdown exportieren |
-| `Repair-SqlServerLabAutomatedTestEnvironment` | `TestEnvironment.ps1` | Nur registrierte Linux-Mitglieder der geschützten Gruppe auf den Ressourcen- und Health-Vertrag abgleichen; Ports, Volumes und Windows-Mitglieder bleiben erhalten |
+| `Repair-SqlServerLabAutomatedTestEnvironment` | `TestEnvironment.ps1` | Linux-Ressourcen, Health und Autostart sowie sprechende Runtime-Namen aller registrierten Mitglieder abgleichen; Ports, Volumes und Run-IDs bleiben erhalten |
 | `Start-SqlServerLabAutomatedTestEnvironment` | `TestEnvironmentLifecycle.ps1` | Registrierte Windows-Hyper-V-Mitglieder gruppenweise starten, SQL-Dienste bereitstellen und den live erneuerten Export bis `READY` prüfen |
 | `Stop-SqlServerLabAutomatedTestEnvironment` | `TestEnvironmentLifecycle.ps1` | Registrierte Windows-Hyper-V-Mitglieder gruppenweise ausschalten, Hostkapazität freigeben und den Export fail-closed erneuern; keine Runs oder Registrierungen löschen |
 | `Clear-SqlServerLabAutomatedTestEnvironment` | `TestEnvironment.ps1` | Alle Runs der geschützten Testgruppe gemeinsam entfernen und deren Exporte löschen |

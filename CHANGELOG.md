@@ -31,6 +31,13 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Behoben
 
+- Registrierte automatisierte Testumgebungen konvergieren ihre nativen Docker-,
+  Podman- und Hyper-V-Namen jetzt auf einen sprechenden, aus dem stabilen
+  Registry-Schlüssel abgeleiteten Namen. Übernommene Windows-Pool-Slots werden
+  bei der Belegung sicher umbenannt; freie Slots behalten ihre Poolbezeichnung.
+- Der Container-Reconcile akzeptiert beim Mount-Fingerprint nun auch die gültige
+  leere Mount-Liste und blockiert dadurch mountfreie ältere Container nicht mehr
+  vor einer kontrollierten Reparatur oder Umbenennung.
 - Der native Testgruppen-Lifecycle hinterlässt die persistenten Windows-
   Testumgebungen nach seiner Start-/Stop-Abnahme nicht mehr ausgeschaltet. Sein
   garantiertes Cleanup stellt alle registrierten Hyper-V-Mitglieder, den

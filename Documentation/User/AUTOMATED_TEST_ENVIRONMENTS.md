@@ -241,11 +241,15 @@ Der reale Hostnachweis vom 2026-08-28 ist im
 [Validierungsbericht zum geschützten Testgruppen-Lifecycle](../Quality/VALIDATION_RESULT_2026-08-28_TEST_ENVIRONMENT_LIFECYCLE.md)
 dokumentiert.
 
-Ist nur der Ressourcen- oder Health-Vertrag der registrierten Linux-Container
-veraltet, wird die geschützte Gruppe nicht gelöscht. Der öffentliche
-Reparaturpfad ersetzt ausschließlich die betroffenen Docker-/Podman-Container
-einzeln und mit Rollback; Run-IDs, Hostports, Volumes und Kennwörter bleiben
-erhalten. Windows-Mitglieder werden dabei nicht verändert:
+Ist der Ressourcen-, Health-, Autostart- oder Namensvertrag veraltet, wird die
+geschützte Gruppe nicht gelöscht. Der öffentliche Reparaturpfad ersetzt nur
+betroffene Docker-/Podman-Container und besitzt dafür einen einzelnen Rollback.
+Zusätzlich leitet er aus jedem Registry-Schlüssel einen sprechenden Namen ab,
+zum Beispiel `test-linux-2022-latest-primary-<run>` oder
+`test-windows-2022-base-<run>`. Bereits belegte Hyper-V-Slots werden für eine
+notwendige Umbenennung kurz gestoppt und garantiert wieder gestartet; freie
+Pool-Slots behalten ihren Slotnamen. Run-IDs, Hostports, Volumes und Kennwörter
+bleiben erhalten:
 
 ```powershell
 Repair-SqlServerLabAutomatedTestEnvironment

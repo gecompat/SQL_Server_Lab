@@ -178,8 +178,9 @@ COMMANDS
         configured Lab_Data export directory.
 
     Repair-SqlServerLabAutomatedTestEnvironment
-        Repairs the resource and health contract of registered Linux members
-        without replacing Windows members, ports, or volumes.
+        Repairs resources, health, and autostart for registered Linux members
+        and reconciles readable runtime names for all containers and assigned
+        Hyper-V slots. Ports, volumes, and run IDs remain unchanged.
 
     Start-SqlServerLabAutomatedTestEnvironment
         Starts the registered Windows Hyper-V members as one protected group,

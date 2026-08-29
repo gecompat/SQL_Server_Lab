@@ -1376,7 +1376,7 @@ function Invoke-LabAutomatedTestEnvironmentInteractive {
                 $intent = [PSCustomObject]@{
                     Contract='SqlServerLab.AutomatedTestIntent/1.0'; TestAutomation=$true
                     TestEnvironmentKey=$request.Key; TestEnvironmentPatch=$request.Patch
-                    LabName=$request.Name; InstanceId=$request.InstanceId; BaseVersion=$request.SqlVersion
+                    LabName=(Get-LabAutomatedTestEnvironmentDisplayName -Key ([string]$request.Key)); InstanceId=$request.InstanceId; BaseVersion=$request.SqlVersion
                     VersionId=[string]$request.PatchIntent.VersionId; Patch=$request.PatchIntent; Purpose='adhoc-install'
                     RequiresWindows=$true; RequiresFreshSqlInstall=$true; PreferExistingWindowsSlot=$true; Edition='Developer'; Cpu=[decimal]4; MemoryMB=4096
                     Profile='standard'; NetworkMode='host-access'; HostPort=0; Collation='SQL_Latin1_General_CP1_CI_AS'
@@ -1394,6 +1394,8 @@ function Invoke-LabAutomatedTestEnvironmentInteractive {
                     } | Sort-Object createdAt -Descending | Select-Object -First 1)[0]
                 }
                 if (-not $createdRun) { throw 'TEST_ENVIRONMENT_HYPERV_RUN_NOT_CREATED' }
+                $null = Rename-LabAutomatedTestEnvironmentRuntime -RunId ([string]$createdRun.runId) `
+                    -InstanceId ([string]$request.InstanceId) -Key ([string]$request.Key)
                 $null = Register-LabTestEnvironmentRun -RunId ([string]$createdRun.runId) -Platform windows `
                     -SqlVersion ([string]$request.SqlVersion) -Patch ([string]$request.Patch) -InstanceId ([string]$request.InstanceId) -Name ([string]$request.Key)
             }
@@ -1615,6 +1617,9 @@ function Invoke-LabNewHyperVSqlEnvironmentWorkflowInteractive {
     if ($reusableSlot) {
         if ($Intent) { $Intent | Add-Member -NotePropertyName ReusedWindowsSlotRunId -NotePropertyValue ([string]$reusableSlot.RunId) -Force }
         if ($Intent -and $Intent.TestAutomation) {
+            $rename = Rename-LabAutomatedTestEnvironmentRuntime -RunId ([string]$reusableSlot.RunId) `
+                -InstanceId ([string]$Intent.InstanceId) -Key ([string]$Intent.TestEnvironmentKey)
+            $reusableSlot.VMName = [string]$rename.VMName
             $null = Register-LabTestEnvironmentRun -RunId ([string]$reusableSlot.RunId) -Platform windows `
                 -SqlVersion ([string]$Intent.BaseVersion) -Patch ([string]$Intent.TestEnvironmentPatch) `
                 -InstanceId ([string]$Intent.InstanceId) -Name ([string]$Intent.TestEnvironmentKey)
