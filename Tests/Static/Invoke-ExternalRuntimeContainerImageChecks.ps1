@@ -420,6 +420,11 @@ Add-CheckResult -Name 'Jeder finale Target übernimmt den versionsgebundenen Lau
         $podmanSource -match 'PODMAN_CONTAINER_START_PORT_RELEASE_TIMEOUT' -and
         $podmanSource -notmatch '(?m)^\s*podman restart '
     )
+    Add-CheckResult -Name 'LaunchPad-Netzbrücken-Retry ist auf eine bekannte Signatur und einen Versuch begrenzt' -Success (
+        $lifecycleSource -match "setnetbr\.\*Failed to get IP address: interrupted system call" -and
+        ([regex]::Matches($lifecycleSource, 'Transiente LaunchPad-Netzbrücken-Race')).Count -eq 1 -and
+        $lifecycleSource -match 'Start-Sleep -Seconds 2'
+    )
     Add-CheckResult -Name 'Native Acceptance prueft den unveraenderten freigegebenen Katalog providergetrennt' -Success (
         @('derived-image-build','sql-external-runtime' | Where-Object { @($dockerDefinition.capabilities) -notcontains $_ }).Count -eq 0 -and
         @('derived-image-build','sql-external-runtime' | Where-Object { @($podmanDefinition.capabilities) -notcontains $_ }).Count -eq 0 -and
