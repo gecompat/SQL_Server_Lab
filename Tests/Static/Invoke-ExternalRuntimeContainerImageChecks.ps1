@@ -339,6 +339,8 @@ Add-CheckResult -Name 'Jeder finale Target übernimmt den versionsgebundenen Lau
     Add-CheckResult -Name 'Launcher deaktiviert weder Namespace-Isolation noch Outbound-Schutz' -Success (
         $launcher -match 'runuser -u mssql_launchpadd -- /opt/mssql/bin/launchpadd &' -and
         $launcher -match 'runuser -u mssql -- "\$@" &' -and
+        $launcher -match 'if \[\[ -f /opt/mssql/bin/init_custom_setup\.sh \]\]' -and
+        $launcher -match 'if \[\[ -x /opt/mssql/bin/run_custom_setup\.sh \]\]' -and
         $launcher -notmatch '(?i)-usens=false|enableOutboundAccess=true'
     )
     Add-CheckResult -Name 'Jedes Image synchronisiert EULA und Extensibility-Konfiguration rollback-sicher beim Start' -Success (
