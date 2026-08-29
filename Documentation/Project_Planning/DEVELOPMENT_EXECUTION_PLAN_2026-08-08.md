@@ -201,12 +201,12 @@ Container-Volumes gehören dagegen in den normalen Storage-Pfad.
 
 ### 5.1 Aktueller Meilensteinstatus
 
-| Meilenstein | Status am 2026-08-20 | Nächster belastbarer Schritt |
+| Meilenstein | Status am 2026-08-29 | Nächster belastbarer Schritt |
 |---|---|---|
 | M0 Statuswahrheit | `validated` | Drift weiter statisch verhindern |
 | Providerneutraler Instanz-Autostart | `implemented_runtime_partial` | Docker-/SQL-2025-Runtime ist grün; Podman-Self-hosted-Gate und nativen Hyper-V-Lifecycle fortlaufend grün halten |
-| M1 Desired State und Planner | `implemented_partial` | Journal/Resume und weitere Änderungsklassen |
-| M2 UI und Container-Reconcile | `implemented_partial` | Batch/Queue real verifiziert: Docker und Podman mit je zwei SQL-2025-Runs, Hyper-V mit zwei Windows-2025-Slots, harter Docker-Scheduler-Abbruch, Manifest-Rerun, Resume und Cleanup; reale `live`-/`recreate`-Änderungen offen |
+| M1 Desired State und Planner | `implemented_partial` | Container-Journal, Repair und Recovery sind real verifiziert; weitere Provider- und Änderungsklassen bleiben offen |
+| M2 UI und Container-Reconcile | `implemented_partial` | Batch/Queue sowie Container-`no-op`, `live`, `recreate`, Rollback und Persistenz sind für Docker und Podman real verifiziert; beliebige Mount-/Environment-Änderungen aus `CNT-214` bleiben offen |
 | M3 Adapterpiloten | `planned_external_scope` | je ein Pilot in den drei Konsumenten-Repositories |
 | M4 Hyper-V OS Cold Path | `validated_reference` | weitere freigegebene Windows-Varianten getrennt belegen |
 | M5 Hyper-V SQL und Resolver | `validated_reference_partial_manifest` | Datenbank-, Software-, Post-Provisioning- und Network-Manifestparität |
