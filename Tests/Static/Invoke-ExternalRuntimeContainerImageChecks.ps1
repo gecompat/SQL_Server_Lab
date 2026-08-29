@@ -268,12 +268,18 @@ try {
         @($result.CombinedPlan.ContextEvidence).Count -eq 9 -and
         $result.CombinedPlan.ImageKey -notin @($result.DockerPlan.ImageKey, $result.DockerRPlan.ImageKey)
     )
-    Add-CheckResult -Name 'Java-Image-Key ist providerneutral und bindet acht vollständige Kontextdateien' -Success (
+Add-CheckResult -Name 'Java-Image-Key ist providerneutral und bindet acht vollständige Kontextdateien' -Success (
         $result.DockerJavaPlan.ImageKey -eq $result.PodmanJavaPlan.ImageKey -and
         $result.DockerJavaPlan.BuildStage -eq 'runtime-java' -and
         $result.DockerJavaPlan.BuildTokens -join ',' -eq 'java' -and
         @($result.DockerJavaPlan.ContextEvidence).Count -eq 8
-    )
+)
+Add-CheckResult -Name 'Java-only verwendet einen frühen finalen Build-Target ohne Python-/R-Vorstages' -Success (
+    [string]$result.DockerJavaPlan.BuildTarget -eq 'selected-runtime-java' -and
+    [string]$result.PodmanJavaPlan.BuildTarget -eq 'selected-runtime-java' -and
+    (Get-Content -LiteralPath (Join-Path $repoRoot 'Images/ExternalLanguages/Linux/Containerfile') -Raw -Encoding utf8) -match 'FROM runtime-java AS selected-runtime-java' -and
+    (Get-Content -LiteralPath (Join-Path $repoRoot 'Private/ContainerImageArtifact.ps1') -Raw -Encoding utf8) -match "'--target', \[string\]\`$ImagePlan\.BuildTarget"
+)
     Add-CheckResult -Name 'Alle Java-Kombinationen verwenden kanonische und vorhandene OCI-Stages' -Success (
         $result.PythonJavaPlan.BuildStage -eq 'runtime-python-java' -and
         $result.RJavaPlan.BuildStage -eq 'runtime-r-java' -and

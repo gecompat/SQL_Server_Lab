@@ -80,6 +80,30 @@ RUN /opt/sql-server-lab/java/jre/bin/java -version; \
     test -x /opt/sql-server-lab/java/jre/lib/jspawnhelper; \
     /opt/mssql/bin/mssql-conf set extensibility datadirectories /opt/sql-server-lab/java
 
+FROM runtime-java AS selected-runtime-java
+ARG EXTERNAL_RUNTIMES=java
+ARG CONTENT_ID=characterization
+
+USER root
+RUN test "${EXTERNAL_RUNTIMES}" = 'java'; \
+    install -d -m 0755 /opt/sql-server-lab/config; \
+    install -m 0644 /var/opt/mssql/mssql.conf /opt/sql-server-lab/config/external-runtime-mssql.conf
+
+LABEL org.opencontainers.image.title="SQL Server Lab External Runtime" \
+      org.opencontainers.image.vendor="SQL_Server_Lab" \
+      sql-server-lab.external-runtime.contract="1.0" \
+      sql-server-lab.external-runtime.image-key="${CONTENT_ID}" \
+      sql-server-lab.external-runtime.languages="${EXTERNAL_RUNTIMES}" \
+      sql-server-lab.external-runtime.launch-mode="${EXTERNAL_RUNTIME_LAUNCH_MODE}" \
+      sql-server-lab.external-runtime.required-cgroup-version="1" \
+      sql-server-lab.external-runtime.required-capabilities="CHOWN,DAC_OVERRIDE,KILL,SETGID,SETUID,SYS_ADMIN,MKNOD,SETPCAP,NET_ADMIN,NET_RAW,SYS_PTRACE" \
+      sql-server-lab.external-runtime.required-security-options="apparmor=unconfined,seccomp=unconfined" \
+      sql-server-lab.external-runtime.namespace-isolation="true" \
+      sql-server-lab.external-runtime.outbound-access="false"
+
+ENTRYPOINT ["/opt/sql-server-lab/bin/launch-external-runtime.sh"]
+CMD ["/opt/mssql/bin/sqlservr"]
+
 FROM runtime-base AS runtime-openmp
 ARG LIBGOMP_DEB_URL=https://archive.ubuntu.com/ubuntu/pool/main/g/gcc-12/libgomp1_12.3.0-1ubuntu1~22.04.3_amd64.deb
 ARG LIBGOMP_DEB_SHA256=870c27299185a5dd4accad3b15bf82a7409fd7073cccaa8025875307da4d0ce2
