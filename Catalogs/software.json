@@ -11,6 +11,7 @@
       "https://learn.microsoft.com/en-us/sql/linux/install-upgrade/setup-machine-learning-sql-2022?view=sql-server-ver17",
       "https://learn.microsoft.com/en-us/sql/language-extensions/install/windows-java?view=sql-server-ver17",
       "https://learn.microsoft.com/en-us/sql/linux/install-upgrade/setup-language-extensions-java?view=sql-server-ver17",
+      "https://learn.microsoft.com/en-us/sql/language-extensions/install/windows-c-sharp?view=sql-server-ver17",
       "https://packages.ubuntu.com/jammy/amd64/libgomp1/download"
     ]
   },
@@ -571,14 +572,14 @@
         {
           "id": "sql2022-java11-ubuntu2204-derived",
           "status": "SUPPORTED",
-          "reason": "Der digestgebundene Derived-Image-Pfad verwendet je SQL-Version das passende Microsoft-Extensibilitypaket; native SQL-2022-Evidence belegt Java-Datenroundtrip, datenbankgebundene DDL, JAR-Datenroundtrip, Worker-Identitaet, providergebundenen Neustart und Cleanup, SQL 2025 verwendet denselben Custom-Runtime-Vertrag mit versionsgebundener Ubuntu-24.04-Infrastruktur.",
+          "reason": "Der digestgebundene Derived-Image-Pfad verwendet je SQL-Version das passende Microsoft-Extensibilitypaket; Java wird ab SQL Server 2019 als Language Extension unterstützt und verwendet eine versionsgebundene Ubuntu-Infrastruktur.",
           "language": "Java",
           "runtimeVersion": "11",
           "extensionVersion": "1.1.1",
-          "sqlMajorVersions": [16, 17],
+          "sqlMajorVersions": [15, 16, 17],
           "minimumCu": null,
           "operatingSystem": "linux",
-          "distributions": ["ubuntu-22.04", "ubuntu-24.04"],
+          "distributions": ["ubuntu-20.04", "ubuntu-22.04", "ubuntu-24.04"],
           "architecture": "x86_64",
           "providers": ["docker", "podman"],
           "installMethod": "derived-image",
@@ -797,6 +798,54 @@
             "language": "Java",
             "probeId": "java-synthetic-library",
             "expectedRuntimeVersion": "17"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sql-csharp",
+      "kind": "sqlExternalRuntime",
+      "displayName": "C#/.NET für SQL Server Language Extensions",
+      "variants": [
+        {
+          "id": "sql2019plus-dotnet8-windows-hyperv-source",
+          "status": "PREVIEW",
+          "reason": "Microsoft unterstützt C# ab SQL Server 2019 CU3 ausschließlich unter Windows. Der einzige veröffentlichte Binärrelease 1.0.0 zielt jedoch auf die nicht mehr unterstützte .NET-5-Runtime; der aktuelle Microsoft-Quellstand zielt auf .NET 8, besitzt aber noch keinen veröffentlichten reproduzierbaren Binärrelease. Deshalb bleibt die Installation bis zu einem hashgebundenen Build und nativer SQL-Roundtrip-Evidence fail-closed.",
+          "language": "CSharp",
+          "runtimeVersion": "8.0",
+          "extensionVersion": "9a897b70e1823573e7e455f3b3c3ecf3a6bf1f0f",
+          "sqlMajorVersions": [15, 16, 17],
+          "minimumCu": null,
+          "operatingSystem": "windows",
+          "distributions": ["windows-server-2025"],
+          "architecture": "x86_64",
+          "providers": ["hyperv"],
+          "installMethod": "guest-offline-media",
+          "recipeVersion": "1",
+          "requiresCapabilities": ["software-catalog-planning", "powershell-direct-software-installation", "sql-external-runtime"],
+          "sourceUrls": [
+            "https://learn.microsoft.com/en-us/sql/language-extensions/csharp-overview?view=sql-server-ver17",
+            "https://learn.microsoft.com/en-us/sql/language-extensions/install/windows-c-sharp?view=sql-server-ver17",
+            "https://github.com/microsoft/sql-server-language-extensions/tree/9a897b70e1823573e7e455f3b3c3ecf3a6bf1f0f/language-extensions/dotnet-core-CSharp"
+          ],
+          "artifacts": [
+            {
+              "id": "sql-server-language-extensions-dotnet8-source",
+              "sourceType": "archive",
+              "source": "https://github.com/microsoft/sql-server-language-extensions/archive/9a897b70e1823573e7e455f3b3c3ecf3a6bf1f0f.zip",
+              "version": "9a897b70e1823573e7e455f3b3c3ecf3a6bf1f0f",
+              "sha256": "5eedb40bdc9b38d5b48f9e6fb0b94e76f805e8d855536a867c7ba670d6535bf1",
+              "integrityOrigin": "SHA-256 verified against the immutable Microsoft GitHub commit archive on 2026-08-29",
+              "license": "MIT"
+            }
+          ],
+          "packageLocks": [],
+          "restart": { "sqlServer": true, "launchpad": true, "guest": false },
+          "validation": {
+            "type": "spExecuteExternalScript",
+            "language": "CSharp",
+            "probeId": "dotnet-source-build-pending",
+            "expectedRuntimeVersion": "8.0"
           }
         }
       ]

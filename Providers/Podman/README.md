@@ -1,7 +1,7 @@
 # Providers/Podman/ – Podman-Provider
 
 Container via Podman. Der allgemeine Provider unterstützt rootless Betrieb;
-SQL Server 2022 External Runtimes benötigen rootful Linux mit cgroup v1.
+SQL Server 2019/2022/2025 External Runtimes benötigen rootful Linux mit cgroup v1.
 
 ## Dateien
 

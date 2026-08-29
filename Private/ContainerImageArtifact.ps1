@@ -24,7 +24,7 @@ function Get-LabLowerFileSha256 {
 
 function Get-LabExternalRuntimeContainerRecipe {
     [CmdletBinding()]
-    param([ValidateSet('2022', '2025')][string]$SqlVersion = '2022')
+    param([ValidateSet('2019', '2022', '2025')][string]$SqlVersion = '2022')
 
     $recipeRoot = Get-LabExternalRuntimeContainerRecipeRoot
     $recipePath = Join-Path $recipeRoot 'recipe.json'
@@ -42,15 +42,18 @@ function Get-LabExternalRuntimeContainerRecipe {
     if ($SqlVersion -ne '2022') {
         $override = $recipe.sqlVersionOverrides.PSObject.Properties[$SqlVersion].Value
         if (-not $override) { throw "EXTERNAL_RUNTIME_RECIPE_SQL_VERSION_UNSUPPORTED: $SqlVersion" }
-        foreach ($name in @('operatingSystem','baseImage','extensibility','sqlSatelliteCompatibility','runtimeLibraries','launchContract')) {
+        foreach ($name in @('operatingSystem','baseImage','extensibility','opensslSoname','sqlSatelliteCompatibility','runtimeLibraries','launchContract')) {
             if ($null -ne $override.$name) {
                 $recipe | Add-Member -NotePropertyName $name -NotePropertyValue $override.$name -Force
             }
         }
     }
     if ([string]$recipe.architecture -ne 'x86_64' -or
-        [string]$recipe.operatingSystem -notin @('ubuntu-22.04','ubuntu-24.04')) {
+        [string]$recipe.operatingSystem -notin @('ubuntu-20.04','ubuntu-22.04','ubuntu-24.04')) {
         throw 'EXTERNAL_RUNTIME_RECIPE_PLATFORM_INVALID'
+    }
+    if ([string]$recipe.opensslSoname -notin @('1.1','3')) {
+        throw 'EXTERNAL_RUNTIME_RECIPE_OPENSSL_INVALID'
     }
     if ([string]$recipe.baseImage.reference -notmatch '^mcr\.microsoft\.com/mssql/server@sha256:([a-f0-9]{64})$' -or
         [string]$recipe.baseImage.sha256 -ne $Matches[1]) {
@@ -192,7 +195,7 @@ function New-LabExternalRuntimeContainerImagePlan {
         [switch]$AllowPreview
     )
 
-    if ($SqlVersion -notin @('2022','2025')) { throw "EXTERNAL_RUNTIME_CONTAINER_SQL_VERSION_UNSUPPORTED: $SqlVersion" }
+    if ($SqlVersion -notin @('2019','2022','2025')) { throw "EXTERNAL_RUNTIME_CONTAINER_SQL_VERSION_UNSUPPORTED: $SqlVersion" }
     if (@($SoftwarePlans).Count -eq 0) { throw 'EXTERNAL_RUNTIME_CONTAINER_PLAN_EMPTY' }
 
     $recipe = Get-LabExternalRuntimeContainerRecipe -SqlVersion $SqlVersion
@@ -312,6 +315,7 @@ function New-LabExternalRuntimeContainerImagePlan {
         LibgompDebVersion = [string]$recipe.runtimeLibraries[0].artifact.version
         RRuntimeImage = [string]$recipe.runtimes.R.runtimeImage.reference
         PythonRuntimeImage = [string]$recipe.runtimes.Python.runtimeImage.reference
+        OpensslSoname = [string]$recipe.opensslSoname
         EvidenceStatus = if ($AllowPreview) { 'PREVIEW_CHARACTERIZATION' } else { 'SUPPORTED' }
     }
 }
@@ -323,7 +327,7 @@ function Test-LabExternalRuntimeContainerHost {
         [Parameter(Mandatory)]$ImagePlan
     )
 
-    if ([string]$ImagePlan.LaunchMode -notin @('sql2022-namespace-v1','sql2025-namespace-v1') -or
+    if ([string]$ImagePlan.LaunchMode -notin @('sql2019-namespace-v1','sql2022-namespace-v1','sql2025-namespace-v1') -or
         @($ImagePlan.RequiredLinuxCapabilities) -join ',' -ne 'CHOWN,DAC_OVERRIDE,KILL,SETGID,SETUID,SYS_ADMIN,MKNOD,SETPCAP,NET_ADMIN,NET_RAW,SYS_PTRACE' -or
         @($ImagePlan.RequiredSecurityOptions) -join ',' -ne 'apparmor=unconfined,seccomp=unconfined' -or
         $ImagePlan.NamespaceIsolation -ne $true -or $ImagePlan.OutboundAccess -ne $false) {
@@ -522,6 +526,7 @@ function Invoke-LabExternalRuntimeContainerImageBuildCore {
         '--build-arg', "LIBGOMP_DEB_SHA256=$($ImagePlan.LibgompDebSha256)",
         '--build-arg', "LIBGOMP_DEB_VERSION=$($ImagePlan.LibgompDebVersion)",
         '--build-arg', "EXTERNAL_RUNTIME_LAUNCH_MODE=$($ImagePlan.LaunchMode)",
+        '--build-arg', "OPENSSL_SONAME=$($ImagePlan.OpensslSoname)",
         '--build-arg', "EXTERNAL_RUNTIME_STAGE=$($ImagePlan.BuildStage)",
         '--build-arg', "EXTERNAL_RUNTIMES=$(@($ImagePlan.BuildTokens) -join ',')",
         '--build-arg', "CONTENT_ID=$($ImagePlan.ImageKey)",
@@ -543,7 +548,17 @@ function Invoke-LabExternalRuntimeContainerImageBuildCore {
             [string]$evidence.RequiredCapabilities -ne (@($ImagePlan.RequiredLinuxCapabilities) -join ',') -or
             [string]$evidence.RequiredSecurityOptions -ne (@($ImagePlan.RequiredSecurityOptions) -join ',') -or
             [string]$evidence.NamespaceIsolation -ne 'true' -or [string]$evidence.OutboundAccess -ne 'false') {
-            throw 'EXTERNAL_RUNTIME_CONTAINER_IMAGE_POSTCONDITION_FAILED'
+            $actual = if ($evidence) {
+                [ordered]@{
+                    user=[string]$evidence.User; imageKey=[string]$evidence.ImageKey
+                    languages=[string]$evidence.Languages; launchMode=[string]$evidence.LaunchMode
+                    requiredCapabilities=[string]$evidence.RequiredCapabilities
+                    requiredSecurityOptions=[string]$evidence.RequiredSecurityOptions
+                    namespaceIsolation=[string]$evidence.NamespaceIsolation
+                    outboundAccess=[string]$evidence.OutboundAccess
+                } | ConvertTo-Json -Compress
+            } else { 'image-inspect-unavailable' }
+            throw "EXTERNAL_RUNTIME_CONTAINER_IMAGE_POSTCONDITION_FAILED: $actual"
         }
         $imagePostconditions = @()
         if (@($ImagePlan.Languages) -contains 'Java') {

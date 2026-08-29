@@ -38,6 +38,7 @@ try {
         $javaRequest.Id = 'sql-java'
         $dockerJavaSoftwarePlan = Resolve-LabExternalRuntimePlan -SoftwareItem $javaRequest -SqlVersion 2022 -Provider docker -OperatingSystem linux
         $podmanJavaSoftwarePlan = Resolve-LabExternalRuntimePlan -SoftwareItem $javaRequest -SqlVersion 2022 -Provider podman -OperatingSystem linux
+        $docker2019JavaSoftwarePlan = Resolve-LabExternalRuntimePlan -SoftwareItem $javaRequest -SqlVersion 2019 -Provider docker -OperatingSystem linux
         $dockerImagePlan = New-LabExternalRuntimeContainerImagePlan -Provider docker -SqlVersion 2022 -SoftwarePlans @($dockerSoftwarePlan)
         $podmanImagePlan = New-LabExternalRuntimeContainerImagePlan -Provider podman -SqlVersion 2022 -SoftwarePlans @($podmanSoftwarePlan)
         $docker2025ImagePlan = New-LabExternalRuntimeContainerImagePlan -Provider docker -SqlVersion 2025 -SoftwarePlans @($docker2025SoftwarePlan)
@@ -49,6 +50,8 @@ try {
             -SoftwarePlans @($dockerJavaSoftwarePlan)
         $podmanJavaImagePlan = New-LabExternalRuntimeContainerImagePlan -Provider podman -SqlVersion 2022 `
             -SoftwarePlans @($podmanJavaSoftwarePlan)
+        $docker2019JavaImagePlan = New-LabExternalRuntimeContainerImagePlan -Provider docker -SqlVersion 2019 `
+            -SoftwarePlans @($docker2019JavaSoftwarePlan)
         $pythonJavaImagePlan = New-LabExternalRuntimeContainerImagePlan -Provider docker -SqlVersion 2022 `
             -SoftwarePlans @($dockerSoftwarePlan, $dockerJavaSoftwarePlan)
         $rJavaImagePlan = New-LabExternalRuntimeContainerImagePlan -Provider docker -SqlVersion 2022 `
@@ -174,6 +177,8 @@ try {
             CombinedPlan = $combinedImagePlan
             DockerJavaPlan = $dockerJavaImagePlan
             PodmanJavaPlan = $podmanJavaImagePlan
+            Docker2019JavaPlan = $docker2019JavaImagePlan
+            Recipe2019 = Get-LabExternalRuntimeContainerRecipe -SqlVersion 2019
             PythonJavaPlan = $pythonJavaImagePlan
             RJavaPlan = $rJavaImagePlan
             AllPlan = $allImagePlan
@@ -228,7 +233,11 @@ try {
         $result.Docker2025Plan.BaseImageDigest -eq '86cc6144ef39bb0fbed2329e1ad79b13ee82e7b2e4739213a0db0800e668a74a' -and
         $result.Docker2025Plan.ExtensibilityDebVersion -eq '17.0.4065.4-1' -and
         $result.Docker2025Plan.LaunchMode -eq 'sql2025-namespace-v1' -and
-        $result.Recipe2025.operatingSystem -eq 'ubuntu-24.04'
+        $result.Recipe2025.operatingSystem -eq 'ubuntu-24.04' -and
+        $result.Docker2019JavaPlan.BaseImageDigest -eq '46f719fd3457d4e7e8e5845fe00c35c20e7bae7ff1e8b9fe595f2a81029f5ba8' -and
+        $result.Docker2019JavaPlan.ExtensibilityDebVersion -eq '15.0.4480.2-1' -and
+        $result.Docker2019JavaPlan.LaunchMode -eq 'sql2019-namespace-v1' -and
+        $result.Recipe2019.operatingSystem -eq 'ubuntu-20.04'
     )
     Add-CheckResult -Name 'Docker und Podman konsumieren denselben providerneutralen OCI-Image-Key' -Success (
         $result.DockerPlan.ImageKey -eq $result.PodmanPlan.ImageKey -and
@@ -299,10 +308,10 @@ try {
         $containerfile -match 'outbound-access="false"'
     )
     Add-CheckResult -Name 'Containerfile behebt SQL-Satellite-OpenSSL-Aufloesung ohne ungesperrte Pakete' -Success (
-        $containerfile -match 'test -e /usr/lib/x86_64-linux-gnu/libssl\.so\.3' -and
-        $containerfile -match 'test -e /usr/lib/x86_64-linux-gnu/libcrypto\.so\.3' -and
-        $containerfile -match 'ln -s libssl\.so\.3 /usr/lib/x86_64-linux-gnu/libssl\.so' -and
-        $containerfile -match 'ln -s libcrypto\.so\.3 /usr/lib/x86_64-linux-gnu/libcrypto\.so' -and
+        $containerfile -match 'OPENSSL_SONAME=3' -and
+        $containerfile -match 'libssl\.so\.\$\{OPENSSL_SONAME\}' -and
+        $containerfile -match 'libcrypto\.so\.\$\{OPENSSL_SONAME\}' -and
+        $result.Recipe2019.opensslSoname -eq '1.1' -and $result.Recipe2025.opensslSoname -eq '3' -and
         $containerfile -notmatch '(?i)apt-get\s+install[^\r\n]*libssl-dev'
     )
     Add-CheckResult -Name 'Python- und R-Zielstages binden die native libgomp-Laufzeit hashverifiziert' -Success (
@@ -411,7 +420,7 @@ try {
         $containerfile -match 'required-capabilities="CHOWN,DAC_OVERRIDE,KILL,SETGID,SETUID,SYS_ADMIN,MKNOD,SETPCAP,NET_ADMIN,NET_RAW,SYS_PTRACE"' -and
         $artifactSource -match 'CHOWN,DAC_OVERRIDE,KILL,SETGID,SETUID,SYS_ADMIN,MKNOD,SETPCAP,NET_ADMIN,NET_RAW,SYS_PTRACE' -and
         $newLabSource -match 'CHOWN,DAC_OVERRIDE,KILL,SETGID,SETUID,SYS_ADMIN,MKNOD,SETPCAP,NET_ADMIN,NET_RAW,SYS_PTRACE' -and
-        $dockerSource -match "ExternalRuntimeLaunchMode -in @\('sql2022-namespace-v1','sql2025-namespace-v1'\)" -and
+        $dockerSource -match "ExternalRuntimeLaunchMode -in @\('sql2019-namespace-v1','sql2022-namespace-v1','sql2025-namespace-v1'\)" -and
         $dockerSource -match "'--user', '0:0'" -and
         @($requiredLaunchCapabilities | Where-Object { $dockerSource -notmatch "'--cap-add', '$_'" }).Count -eq 0 -and
         $dockerSource -match "'--cap-add', 'SYS_ADMIN'" -and
@@ -421,7 +430,7 @@ try {
         $dockerSource -match "'--security-opt', 'seccomp=unconfined'" -and
         $dockerSource -match "'/sys/fs/cgroup:/sys/fs/cgroup:rw'" -and
         $dockerSource -notmatch "'--privileged'" -and
-        $podmanSource -match "ExternalRuntimeLaunchMode -in @\('sql2022-namespace-v1','sql2025-namespace-v1'\)" -and
+        $podmanSource -match "ExternalRuntimeLaunchMode -in @\('sql2019-namespace-v1','sql2022-namespace-v1','sql2025-namespace-v1'\)" -and
         $podmanSource -match "'--user', '0:0'" -and
         @($requiredLaunchCapabilities | Where-Object { $podmanSource -notmatch "'--cap-add', '$_'" }).Count -eq 0 -and
         $podmanSource -match "'--cap-add', 'SYS_ADMIN'" -and

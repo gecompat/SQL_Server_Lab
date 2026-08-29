@@ -40,13 +40,19 @@ Umgebung, Plattform und Content-SHA-256 geprüft; Drift wird abgelehnt. Scheiter
 der JAR-Datenroundtrip, werden ausschließlich die im aktuellen Versuch neu
 angelegten Objekte wieder entfernt.
 
-SQL Server 2022 `launchpadd` benötigt im sicheren Namespace-Modus eine
+SQL Server 2019, 2022 und 2025 `launchpadd` benötigen im sicheren Namespace-Modus eine
 cgroup-v1-Hierarchie und beim Containerstart `SYS_ADMIN`. Der Provider fügt
 diese Capability ausschließlich für ein intern verifiziertes Image-Artefakt
-mit Launchmodus `sql2022-namespace-v1` hinzu. Auf cgroup-v2-Hosts wird der Lauf
+mit einem versionsgebundenen Launchmodus (`sql2019-namespace-v1`,
+`sql2022-namespace-v1` oder `sql2025-namespace-v1`) hinzu. Auf cgroup-v2-Hosts wird der Lauf
 vor State und Mutation mit `DECLARED_UNSUPPORTED` abgelehnt. Der technisch
 mögliche Modus ohne Namespace-Isolation und mit freiem Outbound-Zugriff ist
 kein implementierter Fallback.
+
+SQL Server 2019 verwendet die eigene Ubuntu-20.04-/OpenSSL-1.1-
+Extensibility-Schicht und bietet derzeit nur Java. SQL Server 2022 und 2025
+verwenden ihre jeweils versionsgebundenen Ubuntu-/Extensibility-Schichten und
+bieten Python, R und Java. Docker und Podman lösen dieselben Varianten auf.
 
 Der Kontext allein ist kein Supportnachweis. Erst ein katalogisierter
 Buildplan, ein persistierter Image-Digest und die native Ausführung über

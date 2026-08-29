@@ -4314,10 +4314,10 @@ function Manage-LabExternalRuntimeInteractive {
     }
     $connection = Get-Content -LiteralPath $connectionPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 50
     $instances = @($connection.instances | Where-Object {
-        [string]$_.provider -in @('docker', 'podman') -and [string]$_.version -in @('2022','2025')
+        [string]$_.provider -in @('docker', 'podman') -and [string]$_.version -in @('2019','2022','2025')
     })
     if ($instances.Count -eq 0) {
-        Write-LabWarning 'Für diese Umgebung ist noch kein nachträglicher External-Languages-Pfad freigegeben. SQL Server 2022 und 2025 werden unter Docker und Podman unterstützt; SQL Server 2019 benötigt den getrennten Legacy-Runtime-Paketstack.'
+        Write-LabWarning 'Für diese Umgebung ist kein nachträglicher External-Languages-Pfad freigegeben.'
         return
     }
     $instance = if ($instances.Count -eq 1) {
@@ -4335,7 +4335,7 @@ function Manage-LabExternalRuntimeInteractive {
         @($instances | Where-Object { [string]$_.id -eq [string]$selection.SelectedItem.Id })[0]
     }
 
-    Write-LabInfo 'Das Zielmanifest muss dieselbe Umgebung beschreiben und unter instances[].software die gewünschten Einträge sql-python, sql-r bzw. sql-java enthalten.'
+    Write-LabInfo 'Das Zielmanifest muss dieselbe Umgebung beschreiben und unter instances[].software die gewünschten Einträge sql-python, sql-r bzw. sql-java enthalten. sql-csharp ist ausschließlich für Hyper-V/Windows vorgesehen.'
     $manifestInput = Read-LabConsoleTextInput -Prompt '  Pfad zum Zielmanifest'
     if ($manifestInput.Status -ne 'Confirmed' -or [string]::IsNullOrWhiteSpace([string]$manifestInput.Value)) { return }
     $manifestPath = try { (Resolve-Path -LiteralPath ([string]$manifestInput.Value) -ErrorAction Stop).Path }
@@ -4390,11 +4390,11 @@ function Manage-LabEnvironmentInteractive {
     $stateRoot = Get-LabStateRoot
     $connectionPath = Join-Path (Join-Path (Join-Path $stateRoot 'runs') $runId) 'connection-info.json'
     $externalRuntimeEligible = $false
-    $externalRuntimeValue = 'SQL Server 2022/2025 unter Docker/Podman'
+    $externalRuntimeValue = 'SQL Server 2019/2022/2025 unter Docker/Podman'
     if (Test-Path -LiteralPath $connectionPath -PathType Leaf) {
         $connection = Get-Content -LiteralPath $connectionPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 50
         $eligibleInstances = @($connection.instances | Where-Object {
-            [string]$_.provider -in @('docker', 'podman') -and [string]$_.version -in @('2022','2025')
+            [string]$_.provider -in @('docker', 'podman') -and [string]$_.version -in @('2019','2022','2025')
         })
         if ($eligibleInstances.Count -gt 0) {
             $externalRuntimeEligible = $true

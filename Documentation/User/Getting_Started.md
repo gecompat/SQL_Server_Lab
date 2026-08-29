@@ -788,13 +788,14 @@ Ausführungsversuche durchführt.
 
 ### External Languages nachträglich installieren oder aktualisieren
 
-Für einen laufenden SQL-Server-2022-Docker-/Podman-Run kann ein Zielmanifest
+Für einen laufenden SQL-Server-2019-, -2022- oder -2025-Docker-/Podman-Run kann ein Zielmanifest
 erstmals oder zusätzlich resolverfreigegebene Sprachen deklarieren. Im CLI ist
 der Einstieg unter `Umgebungen -> Umgebung verwalten -> External Languages
 installieren oder ändern` sichtbar. Das Zielmanifest muss dieselben Instanzen
 und denselben Provider-, Profil-, Storage-, Netzwerk- und Datenbankzustand
-beschreiben; geändert werden dürfen hier nur `instances[].software`-Einträge
-für `sql-python`, `sql-r` und `sql-java`.
+beschreiben; geändert werden dürfen hier nur resolverfreigegebene
+`instances[].software`-Einträge. Derzeit ist das bei SQL Server 2019 `sql-java`
+und bei SQL Server 2022/2025 `sql-python`, `sql-r` und `sql-java`.
 
 Zuerst wird der read-only Plan geprüft, danach baut der Executor das neue
 Derived Image. Der alte Container bleibt bis zum erfolgreichen
@@ -821,17 +822,23 @@ Invoke-SqlServerLabReconcileAction `
     -InstanceId external-runtime
 ```
 
-Der ausführbare Umfang ist bewusst eng: nur SQL Server 2022 auf Docker/Podman
-und keine gleichzeitigen Änderungen an Provider, Profil, Storage, Netzwerk oder
-Datenbanken. Docker und Podman besitzen dabei dieselbe Sprachfreigabe; Podman
+Der ausführbare Umfang umfasst SQL Server 2019, 2022 und 2025 auf
+Docker/Podman, aber keine gleichzeitigen Änderungen an Provider, Profil,
+Storage, Netzwerk oder Datenbanken. Docker und Podman besitzen dabei dieselbe
+Sprachfreigabe; Podman
 muss für den sicheren `launchpadd`-Namespace-Modus jedoch rootful auf einem
-Linux-Containerhost mit cgroup v1 laufen. Eine SQL-Server-2025-Podman-Umgebung
-zeigt den Menüpunkt deshalb deaktiviert, weil die SQL-Version nicht katalogisiert
-ist, nicht weil Podman als Provider ausgeschlossen wäre. Eine einzelne Sprache kann entfernt werden, solange mindestens
+Linux-Containerhost mit cgroup v1 laufen. Eine einzelne Sprache kann entfernt werden, solange mindestens
 eine External Runtime erhalten bleibt. Die Entfernung der letzten Runtime und
 Hyper-V-Nachinstallation/-Artifact-Refresh bleiben fail-closed. Im Hyper-V-
 Verwaltungsmenü wird dieser derzeit nicht atomare Pfad deshalb sichtbar, aber
 deaktiviert angezeigt.
+
+C# ist als SQL-External-Language-Intent `sql-csharp` für SQL Server 2019 bis
+2025 auf Windows/Hyper-V erfasst. Microsoft bezeichnet die registrierte
+SQL-Sprache als `dotnet`. Die vorhandene Microsoft-Binärveröffentlichung zielt
+jedoch auf .NET 5, während der aktuelle Quellstand .NET 8 verwendet. Bis ein
+hashgebundener aktueller Build und ein nativer SQL-Roundtrip vorliegen, bleibt
+die Variante sichtbar `PREVIEW` und wird vor jeder Mutation abgelehnt.
 
 ## 16. Umgebung entfernen
 

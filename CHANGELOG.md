@@ -8,6 +8,12 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- External Languages sind im Containerpfad nun versionsbewusst für alle drei
+  aktiven SQL-Versionen katalogisiert: Java für SQL Server 2019 sowie Python,
+  R und Java für SQL Server 2022/2025, jeweils gleichwertig unter Docker und
+  Podman. C#/.NET ist für SQL 2019–2025 auf Hyper-V/Windows sichtbar erfasst,
+  bleibt mangels aktuellem veröffentlichtem Binärartefakt und nativer Evidence
+  jedoch sicher `PREVIEW` und fail-closed.
 - Die Containerverwaltung bietet jetzt einen sichtbaren Menüpunkt, um External
   Languages über ein geprüftes Zielmanifest erstmals zu installieren oder zu
   ändern. SQL-2022-Docker-/Podman-Runs ohne bestehende Runtime erhalten einen

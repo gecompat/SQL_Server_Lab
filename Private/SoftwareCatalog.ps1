@@ -59,6 +59,7 @@ function ConvertTo-LabExternalRuntimeSoftwareId {
         'Python' { return 'sql-python' }
         'R' { return 'sql-r' }
         'Java' { return 'sql-java' }
+        'CSharp' { return 'sql-csharp' }
         default { throw "EXTERNAL_RUNTIME_LANGUAGE_UNKNOWN: $Language" }
     }
 }
@@ -75,7 +76,7 @@ function ConvertTo-LabExternalRuntimeRequests {
     )
 
     $requests = [System.Collections.Generic.List[object]]::new()
-    foreach ($item in @($Software | Where-Object { $_ -and [string]$_.id -in @('sql-python', 'sql-r', 'sql-java') })) {
+    foreach ($item in @($Software | Where-Object { $_ -and [string]$_.id -in @('sql-python', 'sql-r', 'sql-java', 'sql-csharp') })) {
         $requests.Add([PSCustomObject]@{
             Id = [string]$item.id
             Version = [string]$item.version

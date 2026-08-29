@@ -413,19 +413,22 @@ Kurzbezeichner wie `2022-CU16` werden nur akzeptiert, wenn der Build im Katalog 
 
 ## External Languages
 
-Die Installation von R, Python oder Java ist von SQL-Version, Betriebssystem,
+Die Installation von R, Python, Java oder C# ist von SQL-Version, Betriebssystem,
 Distribution, Provider, Paketquellen und der jeweiligen Supportmatrix abhängig.
 Python ist ausdrücklich auch unter Linux und in Containern vorgesehen; es ist
 nicht auf Hyper-V beschränkt.
 
 Der providerneutrale Softwarekatalog und Capability Resolver normalisieren
-Python-, R- und Java-Anforderungen nach SQL-Version, Betriebssystem,
+Python-, R-, Java- und C#-Anforderungen nach SQL-Version, Betriebssystem,
 Architektur und Provider. Unvollständig belegte Varianten, freie Commands,
 nicht gesperrte Zusatzpakete und der bisherige `post-start`-Installer werden
-vor der Mutation sichtbar abgelehnt. Die nativ belegten SQL-2022-Varianten für
-Docker/Linux, Podman/Linux und Hyper-V/Windows sind `SUPPORTED`. SQL Server
-2019, SQL Server 2025 und andere OS-/Providerkombinationen erben diesen Status
-nicht.
+vor der Mutation sichtbar abgelehnt. SQL Server 2019 besitzt im Linux-
+Containerpfad derzeit nur die Java-Variante; dessen älterer Python-/R-
+Machine-Learning-Paketstack wird nicht mit dem Custom-Runtime-Vertrag von SQL
+Server 2022/2025 vermischt. SQL Server 2022 und 2025 katalogisieren Python, R
+und Java für Docker und Podman. Die bisherigen nativen SQL-Roundtrip-Nachweise
+für alle drei Sprachen stammen von SQL Server 2022; neuere oder ältere
+Versionsfreigaben benötigen ihren eigenen Abschlussnachweis.
 
 Für SQL Server 2022/Python, R und Java existieren inzwischen ein per MCR-Digest
 gebundener Buildkontext, vollständige DEB-, Wheel-, R-Paket-, JDK-, Java-
@@ -458,7 +461,16 @@ Neustart; Run-Ressourcen, Derived Image und das test-eigene Podman-Netz wurden
 vollständig bereinigt. Podman 3.4.4 benötigt dabei die eng begrenzte
 CNI-0.4.0-Kompatibilitätskorrektur und einen Retry für seine sofortige
 Portfreigabe-Race. Rootless Podman bleibt für allgemeine Labs unterstützt,
-nicht jedoch für diesen SQL-2022-External-Runtime-Modus.
+nicht jedoch für den External-Runtime-Namespace-Modus.
+
+C# Language Extensions sind von Microsoft ab SQL Server 2019 CU3 ausschließlich
+unter Windows beschrieben; die in SQL registrierte Sprache heißt `dotnet`.
+Der einzige veröffentlichte Microsoft-Binärrelease zielt auf die nicht mehr
+unterstützte .NET-5-Runtime. Der aktuelle Microsoft-Quellstand zielt auf .NET 8,
+liefert aber keinen entsprechenden reproduzierbaren Binärrelease. `sql-csharp`
+ist deshalb für SQL 2019/2022/2025 auf Hyper-V/Windows katalogisiert, bleibt
+aber bis zu hashgebundenem Build und nativer SQL-Evidence `PREVIEW` und
+fail-closed.
 
 Für Hyper-V/Windows sind der SHA-256-gebundene Offline-Media-Pfad, der
 deterministische Gastplan, die Python-/R-/Java-Installation,

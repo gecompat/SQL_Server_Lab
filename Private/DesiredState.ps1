@@ -76,7 +76,7 @@ function New-LabInstanceIntentSnapshot {
 
     $externalRuntimePlans = @(Resolve-LabExternalRuntimePlansForInstance -Instance $Instance)
     $generalSoftwareItems = @($Instance.software | Where-Object {
-        $_ -and [string]$_.id -notin @('sql-python', 'sql-r', 'sql-java')
+        $_ -and [string]$_.id -notin @('sql-python', 'sql-r', 'sql-java', 'sql-csharp')
     } | ForEach-Object {
         [PSCustomObject]@{
             Id = [string]$_.id
