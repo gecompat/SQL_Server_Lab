@@ -157,6 +157,7 @@ function New-DockerInstance {
         [Parameter(Mandatory)][string]$InstanceId,
         [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9 _-]{0,63}$')][string]$LabName,
         [ValidatePattern('^$|^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$')][string]$ContainerName,
+        [ValidatePattern('^$|^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$')][string]$EndpointBindingIgnoreContainerName,
         [int]$Port = 0,
         [Parameter(Mandatory)][SecureString]$SaPassword,
         [ValidateSet('compact', 'standard', 'performance')]
@@ -168,7 +169,7 @@ function New-DockerInstance {
         [ValidateSet('on', 'off')][string]$AutoStart = 'off',
         [ValidatePattern('^[A-Za-z0-9_]{1,128}$')][string]$Collation = 'SQL_Latin1_General_CP1_CI_AS',
         [string]$ResolvedImage,
-        [ValidateSet('none', 'sql2022-namespace-v1')][string]$ExternalRuntimeLaunchMode = 'none'
+        [ValidateSet('none', 'sql2019-namespace-v1', 'sql2022-namespace-v1', 'sql2025-namespace-v1')][string]$ExternalRuntimeLaunchMode = 'none'
     )
 
     if ($ResolvedImage -and $ResolvedImage -notmatch '^[a-z0-9][a-z0-9./_-]+:[a-z0-9][a-z0-9._-]+$') {
@@ -213,7 +214,7 @@ function New-DockerInstance {
         if (-not $drive.hostPath) {
             $null = Initialize-DockerSqlNamedVolume -VolumeName $volumeSource -Image $image -RunId $RunId -ScopeId $ScopeId `
                 -ContainerPath ([string]$drive.containerPath) `
-                -SyncImageContent:($ExternalRuntimeLaunchMode -eq 'sql2022-namespace-v1' -and
+                -SyncImageContent:($ExternalRuntimeLaunchMode -in @('sql2019-namespace-v1','sql2022-namespace-v1','sql2025-namespace-v1') -and
                     [string]$drive.containerPath -in @('/var/opt/mssql-extensibility/externallanguages','/var/opt/mssql-extensibility/externallibraries'))
         }
 
@@ -230,7 +231,7 @@ function New-DockerInstance {
         $collationArguments = @('-e', "MSSQL_COLLATION=$Collation")
     }
     $restartArguments = if ($AutoStart -eq 'on') { @('--restart', 'unless-stopped') } else { @() }
-    $externalRuntimeArguments = if ($ExternalRuntimeLaunchMode -eq 'sql2022-namespace-v1') {
+    $externalRuntimeArguments = if ($ExternalRuntimeLaunchMode -in @('sql2019-namespace-v1','sql2022-namespace-v1','sql2025-namespace-v1')) {
         @(
             '--user', '0:0',
             '--cap-add', 'CHOWN',
@@ -276,7 +277,9 @@ function New-DockerInstance {
 
                 if (-not $automaticPort) {
                     $binding = Test-LabEndpointBinding -Port $selectedPort
-                    if (-not $binding.Available) {
+                    $ignoredBackup = $EndpointBindingIgnoreContainerName -and
+                        ([string]$binding.Owner).StartsWith("docker:$EndpointBindingIgnoreContainerName (", [StringComparison]::Ordinal)
+                    if (-not $binding.Available -and -not $ignoredBackup) {
                         throw "LAB_ENDPOINT_BINDING_CONFLICT: Port $selectedPort ist belegt. Besitzer: $($binding.Owner). Grund: $($binding.Reason)"
                     }
                 }

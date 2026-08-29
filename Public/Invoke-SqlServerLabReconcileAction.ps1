@@ -11,7 +11,8 @@
 .PARAMETER TargetState
     Gewuenschter Zielzustand fuer den Run nach der Reconcile-Ausfuehrung.
 .PARAMETER ManifestPath
-    Zielmanifest fuer einen resolvergebundenen External-Runtime-Reconcile.
+    Zielmanifest fuer eine erstmalige Installation oder einen späteren,
+    resolvergebundenen External-Runtime-Reconcile.
 .PARAMETER InstanceId
     Zielinstanz fuer den Container- oder External-Runtime-Reconcile.
 .PARAMETER Container
@@ -24,6 +25,8 @@
     Gewünschter SQL-Hostport; eine Änderung verwendet recreate.
 .PARAMETER SqlMaxMemoryMB
     Gewünschter live angewandter SQL-Wert `max server memory (MB)`.
+.PARAMETER AutoStart
+    Gewünschter Container-Autostartvertrag. Eine Abweichung verwendet recreate.
 .PARAMETER RepairSqlRuntimeContract
     Repariert SQL-Memory-/Healthcheck-Drift über recreate.
 .PARAMETER ReadinessTimeoutSeconds
@@ -78,6 +81,10 @@ function Invoke-SqlServerLabReconcileAction {
         [int]$SqlMaxMemoryMB,
 
         [Parameter(ParameterSetName = 'Container')]
+        [ValidateSet('on', 'off')]
+        [string]$AutoStart,
+
+        [Parameter(ParameterSetName = 'Container')]
         [switch]$RepairSqlRuntimeContract,
 
         [string]$StateRoot
@@ -89,7 +96,7 @@ function Invoke-SqlServerLabReconcileAction {
             $PSCmdlet.ShouldProcess("Run '$RunId', Instanz '$($plan.InstanceId)'", 'External Runtime durch validierten Ersatzcontainer aktualisieren')
         }
         $entry = [ordered]@{
-            Operation='RefreshExternalRuntime'; Planned=(-not $plan.IsNoOp); Executed=$false
+            Operation=if ($plan.IsNoOp) { 'None' } else { [string]$plan.Actions[0].Operation }; Planned=(-not $plan.IsNoOp); Executed=$false
             Status=if ($plan.IsNoOp) { 'NO_OP' } elseif ($wouldExecute) { 'PLANNED' } else { 'WOULD_EXECUTE' }
             Reason=$null; Result=$null
         }
@@ -123,6 +130,7 @@ function Invoke-SqlServerLabReconcileAction {
         if ($PSBoundParameters.ContainsKey('MemoryMB')) { $planArguments.MemoryMB=[int]$MemoryMB }
         if ($PSBoundParameters.ContainsKey('Port')) { $planArguments.Port=[int]$Port }
         if ($PSBoundParameters.ContainsKey('SqlMaxMemoryMB')) { $planArguments.SqlMaxMemoryMB=[int]$SqlMaxMemoryMB }
+        if ($PSBoundParameters.ContainsKey('AutoStart')) { $planArguments.AutoStart=[string]$AutoStart }
         $plan = Get-SqlServerLabReconcilePlan @planArguments
         $wouldExecute = if ($plan.IsNoOp) { $false } else {
             $PSCmdlet.ShouldProcess("Run '$RunId', Instanz '$($plan.InstanceId)'", "Container-Reconcile '$($plan.HighestChangeClass)' ausführen")
@@ -146,6 +154,7 @@ function Invoke-SqlServerLabReconcileAction {
                     StateRoot=$StateRoot; Confirm=$false
                 }
                 if ($null -ne $plan.Desired.SqlMaxMemoryMB) { $updateArguments.SqlMaxMemoryMB=[int]$plan.Desired.SqlMaxMemoryMB }
+                $updateArguments.AutoStart=[string]$plan.Desired.AutoStart
                 $result = Update-SqlServerLabContainer @updateArguments
                 $entry.Executed=$true; $entry.Status='SUCCEEDED'; $entry.Result=$result
                 $summary.Status='SUCCEEDED'; $summary.ExecutedActions=1; $summary.MutationAllowed=$true

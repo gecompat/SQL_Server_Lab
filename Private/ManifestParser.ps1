@@ -425,14 +425,14 @@ function Resolve-ManifestDefaults {
                     id            = $softwareItem.id
                     version       = [string]$softwareItem.version
                     variant       = [string]$softwareItem.variant
-                    scope         = if ($softwareItem.scope) { [string]$softwareItem.scope } elseif ([string]$softwareItem.id -in @('sql-python', 'sql-r', 'sql-java')) { 'sqlExternalRuntime' } else { 'instance' }
+                    scope         = if ($softwareItem.scope) { [string]$softwareItem.scope } elseif ([string]$softwareItem.id -in @('sql-python', 'sql-r', 'sql-java', 'sql-csharp')) { 'sqlExternalRuntime' } else { 'instance' }
                     installMethod = if ($softwareItem.installMethod) { [string]$softwareItem.installMethod } else { 'catalog' }
                     packages      = @($softwareItem.packages)
                     source        = $softwareItem.source
                     package       = $softwareItem.package
                     url           = $softwareItem.url
                     command       = $softwareItem.command
-                    optional      = if ($null -ne $softwareItem.optional) { [bool]$softwareItem.optional } elseif ([string]$softwareItem.id -in @('sql-python', 'sql-r', 'sql-java')) { $false } else { $true }
+                    optional      = if ($null -ne $softwareItem.optional) { [bool]$softwareItem.optional } elseif ([string]$softwareItem.id -in @('sql-python', 'sql-r', 'sql-java', 'sql-csharp')) { $false } else { $true }
                     requestSource = 'software'
                 }
             }

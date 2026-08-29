@@ -165,7 +165,8 @@ function Show-LabEnvironmentMenu {
     $hasRuns = $runs.Count -gt 0
     $hasRunning = @($states | Where-Object { $_ -eq 'RUNNING' }).Count -gt 0
     $hasStopped = @($states | Where-Object { $_ -eq 'STOPPED' }).Count -gt 0
-    $hasAutomatedTestEnvironments = try { [int](Get-LabAutomatedTestEnvironmentStatus).Total -gt 0 } catch { $false }
+    $testEnvironmentLifecycle = Get-LabAutomatedTestEnvironmentMenuState
+    $hasAutomatedTestEnvironments = [bool]$testEnvironmentLifecycle.Available
     $items = @(
         New-LabConsoleItem -Id 'Manage' -Label 'Umgebung auswaehlen und verwalten' -Value 'Start, Stopp, Name, CPU, Speicher, Entfernen' -Shortcut '1' -Disabled:(-not $hasRuns)
         New-LabConsoleItem -Id 'Status' -Label 'Status aller Umgebungen anzeigen' -Shortcut '2' -Disabled:(-not $hasRuns)
@@ -174,6 +175,10 @@ function Show-LabEnvironmentMenu {
         New-LabConsoleItem -Id 'Restart' -Label 'Umgebung neustarten' -Shortcut '5' -Disabled:(-not ($hasRunning -or $hasStopped))
         New-LabConsoleItem -Id 'Rename' -Label 'Umgebung umbenennen' -Shortcut 'n' -Disabled:(-not $hasRuns)
         New-LabConsoleItem -Id 'Resources' -Label 'CPU und Speicher aendern' -Shortcut 'r' -Disabled:(-not $hasRuns)
+        if ($testEnvironmentLifecycle.Available) {
+            New-LabConsoleItem -Id 'AutomatedTestEnvironmentLifecycle' -Label $testEnvironmentLifecycle.Label `
+                -Value $testEnvironmentLifecycle.Value -Shortcut 't'
+        }
         New-LabConsoleItem -Id 'CleanupAudit' -Label 'Cleanup-Audit anzeigen (read-only)' -Shortcut 'a'
         New-LabConsoleItem -Id 'Remove' -Label 'Umgebung entfernen' -Shortcut '6' -Disabled:(-not $hasRuns)
         New-LabConsoleItem -Id 'ClearAutomatedTestEnvironment' -Label 'Alle automatisierten Testumgebungen loeschen' -Value 'geschuetzte Gruppe' -Shortcut 'x' -Disabled:(-not $hasAutomatedTestEnvironments)
@@ -631,6 +636,34 @@ function Invoke-LabAction {
         'Rename' { Rename-LabEnvironmentInteractive }
         'New' { Invoke-LabNewEnvironmentInteractive }
         'AutomatedTestEnvironment' { Invoke-LabAutomatedTestEnvironmentInteractive }
+        'AutomatedTestEnvironmentLifecycle' {
+            $lifecycle = Get-LabAutomatedTestEnvironmentMenuState
+            if (-not $lifecycle.Available) {
+                Write-LabInfo 'Keine lauffähige automatisierte Testumgebung registriert.'
+                return
+            }
+            if ([string]$lifecycle.Action -eq 'Start') {
+                if (-not (Read-LabConfirm -Prompt '  Gesamte automatisierte Testumgebung starten und SQL prüfen?' -Default $true)) { return }
+                $result = Start-SqlServerLabAutomatedTestEnvironment -Force -Confirm:$false
+                if ([string]$result.Status -eq 'READY') {
+                    Write-LabSuccess "Automatisierte Testumgebung läuft: $($result.Ready) Mitglied(er) SQL-bereit."
+                }
+                else {
+                    Write-LabWarning "Testumgebung wurde nur teilweise gestartet: $($result.Status), $($result.Errors) Fehler."
+                }
+            }
+            else {
+                if (-not (Read-LabConfirm -Prompt '  Gesamte automatisierte Testumgebung stoppen und CPU/RAM freigeben?' -Default $true)) { return }
+                $result = Stop-SqlServerLabAutomatedTestEnvironment -Force -Confirm:$false
+                if ([string]$result.Status -eq 'STOPPED') {
+                    Write-LabSuccess "Automatisierte Testumgebung gestoppt: $($result.Stopped) Mitglied(er); Runs und Daten bleiben erhalten."
+                }
+                else {
+                    Write-LabWarning "Testumgebung wurde nur teilweise gestoppt: $($result.Status), $($result.Errors) Fehler."
+                }
+            }
+            return $result
+        }
         'ClearAutomatedTestEnvironment' { Invoke-LabClearAutomatedTestEnvironmentInteractive }
 
         'Status' {
@@ -1376,7 +1409,7 @@ function Invoke-LabAutomatedTestEnvironmentInteractive {
                 $intent = [PSCustomObject]@{
                     Contract='SqlServerLab.AutomatedTestIntent/1.0'; TestAutomation=$true
                     TestEnvironmentKey=$request.Key; TestEnvironmentPatch=$request.Patch
-                    LabName=$request.Name; InstanceId=$request.InstanceId; BaseVersion=$request.SqlVersion
+                    LabName=(Get-LabAutomatedTestEnvironmentDisplayName -Key ([string]$request.Key)); InstanceId=$request.InstanceId; BaseVersion=$request.SqlVersion
                     VersionId=[string]$request.PatchIntent.VersionId; Patch=$request.PatchIntent; Purpose='adhoc-install'
                     RequiresWindows=$true; RequiresFreshSqlInstall=$true; PreferExistingWindowsSlot=$true; Edition='Developer'; Cpu=[decimal]4; MemoryMB=4096
                     Profile='standard'; NetworkMode='host-access'; HostPort=0; Collation='SQL_Latin1_General_CP1_CI_AS'
@@ -1394,6 +1427,8 @@ function Invoke-LabAutomatedTestEnvironmentInteractive {
                     } | Sort-Object createdAt -Descending | Select-Object -First 1)[0]
                 }
                 if (-not $createdRun) { throw 'TEST_ENVIRONMENT_HYPERV_RUN_NOT_CREATED' }
+                $null = Rename-LabAutomatedTestEnvironmentRuntime -RunId ([string]$createdRun.runId) `
+                    -InstanceId ([string]$request.InstanceId) -Key ([string]$request.Key)
                 $null = Register-LabTestEnvironmentRun -RunId ([string]$createdRun.runId) -Platform windows `
                     -SqlVersion ([string]$request.SqlVersion) -Patch ([string]$request.Patch) -InstanceId ([string]$request.InstanceId) -Name ([string]$request.Key)
             }
@@ -1615,6 +1650,9 @@ function Invoke-LabNewHyperVSqlEnvironmentWorkflowInteractive {
     if ($reusableSlot) {
         if ($Intent) { $Intent | Add-Member -NotePropertyName ReusedWindowsSlotRunId -NotePropertyValue ([string]$reusableSlot.RunId) -Force }
         if ($Intent -and $Intent.TestAutomation) {
+            $rename = Rename-LabAutomatedTestEnvironmentRuntime -RunId ([string]$reusableSlot.RunId) `
+                -InstanceId ([string]$Intent.InstanceId) -Key ([string]$Intent.TestEnvironmentKey)
+            $reusableSlot.VMName = [string]$rename.VMName
             $null = Register-LabTestEnvironmentRun -RunId ([string]$reusableSlot.RunId) -Platform windows `
                 -SqlVersion ([string]$Intent.BaseVersion) -Patch ([string]$Intent.TestEnvironmentPatch) `
                 -InstanceId ([string]$Intent.InstanceId) -Name ([string]$Intent.TestEnvironmentKey)
@@ -3836,6 +3874,8 @@ function Manage-LabHyperVEnvironmentInteractive {
             New-LabConsoleItem -Id 'h' -Label 'Host-SSMS einrichten' -Shortcut 'h' -Value 'Netzwerk, SQL-TCP und Host-Verbindung'
             New-LabConsoleItem -Id 'q' -Label 'SQL-Instanzen prüfen' -Shortcut 'q'
             New-LabConsoleItem -Id 'w' -Label 'SQL-WMI reparieren' -Shortcut 'w'
+            New-LabConsoleItem -Id 'external-runtime' -Label 'External Languages nachinstallieren' -Shortcut 'l' `
+                -Value 'Hyper-V-Gastinstallation derzeit nicht atomar unterstützt' -Disabled
         }
         else {
             if (-not $windowsSlotReady) { New-LabConsoleItem -Id 'o' -Label 'Windows-Grundinstallation übernehmen' -Shortcut 'o' }
@@ -4045,6 +4085,33 @@ function Manage-LabHyperVEnvironmentInteractive {
     return New-LabActionResult -Action Manage -Status $status -ConnectionCenterImpact $connectionCenterImpact
 }
 
+function Get-LabAutomatedTestEnvironmentMenuState {
+    [CmdletBinding()]
+    param()
+
+    try { $status = Get-LabAutomatedTestEnvironmentStatus }
+    catch {
+        return [PSCustomObject]@{ Available=$false; Action=$null; Label=$null; Value=$null; Status=$null }
+    }
+    $boundEntries = @($status.Entries | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_.RunId) })
+    if ($boundEntries.Count -eq 0) {
+        return [PSCustomObject]@{ Available=$false; Action=$null; Label=$null; Value=$null; Status=$status }
+    }
+    $allStopped = @($boundEntries | Where-Object { [string]$_.RuntimeState -ne 'STOPPED' }).Count -eq 0
+    return [PSCustomObject]@{
+        Available=$true
+        Action=if ($allStopped) { 'Start' } else { 'Stop' }
+        Label=if ($allStopped) { 'Automatisierte Testumgebung starten' } else { 'Automatisierte Testumgebung stoppen' }
+        Value=if ($allStopped) {
+            "$($boundEntries.Count) registrierte Umgebung(en) · SQL-Bereitschaft wird geprüft"
+        }
+        else {
+            "$($status.Ready)/$($status.Total) bereit · CPU und RAM freigeben"
+        }
+        Status=$status
+    }
+}
+
 function Get-AvailableLabProviders {
     <#
     .SYNOPSIS Ermittelt alle lokal verfuegbaren und implementierten Provider.
@@ -4225,6 +4292,78 @@ function Set-LabResourcesInteractive {
     }
 }
 
+function Manage-LabExternalRuntimeInteractive {
+    <#
+    .SYNOPSIS
+        Installiert oder aktualisiert External Languages einer unterstützten Containerinstanz.
+    .DESCRIPTION
+        Verwendet den fail-closed Manifest-Reconcile-Vertrag. Das Zielmanifest
+        darf außer der External-Runtime-Software nicht vom persistierten
+        Sollzustand abweichen. Ein Derived Image und ein Ersatzcontainer werden
+        erst nach erfolgreicher SQL-Validierung übernommen.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$RunId)
+
+    $stateRoot = Get-LabStateRoot
+    $runDirectory = Join-Path (Join-Path $stateRoot 'runs') $RunId
+    $connectionPath = Join-Path $runDirectory 'connection-info.json'
+    if (-not (Test-Path -LiteralPath $connectionPath -PathType Leaf)) {
+        Write-LabError 'Connection-Info der Umgebung fehlt.'
+        return
+    }
+    $connection = Get-Content -LiteralPath $connectionPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 50
+    $instances = @($connection.instances | Where-Object {
+        [string]$_.provider -in @('docker', 'podman') -and [string]$_.version -in @('2019','2022','2025')
+    })
+    if ($instances.Count -eq 0) {
+        Write-LabWarning 'Für diese Umgebung ist kein nachträglicher External-Languages-Pfad freigegeben.'
+        return
+    }
+    $instance = if ($instances.Count -eq 1) {
+        $instances[0]
+    }
+    else {
+        $items = @($instances | ForEach-Object {
+            $languages = if ($_.externalRuntime) { @($_.externalRuntime.Languages) -join ', ' } else { 'noch keine' }
+            New-LabConsoleItem -Id ([string]$_.id) -Label ([string]$_.id) `
+                -Value "$($_.provider), SQL $($_.version), External Languages: $languages"
+        })
+        $selection = Invoke-LabConsoleMenu -ScreenId 'external-runtime-instance-selection' `
+            -Title 'SQL-Instanz für External Languages' -Items $items
+        if ($selection.Status -ne 'Selected') { return }
+        @($instances | Where-Object { [string]$_.id -eq [string]$selection.SelectedItem.Id })[0]
+    }
+
+    Write-LabInfo 'Das Zielmanifest muss dieselbe Umgebung beschreiben und unter instances[].software die gewünschten Einträge sql-python, sql-r bzw. sql-java enthalten. sql-csharp ist ausschließlich für Hyper-V/Windows vorgesehen.'
+    $manifestInput = Read-LabConsoleTextInput -Prompt '  Pfad zum Zielmanifest'
+    if ($manifestInput.Status -ne 'Confirmed' -or [string]::IsNullOrWhiteSpace([string]$manifestInput.Value)) { return }
+    $manifestPath = try { (Resolve-Path -LiteralPath ([string]$manifestInput.Value) -ErrorAction Stop).Path }
+        catch { Write-LabError "Zielmanifest nicht gefunden: $($manifestInput.Value)"; return }
+
+    $plan = Get-SqlServerLabReconcilePlan -RunId $RunId -ManifestPath $manifestPath `
+        -InstanceId ([string]$instance.id) -StateRoot $stateRoot
+    Write-LabHeader 'External-Languages-Plan'
+    Write-LabStatus -Label 'Instanz' -Value "$($instance.id) ($($instance.provider), SQL $($instance.version))"
+    foreach ($software in @($plan.Desired.Software)) {
+        Write-LabStatus -Label ([string]$software.SoftwareId) -Value "$($software.RuntimeVersion) [$($software.VariantId)]"
+    }
+    if ($plan.IsNoOp) {
+        Write-LabInfo 'Die gewünschten External Languages sind bereits aktiv.'
+        return
+    }
+    Write-LabWarning 'Für die Installation wird ein Derived Image gebaut und der Container kontrolliert neu erstellt. Dabei entsteht SQL-Downtime.'
+    if (-not (Read-LabConfirm -Prompt '  External Languages jetzt installieren/ändern?' -Default $false)) { return }
+    $result = Invoke-SqlServerLabReconcileAction -RunId $RunId -ManifestPath $manifestPath `
+        -InstanceId ([string]$instance.id) -StateRoot $stateRoot -Confirm:$false
+    if ([string]$result.ExecutionSummary.Status -ne 'SUCCEEDED') {
+        $reason = @($result.ExecutionSummary.Errors) -join ' | '
+        throw "EXTERNAL_RUNTIME_INTERACTIVE_FAILED: $reason"
+    }
+    Write-LabSuccess "External Languages für '$($instance.id)' wurden installiert und über SQL verifiziert."
+    return $result
+}
+
 function Manage-LabEnvironmentInteractive {
     <#
     .SYNOPSIS
@@ -4248,9 +4387,28 @@ function Manage-LabEnvironmentInteractive {
 
     $synced = Sync-LabRunRuntimeState -Run $run
     $connectionLabel = @((Get-LabRunConnectionStrings -RunId $runId) | ForEach-Object Value) -join ', '
+    $stateRoot = Get-LabStateRoot
+    $connectionPath = Join-Path (Join-Path (Join-Path $stateRoot 'runs') $runId) 'connection-info.json'
+    $externalRuntimeEligible = $false
+    $externalRuntimeValue = 'SQL Server 2019/2022/2025 unter Docker/Podman'
+    if (Test-Path -LiteralPath $connectionPath -PathType Leaf) {
+        $connection = Get-Content -LiteralPath $connectionPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 50
+        $eligibleInstances = @($connection.instances | Where-Object {
+            [string]$_.provider -in @('docker', 'podman') -and [string]$_.version -in @('2019','2022','2025')
+        })
+        if ($eligibleInstances.Count -gt 0) {
+            $externalRuntimeEligible = $true
+            $configuredLanguages = @($eligibleInstances | ForEach-Object { @($_.externalRuntime.Languages) } | Where-Object { $_ } | Sort-Object -Unique)
+            $externalRuntimeValue = if ($configuredLanguages.Count -gt 0) {
+                "aktuell: $($configuredLanguages -join ', ')"
+            } else { 'noch nicht installiert' }
+        }
+    }
     $actionItems = @(
         New-LabConsoleItem -Id 'lifecycle' -Label 'Starten oder stoppen' -Value 'abhängig vom aktuellen Zustand' -Shortcut 's'
         New-LabConsoleItem -Id 'resources' -Label 'CPU und Speicher aendern' -Value 'Docker-/Podman-Limits' -Shortcut 'r'
+        New-LabConsoleItem -Id 'external-runtime' -Label 'External Languages installieren oder aendern' `
+            -Value $externalRuntimeValue -Shortcut 'x' -Disabled:(-not $externalRuntimeEligible)
         New-LabConsoleItem -Id 'rename' -Label 'Anzeigename aendern' -Shortcut 'n'
         New-LabConsoleItem -Id 'remove' -Label 'Umgebung entfernen' -Value 'erfordert Bestaetigung' -Shortcut 'e'
     )
@@ -4258,6 +4416,7 @@ function Manage-LabEnvironmentInteractive {
     if ($actionResult.Status -ne 'Selected') { return }
     $action = [string]$actionResult.SelectedItem.Shortcut
     $actionBefore = Get-LabWorkflowLifecycleFingerprint
+    $explicitlyChanged = $false
     $connectionCenterImpact = switch ($action) {
         's' { 'RuntimeState'; break }
         'n' { 'DisplayMetadata'; break }
@@ -4268,6 +4427,10 @@ function Manage-LabEnvironmentInteractive {
         switch ($action) {
             's' { if ([string]$synced.Runtime.State -eq 'RUNNING') { Stop-SqlServerLab -RunId $runId } else { Start-SqlServerLab -RunId $runId } }
             'r' { Set-LabResourcesInteractive -RunId $runId }
+            'x' {
+                $externalRuntimeResult = Manage-LabExternalRuntimeInteractive -RunId $runId
+                $explicitlyChanged = [bool]($externalRuntimeResult -and $externalRuntimeResult.MutationAllowed)
+            }
             'n' {
                 $name = Read-Host "  Neuer Anzeigename [$($run.metadata.name)]"
                 if ($name) { $renamed = Rename-ContainerLabEnvironment -RunId $runId -DisplayName $name; Write-LabSuccess "Umbenannt: $($renamed.Name)" }
@@ -4282,7 +4445,7 @@ function Manage-LabEnvironmentInteractive {
     }
 
     $actionAfter = Get-LabWorkflowLifecycleFingerprint
-    $status = if ($actionBefore -ne $actionAfter) { 'Changed' } else { 'NoChange' }
+    $status = if ($explicitlyChanged -or $actionBefore -ne $actionAfter) { 'Changed' } else { 'NoChange' }
     return New-LabActionResult -Action Manage -Status $status -ConnectionCenterImpact $connectionCenterImpact
 }
 

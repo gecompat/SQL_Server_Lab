@@ -1,6 +1,6 @@
 #Requires -Version 7.2
 
-Describe 'Geschuetzter Windows-Testumgebungs-Lifecycle' {
+Describe 'Geschuetzter provideruebergreifender Testumgebungs-Lifecycle' {
     BeforeAll {
         $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
         $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
@@ -18,8 +18,7 @@ Describe 'Geschuetzter Windows-Testumgebungs-Lifecycle' {
         Mock Get-LabTestEnvironmentRegistry {
             [PSCustomObject]@{
                 environments=@(
-                    [PSCustomObject]@{ key='WINDOWS_2019_CU32'; platform='windows'; sqlVersion='2019'; runId='run-windows'; instanceId='primary' },
-                    [PSCustomObject]@{ key='LINUX_2019_LATEST'; platform='linux'; sqlVersion='2019'; runId='run-linux'; instanceId='primary' }
+                    [PSCustomObject]@{ key='WINDOWS_2019_CU32'; platform='windows'; sqlVersion='2019'; runId='run-windows'; instanceId='primary' }
                 )
             }
         } -ModuleName SqlServerLab
@@ -45,7 +44,7 @@ Describe 'Geschuetzter Windows-Testumgebungs-Lifecycle' {
         Mock Stop-HyperVLabEnvironment { [PSCustomObject]@{ State='STOPPED' } } -ModuleName SqlServerLab
         Mock Sync-LabRunRuntimeState { [PSCustomObject]@{ State='RUNNING' } } -ModuleName SqlServerLab
         Mock Export-SqlServerLabTestEnvironment {
-            [PSCustomObject]@{ GroupStatus='READY'; Ready=2; Entries=2 }
+            [PSCustomObject]@{ GroupStatus='READY'; Ready=1; Entries=1 }
         } -ModuleName SqlServerLab
         Mock Sync-LabAutomatedTestEnvironmentConnectionCenter {} -ModuleName SqlServerLab
         Mock Write-LabError {} -ModuleName SqlServerLab
@@ -179,5 +178,73 @@ Describe 'Geschuetzter Windows-Testumgebungs-Lifecycle' {
         Assert-LifecycleValue $result.Status 'PARTIAL' 'Status'
         Assert-LifecycleValue $result.Stopped 1 'Stopped'
         Assert-LifecycleValue $result.Export.GroupStatus 'READY' 'Export status'
+    }
+
+    Context 'Provideruebergreifender Gruppen-Lifecycle' {
+        BeforeEach {
+            Mock Get-LabTestEnvironmentRegistry {
+                [PSCustomObject]@{ environments=@(
+                    [PSCustomObject]@{ key='LINUX_2019_DOCKER'; platform='linux'; sqlVersion='2019'; runId='run-docker'; instanceId='primary' },
+                    [PSCustomObject]@{ key='LINUX_2022_PODMAN'; platform='linux'; sqlVersion='2022'; runId='run-podman'; instanceId='primary' }
+                ) }
+            } -ModuleName SqlServerLab
+            Mock Get-LabAutomatedTestEnvironmentContainerContext {
+                $provider = if ([string]$Entry.runId -eq 'run-docker') { 'docker' } else { 'podman' }
+                [PSCustomObject]@{
+                    Run=[PSCustomObject]@{ runId=[string]$Entry.runId; state='RUNNING' }
+                    RunDirectory="run-directory-$provider"
+                    Instance=[PSCustomObject]@{
+                        id='primary'; provider=$provider; host='127.0.0.1'; port=1433
+                        containerId="container-$provider"
+                    }
+                }
+            } -ModuleName SqlServerLab
+            Mock Start-SqlServerLab { [PSCustomObject]@{ Action='STARTED'; Status='RUNNING' } } -ModuleName SqlServerLab
+            Mock Stop-SqlServerLab { [PSCustomObject]@{ Action='STOPPED'; Status='STOPPED' } } -ModuleName SqlServerLab
+        }
+
+        It 'startet Docker und Podman gemeinsam und prueft ihre SQL-Major-Version' {
+            Mock Get-LabTestEnvironmentLiveRuntimeStatus { 'STOPPED' } -ModuleName SqlServerLab
+            Mock Export-SqlServerLabTestEnvironment { [PSCustomObject]@{ GroupStatus='READY'; Ready=2; Entries=2 } } -ModuleName SqlServerLab
+
+            $result = Start-SqlServerLabAutomatedTestEnvironment -StateRoot state -Force -Confirm:$false
+
+            Assert-LifecycleValue $result.Status 'READY' 'Status'
+            Assert-LifecycleValue $result.Started 2 'Started'
+            Assert-LifecycleValue $result.Ready 2 'Ready'
+            Assert-MockCalled Start-SqlServerLab -Times 2 -Exactly -ModuleName SqlServerLab -Scope It -ParameterFilter {
+                $SkipReadyCheck
+            }
+            Assert-MockCalled Wait-SqlReady -Times 1 -Exactly -ModuleName SqlServerLab -Scope It -ParameterFilter {
+                $Provider -eq 'docker' -and $ExpectedMajorVersion -eq 15 -and $ContainerIdOrName -eq 'container-docker'
+            }
+            Assert-MockCalled Wait-SqlReady -Times 1 -Exactly -ModuleName SqlServerLab -Scope It -ParameterFilter {
+                $Provider -eq 'podman' -and $ExpectedMajorVersion -eq 16 -and $ContainerIdOrName -eq 'container-podman'
+            }
+        }
+
+        It 'stoppt Docker und Podman gemeinsam ohne Registrierung oder Daten zu entfernen' {
+            $global:SqlServerLabTestContainerStatusCalls = @{}
+            Mock Get-LabTestEnvironmentLiveRuntimeStatus {
+                $provider = [string]$Instance.provider
+                if (-not $global:SqlServerLabTestContainerStatusCalls.ContainsKey($provider)) {
+                    $global:SqlServerLabTestContainerStatusCalls[$provider] = 0
+                }
+                $global:SqlServerLabTestContainerStatusCalls[$provider]++
+                if ($global:SqlServerLabTestContainerStatusCalls[$provider] -eq 1) { 'RUNNING' } else { 'STOPPED' }
+            } -ModuleName SqlServerLab
+            Mock Export-SqlServerLabTestEnvironment { [PSCustomObject]@{ GroupStatus='INCOMPLETE'; Ready=0; Entries=2 } } -ModuleName SqlServerLab
+
+            try {
+                $result = Stop-SqlServerLabAutomatedTestEnvironment -StateRoot state -Force -Confirm:$false
+
+                Assert-LifecycleValue $result.Status 'STOPPED' 'Status'
+                Assert-LifecycleValue $result.Released 2 'Released'
+                Assert-LifecycleValue $result.Stopped 2 'Stopped'
+                Assert-MockCalled Stop-SqlServerLab -Times 2 -Exactly -ModuleName SqlServerLab -Scope It
+                Assert-MockCalled Export-SqlServerLabTestEnvironment -Times 1 -Exactly -ModuleName SqlServerLab -Scope It
+            }
+            finally { Remove-Variable -Name SqlServerLabTestContainerStatusCalls -Scope Global -ErrorAction SilentlyContinue }
+        }
     }
 }

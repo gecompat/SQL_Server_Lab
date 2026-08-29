@@ -12,9 +12,9 @@
 .PARAMETER TargetState
     Gewuenschter Lifecycle-Zustand: RUNNING oder STOPPED.
 .PARAMETER ManifestPath
-    Zielmanifest fuer einen External-Runtime-Reconcile. Ausserhalb des resolver-
-    gebundenen Softwarevertrags darf es nicht vom persistierten Sollzustand
-    abweichen.
+    Zielmanifest fuer eine erstmalige External-Runtime-Installation oder einen
+    späteren Reconcile. Ausserhalb des resolvergebundenen Softwarevertrags darf
+    es nicht vom persistierten Sollzustand abweichen.
 .PARAMETER InstanceId
     Zielinstanz für Container- oder External-Runtime-Reconcile. Darf nur
     entfallen, wenn genau eine geeignete Runtime-Instanz im Run existiert.
@@ -29,6 +29,8 @@
     Gewünschter SQL-Hostport. Eine Abweichung erfordert recreate.
 .PARAMETER SqlMaxMemoryMB
     Gewünschter live angewandter SQL-Wert `max server memory (MB)`.
+.PARAMETER AutoStart
+    Gewünschter Container-Autostartvertrag. Eine Abweichung erfordert recreate.
 .PARAMETER RepairSqlRuntimeContract
     Plant bei Drift von SQL-Memory-/Healthcheck-Vertrag ein recreate.
 .PARAMETER StateRoot
@@ -83,6 +85,10 @@ function Get-SqlServerLabReconcilePlan {
         [int]$SqlMaxMemoryMB,
 
         [Parameter(ParameterSetName = 'Container')]
+        [ValidateSet('on', 'off')]
+        [string]$AutoStart,
+
+        [Parameter(ParameterSetName = 'Container')]
         [switch]$RepairSqlRuntimeContract,
 
         [string]$StateRoot
@@ -98,6 +104,7 @@ function Get-SqlServerLabReconcilePlan {
         if ($PSBoundParameters.ContainsKey('MemoryMB')) { $arguments.MemoryMB=[int]$MemoryMB }
         if ($PSBoundParameters.ContainsKey('Port')) { $arguments.Port=[int]$Port }
         if ($PSBoundParameters.ContainsKey('SqlMaxMemoryMB')) { $arguments.SqlMaxMemoryMB=[int]$SqlMaxMemoryMB }
+        if ($PSBoundParameters.ContainsKey('AutoStart')) { $arguments.AutoStart=[string]$AutoStart }
         return New-LabContainerReconcilePlan @arguments
     }
     return New-LabReconcilePlan -RunId $RunId -TargetState $TargetState -StateRoot $StateRoot

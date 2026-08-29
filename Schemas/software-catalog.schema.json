@@ -41,7 +41,7 @@
       "properties": {
         "id": {
           "type": "string",
-          "enum": ["sql-python", "sql-r", "sql-java"]
+          "enum": ["sql-python", "sql-r", "sql-java", "sql-csharp"]
         },
         "kind": { "const": "sqlExternalRuntime" },
         "displayName": { "type": "string", "minLength": 1 },
@@ -68,7 +68,7 @@
           "enum": ["SUPPORTED", "PREVIEW", "DEPRECATED", "RETIRED", "BLOCKED"]
         },
         "reason": { "type": "string", "minLength": 1 },
-        "language": { "type": "string", "enum": ["Python", "R", "Java"] },
+        "language": { "type": "string", "enum": ["Python", "R", "Java", "CSharp"] },
         "runtimeVersion": { "type": "string", "minLength": 1 },
         "extensionVersion": { "type": ["string", "null"] },
         "sqlMajorVersions": {
@@ -132,7 +132,7 @@
           "required": ["type", "language", "probeId", "expectedRuntimeVersion"],
           "properties": {
             "type": { "const": "spExecuteExternalScript" },
-            "language": { "type": "string", "enum": ["Python", "R", "Java"] },
+            "language": { "type": "string", "enum": ["Python", "R", "Java", "CSharp"] },
             "probeId": { "type": "string", "pattern": "^[a-z][a-z0-9-]+$" },
             "expectedRuntimeVersion": { "type": "string", "minLength": 1 }
           },

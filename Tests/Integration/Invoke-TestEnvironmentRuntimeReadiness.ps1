@@ -1,7 +1,7 @@
 #Requires -Version 7.2
 <#
 .SYNOPSIS
-    Prüft oder repariert die Laufzeitbereitschaft registrierter Windows-Testumgebungen.
+    Prüft oder repariert die Laufzeitbereitschaft der registrierten Testgruppe.
 .DESCRIPTION
     Verwendet für die Recovery ausschließlich den öffentlichen, gruppengebundenen
     SQL_Server_Lab-Lifecycle. Ohne Recover erfolgt eine secretfreie read-only
@@ -23,10 +23,10 @@ if ($Recover) {
     $result = Start-SqlServerLabAutomatedTestEnvironment -StateRoot $StateRoot `
         -TimeoutSeconds $TimeoutSeconds -Force -Confirm:$false
     if ([string]$result.Status -ne 'READY' -or [int]$result.Errors -ne 0) {
-        throw "TEST_ENVIRONMENT_WINDOWS_RECOVERY_FAILED: Status=$($result.Status), Errors=$($result.Errors)"
+        throw "TEST_ENVIRONMENT_RECOVERY_FAILED: Status=$($result.Status), Errors=$($result.Errors)"
     }
     [PSCustomObject]@{
-        Status=[string]$result.Status; WindowsReady=[int]$result.Ready
+        Status=[string]$result.Status; MembersReady=[int]$result.Ready
         Started=[int]$result.Started; Unchanged=[int]$result.Unchanged
         ExportGroupStatus=[string]$result.Export.GroupStatus
     }
@@ -37,10 +37,10 @@ $status = & $module {
     param($RequestedStateRoot)
     Get-LabAutomatedTestEnvironmentStatus -StateRoot $RequestedStateRoot
 } $StateRoot
-$windows = @($status.Entries | Where-Object { [string]$_.Platform -eq 'windows' })
-if ($windows.Count -eq 0) { throw 'TEST_ENVIRONMENT_WINDOWS_TARGETS_NOT_FOUND' }
-$notReady = @($windows | Where-Object { [string]$_.StatusCode -ne 'READY' })
+$members = @($status.Entries | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_.RunId) })
+if ($members.Count -eq 0) { throw 'TEST_ENVIRONMENT_TARGETS_NOT_FOUND' }
+$notReady = @($members | Where-Object { [string]$_.StatusCode -ne 'READY' })
 if ($notReady.Count -gt 0) {
-    throw "TEST_ENVIRONMENT_WINDOWS_NOT_READY: $($notReady.Count) von $($windows.Count)"
+    throw "TEST_ENVIRONMENT_NOT_READY: $($notReady.Count) von $($members.Count)"
 }
-[PSCustomObject]@{ Status='READY'; WindowsReady=$windows.Count; Started=0; Unchanged=$windows.Count; ExportGroupStatus=[string]$status.GroupStatus }
+[PSCustomObject]@{ Status='READY'; MembersReady=$members.Count; Started=0; Unchanged=$members.Count; ExportGroupStatus=[string]$status.GroupStatus }

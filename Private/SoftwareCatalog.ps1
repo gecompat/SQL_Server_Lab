@@ -59,6 +59,7 @@ function ConvertTo-LabExternalRuntimeSoftwareId {
         'Python' { return 'sql-python' }
         'R' { return 'sql-r' }
         'Java' { return 'sql-java' }
+        'CSharp' { return 'sql-csharp' }
         default { throw "EXTERNAL_RUNTIME_LANGUAGE_UNKNOWN: $Language" }
     }
 }
@@ -75,7 +76,7 @@ function ConvertTo-LabExternalRuntimeRequests {
     )
 
     $requests = [System.Collections.Generic.List[object]]::new()
-    foreach ($item in @($Software | Where-Object { $_ -and [string]$_.id -in @('sql-python', 'sql-r', 'sql-java') })) {
+    foreach ($item in @($Software | Where-Object { $_ -and [string]$_.id -in @('sql-python', 'sql-r', 'sql-java', 'sql-csharp') })) {
         $requests.Add([PSCustomObject]@{
             Id = [string]$item.id
             Version = [string]$item.version
@@ -325,7 +326,12 @@ function Resolve-LabExternalRuntimePlan {
         InstallationMethod = [string]$variant.installMethod
         RecipeVersion = [string]$variant.recipeVersion
         RequiredCapabilities = @($variant.requiresCapabilities | ForEach-Object { [string]$_ })
-        ArtifactRefs = @($variant.artifacts | ForEach-Object {
+        ArtifactRefs = @($variant.artifacts | Where-Object {
+            [string]$variant.installMethod -ne 'derived-image' -or
+            ([string]$_.id -notmatch '^mssql-server-linux-' -and
+             [string]$_.id -ne 'mssql-server-extensibility' -and
+             [string]$_.id -notmatch '^ubuntu-.*-libgomp1$')
+        } | ForEach-Object {
             [PSCustomObject]@{
                 Id = [string]$_.id
                 SourceType = [string]$_.sourceType

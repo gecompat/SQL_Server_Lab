@@ -53,7 +53,7 @@ foreach ($environment in @($contract.environments)) {
     $query = @"
 SET NOCOUNT ON;
 SELECT @@VERSION AS VersionDescription;
-SELECT CAST(SERVERPROPERTY('ProductMajorVersion') AS nvarchar(16)) AS ProductMajorVersion;
+SELECT N'SQL_SERVER_LAB_MAJOR=' + CAST(SERVERPROPERTY('ProductMajorVersion') AS nvarchar(16));
 SELECT name, state_desc FROM sys.databases ORDER BY database_id;
 DECLARE @sql nvarchar(max) = N'CREATE DATABASE ' + QUOTENAME(N'$databaseName');
 EXEC sys.sp_executesql @sql;
@@ -70,10 +70,22 @@ EXEC sys.sp_executesql @sql;
         $safeDetail = ($text -replace '(?i)(password\s*[=:]\s*)\S+', '$1***').Trim()
         throw "TEST_ENVIRONMENT_SQL_FAILED: $($environment.key): $safeDetail"
     }
-    if ($text -notmatch [regex]::Escape([string]$environment.sqlVersion)) {
-        throw "TEST_ENVIRONMENT_VERSION_MISMATCH: $($environment.key) erwartet $($environment.sqlVersion)"
+    $expectedMajorVersion = switch ([string]$environment.sqlVersion) {
+        '2019' { 15 }
+        '2022' { 16 }
+        '2025' { 17 }
+        default { throw "TEST_ENVIRONMENT_VERSION_UNSUPPORTED: $($environment.key) erwartet $($environment.sqlVersion)" }
     }
-    $results.Add([pscustomobject]@{ Key = $environment.key; Target = $target; Status = 'PASS' })
+    $majorMatch = [regex]::Match($text, '(?m)^\s*SQL_SERVER_LAB_MAJOR=(?<major>\d+)\s*$')
+    if (-not $majorMatch.Success) { throw "TEST_ENVIRONMENT_VERSION_RESULT_MISSING: $($environment.key)" }
+    $actualMajorVersion = [int]$majorMatch.Groups['major'].Value
+    if ($actualMajorVersion -ne $expectedMajorVersion) {
+        throw "TEST_ENVIRONMENT_VERSION_MISMATCH: $($environment.key) erwartet Major $expectedMajorVersion, gefunden $actualMajorVersion"
+    }
+    $results.Add([pscustomobject]@{
+        Key = $environment.key; Target = $target; ExpectedMajor = $expectedMajorVersion
+        ActualMajor = $actualMajorVersion; Status = 'PASS'
+    })
 }
 
 Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -ErrorAction Stop

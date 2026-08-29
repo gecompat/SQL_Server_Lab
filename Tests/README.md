@@ -88,9 +88,9 @@ Die statischen Prüfungen benötigen keine laufende SQL-Server-Instanz. Sie kont
 - Reconcile-Executor-Vertrag: `Invoke-SqlServerLabReconcileAction` mit
   unterstütztem `START`/`STOP`, `-WhatIf`, mixed-operation-Schutz und
   geheimnissicherem Ergebnis;
-- External-Runtime-Reconcile-Vertrag: additiver SQL-2022-Container-Refresh,
-  Nicht-Software-Drift-/Removal-Gates, sanitisiertes `-WhatIf`, Journal,
-  Rollback und Umschaltreihenfolge;
+- External-Runtime-Reconcile-Vertrag: versionsbewusster SQL-2019-/2022-/2025-
+  Container-Refresh, Nicht-Software-Drift-/Removal-Gates, sanitisiertes
+  `-WhatIf`, Journal, Rollback und Umschaltreihenfolge;
 - portabler Storage-Intent, lokale Selector-/Topologiebindung, vollständige
   SQL-Dateipläne und der getrennte Runtime-Receipt-Vertrag;
 - Pester-Vertrag: projektspezifische Baseline, Manifest-/Exportkonsistenz und
@@ -253,6 +253,9 @@ Der native Gruppen-Lifecycle kann ergänzend mit
 `Invoke-TestEnvironmentGroupLifecycle.ps1` ausgeführt werden; er beweist den
 öffentlichen Ablauf Start, Live-Export `READY`, nicht-destruktiver Windows-Stopp
 und fail-closed Export bei unveränderten Registrierungen und Linux-Mitgliedern.
+Im garantierten Abschluss stellt er alle Windows-Mitglieder wieder bis
+`READY` bereit, damit der Nachweis die persistente Testgruppe nicht außer
+Betrieb hinterlässt.
 Fehler werden in einem wiederverwendeten GitHub-Issue sichtbar gehalten. Die
 frische Hyper-V-/SQL-Installation läuft zusätzlich wöchentlich oder manuell.
 

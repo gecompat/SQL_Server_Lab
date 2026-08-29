@@ -33,6 +33,7 @@ try {
             InstanceId='primary'; Provider='docker'; ContainerName='reconcile-mock'; ContainerId='original-id'; WasRunning=$true
             CurrentPort=14333; CurrentMemoryMB=2048; CurrentCpu=[decimal]2; ConfiguredSqlMemory=@('MSSQL_MEMORY_LIMIT_MB=1638')
             HealthCommand='CMD-SHELL sqlcmd -C -Q SELECT 1'; MountFingerprint=('a' * 64)
+            CurrentRestartPolicy='no'; CurrentAutoStartLabel='off'; CurrentAutoStart='off'
         }
         Write-LabArtifactJsonAtomic -Path $context.ConnectionPath -InputObject $connection
         $originalContext=(Get-Command Get-LabContainerReconcileContext).ScriptBlock
@@ -45,26 +46,29 @@ try {
             $noOp=Get-SqlServerLabReconcilePlan -RunId $runId -Container -Cpu 2 -MemoryMB 2048 -Port 14333 -SqlMaxMemoryMB 1536 -StateRoot $Root
             $live=Get-SqlServerLabReconcilePlan -RunId $runId -Container -Cpu 3 -MemoryMB 2560 -Port 14333 -SqlMaxMemoryMB 1408 -StateRoot $Root
             $recreate=Get-SqlServerLabReconcilePlan -RunId $runId -Container -Cpu 2 -MemoryMB 2048 -Port 15433 -StateRoot $Root
+            $autoStart=Get-SqlServerLabReconcilePlan -RunId $runId -Container -AutoStart on -RepairSqlRuntimeContract -StateRoot $Root
             $beforeFiles=@(Get-ChildItem -LiteralPath $runDirectory -File | ForEach-Object Name)
             $null=Get-SqlServerLabReconcilePlan -RunId $runId -Container -Cpu 2 -MemoryMB 2048 -Port 14333 -StateRoot $Root
             $afterFiles=@(Get-ChildItem -LiteralPath $runDirectory -File | ForEach-Object Name)
 
             $script:updateCalls=0
             Set-Item Function:Update-SqlServerLabContainer -Value {
-                param($RunId,$InstanceId,$Cpu,$MemoryMB,$Port,$SqlMaxMemoryMB,$ReadinessTimeoutSeconds,$RepairSqlRuntimeContract,$StateRoot,$Confirm)
+                param($RunId,$InstanceId,$Cpu,$MemoryMB,$Port,$SqlMaxMemoryMB,$AutoStart,$ReadinessTimeoutSeconds,$RepairSqlRuntimeContract,$StateRoot,$Confirm)
                 $script:updateCalls++
-                [PSCustomObject]@{ Status='SUCCEEDED'; Changed=$true; ChangeClass='live'; RunId=$RunId; InstanceId=$InstanceId; Cpu=$Cpu; MemoryMB=$MemoryMB; Port=$Port; SqlMaxMemoryMB=$SqlMaxMemoryMB }
+                [PSCustomObject]@{ Status='SUCCEEDED'; Changed=$true; ChangeClass='live'; RunId=$RunId; InstanceId=$InstanceId; Cpu=$Cpu; MemoryMB=$MemoryMB; Port=$Port; SqlMaxMemoryMB=$SqlMaxMemoryMB; AutoStart=$AutoStart }
             }
             $actionNoOp=Invoke-SqlServerLabReconcileAction -RunId $runId -Container -Cpu 2 -MemoryMB 2048 -Port 14333 -SqlMaxMemoryMB 1536 -StateRoot $Root -Confirm:$false
             $actionLive=Invoke-SqlServerLabReconcileAction -RunId $runId -Container -Cpu 3 -MemoryMB 2560 -Port 14333 -SqlMaxMemoryMB 1408 -StateRoot $Root -Confirm:$false
+            $actionAutoStart=Invoke-SqlServerLabReconcileAction -RunId $runId -Container -AutoStart on -RepairSqlRuntimeContract -StateRoot $Root -Confirm:$false
             $whatIf=Invoke-SqlServerLabReconcileAction -RunId $runId -Container -Cpu 4 -MemoryMB 2560 -Port 14333 -StateRoot $Root -WhatIf
 
             $journalInfo=New-LabContainerReconcileJournal -Context $context -Plan $live
             $journal=Get-Content -LiteralPath $journalInfo.Path -Raw -Encoding utf8 | ConvertFrom-Json -Depth 40
             [PSCustomObject]@{
-                NoOp=$noOp; Live=$live; Recreate=$recreate; BeforeFiles=$beforeFiles; AfterFiles=$afterFiles
-                ActionNoOp=$actionNoOp; ActionLive=$actionLive; WhatIf=$whatIf; UpdateCalls=$script:updateCalls
+                NoOp=$noOp; Live=$live; Recreate=$recreate; AutoStart=$autoStart; BeforeFiles=$beforeFiles; AfterFiles=$afterFiles
+                ActionNoOp=$actionNoOp; ActionLive=$actionLive; ActionAutoStart=$actionAutoStart; WhatIf=$whatIf; UpdateCalls=$script:updateCalls
                 Journal=$journal; JournalSchema=(Assert-LabContainerReconcileJournal -Journal $journal)
+                EmptyMountFingerprint=(Get-LabContainerMountFingerprint -Mounts @())
                 TransitionMap=Get-LabStateTransitionMap
             }
         }
@@ -88,15 +92,23 @@ try {
         $evidence.Recreate.HighestChangeClass -eq 'recreate' -and $evidence.Recreate.Preview.Downtime -eq 'brief' -and
         $evidence.Recreate.Preview.DataImpact -match 'preserved' -and $evidence.Recreate.Preview.Recovery -match 'rollback'
     )
+    Add-CheckResult -Name 'Autostart-Drift wird explizit als recreate geplant und bis zum Executor weitergereicht' -Success (
+        $evidence.AutoStart.HighestChangeClass -eq 'recreate' -and $evidence.AutoStart.Desired.AutoStart -eq 'on' -and
+        @($evidence.AutoStart.Diff | Where-Object { $_.Field -eq 'AutoStart' -and $_.Changed }).Count -eq 1 -and
+        $evidence.ActionAutoStart.ExecutionPlan[0].Result.AutoStart -eq 'on'
+    )
     Add-CheckResult -Name 'Action führt nur den bestätigten nichtleeren Plan aus' -Success (
         $evidence.ActionNoOp.ExecutionSummary.Status -eq 'NO_OP' -and $evidence.ActionLive.ExecutionSummary.Status -eq 'SUCCEEDED' -and
-        $evidence.WhatIf.ExecutionSummary.Status -eq 'WOULD_EXECUTE' -and $evidence.UpdateCalls -eq 1
+        $evidence.WhatIf.ExecutionSummary.Status -eq 'WOULD_EXECUTE' -and $evidence.UpdateCalls -eq 2
     )
     Add-CheckResult -Name 'Operationsjournal ist schema-valid und bindet Run, Scope, echte ID und Compensation' -Success (
         $evidence.JournalSchema -and $evidence.Journal.Status -eq 'PREPARED' -and $evidence.Journal.Runtime.OriginalId -eq 'original-id' -and
         $evidence.Journal.Recovery.Status -eq 'ROLLBACK_AVAILABLE'
     )
-    $publicPayload=@($evidence.NoOp,$evidence.Live,$evidence.Recreate,$evidence.ActionNoOp,$evidence.ActionLive,$evidence.WhatIf) | ConvertTo-Json -Depth 30
+    Add-CheckResult -Name 'Mount-Fingerprint akzeptiert auch Container ohne zusätzliche Mounts' -Success (
+        [string]$evidence.EmptyMountFingerprint -match '^[a-f0-9]{64}$'
+    )
+    $publicPayload=@($evidence.NoOp,$evidence.Live,$evidence.Recreate,$evidence.AutoStart,$evidence.ActionNoOp,$evidence.ActionLive,$evidence.ActionAutoStart,$evidence.WhatIf) | ConvertTo-Json -Depth 30
     Add-CheckResult -Name 'Öffentliche Plan-/Action-Verträge bleiben frei von Runtime-IDs, Hostpfaden und Secrets' -Success (
         $publicPayload -notmatch 'original-id|MountFingerprint|PreviousConnection|MSSQL_SA_PASSWORD|Password=|containerId|runtimeId'
     )

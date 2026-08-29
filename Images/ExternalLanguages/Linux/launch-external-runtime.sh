@@ -57,7 +57,9 @@ for transient_root in /var/opt/mssql-extensibility/data /var/opt/mssql-extensibi
     fi
 done
 
-source /opt/mssql/bin/init_custom_setup.sh
+if [[ -f /opt/mssql/bin/init_custom_setup.sh ]]; then
+    source /opt/mssql/bin/init_custom_setup.sh
+fi
 
 runuser -u mssql_launchpadd -- /opt/mssql/bin/launchpadd &
 launchpad_pid="$!"
@@ -71,7 +73,9 @@ terminate_children() {
 
 trap terminate_children TERM INT
 
-/opt/mssql/bin/run_custom_setup.sh
+if [[ -x /opt/mssql/bin/run_custom_setup.sh ]]; then
+    /opt/mssql/bin/run_custom_setup.sh
+fi
 
 set +e
 wait -n "${sql_pid}" "${launchpad_pid}"

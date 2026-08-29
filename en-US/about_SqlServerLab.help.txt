@@ -111,12 +111,12 @@ COMMANDS
         Synchronizes a managed local CMS with the current endpoint catalog.
 
     Get-SqlServerLabReconcilePlan
-        Returns a read-only lifecycle plan or a resolver-bound external-runtime
-        refresh plan for an existing run.
+        Returns a read-only lifecycle, container resource/autostart, or
+        resolver-bound external-runtime refresh plan for an existing run.
 
     Invoke-SqlServerLabReconcileAction
-        Executes an unambiguous START/STOP plan or an additive, validated SQL
-        Server 2022 Docker/Podman external-runtime refresh.
+        Executes START/STOP, a journaled container resource/autostart reconcile,
+        or a validated external-runtime refresh.
 
     Invoke-SqlServerLabWorkflowAction
         Runs one explicit non-interactive Hyper-V workflow action for the
@@ -178,8 +178,9 @@ COMMANDS
         configured Lab_Data export directory.
 
     Repair-SqlServerLabAutomatedTestEnvironment
-        Repairs the resource and health contract of registered Linux members
-        without replacing Windows members, ports, or volumes.
+        Repairs resources, health, and autostart for registered Linux members
+        and reconciles readable runtime names for all containers and assigned
+        Hyper-V slots. Ports, volumes, and run IDs remain unchanged.
 
     Start-SqlServerLabAutomatedTestEnvironment
         Starts the registered Windows Hyper-V members as one protected group,

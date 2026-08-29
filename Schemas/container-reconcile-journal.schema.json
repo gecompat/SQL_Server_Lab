@@ -21,6 +21,9 @@
         "MemoryMB": { "type": "integer", "minimum": 512 },
         "Port": { "type": "integer", "minimum": 1024, "maximum": 65535 },
         "SqlMaxMemoryMB": { "type": ["integer", "null"], "minimum": 128 },
+        "AutoStart": { "enum": ["on", "off", "DRIFTED"] },
+        "RestartPolicy": { "type": "string" },
+        "AutoStartLabel": { "type": "string" },
         "Running": { "type": "boolean" },
         "RunState": { "type": "string" },
         "MountFingerprint": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
@@ -36,6 +39,7 @@
         "Port": { "type": "integer", "minimum": 1024, "maximum": 65535 },
         "SqlMemoryLimitMB": { "type": "integer", "minimum": 1024 },
         "SqlMaxMemoryMB": { "type": ["integer", "null"], "minimum": 128 },
+        "AutoStart": { "enum": ["on", "off"] },
         "MountFingerprint": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
       },
       "additionalProperties": false

@@ -75,8 +75,14 @@ $state.Snapshot = $null
 
 $textEscapeKeys = [System.Collections.Generic.Queue[object]]::new()
 $textEscapeKeys.Enqueue([PSCustomObject]@{ Key='Escape'; KeyChar=[char]27 })
-$textEscapeResult = Read-LabConsoleTextInput -Prompt 'Batch-Name' -Default 'Neue Umgebungen' -Capability ([PSCustomObject]@{ Supported=$true }) -ReadKey { $textEscapeKeys.Dequeue() } -WriteText { param($text) }
+$textEscapeWrites = [System.Collections.Generic.List[string]]::new()
+$textEscapeResult = Read-LabConsoleTextInput -Prompt 'Batch-Name' -Default 'Neue Umgebungen' -Capability ([PSCustomObject]@{ Supported=$true }) -ReadKey { $textEscapeKeys.Dequeue() } -WriteText { param($text) $textEscapeWrites.Add([string]$text) }
 Add-ConsoleUiCheck 'Texteingabe bricht mit Escape ohne Wert ab' ($textEscapeResult.Status -eq 'Cancelled' -and $null -eq $textEscapeResult.Value)
+Add-ConsoleUiCheck 'Escape schreibt einen echten Zeilenumbruch statt des Property-Ausdrucks' (
+    $textEscapeWrites.Count -eq 2 -and
+    $textEscapeWrites[$textEscapeWrites.Count - 1] -ceq [Environment]::NewLine -and
+    (@($textEscapeWrites) -join '') -notmatch '\[Environment\]::NewLine'
+)
 
 $textDefaultKeys = [System.Collections.Generic.Queue[object]]::new()
 $textDefaultKeys.Enqueue([PSCustomObject]@{ Key='Enter'; KeyChar=[char]13 })
@@ -105,6 +111,10 @@ $acknowledgementKeys.Enqueue([PSCustomObject]@{ Key='Enter'; KeyChar=[char]13 })
 $acknowledgementWrites = [System.Collections.Generic.List[string]]::new()
 Wait-LabConsoleAcknowledgement -Capability ([PSCustomObject]@{ Supported=$true }) -ReadKey { $acknowledgementKeys.Dequeue() } -WriteText { param($text) $acknowledgementWrites.Add([string]$text) }
 Add-ConsoleUiCheck 'Informationsansicht wartet genau bis Enter oder Escape' ($acknowledgementKeys.Count -eq 0 -and @($acknowledgementWrites).Count -eq 2)
+Add-ConsoleUiCheck 'Informationsansicht beendet mit einem echten Zeilenumbruch' (
+    $acknowledgementWrites[$acknowledgementWrites.Count - 1] -ceq [Environment]::NewLine -and
+    (@($acknowledgementWrites) -join '') -notmatch '\[Environment\]::NewLine'
+)
 
 $fallback = Invoke-LabConsoleMenu -ScreenId 'fallback' -Title 'Fallback' -Items $items -ForceFallback -ReadInput { param($prompt) '2' }
 Add-ConsoleUiCheck 'Read-Host-Fallback waehlt nummeriert' ($fallback.Status -eq 'Selected' -and $fallback.SelectedItem.Id -eq 'two')
@@ -253,9 +263,28 @@ Add-ConsoleUiCheck 'CUI-010 besitzt gemeinsamen read-only Attention-Snapshot' ($
 Add-ConsoleUiCheck 'Hauptmenü bindet Attention-Snapshot an gemeinsamen Renderer' ($entrySource -match 'Update-LabConsoleAttentionSnapshot' -and $entrySource -match 'Invoke-LabConsoleMenu[^\r\n]+-Snapshot \$snapshot')
 $environmentMenuMatch = [regex]::Match($entrySource, 'function Show-LabEnvironmentMenu \{[\s\S]+?(?=\r?\nfunction Show-LabHyperVMenu)')
 Add-ConsoleUiCheck 'Umgebungsmenue beginnt mit Verwaltung und gruppiert destruktive Sammelaktionen am Ende' ($environmentMenuMatch.Success -and $environmentMenuMatch.Value.IndexOf("-Id 'Manage'") -lt $environmentMenuMatch.Value.IndexOf("-Id 'ClearAutomatedTestEnvironment'") -and $environmentMenuMatch.Value.IndexOf("-Id 'ClearAutomatedTestEnvironment'") -lt $environmentMenuMatch.Value.IndexOf("-Id 'Clear'") -and $environmentMenuMatch.Value.IndexOf("-Id 'Clear'") -lt $environmentMenuMatch.Value.IndexOf("-Id 'back'"))
+Add-ConsoleUiCheck 'Umgebungsmenue bietet genau einen zustandsabhaengigen Testgruppen-Lifecyclepunkt' (
+    $entrySource -match 'function Get-LabAutomatedTestEnvironmentMenuState' -and
+    $entrySource -match 'Action=if \(\$allStopped\) \{ ''Start'' \} else \{ ''Stop'' \}' -and
+    $entrySource -match '-Id ''AutomatedTestEnvironmentLifecycle''' -and
+    $entrySource -match 'Start-SqlServerLabAutomatedTestEnvironment -Force -Confirm:\$false' -and
+    $entrySource -match 'Stop-SqlServerLabAutomatedTestEnvironment -Force -Confirm:\$false'
+)
 Add-ConsoleUiCheck 'Read-only Menueaktionen warten zentral auf genau eine Rueckkehrbestaetigung' ($entrySource -match '\$ActionName -in @\(''Status'', ''CleanupAudit'', ''Catalog''\)[\s\S]+?Wait-LabConsoleAcknowledgement')
 Add-ConsoleUiCheck 'Umgebungsauswahl verwendet Namen als Primaertext und weist die technische Run-ID als Detail aus' ($entrySource -match 'function Get-LabRunSelectorPresentation' -and $entrySource -match 'Label = \$name' -and $entrySource -match "\('Run \{0\}'")
 Add-ConsoleUiCheck 'Connection-Center-CMS ist als nicht mutierbarer Systemdienst klassifiziert' ($entrySource -match "'CMS-Systemdienst'" -and $entrySource -match '-Disabled:\(\$protected -or \(\$DisableSystemServices -and \$systemService\)\)')
+Add-ConsoleUiCheck 'Containerverwaltung macht External-Languages-Erstinstallation und Reconcile sichtbar' (
+    $entrySource -match 'function Manage-LabExternalRuntimeInteractive' -and
+    $entrySource -match "-Id 'external-runtime' -Label 'External Languages installieren oder aendern'" -and
+    $entrySource -match 'Get-SqlServerLabReconcilePlan[\s\S]+?Invoke-SqlServerLabReconcileAction'
+)
+Add-ConsoleUiCheck 'External-Languages-Menü behandelt Docker und Podman gleichwertig' (
+    $entrySource -match "provider -in @\('docker', 'podman'\)" -and
+    $entrySource -match "version -in @\('2019','2022','2025'\)"
+)
+Add-ConsoleUiCheck 'Hyper-V zeigt die derzeit nicht atomare External-Languages-Nachinstallation begründet deaktiviert' (
+    $entrySource -match "-Label 'External Languages nachinstallieren'[\s\S]+?-Disabled"
+)
 Add-ConsoleUiCheck 'Hauptmenue startet ohne vorab ausgegebene und sofort ueberschriebene Umgebungsuebersicht' ([regex]::Match($entrySource, 'function Invoke-SqlServerLab \{[\s\S]+?(?=\r?\n# =+)').Value -notmatch 'Show-LabBanner')
 Add-ConsoleUiCheck 'Interaktiver Status zeigt Connection String und gespeichertes generiertes SA-Passwort' ($entrySource -match 'function Show-LabEnvironmentStatusInteractive' -and $entrySource -match "'SA-Passwort \(automatisch erzeugt\)'" -and $entrySource -match 'Show-LabEnvironmentStatusInteractive -RunId')
 Add-ConsoleUiCheck 'Hauptmenue deaktiviert Hyper-V-Infrastruktur wenn der Provider nicht verwendbar ist' ($entrySource -match '-Id ''hyperv''.*-Disabled:\(-not \$hyperVAvailable\)' -and $entrySource -match 'Test-HyperVAvailable')

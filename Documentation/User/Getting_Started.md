@@ -740,8 +740,11 @@ einem Run kombinieren; Details und Grenzen stehen im
 [Gemischten Container-Provider-Lifecycle](../Architecture/MIXED_PROVIDER_LIFECYCLE.md).
 
 Registrierte Mitglieder der geschützten automatisierten Testgruppe bleiben für
-diese Einzel-Cmdlets gesperrt. Die Windows-Hyper-V-Mitglieder werden stattdessen
-gemeinsam, idempotent und ohne Löschung bereitgestellt beziehungsweise gestoppt:
+diese Einzel-Cmdlets gesperrt. Docker-, Podman- und Hyper-V-Mitglieder werden
+stattdessen gemeinsam, idempotent und ohne Löschung bereitgestellt beziehungsweise
+gestoppt. Im Hauptmenü unter **Umgebungen** erscheint dafür abhängig vom
+Livezustand genau eine Aktion: **Automatisierte Testumgebung starten** oder
+**Automatisierte Testumgebung stoppen**.
 
 ```powershell
 Start-SqlServerLabAutomatedTestEnvironment -WhatIf
@@ -753,10 +756,10 @@ $stop = Stop-SqlServerLabAutomatedTestEnvironment -Force -Confirm:$false
 # Danach: $stop.Status = STOPPED, Export.GroupStatus = INCOMPLETE.
 ```
 
-Der Start bringt vorhandene SQL-Engine-Dienste im Gast hoch, prüft SQL-
-Readiness und erneuert den kanonischen Export live. Der Stopp gibt die durch
-Windows-VMs belegte Hostkapazität frei, erhält jedoch Runs, Secrets,
-Registrierungen, VHDX-Dateien und alle Linux-Mitglieder. Details stehen unter
+Der Start bringt Container, VMs und vorhandene SQL-Engine-Dienste hoch, prüft
+SQL-Readiness einschließlich der erwarteten Major-Version und erneuert den
+kanonischen Export live. Der Stopp gibt deren CPU- und RAM-Kapazität frei,
+erhält jedoch Runs, Secrets, Registrierungen, Volumes und VHDX-Dateien. Details stehen unter
 [Automatisierte Testumgebungen](AUTOMATED_TEST_ENVIRONMENTS.md).
 
 ### Read-only Reconcile-Vorschau
@@ -783,14 +786,23 @@ Invoke-SqlServerLabReconcileAction -RunId $lab.RunId -TargetState RUNNING
 Mit `-WhatIf` kann vorab geprüft werden, ob der Executor tatsächlich
 Ausführungsversuche durchführt.
 
-### External Runtime eines Containers aktualisieren
+### External Languages nachträglich installieren oder aktualisieren
 
-Für einen laufenden SQL-Server-2022-Docker-/Podman-Run mit bereits verifizierter
-External Runtime kann ein Zielmanifest zusätzliche resolverfreigegebene
-Sprachen deklarieren. Zuerst wird der read-only Plan geprüft, danach baut der
-Executor das neue Derived Image. Der alte Container bleibt bis zum erfolgreichen
+Für einen laufenden SQL-Server-2019-, -2022- oder -2025-Docker-/Podman-Run kann ein Zielmanifest
+erstmals oder zusätzlich resolverfreigegebene Sprachen deklarieren. Im CLI ist
+der Einstieg unter `Umgebungen -> Umgebung verwalten -> External Languages
+installieren oder ändern` sichtbar. Das Zielmanifest muss dieselben Instanzen
+und denselben Provider-, Profil-, Storage-, Netzwerk- und Datenbankzustand
+beschreiben; geändert werden dürfen hier nur resolverfreigegebene
+`instances[].software`-Einträge. Derzeit ist das bei SQL Server 2019 `sql-java`
+und bei SQL Server 2022/2025 `sql-python`, `sql-r` und `sql-java`.
+
+Zuerst wird der read-only Plan geprüft, danach baut der Executor das neue
+Derived Image. Der alte Container bleibt bis zum erfolgreichen
 SQL-Datenroundtrip als Rollback-Ziel erhalten; alte Images werden nicht durch
-den Run-Cleanup gelöscht.
+den Run-Cleanup gelöscht. Bei einer Erstinstallation werden auch die beiden
+scopegebundenen External-Language-/Library-Volumes in den Cleanup-Vertrag
+aufgenommen.
 
 ```powershell
 $plan = Get-SqlServerLabReconcilePlan `
@@ -810,10 +822,23 @@ Invoke-SqlServerLabReconcileAction `
     -InstanceId external-runtime
 ```
 
-Der erste ausführbare Umfang ist bewusst eng: nur additive External-Runtime-
-Änderungen, nur SQL Server 2022 auf Docker/Podman und keine gleichzeitigen
-Änderungen an Provider, Profil, Storage, Netzwerk oder Datenbanken. Entfernung
-einer Sprache und Hyper-V-Artifact-Refresh bleiben fail-closed.
+Der ausführbare Umfang umfasst SQL Server 2019, 2022 und 2025 auf
+Docker/Podman, aber keine gleichzeitigen Änderungen an Provider, Profil,
+Storage, Netzwerk oder Datenbanken. Docker und Podman besitzen dabei dieselbe
+Sprachfreigabe; Podman
+muss für den sicheren `launchpadd`-Namespace-Modus jedoch rootful auf einem
+Linux-Containerhost mit cgroup v1 laufen. Eine einzelne Sprache kann entfernt werden, solange mindestens
+eine External Runtime erhalten bleibt. Die Entfernung der letzten Runtime und
+Hyper-V-Nachinstallation/-Artifact-Refresh bleiben fail-closed. Im Hyper-V-
+Verwaltungsmenü wird dieser derzeit nicht atomare Pfad deshalb sichtbar, aber
+deaktiviert angezeigt.
+
+C# ist als SQL-External-Language-Intent `sql-csharp` für SQL Server 2019 bis
+2025 auf Windows/Hyper-V erfasst. Microsoft bezeichnet die registrierte
+SQL-Sprache als `dotnet`. Die vorhandene Microsoft-Binärveröffentlichung zielt
+jedoch auf .NET 5, während der aktuelle Quellstand .NET 8 verwendet. Bis ein
+hashgebundener aktueller Build und ein nativer SQL-Roundtrip vorliegen, bleibt
+die Variante sichtbar `PREVIEW` und wird vor jeder Mutation abgelehnt.
 
 ## 16. Umgebung entfernen
 
