@@ -401,7 +401,7 @@ Ohne `-Quiet` gibt das Cmdlet ein Ergebnisobjekt zurück:
 |---|---|---|
 | `IsValid` | `Boolean` | `True`, wenn keine Validierungsfehler gefunden wurden |
 | `Errors` | `String[]` | Schema-, Katalog-, Pfad- und fachliche Fehler |
-| `Warnings` | `String[]` | Risiken oder akzeptierte Felder mit eingeschränkter Runtime-Unterstützung |
+| `Warnings` | `String[]` | Risiken oder ausführbare Konfigurationen mit Einschränkungen; reservierte Runtimeverträge sind Fehler |
 | `Plan` | `PSCustomObject` | Mutationsfreie External-Runtime- und Sample-/Artifact-Planvorschau je Instanz |
 
 Der Wizard bietet unter `instances[].software` nur External-Runtime-Varianten
@@ -491,7 +491,10 @@ Wichtig: Ist `databases[].options` vorhanden, werden fehlende Unterfelder nicht
 pauschal aus allen `default`-Angaben des Schemas ergänzt. Es werden nur
 tatsächlich gelieferte Optionen ausgeführt. Schema-Defaults für vorbereitete,
 aber noch nicht zuverlässig implementierte Felder sind ebenfalls keine
-Runtime-Zusage; `Warnings` macht solche Fälle sichtbar.
+Runtime-Zusage. Explizit gesetzte `serverConfig`-Felder mit
+`x-runtimeStatus: reserved` werden mit `MANIFEST_RESERVED_RUNTIME_FIELD`
+abgelehnt; reservierte Enum-Werte wie `externalScripts.installMethod` gleich
+`custom-image` oder `pre-built` mit `MANIFEST_RESERVED_RUNTIME_VALUE`.
 
 #### Fehlerverhalten
 

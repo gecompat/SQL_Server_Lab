@@ -547,22 +547,102 @@ Add-CheckResult `
     -Success (-not $compatibilityResult.IsValid -and $compatibilityResult.Errors -match 'zu hoch') `
     -Message ($compatibilityResult.Errors -join '; ')
 
-$preparedField = [ordered]@{
-    name      = 'prepared-field'
-    instances = @(
-        [ordered]@{
-            id           = 'primary'
-            version      = '2025'
-            provider     = 'docker'
-            serverConfig = [ordered]@{ sqlAgent = $true }
-        }
-    )
+$reservedFieldValues = [ordered]@{
+    collation          = 'SQL_Latin1_General_CP1_CS_AS'
+    defaultPaths       = [ordered]@{ data = '/sqldata' }
+    sqlAgent           = $true
+    clrEnabled         = $true
+    filestream         = $true
+    containedDatabases = $true
+    authMode           = 'mixed'
+    errorLogRetention  = 12
+    instantFileInit    = $true
 }
-$preparedResult = Test-SqlServerLabManifest -InputObject $preparedField
+$manifestSchema = Get-Content -LiteralPath (Join-Path $repoRoot 'Schemas/lab-manifest.schema.json') -Raw -Encoding utf8 |
+    ConvertFrom-Json -Depth 100
+$schemaReservedFields = @(
+    $manifestSchema.definitions.serverConfig.properties.PSObject.Properties |
+        Where-Object { $_.Value.'x-runtimeStatus' -eq 'reserved' } |
+        Select-Object -ExpandProperty Name
+)
+$reservedCoverageMatchesSchema = @($reservedFieldValues.Keys).Count -eq $schemaReservedFields.Count -and
+    @($reservedFieldValues.Keys | Where-Object { $_ -notin $schemaReservedFields }).Count -eq 0
+$reservedFieldFailures = [System.Collections.Generic.List[string]]::new()
+foreach ($reservedFieldName in $reservedFieldValues.Keys) {
+    $reservedManifest = [ordered]@{
+        name      = "reserved-$reservedFieldName"
+        instances = @(
+            [ordered]@{
+                id = 'primary'; version = '2025'; provider = 'docker'
+                serverConfig = [ordered]@{ $reservedFieldName = $reservedFieldValues[$reservedFieldName] }
+            }
+        )
+    }
+    $reservedResult = Test-SqlServerLabManifest -InputObject $reservedManifest
+    if ($reservedResult.IsValid -or
+        $reservedResult.Errors -notmatch 'MANIFEST_RESERVED_RUNTIME_FIELD' -or
+        $reservedResult.Errors -notmatch "serverConfig\.$([regex]::Escape($reservedFieldName))") {
+        $reservedFieldFailures.Add("${reservedFieldName}: $($reservedResult.Errors -join ', ')")
+    }
+}
 Add-CheckResult `
-    -Name 'Vorbereitete Runtimefelder erzeugen Warnungen' `
-    -Success ($preparedResult.IsValid -and $preparedResult.Warnings -match 'noch nicht zuverlaessig') `
-    -Message (($preparedResult.Errors + $preparedResult.Warnings) -join '; ')
+    -Name 'Alle reservierten serverConfig-Felder werden schemaabgeleitet abgelehnt' `
+    -Success ($reservedCoverageMatchesSchema -and $reservedFieldFailures.Count -eq 0) `
+    -Message (($reservedFieldFailures + @($(if (-not $reservedCoverageMatchesSchema) { 'Testwerte und Schema-Klassifikation weichen ab.' }))) -join '; ')
+
+foreach ($reservedExternalScriptsCase in @(
+    [ordered]@{ Name = 'customImage'; Config = [ordered]@{ customImage = 'example.invalid/sql:reserved' }; Code = 'MANIFEST_RESERVED_RUNTIME_FIELD' },
+    [ordered]@{ Name = 'installMethod=custom-image'; Config = [ordered]@{ installMethod = 'custom-image' }; Code = 'MANIFEST_RESERVED_RUNTIME_VALUE' },
+    [ordered]@{ Name = 'installMethod=pre-built'; Config = [ordered]@{ installMethod = 'pre-built' }; Code = 'MANIFEST_RESERVED_RUNTIME_VALUE' }
+)) {
+    $reservedExternalScriptsManifest = [ordered]@{
+        name = "reserved-external-scripts-$($reservedExternalScriptsCase.Name)"
+        instances = @(
+            [ordered]@{
+                id = 'primary'; version = '2025'; provider = 'docker'
+                serverConfig = [ordered]@{ externalScripts = $reservedExternalScriptsCase.Config }
+            }
+        )
+    }
+    $reservedExternalScriptsResult = Test-SqlServerLabManifest -InputObject $reservedExternalScriptsManifest
+    Add-CheckResult `
+        -Name "Reservierter External-Scripts-Vertrag wird abgelehnt: $($reservedExternalScriptsCase.Name)" `
+        -Success (-not $reservedExternalScriptsResult.IsValid -and
+            $reservedExternalScriptsResult.Errors -match $reservedExternalScriptsCase.Code) `
+        -Message ($reservedExternalScriptsResult.Errors -join '; ')
+}
+
+$reservedReadDirectory = Join-Path ([System.IO.Path]::GetTempPath()) "sql-lab-reserved-read-$([guid]::NewGuid().ToString('N'))"
+$reservedReadPath = Join-Path $reservedReadDirectory 'reserved.json'
+try {
+    $null = New-Item -ItemType Directory -Path $reservedReadDirectory -Force
+    $reservedReadManifest = [ordered]@{
+        name = 'reserved-read'
+        instances = @(
+            [ordered]@{
+                id = 'primary'; version = '2025'; provider = 'docker'
+                serverConfig = [ordered]@{ sqlAgent = $true }
+            }
+        )
+    }
+    $reservedReadManifest | ConvertTo-Json -Depth 20 |
+        Set-Content -LiteralPath $reservedReadPath -Encoding utf8
+    $reservedReadError = $null
+    try {
+        & $module { param($ManifestPath) Read-LabManifest -Path $ManifestPath } $reservedReadPath
+    }
+    catch {
+        $reservedReadError = $_.Exception.Message
+    }
+    Add-CheckResult `
+        -Name 'Manifestparser stoppt reservierte Felder vor der Defaultaufloesung' `
+        -Success ($reservedReadError -match 'Manifest-Fachvalidierung fehlgeschlagen' -and
+            $reservedReadError -match 'MANIFEST_RESERVED_RUNTIME_FIELD') `
+        -Message $reservedReadError
+}
+finally {
+    Remove-Item -LiteralPath $reservedReadDirectory -Recurse -Force -ErrorAction SilentlyContinue
+}
 
 $unsupportedSample = [ordered]@{
     name      = 'unsupported-sample'

@@ -188,7 +188,7 @@ Refresh. Der verbindliche Zielvertrag steht in
 
 ### Schema ist kein Runtime-Nachweis
 
-`Schemas/lab-manifest.schema.json` enthält neben ausführbaren Feldern auch teilweise vorbereitete Erweiterungsfelder. Direkte `serverConfig`-Eigenschaften sind mit `x-runtimeStatus` als `executable`, `reserved` oder `partially-executable` klassifiziert. Für die tatsächliche Ausführung sind zusätzlich `Private/ManifestParser.ps1` und die zuständige Runtimefunktion maßgeblich.
+`Schemas/lab-manifest.schema.json` enthält neben ausführbaren Feldern auch teilweise vorbereitete Erweiterungsfelder. Direkte `serverConfig`-Eigenschaften sind mit `x-runtimeStatus` als `executable`, `reserved` oder `partially-executable` klassifiziert. Gesetzte reservierte Felder werden vor Auflösung und Mutation mit `MANIFEST_RESERVED_RUNTIME_FIELD` abgelehnt, statt nur gewarnt oder still verworfen zu werden. Wertabhängige Grenzen sind über `x-runtimeValueStatus` maschinenlesbar und enden mit `MANIFEST_RESERVED_RUNTIME_VALUE`. Für die tatsächliche Ausführung sind zusätzlich `Private/ManifestParser.ps1` und die zuständige Runtimefunktion maßgeblich.
 
 ### Ausgeführte `serverConfig`-Bereiche
 
@@ -216,9 +216,12 @@ Folgende Schemafelder sind noch kein stabiler Runtimevertrag:
 - `errorLogRetention`
 - `instantFileInit`
 - `externalScripts.customImage`
+- `externalScripts.installMethod = custom-image`
 - `externalScripts.installMethod = pre-built`
 
-Ausführbare Beispiele verwenden diese Felder daher nicht.
+Ausführbare Beispiele verwenden diese Felder daher nicht. Ein Manifest mit
+einem dieser Felder oder Werte ist fachlich ungültig und kann weder vom Wizard
+gespeichert noch über den Manifestpfad provisioniert werden.
 
 ## Collation
 
