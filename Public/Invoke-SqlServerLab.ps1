@@ -20,7 +20,7 @@
 function Invoke-SqlServerLab {
     [CmdletBinding()]
     param(
-        [ValidateSet('New', 'BatchPlan', 'Queue', 'AutomatedTestEnvironment', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'Script', 'Database', 'Image', 'MediaRoot', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip', 'Catalog', 'ConnectionCenter')]
+        [ValidateSet('New', 'BatchPlan', 'Queue', 'AutomatedTestEnvironment', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'Script', 'Database', 'Image', 'MediaRoot', 'CuResource', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip', 'Catalog', 'ConnectionCenter')]
         [string]$Action,
 
         [ValidateSet('Auto', 'Fallback')]
@@ -226,6 +226,7 @@ function Show-LabHyperVMenu {
 function Show-LabStorageMenu {
     $items = @(
         New-LabConsoleItem -Id 'MediaRoot' -Label 'Lab_Base / Media-Root konfigurieren' -Value 'ISO-, Win-/SQL-Medien, Sidecar-Hashes' -Shortcut 'p'
+        New-LabConsoleItem -Id 'CuResource' -Label 'SQL Server CU herunterladen oder prüfen' -Value 'Windows-Paket oder Linux-MCR-Image · alle katalogisierten CUs' -Shortcut 'c'
         New-LabConsoleItem -Id 'DataRoot' -Label 'Lab_Data verwalten' -Value 'Lab_Data je Volume' -Shortcut 'd'
         New-LabConsoleItem -Id 'TestDataRoot' -Label 'Testdaten-Bibliothek konfigurieren' -Shortcut 't'
         New-LabConsoleItem -Id 'back' -Label 'Zurueck' -Shortcut '0'
@@ -600,6 +601,9 @@ function Invoke-LabAction {
             catch {
                 Write-LabError "Media Root konnte nicht gespeichert werden: $($_.Exception.Message)"
             }
+        }
+        'CuResource' {
+            Invoke-LabCuResourceInteractive
         }
         'DataRoot' {
             Invoke-LabStorageInteractive
@@ -1083,6 +1087,80 @@ function Select-LabSqlPatchIntent {
     return $selected
 }
 
+function Invoke-LabCuResourceInteractive {
+    [CmdletBinding()]
+    param()
+
+    $platformResult = Invoke-LabConsoleMenu -ScreenId 'cu-resource-platform' -Title 'CU-Ressource' `
+        -Subtitle 'Windows-Paket in Lab_Base oder Linux-Image im Runtimecache' -Items @(
+            New-LabConsoleItem -Id 'Windows' -Label 'Windows-CU-Paket' -Value 'SHA-256 und Microsoft-Authenticode' -Shortcut '1'
+            New-LabConsoleItem -Id 'Linux' -Label 'Linux-Containerimage' -Value 'exakter MCR-Tag für Docker oder Podman' -Shortcut '2'
+        )
+    if ($platformResult.Status -ne 'Selected') { return }
+    $platform = [string]$platformResult.SelectedItem.Id
+
+    $versions = @(Get-SqlServerVersions -Status SUPPORTED | Where-Object { @($_.docker.builds).Count -gt 0 } | Sort-Object { [int]$_.id } -Descending)
+    $versionItems = for ($index = 0; $index -lt $versions.Count; $index++) {
+        New-LabConsoleItem -Id ([string]$versions[$index].id) -Label ("SQL Server {0}" -f $versions[$index].id) `
+            -Value ("{0} katalogisierte CUs" -f @($versions[$index].docker.builds).Count) -Shortcut ([string]($index + 1))
+    }
+    $versionResult = Invoke-LabConsoleMenu -ScreenId 'cu-resource-version' -Title 'SQL Server Version' -Items $versionItems
+    if ($versionResult.Status -ne 'Selected') { return }
+    $sqlVersion = [string]$versionResult.SelectedItem.Id
+
+    $mediaRoot = if ($platform -eq 'Windows') { Get-LabMediaRootDefault } else { $null }
+    if ($platform -eq 'Windows' -and [string]::IsNullOrWhiteSpace($mediaRoot)) {
+        Write-LabError 'Für Windows-CUs zuerst unter Storage & Medien den Lab_Base / Media Root konfigurieren.'
+        return
+    }
+    $patches = @(Get-SqlServerPatchOptions -VersionId $sqlVersion -MediaRoot $mediaRoot)
+    $patchItems = for ($index = 0; $index -lt $patches.Count; $index++) {
+        $patch = $patches[$index]
+        $resourceState = if ($platform -eq 'Windows') {
+            if ($patch.WindowsStatus -like 'PRESENT*') { 'lokale Datei vorhanden; wird erneut geprüft' } else { 'Download erforderlich' }
+        }
+        else { $patch.ContainerTag }
+        New-LabConsoleItem -Id ([string]$patch.Cu) -Label ([string]$patch.Cu) `
+            -Value ("Build {0} · {1} · {2} · {3}" -f $patch.Build, $patch.Kb, $patch.Released, $resourceState) `
+            -Shortcut ([string]($index + 1)) -Data $patch
+    }
+    $patchResult = Invoke-LabConsoleMenu -ScreenId 'cu-resource-patch' -Title "CU für SQL Server $sqlVersion" `
+        -Subtitle "Katalogstand $($script:VersionCatalog.catalogMetadata.lastVerified)" -Items $patchItems
+    if ($patchResult.Status -ne 'Selected') { return }
+    $patch = $patchResult.SelectedItem.Data
+
+    $provider = 'Auto'
+    if ($platform -eq 'Linux') {
+        $dockerReady = try { (Resolve-SqlServerContainerImageProvider -Provider docker) -eq 'docker' } catch { $false }
+        $podmanReady = try { (Resolve-SqlServerContainerImageProvider -Provider podman) -eq 'podman' } catch { $false }
+        $providerResult = Invoke-LabConsoleMenu -ScreenId 'cu-resource-provider' -Title 'Container-Runtime' -Items @(
+            New-LabConsoleItem -Id 'Docker' -Label 'Docker' -Shortcut '1' -Disabled:(-not $dockerReady)
+            New-LabConsoleItem -Id 'Podman' -Label 'Podman' -Shortcut '2' -Disabled:(-not $podmanReady)
+        )
+        if ($providerResult.Status -ne 'Selected') { return }
+        $provider = [string]$providerResult.SelectedItem.Id
+    }
+
+    $description = if ($platform -eq 'Windows') {
+        "$sqlVersion-$($patch.Cu) nach $($patch.WindowsRelativePath) herunterladen beziehungsweise prüfen"
+    }
+    else { "$sqlVersion-$($patch.Cu) in den $provider-Imagecache laden beziehungsweise prüfen" }
+    if (-not (Read-LabConfirm -Prompt "  $description?" -Default $true)) { return }
+
+    try {
+        $arguments = @{ SqlVersion=$sqlVersion; Cu=[string]$patch.Cu; Platform=$platform; Provider=$provider; Confirm=$false }
+        if ($mediaRoot) { $arguments.MediaRoot = $mediaRoot }
+        $receipt = Save-SqlServerLabCuResource @arguments
+        Write-LabSuccess "CU-Ressource bereit: $($receipt.Resource)"
+        Write-LabInfo $(if ($receipt.AlreadyPresent) { 'Die vorhandene Ressource wurde erfolgreich verifiziert.' } else { 'Die Ressource wurde heruntergeladen und erfolgreich verifiziert.' })
+        return $receipt
+    }
+    catch {
+        Write-LabError $_.Exception.Message
+        return
+    }
+}
+
 function Read-LabSqlEnvironmentIntentInteractive {
     [CmdletBinding()]
     param()
@@ -1182,9 +1260,16 @@ function Read-LabSqlEnvironmentIntentInteractive {
     if ($physicalMemoryMB -gt 0 -and $memoryMB -gt $physicalMemoryMB) { Write-LabWarning "RAM-Overcommit: $memoryMB MB angefordert, physisch $physicalMemoryMB MB. Auslagerung ist nicht garantiert; Runtime kann OOM oder Startfehler liefern." }
     $storage = if($custom){$values['storage']}else{$defaultStorage}
     $profile = if ($cpu -le 2 -and $memoryMB -le 2048) {'compact'} elseif ($cpu -le 4 -and $memoryMB -le 4096) {'standard'} else {'performance'}
+    $requiresWindowsPlatform = $custom -and (
+        [bool]$values['requiresWindows'] -or [string]$values['edition'] -ne 'Developer' -or
+        [string]$values['purpose'] -eq 'sql-pool-slot' -or [string]$values['networkMode'] -ne 'host-access' -or
+        @($storage.Drives | Where-Object { [long]$_.MaximumIops -gt 0 }).Count -gt 0
+    )
     return [PSCustomObject]@{
         Contract='SqlServerLab.InteractiveSqlIntent/1.1'; CustomConfiguration=$custom; LabName=[string]$values['labName']; InstanceId='primary'
         BaseVersion=[string]$values['baseVersion']; VersionId=[string]$patch.VersionId; Patch=$patch
+        SqlVersion=[string]$values['baseVersion']; Version=[string]$patch.VersionId
+        Platform=if($requiresWindowsPlatform){'Windows'}else{'Linux'}; OperatingSystem=if($requiresWindowsPlatform){'Windows'}else{'Linux'}
         Purpose=if($custom){[string]$values['purpose']}else{'adhoc'}; RequiresWindows=if($custom){[bool]$values['requiresWindows']}else{$false}; Edition=if($custom){[string]$values['edition']}else{'Developer'}
         Cpu=$cpu; MemoryMB=$memoryMB; Profile=$profile; NetworkMode=[string]$values['networkMode']; HostPort=[int]$values['hostPort']
         Collation=if($custom){[string]$values['collation']}else{'SQL_Latin1_General_CP1_CI_AS'}
@@ -1221,7 +1306,7 @@ function Resolve-LabSqlIntentProvider {
 function Confirm-LabSqlWindowsPatchMediaInteractive {
     [CmdletBinding()]
     param([Parameter(Mandatory)]$Intent)
-    if (-not $Intent.Patch.Cu) { return $true }
+    if (-not $Intent.Patch.Cu -or [bool]$Intent.Patch.WindowsVerified) { return $true }
     $mediaRoot = Get-LabMediaRootDefault
     if (-not $mediaRoot) { Write-LabError 'Für ein Windows-CU ist ein konfigurierter Media Root erforderlich.'; return $false }
     if ($Intent.Patch.WindowsStatus -ne 'PRESENT_HASH_CATALOGUED') {
@@ -1230,13 +1315,19 @@ function Confirm-LabSqlWindowsPatchMediaInteractive {
             if ($Intent.Patch.ArticleUrl) { Write-Host "  Quelle: $($Intent.Patch.ArticleUrl)" -ForegroundColor DarkYellow }
             return $false
         }
-        Write-LabInfo "Windows-Paket $($Intent.Patch.Cu) kann über die katalogisierte HTTPS-Quelle mit SHA-256-Prüfung geladen werden."
+        Write-LabInfo "Windows-Paket $($Intent.Patch.Cu) kann über die katalogisierte Microsoft-Quelle mit SHA-256- und Authenticode-Prüfung geladen werden."
         if (-not (Read-LabConfirm -Prompt '  Fehlendes SQL-CU-Paket jetzt sicher herunterladen?' -Default $true)) { return $false }
-        $path = Save-SqlServerWindowsPatchPackage -Patch $Intent.Patch -MediaRoot $mediaRoot
+        $receipt = Save-SqlServerLabCuResource -SqlVersion ([string]$Intent.Patch.BaseVersion) -Cu ([string]$Intent.Patch.Cu) `
+            -Platform Windows -MediaRoot $mediaRoot -Confirm:$false
+        $path = [string]$receipt.Resource
         $Intent.Patch | Add-Member -NotePropertyName WindowsPath -NotePropertyValue $path -Force
         $Intent.Patch | Add-Member -NotePropertyName WindowsStatus -NotePropertyValue 'PRESENT_HASH_CATALOGUED' -Force
     }
-    try { $null = Confirm-SqlServerWindowsPatchPackage -Patch $Intent.Patch; return $true }
+    try {
+        $null = Confirm-SqlServerWindowsPatchPackage -Patch $Intent.Patch
+        $Intent.Patch | Add-Member -NotePropertyName WindowsVerified -NotePropertyValue $true -Force
+        return $true
+    }
     catch { Write-LabError $_.Exception.Message; return $false }
 }
 
@@ -3238,6 +3329,11 @@ function Read-LabHyperVLocaleSettings {
 function New-LabHyperVSqlDeploymentPlanInteractive {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$RunId, $Intent)
+
+    if ($Intent -and $Intent.Patch -and $Intent.Patch.Cu -and
+        -not (Confirm-LabSqlWindowsPatchMediaInteractive -Intent $Intent)) {
+        throw "SQL_WINDOWS_CU_RESOURCE_NOT_READY: $($Intent.Patch.Cu)"
+    }
 
     if ($Intent) {
         $deploymentMode = [string]$Intent.Purpose

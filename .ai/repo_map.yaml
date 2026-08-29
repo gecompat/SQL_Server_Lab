@@ -283,6 +283,14 @@ public_commands:
     mutates_sql: true
     external_dependencies:
       - sqlcmd
+  - name: Save-SqlServerLabCuResource
+    source: Public/Save-SqlServerLabCuResource.ps1
+    purpose: "Katalogisierten Windows-CU hash- und Authenticode-geprueft in den Media Root oder exakten Linux-MCR-Tag in Docker/Podman laden"
+    mutates_host: true
+    external_dependencies:
+      - Microsoft Update Catalog
+      - Microsoft Container Registry
+      - docker_or_podman_for_linux
 
 internal_components:
   - name: ManifestBuilder
@@ -310,6 +318,8 @@ internal_components:
     responsibilities:
       - "Basisversionen und CU-Builds auflösen"
       - "Container-Images bestimmen"
+      - "Windows-CU-Pakete quell-, pfad-, SHA-256- und Microsoft-Authenticode-gebunden in den Media Root laden"
+      - "exakte Linux-CU-MCR-Tags in den gebundenen Docker-/Podman-Cache laden"
       - "Ressourcenprofile liefern"
       - "Sample-Katalog lesen"
   - name: SoftwareCatalog
@@ -606,6 +616,15 @@ validation:
       - readiness
       - interactive_menu
       - atomic_port_allocation
+  static_version_catalog:
+    command: '.\Tests\Static\Invoke-VersionCatalogChecks.ps1'
+    source: Tests/Static/Invoke-VersionCatalogChecks.ps1
+    covers:
+      - complete_available_cu_history_2019_2022_2025
+      - exact_mcr_tag_resolution
+      - official_windows_download_metadata
+      - media_root_path_boundary_sha256_and_microsoft_authenticode
+      - docker_podman_image_prefetch_contract
   static_external_runtime_windows:
     command: '.\Tests\Static\Invoke-ExternalRuntimeWindowsChecks.ps1'
     source: Tests/Static/Invoke-ExternalRuntimeWindowsChecks.ps1
@@ -845,6 +864,9 @@ change_coupling:
     - Tests/Static/Invoke-DocumentationChecks.ps1
     - en-US/about_SqlServerLab.help.txt
     - de-DE/about_SqlServerLab.help.txt
+    - Public/Save-SqlServerLabCuResource.ps1
+    - Private/VersionCatalog.ps1
+    - Tests/Static/Invoke-VersionCatalogChecks.ps1
   manifest_field_change:
     - Schemas/lab-manifest.schema.json
     - Private/ManifestParser.ps1
@@ -884,6 +906,7 @@ known_limitations:
     - "Containerbasierte LAB_GENERATED-Baselines und kompatible Aufsetzpunkte sind implementiert; Hyper-V-Export und -Nutzung bleiben offen"
     - "mehrere reservierte serverConfig-Felder noch ohne stabilen Runtimepfad; explizite Nutzung wird vor Auflösung und Mutation fail-closed abgelehnt"
     - "Versionskatalog wird nicht automatisch als aktuell garantiert"
+    - "alle katalogisierten CUs sind ohne KI ueber Cmdlet oder Konsole beschaffbar; Windows wird per SHA-256 und Microsoft-Authenticode, Linux per exaktem MCR-Tag gebunden"
 
 continuation_rules:
   - "Tatsächlich verfügbare KI-Systeme, Modelle, Kontingente, lokale Werkzeuge und Steuerungsmöglichkeiten ohne erfundene Fähigkeiten oder Modellwechsel bewerten"

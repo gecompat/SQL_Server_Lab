@@ -283,6 +283,21 @@ Get-SqlServerLab
 Remove-SqlServerLab -RunId $lab.RunId
 ```
 
+### CU-Ressourcen für Windows und Linux
+
+Nach der Modulinstallation kann jeder katalogisierte CU ohne zusätzliche
+Hilfswerkzeuge geladen werden. Windows verwendet den konfigurierten Media Root
+und erzwingt SHA-256 sowie Microsoft-Authenticode; Linux zieht den exakten MCR-
+Tag in Docker oder Podman:
+
+```powershell
+Save-SqlServerLabCuResource -SqlVersion 2025 -Cu CU8 -Platform Windows -MediaRoot 'D:\Lab_Base'
+Save-SqlServerLabCuResource -SqlVersion 2025 -Cu CU8 -Platform Linux -Provider Docker
+```
+
+Alternativ steht derselbe Ablauf im Konsolenmenü unter **Medien, Testdaten und
+Speicher → SQL Server CU herunterladen oder prüfen** bereit.
+
 `podman machine start` kann melden, dass die Machine bereits läuft. In diesem
 Fall ist keine weitere Aktion erforderlich.
 

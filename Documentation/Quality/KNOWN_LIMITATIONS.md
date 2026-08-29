@@ -419,6 +419,13 @@ müssen bei neuen Microsoft-Veröffentlichungen weiter gepflegt werden. SQL
 Server 2019 CU7 bleibt wegen des von Microsoft dokumentierten Rückzugs bewusst
 nicht auswählbar.
 
+`Save-SqlServerLabCuResource` und der Konsolenpunkt unter Storage und Medien
+stellen jeden dieser CUs ohne KI-Unterstützung bereit. Windows akzeptiert nur
+die katalogisierte Microsoft-HTTPS-Quelle und veröffentlicht ein Paket erst
+nach SHA-256- sowie Microsoft-Authenticode-Prüfung im Media Root. Linux zieht
+den exakten MCR-Tag in den gewählten Docker-/Podman-Cache. Der Cache ist kein
+portables Offlineartefakt und wird nicht in `Lab_Base` gespiegelt.
+
 Kurzbezeichner wie `2022-CU16` werden nur akzeptiert, wenn der Build im Katalog vorhanden ist. Unbekannte CU-Bezeichner werden nicht mehr durch eine vermutete Image-Tag-Konvention ersetzt.
 
 ## External Languages

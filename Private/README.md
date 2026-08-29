@@ -12,7 +12,7 @@ Der Pfad `Private/` beschreibt primär die interne Architektur. Die tatsächlich
 | `AttentionStatus.ps1` | Read-only Snapshot für CU-/Media-Lücken, Slot-/Vorlagenkapazität, Builder und Recovery im Konsolen-Footer |
 | `PathSafety.ps1` | geschützte Pfade, Scope-Prüfung und Scope-Marker |
 | `SecretProvider.ps1` | lokales Speichern, Lesen und Entfernen von Secrets |
-| `VersionCatalog.ps1` | Versionen, CU-Builds, Images, Ressourcenprofile und Sample-Katalogzugriff |
+| `VersionCatalog.ps1` | Versionen, CU-Builds, Images, Ressourcenprofile, sichere Windows-CU-Acquisition und Linux-Image-Prefetch |
 | `SoftwareCatalog.ps1` | Providerneutrale External-Runtime-Anforderungen, kataloggebundene Planauflösung und sanitisiertes Installation Receipt |
 | `StateMachine.ps1` | State-Root, Run-State, ProviderSubRuns, Übergänge, Historie und aktive Runs |
 | `DesiredState.ps1` | Geheimnisfreier Run-Sollzustand mit providerneutralen Drive-, Network- und Software-Intents |
