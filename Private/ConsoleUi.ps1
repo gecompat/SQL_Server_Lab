@@ -110,11 +110,11 @@ function Read-LabConsoleTextInput {
         switch ([string]$key.Key) {
             'Escape' {
                 if ($secureValue) { $secureValue.Dispose() }
-                & $write [Environment]::NewLine
+                & $write ([Environment]::NewLine)
                 return [PSCustomObject]@{ Status='Cancelled'; Value=$null }
             }
             'Enter' {
-                & $write [Environment]::NewLine
+                & $write ([Environment]::NewLine)
                 if ($secureValue) {
                     $secureValue.MakeReadOnly()
                     return [PSCustomObject]@{ Status='Confirmed'; Value=$secureValue }
@@ -164,7 +164,7 @@ function Wait-LabConsoleAcknowledgement {
         $key = Read-LabConsoleKey -ReadKey $ReadKey
         Assert-LabConsoleKeyNotInterrupted -Key $key
         if ([string]$key.Key -in @('Enter','Escape')) {
-            & $write [Environment]::NewLine
+            & $write ([Environment]::NewLine)
             return
         }
     }

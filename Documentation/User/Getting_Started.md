@@ -783,14 +783,22 @@ Invoke-SqlServerLabReconcileAction -RunId $lab.RunId -TargetState RUNNING
 Mit `-WhatIf` kann vorab geprüft werden, ob der Executor tatsächlich
 Ausführungsversuche durchführt.
 
-### External Runtime eines Containers aktualisieren
+### External Languages nachträglich installieren oder aktualisieren
 
-Für einen laufenden SQL-Server-2022-Docker-/Podman-Run mit bereits verifizierter
-External Runtime kann ein Zielmanifest zusätzliche resolverfreigegebene
-Sprachen deklarieren. Zuerst wird der read-only Plan geprüft, danach baut der
-Executor das neue Derived Image. Der alte Container bleibt bis zum erfolgreichen
+Für einen laufenden SQL-Server-2022-Docker-/Podman-Run kann ein Zielmanifest
+erstmals oder zusätzlich resolverfreigegebene Sprachen deklarieren. Im CLI ist
+der Einstieg unter `Umgebungen -> Umgebung verwalten -> External Languages
+installieren oder ändern` sichtbar. Das Zielmanifest muss dieselben Instanzen
+und denselben Provider-, Profil-, Storage-, Netzwerk- und Datenbankzustand
+beschreiben; geändert werden dürfen hier nur `instances[].software`-Einträge
+für `sql-python`, `sql-r` und `sql-java`.
+
+Zuerst wird der read-only Plan geprüft, danach baut der Executor das neue
+Derived Image. Der alte Container bleibt bis zum erfolgreichen
 SQL-Datenroundtrip als Rollback-Ziel erhalten; alte Images werden nicht durch
-den Run-Cleanup gelöscht.
+den Run-Cleanup gelöscht. Bei einer Erstinstallation werden auch die beiden
+scopegebundenen External-Language-/Library-Volumes in den Cleanup-Vertrag
+aufgenommen.
 
 ```powershell
 $plan = Get-SqlServerLabReconcilePlan `
@@ -810,10 +818,13 @@ Invoke-SqlServerLabReconcileAction `
     -InstanceId external-runtime
 ```
 
-Der erste ausführbare Umfang ist bewusst eng: nur additive External-Runtime-
-Änderungen, nur SQL Server 2022 auf Docker/Podman und keine gleichzeitigen
-Änderungen an Provider, Profil, Storage, Netzwerk oder Datenbanken. Entfernung
-einer Sprache und Hyper-V-Artifact-Refresh bleiben fail-closed.
+Der ausführbare Umfang ist bewusst eng: nur SQL Server 2022 auf Docker/Podman
+und keine gleichzeitigen Änderungen an Provider, Profil, Storage, Netzwerk oder
+Datenbanken. Eine einzelne Sprache kann entfernt werden, solange mindestens
+eine External Runtime erhalten bleibt. Die Entfernung der letzten Runtime und
+Hyper-V-Nachinstallation/-Artifact-Refresh bleiben fail-closed. Im Hyper-V-
+Verwaltungsmenü wird dieser derzeit nicht atomare Pfad deshalb sichtbar, aber
+deaktiviert angezeigt.
 
 ## 16. Umgebung entfernen
 
