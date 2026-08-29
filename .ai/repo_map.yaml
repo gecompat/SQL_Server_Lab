@@ -77,7 +77,7 @@ sources_of_truth:
   validation_batch_workflow: Tests/Static/Invoke-BatchWorkflowChecks.ps1
   validation_runtime_matrix: Tests/Integration/Invoke-SmokeMatrix.ps1
   cli_acceptance_matrix: Documentation/Quality/CLI_ACCEPTANCE_MATRIX.md
-  latest_validation_result: Documentation/Quality/VALIDATION_RESULT_2026-08-29_TEST_ENVIRONMENT_GROUP_LIFECYCLE.md
+  latest_validation_result: Documentation/Quality/VALIDATION_RESULT_2026-08-29.md
   test_environment_group_lifecycle_validation: Documentation/Quality/VALIDATION_RESULT_2026-08-29_TEST_ENVIRONMENT_GROUP_LIFECYCLE.md
   repository_continuity_runbook: Documentation/Quality/REPOSITORY_CONTINUITY_RUNBOOK.md
 
@@ -821,10 +821,10 @@ validation:
     static_push_trigger: true
     runtime_push_trigger: false
   last_confirmed_result:
-    date: "2026-08-28"
-    source: Documentation/Quality/VALIDATION_RESULT_2026-08-28.md
-    docker: "PASS – SQL-2022-External-Runtime-Refresh und Java-Removal, persistente Daten/Artefakte, Restart und Cleanup"
-    podman: "PASS – SQL-2022-External-Runtime-Refresh und Java-Removal, persistente Daten/Artefakte, Restart und Cleanup"
+    date: "2026-08-29"
+    source: Documentation/Quality/VALIDATION_RESULT_2026-08-29.md
+    docker: "PASS – SQL-2019-Java sowie SQL-2025-Python/R/Java einschließlich Refresh, Java-Removal, Persistenz, Restart und Cleanup; SQL-2022-Befund vom 2026-08-28 bleibt gültig"
+    podman: "PASS – SQL-2019-Java sowie SQL-2025-Python/R/Java einschließlich Refresh, Java-Removal, Persistenz, Restart und Cleanup; SQL-2022-Befund vom 2026-08-28 bleibt gültig"
     hyperv: "PASS (übernommen vom 2026-08-27-Befund) – frischer Windows-Slot, SQL Server 2025, Lifecycle, Persistenz und Cleanup"
 
 change_coupling:

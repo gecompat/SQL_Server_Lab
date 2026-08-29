@@ -5,7 +5,7 @@
     "version": "1.0"
   },
   "catalogMetadata": {
-    "lastVerified": "2026-08-28",
+    "lastVerified": "2026-08-29",
     "sources": [
       "https://learn.microsoft.com/en-us/sql/machine-learning/install/sql-machine-learning-services-windows-install-sql-2022?view=sql-server-ver17",
       "https://learn.microsoft.com/en-us/sql/linux/install-upgrade/setup-machine-learning-sql-2022?view=sql-server-ver17",
@@ -24,7 +24,7 @@
         {
           "id": "sql2022-python310-ubuntu2204-derived",
           "status": "SUPPORTED",
-          "reason": "Der digestgebundene Derived-Image-Pfad verwendet je SQL-Version das passende Microsoft-Extensibilitypaket; native SQL-2022-Evidence belegt Python-Datenroundtrip, Worker-Identitaet, providergebundenen Neustart und Cleanup, SQL 2025 verwendet denselben Custom-Runtime-Vertrag mit versionsgebundener Ubuntu-24.04-Infrastruktur.",
+          "reason": "Der digestgebundene Derived-Image-Pfad verwendet je SQL-Version das passende Microsoft-Extensibilitypaket. Native SQL-2022- und SQL-2025-Evidence belegt Python-Datenroundtrip, Worker-Identitaet, providergebundenen Neustart und Cleanup unter Docker und Podman.",
           "language": "Python",
           "runtimeVersion": "3.10",
           "extensionVersion": "SQL Server 2022 Machine Learning Services",
@@ -308,7 +308,7 @@
         {
           "id": "sql2022-r42-ubuntu2204-derived",
           "status": "SUPPORTED",
-          "reason": "Der digestgebundene Derived-Image-Pfad verwendet je SQL-Version das passende Microsoft-Extensibilitypaket; native SQL-2022-Evidence belegt R-Datenroundtrip, Paket- und Worker-Identitaet, providergebundenen Neustart und Cleanup, SQL 2025 verwendet denselben Custom-Runtime-Vertrag mit versionsgebundener Ubuntu-24.04-Infrastruktur.",
+          "reason": "Der digestgebundene Derived-Image-Pfad verwendet je SQL-Version das passende Microsoft-Extensibilitypaket. Native SQL-2022- und SQL-2025-Evidence belegt R-Datenroundtrip, Paket- und Worker-Identitaet, providergebundenen Neustart und Cleanup unter Docker und Podman.",
           "language": "R",
           "runtimeVersion": "4.2.3",
           "extensionVersion": "SQL Server 2022 Machine Learning Services",
@@ -572,7 +572,7 @@
         {
           "id": "sql2022-java11-ubuntu2204-derived",
           "status": "SUPPORTED",
-          "reason": "Der digestgebundene Derived-Image-Pfad verwendet je SQL-Version das passende Microsoft-Extensibilitypaket; Java wird ab SQL Server 2019 als Language Extension unterstützt und verwendet eine versionsgebundene Ubuntu-Infrastruktur.",
+          "reason": "Der digestgebundene Derived-Image-Pfad verwendet je SQL-Version das passende Microsoft-Extensibilitypaket. Native SQL-2019-, SQL-2022- und SQL-2025-Evidence belegt Java-Datenroundtrip, Worker-Identitaet, providergebundenen Neustart und Cleanup unter Docker und Podman.",
           "language": "Java",
           "runtimeVersion": "11",
           "extensionVersion": "1.1.1",
