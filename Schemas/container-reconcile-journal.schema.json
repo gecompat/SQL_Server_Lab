@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sql-server-lab.local/schemas/container-reconcile-journal.schema.json",
+  "title": "SqlServerLab.ContainerReconcileJournal/1.0",
+  "type": "object",
+  "required": ["ContractVersion", "OperationId", "RunId", "ScopeId", "InstanceId", "Provider", "ChangeClass", "Status", "Before", "Target", "Runtime", "PreviousConnection", "Recovery", "UpdatedAt"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.ContainerReconcileJournal/1.0" },
+    "OperationId": { "type": "string", "format": "uuid" },
+    "RunId": { "type": "string", "format": "uuid" },
+    "ScopeId": { "type": "string", "format": "uuid" },
+    "InstanceId": { "type": "string", "minLength": 1 },
+    "Provider": { "enum": ["docker", "podman"] },
+    "ChangeClass": { "enum": ["live", "recreate"] },
+    "Status": { "enum": ["PREPARED", "LIVE_MUTATED", "ORIGINAL_RENAMED", "REPLACEMENT_CREATED", "VERIFIED", "STATE_COMMITTED", "COMPLETED", "ROLLED_BACK", "RECOVERY_REQUIRED"] },
+    "Before": {
+      "type": "object",
+      "required": ["Cpu", "MemoryMB", "Port", "SqlMaxMemoryMB", "Running", "RunState", "MountFingerprint"],
+      "properties": {
+        "Cpu": { "type": "number", "minimum": 1 },
+        "MemoryMB": { "type": "integer", "minimum": 512 },
+        "Port": { "type": "integer", "minimum": 1024, "maximum": 65535 },
+        "SqlMaxMemoryMB": { "type": ["integer", "null"], "minimum": 128 },
+        "Running": { "type": "boolean" },
+        "RunState": { "type": "string" },
+        "MountFingerprint": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      },
+      "additionalProperties": false
+    },
+    "Target": {
+      "type": "object",
+      "required": ["Cpu", "MemoryMB", "Port", "SqlMemoryLimitMB", "SqlMaxMemoryMB", "MountFingerprint"],
+      "properties": {
+        "Cpu": { "type": "number", "minimum": 1 },
+        "MemoryMB": { "type": "integer", "minimum": 512 },
+        "Port": { "type": "integer", "minimum": 1024, "maximum": 65535 },
+        "SqlMemoryLimitMB": { "type": "integer", "minimum": 1024 },
+        "SqlMaxMemoryMB": { "type": ["integer", "null"], "minimum": 128 },
+        "MountFingerprint": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      },
+      "additionalProperties": false
+    },
+    "Runtime": {
+      "type": "object",
+      "required": ["ContainerName", "OriginalId", "BackupName", "ReplacementId"],
+      "properties": {
+        "ContainerName": { "type": "string", "minLength": 1 },
+        "OriginalId": { "type": "string", "minLength": 1 },
+        "BackupName": { "type": ["string", "null"] },
+        "ReplacementId": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "PreviousConnection": { "type": "object" },
+    "Recovery": {
+      "type": "object",
+      "required": ["Status", "Attempts", "ErrorCode", "Errors"],
+      "properties": {
+        "Status": { "enum": ["ROLLBACK_AVAILABLE", "RETRY_CONTAINER_RECONCILE", "NOT_REQUIRED"] },
+        "Attempts": { "type": "integer", "minimum": 0 },
+        "ErrorCode": { "type": ["string", "null"] },
+        "Errors": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "UpdatedAt": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

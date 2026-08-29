@@ -157,18 +157,64 @@ GO
     Assert-Acceptance ($rename.Result.Changed -and $rename.Result.RuntimeRenamed) 'Lab und Container wurden ueber die Workflow-CLI umbenannt'
     $containerName = [string]$rename.Result.RuntimeObjects[0].NewName
 
-    $resourceAction = Invoke-SqlServerLabWorkflowAction -Action SetLabResources -BuildId $lab.RunId -MemoryMB 2560 -ProcessorCount 1
-    Assert-Acceptance $resourceAction.Result.Changed 'CPU und Container-RAM wurden in-place geaendert'
+    $currentInspect = @(& $Provider inspect $containerName | ConvertFrom-Json -Depth 50)[0]
+    $currentContainerId = [string]$currentInspect.Id
+    $currentPort = [int](@($currentInspect.NetworkSettings.Ports.'1433/tcp')[0].HostPort)
+    $noOpPlan = Get-SqlServerLabReconcilePlan -RunId $lab.RunId -Container -Cpu 2 -MemoryMB 3072 `
+        -Port $currentPort -SqlMaxMemoryMB 1536 -StateRoot $stateRoot
+    Assert-Acceptance ($noOpPlan.IsNoOp -and -not $noOpPlan.MutationAllowed -and @($noOpPlan.Actions).Count -eq 0) 'Identischer Container-Zielzustand ergibt einen read-only No-op-Plan'
+    $noOpAction = Invoke-SqlServerLabReconcileAction -RunId $lab.RunId -Container -Cpu 2 -MemoryMB 3072 `
+        -Port $currentPort -SqlMaxMemoryMB 1536 -StateRoot $stateRoot -Confirm:$false
+    $afterNoOpId = [string](@(& $Provider inspect $containerName | ConvertFrom-Json -Depth 50)[0].Id)
+    Assert-Acceptance ($noOpAction.ExecutionSummary.Status -eq 'NO_OP' -and $afterNoOpId -eq $currentContainerId) 'No-op-Action mutiert den realen Container nicht'
+
+    $livePlan = Get-SqlServerLabReconcilePlan -RunId $lab.RunId -Container -Cpu 1 -MemoryMB 2560 `
+        -Port $currentPort -SqlMaxMemoryMB 1408 -StateRoot $stateRoot
+    Assert-Acceptance ($livePlan.HighestChangeClass -eq 'live' -and $livePlan.Preview.Downtime -eq 'none') 'CPU, RAM und SQL max memory werden als Live-Aenderung geplant'
+    $liveAction = Invoke-SqlServerLabReconcileAction -RunId $lab.RunId -Container -Cpu 1 -MemoryMB 2560 `
+        -Port $currentPort -SqlMaxMemoryMB 1408 -StateRoot $stateRoot -Confirm:$false
+    Assert-Acceptance ($liveAction.ExecutionSummary.Status -eq 'SUCCEEDED') 'Live-Reconcile wurde ueber die gemeinsame Action ausgefuehrt'
     $inspect = @(& $Provider inspect $containerName | ConvertFrom-Json -Depth 50)[0]
-    Assert-Acceptance ([long]$inspect.HostConfig.Memory -eq 2560MB) 'Runtime meldet 2560 MB Container-RAM'
+    Assert-Acceptance ([long]$inspect.HostConfig.Memory -eq 2560MB -and [string]$inspect.Id -eq $currentContainerId) 'Runtime meldet 2560 MB ohne Container-Recreate'
+    Assert-Acceptance ((Invoke-AcceptanceQuery "SET NOCOUNT ON; SELECT value_in_use FROM sys.configurations WHERE name='max server memory (MB)';" -Port $currentPort) -eq '1408') 'SQL max server memory wurde live auf 1408 MB gesetzt'
+    $journalPath = Join-Path (Join-Path (Join-Path $stateRoot 'runs') $lab.RunId) 'container-reconcile-journal.json'
+    $liveJournal = Get-Content -LiteralPath $journalPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 50
+    Assert-Acceptance ($liveJournal.Status -eq 'COMPLETED' -and $liveJournal.ChangeClass -eq 'live') 'Live-Reconcile wurde im versionierten Operationsjournal abgeschlossen'
+
+    $rollbackPort = Get-FreeTcpPort
+    $runDirectory = Join-Path (Join-Path $stateRoot 'runs') $lab.RunId
+    $savedSecret = & $module { param($Path) Get-LabSecret -Path $Path -Name 'sa-password' } $runDirectory
+    $invalidSecret = ConvertTo-SecureString "Invalid_${token}!Zz9" -AsPlainText -Force
+    & $module { param($Path,$Secret) Save-LabSecret -Path $Path -Name 'sa-password' -Secret $Secret } $runDirectory $invalidSecret
+    try {
+        $rollbackAction = Invoke-SqlServerLabReconcileAction -RunId $lab.RunId -Container -Cpu 1 -MemoryMB 2560 `
+            -Port $rollbackPort -ReadinessTimeoutSeconds 10 -StateRoot $stateRoot -Confirm:$false
+    }
+    finally {
+        & $module { param($Path,$Secret) Save-LabSecret -Path $Path -Name 'sa-password' -Secret $Secret } $runDirectory $savedSecret
+    }
+    $rollbackJournal = Get-Content -LiteralPath $journalPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 50
+    $afterRollback = @(& $Provider inspect $containerName | ConvertFrom-Json -Depth 50)[0]
+    Assert-Acceptance ($rollbackAction.ExecutionSummary.Status -eq 'FAILED' -and $rollbackJournal.Status -eq 'ROLLED_BACK') 'Fehlgeschlagenes Recreate wird journalisiert zurueckgerollt'
+    Assert-Acceptance ([string]$afterRollback.Id -eq $currentContainerId -and [int](@($afterRollback.NetworkSettings.Ports.'1433/tcp')[0].HostPort) -eq $currentPort) 'Rollback stellt exakte Original-ID und alten Hostport wieder her'
+    $rollbackReadiness = & $module {
+        param($HostName,$Port,$Password,$Runtime,$Container)
+        Wait-SqlReady -HostName $HostName -Port $Port -SaPassword $Password -TimeoutSeconds 180 -Provider $Runtime -ContainerIdOrName $Container
+    } $sqlHost $currentPort $saPassword $Provider $containerName
+    Assert-Acceptance $rollbackReadiness.Ready 'Zurueckgerollter Originalcontainer erreicht erneut stabile SQL-Readiness'
+    Assert-Acceptance ((Invoke-AcceptanceQuery 'SET NOCOUNT ON; SELECT Evidence FROM dbo.CliAcceptance WHERE Id=1;' -Database CliStorageEvidence -Port $currentPort) -eq 'persisted-before-reconcile') 'Testdaten bleiben nach dem erzwungenen Rollback lesbar'
 
     $newPort = Get-FreeTcpPort
-    $reconcile = & $module {
-        param($RunId,$Port,$Root)
-        Update-SqlServerLabContainer -RunId $RunId -Cpu 1 -MemoryMB 2560 -Port $Port `
-            -ReadinessTimeoutSeconds 180 -StateRoot $Root -Confirm:$false
-    } $lab.RunId $newPort $stateRoot
-    Assert-Acceptance ($reconcile.Recreated -and $reconcile.Port -eq $newPort) 'Hostport wurde durch kontrolliertes Container-Reconcile geaendert'
+    $recreatePlan = Get-SqlServerLabReconcilePlan -RunId $lab.RunId -Container -Cpu 1 -MemoryMB 2560 `
+        -Port $newPort -SqlMaxMemoryMB 1408 -StateRoot $stateRoot
+    Assert-Acceptance ($recreatePlan.HighestChangeClass -eq 'recreate' -and $recreatePlan.Preview.Downtime -eq 'brief') 'Hostport-Aenderung weist Recreate und kurze Downtime explizit aus'
+    $reconcile = Invoke-SqlServerLabReconcileAction -RunId $lab.RunId -Container -Cpu 1 -MemoryMB 2560 `
+        -Port $newPort -SqlMaxMemoryMB 1408 -ReadinessTimeoutSeconds 180 -StateRoot $stateRoot -Confirm:$false
+    Assert-Acceptance ($reconcile.ExecutionSummary.Status -eq 'SUCCEEDED' -and $reconcile.ExecutionPlan[0].Result.Recreated) 'Hostport wurde durch die gemeinsame Reconcile-Action geaendert'
+    $completedJournal = Get-Content -LiteralPath $journalPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 50
+    $replacementInspect = @(& $Provider inspect $containerName | ConvertFrom-Json -Depth 50)[0]
+    $backupExists = & $module { param($Runtime,$Identity) Test-LabContainerReconcileRuntimeExists -Provider $Runtime -Identity $Identity } $Provider ([string]$completedJournal.Runtime.BackupName)
+    Assert-Acceptance ($completedJournal.Status -eq 'COMPLETED' -and [string]$replacementInspect.Id -ne $currentContainerId -and -not $backupExists) 'Recreate commitet die Ersatz-ID und entfernt erst danach den Original-Container'
     $databaseReadiness = & $module {
         param($HostName,$Port,$Password)
         Wait-LabDatabaseReady -HostName $HostName -Port $Port -SaPassword $Password -Database CliStorageEvidence -TimeoutSeconds 180
@@ -176,6 +222,7 @@ GO
     Assert-Acceptance $databaseReadiness.Ready 'Eigene Testdatenbank ist nach dem Reconcile bereit'
     $persistentEvidence = Invoke-AcceptanceQuery 'SET NOCOUNT ON; SELECT Evidence FROM dbo.CliAcceptance WHERE Id=1;' -Database CliStorageEvidence -Port $newPort
     Assert-Acceptance ($persistentEvidence -eq 'persisted-before-reconcile') 'Daten, Mounts und Testdatenbank ueberstehen das Reconcile'
+    Assert-Acceptance ((Invoke-AcceptanceQuery "SET NOCOUNT ON; SELECT value_in_use FROM sys.configurations WHERE name='max server memory (MB)';" -Port $newPort) -eq '1408') 'SQL max server memory bleibt nach dem Recreate exakt erhalten'
 
     $stopResult = Stop-SqlServerLab -RunId $lab.RunId -StateRoot $stateRoot -Force
     $failedStopProviders = @($stopResult.ProviderSubRuns | Where-Object { $_.Errors -ne 0 -or $_.Status -ne 'STOPPED' })

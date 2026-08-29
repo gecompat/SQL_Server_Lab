@@ -1,15 +1,19 @@
 function Update-SqlServerLabContainer {
     <#
     .SYNOPSIS Gleicht CPU, RAM und Hostport einer Docker-/Podman-Umgebung mit dem gewünschten Zustand ab.
-    .DESCRIPTION Ressourcen werden in-place aktualisiert. Eine Portänderung erzeugt den Container kontrolliert
-    neu, übernimmt Environment, Labels und sämtliche Bind-/Volume-Mounts und rollt bei fehlender Readiness zurück.
+    .DESCRIPTION CPU, RAM und SQL max memory werden live aktualisiert. Eine
+    Portänderung erzeugt den Container kontrolliert neu, übernimmt Environment,
+    Labels und sämtliche Bind-/Volume-Mounts und verwendet ein versioniertes
+    Journal für Resume, Rollback und sichtbaren Recovery-Bedarf.
     #>
     [CmdletBinding(SupportsShouldProcess)]
     param(
         [Parameter(Mandatory)][string]$RunId,
+        [string]$InstanceId,
         [ValidateRange(1, 64)][decimal]$Cpu,
         [ValidateRange(512, 1048576)][int]$MemoryMB,
         [ValidateRange(1024, 65535)][int]$Port,
+        [ValidateRange(128, 2147483647)][int]$SqlMaxMemoryMB,
         [ValidateRange(10, 600)][int]$ReadinessTimeoutSeconds = 180,
         [switch]$RepairSqlRuntimeContract,
         [string]$StateRoot
@@ -19,132 +23,161 @@ function Update-SqlServerLabContainer {
     if ((Test-LabAutomatedTestEnvironmentRun -RunId $RunId) -and -not $script:LabAutomatedTestEnvironmentGroupOperation) {
         throw 'TEST_ENVIRONMENT_GROUP_PROTECTED: Containeränderung ist für einzelne Testumgebungen gesperrt.'
     }
-    $runDirectory = Join-Path (Join-Path $StateRoot 'runs') $RunId
-    $connectionPath = Join-Path $runDirectory 'connection-info.json'
-    if (-not (Test-Path -LiteralPath $connectionPath -PathType Leaf)) { throw 'CONTAINER_RECONCILE_CONNECTION_INFO_MISSING' }
-    $connection = Get-Content -LiteralPath $connectionPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 30
-    $instances = @($connection.instances | Where-Object { [string]$_.provider -in @('docker','podman') })
-    if ($instances.Count -ne 1) { throw "CONTAINER_RECONCILE_INSTANCE_NOT_UNIQUE: $($instances.Count)" }
-    $instance = $instances[0]
-    $runtime = [string]$instance.provider
-    if (-not (Get-Command $runtime -ErrorAction SilentlyContinue)) { throw "CONTAINER_RECONCILE_RUNTIME_NOT_AVAILABLE: $runtime" }
-    $identity = @(
-        [string]$instance.containerId
-        [string]$instance.runtimeId
-        [string]$instance.name
-        [string]$instance.id
-    ) | Where-Object { $_ } | Select-Object -First 1
-    if (-not $identity) { throw 'CONTAINER_RECONCILE_IDENTITY_MISSING' }
-    $inspect = @(& $runtime inspect $identity 2>$null | ConvertFrom-Json -Depth 50)[0]
-    if (-not $inspect) { throw "CONTAINER_RECONCILE_CONTAINER_NOT_FOUND: $identity" }
-    $name = ([string]$inspect.Name).TrimStart('/')
-    $wasRunning = [bool]$inspect.State.Running
-    $currentPort = [int]@($inspect.NetworkSettings.Ports.'1433/tcp' | Select-Object -First 1).HostPort
-    $currentMemoryMB = if ([long]$inspect.HostConfig.Memory -gt 0) { [int]([long]$inspect.HostConfig.Memory / 1MB) } else { 2048 }
-    $currentCpu = if ([long]$inspect.HostConfig.NanoCpus -gt 0) { [decimal]([long]$inspect.HostConfig.NanoCpus / 1000000000) } else { 2 }
-    if (-not $PSBoundParameters.ContainsKey('Cpu')) { $Cpu = $currentCpu }
-    if (-not $PSBoundParameters.ContainsKey('MemoryMB')) { $MemoryMB = $currentMemoryMB }
-    if (-not $PSBoundParameters.ContainsKey('Port')) { $Port = $currentPort }
-    $sqlMemoryLimitMB = [math]::Max(1024, [math]::Floor($MemoryMB * 0.8))
-    $configuredSqlMemoryLimit = @($inspect.Config.Env | Where-Object { [string]$_ -match '^MSSQL_MEMORY_LIMIT_MB=' } | Select-Object -First 1)
-    $healthCommand = [string](@($inspect.Config.Healthcheck.Test) -join ' ')
-    $sqlRuntimeContractCurrent = $configuredSqlMemoryLimit -eq "MSSQL_MEMORY_LIMIT_MB=$sqlMemoryLimitMB" -and $healthCommand -match '(?:^|\s)-C(?:\s|$)'
-    $requiresRecreation = $Port -ne $currentPort -or ($RepairSqlRuntimeContract -and -not $sqlRuntimeContractCurrent)
-    if ($Cpu -eq $currentCpu -and $MemoryMB -eq $currentMemoryMB -and $Port -eq $currentPort -and -not $requiresRecreation) {
-        return [PSCustomObject]@{ RunId=$RunId; Provider=$runtime; Container=$name; Changed=$false; Port=$currentPort; Cpu=$currentCpu; MemoryMB=$currentMemoryMB }
-    }
-    if (-not $PSCmdlet.ShouldProcess($name, "Containerzustand auf CPU=$Cpu, RAM=${MemoryMB}MB, Port=$Port abgleichen")) { return }
-
-    $cpuArgument = $Cpu.ToString('0.##', [System.Globalization.CultureInfo]::InvariantCulture)
-    if ($Port -eq $currentPort -and -not $requiresRecreation) {
-        $output = & $runtime update --cpus $cpuArgument --memory "${MemoryMB}m" $name 2>&1
-        if ($LASTEXITCODE -ne 0) { throw "CONTAINER_RECONCILE_UPDATE_FAILED: $($output -join ' ')" }
-        $instance | Add-Member -NotePropertyName cpu -NotePropertyValue $Cpu -Force
-        $instance | Add-Member -NotePropertyName memoryMB -NotePropertyValue $MemoryMB -Force
-        Write-LabArtifactJsonAtomic -Path $connectionPath -InputObject $connection
-        return [PSCustomObject]@{ RunId=$RunId; Provider=$runtime; Container=$name; Changed=$true; Recreated=$false; Port=$Port; Cpu=$Cpu; MemoryMB=$MemoryMB }
-    }
-
-    $occupied = Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction SilentlyContinue
-    if ($occupied) { throw "CONTAINER_RECONCILE_PORT_IN_USE: $Port" }
-    $backupName = "$name-reconcile-$([guid]::NewGuid().ToString('N').Substring(0,8))"
-    $image = [string]$inspect.Config.Image
-    $containerHost = if ($instance.host) { [string]$instance.host } else { '127.0.0.1' }
-    $saPassword = if ($wasRunning) { Get-LabSecret -Path $runDirectory -Name 'sa-password' } else { $null }
-    if ($wasRunning -and -not $saPassword) { throw 'CONTAINER_RECONCILE_SA_SECRET_MISSING' }
-    $arguments = @('run','-d','--name',$name,'-p',"${Port}:1433",'--cpus',$cpuArgument,'--memory',"${MemoryMB}m")
-    if ($inspect.Config.Hostname) { $arguments += @('--hostname',[string]$inspect.Config.Hostname) }
-    $networkNames = @($inspect.NetworkSettings.Networks.PSObject.Properties.Name)
-    if ($networkNames.Count -gt 0) { $arguments += @('--network',[string]$networkNames[0]) }
-    foreach ($entry in @($inspect.Config.Env)) {
-        if ([string]$entry -match '^MSSQL_MEMORY_LIMIT_MB=') { continue }
-        $arguments += @('-e',[string]$entry)
-    }
-    $arguments += @('-e',"MSSQL_MEMORY_LIMIT_MB=$sqlMemoryLimitMB")
-    foreach ($property in @($inspect.Config.Labels.PSObject.Properties)) { $arguments += @('--label',"$($property.Name)=$($property.Value)") }
-    foreach ($mount in @($inspect.Mounts)) {
-        if ([string]$mount.Type -eq 'bind') {
-            $suffix = if (-not [bool]$mount.RW) { ':ro' } else { '' }
-            $arguments += @('-v',"$($mount.Source):$($mount.Destination)$suffix")
-        }
-        elseif ([string]$mount.Type -eq 'volume' -and $mount.Name) {
-            $volumeOptions = @()
-            if ($runtime -eq 'podman') { $volumeOptions += 'U' }
-            if (-not [bool]$mount.RW) { $volumeOptions += 'ro' }
-            $suffix = if ($volumeOptions.Count -gt 0) { ":$($volumeOptions -join ',')" } else { '' }
-            $arguments += @('-v',"$($mount.Name):$($mount.Destination)$suffix")
+    $context = Get-LabContainerReconcileContext -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
+    $null = Repair-LabContainerReconcileJournal -Context $context
+    $context = Get-LabContainerReconcileContext -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
+    $planArguments = @{ RunId=$RunId; InstanceId=[string]$context.InstanceId; StateRoot=$StateRoot; RepairSqlRuntimeContract=$RepairSqlRuntimeContract }
+    if ($PSBoundParameters.ContainsKey('Cpu')) { $planArguments.Cpu=[decimal]$Cpu }
+    if ($PSBoundParameters.ContainsKey('MemoryMB')) { $planArguments.MemoryMB=[int]$MemoryMB }
+    if ($PSBoundParameters.ContainsKey('Port')) { $planArguments.Port=[int]$Port }
+    if ($PSBoundParameters.ContainsKey('SqlMaxMemoryMB')) { $planArguments.SqlMaxMemoryMB=[int]$SqlMaxMemoryMB }
+    $plan = New-LabContainerReconcilePlan @planArguments
+    if ($plan.IsNoOp) {
+        return [PSCustomObject]@{
+            RunId=$RunId; InstanceId=[string]$context.InstanceId; Provider=[string]$context.Provider
+            Container=[string]$context.ContainerName; Changed=$false; Recreated=$false; ChangeClass='no-op'
+            Port=[int]$context.CurrentPort; Cpu=[decimal]$context.CurrentCpu; MemoryMB=[int]$context.CurrentMemoryMB
+            OperationId=$null; Status='NO_OP'
         }
     }
-    if ($inspect.HostConfig.RestartPolicy.Name -and [string]$inspect.HostConfig.RestartPolicy.Name -ne 'no') {
-        $arguments += @('--restart',[string]$inspect.HostConfig.RestartPolicy.Name)
+    if (-not $PSCmdlet.ShouldProcess($context.ContainerName, "Container-Reconcile '$($plan.HighestChangeClass)' ausführen")) { return }
+    if ([string]$plan.HighestChangeClass -eq 'recreate' -and [int]$plan.Desired.Port -ne [int]$context.CurrentPort) {
+        $binding = Test-LabEndpointBinding -Port ([int]$plan.Desired.Port)
+        if (-not $binding.Available) { throw "CONTAINER_RECONCILE_PORT_IN_USE: $($plan.Desired.Port)" }
     }
-    $arguments += @(
-        '--health-cmd', '/opt/mssql-tools*/bin/sqlcmd -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -C -Q "SELECT 1" -b',
-        '--health-interval', '5s',
-        '--health-timeout', '3s',
-        '--health-retries', '30'
-    )
-    $arguments += $image
-    $originalRenamed = $false
-    $replacementCreated = $false
+
+    $journalInfo = New-LabContainerReconcileJournal -Context $context -Plan $plan
+    $journal = $journalInfo.Journal
+    $journalPath = $journalInfo.Path
+    $runtime = [string]$context.Provider
+    $name = [string]$context.ContainerName
+    $cpuArgument = ([decimal]$plan.Desired.Cpu).ToString('0.##',[Globalization.CultureInfo]::InvariantCulture)
+    $sqlMemoryLimitMB = [int]$plan.Desired.SqlMemoryLimitMB
     try {
-        if ($wasRunning) { $null = & $runtime stop $name 2>&1 }
-        $renameOutput = & $runtime rename $name $backupName 2>&1
-        if ($LASTEXITCODE -ne 0) { throw "CONTAINER_RECONCILE_RENAME_FAILED: $($renameOutput -join ' ')" }
-        $originalRenamed = $true
-        $newId = @(& $runtime @arguments 2>&1)[-1]
-        if ($LASTEXITCODE -ne 0) { throw "CONTAINER_RECONCILE_CREATE_FAILED: $newId" }
-        $replacementCreated = $true
-        if (-not $wasRunning) { $null = & $runtime stop $name 2>&1 }
+        if ([string]$plan.HighestChangeClass -eq 'live') {
+            $null = Invoke-LabContainerReconcileCommand -Provider $runtime -Arguments @('update','--cpus',$cpuArgument,'--memory',"$([int]$plan.Desired.MemoryMB)m",$name) -ErrorCode 'CONTAINER_RECONCILE_UPDATE_FAILED'
+            $journal = Set-LabContainerReconcileJournalStatus -Journal $journal -Path $journalPath -Status LIVE_MUTATED
+            if ($null -ne $plan.Desired.SqlMaxMemoryMB) {
+                $null = Set-LabContainerSqlMaxMemoryMB -Context $context -SqlMaxMemoryMB ([int]$plan.Desired.SqlMaxMemoryMB)
+            }
+            $post = Assert-LabContainerReconcileRuntimeIdentity -Provider $runtime -Identity $name -RunId $RunId -ScopeId ([string]$context.Run.scopeId)
+            if ([long]$post.HostConfig.Memory -ne ([long][int]$plan.Desired.MemoryMB * 1MB) -or
+                [decimal]([long]$post.HostConfig.NanoCpus / 1000000000) -ne [decimal]$plan.Desired.Cpu) {
+                throw 'CONTAINER_RECONCILE_LIVE_POSTCONDITION_FAILED'
+            }
+            $context.Instance | Add-Member -NotePropertyName cpu -NotePropertyValue ([decimal]$plan.Desired.Cpu) -Force
+            $context.Instance | Add-Member -NotePropertyName memoryMB -NotePropertyValue ([int]$plan.Desired.MemoryMB) -Force
+            if ($null -ne $plan.Desired.SqlMaxMemoryMB) {
+                $context.Instance | Add-Member -NotePropertyName sqlMaxMemoryMB -NotePropertyValue ([int]$plan.Desired.SqlMaxMemoryMB) -Force
+            }
+            Write-LabArtifactJsonAtomic -Path $context.ConnectionPath -InputObject $context.Connection
+            $journal = Set-LabContainerReconcileJournalStatus -Journal $journal -Path $journalPath -Status COMPLETED
+            return [PSCustomObject]@{
+                RunId=$RunId; InstanceId=[string]$context.InstanceId; Provider=$runtime; Container=$name
+                Changed=$true; Recreated=$false; ChangeClass='live'; Port=[int]$plan.Desired.Port
+                Cpu=[decimal]$plan.Desired.Cpu; MemoryMB=[int]$plan.Desired.MemoryMB
+                SqlMaxMemoryMB=$plan.Desired.SqlMaxMemoryMB; OperationId=[string]$journal.OperationId; Status='SUCCEEDED'
+            }
+        }
+
+        $backupName = "$name-reconcile-$([guid]::NewGuid().ToString('N').Substring(0,8))"
+        $journal.Runtime.BackupName = $backupName
+        $journal = Write-LabContainerReconcileJournal -Journal $journal -Path $journalPath
+        $inspect = $context.Inspect
+        $arguments = @('run','-d','--name',$name,'-p',"$([int]$plan.Desired.Port):1433",'--cpus',$cpuArgument,'--memory',"$([int]$plan.Desired.MemoryMB)m")
+        if ($inspect.Config.Hostname) { $arguments += @('--hostname',[string]$inspect.Config.Hostname) }
+        $networkNames = @($inspect.NetworkSettings.Networks.PSObject.Properties.Name)
+        if ($networkNames.Count -gt 0) { $arguments += @('--network',[string]$networkNames[0]) }
+        foreach ($entry in @($inspect.Config.Env)) {
+            if ([string]$entry -match '^MSSQL_MEMORY_LIMIT_MB=') { continue }
+            $arguments += @('-e',[string]$entry)
+        }
+        $arguments += @('-e',"MSSQL_MEMORY_LIMIT_MB=$sqlMemoryLimitMB")
+        foreach ($property in @($inspect.Config.Labels.PSObject.Properties)) { $arguments += @('--label',"$($property.Name)=$($property.Value)") }
+        foreach ($mount in @($inspect.Mounts)) {
+            if ([string]$mount.Type -eq 'bind') {
+                $suffix = if (-not [bool]$mount.RW) { ':ro' } else { '' }
+                $arguments += @('-v',"$($mount.Source):$($mount.Destination)$suffix")
+            }
+            elseif ([string]$mount.Type -eq 'volume' -and $mount.Name) {
+                $volumeOptions = @()
+                if ($runtime -eq 'podman') { $volumeOptions += 'U' }
+                if (-not [bool]$mount.RW) { $volumeOptions += 'ro' }
+                $suffix = if ($volumeOptions.Count -gt 0) { ":$($volumeOptions -join ',')" } else { '' }
+                $arguments += @('-v',"$($mount.Name):$($mount.Destination)$suffix")
+            }
+        }
+        if ($inspect.HostConfig.RestartPolicy.Name -and [string]$inspect.HostConfig.RestartPolicy.Name -ne 'no') {
+            $arguments += @('--restart',[string]$inspect.HostConfig.RestartPolicy.Name)
+        }
+        $arguments += @('--health-cmd','/opt/mssql-tools*/bin/sqlcmd -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -C -Q "SELECT 1" -b','--health-interval','5s','--health-timeout','3s','--health-retries','30',[string]$inspect.Config.Image)
+        if ($context.WasRunning) { $null = Invoke-LabContainerReconcileCommand -Provider $runtime -Arguments @('stop',$name) -ErrorCode 'CONTAINER_RECONCILE_STOP_FAILED' }
+        $null = Invoke-LabContainerReconcileCommand -Provider $runtime -Arguments @('rename',$name,$backupName) -ErrorCode 'CONTAINER_RECONCILE_RENAME_FAILED'
+        $journal = Set-LabContainerReconcileJournalStatus -Journal $journal -Path $journalPath -Status ORIGINAL_RENAMED
+        $null = Invoke-LabContainerReconcileCommand -Provider $runtime -Arguments $arguments -ErrorCode 'CONTAINER_RECONCILE_CREATE_FAILED'
+        $replacement = Assert-LabContainerReconcileRuntimeIdentity -Provider $runtime -Identity $name -RunId $RunId -ScopeId ([string]$context.Run.scopeId)
+        $journal.Runtime.ReplacementId = [string]$replacement.Id
+        $journal = Set-LabContainerReconcileJournalStatus -Journal $journal -Path $journalPath -Status REPLACEMENT_CREATED
+        if (-not $context.WasRunning) {
+            $null = Invoke-LabContainerReconcileCommand -Provider $runtime -Arguments @('stop',$name) -ErrorCode 'CONTAINER_RECONCILE_REPLACEMENT_STOP_FAILED'
+        }
         else {
-            $readiness = Wait-SqlReady `
-                -HostName $containerHost `
-                -Port $Port `
-                -SaPassword $saPassword `
-                -TimeoutSeconds $ReadinessTimeoutSeconds `
-                -Provider $runtime `
-                -ContainerIdOrName $name
+            $password = Get-LabSecret -Path $context.RunDirectory -Name 'sa-password'
+            if (-not $password) { throw 'CONTAINER_RECONCILE_SA_SECRET_MISSING' }
+            $hostName = if ($context.Instance.host) { [string]$context.Instance.host } else { '127.0.0.1' }
+            $readiness = Wait-SqlReady -HostName $hostName -Port ([int]$plan.Desired.Port) -SaPassword $password `
+                -TimeoutSeconds $ReadinessTimeoutSeconds -Provider $runtime -ContainerIdOrName $name
             if (-not $readiness.Ready) { throw "CONTAINER_RECONCILE_READINESS_TIMEOUT: $($readiness.Message)" }
         }
-        $removeOutput = & $runtime rm -f $backupName 2>&1
-        if ($LASTEXITCODE -ne 0) { throw "CONTAINER_RECONCILE_BACKUP_REMOVE_FAILED: $($removeOutput -join ' ')" }
-        $originalRenamed = $false
-        $instance | Add-Member -NotePropertyName containerId -NotePropertyValue ([string]$newId).Trim() -Force
-        $instance | Add-Member -NotePropertyName runtimeId -NotePropertyValue ([string]$newId).Trim() -Force
-        $instance | Add-Member -NotePropertyName port -NotePropertyValue $Port -Force
-        $instance | Add-Member -NotePropertyName cpu -NotePropertyValue $Cpu -Force
-        $instance | Add-Member -NotePropertyName memoryMB -NotePropertyValue $MemoryMB -Force
-        $instance | Add-Member -NotePropertyName connectionString -NotePropertyValue (New-SqlConnectionString -HostName $containerHost -Port $Port) -Force
-        Write-LabArtifactJsonAtomic -Path $connectionPath -InputObject $connection
-        return [PSCustomObject]@{ RunId=$RunId; Provider=$runtime; Container=$name; Changed=$true; Recreated=$true; Port=$Port; Cpu=$Cpu; MemoryMB=$MemoryMB; SqlMemoryLimitMB=$sqlMemoryLimitMB }
+        $replacement = Assert-LabContainerReconcileRuntimeIdentity -Provider $runtime -Identity $name -RunId $RunId -ScopeId ([string]$context.Run.scopeId)
+        if ((Get-LabContainerMountFingerprint -Mounts @($replacement.Mounts)) -ne [string]$journal.Target.MountFingerprint) {
+            throw 'CONTAINER_RECONCILE_MOUNT_POSTCONDITION_FAILED'
+        }
+        $replacementPort = @($replacement.NetworkSettings.Ports.'1433/tcp' | Select-Object -First 1)
+        if ($replacementPort.Count -ne 1 -or [int]$replacementPort[0].HostPort -ne [int]$plan.Desired.Port) { throw 'CONTAINER_RECONCILE_PORT_POSTCONDITION_FAILED' }
+        if ($null -ne $plan.Desired.SqlMaxMemoryMB) {
+            $replacementSqlContext = $context | Select-Object *
+            $replacementSqlContext.CurrentPort = [int]$plan.Desired.Port
+            $null = Set-LabContainerSqlMaxMemoryMB -Context $replacementSqlContext -SqlMaxMemoryMB ([int]$plan.Desired.SqlMaxMemoryMB)
+        }
+        $journal = Set-LabContainerReconcileJournalStatus -Journal $journal -Path $journalPath -Status VERIFIED
+        $context.Instance | Add-Member -NotePropertyName containerId -NotePropertyValue ([string]$replacement.Id) -Force
+        $context.Instance | Add-Member -NotePropertyName runtimeId -NotePropertyValue ([string]$replacement.Id) -Force
+        $context.Instance | Add-Member -NotePropertyName containerName -NotePropertyValue $name -Force
+        $context.Instance | Add-Member -NotePropertyName port -NotePropertyValue ([int]$plan.Desired.Port) -Force
+        $context.Instance | Add-Member -NotePropertyName cpu -NotePropertyValue ([decimal]$plan.Desired.Cpu) -Force
+        $context.Instance | Add-Member -NotePropertyName memoryMB -NotePropertyValue ([int]$plan.Desired.MemoryMB) -Force
+        if ($null -ne $plan.Desired.SqlMaxMemoryMB) {
+            $context.Instance | Add-Member -NotePropertyName sqlMaxMemoryMB -NotePropertyValue ([int]$plan.Desired.SqlMaxMemoryMB) -Force
+        }
+        $hostName = if ($context.Instance.host) { [string]$context.Instance.host } else { '127.0.0.1' }
+        $context.Instance | Add-Member -NotePropertyName connectionString -NotePropertyValue (New-SqlConnectionString -HostName $hostName -Port ([int]$plan.Desired.Port)) -Force
+        Write-LabArtifactJsonAtomic -Path $context.ConnectionPath -InputObject $context.Connection
+        $journal = Set-LabContainerReconcileJournalStatus -Journal $journal -Path $journalPath -Status STATE_COMMITTED
+        $null = Invoke-LabContainerReconcileCommand -Provider $runtime -Arguments @('rm','-f',$backupName) -ErrorCode 'CONTAINER_RECONCILE_BACKUP_REMOVE_FAILED'
+        $journal = Set-LabContainerReconcileJournalStatus -Journal $journal -Path $journalPath -Status COMPLETED
+        return [PSCustomObject]@{
+            RunId=$RunId; InstanceId=[string]$context.InstanceId; Provider=$runtime; Container=$name
+            Changed=$true; Recreated=$true; ChangeClass='recreate'; Port=[int]$plan.Desired.Port
+            Cpu=[decimal]$plan.Desired.Cpu; MemoryMB=[int]$plan.Desired.MemoryMB
+            SqlMemoryLimitMB=[int]$plan.Desired.SqlMemoryLimitMB; SqlMaxMemoryMB=$plan.Desired.SqlMaxMemoryMB
+            OperationId=[string]$journal.OperationId; Status='SUCCEEDED'
+        }
     }
     catch {
-        if ($replacementCreated) { $null = & $runtime rm -f $name 2>&1 }
-        if ($originalRenamed) {
-            $null = & $runtime rename $backupName $name 2>&1
-            if ($wasRunning) { $null = & $runtime start $name 2>&1 }
+        $failure = $_
+        $statusBeforeRepair = [string]$journal.Status
+        try { $repaired = Repair-LabContainerReconcileJournal -Context $context }
+        catch { throw "CONTAINER_RECONCILE_AND_RECOVERY_FAILED: $($failure.Exception.Message) / $($_.Exception.Message)" }
+        if ($statusBeforeRepair -eq 'STATE_COMMITTED' -and [string]$repaired.Status -eq 'COMPLETED') {
+            return [PSCustomObject]@{
+                RunId=$RunId; InstanceId=[string]$context.InstanceId; Provider=$runtime; Container=$name
+                Changed=$true; Recreated=$true; ChangeClass='recreate'; Port=[int]$plan.Desired.Port
+                Cpu=[decimal]$plan.Desired.Cpu; MemoryMB=[int]$plan.Desired.MemoryMB
+                OperationId=[string]$journal.OperationId; Status='SUCCEEDED_AFTER_RESUME'
+            }
         }
-        throw
+        throw $failure
     }
 }
 
@@ -281,13 +314,23 @@ function Update-LabContainerEnvironmentInteractive {
 
     $arguments = @{
         RunId=[string]$selected.Run.runId
+        Container=$true
         Cpu=[decimal]$cpu
         MemoryMB=[int]$memoryMB
         Port=[int]$port
     }
 
     try {
-        $result = Update-SqlServerLabContainer @arguments
+        $action = Invoke-SqlServerLabReconcileAction @arguments -Confirm:$false
+        if ([string]$action.ExecutionSummary.Status -eq 'FAILED') {
+            throw ([string]@($action.ExecutionSummary.Errors)[0])
+        }
+        $result = if ([string]$action.ExecutionSummary.Status -eq 'NO_OP') {
+            [PSCustomObject]@{
+                Changed=$false; Provider=[string]$action.Plan.Provider; Container=[string]$action.Plan.InstanceId
+                Cpu=[decimal]$action.Plan.Desired.Cpu; MemoryMB=[int]$action.Plan.Desired.MemoryMB; Port=[int]$action.Plan.Desired.Port
+            }
+        } else { $action.ExecutionPlan[0].Result }
     } catch {
         $message = $_.Exception.Message
         if ($message -like 'CONTAINER_RECONCILE_PORT_IN_USE:*') {
