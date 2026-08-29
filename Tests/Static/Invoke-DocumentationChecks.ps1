@@ -203,6 +203,16 @@ $reservedServerConfig = @(
     $serverConfigProperties | Where-Object { $_.Value.'x-runtimeStatus' -eq 'reserved' } |
         Select-Object -ExpandProperty Name
 )
+$externalScriptsProperties = $manifestSchema.definitions.serverConfig.properties.externalScripts.properties
+$installMethodValueStatus = $externalScriptsProperties.installMethod.'x-runtimeValueStatus'
+Add-ValidationResult `
+    -Name 'Reservierte serverConfig-Vertraege sind vollstaendig maschinenlesbar' `
+    -Success ($externalScriptsProperties.customImage.'x-runtimeStatus' -eq 'reserved' -and
+        $installMethodValueStatus.'post-start' -eq 'executable' -and
+        $installMethodValueStatus.'custom-image' -eq 'reserved' -and
+        $installMethodValueStatus.'pre-built' -eq 'reserved' -and
+        @($externalScriptsProperties.installMethod.enum).Count -eq @($installMethodValueStatus.PSObject.Properties).Count) `
+    -Message 'customImage oder x-runtimeValueStatus fuer installMethod ist unvollstaendig.'
 $reservedExampleHits = @()
 foreach ($manifestFile in Get-ChildItem -LiteralPath (Join-Path $repoRoot 'Schemas') -Filter 'example-*.json' -File) {
     $manifest = Get-Content -LiteralPath $manifestFile.FullName -Raw -Encoding utf8 | ConvertFrom-Json -Depth 100
@@ -212,8 +222,8 @@ foreach ($manifestFile in Get-ChildItem -LiteralPath (Join-Path $repoRoot 'Schem
                 $reservedExampleHits += "$($manifestFile.Name):$fieldName"
             }
         }
-        if ($instance.serverConfig.externalScripts.installMethod -eq 'pre-built') {
-            $reservedExampleHits += "$($manifestFile.Name):externalScripts.installMethod=pre-built"
+        if ($instance.serverConfig.externalScripts.installMethod -in @('custom-image', 'pre-built')) {
+            $reservedExampleHits += "$($manifestFile.Name):externalScripts.installMethod=$($instance.serverConfig.externalScripts.installMethod)"
         }
     }
 }
