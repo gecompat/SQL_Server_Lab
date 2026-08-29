@@ -288,6 +288,19 @@ pwsh -NoProfile -File \
   -Provider docker
 ```
 
+### Katalogisierten CU vorab in den Runtimecache laden
+
+Jeder katalogisierte SQL-Server-CU kann über seinen exakten MCR-Tag ohne
+KI-Unterstützung in Docker oder Podman geladen werden:
+
+```bash
+pwsh -NoProfile -Command \
+  'Import-Module ./SqlServerLab.psd1 -Force; Save-SqlServerLabCuResource -SqlVersion 2022 -Cu CU18 -Platform Linux -Provider Docker'
+```
+
+Das interaktive Konsolenmenü bietet denselben Ablauf unter **Medien,
+Testdaten und Speicher → SQL Server CU herunterladen oder prüfen**.
+
 Podman:
 
 ```bash

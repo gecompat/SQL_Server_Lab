@@ -56,6 +56,9 @@ mehr existierender lokaler Pfad wird nicht als Default angeboten.
 │   │   ├── 2019\
 │   │   ├── 2022\
 │   │   └── 2025\
+│   ├── 2019\Updates\<CU>\
+│   ├── 2022\Updates\<CU>\
+│   ├── 2025\Updates\<CU>\
 │   ├── 2019\Eval\ISO\
 │   ├── 2022\Eval\ISO\
 │   └── 2025\
@@ -261,6 +264,22 @@ Versionskatalog, Medienprüfung und Abnahmematrix ergänzt werden.
 Der Hyper-V-Image-Pfad kann diese Medien SHA-256-verifiziert an einen
 resumierbaren SQL-`PrepareImage`-Builder binden. Der Ablauf steht unter
 [SQL Server als frisches, einmalig generalisiertes Image](HYPERV_SQL_PREPARED_IMAGE.md).
+
+### CU-Pakete und Linux-Images
+
+`Save-SqlServerLabCuResource` und der gleichnamige Konsolenworkflow können
+jeden katalogisierten CU für SQL Server 2019, 2022 und 2025 bereitstellen.
+Windows-Pakete landen unter
+`SQL\<Version>\Updates\<CU>\<Originaldateiname>.exe`. Der Download wird nur aus
+der im Katalog gebundenen Microsoft-Update-Catalog-Quelle akzeptiert; vor dem
+atomaren Verschieben an das Ziel müssen SHA-256, Authenticode-Status und
+Microsoft-Signer stimmen. Eine bereits vorhandene abweichende oder ungültig
+signierte Datei wird nicht überschrieben.
+
+Linux-CUs sind Containerimages und gehören nicht in den Media Root. Das Cmdlet
+zieht den katalogisierten unveränderlichen MCR-Tag in den lokalen Docker- oder
+Podman-Imagecache. Dieser Cache ist wiederverwendbar und wird nicht durch den
+normalen Run-Cleanup gelöscht.
 
 Datenbanken und Backups gehören nicht in den Media Root. Dafür wird ein
 getrennter [persistenter Data Root](PERSISTENT_DATA_AND_EVALUATION_REFRESH.md)

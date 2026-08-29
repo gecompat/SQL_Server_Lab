@@ -57,6 +57,7 @@
         'Test-SqlServerLabAdapter'
         'Install-SqlServerLabAdapter'
         'Install-SqlServerLab7Zip'
+        'Save-SqlServerLabCuResource'
     )
 
     CmdletsToExport   = @()

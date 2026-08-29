@@ -79,6 +79,10 @@ function Add-LabSqlComposerItemInteractive {
 
     $intent = Read-LabSqlEnvironmentIntentInteractive
     if ($null -eq $intent) { return }
+    if ([string]$intent.Platform -eq 'Windows' -and $intent.Patch -and $intent.Patch.Cu -and
+        -not (Confirm-LabSqlWindowsPatchMediaInteractive -Intent $intent)) {
+        return
+    }
     $name = Read-Host '  Name der Umgebung beziehungsweise Gruppe'
     if ([string]::IsNullOrWhiteSpace($name)) {
         $name = 'sql-' + ([string](Get-LabWorkflowValue -InputObject $intent -Name 'VersionId' -Default 'environment')).ToLowerInvariant()

@@ -27,6 +27,10 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   Historie für SQL Server 2019, 2022 und 2025: 65 explizite Linux-MCR-Tags und
   ebenso viele Windows-x64-Pakete mit offizieller Downloadquelle, Media-Root-
   Pfad und SHA-256. Das zurückgezogene SQL Server 2019 CU7 bleibt gesperrt.
+  Das neue Cmdlet `Save-SqlServerLabCuResource` und der Storage-/Medien-
+  Konsolenpunkt stellen jeden Eintrag ohne KI-Unterstützung bereit: Windows nur
+  nach SHA-256- und Microsoft-Authenticode-Prüfung im Media Root, Linux über
+  den exakten MCR-Tag im gewählten Docker-/Podman-Cache.
 
 - Der schemaabgeleitete Manifest-Wizard unterstützt jetzt in allen
   Eingabeknoten Hilfe, schrittweise Zurücknavigation,
