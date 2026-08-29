@@ -80,7 +80,7 @@ Installation Handler aus.
 | persistenter Trust Store und Manifest Lock | implementiert; Sample-Identität wird mitgeführt |
 | inhaltsadressierter Artifact Cache und Quarantäne | implementiert |
 | `LAB_GENERATED`-Baseline-Auswahl | für verifizierte Single- und Multi-Output-Container-Samples implementiert; Hyper-V-Export offen |
-| kontextbezogene Manifest-Menüführung | Pfadsemantik und Sample-Katalogauswahl vorhanden; Navigation/Planvorschau offen |
+| kontextbezogene Manifest-Menüführung | Pfadsemantik, Sample-Katalogauswahl, Hilfe, Zurücknavigation, Zwischenzusammenfassung, sauberer Abbruch und Sample-/Artifact-Planvorschau implementiert |
 
 ## 4. Gemeinsamer Artifact-Vertrag
 
@@ -445,6 +445,15 @@ Vor dem Speichern wird eine strukturierte Summary gezeigt:
 
 Das Manifest wird erst nach erfolgreicher Schema- und Fachvalidierung atomar
 geschrieben.
+
+**Implementiert am 2026-08-29:** Auswahl- und Ja/Nein-Schritte führen Hilfe,
+Zurück, Zusammenfassung und Abbruch als eigene Optionen. Freie Skalarfelder
+verwenden dafür `?`, `<`, `=` und `!`. Zurück verwirft den zuletzt erfassten
+Schritt kontrolliert und erfasst ihn erneut; Abbruch und `Escape` schreiben
+keine partielle Manifestdatei. Die Planvorschau `1.1` umfasst neben External
+Runtimes auch Sample-ID und Variante, Artifact Type, Quelle, Lizenz, erwartete
+Outputs, Download-/Installationsgröße, Integritäts-/Trust-Status, Handler und
+Idempotenz.
 
 ## 10. `LAB_GENERATED`-Baselines
 
