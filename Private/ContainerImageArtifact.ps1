@@ -298,6 +298,7 @@ function New-LabExternalRuntimeContainerImagePlan {
         Languages = $distinctLanguages
         BuildTokens = $buildTokens
         BuildStage = $buildStage
+        BuildTarget = if ((@($buildTokens) -join ',') -eq 'java') { 'selected-runtime-java' } else { 'selected-runtime' }
         ContextEvidence = $contextEvidence
         RecipeRoot = [string]$recipe.RecipeRoot
         Containerfile = Join-Path $recipe.RecipeRoot 'Containerfile'
@@ -530,6 +531,7 @@ function Invoke-LabExternalRuntimeContainerImageBuildCore {
         '--build-arg', "EXTERNAL_RUNTIME_STAGE=$($ImagePlan.BuildStage)",
         '--build-arg', "EXTERNAL_RUNTIMES=$(@($ImagePlan.BuildTokens) -join ',')",
         '--build-arg', "CONTENT_ID=$($ImagePlan.ImageKey)",
+        '--target', [string]$ImagePlan.BuildTarget,
         [string]$ImagePlan.RecipeRoot
     )
     $built = $false
