@@ -52,7 +52,7 @@ function Set-LabContainerReconcileJournalStatus {
 
 function Get-LabContainerMountFingerprint {
     [CmdletBinding()]
-    param([Parameter(Mandatory)][object[]]$Mounts)
+    param([Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Mounts)
     $canonical = @($Mounts | ForEach-Object {
         $sourceIdentity = if ([string]$_.Type -eq 'volume') { [string]$_.Name } else { [string]$_.Source }
         "$([string]$_.Type)|$sourceIdentity|$([string]$_.Destination)|$([bool]$_.RW)"

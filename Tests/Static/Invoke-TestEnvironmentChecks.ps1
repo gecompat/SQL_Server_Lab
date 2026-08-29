@@ -69,6 +69,12 @@ try {
     Add-CheckResult -Name 'Explizite Wiederaufnahme behält Schlüssel und registrierten Run idempotent bei' -Success (
         [string]$reusedIntent.key -eq 'LINUX_2022_LATEST' -and [string]$reusedIntent.runId -eq $runId
     )
+    $canonicalRuntimeDisplayName = & $module {
+        Get-LabAutomatedTestEnvironmentDisplayName -Key 'WINDOWS_2022_BASE'
+    }
+    Add-CheckResult -Name 'Registry-Schlüssel ergeben deterministische sprechende Runtime-Namen' -Success (
+        $canonicalRuntimeDisplayName -eq 'test-windows-2022-base'
+    )
     $statusSnapshot = & $module {
         param($OutputRoot,$StateRoot)
         Get-LabAutomatedTestEnvironmentStatus -OutputDirectory $OutputRoot -StateRoot $StateRoot
@@ -269,6 +275,7 @@ try {
         $menuText -match 'PreferExistingWindowsSlot=\$true' -and
         $menuText -match 'Select-LabReusableHyperVWindowsSlotInteractive -Intent \$Intent -Automatic:\$automaticSlotSelection' -and
         $menuText -match 'ReusedWindowsSlotRunId' -and
+        $menuText -match 'Rename-LabAutomatedTestEnvironmentRuntime -RunId \(\[string\]\$reusableSlot.RunId\)' -and
         $menuText -match 'Register-LabTestEnvironmentRun -RunId \(\[string\]\$reusableSlot.RunId\)' -and
         $menuText -match 'Freier Windows-Slot wird automatisch aus dem Pool entnommen' -and
         $menuText -match 'Get-LabAutomatedTestEnvironmentRunIds' -and
@@ -287,17 +294,25 @@ try {
         $menuText -notmatch 'TEST_ENVIRONMENT_GROUP_INCOMPLETE'
     )
     Add-CheckResult -Name 'Automatisierte Linux-Ziele verwenden belastbare Runtime- und SQL-Memory-Grenzen' -Success (
+        $testEnvironmentText -match '\$name = Get-LabAutomatedTestEnvironmentDisplayName -Key \$request.Key' -and
         $testEnvironmentText -match '-Profile standard' -and
         $testEnvironmentText -match '-Cpu 4 -MemoryMB 4096' -and
         $testEnvironmentText -match 'maxMB = 3072' -and
         $testEnvironmentText -notmatch 'New-SqlServerLab[^\r\n]+-Profile compact'
     )
-    Add-CheckResult -Name 'Gruppenreparatur bleibt auf Linux beschränkt und erhält den geschützten Lifecycle' -Success (
+    Add-CheckResult -Name 'Gruppenreparatur konvergiert Ressourcen, Autostart und sprechende Runtime-Namen' -Success (
         $testEnvironmentText -match 'function Repair-SqlServerLabAutomatedTestEnvironment' -and
-        $testEnvironmentText -match "Where-Object \{ \[string\]\`$_.platform -eq 'linux'" -and
+        $testEnvironmentText -match 'function Rename-LabAutomatedTestEnvironmentRuntime' -and
+        $testEnvironmentText -match 'Get-LabAutomatedTestEnvironmentDisplayName' -and
         $testEnvironmentText -match 'Update-SqlServerLabContainer[^\r\n]+-Cpu 4 -MemoryMB 4096' -and
+        $testEnvironmentText -match '-AutoStart on' -and
         $testEnvironmentText -match '-RepairSqlRuntimeContract' -and
         $testEnvironmentText -match 'Set-LabServerConfig' -and
+        $testEnvironmentText -match 'Stop-HyperVInstance' -and
+        $testEnvironmentText -match 'Start-HyperVInstance' -and
+        $testEnvironmentText -match 'Start-SqlServerLabAutomatedTestEnvironment -TimeoutSeconds \$ReadinessTimeoutSeconds' -and
+        $testEnvironmentText -match 'Rename-ContainerLabEnvironment' -and
+        $testEnvironmentText -match 'Rename-HyperVLabEnvironment' -and
         $testEnvironmentText -match 'maxMB = 3072' -and
         $testEnvironmentText -match 'Export-SqlServerLabTestEnvironment' -and
         $testEnvironmentText -match 'LabAutomatedTestEnvironmentGroupOperation = \$true'

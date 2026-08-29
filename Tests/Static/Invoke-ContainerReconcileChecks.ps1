@@ -68,6 +68,7 @@ try {
                 NoOp=$noOp; Live=$live; Recreate=$recreate; AutoStart=$autoStart; BeforeFiles=$beforeFiles; AfterFiles=$afterFiles
                 ActionNoOp=$actionNoOp; ActionLive=$actionLive; ActionAutoStart=$actionAutoStart; WhatIf=$whatIf; UpdateCalls=$script:updateCalls
                 Journal=$journal; JournalSchema=(Assert-LabContainerReconcileJournal -Journal $journal)
+                EmptyMountFingerprint=(Get-LabContainerMountFingerprint -Mounts @())
                 TransitionMap=Get-LabStateTransitionMap
             }
         }
@@ -103,6 +104,9 @@ try {
     Add-CheckResult -Name 'Operationsjournal ist schema-valid und bindet Run, Scope, echte ID und Compensation' -Success (
         $evidence.JournalSchema -and $evidence.Journal.Status -eq 'PREPARED' -and $evidence.Journal.Runtime.OriginalId -eq 'original-id' -and
         $evidence.Journal.Recovery.Status -eq 'ROLLBACK_AVAILABLE'
+    )
+    Add-CheckResult -Name 'Mount-Fingerprint akzeptiert auch Container ohne zusätzliche Mounts' -Success (
+        [string]$evidence.EmptyMountFingerprint -match '^[a-f0-9]{64}$'
     )
     $publicPayload=@($evidence.NoOp,$evidence.Live,$evidence.Recreate,$evidence.AutoStart,$evidence.ActionNoOp,$evidence.ActionLive,$evidence.ActionAutoStart,$evidence.WhatIf) | ConvertTo-Json -Depth 30
     Add-CheckResult -Name 'Öffentliche Plan-/Action-Verträge bleiben frei von Runtime-IDs, Hostpfaden und Secrets' -Success (
