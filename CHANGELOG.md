@@ -8,6 +8,11 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- Der SQL-CU-Wächter begrenzt seinen Standardlauf jetzt auf die im
+  Versionskatalog als `SUPPORTED` markierten SQL-Versionen. Veraltete
+  Katalogeinträge erzeugen dadurch keine falschen `NEW`-Meldungen mehr, bleiben
+  aber über den expliziten Parameter `-Version` prüfbar.
+
 - External Languages sind im Containerpfad nun versionsbewusst für alle drei
   aktiven SQL-Versionen katalogisiert: Java für SQL Server 2019 sowie Python,
   R und Java für SQL Server 2022/2025, jeweils gleichwertig unter Docker und
