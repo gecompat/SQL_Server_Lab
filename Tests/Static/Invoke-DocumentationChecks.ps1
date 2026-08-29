@@ -788,6 +788,12 @@ Add-ValidationResult `
         $masterImplementationPlan -match '(?m)^\| N4 – Hyper-V Windows-/SQL-End-to-End \| Welle 4 \| `COMPLETE` \|')
 
 Add-ValidationResult `
+    -Name 'Roadmap beschreibt den real belegten Container-Reconcile-Stand widerspruchsfrei' `
+    -Success ($developmentExecutionPlan -match [regex]::Escape('Container-`no-op`, `live`, `recreate`, Rollback und Persistenz sind für Docker und Podman real verifiziert') -and
+        $developmentExecutionPlan -match [regex]::Escape('beliebige Mount-/Environment-Änderungen aus `CNT-214` bleiben offen') -and
+        $developmentExecutionPlan -notmatch [regex]::Escape('reale `live`-/`recreate`-Änderungen offen'))
+
+Add-ValidationResult `
     -Name 'Reale SQL-Prepared-Image-Abnahme ist ausführbar und dokumentiert' `
     -Success ((Test-Path -LiteralPath $sqlPreparedAcceptancePath -PathType Leaf) -and
         $localValidationStrategy -match [regex]::Escape('Invoke-HyperVSqlPreparedImageAcceptance.ps1') -and
