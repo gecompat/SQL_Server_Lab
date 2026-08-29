@@ -8,6 +8,13 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- Die verbleibenden Konsolen-Auswahllisten für Storage, Connection Center/CMS,
+  Testumgebungen, Containerprofile sowie Hyper-V-Builds, Medien, Vorlagen,
+  Switches, Quell-VMs und Fortsetzung verwenden jetzt die gemeinsame
+  Cursor-/Fallback-Schicht mit stabilen IDs und einheitlichem `Escape`. Ein
+  AST-basiertes Testinventar verhindert neue direkte `Read-Host`-Auswahlmenüs;
+  rohe globale Enter-Pausen wurden durch klar benannte Ergebnisrückwege ersetzt.
+
 - Die CU-Auswahl umfasst jetzt die vollständige bei Microsoft verfügbare
   Historie für SQL Server 2019, 2022 und 2025: 65 explizite Linux-MCR-Tags und
   ebenso viele Windows-x64-Pakete mit offizieller Downloadquelle, Media-Root-

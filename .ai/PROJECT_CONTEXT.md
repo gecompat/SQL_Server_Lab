@@ -58,8 +58,11 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 - verwalteter Multi-Root-Storage-Vertrag mit stabilen `LocationId`-Werten,
   Backing-Device-Topologie, dateigenauem Storage-Plan, journalisierter
   Parent-Migration und Cleanup-Audit;
-- gemeinsames Console-UI-Framework für die umgesetzten CUI-001-bis-CUI-011-
-  Flows;
+- gemeinsames Console-UI-Framework einschließlich der CUI-001-bis-CUI-020-
+  Verträge: alle bekannten Optionslisten in Storage, Connection Center,
+  Erstellungs- und Hyper-V-Pfaden verwenden stabile Menü-IDs, Cursor/Fallback
+  und einheitliches `Escape`; ein statisches Inventar blockiert neue direkte
+  `Read-Host`-Auswahlprompts;
 - providerneutraler `SqlServerLab.Batch/1.0`- und
   `SqlServerLab.Operation/1.0`-Kern mit deterministischer Mengenexpansion,
   persistenter Queue, zwei Workern, einem `HyperVHeavy`-Slot, Resume,

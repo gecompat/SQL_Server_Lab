@@ -280,19 +280,21 @@ try {
     Add-CheckResult -Name 'SQL-Builder-Auswahl zeigt eindeutige VM-, Windows- und Erstellungsdetails' -Success (
         $menuText -match '\$imageName = if \(\[string\]::IsNullOrWhiteSpace' -and
         $menuText -match 'Get-VM -Name \$vmName' -and
-        $menuText -match 'VM: \{0\} \[\{1\}\] \| Windows: \{2\} / \{3\}' -and
-        $menuText -match 'Erstellt: \{0\} \| BuildId: \{1\}' -and
+        $menuText -match 'SQL \{0\} \{1\} · Windows \{2\}/\{3\}' -and
+        $menuText -match 'VM \{5\} \[\{6\}\].*Build \{8\}' -and
         $menuText -match "'yyyy-MM-dd HH:mm:ss'"
     )
     Add-CheckResult -Name 'Image-Loeschauswahl zeigt Version, Zeitpunkt und Kurzkennung' -Success (
         $menuText -match 'function Remove-LabHyperVImageArtifactInteractive' -and
         $menuText -match 'Windows: \{0\} \{1\} · SQL Server: \{2\} \{3\}' -and
-        $menuText -match 'Veröffentlicht: \{0\} · Kennung: \{1\}' -and
+        $menuText -match '\$workload, \$registeredAt, \$shortArtifactId' -and
         $menuText -match '\$shortArtifactId'
     )
     Add-CheckResult -Name 'Gast- und SQL-Passwortdialog verwenden dieselbe Auswahlsemantik' -Success (
-        $menuText -match 'Gastpasswort: \[1\] selbst festlegen, \[2\] zufällig erzeugen' -and
-        $menuText -match 'SQL-SA-Passwort: \[1\] selbst festlegen, \[2\] vorhandenes Gastpasswort übernehmen \[2\]' -and
+        $menuText -match "ScreenId 'hyperv-guest-password-mode'" -and
+        $menuText -match "ScreenId 'hyperv-sql-sa-password-mode'" -and
+        $menuText -match "-Id '2' -Label 'Zufällig erzeugen und einmal anzeigen'" -and
+        $menuText -match "-Id '2' -Label 'Vorhandenes Gastpasswort übernehmen'" -and
         $menuText -match 'if \(\$choice -eq ''2''\) \{ return \$GuestPassword \}'
     )
     Add-CheckResult -Name 'Menue besitzt Generalisierung und Publikation' -Success (
@@ -328,7 +330,7 @@ try {
         $menuText -match 'function Select-LabHyperVVirtualSwitch' -and
         $menuText -match 'Get-VMSwitch -ErrorAction Stop' -and
         $menuText -match 'Verwalteter SQL_Server_Lab-Internal-Switch' -and
-        $menuText -match '\[0\] Kein Switch = bewusst isoliert' -and
+        $menuText -match "-Id '__isolated' -Label 'Kein Switch' -Value 'Bewusst isoliert'" -and
         @($menuText | Select-String -Pattern 'Select-LabHyperVVirtualSwitch' -AllMatches).Matches.Count -ge 3
     )
     Add-CheckResult -Name 'Erfolgreiche Hyper-V-Laberstellung meldet den nächsten Schritt ohne ungültigen Inline-if-Aufruf' -Success (
@@ -337,7 +339,7 @@ try {
     Add-CheckResult -Name 'Untermenü-Aktionen leeren die Konsole vor ihrer Ausgabe' -Success (
         $menuText -match 'function Show-LabHyperVMenuActionHeader' -and
         $menuText -match 'function Invoke-LabHyperVMenuAction' -and
-        $menuText -match 'Show-LabHyperVMenuActionHeader[\s\S]{0,180}\[Enter\] für Menü' -and
+        $menuText -match 'Show-LabHyperVMenuActionHeader[\s\S]{0,260}Wait-LabConsoleAcknowledgement' -and
         $menuText -match "'3' \{ Invoke-LabHyperVMenuAction -Title 'Neue SQL-Prepared-Vorlage'" -and
         @($menuText | Select-String -Pattern "Invoke-LabConsoleMenu -ScreenId 'hyperv-" -AllMatches).Matches.Count -ge 6
     )
@@ -352,7 +354,7 @@ try {
         $sqlBuilderText -match 'Import-HyperVImageArtifact[\s\S]+@displayNameArgument'
     )
     Add-CheckResult -Name 'Windows-Builder-Cleanup bietet ALL mit eigener Gesamtbestaetigung' -Success (
-        $menuText -match '\[ALL\] Alle \$\(\$builds\.Count\) angezeigten unfertigen Windows-Builder aufraeumen' -and
+        $menuText -match '-Id ''__all'' -Label "Alle \$\(\$builds.Count\) Builder aufräumen"' -and
         $menuText -match 'WIRKLICH ALLE Windows-Builder aufraeumen' -and
         $menuText -match 'Remove-HyperVWindowsImageBuild -BuildId \$candidate\.buildId'
     )
