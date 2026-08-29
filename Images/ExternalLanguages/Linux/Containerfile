@@ -70,6 +70,16 @@ RUN chmod 0755 /opt/sql-server-lab/bin/install-java-runtime.sh; \
         /opt/sql-server-lab/java-source/SqlServerLabExternalRuntimeProbe.java \
         /opt/sql-server-lab/java-source/MICROSOFT-JAVA-EXTENSION-LICENSE.txt
 
+# Keep the Java-only target before Python/R. Docker's classic builder executes
+# preceding stages even when they are unrelated to --target; SQL 2019 must not
+# evaluate the deliberately SQL-2022/2025-only Python and R stages.
+FROM runtime-base AS runtime-java
+COPY --from=java-build --chown=mssql:root /opt/sql-server-lab/java /opt/sql-server-lab/java
+RUN /opt/sql-server-lab/java/jre/bin/java -version; \
+    test ! -e /opt/sql-server-lab/java/jre/bin/javac; \
+    test -x /opt/sql-server-lab/java/jre/lib/jspawnhelper; \
+    /opt/mssql/bin/mssql-conf set extensibility datadirectories /opt/sql-server-lab/java
+
 FROM runtime-base AS runtime-openmp
 ARG LIBGOMP_DEB_URL=https://archive.ubuntu.com/ubuntu/pool/main/g/gcc-12/libgomp1_12.3.0-1ubuntu1~22.04.3_amd64.deb
 ARG LIBGOMP_DEB_SHA256=870c27299185a5dd4accad3b15bf82a7409fd7073cccaa8025875307da4d0ce2
@@ -121,13 +131,6 @@ RUN set -eux; \
     /opt/sql-server-lab/bin/install-python-runtime.sh /opt/sql-server-lab/locks/python-wheels.lock; \
     /opt/mssql/bin/mssql-conf set extensibility pythonbinpath /usr/bin/python3.10; \
     /opt/mssql/bin/mssql-conf set extensibility datadirectories /usr/local/lib/R:/usr/lib:/usr/lib/python3.10/dist-packages
-
-FROM runtime-base AS runtime-java
-COPY --from=java-build --chown=mssql:root /opt/sql-server-lab/java /opt/sql-server-lab/java
-RUN /opt/sql-server-lab/java/jre/bin/java -version; \
-    test ! -e /opt/sql-server-lab/java/jre/bin/javac; \
-    test -x /opt/sql-server-lab/java/jre/lib/jspawnhelper; \
-    /opt/mssql/bin/mssql-conf set extensibility datadirectories /opt/sql-server-lab/java
 
 FROM runtime-r AS runtime-r-java
 COPY --from=java-build --chown=mssql:root /opt/sql-server-lab/java /opt/sql-server-lab/java
