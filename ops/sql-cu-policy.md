@@ -10,6 +10,9 @@ Windows-ISO/EXE liegt weiterhin beim Betreiber.
 
 ## Scope
 - Geltung nur für dieses Repo (`SQL_Server_Lab`) und dessen Katalogdatei.
+- Der Standardlauf prüft ausschließlich Katalogeinträge mit Status `SUPPORTED`.
+  Veraltete oder anderweitig nicht aktive Versionen werden nur bei expliziter
+  Angabe über `-Version` ausgewertet.
 - Keine Risiko-Matrix nach Prod/Test/Dev oder Sicherheitskategorien.
 - Keine hypothetische Statusauswertung: nur belastbare Delta-Erkennung.
 
