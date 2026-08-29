@@ -485,8 +485,8 @@ project_adapters:
 planning_contracts:
   console_lifecycle_storage_consolidation:
     source: Documentation/Project_Planning/CONSOLE_LIFECYCLE_AND_STORAGE_CONSOLIDATION_PLAN_2026-08-12.md
-    status: PLANNED_FROM_MANUAL_ACCEPTANCE
-    runtime_status: IN_PROGRESS_CONTROL_AND_GENERALIZE_GATES_COMPLETE_STORAGE_AND_STATUS_OPEN
+    status: IMPLEMENTED_WITH_EXTERNAL_RUNTIME_GATES
+    runtime_status: CONSOLE_CUI_001_TO_020_AND_STORAGE_STATIC_COMPLETE_EXTERNAL_PROVIDER_GATES_OPEN
     covers:
       - lifecycle_action_results_and_cms_sync_gate
       - complete_console_ui_migration_and_fallback_test_mode

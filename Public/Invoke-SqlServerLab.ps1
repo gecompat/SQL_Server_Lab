@@ -159,6 +159,29 @@ function Show-LabSubMenu {
     return [string]$result.SelectedItem.Id
 }
 
+function Select-LabConsoleDataItem {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$ScreenId,
+        [Parameter(Mandatory)][string]$Title,
+        [string]$Subtitle = '',
+        [Parameter(Mandatory)][object[]]$Items,
+        [string]$SelectedId = ''
+    )
+
+    $arguments = @{
+        ScreenId = $ScreenId
+        Title = $Title
+        Subtitle = $Subtitle
+        Items = $Items
+        Footer = 'Pfeile: Navigation  Enter/Shortcut: Auswahl  Esc: Zurueck'
+    }
+    if ($SelectedId) { $arguments.SelectedId = $SelectedId }
+    $result = Invoke-LabConsoleMenu @arguments
+    if ($result.Status -ne 'Selected') { return $null }
+    return $result.SelectedItem.Data
+}
+
 function Show-LabEnvironmentMenu {
     $runs = try { @(Get-LabActiveRuns) } catch { @() }
     $states = @($runs | ForEach-Object { [string](Get-LabWorkflowValue -InputObject $_.runtime -Name 'state' -Default (Get-LabWorkflowValue -InputObject $_ -Name 'state' -Default '')) })
@@ -741,8 +764,7 @@ function Invoke-LabAction {
             }
             $runId = Select-LabRun -Runs $runs -Prompt "Entfernen" -DisableAutomatedTestEnvironments -DisableSystemServices
             if ($runId) {
-                $confirm = Read-Host "  Wirklich entfernen? (j/n) [n]"
-                if ($confirm -eq 'j') { Remove-SqlServerLab -RunId $runId -Force }
+                if (Read-LabConfirm -Prompt '  Wirklich entfernen?' -Default $false) { Remove-SqlServerLab -RunId $runId -Force }
             }
         }
 
@@ -1036,40 +1058,29 @@ function Select-LabSqlPatchIntent {
     $catalogLatest = $patches[0]
     $floatingImage = Get-SqlServerDockerImage -VersionId $BaseVersion
     $catalogDate = [string]$script:VersionCatalog.catalogMetadata.lastVerified
-    Write-Host "  Katalogisierte Patchstände (Stand $catalogDate):" -ForegroundColor White
-    if ($Platform -eq 'windows') {
-        Write-Host '    base · SQL-Installationsmedium ohne separates CU-Paket' -ForegroundColor Green
-    }
-    else {
-        Write-Host "    latest (gleitend) · $floatingImage · nicht reproduzierbar" -ForegroundColor Green
-    }
-    Write-Host "    aktuell katalogisiert: $($catalogLatest.Cu) · Build $($catalogLatest.Build) · $($catalogLatest.Kb)" -ForegroundColor DarkGreen
-    foreach ($patch in $patches) {
+    $defaultPatch = if ($Platform -eq 'windows') { $windowsBase } else { $floatingLatest }
+    $defaultId = if ($Platform -eq 'windows') { 'base' } else { 'latest' }
+    $items = [Collections.Generic.List[object]]::new()
+    $items.Add((New-LabConsoleItem -Id $defaultId `
+        -Label $(if ($Platform -eq 'windows') { 'Basisinstallation ohne separates CU' } else { 'latest (gleitend)' }) `
+        -Value $(if ($Platform -eq 'windows') { 'SQL-Installationsmedium; reproduzierbare Basis' } else { "$floatingImage · nicht reproduzierbar" }) `
+        -Shortcut '1' -Data $defaultPatch))
+    for ($index = 0; $index -lt $patches.Count; $index++) {
+        $patch = $patches[$index]
         $windowsText = if ($patch.WindowsStatus -like 'PRESENT*') { 'Windows-Paket vorhanden' } else { "Windows-Paket fehlt: $($patch.WindowsRelativePath)" }
-        Write-Host "    $($patch.Cu) · Build $($patch.Build) · $($patch.Kb) · $($patch.Released) · $windowsText" -ForegroundColor $(if ($patch.WindowsStatus -like 'PRESENT*') { 'White' } else { 'DarkYellow' })
+        $items.Add((New-LabConsoleItem -Id ([string]$patch.Cu) -Label ([string]$patch.Cu) `
+            -Value ("Build {0} · {1} · {2} · {3}" -f $patch.Build, $patch.Kb, $patch.Released, $windowsText) `
+            -Shortcut ([string]($index + 2)) -Data $patch))
     }
-    Write-Host '  Fehlende Windows-Pakete verhindern weder Container noch die Windows-Basisinstallation; sie werden nur für ein ausdrücklich gewähltes Hyper-V-CU benötigt.' -ForegroundColor DarkGray
-    while ($true) {
-        if ($Platform -eq 'windows') {
-            Write-Host '  [base]   Basisinstallation vom SQL-Medium ohne separates CU (Default)' -ForegroundColor Green
-        }
-        else {
-            Write-Host '  [latest] Gleitender Microsoft-Tag; bei jeder neuen Erstellung aktuell (Default, nicht reproduzierbar)' -ForegroundColor Green
-        }
-        Write-Host "  [CU]     Fixierter Stand: $(@($patches.Cu | Sort-Object { [int]($_ -replace '^CU','') }) -join ', ')" -ForegroundColor White
-        $selection = Read-Host $(if ($Platform -eq 'windows') { '  Patchstand [base]' } else { '  Patchstand [latest]' })
-        if ($Platform -eq 'windows' -and (-not $selection -or $selection -in @('base','latest'))) {
-            if ($selection -eq 'latest') { Write-LabWarning 'Windows latest wird aus Kompatibilitätsgründen als base interpretiert: Basisinstallation ohne separates CU.' }
-            return $windowsBase
-        }
-        if ($Platform -eq 'linux' -and (-not $selection -or $selection -eq 'latest')) {
-            Write-LabWarning 'latest ist ein gleitender Microsoft-Tag. Eine spätere Erstellung kann einen neueren CU-Stand verwenden.'
-            return $floatingLatest
-        }
-        $selected = $patches | Where-Object { $_.Cu -eq $selection.ToUpperInvariant() } | Select-Object -First 1
-        if ($selected) { return $selected }
-        Write-LabWarning 'Patchstand ist nicht im lokalen Agent-Katalog enthalten.'
+    $selected = Select-LabConsoleDataItem -ScreenId "sql-patch-$Platform-$BaseVersion" `
+        -Title "Patchstand für SQL Server $BaseVersion" `
+        -Subtitle "Katalogstand $catalogDate · aktuell $($catalogLatest.Cu)" `
+        -Items $items.ToArray() -SelectedId $defaultId
+    if (-not $selected) { return $null }
+    if ([string]$selected.PatchMode -eq 'latest') {
+        Write-LabWarning 'latest ist ein gleitender Microsoft-Tag. Eine spätere Erstellung kann einen neueren CU-Stand verwenden.'
     }
+    return $selected
 }
 
 function Read-LabSqlEnvironmentIntentInteractive {
@@ -1343,10 +1354,17 @@ function Invoke-LabAutomatedTestEnvironmentInteractive {
                 Write-Host ("    [{0}] {1} · SQL {2} · {3} · Schlüssel {4}" -f ($index + 1), $item.Platform, $item.SqlVersion, $item.Patch, $item.Key) -ForegroundColor White
             }
         }
-        Write-Host '  [l] Linux hinzufügen  [w] Windows hinzufügen  [d] letzten Eintrag entfernen' -ForegroundColor White
-        Write-Host '  [a] Alle erstellen  [r] Export aktualisieren  [x] Alle Testumgebungen löschen  [0] Zurück' -ForegroundColor White
-        $choice = (Read-Host '  Auswahl').ToLowerInvariant()
-        if ($choice -eq '0') { return }
+        $choice = Show-LabSubMenu -ScreenId 'automated-test-environment-compose' -Title 'Testumgebungsauftrag bearbeiten' `
+            -Subtitle "$($queue.Count) neue Umgebung(en) vorgemerkt" -Items @(
+                New-LabConsoleItem -Id 'l' -Label 'Linux hinzufügen' -Shortcut 'l'
+                New-LabConsoleItem -Id 'w' -Label 'Windows hinzufügen' -Shortcut 'w'
+                New-LabConsoleItem -Id 'd' -Label 'Letzten Eintrag entfernen' -Shortcut 'd' -Disabled:($queue.Count -eq 0)
+                New-LabConsoleItem -Id 'a' -Label 'Alle vorgemerkten Umgebungen erstellen' -Shortcut 'a' -Disabled:($queue.Count -eq 0)
+                New-LabConsoleItem -Id 'r' -Label 'Export aktualisieren' -Shortcut 'r'
+                New-LabConsoleItem -Id 'x' -Label 'Alle Testumgebungen löschen' -Shortcut 'x' -Disabled:($existingStatus.Total -eq 0)
+                New-LabConsoleItem -Id '0' -Label 'Zurück' -Shortcut '0'
+            )
+        if (-not $choice -or $choice -eq '0') { return }
         if ($choice -eq 'd') { if ($queue.Count -gt 0) { $queue.RemoveAt($queue.Count - 1) }; continue }
         if ($choice -eq 'r') {
             $export = Export-SqlServerLabTestEnvironment
@@ -1362,11 +1380,17 @@ function Invoke-LabAutomatedTestEnvironmentInteractive {
             $versions = @(Get-SqlServerVersions -Status SUPPORTED | Where-Object {
                 if ($platform -eq 'linux') { $_.docker -and $_.docker.image } else { [string]$_.id -in @('2019','2022','2025') }
             } | Sort-Object { [int]$_.id })
-            Write-Host "  Verfügbare SQL-Versionen: $(@($versions.id) -join ', ')" -ForegroundColor DarkGray
-            $sqlVersion = Read-Host "  SQL Server Version [$($versions[-1].id)]"
-            if (-not $sqlVersion) { $sqlVersion = [string]$versions[-1].id }
-            if ($sqlVersion -notin @($versions.id)) { Write-LabWarning 'SQL-Version ist für diese Plattform nicht katalogisiert.'; continue }
+            $versionItems = for ($index = 0; $index -lt $versions.Count; $index++) {
+                $version = $versions[$index]
+                New-LabConsoleItem -Id ([string]$version.id) -Label "SQL Server $($version.id)" `
+                    -Value ([string]$version.lifecycleStatus) -Shortcut ([string]($index + 1)) -Data $version
+            }
+            $selectedVersion = Select-LabConsoleDataItem -ScreenId "test-environment-version-$platform" `
+                -Title "SQL-Version für $platform" -Items $versionItems -SelectedId ([string]$versions[-1].id)
+            if (-not $selectedVersion) { continue }
+            $sqlVersion = [string]$selectedVersion.id
             $patchIntent = Select-LabSqlPatchIntent -BaseVersion $sqlVersion -Platform $platform
+            if (-not $patchIntent) { continue }
             $requestedPatch = if ($patchIntent.Cu) { ([string]$patchIntent.Cu).ToLowerInvariant() } elseif ([string]$patchIntent.PatchMode -eq 'base') { 'base' } else { 'latest' }
             if ($platform -eq 'windows' -and -not (Confirm-LabSqlWindowsPatchMediaInteractive -Intent ([PSCustomObject]@{ Patch=$patchIntent }))) { continue }
             $baseKey = ConvertTo-LabTestEnvironmentKey -Platform $platform -SqlVersion $sqlVersion -Patch $requestedPatch
@@ -1491,52 +1515,43 @@ function Invoke-LabNewContainerEnvironmentInteractive {
     }
     $versionIds = @($containerVersions | ForEach-Object { [string]$_.id })
     $defaultVersion = $versionIds[-1]
-    while ($true) {
-        Write-Host ("  Verfügbare {0}-Image-Versionen: {1}" -f $Provider, ($versionIds -join ', ')) -ForegroundColor DarkGray
-        $baseVersion = Read-Host "  SQL-Server-Version [$defaultVersion]"
-        if (-not $baseVersion) { $baseVersion = $defaultVersion }
-        if ($baseVersion -in $versionIds) { break }
-        Write-LabWarning "SQL Server $baseVersion ist für $Provider nicht katalogisiert. Verfügbar: $($versionIds -join ', ')."
+    $versionItems = for ($index = 0; $index -lt $containerVersions.Count; $index++) {
+        $candidate = $containerVersions[$index]
+        New-LabConsoleItem -Id ([string]$candidate.id) -Label "SQL Server $($candidate.id)" `
+            -Value ([string]$candidate.docker.image) -Shortcut ([string]($index + 1)) -Data $candidate
     }
+    $selectedVersion = Select-LabConsoleDataItem -ScreenId "container-version-$Provider" `
+        -Title "SQL-Server-Version für $Provider" -Items $versionItems -SelectedId $defaultVersion
+    if (-not $selectedVersion) { return }
+    $baseVersion = [string]$selectedVersion.id
 
     $builds = @(Get-SqlServerBuilds -VersionId $baseVersion | Sort-Object {
         if ([string]$_.cu -match '^CU(\d+)$') { [int]$Matches[1] } else { -1 }
     } -Descending)
     $selectedBuild = $null
     if ($builds.Count -gt 0) {
-        $cuNumbers = @($builds | ForEach-Object {
-            if ([string]$_.cu -match '^CU(\d+)$') { [int]$Matches[1] }
-        } | Sort-Object)
-        $isContiguous = $cuNumbers.Count -gt 0 -and
-            $cuNumbers.Count -eq $cuNumbers[-1] -and
-            (($cuNumbers -join ',') -eq ((1..$cuNumbers[-1]) -join ','))
-        $cuSummary = if ($isContiguous) {
-            "CU1..CU$($cuNumbers[-1])"
+        $buildItems = [Collections.Generic.List[object]]::new()
+        $buildItems.Add((New-LabConsoleItem -Id 'latest' -Label 'latest (gleitend)' -Value 'Microsoft-Tag; nicht reproduzierbar' -Shortcut '1'))
+        for ($index = 0; $index -lt $builds.Count; $index++) {
+            $build = $builds[$index]
+            $buildItems.Add((New-LabConsoleItem -Id ([string]$build.cu) -Label ([string]$build.cu) `
+                -Value ("Build {0} · {1}" -f $build.build, $build.kb) -Shortcut ([string]($index + 2)) -Data $build))
         }
-        else {
-            (@($builds.cu) -join ', ')
-        }
-        while ($true) {
-            Write-Host "  Verfügbare CU-Stände für SQL Server ${baseVersion}: $cuSummary" -ForegroundColor DarkGray
-            Write-Host '  [Enter] verwendet den veränderlichen Microsoft-Tag latest.' -ForegroundColor DarkGray
-            $buildSelection = Read-Host '  CU-Stand, z. B. CU7 oder 7 [latest]'
-            if (-not $buildSelection -or $buildSelection -eq 'latest') { break }
-            $requestedCu = if ($buildSelection -match '^\d+$') { "CU$buildSelection" } else { $buildSelection.ToUpperInvariant() }
-            $selectedBuild = $builds | Where-Object { [string]$_.cu -eq $requestedCu } | Select-Object -First 1
-            if ($selectedBuild) { break }
-            Write-LabWarning "CU '$buildSelection' ist für SQL Server $baseVersion nicht katalogisiert. Verfügbar: $cuSummary oder latest."
-        }
+        $buildResult = Invoke-LabConsoleMenu -ScreenId "container-cu-$Provider-$baseVersion" `
+            -Title "CU-Stand für SQL Server $baseVersion" -Items $buildItems.ToArray() -SelectedId 'latest'
+        if ($buildResult.Status -ne 'Selected') { return }
+        if ([string]$buildResult.SelectedItem.Id -ne 'latest') { $selectedBuild = $buildResult.SelectedItem.Data }
     }
     $version = if ($selectedBuild) { "$baseVersion-$($selectedBuild.cu)" } else { $baseVersion }
     $containerImage = Get-SqlServerDockerImage -VersionId $version
     Write-LabInfo "Container-Image: $containerImage"
 
-    $profile = Read-Host '  Ressourcenprofil: compact, standard, performance [standard]'
-    if (-not $profile) { $profile = 'standard' }
-    if ($profile -notin @('compact', 'standard', 'performance')) {
-        Write-LabError "Ungültiges Ressourcenprofil: $profile"
-        return
-    }
+    $profile = Show-LabSubMenu -ScreenId "container-profile-$Provider" -Title 'Ressourcenprofil' -Items @(
+        New-LabConsoleItem -Id 'compact' -Label 'Compact' -Value 'Minimale lokale Lab-Ressourcen' -Shortcut '1'
+        New-LabConsoleItem -Id 'standard' -Label 'Standard' -Value 'Ausgewogener Default' -Shortcut '2'
+        New-LabConsoleItem -Id 'performance' -Label 'Performance' -Value 'Mehr CPU und Arbeitsspeicher' -Shortcut '3'
+    )
+    if (-not $profile) { return }
     $labName = Read-Host "  Labname [adhoc-$version-$provider]"
     if (-not $labName) { $labName = "adhoc-$version-$provider" }
     $instanceId = Read-Host '  Instanzname [primary]'
@@ -1598,12 +1613,11 @@ function Invoke-LabNewHyperVEnvironmentInteractive {
     }
 
     if($Intent){New-LabHyperVEnvironmentInteractive -WindowsOnly -Intent $Intent;return}
-    Write-Host "  Bereitstellungsziel:" -ForegroundColor DarkGray
-    Write-Host '    [1] Sofortige SQL-Umgebung aus SQL-Prepared-Image' -ForegroundColor White
-    Write-Host '    [2] Windows-OS-Slot für spätere Anpassung/Installation' -ForegroundColor DarkGray
-    $mode = Read-Host '  Modus [1]'
-
-    if (-not $mode) { $mode = '1' }
+    $mode = Show-LabSubMenu -ScreenId 'hyperv-provisioning-target' -Title 'Hyper-V-Bereitstellungsziel' -Items @(
+        New-LabConsoleItem -Id '1' -Label 'Sofortige SQL-Umgebung' -Value 'Aus SQL-Prepared-Image' -Shortcut '1'
+        New-LabConsoleItem -Id '2' -Label 'Windows-OS-Slot' -Value 'Für spätere Anpassung oder SQL-Installation' -Shortcut '2'
+    )
+    if (-not $mode) { return }
     switch ($mode) {
         '1' {
             Invoke-LabNewHyperVSqlEnvironmentWorkflowInteractive
@@ -1789,8 +1803,7 @@ function Show-LabHyperVMenuActionHeader {
 function Invoke-LabHyperVMenuAction {
     <#
     .SYNOPSIS
-        Führt eine Hyper-V-Menüaktion sichtbar aus und kehrt erst nach Enter
-        zu einem anschließend bereinigten Menü zurück.
+        Führt eine Hyper-V-Menüaktion in einer expliziten Ergebnisansicht aus.
     #>
     [CmdletBinding()]
     param(
@@ -1800,7 +1813,7 @@ function Invoke-LabHyperVMenuAction {
 
     Show-LabHyperVMenuActionHeader -Title $Title
     & $Action
-    $null = Read-Host '  [Enter] für Menü ...'
+    Wait-LabConsoleAcknowledgement -Prompt '  Enter oder Escape: Zurück zum Hyper-V-Menü'
 }
 
 function Invoke-LabHyperVPreparedImageWorkflowMenu {
@@ -1990,21 +2003,12 @@ function Select-LabHyperVImageBuild {
         return $builds[0]
     }
 
-    Write-Host ''
-    for ($i = 0; $i -lt $builds.Count; $i++) {
-        Write-Host "    [$($i + 1)] $($builds[$i].buildId) [$($builds[$i].state)]" -ForegroundColor White
+    $items = for ($index = 0; $index -lt $builds.Count; $index++) {
+        $build = $builds[$index]
+        New-LabConsoleItem -Id ([string]$build.buildId) -Label ([string]$build.buildId) `
+            -Value ([string]$build.state) -Shortcut ([string]($index + 1)) -Data $build
     }
-    $selection = Read-Host '  Build (Nummer)'
-    if ($selection -notmatch '^\d+$') {
-        Write-LabWarning 'Ungueltige Auswahl.'
-        return $null
-    }
-    $index = [int]$selection - 1
-    if ($index -lt 0 -or $index -ge $builds.Count) {
-        Write-LabWarning 'Ungueltige Auswahl.'
-        return $null
-    }
-    return $builds[$index]
+    return Select-LabConsoleDataItem -ScreenId 'hyperv-windows-build-select' -Title 'Windows-Image-Build auswählen' -Items $items
 }
 
 function New-LabHyperVImageBuildInteractive {
@@ -2027,15 +2031,16 @@ function New-LabHyperVImageBuildInteractive {
         Write-LabError 'Kein erkennbares Windows-Installationsmedium im Media Root gefunden.'
         return
     }
-    Write-Host '  Erkannte Windows-Installationsmedien:' -ForegroundColor White
-    Write-LabWindowsMediaSelectionGroups -Candidates $candidates -Numbered
-    $selection = Read-Host '  Windows-Installationsmedium (Nummer) [1]'
-    if (-not $selection) { $selection = '1' }
-    if ($selection -notmatch '^\d+$' -or [int]$selection -lt 1 -or [int]$selection -gt $candidates.Count) {
-        Write-LabError 'Ungültige Medienauswahl.'
-        return
+    $mediaItems = for ($index = 0; $index -lt $candidates.Count; $index++) {
+        $candidate = $candidates[$index]
+        New-LabConsoleItem -Id ([string]$candidate.MediaId) `
+            -Label ("{0} · {1}" -f (Get-LabWindowsMediaOperatingSystemLabel -OperatingSystemId ([string]$candidate.OperatingSystemId)), $candidate.WindowsEdition) `
+            -Value ("{0} · {1}" -f $candidate.InstallationType, $candidate.MediaId) `
+            -Shortcut ([string]($index + 1)) -Data $candidate
     }
-    $selectedMedia = $candidates[[int]$selection - 1]
+    $selectedMedia = Select-LabConsoleDataItem -ScreenId 'hyperv-windows-media-select' `
+        -Title 'Windows-Installationsmedium auswählen' -Items $mediaItems -SelectedId ([string]$candidates[0].MediaId)
+    if (-not $selectedMedia) { return }
     $operatingSystemId = [string]$selectedMedia.OperatingSystemId
     $edition = [string]$selectedMedia.WindowsEdition
     $installationType = [string]$selectedMedia.InstallationType
@@ -2224,13 +2229,18 @@ function Remove-LabHyperVImageBuildInteractive {
     $builds = @(Get-HyperVImageBuildPlans | Where-Object state -In $allowedStates)
     if ($builds.Count -eq 0) { Write-LabInfo 'Kein unfertiger Windows-Image-Builder vorhanden.'; return }
 
-    Write-Host ''
-    for ($i = 0; $i -lt $builds.Count; $i++) {
-        Write-Host "    [$($i + 1)] Windows [$($builds[$i].state)] $($builds[$i].buildId)" -ForegroundColor White
+    $items = [Collections.Generic.List[object]]::new()
+    for ($index = 0; $index -lt $builds.Count; $index++) {
+        $build = $builds[$index]
+        $items.Add((New-LabConsoleItem -Id ([string]$build.buildId) -Label ([string]$build.buildId) `
+            -Value ("Windows · {0}" -f $build.state) -Shortcut ([string]($index + 1)) -Data $build))
     }
-    Write-Host "    [ALL] Alle $($builds.Count) angezeigten unfertigen Windows-Builder aufraeumen" -ForegroundColor Yellow
-    $selection = Read-Host '  Build (Nummer oder ALL)'
-    if ($selection -ieq 'ALL') {
+    $items.Add((New-LabConsoleItem -Id '__all' -Label "Alle $($builds.Count) Builder aufräumen" `
+        -Value 'VMs und buildlokale VHDX' -Shortcut 'a'))
+    $selection = Invoke-LabConsoleMenu -ScreenId 'hyperv-windows-build-cleanup-select' `
+        -Title 'Unfertigen Windows-Builder aufräumen' -Items $items.ToArray()
+    if ($selection.Status -ne 'Selected') { return }
+    if ([string]$selection.SelectedItem.Id -eq '__all') {
         Write-LabWarning "Alle $($builds.Count) angezeigten Builder inklusive VMs und buildlokaler VHDX werden entfernt."
         if (-not (Read-LabConfirm -Prompt '  WIRKLICH ALLE Windows-Builder aufraeumen?' -Default $false)) { return }
         $succeeded = 0; $failed = 0
@@ -2247,10 +2257,7 @@ function Remove-LabHyperVImageBuildInteractive {
         else { Write-LabWarning "Cleanup abgeschlossen: $succeeded erfolgreich, $failed fehlgeschlagen." }
         return
     }
-    if ($selection -notmatch '^\d+$' -or [int]$selection -lt 1 -or [int]$selection -gt $builds.Count) {
-        Write-LabWarning 'Ungueltige Auswahl.'; return
-    }
-    $build = $builds[[int]$selection - 1]
+    $build = $selection.SelectedItem.Data
     Write-LabWarning "VM und buildlokale VHDX von '$($build.buildId)' werden entfernt."
     if (-not (Read-LabConfirm -Prompt '  Builder wirklich aufraeumen?' -Default $false)) { return }
     try {
@@ -2369,8 +2376,7 @@ function Select-LabHyperVSqlImageBuild {
     }
     if ($builds.Count -eq 0) { Write-LabInfo 'Kein passender SQL-Image-Build vorhanden.'; return $null }
     if ($builds.Count -eq 1) { return $builds[0] }
-    Write-Host ''
-    for ($i = 0; $i -lt $builds.Count; $i++) {
+    $items = for ($i = 0; $i -lt $builds.Count; $i++) {
         $candidate = $builds[$i]
         $imageName = if ([string]::IsNullOrWhiteSpace([string]$candidate.displayName)) { '(ohne Image-Name)' } else { [string]$candidate.displayName }
         $vmName = if ($candidate.builder -and $candidate.builder.vmName) { [string]$candidate.builder.vmName } else { '-' }
@@ -2386,17 +2392,14 @@ function Select-LabHyperVSqlImageBuild {
         }
         else { '-' }
         $createdAt = Format-LabMenuDateTime -Value $createdAt
-        Write-Host ("    [{0}] {1} | SQL {2} {3} | {4}" -f `
-            ($i + 1), $imageName, $candidate.sql.version, $candidate.sql.edition, $candidate.state) -ForegroundColor White
-        Write-Host ("        VM: {0} [{1}] | Windows: {2} / {3}" -f `
-            $vmName, $vmState, $candidate.operatingSystem.edition, $candidate.operatingSystem.installationType) -ForegroundColor DarkGray
-        Write-Host ("        Erstellt: {0} | BuildId: {1}" -f $createdAt, $candidate.buildId) -ForegroundColor DarkGray
+        New-LabConsoleItem -Id ([string]$candidate.buildId) -Label $imageName `
+            -Value ("SQL {0} {1} · Windows {2}/{3} · {4} · VM {5} [{6}] · {7} · Build {8}" -f `
+                $candidate.sql.version, $candidate.sql.edition, $candidate.operatingSystem.edition,
+                $candidate.operatingSystem.installationType, $candidate.state, $vmName, $vmState,
+                $createdAt, $candidate.buildId) `
+            -Shortcut ([string]($i + 1)) -Data $candidate
     }
-    $selection = Read-Host '  Build (Nummer)'
-    if ($selection -notmatch '^\d+$' -or [int]$selection -lt 1 -or [int]$selection -gt $builds.Count) {
-        Write-LabWarning 'Ungueltige Auswahl.'; return $null
-    }
-    return $builds[[int]$selection - 1]
+    return Select-LabConsoleDataItem -ScreenId 'hyperv-sql-build-select' -Title 'SQL-Image-Build auswählen' -Items $items
 }
 
 function Rename-LabHyperVImageArtifactInteractive {
@@ -2411,8 +2414,7 @@ function Rename-LabHyperVImageArtifactInteractive {
         Write-LabInfo 'Keine veröffentlichten OS- oder SQL-Images vorhanden.'
         return
     }
-    Write-Host '  Veröffentlichte Images:' -ForegroundColor White
-    for ($i = 0; $i -lt $artifacts.Count; $i++) {
+    $items = for ($i = 0; $i -lt $artifacts.Count; $i++) {
         $artifact = $artifacts[$i]
         $fallback = if ($artifact.artifactState -eq 'SQL_PREPARED_SEALED') {
             "SQL Server $($artifact.sql.version) · $($artifact.sql.edition)"
@@ -2420,19 +2422,16 @@ function Rename-LabHyperVImageArtifactInteractive {
             "$($artifact.operatingSystem.id) · $($artifact.operatingSystem.edition)"
         }
         $name = if ($artifact.displayName) { [string]$artifact.displayName } else { $fallback }
-        Write-Host ("    [{0}] {1}" -f ($i + 1), $name) -ForegroundColor White
-        Write-Host ("        {0}" -f $artifact.artifactId) -ForegroundColor DarkGray
+        New-LabConsoleItem -Id ([string]$artifact.artifactId) -Label $name -Value ([string]$artifact.artifactId) `
+            -Shortcut ([string]($i + 1)) -Data $artifact
     }
-    $selection = Read-Host '  Image (Nummer)'
-    if ($selection -notmatch '^\d+$' -or [int]$selection -lt 1 -or [int]$selection -gt $artifacts.Count) {
-        Write-LabWarning 'Keine gültige Image-Auswahl.'
-        return
-    }
+    $artifact = Select-LabConsoleDataItem -ScreenId 'hyperv-image-rename-select' -Title 'Image umbenennen' -Items $items
+    if (-not $artifact) { return }
     $newName = Read-Host '  Neuer Anzeigename'
     if ([string]::IsNullOrWhiteSpace($newName)) { Write-LabWarning 'Ein Name ist erforderlich.'; return }
     if ($newName.Trim().Length -gt 80) { Write-LabWarning 'Der Name darf höchstens 80 Zeichen enthalten.'; return }
     try {
-        $renamed = Rename-HyperVImageArtifact -ArtifactId $artifacts[[int]$selection - 1].artifactId -DisplayName $newName
+        $renamed = Rename-HyperVImageArtifact -ArtifactId $artifact.artifactId -DisplayName $newName
         Write-LabSuccess "Image-Name gespeichert: $($renamed.displayName)"
     }
     catch { Write-LabError $_.Exception.Message }
@@ -2455,7 +2454,7 @@ function Remove-LabHyperVImageArtifactInteractive {
         Write-LabInfo 'Keine veröffentlichten OS- oder SQL-Images vorhanden.'
         return
     }
-    Write-Host '  Veröffentlichte Images:' -ForegroundColor White
+    $items = [Collections.Generic.List[object]]::new()
     for ($i = 0; $i -lt $artifacts.Count; $i++) {
         $artifact = $artifacts[$i]
         $operatingSystemLabel = Get-LabWindowsMediaOperatingSystemLabel -OperatingSystemId ([string]$artifact.operatingSystem.id)
@@ -2471,16 +2470,15 @@ function Remove-LabHyperVImageArtifactInteractive {
             "Windows: {0} {1} · SQL Server: {2} {3}" -f $operatingSystemLabel, $artifact.operatingSystem.installationType, $artifact.sql.version, $artifact.sql.edition
         }
         else { "Windows: {0} {1} · Reine Windows-VM ohne SQL Server" -f $operatingSystemLabel, $artifact.operatingSystem.installationType }
-        Write-Host ("    [{0}] {1}" -f ($i + 1), $displayName) -ForegroundColor White
-        Write-Host ("        {0}" -f $workload) -ForegroundColor Gray
-        Write-Host ("        Veröffentlicht: {0} · Kennung: {1}" -f $registeredAt, $shortArtifactId) -ForegroundColor DarkGray
+        $items.Add((New-LabConsoleItem -Id ([string]$artifact.artifactId) -Label $displayName `
+            -Value ("{0} · {1} · {2}" -f $workload, $registeredAt, $shortArtifactId) `
+            -Shortcut ([string]($i + 1)) -Data $artifact))
     }
-    Write-Host '    [ALL] Alle oben angezeigten Images löschen' -ForegroundColor Red
-    $selection = Read-Host '  Image auswählen'
-    if ([string]::IsNullOrWhiteSpace($selection)) { return }
-    $selected = if ($selection -ieq 'ALL') { @($artifacts) }
-    elseif ($selection -match '^\d+$' -and [int]$selection -ge 1 -and [int]$selection -le $artifacts.Count) { @($artifacts[[int]$selection - 1]) }
-    else { Write-LabWarning 'Ungültige Auswahl.'; return }
+    $items.Add((New-LabConsoleItem -Id '__all' -Label 'Alle angezeigten Images löschen' `
+        -Value 'Referenzierte Images werden weiterhin sicher blockiert' -Shortcut 'a'))
+    $selection = Invoke-LabConsoleMenu -ScreenId 'hyperv-image-remove-select' -Title 'Image löschen' -Items $items.ToArray()
+    if ($selection.Status -ne 'Selected') { return }
+    $selected = if ([string]$selection.SelectedItem.Id -eq '__all') { @($artifacts) } else { @($selection.SelectedItem.Data) }
 
     $countText = if ($selected.Count -eq 1) { 'dieses Image' } else { "alle $($selected.Count) Images" }
     Write-LabWarning "Es werden $countText inklusive ihrer schreibgeschützten Parent-VHDX entfernt. Referenzierte Images werden sicher übersprungen."
@@ -2510,17 +2508,14 @@ function Select-LabHyperVOsArtifact {
     })
     if ($artifacts.Count -eq 0) { Write-LabError 'Keine veröffentlichte Windows-OS-Baseline vorhanden.'; return $null }
     if ($artifacts.Count -eq 1) { return $artifacts[0] }
-    Write-Host ''
-    for ($i = 0; $i -lt $artifacts.Count; $i++) {
+    $items = for ($i = 0; $i -lt $artifacts.Count; $i++) {
         $operatingSystemLabel = Get-LabWindowsMediaOperatingSystemLabel -OperatingSystemId ([string]$artifacts[$i].operatingSystem.id)
-        Write-Host "    [$($i + 1)] $operatingSystemLabel / $($artifacts[$i].operatingSystem.edition) / $($artifacts[$i].operatingSystem.installationType)" -ForegroundColor White
-        Write-Host "        $($artifacts[$i].artifactId)" -ForegroundColor DarkGray
+        New-LabConsoleItem -Id ([string]$artifacts[$i].artifactId) `
+            -Label ("{0} · {1}" -f $operatingSystemLabel, $artifacts[$i].operatingSystem.edition) `
+            -Value ("{0} · {1}" -f $artifacts[$i].operatingSystem.installationType, $artifacts[$i].artifactId) `
+            -Shortcut ([string]($i + 1)) -Data $artifacts[$i]
     }
-    $selection = Read-Host '  OS-Baseline (Nummer)'
-    if ($selection -notmatch '^\d+$' -or [int]$selection -lt 1 -or [int]$selection -gt $artifacts.Count) {
-        Write-LabWarning 'Ungueltige Auswahl.'; return $null
-    }
-    return $artifacts[[int]$selection - 1]
+    return Select-LabConsoleDataItem -ScreenId 'hyperv-os-artifact-select' -Title 'Windows-OS-Baseline auswählen' -Items $items
 }
 
 function Show-LabHyperVSqlManualInstructions {
@@ -2597,9 +2592,15 @@ function Select-LabSqlInstallationMedia {
 
     $versions = @($choices.SqlVersion | Select-Object -Unique | Sort-Object { [int]$_ } -Descending)
     $defaultVersion = $versions[0]
-    Write-Host "  Verfügbare SQL Server Versionen: $($versions -join ', ')" -ForegroundColor White
-    if (-not $SqlVersion) { $SqlVersion = Read-Host "  SQL Server Version [$defaultVersion]" }
-    if (-not $SqlVersion) { $SqlVersion = $defaultVersion }
+    if (-not $SqlVersion) {
+        $versionItems = for ($index = 0; $index -lt $versions.Count; $index++) {
+            $version = [string]$versions[$index]
+            New-LabConsoleItem -Id $version -Label "SQL Server $version" -Shortcut ([string]($index + 1)) -Data $version
+        }
+        $SqlVersion = Select-LabConsoleDataItem -ScreenId 'hyperv-sql-media-version-select' `
+            -Title 'SQL-Version des Installationsmediums' -Items $versionItems -SelectedId $defaultVersion
+        if (-not $SqlVersion) { return $null }
+    }
     if ($SqlVersion -notin $versions) {
         Write-LabError "SQL-Version ist nicht als ISO verfügbar: $SqlVersion"
         return $null
@@ -2612,20 +2613,15 @@ function Select-LabSqlInstallationMedia {
         Write-LabInfo "SQL-Medium automatisch gewählt: $($versionChoices[0].MediaId)"
         return $versionChoices[0]
     }
-    Write-Host '  Verfügbare SQL-Installationsmedien:' -ForegroundColor White
-    for ($i = 0; $i -lt $versionChoices.Count; $i++) {
+    $mediaItems = for ($i = 0; $i -lt $versionChoices.Count; $i++) {
         $choice = $versionChoices[$i]
         $mediaSegments = @([string]$choice.MediaId -split '/')
         $mediaLabel = if ($mediaSegments.Count -ge 3) { $mediaSegments[2].Replace('_', ' ') } else { [string]$choice.MediaEdition }
-        Write-Host ("    [{0}] {1} · {2}" -f ($i + 1), $mediaLabel, $choice.MediaId) -ForegroundColor White
+        New-LabConsoleItem -Id ([string]$choice.MediaId) -Label $mediaLabel -Value ([string]$choice.MediaId) `
+            -Shortcut ([string]($i + 1)) -Data $choice
     }
-    $selection = Read-Host '  SQL-Installationsmedium (Nummer) [1]'
-    if (-not $selection) { $selection = '1' }
-    if ($selection -notmatch '^\d+$' -or [int]$selection -lt 1 -or [int]$selection -gt $versionChoices.Count) {
-        Write-LabError 'Ungültige SQL-Medienauswahl.'
-        return $null
-    }
-    return $versionChoices[[int]$selection - 1]
+    return Select-LabConsoleDataItem -ScreenId 'hyperv-sql-media-select' -Title 'SQL-Installationsmedium auswählen' `
+        -Items $mediaItems -SelectedId ([string]$versionChoices[0].MediaId)
 }
 
 function New-LabHyperVSqlImageBuildInteractive {
@@ -2643,8 +2639,6 @@ function New-LabHyperVSqlImageBuildInteractive {
     $allWindowsCandidates = @($allWindowsMedia | Where-Object { $_.State -eq 'READY' })
     $windowsCandidates = @($allWindowsCandidates | Where-Object { (Test-HyperVSqlPreparedWindowsMediaCompatibility -OperatingSystemId ([string]$_.OperatingSystemId)).Compatible })
     if ($windowsCandidates.Count -eq 0) { Write-LabError 'Kein erkanntes Windows-Installationsmedium vorhanden.'; return }
-    Write-Host '  Erkannte Windows-Installationsvarianten:' -ForegroundColor White
-    Write-LabWindowsMediaSelectionGroups -Candidates $windowsCandidates -Numbered
     $unrecognizedWindowsMedia = @($allWindowsMedia | Where-Object { $_.State -ne 'READY' })
     if ($unrecognizedWindowsMedia.Count -gt 0) {
         Write-Host '  Nicht auswertbare Windows-Medien (werden nicht verwendet):' -ForegroundColor Yellow
@@ -2652,10 +2646,16 @@ function New-LabHyperVSqlImageBuildInteractive {
             Write-Host ("    - {0}: {1}" -f $candidate.MediaId, $candidate.Message) -ForegroundColor Yellow
         }
     }
-    $windowsSelection = Read-Host '  Windows-Variante (Nummer) [1]'
-    if (-not $windowsSelection) { $windowsSelection = '1' }
-    if ($windowsSelection -notmatch '^\d+$' -or [int]$windowsSelection -lt 1 -or [int]$windowsSelection -gt $windowsCandidates.Count) { Write-LabError 'Ungültige Windows-Medienauswahl.'; return }
-    $selectedWindowsMedia = $windowsCandidates[[int]$windowsSelection - 1]
+    $windowsItems = for ($index = 0; $index -lt $windowsCandidates.Count; $index++) {
+        $candidate = $windowsCandidates[$index]
+        New-LabConsoleItem -Id ([string]$candidate.MediaId) `
+            -Label ("{0} · {1}" -f (Get-LabWindowsMediaOperatingSystemLabel -OperatingSystemId ([string]$candidate.OperatingSystemId)), $candidate.WindowsEdition) `
+            -Value ("{0} · {1}" -f $candidate.InstallationType, $candidate.MediaId) `
+            -Shortcut ([string]($index + 1)) -Data $candidate
+    }
+    $selectedWindowsMedia = Select-LabConsoleDataItem -ScreenId 'hyperv-sql-windows-media-select' `
+        -Title 'Windows-Variante für SQL-Prepared-Image' -Items $windowsItems -SelectedId ([string]$windowsCandidates[0].MediaId)
+    if (-not $selectedWindowsMedia) { return }
     $operatingSystemId = [string]$selectedWindowsMedia.OperatingSystemId
     $windowsEdition = [string]$selectedWindowsMedia.WindowsEdition
     $installationType = [string]$selectedWindowsMedia.InstallationType
@@ -2859,13 +2859,18 @@ function Remove-LabHyperVSqlImageBuildInteractive {
     $builds = @(Get-HyperVSqlImageBuildPlans | Where-Object state -In $allowedStates)
     if ($builds.Count -eq 0) { Write-LabInfo 'Kein unfertiger SQL-Image-Builder vorhanden.'; return }
 
-    Write-Host ''
-    for ($i = 0; $i -lt $builds.Count; $i++) {
-        Write-Host "    [$($i + 1)] SQL $($builds[$i].sql.version) [$($builds[$i].state)] $($builds[$i].buildId)" -ForegroundColor White
+    $items = [Collections.Generic.List[object]]::new()
+    for ($index = 0; $index -lt $builds.Count; $index++) {
+        $build = $builds[$index]
+        $items.Add((New-LabConsoleItem -Id ([string]$build.buildId) -Label ([string]$build.buildId) `
+            -Value ("SQL {0} · {1}" -f $build.sql.version, $build.state) -Shortcut ([string]($index + 1)) -Data $build))
     }
-    Write-Host "    [ALL] Alle $($builds.Count) angezeigten unfertigen SQL-Builder aufraeumen" -ForegroundColor Yellow
-    $selection = Read-Host '  Build (Nummer oder ALL)'
-    if ($selection -ieq 'ALL') {
+    $items.Add((New-LabConsoleItem -Id '__all' -Label "Alle $($builds.Count) SQL-Builder aufräumen" `
+        -Value 'VMs und buildlokale VHDX' -Shortcut 'a'))
+    $selection = Invoke-LabConsoleMenu -ScreenId 'hyperv-sql-build-cleanup-select' `
+        -Title 'Unfertigen SQL-Builder aufräumen' -Items $items.ToArray()
+    if ($selection.Status -ne 'Selected') { return }
+    if ([string]$selection.SelectedItem.Id -eq '__all') {
         Write-LabWarning "Alle $($builds.Count) angezeigten Builder inklusive VMs und buildlokaler VHDX werden entfernt."
         if (-not (Read-LabConfirm -Prompt '  WIRKLICH ALLE SQL-Builder aufraeumen?' -Default $false)) { return }
         $succeeded = 0; $failed = 0
@@ -2882,10 +2887,7 @@ function Remove-LabHyperVSqlImageBuildInteractive {
         else { Write-LabWarning "Cleanup abgeschlossen: $succeeded erfolgreich, $failed fehlgeschlagen." }
         return
     }
-    if ($selection -notmatch '^\d+$' -or [int]$selection -lt 1 -or [int]$selection -gt $builds.Count) {
-        Write-LabWarning 'Ungueltige Auswahl.'; return
-    }
-    $build = $builds[[int]$selection - 1]
+    $build = $selection.SelectedItem.Data
     Write-LabWarning "VM und buildlokale VHDX von '$($build.buildId)' werden entfernt."
     if (-not (Read-LabConfirm -Prompt '  SQL-Builder wirklich aufraeumen?' -Default $false)) { return }
     try {
@@ -3076,7 +3078,7 @@ function Select-LabSampleSelection {
         Write-Host "    Download: $($variant.DownloadSizeMB) MB | Lizenz: $($variant.License) | Mindest-SQL: $($variant.MinSqlVersion)" -ForegroundColor DarkGray
         Write-Host "    Trust: $($status.TrustStatus) | Cache: $($status.CacheStatus)" -ForegroundColor DarkGray
         if ($status.TrustStatus -eq 'TRUST_REQUIRED') { Write-Host '    Ohne bekannte SHA-256 fragt die Provisionierung einmalig nach Vertrauen.' -ForegroundColor Yellow }
-        $null = Read-Host '  [Enter] für Auswahl ...'
+        Wait-LabConsoleAcknowledgement -Prompt '  Enter oder Escape: Zurück zur Auswahl'
     }
     $selectionResult = Invoke-LabConsoleMultiSelect -ScreenId 'sample-selection' -Title 'Testdatenbanken (Sample-Handler)' `
         -Subtitle "SQL Server $SqlVersion" -Items $items -ValidateToggle $validateToggle -ShowDetails $showDetails
@@ -3093,10 +3095,7 @@ function Select-LabHyperVPreparedArtifact {
     # mit mehreren großen Vorlagen ohne minutenlanges Hashing responsiv.
     $artifacts = @(Get-HyperVImageArtifact -SkipIntegrityCheck | Where-Object { $_.artifactState -in @('OS_SEALED', 'SQL_PREPARED_SEALED') })
     if ($artifacts.Count -eq 0) { Write-LabInfo 'Keine veröffentlichte Windows- oder SQL-Vorlage vorhanden.'; return $null }
-    Write-Host '  Veröffentlichte Windows- und SQL-Vorlagen:' -ForegroundColor White
-    Write-Host '  Windows-OS-Baselines ergeben reine Windows-VMs; SQL-Prepared-Images ergänzen automatisch SQL, WMI und TCP/IP.' -ForegroundColor DarkGray
-    Write-Host '  Der Anzeigename ist frei wählbar; bei gleichen technischen Varianten helfen Zeitpunkt und Kurzkennung bei der eindeutigen Auswahl.' -ForegroundColor DarkGray
-    for ($i = 0; $i -lt $artifacts.Count; $i++) {
+    $items = for ($i = 0; $i -lt $artifacts.Count; $i++) {
         $artifact = $artifacts[$i]
         $operatingSystemLabel = Get-LabWindowsMediaOperatingSystemLabel -OperatingSystemId ([string]$artifact.operatingSystem.id)
         $isSqlPrepared = [string]$artifact.artifactState -eq 'SQL_PREPARED_SEALED'
@@ -3104,15 +3103,14 @@ function Select-LabHyperVPreparedArtifact {
         $displayName = if ([string]::IsNullOrWhiteSpace([string]$artifact.displayName)) { $fallbackName } else { [string]$artifact.displayName }
         $shortArtifactId = if ([string]$artifact.artifactId -match '([a-f0-9]{12,})$') { $Matches[1].Substring(0, 12) } else { [string]$artifact.artifactId }
         $registeredAt = if ([string]::IsNullOrWhiteSpace([string]$artifact.registeredAt)) { 'unbekannt' } else { Format-LabMenuDateTime -Value $artifact.registeredAt }
-        Write-Host ("    [{0}] {1}" -f ($i + 1), $displayName) -ForegroundColor White
         $workload = if ($isSqlPrepared) { "Windows: {0} {1} · SQL Server: {2} {3}" -f $operatingSystemLabel, $artifact.operatingSystem.installationType, $artifact.sql.version, $artifact.sql.edition } else { "Windows: {0} {1} · Reine Windows-VM ohne SQL Server" -f $operatingSystemLabel, $artifact.operatingSystem.installationType }
-        Write-Host ("        {0}" -f $workload) -ForegroundColor Gray
-        Write-Host ("        Veröffentlicht: {0} · Kennung: {1}" -f $registeredAt, $shortArtifactId) -ForegroundColor DarkGray
+        New-LabConsoleItem -Id ([string]$artifact.artifactId) -Label $displayName `
+            -Value ("{0} · {1} · {2}" -f $workload, $registeredAt, $shortArtifactId) `
+            -Shortcut ([string]($i + 1)) -Data $artifact
     }
-    $selection = Read-Host '  Vorlage auswählen [1]'
-    if (-not $selection) { $selection = '1' }
-    if ($selection -notmatch '^\d+$' -or [int]$selection -lt 1 -or [int]$selection -gt $artifacts.Count) { Write-LabWarning 'Ungültige Auswahl.'; return $null }
-    return $artifacts[[int]$selection - 1]
+    return Select-LabConsoleDataItem -ScreenId 'hyperv-prepared-artifact-select' `
+        -Title 'Windows- oder SQL-Vorlage auswählen' `
+        -Subtitle 'Windows-Baseline oder SQL-Prepared-Image' -Items $items -SelectedId ([string]$artifacts[0].artifactId)
 }
 
 function Select-LabHyperVSqlPreparedArtifact {
@@ -3131,20 +3129,16 @@ function Select-LabHyperVSqlPreparedArtifact {
     if ($artifacts.Count -eq 1) {
         return $artifacts[0]
     }
-    Write-Host '  SQL-Prepared-Vorlagen:' -ForegroundColor White
-    for ($i = 0; $i -lt $artifacts.Count; $i++) {
+    $items = for ($i = 0; $i -lt $artifacts.Count; $i++) {
         $artifact = $artifacts[$i]
         $operatingSystemLabel = Get-LabWindowsMediaOperatingSystemLabel -OperatingSystemId ([string]$artifact.operatingSystem.id)
         $displayVersion = if ([string]$artifact.sql.version) { [string]$artifact.sql.version } else { 'unbekannt' }
         $displayEdition = if ([string]$artifact.sql.edition) { [string]$artifact.sql.edition } else { 'unbekannt' }
-        Write-Host "    [$($i + 1)] $operatingSystemLabel · SQL $displayVersion $displayEdition" -ForegroundColor White
+        New-LabConsoleItem -Id ([string]$artifact.artifactId) -Label "$operatingSystemLabel · SQL $displayVersion $displayEdition" `
+            -Value ([string]$artifact.artifactId) -Shortcut ([string]($i + 1)) -Data $artifact
     }
-    $selection = Read-Host '  Vorlage auswählen [1]'
-    if (-not $selection) { $selection = '1' }
-    if ($selection -notmatch '^\d+$' -or [int]$selection -lt 1 -or [int]$selection -gt $artifacts.Count) {
-        Write-LabWarning 'Ungültige Auswahl.'; return
-    }
-    return $artifacts[[int]$selection - 1]
+    return Select-LabConsoleDataItem -ScreenId 'hyperv-sql-prepared-artifact-select' `
+        -Title 'SQL-Prepared-Vorlage auswählen' -Items $items -SelectedId ([string]$artifacts[0].artifactId)
 }
 
 function Select-LabHyperVVirtualSwitch {
@@ -3168,22 +3162,19 @@ function Select-LabHyperVVirtualSwitch {
         return $null
     }
 
-    Write-Host ''
-    Write-Host '  Virtueller Switch:' -ForegroundColor White
-    Write-Host '    [Enter] Verwalteter SQL_Server_Lab-Internal-Switch (empfohlen, Hostzugriff möglich)' -ForegroundColor Green
-    Write-Host '    [0] Kein Switch = bewusst isoliert' -ForegroundColor DarkGray
+    $items = [Collections.Generic.List[object]]::new()
+    $items.Add((New-LabConsoleItem -Id '__managed' -Label 'Verwalteter SQL_Server_Lab-Internal-Switch' `
+        -Value 'Empfohlen; Hostzugriff möglich' -Shortcut '1' -Data ([PSCustomObject]@{ SwitchName=$null; Isolated=$false })))
     for ($i = 0; $i -lt $switches.Count; $i++) {
         $switch = $switches[$i]
-        Write-Host ("    [{0}] {1} · {2}" -f ($i + 1), $switch.Name, $switch.SwitchType) -ForegroundColor White
+        $items.Add((New-LabConsoleItem -Id ([string]$switch.Name) -Label ([string]$switch.Name) `
+            -Value ([string]$switch.SwitchType) -Shortcut ([string]($i + 2)) `
+            -Data ([PSCustomObject]@{ SwitchName=[string]$switch.Name; Isolated=$false })))
     }
-    $selection = Read-Host '  Virtuellen Switch auswählen [Enter]'
-    if (-not $selection) { return [PSCustomObject]@{ SwitchName = $null; Isolated = $false } }
-    if ($selection -eq '0') { return [PSCustomObject]@{ SwitchName = $null; Isolated = $true } }
-    if ($selection -notmatch '^\d+$' -or [int]$selection -lt 1 -or [int]$selection -gt $switches.Count) {
-        Write-LabWarning 'Ungültige Auswahl.'
-        return $null
-    }
-    return [PSCustomObject]@{ SwitchName = [string]$switches[[int]$selection - 1].Name; Isolated = $false }
+    $items.Add((New-LabConsoleItem -Id '__isolated' -Label 'Kein Switch' -Value 'Bewusst isoliert' -Shortcut '0' `
+        -Data ([PSCustomObject]@{ SwitchName=$null; Isolated=$true })))
+    return Select-LabConsoleDataItem -ScreenId 'hyperv-switch-select' -Title 'Virtuellen Switch auswählen' `
+        -Items $items.ToArray() -SelectedId '__managed'
 }
 
 function Read-LabHyperVSqlSaPassword {
@@ -3191,9 +3182,11 @@ function Read-LabHyperVSqlSaPassword {
     [CmdletBinding()]
     param([Parameter(Mandatory)][SecureString]$GuestPassword)
 
-    Write-Host '  SQL-SA-Passwort: [1] selbst festlegen, [2] vorhandenes Gastpasswort übernehmen [2]' -ForegroundColor White
-    $choice = Read-Host '  Auswahl'
-    if (-not $choice) { $choice = '2' }
+    $choice = Show-LabSubMenu -ScreenId 'hyperv-sql-sa-password-mode' -Title 'SQL-SA-Passwort' -Items @(
+        New-LabConsoleItem -Id '2' -Label 'Vorhandenes Gastpasswort übernehmen' -Shortcut '1'
+        New-LabConsoleItem -Id '1' -Label 'Eigenes SQL-SA-Passwort festlegen' -Shortcut '2'
+    )
+    if (-not $choice) { return $null }
     if ($choice -eq '2') { return $GuestPassword }
     if ($choice -ne '1') { Write-LabWarning 'Ungültige Auswahl.'; return $null }
 
@@ -3250,9 +3243,11 @@ function New-LabHyperVSqlDeploymentPlanInteractive {
         $deploymentMode = [string]$Intent.Purpose
     }
     else {
-        $mode = Read-Host '  Ausbau: [1] fertiger SQL-Pool-Slot, [2] vollständige SQL-Ad-hoc-Umgebung [1]'
-        if (-not $mode) { $mode = '1' }
-        if ($mode -notin @('1', '2')) { Write-LabWarning 'Ungültige Auswahl.'; return $null }
+        $mode = Show-LabSubMenu -ScreenId 'hyperv-sql-deployment-mode' -Title 'SQL-Ausbau' -Items @(
+            New-LabConsoleItem -Id '1' -Label 'Fertiger SQL-Pool-Slot' -Shortcut '1'
+            New-LabConsoleItem -Id '2' -Label 'Vollständige SQL-Ad-hoc-Umgebung' -Shortcut '2'
+        )
+        if (-not $mode) { return $null }
         $deploymentMode = if ($mode -eq '1') { 'sql-pool-slot' } else { 'adhoc-install' }
     }
     $mediaRoot = Get-LabMediaRootDefault
@@ -3363,12 +3358,11 @@ function Complete-LabHyperVManualWindowsWorkflowInteractive {
     Write-Host '    3. Einmal vollständig als Administrator anmelden.' -ForegroundColor White
     Write-Host '    4. Danach hier mit [a] bestätigen; der Workflow läuft automatisch weiter.' -ForegroundColor White
     Write-Host '  Falls VMConnect nach einem Neustart schwarz bleibt, VMConnect schließen und erneut verbinden.' -ForegroundColor DarkYellow
-    do {
-        $done = Read-Host '  [a] Alles erledigt / [b] Problem - Workflow abbrechen [b]'
-        if (-not $done) { $done = 'b' }
-        $done = $done.ToLowerInvariant()
-        if ($done -notin @('a', 'b')) { Write-LabWarning 'Ungültige Auswahl. Bitte [a] oder [b] eingeben.' }
-    } while ($done -notin @('a', 'b'))
+    $done = Show-LabSubMenu -ScreenId 'hyperv-manual-windows-completion' -Title 'Windows-Grundinstallation' -Items @(
+        New-LabConsoleItem -Id 'a' -Label 'Alles erledigt' -Value 'Windows prüfen und Workflow fortsetzen' -Shortcut 'a'
+        New-LabConsoleItem -Id 'b' -Label 'Problem – Workflow anhalten' -Value 'Slot bleibt für eine spätere Wiederaufnahme erhalten' -Shortcut 'b'
+    )
+    if (-not $done) { $done = 'b' }
     if ($done -eq 'b') {
         Write-LabWarning 'Workflow angehalten. Der Slot bleibt erhalten; Wiederaufnahme unter [i] -> [4] mit [o] „Windows-Grundinstallation übernehmen“.'
         return $false
@@ -3593,10 +3587,11 @@ function New-LabHyperVEnvironmentInteractive {
             if (-not $persistentDataDiskGB) { $persistentDataDiskGB = 128 }
         }
     }
-    Write-Host '  Gastpasswort: [1] selbst festlegen, [2] zufällig erzeugen und anzeigen [2]' -ForegroundColor White
-    $passwordMode = Read-Host '  Auswahl'
-    if (-not $passwordMode) { $passwordMode = '2' }
-    if ($passwordMode -notin @('1', '2')) { Write-LabWarning 'Ungültige Auswahl.'; return }
+    $passwordMode = Show-LabSubMenu -ScreenId 'hyperv-guest-password-mode' -Title 'Gastpasswort' -Items @(
+        New-LabConsoleItem -Id '2' -Label 'Zufällig erzeugen und einmal anzeigen' -Shortcut '1'
+        New-LabConsoleItem -Id '1' -Label 'Selbst festlegen' -Shortcut '2'
+    )
+    if (-not $passwordMode) { return }
     $passwordSource = if ($passwordMode -eq '2') { 'generated' } else { 'user' }
     if ($passwordSource -eq 'generated') {
         $guestPassword = New-HyperVSqlUnattendedPassword
@@ -3669,17 +3664,15 @@ function New-LabHyperVEnvironmentFromExistingVmInteractive {
         Write-LabInfo 'Keine kompatible Quell-VM gefunden. Erforderlich: ausgeschaltet, Generation 2, nicht durch SQL_Server_Lab verwaltet und genau eine System-VHDX.'
         return
     }
-    Write-Host ''
-    Write-Host '  Sichere vorhandene Windows-VM als Basis:' -ForegroundColor White
-    for ($i = 0; $i -lt $sources.Count; $i++) {
+    $sourceItems = for ($i = 0; $i -lt $sources.Count; $i++) {
         $source = $sources[$i]
-        Write-Host ("    [{0}] {1} · {2} MB · {3} vCPU" -f ($i + 1), $source.VMName, $source.MemoryStartupMB, $source.ProcessorCount) -ForegroundColor White
-        Write-Host ("        {0}" -f $source.LicenseNotice) -ForegroundColor DarkYellow
+        New-LabConsoleItem -Id ([string]$source.VMName) -Label ([string]$source.VMName) `
+            -Value ("{0} MB · {1} vCPU · {2}" -f $source.MemoryStartupMB, $source.ProcessorCount, $source.LicenseNotice) `
+            -Shortcut ([string]($i + 1)) -Data $source
     }
-    $selection = Read-Host '  Quell-VM auswählen [1]'
-    if (-not $selection) { $selection = '1' }
-    if ($selection -notmatch '^\d+$' -or [int]$selection -lt 1 -or [int]$selection -gt $sources.Count) { Write-LabWarning 'Ungültige Auswahl.'; return }
-    $source = $sources[[int]$selection - 1]
+    $source = Select-LabConsoleDataItem -ScreenId 'hyperv-existing-vm-source-select' `
+        -Title 'Sichere vorhandene Windows-VM als Basis' -Items $sourceItems -SelectedId ([string]$sources[0].VMName)
+    if (-not $source) { return }
     $name = Read-Host '  Labname [windows-dev-lab]'
     if (-not $name) { $name = 'windows-dev-lab' }
     $instanceId = Read-Host '  Instanzname [primary]'
@@ -3957,10 +3950,11 @@ function Manage-LabHyperVEnvironmentInteractive {
                 Write-Host '    3. Erstanmeldung als Administrator durchführen.' -ForegroundColor White
                 Write-Host '    4. Mit Netzwerk/Hostname-Einstellungen hier die manuelle Erledigung bestätigen.' -ForegroundColor White
                 Write-Host '  Hast du die Windows-Grundinstallation vollständig abgeschlossen?' -ForegroundColor White
-                $done = Read-Host '  [a] Ja / [b] Problem - jetzt abbrechen [b]'
-                if (-not $done) { $done = 'b' }
-                if ($done.ToLowerInvariant() -eq 'b') { Write-LabWarning 'Abbruch: Bitte Windows-OOBE in der VM vollständig beenden und anschließend erneut [o] wählen.'; return }
-                if ($done.ToLowerInvariant() -ne 'a') { Write-LabWarning 'Ungültige Auswahl.'; return }
+                $done = Show-LabSubMenu -ScreenId 'hyperv-managed-windows-completion' -Title 'Windows-Grundinstallation abgeschlossen?' -Items @(
+                    New-LabConsoleItem -Id 'a' -Label 'Ja – übernehmen' -Shortcut 'a'
+                    New-LabConsoleItem -Id 'b' -Label 'Problem – jetzt abbrechen' -Shortcut 'b'
+                )
+                if (-not $done -or $done -eq 'b') { Write-LabWarning 'Abbruch: Bitte Windows-OOBE in der VM vollständig beenden und anschließend erneut [o] wählen.'; return }
                 $userName = Read-Host '  Lokaler Gast-Administrator [Administrator]'
                 if (-not $userName) { $userName = 'Administrator' }
                 $credential = [PSCredential]::new($userName, (Read-Host '  Gastpasswort' -AsSecureString))

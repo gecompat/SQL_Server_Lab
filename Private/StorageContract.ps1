@@ -881,7 +881,7 @@ function Invoke-LabStorageInteractive {
                             $location.TopologyStatus, (@($location.BackingDeviceIds) -join ', '), $location.BusType,
                             $location.MediaType, $location.HealthStatus, $location.FreeBytes)
                     }
-                    $null = Read-Host '  Enter zum Fortsetzen'
+                    Wait-LabConsoleAcknowledgement -Prompt '  Enter oder Escape: Zurück zum Storage-Menü'
                 }
                 'metadata' {
                     $location = Select-LabDataLocationInteractive -Configuration $configuration -Title 'Storage-Location benennen und Selektoren zuordnen'

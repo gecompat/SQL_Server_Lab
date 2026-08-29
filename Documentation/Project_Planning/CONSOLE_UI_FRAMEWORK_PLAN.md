@@ -249,18 +249,17 @@ gemeinsame Schicht; neue parallele Cursorimplementierungen sind nicht zulässig.
 
 ### 12.1 Nachaudit der manuellen Konsolenabnahme
 
-Die Frameworkbausteine `CUI-001` bis `CUI-011` sind vorhanden. Die manuelle
-Abnahme vom 2026-08-12 hat jedoch gezeigt, dass die Migration der konkreten
-Menüs noch nicht vollständig ist. Insbesondere Storage-, Connection-Center-,
-Erstellungs- und einzelne Hyper-V-Auswahlen verwenden weiterhin direkte
-`Read-Host`-Listen. Dadurch fehlen dort Cursorsteuerung und einheitliches
-`Escape`; Unteraktionen können außerdem unerwartet in das Hauptmenü
-zurückfallen.
+Die Nachaudit-Punkte `CUI-012` bis `CUI-020` sind seit 2026-08-29 umgesetzt.
+Storage, Connection Center/CMS, Ziel-, Patch-, CU-, Profil-, Build-, Medien-,
+Vorlagen-, Switch-, Quell-VM- und Fortsetzungslisten verwenden die gemeinsame
+Cursor-/Fallback-Schicht mit stabilen IDs und einheitlichem `Escape`. Freie
+Wert-, Pfad- und Passworteingaben laufen über den gemeinsamen
+`Confirmed|Cancelled`-Eingabevertrag. Ein AST-basiertes Testinventar blockiert
+neue direkte `Read-Host`-Auswahlprompts. Ergebnisansichten besitzen einen
+expliziten Rückweg; die früheren pauschalen Enter-Pausen sind entfernt.
 
-Diese Restmigration wird als `CUI-012` bis `CUI-019` im
-[Konsolen-, Lifecycle- und Storage-Konsolidierungsplan](CONSOLE_LIFECYCLE_AND_STORAGE_CONSOLIDATION_PLAN_2026-08-12.md)
-geführt. Bis zu dessen Abnahme bedeutet der Status dieses Dokuments daher
-„Framework-Core implementiert“, nicht „alle Menüs migriert“.
+Der breitere `CUI-021`-Nachweis für Abbruch während nativer Kindprozesse und
+Warteoperationen bleibt vom vollständig migrierten Menüvertrag getrennt.
 
 ## 13. Abnahmekriterien
 

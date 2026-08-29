@@ -594,6 +594,11 @@ Dialogabbruch der grafischen Workflow-UI ist im lokalen Browser real mit
 Konsole ist im realen PowerShell-7-PTY für Cursor- und erzwungenen Fallback-
 Modus geprüft: `Ctrl+C` beendet die aktuelle Verarbeitung, der Fallback ist über
 `-ConsoleMode Fallback` reproduzierbar und `0` beendet ihn kontrolliert.
+Die konkrete Restmigration ist ebenfalls abgeschlossen: Storage,
+Connection Center/CMS, Erstellungs- und Hyper-V-Auswahllisten verwenden die
+gemeinsame Cursor-/Fallback-Schicht; ein statisches AST-Inventar lässt keine
+direkten `Read-Host`-Auswahlprompts mehr zu. Freie Text-, Pfad- und
+Passworteingaben bleiben über den gemeinsamen Escape-fähigen Adapter angebunden.
 Der harte Scheduler-Prozessabbruch ist dagegen mit zwei realen Docker-
 Ressourcen, persistenter `WorkerRecovered`-Evidence, eindeutigem Operation-zu-
 Run-Eigentum, idempotentem Resume und scopegebundenem Cleanup belegt.
