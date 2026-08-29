@@ -11,6 +11,7 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
 $implementationPath = Join-Path $repoRoot 'Private\ExternalRuntimeReconcile.ps1'
 $lifecyclePath = Join-Path $repoRoot 'Private\ExternalRuntimeLifecycle.ps1'
+$reconcileSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Private\ExternalRuntimeReconcile.ps1') -Raw -Encoding utf8
 $failures = [System.Collections.Generic.List[string]]::new()
 $passed = 0
 . (Join-Path $PSScriptRoot '..' 'Common' 'CheckResult.ps1')
@@ -85,6 +86,10 @@ Add-CheckResult -Name 'Refresh bindet bestehende SQL-Volumes statt neue Namen ab
     @($replacementBinding.drives | Where-Object containerPath -eq '/var/opt/mssql/backup')[0].hostPath -eq '/host/backups' -and
     @($replacementBinding.drives | Where-Object containerPath -eq '/sys/fs/cgroup').Count -eq 0 -and
     $source -match '-ContainerName \$name'
+)
+Add-CheckResult -Name 'External-Runtime-Reconcile akzeptiert alle drei aktiven SQL-Versionen für Docker und Podman' -Success (
+    $reconcileSource -match "Version -notin @\('2019', '2022', '2025'\)" -and
+    $reconcileSource -match "Provider -notin @\('docker', 'podman'\)"
 )
 
 $initialInstallBinding = & $module {
