@@ -23,6 +23,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][ValidateSet('docker', 'podman')][string]$Provider,
+    [ValidateSet('2022', '2025')][string]$SqlVersion = '2022',
     [Parameter(Mandatory)][string]$EvidencePath,
     [switch]$KeepOnFailure
 )
@@ -81,7 +82,7 @@ try {
         automation = [ordered]@{ mode = 'unattended' }
         instances = @([ordered]@{
             id = 'external-runtime'
-            version = '2022'
+            version = $SqlVersion
             provider = $Provider
             profile = 'performance'
             software = @(
@@ -100,7 +101,7 @@ try {
     Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
     $module = Import-Module $modulePath -Force -PassThru
     $catalogState = & $module {
-        param($ProviderName)
+        param($ProviderName,$TargetSqlVersion)
         $expectedIds = @(
             'sql2022-python310-ubuntu2204-derived',
             'sql2022-r42-ubuntu2204-derived',
@@ -114,6 +115,9 @@ try {
             if ([string]$variant.status -ne 'SUPPORTED' -or @($variant.providers) -notcontains $ProviderName) {
                 throw "EXTERNAL_RUNTIME_CONTAINER_ACCEPTANCE_VARIANT_STATE_UNEXPECTED: $($variant.id) / $($variant.status)"
             }
+            if (@($variant.sqlMajorVersions) -notcontains $(if ($TargetSqlVersion -eq '2025') { 17 } else { 16 })) {
+                throw "EXTERNAL_RUNTIME_CONTAINER_ACCEPTANCE_SQL_VERSION_MISSING: $($variant.id) / $TargetSqlVersion"
+            }
         }
         $providerDefinition = $script:RegisteredProviders[$ProviderName].Definition
         foreach ($capability in @('derived-image-build','sql-external-runtime')) {
@@ -124,7 +128,7 @@ try {
         return @($variants | Sort-Object id | ForEach-Object {
             [PSCustomObject]@{ variantId=[string]$_.id; status=[string]$_.status }
         })
-    } $Provider
+    } $Provider $SqlVersion
     Assert-ExternalRuntimeAcceptance (@($catalogState | Where-Object status -ne 'SUPPORTED').Count -eq 0) 'Alle drei Linux-Varianten und Provider-Capabilities sind freigegeben'
 
     $lab = New-SqlServerLab -Manifest $manifestPath -SaPassword $saPassword -StateRoot $stateRoot -SkipAssessment -NonInteractive
@@ -229,18 +233,18 @@ SELECT CONCAT(N'SQLLAB_JAVA_OBJECTS|',
     Assert-ExternalRuntimeAcceptance ($receipts.Count -eq 2 -and @($receipts | Where-Object status -ne 'EXTENSIONS_READY_RUN').Count -eq 0) 'Persistierte Receipts enthalten nach Removal nur bereite Zielruntimes'
 
     $hostAndImage = & $module {
-        param($ProviderName,$ImageKey,$StateRootPath,$SoftwareIds)
+        param($ProviderName,$ImageKey,$StateRootPath,$SoftwareIds,$TargetSqlVersion)
         $plans = @(@($SoftwareIds) | ForEach-Object {
             Resolve-LabExternalRuntimePlan -SoftwareItem ([PSCustomObject]@{
                 Id=$_; Version=$null; Variant=$null; InstallMethod=$null; Packages=@(); RequestSource='native-acceptance'
-            }) -SqlVersion '2022' -Provider $ProviderName -OperatingSystem linux
+            }) -SqlVersion $TargetSqlVersion -Provider $ProviderName -OperatingSystem linux
         })
-        $imagePlan = New-LabExternalRuntimeContainerImagePlan -Provider $ProviderName -SqlVersion '2022' -SoftwarePlans $plans
+        $imagePlan = New-LabExternalRuntimeContainerImagePlan -Provider $ProviderName -SqlVersion $TargetSqlVersion -SoftwarePlans $plans
         if ([string]$imagePlan.ImageKey -ne $ImageKey) { throw 'EXTERNAL_RUNTIME_CONTAINER_ACCEPTANCE_IMAGE_KEY_DRIFT' }
         $hostStatus = Test-LabExternalRuntimeContainerHost -Provider $ProviderName -ImagePlan $imagePlan
         $imageReceipt = Get-LabExternalRuntimeContainerImageReceipt -ImageKey $ImageKey -Provider $ProviderName -StateRoot $StateRootPath
         [PSCustomObject]@{ Host=$hostStatus; ImageReceipt=$imageReceipt; Plans=$plans }
-    } $Provider ([string]$instance.ExternalRuntime.ImageKey) $stateRoot @($instance.ExternalRuntime.Receipts.SoftwareId)
+    } $Provider ([string]$instance.ExternalRuntime.ImageKey) $stateRoot @($instance.ExternalRuntime.Receipts.SoftwareId) $SqlVersion
     Assert-ExternalRuntimeAcceptance ([string]$hostAndImage.Host.Status -eq 'READY' -and [string]$hostAndImage.Host.CgroupVersion -eq '1') 'Provider laeuft nativ auf Linux mit cgroup v1'
     Assert-ExternalRuntimeAcceptance ([string]$hostAndImage.ImageReceipt.status -eq 'IMAGE_READY') 'Digest- und Context-gebundenes Derived Image ist nachgewiesen'
     $imageName = [string]$hostAndImage.ImageReceipt.image
@@ -290,7 +294,7 @@ SELECT CONCAT(N'SQLLAB_JAVA_OBJECTS|',
         status = 'PASS'
         provider = $Provider
         platform = 'linux'
-        sqlVersion = '2022'
+        sqlVersion = $SqlVersion
         cgroupVersion = [string]$hostAndImage.Host.CgroupVersion
         rootless = [bool]$hostAndImage.Host.Rootless
         catalogState = @($catalogState)

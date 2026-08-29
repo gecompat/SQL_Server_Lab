@@ -24,7 +24,7 @@ function Get-LabLowerFileSha256 {
 
 function Get-LabExternalRuntimeContainerRecipe {
     [CmdletBinding()]
-    param()
+    param([ValidateSet('2022', '2025')][string]$SqlVersion = '2022')
 
     $recipeRoot = Get-LabExternalRuntimeContainerRecipeRoot
     $recipePath = Join-Path $recipeRoot 'recipe.json'
@@ -39,7 +39,17 @@ function Get-LabExternalRuntimeContainerRecipe {
         [string]$recipe.recipeVersion -notmatch '^[1-9][0-9]*$') {
         throw 'EXTERNAL_RUNTIME_RECIPE_CONTRACT_INVALID'
     }
-    if ([string]$recipe.architecture -ne 'x86_64' -or [string]$recipe.operatingSystem -ne 'ubuntu-22.04') {
+    if ($SqlVersion -ne '2022') {
+        $override = $recipe.sqlVersionOverrides.PSObject.Properties[$SqlVersion].Value
+        if (-not $override) { throw "EXTERNAL_RUNTIME_RECIPE_SQL_VERSION_UNSUPPORTED: $SqlVersion" }
+        foreach ($name in @('operatingSystem','baseImage','extensibility','sqlSatelliteCompatibility','runtimeLibraries','launchContract')) {
+            if ($null -ne $override.$name) {
+                $recipe | Add-Member -NotePropertyName $name -NotePropertyValue $override.$name -Force
+            }
+        }
+    }
+    if ([string]$recipe.architecture -ne 'x86_64' -or
+        [string]$recipe.operatingSystem -notin @('ubuntu-22.04','ubuntu-24.04')) {
         throw 'EXTERNAL_RUNTIME_RECIPE_PLATFORM_INVALID'
     }
     if ([string]$recipe.baseImage.reference -notmatch '^mcr\.microsoft\.com/mssql/server@sha256:([a-f0-9]{64})$' -or
@@ -119,7 +129,7 @@ function Get-LabExternalRuntimeContainerRecipe {
             throw "EXTERNAL_RUNTIME_RECIPE_BUILD_STAGE_INVALID: $($runtimeProperty.Name)"
         }
         if ($runtime.runtimeImage -and
-            ([string]$runtime.runtimeImage.reference -notmatch '^docker\.io/[a-z0-9./_-]+@sha256:([a-f0-9]{64})$' -or
+            ([string]$runtime.runtimeImage.reference -notmatch '^(?:docker\.io/[a-z0-9./_-]+|mcr\.microsoft\.com/[a-z0-9./_-]+)@sha256:([a-f0-9]{64})$' -or
              [string]$runtime.runtimeImage.sha256 -ne $Matches[1])) {
             throw "EXTERNAL_RUNTIME_RECIPE_RUNTIME_IMAGE_INVALID: $($runtimeProperty.Name)"
         }
@@ -182,10 +192,10 @@ function New-LabExternalRuntimeContainerImagePlan {
         [switch]$AllowPreview
     )
 
-    if ($SqlVersion -ne '2022') { throw "EXTERNAL_RUNTIME_CONTAINER_SQL_VERSION_UNSUPPORTED: $SqlVersion" }
+    if ($SqlVersion -notin @('2022','2025')) { throw "EXTERNAL_RUNTIME_CONTAINER_SQL_VERSION_UNSUPPORTED: $SqlVersion" }
     if (@($SoftwarePlans).Count -eq 0) { throw 'EXTERNAL_RUNTIME_CONTAINER_PLAN_EMPTY' }
 
-    $recipe = Get-LabExternalRuntimeContainerRecipe
+    $recipe = Get-LabExternalRuntimeContainerRecipe -SqlVersion $SqlVersion
     $variantIds = [Collections.Generic.List[string]]::new()
     $languages = [Collections.Generic.List[string]]::new()
     $softwarePlanKeys = [Collections.Generic.List[string]]::new()
@@ -219,9 +229,7 @@ function New-LabExternalRuntimeContainerImagePlan {
 
     $distinctLanguages = @($languages | Sort-Object -Unique)
     if ($distinctLanguages.Count -ne $languages.Count) { throw 'EXTERNAL_RUNTIME_CONTAINER_DUPLICATE_LANGUAGE' }
-    $requiredArtifacts = @($recipe.baseImage, $recipe.extensibility) + @($recipe.runtimeLibraries | Where-Object {
-        @($_.languages | Where-Object { [string]$_ -in $distinctLanguages }).Count -gt 0
-    } | ForEach-Object { $_.artifact }) + @($distinctLanguages | ForEach-Object {
+    $requiredArtifacts = @($distinctLanguages | ForEach-Object {
         $runtime = $recipe.runtimes.PSObject.Properties[$_].Value
         if ($runtime.runtimeImage) { $runtime.runtimeImage }
         @($runtime.artifacts)
@@ -296,6 +304,14 @@ function New-LabExternalRuntimeContainerImagePlan {
         RequiredSecurityOptions = @($recipe.launchContract.requiredSecurityOptions | ForEach-Object { [string]$_ })
         NamespaceIsolation = [bool]$recipe.launchContract.namespaceIsolation
         OutboundAccess = [bool]$recipe.launchContract.outboundAccess
+        ExtensibilityDebUrl = [string]$recipe.extensibility.source
+        ExtensibilityDebSha256 = [string]$recipe.extensibility.sha256
+        ExtensibilityDebVersion = [string]$recipe.extensibility.version
+        LibgompDebUrl = [string]$recipe.runtimeLibraries[0].artifact.source
+        LibgompDebSha256 = [string]$recipe.runtimeLibraries[0].artifact.sha256
+        LibgompDebVersion = [string]$recipe.runtimeLibraries[0].artifact.version
+        RRuntimeImage = [string]$recipe.runtimes.R.runtimeImage.reference
+        PythonRuntimeImage = [string]$recipe.runtimes.Python.runtimeImage.reference
         EvidenceStatus = if ($AllowPreview) { 'PREVIEW_CHARACTERIZATION' } else { 'SUPPORTED' }
     }
 }
@@ -307,7 +323,7 @@ function Test-LabExternalRuntimeContainerHost {
         [Parameter(Mandatory)]$ImagePlan
     )
 
-    if ([string]$ImagePlan.LaunchMode -ne 'sql2022-namespace-v1' -or
+    if ([string]$ImagePlan.LaunchMode -notin @('sql2022-namespace-v1','sql2025-namespace-v1') -or
         @($ImagePlan.RequiredLinuxCapabilities) -join ',' -ne 'CHOWN,DAC_OVERRIDE,KILL,SETGID,SETUID,SYS_ADMIN,MKNOD,SETPCAP,NET_ADMIN,NET_RAW,SYS_PTRACE' -or
         @($ImagePlan.RequiredSecurityOptions) -join ',' -ne 'apparmor=unconfined,seccomp=unconfined' -or
         $ImagePlan.NamespaceIsolation -ne $true -or $ImagePlan.OutboundAccess -ne $false) {
@@ -349,13 +365,13 @@ function Test-LabExternalRuntimeContainerHost {
     if ($normalizedCgroup -ne [string]$ImagePlan.RequiredCgroupVersion) {
         return [PSCustomObject]@{
             Status='DECLARED_UNSUPPORTED'; Provider=$Provider; CgroupVersion=$normalizedCgroup; Rootless=$rootless
-            Reason="SQL Server 2022 launchpadd benötigt für den isolierten Namespace-Modus cgroup v$($ImagePlan.RequiredCgroupVersion); erkannt wurde cgroup v$normalizedCgroup."
+            Reason="SQL Server $($ImagePlan.SqlVersion) launchpadd benötigt für den isolierten Namespace-Modus cgroup v$($ImagePlan.RequiredCgroupVersion); erkannt wurde cgroup v$normalizedCgroup."
         }
     }
     if ($rootless) {
         return [PSCustomObject]@{
             Status='DECLARED_UNSUPPORTED'; Provider=$Provider; CgroupVersion=$normalizedCgroup; Rootless=$true
-            Reason='Der SQL-Server-2022-Namespace-Modus benötigt einen rootful Provider für den schreibbaren cgroup-v1-Bind.'
+            Reason="Der SQL-Server-$($ImagePlan.SqlVersion)-Namespace-Modus benötigt einen rootful Provider für den schreibbaren cgroup-v1-Bind."
         }
     }
     return [PSCustomObject]@{
@@ -497,7 +513,15 @@ function Invoke-LabExternalRuntimeContainerImageBuildCore {
         '--file', [string]$ImagePlan.Containerfile,
         '--tag', $temporaryTag,
         '--build-arg', "BASE_IMAGE=$($ImagePlan.BaseImage)",
-        '--build-arg', "R_RUNTIME_IMAGE=$([string](Get-LabExternalRuntimeContainerRecipe).runtimes.R.runtimeImage.reference)",
+        '--build-arg', "R_RUNTIME_IMAGE=$($ImagePlan.RRuntimeImage)",
+        '--build-arg', "PYTHON_RUNTIME_IMAGE=$($ImagePlan.PythonRuntimeImage)",
+        '--build-arg', "EXTENSIBILITY_DEB_URL=$($ImagePlan.ExtensibilityDebUrl)",
+        '--build-arg', "EXTENSIBILITY_DEB_SHA256=$($ImagePlan.ExtensibilityDebSha256)",
+        '--build-arg', "EXTENSIBILITY_DEB_VERSION=$($ImagePlan.ExtensibilityDebVersion)",
+        '--build-arg', "LIBGOMP_DEB_URL=$($ImagePlan.LibgompDebUrl)",
+        '--build-arg', "LIBGOMP_DEB_SHA256=$($ImagePlan.LibgompDebSha256)",
+        '--build-arg', "LIBGOMP_DEB_VERSION=$($ImagePlan.LibgompDebVersion)",
+        '--build-arg', "EXTERNAL_RUNTIME_LAUNCH_MODE=$($ImagePlan.LaunchMode)",
         '--build-arg', "EXTERNAL_RUNTIME_STAGE=$($ImagePlan.BuildStage)",
         '--build-arg', "EXTERNAL_RUNTIMES=$(@($ImagePlan.BuildTokens) -join ',')",
         '--build-arg', "CONTENT_ID=$($ImagePlan.ImageKey)",

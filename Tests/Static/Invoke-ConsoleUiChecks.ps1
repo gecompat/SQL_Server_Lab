@@ -280,7 +280,7 @@ Add-ConsoleUiCheck 'Containerverwaltung macht External-Languages-Erstinstallatio
 )
 Add-ConsoleUiCheck 'External-Languages-Menü behandelt Docker und Podman gleichwertig' (
     $entrySource -match "provider -in @\('docker', 'podman'\)" -and
-    $entrySource -match "Nachträgliche External Languages sind derzeit nur für SQL Server 2022 unter Docker oder Podman freigegeben"
+    $entrySource -match "SQL Server 2022 und 2025 werden unter Docker und Podman unterstützt"
 )
 Add-ConsoleUiCheck 'Hyper-V zeigt die derzeit nicht atomare External-Languages-Nachinstallation begründet deaktiviert' (
     $entrySource -match "-Label 'External Languages nachinstallieren'[\s\S]+?-Disabled"

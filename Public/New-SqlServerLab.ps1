@@ -90,7 +90,7 @@ function New-LabProviderContainer {
             [string]$ContainerImageArtifact.Contract.Version -ne '1.0' -or
             [string]$ContainerImageArtifact.Provider -ne [string]$Instance.provider -or
             [string]$ContainerImageArtifact.ImageKey -notmatch '^[a-f0-9]{64}$' -or
-            [string]$ContainerImageArtifact.LaunchMode -ne 'sql2022-namespace-v1' -or
+            [string]$ContainerImageArtifact.LaunchMode -notin @('sql2022-namespace-v1','sql2025-namespace-v1') -or
             (@($ContainerImageArtifact.RequiredLinuxCapabilities) -join ',') -ne 'CHOWN,DAC_OVERRIDE,KILL,SETGID,SETUID,SYS_ADMIN,MKNOD,SETPCAP,NET_ADMIN,NET_RAW,SYS_PTRACE' -or
             (@($ContainerImageArtifact.RequiredSecurityOptions) -join ',') -ne 'apparmor=unconfined,seccomp=unconfined') {
             throw "EXTERNAL_RUNTIME_CONTAINER_IMAGE_ARTIFACT_INVALID: $($Instance.id)"

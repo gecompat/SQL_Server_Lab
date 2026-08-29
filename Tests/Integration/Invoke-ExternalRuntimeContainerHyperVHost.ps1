@@ -21,6 +21,7 @@
 param(
     [string]$SwitchName = 'Default Switch',
     [string]$HostRoot = 'D:\Lab_Base\Linux\ExternalRuntimeAcceptance',
+    [ValidateSet('2022', '2025')][string]$SqlVersion = '2022',
     [ValidateRange(900, 14400)][int]$BootstrapTimeoutSeconds = 3600,
     [string]$TranscriptPath,
     [switch]$KeepOnFailure
@@ -437,10 +438,10 @@ runcmd:
     $evidencePaths = [Collections.Generic.List[string]]::new()
     foreach ($provider in @('docker','podman')) {
         Write-Host "Starte native $provider-External-Runtime-Abnahme..." -ForegroundColor Cyan
-        $remoteEvidence = "/var/tmp/external-runtime-$provider-evidence.json"
+        $remoteEvidence = "/var/tmp/external-runtime-$SqlVersion-$provider-evidence.json"
         $keepGuestResources = if ($KeepOnFailure) { ' -KeepOnFailure' } else { '' }
-        Invoke-GuestSsh -Address $guestAddress -Command "cd $remoteRoot && sudo pwsh -NoProfile -File ./Tests/Integration/Invoke-ExternalRuntimeContainerAcceptance.ps1 -Provider $provider -EvidencePath $remoteEvidence$keepGuestResources" | Out-Host
-        $localEvidence = Join-Path $evidenceRoot "external-runtime-$provider-$runToken.json"
+        Invoke-GuestSsh -Address $guestAddress -Command "cd $remoteRoot && sudo pwsh -NoProfile -File ./Tests/Integration/Invoke-ExternalRuntimeContainerAcceptance.ps1 -Provider $provider -SqlVersion $SqlVersion -EvidencePath $remoteEvidence$keepGuestResources" | Out-Host
+        $localEvidence = Join-Path $evidenceRoot "external-runtime-$SqlVersion-$provider-$runToken.json"
         $scpArguments[-2] = "$sshUser@${guestAddress}:$remoteEvidence"
         $scpArguments[-1] = $localEvidence
         & scp @scpArguments
@@ -458,6 +459,7 @@ runcmd:
         ImageRelease = $imageRelease
         ImageSha256 = $archiveSha256
         Providers = @('docker','podman')
+        SqlVersion = $SqlVersion
         EvidencePaths = @($evidencePaths)
     }
 }

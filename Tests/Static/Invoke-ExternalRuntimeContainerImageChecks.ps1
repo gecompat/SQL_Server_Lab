@@ -29,6 +29,7 @@ try {
         }
         $dockerSoftwarePlan = Resolve-LabExternalRuntimePlan -SoftwareItem $request -SqlVersion 2022 -Provider docker -OperatingSystem linux
         $podmanSoftwarePlan = Resolve-LabExternalRuntimePlan -SoftwareItem $request -SqlVersion 2022 -Provider podman -OperatingSystem linux
+        $docker2025SoftwarePlan = Resolve-LabExternalRuntimePlan -SoftwareItem $request -SqlVersion 2025 -Provider docker -OperatingSystem linux
         $rRequest = $request | Select-Object *
         $rRequest.Id = 'sql-r'
         $dockerRSoftwarePlan = Resolve-LabExternalRuntimePlan -SoftwareItem $rRequest -SqlVersion 2022 -Provider docker -OperatingSystem linux
@@ -39,6 +40,7 @@ try {
         $podmanJavaSoftwarePlan = Resolve-LabExternalRuntimePlan -SoftwareItem $javaRequest -SqlVersion 2022 -Provider podman -OperatingSystem linux
         $dockerImagePlan = New-LabExternalRuntimeContainerImagePlan -Provider docker -SqlVersion 2022 -SoftwarePlans @($dockerSoftwarePlan)
         $podmanImagePlan = New-LabExternalRuntimeContainerImagePlan -Provider podman -SqlVersion 2022 -SoftwarePlans @($podmanSoftwarePlan)
+        $docker2025ImagePlan = New-LabExternalRuntimeContainerImagePlan -Provider docker -SqlVersion 2025 -SoftwarePlans @($docker2025SoftwarePlan)
         $dockerRImagePlan = New-LabExternalRuntimeContainerImagePlan -Provider docker -SqlVersion 2022 -SoftwarePlans @($dockerRSoftwarePlan)
         $podmanRImagePlan = New-LabExternalRuntimeContainerImagePlan -Provider podman -SqlVersion 2022 -SoftwarePlans @($podmanRSoftwarePlan)
         $combinedImagePlan = New-LabExternalRuntimeContainerImagePlan -Provider docker -SqlVersion 2022 `
@@ -165,6 +167,8 @@ try {
             Recipe = Get-LabExternalRuntimeContainerRecipe
             DockerPlan = $dockerImagePlan
             PodmanPlan = $podmanImagePlan
+            Docker2025Plan = $docker2025ImagePlan
+            Recipe2025 = Get-LabExternalRuntimeContainerRecipe -SqlVersion 2025
             DockerRPlan = $dockerRImagePlan
             PodmanRPlan = $podmanRImagePlan
             CombinedPlan = $combinedImagePlan
@@ -206,7 +210,7 @@ try {
         }).Count -eq 7
     )
     Add-CheckResult -Name 'SQL-Satellite-OpenSSL-Vertrag bindet nur die digestgebundenen Runtimebibliotheken' -Success (
-        $result.Recipe.recipeVersion -eq '5' -and
+        $result.Recipe.recipeVersion -eq '6' -and
         $result.Recipe.sqlSatelliteCompatibility.id -eq 'sql-server-2022-ubuntu-openssl-runtime-links' -and
         @($result.Recipe.sqlSatelliteCompatibility.links).Count -eq 2 -and
         $result.Recipe.sqlSatelliteCompatibility.links[0].path -eq '/usr/lib/x86_64-linux-gnu/libssl.so' -and
@@ -217,9 +221,14 @@ try {
     Add-CheckResult -Name 'Freigegebene Linux-Varianten loesen ohne Preview-Bypass fuer beide Provider auf' -Success (
         @($result.SoftwarePlans).Count -eq 6 -and
         @($result.SoftwarePlans | Where-Object Status -ne 'RESOLVED').Count -eq 0 -and
-        @($result.SoftwarePlans | Where-Object RecipeVersion -ne '5').Count -eq 0 -and
+        @($result.SoftwarePlans | Where-Object RecipeVersion -ne '6').Count -eq 0 -and
         $result.DockerPlan.EvidenceStatus -eq 'SUPPORTED' -and
-        $result.PodmanPlan.EvidenceStatus -eq 'SUPPORTED'
+        $result.PodmanPlan.EvidenceStatus -eq 'SUPPORTED' -and
+        $result.Docker2025Plan.EvidenceStatus -eq 'SUPPORTED' -and
+        $result.Docker2025Plan.BaseImageDigest -eq '86cc6144ef39bb0fbed2329e1ad79b13ee82e7b2e4739213a0db0800e668a74a' -and
+        $result.Docker2025Plan.ExtensibilityDebVersion -eq '17.0.4065.4-1' -and
+        $result.Docker2025Plan.LaunchMode -eq 'sql2025-namespace-v1' -and
+        $result.Recipe2025.operatingSystem -eq 'ubuntu-24.04'
     )
     Add-CheckResult -Name 'Docker und Podman konsumieren denselben providerneutralen OCI-Image-Key' -Success (
         $result.DockerPlan.ImageKey -eq $result.PodmanPlan.ImageKey -and
@@ -402,7 +411,7 @@ try {
         $containerfile -match 'required-capabilities="CHOWN,DAC_OVERRIDE,KILL,SETGID,SETUID,SYS_ADMIN,MKNOD,SETPCAP,NET_ADMIN,NET_RAW,SYS_PTRACE"' -and
         $artifactSource -match 'CHOWN,DAC_OVERRIDE,KILL,SETGID,SETUID,SYS_ADMIN,MKNOD,SETPCAP,NET_ADMIN,NET_RAW,SYS_PTRACE' -and
         $newLabSource -match 'CHOWN,DAC_OVERRIDE,KILL,SETGID,SETUID,SYS_ADMIN,MKNOD,SETPCAP,NET_ADMIN,NET_RAW,SYS_PTRACE' -and
-        $dockerSource -match "ExternalRuntimeLaunchMode -eq 'sql2022-namespace-v1'" -and
+        $dockerSource -match "ExternalRuntimeLaunchMode -in @\('sql2022-namespace-v1','sql2025-namespace-v1'\)" -and
         $dockerSource -match "'--user', '0:0'" -and
         @($requiredLaunchCapabilities | Where-Object { $dockerSource -notmatch "'--cap-add', '$_'" }).Count -eq 0 -and
         $dockerSource -match "'--cap-add', 'SYS_ADMIN'" -and
@@ -412,7 +421,7 @@ try {
         $dockerSource -match "'--security-opt', 'seccomp=unconfined'" -and
         $dockerSource -match "'/sys/fs/cgroup:/sys/fs/cgroup:rw'" -and
         $dockerSource -notmatch "'--privileged'" -and
-        $podmanSource -match "ExternalRuntimeLaunchMode -eq 'sql2022-namespace-v1'" -and
+        $podmanSource -match "ExternalRuntimeLaunchMode -in @\('sql2022-namespace-v1','sql2025-namespace-v1'\)" -and
         $podmanSource -match "'--user', '0:0'" -and
         @($requiredLaunchCapabilities | Where-Object { $podmanSource -notmatch "'--cap-add', '$_'" }).Count -eq 0 -and
         $podmanSource -match "'--cap-add', 'SYS_ADMIN'" -and
