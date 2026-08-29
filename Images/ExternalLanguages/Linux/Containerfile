@@ -122,6 +122,7 @@ RUN set -eux; \
 FROM runtime-base AS runtime-python
 COPY --from=python-runtime /usr/bin/python3.10 /usr/bin/python3.10
 COPY --from=python-runtime /usr/lib/python3.10 /usr/lib/python3.10
+COPY --from=python-runtime /usr/lib/x86_64-linux-gnu/libpython3.10.so.1.0 /usr/lib/x86_64-linux-gnu/
 COPY --from=runtime-openmp /opt/sql-server-lab/runtime-libraries/libgomp1/usr/lib/x86_64-linux-gnu/libgomp.so.1* /usr/lib/x86_64-linux-gnu/
 RUN set -eux; \
     /opt/sql-server-lab/bin/install-python-runtime.sh /opt/sql-server-lab/locks/python-wheels.lock; \
@@ -152,6 +153,7 @@ RUN set -eux; \
 FROM runtime-r AS runtime-r-python
 COPY --from=python-runtime /usr/bin/python3.10 /usr/bin/python3.10
 COPY --from=python-runtime /usr/lib/python3.10 /usr/lib/python3.10
+COPY --from=python-runtime /usr/lib/x86_64-linux-gnu/libpython3.10.so.1.0 /usr/lib/x86_64-linux-gnu/
 RUN set -eux; \
     /opt/sql-server-lab/bin/install-python-runtime.sh /opt/sql-server-lab/locks/python-wheels.lock; \
     /opt/mssql/bin/mssql-conf set extensibility pythonbinpath /usr/bin/python3.10; \
