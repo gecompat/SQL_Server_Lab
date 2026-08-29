@@ -50,6 +50,21 @@ Vereinfachte Struktur:
 - `version: 2022-CU18-ubuntu-22.04` wird als exakter Image-Tag verwendet.
 - Ein unbekannter CU-Kurzbezeichner wird nicht durch eine vermutete Tag-Konvention ersetzt.
 
+Für SQL Server 2019, 2022 und 2025 enthält `builds[]` die vollständige bei
+Microsoft weiterhin verfügbare CU-Historie. Jeder Kurzbezeichner löst auf einen
+tatsächlich veröffentlichten MCR-Tag auf; dadurch bleiben auch ältere CUs mit
+ihrem damaligen Ubuntu-Basisstand auswählbar. SQL Server 2019 CU7 ist bewusst
+nicht auswählbar: Microsoft hat dieses Update wegen eines Fehlers bei
+Datenbanksnapshots zurückgezogen und empfiehlt CU8 oder neuer.
+
+Jeder verfügbare CU-Eintrag bindet außerdem das Windows-x64-Paket mit relativem
+Media-Root-Pfad, offizieller Microsoft-Download-URL und SHA-256. Windows-Pakete
+werden unter `SQL/<Version>/Updates/<CU>/` abgelegt und dürfen nur nach
+erfolgreicher Hash- und Microsoft-Authenticode-Prüfung verwendet werden.
+Linux-Containerimages werden über den katalogisierten MCR-Tag in den lokalen
+Docker- oder Podman-Cache gezogen; sie werden nicht als Windows-Medium in
+`Lab_Base` gespeichert.
+
 ### Neue Version ergänzen
 
 1. Eintrag in `versions[]` hinzufügen.
@@ -59,7 +74,7 @@ Vereinfachte Struktur:
 5. mindestens einen nicht mutierenden Auflösungstest ergänzen.
 6. README, Known Limitations und Changelog prüfen.
 
-Der Katalog wird nicht automatisch aktuell gehalten. Build- und CU-Angaben müssen fachlich verifiziert werden.
+Der Katalog wird nicht automatisch aktuell gehalten. Build- und CU-Angaben müssen fachlich verifiziert werden. Für die CU-Historie sind die Microsoft-Buildtabellen, der Microsoft Update Catalog und die veröffentlichte MCR-Tagliste die autoritativen Quellen.
 
 ## Softwarekatalog
 

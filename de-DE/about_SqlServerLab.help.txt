@@ -217,6 +217,11 @@ COMMANDS
         Installiert 7-Zip nach expliziter Bestätigung optional über winget für
         katalogisierte .7z-Backups mit einer .bak-Payload.
 
+    Save-SqlServerLabCuResource
+        Lädt jeden katalogisierten SQL-Server-CU. Windows-Pakete benötigen den
+        katalogisierten SHA-256 und eine gültige Microsoft-Authenticode-Signatur;
+        Linux zieht den exakten MCR-Tag in Docker oder Podman.
+
 NAMING AND OWNERSHIP
     PowerShell ordnet jeden exportierten Befehl ueber die Source- und
     ModuleName-Eigenschaften dem Modul SqlServerLab zu:

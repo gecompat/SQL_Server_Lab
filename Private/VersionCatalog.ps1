@@ -209,9 +209,62 @@ function Get-SqlServerPatchOptions {
     })
 }
 
+function Get-SqlServerPatchOption {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$VersionId,
+        [Parameter(Mandatory)][string]$Cu,
+        [string]$MediaRoot
+    )
+
+    $normalizedCu = $Cu.ToUpperInvariant()
+    $matches = @(Get-SqlServerPatchOptions -VersionId $VersionId -MediaRoot $MediaRoot |
+        Where-Object { [string]::Equals([string]$_.Cu, $normalizedCu, [StringComparison]::OrdinalIgnoreCase) })
+    if ($matches.Count -ne 1) {
+        throw "SQL_CU_NOT_CATALOGUED: $VersionId-$normalizedCu"
+    }
+    return $matches[0]
+}
+
+function Test-SqlServerWindowsPatchAuthenticode {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [scriptblock]$SignatureAction
+    )
+
+    if (-not $SignatureAction) {
+        if (-not (Get-Command Get-AuthenticodeSignature -ErrorAction SilentlyContinue)) {
+            throw 'SQL_WINDOWS_CU_AUTHENTICODE_UNAVAILABLE: Get-AuthenticodeSignature ist auf diesem Host nicht verfügbar.'
+        }
+        $SignatureAction = { param($FilePath) Get-AuthenticodeSignature -LiteralPath $FilePath -ErrorAction Stop }
+    }
+
+    $signature = @(& $SignatureAction $Path) | Select-Object -Last 1
+    $subject = if ($signature -and $signature.SignerCertificate) {
+        [string]$signature.SignerCertificate.Subject
+    }
+    else { '' }
+    if (-not $signature -or [string]$signature.Status -ne 'Valid') {
+        $status = if ($signature) { [string]$signature.Status } else { 'Missing' }
+        throw "SQL_WINDOWS_CU_AUTHENTICODE_INVALID: Status $status"
+    }
+    if ($subject -notmatch '(^|,\s*)O=Microsoft Corporation(,|$)') {
+        throw 'SQL_WINDOWS_CU_SIGNER_NOT_MICROSOFT'
+    }
+
+    return [PSCustomObject]@{
+        Status = 'Valid'
+        SignerSubject = $subject
+    }
+}
+
 function Confirm-SqlServerWindowsPatchPackage {
     [CmdletBinding()]
-    param([Parameter(Mandatory)]$Patch)
+    param(
+        [Parameter(Mandatory)]$Patch,
+        [scriptblock]$SignatureAction
+    )
 
     if (-not $Patch.WindowsPath -or -not (Test-Path -LiteralPath $Patch.WindowsPath -PathType Leaf)) {
         throw "SQL_WINDOWS_CU_PACKAGE_MISSING: $($Patch.WindowsRelativePath)"
@@ -223,6 +276,7 @@ function Confirm-SqlServerWindowsPatchPackage {
     if ($actual -ne [string]$Patch.Sha256) {
         throw "SQL_WINDOWS_CU_HASH_MISMATCH: $($Patch.WindowsRelativePath)"
     }
+    $null = Test-SqlServerWindowsPatchAuthenticode -Path $Patch.WindowsPath -SignatureAction $SignatureAction
     return $Patch.WindowsPath
 }
 
@@ -230,26 +284,132 @@ function Save-SqlServerWindowsPatchPackage {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]$Patch,
-        [Parameter(Mandatory)][string]$MediaRoot
+        [Parameter(Mandatory)][string]$MediaRoot,
+        [scriptblock]$DownloadAction,
+        [scriptblock]$SignatureAction
     )
 
     if (-not $Patch.CanAutoDownload) {
         throw "SQL_WINDOWS_CU_AUTODOWNLOAD_NOT_TRUSTED: $($Patch.Cu)"
     }
-    $target = Join-Path $MediaRoot ([string]$Patch.WindowsRelativePath).Replace('/', [IO.Path]::DirectorySeparatorChar)
+    if (-not (Test-Path -LiteralPath $MediaRoot -PathType Container)) {
+        throw "SQL_WINDOWS_CU_MEDIA_ROOT_NOT_FOUND: $MediaRoot"
+    }
+    $resolvedRoot = (Resolve-Path -LiteralPath $MediaRoot -ErrorAction Stop).Path
+    $rootItem = Get-Item -LiteralPath $resolvedRoot -Force -ErrorAction Stop
+    if ($rootItem.Attributes -band [IO.FileAttributes]::ReparsePoint) {
+        throw 'SQL_WINDOWS_CU_MEDIA_ROOT_REPARSE_POINT'
+    }
+
+    $relativePath = [string]$Patch.WindowsRelativePath
+    if ([string]::IsNullOrWhiteSpace($relativePath) -or [IO.Path]::IsPathRooted($relativePath) -or
+        @($relativePath -split '[\\/]' | Where-Object { $_ -eq '..' }).Count -gt 0 -or
+        [IO.Path]::GetExtension($relativePath) -ne '.exe') {
+        throw "SQL_WINDOWS_CU_RELATIVE_PATH_INVALID: $relativePath"
+    }
+    $target = [IO.Path]::GetFullPath((Join-Path $resolvedRoot $relativePath.Replace('/', [IO.Path]::DirectorySeparatorChar)))
+    $pathBoundary = Test-LabPathWithinRoot -Root $resolvedRoot -Path $target
+    if (-not $pathBoundary.Valid) {
+        throw "SQL_WINDOWS_CU_PATH_OUTSIDE_MEDIA_ROOT: $($pathBoundary.Reason)"
+    }
+
+    $downloadUri = try { [uri]$Patch.DownloadUrl } catch { $null }
+    if (-not $downloadUri -or $downloadUri.Scheme -ne 'https' -or
+        $downloadUri.Host -notmatch '(^|\.)download\.windowsupdate\.com$') {
+        throw "SQL_WINDOWS_CU_DOWNLOAD_SOURCE_NOT_ALLOWED: $($Patch.DownloadUrl)"
+    }
+
+    $Patch | Add-Member -NotePropertyName WindowsPath -NotePropertyValue $target -Force
+    if (Test-Path -LiteralPath $target -PathType Leaf) {
+        return Confirm-SqlServerWindowsPatchPackage -Patch $Patch -SignatureAction $SignatureAction
+    }
+
     $targetDirectory = Split-Path -Parent $target
     $null = New-Item -ItemType Directory -Path $targetDirectory -Force
-    $temporary = "$target.download"
+    $pathBoundary = Test-LabPathWithinRoot -Root $resolvedRoot -Path $target
+    if (-not $pathBoundary.Valid) {
+        throw "SQL_WINDOWS_CU_PATH_OUTSIDE_MEDIA_ROOT: $($pathBoundary.Reason)"
+    }
+    $temporary = Join-Path $targetDirectory (([IO.Path]::GetFileNameWithoutExtension($target)) + ".download-$([guid]::NewGuid().ToString('N')).exe")
+    if (-not $DownloadAction) {
+        $DownloadAction = {
+            param($Uri, $OutFile)
+            Invoke-WebRequest -Uri $Uri -OutFile $OutFile -UseBasicParsing -MaximumRedirection 0 -ErrorAction Stop
+        }
+    }
     try {
-        Invoke-WebRequest -Uri $Patch.DownloadUrl -OutFile $temporary -UseBasicParsing -ErrorAction Stop
+        $null = & $DownloadAction $downloadUri $temporary
+        if (-not (Test-Path -LiteralPath $temporary -PathType Leaf)) {
+            throw "SQL_WINDOWS_CU_DOWNLOAD_MISSING: $($Patch.Cu)"
+        }
         $actual = (Get-FileHash -LiteralPath $temporary -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()
         if ($actual -ne [string]$Patch.Sha256) { throw "SQL_WINDOWS_CU_DOWNLOAD_HASH_MISMATCH: $($Patch.Cu)" }
-        Move-Item -LiteralPath $temporary -Destination $target -Force
+        $null = Test-SqlServerWindowsPatchAuthenticode -Path $temporary -SignatureAction $SignatureAction
+        Move-Item -LiteralPath $temporary -Destination $target -ErrorAction Stop
     }
     finally {
         Remove-Item -LiteralPath $temporary -Force -ErrorAction SilentlyContinue
     }
     return $target
+}
+
+function Test-SqlServerContainerImagePresent {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][ValidateSet('docker', 'podman')][string]$Provider,
+        [Parameter(Mandatory)][string]$Image,
+        [scriptblock]$InspectAction
+    )
+
+    if ($InspectAction) {
+        return [bool](& $InspectAction $Provider $Image)
+    }
+    $command = Get-Command $Provider -ErrorAction SilentlyContinue
+    if (-not $command) { return $false }
+    $null = & $command.Source image inspect $Image 2>&1
+    return $LASTEXITCODE -eq 0
+}
+
+function Resolve-SqlServerContainerImageProvider {
+    [CmdletBinding()]
+    param([ValidateSet('auto', 'docker', 'podman')][string]$Provider = 'auto')
+
+    $candidates = if ($Provider -eq 'auto') { @('docker', 'podman') } else { @($Provider) }
+    foreach ($candidate in $candidates) {
+        $command = Get-Command $candidate -ErrorAction SilentlyContinue
+        if (-not $command) { continue }
+        $null = & $command.Source info 2>&1
+        if ($LASTEXITCODE -eq 0) { return $candidate }
+    }
+    throw "SQL_LINUX_CU_PROVIDER_UNAVAILABLE: $Provider"
+}
+
+function Save-SqlServerContainerImageResource {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][ValidateSet('docker', 'podman')][string]$Provider,
+        [Parameter(Mandatory)][string]$Image,
+        [scriptblock]$InspectAction,
+        [scriptblock]$PullAction
+    )
+
+    if (Test-SqlServerContainerImagePresent -Provider $Provider -Image $Image -InspectAction $InspectAction) {
+        return [PSCustomObject]@{ Provider = $Provider; Image = $Image; AlreadyPresent = $true }
+    }
+
+    if ($PullAction) {
+        $pullSucceeded = [bool](& $PullAction $Provider $Image)
+    }
+    else {
+        $command = Get-Command $Provider -ErrorAction Stop
+        $null = & $command.Source pull $Image
+        $pullSucceeded = $LASTEXITCODE -eq 0
+    }
+    if (-not $pullSucceeded -or
+        -not (Test-SqlServerContainerImagePresent -Provider $Provider -Image $Image -InspectAction $InspectAction)) {
+        throw "SQL_LINUX_CU_IMAGE_PULL_FAILED: $Provider · $Image"
+    }
+    return [PSCustomObject]@{ Provider = $Provider; Image = $Image; AlreadyPresent = $false }
 }
 
 function Get-LabSampleDatabase {

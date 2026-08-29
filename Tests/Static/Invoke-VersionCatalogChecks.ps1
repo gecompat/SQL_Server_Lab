@@ -26,7 +26,7 @@ Add-CheckResult -Name 'SQL Server 2017 löst auf das offizielle latest-Image auf
 
 $sql2022Builds = & $module { @(Get-SqlServerBuilds -VersionId '2022') }
 Add-CheckResult -Name 'SQL Server 2022 enthält eindeutige katalogisierte CU-Tags' -Success (
-    $sql2022Builds.Count -gt 0 -and
+    $sql2022Builds.Count -eq 26 -and
     @($sql2022Builds.cu | Sort-Object -Unique).Count -eq $sql2022Builds.Count -and
     @($sql2022Builds.tag | Sort-Object -Unique).Count -eq $sql2022Builds.Count
 )
@@ -41,6 +41,7 @@ Add-CheckResult -Name 'Alle katalogisierten SQL-2022-CUs lösen auf ihren unver�
 
 $sql2019Builds = & $module { @(Get-SqlServerBuilds -VersionId '2019') }
 Add-CheckResult -Name 'Unterstützte SQL-Versionen sind auf den verifizierten CU-Ständen katalogisiert' -Success (
+    $sql2019Builds.Count -eq 31 -and @($sql2019Builds.cu) -notcontains 'CU7' -and
     $sql2019Builds[0].cu -eq 'CU32' -and $sql2019Builds[0].build -eq '15.0.4430.1' -and
     $sql2019Builds[0].kb -eq 'KB5054833' -and $sql2019Builds[0].released -eq '2025-02-27' -and
     $sql2022Builds[0].cu -eq 'CU26' -and $sql2022Builds[0].build -eq '16.0.4265.3' -and
@@ -57,10 +58,34 @@ Add-CheckResult -Name 'SQL Server 2025 enthält CU1 bis CU8 ohne alten CTP-Eintr
 $catalog = Get-Content -LiteralPath (Join-Path $repoRoot 'Catalogs\sql-server-versions.json') -Raw | ConvertFrom-Json -Depth 30
 $sql2025 = $catalog.versions | Where-Object id -eq '2025' | Select-Object -First 1
 $sql2025Cus = @($sql2025.docker.builds | Where-Object { $_.cu -match '^CU\d+$' })
+$supportedCus = @($catalog.versions | Where-Object status -eq 'SUPPORTED' | ForEach-Object { $_.docker.builds } | Where-Object { $_.cu -match '^CU\d+$' })
 Add-CheckResult -Name 'Alle katalogisierten Builds unterstützter SQL-Versionen besitzen verifizierbare Kernmetadaten' -Success (
     @($catalog.versions | Where-Object status -eq 'SUPPORTED' | ForEach-Object { $_.docker.builds } | Where-Object {
         -not $_.build -or -not $_.kb -or -not $_.released
     }).Count -eq 0
+)
+
+$expected2019Cus = @(32..8 | ForEach-Object { "CU$_" }) + @(6..1 | ForEach-Object { "CU$_" })
+$expected2022Cus = @(26..1 | ForEach-Object { "CU$_" })
+$expected2025Cus = @(8..1 | ForEach-Object { "CU$_" })
+Add-CheckResult -Name 'Der Katalog enthält die vollständige offiziell verfügbare CU-Historie' -Success (
+    (@($sql2019Builds.cu) -join ',') -eq ($expected2019Cus -join ',') -and
+    (@($sql2022Builds.cu) -join ',') -eq ($expected2022Cus -join ',') -and
+    (@($sql2025Builds.cu) -join ',') -eq ($expected2025Cus -join ',') -and
+    $supportedCus.Count -eq 65
+)
+
+$allSupportedResolutions = @(
+    foreach ($versionId in @('2019', '2022', '2025')) {
+        foreach ($build in @(& $module { param($id) Get-SqlServerBuilds -VersionId $id } $versionId)) {
+            $resolvedImage = & $module { param($id) Get-SqlServerDockerImage -VersionId $id } "$versionId-$($build.cu)"
+            [PSCustomObject]@{ Expected = "mcr.microsoft.com/mssql/server:$($build.tag)"; Actual = $resolvedImage }
+        }
+    }
+)
+Add-CheckResult -Name 'Jeder verfügbare CU-Kurzbezeichner löst auf einen expliziten MCR-Tag auf' -Success (
+    $allSupportedResolutions.Count -eq 65 -and
+    @($allSupportedResolutions | Where-Object { $_.Actual -ne $_.Expected }).Count -eq 0
 )
 
 $cuWatchText = Get-Content -LiteralPath (Join-Path $repoRoot 'Tools/Get-SqlServerCuStatus.ps1') -Raw -Encoding utf8
@@ -70,12 +95,108 @@ Add-CheckResult -Name 'CU-Watch begrenzt den Standardlauf auf unterstützte Kata
     $cuWatchText -match 'Ohne Angabe werden ausschließlich Katalogeinträge mit Status SUPPORTED geprüft'
 )
 Add-CheckResult -Name 'Windows-CU-Metadaten sind vollständig und Downloads nur mit SHA-256 erlaubt' -Success (
-    $sql2025Cus.Count -eq 8 -and
-    @($sql2025Cus | Where-Object {
-        -not $_.build -or -not $_.kb -or -not $_.released -or -not $_.windows.relativePath -or
-        ($_.windows.downloadUrl -and -not $_.windows.sha256)
+    $supportedCus.Count -eq 65 -and
+    @($supportedCus | Where-Object {
+        -not $_.build -or -not $_.kb -or -not $_.released -or -not $_.articleUrl -or
+        -not $_.windows.relativePath -or -not $_.windows.downloadUrl -or
+        ([string]$_.windows.sha256 -notmatch '^[A-Fa-f0-9]{64}$')
     }).Count -eq 0
 )
+
+$patchOptions = @(@('2019', '2022', '2025') | ForEach-Object {
+    & $module { param($id) @(Get-SqlServerPatchOptions -VersionId $id) } $_
+})
+Add-CheckResult -Name 'Alle verfügbaren Windows-CUs sind automatisch und hashgebunden beschaffbar' -Success (
+    $patchOptions.Count -eq 65 -and
+    @($patchOptions | Where-Object { -not $_.CanAutoDownload -or -not $_.Sha256 }).Count -eq 0
+)
+
+$temporaryRoot = Join-Path ([IO.Path]::GetTempPath()) "sql-lab-cu-resource-check-$([guid]::NewGuid().ToString('N'))"
+try {
+    $acquisition = & $module {
+        param($Root)
+        $null = New-Item -ItemType Directory -Path $Root -Force
+        $payload = [byte[]](0x4D,0x5A,0x53,0x51,0x4C,0x2D,0x43,0x55)
+        $payloadPath = Join-Path $Root 'fixture.exe'
+        [IO.File]::WriteAllBytes($payloadPath, $payload)
+        $sha256 = (Get-FileHash -LiteralPath $payloadPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        $validSignature = {
+            param($Path)
+            [PSCustomObject]@{
+                Status = 'Valid'
+                SignerCertificate = [PSCustomObject]@{ Subject = 'CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US' }
+            }
+        }
+        $download = {
+            param($Uri, $OutFile)
+            [IO.File]::WriteAllBytes($OutFile, [byte[]](0x4D,0x5A,0x53,0x51,0x4C,0x2D,0x43,0x55))
+        }
+        $patch = [PSCustomObject]@{
+            BaseVersion='2025'; Cu='CU8'; WindowsRelativePath='SQL/2025/Updates/CU8/synthetic.exe'
+            WindowsPath=$null; DownloadUrl='https://catalog.s.download.windowsupdate.com/synthetic.exe'
+            Sha256=$sha256; CanAutoDownload=$true
+        }
+        $downloadedPath = Save-SqlServerWindowsPatchPackage -Patch $patch -MediaRoot $Root `
+            -DownloadAction $download -SignatureAction $validSignature
+        $confirmedPath = Confirm-SqlServerWindowsPatchPackage -Patch $patch -SignatureAction $validSignature
+
+        $hashMismatch = $null
+        $badHashPatch = [PSCustomObject]@{
+            BaseVersion='2025'; Cu='CU7'; WindowsRelativePath='SQL/2025/Updates/CU7/bad-hash.exe'
+            WindowsPath=$null; DownloadUrl='https://catalog.s.download.windowsupdate.com/bad-hash.exe'
+            Sha256=('0' * 64); CanAutoDownload=$true
+        }
+        try { $null = Save-SqlServerWindowsPatchPackage -Patch $badHashPatch -MediaRoot $Root -DownloadAction $download -SignatureAction $validSignature }
+        catch { $hashMismatch = $_.Exception.Message }
+
+        $invalidSignature = $null
+        $badSignaturePatch = [PSCustomObject]@{
+            BaseVersion='2025'; Cu='CU6'; WindowsRelativePath='SQL/2025/Updates/CU6/bad-signature.exe'
+            WindowsPath=$null; DownloadUrl='https://catalog.s.download.windowsupdate.com/bad-signature.exe'
+            Sha256=$sha256; CanAutoDownload=$true
+        }
+        try {
+            $null = Save-SqlServerWindowsPatchPackage -Patch $badSignaturePatch -MediaRoot $Root -DownloadAction $download -SignatureAction {
+                param($Path) [PSCustomObject]@{ Status='NotSigned'; SignerCertificate=$null }
+            }
+        }
+        catch { $invalidSignature = $_.Exception.Message }
+
+        $pathTraversal = $null
+        $outsidePatch = [PSCustomObject]@{
+            BaseVersion='2025'; Cu='CU5'; WindowsRelativePath='../outside.exe'; WindowsPath=$null
+            DownloadUrl='https://catalog.s.download.windowsupdate.com/outside.exe'; Sha256=$sha256; CanAutoDownload=$true
+        }
+        try { $null = Save-SqlServerWindowsPatchPackage -Patch $outsidePatch -MediaRoot $Root -DownloadAction $download -SignatureAction $validSignature }
+        catch { $pathTraversal = $_.Exception.Message }
+
+        $script:CuTestImagePresent = $false
+        $containerResult = Save-SqlServerContainerImageResource -Provider docker -Image 'mcr.microsoft.com/mssql/server:2025-CU8-test' `
+            -InspectAction { param($Provider,$Image) $script:CuTestImagePresent } `
+            -PullAction { param($Provider,$Image) $script:CuTestImagePresent = $true; $true }
+
+        [PSCustomObject]@{
+            WindowsReady = $downloadedPath -eq $confirmedPath -and (Test-Path -LiteralPath $confirmedPath -PathType Leaf)
+            HashMismatchFailsClosed = $hashMismatch -like 'SQL_WINDOWS_CU_DOWNLOAD_HASH_MISMATCH*' -and
+                -not (Test-Path -LiteralPath (Join-Path $Root 'SQL/2025/Updates/CU7/bad-hash.exe'))
+            InvalidSignatureFailsClosed = $invalidSignature -like 'SQL_WINDOWS_CU_AUTHENTICODE_INVALID*' -and
+                -not (Test-Path -LiteralPath (Join-Path $Root 'SQL/2025/Updates/CU6/bad-signature.exe'))
+            PathTraversalRejected = $pathTraversal -like 'SQL_WINDOWS_CU_RELATIVE_PATH_INVALID*'
+            NoTemporaryFiles = @(Get-ChildItem -LiteralPath $Root -Filter '*.download-*.exe' -Recurse -File -ErrorAction SilentlyContinue).Count -eq 0
+            ContainerPullReady = -not $containerResult.AlreadyPresent -and $script:CuTestImagePresent
+        }
+    } $temporaryRoot
+
+    Add-CheckResult -Name 'Windows-CU-Acquisition veröffentlicht nur nach SHA-256 und Microsoft-Authenticode' -Success $acquisition.WindowsReady
+    Add-CheckResult -Name 'Hash- und Signaturfehler hinterlassen weder Ziel noch temporäre Datei' -Success (
+        $acquisition.HashMismatchFailsClosed -and $acquisition.InvalidSignatureFailsClosed -and $acquisition.NoTemporaryFiles
+    )
+    Add-CheckResult -Name 'Windows-CU-Acquisition blockiert Pfadtraversal außerhalb des Media Root' -Success $acquisition.PathTraversalRejected
+    Add-CheckResult -Name 'Linux-CU-Acquisition zieht einen fehlenden exakten Image-Tag in den Providercache' -Success $acquisition.ContainerPullReady
+}
+finally {
+    Remove-Item -LiteralPath $temporaryRoot -Recurse -Force -ErrorAction SilentlyContinue
+}
 
 $runtimeWorkflowPaths = @(
     (Join-Path $repoRoot '.github/workflows/runtime-smoke-docker.yml'),
