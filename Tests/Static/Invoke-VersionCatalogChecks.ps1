@@ -62,6 +62,13 @@ Add-CheckResult -Name 'Alle katalogisierten Builds unterstützter SQL-Versionen 
         -not $_.build -or -not $_.kb -or -not $_.released
     }).Count -eq 0
 )
+
+$cuWatchText = Get-Content -LiteralPath (Join-Path $repoRoot 'Tools/Get-SqlServerCuStatus.ps1') -Raw -Encoding utf8
+Add-CheckResult -Name 'CU-Watch begrenzt den Standardlauf auf unterstützte Katalogversionen' -Success (
+    $cuWatchText -match 'Status\s*=\s*\[string\]\$entry\.status' -and
+    $cuWatchText -match 'Where-Object\s*\{\s*\$_\.Status\s+-eq\s+''SUPPORTED''\s*\}' -and
+    $cuWatchText -match 'Ohne Angabe werden ausschließlich Katalogeinträge mit Status SUPPORTED geprüft'
+)
 Add-CheckResult -Name 'Windows-CU-Metadaten sind vollständig und Downloads nur mit SHA-256 erlaubt' -Success (
     $sql2025Cus.Count -eq 8 -and
     @($sql2025Cus | Where-Object {

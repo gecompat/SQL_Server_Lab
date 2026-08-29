@@ -16,6 +16,7 @@ Microsoft-Quelle für aktuelle SQL Server-Updates.
 
 .PARAMETER Version
 Optionale Begrenzung auf bestimmte Hauptversionen (z. B. 2019, 2022, 2025).
+Ohne Angabe werden ausschließlich Katalogeinträge mit Status SUPPORTED geprüft.
 
 .PARAMETER MaxMissingEntries
 Maximale Anzahl der auszugebenden fehlenden CU-Einträge pro Version.
@@ -76,6 +77,7 @@ function Get-CatalogCUs {
 
         $result[$versionId] = [PSCustomObject]@{
             VersionId = $versionId
+            Status = [string]$entry.status
             Builds = $builds
         }
     }
@@ -159,7 +161,10 @@ $targetVersions = if ($Version -and $Version.Count -gt 0) {
     @($Version | ForEach-Object { $_.ToString().Trim() })
 }
 else {
-    @($catalogVersions)
+    @($catalogData.Values |
+        Where-Object { $_.Status -eq 'SUPPORTED' } |
+        Sort-Object -Property VersionId |
+        ForEach-Object { $_.VersionId })
 }
 
 $checkResult = @()
