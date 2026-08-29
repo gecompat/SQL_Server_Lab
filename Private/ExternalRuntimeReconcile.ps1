@@ -103,7 +103,8 @@ function Get-LabExternalRuntimeReconcileContext {
             throw "EXTERNAL_RUNTIME_RECONCILE_OTHER_INSTANCE_CHANGED: $($currentOther.Id)"
         }
     }
-    if ([string]$targetSnapshot[0].Provider -notin @('docker', 'podman') -or [string]$targetSnapshot[0].Version -ne '2022') {
+    if ([string]$targetSnapshot[0].Provider -notin @('docker', 'podman') -or
+        [string]$targetSnapshot[0].Version -notin @('2019', '2022', '2025')) {
         throw 'EXTERNAL_RUNTIME_RECONCILE_PROVIDER_OR_VERSION_UNSUPPORTED'
     }
 
