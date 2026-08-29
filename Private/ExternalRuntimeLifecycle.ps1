@@ -531,6 +531,15 @@ RECONFIGURE WITH OVERRIDE;
     $readiness = Wait-SqlReady -HostName ([string]$LabInstance.Host) -Port ([int]$LabInstance.Port) `
         -SaPassword $SaPassword -TimeoutSeconds 300 -ExpectedMajorVersion ([int]$versionDefinition.major) `
         -Provider ([string]$LabInstance.Provider) -ContainerIdOrName ([string]$LabInstance.ContainerId)
+    if (-not $readiness.Ready -and [string]$readiness.Message -match '(?s)setnetbr.*Failed to get IP address: interrupted system call') {
+        Write-Warning 'Transiente LaunchPad-Netzbrücken-Race; Container wird nach kurzer Freigabe einmal neu gestartet.'
+        Start-Sleep -Seconds 2
+        Restart-LabExternalRuntimeContainer -Provider ([string]$LabInstance.Provider) `
+            -ContainerIdOrName ([string]$LabInstance.ContainerId)
+        $readiness = Wait-SqlReady -HostName ([string]$LabInstance.Host) -Port ([int]$LabInstance.Port) `
+            -SaPassword $SaPassword -TimeoutSeconds 300 -ExpectedMajorVersion ([int]$versionDefinition.major) `
+            -Provider ([string]$LabInstance.Provider) -ContainerIdOrName ([string]$LabInstance.ContainerId)
+    }
     if (-not $readiness.Ready) {
         throw "EXTERNAL_RUNTIME_SQL_NOT_READY_AFTER_RESTART: $($readiness.Message)"
     }
