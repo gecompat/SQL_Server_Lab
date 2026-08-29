@@ -8,6 +8,18 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- Die CU-Auswahl umfasst jetzt die vollständige bei Microsoft verfügbare
+  Historie für SQL Server 2019, 2022 und 2025: 65 explizite Linux-MCR-Tags und
+  ebenso viele Windows-x64-Pakete mit offizieller Downloadquelle, Media-Root-
+  Pfad und SHA-256. Das zurückgezogene SQL Server 2019 CU7 bleibt gesperrt.
+
+- Der schemaabgeleitete Manifest-Wizard unterstützt jetzt in allen
+  Eingabeknoten Hilfe, schrittweise Zurücknavigation,
+  Zwischenzusammenfassungen und Abbruch ohne partielle Manifestdatei. Die
+  Planvorschau `SqlServerLab.ManifestPlanPreview/1.1` zeigt zusätzlich zu
+  External Runtimes auch Sample-/Artifact-Quelle, Lizenz, Outputs, Größen,
+  Integrität, Trust, Handler und Idempotenz.
+
 - Der SQL-CU-Wächter begrenzt seinen Standardlauf jetzt auf die im
   Versionskatalog als `SUPPORTED` markierten SQL-Versionen. Veraltete
   Katalogeinträge erzeugen dadurch keine falschen `NEW`-Meldungen mehr, bleiben

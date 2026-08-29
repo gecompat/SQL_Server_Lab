@@ -349,10 +349,12 @@ bleiben bewusst `descriptive`, weil sie MDF/LDF-Dateien für einen noch nicht
 implementierten Attach-Handler enthalten – sie werden nicht als `.bak`
 umgedeutet.
 
-Noch nicht implementiert sind Attach-Handler, Hyper-V-`LAB_GENERATED`-Backups,
-das Überschreiben der erwarteten Zieldatenbanknamen sowie die vollständige
-Wizard-Navigation mit Zurück und Sample-/Artifact-Planvorschau. Die getrennte
-External-Runtime-Planvorschau ist implementiert. Single- und
+Noch nicht implementiert sind Attach-Handler, Hyper-V-`LAB_GENERATED`-Backups
+und das Überschreiben der erwarteten Zieldatenbanknamen. Der Manifest-Wizard
+unterstützt Hilfe, schrittweise Zurücknavigation, Zwischenzusammenfassung und
+Abbruch ohne partielle Datei. Seine mutationsfreie Planvorschau umfasst
+External Runtimes sowie Sample-/Artifact-Quelle, Lizenz, Outputs, Größen,
+Integrität, Trust, Handler und Idempotenz. Single- und
 Multi-Output-Container-Samples erzeugen
 nach erfolgreicher Verifikation geprüfte Backups und
 bevorzugen es in Folge-Runs über das portable Register. Script Bundles können
@@ -407,7 +409,12 @@ Die produktiven Adapter für `SQL_PerformanceSchulung`, `SQL_Server_Analyze` und
 
 ## SQL Server Builds und CUs
 
-Der Versionskatalog enthält ausdrücklich versionierte Buildmetadaten. Diese Daten sind nicht automatisch aktuell. Ein vorhandener Katalogeintrag bedeutet nicht, dass er das neueste verfügbare CU darstellt.
+Der Versionskatalog enthält für SQL Server 2019, 2022 und 2025 die vollständige
+bei Microsoft weiterhin verfügbare CU-Historie mit expliziten MCR-Tags sowie
+hashgebundenen Windows-Paketen. Diese Daten sind nicht automatisch aktuell und
+müssen bei neuen Microsoft-Veröffentlichungen weiter gepflegt werden. SQL
+Server 2019 CU7 bleibt wegen des von Microsoft dokumentierten Rückzugs bewusst
+nicht auswählbar.
 
 Kurzbezeichner wie `2022-CU16` werden nur akzeptiert, wenn der Build im Katalog vorhanden ist. Unbekannte CU-Bezeichner werden nicht mehr durch eine vermutete Image-Tag-Konvention ersetzt.
 

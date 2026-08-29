@@ -72,7 +72,7 @@ Add-CheckResult `
 
 $wizardDraft = & $module {
     $originalString = (Get-Command Read-LabString).ScriptBlock
-    $originalConfirm = (Get-Command Read-LabConfirm).ScriptBlock
+    $originalChoice = (Get-Command Read-LabManifestChoice).ScriptBlock
     try {
         Set-Item Function:Read-LabString -Value {
             param([string]$Prompt)
@@ -83,12 +83,12 @@ $wizardDraft = & $module {
                 default { throw "Unerwartete Testeingabe: $Prompt" }
             }
         }
-        Set-Item Function:Read-LabConfirm -Value { param() return $false }
+        Set-Item Function:Read-LabManifestChoice -Value { param() return 1 }
         New-LabManifestDraft -SchemaReference './Schemas/lab-manifest.schema.json'
     }
     finally {
         Set-Item Function:Read-LabString -Value $originalString
-        Set-Item Function:Read-LabConfirm -Value $originalConfirm
+        Set-Item Function:Read-LabManifestChoice -Value $originalChoice
     }
 }
 $wizardResult = Test-SqlServerLabManifest -InputObject $wizardDraft
@@ -98,6 +98,55 @@ Add-CheckResult `
         $wizardDraft.instances.Count -eq 1 -and
         $wizardResult.IsValid) `
     -Message ($wizardResult.Errors -join '; ')
+
+$wizardNavigation = & $module {
+    $schema = [PSCustomObject]@{
+        type = 'object'
+        required = @('first', 'second')
+        properties = [PSCustomObject][ordered]@{
+            first = [PSCustomObject]@{ type='string'; description='Erster Wert' }
+            second = [PSCustomObject]@{ type='string'; description='Zweiter Wert' }
+        }
+    }
+    $originalString = (Get-Command Read-LabString).ScriptBlock
+    $script:ManifestNavigationInputs = [System.Collections.Generic.Queue[string]]::new()
+    @('alpha', '<', 'beta', '=', 'omega') | ForEach-Object { $script:ManifestNavigationInputs.Enqueue($_) }
+    try {
+        Set-Item Function:Read-LabString -Value { param() $script:ManifestNavigationInputs.Dequeue() }
+        $draft = Read-LabManifestSchemaValue -Node $schema -RootSchema $schema -Path 'navigation'
+        [PSCustomObject]@{
+            Draft = $draft
+            RemainingInputs = $script:ManifestNavigationInputs.Count
+        }
+    }
+    finally {
+        Set-Item Function:Read-LabString -Value $originalString
+        Remove-Variable ManifestNavigationInputs -Scope Script -ErrorAction SilentlyContinue
+    }
+}
+Add-CheckResult `
+    -Name 'Wizard kann zu einem vorherigen Schritt zurueckkehren und eine Zusammenfassung anzeigen' `
+    -Success ($wizardNavigation.Draft.first -eq 'beta' -and
+        $wizardNavigation.Draft.second -eq 'omega' -and
+        $wizardNavigation.RemainingInputs -eq 0) `
+    -Message ($wizardNavigation | ConvertTo-Json -Depth 10 -Compress)
+
+$cancelTarget = Join-Path ([System.IO.Path]::GetTempPath()) "sql-lab-manifest-cancel-$([guid]::NewGuid().ToString('N')).json"
+$wizardCancel = & $module {
+    param($Target)
+    $originalString = (Get-Command Read-LabString).ScriptBlock
+    try {
+        Set-Item Function:Read-LabString -Value { param() return '!' }
+        New-SqlServerLabManifest -Path $Target
+        -not (Test-Path -LiteralPath $Target)
+    }
+    finally {
+        Set-Item Function:Read-LabString -Value $originalString
+    }
+} $cancelTarget
+Add-CheckResult `
+    -Name 'Wizard-Abbruch schreibt keine partielle Manifestdatei' `
+    -Success $wizardCancel
 
 $spConfigure = & $module {
     $originalString = (Get-Command Read-LabString).ScriptBlock
@@ -173,6 +222,31 @@ Add-CheckResult `
         $externalRuntimePlan.Verification.type -eq 'spExecuteExternalScript') `
     -Message (($externalRuntimeResult.Errors + $externalRuntimeResult.Warnings) -join '; ')
 
+$samplePlanManifest = [ordered]@{
+    name = 'sample-plan-check'
+    instances = @([ordered]@{
+        id='primary'; version='2022'; provider='docker'
+        databases = @([ordered]@{
+            name='AdventureWorks2022'
+            sample=[ordered]@{ id='adventureworks-2022'; variant='full' }
+        })
+    })
+}
+$samplePlanResult = Test-SqlServerLabManifest -InputObject $samplePlanManifest
+$samplePlan = @($samplePlanResult.Plan.Instances[0].Samples)[0]
+Add-CheckResult `
+    -Name 'Manifestpruefung liefert Sample- und Artifact-Planvorschau' `
+    -Success ($samplePlanResult.IsValid -and
+        $samplePlanResult.Plan.Contract.Version -eq '1.1' -and
+        $samplePlan.Status -eq 'RESOLVED' -and
+        $samplePlan.ArtifactType -eq 'backup' -and
+        $samplePlan.Source -match '^https://' -and
+        $samplePlan.License -and
+        @($samplePlan.ExpectedOutputs).Count -eq 1 -and
+        $samplePlan.IntegrityStatus -in @('catalog-sha256', 'trust-required') -and
+        $samplePlan.InstallationKind -eq 'backup') `
+    -Message (($samplePlanResult.Errors + $samplePlanResult.Warnings) -join '; ')
+
 $wizardExternalRuntimeSelection = & $module {
     $originalChoice = (Get-Command Read-LabChoice).ScriptBlock
     $script:ExternalRuntimeChoiceCall = 0
@@ -181,7 +255,7 @@ $wizardExternalRuntimeSelection = & $module {
             param([string[]]$Options)
             $script:ExternalRuntimeChoiceCall++
             if ($script:ExternalRuntimeChoiceCall -eq 1) { return 0 }
-            return $Options.Count - 1
+            return [array]::IndexOf($Options, 'Auswahl abschliessen')
         }
         Select-LabManifestExternalRuntimeReferences -InstanceDraft ([ordered]@{
             id='primary'; version='2022'; provider='podman'; os='linux'

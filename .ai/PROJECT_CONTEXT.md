@@ -117,6 +117,9 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   Gastinstaller, SQL-Feature-/State-/Recovery-Vertrag sowie echtem
   External-Script-Acceptance-Runner; Python, R und Java bestanden die native
   SQL-2022-Evidence vor und nach vollständigem VM-Kaltstart samt Cleanup;
+- schemaabgeleiteter Manifest-Wizard mit Hilfe, schrittweiser Zurücknavigation,
+  Zwischenzusammenfassung und sauberem Abbruch ohne partielle Datei sowie
+  mutationsfreier External-Runtime- und Sample-/Artifact-Planvorschau;
 
 ### Geplant oder unvollständig
 
@@ -128,10 +131,6 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   eines Runs;
 - vollständige Ausführung aller im Schema vorbereiteten `serverConfig`-Felder;
 - nicht freigegebene Archive und Attach-Szenarien;
-- vollständige kontextreiche Manifest-Menüführung mit Navigation; die
-  resolvergebundene External-Runtime-Auswahl und -Planvorschau ist
-  implementiert, Zurück-Navigation sowie allgemeine Sample-/Artifact-
-  Planvorschau bleiben offen;
 - Hyper-V-Export und -Nutzung von `LAB_GENERATED`-Baselines;
 - weitere External-Runtime-OS-/Providerkombinationen außerhalb der belegten
   Linux-Containermatrix und des SQL-2022-Hyper-V-/Windows-Pfads; C# bleibt bis
