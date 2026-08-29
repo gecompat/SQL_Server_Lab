@@ -519,6 +519,22 @@ Softwarepfad sowie Hyper-V-Artifact-Refresh und automatische Gastumschaltung.
 
 ## Tests
 
+### Container-Reconcile
+
+Der öffentliche Containerplan und seine Action unterstützen derzeit CPU, RAM
+und SQL `max server memory (MB)` live sowie Hostport- und SQL-Runtime-
+Vertragsreparatur per kontrolliertem Recreate. Das lokale Journal bindet echte
+Runtime-IDs und kann einen unvollständigen Folgelauf abschließen, zurückrollen
+oder sichtbar als `RECOVERY_REQUIRED` markieren. Docker und Podman sind am
+2026-08-29 real mit No-op, Live, Recreate, Rollback, Datenpersistenz und Cleanup
+geprüft worden.
+
+Freie Änderungen beliebiger Mounts, Environment-Variablen oder Images sind
+nicht Teil dieses öffentlichen Reconcile-Vertrags. Der Recreate-Pfad übernimmt
+die bereits freigegebenen Mounts, Labels, das Netzwerk und die Restart-Policy;
+er ist kein allgemeiner Containereditor. Ein Journal ersetzt außerdem keine
+physische Hyper-V-Storage-Evidence.
+
 Der Integration-Smoke-Test benötigt eine laufende lokale Runtime und `sqlcmd`.
 
 `-Provider auto` wählt für den mutierenden Lifecycle genau eine Runtime: Docker vor Podman. Das Resource Assessment prüft zusätzlich alle erkannten Provider.

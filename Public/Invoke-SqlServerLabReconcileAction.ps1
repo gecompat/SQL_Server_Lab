@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Wendet einen Lifecycle- oder External-Runtime-Reconcile-Plan auf einen Run an.
+    Wendet einen Lifecycle-, Container- oder External-Runtime-Reconcile-Plan auf einen Run an.
 .DESCRIPTION
     Liest zuerst den Reconcile-Plan aus. Eine Ausfuehrung erfolgt nur fuer den
     eindeutig-restartfaehigen Pfad mit genau einer Operation START oder STOP.
@@ -13,7 +13,19 @@
 .PARAMETER ManifestPath
     Zielmanifest fuer einen resolvergebundenen External-Runtime-Reconcile.
 .PARAMETER InstanceId
-    Zielinstanz fuer den External-Runtime-Reconcile.
+    Zielinstanz fuer den Container- oder External-Runtime-Reconcile.
+.PARAMETER Container
+    Wählt den journalisierten Container-Ressourcen-Reconcile.
+.PARAMETER Cpu
+    Gewünschte vCPU-Grenze.
+.PARAMETER MemoryMB
+    Gewünschte RAM-Grenze in MB.
+.PARAMETER Port
+    Gewünschter SQL-Hostport; eine Änderung verwendet recreate.
+.PARAMETER SqlMaxMemoryMB
+    Gewünschter live angewandter SQL-Wert `max server memory (MB)`.
+.PARAMETER RepairSqlRuntimeContract
+    Repariert SQL-Memory-/Healthcheck-Drift über recreate.
 .PARAMETER ReadinessTimeoutSeconds
     Maximale Wartezeit fuer die SQL-Readiness des Ersatzcontainers.
 .PARAMETER StateRoot
@@ -38,11 +50,35 @@ function Invoke-SqlServerLabReconcileAction {
         [string]$ManifestPath,
 
         [Parameter(ParameterSetName = 'ExternalRuntime')]
+        [Parameter(ParameterSetName = 'Container')]
         [string]$InstanceId,
 
         [Parameter(ParameterSetName = 'ExternalRuntime')]
-        [ValidateRange(30, 900)]
+        [Parameter(ParameterSetName = 'Container')]
+        [ValidateRange(10, 900)]
         [int]$ReadinessTimeoutSeconds = 300,
+
+        [Parameter(Mandatory, ParameterSetName = 'Container')]
+        [switch]$Container,
+
+        [Parameter(ParameterSetName = 'Container')]
+        [ValidateRange(1, 64)]
+        [decimal]$Cpu,
+
+        [Parameter(ParameterSetName = 'Container')]
+        [ValidateRange(512, 1048576)]
+        [int]$MemoryMB,
+
+        [Parameter(ParameterSetName = 'Container')]
+        [ValidateRange(1024, 65535)]
+        [int]$Port,
+
+        [Parameter(ParameterSetName = 'Container')]
+        [ValidateRange(128, 2147483647)]
+        [int]$SqlMaxMemoryMB,
+
+        [Parameter(ParameterSetName = 'Container')]
+        [switch]$RepairSqlRuntimeContract,
 
         [string]$StateRoot
     )
@@ -75,6 +111,52 @@ function Invoke-SqlServerLabReconcileAction {
         }
         return [PSCustomObject]@{
             Contract=[PSCustomObject]@{ Name='SqlServerLab.ReconcileAction'; Version='1.1' }
+            RunId=$RunId; TargetState=$null; Plan=$plan; ExecutionPlan=@([PSCustomObject]$entry)
+            ExecutionSummary=[PSCustomObject]$summary; MutationAllowed=[bool]$summary.MutationAllowed
+            Warnings=@($plan.Warnings)
+        }
+    }
+
+    if ($PSCmdlet.ParameterSetName -eq 'Container') {
+        $planArguments = @{ RunId=$RunId; Container=$true; InstanceId=$InstanceId; StateRoot=$StateRoot; RepairSqlRuntimeContract=$RepairSqlRuntimeContract }
+        if ($PSBoundParameters.ContainsKey('Cpu')) { $planArguments.Cpu=[decimal]$Cpu }
+        if ($PSBoundParameters.ContainsKey('MemoryMB')) { $planArguments.MemoryMB=[int]$MemoryMB }
+        if ($PSBoundParameters.ContainsKey('Port')) { $planArguments.Port=[int]$Port }
+        if ($PSBoundParameters.ContainsKey('SqlMaxMemoryMB')) { $planArguments.SqlMaxMemoryMB=[int]$SqlMaxMemoryMB }
+        $plan = Get-SqlServerLabReconcilePlan @planArguments
+        $wouldExecute = if ($plan.IsNoOp) { $false } else {
+            $PSCmdlet.ShouldProcess("Run '$RunId', Instanz '$($plan.InstanceId)'", "Container-Reconcile '$($plan.HighestChangeClass)' ausführen")
+        }
+        $entry = [ordered]@{
+            Operation=if($plan.IsNoOp){'None'}else{[string]$plan.Actions[0].Operation}
+            ChangeClass=[string]$plan.HighestChangeClass; Planned=(-not $plan.IsNoOp); Executed=$false
+            Status=if($plan.IsNoOp){'NO_OP'}elseif($wouldExecute){'PLANNED'}else{'WOULD_EXECUTE'}
+            Reason=$null; Result=$null
+        }
+        $summary = [ordered]@{
+            Status=$entry.Status; PlannedActions=@($plan.Actions).Count; ExecutedActions=0
+            FailedActions=0; MutationAllowed=$false; Errors=@()
+        }
+        if (-not $plan.IsNoOp -and $wouldExecute) {
+            try {
+                $updateArguments = @{
+                    RunId=$RunId; InstanceId=[string]$plan.InstanceId; Cpu=[decimal]$plan.Desired.Cpu
+                    MemoryMB=[int]$plan.Desired.MemoryMB; Port=[int]$plan.Desired.Port
+                    ReadinessTimeoutSeconds=$ReadinessTimeoutSeconds; RepairSqlRuntimeContract=$RepairSqlRuntimeContract
+                    StateRoot=$StateRoot; Confirm=$false
+                }
+                if ($null -ne $plan.Desired.SqlMaxMemoryMB) { $updateArguments.SqlMaxMemoryMB=[int]$plan.Desired.SqlMaxMemoryMB }
+                $result = Update-SqlServerLabContainer @updateArguments
+                $entry.Executed=$true; $entry.Status='SUCCEEDED'; $entry.Result=$result
+                $summary.Status='SUCCEEDED'; $summary.ExecutedActions=1; $summary.MutationAllowed=$true
+            }
+            catch {
+                $entry.Executed=$true; $entry.Status='FAILED'; $entry.Reason=$_.Exception.Message
+                $summary.Status='FAILED'; $summary.ExecutedActions=1; $summary.FailedActions=1; $summary.Errors=@($_.Exception.Message)
+            }
+        }
+        return [PSCustomObject]@{
+            Contract=[PSCustomObject]@{ Name='SqlServerLab.ReconcileAction'; Version='1.2' }
             RunId=$RunId; TargetState=$null; Plan=$plan; ExecutionPlan=@([PSCustomObject]$entry)
             ExecutionSummary=[PSCustomObject]$summary; MutationAllowed=[bool]$summary.MutationAllowed
             Warnings=@($plan.Warnings)
