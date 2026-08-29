@@ -979,13 +979,18 @@
             },
             "installMethod": {
               "type": "string",
-              "description": "Wie ML Services installiert werden; 'pre-built' ist reserviert und wird nicht ausgefuehrt.",
+              "description": "Wie ML Services installiert werden; 'custom-image' und 'pre-built' sind reserviert und werden nicht ausgefuehrt.",
               "enum": [
                 "post-start",
                 "custom-image",
                 "pre-built"
               ],
               "default": "post-start",
+              "x-runtimeValueStatus": {
+                "post-start": "executable",
+                "custom-image": "reserved",
+                "pre-built": "reserved"
+              },
               "x-runtimeStatus": "partially-executable"
             }
           },

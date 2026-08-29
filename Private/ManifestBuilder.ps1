@@ -16,6 +16,81 @@ function Get-LabManifestSchema {
         ConvertFrom-Json -Depth 100
 }
 
+function Get-LabManifestRuntimeContractErrors {
+    <#
+    .SYNOPSIS
+        Lehnt gesetzte, laut Schema reservierte Runtimefelder und -werte ab.
+    #>
+    [CmdletBinding()]
+    param(
+        $ServerConfig,
+        [Parameter(Mandatory)]$RootSchema,
+        [Parameter(Mandatory)][string]$InstancePath
+    )
+
+    $errors = [System.Collections.Generic.List[string]]::new()
+    if ($null -eq $ServerConfig) {
+        return @()
+    }
+
+    function Test-RuntimeNode {
+        param(
+            [Parameter(Mandatory)]$Node,
+            $Value,
+            [Parameter(Mandatory)][string]$Path
+        )
+
+        $runtimeStatusProperty = $Node.PSObject.Properties['x-runtimeStatus']
+        if ($runtimeStatusProperty -and [string]$runtimeStatusProperty.Value -eq 'reserved') {
+            $errors.Add("MANIFEST_RESERVED_RUNTIME_FIELD: $Path ist laut Schema reserviert und wird nicht ausgefuehrt.")
+            return
+        }
+
+        $runtimeValueStatusProperty = $Node.PSObject.Properties['x-runtimeValueStatus']
+        if ($runtimeValueStatusProperty -and $null -ne $Value) {
+            $valueStatusProperty = $runtimeValueStatusProperty.Value.PSObject.Properties[[string]$Value]
+            if ($valueStatusProperty -and [string]$valueStatusProperty.Value -eq 'reserved') {
+                $errors.Add("MANIFEST_RESERVED_RUNTIME_VALUE: $Path='$Value' ist laut Schema reserviert und wird nicht ausgefuehrt.")
+                return
+            }
+        }
+
+        $resolvedNode = Resolve-LabManifestSchemaNode -Node $Node -RootSchema $RootSchema
+        if ([string]$resolvedNode.type -eq 'object' -and $null -ne $Value) {
+            $propertiesProperty = $resolvedNode.PSObject.Properties['properties']
+            if (-not $propertiesProperty) {
+                return
+            }
+            foreach ($valueProperty in $Value.PSObject.Properties) {
+                $childNodeProperty = $propertiesProperty.Value.PSObject.Properties[$valueProperty.Name]
+                if ($childNodeProperty) {
+                    Test-RuntimeNode `
+                        -Node $childNodeProperty.Value `
+                        -Value $valueProperty.Value `
+                        -Path "$Path.$($valueProperty.Name)"
+                }
+            }
+        }
+        elseif ([string]$resolvedNode.type -eq 'array' -and $null -ne $Value) {
+            $itemsProperty = $resolvedNode.PSObject.Properties['items']
+            if ($itemsProperty) {
+                $itemIndex = 0
+                foreach ($item in @($Value)) {
+                    Test-RuntimeNode -Node $itemsProperty.Value -Value $item -Path "$Path[$itemIndex]"
+                    $itemIndex++
+                }
+            }
+        }
+    }
+
+    Test-RuntimeNode `
+        -Node $RootSchema.definitions.serverConfig `
+        -Value $ServerConfig `
+        -Path "$InstancePath.serverConfig"
+
+    return @($errors | Select-Object -Unique)
+}
+
 function Get-LabManifestInputContextLines {
     <#
     .SYNOPSIS
@@ -970,6 +1045,8 @@ function Get-LabManifestValidationResult {
         }
     }
 
+    $manifestSchema = Get-LabManifestSchema
+
     $manifestDirectory = if ($ManifestPath) {
         Split-Path -Parent ([System.IO.Path]::GetFullPath($ManifestPath))
     }
@@ -994,6 +1071,13 @@ function Get-LabManifestValidationResult {
             Resolve-ProviderAutoSelect -Instance $instance
         }
         $effectiveProviders.Add($effectiveProvider)
+
+        foreach ($runtimeContractError in @(Get-LabManifestRuntimeContractErrors `
+                -ServerConfig $instance.serverConfig `
+                -RootSchema $manifestSchema `
+                -InstancePath $instancePath)) {
+            $errors.Add($runtimeContractError)
+        }
 
         if ($instance.autostart -and $instance.hyperv -and $instance.hyperv.autostart -and
             [string]$instance.autostart -ne [string]$instance.hyperv.autostart) {
@@ -1244,22 +1328,6 @@ function Get-LabManifestValidationResult {
             if ([int]$traceFlag -le 0) {
                 $errors.Add("$instancePath.serverConfig.traceFlags: '$traceFlag' muss positiv sein.")
             }
-        }
-
-        $preparedServerFields = @(
-            'collation', 'defaultPaths', 'sqlAgent', 'clrEnabled', 'filestream',
-            'containedDatabases', 'authMode', 'errorLogRetention', 'instantFileInit'
-        )
-        foreach ($fieldName in $preparedServerFields) {
-            if ($instance.serverConfig.PSObject.Properties.Name -contains $fieldName) {
-                $warnings.Add("$instancePath.serverConfig.$fieldName ist im Schema vorbereitet, wird aber noch nicht zuverlaessig angewendet.")
-            }
-        }
-        if ($instance.serverConfig.externalScripts.customImage) {
-            $warnings.Add("$instancePath.serverConfig.externalScripts.customImage wird noch nicht in die Provider-Imageauswahl uebernommen.")
-        }
-        if ($instance.serverConfig.externalScripts.installMethod -eq 'pre-built') {
-            $warnings.Add("$instancePath.serverConfig.externalScripts.installMethod 'pre-built' ist noch nicht implementiert.")
         }
 
         $drives = @($instance.drives | Where-Object { $null -ne $_ })

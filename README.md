@@ -308,9 +308,12 @@ $result.Warnings
 $result.Plan.Instances.ExternalRuntimes.Entries
 ```
 
-Fehler verhindern das Speichern beziehungsweise Provisionieren. Warnungen
-kennzeichnen unter anderem vorbereitete Schemafelder ohne stabilen Runtimepfad
-und riskante SQL-Konfigurationen. Bei `software` bietet der interaktive Wizard
+Fehler verhindern das Speichern beziehungsweise Provisionieren. Als
+`reserved` klassifizierte `serverConfig`-Felder sowie reservierte Werte werden
+mit `MANIFEST_RESERVED_RUNTIME_FIELD` beziehungsweise
+`MANIFEST_RESERVED_RUNTIME_VALUE` fail-closed abgelehnt; Warnungen
+kennzeichnen weiterhin riskante, aber ausführbare SQL-Konfigurationen. Bei
+`software` bietet der interaktive Wizard
 nur Varianten an, die der Software-Resolver fuer die bereits gewählte
 SQL-Version, den Provider und das Betriebssystem als `RESOLVED` freigibt. Die
 mutationsfreie Planvorschau nennt Artifact-Downloads, Derived-Image-Build oder
