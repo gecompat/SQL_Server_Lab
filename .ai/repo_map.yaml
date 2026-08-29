@@ -290,8 +290,10 @@ internal_components:
     responsibilities:
       - "alle Manifestfelder dynamisch aus dem JSON-Schema erfassen"
       - "x-ui-Pfadsemantik, Scope und aufgeloeste Hostvorschau im Wizard anzeigen"
+      - "Hilfe, schrittweise Zuruecknavigation, Zwischenzusammenfassung und Abbruch ohne partielle Manifestdatei anbieten"
       - "nur resolverfreigegebene External-Runtime-Varianten im Instanzkontext anbieten"
       - "mutationsfreie Software-Planvorschau mit Downloads, Build/Gastmutation, Downtime, Locks, Verification und Aenderungsklassen liefern"
+      - "mutationsfreie Sample-/Artifact-Planvorschau mit Quelle, Lizenz, Outputs, Groessen, Integritaet, Trust, Handler und Idempotenz liefern"
       - "Schema-, Katalog- und Runtime-Grenzen vor dem Speichern prüfen"
       - "Warnungen für vorbereitete oder riskante Konfigurationen erzeugen"
   - name: ManifestParser

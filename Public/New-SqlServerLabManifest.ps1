@@ -52,17 +52,32 @@ function New-SqlServerLabManifest {
             $relativeSchemaPath = "./$relativeSchemaPath"
         }
 
-        $draft = if ($PSCmdlet.ParameterSetName -eq 'Interactive') {
-            Write-LabHeader 'SQL Server Lab - Manifest erstellen'
-            Write-LabInfo 'Optionale Felder koennen einzeln aktiviert werden. Eingaben werden sofort typgeprueft und Pfadangaben zeigen Scope, Bezugsbasis und Vorschau.'
-            Write-LabInfo "Manifest-Ziel: $fullPath"
-            Write-LabInfo "Relative Hostpfade beziehen sich auf: $parentPath"
-            New-LabManifestDraft `
-                -SchemaReference $relativeSchemaPath `
-                -ManifestDirectory $parentPath
+        try {
+            $draft = if ($PSCmdlet.ParameterSetName -eq 'Interactive') {
+                Write-LabHeader 'SQL Server Lab - Manifest erstellen'
+                Write-LabInfo 'Jeder Schritt bietet Hilfe, Zurueck, Zusammenfassung und Abbruch. Eingaben werden sofort typgeprueft und Pfadangaben zeigen Scope, Bezugsbasis und Vorschau.'
+                Write-LabInfo "Manifest-Ziel: $fullPath"
+                Write-LabInfo "Relative Hostpfade beziehen sich auf: $parentPath"
+                New-LabManifestDraft `
+                    -SchemaReference $relativeSchemaPath `
+                    -ManifestDirectory $parentPath
+            }
+            else {
+                $InputObject
+            }
         }
-        else {
-            $InputObject
+        catch {
+            if ($PSCmdlet.ParameterSetName -eq 'Interactive' -and (Test-LabConsoleInputCancellation -InputObject $_)) {
+                Write-LabInfo 'Manifest-Wizard abgebrochen; es wurde keine Datei geschrieben.'
+                return
+            }
+            throw
+        }
+
+        if ($PSCmdlet.ParameterSetName -eq 'Interactive' -and
+            (Test-LabManifestNavigationResult -InputObject $draft)) {
+            Write-LabInfo 'Manifest-Wizard abgebrochen; es wurde keine Datei geschrieben.'
+            return
         }
 
         $json = $draft | ConvertTo-Json -Depth 100
@@ -72,6 +87,7 @@ function New-SqlServerLabManifest {
             -Json $json `
             -ManifestPath $fullPath
 
+        Write-LabManifestSummary -Manifest $manifest -Validation $validation
         Write-LabManifestPlanPreview -Plan $validation.Plan
         foreach ($warning in $validation.Warnings) {
             Write-LabWarning $warning
@@ -83,11 +99,21 @@ function New-SqlServerLabManifest {
             throw "Manifest wurde wegen $($validation.Errors.Count) Validierungsfehler(n) nicht gespeichert."
         }
 
-        if ($PSCmdlet.ParameterSetName -eq 'Interactive' -and
-            $validation.Warnings.Count -gt 0 -and
-            -not (Read-LabConfirm -Prompt 'Manifest trotz Warnungen speichern?' -Default $false)) {
-            Write-LabInfo 'Manifest wurde nicht gespeichert.'
-            return
+        if ($PSCmdlet.ParameterSetName -eq 'Interactive' -and $validation.Warnings.Count -gt 0) {
+            try {
+                $acceptWarnings = Read-LabConfirm -Prompt 'Manifest trotz Warnungen speichern?' -Default $false
+            }
+            catch {
+                if (Test-LabConsoleInputCancellation -InputObject $_) {
+                    Write-LabInfo 'Manifest wurde nicht gespeichert.'
+                    return
+                }
+                throw
+            }
+            if (-not $acceptWarnings) {
+                Write-LabInfo 'Manifest wurde nicht gespeichert.'
+                return
+            }
         }
 
         if ($PSCmdlet.ShouldProcess($fullPath, 'Validiertes Lab-Manifest speichern')) {
@@ -155,8 +181,9 @@ function Test-SqlServerLabManifest {
         System.Management.Automation.PSCustomObject. Ohne Quiet enthaelt das
         Ergebnis IsValid (Boolean), Errors (String[]), Warnings (String[]) und
         Plan. Plan beschreibt External-Runtime-Downloads, Build- oder
-        Gastmutation, Restarts, Downtime, Package Locks, Verification und den
-        erforderlichen Aenderungsweg ohne eine Labressource zu veraendern.
+        Gastmutation, Restarts, Downtime, Package Locks und Verification sowie
+        Sample-/Artifact-Quelle, Lizenz, Outputs, Größen, Integrität, Trust,
+        Handler und Idempotenz ohne eine Labressource zu veraendern.
 
         System.Boolean. Mit Quiet wird nur IsValid zurueckgegeben.
     .EXAMPLE

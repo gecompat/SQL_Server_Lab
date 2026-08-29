@@ -402,7 +402,7 @@ Ohne `-Quiet` gibt das Cmdlet ein Ergebnisobjekt zurück:
 | `IsValid` | `Boolean` | `True`, wenn keine Validierungsfehler gefunden wurden |
 | `Errors` | `String[]` | Schema-, Katalog-, Pfad- und fachliche Fehler |
 | `Warnings` | `String[]` | Risiken oder akzeptierte Felder mit eingeschränkter Runtime-Unterstützung |
-| `Plan` | `PSCustomObject` | Mutationsfreie External-Runtime-Planvorschau je Instanz |
+| `Plan` | `PSCustomObject` | Mutationsfreie External-Runtime- und Sample-/Artifact-Planvorschau je Instanz |
 
 Der Wizard bietet unter `instances[].software` nur External-Runtime-Varianten
 an, die der Resolver fuer die bereits gewählte SQL-Version, den Provider und
@@ -411,10 +411,13 @@ nennt fuer dieselbe Auflösung Downloads, Derived-Image-Build oder Gastmutation,
 Restarts, Downtime, Package Locks und Verification. Der Aenderungsweg trennt
 Artifact-`rebuild`, Service-`restart`, Container-`recreate` und sichere
 Gast-`reprovision`; identische portable `PlanKey`-Werte ergeben `no-op`.
+`Plan.Instances[].Samples` nennt zusätzlich Sample-ID und Variante, Artifact
+Type, Quelle, Lizenz, erwartete Outputs, Download-/Installationsgröße,
+Integritäts-/Trust-Status, Handler und Idempotenz.
 
 ```powershell
 $validation.Plan.Instances |
-    Select-Object InstanceId, Provider, ExternalRuntimes
+    Select-Object InstanceId, Provider, ExternalRuntimes, Samples
 ```
 
 Mit `-Quiet` wird ausschließlich `True` oder `False` zurückgegeben. Der Switch
