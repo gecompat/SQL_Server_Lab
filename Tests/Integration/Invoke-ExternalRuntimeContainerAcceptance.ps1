@@ -324,17 +324,31 @@ SELECT CONCAT(N'SQLLAB_JAVA_OBJECTS|',
     $restart = Restart-SqlServerLab -RunId $lab.RunId -TimeoutSeconds 300 -Force
     Assert-ExternalRuntimeAcceptance ([string]$restart.Status -eq 'RUNNING' -and [int]$restart.Errors -eq 0) 'Providergebundener Restart erreicht SQL-Readiness'
     $postRestart = & $module {
-        param($Plans,$LabInstance,$Password)
+        param($Plans,$LabInstance,$Password,$ExpectedMajor)
+        $recoverProbeReadiness = {
+            Restart-LabExternalRuntimeContainer -Provider ([string]$LabInstance.Provider) `
+                -ContainerIdOrName ([string]$LabInstance.ContainerId)
+            $recovered = Wait-SqlReady -HostName ([string]$LabInstance.Host) -Port ([int]$LabInstance.Port) `
+                -SaPassword $Password -TimeoutSeconds 300 -ExpectedMajorVersion $ExpectedMajor `
+                -Provider ([string]$LabInstance.Provider) -ContainerIdOrName ([string]$LabInstance.ContainerId)
+            if (-not $recovered.Ready) { throw "EXTERNAL_RUNTIME_ACCEPTANCE_PROBE_RETRY_READINESS_FAILED: $($recovered.Message)" }
+        }
         $launchpad = Test-LabExternalRuntimeLaunchpadProcess -Provider ([string]$LabInstance.Provider) -ContainerIdOrName ([string]$LabInstance.ContainerId)
         $probes = foreach ($plan in @($Plans)) {
             switch ([string]$plan.Language) {
-                'Python' { Invoke-LabPythonExternalRuntimeProbe -Plan $plan -HostName ([string]$LabInstance.Host) -Port ([int]$LabInstance.Port) -SaPassword $Password }
-                'R' { Invoke-LabRExternalRuntimeProbe -Plan $plan -HostName ([string]$LabInstance.Host) -Port ([int]$LabInstance.Port) -SaPassword $Password }
-                'Java' { Invoke-LabJavaExternalRuntimeProbe -Plan $plan -HostName ([string]$LabInstance.Host) -Port ([int]$LabInstance.Port) -SaPassword $Password -Database master }
+                'Python' { Invoke-LabExternalRuntimeProbeWithRetry -RecoveryOperation $recoverProbeReadiness -Operation {
+                    Invoke-LabPythonExternalRuntimeProbe -Plan $plan -HostName ([string]$LabInstance.Host) -Port ([int]$LabInstance.Port) -SaPassword $Password
+                } }
+                'R' { Invoke-LabExternalRuntimeProbeWithRetry -RecoveryOperation $recoverProbeReadiness -Operation {
+                    Invoke-LabRExternalRuntimeProbe -Plan $plan -HostName ([string]$LabInstance.Host) -Port ([int]$LabInstance.Port) -SaPassword $Password
+                } }
+                'Java' { Invoke-LabExternalRuntimeProbeWithRetry -RecoveryOperation $recoverProbeReadiness -Operation {
+                    Invoke-LabJavaExternalRuntimeProbe -Plan $plan -HostName ([string]$LabInstance.Host) -Port ([int]$LabInstance.Port) -SaPassword $Password -Database master
+                } }
             }
         }
         [PSCustomObject]@{ Launchpad=$launchpad; Probes=@($probes) }
-    } @($hostAndImage.Plans) $instance $saPassword
+    } @($hostAndImage.Plans) $instance $saPassword $(if ($SqlVersion -eq '2025') { 17 } else { 16 })
     Assert-ExternalRuntimeAcceptance ([string]$postRestart.Launchpad.Status -eq 'PASS') 'launchpadd ist nach Restart bereit'
     Assert-ExternalRuntimeAcceptance (@($postRestart.Probes).Count -eq 2 -and @($postRestart.Probes | Where-Object Status -ne 'PASS').Count -eq 0) 'Python und R bestehen nach Java-Removal und Restart erneut'
     $markerAfterRestart = & $module {
