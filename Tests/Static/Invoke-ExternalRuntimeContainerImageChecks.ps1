@@ -280,6 +280,12 @@ Add-CheckResult -Name 'Java-only verwendet einen frühen finalen Build-Target oh
     (Get-Content -LiteralPath (Join-Path $repoRoot 'Images/ExternalLanguages/Linux/Containerfile') -Raw -Encoding utf8) -match 'FROM runtime-java AS selected-runtime-java' -and
     (Get-Content -LiteralPath (Join-Path $repoRoot 'Private/ContainerImageArtifact.ps1') -Raw -Encoding utf8) -match "'--target', \[string\]\`$ImagePlan\.BuildTarget"
 )
+Add-CheckResult -Name 'Jeder finale Target übernimmt den versionsgebundenen Launchmodus explizit' -Success (
+    ([regex]::Matches(
+        (Get-Content -LiteralPath (Join-Path $repoRoot 'Images/ExternalLanguages/Linux/Containerfile') -Raw -Encoding utf8),
+        'ARG EXTERNAL_RUNTIME_LAUNCH_MODE=sql2022-namespace-v1'
+    )).Count -eq 3
+)
     Add-CheckResult -Name 'Alle Java-Kombinationen verwenden kanonische und vorhandene OCI-Stages' -Success (
         $result.PythonJavaPlan.BuildStage -eq 'runtime-python-java' -and
         $result.RJavaPlan.BuildStage -eq 'runtime-r-java' -and
