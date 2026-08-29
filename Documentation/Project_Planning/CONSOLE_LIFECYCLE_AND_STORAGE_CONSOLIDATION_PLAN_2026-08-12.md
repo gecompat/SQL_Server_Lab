@@ -543,6 +543,14 @@ Verarbeitung. Die breitere `CUI-021`-Abnahme für Warteoperationen und native
 Kindprozesse bleibt ein eigener Nachweis und wird durch diese Menüabnahme nicht
 vorweggenommen.
 
+Stand 2026-08-29 sind auch `CUI-012` bis `CUI-018` und `CUI-020` implementiert.
+Das statische Inventar meldet keine direkten Auswahlprompts mehr. Storage,
+Connection Center/CMS, Erstellungs-, Patch-/CU-, Medien-, Builder-, Vorlagen-,
+Switch-, Quell-VM- und Fortsetzungslisten verwenden die gemeinsame Console-UI.
+Freie Werteingaben bleiben über den modulweiten `Read-Host`-Adapter
+Escape-fähig; Ergebnisansichten verwenden nur noch einen ausdrücklich
+beschrifteten Enter-/Escape-Rückweg.
+
 ### Phase C – Storage-Registry härten
 
 **Status:** `IMPLEMENTED_STATICALLY` seit 2026-08-29. Legacy-Übernahme,

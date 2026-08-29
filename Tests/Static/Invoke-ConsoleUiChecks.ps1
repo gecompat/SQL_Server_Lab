@@ -258,6 +258,49 @@ $sampleSelectionMatch = [regex]::Match($entrySource, 'function Select-LabSampleS
 Add-ConsoleUiCheck 'CUI-008 migriert Hyper-V-Image-, Slot- und Verwaltungsmenüs' $cui008MenuCoverage
 Add-ConsoleUiCheck 'Sample-Auswahl verwendet gemeinsame Mehrfachauswahl' ($sampleSelectionMatch.Success -and $sampleSelectionMatch.Value -match 'Invoke-LabConsoleMultiSelect')
 
+$selectionPromptFindings = [Collections.Generic.List[string]]::new()
+$selectionPromptPattern = '(?i)(Auswahl|auswählen|Nummer|\bModus\b|Patchstand|CU-Stand|Ressourcenprofil|Installationsmedium|Windows-Variante|Vorlage)'
+$productFiles = @(
+    Get-ChildItem -LiteralPath (Join-Path $repoRoot 'Public') -Filter '*.ps1' -File
+    Get-ChildItem -LiteralPath (Join-Path $repoRoot 'Private') -Filter '*.ps1' -File |
+        Where-Object Name -notin @('Common.ps1', 'ConsoleUi.ps1')
+    Get-ChildItem -LiteralPath (Join-Path $repoRoot 'Tools') -Filter '*.ps1' -File
+    Get-Item -LiteralPath (Join-Path $repoRoot 'Invoke-SqlServerLab.ps1')
+)
+foreach ($file in $productFiles) {
+    $tokens = $null
+    $parseErrors = $null
+    $ast = [Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$tokens, [ref]$parseErrors)
+    foreach ($command in $ast.FindAll({
+        param($node)
+        $node -is [Management.Automation.Language.CommandAst] -and $node.GetCommandName() -eq 'Read-Host'
+    }, $true)) {
+        if ($command.Extent.Text -match $selectionPromptPattern) {
+            $selectionPromptFindings.Add(("{0}:{1}: {2}" -f $file.Name, $command.Extent.StartLineNumber, $command.Extent.Text))
+        }
+    }
+}
+Add-ConsoleUiCheck 'CUI-012-Inventar verbietet direkte Read-Host-Auswahlprompts' ($selectionPromptFindings.Count -eq 0)
+if ($selectionPromptFindings.Count -gt 0) {
+    foreach ($finding in $selectionPromptFindings) { Write-Host "    $finding" -ForegroundColor Yellow }
+}
+Add-ConsoleUiCheck 'CUI-014 migriert Connection Center und CMS auf gemeinsame Menüs' (
+    ([regex]::Matches($connectionCenterSource, "Invoke-LabConsoleMenu -ScreenId 'connection-center")).Count -eq 2 -and
+    $connectionCenterSource -notmatch 'Read-Host\s+.*Auswahl'
+)
+Add-ConsoleUiCheck 'CUI-015 und CUI-016 migrieren Erstellungs-, Patch-, Medien- und Builderauswahlen' (
+    $entrySource -match 'function Select-LabConsoleDataItem' -and
+    $entrySource -match "ScreenId 'hyperv-switch-select'" -and
+    $entrySource -match "ScreenId 'hyperv-existing-vm-source-select'" -and
+    $entrySource -match 'container-version-\$Provider' -and
+    $entrySource -match 'sql-patch-\$Platform-\$BaseVersion'
+)
+Add-ConsoleUiCheck 'CUI-017 verwendet nur explizite Ergebnisansichten statt roher Enter-Pausen' (
+    $entrySource -notmatch '\[Enter\] für Menü' -and
+    $entrySource -notmatch '\[Enter\] für Auswahl' -and
+    $entrySource -match 'Enter oder Escape: Zurück zum Hyper-V-Menü'
+)
+
 $attentionSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/AttentionStatus.ps1') -Raw
 Add-ConsoleUiCheck 'CUI-010 besitzt gemeinsamen read-only Attention-Snapshot' ($attentionSource -match 'function Get-LabAttentionSnapshot' -and $attentionSource -match 'Get-SqlServerPatchOptions' -and $attentionSource -match 'SQL_SLOT_READY' -and $attentionSource -match 'RECOVERY_REQUIRED')
 Add-ConsoleUiCheck 'Hauptmenü bindet Attention-Snapshot an gemeinsamen Renderer' ($entrySource -match 'Update-LabConsoleAttentionSnapshot' -and $entrySource -match 'Invoke-LabConsoleMenu[^\r\n]+-Snapshot \$snapshot')

@@ -210,7 +210,7 @@ function Show-LabBatchReviewInteractive {
     Write-Host '  Scheduler: maximal 2 Worker, maximal 1 HyperVHeavy; User-Gates belegen keinen Worker.' -ForegroundColor DarkGray
     Write-Host '  Cleanup entfernt nur batch-eigene Ressourcen; Vorlagen, Medien und geschuetzte Daten bleiben erhalten.' -ForegroundColor DarkGray
     foreach ($warning in @($Batch.preflight.warnings)) { Write-Host "  WARNUNG: $warning" -ForegroundColor Yellow }
-    return (Read-Host '  Gesamten Plan in die Queue stellen? [j/N]') -match '^(j|ja|y|yes)$'
+    return (Read-LabConfirm -Prompt '  Gesamten Plan in die Queue stellen?' -Default $false)
 }
 
 function Invoke-LabBatchComposerInteractive {
@@ -435,7 +435,7 @@ function Invoke-LabBatchStopInteractive {
         $batch = Get-SqlServerLabBatch -BatchId $selection.SelectedItem.Id
         Clear-Host; Write-Host '  Vollstaendiger Rueckbau entfernt diese batch-eigenen Positionen:' -ForegroundColor Yellow
         foreach ($item in @($batch.items)) { Write-Host "    - $($item.itemId): $($item.name)" }
-        if ((Read-Host '  Wirklich vollstaendig zurueckbauen? [j/N]') -match '^(j|ja|y|yes)$') { Stop-SqlServerLabBatch -BatchId $batch.batchId -Cleanup -IncludeCompleted -Confirm:$false | Out-Null }
+        if (Read-LabConfirm -Prompt '  Wirklich vollstaendig zurueckbauen?' -Default $false) { Stop-SqlServerLabBatch -BatchId $batch.batchId -Cleanup -IncludeCompleted -Confirm:$false | Out-Null }
     }
     else { Stop-SqlServerLabBatch -BatchId $selection.SelectedItem.Id -Cleanup -Confirm | Out-Null }
 }
