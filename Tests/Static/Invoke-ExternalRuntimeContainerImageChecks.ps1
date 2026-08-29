@@ -336,6 +336,9 @@ Add-CheckResult -Name 'Jeder finale Target übernimmt den versionsgebundenen Lau
         $containerfile -match 'sha256sum --check --strict' -and
         @([regex]::Matches($containerfile, 'COPY --from=runtime-openmp .*libgomp\.so\.1\*')).Count -eq 2
     )
+    Add-CheckResult -Name 'Jeder Python-Zielstage bindet die CPython-Shared-Library aus dem digestgebundenen Runtimeimage' -Success (
+        @([regex]::Matches($containerfile, 'COPY --from=python-runtime /usr/lib/x86_64-linux-gnu/libpython3\.10\.so\.1\.0')).Count -eq 2
+    )
     Add-CheckResult -Name 'Launcher deaktiviert weder Namespace-Isolation noch Outbound-Schutz' -Success (
         $launcher -match 'runuser -u mssql_launchpadd -- /opt/mssql/bin/launchpadd &' -and
         $launcher -match 'runuser -u mssql -- "\$@" &' -and
