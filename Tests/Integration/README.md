@@ -201,10 +201,11 @@ unverändert.
 Dieser native Nachweis verwendet ausschließlich die öffentliche geschützte
 Gruppen-API. Er startet alle registrierten Windows-Hyper-V-Mitglieder, bringt
 vorhandene SQL-Engine-Dienste hoch, fordert SQL-Readiness und einen vollständigen
-`READY`-Export. Im garantierten `finally`-Cleanup stoppt er alle Windows-
-Mitglieder wieder und prüft `runtimeStatus = STOPPED` sowie den fail-closed
-Gesamtstatus `INCOMPLETE`. Registrierungsbindungen und Linux-Livestatus müssen
-vor und nach dem Lauf identisch sein.
+`READY`-Export. Danach stoppt er alle Windows-Mitglieder nicht-destruktiv und
+prüft `runtimeStatus = STOPPED` sowie den fail-closed Gesamtstatus `INCOMPLETE`.
+Im garantierten `finally`-Cleanup stellt er die persistente Gruppe wieder bis
+`READY` bereit. Registrierungsbindungen und Linux-Livestatus müssen vor und
+nach dem Lauf identisch sein.
 
 ```powershell
 .\Tests\Integration\Invoke-TestEnvironmentGroupLifecycle.ps1

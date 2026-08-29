@@ -24,6 +24,8 @@
     Gewünschter SQL-Hostport; eine Änderung verwendet recreate.
 .PARAMETER SqlMaxMemoryMB
     Gewünschter live angewandter SQL-Wert `max server memory (MB)`.
+.PARAMETER AutoStart
+    Gewünschter Container-Autostartvertrag. Eine Abweichung verwendet recreate.
 .PARAMETER RepairSqlRuntimeContract
     Repariert SQL-Memory-/Healthcheck-Drift über recreate.
 .PARAMETER ReadinessTimeoutSeconds
@@ -78,6 +80,10 @@ function Invoke-SqlServerLabReconcileAction {
         [int]$SqlMaxMemoryMB,
 
         [Parameter(ParameterSetName = 'Container')]
+        [ValidateSet('on', 'off')]
+        [string]$AutoStart,
+
+        [Parameter(ParameterSetName = 'Container')]
         [switch]$RepairSqlRuntimeContract,
 
         [string]$StateRoot
@@ -123,6 +129,7 @@ function Invoke-SqlServerLabReconcileAction {
         if ($PSBoundParameters.ContainsKey('MemoryMB')) { $planArguments.MemoryMB=[int]$MemoryMB }
         if ($PSBoundParameters.ContainsKey('Port')) { $planArguments.Port=[int]$Port }
         if ($PSBoundParameters.ContainsKey('SqlMaxMemoryMB')) { $planArguments.SqlMaxMemoryMB=[int]$SqlMaxMemoryMB }
+        if ($PSBoundParameters.ContainsKey('AutoStart')) { $planArguments.AutoStart=[string]$AutoStart }
         $plan = Get-SqlServerLabReconcilePlan @planArguments
         $wouldExecute = if ($plan.IsNoOp) { $false } else {
             $PSCmdlet.ShouldProcess("Run '$RunId', Instanz '$($plan.InstanceId)'", "Container-Reconcile '$($plan.HighestChangeClass)' ausführen")
@@ -146,6 +153,7 @@ function Invoke-SqlServerLabReconcileAction {
                     StateRoot=$StateRoot; Confirm=$false
                 }
                 if ($null -ne $plan.Desired.SqlMaxMemoryMB) { $updateArguments.SqlMaxMemoryMB=[int]$plan.Desired.SqlMaxMemoryMB }
+                $updateArguments.AutoStart=[string]$plan.Desired.AutoStart
                 $result = Update-SqlServerLabContainer @updateArguments
                 $entry.Executed=$true; $entry.Status='SUCCEEDED'; $entry.Result=$result
                 $summary.Status='SUCCEEDED'; $summary.ExecutedActions=1; $summary.MutationAllowed=$true

@@ -253,6 +253,9 @@ Der native Gruppen-Lifecycle kann ergänzend mit
 `Invoke-TestEnvironmentGroupLifecycle.ps1` ausgeführt werden; er beweist den
 öffentlichen Ablauf Start, Live-Export `READY`, nicht-destruktiver Windows-Stopp
 und fail-closed Export bei unveränderten Registrierungen und Linux-Mitgliedern.
+Im garantierten Abschluss stellt er alle Windows-Mitglieder wieder bis
+`READY` bereit, damit der Nachweis die persistente Testgruppe nicht außer
+Betrieb hinterlässt.
 Fehler werden in einem wiederverwendeten GitHub-Issue sichtbar gehalten. Die
 frische Hyper-V-/SQL-Installation läuft zusätzlich wöchentlich oder manuell.
 

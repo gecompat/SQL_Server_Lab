@@ -8,6 +8,10 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- Der journalisierte Container-Reconcile akzeptiert einen expliziten
+  `AutoStart`-Sollwert, bindet Restart-Policy und Lab-Label gemeinsam an Plan,
+  Journal, Postcondition und Recovery und kann dadurch auch ältere verwaltete
+  CMS-Container sicher auf den aktuellen Autostartvertrag bringen.
 - Der lokale Storage-Katalog führt stabile `LocationId`-Werte, Controller- und
   Volume-Bindung sowie getrennte Topologieangaben für logische Volumes und
   nachweisbare Backing Devices. Legacy-Kataloge werden abwärtslesbar übernommen
@@ -27,6 +31,13 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Behoben
 
+- Der native Testgruppen-Lifecycle hinterlässt die persistenten Windows-
+  Testumgebungen nach seiner Start-/Stop-Abnahme nicht mehr ausgeschaltet. Sein
+  garantiertes Cleanup stellt alle registrierten Hyper-V-Mitglieder, den
+  vollständigen `READY`-Export und die CMS-Sicht wieder her.
+- Die gemeinsame Sechs-Ziele-Abnahme vergleicht SQL Server 2019, 2022 und 2025
+  jetzt explizit mit den tatsächlich gelieferten Major-Versionen 15, 16 und 17,
+  statt nur eine Jahreszahl in der allgemeinen Versionsausgabe zu suchen.
 - Das Hinzufügen einer weiteren `Lab_Data`-Location ändert einen vorhandenen
   Default nicht mehr implizit. Laufwerksrelative Parents wie `D:` werden vor
   jeder Mutation blockiert; `D:\` wird als `D:\Lab_Data` angezeigt.

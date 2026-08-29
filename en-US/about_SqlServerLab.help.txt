@@ -111,12 +111,12 @@ COMMANDS
         Synchronizes a managed local CMS with the current endpoint catalog.
 
     Get-SqlServerLabReconcilePlan
-        Returns a read-only lifecycle plan or a resolver-bound external-runtime
-        refresh plan for an existing run.
+        Returns a read-only lifecycle, container resource/autostart, or
+        resolver-bound external-runtime refresh plan for an existing run.
 
     Invoke-SqlServerLabReconcileAction
-        Executes an unambiguous START/STOP plan or an additive, validated SQL
-        Server 2022 Docker/Podman external-runtime refresh.
+        Executes START/STOP, a journaled container resource/autostart reconcile,
+        or a validated external-runtime refresh.
 
     Invoke-SqlServerLabWorkflowAction
         Runs one explicit non-interactive Hyper-V workflow action for the
