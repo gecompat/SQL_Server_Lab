@@ -103,6 +103,7 @@ function New-PodmanInstance {
         [Parameter(Mandatory)][string]$InstanceId,
         [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9 _-]{0,63}$')][string]$LabName,
         [ValidatePattern('^$|^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$')][string]$ContainerName,
+        [ValidatePattern('^$|^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$')][string]$EndpointBindingIgnoreContainerName,
         [int]$Port = 0,
         [Parameter(Mandatory)][SecureString]$SaPassword,
         [ValidateSet('compact', 'standard', 'performance')]
@@ -225,7 +226,9 @@ function New-PodmanInstance {
 
                 if (-not $automaticPort) {
                     $binding = Test-LabEndpointBinding -Port $selectedPort
-                    if (-not $binding.Available) {
+                    $ignoredBackup = $EndpointBindingIgnoreContainerName -and
+                        ([string]$binding.Owner).StartsWith("podman:$EndpointBindingIgnoreContainerName (", [StringComparison]::Ordinal)
+                    if (-not $binding.Available -and -not $ignoredBackup) {
                         throw "LAB_ENDPOINT_BINDING_CONFLICT: Port $selectedPort ist belegt. Besitzer: $($binding.Owner). Grund: $($binding.Reason)"
                     }
                 }

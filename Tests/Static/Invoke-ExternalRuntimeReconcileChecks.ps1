@@ -12,6 +12,9 @@ $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
 $implementationPath = Join-Path $repoRoot 'Private\ExternalRuntimeReconcile.ps1'
 $lifecyclePath = Join-Path $repoRoot 'Private\ExternalRuntimeLifecycle.ps1'
 $reconcileSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Private\ExternalRuntimeReconcile.ps1') -Raw -Encoding utf8
+$newLabSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public\New-SqlServerLab.ps1') -Raw -Encoding utf8
+$dockerSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Providers\Docker\DockerProvider.ps1') -Raw -Encoding utf8
+$podmanSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Providers\Podman\PodmanProvider.ps1') -Raw -Encoding utf8
 $failures = [System.Collections.Generic.List[string]]::new()
 $passed = 0
 . (Join-Path $PSScriptRoot '..' 'Common' 'CheckResult.ps1')
@@ -90,6 +93,12 @@ Add-CheckResult -Name 'Refresh bindet bestehende SQL-Volumes statt neue Namen ab
 Add-CheckResult -Name 'External-Runtime-Reconcile akzeptiert alle drei aktiven SQL-Versionen für Docker und Podman' -Success (
     $reconcileSource -match "Version -notin @\('2019', '2022', '2025'\)" -and
     $reconcileSource -match "Provider -notin @\('docker', 'podman'\)"
+)
+Add-CheckResult -Name 'Atomarer Ersatz ignoriert ausschließlich den exakt benannten gestoppten Rollback-Container' -Success (
+    $reconcileSource -match '-EndpointBindingIgnoreContainerName \$backupName' -and
+    $newLabSource -match '-EndpointBindingIgnoreContainerName \$EndpointBindingIgnoreContainerName' -and
+    $dockerSource -match 'StartsWith\("docker:\$EndpointBindingIgnoreContainerName \("' -and
+    $podmanSource -match 'StartsWith\("podman:\$EndpointBindingIgnoreContainerName \("'
 )
 
 $initialInstallBinding = & $module {

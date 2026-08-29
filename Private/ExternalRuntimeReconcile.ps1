@@ -567,7 +567,8 @@ function Invoke-LabExternalRuntimeReconcileRefresh {
         $replacement = New-LabProviderContainer -Instance $replacementInstance -RunState ([PSCustomObject]@{
             RunId=$RunId; ScopeId=[string]$context.Run.scopeId; metadata=$context.Run.metadata
         }) -SaPassword $saPassword -Port ([int]$context.ConnectionInstance.port) `
-            -ContainerImageArtifact $artifact -ContainerName $name
+            -ContainerImageArtifact $artifact -ContainerName $name `
+            -EndpointBindingIgnoreContainerName $backupName
         if ($isInitialInstall) {
             Add-LabExternalRuntimeCleanupVolumes -RunDirectory $context.RunDirectory -Provider $provider `
                 -ContainerName $name -ReplacementInstance $replacementInstance -SoftwarePlans $context.DesiredPlans
