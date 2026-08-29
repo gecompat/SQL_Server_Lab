@@ -87,6 +87,36 @@ Add-CheckResult -Name 'Refresh bindet bestehende SQL-Volumes statt neue Namen ab
     $source -match '-ContainerName \$name'
 )
 
+$initialInstallBinding = & $module {
+    $instance = [PSCustomObject]@{
+        id='external-runtime'; drives=@(
+            [PSCustomObject]@{ id='runtime-mssql'; containerPath='/var/opt/mssql'; persistence='run-scoped-runtime-volume' }
+        )
+    }
+    New-LabExternalRuntimeReplacementInstance -ResolvedInstance $instance -AllowNewExternalRuntimeVolumes `
+        -ContainerInspect ([PSCustomObject]@{
+            Mounts=@([PSCustomObject]@{ Type='volume'; Name='stable-system-volume'; Destination='/var/opt/mssql' })
+        })
+}
+Add-CheckResult -Name 'Erstinstallation ergänzt neue External-Runtime-Volumes und bindet das vorhandene SQL-Systemvolume' -Success (
+    @($initialInstallBinding.drives | Where-Object containerPath -eq '/var/opt/mssql')[0].volumeName -eq 'stable-system-volume' -and
+    @($initialInstallBinding.drives | Where-Object containerPath -eq '/var/opt/mssql-extensibility/externallanguages').Count -eq 1 -and
+    @($initialInstallBinding.drives | Where-Object containerPath -eq '/var/opt/mssql-extensibility/externallibraries').Count -eq 1
+)
+
+$persistentInstallBinding = & $module {
+    $instance = [PSCustomObject]@{ id='external-runtime'; drives=@() }
+    New-LabExternalRuntimeReplacementInstance -ResolvedInstance $instance -AllowNewExternalRuntimeVolumes -PersistentData `
+        -ContainerInspect ([PSCustomObject]@{
+            Mounts=@([PSCustomObject]@{ Type='volume'; Name='stable-persistent-system'; Destination='/var/opt/mssql' })
+        })
+}
+Add-CheckResult -Name 'Erstinstallation in persistentem Lab verwendet langlebige Data-Root-Volume-Namen' -Success (
+    @($persistentInstallBinding.drives | Where-Object containerPath -eq '/var/opt/mssql-extensibility/externallanguages')[0].volumeName -eq 'stable-persistent-system-external-languages' -and
+    @($persistentInstallBinding.drives | Where-Object containerPath -eq '/var/opt/mssql-extensibility/externallibraries')[0].volumeName -eq 'stable-persistent-system-external-libraries' -and
+    @($persistentInstallBinding.drives | Where-Object { [string]$_.containerPath -like '*/external*' -and [string]$_.persistence -ne 'data-root-runtime-volume' }).Count -eq 0
+)
+
 $javaCleanupPlan = & $module {
     $context = [PSCustomObject]@{
         RemovedIds=@('sql-java')
@@ -170,6 +200,7 @@ try {
     $driftManifestPath = Join-Path $tempRoot 'drift.json'
     $removalManifestPath = Join-Path $tempRoot 'removal.json'
     $lastRemovalManifestPath = Join-Path $tempRoot 'last-removal.json'
+    $plainManifestPath = Join-Path $tempRoot 'plain.json'
     $baseInstance = [ordered]@{
         id='external-runtime'; version='2022'; provider='docker'; os='linux'; profile='standard'; autostart='off'
         databases=@([ordered]@{ name='app' })
@@ -191,6 +222,10 @@ try {
     $lastRemovalInstance.software = @()
     $lastRemovalInstance.serverConfig.externalScripts.enabled = $false
     [ordered]@{ name='runtime-reconcile'; instances=@($lastRemovalInstance) } | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $lastRemovalManifestPath -Encoding utf8
+    $plainInstance = $baseInstance | ConvertTo-Json -Depth 20 | ConvertFrom-Json -AsHashtable
+    $plainInstance.software = @()
+    $plainInstance.serverConfig.externalScripts.enabled = $false
+    [ordered]@{ name='runtime-reconcile'; instances=@($plainInstance) } | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $plainManifestPath -Encoding utf8
 
     $fixture = & $module {
         param($Root,$ManifestPath)
@@ -226,6 +261,58 @@ try {
     Add-CheckResult -Name 'Additiver Resolverplan erzeugt sanitisierten Recreate-Plan' -Success (
         $plan.Contract.Version -eq '1.1' -and $plan.PlanKind -eq 'ExternalRuntime' -and $plan.HighestChangeClass -eq 'recreate' -and
         @($plan.Actions).Count -eq 1 -and $plan.Actions[0].Operation -eq 'RefreshExternalRuntime' -and @($plan.Desired.Software).Count -eq 2
+    )
+    $plainFixture = & $module {
+        param($Root,$ManifestPath)
+        $resolved = Read-LabManifest -Path $ManifestPath
+        $snapshot = New-LabDesiredStateSnapshot -ResolvedLab $resolved -ProvisioningMode manifest -PersistentData $false
+        $run = New-LabRunState -StateRoot $Root -Metadata @{ name='runtime-reconcile'; desiredState=$snapshot } -ProviderSubRuns @(
+            [PSCustomObject]@{ provider='docker'; instanceIds=@('external-runtime') }
+        )
+        $runRecord = Get-LabRunState -RunId $run.RunId -StateRoot $Root
+        $runRecord.state = 'RUNNING'
+        Write-LabArtifactJsonAtomic -Path (Join-Path $run.RunDir 'run-state.json') -InputObject $runRecord
+        $providerSubRuns = @([PSCustomObject]@{ id='provider-docker'; provider='docker'; instanceIds=@('external-runtime') })
+        $null = New-CleanupPlan -RunDir $run.RunDir -RunId $run.RunId -ScopeId $run.ScopeId -ProviderSubRuns $providerSubRuns
+        $null = Add-CleanupStep -RunDir $run.RunDir -ResourceType container `
+            -ResourceId 'runtime-reconcile-external-runtime' -Action remove -Provider docker `
+            -ProviderSubRunId provider-docker
+        Write-LabArtifactJsonAtomic -Path (Join-Path $run.RunDir 'connection-info.json') -InputObject ([PSCustomObject]@{
+            runId=$run.RunId; scopeId=$run.ScopeId; instances=@([PSCustomObject]@{
+                id='external-runtime'; provider='docker'; version='2022'; host='secret-host.invalid'; port=14332
+                containerId='secret-plain-container'; containerName='runtime-reconcile-external-runtime'; databases=@('app')
+            })
+        })
+        [PSCustomObject]@{ RunId=$run.RunId; RunDirectory=$run.RunDir; StateRoot=$Root }
+    } $tempRoot $plainManifestPath
+    $installPlan = Get-SqlServerLabReconcilePlan -RunId $plainFixture.RunId -ManifestPath $desiredManifestPath `
+        -InstanceId external-runtime -StateRoot $plainFixture.StateRoot
+    Add-CheckResult -Name 'SQL-2022-Container ohne bestehende Runtime erhält einen Erstinstallationsplan' -Success (
+        @($installPlan.Actions).Count -eq 1 -and
+        $installPlan.Actions[0].Operation -eq 'InstallExternalRuntime' -and
+        @($installPlan.Actual.PlanKeys).Count -eq 0 -and
+        $null -eq $installPlan.Actual.ImageKey -and
+        @($installPlan.Desired.Software).Count -eq 2
+    )
+    $cleanupBinding = & $module {
+        param($RunDirectory)
+        $replacement = [PSCustomObject]@{ drives=@(
+            [PSCustomObject]@{ id='runtime-mssql-external-languages'; containerPath='/var/opt/mssql-extensibility/externallanguages' },
+            [PSCustomObject]@{ id='runtime-mssql-external-libraries'; containerPath='/var/opt/mssql-extensibility/externallibraries' }
+        ) }
+        $software = @([PSCustomObject]@{ SoftwareId='sql-python'; PlanKey=('c' * 64) })
+        Add-LabExternalRuntimeCleanupVolumes -RunDirectory $RunDirectory -Provider docker `
+            -ContainerName 'runtime-reconcile-external-runtime' -ReplacementInstance $replacement -SoftwarePlans $software
+        Add-LabExternalRuntimeCleanupVolumes -RunDirectory $RunDirectory -Provider docker `
+            -ContainerName 'runtime-reconcile-external-runtime' -ReplacementInstance $replacement -SoftwarePlans $software
+        Get-Content -LiteralPath (Join-Path $RunDirectory 'cleanup-plan.json') -Raw -Encoding utf8 | ConvertFrom-Json -Depth 50
+    } $plainFixture.RunDirectory
+    $cleanupContainerStep = @($cleanupBinding.steps | Where-Object resourceType -eq 'container')[0]
+    $cleanupVolumeSteps = @($cleanupBinding.steps | Where-Object resourceType -eq 'volume')
+    Add-CheckResult -Name 'Erstinstallation registriert neue Volumes einmalig und vor dem Container-Cleanup' -Success (
+        $cleanupVolumeSteps.Count -eq 2 -and
+        @($cleanupVolumeSteps | Where-Object { [int]$_.order -ge [int]$cleanupContainerStep.order }).Count -eq 0 -and
+        @($cleanupVolumeSteps | Where-Object { [string]$_.softwareContract.softwareIds -match 'sql-python' }).Count -eq 2
     )
     $serialized = $plan | ConvertTo-Json -Depth 30
     Add-CheckResult -Name 'External-Runtime-Plan leakt keine Host-, Port-, Runtime-ID- oder Manifestpfade' -Success (

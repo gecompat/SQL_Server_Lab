@@ -488,9 +488,10 @@ Run-State und Cleanup-/Recovery-Bindung übernommen. Run-lokale Ressourcen
 werden damit scopegebunden entfernt, während wiederverwendbare Softwareartefakte
 ausdrücklich erhalten bleiben.
 
-Ein ausführbarer erster Refresh-Slice ist für laufende SQL-2022-Docker-/Podman-
-Runs mit bereits verifizierter External Runtime implementiert. Er akzeptiert nur
-additive, erneut vom Resolver freigegebene Runtime-Anforderungen. Provider,
+Ein ausführbarer Installations- und Refresh-Slice ist für laufende SQL-2022-
+Docker-/Podman-Runs implementiert. Er kann die erste External Runtime
+nachinstallieren sowie vorhandene, erneut vom Resolver freigegebene Runtime-
+Anforderungen ergänzen oder bis auf die letzte Runtime entfernen. Provider,
 SQL-Version, Profil, Storage, Netzwerk, Datenbanken und andere Instanzen müssen
 unverändert bleiben. Das neue Derived Image wird vor der Container-Mutation
 gebaut; Journal, Scope-Prüfung, SQL-Readiness und echte Sprachpostconditions
@@ -507,15 +508,19 @@ Ein SQL-Datenmarker blieb über beide Containerwechsel und den Restart erhalten.
 Container speichern `/var/opt/mssql` sowie die beiden langlebigen
 External-Runtime-Artefaktpfade `externallanguages` und `externallibraries` in
 drei getrennten, scopegebundenen Volumes. LaunchPad-Arbeitsdaten und Sandboxes
-bleiben containerlokal. Der Startadapter synchronisiert die katalogisierte
+bleiben containerlokal. Bei einer Nachinstallation werden die beiden neuen
+Volumes vor dem Container-Cleanup eingeordnet und in Rollback/Recovery
+einbezogen. Der Startadapter synchronisiert die katalogisierte
 ML-EULA und die Runtime-Artefakte providerneutral, sodass Docker und Podman
 denselben Persistenzvertrag erfüllen. Für die transienten SQL-Fehler `39011`
 und `39012` ist genau ein Container-Restart mit anschließendem Probe-Retry
 zulässig; Java-Registrierungseigentum wird dabei versuchsübergreifend erhalten,
 damit Compensation und spätere Removal-Aktionen vollständig bleiben.
 
-Noch nicht unterstützt sind freie Packagewechsel, der allgemeine Hyper-V-
-Softwarepfad sowie Hyper-V-Artifact-Refresh und automatische Gastumschaltung.
+Noch nicht unterstützt sind die Entfernung der letzten External Runtime, freie
+Packagewechsel, der allgemeine Hyper-V-Softwarepfad sowie Hyper-V-Artifact-
+Refresh und automatische Gastumschaltung. Das Hyper-V-Verwaltungsmenü weist
+darauf mit einem begründet deaktivierten Eintrag hin.
 
 ## Tests
 

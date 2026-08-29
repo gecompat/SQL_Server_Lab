@@ -8,6 +8,12 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- Die Containerverwaltung bietet jetzt einen sichtbaren Menüpunkt, um External
+  Languages über ein geprüftes Zielmanifest erstmals zu installieren oder zu
+  ändern. SQL-2022-Docker-/Podman-Runs ohne bestehende Runtime erhalten einen
+  journalisierten `InstallExternalRuntime`-Plan einschließlich neuer,
+  cleanupgebundener External-Language-/Library-Volumes; Hyper-V zeigt den noch
+  nicht atomaren Nachinstallationspfad begründet deaktiviert.
 - Der journalisierte Container-Reconcile akzeptiert einen expliziten
   `AutoStart`-Sollwert, bindet Restart-Policy und Lab-Label gemeinsam an Plan,
   Journal, Postcondition und Recovery und kann dadurch auch ältere verwaltete
@@ -31,6 +37,9 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Behoben
 
+- Escape und Enter schreiben in der cursorbasierten CLI wieder einen echten
+  Zeilenumbruch; der Ausdruck `[Environment]::NewLine` erscheint nicht mehr
+  kurzzeitig als sichtbarer Text.
 - Registrierte automatisierte Testumgebungen konvergieren ihre nativen Docker-,
   Podman- und Hyper-V-Namen jetzt auf einen sprechenden, aus dem stabilen
   Registry-Schlüssel abgeleiteten Namen. Übernommene Windows-Pool-Slots werden

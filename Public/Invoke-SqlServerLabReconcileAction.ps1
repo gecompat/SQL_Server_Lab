@@ -11,7 +11,8 @@
 .PARAMETER TargetState
     Gewuenschter Zielzustand fuer den Run nach der Reconcile-Ausfuehrung.
 .PARAMETER ManifestPath
-    Zielmanifest fuer einen resolvergebundenen External-Runtime-Reconcile.
+    Zielmanifest fuer eine erstmalige Installation oder einen späteren,
+    resolvergebundenen External-Runtime-Reconcile.
 .PARAMETER InstanceId
     Zielinstanz fuer den Container- oder External-Runtime-Reconcile.
 .PARAMETER Container
@@ -95,7 +96,7 @@ function Invoke-SqlServerLabReconcileAction {
             $PSCmdlet.ShouldProcess("Run '$RunId', Instanz '$($plan.InstanceId)'", 'External Runtime durch validierten Ersatzcontainer aktualisieren')
         }
         $entry = [ordered]@{
-            Operation='RefreshExternalRuntime'; Planned=(-not $plan.IsNoOp); Executed=$false
+            Operation=if ($plan.IsNoOp) { 'None' } else { [string]$plan.Actions[0].Operation }; Planned=(-not $plan.IsNoOp); Executed=$false
             Status=if ($plan.IsNoOp) { 'NO_OP' } elseif ($wouldExecute) { 'PLANNED' } else { 'WOULD_EXECUTE' }
             Reason=$null; Result=$null
         }
