@@ -232,8 +232,8 @@ try {
     Add-CheckResult -Name 'Konsolen-Lifecycle bietet vorhandene SQL-Versionen und Editionsmedien dynamisch an' -Success (
         $menuText.Contains('function Select-LabSqlInstallationMedia') -and
         $menuText.Contains("Get-ChildItem -LiteralPath `$sqlRoot -File -Recurse -Filter '*.iso'") -and
-        $menuText.Contains('Verfügbare SQL Server Versionen') -and
-        $menuText.Contains('Verfügbare SQL-Installationsmedien') -and
+        $menuText.Contains("ScreenId 'hyperv-sql-media-version-select'") -and
+        $menuText.Contains("ScreenId 'hyperv-sql-media-select'") -and
         $menuText.Contains('Descending = $true') -and
         $menuText.Contains('-SqlMediaPath $sqlMediaPath')
     )
@@ -298,7 +298,7 @@ try {
         $imageDeleteFunctionText -match 'Remove-HyperVImageArtifact'
     )
     Add-CheckResult -Name 'SQL-Builder-Cleanup bietet ALL mit eigener Gesamtbestaetigung' -Success (
-        $menuText -match '\[ALL\] Alle \$\(\$builds\.Count\) angezeigten unfertigen SQL-Builder aufraeumen' -and
+        $menuText -match '-Id ''__all'' -Label "Alle \$\(\$builds.Count\) SQL-Builder aufräumen"' -and
         $menuText -match 'WIRKLICH ALLE SQL-Builder aufraeumen' -and
         $menuText -match 'Cleanup \$\(\$succeeded \+ \$failed \+ 1\)/\$\(\$builds\.Count\)'
     )
@@ -331,8 +331,8 @@ try {
     )
     Add-CheckResult -Name 'Prepared-Image-Auswahl zeigt Anzeigename, Zeitpunkt und Kurzkennung' -Success (
         $menuText -match 'function Select-LabHyperVPreparedArtifact' -and
-        $menuText -match 'Der Anzeigename ist frei wählbar' -and
-        $menuText -match 'Veröffentlicht: {0}.*Kennung: {1}' -and
+        $menuText -match "ScreenId 'hyperv-prepared-artifact-select'" -and
+        $menuText -match '\$registeredAt, \$shortArtifactId' -and
         $menuText -match 'artifact\.displayName' -and
         $menuText -notmatch 'SQL Server \{2\} \{3\}.*artifact\.artifactId'
     )

@@ -807,7 +807,7 @@ Add-ValidationResult `
 
 Add-ValidationResult `
     -Name 'Repo-Map beschreibt den real abgeschlossenen Generalize-Vertrag nicht als offen' `
-    -Success ($repoMap -match 'IN_PROGRESS_CONTROL_AND_GENERALIZE_GATES_COMPLETE_STORAGE_AND_STATUS_OPEN' -and
+    -Success ($repoMap -match 'CONSOLE_CUI_001_TO_020_AND_STORAGE_STATIC_COMPLETE_EXTERNAL_PROVIDER_GATES_OPEN' -and
         $repoMap -notmatch 'GENERALIZE_OPEN')
 
 $sqlPreparedAcceptancePath = Join-Path $repoRoot 'Tests\Integration\Invoke-HyperVSqlPreparedImageAcceptance.ps1'
