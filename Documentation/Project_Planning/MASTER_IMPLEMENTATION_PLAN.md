@@ -1103,7 +1103,7 @@ Master-Plan-Welle zu verändern oder eine Umsetzung zu starten.
 | N2 – P0-Steuerungs-, Abbruch- und Recovery-Verträge | Wellen 1, 2, 3 und 9; vorgeschaltete Konsolidierungswelle | `COMPLETE` |
 | N3 – Drei reale Project-Adapter-Piloten | Wellen 6, 7 und 7a | `PLANNED_NOT_STARTED` |
 | N4 – Hyper-V Windows-/SQL-End-to-End | Welle 4 | `COMPLETE` |
-| N5 – Storage- und Reconcile-Vertical-Slice | Wellen 1, 3, 4 und 5; Storage-Konsolidierungsplan | `IN_PROGRESS` (`STO-009..013`, `SFP-001..003` implementiert) |
+| N5 – Storage- und Reconcile-Vertical-Slice | Wellen 1, 3, 4 und 5; Storage-Konsolidierungsplan | `IN_PROGRESS` (Storage-Slices implementiert; Docker-/Podman-Reconcile real belegt; Hyper-V-Vier-Geräte-Nachweis offen) |
 
 Die fünf Wellen bilden den nächsten Planungshorizont. Scenario Engine, breite
 Fault Injection, vollständige Migration und Ablösung, Remote Hyper-V Host und

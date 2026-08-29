@@ -296,6 +296,16 @@ Executor setzt START/STOP kontrolliert um. Umfassende Desired-State-Persistenz,
 Journal/Resume und weitere Änderungsklassen bleiben in den nachfolgenden
 CORE-Arbeitspaketen.
 
+**Erweiterungsstand 2026-08-29:** Der Container-Slice ergänzt einen read-only
+Actual-/Desired-/Diff-Plan für `no-op`, `live` und `recreate`. Ein versioniertes
+Operationsjournal bindet Run, Scope, Instanz, echte Original-/Ersatz-ID,
+Mount-Fingerprint, vorherigen Connection-State und Compensation. Ein Folgelauf
+schließt einen bereits committeten Ersatz idempotent ab, rollt nicht committete
+Live-/Recreate-Schritte zurück oder setzt Run und ProviderSubRun sichtbar auf
+`RECOVERY_REQUIRED`. Dieser Nachweis erweitert `CORE-105`/`CORE-106` für
+Container; er ist keine Behauptung, dass alle Mutationsarten bereits denselben
+Vertrag verwenden.
+
 | ID | Arbeitspaket | Ergebnis |
 |---|---|---|
 | `CORE-101` | Desired State, Actual State, Diff, Bound Plan, Lock und Result getrennt versionieren | stabile serialisierbare Verträge |
@@ -337,6 +347,13 @@ produktiven Containerprovidern vertikal bewiesen.
 | `CNT-212` | SQL-Konfiguration und unterstützte Limits live ändern | erster `live`-Nachweis |
 | `CNT-213` | Ports, Mounts und Environment kontrolliert per Recreate ändern | persistente Volumes bleiben erhalten |
 | `CNT-214` | Container-Volume-Verwaltung und Host-Mount-Schutz in Action Preview | Storage- und Safety-Parität |
+
+**Umsetzungsstand 2026-08-29:** `CNT-212` und `CNT-213` sind für Docker und
+Podman real belegt. Derselbe Akzeptanzvertrag bestätigte read-only No-op ohne
+Identitätswechsel, CPU/RAM und SQL `max server memory` live, Port-Recreate mit
+erhaltenen Mounts und Daten, absichtlich erzwungenen Rollback auf die exakte
+Original-ID sowie Persistenz über Stop, Start und Restart. Freie Mount- oder
+Environment-Änderungen aus `CNT-214` bleiben außerhalb dieses Abschlusses.
 
 **Gate M2:**
 
@@ -702,7 +719,7 @@ Runtime-Nachweis; maßgeblich bleiben die jeweils genannten Tests und Evidence.
 | N2 | `COMPLETE` | ActionResult-/Sync-, Portbindungs-, UAC- und Privilegverträge sind implementiert und fokussiert geprüft; GUI-Abbruch, Scheduler-Abbruch/Recovery, Manifest-Rerun, PowerShell-Console, Windows-User-Gate und der positive Windows-Generalize-/Publish-Pfad sind real belegt. |
 | N3 | `PLANNED_NOT_STARTED` | Die drei Partnerrepository-Piloten sind nicht nachgewiesen. |
 | N4 | `COMPLETE` | Der reale Windows-2025-/SQL-2025-Lauf belegt Build, immutable Prepared-Parent, normalen differenzierenden Manifest-Klon, Windows-Specialization, `CompleteImage`, `SQL_READY_RUN`, unveränderten Parent-Hash und vollständigen Cleanup. |
-| N5 | `IN_PROGRESS` | `STO-009` bis `STO-013`, `SFP-001` bis `SFP-003` sowie die Implementierung von `HVS-001`, `HVS-002` und `SQLS-001` bis `SQLS-003` sind statisch/synthetisch geprüft; Vier-Geräte-/SQL-Runtime- sowie reale Live-/Recreate-Evidence bleiben offen. |
+| N5 | `IN_PROGRESS` | `STO-009` bis `STO-013`, `SFP-001` bis `SFP-003` sowie `HVS-001`, `HVS-002` und `SQLS-001` bis `SQLS-003` sind implementiert; Docker und Podman belegen No-op, Live, Recreate, Rollback und Persistenz real. Offen bleibt der physische Hyper-V-Vier-Geräte-Nachweis. |
 
 ### Welle N1 – Baseline, Regressionen und Katalogwartung
 
@@ -874,9 +891,10 @@ Lifecycle-Tests reichen für dieses Gate nicht aus.
 **Status:** `IN_PROGRESS` seit 2026-08-29. Die gehärtete Storage-Registry
 (`STO-009` bis `STO-013`), der File-Placement-Slice (`SFP-001` bis
 `SFP-003`) und die Runtime-Implementierung für `HVS-001`, `HVS-002` und
-`SQLS-001` bis `SQLS-003` sind statisch/synthetisch geprüft. Deren
-Vier-Geräte-, SQL-Restart-, CREATE- und Restore-Realnachweis sowie das Gate
-bleiben offen.
+`SQLS-001` bis `SQLS-003` sind statisch/synthetisch geprüft. Der
+Container-Reconcile-Anteil ist auf Docker und Podman real mit No-op, Live,
+Recreate, Rollback, Persistenz und Cleanup belegt. Das Gate bleibt wegen des
+noch fehlenden physischen Hyper-V-Vier-Geräte-Nachweises offen.
 
 **Ziel:** Den providerneutralen Storagevertrag und die ersten über START/STOP
 hinausgehenden Reconcile-Klassen als durchgängigen vertikalen Slice umsetzen.

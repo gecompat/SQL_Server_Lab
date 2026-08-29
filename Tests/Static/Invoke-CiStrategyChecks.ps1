@@ -44,6 +44,14 @@ Add-CheckResult -Name 'Batch-Aenderung aktiviert Batch-Vertrag und repraesentati
     $batchWorkflow.Docker -and 'Invoke-BatchWorkflowChecks.ps1' -in $batchWorkflow.StaticChecks
 )
 
+$containerReconcile = & $selector -ChangedPath @('Private/ContainerReconcile.ps1')
+Add-CheckResult -Name 'Container-Reconcile aktiviert Vertrag sowie Docker- und Podman-Akzeptanz' -Success (
+    $containerReconcile.Docker -and $containerReconcile.Podman -and
+    'Invoke-ContainerReconcileChecks.ps1' -in $containerReconcile.StaticChecks -and
+    'Invoke-ContainerVolumeContractChecks.ps1' -in $containerReconcile.StaticChecks -and
+    'Invoke-ReadinessContractChecks.ps1' -in $containerReconcile.StaticChecks
+)
+
 $ci = & $selector -ChangedPath @('.github/workflows/static-contracts.yml')
 Add-CheckResult -Name 'CI-Infrastruktur prueft einmalig alle Runtime-Gates' -Success (
     $ci.Docker -and $ci.Podman -and $ci.Mixed -and $ci.HyperV -and $ci.Adapter

@@ -80,6 +80,7 @@ end {
         @{ Pattern = '(?i)(New-SqlServerLabDatabase|DatabaseCommand)'; Checks = @('Invoke-DatabaseCommandChecks.ps1') },
         @{ Pattern = '(?i)(SqlReadiness|Readiness)'; Checks = @('Invoke-ReadinessContractChecks.ps1') },
         @{ Pattern = '(?i)(DesiredState|ReconcileContract|Get-SqlServerLabReconcilePlan)'; Checks = @('Invoke-ReconcileContractChecks.ps1','Invoke-ReconcileActionContractChecks.ps1') },
+        @{ Pattern = '(?i)(ContainerReconcile|Update-SqlServerLabContainer)'; Checks = @('Invoke-ContainerReconcileChecks.ps1','Invoke-ContainerVolumeContractChecks.ps1','Invoke-ReadinessContractChecks.ps1','Invoke-ReconcileContractChecks.ps1','Invoke-ReconcileActionContractChecks.ps1','Invoke-PortAllocationChecks.ps1') },
         @{ Pattern = '(?i)(ProviderCapability|provider\.json)'; Checks = @('Invoke-ProviderCapabilityChecks.ps1') },
         @{ Pattern = '(?i)(InstanceIntent|ServerConfig|ResourceAssessment)'; Checks = @('Invoke-InstanceIntentChecks.ps1') },
         @{ Pattern = '(?i)(ManifestBuilder|ManifestParser|lab-manifest|New-SqlServerLabManifest)'; Checks = @('Invoke-ManifestBuilderChecks.ps1') },
@@ -120,6 +121,7 @@ end {
         if (Test-AnyPath '(?i)(^Providers/Docker/|runtime-smoke-docker\.yml|Invoke-Smoke(Matrix|Test)|Invoke-RestoreSmokeTest|BatchWorkflow|BatchConsole|lab-batch)') { $runtime.Docker = $true }
         if (Test-AnyPath '(?i)(^Providers/Podman/|runtime-smoke-podman\.yml|PodmanBootstrap|Initialize-PodmanRuntime)') { $runtime.Podman = $true }
         if (Test-AnyPath '(?i)(ExternalRuntimeReconcile|Invoke-ExternalRuntimeContainerAcceptance|Invoke-SqlServerLabReconcileAction)') { $runtime.Docker = $true; $runtime.Podman = $true }
+        if (Test-AnyPath '(?i)(ContainerReconcile|Update-SqlServerLabContainer|Invoke-ContainerCliAcceptance)') { $runtime.Docker = $true; $runtime.Podman = $true }
         if (Test-AnyPath '(?i)(runtime-smoke-mixed-providers\.yml|MixedProvider|ProviderCapability|DesiredState|ReconcileContract|ProviderSubRun)') { $runtime.Mixed = $true }
         if (Test-AnyPath '(?i)(^Providers/HyperV/|runtime-smoke-hyperv\.yml|/HyperV|^Private/HyperV|HyperVSmokeTest|^Private/ExternalRuntimeWindows|Images/ExternalLanguages/Windows|ExternalRuntimeHyperVAcceptance)') { $runtime.HyperV = $true }
         if (Test-AnyPath '(?i)(^Adapters/|ProjectAdapter|adapter-smoke|project-adapter)') { $runtime.Adapter = $true }
