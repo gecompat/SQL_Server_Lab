@@ -18,6 +18,7 @@ ARG EXTENSIBILITY_DEB_URL=https://packages.microsoft.com/ubuntu/22.04/mssql-serv
 ARG EXTENSIBILITY_DEB_SHA256=50df89ac3d1176f6227a9db46d1d8128cb3a326718515082f5ca161028610226
 ARG EXTENSIBILITY_DEB_VERSION=16.0.4265.3-1
 ARG EXTERNAL_RUNTIME_LAUNCH_MODE=sql2022-namespace-v1
+ARG OPENSSL_SONAME=3
 
 USER root
 
@@ -31,14 +32,15 @@ RUN set -eux; \
     test "$(dpkg-deb -f /tmp/mssql-server-extensibility.deb Version)" = "${EXTENSIBILITY_DEB_VERSION}"; \
     dpkg --force-depends -i /tmp/mssql-server-extensibility.deb; \
     rm -f /tmp/mssql-server-extensibility.deb; \
-    test -e /usr/lib/x86_64-linux-gnu/libssl.so.3; \
-    test -e /usr/lib/x86_64-linux-gnu/libcrypto.so.3; \
+    test "${OPENSSL_SONAME}" = '1.1' -o "${OPENSSL_SONAME}" = '3'; \
+    test -e "/usr/lib/x86_64-linux-gnu/libssl.so.${OPENSSL_SONAME}"; \
+    test -e "/usr/lib/x86_64-linux-gnu/libcrypto.so.${OPENSSL_SONAME}"; \
     test ! -e /usr/lib/x86_64-linux-gnu/libssl.so; \
     test ! -e /usr/lib/x86_64-linux-gnu/libcrypto.so; \
-    ln -s libssl.so.3 /usr/lib/x86_64-linux-gnu/libssl.so; \
-    ln -s libcrypto.so.3 /usr/lib/x86_64-linux-gnu/libcrypto.so; \
-    test "$(readlink /usr/lib/x86_64-linux-gnu/libssl.so)" = 'libssl.so.3'; \
-    test "$(readlink /usr/lib/x86_64-linux-gnu/libcrypto.so)" = 'libcrypto.so.3'; \
+    ln -s "libssl.so.${OPENSSL_SONAME}" /usr/lib/x86_64-linux-gnu/libssl.so; \
+    ln -s "libcrypto.so.${OPENSSL_SONAME}" /usr/lib/x86_64-linux-gnu/libcrypto.so; \
+    test "$(readlink /usr/lib/x86_64-linux-gnu/libssl.so)" = "libssl.so.${OPENSSL_SONAME}"; \
+    test "$(readlink /usr/lib/x86_64-linux-gnu/libcrypto.so)" = "libcrypto.so.${OPENSSL_SONAME}"; \
     /opt/mssql/bin/checkinstallextensibility.sh; \
     test "$(stat -c '%U:%G' /var/opt/mssql-extensibility)" = 'mssql_launchpadd:mssql_launchpadd'; \
     test "$(stat -c '%a' /var/opt/mssql-extensibility)" = '771'; \

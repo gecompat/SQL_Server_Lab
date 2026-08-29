@@ -392,7 +392,7 @@ bevorzugt versionierte Derived Images. Python, R und Java sind nicht auf
 Hyper-V oder Windows beschränkt; die konkrete SQL-, OS- und
 Provider-Supportmatrix ist maßgeblich.
 
-SQL-2022-Container mit External Runtimes behandeln Replacement als atomare
+SQL-2019-/2022-/2025-Container mit External Runtimes behandeln Replacement als atomare
 Umschaltung zwischen inhaltsadressierten Images. Das SQL-Datenverzeichnis und
 die langlebigen External-Language-/External-Library-Artefakte besitzen getrennte
 scopegebundene Volumes; LaunchPad-Daten und Sandboxes sind absichtlich

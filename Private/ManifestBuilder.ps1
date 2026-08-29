@@ -790,7 +790,7 @@ function Get-LabManifestValidationResult {
             }
         }
         elseif (@($instance.software | Where-Object {
-            $_ -and [string]$_.id -notin @('sql-python', 'sql-r', 'sql-java')
+            $_ -and [string]$_.id -notin @('sql-python', 'sql-r', 'sql-java', 'sql-csharp')
         }).Count -gt 0) {
             $errors.Add("$instancePath.software: Software-Installationen benötigen den Hyper-V-Manifestpfad.")
         }

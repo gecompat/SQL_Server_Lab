@@ -572,7 +572,8 @@
             "visual-studio",
             "sql-python",
             "sql-r",
-            "sql-java"
+            "sql-java",
+            "sql-csharp"
           ]
         },
         "version": {
@@ -632,7 +633,7 @@
         {
           "if": {
             "properties": {
-              "id": { "enum": ["sql-python", "sql-r", "sql-java"] }
+              "id": { "enum": ["sql-python", "sql-r", "sql-java", "sql-csharp"] }
             },
             "required": ["id"]
           },

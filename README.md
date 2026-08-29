@@ -44,7 +44,7 @@ testet seinen Core je Provider nur mit SQL Server 2025.
 | PowerShell-Modul | implementiert | `SqlServerLab.psd1`, `SqlServerLab.psm1` |
 | Docker-Provider | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman-Provider | implementiert | `Providers/Podman/PodmanProvider.ps1` |
-| SQL Server 2022 External Languages | Python, R und Java für Docker/Linux, Podman/Linux und Hyper-V/Windows unterstützt und providergetrennt nativ akzeptiert | `Catalogs/software.json`, `Tests/Integration/Invoke-ExternalRuntimeContainerAcceptance.ps1`, `Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1` |
+| SQL Server External Languages | Container: Java für SQL 2019, Python/R/Java für SQL 2022/2025, jeweils Docker und Podman; Hyper-V/Windows: SQL-2022 Python/R/Java nativ akzeptiert, C# für SQL 2019–2025 sichtbar `PREVIEW` | `Catalogs/software.json`, `Tests/Integration/Invoke-ExternalRuntimeContainerAcceptance.ps1`, `Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1` |
 | Gemischter Docker-/Podman-Lifecycle | implementiert | `Documentation/Architecture/MIXED_PROVIDER_LIFECYCLE.md` |
 | Hyper-V-Provider | Lifecycle einschließlich Gast-Drives, Windows-Specialization, SQL-Readiness, Image-Registry, Windows-Builder und resumierbarem SQL-`PrepareImage`-Builder implementiert; frischer Windows-Slot mit echter SQL-2025-Installation, Datenbank-/Storage-/Ressourcenänderungen, Lifecycle und Cleanup CLI-seitig akzeptiert | `Providers/HyperV/HyperVProvider.ps1`, `Private/HyperVImageBuilder.ps1`, `Private/HyperVSqlImageBuilder.ps1`, `Tests/Integration/Invoke-HyperVCliAcceptance.ps1` |
 | Ad-hoc-Provisionierung | implementiert | `New-SqlServerLab -Version ... -Provider ...` |
