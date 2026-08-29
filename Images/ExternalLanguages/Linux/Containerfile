@@ -83,6 +83,7 @@ RUN /opt/sql-server-lab/java/jre/bin/java -version; \
 FROM runtime-java AS selected-runtime-java
 ARG EXTERNAL_RUNTIMES=java
 ARG CONTENT_ID=characterization
+ARG EXTERNAL_RUNTIME_LAUNCH_MODE=sql2022-namespace-v1
 
 USER root
 RUN test "${EXTERNAL_RUNTIMES}" = 'java'; \
@@ -180,6 +181,7 @@ RUN /opt/sql-server-lab/java/jre/bin/java -version; \
 FROM ${EXTERNAL_RUNTIME_STAGE} AS selected-runtime
 ARG EXTERNAL_RUNTIMES=python
 ARG CONTENT_ID=characterization
+ARG EXTERNAL_RUNTIME_LAUNCH_MODE=sql2022-namespace-v1
 
 USER root
 RUN case "${EXTERNAL_RUNTIMES}" in \
