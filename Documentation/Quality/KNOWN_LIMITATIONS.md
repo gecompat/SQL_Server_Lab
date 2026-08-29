@@ -426,9 +426,9 @@ vor der Mutation sichtbar abgelehnt. SQL Server 2019 besitzt im Linux-
 Containerpfad derzeit nur die Java-Variante; dessen älterer Python-/R-
 Machine-Learning-Paketstack wird nicht mit dem Custom-Runtime-Vertrag von SQL
 Server 2022/2025 vermischt. SQL Server 2022 und 2025 katalogisieren Python, R
-und Java für Docker und Podman. Die bisherigen nativen SQL-Roundtrip-Nachweise
-für alle drei Sprachen stammen von SQL Server 2022; neuere oder ältere
-Versionsfreigaben benötigen ihren eigenen Abschlussnachweis.
+und Java für Docker und Podman. Native SQL-Roundtrip-Nachweise liegen für Java
+auf SQL Server 2019 und für Python, R und Java auf SQL Server 2022 und 2025 vor,
+jeweils getrennt für Docker und Podman.
 
 Für SQL Server 2022/Python, R und Java existieren inzwischen ein per MCR-Digest
 gebundener Buildkontext, vollständige DEB-, Wheel-, R-Paket-, JDK-, Java-
@@ -454,11 +454,12 @@ Der sichere `launchpadd`-Namespace-Modus benötigt rootful Linux, cgroup v1,
 einen schreibbaren cgroup-Bind sowie die im Rezept exakt gebundenen Linux-
 Capabilities und Security-Optionen. Ungeeignete Hosts werden vor State und
 Mutation abgelehnt; es gibt keinen stillen Fallback ohne Namespace-Isolation.
-Docker und Podman bestanden auf einem isolierten Ubuntu-22.04-/cgroup-v1-Gast
-je eine vollständige Native Acceptance: Python, R und Java lieferten echte
-SQL-Datenroundtrips und Worker-Identität vor und nach providergebundenem
-Neustart; Run-Ressourcen, Derived Image und das test-eigene Podman-Netz wurden
-vollständig bereinigt. Podman 3.4.4 benötigt dabei die eng begrenzte
+Docker und Podman bestanden auf isolierten cgroup-v1-Gästen vollständige Native
+Acceptances für SQL Server 2019/Java sowie SQL Server 2022 und 2025 mit Python,
+R und Java. Die Sprachen lieferten echte SQL-Datenroundtrips und Worker-
+Identität vor und nach providergebundenem Neustart; Run-Ressourcen, Derived
+Images und die test-eigenen Podman-Netze wurden vollständig bereinigt. Podman
+3.4.4 benötigt dabei die eng begrenzte
 CNI-0.4.0-Kompatibilitätskorrektur und einen Retry für seine sofortige
 Portfreigabe-Race. Rootless Podman bleibt für allgemeine Labs unterstützt,
 nicht jedoch für den External-Runtime-Namespace-Modus.

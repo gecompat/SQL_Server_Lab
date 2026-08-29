@@ -25,7 +25,7 @@ foreach ($entry in $providers.GetEnumerator()) {
     Assert-VolumeContract ($text -match "(?s)if \(-not \`$drive\.hostPath\).*?Initialize-$($name.Substring(0,1).ToUpperInvariant())$($name.Substring(1))SqlNamedVolume") "$name veraendert keine Host-Bind-Mounts"
     Assert-VolumeContract ($text -match '(?s)volume inspect.*?return \$false') "$name initialisiert bestehende Volumes nicht erneut"
     Assert-VolumeContract (
-        $text -match "SyncImageContent:\(\`$ExternalRuntimeLaunchMode -eq 'sql2022-namespace-v1' -and" -and
+        $text -match "SyncImageContent:\(\`$ExternalRuntimeLaunchMode -in @\('sql2019-namespace-v1','sql2022-namespace-v1','sql2025-namespace-v1'\) -and" -and
         $text -match "\[string\]\`$drive\.containerPath -in" -and
         $text -match '/var/opt/mssql-extensibility/externallanguages' -and
         $text -match '/var/opt/mssql-extensibility/externallibraries' -and
