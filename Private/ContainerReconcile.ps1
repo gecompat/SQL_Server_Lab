@@ -101,6 +101,15 @@ function Get-LabContainerReconcileContext {
     $currentCpu = if ([long]$inspect.HostConfig.NanoCpus -gt 0) { [decimal]([long]$inspect.HostConfig.NanoCpus / 1000000000) } else { 2 }
     $configuredSqlMemory = @($inspect.Config.Env | Where-Object { [string]$_ -match '^MSSQL_MEMORY_LIMIT_MB=' } | Select-Object -First 1)
     $healthCommand = [string](@($inspect.Config.Healthcheck.Test) -join ' ')
+    $restartPolicy = [string]$inspect.HostConfig.RestartPolicy.Name
+    $autoStartLabel = [string]$inspect.Config.Labels.'sql-server-lab.autostart'
+    $currentAutoStart = if ($restartPolicy -in @('always','unless-stopped') -and $autoStartLabel -eq 'on') {
+        'on'
+    }
+    elseif (($restartPolicy -in @('','no')) -and $autoStartLabel -in @('','off')) {
+        'off'
+    }
+    else { 'DRIFTED' }
     return [PSCustomObject]@{
         Run=$run; RunId=$RunId; RunDirectory=$runDirectory; StateRoot=$StateRoot
         Connection=$connection; ConnectionPath=$connectionPath; Instance=$instance
@@ -109,6 +118,8 @@ function Get-LabContainerReconcileContext {
         WasRunning=[bool]$inspect.State.Running; CurrentPort=$currentPort
         CurrentMemoryMB=$currentMemoryMB; CurrentCpu=$currentCpu
         ConfiguredSqlMemory=$configuredSqlMemory; HealthCommand=$healthCommand
+        CurrentRestartPolicy=$restartPolicy; CurrentAutoStartLabel=$autoStartLabel
+        CurrentAutoStart=$currentAutoStart
         MountFingerprint=Get-LabContainerMountFingerprint -Mounts @($inspect.Mounts)
     }
 }
@@ -153,6 +164,7 @@ function New-LabContainerReconcilePlan {
         [Nullable[int]]$MemoryMB,
         [Nullable[int]]$Port,
         [Nullable[int]]$SqlMaxMemoryMB,
+        [ValidateSet('on','off')][string]$AutoStart,
         [switch]$RepairSqlRuntimeContract,
         [string]$StateRoot
     )
@@ -160,6 +172,15 @@ function New-LabContainerReconcilePlan {
     $targetCpu = if ($null -ne $Cpu) { [decimal]$Cpu } else { [decimal]$context.CurrentCpu }
     $targetMemory = if ($null -ne $MemoryMB) { [int]$MemoryMB } else { [int]$context.CurrentMemoryMB }
     $targetPort = if ($null -ne $Port) { [int]$Port } else { [int]$context.CurrentPort }
+    $targetAutoStart = if ($PSBoundParameters.ContainsKey('AutoStart')) {
+        $AutoStart
+    }
+    elseif ([string]$context.CurrentAutoStart -eq 'on' -or
+        [string]$context.CurrentRestartPolicy -in @('always','unless-stopped') -or
+        [string]$context.CurrentAutoStartLabel -eq 'on') {
+        'on'
+    }
+    else { 'off' }
     if ($targetCpu -lt 1 -or $targetCpu -gt 64) { throw 'CONTAINER_RECONCILE_CPU_OUT_OF_RANGE' }
     if ($targetMemory -lt 512 -or $targetMemory -gt 1048576) { throw 'CONTAINER_RECONCILE_MEMORY_OUT_OF_RANGE' }
     if ($targetPort -lt 1024 -or $targetPort -gt 65535) { throw 'CONTAINER_RECONCILE_PORT_OUT_OF_RANGE' }
@@ -173,13 +194,16 @@ function New-LabContainerReconcilePlan {
     $memoryChanged = $targetMemory -ne [int]$context.CurrentMemoryMB
     $portChanged = $targetPort -ne [int]$context.CurrentPort
     $contractRepair = $RepairSqlRuntimeContract -and -not $runtimeContractCurrent
+    $autoStartChanged = ($PSBoundParameters.ContainsKey('AutoStart') -and [string]$context.CurrentAutoStart -ne $targetAutoStart) -or
+        ($RepairSqlRuntimeContract -and [string]$context.CurrentAutoStart -eq 'DRIFTED')
     $sqlMemoryChanged = $null -ne $targetSqlMaxMemory -and $targetSqlMaxMemory -ne $currentSqlMaxMemory
-    $changeClass = if ($portChanged -or $contractRepair) { 'recreate' } elseif ($cpuChanged -or $memoryChanged -or $sqlMemoryChanged) { 'live' } else { 'no-op' }
+    $changeClass = if ($portChanged -or $contractRepair -or $autoStartChanged) { 'recreate' } elseif ($cpuChanged -or $memoryChanged -or $sqlMemoryChanged) { 'live' } else { 'no-op' }
     $diff = @(
         [PSCustomObject]@{ Field='Cpu'; Current=[decimal]$context.CurrentCpu; Desired=$targetCpu; Changed=$cpuChanged; ChangeClass=if($cpuChanged){'live'}else{'no-op'} },
         [PSCustomObject]@{ Field='MemoryMB'; Current=[int]$context.CurrentMemoryMB; Desired=$targetMemory; Changed=$memoryChanged; ChangeClass=if($memoryChanged){'live'}else{'no-op'} },
         [PSCustomObject]@{ Field='Port'; Current=[int]$context.CurrentPort; Desired=$targetPort; Changed=$portChanged; ChangeClass=if($portChanged){'recreate'}else{'no-op'} },
         [PSCustomObject]@{ Field='SqlRuntimeContract'; Current=if($runtimeContractCurrent){'CURRENT'}else{'DRIFTED'}; Desired=if($RepairSqlRuntimeContract){'CURRENT'}else{'UNCHANGED'}; Changed=$contractRepair; ChangeClass=if($contractRepair){'recreate'}else{'no-op'} },
+        [PSCustomObject]@{ Field='AutoStart'; Current=[string]$context.CurrentAutoStart; Desired=$targetAutoStart; Changed=$autoStartChanged; ChangeClass=if($autoStartChanged){'recreate'}else{'no-op'} },
         [PSCustomObject]@{ Field='SqlMaxMemoryMB'; Current=$currentSqlMaxMemory; Desired=$targetSqlMaxMemory; Changed=$sqlMemoryChanged; ChangeClass=if($sqlMemoryChanged){'live'}else{'no-op'} }
     )
     $actions = if ($changeClass -eq 'no-op') { @() } else { @([PSCustomObject]@{
@@ -189,8 +213,8 @@ function New-LabContainerReconcilePlan {
     return [PSCustomObject]@{
         Contract=[PSCustomObject]@{ Name='SqlServerLab.ContainerReconcilePlan'; Version='1.0' }
         RunId=$RunId; InstanceId=[string]$context.InstanceId; Provider=[string]$context.Provider
-        Actual=[PSCustomObject]@{ Cpu=[decimal]$context.CurrentCpu; MemoryMB=[int]$context.CurrentMemoryMB; Port=[int]$context.CurrentPort; SqlRuntimeContract=if($runtimeContractCurrent){'CURRENT'}else{'DRIFTED'}; SqlMaxMemoryMB=$currentSqlMaxMemory }
-        Desired=[PSCustomObject]@{ Cpu=$targetCpu; MemoryMB=$targetMemory; Port=$targetPort; SqlMemoryLimitMB=$sqlMemoryLimit; SqlMaxMemoryMB=$targetSqlMaxMemory; RepairSqlRuntimeContract=[bool]$RepairSqlRuntimeContract }
+        Actual=[PSCustomObject]@{ Cpu=[decimal]$context.CurrentCpu; MemoryMB=[int]$context.CurrentMemoryMB; Port=[int]$context.CurrentPort; SqlRuntimeContract=if($runtimeContractCurrent){'CURRENT'}else{'DRIFTED'}; AutoStart=[string]$context.CurrentAutoStart; SqlMaxMemoryMB=$currentSqlMaxMemory }
+        Desired=[PSCustomObject]@{ Cpu=$targetCpu; MemoryMB=$targetMemory; Port=$targetPort; SqlMemoryLimitMB=$sqlMemoryLimit; SqlMaxMemoryMB=$targetSqlMaxMemory; AutoStart=$targetAutoStart; RepairSqlRuntimeContract=[bool]$RepairSqlRuntimeContract }
         Diff=$diff; Actions=$actions; HighestChangeClass=$changeClass; IsNoOp=$changeClass -eq 'no-op'; MutationAllowed=$false
         Preview=[PSCustomObject]@{
             Downtime=if($changeClass -eq 'recreate'){'brief'}else{'none'}
@@ -209,8 +233,8 @@ function New-LabContainerReconcileJournal {
         ContractVersion='SqlServerLab.ContainerReconcileJournal/1.0'; OperationId=$operationId
         RunId=[string]$Context.RunId; ScopeId=[string]$Context.Run.scopeId; InstanceId=[string]$Context.InstanceId
         Provider=[string]$Context.Provider; ChangeClass=[string]$Plan.HighestChangeClass; Status='PREPARED'
-        Before=[PSCustomObject]@{ Cpu=[decimal]$Context.CurrentCpu; MemoryMB=[int]$Context.CurrentMemoryMB; Port=[int]$Context.CurrentPort; SqlMaxMemoryMB=$Plan.Actual.SqlMaxMemoryMB; Running=[bool]$Context.WasRunning; RunState=[string]$Context.Run.state; MountFingerprint=[string]$Context.MountFingerprint }
-        Target=[PSCustomObject]@{ Cpu=[decimal]$Plan.Desired.Cpu; MemoryMB=[int]$Plan.Desired.MemoryMB; Port=[int]$Plan.Desired.Port; SqlMemoryLimitMB=[int]$Plan.Desired.SqlMemoryLimitMB; SqlMaxMemoryMB=$Plan.Desired.SqlMaxMemoryMB; MountFingerprint=[string]$Context.MountFingerprint }
+        Before=[PSCustomObject]@{ Cpu=[decimal]$Context.CurrentCpu; MemoryMB=[int]$Context.CurrentMemoryMB; Port=[int]$Context.CurrentPort; SqlMaxMemoryMB=$Plan.Actual.SqlMaxMemoryMB; AutoStart=[string]$Context.CurrentAutoStart; RestartPolicy=[string]$Context.CurrentRestartPolicy; AutoStartLabel=[string]$Context.CurrentAutoStartLabel; Running=[bool]$Context.WasRunning; RunState=[string]$Context.Run.state; MountFingerprint=[string]$Context.MountFingerprint }
+        Target=[PSCustomObject]@{ Cpu=[decimal]$Plan.Desired.Cpu; MemoryMB=[int]$Plan.Desired.MemoryMB; Port=[int]$Plan.Desired.Port; SqlMemoryLimitMB=[int]$Plan.Desired.SqlMemoryLimitMB; SqlMaxMemoryMB=$Plan.Desired.SqlMaxMemoryMB; AutoStart=[string]$Plan.Desired.AutoStart; MountFingerprint=[string]$Context.MountFingerprint }
         Runtime=[PSCustomObject]@{ ContainerName=[string]$Context.ContainerName; OriginalId=[string]$Context.ContainerId; BackupName=$null; ReplacementId=$null }
         PreviousConnection=$Context.Connection
         Recovery=[PSCustomObject]@{ Status='ROLLBACK_AVAILABLE'; Attempts=0; ErrorCode=$null; Errors=@() }
@@ -310,6 +334,17 @@ function Repair-LabContainerReconcileJournal {
             if ($expectedMemoryEnvironment -notin @($replacement.Config.Env) -or
                 [string](@($replacement.Config.Healthcheck.Test) -join ' ') -notmatch '(?:^|\s)-C(?:\s|$)') {
                 throw 'CONTAINER_RECONCILE_RECOVERY_SQL_RUNTIME_CONTRACT_MISMATCH'
+            }
+            if ($journal.Target.PSObject.Properties['AutoStart']) {
+                $expectedAutoStart = [string]$journal.Target.AutoStart
+                $actualAutoStart = if ([string]$replacement.HostConfig.RestartPolicy.Name -in @('always','unless-stopped') -and
+                    [string]$replacement.Config.Labels.'sql-server-lab.autostart' -eq 'on') { 'on' }
+                elseif ([string]$replacement.HostConfig.RestartPolicy.Name -in @('','no') -and
+                    [string]$replacement.Config.Labels.'sql-server-lab.autostart' -in @('','off')) { 'off' }
+                else { 'DRIFTED' }
+                if ($actualAutoStart -ne $expectedAutoStart) {
+                    throw 'CONTAINER_RECONCILE_RECOVERY_AUTOSTART_MISMATCH'
+                }
             }
             if ($null -ne $journal.Target.SqlMaxMemoryMB) {
                 $replacementSqlContext = $Context | Select-Object *

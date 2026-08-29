@@ -192,11 +192,11 @@ public_commands:
     writes_files: true
   - name: Get-SqlServerLabReconcilePlan
     source: Public/Get-SqlServerLabReconcilePlan.ps1
-    purpose: "Read-only Lifecycle- oder resolvergebundener External-Runtime-Reconcile-Plan"
+    purpose: "Read-only Lifecycle-, Containerressourcen-/Autostart- oder resolvergebundener External-Runtime-Reconcile-Plan"
     mutates_host: false
   - name: Invoke-SqlServerLabReconcileAction
     source: Public/Invoke-SqlServerLabReconcileAction.ps1
-    purpose: "START/STOP oder additiven SQL-2022-Container-Runtime-Refresh journal- und validierungsgebunden ausfuehren"
+    purpose: "START/STOP, Containerressourcen/Autostart oder additiven SQL-2022-Container-Runtime-Refresh journal- und validierungsgebunden ausfuehren"
     mutates_host: true
   - name: Invoke-SqlServerLabWorkflowAction
     source: Public/Invoke-SqlServerLabWorkflowAction.ps1

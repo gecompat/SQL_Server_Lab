@@ -219,6 +219,7 @@ try {
     $clearText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Clear-SqlServerLab.ps1') -Raw -Encoding utf8
     $connectionCenterText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Sync-SqlServerLabConnectionCenter.ps1') -Raw -Encoding utf8
     $runtimeReadinessText = Get-Content -LiteralPath (Join-Path $repoRoot 'Tests/Integration/Invoke-TestEnvironmentRuntimeReadiness.ps1') -Raw -Encoding utf8
+    $acceptanceText = Get-Content -LiteralPath (Join-Path $repoRoot 'Tests/Integration/Invoke-TestEnvironmentAcceptance.ps1') -Raw -Encoding utf8
     $groupLifecycleText = Get-Content -LiteralPath (Join-Path $repoRoot 'Tests/Integration/Invoke-TestEnvironmentGroupLifecycle.ps1') -Raw -Encoding utf8
     $groupLifecycleCommandText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/TestEnvironmentLifecycle.ps1') -Raw -Encoding utf8
     $lifecycleText = @(
@@ -341,7 +342,17 @@ try {
         $groupLifecycleText -match 'BindingsPreserved' -and
         $groupLifecycleText -match 'LinuxPreserved' -and
         $groupLifecycleText -match "GroupStatus -ne 'INCOMPLETE'" -and
+        $groupLifecycleText -match 'WindowsRestored' -and
+        $groupLifecycleText -match "GroupStatus -ne 'READY'" -and
+        @($groupLifecycleText -split '\r?\n' | Where-Object { $_ -match 'Start-SqlServerLabAutomatedTestEnvironment' }).Count -ge 2 -and
         $groupLifecycleText -notmatch 'Remove-SqlServerLab|Clear-SqlServerLabAutomatedTestEnvironment'
+    )
+    Add-CheckResult -Name 'Gemeinsame Runtime-Abnahme bindet jede SQL-Jahresversion an ihre echte Major-Version' -Success (
+        $acceptanceText -match "'2019' \{ 15 \}" -and
+        $acceptanceText -match "'2022' \{ 16 \}" -and
+        $acceptanceText -match "'2025' \{ 17 \}" -and
+        $acceptanceText -match "SERVERPROPERTY\('ProductMajorVersion'\)" -and
+        $acceptanceText -match 'TEST_ENVIRONMENT_VERSION_MISMATCH'
     )
 }
 finally {
