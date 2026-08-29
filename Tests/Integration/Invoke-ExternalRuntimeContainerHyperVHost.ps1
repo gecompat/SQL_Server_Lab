@@ -21,7 +21,7 @@
 param(
     [string]$SwitchName = 'Default Switch',
     [string]$HostRoot = 'D:\Lab_Base\Linux\ExternalRuntimeAcceptance',
-    [ValidateSet('2022', '2025')][string]$SqlVersion = '2022',
+    [ValidateSet('2019', '2022', '2025')][string]$SqlVersion = '2022',
     [ValidateRange(900, 14400)][int]$BootstrapTimeoutSeconds = 3600,
     [string]$TranscriptPath,
     [switch]$KeepOnFailure
