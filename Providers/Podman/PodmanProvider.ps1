@@ -114,7 +114,7 @@ function New-PodmanInstance {
         [ValidateSet('on', 'off')][string]$AutoStart = 'off',
         [ValidatePattern('^[A-Za-z0-9_]{1,128}$')][string]$Collation = 'SQL_Latin1_General_CP1_CI_AS',
         [string]$ResolvedImage,
-        [ValidateSet('none', 'sql2022-namespace-v1')][string]$ExternalRuntimeLaunchMode = 'none'
+        [ValidateSet('none', 'sql2022-namespace-v1', 'sql2025-namespace-v1')][string]$ExternalRuntimeLaunchMode = 'none'
     )
 
     if ($ResolvedImage -and $ResolvedImage -notmatch '^[a-z0-9][a-z0-9./_-]+:[a-z0-9][a-z0-9._-]+$') {
@@ -159,7 +159,7 @@ function New-PodmanInstance {
         if (-not $drive.hostPath) {
             $null = Initialize-PodmanSqlNamedVolume -VolumeName $volumeSource -Image $image -RunId $RunId -ScopeId $ScopeId `
                 -ContainerPath ([string]$drive.containerPath) `
-                -SyncImageContent:($ExternalRuntimeLaunchMode -eq 'sql2022-namespace-v1' -and
+                -SyncImageContent:($ExternalRuntimeLaunchMode -in @('sql2022-namespace-v1','sql2025-namespace-v1') -and
                     [string]$drive.containerPath -in @('/var/opt/mssql-extensibility/externallanguages','/var/opt/mssql-extensibility/externallibraries'))
         }
 
@@ -179,7 +179,7 @@ function New-PodmanInstance {
         $collationArguments = @('-e', "MSSQL_COLLATION=$Collation")
     }
     $restartArguments = if ($AutoStart -eq 'on') { @('--restart', 'unless-stopped') } else { @() }
-    $externalRuntimeArguments = if ($ExternalRuntimeLaunchMode -eq 'sql2022-namespace-v1') {
+    $externalRuntimeArguments = if ($ExternalRuntimeLaunchMode -in @('sql2022-namespace-v1','sql2025-namespace-v1')) {
         @(
             '--user', '0:0',
             '--cap-add', 'CHOWN',

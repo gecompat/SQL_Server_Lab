@@ -325,7 +325,12 @@ function Resolve-LabExternalRuntimePlan {
         InstallationMethod = [string]$variant.installMethod
         RecipeVersion = [string]$variant.recipeVersion
         RequiredCapabilities = @($variant.requiresCapabilities | ForEach-Object { [string]$_ })
-        ArtifactRefs = @($variant.artifacts | ForEach-Object {
+        ArtifactRefs = @($variant.artifacts | Where-Object {
+            [string]$variant.installMethod -ne 'derived-image' -or
+            ([string]$_.id -notmatch '^mssql-server-linux-' -and
+             [string]$_.id -ne 'mssql-server-extensibility' -and
+             [string]$_.id -notmatch '^ubuntu-.*-libgomp1$')
+        } | ForEach-Object {
             [PSCustomObject]@{
                 Id = [string]$_.id
                 SourceType = [string]$_.sourceType

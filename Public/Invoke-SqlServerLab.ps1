@@ -4295,7 +4295,7 @@ function Set-LabResourcesInteractive {
 function Manage-LabExternalRuntimeInteractive {
     <#
     .SYNOPSIS
-        Installiert oder aktualisiert External Languages einer SQL-2022-Containerinstanz.
+        Installiert oder aktualisiert External Languages einer unterstützten Containerinstanz.
     .DESCRIPTION
         Verwendet den fail-closed Manifest-Reconcile-Vertrag. Das Zielmanifest
         darf außer der External-Runtime-Software nicht vom persistierten
@@ -4314,10 +4314,10 @@ function Manage-LabExternalRuntimeInteractive {
     }
     $connection = Get-Content -LiteralPath $connectionPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 50
     $instances = @($connection.instances | Where-Object {
-        [string]$_.provider -in @('docker', 'podman') -and [string]$_.version -eq '2022'
+        [string]$_.provider -in @('docker', 'podman') -and [string]$_.version -in @('2022','2025')
     })
     if ($instances.Count -eq 0) {
-        Write-LabWarning 'Nachträgliche External Languages sind derzeit nur für SQL Server 2022 unter Docker oder Podman freigegeben.'
+        Write-LabWarning 'Für diese Umgebung ist noch kein nachträglicher External-Languages-Pfad freigegeben. SQL Server 2022 und 2025 werden unter Docker und Podman unterstützt; SQL Server 2019 benötigt den getrennten Legacy-Runtime-Paketstack.'
         return
     }
     $instance = if ($instances.Count -eq 1) {
@@ -4390,11 +4390,11 @@ function Manage-LabEnvironmentInteractive {
     $stateRoot = Get-LabStateRoot
     $connectionPath = Join-Path (Join-Path (Join-Path $stateRoot 'runs') $runId) 'connection-info.json'
     $externalRuntimeEligible = $false
-    $externalRuntimeValue = 'nur SQL Server 2022 unter Docker/Podman'
+    $externalRuntimeValue = 'SQL Server 2022/2025 unter Docker/Podman'
     if (Test-Path -LiteralPath $connectionPath -PathType Leaf) {
         $connection = Get-Content -LiteralPath $connectionPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 50
         $eligibleInstances = @($connection.instances | Where-Object {
-            [string]$_.provider -in @('docker', 'podman') -and [string]$_.version -eq '2022'
+            [string]$_.provider -in @('docker', 'podman') -and [string]$_.version -in @('2022','2025')
         })
         if ($eligibleInstances.Count -gt 0) {
             $externalRuntimeEligible = $true

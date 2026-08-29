@@ -97,7 +97,9 @@ $result = & $module {
     catch { $duplicateRejected = $_.Exception.Message -match 'EXTERNAL_RUNTIME_REQUEST_DUPLICATE' }
 
     $receiptRejected = $false
-    try { $null = New-LabSoftwareInstallationReceipt -Plan $sql2025Plan -Postconditions @() }
+    $unresolvedPlan = $sql2025Plan | Select-Object *
+    $unresolvedPlan.Status = 'DECLARED_UNSUPPORTED'
+    try { $null = New-LabSoftwareInstallationReceipt -Plan $unresolvedPlan -Postconditions @() }
     catch { $receiptRejected = $_.Exception.Message -match 'SOFTWARE_RECEIPT_REQUIRES_RESOLVED_PLAN' }
 
     $resolved = [PSCustomObject]@{
@@ -132,9 +134,9 @@ $result = & $module {
         Supported = $supportedPlan.Status -eq 'RESOLVED' -and
             -not $supportedPlan.ReasonCode -and
             $supportedPlan.VariantId -eq 'sql2022-python310-ubuntu2204-derived' -and
-            $supportedPlan.RecipeVersion -eq '5'
-        Sql2025 = $sql2025Plan.Status -eq 'DECLARED_UNSUPPORTED' -and
-            $sql2025Plan.ReasonCode -eq 'RUNTIME_COMBINATION_NOT_CATALOGUED'
+            $supportedPlan.RecipeVersion -eq '6'
+        Sql2025 = $sql2025Plan.Status -eq 'RESOLVED' -and
+            $sql2025Plan.RecipeVersion -eq '6'
         PackageLock = $packagePlan.ReasonCode -eq 'PACKAGE_NOT_LOCKED'
         HyperVJava = $javaPlan.Status -eq 'RESOLVED' -and -not $javaPlan.ReasonCode -and
             $javaPlan.VariantId -eq 'sql2022-java17-windows-hyperv'
@@ -146,7 +148,7 @@ $result = & $module {
             $podmanOptions.Count -eq 3 -and
             (@($podmanOptions.SoftwareId | Sort-Object) -join ',') -eq 'sql-java,sql-python,sql-r' -and
             @($podmanOptions | Where-Object { [string]$_.Provider -ne 'podman' -or [string]$_.PlanKey -notmatch '^[a-f0-9]{64}$' }).Count -eq 0 -and
-            $sql2025Options.Count -eq 0
+            $sql2025Options.Count -eq 3
         PlanIdentity = [string]$supportedPlan.PlanKey -match '^[a-f0-9]{64}$' -and
             @($supportedPlan.PackageLocks).Count -gt 0 -and
             (($supportedPlan | ConvertTo-Json -Depth 30) -notmatch '(?i)https?://|Program Files|/usr/')
