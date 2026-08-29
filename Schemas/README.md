@@ -94,12 +94,15 @@ Jede direkte Eigenschaft unter `serverConfig` ist deshalb maschinenlesbar mit
 
 - `executable`: Parser und Runtime wenden das Feld an;
 - `reserved`: das Feld bleibt fuer die Vertragsentwicklung sichtbar, wird aber
-  nicht als Runtime-Capability zugesagt;
+  nicht als Runtime-Capability zugesagt und wird bei gesetztem Wert mit
+  `MANIFEST_RESERVED_RUNTIME_FIELD` abgelehnt;
 - `partially-executable`: nur die in der Beschreibung genannten Werte besitzen
   einen Runtimepfad.
 
 Ausfuehrbare Beispielmanifeste duerfen keine als `reserved` markierten Felder
-verwenden. Bei `externalScripts.installMethod` ist `pre-built` reserviert.
+verwenden. Wertabhaengige Grenzen stehen in `x-runtimeValueStatus` und enden
+mit `MANIFEST_RESERVED_RUNTIME_VALUE`; bei `externalScripts.installMethod`
+sind `custom-image` und `pre-built` reserviert.
 
 ## Pfadauflösung
 

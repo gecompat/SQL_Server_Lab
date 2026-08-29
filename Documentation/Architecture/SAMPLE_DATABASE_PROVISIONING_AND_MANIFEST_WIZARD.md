@@ -439,12 +439,19 @@ Vor dem Speichern wird eine strukturierte Summary gezeigt:
 - Datenbanken und Sample-Ausgaben;
 - Downloads, Quellen, Lizenzen und Trust-Anforderungen;
 - lokale und Gastpfade mit ihrer jeweiligen Bedeutung;
-- vorbereitete, aber nicht ausführbare Felder;
+- fail-closed abgelehnte, vorbereitete, aber nicht ausführbare Felder;
 - erwartete Mutationen und Cleanup;
 - Fehler und Warnungen.
 
 Das Manifest wird erst nach erfolgreicher Schema- und Fachvalidierung atomar
 geschrieben.
+
+Direkte `serverConfig`-Felder mit `x-runtimeStatus: reserved` erzeugen dabei
+`MANIFEST_RESERVED_RUNTIME_FIELD`. Wertabhängig reservierte Varianten aus
+`x-runtimeValueStatus`, derzeit `externalScripts.installMethod` mit
+`custom-image` oder `pre-built`, erzeugen `MANIFEST_RESERVED_RUNTIME_VALUE`.
+Damit erreicht kein bekannter, nicht ausführbarer Runtimevertrag den Resolver
+oder eine Provider-Mutation.
 
 **Implementiert am 2026-08-29:** Auswahl- und Ja/Nein-Schritte führen Hilfe,
 Zurück, Zusammenfassung und Abbruch als eigene Optionen. Freie Skalarfelder

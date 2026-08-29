@@ -295,7 +295,8 @@ internal_components:
       - "mutationsfreie Software-Planvorschau mit Downloads, Build/Gastmutation, Downtime, Locks, Verification und Aenderungsklassen liefern"
       - "mutationsfreie Sample-/Artifact-Planvorschau mit Quelle, Lizenz, Outputs, Groessen, Integritaet, Trust, Handler und Idempotenz liefern"
       - "Schema-, Katalog- und Runtime-Grenzen vor dem Speichern prüfen"
-      - "Warnungen für vorbereitete oder riskante Konfigurationen erzeugen"
+      - "reservierte Runtimefelder und -werte schemaabgeleitet fail-closed ablehnen"
+      - "Warnungen für riskante, aber ausführbare Konfigurationen erzeugen"
   - name: ManifestParser
     source: Private/ManifestParser.ps1
     responsibilities:
@@ -881,7 +882,7 @@ known_limitations:
     - "kein provideruebergreifendes Docker-/Podman-Netzwerk oder Hyper-V-SubRun"
     - "Sample-Handler mit Trust-Pfad, Mehrfachauswahl, ZIP-/7z-Backup-Payloads, gepinnten Einzelskripten und sicheren Multi-Output-ZIP-Script-Bundles sind implementiert; nicht freigegebene Archive und Attach-Handler bleiben offen"
     - "Containerbasierte LAB_GENERATED-Baselines und kompatible Aufsetzpunkte sind implementiert; Hyper-V-Export und -Nutzung bleiben offen"
-    - "mehrere reservierte serverConfig-Felder noch ohne stabilen Runtimepfad"
+    - "mehrere reservierte serverConfig-Felder noch ohne stabilen Runtimepfad; explizite Nutzung wird vor Auflösung und Mutation fail-closed abgelehnt"
     - "Versionskatalog wird nicht automatisch als aktuell garantiert"
 
 continuation_rules:

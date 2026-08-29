@@ -8,6 +8,14 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- Reservierte `serverConfig`-Felder werden jetzt anhand von
+  `x-runtimeStatus` vor Manifestauflösung und Mutation mit
+  `MANIFEST_RESERVED_RUNTIME_FIELD` abgelehnt. Wertabhängig reservierte
+  `externalScripts.installMethod`-Varianten sind über
+  `x-runtimeValueStatus` klassifiziert und enden mit
+  `MANIFEST_RESERVED_RUNTIME_VALUE`; dadurch werden `custom-image` und
+  `pre-built` nicht mehr nur gewarnt oder später verworfen.
+
 - Die verbleibenden Konsolen-Auswahllisten für Storage, Connection Center/CMS,
   Testumgebungen, Containerprofile sowie Hyper-V-Builds, Medien, Vorlagen,
   Switches, Quell-VMs und Fortsetzung verwenden jetzt die gemeinsame
