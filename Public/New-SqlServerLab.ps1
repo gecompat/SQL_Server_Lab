@@ -78,7 +78,8 @@ function New-LabProviderContainer {
         [Parameter(Mandatory)][SecureString]$SaPassword,
         [int]$Port = 0,
         $ContainerImageArtifact,
-        [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$')][string]$ContainerName
+        [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$')][string]$ContainerName,
+        [ValidatePattern('^$|^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$')][string]$EndpointBindingIgnoreContainerName
     )
 
     $labName = Resolve-LabRuntimeName -RunState $RunState
@@ -108,6 +109,7 @@ function New-LabProviderContainer {
                 -InstanceId $Instance.id `
                 -LabName $labName `
                 -ContainerName $ContainerName `
+                -EndpointBindingIgnoreContainerName $EndpointBindingIgnoreContainerName `
                 -Port $Port `
                 -SaPassword $SaPassword `
                 -Profile $Instance.profile `
@@ -128,6 +130,7 @@ function New-LabProviderContainer {
                 -InstanceId $Instance.id `
                 -LabName $labName `
                 -ContainerName $ContainerName `
+                -EndpointBindingIgnoreContainerName $EndpointBindingIgnoreContainerName `
                 -Port $Port `
                 -SaPassword $SaPassword `
                 -Profile $Instance.profile `
