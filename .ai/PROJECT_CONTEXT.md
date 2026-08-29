@@ -3,8 +3,8 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING` |
-| Runtime-Status | `CONTAINER_CORE_IMPLEMENTED_HYPERV_SPECIALIZATION_READINESS_ORCHESTRATION` |
-| Stand | 2026-08-20 |
+| Runtime-Status | `CONTAINER_CORE_IMPLEMENTED_HYPERV_SQL_CLI_ACCEPTED` |
+| Stand | 2026-08-29 |
 | Repository | `gecompat/SQL_Server_Lab` |
 | Maschinenlesbare Landkarte | [`repo_map.yaml`](repo_map.yaml) |
 
@@ -51,16 +51,21 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 - gemischter Docker-/Podman-Lifecycle mit getrennten `ProviderSubRuns`;
 - Post-Provision-T-SQL;
 - Start, Stop, Restart, Status, Remove und Clear;
-- read-only Desired/Actual/Diff-Reconcile sowie kontrollierte START-/STOP-
-  Aktionen für bestehende Runs;
-- verwalteter Storage-Vertrag, journalisierte Parent-Migration innerhalb eines
-  Volumes und Cleanup-Audit;
+- read-only Desired/Actual/Diff-Reconcile, kontrollierte START-/STOP-Aktionen
+  sowie journalisierter Container-Reconcile für CPU, RAM, SQL `max server
+  memory`, Hostport, Autostart und External Runtimes einschließlich No-op,
+  Rollback, Persistenz und Recovery;
+- verwalteter Multi-Root-Storage-Vertrag mit stabilen `LocationId`-Werten,
+  Backing-Device-Topologie, dateigenauem Storage-Plan, journalisierter
+  Parent-Migration und Cleanup-Audit;
 - gemeinsames Console-UI-Framework für die umgesetzten CUI-001-bis-CUI-011-
   Flows;
 - providerneutraler `SqlServerLab.Batch/1.0`- und
   `SqlServerLab.Operation/1.0`-Kern mit deterministischer Mengenexpansion,
   persistenter Queue, zwei Workern, einem `HyperVHeavy`-Slot, Resume,
-  User-Gates, Queue-/Composer-Menü und Browserübergabe;
+  User-Gates, Queue-/Composer-Menü und Browserübergabe; harter
+  Scheduler-Abbruch, Manifest-Rerun und reales Windows-User-Gate sind mit
+  Resume und scopegebundenem Cleanup belegt;
 - statische Vertragsprüfung;
 - Docker- und Podman-Smoke-Testpfad;
 - providerneutraler Instanz-Autostart: Hyper-V `AutomaticStartAction`,
@@ -86,15 +91,22 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   Reboot-Zustand und begrenztem PowerShell-Direct-Reconnect;
 - SQL-Readiness-Orchestrierung im Gast mit Dienst-, Major-Version- und
   Systemdatenbankprüfung sowie sanitierter `SQL_READY_RUN`-Evidenz;
+- realer Windows-Server-2025-/SQL-Server-2025-Pfad vom hashverifizierten
+  Prepared-Image-Build über `PrepareImage`, Sysprep und immutable Publikation
+  bis zum normalen differenzierenden Manifest-Klon mit `CompleteImage`,
+  `SQL_READY_RUN`, unverändertem Parent-Hash und vollständigem Cleanup;
+- echter Hyper-V-SQL-2025-CLI-Vertical-Slice mit Installation, Storage,
+  TempDB, Ressourcenwechsel, Datenpersistenz und Cleanup;
 - providerneutraler Softwarekatalog und External-Runtime-Resolver mit
   SQL-/OS-/Provider-Capability-Gates, sicherer Legacy-`post-start`-Grenze und
   geheimnisfreien Software-Intents für Python, R und Java;
-- sicherer SQL-2022-Derived-Image-Buildvertrag für Python, R und Java mit
+- sicherer versionsbewusster Derived-Image-Buildvertrag für die freigegebenen
+  Python-, R- und Java-Varianten auf SQL Server 2019, 2022 und 2025 mit
   MCR-Basisdigest, vollständigen DEB-, Wheel-, R-Paket-, JDK-, Java-Extension-
   und OCI-Locks,
   providerneutralem Image-Key, getrennten Docker-/Podman-Receipts,
   rootful-cgroup-v1-Preflight und exakt gebundenem Launch-Capability-Vertrag;
-  Docker und Podman bestanden getrennt echte Python-, R- und Java-
+  Docker und Podman bestanden getrennt die katalogisierten echten
   SQL-Datenroundtrips vor und nach providergebundenem Neustart samt
   vollständigem Cleanup; Java besitzt zusätzlich datenbankgebundene,
   idempotente DDL-, Drift- und Fehlerkompensationsverträge; der journalgebundene
@@ -108,9 +120,10 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 
 ### Geplant oder unvollständig
 
-- vollständiger Hyper-V-Provider mit resumierbarem OS-/SQL-Image-Build,
-  SQL-`CompleteImage`, realem Gast-End-to-End-Nachweis, Manifest-Binding
-  zusätzlicher Drives und providerneutralen Netzwerken;
+- vollständiger allgemeiner Hyper-V-Provider über den belegten
+  Windows-2025-/SQL-2025-Referenzpfad hinaus, insbesondere breite
+  Datenbank-, Software-, Post-Provisioning- und Netzwerk-Manifestbindung sowie
+  eine reale Versions-/Editionsmatrix;
 - Hyper-V-SubRuns und ein providerübergreifendes Containernetzwerk innerhalb
   eines Runs;
 - vollständige Ausführung aller im Schema vorbereiteten `serverConfig`-Felder;
@@ -120,15 +133,20 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   implementiert, Zurück-Navigation sowie allgemeine Sample-/Artifact-
   Planvorschau bleiben offen;
 - Hyper-V-Export und -Nutzung von `LAB_GENERATED`-Baselines;
-- External-Runtime-Varianten für SQL Server 2019, SQL Server 2025 und weitere
-  OS-/Providerkombinationen; der positive SQL-2022-Status wird nicht vererbt;
-- Reconcile-Aktionen über START/STOP hinaus, insbesondere für Ressourcen- und
-  Konfigurationsänderungen;
+- weitere External-Runtime-OS-/Providerkombinationen außerhalb der belegten
+  Linux-Containermatrix und des SQL-2022-Hyper-V-/Windows-Pfads; C# bleibt bis
+  zu reproduzierbarem Build und nativer SQL-Evidence `PREVIEW`;
+- Reconcile-Aktionen über den implementierten Lifecycle- und
+  Container-Reconcile hinaus, insbesondere für Netzwerke, freie Mount-/Image-
+  Änderungen, Hyper-V-Software und weitere SQL-Konfigurationen;
 - versionierter Refresh-/Rebuild-Lifecycle für Medien, VHDX und Container-Images;
 - konsumierende Analyze- und Schulungs-Lab-Packages;
-- langfristige Planner-, Package- und Supporting-Component-Architektur.
-- Batch-/Queue-Provider-Matrix am 2026-08-20 real verifiziert: Docker und Podman mit je zwei SQL-2025-Runs, Hyper-V mit zwei Windows-2025-Slots, Resume und vollständigem Cleanup; offen bleiben echter Prozessabbruch, Manifest-Rerun und Windows-User-Gate
-  einschließlich Abbruch- und Cleanup-Pfaden;
+- langfristige Planner-, Package- und Supporting-Component-Architektur;
+- physischer Hyper-V-Vier-Geräte-Nachweis für dateigenaue Data-, Log-,
+  TempDB- und Backup-Platzierung einschließlich SQL-Restart, Create, Restore,
+  Persistenz und Cleanup;
+- drei reale Project-Adapter-Piloten für `SQL_PerformanceSchulung`,
+  `SQL_Server_Analyze` und `SQL_Server_Toolbelt`.
 
 Die verbindliche Detailabgrenzung steht in `Documentation/Quality/KNOWN_LIMITATIONS.md`.
 
@@ -143,15 +161,15 @@ Podman
 
 Beide Provider benötigen getrennte Native-Tests. Ein erfolgreicher Docker-Test ist kein Podman-Nachweis und umgekehrt.
 
-Der aktuelle Nachweis vom 2026-08-20 bestätigt Docker und Podman einschließlich
-Batch-, paralleler, gemischter und Restore-Pfade. Der verbindliche Runtime-Gate des
-Lab-Core verwendet SQL Server 2025 als einzige Referenzversion; reale
-Mehrversions-Abnahmen liegen bei SQL Analyze und Toolbelt. Der erhöhte
-GitHub-Runner und der lokale Batchnachweis bestätigen den nativen Hyper-V-
-Lifecycle; die allgemeine echte SQL-2025-Acceptance aus frischer SQL-
-Installationsmedia bleibt durch die fehlende Eval-ISO im Media-Root blockiert.
-Die genaue Abgrenzung steht in
-`Documentation/Quality/VALIDATION_RESULT_2026-08-20.md`.
+Die Nachweise vom 2026-08-27 bis 2026-08-29 bestätigen Docker und Podman
+einschließlich CLI-, Batch-, paralleler, gemischter, Restore-, Reconcile- und
+External-Runtime-Pfade. Der verbindliche Runtime-Gate des Lab-Core verwendet
+SQL Server 2025 als Referenzversion; die allgemeine Windows-/Linux-
+Mehrversionsmatrix bleibt bei SQL Analyze und Toolbelt. Die katalogisierten
+Linux-External-Runtime-Varianten für SQL Server 2019, 2022 und 2025 besitzen
+zusätzlich getrennte native Docker-/Podman-Evidence. Die genaue Abgrenzung
+steht in `Documentation/Quality/KNOWN_LIMITATIONS.md` und den dort
+referenzierten Validierungsberichten.
 
 Der Provider eines Runs wird in `connection-info.json` gespeichert. Lifecycle und Live-Status müssen diese Bindung verwenden und dürfen nicht zufällig eine andere lokal installierte Runtime auswählen.
 
@@ -161,12 +179,13 @@ Der Provider eines Runs wird in `connection-info.json` gespeichert. Lifecycle un
 Hyper-V
 ```
 
-Hyper-V besitzt einen getrennten VM-Lifecycle-Nachweis, aber noch keinen
-positiven allgemeinen SQL-Runtime-Nachweis. Der Ad-hoc-Pfad bietet Hyper-V
-deshalb nicht als allgemeinen SQL-Provider an. `New-SqlServerLab -Manifest`
-kann nur den eng begrenzten Klonpfad aus genau einer veröffentlichten
-`SQL_PREPARED_SEALED`-Vorlage verwenden; dieser Pfad ist kein Ersatz für den
-noch offenen vollständigen End-to-End-Nachweis.
+Hyper-V besitzt neben dem VM-Lifecycle einen positiven
+Windows-2025-/SQL-2025-Prepared-Image-Referenzpfad und einen echten
+SQL-2025-CLI-Vertical-Slice. Der Ad-hoc-Pfad bietet Hyper-V trotzdem noch nicht
+als allgemeinen SQL-Provider an. `New-SqlServerLab -Manifest` verwendet den
+eng begrenzten Klonpfad aus einer veröffentlichten
+`SQL_PREPARED_SEALED`-Vorlage; die breite Datenbank-, Software-,
+Post-Provisioning-, Netzwerk- und Versionsbindung bleibt offen.
 
 Der verbindliche Implementierungsvertrag steht in
 `Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md`.
