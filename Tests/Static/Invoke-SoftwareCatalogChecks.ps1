@@ -24,8 +24,8 @@ Add-CheckResult -Name 'Softwarekatalog entspricht dem versionierten JSON-Schema'
 $catalog = Get-Content -LiteralPath $catalogPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 50
 $softwareIds = @($catalog.software | ForEach-Object { [string]$_.id })
 $variants = @($catalog.software | ForEach-Object { @($_.variants) })
-Add-CheckResult -Name 'Python, R und Java besitzen eindeutige Katalog-IDs und Varianten' -Success (
-    (@($softwareIds | Sort-Object) -join ',') -eq 'sql-java,sql-python,sql-r' -and
+Add-CheckResult -Name 'Python, R, Java und C# besitzen eindeutige Katalog-IDs und Varianten' -Success (
+    (@($softwareIds | Sort-Object) -join ',') -eq 'sql-csharp,sql-java,sql-python,sql-r' -and
     @($softwareIds | Sort-Object -Unique).Count -eq $softwareIds.Count -and
     @($variants.id | Sort-Object -Unique).Count -eq $variants.Count
 )
@@ -43,6 +43,13 @@ Add-CheckResult -Name 'Java katalogisiert SDK und synthetisches Probe-JAR als re
     @($javaLinux.artifacts | Where-Object {
         [string]$_.sourceType -eq 'generated' -and [string]$_.id -in @('mssql-java-lang-extension-linux', 'sql-server-lab-java-probe')
     }).Count -eq 2
+)
+$csharpWindows = @($variants | Where-Object { [string]$_.id -eq 'sql2019plus-dotnet8-windows-hyperv-source' })[0]
+Add-CheckResult -Name 'C#/.NET 8 ist für SQL 2019 bis 2025 Windows explizit katalogisiert, aber ohne Native Evidence fail-closed' -Success (
+    $csharpWindows.status -eq 'PREVIEW' -and $csharpWindows.language -eq 'CSharp' -and
+    (@($csharpWindows.sqlMajorVersions) -join ',') -eq '15,16,17' -and
+    $csharpWindows.operatingSystem -eq 'windows' -and (@($csharpWindows.providers) -join ',') -eq 'hyperv' -and
+    $csharpWindows.artifacts[0].sha256 -eq '5eedb40bdc9b38d5b48f9e6fb0b94e76f805e8d855536a867c7ba670d6535bf1'
 )
 
 Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
@@ -64,6 +71,10 @@ $result = & $module {
     }
     $supportedPlan = Resolve-LabExternalRuntimePlan -SoftwareItem $catalogRequest -SqlVersion '2022' -Provider podman -OperatingSystem linux
     $sql2025Plan = Resolve-LabExternalRuntimePlan -SoftwareItem $catalogRequest -SqlVersion '2025' -Provider docker -OperatingSystem linux
+    $csharpPlan = Resolve-LabExternalRuntimePlan -SoftwareItem ([PSCustomObject]@{
+        Id='sql-csharp'; Version=$null; Variant=$null; Scope='sqlExternalRuntime'; InstallMethod='catalog'
+        Optional=$false; Packages=@(); RequestSource='software'
+    }) -SqlVersion '2019' -Provider hyperv -OperatingSystem windows
 
     $packageRequest = [PSCustomObject]@{
         Id = 'sql-python'; Version = $null; Variant = $null; Scope = 'sqlExternalRuntime'
@@ -79,7 +90,9 @@ $result = & $module {
     }
     $javaPlan = Resolve-LabExternalRuntimePlan -SoftwareItem $javaRequest -SqlVersion '2022' -Provider hyperv -OperatingSystem windows
     $dockerOptions = @(Get-LabExternalRuntimeSelectionOptions -SqlVersion '2022' -Provider docker -OperatingSystem linux)
+    $podmanOptions = @(Get-LabExternalRuntimeSelectionOptions -SqlVersion '2022' -Provider podman -OperatingSystem linux)
     $sql2025Options = @(Get-LabExternalRuntimeSelectionOptions -SqlVersion '2025' -Provider docker -OperatingSystem linux)
+    $sql2019Options = @(Get-LabExternalRuntimeSelectionOptions -SqlVersion '2019' -Provider docker -OperatingSystem linux)
     $containerPreview = Get-LabExternalRuntimePlanPreview -DesiredPlans @($supportedPlan)
     $noOpPreview = Get-LabExternalRuntimePlanPreview -DesiredPlans @($supportedPlan) -CurrentPlans @($supportedPlan)
     $windowsPreview = Get-LabExternalRuntimePlanPreview -DesiredPlans @($javaPlan)
@@ -96,7 +109,9 @@ $result = & $module {
     catch { $duplicateRejected = $_.Exception.Message -match 'EXTERNAL_RUNTIME_REQUEST_DUPLICATE' }
 
     $receiptRejected = $false
-    try { $null = New-LabSoftwareInstallationReceipt -Plan $sql2025Plan -Postconditions @() }
+    $unresolvedPlan = $sql2025Plan | Select-Object *
+    $unresolvedPlan.Status = 'DECLARED_UNSUPPORTED'
+    try { $null = New-LabSoftwareInstallationReceipt -Plan $unresolvedPlan -Postconditions @() }
     catch { $receiptRejected = $_.Exception.Message -match 'SOFTWARE_RECEIPT_REQUIRES_RESOLVED_PLAN' }
 
     $resolved = [PSCustomObject]@{
@@ -131,9 +146,11 @@ $result = & $module {
         Supported = $supportedPlan.Status -eq 'RESOLVED' -and
             -not $supportedPlan.ReasonCode -and
             $supportedPlan.VariantId -eq 'sql2022-python310-ubuntu2204-derived' -and
-            $supportedPlan.RecipeVersion -eq '5'
-        Sql2025 = $sql2025Plan.Status -eq 'DECLARED_UNSUPPORTED' -and
-            $sql2025Plan.ReasonCode -eq 'RUNTIME_COMBINATION_NOT_CATALOGUED'
+            $supportedPlan.RecipeVersion -eq '6'
+        Sql2025 = $sql2025Plan.Status -eq 'RESOLVED' -and
+            $sql2025Plan.RecipeVersion -eq '6'
+        CSharp = $csharpPlan.Status -eq 'DECLARED_UNSUPPORTED' -and $csharpPlan.ReasonCode -eq 'VARIANT_PREVIEW' -and
+            $csharpPlan.Language -eq 'CSharp'
         PackageLock = $packagePlan.ReasonCode -eq 'PACKAGE_NOT_LOCKED'
         HyperVJava = $javaPlan.Status -eq 'RESOLVED' -and -not $javaPlan.ReasonCode -and
             $javaPlan.VariantId -eq 'sql2022-java17-windows-hyperv'
@@ -142,7 +159,11 @@ $result = & $module {
         Selection = $dockerOptions.Count -eq 3 -and
             (@($dockerOptions.SoftwareId | Sort-Object) -join ',') -eq 'sql-java,sql-python,sql-r' -and
             @($dockerOptions | Where-Object { [string]$_.PlanKey -notmatch '^[a-f0-9]{64}$' }).Count -eq 0 -and
-            $sql2025Options.Count -eq 0
+            $podmanOptions.Count -eq 3 -and
+            (@($podmanOptions.SoftwareId | Sort-Object) -join ',') -eq 'sql-java,sql-python,sql-r' -and
+            @($podmanOptions | Where-Object { [string]$_.Provider -ne 'podman' -or [string]$_.PlanKey -notmatch '^[a-f0-9]{64}$' }).Count -eq 0 -and
+            $sql2025Options.Count -eq 3 -and
+            $sql2019Options.Count -eq 1 -and $sql2019Options[0].SoftwareId -eq 'sql-java'
         PlanIdentity = [string]$supportedPlan.PlanKey -match '^[a-f0-9]{64}$' -and
             @($supportedPlan.PackageLocks).Count -gt 0 -and
             (($supportedPlan | ConvertTo-Json -Depth 30) -notmatch '(?i)https?://|Program Files|/usr/')
@@ -179,6 +200,7 @@ $result = & $module {
 Add-CheckResult -Name 'Legacy-post-start bleibt vor jeder Mutation NON_REPRODUCIBLE' -Success $result.Legacy
 Add-CheckResult -Name 'SQL-2022-Python wird fuer Podman deterministisch als freigegeben aufgeloest' -Success $result.Supported
 Add-CheckResult -Name 'SQL Server 2025 erbt keine unbelegte SQL-2022-Runtimeannahme' -Success $result.Sql2025
+Add-CheckResult -Name 'C# bleibt ohne freigegebenen Binär- und Native-Evidence-Pfad explizit fail-closed' -Success $result.CSharp
 Add-CheckResult -Name 'Nicht katalogisierte Zusatzpakete werden vor der Mutation abgelehnt' -Success $result.PackageLock
 Add-CheckResult -Name 'Hyper-V/Windows-Java besitzt einen nativ belegten deterministischen Plan' -Success $result.HyperVJava
 Add-CheckResult -Name 'Doppelte Legacy- und software-Anforderung wird abgelehnt' -Success $result.DuplicateRejected

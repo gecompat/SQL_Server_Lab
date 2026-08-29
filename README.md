@@ -44,7 +44,7 @@ testet seinen Core je Provider nur mit SQL Server 2025.
 | PowerShell-Modul | implementiert | `SqlServerLab.psd1`, `SqlServerLab.psm1` |
 | Docker-Provider | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman-Provider | implementiert | `Providers/Podman/PodmanProvider.ps1` |
-| SQL Server 2022 External Languages | Python, R und Java für Docker/Linux, Podman/Linux und Hyper-V/Windows unterstützt und providergetrennt nativ akzeptiert | `Catalogs/software.json`, `Tests/Integration/Invoke-ExternalRuntimeContainerAcceptance.ps1`, `Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1` |
+| SQL Server External Languages | Container: Java für SQL 2019, Python/R/Java für SQL 2022/2025, jeweils Docker und Podman; Hyper-V/Windows: SQL-2022 Python/R/Java nativ akzeptiert, C# für SQL 2019–2025 sichtbar `PREVIEW` | `Catalogs/software.json`, `Tests/Integration/Invoke-ExternalRuntimeContainerAcceptance.ps1`, `Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1` |
 | Gemischter Docker-/Podman-Lifecycle | implementiert | `Documentation/Architecture/MIXED_PROVIDER_LIFECYCLE.md` |
 | Hyper-V-Provider | Lifecycle einschließlich Gast-Drives, Windows-Specialization, SQL-Readiness, Image-Registry, Windows-Builder und resumierbarem SQL-`PrepareImage`-Builder implementiert; frischer Windows-Slot mit echter SQL-2025-Installation, Datenbank-/Storage-/Ressourcenänderungen, Lifecycle und Cleanup CLI-seitig akzeptiert | `Providers/HyperV/HyperVProvider.ps1`, `Private/HyperVImageBuilder.ps1`, `Private/HyperVSqlImageBuilder.ps1`, `Tests/Integration/Invoke-HyperVCliAcceptance.ps1` |
 | Ad-hoc-Provisionierung | implementiert | `New-SqlServerLab -Version ... -Provider ...` |
@@ -517,8 +517,8 @@ Invoke-SqlServerLabScheduler -UntilIdle
 | `Export-SqlServerLabCmsSyncScript` | Idempotentes Synchronisationsskript für einen vorhandenen CMS erzeugen |
 | `Initialize-SqlServerLabCms` | Kompakten persistenten Docker-/Podman-CMS nach expliziter Auswahl anlegen |
 | `Sync-SqlServerLabCms` | Verwalteten lokalen CMS mit dem aktuellen Endpunktkatalog abgleichen |
-| `Get-SqlServerLabReconcilePlan` | Read-only Plan für Lifecycle oder resolvergebundenen External-Runtime-Reconcile |
-| `Invoke-SqlServerLabReconcileAction` | `START`/`STOP` oder validierten External-Runtime-Container-Reconcile ausführen |
+| `Get-SqlServerLabReconcilePlan` | Read-only Plan für Lifecycle, Containerressourcen/Autostart oder resolvergebundenen External-Runtime-Reconcile |
+| `Invoke-SqlServerLabReconcileAction` | `START`/`STOP`, journalisierten Containerressourcen-/Autostart-Reconcile oder validierten External-Runtime-Reconcile ausführen |
 | `Invoke-SqlServerLabWorkflowAction` | Nicht interaktive Hyper-V-Workflow-Aktion für die lokale Oberfläche |
 | `New-SqlServerLabManifest` | Schema-gesteuertes Manifest in der Konsole erstellen |
 | `Test-SqlServerLabManifest` | Manifest ohne Provisionierung strukturell und fachlich prüfen |
@@ -535,9 +535,9 @@ Invoke-SqlServerLabScheduler -UntilIdle
 | `Get-SqlServerLabGeneratedSqlAccess` | Hyper-V SQL-Zugriffsdaten (ConnectionString + generiertes SA-Passwort) aus dem Run abrufen |
 | `New-SqlServerLabAutomatedTestEnvironment` | Linux-Testumgebungen mit getrennten Zufallskennwörtern erstellen und nach Lab_Data exportieren |
 | `Export-SqlServerLabTestEnvironment` | Registrierte Testumgebungen als dotenv, schema-validierbares JSON, portablen Agenten-Prompt und Markdown exportieren |
-| `Repair-SqlServerLabAutomatedTestEnvironment` | Ressourcen- und Health-Vertrag der registrierten Linux-Mitglieder mit einzelnem Rollback reparieren |
-| `Start-SqlServerLabAutomatedTestEnvironment` | Registrierte Windows-Hyper-V-Mitglieder als Gruppe starten, SQL-Dienste bereitstellen und live bis `READY` prüfen |
-| `Stop-SqlServerLabAutomatedTestEnvironment` | Registrierte Windows-Hyper-V-Mitglieder nicht-destruktiv stoppen, Hostkapazität freigeben und den Export fail-closed erneuern |
+| `Repair-SqlServerLabAutomatedTestEnvironment` | Ressourcen, Health, Autostart und sprechende Runtime-Namen der registrierten Testgruppe sicher abgleichen |
+| `Start-SqlServerLabAutomatedTestEnvironment` | Registrierte Docker-, Podman- und Hyper-V-Mitglieder als Gruppe starten und live bis `READY` prüfen |
+| `Stop-SqlServerLabAutomatedTestEnvironment` | Registrierte Docker-, Podman- und Hyper-V-Mitglieder nicht-destruktiv stoppen, Hostkapazität freigeben und den Export fail-closed erneuern |
 | `Clear-SqlServerLabAutomatedTestEnvironment` | Alle automatisierten Testumgebungen als geschützte Gruppe gemeinsam entfernen |
 | `Test-SqlServerLabPrerequisite` | Provider, RAM, Storage und Ports prüfen |
 | `Test-SqlServerLabAdapter` | Project Adapter gegen Schema, Pfadgrenzen und optional einen Run prüfen |

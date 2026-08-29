@@ -54,13 +54,13 @@ Start, Stop, PowerShell Direct und scopegebundener Cleanup. Der Native-
 Smoke-Test verwendet bewusst eine synthetische leere Parent-VHDX und beweist
 weder Betriebssystem- noch SQL-Bereitschaft.
 
-Für die registrierten Windows-Mitglieder der geschützten automatisierten
-Testgruppe existiert ein eigener öffentlicher Gruppen-Lifecycle. Er kann
-vorhandene VMs und SQL-Engine-Dienste idempotent starten, authentifizierte SQL-
-Readiness prüfen und die VMs danach ohne Löschung wieder stoppen. Dieser enge
-Vertrag ist keine allgemeine Hyper-V-Gruppenverwaltung: Er verändert keine
-Registrierungen, erstellt keine Slots und repariert keine unvollständige SQL-
-Installation. Ein Teilfehler hält den erneuerten Export fail-closed.
+Für die geschützte automatisierte Testgruppe existiert ein eigener öffentlicher,
+providerübergreifender Gruppen-Lifecycle. Er kann registrierte Docker-, Podman-
+und Hyper-V-Mitglieder idempotent starten, authentifizierte SQL-Readiness samt
+Major-Version prüfen und alle Mitglieder danach ohne Löschung wieder stoppen.
+Dieser enge Vertrag ist keine allgemeine Provider-Gruppenverwaltung: Er verändert
+keine Registrierungen, erstellt keine Slots und repariert keine unvollständige
+SQL-Installation. Ein Teilfehler hält den erneuerten Export fail-closed.
 
 Builder und reguläre Lab-VMs deaktivieren automatische Hyper-V-Checkpoints.
 Die Publikation bleibt fail-closed, wenn dennoch ein Checkpoint vorhanden ist,
@@ -413,19 +413,22 @@ Kurzbezeichner wie `2022-CU16` werden nur akzeptiert, wenn der Build im Katalog 
 
 ## External Languages
 
-Die Installation von R, Python oder Java ist von SQL-Version, Betriebssystem,
+Die Installation von R, Python, Java oder C# ist von SQL-Version, Betriebssystem,
 Distribution, Provider, Paketquellen und der jeweiligen Supportmatrix abhängig.
 Python ist ausdrücklich auch unter Linux und in Containern vorgesehen; es ist
 nicht auf Hyper-V beschränkt.
 
 Der providerneutrale Softwarekatalog und Capability Resolver normalisieren
-Python-, R- und Java-Anforderungen nach SQL-Version, Betriebssystem,
+Python-, R-, Java- und C#-Anforderungen nach SQL-Version, Betriebssystem,
 Architektur und Provider. Unvollständig belegte Varianten, freie Commands,
 nicht gesperrte Zusatzpakete und der bisherige `post-start`-Installer werden
-vor der Mutation sichtbar abgelehnt. Die nativ belegten SQL-2022-Varianten für
-Docker/Linux, Podman/Linux und Hyper-V/Windows sind `SUPPORTED`. SQL Server
-2019, SQL Server 2025 und andere OS-/Providerkombinationen erben diesen Status
-nicht.
+vor der Mutation sichtbar abgelehnt. SQL Server 2019 besitzt im Linux-
+Containerpfad derzeit nur die Java-Variante; dessen älterer Python-/R-
+Machine-Learning-Paketstack wird nicht mit dem Custom-Runtime-Vertrag von SQL
+Server 2022/2025 vermischt. SQL Server 2022 und 2025 katalogisieren Python, R
+und Java für Docker und Podman. Native SQL-Roundtrip-Nachweise liegen für Java
+auf SQL Server 2019 und für Python, R und Java auf SQL Server 2022 und 2025 vor,
+jeweils getrennt für Docker und Podman.
 
 Für SQL Server 2022/Python, R und Java existieren inzwischen ein per MCR-Digest
 gebundener Buildkontext, vollständige DEB-, Wheel-, R-Paket-, JDK-, Java-
@@ -451,14 +454,24 @@ Der sichere `launchpadd`-Namespace-Modus benötigt rootful Linux, cgroup v1,
 einen schreibbaren cgroup-Bind sowie die im Rezept exakt gebundenen Linux-
 Capabilities und Security-Optionen. Ungeeignete Hosts werden vor State und
 Mutation abgelehnt; es gibt keinen stillen Fallback ohne Namespace-Isolation.
-Docker und Podman bestanden auf einem isolierten Ubuntu-22.04-/cgroup-v1-Gast
-je eine vollständige Native Acceptance: Python, R und Java lieferten echte
-SQL-Datenroundtrips und Worker-Identität vor und nach providergebundenem
-Neustart; Run-Ressourcen, Derived Image und das test-eigene Podman-Netz wurden
-vollständig bereinigt. Podman 3.4.4 benötigt dabei die eng begrenzte
+Docker und Podman bestanden auf isolierten cgroup-v1-Gästen vollständige Native
+Acceptances für SQL Server 2019/Java sowie SQL Server 2022 und 2025 mit Python,
+R und Java. Die Sprachen lieferten echte SQL-Datenroundtrips und Worker-
+Identität vor und nach providergebundenem Neustart; Run-Ressourcen, Derived
+Images und die test-eigenen Podman-Netze wurden vollständig bereinigt. Podman
+3.4.4 benötigt dabei die eng begrenzte
 CNI-0.4.0-Kompatibilitätskorrektur und einen Retry für seine sofortige
 Portfreigabe-Race. Rootless Podman bleibt für allgemeine Labs unterstützt,
-nicht jedoch für diesen SQL-2022-External-Runtime-Modus.
+nicht jedoch für den External-Runtime-Namespace-Modus.
+
+C# Language Extensions sind von Microsoft ab SQL Server 2019 CU3 ausschließlich
+unter Windows beschrieben; die in SQL registrierte Sprache heißt `dotnet`.
+Der einzige veröffentlichte Microsoft-Binärrelease zielt auf die nicht mehr
+unterstützte .NET-5-Runtime. Der aktuelle Microsoft-Quellstand zielt auf .NET 8,
+liefert aber keinen entsprechenden reproduzierbaren Binärrelease. `sql-csharp`
+ist deshalb für SQL 2019/2022/2025 auf Hyper-V/Windows katalogisiert, bleibt
+aber bis zu hashgebundenem Build und nativer SQL-Evidence `PREVIEW` und
+fail-closed.
 
 Für Hyper-V/Windows sind der SHA-256-gebundene Offline-Media-Pfad, der
 deterministische Gastplan, die Python-/R-/Java-Installation,
@@ -488,9 +501,10 @@ Run-State und Cleanup-/Recovery-Bindung übernommen. Run-lokale Ressourcen
 werden damit scopegebunden entfernt, während wiederverwendbare Softwareartefakte
 ausdrücklich erhalten bleiben.
 
-Ein ausführbarer erster Refresh-Slice ist für laufende SQL-2022-Docker-/Podman-
-Runs mit bereits verifizierter External Runtime implementiert. Er akzeptiert nur
-additive, erneut vom Resolver freigegebene Runtime-Anforderungen. Provider,
+Ein ausführbarer Installations- und Refresh-Slice ist für laufende SQL-2022-
+Docker-/Podman-Runs implementiert. Er kann die erste External Runtime
+nachinstallieren sowie vorhandene, erneut vom Resolver freigegebene Runtime-
+Anforderungen ergänzen oder bis auf die letzte Runtime entfernen. Provider,
 SQL-Version, Profil, Storage, Netzwerk, Datenbanken und andere Instanzen müssen
 unverändert bleiben. Das neue Derived Image wird vor der Container-Mutation
 gebaut; Journal, Scope-Prüfung, SQL-Readiness und echte Sprachpostconditions
@@ -507,15 +521,19 @@ Ein SQL-Datenmarker blieb über beide Containerwechsel und den Restart erhalten.
 Container speichern `/var/opt/mssql` sowie die beiden langlebigen
 External-Runtime-Artefaktpfade `externallanguages` und `externallibraries` in
 drei getrennten, scopegebundenen Volumes. LaunchPad-Arbeitsdaten und Sandboxes
-bleiben containerlokal. Der Startadapter synchronisiert die katalogisierte
+bleiben containerlokal. Bei einer Nachinstallation werden die beiden neuen
+Volumes vor dem Container-Cleanup eingeordnet und in Rollback/Recovery
+einbezogen. Der Startadapter synchronisiert die katalogisierte
 ML-EULA und die Runtime-Artefakte providerneutral, sodass Docker und Podman
 denselben Persistenzvertrag erfüllen. Für die transienten SQL-Fehler `39011`
 und `39012` ist genau ein Container-Restart mit anschließendem Probe-Retry
 zulässig; Java-Registrierungseigentum wird dabei versuchsübergreifend erhalten,
 damit Compensation und spätere Removal-Aktionen vollständig bleiben.
 
-Noch nicht unterstützt sind freie Packagewechsel, der allgemeine Hyper-V-
-Softwarepfad sowie Hyper-V-Artifact-Refresh und automatische Gastumschaltung.
+Noch nicht unterstützt sind die Entfernung der letzten External Runtime, freie
+Packagewechsel, der allgemeine Hyper-V-Softwarepfad sowie Hyper-V-Artifact-
+Refresh und automatische Gastumschaltung. Das Hyper-V-Verwaltungsmenü weist
+darauf mit einem begründet deaktivierten Eintrag hin.
 
 ## Tests
 

@@ -69,6 +69,12 @@ try {
     Add-CheckResult -Name 'Explizite Wiederaufnahme behält Schlüssel und registrierten Run idempotent bei' -Success (
         [string]$reusedIntent.key -eq 'LINUX_2022_LATEST' -and [string]$reusedIntent.runId -eq $runId
     )
+    $canonicalRuntimeDisplayName = & $module {
+        Get-LabAutomatedTestEnvironmentDisplayName -Key 'WINDOWS_2022_BASE'
+    }
+    Add-CheckResult -Name 'Registry-Schlüssel ergeben deterministische sprechende Runtime-Namen' -Success (
+        $canonicalRuntimeDisplayName -eq 'test-windows-2022-base'
+    )
     $statusSnapshot = & $module {
         param($OutputRoot,$StateRoot)
         Get-LabAutomatedTestEnvironmentStatus -OutputDirectory $OutputRoot -StateRoot $StateRoot
@@ -219,6 +225,7 @@ try {
     $clearText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Clear-SqlServerLab.ps1') -Raw -Encoding utf8
     $connectionCenterText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Sync-SqlServerLabConnectionCenter.ps1') -Raw -Encoding utf8
     $runtimeReadinessText = Get-Content -LiteralPath (Join-Path $repoRoot 'Tests/Integration/Invoke-TestEnvironmentRuntimeReadiness.ps1') -Raw -Encoding utf8
+    $acceptanceText = Get-Content -LiteralPath (Join-Path $repoRoot 'Tests/Integration/Invoke-TestEnvironmentAcceptance.ps1') -Raw -Encoding utf8
     $groupLifecycleText = Get-Content -LiteralPath (Join-Path $repoRoot 'Tests/Integration/Invoke-TestEnvironmentGroupLifecycle.ps1') -Raw -Encoding utf8
     $groupLifecycleCommandText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/TestEnvironmentLifecycle.ps1') -Raw -Encoding utf8
     $lifecycleText = @(
@@ -233,6 +240,9 @@ try {
         $batchConsoleText -match "ProviderPreference'\] = 'Auto'" -and
         $batchConsoleText -match "-Id 'review' -Label 'Gesamtplan pruefen und zur Queue uebergeben'" -and
         $menuText -match "-Id 'ClearAutomatedTestEnvironment' -Label 'Alle automatisierten Testumgebungen loeschen'" -and
+        $menuText -match '-Id ''AutomatedTestEnvironmentLifecycle'' -Label \$testEnvironmentLifecycle\.Label' -and
+        $menuText -match "'Automatisierte Testumgebung starten'" -and
+        $menuText -match "'Automatisierte Testumgebung stoppen'" -and
         $testEnvironmentText -match 'function Get-LabAutomatedTestEnvironmentStatus' -and
         $testEnvironmentText -match '-AutoStart on' -and
         $menuText -match 'DisableAutomatedTestEnvironments'
@@ -268,6 +278,7 @@ try {
         $menuText -match 'PreferExistingWindowsSlot=\$true' -and
         $menuText -match 'Select-LabReusableHyperVWindowsSlotInteractive -Intent \$Intent -Automatic:\$automaticSlotSelection' -and
         $menuText -match 'ReusedWindowsSlotRunId' -and
+        $menuText -match 'Rename-LabAutomatedTestEnvironmentRuntime -RunId \(\[string\]\$reusableSlot.RunId\)' -and
         $menuText -match 'Register-LabTestEnvironmentRun -RunId \(\[string\]\$reusableSlot.RunId\)' -and
         $menuText -match 'Freier Windows-Slot wird automatisch aus dem Pool entnommen' -and
         $menuText -match 'Get-LabAutomatedTestEnvironmentRunIds' -and
@@ -286,17 +297,25 @@ try {
         $menuText -notmatch 'TEST_ENVIRONMENT_GROUP_INCOMPLETE'
     )
     Add-CheckResult -Name 'Automatisierte Linux-Ziele verwenden belastbare Runtime- und SQL-Memory-Grenzen' -Success (
+        $testEnvironmentText -match '\$name = Get-LabAutomatedTestEnvironmentDisplayName -Key \$request.Key' -and
         $testEnvironmentText -match '-Profile standard' -and
         $testEnvironmentText -match '-Cpu 4 -MemoryMB 4096' -and
         $testEnvironmentText -match 'maxMB = 3072' -and
         $testEnvironmentText -notmatch 'New-SqlServerLab[^\r\n]+-Profile compact'
     )
-    Add-CheckResult -Name 'Gruppenreparatur bleibt auf Linux beschränkt und erhält den geschützten Lifecycle' -Success (
+    Add-CheckResult -Name 'Gruppenreparatur konvergiert Ressourcen, Autostart und sprechende Runtime-Namen' -Success (
         $testEnvironmentText -match 'function Repair-SqlServerLabAutomatedTestEnvironment' -and
-        $testEnvironmentText -match "Where-Object \{ \[string\]\`$_.platform -eq 'linux'" -and
+        $testEnvironmentText -match 'function Rename-LabAutomatedTestEnvironmentRuntime' -and
+        $testEnvironmentText -match 'Get-LabAutomatedTestEnvironmentDisplayName' -and
         $testEnvironmentText -match 'Update-SqlServerLabContainer[^\r\n]+-Cpu 4 -MemoryMB 4096' -and
+        $testEnvironmentText -match '-AutoStart on' -and
         $testEnvironmentText -match '-RepairSqlRuntimeContract' -and
         $testEnvironmentText -match 'Set-LabServerConfig' -and
+        $testEnvironmentText -match 'Stop-HyperVInstance' -and
+        $testEnvironmentText -match 'Start-HyperVInstance' -and
+        $testEnvironmentText -match 'Start-SqlServerLabAutomatedTestEnvironment -TimeoutSeconds \$ReadinessTimeoutSeconds' -and
+        $testEnvironmentText -match 'Rename-ContainerLabEnvironment' -and
+        $testEnvironmentText -match 'Rename-HyperVLabEnvironment' -and
         $testEnvironmentText -match 'maxMB = 3072' -and
         $testEnvironmentText -match 'Export-SqlServerLabTestEnvironment' -and
         $testEnvironmentText -match 'LabAutomatedTestEnvironmentGroupOperation = \$true'
@@ -332,6 +351,15 @@ try {
         @($groupLifecycleCommandText -split '\r?\n' | Where-Object { $_ -match 'Export-SqlServerLabTestEnvironment' }).Count -eq 2 -and
         $groupLifecycleCommandText -notmatch 'Remove-SqlServerLab|Clear-SqlServerLabAutomatedTestEnvironment|Remove-VM'
     )
+    Add-CheckResult -Name 'Gruppen-Lifecycle umfasst Docker, Podman und Hyper-V bei erhaltenem Einzelschutz' -Success (
+        $groupLifecycleCommandText -match 'Get-LabAutomatedTestEnvironmentRegisteredEntries' -and
+        $groupLifecycleCommandText -match "provider -in @\('docker','podman'\)" -and
+        $groupLifecycleCommandText -match 'Start-SqlServerLab -RunId \$runId -SkipReadyCheck' -and
+        $groupLifecycleCommandText -match 'Stop-SqlServerLab -RunId \$runId' -and
+        $groupLifecycleCommandText -match 'Get-LabAutomatedTestEnvironmentExpectedMajorVersion' -and
+        $groupLifecycleCommandText -match 'LabAutomatedTestEnvironmentGroupOperation = \$true' -and
+        $lifecycleText -match '-not \[bool\]\$script:LabAutomatedTestEnvironmentGroupOperation'
+    )
     Add-CheckResult -Name 'Recovery und Runtime-Nachweis verwenden nur den oeffentlichen Gruppen-Lifecycle' -Success (
         $runtimeReadinessText -match 'Start-SqlServerLabAutomatedTestEnvironment' -and
         $runtimeReadinessText -notmatch 'Get-LabSecret|Start-HyperVLabEnvironment|Invoke-HyperVPowerShellDirect' -and
@@ -339,9 +367,19 @@ try {
         $groupLifecycleText -match 'finally' -and
         $groupLifecycleText -match 'Stop-SqlServerLabAutomatedTestEnvironment' -and
         $groupLifecycleText -match 'BindingsPreserved' -and
-        $groupLifecycleText -match 'LinuxPreserved' -and
+        $groupLifecycleText -match 'ProvidersPreserved' -and
         $groupLifecycleText -match "GroupStatus -ne 'INCOMPLETE'" -and
+        $groupLifecycleText -match 'MembersRestored' -and
+        $groupLifecycleText -match "GroupStatus -ne 'READY'" -and
+        @($groupLifecycleText -split '\r?\n' | Where-Object { $_ -match 'Start-SqlServerLabAutomatedTestEnvironment' }).Count -ge 2 -and
         $groupLifecycleText -notmatch 'Remove-SqlServerLab|Clear-SqlServerLabAutomatedTestEnvironment'
+    )
+    Add-CheckResult -Name 'Gemeinsame Runtime-Abnahme bindet jede SQL-Jahresversion an ihre echte Major-Version' -Success (
+        $acceptanceText -match "'2019' \{ 15 \}" -and
+        $acceptanceText -match "'2022' \{ 16 \}" -and
+        $acceptanceText -match "'2025' \{ 17 \}" -and
+        $acceptanceText -match "SERVERPROPERTY\('ProductMajorVersion'\)" -and
+        $acceptanceText -match 'TEST_ENVIRONMENT_VERSION_MISMATCH'
     )
 }
 finally {

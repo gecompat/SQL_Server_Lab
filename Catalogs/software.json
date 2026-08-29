@@ -5,12 +5,13 @@
     "version": "1.0"
   },
   "catalogMetadata": {
-    "lastVerified": "2026-08-28",
+    "lastVerified": "2026-08-29",
     "sources": [
       "https://learn.microsoft.com/en-us/sql/machine-learning/install/sql-machine-learning-services-windows-install-sql-2022?view=sql-server-ver17",
       "https://learn.microsoft.com/en-us/sql/linux/install-upgrade/setup-machine-learning-sql-2022?view=sql-server-ver17",
       "https://learn.microsoft.com/en-us/sql/language-extensions/install/windows-java?view=sql-server-ver17",
       "https://learn.microsoft.com/en-us/sql/linux/install-upgrade/setup-language-extensions-java?view=sql-server-ver17",
+      "https://learn.microsoft.com/en-us/sql/language-extensions/install/windows-c-sharp?view=sql-server-ver17",
       "https://packages.ubuntu.com/jammy/amd64/libgomp1/download"
     ]
   },
@@ -23,23 +24,32 @@
         {
           "id": "sql2022-python310-ubuntu2204-derived",
           "status": "SUPPORTED",
-          "reason": "Getrennte native Docker- und Podman-Evidence belegt den digestgebundenen Derived-Image-Pfad, Python-Datenroundtrip, Worker-Identitaet, providergebundenen Neustart und Cleanup auf SQL Server 2022/Ubuntu 22.04 mit cgroup v1.",
+          "reason": "Der digestgebundene Derived-Image-Pfad verwendet je SQL-Version das passende Microsoft-Extensibilitypaket. Native SQL-2022- und SQL-2025-Evidence belegt Python-Datenroundtrip, Worker-Identitaet, providergebundenen Neustart und Cleanup unter Docker und Podman.",
           "language": "Python",
           "runtimeVersion": "3.10",
           "extensionVersion": "SQL Server 2022 Machine Learning Services",
-          "sqlMajorVersions": [16],
+          "sqlMajorVersions": [16, 17],
           "minimumCu": null,
           "operatingSystem": "linux",
-          "distributions": ["ubuntu-22.04"],
+          "distributions": ["ubuntu-22.04", "ubuntu-24.04"],
           "architecture": "x86_64",
           "providers": ["docker", "podman"],
           "installMethod": "derived-image",
-          "recipeVersion": "5",
+          "recipeVersion": "6",
           "requiresCapabilities": ["software-catalog-planning", "derived-image-build", "sql-external-runtime"],
           "sourceUrls": [
             "https://learn.microsoft.com/en-us/sql/linux/install-upgrade/setup-machine-learning-sql-2022?view=sql-server-ver17"
           ],
           "artifacts": [
+            {
+              "id": "mssql-python310-runtime-ubuntu2204",
+              "sourceType": "container-base",
+              "source": "oci://mcr.microsoft.com/mssql/server@sha256:ba4c8329f48fb8f02e1416be6a930ebfd71268caee78aa985f3af4315e457c89",
+              "version": "3.10.12 / SQL Server 16.0.4265.3 base",
+              "sha256": "ba4c8329f48fb8f02e1416be6a930ebfd71268caee78aa985f3af4315e457c89",
+              "integrityOrigin": "Microsoft Container Registry manifest digest verified locally on 2026-08-29",
+              "license": "Microsoft SQL Server container EULA and Python Software Foundation License"
+            },
             {
               "id": "mssql-server-linux-2022-cu26",
               "sourceType": "container-base",
@@ -298,18 +308,18 @@
         {
           "id": "sql2022-r42-ubuntu2204-derived",
           "status": "SUPPORTED",
-          "reason": "Getrennte native Docker- und Podman-Evidence belegt den digestgebundenen R-Derived-Image-Pfad, R-Datenroundtrip, Paket- und Worker-Identitaet, providergebundenen Neustart und Cleanup auf SQL Server 2022/Ubuntu 22.04 mit cgroup v1.",
+          "reason": "Der digestgebundene Derived-Image-Pfad verwendet je SQL-Version das passende Microsoft-Extensibilitypaket. Native SQL-2022- und SQL-2025-Evidence belegt R-Datenroundtrip, Paket- und Worker-Identitaet, providergebundenen Neustart und Cleanup unter Docker und Podman.",
           "language": "R",
           "runtimeVersion": "4.2.3",
           "extensionVersion": "SQL Server 2022 Machine Learning Services",
-          "sqlMajorVersions": [16],
+          "sqlMajorVersions": [16, 17],
           "minimumCu": null,
           "operatingSystem": "linux",
-          "distributions": ["ubuntu-22.04"],
+          "distributions": ["ubuntu-22.04", "ubuntu-24.04"],
           "architecture": "x86_64",
           "providers": ["docker", "podman"],
           "installMethod": "derived-image",
-          "recipeVersion": "5",
+          "recipeVersion": "6",
           "requiresCapabilities": ["software-catalog-planning", "derived-image-build", "sql-external-runtime"],
           "sourceUrls": [
             "https://learn.microsoft.com/en-us/sql/linux/install-upgrade/setup-machine-learning-sql-2022?view=sql-server-ver17"
@@ -562,18 +572,18 @@
         {
           "id": "sql2022-java11-ubuntu2204-derived",
           "status": "SUPPORTED",
-          "reason": "Getrennte native Docker- und Podman-Evidence belegt den digestgebundenen Java-Derived-Image-Pfad, datenbankgebundene DDL, JAR-Datenroundtrip, Worker-Identitaet, providergebundenen Neustart und Cleanup auf SQL Server 2022/Ubuntu 22.04 mit cgroup v1.",
+          "reason": "Der digestgebundene Derived-Image-Pfad verwendet je SQL-Version das passende Microsoft-Extensibilitypaket. Native SQL-2019-, SQL-2022- und SQL-2025-Evidence belegt Java-Datenroundtrip, Worker-Identitaet, providergebundenen Neustart und Cleanup unter Docker und Podman.",
           "language": "Java",
           "runtimeVersion": "11",
           "extensionVersion": "1.1.1",
-          "sqlMajorVersions": [16],
+          "sqlMajorVersions": [15, 16, 17],
           "minimumCu": null,
           "operatingSystem": "linux",
-          "distributions": ["ubuntu-22.04"],
+          "distributions": ["ubuntu-20.04", "ubuntu-22.04", "ubuntu-24.04"],
           "architecture": "x86_64",
           "providers": ["docker", "podman"],
           "installMethod": "derived-image",
-          "recipeVersion": "5",
+          "recipeVersion": "6",
           "requiresCapabilities": ["software-catalog-planning", "derived-image-build", "sql-external-runtime"],
           "sourceUrls": [
             "https://learn.microsoft.com/en-us/sql/linux/install-upgrade/setup-language-extensions-java?view=sql-server-ver17",
@@ -788,6 +798,54 @@
             "language": "Java",
             "probeId": "java-synthetic-library",
             "expectedRuntimeVersion": "17"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sql-csharp",
+      "kind": "sqlExternalRuntime",
+      "displayName": "C#/.NET für SQL Server Language Extensions",
+      "variants": [
+        {
+          "id": "sql2019plus-dotnet8-windows-hyperv-source",
+          "status": "PREVIEW",
+          "reason": "Microsoft unterstützt C# ab SQL Server 2019 CU3 ausschließlich unter Windows. Der einzige veröffentlichte Binärrelease 1.0.0 zielt jedoch auf die nicht mehr unterstützte .NET-5-Runtime; der aktuelle Microsoft-Quellstand zielt auf .NET 8, besitzt aber noch keinen veröffentlichten reproduzierbaren Binärrelease. Deshalb bleibt die Installation bis zu einem hashgebundenen Build und nativer SQL-Roundtrip-Evidence fail-closed.",
+          "language": "CSharp",
+          "runtimeVersion": "8.0",
+          "extensionVersion": "9a897b70e1823573e7e455f3b3c3ecf3a6bf1f0f",
+          "sqlMajorVersions": [15, 16, 17],
+          "minimumCu": null,
+          "operatingSystem": "windows",
+          "distributions": ["windows-server-2025"],
+          "architecture": "x86_64",
+          "providers": ["hyperv"],
+          "installMethod": "guest-offline-media",
+          "recipeVersion": "1",
+          "requiresCapabilities": ["software-catalog-planning", "powershell-direct-software-installation", "sql-external-runtime"],
+          "sourceUrls": [
+            "https://learn.microsoft.com/en-us/sql/language-extensions/csharp-overview?view=sql-server-ver17",
+            "https://learn.microsoft.com/en-us/sql/language-extensions/install/windows-c-sharp?view=sql-server-ver17",
+            "https://github.com/microsoft/sql-server-language-extensions/tree/9a897b70e1823573e7e455f3b3c3ecf3a6bf1f0f/language-extensions/dotnet-core-CSharp"
+          ],
+          "artifacts": [
+            {
+              "id": "sql-server-language-extensions-dotnet8-source",
+              "sourceType": "archive",
+              "source": "https://github.com/microsoft/sql-server-language-extensions/archive/9a897b70e1823573e7e455f3b3c3ecf3a6bf1f0f.zip",
+              "version": "9a897b70e1823573e7e455f3b3c3ecf3a6bf1f0f",
+              "sha256": "5eedb40bdc9b38d5b48f9e6fb0b94e76f805e8d855536a867c7ba670d6535bf1",
+              "integrityOrigin": "SHA-256 verified against the immutable Microsoft GitHub commit archive on 2026-08-29",
+              "license": "MIT"
+            }
+          ],
+          "packageLocks": [],
+          "restart": { "sqlServer": true, "launchpad": true, "guest": false },
+          "validation": {
+            "type": "spExecuteExternalScript",
+            "language": "CSharp",
+            "probeId": "dotnet-source-build-pending",
+            "expectedRuntimeVersion": "8.0"
           }
         }
       ]

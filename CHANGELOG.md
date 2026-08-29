@@ -8,6 +8,26 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- External Languages sind im Containerpfad nun versionsbewusst für alle drei
+  aktiven SQL-Versionen katalogisiert: Java für SQL Server 2019 sowie Python,
+  R und Java für SQL Server 2022/2025, jeweils gleichwertig unter Docker und
+  Podman. C#/.NET ist für SQL 2019–2025 auf Hyper-V/Windows sichtbar erfasst,
+  bleibt mangels aktuellem veröffentlichtem Binärartefakt und nativer Evidence
+  jedoch sicher `PREVIEW` und fail-closed.
+- Die nativen Container-Abnahmen belegen Java auf SQL Server 2019 sowie Python,
+  R und Java auf SQL Server 2025 jetzt getrennt unter Docker und Podman. Die
+  SQL-2025-Abnahme umfasst außerdem atomaren Runtime-Refresh, Java-Removal,
+  Datenpersistenz, Provider-Restart und registrierten Cleanup.
+- Die Containerverwaltung bietet jetzt einen sichtbaren Menüpunkt, um External
+  Languages über ein geprüftes Zielmanifest erstmals zu installieren oder zu
+  ändern. SQL-2022-Docker-/Podman-Runs ohne bestehende Runtime erhalten einen
+  journalisierten `InstallExternalRuntime`-Plan einschließlich neuer,
+  cleanupgebundener External-Language-/Library-Volumes; Hyper-V zeigt den noch
+  nicht atomaren Nachinstallationspfad begründet deaktiviert.
+- Der journalisierte Container-Reconcile akzeptiert einen expliziten
+  `AutoStart`-Sollwert, bindet Restart-Policy und Lab-Label gemeinsam an Plan,
+  Journal, Postcondition und Recovery und kann dadurch auch ältere verwaltete
+  CMS-Container sicher auf den aktuellen Autostartvertrag bringen.
 - Der lokale Storage-Katalog führt stabile `LocationId`-Werte, Controller- und
   Volume-Bindung sowie getrennte Topologieangaben für logische Volumes und
   nachweisbare Backing Devices. Legacy-Kataloge werden abwärtslesbar übernommen
@@ -27,6 +47,23 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Behoben
 
+- Escape und Enter schreiben in der cursorbasierten CLI wieder einen echten
+  Zeilenumbruch; der Ausdruck `[Environment]::NewLine` erscheint nicht mehr
+  kurzzeitig als sichtbarer Text.
+- Registrierte automatisierte Testumgebungen konvergieren ihre nativen Docker-,
+  Podman- und Hyper-V-Namen jetzt auf einen sprechenden, aus dem stabilen
+  Registry-Schlüssel abgeleiteten Namen. Übernommene Windows-Pool-Slots werden
+  bei der Belegung sicher umbenannt; freie Slots behalten ihre Poolbezeichnung.
+- Der Container-Reconcile akzeptiert beim Mount-Fingerprint nun auch die gültige
+  leere Mount-Liste und blockiert dadurch mountfreie ältere Container nicht mehr
+  vor einer kontrollierten Reparatur oder Umbenennung.
+- Der native Testgruppen-Lifecycle hinterlässt die persistenten Windows-
+  Testumgebungen nach seiner Start-/Stop-Abnahme nicht mehr ausgeschaltet. Sein
+  garantiertes Cleanup stellt alle registrierten Hyper-V-Mitglieder, den
+  vollständigen `READY`-Export und die CMS-Sicht wieder her.
+- Die gemeinsame Sechs-Ziele-Abnahme vergleicht SQL Server 2019, 2022 und 2025
+  jetzt explizit mit den tatsächlich gelieferten Major-Versionen 15, 16 und 17,
+  statt nur eine Jahreszahl in der allgemeinen Versionsausgabe zu suchen.
 - Das Hinzufügen einer weiteren `Lab_Data`-Location ändert einen vorhandenen
   Default nicht mehr implizit. Laufwerksrelative Parents wie `D:` werden vor
   jeder Mutation blockiert; `D:\` wird als `D:\Lab_Data` angezeigt.
@@ -54,11 +91,17 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 - `Start-SqlServerLabAutomatedTestEnvironment` und
   `Stop-SqlServerLabAutomatedTestEnvironment` steuern die registrierten
-  Windows-Hyper-V-Mitglieder der geschützten Testgruppe gemeinsam und
-  idempotent. Der Start bringt vorhandene SQL-Dienste hoch, prüft SQL-
-  Readiness und fordert einen live erzeugten `READY`-Export; der Stopp gibt
+  Docker-, Podman- und Hyper-V-Mitglieder der geschützten Testgruppe gemeinsam
+  und idempotent. Unter **Umgebungen** erscheint zustandsabhängig genau eine
+  Start- oder Stoppaktion. Der Start prüft SQL-Readiness und erwartete Major-
+  Version und fordert einen live erzeugten `READY`-Export; der Stopp gibt
   Hostkapazität frei und erneuert den Export fail-closed, ohne Runs,
-  Registrierungen, Secrets, VHDX-Dateien oder Linux-Mitglieder zu löschen.
+  Registrierungen, Secrets, Volumes oder VHDX-Dateien zu löschen.
+- Die nachträgliche External-Languages-Auswahl behandelt Docker und Podman für
+  die freigegebenen SQL-Server-2022-Varianten Python, R und Java gleichwertig.
+  SQL Server 2025 bleibt wegen fehlender belegter Runtimekombination bewusst
+  deaktiviert; rootless Podman beziehungsweise cgroup v2 erfüllen den sicheren
+  `launchpadd`-Vertrag nicht.
 - Der PowerShell-7-Einstieg akzeptiert `-ConsoleMode Auto|Fallback`. Damit ist
   der nummerierte Fallback im selben Terminal gezielt reproduzierbar; `0`
   beendet ihn kontrolliert.

@@ -267,6 +267,83 @@ function Register-LabTestEnvironmentRun {
     return @($registry.environments | Where-Object runId -eq $RunId)[0]
 }
 
+function Get-LabAutomatedTestEnvironmentDisplayName {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Key)
+
+    $stem = (($Key.Trim().ToLowerInvariant() -replace '[^a-z0-9]+', '-') -replace '-+', '-').Trim('-')
+    if (-not $stem) { throw 'TEST_ENVIRONMENT_RUNTIME_NAME_REQUIRED' }
+    $name = if ($stem.StartsWith('test-')) { $stem } else { "test-$stem" }
+    if ($name.Length -gt 64) { $name = $name.Substring(0, 64).TrimEnd('-') }
+    return $name
+}
+
+function Rename-LabAutomatedTestEnvironmentRuntime {
+    <# Gleicht Run-Anzeigename und natives Runtime-Objekt mit dem Registry-Schlüssel ab. #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RunId,
+        [Parameter(Mandatory)][string]$InstanceId,
+        [Parameter(Mandatory)][string]$Key,
+        [string]$StateRoot
+    )
+
+    if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
+    $displayName = Get-LabAutomatedTestEnvironmentDisplayName -Key $Key
+    $runDirectory = Join-Path (Join-Path $StateRoot 'runs') $RunId
+    $connectionPath = Join-Path $runDirectory 'connection-info.json'
+    if (-not (Test-Path -LiteralPath $connectionPath -PathType Leaf)) { throw 'LAB_CONNECTION_INFO_NOT_FOUND' }
+    $connection = Get-Content -LiteralPath $connectionPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 30
+    $instance = @($connection.instances | Where-Object { [string]$_.id -eq $InstanceId } | Select-Object -First 1)[0]
+    if (-not $instance) { throw "TEST_ENVIRONMENT_RUNTIME_INSTANCE_NOT_FOUND: $InstanceId" }
+
+    if ([string]$instance.provider -in @('docker','podman')) {
+        return Rename-ContainerLabEnvironment -RunId $RunId -DisplayName $displayName -StateRoot $StateRoot
+    }
+    if ([string]$instance.provider -ne 'hyperv') {
+        throw "TEST_ENVIRONMENT_RUNTIME_PROVIDER_UNSUPPORTED: $($instance.provider)"
+    }
+
+    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
+    $desiredVmName = Get-HyperVLabRuntimeName -LabName $displayName -RunId $RunId
+    $runtimeRenameRequired = [string]$lab.Instance.vmName -ne $desiredVmName
+    $status = Get-HyperVInstanceStatus -VMName ([string]$lab.Instance.vmName) `
+        -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
+    if (-not $status.Exists) { throw 'HYPERV_LAB_VM_NOT_FOUND' }
+    if ($runtimeRenameRequired -and [string]$status.State -notin @('Off','Running')) {
+        throw "TEST_ENVIRONMENT_RUNTIME_RENAME_STATE_UNSUPPORTED: $($status.State)"
+    }
+
+    $restartRequired = $runtimeRenameRequired -and [string]$status.State -eq 'Running'
+    if ($restartRequired) {
+        $null = Stop-HyperVInstance -VMName ([string]$lab.Instance.vmName) `
+            -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
+    }
+
+    $renameResult = $null
+    $renameError = $null
+    try {
+        $renameResult = Rename-HyperVLabEnvironment -RunId $RunId -DisplayName $displayName -StateRoot $StateRoot
+    }
+    catch { $renameError = $_ }
+
+    $restartError = $null
+    if ($restartRequired) {
+        try {
+            $current = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
+            $null = Start-HyperVInstance -VMName ([string]$current.Instance.vmName) `
+                -ExpectedRunId $current.Run.runId -ExpectedScopeId $current.Run.scopeId
+        }
+        catch { $restartError = $_ }
+    }
+    if ($renameError -and $restartError) {
+        throw "TEST_ENVIRONMENT_RUNTIME_RENAME_AND_RESTART_FAILED: $($renameError.Exception.Message); $($restartError.Exception.Message)"
+    }
+    if ($renameError) { throw $renameError }
+    if ($restartError) { throw $restartError }
+    return $renameResult
+}
+
 function ConvertTo-LabDotEnvValue {
     [CmdletBinding()]
     param([AllowNull()][string]$Value)
@@ -611,14 +688,17 @@ function Clear-SqlServerLabAutomatedTestEnvironment {
 function Repair-SqlServerLabAutomatedTestEnvironment {
     <#
     .SYNOPSIS
-        Repariert den Ressourcen- und Readiness-Vertrag der Linux-Testumgebungen.
+        Repariert Runtime-Namen sowie Ressourcen- und Readiness-Verträge der Testgruppe.
     .DESCRIPTION
-        Gleicht ausschließlich die registrierten Docker-/Podman-Mitglieder der
-        geschützten Testgruppe auf 4 vCPU, 4096 MB Container-RAM, 3276 MB
-        SQL-internes Speicherlimit und den TLS-tauglichen Healthcheck ab. Ports,
-        Volumes, Run-IDs und Kennwörter bleiben erhalten. Windows-Mitglieder
-        werden nicht verändert. Jeder Container-Austausch besitzt einen
-        eigenen Rollback; anschließend wird der Gruppenexport live erneuert.
+        Gleicht registrierte Docker-/Podman-Mitglieder der geschützten Testgruppe
+        auf 4 vCPU, 4096 MB Container-RAM, 3276 MB SQL-internes Speicherlimit,
+        Autostart und den TLS-tauglichen Healthcheck ab. Zusätzlich erhalten
+        alle Container und belegten Hyper-V-Slots einen aus ihrem Registry-
+        Schlüssel abgeleiteten, sprechenden Runtime-Namen. Ports, Volumes,
+        Run-IDs und Kennwörter bleiben erhalten. Jeder Container-Austausch
+        besitzt einen eigenen Rollback; laufende Hyper-V-VMs werden nur für die
+        Umbenennung gestoppt und garantiert wieder gestartet. Anschließend wird
+        der Gruppenexport live erneuert.
     .PARAMETER Force
         Unterdrückt die zusätzliche Gruppenbestätigung. WhatIf und Confirm
         bleiben über SupportsShouldProcess verfügbar.
@@ -630,8 +710,8 @@ function Repair-SqlServerLabAutomatedTestEnvironment {
     .PARAMETER StateRoot
         Optionaler SQL_Server_Lab-State-Root.
     .OUTPUTS
-        Zusammenfassung mit Status, reparierten, unveränderten und fehlerhaften
-        Linux-Mitgliedern sowie dem erneuerten Exportstatus.
+        Zusammenfassung mit Status, reparierten, umbenannten, unveränderten und
+        fehlerhaften Mitgliedern sowie dem erneuerten Exportstatus.
     .EXAMPLE
         Repair-SqlServerLabAutomatedTestEnvironment -Force -Confirm:$false
     #>
@@ -646,20 +726,21 @@ function Repair-SqlServerLabAutomatedTestEnvironment {
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
     $directory = Get-LabTestEnvironmentExportDirectory -OutputDirectory $OutputDirectory
     $registry = Get-LabTestEnvironmentRegistry -OutputDirectory $directory
-    $linuxEntries = @($registry.environments | Where-Object { [string]$_.platform -eq 'linux' -and [string]$_.runId })
-    if ($linuxEntries.Count -eq 0) {
-        return [PSCustomObject]@{ Status='EMPTY'; Repaired=0; Unchanged=0; Errors=0; Export=$null }
+    $registeredEntries = @($registry.environments | Where-Object { [string]$_.runId })
+    if ($registeredEntries.Count -eq 0) {
+        return [PSCustomObject]@{ Status='EMPTY'; Repaired=0; Renamed=0; Unchanged=0; Errors=0; Export=$null }
     }
-    if (-not $PSCmdlet.ShouldProcess("$($linuxEntries.Count) Linux-Testumgebung(en)", 'Ressourcen- und Readiness-Vertrag der geschützten Gruppe reparieren')) {
-        return [PSCustomObject]@{ Status='CANCELLED'; Repaired=0; Unchanged=0; Errors=0; Export=$null }
+    if (-not $PSCmdlet.ShouldProcess("$($registeredEntries.Count) automatisierte Testumgebung(en)", 'Runtime-Namen, Ressourcen- und Readiness-Vertrag der geschützten Gruppe reparieren')) {
+        return [PSCustomObject]@{ Status='CANCELLED'; Repaired=0; Renamed=0; Unchanged=0; Errors=0; Export=$null }
     }
     if (-not $Force -and -not $PSCmdlet.ShouldContinue(
-        'Die registrierten Linux-Container werden bei Bedarf einzeln kontrolliert ersetzt; Volumes und Ports bleiben erhalten. Fortfahren?',
-        'Linux-Mitglieder der Testumgebungsgruppe reparieren')) {
-        return [PSCustomObject]@{ Status='CANCELLED'; Repaired=0; Unchanged=0; Errors=0; Export=$null }
+        'Linux-Container werden bei Bedarf kontrolliert ersetzt; belegte Hyper-V-Slots können für die Umbenennung kurz neu gestartet werden. Fortfahren?',
+        'Automatisierte Testumgebungsgruppe reparieren')) {
+        return [PSCustomObject]@{ Status='CANCELLED'; Repaired=0; Renamed=0; Unchanged=0; Errors=0; Export=$null }
     }
 
     $repaired = 0
+    $renamed = 0
     $unchanged = 0
     $errors = [Collections.Generic.List[object]]::new()
     $serverConfig = [PSCustomObject]@{
@@ -672,20 +753,25 @@ function Repair-SqlServerLabAutomatedTestEnvironment {
     $previousGroupOperation = $script:LabAutomatedTestEnvironmentGroupOperation
     $script:LabAutomatedTestEnvironmentGroupOperation = $true
     try {
-        foreach ($entry in $linuxEntries) {
+        foreach ($entry in $registeredEntries) {
             $runId = [string]$entry.runId
             try {
-                $result = Update-SqlServerLabContainer -RunId $runId -Cpu 4 -MemoryMB 4096 `
-                    -RepairSqlRuntimeContract -ReadinessTimeoutSeconds $ReadinessTimeoutSeconds -StateRoot $StateRoot -Confirm:$false
-                $runDirectory = Join-Path (Join-Path $StateRoot 'runs') $runId
-                $connection = Get-Content -LiteralPath (Join-Path $runDirectory 'connection-info.json') -Raw -Encoding utf8 | ConvertFrom-Json -Depth 30
-                $instance = @($connection.instances | Where-Object { [string]$_.provider -in @('docker','podman') })[0]
-                if (-not $instance) { throw 'TEST_ENVIRONMENT_REPAIR_CONTAINER_INSTANCE_MISSING' }
-                $saPassword = Get-LabSecret -Path $runDirectory -Name 'sa-password'
-                if (-not $saPassword) { throw 'TEST_ENVIRONMENT_REPAIR_SA_SECRET_MISSING' }
-                $null = Set-LabServerConfig -Config $serverConfig -HostName ([string]$instance.host) -Port ([int]$instance.port) `
-                    -SaPassword $saPassword -Provider ([string]$instance.provider) -ContainerName ([string]$result.Container)
-                if ($result.Changed) { $repaired++ } else { $unchanged++ }
+                if ([string]$entry.platform -eq 'linux') {
+                    $result = Update-SqlServerLabContainer -RunId $runId -Cpu 4 -MemoryMB 4096 -AutoStart on `
+                        -RepairSqlRuntimeContract -ReadinessTimeoutSeconds $ReadinessTimeoutSeconds -StateRoot $StateRoot -Confirm:$false
+                    $runDirectory = Join-Path (Join-Path $StateRoot 'runs') $runId
+                    $connection = Get-Content -LiteralPath (Join-Path $runDirectory 'connection-info.json') -Raw -Encoding utf8 | ConvertFrom-Json -Depth 30
+                    $instance = @($connection.instances | Where-Object { [string]$_.provider -in @('docker','podman') })[0]
+                    if (-not $instance) { throw 'TEST_ENVIRONMENT_REPAIR_CONTAINER_INSTANCE_MISSING' }
+                    $saPassword = Get-LabSecret -Path $runDirectory -Name 'sa-password'
+                    if (-not $saPassword) { throw 'TEST_ENVIRONMENT_REPAIR_SA_SECRET_MISSING' }
+                    $null = Set-LabServerConfig -Config $serverConfig -HostName ([string]$instance.host) -Port ([int]$instance.port) `
+                        -SaPassword $saPassword -Provider ([string]$instance.provider) -ContainerName ([string]$result.Container)
+                    if ($result.Changed) { $repaired++ } else { $unchanged++ }
+                }
+                $nameResult = Rename-LabAutomatedTestEnvironmentRuntime -RunId $runId `
+                    -InstanceId ([string]$entry.instanceId) -Key ([string]$entry.key) -StateRoot $StateRoot
+                if ($nameResult.RuntimeRenamed -or $nameResult.VMRenamed) { $renamed++ }
             }
             catch {
                 $errors.Add([PSCustomObject]@{ Key=[string]$entry.key; Message=$_.Exception.Message })
@@ -695,10 +781,24 @@ function Repair-SqlServerLabAutomatedTestEnvironment {
     }
     finally { $script:LabAutomatedTestEnvironmentGroupOperation = $previousGroupOperation }
 
+    if (@($registeredEntries | Where-Object { [string]$_.platform -eq 'windows' }).Count -gt 0) {
+        try {
+            $windowsReady = Start-SqlServerLabAutomatedTestEnvironment -TimeoutSeconds $ReadinessTimeoutSeconds `
+                -Force -OutputDirectory $directory -StateRoot $StateRoot -Confirm:$false
+            if ([string]$windowsReady.Status -ne 'READY') {
+                throw "TEST_ENVIRONMENT_RUNTIME_RENAME_READINESS_FAILED: $($windowsReady.Status)"
+            }
+        }
+        catch {
+            $errors.Add([PSCustomObject]@{ Key='WINDOWS_GROUP'; Message=$_.Exception.Message })
+            Write-LabError "Windows-Testgruppe konnte nach der Namensreparatur nicht vollständig bereitgestellt werden: $($_.Exception.Message)"
+        }
+    }
+
     $export = Export-SqlServerLabTestEnvironment -OutputDirectory $directory -StateRoot $StateRoot
     $null = Sync-LabAutomatedTestEnvironmentConnectionCenter -StateRoot $StateRoot
     $status = if ($errors.Count -eq 0 -and [string]$export.GroupStatus -eq 'READY') { 'READY' } else { 'INCOMPLETE' }
-    return [PSCustomObject]@{ Status=$status; Repaired=$repaired; Unchanged=$unchanged; Errors=$errors.Count; Details=@($errors); Export=$export }
+    return [PSCustomObject]@{ Status=$status; Repaired=$repaired; Renamed=$renamed; Unchanged=$unchanged; Errors=$errors.Count; Details=@($errors); Export=$export }
 }
 
 function New-SqlServerLabAutomatedTestEnvironment {
@@ -765,7 +865,7 @@ function New-SqlServerLabAutomatedTestEnvironment {
         if ($selectedProvider -eq 'auto') {
             $selectedProvider = @(Get-AvailableLabProviders | Where-Object { $_ -in @('docker','podman') }) | Select-Object -First 1
         }
-        $name = if ($spec.Name) { [string]$spec.Name } else { "test-$platform-$version-$patch" }
+        $name = Get-LabAutomatedTestEnvironmentDisplayName -Key $request.Key
         try {
             if ($selectedProvider -notin @('docker','podman')) { throw 'TEST_ENVIRONMENT_LINUX_PROVIDER_UNAVAILABLE' }
             $password = New-HyperVSqlUnattendedPassword
@@ -779,6 +879,8 @@ function New-SqlServerLabAutomatedTestEnvironment {
             $lab = New-SqlServerLab -Version $versionId -Provider $selectedProvider -Profile standard -LabName $name `
                 -InstanceId $request.InstanceId -Cpu 4 -MemoryMB 4096 -ServerConfig $serverConfig `
                 -SaPassword $password -NonInteractive -AutoStart on -StateRoot $StateRoot
+            $null = Rename-LabAutomatedTestEnvironmentRuntime -RunId $lab.RunId -InstanceId $request.InstanceId `
+                -Key $request.Key -StateRoot $StateRoot
             $null = Register-LabTestEnvironmentRun -RunId $lab.RunId -Platform linux -SqlVersion $version -Patch $patch `
                 -InstanceId $request.InstanceId -Name $request.Key -OutputDirectory $OutputDirectory
             $results += $lab

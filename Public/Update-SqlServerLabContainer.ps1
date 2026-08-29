@@ -1,10 +1,16 @@
 function Update-SqlServerLabContainer {
     <#
-    .SYNOPSIS Gleicht CPU, RAM und Hostport einer Docker-/Podman-Umgebung mit dem gewünschten Zustand ab.
+    .SYNOPSIS Gleicht Ressourcen, Hostport und Autostart einer Docker-/Podman-Umgebung mit dem gewünschten Zustand ab.
     .DESCRIPTION CPU, RAM und SQL max memory werden live aktualisiert. Eine
-    Portänderung erzeugt den Container kontrolliert neu, übernimmt Environment,
-    Labels und sämtliche Bind-/Volume-Mounts und verwendet ein versioniertes
-    Journal für Resume, Rollback und sichtbaren Recovery-Bedarf.
+    Port- oder Autostartänderung erzeugt den Container kontrolliert neu,
+    übernimmt Environment, Labels und sämtliche Bind-/Volume-Mounts und
+    verwendet ein versioniertes Journal für Resume, Rollback und sichtbaren
+    Recovery-Bedarf. AutoStart 'on' setzt die kanonische Restart-Policy
+    'unless-stopped' und das verwaltete Autostart-Label.
+
+    .PARAMETER AutoStart
+    Schaltet den verwalteten Container-Autostart ein oder aus. Die Änderung
+    erfordert eine kontrollierte Neuerstellung des Containers.
     #>
     [CmdletBinding(SupportsShouldProcess)]
     param(
@@ -14,6 +20,7 @@ function Update-SqlServerLabContainer {
         [ValidateRange(512, 1048576)][int]$MemoryMB,
         [ValidateRange(1024, 65535)][int]$Port,
         [ValidateRange(128, 2147483647)][int]$SqlMaxMemoryMB,
+        [ValidateSet('on','off')][string]$AutoStart,
         [ValidateRange(10, 600)][int]$ReadinessTimeoutSeconds = 180,
         [switch]$RepairSqlRuntimeContract,
         [string]$StateRoot
@@ -31,13 +38,14 @@ function Update-SqlServerLabContainer {
     if ($PSBoundParameters.ContainsKey('MemoryMB')) { $planArguments.MemoryMB=[int]$MemoryMB }
     if ($PSBoundParameters.ContainsKey('Port')) { $planArguments.Port=[int]$Port }
     if ($PSBoundParameters.ContainsKey('SqlMaxMemoryMB')) { $planArguments.SqlMaxMemoryMB=[int]$SqlMaxMemoryMB }
+    if ($PSBoundParameters.ContainsKey('AutoStart')) { $planArguments.AutoStart=[string]$AutoStart }
     $plan = New-LabContainerReconcilePlan @planArguments
     if ($plan.IsNoOp) {
         return [PSCustomObject]@{
             RunId=$RunId; InstanceId=[string]$context.InstanceId; Provider=[string]$context.Provider
             Container=[string]$context.ContainerName; Changed=$false; Recreated=$false; ChangeClass='no-op'
             Port=[int]$context.CurrentPort; Cpu=[decimal]$context.CurrentCpu; MemoryMB=[int]$context.CurrentMemoryMB
-            OperationId=$null; Status='NO_OP'
+            AutoStart=[string]$plan.Desired.AutoStart; OperationId=$null; Status='NO_OP'
         }
     }
     if (-not $PSCmdlet.ShouldProcess($context.ContainerName, "Container-Reconcile '$($plan.HighestChangeClass)' ausführen")) { return }
@@ -93,7 +101,10 @@ function Update-SqlServerLabContainer {
             $arguments += @('-e',[string]$entry)
         }
         $arguments += @('-e',"MSSQL_MEMORY_LIMIT_MB=$sqlMemoryLimitMB")
-        foreach ($property in @($inspect.Config.Labels.PSObject.Properties)) { $arguments += @('--label',"$($property.Name)=$($property.Value)") }
+        foreach ($property in @($inspect.Config.Labels.PSObject.Properties | Where-Object Name -ne 'sql-server-lab.autostart')) {
+            $arguments += @('--label',"$($property.Name)=$($property.Value)")
+        }
+        $arguments += @('--label',"sql-server-lab.autostart=$([string]$plan.Desired.AutoStart)")
         foreach ($mount in @($inspect.Mounts)) {
             if ([string]$mount.Type -eq 'bind') {
                 $suffix = if (-not [bool]$mount.RW) { ':ro' } else { '' }
@@ -107,8 +118,8 @@ function Update-SqlServerLabContainer {
                 $arguments += @('-v',"$($mount.Name):$($mount.Destination)$suffix")
             }
         }
-        if ($inspect.HostConfig.RestartPolicy.Name -and [string]$inspect.HostConfig.RestartPolicy.Name -ne 'no') {
-            $arguments += @('--restart',[string]$inspect.HostConfig.RestartPolicy.Name)
+        if ([string]$plan.Desired.AutoStart -eq 'on') {
+            $arguments += @('--restart','unless-stopped')
         }
         $arguments += @('--health-cmd','/opt/mssql-tools*/bin/sqlcmd -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -C -Q "SELECT 1" -b','--health-interval','5s','--health-timeout','3s','--health-retries','30',[string]$inspect.Config.Image)
         if ($context.WasRunning) { $null = Invoke-LabContainerReconcileCommand -Provider $runtime -Arguments @('stop',$name) -ErrorCode 'CONTAINER_RECONCILE_STOP_FAILED' }
@@ -135,6 +146,12 @@ function Update-SqlServerLabContainer {
         }
         $replacementPort = @($replacement.NetworkSettings.Ports.'1433/tcp' | Select-Object -First 1)
         if ($replacementPort.Count -ne 1 -or [int]$replacementPort[0].HostPort -ne [int]$plan.Desired.Port) { throw 'CONTAINER_RECONCILE_PORT_POSTCONDITION_FAILED' }
+        $replacementAutoStart = if ([string]$replacement.HostConfig.RestartPolicy.Name -in @('always','unless-stopped') -and
+            [string]$replacement.Config.Labels.'sql-server-lab.autostart' -eq 'on') { 'on' }
+        elseif ([string]$replacement.HostConfig.RestartPolicy.Name -in @('','no') -and
+            [string]$replacement.Config.Labels.'sql-server-lab.autostart' -in @('','off')) { 'off' }
+        else { 'DRIFTED' }
+        if ($replacementAutoStart -ne [string]$plan.Desired.AutoStart) { throw 'CONTAINER_RECONCILE_AUTOSTART_POSTCONDITION_FAILED' }
         if ($null -ne $plan.Desired.SqlMaxMemoryMB) {
             $replacementSqlContext = $context | Select-Object *
             $replacementSqlContext.CurrentPort = [int]$plan.Desired.Port
@@ -147,6 +164,7 @@ function Update-SqlServerLabContainer {
         $context.Instance | Add-Member -NotePropertyName port -NotePropertyValue ([int]$plan.Desired.Port) -Force
         $context.Instance | Add-Member -NotePropertyName cpu -NotePropertyValue ([decimal]$plan.Desired.Cpu) -Force
         $context.Instance | Add-Member -NotePropertyName memoryMB -NotePropertyValue ([int]$plan.Desired.MemoryMB) -Force
+        $context.Instance | Add-Member -NotePropertyName autoStart -NotePropertyValue ([string]$plan.Desired.AutoStart) -Force
         if ($null -ne $plan.Desired.SqlMaxMemoryMB) {
             $context.Instance | Add-Member -NotePropertyName sqlMaxMemoryMB -NotePropertyValue ([int]$plan.Desired.SqlMaxMemoryMB) -Force
         }
@@ -160,6 +178,7 @@ function Update-SqlServerLabContainer {
             RunId=$RunId; InstanceId=[string]$context.InstanceId; Provider=$runtime; Container=$name
             Changed=$true; Recreated=$true; ChangeClass='recreate'; Port=[int]$plan.Desired.Port
             Cpu=[decimal]$plan.Desired.Cpu; MemoryMB=[int]$plan.Desired.MemoryMB
+            AutoStart=[string]$plan.Desired.AutoStart
             SqlMemoryLimitMB=[int]$plan.Desired.SqlMemoryLimitMB; SqlMaxMemoryMB=$plan.Desired.SqlMaxMemoryMB
             OperationId=[string]$journal.OperationId; Status='SUCCEEDED'
         }
