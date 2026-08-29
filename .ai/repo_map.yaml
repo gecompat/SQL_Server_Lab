@@ -36,6 +36,9 @@ sources_of_truth:
   sample_baseline_registry_schema: Schemas/sample-baseline-registry.schema.json
   state_contract: Private/StateMachine.ps1
   cleanup_contract: Private/CleanupEngine.ps1
+  container_reconcile_contract: Private/ContainerReconcile.ps1
+  container_reconcile_journal_schema: Schemas/container-reconcile-journal.schema.json
+  validation_container_reconcile: Tests/Static/Invoke-ContainerReconcileChecks.ps1
   port_allocation_contract: Private/PortAllocation.ps1
   storage_contract: Private/StorageContract.ps1
   storage_contract_schema: Schemas/lab-storage-contract.schema.json
@@ -766,7 +769,8 @@ validation:
     checks:
       - catalog_verified_sample_download_and_install
       - separated_data_log_tempdb_and_backup_storage
-      - sql_and_runtime_resource_changes
+      - read_only_no_op_and_live_sql_runtime_resource_changes
+      - journaled_port_recreate_rollback_and_exact_runtime_identity
       - lifecycle_and_reconcile_persistence
       - scope_bound_cleanup
   remote_workflows:

@@ -2,7 +2,7 @@
 
 | Merkmal | Festlegung |
 |---|---|
-| Stand | 2026-08-27 |
+| Stand | 2026-08-29 |
 | Zweck | nachvollziehbarer Runtime-Nachweis fuer die oeffentliche CLI |
 | CU-Strategie | keine Vollmatrix aller CUs; je Containerprovider ein repraesentativer CU |
 | Containerreferenz | SQL Server 2022 CU18 (`2022-CU18`) |
@@ -24,8 +24,8 @@ Statische Vertragspruefungen und Runtime-Nachweise sind getrennte Evidence.
 | TempDB auf mehreren Datentraegern | `/sqltemp1`, `/sqltemp2` | `/sqltemp1`, `/sqltemp2` | `T:\TempDB`, `U:\TempDB` auf eigenen VHDX |
 | Backup-Speicher | eigenes `/sqlbackup`-Volume | eigenes `/sqlbackup`-Volume | `R:\SQLBackup` auf eigener VHDX |
 | SQL-Ressourcen | Max Memory, MAXDOP, Cost Threshold, Ad-hoc-Optimierung | gleich | gleich |
-| Runtime-Ressourcen | CPU/RAM in-place und Port-Recreate | gleich | vCPU/RAM bei ausgeschalteter VM |
-| Datenpersistenz | Reconcile, Stop/Start/Restart | gleich | Ressourcenwechsel, Stop/Start/Restart |
+| Runtime-Ressourcen | read-only No-op; CPU/RAM und SQL Max Memory live; journalisiertes Port-Recreate | gleich | vCPU/RAM bei ausgeschalteter VM |
+| Datenpersistenz | Recreate, erzwungener Rollback auf Original-ID, Stop/Start/Restart | gleich | Ressourcenwechsel, Stop/Start/Restart |
 | Cleanup | Container und alle run-eigenen Volumes | gleich | VM, Child-VHDX und alle Zusatz-VHDX |
 | ausfuehrbarer Einstieg | `Invoke-ContainerCliAcceptance.ps1 -Provider docker` | `Invoke-ContainerCliAcceptance.ps1 -Provider podman` | `Invoke-HyperVCliAcceptance.ps1` |
 
@@ -42,7 +42,7 @@ Statische Vertragspruefungen und Runtime-Nachweise sind getrennte Evidence.
 | `Initialize-SqlServerLabCms`, `Sync-SqlServerLabCms`, `Export-SqlServerLabCmsSyncScript` | CMS-Suites | gemeinsame Sechs-Umgebungen-/CMS-Abnahme |
 | `New/Get/Stop-SqlServerLabBatch` | Batch-Vertrag | Zwei-Lab-Batch-Smoke fuer Docker, Podman und Hyper-V-Slots |
 | `Get/Move/SetPriority/Suspend/Resume/Stop/Confirm-SqlServerLabOperation`, `Get-SqlServerLabQueue`, `Invoke-SqlServerLabScheduler` | Queue-, Prioritaets-, User-Gate- und Scheduler-Suites | Batch-Smokes fuer beide Containerprovider; Hyper-V-Slot-Batch |
-| `Get-SqlServerLabReconcilePlan`, `Invoke-SqlServerLabReconcileAction` | Lifecycle- und External-Runtime-Reconcile-Suites | Container-Smokes, native Docker-/Podman-External-Runtime-Refresh-/Removal-Abnahme und Windows-Baseline-Akzeptanz |
+| `Get-SqlServerLabReconcilePlan`, `Invoke-SqlServerLabReconcileAction` | Lifecycle-, Container- und External-Runtime-Reconcile-Suites | native Docker-/Podman-No-op-, Live-, Port-Recreate-, Rollback- und Persistenzabnahme, External-Runtime-Refresh/-Removal sowie Windows-Baseline-Akzeptanz |
 | `Invoke-SqlServerLabWorkflowAction` | Workflow-Action-Vertrag | Rename und Ressourcenwechsel in den vertieften Akzeptanzlaeufen |
 | `New/Clear/Export-SqlServerLabAutomatedTestEnvironment` | Testumgebungs- und Recovery-Suites | sechs gemeinsam registrierte SQL-Ziele und CMS |
 | `Install/Test-SqlServerLabAdapter` | Adapter-Schema und Capability-Gates | GitHub-hosted Adapter-Smoke |
@@ -92,3 +92,16 @@ wieder frei.
 Die drei Laeufe wurden gezielt fuer den geaenderten Frameworkstand ausgeloest.
 Der Hyper-V-Host enthielt nach dem Lauf weder eine `win-cli-*`-VM noch ein
 run-eigenes VHDX-Artefakt; der verwendete OS-Slot ist wieder frei.
+
+## Ausgefuehrte Container-Reconcile-Evidence vom 2026-08-29
+
+Der vertiefte CLI-Akzeptanzlauf wurde lokal getrennt mit Docker und Podman gegen
+SQL Server 2022 CU18 ausgefuehrt. Beide Laeufe bestätigten denselben Vertrag:
+read-only No-op ohne Container-ID-Wechsel, Live-Änderung von CPU, RAM und SQL
+Max Memory, absichtlich fehlgeschlagenes Port-Recreate mit Journalstatus
+`ROLLED_BACK`, exakte Wiederherstellung der Original-ID und des alten Ports,
+anschließend erfolgreiches Recreate mit neuer ID und erst danach entferntem
+Original. Datenmarker, Mounts und SQL-Konfiguration blieben über Recreate,
+Stop, Start und Restart erhalten; Container und sechs run-eigene Volumes wurden
+je Provider vollständig bereinigt. Diese lokale Evidence ersetzt nicht den
+weiterhin offenen Hyper-V-Vier-Geräte-Nachweis aus Gate N5.
