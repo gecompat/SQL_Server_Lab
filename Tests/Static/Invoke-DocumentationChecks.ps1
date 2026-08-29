@@ -563,6 +563,7 @@ Write-Host "`n[6] Veraltete Aussagen und Beispiele" -ForegroundColor Cyan
 $rootReadme = Get-Content -LiteralPath (Join-Path $repoRoot 'README.md') -Raw -Encoding utf8
 $documentationIndex = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\README.md') -Raw -Encoding utf8
 $gettingStarted = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\User\Getting_Started.md') -Raw -Encoding utf8
+$sampleWizardArchitecture = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Architecture\SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md') -Raw -Encoding utf8
 $testsReadme = Get-Content -LiteralPath (Join-Path $repoRoot 'Tests\README.md') -Raw -Encoding utf8
 $localValidationStrategy = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Quality\LOCAL_VALIDATION_STRATEGY.md') -Raw -Encoding utf8
 $repositoryContinuityRunbook = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Quality\REPOSITORY_CONTINUITY_RUNBOOK.md') -Raw -Encoding utf8
@@ -777,6 +778,15 @@ Add-ValidationResult `
         $projectContext -notmatch 'offen bleiben echter Prozessabbruch, Manifest-Rerun und Windows-User-Gate' -and
         $projectContext -notmatch 'noch keinen positiven allgemeinen SQL-Runtime-Nachweis' -and
         $projectContext -notmatch 'fehlende Eval-ISO im Media-Root blockiert')
+
+Add-ValidationResult `
+    -Name 'Manifest-Wizard-Status beschreibt Navigation und Artifact-Planvorschau aktuell' `
+    -Success ($projectContext -match 'schrittweiser Zurücknavigation' -and
+        $projectContext -notmatch 'Zurück-Navigation sowie allgemeine Sample-/Artifact-' -and
+        $knownLimitations -match 'Abbruch ohne partielle Datei' -and
+        $knownLimitations -notmatch 'Wizard-Navigation mit Zurück und Sample-/Artifact-Planvorschau' -and
+        $sampleWizardArchitecture -match 'Planvorschau `1\.1`' -and
+        $gettingStarted -match 'Plan\.Instances\[\]\.Samples')
 
 Add-ValidationResult `
     -Name 'Repo-Map und Known Limitations beschreiben Reconcile und nächste Gates aktuell' `
