@@ -79,6 +79,7 @@ $result = & $module {
     }
     $javaPlan = Resolve-LabExternalRuntimePlan -SoftwareItem $javaRequest -SqlVersion '2022' -Provider hyperv -OperatingSystem windows
     $dockerOptions = @(Get-LabExternalRuntimeSelectionOptions -SqlVersion '2022' -Provider docker -OperatingSystem linux)
+    $podmanOptions = @(Get-LabExternalRuntimeSelectionOptions -SqlVersion '2022' -Provider podman -OperatingSystem linux)
     $sql2025Options = @(Get-LabExternalRuntimeSelectionOptions -SqlVersion '2025' -Provider docker -OperatingSystem linux)
     $containerPreview = Get-LabExternalRuntimePlanPreview -DesiredPlans @($supportedPlan)
     $noOpPreview = Get-LabExternalRuntimePlanPreview -DesiredPlans @($supportedPlan) -CurrentPlans @($supportedPlan)
@@ -142,6 +143,9 @@ $result = & $module {
         Selection = $dockerOptions.Count -eq 3 -and
             (@($dockerOptions.SoftwareId | Sort-Object) -join ',') -eq 'sql-java,sql-python,sql-r' -and
             @($dockerOptions | Where-Object { [string]$_.PlanKey -notmatch '^[a-f0-9]{64}$' }).Count -eq 0 -and
+            $podmanOptions.Count -eq 3 -and
+            (@($podmanOptions.SoftwareId | Sort-Object) -join ',') -eq 'sql-java,sql-python,sql-r' -and
+            @($podmanOptions | Where-Object { [string]$_.Provider -ne 'podman' -or [string]$_.PlanKey -notmatch '^[a-f0-9]{64}$' }).Count -eq 0 -and
             $sql2025Options.Count -eq 0
         PlanIdentity = [string]$supportedPlan.PlanKey -match '^[a-f0-9]{64}$' -and
             @($supportedPlan.PackageLocks).Count -gt 0 -and

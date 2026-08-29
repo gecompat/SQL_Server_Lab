@@ -134,8 +134,8 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `New-SqlServerLabAutomatedTestEnvironment` | Linux-Testumgebungen mit getrennten Zufallskennwörtern erstellen und nach Lab_Data exportieren |
 | `Export-SqlServerLabTestEnvironment` | Testzugänge nach gebundener Live-Health-Prüfung als dotenv, schema-validierbares JSON, portablen Agenten-Prompt und Markdown exportieren |
 | `Repair-SqlServerLabAutomatedTestEnvironment` | Ressourcen, Health, Autostart und sprechende Container-/VM-Namen der registrierten Testgruppe sicher abgleichen |
-| `Start-SqlServerLabAutomatedTestEnvironment` | Registrierte Windows-Hyper-V-Mitglieder gruppenweise starten, SQL-Dienste bereitstellen und den Live-Export bis `READY` prüfen |
-| `Stop-SqlServerLabAutomatedTestEnvironment` | Registrierte Windows-Hyper-V-Mitglieder nicht-destruktiv stoppen und den Live-Export fail-closed erneuern |
+| `Start-SqlServerLabAutomatedTestEnvironment` | Registrierte Docker-, Podman- und Hyper-V-Mitglieder gruppenweise starten und den Live-Export bis `READY` prüfen |
+| `Stop-SqlServerLabAutomatedTestEnvironment` | Registrierte Docker-, Podman- und Hyper-V-Mitglieder nicht-destruktiv stoppen und den Live-Export fail-closed erneuern |
 | `Clear-SqlServerLabAutomatedTestEnvironment` | Die geschützte Gruppe automatisierter Testumgebungen vollständig entfernen |
 | `Test-SqlServerLabPrerequisite` | Provider, RAM, Storage und Ports prüfen |
 | `Test-SqlServerLabAdapter` | Project Adapter gegen Schema, Pfadgrenzen und optional einen Run prüfen |

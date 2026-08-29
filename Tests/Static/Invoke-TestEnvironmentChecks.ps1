@@ -240,6 +240,9 @@ try {
         $batchConsoleText -match "ProviderPreference'\] = 'Auto'" -and
         $batchConsoleText -match "-Id 'review' -Label 'Gesamtplan pruefen und zur Queue uebergeben'" -and
         $menuText -match "-Id 'ClearAutomatedTestEnvironment' -Label 'Alle automatisierten Testumgebungen loeschen'" -and
+        $menuText -match '-Id ''AutomatedTestEnvironmentLifecycle'' -Label \$testEnvironmentLifecycle\.Label' -and
+        $menuText -match "'Automatisierte Testumgebung starten'" -and
+        $menuText -match "'Automatisierte Testumgebung stoppen'" -and
         $testEnvironmentText -match 'function Get-LabAutomatedTestEnvironmentStatus' -and
         $testEnvironmentText -match '-AutoStart on' -and
         $menuText -match 'DisableAutomatedTestEnvironments'
@@ -348,6 +351,15 @@ try {
         @($groupLifecycleCommandText -split '\r?\n' | Where-Object { $_ -match 'Export-SqlServerLabTestEnvironment' }).Count -eq 2 -and
         $groupLifecycleCommandText -notmatch 'Remove-SqlServerLab|Clear-SqlServerLabAutomatedTestEnvironment|Remove-VM'
     )
+    Add-CheckResult -Name 'Gruppen-Lifecycle umfasst Docker, Podman und Hyper-V bei erhaltenem Einzelschutz' -Success (
+        $groupLifecycleCommandText -match 'Get-LabAutomatedTestEnvironmentRegisteredEntries' -and
+        $groupLifecycleCommandText -match "provider -in @\('docker','podman'\)" -and
+        $groupLifecycleCommandText -match 'Start-SqlServerLab -RunId \$runId -SkipReadyCheck' -and
+        $groupLifecycleCommandText -match 'Stop-SqlServerLab -RunId \$runId' -and
+        $groupLifecycleCommandText -match 'Get-LabAutomatedTestEnvironmentExpectedMajorVersion' -and
+        $groupLifecycleCommandText -match 'LabAutomatedTestEnvironmentGroupOperation = \$true' -and
+        $lifecycleText -match '-not \[bool\]\$script:LabAutomatedTestEnvironmentGroupOperation'
+    )
     Add-CheckResult -Name 'Recovery und Runtime-Nachweis verwenden nur den oeffentlichen Gruppen-Lifecycle' -Success (
         $runtimeReadinessText -match 'Start-SqlServerLabAutomatedTestEnvironment' -and
         $runtimeReadinessText -notmatch 'Get-LabSecret|Start-HyperVLabEnvironment|Invoke-HyperVPowerShellDirect' -and
@@ -355,9 +367,9 @@ try {
         $groupLifecycleText -match 'finally' -and
         $groupLifecycleText -match 'Stop-SqlServerLabAutomatedTestEnvironment' -and
         $groupLifecycleText -match 'BindingsPreserved' -and
-        $groupLifecycleText -match 'LinuxPreserved' -and
+        $groupLifecycleText -match 'ProvidersPreserved' -and
         $groupLifecycleText -match "GroupStatus -ne 'INCOMPLETE'" -and
-        $groupLifecycleText -match 'WindowsRestored' -and
+        $groupLifecycleText -match 'MembersRestored' -and
         $groupLifecycleText -match "GroupStatus -ne 'READY'" -and
         @($groupLifecycleText -split '\r?\n' | Where-Object { $_ -match 'Start-SqlServerLabAutomatedTestEnvironment' }).Count -ge 2 -and
         $groupLifecycleText -notmatch 'Remove-SqlServerLab|Clear-SqlServerLabAutomatedTestEnvironment'
