@@ -470,6 +470,8 @@ providers:
   hyperv:
     status: windows_2025_sql_2025_prepared_build_and_manifest_clone_to_sql_ready_run_real_validated
     implementation: Providers/HyperV/HyperVProvider.ps1
+    resource_binding: Private/HyperVResourceBinding.ps1
+    physical_resource_root: "registered Lab_Data/HyperV; StateRoot contains control state only"
     image_registry: Private/HyperVImageRegistry.ps1
     image_builder: Private/HyperVImageBuilder.ps1
     metadata: Providers/HyperV/provider.json
@@ -479,6 +481,7 @@ providers:
     native_smoke: Tests/Integration/Invoke-HyperVSmokeTest.ps1
     registry_static_checks: Tests/Static/Invoke-HyperVImageRegistryChecks.ps1
     builder_static_checks: Tests/Static/Invoke-HyperVImageBuilderChecks.ps1
+    resource_binding_static_checks: Tests/Static/Invoke-HyperVResourceBindingChecks.ps1
     sql_prepared_build_acceptance: Tests/Integration/Invoke-HyperVSqlPreparedImageAcceptance.ps1
     template_pool: "Maximal 20 immutable OS_SEALED-/SQL_PREPARED_SEALED-Images; aktive Builder und Lab-Klone blockieren Parent-Löschung"
 

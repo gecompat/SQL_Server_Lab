@@ -289,9 +289,12 @@ function Test-HyperVPathWithinRunDirectory {
         [Parameter(Mandatory)][string]$RunDirectory
     )
 
-    $resourceRoot = [System.IO.Path]::GetFullPath(
-        (Join-Path (Join-Path $RunDirectory 'resources') 'hyperv')
-    ).TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar)
+    $binding = Read-LabHyperVResourceBinding -StateDirectory $RunDirectory
+    if ($binding) {
+        return [bool](Test-LabHyperVBoundPath -Binding $binding -Path $Path).Valid
+    }
+    $resourceRoot = [System.IO.Path]::GetFullPath((Join-Path (Join-Path $RunDirectory 'resources') 'hyperv'))
+    $resourceRoot = $resourceRoot.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar)
     $candidate = [System.IO.Path]::GetFullPath($Path)
     $prefix = $resourceRoot + [System.IO.Path]::DirectorySeparatorChar
 
@@ -346,6 +349,24 @@ function Get-HyperVManagedVM {
     }
 }
 
+function Assert-HyperVVMResourceBinding {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$VMName,
+        [Parameter(Mandatory)]$ResourceBinding,
+        [string]$DataRoot
+    )
+
+    $vm = Get-VM -Name $VMName -ErrorAction Stop
+    foreach ($property in @('Path', 'SmartPagingFilePath', 'SnapshotFileLocation')) {
+        $observedPath = [string]$vm.$property
+        if (-not $observedPath) { throw "HYPERV_VM_RESOURCE_PATH_POSTCONDITION_MISSING: $property" }
+        $null = Assert-LabHyperVBoundPath -Binding $ResourceBinding `
+            -Path (Join-Path $observedPath '.sql-server-lab-path-check') -DataRoot $DataRoot
+    }
+    return $vm
+}
+
 function New-HyperVInstance {
     [CmdletBinding()]
     param(
@@ -363,7 +384,10 @@ function New-HyperVInstance {
         [ValidateRange(1, 64)][int]$ProcessorCount = 2,
         [ValidateSet('on', 'off')][string]$AutoStart = 'off',
         [string]$SwitchName,
-        [object[]]$AdditionalDrives = @()
+        [object[]]$AdditionalDrives = @(),
+        [string]$ResourceLocationId,
+        [string]$DataRoot,
+        [ValidateSet('Run', 'Build')][string]$ResourceClass = 'Run'
     )
 
     $availability = Test-HyperVAvailable
@@ -381,6 +405,8 @@ function New-HyperVInstance {
     if ($cleanupPlan.runId -ne $RunId -or $cleanupPlan.scopeId -ne $ScopeId) {
         throw 'Cleanup-Plan stimmt nicht mit RunId und ScopeId ueberein.'
     }
+    $resourceBinding = Initialize-LabHyperVResourceBinding -ResourceId $RunId -ResourceClass $ResourceClass `
+        -StateDirectory $resolvedRunDirectory -LocationId $ResourceLocationId -DataRoot $DataRoot
 
     if ($PSCmdlet.ParameterSetName -eq 'Artifact') {
         $imageArtifact = Get-HyperVImageArtifact -ArtifactId $ImageArtifactId -StateRoot $StateRoot
@@ -422,11 +448,9 @@ function New-HyperVInstance {
         throw "Hyper-V-VM existiert bereits: $vmName"
     }
 
-    $resourceRoot = Join-Path (Join-Path $resolvedRunDirectory 'resources') 'hyperv'
-    $childVhdxPath = Join-Path $resourceRoot "$vmName.vhdx"
-    if (-not (Test-HyperVPathWithinRunDirectory -Path $childVhdxPath -RunDirectory $resolvedRunDirectory)) {
-        throw 'HYPERV_RESOURCE_SCOPE_VIOLATION'
-    }
+    $resourceRoot = [string]$resourceBinding.HyperVResourceRoot
+    $childVhdxPath = Assert-LabHyperVBoundPath -Binding $resourceBinding `
+        -Path (Join-Path $resourceRoot "$vmName.vhdx") -DataRoot $DataRoot
     if (Test-Path -LiteralPath $childVhdxPath) {
         throw "Hyper-V-Child-VHDX existiert bereits: $childVhdxPath"
     }
@@ -469,7 +493,15 @@ function New-HyperVInstance {
         -Compensation "Remove Hyper-V VM $vmName"
 
     $null = New-Item -ItemType Directory -Path $resourceRoot -Force
+    $null = Assert-LabHyperVBoundPath -Binding $resourceBinding -Path $childVhdxPath -DataRoot $DataRoot
     $null = New-VHD -Path $childVhdxPath -ParentPath $resolvedParent -Differencing -ErrorAction Stop
+    if (-not (Test-Path -LiteralPath $childVhdxPath -PathType Leaf)) {
+        throw 'HYPERV_CHILD_VHDX_POSTCONDITION_FAILED'
+    }
+    $observedChildVhd = Get-VHD -Path $childVhdxPath -ErrorAction Stop
+    if (-not [string]::Equals([IO.Path]::GetFullPath([string]$observedChildVhd.Path), $childVhdxPath, [StringComparison]::OrdinalIgnoreCase)) {
+        throw 'HYPERV_CHILD_VHDX_IDENTITY_POSTCONDITION_FAILED'
+    }
     foreach ($drive in $additionalDrivePlan) {
         $driveDirectory = Split-Path -Parent ([string]$drive.Path)
         if (-not (Test-Path -LiteralPath $driveDirectory -PathType Container)) {
@@ -487,7 +519,13 @@ function New-HyperVInstance {
             $newVhdParameters.Dynamic = $true
         }
         $null = New-VHD @newVhdParameters
+        if (-not (Test-Path -LiteralPath $drive.Path -PathType Leaf)) {
+            throw "HYPERV_ADDITIONAL_DRIVE_POSTCONDITION_FAILED: $($drive.Id)"
+        }
         $vhd = Get-VHD -Path $drive.Path -ErrorAction Stop
+        if (-not [string]::Equals([IO.Path]::GetFullPath([string]$vhd.Path), [IO.Path]::GetFullPath([string]$drive.Path), [StringComparison]::OrdinalIgnoreCase)) {
+            throw "HYPERV_ADDITIONAL_DRIVE_IDENTITY_POSTCONDITION_FAILED: $($drive.Id)"
+        }
         $diskIdentifier = [string]$vhd.DiskIdentifier
         if ($diskIdentifier -notmatch '^[A-Fa-f0-9]{8}(?:-[A-Fa-f0-9]{4}){3}-[A-Fa-f0-9]{12}$') {
             throw "HYPERV_ADDITIONAL_DRIVE_IDENTIFIER_INVALID: $($drive.Id)"
@@ -507,6 +545,8 @@ function New-HyperVInstance {
         $newVmParameters.SwitchName = $SwitchName
     }
     $vm = New-VM @newVmParameters
+    $null = Set-VM -VM $vm -SmartPagingFilePath $resourceRoot -SnapshotFileLocation $resourceRoot -ErrorAction Stop
+    $null = Assert-HyperVVMResourceBinding -VMName $vmName -ResourceBinding $resourceBinding -DataRoot $DataRoot
     # Hyper-V otherwise assigns a host-wide default maximum (commonly 1 TB).
     # Keep an actual dynamic range: half the chosen startup value (at least
     # 512 MB) through twice the startup value, capped at Hyper-V's 1-TB limit.
@@ -561,6 +601,7 @@ function New-HyperVInstance {
         AutoStart     = $AutoStart
         State         = [string]$vm.State
         SqlReady      = $false
+        ResourceBinding = $resourceBinding
     }
 }
 

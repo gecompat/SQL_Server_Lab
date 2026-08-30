@@ -13,10 +13,24 @@ function Get-HyperVImageStorePaths {
     param([string]$StateRoot)
 
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
+    $controlRoot = Join-Path $StateRoot 'artifacts/hyperv'
+    $registryStateDirectory = Join-Path $controlRoot 'image-store-state'
+    $stagingStateDirectory = Join-Path $controlRoot 'staging-store-state'
+    $registryBinding = if (Test-Path -LiteralPath $registryStateDirectory -PathType Container) {
+        Read-LabHyperVResourceBinding -StateDirectory $registryStateDirectory
+    }
+    $stagingBinding = if (Test-Path -LiteralPath $stagingStateDirectory -PathType Container) {
+        Read-LabHyperVResourceBinding -StateDirectory $stagingStateDirectory
+    }
     return [PSCustomObject]@{
         StateRoot    = $StateRoot
-        RegistryRoot = Join-Path $StateRoot 'artifacts/hyperv/images'
-        StagingRoot  = Join-Path $StateRoot 'artifacts/hyperv/staging'
+        ControlRoot = $controlRoot
+        RegistryStateDirectory = $registryStateDirectory
+        StagingStateDirectory = $stagingStateDirectory
+        RegistryRoot = if ($registryBinding) { [string]$registryBinding.HyperVResourceRoot } else { Join-Path $StateRoot 'artifacts/hyperv/images' }
+        StagingRoot  = if ($stagingBinding) { [string]$stagingBinding.HyperVResourceRoot } else { Join-Path $StateRoot 'artifacts/hyperv/staging' }
+        RegistryBinding = $registryBinding
+        StagingBinding = $stagingBinding
     }
 }
 
@@ -26,12 +40,47 @@ function Initialize-HyperVImageStore {
 
     $null = Initialize-LabStateRoot -StateRoot $StateRoot
     $paths = Get-HyperVImageStorePaths -StateRoot $StateRoot
+    foreach ($directory in @($paths.RegistryStateDirectory, $paths.StagingStateDirectory)) {
+        if (-not (Test-Path -LiteralPath $directory -PathType Container)) {
+            New-Item -Path $directory -ItemType Directory -Force | Out-Null
+        }
+    }
+    $registryBinding = Initialize-LabHyperVResourceBinding -ResourceId 'hyperv-image-store' -ResourceClass Image `
+        -StateDirectory $paths.RegistryStateDirectory
+    $stagingBinding = Initialize-LabHyperVResourceBinding -ResourceId 'hyperv-staging-store' -ResourceClass Staging `
+        -StateDirectory $paths.StagingStateDirectory
+    $paths.RegistryRoot = [string]$registryBinding.HyperVResourceRoot
+    $paths.StagingRoot = [string]$stagingBinding.HyperVResourceRoot
+    $paths.RegistryBinding = $registryBinding
+    $paths.StagingBinding = $stagingBinding
     foreach ($directory in @($paths.RegistryRoot, $paths.StagingRoot)) {
         if (-not (Test-Path -LiteralPath $directory -PathType Container)) {
             New-Item -Path $directory -ItemType Directory -Force | Out-Null
         }
     }
     return $paths
+}
+
+function Get-HyperVImageArtifactDirectories {
+    [CmdletBinding()]
+    param([string]$ArtifactId, [string]$StateRoot)
+
+    if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
+    $storeKey = Get-LabHyperVShortResourceKey -ResourceId 'hyperv-image-store' -ResourceClass Image
+    $storeRoots = @(
+        foreach ($root in @(Get-LabHyperVResourceDiscoveryRoots -ResourceClass Image -StateRoot $StateRoot)) {
+            if ([string]$root.RootKind -eq 'REGISTERED') { Join-Path ([string]$root.Path) $storeKey }
+            else { [string]$root.Path }
+        }
+    ) | Select-Object -Unique
+    if ($ArtifactId) { return @($storeRoots | ForEach-Object { Join-Path $_ $ArtifactId }) }
+    return @(
+        foreach ($root in $storeRoots) {
+            if (Test-Path -LiteralPath $root -PathType Container) {
+                Get-ChildItem -LiteralPath $root -Directory -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
+            }
+        }
+    )
 }
 
 function Get-HyperVTemplatePoolStatus {
@@ -94,14 +143,13 @@ function Get-HyperVImageArtifact {
         [switch]$SkipIntegrityCheck
     )
 
-    $paths = Initialize-HyperVImageStore -StateRoot $StateRoot
     $directories = if ($ArtifactId) {
         if ($ArtifactId -notmatch '^hyperv-[a-z0-9-]+-[a-f0-9]{64}$') {
             throw 'HYPERV_ARTIFACT_ID_INVALID'
         }
-        @(Join-Path $paths.RegistryRoot $ArtifactId)
+        @(Get-HyperVImageArtifactDirectories -ArtifactId $ArtifactId -StateRoot $StateRoot)
     }
-    else { @(Get-ChildItem -LiteralPath $paths.RegistryRoot -Directory -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName) }
+    else { @(Get-HyperVImageArtifactDirectories -StateRoot $StateRoot) }
 
     $results = @()
     foreach ($directory in $directories) {
@@ -220,10 +268,13 @@ function Import-HyperVImageArtifact {
 
         $stagingDirectory = Join-Path $paths.StagingRoot (New-LabGuid)
         $targetDirectory = Join-Path $paths.RegistryRoot $artifactId
+        $null = Assert-LabHyperVBoundPath -Binding $paths.StagingBinding -Path (Join-Path $stagingDirectory '.path-check')
+        $null = Assert-LabHyperVBoundPath -Binding $paths.RegistryBinding -Path (Join-Path $targetDirectory '.path-check')
         New-Item -Path $stagingDirectory -ItemType Directory -Force | Out-Null
         try {
             $stagedVhdx = Join-Path $stagingDirectory 'parent.vhdx'
             Copy-Item -LiteralPath $source -Destination $stagedVhdx -Force
+            if (-not (Test-Path -LiteralPath $stagedVhdx -PathType Leaf)) { throw 'HYPERV_ARTIFACT_STAGE_POSTCONDITION_FAILED' }
             (Get-Item -LiteralPath $stagedVhdx).IsReadOnly = $true
             $copiedSha = (Get-FileHash -LiteralPath $stagedVhdx -Algorithm SHA256).Hash.ToLowerInvariant()
             if ($copiedSha -ne $sha256) { throw 'HYPERV_ARTIFACT_COPY_INTEGRITY_MISMATCH' }
@@ -264,6 +315,10 @@ function Import-HyperVImageArtifact {
             }
             Write-LabArtifactJsonAtomic -Path (Join-Path $stagingDirectory 'metadata.json') -InputObject $metadata
             Move-Item -LiteralPath $stagingDirectory -Destination $targetDirectory
+            if (-not (Test-Path -LiteralPath (Join-Path $targetDirectory 'parent.vhdx') -PathType Leaf) -or
+                -not (Test-Path -LiteralPath (Join-Path $targetDirectory 'metadata.json') -PathType Leaf)) {
+                throw 'HYPERV_ARTIFACT_PUBLISH_POSTCONDITION_FAILED'
+            }
         }
         finally {
             if (Test-Path -LiteralPath $stagingDirectory) { Remove-Item -LiteralPath $stagingDirectory -Recurse -Force }
@@ -291,7 +346,6 @@ function Remove-HyperVImageArtifact {
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
 
     return Invoke-LabArtifactStoreLock -StateRoot $StateRoot -ScriptBlock {
-        $paths = Initialize-HyperVImageStore -StateRoot $StateRoot
         $artifact = Get-HyperVImageArtifact -ArtifactId $ArtifactId -StateRoot $StateRoot -SkipIntegrityCheck
         if (-not $artifact) { throw 'HYPERV_ARTIFACT_NOT_FOUND' }
 
@@ -313,10 +367,10 @@ function Remove-HyperVImageArtifact {
             throw "HYPERV_ARTIFACT_IN_USE: $($references -join ', '). Bereinigen Sie zuerst den zugehörigen Build oder Lab-Run."
         }
 
-        $targetDirectory = Join-Path $paths.RegistryRoot $ArtifactId
-        $resolvedRegistry = (Resolve-Path -LiteralPath $paths.RegistryRoot -ErrorAction Stop).Path.TrimEnd('\\')
-        $resolvedTarget = (Resolve-Path -LiteralPath $targetDirectory -ErrorAction Stop).Path
-        if (-not $resolvedTarget.StartsWith($resolvedRegistry + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
+        $resolvedTarget = (Resolve-Path -LiteralPath (Split-Path -Parent ([string]$artifact.Path)) -ErrorAction Stop).Path
+        $mutationRoot = Resolve-LabHyperVMutationRoot -ExistingResourcePath (Join-Path $resolvedTarget 'parent.vhdx') `
+            -ResourceClass Image -StateRoot $StateRoot
+        if (-not $mutationRoot.AllowsExistingLifecycle -or (Split-Path -Leaf $resolvedTarget) -ne $ArtifactId) {
             throw 'HYPERV_ARTIFACT_DELETE_OUTSIDE_REGISTRY'
         }
         $vhdxPath = Join-Path $resolvedTarget 'parent.vhdx'
@@ -349,10 +403,11 @@ function Rename-HyperVImageArtifact {
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
 
     return Invoke-LabArtifactStoreLock -StateRoot $StateRoot -ScriptBlock {
-        $paths = Initialize-HyperVImageStore -StateRoot $StateRoot
         $artifact = Get-HyperVImageArtifact -ArtifactId $ArtifactId -StateRoot $StateRoot -SkipIntegrityCheck
         if (-not $artifact) { throw 'HYPERV_ARTIFACT_NOT_FOUND' }
-        $metadataPath = Join-Path (Join-Path $paths.RegistryRoot $ArtifactId) 'metadata.json'
+        $metadataPath = Join-Path (Split-Path -Parent ([string]$artifact.Path)) 'metadata.json'
+        $mutationRoot = Resolve-LabHyperVMutationRoot -ExistingResourcePath $metadataPath -ResourceClass Image -StateRoot $StateRoot
+        if (-not $mutationRoot.AllowsExistingLifecycle) { throw 'HYPERV_ARTIFACT_METADATA_MUTATION_NOT_ALLOWED' }
         if (-not (Test-Path -LiteralPath $metadataPath -PathType Leaf)) { throw 'HYPERV_ARTIFACT_METADATA_NOT_FOUND' }
         $metadata = Get-Content -LiteralPath $metadataPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 30
         $metadata | Add-Member -NotePropertyName displayName -NotePropertyValue $DisplayName -Force

@@ -155,18 +155,22 @@ function New-HyperVWindowsImageBuilder {
     $build = Get-HyperVImageBuildPlan -BuildId $BuildId -StateRoot $StateRoot
     if (-not $build -or $build.state -ne 'MEDIA_VERIFIED') { throw 'HYPERV_IMAGE_BUILD_NOT_READY' }
     $local = Get-Content -LiteralPath (Join-Path $build.BuildDirectory 'build-local.json') -Raw | ConvertFrom-Json
-    $resourceRoot = Join-Path (Join-Path $build.BuildDirectory 'resources') 'hyperv'
+    $resourceBinding = Initialize-LabHyperVResourceBinding -ResourceId $BuildId -ResourceClass Build `
+        -StateDirectory $build.BuildDirectory
+    $resourceRoot = [string]$resourceBinding.HyperVResourceRoot
     $vmName = "sql-lab-image-builder-$($BuildId.Replace('-', '').Substring(0, 8))"
-    $diskPath = Join-Path $resourceRoot "$vmName.vhdx"
+    $diskPath = Assert-LabHyperVBoundPath -Binding $resourceBinding -Path (Join-Path $resourceRoot "$vmName.vhdx")
 
     $null = Add-CleanupStep -RunDir $build.BuildDirectory -ResourceType vhdx -ResourceId $diskPath -Action remove -Provider hyperv -ProviderSubRunId provider-hyperv-builder -Compensation 'Remove builder OS VHDX'
     $null = Add-CleanupStep -RunDir $build.BuildDirectory -ResourceType vm -ResourceId $vmName -Action remove -Provider hyperv -ProviderSubRunId provider-hyperv-builder -Compensation 'Remove Hyper-V image builder'
     New-Item -Path $resourceRoot -ItemType Directory -Force | Out-Null
+    $null = Assert-LabHyperVBoundPath -Binding $resourceBinding -Path $diskPath
     $null = New-VHD -Path $diskPath -Dynamic -SizeBytes ([long]$build.resources.osDiskSizeBytes) -ErrorAction Stop
-    # Use the host's default VM configuration root. The build directory can be
-    # deeply nested and Hyper-V rejects long Smart Paging paths before the VM
-    # can be tagged for deterministic cleanup.
-    $vm = New-VM -Name $vmName -Generation 2 -MemoryStartupBytes $MemoryStartupBytes -VHDPath $diskPath -ErrorAction Stop
+    if (-not (Test-Path -LiteralPath $diskPath -PathType Leaf)) { throw 'HYPERV_IMAGE_BUILD_DISK_POSTCONDITION_FAILED' }
+    $vm = New-VM -Name $vmName -Generation 2 -MemoryStartupBytes $MemoryStartupBytes `
+        -VHDPath $diskPath -Path $resourceRoot -ErrorAction Stop
+    $null = Set-VM -VM $vm -SmartPagingFilePath $resourceRoot -SnapshotFileLocation $resourceRoot -ErrorAction Stop
+    $null = Assert-HyperVVMResourceBinding -VMName $vmName -ResourceBinding $resourceBinding
     # Do not inherit Hyper-V's unbounded dynamic-memory default (commonly 1 TB).
     $memoryMinimumBytes = [long][Math]::Max([double]512MB, [double]$MemoryStartupBytes / 2)
     $memoryMaximumBytes = [long][Math]::Min([double]1TB, [double]$MemoryStartupBytes * 2)
@@ -181,7 +185,7 @@ function New-HyperVWindowsImageBuilder {
     $dvd = Add-VMDvdDrive -VM $vm -Path ([string]$local.isoPath) -Passthru -ErrorAction Stop
     $null = Set-VMFirmware -VM $vm -FirstBootDevice $dvd -ErrorAction Stop
 
-    $build.builder = [PSCustomObject]@{ vmName = $vmName; osDiskRelativePath = "resources/hyperv/$vmName.vhdx"; generation = 2; secureBoot = $true }
+    $build.builder = [PSCustomObject]@{ vmName = $vmName; osDiskRelativePath = "resources/hyperv/$vmName.vhdx"; resourceRelativePath = "$vmName.vhdx"; generation = 2; secureBoot = $true }
     Write-HyperVImageBuildState -BuildDirectory $build.BuildDirectory -State $build
     return Set-HyperVImageBuildState -BuildId $BuildId -State BUILDER_READY -Reason 'Generation-2-Builder mit verifiziertem Installationsmedium erstellt' -StateRoot $StateRoot
 }
@@ -495,7 +499,12 @@ function Publish-HyperVWindowsImageBuild {
         (Get-FileHash -LiteralPath $evidencePath -Algorithm SHA256).Hash.ToLowerInvariant() -ne [string]$build.generalizationEvidence.storedSha256) {
         throw 'HYPERV_GENERALIZATION_EVIDENCE_INTEGRITY_MISMATCH'
     }
-    $diskPath = Join-Path $build.BuildDirectory ([string]$build.builder.osDiskRelativePath)
+    $boundRelativePath = if ($build.builder.resourceRelativePath) {
+        [string]$build.builder.resourceRelativePath
+    }
+    else { Split-Path -Leaf ([string]$build.builder.osDiskRelativePath) }
+    $diskPath = Resolve-LabHyperVStateResourcePath -StateDirectory $build.BuildDirectory `
+        -BoundRelativePath $boundRelativePath -LegacyRelativePath ([string]$build.builder.osDiskRelativePath)
     if (-not (Test-HyperVPathWithinRunDirectory -Path $diskPath -RunDirectory $build.BuildDirectory) -or
         -not (Test-Path -LiteralPath $diskPath -PathType Leaf)) {
         throw 'HYPERV_IMAGE_BUILD_DISK_SCOPE_INVALID'
