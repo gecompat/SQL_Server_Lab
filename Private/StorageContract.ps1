@@ -195,7 +195,10 @@ function Initialize-LabManagedDataRoot {
     }
     if ([string]::IsNullOrWhiteSpace($ControllerId)) { $ControllerId = [Guid]::NewGuid().ToString('D') }
 
-    $directories = @('Backups/Incoming', 'Backups/Verified', 'Labs', 'Catalog', 'Exports', 'State', 'Temp')
+    $directories = @(
+        'Backups/Incoming', 'Backups/Verified', 'Labs', 'Catalog', 'Exports', 'State', 'Temp',
+        'HyperV/Runs', 'HyperV/Builds', 'HyperV/Images', 'HyperV/Staging', 'HyperV/Recovery'
+    )
     foreach ($path in @($root) + @($directories | ForEach-Object { Join-Path $root $_ })) {
         if (-not (Test-Path -LiteralPath $path -PathType Container) -and $PSCmdlet.ShouldProcess($path, 'Verwaltetes Storage-Verzeichnis erstellen')) {
             New-Item -Path $path -ItemType Directory -Force | Out-Null
