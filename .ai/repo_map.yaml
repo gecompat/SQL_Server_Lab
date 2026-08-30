@@ -66,6 +66,7 @@ sources_of_truth:
   hyperv_windows_image_build: Documentation/HowTo/HYPERV_WINDOWS_IMAGE_BUILD.md
   workflow_ui: Documentation/HowTo/WORKFLOW_UI.md
   remote_hyperv_host_backlog: Documentation/Project_Planning/HYPERV_REMOTE_HOST_BACKLOG.md
+  windows_locale_configuration_backlog: Documentation/Project_Planning/WINDOWS_LOCALE_CONFIGURATION_BACKLOG.md
   manual_acceptance_consolidation_plan: Documentation/Project_Planning/CONSOLE_LIFECYCLE_AND_STORAGE_CONSOLIDATION_PLAN_2026-08-12.md
   validation_documentation: Tests/Static/Invoke-DocumentationChecks.ps1
   validation_runtime_contracts: Tests/Static/Invoke-ReadinessContractChecks.ps1
