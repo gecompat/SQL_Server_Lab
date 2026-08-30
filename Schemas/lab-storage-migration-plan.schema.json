@@ -24,6 +24,14 @@
       "required": ["FileCount", "TotalBytes", "RequiredBytes", "AvailableBytes"]
     },
     "AffectedRuns": { "type": "array" },
+    "StateRoot": { "type": "string" },
+    "HyperVBindings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["ReceiptPath", "ResourceClass", "ResourceId", "ResourceKey", "LocationId", "LabDataRoot", "HyperVResourceRoot", "Valid", "ValidationCode", "MigrationStatus"]
+      }
+    },
     "RequiredActions": { "type": "array", "items": { "type": "string" } },
     "Blockers": { "type": "array", "items": { "type": "string" } },
     "ExecutionImplemented": { "const": true }

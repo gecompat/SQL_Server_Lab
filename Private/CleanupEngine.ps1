@@ -273,6 +273,13 @@ function Test-LabHyperVCleanupPlanProtection {
         -not [string]::Equals([string]$binding.ResourceId, [string]$Plan.runId, [StringComparison]::OrdinalIgnoreCase))) {
         $issues.Add('HYPERV_CLEANUP_BINDING_IDENTITY_MISMATCH')
     }
+    if ($binding) {
+        $storageMigrationGuard = Get-LabStorageMigrationLifecycleGuard `
+            -DataRoot ([string]$binding.LabDataRoot) -LocationId ([string]$binding.LocationId)
+        if (-not $storageMigrationGuard.Allowed) {
+            $issues.Add("HYPERV_CLEANUP_STORAGE_MIGRATION_NOT_TERMINAL: $([string]$storageMigrationGuard.Status)")
+        }
+    }
 
     $stepResults = @()
     foreach ($step in @($hyperVSteps | Where-Object { [string]$_.resourceType -eq 'vhdx' })) {
