@@ -69,6 +69,41 @@ Der Root-Resolver liefert vor jeder Mutation eine normalisierte Bindung aus
 diese Bindung erneut gegen Marker, Volume-Identität und Registry. Er übernimmt
 nicht still eine abweichende Prozessumgebung.
 
+Ein ausdrücklich registriertes `C:\Lab_Data` bleibt ein gültiger Root. Der
+Fehler ist nicht der Laufwerksbuchstabe `C:`, sondern eine Ablage außerhalb
+eines registrierten `Lab_Data`, insbesondere unter einem Benutzerprofil. Für
+einen Root auf dem Systemvolume zeigt der Plan zusätzlich eine deutliche
+Kapazitätswarnung und verlangt eine höhere freie Reserve; er wechselt deshalb
+aber nicht still auf ein anderes Volume.
+
+## Verpflichtende P0-Szenariomatrix
+
+Der Bugfix gilt erst als geschlossen, wenn die folgenden Szenarien denselben
+Ressourcenvertrag verwenden. Eine nur für den zuerst beobachteten Slotpfad
+wirksame Korrektur reicht nicht aus.
+
+| Szenario | Verbindliches Verhalten |
+|---|---|
+| Neuer regulärer Hyper-V-Slot | OS-/Child-VHDX, VM-Konfiguration, Smart Paging und Saved State liegen unter der gebundenen `Lab_Data`-Location |
+| Persistenter Slot | Stop, Start, vollständiger Host-Reboot und VM-Autostart verändern die Ressourcenbindung nicht |
+| Windows- und SQL-Image-Builder | Build-VHDX, VM-State, Staging, Flattening und generiertes Image bleiben in registriertem `Lab_Data` |
+| Vorhandener Legacy-Slot | Discovery, Start, Stop, Readiness und Cleanup bleiben möglich; neue Ressourcen oder Rebuilds im Legacy-Root werden blockiert |
+| Legacy-Migration | Stop, Copy, Integritätsprüfung, Rebind, Start, SQL-Readiness, Restart und Quell-Cleanup sind journalisiert und fortsetzbar |
+| Mehrere `Lab_Data`-Locations | System-/VM-Ressourcen verwenden die gewählte System-Location; SQL Data, Log, TempDB und Backup behalten ihre Selector-Locations |
+| UAC, Scheduler und Child-Prozess | Die vor UAC aufgelöste Bindung wird danach erneut geprüft; Prozessumgebung oder Benutzerkontext können sie nicht still ändern |
+| Checkpoint und Recovery Point | AVHDX, Checkpoint-Konfiguration, Merge- und Recovery-Dateien bleiben innerhalb des erlaubten Roots |
+| Abbruch während Provisionierung | Resume oder Cleanup findet jede bereits erzeugte Ressource eindeutig und erzeugt keine zweite konkurrierende Ablage |
+| Unzureichender Speicherplatz | Blockiert vor `New-VHD`, `New-VM` oder einer großen Kopie; keine halbe VHDX gilt als benutzbarer Zustand |
+| Fehlendes, schreibgeschütztes oder offline befindliches Volume | Neue Mutation blockiert; vorhandene Slots erhalten einen fortsetzbaren `RECOVERY_REQUIRED`-Befund statt Fallback |
+| Geänderter Laufwerksbuchstabe | Location wird über stabile Volume-/Location-ID neu aufgelöst; ein alter Buchstabe ist keine Autorität |
+| Gleichzeitige Slots oder Builds | Location-Lock, eindeutige Keys und atomare Registrierung verhindern Pfad- und Artifact-Kollisionen |
+| Junction, Symlink oder anderer Reparse Point | Ein Entkommen aus dem controller-eigenen Root wird vor Mutation fail-closed abgelehnt |
+| Cleanup und Orphan-Audit | Run-eigene Ressourcen werden entfernt, fremde Dateien bleiben erhalten und bekannte Profil-/Legacy-Roots werden read-only auf Reste geprüft |
+
+Die reale P0-Abnahme verwendet mindestens einen ephemeren Slot, einen
+persistenten Slot, einen Builder und einen Legacy-Migrationsfall. Rein statische
+Pfadprüfungen oder ein synthetischer leerer VHDX ersetzen diese Nachweise nicht.
+
 ## Sofortschutz – erster Vertical Slice
 
 Der erste Slice verhindert neue Fehlplatzierungen, bevor die vollständige
@@ -138,6 +173,43 @@ Apply-/Resume-/Rollback-Ablauf:
 Eine manuelle Explorer-, `Move-Item`- oder unjournalisierte Hyper-V-Verschiebung
 ist kein unterstützter Migrationsweg.
 
+## P1-Ausbau nach dem Sofortschutz
+
+Nach dem P0-Fix sollen physische Hyper-V-Ressourcen optional über getrennte
+logische Rollen gebunden werden können:
+
+| Rolle | Inhalt |
+|---|---|
+| `hypervRuntime` | VM-Konfiguration, Smart Paging, Saved State und Slot-Child-VHDX |
+| `hypervImages` | Builder, Staging, Flattening und generierte immutable Images |
+| `hypervRecovery` | Checkpoints, temporäre Exporte und andere run-lokale Recovery Points |
+| `sqlData`, `sqlLog`, `tempdb`, `backup` | bestehende SQL-Rollen mit ihren expliziten Storage-Selector-Bindungen |
+
+Ohne explizite Rollenwahl werden die Hyper-V-Systemrollen auf die geprüfte
+Default-Location gebunden. Eine Rollenwahl ist portabel; konkrete Pfade und
+Volumes werden erst lokal aufgelöst. So kann beispielsweise VM-State auf einem
+kleinen Root, der Image-Pool auf einem großen Root und TempDB auf nachweislich
+getrennten schnellen Geräten liegen, ohne dass ein Manifest Hostpfade enthält.
+
+Der P1-Folgeumfang enthält:
+
+- einen einzelnen Slot statt nur einer vollständigen Location migrieren;
+- ein Parent-Image samt allen referenzierenden Child-VHDX graphbasiert und
+  referenzsicher migrieren;
+- Export, Import und Klonen zwischen registrierten Locations;
+- Retention und kontrollierte Bereinigung nicht mehr referenzierter Images und
+  Recovery Points;
+- NTFS und ReFS als getrennte, real nachgewiesene Capabilities behandeln;
+- feste und dynamische VHDX samt tatsächlichem beziehungsweise maximalem
+  Kapazitätsbedarf korrekt vorplanen;
+- Disk-Full-, IOPS-, Durchsatz- und Latenztests ausschließlich auf explizit
+  dafür freigegebenen Fault-Targets ausführen;
+- eine systemvolume-spezifische Reserve- und Warnpolicy anbieten, ohne
+  registriertes `C:\Lab_Data` generell zu verbieten.
+
+Diese Punkte dürfen nachgezogen werden, sobald `HVR-001` bis `HVR-008` keine
+neue Fehlplatzierung mehr zulassen. Sie blockieren den P0-Sofortschutz nicht.
+
 ## Arbeitspakete
 
 | ID | Arbeitspaket | Ergebnis |
@@ -182,8 +254,19 @@ ist kein unterstützter Migrationsweg.
 ## Nicht Teil dieses Bugfixes
 
 - freies Verschieben laufender VMs zwischen beliebigen Hostpfaden;
-- Remote-Hyper-V-Host oder Cluster-Live-Migration;
+- Storage-Live-Migration einer laufenden VM;
+- SMB-/NAS-Pfade, Cluster Shared Volumes, Failover-Cluster und
+  Cluster-Live-Migration;
+- Remote-Hyper-V-Host;
+- Wechselmedien als Runtime- oder Image-Root;
+- automatisch gewählte Junctions, Symlinks oder frei eingebbare Benutzerpfade;
 - allgemeines Storage-Tiering oder automatische Kosten-/Performanceoptimierung;
 - Änderung der bewusst getrennten `Lab_Base`-Medienstruktur;
 - automatische Migration ohne Preview, Stop-, Integritäts-, Recovery- und
   Cleanup-Vertrag.
+
+Availability Groups, Failover Cluster Instances, Log Shipping und Replication
+sollen den neuen Root-, Storage-, Recovery- und Cleanup-Vertrag später als
+SQL-Topologien konsumieren. Ihre Implementierung gehört nicht in diesen
+Bugfix. Der P0-Slice darf ihre später benötigte Multi-VM-, Shared-Artifact- und
+rollenbasierte Storage-Bindung jedoch nicht architektonisch verhindern.
