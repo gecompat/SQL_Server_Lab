@@ -32,7 +32,7 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 | `example-performance-tuning.json` | Performance-Konfiguration mit Sample-Referenz | vorbereitet; referenzierte StackOverflow-Variante ist ein Attach-Archiv und bleibt beschreibend |
 | `example-mixed-provider-lab.json` | zwei kompakte Instanzen mit Docker und Podman in einem Run | ausführbar, wenn beide Runtimes erreichbar sind; keine gemeinsame Netzwerktopologie |
 | `example-hyperv-drive-lab.json` | SQL-Prepared-Hyper-V-VM mit run-lokalen Data-/Log-VHDX und Guest-Initialisierung | ausführbar, wenn die referenzierte lokale Sealed-Artifact-ID vorhanden ist |
-| `hyperv-storage-n5-intent.sample.json` | Portabler N5-Storage-Intent mit vier physisch getrennten TempDB-Datendateien, separatem TempDB-Log sowie Create-/Restore-Bindings | ausführbarer Abnahme-Input, wenn die fünf Selektoren lokal eindeutig registriert und die vier TempDB-Backing-Devices als getrennt belegt sind |
+| `hyperv-storage-n5-intent.sample.json` | Portabler N5-Storage-Intent mit vier TempDB-Datendateien, die round-robin auf drei physisch getrennte Geräte verteilt werden, separatem TempDB-Log sowie Create-/Restore-Bindings | ausführbarer Abnahme-Input, wenn die vier Selektoren lokal eindeutig registriert und drei TempDB-Backing-Devices als getrennt belegt sind; die Log-Lane darf einen dieser Roots mit eigenem Selector nutzen |
 | `batch-manifest.sample.json` | Providerneutrale SQL-/Windows-Mengenplanung mit gemeinsamen Defaults und individuellen Overrides | wird vor Ausführung expandiert und provider-/hostabhängig validiert |
 
 Weitere `example-*.json`-Dateien können spezialisierte oder vorbereitete Szenarien enthalten. Ein Beispiel ist nur dann als End-to-End ausführbar anzusehen, wenn alle referenzierten Skripte und Quellen existieren und keine Grenze aus `Documentation/Quality/KNOWN_LIMITATIONS.md` verletzt wird.
@@ -94,6 +94,9 @@ Der N5-Akzeptanzrunner verwendet
 `hyperv-storage-n5-intent.sample.json` als portable Vorlage. Die lokalen
 Storage-Locations erhalten die dort genannten Selektoren erst operatorseitig;
 das Beispiel enthält bewusst keine Hostpfade, Location-IDs oder Geräte-IDs.
+`minimumPhysicalDeviceCount` kann für andere Hosts bis auf zwei reduziert
+werden; `one-file-per-physical-device` bleibt der strengere Modus für ein
+eigenes Gerät je Datendatei.
 
 Jede direkte Eigenschaft unter `serverConfig` ist deshalb maschinenlesbar mit
 `x-runtimeStatus` klassifiziert:

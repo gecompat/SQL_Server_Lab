@@ -36,6 +36,12 @@
           "enum": ["single-location", "round-robin", "explicit", "one-file-per-volume", "one-file-per-physical-device"]
         },
         "dataFileCount": { "type": "integer", "minimum": 1, "maximum": 8 },
+        "minimumPhysicalDeviceCount": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 8,
+          "description": "Optionale Mindestzahl nachweislich unterschiedlicher physischer Backing Devices fuer die TempDB-Datendateien. Mehrere Dateien duerfen dasselbe Device verwenden."
+        },
         "dataLocationSelectors": {
           "type": "array",
           "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,62}$" },
