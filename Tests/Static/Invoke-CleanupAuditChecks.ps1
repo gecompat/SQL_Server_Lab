@@ -89,6 +89,24 @@ try {
             -Action remove -Provider hyperv -ProviderSubRunId provider-hyperv -SafetyRoot $cleanBinding.LabDataRoot
         $validCleanup = Invoke-CleanupPlan -RunDir $cleanRun.RunDir -ScopeId $cleanRun.ScopeId
 
+        $buildId = New-LabGuid
+        $buildScopeId = New-LabGuid
+        $buildDirectory = Join-Path (Join-Path $stateRoot 'image-builds/hyperv') $buildId
+        $null = New-Item -Path $buildDirectory -ItemType Directory -Force
+        Write-LabArtifactJsonAtomic -Path (Join-Path $buildDirectory 'build-state.json') -InputObject ([PSCustomObject]@{
+            buildId=$buildId; scopeId=$buildScopeId; state='TEST_ARTIFACT_PUBLISHED'
+        })
+        $buildBinding = Initialize-LabHyperVResourceBinding -ResourceId $buildId -ResourceClass Build `
+            -StateDirectory $buildDirectory
+        $null = New-Item -Path $buildBinding.HyperVResourceRoot -ItemType Directory -Force
+        $buildVhdx = Join-Path $buildBinding.HyperVResourceRoot 'builder.vhdx'
+        $null = New-Item -Path $buildVhdx -ItemType File -Force
+        $null = New-CleanupPlan -RunDir $buildDirectory -RunId $buildId -ScopeId $buildScopeId `
+            -ProviderSubRuns @([PSCustomObject]@{ id='provider-hyperv-builder'; provider='hyperv' })
+        $null = Add-CleanupStep -RunDir $buildDirectory -ResourceType vhdx -ResourceId $buildVhdx `
+            -Action remove -Provider hyperv -ProviderSubRunId provider-hyperv-builder
+        $buildCleanup = Invoke-CleanupPlan -RunDir $buildDirectory -ScopeId $buildScopeId
+
         [PSCustomObject]@{
             Path=$auditResult.Path; Audit=$auditResult.Audit; RunId=$run.RunId
             ProtectedVhdx=$protectedVhdx; UntrackedFile=$untrackedFile; SharedParent=$sharedParent
@@ -99,6 +117,8 @@ try {
             ValidCleanup=$validCleanup
             ValidChildRemoved=(-not (Test-Path -LiteralPath $cleanChild -PathType Leaf))
             ValidExternalRemoved=(-not (Test-Path -LiteralPath $cleanExternal -PathType Leaf))
+            BuildCleanup=$buildCleanup
+            BuildVhdxRemoved=(-not (Test-Path -LiteralPath $buildVhdx -PathType Leaf))
         }
     }
     Add-CheckResult -Name 'Cleanup-Audit meldet bekannte Runtime-Reste' -Success ($result.Audit.Status -eq 'RESIDUALS' -and $result.Audit.Summary.ResidualCount -ge 3)
@@ -125,6 +145,8 @@ try {
     Add-CheckResult -Name 'Gültiger Plan entfernt Run-Root und registrierte Zusatzlaufwerks-VHDX' -Success (
         $result.ValidCleanup.Status -eq 'CLEANUP_SUCCEEDED' -and $result.ValidCleanup.Steps -eq 2 -and
         $result.ValidChildRemoved -and $result.ValidExternalRemoved)
+    Add-CheckResult -Name 'Image-Builder-Cleanup validiert Build-State und Build-Binding gemeinsam' -Success (
+        $result.BuildCleanup.Status -eq 'CLEANUP_SUCCEEDED' -and $result.BuildVhdxRemoved)
 }
 catch { Add-CheckResult -Name 'Cleanup-Audit-Testausfuehrung' -Success $false -Message $_.Exception.Message }
 finally {
