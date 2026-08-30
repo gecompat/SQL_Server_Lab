@@ -427,12 +427,16 @@ Entrypoints mit `..` oder absoluten Pfaden ab, der Resolver erzwingt zusätzlich
 Containment im Adapter-Root und lehnt Reparse Points ab.
 
 Als Capabilities werden derzeit nur `sqlcmd` und `container-linux` geprüft.
-Die ersten beiden produktiven Pilotadapter sind in den autoritativen
-Repositories `SQL_PerformanceSchulung` und `SQL_Server_Analyze` umgesetzt.
-`CON-004` und der Analyze-Slice `EXECUTION-PLAN-001` sind jeweils auf SQL Server
-2025 Linux mit Docker und Podman end-to-end validiert. Der produktive Pilot für
-`SQL_Server_Toolbelt` ist noch nicht umgesetzt; die Evidence und Reihenfolge
-stehen in der
+Alle drei produktiven Pilotadapter sind in den autoritativen
+Partnerrepositories umgesetzt. `CON-004`, der Analyze-Slice
+`EXECUTION-PLAN-001` und das Toolbelt-Modul
+`toolbelt.core.console-message` 1.0.0 sind jeweils auf SQL Server 2025 Linux
+mit Docker und Podman end-to-end validiert. Jeder Lauf umfasste seinen
+fachlichen Cleanup und den scopegebundenen Infrastruktur-Cleanup. Gate N3 ist
+damit geschlossen; die breiteren partnerseitigen Mehrversionsmatrizen und eine
+gesonderte Stabilisierung des weiterhin als `0.1-draft` geführten
+Adaptervertrags bleiben außerhalb dieses Pilotnachweises. Die Evidence steht in
+der
 [Project-Adapter-Priorisierung](../Project_Planning/PROJECT_ADAPTER_PRIORITIZATION.md).
 
 ## SQL Server Builds und CUs
@@ -653,17 +657,13 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
    realen Hyper-V-Mehrgeräte-Lauf auf den drei lokalen physischen Laufwerken
    einschließlich SQL-Restart, Create, Restore,
    Persistenz und Cleanup abschließen (Gate N5).
-2. Den verbleibenden Project-Adapter-Piloten für `SQL_Server_Toolbelt` im
-   Partnerrepository real ausführen und damit Gate N3 nach den validierten
-   Piloten für `SQL_PerformanceSchulung` und `SQL_Server_Analyze`
-   vervollständigen.
-3. `LAB_GENERATED`-Erzeugung und Auswahl an den Hyper-V-Export binden
+2. `LAB_GENERATED`-Erzeugung und Auswahl an den Hyper-V-Export binden
    (Sample-Welle 5/6).
-4. Die implementierten providerneutralen Network- und Software-Intents an
+3. Die implementierten providerneutralen Network- und Software-Intents an
    Hyper-V-LAN/NAT/IPAM und Software-Runtime binden.
-5. Artifact Registry, Refresh/Rebuild und Evaluierungsablauf implementieren.
-6. Den belegten Windows-2025-/SQL-2025-Referenzpfad zur vollständigen
+4. Artifact Registry, Refresh/Rebuild und Evaluierungsablauf implementieren.
+5. Den belegten Windows-2025-/SQL-2025-Referenzpfad zur vollständigen
    allgemeinen Hyper-V-Manifestbindung und zu weiteren realen
    Versions-/Editionsnachweisen ausbauen.
-7. Katalogaktualität, verifizierte Prüfsummen (`catalog-verified`) und
+6. Katalogaktualität, verifizierte Prüfsummen (`catalog-verified`) und
    Baseline-Kompatibilität kontrolliert pflegen.

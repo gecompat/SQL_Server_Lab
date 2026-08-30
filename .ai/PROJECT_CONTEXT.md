@@ -71,6 +71,10 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   Resume und scopegebundenem Cleanup belegt;
 - statische Vertragsprüfung;
 - Docker- und Podman-Smoke-Testpfad;
+- drei reale Project-Adapter-Piloten für `SQL_PerformanceSchulung`,
+  `SQL_Server_Analyze` und `SQL_Server_Toolbelt`; alle drei durchliefen ihren
+  SQL-Server-2025-Linux-Referenzfall getrennt unter Docker und Podman
+  end-to-end einschließlich scopegebundenem Cleanup;
 - providerneutraler Instanz-Autostart: Hyper-V `AutomaticStartAction`,
   Docker/Podman-Restart-Policy, Windows-Anmeldekoordinator und Podman-User-
   systemd-Service; der verwaltete CMS verwendet Autostart zwingend;
@@ -142,16 +146,13 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   Container-Reconcile hinaus, insbesondere für Netzwerke, freie Mount-/Image-
   Änderungen, Hyper-V-Software und weitere SQL-Konfigurationen;
 - versionierter Refresh-/Rebuild-Lifecycle für Medien, VHDX und Container-Images;
-- weitere konsumierende Lab-Packages über die abgeschlossenen
-  Schulungs- und Analyze-Adapter-Vertical-Slices hinaus;
+- weitere konsumierende Lab-Packages über die drei abgeschlossenen
+  Project-Adapter-Vertical-Slices hinaus;
 - langfristige Planner-, Package- und Supporting-Component-Architektur;
 - physischer Hyper-V-Mehrgeräte-Nachweis für vier TempDB-Datendateien auf der
   im Intent geforderten Mindestzahl physischer Geräte sowie dateigenaue Data-, Log-,
   TempDB- und Backup-Platzierung einschließlich SQL-Restart, Create, Restore,
   Persistenz und Cleanup;
-- ein verbleibender realer Project-Adapter-Pilot für `SQL_Server_Toolbelt`;
-  die Piloten für `SQL_PerformanceSchulung` und `SQL_Server_Analyze` sind auf
-  SQL Server 2025 Linux mit Docker und Podman end-to-end validiert.
 
 Die verbindliche Detailabgrenzung steht in `Documentation/Quality/KNOWN_LIMITATIONS.md`.
 

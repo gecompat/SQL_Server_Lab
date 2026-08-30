@@ -4,6 +4,19 @@ Dieses Changelog dokumentiert Änderungen am öffentlichen Verhalten, an maschin
 
 Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher nach Datum geführt. Neue Einträge werden oben ergänzt.
 
+## 2026-08-30
+
+### Validiert
+
+- Gate N3 ist geschlossen: Die drei realen Project-Adapter-Piloten für
+  `SQL_PerformanceSchulung`, `SQL_Server_Analyze` und `SQL_Server_Toolbelt`
+  sind in ihren autoritativen Partnerrepositories gemergt und jeweils auf SQL
+  Server 2025 Linux getrennt unter Docker und Podman end-to-end validiert.
+  Install/Update beziehungsweise Szenarioaufbau, fachliche Validierung,
+  markergebundener Cleanup sowie Container- und Volume-Cleanup waren
+  scopegebunden erfolgreich. Der Pilotabschluss schreibt den weiterhin als
+  `0.1-draft` geführten Adaptervertrag nicht automatisch auf `1.0` fest.
+
 ## 2026-08-29
 
 ### Hinzugefügt

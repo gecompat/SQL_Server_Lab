@@ -5,7 +5,7 @@
 | Status | `PLANNING_DECISION` |
 | Stand | 2026-08-30 |
 | Bezieht sich auf | `MASTER_IMPLEMENTATION_PLAN.md` Wellen 4, 6, 7 und 7a |
-| Runtime-Nachweis | Partner-PR und lokaler SQL-2025-Lifecycle; verbleibende Grenzen in `Documentation/Quality/KNOWN_LIMITATIONS.md` |
+| Runtime-Nachweis | Drei gemergte Partnerpiloten und getrennte lokale SQL-2025-Lifecycles unter Docker und Podman; verbleibende Grenzen in `Documentation/Quality/KNOWN_LIMITATIONS.md` |
 
 ## 1. Entscheidung
 
@@ -43,11 +43,12 @@ anschließend Windows und Linux mit SQL Server 2019, 2022 und 2025.
 | `ADP-003` | Pilot `SQL_PerformanceSchulung` | eine reproduzierbare Beispielumgebung über Adapter-Entrypoints auf einem aktuellen Linux-/SQL-2025-Container-Lab konstruieren; Windows oder andere Katalogversion nur bei Szenariobedarf (Master-Plan Welle 6, vertikaler Slice) | Beispielkonstruktion läuft end-to-end; Demo-Inhalt und -Cleanup bleiben im Schulungsrepository | umgesetzt und mit Docker sowie Podman validiert 2026-08-30; Partner-PRs [#40](https://github.com/gecompat/SQL_PerformanceSchulung/pull/40) und [#41](https://github.com/gecompat/SQL_PerformanceSchulung/pull/41), Stand `b9a1ac3` auf `origin/main` |
 | `ADP-004` | Pilot `SQL_Server_Analyze` | Frameworkinstallation und ein Quick-Szenario über Adapter (Master-Plan Welle 7, vertikaler Slice) | Analyzer-Evidenz bleibt im Analyze-Repository; keine duplizierte Lifecycle-Logik; Ausbau zur Windows-/Linux-Matrix 2019/2022/2025 ist partnerseitig definiert | umgesetzt und mit Docker sowie Podman validiert 2026-08-30; Partner-PR [#112](https://github.com/gecompat/SQL_Server_Analyze/pull/112), Stand `45a9594` auf `origin/main` |
 | `ADP-005` | Statische Adapter-Checks | Schema-, Beispiel- und Statuscode-Prüfungen unter `Tests/Static/` | Checks laufen lokal ohne Runtime | umgesetzt 2026-08-01 (`Invoke-ProjectAdapterChecks.ps1`) |
-| `ADP-008` | Pilot `SQL_Server_Toolbelt` | ein versioniertes Toolbelt-Modul über Adapter-Entrypoints auf einem SQL-2025-Container-Lab installieren, validieren, aktualisieren und deinstallieren (Master-Plan Welle 7a, vertikaler Slice) | Modul-Lifecycle läuft end-to-end; Modulinhalt und Windows-/Linux-Mehrversions-Evidenz 2019/2022/2025 bleiben im Toolbelt-Repository | offen; benötigt Arbeit im Toolbelt-Repository |
+| `ADP-008` | Pilot `SQL_Server_Toolbelt` | ein versioniertes Toolbelt-Modul über Adapter-Entrypoints auf einem SQL-2025-Container-Lab installieren, validieren, aktualisieren und deinstallieren (Master-Plan Welle 7a, vertikaler Slice) | Modul-Lifecycle läuft end-to-end; Modulinhalt und Windows-/Linux-Mehrversions-Evidenz 2019/2022/2025 bleiben im Toolbelt-Repository | umgesetzt und mit Docker sowie Podman validiert 2026-08-30; Partner-PR [#66](https://github.com/gecompat/SQL_Server_Toolbelt/pull/66), Stand `80f295d` auf `origin/main` |
 
 Die Reihenfolge ist verbindlich: erst Vertrag (`ADP-001`/`ADP-002`), dann je ein
-kleiner Pilot pro Partnerprojekt. Eine vollständige Migration der
-Partnerprojekte (Master-Plan Welle 8) beginnt erst nach allen drei Piloten.
+kleiner Pilot pro Partnerprojekt. Diese Voraussetzung für eine spätere
+vollständige Migration der Partnerprojekte (Master-Plan Welle 8) ist erfüllt;
+die Migration selbst wird dadurch nicht automatisch gestartet.
 
 ### 3.1 Evidence für `ADP-003`
 
@@ -99,6 +100,33 @@ Partner-PRs waren grün. Im Pilot wurde keine generische Core-Lücke festgestell
 und keine Providerlogik in das Analyze-Repository kopiert. Die breitere
 Windows-/Linux-Mehrversionsmatrix bleibt partnerseitige Analyze-Evidenz.
 
+### 3.3 Evidence für `ADP-008`
+
+`SQL_Server_Toolbelt` bindet das vorhandene Modul
+`toolbelt.core.console-message` 1.0.0 über den Project Adapter `0.1`. Die
+Install-, Update- und Cleanup-Entrypoints werden deterministisch aus den
+kanonischen Deployment-, Source- und Uninstall-Dateien erzeugt. Der
+Update-Pfad ist ein versionsgleiches idempotentes Redeployment; ein nicht
+existierender historischer Versionssprung wird nicht simuliert.
+
+Die getrennten lokalen Docker- und Podman-Läufe vom 2026-08-30 mit SQL Server
+2025 belegten jeweils:
+
+- erfolgreiche Install-, Update- und Validate-Entrypoints;
+- Version `1.0.0`, Deploymentmodus `local`, öffentliche Signatur und
+  Help-Vertrag der Console-Message-Procedure;
+- markergebundenen Adapter-Uninstall mit `ProjectCleanup = REMOVED`;
+- vollständigen Container- und Volume-Abbau mit erfolgreichem
+  scopegebundenem Infrastruktur-Cleanup.
+
+Der vollständige Toolbelt-Dokumentationsaudit, die Lab-Schema-/Resolverprüfung
+und alle fünf Checks des Partner-PRs waren grün. Das Toolbelt-Repository
+verwaltet keine Lab-Infrastruktur; sein Runner bindet ausschließlich einen vom
+Lab-Core bereitgestellten Run. Im Pilot wurde keine generische Core-Lücke
+festgestellt und keine Providerlogik in das Toolbelt-Repository kopiert. Die
+breitere Windows-/Linux-Mehrversions- und Clientmatrix bleibt partnerseitige
+Toolbelt-Evidenz.
+
 ## 4. Abhängigkeiten und Vorleistungen
 
 - **Sample-Welle 4 (SQL-Skript-/Bundle-Handler):** Schulungsbeispiele und
@@ -117,4 +145,6 @@ Windows-/Linux-Mehrversionsmatrix bleibt partnerseitige Analyze-Evidenz.
 - keine Hyper-V-Provisionierung;
 - keine Entfernung bestehender Funktionalität aus den Partnerprojekten vor
   reproduzierbarer Abnahme (Master-Plan Welle 8);
-- keine `1.0`-Festschreibung der Verträge vor drei produktiven Adaptern.
+- keine automatische `1.0`-Festschreibung allein durch den Abschluss der drei
+  produktiven Piloten; Stabilisierung und Migrationshinweise bleiben ein
+  eigener Vertrags-Scope.
