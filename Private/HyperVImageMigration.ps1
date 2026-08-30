@@ -25,6 +25,74 @@ function Get-LabHyperVImageMigrationPaths {
     }
 }
 
+function Resolve-LabHyperVMigratedParentImage {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$ParentPath,
+        [Parameter(Mandatory)][string]$StateRoot,
+        [string]$DataRoot
+    )
+
+    $sourceParent = [IO.Path]::GetFullPath($ParentPath)
+    $paths = Get-LabHyperVImageMigrationPaths -StateRoot $StateRoot
+    if (-not (Test-Path -LiteralPath $paths.Plan -PathType Leaf) -or
+        -not (Test-Path -LiteralPath $paths.Journal -PathType Leaf) -or
+        -not (Test-Path -LiteralPath $paths.Binding -PathType Leaf)) { return $null }
+
+    try {
+        $plan = Get-Content -LiteralPath $paths.Plan -Raw -Encoding utf8 | ConvertFrom-Json -Depth 60 -ErrorAction Stop
+        $journal = Get-Content -LiteralPath $paths.Journal -Raw -Encoding utf8 | ConvertFrom-Json -Depth 60 -ErrorAction Stop
+    } catch { throw "HYPERV_IMAGE_MIGRATION_PARENT_MAPPING_INVALID: $($_.Exception.Message)" }
+    if ([string]$plan.ContractVersion -ne 'SqlServerLab.HyperVImageMigrationPlan/1.0' -or
+        [string]$journal.ContractVersion -ne 'SqlServerLab.HyperVImageMigrationJournal/1.0' -or
+        -not [bool]$journal.BindingCommitted) { return $null }
+    $planHash = (Get-FileHash -LiteralPath $paths.Plan -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ([string]$journal.PlanId -ne [string]$plan.PlanId -or [string]$journal.PlanSha256 -ne $planHash) {
+        throw 'HYPERV_IMAGE_MIGRATION_PARENT_MAPPING_PLAN_CHANGED'
+    }
+
+    $binding = Read-LabHyperVResourceBinding -StateDirectory $paths.StateDirectory -DataRoot $DataRoot
+    if (-not $binding -or [string]$binding.ResourceClass -ne 'Image' -or [string]$binding.ResourceId -ne 'hyperv-image-store') {
+        throw 'HYPERV_IMAGE_MIGRATION_PARENT_MAPPING_BINDING_INVALID'
+    }
+    foreach ($property in @('ResourceKey','ControllerId','LocationId','VolumeId','LabDataRoot')) {
+        if (-not [string]::Equals([string]$binding.$property, [string]$plan.Target.$property, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "HYPERV_IMAGE_MIGRATION_PARENT_MAPPING_TARGET_CHANGED: $property"
+        }
+    }
+    if (-not [string]::Equals([string]$binding.HyperVResourceRoot, [string]$plan.Target.ResourceRoot, [StringComparison]::OrdinalIgnoreCase)) {
+        throw 'HYPERV_IMAGE_MIGRATION_PARENT_MAPPING_TARGET_CHANGED: ResourceRoot'
+    }
+
+    $artifactMatches = @($plan.Inventory.Artifacts | Where-Object {
+        $_.SourceParentPath -and [string]::Equals([IO.Path]::GetFullPath([string]$_.SourceParentPath), $sourceParent, [StringComparison]::OrdinalIgnoreCase)
+    })
+    if ($artifactMatches.Count -eq 0) { return $null }
+    if ($artifactMatches.Count -ne 1) { throw "HYPERV_IMAGE_MIGRATION_PARENT_MAPPING_AMBIGUOUS: $sourceParent" }
+    $artifact = $artifactMatches[0]
+    $expectedSource = [IO.Path]::GetFullPath((Join-Path $paths.LegacyRoot ([string]$artifact.ArtifactId)))
+    $expectedSourceParent = [IO.Path]::GetFullPath((Join-Path $expectedSource 'parent.vhdx'))
+    $expectedTarget = Assert-LabHyperVBoundPath -Binding $binding `
+        -Path (Join-Path ([string]$binding.HyperVResourceRoot) ([string]$artifact.ArtifactId)) -DataRoot $DataRoot
+    $targetParent = Assert-LabHyperVBoundPath -Binding $binding -Path (Join-Path $expectedTarget 'parent.vhdx') -DataRoot $DataRoot
+    if (-not [string]::Equals($sourceParent, $expectedSourceParent, [StringComparison]::OrdinalIgnoreCase) -or
+        -not [string]::Equals([IO.Path]::GetFullPath([string]$artifact.SourceDirectory), $expectedSource, [StringComparison]::OrdinalIgnoreCase) -or
+        -not [string]::Equals([IO.Path]::GetFullPath([string]$artifact.DestinationDirectory), $expectedTarget, [StringComparison]::OrdinalIgnoreCase) -or
+        -not [string]::Equals([IO.Path]::GetFullPath([string]$artifact.DestinationParentPath), $targetParent, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "HYPERV_IMAGE_MIGRATION_PARENT_MAPPING_SCOPE_INVALID: $sourceParent"
+    }
+    if (-not (Test-Path -LiteralPath $targetParent -PathType Leaf) -or
+        (Get-FileHash -LiteralPath $targetParent -Algorithm SHA256).Hash.ToLowerInvariant() -ne [string]$artifact.ParentSha256 -or
+        -not (Get-Item -LiteralPath $targetParent -Force).IsReadOnly -or -not (Test-HyperVVhdxSignature -Path $targetParent)) {
+        throw "HYPERV_IMAGE_MIGRATION_PARENT_MAPPING_TARGET_INVALID: $targetParent"
+    }
+    return [PSCustomObject]@{
+        ArtifactId=[string]$artifact.ArtifactId; SourceParentPath=$sourceParent
+        DestinationParentPath=$targetParent; ParentSha256=[string]$artifact.ParentSha256
+        PlanPath=$paths.Plan; JournalPath=$paths.Journal; LocationId=[string]$binding.LocationId
+    }
+}
+
 function Get-LabHyperVLegacyImageConsumers {
     [CmdletBinding()]
     param(

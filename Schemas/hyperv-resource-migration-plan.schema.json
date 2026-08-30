@@ -28,7 +28,31 @@
       "type": "object",
       "required": ["FileCount", "TotalBytes", "RequiredBytes", "AvailableBytes", "VMs", "Files"],
       "properties": {
-        "VMs": { "type": "array", "minItems": 1 },
+        "VMs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["VMName", "LegacyDisks"],
+            "properties": {
+              "LegacyDisks": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "required": ["SourcePath", "DestinationPath", "Sha256", "ParentPath", "TargetParentPath", "ParentMigrationArtifactId", "ParentMigrationPlanPath"],
+                  "properties": {
+                    "Sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+                    "ParentPath": { "type": ["string", "null"] },
+                    "TargetParentPath": { "type": ["string", "null"] },
+                    "ParentMigrationArtifactId": { "type": ["string", "null"] },
+                    "ParentMigrationPlanPath": { "type": ["string", "null"] }
+                  }
+                }
+              }
+            }
+          }
+        },
         "Files": { "type": "array" }
       }
     },

@@ -256,9 +256,16 @@ neue Fehlplatzierung mehr zulassen. Sie blockieren den P0-Sofortschutz nicht.
   veröffentlicht. Der journalisierte Status `WAITING_FOR_CONSUMERS` erhält
   jeden noch referenzierten Parent; ein Resume entfernt die Quelle erst nach
   einem erneuten vollständigen Child-Graph-Scan ohne Referenzen.
-- In `HVR-005` bleibt die automatische Reparent-Kopplung der run-lokalen
-  Child-VHDX an das migrierte Image offen; der Run-Slice blockiert solche
-  Ketten weiterhin, bis diese Kopplung implementiert ist.
+- Die automatische Reparent-Kopplung von `HVR-005` ist implementiert und
+  synthetisch validiert: Der Run-Plan akzeptiert ein Legacy-Parent nur mit
+  unverändertem Image-Plan, committed Image-Binding und hashverifiziertem,
+  read-only Ziel-Parent. `Set-VHD` läuft bei ausgeschalteter VM, wird vor der
+  Mutation als `PENDING` journalisiert und trennt Quell- und Ziel-Child-Hash.
+  Resume verifiziert das exakte neue Parent, bindet die VM um und setzt nach
+  dem Quell-Child-Cleanup die Image-Migration automatisch bis
+  `COMPLETED` oder erneutem `WAITING_FOR_CONSUMERS` fort.
+- Damit ist der interne Implementierungsumfang von `HVR-005` geschlossen;
+  die reale erhöhte End-to-End-Abnahme bleibt Teil von `HVR-008`.
 - `HVR-006` bis `HVR-008` bleiben ebenfalls offen: Cleanup, Repair, Reconcile und die
   allgemeine Storage-Migration müssen noch an den Migrationsvertrag gekoppelt,
   Zielpfade in UI/CLI/Preview sichtbar und der Ablauf real erhöht end-to-end

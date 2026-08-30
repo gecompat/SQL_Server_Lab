@@ -69,7 +69,9 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   Kapazitäts- und Readiness-Prüfung um und erhalten externe SQL-Lanes; der
   getrennte Image-Migrationsvertrag veröffentlicht Legacy-Artefakte
   hashidentisch im gebundenen Store und bewahrt referenzierte Quellen bis zu
-  einem consumerfreien Resume-Cleanup;
+  einem consumerfreien Resume-Cleanup; migrierte Runs lösen Legacy-Parents nur
+  über diesen verifizierten Vertrag auf, journalisieren `Set-VHD` vorab,
+  belegen getrennte Child-Hashes und setzen den Image-Cleanup automatisch fort;
 - gemeinsames Console-UI-Framework einschließlich der CUI-001-bis-CUI-020-
   Verträge: alle bekannten Optionslisten in Storage, Connection Center,
   Erstellungs- und Hyper-V-Pfaden verwenden stabile Menü-IDs, Cursor/Fallback
@@ -147,9 +149,8 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 
 ### Geplant oder unvollständig
 
-- automatische Reparent-Kopplung von Legacy-Children an migrierte
-  Parent-Images, Bindung von Cleanup/Repair/Reconcile und allgemeiner Storage-
-  Migration an den Hyper-V-Legacy-Migrationsvertrag, Zielpfad-Preview sowie reale erhöhte
+- Bindung von Cleanup/Repair/Reconcile und allgemeiner Storage-Migration an den
+  Hyper-V-Legacy-Migrationsvertrag, Zielpfad-Preview sowie reale erhöhte
   End-to-End-Abnahme des Ressourcenroot-Schutzes;
 - vollständiger allgemeiner Hyper-V-Provider über den belegten
   Windows-2025-/SQL-2025-Referenzpfad hinaus, insbesondere breite
