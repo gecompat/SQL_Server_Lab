@@ -191,10 +191,12 @@ try {
         -Name 'Lifecycle ohne Switch entfernt implizite Netzwerkadapter' `
         -Text $provider `
         -Pattern 'if\s*\(-not\s+\$SwitchName\)[\s\S]+Get-VMNetworkAdapter[\s\S]+Remove-VMNetworkAdapter'
-    Add-TextContract `
+    Add-CheckResult `
         -Name 'Child-VHDX-Loeschung prueft die Run-Pfadgrenze' `
-        -Text $provider `
-        -Pattern 'Remove-HyperVVhdxForCleanup[\s\S]+Test-HyperVPathWithinRunDirectory'
+        -Success (
+            $provider -match 'function\s+Test-HyperVVhdxCleanupScope[\s\S]+Test-HyperVPathWithinRunDirectory' -and
+            $provider -match 'function\s+Remove-HyperVVhdxForCleanup[\s\S]+Test-HyperVVhdxCleanupScope'
+        )
     Add-TextContract `
         -Name 'Cleanup-Engine behandelt Hyper-V-VM und Child-VHDX getrennt' `
         -Text $cleanup `

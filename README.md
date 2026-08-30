@@ -533,7 +533,7 @@ Invoke-SqlServerLabScheduler -UntilIdle
 | `Invoke-SqlServerLabOperationProbe` | Fällige User-Gates ausschließlich lesend prüfen, ohne sie selbstständig fortzusetzen |
 | `Get-SqlServerLabWorkflow` | Konsolidierte Workflow-, Image-, Vorlagenpool- und Kombinationsübersicht ohne Geheimnisse |
 | `Get-SqlServerLabCatalog` | Konsolidierten Lab-Katalog als JSON-Artefakt erzeugen |
-| `Get-SqlServerLabCleanupAudit` | Bekannte Lab-Daten und Runtime-Ressourcen read-only auf Reste prüfen |
+| `Get-SqlServerLabCleanupAudit` | Bekannte Lab-Daten, Runtime-Ressourcen sowie Hyper-V-Bindings/Migrations- und Preserve-Befunde read-only prüfen |
 | `Get-SqlServerLabConnectionCenter` | Passwortfreien, providerübergreifenden SQL-Endpunktkatalog ermitteln |
 | `Sync-SqlServerLabConnectionCenter` | Den Endpunktkatalog der SSMS-/CMS-Verbindungszentrale aktualisieren |
 | `Export-SqlServerLabSsmsRegistration` | Kennwortfreien `.regsrvr`-Import für SSMS erzeugen |

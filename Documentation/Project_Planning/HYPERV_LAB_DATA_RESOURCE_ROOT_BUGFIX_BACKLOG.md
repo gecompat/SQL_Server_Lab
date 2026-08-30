@@ -224,7 +224,7 @@ neue Fehlplatzierung mehr zulassen. Sie blockieren den P0-Sofortschutz nicht.
 | `HVR-007` | UI, CLI, Preview, UAC-Handoff und Dokumentation angleichen | physischer Zielroot ist vor der Bestätigung sichtbar und reproduzierbar |
 | `HVR-008` | statische, synthetische und reale Hyper-V-Akzeptanz erweitern | belegte Platzierung, Migration, Restart, Recovery und Cleanup |
 
-### Implementierungsstand 2026-08-30
+### Implementierungsstand 2026-08-31
 
 - `HVR-001` besitzt die implementierte Grundlage: Create-, Discovery- und
   Mutation-Roots werden getrennt aufgelöst. Registrierte Roots erlauben neue
@@ -266,8 +266,17 @@ neue Fehlplatzierung mehr zulassen. Sie blockieren den P0-Sofortschutz nicht.
   `COMPLETED` oder erneutem `WAITING_FOR_CONSUMERS` fort.
 - Damit ist der interne Implementierungsumfang von `HVR-005` geschlossen;
   die reale erhöhte End-to-End-Abnahme bleibt Teil von `HVR-008`.
-- `HVR-006` bis `HVR-008` bleiben ebenfalls offen: Cleanup, Repair, Reconcile und die
-  allgemeine Storage-Migration müssen noch an den Migrationsvertrag gekoppelt,
+- Der Cleanup-/Audit-Slice von `HVR-006` ist implementiert und synthetisch
+  validiert: Vor jeder Hyper-V-Cleanup-Mutation werden Run-/Scope-Identität,
+  persistiertes `Run`-Binding, registrierte zusätzliche N5-Laufwerksroots und
+  das Run-Migrationsjournal gemeinsam revalidiert. Nichtterminale oder
+  ungültige Migrationen sowie unsichere VHDX-Schritte blockieren den gesamten
+  Plan vor der ersten Löschung. Der read-only Cleanup-Audit weist Bindings,
+  Migrationsstatus, geschützte Run-VHDX, ungetrackte Preserve-Dateien und
+  ausdrücklich zu bewahrende Shared-Image-/Staging-Roots getrennt aus.
+- `HVR-006` bleibt für Repair, Reconcile und die allgemeine Storage-Migration
+  offen; `HVR-007` und `HVR-008` bleiben ebenfalls offen. Diese Pfade müssen
+  noch an den Migrationsvertrag gekoppelt,
   Zielpfade in UI/CLI/Preview sichtbar und der Ablauf real erhöht end-to-end
   abgenommen werden.
 

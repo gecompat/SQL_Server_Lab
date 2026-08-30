@@ -686,8 +686,14 @@ inventarisiert und verifiziert Legacy-Runs, bindet run-lokale Hyper-V-
 Ressourcen journalisiert um und erhält externe SQL-Lanes. Die Parent-/Child-
 Kette wird dabei graphbasiert auf den gebundenen Image-Store umgehängt und
 referenzfrei bereinigt. Offen bleiben die
-Kopplung weiterer Cleanup-/Repair-/Reconcile-Pfade, UI/CLI-Exposition sowie die
+Kopplung der Repair-/Reconcile-/allgemeinen Storage-Migrationspfade,
+UI/CLI-Exposition sowie die
 reale erhöhte End-to-End-Abnahme.
+Der erste `HVR-006`-Slice schützt den Hyper-V-Cleanup bereits atomar gegen
+nichtterminale Run-Migrationen und unsafe VHDX-Pfade. Der Cleanup-Audit weist
+Run-Bindings, Migrationsstatus, ungetrackte Preserve-Dateien und Shared-Roots
+read-only aus; eine automatische Reparatur oder Löschung solcher Befunde ist
+bewusst noch nicht implementiert.
 Image-Quellen werden bis zum nachgewiesenen Wegfall aller Consumer absichtlich
 nicht entfernt; manuelles Verschieben außerhalb des journalisierten Vertrags
 bleibt unzulässig.

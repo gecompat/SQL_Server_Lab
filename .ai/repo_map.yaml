@@ -432,10 +432,13 @@ internal_components:
       - "deklarative Provider-Capability-Evidenz ohne Runtime-Annahme persistieren"
   - name: CleanupEngine
     source: Private/CleanupEngine.ps1
+    audit: Public/Get-SqlServerLabCleanupAudit.ps1
     responsibilities:
       - "Cleanup-Plan und providergebundene Cleanup-SubRuns vor Mutation erzeugen"
       - "Compensation-Schritte je Provider speichern und ausführen"
       - "Run-lokale Ressourcen an Software-PlanKeys binden und wiederverwendbare Softwareartefakte ausdrücklich behalten"
+      - "Hyper-V-Cleanup vor der ersten Mutation gegen Run-Binding, registrierte Zusatzlaufwerksroots und terminales Migrationsjournal revalidieren"
+      - "Hyper-V-Run-Schutzbereiche, Shared-Roots und ungetrackte Preserve-Dateien read-only auditieren"
   - name: PortAllocation
     source: Private/PortAllocation.ps1
     responsibilities:
@@ -702,6 +705,14 @@ validation:
       - persisted_failure_cause
       - successful_cleanup_retry
       - deferred_secret_removal
+  static_cleanup_audit:
+    command: '.\Tests\Static\Invoke-CleanupAuditChecks.ps1'
+    source: Tests/Static/Invoke-CleanupAuditChecks.ps1
+    covers:
+      - runtime_residue_inventory
+      - hyperv_run_binding_and_migration_status
+      - atomic_cleanup_preflight
+      - shared_image_and_untracked_file_preservation
   static_podman_bootstrap:
     command: '.\Tests\Static\Invoke-PodmanBootstrapChecks.ps1'
     source: Tests/Static/Invoke-PodmanBootstrapChecks.ps1
