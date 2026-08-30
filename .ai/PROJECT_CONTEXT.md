@@ -4,7 +4,7 @@
 |---|---|
 | Status | `BINDING` |
 | Runtime-Status | `CONTAINER_CORE_IMPLEMENTED_HYPERV_SQL_CLI_ACCEPTED` |
-| Stand | 2026-08-29 |
+| Stand | 2026-08-30 |
 | Repository | `gecompat/SQL_Server_Lab` |
 | Maschinenlesbare Landkarte | [`repo_map.yaml`](repo_map.yaml) |
 
@@ -142,15 +142,16 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   Container-Reconcile hinaus, insbesondere für Netzwerke, freie Mount-/Image-
   Änderungen, Hyper-V-Software und weitere SQL-Konfigurationen;
 - versionierter Refresh-/Rebuild-Lifecycle für Medien, VHDX und Container-Images;
-- konsumierende Analyze- und Schulungs-Lab-Packages;
+- weitere konsumierende Lab-Packages über die abgeschlossenen
+  Schulungs- und Analyze-Adapter-Vertical-Slices hinaus;
 - langfristige Planner-, Package- und Supporting-Component-Architektur;
 - physischer Hyper-V-Mehrgeräte-Nachweis für vier TempDB-Datendateien auf der
   im Intent geforderten Mindestzahl physischer Geräte sowie dateigenaue Data-, Log-,
   TempDB- und Backup-Platzierung einschließlich SQL-Restart, Create, Restore,
   Persistenz und Cleanup;
-- zwei verbleibende reale Project-Adapter-Piloten für `SQL_Server_Analyze` und
-  `SQL_Server_Toolbelt`; der `SQL_PerformanceSchulung`-Pilot ist auf SQL Server
-  2025 Linux mit Docker und Podman end-to-end validiert.
+- ein verbleibender realer Project-Adapter-Pilot für `SQL_Server_Toolbelt`;
+  die Piloten für `SQL_PerformanceSchulung` und `SQL_Server_Analyze` sind auf
+  SQL Server 2025 Linux mit Docker und Podman end-to-end validiert.
 
 Die verbindliche Detailabgrenzung steht in `Documentation/Quality/KNOWN_LIMITATIONS.md`.
 
@@ -165,7 +166,7 @@ Podman
 
 Beide Provider benötigen getrennte Native-Tests. Ein erfolgreicher Docker-Test ist kein Podman-Nachweis und umgekehrt.
 
-Die Nachweise vom 2026-08-27 bis 2026-08-29 bestätigen Docker und Podman
+Die Nachweise vom 2026-08-27 bis 2026-08-30 bestätigen Docker und Podman
 einschließlich CLI-, Batch-, paralleler, gemischter, Restore-, Reconcile- und
 External-Runtime-Pfade. Der verbindliche Runtime-Gate des Lab-Core verwendet
 SQL Server 2025 als Referenzversion; die allgemeine Windows-/Linux-

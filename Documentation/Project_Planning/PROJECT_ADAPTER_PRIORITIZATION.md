@@ -41,7 +41,7 @@ anschließend Windows und Linux mit SQL Server 2019, 2022 und 2025.
 | `ADP-001` | Adapterschema | `Schemas/project-adapter.schema.json` mit den Feldern aus Master-Plan Abschnitt 8.3 (`ContractVersion`, `ProjectId`, `Entrypoints.*`, `SecretInputs` ohne Werte, `DataClassification`, ...), Version `0.1-draft` | ein synthetischer Beispieladapter validiert; unbekannte Major-Version wird abgelehnt | umgesetzt 2026-08-01 (`Adapters/Examples/synthetic-demo/`) |
 | `ADP-002` | Adapter-Resolver und ApplyAdapter | Adapter lokal binden (Checkout oder Paket), read-only Preflight-Entrypoint, `ApplyAdapter` ohne Lifecycle-Seiteneffekt | Frameworkupdate startet oder ersetzt keine Runtime-Ressource | umgesetzt 2026-08-01 (`Test-SqlServerLabAdapter`, `Install-SqlServerLabAdapter`; nur T-SQL-Entrypoints) |
 | `ADP-003` | Pilot `SQL_PerformanceSchulung` | eine reproduzierbare Beispielumgebung über Adapter-Entrypoints auf einem aktuellen Linux-/SQL-2025-Container-Lab konstruieren; Windows oder andere Katalogversion nur bei Szenariobedarf (Master-Plan Welle 6, vertikaler Slice) | Beispielkonstruktion läuft end-to-end; Demo-Inhalt und -Cleanup bleiben im Schulungsrepository | umgesetzt und mit Docker sowie Podman validiert 2026-08-30; Partner-PRs [#40](https://github.com/gecompat/SQL_PerformanceSchulung/pull/40) und [#41](https://github.com/gecompat/SQL_PerformanceSchulung/pull/41), Stand `b9a1ac3` auf `origin/main` |
-| `ADP-004` | Pilot `SQL_Server_Analyze` | Frameworkinstallation und ein Quick-Szenario über Adapter (Master-Plan Welle 7, vertikaler Slice) | Analyzer-Evidenz bleibt im Analyze-Repository; keine duplizierte Lifecycle-Logik; Ausbau zur Windows-/Linux-Matrix 2019/2022/2025 ist partnerseitig definiert | offen; benötigt Arbeit im Analyze-Repository |
+| `ADP-004` | Pilot `SQL_Server_Analyze` | Frameworkinstallation und ein Quick-Szenario über Adapter (Master-Plan Welle 7, vertikaler Slice) | Analyzer-Evidenz bleibt im Analyze-Repository; keine duplizierte Lifecycle-Logik; Ausbau zur Windows-/Linux-Matrix 2019/2022/2025 ist partnerseitig definiert | umgesetzt und mit Docker sowie Podman validiert 2026-08-30; Partner-PR [#112](https://github.com/gecompat/SQL_Server_Analyze/pull/112), Stand `45a9594` auf `origin/main` |
 | `ADP-005` | Statische Adapter-Checks | Schema-, Beispiel- und Statuscode-Prüfungen unter `Tests/Static/` | Checks laufen lokal ohne Runtime | umgesetzt 2026-08-01 (`Invoke-ProjectAdapterChecks.ps1`) |
 | `ADP-008` | Pilot `SQL_Server_Toolbelt` | ein versioniertes Toolbelt-Modul über Adapter-Entrypoints auf einem SQL-2025-Container-Lab installieren, validieren, aktualisieren und deinstallieren (Master-Plan Welle 7a, vertikaler Slice) | Modul-Lifecycle läuft end-to-end; Modulinhalt und Windows-/Linux-Mehrversions-Evidenz 2019/2022/2025 bleiben im Toolbelt-Repository | offen; benötigt Arbeit im Toolbelt-Repository |
 
@@ -73,6 +73,31 @@ Partner-PRs waren ebenfalls grün. Der Podman-Cleanup ließ eine fremde, bereits
 vorhandene Containerressource unangetastet und entfernte das run-eigene Volume.
 Im Pilot wurde keine generische Core-Lücke festgestellt und keine Providerlogik
 in das Schulungsrepository kopiert.
+
+### 3.2 Evidence für `ADP-004`
+
+`SQL_Server_Analyze` bindet `EXECUTION-PLAN-001` über den Project Adapter `0.1`
+mit getrennten T-SQL-Entrypoints für Preflight, Install, Update, Validate und
+Cleanup. Der deterministisch aus 22 kanonischen SQL-Dateien erzeugte Installer
+installiert ausschließlich den eigenständig unterstützten
+Execution-Plan-Analyse-Frameworkteil. Szenario, synthetische Plan-Evidenz,
+fachliche Assertion und markergebundener Datenbank-Cleanup bleiben vollständig
+im Analyze-Repository.
+
+Die lokalen Docker- und Podman-Läufe vom 2026-08-30 mit SQL Server 2025
+(RunIds `1f275b55-fdb8-4f51-8e50-2b6883deffa8` und
+`3a212dd9-43f1-4882-9d8a-1c283b80ea6f`) belegten jeweils:
+
+- Provisionierung ausschließlich über öffentliche Lab-APIs;
+- erfolgreiche Install-, Update- und Validate-Entrypoints;
+- erfolgreiche Analyse eines synthetischen Ausführungsplans;
+- markergebundenen Adapter-Cleanup;
+- vollständigen Container- und Volume-Abbau mit Endstatus `REMOVED`.
+
+Die statische Analyze-Vertragssuite mit 26 Prüfungen sowie die vier Checks des
+Partner-PRs waren grün. Im Pilot wurde keine generische Core-Lücke festgestellt
+und keine Providerlogik in das Analyze-Repository kopiert. Die breitere
+Windows-/Linux-Mehrversionsmatrix bleibt partnerseitige Analyze-Evidenz.
 
 ## 4. Abhängigkeiten und Vorleistungen
 
