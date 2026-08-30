@@ -783,7 +783,8 @@ Add-ValidationResult `
     -Success ($projectContext -match [regex]::Escape('CONTAINER_CORE_IMPLEMENTED_HYPERV_SQL_CLI_ACCEPTED') -and
         $projectContext -match [regex]::Escape('| Stand | 2026-08-29 |') -and
         $projectContext -match 'physischer Hyper-V-Mehrgeräte-Nachweis' -and
-        $projectContext -match 'drei reale Project-Adapter-Piloten' -and
+        $projectContext -match 'zwei verbleibende reale Project-Adapter-Piloten' -and
+        $projectContext -match 'SQL_PerformanceSchulung[\s\S]{0,160}Pilot ist auf SQL Server' -and
         $projectContext -notmatch 'External-Runtime-Varianten für SQL Server 2019, SQL Server 2025' -and
         $projectContext -notmatch 'offen bleiben echter Prozessabbruch, Manifest-Rerun und Windows-User-Gate' -and
         $projectContext -notmatch 'noch keinen positiven allgemeinen SQL-Runtime-Nachweis' -and
@@ -803,7 +804,8 @@ Add-ValidationResult `
     -Success ($repoMap -match 'journalisierter Container-Reconcile fuer CPU, RAM, SQL max memory, Hostport, Autostart und External Runtimes' -and
         $repoMap -notmatch 'Reconcile ist auf den Lifecycle START/STOP begrenzt' -and
         $knownLimitations -match 'realen Hyper-V-Mehrgeräte-Lauf' -and
-        $knownLimitations -match 'drei Project-Adapter-Piloten' -and
+        $knownLimitations -match 'zwei verbleibenden Project-Adapter-Piloten' -and
+        $knownLimitations -match 'SQL_PerformanceSchulung[\s\S]{0,160}Docker und Podman end-to-end validiert' -and
         $knownLimitations -notmatch 'Die verbleibenden P0-Fehler')
 
 Add-ValidationResult `
