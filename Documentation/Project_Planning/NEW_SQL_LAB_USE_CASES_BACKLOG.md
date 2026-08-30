@@ -22,7 +22,13 @@ Bereits eigenständig erfasst und deshalb hier nicht dupliziert sind:
 - PolyBase beziehungsweise SQL-Dateizugriff mit S3-kompatiblem Object Store;
 - SQL Server 2025 Vector, Embeddings, lokales ONNX, Ollama und optionale
   Cloud-Endpunkte;
-- Remote-Hyper-V-Steuerung sowie der priorisierte `Lab_Data`-Bugfix.
+- Remote-Hyper-V-Steuerung sowie der priorisierte `Lab_Data`-Bugfix;
+- SSIS ETL, Data Warehouse, inkrementelle Verarbeitung, Betrieb und Recovery;
+- SSAS Tabular, Multidimensional, Semantic Models, Processing und Analytics;
+- die kombinierte End-to-End-BI-Pipeline von OLTP über SSIS und Warehouse bis
+  SSAS;
+- SQL-AG/FCI, SSISDB-HA/Scale Out, SSAS-WSFC/Query-Scale-out und das spätere
+  Clustered End-to-End BI.
 
 Die nachfolgenden Kandidaten sind geplante Lab-Produkte und kein Nachweis für
 bereits implementierte Funktionen.
