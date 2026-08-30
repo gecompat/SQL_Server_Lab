@@ -14,9 +14,11 @@ Typischer Ablauf:
 1. Baseline-OS vorbereiten (`OS_SEALED`)
 2. OS-Slot erzeugen (run-lokale Child-VHDX)
 3. Windows-OOBE manuell im Gast abschließen
-4. Slot übernehmen (`o`)
-5. SQL-Ausbau festlegen (`a`) und direkt installieren (`x` optional automatisch)
-6. Slot als fertigen SQL-Slot nutzen oder als Vorlage weiterverwenden
+4. bei automatisierten Testslots die Windows-Evaluation in der eindeutigen,
+   wiederverwendbaren Child-VHDX online aktivieren
+5. Slot übernehmen (`o`)
+6. SQL-Ausbau festlegen (`a`) und direkt installieren (`x` optional automatisch)
+7. Slot als fertigen SQL-Slot nutzen oder als Vorlage weiterverwenden
 
 ## 1) OS-Baseline erzeugen
 
@@ -74,6 +76,22 @@ Das Menü startet/öffnet die VM automatisch, zeigt die OOBE-Schritte und fragt:
 Nach Bestätigung werden im gleichen Aufruf automatisch die gespeicherten
 Gastanmeldedaten geprüft und die Übernahme abgeschlossen.
 
+Im automatisierten Testumgebungsauftrag folgt jetzt vor SQL Setup zusätzlich
+der Aktivierungs-Gate. Der Auftrag bindet eine temporäre zweite NIC an den
+ausdrücklich gewählten verbundenen External-Switch, aktiviert die Evaluation
+online und entfernt diese NIC garantiert wieder. Es wird weder die Edition
+konvertiert noch ein Product Key verlangt. Die `OS_SEALED`-Baseline und die
+interne Lab-NIC werden nicht verändert. Allgemeine manuell erzeugte Windows-
+Slots werden nicht still aktiviert, weil deren Lizenzvertrag nicht aus dem
+Slottyp abgeleitet werden darf.
+
+Die Aktivierung gehört damit zum Slotzustand selbst: Wird ein Pool-Slot später
+verwendet, läuft dieselbe Child-VHDX weiter und der aktivierte Gastzustand bleibt
+erhalten. Der Wiederverwendungspfad prüft den Lizenzstatus live und beendet den
+Aktivierungsschritt ohne External-Switch oder zusätzliche NIC, wenn bereits
+`EVALUATION_ACTIVE` oder `LICENSED` vorliegt. Nur ein tatsächlich noch nicht
+aktivierter Slot benötigt kurzfristig einen verbundenen External-Switch.
+
 Ist nach der Übernahme noch kein SQL-Plan vorhanden, bietet das System direkt an:
 
 ```text
@@ -116,6 +134,7 @@ Nach erfolgreichem Abschluss wartet der Slot auf Veröffentlichung als
 Die Übersicht zeigt jetzt pro Slot zusätzlich kompakt:
 
 - Windows: `bereit` oder `OOBE/Übernahme ausständig`
+- Windows-Testslot-Aktivierung: `EVALUATION_ACTIVE`, `LICENSED` oder `ACTIVATION_REQUIRED`
 - SQL: geplant / installing / ready / prepared-template Fehlerzustände
 
 Damit ist auf einen Blick erkennbar, welcher Slot direkt nutzbar ist und wo

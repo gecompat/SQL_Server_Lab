@@ -525,6 +525,89 @@ try {
         Open-HyperVLabEnvironmentConsole -RunId $RunId -StateRoot $Root
     } $created.RunId $temporaryRoot
     Add-CheckResult -Name 'Hyper-V-Lab öffnet VMConnect nur für die verwaltete VM' -Success ($opened.VMName -eq 'sql-lab-primary-mock' -and $opened.Exists)
+
+    $activation = & $module {
+        param($RunId, $Root)
+        $script:activationRemoteCalls = 0
+        $script:activationAdapterReads = 0
+        $script:activationAdapterAdds = 0
+        $script:activationAdapterRemoves = 0
+        function Get-HyperVLabVMs { [PSCustomObject]@{ VMName = 'sql-lab-primary-mock'; VMId = 'mock-vm-id'; State = 'Running' } }
+        function Get-HyperVManagedVM { [PSCustomObject]@{ VM = [PSCustomObject]@{ State = 'Running' } } }
+        function Wait-HyperVPowerShellDirect { [PSCustomObject]@{ Ready = $true; Message = 'ready' } }
+        function Get-VMSwitch {
+            [PSCustomObject]@{ Name = 'External Mock'; SwitchType = 'External'; NetAdapterInterfaceDescription = 'Mock Physical NIC' }
+        }
+        function Get-NetAdapter { [PSCustomObject]@{ Status = 'Up'; InterfaceDescription = 'Mock Physical NIC' } }
+        function Get-VMNetworkAdapter {
+            $script:activationAdapterReads++
+            if ($script:activationAdapterReads -gt 1) { [PSCustomObject]@{ Name = 'SQL_SERVER_LAB_ACTIVATION_TEMP' } }
+        }
+        function Add-VMNetworkAdapter {
+            $script:activationAdapterAdds++
+            [PSCustomObject]@{ Name = 'SQL_SERVER_LAB_ACTIVATION_TEMP'; MacAddress = '00155D010203' }
+        }
+        function Remove-VMNetworkAdapter {
+            param([Parameter(ValueFromPipeline)]$VMNetworkAdapter)
+            process { $script:activationAdapterRemoves++ }
+        }
+        function Invoke-HyperVPowerShellDirect {
+            $script:activationRemoteCalls++
+            switch ($script:activationRemoteCalls) {
+                1 { [PSCustomObject]@{ edition = 'ServerStandardEval'; productName = 'Windows Server Standard Evaluation'; licenseStatus = 5; evaluationMinutesRemaining = 0; evaluationExpiresAt = $null; observedAt = '2026-08-30T12:00:00Z' } }
+                2 { [PSCustomObject]@{ edition = 'ServerStandardEval'; licenseStatus = 1; evaluationMinutesRemaining = 259200; evaluationExpiresAt = '2027-02-26T12:01:00Z'; observedAt = '2026-08-30T12:01:00Z' } }
+                default { throw 'UNEXPECTED_ACTIVATION_REMOTE_CALL' }
+            }
+        }
+        $result = Invoke-HyperVWindowsSlotActivation -RunId $RunId `
+            -ExternalSwitchName 'External Mock' -StateRoot $Root
+        $connectionPath = Join-Path (Join-Path (Join-Path $Root 'runs') $RunId) 'connection-info.json'
+        $connectionText = Get-Content -LiteralPath $connectionPath -Raw
+        $connection = $connectionText | ConvertFrom-Json -Depth 30
+        [PSCustomObject]@{
+            Result=$result; Evidence=$connection.instances[0].windowsActivation; ConnectionText=$connectionText
+            RemoteCalls=$script:activationRemoteCalls; Added=$script:activationAdapterAdds
+            Removed=$script:activationAdapterRemoves
+        }
+    } $created.RunId $temporaryRoot
+    Add-CheckResult -Name 'Windows-Evaluation wird aktiviert, geprüft und die temporäre External-NIC entfernt' -Success (
+        $activation.Result.State -eq 'EVALUATION_ACTIVE' -and
+        $activation.Evidence.state -eq 'EVALUATION_ACTIVE' -and
+        $activation.Evidence.edition -eq 'ServerStandardEval' -and
+        $activation.Evidence.evaluationMinutesRemaining -eq 259200 -and
+        $activation.RemoteCalls -eq 2 -and $activation.Added -eq 1 -and
+        $activation.Removed -eq 1 -and
+        $activation.ConnectionText -notmatch 'ProductKey'
+    )
+
+    $activationReuse = & $module {
+        param($RunId, $Root)
+        $script:reuseRemoteCalls = 0
+        $script:reuseAdapterAdds = 0
+        function Get-HyperVLabVMs { [PSCustomObject]@{ VMName = 'sql-lab-primary-mock'; VMId = 'mock-vm-id'; State = 'Running' } }
+        function Get-HyperVManagedVM { [PSCustomObject]@{ VM = [PSCustomObject]@{ State = 'Running' } } }
+        function Wait-HyperVPowerShellDirect { [PSCustomObject]@{ Ready = $true; Message = 'ready' } }
+        function Get-VMNetworkAdapter { @() }
+        function Remove-VMNetworkAdapter { process { } }
+        function Get-VMSwitch { throw 'EXTERNAL_SWITCH_MUST_NOT_BE_READ_FOR_ACTIVE_SLOT' }
+        function Get-NetAdapter { throw 'PHYSICAL_ADAPTER_MUST_NOT_BE_READ_FOR_ACTIVE_SLOT' }
+        function Add-VMNetworkAdapter { $script:reuseAdapterAdds++ }
+        function Invoke-HyperVPowerShellDirect {
+            $script:reuseRemoteCalls++
+            [PSCustomObject]@{
+                edition = 'ServerStandardEval'; productName = 'Windows Server Standard Evaluation'
+                licenseStatus = 1; evaluationMinutesRemaining = 250000
+                evaluationExpiresAt = '2027-02-20T12:00:00Z'; observedAt = '2026-08-30T12:00:00Z'
+            }
+        }
+        $result = Invoke-HyperVWindowsSlotActivation -RunId $RunId -StateRoot $Root
+        [PSCustomObject]@{ Result=$result; RemoteCalls=$script:reuseRemoteCalls; Added=$script:reuseAdapterAdds }
+    } $created.RunId $temporaryRoot
+    Add-CheckResult -Name 'Wiederverwendeter aktivierter Slot benötigt keinen External-Switch und keine zusätzliche NIC' -Success (
+        $activationReuse.Result.State -eq 'EVALUATION_ACTIVE' -and
+        $activationReuse.RemoteCalls -eq 1 -and
+        $activationReuse.Added -eq 0
+    )
 }
 catch {
     Add-CheckResult -Name 'Hyper-V-Lab-Umgebung Testausführung' -Success $false -Message $_.Exception.Message

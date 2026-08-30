@@ -290,7 +290,25 @@ try {
         $menuText -match 'Set-HyperVLabAutoStart -RunId \(\[string\]\$Slot.RunId\)' -and
         $hyperVLabText -match 'function Set-HyperVLabAutoStart' -and
         $hyperVLabText -match 'AutomaticStartAction \$automaticStartAction' -and
+        $menuText -match 'WindowsActivationRequired=\$true' -and
+        $menuText -match 'Invoke-HyperVWindowsSlotActivation -RunId' -and
+        $menuText -notmatch 'WindowsActivationSwitchName=\$windowsActivation.ExternalSwitchName' -and
+        $menuText -notmatch 'WindowsProductKey=\$windowsActivation.ProductKey' -and
         $menuText -notmatch 'RequiresFreshSqlInstall=\$true; ForceNewWindowsSlot=\$true'
+    )
+    Add-CheckResult -Name 'Windows-Testslots aktivieren die Child-VM sicher über eine temporäre External-NIC' -Success (
+        $hyperVLabText -match 'function Get-HyperVWindowsSlotLicenseStatus' -and
+        $hyperVLabText -match 'function Resolve-HyperVWindowsActivationExternalSwitch' -and
+        $hyperVLabText -match 'function Invoke-HyperVWindowsSlotActivation' -and
+        $hyperVLabText -match "if \(\[string\]\`$current.State -in @\('EVALUATION_ACTIVE','LICENSED'\)\) \{ return \`$current \}" -and
+        $hyperVLabText -notmatch "\[Parameter\(Mandatory\)\]\[SecureString\]\`$ProductKey" -and
+        $hyperVLabText -match 'Get-VMSwitch -SwitchType External' -and
+        $hyperVLabText -match 'SQL_SERVER_LAB_ACTIVATION_TEMP' -and
+        $hyperVLabText -match "MethodName Activate" -and
+        $hyperVLabText -match 'evaluationMinutesRemaining' -and
+        $hyperVLabText -match "State EVALUATION_ACTIVE" -and
+        $hyperVLabText -match 'finally\s*\{[\s\S]+Remove-VMNetworkAdapter' -and
+        $hyperVLabText -notmatch "Save-LabSecret[^\r\n]+ProductKey|Write-LabArtifactJsonAtomic[^\r\n]+ProductKey"
     )
     Add-CheckResult -Name 'Batch-Linux-Erfolg hängt nicht vom noch unvollständigen Gruppenstatus ab' -Success (
         $menuText -match 'TEST_ENVIRONMENT_CREATION_FAILED' -and
@@ -314,6 +332,9 @@ try {
         $testEnvironmentText -match 'Stop-HyperVInstance' -and
         $testEnvironmentText -match 'Start-HyperVInstance' -and
         $testEnvironmentText -match 'Start-SqlServerLabAutomatedTestEnvironment -TimeoutSeconds \$ReadinessTimeoutSeconds' -and
+        $testEnvironmentText -notmatch '\[SecureString\]\$WindowsProductKey' -and
+        $testEnvironmentText -match '\[string\]\$WindowsActivationSwitchName' -and
+        $testEnvironmentText -match 'Invoke-HyperVWindowsSlotActivation -RunId \$runId' -and
         $testEnvironmentText -match 'Rename-ContainerLabEnvironment' -and
         $testEnvironmentText -match 'Rename-HyperVLabEnvironment' -and
         $testEnvironmentText -match 'maxMB = 3072' -and
@@ -345,6 +366,8 @@ try {
         $groupLifecycleCommandText -match 'ExpectedRunId' -and
         $groupLifecycleCommandText -match 'ExpectedScopeId' -and
         $groupLifecycleCommandText -match 'Invoke-HyperVPowerShellDirect' -and
+        $groupLifecycleCommandText -match 'Get-HyperVWindowsSlotLicenseStatus' -and
+        $groupLifecycleCommandText -match 'TEST_ENVIRONMENT_WINDOWS_ACTIVATION_REQUIRED' -and
         $groupLifecycleCommandText -match 'Wait-SqlReady' -and
         $groupLifecycleCommandText -match 'Start-HyperVLabEnvironment' -and
         $groupLifecycleCommandText -match 'Stop-HyperVLabEnvironment' -and

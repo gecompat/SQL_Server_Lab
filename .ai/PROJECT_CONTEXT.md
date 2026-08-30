@@ -428,7 +428,7 @@ Für den nahtlosen Weitbetrieb gilt:
 - CPU, RAM, Netzwerk und Drive-Topologie sind über Manifest, CLI und UI als deklarative Ziele konfigurierbar und im Reconcile änderbar.
 - Speicherorte für TempDB, Daten, Log und Backup müssen im Manifest auswählbar sein und nachträglich geändert werden können.
 - Testdatenbanken müssen in nachfolgenden Runs ergänzt oder entfernt werden können.
-- Evaluation-OS mit Ablaufzeiten müssen vor Auswahl eines Aufsetzpunkts geprüft werden; ungültige oder ablaufende Baselines werden vorab ausgeschlossen.
+- Evaluation-OS mit Ablaufzeiten müssen vor Auswahl eines Aufsetzpunkts geprüft werden; ungültige oder ablaufende Baselines werden vorab ausgeschlossen. Automatisierte Windows-Testslots aktivieren nur ihre eindeutige Child-VM nach OOBE über eine temporäre External-NIC und bleiben ohne live bestätigten Status `EVALUATION_ACTIVE` oder `LICENSED` fail-closed.
 - Speed bleibt Ziel: Cold-Path (OS_GENERALIZED_SEALED -> Child -> Unattend -> OS_READY) bleibt funktional korrekt und fallback-fähig, Pools/Acceleratoren bleiben optional.
 - Nächster KI-Einstiegspunkt: die vorhandene Datei  
   `private_Note/SQL_Server_Lab_HyperV_Workflow_2026-08-08_1108Z_Zero_Touch_Plan.md`, insbesondere Abschnitt 24.

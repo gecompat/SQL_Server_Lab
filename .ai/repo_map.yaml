@@ -71,6 +71,7 @@ sources_of_truth:
   validation_runtime_contracts: Tests/Static/Invoke-ReadinessContractChecks.ps1
   automated_test_environment_contract: Public/TestEnvironment.ps1
   automated_test_environment_windows_lifecycle: Public/TestEnvironmentLifecycle.ps1
+  automated_test_environment_windows_activation: Private/HyperVLabEnvironment.ps1
   validation_test_environment_contract: Tests/Static/Invoke-TestEnvironmentChecks.ps1
   validation_test_environment_group_lifecycle: Tests/Integration/Invoke-TestEnvironmentGroupLifecycle.ps1
   validation_manifest_builder: Tests/Static/Invoke-ManifestBuilderChecks.ps1
@@ -262,7 +263,7 @@ public_commands:
     mutates_sql: true
   - name: Start-SqlServerLabAutomatedTestEnvironment
     source: Public/TestEnvironmentLifecycle.ps1
-    purpose: "Registrierte Windows-Hyper-V-Mitglieder gruppenweise starten, SQL-Dienste bereitstellen und Live-Export bis READY pruefen"
+    purpose: "Registrierte Mitglieder gruppenweise starten, Windows-Lizenz sowie SQL-Dienste live pruefen und den Export bis READY validieren"
     mutates_host: true
     mutates_sql: true
   - name: Stop-SqlServerLabAutomatedTestEnvironment

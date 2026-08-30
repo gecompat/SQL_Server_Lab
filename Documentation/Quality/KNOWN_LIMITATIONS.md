@@ -107,6 +107,19 @@ SQL-Readiness. Der Ablauf ist unter
 [Windows-Server-Baseline aus ISO](../HowTo/HYPERV_WINDOWS_IMAGE_BUILD.md)
 dokumentiert.
 
+Automatisierte Windows-Testslots besitzen nun einen eigenen Lizenz-Gate im
+Child-VM-Build. Nach OOBE aktiviert die Runtime die Windows-Server-Evaluation
+online und verifiziert live `LicenseStatus = 1` sowie eine positive
+Evaluation-Restlaufzeit. Die Aktivierung bleibt in der wiederverwendeten
+Child-VHDX des Slots erhalten. Nur für einen noch nicht aktivierten Slot wird
+ein vorhandener, optional vorgegebener oder automatisch aufgelöster External-
+Switch an einer verbundenen physischen NIC als temporäre zweite VM-NIC verwendet
+und anschließend scopegebunden entfernt. Edition-Konvertierung
+und Product Key sind dafür nicht erforderlich. Dieser Pfad ist statisch und
+synthetisch abgesichert; die reale Aktivierung der vorhandenen lokalen Slots ist
+ein hostlokaler Betriebsnachweis und kein portables Repository-Artefakt. Eine
+abgelaufene Evaluation wird nicht verlängert oder technisch zurückgesetzt.
+
 Mit
 `Tests/Integration/Invoke-HyperVWindowsBaselineAcceptanceRun.ps1` existiert
 nun ein dedizierter realer Cold-Path-Runner für veröffentlichte

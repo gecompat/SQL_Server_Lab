@@ -76,6 +76,293 @@ function Set-HyperVLabAutoStart {
     return [PSCustomObject]@{ RunId=$RunId; VMName=[string]$lab.Instance.vmName; AutoStart=$AutoStart; AutomaticStartAction=$automaticStartAction }
 }
 
+function Set-HyperVWindowsSlotActivationEvidence {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RunId,
+        [Parameter(Mandatory)][ValidateSet('ACTIVATING','EVALUATION_ACTIVE','EVALUATION_EXPIRED','ACTIVATION_REQUIRED','LICENSED','RECOVERY_REQUIRED')][string]$State,
+        [string]$Edition,
+        [Nullable[int]]$LicenseStatus,
+        [Nullable[int]]$EvaluationMinutesRemaining,
+        [string]$EvaluationExpiresAt,
+        [string]$StateRoot
+    )
+
+    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
+    $evidence = [ordered]@{
+        contractVersion = 'SqlServerLab.WindowsActivation/1.1'
+        state = $State
+        edition = $Edition
+        licenseStatus = $LicenseStatus
+        evaluationMinutesRemaining = $EvaluationMinutesRemaining
+        evaluationExpiresAt = $EvaluationExpiresAt
+        observedAt = Get-LabTimestamp
+    }
+    if ($State -in @('EVALUATION_ACTIVE','LICENSED')) { $evidence.completedAt = Get-LabTimestamp }
+    $lab.Instance | Add-Member -NotePropertyName windowsActivation -NotePropertyValue ([PSCustomObject]$evidence) -Force
+    Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
+    return $lab.Instance.windowsActivation
+}
+
+function Get-HyperVWindowsSlotLicenseStatus {
+    <# .SYNOPSIS Prüft den Windows-Lizenzzustand eines eindeutigen Hyper-V-Slots live im Gast. #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RunId,
+        [PSCredential]$Credential,
+        [ValidateRange(30, 3600)][int]$TimeoutSeconds = 300,
+        [switch]$Persist,
+        [string]$StateRoot
+    )
+
+    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
+    $managed = Get-HyperVManagedVM -VMName ([string]$lab.Instance.vmName) `
+        -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
+    if (-not $managed -or [string]$managed.VM.State -ne 'Running') {
+        throw 'HYPERV_WINDOWS_LICENSE_PROBE_VM_MUST_BE_RUNNING'
+    }
+    if (-not $Credential) {
+        $guestPassword = Get-LabSecret -Path $lab.RunDirectory -Name 'guest-administrator-password'
+        if (-not $guestPassword) { throw 'HYPERV_LAB_GUEST_PASSWORD_NOT_STORED' }
+        $Credential = [PSCredential]::new('Administrator', $guestPassword)
+    }
+    $ready = Wait-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) `
+        -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId `
+        -Credential $Credential -TimeoutSeconds $TimeoutSeconds
+    if (-not $ready.Ready) { throw "HYPERV_WINDOWS_LICENSE_PROBE_TIMEOUT: $($ready.Message)" }
+
+    $receipt = Invoke-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) `
+        -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $Credential `
+        -ScriptBlock {
+            $ErrorActionPreference = 'Stop'
+            $edition = [string](Get-ItemPropertyValue `
+                -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -Name EditionID -ErrorAction Stop)
+            $products = @(Get-CimInstance -ClassName SoftwareLicensingProduct -Filter `
+                "ApplicationID='55c92734-d682-4d71-983e-d6ec3f16059f'" -ErrorAction Stop |
+                Where-Object { $_.PartialProductKey -and -not [bool]$_.LicenseIsAddon } |
+                Sort-Object LicenseStatus, GracePeriodRemaining -Descending)
+            $product = @($products | Select-Object -First 1)[0]
+            $observedAt = [datetime]::UtcNow
+            [PSCustomObject]@{
+                edition = $edition
+                productName = if ($product) { [string]$product.Name } else { $null }
+                licenseStatus = if ($product) { [int]$product.LicenseStatus } else { 0 }
+                evaluationMinutesRemaining = if ($product) { [int]$product.GracePeriodRemaining } else { 0 }
+                evaluationExpiresAt = if ($product -and [int]$product.GracePeriodRemaining -gt 0) {
+                    $observedAt.AddMinutes([int]$product.GracePeriodRemaining).ToString('o')
+                } else { $null }
+                observedAt = $observedAt.ToString('o')
+            }
+        }
+    $receipt = @($receipt)[-1]
+    if (-not $receipt -or -not [string]$receipt.edition) { throw 'HYPERV_WINDOWS_LICENSE_RECEIPT_INVALID' }
+    $isEvaluation = [string]$receipt.edition -match '(?i)eval' -or [string]$receipt.productName -match '(?i)evaluation'
+    $state = if ($isEvaluation -and [int]$receipt.licenseStatus -eq 1 -and [int]$receipt.evaluationMinutesRemaining -gt 0) {
+        'EVALUATION_ACTIVE'
+    }
+    elseif ($isEvaluation) { 'ACTIVATION_REQUIRED' }
+    elseif ([int]$receipt.licenseStatus -eq 1) { 'LICENSED' }
+    else { 'ACTIVATION_REQUIRED' }
+    if ($Persist) {
+        $null = Set-HyperVWindowsSlotActivationEvidence -RunId $RunId -State $state `
+            -Edition ([string]$receipt.edition) -LicenseStatus ([int]$receipt.licenseStatus) `
+            -EvaluationMinutesRemaining ([int]$receipt.evaluationMinutesRemaining) `
+            -EvaluationExpiresAt ([string]$receipt.evaluationExpiresAt) -StateRoot $lab.StateRoot
+    }
+    return [PSCustomObject]@{
+        RunId=$RunId; VMName=[string]$lab.Instance.vmName; State=$state
+        Edition=[string]$receipt.edition; LicenseStatus=[int]$receipt.licenseStatus
+        EvaluationMinutesRemaining=[int]$receipt.evaluationMinutesRemaining
+        EvaluationExpiresAt=[string]$receipt.evaluationExpiresAt; ObservedAt=[string]$receipt.observedAt
+    }
+}
+
+function Resolve-HyperVWindowsActivationExternalSwitch {
+    <# Liefert erst bei tatsächlichem Aktivierungsbedarf einen verbundenen External-Switch. #>
+    [CmdletBinding()]
+    param([string]$ExternalSwitchName)
+
+    $externalSwitches = @(Get-VMSwitch -SwitchType External -ErrorAction Stop | Sort-Object Name)
+    if ($ExternalSwitchName) {
+        $externalSwitches = @($externalSwitches | Where-Object { [string]$_.Name -eq $ExternalSwitchName })
+        if ($externalSwitches.Count -ne 1) { throw 'HYPERV_WINDOWS_ACTIVATION_EXTERNAL_SWITCH_REQUIRED' }
+    }
+    $physicalAdapters = @(Get-NetAdapter -Physical -ErrorAction Stop)
+    $usableSwitches = @($externalSwitches | Where-Object {
+        $descriptions = @($_.NetAdapterInterfaceDescription | Where-Object { $_ })
+        @($physicalAdapters | Where-Object {
+            [string]$_.Status -eq 'Up' -and [string]$_.InterfaceDescription -in $descriptions
+        }).Count -gt 0
+    })
+    if ($usableSwitches.Count -eq 0) {
+        throw 'HYPERV_WINDOWS_ACTIVATION_EXTERNAL_ADAPTER_NOT_CONNECTED'
+    }
+    return $usableSwitches[0]
+}
+
+function Invoke-HyperVWindowsSlotActivation {
+    <#
+    .SYNOPSIS
+        Aktiviert einen Windows-Evaluierungs-Slot über eine temporäre externe NIC.
+    .DESCRIPTION
+        Die interne Lab-NIC bleibt unverändert. Nur wenn die Live-Prüfung noch
+        keine aktive Lizenz bestätigt, wird ein optional vorgegebener oder
+        automatisch aufgelöster External-Switch als zweite NIC angebunden und
+        im finally-Block wieder entfernt. Die Edition wird nicht konvertiert
+        und es wird kein Product Key benötigt.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RunId,
+        [string]$ExternalSwitchName,
+        [PSCredential]$Credential,
+        [ValidateRange(60, 3600)][int]$TimeoutSeconds = 300,
+        [string]$StateRoot
+    )
+
+    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
+    if (-not $Credential) {
+        $guestPassword = Get-LabSecret -Path $lab.RunDirectory -Name 'guest-administrator-password'
+        if (-not $guestPassword) { throw 'HYPERV_LAB_GUEST_PASSWORD_NOT_STORED' }
+        $Credential = [PSCredential]::new('Administrator', $guestPassword)
+    }
+    $managed = Get-HyperVManagedVM -VMName ([string]$lab.Instance.vmName) `
+        -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
+    if (-not $managed -or [string]$managed.VM.State -ne 'Running') {
+        throw 'HYPERV_WINDOWS_ACTIVATION_VM_MUST_BE_RUNNING'
+    }
+    $adapterName = 'SQL_SERVER_LAB_ACTIVATION_TEMP'
+    try {
+        @(Get-VMNetworkAdapter -VMName ([string]$lab.Instance.vmName) -Name $adapterName -ErrorAction SilentlyContinue) |
+            Remove-VMNetworkAdapter -ErrorAction Stop
+    }
+    catch { throw 'HYPERV_WINDOWS_ACTIVATION_STALE_NETWORK_CLEANUP_FAILED' }
+
+    $current = Get-HyperVWindowsSlotLicenseStatus -RunId $RunId -Credential $Credential `
+        -TimeoutSeconds $TimeoutSeconds -Persist -StateRoot $lab.StateRoot
+    if ([string]$current.State -in @('EVALUATION_ACTIVE','LICENSED')) { return $current }
+    if ([string]$current.Edition -notmatch '(?i)eval') { throw 'HYPERV_WINDOWS_EVALUATION_EDITION_REQUIRED' }
+
+    $externalSwitch = Resolve-HyperVWindowsActivationExternalSwitch -ExternalSwitchName $ExternalSwitchName
+    $ExternalSwitchName = [string]$externalSwitch.Name
+
+    $operationFailed = $false
+    $cleanupFailed = $false
+    $failureCode = $null
+    $finalReceipt = $null
+    try {
+        $null = Set-HyperVWindowsSlotActivationEvidence -RunId $RunId -State ACTIVATING `
+            -Edition ([string]$current.Edition) -LicenseStatus ([int]$current.LicenseStatus) `
+            -EvaluationMinutesRemaining ([int]$current.EvaluationMinutesRemaining) `
+            -EvaluationExpiresAt ([string]$current.EvaluationExpiresAt) -StateRoot $lab.StateRoot
+
+        Write-LabInfo "Windows-Aktivierung: temporäre zweite NIC wird an External-Switch '$ExternalSwitchName' angebunden."
+        $activationAdapter = Add-VMNetworkAdapter -VMName ([string]$lab.Instance.vmName) `
+            -SwitchName $ExternalSwitchName -Name $adapterName -Passthru -ErrorAction Stop
+        if (-not $activationAdapter -or -not [string]$activationAdapter.MacAddress) {
+            $activationAdapter = @(Get-VMNetworkAdapter -VMName ([string]$lab.Instance.vmName) `
+                -Name $adapterName -ErrorAction Stop | Select-Object -First 1)[0]
+        }
+        $macAddress = ([string]$activationAdapter.MacAddress -replace '[^0-9A-Fa-f]', '').ToUpperInvariant()
+        if (-not $macAddress) { throw 'HYPERV_WINDOWS_ACTIVATION_ADAPTER_IDENTITY_MISSING' }
+
+        $activation = Invoke-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) `
+            -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $Credential `
+            -ArgumentList @($macAddress) `
+            -ScriptBlock {
+                param($MacAddress)
+                $ErrorActionPreference = 'Stop'
+                $adapterDeadline = [datetime]::UtcNow.AddSeconds(30)
+                do {
+                    $adapter = @(Get-NetAdapter -Physical -ErrorAction SilentlyContinue | Where-Object {
+                        ([string]$_.MacAddress -replace '[^0-9A-Fa-f]', '').ToUpperInvariant() -eq $MacAddress
+                    } | Select-Object -First 1)[0]
+                    if (-not $adapter) { Start-Sleep -Seconds 1 }
+                } while (-not $adapter -and [datetime]::UtcNow -lt $adapterDeadline)
+                if (-not $adapter) { throw 'WINDOWS_ACTIVATION_GUEST_ADAPTER_NOT_FOUND' }
+                Set-NetIPInterface -InterfaceIndex $adapter.ifIndex -AddressFamily IPv4 -Dhcp Enabled -ErrorAction Stop
+                Set-DnsClientServerAddress -InterfaceIndex $adapter.ifIndex -ResetServerAddresses -ErrorAction Stop
+                $null = & ipconfig.exe /renew $adapter.Name
+                $networkDeadline = [datetime]::UtcNow.AddSeconds(60)
+                do {
+                    $address = @(Get-NetIPAddress -InterfaceIndex $adapter.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+                        Where-Object { $_.AddressState -eq 'Preferred' -and $_.IPAddress -notlike '169.254.*' })
+                    $defaultRoute = @(Get-NetRoute -InterfaceIndex $adapter.ifIndex -AddressFamily IPv4 -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue)
+                    if ($address.Count -gt 0 -and $defaultRoute.Count -gt 0) { break }
+                    Start-Sleep -Seconds 2
+                } while ([datetime]::UtcNow -lt $networkDeadline)
+                if ($address.Count -eq 0 -or $defaultRoute.Count -eq 0) { throw 'WINDOWS_ACTIVATION_NETWORK_NOT_READY' }
+                $products = @(Get-CimInstance -ClassName SoftwareLicensingProduct -Filter `
+                    "ApplicationID='55c92734-d682-4d71-983e-d6ec3f16059f'" -ErrorAction Stop |
+                    Where-Object { $_.PartialProductKey -and -not [bool]$_.LicenseIsAddon } |
+                    Sort-Object LicenseStatus, GracePeriodRemaining -Descending)
+                $product = @($products | Select-Object -First 1)[0]
+                if (-not $product) { throw 'WINDOWS_ACTIVATION_PRODUCT_NOT_FOUND' }
+                $activate = Invoke-CimMethod -InputObject $product -MethodName Activate -ErrorAction Stop
+                if ([int]$activate.ReturnValue -ne 0) { throw "WINDOWS_ACTIVATION_FAILED: $([int]$activate.ReturnValue)" }
+                $service = Get-CimInstance -ClassName SoftwareLicensingService -ErrorAction Stop
+                $null = Invoke-CimMethod -InputObject $service -MethodName RefreshLicenseStatus -ErrorAction Stop
+                $deadline = [datetime]::UtcNow.AddMinutes(2)
+                do {
+                    Start-Sleep -Seconds 3
+                    $product = Get-CimInstance -ClassName SoftwareLicensingProduct -Filter "ID='$($product.ID)'" -ErrorAction Stop
+                } while ([int]$product.LicenseStatus -ne 1 -and [datetime]::UtcNow -lt $deadline)
+                $edition = [string](Get-ItemPropertyValue `
+                    -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -Name EditionID -ErrorAction Stop)
+                $observedAt = [datetime]::UtcNow
+                [PSCustomObject]@{
+                    edition=$edition; licenseStatus=[int]$product.LicenseStatus
+                    evaluationMinutesRemaining=[int]$product.GracePeriodRemaining
+                    evaluationExpiresAt=if ([int]$product.GracePeriodRemaining -gt 0) {
+                        $observedAt.AddMinutes([int]$product.GracePeriodRemaining).ToString('o')
+                    } else { $null }
+                    observedAt=$observedAt.ToString('o')
+                }
+            }
+        $activation = @($activation)[-1]
+        if (-not $activation -or [string]$activation.edition -notmatch '(?i)eval' -or
+            [int]$activation.licenseStatus -ne 1 -or [int]$activation.evaluationMinutesRemaining -le 0) {
+            throw 'HYPERV_WINDOWS_ACTIVATION_VERIFICATION_FAILED'
+        }
+        $null = Set-HyperVWindowsSlotActivationEvidence -RunId $RunId -State EVALUATION_ACTIVE `
+            -Edition ([string]$activation.edition) -LicenseStatus ([int]$activation.licenseStatus) `
+            -EvaluationMinutesRemaining ([int]$activation.evaluationMinutesRemaining) `
+            -EvaluationExpiresAt ([string]$activation.evaluationExpiresAt) -StateRoot $lab.StateRoot
+        $finalReceipt = [PSCustomObject]@{
+            RunId=$RunId; VMName=[string]$lab.Instance.vmName; State='EVALUATION_ACTIVE'
+            Edition=[string]$activation.edition; LicenseStatus=[int]$activation.licenseStatus
+            EvaluationMinutesRemaining=[int]$activation.evaluationMinutesRemaining
+            EvaluationExpiresAt=[string]$activation.evaluationExpiresAt; ObservedAt=[string]$activation.observedAt
+        }
+    }
+    catch {
+        $operationFailed = $true
+        $failureCode = if ([string]$_.Exception.Message -match '(?:HYPERV|WINDOWS)_[A-Z0-9_]+') { [string]$Matches[0] }
+            else { 'HYPERV_WINDOWS_ACTIVATION_OPERATION_FAILED' }
+        $null = Set-HyperVWindowsSlotActivationEvidence -RunId $RunId -State ACTIVATION_REQUIRED `
+            -Edition ([string]$current.Edition) -LicenseStatus ([int]$current.LicenseStatus) `
+            -EvaluationMinutesRemaining ([int]$current.EvaluationMinutesRemaining) `
+            -EvaluationExpiresAt ([string]$current.EvaluationExpiresAt) -StateRoot $lab.StateRoot
+    }
+    finally {
+        try {
+            @(Get-VMNetworkAdapter -VMName ([string]$lab.Instance.vmName) -Name $adapterName -ErrorAction SilentlyContinue) |
+                Remove-VMNetworkAdapter -ErrorAction Stop
+            Write-LabInfo 'Windows-Aktivierung: temporäre externe NIC wurde wieder entfernt; die interne Lab-NIC bleibt erhalten.'
+        }
+        catch {
+            $cleanupFailed = $true
+            $null = Set-HyperVWindowsSlotActivationEvidence -RunId $RunId -State RECOVERY_REQUIRED `
+                -Edition ([string]$current.Edition) -LicenseStatus ([int]$current.LicenseStatus) `
+                -EvaluationMinutesRemaining ([int]$current.EvaluationMinutesRemaining) `
+                -EvaluationExpiresAt ([string]$current.EvaluationExpiresAt) -StateRoot $lab.StateRoot
+        }
+    }
+    if ($cleanupFailed) { throw 'HYPERV_WINDOWS_ACTIVATION_NETWORK_CLEANUP_FAILED' }
+    if ($operationFailed) { throw "HYPERV_WINDOWS_ACTIVATION_FAILED: $failureCode" }
+    return $finalReceipt
+}
+
 function Get-HyperVExistingVmLabSource {
     <#
     .SYNOPSIS

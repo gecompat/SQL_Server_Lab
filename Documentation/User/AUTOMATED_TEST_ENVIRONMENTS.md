@@ -7,6 +7,19 @@ Windows verwendet Hyper-V; wenn keine vollständig vorbereitete SQL-Vorlage
 vorhanden ist, pausiert der Ablauf ausschließlich für Windows-OOBE,
 Administratorpasswort und die erste Anmeldung.
 
+Windows-Testslots werden nicht ohne aktivierte und noch gültige Evaluation als
+bereit veröffentlicht. Nach OOBE aktiviert das Framework jede eindeutige
+Child-VM online, bevor SQL Setup beginnt. Nur wenn der Slot noch nicht aktiviert
+ist, wird automatisch ein vorhandener External-Switch an einer verbundenen
+physischen Netzwerkkarte gewählt. Dafür wird eine
+zweite NIC mit dem reservierten Namen `SQL_SERVER_LAB_ACTIVATION_TEMP` nur
+temporär angebunden und auch bei einem Fehler wieder entfernt; die interne
+Lab-NIC und die immutable OS-Baseline bleiben unverändert. Edition-Konvertierung
+und Product Key sind für diesen Evaluationspfad nicht erforderlich.
+Microsoft gibt für Windows Server Evaluation 180 Tage an und verlangt die
+Online-Aktivierung innerhalb der ersten 10 Tage, um automatische Abschaltungen
+zu vermeiden ([Windows Server 2025 Evaluation](https://www.microsoft.com/en-us/evalcenter/download-windows-server-2025)).
+
 Das Menü zeigt bei jedem Öffnen zuerst die bereits registrierte Testgruppe mit
 dem aktuellen Einzelstatus an, beispielsweise `fertig`, `SQL-Installation
 wiederholbar` oder `SQL-Abschluss fortsetzbar`. Darunter steht getrennt der
@@ -37,7 +50,8 @@ Alle Testumgebungen bilden eine gemeinsame, geschützte Lifecycle-Gruppe:
 - `Start-SqlServerLabAutomatedTestEnvironment` darf alle registrierten Docker-,
   Podman- und Hyper-V-Mitglieder als Gruppe reaktivieren, vorhandene SQL-
   Engine-Dienste starten und SQL-Bereitschaft einschließlich der erwarteten
-  Major-Version authentifiziert prüfen. Erst der danach live erneuerte
+  Major-Version authentifiziert prüfen. Windows muss dabei live als lizenzierte,
+  nicht mehr als Evaluation geführte Edition bestätigt werden. Erst der danach live erneuerte
   Gesamtvertrag darf `READY` melden.
 - `Stop-SqlServerLabAutomatedTestEnvironment` schaltet dieselben Container und
   VMs gemeinsam aus und gibt ihre Hostkapazität frei. Registrierungen, Runs,
@@ -220,7 +234,8 @@ $start.Export.GroupStatus
 
 `Status = READY` ist nur möglich, wenn jeder registrierte Container und jede VM
 läuft, vorhandene SQL-Engine-Dienste im Gast laufen, jede gebundene SQL-Instanz
-mit der zur Registry passenden Major-Version erreichbar ist und der anschließend
+mit der zur Registry passenden Major-Version erreichbar ist, jeder Windows-Slot
+live `EVALUATION_ACTIVE` oder `LICENSED` meldet und der anschließend
 live erzeugte Gesamtexport `GroupStatus = READY` meldet. Einzelne Fehler werden secretfrei unter
 `Details` als `FAILED/PARTIAL` zurückgegeben; der Gesamtstatus bleibt dann
 `INCOMPLETE`.
@@ -258,6 +273,30 @@ bleiben erhalten:
 ```powershell
 Repair-SqlServerLabAutomatedTestEnvironment
 ```
+
+Bereits vorhandene Evaluation-Slots werden mit demselben Repair-Pfad einmalig
+online aktiviert. Ein bereits aktivierter Slot trägt diesen Zustand in seiner
+wiederverwendeten Child-VHDX; dafür wird beim nächsten Einsatz weder ein
+External-Switch noch eine temporäre NIC benötigt:
+
+```powershell
+Repair-SqlServerLabAutomatedTestEnvironment `
+    -Force `
+    -Confirm:$false
+```
+
+Nur wenn eine Aktivierung tatsächlich aussteht, wählt der Lauf automatisch den
+ersten verbundenen External-Switch. Mit `-WindowsActivationSwitchName` kann
+dieser bei mehreren geeigneten Switches weiterhin ausdrücklich vorgegeben
+werden.
+
+Nach der Online-Aktivierung prüft der Lauf `LicenseStatus = 1` und die
+Evaluation-Restlaufzeit. Ein vor der Erstaktivierung gemeldeter Grace-Wert 0
+wird nicht vorschnell als abgelaufene 180-Tage-Evaluation interpretiert. Schlägt
+die Online-Aktivierung fehl, bleibt der Slot `ACTIVATION_REQUIRED`; dann muss der
+konkrete Microsoft-Fehler zwischen fehlender Konnektivität und tatsächlich
+abgelaufener Evaluation unterscheiden. Ohne Lizenznachweis bleibt der
+Gruppenexport fail-closed.
 
 Nach jedem Reparaturversuch wird der Export live erneuert. Erst
 `Status = READY` und `Export.GroupStatus = READY` geben die Gruppe wieder für
