@@ -896,6 +896,13 @@ Container-Reconcile-Anteil ist auf Docker und Podman real mit No-op, Live,
 Recreate, Rollback, Persistenz und Cleanup belegt. Das Gate bleibt wegen des
 noch fehlenden physischen Hyper-V-Vier-Geräte-Nachweises offen.
 
+Der ausführbare Runner `Tests/Integration/Invoke-HyperVStorageAcceptance.ps1`
+bindet diesen Restnachweis inzwischen an ein `SQL_PREPARED_SEALED`-Artifact und
+einen portablen Storage-Intent. Er prüft vor der Mutation vier getrennte
+TempDB-Backing-Devices und danach SQL-Dienstrestart, CREATE, synthetischen
+Backup/Restore-Roundtrip, VM-Restart und Cleanup. Der Runner ist noch nicht real
+positiv ausgeführt; der Status der Welle bleibt daher `IN_PROGRESS`.
+
 **Ziel:** Den providerneutralen Storagevertrag und die ersten über START/STOP
 hinausgehenden Reconcile-Klassen als durchgängigen vertikalen Slice umsetzen.
 

@@ -266,6 +266,12 @@ Plan an. Ein getrenntes Runtime-Receipt verbindet Hostpfad, VHDX-ID, Gastdisk
 und SQL-Pfad; `VERIFIED` erfordert Dienstrestart und vollständige SQL-
 Postconditions. Diese Implementierung ist statisch und synthetisch geprüft,
 aber noch nicht durch den realen Vier-Geräte-Referenzlauf abgenommen.
+Mit `Tests/Integration/Invoke-HyperVStorageAcceptance.ps1` existiert dafür ein
+fail-closed ausführbarer Runner: Er verlangt vor der Mutation vier belegte
+TempDB-Backing-Devices und eine eigene TempDB-Log-Location und prüft danach
+SQL-Dienstrestart, dateigenaues CREATE, synthetischen Backup/Restore-Roundtrip,
+VM-Restart und rungebundenen VHDX-Cleanup. Ein positiver realer Lauf dieses
+Runners steht weiterhin aus.
 `SQLS-002` und `SQLS-003` sind für den Hyper-V-Manifestpfad statisch und
 synthetisch implementiert: CREATE verwendet ausschließlich dateigenaue
 Plan-/Receipt-Bindings, Restore erzeugt aus `FILELISTONLY` für jede Data-, Log-

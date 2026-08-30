@@ -1,0 +1,40 @@
+{
+  "contractVersion": "SqlServerLab.StorageIntent/1.0",
+  "placementPolicy": "explicit",
+  "physicalIsolation": "preferred",
+  "roles": {
+    "defaultData": { "selector": "n5-temp-01" },
+    "defaultLog": { "selector": "n5-temp-02" },
+    "backup": { "selector": "n5-temp-03" }
+  },
+  "tempDb": {
+    "distribution": "one-file-per-physical-device",
+    "dataFileCount": 4,
+    "dataLocationSelectors": [
+      "n5-temp-01",
+      "n5-temp-02",
+      "n5-temp-03",
+      "n5-temp-04"
+    ],
+    "dataFiles": [
+      { "logicalName": "tempdev", "fileName": "tempdev.mdf", "selector": "n5-temp-01", "sizeMB": 256, "growth": "64MB" },
+      { "logicalName": "temp2", "fileName": "temp2.ndf", "selector": "n5-temp-02", "sizeMB": 256, "growth": "64MB" },
+      { "logicalName": "temp3", "fileName": "temp3.ndf", "selector": "n5-temp-03", "sizeMB": 256, "growth": "64MB" },
+      { "logicalName": "temp4", "fileName": "temp4.ndf", "selector": "n5-temp-04", "sizeMB": 256, "growth": "64MB" }
+    ],
+    "logPlacement": {
+      "selector": "n5-temp-log",
+      "logicalName": "templog",
+      "fileName": "templog.ldf",
+      "sizeMB": 256,
+      "growth": "64MB"
+    }
+  },
+  "databaseFiles": [
+    { "database": "N5Create", "logicalName": "N5Create_Data", "fileType": "data", "fileName": "N5Create_Data.mdf", "selector": "n5-temp-01" },
+    { "database": "N5Create", "logicalName": "N5Create_Log", "fileType": "log", "fileName": "N5Create_Log.ldf", "selector": "n5-temp-02" }
+  ],
+  "restoreRules": [
+    { "database": "N5Restore", "dataSelector": "n5-temp-01", "logSelector": "n5-temp-02" }
+  ]
+}
