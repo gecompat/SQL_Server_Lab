@@ -731,7 +731,7 @@ Runtime-Nachweis; maßgeblich bleiben die jeweils genannten Tests und Evidence.
 | N2 | `COMPLETE` | ActionResult-/Sync-, Portbindungs-, UAC- und Privilegverträge sind implementiert und fokussiert geprüft; GUI-Abbruch, Scheduler-Abbruch/Recovery, Manifest-Rerun, PowerShell-Console, Windows-User-Gate und der positive Windows-Generalize-/Publish-Pfad sind real belegt. |
 | N3 | `COMPLETE` | `ADP-003`, `ADP-004` und `ADP-008` sind in den autoritativen Partnerrepositories gemergt und auf SQL Server 2025 mit Docker und Podman end-to-end validiert; alle fachlichen und Infrastruktur-Cleanups waren scopegebunden erfolgreich. |
 | N4 | `COMPLETE` | Der reale Windows-2025-/SQL-2025-Lauf belegt Build, immutable Prepared-Parent, normalen differenzierenden Manifest-Klon, Windows-Specialization, `CompleteImage`, `SQL_READY_RUN`, unveränderten Parent-Hash und vollständigen Cleanup. |
-| N5 | `IN_PROGRESS / P0_FIX_FIRST` | `STO-009` bis `STO-013`, `SFP-001` bis `SFP-003` sowie `HVS-001`, `HVS-002` und `SQLS-001` bis `SQLS-003` sind implementiert; Docker und Podman belegen No-op, Live, Recreate, Rollback und Persistenz real. Vor dem physischen Hyper-V-Mehrgeräte-Nachweis müssen `HVR-001` bis `HVR-008` verhindern, dass Slot-, Builder-, Paging- oder Artifact-Dateien außerhalb registrierter `Lab_Data`-Roots entstehen. |
+| N5 | `IN_PROGRESS / P0_FIX_FIRST` | Storage-Slices und Docker-/Podman-Reconcile sind real belegt; der Hyper-V-Referenzlauf verteilt vier TempDB-Datendateien 2/1/1 auf drei nachweislich getrennte lokale Geräte und bestätigt SQL-Restart, Create, Restore, VM-Restart, Persistenz und vollständigen Cleanup. Das Gesamtgate bleibt offen, bis `HVR-001` bis `HVR-008` alle Slot-, Builder-, Paging- und Artifact-Dateien an registrierte `Lab_Data`-Roots binden. |
 
 ### Welle N1 – Baseline, Regressionen und Katalogwartung
 
@@ -940,23 +940,22 @@ Lifecycle-Tests reichen für dieses Gate nicht aus.
 **Status:** `IN_PROGRESS / P0_FIX_FIRST` seit 2026-08-30. Die gehärtete Storage-Registry
 (`STO-009` bis `STO-013`), der File-Placement-Slice (`SFP-001` bis
 `SFP-003`) und die Runtime-Implementierung für `HVS-001`, `HVS-002` und
-`SQLS-001` bis `SQLS-003` sind statisch/synthetisch geprüft. Der
+`SQLS-001` bis `SQLS-003` sind implementiert und geprüft. Der
 Container-Reconcile-Anteil ist auf Docker und Podman real mit No-op, Live,
-Recreate, Rollback, Persistenz und Cleanup belegt. Das Gate bleibt wegen des
-noch fehlenden physischen Hyper-V-Mehrgeräte-Nachweises offen. Zusätzlich wurde
-real bestätigt, dass reguläre Slot-VHDX und Smart-Paging-/VM-Pfade über einen
-Legacy-`StateRoot` außerhalb des konfigurierten `Lab_Data` entstehen können.
-Dieser Bugfix hat Vorrang vor dem Restnachweis.
+Recreate, Rollback, Persistenz und Cleanup belegt.
+Der physische Hyper-V-Mehrgeräte-Nachweis ist ebenfalls abgeschlossen. Das
+Gesamtgate bleibt dennoch offen: Reguläre Slot-VHDX und Smart-Paging-/VM-Pfade
+können über einen Legacy-`StateRoot` außerhalb des konfigurierten `Lab_Data`
+entstehen. Der P0-Bugfix `HVR-001` bis `HVR-008` hat deshalb Vorrang.
 
 Der ausführbare Runner `Tests/Integration/Invoke-HyperVStorageAcceptance.ps1`
-bindet diesen Restnachweis inzwischen an ein `SQL_PREPARED_SEALED`-Artifact und
+bindet den Referenznachweis an ein `SQL_PREPARED_SEALED`-Artifact und
 einen portablen Storage-Intent. Er prüft vor der Mutation vier TempDB-
 Datendateien auf der im Intent geforderten Mindestzahl nachweislich getrennter
 Backing Devices und danach SQL-Dienstrestart, CREATE, synthetischen
-Backup/Restore-Roundtrip, VM-Restart und Cleanup. Der Runner ist noch nicht real
-positiv ausgeführt; der Status der Welle bleibt daher `IN_PROGRESS`.
-Der Runner wird nicht erneut gestartet, bevor mindestens der fail-closed
-Sofortschutz aus `HVR-001` bis `HVR-004` real nachgewiesen ist.
+Backup/Restore-Roundtrip, VM-Restart und Cleanup. Der positive reale Lauf vom
+2026-08-30 belegte die 2/1/1-Verteilung auf drei lokalen physischen Geräten,
+alle SQL-Postconditions, Datenpersistenz und vollständigen Cleanup.
 
 **Ziel:** Den providerneutralen Storagevertrag und die ersten über START/STOP
 hinausgehenden Reconcile-Klassen als durchgängigen vertikalen Slice umsetzen.
