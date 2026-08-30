@@ -20,6 +20,10 @@
 | POLYBASE_S3_OBJECT_STORAGE_BACKLOG.md | Automatisierter S3-kompatibler Object Store als SQL-Supporting-Component für PolyBase und native SQL-2025-Dateizugriffe unter Docker, Podman und später Hyper-V/Linux |
 | SQL2025_VECTOR_EMBEDDING_BACKLOG.md | SQL-2025-Vector-Core, lokale ONNX-Embeddings unter Windows sowie gesicherte lokale Ollama- und optionale Cloud-Embedding-Lanes |
 | NEW_SQL_LAB_USE_CASES_BACKLOG.md | Priorisierter Explorationsbacklog für neue fachliche Lab-Produkte wie Upgrade-/Regressionstests, Recovery-Übungen, App-/Treiberkompatibilität, Cross-Platform-Parität, Security, HA/DR und Event-Integration |
+| SSIS_ETL_DATA_WAREHOUSE_BACKLOG.md | SSIS-Backlog für ETL, Data Warehouse, CDC/SCD, SSISDB, Package-Kompatibilität, Fault/Resume, Betrieb, Performance und Scale Out |
+| SSAS_ANALYTICS_SEMANTIC_MODEL_BACKLOG.md | SSAS-Backlog für Tabular und später Multidimensional, DAX/MDX, Import/DirectQuery, Processing, Partitionierung, Security, Deployment, Performance und Recovery |
+| END_TO_END_BI_PIPELINE_BACKLOG.md | Vollständige BI-Pipeline von synthetischer OLTP-Quelle über SSIS und Data Warehouse bis SSAS Tabular einschließlich Delta Load, DAX-Assertions, Faults und Recovery |
+| SQL_SSIS_SSAS_CLUSTER_BACKLOG.md | Getrennte Clusterpfade für SQL-AG/FCI, SSISDB-HA/Scale Out, SSAS-WSFC/Query-Scale-out und ein späteres Clustered End-to-End BI |
 
 Für Reihenfolge und Priorität der Weiterentwicklung ist ausschließlich
 `DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md` maßgeblich. Die Wellenzählungen in
