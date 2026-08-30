@@ -782,7 +782,7 @@ Add-ValidationResult `
     -Name 'Projektkontext bildet den aktuellen Runtime- und Validierungsstand ab' `
     -Success ($projectContext -match [regex]::Escape('CONTAINER_CORE_IMPLEMENTED_HYPERV_SQL_CLI_ACCEPTED') -and
         $projectContext -match [regex]::Escape('| Stand | 2026-08-29 |') -and
-        $projectContext -match 'physischer Hyper-V-Vier-Geräte-Nachweis' -and
+        $projectContext -match 'physischer Hyper-V-Mehrgeräte-Nachweis' -and
         $projectContext -match 'drei reale Project-Adapter-Piloten' -and
         $projectContext -notmatch 'External-Runtime-Varianten für SQL Server 2019, SQL Server 2025' -and
         $projectContext -notmatch 'offen bleiben echter Prozessabbruch, Manifest-Rerun und Windows-User-Gate' -and
@@ -802,7 +802,7 @@ Add-ValidationResult `
     -Name 'Repo-Map und Known Limitations beschreiben Reconcile und nächste Gates aktuell' `
     -Success ($repoMap -match 'journalisierter Container-Reconcile fuer CPU, RAM, SQL max memory, Hostport, Autostart und External Runtimes' -and
         $repoMap -notmatch 'Reconcile ist auf den Lifecycle START/STOP begrenzt' -and
-        $knownLimitations -match 'realen Hyper-V-Vier-Geräte-Lauf' -and
+        $knownLimitations -match 'realen Hyper-V-Mehrgeräte-Lauf' -and
         $knownLimitations -match 'drei Project-Adapter-Piloten' -and
         $knownLimitations -notmatch 'Die verbleibenden P0-Fehler')
 

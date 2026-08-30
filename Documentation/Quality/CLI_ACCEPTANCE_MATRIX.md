@@ -104,19 +104,21 @@ anschließend erfolgreiches Recreate mit neuer ID und erst danach entferntem
 Original. Datenmarker, Mounts und SQL-Konfiguration blieben über Recreate,
 Stop, Start und Restart erhalten; Container und sechs run-eigene Volumes wurden
 je Provider vollständig bereinigt. Diese lokale Evidence ersetzt nicht den
-weiterhin offenen Hyper-V-Vier-Geräte-Nachweis aus Gate N5.
+weiterhin offenen Hyper-V-Mehrgeräte-Nachweis aus Gate N5.
 
 ## Ausführbarer N5-Storage-Vertrag
 
 `Tests/Integration/Invoke-HyperVStorageAcceptance.ps1` bindet einen portablen
 `SqlServerLab.StorageIntent/1.0` an ein verifiziertes
 `SQL_PREPARED_SEALED`-Artifact. Der Runner blockiert vor der VM-Mutation, wenn
-die vier TempDB-Datendateien nicht vier getrennte Volumes und Backing Devices
-besitzen oder das TempDB-Log keine eigene Storage-Lane hat. Im positiven Pfad
+die vier TempDB-Datendateien nicht auf mindestens zwei beziehungsweise der im
+Intent höheren geforderten Zahl nachweislich getrennter Backing Devices liegen
+oder das TempDB-Log keine eigene Selector-/VHDX-Lane hat. Das Referenz-Intent
+fordert drei Geräte und verteilt die Dateien round-robin als 2/1/1. Im positiven Pfad
 prüft er das `VERIFIED`-Runtime-Receipt nach SQL-Dienstrestart, dateigenaues
 CREATE, einen synthetischen Backup/Restore-Roundtrip, Persistenz nach VM-Restart
 und den vollständigen rungebundenen VHDX-Cleanup.
 
 Der Vertrag ist implementiert, aber noch nicht real ausgeführt. Gate N5 bleibt
-deshalb offen; die bisherige Hyper-V-CLI-Evidence mit zwei TempDB-VHDX ist kein
-Ersatz für diesen Vier-Geräte-Nachweis.
+deshalb offen; die bisherige Hyper-V-CLI-Evidence mit zwei TempDB-VHDX ist ohne
+diesen Runner und dessen physische Topologiebelege kein Ersatz für den N5-Nachweis.

@@ -556,7 +556,9 @@ beschrifteten Enter-/Escape-Rückweg.
 **Status:** `IMPLEMENTED_STATICALLY` seit 2026-08-29. Legacy-Übernahme,
 Pfadnormalisierung, expliziter Defaultwechsel, Referenzschutz, Topologiebeleg
 und Location-basierte Parent-Migration sind fokussiert und schema-validiert.
-Der reale Vier-Geräte-Nachweis gehört zu Phase D und Gate N5.
+Der reale Mehrgeräte-Nachweis mit vier TempDB-Datendateien gehört zu Phase D
+und Gate N5; die geforderte Gerätezahl wird im Intent festgelegt und beträgt
+mindestens zwei, im lokalen Referenz-Intent drei.
 
 | ID | Schritt | Abschlusskriterium |
 |---|---|---|
@@ -570,7 +572,7 @@ Der reale Vier-Geräte-Nachweis gehört zu Phase D und Gate N5.
 
 **Status:** `IN_PROGRESS` seit 2026-08-29. `SFP-001` bis `SFP-003` sowie die
 Implementierung von `HVS-001`, `HVS-002` und `SQLS-001` bis `SQLS-003` sind
-statisch und synthetisch geprüft. Der reale Vier-Geräte-/SQL-Restart-, CREATE-
+statisch und synthetisch geprüft. Der reale Mehrgeräte-/SQL-Restart-, CREATE-
 und Restore-Nachweis bleibt offen.
 
 | ID | Schritt | Abschlusskriterium |
@@ -579,7 +581,7 @@ und Restore-Nachweis bleibt offen.
 | `SFP-002` | UI für Default Data, Default Log, Backup, TempDB-Data-Files und TempDB-Log erstellen | Implementiert: jede Datei/Role und jeder Zielpfad ist im read-only Review sichtbar. |
 | `SFP-003` | Modi `single`, `round-robin`, `explicit`, `one-file-per-volume` und `one-file-per-physical-device` planen | Implementiert: unzureichende, überlappende oder unbekannte Topologie blockiert strikte Anforderungen fail-closed. |
 | `HVS-001` | Hyper-V-VHDX pro Location/I/O-Lane erzeugen und binden | Implementiert: controller-eigene Hostpfade, VHDX-ID, Gastdisk und SQL-Ziel sind durch getrennte Receipts verbunden; Realnachweis offen. |
-| `HVS-002` | Gastinitialisierung und stabile Pfadvergabe für mehrere Storage-Lanes erweitern | Implementiert: SCSI-/Disk-ID-Bindung, idempotente GPT-/NTFS-Initialisierung und tatsächliche Gastpfade; Vier-Geräte-Realnachweis offen. |
+| `HVS-002` | Gastinitialisierung und stabile Pfadvergabe für mehrere Storage-Lanes erweitern | Implementiert: SCSI-/Disk-ID-Bindung, idempotente GPT-/NTFS-Initialisierung und tatsächliche Gastpfade; Mehrgeräte-Realnachweis offen. |
 | `SQLS-001` | SQL-Defaultpfade und TempDB-Fileplan anwenden | Implementiert: Defaultpfade, vollständiger TempDB-Plan, Dienstrestart, Postconditions und Recovery-Receipt; SQL-Realnachweis offen. |
 | `SQLS-002` | `New-SqlServerLabDatabase` an dateigenaue Bindings koppeln | Implementiert: Data- und Log-Files stammen ausschließlich aus verifiziertem Plan und Receipt; exakter `sys.master_files`-Abgleich vor Erfolgsquittung; Realnachweis offen. |
 | `SQLS-003` | Restore-`MOVE` aus Filelist und Bound Plan erzeugen | Implementiert: jede `FILELISTONLY`-Datei besitzt genau ein typgerechtes, eindeutiges Ziel und wird nach Restore exakt verifiziert; Realnachweis offen. |
@@ -663,7 +665,7 @@ Administratoranforderung ausgewiesen.
 | vier TempDB-Files, vier getrennte physische Geräte | Plan und SQL-Verifikation `PASS` |
 | vier TempDB-Files, vier Partitionen auf einem Gerät | strikter physischer Modus blockiert |
 | Backing Device nicht auflösbar | `Unknown`, kein vorgetäuschtes `PASS` |
-| TempDB-Log auf eigener Location | Pfad und Receipt stimmen nach SQL-Restart |
+| TempDB-Log auf eigener Selector-/VHDX-Lane | Pfad und Receipt stimmen nach SQL-Restart |
 | User-Data auf D, User-Log auf C, TempDB auf E/F/G/H | VHDX-/Gast-/SQL-Pfade stimmen durchgängig |
 | Docker Named Volumes plus physische Trennung gefordert | Provider wird abgelehnt oder Hyper-V gewählt |
 | Hauptmenü öffnen | keine vollständige Endpunkt-/Secretauflösung |
@@ -689,8 +691,9 @@ Die Konsolidierungswelle ist erst abgeschlossen, wenn:
 7. freie oder laufwerksrelative Storage-Pfade vor Mutation blockiert werden;
 8. Data-, Log-, einzelne TempDB-Data-Files, TempDB-Log und Backup getrennt
    geplant werden können;
-9. ein Referenzfall mit vier TempDB-Files auf vier nachweislich getrennten
-   physischen Geräten erfolgreich verifiziert wurde;
+9. ein Referenzfall mit vier TempDB-Files auf der im Intent geforderten
+   Mindestzahl nachweislich getrennter physischer Geräte erfolgreich
+   verifiziert wurde; das lokale Referenz-Intent fordert drei;
 10. Container keine nicht nachgewiesene physische Platzierung versprechen;
 11. SQL-Postconditions jeden geplanten Dateipfad bestätigen;
 12. `[2] Status` pro verwendbarer Instanz einen kopierfertigen Connection String zeigt und Secrets nur gemäß dem dokumentierten Vertrag offenlegt;

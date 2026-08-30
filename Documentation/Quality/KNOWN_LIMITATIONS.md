@@ -265,10 +265,12 @@ Gastdisks stabil und wendet Instanz-Defaultpfade sowie den vollständigen TempDB
 Plan an. Ein getrenntes Runtime-Receipt verbindet Hostpfad, VHDX-ID, Gastdisk
 und SQL-Pfad; `VERIFIED` erfordert Dienstrestart und vollständige SQL-
 Postconditions. Diese Implementierung ist statisch und synthetisch geprüft,
-aber noch nicht durch den realen Vier-Geräte-Referenzlauf abgenommen.
+aber noch nicht durch den realen Mehrgeräte-Referenzlauf abgenommen.
 Mit `Tests/Integration/Invoke-HyperVStorageAcceptance.ps1` existiert dafür ein
-fail-closed ausführbarer Runner: Er verlangt vor der Mutation vier belegte
-TempDB-Backing-Devices und eine eigene TempDB-Log-Location und prüft danach
+fail-closed ausführbarer Runner: Er verlangt vor der Mutation vier TempDB-
+Datendateien auf mindestens zwei beziehungsweise der im Intent festgelegten
+höheren Zahl belegter Backing Devices und eine eigene TempDB-Log-Lane. Das
+Referenz-Intent fordert drei physische Geräte. Danach prüft er
 SQL-Dienstrestart, dateigenaues CREATE, synthetischen Backup/Restore-Roundtrip,
 VM-Restart und rungebundenen VHDX-Cleanup. Ein positiver realer Lauf dieses
 Runners steht weiterhin aus.
@@ -279,7 +281,7 @@ und unterstützte Spezialdatei genau ein typgerechtes `MOVE`-Ziel, und beide
 Operationen quittieren erst nach exaktem `sys.master_files`-Abgleich. Fehler
 hinterlassen ein sanitisiertes `RECOVERY_REQUIRED`-Receipt. Der reale
 Hyper-V-Nachweis für CREATE und Restore bleibt ebenso offen wie der
-Vier-Geräte-Referenzlauf; Sample-Restores im neuen Hyper-V-Storagepfad sind
+Mehrgeräte-Referenzlauf; Sample-Restores im neuen Hyper-V-Storagepfad sind
 noch unsupported. Physische Containertrennung bleibt unsupported.
 Die virtuelle Lane-Kapazität wird im Bound Plan deterministisch abgeleitet:
 mindestens 32 GB für offen wachsende Data-/Log-/Backup-Rollen, mindestens 4 GB
@@ -644,7 +646,8 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
 ## Priorisierte nächste technische Schritte
 
 1. Den implementierten Multi-Root- und dateigenauen Storagevertrag mit einem
-   realen Hyper-V-Vier-Geräte-Lauf einschließlich SQL-Restart, Create, Restore,
+   realen Hyper-V-Mehrgeräte-Lauf auf den drei lokalen physischen Laufwerken
+   einschließlich SQL-Restart, Create, Restore,
    Persistenz und Cleanup abschließen (Gate N5).
 2. Die drei Project-Adapter-Piloten für `SQL_PerformanceSchulung`,
    `SQL_Server_Analyze` und `SQL_Server_Toolbelt` im jeweiligen
