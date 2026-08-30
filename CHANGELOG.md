@@ -8,6 +8,14 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Validiert
 
+- Der physische N5-Storage-Nachweis ist abgeschlossen: Der reale Hyper-V-
+  Referenzlauf verteilte vier TempDB-Datendateien 2/1/1 auf drei nachweislich
+  getrennte lokale Geräte und
+  band das TempDB-Log an eine eigene Lane. SQL-Dienstrestart, Defaultpfade,
+  dateigenaues Create, synthetischer Backup/FILELISTONLY/Restore-Roundtrip,
+  Datenpersistenz nach vollständigem VM-Restart sowie VM-, Child-VHDX- und
+  externer VHDX-Cleanup waren erfolgreich. Das N5-Gesamtgate bleibt bis zum
+  P0-Fix der Hyper-V-Ressourcenroot-Bindung `IN_PROGRESS / P0_FIX_FIRST`.
 - Gate N3 ist geschlossen: Die drei realen Project-Adapter-Piloten für
   `SQL_PerformanceSchulung`, `SQL_Server_Analyze` und `SQL_Server_Toolbelt`
   sind in ihren autoritativen Partnerrepositories gemergt und jeweils auf SQL
@@ -96,6 +104,14 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Behoben
 
+- Die reale Hyper-V-Storage-Anwendung verwendet kanonische
+  `SqlConnectionStringBuilder`-Indexer und providerneutrale Integer-
+  Konvertierung für SQL-Metadaten. Der run-basierte Restore akzeptiert den
+  aufgelösten Hyper-V-Provider, und der N5-Restart-Aufruf entspricht dem
+  öffentlichen Cmdlet-Vertrag.
+- Der N5-Runner materialisiert Location- und Backing-Device-Mengen vor deren
+  Auswertung. Ein Bootstrap-Runner kann ein isoliertes N4-Prepared-Artifact für
+  N5 zurückbehalten und entfernt es anschließend wieder streng scopegebunden.
 - Projektkontext, Repo-Map und Known Limitations bilden den belegten
   Multi-Version-External-Runtime-, Batch-Recovery-, Hyper-V-SQL- und
   Container-Reconcile-Stand wieder widerspruchsfrei ab. Statische

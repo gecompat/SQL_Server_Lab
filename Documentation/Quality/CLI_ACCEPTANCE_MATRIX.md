@@ -103,8 +103,8 @@ Max Memory, absichtlich fehlgeschlagenes Port-Recreate mit Journalstatus
 anschließend erfolgreiches Recreate mit neuer ID und erst danach entferntem
 Original. Datenmarker, Mounts und SQL-Konfiguration blieben über Recreate,
 Stop, Start und Restart erhalten; Container und sechs run-eigene Volumes wurden
-je Provider vollständig bereinigt. Diese lokale Evidence ersetzt nicht den
-weiterhin offenen Hyper-V-Mehrgeräte-Nachweis aus Gate N5.
+je Provider vollständig bereinigt. Der davon getrennte Hyper-V-
+Mehrgeräte-Nachweis aus Gate N5 wurde am 2026-08-30 ebenfalls real erbracht.
 
 ## Ausführbarer N5-Storage-Vertrag
 
@@ -119,6 +119,12 @@ prüft er das `VERIFIED`-Runtime-Receipt nach SQL-Dienstrestart, dateigenaues
 CREATE, einen synthetischen Backup/Restore-Roundtrip, Persistenz nach VM-Restart
 und den vollständigen rungebundenen VHDX-Cleanup.
 
-Der Vertrag ist implementiert, aber noch nicht real ausgeführt. Gate N5 bleibt
-deshalb offen; die bisherige Hyper-V-CLI-Evidence mit zwei TempDB-VHDX ist ohne
-diesen Runner und dessen physische Topologiebelege kein Ersatz für den N5-Nachweis.
+Der Vertrag wurde am 2026-08-30 real positiv ausgeführt. Vier TempDB-
+Datendateien lagen in 2/1/1-Verteilung auf drei nachweislich getrennten lokalen
+Geräten; TempDB-Log, Defaultpfade, Create-Data/-Log, Backup und Restore waren an
+ihre verifizierten Lanes gebunden. SQL-Dienstrestart, synthetischer
+Backup/Restore-Roundtrip mit Datenmarker, Persistenz nach vollständigem
+VM-Restart sowie die Entfernung der VM, der Child-VHDX und aller vier externen
+VHDXs waren erfolgreich. Der physische N5-Storage-Nachweis ist damit
+abgeschlossen; das Gesamtgate bleibt bis zum P0-Fix des Hyper-V-
+Ressourcenroot-Vertrags `IN_PROGRESS / P0_FIX_FIRST`.
