@@ -4,7 +4,7 @@
 |---|---|
 | Projekt | `gecompat/SQL_Server_Lab` |
 | Status | `ACTIVE_EXECUTION_BACKLOG` |
-| Stand | 2026-08-28 |
+| Stand | 2026-08-30 |
 | Ausgangsstand | Planungsabgleich gegen `origin/main`, Known Limitations, offene Regressionen und den lokalen sowie CI-gestützten Validierungsbericht vom 2026-08-20; Commit-IDs sind kein Planungsvertrag |
 | Ziel | eine einzige ausführbare Lieferreihenfolge für Core, UI, Adapter, Hyper-V, Datenartefakte, Qualität und spätere Erweiterungen |
 | Runtime-Nachweis | ausschließlich Code, passende Tests, [KNOWN_LIMITATIONS.md](../Quality/KNOWN_LIMITATIONS.md) und datierte Validierungsnachweise |
@@ -44,6 +44,7 @@ einem tatsächlich erfolgreichen, passenden Lauf verwendet.
 - [Project-Adapter-Priorisierung](PROJECT_ADAPTER_PRIORITIZATION.md);
 - [Zukunftsplan der Menüführung](FUTURE_UI_WORKFLOW_PLAN_2026-08-08.md);
 - [Konsolen-, Lifecycle- und Storage-Konsolidierungsplan aus der manuellen Abnahme](CONSOLE_LIFECYCLE_AND_STORAGE_CONSOLIDATION_PLAN_2026-08-12.md);
+- [P0-Bugfix für Hyper-V-Ressourcen unter registrierten `Lab_Data`-Roots](HYPERV_LAB_DATA_RESOURCE_ROOT_BUGFIX_BACKLOG.md);
 - [Providerneutraler Batch-, Queue- und Resume-Workflow](PROVIDER_NEUTRAL_BATCH_QUEUE_RESUME_WORKFLOW_2026-08-13.md);
 - [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](../Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md);
 - [Testdatenbank- und Manifest-Wizard-Vertrag](../Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md);
@@ -81,6 +82,9 @@ Für jede Entwicklungswelle gelten folgende Leitplanken:
     Toolbelt fordern Windows/Linux mit SQL Server 2019, 2022 und 2025 für ihre
     Entwicklungs- und Abnahmematrix an. PerformanceSchulung verwendet
     standardmäßig die aktuelle Linux-Umgebung und weicht nur szenariobezogen ab.
+18. Neue beschreibbare Hyper-V-Ressourcen entstehen ausschließlich unter einem
+    registrierten, controller-eigenen `Lab_Data`-Root. Ein State-, Legacy- oder
+    UAC-Fallback darf die physische Platzierung nicht still verändern.
 
 ## 3. Verifizierte Ausgangslage
 
@@ -261,6 +265,14 @@ Arbeiten in den Schwester-Repositories verfügbar sind.
 `P0` liefert den sicheren, konsumierbaren Kern. `P1` vervollständigt das
 vereinbarte Kernvorhaben. `P2` optimiert oder erweitert nach erfolgreichem
 Cold Path. `P3` bleibt entkoppelter Backlog.
+
+Der bestätigte Fehler aus
+[HYPERV_LAB_DATA_RESOURCE_ROOT_BUGFIX_BACKLOG.md](HYPERV_LAB_DATA_RESOURCE_ROOT_BUGFIX_BACKLOG.md)
+ist ein sofortiger `P0`-Einschub in N5. `HVR-001` bis `HVR-008` werden vor dem
+noch offenen realen Hyper-V-Mehrgeräte-Nachweis umgesetzt. Bis der Sofortschutz
+grün ist, sind neue Hyper-V-Slots, Image-Builds und Rebuilds außerhalb eines
+registrierten `Lab_Data`-Ressourcenroots blockiert; Betrieb und sicherer Cleanup
+vorhandener Legacy-Slots bleiben zulässig.
 
 ### M0 – Statuswahrheit und planbare Baseline
 
@@ -719,7 +731,7 @@ Runtime-Nachweis; maßgeblich bleiben die jeweils genannten Tests und Evidence.
 | N2 | `COMPLETE` | ActionResult-/Sync-, Portbindungs-, UAC- und Privilegverträge sind implementiert und fokussiert geprüft; GUI-Abbruch, Scheduler-Abbruch/Recovery, Manifest-Rerun, PowerShell-Console, Windows-User-Gate und der positive Windows-Generalize-/Publish-Pfad sind real belegt. |
 | N3 | `COMPLETE` | `ADP-003`, `ADP-004` und `ADP-008` sind in den autoritativen Partnerrepositories gemergt und auf SQL Server 2025 mit Docker und Podman end-to-end validiert; alle fachlichen und Infrastruktur-Cleanups waren scopegebunden erfolgreich. |
 | N4 | `COMPLETE` | Der reale Windows-2025-/SQL-2025-Lauf belegt Build, immutable Prepared-Parent, normalen differenzierenden Manifest-Klon, Windows-Specialization, `CompleteImage`, `SQL_READY_RUN`, unveränderten Parent-Hash und vollständigen Cleanup. |
-| N5 | `IN_PROGRESS` | `STO-009` bis `STO-013`, `SFP-001` bis `SFP-003` sowie `HVS-001`, `HVS-002` und `SQLS-001` bis `SQLS-003` sind implementiert; Docker und Podman belegen No-op, Live, Recreate, Rollback und Persistenz real. Offen bleibt der physische Hyper-V-Mehrgeräte-Nachweis mit vier TempDB-Datendateien; das Referenz-Intent fordert drei Geräte. |
+| N5 | `IN_PROGRESS / P0_FIX_FIRST` | `STO-009` bis `STO-013`, `SFP-001` bis `SFP-003` sowie `HVS-001`, `HVS-002` und `SQLS-001` bis `SQLS-003` sind implementiert; Docker und Podman belegen No-op, Live, Recreate, Rollback und Persistenz real. Vor dem physischen Hyper-V-Mehrgeräte-Nachweis müssen `HVR-001` bis `HVR-008` verhindern, dass Slot-, Builder-, Paging- oder Artifact-Dateien außerhalb registrierter `Lab_Data`-Roots entstehen. |
 
 ### Welle N1 – Baseline, Regressionen und Katalogwartung
 
@@ -925,13 +937,16 @@ Lifecycle-Tests reichen für dieses Gate nicht aus.
 
 ### Welle N5 – Storage- und Reconcile-Vertical-Slice
 
-**Status:** `IN_PROGRESS` seit 2026-08-29. Die gehärtete Storage-Registry
+**Status:** `IN_PROGRESS / P0_FIX_FIRST` seit 2026-08-30. Die gehärtete Storage-Registry
 (`STO-009` bis `STO-013`), der File-Placement-Slice (`SFP-001` bis
 `SFP-003`) und die Runtime-Implementierung für `HVS-001`, `HVS-002` und
 `SQLS-001` bis `SQLS-003` sind statisch/synthetisch geprüft. Der
 Container-Reconcile-Anteil ist auf Docker und Podman real mit No-op, Live,
 Recreate, Rollback, Persistenz und Cleanup belegt. Das Gate bleibt wegen des
-noch fehlenden physischen Hyper-V-Mehrgeräte-Nachweises offen.
+noch fehlenden physischen Hyper-V-Mehrgeräte-Nachweises offen. Zusätzlich wurde
+real bestätigt, dass reguläre Slot-VHDX und Smart-Paging-/VM-Pfade über einen
+Legacy-`StateRoot` außerhalb des konfigurierten `Lab_Data` entstehen können.
+Dieser Bugfix hat Vorrang vor dem Restnachweis.
 
 Der ausführbare Runner `Tests/Integration/Invoke-HyperVStorageAcceptance.ps1`
 bindet diesen Restnachweis inzwischen an ein `SQL_PREPARED_SEALED`-Artifact und
@@ -940,6 +955,8 @@ Datendateien auf der im Intent geforderten Mindestzahl nachweislich getrennter
 Backing Devices und danach SQL-Dienstrestart, CREATE, synthetischen
 Backup/Restore-Roundtrip, VM-Restart und Cleanup. Der Runner ist noch nicht real
 positiv ausgeführt; der Status der Welle bleibt daher `IN_PROGRESS`.
+Der Runner wird nicht erneut gestartet, bevor mindestens der fail-closed
+Sofortschutz aus `HVR-001` bis `HVR-004` real nachgewiesen ist.
 
 **Ziel:** Den providerneutralen Storagevertrag und die ersten über START/STOP
 hinausgehenden Reconcile-Klassen als durchgängigen vertikalen Slice umsetzen.
@@ -951,6 +968,10 @@ hinausgehenden Reconcile-Klassen als durchgängigen vertikalen Slice umsetzen.
   Backup getrennt planbar machen;
 - `HVS-001`/`HVS-002` und `SQLS-001` bis `SQLS-003`: Hostpfad, VHDX-ID,
   Gastdisk, Gastpfad und jede SQL-Datei durchgängig binden und verifizieren;
+- `HVR-001` bis `HVR-008`: Create-, Discovery- und Mutation-Root trennen,
+  Hyper-V-Ressourcen an registriertes `Lab_Data` binden, neue
+  Fehlplatzierungen blockieren und vorhandene Legacy-Slots journalisiert
+  migrierbar machen;
 - `CORE-105`/`CORE-106`: Operation Journal, Resume und Recovery auf weitere
   Mutationen ausdehnen;
 - `CNT-212` und `CNT-213`: je eine reale `live`- und `recreate`-Änderung mit
@@ -961,7 +982,11 @@ nicht als physische Trennung ausgegeben; vier TempDB-Datenfiles werden im
 Hyper-V-Referenzfall auf mindestens zwei und im lokalen Referenz-Intent auf
 drei nachweislich getrennte Geräte verteilt; SQL-
 Postconditions bestätigen jeden geplanten Pfad; Recreate erhält freigegebene
-persistente Daten und hat einen deterministischen Recovery-Pfad.
+persistente Daten und hat einen deterministischen Recovery-Pfad. VM-
+Konfiguration, Smart Paging, Checkpoints, OS-/Child-VHDX, Builder-, Staging- und
+Artifact-Dateien liegen zugleich ausschließlich unter ihren gebundenen,
+registrierten `Lab_Data`-Roots; ein Legacy- oder UAC-Fallback kann diese
+Platzierung nicht verändern.
 
 ### Nachgelagerter Horizont
 
