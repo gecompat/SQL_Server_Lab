@@ -4,8 +4,8 @@
 
 | Merkmal | Wert |
 |---|---|
-| Status | `CONFIRMED_BUG / BACKLOG` |
-| Priorität | `P0` – vor regulärem Feature-Ausbau und vor Fortsetzung des realen N5-Hyper-V-Storage-Nachweises |
+| Status | `IN_PROGRESS / P0` |
+| Priorität | `P0` – vor regulärem Feature-Ausbau und vor Schließen des N5-Gesamtgates |
 | Betroffen | reguläre Hyper-V-Slots, Windows-/SQL-Image-Builder, VM-Konfiguration, Smart Paging, Checkpoints und Hyper-V-Image-Store |
 | Nicht betroffen | unveränderliche Quellmedien im `Lab_Base`; selectorgebundene SQL-Storage-Lanes behalten ihre explizite Location |
 
@@ -121,8 +121,9 @@ Migration implementiert ist:
 5. Start, Stop, Readiness, Export und scopegebundener Cleanup vorhandener
    Legacy-Labs bleiben möglich; neue Ressourcen oder Rebuilds im Legacy-Root
    bleiben blockiert;
-6. der reale N5-Hyper-V-Storage-Runner startet erst wieder, wenn dieser Schutz
-   nachgewiesen ist.
+6. das N5-Gesamtgate wird erst geschlossen, wenn dieser Schutz nachgewiesen
+   ist; ein erneuter realer Referenzlauf muss die Ressourcenroot-Grenze
+   ausdrücklich mitprüfen.
 
 ## Kurze, Hyper-V-taugliche Pfade
 
@@ -223,6 +224,21 @@ neue Fehlplatzierung mehr zulassen. Sie blockieren den P0-Sofortschutz nicht.
 | `HVR-007` | UI, CLI, Preview, UAC-Handoff und Dokumentation angleichen | physischer Zielroot ist vor der Bestätigung sichtbar und reproduzierbar |
 | `HVR-008` | statische, synthetische und reale Hyper-V-Akzeptanz erweitern | belegte Platzierung, Migration, Restart, Recovery und Cleanup |
 
+### Implementierungsstand 2026-08-30
+
+- `HVR-001` besitzt die implementierte Grundlage: Create-, Discovery- und
+  Mutation-Roots werden getrennt aufgelöst. Registrierte Roots erlauben neue
+  Ressourcen; bekannte Legacy-State-Roots bleiben ausschließlich für
+  Discovery und bestehenden Lifecycle sichtbar. Die produktiven
+  Mutationsstellen werden erst mit `HVR-003` auf diese Bindung umgestellt.
+- `HVR-002` ist implementiert und statisch validiert: Der lokale Vertrag
+  `SqlServerLab.HyperVResourceBinding/1.0` bindet Resource-Key, Controller,
+  Location, Volume und kanonische Roots. Persistierte Bindings werden vor
+  Wiederverwendung gegen Registry, Marker, Volume und Reparse-Grenze geprüft.
+- `HVR-003` bis `HVR-008` bleiben offen. Insbesondere ist der Sofortschutz
+  noch nicht aktiv, solange Provider, Builder und Image-Store den neuen
+  Vertrag nicht an jeder Mutation erzwingen.
+
 ## Abnahmekriterien
 
 - Ein gültiger Default-Data-Root und vorhandene Legacy-Runs führen bei einem
@@ -248,8 +264,8 @@ neue Fehlplatzierung mehr zulassen. Sie blockieren den P0-Sofortschutz nicht.
 - Statische Checks erfassen jede Verwendung von `New-VM`, `New-VHD`,
   `Convert-VHD`, Checkpoint- und Hyper-V-Artifact-Mutation ohne aufgelöste
   Ressourcenbindung.
-- Der reale N5-Hyper-V-Mehrgeräte-Nachweis läuft erst danach grün und erzeugt
-  keine neue Datei unter `%LOCALAPPDATA%\SqlServerLab`.
+- Ein erneuter realer N5-Hyper-V-Mehrgeräte-Nachweis läuft danach grün und
+  erzeugt keine neue physische Ressource unter `%LOCALAPPDATA%\SqlServerLab`.
 
 ## Nicht Teil dieses Bugfixes
 

@@ -6,6 +6,16 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ## 2026-08-30
 
+### Hinzugefügt
+
+- Die Grundlage für `HVR-001`/`HVR-002` trennt Hyper-V-Create-, Discovery-
+  und Mutation-Roots. `SqlServerLab.HyperVResourceBinding/1.0` leitet kurze,
+  deterministische Ressourcenpfade ausschließlich aus registrierten
+  `Lab_Data`-Locations ab und revalidiert Controller, Location, Volume,
+  Marker und Reparse-Grenze. Legacy-State-Roots bleiben read-only auffindbar;
+  die produktive Durchsetzung an Provider, Builder und Image-Store folgt in
+  `HVR-003`/`HVR-004`.
+
 ### Validiert
 
 - Der physische N5-Storage-Nachweis ist abgeschlossen: Der reale Hyper-V-

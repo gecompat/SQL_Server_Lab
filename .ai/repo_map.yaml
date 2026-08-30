@@ -49,10 +49,13 @@ sources_of_truth:
   storage_intent_schema: Schemas/lab-storage-intent.schema.json
   storage_bound_plan_schema: Schemas/lab-storage-bound-plan.schema.json
   storage_runtime_receipt_schema: Schemas/lab-storage-runtime-receipt.schema.json
+  hyperv_resource_binding_contract: Private/HyperVResourceBinding.ps1
+  hyperv_resource_binding_schema: Schemas/hyperv-resource-binding.schema.json
   hyperv_lab_data_resource_root_bugfix_backlog: Documentation/Project_Planning/HYPERV_LAB_DATA_RESOURCE_ROOT_BUGFIX_BACKLOG.md
   validation_storage_contract: Tests/Static/Invoke-DataRootChecks.ps1
   validation_storage_migration: Tests/Static/Invoke-StorageMigrationChecks.ps1
   validation_storage_file_placement: Tests/Static/Invoke-StorageFilePlacementChecks.ps1
+  validation_hyperv_resource_binding: Tests/Static/Invoke-HyperVResourceBindingChecks.ps1
   runtime_limitations: Documentation/Quality/KNOWN_LIMITATIONS.md
   sample_artifact_and_manifest_wizard_target: Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md
   mixed_provider_lifecycle: Documentation/Architecture/MIXED_PROVIDER_LIFECYCLE.md
