@@ -655,9 +655,11 @@ VM-Konfiguration und Smart Paging unter dem Legacy-State-Root
 `%LOCALAPPDATA%\SqlServerLab` entstehen, obwohl ein verwalteter
 `Lab_Data`-Root konfiguriert war. Neue Ressourcen werden nun durch persistierte
 `HyperVResourceBinding`-Verträge unter registriertem `Lab_Data` erzeugt und vor
-sowie nach der Mutation geprüft. Bereits vorhandene Dateien werden noch nicht
-automatisch migriert und dürfen wegen aktiver Hyper-V-, VHDX-, Checkpoint-,
-Cleanup- und Artifact-Bindungen nicht manuell verschoben werden.
+sowie nach der Mutation geprüft. Für vorhandene Run-Ressourcen besteht ein
+journalisierter Migrationskern mit Preview, Hash-/VHDX-Verifikation, Resume,
+VM-Umbindung und spätem Quell-Cleanup. Er ist noch nicht über die öffentliche
+UI/CLI verfügbar und besitzt noch keinen real erhöhten End-to-End-Nachweis;
+Legacy-Dateien dürfen deshalb weiterhin nicht manuell verschoben werden.
 
 Der priorisierte
 [P0-Bugfix](../Project_Planning/HYPERV_LAB_DATA_RESOURCE_ROOT_BUGFIX_BACKLOG.md)
@@ -667,13 +669,19 @@ Migration vorhandener Legacy-Slots. Der physische N5-Hyper-V-Mehrgeräte-
 Nachweis wurde am 2026-08-30 abgeschlossen; das Gesamtgate bleibt bis zur realen
 Abnahme dieses P0-Fixes `IN_PROGRESS / P0_FIX_FIRST`.
 
-`HVR-001` bis `HVR-004` sind implementiert und statisch validiert: Der
+`HVR-001` bis `HVR-004` sowie der Run-Slice von `HVR-005` sind implementiert
+und statisch beziehungsweise synthetisch validiert: Der
 versionierte lokale Vertrag löst kurze Create-Roots ausschließlich aus
 registrierten `Lab_Data`-Locations auf, revalidiert Controller-, Location-,
 Volume-, Path-Length- und Reparse-Evidence und schützt Provider, Builder sowie
-Image- und Staging-Store an ihren Mutationsgrenzen. Offen bleiben das
-journalisierte Legacy-Inventar und die Migration, die Kopplung weiterer
-Repair-/Reconcile-Pfade, UI/Preview sowie die reale erhöhte End-to-End-Abnahme.
+Image- und Staging-Store an ihren Mutationsgrenzen. Der Migrationskern
+inventarisiert und verifiziert Legacy-Runs, bindet run-lokale Hyper-V-
+Ressourcen journalisiert um und erhält externe SQL-Lanes. Offen bleiben die
+Kopplung weiterer Cleanup-/Repair-/Reconcile-Pfade, UI/CLI-Exposition sowie die
+reale erhöhte End-to-End-Abnahme.
+Die graphbasierte Übernahme von Legacy-Parent-Images und deren Artifact-
+Registry-Bindung ist noch offen; solche VHDX-Ketten dürfen nicht manuell
+verschoben werden.
 
 ## Lokale State- und Secret-Daten
 
@@ -681,10 +689,11 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
 
 ## Priorisierte nächste technische Schritte
 
-1. Den P0-Bugfix für Hyper-V-Ressourcenroots abschließen: vorhandene
-   Legacy-Slots inventarisieren und journalisiert migrieren, Cleanup, Repair
-   und Reconcile an die Bindung koppeln, Zielpfade in UI/Preview darstellen und
-   den Schutz real erhöht end-to-end abnehmen.
+1. Den P0-Bugfix für Hyper-V-Ressourcenroots abschließen: Legacy-Parent-Images
+   graphbasiert samt Artifact-Registry migrieren, Cleanup, Repair, Reconcile
+   und allgemeine Storage-Migration an den journalisierten Migrationsvertrag
+   koppeln, Zielpfade in UI/CLI/Preview darstellen und den Schutz real erhöht
+   end-to-end abnehmen.
 2. `LAB_GENERATED`-Erzeugung und Auswahl an den Hyper-V-Export binden
    (Sample-Welle 5/6).
 3. Die implementierten providerneutralen Network- und Software-Intents an
