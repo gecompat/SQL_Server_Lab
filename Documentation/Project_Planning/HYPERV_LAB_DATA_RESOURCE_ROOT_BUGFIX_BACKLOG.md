@@ -241,9 +241,22 @@ neue Fehlplatzierung mehr zulassen. Sie blockieren den P0-Sofortschutz nicht.
 - `HVR-004` ist implementiert und statisch validiert: Bindungs-,
   Path-Length- und Reparse-Preflights laufen vor der Provider-Mutation;
   Datei-, VHDX- und VM-Pfad-Postconditions prüfen den erzeugten Zustand.
-- `HVR-005` bis `HVR-008` bleiben offen. Insbesondere werden vorhandene
-  Legacy-Ressourcen noch nicht automatisch migriert; die reale erhöhte
-  End-to-End-Abnahme des neuen Schutzes folgt mit `HVR-008`.
+- Der Run-Slice von `HVR-005` ist implementiert und synthetisch validiert: Ein read-only Plan
+  inventarisiert die exakten Legacy-Dateien und VHDX einschließlich Hashes,
+  prüft Identität, Checkpoints, Zielkollisionen, Pfadlänge und Kapazität und
+  trennt run-lokale Ressourcen von extern selector-gebundenen SQL-Lanes. Die
+  journalisierte, resumierbare Ausführung kopiert und verifiziert VHDX, bindet
+  VM-Konfiguration, Smart Paging, Snapshots und Disks um, aktualisiert Notes,
+  Cleanup-, Run- und Binding-State und entfernt die Quelle erst nach zwei
+  erfolgreichen Start-/Readiness-Zyklen. Fehler bleiben sichtbar als
+  `RECOVERY_REQUIRED`, ohne die Quelle vorzeitig zu löschen.
+- In `HVR-005` bleiben die graphbasierte Übernahme von Legacy-Parent-Images
+  und deren Artifact-Registry-Bindung offen; bis dahin blockiert dieser Slice
+  solche Fälle, statt eine unvollständige VHDX-Kette zu verschieben.
+- `HVR-006` bis `HVR-008` bleiben ebenfalls offen: Cleanup, Repair, Reconcile und die
+  allgemeine Storage-Migration müssen noch an den Migrationsvertrag gekoppelt,
+  Zielpfade in UI/CLI/Preview sichtbar und der Ablauf real erhöht end-to-end
+  abgenommen werden.
 
 ## Abnahmekriterien
 
