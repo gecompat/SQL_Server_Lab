@@ -686,14 +686,19 @@ inventarisiert und verifiziert Legacy-Runs, bindet run-lokale Hyper-V-
 Ressourcen journalisiert um und erhält externe SQL-Lanes. Die Parent-/Child-
 Kette wird dabei graphbasiert auf den gebundenen Image-Store umgehängt und
 referenzfrei bereinigt. Offen bleiben die
-Kopplung der Repair-/Reconcile-/allgemeinen Storage-Migrationspfade,
-UI/CLI-Exposition sowie die
+Kopplung der allgemeinen Storage-Migrationspfade, UI/CLI-Exposition sowie die
 reale erhöhte End-to-End-Abnahme.
 Der erste `HVR-006`-Slice schützt den Hyper-V-Cleanup bereits atomar gegen
 nichtterminale Run-Migrationen und unsafe VHDX-Pfade. Der Cleanup-Audit weist
 Run-Bindings, Migrationsstatus, ungetrackte Preserve-Dateien und Shared-Roots
 read-only aus; eine automatische Reparatur oder Löschung solcher Befunde ist
 bewusst noch nicht implementiert.
+Der zweite `HVR-006`-Slice koppelt Lifecycle-Reconcile, Start, Stop,
+Autostartänderung und SQL-WMI-Repair an einen gemeinsamen read-only
+Migrationsguard. Laufende, fehlgeschlagene oder inkonsistent abgeschlossene
+Migrationen planen und führen keine konkurrierende Mutation aus. Ein
+abgeschlossenes Journal wird nur zusammen mit seinem committed, erneut gegen
+die persistierte Location geprüften Run-Binding freigegeben.
 Image-Quellen werden bis zum nachgewiesenen Wegfall aller Consumer absichtlich
 nicht entfernt; manuelles Verschieben außerhalb des journalisierten Vertrags
 bleibt unzulässig.
@@ -704,9 +709,9 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
 
 ## Priorisierte nächste technische Schritte
 
-1. Den P0-Bugfix für Hyper-V-Ressourcenroots abschließen: Cleanup, Repair,
-   Reconcile und allgemeine Storage-Migration an den journalisierten Migrationsvertrag
-   koppeln, Zielpfade in UI/CLI/Preview darstellen und den Schutz real erhöht
+1. Den P0-Bugfix für Hyper-V-Ressourcenroots abschließen: allgemeine
+   Storage-Migration an den journalisierten Migrationsvertrag koppeln,
+   Zielpfade in UI/CLI/Preview darstellen und den Schutz real erhöht
    end-to-end abnehmen.
 2. `LAB_GENERATED`-Erzeugung und Auswahl an den Hyper-V-Export binden
    (Sample-Welle 5/6).
