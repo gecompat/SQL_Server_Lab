@@ -291,6 +291,26 @@ function Test-HyperVPathWithinRunDirectory {
 
     $binding = Read-LabHyperVResourceBinding -StateDirectory $RunDirectory
     if ($binding) {
+        $identityContract = switch ([string]$binding.ResourceClass) {
+            'Run' { [PSCustomObject]@{ FileName='run-state.json'; IdProperty='runId' }; break }
+            'Build' { [PSCustomObject]@{ FileName='build-state.json'; IdProperty='buildId' }; break }
+            default { $null }
+        }
+        if (-not $identityContract) { return $false }
+        $identityStatePath = Join-Path $RunDirectory $identityContract.FileName
+        if (-not (Test-Path -LiteralPath $identityStatePath -PathType Leaf)) { return $false }
+        try {
+            $identityState = Get-Content -LiteralPath $identityStatePath -Raw -Encoding utf8 |
+                ConvertFrom-Json -Depth 10 -ErrorAction Stop
+        }
+        catch { return $false }
+        if (-not [string]::Equals(
+            [string]$binding.ResourceId,
+            [string]$identityState.($identityContract.IdProperty),
+            [StringComparison]::OrdinalIgnoreCase
+        )) {
+            return $false
+        }
         return [bool](Test-LabHyperVBoundPath -Binding $binding -Path $Path).Valid
     }
     $resourceRoot = [System.IO.Path]::GetFullPath((Join-Path (Join-Path $RunDirectory 'resources') 'hyperv'))
@@ -317,6 +337,69 @@ function Test-HyperVPathWithinRunDirectory {
     }
 
     return $true
+}
+
+function Test-HyperVVhdxCleanupScope {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$ExpectedRunDirectory,
+        [string]$SafetyRoot
+    )
+
+    $failure = {
+        param([string]$Reason)
+        [PSCustomObject]@{
+            Valid = $false; Code = 'HYPERV_RESOURCE_SCOPE_VIOLATION'
+            Reason = $Reason; Path = [IO.Path]::GetFullPath($Path); ScopeKind = 'NONE'
+        }
+    }
+    try { $resolvedPath = [IO.Path]::GetFullPath($Path) }
+    catch { return & $failure $_.Exception.Message }
+    if ([IO.Path]::GetExtension($resolvedPath) -ne '.vhdx') {
+        return & $failure 'Die Ressource ist keine VHDX-Datei.'
+    }
+
+    try { $runLocal = Test-HyperVPathWithinRunDirectory -Path $resolvedPath -RunDirectory $ExpectedRunDirectory }
+    catch { return & $failure $_.Exception.Message }
+    if ($runLocal) {
+        return [PSCustomObject]@{
+            Valid = $true; Code = 'HYPERV_RESOURCE_SCOPE_VALID'; Reason = ''
+            Path = $resolvedPath; ScopeKind = 'RUN_RESOURCE_ROOT'
+        }
+    }
+    if (-not $SafetyRoot) { return & $failure 'Kein registrierter SafetyRoot ist gebunden.' }
+
+    try {
+        $resolvedSafetyRoot = [IO.Path]::GetFullPath($SafetyRoot).TrimEnd('\', '/')
+        $configuration = Get-LabStorageConfiguration -DataRoot $resolvedSafetyRoot
+        $registered = @($configuration.LabDataLocations | Where-Object {
+            [string]::Equals([IO.Path]::GetFullPath([string]$_.LabDataRoot).TrimEnd('\', '/'), $resolvedSafetyRoot, [StringComparison]::OrdinalIgnoreCase)
+        })
+        $boundary = Test-LabPathWithinRoot -Root $resolvedSafetyRoot -Path $resolvedPath
+        $relative = if ($boundary.Valid) { [IO.Path]::GetRelativePath($resolvedSafetyRoot, $resolvedPath) } else { '' }
+        $runStatePath = Join-Path $ExpectedRunDirectory 'run-state.json'
+        $runPrefix = $null
+        if (Test-Path -LiteralPath $runStatePath -PathType Leaf) {
+            $runState = Get-Content -LiteralPath $runStatePath -Raw -Encoding utf8 |
+                ConvertFrom-Json -Depth 10 -ErrorAction Stop
+            if ([string]$runState.runId -match '^[0-9a-fA-F-]{36}$') {
+                $runPrefix = ([string]$runState.runId).Replace('-', '').Substring(0, 8).ToLowerInvariant()
+            }
+        }
+        if ($registered.Count -ne 1 -or
+            -not (Test-LabDataRootOwnership -DataRoot $resolvedSafetyRoot -ControllerId ([string]$configuration.ControllerId)) -or
+            -not $boundary.Valid -or
+            $relative -notmatch '^Labs[\\/][^\\/]+[\\/]Instances[\\/]hyperv[\\/][^\\/]+[\\/]Storage[\\/][^\\/]+[\\/][^\\/]+\.vhdx$' -or
+            -not $runPrefix -or (Split-Path -Leaf $resolvedPath) -notmatch "-$runPrefix-sfp-\d{2}\.vhdx$") {
+            return & $failure 'Registry-, Ownership-, Pfad- oder Run-ID-Nachweis ist ungueltig.'
+        }
+        return [PSCustomObject]@{
+            Valid = $true; Code = 'HYPERV_RESOURCE_SCOPE_VALID'; Reason = ''
+            Path = $resolvedPath; ScopeKind = 'REGISTERED_ADDITIONAL_DRIVE'
+        }
+    }
+    catch { return & $failure $_.Exception.Message }
 }
 
 function Get-HyperVManagedVM {
@@ -1541,39 +1624,9 @@ function Remove-HyperVVhdxForCleanup {
         [string]$SafetyRoot
     )
 
-    $resolvedPath = [System.IO.Path]::GetFullPath($Path)
-    $runLocal = Test-HyperVPathWithinRunDirectory -Path $resolvedPath -RunDirectory $ExpectedRunDirectory
-    if (-not $runLocal) {
-        if (-not $SafetyRoot) { throw 'HYPERV_RESOURCE_SCOPE_VIOLATION' }
-        $resolvedSafetyRoot = [IO.Path]::GetFullPath($SafetyRoot).TrimEnd('\', '/')
-        $configuration = Get-LabStorageConfiguration -DataRoot $resolvedSafetyRoot
-        $registered = @($configuration.LabDataLocations | Where-Object {
-            [string]::Equals([IO.Path]::GetFullPath([string]$_.LabDataRoot).TrimEnd('\', '/'), $resolvedSafetyRoot, [StringComparison]::OrdinalIgnoreCase)
-        })
-        $boundary = Test-LabPathWithinRoot -Root $resolvedSafetyRoot -Path $resolvedPath
-        $relative = if ($boundary.Valid) { [IO.Path]::GetRelativePath($resolvedSafetyRoot, $resolvedPath) } else { '' }
-        $runStatePath = Join-Path $ExpectedRunDirectory 'run-state.json'
-        $runPrefix = $null
-        if (Test-Path -LiteralPath $runStatePath -PathType Leaf) {
-            try {
-                $runState = Get-Content -LiteralPath $runStatePath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 10
-                if ([string]$runState.runId -match '^[0-9a-fA-F-]{36}$') {
-                    $runPrefix = ([string]$runState.runId).Replace('-', '').Substring(0, 8).ToLowerInvariant()
-                }
-            }
-            catch { $runPrefix = $null }
-        }
-        if ($registered.Count -ne 1 -or
-            -not (Test-LabDataRootOwnership -DataRoot $resolvedSafetyRoot -ControllerId ([string]$configuration.ControllerId)) -or
-            -not $boundary.Valid -or
-            $relative -notmatch '^Labs[\\/][^\\/]+[\\/]Instances[\\/]hyperv[\\/][^\\/]+[\\/]Storage[\\/][^\\/]+[\\/][^\\/]+\.vhdx$' -or
-            -not $runPrefix -or (Split-Path -Leaf $resolvedPath) -notmatch "-$runPrefix-sfp-\d{2}\.vhdx$") {
-            throw 'HYPERV_RESOURCE_SCOPE_VIOLATION'
-        }
-    }
-    if ([System.IO.Path]::GetExtension($resolvedPath) -ne '.vhdx') {
-        throw 'Nur scopegebundene run-lokale VHDX duerfen entfernt werden.'
-    }
+    $scope = Test-HyperVVhdxCleanupScope -Path $Path -ExpectedRunDirectory $ExpectedRunDirectory -SafetyRoot $SafetyRoot
+    if (-not $scope.Valid) { throw "$($scope.Code): $($scope.Reason)" }
+    $resolvedPath = [string]$scope.Path
     if (-not (Test-Path -LiteralPath $resolvedPath -PathType Leaf)) {
         return [PSCustomObject]@{ Removed = $false; AlreadyAbsent = $true; Path = $resolvedPath }
     }

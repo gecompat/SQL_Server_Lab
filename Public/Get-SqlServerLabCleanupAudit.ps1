@@ -77,6 +77,119 @@ function Get-SqlServerLabCleanupAudit {
         catch { $hyperVStatus = 'UNAVAILABLE' }
     }
 
+    $hyperVRunScopes = @(); $hyperVUntrackedFiles = @()
+    $runsDirectory = Join-Path $stateRoot 'runs'
+    if (Test-Path -LiteralPath $runsDirectory -PathType Container) {
+        foreach ($runDirectory in @(Get-ChildItem -LiteralPath $runsDirectory -Directory -Force -ErrorAction SilentlyContinue)) {
+            $runState = $null; $runStateStatus = 'MISSING'
+            $runStatePath = Join-Path $runDirectory.FullName 'run-state.json'
+            if (Test-Path -LiteralPath $runStatePath -PathType Leaf) {
+                try {
+                    $runState = Get-Content -LiteralPath $runStatePath -Raw -Encoding utf8 |
+                        ConvertFrom-Json -Depth 20 -ErrorAction Stop
+                    $runStateStatus = 'VALID'
+                }
+                catch { $runStateStatus = 'INVALID' }
+            }
+
+            $binding = $null; $bindingStatus = 'NONE'; $bindingError = $null
+            $bindingPath = Join-Path $runDirectory.FullName 'hyperv-resource-binding.local.json'
+            if (Test-Path -LiteralPath $bindingPath -PathType Leaf) {
+                try {
+                    $binding = Read-LabHyperVResourceBinding -StateDirectory $runDirectory.FullName
+                    $bindingStatus = if ($runState -and [string]$binding.ResourceClass -eq 'Run' -and
+                        [string]::Equals([string]$binding.ResourceId, [string]$runState.runId, [StringComparison]::OrdinalIgnoreCase)) { 'VALID' } else { 'IDENTITY_MISMATCH' }
+                }
+                catch { $bindingStatus = 'INVALID'; $bindingError = $_.Exception.Message }
+            }
+
+            $migrationStatus = 'NONE'; $migrationError = $null
+            $migrationPath = Join-Path $runDirectory.FullName 'hyperv-resource-migration.local.journal.json'
+            if (Test-Path -LiteralPath $migrationPath -PathType Leaf) {
+                try {
+                    $migration = Get-Content -LiteralPath $migrationPath -Raw -Encoding utf8 |
+                        ConvertFrom-Json -Depth 50 -ErrorAction Stop
+                    $migrationStatus = if ($migration.Status) { [string]$migration.Status } else { 'INVALID' }
+                }
+                catch { $migrationStatus = 'INVALID'; $migrationError = $_.Exception.Message }
+            }
+
+            $cleanupResources = @(); $protectedPaths = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+            $cleanupPath = Join-Path $runDirectory.FullName 'cleanup-plan.json'
+            if (Test-Path -LiteralPath $cleanupPath -PathType Leaf) {
+                try {
+                    $cleanupPlan = Get-Content -LiteralPath $cleanupPath -Raw -Encoding utf8 |
+                        ConvertFrom-Json -Depth 30 -ErrorAction Stop
+                    foreach ($step in @($cleanupPlan.steps | Where-Object { [string]$_.provider -eq 'hyperv' -and [string]$_.resourceType -eq 'vhdx' })) {
+                        $safetyRoot = if ($step.PSObject.Properties['safetyRoot']) { [string]$step.safetyRoot } else { $null }
+                        $scope = Test-HyperVVhdxCleanupScope -Path ([string]$step.resourceId) `
+                            -ExpectedRunDirectory $runDirectory.FullName -SafetyRoot $safetyRoot
+                        $cleanupResources += [PSCustomObject]@{
+                            Order=[int]$step.order; Path=[string]$scope.Path; State=[string]$step.state
+                            ProtectionStatus=if ($scope.Valid) { 'PROTECTED' } else { 'UNSAFE' }
+                            ScopeKind=[string]$scope.ScopeKind; Code=[string]$scope.Code
+                        }
+                        if ($scope.Valid) { $null = $protectedPaths.Add([IO.Path]::GetFullPath([string]$scope.Path)) }
+                    }
+                }
+                catch {
+                    $cleanupResources += [PSCustomObject]@{
+                        Order=0; Path=$cleanupPath; State='INVALID'; ProtectionStatus='UNSAFE'
+                        ScopeKind='NONE'; Code="HYPERV_CLEANUP_PLAN_INVALID: $($_.Exception.Message)"
+                    }
+                }
+            }
+
+            $resourceRoots = [Collections.Generic.List[object]]::new()
+            if ($binding -and $bindingStatus -eq 'VALID') {
+                $resourceRoots.Add([PSCustomObject]@{ Kind='BOUND_RUN_ROOT'; Path=[string]$binding.HyperVResourceRoot })
+            }
+            $legacyRoot = Join-Path (Join-Path $runDirectory.FullName 'resources') 'hyperv'
+            if (Test-Path -LiteralPath $legacyRoot -PathType Container) {
+                $resourceRoots.Add([PSCustomObject]@{ Kind='LEGACY_RUN_ROOT'; Path=[IO.Path]::GetFullPath($legacyRoot) })
+            }
+            $fileCount = 0
+            foreach ($resourceRoot in @($resourceRoots)) {
+                if (-not (Test-Path -LiteralPath $resourceRoot.Path -PathType Container)) { continue }
+                foreach ($file in @(Get-ChildItem -LiteralPath $resourceRoot.Path -File -Recurse -Force -ErrorAction SilentlyContinue)) {
+                    $fileCount++
+                    if (-not $protectedPaths.Contains([IO.Path]::GetFullPath($file.FullName))) {
+                        $entry = [PSCustomObject]@{
+                            RunId=if ($runState) { [string]$runState.runId } else { $runDirectory.Name }
+                            RootKind=[string]$resourceRoot.Kind; Path=$file.FullName
+                            Preservation='PRESERVE_UNTRACKED'
+                        }
+                        $hyperVUntrackedFiles += $entry
+                    }
+                }
+            }
+            if ($bindingStatus -ne 'NONE' -or $migrationStatus -ne 'NONE' -or $cleanupResources.Count -gt 0 -or $fileCount -gt 0) {
+                $hyperVRunScopes += [PSCustomObject]@{
+                    RunId=if ($runState) { [string]$runState.runId } else { $runDirectory.Name }
+                    RunDirectory=$runDirectory.FullName; RunStateStatus=$runStateStatus
+                    BindingStatus=$bindingStatus; BindingError=$bindingError
+                    ResourceRoot=if ($binding) { [string]$binding.HyperVResourceRoot } else { $null }
+                    MigrationStatus=$migrationStatus; MigrationError=$migrationError
+                    CleanupResources=$cleanupResources; ResourceFileCount=$fileCount
+                }
+            }
+        }
+    }
+
+    $hyperVSharedRoots = @()
+    foreach ($resourceClass in @('Image','Staging')) {
+        foreach ($root in @(Get-LabHyperVResourceDiscoveryRoots -ResourceClass $resourceClass -StateRoot $stateRoot)) {
+            $files = if (Test-Path -LiteralPath $root.Path -PathType Container) {
+                @(Get-ChildItem -LiteralPath $root.Path -File -Recurse -Force -ErrorAction SilentlyContinue)
+            } else { @() }
+            $hyperVSharedRoots += [PSCustomObject]@{
+                ResourceClass=$resourceClass; RootKind=[string]$root.RootKind; Path=[string]$root.Path
+                Exists=[bool](Test-Path -LiteralPath $root.Path -PathType Container)
+                FileCount=$files.Count; Preservation='PRESERVE_SHARED'
+            }
+        }
+    }
+
     $externalReferences = @()
     foreach ($run in $activeRuns) {
         foreach ($candidate in @([string]$run.metadata.dataRoot) + @($run.instances | ForEach-Object { [string]$_.persistentStorage.hostPath }) + @($run.instances | ForEach-Object { @($_.drives | ForEach-Object { [string]$_.hostPath }) })) {
@@ -106,15 +219,26 @@ function Get-SqlServerLabCleanupAudit {
     }
 
     $unverifiable = @($runtimeResults | Where-Object Status -eq 'UNAVAILABLE').Count + $(if ($hyperVStatus -eq 'UNAVAILABLE') { 1 } else { 0 })
-    $residualCount = @($activeRuns).Count + @($containers).Count + @($managedVolumes).Count + @($managedNetworks).Count + @($hyperVResources).Count + @($externalReferences).Count + @($repositoryResidues).Count + @($legacyStateRoots | Where-Object RunCount -gt 0).Count + @($rootResults | Where-Object { -not $_.Exists -or -not $_.Owned }).Count
+    $hyperVProtectionIssues = @($hyperVRunScopes | Where-Object {
+        $_.BindingStatus -in @('INVALID','IDENTITY_MISMATCH') -or
+        $_.MigrationStatus -in @('RECOVERY_REQUIRED','INVALID') -or
+        @($_.CleanupResources | Where-Object ProtectionStatus -eq 'UNSAFE').Count -gt 0
+    }).Count
+    $residualCount = @($activeRuns).Count + @($containers).Count + @($managedVolumes).Count + @($managedNetworks).Count + @($hyperVResources).Count + @($externalReferences).Count + @($repositoryResidues).Count + @($legacyStateRoots | Where-Object RunCount -gt 0).Count + @($rootResults | Where-Object { -not $_.Exists -or -not $_.Owned }).Count + @($hyperVUntrackedFiles).Count + $hyperVProtectionIssues
     $status = if ($residualCount -gt 0) { 'RESIDUALS' } elseif ($unverifiable -gt 0) { 'UNVERIFIABLE' } else { 'CLEAN' }
     $audit = [PSCustomObject]@{
         ContractVersion='SqlServerLab.CleanupAudit/1.0'; AuditId=[Guid]::NewGuid().ToString('D'); CreatedAt=Get-LabTimestamp; Status=$status
         ControllerId=[string]$configuration.ControllerId; StateRoot=$stateRoot; DataRoots=$rootResults; ActiveRuns=$activeRuns
         Runtimes=$runtimeResults; Containers=$containers; ManagedVolumes=$managedVolumes; ManagedNetworks=$managedNetworks
-        HyperV=[PSCustomObject]@{ Status=$hyperVStatus; Resources=$hyperVResources }
+        HyperV=[PSCustomObject]@{
+            Status=$hyperVStatus; Resources=$hyperVResources; RunScopes=$hyperVRunScopes
+            SharedRoots=$hyperVSharedRoots; UntrackedFiles=$hyperVUntrackedFiles
+        }
         ExternalReferences=$externalReferences; RepositoryResidues=$repositoryResidues; LegacyStateRoots=$legacyStateRoots
-        Summary=[PSCustomObject]@{ ResidualCount=$residualCount; UnverifiableProviders=$unverifiable }
+        Summary=[PSCustomObject]@{
+            ResidualCount=$residualCount; UnverifiableProviders=$unverifiable
+            HyperVProtectionIssues=$hyperVProtectionIssues; HyperVUntrackedFiles=@($hyperVUntrackedFiles).Count
+        }
     }
     $path = $null
     if (-not $NoWrite -and $configuration.DefaultDataRoot) {

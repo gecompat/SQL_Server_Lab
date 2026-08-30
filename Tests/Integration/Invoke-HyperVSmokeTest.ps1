@@ -101,6 +101,11 @@ try {
     $instance = & $module {
         param($RunDirectory, $RunId, $ScopeId, $ArtifactId, $StateRoot)
         $providerSubRuns = @([PSCustomObject]@{ id = 'provider-hyperv'; provider = 'hyperv' })
+        Write-LabArtifactJsonAtomic -Path (Join-Path $RunDirectory 'run-state.json') -InputObject ([PSCustomObject]@{
+            runId = $RunId
+            scopeId = $ScopeId
+            state = 'RUNNING'
+        })
         $null = New-CleanupPlan `
             -RunDir $RunDirectory `
             -RunId $RunId `
