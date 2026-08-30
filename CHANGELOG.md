@@ -22,6 +22,11 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   Child-Graph, veröffentlicht sie hashidentisch im gebundenen Image-Store und
   hält referenzierte Quellen journalisiert in `WAITING_FOR_CONSUMERS`. Erst ein
   consumerfreier Resume entfernt die vollständig verifizierte Quelle.
+- Der abschließende interne `HVR-005`-Slice koppelt Legacy-Run- und
+  Image-Migration: Nur ein hashverifiziertes, gebundenes Ziel-Parent darf per
+  vorjournalisiertem `Set-VHD` übernommen werden. Getrennte Child-Hashes machen
+  Abbruch/Resume und späten Quell-Cleanup sicher; der Run-Abschluss setzt die
+  wartende Image-Migration automatisch fort.
 
 ### Geändert
 

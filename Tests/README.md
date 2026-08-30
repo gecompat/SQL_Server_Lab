@@ -111,8 +111,9 @@ Die statischen Prüfungen benötigen keine laufende SQL-Server-Instanz. Sie kont
   SQL-Dateipläne und der getrennte Runtime-Receipt-Vertrag;
 - Hyper-V-Legacy-Migration: schema-valides read-only Inventar, Checkpoint-
   Blocker, `-WhatIf`, Hash-/VHDX-Verifikation, journalisiertes Resume nach
-  Readiness-Fehler, zwei Neustartprüfungen, Erhalt externer SQL-Lanes und
-  Quell-Cleanup erst nach erfolgreicher Zielbindung;
+  unterbrochenem Parent-Reparent, getrennte Quell-/Ziel-Child-Hashes, zwei
+  Neustartprüfungen, Erhalt externer SQL-Lanes, Quell-Cleanup erst nach
+  erfolgreicher Zielbindung und automatisches Resume des Image-Cleanup;
 - Hyper-V-Image-Migration: exaktes Artifact-/Hash-Inventar, Fremdbelegungs-
   und Planmanipulationsschutz, hashidentische Veröffentlichung im gebundenen
   Image-Store sowie `WAITING_FOR_CONSUMERS` bis zum referenzfreien Resume-
