@@ -148,8 +148,9 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   im Intent geforderten Mindestzahl physischer Geräte sowie dateigenaue Data-, Log-,
   TempDB- und Backup-Platzierung einschließlich SQL-Restart, Create, Restore,
   Persistenz und Cleanup;
-- drei reale Project-Adapter-Piloten für `SQL_PerformanceSchulung`,
-  `SQL_Server_Analyze` und `SQL_Server_Toolbelt`.
+- zwei verbleibende reale Project-Adapter-Piloten für `SQL_Server_Analyze` und
+  `SQL_Server_Toolbelt`; der `SQL_PerformanceSchulung`-Pilot ist auf SQL Server
+  2025 Linux mit Docker und Podman end-to-end validiert.
 
 Die verbindliche Detailabgrenzung steht in `Documentation/Quality/KNOWN_LIMITATIONS.md`.
 
