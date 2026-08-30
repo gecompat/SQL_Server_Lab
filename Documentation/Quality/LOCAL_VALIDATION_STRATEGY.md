@@ -130,6 +130,21 @@ Der Auto-Modus wählt für den mutierenden Lifecycle genau eine Runtime: Docker 
     -MediaRoot D:\Lab_Base
 ```
 
+Fehlt auf dem Host ein dauerhaft veröffentlichtes SQL-2025-Prepared-Artifact,
+kann der vollständige Nachweis stattdessen dessen isolierten N4-Bootstrap
+verwenden:
+
+```powershell
+.\Tests\Integration\Invoke-HyperVStorageAcceptanceBootstrap.ps1 `
+    -StorageIntentPath .\Schemas\hyperv-storage-n5-intent.sample.json `
+    -MediaRoot D:\Lab_Base
+```
+
+Der Bootstrap behält den testlokalen N4-State nur nach vollständigem Erfolg,
+übergibt Artifact-ID und State-Root maschinenlesbar an N5 und entfernt den
+gesamten isolierten State anschließend nach strikter Scope-Prüfung. Der
+Standardlauf der N4-Abnahme behält weiterhin nichts zurück.
+
 Es werden bewusst nicht alle CUs getestet. Docker und Podman verwenden je
 einen repraesentativen katalogisierten CU; Windows prueft die frische
 Basisinstallation und verwendet ein CU nur bei vorhandenem verifiziertem Paket.

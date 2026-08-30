@@ -17,6 +17,12 @@
     Maximale Wartezeit fuer OOBE, einen Setup-Neustart und den Sysprep-Shutdown.
 .PARAMETER SetupTimeoutSeconds
     Maximale Laufzeit fuer SQL Server PrepareImage.
+.PARAMETER RetainPreparedArtifact
+    Behaelt das isolierte testlokale State-Root ausschliesslich nach einem
+    vollstaendig erfolgreichen Lauf fuer einen unmittelbar nachgelagerten
+    Acceptance-Test. Der Standard bleibt vollstaendiger Cleanup. Bei Nutzung
+    werden State-Root und Artifact-ID maschinenlesbar ausgegeben; der Aufrufer
+    ist fuer den anschliessenden scopegebundenen Cleanup verantwortlich.
 #>
 [CmdletBinding()]
 param(
@@ -24,7 +30,9 @@ param(
     [int]$TimeoutSeconds = 1200,
 
     [ValidateRange(600, 10800)]
-    [int]$SetupTimeoutSeconds = 7200
+    [int]$SetupTimeoutSeconds = 7200,
+
+    [switch]$RetainPreparedArtifact
 )
 
 $ErrorActionPreference = 'Stop'
@@ -514,7 +522,9 @@ finally {
         }
     }
 
-    if ($stateRoot -and -not $cleanupFailed -and (Test-Path -LiteralPath $stateRoot -PathType Container)) {
+    $retainSuccessfulState = $RetainPreparedArtifact -and -not $testFailed -and -not $cleanupFailed
+    if ($stateRoot -and -not $cleanupFailed -and -not $retainSuccessfulState -and
+        (Test-Path -LiteralPath $stateRoot -PathType Container)) {
         $resolvedStateRoot = [IO.Path]::GetFullPath($stateRoot).TrimEnd('\')
         $resolvedParent = [IO.Path]::GetFullPath($productionStateRoot).TrimEnd('\')
         $actualParent = [IO.Directory]::GetParent($resolvedStateRoot).FullName.TrimEnd('\')
@@ -531,5 +541,9 @@ finally {
 }
 
 if ($testFailed) { exit 1 }
+if ($RetainPreparedArtifact) {
+    Write-Host "RETAINED_STATE_ROOT=$stateRoot"
+    Write-Host "RETAINED_ARTIFACT_ID=$([string]$published.Artifact.artifactId)"
+}
 Write-Host 'Reale Hyper-V-SQL-Prepared-Image-Abnahme erfolgreich.' -ForegroundColor Green
 exit 0

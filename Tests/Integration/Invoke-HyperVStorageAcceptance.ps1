@@ -155,7 +155,9 @@ try {
     $tempSelectors = @($tempDataBindings.Selector | Sort-Object -Unique)
     $tempBackingDevices = @(
         foreach ($file in $tempDataBindings) {
-            @($preflight.Bindings | Where-Object LocationId -eq [string]$file.LocationId | Select-Object -First 1).BackingDeviceIds
+            @($preflight.Bindings | Where-Object {
+                [string]$_.LocationId -eq [string]$file.LocationId
+            } | Select-Object -First 1).BackingDeviceIds
         }
     ) | Sort-Object -Unique
     $requiredBackingDevices = [int]$preflight.TopologyEvidence.RequiredDistinctBackingDeviceCount
@@ -163,17 +165,27 @@ try {
         $tempDataBindings.Count -eq 4 -and $requiredBackingDevices -ge 2 -and
         $tempLocations.Count -ge $requiredBackingDevices -and $tempBackingDevices.Count -ge $requiredBackingDevices -and
         [int]$preflight.TopologyEvidence.ProvenDistinctPhysicalLaneCount -ge $requiredBackingDevices
-    ) 'Vier TempDB-Datendateien binden die geforderte Mindestzahl physischer Laufwerke'
+    ) 'Vier TempDB-Datendateien binden die geforderte Mindestzahl physischer Laufwerke' (
+        "TempDBFiles=$($tempDataBindings.Count); Locations=$($tempLocations.Count); " +
+        "BackingDevices=$($tempBackingDevices.Count); Required=$requiredBackingDevices; " +
+        "Proven=$([int]$preflight.TopologyEvidence.ProvenDistinctPhysicalLaneCount)"
+    )
     Assert-HyperVStorageAcceptance (
         $tempLogBindings.Count -eq 1 -and [string]$tempLogBindings[0].Selector -notin $tempSelectors
     ) 'TempDB-Log besitzt eine eigene Storage-Lane'
 
     $createDataBindings = @($preflight.SqlFiles | Where-Object { $_.Database -eq $CreateDatabaseName -and $_.Role -eq 'database-data' })
     $createLogBindings = @($preflight.SqlFiles | Where-Object { $_.Database -eq $CreateDatabaseName -and $_.Role -eq 'database-log' })
+    $createLocationIds = @(
+        @($createDataBindings.LocationId) + @($createLogBindings.LocationId) |
+            Sort-Object -Unique
+    )
     Assert-HyperVStorageAcceptance (
         $createDataBindings.Count -gt 0 -and $createLogBindings.Count -gt 0 -and
-        @($createDataBindings.LocationId + $createLogBindings.LocationId | Sort-Object -Unique).Count -ge 2
-    ) 'Create-Datenbank ist dateigenau auf getrennte Data-/Log-Lanes geplant'
+        $createLocationIds.Count -ge 2
+    ) 'Create-Datenbank ist dateigenau auf getrennte Data-/Log-Lanes geplant' (
+        "DataFiles=$($createDataBindings.Count); LogFiles=$($createLogBindings.Count); Locations=$($createLocationIds.Count)"
+    )
     $restoreDataRule = @($preflight.SqlFiles | Where-Object { $_.Database -eq $RestoreDatabaseName -and $_.Role -eq 'restore-data-rule' })
     $restoreLogRule = @($preflight.SqlFiles | Where-Object { $_.Database -eq $RestoreDatabaseName -and $_.Role -eq 'restore-log-rule' })
     Assert-HyperVStorageAcceptance (
@@ -308,7 +320,7 @@ try {
         @($restoreBindings.SqlPhysicalPath | Sort-Object -Unique).Count -eq $restoreBindings.Count
     ) 'Restore-Receipt bindet jede FILELIST-Datei an ein eindeutiges typgerechtes Ziel'
 
-    Restart-SqlServerLab -RunId $lab.RunId -StateRoot $StateRoot -TimeoutSeconds 1200 -Force -Confirm:$false | Out-Null
+    Restart-SqlServerLab -RunId $lab.RunId -TimeoutSeconds 1200 -Force -Confirm:$false | Out-Null
     $restartReadiness = Wait-AcceptanceSqlReady -ExpectedMajorVersion 17
     Assert-HyperVStorageAcceptance $restartReadiness.Ready 'SQL ist nach vollstaendigem VM-Restart wieder bereit'
     $persistedMarker = Invoke-AcceptanceQuery 'SET NOCOUNT ON; SELECT COUNT_BIG(*) FROM dbo.N5Evidence WHERE Id=1;' -Database $RestoreDatabaseName

@@ -264,25 +264,26 @@ erzeugt pro Selector eine controller-eigene dynamische VHDX, initialisiert die
 Gastdisks stabil und wendet Instanz-Defaultpfade sowie den vollständigen TempDB-
 Plan an. Ein getrenntes Runtime-Receipt verbindet Hostpfad, VHDX-ID, Gastdisk
 und SQL-Pfad; `VERIFIED` erfordert Dienstrestart und vollständige SQL-
-Postconditions. Diese Implementierung ist statisch und synthetisch geprüft,
-aber noch nicht durch den realen Mehrgeräte-Referenzlauf abgenommen.
+Postconditions. Diese Implementierung ist statisch, synthetisch und seit
+2026-08-30 durch den realen Mehrgeräte-Referenzlauf abgenommen.
 Mit `Tests/Integration/Invoke-HyperVStorageAcceptance.ps1` existiert dafür ein
 fail-closed ausführbarer Runner: Er verlangt vor der Mutation vier TempDB-
 Datendateien auf mindestens zwei beziehungsweise der im Intent festgelegten
 höheren Zahl belegter Backing Devices und eine eigene TempDB-Log-Lane. Das
-Referenz-Intent fordert drei physische Geräte. Danach prüft er
+Referenz-Intent fordert drei physische Geräte und verteilt die vier Dateien
+round-robin als 2/1/1. Der positive reale Lauf vom 2026-08-30 bestätigte
 SQL-Dienstrestart, dateigenaues CREATE, synthetischen Backup/Restore-Roundtrip,
-VM-Restart und rungebundenen VHDX-Cleanup. Ein positiver realer Lauf dieses
-Runners steht weiterhin aus.
-`SQLS-002` und `SQLS-003` sind für den Hyper-V-Manifestpfad statisch und
-synthetisch implementiert: CREATE verwendet ausschließlich dateigenaue
+Persistenz nach vollständigem VM-Restart und rungebundenen VHDX-Cleanup.
+`SQLS-002` und `SQLS-003` sind für den Hyper-V-Manifestpfad real belegt:
+CREATE verwendet ausschließlich dateigenaue
 Plan-/Receipt-Bindings, Restore erzeugt aus `FILELISTONLY` für jede Data-, Log-
 und unterstützte Spezialdatei genau ein typgerechtes `MOVE`-Ziel, und beide
 Operationen quittieren erst nach exaktem `sys.master_files`-Abgleich. Fehler
-hinterlassen ein sanitisiertes `RECOVERY_REQUIRED`-Receipt. Der reale
-Hyper-V-Nachweis für CREATE und Restore bleibt ebenso offen wie der
-Mehrgeräte-Referenzlauf; Sample-Restores im neuen Hyper-V-Storagepfad sind
-noch unsupported. Physische Containertrennung bleibt unsupported.
+hinterlassen ein sanitisiertes `RECOVERY_REQUIRED`-Receipt. Katalogisierte
+Sample-Restores im neuen Hyper-V-Storagepfad sind weiterhin unsupported;
+physische Containertrennung bleibt ebenfalls unsupported. Der physische
+N5-Storage-Nachweis ist damit abgeschlossen; das Gesamtgate bleibt bis zur
+Behebung der Hyper-V-Ressourcenroot-Abweichung `IN_PROGRESS / P0_FIX_FIRST`.
 Die virtuelle Lane-Kapazität wird im Bound Plan deterministisch abgeleitet:
 mindestens 32 GB für offen wachsende Data-/Log-/Backup-Rollen, mindestens 4 GB
 für reine TempDB-Lanes und jeweils mindestens die expliziten Dateigrößen plus
@@ -661,8 +662,9 @@ Der priorisierte
 [P0-Bugfix](../Project_Planning/HYPERV_LAB_DATA_RESOURCE_ROOT_BUGFIX_BACKLOG.md)
 trennt Create-, Discovery-, State- und Ressourcenroots, blockiert neue
 Fehlplatzierungen vor der Provider-Mutation und fordert eine journalisierte
-Migration vorhandener Legacy-Slots. Bis dessen Sofortschutz real abgenommen
-ist, wird der offene N5-Hyper-V-Mehrgeräte-Nachweis nicht fortgesetzt.
+Migration vorhandener Legacy-Slots. Der physische N5-Hyper-V-Mehrgeräte-
+Nachweis wurde am 2026-08-30 abgeschlossen; das Gesamtgate bleibt bis zur realen
+Abnahme dieses P0-Fixes `IN_PROGRESS / P0_FIX_FIRST`.
 
 ## Lokale State- und Secret-Daten
 
@@ -673,17 +675,13 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
 1. Den P0-Bugfix für Hyper-V-Ressourcenroots umsetzen: neue Slot-, Builder-,
    Paging-, Checkpoint- und Artifact-Dateien ausschließlich unter registriertem
    `Lab_Data` erzeugen und vorhandene Legacy-Slots sicher migrierbar machen.
-2. Den implementierten Multi-Root- und dateigenauen Storagevertrag mit einem
-   realen Hyper-V-Mehrgeräte-Lauf auf den drei lokalen physischen Laufwerken
-   einschließlich SQL-Restart, Create, Restore,
-   Persistenz und Cleanup abschließen (Gate N5).
-3. `LAB_GENERATED`-Erzeugung und Auswahl an den Hyper-V-Export binden
+2. `LAB_GENERATED`-Erzeugung und Auswahl an den Hyper-V-Export binden
    (Sample-Welle 5/6).
-4. Die implementierten providerneutralen Network- und Software-Intents an
+3. Die implementierten providerneutralen Network- und Software-Intents an
    Hyper-V-LAN/NAT/IPAM und Software-Runtime binden.
-5. Artifact Registry, Refresh/Rebuild und Evaluierungsablauf implementieren.
-6. Den belegten Windows-2025-/SQL-2025-Referenzpfad zur vollständigen
+4. Artifact Registry, Refresh/Rebuild und Evaluierungsablauf implementieren.
+5. Den belegten Windows-2025-/SQL-2025-Referenzpfad zur vollständigen
    allgemeinen Hyper-V-Manifestbindung und zu weiteren realen
    Versions-/Editionsnachweisen ausbauen.
-7. Katalogaktualität, verifizierte Prüfsummen (`catalog-verified`) und
+6. Katalogaktualität, verifizierte Prüfsummen (`catalog-verified`) und
    Baseline-Kompatibilität kontrolliert pflegen.
