@@ -27,6 +27,10 @@ plattformgebundene SQL-Features benötigen.
   Gastpfad über PowerShell Direct;
 - Windows-Specialization mit validiertem Computernamen, vor dem Gastneustart
   persistiertem `REBOOT_REQUIRED` und begrenztem PowerShell-Direct-Reconnect;
+- Windows-Testslot-Lizenz-Gate mit Online-Evaluationsaktivierung, positiver
+  Restlaufzeit und einer garantiert wieder entfernten zweiten NIC an einem
+  optional vorgegebenen oder automatisch aufgelösten External-Switch; bereits
+  aktivierte, wiederverwendete Slots benötigen diesen Netzwerkpfad nicht;
 - SQL-Readiness im Gast mit SQL-Dienst-, Major-Version- und Online-Prüfung der
   vier Systemdatenbanken; nur sanitierte `SQL_READY_RUN`-Evidenz wird in den
   VM-Notizen gespeichert;
@@ -122,4 +126,6 @@ Vertrag.
 - State und Cleanup Plan vor erster Mutation;
 - sequenzielle VM-Builds;
 - kein External-Switch-Test ohne ausdrückliche Runner-Freigabe;
+- kein realer Aktivierungstest ohne ausdrücklich freigegebene verbundene
+  physische NIC;
 - vollständige statische Contract Tests vor Native Smoke Tests.
