@@ -58,6 +58,17 @@ try {
         $cleanupPlan.status='PENDING'
         Write-LabArtifactJsonAtomic -Path $cleanupPlanPath -InputObject $cleanupPlan
 
+        $storageMigrationDirectory = Join-Path (Join-Path $binding.LabDataRoot 'Catalog') 'storage-migrations'
+        $null = New-Item -Path $storageMigrationDirectory -ItemType Directory -Force
+        $storageMigrationPath = Join-Path $storageMigrationDirectory 'cleanup-guard-fixture.journal.json'
+        Write-LabArtifactJsonAtomic -Path $storageMigrationPath -InputObject ([PSCustomObject]@{
+            ContractVersion='SqlServerLab.StorageMigrationJournal/1.0'
+            LocationId=[string]$binding.LocationId; Status='SWITCHING'
+        })
+        $storageMigrationBlocked = Invoke-CleanupPlan -RunDir $run.RunDir -ScopeId $run.ScopeId
+        $protectedAfterStorageMigrationBlock = Test-Path -LiteralPath $protectedVhdx -PathType Leaf
+        Remove-Item -LiteralPath $storageMigrationPath -Force
+
         $imageState = Join-Path $stateRoot 'artifacts/hyperv/cleanup-audit-image-state'
         $null = New-Item -Path $imageState -ItemType Directory -Force
         $imageBinding = Initialize-LabHyperVResourceBinding -ResourceId 'cleanup-audit-shared-image' `
@@ -112,6 +123,8 @@ try {
             ProtectedVhdx=$protectedVhdx; UntrackedFile=$untrackedFile; SharedParent=$sharedParent
             MigrationBlocked=$migrationBlocked; ForeignBlocked=$foreignBlocked
             ProtectedAfterMigrationBlock=$protectedAfterMigrationBlock
+            StorageMigrationBlocked=$storageMigrationBlocked
+            ProtectedAfterStorageMigrationBlock=$protectedAfterStorageMigrationBlock
             ProtectedAfterForeignBlock=(Test-Path -LiteralPath $protectedVhdx -PathType Leaf)
             SharedParentPreserved=(Test-Path -LiteralPath $sharedParent -PathType Leaf)
             ValidCleanup=$validCleanup
@@ -138,6 +151,9 @@ try {
         (Test-Path -LiteralPath $result.UntrackedFile -PathType Leaf))
     Add-CheckResult -Name 'Nichtterminales Migrationsjournal blockiert Cleanup vor jeder Mutation' -Success (
         $result.MigrationBlocked.Status -eq 'CLEANUP_BLOCKED' -and $result.ProtectedAfterMigrationBlock)
+    Add-CheckResult -Name 'Nichtterminale Location-Migration blockiert Cleanup vor jeder Mutation' -Success (
+        $result.StorageMigrationBlocked.Status -eq 'CLEANUP_BLOCKED' -and
+        $result.ProtectedAfterStorageMigrationBlock)
     Add-CheckResult -Name 'Manipulierter Shared-Image-Schritt blockiert atomar und bewahrt alle Dateien' -Success (
         $result.ForeignBlocked.Status -eq 'CLEANUP_BLOCKED' -and $result.ProtectedAfterForeignBlock -and $result.SharedParentPreserved)
     Add-CheckResult -Name 'Shared Image-Roots sind ausdrücklich nur zur Bewahrung inventarisiert' -Success (

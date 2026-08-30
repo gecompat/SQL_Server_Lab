@@ -161,6 +161,16 @@ try {
         $idempotent = Invoke-LabHyperVResourceMigration -PlanPath $ready.Path -Credential $credential -DataRoot $ManagedRoot -Confirm:$false
         $completedLifecycleGuard = Get-LabHyperVResourceMigrationLifecycleGuard -RunId $run.runId -StateRoot $Root
         $binding = Read-LabHyperVResourceBinding -StateDirectory $runDirectory -DataRoot $ManagedRoot
+        $storageMigrationDirectory = Join-Path (Join-Path $ManagedRoot 'Catalog') 'storage-migrations'
+        New-Item -Path $storageMigrationDirectory -ItemType Directory -Force | Out-Null
+        $storageMigrationJournalPath = Join-Path $storageMigrationDirectory 'lifecycle-guard-fixture.journal.json'
+        Write-LabArtifactJsonAtomic -Path $storageMigrationJournalPath -InputObject ([PSCustomObject]@{
+            ContractVersion='SqlServerLab.StorageMigrationJournal/1.0'
+            LocationId=[string]$binding.LocationId; Status='REBINDING'
+        })
+        $storageMigrationLifecycleGuard = Get-LabHyperVResourceMigrationLifecycleGuard `
+            -RunId $run.runId -StateRoot $Root
+        Remove-Item -LiteralPath $storageMigrationJournalPath -Force
         $journalJson = Get-Content -LiteralPath $completed.JournalPath -Raw -Encoding utf8
         $journal = $journalJson | ConvertFrom-Json -Depth 50
         $imageJournal = Get-Content -LiteralPath (Get-LabHyperVImageMigrationPaths -StateRoot $Root).Journal -Raw -Encoding utf8 | ConvertFrom-Json -Depth 50
@@ -174,6 +184,7 @@ try {
             RecoveryMessage=$recoveryMessage; FailureJournal=$journalAfterFailure
             LegacyLifecycleGuard=$legacyLifecycleGuard; RecoveryLifecycleGuard=$recoveryLifecycleGuard
             RecoveryLifecycleMessage=$recoveryLifecycleMessage; CompletedLifecycleGuard=$completedLifecycleGuard
+            StorageMigrationLifecycleGuard=$storageMigrationLifecycleGuard
             SourceRetainedAfterFailure=$sourceRetainedAfterFailure; Completed=$completed; Idempotent=$idempotent
             Binding=$binding; Journal=$journal; JournalSchemaValid=($journalJson | Test-Json -SchemaFile $JournalSchema -ErrorAction SilentlyContinue)
             Cleanup=$cleanup; Identity=$identity; SourceDisk=$sourceDisk; ExternalDisk=$externalDisk
@@ -227,6 +238,10 @@ try {
     Add-CheckResult -Name 'COMPLETED erlaubt Lifecycle nur mit revalidiertem committed Run-Binding' -Success (
         $result.CompletedLifecycleGuard.Allowed -and $result.CompletedLifecycleGuard.JournalStatus -eq 'COMPLETED' -and
         $result.CompletedLifecycleGuard.BindingStatus -eq 'VALID'
+    )
+    Add-CheckResult -Name 'Nichtterminale allgemeine Storage-Migration blockiert Hyper-V-Lifecycle' -Success (
+        -not $result.StorageMigrationLifecycleGuard.Allowed -and
+        $result.StorageMigrationLifecycleGuard.ReasonCode -eq 'HYPERV_STORAGE_MIGRATION_LIFECYCLE_BLOCKED'
     )
     Add-CheckResult -Name 'Legacy-Child wird genau einmal auf das verifizierte Lab_Data-Parent umgehängt' -Success (
         $result.ImageWaiting.Status -eq 'WAITING_FOR_CONSUMERS' -and $result.SetVhdCalls -eq 1 -and
