@@ -133,20 +133,31 @@ function Get-LabAutomatedTestEnvironmentStatus {
                         if ($observedRuntimeState -and $observedRuntimeState -ne 'UNKNOWN') { $runtimeState = $observedRuntimeState }
                         if ([string]$registered.platform -eq 'windows') {
                             $planState = if ($instance -and $instance.sqlDeploymentPlan) { [string]$instance.sqlDeploymentPlan.state } else { $null }
-                            switch ($planState) {
-                                'SQL_SLOT_READY' {
-                                    if ($runtimeState -eq 'RUNNING') { $statusCode = 'READY'; $displayStatus = 'fertig' }
-                                    else { $statusCode = $runtimeState; $displayStatus = "SQL fertig, VM $($runtimeState.ToLowerInvariant()) (startbar)" }
-                                }
-                                'CONFIGURATION_PENDING' { $statusCode = $planState; $displayStatus = 'SQL-Abschluss fortsetzbar' }
-                                'INSTALL_RETRY_PENDING' { $statusCode = $planState; $displayStatus = 'SQL-Installation wiederholbar' }
-                                'INSTALLING' { $statusCode = $planState; $displayStatus = 'SQL-Installation läuft' }
-                                'PLANNED' { $statusCode = $planState; $displayStatus = 'SQL-Installation fortsetzbar' }
-                                default {
-                                    if ($instance -and $instance.windowsProvisioning -and [string]$instance.windowsProvisioning.state -eq 'COMPLETE') {
-                                        $statusCode = 'WINDOWS_READY'; $displayStatus = 'Windows fertig, SQL noch offen'
+                            $activationState = if ($instance -and $instance.windowsActivation) { [string]$instance.windowsActivation.state } else { 'ACTIVATION_REQUIRED' }
+                            $windowsProvisioningComplete = $instance -and $instance.windowsProvisioning -and
+                                [string]$instance.windowsProvisioning.state -eq 'COMPLETE'
+                            if (-not $windowsProvisioningComplete) {
+                                $statusCode = 'OOBE_PENDING'
+                                $displayStatus = 'Windows-OOBE noch offen'
+                            }
+                            elseif ($activationState -notin @('EVALUATION_ACTIVE','LICENSED')) {
+                                $statusCode = 'ACTIVATION_REQUIRED'
+                                $displayStatus = 'Windows-Aktivierung erforderlich'
+                            }
+                            else {
+                                switch ($planState) {
+                                    'SQL_SLOT_READY' {
+                                        if ($runtimeState -eq 'RUNNING') { $statusCode = 'READY'; $displayStatus = 'fertig' }
+                                        else { $statusCode = $runtimeState; $displayStatus = "SQL fertig, VM $($runtimeState.ToLowerInvariant()) (startbar)" }
                                     }
-                                    else { $statusCode = 'OOBE_PENDING'; $displayStatus = 'Windows-OOBE noch offen' }
+                                    'CONFIGURATION_PENDING' { $statusCode = $planState; $displayStatus = 'SQL-Abschluss fortsetzbar' }
+                                    'INSTALL_RETRY_PENDING' { $statusCode = $planState; $displayStatus = 'SQL-Installation wiederholbar' }
+                                    'INSTALLING' { $statusCode = $planState; $displayStatus = 'SQL-Installation läuft' }
+                                    'PLANNED' { $statusCode = $planState; $displayStatus = 'SQL-Installation fortsetzbar' }
+                                    default {
+                                        $statusCode = 'WINDOWS_READY'
+                                        $displayStatus = 'Windows fertig, SQL noch offen'
+                                    }
                                 }
                             }
                         }
@@ -692,7 +703,10 @@ function Repair-SqlServerLabAutomatedTestEnvironment {
     .DESCRIPTION
         Gleicht registrierte Docker-/Podman-Mitglieder der geschützten Testgruppe
         auf 4 vCPU, 4096 MB Container-RAM, 3276 MB SQL-internes Speicherlimit,
-        Autostart und den TLS-tauglichen Healthcheck ab. Zusätzlich erhalten
+        Autostart und den TLS-tauglichen Healthcheck ab. Windows-Slots werden
+        live auf eine aktivierte, noch gültige Evaluation oder lizenzierte
+        Vollversion geprüft. Eine noch nicht aktivierte Evaluation wird über
+        eine temporäre External-NIC online aktiviert. Zusätzlich erhalten
         alle Container und belegten Hyper-V-Slots einen aus ihrem Registry-
         Schlüssel abgeleiteten, sprechenden Runtime-Namen. Ports, Volumes,
         Run-IDs und Kennwörter bleiben erhalten. Jeder Container-Austausch
@@ -705,6 +719,10 @@ function Repair-SqlServerLabAutomatedTestEnvironment {
     .PARAMETER ReadinessTimeoutSeconds
         Maximale Wartezeit pro ausgetauschtem Linux-Container bis zur stabilen
         SQL-Bereitschaft.
+    .PARAMETER WindowsActivationSwitchName
+        Optionale Auswahl eines vorhandenen External-Switches an einer
+        verbundenen physischen NIC. Ohne Angabe wird er nur bei tatsächlichem
+        Aktivierungsbedarf automatisch gewählt.
     .PARAMETER OutputDirectory
         Optionales Exportziel. Standard ist Lab_Data/Exports.
     .PARAMETER StateRoot
@@ -719,6 +737,7 @@ function Repair-SqlServerLabAutomatedTestEnvironment {
     param(
         [switch]$Force,
         [ValidateRange(10, 600)][int]$ReadinessTimeoutSeconds = 180,
+        [string]$WindowsActivationSwitchName,
         [string]$OutputDirectory,
         [string]$StateRoot
     )
@@ -730,11 +749,11 @@ function Repair-SqlServerLabAutomatedTestEnvironment {
     if ($registeredEntries.Count -eq 0) {
         return [PSCustomObject]@{ Status='EMPTY'; Repaired=0; Renamed=0; Unchanged=0; Errors=0; Export=$null }
     }
-    if (-not $PSCmdlet.ShouldProcess("$($registeredEntries.Count) automatisierte Testumgebung(en)", 'Runtime-Namen, Ressourcen- und Readiness-Vertrag der geschützten Gruppe reparieren')) {
+    if (-not $PSCmdlet.ShouldProcess("$($registeredEntries.Count) automatisierte Testumgebung(en)", 'Runtime-Namen, Ressourcen, Windows-Aktivierung und Readiness-Vertrag der geschützten Gruppe reparieren')) {
         return [PSCustomObject]@{ Status='CANCELLED'; Repaired=0; Renamed=0; Unchanged=0; Errors=0; Export=$null }
     }
     if (-not $Force -and -not $PSCmdlet.ShouldContinue(
-        'Linux-Container werden bei Bedarf kontrolliert ersetzt; belegte Hyper-V-Slots können für die Umbenennung kurz neu gestartet werden. Fortfahren?',
+        'Linux-Container werden bei Bedarf kontrolliert ersetzt; noch nicht aktivierte Windows-Evaluationen verwenden kurz einen verbundenen External-Switch und Hyper-V-Slots können neu gestartet werden. Fortfahren?',
         'Automatisierte Testumgebungsgruppe reparieren')) {
         return [PSCustomObject]@{ Status='CANCELLED'; Repaired=0; Renamed=0; Unchanged=0; Errors=0; Export=$null }
     }
@@ -768,6 +787,24 @@ function Repair-SqlServerLabAutomatedTestEnvironment {
                     $null = Set-LabServerConfig -Config $serverConfig -HostName ([string]$instance.host) -Port ([int]$instance.port) `
                         -SaPassword $saPassword -Provider ([string]$instance.provider) -ContainerName ([string]$result.Container)
                     if ($result.Changed) { $repaired++ } else { $unchanged++ }
+                }
+                else {
+                    $lab = Get-HyperVLabWorkflowRun -RunId $runId -StateRoot $StateRoot
+                    $runtime = Get-HyperVInstanceStatus -VMName ([string]$lab.Instance.vmName) `
+                        -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
+                    if (-not $runtime.Exists) { throw 'TEST_ENVIRONMENT_HYPERV_VM_NOT_FOUND' }
+                    if ([string]$runtime.State -ne 'Running') {
+                        $null = Start-HyperVLabEnvironment -RunId $runId -StateRoot $StateRoot
+                    }
+                    $license = Get-HyperVWindowsSlotLicenseStatus -RunId $runId -Persist `
+                        -TimeoutSeconds ([Math]::Max(30, $ReadinessTimeoutSeconds)) -StateRoot $StateRoot
+                    if ([string]$license.State -notin @('EVALUATION_ACTIVE','LICENSED')) {
+                        $license = Invoke-HyperVWindowsSlotActivation -RunId $runId `
+                            -ExternalSwitchName $WindowsActivationSwitchName `
+                            -TimeoutSeconds ([Math]::Max(60, $ReadinessTimeoutSeconds)) -StateRoot $StateRoot
+                        $repaired++
+                    }
+                    else { $unchanged++ }
                 }
                 $nameResult = Rename-LabAutomatedTestEnvironmentRuntime -RunId $runId `
                     -InstanceId ([string]$entry.instanceId) -Key ([string]$entry.key) -StateRoot $StateRoot

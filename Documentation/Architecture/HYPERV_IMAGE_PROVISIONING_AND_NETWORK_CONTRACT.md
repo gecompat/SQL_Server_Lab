@@ -387,6 +387,20 @@ reale LAN einbinden. Er darf nur nach expliziter Wahl der physischen NIC
 angelegt oder verwendet werden. External-Switch-Tests laufen ausschließlich auf
 dafür freigegebenen Runnern.
 
+Automatisierte Windows-Testslots verwenden eine engere, implementierte
+Sonderregel: Nach OOBE und vor SQL Setup darf eine zweite, reserviert benannte
+NIC ausschließlich für die Online-Aktivierung der Evaluation an einen bereits
+vorhandenen External-Switch angebunden werden. Switch und verbundene physische
+NIC werden vor der Mutation geprüft. Die interne Lab-NIC bleibt erhalten, die
+temporäre NIC wird auch im Fehlerfall entfernt, und `READY` setzt eine live
+bestätigte Evaluation mit `LicenseStatus = 1` und positiver Restlaufzeit oder
+eine lizenzierte Vollversion voraus. Edition-Konvertierung und Product Key sind
+nicht Bestandteil dieses Evaluationspfads. Die immutable OS-Baseline wird nicht
+aktiviert. Die Aktivierung wird in der run-lokalen Child-VHDX des Pool-Slots
+gespeichert. Bei dessen direkter Wiederverwendung beendet die positive
+Live-Prüfung den Gate ohne External-Switch; nur ein noch nicht aktivierter Slot
+löst dessen automatische Auflösung und die temporäre NIC aus.
+
 ## 11. SQL-Installationsdialog und Automation
 
 Der Wizard fragt nur Werte ab, die nicht bereits durch Katalog, Profil oder
@@ -797,6 +811,7 @@ erneut prüfen. Grundlage dieses Zielvertrags sind:
 - Microsoft (2025): [Sysprep Command-Line Options](https://learn.microsoft.com/en-us/windows-hardware/manufacture/desktop/sysprep-command-line-options?view=windows-11).
 - Microsoft (2025): [Windows Setup States](https://learn.microsoft.com/en-us/windows-hardware/manufacture/desktop/windows-setup-states?view=windows-11).
 - Microsoft (2025): [PowerShell Direct](https://learn.microsoft.com/en-us/windows-server/virtualization/hyper-v/powershell-direct).
+- Microsoft (2025): [Upgrade and conversion options for Windows Server](https://learn.microsoft.com/en-us/windows-server/get-started/upgrade-conversion-options).
 - Microsoft (2025): [`New-VHD`](https://learn.microsoft.com/en-us/powershell/module/hyper-v/new-vhd?view=windowsserver2025-ps).
 - Microsoft (2025): [`Add-VMHardDiskDrive`](https://learn.microsoft.com/en-us/powershell/module/hyper-v/add-vmharddiskdrive?view=windowsserver2025-ps).
 - Microsoft (2025): [`Get-VHD`](https://learn.microsoft.com/en-us/powershell/module/hyper-v/get-vhd?view=windowsserver2025-ps).

@@ -21,7 +21,9 @@ Die implementierte Hyper-V-Grundlage umfasst eine immutable Image-Registry,
 deterministische Baseline-Auswahl, Generation 2, Secure Boot,
 verifizierte read-only Parent-VHDX, Differencing Child, stabil identifizierte
 run-lokale Zusatz-VHDX, PowerShell-Direct-Gastinitialisierung, Windows-
-Specialization mit Reboot/Reconnect, SQL-Readiness-Orchestrierung, Status,
+Specialization mit Reboot/Reconnect, einen fail-closed Lizenz-Gate für
+automatisierte Windows-Testslots mit temporärer External-NIC,
+SQL-Readiness-Orchestrierung, Status,
 Start, Stop und scopegebundenen Cleanup. Der weiterführende Zielvertrag
 für OS-/SQL-Provisionierung, Drives, Network Intents, Software, Reconcile und
 Artifact Refresh steht in

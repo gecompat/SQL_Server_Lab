@@ -1530,6 +1530,7 @@ function Invoke-LabAutomatedTestEnvironmentInteractive {
                     Profile='standard'; NetworkMode='host-access'; HostPort=0; Collation='SQL_Latin1_General_CP1_CI_AS'
                     SqlMaxMemoryMB=3072; MaxDop=4; CostThreshold=50; StorageMode='standard'; Drives=@()
                     TempDbFileCount=4; TempDbFileSizeMB=256; TempDbGrowthMB=64; TempDbVolumeCount=1; AutoStart='on'
+                    WindowsActivationRequired=$true
                 }
                 Invoke-LabNewHyperVSqlEnvironmentWorkflowInteractive -Intent $intent
                 $reusedRunId = if ($intent.PSObject.Properties['ReusedWindowsSlotRunId']) { [string]$intent.ReusedWindowsSlotRunId } else { $null }
@@ -1549,6 +1550,7 @@ function Invoke-LabAutomatedTestEnvironmentInteractive {
             }
             catch { Write-LabError "$($request.Key) konnte nicht vollständig erstellt werden: $($_.Exception.Message)" }
         }
+        $intent = $null
         $export = Export-SqlServerLabTestEnvironment
         $null = Sync-LabAutomatedTestEnvironmentConnectionCenter
         Write-LabSuccess "TestUmgebung.env geschrieben: $($export.EnvPath)"
@@ -3470,6 +3472,11 @@ function Complete-LabHyperVManualWindowsWorkflowInteractive {
     Write-LabInfo 'Windows-Grundinstallation wird jetzt geprüft und das Labnetz eingerichtet.'
     $result = Complete-HyperVLabManualWindowsSlot -RunId $RunId -Credential $credential
     Write-LabSuccess "Windows-Slot übernommen: $($result.VMName) · $($result.ComputerName)"
+    if ($Intent -and $Intent.PSObject.Properties['WindowsActivationRequired'] -and $Intent.WindowsActivationRequired) {
+        Write-LabInfo 'Windows-Server-Evaluation wird vor dem SQL-Ausbau online aktiviert.'
+        $activation = Invoke-HyperVWindowsSlotActivation -RunId $RunId -Credential $credential
+        Write-LabSuccess "Windows-Testslot ist aktiviert: $($activation.State), Ablauf $($activation.EvaluationExpiresAt)."
+    }
     if (-not $ContinueWithSql) { return $true }
 
     Write-LabInfo 'Der Workflow fährt ohne Menüwechsel mit der SQL-Konfiguration fort.'
@@ -3575,6 +3582,16 @@ function Invoke-LabReusableHyperVWindowsSlotInteractive {
     if ($Intent -and $Intent.PSObject.Properties['AutoStart']) {
         $autoStart = Set-HyperVLabAutoStart -RunId ([string]$Slot.RunId) -AutoStart ([string]$Intent.AutoStart)
         Write-LabInfo "VM-Autostart für übernommenen Slot: $($autoStart.AutoStart)."
+    }
+    if ([string]$Slot.Phase -ne 'OOBE_PENDING' -and $Intent -and
+        $Intent.PSObject.Properties['WindowsActivationRequired'] -and $Intent.WindowsActivationRequired) {
+        if ([string]$Slot.LiveState -ne 'Running') {
+            $null = Start-HyperVLabEnvironment -RunId ([string]$Slot.RunId)
+            $Slot.LiveState = 'Running'
+        }
+        Write-LabInfo 'Lizenzstatus des übernommenen Windows-Testslots wird live geprüft und bei Bedarf repariert.'
+        $activation = Invoke-HyperVWindowsSlotActivation -RunId ([string]$Slot.RunId)
+        Write-LabSuccess "Windows-Testslot ist aktiviert: $($activation.State), Ablauf $($activation.EvaluationExpiresAt)."
     }
     if ([string]$Slot.Phase -eq 'SQL_READY') {
         Write-LabSuccess 'Die registrierte SQL-Testumgebung ist bereits vollständig bereit; es wird kein weiterer Pool-Slot belegt.'

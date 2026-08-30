@@ -79,6 +79,9 @@ function Start-SqlServerLabAutomatedTestEnvironment {
         Hyper-V-VMs der geschützten automatisierten Testgruppe. Vorhandene SQL-
         Engine-Dienste werden bei Bedarf gestartet und anschließend mit dem im
         Framework-Secret-Store liegenden SA-Kennwort authentifiziert geprüft.
+        Windows-Slots müssen zusätzlich live eine aktivierte, noch gültige
+        Evaluation oder eine lizenzierte Vollversion melden; andernfalls bleibt
+        die Gruppe fail-closed.
         Runs, Registrierungen, Secrets, Volumes und VHDX-Dateien bleiben erhalten.
         Der kanonische TestUmgebung-Export wird nach dem Gruppenlauf live
         erneuert und bleibt bei jedem Teilfehler fail-closed.
@@ -185,6 +188,11 @@ function Start-SqlServerLabAutomatedTestEnvironment {
             $guestPassword = Get-LabSecret -Path $lab.RunDirectory -Name 'guest-administrator-password'
             if (-not $guestPassword) { throw 'TEST_ENVIRONMENT_GUEST_SECRET_NOT_FOUND' }
             $credential = [PSCredential]::new('Administrator', $guestPassword)
+            $license = Get-HyperVWindowsSlotLicenseStatus -RunId $runId -Credential $credential `
+                -TimeoutSeconds $TimeoutSeconds -Persist -StateRoot $StateRoot
+            if ([string]$license.State -notin @('EVALUATION_ACTIVE','LICENSED')) {
+                throw "TEST_ENVIRONMENT_WINDOWS_ACTIVATION_REQUIRED: $($license.State)"
+            }
             $guestReceipt = Invoke-HyperVPowerShellDirect `
                 -VMName ([string]$lab.Instance.vmName) `
                 -ExpectedRunId ([string]$lab.Run.runId) `
@@ -229,7 +237,7 @@ function Start-SqlServerLabAutomatedTestEnvironment {
                 Key=[string]$entry.key; RunId=$runId; Platform='windows'; Provider='hyperv'; Status='READY'
                 Action=if ($vmStarted) { 'STARTED' } else { 'UNCHANGED' }
                 VMStarted=$vmStarted; SqlServices=[int]$guestReceipt.Services
-                ServicesStarted=[int]$guestReceipt.StartedServices; Errors=0
+                ServicesStarted=[int]$guestReceipt.StartedServices; WindowsActivation=[string]$license.State; Errors=0
             })
         }
         catch {
