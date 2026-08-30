@@ -666,6 +666,13 @@ Migration vorhandener Legacy-Slots. Der physische N5-Hyper-V-Mehrgeräte-
 Nachweis wurde am 2026-08-30 abgeschlossen; das Gesamtgate bleibt bis zur realen
 Abnahme dieses P0-Fixes `IN_PROGRESS / P0_FIX_FIRST`.
 
+Die Grundlage für `HVR-001` und `HVR-002` ist implementiert: Ein versioniertes
+lokales `HyperVResourceBinding` löst kurze Create-Roots ausschließlich aus
+registrierten `Lab_Data`-Locations auf, revalidiert Controller-, Location- und
+Volume-Identität und trennt Legacy-Discovery von neuen Create-Roots. Dieser
+Vertrag schützt die Runtime noch nicht vollständig; Provider, Builder und
+Image-Store erzwingen ihn erst mit `HVR-003`/`HVR-004` an jeder Mutation.
+
 ## Lokale State- und Secret-Daten
 
 State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien liegen außerhalb des Git-Checkouts. Sie dürfen nicht in Issues, Pull Requests oder versionierte Diagnoseartefakte kopiert werden.

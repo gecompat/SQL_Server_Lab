@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sql-server-lab.local/schemas/hyperv-resource-binding.schema.json",
+  "title": "SqlServerLab.HyperVResourceBinding/1.0",
+  "type": "object",
+  "required": [
+    "ContractVersion", "BindingMode", "ResourceClass", "ResourceId", "ResourceKey",
+    "ControllerId", "LocationId", "VolumeId", "LabDataRoot", "HyperVResourceRoot",
+    "AllowsCreate", "AllowsExistingLifecycle", "SystemVolume", "ObservedFreeBytes", "ResolvedAt"
+  ],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.HyperVResourceBinding/1.0" },
+    "BindingMode": { "const": "CREATE" },
+    "ResourceClass": { "enum": ["Run", "Build", "Image", "Staging", "Recovery"] },
+    "ResourceId": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "ResourceKey": { "type": "string", "pattern": "^[a-f0-9]{20}$" },
+    "ControllerId": { "type": "string", "format": "uuid" },
+    "LocationId": { "type": "string", "format": "uuid" },
+    "VolumeId": { "type": "string", "minLength": 1 },
+    "LabDataRoot": { "type": "string", "minLength": 1 },
+    "HyperVResourceRoot": { "type": "string", "minLength": 1, "maxLength": 180 },
+    "AllowsCreate": { "const": true },
+    "AllowsExistingLifecycle": { "const": true },
+    "SystemVolume": { "type": "boolean" },
+    "ObservedFreeBytes": { "type": "integer", "minimum": 0 },
+    "ResolvedAt": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}
