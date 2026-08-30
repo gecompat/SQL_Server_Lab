@@ -765,6 +765,15 @@ validation:
       - python_r_and_java_external_script_roundtrip
       - warm_restart_and_cold_start_postconditions
       - sanitized_evidence_and_scope_bound_cleanup
+  hyperv_storage_acceptance:
+    source: Tests/Integration/Invoke-HyperVStorageAcceptance.ps1
+    command: '.\Tests\Integration\Invoke-HyperVStorageAcceptance.ps1 -StorageIntentPath .\Schemas\hyperv-storage-n5-intent.sample.json -MediaRoot D:\Lab_Base'
+    execution_status: "implementiert, realer Vier-Geraete-Nachweis noch nicht ausgefuehrt"
+    checks:
+      - four_tempdb_data_files_on_four_proven_backing_devices
+      - separate_tempdb_log_lane_and_sql_service_restart
+      - bound_plan_create_and_synthetic_backup_restore_roundtrip
+      - vm_restart_persistence_and_scope_bound_vhdx_cleanup
   external_runtime_container_acceptance:
     source: Tests/Integration/Invoke-ExternalRuntimeContainerAcceptance.ps1
     docker: '.\Tests\Integration\Invoke-ExternalRuntimeContainerAcceptance.ps1 -Provider docker -EvidencePath <external-evidence-path>'

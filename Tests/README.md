@@ -39,7 +39,18 @@ dokumentiert. Ihre ausfuehrbaren Einstiege sind:
 .\Tests\Integration\Invoke-ContainerCliAcceptance.ps1 -Provider podman -Version 2022-CU18
 .\Tests\Integration\Invoke-HyperVCliAcceptance.ps1 -MediaRoot D:\Lab_Base -SqlVersion 2025
 .\Tests\Integration\Invoke-HyperVSqlPreparedImageAcceptance.ps1
+.\Tests\Integration\Invoke-HyperVStorageAcceptance.ps1 `
+    -StorageIntentPath .\Schemas\hyperv-storage-n5-intent.sample.json `
+    -MediaRoot D:\Lab_Base
 ```
+
+Der letzte Runner ist der ausführbare Vertrag für Gate N5. Er startet nur,
+wenn die vier TempDB-Selektoren auf vier nachweislich getrennte Backing Devices
+gebunden sind und das TempDB-Log eine eigene Location besitzt. Er erzeugt State
+und Cleanup-Plan vor der ersten VM-Mutation, prüft SQL-Dienstrestart, CREATE,
+einen synthetischen Backup/Restore-Roundtrip, VM-Restart und entfernt danach
+VM, Child-VHDX sowie alle zusätzlichen run-eigenen VHDX. Ein vorhandener
+Runner oder ein grüner statischer Check ist noch kein Runtime-Nachweis.
 
 Interpretation:
 
