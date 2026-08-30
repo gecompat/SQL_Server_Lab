@@ -4,7 +4,7 @@
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
-$temporaryParent = Join-Path ([IO.Path]::GetTempPath()) "sql-lab-hvr-migration-$([guid]::NewGuid().ToString('N'))"
+$temporaryParent = Join-Path ([IO.Path]::GetTempPath()) "hvr-$([guid]::NewGuid().ToString('N').Substring(0,8))"
 $dataRoot = Join-Path $temporaryParent 'managed/Lab_Data'
 $stateRoot = Join-Path $temporaryParent 'state'
 $failures = [Collections.Generic.List[string]]::new(); $passed = 0
@@ -31,10 +31,17 @@ try {
         New-Item -Path $externalRoot -ItemType Directory -Force | Out-Null
         $externalDisk = Join-Path $externalRoot 'external-data.vhdx'
         [IO.File]::WriteAllBytes($externalDisk, [Text.Encoding]::UTF8.GetBytes('external-vhdx-content'))
-        $parentRoot = Join-Path $ManagedRoot 'HyperV/Images/immutable-parent'
+        $legacyImageRoot = Join-Path $Root 'artifacts/hyperv/images'
+        $parentBytes = [Text.Encoding]::ASCII.GetBytes('vhdxfile-synthetic-legacy-parent')
+        $parentHash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($parentBytes)).ToLowerInvariant()
+        $artifactId = "hyperv-resource-migration-$parentHash"
+        $parentRoot = Join-Path $legacyImageRoot $artifactId
         New-Item -Path $parentRoot -ItemType Directory -Force | Out-Null
         $parentDisk = Join-Path $parentRoot 'parent.vhdx'
-        [IO.File]::WriteAllBytes($parentDisk, [Text.Encoding]::UTF8.GetBytes('immutable-parent-vhdx'))
+        [IO.File]::WriteAllBytes($parentDisk, $parentBytes)
+        [PSCustomObject]@{ contractVersion='1'; artifactId=$artifactId; sha256=$parentHash; displayName='Legacy migration parent' } |
+            ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $parentRoot 'metadata.json') -Encoding utf8
+        (Get-Item -LiteralPath $parentDisk -Force).IsReadOnly = $true
 
         $notes = ConvertTo-HyperVLabNotes -RunId $run.runId -ScopeId $run.scopeId -InstanceId primary `
             -ChildVhdxPath $sourceDisk -AdditionalDrives @([PSCustomObject]@{
@@ -51,7 +58,11 @@ try {
         $script:externalDrive = [PSCustomObject]@{ Path=$externalDisk; ControllerType='SCSI'; ControllerNumber=0; ControllerLocation=1 }
         $script:snapshotCount = 1
         $script:failReadiness = $false
+        $script:failSetVhdAfterMutation = $false
         $script:moveCalls = 0
+        $script:setVhdCalls = 0
+        $script:vhdParents = @{}
+        $script:vhdParents[[IO.Path]::GetFullPath($sourceDisk)] = [IO.Path]::GetFullPath($parentDisk)
 
         function Get-VM {
             param([string]$Name, [Parameter(ValueFromPipeline=$true)]$InputObject)
@@ -64,11 +75,23 @@ try {
         function Get-VMSnapshot { param($VM); if ($script:snapshotCount -gt 0) { [PSCustomObject]@{ Name='unsafe-checkpoint' } } }
         function Get-VHD {
             param([string]$Path)
+            $fullPath = [IO.Path]::GetFullPath($Path)
+            $parent = if ($script:vhdParents.ContainsKey($fullPath)) { [string]$script:vhdParents[$fullPath] }
+                elseif ((Split-Path -Leaf $fullPath) -eq 'legacy-os.vhdx') { [IO.Path]::GetFullPath($parentDisk) }
+                else { $null }
             [PSCustomObject]@{
-                Path=[IO.Path]::GetFullPath($Path); VhdType='Differencing'; Size=64MB
+                Path=$fullPath; VhdType=if ($parent) { 'Differencing' } else { 'Fixed' }; Size=64MB
                 FileSize=(Get-Item -LiteralPath $Path).Length
-                DiskIdentifier='11111111-1111-1111-1111-111111111111'; ParentPath=$parentDisk
+                DiskIdentifier='11111111-1111-1111-1111-111111111111'; ParentPath=$parent
             }
+        }
+        function Set-VHD {
+            [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification='Synthetischer Hyper-V-Mock ohne Hostmutation.')]
+            param([string]$Path,[string]$ParentPath)
+            $fullPath=[IO.Path]::GetFullPath($Path); $script:vhdParents[$fullPath]=[IO.Path]::GetFullPath($ParentPath)
+            [IO.File]::AppendAllText($fullPath, '|reparented|')
+            $script:setVhdCalls++
+            if ($script:failSetVhdAfterMutation) { $script:failSetVhdAfterMutation=$false; throw 'SYNTHETIC_REPARENT_INTERRUPTION' }
         }
         function Stop-HyperVInstance { param($VMName,$ExpectedRunId,$ExpectedScopeId); $script:migrationVm.State='Off'; [PSCustomObject]@{ State='Off' } }
         function Start-HyperVInstance { param($VMName,$ExpectedRunId,$ExpectedScopeId); $script:migrationVm.State='Running'; [PSCustomObject]@{ State='Running' } }
@@ -94,6 +117,10 @@ try {
         $null = Add-CleanupStep -RunDir $runDirectory -ResourceType vhdx -ResourceId $sourceDisk -Action remove `
             -Provider hyperv -ProviderSubRunId provider-hyperv
 
+        $imagePlan = New-LabHyperVImageMigrationPlan -StateRoot $Root -DataRoot $ManagedRoot
+        $imageWaiting = Invoke-LabHyperVImageMigration -PlanPath $imagePlan.Path -DataRoot $ManagedRoot -Confirm:$false
+        $targetParent = [string]$imagePlan.Plan.Inventory.Artifacts[0].DestinationParentPath
+
         $blocked = New-LabHyperVResourceMigrationPlan -RunId $run.runId -StateRoot $Root -DataRoot $ManagedRoot
         $script:snapshotCount = 0
         $ready = New-LabHyperVResourceMigrationPlan -RunId $run.runId -StateRoot $Root -DataRoot $ManagedRoot
@@ -108,34 +135,44 @@ try {
             ''
         } catch { $_.Exception.Message }
         $ready = New-LabHyperVResourceMigrationPlan -RunId $run.runId -StateRoot $Root -DataRoot $ManagedRoot
+        $ready.Plan.Inventory.VMs[0].LegacyDisks[0].TargetParentPath = $externalDisk
+        Write-LabArtifactJsonAtomic -Path $ready.Path -InputObject $ready.Plan
+        $tamperedParentMessage = try {
+            Invoke-LabHyperVResourceMigration -PlanPath $ready.Path -Credential $credential -DataRoot $ManagedRoot -Confirm:$false | Out-Null
+            ''
+        } catch { $_.Exception.Message }
+        $ready = New-LabHyperVResourceMigrationPlan -RunId $run.runId -StateRoot $Root -DataRoot $ManagedRoot
         $whatIf = Invoke-LabHyperVResourceMigration -PlanPath $ready.Path -Credential $credential -DataRoot $ManagedRoot -WhatIf
         $whatIfPreservedState = (Test-Path -LiteralPath $sourceDisk -PathType Leaf) -and $script:migrationVm.Path -eq $legacyRoot -and $script:moveCalls -eq 0
-        $script:failReadiness = $true
+        $script:failSetVhdAfterMutation = $true
         $recoveryMessage = try {
             Invoke-LabHyperVResourceMigration -PlanPath $ready.Path -Credential $credential -DataRoot $ManagedRoot -Confirm:$false | Out-Null
             ''
         } catch { $_.Exception.Message }
         $journalAfterFailure = Get-Content -LiteralPath (Join-Path $runDirectory 'hyperv-resource-migration.local.journal.json') -Raw -Encoding utf8 | ConvertFrom-Json -Depth 40
         $sourceRetainedAfterFailure = Test-Path -LiteralPath $sourceDisk -PathType Leaf
-        $script:failReadiness = $false
         $completed = Invoke-LabHyperVResourceMigration -PlanPath $ready.Path -Credential $credential -DataRoot $ManagedRoot -Confirm:$false
         $idempotent = Invoke-LabHyperVResourceMigration -PlanPath $ready.Path -Credential $credential -DataRoot $ManagedRoot -Confirm:$false
         $binding = Read-LabHyperVResourceBinding -StateDirectory $runDirectory -DataRoot $ManagedRoot
         $journalJson = Get-Content -LiteralPath $completed.JournalPath -Raw -Encoding utf8
         $journal = $journalJson | ConvertFrom-Json -Depth 50
+        $imageJournal = Get-Content -LiteralPath (Get-LabHyperVImageMigrationPaths -StateRoot $Root).Journal -Raw -Encoding utf8 | ConvertFrom-Json -Depth 50
         $cleanup = Get-Content -LiteralPath (Join-Path $runDirectory 'cleanup-plan.json') -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
         $identity = ConvertFrom-HyperVLabNotes -Notes ([string]$script:migrationVm.Notes)
         [PSCustomObject]@{
             Blocked=$blocked.Plan; Ready=$ready.Plan
             PlanSchemaValid=(($ready.Plan | ConvertTo-Json -Depth 40) | Test-Json -SchemaFile $PlanSchema -ErrorAction SilentlyContinue)
-            TamperedPlanMessage=$tamperedPlanMessage; WhatIf=$whatIf; WhatIfPreservedState=$whatIfPreservedState
+            TamperedPlanMessage=$tamperedPlanMessage; TamperedParentMessage=$tamperedParentMessage
+            WhatIf=$whatIf; WhatIfPreservedState=$whatIfPreservedState
             RecoveryMessage=$recoveryMessage; FailureJournal=$journalAfterFailure
             SourceRetainedAfterFailure=$sourceRetainedAfterFailure; Completed=$completed; Idempotent=$idempotent
             Binding=$binding; Journal=$journal; JournalSchemaValid=($journalJson | Test-Json -SchemaFile $JournalSchema -ErrorAction SilentlyContinue)
             Cleanup=$cleanup; Identity=$identity; SourceDisk=$sourceDisk; ExternalDisk=$externalDisk
             LegacyRoot=$legacyRoot
             ActualOsDisk=[string]$script:osDrive.Path; ActualExternalDisk=[string]$script:externalDrive.Path
-            VM=$script:migrationVm; MoveCalls=$script:moveCalls
+            VM=$script:migrationVm; MoveCalls=$script:moveCalls; SetVhdCalls=$script:setVhdCalls
+            SourceParent=$parentDisk; TargetParent=$targetParent; ImageWaiting=$imageWaiting; ImageJournal=$imageJournal
+            ActualParent=[string](Get-VHD -Path ([string]$script:osDrive.Path)).ParentPath
         }
     } $stateRoot $dataRoot (Join-Path $repoRoot 'Schemas/hyperv-resource-migration-plan.schema.json') (Join-Path $repoRoot 'Schemas/hyperv-resource-migration-journal.schema.json')
 
@@ -152,18 +189,32 @@ try {
     Add-CheckResult -Name 'Manipulierter Plan kann keine Quelle außerhalb des Legacy-Roots einschleusen' -Success (
         $result.TamperedPlanMessage -match 'HYPERV_RESOURCE_MIGRATION_SOURCE_SCOPE_INVALID'
     )
+    Add-CheckResult -Name 'Manipulierter Plan kann kein anderes Parent-Ziel einschleusen' -Success (
+        $result.TamperedParentMessage -match 'HYPERV_RESOURCE_MIGRATION_PARENT_MAPPING_CHANGED'
+    )
     Add-CheckResult -Name 'WhatIf bleibt vor jeder Hyper-V- und Dateimutation' -Success (
         $null -eq $result.WhatIf -and $result.WhatIfPreservedState
     )
-    Add-CheckResult -Name 'Readiness-Fehler hinterlässt RECOVERY_REQUIRED und bewahrt die Quelle' -Success (
+    Add-CheckResult -Name 'Unterbrochenes Reparent hinterlässt RECOVERY_REQUIRED und bewahrt die Quelle' -Success (
         $result.RecoveryMessage -match 'HYPERV_RESOURCE_MIGRATION_RECOVERY_REQUIRED' -and
-        $result.FailureJournal.Status -eq 'RECOVERY_REQUIRED' -and $result.SourceRetainedAfterFailure
+        $result.FailureJournal.Status -eq 'RECOVERY_REQUIRED' -and $result.SourceRetainedAfterFailure -and
+        @($result.FailureJournal.ParentReparents).Count -eq 1 -and $result.FailureJournal.ParentReparents[0].State -eq 'PENDING'
     )
     Add-CheckResult -Name 'Resume schließt dasselbe Journal idempotent ab' -Success (
         $result.Completed.Status -eq 'COMPLETED' -and $result.Idempotent.Status -eq 'COMPLETED' -and $result.Journal.Status -eq 'COMPLETED'
     )
     Add-CheckResult -Name 'Abschlussjournal ist schema-valid und belegt zwei Restart-Zyklen' -Success (
         $result.JournalSchemaValid -and @($result.Journal.ReadinessReceipts).Count -eq 2 -and $result.Journal.BindingCommitted
+    )
+    Add-CheckResult -Name 'Legacy-Child wird genau einmal auf das verifizierte Lab_Data-Parent umgehängt' -Success (
+        $result.ImageWaiting.Status -eq 'WAITING_FOR_CONSUMERS' -and $result.SetVhdCalls -eq 1 -and
+        $result.ActualParent -eq $result.TargetParent -and @($result.Journal.ParentReparents).Count -eq 1 -and
+        $result.Journal.ParentReparents[0].State -eq 'COMPLETED' -and
+        $result.Journal.ParentReparents[0].SourceSha256 -ne $result.Journal.ParentReparents[0].TargetSha256
+    )
+    Add-CheckResult -Name 'Run-Abschluss setzt Image-Migration fort und entfernt das referenzfreie Legacy-Parent' -Success (
+        $result.ImageJournal.Status -eq 'COMPLETED' -and @($result.Journal.ImageMigrationResumes | Where-Object Status -eq 'COMPLETED').Count -eq 1 -and
+        -not (Test-Path -LiteralPath $result.SourceParent) -and (Test-Path -LiteralPath $result.TargetParent -PathType Leaf)
     )
     Add-CheckResult -Name 'OS-VHDX, VM-Konfiguration, Paging und Snapshot liegen im gebundenen Root' -Success (
         $result.ActualOsDisk -like "$($result.Binding.HyperVResourceRoot)*" -and

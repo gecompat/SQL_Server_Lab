@@ -121,7 +121,12 @@ function Get-LabHyperVLegacyRunInventory {
                     (Test-LabPathWithinRoot -Root ([string]$_.LabDataRoot) -Path $parentPath).Valid
                 })
             } else { @() }
-            if ($parentPath -and (-not (Test-Path -LiteralPath $parentPath -PathType Leaf) -or $parentLocation.Count -ne 1)) {
+            $parentMigration = $null
+            if ($parentPath -and (Test-Path -LiteralPath $parentPath -PathType Leaf) -and $parentLocation.Count -ne 1) {
+                try { $parentMigration = Resolve-LabHyperVMigratedParentImage -ParentPath $parentPath -StateRoot $StateRoot -DataRoot $DataRoot }
+                catch { $blockers.Add($_.Exception.Message) }
+            }
+            if ($parentPath -and (-not (Test-Path -LiteralPath $parentPath -PathType Leaf) -or ($parentLocation.Count -ne 1 -and -not $parentMigration))) {
                 $blockers.Add("HYPERV_RESOURCE_MIGRATION_PARENT_IMAGE_NOT_REGISTERED: $parentPath")
             }
             $file = Get-Item -LiteralPath $sourcePath -Force -ErrorAction Stop
@@ -131,6 +136,9 @@ function Get-LabHyperVLegacyRunInventory {
                 VhdType=[string]$vhd.VhdType; Size=[long]$vhd.Size; FileSize=[long]$vhd.FileSize
                 DiskIdentifier=[string]$vhd.DiskIdentifier; ParentPath=$parentPath
                 ParentLocationId=if ($parentLocation.Count -eq 1) { [string]$parentLocation[0].LocationId } else { $null }
+                TargetParentPath=if ($parentMigration) { [string]$parentMigration.DestinationParentPath } else { $parentPath }
+                ParentMigrationArtifactId=if ($parentMigration) { [string]$parentMigration.ArtifactId } else { $null }
+                ParentMigrationPlanPath=if ($parentMigration) { [string]$parentMigration.PlanPath } else { $null }
                 ControllerType=[string]$drive.ControllerType; ControllerNumber=[int]$drive.ControllerNumber
                 ControllerLocation=[int]$drive.ControllerLocation
             }
@@ -198,7 +206,7 @@ function New-LabHyperVResourceMigrationPlan {
             RequiredBytes=[long]$inventory.RequiredBytes; AvailableBytes=[long]$inventory.AvailableBytes
             VMs=@($inventory.VMs); Files=@($inventory.Files)
         }
-        RequiredActions=@('stop','copy-and-verify','rebind','state-commit','guest-readiness','restart','source-cleanup')
+        RequiredActions=@('stop','copy-and-verify','parent-reparent','rebind','state-commit','guest-readiness','restart','source-cleanup','image-cleanup-resume')
         Blockers=@($inventory.Blockers); ExecutionImplemented=$true
     }
     Write-LabArtifactJsonAtomic -Path $paths.Plan -InputObject $plan
@@ -287,6 +295,7 @@ function Invoke-LabHyperVResourceMigration {
     if (-not [string]::Equals([string]$binding.HyperVResourceRoot, [string]$plan.Target.ResourceRoot, [StringComparison]::OrdinalIgnoreCase)) {
         throw 'HYPERV_RESOURCE_MIGRATION_TARGET_CHANGED: ResourceRoot'
     }
+    $stateRoot = Split-Path -Parent (Split-Path -Parent $runDirectory)
     foreach ($vmPlan in @($plan.Inventory.VMs)) {
         foreach ($disk in @($vmPlan.LegacyDisks)) {
             $source = [IO.Path]::GetFullPath([string]$disk.SourcePath)
@@ -304,6 +313,17 @@ function Invoke-LabHyperVResourceMigration {
             })
             if ($fileReceipt.Count -ne 1 -or [string]$fileReceipt[0].Sha256 -ne [string]$disk.Sha256) {
                 throw "HYPERV_RESOURCE_MIGRATION_DISK_INVENTORY_MISMATCH: $source"
+            }
+            if ($disk.ParentMigrationPlanPath) {
+                $parentMapping = Resolve-LabHyperVMigratedParentImage -ParentPath ([string]$disk.ParentPath) -StateRoot $stateRoot -DataRoot $DataRoot
+                if (-not $parentMapping -or
+                    -not [string]::Equals([IO.Path]::GetFullPath([string]$disk.TargetParentPath), [string]$parentMapping.DestinationParentPath, [StringComparison]::OrdinalIgnoreCase) -or
+                    -not [string]::Equals([IO.Path]::GetFullPath([string]$disk.ParentMigrationPlanPath), [string]$parentMapping.PlanPath, [StringComparison]::OrdinalIgnoreCase) -or
+                    [string]$disk.ParentMigrationArtifactId -ne [string]$parentMapping.ArtifactId) {
+                    throw "HYPERV_RESOURCE_MIGRATION_PARENT_MAPPING_CHANGED: $source"
+                }
+            } elseif ($disk.TargetParentPath -and -not [string]::Equals([string]$disk.TargetParentPath, [string]$disk.ParentPath, [StringComparison]::OrdinalIgnoreCase)) {
+                throw "HYPERV_RESOURCE_MIGRATION_PARENT_MAPPING_CHANGED: $source"
             }
         }
     }
@@ -342,10 +362,12 @@ function Invoke-LabHyperVResourceMigration {
             ContractVersion='SqlServerLab.HyperVResourceMigrationJournal/1.0'; PlanId=[string]$plan.PlanId
             PlanSha256=$planHash; RunId=[string]$plan.RunId; Status='PREPARING'; CurrentStep='validate'
             CreatedAt=Get-LabTimestamp; UpdatedAt=Get-LabTimestamp; CompletedAt=$null
-            InitialVMStates=@(); CopiedDisks=@(); ReboundDisks=@(); UpdatedReferences=@()
-            BindingCommitted=$false; ReadinessReceipts=@(); SourceCleanup=@(); Errors=@()
+            InitialVMStates=@(); CopiedDisks=@(); ParentReparents=@(); ReboundDisks=@(); UpdatedReferences=@()
+            BindingCommitted=$false; ReadinessReceipts=@(); SourceCleanup=@(); ImageMigrationResumes=@(); Errors=@()
         }
     }
+    if (-not $journal.PSObject.Properties['ParentReparents']) { $journal | Add-Member -NotePropertyName ParentReparents -NotePropertyValue @() }
+    if (-not $journal.PSObject.Properties['ImageMigrationResumes']) { $journal | Add-Member -NotePropertyName ImageMigrationResumes -NotePropertyValue @() }
     if ([string]$journal.PlanSha256 -ne $planHash -or [string]$journal.PlanId -ne [string]$plan.PlanId) {
         throw 'HYPERV_RESOURCE_MIGRATION_PLAN_CHANGED'
     }
@@ -382,8 +404,16 @@ function Invoke-LabHyperVResourceMigration {
                 if (-not (Test-Path -LiteralPath $destinationDirectory -PathType Container)) { New-Item -Path $destinationDirectory -ItemType Directory -Force | Out-Null }
                 $sourceHash = if (Test-Path -LiteralPath $source -PathType Leaf) { (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash.ToLowerInvariant() } else { $null }
                 $destinationHash = if (Test-Path -LiteralPath $destination -PathType Leaf) { (Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLowerInvariant() } else { $null }
+                $copyReceipt = @($journal.CopiedDisks | Where-Object { [string]::Equals([string]$_.DestinationPath, $destination, [StringComparison]::OrdinalIgnoreCase) }) | Select-Object -First 1
+                $reparentReceipt = @($journal.ParentReparents | Where-Object { [string]::Equals([string]$_.DestinationPath, $destination, [StringComparison]::OrdinalIgnoreCase) }) | Select-Object -First 1
+                $targetParent = if ($disk.TargetParentPath) { [IO.Path]::GetFullPath([string]$disk.TargetParentPath) } else { [string]$disk.ParentPath }
+                $reparentRequired = $disk.ParentPath -and -not [string]::Equals([string]$disk.ParentPath, $targetParent, [StringComparison]::OrdinalIgnoreCase)
                 if ($sourceHash -and $sourceHash -ne [string]$disk.Sha256) { throw "HYPERV_RESOURCE_MIGRATION_SOURCE_CHANGED: $source" }
                 if ($destinationHash -and -not $journalWasPresent) { throw "HYPERV_RESOURCE_MIGRATION_TARGET_CONFLICT: $destination" }
+                if ($destinationHash -and $copyReceipt) {
+                    $recordedTargetHash = if ($copyReceipt.TargetSha256) { [string]$copyReceipt.TargetSha256 } else { [string]$copyReceipt.Sha256 }
+                    if ($recordedTargetHash -and $destinationHash -ne $recordedTargetHash) { throw "HYPERV_RESOURCE_MIGRATION_TARGET_CONFLICT: $destination" }
+                }
                 if (-not $destinationHash) {
                     if (-not $sourceHash) { throw "HYPERV_RESOURCE_MIGRATION_SOURCE_DISK_MISSING: $source" }
                     $temporary = "$destination.sql-lab-migrating"
@@ -393,17 +423,51 @@ function Invoke-LabHyperVResourceMigration {
                     Move-Item -LiteralPath $temporary -Destination $destination -Force -ErrorAction Stop
                     $destinationHash = $copiedHash
                 }
-                if ($sourceHash -and $destinationHash -ne $sourceHash) { throw "HYPERV_RESOURCE_MIGRATION_TARGET_CONFLICT: $destination" }
                 $targetVhd = Get-VHD -Path $destination -ErrorAction Stop
                 if ([string]$targetVhd.VhdType -ne [string]$disk.VhdType -or [long]$targetVhd.Size -ne [long]$disk.Size -or
-                    ([string]$disk.DiskIdentifier -and [string]$targetVhd.DiskIdentifier -ne [string]$disk.DiskIdentifier) -or
-                    -not [string]::Equals([string]$targetVhd.ParentPath, [string]$disk.ParentPath, [StringComparison]::OrdinalIgnoreCase)) {
+                    ([string]$disk.DiskIdentifier -and [string]$targetVhd.DiskIdentifier -ne [string]$disk.DiskIdentifier)) {
                     throw "HYPERV_RESOURCE_MIGRATION_VHD_INTEGRITY_MISMATCH: $destination"
                 }
-                if ($destination -notin @($journal.CopiedDisks | ForEach-Object DestinationPath)) {
-                    $journal.CopiedDisks += [PSCustomObject]@{ VMName=[string]$vmPlan.VMName; SourcePath=$source; DestinationPath=$destination; Sha256=$destinationHash }
-                    Write-LabHyperVResourceMigrationJournal -Path $paths.Journal -Journal $journal
+                if ($reparentRequired) {
+                    $currentParent = if ($targetVhd.ParentPath) { [IO.Path]::GetFullPath([string]$targetVhd.ParentPath) } else { $null }
+                    if ([string]::Equals($currentParent, $targetParent, [StringComparison]::OrdinalIgnoreCase) -and -not $reparentReceipt -and -not $copyReceipt) {
+                        throw "HYPERV_RESOURCE_MIGRATION_TARGET_CONFLICT: $destination"
+                    }
+                    if (-not [string]::Equals($currentParent, $targetParent, [StringComparison]::OrdinalIgnoreCase)) {
+                        if (-not [string]::Equals($currentParent, [string]$disk.ParentPath, [StringComparison]::OrdinalIgnoreCase) -or ($sourceHash -and $destinationHash -ne $sourceHash)) {
+                            throw "HYPERV_RESOURCE_MIGRATION_VHD_PARENT_MISMATCH: $destination"
+                        }
+                        if (-not $reparentReceipt) {
+                            $journal.ParentReparents += [PSCustomObject]@{
+                                VMName=[string]$vmPlan.VMName; DestinationPath=$destination; State='PENDING'
+                                SourceParentPath=[string]$disk.ParentPath; TargetParentPath=$targetParent; SourceSha256=[string]$disk.Sha256; TargetSha256=$null
+                            }
+                            Write-LabHyperVResourceMigrationJournal -Path $paths.Journal -Journal $journal
+                        }
+                        Set-VHD -Path $destination -ParentPath $targetParent -ErrorAction Stop
+                        $targetVhd = Get-VHD -Path $destination -ErrorAction Stop
+                    }
+                    if (-not [string]::Equals([IO.Path]::GetFullPath([string]$targetVhd.ParentPath), $targetParent, [StringComparison]::OrdinalIgnoreCase)) {
+                        throw "HYPERV_RESOURCE_MIGRATION_VHD_REPARENT_FAILED: $destination"
+                    }
+                    $destinationHash = (Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLowerInvariant()
+                    $reparentReceipt = @($journal.ParentReparents | Where-Object { [string]::Equals([string]$_.DestinationPath, $destination, [StringComparison]::OrdinalIgnoreCase) }) | Select-Object -First 1
+                    if (-not $reparentReceipt) {
+                        $journal.ParentReparents += [PSCustomObject]@{ VMName=[string]$vmPlan.VMName; DestinationPath=$destination; State='COMPLETED'; SourceParentPath=[string]$disk.ParentPath; TargetParentPath=$targetParent; SourceSha256=[string]$disk.Sha256; TargetSha256=$destinationHash }
+                    } else {
+                        $reparentReceipt.State='COMPLETED'; $reparentReceipt.TargetSha256=$destinationHash
+                    }
+                } elseif (-not [string]::Equals([string]$targetVhd.ParentPath, [string]$disk.ParentPath, [StringComparison]::OrdinalIgnoreCase) -or ($sourceHash -and $destinationHash -ne $sourceHash)) {
+                    throw "HYPERV_RESOURCE_MIGRATION_VHD_INTEGRITY_MISMATCH: $destination"
                 }
+                if (-not $copyReceipt) {
+                    $journal.CopiedDisks += [PSCustomObject]@{ VMName=[string]$vmPlan.VMName; SourcePath=$source; DestinationPath=$destination; SourceSha256=[string]$disk.Sha256; TargetSha256=$destinationHash; Sha256=$destinationHash }
+                } else {
+                    $copyReceipt | Add-Member -NotePropertyName SourceSha256 -NotePropertyValue ([string]$disk.Sha256) -Force
+                    $copyReceipt | Add-Member -NotePropertyName TargetSha256 -NotePropertyValue $destinationHash -Force
+                    $copyReceipt.Sha256=$destinationHash
+                }
+                Write-LabHyperVResourceMigrationJournal -Path $paths.Journal -Journal $journal
             }
         }
 
@@ -497,7 +561,9 @@ function Invoke-LabHyperVResourceMigration {
             if (Test-Path -LiteralPath $source -PathType Leaf) {
                 $sourceHash=(Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash.ToLowerInvariant()
                 $targetHash=(Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLowerInvariant()
-                if ($sourceHash -ne $targetHash -or $targetHash -ne [string]$copy.Sha256) { throw "HYPERV_RESOURCE_MIGRATION_SOURCE_CLEANUP_HASH_MISMATCH: $source" }
+                $expectedSourceHash = if ($copy.SourceSha256) { [string]$copy.SourceSha256 } else { [string]$copy.Sha256 }
+                $expectedTargetHash = if ($copy.TargetSha256) { [string]$copy.TargetSha256 } else { [string]$copy.Sha256 }
+                if ($sourceHash -ne $expectedSourceHash -or $targetHash -ne $expectedTargetHash) { throw "HYPERV_RESOURCE_MIGRATION_SOURCE_CLEANUP_HASH_MISMATCH: $source" }
                 $attached = @(Get-VM -ErrorAction SilentlyContinue | Get-VMHardDiskDrive -ErrorAction SilentlyContinue | Where-Object {
                     $_.Path -and [IO.Path]::GetFullPath([string]$_.Path).Equals([IO.Path]::GetFullPath($source), [StringComparison]::OrdinalIgnoreCase)
                 })
@@ -525,6 +591,13 @@ function Invoke-LabHyperVResourceMigration {
         }
         if (Test-Path -LiteralPath $paths.LegacyRoot -PathType Container) {
             throw 'HYPERV_RESOURCE_MIGRATION_LEGACY_ROOT_NOT_EMPTY'
+        }
+        $imagePlanPaths = @($plan.Inventory.VMs | ForEach-Object { @($_.LegacyDisks) } | Where-Object { $_.ParentMigrationPlanPath } | ForEach-Object { [string]$_.ParentMigrationPlanPath } | Select-Object -Unique)
+        foreach ($imagePlanPath in $imagePlanPaths) {
+            $imageResult = Invoke-LabHyperVImageMigration -PlanPath $imagePlanPath -DataRoot $DataRoot -Confirm:$false
+            $resumeReceipt = @($journal.ImageMigrationResumes | Where-Object { [string]::Equals([string]$_.PlanPath, $imagePlanPath, [StringComparison]::OrdinalIgnoreCase) }) | Select-Object -First 1
+            if ($resumeReceipt) { $resumeReceipt.Status=[string]$imageResult.Status; $resumeReceipt.At=Get-LabTimestamp }
+            else { $journal.ImageMigrationResumes += [PSCustomObject]@{ PlanPath=$imagePlanPath; Status=[string]$imageResult.Status; At=Get-LabTimestamp } }
         }
         $journal.Status='COMPLETED'; $journal.CurrentStep='complete'; $journal.CompletedAt=Get-LabTimestamp
         Write-LabHyperVResourceMigrationJournal -Path $paths.Journal -Journal $journal
