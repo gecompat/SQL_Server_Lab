@@ -717,7 +717,7 @@ Runtime-Nachweis; maßgeblich bleiben die jeweils genannten Tests und Evidence.
 |---|---|---|
 | N1 | `COMPLETE` | Nightly-Ursache klassifiziert, persistente Windows-Testumgebungen gezielt wiederhergestellt, CU-Katalog fachlich aktualisiert und zwei aufeinanderfolgende Nightlies vollständig grün. |
 | N2 | `COMPLETE` | ActionResult-/Sync-, Portbindungs-, UAC- und Privilegverträge sind implementiert und fokussiert geprüft; GUI-Abbruch, Scheduler-Abbruch/Recovery, Manifest-Rerun, PowerShell-Console, Windows-User-Gate und der positive Windows-Generalize-/Publish-Pfad sind real belegt. |
-| N3 | `IN_PROGRESS` | `ADP-003` und `ADP-004` sind in den autoritativen Partnerrepositories gemergt und auf SQL Server 2025 mit Docker und Podman end-to-end validiert; `ADP-008` bleibt offen. |
+| N3 | `COMPLETE` | `ADP-003`, `ADP-004` und `ADP-008` sind in den autoritativen Partnerrepositories gemergt und auf SQL Server 2025 mit Docker und Podman end-to-end validiert; alle fachlichen und Infrastruktur-Cleanups waren scopegebunden erfolgreich. |
 | N4 | `COMPLETE` | Der reale Windows-2025-/SQL-2025-Lauf belegt Build, immutable Prepared-Parent, normalen differenzierenden Manifest-Klon, Windows-Specialization, `CompleteImage`, `SQL_READY_RUN`, unveränderten Parent-Hash und vollständigen Cleanup. |
 | N5 | `IN_PROGRESS` | `STO-009` bis `STO-013`, `SFP-001` bis `SFP-003` sowie `HVS-001`, `HVS-002` und `SQLS-001` bis `SQLS-003` sind implementiert; Docker und Podman belegen No-op, Live, Recreate, Rollback und Persistenz real. Offen bleibt der physische Hyper-V-Mehrgeräte-Nachweis mit vier TempDB-Datendateien; das Referenz-Intent fordert drei Geräte. |
 
@@ -825,8 +825,7 @@ Windows-Gast den vorgesehenen Receipt-Pfad.
 
 ### Welle N3 – Drei reale Project-Adapter-Piloten
 
-**Status:** `IN_PROGRESS` seit 2026-08-30; zwei von drei Piloten sind
-abgeschlossen.
+**Status:** `COMPLETE` seit 2026-08-30; alle drei Piloten sind abgeschlossen.
 
 **Aktuelle Evidence:** `ADP-003` wurde mit
 [SQL_PerformanceSchulung PR #40](https://github.com/gecompat/SQL_PerformanceSchulung/pull/40)
@@ -847,8 +846,17 @@ synthetische Plan-Evidenz und validiert `USP_ExecutionPlanAnalysis`. Die
 SQL-Server-2025-Referenzläufe
 `1f275b55-fdb8-4f51-8e50-2b6883deffa8` (Docker) und
 `3a212dd9-43f1-4882-9d8a-1c283b80ea6f` (Podman) endeten nach Adapter- und
-Infrastruktur-Cleanup jeweils mit `REMOVED`. Nur `ADP-008` ist weiterhin offen;
-Gate N3 ist deshalb noch nicht geschlossen.
+Infrastruktur-Cleanup jeweils mit `REMOVED`. `ADP-008` wurde mit
+[SQL_Server_Toolbelt PR #66](https://github.com/gecompat/SQL_Server_Toolbelt/pull/66)
+auf `origin/main` (`80f295d`) gemergt. Der deterministisch aus den kanonischen
+Modulquellen erzeugte Adapter installiert
+`toolbelt.core.console-message` 1.0.0, führt ein versionsgleiches Update aus
+und validiert Modulmarker, öffentliche Signatur sowie Help-Vertrag. Die
+getrennten Docker- und Podman-Referenzläufe auf SQL Server 2025 endeten jeweils
+mit `ProjectCleanup = REMOVED` und erfolgreichem scopegebundenem Container- und
+Volume-Cleanup. Alle fünf Checks des Partner-PRs waren grün. Damit ist Gate N3
+geschlossen; der Adaptervertrag bleibt bis zu einer gesonderten
+Stabilisierungsentscheidung `0.1-draft`.
 
 **Ziel:** Den Adaptervertrag an allen drei vorgesehenen Konsumenten beweisen,
 bevor seine öffentliche Version stabilisiert oder generische Altlogik entfernt
@@ -871,6 +879,10 @@ gebunden und in einem getrennten SQL_Server_Lab-Änderungssatz geschlossen.
 **Gate N3:** Alle drei Piloten laufen für ihren SQL-2025-Referenzfall end-to-end
 und bereinigen scopegebunden. Es existiert keine duplizierte Providerlogik, und
 der Adaptervertrag bleibt bis zum Abschluss aller drei Piloten `0.1-draft`.
+
+**Gate-Ergebnis:** Erfüllt am 2026-08-30 durch die gemergten Partnerpiloten
+`ADP-003`, `ADP-004` und `ADP-008`. Der Gate-Abschluss stabilisiert den Vertrag
+nicht automatisch auf `1.0`.
 
 ### Welle N4 – Hyper-V Windows-/SQL-End-to-End
 
