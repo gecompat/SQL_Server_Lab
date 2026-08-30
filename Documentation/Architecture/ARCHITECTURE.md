@@ -77,7 +77,7 @@ Stop-SqlServerLabOperation             # Vorgang und optional seinen Scope berei
 Stop-SqlServerLabBatch                 # Unfertige oder alle Batch-Ressourcen zurueckbauen
 Get-SqlServerLabWorkflow               # Verdichtete, geheimnisfreie Workflow-Sicht
 Get-SqlServerLabCatalog                # Laufzeit-Workflow-Katalog als JSON-Artefakt schreiben
-Get-SqlServerLabCleanupAudit           # Daten- und Runtime-Reste read-only inventarisieren
+Get-SqlServerLabCleanupAudit           # Daten-/Runtime-Reste und Hyper-V-Schutzbindungen read-only inventarisieren
 Get-SqlServerLabConnectionCenter       # Passwortfreier SQL-Endpunktkatalog für SSMS und CMS
 Sync-SqlServerLabConnectionCenter      # Endpunktkatalog atomar aktualisieren
 Export-SqlServerLabSsmsRegistration    # Kennwortfreien SSMS-.regsrvr-Export erzeugen

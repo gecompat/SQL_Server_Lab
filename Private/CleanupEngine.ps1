@@ -207,6 +207,80 @@ function Remove-LabHyperVResourceForCleanup {
     }
 }
 
+function Test-LabHyperVCleanupPlanProtection {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Plan,
+        [Parameter(Mandatory)][string]$RunDir,
+        [Parameter(Mandatory)][string]$ScopeId
+    )
+
+    $issues = [Collections.Generic.List[string]]::new()
+    $hyperVSteps = @($Plan.steps | Where-Object {
+        $_.state -eq 'PENDING' -and [string]$_.provider -eq 'hyperv'
+    })
+    if ($hyperVSteps.Count -eq 0) {
+        return [PSCustomObject]@{ Valid=$true; Code='HYPERV_CLEANUP_PROTECTION_NOT_REQUIRED'; Issues=@(); Steps=@() }
+    }
+
+    $runStatePath = Join-Path $RunDir 'run-state.json'
+    try {
+        $runState = Get-Content -LiteralPath $runStatePath -Raw -Encoding utf8 |
+            ConvertFrom-Json -Depth 20 -ErrorAction Stop
+        if (-not [string]::Equals([string]$Plan.runId, [string]$runState.runId, [StringComparison]::OrdinalIgnoreCase) -or
+            -not [string]::Equals([string]$Plan.scopeId, $ScopeId, [StringComparison]::OrdinalIgnoreCase) -or
+            -not [string]::Equals([string]$runState.scopeId, $ScopeId, [StringComparison]::OrdinalIgnoreCase)) {
+            $issues.Add('HYPERV_CLEANUP_RUN_IDENTITY_MISMATCH')
+        }
+    }
+    catch { $issues.Add("HYPERV_CLEANUP_RUN_STATE_INVALID: $($_.Exception.Message)") }
+
+    $migrationJournalPath = Join-Path $RunDir 'hyperv-resource-migration.local.journal.json'
+    if (Test-Path -LiteralPath $migrationJournalPath -PathType Leaf) {
+        try {
+            $migrationJournal = Get-Content -LiteralPath $migrationJournalPath -Raw -Encoding utf8 |
+                ConvertFrom-Json -Depth 50 -ErrorAction Stop
+            if ([string]$migrationJournal.Status -ne 'COMPLETED') {
+                $issues.Add("HYPERV_CLEANUP_MIGRATION_NOT_TERMINAL: $([string]$migrationJournal.Status)")
+            }
+        }
+        catch { $issues.Add("HYPERV_CLEANUP_MIGRATION_JOURNAL_INVALID: $($_.Exception.Message)") }
+    }
+
+    $bindingPath = Join-Path $RunDir 'hyperv-resource-binding.local.json'
+    if (Test-Path -LiteralPath $bindingPath -PathType Leaf) {
+        try {
+            $binding = Read-LabHyperVResourceBinding -StateDirectory $RunDir
+            if ([string]$binding.ResourceClass -ne 'Run' -or
+                -not [string]::Equals([string]$binding.ResourceId, [string]$Plan.runId, [StringComparison]::OrdinalIgnoreCase)) {
+                $issues.Add('HYPERV_CLEANUP_BINDING_IDENTITY_MISMATCH')
+            }
+        }
+        catch { $issues.Add("HYPERV_CLEANUP_BINDING_INVALID: $($_.Exception.Message)") }
+    }
+
+    $stepResults = @()
+    foreach ($step in @($hyperVSteps | Where-Object { [string]$_.resourceType -eq 'vhdx' })) {
+        $safetyRoot = if ($step.PSObject.Properties['safetyRoot']) { [string]$step.safetyRoot } else { $null }
+        $scope = Test-HyperVVhdxCleanupScope -Path ([string]$step.resourceId) `
+            -ExpectedRunDirectory $RunDir -SafetyRoot $safetyRoot
+        $stepResults += [PSCustomObject]@{
+            Order=[int]$step.order; ResourceId=[string]$step.resourceId
+            Valid=[bool]$scope.Valid; Code=[string]$scope.Code; ScopeKind=[string]$scope.ScopeKind
+        }
+        if (-not $scope.Valid) {
+            $issues.Add("$($scope.Code): order=$([int]$step.order); $([string]$scope.Reason)")
+        }
+    }
+
+    return [PSCustomObject]@{
+        Valid = $issues.Count -eq 0
+        Code = if ($issues.Count -eq 0) { 'HYPERV_CLEANUP_PROTECTION_VALID' } else { 'HYPERV_CLEANUP_PROTECTION_FAILED' }
+        Issues = @($issues)
+        Steps = $stepResults
+    }
+}
+
 function Invoke-CleanupPlan {
     <#
     .SYNOPSIS
@@ -261,6 +335,32 @@ function Invoke-CleanupPlan {
         }
         if (-not $step.PSObject.Properties['error']) {
             $step | Add-Member -NotePropertyName error -NotePropertyValue $null
+        }
+    }
+
+    $protection = Test-LabHyperVCleanupPlanProtection -Plan $plan -RunDir $RunDir -ScopeId $ScopeId
+    if (-not $protection.Valid) {
+        $message = "$($protection.Code): $(@($protection.Issues) -join '; ')"
+        foreach ($step in @($plan.steps | Where-Object { $_.state -eq 'PENDING' -and [string]$_.provider -eq 'hyperv' })) {
+            $step.state = 'FAILED'
+            $step.error = $message
+            $step.executedAt = Get-LabTimestamp
+        }
+        foreach ($providerSubRun in @($plan.providerSubRuns | Where-Object { [string]$_.provider -eq 'hyperv' })) {
+            $providerSubRun.state = 'PARTIAL'
+            $providerSubRun.errors = 1
+            $providerSubRun.updatedAt = Get-LabTimestamp
+        }
+        $plan.status = 'PARTIAL'
+        $plan | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $planPath -Encoding utf8
+        Write-LabError $message
+        return [PSCustomObject]@{
+            Status = 'CLEANUP_BLOCKED'; Steps = 0; Errors = 1
+            Total = @($plan.steps | Where-Object { $_.state -in @('PENDING','FAILED') }).Count
+            ProviderSubRuns = @([PSCustomObject]@{
+                Provider='hyperv'; Steps=0; Errors=1
+                Total=@($protection.Steps).Count; Status='CLEANUP_PARTIAL'
+            })
         }
     }
     $plan.status = 'EXECUTING'

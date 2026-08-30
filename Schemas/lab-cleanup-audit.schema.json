@@ -14,7 +14,18 @@
     "Containers": { "type": "array" },
     "ManagedVolumes": { "type": "array" },
     "ManagedNetworks": { "type": "array" },
-    "HyperV": { "type": "object" },
+    "HyperV": {
+      "type": "object",
+      "required": ["Status", "Resources", "RunScopes", "SharedRoots", "UntrackedFiles"],
+      "properties": {
+        "Status": { "enum": ["NOT_INSTALLED", "AVAILABLE", "UNAVAILABLE"] },
+        "Resources": { "type": "array" },
+        "RunScopes": { "type": "array" },
+        "SharedRoots": { "type": "array" },
+        "UntrackedFiles": { "type": "array" }
+      },
+      "additionalProperties": true
+    },
     "ExternalReferences": { "type": "array" },
     "RepositoryResidues": { "type": "array" },
     "LegacyStateRoots": { "type": "array" },
