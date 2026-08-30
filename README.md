@@ -78,6 +78,10 @@ Docker und Podman trennen das harte Containerlimit von einem niedrigeren
 SQL-internen Memory-Limit. Automatisierte Linux-Testziele verwenden 4 GB
 Container-RAM und 3 GB `max server memory`; ihr Export wird nur bei einem
 laufenden und gesunden gebundenen Container als `READY` veröffentlicht.
+Automatisierte Windows-Testslots aktivieren die Evaluation ihrer eindeutigen
+Child-VM nach OOBE über eine nur temporär angebundene, ausdrücklich gewählte
+External-NIC. Ohne live bestätigten Status `EVALUATION_ACTIVE` oder `LICENSED`
+bleibt der Gruppenexport fail-closed.
 Vollständige deklarative Hyper-V-Drives, Datenbanken und Network Intents bleiben
 bis zu ihrem echten End-to-End-Nachweis begrenzt.
 
@@ -554,7 +558,7 @@ Invoke-SqlServerLabScheduler -UntilIdle
 | `Get-SqlServerLabGeneratedSqlAccess` | Hyper-V SQL-Zugriffsdaten (ConnectionString + generiertes SA-Passwort) aus dem Run abrufen |
 | `New-SqlServerLabAutomatedTestEnvironment` | Linux-Testumgebungen mit getrennten Zufallskennwörtern erstellen und nach Lab_Data exportieren |
 | `Export-SqlServerLabTestEnvironment` | Registrierte Testumgebungen als dotenv, schema-validierbares JSON, portablen Agenten-Prompt und Markdown exportieren |
-| `Repair-SqlServerLabAutomatedTestEnvironment` | Ressourcen, Health, Autostart und sprechende Runtime-Namen der registrierten Testgruppe sicher abgleichen |
+| `Repair-SqlServerLabAutomatedTestEnvironment` | Ressourcen, Health, Autostart, Windows-Aktivierung und sprechende Runtime-Namen der registrierten Testgruppe sicher abgleichen |
 | `Start-SqlServerLabAutomatedTestEnvironment` | Registrierte Docker-, Podman- und Hyper-V-Mitglieder als Gruppe starten und live bis `READY` prüfen |
 | `Stop-SqlServerLabAutomatedTestEnvironment` | Registrierte Docker-, Podman- und Hyper-V-Mitglieder nicht-destruktiv stoppen, Hostkapazität freigeben und den Export fail-closed erneuern |
 | `Clear-SqlServerLabAutomatedTestEnvironment` | Alle automatisierten Testumgebungen als geschützte Gruppe gemeinsam entfernen |

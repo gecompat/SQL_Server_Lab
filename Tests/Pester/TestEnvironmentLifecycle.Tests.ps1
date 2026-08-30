@@ -38,6 +38,12 @@ Describe 'Geschuetzter provideruebergreifender Testumgebungs-Lifecycle' {
             $secret.MakeReadOnly()
             $secret
         } -ModuleName SqlServerLab
+        Mock Get-HyperVWindowsSlotLicenseStatus {
+            [PSCustomObject]@{
+                State='EVALUATION_ACTIVE'; Edition='ServerStandardEval'; LicenseStatus=1
+                EvaluationMinutesRemaining=259200; EvaluationExpiresAt='2027-02-26T00:00:00Z'
+            }
+        } -ModuleName SqlServerLab
         Mock Invoke-HyperVPowerShellDirect { [PSCustomObject]@{ Services=1; StartedServices=0 } } -ModuleName SqlServerLab
         Mock Wait-SqlReady { [PSCustomObject]@{ Ready=$true; Message='ready' } } -ModuleName SqlServerLab
         Mock Start-HyperVLabEnvironment { [PSCustomObject]@{ State='RUNNING' } } -ModuleName SqlServerLab
@@ -79,6 +85,9 @@ Describe 'Geschuetzter provideruebergreifender Testumgebungs-Lifecycle' {
         Assert-MockCalled Start-HyperVLabEnvironment -Times 1 -Exactly -ModuleName SqlServerLab -Scope It -ParameterFilter { $RunId -eq 'run-windows' }
         Assert-MockCalled Get-HyperVInstanceStatus -Times 1 -Exactly -ModuleName SqlServerLab -Scope It -ParameterFilter {
             $VMName -eq 'test-vm' -and $ExpectedRunId -eq 'run-windows' -and $ExpectedScopeId -eq 'scope-windows'
+        }
+        Assert-MockCalled Get-HyperVWindowsSlotLicenseStatus -Times 1 -Exactly -ModuleName SqlServerLab -Scope It -ParameterFilter {
+            $RunId -eq 'run-windows' -and $Persist
         }
         Assert-MockCalled Invoke-HyperVPowerShellDirect -Times 1 -Exactly -ModuleName SqlServerLab -Scope It -ParameterFilter {
             $ExpectedRunId -eq 'run-windows' -and $ExpectedScopeId -eq 'scope-windows'
