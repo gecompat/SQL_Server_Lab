@@ -291,17 +291,25 @@ function Test-HyperVPathWithinRunDirectory {
 
     $binding = Read-LabHyperVResourceBinding -StateDirectory $RunDirectory
     if ($binding) {
-        $runStatePath = Join-Path $RunDirectory 'run-state.json'
-        if (Test-Path -LiteralPath $runStatePath -PathType Leaf) {
-            try {
-                $runState = Get-Content -LiteralPath $runStatePath -Raw -Encoding utf8 |
-                    ConvertFrom-Json -Depth 10 -ErrorAction Stop
-            }
-            catch { return $false }
-            if ([string]$binding.ResourceClass -ne 'Run' -or
-                -not [string]::Equals([string]$binding.ResourceId, [string]$runState.runId, [StringComparison]::OrdinalIgnoreCase)) {
-                return $false
-            }
+        $identityContract = switch ([string]$binding.ResourceClass) {
+            'Run' { [PSCustomObject]@{ FileName='run-state.json'; IdProperty='runId' }; break }
+            'Build' { [PSCustomObject]@{ FileName='build-state.json'; IdProperty='buildId' }; break }
+            default { $null }
+        }
+        if (-not $identityContract) { return $false }
+        $identityStatePath = Join-Path $RunDirectory $identityContract.FileName
+        if (-not (Test-Path -LiteralPath $identityStatePath -PathType Leaf)) { return $false }
+        try {
+            $identityState = Get-Content -LiteralPath $identityStatePath -Raw -Encoding utf8 |
+                ConvertFrom-Json -Depth 10 -ErrorAction Stop
+        }
+        catch { return $false }
+        if (-not [string]::Equals(
+            [string]$binding.ResourceId,
+            [string]$identityState.($identityContract.IdProperty),
+            [StringComparison]::OrdinalIgnoreCase
+        )) {
+            return $false
         }
         return [bool](Test-LabHyperVBoundPath -Binding $binding -Path $Path).Valid
     }

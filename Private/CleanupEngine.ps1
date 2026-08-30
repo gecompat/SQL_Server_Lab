@@ -223,17 +223,38 @@ function Test-LabHyperVCleanupPlanProtection {
         return [PSCustomObject]@{ Valid=$true; Code='HYPERV_CLEANUP_PROTECTION_NOT_REQUIRED'; Issues=@(); Steps=@() }
     }
 
-    $runStatePath = Join-Path $RunDir 'run-state.json'
-    try {
-        $runState = Get-Content -LiteralPath $runStatePath -Raw -Encoding utf8 |
-            ConvertFrom-Json -Depth 20 -ErrorAction Stop
-        if (-not [string]::Equals([string]$Plan.runId, [string]$runState.runId, [StringComparison]::OrdinalIgnoreCase) -or
-            -not [string]::Equals([string]$Plan.scopeId, $ScopeId, [StringComparison]::OrdinalIgnoreCase) -or
-            -not [string]::Equals([string]$runState.scopeId, $ScopeId, [StringComparison]::OrdinalIgnoreCase)) {
-            $issues.Add('HYPERV_CLEANUP_RUN_IDENTITY_MISMATCH')
-        }
+    $binding = $null
+    $bindingPath = Join-Path $RunDir 'hyperv-resource-binding.local.json'
+    if (Test-Path -LiteralPath $bindingPath -PathType Leaf) {
+        try { $binding = Read-LabHyperVResourceBinding -StateDirectory $RunDir }
+        catch { $issues.Add("HYPERV_CLEANUP_BINDING_INVALID: $($_.Exception.Message)") }
     }
-    catch { $issues.Add("HYPERV_CLEANUP_RUN_STATE_INVALID: $($_.Exception.Message)") }
+    $resourceClass = if ($binding) { [string]$binding.ResourceClass } else { 'Run' }
+    $identityContract = switch ($resourceClass) {
+        'Run' { [PSCustomObject]@{ FileName='run-state.json'; IdProperty='runId'; InvalidCode='HYPERV_CLEANUP_RUN_STATE_INVALID'; MismatchCode='HYPERV_CLEANUP_RUN_IDENTITY_MISMATCH' }; break }
+        'Build' { [PSCustomObject]@{ FileName='build-state.json'; IdProperty='buildId'; InvalidCode='HYPERV_CLEANUP_BUILD_STATE_INVALID'; MismatchCode='HYPERV_CLEANUP_BUILD_IDENTITY_MISMATCH' }; break }
+        default { $null }
+    }
+    if (-not $identityContract) {
+        $issues.Add('HYPERV_CLEANUP_BINDING_IDENTITY_MISMATCH')
+    }
+    else {
+        $identityStatePath = Join-Path $RunDir $identityContract.FileName
+        try {
+            $identityState = Get-Content -LiteralPath $identityStatePath -Raw -Encoding utf8 |
+                ConvertFrom-Json -Depth 20 -ErrorAction Stop
+            if (-not [string]::Equals(
+                    [string]$Plan.runId,
+                    [string]$identityState.($identityContract.IdProperty),
+                    [StringComparison]::OrdinalIgnoreCase
+                ) -or
+                -not [string]::Equals([string]$Plan.scopeId, $ScopeId, [StringComparison]::OrdinalIgnoreCase) -or
+                -not [string]::Equals([string]$identityState.scopeId, $ScopeId, [StringComparison]::OrdinalIgnoreCase)) {
+                $issues.Add([string]$identityContract.MismatchCode)
+            }
+        }
+        catch { $issues.Add("$([string]$identityContract.InvalidCode): $($_.Exception.Message)") }
+    }
 
     $migrationJournalPath = Join-Path $RunDir 'hyperv-resource-migration.local.journal.json'
     if (Test-Path -LiteralPath $migrationJournalPath -PathType Leaf) {
@@ -247,16 +268,10 @@ function Test-LabHyperVCleanupPlanProtection {
         catch { $issues.Add("HYPERV_CLEANUP_MIGRATION_JOURNAL_INVALID: $($_.Exception.Message)") }
     }
 
-    $bindingPath = Join-Path $RunDir 'hyperv-resource-binding.local.json'
-    if (Test-Path -LiteralPath $bindingPath -PathType Leaf) {
-        try {
-            $binding = Read-LabHyperVResourceBinding -StateDirectory $RunDir
-            if ([string]$binding.ResourceClass -ne 'Run' -or
-                -not [string]::Equals([string]$binding.ResourceId, [string]$Plan.runId, [StringComparison]::OrdinalIgnoreCase)) {
-                $issues.Add('HYPERV_CLEANUP_BINDING_IDENTITY_MISMATCH')
-            }
-        }
-        catch { $issues.Add("HYPERV_CLEANUP_BINDING_INVALID: $($_.Exception.Message)") }
+    if ($binding -and
+        ([string]$binding.ResourceClass -notin @('Run', 'Build') -or
+        -not [string]::Equals([string]$binding.ResourceId, [string]$Plan.runId, [StringComparison]::OrdinalIgnoreCase))) {
+        $issues.Add('HYPERV_CLEANUP_BINDING_IDENTITY_MISMATCH')
     }
 
     $stepResults = @()
