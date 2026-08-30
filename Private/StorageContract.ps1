@@ -533,6 +533,226 @@ function Resolve-LabDataRootForUse {
     return (Resolve-Path -LiteralPath $candidate -ErrorAction Stop).Path
 }
 
+function Get-LabStorageMigrationLifecycleGuard {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$DataRoot,
+        [string]$LocationId
+    )
+
+    $result = [ordered]@{
+        ContractVersion = 'SqlServerLab.StorageMigrationLifecycleGuard/1.0'
+        Allowed = $true
+        Status = 'ABSENT'
+        ReasonCode = 'STORAGE_MIGRATION_NOT_ACTIVE'
+        Reason = 'Kein nichtterminales Storage-Migrationsjournal ist vorhanden.'
+    }
+    $journalDirectory = Join-Path (Join-Path ([IO.Path]::GetFullPath($DataRoot)) 'Catalog') 'storage-migrations'
+    if (-not (Test-Path -LiteralPath $journalDirectory -PathType Container)) {
+        return [PSCustomObject]$result
+    }
+
+    $statuses = [Collections.Generic.List[string]]::new()
+    foreach ($journalFile in @(Get-ChildItem -LiteralPath $journalDirectory -Filter '*.journal.json' -File -ErrorAction SilentlyContinue)) {
+        try {
+            $journal = Get-Content -LiteralPath $journalFile.FullName -Raw -Encoding utf8 |
+                ConvertFrom-Json -Depth 30 -ErrorAction Stop
+            if ([string]$journal.ContractVersion -ne 'SqlServerLab.StorageMigrationJournal/1.0' -or
+                -not [string]$journal.LocationId) {
+                throw 'Vertrag oder LocationId ist ungueltig.'
+            }
+            if ($LocationId -and -not [string]::Equals(
+                    [string]$journal.LocationId,
+                    $LocationId,
+                    [StringComparison]::OrdinalIgnoreCase
+                )) {
+                continue
+            }
+            $statuses.Add([string]$journal.Status)
+        }
+        catch {
+            $result.Allowed = $false
+            $result.Status = 'INVALID'
+            $result.ReasonCode = 'STORAGE_MIGRATION_JOURNAL_INVALID'
+            $result.Reason = 'Ein Storage-Migrationsjournal der gebundenen Location ist ungueltig.'
+            return [PSCustomObject]$result
+        }
+    }
+    $nonTerminal = @($statuses | Where-Object { $_ -ne 'COMPLETED' } | Sort-Object -Unique)
+    if ($nonTerminal.Count -gt 0) {
+        $result.Allowed = $false
+        $result.Status = $nonTerminal -join ','
+        $result.ReasonCode = 'STORAGE_MIGRATION_NOT_TERMINAL'
+        $result.Reason = 'Die gebundene Storage-Location besitzt eine nichtterminale Migration.'
+    }
+    elseif ($statuses.Count -gt 0) {
+        $result.Status = 'COMPLETED'
+        $result.ReasonCode = 'STORAGE_MIGRATION_COMPLETED'
+        $result.Reason = 'Alle Storage-Migrationsjournale der gebundenen Location sind abgeschlossen.'
+    }
+    return [PSCustomObject]$result
+}
+
+function Get-LabStorageMigrationHyperVBindingInventory {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$DataRoot,
+        [string]$StateRoot
+    )
+
+    $sourceRoot = [IO.Path]::GetFullPath($DataRoot).TrimEnd('\', '/')
+    if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
+    $searchRoots = @($sourceRoot, $StateRoot) | Where-Object { $_ } |
+        ForEach-Object { [IO.Path]::GetFullPath([string]$_).TrimEnd('\', '/') } |
+        Sort-Object -Unique
+    $receiptPaths = @(
+        foreach ($searchRoot in $searchRoots) {
+            if (-not (Test-Path -LiteralPath $searchRoot -PathType Container)) { continue }
+            Get-ChildItem -LiteralPath $searchRoot -Filter 'hyperv-resource-binding.local.json' `
+                -File -Recurse -Force -ErrorAction Stop | ForEach-Object { $_.FullName }
+        }
+    ) | Sort-Object -Unique
+
+    $inventory = [Collections.Generic.List[object]]::new()
+    foreach ($receiptPath in $receiptPaths) {
+        try {
+            $bindingDocument = Get-Content -LiteralPath $receiptPath -Raw -Encoding utf8 |
+                ConvertFrom-Json -Depth 20 -ErrorAction Stop
+        }
+        catch {
+            $inventory.Add([PSCustomObject]@{
+                ReceiptPath=$receiptPath; ResourceClass=$null; ResourceId=$null; ResourceKey=$null
+                LocationId=$null; LabDataRoot=$sourceRoot; HyperVResourceRoot=$null
+                Valid=$false; ValidationCode='HYPERV_RESOURCE_BINDING_FILE_INVALID'; MigrationStatus='INVALID'
+            })
+            continue
+        }
+        if (-not [string]::Equals(
+                [IO.Path]::GetFullPath([string]$bindingDocument.LabDataRoot).TrimEnd('\', '/'),
+                $sourceRoot,
+                [StringComparison]::OrdinalIgnoreCase
+            )) {
+            continue
+        }
+        $validation = Test-LabHyperVResourceBinding -Binding $bindingDocument -DataRoot $sourceRoot
+        $migrationStatus = 'ABSENT'
+        $migrationJournalName = switch ([string]$bindingDocument.ResourceClass) {
+            'Run' { 'hyperv-resource-migration.local.journal.json' }
+            'Image' { 'hyperv-image-migration.local.journal.json' }
+            default { $null }
+        }
+        if ($migrationJournalName) {
+            $migrationJournalPath = Join-Path (Split-Path -Parent $receiptPath) $migrationJournalName
+            if (Test-Path -LiteralPath $migrationJournalPath -PathType Leaf) {
+                try {
+                    $migrationJournal = Get-Content -LiteralPath $migrationJournalPath -Raw -Encoding utf8 |
+                        ConvertFrom-Json -Depth 50 -ErrorAction Stop
+                    $migrationStatus = [string]$migrationJournal.Status
+                    if (-not $migrationStatus) { $migrationStatus = 'INVALID' }
+                }
+                catch { $migrationStatus = 'INVALID' }
+            }
+        }
+        $inventory.Add([PSCustomObject]@{
+            ReceiptPath=$receiptPath; ResourceClass=[string]$bindingDocument.ResourceClass
+            ResourceId=[string]$bindingDocument.ResourceId; ResourceKey=[string]$bindingDocument.ResourceKey
+            LocationId=[string]$bindingDocument.LocationId; LabDataRoot=[string]$bindingDocument.LabDataRoot
+            HyperVResourceRoot=[string]$bindingDocument.HyperVResourceRoot
+            Valid=[bool]$validation.Valid; ValidationCode=[string]$validation.Code
+            MigrationStatus=$migrationStatus
+        })
+    }
+    return @($inventory)
+}
+
+function Assert-LabStorageMigrationHyperVBindingPlan {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Plan,
+        [Parameter(Mandatory)][string]$SourceRoot,
+        [Parameter(Mandatory)][string]$TargetRoot
+    )
+
+    $planned = @($Plan.HyperVBindings)
+    $stateRoot = if ($Plan.PSObject.Properties['StateRoot']) { [string]$Plan.StateRoot } else { $null }
+    $current = @(Get-LabStorageMigrationHyperVBindingInventory -DataRoot $SourceRoot -StateRoot $stateRoot)
+    if (Test-Path -LiteralPath $TargetRoot -PathType Container) {
+        try {
+            $current += @(Get-LabStorageMigrationHyperVBindingInventory -DataRoot $TargetRoot -StateRoot $stateRoot)
+        }
+        catch {
+            # Vor dem Katalogwechsel kann der teilweise kopierte Zielroot noch
+            # keine eigenstaendig aufloesbare Storage-Konfiguration besitzen.
+            Write-Verbose "Zielroot-Inventar vor Katalogwechsel noch nicht aufloesbar: $($_.Exception.Message)"
+        }
+    }
+    $normalizeToSource = {
+        param([string]$Path)
+        if (-not $Path) { return '' }
+        $candidate = [IO.Path]::GetFullPath($Path)
+        $targetBoundary = Test-LabPathWithinRoot -Root $TargetRoot -Path $candidate
+        if ($targetBoundary.Valid -or [string]::Equals(
+                $candidate.TrimEnd('\', '/'),
+                ([IO.Path]::GetFullPath($TargetRoot)).TrimEnd('\', '/'),
+                [StringComparison]::OrdinalIgnoreCase
+            )) {
+            $candidate = [IO.Path]::GetFullPath(
+                (Join-Path $SourceRoot ([IO.Path]::GetRelativePath($TargetRoot, $candidate)))
+            )
+        }
+        return $candidate.TrimEnd('\', '/').ToLowerInvariant()
+    }
+    $toKey = {
+        param($Binding)
+        return @(
+            (& $normalizeToSource ([string]$Binding.ReceiptPath))
+            ([string]$Binding.ResourceClass).ToLowerInvariant()
+            ([string]$Binding.ResourceId).ToLowerInvariant()
+            ([string]$Binding.ResourceKey).ToLowerInvariant()
+            ([string]$Binding.LocationId).ToLowerInvariant()
+            (& $normalizeToSource ([string]$Binding.LabDataRoot))
+            (& $normalizeToSource ([string]$Binding.HyperVResourceRoot))
+            ([string][bool]$Binding.Valid).ToLowerInvariant()
+            ([string]$Binding.ValidationCode).ToLowerInvariant()
+            ([string]$Binding.MigrationStatus).ToLowerInvariant()
+        ) -join '|'
+    }
+    $plannedKeys = @($planned | ForEach-Object { & $toKey $_ } | Sort-Object -Unique)
+    $currentKeys = @($current | ForEach-Object { & $toKey $_ } | Sort-Object -Unique)
+    if (($plannedKeys -join "`n") -ne ($currentKeys -join "`n")) {
+        $differentFields = [Collections.Generic.List[string]]::new()
+        if ($planned.Count -eq 1 -and $current.Count -ge 1) {
+            $comparison = @($current | Where-Object {
+                [string]$_.ResourceKey -eq [string]$planned[0].ResourceKey
+            } | Select-Object -First 1)
+            if ($comparison.Count -eq 1) {
+                foreach ($property in @('ReceiptPath','ResourceClass','ResourceId','ResourceKey','LocationId','LabDataRoot','HyperVResourceRoot','Valid','ValidationCode','MigrationStatus')) {
+                    $plannedValue = if ($property -in @('ReceiptPath','LabDataRoot','HyperVResourceRoot')) {
+                        & $normalizeToSource ([string]$planned[0].$property)
+                    } else { ([string]$planned[0].$property).ToLowerInvariant() }
+                    $currentValue = if ($property -in @('ReceiptPath','LabDataRoot','HyperVResourceRoot')) {
+                        & $normalizeToSource ([string]$comparison[0].$property)
+                    } else { ([string]$comparison[0].$property).ToLowerInvariant() }
+                    if ($plannedValue -ne $currentValue) { $differentFields.Add($property) }
+                }
+            }
+        }
+        $plannedHash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData(
+            [Text.Encoding]::UTF8.GetBytes($plannedKeys -join "`n")
+        )).ToLowerInvariant().Substring(0, 12)
+        $currentHash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData(
+            [Text.Encoding]::UTF8.GetBytes($currentKeys -join "`n")
+        )).ToLowerInvariant().Substring(0, 12)
+        throw "LAB_STORAGE_MIGRATION_HYPERV_BINDING_PLAN_STALE: planned=$($plannedKeys.Count)/$plannedHash; current=$($currentKeys.Count)/$currentHash; fields=$($differentFields -join ',')"
+    }
+    foreach ($binding in $current) {
+        if (-not [bool]$binding.Valid) {
+            throw "LAB_STORAGE_MIGRATION_HYPERV_BINDING_INVALID: $([string]$binding.ValidationCode)"
+        }
+    }
+    return @($planned)
+}
+
 function New-LabDataMigrationPlan {
     [CmdletBinding()]
     param(
@@ -570,10 +790,25 @@ function New-LabDataMigrationPlan {
     $requiredBytes = [long][Math]::Ceiling($totalBytes * 1.1)
     if ($availableBytes -lt $requiredBytes) { $blockers.Add('TARGET_CAPACITY_INSUFFICIENT') }
 
+    $stateRoot = Get-LabStateRoot
+    $hyperVBindings = @(Get-LabStorageMigrationHyperVBindingInventory -DataRoot $sourceRoot -StateRoot $stateRoot)
+    foreach ($binding in $hyperVBindings) {
+        if (-not [bool]$binding.Valid) {
+            $blockers.Add("HYPERV_RESOURCE_BINDING_INVALID:$([string]$binding.ValidationCode)")
+        }
+        if ([string]$binding.MigrationStatus -notin @('ABSENT', 'COMPLETED')) {
+            $blockers.Add("HYPERV_RESOURCE_MIGRATION_NOT_TERMINAL:$([string]$binding.ResourceKey):$([string]$binding.MigrationStatus)")
+        }
+    }
+
     $affectedRuns = @()
     foreach ($run in @(Get-LabActiveRuns)) {
         $runDataRoot = [string]$run.metadata.dataRoot
-        if ($runDataRoot -and [string]::Equals([System.IO.Path]::GetFullPath($runDataRoot).TrimEnd('\', '/'), $sourceRoot.TrimEnd('\', '/'), [StringComparison]::OrdinalIgnoreCase)) {
+        $boundRun = @($hyperVBindings | Where-Object {
+            [string]$_.ResourceClass -eq 'Run' -and
+            [string]::Equals([string]$_.ResourceId, [string]$run.runId, [StringComparison]::OrdinalIgnoreCase)
+        }).Count -gt 0
+        if ($boundRun -or ($runDataRoot -and [string]::Equals([System.IO.Path]::GetFullPath($runDataRoot).TrimEnd('\', '/'), $sourceRoot.TrimEnd('\', '/'), [StringComparison]::OrdinalIgnoreCase))) {
             $runState = [string]$run.state
             $providers = @(
                 @($run.instances | ForEach-Object { [string]$_.provider })
@@ -584,11 +819,6 @@ function New-LabDataMigrationPlan {
             if (@($providers | Where-Object { $_ -in @('docker', 'podman') }).Count -gt 0) { $blockers.Add("CONTAINER_REBIND_REQUIRED:$($run.runId)") }
         }
     }
-    $stateRoot = Get-LabStateRoot
-    if (@($affectedRuns).Count -gt 0 -and -not [string]::Equals([System.IO.Path]::GetFullPath($stateRoot).TrimEnd('\', '/'), (Join-Path $sourceRoot 'State').TrimEnd('\', '/'), [StringComparison]::OrdinalIgnoreCase)) {
-        $blockers.Add('STATE_ROOT_OUTSIDE_SOURCE')
-    }
-
     $planId = [Guid]::NewGuid().ToString('D')
     $plan = [PSCustomObject]@{
         ContractVersion = 'SqlServerLab.StorageMigrationPlan/1.0'
@@ -606,6 +836,8 @@ function New-LabDataMigrationPlan {
         }
         Inventory = [PSCustomObject]@{ FileCount=$files.Count; TotalBytes=$totalBytes; RequiredBytes=$requiredBytes; AvailableBytes=$availableBytes }
         AffectedRuns = @($affectedRuns)
+        StateRoot = [IO.Path]::GetFullPath($stateRoot)
+        HyperVBindings = @($hyperVBindings)
         RequiredActions = @('Stop affected environments', 'Create migration journal', 'Copy and verify data', 'Update provider and state references', 'Switch authoritative storage catalog', 'Remove empty managed source root')
         Blockers = @($blockers | Sort-Object -Unique)
         ExecutionImplemented = $true
@@ -683,6 +915,8 @@ function Invoke-LabDataMigration {
         throw 'LAB_STORAGE_MIGRATION_LOCATION_ID_MISMATCH'
     }
     if (-not (Test-LabDataRootOwnership -DataRoot $sourceRoot -ControllerId ([string]$plan.ControllerId))) { throw 'LAB_STORAGE_MIGRATION_SOURCE_OWNERSHIP_INVALID' }
+    $validatedHyperVBindings = @(Assert-LabStorageMigrationHyperVBindingPlan `
+        -Plan $plan -SourceRoot $sourceRoot -TargetRoot $targetRoot)
     if (-not $PSCmdlet.ShouldProcess("$sourceRoot -> $targetRoot", 'Lab_Data journalisiert migrieren')) { return $null }
 
     $planHash = (Get-FileHash -LiteralPath $resolvedPlanPath -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -697,10 +931,13 @@ function Invoke-LabDataMigration {
             ContractVersion='SqlServerLab.StorageMigrationJournal/1.0'; PlanId=[string]$plan.PlanId; PlanSha256=$planHash
             LocationId=[string]$sourceLocation[0].LocationId
             Status='PREPARING'; CreatedAt=Get-LabTimestamp; UpdatedAt=Get-LabTimestamp; CurrentStep='validate'
-            CompletedAt=$null; CopiedFiles=@(); ReboundResources=@(); UpdatedReferences=@(); Errors=@()
+            CompletedAt=$null; CopiedFiles=@(); ReboundResources=@(); ReboundBindings=@(); UpdatedReferences=@(); Errors=@()
         }
     }
     if ([string]$journal.PlanSha256 -ne $planHash) { throw 'LAB_STORAGE_MIGRATION_PLAN_CHANGED' }
+    if (-not $journal.PSObject.Properties['ReboundBindings']) {
+        $journal | Add-Member -NotePropertyName ReboundBindings -NotePropertyValue @()
+    }
 
     try {
         if ($IsWindows) {
@@ -791,6 +1028,41 @@ function Invoke-LabDataMigration {
                 Set-LabProjectPreferenceValue -Name dataRoot -Value $targetRoot
             }
             $null = Set-LabTestEnvironmentDiscoveryEnvironment -DataRoot $targetRoot -ProcessEnvironmentOnly:$ProcessEnvironmentOnly
+        }
+
+        foreach ($bindingInventory in $validatedHyperVBindings) {
+            $receiptBoundary = Test-LabPathWithinRoot -Root $sourceRoot -Path ([string]$bindingInventory.ReceiptPath)
+            $stateDirectory = if ($receiptBoundary.Valid) {
+                Split-Path -Parent (Join-Path $targetRoot ([IO.Path]::GetRelativePath($sourceRoot, [string]$bindingInventory.ReceiptPath)))
+            }
+            else {
+                Split-Path -Parent ([string]$bindingInventory.ReceiptPath)
+            }
+            if (-not $receiptBoundary.Valid) {
+                $journal.UpdatedReferences = @(
+                    @($journal.UpdatedReferences) + @(
+                        Update-LabMigratedJsonReferences -Root $stateDirectory -SourceRoot $sourceRoot -TargetRoot $targetRoot
+                    ) | Sort-Object -Unique
+                )
+            }
+            $updatedBinding = Resolve-LabHyperVResourceBinding `
+                -ResourceId ([string]$bindingInventory.ResourceId) `
+                -ResourceClass ([string]$bindingInventory.ResourceClass) `
+                -LocationId ([string]$bindingInventory.LocationId) `
+                -DataRoot $targetRoot
+            $bindingPath = Write-LabHyperVResourceBinding -Binding $updatedBinding `
+                -StateDirectory $stateDirectory -DataRoot $targetRoot
+            if (@($journal.ReboundBindings | Where-Object {
+                    [string]$_.ResourceKey -eq [string]$updatedBinding.ResourceKey
+                }).Count -eq 0) {
+                $journal.ReboundBindings = @($journal.ReboundBindings) + @([PSCustomObject]@{
+                    ResourceClass=[string]$updatedBinding.ResourceClass
+                    ResourceId=[string]$updatedBinding.ResourceId
+                    ResourceKey=[string]$updatedBinding.ResourceKey
+                    ReceiptPath=$bindingPath
+                })
+            }
+            Write-LabDataMigrationJournal -Path $journalPath -Journal $journal -MirrorPath $targetJournalPath
         }
 
         $journal.Status = 'CLEANING'; $journal.CurrentStep = 'remove-verified-source'

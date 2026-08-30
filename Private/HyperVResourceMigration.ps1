@@ -72,6 +72,19 @@ function Get-LabHyperVResourceMigrationLifecycleGuard {
         }
     }
 
+    if ($binding) {
+        $storageMigrationGuard = Get-LabStorageMigrationLifecycleGuard `
+            -DataRoot ([string]$binding.LabDataRoot) -LocationId ([string]$binding.LocationId)
+        if (-not $storageMigrationGuard.Allowed) {
+            return [PSCustomObject]@{
+                Contract=[PSCustomObject]@{ Name='SqlServerLab.HyperVResourceMigrationLifecycleGuard'; Version='1.0' }
+                Applies=$true; Allowed=$false; Status='BLOCKED'; JournalStatus='ABSENT'
+                BindingStatus=$bindingStatus; ReasonCode='HYPERV_STORAGE_MIGRATION_LIFECYCLE_BLOCKED'
+                Reason=[string]$storageMigrationGuard.ReasonCode
+            }
+        }
+    }
+
     if (-not (Test-Path -LiteralPath $paths.Journal -PathType Leaf)) {
         return [PSCustomObject]@{
             Contract=[PSCustomObject]@{ Name='SqlServerLab.HyperVResourceMigrationLifecycleGuard'; Version='1.0' }
