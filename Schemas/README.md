@@ -21,6 +21,8 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 | `hyperv-resource-binding.schema.json` | Lokaler Vertrag `SqlServerLab.HyperVResourceBinding/1.0` für kurze Hyper-V-Create-Roots mit Controller-, Location-, Volume- und `Lab_Data`-Identität |
 | `hyperv-resource-migration-plan.schema.json` | Lokaler read-only Vertrag `SqlServerLab.HyperVResourceMigrationPlan/1.0` für exaktes Legacy-Inventar, Zielbindung, Blocker und geplante Aktionen |
 | `hyperv-resource-migration-journal.schema.json` | Lokales Operationsjournal `SqlServerLab.HyperVResourceMigrationJournal/1.0` für Resume, VHDX-/VM-Umbindung, Readiness, späten Quell-Cleanup und sichtbaren Recovery-Bedarf |
+| `hyperv-image-migration-plan.schema.json` | Lokaler read-only Vertrag `SqlServerLab.HyperVImageMigrationPlan/1.0` für Legacy-Image-Inventar, Zielbelegung, Child-Graph und Kopierbedarf |
+| `hyperv-image-migration-journal.schema.json` | Lokales Operationsjournal `SqlServerLab.HyperVImageMigrationJournal/1.0` für hashidentische Veröffentlichung, Binding-Commit, `WAITING_FOR_CONSUMERS` und referenzsicheren Quell-Cleanup |
 | `container-reconcile-journal.schema.json` | Lokales Operationsjournal `SqlServerLab.ContainerReconcileJournal/1.0` für Live-/Recreate-Mutation, echte Runtime-IDs, Resume, Rollback und sichtbaren Recovery-Bedarf |
 
 ## Beispiele
