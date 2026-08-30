@@ -108,6 +108,16 @@ $volumeRoot = [System.IO.Path]::GetPathRoot($dataRoot)
 if ($dataRoot.TrimEnd('\', '/') -eq $volumeRoot.TrimEnd('\', '/')) {
     throw 'DATA_ROOT_TOO_BROAD: Ein Laufwerks- oder Dateisystemroot ist nicht zulaessig.'
 }
+$volumeId = $volumeRoot
+if ($IsWindows -and $volumeRoot -match '^[A-Za-z]:' -and (Get-Command Get-Volume -ErrorAction SilentlyContinue)) {
+    try {
+        $volume = Get-Volume -DriveLetter $volumeRoot.Substring(0, 1) -ErrorAction Stop
+        if (-not [string]::IsNullOrWhiteSpace([string]$volume.UniqueId)) {
+            $volumeId = [string]$volume.UniqueId
+        }
+    }
+    catch { $volumeId = $volumeRoot }
+}
 $repositoryRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 if (Test-DataPathWithin -Path $dataRoot -ParentPath $repositoryRoot) {
     throw 'DATA_ROOT_INSIDE_REPOSITORY: Daten muessen ausserhalb des Git-Checkouts liegen.'
@@ -151,7 +161,7 @@ $marker = [PSCustomObject]@{
     ContractVersion = 'SqlServerLab.DataRoot/2.0'
     ManagedBy = 'SQL_Server_Lab'
     ControllerId = $ControllerId
-    VolumeId = $volumeRoot
+    VolumeId = $volumeId
     CreatedAt = if ($existingMarker -and $existingMarker.CreatedAt) { [string]$existingMarker.CreatedAt } else { (Get-Date).ToUniversalTime().ToString('o') }
     DataRoot = $dataRoot
 }
