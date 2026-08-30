@@ -124,6 +124,7 @@ try {
         $blocked = New-LabHyperVResourceMigrationPlan -RunId $run.runId -StateRoot $Root -DataRoot $ManagedRoot
         $script:snapshotCount = 0
         $ready = New-LabHyperVResourceMigrationPlan -RunId $run.runId -StateRoot $Root -DataRoot $ManagedRoot
+        $legacyLifecycleGuard = Get-LabHyperVResourceMigrationLifecycleGuard -RunId $run.runId -StateRoot $Root
         $testPassword = [Security.SecureString]::new()
         foreach ($character in 'Migration-Test-Only!'.ToCharArray()) { $testPassword.AppendChar($character) }
         $testPassword.MakeReadOnly()
@@ -150,9 +151,15 @@ try {
             ''
         } catch { $_.Exception.Message }
         $journalAfterFailure = Get-Content -LiteralPath (Join-Path $runDirectory 'hyperv-resource-migration.local.journal.json') -Raw -Encoding utf8 | ConvertFrom-Json -Depth 40
+        $recoveryLifecycleGuard = Get-LabHyperVResourceMigrationLifecycleGuard -RunId $run.runId -StateRoot $Root
+        $recoveryLifecycleMessage = try {
+            Assert-LabHyperVResourceMigrationLifecycleAllowed -RunId $run.runId -Operation 'START' -StateRoot $Root | Out-Null
+            ''
+        } catch { $_.Exception.Message }
         $sourceRetainedAfterFailure = Test-Path -LiteralPath $sourceDisk -PathType Leaf
         $completed = Invoke-LabHyperVResourceMigration -PlanPath $ready.Path -Credential $credential -DataRoot $ManagedRoot -Confirm:$false
         $idempotent = Invoke-LabHyperVResourceMigration -PlanPath $ready.Path -Credential $credential -DataRoot $ManagedRoot -Confirm:$false
+        $completedLifecycleGuard = Get-LabHyperVResourceMigrationLifecycleGuard -RunId $run.runId -StateRoot $Root
         $binding = Read-LabHyperVResourceBinding -StateDirectory $runDirectory -DataRoot $ManagedRoot
         $journalJson = Get-Content -LiteralPath $completed.JournalPath -Raw -Encoding utf8
         $journal = $journalJson | ConvertFrom-Json -Depth 50
@@ -165,6 +172,8 @@ try {
             TamperedPlanMessage=$tamperedPlanMessage; TamperedParentMessage=$tamperedParentMessage
             WhatIf=$whatIf; WhatIfPreservedState=$whatIfPreservedState
             RecoveryMessage=$recoveryMessage; FailureJournal=$journalAfterFailure
+            LegacyLifecycleGuard=$legacyLifecycleGuard; RecoveryLifecycleGuard=$recoveryLifecycleGuard
+            RecoveryLifecycleMessage=$recoveryLifecycleMessage; CompletedLifecycleGuard=$completedLifecycleGuard
             SourceRetainedAfterFailure=$sourceRetainedAfterFailure; Completed=$completed; Idempotent=$idempotent
             Binding=$binding; Journal=$journal; JournalSchemaValid=($journalJson | Test-Json -SchemaFile $JournalSchema -ErrorAction SilentlyContinue)
             Cleanup=$cleanup; Identity=$identity; SourceDisk=$sourceDisk; ExternalDisk=$externalDisk
@@ -195,16 +204,29 @@ try {
     Add-CheckResult -Name 'WhatIf bleibt vor jeder Hyper-V- und Dateimutation' -Success (
         $null -eq $result.WhatIf -and $result.WhatIfPreservedState
     )
+    Add-CheckResult -Name 'Legacy-Lifecycle bleibt bis zum Start einer Migration zulässig' -Success (
+        $result.LegacyLifecycleGuard.Allowed -and $result.LegacyLifecycleGuard.JournalStatus -eq 'ABSENT' -and
+        $result.LegacyLifecycleGuard.BindingStatus -eq 'ABSENT_LEGACY'
+    )
     Add-CheckResult -Name 'Unterbrochenes Reparent hinterlässt RECOVERY_REQUIRED und bewahrt die Quelle' -Success (
         $result.RecoveryMessage -match 'HYPERV_RESOURCE_MIGRATION_RECOVERY_REQUIRED' -and
         $result.FailureJournal.Status -eq 'RECOVERY_REQUIRED' -and $result.SourceRetainedAfterFailure -and
         @($result.FailureJournal.ParentReparents).Count -eq 1 -and $result.FailureJournal.ParentReparents[0].State -eq 'PENDING'
+    )
+    Add-CheckResult -Name 'RECOVERY_REQUIRED blockiert konkurrierenden Lifecycle und Repair fail-closed' -Success (
+        -not $result.RecoveryLifecycleGuard.Allowed -and
+        $result.RecoveryLifecycleGuard.ReasonCode -eq 'HYPERV_RESOURCE_MIGRATION_LIFECYCLE_BLOCKED' -and
+        $result.RecoveryLifecycleMessage -match 'HYPERV_RESOURCE_MIGRATION_LIFECYCLE_BLOCKED'
     )
     Add-CheckResult -Name 'Resume schließt dasselbe Journal idempotent ab' -Success (
         $result.Completed.Status -eq 'COMPLETED' -and $result.Idempotent.Status -eq 'COMPLETED' -and $result.Journal.Status -eq 'COMPLETED'
     )
     Add-CheckResult -Name 'Abschlussjournal ist schema-valid und belegt zwei Restart-Zyklen' -Success (
         $result.JournalSchemaValid -and @($result.Journal.ReadinessReceipts).Count -eq 2 -and $result.Journal.BindingCommitted
+    )
+    Add-CheckResult -Name 'COMPLETED erlaubt Lifecycle nur mit revalidiertem committed Run-Binding' -Success (
+        $result.CompletedLifecycleGuard.Allowed -and $result.CompletedLifecycleGuard.JournalStatus -eq 'COMPLETED' -and
+        $result.CompletedLifecycleGuard.BindingStatus -eq 'VALID'
     )
     Add-CheckResult -Name 'Legacy-Child wird genau einmal auf das verifizierte Lab_Data-Parent umgehängt' -Success (
         $result.ImageWaiting.Status -eq 'WAITING_FOR_CONSUMERS' -and $result.SetVhdCalls -eq 1 -and

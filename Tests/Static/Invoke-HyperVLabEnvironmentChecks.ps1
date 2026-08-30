@@ -40,6 +40,12 @@ try {
     $newLabText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/New-SqlServerLab.ps1') -Raw -Encoding utf8
     $generatedAccessText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Get-SqlServerLabGeneratedSqlAccess.ps1') -Raw -Encoding utf8
     $moduleManifestText = Get-Content -LiteralPath $modulePath -Raw -Encoding utf8
+    Add-CheckResult -Name 'Hyper-V-Lifecycle, Autostart und SQL-WMI-Repair prüfen den Run-Migrationsguard vor Mutation' -Success (
+        $environmentText -match "Assert-LabHyperVResourceMigrationLifecycleAllowed -RunId \`$RunId -Operation 'START'" -and
+        $environmentText -match "Assert-LabHyperVResourceMigrationLifecycleAllowed -RunId \`$RunId -Operation 'STOP'" -and
+        $environmentText -match "Assert-LabHyperVResourceMigrationLifecycleAllowed -RunId \`$RunId -Operation 'SET_AUTOSTART'" -and
+        $environmentText -match "Assert-LabHyperVResourceMigrationLifecycleAllowed -RunId \`$RunId -Operation 'REPAIR_SQL_WMI'"
+    )
     $guestPathContract = & $module {
         $accepted = $true
         try { Assert-LabContainerPath -Path 'C:\SQLData\TempDB\tempdev.mdf' -Label 'TempDB-Testpfad' }

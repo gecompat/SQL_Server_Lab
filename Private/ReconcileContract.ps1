@@ -149,6 +149,15 @@ function New-LabReconcilePlan {
     $desired = New-LabDesiredState -Run $run -TargetState $TargetState -StateRoot $StateRoot
     $actual = Get-LabActualState -Run $run -StateRoot $StateRoot
     $comparison = Compare-LabDesiredActualState -Desired $desired -Actual $actual
+    $migrationGuard = Get-LabHyperVResourceMigrationLifecycleGuard -RunId $RunId -StateRoot $StateRoot
+    if (-not $migrationGuard.Allowed) {
+        $comparison = [PSCustomObject]@{
+            ChangeClass = 'unsupported'
+            Reasons = @("Hyper-V-Ressourcenmigration blockiert Lifecycle-Reconcile: $([string]$migrationGuard.ReasonCode)")
+            Actions = @()
+            Warnings = @([string]$migrationGuard.Reason)
+        }
+    }
 
     return [PSCustomObject]@{
         Contract = [PSCustomObject]@{ Name = 'SqlServerLab.ReconcilePlan'; Version = '1.0' }
@@ -163,5 +172,6 @@ function New-LabReconcilePlan {
         IsNoOp = $comparison.ChangeClass -eq 'no-op'
         MutationAllowed = $false
         Warnings = $comparison.Warnings
+        HyperVResourceMigration = $migrationGuard
     }
 }

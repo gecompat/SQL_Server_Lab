@@ -268,15 +268,23 @@ neue Fehlplatzierung mehr zulassen. Sie blockieren den P0-Sofortschutz nicht.
   die reale erhöhte End-to-End-Abnahme bleibt Teil von `HVR-008`.
 - Der Cleanup-/Audit-Slice von `HVR-006` ist implementiert und synthetisch
   validiert: Vor jeder Hyper-V-Cleanup-Mutation werden Run-/Scope-Identität,
-  persistiertes `Run`-Binding, registrierte zusätzliche N5-Laufwerksroots und
-  das Run-Migrationsjournal gemeinsam revalidiert. Nichtterminale oder
+  persistierte `Run`- beziehungsweise `Build`-Bindings, registrierte
+  zusätzliche N5-Laufwerksroots und das Run-Migrationsjournal gemeinsam
+  revalidiert. Nichtterminale oder
   ungültige Migrationen sowie unsichere VHDX-Schritte blockieren den gesamten
   Plan vor der ersten Löschung. Der read-only Cleanup-Audit weist Bindings,
   Migrationsstatus, geschützte Run-VHDX, ungetrackte Preserve-Dateien und
   ausdrücklich zu bewahrende Shared-Image-/Staging-Roots getrennt aus.
-- `HVR-006` bleibt für Repair, Reconcile und die allgemeine Storage-Migration
-  offen; `HVR-007` und `HVR-008` bleiben ebenfalls offen. Diese Pfade müssen
-  noch an den Migrationsvertrag gekoppelt,
+- Der Repair-/Reconcile-Slice von `HVR-006` ist implementiert und synthetisch
+  validiert: Der read-only Lifecycle-Plan weist den sanitisierten
+  Migrationsguard aus und plant bei nichtterminalem oder inkonsistentem
+  Journal keine Aktion. Start, Stop, Autostartänderung und SQL-WMI-Repair
+  revalidieren denselben Guard vor ihrer ersten Mutation. Legacy-Runs ohne
+  gestartete Migration bleiben bedienbar; `COMPLETED` wird nur mit committed,
+  erneut gegen seine registrierte Location geprüftem `Run`-Binding freigegeben.
+- `HVR-006` bleibt für die allgemeine Storage-Migration offen; `HVR-007` und
+  `HVR-008` bleiben ebenfalls offen. Diese Pfade müssen noch an den
+  Migrationsvertrag gekoppelt,
   Zielpfade in UI/CLI/Preview sichtbar und der Ablauf real erhöht end-to-end
   abgenommen werden.
 

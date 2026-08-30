@@ -117,6 +117,21 @@ try {
             Set-Item Function:Get-LabRunRuntimeStatus -Value {
                 [PSCustomObject]@{ State = $script:reconcileRuntimeState; Source = 'mock'; Instances = $script:reconcileRuntimeInstances }
             }
+            $migrationRun = New-LabRunState -StateRoot $Root -Metadata @{ name='Reconcile migration block'; workflowKind='hyperv-lab' } `
+                -ProviderSubRuns @([PSCustomObject]@{ provider='hyperv'; instanceIds=@('primary') })
+            Write-LabArtifactJsonAtomic -Path (Join-Path $migrationRun.RunDir 'hyperv-resource-migration.local.journal.json') -InputObject ([PSCustomObject]@{
+                ContractVersion='SqlServerLab.HyperVResourceMigrationJournal/1.0'; RunId=$migrationRun.RunId
+                Status='RECOVERY_REQUIRED'; CurrentStep='failed'; BindingCommitted=$false
+            })
+            $script:reconcileRuntimeState = 'STOPPED'
+            $script:reconcileRuntimeInstances = @([PSCustomObject]@{ Id='primary'; Provider='hyperv'; State='STOPPED' })
+            $migrationBlocked = Get-SqlServerLabReconcilePlan -RunId $migrationRun.RunId -TargetState RUNNING -StateRoot $Root
+
+            $script:reconcileRuntimeState = 'RUNNING'
+            $script:reconcileRuntimeInstances = @(
+                [PSCustomObject]@{ Id = 'primary'; Provider = 'docker'; State = 'RUNNING' },
+                [PSCustomObject]@{ Id = 'secondary'; Provider = 'podman'; State = 'RUNNING' }
+            )
             $noOp = Get-SqlServerLabReconcilePlan -RunId $run.RunId -TargetState RUNNING -StateRoot $Root
             $script:reconcileRuntimeState = 'STOPPED'
             $restart = Get-SqlServerLabReconcilePlan -RunId $run.RunId -TargetState RUNNING -StateRoot $Root
@@ -137,7 +152,7 @@ try {
         }
 
         [PSCustomObject]@{
-            NoOp = $noOp; Restart = $restart; Partial = $partial; Invalid = $invalid
+            NoOp = $noOp; Restart = $restart; Partial = $partial; Invalid = $invalid; MigrationBlocked = $migrationBlocked
             StateUnchanged = $beforeState -eq (Get-Content -LiteralPath $statePath -Raw -Encoding utf8)
             ConnectionUnchanged = $beforeConnection -eq (Get-Content -LiteralPath $connectionPath -Raw -Encoding utf8)
         }
@@ -158,6 +173,12 @@ try {
     Add-CheckResult `
         -Name 'Persistierter ungültiger Sollzustand bleibt fail-closed' `
         -Success ($contract.Invalid.HighestChangeClass -eq 'unsupported' -and $contract.Invalid.Actions.Count -eq 0 -and $contract.Invalid.Desired.IsValid -eq $false -and $contract.Invalid.Warnings.Count -gt 0 -and -not $contract.Invalid.MutationAllowed)
+    Add-CheckResult `
+        -Name 'Nichtterminale Hyper-V-Ressourcenmigration blockiert Reconcile read-only' `
+        -Success ($contract.MigrationBlocked.HighestChangeClass -eq 'unsupported' -and $contract.MigrationBlocked.Actions.Count -eq 0 -and
+            -not $contract.MigrationBlocked.HyperVResourceMigration.Allowed -and
+            $contract.MigrationBlocked.HyperVResourceMigration.JournalStatus -eq 'RECOVERY_REQUIRED' -and
+            $contract.MigrationBlocked.HyperVResourceMigration.ReasonCode -eq 'HYPERV_RESOURCE_MIGRATION_LIFECYCLE_BLOCKED')
     $serializedContract = $contract | ConvertTo-Json -Depth 20
     $containsForbiddenRuntimeData = $serializedContract -match 'not-in-plan|secret-host\.invalid|container-secret-id' -or
         $serializedContract -match '(?i)"port"\s*:\s*143[34](?:\s*[,}])'
