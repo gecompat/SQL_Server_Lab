@@ -13,6 +13,7 @@
     "CurrentStep": { "type": "string" },
     "CopiedFiles": { "type": "array", "items": { "type": "string" } },
     "ReboundResources": { "type": "array" },
+    "ReboundBindings": { "type": "array" },
     "UpdatedReferences": { "type": "array", "items": { "type": "string" } },
     "Errors": { "type": "array" }
   },
