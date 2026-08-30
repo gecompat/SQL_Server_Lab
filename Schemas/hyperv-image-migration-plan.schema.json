@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sql-server-lab.local/schemas/hyperv-image-migration-plan.schema.json",
+  "title": "SqlServerLab.HyperVImageMigrationPlan/1.0",
+  "type": "object",
+  "required": ["ContractVersion", "PlanId", "Status", "Source", "Target", "Inventory", "RequiredActions", "Blockers", "ExecutionImplemented"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.HyperVImageMigrationPlan/1.0" },
+    "PlanId": { "type": "string", "format": "uuid" },
+    "Status": { "enum": ["READY", "BLOCKED", "NOOP"] },
+    "Source": { "type": "object", "required": ["Kind", "Root"], "properties": { "Kind": { "const": "LEGACY_IMAGE_STORE" }, "Root": { "type": "string", "minLength": 1 } } },
+    "Target": { "type": "object", "required": ["ResourceKey", "ControllerId", "LocationId", "VolumeId", "LabDataRoot", "ResourceRoot"] },
+    "Inventory": { "type": "object", "required": ["ArtifactCount", "CopyBytes", "RequiredBytes", "AvailableBytes", "Artifacts"], "properties": { "Artifacts": { "type": "array" } } },
+    "RequiredActions": { "type": "array", "items": { "type": "string" } },
+    "Blockers": { "type": "array", "items": { "type": "string" } },
+    "ExecutionImplemented": { "const": true }
+  },
+  "additionalProperties": true
+}

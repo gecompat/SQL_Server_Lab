@@ -66,7 +66,10 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   Reparse-, Datei-, VHDX- und VM-Pfad-Postconditions; ein read-only
   Legacy-Inventar und eine journalisierte, resumierbare Run-Migration binden
   VM-State und run-lokale VHDX erst nach Hash-, Identitäts-, Checkpoint-,
-  Kapazitäts- und Readiness-Prüfung um und erhalten externe SQL-Lanes;
+  Kapazitäts- und Readiness-Prüfung um und erhalten externe SQL-Lanes; der
+  getrennte Image-Migrationsvertrag veröffentlicht Legacy-Artefakte
+  hashidentisch im gebundenen Store und bewahrt referenzierte Quellen bis zu
+  einem consumerfreien Resume-Cleanup;
 - gemeinsames Console-UI-Framework einschließlich der CUI-001-bis-CUI-020-
   Verträge: alle bekannten Optionslisten in Storage, Connection Center,
   Erstellungs- und Hyper-V-Pfaden verwenden stabile Menü-IDs, Cursor/Fallback
@@ -144,8 +147,9 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 
 ### Geplant oder unvollständig
 
-- Bindung von Cleanup/Repair/Reconcile und allgemeiner Storage-Migration an den
-  Hyper-V-Legacy-Migrationsvertrag, Zielpfad-Preview sowie reale erhöhte
+- automatische Reparent-Kopplung von Legacy-Children an migrierte
+  Parent-Images, Bindung von Cleanup/Repair/Reconcile und allgemeiner Storage-
+  Migration an den Hyper-V-Legacy-Migrationsvertrag, Zielpfad-Preview sowie reale erhöhte
   End-to-End-Abnahme des Ressourcenroot-Schutzes;
 - vollständiger allgemeiner Hyper-V-Provider über den belegten
   Windows-2025-/SQL-2025-Referenzpfad hinaus, insbesondere breite

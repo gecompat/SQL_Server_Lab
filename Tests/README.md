@@ -74,6 +74,7 @@ Interpretation:
 .\Tests\Static\Invoke-ExternalRuntimeReconcileChecks.ps1
 .\Tests\Static\Invoke-StorageFilePlacementChecks.ps1
 .\Tests\Static\Invoke-HyperVResourceMigrationChecks.ps1
+.\Tests\Static\Invoke-HyperVImageMigrationChecks.ps1
 .\Tests\Static\Invoke-MixedProviderLifecycleChecks.ps1
 .\Tests\Static\Invoke-ArtifactResolverChecks.ps1
 .\Tests\Static\Invoke-SampleHandlerChecks.ps1
@@ -112,6 +113,10 @@ Die statischen Prüfungen benötigen keine laufende SQL-Server-Instanz. Sie kont
   Blocker, `-WhatIf`, Hash-/VHDX-Verifikation, journalisiertes Resume nach
   Readiness-Fehler, zwei Neustartprüfungen, Erhalt externer SQL-Lanes und
   Quell-Cleanup erst nach erfolgreicher Zielbindung;
+- Hyper-V-Image-Migration: exaktes Artifact-/Hash-Inventar, Fremdbelegungs-
+  und Planmanipulationsschutz, hashidentische Veröffentlichung im gebundenen
+  Image-Store sowie `WAITING_FOR_CONSUMERS` bis zum referenzfreien Resume-
+  Cleanup;
 - Pester-Vertrag: projektspezifische Baseline, Manifest-/Exportkonsistenz und
   deterministisch ausführbare Unit-/Contract-Tests unter `Tests/Pester`;
 - Ausschluss bekannter veralteter Beispiele und Statusangaben.
