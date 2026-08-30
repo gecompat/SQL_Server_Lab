@@ -783,8 +783,9 @@ Add-ValidationResult `
     -Success ($projectContext -match [regex]::Escape('CONTAINER_CORE_IMPLEMENTED_HYPERV_SQL_CLI_ACCEPTED') -and
         $projectContext -match [regex]::Escape('| Stand | 2026-08-30 |') -and
         $projectContext -match 'physischer Hyper-V-Mehrgeräte-Nachweis' -and
-        $projectContext -match 'ein verbleibender realer Project-Adapter-Pilot' -and
-        $projectContext -match 'SQL_PerformanceSchulung[\s\S]{0,160}SQL_Server_Analyze[\s\S]{0,160}Docker und Podman end-to-end validiert' -and
+        $projectContext -match 'drei reale Project-Adapter-Piloten' -and
+        $projectContext -match 'SQL_PerformanceSchulung[\s\S]{0,160}SQL_Server_Analyze[\s\S]{0,160}SQL_Server_Toolbelt[\s\S]{0,240}Docker und Podman[\s\S]{0,100}end-to-end' -and
+        $projectContext -notmatch 'ein verbleibender realer Project-Adapter-Pilot' -and
         $projectContext -notmatch 'External-Runtime-Varianten für SQL Server 2019, SQL Server 2025' -and
         $projectContext -notmatch 'offen bleiben echter Prozessabbruch, Manifest-Rerun und Windows-User-Gate' -and
         $projectContext -notmatch 'noch keinen positiven allgemeinen SQL-Runtime-Nachweis' -and
@@ -804,8 +805,10 @@ Add-ValidationResult `
     -Success ($repoMap -match 'journalisierter Container-Reconcile fuer CPU, RAM, SQL max memory, Hostport, Autostart und External Runtimes' -and
         $repoMap -notmatch 'Reconcile ist auf den Lifecycle START/STOP begrenzt' -and
         $knownLimitations -match 'realen Hyper-V-Mehrgeräte-Lauf' -and
-        $knownLimitations -match 'verbleibenden Project-Adapter-Piloten für `SQL_Server_Toolbelt`' -and
-        $knownLimitations -match 'SQL_PerformanceSchulung[\s\S]{0,160}SQL_Server_Analyze[\s\S]{0,200}Docker und Podman end-to-end validiert' -and
+        $knownLimitations -match 'Alle drei produktiven Pilotadapter' -and
+        $knownLimitations -match 'toolbelt\.core\.console-message' -and
+        $knownLimitations -match 'Gate N3 ist\s+damit geschlossen' -and
+        $knownLimitations -notmatch 'verbleibenden Project-Adapter-Piloten für `SQL_Server_Toolbelt`' -and
         $knownLimitations -notmatch 'Die verbleibenden P0-Fehler')
 
 Add-ValidationResult `
@@ -824,8 +827,10 @@ Add-ValidationResult `
 
 $sqlPreparedAcceptancePath = Join-Path $repoRoot 'Tests\Integration\Invoke-HyperVSqlPreparedImageAcceptance.ps1'
 Add-ValidationResult `
-    -Name 'Roadmap und Masterplan führen den real abgeschlossenen N4-Pfad als vollständig' `
-    -Success ($developmentExecutionPlan -match '(?m)^\| N4 \| `COMPLETE` \|' -and
+    -Name 'Roadmap und Masterplan führen die real abgeschlossenen N3-/N4-Pfade als vollständig' `
+    -Success ($developmentExecutionPlan -match '(?m)^\| N3 \| `COMPLETE` \|' -and
+        $developmentExecutionPlan -match '(?m)^\| N4 \| `COMPLETE` \|' -and
+        $masterImplementationPlan -match '(?m)^\| N3 – Drei reale Project-Adapter-Piloten \| Wellen 6, 7 und 7a \| `COMPLETE`' -and
         $masterImplementationPlan -match '(?m)^\| N4 – Hyper-V Windows-/SQL-End-to-End \| Welle 4 \| `COMPLETE` \|')
 
 Add-ValidationResult `
