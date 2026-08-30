@@ -250,9 +250,15 @@ neue Fehlplatzierung mehr zulassen. Sie blockieren den P0-Sofortschutz nicht.
   Cleanup-, Run- und Binding-State und entfernt die Quelle erst nach zwei
   erfolgreichen Start-/Readiness-Zyklen. Fehler bleiben sichtbar als
   `RECOVERY_REQUIRED`, ohne die Quelle vorzeitig zu löschen.
-- In `HVR-005` bleiben die graphbasierte Übernahme von Legacy-Parent-Images
-  und deren Artifact-Registry-Bindung offen; bis dahin blockiert dieser Slice
-  solche Fälle, statt eine unvollständige VHDX-Kette zu verschieben.
+- Der Image-Staging-Slice von `HVR-005` ist ebenfalls implementiert und
+  synthetisch validiert: Legacy-Artefakte werden vollständig inventarisiert,
+  bei Fremdbelegung blockiert und hashidentisch in den gebundenen Image-Store
+  veröffentlicht. Der journalisierte Status `WAITING_FOR_CONSUMERS` erhält
+  jeden noch referenzierten Parent; ein Resume entfernt die Quelle erst nach
+  einem erneuten vollständigen Child-Graph-Scan ohne Referenzen.
+- In `HVR-005` bleibt die automatische Reparent-Kopplung der run-lokalen
+  Child-VHDX an das migrierte Image offen; der Run-Slice blockiert solche
+  Ketten weiterhin, bis diese Kopplung implementiert ist.
 - `HVR-006` bis `HVR-008` bleiben ebenfalls offen: Cleanup, Repair, Reconcile und die
   allgemeine Storage-Migration müssen noch an den Migrationsvertrag gekoppelt,
   Zielpfade in UI/CLI/Preview sichtbar und der Ablauf real erhöht end-to-end
