@@ -64,6 +64,12 @@ try {
             [PSCustomObject]@{ provider = 'docker'; instanceIds = @('primary') },
             [PSCustomObject]@{ provider = 'podman'; instanceIds = @('secondary') }
         )
+        $migrationRun = New-LabRunState -StateRoot $Root -Metadata @{ name='Reconcile action migration block'; workflowKind='hyperv-lab' } `
+            -ProviderSubRuns @([PSCustomObject]@{ provider='hyperv'; instanceIds=@('primary') })
+        Write-LabArtifactJsonAtomic -Path (Join-Path $migrationRun.RunDir 'hyperv-resource-migration.local.journal.json') -InputObject ([PSCustomObject]@{
+            ContractVersion='SqlServerLab.HyperVResourceMigrationJournal/1.0'; RunId=$migrationRun.RunId
+            Status='RECOVERY_REQUIRED'; CurrentStep='failed'; BindingCommitted=$false
+        })
 
         $connection = [PSCustomObject]@{
             instances = @(
@@ -84,6 +90,7 @@ try {
 
         return [PSCustomObject]@{
             RunId = $run.RunId
+            MigrationRunId = $migrationRun.RunId
             StatePath = $statePath
             ConnectionPath = $connectionPath
             StateBefore = Get-Content -LiteralPath $statePath -Raw -Encoding utf8
@@ -93,7 +100,7 @@ try {
     } $tempRoot
 
     $contract = & $module {
-        param($RunId, $StateRoot, $StateBefore, $ConnectionBefore)
+        param($RunId, $MigrationRunId, $StateRoot, $StateBefore, $ConnectionBefore)
 
         $originalRuntime = (Get-Command Get-LabRunRuntimeStatus).ScriptBlock
         $originalStart = (Get-Command Start-SqlServerLab).ScriptBlock
@@ -127,6 +134,9 @@ try {
                 $script:executorStateRoots.Add($StateRoot)
                 [PSCustomObject]@{ RunId = $RunId; Status = 'STOPPED'; Action = 'STOPPED' }
             }
+
+            $script:reconcileRuntimeState = 'STOPPED'
+            $migrationBlocked = Invoke-SqlServerLabReconcileAction -RunId $MigrationRunId -TargetState RUNNING -StateRoot $StateRoot
 
             $script:reconcileRuntimeState = 'RUNNING'
             $noOp = Invoke-SqlServerLabReconcileAction -RunId $RunId -TargetState RUNNING -StateRoot $StateRoot
@@ -169,6 +179,7 @@ try {
 
             return [PSCustomObject]@{
                 NoOp = $noOp
+                MigrationBlocked = $migrationBlocked
                 Unsupported = $unsupported
                 Restart = $restart
                 Stop = $stop
@@ -189,7 +200,7 @@ try {
             Set-Item Function:Stop-SqlServerLab -Value $originalStop
             Set-Item Function:Get-SqlServerLabReconcilePlan -Value $originalPlan
         }
-    } $testData.RunId $testData.StateRoot $testData.StateBefore $testData.ConnectionBefore
+    } $testData.RunId $testData.MigrationRunId $testData.StateRoot $testData.StateBefore $testData.ConnectionBefore
 
     Add-CheckResult `
         -Name 'No-op-Plan bleibt ohne Mutation' `
@@ -197,6 +208,11 @@ try {
     Add-CheckResult `
         -Name 'Unsupported-Plan bleibt ohne Mutation' `
         -Success ($contract.Unsupported.ExecutionSummary.Status -eq 'UNSUPPORTED' -and $contract.Unsupported.MutationAllowed -eq $false -and $contract.Unsupported.ExecutionSummary.ExecutedActions -eq 0)
+    Add-CheckResult `
+        -Name 'Migrationsblockierter Hyper-V-Reconcile erreicht keinen Lifecycle-Executor' `
+        -Success ($contract.MigrationBlocked.ExecutionSummary.Status -eq 'UNSUPPORTED' -and
+            -not $contract.MigrationBlocked.MutationAllowed -and $contract.MigrationBlocked.ExecutionSummary.ExecutedActions -eq 0 -and
+            $contract.MigrationBlocked.Plan.HyperVResourceMigration.ReasonCode -eq 'HYPERV_RESOURCE_MIGRATION_LIFECYCLE_BLOCKED')
     Add-CheckResult `
         -Name 'Reconcile-Executor ruft Start und Stop genau einmal auf' `
         -Success ($contract.Restart.MutationAllowed -eq $true -and $contract.Restart.ExecutionSummary.Status -eq 'SUCCEEDED' -and $contract.Stop.MutationAllowed -eq $true -and $contract.Stop.ExecutionSummary.Status -eq 'SUCCEEDED' -and $contract.StartCalls -eq 1 -and $contract.StopCalls -eq 1)

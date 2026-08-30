@@ -61,6 +61,7 @@ function Set-HyperVLabAutoStart {
         [string]$StateRoot
     )
 
+    $null = Assert-LabHyperVResourceMigrationLifecycleAllowed -RunId $RunId -Operation 'SET_AUTOSTART' -StateRoot $StateRoot
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
     $managed = Get-HyperVManagedVM -VMName ([string]$lab.Instance.vmName) `
         -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
@@ -1562,6 +1563,7 @@ function Start-HyperVLabEnvironment {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$RunId, [string]$StateRoot)
     Write-LabInfo 'Schritt 1/2: Besitz und aktueller Status der Hyper-V-VM werden geprüft.'
+    $null = Assert-LabHyperVResourceMigrationLifecycleAllowed -RunId $RunId -Operation 'START' -StateRoot $StateRoot
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
     Write-LabInfo "Schritt 2/2: VM $($lab.Instance.vmName) wird gestartet."
     $status = Start-HyperVInstance -VMName $lab.Instance.vmName -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
@@ -1884,6 +1886,7 @@ function Repair-HyperVLabSqlWmiProvider {
         [string]$StateRoot
     )
 
+    $null = Assert-LabHyperVResourceMigrationLifecycleAllowed -RunId $RunId -Operation 'REPAIR_SQL_WMI' -StateRoot $StateRoot
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
     $managed = Get-HyperVManagedVM -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
     if (-not $managed -or [string]$managed.VM.State -ne 'Running') { throw 'HYPERV_LAB_SQL_WMI_VM_MUST_BE_RUNNING' }
@@ -2131,6 +2134,7 @@ function Stop-HyperVLabEnvironment {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$RunId, [string]$StateRoot)
     Write-LabInfo 'Schritt 1/2: Besitz und aktueller Status der Hyper-V-VM werden geprüft.'
+    $null = Assert-LabHyperVResourceMigrationLifecycleAllowed -RunId $RunId -Operation 'STOP' -StateRoot $StateRoot
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
     Write-LabInfo "Schritt 2/2: VM $($lab.Instance.vmName) wird sauber gestoppt."
     $status = Stop-HyperVInstance -VMName $lab.Instance.vmName -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId

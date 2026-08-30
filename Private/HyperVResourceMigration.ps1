@@ -24,6 +24,123 @@ function Get-LabHyperVResourceMigrationPaths {
     }
 }
 
+function Get-LabHyperVResourceMigrationLifecycleGuard {
+    <#
+    .SYNOPSIS
+        Prueft read-only, ob Lifecycle- und Repair-Mutationen mit dem Run-Migrationszustand vereinbar sind.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RunId,
+        [string]$StateRoot
+    )
+
+    if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
+    $run = Get-LabRunState -RunId $RunId -StateRoot $StateRoot
+    if ([string]$run.metadata.workflowKind -ne 'hyperv-lab') {
+        return [PSCustomObject]@{
+            Contract=[PSCustomObject]@{ Name='SqlServerLab.HyperVResourceMigrationLifecycleGuard'; Version='1.0' }
+            Applies=$false; Allowed=$true; Status='NOT_APPLICABLE'; JournalStatus='ABSENT'
+            BindingStatus='NOT_APPLICABLE'; ReasonCode=$null; Reason=$null
+        }
+    }
+
+    $runDirectory = Join-Path (Join-Path $StateRoot 'runs') $RunId
+    $paths = Get-LabHyperVResourceMigrationPaths -RunDirectory $runDirectory
+    $binding = $null
+    $bindingStatus = 'ABSENT_LEGACY'
+    $bindingPath = Join-Path $runDirectory 'hyperv-resource-binding.local.json'
+    if (Test-Path -LiteralPath $bindingPath -PathType Leaf) {
+        try {
+            $bindingDocument = Get-Content -LiteralPath $bindingPath -Raw -Encoding utf8 |
+                ConvertFrom-Json -Depth 12 -ErrorAction Stop
+            $binding = Read-LabHyperVResourceBinding -StateDirectory $runDirectory `
+                -DataRoot ([string]$bindingDocument.LabDataRoot)
+            if ([string]$binding.ResourceClass -ne 'Run' -or
+                -not [string]::Equals([string]$binding.ResourceId, $RunId, [StringComparison]::OrdinalIgnoreCase)) {
+                throw 'HYPERV_RESOURCE_MIGRATION_BINDING_IDENTITY_MISMATCH'
+            }
+            $bindingStatus = 'VALID'
+        }
+        catch {
+            return [PSCustomObject]@{
+                Contract=[PSCustomObject]@{ Name='SqlServerLab.HyperVResourceMigrationLifecycleGuard'; Version='1.0' }
+                Applies=$true; Allowed=$false; Status='BLOCKED'; JournalStatus='UNKNOWN'
+                BindingStatus='INVALID'; ReasonCode='HYPERV_RESOURCE_MIGRATION_BINDING_INVALID'
+                Reason=$_.Exception.Message
+            }
+        }
+    }
+
+    if (-not (Test-Path -LiteralPath $paths.Journal -PathType Leaf)) {
+        return [PSCustomObject]@{
+            Contract=[PSCustomObject]@{ Name='SqlServerLab.HyperVResourceMigrationLifecycleGuard'; Version='1.0' }
+            Applies=$true; Allowed=$true; Status='ALLOWED'; JournalStatus='ABSENT'
+            BindingStatus=$bindingStatus; ReasonCode=$null; Reason=$null
+        }
+    }
+
+    try {
+        $journal = Get-Content -LiteralPath $paths.Journal -Raw -Encoding utf8 |
+            ConvertFrom-Json -Depth 50 -ErrorAction Stop
+    }
+    catch {
+        return [PSCustomObject]@{
+            Contract=[PSCustomObject]@{ Name='SqlServerLab.HyperVResourceMigrationLifecycleGuard'; Version='1.0' }
+            Applies=$true; Allowed=$false; Status='BLOCKED'; JournalStatus='INVALID'
+            BindingStatus=$bindingStatus; ReasonCode='HYPERV_RESOURCE_MIGRATION_JOURNAL_INVALID'
+            Reason=$_.Exception.Message
+        }
+    }
+
+    $journalStatus = [string]$journal.Status
+    if ([string]$journal.ContractVersion -ne 'SqlServerLab.HyperVResourceMigrationJournal/1.0' -or
+        -not [string]::Equals([string]$journal.RunId, $RunId, [StringComparison]::OrdinalIgnoreCase)) {
+        return [PSCustomObject]@{
+            Contract=[PSCustomObject]@{ Name='SqlServerLab.HyperVResourceMigrationLifecycleGuard'; Version='1.0' }
+            Applies=$true; Allowed=$false; Status='BLOCKED'; JournalStatus='INVALID'
+            BindingStatus=$bindingStatus; ReasonCode='HYPERV_RESOURCE_MIGRATION_JOURNAL_IDENTITY_INVALID'
+            Reason='Vertragsversion oder RunId des Migrationsjournals stimmt nicht.'
+        }
+    }
+    if ($journalStatus -ne 'COMPLETED') {
+        return [PSCustomObject]@{
+            Contract=[PSCustomObject]@{ Name='SqlServerLab.HyperVResourceMigrationLifecycleGuard'; Version='1.0' }
+            Applies=$true; Allowed=$false; Status='BLOCKED'; JournalStatus=$journalStatus
+            BindingStatus=$bindingStatus; ReasonCode='HYPERV_RESOURCE_MIGRATION_LIFECYCLE_BLOCKED'
+            Reason="Migrationsjournal ist nicht terminal abgeschlossen: $journalStatus"
+        }
+    }
+    if (-not $binding -or $bindingStatus -ne 'VALID' -or $journal.BindingCommitted -ne $true) {
+        return [PSCustomObject]@{
+            Contract=[PSCustomObject]@{ Name='SqlServerLab.HyperVResourceMigrationLifecycleGuard'; Version='1.0' }
+            Applies=$true; Allowed=$false; Status='BLOCKED'; JournalStatus=$journalStatus
+            BindingStatus=$bindingStatus; ReasonCode='HYPERV_RESOURCE_MIGRATION_COMMIT_INVALID'
+            Reason='Abgeschlossenes Journal besitzt kein konsistentes, committed Run-Binding.'
+        }
+    }
+    return [PSCustomObject]@{
+        Contract=[PSCustomObject]@{ Name='SqlServerLab.HyperVResourceMigrationLifecycleGuard'; Version='1.0' }
+        Applies=$true; Allowed=$true; Status='ALLOWED'; JournalStatus=$journalStatus
+        BindingStatus=$bindingStatus; ReasonCode=$null; Reason=$null
+    }
+}
+
+function Assert-LabHyperVResourceMigrationLifecycleAllowed {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RunId,
+        [Parameter(Mandatory)][string]$Operation,
+        [string]$StateRoot
+    )
+
+    $guard = Get-LabHyperVResourceMigrationLifecycleGuard -RunId $RunId -StateRoot $StateRoot
+    if (-not $guard.Allowed) {
+        throw "$([string]$guard.ReasonCode): operation=$Operation; journal=$([string]$guard.JournalStatus); $([string]$guard.Reason)"
+    }
+    return $guard
+}
+
 function Get-LabHyperVLegacyRunInventory {
     [CmdletBinding()]
     param(
