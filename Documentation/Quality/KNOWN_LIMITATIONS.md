@@ -647,23 +647,43 @@ fail-closed, PowerShell Direct bestätigt das echte Gast-Credential und genau ei
 Receipt setzt den Scheduler fort. Der Acceptance-Test entfernt VM, Child-VHDX
 und temporären State scopegebunden.
 
+## Hyper-V-Ressourcenpfade
+
+Ein bestätigter Fehler kann reguläre Slot-VHDX, Image-Builder-Ressourcen,
+VM-Konfiguration und Smart Paging weiterhin unter dem Legacy-State-Root
+`%LOCALAPPDATA%\SqlServerLab` erzeugen, obwohl ein verwalteter `Lab_Data`-Root
+konfiguriert ist. Ursache ist die direkte Ableitung physischer Ressourcen aus
+dem allgemeinen `StateRoot` zusammen mit dessen Legacy-Fallback. Bestehende
+Dateien dürfen wegen aktiver Hyper-V-, VHDX-, Checkpoint-, Cleanup- und
+Artifact-Bindungen nicht manuell verschoben werden.
+
+Der priorisierte
+[P0-Bugfix](../Project_Planning/HYPERV_LAB_DATA_RESOURCE_ROOT_BUGFIX_BACKLOG.md)
+trennt Create-, Discovery-, State- und Ressourcenroots, blockiert neue
+Fehlplatzierungen vor der Provider-Mutation und fordert eine journalisierte
+Migration vorhandener Legacy-Slots. Bis dessen Sofortschutz real abgenommen
+ist, wird der offene N5-Hyper-V-Mehrgeräte-Nachweis nicht fortgesetzt.
+
 ## Lokale State- und Secret-Daten
 
 State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien liegen außerhalb des Git-Checkouts. Sie dürfen nicht in Issues, Pull Requests oder versionierte Diagnoseartefakte kopiert werden.
 
 ## Priorisierte nächste technische Schritte
 
-1. Den implementierten Multi-Root- und dateigenauen Storagevertrag mit einem
+1. Den P0-Bugfix für Hyper-V-Ressourcenroots umsetzen: neue Slot-, Builder-,
+   Paging-, Checkpoint- und Artifact-Dateien ausschließlich unter registriertem
+   `Lab_Data` erzeugen und vorhandene Legacy-Slots sicher migrierbar machen.
+2. Den implementierten Multi-Root- und dateigenauen Storagevertrag mit einem
    realen Hyper-V-Mehrgeräte-Lauf auf den drei lokalen physischen Laufwerken
    einschließlich SQL-Restart, Create, Restore,
    Persistenz und Cleanup abschließen (Gate N5).
-2. `LAB_GENERATED`-Erzeugung und Auswahl an den Hyper-V-Export binden
+3. `LAB_GENERATED`-Erzeugung und Auswahl an den Hyper-V-Export binden
    (Sample-Welle 5/6).
-3. Die implementierten providerneutralen Network- und Software-Intents an
+4. Die implementierten providerneutralen Network- und Software-Intents an
    Hyper-V-LAN/NAT/IPAM und Software-Runtime binden.
-4. Artifact Registry, Refresh/Rebuild und Evaluierungsablauf implementieren.
-5. Den belegten Windows-2025-/SQL-2025-Referenzpfad zur vollständigen
+5. Artifact Registry, Refresh/Rebuild und Evaluierungsablauf implementieren.
+6. Den belegten Windows-2025-/SQL-2025-Referenzpfad zur vollständigen
    allgemeinen Hyper-V-Manifestbindung und zu weiteren realen
    Versions-/Editionsnachweisen ausbauen.
-6. Katalogaktualität, verifizierte Prüfsummen (`catalog-verified`) und
+7. Katalogaktualität, verifizierte Prüfsummen (`catalog-verified`) und
    Baseline-Kompatibilität kontrolliert pflegen.
