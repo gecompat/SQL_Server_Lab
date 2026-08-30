@@ -188,6 +188,93 @@ function Read-LabHyperVResourceBinding {
     return Assert-LabHyperVResourceBinding -Binding $binding -DataRoot $DataRoot
 }
 
+function Initialize-LabHyperVResourceBinding {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$ResourceId,
+        [Parameter(Mandatory)]
+        [ValidateSet('Run', 'Build', 'Image', 'Staging', 'Recovery')]
+        [string]$ResourceClass,
+        [Parameter(Mandatory)][string]$StateDirectory,
+        [string]$LocationId,
+        [string]$DataRoot
+    )
+
+    $statePath = [IO.Path]::GetFullPath($StateDirectory)
+    if (-not (Test-Path -LiteralPath $statePath -PathType Container)) {
+        throw "HYPERV_RESOURCE_BINDING_STATE_DIRECTORY_NOT_FOUND: $statePath"
+    }
+    $binding = Read-LabHyperVResourceBinding -StateDirectory $statePath -DataRoot $DataRoot
+    if ($binding) {
+        if ([string]$binding.ResourceId -ne $ResourceId -or
+            [string]$binding.ResourceClass -ne $ResourceClass) {
+            throw 'HYPERV_RESOURCE_BINDING_STATE_IDENTITY_MISMATCH'
+        }
+        return $binding
+    }
+
+    $binding = Resolve-LabHyperVResourceBinding -ResourceId $ResourceId -ResourceClass $ResourceClass `
+        -LocationId $LocationId -DataRoot $DataRoot
+    $null = Write-LabHyperVResourceBinding -Binding $binding -StateDirectory $statePath -DataRoot $DataRoot
+    return Assert-LabHyperVResourceBinding -Binding $binding -DataRoot $DataRoot
+}
+
+function Test-LabHyperVBoundPath {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Binding,
+        [Parameter(Mandatory)][string]$Path,
+        [string]$DataRoot,
+        [ValidateRange(80, 240)][int]$MaximumPathLength = 220
+    )
+
+    $validated = Assert-LabHyperVResourceBinding -Binding $Binding -DataRoot $DataRoot
+    $candidate = [IO.Path]::GetFullPath($Path)
+    if ($candidate.Length -gt $MaximumPathLength) {
+        return [PSCustomObject]@{ Valid=$false; Code='HYPERV_RESOURCE_PATH_TOO_LONG'; Reason="$($candidate.Length) > $MaximumPathLength"; Path=$candidate; Binding=$validated }
+    }
+    $rootItem = Get-Item -LiteralPath ([string]$validated.LabDataRoot) -Force -ErrorAction SilentlyContinue
+    if (-not $rootItem -or ($rootItem.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+        return [PSCustomObject]@{ Valid=$false; Code='HYPERV_RESOURCE_ROOT_REPARSE_OR_MISSING'; Reason=[string]$validated.LabDataRoot; Path=$candidate; Binding=$validated }
+    }
+    $boundary = Test-LabPathWithinRoot -Root ([string]$validated.HyperVResourceRoot) -Path $candidate
+    if (-not $boundary.Valid) {
+        return [PSCustomObject]@{ Valid=$false; Code='HYPERV_RESOURCE_PATH_SCOPE_INVALID'; Reason=$boundary.Reason; Path=$candidate; Binding=$validated }
+    }
+    return [PSCustomObject]@{ Valid=$true; Code='HYPERV_RESOURCE_PATH_VALID'; Reason=''; Path=$candidate; Binding=$validated }
+}
+
+function Assert-LabHyperVBoundPath {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Binding,
+        [Parameter(Mandatory)][string]$Path,
+        [string]$DataRoot,
+        [ValidateRange(80, 240)][int]$MaximumPathLength = 220
+    )
+
+    $result = Test-LabHyperVBoundPath -Binding $Binding -Path $Path -DataRoot $DataRoot -MaximumPathLength $MaximumPathLength
+    if (-not $result.Valid) { throw "$($result.Code): $($result.Reason)" }
+    return $result.Path
+}
+
+function Resolve-LabHyperVStateResourcePath {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$StateDirectory,
+        [Parameter(Mandatory)][string]$BoundRelativePath,
+        [Parameter(Mandatory)][string]$LegacyRelativePath,
+        [string]$DataRoot
+    )
+
+    $binding = Read-LabHyperVResourceBinding -StateDirectory $StateDirectory -DataRoot $DataRoot
+    if ($binding) {
+        $candidate = Join-Path ([string]$binding.HyperVResourceRoot) $BoundRelativePath
+        return Assert-LabHyperVBoundPath -Binding $binding -Path $candidate -DataRoot $DataRoot
+    }
+    return [IO.Path]::GetFullPath((Join-Path $StateDirectory $LegacyRelativePath))
+}
+
 function Get-LabHyperVResourceDiscoveryRoots {
     [CmdletBinding()]
     param(
@@ -243,6 +330,18 @@ function Resolve-LabHyperVMutationRoot {
     foreach ($root in @(Get-LabHyperVResourceDiscoveryRoots -ResourceClass $ResourceClass -StateRoot $StateRoot -DataRoot $DataRoot)) {
         $boundary = Test-LabPathWithinRoot -Root ([string]$root.Path) -Path $candidate
         if ($boundary.Valid) {
+            if ([string]$root.RootKind -eq 'REGISTERED') {
+                try {
+                    $validationBinding = Resolve-LabHyperVResourceBinding `
+                        -ResourceId 'mutation-root-validation' -ResourceClass $ResourceClass `
+                        -LocationId ([string]$root.LocationId) -DataRoot $DataRoot
+                    $expectedClassRoot = Split-Path -Parent ([string]$validationBinding.HyperVResourceRoot)
+                    if (-not [string]::Equals([IO.Path]::GetFullPath([string]$root.Path), [IO.Path]::GetFullPath($expectedClassRoot), [StringComparison]::OrdinalIgnoreCase)) {
+                        throw 'registered class root changed'
+                    }
+                }
+                catch { throw "HYPERV_RESOURCE_MUTATION_ROOT_REVALIDATION_FAILED: $($_.Exception.Message)" }
+            }
             return [PSCustomObject]@{
                 RootKind = [string]$root.RootKind; MutationRoot = [string]$root.Path
                 ExistingResourcePath = $candidate; LocationId = [string]$root.LocationId

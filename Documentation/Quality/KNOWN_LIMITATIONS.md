@@ -650,13 +650,14 @@ und temporären State scopegebunden.
 
 ## Hyper-V-Ressourcenpfade
 
-Ein bestätigter Fehler kann reguläre Slot-VHDX, Image-Builder-Ressourcen,
-VM-Konfiguration und Smart Paging weiterhin unter dem Legacy-State-Root
-`%LOCALAPPDATA%\SqlServerLab` erzeugen, obwohl ein verwalteter `Lab_Data`-Root
-konfiguriert ist. Ursache ist die direkte Ableitung physischer Ressourcen aus
-dem allgemeinen `StateRoot` zusammen mit dessen Legacy-Fallback. Bestehende
-Dateien dürfen wegen aktiver Hyper-V-, VHDX-, Checkpoint-, Cleanup- und
-Artifact-Bindungen nicht manuell verschoben werden.
+Vor `HVR-003` konnten reguläre Slot-VHDX, Image-Builder-Ressourcen,
+VM-Konfiguration und Smart Paging unter dem Legacy-State-Root
+`%LOCALAPPDATA%\SqlServerLab` entstehen, obwohl ein verwalteter
+`Lab_Data`-Root konfiguriert war. Neue Ressourcen werden nun durch persistierte
+`HyperVResourceBinding`-Verträge unter registriertem `Lab_Data` erzeugt und vor
+sowie nach der Mutation geprüft. Bereits vorhandene Dateien werden noch nicht
+automatisch migriert und dürfen wegen aktiver Hyper-V-, VHDX-, Checkpoint-,
+Cleanup- und Artifact-Bindungen nicht manuell verschoben werden.
 
 Der priorisierte
 [P0-Bugfix](../Project_Planning/HYPERV_LAB_DATA_RESOURCE_ROOT_BUGFIX_BACKLOG.md)
@@ -666,12 +667,13 @@ Migration vorhandener Legacy-Slots. Der physische N5-Hyper-V-Mehrgeräte-
 Nachweis wurde am 2026-08-30 abgeschlossen; das Gesamtgate bleibt bis zur realen
 Abnahme dieses P0-Fixes `IN_PROGRESS / P0_FIX_FIRST`.
 
-Die Grundlage für `HVR-001` und `HVR-002` ist implementiert: Ein versioniertes
-lokales `HyperVResourceBinding` löst kurze Create-Roots ausschließlich aus
-registrierten `Lab_Data`-Locations auf, revalidiert Controller-, Location- und
-Volume-Identität und trennt Legacy-Discovery von neuen Create-Roots. Dieser
-Vertrag schützt die Runtime noch nicht vollständig; Provider, Builder und
-Image-Store erzwingen ihn erst mit `HVR-003`/`HVR-004` an jeder Mutation.
+`HVR-001` bis `HVR-004` sind implementiert und statisch validiert: Der
+versionierte lokale Vertrag löst kurze Create-Roots ausschließlich aus
+registrierten `Lab_Data`-Locations auf, revalidiert Controller-, Location-,
+Volume-, Path-Length- und Reparse-Evidence und schützt Provider, Builder sowie
+Image- und Staging-Store an ihren Mutationsgrenzen. Offen bleiben das
+journalisierte Legacy-Inventar und die Migration, die Kopplung weiterer
+Repair-/Reconcile-Pfade, UI/Preview sowie die reale erhöhte End-to-End-Abnahme.
 
 ## Lokale State- und Secret-Daten
 
@@ -679,9 +681,10 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
 
 ## Priorisierte nächste technische Schritte
 
-1. Den P0-Bugfix für Hyper-V-Ressourcenroots umsetzen: neue Slot-, Builder-,
-   Paging-, Checkpoint- und Artifact-Dateien ausschließlich unter registriertem
-   `Lab_Data` erzeugen und vorhandene Legacy-Slots sicher migrierbar machen.
+1. Den P0-Bugfix für Hyper-V-Ressourcenroots abschließen: vorhandene
+   Legacy-Slots inventarisieren und journalisiert migrieren, Cleanup, Repair
+   und Reconcile an die Bindung koppeln, Zielpfade in UI/Preview darstellen und
+   den Schutz real erhöht end-to-end abnehmen.
 2. `LAB_GENERATED`-Erzeugung und Auswahl an den Hyper-V-Export binden
    (Sample-Welle 5/6).
 3. Die implementierten providerneutralen Network- und Software-Intents an

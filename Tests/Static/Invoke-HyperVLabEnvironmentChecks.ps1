@@ -19,6 +19,8 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
 $temporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) "sql-lab-hyperv-environment-$([guid]::NewGuid().ToString('N'))"
+$dataRoot = Join-Path $temporaryRoot 'Lab_Data'
+$previousDataRoot = $env:SQL_SERVER_LAB_DATA_ROOT
 $failures = [System.Collections.Generic.List[string]]::new()
 $passed = 0
 . (Join-Path $PSScriptRoot '..' 'Common' 'CheckResult.ps1')
@@ -28,6 +30,8 @@ Write-Host 'SQL_Server_Lab - Hyper-V Lab Environment Checks' -ForegroundColor Cy
 
 try {
     $module = Import-Module $modulePath -Force -PassThru
+    $null = & $module { param($Root) Initialize-LabManagedDataRoot -DataRoot $Root -Confirm:$false } $dataRoot
+    $env:SQL_SERVER_LAB_DATA_ROOT = $dataRoot
     $environmentText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVLabEnvironment.ps1') -Raw -Encoding utf8
     $acceptanceText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVSqlAcceptanceEnvironment.ps1') -Raw -Encoding utf8
     $menuText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Invoke-SqlServerLab.ps1') -Raw -Encoding utf8
@@ -429,7 +433,7 @@ try {
         [PSCustomObject]@{ Created = $created; ConvertedFrom = $script:convertedFrom; Source = $script:sourceDisk }
     } $temporaryRoot
     $existingConnection = Get-Content -LiteralPath (Join-Path (Join-Path (Join-Path $temporaryRoot 'runs') $existingVmCreated.Created.RunId) 'connection-info.json') -Raw | ConvertFrom-Json -Depth 10
-    Add-CheckResult -Name 'Vorhandene Windows-VM wird nur als unveränderte Quelle in eine run-lokale Parent-Kopie übernommen' -Success (
+    Add-CheckResult -Name 'Vorhandene Windows-VM wird nur als unveränderte Quelle in eine run-gebundene Parent-Kopie übernommen' -Success (
         $existingVmCreated.Created.State -eq 'STOPPED' -and
         $existingVmCreated.ConvertedFrom -eq $existingVmCreated.Source -and
         $existingConnection.instances[0].baseKind -eq 'existing-vm' -and
@@ -613,6 +617,7 @@ catch {
     Add-CheckResult -Name 'Hyper-V-Lab-Umgebung Testausführung' -Success $false -Message $_.Exception.Message
 }
 finally {
+    $env:SQL_SERVER_LAB_DATA_ROOT = $previousDataRoot
     Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
     if (Test-Path -LiteralPath $temporaryRoot) { Remove-Item -LiteralPath $temporaryRoot -Recurse -Force }
 }

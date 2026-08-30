@@ -454,13 +454,16 @@ function New-HyperVLabEnvironmentFromExistingVm {
         $null = Set-LabRunState -RunId $run.RunId -NewState PROVISIONING -Reason 'Hyper-V-Lab wird aus einer vorhandenen VM abgeleitet.' -StateRoot $run.StateRoot
         Set-LabProviderSubRunState -RunId $run.RunId -Provider hyperv -NewState PROVISIONING -Reason 'Quell-VM wird unveraendert als Basis kopiert.' -StateRoot $run.StateRoot
 
-        $resourceRoot = Join-Path (Join-Path $run.RunDir 'resources') 'hyperv'
-        $parentCopyPath = Join-Path $resourceRoot "$InstanceId-source-parent.vhdx"
-        if (-not (Test-HyperVPathWithinRunDirectory -Path $parentCopyPath -RunDirectory $run.RunDir)) { throw 'HYPERV_RESOURCE_SCOPE_VIOLATION' }
+        $resourceBinding = Initialize-LabHyperVResourceBinding -ResourceId $run.RunId -ResourceClass Run `
+            -StateDirectory $run.RunDir
+        $resourceRoot = [string]$resourceBinding.HyperVResourceRoot
+        $parentCopyPath = Assert-LabHyperVBoundPath -Binding $resourceBinding `
+            -Path (Join-Path $resourceRoot "$InstanceId-source-parent.vhdx")
         $null = Add-CleanupStep -RunDir $run.RunDir -ResourceType 'vhdx' -ResourceId $parentCopyPath -Action 'remove' -Provider 'hyperv' -ProviderSubRunId 'provider-hyperv' -Compensation "Remove protected source-parent copy for $InstanceId"
         $null = New-Item -ItemType Directory -Path $resourceRoot -Force
         Write-LabInfo 'Schritt 3/6: Quell-VHDX wird als eigene Arbeitskopie konvertiert; die Original-VM bleibt unveraendert.'
         Convert-VHD -Path $source.SourceVhdxPath -DestinationPath $parentCopyPath -VHDType Dynamic -ErrorAction Stop
+        if (-not (Test-Path -LiteralPath $parentCopyPath -PathType Leaf)) { throw 'HYPERV_SOURCE_PARENT_COPY_POSTCONDITION_FAILED' }
         $parentItem = Get-Item -LiteralPath $parentCopyPath -Force
         $parentItem.IsReadOnly = $true
         $parentHash = (Get-FileHash -LiteralPath $parentCopyPath -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()

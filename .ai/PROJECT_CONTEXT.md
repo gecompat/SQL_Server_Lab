@@ -61,7 +61,9 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 - versionierte `SqlServerLab.HyperVResourceBinding/1.0`-Grundlage mit kurzen,
   state-root-unabhängigen Create-Roots unter registriertem `Lab_Data`,
   Controller-/Location-/Volume-Revalidierung und getrennter read-only
-  Legacy-Discovery;
+  Legacy-Discovery; Slot-Provider, Windows-/SQL-Builder, Existing-VM-Kopie,
+  Image- und Staging-Store erzwingen die Bindung einschließlich Path-Length-,
+  Reparse-, Datei-, VHDX- und VM-Pfad-Postconditions;
 - gemeinsames Console-UI-Framework einschließlich der CUI-001-bis-CUI-020-
   Verträge: alle bekannten Optionslisten in Storage, Connection Center,
   Erstellungs- und Hyper-V-Pfaden verwenden stabile Menü-IDs, Cursor/Fallback
@@ -139,9 +141,9 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 
 ### Geplant oder unvollständig
 
-- produktive Durchsetzung der vorbereiteten Hyper-V-Resource-Bindings an allen
-  Slot-, Builder-, VM-, Smart-Paging-, Checkpoint- und Artifact-Mutationen
-  sowie sichere Migration vorhandener Legacy-Slots;
+- journalisiertes Inventar und sichere Migration vorhandener Hyper-V-Legacy-
+  Ressourcen, Bindung von Cleanup/Repair/Reconcile, Zielpfad-Preview und reale
+  erhöhte End-to-End-Abnahme des Ressourcenroot-Schutzes;
 - vollständiger allgemeiner Hyper-V-Provider über den belegten
   Windows-2025-/SQL-2025-Referenzpfad hinaus, insbesondere breite
   Datenbank-, Software-, Post-Provisioning- und Netzwerk-Manifestbindung sowie
