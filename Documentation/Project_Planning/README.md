@@ -10,6 +10,7 @@
 | PROVIDER_NEUTRAL_BATCH_QUEUE_RESUME_WORKFLOW_2026-08-13.md | Beschlossener P0-Zielvertrag für providerneutrale Batchplanung, persistente Queue, Resume, Scheduler, User-Gates, Bulk-Slots, Cleanup und konsolidierte Menüführung |
 | CONSOLE_UI_FRAMEWORK_PLAN.md | Verbindlicher Plan für cursorbasierte Konsolenmenüs, lange editierbare Formulare, Viewports, stabilen Refresh und Read-Host-Fallback |
 | STORAGE_CONTRACT_PLAN.md | Zielvertrag für ein globales `Lab_Base`, genau eine `Lab_Data`-Wurzel je Volume und journalisierte Pfadmigrationen |
+| HYPERV_LAB_DATA_RESOURCE_ROOT_BUGFIX_BACKLOG.md | Priorisierter P0-Bugfix für Slot-/Builder-VHDX, VM-Konfiguration, Smart Paging, Checkpoints und Hyper-V-Artefakte ausschließlich unter registrierten `Lab_Data`-Roots einschließlich Legacy-Migration |
 | PROJECT_ADAPTER_PRIORITIZATION.md | Entscheidung, Project Adapter vor Hyper-V umzusetzen, mit Arbeitspaketen |
 | EXTERNAL_LANGUAGES_IMPLEMENTATION_PLAN.md | Providerneutraler Umsetzungsplan für Python, R und Java auf Hyper-V/Windows sowie Docker/Podman unter Linux; konkretisiert `SFT-711` und `SFT-712` |
 | CU_MONITORING_BACKLOG.md | Backlog zur Katalogaktualität der SQL-Server-Builds |
