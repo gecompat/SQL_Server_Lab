@@ -15,6 +15,7 @@
 | CU_MONITORING_BACKLOG.md | Backlog zur Katalogaktualität der SQL-Server-Builds |
 | HYPERV_REMOTE_HOST_BACKLOG.md | Spätere Steuerung eines entfernten Windows-Hyper-V-Hosts aus der lokalen Workflow-Oberfläche |
 | WINDOWS_LOCALE_CONFIGURATION_BACKLOG.md | Deklarative, pro Windows-Instanz konfigurierbare Sprache, Region, Tastatur und Zeitzone für Manifest- und Batch-Pfade |
+| WINDOWS_SLOT_ACTIVATION_BACKLOG.md | Allgemeines Lizenz-Reconcile für Windows-Child-Slots mit sicherer Unterscheidung persistenter und temporärer External-NICs |
 
 Für Reihenfolge und Priorität der Weiterentwicklung ist ausschließlich
 `DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md` maßgeblich. Die Wellenzählungen in
