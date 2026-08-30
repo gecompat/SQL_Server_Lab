@@ -13,6 +13,11 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   deterministische Ressourcenpfade ausschließlich aus registrierten
   `Lab_Data`-Locations ab und revalidiert Controller, Location, Volume,
   Marker und Reparse-Grenze. Legacy-State-Roots bleiben read-only auffindbar.
+- Der erste Run-Slice von `HVR-005` ergänzt einen schema-validen read-only Migrationsplan und ein
+  persistentes Operationsjournal für vorhandene Hyper-V-Run-Ressourcen. Der
+  resumierbare Ablauf verifiziert Quellen und Zielkopien, bindet VM-State und
+  run-lokale VHDX um, erhält externe SQL-Lanes und löscht Quellen erst nach
+  zwei erfolgreichen Start-/Readiness-Zyklen.
 
 ### Geändert
 
@@ -22,7 +27,8 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   Snapshots und Artefakte liegen unter registriertem `Lab_Data`; fail-closed
   Preflights und Datei-, VHDX- sowie VM-Pfad-Postconditions sichern die
   Mutationsgrenzen. Legacy-Ressourcen bleiben für bestehenden Lifecycle
-  auffindbar und werden erst mit `HVR-005` journalisiert migriert.
+  auffindbar; ihre öffentliche Migration und reale Abnahme folgen nach der nun
+  implementierten internen HVR-005-Grundlage.
 
 ### Validiert
 

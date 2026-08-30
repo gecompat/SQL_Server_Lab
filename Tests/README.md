@@ -73,6 +73,7 @@ Interpretation:
 .\Tests\Static\Invoke-ReconcileActionContractChecks.ps1
 .\Tests\Static\Invoke-ExternalRuntimeReconcileChecks.ps1
 .\Tests\Static\Invoke-StorageFilePlacementChecks.ps1
+.\Tests\Static\Invoke-HyperVResourceMigrationChecks.ps1
 .\Tests\Static\Invoke-MixedProviderLifecycleChecks.ps1
 .\Tests\Static\Invoke-ArtifactResolverChecks.ps1
 .\Tests\Static\Invoke-SampleHandlerChecks.ps1
@@ -107,6 +108,10 @@ Die statischen Prüfungen benötigen keine laufende SQL-Server-Instanz. Sie kont
   `-WhatIf`, Journal, Rollback und Umschaltreihenfolge;
 - portabler Storage-Intent, lokale Selector-/Topologiebindung, vollständige
   SQL-Dateipläne und der getrennte Runtime-Receipt-Vertrag;
+- Hyper-V-Legacy-Migration: schema-valides read-only Inventar, Checkpoint-
+  Blocker, `-WhatIf`, Hash-/VHDX-Verifikation, journalisiertes Resume nach
+  Readiness-Fehler, zwei Neustartprüfungen, Erhalt externer SQL-Lanes und
+  Quell-Cleanup erst nach erfolgreicher Zielbindung;
 - Pester-Vertrag: projektspezifische Baseline, Manifest-/Exportkonsistenz und
   deterministisch ausführbare Unit-/Contract-Tests unter `Tests/Pester`;
 - Ausschluss bekannter veralteter Beispiele und Statusangaben.

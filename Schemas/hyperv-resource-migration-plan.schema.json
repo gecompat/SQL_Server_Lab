@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sql-server-lab.local/schemas/hyperv-resource-migration-plan.schema.json",
+  "title": "SqlServerLab.HyperVResourceMigrationPlan/1.0",
+  "type": "object",
+  "required": ["ContractVersion", "PlanId", "RunId", "ScopeId", "Status", "Source", "Target", "Inventory", "RequiredActions", "Blockers", "ExecutionImplemented"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.HyperVResourceMigrationPlan/1.0" },
+    "PlanId": { "type": "string", "format": "uuid" },
+    "RunId": { "type": "string", "format": "uuid" },
+    "ScopeId": { "type": "string", "format": "uuid" },
+    "Status": { "enum": ["READY", "BLOCKED"] },
+    "Source": {
+      "type": "object",
+      "required": ["Kind", "Root"],
+      "properties": { "Kind": { "const": "LEGACY_STATE_ROOT" }, "Root": { "type": "string", "minLength": 1 } }
+    },
+    "Target": {
+      "type": "object",
+      "required": ["ResourceKey", "ControllerId", "LocationId", "VolumeId", "LabDataRoot", "ResourceRoot"],
+      "properties": {
+        "ResourceKey": { "type": "string", "pattern": "^[a-f0-9]{20}$" },
+        "ControllerId": { "type": "string", "format": "uuid" },
+        "LocationId": { "type": "string", "format": "uuid" }
+      }
+    },
+    "Inventory": {
+      "type": "object",
+      "required": ["FileCount", "TotalBytes", "RequiredBytes", "AvailableBytes", "VMs", "Files"],
+      "properties": {
+        "VMs": { "type": "array", "minItems": 1 },
+        "Files": { "type": "array" }
+      }
+    },
+    "RequiredActions": { "type": "array", "items": { "type": "string" } },
+    "Blockers": { "type": "array", "items": { "type": "string" } },
+    "ExecutionImplemented": { "const": true }
+  },
+  "additionalProperties": true
+}
