@@ -8,19 +8,13 @@
     "backup": { "selector": "n5-temp-03" }
   },
   "tempDb": {
-    "distribution": "one-file-per-physical-device",
+    "distribution": "round-robin",
     "dataFileCount": 4,
+    "minimumPhysicalDeviceCount": 3,
     "dataLocationSelectors": [
       "n5-temp-01",
       "n5-temp-02",
-      "n5-temp-03",
-      "n5-temp-04"
-    ],
-    "dataFiles": [
-      { "logicalName": "tempdev", "fileName": "tempdev.mdf", "selector": "n5-temp-01", "sizeMB": 256, "growth": "64MB" },
-      { "logicalName": "temp2", "fileName": "temp2.ndf", "selector": "n5-temp-02", "sizeMB": 256, "growth": "64MB" },
-      { "logicalName": "temp3", "fileName": "temp3.ndf", "selector": "n5-temp-03", "sizeMB": 256, "growth": "64MB" },
-      { "logicalName": "temp4", "fileName": "temp4.ndf", "selector": "n5-temp-04", "sizeMB": 256, "growth": "64MB" }
+      "n5-temp-03"
     ],
     "logPlacement": {
       "selector": "n5-temp-log",

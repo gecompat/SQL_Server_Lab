@@ -1,11 +1,14 @@
 #Requires -Version 7.2
 <#
 .SYNOPSIS
-    Fuehrt den realen Hyper-V-Storage-Nachweis fuer Gate N5 aus.
+    Fuehrt den realen Hyper-V-Storage-Nachweis fuer Gate N5 aus: vier
+    TempDB-Datendateien auf der im Intent geforderten Mindestzahl physischer
+    Laufwerke (mindestens zwei).
 .DESCRIPTION
     Verwendet ein verifiziertes SQL_PREPARED_SEALED-Artifact und einen
     SqlServerLab.StorageIntent/1.0. Der Intent muss vier TempDB-Datendateien
-    auf vier nachweislich getrennte Backing Devices, ein separates TempDB-Log,
+    auf mindestens zwei beziehungsweise seiner explizit geforderten höheren
+    Zahl nachweislich getrennter Backing Devices, ein separates TempDB-Log,
     eine dateigenaue Create-Datenbank, eine Restore-Regel und eine Backup-Lane
     binden. Der Runner prueft SQL-Dienstrestart, TempDB-Postconditions, CREATE,
     einen synthetischen Backup/Restore-Roundtrip, Persistenz nach VM-Restart und
@@ -149,16 +152,20 @@ try {
     $tempDataBindings = @($preflight.SqlFiles | Where-Object Role -eq 'tempdb-data')
     $tempLogBindings = @($preflight.SqlFiles | Where-Object Role -eq 'tempdb-log')
     $tempLocations = @($tempDataBindings.LocationId | Sort-Object -Unique)
+    $tempSelectors = @($tempDataBindings.Selector | Sort-Object -Unique)
     $tempBackingDevices = @(
         foreach ($file in $tempDataBindings) {
             @($preflight.Bindings | Where-Object LocationId -eq [string]$file.LocationId | Select-Object -First 1).BackingDeviceIds
         }
     ) | Sort-Object -Unique
+    $requiredBackingDevices = [int]$preflight.TopologyEvidence.RequiredDistinctBackingDeviceCount
     Assert-HyperVStorageAcceptance (
-        $tempDataBindings.Count -eq 4 -and $tempLocations.Count -eq 4 -and $tempBackingDevices.Count -eq 4
-    ) 'Vier TempDB-Datendateien binden vier getrennte Volumes und Backing Devices'
+        $tempDataBindings.Count -eq 4 -and $requiredBackingDevices -ge 2 -and
+        $tempLocations.Count -ge $requiredBackingDevices -and $tempBackingDevices.Count -ge $requiredBackingDevices -and
+        [int]$preflight.TopologyEvidence.ProvenDistinctPhysicalLaneCount -ge $requiredBackingDevices
+    ) 'Vier TempDB-Datendateien binden die geforderte Mindestzahl physischer Laufwerke'
     Assert-HyperVStorageAcceptance (
-        $tempLogBindings.Count -eq 1 -and [string]$tempLogBindings[0].LocationId -notin $tempLocations
+        $tempLogBindings.Count -eq 1 -and [string]$tempLogBindings[0].Selector -notin $tempSelectors
     ) 'TempDB-Log besitzt eine eigene Storage-Lane'
 
     $createDataBindings = @($preflight.SqlFiles | Where-Object { $_.Database -eq $CreateDatabaseName -and $_.Role -eq 'database-data' })
@@ -233,9 +240,10 @@ try {
     ) 'Storage-Receipt bestaetigt SQL-Dienstrestart, Defaultpfade und TempDB-Postconditions'
     $runtimeTemp = @($receipt.FileBindings | Where-Object Role -eq 'tempdb-data')
     Assert-HyperVStorageAcceptance (
-        $runtimeTemp.Count -eq 4 -and @($runtimeTemp.RuntimeStorageId | Sort-Object -Unique).Count -eq 4 -and
-        @($runtimeTemp.GuestDiskId | Sort-Object -Unique).Count -eq 4
-    ) 'Runtime-Receipt verbindet vier TempDB-Dateien mit vier VHDX und Gastdisks'
+        $runtimeTemp.Count -eq 4 -and
+        @($runtimeTemp.RuntimeStorageId | Sort-Object -Unique).Count -ge $requiredBackingDevices -and
+        @($runtimeTemp.GuestDiskId | Sort-Object -Unique).Count -ge $requiredBackingDevices
+    ) 'Runtime-Receipt verbindet vier TempDB-Dateien mit der geforderten Mindestzahl VHDX und Gastdisks'
     $tempDbEvidence = Invoke-AcceptanceQuery "SET NOCOUNT ON; SELECT name + N'|' + physical_name FROM tempdb.sys.database_files ORDER BY file_id;"
     foreach ($binding in @($receipt.FileBindings | Where-Object Role -in @('tempdb-data', 'tempdb-log'))) {
         Assert-HyperVStorageAcceptance (

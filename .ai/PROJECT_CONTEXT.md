@@ -144,7 +144,8 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 - versionierter Refresh-/Rebuild-Lifecycle für Medien, VHDX und Container-Images;
 - konsumierende Analyze- und Schulungs-Lab-Packages;
 - langfristige Planner-, Package- und Supporting-Component-Architektur;
-- physischer Hyper-V-Vier-Geräte-Nachweis für dateigenaue Data-, Log-,
+- physischer Hyper-V-Mehrgeräte-Nachweis für vier TempDB-Datendateien auf der
+  im Intent geforderten Mindestzahl physischer Geräte sowie dateigenaue Data-, Log-,
   TempDB- und Backup-Platzierung einschließlich SQL-Restart, Create, Restore,
   Persistenz und Cleanup;
 - drei reale Project-Adapter-Piloten für `SQL_PerformanceSchulung`,

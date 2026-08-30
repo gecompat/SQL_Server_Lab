@@ -151,7 +151,7 @@ und Run-State absolute Pfade enthalten koennen.
 | STO-009 | Legacy-Default-Uebernahme | Implementiert: vorhandene Roots bleiben beim Registrieren weiterer Locations autoritativ und werden mit Receipt uebernommen |
 | STO-010 | Location-Identitaet und Pfadvalidierung | Implementiert: stabile `LocationId`; laufwerksrelative und nicht normalisierbare Parents werden vor Mutation blockiert und das normalisierte Ziel wird angezeigt |
 | STO-011 | Expliziter Default- und Referenzschutz | Implementiert: Defaultwechsel ist eine eigene bestaetigte Aktion; aktive Bindings verhindern Deregistrierung |
-| STO-012 | Volume- und Backing-Device-Topologie | Implementiert: logische Volume-Trennung und lokal nachweisbare physische Geraetetrennung werden getrennt ausgewiesen; reale Vier-Geräte-Abnahme bleibt bei SFP/HVS |
+| STO-012 | Volume- und Backing-Device-Topologie | Implementiert: logische Volume-Trennung und lokal nachweisbare physische Geraetetrennung werden getrennt ausgewiesen; reale Mehrgeräte-Abnahme bleibt bei SFP/HVS |
 | STO-013 | Location-basierte Migration | Implementiert: Plan und Journal verwenden stabile Location-/Volume-IDs statt fluechtiger Laufwerksbuchstaben |
 | SFP-001 | Storage-Intent und lokaler Bound Plan | Implementiert: portable Rollenanforderungen, konkrete lokale Location-/Geraetebindungen und Runtime-Receipts sind getrennt versioniert |
 | SFP-002 | Dateigenaue SQL-Platzierung | Implementiert als read-only Plan: User-Data, User-Log, Backup, jedes TempDB-Datenfile und TempDB-Log sind einzeln plan- und reviewbar |

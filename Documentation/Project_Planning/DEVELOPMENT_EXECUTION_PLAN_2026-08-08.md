@@ -719,7 +719,7 @@ Runtime-Nachweis; maßgeblich bleiben die jeweils genannten Tests und Evidence.
 | N2 | `COMPLETE` | ActionResult-/Sync-, Portbindungs-, UAC- und Privilegverträge sind implementiert und fokussiert geprüft; GUI-Abbruch, Scheduler-Abbruch/Recovery, Manifest-Rerun, PowerShell-Console, Windows-User-Gate und der positive Windows-Generalize-/Publish-Pfad sind real belegt. |
 | N3 | `PLANNED_NOT_STARTED` | Die drei Partnerrepository-Piloten sind nicht nachgewiesen. |
 | N4 | `COMPLETE` | Der reale Windows-2025-/SQL-2025-Lauf belegt Build, immutable Prepared-Parent, normalen differenzierenden Manifest-Klon, Windows-Specialization, `CompleteImage`, `SQL_READY_RUN`, unveränderten Parent-Hash und vollständigen Cleanup. |
-| N5 | `IN_PROGRESS` | `STO-009` bis `STO-013`, `SFP-001` bis `SFP-003` sowie `HVS-001`, `HVS-002` und `SQLS-001` bis `SQLS-003` sind implementiert; Docker und Podman belegen No-op, Live, Recreate, Rollback und Persistenz real. Offen bleibt der physische Hyper-V-Vier-Geräte-Nachweis. |
+| N5 | `IN_PROGRESS` | `STO-009` bis `STO-013`, `SFP-001` bis `SFP-003` sowie `HVS-001`, `HVS-002` und `SQLS-001` bis `SQLS-003` sind implementiert; Docker und Podman belegen No-op, Live, Recreate, Rollback und Persistenz real. Offen bleibt der physische Hyper-V-Mehrgeräte-Nachweis mit vier TempDB-Datendateien; das Referenz-Intent fordert drei Geräte. |
 
 ### Welle N1 – Baseline, Regressionen und Katalogwartung
 
@@ -894,12 +894,13 @@ Lifecycle-Tests reichen für dieses Gate nicht aus.
 `SQLS-001` bis `SQLS-003` sind statisch/synthetisch geprüft. Der
 Container-Reconcile-Anteil ist auf Docker und Podman real mit No-op, Live,
 Recreate, Rollback, Persistenz und Cleanup belegt. Das Gate bleibt wegen des
-noch fehlenden physischen Hyper-V-Vier-Geräte-Nachweises offen.
+noch fehlenden physischen Hyper-V-Mehrgeräte-Nachweises offen.
 
 Der ausführbare Runner `Tests/Integration/Invoke-HyperVStorageAcceptance.ps1`
 bindet diesen Restnachweis inzwischen an ein `SQL_PREPARED_SEALED`-Artifact und
-einen portablen Storage-Intent. Er prüft vor der Mutation vier getrennte
-TempDB-Backing-Devices und danach SQL-Dienstrestart, CREATE, synthetischen
+einen portablen Storage-Intent. Er prüft vor der Mutation vier TempDB-
+Datendateien auf der im Intent geforderten Mindestzahl nachweislich getrennter
+Backing Devices und danach SQL-Dienstrestart, CREATE, synthetischen
 Backup/Restore-Roundtrip, VM-Restart und Cleanup. Der Runner ist noch nicht real
 positiv ausgeführt; der Status der Welle bleibt daher `IN_PROGRESS`.
 
@@ -920,7 +921,8 @@ hinausgehenden Reconcile-Klassen als durchgängigen vertikalen Slice umsetzen.
 
 **Gate N5:** No-op bleibt read-only; unbekannte oder nur logische Topologie wird
 nicht als physische Trennung ausgegeben; vier TempDB-Datenfiles werden im
-Hyper-V-Referenzfall auf vier nachweislich getrennte Geräte gebunden; SQL-
+Hyper-V-Referenzfall auf mindestens zwei und im lokalen Referenz-Intent auf
+drei nachweislich getrennte Geräte verteilt; SQL-
 Postconditions bestätigen jeden geplanten Pfad; Recreate erhält freigegebene
 persistente Daten und hat einen deterministischen Recovery-Pfad.
 

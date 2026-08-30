@@ -45,8 +45,11 @@ dokumentiert. Ihre ausfuehrbaren Einstiege sind:
 ```
 
 Der letzte Runner ist der ausführbare Vertrag für Gate N5. Er startet nur,
-wenn die vier TempDB-Selektoren auf vier nachweislich getrennte Backing Devices
-gebunden sind und das TempDB-Log eine eigene Location besitzt. Er erzeugt State
+wenn vier TempDB-Datendateien auf mindestens zwei beziehungsweise der im Intent
+geforderten höheren Zahl nachweislich getrennter Backing Devices liegen und das
+TempDB-Log einen eigenen Selector und damit eine eigene VHDX-Lane besitzt. Das
+mitgelieferte Referenz-Intent verwendet drei Geräte mit der Verteilung 2/1/1.
+Er erzeugt State
 und Cleanup-Plan vor der ersten VM-Mutation, prüft SQL-Dienstrestart, CREATE,
 einen synthetischen Backup/Restore-Roundtrip, VM-Restart und entfernt danach
 VM, Child-VHDX sowie alle zusätzlichen run-eigenen VHDX. Ein vorhandener
