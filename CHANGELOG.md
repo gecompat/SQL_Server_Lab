@@ -18,6 +18,10 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   resumierbare Ablauf verifiziert Quellen und Zielkopien, bindet VM-State und
   run-lokale VHDX um, erhält externe SQL-Lanes und löscht Quellen erst nach
   zwei erfolgreichen Start-/Readiness-Zyklen.
+- Der Image-Staging-Slice von `HVR-005` inventarisiert Legacy-Artefakte samt
+  Child-Graph, veröffentlicht sie hashidentisch im gebundenen Image-Store und
+  hält referenzierte Quellen journalisiert in `WAITING_FOR_CONSUMERS`. Erst ein
+  consumerfreier Resume entfernt die vollständig verifizierte Quelle.
 
 ### Geändert
 

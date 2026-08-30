@@ -657,7 +657,9 @@ VM-Konfiguration und Smart Paging unter dem Legacy-State-Root
 `HyperVResourceBinding`-Verträge unter registriertem `Lab_Data` erzeugt und vor
 sowie nach der Mutation geprüft. Für vorhandene Run-Ressourcen besteht ein
 journalisierter Migrationskern mit Preview, Hash-/VHDX-Verifikation, Resume,
-VM-Umbindung und spätem Quell-Cleanup. Er ist noch nicht über die öffentliche
+VM-Umbindung und spätem Quell-Cleanup. Legacy-Images können zusätzlich
+hashidentisch im gebundenen Image-Store veröffentlicht werden; referenzierte
+Quellen bleiben dabei sichtbar als `WAITING_FOR_CONSUMERS`. Der Ablauf ist noch nicht über die öffentliche
 UI/CLI verfügbar und besitzt noch keinen real erhöhten End-to-End-Nachweis;
 Legacy-Dateien dürfen deshalb weiterhin nicht manuell verschoben werden.
 
@@ -679,9 +681,10 @@ inventarisiert und verifiziert Legacy-Runs, bindet run-lokale Hyper-V-
 Ressourcen journalisiert um und erhält externe SQL-Lanes. Offen bleiben die
 Kopplung weiterer Cleanup-/Repair-/Reconcile-Pfade, UI/CLI-Exposition sowie die
 reale erhöhte End-to-End-Abnahme.
-Die graphbasierte Übernahme von Legacy-Parent-Images und deren Artifact-
-Registry-Bindung ist noch offen; solche VHDX-Ketten dürfen nicht manuell
-verschoben werden.
+Die automatische Reparent-Kopplung bestehender Child-VHDX an bereits
+veröffentlichte Parent-Images ist noch offen; solche VHDX-Ketten dürfen nicht
+manuell verschoben werden. Image-Quellen werden bis zum nachgewiesenen Wegfall
+aller Consumer absichtlich nicht entfernt.
 
 ## Lokale State- und Secret-Daten
 
@@ -689,8 +692,8 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
 
 ## Priorisierte nächste technische Schritte
 
-1. Den P0-Bugfix für Hyper-V-Ressourcenroots abschließen: Legacy-Parent-Images
-   graphbasiert samt Artifact-Registry migrieren, Cleanup, Repair, Reconcile
+1. Den P0-Bugfix für Hyper-V-Ressourcenroots abschließen: Legacy-Children
+   kontrolliert an bereits migrierte Parent-Images reparenten, Cleanup, Repair, Reconcile
    und allgemeine Storage-Migration an den journalisierten Migrationsvertrag
    koppeln, Zielpfade in UI/CLI/Preview darstellen und den Schutz real erhöht
    end-to-end abnehmen.
