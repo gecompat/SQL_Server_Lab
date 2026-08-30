@@ -52,7 +52,11 @@ try {
     $notesIndex = $builderText.IndexOf('ConvertTo-HyperVLabNotes')
     $dvdIndex = $builderText.IndexOf('Add-VMDvdDrive')
     Add-CheckResult -Name 'Builder-Identitaet wird vor weiterer VM-Konfiguration gesetzt' -Success ($notesIndex -ge 0 -and $dvdIndex -gt $notesIndex)
-    Add-CheckResult -Name 'VM-Konfiguration verwendet keinen tiefen Build-State-Pfad' -Success ($builderText -notmatch 'New-VM[^\r\n]+-Path\s+\$resourceRoot')
+    Add-CheckResult -Name 'VM-Konfiguration verwendet den gebundenen kurzen Build-Ressourcenroot' -Success (
+        $builderText -match 'Initialize-LabHyperVResourceBinding[\s\S]+-ResourceClass\s+Build' -and
+        $builderText -match 'New-VM[\s\S]+?-Path\s+\$resourceRoot' -and
+        $builderText -match 'Assert-HyperVVMResourceBinding'
+    )
     Add-CheckResult -Name 'Builder ist Generation 2 mit Secure Boot' -Success ($builderText -match 'Generation\s+2[\s\S]+EnableSecureBoot\s+On')
     Add-CheckResult -Name 'Builder deaktiviert automatische Hyper-V-Checkpoints' -Success ($builderText -match 'Set-VM[^\r\n]+AutomaticCheckpointsEnabled\s+\$false')
     Add-CheckResult -Name 'Windows-Builder erhält einen begrenzten dynamischen Speicherbereich' -Success ($builderText -match 'Math\]::Max\(\[double\]512MB,\s*\[double\]\$MemoryStartupBytes\s*/\s*2\)[\s\S]+Math\]::Min\(\[double\]1TB,\s*\[double\]\$MemoryStartupBytes\s*\*\s*2\)[\s\S]+Set-VMMemory[\s\S]+MaximumBytes\s+\$memoryMaximumBytes')

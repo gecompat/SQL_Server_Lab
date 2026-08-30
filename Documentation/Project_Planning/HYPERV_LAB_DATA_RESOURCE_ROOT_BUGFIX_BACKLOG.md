@@ -229,15 +229,21 @@ neue Fehlplatzierung mehr zulassen. Sie blockieren den P0-Sofortschutz nicht.
 - `HVR-001` besitzt die implementierte Grundlage: Create-, Discovery- und
   Mutation-Roots werden getrennt aufgelöst. Registrierte Roots erlauben neue
   Ressourcen; bekannte Legacy-State-Roots bleiben ausschließlich für
-  Discovery und bestehenden Lifecycle sichtbar. Die produktiven
-  Mutationsstellen werden erst mit `HVR-003` auf diese Bindung umgestellt.
+  Discovery und bestehenden Lifecycle sichtbar.
 - `HVR-002` ist implementiert und statisch validiert: Der lokale Vertrag
   `SqlServerLab.HyperVResourceBinding/1.0` bindet Resource-Key, Controller,
   Location, Volume und kanonische Roots. Persistierte Bindings werden vor
   Wiederverwendung gegen Registry, Marker, Volume und Reparse-Grenze geprüft.
-- `HVR-003` bis `HVR-008` bleiben offen. Insbesondere ist der Sofortschutz
-  noch nicht aktiv, solange Provider, Builder und Image-Store den neuen
-  Vertrag nicht an jeder Mutation erzwingen.
+- `HVR-003` ist implementiert: Slot-Provider, Windows- und SQL-Builder,
+  Existing-VM-Kopie sowie Image- und Staging-Store erzeugen neue VHDX,
+  VM-Konfiguration, Smart Paging, Snapshots und Artefakte ausschließlich unter
+  der jeweils persistierten `Run`-, `Build`-, `Image`- oder `Staging`-Bindung.
+- `HVR-004` ist implementiert und statisch validiert: Bindungs-,
+  Path-Length- und Reparse-Preflights laufen vor der Provider-Mutation;
+  Datei-, VHDX- und VM-Pfad-Postconditions prüfen den erzeugten Zustand.
+- `HVR-005` bis `HVR-008` bleiben offen. Insbesondere werden vorhandene
+  Legacy-Ressourcen noch nicht automatisch migriert; die reale erhöhte
+  End-to-End-Abnahme des neuen Schutzes folgt mit `HVR-008`.
 
 ## Abnahmekriterien
 

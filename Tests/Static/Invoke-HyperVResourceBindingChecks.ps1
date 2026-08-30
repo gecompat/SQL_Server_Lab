@@ -137,6 +137,21 @@ try {
         [string]$legacyMutation.RootKind -eq 'LEGACY_READ_ONLY' -and $legacyMutation.AllowsCreate -eq $false -and
         $legacyMutation.AllowsExistingLifecycle -eq $true
     )
+    $markerPath = Join-Path $dataRoot '.sql-server-lab-root.json'
+    $originalMarkerJson = Get-Content -LiteralPath $markerPath -Raw -Encoding utf8
+    $markerDocument = $originalMarkerJson | ConvertFrom-Json -Depth 10
+    $markerDocument.VolumeId = 'tampered-volume-id'
+    $markerDocument | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $markerPath -Encoding utf8
+    $staleMutationRejected = try {
+        & $module {
+            param($path, $state, $root)
+            Resolve-LabHyperVMutationRoot -ExistingResourcePath $path -ResourceClass Run -StateRoot $state -DataRoot $root | Out-Null
+        } (Join-Path $binding.HyperVResourceRoot 'slot.vhdx') $stateRoot $dataRoot
+        $false
+    }
+    catch { $_.Exception.Message -match 'HYPERV_RESOURCE_MUTATION_ROOT_REVALIDATION_FAILED' }
+    Set-Content -LiteralPath $markerPath -Value $originalMarkerJson -Encoding utf8NoBOM
+    Add-CheckResult -Name 'Registrierter Mutation-Root wird vor bestehendem Lifecycle erneut gegen Ownership geprüft' -Success $staleMutationRejected
     $unknownRejected = try {
         & $module {
             param($path, $state, $root)
@@ -146,6 +161,63 @@ try {
     }
     catch { $_.Exception.Message -match 'HYPERV_RESOURCE_MUTATION_ROOT_UNKNOWN' }
     Add-CheckResult -Name 'Unbekannter Mutation-Root wird fail-closed abgewiesen' -Success $unknownRejected
+
+    $initialized = & $module {
+        param($id, $directory, $root)
+        Initialize-LabHyperVResourceBinding -ResourceId $id -ResourceClass Run `
+            -StateDirectory $directory -DataRoot $root
+    } $resourceId $stateDirectory $dataRoot
+    $boundPath = & $module {
+        param($value, $root)
+        Assert-LabHyperVBoundPath -Binding $value -Path (Join-Path $value.HyperVResourceRoot 'slot.vhdx') -DataRoot $root
+    } $initialized $dataRoot
+    Add-CheckResult -Name 'Initialisierung verwendet das persistierte Binding idempotent und prueft den Zielpfad' -Success (
+        [string]$initialized.ResourceKey -eq [string]$binding.ResourceKey -and
+        [string]$boundPath -eq (Join-Path $binding.HyperVResourceRoot 'slot.vhdx')
+    )
+    $identityMismatchRejected = try {
+        & $module {
+            param($directory, $root)
+            Initialize-LabHyperVResourceBinding -ResourceId 'other-run' -ResourceClass Run `
+                -StateDirectory $directory -DataRoot $root | Out-Null
+        } $stateDirectory $dataRoot
+        $false
+    }
+    catch { $_.Exception.Message -match 'HYPERV_RESOURCE_BINDING_STATE_IDENTITY_MISMATCH' }
+    Add-CheckResult -Name 'Persistiertes Binding kann nicht fuer eine andere Ressourcenidentitaet wiederverwendet werden' -Success $identityMismatchRejected
+    $longPathRejected = try {
+        & $module {
+            param($value, $root)
+            Assert-LabHyperVBoundPath -Binding $value -Path (Join-Path $value.HyperVResourceRoot (('x' * 190) + '.vhdx')) -DataRoot $root | Out-Null
+        } $initialized $dataRoot
+        $false
+    }
+    catch { $_.Exception.Message -match 'HYPERV_RESOURCE_PATH_TOO_LONG' }
+    Add-CheckResult -Name 'Zu lange physische Ressourcenpfade werden vor der Mutation abgewiesen' -Success $longPathRejected
+
+    $providerText = Get-Content -LiteralPath (Join-Path $repoRoot 'Providers/HyperV/HyperVProvider.ps1') -Raw -Encoding utf8
+    $imageBuilderText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVImageBuilder.ps1') -Raw -Encoding utf8
+    $sqlBuilderText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVSqlImageBuilder.ps1') -Raw -Encoding utf8
+    $registryText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVImageRegistry.ps1') -Raw -Encoding utf8
+    $environmentText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVLabEnvironment.ps1') -Raw -Encoding utf8
+    Add-CheckResult -Name 'Run-Provider bindet VHDX, VM-Konfiguration, Paging und Snapshots an denselben Root' -Success (
+        $providerText -match 'Initialize-LabHyperVResourceBinding[\s\S]+ResourceClass\s+\$ResourceClass[\s\S]+New-VHD' -and
+        $providerText -match 'SmartPagingFilePath\s+\$resourceRoot[\s\S]+SnapshotFileLocation\s+\$resourceRoot' -and
+        $providerText -match 'Assert-HyperVVMResourceBinding'
+    )
+    Add-CheckResult -Name 'Windows- und SQL-Builder mutieren nur nach Build-Binding und Pfadpostcondition' -Success (
+        $imageBuilderText -match 'Initialize-LabHyperVResourceBinding[\s\S]+ResourceClass\s+Build[\s\S]+Assert-LabHyperVBoundPath[\s\S]+New-VHD' -and
+        $sqlBuilderText -match 'Initialize-LabHyperVResourceBinding[\s\S]+ResourceClass\s+Build[\s\S]+Assert-LabHyperVBoundPath[\s\S]+New-VHD' -and
+        $sqlBuilderText -match 'Resolve-LabHyperVStateResourcePath[\s\S]+Convert-VHD'
+    )
+    Add-CheckResult -Name 'Image-Registry trennt Control-State von gebundenem Image- und Staging-Store' -Success (
+        $registryText -match "ResourceId\s+'hyperv-image-store'[\s\S]+ResourceClass\s+Image" -and
+        $registryText -match "ResourceId\s+'hyperv-staging-store'[\s\S]+ResourceClass\s+Staging" -and
+        $registryText -match 'Assert-LabHyperVBoundPath[\s\S]+Copy-Item[\s\S]+Move-Item'
+    )
+    Add-CheckResult -Name 'Existing-VM-Konvertierung bindet Ziel und prueft die erzeugte Parent-Kopie' -Success (
+        $environmentText -match 'Initialize-LabHyperVResourceBinding[\s\S]+Convert-VHD[\s\S]+HYPERV_SOURCE_PARENT_COPY_POSTCONDITION_FAILED'
+    )
 }
 catch {
     $failures.Add("Unerwarteter Testfehler: $($_.Exception.Message)")

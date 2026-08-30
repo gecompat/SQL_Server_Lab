@@ -12,9 +12,17 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   und Mutation-Roots. `SqlServerLab.HyperVResourceBinding/1.0` leitet kurze,
   deterministische Ressourcenpfade ausschließlich aus registrierten
   `Lab_Data`-Locations ab und revalidiert Controller, Location, Volume,
-  Marker und Reparse-Grenze. Legacy-State-Roots bleiben read-only auffindbar;
-  die produktive Durchsetzung an Provider, Builder und Image-Store folgt in
-  `HVR-003`/`HVR-004`.
+  Marker und Reparse-Grenze. Legacy-State-Roots bleiben read-only auffindbar.
+
+### Geändert
+
+- `HVR-003`/`HVR-004` erzwingen die persistierte Ressourcenbindung nun im
+  Hyper-V-Slot-Provider, in Windows-/SQL-Buildern, bei Existing-VM-Kopien sowie
+  im Image- und Staging-Store. Neue VHDX, VM-Konfiguration, Smart Paging,
+  Snapshots und Artefakte liegen unter registriertem `Lab_Data`; fail-closed
+  Preflights und Datei-, VHDX- sowie VM-Pfad-Postconditions sichern die
+  Mutationsgrenzen. Legacy-Ressourcen bleiben für bestehenden Lifecycle
+  auffindbar und werden erst mit `HVR-005` journalisiert migriert.
 
 ### Validiert
 
