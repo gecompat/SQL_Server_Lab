@@ -991,7 +991,7 @@ Jedes Dokument führt seine eigene Wellenzählung.
 | Welle 5 – Scenario Engine und Fault Injection | nicht begonnen | |
 | Welle 6 – Adapter `SQL_PerformanceSchulung` | teilweise; erster realer Pilot validiert | Adaptervertrag, Resolver, `Test-/Install-SqlServerLabAdapter` und synthetischer Beispieladapter sind implementiert (`ADP-001`/`ADP-002`/`ADP-005`); `ADP-003` ist mit `CON-004` auf SQL Server 2025 Linux mit Docker und Podman end-to-end validiert. Die breitere Wellenabnahme mit grüner und roter Pilotdemo bleibt offen, siehe [Project-Adapter-Priorisierung](PROJECT_ADAPTER_PRIORITIZATION.md) |
 | Welle 7 – Adapter `SQL_Server_Analyze` | vertikaler Slice umgesetzt | `ADP-004` installiert und validiert `EXECUTION-PLAN-001` auf SQL Server 2025 mit Docker und Podman; die breitere Windows-/Linux-Mehrversionsmatrix bleibt partnerseitig |
-| Welle 7a – Adapter `SQL_Server_Toolbelt` | begonnen | gleiche Adapterbasis; der Modul-Lifecycle-Pilot im Toolbelt-Repository ist offen |
+| Welle 7a – Adapter `SQL_Server_Toolbelt` | vertikaler Slice umgesetzt | `ADP-008` installiert, aktualisiert, validiert und deinstalliert `toolbelt.core.console-message` 1.0.0 auf SQL Server 2025 mit Docker und Podman; die breitere Windows-/Linux-Mehrversionsmatrix bleibt partnerseitig |
 | Welle 8 – Ablösung und Repositorybereinigung | nicht begonnen | setzt Wellen 6, 7 und 7a voraus |
 | Welle 9 – Release-Härtung ohne CI/CD | teilweise | vollständiger statischer Gate einschließlich PSScriptAnalyzer, lokale Validierungsstrategie, Privacy-Scanner, Pester und Releaseartefakt-Check sind integriert; OpenPoints verbleiben bei breiter Failure-Injection und `QUAL-906` |
 
@@ -1101,7 +1101,7 @@ Master-Plan-Welle zu verändern oder eine Umsetzung zu starten.
 |---|---|---|
 | N1 – Baseline, Regressionen und Katalogwartung | Wellen 0, 1 und 9; fortlaufende Statuswahrheit | `COMPLETE` |
 | N2 – P0-Steuerungs-, Abbruch- und Recovery-Verträge | Wellen 1, 2, 3 und 9; vorgeschaltete Konsolidierungswelle | `COMPLETE` |
-| N3 – Drei reale Project-Adapter-Piloten | Wellen 6, 7 und 7a | `IN_PROGRESS`; `ADP-003` und `ADP-004` validiert, `ADP-008` offen |
+| N3 – Drei reale Project-Adapter-Piloten | Wellen 6, 7 und 7a | `COMPLETE`; `ADP-003`, `ADP-004` und `ADP-008` gemergt und jeweils mit Docker und Podman auf SQL Server 2025 end-to-end validiert |
 | N4 – Hyper-V Windows-/SQL-End-to-End | Welle 4 | `COMPLETE` |
 | N5 – Storage- und Reconcile-Vertical-Slice | Wellen 1, 3, 4 und 5; Storage-Konsolidierungsplan | `IN_PROGRESS` (Storage-Slices implementiert; Docker-/Podman-Reconcile real belegt; Hyper-V-Mehrgeräte-Nachweis mit vier TempDB-Dateien offen) |
 
