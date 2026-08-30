@@ -19,6 +19,7 @@
 | WINDOWS_SLOT_ACTIVATION_BACKLOG.md | Allgemeines Lizenz-Reconcile für Windows-Child-Slots mit sicherer Unterscheidung persistenter und temporärer External-NICs |
 | POLYBASE_S3_OBJECT_STORAGE_BACKLOG.md | Automatisierter S3-kompatibler Object Store als SQL-Supporting-Component für PolyBase und native SQL-2025-Dateizugriffe unter Docker, Podman und später Hyper-V/Linux |
 | SQL2025_VECTOR_EMBEDDING_BACKLOG.md | SQL-2025-Vector-Core, lokale ONNX-Embeddings unter Windows sowie gesicherte lokale Ollama- und optionale Cloud-Embedding-Lanes |
+| NEW_SQL_LAB_USE_CASES_BACKLOG.md | Priorisierter Explorationsbacklog für neue fachliche Lab-Produkte wie Upgrade-/Regressionstests, Recovery-Übungen, App-/Treiberkompatibilität, Cross-Platform-Parität, Security, HA/DR und Event-Integration |
 
 Für Reihenfolge und Priorität der Weiterentwicklung ist ausschließlich
 `DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md` maßgeblich. Die Wellenzählungen in
