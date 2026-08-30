@@ -62,6 +62,16 @@ function Assert-LabStorageIntent {
     if ($distribution -in @('one-file-per-volume', 'one-file-per-physical-device') -and $selectors.Count -lt $count) {
         throw 'LAB_STORAGE_INTENT_DISTINCT_SELECTOR_COUNT_INSUFFICIENT'
     }
+    $minimumPhysicalDeviceProperty = $tempDb.PSObject.Properties['MinimumPhysicalDeviceCount']
+    if ($minimumPhysicalDeviceProperty) {
+        $minimumPhysicalDeviceCount = [int]$minimumPhysicalDeviceProperty.Value
+        if ($minimumPhysicalDeviceCount -gt $count) {
+            throw 'LAB_STORAGE_INTENT_MINIMUM_PHYSICAL_DEVICE_COUNT_EXCEEDS_FILE_COUNT'
+        }
+        if ($minimumPhysicalDeviceCount -gt $selectors.Count) {
+            throw 'LAB_STORAGE_INTENT_MINIMUM_PHYSICAL_DEVICE_COUNT_EXCEEDS_SELECTOR_COUNT'
+        }
+    }
     return $true
 }
 
@@ -234,22 +244,69 @@ function New-LabStorageBoundPlan {
         $blockers.Add('TEMPDB_DISTINCT_VOLUME_REQUIREMENT_NOT_MET')
     }
     $globalPhysicalIsolation = [string]$StorageIntent.PhysicalIsolation -eq 'required'
-    $physicalRequested = $distribution -eq 'one-file-per-physical-device' -or $globalPhysicalIsolation
-    $physicalBindings = if ($globalPhysicalIsolation) { @($bindings) } else { $tempBindings }
+    $minimumPhysicalDeviceProperty = $tempDb.PSObject.Properties['MinimumPhysicalDeviceCount']
+    $minimumPhysicalDeviceCount = if ($minimumPhysicalDeviceProperty) { [int]$minimumPhysicalDeviceProperty.Value } else { 0 }
+    $strictTempPhysicalIsolation = $distribution -eq 'one-file-per-physical-device'
+    $physicalRequested = $strictTempPhysicalIsolation -or $globalPhysicalIsolation -or $minimumPhysicalDeviceCount -gt 0
+    $physicalBindings = if ($globalPhysicalIsolation) {
+        @($bindings)
+    }
+    elseif ($strictTempPhysicalIsolation) {
+        $tempBindings
+    }
+    else {
+        @($tempBindings | Group-Object Selector | ForEach-Object { $_.Group[0] })
+    }
+    $requiredDistinctBackingDeviceCount = if ($globalPhysicalIsolation) {
+        @($physicalBindings).Count
+    }
+    elseif ($strictTempPhysicalIsolation) {
+        [int]$tempDb.DataFileCount
+    }
+    else {
+        $minimumPhysicalDeviceCount
+    }
     $distinctDevices = @($physicalBindings.BackingDeviceIds | Sort-Object -Unique)
+    $provenDistinctPhysicalLaneCount = 0
+    $provenPhysicalBindings = @($physicalBindings | Where-Object {
+        [string]$_.TopologyStatus -eq 'Proven' -and @($_.BackingDeviceIds).Count -gt 0
+    })
+    for ($mask = 1; $mask -lt [Math]::Pow(2, $provenPhysicalBindings.Count); $mask++) {
+        $selectedDeviceIds = [Collections.Generic.List[string]]::new()
+        $selectedLaneCount = 0
+        $disjoint = $true
+        for ($index = 0; $index -lt $provenPhysicalBindings.Count; $index++) {
+            if (($mask -band (1 -shl $index)) -eq 0) { continue }
+            $deviceIds = @($provenPhysicalBindings[$index].BackingDeviceIds)
+            if (@($deviceIds | Where-Object { $_ -in $selectedDeviceIds }).Count -gt 0) {
+                $disjoint = $false
+                break
+            }
+            foreach ($deviceId in $deviceIds) { $selectedDeviceIds.Add([string]$deviceId) }
+            $selectedLaneCount++
+        }
+        if ($disjoint -and $selectedLaneCount -gt $provenDistinctPhysicalLaneCount) {
+            $provenDistinctPhysicalLaneCount = $selectedLaneCount
+        }
+    }
     $physicalUnknown = $false
     if ($physicalRequested) {
         if ($Provider -in @('docker', 'podman')) { $blockers.Add('PROVIDER_PHYSICAL_STORAGE_UNSUPPORTED') }
         foreach ($binding in $physicalBindings) {
             if ([string]$binding.TopologyStatus -ne 'Proven' -or @($binding.BackingDeviceIds).Count -eq 0) { $physicalUnknown = $true }
         }
-        for ($left = 0; $left -lt $physicalBindings.Count; $left++) {
-            for ($right = $left + 1; $right -lt $physicalBindings.Count; $right++) {
-                if (@($physicalBindings[$left].BackingDeviceIds | Where-Object { $_ -in @($physicalBindings[$right].BackingDeviceIds) }).Count -gt 0) {
-                    $prefix = if ($globalPhysicalIsolation) { 'STORAGE_BACKING_DEVICE_OVERLAP' } else { 'TEMPDB_BACKING_DEVICE_OVERLAP' }
-                    $blockers.Add("${prefix}:$left-$right")
+        if ($globalPhysicalIsolation -or $strictTempPhysicalIsolation) {
+            for ($left = 0; $left -lt $physicalBindings.Count; $left++) {
+                for ($right = $left + 1; $right -lt $physicalBindings.Count; $right++) {
+                    if (@($physicalBindings[$left].BackingDeviceIds | Where-Object { $_ -in @($physicalBindings[$right].BackingDeviceIds) }).Count -gt 0) {
+                        $prefix = if ($globalPhysicalIsolation) { 'STORAGE_BACKING_DEVICE_OVERLAP' } else { 'TEMPDB_BACKING_DEVICE_OVERLAP' }
+                        $blockers.Add("${prefix}:$left-$right")
+                    }
                 }
             }
+        }
+        if (-not $physicalUnknown -and $minimumPhysicalDeviceCount -gt 0 -and $provenDistinctPhysicalLaneCount -lt $minimumPhysicalDeviceCount) {
+            $blockers.Add("TEMPDB_MINIMUM_PHYSICAL_DEVICE_COUNT_NOT_MET:$provenDistinctPhysicalLaneCount/$minimumPhysicalDeviceCount")
         }
         if ($physicalUnknown) { $blockers.Add('TEMPDB_PHYSICAL_TOPOLOGY_UNKNOWN') }
     }
@@ -270,6 +327,8 @@ function New-LabStorageBoundPlan {
         TopologyEvidence=[PSCustomObject]@{
             Distribution=$distribution; PhysicalIsolation=[string]$StorageIntent.PhysicalIsolation; Status=$topologyStatus
             DistinctVolumeCount=$distinctVolumes.Count; DistinctBackingDeviceCount=$distinctDevices.Count
+            RequiredDistinctBackingDeviceCount=$requiredDistinctBackingDeviceCount
+            ProvenDistinctPhysicalLaneCount=$provenDistinctPhysicalLaneCount
         }
         Blockers=$blockers
         RuntimeApplicationStatus=$(if ($Provider -eq 'hyperv' -and $blockers.Count -eq 0) { 'READY_TO_APPLY' } else { 'PROVIDER_APPLY_UNAVAILABLE' })

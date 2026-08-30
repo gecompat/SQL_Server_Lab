@@ -140,10 +140,11 @@ Der empfohlene operative Push-Pfad ist in der lokalen Readiness-Checkliste besch
 ```
 
 `Invoke-HyperVStorageAcceptance.ps1` ist der getrennte N5-Vertrag für vier
-physisch belegte TempDB-Geräte, separates TempDB-Log, SQL-Dienstrestart,
+TempDB-Datendateien auf mindestens zwei beziehungsweise der im Intent
+geforderten höheren Zahl physischer Geräte, separates TempDB-Log, SQL-Dienstrestart,
 dateigenaues CREATE und Restore sowie VM-Restart und Cleanup. Der Runner bleibt
-`NOT_EXECUTED`, solange der Host nicht mindestens die benötigten eindeutig
-selektierbaren Storage-Locations und ein passendes `SQL_PREPARED_SEALED`-
+`NOT_EXECUTED`, solange der Host nicht mindestens die im Intent geforderten
+physischen Geräte mit eindeutig selektierbaren Storage-Locations und ein passendes `SQL_PREPARED_SEALED`-
 Artifact bereitstellt.
 
 ### Reale Windows-Generalize-/Publish-Abnahme

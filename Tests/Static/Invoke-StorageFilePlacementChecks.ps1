@@ -81,6 +81,37 @@ try {
     Add-CheckResult -Name 'Vier TempDB-Dateien binden vier Volumes und vier Backing Devices' -Success (
         $tempDataFiles.Count -eq 4 -and @($tempBindings.VolumeId | Sort-Object -Unique).Count -eq 4 -and
         @($tempBindings.BackingDeviceIds | Sort-Object -Unique).Count -eq 4)
+
+    $n5Intent = $intent | ConvertTo-Json -Depth 20 | ConvertFrom-Json -Depth 20
+    $n5Intent.physicalIsolation = 'preferred'
+    $n5Intent.tempDb.distribution = 'round-robin'
+    $n5Intent.tempDb.dataLocationSelectors = @('temp-01','temp-02','temp-03')
+    $n5Intent.tempDb.PSObject.Properties.Remove('dataFiles')
+    $n5Intent.tempDb | Add-Member -NotePropertyName minimumPhysicalDeviceCount -NotePropertyValue 3
+    $n5Plan = & $module { param($i,$r,$c) New-LabStorageBoundPlan -StorageIntent $i -RunId $r -LabName n5 -InstanceId sql01 -Provider hyperv -StorageConfiguration $c } $n5Intent $runId $configuration
+    $n5TempFiles = @($n5Plan.SqlFiles | Where-Object Role -eq 'tempdb-data')
+    Add-CheckResult -Name 'N5 verteilt vier TempDB-Dateien auf eine konfigurierbare Mindestzahl physischer Geräte' -Success (
+        $n5Plan.Status -eq 'READY' -and $n5Plan.TopologyEvidence.Status -eq 'PASS' -and
+        $n5Plan.TopologyEvidence.RequiredDistinctBackingDeviceCount -eq 3 -and
+        $n5Plan.TopologyEvidence.DistinctBackingDeviceCount -eq 3 -and
+        $n5Plan.TopologyEvidence.ProvenDistinctPhysicalLaneCount -eq 3 -and
+        $n5TempFiles.Count -eq 4 -and @($n5TempFiles.LocationId | Sort-Object -Unique).Count -eq 3)
+
+    $n5InsufficientConfiguration = $configuration | ConvertTo-Json -Depth 20 | ConvertFrom-Json -Depth 20
+    $n5InsufficientConfiguration.LabDataLocations[5].BackingDeviceIds = @('device-4')
+    $n5InsufficientPlan = & $module { param($i,$r,$c) New-LabStorageBoundPlan -StorageIntent $i -RunId $r -LabName n5 -InstanceId sql01 -Provider hyperv -StorageConfiguration $c } $n5Intent $runId $n5InsufficientConfiguration
+    Add-CheckResult -Name 'N5 blockiert, wenn die geforderte physische Mindestzahl nicht erreicht wird' -Success (
+        $n5InsufficientPlan.Status -eq 'BLOCKED' -and
+        @($n5InsufficientPlan.Blockers) -contains 'TEMPDB_MINIMUM_PHYSICAL_DEVICE_COUNT_NOT_MET:2/3')
+
+    $n5InvalidIntent = $n5Intent | ConvertTo-Json -Depth 20 | ConvertFrom-Json -Depth 20
+    $n5InvalidIntent.tempDb.dataLocationSelectors = @('temp-01','temp-02')
+    $n5InvalidRejected = try {
+        $null = & $module { param($i) Assert-LabStorageIntent $i } $n5InvalidIntent
+        $false
+    }
+    catch { $_.Exception.Message -match 'MINIMUM_PHYSICAL_DEVICE_COUNT_EXCEEDS_SELECTOR_COUNT' }
+    Add-CheckResult -Name 'Physische Mindestzahl kann die deklarierten TempDB-Selektoren nicht übersteigen' -Success $n5InvalidRejected
     Add-CheckResult -Name 'Bound Plan enthält alle Rollen und einzeln prüfbare Gastpfade' -Success (
         @($plan.SqlFiles).Count -eq 12 -and @($plan.SqlFiles | Where-Object { -not $_.GuestPath }).Count -eq 0 -and
         @($plan.SqlFiles.Role | Sort-Object -Unique).Count -eq 9 -and
@@ -345,12 +376,14 @@ try {
         $hyperVEnvironmentText -match 'ConvertTo-LabHyperVStorageDrivePlan' -and
         $hyperVEnvironmentText -match 'Invoke-HyperVLabStoragePlan' -and
         $placementText -match "Status='RECOVERY_REQUIRED'" -and $placementText -match "Status='VERIFIED'")
-    Add-CheckResult -Name 'N5 besitzt einen ausführbaren realen Hyper-V-Vier-Geräte-Vertrag' -Success (
+    Add-CheckResult -Name 'N5 besitzt einen ausführbaren realen Hyper-V-Mehrgeräte-Vertrag' -Success (
         (Test-Path -LiteralPath $hyperVStorageAcceptancePath -PathType Leaf) -and
         $hyperVStorageAcceptanceText -match '\[Parameter\(Mandatory\)\]\[string\]\$StorageIntentPath' -and
         $hyperVStorageAcceptanceText -match "artifactState -eq 'SQL_PREPARED_SEALED'" -and
         $hyperVStorageAcceptanceText -match '\$tempDataBindings\.Count -eq 4' -and
-        $hyperVStorageAcceptanceText -match '\$tempBackingDevices\.Count -eq 4' -and
+        $hyperVStorageAcceptanceText -match 'RequiredDistinctBackingDeviceCount' -and
+        $hyperVStorageAcceptanceText -match 'ProvenDistinctPhysicalLaneCount' -and
+        $hyperVStorageAcceptanceText -match '\$requiredBackingDevices -ge 2' -and
         $hyperVStorageAcceptanceText -match "'TempDB-Log besitzt eine eigene Storage-Lane'" -and
         $hyperVStorageAcceptanceText -match 'New-HyperVLabEnvironment' -and
         $hyperVStorageAcceptanceText -match '-StorageIntent \$Intent' -and

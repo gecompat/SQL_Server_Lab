@@ -58,7 +58,9 @@
         "PhysicalIsolation": { "type": "string" },
         "Status": { "enum": ["PASS", "NOT_REQUIRED", "BLOCKED", "UNKNOWN"] },
         "DistinctVolumeCount": { "type": "integer", "minimum": 0 },
-        "DistinctBackingDeviceCount": { "type": "integer", "minimum": 0 }
+        "DistinctBackingDeviceCount": { "type": "integer", "minimum": 0 },
+        "RequiredDistinctBackingDeviceCount": { "type": "integer", "minimum": 0 },
+        "ProvenDistinctPhysicalLaneCount": { "type": "integer", "minimum": 0 }
       },
       "additionalProperties": false
     },
