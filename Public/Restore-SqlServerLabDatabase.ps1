@@ -183,8 +183,9 @@ function Restore-SqlServerLabDatabase {
         Unterbindet jede Rueckfrage. Fehlt eine bekannte Pruefsumme, wird kein
         Download gestartet und der Aufruf endet mit TRUST_REQUIRED.
     .PARAMETER Provider
-        Optionaler Containerprovider docker oder podman. Schrankt die Suche nach
-        dem Zielcontainer ein.
+        Laufzeitprovider docker, podman oder hyperv. Im direkten Parametersatz
+        schraenkt docker oder podman die Suche nach dem Zielcontainer ein;
+        hyperv wird ueber einen gespeicherten Run aufgeloest.
     .PARAMETER ContainerName
         Optionaler Name des SQL_Server_Lab-Containers. Die explizite Angabe
         verhindert Mehrdeutigkeit bei mehreren passenden Instanzen.
@@ -237,7 +238,7 @@ function Restore-SqlServerLabDatabase {
         [ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$ExpectedSha256,
         [switch]$NonInteractive,
         [Parameter(ParameterSetName = 'Direct')]
-        [ValidateSet('docker', 'podman')][string]$Provider,
+        [ValidateSet('docker', 'podman', 'hyperv')][string]$Provider,
         [Parameter(ParameterSetName = 'Direct')][string]$ContainerName,
         [Parameter(ParameterSetName = 'RunBased', Mandatory)][string]$RunId,
         [Parameter(ParameterSetName = 'RunBased')][string]$InstanceId = 'primary',

@@ -96,6 +96,16 @@ try {
         $n5Plan.TopologyEvidence.DistinctBackingDeviceCount -eq 3 -and
         $n5Plan.TopologyEvidence.ProvenDistinctPhysicalLaneCount -eq 3 -and
         $n5TempFiles.Count -eq 4 -and @($n5TempFiles.LocationId | Sort-Object -Unique).Count -eq 3)
+    $n5RunnerBackingDevices = @(
+        foreach ($file in $n5TempFiles) {
+            @($n5Plan.Bindings | Where-Object {
+                [string]$_.LocationId -eq [string]$file.LocationId
+            } | Select-Object -First 1).BackingDeviceIds
+        }
+    ) | Sort-Object -Unique
+    Add-CheckResult -Name 'N5-Runner extrahiert die drei Backing Devices aus den konkreten TempDB-Bindings' -Success (
+        $n5RunnerBackingDevices.Count -eq 3 -and
+        @($n5RunnerBackingDevices | Where-Object { $_ }).Count -eq 3)
 
     $n5InsufficientConfiguration = $configuration | ConvertTo-Json -Depth 20 | ConvertFrom-Json -Depth 20
     $n5InsufficientConfiguration.LabDataLocations[5].BackingDeviceIds = @('device-4')
@@ -365,9 +375,19 @@ try {
 
     $uiText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/StorageContract.ps1') -Raw -Encoding utf8
     $placementText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/StorageFilePlacement.ps1') -Raw -Encoding utf8
+    $restoreCommand = Get-Command Restore-SqlServerLabDatabase -ErrorAction Stop
+    $restoreProviderValidateSet = @(
+        $restoreCommand.Parameters.Provider.Attributes |
+            Where-Object { $_ -is [Management.Automation.ValidateSetAttribute] } |
+            ForEach-Object { $_.ValidValues }
+    )
     $hyperVEnvironmentText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVLabEnvironment.ps1') -Raw -Encoding utf8
     $hyperVStorageAcceptancePath = Join-Path $repoRoot 'Tests/Integration/Invoke-HyperVStorageAcceptance.ps1'
     $hyperVStorageAcceptanceText = Get-Content -LiteralPath $hyperVStorageAcceptancePath -Raw -Encoding utf8
+    $sqlPreparedAcceptancePath = Join-Path $repoRoot 'Tests/Integration/Invoke-HyperVSqlPreparedImageAcceptance.ps1'
+    $sqlPreparedAcceptanceText = Get-Content -LiteralPath $sqlPreparedAcceptancePath -Raw -Encoding utf8
+    $hyperVStorageBootstrapPath = Join-Path $repoRoot 'Tests/Integration/Invoke-HyperVStorageAcceptanceBootstrap.ps1'
+    $hyperVStorageBootstrapText = Get-Content -LiteralPath $hyperVStorageBootstrapPath -Raw -Encoding utf8
     Add-CheckResult -Name 'Storage-UI bietet Metadaten und vollständige Dateiplan-Prüfung an' -Success (
         $uiText -match "-Id 'metadata'" -and $uiText -match "-Id 'file-plan'" -and
         $placementText -match 'foreach \(\$file in @\(\$plan\.SqlFiles\)\)')
@@ -375,7 +395,16 @@ try {
         $hyperVEnvironmentText -match 'New-LabStorageBoundPlan' -and
         $hyperVEnvironmentText -match 'ConvertTo-LabHyperVStorageDrivePlan' -and
         $hyperVEnvironmentText -match 'Invoke-HyperVLabStoragePlan' -and
+        $placementText -match [regex]::Escape('$builder[''Data Source'']=''localhost''') -and
+        $placementText -match [regex]::Escape('$builder[''Connect Timeout'']=30') -and
+        $placementText -notmatch '\$builder\.(?:DataSource|InitialCatalog|UserID|Password|Encrypt|TrustServerCertificate|ConnectTimeout)\s*=' -and
+        $placementText -match [regex]::Escape('[Convert]::ToInt32($reader.GetValue(4),[Globalization.CultureInfo]::InvariantCulture)') -and
+        $placementText -notmatch '\$reader\.GetInt32\(' -and
         $placementText -match "Status='RECOVERY_REQUIRED'" -and $placementText -match "Status='VERIFIED'")
+    Add-CheckResult -Name 'Run-basierter Restore akzeptiert den aufgeloesten Hyper-V-Provider' -Success (
+        $restoreProviderValidateSet -contains 'docker' -and
+        $restoreProviderValidateSet -contains 'podman' -and
+        $restoreProviderValidateSet -contains 'hyperv')
     Add-CheckResult -Name 'N5 besitzt einen ausführbaren realen Hyper-V-Mehrgeräte-Vertrag' -Success (
         (Test-Path -LiteralPath $hyperVStorageAcceptancePath -PathType Leaf) -and
         $hyperVStorageAcceptanceText -match '\[Parameter\(Mandatory\)\]\[string\]\$StorageIntentPath' -and
@@ -383,6 +412,8 @@ try {
         $hyperVStorageAcceptanceText -match '\$tempDataBindings\.Count -eq 4' -and
         $hyperVStorageAcceptanceText -match 'RequiredDistinctBackingDeviceCount' -and
         $hyperVStorageAcceptanceText -match 'ProvenDistinctPhysicalLaneCount' -and
+        $hyperVStorageAcceptanceText -match '\[string\]\$_.LocationId -eq \[string\]\$file.LocationId' -and
+        $hyperVStorageAcceptanceText -match '@\(\$createDataBindings\.LocationId\) \+ @\(\$createLogBindings\.LocationId\)' -and
         $hyperVStorageAcceptanceText -match '\$requiredBackingDevices -ge 2' -and
         $hyperVStorageAcceptanceText -match "'TempDB-Log besitzt eine eigene Storage-Lane'" -and
         $hyperVStorageAcceptanceText -match 'New-HyperVLabEnvironment' -and
@@ -392,7 +423,18 @@ try {
         $hyperVStorageAcceptanceText -match 'Restore-SqlServerLabDatabase' -and
         $hyperVStorageAcceptanceText -match '-GuestCredential \$guestCredential' -and
         $hyperVStorageAcceptanceText -match 'Restart-SqlServerLab' -and
+        $hyperVStorageAcceptanceText -notmatch 'Restart-SqlServerLab[^\r\n]*-StateRoot' -and
         $hyperVStorageAcceptanceText -match 'Remove-SqlServerLab')
+    Add-CheckResult -Name 'N5 kann ein isoliertes Prepared-Artifact explizit bootstrappen und danach sicher bereinigen' -Success (
+        (Test-Path -LiteralPath $hyperVStorageBootstrapPath -PathType Leaf) -and
+        $sqlPreparedAcceptanceText -match '\[switch\]\$RetainPreparedArtifact' -and
+        $sqlPreparedAcceptanceText -match '\$retainSuccessfulState = \$RetainPreparedArtifact -and -not \$testFailed -and -not \$cleanupFailed' -and
+        $sqlPreparedAcceptanceText -match 'RETAINED_STATE_ROOT=' -and
+        $sqlPreparedAcceptanceText -match 'RETAINED_ARTIFACT_ID=' -and
+        $hyperVStorageBootstrapText -match [regex]::Escape('Invoke-HyperVSqlPreparedImageAcceptance.ps1') -and
+        $hyperVStorageBootstrapText -match [regex]::Escape('Invoke-HyperVStorageAcceptance.ps1') -and
+        $hyperVStorageBootstrapText -match [regex]::Escape("'^n4sql-[a-f0-9]{8}$'") -and
+        $hyperVStorageBootstrapText -match 'Remove-Item -LiteralPath \$validatedRoot -Recurse -Force')
 }
 catch { Add-CheckResult -Name 'Storage-File-Placement-Testausführung' -Success $false -Message $_.Exception.Message }
 finally {

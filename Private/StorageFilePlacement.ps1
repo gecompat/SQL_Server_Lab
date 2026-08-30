@@ -524,10 +524,11 @@ function Invoke-HyperVLabStoragePlan {
             $ErrorActionPreference='Stop'
             foreach($directory in @($Directories)){if(-not(Test-Path -LiteralPath $directory)){New-Item -Path $directory -ItemType Directory -Force -ErrorAction Stop|Out-Null}}
             $expected=$VerificationJson|ConvertFrom-Json
+            Add-Type -AssemblyName System.Data
             $bstr=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword);$plain=$null
             try{
                 $plain=[Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
-                $builder=[Data.SqlClient.SqlConnectionStringBuilder]::new();$builder.DataSource='localhost';$builder.InitialCatalog='master';$builder.UserID='sa';$builder.Password=$plain;$builder.Encrypt=$true;$builder.TrustServerCertificate=$true;$builder.ConnectTimeout=30;$connectionString=$builder.ConnectionString
+                $builder=[Data.SqlClient.SqlConnectionStringBuilder]::new();$builder['Data Source']='localhost';$builder['Initial Catalog']='master';$builder['User ID']='sa';$builder['Password']=$plain;$builder['Encrypt']=$true;$builder['TrustServerCertificate']=$true;$builder['Connect Timeout']=30;$connectionString=$builder.ConnectionString
                 $connection=[Data.SqlClient.SqlConnection]::new($connectionString)
                 try{$connection.Open();$command=$connection.CreateCommand();$command.CommandTimeout=180;$command.CommandText=$ApplyQuery;$null=$command.ExecuteNonQuery()}finally{$connection.Dispose()}
                 Restart-Service -Name MSSQLSERVER -Force -ErrorAction Stop
@@ -537,7 +538,16 @@ function Invoke-HyperVLabStoragePlan {
                     $connection.Open();$command=$connection.CreateCommand();$command.CommandText="SELECT CAST(SERVERPROPERTY('InstanceDefaultDataPath') AS nvarchar(4000)),CAST(SERVERPROPERTY('InstanceDefaultLogPath') AS nvarchar(4000));";$reader=$command.ExecuteReader();$null=$reader.Read();$actualDefaults=@{ 'default-data'=[string]$reader.GetValue(0);'default-log'=[string]$reader.GetValue(1)};$reader.Dispose()
                     $command=$connection.CreateCommand();$command.CommandText="DECLARE @p nvarchar(4000); EXEC master.dbo.xp_instance_regread N'HKEY_LOCAL_MACHINE',N'Software\Microsoft\MSSQLServer\MSSQLServer',N'BackupDirectory',@p OUTPUT; SELECT @p;";$actualDefaults['backup']=[string]$command.ExecuteScalar()
                     foreach($item in @($expected.Defaults)){if(-not([string]$actualDefaults[[string]$item.Role]).TrimEnd('\').Equals(([string]$item.Path).TrimEnd('\'),[StringComparison]::OrdinalIgnoreCase)){throw "SQL_STORAGE_DEFAULT_POSTCONDITION_FAILED_$($item.Role)"}}
-                    $command=$connection.CreateCommand();$command.CommandText="SELECT name,physical_name,size/128 AS size_mb,CASE WHEN is_percent_growth=1 THEN CAST(growth AS varchar(20))+'%' ELSE CAST(growth/128 AS varchar(20))+'MB' END AS growth,type FROM sys.master_files WHERE database_id=2;";$reader=$command.ExecuteReader();$actual=@{};while($reader.Read()){$actual[[string]$reader.GetString(0)]=[PSCustomObject]@{Path=[string]$reader.GetString(1);SizeMB=[int]$reader.GetInt32(2);Growth=[string]$reader.GetString(3);Type=[int]$reader.GetInt32(4)}};$reader.Dispose()
+                    $command=$connection.CreateCommand();$command.CommandText="SELECT name,physical_name,size/128 AS size_mb,CASE WHEN is_percent_growth=1 THEN CAST(growth AS varchar(20))+'%' ELSE CAST(growth/128 AS varchar(20))+'MB' END AS growth,type FROM sys.master_files WHERE database_id=2;";$reader=$command.ExecuteReader();$actual=@{}
+                    while($reader.Read()){
+                        $actual[[string]$reader.GetString(0)]=[PSCustomObject]@{
+                            Path=[string]$reader.GetString(1)
+                            SizeMB=[Convert]::ToInt32($reader.GetValue(2),[Globalization.CultureInfo]::InvariantCulture)
+                            Growth=[string]$reader.GetString(3)
+                            Type=[Convert]::ToInt32($reader.GetValue(4),[Globalization.CultureInfo]::InvariantCulture)
+                        }
+                    }
+                    $reader.Dispose()
                     foreach($item in @($expected.TempDb)){$file=$actual[[string]$item.LogicalName];if(-not$file -or -not([string]$file.Path).Equals([string]$item.Path,[StringComparison]::OrdinalIgnoreCase) -or [int]$file.SizeMB -lt [int]$item.SizeMB -or [string]$file.Growth -ne [string]$item.Growth){throw "SQL_STORAGE_TEMPDB_POSTCONDITION_FAILED_$($item.LogicalName)"}}
                     $expectedData=@($expected.TempDb|Where-Object Role -eq 'tempdb-data').Count;$actualData=@($actual.Values|Where-Object Type -eq 0).Count;if($actualData -ne $expectedData){throw 'SQL_STORAGE_TEMPDB_FILE_COUNT_POSTCONDITION_FAILED'}
                 }finally{$connection.Dispose()}

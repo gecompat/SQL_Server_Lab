@@ -782,14 +782,15 @@ Add-ValidationResult `
     -Name 'Projektkontext bildet den aktuellen Runtime- und Validierungsstand ab' `
     -Success ($projectContext -match [regex]::Escape('CONTAINER_CORE_IMPLEMENTED_HYPERV_SQL_CLI_ACCEPTED') -and
         $projectContext -match [regex]::Escape('| Stand | 2026-08-30 |') -and
-        $projectContext -match 'physischer Hyper-V-Mehrgeräte-Nachweis' -and
+        $projectContext -match 'realer Hyper-V-N5-Mehrgerätepfad' -and
         $projectContext -match 'drei reale Project-Adapter-Piloten' -and
         $projectContext -match 'SQL_PerformanceSchulung[\s\S]{0,160}SQL_Server_Analyze[\s\S]{0,160}SQL_Server_Toolbelt[\s\S]{0,240}Docker und Podman[\s\S]{0,100}end-to-end' -and
         $projectContext -notmatch 'ein verbleibender realer Project-Adapter-Pilot' -and
         $projectContext -notmatch 'External-Runtime-Varianten für SQL Server 2019, SQL Server 2025' -and
         $projectContext -notmatch 'offen bleiben echter Prozessabbruch, Manifest-Rerun und Windows-User-Gate' -and
         $projectContext -notmatch 'noch keinen positiven allgemeinen SQL-Runtime-Nachweis' -and
-        $projectContext -notmatch 'fehlende Eval-ISO im Media-Root blockiert')
+        $projectContext -notmatch 'fehlende Eval-ISO im Media-Root blockiert' -and
+        $projectContext -notmatch 'physischer Hyper-V-Mehrgeräte-Nachweis für vier TempDB')
 
 Add-ValidationResult `
     -Name 'Manifest-Wizard-Status beschreibt Navigation und Artifact-Planvorschau aktuell' `
@@ -804,7 +805,9 @@ Add-ValidationResult `
     -Name 'Repo-Map und Known Limitations beschreiben Reconcile und nächste Gates aktuell' `
     -Success ($repoMap -match 'journalisierter Container-Reconcile fuer CPU, RAM, SQL max memory, Hostport, Autostart und External Runtimes' -and
         $repoMap -notmatch 'Reconcile ist auf den Lifecycle START/STOP begrenzt' -and
-        $knownLimitations -match 'realen Hyper-V-Mehrgeräte-Lauf' -and
+        $knownLimitations -match 'physische N5-Hyper-V-Mehrgeräte-\s*Nachweis wurde am 2026-08-30 abgeschlossen' -and
+        $knownLimitations -match 'IN_PROGRESS / P0_FIX_FIRST' -and
+        $knownLimitations -notmatch 'positiver realer Lauf dieses Runners steht weiterhin aus' -and
         $knownLimitations -match 'Alle drei produktiven Pilotadapter' -and
         $knownLimitations -match 'toolbelt\.core\.console-message' -and
         $knownLimitations -match 'Gate N3 ist\s+damit geschlossen' -and
@@ -827,11 +830,14 @@ Add-ValidationResult `
 
 $sqlPreparedAcceptancePath = Join-Path $repoRoot 'Tests\Integration\Invoke-HyperVSqlPreparedImageAcceptance.ps1'
 Add-ValidationResult `
-    -Name 'Roadmap und Masterplan führen die real abgeschlossenen N3-/N4-Pfade als vollständig' `
+    -Name 'Roadmap und Masterplan führen N3/N4 vollständig sowie N5-Evidence und P0-Blocker aktuell' `
     -Success ($developmentExecutionPlan -match '(?m)^\| N3 \| `COMPLETE` \|' -and
         $developmentExecutionPlan -match '(?m)^\| N4 \| `COMPLETE` \|' -and
+        $developmentExecutionPlan -match '(?m)^\| N5 \| `IN_PROGRESS / P0_FIX_FIRST` \|' -and
+        $developmentExecutionPlan -match '2/1/1-Verteilung auf drei lokalen physischen Geräten' -and
         $masterImplementationPlan -match '(?m)^\| N3 – Drei reale Project-Adapter-Piloten \| Wellen 6, 7 und 7a \| `COMPLETE`' -and
-        $masterImplementationPlan -match '(?m)^\| N4 – Hyper-V Windows-/SQL-End-to-End \| Welle 4 \| `COMPLETE` \|')
+        $masterImplementationPlan -match '(?m)^\| N4 – Hyper-V Windows-/SQL-End-to-End \| Welle 4 \| `COMPLETE` \|' -and
+        $masterImplementationPlan -match '(?m)^\| N5 – Storage- und Reconcile-Vertical-Slice \| Wellen 1, 3, 4 und 5; Storage-Konsolidierungsplan \| `IN_PROGRESS / P0_FIX_FIRST`')
 
 Add-ValidationResult `
     -Name 'Roadmap beschreibt den real belegten Container-Reconcile-Stand widerspruchsfrei' `

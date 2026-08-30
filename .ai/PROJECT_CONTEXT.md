@@ -104,6 +104,11 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   `SQL_READY_RUN`, unverändertem Parent-Hash und vollständigem Cleanup;
 - echter Hyper-V-SQL-2025-CLI-Vertical-Slice mit Installation, Storage,
   TempDB, Ressourcenwechsel, Datenpersistenz und Cleanup;
+- realer Hyper-V-N5-Mehrgerätepfad mit vier TempDB-Datendateien in
+  2/1/1-Verteilung auf drei nachweislich getrennten lokalen Geräten, eigener
+  TempDB-Log-Lane, SQL-Dienstrestart, dateigenauem Create, synthetischem
+  Backup/Restore-Roundtrip, Persistenz nach vollständigem VM-Restart und
+  scopegebundenem Cleanup;
 - providerneutraler Softwarekatalog und External-Runtime-Resolver mit
   SQL-/OS-/Provider-Capability-Gates, sicherer Legacy-`post-start`-Grenze und
   geheimnisfreien Software-Intents für Python, R und Java;
@@ -130,6 +135,9 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 
 ### Geplant oder unvollständig
 
+- fail-closed Bindung aller Hyper-V-Slot-, Builder-, VM-, Smart-Paging-,
+  Checkpoint- und Artifact-Ressourcen an registrierte `Lab_Data`-Roots sowie
+  sichere Migration vorhandener Legacy-Slots;
 - vollständiger allgemeiner Hyper-V-Provider über den belegten
   Windows-2025-/SQL-2025-Referenzpfad hinaus, insbesondere breite
   Datenbank-, Software-, Post-Provisioning- und Netzwerk-Manifestbindung sowie
@@ -149,10 +157,6 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 - weitere konsumierende Lab-Packages über die drei abgeschlossenen
   Project-Adapter-Vertical-Slices hinaus;
 - langfristige Planner-, Package- und Supporting-Component-Architektur;
-- physischer Hyper-V-Mehrgeräte-Nachweis für vier TempDB-Datendateien auf der
-  im Intent geforderten Mindestzahl physischer Geräte sowie dateigenaue Data-, Log-,
-  TempDB- und Backup-Platzierung einschließlich SQL-Restart, Create, Restore,
-  Persistenz und Cleanup;
 
 Die verbindliche Detailabgrenzung steht in `Documentation/Quality/KNOWN_LIMITATIONS.md`.
 
