@@ -125,6 +125,9 @@ Der Auto-Modus wählt für den mutierenden Lifecycle genau eine Runtime: Docker 
 .\Tests\Integration\Invoke-ContainerCliAcceptance.ps1 -Provider docker -Version 2022-CU18
 .\Tests\Integration\Invoke-ContainerCliAcceptance.ps1 -Provider podman -Version 2022-CU18
 .\Tests\Integration\Invoke-HyperVCliAcceptance.ps1 -MediaRoot D:\Lab_Base -SqlVersion 2025
+.\Tests\Integration\Invoke-HyperVStorageAcceptance.ps1 `
+    -StorageIntentPath .\Schemas\hyperv-storage-n5-intent.sample.json `
+    -MediaRoot D:\Lab_Base
 ```
 
 Es werden bewusst nicht alle CUs getestet. Docker und Podman verwenden je
@@ -135,6 +138,13 @@ Der empfohlene operative Push-Pfad ist in der lokalen Readiness-Checkliste besch
 ```text
 .\Documentation\Quality\LOCAL_READINESS_CHECKLIST.md
 ```
+
+`Invoke-HyperVStorageAcceptance.ps1` ist der getrennte N5-Vertrag für vier
+physisch belegte TempDB-Geräte, separates TempDB-Log, SQL-Dienstrestart,
+dateigenaues CREATE und Restore sowie VM-Restart und Cleanup. Der Runner bleibt
+`NOT_EXECUTED`, solange der Host nicht mindestens die benötigten eindeutig
+selektierbaren Storage-Locations und ein passendes `SQL_PREPARED_SEALED`-
+Artifact bereitstellt.
 
 ### Reale Windows-Generalize-/Publish-Abnahme
 

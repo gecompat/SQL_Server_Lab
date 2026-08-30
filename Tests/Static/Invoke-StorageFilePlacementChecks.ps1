@@ -335,6 +335,8 @@ try {
     $uiText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/StorageContract.ps1') -Raw -Encoding utf8
     $placementText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/StorageFilePlacement.ps1') -Raw -Encoding utf8
     $hyperVEnvironmentText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVLabEnvironment.ps1') -Raw -Encoding utf8
+    $hyperVStorageAcceptancePath = Join-Path $repoRoot 'Tests/Integration/Invoke-HyperVStorageAcceptance.ps1'
+    $hyperVStorageAcceptanceText = Get-Content -LiteralPath $hyperVStorageAcceptancePath -Raw -Encoding utf8
     Add-CheckResult -Name 'Storage-UI bietet Metadaten und vollständige Dateiplan-Prüfung an' -Success (
         $uiText -match "-Id 'metadata'" -and $uiText -match "-Id 'file-plan'" -and
         $placementText -match 'foreach \(\$file in @\(\$plan\.SqlFiles\)\)')
@@ -343,6 +345,21 @@ try {
         $hyperVEnvironmentText -match 'ConvertTo-LabHyperVStorageDrivePlan' -and
         $hyperVEnvironmentText -match 'Invoke-HyperVLabStoragePlan' -and
         $placementText -match "Status='RECOVERY_REQUIRED'" -and $placementText -match "Status='VERIFIED'")
+    Add-CheckResult -Name 'N5 besitzt einen ausführbaren realen Hyper-V-Vier-Geräte-Vertrag' -Success (
+        (Test-Path -LiteralPath $hyperVStorageAcceptancePath -PathType Leaf) -and
+        $hyperVStorageAcceptanceText -match '\[Parameter\(Mandatory\)\]\[string\]\$StorageIntentPath' -and
+        $hyperVStorageAcceptanceText -match "artifactState -eq 'SQL_PREPARED_SEALED'" -and
+        $hyperVStorageAcceptanceText -match '\$tempDataBindings\.Count -eq 4' -and
+        $hyperVStorageAcceptanceText -match '\$tempBackingDevices\.Count -eq 4' -and
+        $hyperVStorageAcceptanceText -match "'TempDB-Log besitzt eine eigene Storage-Lane'" -and
+        $hyperVStorageAcceptanceText -match 'New-HyperVLabEnvironment' -and
+        $hyperVStorageAcceptanceText -match '-StorageIntent \$Intent' -and
+        $hyperVStorageAcceptanceText -match 'New-SqlServerLabDatabase' -and
+        $hyperVStorageAcceptanceText -match '-RunId \$lab\.RunId' -and
+        $hyperVStorageAcceptanceText -match 'Restore-SqlServerLabDatabase' -and
+        $hyperVStorageAcceptanceText -match '-GuestCredential \$guestCredential' -and
+        $hyperVStorageAcceptanceText -match 'Restart-SqlServerLab' -and
+        $hyperVStorageAcceptanceText -match 'Remove-SqlServerLab')
 }
 catch { Add-CheckResult -Name 'Storage-File-Placement-Testausführung' -Success $false -Message $_.Exception.Message }
 finally {
