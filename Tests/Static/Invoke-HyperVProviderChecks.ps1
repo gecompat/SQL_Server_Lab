@@ -493,7 +493,7 @@ try {
         }
     }
     Add-CheckResult `
-        -Name 'Run-Pfadgrenze akzeptiert nur resources/hyperv' `
+        -Name 'Legacy-Run-Pfadgrenze akzeptiert nur resources/hyperv' `
         -Success ($pathContract.Inside -and -not $pathContract.Outside)
 }
 catch {

@@ -97,11 +97,11 @@ $module = Get-Module SqlServerLab
             Set-LabProviderSubRunState -RunId $run.RunId -Provider hyperv -NewState PROVISIONING `
                 -Reason 'Spezialisierte Windows-Quelle wird unverändert kopiert.' -StateRoot $StateRoot
 
-            $resourceRoot = Join-Path (Join-Path $run.RunDir 'resources') 'hyperv'
-            $parentCopyPath = Join-Path $resourceRoot 'sql2022-ext-source-parent.vhdx'
-            if (-not (Test-HyperVPathWithinRunDirectory -Path $parentCopyPath -RunDirectory $run.RunDir)) {
-                throw 'HYPERV_EXTERNAL_RUNTIME_ACCEPTANCE_CLONE_TARGET_SCOPE_VIOLATION'
-            }
+            $resourceBinding = Initialize-LabHyperVResourceBinding -ResourceId $run.RunId -ResourceClass Run `
+                -StateDirectory $run.RunDir
+            $resourceRoot = [string]$resourceBinding.HyperVResourceRoot
+            $parentCopyPath = Assert-LabHyperVBoundPath -Binding $resourceBinding `
+                -Path (Join-Path $resourceRoot 'sql2022-ext-source-parent.vhdx')
             $null = Add-CleanupStep -RunDir $run.RunDir -ResourceType vhdx -ResourceId $parentCopyPath `
                 -Action remove -Provider hyperv -ProviderSubRunId provider-hyperv `
                 -Compensation 'Remove isolated External Runtime acceptance parent copy'
@@ -110,6 +110,9 @@ $module = Get-Module SqlServerLab
             Write-Host "NATIVE_CLONE_SOURCE_RUN_ID=$SourceRunId"
             Write-LabInfo 'Acceptance-Clone: spezialisierte Quell-VHDX wird vollständig in den neuen Run kopiert.'
             Convert-VHD -Path $sourceDiskPath -DestinationPath $parentCopyPath -VHDType Dynamic -ErrorAction Stop
+            if (-not (Test-Path -LiteralPath $parentCopyPath -PathType Leaf)) {
+                throw 'HYPERV_EXTERNAL_RUNTIME_ACCEPTANCE_CLONE_COPY_POSTCONDITION_FAILED'
+            }
             $parentItem = Get-Item -LiteralPath $parentCopyPath -Force
             $parentItem.IsReadOnly = $true
             $parentHash = (Get-FileHash -LiteralPath $parentCopyPath -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()

@@ -667,12 +667,13 @@ function Initialize-HyperVSqlPreparedImageBuild {
         $instance = New-HyperVInstance -ImageArtifactId $ImageArtifactId -StateRoot $StateRoot `
             -RunDirectory $plan.BuildDirectory -RunId $plan.buildId -ScopeId $plan.scopeId `
             -InstanceId "sql-image-$SqlVersion" -MemoryStartupBytes $MemoryStartupBytes -ProcessorCount $ProcessorCount `
-            -SwitchName $labNetwork.Name
+            -SwitchName $labNetwork.Name -ResourceClass Build
         $managed = Get-HyperVManagedVM -VMName $instance.VMName -ExpectedRunId $plan.buildId -ExpectedScopeId $plan.scopeId
         $null = Add-VMDvdDrive -VM $managed.VM -Path $media.IsoPath -ErrorAction Stop
         $plan.builder = [PSCustomObject]@{
             vmName = [string]$instance.VMName
-            osDiskRelativePath = [System.IO.Path]::GetRelativePath($plan.BuildDirectory, $instance.ChildVhdxPath).Replace('\', '/')
+            osDiskRelativePath = "resources/hyperv/$([IO.Path]::GetFileName($instance.ChildVhdxPath))"
+            resourceRelativePath = [IO.Path]::GetFileName($instance.ChildVhdxPath)
             generation = 2; secureBoot = $true; networkAttached = $true
         }
         $plan | Add-Member -NotePropertyName labNetwork -NotePropertyValue $labNetwork -Force
@@ -733,18 +734,24 @@ function Initialize-HyperVSqlFreshPreparedImageBuild {
     if (-not [string]::IsNullOrWhiteSpace($ImageName)) { $planArguments.ImageName = $ImageName.Trim() }
     $plan = New-HyperVSqlFreshImageBuildPlan @planArguments
     try {
-        $resourceRoot = Join-Path $plan.BuildDirectory 'resources/hyperv'
+        $resourceBinding = Initialize-LabHyperVResourceBinding -ResourceId $plan.buildId -ResourceClass Build `
+            -StateDirectory $plan.BuildDirectory
+        $resourceRoot = [string]$resourceBinding.HyperVResourceRoot
         $runPrefix = $plan.buildId.Replace('-', '').Substring(0, 8).ToLowerInvariant()
         $vmName = "sql-lab-sql-image-$SqlVersion-$runPrefix"
-        $diskPath = Join-Path $resourceRoot "$vmName.vhdx"
+        $diskPath = Assert-LabHyperVBoundPath -Binding $resourceBinding -Path (Join-Path $resourceRoot "$vmName.vhdx")
         $null = Add-CleanupStep -RunDir $plan.BuildDirectory -ResourceType vhdx -ResourceId $diskPath -Action remove `
             -Provider hyperv -ProviderSubRunId provider-hyperv -Compensation 'Remove fresh Windows SQL image VHDX'
         $null = Add-CleanupStep -RunDir $plan.BuildDirectory -ResourceType vm -ResourceId $vmName -Action remove `
             -Provider hyperv -ProviderSubRunId provider-hyperv -Compensation 'Remove fresh Windows SQL image builder VM'
         New-Item -Path $resourceRoot -ItemType Directory -Force | Out-Null
+        $null = Assert-LabHyperVBoundPath -Binding $resourceBinding -Path $diskPath
         $null = New-VHD -Path $diskPath -Dynamic -SizeBytes $OsDiskSizeBytes -ErrorAction Stop
+        if (-not (Test-Path -LiteralPath $diskPath -PathType Leaf)) { throw 'HYPERV_SQL_IMAGE_BUILD_DISK_POSTCONDITION_FAILED' }
         $vm = New-VM -Name $vmName -Generation 2 -MemoryStartupBytes $MemoryStartupBytes -VHDPath $diskPath `
             -Path $resourceRoot -SwitchName $labNetwork.Name -ErrorAction Stop
+        $null = Set-VM -VM $vm -SmartPagingFilePath $resourceRoot -SnapshotFileLocation $resourceRoot -ErrorAction Stop
+        $null = Assert-HyperVVMResourceBinding -VMName $vmName -ResourceBinding $resourceBinding
         # Do not inherit Hyper-V's unbounded dynamic-memory default (commonly 1 TB).
         $memoryMinimumBytes = [long][Math]::Max([double]512MB, [double]$MemoryStartupBytes / 2)
         $memoryMaximumBytes = [long][Math]::Min([double]1TB, [double]$MemoryStartupBytes * 2)
@@ -759,6 +766,7 @@ function Initialize-HyperVSqlFreshPreparedImageBuild {
         $null = Set-VMFirmware -VM $vm -FirstBootDevice $windowsDvd -ErrorAction Stop
         $plan.builder = [PSCustomObject]@{
             vmName = $vmName; osDiskRelativePath = "resources/hyperv/$vmName.vhdx"
+            resourceRelativePath = "$vmName.vhdx"
             generation = 2; secureBoot = $true; networkAttached = $true; diskKind = 'fresh-dynamic'
         }
         $plan | Add-Member -NotePropertyName labNetwork -NotePropertyValue $labNetwork -Force
@@ -1148,9 +1156,13 @@ function Resume-HyperVSqlPreparedImageGeneralization {
         $null = Stop-HyperVInstance -VMName ([string]$build.builder.vmName) `
             -ExpectedRunId ([string]$build.buildId) -ExpectedScopeId ([string]$build.scopeId)
     }
-    $vhdxPath = Join-Path $build.BuildDirectory ([string]$build.builder.osDiskRelativePath)
+    $resourceRelativePath = if ($build.builder.resourceRelativePath) { [string]$build.builder.resourceRelativePath } else { Split-Path -Leaf ([string]$build.builder.osDiskRelativePath) }
+    $vhdxPath = Resolve-LabHyperVStateResourcePath -StateDirectory $build.BuildDirectory `
+        -BoundRelativePath $resourceRelativePath -LegacyRelativePath ([string]$build.builder.osDiskRelativePath)
+    $offlineInspectionPath = Resolve-LabHyperVStateResourcePath -StateDirectory $build.BuildDirectory `
+        -BoundRelativePath 'offline-generalization-inspection' -LegacyRelativePath 'offline-generalization-inspection'
     $inspection = Get-HyperVSqlOfflineImageState -VhdxPath $vhdxPath `
-        -MountRoot (Join-Path $build.BuildDirectory 'offline-generalization-inspection')
+        -MountRoot $offlineInspectionPath
     $imageState = [string]$inspection.ImageState
     if ($imageState -ne 'IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE') {
         $reason = Get-HyperVSqlSysprepFailureReason -ImageState $imageState -SysprepDetail ([string]$inspection.SysprepDetail)
@@ -1195,14 +1207,17 @@ function Publish-HyperVSqlPreparedImageBuild {
     if (-not $managed) { throw 'HYPERV_SQL_IMAGE_BUILD_VM_MISSING' }
     if ([string]$managed.VM.State -ne 'Off') { throw 'HYPERV_SQL_IMAGE_BUILD_VM_MUST_BE_OFF' }
     if (@(Get-VMSnapshot -VM $managed.VM -ErrorAction Stop).Count -gt 0) { throw 'HYPERV_SQL_IMAGE_BUILD_CHECKPOINTS_PRESENT' }
-    $childPath = Join-Path $build.BuildDirectory ([string]$build.builder.osDiskRelativePath)
+    $resourceRelativePath = if ($build.builder.resourceRelativePath) { [string]$build.builder.resourceRelativePath } else { Split-Path -Leaf ([string]$build.builder.osDiskRelativePath) }
+    $childPath = Resolve-LabHyperVStateResourcePath -StateDirectory $build.BuildDirectory `
+        -BoundRelativePath $resourceRelativePath -LegacyRelativePath ([string]$build.builder.osDiskRelativePath)
     if (-not (Test-HyperVPathWithinRunDirectory -Path $childPath -RunDirectory $build.BuildDirectory) -or
         -not (Test-Path -LiteralPath $childPath -PathType Leaf)) { throw 'HYPERV_SQL_IMAGE_BUILD_DISK_SCOPE_INVALID' }
     if (-not ([System.IO.Path]::GetFullPath($childPath).Equals([System.IO.Path]::GetFullPath([string]$managed.Identity.childVhdxPath), [System.StringComparison]::OrdinalIgnoreCase))) {
         throw 'HYPERV_SQL_IMAGE_BUILD_DISK_IDENTITY_MISMATCH'
     }
 
-    $flatPath = Join-Path (Join-Path $build.BuildDirectory 'resources/hyperv') "sql-prepared-$BuildId.vhdx"
+    $flatPath = Resolve-LabHyperVStateResourcePath -StateDirectory $build.BuildDirectory `
+        -BoundRelativePath "sql-prepared-$BuildId.vhdx" -LegacyRelativePath "resources/hyperv/sql-prepared-$BuildId.vhdx"
     if (-not (Test-HyperVPathWithinRunDirectory -Path $flatPath -RunDirectory $build.BuildDirectory)) {
         throw 'HYPERV_SQL_IMAGE_FLAT_DISK_SCOPE_INVALID'
     }

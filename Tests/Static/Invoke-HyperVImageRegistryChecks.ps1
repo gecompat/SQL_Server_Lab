@@ -18,12 +18,14 @@ if ($showHelpRequested) {
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
-$temporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) "sql-lab-hyperv-registry-$([guid]::NewGuid().ToString('N'))"
+$temporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) "hvr-$([guid]::NewGuid().ToString('N').Substring(0,8))"
 $stateRoot = Join-Path $temporaryRoot 'state'
+$dataRoot = Join-Path $temporaryRoot 'Lab_Data'
 $runDirectory = Join-Path $temporaryRoot 'run'
 $sourcePath = Join-Path $temporaryRoot 'synthetic.vhdx'
 $failures = [System.Collections.Generic.List[string]]::new()
 $passed = 0
+$previousDataRoot = $env:SQL_SERVER_LAB_DATA_ROOT
 . (Join-Path $PSScriptRoot '..' 'Common' 'CheckResult.ps1')
 
 Write-Host ''
@@ -39,6 +41,8 @@ try {
 
     Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
     $module = Import-Module $modulePath -Force -PassThru
+    $null = & $module { param($Root) Initialize-LabManagedDataRoot -DataRoot $Root -Confirm:$false } $dataRoot
+    $env:SQL_SERVER_LAB_DATA_ROOT = $dataRoot
     $result = & $module {
         param($SourcePath, $Sha256, $StateRoot, $RunDirectory)
         $artifact = Import-HyperVImageArtifact `
@@ -162,6 +166,9 @@ try {
     )
 
     $poolStateRoot = Join-Path $temporaryRoot 'template-pool-state'
+    $poolDataRoot = Join-Path (Join-Path $temporaryRoot 'pool') 'Lab_Data'
+    $null = & $module { param($Root) Initialize-LabManagedDataRoot -DataRoot $Root -Confirm:$false } $poolDataRoot
+    $env:SQL_SERVER_LAB_DATA_ROOT = $poolDataRoot
     $poolSources = @()
     for ($index = 1; $index -le 20; $index++) {
         $poolSource = Join-Path $temporaryRoot ("template-$index.vhdx")
@@ -220,6 +227,7 @@ try {
     }
     catch { $templateInUseRejected = $_.Exception.Message -match 'HYPERV_ARTIFACT_IN_USE' }
     Add-CheckResult -Name 'Aktiver differenzierender Lab-Run schützt sein Parent-Template vor dem Entfernen' -Success $templateInUseRejected
+    $env:SQL_SERVER_LAB_DATA_ROOT = $dataRoot
 
     $metadataConflictRejected = $false
     try {
@@ -265,6 +273,7 @@ catch {
     Add-CheckResult -Name 'Hyper-V-Image-Registry-Testausfuehrung' -Success $false -Message $_.Exception.Message
 }
 finally {
+    $env:SQL_SERVER_LAB_DATA_ROOT = $previousDataRoot
     Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
     if (Test-Path -LiteralPath $sourcePath) { (Get-Item -LiteralPath $sourcePath).IsReadOnly = $false }
     if (Test-Path -LiteralPath $temporaryRoot) { Remove-Item -LiteralPath $temporaryRoot -Recurse -Force }
