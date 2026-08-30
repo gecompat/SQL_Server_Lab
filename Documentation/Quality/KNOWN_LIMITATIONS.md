@@ -427,8 +427,11 @@ Entrypoints mit `..` oder absoluten Pfaden ab, der Resolver erzwingt zusätzlich
 Containment im Adapter-Root und lehnt Reparse Points ab.
 
 Als Capabilities werden derzeit nur `sqlcmd` und `container-linux` geprüft.
-Die produktiven Adapter für `SQL_PerformanceSchulung`, `SQL_Server_Analyze` und
-`SQL_Server_Toolbelt` sind noch nicht umgesetzt; die Reihenfolge steht in der
+Der erste produktive Pilotadapter ist im autoritativen
+`SQL_PerformanceSchulung`-Repository umgesetzt und mit `CON-004` auf SQL Server
+2025 Linux mit Docker und Podman end-to-end validiert. Die produktiven Piloten
+für `SQL_Server_Analyze` und `SQL_Server_Toolbelt` sind noch nicht umgesetzt;
+die Evidence und Reihenfolge stehen in der
 [Project-Adapter-Priorisierung](../Project_Planning/PROJECT_ADAPTER_PRIORITIZATION.md).
 
 ## SQL Server Builds und CUs
@@ -649,9 +652,10 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
    realen Hyper-V-Mehrgeräte-Lauf auf den drei lokalen physischen Laufwerken
    einschließlich SQL-Restart, Create, Restore,
    Persistenz und Cleanup abschließen (Gate N5).
-2. Die drei Project-Adapter-Piloten für `SQL_PerformanceSchulung`,
-   `SQL_Server_Analyze` und `SQL_Server_Toolbelt` im jeweiligen
-   Partnerrepository real ausführen (Gate N3).
+2. Die zwei verbleibenden Project-Adapter-Piloten für `SQL_Server_Analyze` und
+   `SQL_Server_Toolbelt` im jeweiligen Partnerrepository real ausführen und
+   damit Gate N3 nach dem bereits validierten `SQL_PerformanceSchulung`-Pilot
+   vervollständigen.
 3. `LAB_GENERATED`-Erzeugung und Auswahl an den Hyper-V-Export binden
    (Sample-Welle 5/6).
 4. Die implementierten providerneutralen Network- und Software-Intents an

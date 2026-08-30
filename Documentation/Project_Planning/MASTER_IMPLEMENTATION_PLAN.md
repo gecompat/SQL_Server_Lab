@@ -989,7 +989,7 @@ Jedes Dokument führt seine eigene Wellenzählung.
 | Welle 3 – Migration des Analyze-QuickTest-Lifecycle | teilweise | Übergangszustände vor Mutation, Recovery-Status, Run-ID-/Scope-Validierung und lokale Secret-Verwaltung sind im Core vorhanden; Reset-Vertrag, Apply-Adapter und Compatibility Wrapper für `SQL_Server_Analyze` sind offen |
 | Welle 4 – Hyper-V Provider | teilweise; nativer Lifecycle und Windows-2025-/SQL-2025-Prepared-Image-Pfad real validiert | Immutable Image-Registry, Baseline-Auswahl, Generation-2-/Secure-Boot-/Parent-Child-VHDX-Lifecycle, Gast-Drives, Windows-Specialization, SQL-`PrepareImage`/`CompleteImage` und SQL-Readiness-Orchestrierung implementiert; VM-/VHDX-/Start-/Stop-/Reconcile-/Cleanup-Lifecycle sowie ein frischer Build und normaler differenzierender Manifest-Klon bis `SQL_READY_RUN` sind real grün. Breites Datenbank-/Software-/Post-Provisioning-/Network-Manifest-Binding und die allgemeine vollautomatische OS-Factory bleiben offen |
 | Welle 5 – Scenario Engine und Fault Injection | nicht begonnen | |
-| Welle 6 – Adapter `SQL_PerformanceSchulung` | begonnen | Adaptervertrag, Resolver, `Test-/Install-SqlServerLabAdapter` und synthetischer Beispieladapter sind implementiert (`ADP-001`/`ADP-002`/`ADP-005`); der Pilot im Schulungsrepository ist offen, siehe [Project-Adapter-Priorisierung](PROJECT_ADAPTER_PRIORITIZATION.md) |
+| Welle 6 – Adapter `SQL_PerformanceSchulung` | teilweise; erster realer Pilot validiert | Adaptervertrag, Resolver, `Test-/Install-SqlServerLabAdapter` und synthetischer Beispieladapter sind implementiert (`ADP-001`/`ADP-002`/`ADP-005`); `ADP-003` ist mit `CON-004` auf SQL Server 2025 Linux mit Docker und Podman end-to-end validiert. Die breitere Wellenabnahme mit grüner und roter Pilotdemo bleibt offen, siehe [Project-Adapter-Priorisierung](PROJECT_ADAPTER_PRIORITIZATION.md) |
 | Welle 7 – Adapter `SQL_Server_Analyze` | begonnen | gleiche Adapterbasis; der Pilot im Analyze-Repository ist offen |
 | Welle 7a – Adapter `SQL_Server_Toolbelt` | begonnen | gleiche Adapterbasis; der Modul-Lifecycle-Pilot im Toolbelt-Repository ist offen |
 | Welle 8 – Ablösung und Repositorybereinigung | nicht begonnen | setzt Wellen 6, 7 und 7a voraus |
@@ -1101,7 +1101,7 @@ Master-Plan-Welle zu verändern oder eine Umsetzung zu starten.
 |---|---|---|
 | N1 – Baseline, Regressionen und Katalogwartung | Wellen 0, 1 und 9; fortlaufende Statuswahrheit | `COMPLETE` |
 | N2 – P0-Steuerungs-, Abbruch- und Recovery-Verträge | Wellen 1, 2, 3 und 9; vorgeschaltete Konsolidierungswelle | `COMPLETE` |
-| N3 – Drei reale Project-Adapter-Piloten | Wellen 6, 7 und 7a | `PLANNED_NOT_STARTED` |
+| N3 – Drei reale Project-Adapter-Piloten | Wellen 6, 7 und 7a | `IN_PROGRESS`; `ADP-003` validiert, `ADP-004` und `ADP-008` offen |
 | N4 – Hyper-V Windows-/SQL-End-to-End | Welle 4 | `COMPLETE` |
 | N5 – Storage- und Reconcile-Vertical-Slice | Wellen 1, 3, 4 und 5; Storage-Konsolidierungsplan | `IN_PROGRESS` (Storage-Slices implementiert; Docker-/Podman-Reconcile real belegt; Hyper-V-Mehrgeräte-Nachweis mit vier TempDB-Dateien offen) |
 

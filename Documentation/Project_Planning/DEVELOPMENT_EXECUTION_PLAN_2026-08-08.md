@@ -717,7 +717,7 @@ Runtime-Nachweis; maßgeblich bleiben die jeweils genannten Tests und Evidence.
 |---|---|---|
 | N1 | `COMPLETE` | Nightly-Ursache klassifiziert, persistente Windows-Testumgebungen gezielt wiederhergestellt, CU-Katalog fachlich aktualisiert und zwei aufeinanderfolgende Nightlies vollständig grün. |
 | N2 | `COMPLETE` | ActionResult-/Sync-, Portbindungs-, UAC- und Privilegverträge sind implementiert und fokussiert geprüft; GUI-Abbruch, Scheduler-Abbruch/Recovery, Manifest-Rerun, PowerShell-Console, Windows-User-Gate und der positive Windows-Generalize-/Publish-Pfad sind real belegt. |
-| N3 | `PLANNED_NOT_STARTED` | Die drei Partnerrepository-Piloten sind nicht nachgewiesen. |
+| N3 | `IN_PROGRESS` | `ADP-003` ist im autoritativen Schulungsrepository gemergt und auf SQL Server 2025 mit Docker und Podman end-to-end validiert; `ADP-004` und `ADP-008` bleiben offen. |
 | N4 | `COMPLETE` | Der reale Windows-2025-/SQL-2025-Lauf belegt Build, immutable Prepared-Parent, normalen differenzierenden Manifest-Klon, Windows-Specialization, `CompleteImage`, `SQL_READY_RUN`, unveränderten Parent-Hash und vollständigen Cleanup. |
 | N5 | `IN_PROGRESS` | `STO-009` bis `STO-013`, `SFP-001` bis `SFP-003` sowie `HVS-001`, `HVS-002` und `SQLS-001` bis `SQLS-003` sind implementiert; Docker und Podman belegen No-op, Live, Recreate, Rollback und Persistenz real. Offen bleibt der physische Hyper-V-Mehrgeräte-Nachweis mit vier TempDB-Datendateien; das Referenz-Intent fordert drei Geräte. |
 
@@ -824,6 +824,23 @@ Prozessabbruch erzeugt keine doppelte Ressource; Resume, Rollback, Cleanup und
 Windows-Gast den vorgesehenen Receipt-Pfad.
 
 ### Welle N3 – Drei reale Project-Adapter-Piloten
+
+**Status:** `IN_PROGRESS` seit 2026-08-30; ein von drei Piloten ist
+abgeschlossen.
+
+**Aktuelle Evidence:** `ADP-003` wurde mit
+[SQL_PerformanceSchulung PR #40](https://github.com/gecompat/SQL_PerformanceSchulung/pull/40)
+implementiert und mit
+[PR #41](https://github.com/gecompat/SQL_PerformanceSchulung/pull/41) um den
+Podman-Nachweis ergänzt; beide Änderungen sind auf `origin/main` enthalten
+(Stand `b9a1ac3`). Der versionierte Adapter `0.1` konstruiert `CON-004` auf SQL
+Server 2025 Linux, validiert den `READY_FOR_USER`-Zustand, stellt ihn per Reset
+auf derselben Providerinstanz wieder her und entfernt anschließend fachliche
+Datenbankartefakte, Container und Volume scopegebunden. Die lokalen
+Referenzläufe `30b69f0b-b140-47e6-8c90-c05e38bd7c99` (Docker) und
+`f80f7d82-934b-4c7c-9d2a-a80e975d92d5` (Podman) endeten jeweils mit
+`REMOVED`. `ADP-004` und `ADP-008` sind weiterhin offen; Gate N3 ist deshalb
+nicht geschlossen.
 
 **Ziel:** Den Adaptervertrag an allen drei vorgesehenen Konsumenten beweisen,
 bevor seine öffentliche Version stabilisiert oder generische Altlogik entfernt
