@@ -659,8 +659,13 @@ sowie nach der Mutation geprüft. Für vorhandene Run-Ressourcen besteht ein
 journalisierter Migrationskern mit Preview, Hash-/VHDX-Verifikation, Resume,
 VM-Umbindung und spätem Quell-Cleanup. Legacy-Images können zusätzlich
 hashidentisch im gebundenen Image-Store veröffentlicht werden; referenzierte
-Quellen bleiben dabei sichtbar als `WAITING_FOR_CONSUMERS`. Der Ablauf ist noch nicht über die öffentliche
-UI/CLI verfügbar und besitzt noch keinen real erhöhten End-to-End-Nachweis;
+Quellen bleiben dabei sichtbar als `WAITING_FOR_CONSUMERS`. Run-lokale
+Legacy-Children werden nur gegen den unveränderten Image-Plan, das committed
+Binding und ein hashverifiziertes read-only Ziel-Parent umgehängt. Der
+vorjournalisierte `Set-VHD`-Schritt ist fortsetzbar; getrennte Quell-/Ziel-
+Child-Hashes schützen den späten Cleanup. Nach dem Child-Cleanup wird die
+Image-Migration automatisch fortgesetzt. Der Ablauf ist noch nicht über die
+öffentliche UI/CLI verfügbar und besitzt noch keinen real erhöhten End-to-End-Nachweis;
 Legacy-Dateien dürfen deshalb weiterhin nicht manuell verschoben werden.
 
 Der priorisierte
@@ -671,20 +676,21 @@ Migration vorhandener Legacy-Slots. Der physische N5-Hyper-V-Mehrgeräte-
 Nachweis wurde am 2026-08-30 abgeschlossen; das Gesamtgate bleibt bis zur realen
 Abnahme dieses P0-Fixes `IN_PROGRESS / P0_FIX_FIRST`.
 
-`HVR-001` bis `HVR-004` sowie der Run-Slice von `HVR-005` sind implementiert
+`HVR-001` bis `HVR-005` sind intern implementiert
 und statisch beziehungsweise synthetisch validiert: Der
 versionierte lokale Vertrag löst kurze Create-Roots ausschließlich aus
 registrierten `Lab_Data`-Locations auf, revalidiert Controller-, Location-,
 Volume-, Path-Length- und Reparse-Evidence und schützt Provider, Builder sowie
 Image- und Staging-Store an ihren Mutationsgrenzen. Der Migrationskern
 inventarisiert und verifiziert Legacy-Runs, bindet run-lokale Hyper-V-
-Ressourcen journalisiert um und erhält externe SQL-Lanes. Offen bleiben die
+Ressourcen journalisiert um und erhält externe SQL-Lanes. Die Parent-/Child-
+Kette wird dabei graphbasiert auf den gebundenen Image-Store umgehängt und
+referenzfrei bereinigt. Offen bleiben die
 Kopplung weiterer Cleanup-/Repair-/Reconcile-Pfade, UI/CLI-Exposition sowie die
 reale erhöhte End-to-End-Abnahme.
-Die automatische Reparent-Kopplung bestehender Child-VHDX an bereits
-veröffentlichte Parent-Images ist noch offen; solche VHDX-Ketten dürfen nicht
-manuell verschoben werden. Image-Quellen werden bis zum nachgewiesenen Wegfall
-aller Consumer absichtlich nicht entfernt.
+Image-Quellen werden bis zum nachgewiesenen Wegfall aller Consumer absichtlich
+nicht entfernt; manuelles Verschieben außerhalb des journalisierten Vertrags
+bleibt unzulässig.
 
 ## Lokale State- und Secret-Daten
 
@@ -692,9 +698,8 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
 
 ## Priorisierte nächste technische Schritte
 
-1. Den P0-Bugfix für Hyper-V-Ressourcenroots abschließen: Legacy-Children
-   kontrolliert an bereits migrierte Parent-Images reparenten, Cleanup, Repair, Reconcile
-   und allgemeine Storage-Migration an den journalisierten Migrationsvertrag
+1. Den P0-Bugfix für Hyper-V-Ressourcenroots abschließen: Cleanup, Repair,
+   Reconcile und allgemeine Storage-Migration an den journalisierten Migrationsvertrag
    koppeln, Zielpfade in UI/CLI/Preview darstellen und den Schutz real erhöht
    end-to-end abnehmen.
 2. `LAB_GENERATED`-Erzeugung und Auswahl an den Hyper-V-Export binden
