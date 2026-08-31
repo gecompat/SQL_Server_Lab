@@ -479,8 +479,9 @@ $hyperVNatManifest = $hyperVManifest | ConvertTo-Json -Depth 30 | ConvertFrom-Js
 $hyperVNatManifest.instances[0] | Add-Member -NotePropertyName network -NotePropertyValue ([PSCustomObject]@{ intent='nat'; exposure='host' }) -Force
 $hyperVNatResult = Test-SqlServerLabManifest -InputObject $hyperVNatManifest
 Add-CheckResult `
-    -Name 'Noch offenes Hyper-V-NAT scheitert vor Provider-Mutation' `
-    -Success (-not $hyperVNatResult.IsValid -and $hyperVNatResult.Errors -match 'NETWORK_INTENT_PROVIDER_UNSUPPORTED') `
+    -Name 'Hyper-V-NAT wird portabel auf das gemeinsame interne WinNAT gebunden' `
+    -Success ($hyperVNatResult.IsValid -and $hyperVNatResult.Plan.Instances[0].Network.Status -eq 'RESOLVED' -and `
+        $hyperVNatResult.Plan.Instances[0].Network.Binding -eq 'shared-internal-nat') `
     -Message ($hyperVNatResult.Errors -join '; ')
 
 $hyperVLegacyConflictManifest = $hyperVIsolatedManifest | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30

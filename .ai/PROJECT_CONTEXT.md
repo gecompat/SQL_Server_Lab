@@ -176,8 +176,8 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   belegt;
 - vollständiger allgemeiner Hyper-V-Provider über den belegten
   Windows-2025-/SQL-2025-Referenzpfad hinaus, insbesondere breite
-  Datenbank-, Software- und Post-Provisioning-Manifestbindung, Hyper-V-NAT,
-  LAN, zentraler IPAM/DNS sowie eine reale Versions-/Editionsmatrix;
+  Datenbank-, Software- und Post-Provisioning-Manifestbindung, Hyper-V-LAN,
+  Netzwerk-Reconcile sowie eine reale Versions-/Editionsmatrix;
 - Hyper-V-SubRuns und ein providerübergreifendes Containernetzwerk innerhalb
   eines Runs;
 - vollständige Ausführung aller im Schema vorbereiteten `serverConfig`-Felder;
@@ -233,8 +233,10 @@ als allgemeinen SQL-Provider an. `New-SqlServerLab -Manifest` verwendet den
 eng begrenzten Klonpfad aus einer veröffentlichten
 `SQL_PREPARED_SEALED`-Vorlage; die breite Datenbank-, Software-,
 Post-Provisioning- und Versionsbindung bleibt offen. Der portable
-Network-Intent-Vertrag bindet Container-`nat` sowie Hyper-V-`hostOnly` und
-`isolated`; Hyper-V-NAT/LAN, IPAM/DNS und Netzwerk-Reconcile bleiben offen.
+Network-Intent-Vertrag bindet Container-`nat` sowie Hyper-V-`hostOnly`,
+`isolated` und `nat`. Hyper-V-NAT besitzt einen mutationsfreien Host-Bound-Plan,
+einen gemeinsamen WinNAT-Vertrag, statische scopegebundene IPAM-Leases und einen
+gebundenen Gateway-/DNS-Snapshot. Hyper-V-LAN und Netzwerk-Reconcile bleiben offen.
 
 Der verbindliche Implementierungsvertrag steht in
 `Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md`.

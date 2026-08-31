@@ -486,6 +486,14 @@ function Invoke-CleanupPlan {
                         -RunDir $RunDir `
                         -SafetyRoot $(if ($step.PSObject.Properties['safetyRoot']) { [string]$step.safetyRoot } else { $null })
                 }
+                'ipam-lease' {
+                    if ($provider -ne 'hyperv') { throw "IPAM-Lease-Cleanup erfordert den Provider 'hyperv'." }
+                    $runsRoot = Split-Path -Parent ([IO.Path]::GetFullPath($RunDir))
+                    if ([IO.Path]::GetFileName($runsRoot) -ne 'runs') { throw 'LAB_NETWORK_HYPERV_IPAM_RUN_DIRECTORY_INVALID' }
+                    $stateRoot = Split-Path -Parent $runsRoot
+                    $null = Release-LabHyperVNetworkAddress -Address ([string]$step.resourceId) `
+                        -RunId ([string]$plan.runId) -ScopeId $ScopeId -StateRoot $stateRoot
+                }
                 default {
                     throw "Unbekannter Cleanup-Ressourcentyp: $($step.resourceType)"
                 }

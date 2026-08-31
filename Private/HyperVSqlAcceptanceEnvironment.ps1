@@ -54,6 +54,10 @@ function New-HyperVSqlGuestNetworkBootstrapScript {
 
     $prefixLength = [int]$Network.PrefixLength
     $hostAddress = [string]$Network.HostAddress
+    $gateway = if ($Network.PSObject.Properties['gateway']) { [string]$Network.gateway } else { '' }
+    $dnsLiteral = if ($Network.PSObject.Properties['dnsServers']) {
+        "@(" + ((@($Network.dnsServers) | ForEach-Object { "'$([string]$_)'" }) -join ',') + ")"
+    } else { '@()' }
     return @"
 `$ErrorActionPreference = 'Stop'
 `$adapter = @(Get-NetAdapter | Where-Object { `$_.Status -eq 'Up' } | Sort-Object ifIndex | Select-Object -First 1)[0]
@@ -62,8 +66,19 @@ if (-not `$adapter) { throw 'SQL_LAB_OOBE_NETWORK_ADAPTER_NOT_FOUND' }
     Where-Object { `$_.IPAddress -notlike '169.254.*' -and `$_.IPAddress -ne '127.0.0.1' })
 if (-not @(`$existing | Where-Object { `$_.IPAddress -eq '$Address' -and `$_.PrefixLength -eq $prefixLength })) {
     `$existing | Remove-NetIPAddress -Confirm:`$false -ErrorAction SilentlyContinue
-    New-NetIPAddress -InterfaceIndex `$adapter.ifIndex -IPAddress '$Address' -PrefixLength $prefixLength -ErrorAction Stop | Out-Null
+    `$newAddress = @{ InterfaceIndex=`$adapter.ifIndex; IPAddress='$Address'; PrefixLength=$prefixLength; ErrorAction='Stop' }
+    if ('$gateway') { `$newAddress.DefaultGateway = '$gateway' }
+    New-NetIPAddress @newAddress | Out-Null
 }
+if ('$gateway') {
+    `$defaultRoutes = @(Get-NetRoute -InterfaceIndex `$adapter.ifIndex -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue)
+    if (-not @(`$defaultRoutes | Where-Object { [string]`$_.NextHop -eq '$gateway' })) {
+        `$defaultRoutes | Remove-NetRoute -Confirm:`$false -ErrorAction SilentlyContinue
+        New-NetRoute -InterfaceIndex `$adapter.ifIndex -DestinationPrefix '0.0.0.0/0' -NextHop '$gateway' -ErrorAction Stop | Out-Null
+    }
+}
+`$dnsServers = $dnsLiteral
+if (`$dnsServers.Count -gt 0) { Set-DnsClientServerAddress -InterfaceIndex `$adapter.ifIndex -ServerAddresses `$dnsServers -ErrorAction Stop }
 Set-NetConnectionProfile -InterfaceIndex `$adapter.ifIndex -NetworkCategory Private -ErrorAction SilentlyContinue
 Set-Service -Name WinRM -StartupType Automatic -ErrorAction Stop
 Enable-PSRemoting -Force -SkipNetworkProfileCheck -ErrorAction Stop
@@ -73,7 +88,7 @@ if (-not (Get-NetFirewallRule -DisplayName `$ruleName -ErrorAction SilentlyConti
 }
 `$receiptDirectory = Join-Path `$env:ProgramData 'SqlServerLab'
 New-Item -Path `$receiptDirectory -ItemType Directory -Force | Out-Null
-[PSCustomObject]@{ contractVersion = '1'; network = '$($Network.Name)'; address = '$Address'; prefixLength = $prefixLength; hostAddress = '$hostAddress'; observedAt = [datetime]::UtcNow.ToString('o') } |
+[PSCustomObject]@{ contractVersion = '1'; network = '$($Network.Name)'; address = '$Address'; prefixLength = $prefixLength; hostAddress = '$hostAddress'; gateway = '$gateway'; dnsServers = `$dnsServers; observedAt = [datetime]::UtcNow.ToString('o') } |
     ConvertTo-Json -Compress | Set-Content -LiteralPath (Join-Path `$receiptDirectory 'oobe-network.json') -Encoding UTF8
 "@
 }

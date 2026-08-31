@@ -152,7 +152,9 @@ try {
                 sql = [PSCustomObject]@{ version = '2025'; edition = 'Enterprise' }
             }
         }
-        function Resolve-LabHyperVNetwork { [PSCustomObject]@{ Name = 'SQL_LAB_HYPERV'; Subnet = '172.28.0.0/24'; PrefixLength = 24; HostAddress = '172.28.0.1' } }
+        function Resolve-LabHyperVNetworkBoundPlan { [PSCustomObject]@{ Contract=[PSCustomObject]@{Name='SqlServerLab.HyperVNetworkBoundPlan'}; Status='READY'; Intent='hostOnly'; Name='SQL_LAB_HYPERV'; Subnet='172.28.0.0/24'; PrefixLength=24; HostAddress='172.28.0.1'; Gateway=$null; DnsServers=@() } }
+        function Invoke-LabHyperVNetworkBoundPlan { param($Plan) $Plan }
+        function Reserve-LabHyperVNetworkAddress { [PSCustomObject]@{ address='172.28.0.10' } }
         function Get-HyperVLabVMs { @() }
         function New-HyperVInstance {
             [PSCustomObject]@{ VMName = 'sql-lab-primary-mock'; VMId = 'mock-vm-id' }
@@ -177,7 +179,9 @@ try {
                 sql = [PSCustomObject]@{ version = '2025'; edition = 'Enterprise' }
             }
         }
-        function Resolve-LabHyperVNetwork { [PSCustomObject]@{ Name = 'SQL_LAB_HYPERV'; Subnet = '172.28.0.0/24'; PrefixLength = 24; HostAddress = '172.28.0.1' } }
+        function Resolve-LabHyperVNetworkBoundPlan { [PSCustomObject]@{ Contract=[PSCustomObject]@{Name='SqlServerLab.HyperVNetworkBoundPlan'}; Status='READY'; Intent='hostOnly'; Name='SQL_LAB_HYPERV'; Subnet='172.28.0.0/24'; PrefixLength=24; HostAddress='172.28.0.1'; Gateway=$null; DnsServers=@() } }
+        function Invoke-LabHyperVNetworkBoundPlan { param($Plan) $Plan }
+        function Reserve-LabHyperVNetworkAddress { [PSCustomObject]@{ address='172.28.0.11' } }
         function Get-HyperVLabVMs { @() }
         function New-HyperVInstance {
             param($AdditionalDrives)
@@ -227,7 +231,9 @@ try {
         function Get-HyperVImageArtifact {
             [PSCustomObject]@{ artifactId = 'windows-baseline-test'; artifactState = 'OS_SEALED'; sql = $null }
         }
-        function Resolve-LabHyperVNetwork { [PSCustomObject]@{ Name = 'SQL_LAB_HYPERV'; Subnet = '172.28.0.0/24'; PrefixLength = 24; HostAddress = '172.28.0.1' } }
+        function Resolve-LabHyperVNetworkBoundPlan { [PSCustomObject]@{ Contract=[PSCustomObject]@{Name='SqlServerLab.HyperVNetworkBoundPlan'}; Status='READY'; Intent='hostOnly'; Name='SQL_LAB_HYPERV'; Subnet='172.28.0.0/24'; PrefixLength=24; HostAddress='172.28.0.1'; Gateway=$null; DnsServers=@() } }
+        function Invoke-LabHyperVNetworkBoundPlan { param($Plan) $Plan }
+        function Reserve-LabHyperVNetworkAddress { [PSCustomObject]@{ address='172.28.0.12' } }
         function Get-HyperVLabVMs { [PSCustomObject]@{ VMName = 'windows-primary-mock'; VMId = 'windows-vm-id'; State = 'Off' } }
         function New-HyperVInstance { [PSCustomObject]@{ VMName = 'windows-primary-mock'; VMId = 'windows-vm-id' } }
         $created = New-HyperVLabEnvironment -ArtifactId 'windows-baseline-test' -LabName 'Windows Mock' -InstanceId primary -StateRoot $Root
@@ -435,7 +441,9 @@ try {
             $null = New-Item -ItemType File -Path $DestinationPath -Force
         }
         function Get-FileHash { [PSCustomObject]@{ Hash = ('a' * 64) } }
-        function Resolve-LabHyperVNetwork { [PSCustomObject]@{ Name = 'SQL_LAB_HYPERV'; Subnet = '172.28.0.0/24'; PrefixLength = 24; HostAddress = '172.28.0.1' } }
+        function Resolve-LabHyperVNetworkBoundPlan { [PSCustomObject]@{ Contract=[PSCustomObject]@{Name='SqlServerLab.HyperVNetworkBoundPlan'}; Status='READY'; Intent='hostOnly'; Name='SQL_LAB_HYPERV'; Subnet='172.28.0.0/24'; PrefixLength=24; HostAddress='172.28.0.1'; Gateway=$null; DnsServers=@() } }
+        function Invoke-LabHyperVNetworkBoundPlan { param($Plan) $Plan }
+        function Reserve-LabHyperVNetworkAddress { [PSCustomObject]@{ address='172.28.0.13' } }
         function New-HyperVInstance { [PSCustomObject]@{ VMName = 'sql-lab-primary-existing'; VMId = 'existing-vm-id' } }
         $created = New-HyperVLabEnvironmentFromExistingVm -SourceVMName 'Windows 11 Dev Environment' -LabName 'Windows Dev Lab' -InstanceId primary -ConfirmSourceLicense -StateRoot $Root
         [PSCustomObject]@{ Created = $created; ConvertedFrom = $script:convertedFrom; Source = $script:sourceDisk }

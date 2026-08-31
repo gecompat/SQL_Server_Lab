@@ -588,9 +588,10 @@ function New-SqlServerLab {
         $hyperVAutoStart = [string]$instance.autostart
         $hyperVSwitchName = if ($hyperVSettings -and $hyperVSettings.PSObject.Properties['switchName']) { [string]$hyperVSettings.switchName } else { $null }
         $hyperVIsolated = [string]$instance.network.Intent -eq 'isolated'
+        $hyperVNetworkIntent = if ($hyperVIsolated) { 'hostOnly' } else { [string]$instance.network.Intent }
         $lab = New-HyperVLabEnvironment -ArtifactId ([string]$artifact.artifactId) -LabName ([string]$resolved.name) -InstanceId ([string]$instance.id) `
             -MemoryStartupMB $hyperVMemoryStartupMB -ProcessorCount $hyperVProcessorCount -AutoStart $hyperVAutoStart `
-            -SwitchName $hyperVSwitchName -Isolated:$hyperVIsolated -AdditionalDrives $hyperVAdditionalDrives -StorageIntent $instance.storageIntent `
+            -SwitchName $hyperVSwitchName -Isolated:$hyperVIsolated -NetworkIntent $hyperVNetworkIntent -AdditionalDrives $hyperVAdditionalDrives -StorageIntent $instance.storageIntent `
             -DesiredState $hyperVDesiredState -StateRoot $StateRoot
         $hyperVLab = Get-HyperVLabWorkflowRun -RunId $lab.RunId -StateRoot $StateRoot
         if ($PersistentData) {
