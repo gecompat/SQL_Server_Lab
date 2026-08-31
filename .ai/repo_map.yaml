@@ -456,6 +456,12 @@ internal_components:
       - "belegte SQL-Hostports aus TCP-Listenern, Docker und Podman ermitteln"
       - "Portsuche und Runtime-Bindung mit hostweitem, prozessübergreifendem Mutex serialisieren"
       - "atomare Parallelprovisionierung unterstützen"
+  - name: ContainerAutoStart
+    source: Private/ContainerAutoStart.ps1
+    responsibilities:
+      - "providergebundene Windows-Logon-Auftraege und native Linux-Hoststarts fuer markierte Lab-Container einrichten"
+      - "parallele Docker-Desktop-/Podman-Desktop-Installationen erkennen und Docker vor der Podman Machine bereitstellen"
+      - "den bekannten Podman-Desktop-Login-Eintrag receiptgebunden unterdruecken und beim letzten Podman-Autostart-Cleanup wiederherstellen"
   - name: SqlReadiness
     source: Private/SqlReadiness.ps1
     responsibilities:
@@ -620,6 +626,10 @@ state_files:
     - trust/sample-artifacts.json
     - cache/artifacts/sha256/<sha256>/
     - cache/quarantine/
+  host_autostart:
+    - autostart/Start-docker-Labs.ps1
+    - autostart/Start-podman-Labs.ps1
+    - autostart/windows-podman-desktop-autostart.json
   repository_policy: "State, Secrets, Connection Information und konkrete Hostpfade nie versionieren"
 
 provisioning_flow:
@@ -633,6 +643,7 @@ provisioning_flow:
   - "Find-LabAvailablePort"
   - "Provider-Container erstellen und Port runtimeautoritativ binden"
   - "Bei instances[].autostart=on Runtime-Restart-Policy und Hostkoordinator aktivieren"
+  - "Unter Windows bei parallelem Docker/Podman zuerst Docker bereitstellen und den Podman-Desktop-Loginstart receiptgebunden koordinieren"
   - "Wait-SqlReady"
   - "Set-LabServerConfig"
   - "New-SqlServerLabDatabase für Create-Datenbanken"
@@ -745,6 +756,14 @@ validation:
       - start_failure
       - readiness_timeout
       - concurrent_start_lock
+  static_container_autostart:
+    command: '.\Tests\Static\Invoke-ContainerAutoStartChecks.ps1'
+    source: Tests/Static/Invoke-ContainerAutoStartChecks.ps1
+    covers:
+      - single_provider_windows_startup
+      - parallel_docker_before_podman_order
+      - podman_desktop_login_receipt_and_recovery
+      - scheduled_task_identity_and_idempotency
   static_sample_handler:
     command: '.\Tests\Static\Invoke-SampleHandlerChecks.ps1'
     source: Tests/Static/Invoke-SampleHandlerChecks.ps1
@@ -915,6 +934,14 @@ validation:
     hyperv: "PASS (übernommen vom 2026-08-27-Befund) – frischer Windows-Slot, SQL Server 2025, Lifecycle, Persistenz und Cleanup"
 
 change_coupling:
+  container_autostart_change:
+    - Private/ContainerAutoStart.ps1
+    - Tests/Static/Invoke-ContainerAutoStartChecks.ps1
+    - README.md
+    - Documentation/User/INSTALLATION_WINDOWS.md
+    - Documentation/User/Getting_Started.md
+    - Documentation/Architecture/MIXED_PROVIDER_LIFECYCLE.md
+    - .ai/repo_map.yaml
   public_command_change:
     - SqlServerLab.psd1
     - Public/README.md
