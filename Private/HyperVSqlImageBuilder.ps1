@@ -1156,9 +1156,7 @@ function Resume-HyperVSqlPreparedImageGeneralization {
         $null = Stop-HyperVInstance -VMName ([string]$build.builder.vmName) `
             -ExpectedRunId ([string]$build.buildId) -ExpectedScopeId ([string]$build.scopeId)
     }
-    $resourceRelativePath = if ($build.builder.resourceRelativePath) { [string]$build.builder.resourceRelativePath } else { Split-Path -Leaf ([string]$build.builder.osDiskRelativePath) }
-    $vhdxPath = Resolve-LabHyperVStateResourcePath -StateDirectory $build.BuildDirectory `
-        -BoundRelativePath $resourceRelativePath -LegacyRelativePath ([string]$build.builder.osDiskRelativePath)
+    $vhdxPath = Resolve-LabHyperVBuilderDiskPath -Build $build
     $offlineInspectionPath = Resolve-LabHyperVStateResourcePath -StateDirectory $build.BuildDirectory `
         -BoundRelativePath 'offline-generalization-inspection' -LegacyRelativePath 'offline-generalization-inspection'
     $inspection = Get-HyperVSqlOfflineImageState -VhdxPath $vhdxPath `
@@ -1207,9 +1205,7 @@ function Publish-HyperVSqlPreparedImageBuild {
     if (-not $managed) { throw 'HYPERV_SQL_IMAGE_BUILD_VM_MISSING' }
     if ([string]$managed.VM.State -ne 'Off') { throw 'HYPERV_SQL_IMAGE_BUILD_VM_MUST_BE_OFF' }
     if (@(Get-VMSnapshot -VM $managed.VM -ErrorAction Stop).Count -gt 0) { throw 'HYPERV_SQL_IMAGE_BUILD_CHECKPOINTS_PRESENT' }
-    $resourceRelativePath = if ($build.builder.resourceRelativePath) { [string]$build.builder.resourceRelativePath } else { Split-Path -Leaf ([string]$build.builder.osDiskRelativePath) }
-    $childPath = Resolve-LabHyperVStateResourcePath -StateDirectory $build.BuildDirectory `
-        -BoundRelativePath $resourceRelativePath -LegacyRelativePath ([string]$build.builder.osDiskRelativePath)
+    $childPath = Resolve-LabHyperVBuilderDiskPath -Build $build
     if (-not (Test-HyperVPathWithinRunDirectory -Path $childPath -RunDirectory $build.BuildDirectory) -or
         -not (Test-Path -LiteralPath $childPath -PathType Leaf)) { throw 'HYPERV_SQL_IMAGE_BUILD_DISK_SCOPE_INVALID' }
     if (-not ([System.IO.Path]::GetFullPath($childPath).Equals([System.IO.Path]::GetFullPath([string]$managed.Identity.childVhdxPath), [System.StringComparison]::OrdinalIgnoreCase))) {

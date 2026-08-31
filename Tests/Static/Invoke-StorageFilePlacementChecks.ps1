@@ -509,7 +509,10 @@ try {
         $hyperVStorageBootstrapText -match [regex]::Escape('Invoke-HyperVSqlPreparedImageAcceptance.ps1') -and
         $hyperVStorageBootstrapText -match [regex]::Escape('Invoke-HyperVStorageAcceptance.ps1') -and
         $hyperVStorageBootstrapText -match [regex]::Escape("'^n4sql-[a-f0-9]{8}$'") -and
-        $hyperVStorageBootstrapText -match 'Remove-Item -LiteralPath \$validatedRoot -Recurse -Force')
+        $hyperVStorageBootstrapText -match 'Remove-Item -LiteralPath \$validatedRoot -Recurse -Force' -and
+        $hyperVStorageBootstrapText -match 'Remove-HyperVImageArtifact\s+-ArtifactId\s+\$ArtifactId\s+-StateRoot\s+\$Root' -and
+        $hyperVStorageBootstrapText -match 'Get-HyperVImageArtifact\s+-ArtifactId\s+\$ArtifactId\s+-StateRoot\s+\$Root\s+-SkipIntegrityCheck' -and
+        $hyperVStorageBootstrapText -match 'HYPERV_STORAGE_BOOTSTRAP_RECOVERY_REQUIRED')
 }
 catch { Add-CheckResult -Name 'Storage-File-Placement-Testausführung' -Success $false -Message $_.Exception.Message }
 finally {

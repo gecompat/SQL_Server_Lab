@@ -36,6 +36,7 @@ $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
 $n4Runner = Join-Path $PSScriptRoot 'Invoke-HyperVSqlPreparedImageAcceptance.ps1'
 $n5Runner = Join-Path $PSScriptRoot 'Invoke-HyperVStorageAcceptance.ps1'
 $retainedStateRoot = $null
+$retainedArtifactId = $null
 $testFailed = $false
 
 function Invoke-BootstrapChildProcess {
@@ -93,8 +94,8 @@ try {
     $retainedStateRoot = Assert-RetainedStateRootScope `
         -Path $stateMarkers[0].Substring('RETAINED_STATE_ROOT='.Length) `
         -ExpectedParent $productionStateRoot
-    $artifactId = $artifactMarkers[0].Substring('RETAINED_ARTIFACT_ID='.Length)
-    if ($artifactId -notmatch '^hyperv-sql-prepared-sealed-[a-f0-9]{64}$') {
+    $retainedArtifactId = $artifactMarkers[0].Substring('RETAINED_ARTIFACT_ID='.Length)
+    if ($retainedArtifactId -notmatch '^hyperv-sql-prepared-sealed-[a-f0-9]{64}$') {
         throw 'HYPERV_STORAGE_BOOTSTRAP_ARTIFACT_ID_INVALID'
     }
 
@@ -103,7 +104,7 @@ try {
         '-NoProfile', '-File', $n5Runner,
         '-StorageIntentPath', $resolvedIntentPath,
         '-MediaRoot', $resolvedMediaRoot,
-        '-ArtifactId', $artifactId,
+        '-ArtifactId', $retainedArtifactId,
         '-OobeTimeoutSeconds', [string]$N5OobeTimeoutSeconds,
         '-StateRoot', $retainedStateRoot
     )
@@ -116,12 +117,37 @@ catch {
     Write-Host "FAIL: $($_.Exception.Message)" -ForegroundColor Red
 }
 finally {
-    if ($retainedStateRoot -and (Test-Path -LiteralPath $retainedStateRoot -PathType Container)) {
+    if ($retainedStateRoot) {
         try {
             $validatedRoot = Assert-RetainedStateRootScope -Path $retainedStateRoot -ExpectedParent $productionStateRoot
-            Remove-Item -LiteralPath $validatedRoot -Recurse -Force -ErrorAction Stop
+            if ($testFailed) {
+                throw "HYPERV_STORAGE_BOOTSTRAP_RECOVERY_REQUIRED: StateRoot und Prepared-Artifact bleiben für die sichere Diagnose erhalten."
+            }
+            if (Test-Path -LiteralPath $validatedRoot -PathType Container) {
+                Remove-Item -LiteralPath $validatedRoot -Recurse -Force -ErrorAction Stop
+            }
             if (Test-Path -LiteralPath $validatedRoot) {
                 throw 'HYPERV_STORAGE_BOOTSTRAP_STATE_CLEANUP_INCOMPLETE'
+            }
+            if (-not $retainedArtifactId) {
+                throw 'HYPERV_STORAGE_BOOTSTRAP_ARTIFACT_ID_REQUIRED_FOR_CLEANUP'
+            }
+            $artifactCleanup = & $module {
+                param($ArtifactId, $Root)
+                Remove-HyperVImageArtifact -ArtifactId $ArtifactId -StateRoot $Root
+            } $retainedArtifactId $validatedRoot
+            if ([string]$artifactCleanup.Status -ne 'REMOVED') {
+                throw "HYPERV_STORAGE_BOOTSTRAP_ARTIFACT_CLEANUP_INCOMPLETE: $([string]$artifactCleanup.Status)"
+            }
+            $remainingArtifact = & $module {
+                param($ArtifactId, $Root)
+                Get-HyperVImageArtifact -ArtifactId $ArtifactId -StateRoot $Root -SkipIntegrityCheck
+            } $retainedArtifactId $validatedRoot
+            if ($remainingArtifact) {
+                throw 'HYPERV_STORAGE_BOOTSTRAP_ARTIFACT_CLEANUP_POSTCONDITION_FAILED'
+            }
+            if (Test-Path -LiteralPath $validatedRoot -PathType Container) {
+                Remove-Item -LiteralPath $validatedRoot -Recurse -Force -ErrorAction Stop
             }
             Write-Host 'PASS: Isoliertes Prepared-Artifact und testlokales State-Root wurden entfernt.' -ForegroundColor Green
         }

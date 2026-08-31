@@ -243,7 +243,7 @@ function Invoke-HyperVSqlUnattendedOobe {
     if ($requiresBootstrapInjection) {
         Write-LabInfo "OOBE: stoppe $vmName und injiziere Unattend.xml mit Labnetz-Bootstrap"
         $null = Stop-HyperVInstance -VMName $vmName -ExpectedRunId $build.buildId -ExpectedScopeId $build.scopeId
-        $vhdxPath = Join-Path $build.BuildDirectory ([string]$build.builder.osDiskRelativePath)
+        $vhdxPath = Resolve-LabHyperVBuilderDiskPath -Build $build
         $unattend = New-HyperVSqlOobeUnattendXml -AdministratorPassword $AdministratorPassword `
             -Network $build.labNetwork -Identity $build.buildId
         $bootstrap = New-HyperVSqlGuestNetworkBootstrapScript -Network $build.labNetwork -Address $fallbackAddress

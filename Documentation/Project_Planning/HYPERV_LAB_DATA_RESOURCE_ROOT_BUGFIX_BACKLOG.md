@@ -238,6 +238,9 @@ neue Fehlplatzierung mehr zulassen. Sie blockieren den P0-Sofortschutz nicht.
   Existing-VM-Kopie sowie Image- und Staging-Store erzeugen neue VHDX,
   VM-Konfiguration, Smart Paging, Snapshots und Artefakte ausschließlich unter
   der jeweils persistierten `Run`-, `Build`-, `Image`- oder `Staging`-Bindung.
+  Auch Resume-, Generalize-, Publish- und Acceptance-Consumer lösen eine
+  persistierte Builder-VHDX über `resourceRelativePath` und das `Build`-Binding
+  statt über das State-Verzeichnis auf.
 - `HVR-004` ist implementiert und statisch validiert: Bindungs-,
   Path-Length- und Reparse-Preflights laufen vor der Provider-Mutation;
   Datei-, VHDX- und VM-Pfad-Postconditions prüfen den erzeugten Zustand.
@@ -319,9 +322,12 @@ neue Fehlplatzierung mehr zulassen. Sie blockieren den P0-Sofortschutz nicht.
   verlangt SQL-Readiness für beide Restart-Zyklen und stellt den laufenden
   Ausgangszustand abschließend mit erneuter Readiness her. Dieser Vertrag ist
   statisch und synthetisch gebunden; der reale SQL-Fall bleibt
-  `NOT_EXECUTED`. Ebenfalls offen bleiben die allgemeine Storage-Migration und
-  der erneute N5-Mehrgeräte-Nachweis. Der Apply bleibt bis dahin interner
-  Fachkern mit explizitem Acceptance-Runner.
+  `NOT_EXECUTED`. Der erneute real erhöhte N4-/N5-Mehrgeräte-Nachweis ist nach
+  der Ressourcenroot-Umstellung grün: drei von drei geforderten Geräten,
+  gebundene Builder-/Image-Ressourcen, SQL-Restart, Create, Backup/Restore,
+  VM-Restart sowie vollständiger VM-, VHDX-, Artifact- und State-Cleanup sind
+  belegt. Offen bleibt außerdem die allgemeine Storage-Migration. Der Apply
+  bleibt bis dahin interner Fachkern mit explizitem Acceptance-Runner.
 
 ## Abnahmekriterien
 

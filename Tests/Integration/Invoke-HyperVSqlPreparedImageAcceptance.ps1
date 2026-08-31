@@ -254,7 +254,10 @@ try {
     } $stateRoot $mediaRoot
     $buildId = [string]$build.buildId
     $builderVmName = [string]$build.builder.vmName
-    $builderDiskPath = Join-Path $build.BuildDirectory ([string]$build.builder.osDiskRelativePath)
+    $builderDiskPath = & $module {
+        param($Build)
+        Resolve-LabHyperVBuilderDiskPath -Build $Build
+    } $build
     Assert-SqlPreparedAcceptance -Condition (
         $build.state -eq 'MANUAL_ACTION_REQUIRED' -and
         $build.provisioningMode -eq 'fresh-windows-media'
