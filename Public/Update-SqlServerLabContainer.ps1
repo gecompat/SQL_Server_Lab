@@ -92,7 +92,7 @@ function Update-SqlServerLabContainer {
         $journal.Runtime.BackupName = $backupName
         $journal = Write-LabContainerReconcileJournal -Journal $journal -Path $journalPath
         $inspect = $context.Inspect
-        $arguments = @('run','-d','--name',$name,'-p',"$([int]$plan.Desired.Port):1433",'--cpus',$cpuArgument,'--memory',"$([int]$plan.Desired.MemoryMB)m")
+        $arguments = @('run','-d','--name',$name,'-p',"127.0.0.1:$([int]$plan.Desired.Port):1433",'--cpus',$cpuArgument,'--memory',"$([int]$plan.Desired.MemoryMB)m")
         if ($inspect.Config.Hostname) { $arguments += @('--hostname',[string]$inspect.Config.Hostname) }
         $networkNames = @($inspect.NetworkSettings.Networks.PSObject.Properties.Name)
         if ($networkNames.Count -gt 0) { $arguments += @('--network',[string]$networkNames[0]) }

@@ -4,6 +4,40 @@ Dieses Changelog dokumentiert Änderungen am öffentlichen Verhalten, an maschin
 
 Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher nach Datum geführt. Neue Einträge werden oben ergänzt.
 
+## 2026-09-01
+
+### Hinzugefügt
+
+- Das Manifest besitzt einen portablen `network`-Vertrag mit typisierten
+  `intent`- und `exposure`-Werten. Die mutationsfreie Planvorschau bindet
+  Docker/Podman an `nat`/`host`, Hyper-V an `hostOnly`/`host` oder explizit an
+  `isolated`/`none`.
+
+### Geändert
+
+- Hyper-V-Manifeste reichen den aufgelösten Isolation-Intent an den regulären
+  VM-Lifecycle weiter. `hyperv.switchName` bleibt ein lokales
+  Kompatibilitätsbinding für interne HostOnly-Switches; es wird nicht länger
+  fälschlich als portabler LAN-Intent persistiert.
+- Neue und durch Reconcile neu erzeugte Docker-/Podman-Container binden den
+  veröffentlichten SQL-Port an `127.0.0.1`, sodass die deklarierte
+  Host-Exposure nicht unbeabsichtigt zu einer LAN-Exposure wird.
+- Nicht gebundene Providerkombinationen, widersprüchliche Exposure-Werte und
+  Konflikte zwischen Isolation und Legacy-Switch werden mit stabilen
+  `NETWORK_*`-Reason-Codes vor der ersten Provider-Mutation abgelehnt.
+
+### Validiert
+
+- Network-, Manifest-, Desired-State- und Hyper-V-Static-Contracts sowie der
+  Container-Smoke prüfen die
+  Providerdefaults, Bindings, Capability-Evidenz, fail-closed Grenzen und die
+  geheimnisfreie Persistenz; der Native-Smoke verifiziert zusätzlich das reale
+  Loopback-Portbinding und den scopegebundenen Cleanup.
+- Die getrennten nativen Docker- und Podman-Smokes bestanden jeweils 34/34
+  Prüfungen einschließlich SQL-Readiness, Loopback-Binding, Stop/Start und
+  Cleanup. Der Hyper-V-Lifecycle-Smoke bestätigte zusätzlich eine VM ohne
+  Netzwerkverbindung sowie vollständigen VM-/VHDX-Cleanup.
+
 ## 2026-08-31
 
 ### Hinzugefügt

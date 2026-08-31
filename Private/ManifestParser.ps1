@@ -312,6 +312,7 @@ function Resolve-ManifestDefaults {
             databases     = @()
             drives        = @()
             storageIntent = $null
+            network       = $null
             serverConfig  = $null
             software      = @()
             postProvision = @()
@@ -321,6 +322,11 @@ function Resolve-ManifestDefaults {
         if (-not $instance.provider) {
             $resolved.provider = Resolve-ProviderAutoSelect -Instance $instance
         }
+
+        $resolved.network = Resolve-LabNetworkIntentPlan `
+            -Provider ([string]$resolved.provider) `
+            -Network $instance.network `
+            -HasLegacyHyperVSwitch:([bool]($instance.hyperv -and $instance.hyperv.switchName))
 
         if ($instance.databases) {
             foreach ($database in $instance.databases) {

@@ -1039,7 +1039,7 @@ function Get-LabManifestValidationResult {
             Errors   = @($errors | Select-Object -Unique)
             Warnings = @()
             Plan     = [PSCustomObject]@{
-                Contract = [PSCustomObject]@{ Name='SqlServerLab.ManifestPlanPreview'; Version='1.1' }
+                Contract = [PSCustomObject]@{ Name='SqlServerLab.ManifestPlanPreview'; Version='1.2' }
                 Instances = @()
             }
         }
@@ -1071,6 +1071,7 @@ function Get-LabManifestValidationResult {
             Resolve-ProviderAutoSelect -Instance $instance
         }
         $effectiveProviders.Add($effectiveProvider)
+        $networkPlan = $null
 
         foreach ($runtimeContractError in @(Get-LabManifestRuntimeContractErrors `
                 -ServerConfig $instance.serverConfig `
@@ -1086,6 +1087,15 @@ function Get-LabManifestValidationResult {
 
         if ($effectiveProvider -notin @('docker', 'podman', 'hyperv')) {
             $errors.Add("${instancePath}: Provider '$effectiveProvider' ist nicht implementiert.")
+        }
+        else {
+            $networkPlan = Resolve-LabNetworkIntentPlan `
+                -Provider $effectiveProvider `
+                -Network $instance.network `
+                -HasLegacyHyperVSwitch:([bool]($instance.hyperv -and $instance.hyperv.switchName))
+            if ([string]$networkPlan.Status -ne 'RESOLVED') {
+                $errors.Add("${instancePath}.network: $($networkPlan.ReasonCode) - $($networkPlan.Reason)")
+            }
         }
         if ($effectiveProvider -in @('docker', 'podman') -and $instance.os -eq 'windows') {
             $errors.Add("${instancePath}: Windows wird vom Provider '$effectiveProvider' nicht unterstuetzt.")
@@ -1183,6 +1193,7 @@ function Get-LabManifestValidationResult {
             SqlVersion = [string]$instance.version
             Provider = $effectiveProvider
             OperatingSystem = if ($instance.os) { [string]$instance.os } elseif ($effectiveProvider -eq 'hyperv') { 'windows' } else { 'linux' }
+            Network = $networkPlan
             ExternalRuntimes = Get-LabExternalRuntimePlanPreview -DesiredPlans @($runtimePlans)
             Samples = $samplePlans
         })
@@ -1395,7 +1406,7 @@ function Get-LabManifestValidationResult {
         Errors   = @($errors | Select-Object -Unique)
         Warnings = @($warnings | Select-Object -Unique)
         Plan     = [PSCustomObject]@{
-            Contract = [PSCustomObject]@{ Name='SqlServerLab.ManifestPlanPreview'; Version='1.1' }
+            Contract = [PSCustomObject]@{ Name='SqlServerLab.ManifestPlanPreview'; Version='1.2' }
             Instances = @($instancePlanPreviews)
         }
     }

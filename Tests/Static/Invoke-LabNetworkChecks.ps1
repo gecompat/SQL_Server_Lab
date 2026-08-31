@@ -31,6 +31,34 @@ try {
     )
     $overlap = & $module { [PSCustomObject]@{ Overlap = Test-LabIpv4SubnetOverlap -Left '172.26.0.0/16' -Right '172.26.12.0/24'; Separate = Test-LabIpv4SubnetOverlap -Left '172.26.0.0/16' -Right '172.27.0.0/16' } }
     Add-CheckResult -Name 'CIDR-Pruefung erkennt Ueberlappungen' -Success ($overlap.Overlap -and -not $overlap.Separate)
+    $intentPlans = & $module {
+        [PSCustomObject]@{
+            DockerDefault = Resolve-LabNetworkIntentPlan -Provider docker
+            HyperVDefault = Resolve-LabNetworkIntentPlan -Provider hyperv
+            HyperVIsolated = Resolve-LabNetworkIntentPlan -Provider hyperv -Network ([PSCustomObject]@{ intent='isolated'; exposure='none' })
+            HyperVNat = Resolve-LabNetworkIntentPlan -Provider hyperv -Network ([PSCustomObject]@{ intent='nat'; exposure='host' })
+            DockerHostOnly = Resolve-LabNetworkIntentPlan -Provider docker -Network ([PSCustomObject]@{ intent='hostOnly'; exposure='host' })
+            LegacyConflict = Resolve-LabNetworkIntentPlan -Provider hyperv -Network ([PSCustomObject]@{ intent='isolated'; exposure='none' }) -HasLegacyHyperVSwitch
+            ExposureConflict = Resolve-LabNetworkIntentPlan -Provider hyperv -Network ([PSCustomObject]@{ intent='isolated'; exposure='host' })
+        }
+    }
+    Add-CheckResult -Name 'Providerdefaults loesen Container-NAT und Hyper-V-HostOnly portabel auf' -Success (
+        $intentPlans.DockerDefault.Intent -eq 'nat' -and $intentPlans.DockerDefault.Exposure -eq 'host' -and
+        $intentPlans.DockerDefault.RequiredCapability -eq 'nat-network' -and $intentPlans.DockerDefault.Binding -eq 'managed-bridge-nat' -and
+        $intentPlans.HyperVDefault.Intent -eq 'hostOnly' -and $intentPlans.HyperVDefault.Exposure -eq 'host' -and
+        $intentPlans.HyperVDefault.RequiredCapability -eq 'managed-lab-network' -and $intentPlans.HyperVDefault.Binding -eq 'internal-switch'
+    )
+    Add-CheckResult -Name 'Hyper-V-Isolated-Intent bindet einen privaten Switch ohne Exposure' -Success (
+        $intentPlans.HyperVIsolated.Status -eq 'RESOLVED' -and $intentPlans.HyperVIsolated.Binding -eq 'private-switch'
+    )
+    Add-CheckResult -Name 'Noch offene providerseitige Network-Intents werden fail-closed klassifiziert' -Success (
+        $intentPlans.HyperVNat.ReasonCode -eq 'NETWORK_INTENT_PROVIDER_UNSUPPORTED' -and
+        $intentPlans.DockerHostOnly.ReasonCode -eq 'NETWORK_INTENT_PROVIDER_UNSUPPORTED'
+    )
+    Add-CheckResult -Name 'Exposure- und Legacy-Switch-Konflikte scheitern vor Provider-Mutation' -Success (
+        $intentPlans.LegacyConflict.ReasonCode -eq 'NETWORK_LEGACY_SWITCH_CONFLICT' -and
+        $intentPlans.ExposureConflict.ReasonCode -eq 'NETWORK_EXPOSURE_CONFLICT'
+    )
     $podmanCniRoot = Join-Path ([IO.Path]::GetTempPath()) "sql-lab-podman-cni-$([guid]::NewGuid().ToString('N'))"
     New-Item -Path $podmanCniRoot -ItemType Directory -Force | Out-Null
     try {
@@ -77,9 +105,24 @@ try {
     $elevationSource = Get-Content (Join-Path $repoRoot 'Private/Elevation.ps1') -Raw
     $preferencesSource = Get-Content (Join-Path $repoRoot 'Private/LabPreferences.ps1') -Raw
     $menuSource = Get-Content (Join-Path $repoRoot 'Public/Invoke-SqlServerLab.ps1') -Raw
-    Add-CheckResult -Name 'Docker verwendet das feste Labnetz mit Host-Portzugriff' -Success ($docker -match 'Ensure-LabDockerNetwork' -and $docker -match '--network.*\$labNetwork\.Name')
-    Add-CheckResult -Name 'Podman verwendet das feste Labnetz mit Host-Portzugriff' -Success ($podman -match 'Ensure-LabPodmanNetwork' -and $podman -match '--network.*\$labNetwork\.Name')
+    $newLabSource = Get-Content (Join-Path $repoRoot 'Public/New-SqlServerLab.ps1') -Raw
+    Add-CheckResult -Name 'Docker verwendet das feste Labnetz mit reinem Host-Portzugriff' -Success (
+        $docker -match 'Ensure-LabDockerNetwork' -and $docker -match '--network.*\$labNetwork\.Name' -and
+        $docker -match '127\.0\.0\.1:\$\{selectedPort\}:1433'
+    )
+    Add-CheckResult -Name 'Podman verwendet das feste Labnetz mit reinem Host-Portzugriff' -Success (
+        $podman -match 'Ensure-LabPodmanNetwork' -and $podman -match '--network.*\$labNetwork\.Name' -and
+        $podman -match '127\.0\.0\.1:\$\{selectedPort\}:1433'
+    )
+    $containerReconcileSource = Get-Content (Join-Path $repoRoot 'Public/Update-SqlServerLabContainer.ps1') -Raw
+    Add-CheckResult -Name 'Container-Recreate bewahrt die HostOnly-Exposure am Loopback-Binding' -Success (
+        $containerReconcileSource -match '127\.0\.0\.1:\$\(\[int\]\$plan\.Desired\.Port\):1433'
+    )
     Add-CheckResult -Name 'Hyper-V-SQL-Builder bindet SQL_LAB_HYPERV' -Success ($hyperv -match 'Ensure-LabHyperVNetwork' -and $hyperv -match '-SwitchName \$labNetwork.Name')
+    Add-CheckResult -Name 'Manifestlauf reicht den aufgeloesten Hyper-V-Isolation-Intent an die Runtime weiter' -Success (
+        $newLabSource -match '\$hyperVIsolated\s*=.+instance\.network\.Intent.+isolated' -and
+        $newLabSource -match 'New-HyperVLabEnvironment[\s\S]+-Isolated:\$hyperVIsolated'
+    )
     Add-CheckResult -Name 'Hyper-V-Gast erhaelt nach OOBE eine Lab-IP und SQL-Firewallfreigabe' -Success ($acceptance -match 'Initialize-HyperVGuestLabNetwork' -and $networkSource -match 'New-NetFirewallRule[\s\S]+LocalPort 1433')
     Add-CheckResult -Name 'Hyper-V-Gastnetz quittiert nur die tatsaechlich bevorzugte statische Adresse' -Success (
         $networkSource -match 'Get-NetIPAddress[\s\S]+AddressState[\s\S]+Preferred' -and

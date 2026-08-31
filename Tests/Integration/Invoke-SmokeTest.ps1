@@ -352,6 +352,13 @@ try {
         -Condition (-not [string]::IsNullOrWhiteSpace(($visibleContainer | Out-String))) `
         -Message "Container nicht in '$Provider ps' gefunden"
 
+    $containerInspect = @(& $script:ContainerRuntime inspect $script:Lab.Instances[0].ContainerName | ConvertFrom-Json -Depth 50)[0]
+    $sqlPortBinding = @($containerInspect.NetworkSettings.Ports.'1433/tcp')[0]
+    Assert-True `
+        -Name 'SQL-Port ist ausschließlich an Host-Loopback gebunden' `
+        -Condition ([string]$sqlPortBinding.HostIp -eq '127.0.0.1') `
+        -Message "HostIp: $([string]$sqlPortBinding.HostIp)"
+
     # =========================================================================
     # T4: Datenbankerstellung
     # =========================================================================

@@ -268,6 +268,10 @@
           "$ref": "lab-storage-intent.schema.json",
           "description": "Portabler SQL-Dateiplatzierungsintent. Er enthält nur Selektoren; konkrete LocationIds, Hostgeräte und Pfade werden lokal gebunden."
         },
+        "network": {
+          "$ref": "#/definitions/networkIntent",
+          "description": "Providerneutraler Network Intent. Der lokale Provider bindet ihn erst nach mutationsfreier Validierung."
+        },
         "hyperv": {
           "type": "object",
           "description": "Hyper-V-spezifische Bereitstellung. Ohne preparedImageId wird die höchste lokale SQL_PREPARED_SEALED-Vorlage auf Windows Server Standard Evaluation mit Desktop Experience gewählt. Passwörter gehören nie in das Manifest.",
@@ -279,7 +283,7 @@
             },
             "switchName": {
               "type": "string",
-              "description": "Optionaler vorhandener Hyper-V-Switch; ohne Wert bleibt die VM isoliert."
+              "description": "Veralteter lokaler Kompatibilitätsalias für einen vorhandenen internen hostOnly-Switch. Neue Manifeste verwenden instances[].network."
             },
             "memoryStartupMB": {
               "type": "integer",
@@ -312,6 +316,33 @@
             }
           },
           "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "networkIntent": {
+      "type": "object",
+      "description": "Portabler Netzwerk- und Exposure-Vertrag. Aktuell gebunden sind Docker/Podman nat sowie Hyper-V hostOnly und isolated; weitere Kombinationen werden vor Mutation abgelehnt.",
+      "properties": {
+        "intent": {
+          "type": "string",
+          "enum": [
+            "isolated",
+            "hostOnly",
+            "nat",
+            "lan"
+          ],
+          "description": "Gewünschte Erreichbarkeit und Providerbindung."
+        },
+        "exposure": {
+          "type": "string",
+          "enum": [
+            "none",
+            "host",
+            "lan",
+            "public"
+          ],
+          "description": "Explizite eingehende Sichtbarkeit außerhalb des Lab-Netzes."
         }
       },
       "additionalProperties": false
