@@ -86,6 +86,10 @@ COMMANDS
         Liefert die zusammengefasste Workflow-Sicht fuer lokale Labs,
         Windows-Baselines, SQL-Prepared-Images und Abnahmeumgebungen.
 
+    Get-SqlServerLabHyperVResourcePreview
+        Zeigt die registrierte Hyper-V-Location, freien Speicher und die
+        physischen Klassenroots read-only vor einer Hostmutation an.
+
     Get-SqlServerLabCatalog
         Erzeugt einen konsolidierten, geheimnisfreien Laufzeitkatalog der aktuellen
         Labs, Templates und Artefakte und speichert ihn als JSON-Datei.

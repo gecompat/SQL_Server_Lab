@@ -23,6 +23,7 @@
         'Invoke-SqlServerLabScheduler'
         'Invoke-SqlServerLab'
         'Get-SqlServerLabWorkflow'
+        'Get-SqlServerLabHyperVResourcePreview'
         'Get-SqlServerLabCatalog'
         'Get-SqlServerLabConnectionCenter'
         'Sync-SqlServerLabConnectionCenter'

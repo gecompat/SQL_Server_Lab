@@ -28,7 +28,13 @@ vorgesehen. Die normale Sitzung startet nicht erhöht. Read-only-Aktionen laufen
 als Benutzer, Container-Lifecycle-Aktionen mit den vorhandenen Runtimerechten.
 Eine privilegierte Hyper-V-Aktion zeigt zuerst Zweck und Umfang an und öffnet
 erst nach ausdrücklicher, standardmäßig abgelehnter Bestätigung einen separaten
-Administratorprozess; die aktuelle Sitzung bleibt unverändert.
+Administratorprozess; die aktuelle Sitzung bleibt unverändert. Vor dieser
+Bestätigung werden die stabile Storage-Location, der registrierte
+`Lab_Data`-Root, der beobachtete freie Speicher und die physischen Run-, Build-,
+Image-, Staging- und Recovery-Klassenroots angezeigt. Der erhöhte Prozess
+erhält diese geheimnisfreie Vorschau explizit und revalidiert Controller,
+Location, Volume und Root gegen die lokale Registry. Geänderte Evidence
+blockiert vor der ersten Hyper-V-Mutation.
 
 ## Workflow
 

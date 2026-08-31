@@ -339,7 +339,7 @@ try {
     Add-CheckResult -Name 'Untermenü-Aktionen leeren die Konsole vor ihrer Ausgabe' -Success (
         $menuText -match 'function Show-LabHyperVMenuActionHeader' -and
         $menuText -match 'function Invoke-LabHyperVMenuAction' -and
-        $menuText -match 'Show-LabHyperVMenuActionHeader[\s\S]{0,260}Wait-LabConsoleAcknowledgement' -and
+        $menuText -match 'Show-LabHyperVMenuActionHeader[\s\S]{0,1400}Wait-LabConsoleAcknowledgement' -and
         $menuText -match "'3' \{ Invoke-LabHyperVMenuAction -Title 'Neue SQL-Prepared-Vorlage'" -and
         @($menuText | Select-String -Pattern "Invoke-LabConsoleMenu -ScreenId 'hyperv-" -AllMatches).Matches.Count -ge 6
     )

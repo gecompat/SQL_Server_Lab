@@ -11,6 +11,7 @@ $script:CatalogsPath = Join-Path $script:ModuleRoot 'Catalogs'
 $script:ProvidersPath = Join-Path $script:ModuleRoot 'Providers'
 $script:SchemasPath = Join-Path $script:ModuleRoot 'Schemas'
 $script:ModuleLoadErrors = [System.Collections.Generic.List[string]]::new()
+$script:HyperVResourceLocationHandoff = $null
 
 # --- Versionskatalog laden (wird von Providern und Private benoetigt) ---
 $script:VersionCatalog = $null

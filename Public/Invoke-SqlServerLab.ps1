@@ -1813,9 +1813,24 @@ function Invoke-LabHyperVImageAction {
     [CmdletBinding()]
     param()
 
+    $resourcePreview = try {
+        if ($script:HyperVResourceLocationHandoff) {
+            Assert-LabHyperVResourceLocationPreview -Preview $script:HyperVResourceLocationHandoff
+        }
+        else {
+            Get-LabHyperVResourceLocationPreview
+        }
+    }
+    catch {
+        Write-LabError "Hyper-V-Zielbindung konnte nicht aufgelöst werden: $($_.Exception.Message)"
+        return
+    }
+    $script:HyperVResourceLocationHandoff = $resourcePreview
+    $null = Write-LabHyperVResourceLocationPreview -Preview $resourcePreview
+
     if (-not (Test-LabAdministrator)) {
         try {
-            $elevation = Start-LabElevatedAction -Action Image
+            $elevation = Start-LabElevatedAction -Action Image -ResourcePreview $resourcePreview
             if ($elevation.Started) {
                 Write-LabInfo 'Hyper-V-Aktion wird in einem erhoehten PowerShell-Fenster fortgesetzt.'
             }
@@ -1871,8 +1886,8 @@ function Invoke-LabHyperVImageAction {
         switch ($choice) {
             '0' { $exitImageMenu = $true }
             '1' { Invoke-LabHyperVWindowsBaselineMenu }
-            '2' { Invoke-LabHyperVMenuAction -Title 'Betriebssystem-Slot aus Windows-OS-Vorlage' -Action { New-LabHyperVEnvironmentInteractive -WindowsOnly } }
-            '3' { Invoke-LabHyperVMenuAction -Title 'Neue SQL-Prepared-Vorlage' -Action { New-LabHyperVSqlImageBuildInteractive } }
+            '2' { Invoke-LabHyperVMenuAction -Title 'Betriebssystem-Slot aus Windows-OS-Vorlage' -Action { New-LabHyperVEnvironmentInteractive -WindowsOnly } -ResourceClass Run }
+            '3' { Invoke-LabHyperVMenuAction -Title 'Neue SQL-Prepared-Vorlage' -Action { New-LabHyperVSqlImageBuildInteractive } -ResourceClass Build,Image,Staging }
             's' { Invoke-LabHyperVPreparedImageWorkflowMenu }
             '4' { Invoke-LabHyperVMenuAction -Title 'Betriebssystem- und SQL-Slots verwalten' -Action { Manage-LabHyperVEnvironmentInteractive } }
             '5' { Invoke-LabHyperVPublishedImageMenu }
@@ -1901,10 +1916,29 @@ function Invoke-LabHyperVMenuAction {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$Title,
-        [Parameter(Mandatory)][scriptblock]$Action
+        [Parameter(Mandatory)][scriptblock]$Action,
+        [ValidateSet('Run', 'Build', 'Image', 'Staging', 'Recovery')]
+        [string[]]$ResourceClass
     )
 
     Show-LabHyperVMenuActionHeader -Title $Title
+    if ($ResourceClass) {
+        try {
+            $handoff = if ($script:HyperVResourceLocationHandoff) {
+                Assert-LabHyperVResourceLocationPreview -Preview $script:HyperVResourceLocationHandoff
+            }
+            else { Get-LabHyperVResourceLocationPreview }
+            $preview = Get-LabHyperVResourceLocationPreview -ResourceClass $ResourceClass `
+                -LocationId ([string]$handoff.LocationId) -DataRoot ([string]$handoff.LabDataRoot)
+            $null = Write-LabHyperVResourceLocationPreview -Preview $preview
+            Write-Host ''
+        }
+        catch {
+            Write-LabError "Hyper-V-Zielbindung ist nicht mehr gültig: $($_.Exception.Message)"
+            $null = Wait-LabConsoleAcknowledgement -Prompt '  Enter oder Escape: Zurück zum Hyper-V-Menü'
+            return
+        }
+    }
     & $Action
     Wait-LabConsoleAcknowledgement -Prompt '  Enter oder Escape: Zurück zum Hyper-V-Menü'
 }
@@ -1932,11 +1966,11 @@ function Invoke-LabHyperVPreparedImageWorkflowMenu {
         switch ($choice) {
             '0' { $exitMenu = $true }
             '1' { Invoke-LabHyperVMenuAction -Title 'Builder starten' -Action { Start-LabHyperVSqlImageBuildInteractive } }
-            '2' { Invoke-LabHyperVMenuAction -Title 'Windows bestätigen und automatisch fertigstellen' -Action { Confirm-LabHyperVSqlWindowsInstallationInteractive } }
-            '3' { Invoke-LabHyperVMenuAction -Title 'Automatischen Abschluss fortsetzen' -Action { Invoke-LabHyperVSqlPrepareInteractive } }
-            '4' { Invoke-LabHyperVMenuAction -Title 'Prepared-Image manuell veröffentlichen' -Action { Publish-LabHyperVSqlImageBuildInteractive } }
+            '2' { Invoke-LabHyperVMenuAction -Title 'Windows bestätigen und automatisch fertigstellen' -Action { Confirm-LabHyperVSqlWindowsInstallationInteractive } -ResourceClass Build,Image,Staging }
+            '3' { Invoke-LabHyperVMenuAction -Title 'Automatischen Abschluss fortsetzen' -Action { Invoke-LabHyperVSqlPrepareInteractive } -ResourceClass Build,Image,Staging }
+            '4' { Invoke-LabHyperVMenuAction -Title 'Prepared-Image manuell veröffentlichen' -Action { Publish-LabHyperVSqlImageBuildInteractive } -ResourceClass Build,Image,Staging }
             '5' { Invoke-LabHyperVMenuAction -Title 'Builder-Status' -Action { $null = Show-LabHyperVSqlImageBuilds } }
-            'r' { Invoke-LabHyperVMenuAction -Title 'Sysprep-Recovery' -Action { Resume-LabHyperVSqlPreparedImageGeneralizationInteractive } }
+            'r' { Invoke-LabHyperVMenuAction -Title 'Sysprep-Recovery' -Action { Resume-LabHyperVSqlPreparedImageGeneralizationInteractive } -ResourceClass Build,Image,Staging }
             'c' { Invoke-LabHyperVMenuAction -Title 'Unfertigen Builder aufräumen' -Action { Remove-LabHyperVSqlImageBuildInteractive } }
             default { Write-LabWarning "Ungueltige Auswahl: $choice" }
         }
@@ -1988,10 +2022,10 @@ function Invoke-LabHyperVAdvancedMenu {
         switch ($choice) {
             '0' { $exitMenu = $true }
             '1' { Invoke-LabHyperVWindowsBaselineMenu }
-            '2' { Invoke-LabHyperVMenuAction -Title 'SQL-Builder aus OS-Baseline' -Action { New-LabHyperVSqlAcceptanceBuildInteractive } }
+            '2' { Invoke-LabHyperVMenuAction -Title 'SQL-Builder aus OS-Baseline' -Action { New-LabHyperVSqlAcceptanceBuildInteractive } -ResourceClass Build }
             '3' { Invoke-LabHyperVSqlAcceptanceMenu }
-            '4' { Invoke-LabHyperVMenuAction -Title 'Sysprep-Recovery' -Action { Resume-LabHyperVSqlPreparedImageGeneralizationInteractive } }
-            '5' { Invoke-LabHyperVMenuAction -Title 'Neue Umgebung aus vorhandener Windows-VM' -Action { New-LabHyperVEnvironmentFromExistingVmInteractive } }
+            '4' { Invoke-LabHyperVMenuAction -Title 'Sysprep-Recovery' -Action { Resume-LabHyperVSqlPreparedImageGeneralizationInteractive } -ResourceClass Build,Image,Staging }
+            '5' { Invoke-LabHyperVMenuAction -Title 'Neue Umgebung aus vorhandener Windows-VM' -Action { New-LabHyperVEnvironmentFromExistingVmInteractive } -ResourceClass Run }
             default { Write-LabWarning "Ungueltige Auswahl: $choice" }
         }
     }
@@ -2018,11 +2052,11 @@ function Invoke-LabHyperVWindowsBaselineMenu {
         $choice = [string]$menuResult.SelectedItem.Id
         switch ($choice) {
             '0' { $exitMenu = $true }
-            '1' { Invoke-LabHyperVMenuAction -Title 'Windows-Builder vorbereiten' -Action { New-LabHyperVImageBuildInteractive } }
+            '1' { Invoke-LabHyperVMenuAction -Title 'Windows-Builder vorbereiten' -Action { New-LabHyperVImageBuildInteractive } -ResourceClass Build }
             '2' { Invoke-LabHyperVMenuAction -Title 'Windows-Build-Status' -Action { $null = Show-LabHyperVImageBuilds } }
             '3' { Invoke-LabHyperVMenuAction -Title 'Windows-Builder starten' -Action { Start-LabHyperVImageBuildInteractive } }
             '4' { Invoke-LabHyperVMenuAction -Title 'Windows generalisieren' -Action { Invoke-LabHyperVImageGeneralizationInteractive } }
-            '5' { Invoke-LabHyperVMenuAction -Title 'Windows-Image veröffentlichen' -Action { Publish-LabHyperVImageBuildInteractive } }
+            '5' { Invoke-LabHyperVMenuAction -Title 'Windows-Image veröffentlichen' -Action { Publish-LabHyperVImageBuildInteractive } -ResourceClass Image,Staging }
             '6' { Invoke-LabHyperVMenuAction -Title 'Windows-Builder aufräumen' -Action { Remove-LabHyperVImageBuildInteractive } }
             default { Write-LabWarning "Ungueltige Auswahl: $choice" }
         }
