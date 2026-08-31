@@ -4,7 +4,7 @@
 |---|---|
 | Status | `BINDING` |
 | Runtime-Status | `CONTAINER_CORE_IMPLEMENTED_HYPERV_SQL_CLI_ACCEPTED` |
-| Stand | 2026-08-30 |
+| Stand | 2026-08-31 |
 | Repository | `gecompat/SQL_Server_Lab` |
 | Maschinenlesbare Landkarte | [`repo_map.yaml`](repo_map.yaml) |
 
@@ -64,7 +64,9 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 - versionierte `SqlServerLab.HyperVResourceBinding/1.0`-Grundlage mit kurzen,
   state-root-unabhängigen Create-Roots unter registriertem `Lab_Data`,
   Controller-/Location-/Volume-Revalidierung und getrennter read-only
-  Legacy-Discovery; Slot-Provider, Windows-/SQL-Builder, Existing-VM-Kopie,
+  Legacy-Discovery; Slot-Provider, Windows-/SQL-Builder einschließlich der
+  state-root-unabhängigen Auflösung persistierter Builder-VHDX,
+  Existing-VM-Kopie,
   Image- und Staging-Store erzwingen die Bindung einschließlich Path-Length-,
   Reparse-, Datei-, VHDX- und VM-Pfad-Postconditions; ein read-only
   Legacy-Inventar und eine journalisierte, resumierbare Run-Migration binden
@@ -129,7 +131,9 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   2/1/1-Verteilung auf drei nachweislich getrennten lokalen Geräten, eigener
   TempDB-Log-Lane, SQL-Dienstrestart, dateigenauem Create, synthetischem
   Backup/Restore-Roundtrip, Persistenz nach vollständigem VM-Restart und
-  scopegebundenem Cleanup;
+  scopegebundenem Cleanup; der Lauf wurde nach Einführung der gebundenen
+  Ressourcenroots mit isoliertem Prepared-Image erneut real bestätigt und
+  hinterließ weder Test-Artifact, State noch rungebundene VHDX;
 - providerneutraler Softwarekatalog und External-Runtime-Resolver mit
   SQL-/OS-/Provider-Capability-Gates, sicherer Legacy-`post-start`-Grenze und
   geheimnisfreien Software-Intents für Python, R und Java;
@@ -157,8 +161,9 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 ### Geplant oder unvollständig
 
 - restliche reale erhöhte End-to-End-Abnahme des Hyper-V-Ressourcenroot-
-  Schutzes für SQL-Readiness, allgemeine Storage-Migration und den erneuten
-  N5-Mehrgeräte-Nachweis; eine reale Windows-Legacy-Run-/Parent-/Child-
+  Schutzes für SQL-Readiness der Legacy-Migration und die allgemeine
+  Storage-Migration; der erneute N5-Mehrgeräte-Nachweis sowie eine reale
+  Windows-Legacy-Run-/Parent-/Child-
   Migration einschließlich Restart, Recovery-Resume und Quell-Cleanup ist
   belegt; die allgemeine Parent-Migration plant, revalidiert und bindet
   VM-Konfiguration, Snapshots und Smart Paging unter dem Quellroot mit
