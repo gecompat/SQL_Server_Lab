@@ -473,7 +473,11 @@ function Install-LabSampleDatabase {
         [string]$HostName = '127.0.0.1',
         [Parameter(Mandatory)][int]$Port,
         [Parameter(Mandatory)][SecureString]$SaPassword,
-        [Parameter(Mandatory)][string]$ContainerName,
+        [ValidateSet('docker','podman','hyperv')][string]$Provider,
+        [string]$ContainerName,
+        [string]$RunId,
+        [string]$InstanceId = 'primary',
+        [PSCredential]$GuestCredential,
         [Parameter(Mandatory)]$RestoreDefinition,
         [switch]$NonInteractive,
         [switch]$TrustUnknownArtifact,
@@ -482,6 +486,27 @@ function Install-LabSampleDatabase {
         [string]$StateRoot,
         [string]$TestDataRoot
     )
+
+    if ($RunId) {
+        $runTarget = Resolve-LabRunInstance -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
+        if ($Provider -and [string]$runTarget.Provider -ne $Provider) {
+            throw 'SAMPLE_HANDLER_RUN_PROVIDER_MISMATCH'
+        }
+        $Provider = [string]$runTarget.Provider
+        $HostName = [string]$runTarget.HostName
+        $Port = [int]$runTarget.Port
+        $ContainerName = [string]$runTarget.ContainerName
+        if (-not $RunDirectory) {
+            $effectiveStateRoot = if ($StateRoot) { $StateRoot } else { Get-LabStateRoot }
+            $RunDirectory = Join-Path (Join-Path $effectiveStateRoot 'runs') $RunId
+        }
+    }
+    if ($Provider -eq 'hyperv' -and (-not $RunId -or -not $GuestCredential)) {
+        throw 'SAMPLE_HANDLER_HYPERV_RUN_AND_GUEST_CREDENTIAL_REQUIRED'
+    }
+    if ($Provider -ne 'hyperv' -and [string]::IsNullOrWhiteSpace($ContainerName)) {
+        throw 'SAMPLE_HANDLER_CONTAINER_NAME_REQUIRED'
+    }
 
     $databaseNames = @(
         $RestoreDefinition.expectedOutputs |
@@ -594,6 +619,27 @@ function Install-LabSampleDatabase {
     }
 
     try {
+        $invokeRestore = {
+            param([string]$BackupSource, [string]$ExpectedSha256, [string]$TargetDatabaseName)
+            $restoreArguments = @{
+                SaPassword=$SaPassword; BackupSource=$BackupSource
+                DatabaseName=$TargetDatabaseName; StateRoot=$StateRoot
+            }
+            if ($ExpectedSha256) { $restoreArguments.ExpectedSha256 = $ExpectedSha256 }
+            if ($Provider -eq 'hyperv') {
+                $restoreArguments.RunId = $RunId
+                $restoreArguments.InstanceId = $InstanceId
+                $restoreArguments.GuestCredential = $GuestCredential
+                $restoreArguments.RunDirectory = $RunDirectory
+            }
+            else {
+                $restoreArguments.HostName = $HostName
+                $restoreArguments.Port = $Port
+                $restoreArguments.ContainerName = $ContainerName
+                if ($Provider) { $restoreArguments.Provider = $Provider }
+            }
+            return Restore-SqlServerLabDatabase @restoreArguments
+        }
         $idempotencyMode = if ($RestoreDefinition.idempotencyMode) { [string]$RestoreDefinition.idempotencyMode } else { 'fail-if-exists' }
         foreach ($expectedDatabaseName in $databaseNames) {
             $escapedExpectedName = $expectedDatabaseName.Replace("'", "''")
@@ -614,15 +660,10 @@ function Install-LabSampleDatabase {
         $effectiveArtifactType = if ($baselineRequest -and $databaseNames.Count -gt 1) { 'baseline-bundle' } elseif ($baselineRequest) { 'backup' } else { [string]$RestoreDefinition.artifactType }
         switch ($effectiveArtifactType) {
             'backup' {
-                $restoreResult = Restore-SqlServerLabDatabase `
-                    -HostName $HostName `
-                    -Port $Port `
-                    -SaPassword $SaPassword `
-                    -BackupSource $artifactResolution.Path `
-                    -ExpectedSha256 $artifactResolution.Sha256 `
-                    -DatabaseName $databaseName `
-                    -ContainerName $ContainerName `
-                    -StateRoot $StateRoot
+                $restoreResult = & $invokeRestore `
+                    ([string]$artifactResolution.Path) `
+                    ([string]$artifactResolution.Sha256) `
+                    $databaseName
                 if (-not $restoreResult.Success) {
                     $result.Status = 'SAMPLE_INSTALLATION_FAILED'
                     $result.Message = $restoreResult.Message
@@ -639,14 +680,10 @@ function Install-LabSampleDatabase {
                     -PayloadPath ([string]$RestoreDefinition.installation.payloadPath) `
                     -ArchiveFormat $archiveFormat `
                     -RunDirectory $RunDirectory
-                $restoreResult = Restore-SqlServerLabDatabase `
-                    -HostName $HostName `
-                    -Port $Port `
-                    -SaPassword $SaPassword `
-                    -BackupSource $temporaryArchivePayload.Path `
-                    -DatabaseName $databaseName `
-                    -ContainerName $ContainerName `
-                    -StateRoot $StateRoot
+                $restoreResult = & $invokeRestore `
+                    ([string]$temporaryArchivePayload.Path) `
+                    $null `
+                    $databaseName
                 if (-not $restoreResult.Success) {
                     $result.Status = 'SAMPLE_INSTALLATION_FAILED'
                     $result.Message = $restoreResult.Message
@@ -656,11 +693,14 @@ function Install-LabSampleDatabase {
             'sql-script' {
                 $executionMode = [string]$RestoreDefinition.installation.executionMode
                 if ($executionMode -eq 'existing-database') {
-                    $createResult = New-SqlServerLabDatabase `
-                        -HostName $HostName `
-                        -Port $Port `
-                        -SaPassword $SaPassword `
-                        -DatabaseName $databaseName
+                    $createArguments = @{
+                        HostName=$HostName; Port=$Port; SaPassword=$SaPassword
+                        DatabaseName=$databaseName; StateRoot=$StateRoot
+                    }
+                    if ($Provider -eq 'hyperv') {
+                        $createArguments.RunId=$RunId; $createArguments.InstanceId=$InstanceId
+                    }
+                    $createResult = New-SqlServerLabDatabase @createArguments
                     if (-not $createResult.Success) {
                         $result.Status = 'SAMPLE_INSTALLATION_FAILED'
                         $result.Message = "Zieldatenbank '$databaseName' konnte nicht erstellt werden."
@@ -706,11 +746,14 @@ function Install-LabSampleDatabase {
                     if ($databaseNames.Count -ne 1) {
                         throw 'SAMPLE_BUNDLE_EXISTING_DATABASE_AMBIGUOUS: existing-database erlaubt genau einen erwarteten Output.'
                     }
-                    $createResult = New-SqlServerLabDatabase `
-                        -HostName $HostName `
-                        -Port $Port `
-                        -SaPassword $SaPassword `
-                        -DatabaseName $databaseName
+                    $createArguments = @{
+                        HostName=$HostName; Port=$Port; SaPassword=$SaPassword
+                        DatabaseName=$databaseName; StateRoot=$StateRoot
+                    }
+                    if ($Provider -eq 'hyperv') {
+                        $createArguments.RunId=$RunId; $createArguments.InstanceId=$InstanceId
+                    }
+                    $createResult = New-SqlServerLabDatabase @createArguments
                     if (-not $createResult.Success) {
                         $result.Status = 'SAMPLE_INSTALLATION_FAILED'
                         $result.Message = "Zieldatenbank '$databaseName' konnte nicht erstellt werden."
@@ -745,15 +788,10 @@ function Install-LabSampleDatabase {
                     -DatabaseNames $databaseNames `
                     -RunDirectory $RunDirectory
                 foreach ($payload in $temporaryBaselineBundle.Payloads) {
-                    $restoreResult = Restore-SqlServerLabDatabase `
-                        -HostName $HostName `
-                        -Port $Port `
-                        -SaPassword $SaPassword `
-                        -BackupSource $payload.Path `
-                        -ExpectedSha256 $payload.Sha256 `
-                        -DatabaseName $payload.DatabaseName `
-                        -ContainerName $ContainerName `
-                        -StateRoot $StateRoot
+                    $restoreResult = & $invokeRestore `
+                        ([string]$payload.Path) `
+                        ([string]$payload.Sha256) `
+                        ([string]$payload.DatabaseName)
                     if (-not $restoreResult.Success) {
                         $result.Status = 'RECOVERY_REQUIRED'
                         $result.Message = "Multi-Output-Baseline wurde nicht vollstaendig wiederhergestellt: $($restoreResult.Message)"
@@ -796,11 +834,15 @@ function Install-LabSampleDatabase {
                     Port = $Port
                     SaPassword = $SaPassword
                     ContainerName = $ContainerName
+                    RunId = $RunId
+                    InstanceId = $InstanceId
+                    GuestCredential = $GuestCredential
                     Key = $baselineKey
                     RunDirectory = $RunDirectory
                     StateRoot = $StateRoot
                     TestDataRoot = $TestDataRoot
                 }
+                if ($Provider) { $baselineArguments.Provider = $Provider }
                 $result.Baseline = if ($databaseNames.Count -eq 1) {
                     New-LabSampleBaselineBackup -DatabaseName $databaseName @baselineArguments
                 }

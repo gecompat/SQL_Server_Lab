@@ -419,10 +419,12 @@ internal_components:
   - name: SampleBaselineRuntime
     source: Private/SampleBaselineRuntime.ps1
     responsibilities:
-      - "Single- und Multi-Output-Container-Samples nach erfolgreicher SQL-Verifikation mit CHECKSUM sichern"
+      - "Single- und Multi-Output-Container-Samples sowie run-gebundene Hyper-V-Samples nach erfolgreicher SQL-Verifikation mit CHECKSUM sichern"
       - "erzeugte Backups vor Registrierung mit RESTORE VERIFYONLY pruefen"
       - "exakte oder kompatible LAB_GENERATED-Baselines vor dem Originalartefakt bevorzugen"
       - "bei fehlender oder ungueltiger Baseline sicher auf das verifizierte Originalartefakt zurueckfallen"
+      - "Hyper-V-Backups nur ueber verifizierte Storage-Receipts in der gebundenen Backup-Lane erzeugen, per PowerShell Direct exportieren und im Gast bereinigen"
+      - "run-gebundene Ad-hoc-Sample-CREATEs und -Restores ohne datenbankspezifische Bindung auf exakt verifizierte Default-Data-/Default-Log-Lanes begrenzen"
   - name: ProjectAdapter
     source: Private/ProjectAdapter.ps1
     responsibilities:
@@ -562,6 +564,7 @@ planning_contracts:
       - lab_generated_baseline_registry
       - lab_generated_single_output_container_runtime
       - lab_generated_multi_output_container_runtime
+      - lab_generated_hyperv_runtime
       - contextual_path_guidance
       - lab_generated_baselines
       - hyperv_baseline_bindings
@@ -959,7 +962,7 @@ known_limitations:
     - "Artifact Refresh und Rebuild für Medien, VHDX und Derived Images nicht implementiert"
     - "kein provideruebergreifendes Docker-/Podman-Netzwerk oder Hyper-V-SubRun"
     - "Sample-Handler mit Trust-Pfad, Mehrfachauswahl, ZIP-/7z-Backup-Payloads, gepinnten Einzelskripten und sicheren Multi-Output-ZIP-Script-Bundles sind implementiert; nicht freigegebene Archive und Attach-Handler bleiben offen"
-    - "Containerbasierte LAB_GENERATED-Baselines und kompatible Aufsetzpunkte sind implementiert; Hyper-V-Export und -Nutzung bleiben offen"
+    - "Containerbasierte und run-gebundene Hyper-V-LAB_GENERATED-Baselines samt kompatibler Aufsetzpunkte sind synthetisch validiert; automatische Hyper-V-Manifestbindung und reale Runtime-Evidence bleiben offen"
     - "mehrere reservierte serverConfig-Felder noch ohne stabilen Runtimepfad; explizite Nutzung wird vor Auflösung und Mutation fail-closed abgelehnt"
     - "Versionskatalog wird nicht automatisch als aktuell garantiert"
     - "alle katalogisierten CUs sind ohne KI ueber Cmdlet oder Konsole beschaffbar; Windows wird per SHA-256 und Microsoft-Authenticode, Linux per exaktem MCR-Tag gebunden"
