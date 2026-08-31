@@ -254,7 +254,22 @@ VM-, Quell- und Zielidentität. Apply revalidiert den ausgeschalteten Zustand,
 journalisiert `Move-VMStorage` als `PENDING`, verlangt exakte Ziel-
 Postconditions und überspringt die Mutation bei einem Resume nach bereits
 erfolgter Umbindung. Der fokussierte synthetische Nachweis liegt in
-`Invoke-StorageMigrationChecks.ps1`; ein realer Lauf bleibt `NOT_EXECUTED`.
+`Invoke-StorageMigrationChecks.ps1`. Der reale Runner verlangt die exakte ID
+einer kleinen, nicht als Default verwendeten Location ohne Run-, Attachment-,
+Binding- oder vorhandene VM-Konfigurationsreferenz:
+
+```powershell
+.\Tests\Integration\Invoke-HyperVStorageParentMigrationAcceptance.ps1 `
+    -SourceLocationId '<non-default-location-guid>'
+```
+
+Er erstellt eine ausgeschaltete Generation-2-Test-VM mit eigener VHDX,
+migriert den vollständigen Location-Root auf demselben Volume zu einem
+temporären Parent und anschließend zurück. Geprüft werden Configuration,
+Snapshot, Smart Paging, VHDX, `LocationId`, unveränderte Quelldateien und der
+vollständige scopegebundene Cleanup. Dieser real erhöhte Lauf ist bestanden.
+Bei einem Fehler bleiben Test-VM, aktueller Root und Journale als
+`RECOVERY_REQUIRED` für eine sichere Fortsetzung erhalten.
 
 ## 3. Voraussetzungen
 

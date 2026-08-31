@@ -287,7 +287,8 @@ N5-Storage-Nachweis ist damit abgeschlossen. Ein erneuter realer Lauf am
 von drei geforderten Geräten, gebundenem Builder-/Image-Pfad und vollständigem
 Cleanup des isolierten Prepared-Images, Test-State und aller rungebundenen
 VHDX. Der verbleibende P0-Abnahmescope betrifft nicht mehr N5, sondern die
-reale Legacy-SQL- und allgemeine Parent-Storage-Migration.
+reale Legacy-SQL-Migration. Die allgemeine Parent-Storage-Migration ist mit
+isolierter Test-VM, VHDX-Rebind, Rückmigration und Cleanup real belegt.
 Die virtuelle Lane-Kapazität wird im Bound Plan deterministisch abgeleitet:
 mindestens 32 GB für offen wachsende Data-/Log-/Backup-Rollen, mindestens 4 GB
 für reine TempDB-Lanes und jeweils mindestens die expliziten Dateigrößen plus
@@ -716,10 +717,10 @@ Kette wird dabei graphbasiert auf den gebundenen Image-Store umgehängt und
 referenzfrei bereinigt. Die öffentliche CLI-Preview und das Console-User-Gate
 zeigen Location, `Lab_Data`, Kapazität und Klassenroots vor der Bestätigung;
 der UAC-Handoff revalidiert denselben Vertrag. Die reale erhöhte Windows-
-Legacy-Run-/Parent-/Child-Migration und der erneute N5-Mehrgeräte-Nachweis sind
-belegt; offen bleiben die SQL-Readiness der Legacy-Migration und die allgemeine
-Storage-Migration. Der Apply
-bleibt bis zum Abschluss dieses Restscopes intern.
+Legacy-Run-/Parent-/Child-Migration, der erneute N5-Mehrgeräte-Nachweis und die
+allgemeine Parent-Storage-Migration sind belegt; offen bleibt nur die SQL-
+Readiness der Legacy-Migration. Der Apply bleibt bis zum Abschluss dieses
+Restscopes intern.
 Der erste `HVR-006`-Slice schützt den Hyper-V-Cleanup bereits atomar gegen
 nichtterminale Run-Migrationen und unsafe VHDX-Pfade. Der Cleanup-Audit weist
 Run-Bindings, Migrationsstatus, ungetrackte Preserve-Dateien und Shared-Roots
@@ -744,9 +745,9 @@ mit exakter VM-Identität sowie Quell- und Zielpfaden geplant und unmittelbar
 vor der Mutation erneut gegen eine ausgeschaltete VM geprüft. Die
 `Move-VMStorage`-Umbindung wird als `PENDING` journalisiert, durch exakte
 Ziel-Postconditions abgeschlossen und bei einem Resume nicht doppelt
-ausgeführt. Damit ist `HVR-006` intern geschlossen und synthetisch validiert;
-der allgemeine reale Parent-Migrationsfall bleibt Teil von `HVR-008` und
-`NOT_EXECUTED`.
+ausgeführt. Damit ist `HVR-006` intern geschlossen, synthetisch validiert und
+mit einer isolierten Nicht-Default-Location, realer VM-Konfiguration, VHDX,
+Vorwärts-/Rückmigration und Cleanup real belegt.
 Image-Quellen werden bis zum nachgewiesenen Wegfall aller Consumer absichtlich
 nicht entfernt; manuelles Verschieben außerhalb des journalisierten Vertrags
 bleibt unzulässig.
@@ -758,9 +759,9 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
 ## Priorisierte nächste technische Schritte
 
 1. Den P0-Bugfix für Hyper-V-Ressourcenroots nach der belegten real erhöhten
-   Windows-Legacy-Run-/Parent-/Child-Migration und dem erneuten N5-Nachweis mit
-   SQL-Readiness der Legacy-Migration sowie allgemeiner Storage-Migration
-   abschließen.
+   Windows-Legacy-Run-/Parent-/Child-Migration, dem erneuten N5-Nachweis und
+   der allgemeinen Parent-Storage-Migration mit SQL-Readiness der Legacy-
+   Migration abschließen.
 2. Den synthetisch implementierten Hyper-V-`LAB_GENERATED`-Export und die
    automatische Sample-Manifestausführung real abnehmen (Sample-Welle 6).
 3. Die implementierten providerneutralen Network- und Software-Intents an
