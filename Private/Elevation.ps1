@@ -46,6 +46,7 @@ function Start-LabElevatedAction {
         [Parameter(Mandatory)]
         [ValidateSet('Image')]
         [string]$Action,
+        $ResourcePreview,
         [scriptblock]$AdministratorProbe = { Test-LabAdministrator },
         [scriptblock]$ConfirmationAction,
         [scriptblock]$ProcessStarter,
@@ -67,7 +68,13 @@ function Start-LabElevatedAction {
         return $result
     }
 
+    $validatedPreview = if ($ResourcePreview) {
+        Assert-LabHyperVResourceLocationPreview -Preview $ResourcePreview
+    }
+    else { $null }
+
     if (& $AdministratorProbe) {
+        if ($validatedPreview) { $script:HyperVResourceLocationHandoff = $validatedPreview }
         return New-ElevationActionResult -Status NoChange -Started $false -Reason 'ALREADY_ELEVATED'
     }
 
@@ -80,7 +87,14 @@ function Start-LabElevatedAction {
     # Import-Module besitzt keinen -LiteralPath-Parameter. Der einzeln
     # quotierte, zuvor maskierte Pfad verhindert weiterhin eine Auswertung
     # von Leerzeichen oder Sonderzeichen im Modulpfad.
-    $command = "Import-Module '$escapedModulePath' -Force; Invoke-SqlServerLab -Action $Action"
+    if ($validatedPreview) {
+        $previewJson = $validatedPreview | ConvertTo-Json -Depth 12 -Compress
+        $encodedPreview = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($previewJson))
+        $command = "Import-Module '$escapedModulePath' -Force; & (Get-Module SqlServerLab) { param([string]`$payload) `$json = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(`$payload)); `$preview = `$json | ConvertFrom-Json -Depth 12; `$script:HyperVResourceLocationHandoff = Assert-LabHyperVResourceLocationPreview -Preview `$preview; Invoke-SqlServerLab -Action $Action } '$encodedPreview'"
+    }
+    else {
+        $command = "Import-Module '$escapedModulePath' -Force; Invoke-SqlServerLab -Action $Action"
+    }
     $encodedCommand = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
     Write-LabInfo "Für '$Action' wird ein neues PowerShell-Fenster mit Administratorrechten benötigt."
     Write-LabInfo 'Die aktuelle Benutzersitzung bleibt unverändert; erst die bestätigte Hyper-V-Aktion wird erhöht fortgesetzt.'

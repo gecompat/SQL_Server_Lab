@@ -293,10 +293,17 @@ neue Fehlplatzierung mehr zulassen. Sie blockieren den P0-Sofortschutz nicht.
   Nichtterminale Location-Journale sperren Lifecycle, Repair, Reconcile und
   Cleanup bis zum fortsetzbaren Abschluss; auch ein Abbruch nach dem ersten
   Binding-Commit kann aus demselben Journal fortgesetzt werden.
-- Damit ist der interne Implementierungsumfang von `HVR-006` geschlossen;
-  `HVR-007` und `HVR-008` bleiben offen. Zielpfade müssen noch in
-  UI/CLI/Preview durchgängig sichtbar und der Ablauf real erhöht end-to-end
-  abgenommen werden.
+- Damit ist der interne Implementierungsumfang von `HVR-006` geschlossen.
+- `HVR-007` ist implementiert und statisch beziehungsweise synthetisch
+  validiert: `Get-SqlServerLabHyperVResourcePreview` löst Location,
+  `Lab_Data`, freien Speicher und klassenbezogene Zielroots read-only auf.
+  Das Console-User-Gate zeigt denselben Vertrag vor UAC und vor der konkreten
+  Run-/Build-/Image-/Staging-Aktion. Der erhöhte Prozess erhält die Vorschau
+  explizit, löst sie erneut gegen Controller-, Location-, Volume- und
+  Root-Evidence auf und blockiert bei jeder Abweichung fail-closed.
+- `HVR-008` bleibt offen. Der Schutz einschließlich Legacy-Run- und
+  Parent-/Child-Migration muss noch real erhöht end-to-end abgenommen werden;
+  bis dahin bleibt der Legacy-Migrations-Apply ein interner Fachkern.
 
 ## Abnahmekriterien
 

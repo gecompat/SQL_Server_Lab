@@ -4,6 +4,28 @@ Dieses Changelog dokumentiert Änderungen am öffentlichen Verhalten, an maschin
 
 Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher nach Datum geführt. Neue Einträge werden oben ergänzt.
 
+## 2026-08-31
+
+### Hinzugefügt
+
+- `Get-SqlServerLabHyperVResourcePreview` zeigt die registrierte Location,
+  den physischen `Lab_Data`-Root, freien Speicher und die deterministischen
+  Run-/Build-/Image-/Staging-/Recovery-Roots ohne Hostmutation.
+
+### Geändert
+
+- Hyper-V-Menüaktionen zeigen ihren klassenbezogenen Zielvertrag vor der
+  Bestätigung. Beim UAC-Wechsel wird die Vorschau explizit an den erhöhten
+  Prozess übergeben und dort gegen Controller, Location, Volume und Root
+  erneut geprüft; jede Abweichung blockiert fail-closed.
+
+### Validiert
+
+- Die fokussierten Resource-Binding- und Elevation-Suites belegen die
+  öffentliche Preview, Klassenroot-Auflösung, Manipulationsabwehr und den
+  serialisierten UAC-Handoff synthetisch. Die reale erhöhte End-to-End-Abnahme
+  bleibt als `HVR-008` offen.
+
 ## 2026-08-30
 
 ### Hinzugefügt

@@ -45,6 +45,28 @@ try {
         [string]$binding.HyperVResourceRoot -eq (Join-Path $expectedPrefix ([string]$binding.ResourceKey)) -and
         ([string]$binding.HyperVResourceRoot).Length -le 180
     )
+
+    $preview = Get-SqlServerLabHyperVResourcePreview -ResourceClass Run,Build,Image,Staging -DataRoot $dataRoot
+    Add-CheckResult -Name 'Öffentliche Preview zeigt Location, Kapazität und reproduzierbare Klassenroots ohne Provider-Mutation' -Success (
+        [string]$preview.ContractVersion -eq 'SqlServerLab.HyperVResourceLocationPreview/1.0' -and
+        [string]$preview.ControllerId -eq [string]$marker.ControllerId -and
+        [string]$preview.LocationId -eq [string]$binding.LocationId -and
+        [string]$preview.LabDataRoot -eq [string]$dataRoot -and
+        [long]$preview.ObservedFreeBytes -ge 0 -and
+        @($preview.Targets).Count -eq 4 -and
+        @($preview.Targets | Where-Object {
+            [string]$_.ClassRoot -notlike "$dataRoot*" -or
+            [string]$_.ResourceRootPattern -notmatch '<20-character-resource-key>$'
+        }).Count -eq 0
+    )
+    $tamperedPreview = $preview | ConvertTo-Json -Depth 12 | ConvertFrom-Json -Depth 12
+    $tamperedPreview.Targets[0].ClassRoot = Join-Path $temporaryParent 'foreign'
+    $previewTamperRejected = try {
+        & $module { param($value) Assert-LabHyperVResourceLocationPreview -Preview $value | Out-Null } $tamperedPreview
+        $false
+    }
+    catch { $_.Exception.Message -match 'HYPERV_RESOURCE_PREVIEW_TARGET_CHANGED' }
+    Add-CheckResult -Name 'UAC-Handoff mit abweichendem Klassenroot wird bei Revalidierung blockiert' -Success $previewTamperRejected
     $secondBinding = & $module {
         param($id, $root)
         Resolve-LabHyperVResourceBinding -ResourceId $id -ResourceClass Run -DataRoot $root
@@ -200,6 +222,7 @@ try {
     $sqlBuilderText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVSqlImageBuilder.ps1') -Raw -Encoding utf8
     $registryText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVImageRegistry.ps1') -Raw -Encoding utf8
     $environmentText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVLabEnvironment.ps1') -Raw -Encoding utf8
+    $menuText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Invoke-SqlServerLab.ps1') -Raw -Encoding utf8
     Add-CheckResult -Name 'Run-Provider bindet VHDX, VM-Konfiguration, Paging und Snapshots an denselben Root' -Success (
         $providerText -match 'Initialize-LabHyperVResourceBinding[\s\S]+ResourceClass\s+\$ResourceClass[\s\S]+New-VHD' -and
         $providerText -match 'SmartPagingFilePath\s+\$resourceRoot[\s\S]+SnapshotFileLocation\s+\$resourceRoot' -and
@@ -217,6 +240,13 @@ try {
     )
     Add-CheckResult -Name 'Existing-VM-Konvertierung bindet Ziel und prueft die erzeugte Parent-Kopie' -Success (
         $environmentText -match 'Initialize-LabHyperVResourceBinding[\s\S]+Convert-VHD[\s\S]+HYPERV_SOURCE_PARENT_COPY_POSTCONDITION_FAILED'
+    )
+    Add-CheckResult -Name 'Console-UI zeigt Run-, Build-, Image- und Staging-Ziele vor den Hyper-V-Erstellungsaktionen' -Success (
+        $menuText -match "Betriebssystem-Slot aus Windows-OS-Vorlage'.+-Action .+-ResourceClass Run" -and
+        $menuText -match "Neue SQL-Prepared-Vorlage'.+-Action .+-ResourceClass Build,Image,Staging" -and
+        $menuText -match "Automatischen Abschluss fortsetzen'.+-Action .+-ResourceClass Build,Image,Staging" -and
+        $menuText -match "Windows-Image veröffentlichen'.+-Action .+-ResourceClass Image,Staging" -and
+        $menuText -match 'Write-LabHyperVResourceLocationPreview'
     )
 }
 catch {

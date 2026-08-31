@@ -38,6 +38,7 @@ Statische Vertragspruefungen und Runtime-Nachweise sind getrennte Evidence.
 | `Restore-SqlServerLabDatabase` | Restore- und Artifact-Vertraege | dedizierter synthetischer Backup/Restore-Smoke fuer Docker und Podman |
 | `New-SqlServerLabManifest`, `Test-SqlServerLabManifest` | Manifest-Builder-, Schema- und Pester-Suites | Manifest-Smoke je Containerprovider ueber die bestehende Smoke-Matrix |
 | `Test-SqlServerLabPrerequisite`, `Get-SqlServerLabCatalog`, `Get-SqlServerLabWorkflow` | Readiness-, Katalog- und Workflow-Suites | Provider-Preflight; Katalog und Workflow im Container-Akzeptanzlauf |
+| `Get-SqlServerLabHyperVResourcePreview` | Hyper-V-Resource-Binding- und Elevation-Suites | reale erhöhte Platzierungsabnahme bleibt Teil von `HVR-008` |
 | `Get-SqlServerLabConnectionCenter`, `Sync-SqlServerLabConnectionCenter`, `Export-SqlServerLabSsmsRegistration` | Connection-Center-Suites | lesender Container-Nachweis und gemeinsame Testumgebungsabnahme |
 | `Initialize-SqlServerLabCms`, `Sync-SqlServerLabCms`, `Export-SqlServerLabCmsSyncScript` | CMS-Suites | gemeinsame Sechs-Umgebungen-/CMS-Abnahme |
 | `New/Get/Stop-SqlServerLabBatch` | Batch-Vertrag | Zwei-Lab-Batch-Smoke fuer Docker, Podman und Hyper-V-Slots |
