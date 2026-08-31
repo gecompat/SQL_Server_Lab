@@ -293,10 +293,23 @@ neue Fehlplatzierung mehr zulassen. Sie blockieren den P0-Sofortschutz nicht.
   Nichtterminale Location-Journale sperren Lifecycle, Repair, Reconcile und
   Cleanup bis zum fortsetzbaren Abschluss; auch ein Abbruch nach dem ersten
   Binding-Commit kann aus demselben Journal fortgesetzt werden.
-- Damit ist der interne Implementierungsumfang von `HVR-006` geschlossen;
-  `HVR-007` und `HVR-008` bleiben offen. Zielpfade müssen noch in
-  UI/CLI/Preview durchgängig sichtbar und der Ablauf real erhöht end-to-end
-  abgenommen werden.
+- Damit ist der interne Implementierungsumfang von `HVR-006` geschlossen.
+- `HVR-007` ist implementiert und statisch beziehungsweise synthetisch
+  validiert: `Get-SqlServerLabHyperVResourcePreview` löst Location,
+  `Lab_Data`, freien Speicher und klassenbezogene Zielroots read-only auf.
+  Das Console-User-Gate zeigt denselben Vertrag vor UAC und vor der konkreten
+  Run-/Build-/Image-/Staging-Aktion. Der erhöhte Prozess erhält die Vorschau
+  explizit, löst sie erneut gegen Controller-, Location-, Volume- und
+  Root-Evidence auf und blockiert bei jeder Abweichung fail-closed.
+- `HVR-008` ist teilweise real belegt: Ein projektverwalteter, abgeschalteter
+  Windows-Legacy-Run mit Differencing-Child und Shared Parent wurde erhöht,
+  journalisiert nach `Lab_Data` kopiert, reparentet und samt VM-Storage
+  umgebunden. Zwei erfolgreiche Gaststarts, ein realer `RECOVERY_REQUIRED`-
+  Resume und der anschließende Quell-Cleanup sind belegt; der Shared Parent
+  blieb wegen weiterer Consumer erwartungsgemäß erhalten. Offen bleiben ein
+  SQL-readiness-gebundener Legacy-Fall, die allgemeine Storage-Migration und
+  der erneute N5-Mehrgeräte-Nachweis. Der Apply bleibt bis dahin interner
+  Fachkern mit explizitem Acceptance-Runner.
 
 ## Abnahmekriterien
 

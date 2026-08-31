@@ -35,6 +35,19 @@ function Get-LabVolumeIdentity {
         }
         catch { }
     }
+    if ($IsWindows -and $driveLetter -match '^[A-Z]:$' -and [string]::Equals([string]$volumeId, [string]$volumeRoot, [StringComparison]::OrdinalIgnoreCase)) {
+        $mountvolPath = Join-Path ([Environment]::GetFolderPath('Windows')) 'System32\mountvol.exe'
+        if (Test-Path -LiteralPath $mountvolPath -PathType Leaf) {
+            try {
+                $mountvolOutput = @(& $mountvolPath "$driveLetter\" '/L' 2>$null)
+                $volumeName = @($mountvolOutput | ForEach-Object { ([string]$_).Trim() } | Where-Object {
+                    $_ -match '^\\\\\?\\Volume\{[0-9A-Fa-f-]{36}\}\\$'
+                } | Select-Object -First 1)
+                if ($volumeName.Count -eq 1) { $volumeId = [string]$volumeName[0] }
+            }
+            catch { }
+        }
+    }
     return [PSCustomObject]@{ VolumeId = $volumeId; DriveLetter = $driveLetter; VolumeRoot = $volumeRoot }
 }
 

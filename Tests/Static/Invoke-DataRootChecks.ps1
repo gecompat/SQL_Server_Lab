@@ -55,6 +55,7 @@ try {
     )
     $consoleText = Get-Content -LiteralPath $consolePath -Raw -Encoding utf8
     $storageContractText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/StorageContract.ps1') -Raw -Encoding utf8
+    $dataRootToolText = Get-Content -LiteralPath $toolPath -Raw -Encoding utf8
     Add-CheckResult -Name 'Konsolen-Neuanlage bietet den gespeicherten Data Root optional an' -Success (
         $consoleText -match 'Get-LabDataRootDefault' -and
         $consoleText -match 'SQL-System- und Datenbanken persistent im Data Root einbinden' -and
@@ -70,7 +71,22 @@ try {
         $storageContractText -match 'Diese Lab_Data-Location initialisieren und registrieren\?' -and
         $storageContractText -match 'Set-LabDataLocation\s+-LabDataParent\s+\$parent\s+-Confirm:\$false'
     )
+    Add-CheckResult -Name 'Standalone-Initialisierung verwendet denselben nicht-administrativen Volume-GUID-Fallback' -Success (
+        $dataRootToolText -match 'mountvol\.exe' -and $dataRootToolText -match "'/L'" -and
+        $dataRootToolText -match 'Volume\\\{\[0-9A-Fa-f-\]\{36\}'
+    )
     $module = Import-Module $modulePath -Force -PassThru -ErrorAction Stop
+    if ($IsWindows) {
+        $testDrive = [IO.Path]::GetPathRoot($temporaryRoot).Substring(0, 2).ToUpperInvariant()
+        $mountvolPath = Join-Path ([Environment]::GetFolderPath('Windows')) 'System32\mountvol.exe'
+        $expectedVolumeId = @(& $mountvolPath "$testDrive\" '/L' 2>$null | ForEach-Object { ([string]$_).Trim() } | Where-Object {
+            $_ -match '^\\\\\?\\Volume\{[0-9A-Fa-f-]{36}\}\\$'
+        } | Select-Object -First 1)
+        $resolvedVolume = & $module { param($root) Get-LabVolumeIdentity -Path $root } $temporaryRoot
+        Add-CheckResult -Name 'Volume-Identität bleibt vor UAC über die Windows-Mountzuordnung stabil' -Success (
+            $expectedVolumeId.Count -eq 1 -and [string]$resolvedVolume.VolumeId -eq [string]$expectedVolumeId[0]
+        )
+    }
     $legacyConfiguration = & $module { Get-LabStorageConfiguration }
     $legacyLocationId = [string]$legacyConfiguration.LabDataLocations[0].LocationId
     Add-CheckResult -Name 'Legacy-Storage-Katalog wird mit stabilem LocationId und erhaltener Default-Bindung gelesen' -Success (

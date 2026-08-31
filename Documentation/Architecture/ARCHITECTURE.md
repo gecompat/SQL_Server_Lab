@@ -76,6 +76,7 @@ Resume-SqlServerLabOperation           # Pausierten Vorgang freigeben
 Stop-SqlServerLabOperation             # Vorgang und optional seinen Scope bereinigen
 Stop-SqlServerLabBatch                 # Unfertige oder alle Batch-Ressourcen zurueckbauen
 Get-SqlServerLabWorkflow               # Verdichtete, geheimnisfreie Workflow-Sicht
+Get-SqlServerLabHyperVResourcePreview  # Physische Hyper-V-Klassenroots und Kapazitaet read-only vor UAC
 Get-SqlServerLabCatalog                # Laufzeit-Workflow-Katalog als JSON-Artefakt schreiben
 Get-SqlServerLabCleanupAudit           # Daten-/Runtime-Reste und Hyper-V-Schutzbindungen read-only inventarisieren
 Get-SqlServerLabConnectionCenter       # Passwortfreier SQL-Endpunktkatalog für SSMS und CMS

@@ -664,9 +664,14 @@ Legacy-Children werden nur gegen den unveränderten Image-Plan, das committed
 Binding und ein hashverifiziertes read-only Ziel-Parent umgehängt. Der
 vorjournalisierte `Set-VHD`-Schritt ist fortsetzbar; getrennte Quell-/Ziel-
 Child-Hashes schützen den späten Cleanup. Nach dem Child-Cleanup wird die
-Image-Migration automatisch fortgesetzt. Der Ablauf ist noch nicht über die
-öffentliche UI/CLI verfügbar und besitzt noch keinen real erhöhten End-to-End-Nachweis;
-Legacy-Dateien dürfen deshalb weiterhin nicht manuell verschoben werden.
+Image-Migration automatisch fortgesetzt. Die physische Zielbindung ist über
+`Get-SqlServerLabHyperVResourcePreview` und das Console-User-Gate öffentlich
+sichtbar; sie wird über UAC explizit übergeben und im erhöhten Prozess erneut
+geprüft. Der Legacy-Migrations-Apply besitzt weiterhin keinen öffentlichen
+Startpfad. Ein real erhöhter Windows-Parent-/Child-Fall belegt Copy, Reparent,
+VM-Storage-Rebind, zwei Gaststarts, Recovery-Resume und Quell-Cleanup; ein
+SQL-readiness-gebundener Legacy-Fall fehlt noch. Legacy-Dateien dürfen deshalb
+weiterhin nicht manuell verschoben werden.
 
 Der priorisierte
 [P0-Bugfix](../Project_Planning/HYPERV_LAB_DATA_RESOURCE_ROOT_BUGFIX_BACKLOG.md)
@@ -676,7 +681,7 @@ Migration vorhandener Legacy-Slots. Der physische N5-Hyper-V-Mehrgeräte-
 Nachweis wurde am 2026-08-30 abgeschlossen; das Gesamtgate bleibt bis zur realen
 Abnahme dieses P0-Fixes `IN_PROGRESS / P0_FIX_FIRST`.
 
-`HVR-001` bis `HVR-005` sind intern implementiert
+`HVR-001` bis `HVR-007` sind implementiert
 und statisch beziehungsweise synthetisch validiert: Der
 versionierte lokale Vertrag löst kurze Create-Roots ausschließlich aus
 registrierten `Lab_Data`-Locations auf, revalidiert Controller-, Location-,
@@ -685,8 +690,12 @@ Image- und Staging-Store an ihren Mutationsgrenzen. Der Migrationskern
 inventarisiert und verifiziert Legacy-Runs, bindet run-lokale Hyper-V-
 Ressourcen journalisiert um und erhält externe SQL-Lanes. Die Parent-/Child-
 Kette wird dabei graphbasiert auf den gebundenen Image-Store umgehängt und
-referenzfrei bereinigt. Offen bleiben UI/CLI-Exposition sowie die reale erhöhte
-End-to-End-Abnahme.
+referenzfrei bereinigt. Die öffentliche CLI-Preview und das Console-User-Gate
+zeigen Location, `Lab_Data`, Kapazität und Klassenroots vor der Bestätigung;
+der UAC-Handoff revalidiert denselben Vertrag. Die reale erhöhte Windows-
+Legacy-Run-/Parent-/Child-Migration ist belegt; offen bleiben SQL-Readiness,
+allgemeine Storage-Migration und erneuter N5-Mehrgeräte-Nachweis. Der Apply
+bleibt bis zum Abschluss dieses Restscopes intern.
 Der erste `HVR-006`-Slice schützt den Hyper-V-Cleanup bereits atomar gegen
 nichtterminale Run-Migrationen und unsafe VHDX-Pfade. Der Cleanup-Audit weist
 Run-Bindings, Migrationsstatus, ungetrackte Preserve-Dateien und Shared-Roots
@@ -717,9 +726,9 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
 
 ## Priorisierte nächste technische Schritte
 
-1. Den P0-Bugfix für Hyper-V-Ressourcenroots abschließen: Zielpfade in
-   UI/CLI/Preview darstellen und den Schutz einschließlich Parent-Migration
-   real erhöht end-to-end abnehmen.
+1. Den P0-Bugfix für Hyper-V-Ressourcenroots nach der belegten real erhöhten
+   Windows-Legacy-Run-/Parent-Migration mit SQL-Readiness, allgemeiner
+   Storage-Migration und erneutem N5-Mehrgeräte-Nachweis abschließen.
 2. `LAB_GENERATED`-Erzeugung und Auswahl an den Hyper-V-Export binden
    (Sample-Welle 5/6).
 3. Die implementierten providerneutralen Network- und Software-Intents an

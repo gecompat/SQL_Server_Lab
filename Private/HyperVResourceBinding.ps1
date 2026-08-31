@@ -42,6 +42,15 @@ function Get-LabHyperVShortResourceKey {
     return ([Convert]::ToHexString($hash).ToLowerInvariant()).Substring(0, 20)
 }
 
+function Get-LabHyperVMigrationRequiredBytes {
+    [CmdletBinding()]
+    param([ValidateRange(0, [long]::MaxValue)][long]$ContentBytes)
+
+    if ($ContentBytes -eq 0) { return 0L }
+    $withReserve = [long][Math]::Ceiling([double]$ContentBytes * 1.10)
+    return [long][Math]::Max([long]1GB, $withReserve)
+}
+
 function Resolve-LabHyperVResourceBinding {
     [CmdletBinding()]
     param(
@@ -108,6 +117,125 @@ function Resolve-LabHyperVResourceBinding {
         ObservedFreeBytes = [long]$location.FreeBytes
         ResolvedAt = Get-LabTimestamp
     }
+}
+
+function Get-LabHyperVResourceLocationPreview {
+    <#
+    .SYNOPSIS
+        Erstellt die read-only Zielvorschau fuer physische Hyper-V-Ressourcen.
+    .DESCRIPTION
+        Loest Controller, Location, Volume, Lab_Data-Root und die erlaubten
+        Klassenroots vor einer Provider- oder UAC-Mutation auf. Die Vorschau
+        enthaelt keine Secrets und kann im erhoehten Prozess erneut gegen die
+        lokale Storage-Registry validiert werden.
+    #>
+    [CmdletBinding()]
+    param(
+        [ValidateSet('Run', 'Build', 'Image', 'Staging', 'Recovery')]
+        [string[]]$ResourceClass = @('Run', 'Build', 'Image', 'Staging', 'Recovery'),
+        [string]$LocationId,
+        [string]$DataRoot
+    )
+
+    $classes = @($ResourceClass | Sort-Object -Unique)
+    if ($classes.Count -eq 0) { throw 'HYPERV_RESOURCE_PREVIEW_CLASS_REQUIRED' }
+    $configuration = Get-LabStorageConfiguration -DataRoot $DataRoot
+    if (-not $configuration.ControllerId -or -not $configuration.DefaultLocationId) {
+        throw 'HYPERV_RESOURCE_BINDING_STORAGE_CONFIGURATION_REQUIRED'
+    }
+    $effectiveLocationId = if ($LocationId) { $LocationId } else { [string]$configuration.DefaultLocationId }
+    $locations = @($configuration.LabDataLocations | Where-Object { [string]$_.LocationId -eq $effectiveLocationId })
+    if ($locations.Count -ne 1) { throw "HYPERV_RESOURCE_BINDING_LOCATION_NOT_FOUND: $effectiveLocationId" }
+    $location = $locations[0]
+
+    # Resolve fuehrt die vollstaendige Ownership-, Marker-, Volume-, Reparse-
+    # und Pfadlaengenpruefung aus. Eine feste Preview-ID erzeugt dabei keine
+    # Datei und dient nur dazu, den kanonischen Klassenroot abzuleiten.
+    $targets = @(
+        foreach ($class in $classes) {
+            $binding = Resolve-LabHyperVResourceBinding -ResourceId "location-preview:$class" `
+                -ResourceClass $class -LocationId $effectiveLocationId -DataRoot ([string]$location.LabDataRoot)
+            $classRoot = Split-Path -Parent ([string]$binding.HyperVResourceRoot)
+            [PSCustomObject]@{
+                ResourceClass = $class
+                ClassRoot = [IO.Path]::GetFullPath($classRoot)
+                ResourceRootPattern = Join-Path ([IO.Path]::GetFullPath($classRoot)) '<20-character-resource-key>'
+            }
+        }
+    )
+    $representative = Resolve-LabHyperVResourceBinding -ResourceId 'location-preview:identity' `
+        -ResourceClass Run -LocationId $effectiveLocationId -DataRoot ([string]$location.LabDataRoot)
+    $warnings = @()
+    if ($representative.SystemVolume) { $warnings += 'HYPERV_RESOURCE_PREVIEW_SYSTEM_VOLUME' }
+
+    return [PSCustomObject]@{
+        ContractVersion = 'SqlServerLab.HyperVResourceLocationPreview/1.0'
+        ControllerId = [string]$representative.ControllerId
+        LocationId = [string]$representative.LocationId
+        VolumeId = [string]$representative.VolumeId
+        LabDataRoot = [string]$representative.LabDataRoot
+        ExpectedResourceClasses = @($classes)
+        Targets = @($targets)
+        ObservedFreeBytes = [long]$location.FreeBytes
+        SystemVolume = [bool]$representative.SystemVolume
+        Warnings = @($warnings)
+        ResolvedAt = Get-LabTimestamp
+    }
+}
+
+function Assert-LabHyperVResourceLocationPreview {
+    <#
+    .SYNOPSIS
+        Revalidiert eine Hyper-V-Zielvorschau gegen die lokale Storage-Registry.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Preview)
+
+    if (-not $Preview -or [string]$Preview.ContractVersion -ne 'SqlServerLab.HyperVResourceLocationPreview/1.0') {
+        throw 'HYPERV_RESOURCE_PREVIEW_CONTRACT_INVALID'
+    }
+    $classes = @($Preview.ExpectedResourceClasses | ForEach-Object { [string]$_ })
+    if ($classes.Count -eq 0 -or @($classes | Where-Object { $_ -notin @('Run', 'Build', 'Image', 'Staging', 'Recovery') }).Count -gt 0) {
+        throw 'HYPERV_RESOURCE_PREVIEW_CLASS_INVALID'
+    }
+    $expected = Get-LabHyperVResourceLocationPreview -ResourceClass $classes `
+        -LocationId ([string]$Preview.LocationId) -DataRoot ([string]$Preview.LabDataRoot)
+    foreach ($property in @('ControllerId', 'LocationId', 'VolumeId', 'LabDataRoot')) {
+        if (-not [string]::Equals([string]$Preview.$property, [string]$expected.$property, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "HYPERV_RESOURCE_PREVIEW_IDENTITY_CHANGED: $property"
+        }
+    }
+    $actualTargets = @($Preview.Targets)
+    if ($actualTargets.Count -ne @($expected.Targets).Count) { throw 'HYPERV_RESOURCE_PREVIEW_TARGETS_CHANGED' }
+    foreach ($target in @($expected.Targets)) {
+        $actual = @($actualTargets | Where-Object { [string]$_.ResourceClass -eq [string]$target.ResourceClass })
+        if ($actual.Count -ne 1 -or
+            -not [string]::Equals([string]$actual[0].ClassRoot, [string]$target.ClassRoot, [StringComparison]::OrdinalIgnoreCase) -or
+            -not [string]::Equals([string]$actual[0].ResourceRootPattern, [string]$target.ResourceRootPattern, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "HYPERV_RESOURCE_PREVIEW_TARGET_CHANGED: $([string]$target.ResourceClass)"
+        }
+    }
+    return $expected
+}
+
+function Write-LabHyperVResourceLocationPreview {
+    <# .SYNOPSIS Zeigt die sanitisierte Hyper-V-Ressourcenroot-Vorschau an. #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Preview)
+
+    $validated = Assert-LabHyperVResourceLocationPreview -Preview $Preview
+    $freeGiB = [Math]::Round(([double]$validated.ObservedFreeBytes / 1GB), 1)
+    Write-Host '  Physische Hyper-V-Zielbindung:' -ForegroundColor Cyan
+    Write-Host "    Location: $($validated.LocationId)" -ForegroundColor DarkGray
+    Write-Host "    Lab_Data: $($validated.LabDataRoot)" -ForegroundColor DarkGray
+    Write-Host "    Freier Speicher bei Prüfung: $freeGiB GB" -ForegroundColor DarkGray
+    foreach ($target in @($validated.Targets)) {
+        Write-Host "    $($target.ResourceClass): $($target.ResourceRootPattern)" -ForegroundColor DarkGray
+    }
+    if ($validated.SystemVolume) {
+        Write-LabWarning 'Der registrierte Hyper-V-Root liegt auf dem Systemvolume. Kapazität vor großen Builds besonders prüfen; es erfolgt kein stiller Wechsel auf ein anderes Volume.'
+    }
+    return $validated
 }
 
 function Test-LabHyperVResourceBinding {

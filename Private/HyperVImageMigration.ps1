@@ -201,7 +201,7 @@ function New-LabHyperVImageMigrationPlan {
         }
     }
 
-    $requiredBytes = if ($copyBytes -gt 0) { [long][Math]::Max(1GB, [Math]::Ceiling([double]$copyBytes * 1.10)) } else { 0L }
+    $requiredBytes = Get-LabHyperVMigrationRequiredBytes -ContentBytes $copyBytes
     if ([long]$binding.ObservedFreeBytes -lt $requiredBytes) {
         $blockers.Add("HYPERV_IMAGE_MIGRATION_INSUFFICIENT_SPACE: required=$requiredBytes; available=$([long]$binding.ObservedFreeBytes)")
     }

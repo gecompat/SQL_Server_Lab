@@ -67,7 +67,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | Komponente | Status | Autoritative Dateien |
 |---|---|---|
 | PowerShell-Modul | implementiert | `SqlServerLab.psd1`, `SqlServerLab.psm1` |
-| Öffentliche API | 49 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
+| Öffentliche API | 50 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
 | Docker | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman | implementiert | `Providers/Podman/PodmanProvider.ps1` |
 | SQL Server External Languages | Container: Java für SQL 2019, Python/R/Java für SQL 2022/2025, jeweils Docker und Podman; Hyper-V/Windows: SQL-2022 Python/R/Java nativ akzeptiert, C# für SQL 2019–2025 sichtbar `PREVIEW` | `../Catalogs/software.json`, `../Tests/Integration/Invoke-ExternalRuntimeContainerAcceptance.ps1`, `../Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1` |
@@ -107,6 +107,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `Stop-SqlServerLabOperation` | Vorgang an sicherer Grenze stoppen und optional scopegebunden bereinigen |
 | `Stop-SqlServerLabBatch` | Unfertige Positionen oder ausdrücklich den gesamten Batch zurückbauen |
 | `Get-SqlServerLabWorkflow` | Konsolidierte Workflow- und Imageübersicht ohne Geheimnisse |
+| `Get-SqlServerLabHyperVResourcePreview` | Registrierte Hyper-V-Location, Kapazität und physische Klassenroots read-only anzeigen |
 | `Get-SqlServerLabCatalog` | Konsolidierten Lab-Katalog als JSON-Artefakt erzeugen |
 | `Get-SqlServerLabCleanupAudit` | Lab-Daten, Runtime-Ressourcen sowie Hyper-V-Bindings/Migrations- und Preserve-Befunde read-only prüfen |
 | `Get-SqlServerLabConnectionCenter` | Passwortfreien SQL-Endpunktkatalog für SSMS und CMS ermitteln |

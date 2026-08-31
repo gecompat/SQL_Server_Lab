@@ -197,6 +197,23 @@ vom frischen Build bis zum bereinigten Manifestklon. Weitere Windows-/SQL-
 Kombinationen und die breite Datenbank-, Software-, Post-Provisioning- und
 Network-Manifestbindung benötigen weiterhin eigene Nachweise.
 
+### Reale Legacy-Run-/Parent-Child-Migration
+
+Der erhöhte HVR-008-Runner verlangt eine exakte Run-ID, den erwarteten VM-Namen,
+einen getrennten Legacy-StateRoot und einen registrierten Ziel-DataRoot. Er
+veröffentlicht das Parent-Image hashgebunden, migriert und reparentet die
+run-eigene VHDX, verschiebt VM-Konfiguration, Paging und Snapshots, belegt zwei
+Gaststarts und entfernt die verifizierte Quelle erst nach den abschließenden
+Binding-, VHDX-, Parent- und Attachment-Postconditions. Ein nichtterminales
+Journal wird aus demselben Plan fortgesetzt.
+
+```powershell
+.\Tests\Integration\Invoke-HyperVResourceMigrationAcceptance.ps1 `
+    -RunId '<run-guid>' -ExpectedVMName '<vm-name>' `
+    -LegacyStateRoot '<legacy-state-root>' -DataRoot '<registered-lab-data-root>' `
+    -EvidencePath '<path-outside-repository>' -Confirm:$false
+```
+
 ## 3. Voraussetzungen
 
 ### Statische Prüfung

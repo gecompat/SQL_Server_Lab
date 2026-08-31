@@ -84,6 +84,10 @@ COMMANDS
         Returns the consolidated workflow view for local labs, Windows
         baselines, SQL prepared images, and acceptance environments.
 
+    Get-SqlServerLabHyperVResourcePreview
+        Shows the registered Hyper-V location, free capacity, and physical
+        resource-class roots read-only before a host mutation.
+
     Get-SqlServerLabCatalog
         Builds a consolidated, secret-free runtime catalog of current labs,
         templates, and artifacts and stores it as JSON.

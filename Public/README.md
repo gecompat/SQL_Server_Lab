@@ -20,6 +20,7 @@ Dieses Verzeichnis enthält die öffentlichen PowerShell-Funktionen des Moduls. 
 | `Stop-SqlServerLabBatch` | `BatchWorkflow.ps1` | Unfertige Positionen oder ausdrücklich den gesamten Batch zurückbauen |
 | `Invoke-SqlServerLabScheduler` | `BatchWorkflow.ps1` | Persistente Queue mit begrenzter Workerzahl bis zum Leerlauf verarbeiten |
 | `Get-SqlServerLabWorkflow` | `Get-SqlServerLabWorkflow.ps1` | Verdichtete Workflow-, Image- und Kombinationsübersicht ohne Geheimnisse |
+| `Get-SqlServerLabHyperVResourcePreview` | `Get-SqlServerLabHyperVResourcePreview.ps1` | Registrierte Hyper-V-Location, freien Speicher und physische Klassenroots ohne Mutation auflösen |
 | `Get-SqlServerLabCatalog` | `Get-SqlServerLabCatalog.ps1` | Workflow-Katalog als persistenter, maschinenlesbarer Katalog mit Laufzeit-Metadaten |
 | `Get-SqlServerLabCleanupAudit` | `Get-SqlServerLabCleanupAudit.ps1` | Bekannte Datenwurzeln und Runtime-Ressourcen read-only auf Reste und nicht prüfbare Provider untersuchen |
 | `Get-SqlServerLabConnectionCenter` | `Sync-SqlServerLabConnectionCenter.ps1` | Passwortfreie Endpunktübersicht für SSMS, CMS und Exporte |
