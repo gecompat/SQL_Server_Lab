@@ -50,6 +50,14 @@ try {
                 ControllerLocation=1; FileSystem='NTFS'; AllocationUnitKB=64; VolumeLabel='SQLDATA'; MaximumIops=0
                 HostRoot=$externalRoot; LocationId=[string]$storageConfiguration.LabDataLocations[0].LocationId; Selector='sqldata'
             })
+        $notesIdentity = ConvertFrom-HyperVLabNotes -Notes $notes
+        $notesIdentity | Add-Member -NotePropertyName windowsSpecialization -NotePropertyValue ([PSCustomObject]@{
+            status='WINDOWS_SPECIALIZED'
+        }) -Force
+        $notesIdentity | Add-Member -NotePropertyName sqlReadiness -NotePropertyValue ([PSCustomObject]@{
+            status='SQL_READY_RUN'; majorVersion=17; onlineSystemDatabases=4
+        }) -Force
+        $notes = $script:HyperVLabNotesPrefix + ($notesIdentity | ConvertTo-Json -Compress -Depth 15)
         $script:migrationVm = [PSCustomObject]@{
             Name='sql-lab-legacy'; State='Off'; Path=$legacyRoot
             SmartPagingFilePath=$legacyRoot; SnapshotFileLocation=$legacyRoot; Notes=$notes
@@ -61,6 +69,7 @@ try {
         $script:failSetVhdAfterMutation = $false
         $script:moveCalls = 0
         $script:setVhdCalls = 0
+        $script:sqlReadinessCalls = 0
         $script:vhdParents = @{}
         $script:vhdParents[[IO.Path]::GetFullPath($sourceDisk)] = [IO.Path]::GetFullPath($parentDisk)
 
@@ -112,6 +121,13 @@ try {
             }
             [PSCustomObject]@{ Ready=$true; Message='' }
         }
+        function Wait-HyperVGuestSqlReady {
+            param($VMName,$ExpectedRunId,$ExpectedScopeId,$Credential,$SaPassword,$ExpectedMajorVersion,$TimeoutSeconds)
+            $script:sqlReadinessCalls++
+            [PSCustomObject]@{
+                Status='SQL_READY_RUN'; Ready=$true; MajorVersion=$ExpectedMajorVersion; OnlineSystemDatabases=4
+            }
+        }
 
         [PSCustomObject]@{ instances=@([PSCustomObject]@{ id='primary'; provider='hyperv'; vmName=$script:migrationVm.Name; childVhdxPath=$sourceDisk }) } |
             ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $runDirectory 'connection-info.json') -Encoding utf8
@@ -144,6 +160,7 @@ try {
         foreach ($character in 'Migration-Test-Only!'.ToCharArray()) { $testPassword.AppendChar($character) }
         $testPassword.MakeReadOnly()
         $credential = [PSCredential]::new('Administrator', $testPassword)
+        Save-LabSecret -Path $runDirectory -Name 'generated-sql-sa-password' -Secret $testPassword
         $ready.Plan.Inventory.VMs[0].LegacyDisks[0].SourcePath = $externalDisk
         Write-LabArtifactJsonAtomic -Path $ready.Path -InputObject $ready.Plan
         $tamperedPlanMessage = try {
@@ -166,6 +183,11 @@ try {
             ''
         } catch { $_.Exception.Message }
         $journalAfterFailure = Get-Content -LiteralPath (Join-Path $runDirectory 'hyperv-resource-migration.local.journal.json') -Raw -Encoding utf8 | ConvertFrom-Json -Depth 40
+        $journalAfterFailure.ReadinessReceipts = @([PSCustomObject]@{
+            VMName=[string]$script:migrationVm.Name; Cycle=1; GuestReady=$true; SqlReady=$false; At=Get-LabTimestamp
+        })
+        Write-LabHyperVResourceMigrationJournal `
+            -Path (Join-Path $runDirectory 'hyperv-resource-migration.local.journal.json') -Journal $journalAfterFailure
         $recoveryLifecycleGuard = Get-LabHyperVResourceMigrationLifecycleGuard -RunId $run.runId -StateRoot $Root
         $recoveryLifecycleMessage = try {
             Assert-LabHyperVResourceMigrationLifecycleAllowed -RunId $run.runId -Operation 'START' -StateRoot $Root | Out-Null
@@ -206,6 +228,7 @@ try {
             LegacyRoot=$legacyRoot
             ActualOsDisk=[string]$script:osDrive.Path; ActualExternalDisk=[string]$script:externalDrive.Path
             VM=$script:migrationVm; MoveCalls=$script:moveCalls; SetVhdCalls=$script:setVhdCalls
+            SqlReadinessCalls=$script:sqlReadinessCalls
             SourceParent=$parentDisk; TargetParent=$targetParent; ImageWaiting=$imageWaiting; ImageJournal=$imageJournal
             ActualParent=[string](Get-VHD -Path ([string]$script:osDrive.Path)).ParentPath
         }
@@ -252,6 +275,11 @@ try {
     )
     Add-CheckResult -Name 'Abschlussjournal ist schema-valid und belegt zwei Restart-Zyklen' -Success (
         $result.JournalSchemaValid -and @($result.Journal.ReadinessReceipts).Count -eq 2 -and $result.Journal.BindingCommitted
+    )
+    Add-CheckResult -Name 'SQL-gebundener Resume ersetzt unzureichende Evidence und belegt beide SQL-Restarts' -Success (
+        $result.SqlReadinessCalls -eq 2 -and
+        @($result.Journal.ReadinessReceipts | Where-Object { [bool]$_.SqlReady }).Count -eq 2 -and
+        @($result.Journal.ReadinessReceipts | Where-Object { -not [bool]$_.SqlReady }).Count -eq 0
     )
     Add-CheckResult -Name 'Cleanup akzeptiert legitime Child-Änderungen aus den belegten Gaststarts' -Success (
         $result.Completed.Status -eq 'COMPLETED' -and @($result.Journal.ReadinessReceipts).Count -eq 2 -and
