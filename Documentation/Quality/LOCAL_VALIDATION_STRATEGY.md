@@ -140,9 +140,12 @@ verwenden:
     -MediaRoot D:\Lab_Base
 ```
 
-Der Bootstrap behält den testlokalen N4-State nur nach vollständigem Erfolg,
-übergibt Artifact-ID und State-Root maschinenlesbar an N5 und entfernt den
-gesamten isolierten State anschließend nach strikter Scope-Prüfung. Der
+Der Bootstrap behält den testlokalen N4-State nur nach vollständigem Erfolg
+bis zur Übergabe an N5, übergibt Artifact-ID und State-Root maschinenlesbar und
+entfernt anschließend zuerst den exakten terminalen Build-State und danach das
+isolierte Prepared-Image über die produktive Image-Registry. Beide
+Abwesenheits-Postconditions werden geprüft. Bei einem Fehler bleiben State und
+Artifact mit `RECOVERY_REQUIRED` für eine sichere Diagnose erhalten. Der
 Standardlauf der N4-Abnahme behält weiterhin nichts zurück.
 
 Es werden bewusst nicht alle CUs getestet. Docker und Podman verwenden je
@@ -161,6 +164,14 @@ dateigenaues CREATE und Restore sowie VM-Restart und Cleanup. Der Runner bleibt
 `NOT_EXECUTED`, solange der Host nicht mindestens die im Intent geforderten
 physischen Geräte mit eindeutig selektierbaren Storage-Locations und ein passendes `SQL_PREPARED_SEALED`-
 Artifact bereitstellt.
+
+Der Referenzlauf wurde am 2026-08-31 nach Einführung der gebundenen Hyper-V-
+Ressourcenroots mit drei von drei geforderten physischen Geräten erneut
+ausgeführt. Builder-VHDX, Published Image und N5-Lanes wurden über ihre
+persistierten Bindungen aufgelöst; SQL-Restart, Create, Backup/Restore,
+VM-Restart und Cleanup waren erfolgreich. Die unabhängigen Nachprüfungen fanden
+kein Test-Artifact, keinen isolierten State und keine seit Laufbeginn erzeugte
+VHDX an den registrierten Locations.
 
 ### Reale Windows-Generalize-/Publish-Abnahme
 
@@ -187,6 +198,9 @@ differenzierende VM geklont. Der Runner prüft Windows-Specialization,
 `CompleteImage`, WMI, TCP/IP-Hostzugriff und `SQL_READY_RUN` mit Major-Version
 und vier Online-Systemdatenbanken. Abschließend belegt er den unveränderten
 Parent-Hash sowie den scopegebundenen Cleanup von Builder- und Manifestlauf.
+Die Builder-VHDX wird dabei nicht aus dem State-Verzeichnis zusammengesetzt,
+sondern aus `resourceRelativePath` und dem persistierten `Build`-Binding erneut
+aufgelöst.
 
 ```powershell
 .\Tests\Integration\Invoke-HyperVSqlPreparedImageAcceptance.ps1

@@ -499,12 +499,7 @@ function Publish-HyperVWindowsImageBuild {
         (Get-FileHash -LiteralPath $evidencePath -Algorithm SHA256).Hash.ToLowerInvariant() -ne [string]$build.generalizationEvidence.storedSha256) {
         throw 'HYPERV_GENERALIZATION_EVIDENCE_INTEGRITY_MISMATCH'
     }
-    $boundRelativePath = if ($build.builder.resourceRelativePath) {
-        [string]$build.builder.resourceRelativePath
-    }
-    else { Split-Path -Leaf ([string]$build.builder.osDiskRelativePath) }
-    $diskPath = Resolve-LabHyperVStateResourcePath -StateDirectory $build.BuildDirectory `
-        -BoundRelativePath $boundRelativePath -LegacyRelativePath ([string]$build.builder.osDiskRelativePath)
+    $diskPath = Resolve-LabHyperVBuilderDiskPath -Build $build
     if (-not (Test-HyperVPathWithinRunDirectory -Path $diskPath -RunDirectory $build.BuildDirectory) -or
         -not (Test-Path -LiteralPath $diskPath -PathType Leaf)) {
         throw 'HYPERV_IMAGE_BUILD_DISK_SCOPE_INVALID'

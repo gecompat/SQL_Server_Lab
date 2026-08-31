@@ -403,6 +403,30 @@ function Resolve-LabHyperVStateResourcePath {
     return [IO.Path]::GetFullPath((Join-Path $StateDirectory $LegacyRelativePath))
 }
 
+function Resolve-LabHyperVBuilderDiskPath {
+    <#
+    .SYNOPSIS
+        Loest die Builder-VHDX aus dem gebundenen Ressourcenroot oder einem Legacy-Build auf.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Build)
+
+    if (-not $Build.PSObject.Properties['BuildDirectory'] -or
+        [string]::IsNullOrWhiteSpace([string]$Build.BuildDirectory) -or
+        -not $Build.builder -or
+        [string]::IsNullOrWhiteSpace([string]$Build.builder.osDiskRelativePath)) {
+        throw 'HYPERV_BUILDER_DISK_REFERENCE_REQUIRED'
+    }
+    $boundRelativePath = if (-not [string]::IsNullOrWhiteSpace([string]$Build.builder.resourceRelativePath)) {
+        [string]$Build.builder.resourceRelativePath
+    }
+    else {
+        Split-Path -Leaf ([string]$Build.builder.osDiskRelativePath)
+    }
+    return Resolve-LabHyperVStateResourcePath -StateDirectory ([string]$Build.BuildDirectory) `
+        -BoundRelativePath $boundRelativePath -LegacyRelativePath ([string]$Build.builder.osDiskRelativePath)
+}
+
 function Get-LabHyperVResourceDiscoveryRoots {
     [CmdletBinding()]
     param(

@@ -246,7 +246,10 @@ try {
         Set-HyperVImageBuildManualAction -BuildId $Id -StateRoot $Root
     } $buildId $stateRoot
     $builderVmName = [string]$build.builder.vmName
-    $builderDiskPath = Join-Path $build.BuildDirectory ([string]$build.builder.osDiskRelativePath)
+    $builderDiskPath = & $module {
+        param($Build)
+        Resolve-LabHyperVBuilderDiskPath -Build $Build
+    } $build
     Assert-GeneralizeAcceptance -Condition ($build.state -eq 'MANUAL_ACTION_REQUIRED') `
         -Description 'Testlokaler Windows-Builder wartet am produktiven Generalize-Gate'
 

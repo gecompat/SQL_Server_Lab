@@ -8,6 +8,7 @@ $temporaryParent = Join-Path ([IO.Path]::GetTempPath()) "sql-lab-hvr-binding-$([
 $dataRoot = Join-Path $temporaryParent 'Lab_Data'
 $stateRoot = Join-Path $temporaryParent 'state'
 $stateDirectory = Join-Path $stateRoot 'runs/test-run'
+$previousDataRoot = $env:SQL_SERVER_LAB_DATA_ROOT
 $failures = [System.Collections.Generic.List[string]]::new(); $passed = 0
 . (Join-Path $PSScriptRoot '..' 'Common' 'CheckResult.ps1')
 
@@ -23,6 +24,7 @@ try {
         param($root)
         Initialize-LabManagedDataRoot -DataRoot $root -Confirm:$false
     } $dataRoot
+    $env:SQL_SERVER_LAB_DATA_ROOT = $dataRoot
     New-Item -Path $stateDirectory -ItemType Directory -Force | Out-Null
 
     foreach ($relativePath in @('HyperV/Runs', 'HyperV/Builds', 'HyperV/Images', 'HyperV/Staging', 'HyperV/Recovery')) {
@@ -100,6 +102,40 @@ try {
                 Join-Path (Join-Path $dataRoot "HyperV/$($_.Directory)") ([string]$_.Binding.ResourceKey)
             )
         }).Count -eq 0
+    )
+
+    $builderStateDirectory = Join-Path $stateRoot 'image-builds/hyperv-sql/bound-build'
+    New-Item -Path $builderStateDirectory -ItemType Directory -Force | Out-Null
+    $builderBinding = & $module {
+        param($directory, $root)
+        Initialize-LabHyperVResourceBinding -ResourceId 'bound-build' -ResourceClass Build `
+            -StateDirectory $directory -DataRoot $root
+    } $builderStateDirectory $dataRoot
+    $builderFixture = [PSCustomObject]@{
+        BuildDirectory = $builderStateDirectory
+        builder = [PSCustomObject]@{
+            osDiskRelativePath = 'resources/hyperv/builder.vhdx'
+            resourceRelativePath = 'builder.vhdx'
+        }
+    }
+    $boundBuilderDisk = & $module {
+        param($build)
+        Resolve-LabHyperVBuilderDiskPath -Build $build
+    } $builderFixture
+    $legacyBuilderDirectory = Join-Path $stateRoot 'image-builds/hyperv-sql/legacy-build'
+    New-Item -Path $legacyBuilderDirectory -ItemType Directory -Force | Out-Null
+    $legacyBuilderFixture = [PSCustomObject]@{
+        BuildDirectory = $legacyBuilderDirectory
+        builder = [PSCustomObject]@{ osDiskRelativePath = 'resources/hyperv/legacy.vhdx' }
+    }
+    $legacyBuilderDisk = & $module {
+        param($build)
+        Resolve-LabHyperVBuilderDiskPath -Build $build
+    } $legacyBuilderFixture
+    Add-CheckResult -Name 'Builder-Diskaufloesung trennt gebundenen Lab_Data-Root vom Legacy-StateRoot' -Success (
+        [string]$boundBuilderDisk -eq (Join-Path ([string]$builderBinding.HyperVResourceRoot) 'builder.vhdx') -and
+        [string]$boundBuilderDisk -notlike "$builderStateDirectory*" -and
+        [string]$legacyBuilderDisk -eq (Join-Path $legacyBuilderDirectory 'resources/hyperv/legacy.vhdx')
     )
 
     $bindingPath = & $module {
@@ -227,6 +263,10 @@ try {
     $sqlBuilderText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVSqlImageBuilder.ps1') -Raw -Encoding utf8
     $registryText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVImageRegistry.ps1') -Raw -Encoding utf8
     $environmentText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVLabEnvironment.ps1') -Raw -Encoding utf8
+    $sqlAcceptanceEnvironmentText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVSqlAcceptanceEnvironment.ps1') -Raw -Encoding utf8
+    $sqlPreparedAcceptanceText = Get-Content -LiteralPath (Join-Path $repoRoot 'Tests/Integration/Invoke-HyperVSqlPreparedImageAcceptance.ps1') -Raw -Encoding utf8
+    $generalizeAcceptanceText = Get-Content -LiteralPath (Join-Path $repoRoot 'Tests/Integration/Invoke-HyperVWindowsGeneralizeAcceptance.ps1') -Raw -Encoding utf8
+    $hyperVSmokeText = Get-Content -LiteralPath (Join-Path $repoRoot 'Tests/Integration/Invoke-HyperVSmokeTest.ps1') -Raw -Encoding utf8
     $menuText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Invoke-SqlServerLab.ps1') -Raw -Encoding utf8
     Add-CheckResult -Name 'Run-Provider bindet VHDX, VM-Konfiguration, Paging und Snapshots an denselben Root' -Success (
         $providerText -match 'Initialize-LabHyperVResourceBinding[\s\S]+ResourceClass\s+\$ResourceClass[\s\S]+New-VHD' -and
@@ -237,6 +277,12 @@ try {
         $imageBuilderText -match 'Initialize-LabHyperVResourceBinding[\s\S]+ResourceClass\s+Build[\s\S]+Assert-LabHyperVBoundPath[\s\S]+New-VHD' -and
         $sqlBuilderText -match 'Initialize-LabHyperVResourceBinding[\s\S]+ResourceClass\s+Build[\s\S]+Assert-LabHyperVBoundPath[\s\S]+New-VHD' -and
         $sqlBuilderText -match 'Resolve-LabHyperVStateResourcePath[\s\S]+Convert-VHD'
+    )
+    Add-CheckResult -Name 'Produktive und reale Builder-Consumer verwenden dieselbe gebundene Diskaufloesung' -Success (
+        $sqlAcceptanceEnvironmentText -match 'Resolve-LabHyperVBuilderDiskPath\s+-Build\s+\$build' -and
+        $sqlPreparedAcceptanceText -match 'Resolve-LabHyperVBuilderDiskPath\s+-Build\s+\$Build' -and
+        $generalizeAcceptanceText -match 'Resolve-LabHyperVBuilderDiskPath\s+-Build\s+\$Build' -and
+        $hyperVSmokeText -match 'Resolve-LabHyperVBuilderDiskPath\s+-Build\s+\$Build'
     )
     Add-CheckResult -Name 'Image-Registry trennt Control-State von gebundenem Image- und Staging-Store' -Success (
         $registryText -match "ResourceId\s+'hyperv-image-store'[\s\S]+ResourceClass\s+Image" -and
@@ -258,6 +304,7 @@ catch {
     $failures.Add("Unerwarteter Testfehler: $($_.Exception.Message)")
 }
 finally {
+    $env:SQL_SERVER_LAB_DATA_ROOT = $previousDataRoot
     Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
     if (Test-Path -LiteralPath $temporaryParent) {
         Remove-Item -LiteralPath $temporaryParent -Recurse -Force -ErrorAction SilentlyContinue
