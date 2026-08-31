@@ -1103,7 +1103,7 @@ Master-Plan-Welle zu verändern oder eine Umsetzung zu starten.
 | N2 – P0-Steuerungs-, Abbruch- und Recovery-Verträge | Wellen 1, 2, 3 und 9; vorgeschaltete Konsolidierungswelle | `COMPLETE` |
 | N3 – Drei reale Project-Adapter-Piloten | Wellen 6, 7 und 7a | `COMPLETE`; `ADP-003`, `ADP-004` und `ADP-008` gemergt und jeweils mit Docker und Podman auf SQL Server 2025 end-to-end validiert |
 | N4 – Hyper-V Windows-/SQL-End-to-End | Welle 4 | `COMPLETE` |
-| N5 – Storage- und Reconcile-Vertical-Slice | Wellen 1, 3, 4 und 5; Storage-Konsolidierungsplan | `IN_PROGRESS / P0_FIX_FIRST`; Docker-/Podman-Reconcile sowie Hyper-V-Mehrgeräte-Storage mit vier TempDB-Dateien auf drei lokalen physischen Geräten real belegt, Hyper-V-Ressourcenroot-Vertrag noch offen |
+| N5 – Storage- und Reconcile-Vertical-Slice | Wellen 1, 3, 4 und 5; Storage-Konsolidierungsplan | `COMPLETE`; Docker-/Podman-Reconcile, Hyper-V-Mehrgeräte-Storage mit vier TempDB-Dateien auf drei physischen Geräten sowie `HVR-001` bis `HVR-008` einschließlich laufender Legacy-SQL-Migration mit zwei SQL-Restarts real belegt |
 
 Die fünf Wellen bilden den nächsten Planungshorizont. Scenario Engine, breite
 Fault Injection, vollständige Migration und Ablösung, Remote Hyper-V Host und

@@ -61,6 +61,7 @@ $checks = @(
     'Invoke-HyperVResourceBindingChecks.ps1',
     'Invoke-HyperVImageMigrationChecks.ps1',
     'Invoke-HyperVResourceMigrationChecks.ps1',
+    'Invoke-HyperVLegacySqlMigrationBootstrapChecks.ps1',
     'Invoke-StorageMigrationChecks.ps1',
     'Invoke-StorageFilePlacementChecks.ps1',
     'Invoke-VersionCatalogChecks.ps1',

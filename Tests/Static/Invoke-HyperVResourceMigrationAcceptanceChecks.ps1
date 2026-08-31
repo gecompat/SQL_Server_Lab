@@ -49,7 +49,7 @@ try {
         $text -match 'legacy-connection-and-live-sql-acceptance'
     )
     Add-CheckResult -Name 'HVR-008-Runner stoppt laufende Kandidaten vor dem Hashplan geordnet und stellt sie bei Preflightfehler wieder her' -Success (
-        $text -match 'Stop-VM -VM \$managedForPlan\.VM -Shutdown' -and
+        $text -match 'Stop-HyperVInstance -VMName \$ExpectedName -ExpectedRunId \$ExpectedRunId' -and
         $text -match 'HVR008_ACCEPTANCE_GRACEFUL_SHUTDOWN_TIMEOUT' -and
         $text -match 'New-LabHyperVResourceMigrationPlan' -and
         $text -match 'HVR008_ACCEPTANCE_RUN_PLAN_REQUIRES_OFF_STATE' -and
