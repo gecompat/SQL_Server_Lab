@@ -667,9 +667,11 @@ Child-Hashes schützen den späten Cleanup. Nach dem Child-Cleanup wird die
 Image-Migration automatisch fortgesetzt. Die physische Zielbindung ist über
 `Get-SqlServerLabHyperVResourcePreview` und das Console-User-Gate öffentlich
 sichtbar; sie wird über UAC explizit übergeben und im erhöhten Prozess erneut
-geprüft. Der Legacy-Migrations-Apply besitzt jedoch noch keinen öffentlichen
-Startpfad und keinen real erhöhten End-to-End-Nachweis. Legacy-Dateien dürfen
-deshalb weiterhin nicht manuell verschoben werden.
+geprüft. Der Legacy-Migrations-Apply besitzt weiterhin keinen öffentlichen
+Startpfad. Ein real erhöhter Windows-Parent-/Child-Fall belegt Copy, Reparent,
+VM-Storage-Rebind, zwei Gaststarts, Recovery-Resume und Quell-Cleanup; ein
+SQL-readiness-gebundener Legacy-Fall fehlt noch. Legacy-Dateien dürfen deshalb
+weiterhin nicht manuell verschoben werden.
 
 Der priorisierte
 [P0-Bugfix](../Project_Planning/HYPERV_LAB_DATA_RESOURCE_ROOT_BUGFIX_BACKLOG.md)
@@ -690,8 +692,10 @@ Ressourcen journalisiert um und erhält externe SQL-Lanes. Die Parent-/Child-
 Kette wird dabei graphbasiert auf den gebundenen Image-Store umgehängt und
 referenzfrei bereinigt. Die öffentliche CLI-Preview und das Console-User-Gate
 zeigen Location, `Lab_Data`, Kapazität und Klassenroots vor der Bestätigung;
-der UAC-Handoff revalidiert denselben Vertrag. Offen bleibt die reale erhöhte
-End-to-End-Abnahme einschließlich des noch internen Legacy-Migrations-Apply.
+der UAC-Handoff revalidiert denselben Vertrag. Die reale erhöhte Windows-
+Legacy-Run-/Parent-/Child-Migration ist belegt; offen bleiben SQL-Readiness,
+allgemeine Storage-Migration und erneuter N5-Mehrgeräte-Nachweis. Der Apply
+bleibt bis zum Abschluss dieses Restscopes intern.
 Der erste `HVR-006`-Slice schützt den Hyper-V-Cleanup bereits atomar gegen
 nichtterminale Run-Migrationen und unsafe VHDX-Pfade. Der Cleanup-Audit weist
 Run-Bindings, Migrationsstatus, ungetrackte Preserve-Dateien und Shared-Roots
@@ -722,9 +726,9 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
 
 ## Priorisierte nächste technische Schritte
 
-1. Den P0-Bugfix für Hyper-V-Ressourcenroots mit der real erhöhten
-   End-to-End-Abnahme von Platzierung, Legacy-Run-/Parent-Migration, Restart,
-   Recovery und Cleanup abschließen.
+1. Den P0-Bugfix für Hyper-V-Ressourcenroots nach der belegten real erhöhten
+   Windows-Legacy-Run-/Parent-Migration mit SQL-Readiness, allgemeiner
+   Storage-Migration und erneutem N5-Mehrgeräte-Nachweis abschließen.
 2. `LAB_GENERATED`-Erzeugung und Auswahl an den Hyper-V-Export binden
    (Sample-Welle 5/6).
 3. Die implementierten providerneutralen Network- und Software-Intents an

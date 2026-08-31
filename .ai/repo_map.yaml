@@ -65,6 +65,7 @@ sources_of_truth:
   validation_storage_file_placement: Tests/Static/Invoke-StorageFilePlacementChecks.ps1
   validation_hyperv_resource_binding: Tests/Static/Invoke-HyperVResourceBindingChecks.ps1
   validation_hyperv_resource_migration: Tests/Static/Invoke-HyperVResourceMigrationChecks.ps1
+  validation_hyperv_resource_migration_acceptance: Tests/Static/Invoke-HyperVResourceMigrationAcceptanceChecks.ps1
   validation_hyperv_image_migration: Tests/Static/Invoke-HyperVImageMigrationChecks.ps1
   runtime_limitations: Documentation/Quality/KNOWN_LIMITATIONS.md
   sample_artifact_and_manifest_wizard_target: Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md
@@ -505,6 +506,7 @@ providers:
     builder_static_checks: Tests/Static/Invoke-HyperVImageBuilderChecks.ps1
     resource_binding_static_checks: Tests/Static/Invoke-HyperVResourceBindingChecks.ps1
     resource_migration_static_checks: Tests/Static/Invoke-HyperVResourceMigrationChecks.ps1
+    resource_migration_acceptance: Tests/Integration/Invoke-HyperVResourceMigrationAcceptance.ps1
     image_migration_static_checks: Tests/Static/Invoke-HyperVImageMigrationChecks.ps1
     sql_prepared_build_acceptance: Tests/Integration/Invoke-HyperVSqlPreparedImageAcceptance.ps1
     template_pool: "Maximal 20 immutable OS_SEALED-/SQL_PREPARED_SEALED-Images; aktive Builder und Lab-Klone blockieren Parent-Löschung"

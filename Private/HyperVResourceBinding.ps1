@@ -42,6 +42,15 @@ function Get-LabHyperVShortResourceKey {
     return ([Convert]::ToHexString($hash).ToLowerInvariant()).Substring(0, 20)
 }
 
+function Get-LabHyperVMigrationRequiredBytes {
+    [CmdletBinding()]
+    param([ValidateRange(0, [long]::MaxValue)][long]$ContentBytes)
+
+    if ($ContentBytes -eq 0) { return 0L }
+    $withReserve = [long][Math]::Ceiling([double]$ContentBytes * 1.10)
+    return [long][Math]::Max([long]1GB, $withReserve)
+}
+
 function Resolve-LabHyperVResourceBinding {
     [CmdletBinding()]
     param(

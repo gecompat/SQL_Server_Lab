@@ -282,7 +282,13 @@ function Get-LabHyperVLegacyRunInventory {
     }
 
     $legacyFiles = if (Test-Path -LiteralPath $paths.LegacyRoot -PathType Container) {
-        @(Get-ChildItem -LiteralPath $paths.LegacyRoot -File -Recurse -Force -ErrorAction Stop)
+        @(Get-ChildItem -LiteralPath $paths.LegacyRoot -File -Recurse -Force -ErrorAction Stop | Where-Object {
+            # VMMS hält diese Konfigurationsartefakte auch bei ausgeschalteten VMs
+            # exklusiv geöffnet. Sie werden durch Move-VMStorage verschoben und
+            # anschließend über die VM-Pfadpostconditions verifiziert; ein
+            # direkter Dateihash ist weder zuverlässig noch erforderlich.
+            [string]$_.Extension -notin @('.vmcx', '.vmrs', '.vmgs')
+        })
     } else { @() }
     $legacyFileInventory = @($legacyFiles | ForEach-Object {
         [PSCustomObject]@{
@@ -292,7 +298,7 @@ function Get-LabHyperVLegacyRunInventory {
         }
     })
     $totalBytes = [long](($legacyFileInventory | Measure-Object -Property Length -Sum).Sum)
-    $requiredBytes = [long][Math]::Max(1GB, [Math]::Ceiling([double]$totalBytes * 1.10))
+    $requiredBytes = Get-LabHyperVMigrationRequiredBytes -ContentBytes $totalBytes
     if ([long]$targetBinding.ObservedFreeBytes -lt $requiredBytes) {
         $blockers.Add("HYPERV_RESOURCE_MIGRATION_INSUFFICIENT_SPACE: required=$requiredBytes; available=$([long]$targetBinding.ObservedFreeBytes)")
     }
@@ -536,13 +542,19 @@ function Invoke-LabHyperVResourceMigration {
                 $destinationHash = if (Test-Path -LiteralPath $destination -PathType Leaf) { (Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLowerInvariant() } else { $null }
                 $copyReceipt = @($journal.CopiedDisks | Where-Object { [string]::Equals([string]$_.DestinationPath, $destination, [StringComparison]::OrdinalIgnoreCase) }) | Select-Object -First 1
                 $reparentReceipt = @($journal.ParentReparents | Where-Object { [string]::Equals([string]$_.DestinationPath, $destination, [StringComparison]::OrdinalIgnoreCase) }) | Select-Object -First 1
+                $reboundReceipt = @($journal.ReboundDisks | Where-Object { [string]::Equals([string]$_.DestinationPath, $destination, [StringComparison]::OrdinalIgnoreCase) }) | Select-Object -First 1
                 $targetParent = if ($disk.TargetParentPath) { [IO.Path]::GetFullPath([string]$disk.TargetParentPath) } else { [string]$disk.ParentPath }
                 $reparentRequired = $disk.ParentPath -and -not [string]::Equals([string]$disk.ParentPath, $targetParent, [StringComparison]::OrdinalIgnoreCase)
                 if ($sourceHash -and $sourceHash -ne [string]$disk.Sha256) { throw "HYPERV_RESOURCE_MIGRATION_SOURCE_CHANGED: $source" }
                 if ($destinationHash -and -not $journalWasPresent) { throw "HYPERV_RESOURCE_MIGRATION_TARGET_CONFLICT: $destination" }
                 if ($destinationHash -and $copyReceipt) {
                     $recordedTargetHash = if ($copyReceipt.TargetSha256) { [string]$copyReceipt.TargetSha256 } else { [string]$copyReceipt.Sha256 }
-                    if ($recordedTargetHash -and $destinationHash -ne $recordedTargetHash) { throw "HYPERV_RESOURCE_MIGRATION_TARGET_CONFLICT: $destination" }
+                    # Nach Rebind und Gast-Readiness ist ein geänderter Child-
+                    # Hash erwartetes Laufzeitverhalten. Vor dem Rebind bleibt
+                    # jede Abweichung ein harter Zielkonflikt.
+                    if ($recordedTargetHash -and $destinationHash -ne $recordedTargetHash -and -not $reboundReceipt) {
+                        throw "HYPERV_RESOURCE_MIGRATION_TARGET_CONFLICT: $destination"
+                    }
                 }
                 if (-not $destinationHash) {
                     if (-not $sourceHash) { throw "HYPERV_RESOURCE_MIGRATION_SOURCE_DISK_MISSING: $source" }
@@ -661,6 +673,10 @@ function Invoke-LabHyperVResourceMigration {
         Write-LabHyperVResourceMigrationJournal -Path $paths.Journal -Journal $journal
         foreach ($vmState in @($journal.InitialVMStates)) {
             for ($cycle=1; $cycle -le 2; $cycle++) {
+                $completedReceipt = @($journal.ReadinessReceipts | Where-Object {
+                    [string]$_.VMName -eq [string]$vmState.VMName -and [int]$_.Cycle -eq $cycle -and [bool]$_.GuestReady
+                }) | Select-Object -First 1
+                if ($completedReceipt) { continue }
                 $null = Start-HyperVInstance -VMName ([string]$vmState.VMName) -ExpectedRunId ([string]$plan.RunId) -ExpectedScopeId ([string]$plan.ScopeId)
                 $ready = Wait-HyperVPowerShellDirect -VMName ([string]$vmState.VMName) -ExpectedRunId ([string]$plan.RunId) `
                     -ExpectedScopeId ([string]$plan.ScopeId) -Credential $Credential -TimeoutSeconds $ReadinessTimeoutSeconds
@@ -690,10 +706,37 @@ function Invoke-LabHyperVResourceMigration {
             $source=[string]$copy.SourcePath; $destination=[string]$copy.DestinationPath
             if (Test-Path -LiteralPath $source -PathType Leaf) {
                 $sourceHash=(Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash.ToLowerInvariant()
-                $targetHash=(Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLowerInvariant()
                 $expectedSourceHash = if ($copy.SourceSha256) { [string]$copy.SourceSha256 } else { [string]$copy.Sha256 }
-                $expectedTargetHash = if ($copy.TargetSha256) { [string]$copy.TargetSha256 } else { [string]$copy.Sha256 }
-                if ($sourceHash -ne $expectedSourceHash -or $targetHash -ne $expectedTargetHash) { throw "HYPERV_RESOURCE_MIGRATION_SOURCE_CLEANUP_HASH_MISMATCH: $source" }
+                if ($sourceHash -ne $expectedSourceHash) { throw "HYPERV_RESOURCE_MIGRATION_SOURCE_CLEANUP_HASH_MISMATCH: $source" }
+                $diskPlans = @(
+                    foreach ($vmPlan in @($plan.Inventory.VMs)) {
+                        foreach ($disk in @($vmPlan.LegacyDisks)) {
+                            if ([string]::Equals([IO.Path]::GetFullPath([string]$disk.SourcePath), [IO.Path]::GetFullPath($source), [StringComparison]::OrdinalIgnoreCase) -and
+                                [string]::Equals([IO.Path]::GetFullPath([string]$disk.DestinationPath), [IO.Path]::GetFullPath($destination), [StringComparison]::OrdinalIgnoreCase)) {
+                                [PSCustomObject]@{ VMPlan=$vmPlan; Disk=$disk }
+                            }
+                        }
+                    }
+                )
+                if ($diskPlans.Count -ne 1 -or -not (Test-Path -LiteralPath $destination -PathType Leaf)) {
+                    throw "HYPERV_RESOURCE_MIGRATION_TARGET_CLEANUP_INTEGRITY_FAILED: $destination"
+                }
+                $diskPlan = $diskPlans[0].Disk
+                $managedTarget = Get-HyperVManagedVM -VMName ([string]$diskPlans[0].VMPlan.VMName) `
+                    -ExpectedRunId ([string]$plan.RunId) -ExpectedScopeId ([string]$plan.ScopeId)
+                $attachedTarget = @(Get-VMHardDiskDrive -VM $managedTarget.VM -ErrorAction Stop | Where-Object {
+                    $_.Path -and [string]::Equals([IO.Path]::GetFullPath([string]$_.Path), [IO.Path]::GetFullPath($destination), [StringComparison]::OrdinalIgnoreCase) -and
+                    [int]$_.ControllerNumber -eq [int]$diskPlan.ControllerNumber -and [int]$_.ControllerLocation -eq [int]$diskPlan.ControllerLocation
+                })
+                $targetVhd = Get-VHD -Path $destination -ErrorAction Stop
+                $targetParent = if ($targetVhd.ParentPath) { [IO.Path]::GetFullPath([string]$targetVhd.ParentPath) } else { $null }
+                $expectedParent = if ($diskPlan.TargetParentPath) { [IO.Path]::GetFullPath([string]$diskPlan.TargetParentPath) } else { $null }
+                if ($attachedTarget.Count -ne 1 -or [string]$targetVhd.VhdType -ne [string]$diskPlan.VhdType -or
+                    [long]$targetVhd.Size -ne [long]$diskPlan.Size -or
+                    ([string]$diskPlan.DiskIdentifier -and [string]$targetVhd.DiskIdentifier -ne [string]$diskPlan.DiskIdentifier) -or
+                    -not [string]::Equals([string]$targetParent, [string]$expectedParent, [StringComparison]::OrdinalIgnoreCase)) {
+                    throw "HYPERV_RESOURCE_MIGRATION_TARGET_CLEANUP_INTEGRITY_FAILED: $destination"
+                }
                 $attached = @(Get-VM -ErrorAction SilentlyContinue | Get-VMHardDiskDrive -ErrorAction SilentlyContinue | Where-Object {
                     $_.Path -and [IO.Path]::GetFullPath([string]$_.Path).Equals([IO.Path]::GetFullPath($source), [StringComparison]::OrdinalIgnoreCase)
                 })

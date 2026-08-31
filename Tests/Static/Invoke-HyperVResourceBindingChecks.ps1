@@ -14,6 +14,11 @@ $failures = [System.Collections.Generic.List[string]]::new(); $passed = 0
 Write-Host ''; Write-Host 'SQL_Server_Lab - Hyper-V Resource Binding Checks' -ForegroundColor Cyan
 try {
     $module = Import-Module $modulePath -Force -PassThru -ErrorAction Stop
+    $largeMigrationCapacity = & $module { Get-LabHyperVMigrationRequiredBytes -ContentBytes ([long]23GB) }
+    Add-CheckResult -Name 'Migrationsreserve bleibt für reale VHDX-Größen oberhalb Int32 stabil' -Success (
+        $largeMigrationCapacity -eq [long][Math]::Ceiling([double]([long]23GB) * 1.10) -and
+        $largeMigrationCapacity -gt [int]::MaxValue
+    )
     $marker = & $module {
         param($root)
         Initialize-LabManagedDataRoot -DataRoot $root -Confirm:$false
