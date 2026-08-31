@@ -46,6 +46,14 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 - Der resumierbare Child-Cleanup akzeptiert erwartete Laufzeitänderungen nach
   belegter Gast-Readiness, verlangt aber weiterhin unveränderten Quellhash,
   gültige VHDX-Struktur, exakten Parent und eindeutiges VM-Attachment.
+- Persistierte Windows- und SQL-Builder-States lösen ihre System-VHDX jetzt
+  über `resourceRelativePath` und das gebundene `Build`-Receipt auf. Produkt-,
+  Resume-, Publish- und Acceptance-Pfade fallen dadurch bei einem getrennten
+  `StateRoot` nicht mehr auf den alten state-lokalen Builderpfad zurück.
+- Der isolierte N5-Bootstrap entfernt sein temporäres Prepared-Image nach dem
+  N5-Lauf über die Image-Registry und prüft die Abwesenheit nach. Bei einem
+  fehlgeschlagenen Lauf bleiben State und Artifact stattdessen ausdrücklich
+  für die sichere Diagnose erhalten.
 
 ### Validiert
 
@@ -61,8 +69,13 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   belegt zusätzlich VMMS-Pfadplanung, einmalige Storage-Umbindung und Resume
   synthetisch. Eine reale erhöhte Windows-
   Parent-/Child-Migration belegte Copy, Reparent, VM-Storage-Rebind, zwei
-  Gaststarts, Recovery-Resume und Quell-Cleanup. SQL-Readiness und der erneute
-  N5-Mehrgeräte-Nachweis bleiben als restlicher `HVR-008`-Scope offen.
+  Gaststarts, Recovery-Resume und Quell-Cleanup. Ein erneuter real erhöhter
+  N4-/N5-Lauf belegte anschließend den gebundenen
+  Builder- und Image-Pfad, drei von drei geforderten physischen Geräten,
+  SQL-Restart, Create, Backup/Restore, VM-Restart sowie vollständigen VM-,
+  VHDX-, Artifact- und Test-State-Cleanup. SQL-Readiness der Legacy-Migration
+  und die allgemeine Storage-Migration bleiben als restlicher `HVR-008`-Scope
+  offen.
 
 ## 2026-08-30
 

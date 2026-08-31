@@ -282,8 +282,12 @@ Operationen quittieren erst nach exaktem `sys.master_files`-Abgleich. Fehler
 hinterlassen ein sanitisiertes `RECOVERY_REQUIRED`-Receipt. Katalogisierte
 Sample-Restores im neuen Hyper-V-Storagepfad sind weiterhin unsupported;
 physische Containertrennung bleibt ebenfalls unsupported. Der physische
-N5-Storage-Nachweis ist damit abgeschlossen; das Gesamtgate bleibt bis zur
-Behebung der Hyper-V-Ressourcenroot-Abweichung `IN_PROGRESS / P0_FIX_FIRST`.
+N5-Storage-Nachweis ist damit abgeschlossen. Ein erneuter realer Lauf am
+2026-08-31 bestätigte den Vertrag nach der Ressourcenroot-Umstellung mit drei
+von drei geforderten Geräten, gebundenem Builder-/Image-Pfad und vollständigem
+Cleanup des isolierten Prepared-Images, Test-State und aller rungebundenen
+VHDX. Der verbleibende P0-Abnahmescope betrifft nicht mehr N5, sondern die
+reale Legacy-SQL- und allgemeine Parent-Storage-Migration.
 Die virtuelle Lane-Kapazität wird im Bound Plan deterministisch abgeleitet:
 mindestens 32 GB für offen wachsende Data-/Log-/Backup-Rollen, mindestens 4 GB
 für reine TempDB-Lanes und jeweils mindestens die expliziten Dateigrößen plus
@@ -684,13 +688,21 @@ Restart-Zyklen SQL-Readiness verlangen und den laufenden Zustand abschließend
 erneut validieren. Dieser SQL-gebundene Realfall ist noch `NOT_EXECUTED`.
 Legacy-Dateien dürfen deshalb weiterhin nicht manuell verschoben werden.
 
+Persistierte Builder-States referenzieren ihre System-VHDX portabel über
+`resourceRelativePath`; Resume, Generalize, Publish sowie die realen Windows-
+und SQL-Acceptance-Pfade lösen den physischen Pfad erneut über das gebundene
+`Build`-Receipt auf. Der reale N4-/N5-Referenzlauf hat diese Trennung zwischen
+kleinem State und physischer Builder-/Image-Ressource bestätigt.
+
 Der priorisierte
 [P0-Bugfix](../Project_Planning/HYPERV_LAB_DATA_RESOURCE_ROOT_BUGFIX_BACKLOG.md)
 trennt Create-, Discovery-, State- und Ressourcenroots, blockiert neue
 Fehlplatzierungen vor der Provider-Mutation und fordert eine journalisierte
 Migration vorhandener Legacy-Slots. Der physische N5-Hyper-V-Mehrgeräte-
-Nachweis wurde am 2026-08-30 abgeschlossen; das Gesamtgate bleibt bis zur realen
-Abnahme dieses P0-Fixes `IN_PROGRESS / P0_FIX_FIRST`.
+Nachweis wurde am 2026-08-30 abgeschlossen und am 2026-08-31 nach der
+Ressourcenroot-Umstellung einschließlich Artifact-Cleanup erneut bestätigt.
+Der P0-Status bleibt bis zur realen Abnahme des verbleibenden
+Migrationsscopes `IN_PROGRESS / P0_FIX_FIRST`.
 
 `HVR-001` bis `HVR-007` sind implementiert
 und statisch beziehungsweise synthetisch validiert: Der
@@ -704,8 +716,9 @@ Kette wird dabei graphbasiert auf den gebundenen Image-Store umgehängt und
 referenzfrei bereinigt. Die öffentliche CLI-Preview und das Console-User-Gate
 zeigen Location, `Lab_Data`, Kapazität und Klassenroots vor der Bestätigung;
 der UAC-Handoff revalidiert denselben Vertrag. Die reale erhöhte Windows-
-Legacy-Run-/Parent-/Child-Migration ist belegt; offen bleiben SQL-Readiness,
-allgemeine Storage-Migration und erneuter N5-Mehrgeräte-Nachweis. Der Apply
+Legacy-Run-/Parent-/Child-Migration und der erneute N5-Mehrgeräte-Nachweis sind
+belegt; offen bleiben die SQL-Readiness der Legacy-Migration und die allgemeine
+Storage-Migration. Der Apply
 bleibt bis zum Abschluss dieses Restscopes intern.
 Der erste `HVR-006`-Slice schützt den Hyper-V-Cleanup bereits atomar gegen
 nichtterminale Run-Migrationen und unsafe VHDX-Pfade. Der Cleanup-Audit weist
@@ -745,8 +758,9 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
 ## Priorisierte nächste technische Schritte
 
 1. Den P0-Bugfix für Hyper-V-Ressourcenroots nach der belegten real erhöhten
-   Windows-Legacy-Run-/Parent-Migration mit SQL-Readiness, allgemeiner
-   Storage-Migration und erneutem N5-Mehrgeräte-Nachweis abschließen.
+   Windows-Legacy-Run-/Parent-/Child-Migration und dem erneuten N5-Nachweis mit
+   SQL-Readiness der Legacy-Migration sowie allgemeiner Storage-Migration
+   abschließen.
 2. Den synthetisch implementierten Hyper-V-`LAB_GENERATED`-Export und die
    automatische Sample-Manifestausführung real abnehmen (Sample-Welle 6).
 3. Die implementierten providerneutralen Network- und Software-Intents an

@@ -38,6 +38,7 @@ $runId = [guid]::NewGuid().ToString()
 $scopeId = [guid]::NewGuid().ToString()
 $instance = $null
 $builder = $null
+$builderDiskPath = $null
 $reconcileImageArtifact = $null
 $reconcileRun = $null
 $reconcileStartPlan = $null
@@ -256,6 +257,10 @@ try {
         New-HyperVWindowsImageBuilder -BuildId $plan.buildId -MemoryStartupBytes 512MB -ProcessorCount 1 -StateRoot $StateRoot
     } $isoPath $isoHash $stateRoot
     Assert-HyperVSmoke -Condition ($builder.state -eq 'BUILDER_READY') -Description 'Windows-Image-Builder ist resumierbar bereit'
+    $builderDiskPath = & $module {
+        param($Build)
+        Resolve-LabHyperVBuilderDiskPath -Build $Build
+    } $builder
     $builderVm = Get-VM -Name $builder.builder.vmName -ErrorAction Stop
     Assert-HyperVSmoke -Condition ($builderVm.Generation -eq 2) -Description 'Image-Builder verwendet Generation 2'
     Assert-HyperVSmoke -Condition (-not $builderVm.AutomaticCheckpointsEnabled) -Description 'Automatische Checkpoints sind fuer Image-Builder deaktiviert'
@@ -285,7 +290,7 @@ try {
     Assert-HyperVSmoke -Condition (Test-Path -LiteralPath $published.Artifact.Path -PathType Leaf) -Description 'Versiegeltes Test-Artifact liegt immutable in der Registry'
     Assert-HyperVSmoke -Condition ($published.Cleanup.Status -eq 'CLEANUP_SUCCEEDED') -Description 'Image-Builder-Cleanup war erfolgreich'
     Assert-HyperVSmoke -Condition (-not (Get-VM -Name $builder.builder.vmName -ErrorAction SilentlyContinue)) -Description 'Image-Builder-VM wurde entfernt'
-    Assert-HyperVSmoke -Condition (-not (Test-Path -LiteralPath (Join-Path $builder.BuildDirectory $builder.builder.osDiskRelativePath))) -Description 'Builder-VHDX wurde nach Registry-Publikation entfernt'
+    Assert-HyperVSmoke -Condition (-not (Test-Path -LiteralPath $builderDiskPath)) -Description 'Builder-VHDX wurde nach Registry-Publikation entfernt'
     $builderCleanupComplete = $true
     $cleanupComplete = $true
 }
