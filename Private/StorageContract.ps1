@@ -814,6 +814,17 @@ function New-LabDataMigrationPlan {
         }
     }
 
+    $hyperVVMConfigurations = @()
+    try {
+        $hyperVVMConfigurations = @(Get-LabStorageMigrationHyperVVMConfigurationInventory -DataRoot $sourceRoot)
+        foreach ($vmConfiguration in $hyperVVMConfigurations) {
+            $blockers.Add("HYPERV_VM_CONFIGURATION_REBIND_NOT_IMPLEMENTED:$([string]$vmConfiguration.VMName)")
+        }
+    }
+    catch {
+        $blockers.Add('HYPERV_VM_CONFIGURATION_INVENTORY_FAILED')
+    }
+
     $affectedRuns = @()
     foreach ($run in @(Get-LabActiveRuns)) {
         $runDataRoot = [string]$run.metadata.dataRoot
@@ -851,6 +862,7 @@ function New-LabDataMigrationPlan {
         AffectedRuns = @($affectedRuns)
         StateRoot = [IO.Path]::GetFullPath($stateRoot)
         HyperVBindings = @($hyperVBindings)
+        HyperVVMConfigurations = @($hyperVVMConfigurations)
         RequiredActions = @('Stop affected environments', 'Create migration journal', 'Copy and verify data', 'Update provider and state references', 'Switch authoritative storage catalog', 'Remove empty managed source root')
         Blockers = @($blockers | Sort-Object -Unique)
         ExecutionImplemented = $true
@@ -886,6 +898,47 @@ function Get-LabHyperVHardDiskDriveInventory {
         }
     }
     return @($drives)
+}
+
+function Get-LabHyperVVirtualMachineInventory {
+    [CmdletBinding()]
+    param()
+
+    if (-not $IsWindows -or -not (Get-Command Get-VM -ErrorAction SilentlyContinue)) { return @() }
+    return @(Get-VM -ErrorAction Stop)
+}
+
+function Get-LabStorageMigrationHyperVVMConfigurationInventory {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$DataRoot)
+
+    $sourceRoot = [IO.Path]::GetFullPath($DataRoot).TrimEnd('\', '/')
+    $inventory = [Collections.Generic.List[object]]::new()
+    foreach ($vm in @(Get-LabHyperVVirtualMachineInventory)) {
+        $boundPaths = [Collections.Generic.List[object]]::new()
+        foreach ($candidate in @(
+            [PSCustomObject]@{ Kind='Configuration'; Path=[string]$vm.ConfigurationLocation },
+            [PSCustomObject]@{ Kind='Snapshot'; Path=[string]$vm.SnapshotFileLocation },
+            [PSCustomObject]@{ Kind='SmartPaging'; Path=[string]$vm.SmartPagingFilePath }
+        )) {
+            if (-not [string]$candidate.Path) { continue }
+            $boundary = Test-LabPathWithinRoot -Root $sourceRoot -Path ([string]$candidate.Path)
+            if ($boundary.Valid) {
+                $boundPaths.Add([PSCustomObject]@{
+                    Kind=[string]$candidate.Kind
+                    Path=[IO.Path]::GetFullPath([string]$candidate.Path)
+                })
+            }
+        }
+        if ($boundPaths.Count -eq 0) { continue }
+        $inventory.Add([PSCustomObject]@{
+            VMId=[string]$vm.VMId
+            VMName=[string]$vm.Name
+            State=[string]$vm.State
+            Paths=@($boundPaths)
+        })
+    }
+    return @($inventory)
 }
 
 function Update-LabMigratedJsonReferences {
@@ -928,6 +981,15 @@ function Invoke-LabDataMigration {
         throw 'LAB_STORAGE_MIGRATION_LOCATION_ID_MISMATCH'
     }
     if (-not (Test-LabDataRootOwnership -DataRoot $sourceRoot -ControllerId ([string]$plan.ControllerId))) { throw 'LAB_STORAGE_MIGRATION_SOURCE_OWNERSHIP_INVALID' }
+    try {
+        $hyperVVMConfigurations = @(Get-LabStorageMigrationHyperVVMConfigurationInventory -DataRoot $sourceRoot)
+    }
+    catch {
+        throw "LAB_STORAGE_MIGRATION_HYPERV_VM_CONFIGURATION_INVENTORY_FAILED: $($_.Exception.Message)"
+    }
+    if ($hyperVVMConfigurations.Count -gt 0) {
+        throw "LAB_STORAGE_MIGRATION_HYPERV_VM_CONFIGURATION_REBIND_REQUIRED: $(@($hyperVVMConfigurations.VMName) -join ',')"
+    }
     $validatedHyperVBindings = @(Assert-LabStorageMigrationHyperVBindingPlan `
         -Plan $plan -SourceRoot $sourceRoot -TargetRoot $targetRoot)
     if (-not $PSCmdlet.ShouldProcess("$sourceRoot -> $targetRoot", 'Lab_Data journalisiert migrieren')) { return $null }
