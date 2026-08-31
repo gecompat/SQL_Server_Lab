@@ -215,6 +215,41 @@ try {
             'RestorePrimary|x|D|x','RestoreLog|x|L|x','RestoreMemory|x|S|x','RestoreFullText|x|F|x'
         )
     } $sqlOperationContext
+    $defaultRestoreContext = [PSCustomObject]@{
+        Plan=[PSCustomObject]@{ SqlFiles=@($plan.SqlFiles | Where-Object { $_.Role -in @('default-data','default-log') }) }
+        Receipt=[PSCustomObject]@{ FileBindings=@($verifiedRuntimeReceipt.FileBindings | Where-Object { $_.Role -in @('default-data','default-log') }) }
+    }
+    $defaultRestoreFilePlan = & $module {
+        param($context)
+        Resolve-LabStorageRestoreFilePlan -Context $context -DatabaseName AdHocSample -FileListOutput @(
+            'SampleData|x|D|x','SampleLog|x|L|x'
+        )
+    } $defaultRestoreContext
+    $defaultDatabaseFilePlan = & $module {
+        param($context)
+        Resolve-LabStorageDatabaseFilePlan -Context $context -DatabaseName AdHocScriptSample `
+            -DataFiles @([PSCustomObject]@{name='AdHocScriptSample_Data';path=$null;sizeMB=64;filegrowthMB=64}) `
+            -LogFiles @([PSCustomObject]@{name='AdHocScriptSample_Log';path=$null;sizeMB=32;filegrowthMB=32})
+    } $defaultRestoreContext
+    $partialRestorePlanRule = @($plan.SqlFiles | Where-Object { $_.Database -eq 'RestoreDb' -and $_.Role -eq 'restore-data-rule' })[0] |
+        Select-Object *
+    $partialRestoreReceiptRule = @($verifiedRuntimeReceipt.FileBindings | Where-Object { $_.Database -eq 'RestoreDb' -and $_.Role -eq 'restore-data-rule' })[0] |
+        Select-Object *
+    $partialRestorePlanRule.Database = 'AdHocPartial'
+    $partialRestoreReceiptRule.Database = 'AdHocPartial'
+    $partialRestoreContext = [PSCustomObject]@{
+        Plan=[PSCustomObject]@{ SqlFiles=@($defaultRestoreContext.Plan.SqlFiles) + @($partialRestorePlanRule) }
+        Receipt=[PSCustomObject]@{ FileBindings=@($defaultRestoreContext.Receipt.FileBindings) + @($partialRestoreReceiptRule) }
+    }
+    $partialRestoreRejected = try {
+        $null = & $module {
+            param($context)
+            Resolve-LabStorageRestoreFilePlan -Context $context -DatabaseName AdHocPartial `
+                -FileListOutput @('PartialData|x|D|x','PartialLog|x|L|x')
+        } $partialRestoreContext
+        $false
+    }
+    catch { $_.Exception.Message -match 'LAB_STORAGE_RESTORE_RULE_BINDING_EXACTLY_ONE_REQUIRED' }
     $moveStatements = & $module { param($files) New-LabStorageRestoreMoveStatements -FilePlan $files } $restoreFilePlan
     $verificationQuery = & $module { param($files) New-LabStorageMasterFilesVerificationQuery -DatabaseName RestoreDb -FilePlan $files } $restoreFilePlan
     Add-CheckResult -Name 'SQLS-002 löst jede CREATE-Datei exakt aus Plan und verifiziertem Runtime-Receipt auf' -Success (
@@ -226,6 +261,17 @@ try {
         @($moveStatements).Count -eq 4 -and @($restoreFilePlan | Where-Object Role -eq 'restore-log').Count -eq 1 -and
         @($restoreFilePlan | Where-Object Role -in @('restore-data','restore-special','restore-fulltext')).Count -eq 3 -and
         $verificationQuery -match 'LAB_STORAGE_SQL_MASTER_FILES_POSTCONDITION_FAILED')
+    Add-CheckResult -Name 'Ad-hoc-Restore ohne explizite Regel nutzt ausschließlich verifizierte Default-Lanes' -Success (
+        @($defaultRestoreFilePlan).Count -eq 2 -and
+        [string]$defaultRestoreFilePlan[0].SqlPhysicalPath -like "$([string]($verifiedRuntimeReceipt.FileBindings | Where-Object Role -eq 'default-data').SqlPhysicalPath)\*" -and
+        [string]$defaultRestoreFilePlan[1].SqlPhysicalPath -like "$([string]($verifiedRuntimeReceipt.FileBindings | Where-Object Role -eq 'default-log').SqlPhysicalPath)\*"
+    )
+    Add-CheckResult -Name 'Ad-hoc-CREATE ohne explizite Dateibindung nutzt ausschließlich verifizierte Default-Lanes' -Success (
+        @($defaultDatabaseFilePlan.DataFiles).Count -eq 1 -and @($defaultDatabaseFilePlan.LogFiles).Count -eq 1 -and
+        [string]$defaultDatabaseFilePlan.DataFiles[0].path -like "$([string]($verifiedRuntimeReceipt.FileBindings | Where-Object Role -eq 'default-data').SqlPhysicalPath)\*" -and
+        [string]$defaultDatabaseFilePlan.LogFiles[0].path -like "$([string]($verifiedRuntimeReceipt.FileBindings | Where-Object Role -eq 'default-log').SqlPhysicalPath)\*"
+    )
+    Add-CheckResult -Name 'Partielle explizite Restore-Regel fällt nicht auf Default-Lanes zurück' -Success $partialRestoreRejected
     $sqlOperationContext = & $module {
         param($context)
         Start-LabStorageSqlOperation -Context $context -OperationId 'restore:RestoreDb' -Kind restore -DatabaseName RestoreDb

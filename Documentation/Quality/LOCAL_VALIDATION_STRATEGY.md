@@ -466,8 +466,21 @@ Die statische Prüfung verifiziert JSON und Schema-Referenzen. Der Manifestparse
 - Variante hat einen freigegebenen Handler und eine dazu passende direkte
   `.bak`-, `.zip`- oder `.sql`-Quelle.
 
-Nicht freigegebene Archive, Attach-Szenarien und Script-Bundles müssen mit einer
-erklärenden Fehlermeldung abgewiesen werden.
+Nicht freigegebene Archive und Attach-Szenarien müssen mit einer erklärenden
+Fehlermeldung abgewiesen werden. Freigegebene Script-Bundles bleiben an ihren
+root-gebundenen Entrypoint, ihre erlaubten sqlcmd-Features und die vollständige
+erwartete Outputliste gebunden.
+
+`Invoke-SampleBaselineRuntimeChecks.ps1` belegt für Container und Hyper-V
+dieselbe portable Registry-, Key-, Lock-, Auswahl- und Fallback-Semantik.
+Der Hyper-V-Slice verlangt einen exakten Run, ein flüchtiges Gastcredential,
+ein verifiziertes Storage-Receipt und genau eine Backup-Lane. Der synthetische
+Test prüft Export, Gast-Cleanup und den bevorzugten run-gebundenen Restore.
+Die Storage-Placement-Suite belegt zusätzlich, dass ad-hoc CREATE und RESTORE
+ohne explizite Datenbankregel ausschließlich die verifizierten Default-Data-
+und Default-Log-Lanes verwenden und partielle Bindungen nicht akzeptieren.
+Eine reale Hyper-V-Ausführung und die automatische Manifestbindung bleiben
+`NOT_EXECUTED` beziehungsweise offen.
 
 Ein vollständiger automatischer Download-/Restore-Test pro Sample ist derzeit nicht vorhanden.
 
