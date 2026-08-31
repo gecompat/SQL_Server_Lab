@@ -17,6 +17,14 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Geändert
 
+- `LAB_GENERATED`-Baselines können nun auch aus einem run-gebundenen Hyper-V-
+  SQL-Gast erzeugt und wiederverwendet werden. Der Export ist an das
+  verifizierte Storage-Receipt, genau eine Backup-Lane, eine laufende
+  verwaltete VM und ein flüchtiges Gastcredential gebunden; die temporäre
+  Gastkopie wird nach dem Transfer entfernt. Interaktive, nicht im Manifest
+  vorgeplante Sample-CREATEs und -Restores verwenden ausschließlich die
+  verifizierten Default-Data- und Default-Log-Lanes; explizite Regeln behalten
+  Vorrang.
 - Die allgemeine `Lab_Data`-Parent-Migration inventarisiert jetzt auch
   registrierte Hyper-V-VM-Konfigurations-, Snapshot- und Smart-Paging-Pfade.
   Plan und Apply binden die exakte VM-Identität, Quell- und Zielpfade sowie den
@@ -37,6 +45,9 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Validiert
 
+- Der synthetische Baseline-Vertrag belegt Hyper-V-Export, Gast-Cleanup,
+  portable Registry-/Lock-Daten und den bevorzugten run-gebundenen Restore.
+  Ein realer Hyper-V-Baseline-Lauf bleibt `NOT_EXECUTED`.
 - Die fokussierten Resource-Binding-, Migration-, Acceptance- und
   Elevation-Suites belegen die
   öffentliche Preview, Klassenroot-Auflösung, Manipulationsabwehr und den

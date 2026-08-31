@@ -96,11 +96,47 @@ function Resolve-LabStorageDatabaseFilePlan {
         [Parameter(Mandatory)][object[]]$LogFiles
     )
 
+    $explicitPlanFiles = @($Context.Plan.SqlFiles | Where-Object {
+        [string]$_.Database -eq $DatabaseName -and [string]$_.Role -in @('database-data','database-log')
+    })
+    $explicitReceiptFiles = @($Context.Receipt.FileBindings | Where-Object {
+        [string]$_.Database -eq $DatabaseName -and [string]$_.Role -in @('database-data','database-log')
+    })
+    $useExplicitFiles = $explicitPlanFiles.Count -gt 0 -or $explicitReceiptFiles.Count -gt 0
     $resolved = @{ DataFiles=@(); LogFiles=@() }
     foreach ($spec in @(
-        [PSCustomObject]@{ Role='database-data'; FileType='data'; Input=@($DataFiles); Output='DataFiles' },
-        [PSCustomObject]@{ Role='database-log'; FileType='log'; Input=@($LogFiles); Output='LogFiles' }
+        [PSCustomObject]@{ Role='database-data'; DefaultRole='default-data'; FileType='data'; Input=@($DataFiles); Output='DataFiles' },
+        [PSCustomObject]@{ Role='database-log'; DefaultRole='default-log'; FileType='log'; Input=@($LogFiles); Output='LogFiles' }
     )) {
+        if (-not $useExplicitFiles) {
+            $defaultPlan = @($Context.Plan.SqlFiles | Where-Object { -not $_.Database -and [string]$_.Role -eq [string]$spec.DefaultRole })
+            $defaultReceipt = @($Context.Receipt.FileBindings | Where-Object { -not $_.Database -and [string]$_.Role -eq [string]$spec.DefaultRole })
+            if ($defaultPlan.Count -ne 1 -or $defaultReceipt.Count -ne 1) {
+                throw "LAB_STORAGE_DEFAULT_FILE_BINDING_EXACTLY_ONE_REQUIRED: $DatabaseName/$($spec.DefaultRole)"
+            }
+            if ([string]$defaultPlan[0].GuestPath -ne [string]$defaultReceipt[0].GuestPath) {
+                throw "LAB_STORAGE_DEFAULT_FILE_RUNTIME_PATH_MISMATCH: $DatabaseName/$($spec.DefaultRole)"
+            }
+            for ($index = 0; $index -lt @($spec.Input).Count; $index++) {
+                $inputFile = @($spec.Input)[$index]
+                $logicalName = [string]$inputFile.name
+                $fileName = if ($spec.FileType -eq 'log') {
+                    "${DatabaseName}_Log$($index + 1).ldf"
+                }
+                elseif ($index -eq 0) { "${DatabaseName}_Data1.mdf" }
+                else { "${DatabaseName}_Data$($index + 1).ndf" }
+                $targetPath = Get-LabStorageGuestChildPath -Root ([string]$defaultReceipt[0].SqlPhysicalPath) -Child $fileName
+                if ($inputFile.path -and -not [string]::Equals([string]$inputFile.path, $targetPath, [StringComparison]::OrdinalIgnoreCase)) {
+                    throw "LAB_STORAGE_DATABASE_EXPLICIT_PATH_CONFLICT: $DatabaseName/$logicalName"
+                }
+                $resolved[$spec.Output] += [PSCustomObject]@{
+                    name=$logicalName; path=$targetPath
+                    sizeMB=$(if ($null -ne $inputFile.sizeMB) { [int]$inputFile.sizeMB } elseif ($spec.FileType -eq 'log') { 32 } else { 64 })
+                    filegrowthMB=$(if ($null -ne $inputFile.filegrowthMB) { [int]$inputFile.filegrowthMB } elseif ($spec.FileType -eq 'log') { 32 } else { 64 })
+                }
+            }
+            continue
+        }
         $planned = @($Context.Plan.SqlFiles | Where-Object {
             [string]$_.Database -eq $DatabaseName -and [string]$_.Role -eq [string]$spec.Role
         })
@@ -168,17 +204,40 @@ function Resolve-LabStorageRestoreFilePlan {
     )
 
     $files = @(ConvertFrom-LabRestoreFileListOutput -FileListOutput $FileListOutput)
+    $explicitPlanRules = @($Context.Plan.SqlFiles | Where-Object {
+        [string]$_.Database -eq $DatabaseName -and [string]$_.Role -in @('restore-data-rule','restore-log-rule')
+    })
+    $explicitReceiptRules = @($Context.Receipt.FileBindings | Where-Object {
+        [string]$_.Database -eq $DatabaseName -and [string]$_.Role -in @('restore-data-rule','restore-log-rule')
+    })
+    $useExplicitRules = $explicitPlanRules.Count -gt 0 -or $explicitReceiptRules.Count -gt 0
     $rules = @{}
-    foreach ($role in @('restore-data-rule','restore-log-rule')) {
-        $planMatches = @($Context.Plan.SqlFiles | Where-Object { [string]$_.Database -eq $DatabaseName -and [string]$_.Role -eq $role })
-        $receiptMatches = @($Context.Receipt.FileBindings | Where-Object { [string]$_.Database -eq $DatabaseName -and [string]$_.Role -eq $role })
+    foreach ($ruleSpec in @(
+        [PSCustomObject]@{ OutputRole='restore-data-rule'; DefaultRole='default-data' },
+        [PSCustomObject]@{ OutputRole='restore-log-rule'; DefaultRole='default-log' }
+    )) {
+        $role = if ($useExplicitRules) { [string]$ruleSpec.OutputRole } else { [string]$ruleSpec.DefaultRole }
+        $planMatches = if ($useExplicitRules) {
+            @($Context.Plan.SqlFiles | Where-Object { [string]$_.Database -eq $DatabaseName -and [string]$_.Role -eq $role })
+        }
+        else {
+            @($Context.Plan.SqlFiles | Where-Object { -not $_.Database -and [string]$_.Role -eq $role })
+        }
+        $receiptMatches = if ($useExplicitRules) {
+            @($Context.Receipt.FileBindings | Where-Object { [string]$_.Database -eq $DatabaseName -and [string]$_.Role -eq $role })
+        }
+        else {
+            @($Context.Receipt.FileBindings | Where-Object { -not $_.Database -and [string]$_.Role -eq $role })
+        }
         if ($planMatches.Count -ne 1 -or $receiptMatches.Count -ne 1) {
-            throw "LAB_STORAGE_RESTORE_RULE_BINDING_EXACTLY_ONE_REQUIRED: $DatabaseName/$role"
+            $bindingKind = if ($useExplicitRules) { 'RESTORE_RULE' } else { 'DEFAULT_RULE' }
+            throw "LAB_STORAGE_${bindingKind}_BINDING_EXACTLY_ONE_REQUIRED: $DatabaseName/$role"
         }
         if ([string]$planMatches[0].GuestPath -ne [string]$receiptMatches[0].GuestPath) {
-            throw "LAB_STORAGE_RESTORE_RULE_RUNTIME_PATH_MISMATCH: $DatabaseName/$role"
+            $bindingKind = if ($useExplicitRules) { 'RESTORE_RULE' } else { 'DEFAULT_RULE' }
+            throw "LAB_STORAGE_${bindingKind}_RUNTIME_PATH_MISMATCH: $DatabaseName/$role"
         }
-        $rules[$role] = $receiptMatches[0]
+        $rules[[string]$ruleSpec.OutputRole] = $receiptMatches[0]
     }
 
     $dataIndex=0; $logIndex=0; $specialIndex=0; $fullTextIndex=0
@@ -311,6 +370,36 @@ function Copy-LabFileToHyperVGuest {
         $directory=Split-Path -Parent $DestinationPath
         Invoke-Command -Session $session -ArgumentList $directory -ScriptBlock { param($Path) if(-not(Test-Path -LiteralPath $Path)){New-Item -Path $Path -ItemType Directory -Force|Out-Null} } -ErrorAction Stop
         Copy-Item -LiteralPath $SourcePath -Destination $DestinationPath -ToSession $session -Force -ErrorAction Stop
+    }
+    finally{if($session){Remove-PSSession -Session $session -ErrorAction SilentlyContinue}}
+    return $DestinationPath
+}
+
+function Copy-LabFileFromHyperVGuest {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RunId,
+        [Parameter(Mandatory)][string]$SourcePath,
+        [Parameter(Mandatory)][string]$DestinationPath,
+        [Parameter(Mandatory)][PSCredential]$Credential,
+        [string]$StateRoot
+    )
+    $lab=Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
+    $managed=Get-HyperVManagedVM -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
+    if(-not $managed -or [string]$managed.VM.State -ne 'Running'){throw 'HYPERV_STORAGE_FILE_COPY_VM_NOT_RUNNING'}
+    $session=$null
+    try{
+        $session=New-PSSession -VMName ([string]$lab.Instance.vmName) -Credential $Credential -ErrorAction Stop
+        $sourceEvidence=Invoke-Command -Session $session -ArgumentList $SourcePath -ScriptBlock {
+            param($Path)
+            $item=Get-Item -LiteralPath $Path -Force -ErrorAction Stop
+            [PSCustomObject]@{IsFile=(-not $item.PSIsContainer);Length=[long]$item.Length}
+        } -ErrorAction Stop
+        if(-not [bool]$sourceEvidence.IsFile -or [long]$sourceEvidence.Length -le 0){throw 'HYPERV_STORAGE_GUEST_EXPORT_SOURCE_INVALID'}
+        Copy-Item -LiteralPath $SourcePath -Destination $DestinationPath -FromSession $session -Force -ErrorAction Stop
+        if(-not(Test-Path -LiteralPath $DestinationPath -PathType Leaf) -or (Get-Item -LiteralPath $DestinationPath).Length -le 0){
+            throw 'HYPERV_STORAGE_GUEST_EXPORT_FAILED'
+        }
     }
     finally{if($session){Remove-PSSession -Session $session -ErrorAction SilentlyContinue}}
     return $DestinationPath

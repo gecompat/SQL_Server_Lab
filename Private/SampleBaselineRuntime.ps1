@@ -152,6 +152,103 @@ function Export-LabSampleBaselineContainerBackup {
     }
 }
 
+function Initialize-LabSampleBaselineBackupTarget {
+    <#
+    .SYNOPSIS
+        Bindet den temporaeren Backup-Export an einen Container oder die
+        verifizierte Hyper-V-Backup-Lane eines Runs.
+    #>
+    [CmdletBinding()]
+    param(
+        [ValidateSet('docker','podman','hyperv')][string]$Provider,
+        [Parameter(Mandatory)][int]$Port,
+        [string]$ContainerName,
+        [string]$RunId,
+        [string]$InstanceId = 'primary',
+        [PSCredential]$GuestCredential,
+        [string]$StateRoot
+    )
+
+    if ($Provider -eq 'hyperv') {
+        if (-not $RunId -or -not $GuestCredential) {
+            throw 'SAMPLE_BASELINE_HYPERV_RUN_AND_GUEST_CREDENTIAL_REQUIRED'
+        }
+        $context = Get-LabVerifiedStorageRuntimeContext `
+            -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
+        if ([string]$context.Plan.Provider -ne 'hyperv') {
+            throw 'SAMPLE_BASELINE_HYPERV_STORAGE_CONTEXT_REQUIRED'
+        }
+        if ([string]$context.Receipt.Status -ne 'VERIFIED') {
+            throw 'SAMPLE_BASELINE_HYPERV_VERIFIED_RECEIPT_REQUIRED'
+        }
+        $backupBindings = @($context.Receipt.FileBindings | Where-Object { [string]$_.Role -eq 'backup' })
+        if ($backupBindings.Count -ne 1 -or -not [string]$backupBindings[0].SqlPhysicalPath) {
+            throw 'SAMPLE_BASELINE_HYPERV_BACKUP_BINDING_EXACTLY_ONE_REQUIRED'
+        }
+        return [PSCustomObject]@{
+            Provider='hyperv'; RunId=$RunId; InstanceId=$InstanceId
+            GuestCredential=$GuestCredential
+            BackupRoot=[string]$backupBindings[0].SqlPhysicalPath
+            StateRoot=$context.StateRoot; ContainerName=$null
+        }
+    }
+
+    if ([string]::IsNullOrWhiteSpace($ContainerName)) {
+        throw 'SAMPLE_BASELINE_CONTAINER_NAME_REQUIRED'
+    }
+    $container = Initialize-LabSampleBaselineContainerBackup -Port $Port -ContainerName $ContainerName
+    if ($Provider -and [string]$container.Provider -ne $Provider) {
+        throw 'SAMPLE_BASELINE_CONTAINER_PROVIDER_MISMATCH'
+    }
+    return [PSCustomObject]@{
+        Provider=[string]$container.Provider; ContainerName=[string]$container.ContainerName
+        RunId=$null; InstanceId=$null; GuestCredential=$null
+        BackupRoot='/var/opt/mssql/backup'; StateRoot=$StateRoot
+    }
+}
+
+function Export-LabSampleBaselineBackup {
+    <#
+    .SYNOPSIS
+        Exportiert genau ein erzeugtes Backup aus dem gebundenen Runtimeziel.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Target,
+        [Parameter(Mandatory)][string]$RuntimeBackupPath,
+        [Parameter(Mandatory)][string]$DestinationPath,
+        [Parameter(Mandatory)][int]$Port
+    )
+
+    if ([string]$Target.Provider -eq 'hyperv') {
+        try {
+            $null = Copy-LabFileFromHyperVGuest `
+                -RunId ([string]$Target.RunId) `
+                -SourcePath $RuntimeBackupPath `
+                -DestinationPath $DestinationPath `
+                -Credential $Target.GuestCredential `
+                -StateRoot ([string]$Target.StateRoot)
+            return [PSCustomObject]@{
+                Provider='hyperv'; ContainerName=$null
+                RunId=[string]$Target.RunId; InstanceId=[string]$Target.InstanceId
+            }
+        }
+        finally {
+            Remove-LabHyperVGuestFile `
+                -RunId ([string]$Target.RunId) `
+                -Path $RuntimeBackupPath `
+                -Credential $Target.GuestCredential `
+                -StateRoot ([string]$Target.StateRoot)
+        }
+    }
+
+    return Export-LabSampleBaselineContainerBackup `
+        -Port $Port `
+        -ContainerName ([string]$Target.ContainerName) `
+        -ContainerBackupPath $RuntimeBackupPath `
+        -DestinationPath $DestinationPath
+}
+
 function New-LabSampleBaselineBackup {
     <#
     .SYNOPSIS
@@ -162,7 +259,11 @@ function New-LabSampleBaselineBackup {
         [string]$HostName = '127.0.0.1',
         [Parameter(Mandatory)][int]$Port,
         [Parameter(Mandatory)][SecureString]$SaPassword,
-        [Parameter(Mandatory)][string]$ContainerName,
+        [ValidateSet('docker','podman','hyperv')][string]$Provider,
+        [string]$ContainerName,
+        [string]$RunId,
+        [string]$InstanceId = 'primary',
+        [PSCredential]$GuestCredential,
         [Parameter(Mandatory)][ValidatePattern('^[A-Za-z][A-Za-z0-9_]{0,127}$')][string]$DatabaseName,
         [Parameter(Mandatory)]$Key,
         [string]$RunDirectory,
@@ -179,7 +280,6 @@ function New-LabSampleBaselineBackup {
     $workingDirectory = Join-Path $temporaryBase ([guid]::NewGuid().ToString('N'))
     $backupFileName = "baseline-$([guid]::NewGuid().ToString('N')).bak"
     $hostBackupPath = Join-Path $workingDirectory $backupFileName
-    $containerBackupPath = "/var/opt/mssql/backup/$backupFileName"
     New-Item -Path $workingDirectory -ItemType Directory -Force | Out-Null
 
     $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword)
@@ -192,9 +292,18 @@ function New-LabSampleBaselineBackup {
 
     $export = $null
     try {
-        $null = Initialize-LabSampleBaselineContainerBackup -Port $Port -ContainerName $ContainerName
+        $targetArguments = @{
+            Port=$Port; ContainerName=$ContainerName; RunId=$RunId
+            InstanceId=$InstanceId; GuestCredential=$GuestCredential; StateRoot=$StateRoot
+        }
+        if ($Provider) { $targetArguments.Provider=$Provider }
+        $target = Initialize-LabSampleBaselineBackupTarget @targetArguments
+        $runtimeBackupPath = if ([string]$target.Provider -eq 'hyperv') {
+            Get-LabStorageGuestChildPath -Root ([string]$target.BackupRoot) -Child $backupFileName
+        }
+        else { "/var/opt/mssql/backup/$backupFileName" }
         $escapedDatabaseName = $DatabaseName.Replace(']', ']]')
-        $escapedBackupPath = $containerBackupPath.Replace("'", "''")
+        $escapedBackupPath = $runtimeBackupPath.Replace("'", "''")
         $query = @"
 BACKUP DATABASE [$escapedDatabaseName]
     TO DISK = N'$escapedBackupPath'
@@ -209,11 +318,9 @@ RESTORE VERIFYONLY
             -SaPlain $saPlain `
             -Query $query
 
-        $export = Export-LabSampleBaselineContainerBackup `
-            -Port $Port `
-            -ContainerName $ContainerName `
-            -ContainerBackupPath $containerBackupPath `
-            -DestinationPath $hostBackupPath
+        $export = Export-LabSampleBaselineBackup `
+            -Target $target -RuntimeBackupPath $runtimeBackupPath `
+            -DestinationPath $hostBackupPath -Port $Port
         $registered = Register-LabSampleBaseline `
             -Key $Key `
             -BackupPath $hostBackupPath `
@@ -227,6 +334,8 @@ RESTORE VERIFYONLY
             Record        = $registered.Record
             Provider      = [string]$export.Provider
             ContainerName = [string]$export.ContainerName
+            RunId         = [string]$export.RunId
+            InstanceId    = [string]$export.InstanceId
         }
     }
     finally {
@@ -250,7 +359,11 @@ function New-LabSampleBaselineBundle {
         [string]$HostName = '127.0.0.1',
         [Parameter(Mandatory)][int]$Port,
         [Parameter(Mandatory)][SecureString]$SaPassword,
-        [Parameter(Mandatory)][string]$ContainerName,
+        [ValidateSet('docker','podman','hyperv')][string]$Provider,
+        [string]$ContainerName,
+        [string]$RunId,
+        [string]$InstanceId = 'primary',
+        [PSCredential]$GuestCredential,
         [Parameter(Mandatory)][ValidateCount(2, 128)][string[]]$DatabaseNames,
         [Parameter(Mandatory)]$Key,
         [string]$RunDirectory,
@@ -283,14 +396,23 @@ function New-LabSampleBaselineBundle {
     }
 
     try {
-        $null = Initialize-LabSampleBaselineContainerBackup -Port $Port -ContainerName $ContainerName
+        $targetArguments = @{
+            Port=$Port; ContainerName=$ContainerName; RunId=$RunId
+            InstanceId=$InstanceId; GuestCredential=$GuestCredential; StateRoot=$StateRoot
+        }
+        if ($Provider) { $targetArguments.Provider=$Provider }
+        $target = Initialize-LabSampleBaselineBackupTarget @targetArguments
         $backupFiles = [System.Collections.Generic.List[object]]::new()
         foreach ($databaseName in @($validatedNames | Sort-Object)) {
             $fileName = "$databaseName.bak"
             $hostBackupPath = Join-Path $workingDirectory $fileName
-            $containerBackupPath = "/var/opt/mssql/backup/baseline-$([guid]::NewGuid().ToString('N')).bak"
+            $runtimeBackupName = "baseline-$([guid]::NewGuid().ToString('N')).bak"
+            $runtimeBackupPath = if ([string]$target.Provider -eq 'hyperv') {
+                Get-LabStorageGuestChildPath -Root ([string]$target.BackupRoot) -Child $runtimeBackupName
+            }
+            else { "/var/opt/mssql/backup/$runtimeBackupName" }
             $escapedDatabaseName = $databaseName.Replace(']', ']]')
-            $escapedBackupPath = $containerBackupPath.Replace("'", "''")
+            $escapedBackupPath = $runtimeBackupPath.Replace("'", "''")
             $query = @"
 BACKUP DATABASE [$escapedDatabaseName]
     TO DISK = N'$escapedBackupPath'
@@ -300,11 +422,9 @@ RESTORE VERIFYONLY
     WITH CHECKSUM;
 "@
             $null = Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $saPlain -Query $query
-            $null = Export-LabSampleBaselineContainerBackup `
-                -Port $Port `
-                -ContainerName $ContainerName `
-                -ContainerBackupPath $containerBackupPath `
-                -DestinationPath $hostBackupPath
+            $null = Export-LabSampleBaselineBackup `
+                -Target $target -RuntimeBackupPath $runtimeBackupPath `
+                -DestinationPath $hostBackupPath -Port $Port
             $backupFiles.Add([PSCustomObject]@{ DatabaseName = $databaseName; Path = $hostBackupPath })
         }
 
@@ -334,6 +454,9 @@ RESTORE VERIFYONLY
             KeyId  = [string]$Key.KeyId
             Path   = [string]$registered.Path
             Record = $registered.Record
+            Provider = [string]$target.Provider
+            RunId = [string]$target.RunId
+            InstanceId = [string]$target.InstanceId
         }
     }
     finally {

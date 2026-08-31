@@ -45,7 +45,10 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 - sichere `script-bundle`-Installation aus ZIP-Dateien mit root-gebundenem
   SQL-Entrypoint und mehreren erwarteten Outputs;
 - inhaltsadressierte `LAB_GENERATED`-Baselines für Single- und Multi-Output-
-  Container-Samples einschließlich kompatibler Aufsetzpunktauswahl;
+  Container- und run-gebundene Hyper-V-Samples einschließlich kompatibler
+  Aufsetzpunktauswahl; Hyper-V exportiert nur aus der verifizierten Backup-
+  Lane und entfernt die temporäre Gastkopie; ad-hoc CREATE/RESTORE nutzt bei
+  fehlender expliziter Datenbankregel nur die verifizierten Default-Lanes;
 - Mehrfachauswahl von Testdatenbanken im Ad-hoc-Menü und über
   `New-SqlServerLab -Sample`;
 - gemischter Docker-/Podman-Lifecycle mit getrennten `ProviderSubRuns`;
@@ -169,7 +172,8 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   eines Runs;
 - vollständige Ausführung aller im Schema vorbereiteten `serverConfig`-Felder;
 - nicht freigegebene Archive und Attach-Szenarien;
-- Hyper-V-Export und -Nutzung von `LAB_GENERATED`-Baselines;
+- automatische Hyper-V-Manifestbindung für Sample-Installationen sowie reale
+  Runtime-Evidence für Export und Nutzung von `LAB_GENERATED`-Baselines;
 - weitere External-Runtime-OS-/Providerkombinationen außerhalb der belegten
   Linux-Containermatrix und des SQL-2022-Hyper-V-/Windows-Pfads; C# bleibt bis
   zu reproduzierbarem Build und nativer SQL-Evidence `PREVIEW`;
@@ -362,9 +366,10 @@ Bundle-Installationen, einmalige Vertrauensfreigabe mit dauerhaftem SHA-256,
 portable sanitisierte Locks und `LAB_GENERATED`-Baselines steht in
 `Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md`.
 Mehrfachauswahl, Trust-/Hash-Pfad und gepinnte Einzelskripte sind implementiert;
-sichere Script Bundles, mehrere erwartete Outputs und containerbasierte
-`LAB_GENERATED`-Baselines sind ebenfalls implementiert. Attach-Szenarien,
-nicht freigegebene Archive und der Hyper-V-Baseline-Export bleiben offen.
+sichere Script Bundles, mehrere erwartete Outputs und containerbasierte sowie
+run-gebundene Hyper-V-`LAB_GENERATED`-Baselines sind ebenfalls implementiert.
+Attach-Szenarien, nicht freigegebene Archive, die automatische Hyper-V-
+Manifestbindung und reale Hyper-V-Baseline-Evidence bleiben offen.
 
 ## 10. State, Secrets und Cleanup
 

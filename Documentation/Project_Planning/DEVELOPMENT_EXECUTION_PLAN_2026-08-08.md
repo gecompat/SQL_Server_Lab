@@ -129,7 +129,7 @@ normalen Manifest-Klon bis `SQL_READY_RUN` positiv ausgeführt.
 | Hyper-V-Manifestbindung für Datenbanken, Software, Post-Provisioning und Network Intents ist unvollständig | UI-/Manifestparität fehlt trotz gebundener freier Drives weiterhin |
 | Reconcile-Executor und Actual-State-Collector sind auf Lifecycle START/STOP begrenzt | Ressourcen- und Konfigurationsänderungen fehlen |
 | drei reale Adapterpiloten fehlen | der Vertrag ist noch nicht an den drei Konsumenten und ihren unterschiedlichen Rollen bewiesen |
-| `LAB_GENERATED`-Erzeugung und -Präferenz sind für Single- und Multi-Output-Container-Samples implementiert; Hyper-V-Export ist offen; Script Bundles mit mehreren festen Datenbankoutputs sind implementiert | VM-basierte Baselines benötigen noch Sonderwege |
+| `LAB_GENERATED`-Erzeugung und -Präferenz sind für Single- und Multi-Output-Container-Samples sowie run-gebundene Hyper-V-Samples implementiert; Script Bundles mit mehreren festen Datenbankoutputs sind implementiert | automatische Hyper-V-Manifestbindung und reale Baseline-Evidence bleiben offen |
 | Fault-/Scenario-Engine und breite Abbruch-/Recovery-Injektion fehlen | Release-Härtung und komplexe SQL-Szenarien bleiben unvollständig |
 
 ### 3.3 Fortlaufend zu prüfende Statusabweichungen
@@ -216,7 +216,7 @@ Container-Volumes gehören dagegen in den normalen Storage-Pfad.
 | M4 Hyper-V OS Cold Path | `validated_reference` | weitere freigegebene Windows-Varianten getrennt belegen |
 | M5 Hyper-V SQL und Resolver | `validated_reference_partial_manifest` | Datenbank-, Software-, Post-Provisioning- und Network-Manifestparität |
 | M6 Reconcile-Breite | `planned` | Hardware-, Netzwerk-, Storage- und SQL-Änderungsklassen |
-| M7 Artifacts und Baselines | `implemented_partial` | Hyper-V-Export/-Nutzung und weitere typisierte Handler |
+| M7 Artifacts und Baselines | `implemented_partial` | Hyper-V-Export/-Nutzung ist run-gebunden synthetisch belegt; automatische Manifestbindung, reale Evidence und weitere typisierte Handler bleiben offen |
 | M8 Scenarios und Migration | `planned` | Scenario-Vertrag nach den Adapterpiloten |
 | M9 Release-Härtung | `implemented_partial` | Failure-Injection und öffentliche Version erst nach Provider-/Adapterabnahme |
 

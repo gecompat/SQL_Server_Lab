@@ -339,8 +339,14 @@ CREATE DATABASE [$(SecondDatabase)];
     Add-CheckResult -Name 'Konsolenaktion Datenbank anlegen bietet den Sample-Katalog an' -Success (
         $consoleText -match "Testdatenbank aus dem Katalog wiederherstellen" -and
         $consoleText -match 'Select-LabSampleSelection -SqlVersion \$target.Version -SkipInitialConfirm' -and
-        $consoleText -match 'Install-LabSampleDatabase -HostName \$target.HostName' -and
+        $consoleText -match 'Install-LabSampleDatabase @handlerArguments' -and
         $consoleText -match '\[switch\]\$SkipInitialConfirm'
+    )
+    Add-CheckResult -Name 'Konsolen-Samplepfad bindet Hyper-V an Run, Gastcredential und Storage-Lane' -Success (
+        $consoleText -match '\[string\]\$target\.Provider -eq ''hyperv''' -and
+        $consoleText -match 'Gastpasswort für den gebundenen Backup-Transfer' -and
+        $consoleText -match '\$handlerArguments.RunId=\$runId' -and
+        $consoleText -match '\$handlerArguments.GuestCredential=\$guestCredential'
     )
     Add-CheckResult -Name 'Restore erkennt docker oder podman ohne leeren Provider-Parameter automatisch' -Success (
         $restoreText -match '\$restoreTargetArguments = @\{' -and
