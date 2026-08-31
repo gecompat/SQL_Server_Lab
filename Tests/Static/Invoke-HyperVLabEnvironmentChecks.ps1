@@ -118,11 +118,13 @@ try {
         $newLabText -match 'HYPERV_MANIFEST_FALLBACK_IMAGE_NOT_FOUND' -and
         $newLabText -match 'Keine lokale SQL_PREPARED_SEALED-Vorlage'
     )
-    Add-CheckResult -Name 'Hyper-V-Manifest bindet CREATE und Restore an den verifizierten SQL-Storage-Vertrag' -Success (
+    Add-CheckResult -Name 'Hyper-V-Manifest bindet CREATE, Restore und Samples an den verifizierten SQL-Storage-Vertrag' -Success (
         $newLabText.IndexOf('Assert-LabStorageManifestDatabaseCoverage') -ge 0 -and
         $newLabText.IndexOf('Assert-LabStorageManifestDatabaseCoverage') -lt $newLabText.IndexOf('New-HyperVLabEnvironment') -and
         $newLabText -match 'New-SqlServerLabDatabase[\s\S]+-RunId \$lab\.RunId[\s\S]+-InstanceId' -and
         $newLabText -match 'Restore-SqlServerLabDatabase @restoreArguments' -and
+        $newLabText -match 'Install-LabSampleDatabase[\s\S]+-Provider hyperv[\s\S]+-RunId \$lab\.RunId[\s\S]+-GuestCredential \$guestCredential' -and
+        $newLabText -match 'HYPERV_STORAGE_SAMPLE_INSTALL_FAILED' -and
         $newLabText -match 'HYPERV_STORAGE_DATABASE_HOST_SQL_ACCESS_REQUIRED'
     )
     $storagePreflight = & $module {

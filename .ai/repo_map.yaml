@@ -565,6 +565,7 @@ planning_contracts:
       - lab_generated_single_output_container_runtime
       - lab_generated_multi_output_container_runtime
       - lab_generated_hyperv_runtime
+      - hyperv_sample_manifest_binding
       - contextual_path_guidance
       - lab_generated_baselines
       - hyperv_baseline_bindings
@@ -962,7 +963,7 @@ known_limitations:
     - "Artifact Refresh und Rebuild für Medien, VHDX und Derived Images nicht implementiert"
     - "kein provideruebergreifendes Docker-/Podman-Netzwerk oder Hyper-V-SubRun"
     - "Sample-Handler mit Trust-Pfad, Mehrfachauswahl, ZIP-/7z-Backup-Payloads, gepinnten Einzelskripten und sicheren Multi-Output-ZIP-Script-Bundles sind implementiert; nicht freigegebene Archive und Attach-Handler bleiben offen"
-    - "Containerbasierte und run-gebundene Hyper-V-LAB_GENERATED-Baselines samt kompatibler Aufsetzpunkte sind synthetisch validiert; automatische Hyper-V-Manifestbindung und reale Runtime-Evidence bleiben offen"
+    - "Containerbasierte und run-gebundene Hyper-V-LAB_GENERATED-Baselines samt automatischer Sample-Manifestbindung und kompatibler Aufsetzpunkte sind synthetisch validiert; reale Hyper-V-Runtime-Evidence bleibt offen"
     - "mehrere reservierte serverConfig-Felder noch ohne stabilen Runtimepfad; explizite Nutzung wird vor Auflösung und Mutation fail-closed abgelehnt"
     - "Versionskatalog wird nicht automatisch als aktuell garantiert"
     - "alle katalogisierten CUs sind ohne KI ueber Cmdlet oder Konsole beschaffbar; Windows wird per SHA-256 und Microsoft-Authenticode, Linux per exaktem MCR-Tag gebunden"
