@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING_LIMITATIONS` |
-| Stand | 2026-08-28 |
+| Stand | 2026-08-31 |
 
 Dieses Dokument beschreibt bekannte Grenzen des aktuell implementierten Runtimepfads. Es ist Teil des öffentlichen Projektvertrags. Ein Feld im JSON-Schema oder ein Planungsdokument gilt nicht automatisch als Implementierungsnachweis.
 
@@ -669,9 +669,13 @@ Image-Migration automatisch fortgesetzt. Die physische Zielbindung ist über
 sichtbar; sie wird über UAC explizit übergeben und im erhöhten Prozess erneut
 geprüft. Der Legacy-Migrations-Apply besitzt weiterhin keinen öffentlichen
 Startpfad. Ein real erhöhter Windows-Parent-/Child-Fall belegt Copy, Reparent,
-VM-Storage-Rebind, zwei Gaststarts, Recovery-Resume und Quell-Cleanup; ein
-SQL-readiness-gebundener Legacy-Fall fehlt noch. Legacy-Dateien dürfen deshalb
-weiterhin nicht manuell verschoben werden.
+VM-Storage-Rebind, zwei Gaststarts, Recovery-Resume und Quell-Cleanup. Der
+interne Acceptance-Runner kann einen ursprünglich laufenden Legacy-SQL-Run vor
+dem Hashplan geordnet stoppen, fehlende aktuelle SQL-Identität nur aus
+persistierter Windows-Evidence plus Live-SQL-Probe übernehmen, für beide
+Restart-Zyklen SQL-Readiness verlangen und den laufenden Zustand abschließend
+erneut validieren. Dieser SQL-gebundene Realfall ist noch `NOT_EXECUTED`.
+Legacy-Dateien dürfen deshalb weiterhin nicht manuell verschoben werden.
 
 Der priorisierte
 [P0-Bugfix](../Project_Planning/HYPERV_LAB_DATA_RESOURCE_ROOT_BUGFIX_BACKLOG.md)
