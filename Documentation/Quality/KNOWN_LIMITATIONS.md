@@ -286,8 +286,10 @@ N5-Storage-Nachweis ist damit abgeschlossen. Ein erneuter realer Lauf am
 2026-08-31 bestätigte den Vertrag nach der Ressourcenroot-Umstellung mit drei
 von drei geforderten Geräten, gebundenem Builder-/Image-Pfad und vollständigem
 Cleanup des isolierten Prepared-Images, Test-State und aller rungebundenen
-VHDX. Der verbleibende P0-Abnahmescope betrifft nicht mehr N5, sondern die
-reale Legacy-SQL-Migration. Die allgemeine Parent-Storage-Migration ist mit
+VHDX. Die reale Legacy-SQL-Migration ist seit 2026-08-31 ebenfalls mit
+isoliertem SQL-2022-Klon, committed Binding, zwei Gast-/SQL-Restarts,
+Wiederherstellung des laufenden Zustands und vollständigem Cleanup belegt. Die
+allgemeine Parent-Storage-Migration ist mit
 isolierter Test-VM, VHDX-Rebind, Rückmigration und Cleanup real belegt.
 Die virtuelle Lane-Kapazität wird im Bound Plan deterministisch abgeleitet:
 mindestens 32 GB für offen wachsende Data-/Log-/Backup-Rollen, mindestens 4 GB
@@ -686,8 +688,11 @@ interne Acceptance-Runner kann einen ursprünglich laufenden Legacy-SQL-Run vor
 dem Hashplan geordnet stoppen, fehlende aktuelle SQL-Identität nur aus
 persistierter Windows-Evidence plus Live-SQL-Probe übernehmen, für beide
 Restart-Zyklen SQL-Readiness verlangen und den laufenden Zustand abschließend
-erneut validieren. Dieser SQL-gebundene Realfall ist noch `NOT_EXECUTED`.
-Legacy-Dateien dürfen deshalb weiterhin nicht manuell verschoben werden.
+erneut validieren. Dieser SQL-gebundene Realfall ist seit 2026-08-31 real grün;
+der Bootstrap stellte die geschützte Testgruppe abschließend 6/6 `READY` her
+und hinterließ weder Kandidaten-VM noch Legacy-State. Legacy-Dateien dürfen
+weiterhin nicht manuell verschoben werden, weil nur der journalisierte Pfad
+die Identitäts-, Integritäts-, Restart- und Cleanup-Postconditions garantiert.
 
 Persistierte Builder-States referenzieren ihre System-VHDX portabel über
 `resourceRelativePath`; Resume, Generalize, Publish sowie die realen Windows-
@@ -702,11 +707,11 @@ Fehlplatzierungen vor der Provider-Mutation und fordert eine journalisierte
 Migration vorhandener Legacy-Slots. Der physische N5-Hyper-V-Mehrgeräte-
 Nachweis wurde am 2026-08-30 abgeschlossen und am 2026-08-31 nach der
 Ressourcenroot-Umstellung einschließlich Artifact-Cleanup erneut bestätigt.
-Der P0-Status bleibt bis zur realen Abnahme des verbleibenden
-Migrationsscopes `IN_PROGRESS / P0_FIX_FIRST`.
+Der P0-Ressourcenroot-Bugfix ist nach der realen Legacy-SQL-Abnahme vom
+2026-08-31 abgeschlossen.
 
-`HVR-001` bis `HVR-007` sind implementiert
-und statisch beziehungsweise synthetisch validiert: Der
+`HVR-001` bis `HVR-008` sind implementiert und statisch, synthetisch sowie in
+den geforderten realen Hyper-V-Szenarien validiert: Der
 versionierte lokale Vertrag löst kurze Create-Roots ausschließlich aus
 registrierten `Lab_Data`-Locations auf, revalidiert Controller-, Location-,
 Volume-, Path-Length- und Reparse-Evidence und schützt Provider, Builder sowie
@@ -717,10 +722,11 @@ Kette wird dabei graphbasiert auf den gebundenen Image-Store umgehängt und
 referenzfrei bereinigt. Die öffentliche CLI-Preview und das Console-User-Gate
 zeigen Location, `Lab_Data`, Kapazität und Klassenroots vor der Bestätigung;
 der UAC-Handoff revalidiert denselben Vertrag. Die reale erhöhte Windows-
-Legacy-Run-/Parent-/Child-Migration, der erneute N5-Mehrgeräte-Nachweis und die
-allgemeine Parent-Storage-Migration sind belegt; offen bleibt nur die SQL-
-Readiness der Legacy-Migration. Der Apply bleibt bis zum Abschluss dieses
-Restscopes intern.
+Legacy-Run-/Parent-/Child-Migration, der erneute N5-Mehrgeräte-Nachweis, die
+allgemeine Parent-Storage-Migration sowie die laufende Legacy-SQL-Migration
+mit zwei SQL-Restarts sind belegt. Der Apply bleibt als bewusste
+Sicherheitsgrenze intern und wird über den expliziten Acceptance-Runner
+ausgeführt.
 Der erste `HVR-006`-Slice schützt den Hyper-V-Cleanup bereits atomar gegen
 nichtterminale Run-Migrationen und unsafe VHDX-Pfade. Der Cleanup-Audit weist
 Run-Bindings, Migrationsstatus, ungetrackte Preserve-Dateien und Shared-Roots

@@ -38,7 +38,7 @@ Statische Vertragspruefungen und Runtime-Nachweise sind getrennte Evidence.
 | `Restore-SqlServerLabDatabase` | Restore- und Artifact-Vertraege | dedizierter synthetischer Backup/Restore-Smoke fuer Docker und Podman |
 | `New-SqlServerLabManifest`, `Test-SqlServerLabManifest` | Manifest-Builder-, Schema- und Pester-Suites | Manifest-Smoke je Containerprovider ueber die bestehende Smoke-Matrix |
 | `Test-SqlServerLabPrerequisite`, `Get-SqlServerLabCatalog`, `Get-SqlServerLabWorkflow` | Readiness-, Katalog- und Workflow-Suites | Provider-Preflight; Katalog und Workflow im Container-Akzeptanzlauf |
-| `Get-SqlServerLabHyperVResourcePreview` | Hyper-V-Resource-Binding-, Migration-Acceptance- und Elevation-Suites | reale erhöhte Windows-Legacy-Run-/Parent-/Child-Platzierung, erneuter N5-Lauf und allgemeine Parent-Storage-Vorwärts-/Rückmigration belegt; nur Legacy-SQL-Readiness bleibt Teil von `HVR-008` |
+| `Get-SqlServerLabHyperVResourcePreview` | Hyper-V-Resource-Binding-, Migration-Acceptance- und Elevation-Suites | reale erhöhte Windows-Legacy-Run-/Parent-/Child-Platzierung, laufende SQL-2022-Legacy-Migration mit zwei SQL-Restarts, erneuter N5-Lauf und allgemeine Parent-Storage-Vorwärts-/Rückmigration belegt |
 | `Get-SqlServerLabConnectionCenter`, `Sync-SqlServerLabConnectionCenter`, `Export-SqlServerLabSsmsRegistration` | Connection-Center-Suites | lesender Container-Nachweis und gemeinsame Testumgebungsabnahme |
 | `Initialize-SqlServerLabCms`, `Sync-SqlServerLabCms`, `Export-SqlServerLabCmsSyncScript` | CMS-Suites | gemeinsame Sechs-Umgebungen-/CMS-Abnahme |
 | `New/Get/Stop-SqlServerLabBatch` | Batch-Vertrag | Zwei-Lab-Batch-Smoke fuer Docker, Podman und Hyper-V-Slots |
@@ -127,5 +127,6 @@ ihre verifizierten Lanes gebunden. SQL-Dienstrestart, synthetischer
 Backup/Restore-Roundtrip mit Datenmarker, Persistenz nach vollständigem
 VM-Restart sowie die Entfernung der VM, der Child-VHDX und aller vier externen
 VHDXs waren erfolgreich. Der physische N5-Storage-Nachweis ist damit
-abgeschlossen; das Gesamtgate bleibt bis zum P0-Fix des Hyper-V-
-Ressourcenroot-Vertrags `IN_PROGRESS / P0_FIX_FIRST`.
+abgeschlossen. Mit der realen Legacy-SQL-Migration vom 2026-08-31 ist auch
+der priorisierte Hyper-V-Ressourcenroot-Vertrag vollständig belegt und Gate N5
+`COMPLETE`.

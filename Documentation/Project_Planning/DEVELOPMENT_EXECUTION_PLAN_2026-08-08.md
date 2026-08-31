@@ -732,7 +732,7 @@ Runtime-Nachweis; maßgeblich bleiben die jeweils genannten Tests und Evidence.
 | N2 | `COMPLETE` | ActionResult-/Sync-, Portbindungs-, UAC- und Privilegverträge sind implementiert und fokussiert geprüft; GUI-Abbruch, Scheduler-Abbruch/Recovery, Manifest-Rerun, PowerShell-Console, Windows-User-Gate und der positive Windows-Generalize-/Publish-Pfad sind real belegt. |
 | N3 | `COMPLETE` | `ADP-003`, `ADP-004` und `ADP-008` sind in den autoritativen Partnerrepositories gemergt und auf SQL Server 2025 mit Docker und Podman end-to-end validiert; alle fachlichen und Infrastruktur-Cleanups waren scopegebunden erfolgreich. |
 | N4 | `COMPLETE` | Der reale Windows-2025-/SQL-2025-Lauf belegt Build, immutable Prepared-Parent, normalen differenzierenden Manifest-Klon, Windows-Specialization, `CompleteImage`, `SQL_READY_RUN`, unveränderten Parent-Hash und vollständigen Cleanup. |
-| N5 | `IN_PROGRESS / P0_FIX_FIRST` | Storage-Slices und Docker-/Podman-Reconcile sind real belegt; der Hyper-V-Referenzlauf verteilt vier TempDB-Datendateien 2/1/1 auf drei nachweislich getrennte lokale Geräte und bestätigt SQL-Restart, Create, Restore, VM-Restart, Persistenz und vollständigen Cleanup. Das Gesamtgate bleibt offen, bis `HVR-001` bis `HVR-008` alle Slot-, Builder-, Paging- und Artifact-Dateien an registrierte `Lab_Data`-Roots binden. |
+| N5 | `COMPLETE` | Storage-Slices und Docker-/Podman-Reconcile sind real belegt; der Hyper-V-Referenzlauf verteilt vier TempDB-Datendateien 2/1/1 auf drei physische Geräte. `HVR-001` bis `HVR-008` binden Slot-, Builder-, Paging- und Artifact-Dateien an registriertes `Lab_Data`; die laufende Legacy-SQL-Migration bestand zwei SQL-Restarts, Wiederherstellung und vollständigen Cleanup. |
 
 ### Welle N1 – Baseline, Regressionen und Katalogwartung
 
@@ -938,16 +938,17 @@ Lifecycle-Tests reichen für dieses Gate nicht aus.
 
 ### Welle N5 – Storage- und Reconcile-Vertical-Slice
 
-**Status:** `IN_PROGRESS / P0_FIX_FIRST` seit 2026-08-30. Die gehärtete Storage-Registry
+**Status:** `COMPLETE` seit 2026-08-31. Die gehärtete Storage-Registry
 (`STO-009` bis `STO-013`), der File-Placement-Slice (`SFP-001` bis
 `SFP-003`) und die Runtime-Implementierung für `HVS-001`, `HVS-002` und
 `SQLS-001` bis `SQLS-003` sind implementiert und geprüft. Der
 Container-Reconcile-Anteil ist auf Docker und Podman real mit No-op, Live,
 Recreate, Rollback, Persistenz und Cleanup belegt.
-Der physische Hyper-V-Mehrgeräte-Nachweis ist ebenfalls abgeschlossen. Das
-Gesamtgate bleibt dennoch offen: Reguläre Slot-VHDX und Smart-Paging-/VM-Pfade
-können über einen Legacy-`StateRoot` außerhalb des konfigurierten `Lab_Data`
-entstehen. Der P0-Bugfix `HVR-001` bis `HVR-008` hat deshalb Vorrang.
+Der physische Hyper-V-Mehrgeräte-Nachweis ist ebenfalls abgeschlossen. Der
+P0-Bugfix `HVR-001` bis `HVR-008` blockiert neue Ressourcen außerhalb des
+konfigurierten `Lab_Data` und migriert bestehende Legacy-Runs journalisiert.
+Der abschließende reale SQL-2022-Legacy-Fall bestand am 2026-08-31 committed
+Binding, zwei Gast-/SQL-Restarts, Wiederherstellung und vollständigen Cleanup.
 
 Der ausführbare Runner `Tests/Integration/Invoke-HyperVStorageAcceptance.ps1`
 bindet den Referenznachweis an ein `SQL_PREPARED_SEALED`-Artifact und

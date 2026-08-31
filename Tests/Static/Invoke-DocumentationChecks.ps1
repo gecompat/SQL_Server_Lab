@@ -802,11 +802,11 @@ Add-ValidationResult `
         $gettingStarted -match 'Plan\.Instances\[\]\.Samples')
 
 Add-ValidationResult `
-    -Name 'Repo-Map und Known Limitations beschreiben Reconcile und nächste Gates aktuell' `
+    -Name 'Repo-Map und Known Limitations beschreiben Reconcile und abgeschlossene Gates aktuell' `
     -Success ($repoMap -match 'journalisierter Container-Reconcile fuer CPU, RAM, SQL max memory, Hostport, Autostart und External Runtimes' -and
         $repoMap -notmatch 'Reconcile ist auf den Lifecycle START/STOP begrenzt' -and
         $knownLimitations -match 'physische N5-Hyper-V-Mehrgeräte-\s*Nachweis wurde am 2026-08-30 abgeschlossen' -and
-        $knownLimitations -match 'IN_PROGRESS / P0_FIX_FIRST' -and
+        $knownLimitations -match 'P0-Ressourcenroot-Bugfix ist nach der realen Legacy-SQL-Abnahme' -and
         $knownLimitations -notmatch 'positiver realer Lauf dieses Runners steht weiterhin aus' -and
         $knownLimitations -match 'Alle drei produktiven Pilotadapter' -and
         $knownLimitations -match 'toolbelt\.core\.console-message' -and
@@ -830,14 +830,14 @@ Add-ValidationResult `
 
 $sqlPreparedAcceptancePath = Join-Path $repoRoot 'Tests\Integration\Invoke-HyperVSqlPreparedImageAcceptance.ps1'
 Add-ValidationResult `
-    -Name 'Roadmap und Masterplan führen N3/N4 vollständig sowie N5-Evidence und P0-Blocker aktuell' `
+    -Name 'Roadmap und Masterplan führen N3 bis N5 vollständig und evidenzgebunden' `
     -Success ($developmentExecutionPlan -match '(?m)^\| N3 \| `COMPLETE` \|' -and
         $developmentExecutionPlan -match '(?m)^\| N4 \| `COMPLETE` \|' -and
-        $developmentExecutionPlan -match '(?m)^\| N5 \| `IN_PROGRESS / P0_FIX_FIRST` \|' -and
+        $developmentExecutionPlan -match '(?m)^\| N5 \| `COMPLETE` \|' -and
         $developmentExecutionPlan -match '2/1/1-Verteilung auf drei lokalen physischen Geräten' -and
         $masterImplementationPlan -match '(?m)^\| N3 – Drei reale Project-Adapter-Piloten \| Wellen 6, 7 und 7a \| `COMPLETE`' -and
         $masterImplementationPlan -match '(?m)^\| N4 – Hyper-V Windows-/SQL-End-to-End \| Welle 4 \| `COMPLETE` \|' -and
-        $masterImplementationPlan -match '(?m)^\| N5 – Storage- und Reconcile-Vertical-Slice \| Wellen 1, 3, 4 und 5; Storage-Konsolidierungsplan \| `IN_PROGRESS / P0_FIX_FIRST`')
+        $masterImplementationPlan -match '(?m)^\| N5 – Storage- und Reconcile-Vertical-Slice \| Wellen 1, 3, 4 und 5; Storage-Konsolidierungsplan \| `COMPLETE`')
 
 Add-ValidationResult `
     -Name 'Roadmap beschreibt den real belegten Container-Reconcile-Stand widerspruchsfrei' `

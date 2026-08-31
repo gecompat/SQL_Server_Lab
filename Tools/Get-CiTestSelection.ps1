@@ -94,6 +94,7 @@ end {
         @{ Pattern = '(?i)(HyperVImageOperator)'; Checks = @('Invoke-HyperVImageOperatorChecks.ps1') },
         @{ Pattern = '(?i)(HyperVSqlImageBuilder)'; Checks = @('Invoke-HyperVSqlImageBuilderChecks.ps1') },
         @{ Pattern = '(?i)(HyperVSqlAcceptance)'; Checks = @('Invoke-HyperVSqlAcceptanceEnvironmentChecks.ps1') },
+        @{ Pattern = '(?i)(HyperVLegacySqlMigrationBootstrap)'; Checks = @('Invoke-HyperVLegacySqlMigrationBootstrapChecks.ps1','Invoke-HyperVResourceMigrationAcceptanceChecks.ps1') },
         @{ Pattern = '(?i)(HyperVWindowsBaseline)'; Checks = @('Invoke-HyperVWindowsBaselineAcceptanceChecks.ps1') }
     )
     foreach ($group in $staticGroups) {
