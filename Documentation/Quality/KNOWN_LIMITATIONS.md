@@ -718,8 +718,13 @@ Receipts, erhalten `LocationId` und `ResourceKey` und stellen die Bindings nach
 dem Katalogwechsel atomar am Zielroot neu aus. Manipulierte Inventare sowie
 nichtterminale Run-, Image- oder Location-Journale blockieren Storage-Mutation,
 Hyper-V-Lifecycle und Cleanup fail-closed. Ein Abbruch nach neu ausgestelltem
-Binding bleibt aus demselben Journal fortsetzbar. Damit ist `HVR-006` intern
-implementiert; der Nachweis dieses Pfads bleibt bis `HVR-008` synthetisch.
+Binding bleibt aus demselben Journal fortsetzbar. Registrierte VM-
+Konfiguration, Snapshot- oder Smart-Paging-Pfade unter dem Quellroot werden
+zusätzlich vor der ersten Mutation erkannt und mit
+`HYPERV_VM_CONFIGURATION_REBIND_REQUIRED` blockiert. Die sichere
+`Move-VMStorage`-Umbindung dieser Pfade ist noch nicht implementiert; der
+allgemeine reale Parent-Migrationsfall bleibt deshalb `NOT_EXECUTED` und
+`HVR-006` intern noch offen.
 Image-Quellen werden bis zum nachgewiesenen Wegfall aller Consumer absichtlich
 nicht entfernt; manuelles Verschieben außerhalb des journalisierten Vertrags
 bleibt unzulässig.
