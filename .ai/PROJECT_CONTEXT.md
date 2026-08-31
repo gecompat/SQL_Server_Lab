@@ -77,6 +77,10 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   einem consumerfreien Resume-Cleanup; migrierte Runs lösen Legacy-Parents nur
   über diesen verifizierten Vertrag auf, journalisieren `Set-VHD` vorab,
   belegen getrennte Child-Hashes und setzen den Image-Cleanup automatisch fort;
+  die reale laufende SQL-2022-Legacy-Migration bestätigte committed Binding,
+  zwei Gast-/SQL-Restarts, Wiederherstellung des laufenden Zustands sowie
+  vollständigen Kandidaten-/State-Cleanup bei abschließend 6/6 bereiter
+  geschützter Testgruppe;
 - öffentliche, read-only Hyper-V-Ressourcenzielvorschau mit registrierter
   Location, `Lab_Data`, freiem Speicher und klassenbezogenen Run-/Build-/Image-/
   Staging-/Recovery-Roots; das Console-User-Gate zeigt dieselbe Bindung vor

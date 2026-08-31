@@ -220,7 +220,8 @@ try {
                     if ([string]$managedForPlan.VM.State -ne 'Running') {
                         throw 'HVR008_ACCEPTANCE_RUNNING_VM_REQUIRED_BEFORE_PLAN'
                     }
-                    Stop-VM -VM $managedForPlan.VM -Shutdown -ErrorAction Stop
+                    $null = Stop-HyperVInstance -VMName $ExpectedName -ExpectedRunId $ExpectedRunId `
+                        -ExpectedScopeId ([string]$run.scopeId)
                     $shutdownDeadline = [DateTimeOffset]::UtcNow.AddSeconds($TimeoutSeconds)
                     do {
                         Start-Sleep -Seconds 2

@@ -311,7 +311,7 @@ neue Fehlplatzierung mehr zulassen. Sie blockieren den P0-Sofortschutz nicht.
   Run-/Build-/Image-/Staging-Aktion. Der erhöhte Prozess erhält die Vorschau
   explizit, löst sie erneut gegen Controller-, Location-, Volume- und
   Root-Evidence auf und blockiert bei jeder Abweichung fail-closed.
-- `HVR-008` ist teilweise real belegt: Ein projektverwalteter, abgeschalteter
+- `HVR-008` ist vollständig real belegt: Ein projektverwalteter, abgeschalteter
   Windows-Legacy-Run mit Differencing-Child und Shared Parent wurde erhöht,
   journalisiert nach `Lab_Data` kopiert, reparentet und samt VM-Storage
   umgebunden. Zwei erfolgreiche Gaststarts, ein realer `RECOVERY_REQUIRED`-
@@ -322,16 +322,22 @@ neue Fehlplatzierung mehr zulassen. Sie blockieren den P0-Sofortschutz nicht.
   Evidence und erfolgreichem Live-SQL-Probe, stoppt vor dem Hashplan geordnet,
   verlangt SQL-Readiness für beide Restart-Zyklen und stellt den laufenden
   Ausgangszustand abschließend mit erneuter Readiness her. Dieser Vertrag ist
-  statisch und synthetisch gebunden; der reale SQL-Fall bleibt
-  `NOT_EXECUTED`. Der erneute real erhöhte N4-/N5-Mehrgeräte-Nachweis ist nach
+  statisch, synthetisch und real gebunden: Ein isolierter SQL-2022-Klon wurde
+  aus der geschützten Testgruppe erzeugt, erhielt vor deren Wiederanlauf eine
+  eigene Lab-IP, wurde laufend nach `Lab_Data` migriert und bestand beide
+  Gast-/SQL-Restartzyklen. Der Lauf deckte außerdem einen ungültigen nativen
+  `Stop-VM`-Parameter auf; der Runner verwendet nun den projektgebundenen
+  Stop-Lifecycle. Kandidat, Legacy-State und migrierte Ressourcen wurden
+  vollständig entfernt, die Testgruppe blieb 6/6 `READY`. Der erneute real
+  erhöhte N4-/N5-Mehrgeräte-Nachweis ist nach
   der Ressourcenroot-Umstellung grün: drei von drei geforderten Geräten,
   gebundene Builder-/Image-Ressourcen, SQL-Restart, Create, Backup/Restore,
   VM-Restart sowie vollständiger VM-, VHDX-, Artifact- und State-Cleanup sind
   belegt. Auch die allgemeine Parent-Storage-Migration ist mit allen drei VM-
   Konfigurationspfaden, VHDX-Rebind, Rückmigration und vollständiger
-  Wiederherstellung real belegt. Offen bleibt nur der reale Legacy-SQL-Fall;
-  der Apply bleibt bis dahin interner Fachkern mit explizitem Acceptance-
-  Runner.
+  Wiederherstellung real belegt. Damit sind `HVR-001` bis `HVR-008` und der
+  priorisierte P0-Ressourcenroot-Bugfix abgeschlossen. Der Migrations-Apply
+  bleibt bewusst interner Fachkern mit explizitem Acceptance-Runner.
 
 ## Abnahmekriterien
 

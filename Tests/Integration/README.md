@@ -213,6 +213,27 @@ Im garantierten `finally`-Cleanup stellt er die persistente Gruppe wieder bis
 Das Skript löscht weder Runs, Secrets, Registrierungen noch VHDX-Dateien und
 gibt keine Zugangsdaten oder vollständigen Connection Strings aus.
 
+## Invoke-HyperVLegacySqlMigrationBootstrap.ps1
+
+Dieser erhöhte HVR-008-Runner erzeugt aus genau einem bereiten geschützten
+Windows-SQL-2022-Slot einen isolierten, eigenständigen Legacy-Kandidaten. Die
+geschützte Gruppe wird nur für die konsistente VHDX-Kopie gestoppt; der Klon
+erhält vor ihrem garantierten Wiederanlauf eine eigene deterministische
+Lab-IP. Danach migriert der bestehende Acceptance-Kern VM-Konfiguration,
+Paging, Snapshots und VHDX in den registrierten Default-Data-Root, übernimmt
+die Legacy-SQL-Identität erst nach Live-Probe und verlangt zwei vollständige
+Gast-/SQL-Restartzyklen.
+
+```powershell
+.\Tests\Integration\Invoke-HyperVLegacySqlMigrationBootstrap.ps1
+```
+
+Nur ein vollständig grüner Lauf entfernt Kandidat und temporären Legacy-State.
+Bei einem Fehler bleibt der exakt benannte Kandidat für den journalisierten
+Recovery-Pfad erhalten; die geschützte Testgruppe wird unabhängig davon wieder
+bis `READY` gestartet. Der Runner schreibt weder Secrets noch lokale Evidence
+in das Repository.
+
 ## Invoke-HyperVWindowsBaselineAcceptanceRun.ps1
 
 Der Windows-Baseline-Acceptance-Runner ist der reale Gegenpart zum
