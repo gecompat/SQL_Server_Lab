@@ -322,7 +322,7 @@
     },
     "networkIntent": {
       "type": "object",
-      "description": "Portabler Netzwerk- und Exposure-Vertrag. Aktuell gebunden sind Docker/Podman nat sowie Hyper-V hostOnly und isolated; weitere Kombinationen werden vor Mutation abgelehnt.",
+      "description": "Portabler Netzwerk- und Exposure-Vertrag. Aktuell gebunden sind Docker/Podman nat sowie Hyper-V hostOnly, isolated und nat; weitere Kombinationen werden vor Mutation abgelehnt.",
       "properties": {
         "intent": {
           "type": "string",

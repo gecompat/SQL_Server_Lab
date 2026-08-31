@@ -996,9 +996,9 @@ change_coupling:
 known_limitations:
   binding_document: Documentation/Quality/KNOWN_LIMITATIONS.md
   highlights:
-    - "Hyper-V sealed VHDX Registry, Builder-/Resume-Grundlage, realer Windows-2025-/SQL-2025-Prepared-Manifest-Klon bis SQL_READY_RUN, freie Manifest-Drives und echter SQL-2025-CLI-Vertical-Slice implementiert und positiv ausgefuehrt; vollautomatische OS-Factory sowie allgemeines Datenbank-/Software-/Post-Provision-Binding und weiterfuehrendes Hyper-V-NAT/LAN/IPAM bleiben offen"
+    - "Hyper-V sealed VHDX Registry, Builder-/Resume-Grundlage, realer Windows-2025-/SQL-2025-Prepared-Manifest-Klon bis SQL_READY_RUN, freie Manifest-Drives, NAT-Bound-Plan mit IPAM und echter SQL-2025-CLI-Vertical-Slice implementiert; vollautomatische OS-Factory sowie allgemeines Datenbank-/Software-/Post-Provision-Binding, Hyper-V-LAN und Netzwerk-Reconcile bleiben offen"
     - "Container-Manifeste laufen standardmäßig unattended mit externen Secret-Referenzen, SHA-256-/Trust-Schutz und read-only Host-Mount-Default"
-    - "providerneutrale Network Intents und Exposure Policy binden Container-NAT sowie Hyper-V-HostOnly/-Isolation und lehnen offene Kombinationen vor Mutation ab; Hyper-V-NAT/LAN/IPAM/DNS und Netzwerk-Reconcile bleiben offen; Lifecycle-Reconcile sowie journalisierter Container-Reconcile fuer CPU, RAM, SQL max memory, Hostport, Autostart und External Runtimes sind implementiert"
+    - "providerneutrale Network Intents und Exposure Policy binden Container-NAT sowie Hyper-V-HostOnly/-Isolation/-NAT und lehnen offene Kombinationen vor Mutation ab; Hyper-V-NAT nutzt Shared-WinNAT, mutationsfreie Kollisionspruefung, statische scopegebundene IPAM-Leases und Gateway-/DNS-Binding; Hyper-V-LAN und Netzwerk-Reconcile bleiben offen; Lifecycle-Reconcile sowie journalisierter Container-Reconcile fuer CPU, RAM, SQL max memory, Hostport, Autostart und External Runtimes sind implementiert"
     - "Artifact Refresh und Rebuild für Medien, VHDX und Derived Images nicht implementiert"
     - "kein provideruebergreifendes Docker-/Podman-Netzwerk oder Hyper-V-SubRun"
     - "Sample-Handler mit Trust-Pfad, Mehrfachauswahl, ZIP-/7z-Backup-Payloads, gepinnten Einzelskripten und sicheren Multi-Output-ZIP-Script-Bundles sind implementiert; nicht freigegebene Archive und Attach-Handler bleiben offen"

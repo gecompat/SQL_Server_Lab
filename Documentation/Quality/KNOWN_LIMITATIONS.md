@@ -185,18 +185,22 @@ danach weiter unbeaufsichtigt.
 Freie run-lokale Manifest-Drives werden inzwischen deklarativ auf zusätzliche
 Hyper-V-VHDX und deren Disk-ID-gebundene Gastinitialisierung abgebildet. Der
 portable Netzwerkvertrag bindet Docker/Podman über Loopback an `nat`/`host`, Hyper-V an
-`hostOnly`/`host` und explizit an `isolated`/`none`; andere Kombinationen
-scheitern vor Mutation. Noch nicht implementiert ist die vollständige Bindung
-an den Datenbank-, Software- und Post-Provisioning-Vertrag sowie Hyper-V-NAT,
-LAN, zentraler IPAM/DNS und Netzwerk-Reconcile. Der Prepared-Image-Klonpfad führt für
+`hostOnly`/`host`, `isolated`/`none` und `nat`/`host`; andere Kombinationen
+scheitern vor Mutation. Hyper-V-NAT verwendet einen gemeinsamen WinNAT-Vertrag,
+mutationsfreie CIDR-/WinNAT-Prüfung, scopegebundene statische IPAM-Leases sowie
+einen Gateway-/DNS-Snapshot. Auf dem Referenzhost blockiert das bereits aktive,
+fremde WinNAT `172.30.0.0/24` die positive NAT-Erstellung erwartungsgemäß; dieser
+Host liefert deshalb native Kollisions-, aber keine positive Erstellungs-Evidence.
+Noch nicht implementiert ist die vollständige Bindung an den Datenbank-, Software-
+und Post-Provisioning-Vertrag sowie Hyper-V-LAN und Netzwerk-Reconcile. Der Prepared-Image-Klonpfad führt für
 ein `SQL_PREPARED_SEALED`-Image `CompleteImage` aus und ist für den Windows-
 2025-/SQL-2025-Referenzfall bis `SQL_READY_RUN` real akzeptiert. Ein weiterer
 echter CLI-Vertical-Slice aus einem frischen `OS_SEALED`-Slot ist für SQL
 Server 2025 einschließlich Installation, Storage, TempDB, Ressourcenwechsel,
 Datenpersistenz und Cleanup akzeptiert. Offen bleiben der vollautomatische
 OS-Factory-Build,
-der allgemeine deklarative Hyper-V-SQL-Runtimepfad, weiterführende Network-
-Bindings, zentraler IPAM, erweitertes Reconcile und der automatische Artifact
+der allgemeine deklarative Hyper-V-SQL-Runtimepfad, LAN-/External-Bindings,
+erweitertes Reconcile und der automatische Artifact
 Refresh. Der verbindliche Zielvertrag steht in
 [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](../Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md).
 

@@ -430,6 +430,7 @@ function New-HyperVLabEnvironmentFromExistingVm {
         [ValidateSet('on', 'off')][string]$AutoStart = 'off',
         [string]$SwitchName,
         [switch]$Isolated,
+        [ValidateSet('hostOnly', 'nat')][string]$NetworkIntent = 'hostOnly',
         [switch]$ConfirmSourceLicense,
         [string]$StateRoot
     )
@@ -441,17 +442,31 @@ function New-HyperVLabEnvironmentFromExistingVm {
     $source = @(Get-HyperVExistingVmLabSource | Where-Object { $_.VMName -eq $SourceVMName }) | Select-Object -First 1
     if (-not $source) { throw 'HYPERV_EXISTING_VM_SOURCE_NOT_ELIGIBLE' }
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
-    $labNetwork = Resolve-LabHyperVNetwork -SwitchName $SwitchName -Isolated:$Isolated
+    if ($Isolated -and $NetworkIntent -ne 'hostOnly') { throw 'HYPERV_NETWORK_ISOLATION_INTENT_CONFLICT' }
+    $networkPlan = if ($Isolated) { $null } else { Resolve-LabHyperVNetworkBoundPlan -Intent $NetworkIntent -SwitchName $SwitchName }
+    if ($networkPlan -and [string]$networkPlan.Status -ne 'READY') {
+        throw "HYPERV_NETWORK_BINDING_BLOCKED: $(@($networkPlan.Blockers) -join ', ')"
+    }
+    $labNetwork = $null
 
     Write-LabInfo 'Schritt 2/6: Workflow-Run und Cleanup-Plan werden angelegt.'
     $run = New-LabRunState -StateRoot $StateRoot -Metadata @{
         name = $LabName; workflowKind = 'hyperv-lab'; baseKind = 'existing-vm'; workload = 'windows'; autostart = $AutoStart
         sourceVMName = $source.VMName; sourceVhdxPath = $source.SourceVhdxPath
         sourceLicenseNotice = $source.LicenseNotice
-        network = if ($labNetwork) { $labNetwork.Name } else { $null }
+        network = if ($networkPlan) { $networkPlan.Name } else { $null }
+        networkIntent = if ($Isolated) { 'isolated' } else { $NetworkIntent }
     } -ProviderSubRuns @([PSCustomObject]@{ id = 'provider-hyperv'; provider = 'hyperv'; instanceIds = @($InstanceId) })
     try {
         $null = New-CleanupPlan -RunDir $run.RunDir -RunId $run.RunId -ScopeId $run.ScopeId -ProviderSubRuns @([PSCustomObject]@{ id = 'provider-hyperv'; provider = 'hyperv'; instanceIds = @($InstanceId) })
+        if ($networkPlan) {
+            $labNetwork = Invoke-LabHyperVNetworkBoundPlan -Plan $networkPlan
+            $lease = Reserve-LabHyperVNetworkAddress -Network $labNetwork -RunId $run.RunId -ScopeId $run.ScopeId -InstanceId $InstanceId -StateRoot $run.StateRoot
+            $labNetwork | Add-Member -NotePropertyName address -NotePropertyValue ([string]$lease.address) -Force
+            $null = Add-CleanupStep -RunDir $run.RunDir -ResourceType 'ipam-lease' -ResourceId ([string]$lease.address) `
+                -Action 'release' -Provider 'hyperv' -ProviderSubRunId 'provider-hyperv' -Compensation "Release Hyper-V IPAM lease for $InstanceId"
+            Write-LabArtifactJsonAtomic -Path (Join-Path $run.RunDir 'network-bound-plan.json') -InputObject $labNetwork
+        }
         $null = Set-LabRunState -RunId $run.RunId -NewState PROVISIONING -Reason 'Hyper-V-Lab wird aus einer vorhandenen VM abgeleitet.' -StateRoot $run.StateRoot
         Set-LabProviderSubRunState -RunId $run.RunId -Provider hyperv -NewState PROVISIONING -Reason 'Quell-VM wird unveraendert als Basis kopiert.' -StateRoot $run.StateRoot
 
@@ -475,7 +490,10 @@ function New-HyperVLabEnvironmentFromExistingVm {
             schemaVersion = 1; instances = @([PSCustomObject]@{
                 id = $InstanceId; provider = 'hyperv'; vmName = $vm.VMName; vmId = $vm.VMId; autostart = $AutoStart
                 sqlVersion = $null; sqlEdition = $null; imageArtifactId = $null; host = $null; port = $null
-                labNetwork = if ($labNetwork) { [PSCustomObject]@{ name = $labNetwork.Name; subnet = $labNetwork.Subnet; prefixLength = $labNetwork.PrefixLength; hostAddress = $labNetwork.HostAddress } } else { $null }
+                labNetwork = if ($labNetwork) { [PSCustomObject]@{
+                    name = $labNetwork.Name; intent = $labNetwork.Intent; subnet = $labNetwork.Subnet; prefixLength = $labNetwork.PrefixLength
+                    hostAddress = $labNetwork.HostAddress; address = $labNetwork.address; gateway = $labNetwork.Gateway; dnsServers = @($labNetwork.DnsServers)
+                } } else { $null }
                 baseKind = 'existing-vm'; workload = 'windows'; sourceVMName = $source.VMName; sourceVhdxPath = $source.SourceVhdxPath
                 sourceParentCopyPath = $parentCopyPath; sourceParentSha256 = $parentHash
             })
@@ -519,6 +537,7 @@ function New-HyperVLabEnvironment {
         [ValidateSet('on', 'off')][string]$AutoStart = 'off',
         [string]$SwitchName,
         [switch]$Isolated,
+        [ValidateSet('hostOnly', 'nat')][string]$NetworkIntent = 'hostOnly',
         [object[]]$AdditionalDrives = @(),
         $StorageIntent,
         $DesiredState,
@@ -546,12 +565,18 @@ function New-HyperVLabEnvironment {
             throw "HYPERV_STORAGE_INTENT_BINDING_BLOCKED: $(@($storagePreflight.Blockers) -join ', ')"
         }
     }
-    $labNetwork = Resolve-LabHyperVNetwork -SwitchName $SwitchName -Isolated:$Isolated
+    if ($Isolated -and $NetworkIntent -ne 'hostOnly') { throw 'HYPERV_NETWORK_ISOLATION_INTENT_CONFLICT' }
+    $networkPlan = if ($Isolated) { $null } else { Resolve-LabHyperVNetworkBoundPlan -Intent $NetworkIntent -SwitchName $SwitchName }
+    if ($networkPlan -and [string]$networkPlan.Status -ne 'READY') {
+        throw "HYPERV_NETWORK_BINDING_BLOCKED: $(@($networkPlan.Blockers) -join ', ')"
+    }
+    $labNetwork = $null
 
     Write-LabInfo 'Schritt 2/5: Workflow-Run und rückgängig ausführbarer Cleanup-Plan werden angelegt.'
     $runMetadata = @{
         name = $LabName; workflowKind = 'hyperv-lab'; imageArtifactId = $ArtifactId; workload = $workload; baseKind = $baseKind; autostart = $AutoStart
-        network = if ($labNetwork) { $labNetwork.Name } else { $null }
+        network = if ($networkPlan) { $networkPlan.Name } else { $null }
+        networkIntent = if ($Isolated) { 'isolated' } else { $NetworkIntent }
         desiredState = $DesiredState
     }
     $workflowOperationId = Get-LabWorkflowOperationContext
@@ -562,6 +587,14 @@ function New-HyperVLabEnvironment {
         -ProviderSubRuns @([PSCustomObject]@{ id = 'provider-hyperv'; provider = 'hyperv'; instanceIds = @($InstanceId) })
     try {
         $null = New-CleanupPlan -RunDir $run.RunDir -RunId $run.RunId -ScopeId $run.ScopeId -ProviderSubRuns @([PSCustomObject]@{ id = 'provider-hyperv'; provider = 'hyperv'; instanceIds = @($InstanceId) })
+        if ($networkPlan) {
+            $labNetwork = Invoke-LabHyperVNetworkBoundPlan -Plan $networkPlan
+            $lease = Reserve-LabHyperVNetworkAddress -Network $labNetwork -RunId $run.RunId -ScopeId $run.ScopeId -InstanceId $InstanceId -StateRoot $run.StateRoot
+            $labNetwork | Add-Member -NotePropertyName address -NotePropertyValue ([string]$lease.address) -Force
+            $null = Add-CleanupStep -RunDir $run.RunDir -ResourceType 'ipam-lease' -ResourceId ([string]$lease.address) `
+                -Action 'release' -Provider 'hyperv' -ProviderSubRunId 'provider-hyperv' -Compensation "Release Hyper-V IPAM lease for $InstanceId"
+            Write-LabArtifactJsonAtomic -Path (Join-Path $run.RunDir 'network-bound-plan.json') -InputObject $labNetwork
+        }
         $storageBoundPlan = $null
         if ($StorageIntent) {
             $storageBoundPlan = New-LabStorageBoundPlan -StorageIntent $StorageIntent -RunId $run.RunId `
@@ -584,7 +617,10 @@ function New-HyperVLabEnvironment {
                 sqlVersion = if ($workload -eq 'sql') { [string]$artifact.sql.version } else { $null }
                 sqlEdition = if ($workload -eq 'sql') { [string]$artifact.sql.edition } else { $null }
                 workload = $workload; baseKind = $baseKind; imageArtifactId = $ArtifactId; host = $null; port = $null
-                labNetwork = if ($labNetwork) { [PSCustomObject]@{ name = $labNetwork.Name; subnet = $labNetwork.Subnet; prefixLength = $labNetwork.PrefixLength; hostAddress = $labNetwork.HostAddress } } else { $null }
+                labNetwork = if ($labNetwork) { [PSCustomObject]@{
+                    name = $labNetwork.Name; intent = $labNetwork.Intent; subnet = $labNetwork.Subnet; prefixLength = $labNetwork.PrefixLength
+                    hostAddress = $labNetwork.HostAddress; address = $labNetwork.address; gateway = $labNetwork.Gateway; dnsServers = @($labNetwork.DnsServers)
+                } } else { $null }
                 storageBoundPlan = if ($storageBoundPlan) { [PSCustomObject]@{ planId=[string]$storageBoundPlan.PlanId; status='READY_TO_APPLY'; artifact='storage-bound-plan.json' } } else { $null }
                 additionalDrives = @($vm.AdditionalDrives | ForEach-Object {
                     [PSCustomObject]@{
@@ -807,7 +843,8 @@ function Invoke-HyperVLabUnattendedProvision {
     $postLoginScript = Get-HyperVUnattendedPostLoginScript -GeoId $localeSettings.GeoId -SystemLocale $localeSettings.SystemLocale -UiLanguage $localeSettings.UiLanguage -InputLocale $localeSettings.InputLocale -TimeZone $localeSettings.TimeZone
     try {
         if ($lab.Instance.labNetwork) {
-            $fallbackAddress = Get-LabNetworkGuestAddress -Network $lab.Instance.labNetwork -Identity $lab.Run.runId
+            $fallbackAddress = if ($lab.Instance.labNetwork.address) { [string]$lab.Instance.labNetwork.address } `
+                else { Get-LabNetworkGuestAddress -Network $lab.Instance.labNetwork -Identity $lab.Run.runId }
             $bootstrap = New-HyperVSqlGuestNetworkBootstrapScript -Network $lab.Instance.labNetwork -Address $fallbackAddress
         }
         $unattend = New-HyperVSqlOobeUnattendXml -AdministratorPassword $AdministratorPassword `

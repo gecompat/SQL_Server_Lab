@@ -758,10 +758,12 @@ Ein echter Windows-Gast-End-to-End-Nachweis sowie alle SQL-Setup-/
 - External Switch nur auf freigegebenem Runner.
 
 Stand 2026-09-01: Der portable Manifest- und Planvertrag sowie die Bindings für
-Container-`nat`, Hyper-V-`hostOnly` und Hyper-V-`isolated` sind implementiert.
-Exposure-Konflikte und nicht gebundene Providerkombinationen scheitern vor
-Mutation. Hyper-V-WinNAT, LAN/External Switch, zentraler IPAM/DNS sowie
-Netzwerk-Reconcile bleiben offen.
+Container-`nat`, Hyper-V-`hostOnly`, Hyper-V-`isolated` und Hyper-V-`nat` sind
+implementiert. NAT besitzt vor der Mutation einen Host-Bound-Plan, schützt ein
+bereits vorhandenes fremdes WinNAT, nutzt auf geeigneten Hosts genau ein
+gemeinsames internes WinNAT und reserviert statische Gastadressen scopegebunden.
+Gateway und ein zur Planzeit gebundener Host-DNS-Snapshot werden in den Gast
+übernommen. LAN/External Switch und Netzwerk-Reconcile bleiben offen.
 
 ### Welle 7 – Software, External Runtimes und Samples
 

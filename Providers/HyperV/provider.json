@@ -21,6 +21,7 @@
     "run-local-additional-vhdx",
     "managed-lab-network",
     "isolated-network",
+    "nat-network",
     "scsi-drive-attachment",
     "stable-vhdx-disk-identity",
     "powershell-direct-guest-drive-initialization",

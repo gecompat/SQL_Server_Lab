@@ -51,14 +51,87 @@ try {
     Add-CheckResult -Name 'Hyper-V-Isolated-Intent bindet einen privaten Switch ohne Exposure' -Success (
         $intentPlans.HyperVIsolated.Status -eq 'RESOLVED' -and $intentPlans.HyperVIsolated.Binding -eq 'private-switch'
     )
-    Add-CheckResult -Name 'Noch offene providerseitige Network-Intents werden fail-closed klassifiziert' -Success (
-        $intentPlans.HyperVNat.ReasonCode -eq 'NETWORK_INTENT_PROVIDER_UNSUPPORTED' -and
+    Add-CheckResult -Name 'Hyper-V-NAT ist gebunden; offene Container-Intents bleiben fail-closed' -Success (
+        $intentPlans.HyperVNat.Status -eq 'RESOLVED' -and $intentPlans.HyperVNat.Binding -eq 'shared-internal-nat' -and
         $intentPlans.DockerHostOnly.ReasonCode -eq 'NETWORK_INTENT_PROVIDER_UNSUPPORTED'
     )
     Add-CheckResult -Name 'Exposure- und Legacy-Switch-Konflikte scheitern vor Provider-Mutation' -Success (
         $intentPlans.LegacyConflict.ReasonCode -eq 'NETWORK_LEGACY_SWITCH_CONFLICT' -and
         $intentPlans.ExposureConflict.ReasonCode -eq 'NETWORK_EXPOSURE_CONFLICT'
     )
+    $hyperVNatPlans = & $module {
+        function Get-VMSwitch { $null }
+        function Get-NetIPAddress { @() }
+        function Get-DnsClientServerAddress { [PSCustomObject]@{ InterfaceAlias='Ethernet'; ServerAddresses=@('192.0.2.53') } }
+        function Get-LabKnownIpv4Subnets { param($Provider) @('0.0.0.0/0') }
+        function Get-NetNat { [PSCustomObject]@{ Name='FOREIGN_NAT'; InternalIPInterfaceAddressPrefix='172.30.0.0/24' } }
+        $blocked = Resolve-LabHyperVNetworkBoundPlan -Intent nat
+        function Get-NetNat { @() }
+        $ready = Resolve-LabHyperVNetworkBoundPlan -Intent nat
+        [PSCustomObject]@{ Blocked=$blocked; Ready=$ready }
+    }
+    Add-CheckResult -Name 'Hyper-V-NAT-Plan erkennt fremdes WinNAT mutationsfrei und ignoriert die Default-Route' -Success (
+        $hyperVNatPlans.Blocked.Status -eq 'BLOCKED' -and
+        $hyperVNatPlans.Blocked.Blockers -contains 'LAB_NETWORK_HYPERV_NAT_PREFIX_CONFLICT' -and
+        $hyperVNatPlans.Ready.Status -eq 'READY' -and
+        $hyperVNatPlans.Ready.Actions -contains 'create-shared-winnat'
+    )
+    $hyperVNatApply = & $module {
+        $script:natApplyCalls = [Collections.Generic.List[string]]::new()
+        $script:natSwitchExists = $false; $script:natAddressExists = $false; $script:natExists = $false
+        function Get-VMSwitch { param($Name) if ($script:natSwitchExists) { [PSCustomObject]@{ Name=$Name; SwitchType='Internal' } } }
+        function New-VMSwitch { param($Name,$SwitchType) $script:natApplyCalls.Add('switch'); $script:natSwitchExists=$true }
+        function Remove-VMSwitch { }
+        function Get-NetIPAddress {
+            if ($script:natAddressExists) { [PSCustomObject]@{ IPAddress='172.29.0.1'; PrefixLength=24; PrefixOrigin='Manual' } }
+        }
+        function New-NetIPAddress { $script:natApplyCalls.Add('address'); $script:natAddressExists=$true }
+        function Remove-NetIPAddress { }
+        function Get-NetNat { param($Name) if ($script:natExists) { [PSCustomObject]@{ Name='SQL_LAB_HYPERV_NAT'; InternalIPInterfaceAddressPrefix='172.29.0.0/24' } } }
+        function New-NetNat { $script:natApplyCalls.Add('nat'); $script:natExists=$true }
+        function Remove-NetNat { }
+        function Get-DnsClientServerAddress { [PSCustomObject]@{ InterfaceAlias='Ethernet'; ServerAddresses=@('192.0.2.53') } }
+        function Get-LabKnownIpv4Subnets { param($Provider) @() }
+        $plan = Resolve-LabHyperVNetworkBoundPlan -Intent nat
+        $result = Invoke-LabHyperVNetworkBoundPlan -Plan $plan
+        [PSCustomObject]@{ Status=$result.Status; Calls=@($script:natApplyCalls) }
+    }
+    Add-CheckResult -Name 'Revalidierter Hyper-V-NAT-Plan erstellt Switch, Hostadresse und WinNAT in sicherer Reihenfolge' -Success (
+        $hyperVNatApply.Status -eq 'READY' -and ($hyperVNatApply.Calls -join ',') -eq 'switch,address,nat'
+    )
+    $ipamRoot = Join-Path ([IO.Path]::GetTempPath()) "sql-lab-hyperv-ipam-$([guid]::NewGuid().ToString('N'))"
+    try {
+        $ipam = & $module {
+            param($Root)
+            $network = Get-LabRuntimeNetwork -Provider hyperv -Intent nat
+            $first = Reserve-LabHyperVNetworkAddress -Network $network -RunId run-a -ScopeId scope-a -InstanceId primary -StateRoot $Root
+            $second = Reserve-LabHyperVNetworkAddress -Network $network -RunId run-b -ScopeId scope-b -InstanceId primary -StateRoot $Root
+            $again = Reserve-LabHyperVNetworkAddress -Network $network -RunId run-a -ScopeId scope-a -InstanceId primary -StateRoot $Root
+            $released = Release-LabHyperVNetworkAddress -Address $first.address -RunId run-a -ScopeId scope-a -StateRoot $Root
+            [PSCustomObject]@{ First=$first; Second=$second; Again=$again; Released=$released }
+        } $ipamRoot
+        Add-CheckResult -Name 'Hyper-V-IPAM reserviert eindeutig, idempotent und scope-gebunden freigebbar' -Success (
+            $ipam.First.address -ne $ipam.Second.address -and $ipam.First.address -eq $ipam.Again.address -and $ipam.Released
+        )
+        $cleanup = & $module {
+            param($Root)
+            $run = New-LabRunState -StateRoot $Root -Metadata @{ name='ipam-cleanup' } `
+                -ProviderSubRuns @([PSCustomObject]@{ id='provider-hyperv'; provider='hyperv'; instanceIds=@('cleanup') })
+            $null = New-CleanupPlan -RunDir $run.RunDir -RunId $run.RunId -ScopeId $run.ScopeId `
+                -ProviderSubRuns @([PSCustomObject]@{ id='provider-hyperv'; provider='hyperv'; instanceIds=@('cleanup') })
+            $network = Get-LabRuntimeNetwork -Provider hyperv -Intent nat
+            $lease = Reserve-LabHyperVNetworkAddress -Network $network -RunId $run.RunId -ScopeId $run.ScopeId -InstanceId cleanup -StateRoot $Root
+            $null = Add-CleanupStep -RunDir $run.RunDir -ResourceType 'ipam-lease' -ResourceId $lease.address `
+                -Action release -Provider hyperv -ProviderSubRunId provider-hyperv
+            $result = Invoke-CleanupPlan -RunDir $run.RunDir -ScopeId $run.ScopeId
+            $registry = Get-Content -LiteralPath (Get-LabHyperVIpamPath -StateRoot $Root) -Raw | ConvertFrom-Json -Depth 20
+            [PSCustomObject]@{ Status=$result.Status; LeaseState=[string]@($registry.leases | Where-Object address -eq $lease.address)[0].state }
+        } $ipamRoot
+        Add-CheckResult -Name 'Run-Cleanup gibt die Hyper-V-IPAM-Lease nach den Run-Ressourcen frei' -Success (
+            $cleanup.Status -eq 'CLEANUP_SUCCEEDED' -and $cleanup.LeaseState -eq 'RELEASED'
+        )
+    }
+    finally { Remove-Item -LiteralPath $ipamRoot -Recurse -Force -ErrorAction SilentlyContinue }
     $podmanCniRoot = Join-Path ([IO.Path]::GetTempPath()) "sql-lab-podman-cni-$([guid]::NewGuid().ToString('N'))"
     New-Item -Path $podmanCniRoot -ItemType Directory -Force | Out-Null
     try {
@@ -119,9 +192,10 @@ try {
         $containerReconcileSource -match '127\.0\.0\.1:\$\(\[int\]\$plan\.Desired\.Port\):1433'
     )
     Add-CheckResult -Name 'Hyper-V-SQL-Builder bindet SQL_LAB_HYPERV' -Success ($hyperv -match 'Ensure-LabHyperVNetwork' -and $hyperv -match '-SwitchName \$labNetwork.Name')
-    Add-CheckResult -Name 'Manifestlauf reicht den aufgeloesten Hyper-V-Isolation-Intent an die Runtime weiter' -Success (
+    Add-CheckResult -Name 'Manifestlauf reicht den aufgeloesten Hyper-V-Network-Intent an die Runtime weiter' -Success (
         $newLabSource -match '\$hyperVIsolated\s*=.+instance\.network\.Intent.+isolated' -and
-        $newLabSource -match 'New-HyperVLabEnvironment[\s\S]+-Isolated:\$hyperVIsolated'
+        $newLabSource -match '\$hyperVNetworkIntent' -and
+        $newLabSource -match 'New-HyperVLabEnvironment[\s\S]+-NetworkIntent \$hyperVNetworkIntent'
     )
     Add-CheckResult -Name 'Hyper-V-Gast erhaelt nach OOBE eine Lab-IP und SQL-Firewallfreigabe' -Success ($acceptance -match 'Initialize-HyperVGuestLabNetwork' -and $networkSource -match 'New-NetFirewallRule[\s\S]+LocalPort 1433')
     Add-CheckResult -Name 'Hyper-V-Gastnetz quittiert nur die tatsaechlich bevorzugte statische Adresse' -Success (
