@@ -205,7 +205,15 @@ veröffentlicht das Parent-Image hashgebunden, migriert und reparentet die
 run-eigene VHDX, verschiebt VM-Konfiguration, Paging und Snapshots, belegt zwei
 Gaststarts und entfernt die verifizierte Quelle erst nach den abschließenden
 Binding-, VHDX-, Parent- und Attachment-Postconditions. Ein nichtterminales
-Journal wird aus demselben Plan fortgesetzt.
+Journal wird aus demselben Plan fortgesetzt. Für einen ursprünglich laufenden
+Legacy-SQL-Run validiert `-RequireSqlReadiness` die erwartete SQL-Hauptversion
+und beide Restart-Receipts. `-AdoptLegacySqlIdentity` übernimmt fehlende
+aktuelle VM-Identität nur aus persistierter abgeschlossener Windows-
+Provisionierung und einem erfolgreichen Live-SQL-Probe. Vor dem VHDX-Hashplan
+wird der Gast geordnet heruntergefahren; ein Fehler vor Journalbeginn stellt
+den laufenden Zustand samt Readiness wieder her. Nach erfolgreicher Migration
+wird der ursprüngliche laufende Zustand ebenfalls mit Gast- und SQL-Readiness
+wiederhergestellt.
 
 ```powershell
 .\Tests\Integration\Invoke-HyperVResourceMigrationAcceptance.ps1 `
@@ -213,6 +221,17 @@ Journal wird aus demselben Plan fortgesetzt.
     -LegacyStateRoot '<legacy-state-root>' -DataRoot '<registered-lab-data-root>' `
     -EvidencePath '<path-outside-repository>' -Confirm:$false
 ```
+
+Ein SQL-gebundener, ursprünglich laufender Kandidat ergänzt:
+
+```powershell
+-ExpectedInitialVMState Running -RequireSqlReadiness `
+    -ExpectedSqlMajorVersion <major> -AdoptLegacySqlIdentity
+```
+
+Diese Parameter und ihre statischen Verträge sind implementiert; ein positiver
+realer SQL-Legacy-Migrationslauf bleibt bis zur tatsächlichen Ausführung
+`NOT_EXECUTED`.
 
 ## 3. Voraussetzungen
 

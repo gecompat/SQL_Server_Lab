@@ -306,8 +306,14 @@ neue Fehlplatzierung mehr zulassen. Sie blockieren den P0-Sofortschutz nicht.
   journalisiert nach `Lab_Data` kopiert, reparentet und samt VM-Storage
   umgebunden. Zwei erfolgreiche Gaststarts, ein realer `RECOVERY_REQUIRED`-
   Resume und der anschließende Quell-Cleanup sind belegt; der Shared Parent
-  blieb wegen weiterer Consumer erwartungsgemäß erhalten. Offen bleiben ein
-  SQL-readiness-gebundener Legacy-Fall, die allgemeine Storage-Migration und
+  blieb wegen weiterer Consumer erwartungsgemäß erhalten. Der Acceptance-
+  Runner unterstützt inzwischen auch ursprünglich laufende Legacy-SQL-Runs:
+  Er übernimmt fehlende aktuelle SQL-Identität nur nach persistierter Windows-
+  Evidence und erfolgreichem Live-SQL-Probe, stoppt vor dem Hashplan geordnet,
+  verlangt SQL-Readiness für beide Restart-Zyklen und stellt den laufenden
+  Ausgangszustand abschließend mit erneuter Readiness her. Dieser Vertrag ist
+  statisch und synthetisch gebunden; der reale SQL-Fall bleibt
+  `NOT_EXECUTED`. Ebenfalls offen bleiben die allgemeine Storage-Migration und
   der erneute N5-Mehrgeräte-Nachweis. Der Apply bleibt bis dahin interner
   Fachkern mit explizitem Acceptance-Runner.
 
