@@ -188,6 +188,118 @@ try {
     Add-CheckResult `
         -Name 'Read-only Plan veraendert weder Run-State noch Connection-Info' `
         -Success ($contract.StateUnchanged -and $contract.ConnectionUnchanged)
+
+    $networkContract = & $module {
+        param($Root)
+
+        $desiredSnapshot = [PSCustomObject]@{
+            Contract=[PSCustomObject]@{ Name='SqlServerLab.RunDesiredState'; Version='1.0' }
+            ProvisioningMode='manifest'; LabName='Hyper-V network reconcile'; PersistentData=$false
+            Instances=@([PSCustomObject]@{
+                Id='primary'; Provider='hyperv'; Version='2025'; Profile='standard'; DatabaseNames=@()
+                Intents=[PSCustomObject]@{
+                    Contract=[PSCustomObject]@{ Name='SqlServerLab.InstanceIntent'; Version='1.0' }
+                    Network=[PSCustomObject]@{ Intent='hostOnly'; Exposure='host'; Binding='internal-switch' }
+                }
+            })
+        }
+        $run = New-LabRunState -StateRoot $Root -Metadata @{ name='Hyper-V network reconcile'; workflowKind='hyperv-lab'; desiredState=$desiredSnapshot } `
+            -ProviderSubRuns @([PSCustomObject]@{ provider='hyperv'; instanceIds=@('primary') })
+        Write-LabArtifactJsonAtomic -Path (Join-Path $run.RunDir 'connection-info.json') -InputObject ([PSCustomObject]@{
+            instances = @([PSCustomObject]@{
+                id='primary'; provider='hyperv'; vmName='host-value-must-not-leak'
+                labNetwork=[PSCustomObject]@{
+                    name='SQL_LAB_HYPERV'; intent='hostOnly'; subnet='172.28.0.0/24'
+                    prefixLength=24; hostAddress='172.28.0.1'; address='172.28.0.42'; gateway=$null; dnsServers=@()
+                }
+            })
+        })
+        $desiredInstance = [PSCustomObject]@{
+            Id='primary'; Provider='hyperv'; TargetState='RUNNING'
+            Network=[PSCustomObject]@{ Intent='hostOnly'; Exposure='host'; Binding='internal-switch' }
+        }
+
+        $script:networkReconcileMode = 'matched'
+        function Get-HyperVLabWorkflowRun {
+            [PSCustomObject]@{ Instance=[PSCustomObject]@{ vmName='host-value-must-not-leak' } }
+        }
+        function Get-VMNetworkAdapter {
+            if ($script:networkReconcileMode -eq 'unavailable') { throw 'simulated provider read failure' }
+            if ($script:networkReconcileMode -eq 'detached') { return @() }
+            [PSCustomObject]@{ SwitchName='SQL_LAB_HYPERV'; IPAddresses=@('172.28.0.42') }
+        }
+        function Get-VMSwitch {
+            [PSCustomObject]@{ Name='SQL_LAB_HYPERV'; SwitchType='Internal' }
+        }
+        function Resolve-LabHyperVNetworkBoundPlan {
+            [PSCustomObject]@{ Status='READY'; Actions=@(); Blockers=@() }
+        }
+        function Get-LabRunRuntimeStatus {
+            [PSCustomObject]@{
+                State='RUNNING'; Source='mock'
+                Instances=@([PSCustomObject]@{ Id='primary'; Provider='hyperv'; State='RUNNING' })
+            }
+        }
+
+        $matched = Get-LabHyperVNetworkReconcileActual -Run $run -DesiredInstance $desiredInstance -StateRoot $Root
+        $matchedPlan = New-LabReconcilePlan -RunId $run.runId -TargetState RUNNING -StateRoot $Root
+        $script:networkReconcileMode = 'detached'
+        $drift = Get-LabHyperVNetworkReconcileActual -Run $run -DesiredInstance $desiredInstance -StateRoot $Root
+        $script:networkReconcileMode = 'unavailable'
+        $unavailable = Get-LabHyperVNetworkReconcileActual -Run $run -DesiredInstance $desiredInstance -StateRoot $Root
+
+        $desired = [PSCustomObject]@{ IsValid=$true; TargetState='RUNNING'; Instances=@($desiredInstance) }
+        $matchedComparison = Compare-LabDesiredActualState -Desired $desired -Actual ([PSCustomObject]@{
+            State='RUNNING'; Instances=@([PSCustomObject]@{ Id='primary'; Provider='hyperv'; State='RUNNING'; Network=$matched })
+        })
+        $driftComparison = Compare-LabDesiredActualState -Desired $desired -Actual ([PSCustomObject]@{
+            State='RUNNING'; Instances=@([PSCustomObject]@{ Id='primary'; Provider='hyperv'; State='RUNNING'; Network=$drift })
+        })
+        $unsupportedDesired = [PSCustomObject]@{
+            IsValid=$true; TargetState='RUNNING'; Instances=@([PSCustomObject]@{
+                Id='primary'; Provider='hyperv'; TargetState='RUNNING'
+                Network=[PSCustomObject]@{
+                    Intent='lan'; Exposure='lan'; Binding='external-switch'
+                    PlanStatus='DECLARED_UNSUPPORTED'; CapabilityStatus='DECLARED_UNSUPPORTED'
+                    ReasonCode='NETWORK_INTENT_PROVIDER_UNSUPPORTED'
+                }
+            })
+        }
+        $unsupportedComparison = Compare-LabDesiredActualState -Desired $unsupportedDesired -Actual ([PSCustomObject]@{
+            State='RUNNING'; Instances=@([PSCustomObject]@{ Id='primary'; Provider='hyperv'; State='RUNNING'; Network=$matched })
+        })
+
+        [PSCustomObject]@{
+            Matched=$matched; MatchedPlan=$matchedPlan; Drift=$drift; Unavailable=$unavailable
+            MatchedComparison=$matchedComparison; DriftComparison=$driftComparison; UnsupportedComparison=$unsupportedComparison
+        }
+    } $tempRoot
+
+    Add-CheckResult `
+        -Name 'Hyper-V-Netzwerk-Actual-State erkennt semantischen No-op ohne Hostwerte' `
+        -Success ($networkContract.Matched.Status -eq 'MATCHED' -and
+            $networkContract.Matched.AttachmentStatus -eq 'MATCHED' -and
+            $networkContract.Matched.InfrastructureStatus -eq 'MATCHED' -and
+            $networkContract.Matched.GuestAddressStatus -eq 'MATCHED' -and
+            $networkContract.MatchedComparison.ChangeClass -eq 'no-op' -and
+            $networkContract.MatchedPlan.IsNoOp -and
+            @($networkContract.MatchedPlan.Diff | Where-Object Kind -eq 'network').Count -eq 1 -and
+            (($networkContract.Matched | ConvertTo-Json -Depth 10) -notmatch 'SQL_LAB_HYPERV|172\.28|host-value'))
+    Add-CheckResult `
+        -Name 'Hyper-V-Netzwerkdrift blockiert Lifecycle-Teilaktionen fail-closed' `
+        -Success ($networkContract.Drift.Status -eq 'DRIFT' -and
+            $networkContract.Drift.ReasonCodes -contains 'HYPERV_NETWORK_ADAPTER_MISSING' -and
+            $networkContract.DriftComparison.ChangeClass -eq 'unsupported' -and
+            @($networkContract.DriftComparison.Actions).Count -eq 0)
+    Add-CheckResult `
+        -Name 'Nicht lesbarer Hyper-V-Netzwerkzustand bleibt explizit UNAVAILABLE' `
+        -Success ($networkContract.Unavailable.Status -eq 'UNAVAILABLE' -and
+            $networkContract.Unavailable.ReasonCodes -contains 'HYPERV_NETWORK_ACTUAL_STATE_UNAVAILABLE')
+    Add-CheckResult `
+        -Name 'Nicht gebundener Hyper-V-Network-Intent bleibt trotz beobachtbarer Runtime unsupported' `
+        -Success ($networkContract.UnsupportedComparison.ChangeClass -eq 'unsupported' -and
+            $networkContract.UnsupportedComparison.NetworkDiff[0].ActualStatus -eq 'DECLARED_UNSUPPORTED' -and
+            $networkContract.UnsupportedComparison.NetworkDiff[0].ReasonCodes -contains 'NETWORK_INTENT_PROVIDER_UNSUPPORTED')
 }
 finally {
     if (Test-Path -LiteralPath $tempRoot) { Remove-Item -LiteralPath $tempRoot -Recurse -Force }
