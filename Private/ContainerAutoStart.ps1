@@ -79,6 +79,16 @@ function Get-LabExecutableFromWindowsRunValue {
     return $null
 }
 
+function Get-LabWindowsPathLeafName {
+    [CmdletBinding()]
+    param([AllowEmptyString()][string]$Path)
+
+    if ([string]::IsNullOrWhiteSpace($Path)) { return $null }
+    $match = [regex]::Match($Path.Trim(), '[^\\/]+$')
+    if (-not $match.Success) { return $null }
+    return [string]$match.Value
+}
+
 function Test-LabWindowsPodmanDesktopAutoStartValue {
     [CmdletBinding()]
     param(
@@ -86,13 +96,13 @@ function Test-LabWindowsPodmanDesktopAutoStartValue {
         [Parameter(Mandatory)][string]$PodmanDesktopPath
     )
 
-    if (-not [string]::Equals([IO.Path]::GetFileName($PodmanDesktopPath), 'Podman Desktop.exe', [StringComparison]::OrdinalIgnoreCase)) {
+    if (-not [string]::Equals((Get-LabWindowsPathLeafName -Path $PodmanDesktopPath), 'Podman Desktop.exe', [StringComparison]::OrdinalIgnoreCase)) {
         return $false
     }
     $executable = Get-LabExecutableFromWindowsRunValue -Value $Value
     return (
         -not [string]::IsNullOrWhiteSpace($executable) -and
-        [string]::Equals([IO.Path]::GetFileName($executable), 'Podman Desktop.exe', [StringComparison]::OrdinalIgnoreCase) -and
+        [string]::Equals((Get-LabWindowsPathLeafName -Path $executable), 'Podman Desktop.exe', [StringComparison]::OrdinalIgnoreCase) -and
         [string]::Equals($executable, $PodmanDesktopPath, [StringComparison]::OrdinalIgnoreCase)
     )
 }

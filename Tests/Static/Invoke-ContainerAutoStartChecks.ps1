@@ -112,6 +112,7 @@ try {
             RejectsSpoofedExpectedPath = -not (Test-LabWindowsPodmanDesktopAutoStartValue `
                 -Value '"C:\Tools\unexpected.exe"' `
                 -PodmanDesktopPath 'C:\Tools\unexpected.exe')
+            WindowsLeafName = Get-LabWindowsPathLeafName -Path 'C:\Program Files\Podman Desktop\Podman Desktop.exe'
         }
     } $generatedScriptRoot
 
@@ -133,7 +134,7 @@ try {
     )
     Add-CheckResult -Name 'Nur der bekannte Podman-Desktop-Loginwert wird übernommen' -Success (
         $generatedEvidence.RecognizedQuotedEntry -and $generatedEvidence.RejectsForeignEntry -and
-        $generatedEvidence.RejectsSpoofedExpectedPath
+        $generatedEvidence.RejectsSpoofedExpectedPath -and $generatedEvidence.WindowsLeafName -eq 'Podman Desktop.exe'
     )
 }
 finally {
