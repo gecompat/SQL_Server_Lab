@@ -625,6 +625,13 @@ zusätzlich je Runtime einen Auftrag für die Anmeldung des aktuellen Benutzers
 ein: Er startet Docker Desktop beziehungsweise die Podman Machine und danach
 ausschließlich markierte Lab-Container. Ein Windows-Desktop-/Rootless-Container
 ist deshalb nach dem ersten Login verfügbar, nicht bereits vor der Anmeldung.
+Sind Docker Desktop und Podman Desktop parallel vorhanden und besitzt Podman
+einen verwalteten Lab-Autostart, erkennt der Hostkoordinator diese Kombination
+automatisch. Er wartet zuerst auf Docker, startet danach die Podman Machine und
+anschließend Podman Desktop. Den bekannten Podman-Desktop-Login-Eintrag sichert
+er dafür lokal und übernimmt ihn reversibel; beim letzten Podman-Autostart-
+Cleanup wird er wiederhergestellt. Auf Systemen mit nur einer Runtime entsteht
+keine zusätzliche Providerabhängigkeit.
 Auf nativem Linux prüft SQL Server Lab, dass `docker.service` beim Boot startet;
 für Podman aktiviert es den User-Service `podman-restart.service` und systemd-
 Linger für den aktuellen Benutzer. Kann der Hoststart nicht garantiert werden,

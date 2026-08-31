@@ -56,6 +56,23 @@ Scheitert die Provisionierung, wird der Cleanup-Plan für alle bereits erzeugten
 Providerressourcen ausgeführt. Ein Teilfehler eines Providers wird nicht über
 eine andere Runtime kaschiert.
 
+### Windows-Hoststart
+
+Ein `autostart=on`-Container erhält weiterhin den providergebundenen
+`unless-stopped`- und Label-Vertrag. Die benutzergebundenen Windows-Aufträge
+erkennen zusätzlich, ob Docker Desktop und Podman Desktop gemeinsam vorhanden
+sind. Ein verwalteter Podman-Auftrag wartet in diesem Fall zuerst auf Docker,
+bevor er die Podman Machine und anschließend Podman Desktop startet. Damit ist
+die Reihenfolge deterministisch, obwohl Windows Login-Einträge untereinander
+keine Reihenfolge zusagen.
+
+Der Koordinator übernimmt ausschließlich den bekannten Podman-Desktop-Eintrag
+`io.podman_desktop.PodmanDesktop`. Dessen Originalwert liegt als lokales
+Recovery-Receipt außerhalb des Repository. Das Entfernen des letzten
+Podman-Autostart-Containers stellt den Wert wieder her; fremde oder während der
+Verwaltung geänderte Werte werden nicht überschrieben. Ist nur eine Runtime
+installiert, enthält das generierte Skript keine Abhängigkeit zur anderen.
+
 ### Status
 
 `Get-SqlServerLab` fragt Docker und Podman getrennt ab. Mit `-Detailed` enthält

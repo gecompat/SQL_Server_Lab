@@ -23,25 +23,224 @@ function Get-LabContainerAutoStartScriptPath {
     return Join-Path $root "Start-$Provider-Labs.ps1"
 }
 
+function Get-LabWindowsContainerDesktopPath {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][ValidateSet('docker', 'podman')][string]$Provider)
+
+    if (-not $IsWindows) { return $null }
+
+    $localAppData = [Environment]::GetFolderPath('LocalApplicationData')
+    $candidates = if ($Provider -eq 'docker') {
+        @(
+            (Join-Path $env:ProgramFiles 'Docker/Docker/Docker Desktop.exe'),
+            (Join-Path $localAppData 'Docker/Docker Desktop.exe')
+        )
+    }
+    else {
+        $runPath = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
+        $runItem = Get-ItemProperty -LiteralPath $runPath -ErrorAction SilentlyContinue
+        $runProperty = if ($runItem) { $runItem.PSObject.Properties['io.podman_desktop.PodmanDesktop'] } else { $null }
+        $runExecutable = if ($runProperty) { Get-LabExecutableFromWindowsRunValue -Value ([string]$runProperty.Value) } else { $null }
+        @(
+            $runExecutable,
+            (Join-Path $env:ProgramFiles 'Podman Desktop/Podman Desktop.exe'),
+            (Join-Path $env:ProgramFiles 'RedHat/Podman Desktop/Podman Desktop.exe'),
+            (Join-Path $localAppData 'Programs/Podman Desktop/Podman Desktop.exe')
+        ) | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) }
+    }
+
+    return $candidates | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
+}
+
+function Get-LabWindowsContainerAutoStartReceiptPath {
+    [CmdletBinding()]
+    param()
+
+    if (-not $IsWindows) { return $null }
+    $root = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'SQL_Server_Lab/autostart'
+    return Join-Path $root 'windows-podman-desktop-autostart.json'
+}
+
+function Get-LabExecutableFromWindowsRunValue {
+    [CmdletBinding()]
+    param([AllowEmptyString()][string]$Value)
+
+    $candidate = [string]$Value
+    if ([string]::IsNullOrWhiteSpace($candidate)) { return $null }
+    $candidate = $candidate.Trim()
+    if ($candidate.StartsWith('"')) {
+        $closingQuote = $candidate.IndexOf('"', 1)
+        if ($closingQuote -le 1) { return $null }
+        return $candidate.Substring(1, $closingQuote - 1)
+    }
+    if ($candidate -match '^(?<Executable>.+?\.exe)(?:\s+.*)?$') {
+        return [string]$Matches.Executable
+    }
+    return $null
+}
+
+function Get-LabWindowsPathLeafName {
+    [CmdletBinding()]
+    param([AllowEmptyString()][string]$Path)
+
+    if ([string]::IsNullOrWhiteSpace($Path)) { return $null }
+    $match = [regex]::Match($Path.Trim(), '[^\\/]+$')
+    if (-not $match.Success) { return $null }
+    return [string]$match.Value
+}
+
+function Test-LabWindowsPodmanDesktopAutoStartValue {
+    [CmdletBinding()]
+    param(
+        [AllowEmptyString()][string]$Value,
+        [Parameter(Mandatory)][string]$PodmanDesktopPath
+    )
+
+    if (-not [string]::Equals((Get-LabWindowsPathLeafName -Path $PodmanDesktopPath), 'Podman Desktop.exe', [StringComparison]::OrdinalIgnoreCase)) {
+        return $false
+    }
+    $executable = Get-LabExecutableFromWindowsRunValue -Value $Value
+    return (
+        -not [string]::IsNullOrWhiteSpace($executable) -and
+        [string]::Equals((Get-LabWindowsPathLeafName -Path $executable), 'Podman Desktop.exe', [StringComparison]::OrdinalIgnoreCase) -and
+        [string]::Equals($executable, $PodmanDesktopPath, [StringComparison]::OrdinalIgnoreCase)
+    )
+}
+
+function Read-LabWindowsPodmanDesktopAutoStartReceipt {
+    [CmdletBinding()]
+    param()
+
+    $path = Get-LabWindowsContainerAutoStartReceiptPath
+    if (-not $path -or -not (Test-Path -LiteralPath $path -PathType Leaf)) { return $null }
+    try {
+        $receipt = Get-Content -LiteralPath $path -Raw -Encoding utf8 | ConvertFrom-Json -ErrorAction Stop
+    }
+    catch {
+        throw "LAB_CONTAINER_AUTOSTART_RECEIPT_INVALID: $($_.Exception.Message)"
+    }
+    if ([int]$receipt.Version -ne 1 -or [string]$receipt.EntryName -ne 'io.podman_desktop.PodmanDesktop' -or
+        [string]::IsNullOrWhiteSpace([string]$receipt.Value) -or [string]::IsNullOrWhiteSpace([string]$receipt.DesktopPath)) {
+        throw 'LAB_CONTAINER_AUTOSTART_RECEIPT_INVALID: Pflichtfelder fehlen.'
+    }
+    if (-not (Test-LabWindowsPodmanDesktopAutoStartValue -Value ([string]$receipt.Value) -PodmanDesktopPath ([string]$receipt.DesktopPath))) {
+        throw 'LAB_CONTAINER_AUTOSTART_RECEIPT_INVALID: Der gesicherte Login-Eintrag ist nicht an Podman Desktop gebunden.'
+    }
+    return $receipt
+}
+
+function Write-LabWindowsPodmanDesktopAutoStartReceipt {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Value,
+        [Parameter(Mandatory)][string]$DesktopPath
+    )
+
+    $path = Get-LabWindowsContainerAutoStartReceiptPath
+    $directory = Split-Path -Parent $path
+    if (-not (Test-Path -LiteralPath $directory -PathType Container)) {
+        $null = New-Item -Path $directory -ItemType Directory -Force
+    }
+    $receipt = [ordered]@{
+        Version = 1
+        EntryName = 'io.podman_desktop.PodmanDesktop'
+        Value = $Value
+        DesktopPath = $DesktopPath
+        SuppressedAtUtc = [DateTime]::UtcNow.ToString('o')
+    }
+    $temporaryPath = "$path.$([guid]::NewGuid().ToString('N')).tmp"
+    try {
+        Set-Content -LiteralPath $temporaryPath -Value ($receipt | ConvertTo-Json -Depth 5) -Encoding utf8
+        Move-Item -LiteralPath $temporaryPath -Destination $path -Force
+    }
+    finally {
+        if (Test-Path -LiteralPath $temporaryPath -PathType Leaf) {
+            Remove-Item -LiteralPath $temporaryPath -Force -ErrorAction SilentlyContinue
+        }
+    }
+    return [PSCustomObject]$receipt
+}
+
+function Disable-LabWindowsPodmanDesktopAutoStartForParallelRuntimes {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$PodmanDesktopPath)
+
+    $runPath = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
+    $entryName = 'io.podman_desktop.PodmanDesktop'
+    $receipt = Read-LabWindowsPodmanDesktopAutoStartReceipt
+    $runItem = Get-ItemProperty -LiteralPath $runPath -ErrorAction SilentlyContinue
+    $property = if ($runItem) { $runItem.PSObject.Properties[$entryName] } else { $null }
+
+    if ($receipt) {
+        if ($property) {
+            if ([string]$property.Value -ne [string]$receipt.Value) {
+                throw 'LAB_CONTAINER_AUTOSTART_PODMAN_DESKTOP_ENTRY_DRIFTED: Der verwaltete Login-Eintrag wurde extern geändert.'
+            }
+            Remove-ItemProperty -LiteralPath $runPath -Name $entryName -ErrorAction Stop
+        }
+        return [PSCustomObject]@{ Changed=$false; Managed=$true; DesktopPath=[string]$receipt.DesktopPath }
+    }
+
+    if (-not $property) {
+        return [PSCustomObject]@{ Changed=$false; Managed=$false; DesktopPath=$PodmanDesktopPath }
+    }
+    if (-not (Test-LabWindowsPodmanDesktopAutoStartValue -Value ([string]$property.Value) -PodmanDesktopPath $PodmanDesktopPath)) {
+        throw 'LAB_CONTAINER_AUTOSTART_PODMAN_DESKTOP_ENTRY_UNRECOGNIZED: Der Podman-Desktop-Login-Eintrag wird nicht verändert.'
+    }
+
+    $null = Write-LabWindowsPodmanDesktopAutoStartReceipt -Value ([string]$property.Value) -DesktopPath $PodmanDesktopPath
+    try {
+        Remove-ItemProperty -LiteralPath $runPath -Name $entryName -ErrorAction Stop
+    }
+    catch {
+        $receiptPath = Get-LabWindowsContainerAutoStartReceiptPath
+        Remove-Item -LiteralPath $receiptPath -Force -ErrorAction SilentlyContinue
+        throw "LAB_CONTAINER_AUTOSTART_PODMAN_DESKTOP_SUPPRESSION_FAILED: $($_.Exception.Message)"
+    }
+    return [PSCustomObject]@{ Changed=$true; Managed=$true; DesktopPath=$PodmanDesktopPath }
+}
+
+function Restore-LabWindowsPodmanDesktopAutoStart {
+    [CmdletBinding()]
+    param()
+
+    $receipt = Read-LabWindowsPodmanDesktopAutoStartReceipt
+    if (-not $receipt) { return }
+
+    $runPath = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
+    $runItem = Get-ItemProperty -LiteralPath $runPath -ErrorAction SilentlyContinue
+    $property = if ($runItem) { $runItem.PSObject.Properties[[string]$receipt.EntryName] } else { $null }
+    if ($property -and [string]$property.Value -ne [string]$receipt.Value) {
+        Write-Warning 'Der Podman-Desktop-Login-Eintrag wurde extern neu belegt; die SQL_Server_Lab-Sicherung bleibt zur manuellen Wiederherstellung erhalten.'
+        return
+    }
+
+    if (-not $property) {
+        $null = New-Item -Path $runPath -Force
+        Set-ItemProperty -LiteralPath $runPath -Name ([string]$receipt.EntryName) -Value ([string]$receipt.Value) -Type String -ErrorAction Stop
+    }
+    Remove-Item -LiteralPath (Get-LabWindowsContainerAutoStartReceiptPath) -Force -ErrorAction Stop
+}
+
 function New-LabWindowsContainerAutoStartScript {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][ValidateSet('docker', 'podman')][string]$Provider,
         [Parameter(Mandatory)][string]$RuntimePath,
-        [Parameter(Mandatory)][string]$Path
+        [Parameter(Mandatory)][string]$Path,
+        [string]$ParallelDockerRuntimePath,
+        [string]$ParallelDockerDesktopPath,
+        [string]$ManagedPodmanDesktopPath
     )
 
     $runtimeLiteral = ConvertTo-LabPowerShellSingleQuotedLiteral -Value $RuntimePath
     $runtimeBootstrap = if ($Provider -eq 'docker') {
-        $desktopCandidates = @(
-            (Join-Path $env:ProgramFiles 'Docker/Docker/Docker Desktop.exe'),
-            (Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'Docker/Docker Desktop.exe')
-        )
-        $desktopPath = $desktopCandidates | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
+        $desktopPath = Get-LabWindowsContainerDesktopPath -Provider docker
         if ($desktopPath) {
             $desktopLiteral = ConvertTo-LabPowerShellSingleQuotedLiteral -Value $desktopPath
             @"
-if (-not (& `$runtime info 2>`$null)) {
+& `$runtime info 1>`$null 2>`$null
+if (`$LASTEXITCODE -ne 0) {
     Start-Process -FilePath $desktopLiteral -WindowStyle Hidden
 }
 "@
@@ -49,10 +248,48 @@ if (-not (& `$runtime info 2>`$null)) {
         else { '' }
     }
     else {
+        $parallelBootstrap = if (-not [string]::IsNullOrWhiteSpace($ParallelDockerRuntimePath) -and
+            -not [string]::IsNullOrWhiteSpace($ParallelDockerDesktopPath)) {
+            $dockerRuntimeLiteral = ConvertTo-LabPowerShellSingleQuotedLiteral -Value $ParallelDockerRuntimePath
+            $dockerDesktopLiteral = ConvertTo-LabPowerShellSingleQuotedLiteral -Value $ParallelDockerDesktopPath
+            @"
+# Docker must own its named pipes before the Podman machine is started.
+`$dockerRuntime = $dockerRuntimeLiteral
+`$dockerDesktop = $dockerDesktopLiteral
+if ((Test-Path -LiteralPath `$dockerRuntime -PathType Leaf) -and (Test-Path -LiteralPath `$dockerDesktop -PathType Leaf)) {
+    & `$dockerRuntime info 1>`$null 2>`$null
+    if (`$LASTEXITCODE -ne 0) {
+        Start-Process -FilePath `$dockerDesktop -WindowStyle Hidden
+    }
+    `$dockerReady = `$false
+    `$dockerDeadline = [DateTime]::UtcNow.AddMinutes(3)
+    do {
+        & `$dockerRuntime info 1>`$null 2>`$null
+        if (`$LASTEXITCODE -eq 0) { `$dockerReady = `$true; break }
+        Start-Sleep -Seconds 3
+    } while ([DateTime]::UtcNow -lt `$dockerDeadline)
+    if (-not `$dockerReady) { exit 2 }
+}
+"@
+        }
+        else { '' }
         @"
+$parallelBootstrap
 & `$runtime machine start 1>`$null 2>`$null
 "@
     }
+
+    $desktopBootstrap = if ($Provider -eq 'podman' -and -not [string]::IsNullOrWhiteSpace($ManagedPodmanDesktopPath)) {
+        $desktopLiteral = ConvertTo-LabPowerShellSingleQuotedLiteral -Value $ManagedPodmanDesktopPath
+        @"
+if (Test-Path -LiteralPath $desktopLiteral -PathType Leaf) {
+    if (-not (Get-Process -Name 'Podman Desktop' -ErrorAction SilentlyContinue)) {
+        Start-Process -FilePath $desktopLiteral -WindowStyle Hidden
+    }
+}
+"@
+    }
+    else { '' }
 
     $content = @"
 # Generated by SQL_Server_Lab. Manual changes are overwritten.
@@ -61,14 +298,16 @@ if (-not (& `$runtime info 2>`$null)) {
 `$ErrorActionPreference = 'SilentlyContinue'
 `$runtime = $runtimeLiteral
 $runtimeBootstrap
+`$runtimeReady = `$false
 `$deadline = [DateTime]::UtcNow.AddMinutes(3)
 do {
     & `$runtime info 1>`$null 2>`$null
-    if (`$LASTEXITCODE -eq 0) { break }
+    if (`$LASTEXITCODE -eq 0) { `$runtimeReady = `$true; break }
     Start-Sleep -Seconds 3
 } while ([DateTime]::UtcNow -lt `$deadline)
 
-if (`$LASTEXITCODE -ne 0) { exit 1 }
+if (-not `$runtimeReady) { exit 1 }
+$desktopBootstrap
 `$containerIds = @(& `$runtime ps -a -q --filter 'label=sql-server-lab.autostart=on' 2>`$null)
 foreach (`$containerId in `$containerIds) {
     if (-not [string]::IsNullOrWhiteSpace([string]`$containerId)) {
@@ -81,7 +320,16 @@ foreach (`$containerId in `$containerIds) {
     if (-not (Test-Path -LiteralPath $directory -PathType Container)) {
         $null = New-Item -Path $directory -ItemType Directory -Force
     }
-    Set-Content -LiteralPath $Path -Value $content -Encoding utf8
+    $temporaryPath = "$Path.$([guid]::NewGuid().ToString('N')).tmp"
+    try {
+        Set-Content -LiteralPath $temporaryPath -Value $content -Encoding utf8
+        Move-Item -LiteralPath $temporaryPath -Destination $Path -Force
+    }
+    finally {
+        if (Test-Path -LiteralPath $temporaryPath -PathType Leaf) {
+            Remove-Item -LiteralPath $temporaryPath -Force -ErrorAction SilentlyContinue
+        }
+    }
 }
 
 function Test-LabWindowsContainerAutoStartIdentity {
@@ -142,16 +390,48 @@ function Enable-LabWindowsContainerAutoStartCoordinator {
         }
     }
 
-    $scriptPath = Get-LabContainerAutoStartScriptPath -Provider $Provider
-    New-LabWindowsContainerAutoStartScript -Provider $Provider -RuntimePath $runtimeCommand.Source -Path $scriptPath
+    $parallelDockerRuntimePath = $null
+    $parallelDockerDesktopPath = $null
+    $managedPodmanDesktopPath = $null
+    $podmanDesktopMutation = $null
+    if ($Provider -eq 'podman') {
+        $dockerCommand = Get-Command docker -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+        $dockerDesktopPath = Get-LabWindowsContainerDesktopPath -Provider docker
+        $podmanDesktopPath = Get-LabWindowsContainerDesktopPath -Provider podman
+        if ($dockerCommand -and $dockerDesktopPath) {
+            $parallelDockerRuntimePath = [string]$dockerCommand.Source
+            $parallelDockerDesktopPath = [string]$dockerDesktopPath
+            if ($podmanDesktopPath) {
+                $podmanDesktopMutation = Disable-LabWindowsPodmanDesktopAutoStartForParallelRuntimes -PodmanDesktopPath $podmanDesktopPath
+                if ($podmanDesktopMutation.Managed) {
+                    $managedPodmanDesktopPath = [string]$podmanDesktopMutation.DesktopPath
+                }
+            }
+        }
+    }
 
+    $scriptPath = Get-LabContainerAutoStartScriptPath -Provider $Provider
     $pwshPath = (Get-Process -Id $PID).Path
     $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent().Name
     $taskArguments = "-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$scriptPath`""
     $taskName = Get-LabContainerAutoStartTaskName -Provider $Provider
+
+    try {
+        New-LabWindowsContainerAutoStartScript -Provider $Provider -RuntimePath $runtimeCommand.Source -Path $scriptPath `
+            -ParallelDockerRuntimePath $parallelDockerRuntimePath -ParallelDockerDesktopPath $parallelDockerDesktopPath `
+            -ManagedPodmanDesktopPath $managedPodmanDesktopPath
+    }
+    catch {
+        if ($podmanDesktopMutation -and $podmanDesktopMutation.Changed) {
+            try { Restore-LabWindowsPodmanDesktopAutoStart }
+            catch { Write-Warning "Podman-Desktop-Autostart konnte nach dem Koordinatorfehler nicht wiederhergestellt werden: $($_.Exception.Message)" }
+        }
+        throw "LAB_CONTAINER_AUTOSTART_SCRIPT_GENERATION_FAILED: $($_.Exception.Message)"
+    }
+
     $existingTask = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
     if ($existingTask -and (Test-LabWindowsContainerAutoStartTaskReusable -Task $existingTask -PowerShellPath $pwshPath -Arguments $taskArguments -CurrentUser $currentUser)) {
-        return [PSCustomObject]@{ Provider = $Provider; Mode = 'WindowsLogonTask'; Name = $taskName; ScriptPath = $scriptPath }
+        return [PSCustomObject]@{ Provider=$Provider; Mode='WindowsLogonTask'; Name=$taskName; ScriptPath=$scriptPath; ParallelRuntimes=[bool]$parallelDockerRuntimePath; PodmanDesktopAutoStartManaged=[bool]$managedPodmanDesktopPath }
     }
 
     $action = New-ScheduledTaskAction -Execute $pwshPath -Argument $taskArguments
@@ -165,12 +445,16 @@ function Enable-LabWindowsContainerAutoStartCoordinator {
     catch {
         $existingTask = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
         if ($existingTask -and (Test-LabWindowsContainerAutoStartTaskReusable -Task $existingTask -PowerShellPath $pwshPath -Arguments $taskArguments -CurrentUser $currentUser)) {
-            return [PSCustomObject]@{ Provider = $Provider; Mode = 'WindowsLogonTask'; Name = $taskName; ScriptPath = $scriptPath }
+            return [PSCustomObject]@{ Provider=$Provider; Mode='WindowsLogonTask'; Name=$taskName; ScriptPath=$scriptPath; ParallelRuntimes=[bool]$parallelDockerRuntimePath; PodmanDesktopAutoStartManaged=[bool]$managedPodmanDesktopPath }
+        }
+        if ($podmanDesktopMutation -and $podmanDesktopMutation.Changed) {
+            try { Restore-LabWindowsPodmanDesktopAutoStart }
+            catch { Write-Warning "Podman-Desktop-Autostart konnte nach dem Koordinatorfehler nicht wiederhergestellt werden: $($_.Exception.Message)" }
         }
         throw "LAB_CONTAINER_AUTOSTART_TASK_REGISTRATION_FAILED: $($_.Exception.Message)"
     }
 
-    return [PSCustomObject]@{ Provider = $Provider; Mode = 'WindowsLogonTask'; Name = $taskName; ScriptPath = $scriptPath }
+    return [PSCustomObject]@{ Provider=$Provider; Mode='WindowsLogonTask'; Name=$taskName; ScriptPath=$scriptPath; ParallelRuntimes=[bool]$parallelDockerRuntimePath; PodmanDesktopAutoStartManaged=[bool]$managedPodmanDesktopPath }
 }
 
 function Enable-LabContainerHostAutoStart {
@@ -178,7 +462,15 @@ function Enable-LabContainerHostAutoStart {
     param([Parameter(Mandatory)][ValidateSet('docker', 'podman')][string]$Provider)
 
     if ($IsWindows) {
-        return Enable-LabWindowsContainerAutoStartCoordinator -Provider $Provider
+        $result = Enable-LabWindowsContainerAutoStartCoordinator -Provider $Provider
+        if ($Provider -eq 'docker') {
+            $podmanTaskName = Get-LabContainerAutoStartTaskName -Provider podman
+            $podmanCommand = Get-Command podman -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($podmanCommand -and (Get-ScheduledTask -TaskName $podmanTaskName -ErrorAction SilentlyContinue)) {
+                $null = Enable-LabWindowsContainerAutoStartCoordinator -Provider podman
+            }
+        }
+        return $result
     }
 
     if ($Provider -eq 'podman' -and $IsLinux) {
@@ -219,5 +511,8 @@ function Remove-LabContainerAutoStartCoordinatorIfUnused {
     $scriptPath = Get-LabContainerAutoStartScriptPath -Provider $Provider
     if ($scriptPath -and (Test-Path -LiteralPath $scriptPath -PathType Leaf)) {
         Remove-Item -LiteralPath $scriptPath -Force
+    }
+    if ($Provider -eq 'podman') {
+        Restore-LabWindowsPodmanDesktopAutoStart
     }
 }
