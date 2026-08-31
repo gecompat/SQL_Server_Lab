@@ -292,13 +292,14 @@ neue Fehlplatzierung mehr zulassen. Sie blockieren den P0-Sofortschutz nicht.
   Inventare sowie nichtterminale Run-/Image-Migrationen blockieren fail-closed.
   Nichtterminale Location-Journale sperren Lifecycle, Repair, Reconcile und
   Cleanup bis zum fortsetzbaren Abschluss; auch ein Abbruch nach dem ersten
-  Binding-Commit kann aus demselben Journal fortgesetzt werden. Eine dabei
-  identifizierte Sicherheitslücke ist jetzt fail-closed gebunden: Liegen
-  registrierte VM-Konfiguration, Snapshot- oder Smart-Paging-Pfade unter dem
-  zu entfernenden Quellroot, blockieren Plan und Apply vor der ersten Mutation
-  mit einem stabilen Rebind-Status. Die vollständige `Move-VMStorage`-Kopplung
-  dieser Pfade bleibt als letzter interner `HVR-006`-Slice offen; bis dahin
-  darf dieser reale Parent-Migrationsfall nicht ausgeführt werden.
+  Binding-Commit kann aus demselben Journal fortgesetzt werden. Registrierte
+  VM-Konfiguration, Snapshot- oder Smart-Paging-Pfade unter dem zu entfernenden
+  Quellroot werden mit exakter VM-Identität und Zielpfaden geplant. Apply
+  revalidiert den ausgeschalteten Zustand, journalisiert `Move-VMStorage` vor
+  der Mutation und verlangt exakte Ziel-Postconditions. Ein Resume nach
+  erfolgreicher Umbindung wiederholt den Move nicht. Damit ist `HVR-006`
+  intern geschlossen und synthetisch validiert; die reale allgemeine Parent-
+  Migration bleibt Abnahmescope von `HVR-008`.
 - `HVR-007` ist implementiert und statisch beziehungsweise synthetisch
   validiert: `Get-SqlServerLabHyperVResourcePreview` löst Location,
   `Lab_Data`, freien Speicher und klassenbezogene Zielroots read-only auf.
