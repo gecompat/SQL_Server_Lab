@@ -790,7 +790,7 @@ function Invoke-LabAction {
             if (-not (Test-Path -LiteralPath $connectionInfoPath -PathType Leaf)) { Write-LabError 'Connection-Info nicht gefunden.'; return }
             $connectionInfo = Get-Content -LiteralPath $connectionInfoPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
             $instanceId = [string](@($connectionInfo.instances | Select-Object -First 1)[0].id)
-            if (-not $instanceId) { Write-LabError 'Keine Container-Instanz im Run gespeichert.'; return }
+            if (-not $instanceId) { Write-LabError 'Keine Lab-Instanz im Run gespeichert.'; return }
             try { $target = Resolve-LabRunInstance -RunId $runId -InstanceId $instanceId -StateRoot $stateRoot }
             catch { Write-LabError $_.Exception.Message; return }
 
@@ -798,6 +798,14 @@ function Invoke-LabAction {
                 $selectedSamples = @(Select-LabSampleSelection -SqlVersion $target.Version -SkipInitialConfirm)
                 if ($selectedSamples.Count -eq 0) { return }
                 $pw = Read-Host '  SA-Passwort' -AsSecureString
+                $guestCredential = $null
+                if ([string]$target.Provider -eq 'hyperv') {
+                    $guestUserName = Read-Host '  Lokaler Gast-Administrator [Administrator]'
+                    if (-not $guestUserName) { $guestUserName = 'Administrator' }
+                    $guestCredential = [PSCredential]::new(
+                        $guestUserName,
+                        (Read-Host '  Gastpasswort für den gebundenen Backup-Transfer' -AsSecureString))
+                }
                 $runDirectory = Join-Path (Join-Path $stateRoot 'runs') $runId
                 foreach ($sampleSpec in $selectedSamples) {
                     $parts = ([string]$sampleSpec).Split(':', 2)
@@ -810,7 +818,17 @@ function Invoke-LabAction {
                     if ($outputs.Count -eq 0 -or @($outputs | Where-Object { $_.kind -ne 'database' -or -not $_.name }).Count -gt 0) { Write-LabError "Sample besitzt keine eindeutige Datenbank-Outputliste: $sampleSpec"; continue }
                     try {
                         $restoreDefinition = Resolve-LabSampleRestore -SampleDefinition ([PSCustomObject]@{ id = $parts[0]; variant = $variantName }) -SqlVersion $target.Version -TargetDatabaseName ([string]$outputs[0].name)
-                        $result = Install-LabSampleDatabase -HostName $target.HostName -Port $target.Port -SaPassword $pw -ContainerName $target.ContainerName -RestoreDefinition $restoreDefinition -RunDirectory $runDirectory -StateRoot $stateRoot
+                        $handlerArguments = @{
+                            HostName=$target.HostName; Port=$target.Port; SaPassword=$pw
+                            Provider=$target.Provider; ContainerName=$target.ContainerName
+                            RestoreDefinition=$restoreDefinition; RunDirectory=$runDirectory
+                            StateRoot=$stateRoot
+                        }
+                        if ([string]$target.Provider -eq 'hyperv') {
+                            $handlerArguments.RunId=$runId; $handlerArguments.InstanceId=$instanceId
+                            $handlerArguments.GuestCredential=$guestCredential
+                        }
+                        $result = Install-LabSampleDatabase @handlerArguments
                         if ($result.Success) { Write-LabSuccess $result.Message } else { Write-LabError "$($result.Status): $($result.Message)" }
                     }
                     catch { Write-LabError $_.Exception.Message }
@@ -822,7 +840,15 @@ function Invoke-LabAction {
             if (-not $dbName) { return }
 
             $pw = Read-Host "  SA-Passwort" -AsSecureString
-            New-SqlServerLabDatabase -HostName $target.HostName -Port $target.Port -SaPassword $pw -DatabaseName $dbName
+            $databaseArguments = @{
+                HostName=$target.HostName; Port=$target.Port; SaPassword=$pw
+                DatabaseName=$dbName
+            }
+            if ([string]$target.Provider -eq 'hyperv') {
+                $databaseArguments.RunId=$runId; $databaseArguments.InstanceId=$instanceId
+                $databaseArguments.StateRoot=$stateRoot
+            }
+            New-SqlServerLabDatabase @databaseArguments
         }
 
         'Script' {

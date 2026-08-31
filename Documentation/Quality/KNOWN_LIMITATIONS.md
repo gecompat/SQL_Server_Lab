@@ -374,8 +374,12 @@ bleiben bewusst `descriptive`, weil sie MDF/LDF-Dateien für einen noch nicht
 implementierten Attach-Handler enthalten – sie werden nicht als `.bak`
 umgedeutet.
 
-Noch nicht implementiert sind Attach-Handler, Hyper-V-`LAB_GENERATED`-Backups
-und das Überschreiben der erwarteten Zieldatenbanknamen. Der Manifest-Wizard
+Noch nicht implementiert sind Attach-Handler, die automatische Hyper-V-
+Manifestbindung für Samples und das Überschreiben der erwarteten
+Zieldatenbanknamen. Run-gebundene Hyper-V-`LAB_GENERATED`-Backups verwenden
+eine verifizierte Storage-Receipt-Backup-Lane, PowerShell Direct für den Export
+und denselben run-gebundenen Restorepfad; dieser Vertrag ist synthetisch, aber
+noch nicht real auf einem Host belegt. Der Manifest-Wizard
 unterstützt Hilfe, schrittweise Zurücknavigation, Zwischenzusammenfassung und
 Abbruch ohne partielle Datei. Seine mutationsfreie Planvorschau umfasst
 External Runtimes sowie Sample-/Artifact-Quelle, Lizenz, Outputs, Größen,
@@ -740,8 +744,8 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
 1. Den P0-Bugfix für Hyper-V-Ressourcenroots nach der belegten real erhöhten
    Windows-Legacy-Run-/Parent-Migration mit SQL-Readiness, allgemeiner
    Storage-Migration und erneutem N5-Mehrgeräte-Nachweis abschließen.
-2. `LAB_GENERATED`-Erzeugung und Auswahl an den Hyper-V-Export binden
-   (Sample-Welle 5/6).
+2. Den synthetisch implementierten Hyper-V-`LAB_GENERATED`-Export real
+   abnehmen und an die automatische Manifestausführung binden (Sample-Welle 6).
 3. Die implementierten providerneutralen Network- und Software-Intents an
    Hyper-V-LAN/NAT/IPAM und Software-Runtime binden.
 4. Artifact Registry, Refresh/Rebuild und Evaluierungsablauf implementieren.
