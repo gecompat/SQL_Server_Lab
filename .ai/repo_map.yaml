@@ -492,7 +492,7 @@ providers:
     resource_location_preview: "Public/Get-SqlServerLabHyperVResourcePreview.ps1 plus UI-User-Gate und explizit revalidierter UAC-Handoff"
     resource_migration: Private/HyperVResourceMigration.ps1
     migration_lifecycle_guard: "read-only Reconcile-Plan plus fail-closed Start, Stop, Autostart, SQL-WMI-Repair und Cleanup; Run- und allgemeine Location-Migrationen muessen terminal sein, COMPLETED erfordert revalidierte Bindings"
-    storage_parent_migration_binding: "Plan inventarisiert lokale HyperVResourceBinding-Receipts; Apply revalidiert, migriert und stellt mitkopierte oder externe State-Receipts bei stabiler LocationId neu aus"
+    storage_parent_migration_binding: "Plan inventarisiert lokale HyperVResourceBinding-Receipts und VM-Konfigurations-/Snapshot-/Paging-Pfade; Apply revalidiert Bindings und blockiert fehlende VM-Konfigurationsumbindung vor jeder Mutation, bis Move-VMStorage implementiert ist"
     image_migration: Private/HyperVImageMigration.ps1
     physical_resource_root: "registered Lab_Data/HyperV; StateRoot contains control state only"
     image_registry: Private/HyperVImageRegistry.ps1

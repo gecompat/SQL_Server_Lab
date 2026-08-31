@@ -233,6 +233,14 @@ Diese Parameter und ihre statischen Verträge sind implementiert; ein positiver
 realer SQL-Legacy-Migrationslauf bleibt bis zur tatsächlichen Ausführung
 `NOT_EXECUTED`.
 
+Die allgemeine `Lab_Data`-Parent-Migration besitzt zusätzlich einen
+fail-closed Sicherheitsvertrag: Erkennt der Plan VM-Konfiguration, Snapshots
+oder Smart Paging unter dem später zu entfernenden Quellroot, melden Plan und
+Apply vor der ersten Mutation
+`HYPERV_VM_CONFIGURATION_REBIND_REQUIRED`. Der fokussierte synthetische
+Nachweis liegt in `Invoke-StorageMigrationChecks.ps1`. Ein realer Lauf ist bis
+zur vollständigen `Move-VMStorage`-Kopplung `NOT_EXECUTED`.
+
 ## 3. Voraussetzungen
 
 ### Statische Prüfung

@@ -282,8 +282,8 @@ neue Fehlplatzierung mehr zulassen. Sie blockieren den P0-Sofortschutz nicht.
   revalidieren denselben Guard vor ihrer ersten Mutation. Legacy-Runs ohne
   gestartete Migration bleiben bedienbar; `COMPLETED` wird nur mit committed,
   erneut gegen seine registrierte Location geprüftem `Run`-Binding freigegeben.
-- Der allgemeine Storage-Migrations-Slice von `HVR-006` ist implementiert und
-  synthetisch validiert: Der read-only Parent-Migrationsplan inventarisiert
+- Der allgemeine Storage-Migrations-Slice von `HVR-006` inventarisiert
+  im read-only Parent-Migrationsplan
   alle lokalen `HyperVResourceBinding`-Receipts im gebundenen `Lab_Data` und
   im aktuellen StateRoot. Apply revalidiert dieses Inventar vor der ersten
   Mutation, kopiert und prüft die Ressourcen, schaltet VHDX und Katalog um und
@@ -292,8 +292,13 @@ neue Fehlplatzierung mehr zulassen. Sie blockieren den P0-Sofortschutz nicht.
   Inventare sowie nichtterminale Run-/Image-Migrationen blockieren fail-closed.
   Nichtterminale Location-Journale sperren Lifecycle, Repair, Reconcile und
   Cleanup bis zum fortsetzbaren Abschluss; auch ein Abbruch nach dem ersten
-  Binding-Commit kann aus demselben Journal fortgesetzt werden.
-- Damit ist der interne Implementierungsumfang von `HVR-006` geschlossen.
+  Binding-Commit kann aus demselben Journal fortgesetzt werden. Eine dabei
+  identifizierte Sicherheitslücke ist jetzt fail-closed gebunden: Liegen
+  registrierte VM-Konfiguration, Snapshot- oder Smart-Paging-Pfade unter dem
+  zu entfernenden Quellroot, blockieren Plan und Apply vor der ersten Mutation
+  mit einem stabilen Rebind-Status. Die vollständige `Move-VMStorage`-Kopplung
+  dieser Pfade bleibt als letzter interner `HVR-006`-Slice offen; bis dahin
+  darf dieser reale Parent-Migrationsfall nicht ausgeführt werden.
 - `HVR-007` ist implementiert und statisch beziehungsweise synthetisch
   validiert: `Get-SqlServerLabHyperVResourcePreview` löst Location,
   `Lab_Data`, freien Speicher und klassenbezogene Zielroots read-only auf.

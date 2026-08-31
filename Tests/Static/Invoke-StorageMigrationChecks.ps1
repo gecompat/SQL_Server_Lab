@@ -19,6 +19,7 @@ try {
     $module = Import-Module $modulePath -Force -PassThru -ErrorAction Stop
     & $module {
         Set-Item -Path Function:script:Get-LabHyperVHardDiskDriveInventory -Value { return @() }
+        Set-Item -Path Function:script:Get-LabHyperVVirtualMachineInventory -Value { return @() }
     }
     $storageContractText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private\StorageContract.ps1') -Raw -Encoding utf8
     Add-CheckResult -Name 'Hyper-V-Diskinventur übergibt den verpflichtenden VM-Namen' -Success (
@@ -98,6 +99,56 @@ try {
         }).Count -eq 1
     )
     Remove-Item -LiteralPath $hyperVFixture.ResourceMigrationPath -Force
+
+    $configurationGuard = & $module {
+        param($source, $targetParentPath)
+        $script:storageMigrationOriginalVMInventory = (Get-Item Function:Get-LabHyperVVirtualMachineInventory).ScriptBlock
+        $script:storageMigrationSyntheticConfigurationRoot = $source
+        Set-Item -Path Function:script:Get-LabHyperVVirtualMachineInventory -Value {
+            return @([PSCustomObject]@{
+                VMId=[Guid]::NewGuid(); Name='synthetic-storage-vm'; State='Off'
+                ConfigurationLocation=(Join-Path $script:storageMigrationSyntheticConfigurationRoot 'HyperV/Runs/synthetic/Virtual Machines')
+                SnapshotFileLocation=(Join-Path $script:storageMigrationSyntheticConfigurationRoot 'HyperV/Runs/synthetic/Snapshots')
+                SmartPagingFilePath=(Join-Path $script:storageMigrationSyntheticConfigurationRoot 'HyperV/Runs/synthetic/SmartPaging')
+            })
+        }
+        try {
+            $blocked = New-LabDataMigrationPlan -SourceDataRoot $source -TargetParent $targetParentPath
+            $plannedStatus = [string]$blocked.Plan.Status
+            $plannedBlockers = @($blocked.Plan.Blockers)
+            $blocked.Plan.Status = 'READY'
+            $blocked.Plan.Blockers = @()
+            Write-LabArtifactJsonAtomic -Path $blocked.Path -InputObject $blocked.Plan
+            $applyMessage = try {
+                Invoke-LabDataMigration -PlanPath $blocked.Path -ProcessEnvironmentOnly -Confirm:$false | Out-Null
+                ''
+            }
+            catch { $_.Exception.Message }
+            return [PSCustomObject]@{
+                PlannedStatus=$plannedStatus
+                PlannedBlockers=$plannedBlockers
+                PlannedConfigurations=@($blocked.Plan.HyperVVMConfigurations)
+                ApplyMessage=$applyMessage
+                TargetCreated=Test-Path -LiteralPath (Join-Path $targetParentPath 'Lab_Data')
+            }
+        }
+        finally {
+            Set-Item -Path Function:script:Get-LabHyperVVirtualMachineInventory `
+                -Value $script:storageMigrationOriginalVMInventory
+        }
+    } $sourceRoot $targetParent
+    Add-CheckResult -Name 'Plan inventarisiert und blockiert VM-Konfiguration unter dem Quellroot' -Success (
+        $configurationGuard.PlannedStatus -eq 'BLOCKED' -and
+        @($configurationGuard.PlannedBlockers | Where-Object {
+            $_ -eq 'HYPERV_VM_CONFIGURATION_REBIND_NOT_IMPLEMENTED:synthetic-storage-vm'
+        }).Count -eq 1 -and
+        @($configurationGuard.PlannedConfigurations).Count -eq 1 -and
+        @($configurationGuard.PlannedConfigurations[0].Paths).Count -eq 3
+    )
+    Add-CheckResult -Name 'Apply blockiert fehlende VM-Konfigurationsumbindung vor der ersten Mutation' -Success (
+        $configurationGuard.ApplyMessage -match 'LAB_STORAGE_MIGRATION_HYPERV_VM_CONFIGURATION_REBIND_REQUIRED' -and
+        -not $configurationGuard.TargetCreated
+    )
 
     $migrationContract = & $module {
         param($source, $targetParentPath)
