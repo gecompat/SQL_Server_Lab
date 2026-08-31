@@ -153,9 +153,11 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 
 ### Geplant oder unvollständig
 
-- reale erhöhte End-to-End-Abnahme des Hyper-V-Ressourcenroot-Schutzes
-  einschließlich Legacy-Run-, Parent-/Child- und allgemeiner
-  Storage-Migration, Restart, Recovery und Cleanup;
+- restliche reale erhöhte End-to-End-Abnahme des Hyper-V-Ressourcenroot-
+  Schutzes für SQL-Readiness, allgemeine Storage-Migration und den erneuten
+  N5-Mehrgeräte-Nachweis; eine reale Windows-Legacy-Run-/Parent-/Child-
+  Migration einschließlich Restart, Recovery-Resume und Quell-Cleanup ist
+  belegt;
 - vollständiger allgemeiner Hyper-V-Provider über den belegten
   Windows-2025-/SQL-2025-Referenzpfad hinaus, insbesondere breite
   Datenbank-, Software-, Post-Provisioning- und Netzwerk-Manifestbindung sowie

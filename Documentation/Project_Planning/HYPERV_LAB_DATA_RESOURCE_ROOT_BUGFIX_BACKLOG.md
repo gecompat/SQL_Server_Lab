@@ -301,9 +301,15 @@ neue Fehlplatzierung mehr zulassen. Sie blockieren den P0-Sofortschutz nicht.
   Run-/Build-/Image-/Staging-Aktion. Der erhöhte Prozess erhält die Vorschau
   explizit, löst sie erneut gegen Controller-, Location-, Volume- und
   Root-Evidence auf und blockiert bei jeder Abweichung fail-closed.
-- `HVR-008` bleibt offen. Der Schutz einschließlich Legacy-Run- und
-  Parent-/Child-Migration muss noch real erhöht end-to-end abgenommen werden;
-  bis dahin bleibt der Legacy-Migrations-Apply ein interner Fachkern.
+- `HVR-008` ist teilweise real belegt: Ein projektverwalteter, abgeschalteter
+  Windows-Legacy-Run mit Differencing-Child und Shared Parent wurde erhöht,
+  journalisiert nach `Lab_Data` kopiert, reparentet und samt VM-Storage
+  umgebunden. Zwei erfolgreiche Gaststarts, ein realer `RECOVERY_REQUIRED`-
+  Resume und der anschließende Quell-Cleanup sind belegt; der Shared Parent
+  blieb wegen weiterer Consumer erwartungsgemäß erhalten. Offen bleiben ein
+  SQL-readiness-gebundener Legacy-Fall, die allgemeine Storage-Migration und
+  der erneute N5-Mehrgeräte-Nachweis. Der Apply bleibt bis dahin interner
+  Fachkern mit explizitem Acceptance-Runner.
 
 ## Abnahmekriterien
 
