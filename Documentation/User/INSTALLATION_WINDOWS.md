@@ -328,3 +328,23 @@ nach der Anmeldung, nicht als systemweiter Dienst vor dem Login, bereit.
 Ein bereits vorhandener, in Benutzer, Trigger und Aktion unverändert passender
 Auftrag wird gemeinsam genutzt; abweichende oder fremde Aufgaben werden nicht
 stillschweigend übernommen.
+
+Sind nur Docker oder nur Podman installiert, bleibt dieser direkte
+Ein-Provider-Start unverändert. Sind beide CLIs und Desktop-Anwendungen
+vorhanden und besitzt Podman einen verwalteten Lab-Autostart, wird der
+Parallelbetrieb automatisch erkannt. Der Podman-Auftrag startet beziehungsweise
+prüft dann zuerst Docker Desktop, wartet auf eine erreichbare Docker Engine und
+startet erst danach die Podman Machine. So konkurrieren die beiden WSL-basierten
+Backends nicht während ihrer Initialisierung.
+
+Ist der bekannte Hersteller-Eintrag
+`io.podman_desktop.PodmanDesktop` unter
+`HKCU\Software\Microsoft\Windows\CurrentVersion\Run` vorhanden, sichert SQL
+Server Lab seinen exakten Wert lokal unter
+`%LOCALAPPDATA%\SQL_Server_Lab\autostart\windows-podman-desktop-autostart.json`
+und entfernt nur diesen Eintrag. Nach der Podman-Bereitschaft startet der
+verwaltete Auftrag Podman Desktop selbst. Beim Entfernen des letzten markierten
+Podman-Labs werden Auftrag, generiertes Skript und Receipt entfernt und der
+ursprüngliche Login-Eintrag wiederhergestellt. Ein unbekannter oder extern
+veränderter Wert wird nicht überschrieben; die Einrichtung endet dann
+fail-closed beziehungsweise bewahrt das Receipt zur manuellen Recovery auf.

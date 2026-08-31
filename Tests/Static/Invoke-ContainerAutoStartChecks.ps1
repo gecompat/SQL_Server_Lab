@@ -71,6 +71,76 @@ Add-CheckResult -Name 'Hostkoordinator deckt Windows und natives Podman/Linux ab
     $coordinator -match 'is-enabled docker\.service' -and $coordinator -match 'label=sql-server-lab\.autostart=on' -and
     $coordinator -match 'Test-LabWindowsContainerAutoStartTaskReusable'
 )
+Add-CheckResult -Name 'Paralleler Windows-Autostart besitzt Erkennung, Receipt und Recovery' -Success (
+    $coordinator -match 'Get-LabWindowsContainerDesktopPath' -and
+    $coordinator -match 'Disable-LabWindowsPodmanDesktopAutoStartForParallelRuntimes' -and
+    $coordinator -match 'windows-podman-desktop-autostart\.json' -and
+    $coordinator -match 'Restore-LabWindowsPodmanDesktopAutoStart' -and
+    $coordinator -match 'PODMAN_DESKTOP_ENTRY_UNRECOGNIZED'
+)
+
+$generatedScriptRoot = Join-Path ([IO.Path]::GetTempPath()) "sql-server-lab-autostart-contract-$([guid]::NewGuid().ToString('N'))"
+try {
+    $generatedEvidence = & $module {
+        param($root)
+        $null = New-Item -Path $root -ItemType Directory -Force
+        $podmanOnlyPath = Join-Path $root 'podman-only.ps1'
+        $parallelPath = Join-Path $root 'parallel.ps1'
+        New-LabWindowsContainerAutoStartScript -Provider podman -RuntimePath 'C:\Program Files\RedHat\Podman\podman.exe' -Path $podmanOnlyPath
+        New-LabWindowsContainerAutoStartScript -Provider podman -RuntimePath 'C:\Program Files\RedHat\Podman\podman.exe' -Path $parallelPath `
+            -ParallelDockerRuntimePath 'C:\Program Files\Docker\Docker\resources\bin\docker.exe' `
+            -ParallelDockerDesktopPath 'C:\Program Files\Docker\Docker\Docker Desktop.exe' `
+            -ManagedPodmanDesktopPath 'C:\Program Files\Podman Desktop\Podman Desktop.exe'
+
+        $podmanOnly = Get-Content -LiteralPath $podmanOnlyPath -Raw -Encoding utf8
+        $parallel = Get-Content -LiteralPath $parallelPath -Raw -Encoding utf8
+        $podmanOnlyErrors = $null
+        $parallelErrors = $null
+        $null = [System.Management.Automation.Language.Parser]::ParseFile($podmanOnlyPath, [ref]$null, [ref]$podmanOnlyErrors)
+        $null = [System.Management.Automation.Language.Parser]::ParseFile($parallelPath, [ref]$null, [ref]$parallelErrors)
+        [PSCustomObject]@{
+            PodmanOnly = $podmanOnly
+            Parallel = $parallel
+            PodmanOnlyParseErrors = @($podmanOnlyErrors).Count
+            ParallelParseErrors = @($parallelErrors).Count
+            RecognizedQuotedEntry = Test-LabWindowsPodmanDesktopAutoStartValue `
+                -Value '"C:\Program Files\Podman Desktop\Podman Desktop.exe" --hidden' `
+                -PodmanDesktopPath 'C:\Program Files\Podman Desktop\Podman Desktop.exe'
+            RejectsForeignEntry = -not (Test-LabWindowsPodmanDesktopAutoStartValue `
+                -Value '"C:\Tools\unexpected.exe"' `
+                -PodmanDesktopPath 'C:\Program Files\Podman Desktop\Podman Desktop.exe')
+            RejectsSpoofedExpectedPath = -not (Test-LabWindowsPodmanDesktopAutoStartValue `
+                -Value '"C:\Tools\unexpected.exe"' `
+                -PodmanDesktopPath 'C:\Tools\unexpected.exe')
+        }
+    } $generatedScriptRoot
+
+    Add-CheckResult -Name 'Ein-Provider-Podman-Skript startet ohne Docker-Abhängigkeit' -Success (
+        $generatedEvidence.PodmanOnly -match '\$runtime machine start' -and
+        $generatedEvidence.PodmanOnly -notmatch '\$dockerRuntime' -and
+        $generatedEvidence.PodmanOnlyParseErrors -eq 0
+    )
+
+    $dockerReadyIndex = $generatedEvidence.Parallel.IndexOf('$dockerRuntime info', [StringComparison]::Ordinal)
+    $podmanStartIndex = $generatedEvidence.Parallel.IndexOf('$runtime machine start', [StringComparison]::Ordinal)
+    $runtimeReadyIndex = $generatedEvidence.Parallel.IndexOf('if (-not $runtimeReady)', [StringComparison]::Ordinal)
+    $podmanDesktopIndex = $generatedEvidence.Parallel.IndexOf("Start-Process -FilePath 'C:\Program Files\Podman Desktop\Podman Desktop.exe'", [StringComparison]::Ordinal)
+    $containerStartIndex = $generatedEvidence.Parallel.IndexOf('$containerIds =', [StringComparison]::Ordinal)
+    Add-CheckResult -Name 'Zwei-Provider-Skript startet Docker, dann Podman und danach Podman Desktop' -Success (
+        $dockerReadyIndex -ge 0 -and $podmanStartIndex -gt $dockerReadyIndex -and
+        $runtimeReadyIndex -gt $podmanStartIndex -and $podmanDesktopIndex -gt $runtimeReadyIndex -and
+        $containerStartIndex -gt $podmanDesktopIndex -and $generatedEvidence.ParallelParseErrors -eq 0
+    )
+    Add-CheckResult -Name 'Nur der bekannte Podman-Desktop-Loginwert wird übernommen' -Success (
+        $generatedEvidence.RecognizedQuotedEntry -and $generatedEvidence.RejectsForeignEntry -and
+        $generatedEvidence.RejectsSpoofedExpectedPath
+    )
+}
+finally {
+    if (Test-Path -LiteralPath $generatedScriptRoot -PathType Container) {
+        Remove-Item -LiteralPath $generatedScriptRoot -Recurse -Force
+    }
+}
 
 $testPowerShellPath = 'C:\Program Files\PowerShell\7\pwsh.exe'
 $testScriptPath = 'C:\Users\test-user\AppData\Local\SQL_Server_Lab\autostart\Start-docker-Labs.ps1'
@@ -118,6 +188,89 @@ Add-CheckResult -Name 'Workflow und UI reichen Container-Autostart durch' -Succe
     $workflow -match 'New-SqlServerLab.*-AutoStart \$AutoStart' -and $workflow -match 'autostart = \$AutoStart' -and
     $html -match 'id="container-autostart"' -and $javascript -match "container-autostart'\)\.checked"
 )
+
+$receiptTestRoot = Join-Path ([IO.Path]::GetTempPath()) "sql-server-lab-autostart-receipt-$([guid]::NewGuid().ToString('N'))"
+try {
+    $null = New-Item -Path $receiptTestRoot -ItemType Directory -Force
+    $receiptEvidence = & $module {
+        param($receiptPath)
+        $script:containerAutoStartTestReceiptPath = $receiptPath
+        $script:containerAutoStartTestRunValue = '"C:\Program Files\Podman Desktop\Podman Desktop.exe" --hidden'
+
+        function script:Get-LabWindowsContainerAutoStartReceiptPath {
+            return $script:containerAutoStartTestReceiptPath
+        }
+        function script:Get-ItemProperty {
+            [CmdletBinding()]
+            param([string]$LiteralPath)
+            $item = [PSCustomObject]@{}
+            if ($null -ne $script:containerAutoStartTestRunValue) {
+                $item | Add-Member -NotePropertyName 'io.podman_desktop.PodmanDesktop' -NotePropertyValue $script:containerAutoStartTestRunValue
+            }
+            return $item
+        }
+        function script:Remove-ItemProperty {
+            [CmdletBinding()]
+            param([string]$LiteralPath, [string]$Name)
+            $script:containerAutoStartTestRunValue = $null
+        }
+        function script:New-Item {
+            [CmdletBinding()]
+            param([string]$Path, [switch]$Force)
+            return [PSCustomObject]@{ Path=$Path }
+        }
+        function script:Set-ItemProperty {
+            [CmdletBinding()]
+            param([string]$LiteralPath, [string]$Name, [string]$Value, [string]$Type)
+            $script:containerAutoStartTestRunValue = $Value
+        }
+
+        $first = Disable-LabWindowsPodmanDesktopAutoStartForParallelRuntimes `
+            -PodmanDesktopPath 'C:\Program Files\Podman Desktop\Podman Desktop.exe'
+        $suppressed = ($null -eq $script:containerAutoStartTestRunValue) -and (Test-Path -LiteralPath $receiptPath -PathType Leaf)
+        $second = Disable-LabWindowsPodmanDesktopAutoStartForParallelRuntimes `
+            -PodmanDesktopPath 'C:\Program Files\Podman Desktop\Podman Desktop.exe'
+        Restore-LabWindowsPodmanDesktopAutoStart
+        $restoredValue = [string]$script:containerAutoStartTestRunValue
+        $receiptRemoved = -not (Test-Path -LiteralPath $receiptPath -PathType Leaf)
+
+        $script:containerAutoStartTestRunValue = '"C:\Tools\unexpected.exe"'
+        $foreignError = $null
+        try {
+            $null = Disable-LabWindowsPodmanDesktopAutoStartForParallelRuntimes `
+                -PodmanDesktopPath 'C:\Program Files\Podman Desktop\Podman Desktop.exe'
+        }
+        catch { $foreignError = $_.Exception.Message }
+
+        [PSCustomObject]@{
+            FirstChanged = [bool]$first.Changed
+            FirstManaged = [bool]$first.Managed
+            Suppressed = $suppressed
+            SecondChanged = [bool]$second.Changed
+            SecondManaged = [bool]$second.Managed
+            RestoredValue = $restoredValue
+            ReceiptRemoved = $receiptRemoved
+            ForeignError = $foreignError
+            ForeignValue = [string]$script:containerAutoStartTestRunValue
+        }
+    } (Join-Path $receiptTestRoot 'receipt.json')
+
+    Add-CheckResult -Name 'Podman-Desktop-Loginübernahme ist idempotent und reversibel' -Success (
+        $receiptEvidence.FirstChanged -and $receiptEvidence.FirstManaged -and $receiptEvidence.Suppressed -and
+        -not $receiptEvidence.SecondChanged -and $receiptEvidence.SecondManaged -and
+        $receiptEvidence.RestoredValue -eq '"C:\Program Files\Podman Desktop\Podman Desktop.exe" --hidden' -and
+        $receiptEvidence.ReceiptRemoved
+    )
+    Add-CheckResult -Name 'Fremder Podman-Desktop-Loginwert bleibt unverändert' -Success (
+        $receiptEvidence.ForeignError -match 'PODMAN_DESKTOP_ENTRY_UNRECOGNIZED' -and
+        $receiptEvidence.ForeignValue -eq '"C:\Tools\unexpected.exe"'
+    )
+}
+finally {
+    if (Test-Path -LiteralPath $receiptTestRoot -PathType Container) {
+        Remove-Item -LiteralPath $receiptTestRoot -Recurse -Force
+    }
+}
 
 Remove-Module $module -Force
 if ($failures.Count -gt 0) {

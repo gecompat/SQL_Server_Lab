@@ -72,7 +72,13 @@ Alle Provider unterstützen `instances[].autostart: "on"`. Hyper-V verwendet
 `AutomaticStartAction=Start`; Docker und Podman erhalten `unless-stopped` sowie
 ein Lab-Label. Unter Windows startet ein benutzergebundener Auftrag nach der
 Anmeldung Docker Desktop beziehungsweise die Podman Machine und anschließend
-nur markierte Lab-Container. Ohne Angabe bleibt Autostart ausgeschaltet;
+nur markierte Lab-Container. Sind Docker Desktop und Podman Desktop parallel
+installiert und besitzt Podman einen verwalteten Lab-Autostart, erkennt der
+Koordinator die Kombination automatisch: Er wartet zuerst auf Docker, startet
+danach die Podman Machine und erst anschließend Podman Desktop. Den bekannten
+Podman-Desktop-Login-Eintrag übernimmt er dafür reversibel in den Lab-Auftrag;
+Ein-Provider-Systeme behalten ihren direkten bisherigen Startpfad. Ohne Angabe
+bleibt Autostart ausgeschaltet;
 `instances[].hyperv.autostart` bleibt als Kompatibilitätsalias lesbar.
 Docker und Podman trennen das harte Containerlimit von einem niedrigeren
 SQL-internen Memory-Limit. Automatisierte Linux-Testziele verwenden 4 GB
