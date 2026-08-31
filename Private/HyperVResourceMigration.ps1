@@ -508,6 +508,21 @@ function Invoke-LabHyperVResourceMigration {
         throw 'HYPERV_RESOURCE_MIGRATION_PLAN_CHANGED'
     }
     if ([string]$journal.Status -eq 'COMPLETED') {
+        foreach ($vmPlan in @($plan.Inventory.VMs)) {
+            $managed = Get-HyperVManagedVM -VMName ([string]$vmPlan.VMName) `
+                -ExpectedRunId ([string]$plan.RunId) -ExpectedScopeId ([string]$plan.ScopeId)
+            $sqlRequired = [string]$managed.Identity.sqlReadiness.status -eq 'SQL_READY_RUN'
+            foreach ($cycle in 1, 2) {
+                $receipt = @($journal.ReadinessReceipts | Where-Object {
+                    [string]$_.VMName -eq [string]$vmPlan.VMName -and [int]$_.Cycle -eq $cycle -and
+                    [bool]$_.GuestReady -and (-not $sqlRequired -or [bool]$_.SqlReady)
+                })
+                if ($receipt.Count -ne 1) {
+                    $reason = if ($sqlRequired) { 'SQL_READINESS_EVIDENCE_REQUIRED' } else { 'GUEST_READINESS_EVIDENCE_REQUIRED' }
+                    throw "HYPERV_RESOURCE_MIGRATION_${reason}: $($vmPlan.VMName)/cycle-$cycle"
+                }
+            }
+        }
         return [PSCustomObject]@{ Status='COMPLETED'; RunId=[string]$plan.RunId; JournalPath=$paths.Journal; ResourceRoot=[string]$binding.HyperVResourceRoot }
     }
 
@@ -673,17 +688,23 @@ function Invoke-LabHyperVResourceMigration {
         Write-LabHyperVResourceMigrationJournal -Path $paths.Journal -Journal $journal
         foreach ($vmState in @($journal.InitialVMStates)) {
             for ($cycle=1; $cycle -le 2; $cycle++) {
+                $managed = Get-HyperVManagedVM -VMName ([string]$vmState.VMName) `
+                    -ExpectedRunId ([string]$plan.RunId) -ExpectedScopeId ([string]$plan.ScopeId)
+                $sqlRequired = [string]$managed.Identity.sqlReadiness.status -eq 'SQL_READY_RUN'
                 $completedReceipt = @($journal.ReadinessReceipts | Where-Object {
-                    [string]$_.VMName -eq [string]$vmState.VMName -and [int]$_.Cycle -eq $cycle -and [bool]$_.GuestReady
+                    [string]$_.VMName -eq [string]$vmState.VMName -and [int]$_.Cycle -eq $cycle -and
+                    [bool]$_.GuestReady -and (-not $sqlRequired -or [bool]$_.SqlReady)
                 }) | Select-Object -First 1
                 if ($completedReceipt) { continue }
+                $journal.ReadinessReceipts = @($journal.ReadinessReceipts | Where-Object {
+                    -not ([string]$_.VMName -eq [string]$vmState.VMName -and [int]$_.Cycle -eq $cycle)
+                })
                 $null = Start-HyperVInstance -VMName ([string]$vmState.VMName) -ExpectedRunId ([string]$plan.RunId) -ExpectedScopeId ([string]$plan.ScopeId)
                 $ready = Wait-HyperVPowerShellDirect -VMName ([string]$vmState.VMName) -ExpectedRunId ([string]$plan.RunId) `
                     -ExpectedScopeId ([string]$plan.ScopeId) -Credential $Credential -TimeoutSeconds $ReadinessTimeoutSeconds
                 if (-not $ready.Ready) { throw "HYPERV_RESOURCE_MIGRATION_GUEST_READINESS_FAILED: $($vmState.VMName)" }
                 $sqlReceipt = $null
-                $managed = Get-HyperVManagedVM -VMName ([string]$vmState.VMName) -ExpectedRunId ([string]$plan.RunId) -ExpectedScopeId ([string]$plan.ScopeId)
-                if ([string]$managed.Identity.sqlReadiness.status -eq 'SQL_READY_RUN') {
+                if ($sqlRequired) {
                     $sqlReceipt = Wait-HyperVGuestSqlReady -VMName ([string]$vmState.VMName) -ExpectedRunId ([string]$plan.RunId) `
                         -ExpectedScopeId ([string]$plan.ScopeId) -Credential $Credential -SaPassword $SaPassword `
                         -ExpectedMajorVersion ([int]$managed.Identity.sqlReadiness.majorVersion) -TimeoutSeconds $ReadinessTimeoutSeconds
