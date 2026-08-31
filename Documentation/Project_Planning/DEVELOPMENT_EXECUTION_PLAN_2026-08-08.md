@@ -45,6 +45,7 @@ einem tatsächlich erfolgreichen, passenden Lauf verwendet.
 - [Zukunftsplan der Menüführung](FUTURE_UI_WORKFLOW_PLAN_2026-08-08.md);
 - [Konsolen-, Lifecycle- und Storage-Konsolidierungsplan aus der manuellen Abnahme](CONSOLE_LIFECYCLE_AND_STORAGE_CONSOLIDATION_PLAN_2026-08-12.md);
 - [P0-Bugfix für Hyper-V-Ressourcen unter registrierten `Lab_Data`-Roots](HYPERV_LAB_DATA_RESOURCE_ROOT_BUGFIX_BACKLOG.md);
+- [Persistente SQL-Speicher, Wiederverwendung und `Lab_Data`](PERSISTENT_STORAGE_REUSE_AND_LAB_DATA_BACKLOG.md);
 - [Providerneutraler Batch-, Queue- und Resume-Workflow](PROVIDER_NEUTRAL_BATCH_QUEUE_RESUME_WORKFLOW_2026-08-13.md);
 - [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](../Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md);
 - [Testdatenbank- und Manifest-Wizard-Vertrag](../Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md);
@@ -988,6 +989,14 @@ registrierten `Lab_Data`-Roots; ein Legacy- oder UAC-Fallback kann diese
 Platzierung nicht verändern.
 
 ### Nachgelagerter Horizont
+
+Die physische Bestandsanalyse und Architekturentscheidung für persistente
+Instanzspeicher, portable Backups, Datenbank-/FILESTREAM-Pakete sowie
+Docker-/Podman-Runtime-Daten unter beziehungsweise außerhalb von `Lab_Data`
+beginnt als Voraussetzung vor der breiten Implementierung. Der zugehörige
+P1-Produktpfad folgt dem P0-Hyper-V-Ressourcenroot-Bugfix und wird im
+[Persistenz- und `Lab_Data`-Backlog](PERSISTENT_STORAGE_REUSE_AND_LAB_DATA_BACKLOG.md)
+evidenzgebunden geplant.
 
 Scenario Engine, breite Fault Injection, vollständige Migration und Ablösung,
 Remote Hyper-V Host sowie die öffentliche Vertragsversion `1.0` beginnen nicht
