@@ -479,8 +479,11 @@ Test prüft Export, Gast-Cleanup und den bevorzugten run-gebundenen Restore.
 Die Storage-Placement-Suite belegt zusätzlich, dass ad-hoc CREATE und RESTORE
 ohne explizite Datenbankregel ausschließlich die verifizierten Default-Data-
 und Default-Log-Lanes verwenden und partielle Bindungen nicht akzeptieren.
-Eine reale Hyper-V-Ausführung und die automatische Manifestbindung bleiben
-`NOT_EXECUTED` beziehungsweise offen.
+Für den automatischen Hyper-V-Manifestpfad belegt sie den Preflight auf
+vollständige Default-Data-/Default-Log-/Backup-Lanes und die Ablehnung
+widersprüchlicher Einzelplatzierung; die Hyper-V-Lab-Suite bindet den
+run-basierten Sample-Handler statisch an Run, Instanz und Gastcredential.
+Eine reale Hyper-V-Ausführung bleibt `NOT_EXECUTED`.
 
 Ein vollständiger automatischer Download-/Restore-Test pro Sample ist derzeit nicht vorhanden.
 

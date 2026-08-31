@@ -79,7 +79,7 @@ Installation Handler aus.
 | mehrere Samples im Ad-hoc-Menü auswählen | implementiert (`Invoke-SqlServerLab`, `New-SqlServerLab -Sample`) |
 | persistenter Trust Store und Manifest Lock | implementiert; Sample-Identität wird mitgeführt |
 | inhaltsadressierter Artifact Cache und Quarantäne | implementiert |
-| `LAB_GENERATED`-Baseline-Auswahl | für verifizierte Single- und Multi-Output-Container-Samples sowie run-gebundene Hyper-V-Samples implementiert; Hyper-V-Manifestbindung und reale Evidence offen |
+| `LAB_GENERATED`-Baseline-Auswahl | für verifizierte Single- und Multi-Output-Container-Samples sowie run-gebundene Hyper-V-Samples einschließlich automatischer Manifestbindung implementiert; reale Hyper-V-Evidence offen |
 | kontextbezogene Manifest-Menüführung | Pfadsemantik, Sample-Katalogauswahl, Hilfe, Zurücknavigation, Zwischenzusammenfassung, sauberer Abbruch und Sample-/Artifact-Planvorschau implementiert |
 
 ## 4. Gemeinsamer Artifact-Vertrag
@@ -683,7 +683,10 @@ Folge-Runs bevorzugen die Baseline und fallen
 bei fehlender, unpassender oder quarantainisierter Baseline auf das verifizierte
 Originalartefakt zurück. Multi-Output-Baselines werden als typisierte ZIPs aus
 exakt den erwarteten, einzeln verifizierten Datenbankbackups gespeichert.
-Die automatische Hyper-V-Manifestbindung und reale Runtime-Evidence sind offen.
+Der automatische Hyper-V-Manifestpfad verwendet denselben run-gebundenen
+Handler. Sein Preflight verlangt Default-Data-, Default-Log- und Backup-Lanes
+und lehnt widersprüchliche datenbankspezifische Platzierung ab. Reale Hyper-V-
+Runtime-Evidence ist weiterhin offen.
 
 ### Welle 6 – Weitere Artifact Types und Hyper-V-Bindung
 
