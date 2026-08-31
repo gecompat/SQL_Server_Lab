@@ -301,8 +301,9 @@ neue Fehlplatzierung mehr zulassen. Sie blockieren den P0-Sofortschutz nicht.
   revalidiert den ausgeschalteten Zustand, journalisiert `Move-VMStorage` vor
   der Mutation und verlangt exakte Ziel-Postconditions. Ein Resume nach
   erfolgreicher Umbindung wiederholt den Move nicht. Damit ist `HVR-006`
-  intern geschlossen und synthetisch validiert; die reale allgemeine Parent-
-  Migration bleibt Abnahmescope von `HVR-008`.
+  intern geschlossen und synthetisch validiert. Die reale Abnahme migriert
+  eine isolierte Nicht-Default-Location samt VM-Konfiguration und VHDX vorwärts
+  und zurück und belegt Wiederherstellung sowie scopegebundenen Cleanup.
 - `HVR-007` ist implementiert und statisch beziehungsweise synthetisch
   validiert: `Get-SqlServerLabHyperVResourcePreview` löst Location,
   `Lab_Data`, freien Speicher und klassenbezogene Zielroots read-only auf.
@@ -326,8 +327,11 @@ neue Fehlplatzierung mehr zulassen. Sie blockieren den P0-Sofortschutz nicht.
   der Ressourcenroot-Umstellung grün: drei von drei geforderten Geräten,
   gebundene Builder-/Image-Ressourcen, SQL-Restart, Create, Backup/Restore,
   VM-Restart sowie vollständiger VM-, VHDX-, Artifact- und State-Cleanup sind
-  belegt. Offen bleibt außerdem die allgemeine Storage-Migration. Der Apply
-  bleibt bis dahin interner Fachkern mit explizitem Acceptance-Runner.
+  belegt. Auch die allgemeine Parent-Storage-Migration ist mit allen drei VM-
+  Konfigurationspfaden, VHDX-Rebind, Rückmigration und vollständiger
+  Wiederherstellung real belegt. Offen bleibt nur der reale Legacy-SQL-Fall;
+  der Apply bleibt bis dahin interner Fachkern mit explizitem Acceptance-
+  Runner.
 
 ## Abnahmekriterien
 

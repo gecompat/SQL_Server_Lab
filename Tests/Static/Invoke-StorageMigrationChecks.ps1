@@ -22,6 +22,40 @@ try {
         Set-Item -Path Function:script:Get-LabHyperVVirtualMachineInventory -Value { return @() }
     }
     $storageContractText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private\StorageContract.ps1') -Raw -Encoding utf8
+    $parentAcceptancePath = Join-Path $repoRoot 'Tests\Integration\Invoke-HyperVStorageParentMigrationAcceptance.ps1'
+    $parentAcceptanceText = Get-Content -LiteralPath $parentAcceptancePath -Raw -Encoding utf8
+    $parseTokens = $null; $parseErrors = $null
+    [void][Management.Automation.Language.Parser]::ParseFile(
+        $parentAcceptancePath, [ref]$parseTokens, [ref]$parseErrors)
+    Add-CheckResult -Name 'Realer Parent-Migrationsrunner ist syntaktisch gültig und verlangt eine exakte LocationId' -Success (
+        $parseErrors.Count -eq 0 -and
+        $parentAcceptanceText -match "ValidatePattern\('\^\[0-9a-fA-F-\]\{36\}\$'\)" -and
+        $parentAcceptanceText -match 'HYPERV_STORAGE_PARENT_ACCEPTANCE_ELEVATION_REQUIRED'
+    )
+    Add-CheckResult -Name 'Parent-Migrationsrunner schützt Default, Referenzen, Bindings und vorhandene VMs vor Mutation' -Success (
+        $parentAcceptanceText -match 'HYPERV_STORAGE_PARENT_ACCEPTANCE_DEFAULT_LOCATION_PROTECTED' -and
+        $parentAcceptanceText -match 'Get-LabDataLocationReferences' -and
+        $parentAcceptanceText -match 'Get-LabStorageMigrationHyperVBindingInventory' -and
+        $parentAcceptanceText -match 'Get-LabStorageMigrationHyperVVMConfigurationInventory' -and
+        $parentAcceptanceText -match 'HYPERV_STORAGE_PARENT_ACCEPTANCE_SOURCE_TOO_LARGE'
+    )
+    Add-CheckResult -Name 'Parent-Migrationsrunner belegt VM-Konfiguration und VHDX durch Hin- und Rückmigration' -Success (
+        $parentAcceptanceText -match 'New-VM[\s\S]+New-LabDataMigrationPlan[\s\S]+Invoke-LabDataMigration' -and
+        ([regex]::Matches($parentAcceptanceText, 'Invoke-LabDataMigration\s+-PlanPath')).Count -eq 2 -and
+        $parentAcceptanceText -match "HyperVVMConfigurations\[0\]\.Paths\)\.Count -ne 3" -and
+        $parentAcceptanceText -match 'Get-VMHardDiskDrive'
+    )
+    Add-CheckResult -Name 'Parent-Migrationsrunner entfernt nur exakte Testressourcen nach vollständiger Rückkehr' -Success (
+        $parentAcceptanceText -match 'Remove-VM\s+-Name\s+\$vmName' -and
+        $parentAcceptanceText -match 'foreach \(\$planId in @\(\$forwardPlanId, \$reversePlanId\)\)' -and
+        $parentAcceptanceText -match 'Compare-Object \$initialPaths \$remainingPaths' -and
+        $parentAcceptanceText -match 'HYPERV_STORAGE_PARENT_ACCEPTANCE_FINAL_CLEANUP_FAILED'
+    )
+    Add-CheckResult -Name 'Parent-Migrationsrunner bewahrt Recovery-State bei jedem Fehler' -Success (
+        $parentAcceptanceText -match [regex]::Escape('RECOVERY_REQUIRED [$phase]') -and
+        $parentAcceptanceText -match 'Test-VM, aktueller Lab_Data-Root und Migrationsjournale bleiben' -and
+        $parentAcceptanceText -notmatch 'catch\s*\{[\s\S]{0,400}Remove-Item'
+    )
     Add-CheckResult -Name 'Hyper-V-Diskinventur übergibt den verpflichtenden VM-Namen' -Success (
         $storageContractText -match 'Get-VMHardDiskDrive\s+-VMName\s+'
     )

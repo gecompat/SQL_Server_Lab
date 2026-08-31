@@ -62,6 +62,7 @@ sources_of_truth:
   persistent_storage_reuse_and_lab_data_backlog: Documentation/Project_Planning/PERSISTENT_STORAGE_REUSE_AND_LAB_DATA_BACKLOG.md
   validation_storage_contract: Tests/Static/Invoke-DataRootChecks.ps1
   validation_storage_migration: Tests/Static/Invoke-StorageMigrationChecks.ps1
+  validation_hyperv_storage_parent_migration_acceptance: Tests/Integration/Invoke-HyperVStorageParentMigrationAcceptance.ps1
   validation_storage_file_placement: Tests/Static/Invoke-StorageFilePlacementChecks.ps1
   validation_hyperv_resource_binding: Tests/Static/Invoke-HyperVResourceBindingChecks.ps1
   validation_hyperv_resource_migration: Tests/Static/Invoke-HyperVResourceMigrationChecks.ps1
@@ -496,6 +497,7 @@ providers:
     resource_migration: Private/HyperVResourceMigration.ps1
     migration_lifecycle_guard: "read-only Reconcile-Plan plus fail-closed Start, Stop, Autostart, SQL-WMI-Repair und Cleanup; Run- und allgemeine Location-Migrationen muessen terminal sein, COMPLETED erfordert revalidierte Bindings"
     storage_parent_migration_binding: "Plan inventarisiert lokale HyperVResourceBinding-Receipts sowie exakte VM-Konfigurations-/Snapshot-/Paging-Quell- und Zielpfade; Apply revalidiert VM-Identitaet und Aus-Zustand, journalisiert Move-VMStorage vor der Mutation, prueft Ziel-Postconditions und setzt ohne doppelten Move fort"
+    storage_parent_migration_acceptance: "Tests/Integration/Invoke-HyperVStorageParentMigrationAcceptance.ps1; reale Vorwaerts- und Rueckmigration eines isolierten nicht-default Lab_Data mit VM-Konfiguration, Snapshot, Smart Paging, VHDX-Rebind, Wiederherstellung und Cleanup"
     image_migration: Private/HyperVImageMigration.ps1
     physical_resource_root: "registered Lab_Data/HyperV; StateRoot contains control state only; persisted builder disks resolve through their Build binding"
     image_registry: Private/HyperVImageRegistry.ps1
