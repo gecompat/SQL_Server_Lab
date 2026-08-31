@@ -134,6 +134,10 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   scopegebundenem Cleanup; der Lauf wurde nach Einführung der gebundenen
   Ressourcenroots mit isoliertem Prepared-Image erneut real bestätigt und
   hinterließ weder Test-Artifact, State noch rungebundene VHDX;
+- reale allgemeine Hyper-V-Parent-Storage-Migration einer isolierten
+  Nicht-Default-Location mit Test-VM und VHDX, journalisierter Vorwärts- und
+  Rückmigration, Umbindung von VM-Konfiguration, Snapshots, Smart Paging und
+  VHDX sowie vollständiger Wiederherstellung und scopegebundenem Cleanup;
 - providerneutraler Softwarekatalog und External-Runtime-Resolver mit
   SQL-/OS-/Provider-Capability-Gates, sicherer Legacy-`post-start`-Grenze und
   geheimnisfreien Software-Intents für Python, R und Java;
@@ -161,14 +165,11 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 ### Geplant oder unvollständig
 
 - restliche reale erhöhte End-to-End-Abnahme des Hyper-V-Ressourcenroot-
-  Schutzes für SQL-Readiness der Legacy-Migration und die allgemeine
-  Storage-Migration; der erneute N5-Mehrgeräte-Nachweis sowie eine reale
-  Windows-Legacy-Run-/Parent-/Child-
-  Migration einschließlich Restart, Recovery-Resume und Quell-Cleanup ist
-  belegt; die allgemeine Parent-Migration plant, revalidiert und bindet
-  VM-Konfiguration, Snapshots und Smart Paging unter dem Quellroot mit
-  `Move-VMStorage` journalisiert um, ist auf einem realen Host aber noch
-  `NOT_EXECUTED`;
+  Schutzes für SQL-Readiness der Legacy-Migration; der erneute N5-
+  Mehrgeräte-Nachweis, die Windows-Legacy-Run-/Parent-/Child-Migration sowie
+  die allgemeine Parent-Storage-Migration einschließlich VM-Konfiguration,
+  Snapshots, Smart Paging, VHDX-Rebind, Rückmigration und Cleanup sind real
+  belegt;
 - vollständiger allgemeiner Hyper-V-Provider über den belegten
   Windows-2025-/SQL-2025-Referenzpfad hinaus, insbesondere breite
   Datenbank-, Software-, Post-Provisioning- und Netzwerk-Manifestbindung sowie

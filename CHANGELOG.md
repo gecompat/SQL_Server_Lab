@@ -14,6 +14,11 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 - `Invoke-HyperVResourceMigrationAcceptance.ps1` bündelt den real erhöhten,
   exakt run-/VM-gebundenen Parent-/Child-Migrationsnachweis mit Resume,
   zwei Gaststarts, Binding-Postconditions und spätem Quell-Cleanup.
+- `Invoke-HyperVStorageParentMigrationAcceptance.ps1` prüft eine exakt
+  ausgewählte, kleine und unreferenzierte Nicht-Default-Location mit einer
+  isolierten Test-VM und VHDX durch Vorwärts- und Rückmigration. Fehler
+  bewahren VM, aktuellen Root und Journale für eine sichere Recovery; Erfolg
+  entfernt ausschließlich die scopegebundenen Testartefakte.
 
 ### Geändert
 
@@ -73,8 +78,10 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   N4-/N5-Lauf belegte anschließend den gebundenen
   Builder- und Image-Pfad, drei von drei geforderten physischen Geräten,
   SQL-Restart, Create, Backup/Restore, VM-Restart sowie vollständigen VM-,
-  VHDX-, Artifact- und Test-State-Cleanup. SQL-Readiness der Legacy-Migration
-  und die allgemeine Storage-Migration bleiben als restlicher `HVR-008`-Scope
+  VHDX-, Artifact- und Test-State-Cleanup. Die reale allgemeine Parent-
+  Storage-Migration belegte zusätzlich alle drei VM-Konfigurationspfade,
+  VHDX-Rebind, Rückmigration und vollständige Wiederherstellung. Als
+  restlicher `HVR-008`-Scope bleibt nur die SQL-Readiness der Legacy-Migration
   offen.
 
 ## 2026-08-30
