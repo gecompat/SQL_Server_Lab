@@ -172,8 +172,8 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   eines Runs;
 - vollständige Ausführung aller im Schema vorbereiteten `serverConfig`-Felder;
 - nicht freigegebene Archive und Attach-Szenarien;
-- automatische Hyper-V-Manifestbindung für Sample-Installationen sowie reale
-  Runtime-Evidence für Export und Nutzung von `LAB_GENERATED`-Baselines;
+- reale Runtime-Evidence für automatische Hyper-V-Manifest-Sample-
+  Installationen sowie Export und Nutzung von `LAB_GENERATED`-Baselines;
 - weitere External-Runtime-OS-/Providerkombinationen außerhalb der belegten
   Linux-Containermatrix und des SQL-2022-Hyper-V-/Windows-Pfads; C# bleibt bis
   zu reproduzierbarem Build und nativer SQL-Evidence `PREVIEW`;
@@ -368,8 +368,9 @@ portable sanitisierte Locks und `LAB_GENERATED`-Baselines steht in
 Mehrfachauswahl, Trust-/Hash-Pfad und gepinnte Einzelskripte sind implementiert;
 sichere Script Bundles, mehrere erwartete Outputs und containerbasierte sowie
 run-gebundene Hyper-V-`LAB_GENERATED`-Baselines sind ebenfalls implementiert.
-Attach-Szenarien, nicht freigegebene Archive, die automatische Hyper-V-
-Manifestbindung und reale Hyper-V-Baseline-Evidence bleiben offen.
+Attach-Szenarien und nicht freigegebene Archive bleiben offen. Die automatische
+Hyper-V-Manifestbindung für Samples ist synthetisch implementiert; reale
+Hyper-V-Sample- und Baseline-Evidence bleibt offen.
 
 ## 10. State, Secrets und Cleanup
 

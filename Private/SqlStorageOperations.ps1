@@ -11,7 +11,30 @@ function Assert-LabStorageManifestDatabaseCoverage {
         $databaseName = [string]$database.name
         if ($database.restore) {
             if ($database.restore.sampleId) {
-                throw "HYPERV_STORAGE_SAMPLE_RESTORE_UNSUPPORTED: $databaseName"
+                $sampleOutputs = @(
+                    $database.restore.expectedOutputs |
+                        Where-Object { [string]$_.kind -eq 'database' -and -not [string]::IsNullOrWhiteSpace([string]$_.name) } |
+                        ForEach-Object { [string]$_.name } |
+                        Select-Object -Unique
+                )
+                if ($sampleOutputs.Count -eq 0 -or
+                    $sampleOutputs.Count -ne @($database.restore.expectedOutputs).Count -or
+                    $sampleOutputs[0] -ne $databaseName) {
+                    throw "HYPERV_STORAGE_SAMPLE_OUTPUTS_INVALID: $databaseName"
+                }
+                foreach ($roleName in @('DefaultData','DefaultLog','Backup')) {
+                    $role = $StorageIntent.Roles.PSObject.Properties[$roleName].Value
+                    if (-not $role -or [string]::IsNullOrWhiteSpace([string]$role.Selector)) {
+                        throw "HYPERV_STORAGE_SAMPLE_DEFAULT_ROLE_REQUIRED: $databaseName/$roleName"
+                    }
+                }
+                $sampleFileConflicts = @($databaseFiles | Where-Object { [string]$_.Database -in $sampleOutputs })
+                $sampleRestoreConflicts = @($restoreRules | Where-Object { [string]$_.Database -in $sampleOutputs })
+                if ($sampleFileConflicts.Count -gt 0 -or $sampleRestoreConflicts.Count -gt 0 -or
+                    @($database.files.data + $database.files.log | Where-Object { $_.path }).Count -gt 0) {
+                    throw "HYPERV_STORAGE_SAMPLE_EXPLICIT_PLACEMENT_CONFLICT: $databaseName"
+                }
+                continue
             }
             $matches = @($restoreRules | Where-Object { [string]$_.Database -eq $databaseName })
             if ($matches.Count -ne 1) {
@@ -44,7 +67,12 @@ function Assert-LabStorageManifestDatabaseCoverage {
         }
     }
 
-    $declaredNames = @($Databases | ForEach-Object { [string]$_.name })
+    $declaredNames = @($Databases | ForEach-Object {
+        if ($_.restore -and $_.restore.sampleId) {
+            @($_.restore.expectedOutputs | Where-Object kind -eq 'database' | ForEach-Object { [string]$_.name })
+        }
+        else { [string]$_.name }
+    } | Select-Object -Unique)
     $orphanFile = @($databaseFiles | Where-Object { [string]$_.Database -notin $declaredNames } | Select-Object -First 1)
     $orphanRule = @($restoreRules | Where-Object { [string]$_.Database -notin $declaredNames } | Select-Object -First 1)
     if ($orphanFile.Count -gt 0) { throw "LAB_STORAGE_ORPHAN_DATABASE_FILE: $($orphanFile[0].Database)" }

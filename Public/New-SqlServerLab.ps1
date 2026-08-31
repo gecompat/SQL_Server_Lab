@@ -627,22 +627,47 @@ function New-SqlServerLab {
                 $installedDatabases.Add([string]$database.name)
             }
             foreach ($database in @($hyperVStorageDatabases | Where-Object { $_.restore })) {
-                Write-LabInfo "Storage-gebundener Restore '$($database.name)' auf '$($instance.id)' ausführen und verifizieren..."
-                $restoreArguments = @{
-                    RunId=$lab.RunId; InstanceId=[string]$instance.id; SaPassword=$effectiveHyperVSqlSaPassword
-                    GuestCredential=$guestCredential; BackupSource=[string]$database.restore.source
-                    DatabaseName=[string]$database.name; Replace=[bool]$database.restore.replace
-                    NonInteractive=$effectiveNonInteractive; StateRoot=$hyperVLab.StateRoot
+                $databaseNamesToRecord = @([string]$database.name)
+                if ($database.restore.sampleId) {
+                    Write-LabInfo "Storage-gebundenes Sample '$($database.restore.sampleId):$($database.restore.sampleVariant)' auf '$($instance.id)' installieren und verifizieren..."
+                    $sampleResult = Install-LabSampleDatabase `
+                        -Provider hyperv `
+                        -HostName ([string]$hyperVLab.Instance.host) `
+                        -Port ([int]$hyperVLab.Instance.port) `
+                        -SaPassword $effectiveHyperVSqlSaPassword `
+                        -RunId $lab.RunId `
+                        -InstanceId ([string]$instance.id) `
+                        -GuestCredential $guestCredential `
+                        -RestoreDefinition $database.restore `
+                        -SqlVersion ([string]$instance.version) `
+                        -NonInteractive:$effectiveNonInteractive `
+                        -RunDirectory $hyperVLab.RunDirectory `
+                        -StateRoot $hyperVLab.StateRoot
+                    if (-not $sampleResult.Success) {
+                        throw "HYPERV_STORAGE_SAMPLE_INSTALL_FAILED: $($database.restore.sampleId)/$($sampleResult.Status)"
+                    }
+                    $databaseNamesToRecord = @($sampleResult.DatabaseNames)
                 }
-                if ($database.restore.expectedSha256) { $restoreArguments.ExpectedSha256=[string]$database.restore.expectedSha256 }
-                $restoreResult = Restore-SqlServerLabDatabase @restoreArguments
-                if (-not $restoreResult.Success) { throw "HYPERV_STORAGE_DATABASE_RESTORE_FAILED: $($database.name)" }
-                if ($database.options) {
-                    $null = Set-LabDatabaseOptions -DatabaseName ([string]$database.name) -Options $database.options `
-                        -HostName ([string]$hyperVLab.Instance.host) -Port ([int]$hyperVLab.Instance.port) `
-                        -SaPassword $effectiveHyperVSqlSaPassword
+                else {
+                    Write-LabInfo "Storage-gebundener Restore '$($database.name)' auf '$($instance.id)' ausführen und verifizieren..."
+                    $restoreArguments = @{
+                        RunId=$lab.RunId; InstanceId=[string]$instance.id; SaPassword=$effectiveHyperVSqlSaPassword
+                        GuestCredential=$guestCredential; BackupSource=[string]$database.restore.source
+                        DatabaseName=[string]$database.name; Replace=[bool]$database.restore.replace
+                        NonInteractive=$effectiveNonInteractive; StateRoot=$hyperVLab.StateRoot
+                    }
+                    if ($database.restore.expectedSha256) { $restoreArguments.ExpectedSha256=[string]$database.restore.expectedSha256 }
+                    $restoreResult = Restore-SqlServerLabDatabase @restoreArguments
+                    if (-not $restoreResult.Success) { throw "HYPERV_STORAGE_DATABASE_RESTORE_FAILED: $($database.name)" }
                 }
-                $installedDatabases.Add([string]$database.name)
+                foreach ($installedDatabaseName in $databaseNamesToRecord) {
+                    if ($database.options) {
+                        $null = Set-LabDatabaseOptions -DatabaseName ([string]$installedDatabaseName) -Options $database.options `
+                            -HostName ([string]$hyperVLab.Instance.host) -Port ([int]$hyperVLab.Instance.port) `
+                            -SaPassword $effectiveHyperVSqlSaPassword
+                    }
+                    $installedDatabases.Add([string]$installedDatabaseName)
+                }
             }
             $hyperVLab = Get-HyperVLabWorkflowRun -RunId $lab.RunId -StateRoot $hyperVLab.StateRoot
             $hyperVLab.Instance | Add-Member -NotePropertyName databases -NotePropertyValue @($installedDatabases) -Force

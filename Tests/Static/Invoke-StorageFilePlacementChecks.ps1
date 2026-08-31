@@ -163,6 +163,16 @@ try {
         [PSCustomObject]@{
             name='RestoreDb'; files=[PSCustomObject]@{ data=@(); log=@() }
             restore=[PSCustomObject]@{ source='fixture.bak'; replace=$true }
+        },
+        [PSCustomObject]@{
+            name='SampleDb'; files=[PSCustomObject]@{
+                data=@([PSCustomObject]@{ name='SampleDb_Data'; path=$null })
+                log=@([PSCustomObject]@{ name='SampleDb_Log'; path=$null })
+            }
+            restore=[PSCustomObject]@{
+                sampleId='synthetic-sample'; sampleVariant='standard'
+                expectedOutputs=@([PSCustomObject]@{ name='SampleDb'; kind='database' })
+            }
         }
     )
     $coverageAccepted = & $module { param($i,$d) Assert-LabStorageManifestDatabaseCoverage -StorageIntent $i -Databases $d } $intent $coverageDatabases
@@ -174,6 +184,25 @@ try {
     } catch { $_.Exception.Message -match 'DATABASE_FILE_COVERAGE_MISMATCH' }
     Add-CheckResult -Name 'Manifestdatenbanken sind vor Mutation exakt durch Create-Dateien oder Restore-Regel abgedeckt' -Success (
         $coverageAccepted -and $coverageMismatchRejected)
+    $samplePlacementConflictRejected = try {
+        $conflictingIntent = $intent | ConvertTo-Json -Depth 20 | ConvertFrom-Json -Depth 20
+        $conflictingIntent.databaseFiles += [PSCustomObject]@{
+            database='SampleDb'; logicalName='SampleDb_Data'; fileType='data'
+            fileName='SampleDb.mdf'; selector='data-a'
+        }
+        $null = & $module { param($i,$d) Assert-LabStorageManifestDatabaseCoverage -StorageIntent $i -Databases $d } $conflictingIntent $coverageDatabases
+        $false
+    }
+    catch { $_.Exception.Message -match 'HYPERV_STORAGE_SAMPLE_EXPLICIT_PLACEMENT_CONFLICT' }
+    $sampleMissingDefaultRoleRejected = try {
+        $missingRoleIntent = $intent | ConvertTo-Json -Depth 20 | ConvertFrom-Json -Depth 20
+        $missingRoleIntent.roles.PSObject.Properties.Remove('backup')
+        $null = & $module { param($i,$d) Assert-LabStorageManifestDatabaseCoverage -StorageIntent $i -Databases $d } $missingRoleIntent $coverageDatabases
+        $false
+    }
+    catch { $_.Exception.Message -match 'HYPERV_STORAGE_SAMPLE_DEFAULT_ROLE_REQUIRED' }
+    Add-CheckResult -Name 'Hyper-V-Manifest-Sample verlangt vollständige Default-Lanes und verbietet widersprüchliche Einzelplatzierung' -Success (
+        $samplePlacementConflictRejected -and $sampleMissingDefaultRoleRejected)
 
     $runtimeReceiptDirectory = Join-Path $temporaryParent 'runtime-receipt'
     $null = New-Item -Path $runtimeReceiptDirectory -ItemType Directory -Force
