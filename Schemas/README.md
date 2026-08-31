@@ -54,6 +54,7 @@ Weitere `example-*.json`-Dateien können spezialisierte oder vorbereitete Szenar
 - `drives`
 - `serverConfig`
 - `storageIntent` für portable Rollen-, TempDB-, Datenbankdatei- und Restore-Platzierungsanforderungen
+- `network.intent` und `network.exposure` für portable Netzwerk- und Zugriffsanforderungen
 - `databases`
 - `postProvision`
 
@@ -82,6 +83,13 @@ Weitere `example-*.json`-Dateien können spezialisierte oder vorbereitete Szenar
   Katalogvariante nicht ausführbar
 
 Das Schema enthält teilweise vorbereitete Erweiterungsfelder. Die verbindlichen Grenzen stehen in [`KNOWN_LIMITATIONS.md`](../Documentation/Quality/KNOWN_LIMITATIONS.md).
+
+Der Network-Intent-Resolver plant ohne Hostmutation. Docker und Podman verwenden
+aktuell `nat`/`host`; Hyper-V verwendet standardmäßig `hostOnly`/`host` und
+unterstützt explizit `isolated`/`none`. Nicht gebundene Kombinationen wie
+Hyper-V-NAT oder LAN sowie widersprüchliche Exposure-Werte werden vor der ersten
+Provider-Mutation abgelehnt. `hyperv.switchName` ist nur ein lokales
+Kompatibilitätsbinding für einen internen `hostOnly`-Switch.
 
 Ein `storageIntent` wird im Hyper-V-Manifestpfad lokal an registrierte,
 controller-eigene `Lab_Data`-Locations gebunden. Pro Selector entsteht eine

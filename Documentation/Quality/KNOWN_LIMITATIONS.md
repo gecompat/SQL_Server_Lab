@@ -183,17 +183,20 @@ dokumentierte OOBE-/Passwortschritt manuell; SQL Setup und Abnahme laufen
 danach weiter unbeaufsichtigt.
 
 Freie run-lokale Manifest-Drives werden inzwischen deklarativ auf zusätzliche
-Hyper-V-VHDX und deren Disk-ID-gebundene Gastinitialisierung abgebildet. Noch
-nicht implementiert ist die vollständige Bindung an den Datenbank-, Software-,
-Post-Provisioning- und Netzwerkvertrag. Der Prepared-Image-Klonpfad führt für
+Hyper-V-VHDX und deren Disk-ID-gebundene Gastinitialisierung abgebildet. Der
+portable Netzwerkvertrag bindet Docker/Podman über Loopback an `nat`/`host`, Hyper-V an
+`hostOnly`/`host` und explizit an `isolated`/`none`; andere Kombinationen
+scheitern vor Mutation. Noch nicht implementiert ist die vollständige Bindung
+an den Datenbank-, Software- und Post-Provisioning-Vertrag sowie Hyper-V-NAT,
+LAN, zentraler IPAM/DNS und Netzwerk-Reconcile. Der Prepared-Image-Klonpfad führt für
 ein `SQL_PREPARED_SEALED`-Image `CompleteImage` aus und ist für den Windows-
 2025-/SQL-2025-Referenzfall bis `SQL_READY_RUN` real akzeptiert. Ein weiterer
 echter CLI-Vertical-Slice aus einem frischen `OS_SEALED`-Slot ist für SQL
 Server 2025 einschließlich Installation, Storage, TempDB, Ressourcenwechsel,
 Datenpersistenz und Cleanup akzeptiert. Offen bleiben der vollautomatische
 OS-Factory-Build,
-der allgemeine deklarative Hyper-V-SQL-Runtimepfad, runtimeübergreifende Network
-Intents, zentraler IPAM, erweitertes Reconcile und der automatische Artifact
+der allgemeine deklarative Hyper-V-SQL-Runtimepfad, weiterführende Network-
+Bindings, zentraler IPAM, erweitertes Reconcile und der automatische Artifact
 Refresh. Der verbindliche Zielvertrag steht in
 [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](../Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md).
 
@@ -770,8 +773,9 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
    Migration abschließen.
 2. Den synthetisch implementierten Hyper-V-`LAB_GENERATED`-Export und die
    automatische Sample-Manifestausführung real abnehmen (Sample-Welle 6).
-3. Die implementierten providerneutralen Network- und Software-Intents an
-   Hyper-V-LAN/NAT/IPAM und Software-Runtime binden.
+3. Die verbleibenden providerneutralen Network- und Software-Intents an
+   Hyper-V-LAN/NAT/IPAM/DNS und Software-Runtime binden; Container-`nat` sowie
+   Hyper-V-`hostOnly`/`isolated` sind bereits gebunden.
 4. Artifact Registry, Refresh/Rebuild und Evaluierungsablauf implementieren.
 5. Den belegten Windows-2025-/SQL-2025-Referenzpfad zur vollständigen
    allgemeinen Hyper-V-Manifestbindung und zu weiteren realen

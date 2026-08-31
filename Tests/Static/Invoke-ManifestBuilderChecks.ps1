@@ -193,6 +193,12 @@ Add-CheckResult `
     -Name 'Minimales Manifest ist gueltig' `
     -Success $minimalResult.IsValid `
     -Message ($minimalResult.Errors -join '; ')
+Add-CheckResult `
+    -Name 'Container-Manifest plant standardmaessig NAT mit Host-Exposure' `
+    -Success ($minimalResult.Plan.Contract.Version -eq '1.2' -and
+        $minimalResult.Plan.Instances[0].Network.Status -eq 'RESOLVED' -and
+        $minimalResult.Plan.Instances[0].Network.Intent -eq 'nat' -and
+        $minimalResult.Plan.Instances[0].Network.Exposure -eq 'host')
 
 $externalRuntimeManifest = [ordered]@{
     name = 'external-runtime-plan-check'
@@ -237,7 +243,7 @@ $samplePlan = @($samplePlanResult.Plan.Instances[0].Samples)[0]
 Add-CheckResult `
     -Name 'Manifestpruefung liefert Sample- und Artifact-Planvorschau' `
     -Success ($samplePlanResult.IsValid -and
-        $samplePlanResult.Plan.Contract.Version -eq '1.1' -and
+        $samplePlanResult.Plan.Contract.Version -eq '1.2' -and
         $samplePlan.Status -eq 'RESOLVED' -and
         $samplePlan.ArtifactType -eq 'backup' -and
         $samplePlan.Source -match '^https://' -and
@@ -450,6 +456,48 @@ Add-CheckResult `
     -Name 'Hyper-V-Manifest referenziert ein Prepared-Image ohne Klartextpasswort' `
     -Success $hyperVManifestResult.IsValid `
     -Message ($hyperVManifestResult.Errors -join '; ')
+Add-CheckResult `
+    -Name 'Hyper-V-Manifest plant standardmaessig HostOnly mit internem Switch' `
+    -Success ($hyperVManifestResult.Plan.Instances[0].Network.Status -eq 'RESOLVED' -and
+        $hyperVManifestResult.Plan.Instances[0].Network.Intent -eq 'hostOnly' -and
+        $hyperVManifestResult.Plan.Instances[0].Network.Binding -eq 'internal-switch')
+
+$hyperVIsolatedManifest = $hyperVManifest | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
+$hyperVIsolatedManifest.instances[0] | Add-Member -NotePropertyName network -NotePropertyValue ([PSCustomObject]@{ intent='isolated'; exposure='none' }) -Force
+$hyperVIsolatedResult = Test-SqlServerLabManifest -InputObject $hyperVIsolatedManifest
+$resolvedHyperVIsolated = & $module {
+    param($Manifest)
+    (Resolve-ManifestDefaults -Manifest $Manifest -ManifestPath (Join-Path $PWD 'in-memory-hyperv-isolated.json')).instances[0].network
+} $hyperVIsolatedManifest
+Add-CheckResult `
+    -Name 'Hyper-V-Isolated-Intent wird validiert und portabel aufgeloest' `
+    -Success ($hyperVIsolatedResult.IsValid -and $resolvedHyperVIsolated.Intent -eq 'isolated' -and
+        $resolvedHyperVIsolated.Exposure -eq 'none' -and $resolvedHyperVIsolated.Binding -eq 'private-switch') `
+    -Message ($hyperVIsolatedResult.Errors -join '; ')
+
+$hyperVNatManifest = $hyperVManifest | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
+$hyperVNatManifest.instances[0] | Add-Member -NotePropertyName network -NotePropertyValue ([PSCustomObject]@{ intent='nat'; exposure='host' }) -Force
+$hyperVNatResult = Test-SqlServerLabManifest -InputObject $hyperVNatManifest
+Add-CheckResult `
+    -Name 'Noch offenes Hyper-V-NAT scheitert vor Provider-Mutation' `
+    -Success (-not $hyperVNatResult.IsValid -and $hyperVNatResult.Errors -match 'NETWORK_INTENT_PROVIDER_UNSUPPORTED') `
+    -Message ($hyperVNatResult.Errors -join '; ')
+
+$hyperVLegacyConflictManifest = $hyperVIsolatedManifest | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
+$hyperVLegacyConflictManifest.instances[0].hyperv | Add-Member -NotePropertyName switchName -NotePropertyValue 'SQL_LAB_HYPERV' -Force
+$hyperVLegacyConflictResult = Test-SqlServerLabManifest -InputObject $hyperVLegacyConflictManifest
+Add-CheckResult `
+    -Name 'Legacy-Hyper-V-Switch und Isolated-Intent werden nicht stillschweigend vermischt' `
+    -Success (-not $hyperVLegacyConflictResult.IsValid -and $hyperVLegacyConflictResult.Errors -match 'NETWORK_LEGACY_SWITCH_CONFLICT') `
+    -Message ($hyperVLegacyConflictResult.Errors -join '; ')
+
+$hyperVExposureConflictManifest = $hyperVIsolatedManifest | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
+$hyperVExposureConflictManifest.instances[0].network.exposure = 'host'
+$hyperVExposureConflictResult = Test-SqlServerLabManifest -InputObject $hyperVExposureConflictManifest
+Add-CheckResult `
+    -Name 'Widerspruechliche Network-Exposure scheitert vor Provider-Mutation' `
+    -Success (-not $hyperVExposureConflictResult.IsValid -and $hyperVExposureConflictResult.Errors -match 'NETWORK_EXPOSURE_CONFLICT') `
+    -Message ($hyperVExposureConflictResult.Errors -join '; ')
 
 $resolvedHyperVAutoStart = & $module {
     param($Manifest)

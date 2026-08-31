@@ -108,7 +108,7 @@ oder einen zuvor bekannten lokalen Trust-Eintrag.
 | Bereich | Standardpfad | Aktueller Umfang/Grenze |
 |---|---|---|
 | Credentials | Externe Prozess-Secret-Referenz oder `SecureString` | Keine Klartextwerte im Manifest, State oder Workflow-Überblick. Hyper-V braucht im unattended Lauf zusätzlich Guest- und ggf. SQL-SA-Secret. |
-| Netzwerk | Vorhandene providergebundene Labnetze und lokale Host-Ports | Providerübergreifende Network Intents, IPAM und Exposure-Policies bleiben offen. |
+| Netzwerk | Portabler Intent/Exposure-Plan: Docker/Podman `nat`/`host`, Hyper-V `hostOnly`/`host` oder `isolated`/`none` | Hyper-V-NAT/LAN, zentraler IPAM/DNS und Netzwerk-Reconcile bleiben offen. |
 | Data/Backup | Testdatenbibliothek nur verifiziert; pro Lab Data Root für Schreibdaten | Normales Entfernen berührt weder Testdatenbibliothek noch Data Root oder Vorlagenpool. |
 | Samples/Restores | SHA-256, Trust Store, Cache und Run Lock | Ungehashte Remote-Quellen stoppen unattended mit `TRUST_REQUIRED`. |
 | Ressourcen | Vorabprüfung und Profile bleiben aktiv | `skipAssessment` ist eine explizite Manifestoption. |
@@ -118,9 +118,11 @@ Der Container-Manifestpfad kann mehrere Docker-/Podman-Instanzen einschließlich
 ausführbarer Datenbanken, Samples, Restores und Post-Provisioning atomar
 bereitstellen. Der Hyper-V-Manifestpfad ist bewusst enger: genau eine
 `SQL_PREPARED_SEALED`-Vorlage, ein explizites `preparedImageId`, differenzierender
-Klon sowie optionale `persistentData`. Freie Drives, Datenbanken,
-Post-Provisioning und eine deklarative Netzwerk-Topologie für Hyper-V sind noch
-nicht atomar implementiert und werden von der Manifestfachprüfung abgewiesen.
+Klon sowie optionale `persistentData`. Freie Drives und die gebundenen
+Hyper-V-Netzwerkmodi `hostOnly` und `isolated` sind deklarativ ausführbar.
+Datenbanken, Post-Provisioning sowie Hyper-V-NAT/LAN/IPAM/DNS sind noch nicht
+vollständig atomar implementiert und werden von der Manifestfachprüfung
+abgewiesen.
 
 ## 5. Sicher validieren
 
@@ -133,6 +135,5 @@ Diese Änderungen werden ohne Container-, VM- oder Netzwerkmutation geprüft:
 ```
 
 Ein echter Provider-Smoke-Test bleibt ein separater, bewusst beauftragter
-Schritt. Der nächste Ausbau soll einen deterministischen Vorlagen-Selektor und
-vollständige deklarative Hyper-V-Drives/Netzwerke ergänzen, ohne den oben
-beschriebenen Eigentums- und Schreibschutz aufzuweichen.
+Schritt. Der nächste Netzwerkausbau soll Hyper-V-NAT/LAN und zentralen IPAM/DNS
+ergänzen, ohne den oben beschriebenen Eigentums- und Schreibschutz aufzuweichen.

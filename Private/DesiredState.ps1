@@ -52,26 +52,27 @@ function New-LabInstanceIntentSnapshot {
         }
     })
 
-    $networkIntent = if ($provider -eq 'hyperv' -and $Instance.hyperv -and $Instance.hyperv.switchName) {
-        'lan'
-    }
-    elseif ($Instance.networkName) {
-        'hostOnly'
+    $networkPlan = Resolve-LabNetworkIntentPlan `
+        -Provider $provider `
+        -Network $Instance.network `
+        -HasLegacyHyperVSwitch:([bool]($Instance.hyperv -and $Instance.hyperv.switchName))
+    $networkCapabilityStatus = if ([string]$networkPlan.Status -ne 'RESOLVED') {
+        'DECLARED_UNSUPPORTED'
     }
     else {
-        'isolated'
-    }
-    $networkCapability = switch ($networkIntent) {
-        'lan' { 'external-network-binding' }
-        'hostOnly' { 'managed-lab-network' }
-        default { 'isolated-network' }
+        Get-LabDeclaredIntentCapabilityStatus `
+            -ProviderCapability $ProviderCapability `
+            -RequiredCapability ([string]$networkPlan.RequiredCapability)
     }
     $network = [PSCustomObject]@{
-        Intent = $networkIntent
-        Exposure = if ($networkIntent -eq 'hostOnly') { 'host' } else { 'none' }
-        ManagedBinding = [bool]$Instance.networkName
-        RequiredCapability = $networkCapability
-        CapabilityStatus = Get-LabDeclaredIntentCapabilityStatus -ProviderCapability $ProviderCapability -RequiredCapability $networkCapability
+        Intent = [string]$networkPlan.Intent
+        Exposure = [string]$networkPlan.Exposure
+        Binding = [string]$networkPlan.Binding
+        ManagedBinding = [string]$networkPlan.Intent -ne 'isolated'
+        RequiredCapability = [string]$networkPlan.RequiredCapability
+        CapabilityStatus = $networkCapabilityStatus
+        PlanStatus = [string]$networkPlan.Status
+        ReasonCode = [string]$networkPlan.ReasonCode
     }
 
     $externalRuntimePlans = @(Resolve-LabExternalRuntimePlansForInstance -Instance $Instance)

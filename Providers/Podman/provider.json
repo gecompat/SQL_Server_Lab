@@ -9,6 +9,7 @@
     "port-mapping",
     "volume-mounts",
     "managed-lab-network",
+    "nat-network",
     "isolated-network",
     "resource-limits",
     "rootless",

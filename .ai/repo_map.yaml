@@ -339,6 +339,13 @@ internal_components:
       - "relative Pfade auflösen"
       - "Sample-Referenzen in den typisierten Artifact-Vertrag auflösen"
       - "nur ausführbare Backup-Varianten in Restoredefinitionen umwandeln"
+  - name: LabNetwork
+    source: Private/LabNetwork.ps1
+    responsibilities:
+      - "providerneutrale Network- und Exposure-Intents mutationsfrei aufloesen"
+      - "Container-NAT sowie Hyper-V-HostOnly und -Isolation an portable Bindings und Capabilities koppeln"
+      - "Exposure-Konflikte, Legacy-Switch-Konflikte und nicht implementierte Providerkombinationen vor Mutation fail-closed ablehnen"
+    validation: Tests/Static/Invoke-LabNetworkChecks.ps1
   - name: VersionCatalog
     source: Private/VersionCatalog.ps1
     responsibilities:
@@ -989,9 +996,9 @@ change_coupling:
 known_limitations:
   binding_document: Documentation/Quality/KNOWN_LIMITATIONS.md
   highlights:
-    - "Hyper-V sealed VHDX Registry, Builder-/Resume-Grundlage, realer Windows-2025-/SQL-2025-Prepared-Manifest-Klon bis SQL_READY_RUN, freie Manifest-Drives und echter SQL-2025-CLI-Vertical-Slice implementiert und positiv ausgefuehrt; vollautomatische OS-Factory sowie allgemeines Datenbank-/Software-/Post-Provision-/Netzwerk-Binding bleiben offen"
+    - "Hyper-V sealed VHDX Registry, Builder-/Resume-Grundlage, realer Windows-2025-/SQL-2025-Prepared-Manifest-Klon bis SQL_READY_RUN, freie Manifest-Drives und echter SQL-2025-CLI-Vertical-Slice implementiert und positiv ausgefuehrt; vollautomatische OS-Factory sowie allgemeines Datenbank-/Software-/Post-Provision-Binding und weiterfuehrendes Hyper-V-NAT/LAN/IPAM bleiben offen"
     - "Container-Manifeste laufen standardmäßig unattended mit externen Secret-Referenzen, SHA-256-/Trust-Schutz und read-only Host-Mount-Default"
-    - "providerneutrale Network Intents und Exposure Policy sind nicht implementiert; Lifecycle-Reconcile sowie journalisierter Container-Reconcile fuer CPU, RAM, SQL max memory, Hostport, Autostart und External Runtimes sind implementiert, breitere Mount-/Image-/Netzwerk-/Hyper-V-Aenderungen bleiben offen"
+    - "providerneutrale Network Intents und Exposure Policy binden Container-NAT sowie Hyper-V-HostOnly/-Isolation und lehnen offene Kombinationen vor Mutation ab; Hyper-V-NAT/LAN/IPAM/DNS und Netzwerk-Reconcile bleiben offen; Lifecycle-Reconcile sowie journalisierter Container-Reconcile fuer CPU, RAM, SQL max memory, Hostport, Autostart und External Runtimes sind implementiert"
     - "Artifact Refresh und Rebuild für Medien, VHDX und Derived Images nicht implementiert"
     - "kein provideruebergreifendes Docker-/Podman-Netzwerk oder Hyper-V-SubRun"
     - "Sample-Handler mit Trust-Pfad, Mehrfachauswahl, ZIP-/7z-Backup-Payloads, gepinnten Einzelskripten und sicheren Multi-Output-ZIP-Script-Bundles sind implementiert; nicht freigegebene Archive und Attach-Handler bleiben offen"

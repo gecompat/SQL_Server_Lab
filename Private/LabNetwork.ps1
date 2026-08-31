@@ -59,6 +59,91 @@ function Test-LabIpv4SubnetOverlap {
         (($rightSubnet.Network -band $leftSubnet.Mask) -eq $leftSubnet.Network)
 }
 
+function Resolve-LabNetworkIntentPlan {
+    <#
+    .SYNOPSIS
+        Loest einen portablen Network Intent ohne Hostmutation auf.
+    .DESCRIPTION
+        Der Plan enthaelt weder Switch-Namen noch lokale Adapter- oder
+        Adresswerte. Nicht gebundene Providerkombinationen bleiben vor der
+        ersten Mutation sichtbar DECLARED_UNSUPPORTED.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][ValidateSet('docker', 'podman', 'hyperv')][string]$Provider,
+        $Network,
+        [switch]$HasLegacyHyperVSwitch
+    )
+
+    $intent = if ($Network -and -not [string]::IsNullOrWhiteSpace([string]$Network.intent)) {
+        [string]$Network.intent
+    }
+    elseif ($Provider -eq 'hyperv') { 'hostOnly' }
+    else { 'nat' }
+    $defaultExposure = switch ($intent) {
+        'isolated' { 'none' }
+        'hostOnly' { 'host' }
+        'nat' { 'host' }
+        'lan' { 'lan' }
+        default { 'none' }
+    }
+    $exposure = if ($Network -and -not [string]::IsNullOrWhiteSpace([string]$Network.exposure)) {
+        [string]$Network.exposure
+    }
+    else { $defaultExposure }
+    $requiredCapability = switch ($intent) {
+        'isolated' { 'isolated-network' }
+        'hostOnly' { 'managed-lab-network' }
+        'nat' { 'nat-network' }
+        'lan' { 'external-network-binding' }
+        default { 'unknown-network-intent' }
+    }
+    $binding = switch ($intent) {
+        'isolated' { if ($Provider -eq 'hyperv') { 'private-switch' } else { 'internal-bridge' } }
+        'hostOnly' { if ($Provider -eq 'hyperv') { 'internal-switch' } else { 'host-only-bridge' } }
+        'nat' { if ($Provider -eq 'hyperv') { 'shared-internal-nat' } else { 'managed-bridge-nat' } }
+        'lan' { if ($Provider -eq 'hyperv') { 'external-switch' } else { 'macvlan-or-ipvlan' } }
+        default { 'none' }
+    }
+
+    $status = 'RESOLVED'
+    $reasonCode = $null
+    $reason = $null
+    if ($intent -notin @('isolated', 'hostOnly', 'nat', 'lan')) {
+        $status = 'DECLARED_UNSUPPORTED'
+        $reasonCode = 'NETWORK_INTENT_UNKNOWN'
+        $reason = "Network Intent '$intent' ist unbekannt."
+    }
+    elseif ($exposure -ne $defaultExposure) {
+        $status = 'DECLARED_UNSUPPORTED'
+        $reasonCode = 'NETWORK_EXPOSURE_CONFLICT'
+        $reason = "Network Intent '$intent' verlangt derzeit Exposure '$defaultExposure', nicht '$exposure'."
+    }
+    elseif ($Provider -eq 'hyperv' -and $HasLegacyHyperVSwitch -and $intent -ne 'hostOnly') {
+        $status = 'DECLARED_UNSUPPORTED'
+        $reasonCode = 'NETWORK_LEGACY_SWITCH_CONFLICT'
+        $reason = 'hyperv.switchName ist nur als Kompatibilitaetsbinding fuer hostOnly zulaessig.'
+    }
+    elseif (($Provider -eq 'hyperv' -and $intent -notin @('isolated', 'hostOnly')) -or
+        ($Provider -in @('docker', 'podman') -and $intent -ne 'nat')) {
+        $status = 'DECLARED_UNSUPPORTED'
+        $reasonCode = 'NETWORK_INTENT_PROVIDER_UNSUPPORTED'
+        $reason = "Network Intent '$intent' ist fuer Provider '$Provider' noch nicht gebunden."
+    }
+
+    return [PSCustomObject]@{
+        Contract = [PSCustomObject]@{ Name='SqlServerLab.NetworkIntentPlan'; Version='1.0' }
+        Provider = $Provider
+        Intent = $intent
+        Exposure = $exposure
+        Binding = $binding
+        RequiredCapability = $requiredCapability
+        Status = $status
+        ReasonCode = $reasonCode
+        Reason = $reason
+    }
+}
+
 function Get-LabRuntimeNetwork {
     [CmdletBinding()]
     param([Parameter(Mandatory)][ValidateSet('docker', 'podman', 'hyperv')][string]$Provider)

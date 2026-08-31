@@ -238,7 +238,7 @@ function New-PodmanInstance {
                     '--name', $containerName,
                     '--hostname', $containerHostname,
                     '--network', $labNetwork.Name,
-                    '-p', "${selectedPort}:1433",
+                    '-p', "127.0.0.1:${selectedPort}:1433",
                     '-e', 'ACCEPT_EULA=Y',
                     '-e', "MSSQL_SA_PASSWORD=$saPlain",
                     '-e', 'MSSQL_PID=Developer',
