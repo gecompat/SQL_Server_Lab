@@ -17,6 +17,12 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Geändert
 
+- Die allgemeine `Lab_Data`-Parent-Migration inventarisiert jetzt auch
+  registrierte Hyper-V-VM-Konfigurations-, Snapshot- und Smart-Paging-Pfade.
+  Solange deren vollständige `Move-VMStorage`-Umbindung noch fehlt, blockieren
+  Plan und Apply diesen Fall vor der ersten Datei- oder Provider-Mutation
+  fail-closed statt eine VM-Konfiguration am später entfernten Quellroot zu
+  hinterlassen.
 - Hyper-V-Menüaktionen zeigen ihren klassenbezogenen Zielvertrag vor der
   Bestätigung. Beim UAC-Wechsel wird die Vorschau explizit an den erhöhten
   Prozess übergeben und dort gegen Controller, Location, Volume und Root

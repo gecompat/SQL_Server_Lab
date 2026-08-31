@@ -32,6 +32,30 @@
         "required": ["ReceiptPath", "ResourceClass", "ResourceId", "ResourceKey", "LocationId", "LabDataRoot", "HyperVResourceRoot", "Valid", "ValidationCode", "MigrationStatus"]
       }
     },
+    "HyperVVMConfigurations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["VMId", "VMName", "State", "Paths"],
+        "properties": {
+          "VMId": { "type": "string" },
+          "VMName": { "type": "string", "minLength": 1 },
+          "State": { "type": "string", "minLength": 1 },
+          "Paths": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["Kind", "Path"],
+              "properties": {
+                "Kind": { "enum": ["Configuration", "Snapshot", "SmartPaging"] },
+                "Path": { "type": "string", "minLength": 1 }
+              }
+            }
+          }
+        }
+      }
+    },
     "RequiredActions": { "type": "array", "items": { "type": "string" } },
     "Blockers": { "type": "array", "items": { "type": "string" } },
     "ExecutionImplemented": { "const": true }

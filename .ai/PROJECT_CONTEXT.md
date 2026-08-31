@@ -157,7 +157,9 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   Schutzes für SQL-Readiness, allgemeine Storage-Migration und den erneuten
   N5-Mehrgeräte-Nachweis; eine reale Windows-Legacy-Run-/Parent-/Child-
   Migration einschließlich Restart, Recovery-Resume und Quell-Cleanup ist
-  belegt;
+  belegt; die allgemeine Parent-Migration blockiert VM-Konfiguration,
+  Snapshots und Smart Paging unter dem Quellroot bis zur noch offenen
+  `Move-VMStorage`-Umbindung vor jeder Mutation;
 - vollständiger allgemeiner Hyper-V-Provider über den belegten
   Windows-2025-/SQL-2025-Referenzpfad hinaus, insbesondere breite
   Datenbank-, Software-, Post-Provisioning- und Netzwerk-Manifestbindung sowie
