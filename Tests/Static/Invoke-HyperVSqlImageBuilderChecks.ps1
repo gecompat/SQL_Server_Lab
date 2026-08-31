@@ -190,7 +190,7 @@ try {
         $builderText -match 'HYPERV_SQL_IMAGE_GENERALIZATION_RECOVERY_INVALID_STATE' -and
         $builderText -match 'WINDOWS_SYSPREP_REARM_LIMIT_REACHED' -and
         $builderText -match 'SysprepDetail' -and
-        $menuText -match "'r' \{ Invoke-LabHyperVMenuAction -Title 'Sysprep-Recovery' -Action \{ Resume-LabHyperVSqlPreparedImageGeneralizationInteractive \} \}"
+        $menuText -match "'r' \{ Invoke-LabHyperVMenuAction -Title 'Sysprep-Recovery' -Action \{ Resume-LabHyperVSqlPreparedImageGeneralizationInteractive \} -ResourceClass Build,Image,Staging \}"
     )
     Add-CheckResult -Name 'Sysprep wartet nach /quit auf den finalen Generalize-ImageState' -Success (
         $builderText -match 'stateDeadline = \[datetime\]::UtcNow\.AddSeconds\(600\)' -and
@@ -261,7 +261,7 @@ try {
         $builderText -match 'New-VHD -Path \$diskPath -Dynamic' -and
         $builderText -match 'Add-VMDvdDrive -VM \$vm -Path \$windowsMedia\.IsoPath' -and
         $builderText -match 'Add-VMDvdDrive -VM \$vm -Path \$sqlMedia\.IsoPath' -and
-        $menuText -match "'3' \{ Invoke-LabHyperVMenuAction -Title 'Neue SQL-Prepared-Vorlage' -Action \{ New-LabHyperVSqlImageBuildInteractive \} \}" -and
+        $menuText -match "'3' \{ Invoke-LabHyperVMenuAction -Title 'Neue SQL-Prepared-Vorlage' -Action \{ New-LabHyperVSqlImageBuildInteractive \} -ResourceClass Build,Image,Staging \}" -and
         $menuText -match 'ein finaler Sysprep'
     )
     Add-CheckResult -Name 'Optionaler Expertenpfad verwendet eine veröffentlichte OS-Baseline als unveränderten Parent' -Success (
@@ -270,7 +270,7 @@ try {
         $builderText -match 'New-HyperVInstance -ImageArtifactId \$ImageArtifactId' -and
         $builderText -match '\[ValidateLength\(1, 80\)\]\[string\]\$ImageName' -and
         $menuText -match 'function Invoke-LabHyperVAdvancedMenu' -and
-        $menuText -match "'2' \{ Invoke-LabHyperVMenuAction -Title 'SQL-Builder aus OS-Baseline' -Action \{ New-LabHyperVSqlAcceptanceBuildInteractive \} \}" -and
+        $menuText -match "'2' \{ Invoke-LabHyperVMenuAction -Title 'SQL-Builder aus OS-Baseline' -Action \{ New-LabHyperVSqlAcceptanceBuildInteractive \} -ResourceClass Build \}" -and
         $menuText -match "Label 'Windows-OS-Baselines verwalten'" -and
         $menuText -match "Value 'Expertenpfad'"
     )

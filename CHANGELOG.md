@@ -4,6 +4,41 @@ Dieses Changelog dokumentiert Änderungen am öffentlichen Verhalten, an maschin
 
 Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher nach Datum geführt. Neue Einträge werden oben ergänzt.
 
+## 2026-08-31
+
+### Hinzugefügt
+
+- `Get-SqlServerLabHyperVResourcePreview` zeigt die registrierte Location,
+  den physischen `Lab_Data`-Root, freien Speicher und die deterministischen
+  Run-/Build-/Image-/Staging-/Recovery-Roots ohne Hostmutation.
+- `Invoke-HyperVResourceMigrationAcceptance.ps1` bündelt den real erhöhten,
+  exakt run-/VM-gebundenen Parent-/Child-Migrationsnachweis mit Resume,
+  zwei Gaststarts, Binding-Postconditions und spätem Quell-Cleanup.
+
+### Geändert
+
+- Hyper-V-Menüaktionen zeigen ihren klassenbezogenen Zielvertrag vor der
+  Bestätigung. Beim UAC-Wechsel wird die Vorschau explizit an den erhöhten
+  Prozess übergeben und dort gegen Controller, Location, Volume und Root
+  erneut geprüft; jede Abweichung blockiert fail-closed.
+- Die Volume-GUID bleibt vor UAC auch dann stabil auflösbar, wenn `Get-Volume`
+  ohne Administratorrechte nicht lesbar ist. Kapazitätsreserven verwenden
+  `Int64`; VMMS-exklusiv geöffnete Konfigurationsdateien werden über
+  `Move-VMStorage` und VM-Postconditions statt über Direkt-Hashes geschützt.
+- Der resumierbare Child-Cleanup akzeptiert erwartete Laufzeitänderungen nach
+  belegter Gast-Readiness, verlangt aber weiterhin unveränderten Quellhash,
+  gültige VHDX-Struktur, exakten Parent und eindeutiges VM-Attachment.
+
+### Validiert
+
+- Die fokussierten Resource-Binding-, Migration-, Acceptance- und
+  Elevation-Suites belegen die
+  öffentliche Preview, Klassenroot-Auflösung, Manipulationsabwehr und den
+  serialisierten UAC-Handoff synthetisch. Eine reale erhöhte Windows-
+  Parent-/Child-Migration belegte Copy, Reparent, VM-Storage-Rebind, zwei
+  Gaststarts, Recovery-Resume und Quell-Cleanup. SQL-Readiness und der erneute
+  N5-Mehrgeräte-Nachweis bleiben als restlicher `HVR-008`-Scope offen.
+
 ## 2026-08-30
 
 ### Hinzugefügt

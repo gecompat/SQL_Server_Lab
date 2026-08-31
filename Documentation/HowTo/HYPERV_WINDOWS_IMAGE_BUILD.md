@@ -53,6 +53,18 @@ Das Image-Untermenü bietet:
 5. generalisierte VHDX immutable in der Registry veröffentlichen;
 6. unfertige Builder-Ressourcen scopegebunden aufräumen.
 
+Vor dem UAC-Übergang und erneut vor einer Erstellungsaktion zeigt das Menü den
+registrierten `Lab_Data`-Root, die stabile Location, den beobachteten freien
+Speicher und die physischen Build-, Image- und Staging-Klassenroots. Dieselbe
+read-only Vorschau steht für Skripte zur Verfügung:
+
+```powershell
+Get-SqlServerLabHyperVResourcePreview -ResourceClass Build,Image,Staging
+```
+
+Der erhöhte Prozess revalidiert die übergebene Location-/Volume-/Root-Evidence;
+ein abweichender Prozesskontext wählt keinen anderen Ressourcenroot.
+
 Optional kann ein häufig verwendeter Root für die aktuelle Sitzung vorbelegt
 werden. Der Root bleibt im Menü sichtbar und muss dort bestätigt werden:
 

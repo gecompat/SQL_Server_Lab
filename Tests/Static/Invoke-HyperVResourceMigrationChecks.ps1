@@ -107,6 +107,9 @@ try {
         function Wait-HyperVPowerShellDirect {
             param($VMName,$ExpectedRunId,$ExpectedScopeId,$Credential,$TimeoutSeconds)
             if ($script:failReadiness) { throw 'SYNTHETIC_GUEST_READINESS_FAILURE' }
+            if ($script:osDrive.Path -and (Test-Path -LiteralPath $script:osDrive.Path -PathType Leaf)) {
+                [IO.File]::AppendAllText([string]$script:osDrive.Path, '|guest-runtime-write|')
+            }
             [PSCustomObject]@{ Ready=$true; Message='' }
         }
 
@@ -121,7 +124,19 @@ try {
         $imageWaiting = Invoke-LabHyperVImageMigration -PlanPath $imagePlan.Path -DataRoot $ManagedRoot -Confirm:$false
         $targetParent = [string]$imagePlan.Plan.Inventory.Artifacts[0].DestinationParentPath
 
-        $blocked = New-LabHyperVResourceMigrationPlan -RunId $run.runId -StateRoot $Root -DataRoot $ManagedRoot
+        $vmmsDirectory = Join-Path $legacyRoot 'Virtual Machines'
+        New-Item -Path $vmmsDirectory -ItemType Directory -Force | Out-Null
+        $lockedVmcx = Join-Path $vmmsDirectory 'synthetic.vmcx'
+        [IO.File]::WriteAllText($lockedVmcx, 'vmms-owned-config')
+        $vmcxStream = [IO.File]::Open($lockedVmcx, [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)
+        try {
+            $blocked = New-LabHyperVResourceMigrationPlan -RunId $run.runId -StateRoot $Root -DataRoot $ManagedRoot
+        }
+        finally {
+            $vmcxStream.Dispose()
+            Remove-Item -LiteralPath $lockedVmcx -Force
+            Remove-Item -LiteralPath $vmmsDirectory -Force
+        }
         $script:snapshotCount = 0
         $ready = New-LabHyperVResourceMigrationPlan -RunId $run.runId -StateRoot $Root -DataRoot $ManagedRoot
         $legacyLifecycleGuard = Get-LabHyperVResourceMigrationLifecycleGuard -RunId $run.runId -StateRoot $Root
@@ -199,6 +214,9 @@ try {
     Add-CheckResult -Name 'Checkpoint blockiert den read-only Legacy-Migrationsplan' -Success (
         $result.Blocked.Status -eq 'BLOCKED' -and @($result.Blocked.Blockers | Where-Object { $_ -match 'CHECKPOINTS_PRESENT' }).Count -eq 1
     )
+    Add-CheckResult -Name 'VMMS-exklusiv geöffnete Konfigurationsdatei blockiert den VHDX-Plan nicht' -Success (
+        $result.Blocked.Inventory.FileCount -eq 2
+    )
     Add-CheckResult -Name 'Freier Legacy-Run erzeugt einen schema-validen ausführbaren Plan' -Success (
         $result.Ready.Status -eq 'READY' -and $result.PlanSchemaValid -and $result.Ready.ExecutionImplemented
     )
@@ -234,6 +252,10 @@ try {
     )
     Add-CheckResult -Name 'Abschlussjournal ist schema-valid und belegt zwei Restart-Zyklen' -Success (
         $result.JournalSchemaValid -and @($result.Journal.ReadinessReceipts).Count -eq 2 -and $result.Journal.BindingCommitted
+    )
+    Add-CheckResult -Name 'Cleanup akzeptiert legitime Child-Änderungen aus den belegten Gaststarts' -Success (
+        $result.Completed.Status -eq 'COMPLETED' -and @($result.Journal.ReadinessReceipts).Count -eq 2 -and
+        -not (Test-Path -LiteralPath $result.SourceDisk)
     )
     Add-CheckResult -Name 'COMPLETED erlaubt Lifecycle nur mit revalidiertem committed Run-Binding' -Success (
         $result.CompletedLifecycleGuard.Allowed -and $result.CompletedLifecycleGuard.JournalStatus -eq 'COMPLETED' -and

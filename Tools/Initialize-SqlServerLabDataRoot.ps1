@@ -118,6 +118,20 @@ if ($IsWindows -and $volumeRoot -match '^[A-Za-z]:' -and (Get-Command Get-Volume
     }
     catch { $volumeId = $volumeRoot }
 }
+if ($IsWindows -and $volumeRoot -match '^[A-Za-z]:' -and
+    [string]::Equals([string]$volumeId, [string]$volumeRoot, [StringComparison]::OrdinalIgnoreCase)) {
+    $mountvolPath = Join-Path ([Environment]::GetFolderPath('Windows')) 'System32\mountvol.exe'
+    if (Test-Path -LiteralPath $mountvolPath -PathType Leaf) {
+        try {
+            $mountvolOutput = @(& $mountvolPath "$($volumeRoot.Substring(0, 2).ToUpperInvariant())\" '/L' 2>$null)
+            $volumeName = @($mountvolOutput | ForEach-Object { ([string]$_).Trim() } | Where-Object {
+                $_ -match '^\\\\\?\\Volume\{[0-9A-Fa-f-]{36}\}\\$'
+            } | Select-Object -First 1)
+            if ($volumeName.Count -eq 1) { $volumeId = [string]$volumeName[0] }
+        }
+        catch { }
+    }
+}
 $repositoryRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 if (Test-DataPathWithin -Path $dataRoot -ParentPath $repositoryRoot) {
     throw 'DATA_ROOT_INSIDE_REPOSITORY: Daten muessen ausserhalb des Git-Checkouts liegen.'

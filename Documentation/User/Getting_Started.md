@@ -777,6 +777,22 @@ ursprünglichen Provider gebunden. Ein Manifest kann beide Containerprovider in
 einem Run kombinieren; Details und Grenzen stehen im
 [Gemischten Container-Provider-Lifecycle](../Architecture/MIXED_PROVIDER_LIFECYCLE.md).
 
+### Hyper-V-Ressourcenziel vorab prüfen
+
+Vor einer Hyper-V-Erstellung kann die registrierte physische Zielbindung ohne
+State-, VHDX- oder VM-Mutation gelesen werden:
+
+```powershell
+Get-SqlServerLabHyperVResourcePreview -ResourceClass Run,Build,Image,Staging
+```
+
+Die Ausgabe nennt stabile `LocationId`, `LabDataRoot`, freien Speicher und die
+Klassenroots unter `Lab_Data`. Das interaktive Hyper-V-Menü zeigt dieselbe
+Vorschau vor UAC und vor Erstellungsaktionen. Der erhöhte Prozess übernimmt
+keinen prozesslokalen Fallback, sondern revalidiert Controller, Location,
+Volume und Root aus dem expliziten Handoff. Eine Abweichung blockiert vor der
+ersten Hyper-V-Mutation.
+
 Registrierte Mitglieder der geschützten automatisierten Testgruppe bleiben für
 diese Einzel-Cmdlets gesperrt. Docker-, Podman- und Hyper-V-Mitglieder werden
 stattdessen gemeinsam, idempotent und ohne Löschung bereitgestellt beziehungsweise
