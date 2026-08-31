@@ -6,7 +6,10 @@
     versionierten Desired/Actual/Diff/Action-Vertrag. Der Befehl fuehrt keine
     Mutation aus: Auch bei Start- oder Stop-Differenzen bleiben Actions reine
     Vorschlaege. Unvollstaendige Runtime-Zustaende werden fail-closed als
-    unsupported ausgewiesen.
+    unsupported ausgewiesen. Fuer Hyper-V-Runs prueft der Lifecycle-Plan
+    zusaetzlich die persistierte Netzabsicht gegen Adapter, Switch-Typ,
+    Hostinfrastruktur und eine beobachtbare Gastadresse, ohne Hostwerte
+    offenzulegen oder Netzwerkreparaturen auszufuehren.
 .PARAMETER RunId
     Eindeutige ID des vorhandenen Lab-Runs.
 .PARAMETER TargetState

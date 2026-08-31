@@ -177,7 +177,7 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 - vollständiger allgemeiner Hyper-V-Provider über den belegten
   Windows-2025-/SQL-2025-Referenzpfad hinaus, insbesondere breite
   Datenbank-, Software- und Post-Provisioning-Manifestbindung, Hyper-V-LAN,
-  Netzwerk-Reconcile sowie eine reale Versions-/Editionsmatrix;
+  schreibender Netzwerk-Reconcile sowie eine reale Versions-/Editionsmatrix;
 - Hyper-V-SubRuns und ein providerübergreifendes Containernetzwerk innerhalb
   eines Runs;
 - vollständige Ausführung aller im Schema vorbereiteten `serverConfig`-Felder;
@@ -236,7 +236,9 @@ Post-Provisioning- und Versionsbindung bleibt offen. Der portable
 Network-Intent-Vertrag bindet Container-`nat` sowie Hyper-V-`hostOnly`,
 `isolated` und `nat`. Hyper-V-NAT besitzt einen mutationsfreien Host-Bound-Plan,
 einen gemeinsamen WinNAT-Vertrag, statische scopegebundene IPAM-Leases und einen
-gebundenen Gateway-/DNS-Snapshot. Hyper-V-LAN und Netzwerk-Reconcile bleiben offen.
+gebundenen Gateway-/DNS-Snapshot. Der Lifecycle-Reconcile liest die Hyper-V-
+Netzbindung semantisch und hostwertfrei und blockiert bei Drift fail-closed;
+Hyper-V-LAN und die schreibende Netzwerkreparatur bleiben offen.
 
 Der verbindliche Implementierungsvertrag steht in
 `Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md`.

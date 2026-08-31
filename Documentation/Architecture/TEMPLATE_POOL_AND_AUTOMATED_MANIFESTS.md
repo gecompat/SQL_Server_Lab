@@ -108,7 +108,7 @@ oder einen zuvor bekannten lokalen Trust-Eintrag.
 | Bereich | Standardpfad | Aktueller Umfang/Grenze |
 |---|---|---|
 | Credentials | Externe Prozess-Secret-Referenz oder `SecureString` | Keine Klartextwerte im Manifest, State oder Workflow-Überblick. Hyper-V braucht im unattended Lauf zusätzlich Guest- und ggf. SQL-SA-Secret. |
-| Netzwerk | Portabler Intent/Exposure-Plan: Docker/Podman `nat`/`host`, Hyper-V `hostOnly`/`host`, `isolated`/`none` oder `nat`/`host` | Hyper-V-LAN und Netzwerk-Reconcile bleiben offen; ein fremdes WinNAT blockiert NAT fail-closed. |
+| Netzwerk | Portabler Intent/Exposure-Plan: Docker/Podman `nat`/`host`, Hyper-V `hostOnly`/`host`, `isolated`/`none` oder `nat`/`host` | Hyper-V-LAN und schreibende Netzwerkreparatur bleiben offen; der read-only Reconcile meldet Drift hostwertfrei und ein fremdes WinNAT blockiert NAT fail-closed. |
 | Data/Backup | Testdatenbibliothek nur verifiziert; pro Lab Data Root für Schreibdaten | Normales Entfernen berührt weder Testdatenbibliothek noch Data Root oder Vorlagenpool. |
 | Samples/Restores | SHA-256, Trust Store, Cache und Run Lock | Ungehashte Remote-Quellen stoppen unattended mit `TRUST_REQUIRED`. |
 | Ressourcen | Vorabprüfung und Profile bleiben aktiv | `skipAssessment` ist eine explizite Manifestoption. |
@@ -122,7 +122,9 @@ Klon sowie optionale `persistentData`. Freie Drives und die gebundenen
 Hyper-V-Netzwerkmodi `hostOnly`, `isolated` und `nat` sind deklarativ ausführbar.
 NAT wird nur nach einem mutationsfreien WinNAT-/CIDR-Plan aktiviert und bindet
 scopegebundene IPAM-Leases, Gateway und DNS. Datenbanken, Post-Provisioning,
-Hyper-V-LAN und Netzwerk-Reconcile sind noch nicht vollständig atomar implementiert.
+Hyper-V-LAN und die schreibende Netzwerkreparatur sind noch nicht vollständig
+atomar implementiert; der read-only Lifecycle-Plan vergleicht die Hyper-V-
+Netzbindung bereits semantisch und blockiert Teilaktionen bei Drift.
 
 ## 5. Sicher validieren
 
@@ -135,5 +137,6 @@ Diese Änderungen werden ohne Container-, VM- oder Netzwerkmutation geprüft:
 ```
 
 Ein echter Provider-Smoke-Test bleibt ein separater, bewusst beauftragter
-Schritt. Der nächste Netzwerkausbau soll Hyper-V-LAN und Netzwerk-Reconcile
-ergänzen, ohne den oben beschriebenen Eigentums- und Schreibschutz aufzuweichen.
+Schritt. Der nächste Netzwerkausbau soll Hyper-V-LAN und die kontrollierte
+Reconcile-Reparatur ergänzen, ohne den oben beschriebenen Eigentums- und
+Schreibschutz aufzuweichen.

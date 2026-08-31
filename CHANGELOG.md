@@ -12,6 +12,12 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   `intent`- und `exposure`-Werten. Die mutationsfreie Planvorschau bindet
   Docker/Podman an `nat`/`host`, Hyper-V an `hostOnly`/`host` oder explizit an
   `isolated`/`none`.
+- Hyper-V-`nat` besitzt einen mutationsfreien Host-Bound-Plan, einen
+  fail-closed Schutz vor fremdem WinNAT, statische scopegebundene IPAM-Leases
+  sowie gebundene Gateway- und DNS-Werte für den Gast.
+- Der Lifecycle-Reconcile übernimmt den persistierten Hyper-V-Network-Intent
+  und liefert einen read-only, hostwertfreien Diff für Adapter, Switch-Typ,
+  Hostinfrastruktur und beobachtbare Gastadresse.
 
 ### Geändert
 
@@ -25,6 +31,9 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 - Nicht gebundene Providerkombinationen, widersprüchliche Exposure-Werte und
   Konflikte zwischen Isolation und Legacy-Switch werden mit stabilen
   `NETWORK_*`-Reason-Codes vor der ersten Provider-Mutation abgelehnt.
+- Hyper-V-Netzwerkdrift und nicht lesbare Istzustände blockieren Lifecycle-
+  Teilaktionen fail-closed; der bestehende Executor führt keine implizite
+  Netzwerkreparatur aus.
 
 ### Validiert
 
@@ -37,6 +46,13 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   Prüfungen einschließlich SQL-Readiness, Loopback-Binding, Stop/Start und
   Cleanup. Der Hyper-V-Lifecycle-Smoke bestätigte zusätzlich eine VM ohne
   Netzwerkverbindung sowie vollständigen VM-/VHDX-Cleanup.
+- Der native read-only Hyper-V-Probe bestätigte einen laufenden Hypervisor und
+  unveränderten Hostzustand; das fremde WinNAT `172.30.0.0/24` wurde als
+  Präfixkonflikt erkannt und weder übernommen noch verändert.
+- Ein weiterer nativer read-only Probe erkannte bei einer vorhandenen
+  verwalteten VM sowohl die Internal-Switch-Bindung als auch die gebundene
+  Hostinfrastruktur als `MATCHED`; für den älteren Run wurde ohne persistierte
+  Gastadresse ausdrücklich keine Gastadress-Evidence behauptet.
 
 ## 2026-08-31
 

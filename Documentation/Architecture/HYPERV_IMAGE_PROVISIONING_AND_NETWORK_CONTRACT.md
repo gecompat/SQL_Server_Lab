@@ -364,6 +364,14 @@ Andere Kombinationen werden vor der Provider-Mutation mit einem stabilen
 Kompatibilitätsbinding für `hostOnly`; es bezeichnet keinen portablen LAN-
 Intent.
 
+Der read-only Lifecycle-Reconcile übernimmt den persistierten Hyper-V-
+Network-Intent in Desired State und prüft Adapterbindung, Switch-Typ,
+Hostinfrastruktur und – soweit Hyper-V sie meldet – die gebundene Gastadresse.
+Der öffentliche Plan enthält dabei nur semantische Status- und Reason-Codes,
+keine Switch-Namen, IP-Adressen oder VM-Identitäten. Drift oder ein nicht
+lesbarer Istzustand blockiert Lifecycle-Teilaktionen fail-closed. Eine
+schreibende Netzwerkreparatur ist noch nicht implementiert.
+
 ### 10.2 Exposure Policy
 
 | Wert | Bedeutung |
@@ -763,7 +771,9 @@ implementiert. NAT besitzt vor der Mutation einen Host-Bound-Plan, schützt ein
 bereits vorhandenes fremdes WinNAT, nutzt auf geeigneten Hosts genau ein
 gemeinsames internes WinNAT und reserviert statische Gastadressen scopegebunden.
 Gateway und ein zur Planzeit gebundener Host-DNS-Snapshot werden in den Gast
-übernommen. LAN/External Switch und Netzwerk-Reconcile bleiben offen.
+übernommen. Der Hyper-V-Netzwerk-Istzustand wird im Lifecycle-Reconcile
+read-only, semantisch und hostwertfrei verglichen. LAN/External Switch und die
+schreibende Netzwerkreparatur bleiben offen.
 
 ### Welle 7 – Software, External Runtimes und Samples
 
