@@ -46,10 +46,12 @@
             "minItems": 1,
             "items": {
               "type": "object",
-              "required": ["Kind", "Path"],
+              "required": ["Kind", "Path", "DestinationPath", "CurrentPath"],
               "properties": {
                 "Kind": { "enum": ["Configuration", "Snapshot", "SmartPaging"] },
-                "Path": { "type": "string", "minLength": 1 }
+                "Path": { "type": "string", "minLength": 1 },
+                "DestinationPath": { "type": "string", "minLength": 1 },
+                "CurrentPath": { "type": "string", "minLength": 1 }
               }
             }
           }
