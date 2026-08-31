@@ -720,11 +720,13 @@ nichtterminale Run-, Image- oder Location-Journale blockieren Storage-Mutation,
 Hyper-V-Lifecycle und Cleanup fail-closed. Ein Abbruch nach neu ausgestelltem
 Binding bleibt aus demselben Journal fortsetzbar. Registrierte VM-
 Konfiguration, Snapshot- oder Smart-Paging-Pfade unter dem Quellroot werden
-zusätzlich vor der ersten Mutation erkannt und mit
-`HYPERV_VM_CONFIGURATION_REBIND_REQUIRED` blockiert. Die sichere
-`Move-VMStorage`-Umbindung dieser Pfade ist noch nicht implementiert; der
-allgemeine reale Parent-Migrationsfall bleibt deshalb `NOT_EXECUTED` und
-`HVR-006` intern noch offen.
+mit exakter VM-Identität sowie Quell- und Zielpfaden geplant und unmittelbar
+vor der Mutation erneut gegen eine ausgeschaltete VM geprüft. Die
+`Move-VMStorage`-Umbindung wird als `PENDING` journalisiert, durch exakte
+Ziel-Postconditions abgeschlossen und bei einem Resume nicht doppelt
+ausgeführt. Damit ist `HVR-006` intern geschlossen und synthetisch validiert;
+der allgemeine reale Parent-Migrationsfall bleibt Teil von `HVR-008` und
+`NOT_EXECUTED`.
 Image-Quellen werden bis zum nachgewiesenen Wegfall aller Consumer absichtlich
 nicht entfernt; manuelles Verschieben außerhalb des journalisierten Vertrags
 bleibt unzulässig.

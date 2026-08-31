@@ -816,9 +816,15 @@ function New-LabDataMigrationPlan {
 
     $hyperVVMConfigurations = @()
     try {
-        $hyperVVMConfigurations = @(Get-LabStorageMigrationHyperVVMConfigurationInventory -DataRoot $sourceRoot)
+        $hyperVVMConfigurations = @(Get-LabStorageMigrationHyperVVMConfigurationInventory `
+            -DataRoot $sourceRoot -TargetRoot $targetRoot)
+        if ($hyperVVMConfigurations.Count -gt 0 -and -not (Get-Command Move-VMStorage -ErrorAction SilentlyContinue)) {
+            $blockers.Add('HYPERV_VM_STORAGE_COMMAND_UNAVAILABLE')
+        }
         foreach ($vmConfiguration in $hyperVVMConfigurations) {
-            $blockers.Add("HYPERV_VM_CONFIGURATION_REBIND_NOT_IMPLEMENTED:$([string]$vmConfiguration.VMName)")
+            if ([string]$vmConfiguration.State -ne 'Off') {
+                $blockers.Add("HYPERV_VM_CONFIGURATION_VM_NOT_OFF:$([string]$vmConfiguration.VMName)")
+            }
         }
     }
     catch {
@@ -910,25 +916,47 @@ function Get-LabHyperVVirtualMachineInventory {
 
 function Get-LabStorageMigrationHyperVVMConfigurationInventory {
     [CmdletBinding()]
-    param([Parameter(Mandatory)][string]$DataRoot)
+    param(
+        [Parameter(Mandatory)][string]$DataRoot,
+        [Parameter(Mandatory)][string]$TargetRoot
+    )
 
     $sourceRoot = [IO.Path]::GetFullPath($DataRoot).TrimEnd('\', '/')
+    $normalizedTargetRoot = [IO.Path]::GetFullPath($TargetRoot).TrimEnd('\', '/')
     $inventory = [Collections.Generic.List[object]]::new()
     foreach ($vm in @(Get-LabHyperVVirtualMachineInventory)) {
         $boundPaths = [Collections.Generic.List[object]]::new()
         foreach ($candidate in @(
-            [PSCustomObject]@{ Kind='Configuration'; Path=[string]$vm.ConfigurationLocation },
+            [PSCustomObject]@{
+                Kind='Configuration'
+                Path=if ([string]$vm.Path) { [string]$vm.Path } else { [string]$vm.ConfigurationLocation }
+            },
             [PSCustomObject]@{ Kind='Snapshot'; Path=[string]$vm.SnapshotFileLocation },
             [PSCustomObject]@{ Kind='SmartPaging'; Path=[string]$vm.SmartPagingFilePath }
         )) {
             if (-not [string]$candidate.Path) { continue }
-            $boundary = Test-LabPathWithinRoot -Root $sourceRoot -Path ([string]$candidate.Path)
-            if ($boundary.Valid) {
-                $boundPaths.Add([PSCustomObject]@{
-                    Kind=[string]$candidate.Kind
-                    Path=[IO.Path]::GetFullPath([string]$candidate.Path)
-                })
+            $currentPath = [IO.Path]::GetFullPath([string]$candidate.Path).TrimEnd('\', '/')
+            $sourceBoundary = Test-LabPathWithinRoot -Root $sourceRoot -Path (Join-Path $currentPath '.path-check')
+            $targetBoundary = Test-LabPathWithinRoot -Root $normalizedTargetRoot -Path (Join-Path $currentPath '.path-check')
+            if (-not $sourceBoundary.Valid -and -not $targetBoundary.Valid) { continue }
+            $sourcePath = if ($sourceBoundary.Valid) {
+                $currentPath
             }
+            else {
+                Join-Path $sourceRoot ([IO.Path]::GetRelativePath($normalizedTargetRoot, $currentPath))
+            }
+            $destinationPath = if ($targetBoundary.Valid) {
+                $currentPath
+            }
+            else {
+                Join-Path $normalizedTargetRoot ([IO.Path]::GetRelativePath($sourceRoot, $currentPath))
+            }
+            $boundPaths.Add([PSCustomObject]@{
+                Kind=[string]$candidate.Kind
+                Path=[IO.Path]::GetFullPath($sourcePath).TrimEnd('\', '/')
+                DestinationPath=[IO.Path]::GetFullPath($destinationPath).TrimEnd('\', '/')
+                CurrentPath=$currentPath
+            })
         }
         if ($boundPaths.Count -eq 0) { continue }
         $inventory.Add([PSCustomObject]@{
@@ -939,6 +967,75 @@ function Get-LabStorageMigrationHyperVVMConfigurationInventory {
         })
     }
     return @($inventory)
+}
+
+function Assert-LabStorageMigrationHyperVVMConfigurationPlan {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Plan,
+        [Parameter(Mandatory)][string]$SourceRoot,
+        [Parameter(Mandatory)][string]$TargetRoot
+    )
+
+    $planned = if ($Plan.PSObject.Properties['HyperVVMConfigurations']) {
+        @($Plan.HyperVVMConfigurations)
+    }
+    else { @() }
+    $current = @(Get-LabStorageMigrationHyperVVMConfigurationInventory `
+        -DataRoot $SourceRoot -TargetRoot $TargetRoot)
+    if ($planned.Count -eq 0 -and $current.Count -gt 0) {
+        throw 'LAB_STORAGE_MIGRATION_HYPERV_VM_CONFIGURATION_REBIND_REQUIRED'
+    }
+    if ($planned.Count -gt 0 -and -not (Get-Command Move-VMStorage -ErrorAction SilentlyContinue)) {
+        throw 'LAB_STORAGE_MIGRATION_HYPERV_VM_STORAGE_COMMAND_UNAVAILABLE'
+    }
+
+    $plannedKeys = [Collections.Generic.List[string]]::new()
+    $plannedVMIds = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    foreach ($vm in $planned) {
+        if (-not [string]$vm.VMId -or -not [string]$vm.VMName -or [string]$vm.State -ne 'Off') {
+            throw 'LAB_STORAGE_MIGRATION_HYPERV_VM_CONFIGURATION_PLAN_INVALID'
+        }
+        if (-not $plannedVMIds.Add([string]$vm.VMId)) {
+            throw 'LAB_STORAGE_MIGRATION_HYPERV_VM_CONFIGURATION_PLAN_INVALID'
+        }
+        $plannedKinds = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+        foreach ($path in @($vm.Paths)) {
+            if ([string]$path.Kind -notin @('Configuration','Snapshot','SmartPaging') -or
+                -not [string]$path.Path -or -not [string]$path.DestinationPath -or
+                -not $plannedKinds.Add([string]$path.Kind)) {
+                throw 'LAB_STORAGE_MIGRATION_HYPERV_VM_CONFIGURATION_PLAN_INVALID'
+            }
+            $sourceBoundary = Test-LabPathWithinRoot -Root $SourceRoot -Path (Join-Path ([string]$path.Path) '.path-check')
+            $targetBoundary = Test-LabPathWithinRoot -Root $TargetRoot -Path (Join-Path ([string]$path.DestinationPath) '.path-check')
+            if (-not $sourceBoundary.Valid -or -not $targetBoundary.Valid) {
+                throw 'LAB_STORAGE_MIGRATION_HYPERV_VM_CONFIGURATION_PLAN_SCOPE_INVALID'
+            }
+            $plannedKeys.Add((@(
+                [string]$vm.VMId, [string]$vm.VMName, [string]$path.Kind,
+                [IO.Path]::GetFullPath([string]$path.Path).ToLowerInvariant(),
+                [IO.Path]::GetFullPath([string]$path.DestinationPath).ToLowerInvariant()
+            ) -join '|'))
+        }
+    }
+
+    $currentKeys = [Collections.Generic.List[string]]::new()
+    foreach ($vm in $current) {
+        if ([string]$vm.State -ne 'Off') {
+            throw "LAB_STORAGE_MIGRATION_HYPERV_VM_NOT_OFF: $([string]$vm.VMName)"
+        }
+        foreach ($path in @($vm.Paths)) {
+            $currentKeys.Add((@(
+                [string]$vm.VMId, [string]$vm.VMName, [string]$path.Kind,
+                [IO.Path]::GetFullPath([string]$path.Path).ToLowerInvariant(),
+                [IO.Path]::GetFullPath([string]$path.DestinationPath).ToLowerInvariant()
+            ) -join '|'))
+        }
+    }
+    if (@(Compare-Object @($plannedKeys | Sort-Object) @($currentKeys | Sort-Object)).Count -gt 0) {
+        throw 'LAB_STORAGE_MIGRATION_HYPERV_VM_CONFIGURATION_PLAN_STALE'
+    }
+    return @($planned)
 }
 
 function Update-LabMigratedJsonReferences {
@@ -982,13 +1079,11 @@ function Invoke-LabDataMigration {
     }
     if (-not (Test-LabDataRootOwnership -DataRoot $sourceRoot -ControllerId ([string]$plan.ControllerId))) { throw 'LAB_STORAGE_MIGRATION_SOURCE_OWNERSHIP_INVALID' }
     try {
-        $hyperVVMConfigurations = @(Get-LabStorageMigrationHyperVVMConfigurationInventory -DataRoot $sourceRoot)
+        $validatedHyperVVMConfigurations = @(Assert-LabStorageMigrationHyperVVMConfigurationPlan `
+            -Plan $plan -SourceRoot $sourceRoot -TargetRoot $targetRoot)
     }
     catch {
         throw "LAB_STORAGE_MIGRATION_HYPERV_VM_CONFIGURATION_INVENTORY_FAILED: $($_.Exception.Message)"
-    }
-    if ($hyperVVMConfigurations.Count -gt 0) {
-        throw "LAB_STORAGE_MIGRATION_HYPERV_VM_CONFIGURATION_REBIND_REQUIRED: $(@($hyperVVMConfigurations.VMName) -join ',')"
     }
     $validatedHyperVBindings = @(Assert-LabStorageMigrationHyperVBindingPlan `
         -Plan $plan -SourceRoot $sourceRoot -TargetRoot $targetRoot)
@@ -1045,7 +1140,13 @@ function Invoke-LabDataMigration {
         if (-not (Test-Path -LiteralPath $targetRoot -PathType Container)) { New-Item -Path $targetRoot -ItemType Directory -Force | Out-Null }
         $targetJournalDirectory = Split-Path -Parent $targetJournalPath
         if (-not (Test-Path -LiteralPath $targetJournalDirectory -PathType Container)) { New-Item -Path $targetJournalDirectory -ItemType Directory -Force | Out-Null }
+        $vmmsManagedSourceRoots = @($validatedHyperVVMConfigurations | ForEach-Object { @($_.Paths) } | ForEach-Object { [string]$_.Path })
         foreach ($sourceFile in @(Get-ChildItem -LiteralPath $sourceRoot -File -Recurse -Force -ErrorAction Stop | Where-Object { $_.FullName -ne $journalPath })) {
+            $vmmsManagedFile = [string]$sourceFile.Extension -in @('.vmcx','.vmrs','.vmgs') -and
+                @($vmmsManagedSourceRoots | Where-Object {
+                    (Test-LabPathWithinRoot -Root $_ -Path $sourceFile.FullName).Valid
+                }).Count -gt 0
+            if ($vmmsManagedFile) { continue }
             $relativePath = [System.IO.Path]::GetRelativePath($sourceRoot, $sourceFile.FullName)
             $destination = Join-Path $targetRoot $relativePath
             $destinationDirectory = Split-Path -Parent $destination
@@ -1077,6 +1178,69 @@ function Invoke-LabDataMigration {
                 Set-VMHardDiskDrive -VMHardDiskDrive $drive -Path $newPath -ErrorAction Stop
                 $journal.ReboundResources += [PSCustomObject]@{ Provider='hyperv'; VMName=[string]$drive.VMName; PreviousPath=[string]$drive.Path; Path=$newPath }
             }
+        }
+        foreach ($vmPlan in $validatedHyperVVMConfigurations) {
+            $vm = @(Get-LabHyperVVirtualMachineInventory | Where-Object {
+                [string]$_.VMId -eq [string]$vmPlan.VMId -and [string]$_.Name -eq [string]$vmPlan.VMName
+            })
+            if ($vm.Count -ne 1 -or [string]$vm[0].State -ne 'Off') {
+                throw "LAB_STORAGE_MIGRATION_HYPERV_VM_IDENTITY_OR_STATE_INVALID: $([string]$vmPlan.VMName)"
+            }
+            $currentVMConfiguration = @(Get-LabStorageMigrationHyperVVMConfigurationInventory `
+                -DataRoot $sourceRoot -TargetRoot $targetRoot | Where-Object {
+                    [string]$_.VMId -eq [string]$vmPlan.VMId -and [string]$_.VMName -eq [string]$vmPlan.VMName
+                })
+            if ($currentVMConfiguration.Count -ne 1) {
+                throw "LAB_STORAGE_MIGRATION_HYPERV_VM_CONFIGURATION_MISSING: $([string]$vmPlan.VMName)"
+            }
+            $allDestinationPaths = @($vmPlan.Paths | Where-Object {
+                $kind = [string]$_.Kind
+                $actual = @($currentVMConfiguration[0].Paths | Where-Object { [string]$_.Kind -eq $kind })
+                $actual.Count -eq 1 -and [string]::Equals(
+                    [string]$actual[0].CurrentPath, [string]$_.DestinationPath,
+                    [StringComparison]::OrdinalIgnoreCase)
+            }).Count -eq @($vmPlan.Paths).Count
+            $receipt = @($journal.ReboundResources | Where-Object {
+                [string]$_.Kind -eq 'VMStorage' -and [string]$_.VMId -eq [string]$vmPlan.VMId
+            }) | Select-Object -First 1
+            if (-not $receipt) {
+                $receipt = [PSCustomObject]@{
+                    Provider='hyperv'; Kind='VMStorage'; VMId=[string]$vmPlan.VMId
+                    VMName=[string]$vmPlan.VMName; State='PENDING'; Paths=@($vmPlan.Paths)
+                    CompletedAt=$null
+                }
+                $journal.ReboundResources = @($journal.ReboundResources) + @($receipt)
+                Write-LabDataMigrationJournal -Path $journalPath -Journal $journal -MirrorPath $targetJournalPath
+            }
+            if (-not $allDestinationPaths) {
+                $moveParameters = @{ VM=$vm[0]; ErrorAction='Stop' }
+                foreach ($path in @($vmPlan.Paths)) {
+                    $parameterName = switch ([string]$path.Kind) {
+                        'Configuration' { 'VirtualMachinePath' }
+                        'Snapshot' { 'SnapshotFilePath' }
+                        'SmartPaging' { 'SmartPagingFilePath' }
+                    }
+                    $moveParameters[$parameterName] = [string]$path.DestinationPath
+                }
+                Move-VMStorage @moveParameters
+            }
+            $currentVMConfiguration = @(Get-LabStorageMigrationHyperVVMConfigurationInventory `
+                -DataRoot $sourceRoot -TargetRoot $targetRoot | Where-Object {
+                    [string]$_.VMId -eq [string]$vmPlan.VMId -and [string]$_.VMName -eq [string]$vmPlan.VMName
+                })
+            if ($currentVMConfiguration.Count -ne 1 -or
+                @($vmPlan.Paths | Where-Object {
+                    $kind = [string]$_.Kind
+                    $actual = @($currentVMConfiguration[0].Paths | Where-Object { [string]$_.Kind -eq $kind })
+                    $actual.Count -ne 1 -or -not [string]::Equals(
+                        [string]$actual[0].CurrentPath, [string]$_.DestinationPath,
+                        [StringComparison]::OrdinalIgnoreCase)
+                }).Count -gt 0) {
+                throw "LAB_STORAGE_MIGRATION_HYPERV_VM_CONFIGURATION_POSTCONDITION_FAILED: $([string]$vmPlan.VMName)"
+            }
+            $receipt.State = 'COMPLETED'
+            $receipt.CompletedAt = Get-LabTimestamp
+            Write-LabDataMigrationJournal -Path $journalPath -Journal $journal -MirrorPath $targetJournalPath
         }
 
         $journal.Status = 'SWITCHING'; $journal.CurrentStep = 'references-and-catalog'

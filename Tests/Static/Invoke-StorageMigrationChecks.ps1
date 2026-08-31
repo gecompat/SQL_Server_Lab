@@ -100,58 +100,38 @@ try {
     )
     Remove-Item -LiteralPath $hyperVFixture.ResourceMigrationPath -Force
 
-    $configurationGuard = & $module {
-        param($source, $targetParentPath)
-        $script:storageMigrationOriginalVMInventory = (Get-Item Function:Get-LabHyperVVirtualMachineInventory).ScriptBlock
-        $script:storageMigrationSyntheticConfigurationRoot = $source
-        Set-Item -Path Function:script:Get-LabHyperVVirtualMachineInventory -Value {
-            return @([PSCustomObject]@{
-                VMId=[Guid]::NewGuid(); Name='synthetic-storage-vm'; State='Off'
-                ConfigurationLocation=(Join-Path $script:storageMigrationSyntheticConfigurationRoot 'HyperV/Runs/synthetic/Virtual Machines')
-                SnapshotFileLocation=(Join-Path $script:storageMigrationSyntheticConfigurationRoot 'HyperV/Runs/synthetic/Snapshots')
-                SmartPagingFilePath=(Join-Path $script:storageMigrationSyntheticConfigurationRoot 'HyperV/Runs/synthetic/SmartPaging')
-            })
-        }
-        try {
-            $blocked = New-LabDataMigrationPlan -SourceDataRoot $source -TargetParent $targetParentPath
-            $plannedStatus = [string]$blocked.Plan.Status
-            $plannedBlockers = @($blocked.Plan.Blockers)
-            $blocked.Plan.Status = 'READY'
-            $blocked.Plan.Blockers = @()
-            Write-LabArtifactJsonAtomic -Path $blocked.Path -InputObject $blocked.Plan
-            $applyMessage = try {
-                Invoke-LabDataMigration -PlanPath $blocked.Path -ProcessEnvironmentOnly -Confirm:$false | Out-Null
-                ''
-            }
-            catch { $_.Exception.Message }
-            return [PSCustomObject]@{
-                PlannedStatus=$plannedStatus
-                PlannedBlockers=$plannedBlockers
-                PlannedConfigurations=@($blocked.Plan.HyperVVMConfigurations)
-                ApplyMessage=$applyMessage
-                TargetCreated=Test-Path -LiteralPath (Join-Path $targetParentPath 'Lab_Data')
-            }
-        }
-        finally {
-            Set-Item -Path Function:script:Get-LabHyperVVirtualMachineInventory `
-                -Value $script:storageMigrationOriginalVMInventory
-        }
-    } $sourceRoot $targetParent
-    Add-CheckResult -Name 'Plan inventarisiert und blockiert VM-Konfiguration unter dem Quellroot' -Success (
-        $configurationGuard.PlannedStatus -eq 'BLOCKED' -and
-        @($configurationGuard.PlannedBlockers | Where-Object {
-            $_ -eq 'HYPERV_VM_CONFIGURATION_REBIND_NOT_IMPLEMENTED:synthetic-storage-vm'
-        }).Count -eq 1 -and
-        @($configurationGuard.PlannedConfigurations).Count -eq 1 -and
-        @($configurationGuard.PlannedConfigurations[0].Paths).Count -eq 3
-    )
-    Add-CheckResult -Name 'Apply blockiert fehlende VM-Konfigurationsumbindung vor der ersten Mutation' -Success (
-        $configurationGuard.ApplyMessage -match 'LAB_STORAGE_MIGRATION_HYPERV_VM_CONFIGURATION_REBIND_REQUIRED' -and
-        -not $configurationGuard.TargetCreated
-    )
-
     $migrationContract = & $module {
         param($source, $targetParentPath)
+        $script:storageMigrationMoveCalls = 0
+        $script:storageMigrationVM = [PSCustomObject]@{
+            VMId=[Guid]::NewGuid(); Name='synthetic-storage-vm'; State='Off'
+            Path=(Join-Path $source 'HyperV/Runs/synthetic/Virtual Machines')
+            ConfigurationLocation=(Join-Path $source 'HyperV/Runs/synthetic/Virtual Machines')
+            SnapshotFileLocation=(Join-Path $source 'HyperV/Runs/synthetic/Snapshots')
+            SmartPagingFilePath=(Join-Path $source 'HyperV/Runs/synthetic/SmartPaging')
+        }
+        Set-Item -Path Function:script:Get-LabHyperVVirtualMachineInventory -Value {
+            return @($script:storageMigrationVM)
+        }
+        Set-Item -Path Function:script:Move-VMStorage -Value {
+            param($VM, $VirtualMachinePath, $SnapshotFilePath, $SmartPagingFilePath)
+            $script:storageMigrationMoveCalls++
+            $VM.Path = [IO.Path]::GetFullPath($VirtualMachinePath).TrimEnd('\', '/')
+            $VM.ConfigurationLocation = $VM.Path
+            $VM.SnapshotFileLocation = [IO.Path]::GetFullPath($SnapshotFilePath).TrimEnd('\', '/')
+            $VM.SmartPagingFilePath = [IO.Path]::GetFullPath($SmartPagingFilePath).TrimEnd('\', '/')
+        }
+        $script:storageMigrationVM.State = 'Running'
+        $runningPlan = New-LabDataMigrationPlan -SourceDataRoot $source -TargetParent $targetParentPath
+        $script:storageMigrationVM.State = 'Off'
+        $statePlan = New-LabDataMigrationPlan -SourceDataRoot $source -TargetParent $targetParentPath
+        $script:storageMigrationVM.State = 'Running'
+        $stateMessage = try {
+            Invoke-LabDataMigration -PlanPath $statePlan.Path -ProcessEnvironmentOnly -Confirm:$false | Out-Null
+            ''
+        }
+        catch { $_.Exception.Message }
+        $script:storageMigrationVM.State = 'Off'
         $plan = New-LabDataMigrationPlan -SourceDataRoot $source -TargetParent $targetParentPath
         if ($plan.Plan.Status -ne 'READY') { throw "Plan ist blockiert: $(@($plan.Plan.Blockers) -join ', ')" }
         $plan.Plan.HyperVBindings[0].ResourceKey = 'tampered-resource-key'
@@ -185,7 +165,9 @@ try {
         $result = Invoke-LabDataMigration -PlanPath $plan.Path -ProcessEnvironmentOnly -Confirm:$false
         return [PSCustomObject]@{
             Plan=$plan.Plan; Result=$result; TamperedBindingMessage=$tamperedBindingMessage
-            RecoveryMessage=$recoveryMessage
+            RecoveryMessage=$recoveryMessage; VM=$script:storageMigrationVM
+            MoveCalls=$script:storageMigrationMoveCalls; RunningPlan=$runningPlan.Plan
+            StateMessage=$stateMessage
         }
     } $sourceRoot $targetParent
     $result = $migrationContract.Result
@@ -205,12 +187,33 @@ try {
         $migrationContract.Plan.HyperVBindings[0].Valid -and
         [string]$migrationContract.Plan.HyperVBindings[0].ResourceKey -eq [string]$hyperVFixture.ResourceKey
     )
+    Add-CheckResult -Name 'Plan bindet VMMS-Konfiguration an exakte Quell- und Zielpfade' -Success (
+        @($migrationContract.Plan.HyperVVMConfigurations).Count -eq 1 -and
+        @($migrationContract.Plan.HyperVVMConfigurations[0].Paths).Count -eq 3 -and
+        @($migrationContract.Plan.HyperVVMConfigurations[0].Paths | Where-Object {
+            [string]$_.Path -like "$sourceRoot*" -and
+            [string]$_.DestinationPath -like "$targetRoot*"
+        }).Count -eq 3
+    )
+    Add-CheckResult -Name 'Laufende VM blockiert Plan und Apply vor der ersten Mutation' -Success (
+        $migrationContract.RunningPlan.Status -eq 'BLOCKED' -and
+        @($migrationContract.RunningPlan.Blockers | Where-Object {
+            $_ -eq 'HYPERV_VM_CONFIGURATION_VM_NOT_OFF:synthetic-storage-vm'
+        }).Count -eq 1 -and
+        $migrationContract.StateMessage -match 'LAB_STORAGE_MIGRATION_HYPERV_VM_NOT_OFF: synthetic-storage-vm'
+    )
     Add-CheckResult -Name 'Manipuliertes Binding-Inventar blockiert vor Storage-Mutation' -Success (
         $migrationContract.TamperedBindingMessage -match 'LAB_STORAGE_MIGRATION_HYPERV_BINDING_PLAN_STALE'
     )
     Add-CheckResult -Name 'Unterbrochener Binding-Commit bleibt journalisiert und fortsetzbar' -Success (
         $migrationContract.RecoveryMessage -match 'LAB_STORAGE_MIGRATION_RECOVERY_REQUIRED: SYNTHETIC_STORAGE_BINDING_COMMIT_INTERRUPTION' -and
         $result.Status -eq 'COMPLETED'
+    )
+    Add-CheckResult -Name 'Move-VMStorage bindet VM-Konfiguration einmalig und Resume bleibt idempotent' -Success (
+        $migrationContract.MoveCalls -eq 1 -and
+        [string]$migrationContract.VM.Path -like "$targetRoot*" -and
+        [string]$migrationContract.VM.SnapshotFileLocation -like "$targetRoot*" -and
+        [string]$migrationContract.VM.SmartPagingFilePath -like "$targetRoot*"
     )
     Add-CheckResult -Name 'Migrierte Nutzdatei ist hashidentisch' -Success (
         (Test-Path -LiteralPath (Join-Path $targetRoot 'Labs/sample/payload.txt') -PathType Leaf) -and
@@ -247,7 +250,11 @@ try {
     Add-CheckResult -Name 'Abschlussjournal bleibt mit Location-Bindung am Ziel erhalten' -Success (
         $journal.Status -eq 'COMPLETED' -and $journal.PlanSha256 -match '^[a-f0-9]{64}$' -and
         [string]$journal.LocationId -eq [string]$migrationContract.Plan.Source.LocationId -and
-        @($journal.ReboundBindings).Count -eq 1
+        @($journal.ReboundBindings).Count -eq 1 -and
+        @($journal.ReboundResources | Where-Object {
+            [string]$_.Kind -eq 'VMStorage' -and [string]$_.State -eq 'COMPLETED' -and
+            @($_.Paths).Count -eq 3
+        }).Count -eq 1
     )
     Add-CheckResult -Name 'Verifizierter leerer Quellroot wird entfernt' -Success (-not (Test-Path -LiteralPath $sourceRoot))
 }
