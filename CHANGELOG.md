@@ -25,6 +25,10 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   vorgeplante Sample-CREATEs und -Restores verwenden ausschließlich die
   verifizierten Default-Data- und Default-Log-Lanes; explizite Regeln behalten
   Vorrang.
+- Hyper-V-Manifeste führen katalogisierte Samples nun über denselben
+  run-gebundenen Handler aus. Der Preflight verlangt verifizierbar bindbare
+  Default-Data-, Default-Log- und Backup-Lanes und blockiert widersprüchliche
+  datenbankspezifische Platzierungsregeln vor der ersten Provider-Mutation.
 - Die allgemeine `Lab_Data`-Parent-Migration inventarisiert jetzt auch
   registrierte Hyper-V-VM-Konfigurations-, Snapshot- und Smart-Paging-Pfade.
   Plan und Apply binden die exakte VM-Identität, Quell- und Zielpfade sowie den
@@ -47,7 +51,9 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 - Der synthetische Baseline-Vertrag belegt Hyper-V-Export, Gast-Cleanup,
   portable Registry-/Lock-Daten und den bevorzugten run-gebundenen Restore.
-  Ein realer Hyper-V-Baseline-Lauf bleibt `NOT_EXECUTED`.
+  Der Hyper-V-Manifestvertrag belegt zusätzlich Sample-Preflight und
+  run-gebundene Handlerübergabe. Ein realer Hyper-V-Sample-/Baseline-Lauf
+  bleibt `NOT_EXECUTED`.
 - Die fokussierten Resource-Binding-, Migration-, Acceptance- und
   Elevation-Suites belegen die
   öffentliche Preview, Klassenroot-Auflösung, Manipulationsabwehr und den

@@ -374,12 +374,15 @@ bleiben bewusst `descriptive`, weil sie MDF/LDF-Dateien für einen noch nicht
 implementierten Attach-Handler enthalten – sie werden nicht als `.bak`
 umgedeutet.
 
-Noch nicht implementiert sind Attach-Handler, die automatische Hyper-V-
-Manifestbindung für Samples und das Überschreiben der erwarteten
-Zieldatenbanknamen. Run-gebundene Hyper-V-`LAB_GENERATED`-Backups verwenden
+Noch nicht implementiert sind Attach-Handler und das Überschreiben der
+erwarteten Zieldatenbanknamen. Run-gebundene Hyper-V-`LAB_GENERATED`-Backups verwenden
 eine verifizierte Storage-Receipt-Backup-Lane, PowerShell Direct für den Export
 und denselben run-gebundenen Restorepfad; dieser Vertrag ist synthetisch, aber
-noch nicht real auf einem Host belegt. Der Manifest-Wizard
+noch nicht real auf einem Host belegt. Die automatische Hyper-V-
+Manifestausführung für Samples ist an vollständige Default-Data-, Default-Log-
+und Backup-Lanes gebunden und blockiert widersprüchliche datenbankspezifische
+Platzierung vor der Provider-Mutation; auch dieser Pfad besitzt noch keine reale
+Host-Evidence. Der Manifest-Wizard
 unterstützt Hilfe, schrittweise Zurücknavigation, Zwischenzusammenfassung und
 Abbruch ohne partielle Datei. Seine mutationsfreie Planvorschau umfasst
 External Runtimes sowie Sample-/Artifact-Quelle, Lizenz, Outputs, Größen,
@@ -744,8 +747,8 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
 1. Den P0-Bugfix für Hyper-V-Ressourcenroots nach der belegten real erhöhten
    Windows-Legacy-Run-/Parent-Migration mit SQL-Readiness, allgemeiner
    Storage-Migration und erneutem N5-Mehrgeräte-Nachweis abschließen.
-2. Den synthetisch implementierten Hyper-V-`LAB_GENERATED`-Export real
-   abnehmen und an die automatische Manifestausführung binden (Sample-Welle 6).
+2. Den synthetisch implementierten Hyper-V-`LAB_GENERATED`-Export und die
+   automatische Sample-Manifestausführung real abnehmen (Sample-Welle 6).
 3. Die implementierten providerneutralen Network- und Software-Intents an
    Hyper-V-LAN/NAT/IPAM und Software-Runtime binden.
 4. Artifact Registry, Refresh/Rebuild und Evaluierungsablauf implementieren.
