@@ -19,10 +19,10 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 - Die allgemeine `Lab_Data`-Parent-Migration inventarisiert jetzt auch
   registrierte Hyper-V-VM-Konfigurations-, Snapshot- und Smart-Paging-Pfade.
-  Solange deren vollständige `Move-VMStorage`-Umbindung noch fehlt, blockieren
-  Plan und Apply diesen Fall vor der ersten Datei- oder Provider-Mutation
-  fail-closed statt eine VM-Konfiguration am später entfernten Quellroot zu
-  hinterlassen.
+  Plan und Apply binden die exakte VM-Identität, Quell- und Zielpfade sowie den
+  ausgeschalteten Zustand fail-closed. `Move-VMStorage` wird vor der Mutation
+  als `PENDING` journalisiert, über Ziel-Postconditions abgeschlossen und bei
+  einem Resume nicht doppelt ausgeführt.
 - Hyper-V-Menüaktionen zeigen ihren klassenbezogenen Zielvertrag vor der
   Bestätigung. Beim UAC-Wechsel wird die Vorschau explizit an den erhöhten
   Prozess übergeben und dort gegen Controller, Location, Volume und Root
@@ -40,7 +40,9 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 - Die fokussierten Resource-Binding-, Migration-, Acceptance- und
   Elevation-Suites belegen die
   öffentliche Preview, Klassenroot-Auflösung, Manipulationsabwehr und den
-  serialisierten UAC-Handoff synthetisch. Eine reale erhöhte Windows-
+  serialisierten UAC-Handoff synthetisch. Die allgemeine Parent-Migration
+  belegt zusätzlich VMMS-Pfadplanung, einmalige Storage-Umbindung und Resume
+  synthetisch. Eine reale erhöhte Windows-
   Parent-/Child-Migration belegte Copy, Reparent, VM-Storage-Rebind, zwei
   Gaststarts, Recovery-Resume und Quell-Cleanup. SQL-Readiness und der erneute
   N5-Mehrgeräte-Nachweis bleiben als restlicher `HVR-008`-Scope offen.
