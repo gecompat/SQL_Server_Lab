@@ -2,7 +2,7 @@
 
 ## Status und Priorität
 
-`ACTIVE / PSR_001_PARTIAL_PSR_002_COMPLETE_PSR_003_004_006_READ_ONLY_PSR_005_007_008_009_010_IMPLEMENTED_CORE` – die vorhandenen
+`ACTIVE / PSR_001_PARTIAL_PSR_002_COMPLETE_PSR_003_PARTIAL_PSR_004_006_READ_ONLY_PSR_005_007_008_009_010_IMPLEMENTED_CORE` – die vorhandenen
 Persistenzmechanismen schützen bereits Teile des SQL-Zustands, bilden aber noch
 keinen vollständigen, providerübergreifenden Wiederverwendungs- und
 Löschvertrag. Planung ist kein Implementierungs- oder Runtime-Nachweis.
@@ -34,7 +34,7 @@ Pfade bleiben ohne eigenen Ownership- und Migrationsvertrag außerhalb des
 Mutationsscopes. Neue Hyper-V-Hostdateien bleiben an registrierte `Lab_Data`-
 Bindings gebunden.
 
-Der read-only Slice `PSR-003` ist implementiert. Der strenge Vertrag
+Der erste mutierende Slice `PSR-003` ist implementiert. Der strenge Vertrag
 `SqlServerLab.PersistentStorageCatalog/1.0` führt eine eigenständige
 `PersistentStorageId`, die Klassen `INSTANCE_STORE`, `DATABASE_PACKAGE`,
 `BACKUP_SET` und `EXCHANGE_WORKSPACE`, den vollständigen Zustandsraum,
@@ -42,8 +42,13 @@ Referenzen und genau eine exklusive Lease. Der Parser führt identische,
 controllergebundene Katalogspiegel zusammen und blockiert ungültige oder
 divergierende Spiegel. `SqlServerLab.PersistentStoragePlan/1.0` bindet diese
 Einträge read-only an das Residency-Inventar und meldet retained Objekte ohne
-erfundene ID als Registrierungskandidaten. Katalogschreiben, Lease-Erwerb,
-Wiederverwendung und Löschung bleiben getrennte Folgearbeit.
+erfundene ID als Registrierungskandidaten. Neue verifizierte Backup-Sets werden
+unter einem controllerweiten Lock mit eigenständiger `PersistentStorageId`,
+aktiver `ARTIFACT`-Referenz und rollbackfähigen identischen Spiegeln
+registriert. Der Reconcile-Core übernimmt vorhandene Backup-Library-Einträge
+idempotent und ohne erneutes Voll-Hashing; das Residency-Inventar bindet sie an
+dieselbe Objekt-ID. Generische Katalogmutation, Lease-Erwerb, Wiederverwendung,
+öffentliche Bestandsmigration und Löschung bleiben getrennte Folgearbeit.
 
 Der read-only Slice `PSR-004` ist ebenfalls implementiert. Ein strikter
 `SqlServerLab.PersistentStorageRemovalIntent/1.0` bindet die sechs
@@ -377,7 +382,7 @@ Volumename ersetzt diese Identität nicht.
 |---|---:|---|---|
 | `PSR-001` | P0-Analyse | Ist-Inventar aller persistenten, rungebundenen und verbleibenden Objekte für Docker, Podman und Hyper-V | `IMPLEMENTED_PARTIAL`: versionierte read-only Matrix mit stabilen Objekt-IDs, Residency, Lifecycle, Cleanup-Policy und Provider-Coverage; physisches Desktop-/Machine-Backing bleibt explizit unverifizierbar |
 | `PSR-002` | P0-Analyse | `Lab_Data`-Versprechen, native Runtime-Ausnahmen und Hosteingriffsgrenzen entscheiden | `COMPLETE`: bindender `SqlServerLab.LabDataResidencyDecision/1.0`-Entscheid |
-| `PSR-003` | P1 | Storage-Katalog mit stabiler ID, Klassen, Zuständen, Referenzen und Leases entwerfen | `IMPLEMENTED_READ_ONLY`: Schema, Parser, Planner und Inventarbindung; keine Katalogmutation, Lease-Akquisition, Wiederverwendung oder Löschung |
+| `PSR-003` | P1 | Storage-Katalog mit stabiler ID, Klassen, Zuständen, Referenzen und Leases entwerfen | `IMPLEMENTED_PARTIAL`: Schema, Parser, Planner, Inventarbindung und rollbackfähige, idempotente `BACKUP_SET`-Registrierung auf allen controllergebundenen Spiegeln; generische Mutation, öffentliche Bestandsmigration, Lease-Akquisition, Wiederverwendung und Löschung bleiben offen |
 | `PSR-004` | P1 | Retention-, Backup-on-Remove-, Package- und expliziten Löschvertrag entwerfen | `IMPLEMENTED_READ_ONLY`: verlustsicherer Cleanup-/Recovery-Plan; Executor und getrennte endgültige Storage-Löschaktion bleiben offen |
 | `PSR-005` | P1 | Docker-/Podman-Instanzstore auswählbar, fortsetzbar und klonbar machen | `IMPLEMENTED_CORE`: stabile ID-Auswahl, detached Continue/Clone, Digest/Resume und getrennte reale Docker-/Podman-Nachweise; Katalog-Commit, Sidecars und öffentliche Bedienung offen |
 | `PSR-006` | P1 | Podman-Machine- und Docker-Engine-/Context-Reichweite bewerten und gegebenenfalls dediziert verwalten | `IMPLEMENTED_READ_ONLY`: stabile sanitisierte Runtime-ID, Context-/Connection-/Machine-Bindung und REPORT_ONLY-Hostgrenze real belegt; dedizierter Ownership-/Lifecycle-Vertrag bleibt offen |

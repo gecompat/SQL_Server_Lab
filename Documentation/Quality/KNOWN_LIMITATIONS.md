@@ -912,10 +912,15 @@ definiert `Lab_Data` deshalb als hostseitigen Katalog-, Austausch- und
 Recovery-Einstieg statt als Vollresidenzversprechen. Native katalogisierte
 Container-Instanzstores bleiben zulässig; globale Runtime-/Machine-Ablagen und
 labfremde Ressourcen werden ohne getrennten Ownership-Vertrag nicht verändert.
-Der read-only `SqlServerLab.PersistentStorageCatalog/1.0`-Vertrag mit stabilen
+Der `SqlServerLab.PersistentStorageCatalog/1.0`-Vertrag mit stabilen
 `PersistentStorageId`-Werten, Klassen, Zuständen, Referenzen und exklusiven
 Leases sowie der Residency-gebundene `SqlServerLab.PersistentStoragePlan/1.0`
-sind implementiert. Noch nicht implementiert sind Katalogmutation,
+sind implementiert. Verifizierte Backup-Library-Einträge werden als
+`BACKUP_SET` unter controllerweitem Lock rollbackfähig auf alle erreichbaren,
+eigenen `Lab_Data`-Spiegel geschrieben; Wiederholung und interner
+Bestandsabgleich sind idempotent und lesen nur Registry, Existenz und Dateigröße
+statt alle Backupinhalte erneut zu hashen. Noch nicht implementiert sind die
+generische Katalogmutation, ein öffentlicher Bestandsmigrationsbefehl,
 Lease-Akquisition, providerübergreifende Wiederverwendung und explizites
 Löschen. Der zusätzliche read-only Removal-Vertrag plant
 `DELETE_WITH_RUN`, `RETAIN_INSTANCE_STORE`, `BACKUP_ON_REMOVE`,
