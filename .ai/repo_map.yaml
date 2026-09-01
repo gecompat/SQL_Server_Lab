@@ -577,6 +577,7 @@ internal_components:
     responsibilities:
       - "Docker, Podman und Python ueber sichere explizite Overrides, Sessionbefehle, persistierte PATH-Eintraege und bekannte Windows-Installationsorte deterministisch aufloesen"
       - "ausschliesslich den aktuellen Prozess-PATH idempotent erweitern und Benutzer-/Maschinen-PATH niemals persistierend veraendern"
+      - "alle produktiven Docker-/Podman-Aufrufpfade ueber den zentral aufgeloesten absoluten Runtime-Aufruf vom geerbten Shell-PATH entkoppeln"
       - "installierte Executables von nicht auffindbaren Tools trennen, ohne Runtime-Erreichbarkeit oder Ausfuehrungsberechtigung vorwegzunehmen"
   - name: ContainerAutoStart
     source: Private/ContainerAutoStart.ps1

@@ -202,19 +202,27 @@ function Get-LabKnownIpv4Subnets {
                     $prefix -notin @('127.0.0.0/8', '169.254.0.0/16')) { $subnets.Add($prefix) }
             }
     }
-    if ($Provider -in @('docker', 'hyperv') -and (Get-Command docker -ErrorAction SilentlyContinue)) {
-        $ids = @(docker network ls -q 2>$null)
-        if ($LASTEXITCODE -eq 0 -and $ids.Count -gt 0) {
-            @(docker network inspect $ids 2>$null | ConvertFrom-Json -Depth 30) | ForEach-Object {
-                @($_.IPAM.Config) | ForEach-Object { if ($_.Subnet) { $subnets.Add([string]$_.Subnet) } }
+    if ($Provider -in @('docker', 'hyperv')) {
+        $dockerResolution = Resolve-LabHostTool -Name docker
+        if ($dockerResolution.Available) {
+            $dockerInvocation = [string]$dockerResolution.Invocation
+            $ids = @(& $dockerInvocation network ls -q 2>$null)
+            if ($LASTEXITCODE -eq 0 -and $ids.Count -gt 0) {
+                @(& $dockerInvocation network inspect $ids 2>$null | ConvertFrom-Json -Depth 30) | ForEach-Object {
+                    @($_.IPAM.Config) | ForEach-Object { if ($_.Subnet) { $subnets.Add([string]$_.Subnet) } }
+                }
             }
         }
     }
-    if ($Provider -in @('podman', 'hyperv') -and (Get-Command podman -ErrorAction SilentlyContinue)) {
-        $ids = @(podman network ls -q 2>$null)
-        if ($LASTEXITCODE -eq 0 -and $ids.Count -gt 0) {
-            @(podman network inspect $ids 2>$null | ConvertFrom-Json -Depth 30) | ForEach-Object {
-                @($_.subnets) | ForEach-Object { if ($_.subnet) { $subnets.Add([string]$_.subnet) } }
+    if ($Provider -in @('podman', 'hyperv')) {
+        $podmanResolution = Resolve-LabHostTool -Name podman
+        if ($podmanResolution.Available) {
+            $podmanInvocation = [string]$podmanResolution.Invocation
+            $ids = @(& $podmanInvocation network ls -q 2>$null)
+            if ($LASTEXITCODE -eq 0 -and $ids.Count -gt 0) {
+                @(& $podmanInvocation network inspect $ids 2>$null | ConvertFrom-Json -Depth 30) | ForEach-Object {
+                    @($_.subnets) | ForEach-Object { if ($_.subnet) { $subnets.Add([string]$_.subnet) } }
+                }
             }
         }
     }
@@ -241,16 +249,17 @@ function Ensure-LabDockerNetwork {
     [CmdletBinding()]
     param([string]$Name, [string]$Subnet)
 
+    $dockerInvocation = Get-LabHostToolInvocation -Name docker
     $network = Get-LabRuntimeNetwork -Provider docker
     if ($Name) { $network.Name = $Name }; if ($Subnet) { $network.Subnet = (ConvertTo-LabIpv4Subnet -Subnet $Subnet).Cidr }
-    $existing = @(docker network inspect $network.Name 2>$null | ConvertFrom-Json -Depth 30)[0]
+    $existing = @(& $dockerInvocation network inspect $network.Name 2>$null | ConvertFrom-Json -Depth 30)[0]
     if ($existing) {
         $actualSubnet = [string]@($existing.IPAM.Config)[0].Subnet
         if ($actualSubnet -ne $network.Subnet -or [bool]$existing.Internal) { throw "LAB_NETWORK_CONTRACT_MISMATCH: $($network.Name)" }
         return $network
     }
     Assert-LabRuntimeNetworkAvailable -Network $network -KnownSubnets (Get-LabKnownIpv4Subnets -Provider docker)
-    $null = docker network create --driver bridge --subnet $network.Subnet --label sql-server-lab.network=managed $network.Name
+    $null = & $dockerInvocation network create --driver bridge --subnet $network.Subnet --label sql-server-lab.network=managed $network.Name
     if ($LASTEXITCODE -ne 0) { throw "LAB_NETWORK_CREATE_FAILED: Docker $($network.Name)" }
     return $network
 }
@@ -330,13 +339,14 @@ function Ensure-LabPodmanNetwork {
     [CmdletBinding()]
     param([string]$Name, [string]$Subnet)
 
+    $podmanInvocation = Get-LabHostToolInvocation -Name podman
     $network = Get-LabRuntimeNetwork -Provider podman
     if ($Name) { $network.Name = $Name }; if ($Subnet) { $network.Subnet = (ConvertTo-LabIpv4Subnet -Subnet $Subnet).Cidr }
-    $existing = @(podman network inspect $network.Name 2>$null | ConvertFrom-Json -Depth 30)[0]
+    $existing = @(& $podmanInvocation network inspect $network.Name 2>$null | ConvertFrom-Json -Depth 30)[0]
     if ($existing) {
         $existingContract = Get-LabPodmanNetworkContractFromInspect -Inspect $existing
         if ($existingContract.Subnet -ne $network.Subnet -or $existingContract.Internal) { throw "LAB_NETWORK_CONTRACT_MISMATCH: $($network.Name)" }
-        $podmanVersion = [string](& podman version --format '{{.Version}}' 2>$null)
+        $podmanVersion = [string](& $podmanInvocation version --format '{{.Version}}' 2>$null)
         $configPath = Get-LabPodmanCniNetworkConfigPath -Name $network.Name
         if ($configPath -and (Repair-LabPodmanCniVersionCompatibility -NetworkConfigPath $configPath -NetworkName $network.Name -PodmanVersion $podmanVersion.Trim())) {
             Write-LabInfo "Podman-3.4.4-CNI-Vertrag fuer '$($network.Name)' auf 0.4.0 korrigiert."
@@ -344,16 +354,16 @@ function Ensure-LabPodmanNetwork {
         return $network
     }
     Assert-LabRuntimeNetworkAvailable -Network $network -KnownSubnets (Get-LabKnownIpv4Subnets -Provider podman)
-    $createOutput = @(podman network create --subnet $network.Subnet --label sql-server-lab.network=managed $network.Name)
+    $createOutput = @(& $podmanInvocation network create --subnet $network.Subnet --label sql-server-lab.network=managed $network.Name)
     if ($LASTEXITCODE -ne 0) { throw "LAB_NETWORK_CREATE_FAILED: Podman $($network.Name)" }
-    $podmanVersion = [string](& podman version --format '{{.Version}}' 2>$null)
+    $podmanVersion = [string](& $podmanInvocation version --format '{{.Version}}' 2>$null)
     $configPath = @($createOutput | Where-Object { Test-Path -LiteralPath ([string]$_) -PathType Leaf } | Select-Object -First 1)
     if ($configPath.Count -eq 0) { $configPath = @(Get-LabPodmanCniNetworkConfigPath -Name $network.Name) }
     if ($configPath.Count -eq 1 -and $configPath[0] -and
         (Repair-LabPodmanCniVersionCompatibility -NetworkConfigPath ([string]$configPath[0]) -NetworkName $network.Name -PodmanVersion $podmanVersion.Trim())) {
         Write-LabInfo "Podman-3.4.4-CNI-Vertrag fuer '$($network.Name)' auf 0.4.0 korrigiert."
     }
-    $created = @(podman network inspect $network.Name 2>$null | ConvertFrom-Json -Depth 30)[0]
+    $created = @(& $podmanInvocation network inspect $network.Name 2>$null | ConvertFrom-Json -Depth 30)[0]
     $createdContract = if ($created) { Get-LabPodmanNetworkContractFromInspect -Inspect $created } else { $null }
     if (-not $createdContract -or $createdContract.Subnet -ne $network.Subnet -or $createdContract.Internal) {
         throw "LAB_NETWORK_CONTRACT_MISMATCH: $($network.Name)"

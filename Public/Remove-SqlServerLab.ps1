@@ -246,7 +246,7 @@ function Remove-SqlServerLab {
     $providers = @($providers | Where-Object { $_ -in @('docker', 'podman') } | Sort-Object -Unique)
     if ($providers.Count -eq 0) {
         foreach ($candidate in @('docker', 'podman')) {
-            if (Get-Command $candidate -ErrorAction SilentlyContinue) {
+            if ((Resolve-LabHostTool -Name $candidate).Available) {
                 $providers += $candidate
             }
         }
@@ -254,7 +254,7 @@ function Remove-SqlServerLab {
 
     $orphanErrors = 0
     foreach ($provider in $providers) {
-        if (-not (Get-Command $provider -ErrorAction SilentlyContinue)) {
+        if (-not (Resolve-LabHostTool -Name $provider).Available) {
             Write-LabWarning "Runtime '$provider' ist fuer die Orphan-Suche nicht verfuegbar."
             $orphanErrors++
             continue

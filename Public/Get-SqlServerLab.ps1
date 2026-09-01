@@ -68,9 +68,10 @@ function Get-SqlServerLab {
                 $runtimeNotes += "Container-Runtime '$provider' ist lokal nicht verfuegbar."
                 continue
             }
+            $runtimeInvocation = Get-LabHostToolInvocation -Name $runtime
 
             $containerIds = @(
-                & $runtime ps -a -q --filter "label=sql-server-lab.run-id=$($run.runId)" 2>$null |
+                & $runtimeInvocation ps -a -q --filter "label=sql-server-lab.run-id=$($run.runId)" 2>$null |
                     Where-Object { $_ }
             )
 
@@ -81,7 +82,7 @@ function Get-SqlServerLab {
                 }
 
                 try {
-                    $inspectJson = & $runtime inspect $containerId 2>$null | ConvertFrom-Json -Depth 30
+                    $inspectJson = & $runtimeInvocation inspect $containerId 2>$null | ConvertFrom-Json -Depth 30
                     if (-not $inspectJson) {
                         continue
                     }

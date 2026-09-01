@@ -137,7 +137,8 @@ function Initialize-DockerSqlNamedVolume {
         [switch]$SyncImageContent
     )
 
-    $inspectionOutput = @(docker volume inspect $VolumeName 2>$null)
+    $dockerInvocation = Get-LabHostToolInvocation -Name docker
+    $inspectionOutput = @(& $dockerInvocation volume inspect $VolumeName 2>$null)
     $volumeExists = $LASTEXITCODE -eq 0
 
     if ($volumeExists -and $PersistentStorageId) {
@@ -158,7 +159,7 @@ function Initialize-DockerSqlNamedVolume {
         )
         if ($Persistence) { $labelArguments += @('--label', "sql-server-lab.persistence=$Persistence") }
         if ($PersistentStorageId) { $labelArguments += @('--label', "sql-server-lab.persistent-storage-id=$PersistentStorageId") }
-        $created = docker volume create @labelArguments $VolumeName 2>&1
+        $created = & $dockerInvocation volume create @labelArguments $VolumeName 2>&1
         if ($LASTEXITCODE -ne 0) {
             throw "DOCKER_SQL_VOLUME_CREATE_FAILED: $VolumeName - $(@($created) -join ' ')"
         }
@@ -171,7 +172,7 @@ function Initialize-DockerSqlNamedVolume {
     else {
         'chown -R 10001:0 /sql-lab-volume-init && chmod 0770 /sql-lab-volume-init'
     }
-    $initialized = docker run --rm --user 0:0 --entrypoint /bin/sh `
+    $initialized = & $dockerInvocation run --rm --user 0:0 --entrypoint /bin/sh `
         -v "${VolumeName}:/sql-lab-volume-init" $Image `
         -c $initializationCommand 2>&1
     if ($LASTEXITCODE -ne 0) {
@@ -213,6 +214,7 @@ function New-DockerInstance {
     if ($ResolvedImage -and $ExternalRuntimeLaunchMode -eq 'none') {
         throw 'DOCKER_RESOLVED_IMAGE_LAUNCH_MODE_REQUIRED'
     }
+    $dockerInvocation = Get-LabHostToolInvocation -Name docker
     $image = if ($ResolvedImage) { $ResolvedImage } else { Get-SqlServerDockerImage -VersionId $VersionId }
     $profileDefinition = Get-LabResourceProfile -Name $Profile
     $effectiveMemoryMB = if ($MemoryMB -gt 0) { $MemoryMB } else { [int]$profileDefinition.maxMemoryMB }
@@ -347,7 +349,7 @@ function New-DockerInstance {
                 )
 
                 Write-LabInfo "Container erstellen: $containerName (Port $selectedPort, Image $image) [Docker]"
-                $output = docker @dockerArguments 2>&1
+                $output = & $dockerInvocation @dockerArguments 2>&1
                 $exitCode = $LASTEXITCODE
                 if ($exitCode -eq 0) {
                     break
@@ -359,7 +361,7 @@ function New-DockerInstance {
                     throw "Docker-Container konnte nicht erstellt werden: $outputText"
                 }
 
-                docker rm -f $containerName 1>$null 2>$null
+                & $dockerInvocation rm -f $containerName 1>$null 2>$null
                 $nextPort = $selectedPort + 1
                 Write-LabWarning "Port $selectedPort wurde beim Runtime-Bindungsschritt belegt. Docker versucht Port $nextPort."
             }
@@ -398,7 +400,8 @@ function Get-DockerInstanceStatus {
     )
 
     try {
-        $inspect = docker inspect $ContainerIdOrName 2>$null | ConvertFrom-Json -Depth 30
+        $dockerInvocation = Get-LabHostToolInvocation -Name docker
+        $inspect = & $dockerInvocation inspect $ContainerIdOrName 2>$null | ConvertFrom-Json -Depth 30
         if ($LASTEXITCODE -ne 0 -or -not $inspect) {
             return [PSCustomObject]@{
                 Exists  = $false
@@ -439,7 +442,8 @@ function Start-DockerInstance {
         [Parameter(Mandatory)][string]$ContainerIdOrName
     )
 
-    docker start $ContainerIdOrName | Out-Null
+    $dockerInvocation = Get-LabHostToolInvocation -Name docker
+    & $dockerInvocation start $ContainerIdOrName | Out-Null
     if ($LASTEXITCODE -ne 0) {
         throw "Docker-Container konnte nicht gestartet werden: $ContainerIdOrName"
     }
@@ -452,7 +456,8 @@ function Stop-DockerInstance {
         [int]$TimeoutSeconds = 30
     )
 
-    docker stop -t $TimeoutSeconds $ContainerIdOrName | Out-Null
+    $dockerInvocation = Get-LabHostToolInvocation -Name docker
+    & $dockerInvocation stop -t $TimeoutSeconds $ContainerIdOrName | Out-Null
     if ($LASTEXITCODE -ne 0) {
         throw "Docker-Container konnte nicht gestoppt werden: $ContainerIdOrName"
     }
@@ -465,7 +470,8 @@ function Remove-DockerInstance {
         [Parameter(Mandatory)][string]$ExpectedScopeId
     )
 
-    $inspect = docker inspect $ContainerIdOrName 2>$null | ConvertFrom-Json -Depth 30
+    $dockerInvocation = Get-LabHostToolInvocation -Name docker
+    $inspect = & $dockerInvocation inspect $ContainerIdOrName 2>$null | ConvertFrom-Json -Depth 30
     if ($LASTEXITCODE -ne 0 -or -not $inspect) {
         Write-LabWarning "Container nicht gefunden: $ContainerIdOrName (bereits entfernt?)"
         return
@@ -477,7 +483,7 @@ function Remove-DockerInstance {
         throw "SCOPE_MISMATCH: Container gehoert zu Scope '$scopeId', erwartet '$ExpectedScopeId'. Entfernung verweigert."
     }
 
-    docker rm -f $ContainerIdOrName | Out-Null
+    & $dockerInvocation rm -f $ContainerIdOrName | Out-Null
     if ($LASTEXITCODE -ne 0) {
         throw "Docker-Container konnte nicht entfernt werden: $ContainerIdOrName"
     }
@@ -503,7 +509,8 @@ function Get-DockerLabContainers {
         $filters = @('--filter', "label=sql-server-lab.scope-id=$ScopeId")
     }
 
-    $containerIds = docker ps -a -q @filters 2>$null
+    $dockerInvocation = Get-LabHostToolInvocation -Name docker
+    $containerIds = & $dockerInvocation ps -a -q @filters 2>$null
     if ($LASTEXITCODE -ne 0 -or -not $containerIds) {
         return @()
     }
@@ -515,7 +522,7 @@ function Get-DockerLabContainers {
             continue
         }
 
-        $inspect = docker inspect $containerId 2>$null | ConvertFrom-Json -Depth 30
+        $inspect = & $dockerInvocation inspect $containerId 2>$null | ConvertFrom-Json -Depth 30
         if ($LASTEXITCODE -ne 0 -or -not $inspect) {
             continue
         }
