@@ -1,12 +1,13 @@
 #Requires -Version 7.2
 <#
 .SYNOPSIS
-    Reale Docker-/Podman-Abnahme fuer Continue und Clone eines Instanzstores.
+    Reale Docker-/Podman-Abnahme fuer Lease, Continue und Clone eines Instanzstores.
 .DESCRIPTION
     Erzeugt einen test-eigenen katalogisierbaren SQL-Systemstore, bestaetigt
     Server- und Benutzerdaten nach kontrolliertem Container-Recreate, klont den
-    detached Store journalisiert und bestaetigt dieselben Daten im Clone.
-    Quelle, Ziel und Container werden im finally-Scope entfernt.
+    detached Store journalisiert und bestaetigt dieselben Daten im Clone. Ein
+    regulärer PersistentData-Store wird stabil gelabelt, geleast und freigegeben.
+    Quelle, Ziel, Lease-Volume und Container werden im finally-Scope entfernt.
 #>
 [CmdletBinding()]
 param(
@@ -22,6 +23,7 @@ $testRoot = Join-Path ([IO.Path]::GetTempPath()) "sql-lab-psr005-$Provider-$([gu
 $token = [guid]::NewGuid().ToString('N').Substring(0,12)
 $sourceVolume = "sql-lab-psr005-$Provider-$token-source"
 $targetVolume = "sql-lab-psr005-$Provider-$token-clone"
+$leaseVolume = "sql-lab-persistent-lease-$Provider-$token"
 $sourceContainer = "sql-lab-psr005-$Provider-$token-source"
 $continueContainer = "sql-lab-psr005-$Provider-$token-continue"
 $cloneContainer = "sql-lab-psr005-$Provider-$token-clone"
@@ -94,9 +96,21 @@ function Wait-InstanceStoreDatabase {
 function Invoke-InstanceStoreSqlScalar {
     param([Parameter(Mandatory)][int]$Port, [Parameter(Mandatory)][string]$Query, [string]$Database='master')
     $effectiveQuery = "SET NOCOUNT ON; $Query"
-    $output=@(& sqlcmd -S "127.0.0.1,$Port" -U sa -P $saPlain -C -b -d $Database -Q $effectiveQuery -h -1 -W 2>&1)
-    if ($LASTEXITCODE -ne 0) { throw "CONTAINER_INSTANCE_STORE_SQLCMD_FAILED: $($output -join ' ')" }
-    return (($output | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ -and $_ -notmatch '^Changed database context' }) -join '')
+    $deadline=[DateTime]::UtcNow.AddSeconds(120)
+    do {
+        $output=@(& sqlcmd -S "127.0.0.1,$Port" -U sa -P $saPlain -C -b -d $Database -Q $effectiveQuery -h -1 -W 2>&1)
+        if ($LASTEXITCODE -eq 0) {
+            return (($output | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ -and $_ -notmatch '^Changed database context' }) -join '')
+        }
+        $message=$output -join ' '
+        $transientDatabaseLogin = $Database -ne 'master' -and
+            $message -match "Login failed for user 'sa'.*Cannot open database|Cannot open database.*Login failed for user 'sa'"
+        if (-not $transientDatabaseLogin -or [DateTime]::UtcNow -ge $deadline) {
+            throw "CONTAINER_INSTANCE_STORE_SQLCMD_FAILED: $message"
+        }
+        Start-Sleep -Seconds 2
+    } while ([DateTime]::UtcNow -lt $deadline)
+    throw "CONTAINER_INSTANCE_STORE_SQLCMD_TIMEOUT: $Database"
 }
 
 function Stop-Remove-InstanceStoreContainer {
@@ -155,6 +169,33 @@ try {
         $null=Write-LabPersistentStorageCatalogDocument -Document $document -Configuration $Config
         Get-LabPersistentStorageCatalog -Configuration $Config
     } $configuration $dataRoot $Provider $sourceVolume $sourceId
+    $leaseEvidence=& $module {
+        param($Runtime,$Volume,$ImageName,$Run,$Scope,$Root,$Config)
+        $lease=Register-LabContainerInstanceStoreLease -Provider $Runtime -VolumeName $Volume `
+            -RunId $Run -ScopeId $Scope -SqlVersion '2025' -DisplayName 'Runtime lease acceptance' `
+            -DataRoot $Root -Configuration $Config
+        if ($Runtime -eq 'docker') {
+            $null=Initialize-DockerSqlNamedVolume -VolumeName $Volume -Image $ImageName -RunId $Run -ScopeId $Scope `
+                -VersionId '2025' -InstanceId 'lease' -ContainerPath '/var/opt/mssql' `
+                -PersistentStorageId ([string]$lease.Store.PersistentStorageId) -Persistence 'data-root-runtime-volume'
+        }
+        else {
+            $null=Initialize-PodmanSqlNamedVolume -VolumeName $Volume -Image $ImageName -RunId $Run -ScopeId $Scope `
+                -VersionId '2025' -InstanceId 'lease' -ContainerPath '/var/opt/mssql' `
+                -PersistentStorageId ([string]$lease.Store.PersistentStorageId) -Persistence 'data-root-runtime-volume'
+        }
+        $released=Unregister-LabContainerInstanceStoreLease -Provider $Runtime -VolumeName $Volume `
+            -RunId $Run -ScopeId $Scope -DataRoot $Root -Configuration $Config
+        $inspection=Get-LabContainerInstanceStoreRuntimeInspection -Provider $Runtime -VolumeName $Volume
+        [PSCustomObject]@{ Lease=$lease; Released=$released; Inspection=$inspection; Catalog=Get-LabPersistentStorageCatalog -Configuration $Config }
+    } $Provider $leaseVolume $Image $runId $scopeId $dataRoot $configuration
+    $releasedLeaseStore=@($leaseEvidence.Catalog.Document.Stores | Where-Object {
+        [string]$_.PersistentStorageId -eq [string]$leaseEvidence.Lease.Store.PersistentStorageId
+    })
+    Assert-InstanceStoreAcceptance ($releasedLeaseStore.Count -eq 1 -and $releasedLeaseStore[0].State -eq 'DETACHED' -and
+        -not $releasedLeaseStore[0].Lease -and @($releasedLeaseStore[0].References | Where-Object State -eq 'RELEASED').Count -eq 1 -and
+        [string]$leaseEvidence.Inspection.Labels.'sql-server-lab.persistent-storage-id' -eq [string]$releasedLeaseStore[0].PersistentStorageId) `
+        'Regulärer PersistentData-Store wird stabil gelabelt, exklusiv geleast und ohne Volume-Löschung freigegeben'
     $continueIntent=[PSCustomObject]@{ ContractVersion='SqlServerLab.ContainerInstanceStoreIntent/1.0'; OperationId=[guid]::NewGuid().ToString('D'); Action='CONTINUE'; SourcePersistentStorageId=$sourceId; TargetPersistentStorageId=$null; TargetVolumeName=$null; Provider=$Provider; TargetRunId=$runId; TargetScopeId=$scopeId; TargetSqlMajorVersion='2025'; HelperImage=$null }
     $continueEvidence=& $module { param($Intent,$Catalog,$Runtime,$Volume) $inspection=Get-LabContainerInstanceStoreRuntimeInspection -Provider $Runtime -VolumeName $Volume; $plan=Get-LabContainerInstanceStorePlan -Intent $Intent -Catalog $Catalog -RuntimeInspection $inspection; [PSCustomObject]@{ Plan=$plan; Drive=Get-LabContainerInstanceStoreDriveBinding -Plan $plan } } $continueIntent $catalog $Provider $sourceVolume
     Assert-InstanceStoreAcceptance ($continueEvidence.Plan.Status -eq 'READY' -and $continueEvidence.Drive.volumeName -eq $sourceVolume) 'Detached Store wurde ueber stabile Storage-ID fuer Continue ausgewaehlt'
@@ -202,7 +243,7 @@ finally {
         foreach ($container in @($sourceContainer,$continueContainer,$cloneContainer)) {
             $null=Invoke-InstanceStoreRuntime -Arguments @('rm','-f',$container) -AllowFailure
         }
-        foreach ($volume in @($sourceVolume,$targetVolume)) {
+        foreach ($volume in @($sourceVolume,$targetVolume,$leaseVolume)) {
             $null=Invoke-InstanceStoreRuntime -Arguments @('volume','rm','-f',$volume) -AllowFailure
         }
         Remove-Item -LiteralPath $testRoot -Recurse -Force -ErrorAction SilentlyContinue

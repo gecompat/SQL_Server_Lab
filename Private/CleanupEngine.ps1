@@ -465,6 +465,27 @@ function Invoke-CleanupPlan {
                         -ResourceType 'network' `
                         -ResourceId $step.resourceId
                 }
+                'persistent-storage-lease' {
+                    if ($provider -notin @('docker','podman')) {
+                        throw "Persistent-Storage-Lease-Cleanup erfordert Docker oder Podman."
+                    }
+                    $runStatePath = Join-Path $RunDir 'run-state.json'
+                    if (-not (Test-Path -LiteralPath $runStatePath -PathType Leaf)) {
+                        throw 'PERSISTENT_STORAGE_RELEASE_RUN_STATE_REQUIRED'
+                    }
+                    $cleanupRunState = Get-Content -LiteralPath $runStatePath -Raw -Encoding utf8 |
+                        ConvertFrom-Json -Depth 30 -ErrorAction Stop
+                    $dataRoot = [string]$cleanupRunState.metadata.dataRoot
+                    if ([string]::IsNullOrWhiteSpace($dataRoot)) {
+                        throw 'PERSISTENT_STORAGE_RELEASE_DATA_ROOT_REQUIRED'
+                    }
+                    $null = Unregister-LabContainerInstanceStoreLease `
+                        -Provider $provider `
+                        -VolumeName ([string]$step.resourceId) `
+                        -RunId ([string]$plan.runId) `
+                        -ScopeId $ScopeId `
+                        -DataRoot $dataRoot
+                }
                 'vm' {
                     if ($provider -ne 'hyperv') {
                         throw "VM-Cleanup erfordert den Provider 'hyperv'."

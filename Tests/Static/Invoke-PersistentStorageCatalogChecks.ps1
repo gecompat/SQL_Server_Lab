@@ -129,6 +129,90 @@ try {
         $rollbackBlocked -and (Get-FileHash -LiteralPath $catalogPath1 -Algorithm SHA256).Hash -eq $beforeRollbackHash1 -and
         (Get-FileHash -LiteralPath $catalogPath2 -Algorithm SHA256).Hash -eq $beforeRollbackHash2)
 
+    $leaseRoot1 = Join-Path $temporaryRoot 'lease-one/Lab_Data'
+    $leaseRoot2 = Join-Path $temporaryRoot 'lease-two/Lab_Data'
+    New-Item -Path (Join-Path $leaseRoot1 'Catalog'),(Join-Path $leaseRoot2 'Catalog') -ItemType Directory -Force | Out-Null
+    $leaseConfiguration = [PSCustomObject]@{
+        ControllerId=[Guid]::NewGuid().ToString('D')
+        LabDataLocations=@(
+            [PSCustomObject]@{ LocationId=[Guid]::NewGuid().ToString('D'); LabDataRoot=$leaseRoot1 },
+            [PSCustomObject]@{ LocationId=[Guid]::NewGuid().ToString('D'); LabDataRoot=$leaseRoot2 }
+        )
+    }
+    $leaseRunId=[Guid]::NewGuid().ToString('D'); $leaseScopeId=[Guid]::NewGuid().ToString('D')
+    $leaseEvidence = & $module {
+        param($config,$root,$leaseRun,$leaseScope)
+        $originalOwnership=(Get-Command Test-LabDataRootOwnership -CommandType Function).ScriptBlock
+        $originalInspection=(Get-Command Get-LabContainerInstanceStoreRuntimeInspection -CommandType Function).ScriptBlock
+        $script:leaseTestRuntimeStatus='MISSING'; $script:leaseTestRuntimeStorageId=$null
+        $ownershipReplacement={ param($DataRoot,$ControllerId) $null=$DataRoot,$ControllerId; return $true }
+        $inspectionReplacement={
+            param($Provider,$VolumeName)
+            if ($script:leaseTestRuntimeStatus -eq 'MISSING') {
+                return [PSCustomObject]@{ Status='MISSING'; Provider=$Provider; VolumeName=$VolumeName; VolumeId=$null; Labels=[PSCustomObject]@{}; AttachedContainers=@() }
+            }
+            return [PSCustomObject]@{
+                Status='AVAILABLE'; Provider=$Provider; VolumeName=$VolumeName; VolumeId=$VolumeName; AttachedContainers=@()
+                Labels=[PSCustomObject]@{ 'sql-server-lab.persistent-storage-id'=$script:leaseTestRuntimeStorageId; 'sql-server-lab.sql-major-version'='2025' }
+            }
+        }
+        Set-Item Function:script:Test-LabDataRootOwnership -Value $ownershipReplacement
+        Set-Item Function:script:Get-LabContainerInstanceStoreRuntimeInspection -Value $inspectionReplacement
+        try {
+            $preRelease=Unregister-LabContainerInstanceStoreLease -Provider docker -VolumeName 'sql-lab-persistent-lease-test' `
+                -RunId $leaseRun -ScopeId $leaseScope -DataRoot $root -Configuration $config
+            $acquired=Register-LabContainerInstanceStoreLease -Provider docker -VolumeName 'sql-lab-persistent-lease-test' `
+                -RunId $leaseRun -ScopeId $leaseScope -SqlVersion '2025-latest' -DisplayName 'Lease test' `
+                -DataRoot $root -Configuration $config
+            $script:leaseTestRuntimeStorageId=[string]$acquired.Store.PersistentStorageId; $script:leaseTestRuntimeStatus='AVAILABLE'
+            $released=Unregister-LabContainerInstanceStoreLease -Provider docker -VolumeName 'sql-lab-persistent-lease-test' `
+                -RunId $leaseRun -ScopeId $leaseScope -DataRoot $root -Configuration $config
+            $reacquired=Register-LabContainerInstanceStoreLease -Provider docker -VolumeName 'sql-lab-persistent-lease-test' `
+                -RunId $leaseRun -ScopeId $leaseScope -SqlVersion '2025-latest' -DisplayName 'Lease test' `
+                -DataRoot $root -Configuration $config
+            $foreignBlocked=$false
+            try {
+                Register-LabContainerInstanceStoreLease -Provider docker -VolumeName 'sql-lab-persistent-lease-test' `
+                    -RunId ([Guid]::NewGuid().ToString('D')) -ScopeId ([Guid]::NewGuid().ToString('D')) `
+                    -SqlVersion '2025-latest' -DisplayName 'Foreign lease' -DataRoot $root -Configuration $config | Out-Null
+            }
+            catch { $foreignBlocked=$_.Exception.Message -match 'CONTAINER_INSTANCE_STORE_LEASE_CONFLICT' }
+            $script:leaseTestRuntimeStatus='MISSING'; $recoveryBlocked=$false
+            try {
+                Unregister-LabContainerInstanceStoreLease -Provider docker -VolumeName 'sql-lab-persistent-lease-test' `
+                    -RunId $leaseRun -ScopeId $leaseScope -DataRoot $root -Configuration $config | Out-Null
+            }
+            catch { $recoveryBlocked=$_.Exception.Message -match 'CONTAINER_INSTANCE_STORE_RELEASE_RUNTIME_VERIFICATION_FAILED' }
+            $after=Get-LabPersistentStorageCatalog -Configuration $config
+            return [PSCustomObject]@{
+                PreRelease=$preRelease; Acquired=$acquired; Released=$released; Reacquired=$reacquired; ForeignBlocked=$foreignBlocked
+                RecoveryBlocked=$recoveryBlocked; Catalog=$after
+            }
+        }
+        finally {
+            Set-Item Function:script:Test-LabDataRootOwnership -Value $originalOwnership
+            Set-Item Function:script:Get-LabContainerInstanceStoreRuntimeInspection -Value $originalInspection
+            Remove-Variable -Scope Script -Name leaseTestRuntimeStatus,leaseTestRuntimeStorageId -ErrorAction SilentlyContinue
+        }
+    } $leaseConfiguration $leaseRoot1 $leaseRunId $leaseScopeId
+    $leaseStore=@($leaseEvidence.Catalog.Document.Stores)[0]
+    Add-CheckResult -Name 'Vorab persistierte Cleanup-Kompensation bleibt ohne erworbene Lease ein No-op' -Success (
+        -not $leaseEvidence.PreRelease.Changed -and $leaseEvidence.PreRelease.NotAcquired)
+    Add-CheckResult -Name 'Regulärer persistenter Containerstore erhält vor Provisionierung eine stabile ID und exklusive Run-Lease' -Success (
+        $leaseEvidence.Acquired.Changed -and -not $leaseEvidence.Acquired.Reused -and
+        [string]$leaseEvidence.Acquired.Store.PersistentStorageId -match '^[0-9a-f-]{36}$' -and
+        [string]$leaseEvidence.Acquired.Store.Lease.RunId -eq $leaseRunId -and
+        @($leaseEvidence.Acquired.Store.References | Where-Object State -eq 'ACTIVE').Count -eq 1)
+    Add-CheckResult -Name 'Release bewahrt den Runtime-Store, löst Lease/Run-Referenz und erlaubt dieselbe stabile ID erneut' -Success (
+        $leaseEvidence.Released.Store.State -eq 'DETACHED' -and -not $leaseEvidence.Released.Store.Lease -and
+        @($leaseEvidence.Released.Store.References | Where-Object State -eq 'RELEASED').Count -eq 1 -and
+        $leaseEvidence.Reacquired.Reused -and
+        [string]$leaseEvidence.Reacquired.Store.PersistentStorageId -eq [string]$leaseEvidence.Acquired.Store.PersistentStorageId)
+    Add-CheckResult -Name 'Exklusive Instanzstore-Lease blockiert einen konkurrierenden Run' -Success $leaseEvidence.ForeignBlocked
+    Add-CheckResult -Name 'Fehlendes oder abweichendes Runtime-Volume bleibt mit Lease als Recovery-Fall sichtbar' -Success (
+        $leaseEvidence.RecoveryBlocked -and $leaseStore.State -eq 'RECOVERY_REQUIRED' -and
+        [string]$leaseStore.Lease.RunId -eq $leaseRunId -and @($leaseEvidence.Catalog.Sources).Count -eq 2)
+
     $renamed = $document | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
     $renamed.Stores[0].DisplayName = 'Umbenannter Anzeigename'
     Add-CheckResult -Name 'Anzeigenamenänderung verändert die stabile Storage-ID nicht' -Success (
