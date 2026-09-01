@@ -29,6 +29,9 @@ $sourceId = [guid]::NewGuid().ToString('D')
 $targetId = [guid]::NewGuid().ToString('D')
 $runId = [guid]::NewGuid().ToString('D')
 $scopeId = [guid]::NewGuid().ToString('D')
+$controllerId = [guid]::NewGuid().ToString('D')
+$locationId = [guid]::NewGuid().ToString('D')
+$dataRoot = Join-Path $testRoot 'Lab_Data'
 $saPlain = "Psr005_${token}!Aa7"
 $completed = $false
 $mutexName = if ($IsWindows) { 'Global\SQL_Server_Lab_Runtime_Smoke' } else { 'SQL_Server_Lab_Runtime_Smoke' }
@@ -75,6 +78,19 @@ function Wait-InstanceStoreSql {
     throw 'CONTAINER_INSTANCE_STORE_SQL_READINESS_TIMEOUT'
 }
 
+function Wait-InstanceStoreDatabase {
+    param([Parameter(Mandatory)][int]$Port, [Parameter(Mandatory)][string]$Database)
+    $escapedDatabase=$Database.Replace("'","''")
+    $deadline=[DateTime]::UtcNow.AddSeconds(120)
+    do {
+        $output=@(& sqlcmd -S "127.0.0.1,$Port" -U sa -P $saPlain -C -b -d master `
+            -Q "SET NOCOUNT ON; SELECT state_desc FROM sys.databases WHERE name=N'$escapedDatabase';" -h -1 -W 2>$null)
+        if ($LASTEXITCODE -eq 0 -and (($output | ForEach-Object { ([string]$_).Trim() }) -contains 'ONLINE')) { return }
+        Start-Sleep -Seconds 2
+    } while ([DateTime]::UtcNow -lt $deadline)
+    throw "CONTAINER_INSTANCE_STORE_DATABASE_READINESS_TIMEOUT: $Database"
+}
+
 function Invoke-InstanceStoreSqlScalar {
     param([Parameter(Mandatory)][int]$Port, [Parameter(Mandatory)][string]$Query, [string]$Database='master')
     $effectiveQuery = "SET NOCOUNT ON; $Query"
@@ -118,14 +134,27 @@ try {
     $null=Invoke-InstanceStoreSqlScalar -Port $initialPort -Database 'Psr005Evidence' -Query "IF OBJECT_ID(N'dbo.Evidence',N'U') IS NULL BEGIN CREATE TABLE dbo.Evidence(Id int NOT NULL PRIMARY KEY, Marker nvarchar(64) NOT NULL); INSERT dbo.Evidence VALUES(1,N'psr005-$token'); END; SELECT COUNT_BIG(*) FROM dbo.Evidence;"
     Stop-Remove-InstanceStoreContainer -Name $sourceContainer
 
-    $catalog=[PSCustomObject]@{ Status='AVAILABLE'; Document=[PSCustomObject]@{
-        ContractVersion='SqlServerLab.PersistentStorageCatalog/1.0'; ControllerId=[guid]::NewGuid().ToString('D'); Revision=1
-        Stores=@([PSCustomObject]@{
-            PersistentStorageId=$sourceId; DisplayName='PSR005 source'; StorageClass='INSTANCE_STORE'; State='DETACHED'; Provider=$Provider
-            LocationBinding=[PSCustomObject]@{ Residency='NATIVE_RUNTIME'; LocationId=$null; ProviderResourceId=$sourceVolume; InventoryObjectId='storage-object-111111111111111111111111'; RelativePath=$null }
-            References=@(); Lease=$null; Retention='RETAINED'; CleanupDisposition='PRESERVE'; CreatedAt='2026-09-01T00:00:00Z'; UpdatedAt='2026-09-01T00:00:00Z'
-        })
-    } }
+    $configuration=[PSCustomObject]@{
+        ControllerId=$controllerId
+        LabDataLocations=@([PSCustomObject]@{ LocationId=$locationId; LabDataRoot=$dataRoot })
+    }
+    $catalog=& $module {
+        param($Config,$Root,$Runtime,$Volume,$StorageId)
+        $null=Initialize-LabManagedDataRoot -DataRoot $Root -ControllerId ([string]$Config.ControllerId) -Confirm:$false
+        $document=[PSCustomObject]@{
+            ContractVersion='SqlServerLab.PersistentStorageCatalog/1.0'; ControllerId=[string]$Config.ControllerId; Revision=1
+            Stores=@([PSCustomObject]@{
+                PersistentStorageId=$StorageId; DisplayName='PSR005 source'; StorageClass='INSTANCE_STORE'; State='DETACHED'; Provider=$Runtime
+                LocationBinding=[PSCustomObject]@{
+                    Residency='NATIVE_RUNTIME'; LocationId=$null; ProviderResourceId=$Volume
+                    InventoryObjectId=(Get-LabStorageResidencyObjectId -Key "runtime-volume|$Runtime|$Volume"); RelativePath=$null
+                }
+                References=@(); Lease=$null; Retention='RETAINED'; CleanupDisposition='PRESERVE'; CreatedAt='2026-09-01T00:00:00Z'; UpdatedAt='2026-09-01T00:00:00Z'
+            })
+        }
+        $null=Write-LabPersistentStorageCatalogDocument -Document $document -Configuration $Config
+        Get-LabPersistentStorageCatalog -Configuration $Config
+    } $configuration $dataRoot $Provider $sourceVolume $sourceId
     $continueIntent=[PSCustomObject]@{ ContractVersion='SqlServerLab.ContainerInstanceStoreIntent/1.0'; OperationId=[guid]::NewGuid().ToString('D'); Action='CONTINUE'; SourcePersistentStorageId=$sourceId; TargetPersistentStorageId=$null; TargetVolumeName=$null; Provider=$Provider; TargetRunId=$runId; TargetScopeId=$scopeId; TargetSqlMajorVersion='2025'; HelperImage=$null }
     $continueEvidence=& $module { param($Intent,$Catalog,$Runtime,$Volume) $inspection=Get-LabContainerInstanceStoreRuntimeInspection -Provider $Runtime -VolumeName $Volume; $plan=Get-LabContainerInstanceStorePlan -Intent $Intent -Catalog $Catalog -RuntimeInspection $inspection; [PSCustomObject]@{ Plan=$plan; Drive=Get-LabContainerInstanceStoreDriveBinding -Plan $plan } } $continueIntent $catalog $Provider $sourceVolume
     Assert-InstanceStoreAcceptance ($continueEvidence.Plan.Status -eq 'READY' -and $continueEvidence.Drive.volumeName -eq $sourceVolume) 'Detached Store wurde ueber stabile Storage-ID fuer Continue ausgewaehlt'
@@ -142,17 +171,29 @@ try {
     Start-InstanceStoreSqlContainer -Name $continueContainer -Volume $continueEvidence.Drive.volumeName -Port $continuePort
     Wait-InstanceStoreSql -Port $continuePort
     Assert-InstanceStoreAcceptance ((Invoke-InstanceStoreSqlScalar -Port $continuePort -Query "SELECT COUNT_BIG(*) FROM sys.server_principals WHERE name=N'psr005_login';") -eq '1') 'Continue erhaelt den Serverzustand'
+    Wait-InstanceStoreDatabase -Port $continuePort -Database 'Psr005Evidence'
     Assert-InstanceStoreAcceptance ((Invoke-InstanceStoreSqlScalar -Port $continuePort -Database 'Psr005Evidence' -Query 'SELECT COUNT_BIG(*) FROM dbo.Evidence WHERE Id=1;') -eq '1') 'Continue erhaelt die Benutzerdatenbank live'
     Stop-Remove-InstanceStoreContainer -Name $continueContainer
 
     $cloneIntent=[PSCustomObject]@{ ContractVersion='SqlServerLab.ContainerInstanceStoreIntent/1.0'; OperationId=[guid]::NewGuid().ToString('D'); Action='CLONE'; SourcePersistentStorageId=$sourceId; TargetPersistentStorageId=$targetId; TargetVolumeName=$targetVolume; Provider=$Provider; TargetRunId=[guid]::NewGuid().ToString('D'); TargetScopeId=[guid]::NewGuid().ToString('D'); TargetSqlMajorVersion='2025'; HelperImage=$Image }
-    $cloneJournal=& $module { param($Intent,$Catalog,$Runtime,$Volume,$Root) $inspection=Get-LabContainerInstanceStoreRuntimeInspection -Provider $Runtime -VolumeName $Volume; $plan=Get-LabContainerInstanceStorePlan -Intent $Intent -Catalog $Catalog -RuntimeInspection $inspection; Invoke-LabContainerInstanceStoreClone -Plan $plan -OperationDirectory $Root } $cloneIntent $catalog $Provider $sourceVolume $testRoot
+    $cloneResult=& $module {
+        param($Intent,$Catalog,$Runtime,$Volume,$Root,$Config)
+        $inspection=Get-LabContainerInstanceStoreRuntimeInspection -Provider $Runtime -VolumeName $Volume
+        $plan=Get-LabContainerInstanceStorePlan -Intent $Intent -Catalog $Catalog -RuntimeInspection $inspection
+        $journal=Invoke-LabContainerInstanceStoreClone -Plan $plan -OperationDirectory $Root -Configuration $Config
+        [PSCustomObject]@{ Journal=$journal; Catalog=Get-LabPersistentStorageCatalog -Configuration $Config }
+    } $cloneIntent $catalog $Provider $sourceVolume $testRoot $configuration
+    $cloneJournal=$cloneResult.Journal
     Assert-InstanceStoreAcceptance ($cloneJournal.Status -eq 'COMPLETED' -and $cloneJournal.Source.Evidence.Sha256 -eq $cloneJournal.Target.Evidence.Sha256) 'Clone wurde journalisiert und inhaltlich verifiziert'
+    $catalogedTargets=@($cloneResult.Catalog.Document.Stores | Where-Object PersistentStorageId -eq $targetId)
+    Assert-InstanceStoreAcceptance ($cloneResult.Catalog.Status -eq 'AVAILABLE' -and $catalogedTargets.Count -eq 1 -and
+        $catalogedTargets[0].State -eq 'DETACHED' -and $catalogedTargets[0].LocationBinding.ProviderResourceId -eq $targetVolume) 'Clone-Ziel wurde controllergebunden in den persistenten Katalog committed'
 
     $clonePort=Get-InstanceStoreFreePort
     Start-InstanceStoreSqlContainer -Name $cloneContainer -Volume $targetVolume -Port $clonePort
     Wait-InstanceStoreSql -Port $clonePort
     Assert-InstanceStoreAcceptance ((Invoke-InstanceStoreSqlScalar -Port $clonePort -Query "SELECT COUNT_BIG(*) FROM sys.server_principals WHERE name=N'psr005_login';") -eq '1') 'Clone enthaelt den Serverzustand live'
+    Wait-InstanceStoreDatabase -Port $clonePort -Database 'Psr005Evidence'
     Assert-InstanceStoreAcceptance ((Invoke-InstanceStoreSqlScalar -Port $clonePort -Database 'Psr005Evidence' -Query "SELECT COUNT_BIG(*) FROM dbo.Evidence WHERE Marker=N'psr005-$token';") -eq '1') 'Clone enthaelt die Benutzerdatenbank live'
     $completed=$true
 }
