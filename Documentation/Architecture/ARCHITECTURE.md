@@ -83,6 +83,7 @@ Get-SqlServerLabHyperVResourcePreview  # Physische Hyper-V-Klassenroots und Kapa
 Get-SqlServerLabCatalog                # Laufzeit-Workflow-Katalog als JSON-Artefakt schreiben
 Get-SqlServerLabCleanupAudit           # Daten-/Runtime-Reste, Residency und Hyper-V-Schutzbindungen read-only inventarisieren
 Get-SqlServerLabPersistentStorageRemovalPlan # Retention-Folgen per stabiler Storage-ID read-only planen
+Invoke-SqlServerLabPersistentStorageRemoval  # Retain/Backup-on-Remove journalisiert ausführen
 Get-SqlServerLabConnectionCenter       # Passwortfreier SQL-Endpunktkatalog für SSMS und CMS
 Sync-SqlServerLabConnectionCenter      # Endpunktkatalog atomar aktualisieren
 Export-SqlServerLabSsmsRegistration    # Kennwortfreien SSMS-.regsrvr-Export erzeugen

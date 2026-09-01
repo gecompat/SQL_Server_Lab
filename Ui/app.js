@@ -4,6 +4,7 @@ let optimisticJobs = [];
 const jobLineCache = {};
 let uiConfig = { jobLogBurstLimit: 300 };
 let workflowRefreshTimer = null;
+let pendingPersistentStorageRemoval = null;
 
 const $ = (selector) => document.querySelector(selector);
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
@@ -962,6 +963,8 @@ function openPersistentStorageRemovalPreview(runId, labName) {
   $('#persistent-storage-removal-note').textContent = 'Umgebung „' + labName + '“ · Auswahl ausschließlich über stabile PersistentStorageIds.';
   $('#persistent-storage-removal-result').hidden = true;
   $('#persistent-storage-removal-result').innerHTML = '';
+  pendingPersistentStorageRemoval = null;
+  $('#persistent-storage-removal-execute').disabled = true;
   $('#persistent-storage-removal-selections').innerHTML = candidates.map((candidate) => {
     const policies = candidate.AllowedPolicies.map((policy) => '<option value="' + escapeHtml(policy) + '">' + escapeHtml(persistentStoragePolicyLabels[policy] || policy) + '</option>').join('');
     const references = Array.isArray(candidate.DatabaseReferences) ? candidate.DatabaseReferences : [];
@@ -973,7 +976,7 @@ function openPersistentStorageRemovalPreview(runId, labName) {
   $('#persistent-storage-removal-dialog').showModal();
 }
 
-function renderPersistentStorageRemovalPlan(plan) {
+function renderPersistentStorageRemovalPlan(plan, selections) {
   const summary = plan?.Summary || {};
   const stores = Array.isArray(plan?.Stores) ? plan.Stores : [];
   const issues = Array.isArray(plan?.Issues) ? plan.Issues : [];
@@ -985,6 +988,10 @@ function renderPersistentStorageRemovalPlan(plan) {
   }).join('');
   $('#persistent-storage-removal-result').innerHTML = '<div class="build-card-top"><strong>Planstatus</strong><span class="status ' + statusClassName + '">' + escapeHtml(plan?.Status || 'BLOCKED') + '</span></div><div class="build-meta">' + escapeHtml((summary.StoreCount || 0) + ' Store(s) · ' + (summary.RecoveryGuardedSteps || 0) + ' recovery-geschützte Schritte · ' + (summary.Blockers || 0) + ' Blocker') + '</div>' + (issues.length ? '<div class="build-meta"><strong>Issues:</strong> ' + escapeHtml(issues.join(', ')) + '</div>' : '') + storeHtml;
   $('#persistent-storage-removal-result').hidden = false;
+  const executablePolicies = ['RETAIN_INSTANCE_STORE', 'BACKUP_ON_REMOVE'];
+  const executable = plan?.Status === 'READY' && selections.length > 0 && selections.every((selection) => executablePolicies.includes(selection.Policy));
+  pendingPersistentStorageRemoval = executable ? { runId: $('#persistent-storage-removal-run').value, selections, plan } : null;
+  $('#persistent-storage-removal-execute').disabled = !executable;
 }
 
 document.addEventListener('click', async (event) => {
@@ -1507,6 +1514,8 @@ $('#persistent-storage-removal-form').addEventListener('submit', async (event) =
   }
 
   const submit = $('#persistent-storage-removal-submit');
+  pendingPersistentStorageRemoval = null;
+  $('#persistent-storage-removal-execute').disabled = true;
   submit.disabled = true;
   try {
     const response = await fetch('/api/persistent-storage/removal-plan', {
@@ -1515,10 +1524,31 @@ $('#persistent-storage-removal-form').addEventListener('submit', async (event) =
       body: JSON.stringify({ runId: $('#persistent-storage-removal-run').value, selections })
     });
     if (!response.ok) throw new Error(await response.text());
-    renderPersistentStorageRemovalPlan(await response.json());
+    renderPersistentStorageRemovalPlan(await response.json(), selections);
   }
   catch (error) { showError(error); }
   finally { submit.disabled = false; }
+});
+
+$('#persistent-storage-removal-selections').addEventListener('change', () => {
+  pendingPersistentStorageRemoval = null;
+  $('#persistent-storage-removal-execute').disabled = true;
+});
+
+$('#persistent-storage-removal-execute').addEventListener('click', () => {
+  const pending = pendingPersistentStorageRemoval;
+  if (!pending) {
+    showError(new Error('Zuerst einen ausführbaren, blockerfreien Retention-Plan erzeugen.'));
+    return;
+  }
+  $('#persistent-storage-removal-dialog').close();
+  openConfirmation(
+    'Backup/Retention ausführen',
+    'Die Auswahl wird unmittelbar vor jeder Mutation erneut geprüft. Verlangte Datenbanken werden mit CHECKSUM gesichert und per RESTORE VERIFYONLY bestätigt; anschließend wird der Run entfernt, der persistente Instanzstore aber nicht gelöscht.',
+    'ExecutePersistentStorageRemoval',
+    { BuildId: pending.runId, PersistentStorageSelection: pending.selections, DataRoot: workflow?.Defaults?.DataRoot || '' },
+    'Backup + entfernen'
+  );
 });
 
 function cancelDialog(dialog) {

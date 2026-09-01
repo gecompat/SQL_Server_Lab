@@ -948,9 +948,13 @@ read-only Removal-Vertrag plant
 Referenz-, Lease-, Backup-, Package- und Recovery-Gates. Die öffentliche CLI
 und die lokale Browseroberfläche erzeugen über denselben Core eine frische,
 schema-validierte Retention-Vorschau ausschließlich anhand stabiler Storage-
-IDs; die Vorschau mutiert weder Run, Katalog noch Storage. Noch nicht
-implementiert sind dessen Executor, die tatsächliche Backup-/Package-Erzeugung in
-diesem Workflow und die getrennte endgültige Storage-Löschaktion.
+IDs; die Vorschau mutiert weder Run, Katalog noch Storage. Der öffentliche,
+journalisierte Executor unterstützt für Docker-/Podman-Instanzstores inzwischen
+`RETAIN_INSTANCE_STORE` und `BACKUP_ON_REMOVE`. Er veröffentlicht Backups erst
+nach `CHECKSUM` und `RESTORE VERIFYONLY`, revalidiert vor Cleanup und lässt den
+Store detached bestehen. Noch nicht implementiert sind Package-Erzeugung,
+`DELETE_WITH_RUN`, externe Bindungsfreigabe und die getrennte endgültige
+Storage-Löschaktion; diese Policies bleiben vor jeder Mutation blockiert.
 Der PSR-005-Core kann einen bereits katalogisierten und passend gelabelten
 Docker-/Podman-Instanzstore detached per stabiler ID für Continue binden oder
 in ein neues Volume klonen. Quelle und SQL-Major-Version werden unmittelbar vor

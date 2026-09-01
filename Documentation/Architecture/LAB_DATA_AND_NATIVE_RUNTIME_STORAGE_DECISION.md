@@ -148,8 +148,10 @@ Mutation mit dem Residency-Inventar ab. Folgende Arbeit bleibt getrennt:
 
 - `PSR-003`: Katalogschreiben, Lease-Akquisition und Wiederverwendungsaktionen
   auf Basis des vorhandenen read-only Vertrags;
-- `PSR-004`: Der read-only Retention-/Removal-Plan ist umgesetzt; Backup-/
-  Package-Executor und explizite endgültige Storage-Löschung bleiben offen;
+- `PSR-004`: Der read-only Retention-/Removal-Plan sowie der journalisierte
+  Docker-/Podman-Executor für `RETAIN_INSTANCE_STORE` und `BACKUP_ON_REMOVE`
+  sind umgesetzt; Package, externe Freigabe und explizite endgültige
+  Storage-Löschung bleiben offen;
 - `PSR-005`: Der stabile ID-, Continue- und detached Clone-Core ist samt
   getrennten realen Docker-/Podman-Nachweisen umgesetzt; Katalog-Commit,
   External-Runtime-Sidecars und öffentliche Bedienung bleiben offen;

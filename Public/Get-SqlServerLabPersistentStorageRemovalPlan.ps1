@@ -12,6 +12,10 @@
     Eine oder mehrere Auswahlen mit PersistentStorageId, Policy und optionalen
     DatabaseReferenceIds. Anzeigenamen oder Runtime-Volumenamen sind keine
     zulässigen Identitäten.
+.PARAMETER StateRoot
+    Optionaler State-Root für isolierte Planung und Tests.
+.PARAMETER DataRoot
+    Optionaler registrierter Lab_Data-Root für den Storage-Katalog.
 .OUTPUTS
     System.Management.Automation.PSCustomObject. Ein
     SqlServerLab.PersistentStorageRemovalPlan/1.0.
@@ -30,22 +34,13 @@ function Get-SqlServerLabPersistentStorageRemovalPlan {
         [Parameter(Mandatory)]
         [Alias('Selections')]
         [ValidateNotNull()]
-        [object[]]$Selection
+        [object[]]$Selection,
+
+        [string]$StateRoot,
+        [string]$DataRoot
     )
 
-    $normalizedSelections = @(
-        foreach ($item in @($Selection)) {
-            if (-not $item) { throw 'PERSISTENT_STORAGE_REMOVAL_SELECTION_REQUIRED' }
-            $storageId = [string]$item.PersistentStorageId
-            $policy = [string]$item.Policy
-            $databaseReferenceIds = @($item.DatabaseReferenceIds | ForEach-Object { [string]$_ })
-            [PSCustomObject][ordered]@{
-                PersistentStorageId = $storageId
-                Policy = $policy
-                DatabaseReferenceIds = $databaseReferenceIds
-            }
-        }
-    )
+    $normalizedSelections = @(ConvertTo-LabPersistentStorageRemovalSelection -Selection $Selection)
 
     $intent = [PSCustomObject][ordered]@{
         ContractVersion = 'SqlServerLab.PersistentStorageRemovalIntent/1.0'
@@ -56,7 +51,7 @@ function Get-SqlServerLabPersistentStorageRemovalPlan {
     }
     $null = Test-LabPersistentStorageRemovalIntent -Intent $intent
 
-    $auditResult = Get-SqlServerLabCleanupAudit -NoWrite
+    $auditResult = Get-SqlServerLabCleanupAudit -NoWrite -StateRoot $StateRoot -DataRoot $DataRoot
     if (-not $auditResult -or -not $auditResult.Audit) {
         throw 'PERSISTENT_STORAGE_REMOVAL_AUDIT_UNAVAILABLE'
     }
