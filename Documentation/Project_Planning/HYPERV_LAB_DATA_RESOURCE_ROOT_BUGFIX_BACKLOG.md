@@ -4,8 +4,8 @@
 
 | Merkmal | Wert |
 |---|---|
-| Status | `IN_PROGRESS / P0` |
-| Priorität | `P0` – vor regulärem Feature-Ausbau und vor Schließen des N5-Gesamtgates |
+| Status | `COMPLETE` seit 2026-08-31 |
+| Priorität | Abgeschlossenes P0-Gate; Folgeausbau läuft ausschließlich als eigener P1-Scope |
 | Betroffen | reguläre Hyper-V-Slots, Windows-/SQL-Image-Builder, VM-Konfiguration, Smart Paging, Checkpoints und Hyper-V-Image-Store |
 | Nicht betroffen | unveränderliche Quellmedien im `Lab_Base`; selectorgebundene SQL-Storage-Lanes behalten ihre explizite Location |
 

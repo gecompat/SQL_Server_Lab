@@ -8,10 +8,10 @@ keinen vollständigen, providerübergreifenden Wiederverwendungs- und
 Löschvertrag. Planung ist kein Implementierungs- oder Runtime-Nachweis.
 
 Der P0-Bugfix zur verbindlichen Ablage aller neuen Hyper-V-Ressourcen unter
-registrierten `Lab_Data`-Roots bleibt vorrangig. Die Bestandsanalyse dieses
-Backlogs darf parallel beginnen; mutierende Storage-Migrationen und der breite
-Produktpfad folgen erst auf geklärte Root-, Ownership-, Recovery- und
-Cleanup-Grenzen.
+registrierten `Lab_Data`-Roots ist seit 2026-08-31 abgeschlossen. Die
+verbleibenden PSR-Arbeitspakete konsumieren dessen geklärte Root-, Ownership-,
+Recovery- und Cleanup-Grenzen; sie erhalten dadurch keine zusätzliche
+Mutationsautorität.
 
 Der erste read-only `PSR-001`-Slice ist implementiert. Der Cleanup-Audit liefert
 den getrennten Vertrag `SqlServerLab.StorageResidencyInventory/1.0` mit stabilen
