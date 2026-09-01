@@ -592,6 +592,8 @@ $copilotAdapter = Get-Content -LiteralPath (Join-Path $repoRoot '.github\copilot
 $sqlCuPolicy = Get-Content -LiteralPath (Join-Path $repoRoot 'ops\sql-cu-policy.md') -Raw -Encoding utf8
 $masterImplementationPlan = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\MASTER_IMPLEMENTATION_PLAN.md') -Raw -Encoding utf8
 $developmentExecutionPlan = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md') -Raw -Encoding utf8
+$projectPlanningIndex = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\README.md') -Raw -Encoding utf8
+$hyperVResourceRootBacklog = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\HYPERV_LAB_DATA_RESOURCE_ROOT_BUGFIX_BACKLOG.md') -Raw -Encoding utf8
 $persistentStorageBacklog = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\PERSISTENT_STORAGE_REUSE_AND_LAB_DATA_BACKLOG.md') -Raw -Encoding utf8
 $labDataResidencyDecision = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Architecture\LAB_DATA_AND_NATIVE_RUNTIME_STORAGE_DECISION.md') -Raw -Encoding utf8
 $batchWorkflowPlan = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\PROVIDER_NEUTRAL_BATCH_QUEUE_RESUME_WORKFLOW_2026-08-13.md') -Raw -Encoding utf8
@@ -810,6 +812,13 @@ Add-ValidationResult `
         $repoMap -notmatch 'Reconcile ist auf den Lifecycle START/STOP begrenzt' -and
         $knownLimitations -match 'physische N5-Hyper-V-Mehrgeräte-\s*Nachweis wurde am 2026-08-30 abgeschlossen' -and
         $knownLimitations -match 'P0-Ressourcenroot-Bugfix ist nach der realen Legacy-SQL-Abnahme' -and
+        $knownLimitations -match '1\. Den synthetisch implementierten Hyper-V-' -and
+        $knownLimitations -notmatch 'Den P0-Bugfix für Hyper-V-Ressourcenroots' -and
+        $hyperVResourceRootBacklog -match '\| Status \| `COMPLETE` seit 2026-08-31 \|' -and
+        $hyperVResourceRootBacklog -notmatch 'IN_PROGRESS / P0' -and
+        $persistentStorageBacklog -match 'P0-Bugfix[\s\S]+ist seit 2026-08-31 abgeschlossen' -and
+        $persistentStorageBacklog -notmatch 'bleibt vorrangig' -and
+        $projectPlanningIndex -match 'Abgeschlossener P0-Bugfix' -and
         $knownLimitations -notmatch 'positiver realer Lauf dieses Runners steht weiterhin aus' -and
         $knownLimitations -match 'Alle drei produktiven Pilotadapter' -and
         $knownLimitations -match 'toolbelt\.core\.console-message' -and
