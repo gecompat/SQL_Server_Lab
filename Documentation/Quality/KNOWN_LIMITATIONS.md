@@ -371,8 +371,11 @@ Readiness am Zielport und der aktualisierte `connection-info.json`-Stand sind
 Postconditions. No-op, Restart, `WhatIf`, Abbruch nach Gastmutation,
 Recovery-Finalisierung und mehrdeutige Firewallidentität sind synthetisch
 belegt. Der Pfad unterstützt bewusst genau eine SQL-Standardinstanz; benannte
-oder mehrere SQL-Instanzen bleiben fail-closed. Ein positiver nativer
-Reparaturlauf bleibt `NOT_EXECUTED`.
+oder mehrere SQL-Instanzen bleiben fail-closed. Ein getrennter erhöhter Runner
+samt isoliertem `SQL_PREPARED_SEALED`-Bootstrap erzeugt ausschließlich im neuen
+Gast eine TCP-/Firewall-Drift und bindet Plan, `WhatIf`, SQL-Dienstrestart ohne
+VM-Neustart, Connection-State, No-op und Cleanup. Seine Existenz ist keine
+Runtime-Evidence; ein positiver nativer Reparaturlauf bleibt `NOT_EXECUTED`.
 
 Der getrennte Hyper-V-Testdatenbank-Reconcile akzeptiert ein Zielmanifest,
 persistiert katalogisierte Sample-PlanKeys und liest den echten ONLINE-Zustand
