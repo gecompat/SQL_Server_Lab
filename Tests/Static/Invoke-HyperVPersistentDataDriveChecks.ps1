@@ -20,7 +20,7 @@ Import-Module $modulePath -Force -ErrorAction Stop
 $module = Get-Module SqlServerLab
 $temporaryRoot = Join-Path ([IO.Path]::GetTempPath()) "sql-lab-hyperv-persistent-$([guid]::NewGuid().ToString('N'))"
 $dataRoot = Join-Path $temporaryRoot 'Lab_Data'
-$sourceRelativePath = 'HyperV\Persistent\source-data.vhdx'
+$sourceRelativePath = Join-Path (Join-Path 'HyperV' 'Persistent') 'source-data.vhdx'
 $sourcePath = Join-Path $dataRoot $sourceRelativePath
 New-Item -ItemType Directory -Path (Split-Path -Parent $sourcePath) -Force | Out-Null
 try {
@@ -59,7 +59,8 @@ try {
 
         $cloneIntent=$reattachIntent | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
         $cloneIntent.OperationId=[guid]::NewGuid().ToString('D'); $cloneIntent.Action='CLONE'; $cloneIntent.TargetPersistentStorageId=$targetId
-        $cloneIntent.TargetLocationId=$locationId; $cloneIntent.TargetRelativePath='HyperV\Persistent\clone-data.vhdx'
+        $cloneIntent.TargetLocationId=$locationId
+        $cloneIntent.TargetRelativePath=Join-Path (Join-Path 'HyperV' 'Persistent') 'clone-data.vhdx'
         $clonePlan=Get-LabHyperVPersistentDataPlan -Intent $cloneIntent -Catalog $catalog -Configuration $configuration -RuntimeInspection $inspection
 
         $attachedInspection=$inspection | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30

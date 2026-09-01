@@ -70,7 +70,7 @@ try {
     $hyperVNatPlans = & $module {
         function Get-VMSwitch { $null }
         function Get-NetIPAddress { @() }
-        function Get-DnsClientServerAddress { [PSCustomObject]@{ InterfaceAlias='Ethernet'; ServerAddresses=@('192.0.2.53') } }
+        function Get-LabHyperVDnsServers { @('192.0.2.53') }
         function Get-LabKnownIpv4Subnets { param($Provider) @('0.0.0.0/0') }
         function Get-NetNat { [PSCustomObject]@{ Name='FOREIGN_NAT'; InternalIPInterfaceAddressPrefix='172.30.0.0/24' } }
         $blocked = Resolve-LabHyperVNetworkBoundPlan -Intent nat
@@ -98,7 +98,7 @@ try {
         function Get-NetNat { param($Name) if ($script:natExists) { [PSCustomObject]@{ Name='SQL_LAB_HYPERV_NAT'; InternalIPInterfaceAddressPrefix='172.29.0.0/24' } } }
         function New-NetNat { $script:natApplyCalls.Add('nat'); $script:natExists=$true }
         function Remove-NetNat { }
-        function Get-DnsClientServerAddress { [PSCustomObject]@{ InterfaceAlias='Ethernet'; ServerAddresses=@('192.0.2.53') } }
+        function Get-LabHyperVDnsServers { @('192.0.2.53') }
         function Get-LabKnownIpv4Subnets { param($Provider) @() }
         $plan = Resolve-LabHyperVNetworkBoundPlan -Intent nat
         $result = Invoke-LabHyperVNetworkBoundPlan -Plan $plan

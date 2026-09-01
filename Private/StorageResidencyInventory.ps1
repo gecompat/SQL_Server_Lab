@@ -25,11 +25,12 @@ function Get-LabStoragePathRelation {
     [CmdletBinding()]
     param(
         [string]$Path,
-        [AllowEmptyCollection()][string[]]$KnownRoots = @()
+        [AllowEmptyCollection()][string[]]$KnownRoots = @(),
+        [switch]$RuntimeNamespace
     )
 
     if ([string]::IsNullOrWhiteSpace($Path)) { return 'UNKNOWN' }
-    if ($Path -match '^/') { return 'RUNTIME_INTERNAL' }
+    if ($RuntimeNamespace) { return 'RUNTIME_INTERNAL' }
     if (-not [IO.Path]::IsPathFullyQualified($Path)) { return 'UNKNOWN' }
 
     try { $resolvedPath = [IO.Path]::GetFullPath($Path).TrimEnd('\', '/') }
@@ -201,7 +202,7 @@ function Get-LabStorageResidencyInventory {
         $provider = ([string]$runtime.Provider).ToLowerInvariant()
         if ($provider -notin @('docker','podman')) { continue }
         $rootPath = if ([string]$runtime.Status -eq 'AVAILABLE') { Get-LabRuntimeStorageRoot -Provider $provider } else { $null }
-        $relation = Get-LabStoragePathRelation -Path $rootPath -KnownRoots $knownRoots
+        $relation = Get-LabStoragePathRelation -Path $rootPath -KnownRoots $knownRoots -RuntimeNamespace
         $objects.Add((New-LabStorageResidencyObject -Key "runtime-root|$provider" -ObjectClass RUNTIME_BACKING_STORE -Provider $provider `
             -Lifecycle SHARED -Residency NATIVE_RUNTIME -PathVisibility RUNTIME_NAMESPACE -LabDataRelation $relation `
             -LogicalName "$provider runtime storage" -Path $rootPath -CleanupPolicy REPORT_ONLY `
@@ -214,7 +215,7 @@ function Get-LabStorageResidencyInventory {
         $inspection = Get-LabRuntimeVolumeInspection -Provider $provider -Name $name
         $referenceKey = "$provider|$name"; $runIds = if ($volumeReferences.ContainsKey($referenceKey)) { @($volumeReferences[$referenceKey]) } else { @() }
         $persistent = $name -match '^sql-lab-persistent-'
-        $relation = if ($inspection) { Get-LabStoragePathRelation -Path ([string]$inspection.Mountpoint) -KnownRoots $knownRoots } else { 'UNKNOWN' }
+        $relation = if ($inspection) { Get-LabStoragePathRelation -Path ([string]$inspection.Mountpoint) -KnownRoots $knownRoots -RuntimeNamespace } else { 'UNKNOWN' }
         $referenceState = if ($runIds.Count -gt 0) { 'ACTIVE_REFERENCE' } elseif ($persistent) { 'RETAINED_UNBOUND' } else { 'ORPHAN_CANDIDATE' }
         $auditStatus = if (-not $inspection) { 'UNVERIFIABLE' } elseif ($referenceState -eq 'ORPHAN_CANDIDATE') { 'RESIDUAL' } else { 'VERIFIED' }
         $objects.Add((New-LabStorageResidencyObject -Key "runtime-volume|$provider|$name" -ObjectClass INSTANCE_STORE -Provider $provider `
