@@ -506,7 +506,11 @@ gestartet. Ein Zielmanifest darf ausschließlich diesen Intent ändern. Ein
 VM-gebundenes Ownership-Receipt schützt die Entfernung globaler Runtime-Trace-
 Flags; Startup- und fremde Flags bleiben fail-closed. Journalisierte
 Postconditions schreiben Ownership und Desired State erst nach erfolgreicher
-Runtime-Verifikation fort und Recovery wiederholt `TRACEOFF` nicht. Der SQL-Port-Folgeslice
+Runtime-Verifikation fort und Recovery wiederholt `TRACEOFF` nicht. Ein
+isolierter nativer Runner samt Prepared-Artifact-Bootstrap bindet Plan,
+`WhatIf`, Live-Änderung, Ownership-Add/-Remove, Fremd-Trace-Flag-Schutz,
+ausschließlich `MSSQLSERVER`-Restart ohne VM-Neustart, Desired-State-Rückkehr,
+No-op und Cleanup; seine positive Ausführung ist noch `NOT_EXECUTED`. Der SQL-Port-Folgeslice
 persistiert `hyperv.sqlPort`, vergleicht
 TCP-Registry und Gastfirewall hostwertfrei und repariert Drift für genau eine
 Standardinstanz mit journalisiertem SQL-Dienstrestart, Readiness-Postcondition

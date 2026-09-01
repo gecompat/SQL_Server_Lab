@@ -357,8 +357,12 @@ No-op, Live, Restart, `WhatIf`, wiederkehrende Drift, eigentumsgebundene
 Entfernung, Fremd-/Startup-Schutz, Abbruch/Resume ohne doppeltes `TRACEOFF`,
 Restart-Resume ohne doppelte Zielwertmutation sowie fehlende Konfiguration sind
 synthetisch belegt. Die Entfernung eines vollständigen `sp_configure`-Eintrags
-bleibt ohne Previous-Value-Receipt unsupported. Ein positiver nativer
-Reparaturlauf bleibt `NOT_EXECUTED`.
+bleibt ohne Previous-Value-Receipt unsupported. Ein getrennter erhöhter Runner
+samt isoliertem `SQL_PREPARED_SEALED`-Bootstrap bindet Plan, `WhatIf`, Live-
+Änderung, Ownership-Add/-Remove, den Fortbestand eines fremden Runtime-Flags,
+ausschließlich `MSSQLSERVER`-Restart ohne VM-Neustart, Desired-State-Rückkehr,
+No-op und scopegebundenen Cleanup. Seine Existenz ist keine Runtime-Evidence;
+ein positiver nativer Reparaturlauf bleibt `NOT_EXECUTED`.
 
 Der getrennte Hyper-V-SQL-Port-Reconcile persistiert `hyperv.sqlPort`, prüft
 TCP-Registry und die bestehende run-eigene Gastfirewall read-only und repariert

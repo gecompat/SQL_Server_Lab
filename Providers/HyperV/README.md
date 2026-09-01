@@ -56,6 +56,13 @@ plattformgebundene SQL-Features benötigen.
 - Cleanup-Plan vor der ersten Provider-Mutation;
 - eigener synthetischer Native-Smoke-Test ohne Betriebssystem, Netzwerk oder SQL.
 
+Der erhöhte SQL-Konfigurations-Akzeptanzrunner und sein isolierter
+`SQL_PREPARED_SEALED`-Bootstrap prüfen Plan, `WhatIf`, Live-Änderung,
+Ownership-Add/-Remove, Fremd-Trace-Flag-Schutz, ausschließlich
+`MSSQLSERVER`-Restart ohne VM-Neustart, Desired-State-Rückkehr, No-op und
+scopegebundenen Cleanup. Der Runner ist ausführbar, wurde aber noch nicht nativ
+ausgeführt (`NOT_EXECUTED`).
+
 `Private/HyperVImageRegistry.ps1` ergänzt eine immutable, inhaltsadressierte
 Registry für operatorseitig bereitgestellte `OS_SEALED`- und
 `SQL_PREPARED_SEALED`-VHDX. Der Import prüft read-only, VHDX-Signatur,

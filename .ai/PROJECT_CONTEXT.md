@@ -266,7 +266,12 @@ VM-gebundenes Receipt sie als run-eigen nachweist; SQL-Startup- und fremde Flags
 bleiben fail-closed. Nicht dynamische Werte werden konfiguriert, mit genau einem
 journalisierten `MSSQLSERVER`-Dienstrestart aktiviert und danach zusammen mit
 den Trace Flags erneut verifiziert. Ownership und Desired State werden erst
-nach den Runtime-Postconditions fortgeschrieben. Die Hyper-V-VM bleibt gestartet. Der
+nach den Runtime-Postconditions fortgeschrieben. Die Hyper-V-VM bleibt gestartet.
+Ein erhöhter nativer Runner samt isoliertem `SQL_PREPARED_SEALED`-Bootstrap
+bindet Plan, `WhatIf`, Live-Änderung, Ownership-Add/-Remove,
+Fremd-Trace-Flag-Schutz, ausschließlich `MSSQLSERVER`-Restart, Desired-State-
+Rückkehr, No-op und Cleanup ausführbar; seine positive Ausführung ist noch
+`NOT_EXECUTED`. Der
 Port-Slice bindet genau eine
 Standardinstanz, Gastfirewall, SQL-Dienstrestart, Readiness und Connection-
 State journalisiert. Der Testdatenbank-Slice vergleicht `sys.databases` mit

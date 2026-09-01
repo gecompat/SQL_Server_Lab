@@ -1,6 +1,8 @@
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $source = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVSqlConfigurationReconcile.ps1') -Raw -Encoding utf8
+$acceptanceSource=Get-Content -LiteralPath (Join-Path $repoRoot 'Tests/Integration/Invoke-HyperVSqlConfigurationReconcileAcceptance.ps1') -Raw -Encoding utf8
+$bootstrapSource=Get-Content -LiteralPath (Join-Path $repoRoot 'Tests/Integration/Invoke-HyperVSqlConfigurationReconcileAcceptanceBootstrap.ps1') -Raw -Encoding utf8
 $testRoot = Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-hv-sql-configuration-reconcile-' + [Guid]::NewGuid().ToString('N'))
 $runId = [Guid]::NewGuid().ToString('D')
 $scopeId = [Guid]::NewGuid().ToString('D')
@@ -262,6 +264,10 @@ try {
         'Fehlende oder mehrdeutige Konfiguration bleibt fail-closed'=$result.Unsupported
         'Gastmutation parametrisiert sp_configure, schuetzt Startup-Flags und startet ausschliesslich MSSQLSERVER neu'=($source -match "Parameters\.Add\('@name'" -and $source -match "Parameters\.Add\('@value'" -and $source -match 'DBCC TRACEOFF' -and $source -match 'SQLArg\*' -and $source -match "Restart-Service -Name 'MSSQLSERVER'" -and $source -notmatch 'Restart-VM|Stop-VM|Start-VM')
         'Initiale SQL-Konfiguration initialisiert den Trace-Flag-Besitznachweis'=((Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVLabEnvironment.ps1') -Raw) -match 'Initialize-LabHyperVSqlConfigurationOwnershipReceipt')
+        'Nativer Runner bindet Plan, WhatIf, Live, Remove, SQL-Restart, No-op und Desired-State-Rueckkehr'=($acceptanceSource -match 'Get-SqlServerLabReconcilePlan' -and $acceptanceSource -match 'Invoke-SqlServerLabReconcileAction' -and $acceptanceSource -match 'trace-flag-add' -and $acceptanceSource -match 'trace-flag-remove' -and $acceptanceSource -match 'RequiresServiceRestart' -and $acceptanceSource -match 'finalPlan\.IsNoOp')
+        'Nativer Runner schuetzt Fremdflag und beweist SQL-Restart ohne VM-Neustart'=($acceptanceSource -match 'DBCC TRACEON \(3604' -and $acceptanceSource -match 'DBCC TRACEOFF \(3604' -and $acceptanceSource -match 'Get-AcceptanceGuestBootTime' -and $acceptanceSource -match 'sqlStartAfter -ne \$sqlStartBefore' -and $acceptanceSource -notmatch 'Restart-VM|Stop-VM|Start-VM')
+        'Nativer Runner erzwingt scopegebundenen Run- und VHDX-Cleanup'=($acceptanceSource -match 'Remove-SqlServerLab' -and $acceptanceSource -match 'Run-eigene VHDX wurde entfernt' -and $acceptanceSource -match 'RECOVERY_RUN_ID' -and $acceptanceSource -match 'KeepOnFailure')
+        'Bootstrap bindet isoliertes Prepared-Artifact, Recovery-Marker und strikten Artifact-Cleanup'=($bootstrapSource -match 'RetainPreparedArtifact' -and $bootstrapSource -match 'RETAINED_STATE_ROOT' -and $bootstrapSource -match 'RETAINED_ARTIFACT_ID' -and $bootstrapSource -match 'Remove-HyperVImageArtifact' -and $bootstrapSource -match 'RECOVERY_REQUIRED')
     }
     $failedChecks=@($checks.GetEnumerator()|Where-Object{-not $_.Value})
     foreach($check in $checks.GetEnumerator()){$color=if($check.Value){'Green'}else{'Red'};Write-Host("  {0}  {1}" -f $(if($check.Value){'PASS'}else{'FAIL'}),$check.Key)-ForegroundColor $color}

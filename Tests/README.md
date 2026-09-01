@@ -39,6 +39,9 @@ dokumentiert. Ihre ausfuehrbaren Einstiege sind:
 .\Tests\Integration\Invoke-ContainerCliAcceptance.ps1 -Provider podman -Version 2022-CU18
 .\Tests\Integration\Invoke-HyperVCliAcceptance.ps1 -MediaRoot D:\Lab_Base -SqlVersion 2025
 .\Tests\Integration\Invoke-HyperVSqlPreparedImageAcceptance.ps1
+.\Tests\Integration\Invoke-HyperVSqlConfigurationReconcileAcceptance.ps1 `
+    -ArtifactId 'hyperv-sql-prepared-sealed-<sha256>'
+.\Tests\Integration\Invoke-HyperVSqlConfigurationReconcileAcceptanceBootstrap.ps1
 .\Tests\Integration\Invoke-HyperVTestDatabaseReconcileAcceptance.ps1 `
     -ArtifactId 'hyperv-sql-prepared-sealed-<sha256>'
 .\Tests\Integration\Invoke-HyperVTestDatabaseReconcileAcceptanceBootstrap.ps1 `
@@ -47,6 +50,14 @@ dokumentiert. Ihre ausfuehrbaren Einstiege sind:
     -StorageIntentPath .\Schemas\hyperv-storage-n5-intent.sample.json `
     -MediaRoot D:\Lab_Base
 ```
+
+Der SQL-Konfigurationsrunner erzeugt einen eigenen Prepared-Image-Klon und
+prüft Plan, `WhatIf`, Live-Reconcile, Trace-Flag-Ownership, den Fortbestand
+eines fremden Runtime-Flags, einen ausschließlichen SQL-Dienstrestart für einen
+nicht dynamischen Wert, Desired-State-Rückkehr, No-op und Cleanup. Der Bootstrap
+erzeugt zuvor ein isoliertes SQL-2025-Prepared-Artifact und entfernt es nur nach
+erfolgreichem Runner-Cleanup. Beide Einstiege behalten bei Fehlern die exakten
+Recovery-IDs; eine positive native Ausführung ist noch `NOT_EXECUTED`.
 
 Der letzte Runner ist der ausführbare Vertrag für Gate N5. Er startet nur,
 wenn vier TempDB-Datendateien auf mindestens zwei beziehungsweise der im Intent
