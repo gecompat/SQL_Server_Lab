@@ -508,7 +508,9 @@ parallele Writer. Er ist bewusst kein Ersatz für einen nativen Windows-SQL-
 FILESTREAM-Attach; dessen Acceptance muss separat in Hyper-V laufen.
 Die Suite prüft zusätzlich die pfadfreie CLI-/Browser-Inventur per stabiler
 `DatabasePackageId`, aufgeschobenes Voll-Hashing beim Refresh, explizite
-Integritätsverifikation und die weiterhin fail-closed gesperrte Zielbindung.
+Integritätsverifikation, die sanitisierte Projektion persistierter
+Migrationskategorien und Warnungen sowie die weiterhin fail-closed gesperrte
+Zielbindung. Die Projektion führt keine neue SQL-Abfrage aus.
 
 `Invoke-DatabaseMigrationDependencyChecks.ps1` prüft den PSR-010-Core ohne
 Runtime-Mutation: Parser und Schema für read-only SQL-Counts, Server-Login-,

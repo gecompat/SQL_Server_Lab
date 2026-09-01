@@ -214,9 +214,13 @@ Add-CheckResult -Name 'CLI und Browser inventarisieren Datenbankpakete pfadfrei 
     $htmlText -match 'id="database-package-attach"[^>]+disabled' -and
     $scriptText -match 'function renderDatabasePackageOptions' -and
     $scriptText -match 'item\.DatabasePackageId' -and
+    $scriptText -match 'selected\.DependencyCategories' -and
+    $scriptText -match 'selected\.MigrationWarnings' -and
+    $scriptText -match 'selected\.DependencyInventoryStatus' -and
     $scriptText -match 'TARGET_PROVIDER_PATH_MAPPING_NOT_BOUND|AttachReason' -and
     $scriptText -notmatch 'selected\.(Path|ManifestSha256|Sha256)' -and
-    $htmlText -match 'Zielbindung fehlt'
+    $htmlText -match 'Zielbindung fehlt' -and
+    $htmlText -match 'sanitisierte Migrationskategorien'
 )
 Add-CheckResult -Name 'CLI und Browser planen und führen unterstützte Retention über dieselben Fachbefehle aus' -Success (
     $removalPreviewText -match 'function Get-SqlServerLabPersistentStorageRemovalPlan' -and
