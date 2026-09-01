@@ -8,7 +8,8 @@
     Gibt den Audit nur zurueck und schreibt kein JSON-Artefakt.
 .OUTPUTS
     PSCustomObject mit Path und Audit. Audit enthaelt Status, Zusammenfassung,
-    Datenwurzeln, aktive Runs sowie gefundene oder unpruefbare Providerressourcen.
+    Datenwurzeln, aktive Runs, gefundene oder unpruefbare Providerressourcen
+    sowie eine physische und logische Storage-Residency-Matrix.
 #>
 function Get-SqlServerLabCleanupAudit {
     [CmdletBinding()]
@@ -27,7 +28,8 @@ function Get-SqlServerLabCleanupAudit {
             $totalBytes = [long](($files | Measure-Object -Property Length -Sum).Sum)
         }
         $rootResults += [PSCustomObject]@{
-            VolumeId=[string]$location.VolumeId; DriveLetter=[string]$location.DriveLetter; LabDataRoot=$root
+            LocationId=[string]$location.LocationId; VolumeId=[string]$location.VolumeId
+            DriveLetter=[string]$location.DriveLetter; LabDataRoot=$root
             Exists=[bool]($root -and (Test-Path -LiteralPath $root -PathType Container))
             Owned=[bool]($marker -and [string]$marker.ManagedBy -eq 'SQL_Server_Lab' -and [string]$marker.ControllerId -eq [string]$configuration.ControllerId)
             ContractVersion=if ($marker) { [string]$marker.ContractVersion } else { $null }
@@ -70,7 +72,26 @@ function Get-SqlServerLabCleanupAudit {
     if ($IsWindows -and (Get-Command Get-VM -ErrorAction SilentlyContinue)) {
         try {
             $hyperVResources = @(Get-HyperVLabVMs | ForEach-Object {
-                [PSCustomObject]@{ Name=[string]$_.Name; State=[string]$_.State; RunId=[string]$_.RunId; ScopeId=[string]$_.ScopeId; Orphan=[bool](-not $_.RunId -or [string]$_.RunId -notin $knownRunIds) }
+                $storageBindings = @(); $storageStatus = 'VERIFIED'
+                try {
+                    $vm = Get-VM -Name ([string]$_.VMName) -ErrorAction Stop
+                    foreach ($binding in @(
+                        [PSCustomObject]@{ ResourceKind='VM_CONFIGURATION'; Path=[string]$vm.ConfigurationLocation },
+                        [PSCustomObject]@{ ResourceKind='CHECKPOINT'; Path=[string]$vm.SnapshotFileLocation },
+                        [PSCustomObject]@{ ResourceKind='SMART_PAGING'; Path=[string]$vm.SmartPagingFilePath }
+                    )) {
+                        if ($binding.Path) { $storageBindings += $binding }
+                    }
+                    foreach ($drive in @(Get-VMHardDiskDrive -VMName ([string]$_.VMName) -ErrorAction Stop)) {
+                        if ($drive.Path) { $storageBindings += [PSCustomObject]@{ ResourceKind='VHDX'; Path=[string]$drive.Path } }
+                    }
+                }
+                catch { $storageStatus = 'UNVERIFIABLE' }
+                [PSCustomObject]@{
+                    Name=[string]$_.VMName; State=[string]$_.State; RunId=[string]$_.RunId; ScopeId=[string]$_.ScopeId
+                    Orphan=[bool](-not $_.RunId -or [string]$_.RunId -notin $knownRunIds)
+                    StorageStatus=$storageStatus; StorageBindings=@($storageBindings)
+                }
             })
             $hyperVStatus = 'AVAILABLE'
         }
@@ -218,6 +239,12 @@ function Get-SqlServerLabCleanupAudit {
         $legacyStateRoots += [PSCustomObject]@{ Path=$legacyState; RunCount=$legacyRunCount }
     }
 
+    $storageResidency = Get-LabStorageResidencyInventory -Configuration $configuration -StateRoot $stateRoot `
+        -DataRoots $rootResults -ActiveRuns $activeRuns -RuntimeResults $runtimeResults -ManagedVolumes $managedVolumes `
+        -HyperVStatus $hyperVStatus -HyperVResources $hyperVResources -HyperVRunScopes $hyperVRunScopes -HyperVSharedRoots $hyperVSharedRoots `
+        -HyperVUntrackedFiles $hyperVUntrackedFiles -ExternalReferences $externalReferences `
+        -RepositoryResidues $repositoryResidues -LegacyStateRoots $legacyStateRoots
+
     $unverifiable = @($runtimeResults | Where-Object Status -eq 'UNAVAILABLE').Count + $(if ($hyperVStatus -eq 'UNAVAILABLE') { 1 } else { 0 })
     $hyperVProtectionIssues = @($hyperVRunScopes | Where-Object {
         $_.BindingStatus -in @('INVALID','IDENTITY_MISMATCH') -or
@@ -234,6 +261,7 @@ function Get-SqlServerLabCleanupAudit {
             Status=$hyperVStatus; Resources=$hyperVResources; RunScopes=$hyperVRunScopes
             SharedRoots=$hyperVSharedRoots; UntrackedFiles=$hyperVUntrackedFiles
         }
+        StorageResidency=$storageResidency
         ExternalReferences=$externalReferences; RepositoryResidues=$repositoryResidues; LegacyStateRoots=$legacyStateRoots
         Summary=[PSCustomObject]@{
             ResidualCount=$residualCount; UnverifiableProviders=$unverifiable

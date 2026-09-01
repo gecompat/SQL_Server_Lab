@@ -110,6 +110,7 @@ Interpretation:
 .\Tests\Static\Invoke-SampleHandlerChecks.ps1
 .\Tests\Static\Invoke-ProjectAdapterChecks.ps1
 .\Tests\Static\Invoke-CleanupRecoveryChecks.ps1
+.\Tests\Static\Invoke-CleanupAuditChecks.ps1
 .\Tests\Static\Invoke-PodmanBootstrapChecks.ps1
 .\Tests\Static\Invoke-PesterChecks.ps1
 .\Tests\Static\Invoke-ReleaseReadinessChecks.ps1
@@ -157,6 +158,9 @@ Die statischen Prüfungen benötigen keine laufende SQL-Server-Instanz. Sie kont
 - Project-Adapter-Vertrag: Schema, Versions- und Capability-Gates sowie die Pfadgrenzen des Adapter-Roots anhand manipulierter Kopien.
 - Cleanup-/Recovery-Vertrag: sichtbarer Providerfehler, persistierter
   `RECOVERY_REQUIRED`-State, Fehlerhistorie und erfolgreicher Wiederholungsversuch.
+- Storage-Residency-Inventar: stabile Objektidentitäten, host-sichtbares
+  `Lab_Data`, native Runtime-Volumes, externe Referenzen, Retention,
+  Orphan-Kandidaten und ausdrücklich unverifizierbares physisches Backing.
 - Podman-Bootstrap: bereits erreichbare Runtime, eindeutige Machine-Auswahl,
   Startfehler, Timeout und hostweit serialisierter Parallelstart.
 

@@ -855,6 +855,15 @@ nichtterminale Run-Migrationen und unsafe VHDX-Pfade. Der Cleanup-Audit weist
 Run-Bindings, Migrationsstatus, ungetrackte Preserve-Dateien und Shared-Roots
 read-only aus; eine automatische Reparatur oder Löschung solcher Befunde ist
 bewusst noch nicht implementiert.
+Der Cleanup-Audit ergänzt dies um den versionierten read-only Vertrag
+`SqlServerLab.StorageResidencyInventory/1.0`. Er trennt host-sichtbares
+`Lab_Data`, native Docker-/Podman-Volumes, externe Pfade, Hyper-V-Ressourcen,
+rungebundene und retained Objekte sowie deren Cleanup-Policy. Ein von Docker
+oder Podman gemeldeter Pfad im Runtime-Namensraum belegt nicht die physische
+Hostdisk; ein nicht über die Provider-API auflösbares Desktop-/Machine-Backing
+bleibt `UNVERIFIABLE`. Stabile `PersistentStorageId`-Kataloge, Leases,
+providerübergreifende Wiederverwendung und explizites Löschen sind damit noch
+nicht implementiert.
 Der zweite `HVR-006`-Slice koppelt Lifecycle-Reconcile, Start, Stop,
 Autostartänderung und SQL-WMI-Repair an einen gemeinsamen read-only
 Migrationsguard. Laufende, fehlgeschlagene oder inkonsistent abgeschlossene

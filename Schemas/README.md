@@ -18,6 +18,8 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 | `lab-storage-intent.schema.json` | Portabler Manifestvertrag `SqlServerLab.StorageIntent/1.0` ohne lokale Pfade oder Geräte-IDs |
 | `lab-storage-bound-plan.schema.json` | Lokaler read-only Vertrag `SqlServerLab.StorageBoundPlan/1.0` für Selector-, Location-, Topologie- und Dateibindung |
 | `lab-storage-runtime-receipt.schema.json` | Getrennter Evidence-Vertrag für Hyper-V-VHDX, Gastdisk, SQL-Dateipfad, CREATE-/Restore-Operationen, Dienstrestart, Postconditions und Recovery |
+| `lab-storage-residency-inventory.schema.json` | Read-only Vertrag `SqlServerLab.StorageResidencyInventory/1.0` für `Lab_Data`, native Runtime-Ablage, externe Pfade, Retention, Cleanup-Zuordnung und unverifizierbares physisches Backing |
+| `lab-cleanup-audit.schema.json` | Lokaler Cleanup-Audit einschließlich der getrennt schema-validierten Storage-Residency-Matrix |
 | `hyperv-resource-binding.schema.json` | Lokaler Vertrag `SqlServerLab.HyperVResourceBinding/1.0` für kurze Hyper-V-Create-Roots mit Controller-, Location-, Volume- und `Lab_Data`-Identität |
 | `hyperv-resource-migration-plan.schema.json` | Lokaler read-only Vertrag `SqlServerLab.HyperVResourceMigrationPlan/1.0` für exaktes Legacy-Inventar, Zielbindung, Blocker und geplante Aktionen |
 | `hyperv-resource-migration-journal.schema.json` | Lokales Operationsjournal `SqlServerLab.HyperVResourceMigrationJournal/1.0` für vorjournalisiertes Parent-Reparent, getrennte Child-Hashes, VHDX-/VM-Umbindung, Readiness, Image-Resume, späten Quell-Cleanup und sichtbaren Recovery-Bedarf |
