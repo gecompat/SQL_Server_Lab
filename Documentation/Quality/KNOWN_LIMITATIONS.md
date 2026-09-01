@@ -1018,13 +1018,9 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
 
 ## Priorisierte nächste technische Schritte
 
-1. Den P0-Bugfix für Hyper-V-Ressourcenroots nach der belegten real erhöhten
-   Windows-Legacy-Run-/Parent-/Child-Migration, dem erneuten N5-Nachweis und
-   der allgemeinen Parent-Storage-Migration mit SQL-Readiness der Legacy-
-   Migration abschließen.
-2. Den synthetisch implementierten Hyper-V-`LAB_GENERATED`-Export und die
+1. Den synthetisch implementierten Hyper-V-`LAB_GENERATED`-Export und die
    automatische Sample-Manifestausführung real abnehmen (Sample-Welle 6).
-3. Die verbleibenden providerneutralen Software-Intents an die Software-Runtime
+2. Die verbleibenden providerneutralen Software-Intents an die Software-Runtime
    binden; Container-`nat`, Hyper-V-`hostOnly`/`isolated`/`nat`/`lan` sowie
    Hyper-V-vCPU, statisches/dynamisches RAM und Zusatz-VHDX sind bereits
    manifestgebunden. Netzwerk-, Ressourcen-, Grow-only-Storage-, Default-/
@@ -1033,9 +1029,9 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
    implementiert; positive native Reparaturnachweise, alte Runs ohne
    Testdatenbank-Ownership-Receipt, Storage-Removal/-Rebinding,
    User-/Systemdatenbankbewegung und weitere Hardware-/SQL-Klassen bleiben offen.
-4. Artifact Registry, Refresh/Rebuild und Evaluierungsablauf implementieren.
-5. Den belegten Windows-2025-/SQL-2025-Referenzpfad zur vollständigen
+3. Artifact Registry, Refresh/Rebuild und Evaluierungsablauf implementieren.
+4. Den belegten Windows-2025-/SQL-2025-Referenzpfad zur vollständigen
    allgemeinen Hyper-V-Manifestbindung und zu weiteren realen
    Versions-/Editionsnachweisen ausbauen.
-6. Katalogaktualität, verifizierte Prüfsummen (`catalog-verified`) und
+5. Katalogaktualität, verifizierte Prüfsummen (`catalog-verified`) und
    Baseline-Kompatibilität kontrolliert pflegen.
