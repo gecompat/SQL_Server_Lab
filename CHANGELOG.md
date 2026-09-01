@@ -8,6 +8,15 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- `SqlServerLab.HyperVPersistentDataIntent/1.0`, Plan und Recovery-Journal
+  wählen katalogisierte Hyper-V-Daten-VHDX per stabiler Storage-ID und prüfen
+  `Lab_Data`-Bindung, DiskIdentifier, Attachments, Checkpoints, Clean-Detach,
+  Ziel-VM, SQL-Major-Version und freien Gastpfad fail-closed. Der Clone bleibt
+  quellenunverändert und erhält einen neuen DiskIdentifier; ein realer
+  isolierter Hyper-V-Lauf bestätigt `CLONE`, `REATTACH`, `RELEASE` und Cleanup.
+  Vorhandene Dateien gelten weiterhin erst nach explizitem Restore oder Attach
+  als Datenbank.
+
 - `SqlServerLab.ContainerRuntimeScope/1.0` bindet den aktiven Docker-Context
   beziehungsweise die aktive Podman-Connection/Machine an eine stabile,
   endpunktgebundene und pfadsanitisierte Runtime-ID. Geteilte Runtimes bleiben

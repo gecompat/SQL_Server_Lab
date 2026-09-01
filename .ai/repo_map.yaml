@@ -97,6 +97,11 @@ sources_of_truth:
   container_runtime_scope_schema: Schemas/container-runtime-scope.schema.json
   validation_container_runtime_scope: Tests/Static/Invoke-ContainerRuntimeScopeChecks.ps1
   acceptance_container_runtime_scope: Tests/Integration/Invoke-ContainerRuntimeScopeAcceptance.ps1
+  hyperv_persistent_data_drive: Private/HyperVPersistentDataDrive.ps1
+  hyperv_persistent_data_intent_schema: Schemas/hyperv-persistent-data-intent.schema.json
+  hyperv_persistent_data_plan_schema: Schemas/hyperv-persistent-data-plan.schema.json
+  validation_hyperv_persistent_data_drive: Tests/Static/Invoke-HyperVPersistentDataDriveChecks.ps1
+  acceptance_hyperv_persistent_data_drive: Tests/Integration/Invoke-HyperVPersistentDataDriveAcceptance.ps1
   lab_data_native_runtime_storage_decision: Documentation/Architecture/LAB_DATA_AND_NATIVE_RUNTIME_STORAGE_DECISION.md
   cleanup_audit_schema: Schemas/lab-cleanup-audit.schema.json
   hyperv_resource_binding_contract: Private/HyperVResourceBinding.ps1
@@ -505,6 +510,7 @@ internal_components:
     persistent_storage_catalog: Private/PersistentStorageCatalog.ps1
     persistent_storage_removal_plan: Private/PersistentStorageRemovalPlan.ps1
     container_runtime_scope: Private/ContainerRuntimeScope.ps1
+    hyperv_persistent_data_drive: Private/HyperVPersistentDataDrive.ps1
     responsibilities:
       - "Cleanup-Plan und providergebundene Cleanup-SubRuns vor Mutation erzeugen"
       - "Compensation-Schritte je Provider speichern und ausführen"
@@ -517,6 +523,7 @@ internal_components:
       - "katalogisierte Docker-/Podman-Instanzstores per stabiler ID und Runtime-Label detached revalidieren, fuer Continue binden und in ein neues operationsgebundenes Volume digestverifiziert klonen"
       - "aktiven Docker-Context beziehungsweise Podman-Connection/Machine read-only an eine stabile sanitisierte Runtime-ID binden und geteilte Engine-/Machine-/Hostdefaults als REPORT_ONLY vor Mutation schuetzen"
       - "sanitisierte Docker-/Podman-Runtime-Scopes im oeffentlichen Cleanup-Audit ausgeben, ohne Rohendpunkte, Identity-Pfade oder Managementautoritaet zu persistieren"
+      - "katalogisierte Hyper-V-Daten-VHDX per stabiler Storage-ID, Clean-Detach-, DiskIdentifier-, VM-, Checkpoint-, SQL-Versions- und Gastpfad-Evidenz revalidieren, quellenunveraendert klonen, reattachen und freigeben"
   - name: PortAllocation
     source: Private/PortAllocation.ps1
     responsibilities:
@@ -877,6 +884,16 @@ validation:
       - remote_and_ambiguous_runtime_guards
       - endpoint_and_host_path_sanitization
       - shared_runtime_report_only_boundary
+  static_hyperv_persistent_data_drive:
+    command: '.\Tests\Static\Invoke-HyperVPersistentDataDriveChecks.ps1'
+    source: Tests/Static/Invoke-HyperVPersistentDataDriveChecks.ps1
+    covers:
+      - stable_storage_id_and_lab_data_binding
+      - clean_detach_disk_identifier_and_sql_version_guards
+      - target_vm_checkpoint_and_guest_path_guards
+      - source_immutable_independent_vhdx_clone
+      - reattach_release_and_recovery_journal
+      - explicit_database_restore_or_attach_boundary
   static_podman_bootstrap:
     command: '.\Tests\Static\Invoke-PodmanBootstrapChecks.ps1'
     source: Tests/Static/Invoke-PodmanBootstrapChecks.ps1
@@ -1032,6 +1049,16 @@ validation:
       - schema_and_sanitization
       - shared_runtime_management_blocked
       - before_after_resource_fingerprint_unchanged
+  hyperv_persistent_data_drive_acceptance:
+    source: Tests/Integration/Invoke-HyperVPersistentDataDriveAcceptance.ps1
+    command: '.\Tests\Integration\Invoke-HyperVPersistentDataDriveAcceptance.ps1'
+    execution_status: "am 2026-09-01 nativ positiv ausgefuehrt; test-eigene VM und VHDX vollstaendig bereinigt"
+    checks:
+      - source_vhdx_hash_unchanged
+      - independent_clone_disk_identifier
+      - managed_vm_reattach_and_identity
+      - clean_host_release
+      - explicit_sql_guest_evidence_boundary
   remote_workflows:
     foundation_integrity:
       source: .github/workflows/static-contracts.yml

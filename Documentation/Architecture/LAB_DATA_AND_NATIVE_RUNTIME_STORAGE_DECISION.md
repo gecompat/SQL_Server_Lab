@@ -158,7 +158,12 @@ Mutation mit dem Residency-Inventar ab. Folgende Arbeit bleibt getrennt:
   Runtime-ID und blockiert Host-/Runtime-Management ohne Ownership-Evidence;
   ein dedizierter Ownership-, Location-, Capacity-, Recovery- und Cleanup-
   Vertrag bleibt offen;
-- `PSR-007`: revalidierter Hyper-V-Daten-VHDX-Lifecycle;
+- `PSR-007`: Der interne Lifecycle-Core revalidiert katalogisierte Hyper-V-
+  Daten-VHDX per stabiler Storage-ID gegen `Lab_Data`, DiskIdentifier,
+  Attachments, Checkpoints, Clean-Detach-, SQL-Versions- und Gastpfad-Evidenz.
+  Ein isolierter nativer Lauf bestätigt quellenunveränderten eigenständigen
+  Clone, Reattach und Release. Katalog-Commit, öffentliche Bedienung und die
+  ausdrücklich nachgelagerte Datenbank-Restore-/Attach-Aktion bleiben offen;
 - `PSR-008`/`PSR-009`: Backup-Bibliothek und kontrollierte Datenbankpakete.
 
 `SqlServerLab.StorageResidencyInventory/1.0` darf deshalb weiterhin `PARTIAL`

@@ -46,6 +46,7 @@ $checks = @(
     'Invoke-PersistentStorageRemovalPlanChecks.ps1',
     'Invoke-ContainerInstanceStoreChecks.ps1',
     'Invoke-ContainerRuntimeScopeChecks.ps1',
+    'Invoke-HyperVPersistentDataDriveChecks.ps1',
     'Invoke-PodmanBootstrapChecks.ps1',
     'Invoke-ContainerAutoStartChecks.ps1',
     'Invoke-ContainerVolumeContractChecks.ps1',

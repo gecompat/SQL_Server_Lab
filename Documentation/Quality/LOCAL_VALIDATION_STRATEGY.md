@@ -130,7 +130,14 @@ Der Auto-Modus wählt für den mutierenden Lifecycle genau eine Runtime: Docker 
     -MediaRoot D:\Lab_Base
 .\Tests\Integration\Invoke-HyperVTestDatabaseReconcileAcceptance.ps1 `
     -ArtifactId 'hyperv-sql-prepared-sealed-<sha256>'
+.\Tests\Integration\Invoke-HyperVPersistentDataDriveAcceptance.ps1
 ```
+
+Der letzte Runner benötigt keinen Windows-Gast und belegt mit kleinen,
+test-eigenen Ressourcen den nativen Host-Lifecycle einer persistenten VHDX:
+unveränderte Quelle, eigenständiger Clone mit neuem DiskIdentifier, Reattach an
+eine ausgeschaltete Generation-2-VM, Release und vollständiger Cleanup. Er
+behauptet ausdrücklich keinen SQL-/Gast- oder Datenbank-Onlinenachweis.
 
 Fehlt auf dem Host ein dauerhaft veröffentlichtes SQL-2025-Prepared-Artifact,
 kann der vollständige Nachweis stattdessen dessen isolierten N4-Bootstrap
