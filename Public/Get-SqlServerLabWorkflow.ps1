@@ -59,6 +59,7 @@ function Get-SqlServerLabWorkflow {
     $sampleDatabases = @()
     $backupLibrary = @()
     $persistentStorageRemovalCandidates = @()
+    $containerInstanceStoreCandidates = @()
     $mediaSources = @()
     $hyperVLabs = @()
     $hyperVSwitches = @()
@@ -131,9 +132,44 @@ function Get-SqlServerLabWorkflow {
                     }
                 }
             )
+            $containerInstanceStoreCandidates = @(
+                foreach ($store in @($storageCatalog.Document.Stores | Where-Object {
+                    [string]$_.StorageClass -eq 'INSTANCE_STORE' -and
+                    [string]$_.Provider -in @('docker','podman') -and
+                    [string]$_.State -in @('AVAILABLE','DETACHED') -and -not $_.Lease -and
+                    @($_.References | Where-Object State -eq 'ACTIVE').Count -eq 0
+                })) {
+                    $runtimeStatus = 'UNAVAILABLE'; $sqlMajorVersion = $null; $issues = @('RUNTIME_NOT_INSPECTED')
+                    try {
+                        $inspection = Get-LabContainerInstanceStoreRuntimeInspection `
+                            -Provider ([string]$store.Provider) `
+                            -VolumeName ([string]$store.LocationBinding.ProviderResourceId)
+                        $runtimeStatus = [string]$inspection.Status
+                        $sqlMajorVersion = [string]$inspection.Labels.'sql-server-lab.sql-major-version'
+                        $issues = @()
+                        if ($runtimeStatus -ne 'AVAILABLE') { $issues += 'SOURCE_VOLUME_NOT_OBSERVED' }
+                        if ([string]$inspection.Labels.'sql-server-lab.persistent-storage-id' -ne [string]$store.PersistentStorageId) {
+                            $issues += 'SOURCE_STORAGE_LABEL_MISMATCH'
+                        }
+                        if ($sqlMajorVersion -notmatch '^\d{4}$') { $issues += 'SOURCE_SQL_VERSION_UNVERIFIED' }
+                        if (@($inspection.AttachedContainers).Count -gt 0) { $issues += 'SOURCE_VOLUME_ATTACHED' }
+                    }
+                    catch { $issues = @('RUNTIME_UNAVAILABLE') }
+                    [PSCustomObject]@{
+                        PersistentStorageId=[string]$store.PersistentStorageId
+                        DisplayName=[string]$store.DisplayName
+                        Provider=[string]$store.Provider
+                        State=[string]$store.State
+                        SqlMajorVersion=if ($sqlMajorVersion -match '^\d{4}$') { $sqlMajorVersion } else { $null }
+                        RuntimeStatus=$runtimeStatus
+                        AvailableActions=if (@($issues).Count -eq 0) { @('CONTINUE','CLONE') } else { @() }
+                        Issues=@($issues | Sort-Object -Unique)
+                    }
+                }
+            )
         }
     }
-    catch { $persistentStorageRemovalCandidates = @() }
+    catch { $persistentStorageRemovalCandidates = @(); $containerInstanceStoreCandidates = @() }
     if ($hyperV.Supported) {
         $hyperVLabs = @($activeRuns | Where-Object { [string]$_.metadata.workflowKind -eq 'hyperv-lab' } | ForEach-Object {
             $run = $_
@@ -320,6 +356,7 @@ function Get-SqlServerLabWorkflow {
         SampleDatabases = $sampleDatabases
         BackupLibrary = $backupLibrary
         PersistentStorageRemovalCandidates = $persistentStorageRemovalCandidates
+        ContainerInstanceStoreCandidates = $containerInstanceStoreCandidates
         MediaSources = $mediaSources
         TemplatePool = $templatePool
         HyperVLabs = $hyperVLabs

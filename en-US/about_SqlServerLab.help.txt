@@ -132,7 +132,9 @@ COMMANDS
         local browser user interface.
 
     New-SqlServerLab
-        Creates a lab environment from parameters or a manifest.
+        Creates a lab environment from parameters or a manifest. A detached
+        Docker or Podman instance store can be continued by stable ID or cloned
+        independently under an exclusive operation lease.
 
     Manifest
 

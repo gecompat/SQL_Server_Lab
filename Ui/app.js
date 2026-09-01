@@ -923,6 +923,30 @@ const persistentStoragePolicyLabels = {
   EXTERNAL_UNMANAGED: 'Nur externe Bindung lösen'
 };
 
+function updateContainerStorageSelection() {
+  const enabled = $('#container-persistent-data').checked;
+  const selection = $('#container-storage-selection');
+  selection.hidden = !enabled;
+  const action = $('#container-storage-action').value;
+  const sourceLabel = $('#container-storage-source-label');
+  sourceLabel.hidden = !enabled || action === 'NEW';
+  if (!enabled || action === 'NEW') return;
+
+  const provider = $('#container-provider').value;
+  const sqlMajorVersion = $('#container-version').value.substring(0, 4);
+  const current = $('#container-storage-source').value;
+  const candidates = (Array.isArray(workflow?.ContainerInstanceStoreCandidates) ? workflow.ContainerInstanceStoreCandidates : [])
+    .filter((item) => item.Provider === provider && item.SqlMajorVersion === sqlMajorVersion &&
+      Array.isArray(item.AvailableActions) && item.AvailableActions.includes(action));
+  $('#container-storage-source').innerHTML = candidates.length
+    ? candidates.map((item) => '<option value="' + escapeHtml(item.PersistentStorageId) + '">' + escapeHtml((item.DisplayName || 'Instanzstore') + ' · ' + shortId(item.PersistentStorageId)) + '</option>').join('')
+    : '<option value="">Kein kompatibler detached Instanzstore verfügbar</option>';
+  if (candidates.some((item) => item.PersistentStorageId === current)) $('#container-storage-source').value = current;
+  $('#container-storage-note').textContent = candidates.length
+    ? 'Die Quelle wird direkt vor jeder Mutation anhand ihrer stabilen PersistentStorageId, SQL-Major-Version, Runtime-Labels, Attachments und Lease erneut geprüft.'
+    : 'Für Provider und SQL-Major-Version ist kein sicher verwendbarer detached Instanzstore verfügbar.';
+}
+
 function persistentStorageCandidatesForRun(runId) {
   const candidates = Array.isArray(workflow?.PersistentStorageRemovalCandidates) ? workflow.PersistentStorageRemovalCandidates : [];
   return candidates.filter((item) => item.RunId === runId && Array.isArray(item.AllowedPolicies) && item.AllowedPolicies.length > 0);
@@ -1188,7 +1212,12 @@ $('#publish-form').addEventListener('submit', async (event) => {
   queueBackgroundAction($('#publish-action').value, { BuildId: $('#publish-build').value, EvaluationExpiresAt: evaluationExpiresAt }, $('#publish-dialog'));
 });
 
-$('#new-container').addEventListener('click', () => $('#container-dialog').showModal());
+$('#new-container').addEventListener('click', () => { updateContainerStorageSelection(); $('#container-dialog').showModal(); });
+
+$('#container-persistent-data').addEventListener('change', updateContainerStorageSelection);
+$('#container-storage-action').addEventListener('change', updateContainerStorageSelection);
+$('#container-provider').addEventListener('change', updateContainerStorageSelection);
+$('#container-version').addEventListener('change', updateContainerStorageSelection);
 
 $('#new-manifest').addEventListener('click', () => $('#manifest-dialog').showModal());
 
@@ -1322,8 +1351,12 @@ $('#container-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   if ($('#container-password').value !== $('#container-password-repeat').value) { showError(new Error('Die beiden SA-Passwörter stimmen nicht überein.')); return; }
   const persistentData = $('#container-persistent-data').checked;
+  const storageAction = persistentData ? $('#container-storage-action').value : 'NEW';
+  const persistentStorageId = storageAction === 'NEW' ? '' : $('#container-storage-source').value;
+  if (storageAction !== 'NEW' && !persistentStorageId) { showError(new Error('Kein kompatibler Instanzstore ausgewählt.')); return; }
   const parameters = { Provider: $('#container-provider').value, SqlVersion: $('#container-version').value, Profile: $('#container-profile').value, InstanceId: $('#container-instance').value, LabName: $('#container-lab-name').value, PersistentData: persistentData, AutoStart: $('#container-autostart').checked ? 'on' : 'off', SaPassword: $('#container-password').value };
   if (persistentData) parameters.DataRoot = workflow?.Defaults?.DataRoot || '';
+  if (persistentStorageId) { parameters.PersistentStorageId = persistentStorageId; parameters.PersistentStorageAction = storageAction; }
   queueBackgroundAction('NewContainerLab', parameters, $('#container-dialog'), () => {
     $('#container-password').value = ''; $('#container-password-repeat').value = ''; $('#container-dialog').close();
   });
