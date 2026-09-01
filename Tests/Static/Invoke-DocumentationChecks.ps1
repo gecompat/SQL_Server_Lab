@@ -846,6 +846,14 @@ Add-ValidationResult `
         $developmentExecutionPlan -notmatch [regex]::Escape('reale `live`-/`recreate`-Änderungen offen'))
 
 Add-ValidationResult `
+    -Name 'Roadmap beschreibt den implementierten Hyper-V-Netzwerk-Reconcile-Slice widerspruchsfrei' `
+    -Success ($developmentExecutionPlan -match '(?m)^\| M6 Reconcile-Breite \| `implemented_partial` \|' -and
+        $developmentExecutionPlan -match '`NET-611` und der Planungsanteil von `NET-612` sind' -and
+        $developmentExecutionPlan -match 'Rebinding,\s*Adapter-Neuanlage, Gastadressreparatur und positive native Repair-' -and
+        $masterImplementationPlan -match 'eng begrenzter journalisierter Network-Reconcile' -and
+        $masterImplementationPlan -notmatch 'Post-Provisioning-/Network-Manifest-Binding')
+
+Add-ValidationResult `
     -Name 'Reale SQL-Prepared-Image-Abnahme ist ausführbar und dokumentiert' `
     -Success ((Test-Path -LiteralPath $sqlPreparedAcceptancePath -PathType Leaf) -and
         $localValidationStrategy -match [regex]::Escape('Invoke-HyperVSqlPreparedImageAcceptance.ps1') -and

@@ -206,7 +206,7 @@ Container-Volumes gehören dagegen in den normalen Storage-Pfad.
 
 ### 5.1 Aktueller Meilensteinstatus
 
-| Meilenstein | Status am 2026-08-29 | Nächster belastbarer Schritt |
+| Meilenstein | Status am 2026-09-01 | Nächster belastbarer Schritt |
 |---|---|---|
 | M0 Statuswahrheit | `validated` | Drift weiter statisch verhindern |
 | Providerneutraler Instanz-Autostart | `implemented_runtime_partial` | Docker-/SQL-2025-Runtime ist grün; Podman-Self-hosted-Gate und nativen Hyper-V-Lifecycle fortlaufend grün halten |
@@ -214,8 +214,8 @@ Container-Volumes gehören dagegen in den normalen Storage-Pfad.
 | M2 UI und Container-Reconcile | `implemented_partial` | Batch/Queue sowie Container-`no-op`, `live`, `recreate`, Rollback und Persistenz sind für Docker und Podman real verifiziert; beliebige Mount-/Environment-Änderungen aus `CNT-214` bleiben offen |
 | M3 Adapterpiloten | `planned_external_scope` | je ein Pilot in den drei Konsumenten-Repositories |
 | M4 Hyper-V OS Cold Path | `validated_reference` | weitere freigegebene Windows-Varianten getrennt belegen |
-| M5 Hyper-V SQL und Resolver | `validated_reference_partial_manifest` | Datenbank-, Software-, Post-Provisioning- und Network-Manifestparität |
-| M6 Reconcile-Breite | `planned` | Hardware-, Netzwerk-, Storage- und SQL-Änderungsklassen |
+| M5 Hyper-V SQL und Resolver | `validated_reference_partial_manifest` | Datenbank-, Software- und Post-Provisioning-Manifestparität; Network-Intents sind gebunden |
+| M6 Reconcile-Breite | `implemented_partial` | Netzwerk-No-op und eng begrenzte additive Reparatur sind implementiert; Hardware-, Storage- und SQL-Änderungsklassen sowie native Repair-Evidence bleiben offen |
 | M7 Artifacts und Baselines | `implemented_partial` | Hyper-V-Export/-Nutzung und automatische Sample-Manifestbindung sind synthetisch belegt; reale Evidence und weitere typisierte Handler bleiben offen |
 | M8 Scenarios und Migration | `planned` | Scenario-Vertrag nach den Adapterpiloten |
 | M9 Release-Härtung | `implemented_partial` | Failure-Injection und öffentliche Version erst nach Provider-/Adapterabnahme |
@@ -476,6 +476,16 @@ und transparent verwaltet werden.
 | `HV-607` | I/O-Intent `slow`, `throttled`, `balanced`, `high` capability-basiert auf VHDX-/Storage-Rollen binden | explizite, messbare Performance-Konstellation ohne falsches Benchmarkversprechen |
 | `UX-621` | Hardware-, Netzwerk-, Storage-, SQL- und Reconcile-Untermenüs | vollständige Infrastrukturansicht |
 | `UX-622` | Heatmap/Action Preview für `live` bis `reprovision` | verständliche Auswirkungsvorschau |
+
+**Ist-Stand 2026-09-01:** `NET-611` und der Planungsanteil von `NET-612` sind
+für Docker/Podman-NAT sowie Hyper-V-`isolated`, `hostOnly`, `nat` und `lan`
+implementiert. Hyper-V besitzt zusätzlich einen hostwertfreien Actual-State-
+Vergleich und einen getrennten journalisierten Executor, der ausschließlich
+additive lokal gebundene Infrastruktur und genau einen vorhandenen getrennten
+Adapter repariert. `HV-601` ist damit für den Netzwerkanteil, nicht aber für
+den vollständigen Windows-/SQL-/Hardware-Istzustand umgesetzt. Rebinding,
+Adapter-Neuanlage, Gastadressreparatur und positive native Repair-/External-
+Switch-Evidence bleiben offen; ein synthetischer Test ist kein Runtime-Nachweis.
 
 OS-, Edition- und inkompatible SQL-Versionswechsel werden zuerst als
 `reprovision` behandelt. In-place-Upgrades benötigen später einen separaten,
