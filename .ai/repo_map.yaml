@@ -911,6 +911,9 @@ validation:
       - read_only_source_mount
       - content_digest_postcondition
       - recovery_journal_resume
+      - controllerwide_atomic_clone_catalog_commit
+      - catalog_failure_blocks_completion
+      - central_host_tool_resolution
   static_container_runtime_scope:
     command: '.\Tests\Static\Invoke-ContainerRuntimeScopeChecks.ps1'
     source: Tests/Static/Invoke-ContainerRuntimeScopeChecks.ps1
@@ -1108,6 +1111,8 @@ validation:
       - server_state_after_recreate
       - user_database_after_recreate
       - detached_digest_verified_clone
+      - controller_bound_clone_catalog_commit
+      - user_database_online_readiness
       - server_and_user_data_live_in_clone
   container_runtime_scope_acceptance:
     source: Tests/Integration/Invoke-ContainerRuntimeScopeAcceptance.ps1

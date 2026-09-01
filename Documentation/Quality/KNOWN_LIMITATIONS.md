@@ -944,11 +944,13 @@ Docker-/Podman-Instanzstore detached per stabiler ID für Continue binden oder
 in ein neues Volume klonen. Quelle und SQL-Major-Version werden unmittelbar vor
 der Mutation revalidiert; der Clone verwendet einen read-only Quellmount,
 Datei-/Byte-/SHA-256-Postconditions und ein fortsetzbares Recovery-Journal.
+Das verifizierte Clone-Ziel wird danach mit stabiler ID rollbackfähig und
+idempotent auf alle controllergebundenen Katalogspiegel committed; ein
+Commitfehler verhindert `COMPLETED` und bleibt journalisiert wiederaufnehmbar.
 Docker und Podman sind damit am 2026-09-01 getrennt real belegt. Noch offen sind
-der transaktionale Commit des Clone-Ziels in die Katalogspiegel, Lease-
-Akquisition, die Mitnahme optionaler External-Runtime-Sidecar-Volumes und der
-öffentliche CLI-/GUI-Einstieg. Bis dahin ist dieser Kern keine vollständige
-Endbenutzerfunktion und erzeugt nur einen verifizierten Registrierungskandidaten.
+Lease-Akquisition, die Mitnahme optionaler External-Runtime-Sidecar-Volumes und
+der öffentliche CLI-/GUI-Einstieg. Bis dahin ist dieser Kern keine vollständige
+Endbenutzerfunktion.
 Der read-only `SqlServerLab.ContainerRuntimeScope/1.0`-Vertrag klassifiziert
 den aktiven Docker-Context beziehungsweise die aktive Podman-Connection samt
 Machine über eine stabile endpunktgebundene Runtime-ID. Rohendpunkte, Identity-

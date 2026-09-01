@@ -28,13 +28,14 @@ function Get-LabContainerInstanceStoreRuntimeInspection {
         [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$')][string]$VolumeName
     )
 
-    $raw = @(& $Provider volume inspect $VolumeName 2>$null)
+    $invocation = Get-LabHostToolInvocation -Name $Provider
+    $raw = @(& $invocation volume inspect $VolumeName 2>$null)
     if ($LASTEXITCODE -ne 0) {
         return [PSCustomObject]@{ Status='MISSING'; Provider=$Provider; VolumeName=$VolumeName; VolumeId=$null; Labels=[PSCustomObject]@{}; AttachedContainers=@() }
     }
     try { $inspection = @($raw | ConvertFrom-Json -Depth 40 -ErrorAction Stop)[0] }
     catch { throw 'CONTAINER_INSTANCE_STORE_VOLUME_INSPECT_INVALID' }
-    $attached = @(& $Provider ps -a -q --filter "volume=$VolumeName" 2>$null | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ })
+    $attached = @(& $invocation ps -a -q --filter "volume=$VolumeName" 2>$null | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ })
     if ($LASTEXITCODE -ne 0) { throw 'CONTAINER_INSTANCE_STORE_ATTACHMENT_QUERY_FAILED' }
     $labels = if ($inspection.Labels) { $inspection.Labels } else { [PSCustomObject]@{} }
     [PSCustomObject]@{
@@ -174,7 +175,8 @@ function Invoke-LabContainerInstanceStoreRuntimeCommand {
         [Parameter(Mandatory)][string[]]$Arguments,
         [Parameter(Mandatory)][string]$ErrorCode
     )
-    $output = @(& $Provider @Arguments 2>&1)
+    $invocation = Get-LabHostToolInvocation -Name $Provider
+    $output = @(& $invocation @Arguments 2>&1)
     if ($LASTEXITCODE -ne 0) { throw "${ErrorCode}: $($output -join ' ')" }
     return @($output)
 }
@@ -202,7 +204,8 @@ function Invoke-LabContainerInstanceStoreClone {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]$Plan,
-        [Parameter(Mandatory)][string]$OperationDirectory
+        [Parameter(Mandatory)][string]$OperationDirectory,
+        [Parameter(Mandatory)]$Configuration
     )
     if ([string]$Plan.Status -ne 'READY' -or [string]$Plan.Action -ne 'CLONE') {
         throw 'CONTAINER_INSTANCE_STORE_CLONE_PLAN_REQUIRED'
@@ -230,7 +233,10 @@ function Invoke-LabContainerInstanceStoreClone {
         [string]$journal.Target.PersistentStorageId -ne [string]$Plan.Target.PersistentStorageId) {
         throw 'CONTAINER_INSTANCE_STORE_JOURNAL_IDENTITY_MISMATCH'
     }
-    if ([string]$journal.Status -eq 'COMPLETED') { return $journal }
+    if ([string]$journal.Status -eq 'COMPLETED') {
+        $null = Register-LabContainerInstanceStoreClone -Plan $Plan -Journal $journal -Configuration $Configuration
+        return $journal
+    }
 
     $journal.Recovery.Attempts = [int]$journal.Recovery.Attempts + 1
     try {
@@ -288,6 +294,7 @@ function Invoke-LabContainerInstanceStoreClone {
         $journal.Target.Evidence = $targetEvidence
         $journal.Status = 'VERIFIED'; $journal.Recovery.Status = 'NOT_REQUIRED'; $journal.Recovery.ErrorCode = $null
         $null = Write-LabContainerInstanceStoreJournal -Journal $journal -Path $path
+        $null = Register-LabContainerInstanceStoreClone -Plan $Plan -Journal $journal -Configuration $Configuration
         $journal.Status = 'COMPLETED'
         return (Write-LabContainerInstanceStoreJournal -Journal $journal -Path $path)
     }
