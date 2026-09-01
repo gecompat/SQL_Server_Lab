@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SqlServerLab.DatabasePackageAttachPlan/1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ContractVersion", "DatabasePackageId", "Status", "DatabaseName", "TargetDirectory", "Mode", "SourceFilesReadOnly", "DirectPackageAttachAllowed", "Steps", "Blockers", "Recovery"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.DatabasePackageAttachPlan/1.0" },
+    "DatabasePackageId": { "type": "string", "format": "uuid" },
+    "Status": { "enum": ["READY", "BLOCKED"] },
+    "DatabaseName": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]{0,127}$" },
+    "TargetDirectory": { "type": "string", "minLength": 1 },
+    "Mode": { "const": "COPY_THEN_ATTACH" },
+    "SourceFilesReadOnly": { "const": true },
+    "DirectPackageAttachAllowed": { "const": false },
+    "Steps": { "type": "array", "minItems": 5, "items": { "type": "string", "minLength": 1 } },
+    "Blockers": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+    "Recovery": { "const": "DETACH_TARGET_COPY_IF_ATTACHED_AND_PRESERVE_IMMUTABLE_PACKAGE" }
+  }
+}

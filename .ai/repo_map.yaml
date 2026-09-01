@@ -38,6 +38,13 @@ sources_of_truth:
   backup_library_schema: Schemas/backup-library.schema.json
   validation_backup_library: Tests/Static/Invoke-BackupLibraryChecks.ps1
   acceptance_backup_library_cross_provider: Tests/Integration/Invoke-BackupLibraryCrossProviderAcceptance.ps1
+  database_package: Private/DatabasePackage.ps1
+  database_package_library_schema: Schemas/database-package-library.schema.json
+  database_package_attach_plan_schema: Schemas/database-package-attach-plan.schema.json
+  database_package_journal_schema: Schemas/database-package-journal.schema.json
+  database_package_attach_journal_schema: Schemas/database-package-attach-journal.schema.json
+  validation_database_package: Tests/Static/Invoke-DatabasePackageChecks.ps1
+  acceptance_database_package_sql: Tests/Integration/Invoke-DatabasePackageSqlAcceptance.ps1
   state_contract: Private/StateMachine.ps1
   cleanup_contract: Private/CleanupEngine.ps1
   container_reconcile_contract: Private/ContainerReconcile.ps1
@@ -898,6 +905,17 @@ validation:
       - source_immutable_independent_vhdx_clone
       - reattach_release_and_recovery_journal
       - explicit_database_restore_or_attach_boundary
+  static_database_package:
+    command: '.\Tests\Static\Invoke-DatabasePackageChecks.ps1'
+    source: Tests/Static/Invoke-DatabasePackageChecks.ps1
+    covers:
+      - clean_offline_or_detached_exclusive_capture
+      - complete_mdf_ndf_ldf_filestream_inventory
+      - recursive_sha256_and_tamper_detection
+      - immutable_copy_then_attach_boundary
+      - independent_clone_materialization
+      - sql_version_filestream_tde_and_parallel_writer_guards
+      - attach_journal_and_online_postcondition
   static_podman_bootstrap:
     command: '.\Tests\Static\Invoke-PodmanBootstrapChecks.ps1'
     source: Tests/Static/Invoke-PodmanBootstrapChecks.ps1

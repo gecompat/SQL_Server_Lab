@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SqlServerLab.DatabasePackageAttachJournal/1.0",
+  "type": "object", "additionalProperties": false,
+  "required": ["ContractVersion", "DatabasePackageId", "Status", "TargetDirectory", "TargetCopyVerified", "AttachInvoked", "PostconditionVerified", "Recovery", "UpdatedAt"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.DatabasePackageAttachJournal/1.0" },
+    "DatabasePackageId": { "type": "string", "format": "uuid" },
+    "Status": { "enum": ["COPYING", "ATTACHING", "VERIFYING", "COMPLETED", "RECOVERY_REQUIRED"] },
+    "TargetDirectory": { "type": "string", "minLength": 1 },
+    "TargetCopyVerified": { "type": "boolean" }, "AttachInvoked": { "type": "boolean" }, "PostconditionVerified": { "type": "boolean" },
+    "Recovery": { "enum": ["REMOVE_UNATTACHED_TARGET_COPY", "DETACH_TARGET_COPY_AND_PRESERVE_PACKAGE", "NOT_REQUIRED"] },
+    "UpdatedAt": { "type": "string", "format": "date-time" }
+  }
+}

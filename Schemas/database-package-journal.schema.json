@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SqlServerLab.DatabasePackageJournal/1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ContractVersion", "DatabasePackageId", "Status", "SourceState", "SourceReleased", "PublishedPath", "Recovery", "UpdatedAt"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.DatabasePackageJournal/1.0" },
+    "DatabasePackageId": { "type": "string", "format": "uuid" },
+    "Status": { "enum": ["COPYING", "COMPLETED", "RECOVERY_REQUIRED"] },
+    "SourceState": { "enum": ["OFFLINE", "DETACHED"] },
+    "SourceReleased": { "type": "boolean" },
+    "PublishedPath": { "type": ["string", "null"] },
+    "Recovery": { "enum": ["RETRY_EXPORT_FROM_CLEAN_OFFLINE_SOURCE", "NOT_REQUIRED", "PRESERVE_SOURCE_OFFLINE_AND_RETRY_OR_REMOVE_INCOMPLETE_STAGING"] },
+    "UpdatedAt": { "type": "string", "format": "date-time" }
+  }
+}

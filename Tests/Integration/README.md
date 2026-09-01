@@ -190,6 +190,21 @@ nicht als FILESTREAM-fähig ausgewiesen.
 .\Tests\Integration\Invoke-BackupLibraryCrossProviderAcceptance.ps1
 ```
 
+## Invoke-DatabasePackageSqlAcceptance.ps1
+
+Die PSR-009-Abnahme benötigt eine erhöhte Windows-PowerShell und eine lokale
+SQL-Server-2025-Instanz mit effektiv aktiviertem FILESTREAM. Sie erzeugt nur
+zufällig benannte Testressourcen, inventarisiert MDF/NDF/LDF/FILESTREAM,
+detached die Quelle sauber, publiziert das vollständige Hashpaket und attached
+eine unabhängige Kopie. Inhalt, Pfade, Journal und Cleanup werden real geprüft.
+Alte test-eigene `sql-lab-psr009-*`-Reste werden unter einem globalen Lock vor
+dem Lauf bereinigt.
+
+```powershell
+# in einer erhöhten PowerShell
+.\Tests\Integration\Invoke-DatabasePackageSqlAcceptance.ps1
+```
+
 ## Invoke-HyperVSmokeTest.ps1
 
 Der Hyper-V-Smoke-Test prüft Image-Registry und Lifecycle-Grundlage auf einem
