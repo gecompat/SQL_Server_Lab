@@ -52,6 +52,7 @@
     "os": "windows",
     "commands": [
       "Add-VMNetworkAdapter",
+      "Connect-VMNetworkAdapter",
       "Add-VMHardDiskDrive",
       "Add-VMDvdDrive",
       "Get-VM",

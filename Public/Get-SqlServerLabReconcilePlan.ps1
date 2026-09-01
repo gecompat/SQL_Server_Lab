@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Erstellt einen read-only Lifecycle-, Container- oder External-Runtime-Reconcile-Plan.
+    Erstellt einen read-only Lifecycle-, Hyper-V-Netzwerk-, Container- oder External-Runtime-Reconcile-Plan.
 .DESCRIPTION
     Liest den bestehenden Run und dessen Runtime-Zustand und liefert einen
     versionierten Desired/Actual/Diff/Action-Vertrag. Der Befehl fuehrt keine
@@ -9,7 +9,9 @@
     unsupported ausgewiesen. Fuer Hyper-V-Runs prueft der Lifecycle-Plan
     zusaetzlich die persistierte Netzabsicht gegen Adapter, Switch-Typ,
     Hostinfrastruktur und eine beobachtbare Gastadresse, ohne Hostwerte
-    offenzulegen oder Netzwerkreparaturen auszufuehren.
+    offenzulegen. Der eigene HyperVNetwork-Parametersatz plant nur additive
+    Infrastrukturreparaturen und das Wiederverbinden eines vorhandenen,
+    getrennten run-eigenen Adapters.
 .PARAMETER RunId
     Eindeutige ID des vorhandenen Lab-Runs.
 .PARAMETER TargetState
@@ -19,8 +21,10 @@
     späteren Reconcile. Ausserhalb des resolvergebundenen Softwarevertrags darf
     es nicht vom persistierten Sollzustand abweichen.
 .PARAMETER InstanceId
-    Zielinstanz für Container- oder External-Runtime-Reconcile. Darf nur
+    Zielinstanz für Hyper-V-Netzwerk-, Container- oder External-Runtime-Reconcile. Darf nur
     entfallen, wenn genau eine geeignete Runtime-Instanz im Run existiert.
+.PARAMETER HyperVNetwork
+    Waehlt den eng begrenzten read-only Hyper-V-Netzwerk-Reconcile-Plan.
 .PARAMETER Container
     Wählt den Container-Ressourcen-Reconcile. Der Plan klassifiziert die
     Änderung als no-op, live oder recreate und mutiert die Runtime nicht.
@@ -50,6 +54,10 @@
     Get-SqlServerLabReconcilePlan -RunId $runId -Container -Cpu 2 -MemoryMB 4096
 
     Zeigt eine Live-Ressourcenänderung ohne Mutation an.
+.EXAMPLE
+    Get-SqlServerLabReconcilePlan -RunId $runId -HyperVNetwork -InstanceId primary
+
+    Zeigt reparierbare und nicht automatisch reparierbare Hyper-V-Netzwerkdrift.
 #>
 function Get-SqlServerLabReconcilePlan {
     [CmdletBinding(DefaultParameterSetName = 'Lifecycle')]
@@ -66,7 +74,11 @@ function Get-SqlServerLabReconcilePlan {
 
         [Parameter(ParameterSetName = 'ExternalRuntime')]
         [Parameter(ParameterSetName = 'Container')]
+        [Parameter(Mandatory, ParameterSetName = 'HyperVNetwork')]
         [string]$InstanceId,
+
+        [Parameter(Mandatory, ParameterSetName = 'HyperVNetwork')]
+        [switch]$HyperVNetwork,
 
         [Parameter(Mandatory, ParameterSetName = 'Container')]
         [switch]$Container,
@@ -109,6 +121,9 @@ function Get-SqlServerLabReconcilePlan {
         if ($PSBoundParameters.ContainsKey('SqlMaxMemoryMB')) { $arguments.SqlMaxMemoryMB=[int]$SqlMaxMemoryMB }
         if ($PSBoundParameters.ContainsKey('AutoStart')) { $arguments.AutoStart=[string]$AutoStart }
         return New-LabContainerReconcilePlan @arguments
+    }
+    if ($PSCmdlet.ParameterSetName -eq 'HyperVNetwork') {
+        return New-LabHyperVNetworkReconcilePlan -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
     }
     return New-LabReconcilePlan -RunId $RunId -TargetState $TargetState -StateRoot $StateRoot
 }

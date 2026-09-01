@@ -57,7 +57,10 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 - read-only Desired/Actual/Diff-Reconcile, kontrollierte START-/STOP-Aktionen
   sowie journalisierter Container-Reconcile für CPU, RAM, SQL `max server
   memory`, Hostport, Autostart und External Runtimes einschließlich No-op,
-  Rollback, Persistenz und Recovery;
+  Rollback, Persistenz und Recovery; Hyper-V besitzt zusätzlich einen
+  hostwertfreien Netzwerkplan und einen eng begrenzten journalisierten Executor
+  für additive gebundene Hostinfrastruktur und genau einen vorhandenen
+  getrennten VM-Adapter;
 - verwalteter Multi-Root-Storage-Vertrag mit stabilen `LocationId`-Werten,
   Backing-Device-Topologie, dateigenauem Storage-Plan, journalisierter
   Parent-Migration und Cleanup-Audit;
@@ -177,8 +180,9 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 - vollständiger allgemeiner Hyper-V-Provider über den belegten
   Windows-2025-/SQL-2025-Referenzpfad hinaus, insbesondere breite
   Datenbank-, Software- und Post-Provisioning-Manifestbindung, positive native
-  External-Switch-Erstellung,
-  schreibender Netzwerk-Reconcile sowie eine reale Versions-/Editionsmatrix;
+  External-Switch-Erstellung, native Evidence des eng begrenzten Netzwerk-
+  Executors, weitergehende Adapter-/Gastnetzreparatur sowie eine reale
+  Versions-/Editionsmatrix;
 - Hyper-V-SubRuns und ein providerübergreifendes Containernetzwerk innerhalb
   eines Runs;
 - vollständige Ausführung aller im Schema vorbereiteten `serverConfig`-Felder;
@@ -188,9 +192,10 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 - weitere External-Runtime-OS-/Providerkombinationen außerhalb der belegten
   Linux-Containermatrix und des SQL-2022-Hyper-V-/Windows-Pfads; C# bleibt bis
   zu reproduzierbarem Build und nativer SQL-Evidence `PREVIEW`;
-- Reconcile-Aktionen über den implementierten Lifecycle- und
-  Container-Reconcile hinaus, insbesondere für Netzwerke, freie Mount-/Image-
-  Änderungen, Hyper-V-Software und weitere SQL-Konfigurationen;
+- Reconcile-Aktionen über Lifecycle, Container und den eng begrenzten
+  Hyper-V-Netzwerk-Reconcile hinaus, insbesondere Rebinding, Adapter-Neuanlage,
+  Gastadressreparatur, freie Mount-/Image-Änderungen, Hyper-V-Software und
+  weitere SQL-Konfigurationen;
 - versionierter Refresh-/Rebuild-Lifecycle für Medien, VHDX und Container-Images;
 - weitere konsumierende Lab-Packages über die drei abgeschlossenen
   Project-Adapter-Vertical-Slices hinaus;

@@ -373,8 +373,18 @@ Network-Intent in Desired State und prüft Adapterbindung, Switch-Typ,
 Hostinfrastruktur und – soweit Hyper-V sie meldet – die gebundene Gastadresse.
 Der öffentliche Plan enthält dabei nur semantische Status- und Reason-Codes,
 keine Switch-Namen, IP-Adressen oder VM-Identitäten. Drift oder ein nicht
-lesbarer Istzustand blockiert Lifecycle-Teilaktionen fail-closed. Eine
-schreibende Netzwerkreparatur ist noch nicht implementiert.
+lesbarer Istzustand blockiert Lifecycle-Teilaktionen fail-closed.
+
+Der getrennte Parametersatz `-HyperVNetwork` plant eine bewusst engere
+Reparatur. Der Executor `-RepairHyperVNetwork` darf additive, bereits lokal
+gebundene Switch-/Hostadress-/WinNAT-Infrastruktur herstellen und genau einen
+vorhandenen, getrennten Adapter der run- und scopegebundenen VM mit dem
+erwarteten Switch verbinden. Ein LAN-External-Switch verlangt zusätzlich
+`-AllowExternalSwitchCreation`. Journal und Retry binden Run, Scope, Instanz,
+VM und – soweit vorhanden – Adapter-ID; ein bereits erfüllter Istzustand kann
+ein unterbrochenes Journal ohne erneute Hostmutation abschließen. Falsches
+Switch-Rebinding, Adapter-Neuanlage, mehrere Adapter und Gastadressreparatur
+bleiben fail-closed.
 
 ### 10.2 Exposure Policy
 
@@ -782,8 +792,10 @@ Gateway und ein zur Planzeit gebundener Host-DNS-Snapshot werden in den Gast
 den exakt gebundenen External Switch mit Hostanbindung und übernimmt
 Gastadresse, Gateway und DNS dynamisch aus DHCP. Der Hyper-V-Netzwerk-Istzustand wird im Lifecycle-Reconcile
 read-only, semantisch und hostwertfrei verglichen; ein DHCP-Adresswechsel ist
-dabei kein Drift. Eine positive native External-Switch-Erstellung auf einem
-freigegebenen Runner und die schreibende Netzwerkreparatur bleiben offen.
+dabei kein Drift. Die eng begrenzte, journalisierte Reparatur additiver
+Hostinfrastruktur und eines vorhandenen getrennten Adapters ist synthetisch
+validiert. Eine positive native External-Switch-Erstellung und ein positiver
+nativer Reparaturlauf auf einem dafür freigegebenen Runner bleiben offen.
 
 ### Welle 7 – Software, External Runtimes und Samples
 
