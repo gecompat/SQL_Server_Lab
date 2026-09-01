@@ -2,7 +2,7 @@
 
 ## Status und Priorität
 
-`ACTIVE / P1_PRODUCT_CONTRACT_WITH_PSR_001_PARTIAL_PSR_002_COMPLETE_PSR_003_AND_PSR_004_IMPLEMENTED_READ_ONLY` – die vorhandenen
+`ACTIVE / P1_PRODUCT_CONTRACT_WITH_PSR_001_PARTIAL_PSR_002_COMPLETE_PSR_003_AND_PSR_004_IMPLEMENTED_READ_ONLY_PSR_005_IMPLEMENTED_CORE` – die vorhandenen
 Persistenzmechanismen schützen bereits Teile des SQL-Zustands, bilden aber noch
 keinen vollständigen, providerübergreifenden Wiederverwendungs- und
 Löschvertrag. Planung ist kein Implementierungs- oder Runtime-Nachweis.
@@ -56,6 +56,20 @@ ersten Mutation auf `RECOVERY_REQUIRED`. Fremde Referenzen, Recovery-Zustände
 und nicht katalogisierte retained Objekte blockieren. Der Plan selbst führt
 nichts aus; endgültige Löschung eines persistenten Stores bleibt eine eigene,
 noch nicht implementierte Expertenaktion.
+
+Der Core-Slice `PSR-005` ist implementiert und für Docker und Podman getrennt
+real belegt. `SqlServerLab.ContainerInstanceStoreIntent/1.0` wählt eine bereits
+katalogisierte Quelle ausschließlich über ihre stabile `PersistentStorageId`;
+Planner und Runtime-Revalidierung verlangen ein passendes unveränderliches
+Volume-Label, dieselbe SQL-Major-Version, `AVAILABLE` oder `DETACHED`, keine
+Lease, keine aktive Referenz und keinen angehängten Container. `CONTINUE`
+liefert die revalidierte `/var/opt/mssql`-Bindung. `CLONE` erstellt ein neues,
+operationsgebundenes Ziel, mountet die Quelle nur read-only, vergleicht
+Dateizahl, Bytes und SHA-256-Inhaltsdigest und bleibt bei Fehlern über ein
+`RECOVERY_REQUIRED`-Journal fortsetzbar. Die realen Docker- und Podman-Läufe
+bestätigen nach Recreate und im Clone jeweils ein Serverobjekt sowie eine
+Benutzerdatenbank. Katalog-Commit/Lease-Akquisition, External-Runtime-Sidecars
+und öffentliche CLI-/GUI-Anbindung bleiben getrennte Folgearbeit.
 
 ## Ausgangslage
 
@@ -341,7 +355,7 @@ Volumename ersetzt diese Identität nicht.
 | `PSR-002` | P0-Analyse | `Lab_Data`-Versprechen, native Runtime-Ausnahmen und Hosteingriffsgrenzen entscheiden | `COMPLETE`: bindender `SqlServerLab.LabDataResidencyDecision/1.0`-Entscheid |
 | `PSR-003` | P1 | Storage-Katalog mit stabiler ID, Klassen, Zuständen, Referenzen und Leases entwerfen | `IMPLEMENTED_READ_ONLY`: Schema, Parser, Planner und Inventarbindung; keine Katalogmutation, Lease-Akquisition, Wiederverwendung oder Löschung |
 | `PSR-004` | P1 | Retention-, Backup-on-Remove-, Package- und expliziten Löschvertrag entwerfen | `IMPLEMENTED_READ_ONLY`: verlustsicherer Cleanup-/Recovery-Plan; Executor und getrennte endgültige Storage-Löschaktion bleiben offen |
-| `PSR-005` | P1 | Docker-/Podman-Instanzstore auswählbar, fortsetzbar und klonbar machen | getrennte reale Provider-Nachweise |
+| `PSR-005` | P1 | Docker-/Podman-Instanzstore auswählbar, fortsetzbar und klonbar machen | `IMPLEMENTED_CORE`: stabile ID-Auswahl, detached Continue/Clone, Digest/Resume und getrennte reale Docker-/Podman-Nachweise; Katalog-Commit, Sidecars und öffentliche Bedienung offen |
 | `PSR-006` | P1 | Podman-Machine- und Docker-Engine-/Context-Reichweite bewerten und gegebenenfalls dediziert verwalten | keine Mutation labfremder Runtime-Daten |
 | `PSR-007` | P1 | Hyper-V-Daten-VHDX sicher auswählen, reattachen, freigeben und klonen | Disk-/VM-/SQL-validierter Lifecycle |
 | `PSR-008` | P1 | Providerneutrale Backup-Bibliothek mit automatischem Backup und Restore-Verifikation liefern | Cross-Provider-Restore mit sanitisierter Evidence |

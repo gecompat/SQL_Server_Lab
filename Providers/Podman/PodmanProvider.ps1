@@ -61,18 +61,36 @@ function Initialize-PodmanSqlNamedVolume {
         [Parameter(Mandatory)][string]$Image,
         [Parameter(Mandatory)][string]$RunId,
         [Parameter(Mandatory)][string]$ScopeId,
+        [Parameter(Mandatory)][string]$VersionId,
+        [Parameter(Mandatory)][string]$InstanceId,
         [Parameter(Mandatory)][ValidatePattern('^/[A-Za-z0-9._/-]+$')][string]$ContainerPath,
+        [string]$PersistentStorageId,
+        [string]$Persistence,
         [switch]$SyncImageContent
     )
 
-    $null = podman volume inspect $VolumeName 2>$null
+    $inspectionOutput = @(podman volume inspect $VolumeName 2>$null)
     $volumeExists = $LASTEXITCODE -eq 0
 
+    if ($volumeExists -and $PersistentStorageId) {
+        try { $inspection = @($inspectionOutput | ConvertFrom-Json -Depth 30 -ErrorAction Stop)[0] }
+        catch { throw "PODMAN_SQL_VOLUME_INSPECT_INVALID: $VolumeName" }
+        if ([string]$inspection.Labels.'sql-server-lab.persistent-storage-id' -ne $PersistentStorageId -or
+            [string]$inspection.Labels.'sql-server-lab.sql-major-version' -ne $VersionId.Substring(0,4)) {
+            throw "PODMAN_SQL_VOLUME_STABLE_ID_MISMATCH: $VolumeName"
+        }
+    }
+
     if (-not $volumeExists) {
-        $created = podman volume create `
-            --label "sql-server-lab.run-id=$RunId" `
-            --label "sql-server-lab.scope-id=$ScopeId" `
-            $VolumeName 2>&1
+        $labelArguments = @(
+            '--label', "sql-server-lab.run-id=$RunId",
+            '--label', "sql-server-lab.scope-id=$ScopeId",
+            '--label', "sql-server-lab.instance-id=$InstanceId",
+            '--label', "sql-server-lab.sql-major-version=$($VersionId.Substring(0,4))"
+        )
+        if ($Persistence) { $labelArguments += @('--label', "sql-server-lab.persistence=$Persistence") }
+        if ($PersistentStorageId) { $labelArguments += @('--label', "sql-server-lab.persistent-storage-id=$PersistentStorageId") }
+        $created = podman volume create @labelArguments $VolumeName 2>&1
         if ($LASTEXITCODE -ne 0) {
             throw "PODMAN_SQL_VOLUME_CREATE_FAILED: $VolumeName - $(@($created) -join ' ')"
         }
@@ -158,8 +176,9 @@ function New-PodmanInstance {
         }
 
         if (-not $drive.hostPath) {
-            $null = Initialize-PodmanSqlNamedVolume -VolumeName $volumeSource -Image $image -RunId $RunId -ScopeId $ScopeId `
+            $null = Initialize-PodmanSqlNamedVolume -VolumeName $volumeSource -Image $image -RunId $RunId -ScopeId $ScopeId -VersionId $VersionId -InstanceId $InstanceId `
                 -ContainerPath ([string]$drive.containerPath) `
+                -PersistentStorageId ([string]$drive.persistentStorageId) -Persistence ([string]$drive.persistence) `
                 -SyncImageContent:($ExternalRuntimeLaunchMode -in @('sql2019-namespace-v1','sql2022-namespace-v1','sql2025-namespace-v1') -and
                     [string]$drive.containerPath -in @('/var/opt/mssql-extensibility/externallanguages','/var/opt/mssql-extensibility/externallibraries'))
         }

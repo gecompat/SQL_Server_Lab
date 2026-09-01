@@ -72,6 +72,20 @@ Invoke-SmokeMatrix.ps1                 => PASS=5 FAIL=0 SKIP=0
 `smoke-test-query.sql` wird waehrend des Tests erzeugt und geloescht.
 Bei Abbruch bleibt sie liegen → .gitignore verhindert Commit.
 
+## Invoke-ContainerInstanceStoreAcceptance.ps1
+
+Der PSR-005-Nachweis läuft für Docker und Podman getrennt. Er erzeugt einen
+test-eigenen SQL-Systemstore mit stabiler Storage-ID, bestätigt nach einem
+kontrollierten Container-Recreate sowohl ein Serverobjekt als auch eine
+Benutzerdatenbank, klont den detached Store read-only und digestverifiziert und
+prüft dieselben Daten live im Clone. Container, Quell- und Zielvolume sowie das
+lokale Journal werden im garantierten Cleanup entfernt.
+
+```powershell
+.\Tests\Integration\Invoke-ContainerInstanceStoreAcceptance.ps1 -Provider docker
+.\Tests\Integration\Invoke-ContainerInstanceStoreAcceptance.ps1 -Provider podman
+```
+
 ## Invoke-MixedProviderSmokeTest.ps1
 
 Der Mixed-Provider-Smoke-Test benötigt gleichzeitig erreichbares Docker und

@@ -37,6 +37,8 @@ dokumentiert. Ihre ausfuehrbaren Einstiege sind:
 ```powershell
 .\Tests\Integration\Invoke-ContainerCliAcceptance.ps1 -Provider docker -Version 2022-CU18
 .\Tests\Integration\Invoke-ContainerCliAcceptance.ps1 -Provider podman -Version 2022-CU18
+.\Tests\Integration\Invoke-ContainerInstanceStoreAcceptance.ps1 -Provider docker
+.\Tests\Integration\Invoke-ContainerInstanceStoreAcceptance.ps1 -Provider podman
 .\Tests\Integration\Invoke-HyperVCliAcceptance.ps1 -MediaRoot D:\Lab_Base -SqlVersion 2025
 .\Tests\Integration\Invoke-HyperVSqlPreparedImageAcceptance.ps1
 .\Tests\Integration\Invoke-HyperVSqlConfigurationReconcileAcceptance.ps1 `
@@ -113,6 +115,7 @@ Interpretation:
 .\Tests\Static\Invoke-CleanupAuditChecks.ps1
 .\Tests\Static\Invoke-PersistentStorageCatalogChecks.ps1
 .\Tests\Static\Invoke-PersistentStorageRemovalPlanChecks.ps1
+.\Tests\Static\Invoke-ContainerInstanceStoreChecks.ps1
 .\Tests\Static\Invoke-PodmanBootstrapChecks.ps1
 .\Tests\Static\Invoke-PesterChecks.ps1
 .\Tests\Static\Invoke-ReleaseReadinessChecks.ps1

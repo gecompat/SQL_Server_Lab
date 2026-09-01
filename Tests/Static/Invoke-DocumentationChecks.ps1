@@ -856,7 +856,7 @@ Add-ValidationResult `
 
 Add-ValidationResult `
     -Name 'PSR-003 dokumentiert den implementierten read-only Katalogvertrag ohne Mutationsversprechen' `
-    -Success ($persistentStorageBacklog -match '(?m)^`ACTIVE / P1_PRODUCT_CONTRACT_WITH_PSR_001_PARTIAL_PSR_002_COMPLETE_PSR_003_AND_PSR_004_IMPLEMENTED_READ_ONLY`' -and
+    -Success ($persistentStorageBacklog -match '(?m)^`ACTIVE / P1_PRODUCT_CONTRACT_WITH_PSR_001_PARTIAL_PSR_002_COMPLETE_PSR_003_AND_PSR_004_IMPLEMENTED_READ_ONLY_PSR_005_IMPLEMENTED_CORE`' -and
         $persistentStorageBacklog -match '(?m)^\| `PSR-003` .*\| `IMPLEMENTED_READ_ONLY`:' -and
         $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.PersistentStorageCatalog/1.0') -and
         $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.PersistentStoragePlan/1.0') -and
@@ -877,6 +877,16 @@ Add-ValidationResult `
         $repoMap -match 'persistent_storage_removal_intent_schema: Schemas/persistent-storage-removal-intent\.schema\.json' -and
         $repoMap -match 'persistent_storage_removal_plan_schema: Schemas/persistent-storage-removal-plan\.schema\.json' -and
         $repoMap -match 'validation_persistent_storage_removal_plan: Tests/Static/Invoke-PersistentStorageRemovalPlanChecks\.ps1')
+
+Add-ValidationResult `
+    -Name 'PSR-005 dokumentiert stabilen Container-Store-Continue-/Clone-Core und reale Provider-Evidence' `
+    -Success ($persistentStorageBacklog -match '(?m)^\| `PSR-005` .*\| `IMPLEMENTED_CORE`:' -and
+        $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.ContainerInstanceStoreIntent/1.0') -and
+        $persistentStorageBacklog -match 'Docker und Podman getrennt\s*real belegt' -and
+        $knownLimitations -match 'transaktionale Commit des Clone-Ziels in die Katalogspiegel' -and
+        $repoMap -match 'container_instance_store: Private/ContainerInstanceStore\.ps1' -and
+        $repoMap -match 'validation_container_instance_store: Tests/Static/Invoke-ContainerInstanceStoreChecks\.ps1' -and
+        $repoMap -match 'acceptance_container_instance_store: Tests/Integration/Invoke-ContainerInstanceStoreAcceptance\.ps1')
 
 Add-ValidationResult `
     -Name 'Roadmap beschreibt den real belegten Container-Reconcile-Stand widerspruchsfrei' `

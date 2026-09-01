@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sql-server-lab.local/schemas/container-instance-store-intent.schema.json",
+  "title": "SqlServerLab.ContainerInstanceStoreIntent/1.0",
+  "type": "object",
+  "required": ["ContractVersion", "OperationId", "Action", "SourcePersistentStorageId", "TargetPersistentStorageId", "TargetVolumeName", "Provider", "TargetRunId", "TargetScopeId", "TargetSqlMajorVersion", "HelperImage"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.ContainerInstanceStoreIntent/1.0" },
+    "OperationId": { "type": "string", "format": "uuid" },
+    "Action": { "enum": ["CONTINUE", "CLONE"] },
+    "SourcePersistentStorageId": { "type": "string", "format": "uuid" },
+    "TargetPersistentStorageId": { "type": ["string", "null"], "format": "uuid" },
+    "TargetVolumeName": { "type": ["string", "null"], "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$" },
+    "Provider": { "enum": ["docker", "podman"] },
+    "TargetRunId": { "type": "string", "format": "uuid" },
+    "TargetScopeId": { "type": "string", "format": "uuid" },
+    "TargetSqlMajorVersion": { "type": "string", "pattern": "^\\d{4}$" },
+    "HelperImage": { "type": ["string", "null"], "pattern": "^[a-z0-9][a-z0-9./_-]+:[a-z0-9][a-z0-9._-]+$", "maxLength": 512 }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "Action": { "const": "CONTINUE" } } },
+      "then": {
+        "properties": {
+          "TargetPersistentStorageId": { "type": "null" },
+          "TargetVolumeName": { "type": "null" },
+          "HelperImage": { "type": "null" }
+        }
+      },
+      "else": {
+        "properties": {
+          "TargetPersistentStorageId": { "type": "string", "format": "uuid" },
+          "TargetVolumeName": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$" },
+          "HelperImage": { "type": "string", "pattern": "^[a-z0-9][a-z0-9./_-]+:[a-z0-9][a-z0-9._-]+$", "maxLength": 512 }
+        }
+      }
+    }
+  ],
+  "additionalProperties": false
+}
