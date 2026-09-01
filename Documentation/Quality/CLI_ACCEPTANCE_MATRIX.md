@@ -49,6 +49,7 @@ Statische Vertragspruefungen und Runtime-Nachweise sind getrennte Evidence.
 | `Install/Test-SqlServerLabAdapter` | Adapter-Schema und Capability-Gates | GitHub-hosted Adapter-Smoke |
 | `Install-SqlServerLab7Zip` | 7-Zip- und Archivhandler-Vertraege | nur fuer ZIP-Samples erforderlich; Chinook benoetigt 7-Zip nicht |
 | `Clear-SqlServerLab`, `Get-SqlServerLabCleanupAudit` | Cleanup-, Recovery- und Scope-Suites | Provider-Akzeptanz prueft den engeren rungebundenen Cleanup; globales Clear wird nicht gegen fremde Labs ausgefuehrt |
+| `Invoke-SqlServerLabPersistentStorageRemoval` | `Invoke-PersistentStorageRemovalExecutorChecks.ps1` | `Invoke-PersistentStorageRemovalExecutorAcceptance.ps1` belegt Docker und Podman getrennt mit echtem Backup-on-Remove und retained Store |
 | `Get-SqlServerLabGeneratedSqlAccess` | Secret-/DPAPI-Vertraege | Windows-SQL-Pfad mit runlokalem SA-Secret |
 | `Invoke-SqlServerLab` | Menue-, Routing- und Self-Reload-Vertraege | interaktive Tastatureingaben bleiben UI-Contract; die mutierenden Zielaktionen laufen ueber dieselben oeffentlichen Fachfunktionen |
 

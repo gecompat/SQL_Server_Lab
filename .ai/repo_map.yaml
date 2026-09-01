@@ -103,9 +103,14 @@ sources_of_truth:
   validation_persistent_storage_catalog: Tests/Static/Invoke-PersistentStorageCatalogChecks.ps1
   persistent_storage_removal_plan: Private/PersistentStorageRemovalPlan.ps1
   persistent_storage_removal_preview: Public/Get-SqlServerLabPersistentStorageRemovalPlan.ps1
+  persistent_storage_removal_executor: Private/PersistentStorageRemovalExecutor.ps1
+  persistent_storage_removal_action: Public/Invoke-SqlServerLabPersistentStorageRemoval.ps1
   persistent_storage_removal_intent_schema: Schemas/persistent-storage-removal-intent.schema.json
   persistent_storage_removal_plan_schema: Schemas/persistent-storage-removal-plan.schema.json
+  persistent_storage_removal_journal_schema: Schemas/persistent-storage-removal-journal.schema.json
   validation_persistent_storage_removal_plan: Tests/Static/Invoke-PersistentStorageRemovalPlanChecks.ps1
+  validation_persistent_storage_removal_executor: Tests/Static/Invoke-PersistentStorageRemovalExecutorChecks.ps1
+  acceptance_persistent_storage_removal_executor: Tests/Integration/Invoke-PersistentStorageRemovalExecutorAcceptance.ps1
   container_instance_store: Private/ContainerInstanceStore.ps1
   container_instance_store_intent_schema: Schemas/container-instance-store-intent.schema.json
   container_instance_store_plan_schema: Schemas/container-instance-store-plan.schema.json
@@ -537,6 +542,8 @@ internal_components:
     persistent_storage_catalog: Private/PersistentStorageCatalog.ps1
     persistent_storage_removal_plan: Private/PersistentStorageRemovalPlan.ps1
     persistent_storage_removal_preview: Public/Get-SqlServerLabPersistentStorageRemovalPlan.ps1
+    persistent_storage_removal_executor: Private/PersistentStorageRemovalExecutor.ps1
+    persistent_storage_removal_action: Public/Invoke-SqlServerLabPersistentStorageRemoval.ps1
     container_runtime_scope: Private/ContainerRuntimeScope.ps1
     hyperv_persistent_data_drive: Private/HyperVPersistentDataDrive.ps1
     responsibilities:
@@ -550,7 +557,8 @@ internal_components:
       - "stabile Persistent-Storage-IDs, Klassen, Zustände, Referenzen und exklusive Leases read-only validieren und mit dem Residency-Inventar abgleichen"
       - "verifizierte Backup-Sets und Datenbankpakete controllerweit rollbackfähig mit eigener PersistentStorageId registrieren und Katalogfehler fail-closed quarantänisieren"
       - "Retention, Backup-/Package-on-Remove, externe Bindungsfreigabe und Recovery-Postconditions read-only planen; persistente Storage-Löschung getrennt halten"
-      - "CLI und Browser-UI über denselben frisch inventarisierten Retention-Plan-Core ausschließlich per stabiler Storage-ID vorausschauen lassen"
+      - "RETAIN_INSTANCE_STORE und BACKUP_ON_REMOVE für Docker-/Podman-Instanzstores frisch revalidiert, backupverifiziert und journalisiert ausführen; Package, Delete und externe Freigabe vor Mutation blockieren"
+      - "CLI und Browser-UI über denselben frisch inventarisierten Retention-Plan-Core ausschließlich per stabiler Storage-ID vorausschauen und die unterstützten Policies bestätigt ausführen lassen"
       - "katalogisierte Docker-/Podman-Instanzstores in CLI und Browser per stabiler ID und Runtime-Label detached revalidieren, fuer Continue an den neuen Run leasen oder unter exklusiver Operations-Lease digestverifiziert klonen; verifizierte Datenbanken stabil referenzieren sowie Zielcommit und Quellfreigabe atomar koppeln"
       - "aktiven Docker-Context beziehungsweise Podman-Connection/Machine read-only an eine stabile sanitisierte Runtime-ID binden und geteilte Engine-/Machine-/Hostdefaults als REPORT_ONLY vor Mutation schuetzen"
       - "sanitisierte Docker-/Podman-Runtime-Scopes im oeffentlichen Cleanup-Audit ueber zentral aufgeloeste Host-Tool-Aufrufe ausgeben, ohne Rohendpunkte, Identity-Pfade oder Managementautoritaet zu persistieren"
@@ -906,6 +914,21 @@ validation:
       - foreign_reference_and_recovery_guards
       - external_source_non_mutation
       - separate_persistent_storage_delete_boundary
+  static_persistent_storage_removal_executor:
+    command: '.\Tests\Static\Invoke-PersistentStorageRemovalExecutorChecks.ps1'
+    source: Tests/Static/Invoke-PersistentStorageRemovalExecutorChecks.ps1
+    covers:
+      - backup_step_journal_resume_without_duplicate_artifact
+      - removal_resume_after_mutation_started
+      - strict_secret_free_journal
+      - unsupported_policy_pre_mutation_boundary
+  acceptance_persistent_storage_removal_executor:
+    command: '.\Tests\Integration\Invoke-PersistentStorageRemovalExecutorAcceptance.ps1 -Provider <docker|podman>'
+    source: Tests/Integration/Invoke-PersistentStorageRemovalExecutorAcceptance.ps1
+    covers:
+      - real_verified_backup_on_remove
+      - removed_run_and_detached_retained_instance_store
+      - docker_and_podman_runtime_evidence
   static_container_instance_store:
     command: '.\Tests\Static\Invoke-ContainerInstanceStoreChecks.ps1'
     source: Tests/Static/Invoke-ContainerInstanceStoreChecks.ps1

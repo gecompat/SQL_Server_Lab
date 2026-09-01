@@ -22,6 +22,7 @@ $moduleLoaderPath = Join-Path $repoRoot 'SqlServerLab.psm1'
 $commonPath = Join-Path $repoRoot 'Private/Common.ps1'
 $workflowPath = Join-Path $repoRoot 'Public/Get-SqlServerLabWorkflow.ps1'
 $removalPreviewPath = Join-Path $repoRoot 'Public/Get-SqlServerLabPersistentStorageRemovalPlan.ps1'
+$removalExecutorPath = Join-Path $repoRoot 'Public/Invoke-SqlServerLabPersistentStorageRemoval.ps1'
 $actionPath = Join-Path $repoRoot 'Public/Invoke-SqlServerLabWorkflowAction.ps1'
 $consolePath = Join-Path $repoRoot 'Public/Invoke-SqlServerLab.ps1'
 $vmConnectPath = Join-Path $repoRoot 'Private/HyperVVmConnect.ps1'
@@ -41,6 +42,7 @@ $moduleLoaderText = Get-Content -LiteralPath $moduleLoaderPath -Raw -Encoding ut
 $commonText = Get-Content -LiteralPath $commonPath -Raw -Encoding utf8
 $workflowText = Get-Content -LiteralPath $workflowPath -Raw -Encoding utf8
 $removalPreviewText = Get-Content -LiteralPath $removalPreviewPath -Raw -Encoding utf8
+$removalExecutorText = Get-Content -LiteralPath $removalExecutorPath -Raw -Encoding utf8
 $actionText = Get-Content -LiteralPath $actionPath -Raw -Encoding utf8
 $consoleText = Get-Content -LiteralPath $consolePath -Raw -Encoding utf8
 $vmConnectText = Get-Content -LiteralPath $vmConnectPath -Raw -Encoding utf8
@@ -205,18 +207,24 @@ Add-CheckResult -Name 'CLI und Workflow-UI restaurieren Lab_Data-Backups über d
     $scriptText -match 'parameters\.BackupSetId = backupSetId' -and
     $scriptText -notmatch 'parameters\.Backup(Source|Path)'
 )
-Add-CheckResult -Name 'CLI und Browser verwenden denselben read-only Retention-Plan-Core' -Success (
+Add-CheckResult -Name 'CLI und Browser planen und führen unterstützte Retention über dieselben Fachbefehle aus' -Success (
     $removalPreviewText -match 'function Get-SqlServerLabPersistentStorageRemovalPlan' -and
-    $removalPreviewText -match 'Get-SqlServerLabCleanupAudit -NoWrite' -and
+    $removalPreviewText -match 'Get-SqlServerLabCleanupAudit -NoWrite -StateRoot \$StateRoot -DataRoot \$DataRoot' -and
     $removalPreviewText -match 'Get-LabPersistentStorageRemovalPlan' -and
+    $removalExecutorText -match 'function Invoke-SqlServerLabPersistentStorageRemoval' -and
+    $removalExecutorText -match 'Invoke-LabPersistentStorageRemovalExecutor' -and
     $workflowText -match 'PersistentStorageRemovalCandidates = \$persistentStorageRemovalCandidates' -and
     $workflowText -notmatch 'ProviderResourceId = \[string\]\$store\.LocationBinding' -and
     $serverText -match '/api/persistent-storage/removal-plan' -and
     $serverText -match 'Get-SqlServerLabPersistentStorageRemovalPlan -RunId \$runId -Selection \$selections' -and
     $htmlText -match 'id="persistent-storage-removal-dialog"' -and
+    $htmlText -match 'id="persistent-storage-removal-execute"' -and
     $scriptText -match 'data-persistent-storage-removal-preview' -and
     $scriptText -match "fetch\('/api/persistent-storage/removal-plan'" -and
-    $htmlText -match 'Sie entfernt weder die Umgebung noch Daten'
+    $scriptText -match "'ExecutePersistentStorageRemoval'" -and
+    $scriptText -match "persistent-storage-removal-selections'\)\.addEventListener\('change'" -and
+    $actionText -match 'Invoke-SqlServerLabPersistentStorageRemoval -RunId \$BuildId -Selection \$PersistentStorageSelection' -and
+    $htmlText -match 'Package, Löschen und externe Freigabe bleiben blockiert'
 )
 Add-CheckResult -Name 'CLI und Browser erstellen Labs per stabiler Continue-/Clone-Storage-Auswahl' -Success (
     $workflowText -match 'ContainerInstanceStoreCandidates = \$containerInstanceStoreCandidates' -and

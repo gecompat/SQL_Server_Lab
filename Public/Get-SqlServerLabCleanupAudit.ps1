@@ -13,6 +13,11 @@
     als read-only Runtime-Scope ausgegeben.
 .PARAMETER NoWrite
     Gibt den Audit nur zurueck und schreibt kein JSON-Artefakt.
+.PARAMETER StateRoot
+    Optionaler State-Root für einen isolierten Audit.
+.PARAMETER DataRoot
+    Optionaler registrierter Lab_Data-Root, dessen controllerweiter Katalog
+    inventarisiert wird.
 .OUTPUTS
     PSCustomObject mit Path und Audit. Audit enthaelt Status, Zusammenfassung,
     Datenwurzeln, aktive Runs, gefundene oder unpruefbare Providerressourcen
@@ -21,9 +26,13 @@
 #>
 function Get-SqlServerLabCleanupAudit {
     [CmdletBinding()]
-    param([switch]$NoWrite)
+    param(
+        [switch]$NoWrite,
+        [string]$StateRoot,
+        [string]$DataRoot
+    )
 
-    $configuration = Get-LabStorageConfiguration
+    $configuration = Get-LabStorageConfiguration -DataRoot $DataRoot
     $knownRoots = @($configuration.LabDataLocations | ForEach-Object { [string]$_.LabDataRoot } | Where-Object { $_ })
     $rootResults = @()
     foreach ($location in @($configuration.LabDataLocations)) {
@@ -45,7 +54,8 @@ function Get-SqlServerLabCleanupAudit {
         }
     }
 
-    $stateRoot = Get-LabStateRoot
+    if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
+    $stateRoot = [IO.Path]::GetFullPath($StateRoot)
     $activeRuns = @(Get-LabActiveRuns -StateRoot $stateRoot)
     $knownRunIds = @($activeRuns | ForEach-Object { [string]$_.runId })
     $runtimeResults = @(); $runtimeScopes = @(); $containers = @(); $managedVolumes = @(); $managedNetworks = @()
