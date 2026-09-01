@@ -2,7 +2,7 @@
 
 | Merkmal | Festlegung |
 |---|---|
-| Stand | 2026-08-29 |
+| Stand | 2026-09-01 |
 | Zweck | nachvollziehbarer Runtime-Nachweis fuer die oeffentliche CLI |
 | CU-Strategie | keine Vollmatrix aller CUs; je Containerprovider ein repraesentativer CU |
 | Containerreferenz | SQL Server 2022 CU18 (`2022-CU18`) |
@@ -130,3 +130,19 @@ VHDXs waren erfolgreich. Der physische N5-Storage-Nachweis ist damit
 abgeschlossen. Mit der realen Legacy-SQL-Migration vom 2026-08-31 ist auch
 der priorisierte Hyper-V-Ressourcenroot-Vertrag vollständig belegt und Gate N5
 `COMPLETE`.
+
+## Ausführbarer Hyper-V-SQL-Konfigurations-Reconcile-Vertrag
+
+`Tests/Integration/Invoke-HyperVSqlConfigurationReconcileAcceptance.ps1`
+erzeugt aus einem verifizierten `SQL_PREPARED_SEALED`-Artifact einen eigenen
+SQL-2025-Run. Er prüft den öffentlichen Plan, `WhatIf`, dynamische Live-
+Änderung, Trace-Flag-Ownership und -Entfernung bei unverändertem fremdem
+Runtime-Flag, den ausschließlichen `MSSQLSERVER`-Restart für einen nicht
+dynamischen Wert ohne VM-Neustart, die Rückkehr zum Basis-Desired-State, No-op,
+Journal und scopegebundenen Cleanup. Der getrennte Bootstrap erzeugt und
+entfernt auch das Prepared-Artifact isoliert und gibt bei Fehlern exakte
+Recovery-IDs aus.
+
+Beide Runner sind implementiert und statisch gebunden. Ein positiver nativer
+Lauf wurde noch nicht ausgeführt (`NOT_EXECUTED`); dieser Abschnitt ist daher
+keine Runtime-PASS-Evidence.
