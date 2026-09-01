@@ -32,7 +32,8 @@
 .PARAMETER HyperVSqlStorage
     Waehlt den read-only Hyper-V-SQL-Dateiplatzierungs-Reconcile-Plan.
 .PARAMETER HyperVSqlConfiguration
-    Waehlt den read-only Hyper-V-SQL-Livekonfigurations-Reconcile-Plan.
+    Waehlt den read-only Hyper-V-SQL-Konfigurations-Reconcile-Plan fuer live
+    aenderbare und SQL-dienstrestartpflichtige Werte.
 .PARAMETER HyperVSqlPort
     Waehlt den read-only Hyper-V-SQL-TCP-Port-Reconcile-Plan.
 .PARAMETER HyperVTestDatabases
@@ -86,7 +87,8 @@
 .EXAMPLE
     Get-SqlServerLabReconcilePlan -RunId $runId -HyperVSqlConfiguration -InstanceId primary
 
-    Vergleicht dynamische sp_configure-Werte und angeforderte globale Trace Flags.
+    Vergleicht live aenderbare oder SQL-dienstrestartpflichtige sp_configure-
+    Werte und angeforderte globale Trace Flags.
 .EXAMPLE
     Get-SqlServerLabReconcilePlan -RunId $runId -HyperVSqlPort -InstanceId primary
 

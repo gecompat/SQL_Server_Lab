@@ -498,8 +498,11 @@ fail-closed; ein synthetischer Test ist kein Runtime-Nachweis. Der erste
 `HV-604`-Slice persistiert Memory-, MAXDOP-, Cost-Threshold-, explizite
 `sp_configure`- und Trace-Flag-Werte als portablen SQL-Konfigurationsintent.
 Ein getrennter Plan liest `sys.configurations` und globale Trace Flags ueber
-PowerShell Direct; nur dynamische Werte und fehlende angeforderte Trace Flags
-werden live, journalisiert und fortsetzbar repariert. Der SQL-Port-Folgeslice
+PowerShell Direct. Dynamische Werte und fehlende angeforderte Trace Flags
+werden live repariert; nicht dynamische Werte verwenden einen journalisierten,
+fortsetzbaren Neustart ausschließlich von `MSSQLSERVER`, stellen danach die
+deklarierte Trace-Flag-Laufzeitbindung wieder her und lassen die Hyper-V-VM
+gestartet. Der SQL-Port-Folgeslice
 persistiert `hyperv.sqlPort`, vergleicht
 TCP-Registry und Gastfirewall hostwertfrei und repariert Drift für genau eine
 Standardinstanz mit journalisiertem SQL-Dienstrestart, Readiness-Postcondition
@@ -516,8 +519,7 @@ einen vollständigen portablen Storage-Intent; reine OS-Baselines bleiben
 fail-closed. Ein isolierter nativer Runner samt Prepared-Artifact-Bootstrap
 bindet Plan, `WhatIf`, Add, No-op, Remove, Fremddatenbankschutz, VM-Restart und
 Cleanup, ist aber noch `NOT_EXECUTED`. Die übrigen Repair-Pfade sind ebenfalls
-noch nicht nativ belegt; nicht
-dynamische Konfiguration, Trace-Flag-Entfernung, alte Runs ohne Ownership-
+noch nicht nativ belegt; Trace-Flag-Entfernung, alte Runs ohne Ownership-
 Receipt und allgemeiner Create-/Restore-Reconcile bleiben offen.
 
 OS-, Edition- und inkompatible SQL-Versionswechsel werden zuerst als

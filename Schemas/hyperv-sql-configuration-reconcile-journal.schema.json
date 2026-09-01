@@ -11,8 +11,8 @@
     "ScopeId": { "type": "string", "format": "uuid" },
     "InstanceId": { "type": "string", "minLength": 1 },
     "Provider": { "const": "hyperv" },
-    "ChangeClass": { "const": "live" },
-    "Status": { "enum": ["PREPARED", "CONFIGURATION_APPLIED", "VERIFIED", "COMPLETED", "RECOVERY_REQUIRED"] },
+    "ChangeClass": { "enum": ["live", "restart"] },
+    "Status": { "enum": ["PREPARED", "CONFIGURATION_APPLIED", "SERVICE_RESTARTED", "VERIFIED", "COMPLETED", "RECOVERY_REQUIRED"] },
     "Target": {
       "type": "object",
       "required": ["Configurations", "TraceFlags"],
@@ -36,7 +36,10 @@
     "Runtime": {
       "type": "object",
       "required": ["VMId"],
-      "properties": { "VMId": { "type": "string", "minLength": 1 } },
+      "properties": {
+        "VMId": { "type": "string", "minLength": 1 },
+        "ServiceName": { "const": "MSSQLSERVER" }
+      },
       "additionalProperties": false
     },
     "Recovery": {
