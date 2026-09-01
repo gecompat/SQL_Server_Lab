@@ -70,6 +70,65 @@ try {
     Add-CheckResult -Name 'Identische controllergebundene Katalogspiegel werden read-only zusammengeführt' -Success (
         $catalog.Status -eq 'AVAILABLE' -and @($catalog.Sources).Count -eq 2 -and @($catalog.Document.Stores).Count -eq 1)
 
+    $backupSetId = [Guid]::NewGuid().ToString('D')
+    $backupRecord = [PSCustomObject]@{
+        BackupSetId=$backupSetId; Status='REUSABLE'; DatabaseName='CatalogedBackup'
+        Source=[PSCustomObject]@{ Provider='podman'; RunId=$null; InstanceId='primary'; SqlMajorVersion='17' }
+        Artifact=[PSCustomObject]@{ RelativePath='Objects/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.bak'; Sha256=('a' * 64); Bytes=42 }
+        CreatedAt='2026-09-01T01:00:00Z'
+    }
+    $registered = & $module { param($record,$root,$config) Register-LabBackupSetPersistentStorage -BackupRecord $record -DataRoot $root -Configuration $config } $backupRecord $root1 $configuration
+    $registeredAgain = & $module { param($record,$root,$config) Register-LabBackupSetPersistentStorage -BackupRecord $record -DataRoot $root -Configuration $config } $backupRecord $root1 $configuration
+    $afterRegistration = & $module { param($config) Get-LabPersistentStorageCatalog -Configuration $config } $configuration
+    $backupStore = @($afterRegistration.Document.Stores | Where-Object StorageClass -eq 'BACKUP_SET')
+    Add-CheckResult -Name 'BACKUP_SET wird controllergebunden auf alle Roots gespiegelt und idempotent wiedererkannt' -Success (
+        $registered.Changed -and -not $registeredAgain.Changed -and $afterRegistration.Status -eq 'AVAILABLE' -and
+        @($afterRegistration.Sources).Count -eq 2 -and $afterRegistration.Document.Revision -eq 5 -and $backupStore.Count -eq 1 -and
+        [string]$backupStore[0].References[0].TargetId -eq $backupSetId -and
+        [string]$backupStore[0].LocationBinding.LocationId -eq $locationId1 -and
+        [string]$backupStore[0].LocationBinding.RelativePath -match '^Backups/Objects/[a-f0-9]{64}\.bak$')
+
+    $quarantinedRecord = $backupRecord | ConvertTo-Json -Depth 20 | ConvertFrom-Json -Depth 20
+    $quarantinedRecord.Status = 'QUARANTINED'
+    $quarantineSync = & $module { param($record,$root,$config) Register-LabBackupSetPersistentStorage -BackupRecord $record -DataRoot $root -Configuration $config } $quarantinedRecord $root1 $configuration
+    $reusableSync = & $module { param($record,$root,$config) Register-LabBackupSetPersistentStorage -BackupRecord $record -DataRoot $root -Configuration $config } $backupRecord $root1 $configuration
+    Add-CheckResult -Name 'Bestandsabgleich spiegelt Quarantäne und erneute Freigabe als katalogisierten Zustand' -Success (
+        $quarantineSync.Changed -and $quarantineSync.Store.State -eq 'RECOVERY_REQUIRED' -and
+        $reusableSync.Changed -and $reusableSync.Store.State -eq 'AVAILABLE')
+
+    $conflictingRecord = $backupRecord | ConvertTo-Json -Depth 20 | ConvertFrom-Json -Depth 20
+    $conflictingRecord.Source.Provider = 'docker'
+    Add-CheckResult -Name 'Gleiche BackupSetId mit abweichender Bindung wird vor Katalogmutation blockiert' -Success (Test-ExpectedFailure -Pattern 'BACKUP_SET_STORAGE_BINDING_CONFLICT' -Action {
+        & $module { param($record,$root,$config) Register-LabBackupSetPersistentStorage -BackupRecord $record -DataRoot $root -Configuration $config } $conflictingRecord $root1 $configuration
+    })
+
+    $rollbackRecord = $backupRecord | ConvertTo-Json -Depth 20 | ConvertFrom-Json -Depth 20
+    $rollbackRecord.BackupSetId = [Guid]::NewGuid().ToString('D')
+    $beforeRollbackHash1 = (Get-FileHash -LiteralPath $catalogPath1 -Algorithm SHA256).Hash
+    $beforeRollbackHash2 = (Get-FileHash -LiteralPath $catalogPath2 -Algorithm SHA256).Hash
+    $rollbackBlocked = & $module {
+        param($record,$root,$config,$failPath)
+        $original = (Get-Command Write-LabArtifactJsonAtomic -CommandType Function).ScriptBlock
+        $failedOnce = $false
+        $replacement = {
+            param([string]$Path,$InputObject)
+            if (-not $failedOnce -and [string]::Equals($Path,$failPath,[StringComparison]::OrdinalIgnoreCase)) {
+                $failedOnce = $true; throw 'SYNTHETIC_SECOND_MIRROR_FAILURE'
+            }
+            & $original -Path $Path -InputObject $InputObject
+        }.GetNewClosure()
+        Set-Item Function:script:Write-LabArtifactJsonAtomic -Value $replacement
+        try {
+            Register-LabBackupSetPersistentStorage -BackupRecord $record -DataRoot $root -Configuration $config | Out-Null
+            return $false
+        }
+        catch { return $_.Exception.Message -match 'PERSISTENT_STORAGE_CATALOG_WRITE_FAILED' }
+        finally { Set-Item Function:script:Write-LabArtifactJsonAtomic -Value $original }
+    } $rollbackRecord $root1 $configuration $catalogPath2
+    Add-CheckResult -Name 'Fehler am zweiten Spiegel stellt die vorherige gemeinsame Revision wieder her' -Success (
+        $rollbackBlocked -and (Get-FileHash -LiteralPath $catalogPath1 -Algorithm SHA256).Hash -eq $beforeRollbackHash1 -and
+        (Get-FileHash -LiteralPath $catalogPath2 -Algorithm SHA256).Hash -eq $beforeRollbackHash2)
+
     $renamed = $document | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
     $renamed.Stores[0].DisplayName = 'Umbenannter Anzeigename'
     Add-CheckResult -Name 'Anzeigenamenänderung verändert die stabile Storage-ID nicht' -Success (

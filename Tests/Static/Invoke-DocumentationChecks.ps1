@@ -855,12 +855,12 @@ Add-ValidationResult `
         $repoMap -match 'lab_data_native_runtime_storage_decision: Documentation/Architecture/LAB_DATA_AND_NATIVE_RUNTIME_STORAGE_DECISION\.md')
 
 Add-ValidationResult `
-    -Name 'PSR-003 dokumentiert den implementierten read-only Katalogvertrag ohne Mutationsversprechen' `
-    -Success ($persistentStorageBacklog -match '(?m)^`ACTIVE / PSR_001_PARTIAL_PSR_002_COMPLETE_PSR_003_004_006_READ_ONLY_PSR_005_007_008_009_010_IMPLEMENTED_CORE`' -and
-        $persistentStorageBacklog -match '(?m)^\| `PSR-003` .*\| `IMPLEMENTED_READ_ONLY`:' -and
+    -Name 'PSR-003 dokumentiert den partiellen BACKUP_SET-Katalogcommit ohne breites Mutationsversprechen' `
+    -Success ($persistentStorageBacklog -match '(?m)^`ACTIVE / PSR_001_PARTIAL_PSR_002_COMPLETE_PSR_003_PARTIAL_PSR_004_006_READ_ONLY_PSR_005_007_008_009_010_IMPLEMENTED_CORE`' -and
+        $persistentStorageBacklog -match '(?m)^\| `PSR-003` .*\| `IMPLEMENTED_PARTIAL`:' -and
         $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.PersistentStorageCatalog/1.0') -and
         $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.PersistentStoragePlan/1.0') -and
-        $knownLimitations -match 'Noch nicht implementiert sind Katalogmutation,\s*Lease-Akquisition' -and
+        $knownLimitations -match 'Noch nicht implementiert sind die\s*generische Katalogmutation, ein öffentlicher Bestandsmigrationsbefehl,\s*Lease-Akquisition' -and
         $repoMap -match 'persistent_storage_catalog: Private/PersistentStorageCatalog\.ps1' -and
         $repoMap -match 'persistent_storage_catalog_schema: Schemas/persistent-storage-catalog\.schema\.json' -and
         $repoMap -match 'persistent_storage_plan_schema: Schemas/persistent-storage-plan\.schema\.json' -and
