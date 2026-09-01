@@ -34,11 +34,50 @@ sources_of_truth:
   sql_versions: Catalogs/sql-server-versions.json
   sample_databases: Catalogs/sample-databases.json
   sample_baseline_registry_schema: Schemas/sample-baseline-registry.schema.json
+  backup_library: Private/BackupLibrary.ps1
+  backup_library_schema: Schemas/backup-library.schema.json
+  validation_backup_library: Tests/Static/Invoke-BackupLibraryChecks.ps1
+  acceptance_backup_library_cross_provider: Tests/Integration/Invoke-BackupLibraryCrossProviderAcceptance.ps1
+  database_package: Private/DatabasePackage.ps1
+  database_package_library_schema: Schemas/database-package-library.schema.json
+  database_package_attach_plan_schema: Schemas/database-package-attach-plan.schema.json
+  database_package_journal_schema: Schemas/database-package-journal.schema.json
+  database_package_attach_journal_schema: Schemas/database-package-attach-journal.schema.json
+  validation_database_package: Tests/Static/Invoke-DatabasePackageChecks.ps1
+  acceptance_database_package_sql: Tests/Integration/Invoke-DatabasePackageSqlAcceptance.ps1
   state_contract: Private/StateMachine.ps1
   cleanup_contract: Private/CleanupEngine.ps1
   container_reconcile_contract: Private/ContainerReconcile.ps1
   container_reconcile_journal_schema: Schemas/container-reconcile-journal.schema.json
   validation_container_reconcile: Tests/Static/Invoke-ContainerReconcileChecks.ps1
+  hyperv_network_reconcile_contract: Private/HyperVNetworkReconcile.ps1
+  hyperv_network_reconcile_journal_schema: Schemas/hyperv-network-reconcile-journal.schema.json
+  validation_hyperv_network_reconcile: Tests/Static/Invoke-HyperVNetworkReconcileChecks.ps1
+  hyperv_resource_reconcile_contract: Private/HyperVResourceReconcile.ps1
+  hyperv_resource_reconcile_journal_schema: Schemas/hyperv-resource-reconcile-journal.schema.json
+  validation_hyperv_resource_reconcile: Tests/Static/Invoke-HyperVResourceReconcileChecks.ps1
+  hyperv_storage_reconcile_contract: Private/HyperVStorageReconcile.ps1
+  hyperv_storage_reconcile_journal_schema: Schemas/hyperv-storage-reconcile-journal.schema.json
+  validation_hyperv_storage_reconcile: Tests/Static/Invoke-HyperVStorageReconcileChecks.ps1
+  hyperv_sql_storage_reconcile_contract: Private/HyperVSqlStorageReconcile.ps1
+  validation_hyperv_sql_storage_reconcile: Tests/Static/Invoke-HyperVSqlStorageReconcileChecks.ps1
+  hyperv_sql_configuration_reconcile_contract: Private/HyperVSqlConfigurationReconcile.ps1
+  hyperv_sql_configuration_ownership_schema: Schemas/hyperv-sql-configuration-ownership.schema.json
+  hyperv_sql_configuration_reconcile_journal_schema: Schemas/hyperv-sql-configuration-reconcile-journal.schema.json
+  validation_hyperv_sql_configuration_reconcile: Tests/Static/Invoke-HyperVSqlConfigurationReconcileChecks.ps1
+  validation_hyperv_sql_configuration_reconcile_acceptance: Tests/Integration/Invoke-HyperVSqlConfigurationReconcileAcceptance.ps1
+  validation_hyperv_sql_configuration_reconcile_bootstrap: Tests/Integration/Invoke-HyperVSqlConfigurationReconcileAcceptanceBootstrap.ps1
+  hyperv_sql_port_reconcile_contract: Private/HyperVSqlPortReconcile.ps1
+  hyperv_sql_port_reconcile_journal_schema: Schemas/hyperv-sql-port-reconcile-journal.schema.json
+  validation_hyperv_sql_port_reconcile: Tests/Static/Invoke-HyperVSqlPortReconcileChecks.ps1
+  validation_hyperv_sql_port_reconcile_acceptance: Tests/Integration/Invoke-HyperVSqlPortReconcileAcceptance.ps1
+  validation_hyperv_sql_port_reconcile_bootstrap: Tests/Integration/Invoke-HyperVSqlPortReconcileAcceptanceBootstrap.ps1
+  hyperv_test_database_reconcile_contract: Private/HyperVTestDatabaseReconcile.ps1
+  hyperv_test_database_ownership_schema: Schemas/hyperv-test-database-ownership.schema.json
+  hyperv_test_database_reconcile_journal_schema: Schemas/hyperv-test-database-reconcile-journal.schema.json
+  validation_hyperv_test_database_reconcile: Tests/Static/Invoke-HyperVTestDatabaseReconcileChecks.ps1
+  validation_hyperv_test_database_reconcile_acceptance: Tests/Integration/Invoke-HyperVTestDatabaseReconcileAcceptance.ps1
+  validation_hyperv_test_database_reconcile_bootstrap: Tests/Integration/Invoke-HyperVTestDatabaseReconcileAcceptanceBootstrap.ps1
   port_allocation_contract: Private/PortAllocation.ps1
   storage_contract: Private/StorageContract.ps1
   storage_contract_schema: Schemas/lab-storage-contract.schema.json
@@ -49,6 +88,33 @@ sources_of_truth:
   storage_intent_schema: Schemas/lab-storage-intent.schema.json
   storage_bound_plan_schema: Schemas/lab-storage-bound-plan.schema.json
   storage_runtime_receipt_schema: Schemas/lab-storage-runtime-receipt.schema.json
+  storage_residency_inventory: Private/StorageResidencyInventory.ps1
+  storage_residency_inventory_schema: Schemas/lab-storage-residency-inventory.schema.json
+  persistent_storage_catalog: Private/PersistentStorageCatalog.ps1
+  persistent_storage_catalog_schema: Schemas/persistent-storage-catalog.schema.json
+  persistent_storage_plan_schema: Schemas/persistent-storage-plan.schema.json
+  validation_persistent_storage_catalog: Tests/Static/Invoke-PersistentStorageCatalogChecks.ps1
+  persistent_storage_removal_plan: Private/PersistentStorageRemovalPlan.ps1
+  persistent_storage_removal_intent_schema: Schemas/persistent-storage-removal-intent.schema.json
+  persistent_storage_removal_plan_schema: Schemas/persistent-storage-removal-plan.schema.json
+  validation_persistent_storage_removal_plan: Tests/Static/Invoke-PersistentStorageRemovalPlanChecks.ps1
+  container_instance_store: Private/ContainerInstanceStore.ps1
+  container_instance_store_intent_schema: Schemas/container-instance-store-intent.schema.json
+  container_instance_store_plan_schema: Schemas/container-instance-store-plan.schema.json
+  container_instance_store_journal_schema: Schemas/container-instance-store-journal.schema.json
+  validation_container_instance_store: Tests/Static/Invoke-ContainerInstanceStoreChecks.ps1
+  acceptance_container_instance_store: Tests/Integration/Invoke-ContainerInstanceStoreAcceptance.ps1
+  container_runtime_scope: Private/ContainerRuntimeScope.ps1
+  container_runtime_scope_schema: Schemas/container-runtime-scope.schema.json
+  validation_container_runtime_scope: Tests/Static/Invoke-ContainerRuntimeScopeChecks.ps1
+  acceptance_container_runtime_scope: Tests/Integration/Invoke-ContainerRuntimeScopeAcceptance.ps1
+  hyperv_persistent_data_drive: Private/HyperVPersistentDataDrive.ps1
+  hyperv_persistent_data_intent_schema: Schemas/hyperv-persistent-data-intent.schema.json
+  hyperv_persistent_data_plan_schema: Schemas/hyperv-persistent-data-plan.schema.json
+  validation_hyperv_persistent_data_drive: Tests/Static/Invoke-HyperVPersistentDataDriveChecks.ps1
+  acceptance_hyperv_persistent_data_drive: Tests/Integration/Invoke-HyperVPersistentDataDriveAcceptance.ps1
+  lab_data_native_runtime_storage_decision: Documentation/Architecture/LAB_DATA_AND_NATIVE_RUNTIME_STORAGE_DECISION.md
+  cleanup_audit_schema: Schemas/lab-cleanup-audit.schema.json
   hyperv_resource_binding_contract: Private/HyperVResourceBinding.ps1
   hyperv_resource_preview_command: Public/Get-SqlServerLabHyperVResourcePreview.ps1
   hyperv_resource_binding_schema: Schemas/hyperv-resource-binding.schema.json
@@ -218,11 +284,11 @@ public_commands:
     writes_files: true
   - name: Get-SqlServerLabReconcilePlan
     source: Public/Get-SqlServerLabReconcilePlan.ps1
-    purpose: "Read-only Lifecycle-, Containerressourcen-/Autostart- oder resolvergebundener External-Runtime-Reconcile-Plan"
+    purpose: "Read-only Lifecycle-, Hyper-V-Netzwerk-/vCPU-/RAM-, Containerressourcen-/Autostart- oder resolvergebundener External-Runtime-Reconcile-Plan"
     mutates_host: false
   - name: Invoke-SqlServerLabReconcileAction
     source: Public/Invoke-SqlServerLabReconcileAction.ps1
-    purpose: "START/STOP, Containerressourcen/Autostart oder additiven SQL-2022-Container-Runtime-Refresh journal- und validierungsgebunden ausfuehren"
+    purpose: "START/STOP, Hyper-V-Netzwerk-/vCPU-/RAM-Reparatur, Containerressourcen/Autostart oder additiven Container-Runtime-Refresh journal- und validierungsgebunden ausfuehren"
     mutates_host: true
   - name: Invoke-SqlServerLabWorkflowAction
     source: Public/Invoke-SqlServerLabWorkflowAction.ps1
@@ -339,6 +405,13 @@ internal_components:
       - "relative Pfade auflösen"
       - "Sample-Referenzen in den typisierten Artifact-Vertrag auflösen"
       - "nur ausführbare Backup-Varianten in Restoredefinitionen umwandeln"
+  - name: LabNetwork
+    source: Private/LabNetwork.ps1
+    responsibilities:
+      - "providerneutrale Network- und Exposure-Intents mutationsfrei aufloesen"
+      - "Container-NAT sowie Hyper-V-HostOnly und -Isolation an portable Bindings und Capabilities koppeln"
+      - "Exposure-Konflikte, Legacy-Switch-Konflikte und nicht implementierte Providerkombinationen vor Mutation fail-closed ablehnen"
+    validation: Tests/Static/Invoke-LabNetworkChecks.ps1
   - name: VersionCatalog
     source: Private/VersionCatalog.ps1
     responsibilities:
@@ -444,12 +517,24 @@ internal_components:
   - name: CleanupEngine
     source: Private/CleanupEngine.ps1
     audit: Public/Get-SqlServerLabCleanupAudit.ps1
+    storage_residency: Private/StorageResidencyInventory.ps1
+    persistent_storage_catalog: Private/PersistentStorageCatalog.ps1
+    persistent_storage_removal_plan: Private/PersistentStorageRemovalPlan.ps1
+    container_runtime_scope: Private/ContainerRuntimeScope.ps1
+    hyperv_persistent_data_drive: Private/HyperVPersistentDataDrive.ps1
     responsibilities:
       - "Cleanup-Plan und providergebundene Cleanup-SubRuns vor Mutation erzeugen"
       - "Compensation-Schritte je Provider speichern und ausführen"
       - "Run-lokale Ressourcen an Software-PlanKeys binden und wiederverwendbare Softwareartefakte ausdrücklich behalten"
       - "Hyper-V-Cleanup vor der ersten Mutation gegen Run-Binding, registrierte Zusatzlaufwerksroots und terminales Migrationsjournal revalidieren"
       - "Hyper-V-Run-Schutzbereiche, Shared-Roots und ungetrackte Preserve-Dateien read-only auditieren"
+      - "Lab_Data, native Runtime-Volumes, externe Pfade, Hyper-V-Ressourcen, Retention und unverifizierbares physisches Backing als versionierte read-only Storage-Residency klassifizieren"
+      - "stabile Persistent-Storage-IDs, Klassen, Zustände, Referenzen und exklusive Leases read-only validieren und mit dem Residency-Inventar abgleichen"
+      - "Retention, Backup-/Package-on-Remove, externe Bindungsfreigabe und Recovery-Postconditions read-only planen; persistente Storage-Löschung getrennt halten"
+      - "katalogisierte Docker-/Podman-Instanzstores per stabiler ID und Runtime-Label detached revalidieren, fuer Continue binden und in ein neues operationsgebundenes Volume digestverifiziert klonen"
+      - "aktiven Docker-Context beziehungsweise Podman-Connection/Machine read-only an eine stabile sanitisierte Runtime-ID binden und geteilte Engine-/Machine-/Hostdefaults als REPORT_ONLY vor Mutation schuetzen"
+      - "sanitisierte Docker-/Podman-Runtime-Scopes im oeffentlichen Cleanup-Audit ausgeben, ohne Rohendpunkte, Identity-Pfade oder Managementautoritaet zu persistieren"
+      - "katalogisierte Hyper-V-Daten-VHDX per stabiler Storage-ID, Clean-Detach-, DiskIdentifier-, VM-, Checkpoint-, SQL-Versions- und Gastpfad-Evidenz revalidieren, quellenunveraendert klonen, reattachen und freigeben"
   - name: PortAllocation
     source: Private/PortAllocation.ps1
     responsibilities:
@@ -501,6 +586,11 @@ providers:
     resource_binding: Private/HyperVResourceBinding.ps1
     resource_location_preview: "Public/Get-SqlServerLabHyperVResourcePreview.ps1 plus UI-User-Gate und explizit revalidierter UAC-Handoff"
     resource_migration: Private/HyperVResourceMigration.ps1
+    resource_reconcile: "Private/HyperVResourceReconcile.ps1; manifestgebundener vCPU-/RAM-Istvergleich, Live-Min-/Max sowie journalisiertes Stop-Apply-Start mit Recovery-Resume"
+    storage_reconcile: "Private/HyperVStorageReconcile.ps1 plus Private/HyperVSqlStorageReconcile.ps1; manifestgebundene zusaetzliche SCSI-VHDX, Grow-only-Resize, Gast-NTFS-Erweiterung sowie receiptgebundener SQL-Default-/TempDB-Reconcile mit Recovery-Resume"
+    sql_configuration_reconcile: "Private/HyperVSqlConfigurationReconcile.ps1; persistierter oder eng begrenzt manifestaktualisierter serverConfig-Intent, read-only sys.configurations-/Trace-Flag-/Startup-Istvergleich sowie journalisierte Live- oder MSSQLSERVER-Dienstrestart-Reparatur mit VM-gebundenem Trace-Flag-Ownership, eigentumsgeschuetzter Runtime-Entfernung, Desired-State-Commit und Recovery-Resume"
+    sql_port_reconcile: "Private/HyperVSqlPortReconcile.ps1; persistierter hyperv.sqlPort-Intent, hostwertfreier Registry-/Firewall-Istvergleich und journalisierte Reparatur mit ausschliesslichem SQL-Dienstrestart sowie Recovery-Resume"
+    test_database_reconcile: "Private/HyperVTestDatabaseReconcile.ps1; katalogisierte Add-/Remove-Aktionen mit VM-gebundenem Ownership, verifiziertem Removal-Backup, Fremddatenbankschutz und Vorwaerts-Recovery"
     migration_lifecycle_guard: "read-only Reconcile-Plan plus fail-closed Start, Stop, Autostart, SQL-WMI-Repair und Cleanup; Run- und allgemeine Location-Migrationen muessen terminal sein, COMPLETED erfordert revalidierte Bindings"
     storage_parent_migration_binding: "Plan inventarisiert lokale HyperVResourceBinding-Receipts sowie exakte VM-Konfigurations-/Snapshot-/Paging-Quell- und Zielpfade; Apply revalidiert VM-Identitaet und Aus-Zustand, journalisiert Move-VMStorage vor der Mutation, prueft Ziel-Postconditions und setzt ohne doppelten Move fort"
     storage_parent_migration_acceptance: "Tests/Integration/Invoke-HyperVStorageParentMigrationAcceptance.ps1; reale Vorwaerts- und Rueckmigration eines isolierten nicht-default Lab_Data mit VM-Konfiguration, Snapshot, Smart Paging, VHDX-Rebind, Wiederherstellung und Cleanup"
@@ -517,9 +607,17 @@ providers:
     builder_static_checks: Tests/Static/Invoke-HyperVImageBuilderChecks.ps1
     resource_binding_static_checks: Tests/Static/Invoke-HyperVResourceBindingChecks.ps1
     resource_migration_static_checks: Tests/Static/Invoke-HyperVResourceMigrationChecks.ps1
+    resource_reconcile_static_checks: Tests/Static/Invoke-HyperVResourceReconcileChecks.ps1
+    storage_reconcile_static_checks: Tests/Static/Invoke-HyperVStorageReconcileChecks.ps1
+    sql_storage_reconcile_static_checks: Tests/Static/Invoke-HyperVSqlStorageReconcileChecks.ps1
+    sql_configuration_reconcile_static_checks: Tests/Static/Invoke-HyperVSqlConfigurationReconcileChecks.ps1
+    sql_configuration_reconcile_acceptance: "Tests/Integration/Invoke-HyperVSqlConfigurationReconcileAcceptance.ps1 plus isolierter Prepared-Artifact-Bootstrap; ausfuehrbarer Plan/WhatIf/Live/Ownership-Add-/Remove-/MSSQLSERVER-Restart-/Desired-State-/Cleanup-Vertrag, native Ausfuehrung noch NOT_EXECUTED"
+    sql_port_reconcile_static_checks: Tests/Static/Invoke-HyperVSqlPortReconcileChecks.ps1
+    sql_port_reconcile_acceptance: "Tests/Integration/Invoke-HyperVSqlPortReconcileAcceptance.ps1 plus isolierter Prepared-Artifact-Bootstrap; ausfuehrbarer Drift/Plan/WhatIf/MSSQLSERVER-Restart/Connection-State/No-op/Cleanup-Vertrag, native Ausfuehrung noch NOT_EXECUTED"
     resource_migration_acceptance: Tests/Integration/Invoke-HyperVResourceMigrationAcceptance.ps1
     image_migration_static_checks: Tests/Static/Invoke-HyperVImageMigrationChecks.ps1
     sql_prepared_build_acceptance: Tests/Integration/Invoke-HyperVSqlPreparedImageAcceptance.ps1
+    test_database_reconcile_acceptance: "Tests/Integration/Invoke-HyperVTestDatabaseReconcileAcceptance.ps1 plus isolierter Prepared-Artifact-Bootstrap; ausfuehrbarer Plan/WhatIf/Add/No-op/Remove-/Restart-/Cleanup-Vertrag, native Ausfuehrung noch NOT_EXECUTED"
     storage_acceptance_bootstrap: "Tests/Integration/Invoke-HyperVStorageAcceptanceBootstrap.ps1; real three-device N4/N5 rerun validates bound builder/image placement and registry-safe isolated artifact cleanup"
     legacy_sql_migration_acceptance: "Tests/Integration/Invoke-HyperVLegacySqlMigrationBootstrap.ps1; isolated SQL 2022 clone validates committed Lab_Data binding, two guest/SQL restarts, running-state restoration, protected-group recovery, and complete candidate cleanup"
     template_pool: "Maximal 20 immutable OS_SEALED-/SQL_PREPARED_SEALED-Images; aktive Builder und Lab-Klone blockieren Parent-Löschung"
@@ -712,6 +810,15 @@ validation:
       - sanitized_plan_and_whatif
       - build_journal_validation_state_commit_cleanup_order
       - rollback_and_resume_contract
+  static_hyperv_network_reconcile:
+    command: '.\Tests\Static\Invoke-HyperVNetworkReconcileChecks.ps1'
+    source: Tests/Static/Invoke-HyperVNetworkReconcileChecks.ps1
+    covers:
+      - host_value_free_network_repair_plan
+      - additive_infrastructure_and_single_disconnected_adapter_repair
+      - explicit_external_switch_creation_approval
+      - run_scope_vm_and_adapter_bound_journal
+      - recovery_finalize_and_fail_closed_drift_boundaries
   static_mixed_provider_contracts:
     command: '.\Tests\Static\Invoke-MixedProviderLifecycleChecks.ps1'
     source: Tests/Static/Invoke-MixedProviderLifecycleChecks.ps1
@@ -744,6 +851,71 @@ validation:
       - hyperv_run_binding_and_migration_status
       - atomic_cleanup_preflight
       - shared_image_and_untracked_file_preservation
+      - stable_storage_residency_object_identity
+      - lab_data_runtime_external_residency_classification
+      - retained_and_orphan_volume_classification
+      - persistent_storage_registration_candidates
+  static_persistent_storage_catalog:
+    command: '.\Tests\Static\Invoke-PersistentStorageCatalogChecks.ps1'
+    source: Tests/Static/Invoke-PersistentStorageCatalogChecks.ps1
+    covers:
+      - stable_persistent_storage_identity
+      - catalog_schema_and_semantics
+      - mirrored_catalog_consistency
+      - exclusive_lease_validation
+      - read_only_inventory_binding
+      - id_less_registration_candidates
+  static_persistent_storage_removal_plan:
+    command: '.\Tests\Static\Invoke-PersistentStorageRemovalPlanChecks.ps1'
+    source: Tests/Static/Invoke-PersistentStorageRemovalPlanChecks.ps1
+    covers:
+      - explicit_retention_policy_selection
+      - backup_checksum_and_restore_verification
+      - offline_package_hash_and_postcondition
+      - foreign_reference_and_recovery_guards
+      - external_source_non_mutation
+      - separate_persistent_storage_delete_boundary
+  static_container_instance_store:
+    command: '.\Tests\Static\Invoke-ContainerInstanceStoreChecks.ps1'
+    source: Tests/Static/Invoke-ContainerInstanceStoreChecks.ps1
+    covers:
+      - stable_storage_id_selection
+      - detached_only_continue_and_clone
+      - sql_major_version_compatibility
+      - read_only_source_mount
+      - content_digest_postcondition
+      - recovery_journal_resume
+  static_container_runtime_scope:
+    command: '.\Tests\Static\Invoke-ContainerRuntimeScopeChecks.ps1'
+    source: Tests/Static/Invoke-ContainerRuntimeScopeChecks.ps1
+    covers:
+      - stable_endpoint_bound_runtime_id
+      - docker_context_binding
+      - podman_connection_machine_binding
+      - remote_and_ambiguous_runtime_guards
+      - endpoint_and_host_path_sanitization
+      - shared_runtime_report_only_boundary
+  static_hyperv_persistent_data_drive:
+    command: '.\Tests\Static\Invoke-HyperVPersistentDataDriveChecks.ps1'
+    source: Tests/Static/Invoke-HyperVPersistentDataDriveChecks.ps1
+    covers:
+      - stable_storage_id_and_lab_data_binding
+      - clean_detach_disk_identifier_and_sql_version_guards
+      - target_vm_checkpoint_and_guest_path_guards
+      - source_immutable_independent_vhdx_clone
+      - reattach_release_and_recovery_journal
+      - explicit_database_restore_or_attach_boundary
+  static_database_package:
+    command: '.\Tests\Static\Invoke-DatabasePackageChecks.ps1'
+    source: Tests/Static/Invoke-DatabasePackageChecks.ps1
+    covers:
+      - clean_offline_or_detached_exclusive_capture
+      - complete_mdf_ndf_ldf_filestream_inventory
+      - recursive_sha256_and_tamper_detection
+      - immutable_copy_then_attach_boundary
+      - independent_clone_materialization
+      - sql_version_filestream_tde_and_parallel_writer_guards
+      - attach_journal_and_online_postcondition
   static_podman_bootstrap:
     command: '.\Tests\Static\Invoke-PodmanBootstrapChecks.ps1'
     source: Tests/Static/Invoke-PodmanBootstrapChecks.ps1
@@ -879,6 +1051,36 @@ validation:
       - journaled_port_recreate_rollback_and_exact_runtime_identity
       - lifecycle_and_reconcile_persistence
       - scope_bound_cleanup
+  container_instance_store_acceptance:
+    source: Tests/Integration/Invoke-ContainerInstanceStoreAcceptance.ps1
+    docker: '.\Tests\Integration\Invoke-ContainerInstanceStoreAcceptance.ps1 -Provider docker'
+    podman: '.\Tests\Integration\Invoke-ContainerInstanceStoreAcceptance.ps1 -Provider podman'
+    execution_status: "Docker und Podman am 2026-09-01 getrennt positiv ausgefuehrt; test-eigene Ressourcen vollstaendig bereinigt"
+    checks:
+      - stable_id_continue_selection
+      - server_state_after_recreate
+      - user_database_after_recreate
+      - detached_digest_verified_clone
+      - server_and_user_data_live_in_clone
+  container_runtime_scope_acceptance:
+    source: Tests/Integration/Invoke-ContainerRuntimeScopeAcceptance.ps1
+    command: '.\Tests\Integration\Invoke-ContainerRuntimeScopeAcceptance.ps1'
+    execution_status: "Docker Desktop und Podman WSL-Machine am 2026-09-01 getrennt read-only positiv ausgefuehrt; Runtime-Ressourcen und Auswahl unveraendert"
+    checks:
+      - live_context_connection_and_machine_binding
+      - schema_and_sanitization
+      - shared_runtime_management_blocked
+      - before_after_resource_fingerprint_unchanged
+  hyperv_persistent_data_drive_acceptance:
+    source: Tests/Integration/Invoke-HyperVPersistentDataDriveAcceptance.ps1
+    command: '.\Tests\Integration\Invoke-HyperVPersistentDataDriveAcceptance.ps1'
+    execution_status: "am 2026-09-01 nativ positiv ausgefuehrt; test-eigene VM und VHDX vollstaendig bereinigt"
+    checks:
+      - source_vhdx_hash_unchanged
+      - independent_clone_disk_identifier
+      - managed_vm_reattach_and_identity
+      - clean_host_release
+      - explicit_sql_guest_evidence_boundary
   remote_workflows:
     foundation_integrity:
       source: .github/workflows/static-contracts.yml
@@ -989,9 +1191,10 @@ change_coupling:
 known_limitations:
   binding_document: Documentation/Quality/KNOWN_LIMITATIONS.md
   highlights:
-    - "Hyper-V sealed VHDX Registry, Builder-/Resume-Grundlage, realer Windows-2025-/SQL-2025-Prepared-Manifest-Klon bis SQL_READY_RUN, freie Manifest-Drives und echter SQL-2025-CLI-Vertical-Slice implementiert und positiv ausgefuehrt; vollautomatische OS-Factory sowie allgemeines Datenbank-/Software-/Post-Provision-/Netzwerk-Binding bleiben offen"
+    - "Hyper-V-Reconcile deckt Netzwerk, vCPU/RAM, zusaetzliche VHDX grow-only, Gast-NTFS, SQL-Default-/TempDB-Dateiplatzierung, SQL-Konfiguration, SQL-Port und katalogisierte Testdatenbank-Add-/Remove-Aktionen mit lokalen Journals beziehungsweise VM-gebundenem Ownership-Receipt synthetisch ab; fuer SQL-Konfiguration, SQL-Port und Testdatenbanken existieren getrennte isolierte native Runner samt Prepared-Artifact-Bootstrap, deren Ausfuehrung noch NOT_EXECUTED ist; weitere native Reparaturevidence, alte Runs ohne Testdatenbank-Receipt, Storage-Rebinding/-Removal sowie User-/Systemdatenbankverschiebung bleiben offen"
+    - "Hyper-V sealed VHDX Registry, Builder-/Resume-Grundlage, realer Windows-2025-/SQL-2025-Prepared-Manifest-Klon bis SQL_READY_RUN, freie Manifest-Drives, NAT-Bound-Plan mit IPAM, LAN-Bound-Plan mit lokaler External-Switch-/Adapter-Allowlist und DHCP, read-only Netzwerk-Reconcile, eng begrenzte journalisierte Netzwerkreparatur und echter SQL-2025-CLI-Vertical-Slice implementiert; vollautomatische OS-Factory sowie allgemeines Datenbank-/Software-/Post-Provision-Binding und positive native External-Switch-/Netzwerkreparatur-Evidence bleiben offen"
     - "Container-Manifeste laufen standardmäßig unattended mit externen Secret-Referenzen, SHA-256-/Trust-Schutz und read-only Host-Mount-Default"
-    - "providerneutrale Network Intents und Exposure Policy sind nicht implementiert; Lifecycle-Reconcile sowie journalisierter Container-Reconcile fuer CPU, RAM, SQL max memory, Hostport, Autostart und External Runtimes sind implementiert, breitere Mount-/Image-/Netzwerk-/Hyper-V-Aenderungen bleiben offen"
+    - "providerneutrale Network Intents und Exposure Policy binden Container-NAT sowie Hyper-V-HostOnly/-Isolation/-NAT/-LAN und lehnen offene Kombinationen vor Mutation ab; Hyper-V-NAT nutzt Shared-WinNAT, mutationsfreie Kollisionspruefung, statische scopegebundene IPAM-Leases und Gateway-/DNS-Binding; Hyper-V-LAN nutzt eine lokale External-Switch-/Adapter-Allowlist und DHCP; Hyper-V-Netzdrift wird im Lifecycle-Reconcile semantisch, hostwertfrei und fail-closed gelesen; ein eigener journalisierter Executor repariert ausschließlich additive Infrastruktur und genau einen vorhandenen getrennten Adapter; Rebinding, Adapter-Neuanlage, Gastadressreparatur sowie positive native External-Switch-/Repair-Evidence bleiben offen; Lifecycle-Reconcile sowie journalisierter Container-Reconcile fuer CPU, RAM, SQL max memory, Hostport, Autostart und External Runtimes sind implementiert"
     - "Artifact Refresh und Rebuild für Medien, VHDX und Derived Images nicht implementiert"
     - "kein provideruebergreifendes Docker-/Podman-Netzwerk oder Hyper-V-SubRun"
     - "Sample-Handler mit Trust-Pfad, Mehrfachauswahl, ZIP-/7z-Backup-Payloads, gepinnten Einzelskripten und sicheren Multi-Output-ZIP-Script-Bundles sind implementiert; nicht freigegebene Archive und Attach-Handler bleiben offen"

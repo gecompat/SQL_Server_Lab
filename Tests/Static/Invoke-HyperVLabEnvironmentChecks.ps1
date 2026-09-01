@@ -114,6 +114,12 @@ try {
         $environmentText -match 'Deklarierte SQL-Memory-, MAXDOP-, Cost-Threshold- und TempDB-Konfiguration' -and
         $environmentText -match 'Set-LabServerConfig'
     )
+    Add-CheckResult -Name 'Hyper-V-LAN-Hostzugriff revalidiert den lokalen Bound-Plan und begrenzt SQL auf LocalSubnet' -Success (
+        $environmentText -match 'HYPERV_LAN_BOUND_PLAN_MISSING' -and
+        $environmentText -match 'Resolve-LabHyperVNetworkBoundPlan -Intent lan' -and
+        $environmentText -match 'if \(\$usesLan\) \{ ''LocalSubnet'' \}' -and
+        $environmentText -match 'New-NetFirewallRule[\s\S]+-RemoteAddress \$RemoteAddress'
+    )
     Add-CheckResult -Name 'Manifestpfad bleibt ohne fertige SQL-Vorlage fail-closed' -Success (
         $newLabText -match 'HYPERV_MANIFEST_FALLBACK_IMAGE_NOT_FOUND' -and
         $newLabText -match 'Keine lokale SQL_PREPARED_SEALED-Vorlage'
@@ -152,7 +158,9 @@ try {
                 sql = [PSCustomObject]@{ version = '2025'; edition = 'Enterprise' }
             }
         }
-        function Resolve-LabHyperVNetwork { [PSCustomObject]@{ Name = 'SQL_LAB_HYPERV'; Subnet = '172.28.0.0/24'; PrefixLength = 24; HostAddress = '172.28.0.1' } }
+        function Resolve-LabHyperVNetworkBoundPlan { [PSCustomObject]@{ Contract=[PSCustomObject]@{Name='SqlServerLab.HyperVNetworkBoundPlan'}; Status='READY'; Intent='hostOnly'; Name='SQL_LAB_HYPERV'; Subnet='172.28.0.0/24'; PrefixLength=24; HostAddress='172.28.0.1'; Gateway=$null; DnsServers=@() } }
+        function Invoke-LabHyperVNetworkBoundPlan { param($Plan) $Plan }
+        function Reserve-LabHyperVNetworkAddress { [PSCustomObject]@{ address='172.28.0.10' } }
         function Get-HyperVLabVMs { @() }
         function New-HyperVInstance {
             [PSCustomObject]@{ VMName = 'sql-lab-primary-mock'; VMId = 'mock-vm-id' }
@@ -167,6 +175,33 @@ try {
         $connection.instances[0].imageArtifactId -eq 'sql-prepared-test' -and $connection.instances[0].workload -eq 'sql' -and
         $connection.instances[0].autostart -eq 'on' -and $state.metadata.autostart -eq 'on'
     )
+    $lanRoot = Join-Path $temporaryRoot 'lan-runtime'
+    $lanCreated = & $module {
+        param($Root)
+        function Test-HyperVAvailable { [PSCustomObject]@{ Available=$true; Message='mock' } }
+        function Get-HyperVImageArtifact {
+            [PSCustomObject]@{ artifactId='sql-prepared-lan'; artifactState='SQL_PREPARED_SEALED'; sql=[PSCustomObject]@{ version='2025'; edition='Enterprise' } }
+        }
+        function Resolve-LabHyperVNetworkBoundPlan {
+            [PSCustomObject]@{
+                Contract=[PSCustomObject]@{Name='SqlServerLab.HyperVNetworkBoundPlan'}; Status='READY'; Intent='lan'; Exposure='lan'
+                Name='SQL_LAB_LAN'; Subnet=$null; PrefixLength=$null; HostAddress=$null; Gateway=$null; DnsServers=@()
+                AddressMode='dhcp'; AdapterId='11111111-1111-1111-1111-111111111111'; Actions=@(); Blockers=@()
+            }
+        }
+        function Invoke-LabHyperVNetworkBoundPlan { param($Plan) $Plan }
+        function Reserve-LabHyperVNetworkAddress { throw 'LAN_MUST_NOT_USE_IPAM' }
+        function Get-HyperVLabVMs { @() }
+        function New-HyperVInstance { [PSCustomObject]@{ VMName='sql-lab-lan-mock'; VMId='lan-vm-id'; AdditionalDrives=@() } }
+        New-HyperVLabEnvironment -ArtifactId sql-prepared-lan -LabName 'LAN Mock' -InstanceId primary -NetworkIntent lan -StateRoot $Root
+    } $lanRoot
+    $lanConnection = Get-Content -LiteralPath (Join-Path (Join-Path (Join-Path $lanRoot 'runs') $lanCreated.RunId) 'connection-info.json') -Raw | ConvertFrom-Json -Depth 10
+    Add-CheckResult -Name 'Hyper-V-LAN persistiert DHCP und belegt keine interne IPAM-Adresse' -Success (
+        $lanConnection.instances[0].labNetwork.intent -eq 'lan' -and
+        $lanConnection.instances[0].labNetwork.addressMode -eq 'dhcp' -and
+        $null -eq $lanConnection.instances[0].labNetwork.address -and
+        $lanConnection.instances[0].labNetwork.name -eq 'SQL_LAB_LAN'
+    )
     $driveBound = & $module {
         param($Root)
         $script:driveTestRoot = $Root
@@ -177,7 +212,9 @@ try {
                 sql = [PSCustomObject]@{ version = '2025'; edition = 'Enterprise' }
             }
         }
-        function Resolve-LabHyperVNetwork { [PSCustomObject]@{ Name = 'SQL_LAB_HYPERV'; Subnet = '172.28.0.0/24'; PrefixLength = 24; HostAddress = '172.28.0.1' } }
+        function Resolve-LabHyperVNetworkBoundPlan { [PSCustomObject]@{ Contract=[PSCustomObject]@{Name='SqlServerLab.HyperVNetworkBoundPlan'}; Status='READY'; Intent='hostOnly'; Name='SQL_LAB_HYPERV'; Subnet='172.28.0.0/24'; PrefixLength=24; HostAddress='172.28.0.1'; Gateway=$null; DnsServers=@() } }
+        function Invoke-LabHyperVNetworkBoundPlan { param($Plan) $Plan }
+        function Reserve-LabHyperVNetworkAddress { [PSCustomObject]@{ address='172.28.0.11' } }
         function Get-HyperVLabVMs { @() }
         function New-HyperVInstance {
             param($AdditionalDrives)
@@ -227,7 +264,9 @@ try {
         function Get-HyperVImageArtifact {
             [PSCustomObject]@{ artifactId = 'windows-baseline-test'; artifactState = 'OS_SEALED'; sql = $null }
         }
-        function Resolve-LabHyperVNetwork { [PSCustomObject]@{ Name = 'SQL_LAB_HYPERV'; Subnet = '172.28.0.0/24'; PrefixLength = 24; HostAddress = '172.28.0.1' } }
+        function Resolve-LabHyperVNetworkBoundPlan { [PSCustomObject]@{ Contract=[PSCustomObject]@{Name='SqlServerLab.HyperVNetworkBoundPlan'}; Status='READY'; Intent='hostOnly'; Name='SQL_LAB_HYPERV'; Subnet='172.28.0.0/24'; PrefixLength=24; HostAddress='172.28.0.1'; Gateway=$null; DnsServers=@() } }
+        function Invoke-LabHyperVNetworkBoundPlan { param($Plan) $Plan }
+        function Reserve-LabHyperVNetworkAddress { [PSCustomObject]@{ address='172.28.0.12' } }
         function Get-HyperVLabVMs { [PSCustomObject]@{ VMName = 'windows-primary-mock'; VMId = 'windows-vm-id'; State = 'Off' } }
         function New-HyperVInstance { [PSCustomObject]@{ VMName = 'windows-primary-mock'; VMId = 'windows-vm-id' } }
         $created = New-HyperVLabEnvironment -ArtifactId 'windows-baseline-test' -LabName 'Windows Mock' -InstanceId primary -StateRoot $Root
@@ -435,7 +474,9 @@ try {
             $null = New-Item -ItemType File -Path $DestinationPath -Force
         }
         function Get-FileHash { [PSCustomObject]@{ Hash = ('a' * 64) } }
-        function Resolve-LabHyperVNetwork { [PSCustomObject]@{ Name = 'SQL_LAB_HYPERV'; Subnet = '172.28.0.0/24'; PrefixLength = 24; HostAddress = '172.28.0.1' } }
+        function Resolve-LabHyperVNetworkBoundPlan { [PSCustomObject]@{ Contract=[PSCustomObject]@{Name='SqlServerLab.HyperVNetworkBoundPlan'}; Status='READY'; Intent='hostOnly'; Name='SQL_LAB_HYPERV'; Subnet='172.28.0.0/24'; PrefixLength=24; HostAddress='172.28.0.1'; Gateway=$null; DnsServers=@() } }
+        function Invoke-LabHyperVNetworkBoundPlan { param($Plan) $Plan }
+        function Reserve-LabHyperVNetworkAddress { [PSCustomObject]@{ address='172.28.0.13' } }
         function New-HyperVInstance { [PSCustomObject]@{ VMName = 'sql-lab-primary-existing'; VMId = 'existing-vm-id' } }
         $created = New-HyperVLabEnvironmentFromExistingVm -SourceVMName 'Windows 11 Dev Environment' -LabName 'Windows Dev Lab' -InstanceId primary -ConfirmSourceLicense -StateRoot $Root
         [PSCustomObject]@{ Created = $created; ConvertedFrom = $script:convertedFrom; Source = $script:sourceDisk }

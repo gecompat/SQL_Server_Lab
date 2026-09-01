@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sql-server-lab.local/schemas/hyperv-sql-configuration-reconcile-journal.schema.json",
+  "title": "SqlServerLab.HyperVSqlConfigurationReconcileJournal/1.0",
+  "type": "object",
+  "required": ["ContractVersion", "OperationId", "RunId", "ScopeId", "InstanceId", "Provider", "ChangeClass", "Status", "Target", "Runtime", "Recovery", "UpdatedAt"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.HyperVSqlConfigurationReconcileJournal/1.0" },
+    "OperationId": { "type": "string", "format": "uuid" },
+    "RunId": { "type": "string", "format": "uuid" },
+    "ScopeId": { "type": "string", "format": "uuid" },
+    "InstanceId": { "type": "string", "minLength": 1 },
+    "Provider": { "const": "hyperv" },
+    "ChangeClass": { "enum": ["live", "restart"] },
+    "Status": { "enum": ["PREPARED", "CONFIGURATION_APPLIED", "TRACE_FLAGS_REMOVED", "SERVICE_RESTARTED", "VERIFIED", "OWNERSHIP_UPDATED", "DESIRED_STATE_UPDATED", "COMPLETED", "RECOVERY_REQUIRED"] },
+    "Target": {
+      "type": "object",
+      "required": ["Configurations", "TraceFlags"],
+      "properties": {
+        "Configurations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["Name", "Value"],
+            "properties": {
+              "Name": { "type": "string", "pattern": "^[A-Za-z0-9 ()_-]+$" },
+              "Value": { "type": "integer" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "TraceFlags": { "type": "array", "items": { "type": "integer", "minimum": 1 }, "uniqueItems": true }
+      },
+      "additionalProperties": false
+    },
+    "Runtime": {
+      "type": "object",
+      "required": ["VMId"],
+      "properties": {
+        "VMId": { "type": "string", "minLength": 1 },
+        "ServiceName": { "const": "MSSQLSERVER" }
+      },
+      "additionalProperties": false
+    },
+    "TraceFlagAdditions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "integer", "minimum": 1 }
+    },
+    "TraceFlagRemovals": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "integer", "minimum": 1 }
+    },
+    "Recovery": {
+      "type": "object",
+      "required": ["Status", "Attempts", "ErrorCode", "Errors"],
+      "properties": {
+        "Status": { "enum": ["RETRY_SQL_CONFIGURATION_RECONCILE", "NOT_REQUIRED"] },
+        "Attempts": { "type": "integer", "minimum": 0 },
+        "ErrorCode": { "type": ["string", "null"] },
+        "Errors": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "UpdatedAt": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

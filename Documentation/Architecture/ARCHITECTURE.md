@@ -6,6 +6,9 @@
 > Der verbindliche aktuelle Hyper-V-, Image-, Netzwerk-, Software-, Reconcile-
 > und Refresh-Zielvertrag steht in
 > [HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md](HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md).
+> Die bindende Grenze zwischen `Lab_Data`, nativen Runtime-Speichern und
+> Hosteingriffen steht in
+> [LAB_DATA_AND_NATIVE_RUNTIME_STORAGE_DECISION.md](LAB_DATA_AND_NATIVE_RUNTIME_STORAGE_DECISION.md).
 > Bei Abweichungen hat der neuere Zielvertrag Vorrang.
 
 ---
@@ -78,7 +81,7 @@ Stop-SqlServerLabBatch                 # Unfertige oder alle Batch-Ressourcen zu
 Get-SqlServerLabWorkflow               # Verdichtete, geheimnisfreie Workflow-Sicht
 Get-SqlServerLabHyperVResourcePreview  # Physische Hyper-V-Klassenroots und Kapazitaet read-only vor UAC
 Get-SqlServerLabCatalog                # Laufzeit-Workflow-Katalog als JSON-Artefakt schreiben
-Get-SqlServerLabCleanupAudit           # Daten-/Runtime-Reste und Hyper-V-Schutzbindungen read-only inventarisieren
+Get-SqlServerLabCleanupAudit           # Daten-/Runtime-Reste, Residency und Hyper-V-Schutzbindungen read-only inventarisieren
 Get-SqlServerLabConnectionCenter       # Passwortfreier SQL-Endpunktkatalog für SSMS und CMS
 Sync-SqlServerLabConnectionCenter      # Endpunktkatalog atomar aktualisieren
 Export-SqlServerLabSsmsRegistration    # Kennwortfreien SSMS-.regsrvr-Export erzeugen
@@ -102,6 +105,7 @@ Test-SqlServerLabManifest             # Manifest ohne Provisionierung pruefen
 
 # Datenbank und Skripte
 New-SqlServerLabDatabase              # Datenbank anlegen (mit File-Layout)
+Backup-SqlServerLabDatabase           # Verifiziertes Backup in Lab_Data veröffentlichen
 Restore-SqlServerLabDatabase          # Datenbank aus .bak wiederherstellen
 Invoke-SqlServerLabScript             # T-SQL-Skript ausfuehren
 Get-SqlServerLabGeneratedSqlAccess      # Hyper-V-Generierte SQL-Accessdaten (ConnectionString/Passwort) abrufen

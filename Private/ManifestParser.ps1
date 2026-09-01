@@ -312,6 +312,7 @@ function Resolve-ManifestDefaults {
             databases     = @()
             drives        = @()
             storageIntent = $null
+            network       = $null
             serverConfig  = $null
             software      = @()
             postProvision = @()
@@ -321,6 +322,11 @@ function Resolve-ManifestDefaults {
         if (-not $instance.provider) {
             $resolved.provider = Resolve-ProviderAutoSelect -Instance $instance
         }
+
+        $resolved.network = Resolve-LabNetworkIntentPlan `
+            -Provider ([string]$resolved.provider) `
+            -Network $instance.network `
+            -HasLegacyHyperVSwitch:([bool]($instance.hyperv -and $instance.hyperv.switchName))
 
         if ($instance.databases) {
             foreach ($database in $instance.databases) {
@@ -472,10 +478,15 @@ function Resolve-ManifestDefaults {
         }
 
         if ($instance.hyperv) {
+            $memoryStartupMB = if ($instance.hyperv.memoryStartupMB) { [int]$instance.hyperv.memoryStartupMB } else { 4096 }
+            $dynamicMemoryEnabled = if ($instance.hyperv.PSObject.Properties['dynamicMemoryEnabled']) { [bool]$instance.hyperv.dynamicMemoryEnabled } else { $true }
             $resolved.hyperv = [PSCustomObject]@{
                 preparedImageId   = [string]$instance.hyperv.preparedImageId
                 switchName        = [string]$instance.hyperv.switchName
-                memoryStartupMB   = if ($instance.hyperv.memoryStartupMB) { [int]$instance.hyperv.memoryStartupMB } else { 4096 }
+                dynamicMemoryEnabled = $dynamicMemoryEnabled
+                memoryMinimumMB   = if (-not $dynamicMemoryEnabled) { $memoryStartupMB } elseif ($instance.hyperv.memoryMinimumMB) { [int]$instance.hyperv.memoryMinimumMB } else { [int][Math]::Max(512, [Math]::Floor([double]$memoryStartupMB / 2)) }
+                memoryStartupMB   = $memoryStartupMB
+                memoryMaximumMB   = if (-not $dynamicMemoryEnabled) { $memoryStartupMB } elseif ($instance.hyperv.memoryMaximumMB) { [int]$instance.hyperv.memoryMaximumMB } else { [int][Math]::Min(1048576, [long]$memoryStartupMB * 2) }
                 processorCount    = if ($instance.hyperv.processorCount) { [int]$instance.hyperv.processorCount } else { 4 }
                 autostart         = [string]$resolved.autostart
                 guestPasswordMode = if ($instance.hyperv.guestPasswordMode) { [string]$instance.hyperv.guestPasswordMode } else { 'generated' }

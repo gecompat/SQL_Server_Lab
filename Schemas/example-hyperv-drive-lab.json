@@ -9,6 +9,10 @@
       "os": "windows",
       "profile": "performance",
       "autostart": "on",
+      "network": {
+        "intent": "hostOnly",
+        "exposure": "host"
+      },
       "hyperv": {
         "preparedImageId": "hyperv-sql-prepared-sealed-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "memoryStartupMB": 8192,

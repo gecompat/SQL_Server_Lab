@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sql-server-lab.local/schemas/persistent-storage-plan.schema.json",
+  "title": "SqlServerLab.PersistentStoragePlan/1.0",
+  "type": "object",
+  "required": ["ContractVersion", "Status", "CatalogRevision", "Stores", "Actions", "Summary"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.PersistentStoragePlan/1.0" },
+    "Status": { "enum": ["READY", "PARTIAL", "BLOCKED"] },
+    "CatalogRevision": { "type": "integer", "minimum": 0 },
+    "Stores": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["PersistentStorageId", "StorageClass", "Provider", "State", "LeaseStatus", "ObservationStatus", "ObservedObjectIds"],
+        "properties": {
+          "PersistentStorageId": { "type": "string", "format": "uuid" },
+          "StorageClass": { "enum": ["INSTANCE_STORE", "DATABASE_PACKAGE", "BACKUP_SET", "EXCHANGE_WORKSPACE"] },
+          "Provider": { "enum": ["docker", "podman", "hyperv", "external"] },
+          "State": { "enum": ["AVAILABLE", "IN_USE", "DETACHED", "INCOMPLETE", "RECOVERY_REQUIRED", "DELETE_PENDING"] },
+          "LeaseStatus": { "enum": ["NONE", "CONSISTENT", "NOT_OBSERVED", "CONFLICT"] },
+          "ObservationStatus": { "enum": ["MATCHED", "MISSING", "AMBIGUOUS", "NOT_REQUIRED"] },
+          "ObservedObjectIds": { "type": "array", "items": { "type": "string", "pattern": "^storage-object-[a-f0-9]{24}$" }, "uniqueItems": true }
+        },
+        "additionalProperties": false
+      }
+    },
+    "Actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["Action", "Severity", "PersistentStorageId", "InventoryObjectId", "Reason"],
+        "properties": {
+          "Action": { "enum": ["NO_OP", "VERIFY_REQUIRED", "REGISTER_REQUIRED", "RESOLVE_CONFLICT"] },
+          "Severity": { "enum": ["INFO", "WARNING", "BLOCKING"] },
+          "PersistentStorageId": { "type": ["string", "null"], "format": "uuid" },
+          "InventoryObjectId": { "type": ["string", "null"], "pattern": "^storage-object-[a-f0-9]{24}$" },
+          "Reason": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "Summary": {
+      "type": "object",
+      "required": ["StoreCount", "MatchedStores", "RegistrationCandidates", "Warnings", "Blockers"],
+      "properties": {
+        "StoreCount": { "type": "integer", "minimum": 0 },
+        "MatchedStores": { "type": "integer", "minimum": 0 },
+        "RegistrationCandidates": { "type": "integer", "minimum": 0 },
+        "Warnings": { "type": "integer", "minimum": 0 },
+        "Blockers": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

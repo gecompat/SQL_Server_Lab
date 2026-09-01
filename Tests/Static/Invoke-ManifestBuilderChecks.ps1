@@ -193,6 +193,12 @@ Add-CheckResult `
     -Name 'Minimales Manifest ist gueltig' `
     -Success $minimalResult.IsValid `
     -Message ($minimalResult.Errors -join '; ')
+Add-CheckResult `
+    -Name 'Container-Manifest plant standardmaessig NAT mit Host-Exposure' `
+    -Success ($minimalResult.Plan.Contract.Version -eq '1.2' -and
+        $minimalResult.Plan.Instances[0].Network.Status -eq 'RESOLVED' -and
+        $minimalResult.Plan.Instances[0].Network.Intent -eq 'nat' -and
+        $minimalResult.Plan.Instances[0].Network.Exposure -eq 'host')
 
 $externalRuntimeManifest = [ordered]@{
     name = 'external-runtime-plan-check'
@@ -237,7 +243,7 @@ $samplePlan = @($samplePlanResult.Plan.Instances[0].Samples)[0]
 Add-CheckResult `
     -Name 'Manifestpruefung liefert Sample- und Artifact-Planvorschau' `
     -Success ($samplePlanResult.IsValid -and
-        $samplePlanResult.Plan.Contract.Version -eq '1.1' -and
+        $samplePlanResult.Plan.Contract.Version -eq '1.2' -and
         $samplePlan.Status -eq 'RESOLVED' -and
         $samplePlan.ArtifactType -eq 'backup' -and
         $samplePlan.Source -match '^https://' -and
@@ -441,7 +447,7 @@ $hyperVManifest = [ordered]@{
     instances = @(
         [ordered]@{
             id = 'primary'; version = '2025'; provider = 'hyperv'; os = 'windows'
-            hyperv = [ordered]@{ preparedImageId = ('hyperv-sql-prepared-sealed-' + ('a' * 64)); memoryStartupMB = 4096; processorCount = 4; autostart = 'on'; guestPasswordMode = 'generated' }
+            hyperv = [ordered]@{ preparedImageId = ('hyperv-sql-prepared-sealed-' + ('a' * 64)); dynamicMemoryEnabled = $true; memoryMinimumMB = 1024; memoryStartupMB = 4096; memoryMaximumMB = 8192; processorCount = 4; autostart = 'on'; guestPasswordMode = 'generated' }
         }
     )
 }
@@ -450,6 +456,127 @@ Add-CheckResult `
     -Name 'Hyper-V-Manifest referenziert ein Prepared-Image ohne Klartextpasswort' `
     -Success $hyperVManifestResult.IsValid `
     -Message ($hyperVManifestResult.Errors -join '; ')
+
+$hyperVSampleManifest = $hyperVManifest | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
+$hyperVSampleManifest.instances[0] | Add-Member -NotePropertyName storageIntent -NotePropertyValue ([PSCustomObject]@{
+    contractVersion='SqlServerLab.StorageIntent/1.0';placementPolicy='logical-only';physicalIsolation='not-required'
+    roles=[PSCustomObject]@{
+        defaultData=[PSCustomObject]@{selector='default'}
+        defaultLog=[PSCustomObject]@{selector='default'}
+        backup=[PSCustomObject]@{selector='default'}
+    }
+    tempDb=[PSCustomObject]@{
+        distribution='single-location';dataFileCount=1;dataLocationSelectors=@('default')
+        logPlacement=[PSCustomObject]@{selector='default';logicalName='templog';fileName='templog.ldf';sizeMB=64;growth='32MB'}
+    }
+    databaseFiles=@();restoreRules=@()
+}) -Force
+$hyperVSampleManifest.instances[0] | Add-Member -NotePropertyName databases -NotePropertyValue @(
+    [PSCustomObject]@{name='Chinook';sample=[PSCustomObject]@{id='chinook';variant='sql-server'}}
+) -Force
+$hyperVSampleResult = Test-SqlServerLabManifest -InputObject $hyperVSampleManifest
+Add-CheckResult `
+    -Name 'SQL-Prepared-Hyper-V-Manifest akzeptiert katalogisierte Samples mit vollständigem Storage-Intent' `
+    -Success ($hyperVSampleResult.IsValid -and $hyperVSampleResult.Plan.Instances[0].Samples[0].SampleId -eq 'chinook' -and
+        $hyperVSampleResult.Plan.Instances[0].Samples[0].IntegrityStatus -eq 'catalog-sha256') `
+    -Message ($hyperVSampleResult.Errors -join '; ')
+
+$hyperVSampleWithoutStorage = $hyperVSampleManifest | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
+$hyperVSampleWithoutStorage.instances[0].PSObject.Properties.Remove('storageIntent')
+$hyperVSampleWithoutStorageResult = Test-SqlServerLabManifest -InputObject $hyperVSampleWithoutStorage
+Add-CheckResult `
+    -Name 'Hyper-V-Datenbankmanifest ohne Storage-Intent bleibt fail-closed' `
+    -Success (-not $hyperVSampleWithoutStorageResult.IsValid -and $hyperVSampleWithoutStorageResult.Errors -match 'vollständigen portablen Storage-Intent') `
+    -Message ($hyperVSampleWithoutStorageResult.Errors -join '; ')
+
+$hyperVOsSampleManifest = $hyperVSampleManifest | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
+$hyperVOsSampleManifest.instances[0].hyperv.preparedImageId = 'hyperv-os-sealed-' + ('a' * 64)
+$hyperVOsSampleResult = Test-SqlServerLabManifest -InputObject $hyperVOsSampleManifest
+Add-CheckResult `
+    -Name 'Hyper-V-Datenbanken auf einer reinen OS-Baseline werden vor Mutation abgelehnt' `
+    -Success (-not $hyperVOsSampleResult.IsValid -and $hyperVOsSampleResult.Errors -match 'SQL_PREPARED_SEALED') `
+    -Message ($hyperVOsSampleResult.Errors -join '; ')
+Add-CheckResult `
+    -Name 'Hyper-V-Manifest plant standardmaessig HostOnly mit internem Switch' `
+    -Success ($hyperVManifestResult.Plan.Instances[0].Network.Status -eq 'RESOLVED' -and
+        $hyperVManifestResult.Plan.Instances[0].Network.Intent -eq 'hostOnly' -and
+        $hyperVManifestResult.Plan.Instances[0].Network.Binding -eq 'internal-switch')
+
+$resolvedHyperVResources = & $module {
+    param($Manifest)
+    $resolved = Resolve-ManifestDefaults -Manifest $Manifest -ManifestPath (Join-Path $PWD 'in-memory-hyperv-resources.json')
+    (New-LabDesiredStateSnapshot -ResolvedLab $resolved -ProvisioningMode manifest -PersistentData $false).Instances[0].Intents.Resources
+} $hyperVManifest
+Add-CheckResult `
+    -Name 'Hyper-V-Manifest bindet dynamisches Min-/Startup-/Max-RAM und vCPU portabel' `
+    -Success ($resolvedHyperVResources.Contract.Name -eq 'SqlServerLab.HyperVResourceIntent' -and
+        $resolvedHyperVResources.DynamicMemoryEnabled -and $resolvedHyperVResources.MemoryMinimumMB -eq 1024 -and
+        $resolvedHyperVResources.MemoryStartupMB -eq 4096 -and $resolvedHyperVResources.MemoryMaximumMB -eq 8192 -and
+        $resolvedHyperVResources.ProcessorCount -eq 4)
+
+$invalidHyperVRange = $hyperVManifest | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
+$invalidHyperVRange.instances[0].hyperv.memoryMinimumMB = 6144
+$invalidHyperVRangeResult = Test-SqlServerLabManifest -InputObject $invalidHyperVRange
+Add-CheckResult `
+    -Name 'Hyper-V-Manifest lehnt eine ungueltige dynamische RAM-Reihenfolge ab' `
+    -Success (-not $invalidHyperVRangeResult.IsValid -and $invalidHyperVRangeResult.Errors -match 'memoryMinimumMB <= memoryStartupMB <= memoryMaximumMB') `
+    -Message ($invalidHyperVRangeResult.Errors -join '; ')
+
+$invalidHyperVStatic = $hyperVManifest | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
+$invalidHyperVStatic.instances[0].hyperv.dynamicMemoryEnabled = $false
+$invalidHyperVStaticResult = Test-SqlServerLabManifest -InputObject $invalidHyperVStatic
+Add-CheckResult `
+    -Name 'Statisches Hyper-V-RAM verbietet abweichende Min-/Max-Werte' `
+    -Success (-not $invalidHyperVStaticResult.IsValid -and $invalidHyperVStaticResult.Errors -match 'Statisches RAM') `
+    -Message ($invalidHyperVStaticResult.Errors -join '; ')
+
+$hyperVIsolatedManifest = $hyperVManifest | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
+$hyperVIsolatedManifest.instances[0] | Add-Member -NotePropertyName network -NotePropertyValue ([PSCustomObject]@{ intent='isolated'; exposure='none' }) -Force
+$hyperVIsolatedResult = Test-SqlServerLabManifest -InputObject $hyperVIsolatedManifest
+$resolvedHyperVIsolated = & $module {
+    param($Manifest)
+    (Resolve-ManifestDefaults -Manifest $Manifest -ManifestPath (Join-Path $PWD 'in-memory-hyperv-isolated.json')).instances[0].network
+} $hyperVIsolatedManifest
+Add-CheckResult `
+    -Name 'Hyper-V-Isolated-Intent wird validiert und portabel aufgeloest' `
+    -Success ($hyperVIsolatedResult.IsValid -and $resolvedHyperVIsolated.Intent -eq 'isolated' -and
+        $resolvedHyperVIsolated.Exposure -eq 'none' -and $resolvedHyperVIsolated.Binding -eq 'private-switch') `
+    -Message ($hyperVIsolatedResult.Errors -join '; ')
+
+$hyperVNatManifest = $hyperVManifest | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
+$hyperVNatManifest.instances[0] | Add-Member -NotePropertyName network -NotePropertyValue ([PSCustomObject]@{ intent='nat'; exposure='host' }) -Force
+$hyperVNatResult = Test-SqlServerLabManifest -InputObject $hyperVNatManifest
+Add-CheckResult `
+    -Name 'Hyper-V-NAT wird portabel auf das gemeinsame interne WinNAT gebunden' `
+    -Success ($hyperVNatResult.IsValid -and $hyperVNatResult.Plan.Instances[0].Network.Status -eq 'RESOLVED' -and `
+        $hyperVNatResult.Plan.Instances[0].Network.Binding -eq 'shared-internal-nat') `
+    -Message ($hyperVNatResult.Errors -join '; ')
+
+$hyperVLanManifest = $hyperVManifest | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
+$hyperVLanManifest.instances[0] | Add-Member -NotePropertyName network -NotePropertyValue ([PSCustomObject]@{ intent='lan'; exposure='lan' }) -Force
+$hyperVLanResult = Test-SqlServerLabManifest -InputObject $hyperVLanManifest
+Add-CheckResult `
+    -Name 'Hyper-V-LAN bleibt portabel und verlangt erst zur Laufzeit die lokale External-Switch-Bindung' `
+    -Success ($hyperVLanResult.IsValid -and $hyperVLanResult.Plan.Instances[0].Network.Status -eq 'RESOLVED' -and `
+        $hyperVLanResult.Plan.Instances[0].Network.Binding -eq 'external-switch' -and `
+        $hyperVLanResult.Plan.Instances[0].Network.RequiredCapability -eq 'external-network-binding') `
+    -Message ($hyperVLanResult.Errors -join '; ')
+
+$hyperVLegacyConflictManifest = $hyperVIsolatedManifest | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
+$hyperVLegacyConflictManifest.instances[0].hyperv | Add-Member -NotePropertyName switchName -NotePropertyValue 'SQL_LAB_HYPERV' -Force
+$hyperVLegacyConflictResult = Test-SqlServerLabManifest -InputObject $hyperVLegacyConflictManifest
+Add-CheckResult `
+    -Name 'Legacy-Hyper-V-Switch und Isolated-Intent werden nicht stillschweigend vermischt' `
+    -Success (-not $hyperVLegacyConflictResult.IsValid -and $hyperVLegacyConflictResult.Errors -match 'NETWORK_LEGACY_SWITCH_CONFLICT') `
+    -Message ($hyperVLegacyConflictResult.Errors -join '; ')
+
+$hyperVExposureConflictManifest = $hyperVIsolatedManifest | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
+$hyperVExposureConflictManifest.instances[0].network.exposure = 'host'
+$hyperVExposureConflictResult = Test-SqlServerLabManifest -InputObject $hyperVExposureConflictManifest
+Add-CheckResult `
+    -Name 'Widerspruechliche Network-Exposure scheitert vor Provider-Mutation' `
+    -Success (-not $hyperVExposureConflictResult.IsValid -and $hyperVExposureConflictResult.Errors -match 'NETWORK_EXPOSURE_CONFLICT') `
+    -Message ($hyperVExposureConflictResult.Errors -join '; ')
 
 $resolvedHyperVAutoStart = & $module {
     param($Manifest)

@@ -2,7 +2,7 @@
 
 ## Status und Priorität
 
-`BACKLOG / P1_PRODUCT_CONTRACT_WITH_REQUIRED_ANALYSIS` – die vorhandenen
+`ACTIVE / P1_PRODUCT_CONTRACT_WITH_PSR_001_PARTIAL_PSR_002_COMPLETE_PSR_003_PSR_004_AND_PSR_006_IMPLEMENTED_READ_ONLY_PSR_005_IMPLEMENTED_CORE` – die vorhandenen
 Persistenzmechanismen schützen bereits Teile des SQL-Zustands, bilden aber noch
 keinen vollständigen, providerübergreifenden Wiederverwendungs- und
 Löschvertrag. Planung ist kein Implementierungs- oder Runtime-Nachweis.
@@ -12,6 +12,75 @@ registrierten `Lab_Data`-Roots bleibt vorrangig. Die Bestandsanalyse dieses
 Backlogs darf parallel beginnen; mutierende Storage-Migrationen und der breite
 Produktpfad folgen erst auf geklärte Root-, Ownership-, Recovery- und
 Cleanup-Grenzen.
+
+Der erste read-only `PSR-001`-Slice ist implementiert. Der Cleanup-Audit liefert
+den getrennten Vertrag `SqlServerLab.StorageResidencyInventory/1.0` mit stabilen
+Objektidentitäten, Provider-Coverage, logischem Eigentum, physischer
+Pfadklassifikation, Lebensdauer, Retention, Cleanup-Policy und Auditstatus.
+`Lab_Data`, native Docker-/Podman-Runtime-Namensräume, externe Hostpfade,
+Hyper-V-Run-/Shared-Ressourcen und Legacy-/Repository-Residuen werden nicht
+gleichgesetzt. Ein Providerpfad innerhalb einer Runtime-VM gilt ausdrücklich
+nicht als hostseitige `Lab_Data`-Ablage. Die vollständige Auflösung der
+physischen Docker-Desktop-/Podman-Machine-Backing-Disks bleibt offen; `PARTIAL`
+ist deshalb ein gültiger Auditstatus und kein positiver Vollständigkeitsnachweis.
+
+`PSR-002` ist durch den bindenden Entscheid
+[`SqlServerLab.LabDataResidencyDecision/1.0`](../Architecture/LAB_DATA_AND_NATIVE_RUNTIME_STORAGE_DECISION.md)
+abgeschlossen. `Lab_Data` ist der hostseitige Katalog-, Austausch-, Sicherungs-
+und Recovery-Einstieg, kein falsches Vollresidenzversprechen für gemeinsam
+genutzte Container-Runtimes. Katalogisierte native Instanzstores bleiben
+zulässig; globale Docker-/Podman-Ablagen, labfremde Ressourcen und externe
+Pfade bleiben ohne eigenen Ownership- und Migrationsvertrag außerhalb des
+Mutationsscopes. Neue Hyper-V-Hostdateien bleiben an registrierte `Lab_Data`-
+Bindings gebunden.
+
+Der read-only Slice `PSR-003` ist implementiert. Der strenge Vertrag
+`SqlServerLab.PersistentStorageCatalog/1.0` führt eine eigenständige
+`PersistentStorageId`, die Klassen `INSTANCE_STORE`, `DATABASE_PACKAGE`,
+`BACKUP_SET` und `EXCHANGE_WORKSPACE`, den vollständigen Zustandsraum,
+Referenzen und genau eine exklusive Lease. Der Parser führt identische,
+controllergebundene Katalogspiegel zusammen und blockiert ungültige oder
+divergierende Spiegel. `SqlServerLab.PersistentStoragePlan/1.0` bindet diese
+Einträge read-only an das Residency-Inventar und meldet retained Objekte ohne
+erfundene ID als Registrierungskandidaten. Katalogschreiben, Lease-Erwerb,
+Wiederverwendung und Löschung bleiben getrennte Folgearbeit.
+
+Der read-only Slice `PSR-004` ist ebenfalls implementiert. Ein strikter
+`SqlServerLab.PersistentStorageRemovalIntent/1.0` bindet die sechs
+Retention-/Removal-Policies an Run- und Storage-ID sowie aktive
+Datenbankreferenzen. `SqlServerLab.PersistentStorageRemovalPlan/1.0` ordnet
+Scope-, Referenz- und Lease-Prüfung vor jede Folge, verlangt für Backups
+`CHECKSUM` und `RESTORE VERIFYONLY`, für Pakete Offline-/Detach-Evidence,
+vollständiges Dateiinventar, SHA-256 und Postcondition und setzt Fehler ab der
+ersten Mutation auf `RECOVERY_REQUIRED`. Fremde Referenzen, Recovery-Zustände
+und nicht katalogisierte retained Objekte blockieren. Der Plan selbst führt
+nichts aus; endgültige Löschung eines persistenten Stores bleibt eine eigene,
+noch nicht implementierte Expertenaktion.
+
+Der Core-Slice `PSR-005` ist implementiert und für Docker und Podman getrennt
+real belegt. `SqlServerLab.ContainerInstanceStoreIntent/1.0` wählt eine bereits
+katalogisierte Quelle ausschließlich über ihre stabile `PersistentStorageId`;
+Planner und Runtime-Revalidierung verlangen ein passendes unveränderliches
+Volume-Label, dieselbe SQL-Major-Version, `AVAILABLE` oder `DETACHED`, keine
+Lease, keine aktive Referenz und keinen angehängten Container. `CONTINUE`
+liefert die revalidierte `/var/opt/mssql`-Bindung. `CLONE` erstellt ein neues,
+operationsgebundenes Ziel, mountet die Quelle nur read-only, vergleicht
+Dateizahl, Bytes und SHA-256-Inhaltsdigest und bleibt bei Fehlern über ein
+`RECOVERY_REQUIRED`-Journal fortsetzbar. Die realen Docker- und Podman-Läufe
+bestätigen nach Recreate und im Clone jeweils ein Serverobjekt sowie eine
+Benutzerdatenbank. Katalog-Commit/Lease-Akquisition, External-Runtime-Sidecars
+und öffentliche CLI-/GUI-Anbindung bleiben getrennte Folgearbeit.
+
+Der read-only Slice `PSR-006` ist implementiert und gegen die reale Docker-
+Desktop- sowie Podman-WSL-Runtime belegt. Der sanitisierte Vertrag
+`SqlServerLab.ContainerRuntimeScope/1.0` bindet den aktiven Docker-Context oder
+die aktive Podman-Connection samt Machine an eine stabile, endpunktgebundene
+Runtime-ID, ohne Rohendpunkt, Identity-Pfad oder Runtime-Storage-Pfad
+auszugeben. Bestehende Engines und Machines bleiben `SHARED_EXTERNAL`, ihre
+Hostdefaults und ihr physisches Backing `REPORT_ONLY`; Relocation, Removal,
+Default-Connection-/Modusänderung und Adoption labfremder Ressourcen sind
+explizit blockiert. Eine künftig dedizierte Runtime benötigt weiterhin einen
+eigenen Ownership-, Location-, Capacity-, Recovery- und Cleanup-Vertrag.
 
 ## Ausgangslage
 
@@ -293,15 +362,15 @@ Volumename ersetzt diese Identität nicht.
 
 | ID | Priorität | Arbeitspaket | Ergebnis |
 |---|---:|---|---|
-| `PSR-001` | P0-Analyse | Ist-Inventar aller persistenten, rungebundenen und verbleibenden Objekte für Docker, Podman und Hyper-V | belastbare physische und logische Storage-Matrix |
-| `PSR-002` | P0-Analyse | `Lab_Data`-Versprechen, native Runtime-Ausnahmen und Hosteingriffsgrenzen entscheiden | versionierter Architekturentscheid |
-| `PSR-003` | P1 | Storage-Katalog mit stabiler ID, Klassen, Zuständen, Referenzen und Leases entwerfen | Schema, Parser, Planner und read-only Inventar |
-| `PSR-004` | P1 | Retention-, Backup-on-Remove-, Package- und expliziten Löschvertrag entwerfen | verlustsicherer Cleanup-/Recovery-Plan |
-| `PSR-005` | P1 | Docker-/Podman-Instanzstore auswählbar, fortsetzbar und klonbar machen | getrennte reale Provider-Nachweise |
-| `PSR-006` | P1 | Podman-Machine- und Docker-Engine-/Context-Reichweite bewerten und gegebenenfalls dediziert verwalten | keine Mutation labfremder Runtime-Daten |
-| `PSR-007` | P1 | Hyper-V-Daten-VHDX sicher auswählen, reattachen, freigeben und klonen | Disk-/VM-/SQL-validierter Lifecycle |
-| `PSR-008` | P1 | Providerneutrale Backup-Bibliothek mit automatischem Backup und Restore-Verifikation liefern | Cross-Provider-Restore mit sanitisierter Evidence |
-| `PSR-009` | P2 | Datenbankpakete inklusive FILESTREAM, Attach und Clone implementieren | vollständiger Offline-Dateivertrag mit exklusiver Nutzung |
+| `PSR-001` | P0-Analyse | Ist-Inventar aller persistenten, rungebundenen und verbleibenden Objekte für Docker, Podman und Hyper-V | `IMPLEMENTED_PARTIAL`: versionierte read-only Matrix mit stabilen Objekt-IDs, Residency, Lifecycle, Cleanup-Policy und Provider-Coverage; physisches Desktop-/Machine-Backing bleibt explizit unverifizierbar |
+| `PSR-002` | P0-Analyse | `Lab_Data`-Versprechen, native Runtime-Ausnahmen und Hosteingriffsgrenzen entscheiden | `COMPLETE`: bindender `SqlServerLab.LabDataResidencyDecision/1.0`-Entscheid |
+| `PSR-003` | P1 | Storage-Katalog mit stabiler ID, Klassen, Zuständen, Referenzen und Leases entwerfen | `IMPLEMENTED_READ_ONLY`: Schema, Parser, Planner und Inventarbindung; keine Katalogmutation, Lease-Akquisition, Wiederverwendung oder Löschung |
+| `PSR-004` | P1 | Retention-, Backup-on-Remove-, Package- und expliziten Löschvertrag entwerfen | `IMPLEMENTED_READ_ONLY`: verlustsicherer Cleanup-/Recovery-Plan; Executor und getrennte endgültige Storage-Löschaktion bleiben offen |
+| `PSR-005` | P1 | Docker-/Podman-Instanzstore auswählbar, fortsetzbar und klonbar machen | `IMPLEMENTED_CORE`: stabile ID-Auswahl, detached Continue/Clone, Digest/Resume und getrennte reale Docker-/Podman-Nachweise; Katalog-Commit, Sidecars und öffentliche Bedienung offen |
+| `PSR-006` | P1 | Podman-Machine- und Docker-Engine-/Context-Reichweite bewerten und gegebenenfalls dediziert verwalten | `IMPLEMENTED_READ_ONLY`: stabile sanitisierte Runtime-ID, Context-/Connection-/Machine-Bindung und REPORT_ONLY-Hostgrenze real belegt; dedizierter Ownership-/Lifecycle-Vertrag bleibt offen |
+| `PSR-007` | P1 | Hyper-V-Daten-VHDX sicher auswählen, reattachen, freigeben und klonen | `IMPLEMENTED_CORE`: Storage-ID-, Disk-/VM-/Checkpoint-/Clean-Detach-/SQL-Versions-validierter Host-Lifecycle, unabhängiger Clone und realer Hyper-V-Nachweis; Katalog-Commit, öffentliche Bedienung und explizite Datenbankaktion bleiben getrennt |
+| `PSR-008` | P1 | Providerneutrale Backup-Bibliothek mit automatischem Backup und Restore-Verifikation liefern | `IMPLEMENTED_CORE`: inhaltsadressierte `Lab_Data`-Bibliothek, `CHECKSUM`, `RESTORE VERIFYONLY`, Hash, Metadatenreceipt und realer Docker→Podman-Inhaltsnachweis; reale FILESTREAM-Cross-Provider-Evidence und öffentliche Bibliotheksauswahl bleiben offen |
+| `PSR-009` | P2 | Datenbankpakete inklusive FILESTREAM, Attach und Clone implementieren | `IMPLEMENTED_CORE`: vollständiger Offline-Dateivertrag, rekursive Hashes, unabhängiger Clone und journalisiertes Copy-then-Attach; native Hyper-V-/FILESTREAM-Abnahme sowie öffentliche Bedienung offen |
 | `PSR-010` | P2 | Serverobjekt- und TDE-Abhängigkeiten inventarisieren und Migrationsgrenzen anzeigen | kein falsches Vollständigkeitsversprechen |
 | `PSR-011` | P1 | identische CLI- und GUI-Flows für Auswahl, Retention, Restore, Attach, Clone und Delete liefern | ein gemeinsamer Core ohne Bedienungsparitätslücke |
 | `PSR-012` | P1 | Cleanup-Audit um persistente Stores, Runtime-Backing, Orphans und Referenzschutz erweitern | verständliche Residuen- und Recovery-Ausgabe |
@@ -322,15 +391,51 @@ priorisierten P0-Hyper-V-Ressourcenroot-Bugfix.
 - Eine Hyper-V-Daten-VHDX kann nach sauberem Detach an eine neue kompatible VM
   gebunden werden; Datenbanken werden anschließend ausdrücklich restored oder
   attached und nicht nur wegen vorhandener Dateien als online gemeldet.
+
+Stand 2026-09-01: `SqlServerLab.HyperVPersistentDataIntent/1.0`, Plan und
+Recovery-Journal wählen die Quelle ausschließlich per stabiler Storage-ID aus
+dem Katalog. Vor jeder Mutation werden registriertes `Lab_Data`, VHDX-Pfad und
+DiskIdentifier, exklusiver Attachmentzustand, Checkpoints, ausgeschaltete und
+scopegebundene Ziel-VM, Clean-Detach-Evidenz, SQL-Major-Version, freier
+Gastpfad sowie Lease und Referenzen fail-closed geprüft. Der Clone verwendet
+eine unveränderte Quelle, erzeugt eine eigenständige VHDX und setzt deren
+DiskIdentifier explizit neu. Ein realer isolierter Hyper-V-Lauf hat
+`CLONE -> REATTACH -> RELEASE` samt Cleanup bestätigt. Das Ergebnis bleibt
+`DatabaseFilesOnline=false` und verlangt anschließend ausdrücklich Restore
+oder Attach; diese Datenbankaktion, Katalogmutation und CLI-/GUI-Flows gehören
+weiterhin zu `PSR-009`, `PSR-003` beziehungsweise `PSR-011`.
 - Ein vollständiges Backup einer Datenbank mit FILESTREAM wird aus einem
   Provider exportiert, in einem zweiten unterstützten Provider restauriert und
   inhaltlich verifiziert.
+
+Stand 2026-09-01: `SqlServerLab.BackupLibrary/1.0` veröffentlicht ein Backup
+erst nach `BACKUP ... CHECKSUM`, `RESTORE VERIFYONLY ... WITH CHECKSUM`,
+Host-SHA-256 und sanitiertem SQL-Metadatenreceipt als `REUSABLE`. Ein realer,
+isolierter Lauf hat Docker → Podman einschließlich Quell-Cleanup, erneutem
+`VERIFYONLY`, Restore und identischem Inhaltsdigest bestätigt. TDE endet ohne
+eigenen Zertifikat-/Recovery-Vertrag fail-closed. FILESTREAM wird im Receipt
+erkannt und eine Restore-Evidence ohne ausdrücklich bestätigten FILESTREAM-
+Inhaltsnachweis abgelehnt; weil die Linux-Container diesen Nachweis nicht
+liefern können, bleibt das vollständige reale FILESTREAM-Cross-Provider-
+Abnahmekriterium offen und wird nicht als bestanden behauptet.
 - Ein Datenbankpaket enthält nachweislich alle MDF/NDF/LDF- und FILESTREAM-
   Bestandteile; fehlende oder veränderte Inhalte sowie paralleles Read/Write-
   Attach werden blockiert.
 - Neuer-zu-älter-SQL-Attach, fehlende FILESTREAM-Capability, fehlendes TDE-
   Zertifikat und inkonsistenter Detach-Zustand enden fail-closed mit
   verständlicher Recovery-Angabe.
+
+Stand 2026-09-01: `SqlServerLab.DatabasePackageLibrary/1.0` veröffentlicht nur
+eine nach dem exklusiven Lock erneut als sauber offline oder detached
+beobachtete Dateimenge. MDF, NDF, LDF und verschachtelte FILESTREAM-Inhalte
+werden vollständig kopiert und einzeln gehasht; ein kanonischer Manifesthash
+bindet die Gesamtmenge. Clone und Attach materialisieren eine unabhängige
+physische Kopie, das direkte Read/Write-Attach eines Bibliotheksobjekts ist
+verboten. Der Attach-Plan blockiert ältere SQL-Ziele, fehlende FILESTREAM- oder
+TDE-Evidence, vorhandene Zieldatenbanken und parallele Writer. Kopie, Attach,
+Online-Postcondition und Recovery werden journalisiert. Die deterministische
+Core-Suite ist grün; ein realer Windows-SQL-/FILESTREAM-Lauf in Hyper-V bleibt
+als eigener Provider-Nachweis offen und wird nicht vorweggenommen.
 - `BACKUP_ON_REMOVE` entfernt die Umgebung erst nach erfolgreicher
   Sicherungs- und Verifikationsevidence oder endet ohne Datenlöschung in
   `RECOVERY_REQUIRED`.

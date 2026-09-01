@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sql-server-lab.local/schemas/hyperv-network-reconcile-journal.schema.json",
+  "title": "SqlServerLab.HyperVNetworkReconcileJournal/1.0",
+  "type": "object",
+  "required": [
+    "ContractVersion", "OperationId", "RunId", "ScopeId", "InstanceId",
+    "Provider", "ChangeClass", "Status", "Target", "Runtime", "Recovery", "UpdatedAt"
+  ],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.HyperVNetworkReconcileJournal/1.0" },
+    "OperationId": { "type": "string", "format": "uuid" },
+    "RunId": { "type": "string", "format": "uuid" },
+    "ScopeId": { "type": "string", "format": "uuid" },
+    "InstanceId": { "type": "string", "minLength": 1 },
+    "Provider": { "const": "hyperv" },
+    "ChangeClass": { "const": "live" },
+    "Status": {
+      "enum": [
+        "PREPARED", "INFRASTRUCTURE_READY", "ATTACHMENT_READY", "VERIFIED",
+        "COMPLETED", "RECOVERY_REQUIRED"
+      ]
+    },
+    "Target": {
+      "type": "object",
+      "required": ["Intent", "ExpectedSwitchName", "ReconnectAdapter", "InfrastructureActions"],
+      "properties": {
+        "Intent": { "enum": ["hostOnly", "nat", "lan"] },
+        "ExpectedSwitchName": { "type": "string", "minLength": 1 },
+        "ReconnectAdapter": { "type": "boolean" },
+        "InfrastructureActions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "create-internal-switch", "assign-host-address",
+              "create-shared-winnat", "create-external-switch"
+            ]
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "Runtime": {
+      "type": "object",
+      "required": ["VMId", "AdapterId"],
+      "properties": {
+        "VMId": { "type": "string", "minLength": 1 },
+        "AdapterId": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "Recovery": {
+      "type": "object",
+      "required": ["Status", "Attempts", "ErrorCode", "Errors"],
+      "properties": {
+        "Status": { "enum": ["RETRY_NETWORK_RECONCILE", "NOT_REQUIRED"] },
+        "Attempts": { "type": "integer", "minimum": 0 },
+        "ErrorCode": { "type": ["string", "null"] },
+        "Errors": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "UpdatedAt": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

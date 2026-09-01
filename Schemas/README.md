@@ -12,18 +12,36 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 | `sample-databases.schema.json` | Struktur von `Catalogs/sample-databases.json` |
 | `software-catalog.schema.json` | Versionierter Katalogvertrag für SQL-bezogene Python-, R- und Java-Runtimes |
 | `sample-baseline-registry.schema.json` | Portables Register verifizierter, inhaltsadressierter Single-Backup- und Multi-Database-ZIP-`LAB_GENERATED`-Objekte |
+| `backup-library.schema.json` | Strikter `SqlServerLab.BackupLibrary/1.0`-Vertrag für inhaltsadressierte, per SQL-Checksum, `RESTORE VERIFYONLY`, Host-Hash und Metadatenreceipt veröffentlichte Backups sowie getrennte Restore-Evidence |
 | `project-adapter.schema.json` | Adaptervertrag konsumierender Projekte (`Adapters/`), Version `0.1-draft` |
 | `test-environment.schema.json` | Vertrag `SqlServerLab.TestEnvironment/1.0` für den lokalen Export automatisierter Testumgebungen |
 | `lab-storage-contract.schema.json` | Lokale Multi-Root-Registry mit stabilen Location-IDs, Anzeigenamen, Selektoren und Topologiebeleg |
 | `lab-storage-intent.schema.json` | Portabler Manifestvertrag `SqlServerLab.StorageIntent/1.0` ohne lokale Pfade oder Geräte-IDs |
 | `lab-storage-bound-plan.schema.json` | Lokaler read-only Vertrag `SqlServerLab.StorageBoundPlan/1.0` für Selector-, Location-, Topologie- und Dateibindung |
 | `lab-storage-runtime-receipt.schema.json` | Getrennter Evidence-Vertrag für Hyper-V-VHDX, Gastdisk, SQL-Dateipfad, CREATE-/Restore-Operationen, Dienstrestart, Postconditions und Recovery |
+| `lab-storage-residency-inventory.schema.json` | Read-only Vertrag `SqlServerLab.StorageResidencyInventory/1.0` für `Lab_Data`, native Runtime-Ablage, externe Pfade, Retention, Cleanup-Zuordnung und unverifizierbares physisches Backing |
+| `persistent-storage-catalog.schema.json` | Katalogvertrag `SqlServerLab.PersistentStorageCatalog/1.0` für stabile IDs, Storage-Klassen, Zustände, Referenzen und exklusive Leases |
+| `persistent-storage-plan.schema.json` | Read-only Planvertrag `SqlServerLab.PersistentStoragePlan/1.0` für Inventarbindung, Lease-Prüfung und Registrierungskandidaten |
+| `persistent-storage-removal-intent.schema.json` | Explizite run- und storage-ID-gebundene Policy-Auswahl `SqlServerLab.PersistentStorageRemovalIntent/1.0` ohne Secrets |
+| `persistent-storage-removal-plan.schema.json` | Verlustsicherer read-only Vertrag `SqlServerLab.PersistentStorageRemovalPlan/1.0` für Retention, Backup/Package, Recovery-Evidence und separate Löschung |
+| `container-instance-store-intent.schema.json` | Strikter `CONTINUE`-/`CLONE`-Intent für katalogisierte Docker-/Podman-Instanzstores |
+| `container-instance-store-plan.schema.json` | Fail-closed Auswahl-, Kompatibilitäts- und Mutationsplan für Container-Instanzstores |
+| `container-instance-store-journal.schema.json` | Wiederaufnehmbares Clone-Journal mit Quell-/Zielidentität und Inhaltsdigest-Evidence |
+| `container-runtime-scope.schema.json` | Sanitisierter read-only Vertrag `SqlServerLab.ContainerRuntimeScope/1.0` für Engine-/Context-/Machine-Reichweite, Ownership und verbotene Hostmutationen |
+| `lab-cleanup-audit.schema.json` | Lokaler Cleanup-Audit einschließlich der getrennt schema-validierten Storage-Residency-Matrix |
 | `hyperv-resource-binding.schema.json` | Lokaler Vertrag `SqlServerLab.HyperVResourceBinding/1.0` für kurze Hyper-V-Create-Roots mit Controller-, Location-, Volume- und `Lab_Data`-Identität |
 | `hyperv-resource-migration-plan.schema.json` | Lokaler read-only Vertrag `SqlServerLab.HyperVResourceMigrationPlan/1.0` für exaktes Legacy-Inventar, Zielbindung, Blocker und geplante Aktionen |
 | `hyperv-resource-migration-journal.schema.json` | Lokales Operationsjournal `SqlServerLab.HyperVResourceMigrationJournal/1.0` für vorjournalisiertes Parent-Reparent, getrennte Child-Hashes, VHDX-/VM-Umbindung, Readiness, Image-Resume, späten Quell-Cleanup und sichtbaren Recovery-Bedarf |
 | `hyperv-image-migration-plan.schema.json` | Lokaler read-only Vertrag `SqlServerLab.HyperVImageMigrationPlan/1.0` für Legacy-Image-Inventar, Zielbelegung, Child-Graph und Kopierbedarf |
 | `hyperv-image-migration-journal.schema.json` | Lokales Operationsjournal `SqlServerLab.HyperVImageMigrationJournal/1.0` für hashidentische Veröffentlichung, Binding-Commit, `WAITING_FOR_CONSUMERS` und referenzsicheren Quell-Cleanup |
 | `container-reconcile-journal.schema.json` | Lokales Operationsjournal `SqlServerLab.ContainerReconcileJournal/1.0` für Live-/Recreate-Mutation, echte Runtime-IDs, Resume, Rollback und sichtbaren Recovery-Bedarf |
+| `hyperv-network-reconcile-journal.schema.json` | Lokales Operationsjournal `SqlServerLab.HyperVNetworkReconcileJournal/1.0` für run-/scope-/VM-gebundene additive Infrastrukturreparatur, genau einen vorhandenen getrennten Adapter und Recovery-Retry |
+| `hyperv-resource-reconcile-journal.schema.json` | Lokales Operationsjournal `SqlServerLab.HyperVResourceReconcileJournal/1.0` für vCPU, statisches/dynamisches RAM, Min/Startup/Max, Stop-Apply-Start und Recovery-Resume |
+| `hyperv-sql-configuration-ownership.schema.json` | VM-gebundener lokaler Eigentumsnachweis `SqlServerLab.HyperVSqlConfigurationOwnership/1.0` für durch den Run aktivierte globale Runtime-Trace-Flags |
+| `hyperv-sql-configuration-reconcile-journal.schema.json` | Lokales Operationsjournal `SqlServerLab.HyperVSqlConfigurationReconcileJournal/1.0` für dynamische oder dienstrestartpflichtige `sp_configure`-Werte, additive und eigentumsgeschützt entfernte globale Runtime-Trace-Flags, Desired-State-Commit und Recovery-Resume |
+| `hyperv-sql-port-reconcile-journal.schema.json` | Lokales Operationsjournal `SqlServerLab.HyperVSqlPortReconcileJournal/1.0` für statisches SQL-TCP, die run-eigene Gastfirewall, kontrollierten SQL-Dienstrestart und Recovery-Resume |
+| `hyperv-test-database-ownership.schema.json` | VM-gebundener lokaler Eigentumsnachweis `SqlServerLab.HyperVTestDatabaseOwnership/1.0` für katalogisierte Testdatenbanken |
+| `hyperv-test-database-reconcile-journal.schema.json` | Lokales Operationsjournal `SqlServerLab.HyperVTestDatabaseReconcileJournal/1.0` für Additionen, verifiziert gesicherte Entfernungen und Recovery-Resume |
 
 ## Beispiele
 
@@ -37,6 +55,7 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 | `example-performance-tuning.json` | Performance-Konfiguration mit Sample-Referenz | vorbereitet; referenzierte StackOverflow-Variante ist ein Attach-Archiv und bleibt beschreibend |
 | `example-mixed-provider-lab.json` | zwei kompakte Instanzen mit Docker und Podman in einem Run | ausführbar, wenn beide Runtimes erreichbar sind; keine gemeinsame Netzwerktopologie |
 | `example-hyperv-drive-lab.json` | SQL-Prepared-Hyper-V-VM mit run-lokalen Data-/Log-VHDX und Guest-Initialisierung | ausführbar, wenn die referenzierte lokale Sealed-Artifact-ID vorhanden ist |
+| `example-hyperv-lan-lab.json` | portabler Hyper-V-LAN-Intent mit External Switch und DHCP | ausführbar nur nach expliziter lokaler Switch-/Adapterbindung gemäß `Documentation/HowTo/LAB_NETWORKS.md` |
 | `hyperv-storage-n5-intent.sample.json` | Portabler N5-Storage-Intent mit vier TempDB-Datendateien, die round-robin auf drei physisch getrennte Geräte verteilt werden, separatem TempDB-Log sowie Create-/Restore-Bindings | ausführbarer Abnahme-Input, wenn die vier Selektoren lokal eindeutig registriert und drei TempDB-Backing-Devices als getrennt belegt sind; die Log-Lane darf einen dieser Roots mit eigenem Selector nutzen |
 | `batch-manifest.sample.json` | Providerneutrale SQL-/Windows-Mengenplanung mit gemeinsamen Defaults und individuellen Overrides | wird vor Ausführung expandiert und provider-/hostabhängig validiert |
 
@@ -54,6 +73,11 @@ Weitere `example-*.json`-Dateien können spezialisierte oder vorbereitete Szenar
 - `drives`
 - `serverConfig`
 - `storageIntent` für portable Rollen-, TempDB-, Datenbankdatei- und Restore-Platzierungsanforderungen
+- `network.intent` und `network.exposure` für portable Netzwerk- und Zugriffsanforderungen
+- `hyperv.processorCount`, `hyperv.dynamicMemoryEnabled` sowie
+  `hyperv.memoryMinimumMB`, `hyperv.memoryStartupMB` und
+  `hyperv.memoryMaximumMB` für den portablen VM-Ressourcenintent
+- `hyperv.sqlPort` für den statischen TCP-Port der SQL-Standardinstanz im Gast
 - `databases`
 - `postProvision`
 
@@ -82,6 +106,15 @@ Weitere `example-*.json`-Dateien können spezialisierte oder vorbereitete Szenar
   Katalogvariante nicht ausführbar
 
 Das Schema enthält teilweise vorbereitete Erweiterungsfelder. Die verbindlichen Grenzen stehen in [`KNOWN_LIMITATIONS.md`](../Documentation/Quality/KNOWN_LIMITATIONS.md).
+
+Der Network-Intent-Resolver plant ohne Hostmutation. Docker und Podman verwenden
+aktuell `nat`/`host`; Hyper-V verwendet standardmäßig `hostOnly`/`host` und
+unterstützt explizit `isolated`/`none`, `nat`/`host` und `lan`/`lan`. NAT bindet
+Shared-WinNAT und scopegebundene IPAM-Leases; LAN verlangt eine lokale
+External-Switch-/Adapter-Allowlist und verwendet Gast-DHCP. Widersprüchliche
+Exposure-Werte werden vor der ersten Provider-Mutation abgelehnt.
+`hyperv.switchName` ist nur ein lokales Kompatibilitätsbinding für einen
+internen `hostOnly`-Switch.
 
 Ein `storageIntent` wird im Hyper-V-Manifestpfad lokal an registrierte,
 controller-eigene `Lab_Data`-Locations gebunden. Pro Selector entsteht eine

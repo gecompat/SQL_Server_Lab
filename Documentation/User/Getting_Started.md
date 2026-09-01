@@ -270,7 +270,23 @@ Invoke-SqlServerLabScript `
 
 Das Cmdlet unterstützt `GO`-getrennte Batches.
 
-## 10. Backup wiederherstellen
+## 10. Backup sichern und wiederherstellen
+
+Ein vollständiges Backup wird in einer bereits registrierten `Lab_Data`-
+Bibliothek erst nach SQL-Checksum, `RESTORE VERIFYONLY` und SHA-256
+veröffentlicht:
+
+```powershell
+$backup = Backup-SqlServerLabDatabase `
+    -RunId $lab.RunId `
+    -DatabaseName 'AppDb' `
+    -SaPassword $saPassword `
+    -DataRoot 'D:\Lab_Data'
+```
+
+`$backup.Path` und `$backup.Sha256` können anschließend direkt an den Restore-
+Pfad übergeben werden. TDE-Backups werden ohne separaten Zertifikat- und
+Recovery-Vertrag nicht veröffentlicht.
 
 ### Lokale `.bak`-Datei
 
@@ -610,6 +626,7 @@ SQL-spezifische Pfad vollständig automatisiert inklusive OOBE.
         "switchName": "SQL_LAB_HYPERV",
         "memoryStartupMB": 4096,
         "processorCount": 4,
+        "sqlPort": 1433,
         "guestPasswordMode": "generated"
       }
     }
@@ -643,14 +660,20 @@ Passwort an; `"prompt"` fragt es sicher ab. Ein Klartextpasswort gehört nie in
 die Manifestdatei. Die Antwortdatei wird nur in die neue Child-VHDX injiziert,
 anschließend aus dem Gast entfernt und das Passwort pro Run DPAPI-geschützt
 gespeichert.
+`hyperv.sqlPort` legt den statischen TCP-Port der SQL-Standardinstanz im Gast
+fest und gilt ohne Angabe als `1433`. Dieser Gastport ist kein Container-
+Hostport und darf deshalb auf unterschiedlichen Gast-IP-Adressen identisch sein.
 
 `persistentData` ist optional. Bei Hyper-V wird für genau diese Lab-VM eine
 eigene dynamische Daten-VHDX im Data Root erstellt; andere Klone verwenden sie
 nicht. Der Data Root muss vorher initialisiert sein. Ein Hyper-V-Manifest
 unterstützt derzeit genau eine Instanz und keine Mischung mit Containern.
-Katalogdatenbanken, beliebige Zusatzlaufwerke, Softwareinstallationen und
-Post-Provisioning-Skripte werden explizit abgelehnt, damit kein Manifest nur
-teilweise ausgeführt wird.
+Katalogdatenbanken sind auf einer `SQL_PREPARED_SEALED`-Vorlage mit einem
+vollständigen portablen `storageIntent` zulässig. Dasselbe gilt für die
+katalogisierten SQL-External-Runtimes, wenn das Prepared-Image ihre benötigten
+SQL-Features enthält. Eine reine `OS_SEALED`-Vorlage sowie freie
+Post-Provisioning-Skripte bleiben für diese Schritte vor jeder Mutation
+fail-closed.
 
 Ohne `switchName` verwendet der Manifestpfad den gespeicherten beziehungsweise
 verwalteten internen Hyper-V-Lab-Switch. Nach der unbeaufsichtigten OOBE erhält
@@ -732,6 +755,39 @@ berechneten Hash im lokalen Trust Store. Mehrere Samples pro Instanz können ad-
 oder den Menüschritt `Testdatenbanken` gewählt werden. Attach-Verfahren und
 Script-Bundles werden nicht automatisch verarbeitet; dies gilt auch für
 `.7z`-Archive, die keine katalogisierte `.bak`-Payload enthalten.
+
+Bei neuen Hyper-V-Manifest-Runs werden erfolgreich installierte Katalogsamples
+zusätzlich durch ein lokales, VM-gebundenes Ownership-Receipt geschützt. Ein
+später geändertes Manifest kann den Sample-Satz read-only planen und danach
+anwenden:
+
+```powershell
+Get-SqlServerLabReconcilePlan `
+    -RunId $lab.RunId `
+    -HyperVTestDatabases `
+    -ManifestPath '.\lab-with-updated-samples.json' `
+    -InstanceId primary
+
+Invoke-SqlServerLabReconcileAction `
+    -RunId $lab.RunId `
+    -RepairHyperVTestDatabases `
+    -ManifestPath '.\lab-with-updated-samples.json' `
+    -InstanceId primary `
+    -WhatIf
+
+Invoke-SqlServerLabReconcileAction `
+    -RunId $lab.RunId `
+    -RepairHyperVTestDatabases `
+    -ManifestPath '.\lab-with-updated-samples.json' `
+    -InstanceId primary `
+    -Confirm:$false
+```
+
+Ein explizit bereitgestelltes SQL-Passwort wird bei einer späteren Addition
+mit `-SqlSaPassword $pw` erneut übergeben. Entfernt werden ausschließlich
+receiptgebundene Sample-Outputs; fremde Datenbanken mit kollidierendem Namen
+blockieren den Plan. Vor einem Drop wird ein verifiziertes Recovery-Backup im
+Gast erzeugt. Alte Runs ohne Ownership-Receipt werden nicht still adoptiert.
 
 ## 13a. Project Adapter anwenden
 
@@ -846,6 +902,171 @@ Invoke-SqlServerLabReconcileAction -RunId $lab.RunId -TargetState RUNNING
 
 Mit `-WhatIf` kann vorab geprüft werden, ob der Executor tatsächlich
 Ausführungsversuche durchführt.
+
+### Hyper-V-Netzwerkdrift gezielt reparieren
+
+Der Lifecycle-Plan bleibt bei jeder Hyper-V-Netzwerkdrift fail-closed. Für den
+eng begrenzten Reparaturpfad wird deshalb ein eigener Plan gelesen und erst
+danach dessen Action ausgeführt:
+
+```powershell
+$networkPlan = Get-SqlServerLabReconcilePlan `
+    -RunId $lab.RunId `
+    -HyperVNetwork `
+    -InstanceId primary
+
+Invoke-SqlServerLabReconcileAction `
+    -RunId $lab.RunId `
+    -RepairHyperVNetwork `
+    -InstanceId primary `
+    -WhatIf
+
+Invoke-SqlServerLabReconcileAction `
+    -RunId $lab.RunId `
+    -RepairHyperVNetwork `
+    -InstanceId primary
+```
+
+Die Action darf ausschließlich fehlende additive, bereits lokal gebundene
+Hostinfrastruktur herstellen und genau einen vorhandenen getrennten Adapter
+der run- und scopegebundenen VM wieder verbinden. Sie erstellt keinen Adapter,
+bindet keinen falsch verbundenen Adapter um und repariert keine Gastadresse.
+Soll ein lokal erlaubter LAN-External-Switch tatsächlich erstellt werden, ist
+zusätzlich `-AllowExternalSwitchCreation` erforderlich. Der öffentliche Plan
+enthält keine Switch-, VM-, Adapter- oder Adresswerte; lokale Identitäten
+bleiben ausschließlich im Recovery-Journal.
+
+### Hyper-V-vCPU und RAM abgleichen
+
+Neue Hyper-V-Manifeste speichern `processorCount`, `dynamicMemoryEnabled`
+sowie `memoryMinimumMB`, `memoryStartupMB` und `memoryMaximumMB` als portablen
+Sollzustand. Der getrennte Plan vergleicht diese Werte read-only mit der
+run- und scopegebundenen VM:
+
+```powershell
+$resourcePlan = Get-SqlServerLabReconcilePlan `
+    -RunId $lab.RunId `
+    -HyperVResources `
+    -InstanceId primary
+
+Invoke-SqlServerLabReconcileAction `
+    -RunId $lab.RunId `
+    -RepairHyperVResources `
+    -InstanceId primary `
+    -WhatIf
+```
+
+Reine Min-/Max-Aenderungen bei bereits aktiviertem dynamischem RAM sind auf
+einer laufenden VM `live`. vCPU, RAM-Modus und Startspeicher werden bei einer
+laufenden VM als `restart` klassifiziert und journalisiert über Stop, Apply,
+Postcondition und Start ausgeführt. Unterbrechungen bleiben als
+`RECOVERY_REQUIRED` sichtbar und derselbe Aufruf setzt sie fort. Alte Runs ohne
+persistierten `HyperVResourceIntent/1.0` werden nicht geraten und bleiben
+`unsupported`.
+
+### Hyper-V-Zusatz-VHDX abgleichen und vergroessern
+
+Manifestgebundene Zusatz-VHDX und die aus einem `storageIntent` lokal
+gebundenen Storage-Lanes besitzen einen getrennten, hostwertfreien Plan:
+
+```powershell
+$storagePlan = Get-SqlServerLabReconcilePlan `
+    -RunId $lab.RunId `
+    -HyperVStorage `
+    -InstanceId primary
+
+Invoke-SqlServerLabReconcileAction `
+    -RunId $lab.RunId `
+    -RepairHyperVStorage `
+    -InstanceId primary `
+    -WhatIf
+```
+
+Der Repair-Pfad erstellt ausschließlich fehlende run-/locationgebundene
+SCSI-VHDX oder vergroessert vorhandene VHDX. Danach initialisiert, verifiziert
+oder erweitert er das NTFS-Volume ueber PowerShell Direct. Eine zuvor
+ausgeschaltete VM wird nur fuer diese Gast-Postcondition gestartet und danach
+wieder ausgeschaltet. Cleanup wird vor einer neuen VHDX registriert; Abbrueche
+bleiben im lokalen Journal `RECOVERY_REQUIRED` und derselbe Aufruf setzt sie
+fort. Shrink, Removal, Rollen-/Pfadwechsel, belegte SCSI-Slots und fremde oder
+uneindeutige Attachments bleiben ohne Teilmutation `unsupported`.
+
+### Hyper-V-SQL-Dateiplatzierung abgleichen und fortsetzen
+
+Nachdem der Host-/Gast-Storageplan ein No-op ist, kann ein getrennter Plan die
+gebundenen SQL-Default- und TempDB-Pfade read-only mit dem Gast vergleichen:
+
+```powershell
+$sqlStoragePlan = Get-SqlServerLabReconcilePlan `
+    -RunId $lab.RunId `
+    -HyperVSqlStorage `
+    -InstanceId primary
+
+Invoke-SqlServerLabReconcileAction `
+    -RunId $lab.RunId `
+    -RepairHyperVSqlStorage `
+    -InstanceId primary `
+    -WhatIf
+```
+
+Der öffentliche Plan enthält weder VM-Identitäten noch Host- oder Gastpfade.
+Die Action schreibt vor der SQL-Mutation das lokale Storage-Runtime-Receipt,
+ändert ausschließlich Default- und TempDB-Bindungen und startet den SQL-Dienst
+kontrolliert neu. Ein fehlgeschlagener Lauf bleibt `RECOVERY_REQUIRED` und wird
+mit demselben Aufruf fortgesetzt. User- und Systemdatenbankdateien sowie
+zusätzliche TempDB-Logfiles bleiben `unsupported`.
+
+### Hyper-V-SQL-Konfiguration und Runtime-Trace-Flags abgleichen
+
+Ohne Zielmanifest repariert der Plan Drift gegen den persistierten
+`serverConfig`-Intent. Mit Zielmanifest darf ausschließlich dieser Intent der
+Zielinstanz abweichen:
+
+```powershell
+$sqlConfigurationPlan = Get-SqlServerLabReconcilePlan `
+    -RunId $lab.RunId `
+    -HyperVSqlConfiguration `
+    -ManifestPath .\lab-with-updated-server-config.json `
+    -InstanceId primary
+
+Invoke-SqlServerLabReconcileAction `
+    -RunId $lab.RunId `
+    -RepairHyperVSqlConfiguration `
+    -ManifestPath .\lab-with-updated-server-config.json `
+    -InstanceId primary `
+    -WhatIf
+```
+
+Dynamische Werte und fehlende Trace-Flags werden live angewendet. Nicht
+dynamische `sp_configure`-Werte starten ausschließlich `MSSQLSERVER` neu.
+Entfernt werden nur Runtime-Trace-Flags, die das VM-gebundene lokale Receipt
+diesem Run zuordnet. Startup-Flags und fremde aktive Flags bleiben fail-closed.
+Nach erfolgreicher Postcondition werden Ownership und Desired State gemeinsam
+fortgeschrieben; derselbe Aufruf setzt einen `RECOVERY_REQUIRED`-Lauf fort.
+
+### Hyper-V-SQL-Port abgleichen und fortsetzen
+
+Der statische SQL-TCP-Port besitzt einen eigenen Restart-Vertrag. Der
+öffentliche Plan zeigt nur semantische Binding-Statuswerte, niemals den
+gewünschten oder beobachteten Port. Die Reparatur aktualisiert TCP/IP und die
+run-eigene Gastfirewall, startet ausschließlich `MSSQLSERVER` neu, prüft SQL
+über den Zielport und synchronisiert erst danach `connection-info.json`:
+
+```powershell
+$sqlPortPlan = Get-SqlServerLabReconcilePlan `
+    -RunId $lab.RunId `
+    -HyperVSqlPort `
+    -InstanceId primary
+
+Invoke-SqlServerLabReconcileAction `
+    -RunId $lab.RunId `
+    -RepairHyperVSqlPort `
+    -InstanceId primary `
+    -WhatIf
+```
+
+Mehrere oder benannte SQL-Instanzen sowie uneindeutige Firewallregeln bleiben
+fail-closed. Der SQL-Port liegt im Gast; die VM selbst wird nicht neu gestartet.
 
 ### External Languages nachträglich installieren oder aktualisieren
 

@@ -439,7 +439,7 @@ try {
         (($receipt | ConvertTo-Json -Depth 20) | Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/lab-storage-runtime-receipt.schema.json') -ErrorAction SilentlyContinue) -and
         $plan.RuntimeApplicationStatus -eq 'READY_TO_APPLY')
 
-    $snapshot = & $module { param($instance) New-LabInstanceIntentSnapshot -Instance $instance -ProviderCapability ([PSCustomObject]@{ Capabilities=@() }) } ([PSCustomObject]@{ storageIntent=$intent; drives=@(); software=@() })
+    $snapshot = & $module { param($instance) New-LabInstanceIntentSnapshot -Instance $instance -ProviderCapability ([PSCustomObject]@{ Capabilities=@() }) } ([PSCustomObject]@{ provider='hyperv'; storageIntent=$intent; drives=@(); software=@(); hyperv=$null })
     $snapshotJson = $snapshot.Storage | ConvertTo-Json -Depth 30
     Add-CheckResult -Name 'Desired State trägt nur portablen Intent, keine lokalen Bindungen' -Success (
         $snapshot.Storage.BindingStatus -eq 'LOCAL_BINDING_REQUIRED' -and $snapshotJson -notmatch 'LocationId|BackingDevice|HostRoot|HostPath|GuestRoot')

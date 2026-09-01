@@ -31,9 +31,10 @@ die isolierte Lifecycle-Grundlage aus Welle 4, die Registry-Grundlage aus Welle
 Child-VHDX, Status, Start, Stop, PowerShell Direct, scopegebundener Cleanup,
 immutable sealed VHDX, deterministische Auswahl, Manifest Lock, zusätzliche
 Gast-Drives samt Manifest-Binding, Windows-Specialization mit Reboot/Reconnect
-und eine interne SQL-Readiness-Orchestrierung. Unattended Image Build, SQL
-`CompleteImage`, Netzwerk-, Datenbank-, Software- und Post-Provision-Binding
-sowie der echte Windows-/SQL-End-to-End-Nachweis sind noch nicht implementiert.
+und eine interne SQL-Readiness-Orchestrierung. Das Manifest bindet inzwischen
+Container-`nat`, Hyper-V-`hostOnly` und Hyper-V-`isolated` samt Exposure Policy.
+Weiterführende Hyper-V-NAT-/LAN-/IPAM-/DNS-, Datenbank-, Software- und
+Post-Provision-Bindings bleiben unvollständig.
 Die bestehenden Containerpfade bleiben für SQL-fertige Labs unverändert
 maßgeblich.
 
@@ -81,7 +82,7 @@ maßgeblich.
 | Hyper-V | Lifecycle, Image-Registry, OS-Builder und SQL-PrepareImage-Builder | vollständiger, getesteter regulärer Lab-Lifecycle |
 | Betriebssystem | nur `windows` oder `linux` | Version, Edition, Sprache, Architektur, Installationsart und Lizenzstatus |
 | Drives | `containerPath` und `tmpfs` geprägt | providerneutrale Rolle, `guestPath` und Provider-Binding |
-| Netzwerke | nicht im Manifest modelliert | Intent, IPAM, DNS und Exposure Policy |
+| Netzwerke | typisierte Intents und Exposure; Container-`nat`, Hyper-V-`hostOnly`/`isolated` gebunden | vollständige Providerbindung, IPAM und DNS |
 | Software | begrenzte ID-Liste, primär VM-orientiert | Capability- und Artifact-basierter Vertrag für alle Provider |
 | Ressourcen | containerorientierte Schätzung | OS-, VHDX-, Builder-, Baseline-, Download- und Gastbedarf |
 | Änderungen | Create-/Lifecycle-orientiert | Plan, Diff, Reconcile und Validation |
@@ -353,6 +354,37 @@ machen.
 
 Hyper-V verwendet die nativen Switch-Typen External, Internal und Private.
 `public` wird nicht als vierter Switch-Typ modelliert.
+
+Implementierungsstand 2026-09-01: `network.intent` und `network.exposure` sind
+typisierte Manifestfelder. Docker und Podman lösen ohne Hostmutation auf
+`nat`/`host` mit verwaltetem Bridge-NAT und Loopback-Portbinding auf. Hyper-V löst auf `hostOnly`/`host`
+mit internem Switch, explizit auf `isolated`/`none` mit privatem Switch oder auf
+`lan`/`lan` mit External Switch und Gast-DHCP auf.
+Andere Kombinationen werden vor der Provider-Mutation mit einem stabilen
+`NETWORK_*`-Reason-Code abgelehnt. `hyperv.switchName` bleibt nur ein lokales
+Kompatibilitätsbinding für `hostOnly`; es bezeichnet keinen portablen LAN-
+Intent. Das LAN-Hostbinding besteht ausschließlich lokal aus Switchname und
+stabiler physischer Adapter-GUID. Es wird vor Erstellung und Wiederverwendung
+read-only revalidiert; fremde oder abweichende External Switches bleiben
+unangetastet.
+
+Der read-only Lifecycle-Reconcile übernimmt den persistierten Hyper-V-
+Network-Intent in Desired State und prüft Adapterbindung, Switch-Typ,
+Hostinfrastruktur und – soweit Hyper-V sie meldet – die gebundene Gastadresse.
+Der öffentliche Plan enthält dabei nur semantische Status- und Reason-Codes,
+keine Switch-Namen, IP-Adressen oder VM-Identitäten. Drift oder ein nicht
+lesbarer Istzustand blockiert Lifecycle-Teilaktionen fail-closed.
+
+Der getrennte Parametersatz `-HyperVNetwork` plant eine bewusst engere
+Reparatur. Der Executor `-RepairHyperVNetwork` darf additive, bereits lokal
+gebundene Switch-/Hostadress-/WinNAT-Infrastruktur herstellen und genau einen
+vorhandenen, getrennten Adapter der run- und scopegebundenen VM mit dem
+erwarteten Switch verbinden. Ein LAN-External-Switch verlangt zusätzlich
+`-AllowExternalSwitchCreation`. Journal und Retry binden Run, Scope, Instanz,
+VM und – soweit vorhanden – Adapter-ID; ein bereits erfüllter Istzustand kann
+ein unterbrochenes Journal ohne erneute Hostmutation abschließen. Falsches
+Switch-Rebinding, Adapter-Neuanlage, mehrere Adapter und Gastadressreparatur
+bleiben fail-closed.
 
 ### 10.2 Exposure Policy
 
@@ -669,8 +701,10 @@ Die Planvorschau begründet insbesondere:
 Stand 2026-08-09: Der persistierte Run-Sollzustand enthält einen versionierten,
 geheimnisfreien `SqlServerLab.InstanceIntent` für Drives, Network und Software.
 Provider-Metadaten liefern die deklarative Evidenzgrenze; noch nicht gebundene
-Software- oder Hyper-V-LAN-Intents bleiben sichtbar `DECLARED_UNSUPPORTED`.
-Konkrete Hostpfade, Switch-Namen, URLs und Befehle werden nicht persistiert.
+Software-Intents bleiben sichtbar `DECLARED_UNSUPPORTED`. Der portable
+Desired-State enthält keine konkreten Hostpfade, Switch-Namen, Adapter-IDs,
+URLs oder Befehle. Das lokale LAN-Bound-Plan-Artefakt persistiert die explizit
+freigegebene Switch-/Adapterbindung ausschließlich als Runtime-Evidenz.
 
 ### Welle 2 – Artifact- und Medienverwaltung
 
@@ -746,6 +780,55 @@ Ein echter Windows-Gast-End-to-End-Nachweis sowie alle SQL-Setup-/
 - IPAM, DNS und Exposure Policy;
 - Hyper-V-, Docker- und Podman-Bindings;
 - External Switch nur auf freigegebenem Runner.
+
+Stand 2026-09-01: Der portable Manifest- und Planvertrag sowie die Bindings für
+Container-`nat`, Hyper-V-`hostOnly`, Hyper-V-`isolated`, Hyper-V-`nat` und
+Hyper-V-`lan` sind
+implementiert. NAT besitzt vor der Mutation einen Host-Bound-Plan, schützt ein
+bereits vorhandenes fremdes WinNAT, nutzt auf geeigneten Hosts genau ein
+gemeinsames internes WinNAT und reserviert statische Gastadressen scopegebunden.
+Gateway und ein zur Planzeit gebundener Host-DNS-Snapshot werden in den Gast
+übernommen. LAN verlangt eine lokale Switch-/Adapter-Allowlist, erstellt nur
+den exakt gebundenen External Switch mit Hostanbindung und übernimmt
+Gastadresse, Gateway und DNS dynamisch aus DHCP. Der Hyper-V-Netzwerk-Istzustand wird im Lifecycle-Reconcile
+read-only, semantisch und hostwertfrei verglichen; ein DHCP-Adresswechsel ist
+dabei kein Drift. Die eng begrenzte, journalisierte Reparatur additiver
+Hostinfrastruktur und eines vorhandenen getrennten Adapters ist synthetisch
+validiert. Eine positive native External-Switch-Erstellung und ein positiver
+nativer Reparaturlauf auf einem dafür freigegebenen Runner bleiben offen.
+
+Der Manifestvertrag bindet außerdem `processorCount`,
+`dynamicMemoryEnabled`, `memoryMinimumMB`, `memoryStartupMB` und
+`memoryMaximumMB` als hostwertfreien `HyperVResourceIntent/1.0`. Der
+Ressourcen-Reconcile vergleicht den vollständigen VM-Istzustand read-only.
+Reine Dynamic-Memory-Min-/Max-Änderungen sind bei laufender VM `live`; vCPU,
+RAM-Modus und Startup verwenden journalisiert Stop, Apply, Postcondition und
+Start. Alte Runs ohne diesen Intent und nicht eindeutig steuerbare VM-Zustände
+bleiben fail-closed. Der Vertrag ist synthetisch, noch nicht nativ belegt.
+
+Der getrennte `SqlServerLab.SqlEndpointIntent/1.0` persistiert
+`hyperv.sqlPort` mit dem Default `1433`. Der read-only SQL-Port-Plan liest die
+TCP-Registry und die exakt benannte Lab-Firewallregel per PowerShell Direct,
+gibt öffentlich aber weder Port, VM-/SQL-Identität noch Hostadresse aus. Eine
+journalisierte Reparatur ist nur für genau eine SQL-Standardinstanz erlaubt,
+setzt dynamische Ports außer Kraft, aktualisiert bei bestehendem Hostzugriff
+die Gastfirewall, startet ausschließlich `MSSQLSERVER` neu und bestätigt SQL
+über den Zielport. Erst danach werden die Connection-Receipts atomar erneuert.
+Mehrdeutige Instanzen, Dienste oder Firewallregeln bleiben fail-closed.
+
+Der getrennte `SqlServerLab.DatabaseIntent/1.0` bildet katalogisierte Samples
+auf stabile, quellhash- und outputgebundene PlanKeys ab. Eine erfolgreiche
+Hyper-V-Erstbereitstellung schreibt fuer diese Samples ein lokales
+`SqlServerLab.HyperVTestDatabaseOwnership/1.0`-Receipt mit Run-, Scope-,
+Instanz- und VM-Identitaet. Der read-only Reconcile liest `sys.databases` im
+Gast und klassifiziert Additionen, eigentumsgebundene Entfernungen sowie
+ungebundene Namenskonflikte. Vor jedem erlaubten Drop wird im Gast ein
+`COPY_ONLY`-/CHECKSUM-Backup erzeugt und per `RESTORE VERIFYONLY WITH CHECKSUM`
+geprueft. Erst nach ONLINE-/Absent-Postconditions werden Ownership,
+Connection-State und persistierter Desired State aktualisiert; ein lokales
+Journal setzt unvollstaendige Add-/Remove-Operationen vorwaerts fort. Direkte
+Create-/Restore-Datenbanken, Systemdatenbanken, ungebundene Userdatenbanken und
+alte Runs ohne Receipt werden nicht automatisch entfernt oder adoptiert.
 
 ### Welle 7 – Software, External Runtimes und Samples
 

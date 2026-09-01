@@ -5,7 +5,7 @@
 | Verzeichnis | Inhalt |
 |---|---|
 | `Static/` | Import-, Export-, JSON-, Schema-, Metadaten-, Link-, Menü- und Dokumentationskonsistenz |
-| `Integration/` | mutierende Lifecycle-, Provider-, Versions- und Parallelitäts-Smoke-Tests |
+| `Integration/` | read-only sowie mutierende Lifecycle-, Provider-, Versions- und Parallelitäts-Smoke-Tests |
 
 ## Kurz-Readiness vor einem Pull Request
 
@@ -37,12 +37,39 @@ dokumentiert. Ihre ausfuehrbaren Einstiege sind:
 ```powershell
 .\Tests\Integration\Invoke-ContainerCliAcceptance.ps1 -Provider docker -Version 2022-CU18
 .\Tests\Integration\Invoke-ContainerCliAcceptance.ps1 -Provider podman -Version 2022-CU18
+.\Tests\Integration\Invoke-ContainerInstanceStoreAcceptance.ps1 -Provider docker
+.\Tests\Integration\Invoke-ContainerInstanceStoreAcceptance.ps1 -Provider podman
+.\Tests\Integration\Invoke-ContainerRuntimeScopeAcceptance.ps1
 .\Tests\Integration\Invoke-HyperVCliAcceptance.ps1 -MediaRoot D:\Lab_Base -SqlVersion 2025
 .\Tests\Integration\Invoke-HyperVSqlPreparedImageAcceptance.ps1
+.\Tests\Integration\Invoke-HyperVSqlConfigurationReconcileAcceptance.ps1 `
+    -ArtifactId 'hyperv-sql-prepared-sealed-<sha256>'
+.\Tests\Integration\Invoke-HyperVSqlConfigurationReconcileAcceptanceBootstrap.ps1
+.\Tests\Integration\Invoke-HyperVSqlPortReconcileAcceptance.ps1 `
+    -ArtifactId 'hyperv-sql-prepared-sealed-<sha256>'
+.\Tests\Integration\Invoke-HyperVSqlPortReconcileAcceptanceBootstrap.ps1
+.\Tests\Integration\Invoke-HyperVTestDatabaseReconcileAcceptance.ps1 `
+    -ArtifactId 'hyperv-sql-prepared-sealed-<sha256>'
+.\Tests\Integration\Invoke-HyperVTestDatabaseReconcileAcceptanceBootstrap.ps1 `
+    -MediaRoot D:\Lab_Base
 .\Tests\Integration\Invoke-HyperVStorageAcceptance.ps1 `
     -StorageIntentPath .\Schemas\hyperv-storage-n5-intent.sample.json `
     -MediaRoot D:\Lab_Base
 ```
+
+Der SQL-Konfigurationsrunner erzeugt einen eigenen Prepared-Image-Klon und
+prüft Plan, `WhatIf`, Live-Reconcile, Trace-Flag-Ownership, den Fortbestand
+eines fremden Runtime-Flags, einen ausschließlichen SQL-Dienstrestart für einen
+nicht dynamischen Wert, Desired-State-Rückkehr, No-op und Cleanup. Der Bootstrap
+erzeugt zuvor ein isoliertes SQL-2025-Prepared-Artifact und entfernt es nur nach
+erfolgreichem Runner-Cleanup. Beide Einstiege behalten bei Fehlern die exakten
+Recovery-IDs; eine positive native Ausführung ist noch `NOT_EXECUTED`.
+
+Der SQL-Port-Runner erzeugt ausschließlich im neuen Gast eine kontrollierte
+TCP-/Firewall-Drift und prüft anschließend Plan, `WhatIf`, den alleinigen SQL-
+Dienstrestart, Connection-State, No-op und vollständigen Cleanup. Der getrennte
+Bootstrap besitzt denselben isolierten Artifact-/Recovery-Vertrag; eine
+positive native Ausführung ist noch `NOT_EXECUTED`.
 
 Der letzte Runner ist der ausführbare Vertrag für Gate N5. Er startet nur,
 wenn vier TempDB-Datendateien auf mindestens zwei beziehungsweise der im Intent
@@ -71,6 +98,12 @@ Interpretation:
 .\Tests\Static\Invoke-ReadinessContractChecks.ps1
 .\Tests\Static\Invoke-ReconcileContractChecks.ps1
 .\Tests\Static\Invoke-ReconcileActionContractChecks.ps1
+.\Tests\Static\Invoke-HyperVResourceReconcileChecks.ps1
+.\Tests\Static\Invoke-HyperVStorageReconcileChecks.ps1
+.\Tests\Static\Invoke-HyperVSqlStorageReconcileChecks.ps1
+.\Tests\Static\Invoke-HyperVSqlConfigurationReconcileChecks.ps1
+.\Tests\Static\Invoke-HyperVSqlPortReconcileChecks.ps1
+.\Tests\Static\Invoke-HyperVTestDatabaseReconcileChecks.ps1
 .\Tests\Static\Invoke-ExternalRuntimeReconcileChecks.ps1
 .\Tests\Static\Invoke-StorageFilePlacementChecks.ps1
 .\Tests\Static\Invoke-HyperVResourceMigrationChecks.ps1
@@ -80,6 +113,11 @@ Interpretation:
 .\Tests\Static\Invoke-SampleHandlerChecks.ps1
 .\Tests\Static\Invoke-ProjectAdapterChecks.ps1
 .\Tests\Static\Invoke-CleanupRecoveryChecks.ps1
+.\Tests\Static\Invoke-CleanupAuditChecks.ps1
+.\Tests\Static\Invoke-PersistentStorageCatalogChecks.ps1
+.\Tests\Static\Invoke-PersistentStorageRemovalPlanChecks.ps1
+.\Tests\Static\Invoke-ContainerInstanceStoreChecks.ps1
+.\Tests\Static\Invoke-ContainerRuntimeScopeChecks.ps1
 .\Tests\Static\Invoke-PodmanBootstrapChecks.ps1
 .\Tests\Static\Invoke-PesterChecks.ps1
 .\Tests\Static\Invoke-ReleaseReadinessChecks.ps1
@@ -127,6 +165,9 @@ Die statischen Prüfungen benötigen keine laufende SQL-Server-Instanz. Sie kont
 - Project-Adapter-Vertrag: Schema, Versions- und Capability-Gates sowie die Pfadgrenzen des Adapter-Roots anhand manipulierter Kopien.
 - Cleanup-/Recovery-Vertrag: sichtbarer Providerfehler, persistierter
   `RECOVERY_REQUIRED`-State, Fehlerhistorie und erfolgreicher Wiederholungsversuch.
+- Storage-Residency-Inventar: stabile Objektidentitäten, host-sichtbares
+  `Lab_Data`, native Runtime-Volumes, externe Referenzen, Retention,
+  Orphan-Kandidaten und ausdrücklich unverifizierbares physisches Backing.
 - Podman-Bootstrap: bereits erreichbare Runtime, eindeutige Machine-Auswahl,
   Startfehler, Timeout und hostweit serialisierter Parallelstart.
 
@@ -202,6 +243,14 @@ SHA-256 und stellt es ueber die gespeicherte Run-/Providerbindung wieder her:
 
 Die Remote-Workflows fuehren den Test nach dem jeweiligen SQL-2025-Lifecycle
 für Docker beziehungsweise Podman unter demselben hostweiten Mutex aus.
+
+Der lokale PSR-008-Cross-Provider-Nachweis verwendet zusätzlich dieselbe
+test-eigene Quelle für Docker → Podman und registriert nur den sanitierten
+Inhaltsdigest:
+
+```powershell
+.\Tests\Integration\Invoke-BackupLibraryCrossProviderAcceptance.ps1
+```
 
 ## Provider-Referenztest
 

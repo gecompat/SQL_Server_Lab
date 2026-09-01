@@ -18,16 +18,79 @@ try {
         function docker {
             param([Parameter(ValueFromRemainingArguments=$true)][string[]]$Arguments)
             $global:LASTEXITCODE = 0
-            if ($Arguments[0] -eq 'volume') { return 'sql-lab-synthetic-volume' }
+            if ($Arguments[0] -eq 'info' -and $Arguments -contains '--format') { return '/var/lib/docker' }
+            if ($Arguments[0] -eq 'volume' -and $Arguments[1] -eq 'ls') {
+                return @('sql-lab-synthetic-volume','sql-lab-persistent-storage-audit-docker-primary-sql2025')
+            }
+            if ($Arguments[0] -eq 'volume' -and $Arguments[1] -eq 'inspect') {
+                $name = [string]$Arguments[2]
+                $runId = if ($name -like 'sql-lab-persistent-*') { [string]$script:StorageAuditRunId } else { 'missing-run' }
+                return @([PSCustomObject]@{
+                    Mountpoint="/var/lib/docker/volumes/$name/_data"
+                    Labels=[PSCustomObject]@{
+                        'sql-server-lab.run-id'=$runId
+                        'sql-server-lab.scope-id'='synthetic-storage-scope'
+                    }
+                }) | ConvertTo-Json -Depth 5 -Compress
+            }
             if ($Arguments[0] -eq 'network') { return 'sql-lab-synthetic-network' }
         }
         function Get-DockerLabContainers {
             return @([PSCustomObject]@{ ContainerId='synthetic'; Name='sql-lab-synthetic'; Status='exited'; RunId='missing-run'; ScopeId='synthetic-scope' })
         }
+        function Get-LabContainerRuntimeScope {
+            param([Parameter(Mandatory)][string]$Provider)
+            if ($Provider -eq 'podman') {
+                return ConvertTo-LabContainerRuntimeScope -Evidence ([PSCustomObject]@{
+                    Provider='podman'; Available=$false; Issue='RUNTIME_CLI_NOT_INSTALLED'
+                })
+            }
+            return ConvertTo-LabContainerRuntimeScope -Evidence ([PSCustomObject]@{
+                Provider='docker'; Available=$true; HostPlatform='windows'
+                Contexts=@([PSCustomObject]@{
+                    Name='synthetic-context'; Metadata=[PSCustomObject]@{ Description='Docker Desktop' }
+                    Endpoints=[PSCustomObject]@{ docker=[PSCustomObject]@{ Host='npipe:////./pipe/synthetic' } }
+                })
+                Info=[PSCustomObject]@{ OperatingSystem='Docker Desktop'; ServerVersion='synthetic'; Driver='overlayfs'; DockerRootDir='/var/lib/docker' }
+            })
+        }
         function Get-VM { @() }
         function Get-VMHardDiskDrive { @() }
 
         $stateRoot = Get-LabStateRoot
+        $root = [string](Get-LabStorageConfiguration).DefaultDataRoot
+        $storageRun = New-LabRunState -StateRoot $stateRoot -Metadata @{ name='storage-residency-audit' } `
+            -ProviderSubRuns @([PSCustomObject]@{ id='provider-docker'; provider='docker'; instanceIds=@('primary') })
+        $script:StorageAuditRunId = [string]$storageRun.RunId
+        $storageRunPath = Join-Path $storageRun.RunDir 'run-state.json'
+        $storageRunState = Get-Content -LiteralPath $storageRunPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
+        $storageRunState.instances = @([PSCustomObject]@{
+            id='primary'; provider='docker'
+            drives=@(
+                [PSCustomObject]@{
+                    id='persistent-mssql'; containerPath='/var/opt/mssql'
+                    volumeName='sql-lab-persistent-storage-audit-docker-primary-sql2025'
+                    persistence='data-root-runtime-volume'
+                },
+                [PSCustomObject]@{
+                    id='persistent-backups'; containerPath='/var/opt/mssql/backup'
+                    hostPath=(Join-Path $root 'Labs/storage-audit/backups')
+                    persistence='data-root-backup-bind'
+                },
+                [PSCustomObject]@{
+                    id='external-readonly'; containerPath='/sql-lab/external'
+                    hostPath=(Join-Path ([IO.Path]::GetTempPath()) 'sql-lab-external-reference')
+                    persistence='external-readonly'
+                }
+            )
+            persistentStorage=[PSCustomObject]@{
+                mode='data-root-runtime-volume'; root=(Join-Path $root 'Labs/storage-audit')
+                containerVolume='sql-lab-persistent-storage-audit-docker-primary-sql2025'
+                backupHostPath=(Join-Path $root 'Labs/storage-audit/backups')
+            }
+        })
+        Write-LabArtifactJsonAtomic -Path $storageRunPath -InputObject $storageRunState
+
         $run = New-LabRunState -StateRoot $stateRoot -Metadata @{ name='cleanup-audit-hyperv'; workflowKind='hyperv-lab' } `
             -ProviderSubRuns @([PSCustomObject]@{ id='provider-hyperv'; provider='hyperv'; instanceIds=@('primary') })
         $binding = Initialize-LabHyperVResourceBinding -ResourceId $run.RunId -ResourceClass Run -StateDirectory $run.RunDir
@@ -46,6 +109,16 @@ try {
             ContractVersion='SqlServerLab.HyperVResourceMigrationJournal/1.0'; Status='RECOVERY_REQUIRED'
         })
         $auditResult = Get-SqlServerLabCleanupAudit
+        $secondAudit = Get-SqlServerLabCleanupAudit -NoWrite
+        $syntheticHyperVInventory = Get-LabStorageResidencyInventory `
+            -Configuration (Get-LabStorageConfiguration) -StateRoot $stateRoot -DataRoots $auditResult.Audit.DataRoots `
+            -HyperVStatus AVAILABLE -HyperVResources @([PSCustomObject]@{
+                Name='synthetic-storage-vm'; State='Running'; RunId=[string]$run.RunId; ScopeId=[string]$run.ScopeId
+                Orphan=$false; StorageStatus='VERIFIED'
+                StorageBindings=@([PSCustomObject]@{
+                    ResourceKind='VM_CONFIGURATION'; Path=(Join-Path $root 'HyperV/Runs/synthetic-storage-vm')
+                })
+            })
         $migrationBlocked = Invoke-CleanupPlan -RunDir $run.RunDir -ScopeId $run.ScopeId
         $protectedAfterMigrationBlock = Test-Path -LiteralPath $protectedVhdx -PathType Leaf
 
@@ -119,7 +192,9 @@ try {
         $buildCleanup = Invoke-CleanupPlan -RunDir $buildDirectory -ScopeId $buildScopeId
 
         [PSCustomObject]@{
-            Path=$auditResult.Path; Audit=$auditResult.Audit; RunId=$run.RunId
+            Path=$auditResult.Path; Audit=$auditResult.Audit; SecondAudit=$secondAudit.Audit; RunId=$run.RunId
+            StorageRunId=$storageRun.RunId
+            SyntheticHyperVInventory=$syntheticHyperVInventory
             ProtectedVhdx=$protectedVhdx; UntrackedFile=$untrackedFile; SharedParent=$sharedParent
             MigrationBlocked=$migrationBlocked; ForeignBlocked=$foreignBlocked
             ProtectedAfterMigrationBlock=$protectedAfterMigrationBlock
@@ -135,10 +210,63 @@ try {
         }
     }
     Add-CheckResult -Name 'Cleanup-Audit meldet bekannte Runtime-Reste' -Success ($result.Audit.Status -eq 'RESIDUALS' -and $result.Audit.Summary.ResidualCount -ge 3)
-    Add-CheckResult -Name 'Erweiterter Cleanup-Audit erfüllt das versionierte Schema' -Success (
-        (($result.Audit | ConvertTo-Json -Depth 50) | Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/lab-cleanup-audit.schema.json') -ErrorAction SilentlyContinue))
+    $cleanupSchemaErrors = @()
+    $cleanupSchemaValid = (($result.Audit | ConvertTo-Json -Depth 50) | Test-Json `
+        -SchemaFile (Join-Path $repoRoot 'Schemas/lab-cleanup-audit.schema.json') -ErrorAction SilentlyContinue -ErrorVariable cleanupSchemaErrors)
+    Add-CheckResult -Name 'Erweiterter Cleanup-Audit erfüllt das versionierte Schema' -Success $cleanupSchemaValid `
+        -Message (@($cleanupSchemaErrors | ForEach-Object { $_.Exception.Message }) -join '; ')
+    Add-CheckResult -Name 'Storage-Residency erfüllt den eigenen versionierten Vertrag' -Success (
+        $result.Audit.StorageResidency.ContractVersion -eq 'SqlServerLab.StorageResidencyInventory/1.0' -and
+        (($result.Audit.StorageResidency | ConvertTo-Json -Depth 50) | Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/lab-storage-residency-inventory.schema.json') -ErrorAction SilentlyContinue))
+    $dockerRuntimeScope = @($result.Audit.RuntimeScopes | Where-Object Provider -eq 'docker')[0]
+    Add-CheckResult -Name 'Cleanup-Audit veröffentlicht sanitisierten Runtime-Scope ohne Managementautorität' -Success (
+        $dockerRuntimeScope.ContractVersion -eq 'SqlServerLab.ContainerRuntimeScope/1.0' -and
+        $dockerRuntimeScope.Status -eq 'AVAILABLE' -and $dockerRuntimeScope.Ownership.Status -eq 'SHARED_EXTERNAL' -and
+        -not $dockerRuntimeScope.Summary.CanManageRuntime -and
+        (($dockerRuntimeScope | ConvertTo-Json -Depth 30) | Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/container-runtime-scope.schema.json') -ErrorAction SilentlyContinue))
     Add-CheckResult -Name 'Orphan-Container wird ohne Loeschung ausgewiesen' -Success (@($result.Audit.Containers | Where-Object { $_.Orphan -and $_.Id -eq 'synthetic' }).Count -eq 1)
     Add-CheckResult -Name 'Benannte Runtime-Ressourcen werden inventarisiert' -Success ($result.Audit.ManagedVolumes[0].Name -eq 'sql-lab-synthetic-volume' -and $result.Audit.ManagedNetworks[0].Name -eq 'sql-lab-synthetic-network')
+    $persistentVolume = @($result.Audit.StorageResidency.Objects | Where-Object LogicalName -eq 'sql-lab-persistent-storage-audit-docker-primary-sql2025')[0]
+    $orphanVolume = @($result.Audit.StorageResidency.Objects | Where-Object LogicalName -eq 'sql-lab-synthetic-volume')[0]
+    Add-CheckResult -Name 'Persistentes Named Volume bleibt als native Runtime-Residency mit aktiver Referenz erhalten' -Success (
+        $persistentVolume.ObjectClass -eq 'INSTANCE_STORE' -and $persistentVolume.Lifecycle -eq 'RETAINED' -and
+        $persistentVolume.Residency -eq 'NATIVE_RUNTIME' -and $persistentVolume.LabDataRelation -eq 'RUNTIME_INTERNAL' -and
+        $persistentVolume.CleanupPolicy -eq 'PRESERVE_RETAINED' -and $persistentVolume.Details.ReferenceState -eq 'ACTIVE_REFERENCE' -and
+        $result.StorageRunId -in @($persistentVolume.RunIds))
+    Add-CheckResult -Name 'Cleanup-Audit weist retained Objekte ohne erfundene PersistentStorageId zur Registrierung aus' -Success (
+        $result.Audit.PersistentStorage.CatalogStatus -eq 'EMPTY' -and
+        $result.Audit.PersistentStorage.Plan.Status -eq 'PARTIAL' -and
+        @($result.Audit.PersistentStorage.Plan.Actions | Where-Object {
+            $_.Action -eq 'REGISTER_REQUIRED' -and -not $_.PersistentStorageId -and
+            $_.InventoryObjectId -eq $persistentVolume.ObjectId
+        }).Count -eq 1 -and
+        (($result.Audit.PersistentStorage.Plan | ConvertTo-Json -Depth 50) | Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/persistent-storage-plan.schema.json') -ErrorAction SilentlyContinue))
+    Add-CheckResult -Name 'Unreferenziertes rungebundenes Named Volume wird nur als Orphan-Kandidat gemeldet' -Success (
+        $orphanVolume.Lifecycle -eq 'RUN_SCOPED' -and $orphanVolume.AuditStatus -eq 'RESIDUAL' -and
+        $orphanVolume.CleanupPolicy -eq 'RUN_CLEANUP' -and $orphanVolume.Details.ReferenceState -eq 'ORPHAN_CANDIDATE')
+    Add-CheckResult -Name 'Runtime-Backing bleibt als Runtime-Namespace statt als Lab_Data-Hostpfad klassifiziert' -Success (
+        @($result.Audit.StorageResidency.Objects | Where-Object {
+            $_.ObjectClass -eq 'RUNTIME_BACKING_STORE' -and $_.Provider -eq 'docker' -and
+            $_.Residency -eq 'NATIVE_RUNTIME' -and $_.LabDataRelation -eq 'RUNTIME_INTERNAL'
+        }).Count -eq 1)
+    Add-CheckResult -Name 'Aktuelle Hyper-V-Konfigurationspfade werden read-only als rungebundene Lab_Data-Ressourcen inventarisiert' -Success (
+        @($result.SyntheticHyperVInventory.Objects | Where-Object {
+            $_.ObjectClass -eq 'HYPERV_RUN_RESOURCE' -and $_.Provider -eq 'hyperv' -and
+            $_.Lifecycle -eq 'RUN_SCOPED' -and $_.LabDataRelation -eq 'INSIDE' -and
+            $_.Details.ResourceKind -eq 'VM_CONFIGURATION' -and $_.AuditStatus -eq 'VERIFIED' -and
+            $_.CleanupPolicy -eq 'REPORT_ONLY'
+        }).Count -eq 1)
+    Add-CheckResult -Name 'Hostsichtbare Backup-Bindung und externe Referenz werden physisch getrennt klassifiziert' -Success (
+        @($result.Audit.StorageResidency.Objects | Where-Object {
+            $_.ObjectClass -eq 'BACKUP_WORKSPACE' -and $_.LabDataRelation -eq 'INSIDE' -and $_.Residency -eq 'LAB_DATA'
+        }).Count -ge 1 -and
+        @($result.Audit.StorageResidency.Objects | Where-Object {
+            $_.ObjectClass -eq 'EXTERNAL_REFERENCE' -and $_.LabDataRelation -eq 'OUTSIDE' -and $_.AuditStatus -eq 'RESIDUAL'
+        }).Count -ge 1)
+    $firstPersistentId = [string]$persistentVolume.ObjectId
+    $secondPersistentId = [string](@($result.SecondAudit.StorageResidency.Objects | Where-Object LogicalName -eq 'sql-lab-persistent-storage-audit-docker-primary-sql2025')[0].ObjectId)
+    Add-CheckResult -Name 'Storage-Objektidentitäten bleiben zwischen read-only Audits stabil' -Success (
+        $firstPersistentId -match '^storage-object-[a-f0-9]{24}$' -and $firstPersistentId -eq $secondPersistentId)
     Add-CheckResult -Name 'Audit wird im verwalteten Lab_Data gespeichert' -Success ($result.Path -and (Test-Path -LiteralPath $result.Path -PathType Leaf))
     $runScope = @($result.Audit.HyperV.RunScopes | Where-Object RunId -eq $result.RunId) | Select-Object -First 1
     Add-CheckResult -Name 'Hyper-V-Run-Binding und Recovery-Journal werden gemeinsam auditiert' -Success (

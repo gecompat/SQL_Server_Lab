@@ -206,7 +206,7 @@ Container-Volumes gehören dagegen in den normalen Storage-Pfad.
 
 ### 5.1 Aktueller Meilensteinstatus
 
-| Meilenstein | Status am 2026-08-29 | Nächster belastbarer Schritt |
+| Meilenstein | Status am 2026-09-01 | Nächster belastbarer Schritt |
 |---|---|---|
 | M0 Statuswahrheit | `validated` | Drift weiter statisch verhindern |
 | Providerneutraler Instanz-Autostart | `implemented_runtime_partial` | Docker-/SQL-2025-Runtime ist grün; Podman-Self-hosted-Gate und nativen Hyper-V-Lifecycle fortlaufend grün halten |
@@ -214,8 +214,8 @@ Container-Volumes gehören dagegen in den normalen Storage-Pfad.
 | M2 UI und Container-Reconcile | `implemented_partial` | Batch/Queue sowie Container-`no-op`, `live`, `recreate`, Rollback und Persistenz sind für Docker und Podman real verifiziert; beliebige Mount-/Environment-Änderungen aus `CNT-214` bleiben offen |
 | M3 Adapterpiloten | `planned_external_scope` | je ein Pilot in den drei Konsumenten-Repositories |
 | M4 Hyper-V OS Cold Path | `validated_reference` | weitere freigegebene Windows-Varianten getrennt belegen |
-| M5 Hyper-V SQL und Resolver | `validated_reference_partial_manifest` | Datenbank-, Software-, Post-Provisioning- und Network-Manifestparität |
-| M6 Reconcile-Breite | `planned` | Hardware-, Netzwerk-, Storage- und SQL-Änderungsklassen |
+| M5 Hyper-V SQL und Resolver | `validated_reference_partial_manifest` | Datenbank-, Software- und Post-Provisioning-Manifestparität; Network-Intents sind gebunden |
+| M6 Reconcile-Breite | `implemented_partial` | Netzwerk, vCPU/statisches-dynamisches RAM, Zusatz-VHDX/Grow-only sowie SQL-Default-/TempDB-Dateiplatzierung besitzen No-op und journalisierte beziehungsweise receiptgebundene Reparatur; Removal/Rebinding, User-/Systemdatenbankbewegung, weitere Hardware-/SQL-Klassen und native Repair-Evidence bleiben offen |
 | M7 Artifacts und Baselines | `implemented_partial` | Hyper-V-Export/-Nutzung und automatische Sample-Manifestbindung sind synthetisch belegt; reale Evidence und weitere typisierte Handler bleiben offen |
 | M8 Scenarios und Migration | `planned` | Scenario-Vertrag nach den Adapterpiloten |
 | M9 Release-Härtung | `implemented_partial` | Failure-Injection und öffentliche Version erst nach Provider-/Adapterabnahme |
@@ -476,6 +476,63 @@ und transparent verwaltet werden.
 | `HV-607` | I/O-Intent `slow`, `throttled`, `balanced`, `high` capability-basiert auf VHDX-/Storage-Rollen binden | explizite, messbare Performance-Konstellation ohne falsches Benchmarkversprechen |
 | `UX-621` | Hardware-, Netzwerk-, Storage-, SQL- und Reconcile-Untermenüs | vollständige Infrastrukturansicht |
 | `UX-622` | Heatmap/Action Preview für `live` bis `reprovision` | verständliche Auswirkungsvorschau |
+
+**Ist-Stand 2026-09-01:** `NET-611` und der Planungsanteil von `NET-612` sind
+für Docker/Podman-NAT sowie Hyper-V-`isolated`, `hostOnly`, `nat` und `lan`
+implementiert. Hyper-V besitzt zusätzlich einen hostwertfreien Actual-State-
+Vergleich und einen getrennten journalisierten Executor, der ausschließlich
+additive lokal gebundene Infrastruktur und genau einen vorhandenen getrennten
+Adapter repariert. `HV-601` ist damit für den Netzwerkanteil, nicht aber für
+den vollständigen Windows-/SQL-/Hardware-Istzustand umgesetzt. `HV-602` bindet
+vCPU, statisches/dynamisches RAM und Min/Startup/Max manifestseitig und besitzt
+einen synthetisch belegten Live-/Restart-/Recovery-Executor. `HV-603` besitzt
+fuer manifestgebundene Zusatz-VHDX und gebundene Storage-Lanes einen
+hostwertfreien Plan sowie einen journalisierten Add-/Grow-only-Executor mit
+Gast-NTFS-Verifikation und Wiederherstellung des VM-Zustands. Rebinding,
+Adapter-Neuanlage, Gastadressreparatur und positive native Repair-/External-
+Switch-Evidence sowie Shrink, Removal und Rollen-/Pfadwechsel bleiben offen.
+`HV-603A` besitzt fuer gebundene Default- und TempDB-Dateipfade einen
+hostwertfreien SQL-Istvergleich und einen receiptgebundenen Restart-/Resume-
+Executor. Automatische User- oder Systemdatenbankverschiebungen bleiben
+fail-closed; ein synthetischer Test ist kein Runtime-Nachweis. Der erste
+`HV-604`-Slice persistiert Memory-, MAXDOP-, Cost-Threshold-, explizite
+`sp_configure`- und Trace-Flag-Werte als portablen SQL-Konfigurationsintent.
+Ein getrennter Plan liest `sys.configurations` und globale Trace Flags ueber
+PowerShell Direct. Dynamische Werte und fehlende angeforderte Trace Flags
+werden live repariert; nicht dynamische Werte verwenden einen journalisierten,
+fortsetzbaren Neustart ausschließlich von `MSSQLSERVER`, stellen danach die
+deklarierte Trace-Flag-Laufzeitbindung wieder her und lassen die Hyper-V-VM
+gestartet. Ein Zielmanifest darf ausschließlich diesen Intent ändern. Ein
+VM-gebundenes Ownership-Receipt schützt die Entfernung globaler Runtime-Trace-
+Flags; Startup- und fremde Flags bleiben fail-closed. Journalisierte
+Postconditions schreiben Ownership und Desired State erst nach erfolgreicher
+Runtime-Verifikation fort und Recovery wiederholt `TRACEOFF` nicht. Ein
+isolierter nativer Runner samt Prepared-Artifact-Bootstrap bindet Plan,
+`WhatIf`, Live-Änderung, Ownership-Add/-Remove, Fremd-Trace-Flag-Schutz,
+ausschließlich `MSSQLSERVER`-Restart ohne VM-Neustart, Desired-State-Rückkehr,
+No-op und Cleanup; seine positive Ausführung ist noch `NOT_EXECUTED`. Der SQL-Port-Folgeslice
+persistiert `hyperv.sqlPort`, vergleicht
+TCP-Registry und Gastfirewall hostwertfrei und repariert Drift für genau eine
+Standardinstanz mit journalisiertem SQL-Dienstrestart, Readiness-Postcondition
+und Connection-State-Synchronisierung. Mehrere oder benannte Instanzen bleiben
+fail-closed. Ein isolierter nativer Runner samt Prepared-Artifact-Bootstrap
+bindet Gastdrift, Plan, `WhatIf`, SQL-Dienstrestart ohne VM-Neustart,
+Connection-State, No-op und Cleanup; seine positive Ausführung ist noch
+`NOT_EXECUTED`. Der Testdatenbank-Folgeslice persistiert stabile Sample-PlanKeys
+und einen VM-gebundenen lokalen Ownership-Nachweis. Ein Zielmanifest kann
+katalogisierte Samples addieren und ausschließlich receiptgebundene Outputs
+entfernen; vor dem Drop werden `BACKUP ... WITH CHECKSUM` und
+`RESTORE VERIFYONLY` ausgeführt. Journal, Postconditions, Teilinstallations-
+Recovery, Fremddatenbankschutz und Desired-State-Synchronisierung sind
+synthetisch belegt. Die frühere pauschale Manifest-Sperre ist entfernt:
+Hyper-V-Datenbanken benötigen nun vor der Mutation `SQL_PREPARED_SEALED` und
+einen vollständigen portablen Storage-Intent; reine OS-Baselines bleiben
+fail-closed. Ein isolierter nativer Runner samt Prepared-Artifact-Bootstrap
+bindet Plan, `WhatIf`, Add, No-op, Remove, Fremddatenbankschutz, VM-Restart und
+Cleanup, ist aber noch `NOT_EXECUTED`. Die übrigen Repair-Pfade sind ebenfalls
+noch nicht nativ belegt; alte Runs ohne Ownership-Receipt können bereits aktive
+Trace Flags nicht entfernen. Allgemeiner Create-/Restore-Reconcile und die
+Entfernung vollständiger `sp_configure`-Einträge bleiben offen.
 
 OS-, Edition- und inkompatible SQL-Versionswechsel werden zuerst als
 `reprovision` behandelt. In-place-Upgrades benötigen später einen separaten,
@@ -994,8 +1051,41 @@ Platzierung nicht verändern.
 Die physische Bestandsanalyse und Architekturentscheidung für persistente
 Instanzspeicher, portable Backups, Datenbank-/FILESTREAM-Pakete sowie
 Docker-/Podman-Runtime-Daten unter beziehungsweise außerhalb von `Lab_Data`
-beginnt als Voraussetzung vor der breiten Implementierung. Der zugehörige
-P1-Produktpfad folgt dem P0-Hyper-V-Ressourcenroot-Bugfix und wird im
+beginnt als Voraussetzung vor der breiten Implementierung. Der erste
+`PSR-001`-Slice liefert bereits ein versioniertes read-only
+Storage-Residency-Inventar für `Lab_Data`, native Runtime-Volumes, externe
+Pfade, Hyper-V-Ressourcen und Retention. Physisches Docker-Desktop-/Podman-
+Machine-Backing bleibt bis zur weiteren Provideranalyse ausdrücklich
+unverifizierbar. `PSR-002` ist mit dem bindenden
+[`SqlServerLab.LabDataResidencyDecision/1.0`](../Architecture/LAB_DATA_AND_NATIVE_RUNTIME_STORAGE_DECISION.md)
+abgeschlossen: `Lab_Data` ist der hostseitige Katalog-, Austausch- und
+Recovery-Einstieg, native katalogisierte Container-Instanzstores sind eine
+begrenzte Ausnahme, und globale Runtime-/Machine-Ablagen bleiben ohne eigenen
+Ownership-Vertrag außerhalb des Mutationsscopes. Der zugehörige
+read-only `PSR-003`-Slice ergänzt stabile Persistent-Storage-IDs, Klassen,
+Zustände, Referenzen, exklusive Leases, Spiegelprüfung und eine
+Residency-gebundene Planung. Nicht katalogisierte retained Objekte bleiben
+ID-lose Registrierungskandidaten; Schreiben, Lease-Akquisition,
+Wiederverwendung und Löschung folgen erst in getrennten Mutationsverträgen.
+Der read-only `PSR-004`-Vertrag plant bereits alle sechs Retention-/Removal-
+Policies, Backup-`CHECKSUM`/`RESTORE VERIFYONLY`, Offline-/Hash-/Package-
+Evidence, Fremdreferenzschutz und `RECOVERY_REQUIRED`, führt diese Mutationen
+aber noch nicht aus und hält endgültige Persistent-Storage-Löschung getrennt.
+Der `PSR-005`-Core wählt katalogisierte detached Docker-/Podman-Instanzstores
+über stabile ID plus Runtime-Label, liefert ein Continue-Binding und klont eine
+read-only Quelle journalisiert mit Datei-/Byte-/SHA-256-Postcondition. Getrennte
+reale Docker- und Podman-Läufe bestätigen Server- und Benutzerdaten nach
+Recreate sowie im Clone; Katalog-Commit, Sidecars und öffentliche CLI/GUI-
+Anbindung bleiben offen.
+Der read-only `PSR-006`-Slice bindet aktive Docker-Contexts sowie Podman-
+Connections/Machines an eine stabile sanitisierte Runtime-ID und klassifiziert
+bestehende Runtimes ohne Ownership-Evidence als `SHARED_EXTERNAL` und
+`REPORT_ONLY`. Getrennte reale Docker-/Podman-Inspektionen bestätigten den
+Vertrag ohne Änderung von Ressourcen, Context-/Connection-Auswahl oder Machine-
+Zustand. Dedizierte Engine-/Machine-Erzeugung, Relocation, Update und Cleanup
+bleiben bis zu einem eigenen Ownership-, Location-, Capacity-, Recovery- und
+Löschvertrag offen.
+Der weitere P1-Produktpfad folgt dem P0-Hyper-V-Ressourcenroot-Bugfix und wird im
 [Persistenz- und `Lab_Data`-Backlog](PERSISTENT_STORAGE_REUSE_AND_LAB_DATA_BACKLOG.md)
 evidenzgebunden geplant.
 

@@ -1,20 +1,53 @@
 <#
 .SYNOPSIS
-    Wendet einen Lifecycle-, Container- oder External-Runtime-Reconcile-Plan auf einen Run an.
+    Wendet einen Lifecycle-, Hyper-V-Netzwerk-/Ressourcen-/Storage-/SQL-/Testdatenbank-, Container- oder External-Runtime-Reconcile-Plan auf einen Run an.
 .DESCRIPTION
-    Liest zuerst den Reconcile-Plan aus. Eine Ausfuehrung erfolgt nur fuer den
-    eindeutig-restartfaehigen Pfad mit genau einer Operation START oder STOP.
-    Alle anderen Planzustandskombinationen liefern einen nicht mutierenden
-    Abschluss mit `MutationAllowed = $false`.
+    Liest zuerst den passenden Reconcile-Plan aus. Lifecycle-Aktionen verlangen
+    genau eine eindeutige Operation START oder STOP. Der getrennte Hyper-V-
+    Netzwerkpfad repariert nur additive gebundene Hostinfrastruktur und genau
+    einen vorhandenen getrennten Adapter. Container- und External-Runtime-
+    Parametersaetze behalten ihre eigenen journalisierten Grenzen. Nicht
+    unterstuetzte Planzustaende bleiben mutationsfrei.
 .PARAMETER RunId
     Identifizierer des vorhandenen Runs.
 .PARAMETER TargetState
     Gewuenschter Zielzustand fuer den Run nach der Reconcile-Ausfuehrung.
 .PARAMETER ManifestPath
     Zielmanifest fuer eine erstmalige Installation oder einen späteren,
-    resolvergebundenen External-Runtime-Reconcile.
+    resolvergebundenen Reconcile. Beim Hyper-V-SQL-Konfigurationspfad darf nur
+    der SQL-Konfigurationsintent der Zielinstanz abweichen.
 .PARAMETER InstanceId
-    Zielinstanz fuer den Container- oder External-Runtime-Reconcile.
+    Zielinstanz fuer den Hyper-V-Netzwerk-, Ressourcen-, Storage-, SQL-, Container- oder External-Runtime-Reconcile.
+.PARAMETER RepairHyperVNetwork
+    Repariert nur fehlende additive Hostinfrastruktur und verbindet genau einen
+    vorhandenen, getrennten run-eigenen VM-Adapter wieder.
+.PARAMETER RepairHyperVResources
+    Repariert den manifestgebundenen vCPU-/RAM-Sollzustand. CPU-, RAM-Modus-
+    und Startup-Aenderungen einer laufenden VM verwenden Stop, Apply und Start.
+.PARAMETER RepairHyperVStorage
+    Repariert fehlende manifestgebundene Zusatz-VHDX, vergroessert bestehende
+    VHDX ausschliesslich grow-only und verifiziert die Volumes im Gast.
+.PARAMETER RepairHyperVSqlStorage
+    Repariert gebundene SQL-Default- und TempDB-Dateipfade und startet den
+    SQL-Dienst kontrolliert neu. User- und Systemdatenbanken bleiben unberuehrt.
+.PARAMETER RepairHyperVSqlConfiguration
+    Repariert dynamische sp_configure-Werte und deklarierte globale Trace Flags
+    live. Nicht dynamische Werte verwenden einen journalisierten Neustart nur
+    von MSSQLSERVER. Mit Zielmanifest werden nur run-eigene Runtime-Trace-Flags
+    entfernt; Startup- und fremde Flags bleiben fail-closed. Die Hyper-V-VM
+    bleibt gestartet. SQL-Port, Dateipfade und Datenbanken bleiben unberuehrt.
+.PARAMETER RepairHyperVSqlPort
+    Repariert den manifestgebundenen statischen SQL-TCP-Port und die vorhandene
+    Lab-Firewallbindung. Nur der SQL-Dienst, nicht die Hyper-V-VM, wird neu gestartet.
+.PARAMETER RepairHyperVTestDatabases
+    Fuegt katalogisierte Testdatenbanken aus dem Zielmanifest hinzu oder entfernt
+    ausschliesslich durch ein lokales Receipt als run-eigen nachgewiesene Samples.
+.PARAMETER SqlSaPassword
+    Optionales SQL-SA-Passwort fuer Sample-Additionen. Automatisch generierte,
+    run-lokal gespeicherte Zugangsdaten werden ohne diesen Parameter verwendet.
+.PARAMETER AllowExternalSwitchCreation
+    Erlaubt im Hyper-V-Netzwerk-Reconcile die bereits lokal gebundene Erstellung
+    eines External Switch. Ohne diesen Switch bleibt LAN-Erstellung fail-closed.
 .PARAMETER Container
     Wählt den journalisierten Container-Ressourcen-Reconcile.
 .PARAMETER Cpu
@@ -38,6 +71,11 @@
     versionierte Zusammenfassung der ausgefuehrten Executor-Schritte.
 .EXAMPLE
     Invoke-SqlServerLabReconcileAction -RunId $lab.RunId -TargetState STOPPED
+
+.EXAMPLE
+    Invoke-SqlServerLabReconcileAction -RunId $lab.RunId -RepairHyperVNetwork -InstanceId primary -WhatIf
+
+    Zeigt, ob die eng begrenzte Hyper-V-Netzwerkreparatur ausgefuehrt wuerde.
 #>
 function Invoke-SqlServerLabReconcileAction {
     [CmdletBinding(SupportsShouldProcess, DefaultParameterSetName = 'Lifecycle')]
@@ -50,11 +88,47 @@ function Invoke-SqlServerLabReconcileAction {
         [string]$TargetState,
 
         [Parameter(Mandatory, ParameterSetName = 'ExternalRuntime')]
+        [Parameter(Mandatory, ParameterSetName = 'HyperVTestDatabases')]
+        [Parameter(ParameterSetName = 'HyperVSqlConfiguration')]
         [string]$ManifestPath,
 
         [Parameter(ParameterSetName = 'ExternalRuntime')]
         [Parameter(ParameterSetName = 'Container')]
+        [Parameter(Mandatory, ParameterSetName = 'HyperVNetwork')]
+        [Parameter(Mandatory, ParameterSetName = 'HyperVResources')]
+        [Parameter(Mandatory, ParameterSetName = 'HyperVStorage')]
+        [Parameter(Mandatory, ParameterSetName = 'HyperVSqlStorage')]
+        [Parameter(Mandatory, ParameterSetName = 'HyperVSqlConfiguration')]
+        [Parameter(Mandatory, ParameterSetName = 'HyperVSqlPort')]
+        [Parameter(Mandatory, ParameterSetName = 'HyperVTestDatabases')]
         [string]$InstanceId,
+
+        [Parameter(Mandatory, ParameterSetName = 'HyperVNetwork')]
+        [switch]$RepairHyperVNetwork,
+
+        [Parameter(Mandatory, ParameterSetName = 'HyperVResources')]
+        [switch]$RepairHyperVResources,
+
+        [Parameter(Mandatory, ParameterSetName = 'HyperVStorage')]
+        [switch]$RepairHyperVStorage,
+
+        [Parameter(Mandatory, ParameterSetName = 'HyperVSqlStorage')]
+        [switch]$RepairHyperVSqlStorage,
+
+        [Parameter(Mandatory, ParameterSetName = 'HyperVSqlConfiguration')]
+        [switch]$RepairHyperVSqlConfiguration,
+
+        [Parameter(Mandatory, ParameterSetName = 'HyperVSqlPort')]
+        [switch]$RepairHyperVSqlPort,
+
+        [Parameter(Mandatory, ParameterSetName = 'HyperVTestDatabases')]
+        [switch]$RepairHyperVTestDatabases,
+
+        [Parameter(ParameterSetName = 'HyperVTestDatabases')]
+        [SecureString]$SqlSaPassword,
+
+        [Parameter(ParameterSetName = 'HyperVNetwork')]
+        [switch]$AllowExternalSwitchCreation,
 
         [Parameter(ParameterSetName = 'ExternalRuntime')]
         [Parameter(ParameterSetName = 'Container')]
@@ -89,6 +163,208 @@ function Invoke-SqlServerLabReconcileAction {
 
         [string]$StateRoot
     )
+
+    if ($PSCmdlet.ParameterSetName -eq 'HyperVTestDatabases') {
+        $plan = Get-SqlServerLabReconcilePlan -RunId $RunId -HyperVTestDatabases -ManifestPath $ManifestPath -InstanceId $InstanceId -StateRoot $StateRoot
+        $wouldExecute = if ($plan.IsNoOp -or [string]$plan.HighestChangeClass -ne 'live') { $false } else {
+            $PSCmdlet.ShouldProcess("Run '$RunId', Instanz '$InstanceId'", 'Hyper-V-Testdatenbanken journalgebunden mit verifiziertem Removal-Backup reconciliieren')
+        }
+        $entry = [ordered]@{
+            Operation=if($plan.IsNoOp){'None'}else{'ReconcileHyperVTestDatabases'};ChangeClass=[string]$plan.HighestChangeClass
+            Planned=(@($plan.Actions).Count -eq 1);Executed=$false
+            Status=if($plan.IsNoOp){'NO_OP'}elseif([string]$plan.HighestChangeClass -ne 'live'){'UNSUPPORTED'}elseif($wouldExecute){'PLANNED'}else{'WOULD_EXECUTE'}
+            Reason=$null;Result=$null
+        }
+        $summary=[ordered]@{Status=$entry.Status;PlannedActions=@($plan.Actions).Count;ExecutedActions=0;FailedActions=0;MutationAllowed=$false;Errors=@()}
+        if($wouldExecute){
+            try{
+                $entry.Result=Invoke-LabHyperVTestDatabaseReconcileRepair -RunId $RunId -ManifestPath $ManifestPath -InstanceId $InstanceId -SqlSaPassword $SqlSaPassword -StateRoot $StateRoot
+                $entry.Executed=$true;$entry.Status=[string]$entry.Result.Status;$summary.Status=[string]$entry.Result.Status;$summary.ExecutedActions=1;$summary.MutationAllowed=$true
+            }
+            catch{
+                $entry.Executed=$true;$entry.Status='FAILED';$entry.Reason=$_.Exception.Message;$summary.Status='FAILED';$summary.ExecutedActions=1;$summary.FailedActions=1;$summary.Errors=@($_.Exception.Message)
+            }
+        }
+        return [PSCustomObject]@{
+            Contract=[PSCustomObject]@{Name='SqlServerLab.ReconcileAction';Version='1.9'};RunId=$RunId;TargetState=$null;Plan=$plan
+            ExecutionPlan=@([PSCustomObject]$entry);ExecutionSummary=[PSCustomObject]$summary;MutationAllowed=[bool]$summary.MutationAllowed;Warnings=@($plan.Warnings)
+        }
+    }
+
+    if ($PSCmdlet.ParameterSetName -eq 'HyperVSqlPort') {
+        $plan = Get-SqlServerLabReconcilePlan -RunId $RunId -HyperVSqlPort -InstanceId $InstanceId -StateRoot $StateRoot
+        $wouldExecute = if ($plan.IsNoOp -or [string]$plan.HighestChangeClass -ne 'restart') { $false } else {
+            $PSCmdlet.ShouldProcess("Run '$RunId', Instanz '$InstanceId'", 'Hyper-V-SQL-TCP-Port journalgebunden reparieren und SQL-Dienst neu starten')
+        }
+        $entry = [ordered]@{
+            Operation=if($plan.IsNoOp){'None'}else{'RepairHyperVSqlPort'};ChangeClass=[string]$plan.HighestChangeClass
+            Planned=(@($plan.Actions).Count -eq 1);Executed=$false
+            Status=if($plan.IsNoOp){'NO_OP'}elseif([string]$plan.HighestChangeClass -ne 'restart'){'UNSUPPORTED'}elseif($wouldExecute){'PLANNED'}else{'WOULD_EXECUTE'}
+            Reason=$null;Result=$null
+        }
+        $summary=[ordered]@{Status=$entry.Status;PlannedActions=@($plan.Actions).Count;ExecutedActions=0;FailedActions=0;MutationAllowed=$false;Errors=@()}
+        if($wouldExecute){
+            try{
+                $entry.Result=Invoke-LabHyperVSqlPortReconcileRepair -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
+                $entry.Executed=$true;$entry.Status=[string]$entry.Result.Status;$summary.Status=[string]$entry.Result.Status;$summary.ExecutedActions=1;$summary.MutationAllowed=$true
+            }
+            catch{
+                $entry.Executed=$true;$entry.Status='FAILED';$entry.Reason=$_.Exception.Message;$summary.Status='FAILED';$summary.ExecutedActions=1;$summary.FailedActions=1;$summary.Errors=@($_.Exception.Message)
+            }
+        }
+        return [PSCustomObject]@{
+            Contract=[PSCustomObject]@{Name='SqlServerLab.ReconcileAction';Version='1.8'};RunId=$RunId;TargetState=$null;Plan=$plan
+            ExecutionPlan=@([PSCustomObject]$entry);ExecutionSummary=[PSCustomObject]$summary;MutationAllowed=[bool]$summary.MutationAllowed;Warnings=@($plan.Warnings)
+        }
+    }
+
+    if ($PSCmdlet.ParameterSetName -eq 'HyperVSqlConfiguration') {
+        $planArguments=@{RunId=$RunId;HyperVSqlConfiguration=$true;InstanceId=$InstanceId;StateRoot=$StateRoot}
+        if($PSBoundParameters.ContainsKey('ManifestPath')){$planArguments.ManifestPath=$ManifestPath}
+        $plan = Get-SqlServerLabReconcilePlan @planArguments
+        $wouldExecute = if ($plan.IsNoOp -or [string]$plan.HighestChangeClass -notin @('live','restart')) { $false } else {
+            $PSCmdlet.ShouldProcess("Run '$RunId', Instanz '$InstanceId'", 'Hyper-V-SQL-Konfiguration journalgebunden reparieren')
+        }
+        $entry = [ordered]@{
+            Operation=if($plan.IsNoOp){'None'}else{'RepairHyperVSqlConfiguration'};ChangeClass=[string]$plan.HighestChangeClass
+            Planned=(@($plan.Actions).Count -eq 1);Executed=$false
+            Status=if($plan.IsNoOp){'NO_OP'}elseif([string]$plan.HighestChangeClass -notin @('live','restart')){'UNSUPPORTED'}elseif($wouldExecute){'PLANNED'}else{'WOULD_EXECUTE'}
+            Reason=$null;Result=$null
+        }
+        $summary=[ordered]@{Status=$entry.Status;PlannedActions=@($plan.Actions).Count;ExecutedActions=0;FailedActions=0;MutationAllowed=$false;Errors=@()}
+        if($wouldExecute){
+            try{
+                $repairArguments=@{RunId=$RunId;InstanceId=$InstanceId;StateRoot=$StateRoot}
+                if($PSBoundParameters.ContainsKey('ManifestPath')){$repairArguments.ManifestPath=$ManifestPath}
+                $entry.Result=Invoke-LabHyperVSqlConfigurationReconcileRepair @repairArguments
+                $entry.Executed=$true;$entry.Status=[string]$entry.Result.Status;$summary.Status=[string]$entry.Result.Status;$summary.ExecutedActions=1;$summary.MutationAllowed=$true
+            }
+            catch{
+                $entry.Executed=$true;$entry.Status='FAILED';$entry.Reason=$_.Exception.Message;$summary.Status='FAILED';$summary.ExecutedActions=1;$summary.FailedActions=1;$summary.Errors=@($_.Exception.Message)
+            }
+        }
+        return [PSCustomObject]@{
+            Contract=[PSCustomObject]@{Name='SqlServerLab.ReconcileAction';Version='1.7'};RunId=$RunId;TargetState=$null;Plan=$plan
+            ExecutionPlan=@([PSCustomObject]$entry);ExecutionSummary=[PSCustomObject]$summary;MutationAllowed=[bool]$summary.MutationAllowed;Warnings=@($plan.Warnings)
+        }
+    }
+
+    if ($PSCmdlet.ParameterSetName -eq 'HyperVSqlStorage') {
+        $plan = Get-SqlServerLabReconcilePlan -RunId $RunId -HyperVSqlStorage -InstanceId $InstanceId -StateRoot $StateRoot
+        $wouldExecute = if ($plan.IsNoOp -or [string]$plan.HighestChangeClass -ne 'restart') { $false } else {
+            $PSCmdlet.ShouldProcess("Run '$RunId', Instanz '$InstanceId'", 'Hyper-V-SQL-Dateiplatzierung receiptgebunden reparieren')
+        }
+        $entry = [ordered]@{
+            Operation=if($plan.IsNoOp){'None'}else{'RepairHyperVSqlStorage'};ChangeClass=[string]$plan.HighestChangeClass
+            Planned=(@($plan.Actions).Count -eq 1);Executed=$false
+            Status=if($plan.IsNoOp){'NO_OP'}elseif([string]$plan.HighestChangeClass -ne 'restart'){'UNSUPPORTED'}elseif($wouldExecute){'PLANNED'}else{'WOULD_EXECUTE'}
+            Reason=$null;Result=$null
+        }
+        $summary=[ordered]@{Status=$entry.Status;PlannedActions=@($plan.Actions).Count;ExecutedActions=0;FailedActions=0;MutationAllowed=$false;Errors=@()}
+        if($wouldExecute){
+            try{
+                $entry.Result=Invoke-LabHyperVSqlStorageReconcileRepair -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
+                $entry.Executed=$true;$entry.Status=[string]$entry.Result.Status;$summary.Status=[string]$entry.Result.Status;$summary.ExecutedActions=1;$summary.MutationAllowed=$true
+            }
+            catch{
+                $entry.Executed=$true;$entry.Status='FAILED';$entry.Reason=$_.Exception.Message;$summary.Status='FAILED';$summary.ExecutedActions=1;$summary.FailedActions=1;$summary.Errors=@($_.Exception.Message)
+            }
+        }
+        return [PSCustomObject]@{
+            Contract=[PSCustomObject]@{Name='SqlServerLab.ReconcileAction';Version='1.6'};RunId=$RunId;TargetState=$null;Plan=$plan
+            ExecutionPlan=@([PSCustomObject]$entry);ExecutionSummary=[PSCustomObject]$summary;MutationAllowed=[bool]$summary.MutationAllowed;Warnings=@($plan.Warnings)
+        }
+    }
+
+    if ($PSCmdlet.ParameterSetName -eq 'HyperVStorage') {
+        $plan = Get-SqlServerLabReconcilePlan -RunId $RunId -HyperVStorage -InstanceId $InstanceId -StateRoot $StateRoot
+        $wouldExecute = if ($plan.IsNoOp -or [string]$plan.HighestChangeClass -notin @('live','restart')) { $false } else {
+            $PSCmdlet.ShouldProcess("Run '$RunId', Instanz '$InstanceId'", "Hyper-V-Storage '$($plan.HighestChangeClass)' eigentumsgeprueft reparieren")
+        }
+        $entry = [ordered]@{
+            Operation=if($plan.IsNoOp){'None'}else{'RepairHyperVStorage'};ChangeClass=[string]$plan.HighestChangeClass
+            Planned=(@($plan.Actions).Count -eq 1);Executed=$false
+            Status=if($plan.IsNoOp){'NO_OP'}elseif([string]$plan.HighestChangeClass -notin @('live','restart')){'UNSUPPORTED'}elseif($wouldExecute){'PLANNED'}else{'WOULD_EXECUTE'}
+            Reason=$null;Result=$null
+        }
+        $summary=[ordered]@{Status=$entry.Status;PlannedActions=@($plan.Actions).Count;ExecutedActions=0;FailedActions=0;MutationAllowed=$false;Errors=@()}
+        if($wouldExecute){
+            try{
+                $entry.Result=Invoke-LabHyperVStorageReconcileRepair -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
+                $entry.Executed=$true;$entry.Status=[string]$entry.Result.Status;$summary.Status=[string]$entry.Result.Status;$summary.ExecutedActions=1;$summary.MutationAllowed=$true
+            }
+            catch{
+                $entry.Executed=$true;$entry.Status='FAILED';$entry.Reason=$_.Exception.Message;$summary.Status='FAILED';$summary.ExecutedActions=1;$summary.FailedActions=1;$summary.Errors=@($_.Exception.Message)
+            }
+        }
+        return [PSCustomObject]@{
+            Contract=[PSCustomObject]@{Name='SqlServerLab.ReconcileAction';Version='1.5'};RunId=$RunId;TargetState=$null;Plan=$plan
+            ExecutionPlan=@([PSCustomObject]$entry);ExecutionSummary=[PSCustomObject]$summary;MutationAllowed=[bool]$summary.MutationAllowed;Warnings=@($plan.Warnings)
+        }
+    }
+
+    if ($PSCmdlet.ParameterSetName -eq 'HyperVResources') {
+        $plan = Get-SqlServerLabReconcilePlan -RunId $RunId -HyperVResources -InstanceId $InstanceId -StateRoot $StateRoot
+        $wouldExecute = if ($plan.IsNoOp -or [string]$plan.HighestChangeClass -notin @('live','restart')) { $false } else {
+            $PSCmdlet.ShouldProcess("Run '$RunId', Instanz '$InstanceId'", "Hyper-V-Ressourcen '$($plan.HighestChangeClass)' eigentumsgeprüft reparieren")
+        }
+        $entry = [ordered]@{
+            Operation=if($plan.IsNoOp){'None'}else{'RepairHyperVResources'};ChangeClass=[string]$plan.HighestChangeClass
+            Planned=(@($plan.Actions).Count -eq 1);Executed=$false
+            Status=if($plan.IsNoOp){'NO_OP'}elseif([string]$plan.HighestChangeClass -notin @('live','restart')){'UNSUPPORTED'}elseif($wouldExecute){'PLANNED'}else{'WOULD_EXECUTE'}
+            Reason=$null;Result=$null
+        }
+        $summary=[ordered]@{Status=$entry.Status;PlannedActions=@($plan.Actions).Count;ExecutedActions=0;FailedActions=0;MutationAllowed=$false;Errors=@()}
+        if($wouldExecute){
+            try{
+                $entry.Result=Invoke-LabHyperVResourceReconcileRepair -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
+                $entry.Executed=$true;$entry.Status=[string]$entry.Result.Status;$summary.Status=[string]$entry.Result.Status;$summary.ExecutedActions=1;$summary.MutationAllowed=$true
+            }
+            catch{
+                $entry.Executed=$true;$entry.Status='FAILED';$entry.Reason=$_.Exception.Message;$summary.Status='FAILED';$summary.ExecutedActions=1;$summary.FailedActions=1;$summary.Errors=@($_.Exception.Message)
+            }
+        }
+        return [PSCustomObject]@{
+            Contract=[PSCustomObject]@{Name='SqlServerLab.ReconcileAction';Version='1.4'};RunId=$RunId;TargetState=$null;Plan=$plan
+            ExecutionPlan=@([PSCustomObject]$entry);ExecutionSummary=[PSCustomObject]$summary;MutationAllowed=[bool]$summary.MutationAllowed;Warnings=@($plan.Warnings)
+        }
+    }
+
+    if ($PSCmdlet.ParameterSetName -eq 'HyperVNetwork') {
+        $plan = Get-SqlServerLabReconcilePlan -RunId $RunId -HyperVNetwork -InstanceId $InstanceId -StateRoot $StateRoot
+        $wouldExecute = if ($plan.IsNoOp -or [string]$plan.HighestChangeClass -ne 'live') { $false } else {
+            $PSCmdlet.ShouldProcess("Run '$RunId', Instanz '$InstanceId'", 'Hyper-V-Netzwerkbindung eigentumsgeprüft reparieren')
+        }
+        $entry = [ordered]@{
+            Operation=if ($plan.IsNoOp) { 'None' } else { 'RepairNetwork' }
+            ChangeClass=[string]$plan.HighestChangeClass; Planned=(@($plan.Actions).Count -eq 1)
+            Executed=$false
+            Status=if ($plan.IsNoOp) { 'NO_OP' } elseif ([string]$plan.HighestChangeClass -ne 'live') { 'UNSUPPORTED' } elseif ($wouldExecute) { 'PLANNED' } else { 'WOULD_EXECUTE' }
+            Reason=$null; Result=$null
+        }
+        $summary = [ordered]@{
+            Status=$entry.Status; PlannedActions=@($plan.Actions).Count; ExecutedActions=0
+            FailedActions=0; MutationAllowed=$false; Errors=@()
+        }
+        if ($wouldExecute) {
+            try {
+                $entry.Result = Invoke-LabHyperVNetworkReconcileRepair -RunId $RunId -InstanceId $InstanceId `
+                    -AllowExternalSwitchCreation:$AllowExternalSwitchCreation -StateRoot $StateRoot
+                $entry.Executed=$true; $entry.Status=[string]$entry.Result.Status
+                $summary.Status=[string]$entry.Result.Status; $summary.ExecutedActions=1; $summary.MutationAllowed=$true
+            }
+            catch {
+                $entry.Executed=$true; $entry.Status='FAILED'; $entry.Reason=$_.Exception.Message
+                $summary.Status='FAILED'; $summary.ExecutedActions=1; $summary.FailedActions=1; $summary.Errors=@($_.Exception.Message)
+            }
+        }
+        return [PSCustomObject]@{
+            Contract=[PSCustomObject]@{ Name='SqlServerLab.ReconcileAction'; Version='1.3' }
+            RunId=$RunId; TargetState=$null; Plan=$plan; ExecutionPlan=@([PSCustomObject]$entry)
+            ExecutionSummary=[PSCustomObject]$summary; MutationAllowed=[bool]$summary.MutationAllowed
+            Warnings=@($plan.Warnings)
+        }
+    }
 
     if ($PSCmdlet.ParameterSetName -eq 'ExternalRuntime') {
         $plan = Get-SqlServerLabReconcilePlan -RunId $RunId -ManifestPath $ManifestPath -InstanceId $InstanceId -StateRoot $StateRoot
@@ -125,7 +401,8 @@ function Invoke-SqlServerLabReconcileAction {
     }
 
     if ($PSCmdlet.ParameterSetName -eq 'Container') {
-        $planArguments = @{ RunId=$RunId; Container=$true; InstanceId=$InstanceId; StateRoot=$StateRoot; RepairSqlRuntimeContract=$RepairSqlRuntimeContract }
+        $planArguments = @{ RunId=$RunId; Container=$true; StateRoot=$StateRoot; RepairSqlRuntimeContract=$RepairSqlRuntimeContract }
+        if (-not [string]::IsNullOrWhiteSpace($InstanceId)) { $planArguments.InstanceId=[string]$InstanceId }
         if ($PSBoundParameters.ContainsKey('Cpu')) { $planArguments.Cpu=[decimal]$Cpu }
         if ($PSBoundParameters.ContainsKey('MemoryMB')) { $planArguments.MemoryMB=[int]$MemoryMB }
         if ($PSBoundParameters.ContainsKey('Port')) { $planArguments.Port=[int]$Port }

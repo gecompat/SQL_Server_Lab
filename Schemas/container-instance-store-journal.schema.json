@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sql-server-lab.local/schemas/container-instance-store-journal.schema.json",
+  "title": "SqlServerLab.ContainerInstanceStoreJournal/1.0",
+  "type": "object",
+  "required": ["ContractVersion", "OperationId", "Provider", "Status", "Source", "Target", "TargetRunId", "TargetScopeId", "SqlMajorVersion", "HelperImage", "Recovery", "UpdatedAt"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.ContainerInstanceStoreJournal/1.0" },
+    "OperationId": { "type": "string", "format": "uuid" },
+    "Provider": { "enum": ["docker", "podman"] },
+    "Status": { "enum": ["PREPARED", "TARGET_CREATED", "CONTENT_COPIED", "VERIFIED", "COMPLETED", "RECOVERY_REQUIRED"] },
+    "Source": { "$ref": "#/$defs/volumeEvidence" },
+    "Target": { "$ref": "#/$defs/volumeEvidence" },
+    "TargetRunId": { "type": "string", "format": "uuid" },
+    "TargetScopeId": { "type": "string", "format": "uuid" },
+    "SqlMajorVersion": { "type": "string", "pattern": "^\\d{4}$" },
+    "HelperImage": { "type": "string", "pattern": "^[a-z0-9][a-z0-9./_-]+:[a-z0-9][a-z0-9._-]+$" },
+    "Recovery": {
+      "type": "object",
+      "required": ["Status", "Attempts", "ErrorCode", "Errors"],
+      "properties": {
+        "Status": { "enum": ["RETRY_CLONE", "NOT_REQUIRED"] },
+        "Attempts": { "type": "integer", "minimum": 0 },
+        "ErrorCode": { "type": ["string", "null"] },
+        "Errors": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "UpdatedAt": { "type": "string", "format": "date-time" }
+  },
+  "$defs": {
+    "contentEvidence": {
+      "type": "object",
+      "required": ["FileCount", "TotalBytes", "Sha256"],
+      "properties": {
+        "FileCount": { "type": "integer", "minimum": 0 },
+        "TotalBytes": { "type": "integer", "minimum": 0 },
+        "Sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      },
+      "additionalProperties": false
+    },
+    "volumeEvidence": {
+      "type": "object",
+      "required": ["PersistentStorageId", "VolumeName", "VolumeId", "Evidence"],
+      "properties": {
+        "PersistentStorageId": { "type": "string", "format": "uuid" },
+        "VolumeName": { "type": "string", "minLength": 1 },
+        "VolumeId": { "type": ["string", "null"] },
+        "Evidence": { "oneOf": [{ "$ref": "#/$defs/contentEvidence" }, { "type": "null" }] }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

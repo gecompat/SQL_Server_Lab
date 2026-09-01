@@ -1039,7 +1039,7 @@ function Get-LabManifestValidationResult {
             Errors   = @($errors | Select-Object -Unique)
             Warnings = @()
             Plan     = [PSCustomObject]@{
-                Contract = [PSCustomObject]@{ Name='SqlServerLab.ManifestPlanPreview'; Version='1.1' }
+                Contract = [PSCustomObject]@{ Name='SqlServerLab.ManifestPlanPreview'; Version='1.2' }
                 Instances = @()
             }
         }
@@ -1071,6 +1071,7 @@ function Get-LabManifestValidationResult {
             Resolve-ProviderAutoSelect -Instance $instance
         }
         $effectiveProviders.Add($effectiveProvider)
+        $networkPlan = $null
 
         foreach ($runtimeContractError in @(Get-LabManifestRuntimeContractErrors `
                 -ServerConfig $instance.serverConfig `
@@ -1087,6 +1088,15 @@ function Get-LabManifestValidationResult {
         if ($effectiveProvider -notin @('docker', 'podman', 'hyperv')) {
             $errors.Add("${instancePath}: Provider '$effectiveProvider' ist nicht implementiert.")
         }
+        else {
+            $networkPlan = Resolve-LabNetworkIntentPlan `
+                -Provider $effectiveProvider `
+                -Network $instance.network `
+                -HasLegacyHyperVSwitch:([bool]($instance.hyperv -and $instance.hyperv.switchName))
+            if ([string]$networkPlan.Status -ne 'RESOLVED') {
+                $errors.Add("${instancePath}.network: $($networkPlan.ReasonCode) - $($networkPlan.Reason)")
+            }
+        }
         if ($effectiveProvider -in @('docker', 'podman') -and $instance.os -eq 'windows') {
             $errors.Add("${instancePath}: Windows wird vom Provider '$effectiveProvider' nicht unterstuetzt.")
         }
@@ -1097,10 +1107,35 @@ function Get-LabManifestValidationResult {
             if (-not $instance.hyperv -or -not $instance.hyperv.preparedImageId) {
                 $warnings.Add("${instancePath}.hyperv.preparedImageId: Nicht gesetzt; zur Laufzeit wird deterministisch die höchste lokale SQL_PREPARED_SEALED-Vorlage auf Windows Server Standard Evaluation mit Desktop Experience gewählt.")
             }
-            if (@($instance.databases | Where-Object { $null -ne $_ }).Count -gt 0 -or
-                @($instance.postProvision | Where-Object { $null -ne $_ }).Count -gt 0 -or
-                @($instance.software | Where-Object { $null -ne $_ }).Count -gt 0) {
-                $errors.Add("${instancePath}: Datenbanken, Software und Post-Provision-Skripte sind für den Hyper-V-Manifestpfad noch nicht atomar implementiert.")
+            if ($instance.hyperv) {
+                $memoryStartupMB = if ($instance.hyperv.memoryStartupMB) { [int]$instance.hyperv.memoryStartupMB } else { 4096 }
+                $dynamicMemoryEnabled = if ($instance.hyperv.PSObject.Properties['dynamicMemoryEnabled']) { [bool]$instance.hyperv.dynamicMemoryEnabled } else { $true }
+                if ($dynamicMemoryEnabled) {
+                    $memoryMinimumMB = if ($instance.hyperv.memoryMinimumMB) { [int]$instance.hyperv.memoryMinimumMB } else { [int][Math]::Max(512, [Math]::Floor([double]$memoryStartupMB / 2)) }
+                    $memoryMaximumMB = if ($instance.hyperv.memoryMaximumMB) { [int]$instance.hyperv.memoryMaximumMB } else { [int][Math]::Min(1048576, [long]$memoryStartupMB * 2) }
+                    if ($memoryMinimumMB -gt $memoryStartupMB -or $memoryStartupMB -gt $memoryMaximumMB) {
+                        $errors.Add("${instancePath}.hyperv: Dynamisches RAM erfordert memoryMinimumMB <= memoryStartupMB <= memoryMaximumMB.")
+                    }
+                }
+                else {
+                    if (($instance.hyperv.memoryMinimumMB -and [int]$instance.hyperv.memoryMinimumMB -ne $memoryStartupMB) -or
+                        ($instance.hyperv.memoryMaximumMB -and [int]$instance.hyperv.memoryMaximumMB -ne $memoryStartupMB)) {
+                        $errors.Add("${instancePath}.hyperv: Statisches RAM erlaubt keine von memoryStartupMB abweichenden Min-/Max-Werte.")
+                    }
+                }
+            }
+            $hyperVDatabases = @($instance.databases | Where-Object { $null -ne $_ })
+            $hyperVSoftware = @($instance.software | Where-Object { $null -ne $_ })
+            $hyperVPostProvision = @($instance.postProvision | Where-Object { $null -ne $_ })
+            if ($hyperVPostProvision.Count -gt 0) {
+                $errors.Add("${instancePath}.postProvision: Post-Provision-Skripte sind für den Hyper-V-Manifestpfad noch nicht atomar implementiert.")
+            }
+            if (($hyperVDatabases.Count -gt 0 -or $hyperVSoftware.Count -gt 0) -and
+                $instance.hyperv -and [string]$instance.hyperv.preparedImageId -match '^hyperv-os-sealed-') {
+                $errors.Add("${instancePath}.hyperv.preparedImageId: Datenbanken und Software benötigen ein SQL_PREPARED_SEALED-Image.")
+            }
+            if ($hyperVDatabases.Count -gt 0 -and -not $instance.storageIntent) {
+                $errors.Add("${instancePath}.storageIntent: Hyper-V-Datenbanken benötigen einen vollständigen portablen Storage-Intent.")
             }
             $hyperVDriveLetters = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
             foreach ($drive in @($instance.drives | Where-Object { $_ })) {
@@ -1183,6 +1218,7 @@ function Get-LabManifestValidationResult {
             SqlVersion = [string]$instance.version
             Provider = $effectiveProvider
             OperatingSystem = if ($instance.os) { [string]$instance.os } elseif ($effectiveProvider -eq 'hyperv') { 'windows' } else { 'linux' }
+            Network = $networkPlan
             ExternalRuntimes = Get-LabExternalRuntimePlanPreview -DesiredPlans @($runtimePlans)
             Samples = $samplePlans
         })
@@ -1395,7 +1431,7 @@ function Get-LabManifestValidationResult {
         Errors   = @($errors | Select-Object -Unique)
         Warnings = @($warnings | Select-Object -Unique)
         Plan     = [PSCustomObject]@{
-            Contract = [PSCustomObject]@{ Name='SqlServerLab.ManifestPlanPreview'; Version='1.1' }
+            Contract = [PSCustomObject]@{ Name='SqlServerLab.ManifestPlanPreview'; Version='1.2' }
             Instances = @($instancePlanPreviews)
         }
     }

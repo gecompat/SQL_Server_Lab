@@ -72,6 +72,33 @@ Invoke-SmokeMatrix.ps1                 => PASS=5 FAIL=0 SKIP=0
 `smoke-test-query.sql` wird waehrend des Tests erzeugt und geloescht.
 Bei Abbruch bleibt sie liegen → .gitignore verhindert Commit.
 
+## Invoke-ContainerInstanceStoreAcceptance.ps1
+
+Der PSR-005-Nachweis läuft für Docker und Podman getrennt. Er erzeugt einen
+test-eigenen SQL-Systemstore mit stabiler Storage-ID, bestätigt nach einem
+kontrollierten Container-Recreate sowohl ein Serverobjekt als auch eine
+Benutzerdatenbank, klont den detached Store read-only und digestverifiziert und
+prüft dieselben Daten live im Clone. Container, Quell- und Zielvolume sowie das
+lokale Journal werden im garantierten Cleanup entfernt.
+
+```powershell
+.\Tests\Integration\Invoke-ContainerInstanceStoreAcceptance.ps1 -Provider docker
+.\Tests\Integration\Invoke-ContainerInstanceStoreAcceptance.ps1 -Provider podman
+```
+
+## Invoke-ContainerRuntimeScopeAcceptance.ps1
+
+Der PSR-006-Nachweis inspiziert den aktiven Docker-Context und die aktive
+Podman-Connection/Machine ausschließlich read-only. Er validiert den
+sanitisierten `SqlServerLab.ContainerRuntimeScope/1.0`-Vertrag und vergleicht
+Container, Volumes, Context-/Connection-Auswahl und Machines vor und nach der
+Inspektion. Engine, Machine, physisches Backing und Hostdefaults werden weder
+verändert noch als Lab-Eigentum ausgegeben.
+
+```powershell
+.\Tests\Integration\Invoke-ContainerRuntimeScopeAcceptance.ps1
+```
+
 ## Invoke-MixedProviderSmokeTest.ps1
 
 Der Mixed-Provider-Smoke-Test benötigt gleichzeitig erreichbares Docker und
@@ -150,6 +177,34 @@ ONLINE-Status, Inhalt und Cleanup. Es werden keine externen Backups verwendet.
 .\Tests\Integration\Invoke-RestoreSmokeTest.ps1 -Provider podman
 ```
 
+## Invoke-BackupLibraryCrossProviderAcceptance.ps1
+
+Die PSR-008-Abnahme erstellt ein checksum-verifiziertes, inhaltsadressiertes
+Backup in einer temporären registrierten `Lab_Data`-Bibliothek, entfernt die
+Docker-Quelle und restauriert das Backup nach `RESTORE VERIFYONLY` in Podman.
+Ein sanitisiertes Inhaltsdigest wird vor und nach dem Providerwechsel verglichen
+und als Restore-Evidence registriert. Linux-Container werden dabei ausdrücklich
+nicht als FILESTREAM-fähig ausgewiesen.
+
+```powershell
+.\Tests\Integration\Invoke-BackupLibraryCrossProviderAcceptance.ps1
+```
+
+## Invoke-DatabasePackageSqlAcceptance.ps1
+
+Die PSR-009-Abnahme benötigt eine erhöhte Windows-PowerShell und eine lokale
+SQL-Server-2025-Instanz mit effektiv aktiviertem FILESTREAM. Sie erzeugt nur
+zufällig benannte Testressourcen, inventarisiert MDF/NDF/LDF/FILESTREAM,
+detached die Quelle sauber, publiziert das vollständige Hashpaket und attached
+eine unabhängige Kopie. Inhalt, Pfade, Journal und Cleanup werden real geprüft.
+Alte test-eigene `sql-lab-psr009-*`-Reste werden unter einem globalen Lock vor
+dem Lauf bereinigt.
+
+```powershell
+# in einer erhöhten PowerShell
+.\Tests\Integration\Invoke-DatabasePackageSqlAcceptance.ps1
+```
+
 ## Invoke-HyperVSmokeTest.ps1
 
 Der Hyper-V-Smoke-Test prüft Image-Registry und Lifecycle-Grundlage auf einem
@@ -171,6 +226,35 @@ fuer synthetische Medien in der Runtime explizit gesperrt.
 
 ```powershell
 .\Tests\Integration\Invoke-HyperVSmokeTest.ps1
+```
+
+## Invoke-HyperVTestDatabaseReconcileAcceptance.ps1
+
+Der erhöhte native Runner verwendet ausschließlich ein hashverifiziertes
+`SQL_PREPARED_SEALED`-Artifact und erzeugt daraus einen neuen isolierten
+Manifest-Run. Er legt eine nicht vom Sample-Receipt beanspruchte Schutzdatenbank
+an und führt anschließend über die öffentlichen Cmdlets den Zyklus read-only
+Plan, `WhatIf`, Chinook-Addition, No-op, eigentumsgebundene Entfernung und
+erneuten No-op aus. Nach einem vollständigen VM-Restart muss die Schutzdatenbank
+unverändert vorhanden sein. Der Erfolgs-Cleanup entfernt Run, VM und alle
+run-eigenen VHDX; `-KeepOnFailure` lässt Journal und Run für den expliziten
+Recovery-Pfad stehen.
+
+```powershell
+.\Tests\Integration\Invoke-HyperVTestDatabaseReconcileAcceptance.ps1 `
+    -ArtifactId 'hyperv-sql-prepared-sealed-<sha256>'
+```
+
+Fehlt ein dauerhaftes Prepared-Artifact, kann der isolierte Bootstrap zunächst
+`Invoke-HyperVSqlPreparedImageAcceptance.ps1 -RetainPreparedArtifact` verwenden.
+Artifact-ID und testlokaler State Root werden danach explizit an diesen Runner
+übergeben und nach erfolgreicher Abnahme über die Image Registry entfernt.
+Der reproduzierbare Wrapper führt genau diese Übergabe samt strengem Cleanup in
+einer erhöhten Sitzung automatisch aus:
+
+```powershell
+.\Tests\Integration\Invoke-HyperVTestDatabaseReconcileAcceptanceBootstrap.ps1 `
+    -MediaRoot D:\Lab_Base
 ```
 
 ## Invoke-HyperVWindowsGeneralizeAcceptance.ps1

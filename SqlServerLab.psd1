@@ -52,6 +52,7 @@
         'Clear-SqlServerLab'
         'Get-SqlServerLabCleanupAudit'
         'New-SqlServerLabDatabase'
+        'Backup-SqlServerLabDatabase'
         'Invoke-SqlServerLabScript'
         'Restore-SqlServerLabDatabase'
         'Test-SqlServerLabPrerequisite'

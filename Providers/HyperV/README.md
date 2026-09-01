@@ -38,8 +38,37 @@ plattformgebundene SQL-Features benötigen.
 - deklarativer VM-Autostart (`instances[].autostart: on|off`) über Hyper-Vs
   `AutomaticStartAction`, standardmäßig ausgeschaltet;
 - VM-Identität über RunId, ScopeId und InstanceId;
+- portables `hostOnly`-/`isolated`-/`nat`-/`lan`-Binding mit lokaler
+  Switch-/Adapterbindung, NAT-IPAM beziehungsweise LAN-DHCP;
+- hostwertfreier Netzwerk-Reconcile-Plan und journalisierte Reparatur nur für
+  additive gebundene Infrastruktur und genau einen vorhandenen getrennten
+  Adapter; External-Switch-Erstellung benötigt eine zusätzliche Freigabe;
+- manifestgebundener vCPU-/RAM-Reconcile mit statischem oder dynamischem RAM,
+  Min/Startup/Max, Live-Min-/Max-Anpassung und journalisiertem Stop-Apply-Start;
+- manifestgebundener Add-/Grow-only-Storage- und SQL-Dateiplatzierungs-Reconcile
+  sowie SQL-Konfigurations-Reconcile fuer Memory, MAXDOP, Cost Threshold,
+  explizite `sp_configure`-Werte und globale Trace Flags; dynamische Werte und
+  eigentumsgebundene Runtime-Add-/Remove-Aktionen bleiben live, Startup- und
+  fremde Flags fail-closed, nicht dynamische Werte verwenden nur einen
+  kontrollierten `MSSQLSERVER`-Dienstrestart ohne VM-Neustart;
+- manifestgebundener SQL-TCP-Port-Reconcile für genau eine Standardinstanz mit
+  gebundener Gastfirewall, kontrolliertem SQL-Dienstrestart und ohne VM-Neustart;
 - Cleanup-Plan vor der ersten Provider-Mutation;
 - eigener synthetischer Native-Smoke-Test ohne Betriebssystem, Netzwerk oder SQL.
+
+Der erhöhte SQL-Konfigurations-Akzeptanzrunner und sein isolierter
+`SQL_PREPARED_SEALED`-Bootstrap prüfen Plan, `WhatIf`, Live-Änderung,
+Ownership-Add/-Remove, Fremd-Trace-Flag-Schutz, ausschließlich
+`MSSQLSERVER`-Restart ohne VM-Neustart, Desired-State-Rückkehr, No-op und
+scopegebundenen Cleanup. Der Runner ist ausführbar, wurde aber noch nicht nativ
+ausgeführt (`NOT_EXECUTED`).
+
+Der getrennte erhöhte SQL-Port-Akzeptanzrunner erzeugt in einem neuen
+Prepared-Image-Klon eine kontrollierte TCP-/Firewall-Drift und prüft den
+öffentlichen Plan, `WhatIf`, ausschließlich `MSSQLSERVER`-Restart ohne
+VM-Neustart, Connection-State, No-op sowie scopegebundenen Cleanup. Sein
+Prepared-Artifact-Bootstrap ist ebenfalls isoliert; der native Lauf ist noch
+`NOT_EXECUTED`.
 
 `Private/HyperVImageRegistry.ps1` ergänzt eine immutable, inhaltsadressierte
 Registry für operatorseitig bereitgestellte `OS_SEALED`- und
@@ -79,12 +108,16 @@ Manifest-Binding, Netzwerkzugriff und echtem Windows-/SQL-End-to-End-Test.
 - Restart und Einbindung in die öffentlichen Run-Lifecycle-Cmdlets;
 - echter End-to-End-Nachweis der Initialisierung in einem Windows-Gast;
 - Bindung des bestehenden providerneutralen Manifest-Drive-Vertrags;
-- Management- und Lab-Netze;
+- weitergehende Management-/Lab-Netze, Adapter-Neuanlage, Rebinding und
+  Gastadressreparatur;
 - resumierbare OS- und SQL-Server-Installation;
 - echter End-to-End-Sysprep-Nachweis in einem Windows-Gast; der Native-Smoke
   verwendet weiterhin bewusst nur synthetische leere Testmedien;
-- SQL `PrepareImage`/`CompleteImage`, Software, External Runtimes und Testdatenbanken;
-- Diff-/Reconcile-Ablauf für nachträgliche Änderungen.
+- breitere Software-, Post-Provisioning- und allgemeine Datenbankbindung;
+- Reconcile für direkte Create-/Restore-Datenbanken, Storage-Rebinding/-Removal,
+  vollständige `sp_configure`-Entfernung sowie weitere noch nicht klassifizierte
+  SQL-Konfiguration;
+- positive native Evidence fuer den katalogisierten Testdatenbank-Reconcile.
 
 ## Verbindliche Aufsetzpunkte
 
@@ -116,7 +149,10 @@ scopegebundenen Cleanup; die drei Windows-Varianten sind `SUPPORTED`.
 
 Testdatenbanken bleiben vom OS- und SQL-Image getrennt und verwenden den
 gemeinsamen Sample-, Trust-, Verification- und `LAB_GENERATED`-Baseline-
-Vertrag.
+Vertrag. Neue Manifest-Runs persistieren fuer erfolgreich installierte Samples
+ein VM-gebundenes lokales Ownership-Receipt. Der getrennte Reconcile kann
+katalogisierte Samples addieren und nur diese nach CHECKSUM-Backup plus
+`RESTORE VERIFYONLY` entfernen; ungebundene Datenbanken bleiben fail-closed.
 
 ## Voraussetzungen für den ersten Vertical Slice
 
