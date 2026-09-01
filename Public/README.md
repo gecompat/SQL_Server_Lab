@@ -22,7 +22,7 @@ Dieses Verzeichnis enthält die öffentlichen PowerShell-Funktionen des Moduls. 
 | `Get-SqlServerLabWorkflow` | `Get-SqlServerLabWorkflow.ps1` | Verdichtete Workflow-, Image- und Kombinationsübersicht ohne Geheimnisse |
 | `Get-SqlServerLabHyperVResourcePreview` | `Get-SqlServerLabHyperVResourcePreview.ps1` | Registrierte Hyper-V-Location, freien Speicher und physische Klassenroots ohne Mutation auflösen |
 | `Get-SqlServerLabCatalog` | `Get-SqlServerLabCatalog.ps1` | Workflow-Katalog als persistenter, maschinenlesbarer Katalog mit Laufzeit-Metadaten |
-| `Get-SqlServerLabCleanupAudit` | `Get-SqlServerLabCleanupAudit.ps1` | Bekannte Datenwurzeln und Runtime-Ressourcen read-only auf Reste und nicht prüfbare Provider untersuchen |
+| `Get-SqlServerLabCleanupAudit` | `Get-SqlServerLabCleanupAudit.ps1` | Bekannte Datenwurzeln und Runtime-Ressourcen read-only auf Reste prüfen und als versionierte physische/logische Storage-Residency klassifizieren |
 | `Get-SqlServerLabConnectionCenter` | `Sync-SqlServerLabConnectionCenter.ps1` | Passwortfreie Endpunktübersicht für SSMS, CMS und Exporte |
 | `Sync-SqlServerLabConnectionCenter` | `Sync-SqlServerLabConnectionCenter.ps1` | Endpunktkatalog der Verbindungszentrale atomar aktualisieren |
 | `Export-SqlServerLabSsmsRegistration` | `Sync-SqlServerLabConnectionCenter.ps1` | Kennwortfreien SSMS-`.regsrvr`-Export erzeugen |

@@ -1051,7 +1051,12 @@ Platzierung nicht verändern.
 Die physische Bestandsanalyse und Architekturentscheidung für persistente
 Instanzspeicher, portable Backups, Datenbank-/FILESTREAM-Pakete sowie
 Docker-/Podman-Runtime-Daten unter beziehungsweise außerhalb von `Lab_Data`
-beginnt als Voraussetzung vor der breiten Implementierung. Der zugehörige
+beginnt als Voraussetzung vor der breiten Implementierung. Der erste
+`PSR-001`-Slice liefert bereits ein versioniertes read-only
+Storage-Residency-Inventar für `Lab_Data`, native Runtime-Volumes, externe
+Pfade, Hyper-V-Ressourcen und Retention. Physisches Docker-Desktop-/Podman-
+Machine-Backing bleibt bis zur weiteren Provideranalyse ausdrücklich
+unverifizierbar; `PSR-002` ist noch offen. Der zugehörige
 P1-Produktpfad folgt dem P0-Hyper-V-Ressourcenroot-Bugfix und wird im
 [Persistenz- und `Lab_Data`-Backlog](PERSISTENT_STORAGE_REUSE_AND_LAB_DATA_BACKLOG.md)
 evidenzgebunden geplant.

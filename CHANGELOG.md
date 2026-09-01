@@ -8,6 +8,11 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- `Get-SqlServerLabCleanupAudit` liefert mit
+  `SqlServerLab.StorageResidencyInventory/1.0` eine stabile read-only Matrix
+  für `Lab_Data`, native Docker-/Podman-Volumes, externe Hostpfade,
+  Hyper-V-Ressourcen, Retention, Cleanup-Zuordnung und unverifizierbares
+  physisches Runtime-Backing.
 - `Get-SqlServerLabReconcilePlan -HyperVStorage` vergleicht zusätzliche
   manifestgebundene VHDX und gebundene Storage-Lanes hostwertfrei. Die Action
   `-RepairHyperVStorage` erstellt fehlende SCSI-VHDX, vergroessert vorhandene

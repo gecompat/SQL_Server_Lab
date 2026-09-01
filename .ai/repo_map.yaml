@@ -77,6 +77,9 @@ sources_of_truth:
   storage_intent_schema: Schemas/lab-storage-intent.schema.json
   storage_bound_plan_schema: Schemas/lab-storage-bound-plan.schema.json
   storage_runtime_receipt_schema: Schemas/lab-storage-runtime-receipt.schema.json
+  storage_residency_inventory: Private/StorageResidencyInventory.ps1
+  storage_residency_inventory_schema: Schemas/lab-storage-residency-inventory.schema.json
+  cleanup_audit_schema: Schemas/lab-cleanup-audit.schema.json
   hyperv_resource_binding_contract: Private/HyperVResourceBinding.ps1
   hyperv_resource_preview_command: Public/Get-SqlServerLabHyperVResourcePreview.ps1
   hyperv_resource_binding_schema: Schemas/hyperv-resource-binding.schema.json
@@ -479,12 +482,14 @@ internal_components:
   - name: CleanupEngine
     source: Private/CleanupEngine.ps1
     audit: Public/Get-SqlServerLabCleanupAudit.ps1
+    storage_residency: Private/StorageResidencyInventory.ps1
     responsibilities:
       - "Cleanup-Plan und providergebundene Cleanup-SubRuns vor Mutation erzeugen"
       - "Compensation-Schritte je Provider speichern und ausführen"
       - "Run-lokale Ressourcen an Software-PlanKeys binden und wiederverwendbare Softwareartefakte ausdrücklich behalten"
       - "Hyper-V-Cleanup vor der ersten Mutation gegen Run-Binding, registrierte Zusatzlaufwerksroots und terminales Migrationsjournal revalidieren"
       - "Hyper-V-Run-Schutzbereiche, Shared-Roots und ungetrackte Preserve-Dateien read-only auditieren"
+      - "Lab_Data, native Runtime-Volumes, externe Pfade, Hyper-V-Ressourcen, Retention und unverifizierbares physisches Backing als versionierte read-only Storage-Residency klassifizieren"
   - name: PortAllocation
     source: Private/PortAllocation.ps1
     responsibilities:
@@ -801,6 +806,9 @@ validation:
       - hyperv_run_binding_and_migration_status
       - atomic_cleanup_preflight
       - shared_image_and_untracked_file_preservation
+      - stable_storage_residency_object_identity
+      - lab_data_runtime_external_residency_classification
+      - retained_and_orphan_volume_classification
   static_podman_bootstrap:
     command: '.\Tests\Static\Invoke-PodmanBootstrapChecks.ps1'
     source: Tests/Static/Invoke-PodmanBootstrapChecks.ps1

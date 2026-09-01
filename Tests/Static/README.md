@@ -12,6 +12,7 @@ Container, Datenbanken oder Run-States.
 | `Invoke-ElevationChecks.ps1` | UAC-Vorschau, Ablehnung, Zustimmung und bereits erhöhte Sitzung ohne vorsorglichen Prozessstart | `.\Tests\Static\Invoke-ElevationChecks.ps1` |
 | `Invoke-PortAllocationChecks.ps1` | Read-only-Pruefung expliziter SQL-Hostports mit Besitzer/Grund sowie erneutes Docker-/Podman-Gate innerhalb des atomaren Port-Locks | `.\Tests\Static\Invoke-PortAllocationChecks.ps1` |
 | `Invoke-CleanupRecoveryChecks.ps1` | Simulierter Providerfehler, `RECOVERY_REQUIRED`, persistierte Fehlerursache und erfolgreicher Cleanup-Retry | `.\Tests\Static\Invoke-CleanupRecoveryChecks.ps1` |
+| `Invoke-CleanupAuditChecks.ps1` | Cleanup-Residuen, Hyper-V-Schutzbindungen und versionierte Storage-Residency für `Lab_Data`, native Runtime-Volumes, externe Pfade und Retention | `.\Tests\Static\Invoke-CleanupAuditChecks.ps1` |
 | `Invoke-PodmanBootstrapChecks.ps1` | Ready-, Start-, Fehler-, Timeout- und Parallelpfade des Podman-Bootstraps ohne echte Runtime | `.\Tests\Static\Invoke-PodmanBootstrapChecks.ps1` |
 | `Invoke-LabNetworkChecks.ps1` | Feste, konfigurierbare Docker-, Podman- und Hyper-V-Labnetze, CIDR-Kollisionsschutz sowie Hostzugriffsvertrag | `.\Tests\Static\Invoke-LabNetworkChecks.ps1` |
 | `Invoke-MediaRootLayoutChecks.ps1` | Externe Media-Root-Struktur, sichere Einsortierung, SHA-256-Sidecars, Idempotenz und Repository-Pfadgrenze | `.\Tests\Static\Invoke-MediaRootLayoutChecks.ps1` |

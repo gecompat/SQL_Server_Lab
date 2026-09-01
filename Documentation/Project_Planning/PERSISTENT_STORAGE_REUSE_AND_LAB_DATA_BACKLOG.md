@@ -2,7 +2,7 @@
 
 ## Status und Priorität
 
-`BACKLOG / P1_PRODUCT_CONTRACT_WITH_REQUIRED_ANALYSIS` – die vorhandenen
+`ACTIVE / P1_PRODUCT_CONTRACT_WITH_PSR_001_IMPLEMENTED_PARTIAL` – die vorhandenen
 Persistenzmechanismen schützen bereits Teile des SQL-Zustands, bilden aber noch
 keinen vollständigen, providerübergreifenden Wiederverwendungs- und
 Löschvertrag. Planung ist kein Implementierungs- oder Runtime-Nachweis.
@@ -12,6 +12,18 @@ registrierten `Lab_Data`-Roots bleibt vorrangig. Die Bestandsanalyse dieses
 Backlogs darf parallel beginnen; mutierende Storage-Migrationen und der breite
 Produktpfad folgen erst auf geklärte Root-, Ownership-, Recovery- und
 Cleanup-Grenzen.
+
+Der erste read-only `PSR-001`-Slice ist implementiert. Der Cleanup-Audit liefert
+den getrennten Vertrag `SqlServerLab.StorageResidencyInventory/1.0` mit stabilen
+Objektidentitäten, Provider-Coverage, logischem Eigentum, physischer
+Pfadklassifikation, Lebensdauer, Retention, Cleanup-Policy und Auditstatus.
+`Lab_Data`, native Docker-/Podman-Runtime-Namensräume, externe Hostpfade,
+Hyper-V-Run-/Shared-Ressourcen und Legacy-/Repository-Residuen werden nicht
+gleichgesetzt. Ein Providerpfad innerhalb einer Runtime-VM gilt ausdrücklich
+nicht als hostseitige `Lab_Data`-Ablage. Die vollständige Auflösung der
+physischen Docker-Desktop-/Podman-Machine-Backing-Disks und der Architekturentscheid
+aus `PSR-002` bleiben offen; `PARTIAL` ist deshalb ein gültiger Auditstatus und
+kein positiver Vollständigkeitsnachweis.
 
 ## Ausgangslage
 
@@ -293,7 +305,7 @@ Volumename ersetzt diese Identität nicht.
 
 | ID | Priorität | Arbeitspaket | Ergebnis |
 |---|---:|---|---|
-| `PSR-001` | P0-Analyse | Ist-Inventar aller persistenten, rungebundenen und verbleibenden Objekte für Docker, Podman und Hyper-V | belastbare physische und logische Storage-Matrix |
+| `PSR-001` | P0-Analyse | Ist-Inventar aller persistenten, rungebundenen und verbleibenden Objekte für Docker, Podman und Hyper-V | `IMPLEMENTED_PARTIAL`: versionierte read-only Matrix mit stabilen Objekt-IDs, Residency, Lifecycle, Cleanup-Policy und Provider-Coverage; physisches Desktop-/Machine-Backing bleibt explizit unverifizierbar |
 | `PSR-002` | P0-Analyse | `Lab_Data`-Versprechen, native Runtime-Ausnahmen und Hosteingriffsgrenzen entscheiden | versionierter Architekturentscheid |
 | `PSR-003` | P1 | Storage-Katalog mit stabiler ID, Klassen, Zuständen, Referenzen und Leases entwerfen | Schema, Parser, Planner und read-only Inventar |
 | `PSR-004` | P1 | Retention-, Backup-on-Remove-, Package- und expliziten Löschvertrag entwerfen | verlustsicherer Cleanup-/Recovery-Plan |

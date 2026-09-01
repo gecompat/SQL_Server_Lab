@@ -109,7 +109,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `Get-SqlServerLabWorkflow` | Konsolidierte Workflow- und Imageübersicht ohne Geheimnisse |
 | `Get-SqlServerLabHyperVResourcePreview` | Registrierte Hyper-V-Location, Kapazität und physische Klassenroots read-only anzeigen |
 | `Get-SqlServerLabCatalog` | Konsolidierten Lab-Katalog als JSON-Artefakt erzeugen |
-| `Get-SqlServerLabCleanupAudit` | Lab-Daten, Runtime-Ressourcen sowie Hyper-V-Bindings/Migrations- und Preserve-Befunde read-only prüfen |
+| `Get-SqlServerLabCleanupAudit` | Lab-Daten, native Runtime-Volumes, externe Pfade sowie Hyper-V-Bindings/Migrations- und Preserve-Befunde read-only als physische/logische Storage-Residency prüfen |
 | `Get-SqlServerLabConnectionCenter` | Passwortfreien SQL-Endpunktkatalog für SSMS und CMS ermitteln |
 | `Sync-SqlServerLabConnectionCenter` | Endpunktkatalog der Verbindungszentrale aktualisieren |
 | `Export-SqlServerLabSsmsRegistration` | Kennwortfreien SSMS-`.regsrvr`-Export erzeugen |

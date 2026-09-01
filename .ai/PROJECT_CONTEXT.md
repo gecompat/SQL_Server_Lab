@@ -65,7 +65,10 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   SQL-Dienstrestart-Klassifizierung;
 - verwalteter Multi-Root-Storage-Vertrag mit stabilen `LocationId`-Werten,
   Backing-Device-Topologie, dateigenauem Storage-Plan, journalisierter
-  Parent-Migration und Cleanup-Audit;
+  Parent-Migration und Cleanup-Audit; dessen versioniertes read-only
+  Storage-Residency-Inventar trennt `Lab_Data`, native Docker-/Podman-Ablage,
+  externe Hostpfade, rungebundene sowie retained Objekte und unbekanntes
+  physisches Runtime-Backing;
 - versionierte `SqlServerLab.HyperVResourceBinding/1.0`-Grundlage mit kurzen,
   state-root-unabhängigen Create-Roots unter registriertem `Lab_Data`,
   Controller-/Location-/Volume-Revalidierung und getrennter read-only

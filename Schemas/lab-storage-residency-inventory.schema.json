@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sql-server-lab.local/schemas/lab-storage-residency-inventory.schema.json",
+  "title": "SqlServerLab.StorageResidencyInventory/1.0",
+  "type": "object",
+  "required": ["ContractVersion", "Status", "ProviderCoverage", "Objects", "Summary"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.StorageResidencyInventory/1.0" },
+    "Status": { "enum": ["COMPLETE", "PARTIAL"] },
+    "ProviderCoverage": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["Provider", "Status"],
+        "properties": {
+          "Provider": { "enum": ["core", "docker", "podman", "hyperv"] },
+          "Status": { "enum": ["AVAILABLE", "NOT_INSTALLED", "UNAVAILABLE"] }
+        },
+        "additionalProperties": false
+      }
+    },
+    "Objects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["ObjectId", "ObjectClass", "Provider", "Lifecycle", "Residency", "PathVisibility", "LabDataRelation", "LogicalName", "Path", "RunIds", "CleanupPolicy", "AuditStatus", "Details"],
+        "properties": {
+          "ObjectId": { "type": "string", "pattern": "^storage-object-[a-f0-9]{24}$" },
+          "ObjectClass": { "enum": ["CONTROL_STATE", "LAB_DATA_ROOT", "INSTANCE_STORE", "BACKUP_WORKSPACE", "RUNTIME_BACKING_STORE", "HYPERV_RUN_RESOURCE", "HYPERV_SHARED_RESOURCE", "EXTERNAL_REFERENCE", "REPOSITORY_RESIDUE", "LEGACY_STATE"] },
+          "Provider": { "enum": ["core", "docker", "podman", "hyperv", "external"] },
+          "Lifecycle": { "enum": ["CONTROLLER", "RUN_SCOPED", "RETAINED", "SHARED", "UNMANAGED_OR_UNKNOWN"] },
+          "Residency": { "enum": ["LAB_DATA", "NATIVE_RUNTIME", "EXTERNAL_HOST", "REPOSITORY", "LEGACY_PROFILE", "UNKNOWN"] },
+          "PathVisibility": { "enum": ["HOST_VISIBLE", "RUNTIME_NAMESPACE", "NOT_APPLICABLE", "UNKNOWN"] },
+          "LabDataRelation": { "enum": ["INSIDE", "OUTSIDE", "RUNTIME_INTERNAL", "UNKNOWN"] },
+          "LogicalName": { "type": "string", "minLength": 1 },
+          "Path": { "type": ["string", "null"] },
+          "RunIds": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+          "CleanupPolicy": { "enum": ["RUN_CLEANUP", "PRESERVE_RETAINED", "PRESERVE_SHARED", "REPORT_ONLY"] },
+          "AuditStatus": { "enum": ["VERIFIED", "DECLARED", "RESIDUAL", "UNVERIFIABLE"] },
+          "Details": { "type": "object" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "Summary": {
+      "type": "object",
+      "required": ["ObjectCount", "LabDataObjects", "NativeRuntimeObjects", "ExternalObjects", "RetainedObjects", "RunScopedObjects", "ResidualObjects", "UnverifiableObjects"],
+      "properties": {
+        "ObjectCount": { "type": "integer", "minimum": 0 },
+        "LabDataObjects": { "type": "integer", "minimum": 0 },
+        "NativeRuntimeObjects": { "type": "integer", "minimum": 0 },
+        "ExternalObjects": { "type": "integer", "minimum": 0 },
+        "RetainedObjects": { "type": "integer", "minimum": 0 },
+        "RunScopedObjects": { "type": "integer", "minimum": 0 },
+        "ResidualObjects": { "type": "integer", "minimum": 0 },
+        "UnverifiableObjects": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
