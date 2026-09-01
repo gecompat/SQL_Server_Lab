@@ -107,6 +107,9 @@ Mindestens erforderlich:
 Die vollständige Einrichtung mit offiziellen Downloadlinks, Installationsbefehlen,
 Docker-/Podman-Auswahl und `podman machine start podman-machine-default` steht in
 der [Windows-Installationsanleitung für AnwenderInnen](Documentation/User/INSTALLATION_WINDOWS.md).
+No-Profile- und Agent-Shells können Docker, Podman und Python prozesslokal über
+`.\Tools\Initialize-SqlServerLabHostTools.ps1` auflösen; persistierte Benutzer-
+und Maschinen-`PATH`-Werte werden dabei nicht verändert.
 Der native Ubuntu-Pfad ist getrennt in der
 [Linux-Installationsanleitung](Documentation/User/INSTALLATION_LINUX.md)
 beschrieben. ISO-, VHDX- und SQL-Installationsmedien liegen in einem

@@ -303,6 +303,9 @@ function Test-CommandExists {
     #>
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$Command)
+    if ($Command -in @('docker','podman','python')) {
+        return [bool](Resolve-LabHostTool -Name $Command).Available
+    }
     $null -ne (Get-Command $Command -ErrorAction SilentlyContinue)
 }
 

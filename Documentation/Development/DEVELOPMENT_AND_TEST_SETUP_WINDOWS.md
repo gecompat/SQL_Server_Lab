@@ -82,6 +82,34 @@ nicht in Repository, Logs oder Actions-Artefakte gelangen.
 Die statische Suite und PSScriptAnalyzer-Prüfung laufen bereits über das
 lokale Repo und benötigen PowerShell 7.2 oder neuer. 
 
+### 3.1 Zentrale Host-Tool-Auflösung
+
+No-Profile-Shells, Desktop-Agenten und Dienstkonten können einen älteren oder
+abweichenden Prozess-`PATH` erben. Vor lokalen Runtime-Prüfungen kann deshalb
+der gemeinsame Resolver ausgeführt werden:
+
+```powershell
+.\Tools\Initialize-SqlServerLabHostTools.ps1
+```
+
+Er löst Docker, Podman und Python über den bestehenden Sessionbefehl,
+persistierte Benutzer-/Maschinen-`PATH`-Einträge und bekannte Windows-
+Installationsorte auf. Er erweitert nur den aktuellen Prozess-`PATH`; die
+persistierten Einstellungen bleiben unverändert. Für abweichende
+Installationsorte stehen exakte, auf vorhandene Executables validierte
+Overrides bereit:
+
+```powershell
+$env:SQL_SERVER_LAB_DOCKER_PATH = 'D:\Tools\Docker\docker.exe'
+$env:SQL_SERVER_LAB_PODMAN_PATH = 'D:\Tools\Podman\podman.exe'
+$env:SQL_SERVER_LAB_PYTHON_PATH = 'D:\Tools\Python\python.exe'
+```
+
+Die Auflösung beweist nur, dass eine Datei oder ein Sessionbefehl vorhanden
+ist. Runtime-Erreichbarkeit und Ausführungsrechte werden weiterhin getrennt
+geprüft; insbesondere kann ein Prozess-`PATH` keine Sandbox- oder
+Berechtigungsgrenze umgehen.
+
 Für den ergänzenden Pester-Unit-/Contract-Check empfiehlt sich:
 
 - `Install-Module PSScriptAnalyzer -Scope CurrentUser -Force` (für PSScriptAnalyzer)
@@ -154,7 +182,8 @@ Die Podman- und Mixed-Provider-Workflows verwenden:
 .\Tests\Integration\Initialize-PodmanRuntime.ps1
 ```
 
-Das Skript führt zuerst `podman info` aus. Ist Podman installiert, aber nicht
+Das Skript löst zuerst `podman.exe` über den zentralen Host-Tool-Resolver auf
+und führt dann `podman info` über den ermittelten Aufrufspfad aus. Ist Podman installiert, aber nicht
 erreichbar, liest es vorhandene Machines ein, bevorzugt
 `podman-machine-default`, startet die Machine und wartet begrenzt auf
 Erreichbarkeit. Es erstellt absichtlich keine neue Machine.
