@@ -367,6 +367,199 @@ function Register-LabDatabasePackagePersistentStorage {
     }
 }
 
+function Register-LabContainerInstanceStoreLease {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '', Justification='Die Parameter werden in der serialisierten Katalog-Lock-Closure verwendet.')]
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,
+        [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$')][string]$VolumeName,
+        [Parameter(Mandatory)][ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$RunId,
+        [Parameter(Mandatory)][ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$ScopeId,
+        [Parameter(Mandatory)][string]$SqlVersion,
+        [Parameter(Mandatory)][string]$DisplayName,
+        [Parameter(Mandatory)][string]$DataRoot,
+        [AllowNull()]$Configuration
+    )
+
+    $configuration = if ($Configuration) { $Configuration } else { Get-LabStorageConfiguration -DataRoot $DataRoot }
+    if ([string]::IsNullOrWhiteSpace([string]$configuration.ControllerId)) {
+        throw 'CONTAINER_INSTANCE_STORE_LEASE_CONFIGURATION_INVALID'
+    }
+    if ($SqlVersion.Length -lt 4 -or $SqlVersion.Substring(0,4) -notmatch '^\d{4}$') {
+        throw 'CONTAINER_INSTANCE_STORE_LEASE_SQL_VERSION_INVALID'
+    }
+    $sqlMajorVersion = $SqlVersion.Substring(0,4)
+    $inventoryObjectId = Get-LabStorageResidencyObjectId -Key "runtime-volume|$Provider|$VolumeName"
+    $runtime = Get-LabContainerInstanceStoreRuntimeInspection -Provider $Provider -VolumeName $VolumeName
+
+    return Invoke-LabPersistentStorageCatalogLock -ControllerId ([string]$configuration.ControllerId) -ScriptBlock {
+        $catalog = Get-LabPersistentStorageCatalog -Configuration $configuration
+        if ([string]$catalog.Status -notin @('EMPTY','AVAILABLE')) {
+            throw "PERSISTENT_STORAGE_CATALOG_MUTATION_BLOCKED: $([string]$catalog.Status)"
+        }
+        $storeMatches = @($catalog.Document.Stores | Where-Object {
+            ([string]$_.Provider -eq $Provider -and
+                ([string]$_.LocationBinding.ProviderResourceId -eq $VolumeName -or
+                 [string]$_.LocationBinding.InventoryObjectId -eq $inventoryObjectId))
+        })
+        if ($storeMatches.Count -gt 1) { throw 'CONTAINER_INSTANCE_STORE_LEASE_BINDING_DUPLICATE' }
+
+        if ($storeMatches.Count -eq 1) {
+            $existing = $storeMatches[0]
+            $activeRunReferences = @($existing.References | Where-Object {
+                [string]$_.Kind -eq 'RUN' -and [string]$_.State -eq 'ACTIVE'
+            })
+            if ([string]$existing.StorageClass -ne 'INSTANCE_STORE' -or
+                [string]$existing.Provider -ne $Provider -or
+                [string]$existing.LocationBinding.Residency -ne 'NATIVE_RUNTIME' -or $existing.LocationBinding.LocationId -or
+                [string]$existing.LocationBinding.ProviderResourceId -ne $VolumeName -or
+                [string]$existing.LocationBinding.InventoryObjectId -ne $inventoryObjectId -or $existing.LocationBinding.RelativePath -or
+                [string]$existing.Retention -ne 'RETAINED' -or [string]$existing.CleanupDisposition -ne 'PRESERVE') {
+                throw 'CONTAINER_INSTANCE_STORE_LEASE_CONFLICT'
+            }
+            $sameLease = $existing.Lease -and [string]$existing.Lease.RunId -eq $RunId -and
+                [string]$existing.Lease.ScopeId -eq $ScopeId -and $activeRunReferences.Count -eq 1 -and
+                [string]$activeRunReferences[0].TargetId -eq $RunId -and [string]$existing.State -eq 'IN_USE'
+            if ($sameLease) {
+                return [PSCustomObject]@{ Changed=$false; Store=$existing; CatalogRevision=[int]$catalog.Document.Revision; Reused=$true }
+            }
+            if ([string]$existing.State -notin @('AVAILABLE','DETACHED') -or
+                $existing.Lease -or $activeRunReferences.Count -gt 0) {
+                throw 'CONTAINER_INSTANCE_STORE_LEASE_CONFLICT'
+            }
+            if ([string]$runtime.Status -ne 'AVAILABLE' -or @($runtime.AttachedContainers).Count -gt 0 -or
+                [string]$runtime.Labels.'sql-server-lab.persistent-storage-id' -ne [string]$existing.PersistentStorageId -or
+                [string]$runtime.Labels.'sql-server-lab.sql-major-version' -ne $sqlMajorVersion) {
+                throw 'CONTAINER_INSTANCE_STORE_LEASE_RUNTIME_CONFLICT'
+            }
+
+            $next = $catalog.Document | ConvertTo-Json -Depth 40 | ConvertFrom-Json -Depth 40
+            $nextStore = @($next.Stores | Where-Object { [string]$_.PersistentStorageId -eq [string]$existing.PersistentStorageId })[0]
+            $now = Get-LabTimestamp
+            $runReference = @($nextStore.References | Where-Object {
+                [string]$_.Kind -eq 'RUN' -and [string]$_.TargetId -eq $RunId
+            } | Select-Object -First 1)
+            if ($runReference.Count -eq 1) { $runReference[0].State = 'ACTIVE' }
+            else {
+                $nextStore.References = @($nextStore.References) + @([PSCustomObject][ordered]@{
+                    ReferenceId=$RunId; Kind='RUN'; State='ACTIVE'; TargetId=$RunId
+                })
+            }
+            $nextStore.State = 'IN_USE'
+            $nextStore.Lease = [PSCustomObject][ordered]@{
+                LeaseId=(New-LabPersistentStorageId); RunId=$RunId; ScopeId=$ScopeId; Mode='EXCLUSIVE'
+                AcquiredAt=$now; ExpiresAt=$null
+            }
+            $nextStore.UpdatedAt = $now
+            $next.Revision = [int]$next.Revision + 1
+            $null = Write-LabPersistentStorageCatalogDocument -Document $next -Configuration $configuration
+            return [PSCustomObject]@{ Changed=$true; Store=$nextStore; CatalogRevision=[int]$next.Revision; Reused=$true }
+        }
+
+        if ([string]$runtime.Status -ne 'MISSING') {
+            throw 'CONTAINER_INSTANCE_STORE_LEASE_UNCATALOGED_VOLUME'
+        }
+        $now = Get-LabTimestamp
+        $safeDisplayName = $DisplayName.Trim()
+        if (-not $safeDisplayName) { throw 'CONTAINER_INSTANCE_STORE_LEASE_DISPLAY_NAME_INVALID' }
+        if ($safeDisplayName.Length -gt 128) { $safeDisplayName = $safeDisplayName.Substring(0,128) }
+        $store = [PSCustomObject][ordered]@{
+            PersistentStorageId=(New-LabPersistentStorageId); DisplayName=$safeDisplayName; StorageClass='INSTANCE_STORE'
+            State='IN_USE'; Provider=$Provider
+            LocationBinding=[PSCustomObject][ordered]@{
+                Residency='NATIVE_RUNTIME'; LocationId=$null; ProviderResourceId=$VolumeName
+                InventoryObjectId=$inventoryObjectId; RelativePath=$null
+            }
+            References=@([PSCustomObject][ordered]@{ ReferenceId=$RunId; Kind='RUN'; State='ACTIVE'; TargetId=$RunId })
+            Lease=[PSCustomObject][ordered]@{
+                LeaseId=(New-LabPersistentStorageId); RunId=$RunId; ScopeId=$ScopeId; Mode='EXCLUSIVE'
+                AcquiredAt=$now; ExpiresAt=$null
+            }
+            Retention='RETAINED'; CleanupDisposition='PRESERVE'; CreatedAt=$now; UpdatedAt=$now
+        }
+        $next = $catalog.Document | ConvertTo-Json -Depth 40 | ConvertFrom-Json -Depth 40
+        $next.Revision = [int]$next.Revision + 1
+        $next.Stores = @($next.Stores) + @($store)
+        $null = Write-LabPersistentStorageCatalogDocument -Document $next -Configuration $configuration
+        return [PSCustomObject]@{ Changed=$true; Store=$store; CatalogRevision=[int]$next.Revision; Reused=$false }
+    }
+}
+
+function Unregister-LabContainerInstanceStoreLease {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '', Justification='Die Parameter werden in der serialisierten Katalog-Lock-Closure verwendet.')]
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,
+        [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$')][string]$VolumeName,
+        [Parameter(Mandatory)][ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$RunId,
+        [Parameter(Mandatory)][ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$ScopeId,
+        [Parameter(Mandatory)][string]$DataRoot,
+        [AllowNull()]$Configuration
+    )
+
+    $configuration = if ($Configuration) { $Configuration } else { Get-LabStorageConfiguration -DataRoot $DataRoot }
+    if ([string]::IsNullOrWhiteSpace([string]$configuration.ControllerId)) {
+        throw 'CONTAINER_INSTANCE_STORE_RELEASE_CONFIGURATION_INVALID'
+    }
+
+    return Invoke-LabPersistentStorageCatalogLock -ControllerId ([string]$configuration.ControllerId) -ScriptBlock {
+        $catalog = Get-LabPersistentStorageCatalog -Configuration $configuration
+        if ([string]$catalog.Status -eq 'EMPTY') {
+            return [PSCustomObject]@{ Changed=$false; Store=$null; CatalogRevision=0; NotAcquired=$true }
+        }
+        if ([string]$catalog.Status -ne 'AVAILABLE') {
+            throw "PERSISTENT_STORAGE_CATALOG_MUTATION_BLOCKED: $([string]$catalog.Status)"
+        }
+        $storeMatches = @($catalog.Document.Stores | Where-Object {
+            [string]$_.StorageClass -eq 'INSTANCE_STORE' -and [string]$_.Provider -eq $Provider -and
+            [string]$_.LocationBinding.ProviderResourceId -eq $VolumeName
+        })
+        if ($storeMatches.Count -gt 1) { throw 'CONTAINER_INSTANCE_STORE_RELEASE_BINDING_UNRESOLVED' }
+        if ($storeMatches.Count -eq 0) {
+            return [PSCustomObject]@{ Changed=$false; Store=$null; CatalogRevision=[int]$catalog.Document.Revision; NotAcquired=$true }
+        }
+        $existing = $storeMatches[0]
+        $runReferences = @($existing.References | Where-Object {
+            [string]$_.Kind -eq 'RUN' -and [string]$_.TargetId -eq $RunId
+        })
+        if (-not $existing.Lease -and [string]$existing.State -eq 'DETACHED' -and
+            @($runReferences | Where-Object State -eq 'RELEASED').Count -eq 1) {
+            return [PSCustomObject]@{ Changed=$false; Store=$existing; CatalogRevision=[int]$catalog.Document.Revision }
+        }
+        if (@($runReferences | Where-Object State -eq 'ACTIVE').Count -eq 0 -and
+            (-not $existing.Lease -or [string]$existing.Lease.RunId -ne $RunId)) {
+            return [PSCustomObject]@{ Changed=$false; Store=$existing; CatalogRevision=[int]$catalog.Document.Revision; NotAcquired=$true }
+        }
+        if (-not $existing.Lease -or [string]$existing.Lease.RunId -ne $RunId -or
+            [string]$existing.Lease.ScopeId -ne $ScopeId -or
+            @($runReferences | Where-Object State -eq 'ACTIVE').Count -ne 1) {
+            throw 'CONTAINER_INSTANCE_STORE_RELEASE_LEASE_CONFLICT'
+        }
+
+        $runtime = Get-LabContainerInstanceStoreRuntimeInspection -Provider $Provider -VolumeName $VolumeName
+        $runtimeValid = [string]$runtime.Status -eq 'AVAILABLE' -and @($runtime.AttachedContainers).Count -eq 0 -and
+            [string]$runtime.Labels.'sql-server-lab.persistent-storage-id' -eq [string]$existing.PersistentStorageId -and
+            [string]$runtime.Labels.'sql-server-lab.sql-major-version' -match '^\d{4}$'
+        $next = $catalog.Document | ConvertTo-Json -Depth 40 | ConvertFrom-Json -Depth 40
+        $nextStore = @($next.Stores | Where-Object { [string]$_.PersistentStorageId -eq [string]$existing.PersistentStorageId })[0]
+        $next.Revision = [int]$next.Revision + 1
+        $nextStore.UpdatedAt = Get-LabTimestamp
+        if (-not $runtimeValid) {
+            $nextStore.State = 'RECOVERY_REQUIRED'
+            $null = Write-LabPersistentStorageCatalogDocument -Document $next -Configuration $configuration
+            throw 'CONTAINER_INSTANCE_STORE_RELEASE_RUNTIME_VERIFICATION_FAILED'
+        }
+
+        @($nextStore.References | Where-Object {
+            [string]$_.Kind -eq 'RUN' -and [string]$_.TargetId -eq $RunId -and [string]$_.State -eq 'ACTIVE'
+        }) | ForEach-Object { $_.State = 'RELEASED' }
+        $nextStore.Lease = $null
+        $nextStore.State = 'DETACHED'
+        $null = Write-LabPersistentStorageCatalogDocument -Document $next -Configuration $configuration
+        return [PSCustomObject]@{ Changed=$true; Store=$nextStore; CatalogRevision=[int]$next.Revision }
+    }
+}
+
 function Register-LabContainerInstanceStoreClone {
     [CmdletBinding()]
     param(
