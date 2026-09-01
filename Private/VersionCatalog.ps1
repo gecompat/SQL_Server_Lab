@@ -364,9 +364,10 @@ function Test-SqlServerContainerImagePresent {
     if ($InspectAction) {
         return [bool](& $InspectAction $Provider $Image)
     }
-    $command = Get-Command $Provider -ErrorAction SilentlyContinue
-    if (-not $command) { return $false }
-    $null = & $command.Source image inspect $Image 2>&1
+    $runtimeResolution = Resolve-LabHostTool -Name $Provider
+    if (-not $runtimeResolution.Available) { return $false }
+    $runtimeInvocation = [string]$runtimeResolution.Invocation
+    $null = & $runtimeInvocation image inspect $Image 2>&1
     return $LASTEXITCODE -eq 0
 }
 
@@ -376,9 +377,10 @@ function Resolve-SqlServerContainerImageProvider {
 
     $candidates = if ($Provider -eq 'auto') { @('docker', 'podman') } else { @($Provider) }
     foreach ($candidate in $candidates) {
-        $command = Get-Command $candidate -ErrorAction SilentlyContinue
-        if (-not $command) { continue }
-        $null = & $command.Source info 2>&1
+        $runtimeResolution = Resolve-LabHostTool -Name $candidate
+        if (-not $runtimeResolution.Available) { continue }
+        $runtimeInvocation = [string]$runtimeResolution.Invocation
+        $null = & $runtimeInvocation info 2>&1
         if ($LASTEXITCODE -eq 0) { return $candidate }
     }
     throw "SQL_LINUX_CU_PROVIDER_UNAVAILABLE: $Provider"
@@ -401,8 +403,8 @@ function Save-SqlServerContainerImageResource {
         $pullSucceeded = [bool](& $PullAction $Provider $Image)
     }
     else {
-        $command = Get-Command $Provider -ErrorAction Stop
-        $null = & $command.Source pull $Image
+        $runtimeInvocation = Get-LabHostToolInvocation -Name $Provider
+        $null = & $runtimeInvocation pull $Image
         $pullSucceeded = $LASTEXITCODE -eq 0
     }
     if (-not $pullSucceeded -or

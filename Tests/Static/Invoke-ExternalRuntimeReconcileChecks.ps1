@@ -37,7 +37,7 @@ $source = Get-Content -LiteralPath $implementationPath -Raw -Encoding utf8
 $lifecycleSource = Get-Content -LiteralPath $lifecyclePath -Raw -Encoding utf8
 $buildIndex = $source.IndexOf('Invoke-LabExternalRuntimeContainerImageBuild -ImagePlan')
 $journalIndex = $source.IndexOf("status='PREPARED'")
-$renameIndex = $source.IndexOf('& $provider rename $name $backupName')
+$renameIndex = $source.IndexOf('& $runtimeInvocation rename $name $backupName')
 $verifyIndex = $source.IndexOf('Initialize-LabExternalRuntimes -SoftwarePlans')
 $stateCommitIndex = $source.IndexOf("-Status 'STATE_COMMITTED'")
 $removeOldIndex = $source.LastIndexOf('Remove-LabContainerForCleanup -Provider $provider -ContainerIdOrName $backupName')

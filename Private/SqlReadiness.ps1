@@ -12,12 +12,15 @@ function Get-PodmanWindowsLocalhostDiagnostic {
         [Parameter(Mandatory)][int]$Port
     )
 
-    if (-not $IsWindows -or -not (Get-Command podman -ErrorAction SilentlyContinue)) {
+    if (-not $IsWindows) {
         return $null
     }
+    $podmanResolution = Resolve-LabHostTool -Name podman
+    if (-not $podmanResolution.Available) { return $null }
+    $podmanInvocation = [string]$podmanResolution.Invocation
 
     $containerNames = @(
-        podman ps --filter "publish=$Port" --format '{{.Names}}' 2>$null |
+        & $podmanInvocation ps --filter "publish=$Port" --format '{{.Names}}' 2>$null |
             ForEach-Object { ([string]$_).Trim() } |
             Where-Object { $_ }
     )
@@ -27,7 +30,7 @@ function Get-PodmanWindowsLocalhostDiagnostic {
     }
 
     foreach ($containerName in $containerNames) {
-        $logs = podman logs --tail 200 $containerName 2>&1
+        $logs = & $podmanInvocation logs --tail 200 $containerName 2>&1
         $logText = ($logs | ForEach-Object { [string]$_ }) -join "`n"
         if ($logText -notmatch 'SQL Server is now ready for client connections') {
             continue
@@ -73,14 +76,15 @@ function Resolve-PodmanWindowsHostName {
     [CmdletBinding()]
     param([string]$FallbackHostName = '127.0.0.1')
 
-    if (-not $IsWindows -or
-        -not (Get-Command podman -ErrorAction SilentlyContinue) -or
-        -not (Get-Command wsl.exe -ErrorAction SilentlyContinue)) {
+    if (-not $IsWindows -or -not (Get-Command wsl.exe -ErrorAction SilentlyContinue)) {
         return $FallbackHostName
     }
+    $podmanResolution = Resolve-LabHostTool -Name podman
+    if (-not $podmanResolution.Available) { return $FallbackHostName }
+    $podmanInvocation = [string]$podmanResolution.Invocation
 
     try {
-        $connections = @(podman system connection list --format json 2>$null | ConvertFrom-Json)
+        $connections = @(& $podmanInvocation system connection list --format json 2>$null | ConvertFrom-Json)
         $defaultConnection = @($connections | Where-Object { $_.Default } | Select-Object -First 1)
         if ($LASTEXITCODE -ne 0 -or $defaultConnection.Count -ne 1) { return $FallbackHostName }
 
@@ -88,7 +92,7 @@ function Resolve-PodmanWindowsHostName {
         if (-not $uriMatch.Success) { return $FallbackHostName }
 
         $connectionPort = [int]$uriMatch.Groups['Port'].Value
-        $machines = @(podman machine list --format json 2>$null | ConvertFrom-Json)
+        $machines = @(& $podmanInvocation machine list --format json 2>$null | ConvertFrom-Json)
         $machine = @(
             $machines |
                 Where-Object { $_.Running -and [int]$_.Port -eq $connectionPort } |
@@ -128,9 +132,11 @@ function Get-LabContainerReadinessDiagnostic {
         [switch]$IncludeLogs
     )
 
-    if (-not (Get-Command $Provider -ErrorAction SilentlyContinue)) { return $null }
+    $runtimeResolution = Resolve-LabHostTool -Name $Provider
+    if (-not $runtimeResolution.Available) { return $null }
+    $runtimeInvocation = [string]$runtimeResolution.Invocation
     try {
-        $stateOutput = & $Provider inspect --format '{{.State.Status}}|{{.State.ExitCode}}|{{.State.OOMKilled}}|{{.State.Error}}' $ContainerIdOrName 2>&1
+        $stateOutput = & $runtimeInvocation inspect --format '{{.State.Status}}|{{.State.ExitCode}}|{{.State.OOMKilled}}|{{.State.Error}}' $ContainerIdOrName 2>&1
         if ($LASTEXITCODE -ne 0) { return $null }
         $stateText = (($stateOutput | ForEach-Object { [string]$_ }) -join ' ').Trim()
         $parts = @($stateText -split '\|', 4)
@@ -142,7 +148,7 @@ function Get-LabContainerReadinessDiagnostic {
         if (-not [string]::IsNullOrWhiteSpace($runtimeError)) { $message += "; RuntimeError: $runtimeError" }
 
         if ($IncludeLogs) {
-            $logOutput = & $Provider logs --tail 80 $ContainerIdOrName 2>&1
+            $logOutput = & $runtimeInvocation logs --tail 80 $ContainerIdOrName 2>&1
             $logText = (($logOutput | ForEach-Object { [string]$_ }) -join "`n").Trim()
             if ($logText) {
                 $logText = [regex]::Replace($logText, '(?i)((?:sa_)?password\s*[=:]\s*)\S+', '$1***')

@@ -373,12 +373,13 @@ function Restore-SqlServerLabDatabase {
             if ($Provider) { $restoreTargetArguments.Provider = $Provider }
             $restoreTarget = Resolve-LabRestoreContainer @restoreTargetArguments
             $runtime = $restoreTarget.Provider
+            $runtimeInvocation = Get-LabHostToolInvocation -Name $runtime
             $ContainerName = $restoreTarget.ContainerName
             $runtimeBackupPath = "/var/opt/mssql/backup/${DatabaseName}.bak"
             Write-LabInfo "Kopiere Backup nach $runtime/${ContainerName}:${runtimeBackupPath}"
-            & $runtime exec $ContainerName mkdir -p /var/opt/mssql/backup 1>$null 2>$null
+            & $runtimeInvocation exec $ContainerName mkdir -p /var/opt/mssql/backup 1>$null 2>$null
             if ($LASTEXITCODE -ne 0) { throw "Backup-Verzeichnis konnte im $runtime-Container nicht erstellt werden." }
-            & $runtime cp $backupPath "${ContainerName}:${runtimeBackupPath}" 1>$null 2>$null
+            & $runtimeInvocation cp $backupPath "${ContainerName}:${runtimeBackupPath}" 1>$null 2>$null
             if ($LASTEXITCODE -ne 0) { throw "Backup-Kopie in den $runtime-Container ist fehlgeschlagen." }
         }
 

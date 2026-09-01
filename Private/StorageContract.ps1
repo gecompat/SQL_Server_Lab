@@ -1121,11 +1121,13 @@ function Invoke-LabDataMigration {
             }
         }
         foreach ($runtime in @('docker', 'podman')) {
-            if (-not (Get-Command $runtime -ErrorAction SilentlyContinue)) { continue }
-            $containerIds = & $runtime ps -a -q --filter 'label=sql-server-lab.run-id' 2>$null
+            $runtimeResolution = Resolve-LabHostTool -Name $runtime
+            if (-not $runtimeResolution.Available) { continue }
+            $runtimeInvocation = [string]$runtimeResolution.Invocation
+            $containerIds = & $runtimeInvocation ps -a -q --filter 'label=sql-server-lab.run-id' 2>$null
             if ($LASTEXITCODE -ne 0) { continue }
             foreach ($containerId in @($containerIds)) {
-                $inspect = @(& $runtime inspect ([string]$containerId) 2>$null | ConvertFrom-Json -Depth 30)[0]
+                $inspect = @(& $runtimeInvocation inspect ([string]$containerId) 2>$null | ConvertFrom-Json -Depth 30)[0]
                 foreach ($mount in @($inspect.Mounts | Where-Object { $_.Type -eq 'bind' -and $_.Source })) {
                     $mountSource = [System.IO.Path]::GetFullPath([string]$mount.Source)
                     if ($mountSource.Equals($sourceRoot, [StringComparison]::OrdinalIgnoreCase) -or $mountSource.StartsWith($sourceRoot + [System.IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
