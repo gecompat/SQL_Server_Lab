@@ -864,7 +864,7 @@ Add-ValidationResult `
         $persistentStorageBacklog -match 'exklusive Lease/Freigabe regulärer `-PersistentData`-Containerstores' -and
         $persistentStorageBacklog -match 'Paket-Katalogcommit quarantänisiert Library-Eintrag und Recovery-Journal' -and
         $knownLimitations -match 'Reguläre Docker-/Podman-Labs mit[\s\S]*?`-PersistentData`[\s\S]*?exklusive Run-Lease' -and
-        $knownLimitations -match 'Noch\s*nicht implementiert sind die generische Katalogmutation, ein öffentlicher\s*Bestandsmigrationsbefehl' -and
+        $knownLimitations -match 'Noch\s*nicht implementiert sind die generische\s*Katalogmutation, ein öffentlicher\s*Bestandsmigrationsbefehl' -and
         $knownLimitations -match '`BACKUP_SET` beziehungsweise `DATABASE_PACKAGE`' -and
         $repoMap -match 'persistent_storage_catalog: Private/PersistentStorageCatalog\.ps1' -and
         $repoMap -match 'persistent_storage_catalog_schema: Schemas/persistent-storage-catalog\.schema\.json' -and
@@ -888,8 +888,10 @@ Add-ValidationResult `
     -Success ($persistentStorageBacklog -match '(?m)^\| `PSR-005` .*\| `IMPLEMENTED_CORE`:' -and
         $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.ContainerInstanceStoreIntent/1.0') -and
         $persistentStorageBacklog -match 'Docker und Podman getrennt\s*real belegt' -and
-        $persistentStorageBacklog -match 'atomarer idempotenter Clone-Katalog-Commit' -and
+        $persistentStorageBacklog -match 'operationsgebundene Quell-Lease' -and
+        $persistentStorageBacklog -match 'atomarer Zielcommit plus Quellfreigabe' -and
         $knownLimitations -match 'Commitfehler verhindert `COMPLETED`' -and
+        $knownLimitations -match 'öffentliche CLI-/GUI-\s*Erstellungsflow nutzt denselben Core' -and
         $repoMap -match 'container_instance_store: Private/ContainerInstanceStore\.ps1' -and
         $repoMap -match 'validation_container_instance_store: Tests/Static/Invoke-ContainerInstanceStoreChecks\.ps1' -and
         $repoMap -match 'acceptance_container_instance_store: Tests/Integration/Invoke-ContainerInstanceStoreAcceptance\.ps1')

@@ -186,7 +186,7 @@ Add-CheckResult -Name 'CMS wird immer mit Autostart erstellt' -Success (
     $cms -match "New-SqlServerLab.*-AutoStart on" -and $cms -match "AutoStart = 'on'"
 )
 Add-CheckResult -Name 'Workflow und UI reichen Container-Autostart durch' -Success (
-    $workflow -match 'New-SqlServerLab.*-AutoStart \$AutoStart' -and $workflow -match 'autostart = \$AutoStart' -and
+    $workflow -match 'New-SqlServerLab[\s\S]{0,700}-AutoStart \$AutoStart' -and $workflow -match 'autostart = \$AutoStart' -and
     $html -match 'id="container-autostart"' -and $javascript -match "container-autostart'\)\.checked"
 )
 

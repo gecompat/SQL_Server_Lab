@@ -66,12 +66,28 @@ function Get-LabContainerInstanceStorePlan {
     $stores = @($document.Stores | Where-Object { [string]$_.PersistentStorageId -eq [string]$Intent.SourcePersistentStorageId })
     if ($stores.Count -ne 1) { $issues.Add('SOURCE_STORAGE_NOT_FOUND') }
     $store = if ($stores.Count -eq 1) { $stores[0] } else { $null }
+    $operationLease = $false
     if ($store) {
+        $operationReferences = @($store.References | Where-Object {
+            [string]$_.ReferenceId -eq [string]$Intent.OperationId -and
+            [string]$_.Kind -eq 'RUN' -and [string]$_.State -eq 'ACTIVE' -and
+            [string]$_.TargetId -eq [string]$Intent.TargetRunId
+        })
+        $operationLease = [string]$Intent.Action -eq 'CLONE' -and $store.Lease -and
+            [string]$store.Lease.LeaseId -eq [string]$Intent.OperationId -and
+            [string]$store.Lease.RunId -eq [string]$Intent.TargetRunId -and
+            [string]$store.Lease.ScopeId -eq [string]$Intent.TargetScopeId -and
+            [string]$store.Lease.Mode -eq 'EXCLUSIVE' -and $operationReferences.Count -eq 1
         if ([string]$store.StorageClass -ne 'INSTANCE_STORE') { $issues.Add('SOURCE_STORAGE_CLASS_INVALID') }
         if ([string]$store.Provider -ne [string]$Intent.Provider) { $issues.Add('SOURCE_PROVIDER_MISMATCH') }
-        if ([string]$store.State -notin @('AVAILABLE','DETACHED')) { $issues.Add('SOURCE_STATE_NOT_DETACHED') }
-        if ($store.Lease) { $issues.Add('SOURCE_LEASE_ACTIVE') }
-        if (@($store.References | Where-Object State -eq 'ACTIVE').Count -gt 0) { $issues.Add('SOURCE_REFERENCE_ACTIVE') }
+        if ([string]$store.State -notin @('AVAILABLE','DETACHED') -and
+            -not ($operationLease -and [string]$store.State -eq 'IN_USE')) { $issues.Add('SOURCE_STATE_NOT_DETACHED') }
+        if ($store.Lease -and -not $operationLease) { $issues.Add('SOURCE_LEASE_ACTIVE') }
+        $foreignActiveReferences = @($store.References | Where-Object {
+            [string]$_.State -eq 'ACTIVE' -and
+            -not ($operationLease -and [string]$_.ReferenceId -eq [string]$Intent.OperationId)
+        })
+        if ($foreignActiveReferences.Count -gt 0) { $issues.Add('SOURCE_REFERENCE_ACTIVE') }
         if ([string]$store.LocationBinding.Residency -ne 'NATIVE_RUNTIME' -or
             [string]::IsNullOrWhiteSpace([string]$store.LocationBinding.ProviderResourceId)) {
             $issues.Add('SOURCE_RUNTIME_BINDING_INVALID')
@@ -136,6 +152,63 @@ function Get-LabContainerInstanceStorePlan {
         throw 'CONTAINER_INSTANCE_STORE_PLAN_SCHEMA_INVALID'
     }
     return $plan
+}
+
+function New-LabContainerInstanceStoreSelectionPlan {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification='Erzeugt ausschliesslich einen in-memory Auswahlplan; Runtime- und Katalogmutationen erfolgen spaeter.')]
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$SourcePersistentStorageId,
+        [Parameter(Mandatory)][ValidateSet('CONTINUE','CLONE')][string]$Action,
+        [Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,
+        [Parameter(Mandatory)][ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$TargetRunId,
+        [Parameter(Mandatory)][ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$TargetScopeId,
+        [Parameter(Mandatory)][string]$TargetSqlVersion,
+        [Parameter(Mandatory)]$Configuration,
+        [ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$OperationId,
+        [ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$TargetPersistentStorageId
+    )
+
+    if ($TargetSqlVersion.Length -lt 4 -or $TargetSqlVersion.Substring(0,4) -notmatch '^\d{4}$') {
+        throw 'CONTAINER_INSTANCE_STORE_TARGET_SQL_VERSION_INVALID'
+    }
+    $sqlMajorVersion = $TargetSqlVersion.Substring(0,4)
+    $catalog = Get-LabPersistentStorageCatalog -Configuration $Configuration
+    $document = if ($catalog.PSObject.Properties['Document']) { $catalog.Document } else { $null }
+    $sourceStores = @($document.Stores | Where-Object {
+        [string]$_.PersistentStorageId -eq $SourcePersistentStorageId
+    })
+    $sourceVolumeName = if ($sourceStores.Count -eq 1) {
+        [string]$sourceStores[0].LocationBinding.ProviderResourceId
+    }
+    else { '__unresolved_instance_store__' }
+    $runtimeInspection = if ($sourceStores.Count -eq 1 -and $sourceVolumeName) {
+        Get-LabContainerInstanceStoreRuntimeInspection -Provider $Provider -VolumeName $sourceVolumeName
+    }
+    else {
+        [PSCustomObject]@{
+            Status='MISSING'; Provider=$Provider; VolumeName=$sourceVolumeName; VolumeId=$null
+            Labels=[PSCustomObject]@{}; AttachedContainers=@()
+        }
+    }
+
+    $resolvedOperationId = if ($OperationId) { $OperationId } else { [Guid]::NewGuid().ToString('D') }
+    $resolvedTargetStorageId = if ($Action -eq 'CLONE') {
+        if ($TargetPersistentStorageId) { $TargetPersistentStorageId } else { [Guid]::NewGuid().ToString('D') }
+    }
+    else { $null }
+    $targetVolumeName = if ($Action -eq 'CLONE') {
+        "sql-lab-persistent-clone-$($resolvedTargetStorageId.Replace('-',''))"
+    }
+    else { $null }
+    $intent = [PSCustomObject][ordered]@{
+        ContractVersion='SqlServerLab.ContainerInstanceStoreIntent/1.0'; OperationId=$resolvedOperationId
+        Action=$Action; SourcePersistentStorageId=$SourcePersistentStorageId
+        TargetPersistentStorageId=$resolvedTargetStorageId; TargetVolumeName=$targetVolumeName; Provider=$Provider
+        TargetRunId=$TargetRunId; TargetScopeId=$TargetScopeId; TargetSqlMajorVersion=$sqlMajorVersion
+        HelperImage=if ($Action -eq 'CLONE') { Get-SqlServerDockerImage -VersionId $TargetSqlVersion } else { $null }
+    }
+    return Get-LabContainerInstanceStorePlan -Intent $intent -Catalog $catalog -RuntimeInspection $runtimeInspection
 }
 
 function Get-LabContainerInstanceStoreDriveBinding {
@@ -240,6 +313,7 @@ function Invoke-LabContainerInstanceStoreClone {
 
     $journal.Recovery.Attempts = [int]$journal.Recovery.Attempts + 1
     try {
+        $null = Set-LabContainerInstanceStoreCloneLease -Plan $Plan -Configuration $Configuration
         $source = Get-LabContainerInstanceStoreRuntimeInspection -Provider ([string]$Plan.Provider) -VolumeName ([string]$Plan.Source.VolumeName)
         if ([string]$source.Status -ne 'AVAILABLE' -or [string]$source.VolumeId -ne [string]$Plan.Source.VolumeId -or
             @($source.AttachedContainers).Count -gt 0 -or

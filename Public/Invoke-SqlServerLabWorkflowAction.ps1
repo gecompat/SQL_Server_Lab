@@ -101,6 +101,12 @@ Ist er angegeben, wird der Download strikt dagegen verifiziert.
     Absoluter Pfad zum auszuführenden SQL-Skript.
 .PARAMETER Database
     Zieldatenbank einer Skriptausführung.
+.PARAMETER PersistentStorageId
+    Stabile ID eines detached Docker-/Podman-Instanzstores für die Erstellung
+    eines neuen persistenten Container-Labs.
+.PARAMETER PersistentStorageAction
+    CONTINUE bindet denselben Store; CLONE erstellt über den gemeinsamen
+    journalisierten Fachkern eine unabhängige Kopie.
 .PARAMETER GuestUserName
     Lokaler Administratorname im Gast für PowerShell Direct.
 .PARAMETER GuestPassword
@@ -178,6 +184,8 @@ function Invoke-SqlServerLabWorkflowAction {
         [string]$DataRoot,
         [string]$TestDataRoot,
         [switch]$PersistentData,
+        [ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$PersistentStorageId,
+        [ValidateSet('CONTINUE','CLONE')][string]$PersistentStorageAction = 'CONTINUE',
         [ValidateRange(32, 4096)][int]$PersistentDataDiskGB = 128,
         [ValidatePattern('^windows-(server-)?[0-9]+$')][string]$OperatingSystemId = 'windows-server-2025',
         [string]$WindowsMediaPath,
@@ -346,7 +354,8 @@ function Invoke-SqlServerLabWorkflowAction {
     Write-LabInfo "Auftrag angenommen: $progress"
     $result = switch ($Action) {
         'NewContainerLab' {
-            New-SqlServerLab -Version $SqlVersion -Provider $Provider -Profile $Profile -InstanceId $InstanceId -LabName $LabName -DataRoot $DataRoot -PersistentData:$PersistentData -AutoStart $AutoStart -SaPassword $SaPassword
+            New-SqlServerLab -Version $SqlVersion -Provider $Provider -Profile $Profile -InstanceId $InstanceId -LabName $LabName -DataRoot $DataRoot -PersistentData:$PersistentData `
+                -PersistentStorageId $PersistentStorageId -PersistentStorageAction $PersistentStorageAction -AutoStart $AutoStart -SaPassword $SaPassword
         }
         'CreateContainerManifest' {
             if ([string]::IsNullOrWhiteSpace($ManifestPath) -or [string]::IsNullOrWhiteSpace($LabName)) { throw 'CONTAINER_WORKFLOW_MANIFEST_PATH_AND_NAME_REQUIRED' }

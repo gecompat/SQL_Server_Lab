@@ -134,7 +134,9 @@ COMMANDS
         die lokale Browser-Oberflaeche aus.
 
     New-SqlServerLab
-        Erstellt eine Labumgebung aus Parametern oder einem Manifest.
+        Erstellt eine Labumgebung aus Parametern oder einem Manifest. Ein
+        detached Docker-/Podman-Instanzstore kann per stabiler ID fortgesetzt
+        oder unter exklusiver Operations-Lease unabhängig geklont werden.
 
     Manifest
 

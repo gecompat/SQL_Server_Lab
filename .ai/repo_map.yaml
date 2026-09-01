@@ -551,7 +551,7 @@ internal_components:
       - "verifizierte Backup-Sets und Datenbankpakete controllerweit rollbackfähig mit eigener PersistentStorageId registrieren und Katalogfehler fail-closed quarantänisieren"
       - "Retention, Backup-/Package-on-Remove, externe Bindungsfreigabe und Recovery-Postconditions read-only planen; persistente Storage-Löschung getrennt halten"
       - "CLI und Browser-UI über denselben frisch inventarisierten Retention-Plan-Core ausschließlich per stabiler Storage-ID vorausschauen lassen"
-      - "katalogisierte Docker-/Podman-Instanzstores per stabiler ID und Runtime-Label detached revalidieren, fuer Continue binden und in ein neues operationsgebundenes Volume digestverifiziert klonen"
+      - "katalogisierte Docker-/Podman-Instanzstores in CLI und Browser per stabiler ID und Runtime-Label detached revalidieren, fuer Continue an den neuen Run leasen oder unter exklusiver Operations-Lease digestverifiziert klonen; Zielcommit und Quellfreigabe atomar koppeln"
       - "aktiven Docker-Context beziehungsweise Podman-Connection/Machine read-only an eine stabile sanitisierte Runtime-ID binden und geteilte Engine-/Machine-/Hostdefaults als REPORT_ONLY vor Mutation schuetzen"
       - "sanitisierte Docker-/Podman-Runtime-Scopes im oeffentlichen Cleanup-Audit ueber zentral aufgeloeste Host-Tool-Aufrufe ausgeben, ohne Rohendpunkte, Identity-Pfade oder Managementautoritaet zu persistieren"
       - "katalogisierte Hyper-V-Daten-VHDX per stabiler Storage-ID, Clean-Detach-, DiskIdentifier-, VM-, Checkpoint-, SQL-Versions- und Gastpfad-Evidenz revalidieren, quellenunveraendert klonen, reattachen und freigeben"
@@ -915,9 +915,12 @@ validation:
       - read_only_source_mount
       - content_digest_postcondition
       - recovery_journal_resume
+      - operation_bound_source_lease
+      - atomic_target_commit_and_source_release
       - controllerwide_atomic_clone_catalog_commit
       - catalog_failure_blocks_completion
       - central_host_tool_resolution
+      - public_cli_browser_selection
   static_container_runtime_scope:
     command: '.\Tests\Static\Invoke-ContainerRuntimeScopeChecks.ps1'
     source: Tests/Static/Invoke-ContainerRuntimeScopeChecks.ps1

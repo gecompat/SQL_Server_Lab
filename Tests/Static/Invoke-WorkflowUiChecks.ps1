@@ -218,6 +218,20 @@ Add-CheckResult -Name 'CLI und Browser verwenden denselben read-only Retention-P
     $scriptText -match "fetch\('/api/persistent-storage/removal-plan'" -and
     $htmlText -match 'Sie entfernt weder die Umgebung noch Daten'
 )
+Add-CheckResult -Name 'CLI und Browser erstellen Labs per stabiler Continue-/Clone-Storage-Auswahl' -Success (
+    $workflowText -match 'ContainerInstanceStoreCandidates = \$containerInstanceStoreCandidates' -and
+    $workflowText -match 'Get-LabContainerInstanceStoreRuntimeInspection' -and
+    $workflowText -notmatch 'ContainerInstanceStoreCandidates[\s\S]{0,800}ProviderResourceId=' -and
+    $actionText -match '\[string\]\$PersistentStorageId' -and
+    $actionText -match '\[string\]\$PersistentStorageAction' -and
+    $actionText -match 'New-SqlServerLab[\s\S]{0,400}-PersistentStorageId \$PersistentStorageId[\s\S]{0,200}-PersistentStorageAction \$PersistentStorageAction' -and
+    $htmlText -match 'id="container-storage-action"' -and
+    $htmlText -match 'id="container-storage-source"' -and
+    $scriptText -match 'function updateContainerStorageSelection' -and
+    $scriptText -match 'workflow\?\.ContainerInstanceStoreCandidates' -and
+    $scriptText -match 'parameters\.PersistentStorageId = persistentStorageId' -and
+    $scriptText -match 'parameters\.PersistentStorageAction = storageAction'
+)
 Add-CheckResult -Name 'UI bietet bestätigten globalen Cleanup und Manifest-Erstellung' -Success (
     $actionText -match 'ClearAllLabs' -and
     $actionText -match 'CreateContainerManifest' -and
@@ -248,7 +262,7 @@ Add-CheckResult -Name 'Container-Labs zeigen alle Instanzen inklusive Provider' 
 Add-CheckResult -Name 'Container-Autostart ist in UI, Workflow und Übersicht durchgängig' -Success (
     $htmlText -match 'id="container-autostart"' -and
     $scriptText -match "AutoStart: \$\('#container-autostart'\)\.checked \? 'on' : 'off'" -and
-    $actionText -match 'New-SqlServerLab.*-AutoStart \$AutoStart' -and
+    $actionText -match 'New-SqlServerLab[\s\S]{0,700}-AutoStart \$AutoStart' -and
     $workflowText -match 'AutoStart = if \(\$_\.autostart\)' -and
     $scriptText -match 'Autostart: '
 )
