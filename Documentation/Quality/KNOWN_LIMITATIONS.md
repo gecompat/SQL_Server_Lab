@@ -933,7 +933,10 @@ idempotent und lesen Registry sowie billige Vollständigkeitsevidence statt alle
 Artefaktinhalte erneut zu hashen. Reguläre Docker-/Podman-Labs mit
 `-PersistentData` vergeben die stabile ID vor der Volume-Erzeugung, erwerben
 eine exklusive Run-Lease und geben sie nach verifizierter Containerentfernung
-als `DETACHED` frei; Runtime-Abweichungen bleiben `RECOVERY_REQUIRED`.
+als `DETACHED` frei. Erfolgreich provisionierte Benutzerdatenbanken erhalten
+stabile aktive `DATABASE`-Referenzen; Lease-Freigabe löst sie atomar mit der
+Run-Referenz, und eine erneute Lease blockiert verbliebene aktive
+Datenbankreferenzen. Runtime-Abweichungen bleiben `RECOVERY_REQUIRED`.
 `New-SqlServerLab` und die Browseroberfläche können einen solchen detached
 Docker-/Podman-Store inzwischen per stabiler ID für einen neuen kompatiblen Run
 fortsetzen oder unabhängig klonen. Noch nicht implementiert sind die generische

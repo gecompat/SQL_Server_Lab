@@ -234,6 +234,7 @@ try {
         $newLabText -match '\[string\]\$PersistentStorageAction' -and
         $newLabText -match 'New-LabContainerInstanceStoreSelectionPlan' -and
         $newLabText -match 'Invoke-LabContainerInstanceStoreClone' -and
+        $newLabText -match 'Sync-LabContainerInstanceStoreDatabaseReference' -and
         $newLabText -match 'CONTAINER_INSTANCE_STORE_SIDECARS_UNSUPPORTED' -and
         $newLabText -match "persistence -notin @\('data-root-runtime-volume','cataloged-runtime-volume'\)")
 }
