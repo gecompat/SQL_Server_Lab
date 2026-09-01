@@ -546,7 +546,7 @@ internal_components:
       - "Retention, Backup-/Package-on-Remove, externe Bindungsfreigabe und Recovery-Postconditions read-only planen; persistente Storage-Löschung getrennt halten"
       - "katalogisierte Docker-/Podman-Instanzstores per stabiler ID und Runtime-Label detached revalidieren, fuer Continue binden und in ein neues operationsgebundenes Volume digestverifiziert klonen"
       - "aktiven Docker-Context beziehungsweise Podman-Connection/Machine read-only an eine stabile sanitisierte Runtime-ID binden und geteilte Engine-/Machine-/Hostdefaults als REPORT_ONLY vor Mutation schuetzen"
-      - "sanitisierte Docker-/Podman-Runtime-Scopes im oeffentlichen Cleanup-Audit ausgeben, ohne Rohendpunkte, Identity-Pfade oder Managementautoritaet zu persistieren"
+      - "sanitisierte Docker-/Podman-Runtime-Scopes im oeffentlichen Cleanup-Audit ueber zentral aufgeloeste Host-Tool-Aufrufe ausgeben, ohne Rohendpunkte, Identity-Pfade oder Managementautoritaet zu persistieren"
       - "katalogisierte Hyper-V-Daten-VHDX per stabiler Storage-ID, Clean-Detach-, DiskIdentifier-, VM-, Checkpoint-, SQL-Versions- und Gastpfad-Evidenz revalidieren, quellenunveraendert klonen, reattachen und freigeben"
   - name: PortAllocation
     source: Private/PortAllocation.ps1
