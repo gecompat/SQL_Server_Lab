@@ -856,7 +856,7 @@ Add-ValidationResult `
 
 Add-ValidationResult `
     -Name 'PSR-003 dokumentiert partielle klassenbezogene Katalogcommits ohne breites Mutationsversprechen' `
-    -Success ($persistentStorageBacklog -match '(?m)^`ACTIVE / PSR_001_PARTIAL_PSR_002_COMPLETE_PSR_003_004_PARTIAL_PSR_006_READ_ONLY_PSR_005_007_008_009_010_012_IMPLEMENTED_CORE`' -and
+    -Success ($persistentStorageBacklog -match '(?m)^`ACTIVE / PSR_001_PARTIAL_PSR_002_COMPLETE_PSR_003_004_011_PARTIAL_PSR_006_READ_ONLY_PSR_005_007_008_009_010_012_IMPLEMENTED_CORE`' -and
         $persistentStorageBacklog -match '(?m)^\| `PSR-003` .*\| `IMPLEMENTED_PARTIAL`:' -and
         $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.PersistentStorageCatalog/1.0') -and
         $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.PersistentStoragePlan/1.0') -and
@@ -872,6 +872,15 @@ Add-ValidationResult `
         $repoMap -match 'persistent_storage_catalog_schema: Schemas/persistent-storage-catalog\.schema\.json' -and
         $repoMap -match 'persistent_storage_plan_schema: Schemas/persistent-storage-plan\.schema\.json' -and
         $repoMap -match 'validation_persistent_storage_catalog: Tests/Static/Invoke-PersistentStorageCatalogChecks\.ps1')
+
+Add-ValidationResult `
+    -Name 'PSR-011 inventarisiert Datenbankpakete in CLI und Browser stabil und pfadfrei' `
+    -Success ($persistentStorageBacklog -match '(?m)^\| `PSR-011` .*\| `IMPLEMENTED_PARTIAL`:' -and
+        $persistentStorageBacklog -match '`DatabasePackageId`' -and
+        $persistentStorageBacklog -match '`-VerifyIntegrity`' -and
+        $knownLimitations -match 'CLI und\s*Browser inventarisieren Pakete inzwischen pfadfrei' -and
+        $knownLimitations -match 'Browser-Attach bleibt gesperrt' -and
+        $repoMap -match 'database_package_inventory: Public/Get-SqlServerLabDatabasePackage\.ps1')
 
 Add-ValidationResult `
     -Name 'PSR-004 führt Retain und Backup-on-Remove journalisiert aus und blockiert übrige Policies' `

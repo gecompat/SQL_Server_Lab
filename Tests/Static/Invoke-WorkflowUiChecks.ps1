@@ -207,6 +207,17 @@ Add-CheckResult -Name 'CLI und Workflow-UI restaurieren Lab_Data-Backups über d
     $scriptText -match 'parameters\.BackupSetId = backupSetId' -and
     $scriptText -notmatch 'parameters\.Backup(Source|Path)'
 )
+Add-CheckResult -Name 'CLI und Browser inventarisieren Datenbankpakete pfadfrei über dieselbe stabile DatabasePackageId' -Success (
+    $workflowText -match 'Get-LabDatabasePackageSelection -DataRoot \$dataRoot' -and
+    $workflowText -match 'DatabasePackageLibrary = \$databasePackageLibrary' -and
+    $htmlText -match 'id="database-package-source"' -and
+    $htmlText -match 'id="database-package-attach"[^>]+disabled' -and
+    $scriptText -match 'function renderDatabasePackageOptions' -and
+    $scriptText -match 'item\.DatabasePackageId' -and
+    $scriptText -match 'TARGET_PROVIDER_PATH_MAPPING_NOT_BOUND|AttachReason' -and
+    $scriptText -notmatch 'selected\.(Path|ManifestSha256|Sha256)' -and
+    $htmlText -match 'Zielbindung fehlt'
+)
 Add-CheckResult -Name 'CLI und Browser planen und führen unterstützte Retention über dieselben Fachbefehle aus' -Success (
     $removalPreviewText -match 'function Get-SqlServerLabPersistentStorageRemovalPlan' -and
     $removalPreviewText -match 'Get-SqlServerLabCleanupAudit -NoWrite -StateRoot \$StateRoot -DataRoot \$DataRoot' -and

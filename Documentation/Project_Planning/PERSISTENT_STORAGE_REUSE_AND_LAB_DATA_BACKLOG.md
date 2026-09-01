@@ -2,7 +2,7 @@
 
 ## Status und Priorität
 
-`ACTIVE / PSR_001_PARTIAL_PSR_002_COMPLETE_PSR_003_004_PARTIAL_PSR_006_READ_ONLY_PSR_005_007_008_009_010_012_IMPLEMENTED_CORE` – die vorhandenen
+`ACTIVE / PSR_001_PARTIAL_PSR_002_COMPLETE_PSR_003_004_011_PARTIAL_PSR_006_READ_ONLY_PSR_005_007_008_009_010_012_IMPLEMENTED_CORE` – die vorhandenen
 Persistenzmechanismen schützen bereits Teile des SQL-Zustands, bilden aber noch
 keinen vollständigen, providerübergreifenden Wiederverwendungs- und
 Löschvertrag. Planung ist kein Implementierungs- oder Runtime-Nachweis.
@@ -135,6 +135,14 @@ Service-Mitnahme ausnahmslos auf `false`. TDE ohne verifizierte Recovery-
 Evidence bleibt blockiert. Objekt-, Host-, Credential- und Schlüsselnamen
 werden nicht im sanitierten Receipt gespeichert. Export-/Import-Executor und
 öffentliche CLI-/GUI-Bedienung bleiben Folgearbeit.
+
+Der nächste öffentliche Slice `PSR-011` inventarisiert Datenbankpakete in CLI
+und Browser über dieselbe stabile `DatabasePackageId`. Die Auswahlansicht ist
+geheimnis- und pfadfrei, meldet fehlende Objekte ohne Voll-Hashing und hasht
+große Paketobjekte nur auf ausdrückliches `-VerifyIntegrity` oder unmittelbar
+vor einer späteren Verwendung. Ein Browser-Attach bleibt sichtbar gesperrt,
+solange Zielinstanz und providergebundene Zielpfadabbildung nicht sicher
+gebunden sind; die Inventur erteilt keine Mutationsautorität.
 
 ## Ausgangslage
 
@@ -426,7 +434,7 @@ Volumename ersetzt diese Identität nicht.
 | `PSR-008` | P1 | Providerneutrale Backup-Bibliothek mit automatischem Backup und Restore-Verifikation liefern | `IMPLEMENTED_CORE`: inhaltsadressierte `Lab_Data`-Bibliothek, `CHECKSUM`, `RESTORE VERIFYONLY`, Hash, Metadatenreceipt, öffentliche BackupSetId-Auswahl und realer Docker→Podman-Inhaltsnachweis; reale FILESTREAM-Cross-Provider-Evidence bleibt offen |
 | `PSR-009` | P2 | Datenbankpakete inklusive FILESTREAM, Attach und Clone implementieren | `IMPLEMENTED_CORE`: vollständiger Offline-Dateivertrag, rekursive Hashes, unabhängiger Clone und journalisiertes Copy-then-Attach; native Hyper-V-/FILESTREAM-Abnahme sowie öffentliche Bedienung offen |
 | `PSR-010` | P2 | Serverobjekt- und TDE-Abhängigkeiten inventarisieren und Migrationsgrenzen anzeigen | `IMPLEMENTED_CORE`: read-only SQL-Counts, TDE-Recovery-Gate, externe Review-Grenzen und sanitisierte `DATABASE_FILES_ONLY`-Receipts; Export/Import und öffentliche Bedienung offen |
-| `PSR-011` | P1 | identische CLI- und GUI-Flows für Auswahl, Retention, Restore, Attach, Clone und Delete liefern | `IMPLEMENTED_PARTIAL`: Backup-Inventur/Restore, Container-Continue/Clone, Retention-Vorschau sowie Retain/Backup-on-Remove verwenden in CLI und Browser dieselben stabilen IDs und Fachkerne; Datenbankpaket-Attach und endgültiges Delete bleiben offen |
+| `PSR-011` | P1 | identische CLI- und GUI-Flows für Auswahl, Retention, Restore, Attach, Clone und Delete liefern | `IMPLEMENTED_PARTIAL`: Backup-Inventur/Restore, Container-Continue/Clone, Retention-Vorschau, Retain/Backup-on-Remove sowie die pfadfreie Datenbankpaket-Inventur verwenden in CLI und Browser dieselben stabilen IDs und Fachkerne; Paket-Vollhashing erfolgt explizit oder vor Verwendung, Datenbankpaket-Attach bleibt bis zur sicheren Zielbindung gesperrt und endgültiges Delete bleibt offen |
 | `PSR-012` | P1 | Cleanup-Audit um persistente Stores, Runtime-Backing, Orphans und Referenzschutz erweitern | `IMPLEMENTED_CORE`: strikte getrennte Findings für Retention, unerwartete Residuen, Recovery und unverifizierbare Evidence; automatische Mutation bleibt ausgeschlossen |
 | `PSR-013` | P2 | journalisierte Migration vorhandener Volumes/VHDX und Metadaten bereitstellen | Resume, Rollback, Hash- und Kapazitätsnachweis |
 
