@@ -935,6 +935,31 @@ bleiben im lokalen Journal `RECOVERY_REQUIRED` und derselbe Aufruf setzt sie
 fort. Shrink, Removal, Rollen-/Pfadwechsel, belegte SCSI-Slots und fremde oder
 uneindeutige Attachments bleiben ohne Teilmutation `unsupported`.
 
+### Hyper-V-SQL-Dateiplatzierung abgleichen und fortsetzen
+
+Nachdem der Host-/Gast-Storageplan ein No-op ist, kann ein getrennter Plan die
+gebundenen SQL-Default- und TempDB-Pfade read-only mit dem Gast vergleichen:
+
+```powershell
+$sqlStoragePlan = Get-SqlServerLabReconcilePlan `
+    -RunId $lab.RunId `
+    -HyperVSqlStorage `
+    -InstanceId primary
+
+Invoke-SqlServerLabReconcileAction `
+    -RunId $lab.RunId `
+    -RepairHyperVSqlStorage `
+    -InstanceId primary `
+    -WhatIf
+```
+
+Der öffentliche Plan enthält weder VM-Identitäten noch Host- oder Gastpfade.
+Die Action schreibt vor der SQL-Mutation das lokale Storage-Runtime-Receipt,
+ändert ausschließlich Default- und TempDB-Bindungen und startet den SQL-Dienst
+kontrolliert neu. Ein fehlgeschlagener Lauf bleibt `RECOVERY_REQUIRED` und wird
+mit demselben Aufruf fortgesetzt. User- und Systemdatenbankdateien sowie
+zusätzliche TempDB-Logfiles bleiben `unsupported`.
+
 ### External Languages nachträglich installieren oder aktualisieren
 
 Für einen laufenden SQL-Server-2019-, -2022- oder -2025-Docker-/Podman-Run kann ein Zielmanifest

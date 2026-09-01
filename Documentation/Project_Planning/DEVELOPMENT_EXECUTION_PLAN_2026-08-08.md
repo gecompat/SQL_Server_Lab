@@ -215,7 +215,7 @@ Container-Volumes gehören dagegen in den normalen Storage-Pfad.
 | M3 Adapterpiloten | `planned_external_scope` | je ein Pilot in den drei Konsumenten-Repositories |
 | M4 Hyper-V OS Cold Path | `validated_reference` | weitere freigegebene Windows-Varianten getrennt belegen |
 | M5 Hyper-V SQL und Resolver | `validated_reference_partial_manifest` | Datenbank-, Software- und Post-Provisioning-Manifestparität; Network-Intents sind gebunden |
-| M6 Reconcile-Breite | `implemented_partial` | Netzwerk, vCPU/statisches-dynamisches RAM sowie Zusatz-VHDX/Grow-only besitzen No-op und journalisierte Reparatur; Removal/Rebinding, weitere Hardware-/SQL-Klassen und native Repair-Evidence bleiben offen |
+| M6 Reconcile-Breite | `implemented_partial` | Netzwerk, vCPU/statisches-dynamisches RAM, Zusatz-VHDX/Grow-only sowie SQL-Default-/TempDB-Dateiplatzierung besitzen No-op und journalisierte beziehungsweise receiptgebundene Reparatur; Removal/Rebinding, User-/Systemdatenbankbewegung, weitere Hardware-/SQL-Klassen und native Repair-Evidence bleiben offen |
 | M7 Artifacts und Baselines | `implemented_partial` | Hyper-V-Export/-Nutzung und automatische Sample-Manifestbindung sind synthetisch belegt; reale Evidence und weitere typisierte Handler bleiben offen |
 | M8 Scenarios und Migration | `planned` | Scenario-Vertrag nach den Adapterpiloten |
 | M9 Release-Härtung | `implemented_partial` | Failure-Injection und öffentliche Version erst nach Provider-/Adapterabnahme |
@@ -490,9 +490,11 @@ fuer manifestgebundene Zusatz-VHDX und gebundene Storage-Lanes einen
 hostwertfreien Plan sowie einen journalisierten Add-/Grow-only-Executor mit
 Gast-NTFS-Verifikation und Wiederherstellung des VM-Zustands. Rebinding,
 Adapter-Neuanlage, Gastadressreparatur und positive native Repair-/External-
-Switch-Evidence sowie Shrink, Removal, Rollen-/Pfadwechsel und
-SQL-Dateiverschiebung bleiben offen; ein synthetischer Test ist kein
-Runtime-Nachweis.
+Switch-Evidence sowie Shrink, Removal und Rollen-/Pfadwechsel bleiben offen.
+`HV-603A` besitzt fuer gebundene Default- und TempDB-Dateipfade einen
+hostwertfreien SQL-Istvergleich und einen receiptgebundenen Restart-/Resume-
+Executor. Automatische User- oder Systemdatenbankverschiebungen bleiben
+fail-closed; ein synthetischer Test ist kein Runtime-Nachweis.
 
 OS-, Edition- und inkompatible SQL-Versionswechsel werden zuerst als
 `reprovision` behandelt. In-place-Upgrades benötigen später einen separaten,

@@ -245,8 +245,15 @@ einen gemeinsamen WinNAT-Vertrag, statische scopegebundene IPAM-Leases und einen
 gebundenen Gateway-/DNS-Snapshot. Der Lifecycle-Reconcile liest die Hyper-V-
 Netzbindung semantisch und hostwertfrei und blockiert bei Drift fail-closed.
 LAN verwendet eine lokale Switch-/Adapter-Allowlist, External Switch und
-Gast-DHCP; positive native Switch-Erstellung und die schreibende
-Netzwerkreparatur bleiben offen.
+Gast-DHCP; die eng begrenzte schreibende Netzwerkreparatur ist synthetisch
+implementiert, positive native Switch-/Repair-Evidence bleibt offen.
+
+Der Hyper-V-Reconcile besitzt getrennte, hostwertfreie Pläne für vCPU/RAM,
+zusätzliche VHDX/Grow-only und SQL-Storage. Der SQL-Storage-Slice wird erst nach
+einem Host-/Gast-Storage-No-op ausführbar, vergleicht Default- und TempDB-Pfade
+read-only und verwendet für Restart, Postconditions und Resume das lokale
+Storage-Runtime-Receipt. User-/Systemdatenbankbewegung und positive native
+Repair-Evidence bleiben offen.
 
 Der verbindliche Implementierungsvertrag steht in
 `Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md`.

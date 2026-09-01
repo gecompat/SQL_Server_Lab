@@ -15,6 +15,10 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 - Der Hyper-V-Storage-Reconcile registriert neue VHDX vor der Mutation im
   Cleanup-Plan, bewahrt den urspruenglichen VM-Zustand und setzt einen
   unterbrochenen Host-/Gastablauf ueber ein lokales Recovery-Journal fort.
+- `Get-SqlServerLabReconcilePlan -HyperVSqlStorage` vergleicht SQL-Default- und
+  TempDB-Dateipfade hostwertfrei mit dem gebundenen Storageplan. Die Action
+  `-RepairHyperVSqlStorage` verwendet das vor der Mutation geschriebene
+  Storage-Runtime-Receipt, startet SQL kontrolliert neu und unterstützt Resume.
 - `Get-SqlServerLabReconcilePlan -HyperVResources` vergleicht den
   manifestgebundenen vCPU-/RAM-Sollzustand read-only und hostwertfrei.
 - `Invoke-SqlServerLabReconcileAction -RepairHyperVResources` repariert reine
@@ -67,6 +71,10 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Validiert
 
+- Die fokussierte Hyper-V-SQL-Storage-Reconcile-Suite bestätigt read-only Diff,
+  hostwertfreien Plan, `WhatIf`, Fault/Resume, No-op sowie fail-closed Hostdrift
+  und zusätzliche TempDB-Logfiles mit gemocktem Provider. Ein positiver nativer
+  Reparaturlauf wurde nicht ausgeführt.
 - Die fokussierte Hyper-V-Storage-Reconcile-Suite bestätigt Add, Grow-only,
   Gastverifikation, `WhatIf`, Cleanup-Vorregistrierung, Fault/Resume, frische
   Journale bei wiederkehrender Drift sowie fail-closed Shrink und Removal mit
