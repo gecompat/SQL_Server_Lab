@@ -3,7 +3,7 @@
   "$id": "https://sql-server-lab.local/schemas/lab-cleanup-audit.schema.json",
   "title": "SqlServerLab.CleanupAudit/1.0",
   "type": "object",
-  "required": ["ContractVersion", "AuditId", "CreatedAt", "Status", "DataRoots", "ActiveRuns", "Runtimes", "RuntimeScopes", "Containers", "ManagedVolumes", "ManagedNetworks", "HyperV", "StorageResidency", "PersistentStorage", "ExternalReferences", "RepositoryResidues", "LegacyStateRoots", "Summary"],
+  "required": ["ContractVersion", "AuditId", "CreatedAt", "Status", "DataRoots", "ActiveRuns", "Runtimes", "RuntimeScopes", "Containers", "ManagedVolumes", "ManagedNetworks", "HyperV", "StorageResidency", "PersistentStorage", "Findings", "ExternalReferences", "RepositoryResidues", "LegacyStateRoots", "Summary"],
   "properties": {
     "ContractVersion": { "const": "SqlServerLab.CleanupAudit/1.0" },
     "AuditId": { "type": "string", "format": "uuid" },
@@ -35,10 +35,62 @@
     },
     "StorageResidency": { "type": "object" },
     "PersistentStorage": { "type": "object" },
+    "Findings": {
+      "type": "object",
+      "required": ["ContractVersion", "Retained", "UnexpectedResiduals", "RecoveryRequired", "Unverifiable", "Summary"],
+      "properties": {
+        "ContractVersion": { "const": "SqlServerLab.CleanupFindings/1.0" },
+        "Retained": {
+          "type": "array",
+          "items": { "allOf": [{ "$ref": "#/$defs/finding" }, { "properties": { "Category": { "const": "RETAINED" } } }] }
+        },
+        "UnexpectedResiduals": {
+          "type": "array",
+          "items": { "allOf": [{ "$ref": "#/$defs/finding" }, { "properties": { "Category": { "const": "UNEXPECTED_RESIDUAL" } } }] }
+        },
+        "RecoveryRequired": {
+          "type": "array",
+          "items": { "allOf": [{ "$ref": "#/$defs/finding" }, { "properties": { "Category": { "const": "RECOVERY_REQUIRED" } } }] }
+        },
+        "Unverifiable": {
+          "type": "array",
+          "items": { "allOf": [{ "$ref": "#/$defs/finding" }, { "properties": { "Category": { "const": "UNVERIFIABLE" } } }] }
+        },
+        "Summary": {
+          "type": "object",
+          "required": ["Retained", "UnexpectedResiduals", "RecoveryRequired", "Unverifiable"],
+          "properties": {
+            "Retained": { "type": "integer", "minimum": 0 },
+            "UnexpectedResiduals": { "type": "integer", "minimum": 0 },
+            "RecoveryRequired": { "type": "integer", "minimum": 0 },
+            "Unverifiable": { "type": "integer", "minimum": 0 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
     "ExternalReferences": { "type": "array" },
     "RepositoryResidues": { "type": "array" },
     "LegacyStateRoots": { "type": "array" },
     "Summary": { "type": "object" }
+  },
+  "$defs": {
+    "finding": {
+      "type": "object",
+      "required": ["Category", "SubjectKind", "SubjectId", "Provider", "DisplayName", "ReasonCode", "Guidance", "AutomaticMutationAllowed"],
+      "properties": {
+        "Category": { "enum": ["RETAINED", "UNEXPECTED_RESIDUAL", "RECOVERY_REQUIRED", "UNVERIFIABLE"] },
+        "SubjectKind": { "enum": ["STORAGE_OBJECT", "PERSISTENT_STORAGE", "CONTAINER", "HYPERV_RUN"] },
+        "SubjectId": { "type": "string", "minLength": 1 },
+        "Provider": { "enum": ["core", "docker", "podman", "hyperv", "external"] },
+        "DisplayName": { "type": "string", "minLength": 1 },
+        "ReasonCode": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{2,127}$" },
+        "Guidance": { "type": "string", "minLength": 1 },
+        "AutomaticMutationAllowed": { "const": false }
+      },
+      "additionalProperties": false
+    }
   },
   "additionalProperties": true
 }

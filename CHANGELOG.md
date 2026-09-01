@@ -52,6 +52,11 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   für `Lab_Data`, native Docker-/Podman-Volumes, externe Hostpfade,
   Hyper-V-Ressourcen, Retention, Cleanup-Zuordnung und unverifizierbares
   physisches Runtime-Backing.
+- `SqlServerLab.CleanupFindings/1.0` trennt im öffentlichen Cleanup-Audit
+  bewusst retained und geteilte Ressourcen, unerwartete Residuen,
+  recoverypflichtige Katalog-/Hyper-V-Zustände und unverifizierbare Evidence.
+  Stabile Identitäten, Reason-Codes und sanitisierte Handlungshinweise bleiben
+  strikt read-only und erteilen keine automatische Mutationsautorität.
 - Der bindende Architekturentscheid
   `SqlServerLab.LabDataResidencyDecision/1.0` definiert `Lab_Data` als
   hostseitigen Katalog-, Austausch- und Recovery-Einstieg, begrenzt native
@@ -99,8 +104,9 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Geändert
 
-- Docker-/Podman-Provider-Probes, der öffentliche Cleanup-Audit und die
-  read-only Runtime-Scope-Evidence verwenden den zentral aufgelösten absoluten
+- Docker-/Podman-Provider-Probes, der öffentliche Cleanup-Audit, dessen
+  Storage-Residency-Helfer und die read-only Runtime-Scope-Evidence verwenden
+  den zentral aufgelösten absoluten
   Host-Tool-Aufruf. Eine gefundene,
   aber im aktuellen Prozess nicht ausführbare CLI wird damit nicht länger als
   fehlende Installation oder bloßer `PATH`-Fehler eingeordnet; Python bleibt
