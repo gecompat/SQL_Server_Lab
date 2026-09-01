@@ -104,6 +104,10 @@ if ($script:ModuleLoadErrors.Count -gt 0) {
     throw "SQL_SERVER_LAB_MODULE_LOAD_FAILED:`n$($script:ModuleLoadErrors -join "`n")"
 }
 
+# Repair only the current process PATH. This keeps provider discovery stable in
+# no-profile shells and child jobs without rewriting user or machine settings.
+$script:HostToolResolution = @(Initialize-LabHostToolPath -Name docker,podman,python)
+
 $requiredInternalFunctions = @(
     'Get-LabEnvironmentResources'
     'Set-LabEnvironmentResources'

@@ -65,6 +65,13 @@ Add-CheckResult -Name 'Container-Runtime-Scope aktiviert read-only Vertrag sowie
     'Invoke-ContainerRuntimeScopeChecks.ps1' -in $containerRuntimeScope.StaticChecks
 )
 
+$hostToolResolution = & $selector -ChangedPath @('Private/HostToolResolution.ps1')
+Add-CheckResult -Name 'Host-Tool-Auflösung aktiviert Resolver-/Bootstrap-Verträge und beide Container-Runtimes' -Success (
+    $hostToolResolution.Docker -and $hostToolResolution.Podman -and
+    'Invoke-HostToolResolutionChecks.ps1' -in $hostToolResolution.StaticChecks -and
+    'Invoke-PodmanBootstrapChecks.ps1' -in $hostToolResolution.StaticChecks
+)
+
 $backupLibrary = & $selector -ChangedPath @('Private/BackupLibrary.ps1')
 Add-CheckResult -Name 'Backup-Bibliothek aktiviert statischen Vertrag und providerübergreifenden Runtime-Nachweis' -Success (
     $backupLibrary.Mixed -and

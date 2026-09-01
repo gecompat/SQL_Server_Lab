@@ -48,6 +48,9 @@ sources_of_truth:
   database_migration_dependency_inventory: Private/DatabaseMigrationDependency.ps1
   database_migration_dependency_inventory_schema: Schemas/database-migration-dependency-inventory.schema.json
   validation_database_migration_dependency: Tests/Static/Invoke-DatabaseMigrationDependencyChecks.ps1
+  host_tool_resolution: Private/HostToolResolution.ps1
+  host_tool_initializer: Tools/Initialize-SqlServerLabHostTools.ps1
+  validation_host_tool_resolution: Tests/Static/Invoke-HostToolResolutionChecks.ps1
   state_contract: Private/StateMachine.ps1
   cleanup_contract: Private/CleanupEngine.ps1
   container_reconcile_contract: Private/ContainerReconcile.ps1
@@ -551,6 +554,12 @@ internal_components:
       - "belegte SQL-Hostports aus TCP-Listenern, Docker und Podman ermitteln"
       - "Portsuche und Runtime-Bindung mit hostweitem, prozessübergreifendem Mutex serialisieren"
       - "atomare Parallelprovisionierung unterstützen"
+  - name: HostToolResolution
+    source: Private/HostToolResolution.ps1
+    responsibilities:
+      - "Docker, Podman und Python ueber sichere explizite Overrides, Sessionbefehle, persistierte PATH-Eintraege und bekannte Windows-Installationsorte deterministisch aufloesen"
+      - "ausschliesslich den aktuellen Prozess-PATH idempotent erweitern und Benutzer-/Maschinen-PATH niemals persistierend veraendern"
+      - "installierte Executables von nicht auffindbaren Tools trennen, ohne Runtime-Erreichbarkeit oder Ausfuehrungsberechtigung vorwegzunehmen"
   - name: ContainerAutoStart
     source: Private/ContainerAutoStart.ps1
     responsibilities:
@@ -947,6 +956,15 @@ validation:
       - start_failure
       - readiness_timeout
       - concurrent_start_lock
+  static_host_tool_resolution:
+    command: '.\Tests\Static\Invoke-HostToolResolutionChecks.ps1'
+    source: Tests/Static/Invoke-HostToolResolutionChecks.ps1
+    covers:
+      - explicit_exact_path_overrides
+      - process_path_only_idempotency
+      - persisted_path_immutability
+      - docker_podman_python_windows_fallbacks
+      - centralized_podman_bootstrap_integration
   static_container_autostart:
     command: '.\Tests\Static\Invoke-ContainerAutoStartChecks.ps1'
     source: Tests/Static/Invoke-ContainerAutoStartChecks.ps1
