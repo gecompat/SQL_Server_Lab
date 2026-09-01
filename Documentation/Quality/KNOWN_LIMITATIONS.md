@@ -912,6 +912,13 @@ definiert `Lab_Data` deshalb als hostseitigen Katalog-, Austausch- und
 Recovery-Einstieg statt als Vollresidenzversprechen. Native katalogisierte
 Container-Instanzstores bleiben zulässig; globale Runtime-/Machine-Ablagen und
 labfremde Ressourcen werden ohne getrennten Ownership-Vertrag nicht verändert.
+Der zusätzliche strikte Vertrag `SqlServerLab.CleanupFindings/1.0` trennt
+bewusst retained und geteilte Ressourcen, unerwartete Residuen,
+recoverypflichtige Katalog-/Hyper-V-Zustände und unverifizierbare Evidence.
+Jeder Befund enthält nur stabile Subjektidentität, Provider, Reason-Code und
+sanitisierten Handlungshinweis und setzt `AutomaticMutationAllowed=false`.
+Diese verständliche Auditprojektion ist implementiert; sie repariert oder
+entfernt keine Ressource und ersetzt weder Ownership- noch Referenzprüfung.
 Der `SqlServerLab.PersistentStorageCatalog/1.0`-Vertrag mit stabilen
 `PersistentStorageId`-Werten, Klassen, Zuständen, Referenzen und exklusiven
 Leases sowie der Residency-gebundene `SqlServerLab.PersistentStoragePlan/1.0`

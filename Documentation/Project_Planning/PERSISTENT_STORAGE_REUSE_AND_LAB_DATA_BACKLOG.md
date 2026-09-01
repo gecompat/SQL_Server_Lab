@@ -2,7 +2,7 @@
 
 ## Status und Priorität
 
-`ACTIVE / PSR_001_PARTIAL_PSR_002_COMPLETE_PSR_003_PARTIAL_PSR_004_006_READ_ONLY_PSR_005_007_008_009_010_IMPLEMENTED_CORE` – die vorhandenen
+`ACTIVE / PSR_001_PARTIAL_PSR_002_COMPLETE_PSR_003_PARTIAL_PSR_004_006_READ_ONLY_PSR_005_007_008_009_010_012_IMPLEMENTED_CORE` – die vorhandenen
 Persistenzmechanismen schützen bereits Teile des SQL-Zustands, bilden aber noch
 keinen vollständigen, providerübergreifenden Wiederverwendungs- und
 Löschvertrag. Planung ist kein Implementierungs- oder Runtime-Nachweis.
@@ -86,6 +86,15 @@ Hostdefaults und ihr physisches Backing `REPORT_ONLY`; Relocation, Removal,
 Default-Connection-/Modusänderung und Adoption labfremder Ressourcen sind
 explizit blockiert. Eine künftig dedizierte Runtime benötigt weiterhin einen
 eigenen Ownership-, Location-, Capacity-, Recovery- und Cleanup-Vertrag.
+
+Der read-only Core-Slice `PSR-012` ist implementiert. Der öffentliche
+Cleanup-Audit projiziert die Residency-Matrix zusätzlich als strikten Vertrag
+`SqlServerLab.CleanupFindings/1.0`: bewusst retained und geteilte Objekte,
+unerwartete Residuen einschließlich Orphan-Containern und -Volumes,
+recoverypflichtige Katalog-/Hyper-V-Zustände sowie unverifizierbare Evidence
+stehen in getrennten Listen. Jeder Befund bindet eine stabile Subjektidentität,
+Provider, Reason-Code und einen sanitisierten Handlungshinweis; der Audit
+erteilt ausdrücklich keine automatische Mutationsautorität.
 
 Der read-only Core-Slice `PSR-010` ist implementiert. Der Vertrag
 `SqlServerLab.DatabaseMigrationDependencyInventory/1.0` zählt SQL-seitig
@@ -391,7 +400,7 @@ Volumename ersetzt diese Identität nicht.
 | `PSR-009` | P2 | Datenbankpakete inklusive FILESTREAM, Attach und Clone implementieren | `IMPLEMENTED_CORE`: vollständiger Offline-Dateivertrag, rekursive Hashes, unabhängiger Clone und journalisiertes Copy-then-Attach; native Hyper-V-/FILESTREAM-Abnahme sowie öffentliche Bedienung offen |
 | `PSR-010` | P2 | Serverobjekt- und TDE-Abhängigkeiten inventarisieren und Migrationsgrenzen anzeigen | `IMPLEMENTED_CORE`: read-only SQL-Counts, TDE-Recovery-Gate, externe Review-Grenzen und sanitisierte `DATABASE_FILES_ONLY`-Receipts; Export/Import und öffentliche Bedienung offen |
 | `PSR-011` | P1 | identische CLI- und GUI-Flows für Auswahl, Retention, Restore, Attach, Clone und Delete liefern | `IMPLEMENTED_PARTIAL`: Backup-Inventur und Restore wählen in öffentlicher CLI und Workflow-UI dieselbe stabile BackupSetId über den gemeinsamen fail-closed Core; Retention, Attach, Clone und Delete bleiben offen |
-| `PSR-012` | P1 | Cleanup-Audit um persistente Stores, Runtime-Backing, Orphans und Referenzschutz erweitern | verständliche Residuen- und Recovery-Ausgabe |
+| `PSR-012` | P1 | Cleanup-Audit um persistente Stores, Runtime-Backing, Orphans und Referenzschutz erweitern | `IMPLEMENTED_CORE`: strikte getrennte Findings für Retention, unerwartete Residuen, Recovery und unverifizierbare Evidence; automatische Mutation bleibt ausgeschlossen |
 | `PSR-013` | P2 | journalisierte Migration vorhandener Volumes/VHDX und Metadaten bereitstellen | Resume, Rollback, Hash- und Kapazitätsnachweis |
 
 `P0-Analyse` bedeutet hier, dass die Entscheidung vor jeder breiten
@@ -474,6 +483,13 @@ nicht Teil dieses Slices.
   Container, Volumes, Images, Machines oder Hostdefaults.
 - Der Cleanup-Audit zeigt nach Erfolg alle bewusst retained Objekte mit Grund
   sowie unerwartete Residuen getrennt an.
+
+Stand 2026-09-01: `SqlServerLab.CleanupFindings/1.0` trennt retained und
+geteilte Ressourcen von Orphan-Containern/-Volumes, externen oder ungetrackten
+Residuen, recoverypflichtigen Persistent-Storage-/Hyper-V-Zuständen und
+unverifizierbarer Provider-Evidence. Stabile Subjektidentität, Provider,
+Reason-Code und Handlungshinweis sind schemafest; jeder Befund setzt
+`AutomaticMutationAllowed=false`.
 - Die reale Storage-Matrix weist für jede Provider-/Hostkombination aus, welche
   Daten physisch unter `Lab_Data`, in einer Runtime-/Machine-Disk oder an einem
   externen Ort liegen. Keine indirekte Referenz wird als physische Ablage

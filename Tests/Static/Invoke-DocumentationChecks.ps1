@@ -856,7 +856,7 @@ Add-ValidationResult `
 
 Add-ValidationResult `
     -Name 'PSR-003 dokumentiert den partiellen BACKUP_SET-Katalogcommit ohne breites Mutationsversprechen' `
-    -Success ($persistentStorageBacklog -match '(?m)^`ACTIVE / PSR_001_PARTIAL_PSR_002_COMPLETE_PSR_003_PARTIAL_PSR_004_006_READ_ONLY_PSR_005_007_008_009_010_IMPLEMENTED_CORE`' -and
+    -Success ($persistentStorageBacklog -match '(?m)^`ACTIVE / PSR_001_PARTIAL_PSR_002_COMPLETE_PSR_003_PARTIAL_PSR_004_006_READ_ONLY_PSR_005_007_008_009_010_012_IMPLEMENTED_CORE`' -and
         $persistentStorageBacklog -match '(?m)^\| `PSR-003` .*\| `IMPLEMENTED_PARTIAL`:' -and
         $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.PersistentStorageCatalog/1.0') -and
         $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.PersistentStoragePlan/1.0') -and
@@ -923,6 +923,16 @@ Add-ValidationResult `
         $repoMap -match 'database_migration_dependency_inventory: Private/DatabaseMigrationDependency\.ps1' -and
         $repoMap -match 'database_migration_dependency_inventory_schema: Schemas/database-migration-dependency-inventory\.schema\.json' -and
         $repoMap -match 'validation_database_migration_dependency: Tests/Static/Invoke-DatabaseMigrationDependencyChecks\.ps1')
+
+Add-ValidationResult `
+    -Name 'PSR-012 trennt Retention, Residuen, Recovery und unverifizierbare Evidence read-only' `
+    -Success ($persistentStorageBacklog -match '(?m)^\| `PSR-012` .*\| `IMPLEMENTED_CORE`:' -and
+        $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.CleanupFindings/1.0') -and
+        $persistentStorageBacklog -match [regex]::Escape('AutomaticMutationAllowed=false') -and
+        $knownLimitations -match 'bewusst retained und geteilte Ressourcen, unerwartete Residuen' -and
+        $knownLimitations -match [regex]::Escape('AutomaticMutationAllowed=false') -and
+        $repoMap -match 'cleanup_audit_findings: Private/CleanupAuditFindings\.ps1' -and
+        $repoMap -match 'cleanup_audit_schema: Schemas/lab-cleanup-audit\.schema\.json')
 
 Add-ValidationResult `
     -Name 'Roadmap beschreibt den real belegten Container-Reconcile-Stand widerspruchsfrei' `

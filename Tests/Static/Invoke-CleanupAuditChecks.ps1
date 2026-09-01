@@ -193,6 +193,15 @@ try {
         $null = Add-CleanupStep -RunDir $buildDirectory -ResourceType vhdx -ResourceId $buildVhdx `
             -Action remove -Provider hyperv -ProviderSubRunId provider-hyperv-builder
         $buildCleanup = Invoke-CleanupPlan -RunDir $buildDirectory -ScopeId $buildScopeId
+        $recoveryStorageId = New-LabGuid
+        $catalogRecoveryFindings = Get-LabCleanupAuditFindings -ResidencyInventory $auditResult.Audit.StorageResidency `
+            -PersistentStorageCatalog ([PSCustomObject]@{
+                Status='DIVERGED'; Issues=@('PERSISTENT_STORAGE_CATALOG_DIVERGED')
+                Document=[PSCustomObject]@{ Stores=@([PSCustomObject]@{
+                    PersistentStorageId=$recoveryStorageId; Provider='docker'; DisplayName='synthetic-recovery-store'
+                    State='RECOVERY_REQUIRED'
+                }) }
+            })
 
         [PSCustomObject]@{
             Path=$auditResult.Path; Audit=$auditResult.Audit; SecondAudit=$secondAudit.Audit; RunId=$run.RunId
@@ -210,6 +219,7 @@ try {
             ValidExternalRemoved=(-not (Test-Path -LiteralPath $cleanExternal -PathType Leaf))
             BuildCleanup=$buildCleanup
             BuildVhdxRemoved=(-not (Test-Path -LiteralPath $buildVhdx -PathType Leaf))
+            RecoveryStorageId=$recoveryStorageId; CatalogRecoveryFindings=$catalogRecoveryFindings
         }
     }
     Add-CheckResult -Name 'Cleanup-Audit meldet bekannte Runtime-Reste' -Success ($result.Audit.Status -eq 'RESIDUALS' -and $result.Audit.Summary.ResidualCount -ge 3)
@@ -218,6 +228,11 @@ try {
         -SchemaFile (Join-Path $repoRoot 'Schemas/lab-cleanup-audit.schema.json') -ErrorAction SilentlyContinue -ErrorVariable cleanupSchemaErrors)
     Add-CheckResult -Name 'Erweiterter Cleanup-Audit erfüllt das versionierte Schema' -Success $cleanupSchemaValid `
         -Message (@($cleanupSchemaErrors | ForEach-Object { $_.Exception.Message }) -join '; ')
+    $tamperedFindingAudit = $result.Audit | ConvertTo-Json -Depth 50 | ConvertFrom-Json -Depth 50
+    $tamperedFindingAudit.Findings.Retained[0].Category = 'UNEXPECTED_RESIDUAL'
+    Add-CheckResult -Name 'Findings-Schema erzwingt die Kategorie der getrennten Liste' -Success (-not (
+        ($tamperedFindingAudit | ConvertTo-Json -Depth 50) |
+            Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/lab-cleanup-audit.schema.json') -ErrorAction SilentlyContinue))
     Add-CheckResult -Name 'Storage-Residency erfüllt den eigenen versionierten Vertrag' -Success (
         $result.Audit.StorageResidency.ContractVersion -eq 'SqlServerLab.StorageResidencyInventory/1.0' -and
         (($result.Audit.StorageResidency | ConvertTo-Json -Depth 50) | Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/lab-storage-residency-inventory.schema.json') -ErrorAction SilentlyContinue))
@@ -236,6 +251,42 @@ try {
     Add-CheckResult -Name 'Benannte Runtime-Ressourcen werden inventarisiert' -Success ($result.Audit.ManagedVolumes[0].Name -eq 'sql-lab-synthetic-volume' -and $result.Audit.ManagedNetworks[0].Name -eq 'sql-lab-synthetic-network')
     $persistentVolume = @($result.Audit.StorageResidency.Objects | Where-Object LogicalName -eq 'sql-lab-persistent-storage-audit-docker-primary-sql2025')[0]
     $orphanVolume = @($result.Audit.StorageResidency.Objects | Where-Object LogicalName -eq 'sql-lab-synthetic-volume')[0]
+    $allFindings = @($result.Audit.Findings.Retained) + @($result.Audit.Findings.UnexpectedResiduals) +
+        @($result.Audit.Findings.RecoveryRequired) + @($result.Audit.Findings.Unverifiable)
+    Add-CheckResult -Name 'Cleanup-Findings sind streng versioniert, gezählt und nicht mutierend' -Success (
+        $result.Audit.Findings.ContractVersion -eq 'SqlServerLab.CleanupFindings/1.0' -and
+        $result.Audit.Findings.Summary.Retained -eq @($result.Audit.Findings.Retained).Count -and
+        $result.Audit.Findings.Summary.UnexpectedResiduals -eq @($result.Audit.Findings.UnexpectedResiduals).Count -and
+        $result.Audit.Findings.Summary.RecoveryRequired -eq @($result.Audit.Findings.RecoveryRequired).Count -and
+        $result.Audit.Findings.Summary.Unverifiable -eq @($result.Audit.Findings.Unverifiable).Count -and
+        @($allFindings | Where-Object AutomaticMutationAllowed).Count -eq 0)
+    Add-CheckResult -Name 'Bewusst retained Storage wird mit stabilem Grund getrennt ausgewiesen' -Success (
+        @($result.Audit.Findings.Retained | Where-Object {
+            $_.SubjectId -eq $persistentVolume.ObjectId -and $_.ReasonCode -eq 'PRESERVE_RETAINED_POLICY'
+        }).Count -eq 1)
+    Add-CheckResult -Name 'Orphan-Container und -Volume stehen getrennt unter unerwarteten Residuen' -Success (
+        @($result.Audit.Findings.UnexpectedResiduals | Where-Object {
+            $_.SubjectKind -eq 'CONTAINER' -and $_.SubjectId -eq 'synthetic' -and $_.ReasonCode -eq 'ORPHAN_CONTAINER'
+        }).Count -eq 1 -and
+        @($result.Audit.Findings.UnexpectedResiduals | Where-Object {
+            $_.SubjectKind -eq 'STORAGE_OBJECT' -and $_.SubjectId -eq $orphanVolume.ObjectId -and $_.ReasonCode -eq 'ORPHAN_CANDIDATE'
+        }).Count -eq 1)
+    Add-CheckResult -Name 'Recovery- und unverifizierbare Befunde besitzen getrennte Handlungshinweise' -Success (
+        @($result.Audit.Findings.RecoveryRequired | Where-Object {
+            $_.SubjectKind -eq 'HYPERV_RUN' -and $_.SubjectId -eq $result.RunId -and
+            $_.ReasonCode -eq 'HYPERV_MIGRATION_RECOVERY_REQUIRED' -and $_.Guidance
+        }).Count -eq 1 -and
+        @($result.Audit.Findings.Unverifiable | Where-Object {
+            $_.Provider -eq 'podman' -and $_.ReasonCode -eq 'STORAGE_EVIDENCE_UNVERIFIABLE' -and $_.Guidance
+        }).Count -ge 1 -and
+        @($result.CatalogRecoveryFindings.RecoveryRequired | Where-Object {
+            $_.SubjectKind -eq 'PERSISTENT_STORAGE' -and $_.SubjectId -eq $result.RecoveryStorageId -and
+            $_.ReasonCode -eq 'PERSISTENT_STORAGE_RECOVERY_REQUIRED' -and $_.Guidance
+        }).Count -eq 1 -and
+        @($result.CatalogRecoveryFindings.RecoveryRequired | Where-Object {
+            $_.SubjectId -eq 'persistent-storage-catalog' -and
+            $_.ReasonCode -eq 'PERSISTENT_STORAGE_CATALOG_DIVERGED' -and $_.Guidance
+        }).Count -eq 1)
     Add-CheckResult -Name 'Persistentes Named Volume bleibt als native Runtime-Residency mit aktiver Referenz erhalten' -Success (
         $persistentVolume.ObjectClass -eq 'INSTANCE_STORE' -and $persistentVolume.Lifecycle -eq 'RETAINED' -and
         $persistentVolume.Residency -eq 'NATIVE_RUNTIME' -and $persistentVolume.LabDataRelation -eq 'RUNTIME_INTERNAL' -and

@@ -70,6 +70,7 @@ try {
     $podmanProviderText = Get-Content -LiteralPath (Join-Path $repoRoot 'Providers\Podman\PodmanProvider.ps1') -Raw -Encoding utf8
     $runtimeScopeText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private\ContainerRuntimeScope.ps1') -Raw -Encoding utf8
     $imageArtifactText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private\ContainerImageArtifact.ps1') -Raw -Encoding utf8
+    $storageResidencyText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private\StorageResidencyInventory.ps1') -Raw -Encoding utf8
     $cleanupAuditText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public\Get-SqlServerLabCleanupAudit.ps1') -Raw -Encoding utf8
     $bootstrapText = Get-Content -LiteralPath (Join-Path $repoRoot 'Tests\Integration\Initialize-PodmanRuntime.ps1') -Raw -Encoding utf8
     $backupText = Get-Content -LiteralPath (Join-Path $repoRoot 'Tests\Integration\Invoke-BackupLibraryCrossProviderAcceptance.ps1') -Raw -Encoding utf8
@@ -94,6 +95,9 @@ try {
         $cleanupAuditText -match '& \$runtimeInvocation info' -and
         $cleanupAuditText -notmatch 'Get-Command \$runtime' -and
         $cleanupAuditText -notmatch '& \$runtime (info|volume|network)')
+    Add-CheckResult -Name 'Storage-Residency verwendet für Root und Volume den zentralen Runtime-Aufruf' -Success (
+        @([regex]::Matches($storageResidencyText, 'Get-LabHostToolInvocation -Name \$Provider')).Count -eq 2 -and
+        $storageResidencyText -notmatch '& \$Provider (info|volume)')
     Add-CheckResult -Name 'Podman-Bootstrap ruft den zentral aufgelösten Pfad statt eines nackten Befehls auf' -Success (
         $bootstrapText -match 'Initialize-SqlServerLabHostTools\.ps1' -and
         $bootstrapText -match '& \$podmanInvocation info' -and
