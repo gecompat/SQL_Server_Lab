@@ -75,8 +75,12 @@ operationsgebundenes Ziel, mountet die Quelle nur read-only, vergleicht
 Dateizahl, Bytes und SHA-256-Inhaltsdigest und bleibt bei Fehlern über ein
 `RECOVERY_REQUIRED`-Journal fortsetzbar. Die realen Docker- und Podman-Läufe
 bestätigen nach Recreate und im Clone jeweils ein Serverobjekt sowie eine
-Benutzerdatenbank. Katalog-Commit/Lease-Akquisition, External-Runtime-Sidecars
-und öffentliche CLI-/GUI-Anbindung bleiben getrennte Folgearbeit.
+Benutzerdatenbank. Erst nach der Digest-Postcondition wird das Clone-Ziel mit
+seiner vorab vergebenen stabilen ID rollbackfähig auf alle controllergebundenen
+Katalogspiegel committed. Ein Katalogfehler verhindert `COMPLETED` und bleibt
+über dasselbe Journal fortsetzbar; der Commit ist idempotent. Lease-Akquisition,
+External-Runtime-Sidecars und öffentliche CLI-/GUI-Anbindung bleiben getrennte
+Folgearbeit.
 
 Der read-only Slice `PSR-006` ist implementiert und gegen die reale Docker-
 Desktop- sowie Podman-WSL-Runtime belegt. Der sanitisierte Vertrag
@@ -393,9 +397,9 @@ Volumename ersetzt diese Identität nicht.
 |---|---:|---|---|
 | `PSR-001` | P0-Analyse | Ist-Inventar aller persistenten, rungebundenen und verbleibenden Objekte für Docker, Podman und Hyper-V | `IMPLEMENTED_PARTIAL`: versionierte read-only Matrix mit stabilen Objekt-IDs, Residency, Lifecycle, Cleanup-Policy und Provider-Coverage; physisches Desktop-/Machine-Backing bleibt explizit unverifizierbar |
 | `PSR-002` | P0-Analyse | `Lab_Data`-Versprechen, native Runtime-Ausnahmen und Hosteingriffsgrenzen entscheiden | `COMPLETE`: bindender `SqlServerLab.LabDataResidencyDecision/1.0`-Entscheid |
-| `PSR-003` | P1 | Storage-Katalog mit stabiler ID, Klassen, Zuständen, Referenzen und Leases entwerfen | `IMPLEMENTED_PARTIAL`: Schema, Parser, Planner, Inventarbindung und rollbackfähige, idempotente `BACKUP_SET`-/`DATABASE_PACKAGE`-Registrierung auf allen controllergebundenen Spiegeln; generische Mutation, öffentliche Bestandsmigration, Lease-Akquisition, Wiederverwendung und Löschung bleiben offen |
+| `PSR-003` | P1 | Storage-Katalog mit stabiler ID, Klassen, Zuständen, Referenzen und Leases entwerfen | `IMPLEMENTED_PARTIAL`: Schema, Parser, Planner, Inventarbindung und rollbackfähige, idempotente `BACKUP_SET`-/`DATABASE_PACKAGE`-/Clone-`INSTANCE_STORE`-Registrierung auf allen controllergebundenen Spiegeln; generische Mutation, öffentliche Bestandsmigration, Lease-Akquisition, Wiederverwendung und Löschung bleiben offen |
 | `PSR-004` | P1 | Retention-, Backup-on-Remove-, Package- und expliziten Löschvertrag entwerfen | `IMPLEMENTED_READ_ONLY`: verlustsicherer Cleanup-/Recovery-Plan; Executor und getrennte endgültige Storage-Löschaktion bleiben offen |
-| `PSR-005` | P1 | Docker-/Podman-Instanzstore auswählbar, fortsetzbar und klonbar machen | `IMPLEMENTED_CORE`: stabile ID-Auswahl, detached Continue/Clone, Digest/Resume und getrennte reale Docker-/Podman-Nachweise; Katalog-Commit, Sidecars und öffentliche Bedienung offen |
+| `PSR-005` | P1 | Docker-/Podman-Instanzstore auswählbar, fortsetzbar und klonbar machen | `IMPLEMENTED_CORE`: stabile ID-Auswahl, detached Continue/Clone, Digest/Resume, atomarer idempotenter Clone-Katalog-Commit und getrennte reale Docker-/Podman-Nachweise; Lease-Akquisition, Sidecars und öffentliche Bedienung offen |
 | `PSR-006` | P1 | Podman-Machine- und Docker-Engine-/Context-Reichweite bewerten und gegebenenfalls dediziert verwalten | `IMPLEMENTED_READ_ONLY`: stabile sanitisierte Runtime-ID, Context-/Connection-/Machine-Bindung und REPORT_ONLY-Hostgrenze real belegt; dedizierter Ownership-/Lifecycle-Vertrag bleibt offen |
 | `PSR-007` | P1 | Hyper-V-Daten-VHDX sicher auswählen, reattachen, freigeben und klonen | `IMPLEMENTED_CORE`: Storage-ID-, Disk-/VM-/Checkpoint-/Clean-Detach-/SQL-Versions-validierter Host-Lifecycle, unabhängiger Clone und realer Hyper-V-Nachweis; Katalog-Commit, öffentliche Bedienung und explizite Datenbankaktion bleiben getrennt |
 | `PSR-008` | P1 | Providerneutrale Backup-Bibliothek mit automatischem Backup und Restore-Verifikation liefern | `IMPLEMENTED_CORE`: inhaltsadressierte `Lab_Data`-Bibliothek, `CHECKSUM`, `RESTORE VERIFYONLY`, Hash, Metadatenreceipt, öffentliche BackupSetId-Auswahl und realer Docker→Podman-Inhaltsnachweis; reale FILESTREAM-Cross-Provider-Evidence bleibt offen |
