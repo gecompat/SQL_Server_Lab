@@ -55,7 +55,13 @@ try {
     Add-CheckResult -Name 'Metadaten registrieren hyperv' -Success ($metadata.name -eq 'hyperv')
     Add-CheckResult `
         -Name 'SQL-Prepared-Image-Grenze und nativ belegte External-Runtime-Faehigkeiten sind getrennt ausgewiesen' `
-        -Success ($metadata.runtimeStatus -eq 'windows-specialization-sql-readiness-orchestration' -and $metadata.sqlProvisioning -eq $false -and $metadata.sqlProvisioningScope -eq 'prepared-image-clone-only' -and $metadata.limitations -notcontains 'no-real-windows-sql-e2e-evidence' -and $metadata.limitations -notcontains 'no-sql-complete-image-runtime' -and $metadata.capabilities -contains 'powershell-direct-software-installation' -and $metadata.capabilities -contains 'sql-external-runtime')
+        -Success ($metadata.runtimeStatus -eq 'windows-specialization-sql-readiness-orchestration' -and $metadata.sqlProvisioning -eq $false -and $metadata.sqlProvisioningScope -eq 'prepared-image-clone-only' -and $metadata.limitations -notcontains 'no-real-windows-sql-e2e-evidence' -and $metadata.limitations -notcontains 'no-sql-complete-image-runtime' -and $metadata.capabilities -contains 'powershell-direct-software-installation' -and $metadata.capabilities -contains 'sql-external-runtime' -and $metadata.capabilities -contains 'hyperv-resource-reconcile')
+    Add-CheckResult `
+        -Name 'Hyper-V-Ressourcen-Reconcile deklariert alle benoetigten Hostkommandos' `
+        -Success (@(@('Set-VMMemory','Set-VMProcessor','Start-VM','Stop-VM') | Where-Object { $_ -notin @($metadata.requirements.commands) }).Count -eq 0)
+    Add-CheckResult `
+        -Name 'RAM-Grenzen werden vor der ersten Provider-Mutation validiert' `
+        -Success ($provider.IndexOf("throw 'HYPERV_DYNAMIC_MEMORY_RANGE_INVALID'") -lt $provider.IndexOf('$null = New-VHD -Path $childVhdxPath'))
     Add-CheckResult `
         -Name 'Runner-Labels sind capability-spezifisch' `
         -Success ((@($metadata.requirements.runnerLabels) -join ',') -eq 'self-hosted,SQL_Lab,Hyper-V')

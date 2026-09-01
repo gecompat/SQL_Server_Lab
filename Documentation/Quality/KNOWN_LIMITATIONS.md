@@ -629,6 +629,21 @@ Identity-Mismatch sowie die fail-closed Grenzen getestet. Diese Evidence
 verändert keine reale VM und ist kein positiver nativer Reparatur- oder
 External-Switch-Nachweis.
 
+### Hyper-V-vCPU-/RAM-Reconcile
+
+Neue Manifest-Runs persistieren einen portablen
+`SqlServerLab.HyperVResourceIntent/1.0` für vCPU, statisches oder dynamisches
+RAM sowie Min/Startup/Max. Der getrennte read-only Plan klassifiziert reine
+Min-/Max-Drift einer laufenden Dynamic-Memory-VM als `live`; vCPU, RAM-Modus
+und Startup als `restart`. Der Executor revalidiert Run, Scope, Instanz und VM,
+journalisiert Stop, Apply, Start und Postconditions und setzt
+`RECOVERY_REQUIRED` idempotent fort. Alte Runs ohne Ressourcenintent bleiben
+bewusst `unsupported`.
+
+No-op, Live, Restart, `WhatIf`, Recovery und Resume sind synthetisch belegt.
+Dieser Nachweis verändert keine reale VM und ersetzt noch keinen positiven
+nativen Hyper-V-Ressourcenlauf.
+
 ### Container-Reconcile
 
 Der öffentliche Containerplan und seine Action unterstützen derzeit CPU, RAM
@@ -802,10 +817,10 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
 2. Den synthetisch implementierten Hyper-V-`LAB_GENERATED`-Export und die
    automatische Sample-Manifestausführung real abnehmen (Sample-Welle 6).
 3. Die verbleibenden providerneutralen Software-Intents an die Software-Runtime
-   binden; Container-`nat` sowie Hyper-V-`hostOnly`/`isolated`/`nat`/`lan`,
-   IPAM, Gateway, DNS und DHCP sind bereits gebunden.
-   Den read-only Hyper-V-Netzwerk-Diff anschließend um kontrollierte,
-   eigentumsgeprüfte Reconcile-Reparaturen erweitern.
+   binden; Container-`nat`, Hyper-V-`hostOnly`/`isolated`/`nat`/`lan` sowie
+   Hyper-V-vCPU und statisches/dynamisches RAM sind bereits manifestgebunden.
+   Netzwerk- und Ressourcen-Reconcile sind synthetisch implementiert; positive
+   native Reparaturnachweise und weitere Hardware-/Storage-Klassen bleiben offen.
 4. Artifact Registry, Refresh/Rebuild und Evaluierungsablauf implementieren.
 5. Den belegten Windows-2025-/SQL-2025-Referenzpfad zur vollständigen
    allgemeinen Hyper-V-Manifestbindung und zu weiteren realen

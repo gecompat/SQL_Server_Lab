@@ -1107,6 +1107,23 @@ function Get-LabManifestValidationResult {
             if (-not $instance.hyperv -or -not $instance.hyperv.preparedImageId) {
                 $warnings.Add("${instancePath}.hyperv.preparedImageId: Nicht gesetzt; zur Laufzeit wird deterministisch die höchste lokale SQL_PREPARED_SEALED-Vorlage auf Windows Server Standard Evaluation mit Desktop Experience gewählt.")
             }
+            if ($instance.hyperv) {
+                $memoryStartupMB = if ($instance.hyperv.memoryStartupMB) { [int]$instance.hyperv.memoryStartupMB } else { 4096 }
+                $dynamicMemoryEnabled = if ($instance.hyperv.PSObject.Properties['dynamicMemoryEnabled']) { [bool]$instance.hyperv.dynamicMemoryEnabled } else { $true }
+                if ($dynamicMemoryEnabled) {
+                    $memoryMinimumMB = if ($instance.hyperv.memoryMinimumMB) { [int]$instance.hyperv.memoryMinimumMB } else { [int][Math]::Max(512, [Math]::Floor([double]$memoryStartupMB / 2)) }
+                    $memoryMaximumMB = if ($instance.hyperv.memoryMaximumMB) { [int]$instance.hyperv.memoryMaximumMB } else { [int][Math]::Min(1048576, [long]$memoryStartupMB * 2) }
+                    if ($memoryMinimumMB -gt $memoryStartupMB -or $memoryStartupMB -gt $memoryMaximumMB) {
+                        $errors.Add("${instancePath}.hyperv: Dynamisches RAM erfordert memoryMinimumMB <= memoryStartupMB <= memoryMaximumMB.")
+                    }
+                }
+                else {
+                    if (($instance.hyperv.memoryMinimumMB -and [int]$instance.hyperv.memoryMinimumMB -ne $memoryStartupMB) -or
+                        ($instance.hyperv.memoryMaximumMB -and [int]$instance.hyperv.memoryMaximumMB -ne $memoryStartupMB)) {
+                        $errors.Add("${instancePath}.hyperv: Statisches RAM erlaubt keine von memoryStartupMB abweichenden Min-/Max-Werte.")
+                    }
+                }
+            }
             if (@($instance.databases | Where-Object { $null -ne $_ }).Count -gt 0 -or
                 @($instance.postProvision | Where-Object { $null -ne $_ }).Count -gt 0 -or
                 @($instance.software | Where-Object { $null -ne $_ }).Count -gt 0) {

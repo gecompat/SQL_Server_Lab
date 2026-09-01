@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sql-server-lab.local/schemas/hyperv-resource-reconcile-journal.schema.json",
+  "title": "SqlServerLab.HyperVResourceReconcileJournal/1.0",
+  "type": "object",
+  "required": ["ContractVersion", "OperationId", "RunId", "ScopeId", "InstanceId", "Provider", "ChangeClass", "Status", "Target", "Runtime", "Recovery", "UpdatedAt"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.HyperVResourceReconcileJournal/1.0" },
+    "OperationId": { "type": "string", "format": "uuid" },
+    "RunId": { "type": "string", "format": "uuid" },
+    "ScopeId": { "type": "string", "format": "uuid" },
+    "InstanceId": { "type": "string", "minLength": 1 },
+    "Provider": { "const": "hyperv" },
+    "ChangeClass": { "enum": ["live", "restart"] },
+    "Status": { "enum": ["PREPARED", "STOPPED", "RESOURCES_APPLIED", "RESTARTED", "VERIFIED", "COMPLETED", "RECOVERY_REQUIRED"] },
+    "Target": {
+      "type": "object",
+      "required": ["ProcessorCount", "DynamicMemoryEnabled", "MemoryMinimumMB", "MemoryStartupMB", "MemoryMaximumMB"],
+      "properties": {
+        "ProcessorCount": { "type": "integer", "minimum": 1, "maximum": 64 },
+        "DynamicMemoryEnabled": { "type": "boolean" },
+        "MemoryMinimumMB": { "type": "integer", "minimum": 512, "maximum": 1048576 },
+        "MemoryStartupMB": { "type": "integer", "minimum": 512, "maximum": 1048576 },
+        "MemoryMaximumMB": { "type": "integer", "minimum": 512, "maximum": 1048576 }
+      },
+      "additionalProperties": false
+    },
+    "Runtime": {
+      "type": "object",
+      "required": ["VMId", "OriginalState"],
+      "properties": { "VMId": { "type": "string", "minLength": 1 }, "OriginalState": { "enum": ["Off", "Running"] } },
+      "additionalProperties": false
+    },
+    "Recovery": {
+      "type": "object",
+      "required": ["Status", "Attempts", "ErrorCode", "Errors"],
+      "properties": {
+        "Status": { "enum": ["RETRY_RESOURCE_RECONCILE", "NOT_REQUIRED"] },
+        "Attempts": { "type": "integer", "minimum": 0 },
+        "ErrorCode": { "type": ["string", "null"] },
+        "Errors": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "UpdatedAt": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

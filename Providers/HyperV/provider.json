@@ -36,7 +36,8 @@
     "sealed-image-publication",
     "software-catalog-planning",
     "powershell-direct-software-installation",
-    "sql-external-runtime"
+    "sql-external-runtime",
+    "hyperv-resource-reconcile"
   ],
   "limitations": [
     "no-unattended-os-build",
@@ -68,7 +69,11 @@
       "New-VMSwitch",
       "Remove-VMNetworkAdapter",
       "Remove-VMSwitch",
-      "Set-VMFirmware"
+      "Set-VMFirmware",
+      "Set-VMMemory",
+      "Set-VMProcessor",
+      "Start-VM",
+      "Stop-VM"
     ],
     "runnerLabels": [
       "self-hosted",

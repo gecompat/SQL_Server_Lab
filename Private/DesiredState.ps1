@@ -27,6 +27,47 @@ function Get-LabDriveIntentRole {
     }
 }
 
+function New-LabHyperVResourceIntentSnapshot {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Instance)
+
+    if ([string]$Instance.provider -ne 'hyperv') { return $null }
+    $settings = $Instance.hyperv
+    $startupMB = if ($settings -and $settings.PSObject.Properties['memoryStartupMB']) {
+        [int]$settings.memoryStartupMB
+    }
+    else { 4096 }
+    $dynamicEnabled = if ($settings -and $settings.PSObject.Properties['dynamicMemoryEnabled']) {
+        [bool]$settings.dynamicMemoryEnabled
+    }
+    else { $true }
+    $minimumMB = if (-not $dynamicEnabled) {
+        $startupMB
+    }
+    elseif ($settings -and $settings.PSObject.Properties['memoryMinimumMB']) {
+        [int]$settings.memoryMinimumMB
+    }
+    else { [int][Math]::Max(512, [Math]::Floor([double]$startupMB / 2)) }
+    $maximumMB = if (-not $dynamicEnabled) {
+        $startupMB
+    }
+    elseif ($settings -and $settings.PSObject.Properties['memoryMaximumMB']) {
+        [int]$settings.memoryMaximumMB
+    }
+    else { [int][Math]::Min(1048576, [long]$startupMB * 2) }
+
+    return [PSCustomObject]@{
+        Contract = [PSCustomObject]@{ Name='SqlServerLab.HyperVResourceIntent'; Version='1.0' }
+        ProcessorCount = if ($settings -and $settings.PSObject.Properties['processorCount']) { [int]$settings.processorCount } else { 4 }
+        DynamicMemoryEnabled = $dynamicEnabled
+        MemoryMinimumMB = $minimumMB
+        MemoryStartupMB = $startupMB
+        MemoryMaximumMB = $maximumMB
+        RequiredCapability = 'hyperv-resource-reconcile'
+        CapabilityStatus = 'DECLARED_SUPPORTED'
+    }
+}
+
 function New-LabInstanceIntentSnapshot {
     [CmdletBinding()]
     param(
@@ -147,6 +188,7 @@ function New-LabInstanceIntentSnapshot {
         Contract = [PSCustomObject]@{ Name = 'SqlServerLab.InstanceIntent'; Version = '1.0'; EvidenceBoundary = 'provider-metadata' }
         Drives = $drives
         Network = $network
+        Resources = New-LabHyperVResourceIntentSnapshot -Instance $Instance
         Software = $software
         Storage = $storage
     }

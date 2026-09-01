@@ -539,6 +539,9 @@ function New-HyperVLabEnvironment {
         [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9][A-Za-z0-9 _-]{0,63}$')][string]$LabName,
         [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$')][string]$InstanceId,
         [ValidateRange(512, 1048576)][int]$MemoryStartupMB = 4096,
+        [bool]$DynamicMemoryEnabled = $true,
+        [ValidateRange(0, 1048576)][int]$MemoryMinimumMB = 0,
+        [ValidateRange(0, 1048576)][int]$MemoryMaximumMB = 0,
         [ValidateRange(1, 64)][int]$ProcessorCount = 4,
         [ValidateSet('on', 'off')][string]$AutoStart = 'off',
         [string]$SwitchName,
@@ -562,6 +565,11 @@ function New-HyperVLabEnvironment {
     }
     $workload = if ($artifactState -eq 'SQL_PREPARED_SEALED') { 'sql' } else { 'windows' }
     $baseKind = if ($workload -eq 'sql') { 'sql-prepared' } else { 'windows-baseline' }
+    $effectiveMemoryMinimumMB = if (-not $DynamicMemoryEnabled) { $MemoryStartupMB } elseif ($MemoryMinimumMB -gt 0) { $MemoryMinimumMB } else { [int][Math]::Max(512, [Math]::Floor([double]$MemoryStartupMB / 2)) }
+    $effectiveMemoryMaximumMB = if (-not $DynamicMemoryEnabled) { $MemoryStartupMB } elseif ($MemoryMaximumMB -gt 0) { $MemoryMaximumMB } else { [int][Math]::Min(1048576, [long]$MemoryStartupMB * 2) }
+    if ($effectiveMemoryMinimumMB -gt $MemoryStartupMB -or $MemoryStartupMB -gt $effectiveMemoryMaximumMB) {
+        throw 'HYPERV_DYNAMIC_MEMORY_RANGE_INVALID'
+    }
     if ($StorageIntent) {
         if ($workload -ne 'sql') { throw 'HYPERV_STORAGE_INTENT_SQL_PREPARED_IMAGE_REQUIRED' }
         if (@($AdditionalDrives).Count -gt 0) { throw 'HYPERV_STORAGE_INTENT_ADDITIONAL_DRIVE_CONFLICT' }
@@ -621,13 +629,24 @@ function New-HyperVLabEnvironment {
         $null = Set-LabRunState -RunId $run.RunId -NewState PROVISIONING -Reason "Hyper-V-Lab wird aus $sourceDescription erstellt." -StateRoot $run.StateRoot
         Set-LabProviderSubRunState -RunId $run.RunId -Provider hyperv -NewState PROVISIONING -Reason "Hyper-V-Lab wird aus $sourceDescription erstellt." -StateRoot $run.StateRoot
         Write-LabInfo "Schritt 3/5: Differenzierende VM wird aus Image $ArtifactId erstellt."
-        $vm = New-HyperVInstance -ImageArtifactId $ArtifactId -RunDirectory $run.RunDir -RunId $run.RunId -ScopeId $run.ScopeId -InstanceId $InstanceId -LabName $LabName -MemoryStartupBytes ($MemoryStartupMB * 1MB) -ProcessorCount $ProcessorCount -AutoStart $AutoStart -SwitchName $(if ($labNetwork) { $labNetwork.Name } else { $null }) -AdditionalDrives $AdditionalDrives -StateRoot $run.StateRoot
+        $vm = New-HyperVInstance -ImageArtifactId $ArtifactId -RunDirectory $run.RunDir -RunId $run.RunId -ScopeId $run.ScopeId -InstanceId $InstanceId -LabName $LabName `
+            -MemoryStartupBytes ([long]$MemoryStartupMB * 1MB) -DynamicMemoryEnabled $DynamicMemoryEnabled `
+            -MemoryMinimumBytes ([long]$effectiveMemoryMinimumMB * 1MB) -MemoryMaximumBytes ([long]$effectiveMemoryMaximumMB * 1MB) `
+            -ProcessorCount $ProcessorCount -AutoStart $AutoStart -SwitchName $(if ($labNetwork) { $labNetwork.Name } else { $null }) `
+            -AdditionalDrives $AdditionalDrives -StateRoot $run.StateRoot
         $connection = [PSCustomObject]@{
             schemaVersion = 1; instances = @([PSCustomObject]@{
                 id = $InstanceId; provider = 'hyperv'; vmName = $vm.VMName; vmId = $vm.VMId; autostart = $AutoStart
                 sqlVersion = if ($workload -eq 'sql') { [string]$artifact.sql.version } else { $null }
                 sqlEdition = if ($workload -eq 'sql') { [string]$artifact.sql.edition } else { $null }
                 workload = $workload; baseKind = $baseKind; imageArtifactId = $ArtifactId; host = $null; port = $null
+                resourceSettings = [PSCustomObject]@{
+                    contractVersion='SqlServerLab.HyperVResourceIntent/1.0'; processorCount=$ProcessorCount
+                    dynamicMemoryEnabled=$DynamicMemoryEnabled
+                    memoryMinimumMB=$effectiveMemoryMinimumMB
+                    memoryStartupMB=$MemoryStartupMB
+                    memoryMaximumMB=$effectiveMemoryMaximumMB
+                }
                 labNetwork = if ($labNetwork) { [PSCustomObject]@{
                     name = $labNetwork.Name; intent = $labNetwork.Intent; subnet = $labNetwork.Subnet; prefixLength = $labNetwork.PrefixLength
                     hostAddress = $labNetwork.HostAddress; address = $labNetwork.address; gateway = $labNetwork.Gateway; dnsServers = @($labNetwork.DnsServers)

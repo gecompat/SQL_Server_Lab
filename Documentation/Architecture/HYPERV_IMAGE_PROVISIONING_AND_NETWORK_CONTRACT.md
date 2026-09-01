@@ -797,6 +797,15 @@ Hostinfrastruktur und eines vorhandenen getrennten Adapters ist synthetisch
 validiert. Eine positive native External-Switch-Erstellung und ein positiver
 nativer Reparaturlauf auf einem dafür freigegebenen Runner bleiben offen.
 
+Der Manifestvertrag bindet außerdem `processorCount`,
+`dynamicMemoryEnabled`, `memoryMinimumMB`, `memoryStartupMB` und
+`memoryMaximumMB` als hostwertfreien `HyperVResourceIntent/1.0`. Der
+Ressourcen-Reconcile vergleicht den vollständigen VM-Istzustand read-only.
+Reine Dynamic-Memory-Min-/Max-Änderungen sind bei laufender VM `live`; vCPU,
+RAM-Modus und Startup verwenden journalisiert Stop, Apply, Postcondition und
+Start. Alte Runs ohne diesen Intent und nicht eindeutig steuerbare VM-Zustände
+bleiben fail-closed. Der Vertrag ist synthetisch, noch nicht nativ belegt.
+
 ### Welle 7 – Software, External Runtimes und Samples
 
 - Capability Resolver;

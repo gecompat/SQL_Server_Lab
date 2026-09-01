@@ -8,6 +8,13 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- `Get-SqlServerLabReconcilePlan -HyperVResources` vergleicht den
+  manifestgebundenen vCPU-/RAM-Sollzustand read-only und hostwertfrei.
+- `Invoke-SqlServerLabReconcileAction -RepairHyperVResources` repariert reine
+  Dynamic-Min-/Max-Drift live und führt vCPU-, Modus- oder Startup-Drift mit
+  journalisiertem Stop-Apply-Start, Postconditions und Recovery-Resume aus.
+- Hyper-V-Manifeste unterstützen statisches oder dynamisches RAM mit
+  `memoryMinimumMB`, `memoryStartupMB` und `memoryMaximumMB`.
 - `Get-SqlServerLabReconcilePlan -HyperVNetwork` liefert einen hostwertfreien
   Reparaturplan für additive, lokal gebundene Hyper-V-Netzinfrastruktur und
   genau einen vorhandenen getrennten Adapter. Die zugehörige Action
