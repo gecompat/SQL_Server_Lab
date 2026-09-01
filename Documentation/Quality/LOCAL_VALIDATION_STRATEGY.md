@@ -505,6 +505,15 @@ fail-closed Grenzen für ältere SQL-Ziele, FILESTREAM, TDE, Detach-State und
 parallele Writer. Er ist bewusst kein Ersatz für einen nativen Windows-SQL-
 FILESTREAM-Attach; dessen Acceptance muss separat in Hyper-V laufen.
 
+`Invoke-DatabaseMigrationDependencyChecks.ps1` prüft den PSR-010-Core ohne
+Runtime-Mutation: Parser und Schema für read-only SQL-Counts, Server-Login-,
+Agent-Job-, Proxy-, Linked-Server- und TDE-Kategorien, die
+`NOT_OBSERVABLE`-Grenze für Serverkonfiguration/SSISDB/SSAS, das TDE-Recovery-
+Gate sowie sanitisierte `DATABASE_FILES_ONLY`-Receipts. Der bestehende
+`Invoke-BackupLibraryCrossProviderAcceptance.ps1` führt die echte SQL-Abfrage
+bei der Docker-Backup-Erstellung aus; dies ist kein Windows-TDE-,
+Serverobjekt-Export- oder Hyper-V-FILESTREAM-Nachweis.
+
 Der ausführbare native Windows-SQL-Nachweis ist:
 
 ```powershell

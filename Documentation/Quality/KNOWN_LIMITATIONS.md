@@ -434,6 +434,19 @@ Noch offen sind die öffentliche CLI-/GUI-Bedienung, der Katalog-Commit und der
 reale SQL-Server-/FILESTREAM-Hyper-V-Nachweis; die statische Dateisystem-
 Abnahme wird nicht als nativer SQL-Attach ausgegeben.
 
+Der read-only PSR-010-Core inventarisiert SQL-seitig beobachtbare Server-
+Login-Mappings, datenbankgebundene SQL-Agent-Jobs und deren Proxies,
+instanzweite Linked-Server-Kandidaten sowie TDE-Protectoren als sanitisierte
+Kategorien und Counts. Serverkonfiguration, SSISDB und SSAS sind aus einem
+Datenbankartefakt nicht vollständig beweisbar und bleiben `NOT_OBSERVABLE`.
+Neue Backup- und Datenbankpaket-Receipts weisen deshalb
+`DATABASE_FILES_ONLY`, `FullInstanceMigration=false` und die Nichtmitnahme von
+Serverobjekten, TDE-Keymaterial, Secrets und externen Services aus. Ohne
+verifizierte TDE-Recovery-Evidence endet portable Migration `BLOCKED`.
+Objekt-, Host-, Credential- und Schlüsselnamen werden im Receipt nicht
+persistiert. Noch offen sind Export-/Import-Executor für Serverobjekte,
+Keymaterialtransfer, externe Serviceprüfung und öffentliche CLI-/GUI-Flows.
+
 ## Restore
 
 Unterstützt werden direkte `.bak`-Dateien aus lokalen Pfaden oder HTTP(S)-URLs.

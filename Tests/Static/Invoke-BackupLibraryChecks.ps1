@@ -29,6 +29,9 @@ try {
         Set-Item Function:script:Get-LabDatabaseBackupMetadata -Value {
             [PSCustomObject]@{SqlMajorVersion='17';FileCount=2;FileStreamFileCount=0;FileTableCount=0;HasFileStream=$false;IsEncrypted=$false}
         }
+        Set-Item Function:script:Get-LabDatabaseMigrationDependencySqlObservation -Value {
+            [PSCustomObject]@{SqlMajorVersion='17';Containment='NONE';IsEncrypted=$false;EncryptionState=0;EncryptorType='NONE';ServerLoginMappingCount=1;SqlAgentJobCount=0;CredentialOrProxyCount=0;LinkedServerCount=0}
+        }
         Set-Item Function:script:Initialize-LabSampleBaselineBackupTarget -Value {
             [PSCustomObject]@{Provider='docker';ContainerName='sanitized-at-runtime';BackupRoot='/var/opt/mssql/backup'}
         }
@@ -77,6 +80,7 @@ try {
     Add-CheckResult 'Backup wird erst nach CHECKSUM und RESTORE VERIFYONLY veröffentlicht' ($result.Sql -match 'BACKUP DATABASE.+CHECKSUM' -and $result.Sql -match 'RESTORE VERIFYONLY.+WITH CHECKSUM')
     Add-CheckResult 'Inhaltsadressiertes Backup ist als REUSABLE selektierbar' ($result.Created -and $result.Selected)
     Add-CheckResult 'Receipt enthält sanitisierte Metadaten ohne Runtime-Endpunkte oder Credentials' (($result.Registry | ConvertTo-Json -Depth 40) -notmatch '14333|runtime-only|sanitized-at-runtime|not-persisted|BackupLibrary_Test')
+    Add-CheckResult 'Backup-Receipt weist Datenbankdateien und getrennte Serverobjekte statt Vollmigration aus' ($result.Registry.Backups[0].DatabaseMetadata.MigrationBoundary.ArtifactScope -eq 'DATABASE_FILES_ONLY' -and -not $result.Registry.Backups[0].DatabaseMetadata.MigrationBoundary.FullInstanceMigration -and 'SERVER_LOGIN_MAPPING' -in $result.Registry.Backups[0].DatabaseMetadata.MigrationBoundary.DependencyCategories)
     Add-CheckResult 'Cross-Provider-Inhaltsdigest wird getrennt als Restore-Evidence erfasst' ($result.Verification.TargetProvider -eq 'podman' -and $result.Verification.ContentSha256 -match '^[a-f0-9]{64}$')
     Add-CheckResult 'FILESTREAM-Backup verlangt echte FILESTREAM-Inhaltsevidence' $result.FileStreamGuard
     Add-CheckResult 'TDE-Backup wird ohne Zertifikat- und Recovery-Vertrag nicht veröffentlicht' $result.TdeGuard

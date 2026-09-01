@@ -856,7 +856,7 @@ Add-ValidationResult `
 
 Add-ValidationResult `
     -Name 'PSR-003 dokumentiert den implementierten read-only Katalogvertrag ohne Mutationsversprechen' `
-    -Success ($persistentStorageBacklog -match '(?m)^`ACTIVE / P1_PRODUCT_CONTRACT_WITH_PSR_001_PARTIAL_PSR_002_COMPLETE_PSR_003_PSR_004_AND_PSR_006_IMPLEMENTED_READ_ONLY_PSR_005_IMPLEMENTED_CORE`' -and
+    -Success ($persistentStorageBacklog -match '(?m)^`ACTIVE / PSR_001_PARTIAL_PSR_002_COMPLETE_PSR_003_004_006_READ_ONLY_PSR_005_007_008_009_010_IMPLEMENTED_CORE`' -and
         $persistentStorageBacklog -match '(?m)^\| `PSR-003` .*\| `IMPLEMENTED_READ_ONLY`:' -and
         $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.PersistentStorageCatalog/1.0') -and
         $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.PersistentStoragePlan/1.0') -and
@@ -912,6 +912,17 @@ Add-ValidationResult `
         $repoMap -match 'hyperv_persistent_data_intent_schema: Schemas/hyperv-persistent-data-intent\.schema\.json' -and
         $repoMap -match 'validation_hyperv_persistent_data_drive: Tests/Static/Invoke-HyperVPersistentDataDriveChecks\.ps1' -and
         $repoMap -match 'acceptance_hyperv_persistent_data_drive: Tests/Integration/Invoke-HyperVPersistentDataDriveAcceptance\.ps1')
+
+Add-ValidationResult `
+    -Name 'PSR-010 trennt Datenbankartefakte von Serverobjekten, TDE-Keymaterial und externen Services' `
+    -Success ($persistentStorageBacklog -match '(?m)^\| `PSR-010` .*\| `IMPLEMENTED_CORE`:' -and
+        $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.DatabaseMigrationDependencyInventory/1.0') -and
+        $persistentStorageBacklog -match [regex]::Escape('FullInstanceMigration=false') -and
+        $knownLimitations -match '(?s)Serverkonfiguration, SSISDB und SSAS.*?`NOT_OBSERVABLE`' -and
+        $knownLimitations -match '(?s)Objekt-, Host-, Credential- und Schlüsselnamen.*?nicht\s*persistiert' -and
+        $repoMap -match 'database_migration_dependency_inventory: Private/DatabaseMigrationDependency\.ps1' -and
+        $repoMap -match 'database_migration_dependency_inventory_schema: Schemas/database-migration-dependency-inventory\.schema\.json' -and
+        $repoMap -match 'validation_database_migration_dependency: Tests/Static/Invoke-DatabaseMigrationDependencyChecks\.ps1')
 
 Add-ValidationResult `
     -Name 'Roadmap beschreibt den real belegten Container-Reconcile-Stand widerspruchsfrei' `
