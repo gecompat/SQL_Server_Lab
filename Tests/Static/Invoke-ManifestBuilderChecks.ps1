@@ -456,6 +456,46 @@ Add-CheckResult `
     -Name 'Hyper-V-Manifest referenziert ein Prepared-Image ohne Klartextpasswort' `
     -Success $hyperVManifestResult.IsValid `
     -Message ($hyperVManifestResult.Errors -join '; ')
+
+$hyperVSampleManifest = $hyperVManifest | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
+$hyperVSampleManifest.instances[0] | Add-Member -NotePropertyName storageIntent -NotePropertyValue ([PSCustomObject]@{
+    contractVersion='SqlServerLab.StorageIntent/1.0';placementPolicy='logical-only';physicalIsolation='not-required'
+    roles=[PSCustomObject]@{
+        defaultData=[PSCustomObject]@{selector='default'}
+        defaultLog=[PSCustomObject]@{selector='default'}
+        backup=[PSCustomObject]@{selector='default'}
+    }
+    tempDb=[PSCustomObject]@{
+        distribution='single-location';dataFileCount=1;dataLocationSelectors=@('default')
+        logPlacement=[PSCustomObject]@{selector='default';logicalName='templog';fileName='templog.ldf';sizeMB=64;growth='32MB'}
+    }
+    databaseFiles=@();restoreRules=@()
+}) -Force
+$hyperVSampleManifest.instances[0] | Add-Member -NotePropertyName databases -NotePropertyValue @(
+    [PSCustomObject]@{name='Chinook';sample=[PSCustomObject]@{id='chinook';variant='sql-server'}}
+) -Force
+$hyperVSampleResult = Test-SqlServerLabManifest -InputObject $hyperVSampleManifest
+Add-CheckResult `
+    -Name 'SQL-Prepared-Hyper-V-Manifest akzeptiert katalogisierte Samples mit vollständigem Storage-Intent' `
+    -Success ($hyperVSampleResult.IsValid -and $hyperVSampleResult.Plan.Instances[0].Samples[0].SampleId -eq 'chinook' -and
+        $hyperVSampleResult.Plan.Instances[0].Samples[0].IntegrityStatus -eq 'catalog-sha256') `
+    -Message ($hyperVSampleResult.Errors -join '; ')
+
+$hyperVSampleWithoutStorage = $hyperVSampleManifest | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
+$hyperVSampleWithoutStorage.instances[0].PSObject.Properties.Remove('storageIntent')
+$hyperVSampleWithoutStorageResult = Test-SqlServerLabManifest -InputObject $hyperVSampleWithoutStorage
+Add-CheckResult `
+    -Name 'Hyper-V-Datenbankmanifest ohne Storage-Intent bleibt fail-closed' `
+    -Success (-not $hyperVSampleWithoutStorageResult.IsValid -and $hyperVSampleWithoutStorageResult.Errors -match 'vollständigen portablen Storage-Intent') `
+    -Message ($hyperVSampleWithoutStorageResult.Errors -join '; ')
+
+$hyperVOsSampleManifest = $hyperVSampleManifest | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
+$hyperVOsSampleManifest.instances[0].hyperv.preparedImageId = 'hyperv-os-sealed-' + ('a' * 64)
+$hyperVOsSampleResult = Test-SqlServerLabManifest -InputObject $hyperVOsSampleManifest
+Add-CheckResult `
+    -Name 'Hyper-V-Datenbanken auf einer reinen OS-Baseline werden vor Mutation abgelehnt' `
+    -Success (-not $hyperVOsSampleResult.IsValid -and $hyperVOsSampleResult.Errors -match 'SQL_PREPARED_SEALED') `
+    -Message ($hyperVOsSampleResult.Errors -join '; ')
 Add-CheckResult `
     -Name 'Hyper-V-Manifest plant standardmaessig HostOnly mit internem Switch' `
     -Success ($hyperVManifestResult.Plan.Instances[0].Network.Status -eq 'RESOLVED' -and

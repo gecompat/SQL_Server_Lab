@@ -266,8 +266,11 @@ stabilen Sample-PlanKeys und einem VM-gebundenen lokalen Ownership-Receipt.
 Er fuegt katalogisierte Samples ueber den gemeinsamen Handler hinzu und
 entfernt nur nachgewiesen run-eigene Outputs nach CHECKSUM-Backup und
 `RESTORE VERIFYONLY`; ungebundene Datenbanken bleiben unangetastet. Alte Runs
-ohne Ownership-Receipt, positive native Repair-Evidence und breiter Restore-/
-Create-Reconcile bleiben offen.
+ohne Ownership-Receipt und breiter Restore-/Create-Reconcile bleiben offen. Ein
+erhöhter nativer Runner samt isoliertem `SQL_PREPARED_SEALED`-Bootstrap bindet
+Plan, `WhatIf`, Add, No-op, eigentumsgebundene Entfernung, Fremddatenbankschutz,
+VM-Restart und Cleanup ausführbar; seine positive Ausführung ist noch
+`NOT_EXECUTED`.
 
 Der verbindliche Implementierungsvertrag steht in
 `Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md`.

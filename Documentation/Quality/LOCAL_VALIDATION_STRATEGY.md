@@ -128,6 +128,8 @@ Der Auto-Modus wählt für den mutierenden Lifecycle genau eine Runtime: Docker 
 .\Tests\Integration\Invoke-HyperVStorageAcceptance.ps1 `
     -StorageIntentPath .\Schemas\hyperv-storage-n5-intent.sample.json `
     -MediaRoot D:\Lab_Base
+.\Tests\Integration\Invoke-HyperVTestDatabaseReconcileAcceptance.ps1 `
+    -ArtifactId 'hyperv-sql-prepared-sealed-<sha256>'
 ```
 
 Fehlt auf dem Host ein dauerhaft veröffentlichtes SQL-2025-Prepared-Artifact,
@@ -147,6 +149,21 @@ isolierte Prepared-Image über die produktive Image-Registry. Beide
 Abwesenheits-Postconditions werden geprüft. Bei einem Fehler bleiben State und
 Artifact mit `RECOVERY_REQUIRED` für eine sichere Diagnose erhalten. Der
 Standardlauf der N4-Abnahme behält weiterhin nichts zurück.
+
+Für den nativen Testdatenbank-Reconcile prüft ein eigener erhöhter Runner den
+öffentlichen Plan-/Action-Vertrag mit einer fremden Schutzdatenbank. Er verlangt
+ein verifiziertes SQL-2025-Prepared-Artifact und beweist `WhatIf`, Addition,
+No-op, eigentumsgebundene Entfernung, erneuten No-op, VM-Restart und
+scopegebundenen Cleanup. Ohne dauerhaftes Artifact erzeugt der Wrapper einen
+isolierten N4-Stand und entfernt ihn nur nach vollständig grünem Ergebnis:
+
+```powershell
+.\Tests\Integration\Invoke-HyperVTestDatabaseReconcileAcceptanceBootstrap.ps1 `
+    -MediaRoot D:\Lab_Base
+```
+
+Der Runner ist implementiert und statisch gebunden; ein positiver nativer Lauf
+bleibt bis zur tatsächlichen erhöhten Ausführung `NOT_EXECUTED`.
 
 Es werden bewusst nicht alle CUs getestet. Docker und Podman verwenden je
 einen repraesentativen katalogisierten CU; Windows prueft die frische

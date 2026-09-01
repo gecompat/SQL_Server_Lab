@@ -1124,10 +1124,18 @@ function Get-LabManifestValidationResult {
                     }
                 }
             }
-            if (@($instance.databases | Where-Object { $null -ne $_ }).Count -gt 0 -or
-                @($instance.postProvision | Where-Object { $null -ne $_ }).Count -gt 0 -or
-                @($instance.software | Where-Object { $null -ne $_ }).Count -gt 0) {
-                $errors.Add("${instancePath}: Datenbanken, Software und Post-Provision-Skripte sind für den Hyper-V-Manifestpfad noch nicht atomar implementiert.")
+            $hyperVDatabases = @($instance.databases | Where-Object { $null -ne $_ })
+            $hyperVSoftware = @($instance.software | Where-Object { $null -ne $_ })
+            $hyperVPostProvision = @($instance.postProvision | Where-Object { $null -ne $_ })
+            if ($hyperVPostProvision.Count -gt 0) {
+                $errors.Add("${instancePath}.postProvision: Post-Provision-Skripte sind für den Hyper-V-Manifestpfad noch nicht atomar implementiert.")
+            }
+            if (($hyperVDatabases.Count -gt 0 -or $hyperVSoftware.Count -gt 0) -and
+                $instance.hyperv -and [string]$instance.hyperv.preparedImageId -match '^hyperv-os-sealed-') {
+                $errors.Add("${instancePath}.hyperv.preparedImageId: Datenbanken und Software benötigen ein SQL_PREPARED_SEALED-Image.")
+            }
+            if ($hyperVDatabases.Count -gt 0 -and -not $instance.storageIntent) {
+                $errors.Add("${instancePath}.storageIntent: Hyper-V-Datenbanken benötigen einen vollständigen portablen Storage-Intent.")
             }
             $hyperVDriveLetters = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
             foreach ($drive in @($instance.drives | Where-Object { $_ })) {

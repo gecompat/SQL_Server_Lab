@@ -652,9 +652,12 @@ Hostport und darf deshalb auf unterschiedlichen Gast-IP-Adressen identisch sein.
 eigene dynamische Daten-VHDX im Data Root erstellt; andere Klone verwenden sie
 nicht. Der Data Root muss vorher initialisiert sein. Ein Hyper-V-Manifest
 unterstützt derzeit genau eine Instanz und keine Mischung mit Containern.
-Katalogdatenbanken, beliebige Zusatzlaufwerke, Softwareinstallationen und
-Post-Provisioning-Skripte werden explizit abgelehnt, damit kein Manifest nur
-teilweise ausgeführt wird.
+Katalogdatenbanken sind auf einer `SQL_PREPARED_SEALED`-Vorlage mit einem
+vollständigen portablen `storageIntent` zulässig. Dasselbe gilt für die
+katalogisierten SQL-External-Runtimes, wenn das Prepared-Image ihre benötigten
+SQL-Features enthält. Eine reine `OS_SEALED`-Vorlage sowie freie
+Post-Provisioning-Skripte bleiben für diese Schritte vor jeder Mutation
+fail-closed.
 
 Ohne `switchName` verwendet der Manifestpfad den gespeicherten beziehungsweise
 verwalteten internen Hyper-V-Lab-Switch. Nach der unbeaufsichtigten OOBE erhält
