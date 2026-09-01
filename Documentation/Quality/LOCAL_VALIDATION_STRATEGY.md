@@ -650,6 +650,21 @@ Ein nicht verfügbarer Provider darf nicht als `PASS` behandelt werden.
 .\Tests\Integration\Invoke-SmokeMatrix.ps1
 ```
 
+### Host-Tool-Auflösung betroffen
+
+```powershell
+.\Tests\Static\Invoke-HostToolResolutionChecks.ps1
+.\Tests\Static\Invoke-PodmanBootstrapChecks.ps1
+.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider docker
+.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider podman
+```
+
+Der statische Resolver-Vertrag prüft sichere exakte Overrides, idempotente
+nur-prozesslokale `PATH`-Erweiterung, unveränderte persistierte Benutzer-/
+Maschinenwerte sowie die gemeinsame Einbindung in den Podman-Bootstrap. Die
+Runtime-Smokes bleiben erforderlich, weil Dateiauflösung weder Engine-
+Erreichbarkeit noch Ausführungsberechtigung beweist.
+
 ### Podman-Runtime betroffen
 
 ```powershell

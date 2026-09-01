@@ -16,6 +16,9 @@ param(
 
 $ErrorActionPreference='Stop'
 $repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+$hostToolResolution=@(& (Join-Path $repoRoot 'Tools\Initialize-SqlServerLabHostTools.ps1') -Name docker,podman)
+$runtimeInvocation=@{}
+foreach($resolution in $hostToolResolution){if($resolution.Available){$runtimeInvocation[[string]$resolution.Name]=[string]$resolution.Invocation}}
 $testRoot=Join-Path ([IO.Path]::GetTempPath()) "sql-lab-psr008-$([Guid]::NewGuid().ToString('N'))"
 $dataRoot=Join-Path $testRoot 'Lab_Data'
 $token=[Guid]::NewGuid().ToString('N').Substring(0,12)
@@ -35,7 +38,7 @@ $mutexAcquired=$false
 
 function Assert-BackupAcceptance { param([bool]$Condition,[string]$Description) if(-not $Condition){throw "BACKUP_LIBRARY_ACCEPTANCE_FAILED: $Description"}; Write-Host "PASS: $Description" -ForegroundColor Green }
 function Get-BackupAcceptancePort { $listener=[Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback,0); try{$listener.Start();return ([Net.IPEndPoint]$listener.LocalEndpoint).Port}finally{$listener.Stop()} }
-function Invoke-BackupRuntime { param([string]$Provider,[string[]]$Arguments,[switch]$AllowFailure) $output=@(& $Provider @Arguments 2>&1); if(-not $AllowFailure -and $LASTEXITCODE -ne 0){throw "PSR008_${Provider}_FAILED: $($output -join ' ')"}; @($output) }
+function Invoke-BackupRuntime { param([string]$Provider,[string[]]$Arguments,[switch]$AllowFailure) $invocation=[string]$runtimeInvocation[$Provider]; if(-not $invocation){throw "PSR008_${Provider}_NOT_RESOLVED"}; $output=@(& $invocation @Arguments 2>&1); if(-not $AllowFailure -and $LASTEXITCODE -ne 0){throw "PSR008_${Provider}_FAILED: $($output -join ' ')"}; @($output) }
 function Start-BackupSqlContainer { param([string]$Provider,[string]$Name,[int]$Port,[string]$RunId) $null=Invoke-BackupRuntime $Provider @('run','-d','--name',$Name,'-p',"127.0.0.1:${Port}:1433",'-e','ACCEPT_EULA=Y','-e',"MSSQL_SA_PASSWORD=$saPlain",'-e','MSSQL_PID=Developer','--label',"sql-server-lab.run-id=$RunId",'--label',"sql-server-lab.scope-id=$scope",$Image); $script:active+=@([PSCustomObject]@{Provider=$Provider;Name=$Name}) }
 function Wait-BackupSql { param([int]$Port) $deadline=[DateTime]::UtcNow.AddSeconds(180); do{$out=@(& sqlcmd -S "127.0.0.1,$Port" -U sa -P $saPlain -C -b -Q 'SET NOCOUNT ON; SELECT 1;' -h -1 -W 2>$null); if($LASTEXITCODE -eq 0 -and (($out|ForEach-Object{([string]$_).Trim()}) -contains '1')){return}; Start-Sleep -Seconds 2}while([DateTime]::UtcNow -lt $deadline); throw 'PSR008_SQL_READINESS_TIMEOUT' }
 function Invoke-BackupSql { param([int]$Port,[string]$Query,[string]$Database='master') $out=@(& sqlcmd -S "127.0.0.1,$Port" -U sa -P $saPlain -C -b -d $Database -Q "SET NOCOUNT ON; $Query" -h -1 -W 2>&1); if($LASTEXITCODE -ne 0){throw "PSR008_SQLCMD_FAILED: $($out -join ' ')"}; (($out|ForEach-Object{([string]$_).Trim()}|Where-Object{$_ -and $_ -notmatch '^Changed database context'}) -join "`n") }
@@ -43,11 +46,8 @@ function Get-TextSha256 { param([string]$Text) ([Convert]::ToHexString([Security
 
 try {
     $mutexAcquired=$mutex.WaitOne([TimeSpan]::FromMinutes(10)); if(-not $mutexAcquired){throw 'PSR008_RUNTIME_LOCK_TIMEOUT'}
-    if(-not (Get-Command podman -ErrorAction SilentlyContinue)){
-        $podmanCandidate=Join-Path $env:LOCALAPPDATA 'Programs\Podman\podman.exe'
-        if(Test-Path -LiteralPath $podmanCandidate -PathType Leaf){$env:PATH="$(Split-Path -Parent $podmanCandidate);$env:PATH"}
-    }
-    foreach($command in @('docker','podman','sqlcmd')){Assert-BackupAcceptance ([bool](Get-Command $command -ErrorAction SilentlyContinue)) "Befehl '$command' ist verfügbar"}
+    foreach($provider in @('docker','podman')){Assert-BackupAcceptance ([bool]$runtimeInvocation[$provider]) "Befehl '$provider' wurde zentral aufgelöst"}
+    Assert-BackupAcceptance ([bool](Get-Command sqlcmd -ErrorAction SilentlyContinue)) "Befehl 'sqlcmd' ist verfügbar"
     & (Join-Path $PSScriptRoot 'Initialize-PodmanRuntime.ps1') | Out-Host
     foreach($provider in @('docker','podman')){$null=Invoke-BackupRuntime $provider @('info'); $null=Invoke-BackupRuntime $provider @('image','inspect',$Image)}
     New-Item -ItemType Directory -Path $testRoot -Force | Out-Null

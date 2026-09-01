@@ -19,6 +19,7 @@ Container, Datenbanken oder Run-States.
 | `Invoke-DatabaseMigrationDependencyChecks.ps1` | Read-only SQL-Inventar für Serverobjekt-/TDE-Kategorien, sanitisierte Counts und ausdrückliche Datenbank-statt-Instanz-Migrationsgrenze | `.\Tests\Static\Invoke-DatabaseMigrationDependencyChecks.ps1` |
 | `Invoke-ContainerInstanceStoreChecks.ps1` | Stabile Storage-ID-Auswahl, Continue-Bindung, detached-only Clone, Digest-Postcondition und Recovery-Resume | `.\Tests\Static\Invoke-ContainerInstanceStoreChecks.ps1` |
 | `Invoke-ContainerRuntimeScopeChecks.ps1` | Stabile Runtime-ID, Docker-Context-/Podman-Machine-Bindung, Sanitization, Remote-/Mehrdeutigkeitsblockade und REPORT_ONLY-Hostgrenze | `.\Tests\Static\Invoke-ContainerRuntimeScopeChecks.ps1` |
+| `Invoke-HostToolResolutionChecks.ps1` | Prozesslokale Docker-/Podman-/Python-Auflösung, sichere Overrides, bekannte Windows-Installationsorte und unveränderter persistierter PATH | `.\Tests\Static\Invoke-HostToolResolutionChecks.ps1` |
 | `Invoke-PodmanBootstrapChecks.ps1` | Ready-, Start-, Fehler-, Timeout- und Parallelpfade des Podman-Bootstraps ohne echte Runtime | `.\Tests\Static\Invoke-PodmanBootstrapChecks.ps1` |
 | `Invoke-LabNetworkChecks.ps1` | Feste, konfigurierbare Docker-, Podman- und Hyper-V-Labnetze, CIDR-Kollisionsschutz sowie Hostzugriffsvertrag | `.\Tests\Static\Invoke-LabNetworkChecks.ps1` |
 | `Invoke-MediaRootLayoutChecks.ps1` | Externe Media-Root-Struktur, sichere Einsortierung, SHA-256-Sidecars, Idempotenz und Repository-Pfadgrenze | `.\Tests\Static\Invoke-MediaRootLayoutChecks.ps1` |
