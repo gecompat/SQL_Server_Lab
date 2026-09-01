@@ -68,7 +68,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | Komponente | Status | Autoritative Dateien |
 |---|---|---|
 | PowerShell-Modul | implementiert | `SqlServerLab.psd1`, `SqlServerLab.psm1` |
-| Öffentliche API | 50 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
+| Öffentliche API | 51 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
 | Docker | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman | implementiert | `Providers/Podman/PodmanProvider.ps1` |
 | SQL Server External Languages | Container: Java für SQL 2019, Python/R/Java für SQL 2022/2025, jeweils Docker und Podman; Hyper-V/Windows: SQL-2022 Python/R/Java nativ akzeptiert, C# für SQL 2019–2025 sichtbar `PREVIEW` | `../Catalogs/software.json`, `../Tests/Integration/Invoke-ExternalRuntimeContainerAcceptance.ps1`, `../Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1` |
@@ -82,7 +82,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | SQL Readiness | implementiert | `Private/SqlReadiness.ps1` |
 | Serverkonfiguration | teilweise implementiert | `Private/ServerConfig.ps1`, `Quality/KNOWN_LIMITATIONS.md` |
 | Datenbankerstellung | implementiert | `Public/New-SqlServerLabDatabase.ps1` |
-| Restore | direkte `.bak`-Dateien einschließlich Trust-, SHA-256-, Cache- und Lock-Pfad implementiert | `Public/Restore-SqlServerLabDatabase.ps1`, `Private/ArtifactResolver.ps1` |
+| Backup/Restore | providerneutrale, inhaltsadressierte `Lab_Data`-Backup-Bibliothek mit SQL-Checksum, `RESTORE VERIFYONLY`, Hash und sanitiertem Receipt; direkte `.bak`-Restores einschließlich Trust-, Cache- und Lock-Pfad | `Public/Backup-SqlServerLabDatabase.ps1`, `Private/BackupLibrary.ps1`, `Public/Restore-SqlServerLabDatabase.ps1` |
 | Skriptausführung | implementiert | `Public/Invoke-SqlServerLabScript.ps1` |
 | Integrationstest | implementiert | `Tests/Integration/Invoke-SmokeTest.ps1` |
 | Manifest-Builder und -Fachprüfung | implementiert, einschließlich `x-ui`-Pfadkontext und Hostvorschau | `Private/ManifestBuilder.ps1`, `Tests/Static/Invoke-ManifestBuilderChecks.ps1` |
@@ -131,6 +131,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `Clear-SqlServerLab` | Lab-Container und/oder State bereinigen |
 | `New-SqlServerLabDatabase` | Datenbank erzeugen |
 | `Restore-SqlServerLabDatabase` | `.bak` aus Datei oder URL wiederherstellen |
+| `Backup-SqlServerLabDatabase` | Datenbank verifiziert in die `Lab_Data`-Backup-Bibliothek sichern |
 | `Invoke-SqlServerLabScript` | T-SQL-Skript ausführen |
 | `Get-SqlServerLabGeneratedSqlAccess` | Laufzeit-generierte SQL-Access-Daten inkl. SA-Passwort und ConnectionString aus einem Hyper-V-Run beziehen |
 | `New-SqlServerLabAutomatedTestEnvironment` | Linux-Testumgebungen mit getrennten Zufallskennwörtern erstellen und nach Lab_Data exportieren |

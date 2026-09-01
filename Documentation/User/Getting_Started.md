@@ -270,7 +270,23 @@ Invoke-SqlServerLabScript `
 
 Das Cmdlet unterstützt `GO`-getrennte Batches.
 
-## 10. Backup wiederherstellen
+## 10. Backup sichern und wiederherstellen
+
+Ein vollständiges Backup wird in einer bereits registrierten `Lab_Data`-
+Bibliothek erst nach SQL-Checksum, `RESTORE VERIFYONLY` und SHA-256
+veröffentlicht:
+
+```powershell
+$backup = Backup-SqlServerLabDatabase `
+    -RunId $lab.RunId `
+    -DatabaseName 'AppDb' `
+    -SaPassword $saPassword `
+    -DataRoot 'D:\Lab_Data'
+```
+
+`$backup.Path` und `$backup.Sha256` können anschließend direkt an den Restore-
+Pfad übergeben werden. TDE-Backups werden ohne separaten Zertifikat- und
+Recovery-Vertrag nicht veröffentlicht.
 
 ### Lokale `.bak`-Datei
 

@@ -369,7 +369,7 @@ Volumename ersetzt diese Identität nicht.
 | `PSR-005` | P1 | Docker-/Podman-Instanzstore auswählbar, fortsetzbar und klonbar machen | `IMPLEMENTED_CORE`: stabile ID-Auswahl, detached Continue/Clone, Digest/Resume und getrennte reale Docker-/Podman-Nachweise; Katalog-Commit, Sidecars und öffentliche Bedienung offen |
 | `PSR-006` | P1 | Podman-Machine- und Docker-Engine-/Context-Reichweite bewerten und gegebenenfalls dediziert verwalten | `IMPLEMENTED_READ_ONLY`: stabile sanitisierte Runtime-ID, Context-/Connection-/Machine-Bindung und REPORT_ONLY-Hostgrenze real belegt; dedizierter Ownership-/Lifecycle-Vertrag bleibt offen |
 | `PSR-007` | P1 | Hyper-V-Daten-VHDX sicher auswählen, reattachen, freigeben und klonen | `IMPLEMENTED_CORE`: Storage-ID-, Disk-/VM-/Checkpoint-/Clean-Detach-/SQL-Versions-validierter Host-Lifecycle, unabhängiger Clone und realer Hyper-V-Nachweis; Katalog-Commit, öffentliche Bedienung und explizite Datenbankaktion bleiben getrennt |
-| `PSR-008` | P1 | Providerneutrale Backup-Bibliothek mit automatischem Backup und Restore-Verifikation liefern | Cross-Provider-Restore mit sanitisierter Evidence |
+| `PSR-008` | P1 | Providerneutrale Backup-Bibliothek mit automatischem Backup und Restore-Verifikation liefern | `IMPLEMENTED_CORE`: inhaltsadressierte `Lab_Data`-Bibliothek, `CHECKSUM`, `RESTORE VERIFYONLY`, Hash, Metadatenreceipt und realer Docker→Podman-Inhaltsnachweis; reale FILESTREAM-Cross-Provider-Evidence und öffentliche Bibliotheksauswahl bleiben offen |
 | `PSR-009` | P2 | Datenbankpakete inklusive FILESTREAM, Attach und Clone implementieren | vollständiger Offline-Dateivertrag mit exklusiver Nutzung |
 | `PSR-010` | P2 | Serverobjekt- und TDE-Abhängigkeiten inventarisieren und Migrationsgrenzen anzeigen | kein falsches Vollständigkeitsversprechen |
 | `PSR-011` | P1 | identische CLI- und GUI-Flows für Auswahl, Retention, Restore, Attach, Clone und Delete liefern | ein gemeinsamer Core ohne Bedienungsparitätslücke |
@@ -407,6 +407,17 @@ weiterhin zu `PSR-009`, `PSR-003` beziehungsweise `PSR-011`.
 - Ein vollständiges Backup einer Datenbank mit FILESTREAM wird aus einem
   Provider exportiert, in einem zweiten unterstützten Provider restauriert und
   inhaltlich verifiziert.
+
+Stand 2026-09-01: `SqlServerLab.BackupLibrary/1.0` veröffentlicht ein Backup
+erst nach `BACKUP ... CHECKSUM`, `RESTORE VERIFYONLY ... WITH CHECKSUM`,
+Host-SHA-256 und sanitiertem SQL-Metadatenreceipt als `REUSABLE`. Ein realer,
+isolierter Lauf hat Docker → Podman einschließlich Quell-Cleanup, erneutem
+`VERIFYONLY`, Restore und identischem Inhaltsdigest bestätigt. TDE endet ohne
+eigenen Zertifikat-/Recovery-Vertrag fail-closed. FILESTREAM wird im Receipt
+erkannt und eine Restore-Evidence ohne ausdrücklich bestätigten FILESTREAM-
+Inhaltsnachweis abgelehnt; weil die Linux-Container diesen Nachweis nicht
+liefern können, bleibt das vollständige reale FILESTREAM-Cross-Provider-
+Abnahmekriterium offen und wird nicht als bestanden behauptet.
 - Ein Datenbankpaket enthält nachweislich alle MDF/NDF/LDF- und FILESTREAM-
   Bestandteile; fehlende oder veränderte Inhalte sowie paralleles Read/Write-
   Attach werden blockiert.

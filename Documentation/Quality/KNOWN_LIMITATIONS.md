@@ -407,10 +407,14 @@ weiterhin in das gewählte Hostverzeichnis schreiben.
 
 Für Evaluation-Refresh existiert ein externer, idempotent initialisierbarer
 Data Root mit versionsgetrennten Data-/Log-Bereichen und einer gemeinsamen
-Backup-Übergabeebene. Automatisches Backup, `RESTORE VERIFYONLY`, Restore und
-TDE-Schlüsseltransfer sind noch kein vollständiger providerneutraler
-Runtimepfad; bis dahin bleibt der dokumentierte Backup-/Restore-Ablauf
-operatorgeführt. Der interne Hyper-V-Persistent-Data-Core kann eine
+Backup-Übergabeebene. `Backup-SqlServerLabDatabase` veröffentlicht vollständige
+Backups providerneutral erst nach SQL-Checksum, `RESTORE VERIFYONLY`, Host-Hash
+und sanitiertem Receipt in der inhaltsadressierten `Lab_Data`-Bibliothek; ein
+realer Docker→Podman-Restore mit Inhaltsdigest ist belegt. Noch offen sind die
+öffentliche Auswahl per BackupSetId, die GUI-Parität und ein realer
+FILESTREAM-Cross-Provider-Nachweis. TDE endet ohne separaten Zertifikat- und
+Recovery-Vertrag fail-closed; ein TDE-Schlüsseltransfer findet nicht statt.
+Der interne Hyper-V-Persistent-Data-Core kann eine
 katalogisierte, sauber getrennte Daten-VHDX inzwischen per stabiler Storage-ID
 klonen, reattachen und freigeben; der reale Hostnachweis ist grün. Er erzeugt
 bewusst keine Aussage, dass vorhandene Datenbankdateien online sind:
@@ -420,6 +424,10 @@ Restore-/Attach-Schritt bleiben offen.
 ## Restore
 
 Unterstützt werden direkte `.bak`-Dateien aus lokalen Pfaden oder HTTP(S)-URLs.
+Vor `FILELISTONLY` und der eigentlichen Wiederherstellung wird immer
+`RESTORE VERIFYONLY ... WITH CHECKSUM` ausgeführt. Bibliotheksbackups werden
+derzeit über den vom Backup-Cmdlet ausgegebenen Pfad und SHA-256 restauriert;
+die öffentliche Auswahl ausschließlich per `BackupSetId` gehört zu PSR-011.
 Ein HTTP(S)-Restore ohne `restore.sha256` kann im interaktiven Trust-Pfad
 verwendet werden, beendet einen unbeaufsichtigten Manifestlauf jedoch mit
 `TRUST_REQUIRED`.

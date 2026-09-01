@@ -560,6 +560,7 @@ Invoke-SqlServerLabScheduler -UntilIdle
 | `Remove-SqlServerLab` | Einzelnen Run entfernen |
 | `Clear-SqlServerLab` | Lab-Container und/oder State bereinigen |
 | `New-SqlServerLabDatabase` | Datenbank erstellen |
+| `Backup-SqlServerLabDatabase` | Datenbank nach `CHECKSUM`, `RESTORE VERIFYONLY` und SHA-256 in der `Lab_Data`-Bibliothek veröffentlichen |
 | `Restore-SqlServerLabDatabase` | `.bak` aus Datei oder URL wiederherstellen |
 | `Invoke-SqlServerLabScript` | T-SQL-Skript ausführen |
 | `Get-SqlServerLabGeneratedSqlAccess` | Hyper-V SQL-Zugriffsdaten (ConnectionString + generiertes SA-Passwort) aus dem Run abrufen |

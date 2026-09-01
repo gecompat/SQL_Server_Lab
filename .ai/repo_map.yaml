@@ -34,6 +34,10 @@ sources_of_truth:
   sql_versions: Catalogs/sql-server-versions.json
   sample_databases: Catalogs/sample-databases.json
   sample_baseline_registry_schema: Schemas/sample-baseline-registry.schema.json
+  backup_library: Private/BackupLibrary.ps1
+  backup_library_schema: Schemas/backup-library.schema.json
+  validation_backup_library: Tests/Static/Invoke-BackupLibraryChecks.ps1
+  acceptance_backup_library_cross_provider: Tests/Integration/Invoke-BackupLibraryCrossProviderAcceptance.ps1
   state_contract: Private/StateMachine.ps1
   cleanup_contract: Private/CleanupEngine.ps1
   container_reconcile_contract: Private/ContainerReconcile.ps1

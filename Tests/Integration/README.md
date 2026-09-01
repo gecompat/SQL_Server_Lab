@@ -177,6 +177,19 @@ ONLINE-Status, Inhalt und Cleanup. Es werden keine externen Backups verwendet.
 .\Tests\Integration\Invoke-RestoreSmokeTest.ps1 -Provider podman
 ```
 
+## Invoke-BackupLibraryCrossProviderAcceptance.ps1
+
+Die PSR-008-Abnahme erstellt ein checksum-verifiziertes, inhaltsadressiertes
+Backup in einer temporären registrierten `Lab_Data`-Bibliothek, entfernt die
+Docker-Quelle und restauriert das Backup nach `RESTORE VERIFYONLY` in Podman.
+Ein sanitisiertes Inhaltsdigest wird vor und nach dem Providerwechsel verglichen
+und als Restore-Evidence registriert. Linux-Container werden dabei ausdrücklich
+nicht als FILESTREAM-fähig ausgewiesen.
+
+```powershell
+.\Tests\Integration\Invoke-BackupLibraryCrossProviderAcceptance.ps1
+```
+
 ## Invoke-HyperVSmokeTest.ps1
 
 Der Hyper-V-Smoke-Test prüft Image-Registry und Lifecycle-Grundlage auf einem

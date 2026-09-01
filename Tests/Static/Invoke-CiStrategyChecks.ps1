@@ -65,6 +65,13 @@ Add-CheckResult -Name 'Container-Runtime-Scope aktiviert read-only Vertrag sowie
     'Invoke-ContainerRuntimeScopeChecks.ps1' -in $containerRuntimeScope.StaticChecks
 )
 
+$backupLibrary = & $selector -ChangedPath @('Private/BackupLibrary.ps1')
+Add-CheckResult -Name 'Backup-Bibliothek aktiviert statischen Vertrag und providerübergreifenden Runtime-Nachweis' -Success (
+    $backupLibrary.Mixed -and
+    'Invoke-BackupLibraryChecks.ps1' -in $backupLibrary.StaticChecks -and
+    'Invoke-SampleBaselineRuntimeChecks.ps1' -in $backupLibrary.StaticChecks
+)
+
 $hyperVPersistentData = & $selector -ChangedPath @('Private/HyperVPersistentDataDrive.ps1')
 Add-CheckResult -Name 'Hyper-V-Persistent-Data aktiviert eigenen Vertrag und nur den Hyper-V-Runtime-Nachweis' -Success (
     $hyperVPersistentData.HyperV -and -not $hyperVPersistentData.Docker -and -not $hyperVPersistentData.Podman -and

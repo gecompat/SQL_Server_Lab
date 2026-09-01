@@ -358,8 +358,12 @@ function Restore-SqlServerLabDatabase {
         [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
     }
 
-        Write-LabInfo 'Lese Backup-Metadaten mit RESTORE FILELISTONLY...'
         $escapedContainerBackupPath = $runtimeBackupPath.Replace("'", "''")
+        Write-LabInfo 'Pruefe Backup mit RESTORE VERIFYONLY und CHECKSUM...'
+        $null = Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $saPlain -TimeoutSeconds 600 `
+            -Query "RESTORE VERIFYONLY FROM DISK = N'$escapedContainerBackupPath' WITH CHECKSUM;"
+
+        Write-LabInfo 'Lese Backup-Metadaten mit RESTORE FILELISTONLY...'
         $fileListQuery = "RESTORE FILELISTONLY FROM DISK = N'$escapedContainerBackupPath';"
         $fileListOutput = sqlcmd `
             -S "$HostName,$Port" `
