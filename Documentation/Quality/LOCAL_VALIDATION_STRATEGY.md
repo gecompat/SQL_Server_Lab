@@ -492,7 +492,9 @@ Der allgemeine Smoke-Test prüft derzeit keinen Download und keinen Restore eine
 `Invoke-BackupLibraryCrossProviderAcceptance.ps1` ist der isolierte PSR-008-
 Nachweis: Er erzeugt ein synthetisches Backup in Docker, veröffentlicht es nur
 nach `CHECKSUM`, `RESTORE VERIFYONLY`, Host-Hash und Metadatenreceipt, entfernt
-die Quelle und restauriert nach Podman. Quelle und Ziel müssen denselben
+die Quelle und restauriert nach Podman ausschließlich per `BackupSetId` und
+konfiguriertem `DataRoot`. Die Auswahl prüft Receipt-Status, Verification-
+Evidence, Objektpräsenz und SHA-256 erneut. Quelle und Ziel müssen denselben
 sanitisierten Inhaltsdigest liefern. Da SQL Server in den verwendeten Linux-
 Containern keine FILESTREAM-Evidence liefert, zählt dieser Lauf ausdrücklich
 nicht als FILESTREAM-Abnahme.

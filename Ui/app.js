@@ -778,10 +778,52 @@ function renderContainerSampleOptions(sqlVersion) {
   updateContainerSampleSelection();
 }
 
+function renderContainerLibraryBackups(sqlVersion) {
+  const select = $('#container-library-backup');
+  const targetMajor = ({ 2017: 14, 2019: 15, 2022: 16, 2025: 17 })[Number(String(sqlVersion || '').match(/^\d{4}/)?.[0] || 0)] || 0;
+  const catalog = workflow?.BackupLibrary;
+  if (!Array.isArray(catalog)) {
+    select.innerHTML = '<option value="">Backup-Bibliothek wird erst nach einem Neustart des UI-Servers geladen …</option>';
+    updateContainerLibraryBackupSelection();
+    return;
+  }
+  const backups = catalog.filter((backup) => backup.Availability === 'SELECTABLE' && (!targetMajor || Number(backup.SourceSqlMajorVersion) <= targetMajor));
+  select.innerHTML = '<option value="">Kein Bibliotheksbackup ausgewählt</option>' + backups.map((backup) => {
+    const size = backup.Bytes ? ' · ' + Math.ceil(Number(backup.Bytes) / 1048576) + ' MB' : '';
+    return '<option value="' + escapeHtml(backup.BackupSetId) + '" data-database="' + escapeHtml(backup.DatabaseName) + '">' + escapeHtml(backup.DatabaseName) + ' · ' + escapeHtml(backup.SourceProvider) + ' · SQL ' + escapeHtml(backup.SourceSqlMajorVersion) + size + '</option>';
+  }).join('');
+  updateContainerLibraryBackupSelection();
+}
+
+function updateContainerLibraryBackupSelection() {
+  const option = $('#container-library-backup').selectedOptions[0];
+  const selected = Boolean(option?.value);
+  if (selected) {
+    [...$('#container-sample').options].forEach((sample) => { sample.selected = false; });
+    $('#container-database-name').disabled = false;
+    $('#container-database-name').value = option.dataset?.database || '';
+    $('#container-sample-note').textContent = 'Für diesen Restore ist keine Katalog-Testdatenbank ausgewählt.';
+    $('#container-sample-hash-field').hidden = true;
+    $('#container-sample-trust-field').hidden = true;
+    $('#container-sample-trust').checked = false;
+  }
+  else if ([...$('#container-sample').selectedOptions].filter((sample) => sample.value).length === 0) {
+    $('#container-database-name').disabled = false;
+    $('#container-database-name').value = '';
+  }
+  $('#container-library-backup-note').textContent = selected
+    ? 'Das Backup wird beim Start anhand seiner BackupSetId erneut status-, evidence- und SHA-256-geprüft.'
+    : 'Die Auswahl erfolgt ausschließlich über die stabile BackupSetId; lokale Hostpfade werden nicht an den Browser übertragen.';
+}
+
 function updateContainerSampleSelection() {
   const options = [...$('#container-sample').selectedOptions].filter((option) => option.value);
   const option = options[0];
   const selectedSample = options.length > 0;
+  if (selectedSample) {
+    $('#container-library-backup').value = '';
+    updateContainerLibraryBackupSelection();
+  }
   const trustRequired = options.some((item) => item.dataset?.trustRequired === 'true');
   const multipleSamples = options.length > 1;
   $('#container-database-name').disabled = selectedSample;
@@ -816,9 +858,11 @@ function openContainerOperation(action, runId, port, instanceId, sqlVersion, kin
     ? 'Das Passwort dient für PowerShell Direct und den SQL-Zugriff auf die laufende Hyper-V-VM.'
     : 'Das Passwort wird nicht gespeichert oder im Log angezeigt.';
   $('#container-operation-instance').value = instanceId || 'primary';
-  $('#container-operation-title').textContent = databaseAction ? 'Datenbank anlegen' : 'SQL-Skript ausführen';
+  $('#container-operation-title').textContent = databaseAction ? 'Datenbank anlegen oder wiederherstellen' : 'SQL-Skript ausführen';
   $('#container-database-field').hidden = !databaseAction;
   const showContainerSamples = isCreateAction && operationKind === 'container';
+  $('#container-library-backup-field').hidden = !showContainerSamples;
+  $('#container-library-backup-note').hidden = !showContainerSamples;
   $('#container-sample-field').hidden = !showContainerSamples;
   $('#container-sample-note').hidden = !showContainerSamples;
   $('#container-sample-hash-field').hidden = true;
@@ -827,7 +871,10 @@ function openContainerOperation(action, runId, port, instanceId, sqlVersion, kin
   $('#container-sample-trust').checked = false;
   $('#container-script-field').hidden = databaseAction;
   $('#container-script-database-field').hidden = databaseAction;
-  if (isCreateAction && operationKind === 'container') renderContainerSampleOptions(sqlVersion);
+  if (isCreateAction && operationKind === 'container') {
+    renderContainerLibraryBackups(sqlVersion);
+    renderContainerSampleOptions(sqlVersion);
+  }
   $('#container-operation-dialog').showModal();
 }
 
@@ -1280,8 +1327,20 @@ $('#container-operation-form').addEventListener('submit', async (event) => {
   }
   if (action === 'CreateContainerDatabase' || action === 'CreateHyperVLabDatabase') {
     if (action === 'CreateContainerDatabase' && operationKind === 'container') {
+      const backupSetId = $('#container-library-backup').value;
       const samples = [...$('#container-sample').selectedOptions].map((option) => option.value).filter(Boolean);
-      if (samples.length) {
+      if (backupSetId) {
+        const databaseName = $('#container-database-name').value.trim();
+        if (!databaseName || !/^[A-Za-z][A-Za-z0-9_]{0,127}$/.test(databaseName)) {
+          showError(new Error('Bitte einen gültigen Datenbanknamen für den Restore eingeben.'));
+          return;
+        }
+        action = 'RestoreContainerLibraryBackup';
+        parameters.BackupSetId = backupSetId;
+        parameters.DatabaseName = databaseName;
+        if (workflow?.Defaults?.DataRoot) parameters.DataRoot = workflow.Defaults.DataRoot;
+      }
+      else if (samples.length) {
         const sampleSha256 = $('#container-sample-sha256').value.trim();
         if (sampleSha256 && !/^[a-fA-F0-9]{64}$/.test(sampleSha256)) { showError(new Error('Der SHA-256 der Testdatenbank muss 64 Hex-Zeichen enthalten.')); return; }
         if ($('#container-sample-trust-field').hidden === false && !sampleSha256 && !$('#container-sample-trust').checked) { showError(new Error('Bitte einen offiziellen SHA-256 eintragen oder die einmalige Vertrauensfreigabe bestätigen.')); return; }
@@ -1343,6 +1402,7 @@ $('#container-operation-form').addEventListener('submit', async (event) => {
 });
 
 $('#container-sample').addEventListener('change', updateContainerSampleSelection);
+$('#container-library-backup').addEventListener('change', updateContainerLibraryBackupSelection);
 
 function cancelDialog(dialog) {
   if (!dialog?.open) return;
