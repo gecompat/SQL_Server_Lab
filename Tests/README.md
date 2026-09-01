@@ -111,6 +111,7 @@ Interpretation:
 .\Tests\Static\Invoke-ProjectAdapterChecks.ps1
 .\Tests\Static\Invoke-CleanupRecoveryChecks.ps1
 .\Tests\Static\Invoke-CleanupAuditChecks.ps1
+.\Tests\Static\Invoke-PersistentStorageCatalogChecks.ps1
 .\Tests\Static\Invoke-PodmanBootstrapChecks.ps1
 .\Tests\Static\Invoke-PesterChecks.ps1
 .\Tests\Static\Invoke-ReleaseReadinessChecks.ps1

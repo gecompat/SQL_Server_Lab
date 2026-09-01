@@ -3,13 +3,15 @@
     Inventarisiert alle bekannten SQL_Server_Lab-Daten und Runtime-Ressourcen.
 .DESCRIPTION
     Der Audit ist read-only. Fremde, verwaiste oder wegen eines nicht erreichbaren
-    Providers unpruefbare Ressourcen werden gemeldet, aber niemals entfernt.
+    Providers unpruefbare Ressourcen werden gemeldet, aber niemals entfernt. Der
+    persistente Storage-Katalog und exklusive Leases werden gegen das Inventar
+    geprüft; nicht katalogisierte retained Objekte bleiben ID-lose Kandidaten.
 .PARAMETER NoWrite
     Gibt den Audit nur zurueck und schreibt kein JSON-Artefakt.
 .OUTPUTS
     PSCustomObject mit Path und Audit. Audit enthaelt Status, Zusammenfassung,
     Datenwurzeln, aktive Runs, gefundene oder unpruefbare Providerressourcen
-    sowie eine physische und logische Storage-Residency-Matrix.
+    sowie Storage-Residency, Persistent-Storage-Katalog und read-only Plan.
 #>
 function Get-SqlServerLabCleanupAudit {
     [CmdletBinding()]
@@ -244,6 +246,8 @@ function Get-SqlServerLabCleanupAudit {
         -HyperVStatus $hyperVStatus -HyperVResources $hyperVResources -HyperVRunScopes $hyperVRunScopes -HyperVSharedRoots $hyperVSharedRoots `
         -HyperVUntrackedFiles $hyperVUntrackedFiles -ExternalReferences $externalReferences `
         -RepositoryResidues $repositoryResidues -LegacyStateRoots $legacyStateRoots
+    $persistentStorageCatalog = Get-LabPersistentStorageCatalog -Configuration $configuration
+    $persistentStoragePlan = Get-LabPersistentStoragePlan -Catalog $persistentStorageCatalog -ResidencyInventory $storageResidency
 
     $unverifiable = @($runtimeResults | Where-Object Status -eq 'UNAVAILABLE').Count + $(if ($hyperVStatus -eq 'UNAVAILABLE') { 1 } else { 0 })
     $hyperVProtectionIssues = @($hyperVRunScopes | Where-Object {
@@ -262,6 +266,13 @@ function Get-SqlServerLabCleanupAudit {
             SharedRoots=$hyperVSharedRoots; UntrackedFiles=$hyperVUntrackedFiles
         }
         StorageResidency=$storageResidency
+        PersistentStorage=[PSCustomObject]@{
+            CatalogStatus=[string]$persistentStorageCatalog.Status
+            Catalog=$persistentStorageCatalog.Document
+            Sources=@($persistentStorageCatalog.Sources)
+            Issues=@($persistentStorageCatalog.Issues)
+            Plan=$persistentStoragePlan
+        }
         ExternalReferences=$externalReferences; RepositoryResidues=$repositoryResidues; LegacyStateRoots=$legacyStateRoots
         Summary=[PSCustomObject]@{
             ResidualCount=$residualCount; UnverifiableProviders=$unverifiable

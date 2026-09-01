@@ -19,6 +19,8 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 | `lab-storage-bound-plan.schema.json` | Lokaler read-only Vertrag `SqlServerLab.StorageBoundPlan/1.0` für Selector-, Location-, Topologie- und Dateibindung |
 | `lab-storage-runtime-receipt.schema.json` | Getrennter Evidence-Vertrag für Hyper-V-VHDX, Gastdisk, SQL-Dateipfad, CREATE-/Restore-Operationen, Dienstrestart, Postconditions und Recovery |
 | `lab-storage-residency-inventory.schema.json` | Read-only Vertrag `SqlServerLab.StorageResidencyInventory/1.0` für `Lab_Data`, native Runtime-Ablage, externe Pfade, Retention, Cleanup-Zuordnung und unverifizierbares physisches Backing |
+| `persistent-storage-catalog.schema.json` | Katalogvertrag `SqlServerLab.PersistentStorageCatalog/1.0` für stabile IDs, Storage-Klassen, Zustände, Referenzen und exklusive Leases |
+| `persistent-storage-plan.schema.json` | Read-only Planvertrag `SqlServerLab.PersistentStoragePlan/1.0` für Inventarbindung, Lease-Prüfung und Registrierungskandidaten |
 | `lab-cleanup-audit.schema.json` | Lokaler Cleanup-Audit einschließlich der getrennt schema-validierten Storage-Residency-Matrix |
 | `hyperv-resource-binding.schema.json` | Lokaler Vertrag `SqlServerLab.HyperVResourceBinding/1.0` für kurze Hyper-V-Create-Roots mit Controller-, Location-, Volume- und `Lab_Data`-Identität |
 | `hyperv-resource-migration-plan.schema.json` | Lokaler read-only Vertrag `SqlServerLab.HyperVResourceMigrationPlan/1.0` für exaktes Legacy-Inventar, Zielbindung, Blocker und geplante Aktionen |

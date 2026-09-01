@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sql-server-lab.local/schemas/persistent-storage-catalog.schema.json",
+  "title": "SqlServerLab.PersistentStorageCatalog/1.0",
+  "type": "object",
+  "required": ["ContractVersion", "ControllerId", "Revision", "Stores"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.PersistentStorageCatalog/1.0" },
+    "ControllerId": { "type": "string", "format": "uuid" },
+    "Revision": { "type": "integer", "minimum": 0 },
+    "Stores": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["PersistentStorageId", "DisplayName", "StorageClass", "State", "Provider", "LocationBinding", "References", "Lease", "Retention", "CleanupDisposition", "CreatedAt", "UpdatedAt"],
+        "properties": {
+          "PersistentStorageId": { "type": "string", "format": "uuid" },
+          "DisplayName": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "StorageClass": { "enum": ["INSTANCE_STORE", "DATABASE_PACKAGE", "BACKUP_SET", "EXCHANGE_WORKSPACE"] },
+          "State": { "enum": ["AVAILABLE", "IN_USE", "DETACHED", "INCOMPLETE", "RECOVERY_REQUIRED", "DELETE_PENDING"] },
+          "Provider": { "enum": ["docker", "podman", "hyperv", "external"] },
+          "LocationBinding": {
+            "type": "object",
+            "required": ["Residency", "LocationId", "ProviderResourceId", "InventoryObjectId", "RelativePath"],
+            "properties": {
+              "Residency": { "enum": ["LAB_DATA", "NATIVE_RUNTIME", "EXTERNAL_HOST"] },
+              "LocationId": { "type": ["string", "null"], "format": "uuid" },
+              "ProviderResourceId": { "type": ["string", "null"], "minLength": 1 },
+              "InventoryObjectId": { "type": ["string", "null"], "pattern": "^storage-object-[a-f0-9]{24}$" },
+              "RelativePath": { "type": ["string", "null"], "minLength": 1 }
+            },
+            "additionalProperties": false
+          },
+          "References": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["ReferenceId", "Kind", "State", "TargetId"],
+              "properties": {
+                "ReferenceId": { "type": "string", "format": "uuid" },
+                "Kind": { "enum": ["RUN", "DATABASE", "ARTIFACT"] },
+                "State": { "enum": ["ACTIVE", "RELEASED"] },
+                "TargetId": { "type": "string", "minLength": 1 }
+              },
+              "additionalProperties": false
+            }
+          },
+          "Lease": {
+            "type": ["object", "null"],
+            "required": ["LeaseId", "RunId", "ScopeId", "Mode", "AcquiredAt", "ExpiresAt"],
+            "properties": {
+              "LeaseId": { "type": "string", "format": "uuid" },
+              "RunId": { "type": "string", "format": "uuid" },
+              "ScopeId": { "type": "string", "format": "uuid" },
+              "Mode": { "const": "EXCLUSIVE" },
+              "AcquiredAt": { "type": "string", "format": "date-time" },
+              "ExpiresAt": { "type": ["string", "null"], "format": "date-time" }
+            },
+            "additionalProperties": false
+          },
+          "Retention": { "enum": ["RUN_SCOPED", "RETAINED", "EXTERNAL_UNMANAGED"] },
+          "CleanupDisposition": { "enum": ["RUN_CLEANUP", "PRESERVE", "REPORT_ONLY"] },
+          "CreatedAt": { "type": "string", "format": "date-time" },
+          "UpdatedAt": { "type": "string", "format": "date-time" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

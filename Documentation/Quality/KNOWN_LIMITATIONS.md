@@ -867,9 +867,12 @@ definiert `Lab_Data` deshalb als hostseitigen Katalog-, Austausch- und
 Recovery-Einstieg statt als Vollresidenzversprechen. Native katalogisierte
 Container-Instanzstores bleiben zulässig; globale Runtime-/Machine-Ablagen und
 labfremde Ressourcen werden ohne getrennten Ownership-Vertrag nicht verändert.
-Stabile `PersistentStorageId`-Kataloge, Leases,
-providerübergreifende Wiederverwendung und explizites Löschen sind damit noch
-nicht implementiert.
+Der read-only `SqlServerLab.PersistentStorageCatalog/1.0`-Vertrag mit stabilen
+`PersistentStorageId`-Werten, Klassen, Zuständen, Referenzen und exklusiven
+Leases sowie der Residency-gebundene `SqlServerLab.PersistentStoragePlan/1.0`
+sind implementiert. Noch nicht implementiert sind Katalogmutation,
+Lease-Akquisition, providerübergreifende Wiederverwendung und explizites
+Löschen.
 Der zweite `HVR-006`-Slice koppelt Lifecycle-Reconcile, Start, Stop,
 Autostartänderung und SQL-WMI-Repair an einen gemeinsamen read-only
 Migrationsguard. Laufende, fehlgeschlagene oder inkonsistent abgeschlossene
