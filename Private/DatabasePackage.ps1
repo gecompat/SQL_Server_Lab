@@ -214,7 +214,7 @@ function New-LabDatabasePackage {
     }
     $record.ManifestSha256=Get-LabDatabasePackageManifestSha256 -Package $record
     $paths=Get-LabDatabasePackagePaths -DataRoot $DataRoot
-    return Invoke-LabDatabasePackageLock -LibraryRoot $paths.LibraryRoot -ScriptBlock {
+    $published = Invoke-LabDatabasePackageLock -LibraryRoot $paths.LibraryRoot -ScriptBlock {
         foreach($directory in @($paths.LibraryRoot,$paths.ObjectsRoot,$paths.OperationsRoot)){if(-not(Test-Path -LiteralPath $directory -PathType Container)){New-Item -ItemType Directory -Path $directory -Force|Out-Null}}
         $operationRoot=Join-Path $paths.OperationsRoot $packageId;$staging=Join-Path $operationRoot 'staging';$journalPath=Join-Path $operationRoot 'database-package-journal.json'
         New-Item -ItemType Directory -Path $staging -Force|Out-Null
@@ -238,12 +238,40 @@ function New-LabDatabasePackage {
             Write-LabArtifactJsonAtomic -Path $paths.RegistryPath -InputObject $document
             $journal.Status='COMPLETED';$journal.PublishedPath=$objectRoot;$journal.Recovery='NOT_REQUIRED';$journal.UpdatedAt=Get-LabTimestamp
             Write-LabDatabasePackageJournal -Journal $journal -Path $journalPath
-            [PSCustomObject]@{Status='REUSABLE';DatabasePackageId=$packageId;ManifestSha256=$record.ManifestSha256;Path=$objectRoot;RegistryPath=$paths.RegistryPath;JournalPath=$journalPath}
+            [PSCustomObject]@{Status='REUSABLE';DatabasePackageId=$packageId;ManifestSha256=$record.ManifestSha256;Path=$objectRoot;RegistryPath=$paths.RegistryPath;JournalPath=$journalPath;Record=$record}
         } catch {
             $journal.Status='RECOVERY_REQUIRED';$journal.Recovery='PRESERVE_SOURCE_OFFLINE_AND_RETRY_OR_REMOVE_INCOMPLETE_STAGING';$journal.UpdatedAt=Get-LabTimestamp
             Write-LabDatabasePackageJournal -Journal $journal -Path $journalPath
             throw
         }
+    }
+
+    try {
+        $registration = Register-LabDatabasePackagePersistentStorage -PackageRecord $published.Record -DataRoot $paths.DataRoot
+    }
+    catch {
+        $catalogFailure = $_.Exception.Message
+        Invoke-LabDatabasePackageLock -LibraryRoot $paths.LibraryRoot -ScriptBlock {
+            $document = Get-LabDatabasePackageDocument -Paths $paths
+            $packageMatches = @($document.Packages | Where-Object DatabasePackageId -eq $packageId)
+            if ($packageMatches.Count -eq 1) {
+                $packageMatches[0].Status='QUARANTINED';$packageMatches[0].UpdatedAt=Get-LabTimestamp
+                $document.Revision=[int]$document.Revision+1;$document.UpdatedAt=Get-LabTimestamp
+                $null=Test-LabDatabasePackageDocument -Document $document
+                Write-LabArtifactJsonAtomic -Path $paths.RegistryPath -InputObject $document
+            }
+            if (Test-Path -LiteralPath $published.JournalPath -PathType Leaf) {
+                $journal=Get-Content -LiteralPath $published.JournalPath -Raw -Encoding utf8|ConvertFrom-Json -Depth 40
+                $journal.Status='RECOVERY_REQUIRED';$journal.Recovery='RETRY_PERSISTENT_STORAGE_CATALOG_REGISTRATION'
+                Write-LabDatabasePackageJournal -Journal $journal -Path $published.JournalPath
+            }
+        } | Out-Null
+        throw "DATABASE_PACKAGE_CATALOG_REGISTRATION_FAILED: $catalogFailure"
+    }
+    [PSCustomObject]@{
+        Status=$published.Status;DatabasePackageId=$published.DatabasePackageId;ManifestSha256=$published.ManifestSha256
+        Path=$published.Path;RegistryPath=$published.RegistryPath;JournalPath=$published.JournalPath
+        PersistentStorageId=[string]$registration.Store.PersistentStorageId
     }
 }
 
@@ -254,6 +282,7 @@ function Get-LabDatabasePackage {
     $matches=@($document.Packages|Where-Object DatabasePackageId -eq $DatabasePackageId)
     if($matches.Count -ne 1){throw 'DATABASE_PACKAGE_NOT_FOUND'}
     $record=$matches[0];$root=Join-Path $paths.ObjectsRoot ([string]$record.ManifestSha256)
+    if([string]$record.Status -ne 'REUSABLE'){throw 'DATABASE_PACKAGE_NOT_REUSABLE'}
     if(-not(Test-Path -LiteralPath $root -PathType Container)){throw 'DATABASE_PACKAGE_OBJECT_MISSING'}
     if((Get-LabDatabasePackageManifestSha256 -Package $record) -ne [string]$record.ManifestSha256){throw 'DATABASE_PACKAGE_MANIFEST_HASH_MISMATCH'}
     foreach($object in @($record.Objects)){

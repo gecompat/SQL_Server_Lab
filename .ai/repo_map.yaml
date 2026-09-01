@@ -546,6 +546,7 @@ internal_components:
       - "Lab_Data, native Runtime-Volumes, externe Pfade, Hyper-V-Ressourcen, Retention und unverifizierbares physisches Backing als versionierte read-only Storage-Residency klassifizieren"
       - "bewusst retained Objekte, unerwartete Residuen, Recovery-Befunde und unverifizierbare Evidence mit stabilen Identitaeten, Reason-Codes und nicht mutierenden Handlungshinweisen getrennt ausgeben"
       - "stabile Persistent-Storage-IDs, Klassen, Zustände, Referenzen und exklusive Leases read-only validieren und mit dem Residency-Inventar abgleichen"
+      - "verifizierte Backup-Sets und Datenbankpakete controllerweit rollbackfähig mit eigener PersistentStorageId registrieren und Katalogfehler fail-closed quarantänisieren"
       - "Retention, Backup-/Package-on-Remove, externe Bindungsfreigabe und Recovery-Postconditions read-only planen; persistente Storage-Löschung getrennt halten"
       - "katalogisierte Docker-/Podman-Instanzstores per stabiler ID und Runtime-Label detached revalidieren, fuer Continue binden und in ein neues operationsgebundenes Volume digestverifiziert klonen"
       - "aktiven Docker-Context beziehungsweise Podman-Connection/Machine read-only an eine stabile sanitisierte Runtime-ID binden und geteilte Engine-/Machine-/Hostdefaults als REPORT_ONLY vor Mutation schuetzen"
@@ -941,6 +942,9 @@ validation:
       - independent_clone_materialization
       - sql_version_filestream_tde_and_parallel_writer_guards
       - attach_journal_and_online_postcondition
+      - atomic_persistent_storage_catalog_registration
+      - catalog_failure_quarantine_and_recovery_journal
+      - residency_binding_without_content_rehash
   static_database_migration_dependency:
     command: '.\Tests\Static\Invoke-DatabaseMigrationDependencyChecks.ps1'
     source: Tests/Static/Invoke-DatabaseMigrationDependencyChecks.ps1
