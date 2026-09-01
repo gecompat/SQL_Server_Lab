@@ -165,6 +165,12 @@ try {
                 -RunId $leaseRun -ScopeId $leaseScope -SqlVersion '2025-latest' -DisplayName 'Lease test' `
                 -DataRoot $root -Configuration $config
             $script:leaseTestRuntimeStorageId=[string]$acquired.Store.PersistentStorageId; $script:leaseTestRuntimeStatus='AVAILABLE'
+            $databaseReferences=Sync-LabContainerInstanceStoreDatabaseReference `
+                -PersistentStorageId ([string]$acquired.Store.PersistentStorageId) -RunId $leaseRun -ScopeId $leaseScope `
+                -DatabaseName @('ApplicationOne','ApplicationTwo') -Configuration $config
+            $databaseReferencesAgain=Sync-LabContainerInstanceStoreDatabaseReference `
+                -PersistentStorageId ([string]$acquired.Store.PersistentStorageId) -RunId $leaseRun -ScopeId $leaseScope `
+                -DatabaseName @('ApplicationTwo','ApplicationOne') -Configuration $config
             $released=Unregister-LabContainerInstanceStoreLease -Provider docker -VolumeName 'sql-lab-persistent-lease-test' `
                 -RunId $leaseRun -ScopeId $leaseScope -DataRoot $root -Configuration $config
             $reacquired=Register-LabContainerInstanceStoreLease -Provider docker -VolumeName 'sql-lab-persistent-lease-test' `
@@ -186,6 +192,7 @@ try {
             $after=Get-LabPersistentStorageCatalog -Configuration $config
             return [PSCustomObject]@{
                 PreRelease=$preRelease; Acquired=$acquired; Released=$released; Reacquired=$reacquired; ForeignBlocked=$foreignBlocked
+                DatabaseReferences=$databaseReferences; DatabaseReferencesAgain=$databaseReferencesAgain
                 RecoveryBlocked=$recoveryBlocked; Catalog=$after
             }
         }
@@ -203,9 +210,15 @@ try {
         [string]$leaseEvidence.Acquired.Store.PersistentStorageId -match '^[0-9a-f-]{36}$' -and
         [string]$leaseEvidence.Acquired.Store.Lease.RunId -eq $leaseRunId -and
         @($leaseEvidence.Acquired.Store.References | Where-Object State -eq 'ACTIVE').Count -eq 1)
-    Add-CheckResult -Name 'Release bewahrt den Runtime-Store, löst Lease/Run-Referenz und erlaubt dieselbe stabile ID erneut' -Success (
+    Add-CheckResult -Name 'Verifizierte Datenbanken erhalten stabile idempotente Katalogreferenzen unter derselben Run-Lease' -Success (
+        $leaseEvidence.DatabaseReferences.Changed -and -not $leaseEvidence.DatabaseReferencesAgain.Changed -and
+        @($leaseEvidence.DatabaseReferences.Store.References | Where-Object {
+            $_.Kind -eq 'DATABASE' -and $_.State -eq 'ACTIVE' -and $_.TargetId -in @('ApplicationOne','ApplicationTwo')
+        }).Count -eq 2)
+    Add-CheckResult -Name 'Release bewahrt den Runtime-Store, löst Lease sowie Run-/Datenbankreferenzen und erlaubt dieselbe stabile ID erneut' -Success (
         $leaseEvidence.Released.Store.State -eq 'DETACHED' -and -not $leaseEvidence.Released.Store.Lease -and
-        @($leaseEvidence.Released.Store.References | Where-Object State -eq 'RELEASED').Count -eq 1 -and
+        @($leaseEvidence.Released.Store.References | Where-Object State -eq 'RELEASED').Count -eq 3 -and
+        @($leaseEvidence.Released.Store.References | Where-Object { $_.Kind -eq 'DATABASE' -and $_.State -eq 'ACTIVE' }).Count -eq 0 -and
         $leaseEvidence.Reacquired.Reused -and
         [string]$leaseEvidence.Reacquired.Store.PersistentStorageId -eq [string]$leaseEvidence.Acquired.Store.PersistentStorageId)
     Add-CheckResult -Name 'Exklusive Instanzstore-Lease blockiert einen konkurrierenden Run' -Success $leaseEvidence.ForeignBlocked

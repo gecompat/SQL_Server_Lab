@@ -1142,6 +1142,16 @@ function New-SqlServerLab {
             }
         }
 
+        foreach ($labInstance in @($labInstances | Where-Object { $_.PersistentStorage })) {
+            $storageConfiguration = Get-LabStorageConfiguration -DataRoot $DataRoot
+            $null = Sync-LabContainerInstanceStoreDatabaseReference `
+                -PersistentStorageId ([string]$labInstance.PersistentStorage.persistentStorageId) `
+                -RunId $runState.RunId `
+                -ScopeId $runState.ScopeId `
+                -DatabaseName @($labInstance.Databases) `
+                -Configuration $storageConfiguration
+        }
+
         foreach ($instance in @($resolved.instances | Where-Object {
             @($externalRuntimePlansByInstance[[string]$_.id]).Count -gt 0
         })) {
