@@ -38,7 +38,8 @@
     "powershell-direct-software-installation",
     "sql-external-runtime",
     "hyperv-resource-reconcile",
-    "hyperv-storage-reconcile"
+    "hyperv-storage-reconcile",
+    "hyperv-sql-storage-reconcile"
   ],
   "limitations": [
     "no-unattended-os-build",

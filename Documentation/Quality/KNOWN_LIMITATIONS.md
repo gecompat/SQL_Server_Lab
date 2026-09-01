@@ -323,10 +323,15 @@ Der Hyper-V-Storage-Reconcile kann fehlende manifestgebundene SCSI-VHDX
 erstellen und bestehende VHD/VHDX ausschließlich vergroessern. Die
 Gast-Postcondition initialisiert neue GPT-/NTFS-Volumes oder erweitert eine
 eindeutig ueber Disk-Identifier gebundene Partition auf die vom Gast gemeldete
-maximale Groesse. Shrink, Removal, Rollen-/Pfadwechsel und automatische
-SQL-Dateiverschiebungen sind nicht Teil dieses Pfads. Der Host-/Gast-
-Repair-Vertrag ist synthetisch inklusive Abbruch/Resume belegt; ein positiver
-nativer Reparaturlauf bleibt `NOT_EXECUTED`.
+maximale Groesse. Shrink, Removal und Rollen-/Pfadwechsel sind nicht Teil dieses
+Pfads. Der getrennte Hyper-V-SQL-Storage-Reconcile vergleicht danach Default-
+und TempDB-Dateipfade read-only und kann ausschließlich diese Bindungen über das
+vor der Mutation geschriebene Storage-Runtime-Receipt anwenden. Er startet den
+SQL-Dienst kontrolliert neu und setzt `RECOVERY_REQUIRED` über denselben Bound
+Plan fort. User- und Systemdatenbankdateien sowie zusätzliche TempDB-Logfiles
+werden nicht automatisch verschoben. Beide Repair-Verträge sind synthetisch
+inklusive Abbruch/Resume belegt; ein positiver nativer Reparaturlauf bleibt
+`NOT_EXECUTED`.
 
 Das Feld `sizeLimitGB` bei Drives ist fuer Docker- oder Podman-Volumes weiterhin
 nur Metadatum. Hyper-V verwendet es dagegen als VHDX-Sollgroesse bei Erstellung
@@ -830,9 +835,10 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
 3. Die verbleibenden providerneutralen Software-Intents an die Software-Runtime
    binden; Container-`nat`, Hyper-V-`hostOnly`/`isolated`/`nat`/`lan` sowie
    Hyper-V-vCPU, statisches/dynamisches RAM und Zusatz-VHDX sind bereits
-   manifestgebunden. Netzwerk-, Ressourcen- und Grow-only-Storage-Reconcile
-   sind synthetisch implementiert; positive native Reparaturnachweise,
-   Storage-Removal/-Rebinding und weitere Hardware-/SQL-Klassen bleiben offen.
+   manifestgebunden. Netzwerk-, Ressourcen-, Grow-only-Storage- sowie Default-/
+   TempDB-SQL-Storage-Reconcile sind synthetisch implementiert; positive native
+   Reparaturnachweise, Storage-Removal/-Rebinding, User-/Systemdatenbankbewegung
+   und weitere Hardware-/SQL-Klassen bleiben offen.
 4. Artifact Registry, Refresh/Rebuild und Evaluierungsablauf implementieren.
 5. Den belegten Windows-2025-/SQL-2025-Referenzpfad zur vollständigen
    allgemeinen Hyper-V-Manifestbindung und zu weiteren realen

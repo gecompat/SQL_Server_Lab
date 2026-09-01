@@ -29,6 +29,8 @@
     Waehlt den manifestgebundenen read-only Hyper-V-vCPU-/RAM-Reconcile-Plan.
 .PARAMETER HyperVStorage
     Waehlt den manifestgebundenen read-only Hyper-V-Zusatz-VHDX-Reconcile-Plan.
+.PARAMETER HyperVSqlStorage
+    Waehlt den read-only Hyper-V-SQL-Dateiplatzierungs-Reconcile-Plan.
 .PARAMETER Container
     Wählt den Container-Ressourcen-Reconcile. Der Plan klassifiziert die
     Änderung als no-op, live oder recreate und mutiert die Runtime nicht.
@@ -70,6 +72,10 @@
     Get-SqlServerLabReconcilePlan -RunId $runId -HyperVStorage -InstanceId primary
 
     Plant fehlende Zusatz-VHDX, Grow-only-Aenderungen und Gastverifikation.
+.EXAMPLE
+    Get-SqlServerLabReconcilePlan -RunId $runId -HyperVSqlStorage -InstanceId primary
+
+    Vergleicht SQL-Default- und TempDB-Dateipfade mit dem gebundenen Storageplan.
 #>
 function Get-SqlServerLabReconcilePlan {
     [CmdletBinding(DefaultParameterSetName = 'Lifecycle')]
@@ -89,6 +95,7 @@ function Get-SqlServerLabReconcilePlan {
         [Parameter(Mandatory, ParameterSetName = 'HyperVNetwork')]
         [Parameter(Mandatory, ParameterSetName = 'HyperVResources')]
         [Parameter(Mandatory, ParameterSetName = 'HyperVStorage')]
+        [Parameter(Mandatory, ParameterSetName = 'HyperVSqlStorage')]
         [string]$InstanceId,
 
         [Parameter(Mandatory, ParameterSetName = 'HyperVNetwork')]
@@ -99,6 +106,9 @@ function Get-SqlServerLabReconcilePlan {
 
         [Parameter(Mandatory, ParameterSetName = 'HyperVStorage')]
         [switch]$HyperVStorage,
+
+        [Parameter(Mandatory, ParameterSetName = 'HyperVSqlStorage')]
+        [switch]$HyperVSqlStorage,
 
         [Parameter(Mandatory, ParameterSetName = 'Container')]
         [switch]$Container,
@@ -150,6 +160,9 @@ function Get-SqlServerLabReconcilePlan {
     }
     if ($PSCmdlet.ParameterSetName -eq 'HyperVStorage') {
         return New-LabHyperVStorageReconcilePlan -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
+    }
+    if ($PSCmdlet.ParameterSetName -eq 'HyperVSqlStorage') {
+        return New-LabHyperVSqlStorageReconcilePlan -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
     }
     return New-LabReconcilePlan -RunId $RunId -TargetState $TargetState -StateRoot $StateRoot
 }
