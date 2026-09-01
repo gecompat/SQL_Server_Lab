@@ -262,6 +262,30 @@ function renderMediaSources(items) {
   }).join('') || empty('Keine Quelleninformationen verfügbar.');
 }
 
+function renderDatabasePackageOptions(items) {
+  const select = $('#database-package-source');
+  const previous = select.value;
+  const packages = Array.isArray(items) ? items : [];
+  select.innerHTML = '<option value="">Datenbankpaket auswählen …</option>' + packages.map((item) => {
+    const size = item.Bytes ? ' · ' + Math.ceil(Number(item.Bytes) / 1048576) + ' MB' : '';
+    return '<option value="' + escapeHtml(item.DatabasePackageId) + '">' + escapeHtml(item.DatabaseName) + ' · ' + escapeHtml(item.SourceProvider) + ' · SQL ' + escapeHtml(item.SourceSqlMajorVersion) + size + ' · ' + escapeHtml(item.Availability) + '</option>';
+  }).join('');
+  if (packages.some((item) => item.DatabasePackageId === previous)) select.value = previous;
+  $('#database-package-count').textContent = packages.length + ' Paket(e)';
+  updateDatabasePackageDetails(packages);
+}
+
+function updateDatabasePackageDetails(items = workflow?.DatabasePackageLibrary || []) {
+  const selected = (items || []).find((item) => item.DatabasePackageId === $('#database-package-source').value);
+  const target = $('#database-package-details');
+  if (!selected) {
+    target.textContent = 'Die Auswahl erfolgt ausschließlich über die stabile DatabasePackageId; Hostpfade und Hashes werden nicht an den Browser übertragen.';
+    return;
+  }
+  const capabilities = [selected.HasFileStream ? 'FILESTREAM' : 'ohne FILESTREAM', selected.IsEncrypted ? 'TDE' : 'nicht verschlüsselt'];
+  target.innerHTML = '<strong>' + escapeHtml(selected.DatabaseName) + '</strong><span>' + escapeHtml(selected.SourceProvider + ' · SQL ' + selected.SourceSqlMajorVersion + ' · ' + capabilities.join(' · ')) + '</span><span>' + escapeHtml(selected.DatabaseFileCount + ' Datenbankdatei(en) · ' + selected.ObjectCount + ' gehashte(s) Objekt(e) · ' + selected.MigrationBoundary) + '</span><code>DatabasePackageId: ' + escapeHtml(selected.DatabasePackageId) + '</code><span>Attach gesperrt: ' + escapeHtml(selected.AttachReason) + '</span>';
+}
+
 function renderSqlInstallationMedia(items) {
   const select = $('#sql-media');
   const previous = select.value;
@@ -402,6 +426,7 @@ function renderWorkflow(data) {
   renderHyperVSwitchOptions(data.HyperVSwitches || []);
   renderHyperVExistingVmSourceOptions(data.HyperVExistingVmSources || []);
   renderMediaSources(data.MediaSources || []);
+  renderDatabasePackageOptions(data.DatabasePackageLibrary || []);
   renderSqlInstallationMedia(data.SqlInstallationMedia);
   const sqlFreshBuildDialogOpen = $('#build-dialog')?.open && $('#build-type')?.value === 'sql-fresh';
   renderWindowsInstallationMedia(data.WindowsInstallationMedia, sqlFreshBuildDialogOpen);
@@ -1499,6 +1524,7 @@ $('#container-operation-form').addEventListener('submit', async (event) => {
 
 $('#container-sample').addEventListener('change', updateContainerSampleSelection);
 $('#container-library-backup').addEventListener('change', updateContainerLibraryBackupSelection);
+$('#database-package-source').addEventListener('change', () => updateDatabasePackageDetails());
 
 $('#persistent-storage-removal-form').addEventListener('submit', async (event) => {
   if (event.submitter?.value === 'cancel') return;

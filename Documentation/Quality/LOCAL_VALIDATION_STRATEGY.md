@@ -506,6 +506,9 @@ unabhängige Clone-Dateien, `COPY_THEN_ATTACH`, Journal/Postcondition sowie die
 fail-closed Grenzen für ältere SQL-Ziele, FILESTREAM, TDE, Detach-State und
 parallele Writer. Er ist bewusst kein Ersatz für einen nativen Windows-SQL-
 FILESTREAM-Attach; dessen Acceptance muss separat in Hyper-V laufen.
+Die Suite prüft zusätzlich die pfadfreie CLI-/Browser-Inventur per stabiler
+`DatabasePackageId`, aufgeschobenes Voll-Hashing beim Refresh, explizite
+Integritätsverifikation und die weiterhin fail-closed gesperrte Zielbindung.
 
 `Invoke-DatabaseMigrationDependencyChecks.ps1` prüft den PSR-010-Core ohne
 Runtime-Mutation: Parser und Schema für read-only SQL-Counts, Server-Login-,

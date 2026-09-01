@@ -294,6 +294,45 @@ function Get-LabDatabasePackage {
     [PSCustomObject]@{Record=$record;Path=$root;RegistryPath=$paths.RegistryPath}
 }
 
+function Get-LabDatabasePackageSelection {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$DataRoot)
+
+    $paths=Get-LabDatabasePackagePaths -DataRoot $DataRoot
+    $document=Get-LabDatabasePackageDocument -Paths $paths
+    @($document.Packages|Sort-Object CreatedAt -Descending|ForEach-Object{
+        $record=$_;$root=Join-Path $paths.ObjectsRoot ([string]$record.ManifestSha256)
+        $objects=@($record.Objects)
+        $migrationBoundary=if($record.DatabaseMetadata.PSObject.Properties['MigrationBoundary']){
+            $record.DatabaseMetadata.MigrationBoundary
+        }else{
+            Get-LabDatabaseArtifactMigrationBoundary -DependencyInventory $null -ExternalDependencies @($record.DatabaseMetadata.ExternalDependencies)
+        }
+        $missingObjects=if(Test-Path -LiteralPath $root -PathType Container){
+            @($objects|Where-Object{-not(Test-Path -LiteralPath (Join-Path $root ([string]$_.RelativePath)) -PathType Leaf)}).Count
+        }else{$objects.Count}
+        $availability=if([string]$record.Status -ne 'REUSABLE'){'BLOCKED'}elseif($missingObjects -gt 0){'MISSING'}else{'SELECTABLE'}
+        [PSCustomObject][ordered]@{
+            DatabasePackageId=[string]$record.DatabasePackageId
+            Availability=$availability
+            IntegrityValidation='DEFERRED_UNTIL_USE'
+            DatabaseName=[string]$record.DatabaseName
+            SourceProvider=[string]$record.Source.Provider
+            SourceSqlMajorVersion=[string]$record.Source.SqlMajorVersion
+            DatabaseFileCount=@($record.DatabaseFiles).Count
+            ObjectCount=$objects.Count
+            Bytes=[long](($objects|Measure-Object -Property Bytes -Sum).Sum)
+            HasFileStream=[bool]$record.DatabaseMetadata.HasFileStream
+            IsEncrypted=[bool]$record.DatabaseMetadata.IsEncrypted
+            MigrationBoundary=[string]$migrationBoundary.ArtifactScope
+            DependencyInventoryStatus=[string]$migrationBoundary.DependencyInventoryStatus
+            AttachStatus='TARGET_BINDING_REQUIRED'
+            AttachReason='TARGET_PROVIDER_PATH_MAPPING_NOT_BOUND'
+            CreatedAt=[string]$record.CreatedAt
+        }
+    })
+}
+
 function Get-LabDatabasePackageAttachPlan {
     [CmdletBinding()]
     param([Parameter(Mandatory)]$Package,[Parameter(Mandatory)]$TargetEvidence,[Parameter(Mandatory)][string]$TargetDirectory)

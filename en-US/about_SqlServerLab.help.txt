@@ -104,6 +104,10 @@ COMMANDS
         Executes retain or verified backup-on-remove for a Docker or Podman
         instance store with a resumable journal.
 
+    Get-SqlServerLabDatabasePackage
+        Lists path-free database-package selections by stable DatabasePackageId
+        and optionally verifies all immutable package objects.
+
     Get-SqlServerLabConnectionCenter
         Returns the password-free SQL endpoint catalog used by SSMS and CMS.
 

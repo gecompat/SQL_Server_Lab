@@ -42,6 +42,8 @@ try {
         $residencyInventory=Get-LabStorageResidencyInventory -Configuration $storageConfiguration -StateRoot (Join-Path $Root 'State')
         $syncResult=@(Sync-LabDatabasePackagePersistentStorageCatalog -DataRoot $Root)
         $package=Get-LabDatabasePackage -DatabasePackageId $created.DatabasePackageId -DataRoot $Root
+        $selection=@(Get-LabDatabasePackageSelection -DataRoot $Root)
+        $publicSelection=@(Get-SqlServerLabDatabasePackage -DatabasePackageId $created.DatabasePackageId -DataRoot $Root -VerifyIntegrity)
         $cloneRoot=Join-Path $WorkRoot 'clone';$clone=Copy-LabDatabasePackageClone -Package $package -TargetDirectory $cloneRoot
         $ready=Get-LabDatabasePackageAttachPlan -Package $package -TargetDirectory (Join-Path $WorkRoot 'attach-ready') -TargetEvidence ([PSCustomObject]@{SqlMajorVersion=17;FileStreamEnabled=$true;TdeKeyAvailable=$false;DatabaseExists=$false;ExclusiveUseAvailable=$true;PackageWriterCount=0})
         $old=Get-LabDatabasePackageAttachPlan -Package $package -TargetDirectory (Join-Path $WorkRoot 'attach-old') -TargetEvidence ([PSCustomObject]@{SqlMajorVersion=16;FileStreamEnabled=$true;TdeKeyAvailable=$false;DatabaseExists=$false;ExclusiveUseAvailable=$true;PackageWriterCount=0})
@@ -75,11 +77,19 @@ try {
         [IO.File]::AppendAllText($objectPath,'tamper')
         $tamper=$false
         try{$null=Get-LabDatabasePackage -DatabasePackageId $created.DatabasePackageId -DataRoot $Root}catch{$tamper=$_.Exception.Message -match 'OBJECT_HASH_MISMATCH'}
-        [PSCustomObject]@{Created=$created;Package=$package;PersistentCatalog=$persistentCatalog;ResidencyInventory=$residencyInventory;SyncResult=$syncResult;Clone=$clone;Ready=$ready;Old=$old;NoStream=$noStream;Parallel=$parallel;Attached=$attached;AttachCalls=@($attachCalls);BadDetach=$badDetach;Tde=$tde;CatalogFailure=$catalogFailure;CatalogFailureQuarantined=$quarantined.Count -eq 1;QuarantineGuard=$quarantineGuard;CatalogFailureJournal=$catalogFailureJournal;Tamper=$tamper;CloneFiles=@(Get-ChildItem -LiteralPath $cloneRoot -File -Recurse)}
+        [PSCustomObject]@{Created=$created;Package=$package;Selection=$selection;PublicSelection=$publicSelection;PersistentCatalog=$persistentCatalog;ResidencyInventory=$residencyInventory;SyncResult=$syncResult;Clone=$clone;Ready=$ready;Old=$old;NoStream=$noStream;Parallel=$parallel;Attached=$attached;AttachCalls=@($attachCalls);BadDetach=$badDetach;Tde=$tde;CatalogFailure=$catalogFailure;CatalogFailureQuarantined=$quarantined.Count -eq 1;QuarantineGuard=$quarantineGuard;CatalogFailureJournal=$catalogFailureJournal;Tamper=$tamper;CloneFiles=@(Get-ChildItem -LiteralPath $cloneRoot -File -Recurse)}
     } $dataRoot $testRoot
 
     Add-CheckResult 'Offline-Paket enthält MDF, NDF, LDF und vollständigen FILESTREAM-Baum' ($result.Package.Record.DatabaseFiles.Count -eq 4 -and $result.Package.Record.Objects.Count -eq 5 -and @($result.Package.Record.DatabaseFiles|Where-Object Type -eq 'FILESTREAM').Count -eq 1)
     Add-CheckResult 'Paketmanifest und Objektmenge werden als REUSABLE veröffentlicht' ($result.Created.Status -eq 'REUSABLE' -and $result.Created.ManifestSha256 -match '^[a-f0-9]{64}$')
+    Add-CheckResult 'CLI-Auswahl verwendet stabile ID und hasht nur auf ausdrückliche Verifikation' (
+        $result.Selection.Count -eq 1 -and $result.Selection[0].DatabasePackageId -eq $result.Created.DatabasePackageId -and
+        $result.Selection[0].Availability -eq 'SELECTABLE' -and $result.Selection[0].IntegrityValidation -eq 'DEFERRED_UNTIL_USE' -and
+        $result.PublicSelection.Count -eq 1 -and $result.PublicSelection[0].IntegrityValidation -eq 'VERIFIED')
+    $selectionJson=$result.Selection|ConvertTo-Json -Depth 20
+    Add-CheckResult 'Browser-Inventur enthält weder Hostpfade noch Hashes und autorisiert keinen Attach' (
+        $selectionJson -notmatch [regex]::Escape($testRoot) -and $selectionJson -notmatch 'ManifestSha256|Sha256|Password|Credential' -and
+        $result.Selection[0].AttachStatus -eq 'TARGET_BINDING_REQUIRED' -and $result.Selection[0].AttachReason -eq 'TARGET_PROVIDER_PATH_MAPPING_NOT_BOUND')
     $persistentStores=@($result.PersistentCatalog.Document.Stores|Where-Object StorageClass -eq 'DATABASE_PACKAGE')
     Add-CheckResult 'Paketpublikation registriert eine getrennte stabile PersistentStorageId atomar im zentralen Katalog' (
         $result.Created.PersistentStorageId -match '^[0-9a-f-]{36}$' -and $persistentStores.Count -eq 1 -and

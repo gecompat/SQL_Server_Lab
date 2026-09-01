@@ -58,6 +58,7 @@ function Get-SqlServerLabWorkflow {
     $windowsInstallationMedia = @()
     $sampleDatabases = @()
     $backupLibrary = @()
+    $databasePackageLibrary = @()
     $persistentStorageRemovalCandidates = @()
     $containerInstanceStoreCandidates = @()
     $mediaSources = @()
@@ -239,6 +240,7 @@ function Get-SqlServerLabWorkflow {
     catch { }
     if ($dataRoot) {
         try { $backupLibrary = @(Get-LabDatabaseBackupSelection -DataRoot $dataRoot) } catch { }
+        try { $databasePackageLibrary = @(Get-LabDatabasePackageSelection -DataRoot $dataRoot) } catch { }
     }
     $testDataRoot = Get-LabTestDataRootDefault
     try { $mediaSources = @(Get-LabMediaSourceCatalog -MediaRoot $MediaRoot -TestDataRoot $testDataRoot) } catch { }
@@ -355,6 +357,7 @@ function Get-SqlServerLabWorkflow {
         WindowsInstallationMedia = $windowsInstallationMedia
         SampleDatabases = $sampleDatabases
         BackupLibrary = $backupLibrary
+        DatabasePackageLibrary = $databasePackageLibrary
         PersistentStorageRemovalCandidates = $persistentStorageRemovalCandidates
         ContainerInstanceStoreCandidates = $containerInstanceStoreCandidates
         MediaSources = $mediaSources
