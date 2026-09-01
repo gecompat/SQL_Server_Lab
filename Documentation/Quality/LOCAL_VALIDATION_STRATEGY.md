@@ -161,7 +161,11 @@ Für den nativen Testdatenbank-Reconcile prüft ein eigener erhöhter Runner den
 öffentlichen Plan-/Action-Vertrag mit einer fremden Schutzdatenbank. Er verlangt
 ein verifiziertes SQL-2025-Prepared-Artifact und beweist `WhatIf`, Addition,
 No-op, eigentumsgebundene Entfernung, erneuten No-op, VM-Restart und
-scopegebundenen Cleanup. Ohne dauerhaftes Artifact erzeugt der Wrapper einen
+scopegebundenen Cleanup. Derselbe isolierte Lauf erzeugt in einem ausschließlich
+prozesslokal gebundenen Testdaten-Root eine hashverifizierte
+`LAB_GENERATED`-Baseline, entfernt das Sample, installiert es nachweislich über
+den Baseline-Eintrag im Manifest-Lock erneut und entfernt es abschließend wieder
+eigentumsgebunden. Ohne dauerhaftes Artifact erzeugt der Wrapper einen
 isolierten N4-Stand und entfernt ihn nur nach vollständig grünem Ergebnis:
 
 ```powershell
@@ -169,8 +173,9 @@ isolierten N4-Stand und entfernt ihn nur nach vollständig grünem Ergebnis:
     -MediaRoot D:\Lab_Base
 ```
 
-Der Runner ist implementiert und statisch gebunden; ein positiver nativer Lauf
-bleibt bis zur tatsächlichen erhöhten Ausführung `NOT_EXECUTED`.
+Der erweiterte Runner ist implementiert und statisch gebunden; ein positiver
+nativer Baseline-Lauf bleibt bis zur tatsächlichen erhöhten Ausführung
+`NOT_EXECUTED`.
 
 Es werden bewusst nicht alle CUs getestet. Docker und Podman verwenden je
 einen repraesentativen katalogisierten CU; Windows prueft die frische

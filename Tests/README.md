@@ -59,6 +59,12 @@ dokumentiert. Ihre ausfuehrbaren Einstiege sind:
     -MediaRoot D:\Lab_Base
 ```
 
+Der Testdatenbank-Reconcile-Runner verwendet für seine Sample-Bibliothek einen
+prozesslokalen temporären Root. Er belegt im selben isolierten Hyper-V-Lauf die
+Erzeugung, Hashprüfung, bevorzugte Wiederverwendung und abschließende
+eigentumsgebundene Entfernung einer `LAB_GENERATED`-Chinook-Baseline; globale
+Testdaten-Bibliotheken bleiben unverändert.
+
 Der SQL-Konfigurationsrunner erzeugt einen eigenen Prepared-Image-Klon und
 prüft Plan, `WhatIf`, Live-Reconcile, Trace-Flag-Ownership, den Fortbestand
 eines fremden Runtime-Flags, einen ausschließlichen SQL-Dienstrestart für einen
