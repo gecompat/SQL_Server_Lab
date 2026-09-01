@@ -856,7 +856,7 @@ Add-ValidationResult `
 
 Add-ValidationResult `
     -Name 'PSR-003 dokumentiert partielle klassenbezogene Katalogcommits ohne breites Mutationsversprechen' `
-    -Success ($persistentStorageBacklog -match '(?m)^`ACTIVE / PSR_001_PARTIAL_PSR_002_COMPLETE_PSR_003_PARTIAL_PSR_004_006_READ_ONLY_PSR_005_007_008_009_010_012_IMPLEMENTED_CORE`' -and
+    -Success ($persistentStorageBacklog -match '(?m)^`ACTIVE / PSR_001_PARTIAL_PSR_002_COMPLETE_PSR_003_004_PARTIAL_PSR_006_READ_ONLY_PSR_005_007_008_009_010_012_IMPLEMENTED_CORE`' -and
         $persistentStorageBacklog -match '(?m)^\| `PSR-003` .*\| `IMPLEMENTED_PARTIAL`:' -and
         $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.PersistentStorageCatalog/1.0') -and
         $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.PersistentStoragePlan/1.0') -and
@@ -874,16 +874,23 @@ Add-ValidationResult `
         $repoMap -match 'validation_persistent_storage_catalog: Tests/Static/Invoke-PersistentStorageCatalogChecks\.ps1')
 
 Add-ValidationResult `
-    -Name 'PSR-004 bindet Removal-Policies an verlustsicheren read-only Recovery-Plan' `
-    -Success ($persistentStorageBacklog -match '(?m)^\| `PSR-004` .*\| `IMPLEMENTED_READ_ONLY`:' -and
+    -Name 'PSR-004 führt Retain und Backup-on-Remove journalisiert aus und blockiert übrige Policies' `
+    -Success ($persistentStorageBacklog -match '(?m)^\| `PSR-004` .*\| `IMPLEMENTED_PARTIAL`:' -and
         $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.PersistentStorageRemovalIntent/1.0') -and
         $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.PersistentStorageRemovalPlan/1.0') -and
         $persistentStorageBacklog -match '`CHECKSUM` und `RESTORE VERIFYONLY`' -and
-        $knownLimitations -match 'Noch nicht\s*implementiert sind dessen Executor' -and
+        $persistentStorageBacklog -match 'geheimnisfreies\s*Journal' -and
+        $knownLimitations -match 'Executor unterstützt für Docker-/Podman-Instanzstores inzwischen\s*`RETAIN_INSTANCE_STORE` und `BACKUP_ON_REMOVE`' -and
+        $knownLimitations -match 'Package-Erzeugung,\s*`DELETE_WITH_RUN`, externe Bindungsfreigabe' -and
         $repoMap -match 'persistent_storage_removal_plan: Private/PersistentStorageRemovalPlan\.ps1' -and
+        $repoMap -match 'persistent_storage_removal_executor: Private/PersistentStorageRemovalExecutor\.ps1' -and
+        $repoMap -match 'persistent_storage_removal_action: Public/Invoke-SqlServerLabPersistentStorageRemoval\.ps1' -and
         $repoMap -match 'persistent_storage_removal_intent_schema: Schemas/persistent-storage-removal-intent\.schema\.json' -and
         $repoMap -match 'persistent_storage_removal_plan_schema: Schemas/persistent-storage-removal-plan\.schema\.json' -and
-        $repoMap -match 'validation_persistent_storage_removal_plan: Tests/Static/Invoke-PersistentStorageRemovalPlanChecks\.ps1')
+        $repoMap -match 'persistent_storage_removal_journal_schema: Schemas/persistent-storage-removal-journal\.schema\.json' -and
+        $repoMap -match 'validation_persistent_storage_removal_plan: Tests/Static/Invoke-PersistentStorageRemovalPlanChecks\.ps1' -and
+        $repoMap -match 'validation_persistent_storage_removal_executor: Tests/Static/Invoke-PersistentStorageRemovalExecutorChecks\.ps1' -and
+        $repoMap -match 'acceptance_persistent_storage_removal_executor: Tests/Integration/Invoke-PersistentStorageRemovalExecutorAcceptance\.ps1')
 
 Add-ValidationResult `
     -Name 'PSR-005 dokumentiert stabilen Container-Store-Continue-/Clone-Core und reale Provider-Evidence' `

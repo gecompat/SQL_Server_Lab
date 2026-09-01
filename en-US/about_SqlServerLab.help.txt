@@ -100,6 +100,10 @@ COMMANDS
         Plans retention, backup/package, and binding consequences of removing a
         run by stable storage ID without mutating the run, catalog, or storage.
 
+    Invoke-SqlServerLabPersistentStorageRemoval
+        Executes retain or verified backup-on-remove for a Docker or Podman
+        instance store with a resumable journal.
+
     Get-SqlServerLabConnectionCenter
         Returns the password-free SQL endpoint catalog used by SSMS and CMS.
 
