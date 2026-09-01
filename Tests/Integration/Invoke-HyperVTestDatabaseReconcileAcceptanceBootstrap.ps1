@@ -2,11 +2,12 @@
 <#
 .SYNOPSIS
     Baut ein isoliertes SQL-Prepared-Artifact und fuehrt den nativen
-    Hyper-V-Testdatenbank-Reconcile aus.
+    Hyper-V-Testdatenbank- und LAB_GENERATED-Baseline-Nachweis aus.
 .DESCRIPTION
     Verwendet den realen N4-Prepared-Image-Runner mit expliziter Aufbewahrung,
     uebergibt dessen Artifact-ID und State Root an die Testdatenbank-Abnahme und
-    entfernt beide nur nach vollstaendig erfolgreichem Add/Remove-/Cleanup-Lauf.
+    entfernt beide nur nach vollstaendig erfolgreichem Add/Remove-,
+    Baseline-Erzeugungs-/Wiederverwendungs- und Cleanup-Lauf.
     Bei einem Fehler bleibt der exakte State Root samt Artifact und etwaigem
     Recovery-Run sichtbar.
 #>
@@ -144,5 +145,5 @@ finally {
 }
 
 if ($testFailed) { exit 1 }
-Write-Host 'Native Hyper-V-Testdatenbank-Reconcile-Abnahme mit isoliertem Bootstrap erfolgreich.' -ForegroundColor Green
+Write-Host 'Native Hyper-V-Testdatenbank- und LAB_GENERATED-Baseline-Abnahme mit isoliertem Bootstrap erfolgreich.' -ForegroundColor Green
 exit 0

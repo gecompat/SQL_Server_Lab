@@ -655,7 +655,7 @@ providers:
     resource_migration_acceptance: Tests/Integration/Invoke-HyperVResourceMigrationAcceptance.ps1
     image_migration_static_checks: Tests/Static/Invoke-HyperVImageMigrationChecks.ps1
     sql_prepared_build_acceptance: Tests/Integration/Invoke-HyperVSqlPreparedImageAcceptance.ps1
-    test_database_reconcile_acceptance: "Tests/Integration/Invoke-HyperVTestDatabaseReconcileAcceptance.ps1 plus isolierter Prepared-Artifact-Bootstrap; ausfuehrbarer Plan/WhatIf/Add/No-op/Remove-/Restart-/Cleanup-Vertrag, native Ausfuehrung noch NOT_EXECUTED"
+    test_database_reconcile_acceptance: "Tests/Integration/Invoke-HyperVTestDatabaseReconcileAcceptance.ps1 plus isolierter Prepared-Artifact-Bootstrap; ausfuehrbarer Plan/WhatIf/Add/No-op/Remove-/Restart-/Cleanup-Vertrag mit prozesslokal isolierter LAB_GENERATED-Erzeugung, Hashprüfung, bevorzugter Wiederverwendung und zweitem eigentumsgebundenem Cleanup; erweiterte native Ausfuehrung noch NOT_EXECUTED"
     storage_acceptance_bootstrap: "Tests/Integration/Invoke-HyperVStorageAcceptanceBootstrap.ps1; real three-device N4/N5 rerun validates bound builder/image placement and registry-safe isolated artifact cleanup"
     legacy_sql_migration_acceptance: "Tests/Integration/Invoke-HyperVLegacySqlMigrationBootstrap.ps1; isolated SQL 2022 clone validates committed Lab_Data binding, two guest/SQL restarts, running-state restoration, protected-group recovery, and complete candidate cleanup"
     template_pool: "Maximal 20 immutable OS_SEALED-/SQL_PREPARED_SEALED-Images; aktive Builder und Lab-Klone blockieren Parent-Löschung"
