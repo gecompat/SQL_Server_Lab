@@ -336,20 +336,29 @@ werden nicht automatisch verschoben. Beide Repair-Verträge sind synthetisch
 inklusive Abbruch/Resume belegt; ein positiver nativer Reparaturlauf bleibt
 `NOT_EXECUTED`.
 
-Der erste Hyper-V-SQL-Konfigurations-Reconcile-Slice persistiert die bereits
+Der Hyper-V-SQL-Konfigurations-Reconcile persistiert die bereits
 ausfuehrbaren `serverConfig`-Werte fuer Memory, MAXDOP, Cost Threshold,
 explizites `spConfigure` und globale Trace Flags. Der read-only Plan vergleicht
 sie ueber PowerShell Direct mit `sys.configurations` und `DBCC TRACESTATUS`.
 Der Executor revalidiert Run, Scope, Instanz und VM und journalisiert vor der
 ersten SQL-Mutation. Dynamische `sp_configure`-Abweichungen und additive
-angeforderte Trace Flags bleiben live. Nicht dynamische Werte werden zuerst als
+angeforderte Trace Flags bleiben live. Optional akzeptiert der Pfad ein
+Zielmanifest, sofern nur der SQL-Konfigurationsintent genau einer unveränderten
+Hyper-V-Instanz abweicht. Ein VM-gebundenes lokales Ownership-Receipt erlaubt
+die Entfernung ausschließlich für durch diesen Run aktivierte Runtime-Trace-
+Flags. Aktive SQL-Startup-Flags aus `SQLArg*` und aktive fremde Flags blockieren
+die Entfernung fail-closed; alte Runs ohne Receipt können Flags addieren, aber
+keine bereits aktiven Flags als eigene beanspruchen. Nicht dynamische Werte werden zuerst als
 konfigurierter Zielwert gebunden und anschließend durch genau einen Neustart
 von `MSSQLSERVER` aktiviert; die Hyper-V-VM bleibt gestartet. Nach dem Restart
 werden deklarierte Laufzeit-Trace-Flags wiederhergestellt und alle Werte erneut
-gelesen. No-op, Live, Restart, `WhatIf`, wiederkehrende Drift, Abbruch/Resume,
+gelesen. Erst danach werden Ownership-Receipt und Desired State fortgeschrieben.
+No-op, Live, Restart, `WhatIf`, wiederkehrende Drift, eigentumsgebundene
+Entfernung, Fremd-/Startup-Schutz, Abbruch/Resume ohne doppeltes `TRACEOFF`,
 Restart-Resume ohne doppelte Zielwertmutation sowie fehlende Konfiguration sind
-synthetisch belegt. Ein positiver nativer Reparaturlauf bleibt `NOT_EXECUTED`;
-Trace-Flag-Entfernung ist nicht Teil dieses Slices.
+synthetisch belegt. Die Entfernung eines vollständigen `sp_configure`-Eintrags
+bleibt ohne Previous-Value-Receipt unsupported. Ein positiver nativer
+Reparaturlauf bleibt `NOT_EXECUTED`.
 
 Der getrennte Hyper-V-SQL-Port-Reconcile persistiert `hyperv.sqlPort`, prüft
 TCP-Registry und die bestehende run-eigene Gastfirewall read-only und repariert

@@ -47,9 +47,10 @@ plattformgebundene SQL-Features benötigen.
   Min/Startup/Max, Live-Min-/Max-Anpassung und journalisiertem Stop-Apply-Start;
 - manifestgebundener Add-/Grow-only-Storage- und SQL-Dateiplatzierungs-Reconcile
   sowie SQL-Konfigurations-Reconcile fuer Memory, MAXDOP, Cost Threshold,
-  explizite `sp_configure`-Werte und additive Trace Flags; dynamische Werte
-  bleiben live, nicht dynamische Werte verwenden nur einen kontrollierten
-  `MSSQLSERVER`-Dienstrestart ohne VM-Neustart;
+  explizite `sp_configure`-Werte und globale Trace Flags; dynamische Werte und
+  eigentumsgebundene Runtime-Add-/Remove-Aktionen bleiben live, Startup- und
+  fremde Flags fail-closed, nicht dynamische Werte verwenden nur einen
+  kontrollierten `MSSQLSERVER`-Dienstrestart ohne VM-Neustart;
 - manifestgebundener SQL-TCP-Port-Reconcile für genau eine Standardinstanz mit
   gebundener Gastfirewall, kontrolliertem SQL-Dienstrestart und ohne VM-Neustart;
 - Cleanup-Plan vor der ersten Provider-Mutation;
@@ -100,8 +101,8 @@ Manifest-Binding, Netzwerkzugriff und echtem Windows-/SQL-End-to-End-Test.
   verwendet weiterhin bewusst nur synthetische leere Testmedien;
 - breitere Software-, Post-Provisioning- und allgemeine Datenbankbindung;
 - Reconcile für direkte Create-/Restore-Datenbanken, Storage-Rebinding/-Removal,
-  Trace-Flag-Entfernung sowie weitere noch nicht klassifizierte SQL-
-  Konfiguration;
+  vollständige `sp_configure`-Entfernung sowie weitere noch nicht klassifizierte
+  SQL-Konfiguration;
 - positive native Evidence fuer den katalogisierten Testdatenbank-Reconcile.
 
 ## Verbindliche Aufsetzpunkte

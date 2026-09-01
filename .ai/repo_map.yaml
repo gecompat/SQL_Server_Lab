@@ -51,6 +51,7 @@ sources_of_truth:
   hyperv_sql_storage_reconcile_contract: Private/HyperVSqlStorageReconcile.ps1
   validation_hyperv_sql_storage_reconcile: Tests/Static/Invoke-HyperVSqlStorageReconcileChecks.ps1
   hyperv_sql_configuration_reconcile_contract: Private/HyperVSqlConfigurationReconcile.ps1
+  hyperv_sql_configuration_ownership_schema: Schemas/hyperv-sql-configuration-ownership.schema.json
   hyperv_sql_configuration_reconcile_journal_schema: Schemas/hyperv-sql-configuration-reconcile-journal.schema.json
   validation_hyperv_sql_configuration_reconcile: Tests/Static/Invoke-HyperVSqlConfigurationReconcileChecks.ps1
   hyperv_sql_port_reconcile_contract: Private/HyperVSqlPortReconcile.ps1
@@ -533,7 +534,7 @@ providers:
     resource_migration: Private/HyperVResourceMigration.ps1
     resource_reconcile: "Private/HyperVResourceReconcile.ps1; manifestgebundener vCPU-/RAM-Istvergleich, Live-Min-/Max sowie journalisiertes Stop-Apply-Start mit Recovery-Resume"
     storage_reconcile: "Private/HyperVStorageReconcile.ps1 plus Private/HyperVSqlStorageReconcile.ps1; manifestgebundene zusaetzliche SCSI-VHDX, Grow-only-Resize, Gast-NTFS-Erweiterung sowie receiptgebundener SQL-Default-/TempDB-Reconcile mit Recovery-Resume"
-    sql_configuration_reconcile: "Private/HyperVSqlConfigurationReconcile.ps1; persistierter serverConfig-Intent, read-only sys.configurations-/Trace-Flag-Istvergleich sowie journalisierte Live- oder MSSQLSERVER-Dienstrestart-Reparatur mit Trace-Flag-Wiederherstellung und Recovery-Resume"
+    sql_configuration_reconcile: "Private/HyperVSqlConfigurationReconcile.ps1; persistierter oder eng begrenzt manifestaktualisierter serverConfig-Intent, read-only sys.configurations-/Trace-Flag-/Startup-Istvergleich sowie journalisierte Live- oder MSSQLSERVER-Dienstrestart-Reparatur mit VM-gebundenem Trace-Flag-Ownership, eigentumsgeschuetzter Runtime-Entfernung, Desired-State-Commit und Recovery-Resume"
     sql_port_reconcile: "Private/HyperVSqlPortReconcile.ps1; persistierter hyperv.sqlPort-Intent, hostwertfreier Registry-/Firewall-Istvergleich und journalisierte Reparatur mit ausschliesslichem SQL-Dienstrestart sowie Recovery-Resume"
     test_database_reconcile: "Private/HyperVTestDatabaseReconcile.ps1; katalogisierte Add-/Remove-Aktionen mit VM-gebundenem Ownership, verifiziertem Removal-Backup, Fremddatenbankschutz und Vorwaerts-Recovery"
     migration_lifecycle_guard: "read-only Reconcile-Plan plus fail-closed Start, Stop, Autostart, SQL-WMI-Repair und Cleanup; Run- und allgemeine Location-Migrationen muessen terminal sein, COMPLETED erfordert revalidierte Bindings"

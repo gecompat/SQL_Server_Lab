@@ -196,9 +196,9 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   zu reproduzierbarem Build und nativer SQL-Evidence `PREVIEW`;
 - Reconcile-Aktionen über die implementierten Lifecycle-, Container-,
   Hyper-V-Netzwerk-, vCPU-/RAM-, Grow-only-Storage-, SQL-Storage- und
-  dynamischen SQL-Konfigurations- und SQL-Port-Pfade hinaus, insbesondere Rebinding,
-  Adapter-Neuanlage, Gastadressreparatur, Trace-Flag-Entfernung,
-  Testdatenbanken, freie Mount-/Image-Änderungen und Hyper-V-Software;
+  SQL-Konfigurations-, SQL-Port- und katalogisierten Testdatenbankpfade hinaus,
+  insbesondere Rebinding, Adapter-Neuanlage, Gastadressreparatur, vollständige
+  `sp_configure`-Entfernung, freie Mount-/Image-Änderungen und Hyper-V-Software;
 - versionierter Refresh-/Rebuild-Lifecycle für Medien, VHDX und Container-Images;
 - weitere konsumierende Lab-Packages über die drei abgeschlossenen
   Project-Adapter-Vertical-Slices hinaus;
@@ -260,9 +260,13 @@ Storage-Runtime-Receipt. User-/Systemdatenbankbewegung und positive native
 Repair-Evidence bleiben offen. Der Konfigurationsslice vergleicht
 persistierte Memory-, MAXDOP-, Cost-Threshold-, `sp_configure`- und Trace-Flag-
 Ziele ueber PowerShell Direct. Dynamische Werte und additive Trace Flags werden
-live repariert; nicht dynamische Werte werden konfiguriert, mit genau einem
+live repariert; ein eng begrenztes Zielmanifest darf ausschließlich diesen
+Konfigurationsintent ändern. Runtime-Trace-Flags werden nur entfernt, wenn ein
+VM-gebundenes Receipt sie als run-eigen nachweist; SQL-Startup- und fremde Flags
+bleiben fail-closed. Nicht dynamische Werte werden konfiguriert, mit genau einem
 journalisierten `MSSQLSERVER`-Dienstrestart aktiviert und danach zusammen mit
-den Trace Flags erneut verifiziert. Die Hyper-V-VM bleibt gestartet. Der
+den Trace Flags erneut verifiziert. Ownership und Desired State werden erst
+nach den Runtime-Postconditions fortgeschrieben. Die Hyper-V-VM bleibt gestartet. Der
 Port-Slice bindet genau eine
 Standardinstanz, Gastfirewall, SQL-Dienstrestart, Readiness und Connection-
 State journalisiert. Der Testdatenbank-Slice vergleicht `sys.databases` mit

@@ -14,7 +14,8 @@
     Gewuenschter Zielzustand fuer den Run nach der Reconcile-Ausfuehrung.
 .PARAMETER ManifestPath
     Zielmanifest fuer eine erstmalige Installation oder einen späteren,
-    resolvergebundenen External-Runtime-Reconcile.
+    resolvergebundenen Reconcile. Beim Hyper-V-SQL-Konfigurationspfad darf nur
+    der SQL-Konfigurationsintent der Zielinstanz abweichen.
 .PARAMETER InstanceId
     Zielinstanz fuer den Hyper-V-Netzwerk-, Ressourcen-, Storage-, SQL-, Container- oder External-Runtime-Reconcile.
 .PARAMETER RepairHyperVNetwork
@@ -32,8 +33,9 @@
 .PARAMETER RepairHyperVSqlConfiguration
     Repariert dynamische sp_configure-Werte und deklarierte globale Trace Flags
     live. Nicht dynamische Werte verwenden einen journalisierten Neustart nur
-    von MSSQLSERVER; die Hyper-V-VM bleibt gestartet. SQL-Port, Dateipfade und
-    Datenbanken bleiben unberuehrt.
+    von MSSQLSERVER. Mit Zielmanifest werden nur run-eigene Runtime-Trace-Flags
+    entfernt; Startup- und fremde Flags bleiben fail-closed. Die Hyper-V-VM
+    bleibt gestartet. SQL-Port, Dateipfade und Datenbanken bleiben unberuehrt.
 .PARAMETER RepairHyperVSqlPort
     Repariert den manifestgebundenen statischen SQL-TCP-Port und die vorhandene
     Lab-Firewallbindung. Nur der SQL-Dienst, nicht die Hyper-V-VM, wird neu gestartet.
@@ -87,6 +89,7 @@ function Invoke-SqlServerLabReconcileAction {
 
         [Parameter(Mandatory, ParameterSetName = 'ExternalRuntime')]
         [Parameter(Mandatory, ParameterSetName = 'HyperVTestDatabases')]
+        [Parameter(ParameterSetName = 'HyperVSqlConfiguration')]
         [string]$ManifestPath,
 
         [Parameter(ParameterSetName = 'ExternalRuntime')]
@@ -216,7 +219,9 @@ function Invoke-SqlServerLabReconcileAction {
     }
 
     if ($PSCmdlet.ParameterSetName -eq 'HyperVSqlConfiguration') {
-        $plan = Get-SqlServerLabReconcilePlan -RunId $RunId -HyperVSqlConfiguration -InstanceId $InstanceId -StateRoot $StateRoot
+        $planArguments=@{RunId=$RunId;HyperVSqlConfiguration=$true;InstanceId=$InstanceId;StateRoot=$StateRoot}
+        if($PSBoundParameters.ContainsKey('ManifestPath')){$planArguments.ManifestPath=$ManifestPath}
+        $plan = Get-SqlServerLabReconcilePlan @planArguments
         $wouldExecute = if ($plan.IsNoOp -or [string]$plan.HighestChangeClass -notin @('live','restart')) { $false } else {
             $PSCmdlet.ShouldProcess("Run '$RunId', Instanz '$InstanceId'", 'Hyper-V-SQL-Konfiguration journalgebunden reparieren')
         }
@@ -229,7 +234,9 @@ function Invoke-SqlServerLabReconcileAction {
         $summary=[ordered]@{Status=$entry.Status;PlannedActions=@($plan.Actions).Count;ExecutedActions=0;FailedActions=0;MutationAllowed=$false;Errors=@()}
         if($wouldExecute){
             try{
-                $entry.Result=Invoke-LabHyperVSqlConfigurationReconcileRepair -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
+                $repairArguments=@{RunId=$RunId;InstanceId=$InstanceId;StateRoot=$StateRoot}
+                if($PSBoundParameters.ContainsKey('ManifestPath')){$repairArguments.ManifestPath=$ManifestPath}
+                $entry.Result=Invoke-LabHyperVSqlConfigurationReconcileRepair @repairArguments
                 $entry.Executed=$true;$entry.Status=[string]$entry.Result.Status;$summary.Status=[string]$entry.Result.Status;$summary.ExecutedActions=1;$summary.MutationAllowed=$true
             }
             catch{
