@@ -91,6 +91,13 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   Default-Auswahl, Modusänderung und Adoption ohne eigenen Ownership-Vertrag;
   die reale read-only Docker-/Podman-Prüfung hinterließ Ressourcen und Auswahl
   unverändert;
+- read-only Serverobjekt- und TDE-Abhängigkeitsinventar
+  `SqlServerLab.DatabaseMigrationDependencyInventory/1.0` mit sanitisierter
+  Count-Evidence für Login-Mappings, SQL-Agent-Jobs, Proxies, Linked-Server-
+  Kandidaten und TDE-Protectoren; Serverkonfiguration, SSISDB und SSAS bleiben
+  `NOT_OBSERVABLE`, während neue Backup-/Package-Receipts ausdrücklich
+  `DATABASE_FILES_ONLY`, `FullInstanceMigration=false` und die Nichtmitnahme
+  von Serverobjekten, TDE-Keymaterial, Secrets und externen Services ausweisen;
 - versionierte `SqlServerLab.HyperVResourceBinding/1.0`-Grundlage mit kurzen,
   state-root-unabhängigen Create-Roots unter registriertem `Lab_Data`,
   Controller-/Location-/Volume-Revalidierung und getrennter read-only

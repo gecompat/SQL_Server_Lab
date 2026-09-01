@@ -45,6 +45,9 @@ sources_of_truth:
   database_package_attach_journal_schema: Schemas/database-package-attach-journal.schema.json
   validation_database_package: Tests/Static/Invoke-DatabasePackageChecks.ps1
   acceptance_database_package_sql: Tests/Integration/Invoke-DatabasePackageSqlAcceptance.ps1
+  database_migration_dependency_inventory: Private/DatabaseMigrationDependency.ps1
+  database_migration_dependency_inventory_schema: Schemas/database-migration-dependency-inventory.schema.json
+  validation_database_migration_dependency: Tests/Static/Invoke-DatabaseMigrationDependencyChecks.ps1
   state_contract: Private/StateMachine.ps1
   cleanup_contract: Private/CleanupEngine.ps1
   container_reconcile_contract: Private/ContainerReconcile.ps1
@@ -476,6 +479,13 @@ internal_components:
       - "einmaligen Trust mit versionierten lokalen SHA-256-Records verwalten"
       - "inhaltsadressierten Cache und Quarantaene bei Hash-Mismatch verwalten"
       - "sanitisiertes manifest.lock.json vor dem Restore schreiben"
+  - name: DatabaseMigrationDependency
+    source: Private/DatabaseMigrationDependency.ps1
+    responsibilities:
+      - "SQL-seitig beobachtbare Login-, Agent-Job-, Proxy-, Linked-Server- und TDE-Abhaengigkeiten read-only als Kategorien und Counts inventarisieren"
+      - "Serverkonfiguration, SSISDB und SSAS als nicht aus dem Datenbankartefakt beweisbare externe Review-Grenzen ausweisen"
+      - "Datenbankdateien und Backups nie als vollstaendige Instanzmigration oder als TDE-Key-/Secret-Export darstellen"
+      - "sanitisierte Migration-Boundaries in neue Backup- und Datenbankpaket-Receipts einbetten"
   - name: SampleArtifactHandlers
     source: Private/SampleArtifactHandlers.ps1
     responsibilities:
@@ -916,6 +926,15 @@ validation:
       - independent_clone_materialization
       - sql_version_filestream_tde_and_parallel_writer_guards
       - attach_journal_and_online_postcondition
+  static_database_migration_dependency:
+    command: '.\Tests\Static\Invoke-DatabaseMigrationDependencyChecks.ps1'
+    source: Tests/Static/Invoke-DatabaseMigrationDependencyChecks.ps1
+    covers:
+      - read_only_sql_dependency_counts
+      - server_login_job_proxy_linked_server_and_tde_categories
+      - external_configuration_ssisdb_and_ssas_review_boundary
+      - tde_recovery_evidence_gate
+      - sanitized_database_only_artifact_scope
   static_podman_bootstrap:
     command: '.\Tests\Static\Invoke-PodmanBootstrapChecks.ps1'
     source: Tests/Static/Invoke-PodmanBootstrapChecks.ps1

@@ -35,7 +35,8 @@
             "StateAtCapture": { "enum": ["OFFLINE", "DETACHED"] },
             "HasFileStream": { "type": "boolean" }, "FileStreamInventoryComplete": { "type": "boolean" },
             "IsEncrypted": { "type": "boolean" }, "TdeKeyEvidenceVerified": { "type": "boolean" },
-            "ExternalDependencies": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 128 }, "uniqueItems": true }
+            "ExternalDependencies": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 128 }, "uniqueItems": true },
+            "MigrationBoundary": { "$ref": "#/$defs/migrationBoundary" }
           }
         },
         "DatabaseFiles": {
@@ -52,6 +53,21 @@
         "CaptureEvidence": { "type": "object", "additionalProperties": false, "required": ["AccessMode", "WriterCount", "StateObservedAfterLock", "SourceReleased"],
           "properties": { "AccessMode": { "const": "EXCLUSIVE" }, "WriterCount": { "const": 0 }, "StateObservedAfterLock": { "const": true }, "SourceReleased": { "type": "boolean" } } },
         "CreatedAt": { "type": "string", "format": "date-time" }, "UpdatedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "migrationBoundary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["DependencyInventoryStatus", "ArtifactScope", "FullInstanceMigration", "ServerObjectsIncluded", "TdeKeyMaterialIncluded", "SecretValuesIncluded", "ExternalServicesIncluded", "DependencyCategories", "Warnings"],
+      "properties": {
+        "DependencyInventoryStatus": { "enum": ["NOT_EXECUTED", "SQL_ENGINE_COMPLETE_EXTERNAL_REVIEW_REQUIRED"] },
+        "ArtifactScope": { "const": "DATABASE_FILES_ONLY" },
+        "FullInstanceMigration": { "const": false },
+        "ServerObjectsIncluded": { "const": false },
+        "TdeKeyMaterialIncluded": { "const": false },
+        "SecretValuesIncluded": { "const": false },
+        "ExternalServicesIncluded": { "const": false },
+        "DependencyCategories": { "type": "array", "items": { "type": "string", "pattern": "^[A-Z0-9_]+$" }, "uniqueItems": true },
+        "Warnings": { "type": "array", "minItems": 4, "items": { "type": "string", "pattern": "^[A-Z0-9_]+$" }, "uniqueItems": true }
       }
     }
   }

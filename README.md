@@ -54,6 +54,7 @@ testet seinen Core je Provider nur mit SQL Server 2025.
 | Run-State und Cleanup-Plan | implementiert | `Private/StateMachine.ps1`, `Private/CleanupEngine.ps1` |
 | Datenbankerstellung | implementiert | `New-SqlServerLabDatabase` |
 | Backup-Restore mit Artifact Resolver | implementiert | `Restore-SqlServerLabDatabase`, `Private/ArtifactResolver.ps1` |
+| Datenbank-Migrationsgrenzen | read-only Core implementiert; Backup-/Package-Receipts trennen Datenbankinhalt von Serverobjekten, TDE-Keymaterial, Secrets und externen Services | `Private/DatabaseMigrationDependency.ps1`, `Schemas/database-migration-dependency-inventory.schema.json` |
 | Sample-Datenbanken (Backup) | implementiert | `Private/SampleArtifactHandlers.ps1`; direkte `.bak`-Varianten über Trust-/Hash-Pfad, Mehrfachauswahl im Menü und `New-SqlServerLab -Sample` |
 | Project Adapter (v0.1) | implementiert | `Schemas/project-adapter.schema.json`, `Test-SqlServerLabAdapter`, `Install-SqlServerLabAdapter`; T-SQL-Entrypoints ohne Lifecycle-Seiteneffekt |
 | T-SQL-Skriptausführung | implementiert | `Invoke-SqlServerLabScript` |

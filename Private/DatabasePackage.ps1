@@ -112,6 +112,12 @@ function Get-LabDatabasePackageManifestSha256 {
     foreach($object in @($Package.Objects|Sort-Object RelativePath)){
         $lines.Add("OBJECT|$($object.DatabaseFileLogicalName)|$($object.RelativePath.Replace('\','/'))|$($object.Bytes)|$($object.Sha256)")
     }
+    if($Package.DatabaseMetadata.PSObject.Properties['MigrationBoundary']){
+        $boundary=$Package.DatabaseMetadata.MigrationBoundary
+        $lines.Add("BOUNDARY|$($boundary.DependencyInventoryStatus)|$($boundary.ArtifactScope)|$([bool]$boundary.FullInstanceMigration)|$([bool]$boundary.ServerObjectsIncluded)|$([bool]$boundary.TdeKeyMaterialIncluded)|$([bool]$boundary.SecretValuesIncluded)|$([bool]$boundary.ExternalServicesIncluded)")
+        foreach($category in @($boundary.DependencyCategories|Sort-Object -Unique)){$lines.Add("DEPENDENCY|$category")}
+        foreach($warning in @($boundary.Warnings|Sort-Object -Unique)){$lines.Add("WARNING|$warning")}
+    }
     $bytes=[Text.Encoding]::UTF8.GetBytes(($lines -join "`n"))
     return ([Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($bytes))).ToLowerInvariant()
 }
@@ -177,13 +183,21 @@ function New-LabDatabasePackage {
         [Parameter(Mandatory)]$DatabaseMetadata,
         [Parameter(Mandatory)][object[]]$FileInventory,
         [Parameter(Mandatory)][string]$DataRoot,
-        [string[]]$ExternalDependencies=@()
+        [string[]]$ExternalDependencies=@(),
+        [AllowNull()]$MigrationDependencyInventory
     )
 
     Assert-LabDatabasePackageSourceEvidence -SourceEvidence $SourceEvidence -DatabaseMetadata $DatabaseMetadata
     $source=Get-LabDatabasePackageSourceObjects -FileInventory $FileInventory
     $fileStreamEntries=@($source.DatabaseFiles|Where-Object Type -eq 'FILESTREAM')
     if(([bool]$DatabaseMetadata.HasFileStream) -ne ($fileStreamEntries.Count -gt 0)){throw 'DATABASE_PACKAGE_FILESTREAM_METADATA_MISMATCH'}
+    if($MigrationDependencyInventory){
+        if([string]$MigrationDependencyInventory.DatabaseName -ne $DatabaseName){throw 'DATABASE_PACKAGE_DEPENDENCY_DATABASE_MISMATCH'}
+        if([string]$MigrationDependencyInventory.Source.SqlMajorVersion -ne [string]$SqlMajorVersion){throw 'DATABASE_PACKAGE_DEPENDENCY_SQL_VERSION_MISMATCH'}
+        if([bool]$MigrationDependencyInventory.Database.IsEncrypted -ne [bool]$DatabaseMetadata.IsEncrypted){throw 'DATABASE_PACKAGE_DEPENDENCY_ENCRYPTION_MISMATCH'}
+        if([bool]$DatabaseMetadata.IsEncrypted -and [bool]$MigrationDependencyInventory.Database.TdeRecoveryEvidenceVerified -ne [bool]$DatabaseMetadata.TdeKeyEvidenceVerified){throw 'DATABASE_PACKAGE_DEPENDENCY_TDE_EVIDENCE_MISMATCH'}
+    }
+    $migrationBoundary=Get-LabDatabaseArtifactMigrationBoundary -DependencyInventory $MigrationDependencyInventory -ExternalDependencies $ExternalDependencies
     $packageId=[Guid]::NewGuid().ToString('D');$now=Get-LabTimestamp
     $record=[PSCustomObject][ordered]@{
         DatabasePackageId=$packageId;Status='REUSABLE';DatabaseName=$DatabaseName
@@ -192,6 +206,7 @@ function New-LabDatabasePackage {
             StateAtCapture=[string]$SourceEvidence.DatabaseState;HasFileStream=[bool]$DatabaseMetadata.HasFileStream
             FileStreamInventoryComplete=[bool]$DatabaseMetadata.FileStreamInventoryComplete;IsEncrypted=[bool]$DatabaseMetadata.IsEncrypted
             TdeKeyEvidenceVerified=[bool]$DatabaseMetadata.TdeKeyEvidenceVerified;ExternalDependencies=@($ExternalDependencies|Sort-Object -Unique)
+            MigrationBoundary=$migrationBoundary
         }
         DatabaseFiles=@($source.DatabaseFiles);Objects=@($source.Objects|ForEach-Object{[PSCustomObject][ordered]@{DatabaseFileLogicalName=$_.DatabaseFileLogicalName;RelativePath=$_.RelativePath;Bytes=$_.Bytes;Sha256=$_.Sha256}})
         ManifestSha256='0'*64;CaptureEvidence=[PSCustomObject][ordered]@{AccessMode='EXCLUSIVE';WriterCount=0;StateObservedAfterLock=$true;SourceReleased=$false}
@@ -261,10 +276,16 @@ function Get-LabDatabasePackageAttachPlan {
     if(-not [bool]$TargetEvidence.ExclusiveUseAvailable){$blockers.Add('TARGET_EXCLUSIVE_USE_UNVERIFIED')}
     if([int]$TargetEvidence.PackageWriterCount -ne 0){$blockers.Add('PACKAGE_PARALLEL_WRITER_OBSERVED')}
     if(Test-Path -LiteralPath $TargetDirectory){if(@(Get-ChildItem -LiteralPath $TargetDirectory -Force).Count -gt 0){$blockers.Add('TARGET_DIRECTORY_NOT_EMPTY')}}
+    $migrationBoundary=if($record.DatabaseMetadata.PSObject.Properties['MigrationBoundary']){
+        $record.DatabaseMetadata.MigrationBoundary
+    }else{
+        Get-LabDatabaseArtifactMigrationBoundary -DependencyInventory $null -ExternalDependencies @($record.DatabaseMetadata.ExternalDependencies)
+    }
     $plan=[PSCustomObject][ordered]@{
         ContractVersion='SqlServerLab.DatabasePackageAttachPlan/1.0';DatabasePackageId=[string]$record.DatabasePackageId
         Status=if($blockers.Count -eq 0){'READY'}else{'BLOCKED'};DatabaseName=[string]$record.DatabaseName;TargetDirectory=[IO.Path]::GetFullPath($TargetDirectory)
         Mode='COPY_THEN_ATTACH';SourceFilesReadOnly=$true;DirectPackageAttachAllowed=$false
+        MigrationBoundary=$migrationBoundary
         Steps=@('REVERIFY_PACKAGE','COPY_TO_OPERATION_OWNED_TARGET','VERIFY_TARGET_HASHES','ATTACH_EXCLUSIVE_COPY','VERIFY_DATABASE_ONLINE')
         Blockers=@($blockers|Sort-Object -Unique);Recovery='DETACH_TARGET_COPY_IF_ATTACHED_AND_PRESERVE_IMMUTABLE_PACKAGE'
     }
