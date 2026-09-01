@@ -64,6 +64,7 @@ function New-LabDesiredState {
                     TargetState = $TargetState
                     Network = ConvertTo-LabReconcileNetworkIntent -Network $(if ($_.Intents) { $_.Intents.Network } else { $null })
                     Resources = if ($_.Intents -and $_.Intents.Resources) { $_.Intents.Resources } else { $null }
+                    SqlConfiguration = if ($_.Intents -and $_.Intents.SqlConfiguration) { $_.Intents.SqlConfiguration } else { $null }
                     Drives = if ($_.Intents) { @($_.Intents.Drives) } else { @() }
                     Storage = if ($_.Intents -and $_.Intents.Storage) { $_.Intents.Storage } else { $null }
                 }
@@ -97,6 +98,7 @@ function New-LabDesiredState {
                     TargetState = $TargetState
                     Network = ConvertTo-LabReconcileNetworkIntent -Network $(if ($networkIntent) { [PSCustomObject]@{ Intent=$networkIntent } } else { $null })
                     Resources = $null
+                    SqlConfiguration = $null
                     Drives = @()
                     Storage = $null
                 }
@@ -109,7 +111,7 @@ function New-LabDesiredState {
         $instances = @($Run.providerSubRuns | ForEach-Object {
             $provider = [string]$_.provider
             @($_.instanceIds | ForEach-Object {
-                [PSCustomObject]@{ Id = [string]$_; Provider = $provider; Profile = $null; TargetState = $TargetState; Network = $null; Resources = $null; Drives = @(); Storage = $null }
+                [PSCustomObject]@{ Id = [string]$_; Provider = $provider; Profile = $null; TargetState = $TargetState; Network = $null; Resources = $null; SqlConfiguration = $null; Drives = @(); Storage = $null }
             })
         })
     }

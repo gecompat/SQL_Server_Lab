@@ -45,6 +45,9 @@ plattformgebundene SQL-Features benötigen.
   Adapter; External-Switch-Erstellung benötigt eine zusätzliche Freigabe;
 - manifestgebundener vCPU-/RAM-Reconcile mit statischem oder dynamischem RAM,
   Min/Startup/Max, Live-Min-/Max-Anpassung und journalisiertem Stop-Apply-Start;
+- manifestgebundener Add-/Grow-only-Storage- und SQL-Dateiplatzierungs-Reconcile
+  sowie dynamischer SQL-Konfigurations-Reconcile fuer Memory, MAXDOP, Cost
+  Threshold, explizite `sp_configure`-Werte und additive Trace Flags;
 - Cleanup-Plan vor der ersten Provider-Mutation;
 - eigener synthetischer Native-Smoke-Test ohne Betriebssystem, Netzwerk oder SQL.
 
@@ -92,7 +95,8 @@ Manifest-Binding, Netzwerkzugriff und echtem Windows-/SQL-End-to-End-Test.
 - echter End-to-End-Sysprep-Nachweis in einem Windows-Gast; der Native-Smoke
   verwendet weiterhin bewusst nur synthetische leere Testmedien;
 - SQL `PrepareImage`/`CompleteImage`, Software, External Runtimes und Testdatenbanken;
-- Reconcile über Netzwerk und vCPU/RAM hinaus.
+- Reconcile für SQL-Port, Testdatenbanken, Storage-Rebinding/-Removal,
+  Trace-Flag-Entfernung und weitere nicht dynamische SQL-Konfiguration.
 
 ## Verbindliche Aufsetzpunkte
 

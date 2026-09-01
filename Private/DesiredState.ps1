@@ -68,6 +68,58 @@ function New-LabHyperVResourceIntentSnapshot {
     }
 }
 
+function New-LabSqlConfigurationIntentSnapshot {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Instance,
+        [Parameter(Mandatory)]$ProviderCapability
+    )
+
+    if (-not $Instance.serverConfig) { return $null }
+    $config = $Instance.serverConfig
+    $configurationValues = [Collections.Generic.List[object]]::new()
+    if ($config.memory) {
+        if ($null -ne $config.memory.minMB) {
+            $configurationValues.Add([PSCustomObject]@{ Name='min server memory (MB)'; Value=[int]$config.memory.minMB })
+        }
+        if ($null -ne $config.memory.maxMB) {
+            $configurationValues.Add([PSCustomObject]@{ Name='max server memory (MB)'; Value=[int]$config.memory.maxMB })
+        }
+    }
+    if ($null -ne $config.maxDop) {
+        $configurationValues.Add([PSCustomObject]@{ Name='max degree of parallelism'; Value=[int]$config.maxDop })
+    }
+    if ($null -ne $config.costThreshold) {
+        $configurationValues.Add([PSCustomObject]@{ Name='cost threshold for parallelism'; Value=[int]$config.costThreshold })
+    }
+    if ($config.spConfigure) {
+        foreach ($property in @($config.spConfigure.PSObject.Properties | Sort-Object Name)) {
+            $name = [string]$property.Name
+            if ($name -notmatch '^[A-Za-z0-9 ()_-]+$') {
+                throw "SQL_CONFIGURATION_INTENT_NAME_INVALID: $name"
+            }
+            $configurationValues.Add([PSCustomObject]@{ Name=$name; Value=[int]$property.Value })
+        }
+    }
+
+    $deduplicated = [Collections.Generic.List[object]]::new()
+    foreach ($group in @($configurationValues | Group-Object { ([string]$_.Name).ToLowerInvariant() } | Sort-Object Name)) {
+        $values = @($group.Group | ForEach-Object { [long]$_.Value } | Sort-Object -Unique)
+        if ($values.Count -ne 1) {
+            throw "SQL_CONFIGURATION_INTENT_CONFLICT: $($group.Group[0].Name)"
+        }
+        $deduplicated.Add([PSCustomObject]@{ Name=[string]$group.Group[0].Name; Value=[long]$values[0] })
+    }
+    $requiredCapability = if ([string]$Instance.provider -eq 'hyperv') { 'hyperv-sql-configuration-reconcile' } else { 'sql-configuration-reconcile' }
+    return [PSCustomObject]@{
+        Contract = [PSCustomObject]@{ Name='SqlServerLab.SqlConfigurationIntent'; Version='1.0' }
+        Configurations = @($deduplicated)
+        TraceFlags = @($config.traceFlags | ForEach-Object { [int]$_ } | Sort-Object -Unique)
+        RequiredCapability = $requiredCapability
+        CapabilityStatus = Get-LabDeclaredIntentCapabilityStatus -ProviderCapability $ProviderCapability -RequiredCapability $requiredCapability
+    }
+}
+
 function New-LabInstanceIntentSnapshot {
     [CmdletBinding()]
     param(
@@ -189,6 +241,7 @@ function New-LabInstanceIntentSnapshot {
         Drives = $drives
         Network = $network
         Resources = New-LabHyperVResourceIntentSnapshot -Instance $Instance
+        SqlConfiguration = New-LabSqlConfigurationIntentSnapshot -Instance $Instance -ProviderCapability $ProviderCapability
         Software = $software
         Storage = $storage
     }

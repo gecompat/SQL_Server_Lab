@@ -50,6 +50,9 @@ sources_of_truth:
   validation_hyperv_storage_reconcile: Tests/Static/Invoke-HyperVStorageReconcileChecks.ps1
   hyperv_sql_storage_reconcile_contract: Private/HyperVSqlStorageReconcile.ps1
   validation_hyperv_sql_storage_reconcile: Tests/Static/Invoke-HyperVSqlStorageReconcileChecks.ps1
+  hyperv_sql_configuration_reconcile_contract: Private/HyperVSqlConfigurationReconcile.ps1
+  hyperv_sql_configuration_reconcile_journal_schema: Schemas/hyperv-sql-configuration-reconcile-journal.schema.json
+  validation_hyperv_sql_configuration_reconcile: Tests/Static/Invoke-HyperVSqlConfigurationReconcileChecks.ps1
   port_allocation_contract: Private/PortAllocation.ps1
   storage_contract: Private/StorageContract.ps1
   storage_contract_schema: Schemas/lab-storage-contract.schema.json
@@ -521,6 +524,7 @@ providers:
     resource_migration: Private/HyperVResourceMigration.ps1
     resource_reconcile: "Private/HyperVResourceReconcile.ps1; manifestgebundener vCPU-/RAM-Istvergleich, Live-Min-/Max sowie journalisiertes Stop-Apply-Start mit Recovery-Resume"
     storage_reconcile: "Private/HyperVStorageReconcile.ps1 plus Private/HyperVSqlStorageReconcile.ps1; manifestgebundene zusaetzliche SCSI-VHDX, Grow-only-Resize, Gast-NTFS-Erweiterung sowie receiptgebundener SQL-Default-/TempDB-Reconcile mit Recovery-Resume"
+    sql_configuration_reconcile: "Private/HyperVSqlConfigurationReconcile.ps1; persistierter serverConfig-Intent, read-only sys.configurations-/Trace-Flag-Istvergleich und journalisierte dynamische Live-Reparatur mit Recovery-Resume"
     migration_lifecycle_guard: "read-only Reconcile-Plan plus fail-closed Start, Stop, Autostart, SQL-WMI-Repair und Cleanup; Run- und allgemeine Location-Migrationen muessen terminal sein, COMPLETED erfordert revalidierte Bindings"
     storage_parent_migration_binding: "Plan inventarisiert lokale HyperVResourceBinding-Receipts sowie exakte VM-Konfigurations-/Snapshot-/Paging-Quell- und Zielpfade; Apply revalidiert VM-Identitaet und Aus-Zustand, journalisiert Move-VMStorage vor der Mutation, prueft Ziel-Postconditions und setzt ohne doppelten Move fort"
     storage_parent_migration_acceptance: "Tests/Integration/Invoke-HyperVStorageParentMigrationAcceptance.ps1; reale Vorwaerts- und Rueckmigration eines isolierten nicht-default Lab_Data mit VM-Konfiguration, Snapshot, Smart Paging, VHDX-Rebind, Wiederherstellung und Cleanup"
@@ -540,6 +544,7 @@ providers:
     resource_reconcile_static_checks: Tests/Static/Invoke-HyperVResourceReconcileChecks.ps1
     storage_reconcile_static_checks: Tests/Static/Invoke-HyperVStorageReconcileChecks.ps1
     sql_storage_reconcile_static_checks: Tests/Static/Invoke-HyperVSqlStorageReconcileChecks.ps1
+    sql_configuration_reconcile_static_checks: Tests/Static/Invoke-HyperVSqlConfigurationReconcileChecks.ps1
     resource_migration_acceptance: Tests/Integration/Invoke-HyperVResourceMigrationAcceptance.ps1
     image_migration_static_checks: Tests/Static/Invoke-HyperVImageMigrationChecks.ps1
     sql_prepared_build_acceptance: Tests/Integration/Invoke-HyperVSqlPreparedImageAcceptance.ps1

@@ -39,7 +39,8 @@
     "sql-external-runtime",
     "hyperv-resource-reconcile",
     "hyperv-storage-reconcile",
-    "hyperv-sql-storage-reconcile"
+    "hyperv-sql-storage-reconcile",
+    "hyperv-sql-configuration-reconcile"
   ],
   "limitations": [
     "no-unattended-os-build",
