@@ -86,7 +86,8 @@ function Get-LabRuntimeStorageRoot {
     param([Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider)
 
     $template = if ($Provider -eq 'docker') { '{{.DockerRootDir}}' } else { '{{.Store.GraphRoot}}' }
-    $output = @(& $Provider info --format $template 2>$null | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ })
+    $invocation = Get-LabHostToolInvocation -Name $Provider
+    $output = @(& $invocation info --format $template 2>$null | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ })
     if ($LASTEXITCODE -ne 0 -or $output.Count -ne 1) { return $null }
     return [string]$output[0]
 }
@@ -98,7 +99,8 @@ function Get-LabRuntimeVolumeInspection {
         [Parameter(Mandatory)][string]$Name
     )
 
-    $raw = @(& $Provider volume inspect $Name 2>$null)
+    $invocation = Get-LabHostToolInvocation -Name $Provider
+    $raw = @(& $invocation volume inspect $Name 2>$null)
     if ($LASTEXITCODE -ne 0 -or $raw.Count -eq 0) { return $null }
     try {
         $parsed = @((($raw -join "`n") | ConvertFrom-Json -Depth 20 -ErrorAction Stop))[0]
