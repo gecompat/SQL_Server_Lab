@@ -434,9 +434,12 @@ Read/Write-Attach der unveränderlichen Bibliotheksobjekte ist verboten. Der
 Attach-Plan blockiert ältere SQL-Ziele, fehlende FILESTREAM-Capability,
 fehlende TDE-Key-Evidence, bestehende Zieldatenbanken und nicht-exklusive
 Nutzung. Der Executor journalisiert Kopie, Attach und Online-Postcondition.
-Noch offen sind die öffentliche CLI-/GUI-Bedienung, der Katalog-Commit und der
-reale SQL-Server-/FILESTREAM-Hyper-V-Nachweis; die statische Dateisystem-
-Abnahme wird nicht als nativer SQL-Attach ausgegeben.
+Die Publikation registriert das Paket rollbackfähig mit eigener
+`PersistentStorageId` im controllergebundenen Katalog; ein fehlgeschlagener
+Katalogcommit quarantänisiert Library-Eintrag und Journal fail-closed. Noch
+offen sind die öffentliche CLI-/GUI-Bedienung und der reale SQL-Server-/
+FILESTREAM-Hyper-V-Nachweis; die statische Dateisystem-Abnahme wird nicht als
+nativer SQL-Attach ausgegeben.
 
 Der read-only PSR-010-Core inventarisiert SQL-seitig beobachtbare Server-
 Login-Mappings, datenbankgebundene SQL-Agent-Jobs und deren Proxies,
@@ -922,14 +925,15 @@ entfernt keine Ressource und ersetzt weder Ownership- noch Referenzprüfung.
 Der `SqlServerLab.PersistentStorageCatalog/1.0`-Vertrag mit stabilen
 `PersistentStorageId`-Werten, Klassen, Zuständen, Referenzen und exklusiven
 Leases sowie der Residency-gebundene `SqlServerLab.PersistentStoragePlan/1.0`
-sind implementiert. Verifizierte Backup-Library-Einträge werden als
-`BACKUP_SET` unter controllerweitem Lock rollbackfähig auf alle erreichbaren,
-eigenen `Lab_Data`-Spiegel geschrieben; Wiederholung und interner
-Bestandsabgleich sind idempotent und lesen nur Registry, Existenz und Dateigröße
-statt alle Backupinhalte erneut zu hashen. Noch nicht implementiert sind die
-generische Katalogmutation, ein öffentlicher Bestandsmigrationsbefehl,
-Lease-Akquisition, providerübergreifende Wiederverwendung und explizites
-Löschen. Der zusätzliche read-only Removal-Vertrag plant
+sind implementiert. Verifizierte Backup-Library- und Datenbankpaket-Einträge
+werden als `BACKUP_SET` beziehungsweise `DATABASE_PACKAGE` unter
+controllerweitem Lock rollbackfähig auf alle erreichbaren, eigenen `Lab_Data`-
+Spiegel geschrieben; Wiederholung und interner Bestandsabgleich sind
+idempotent und lesen Registry sowie billige Vollständigkeitsevidence statt alle
+Artefaktinhalte erneut zu hashen. Noch nicht implementiert sind die generische
+Katalogmutation, ein öffentlicher Bestandsmigrationsbefehl, Lease-Akquisition,
+providerübergreifende Wiederverwendung und explizites Löschen. Der zusätzliche
+read-only Removal-Vertrag plant
 `DELETE_WITH_RUN`, `RETAIN_INSTANCE_STORE`, `BACKUP_ON_REMOVE`,
 `PACKAGE_ON_REMOVE`, `BACKUP_AND_PACKAGE` und `EXTERNAL_UNMANAGED` mit
 Referenz-, Lease-, Backup-, Package- und Recovery-Gates. Noch nicht

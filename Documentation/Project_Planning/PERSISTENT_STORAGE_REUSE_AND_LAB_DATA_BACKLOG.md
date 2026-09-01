@@ -42,13 +42,15 @@ Referenzen und genau eine exklusive Lease. Der Parser führt identische,
 controllergebundene Katalogspiegel zusammen und blockiert ungültige oder
 divergierende Spiegel. `SqlServerLab.PersistentStoragePlan/1.0` bindet diese
 Einträge read-only an das Residency-Inventar und meldet retained Objekte ohne
-erfundene ID als Registrierungskandidaten. Neue verifizierte Backup-Sets werden
-unter einem controllerweiten Lock mit eigenständiger `PersistentStorageId`,
-aktiver `ARTIFACT`-Referenz und rollbackfähigen identischen Spiegeln
-registriert. Der Reconcile-Core übernimmt vorhandene Backup-Library-Einträge
-idempotent und ohne erneutes Voll-Hashing; das Residency-Inventar bindet sie an
-dieselbe Objekt-ID. Generische Katalogmutation, Lease-Erwerb, Wiederverwendung,
-öffentliche Bestandsmigration und Löschung bleiben getrennte Folgearbeit.
+erfundene ID als Registrierungskandidaten. Neue verifizierte Backup-Sets und
+Datenbankpakete werden unter einem controllerweiten Lock mit eigenständiger
+`PersistentStorageId`, aktiver `ARTIFACT`-Referenz und rollbackfähigen
+identischen Spiegeln registriert. Der Reconcile-Core übernimmt vorhandene
+Library-Einträge idempotent und ohne erneutes Voll-Hashing; das
+Residency-Inventar bindet sie an dieselbe Objekt-ID. Ein fehlgeschlagener
+Paket-Katalogcommit quarantänisiert Library-Eintrag und Recovery-Journal.
+Generische Katalogmutation, Lease-Erwerb, Wiederverwendung, öffentliche
+Bestandsmigration und Löschung bleiben getrennte Folgearbeit.
 
 Der read-only Slice `PSR-004` ist ebenfalls implementiert. Ein strikter
 `SqlServerLab.PersistentStorageRemovalIntent/1.0` bindet die sechs
@@ -391,7 +393,7 @@ Volumename ersetzt diese Identität nicht.
 |---|---:|---|---|
 | `PSR-001` | P0-Analyse | Ist-Inventar aller persistenten, rungebundenen und verbleibenden Objekte für Docker, Podman und Hyper-V | `IMPLEMENTED_PARTIAL`: versionierte read-only Matrix mit stabilen Objekt-IDs, Residency, Lifecycle, Cleanup-Policy und Provider-Coverage; physisches Desktop-/Machine-Backing bleibt explizit unverifizierbar |
 | `PSR-002` | P0-Analyse | `Lab_Data`-Versprechen, native Runtime-Ausnahmen und Hosteingriffsgrenzen entscheiden | `COMPLETE`: bindender `SqlServerLab.LabDataResidencyDecision/1.0`-Entscheid |
-| `PSR-003` | P1 | Storage-Katalog mit stabiler ID, Klassen, Zuständen, Referenzen und Leases entwerfen | `IMPLEMENTED_PARTIAL`: Schema, Parser, Planner, Inventarbindung und rollbackfähige, idempotente `BACKUP_SET`-Registrierung auf allen controllergebundenen Spiegeln; generische Mutation, öffentliche Bestandsmigration, Lease-Akquisition, Wiederverwendung und Löschung bleiben offen |
+| `PSR-003` | P1 | Storage-Katalog mit stabiler ID, Klassen, Zuständen, Referenzen und Leases entwerfen | `IMPLEMENTED_PARTIAL`: Schema, Parser, Planner, Inventarbindung und rollbackfähige, idempotente `BACKUP_SET`-/`DATABASE_PACKAGE`-Registrierung auf allen controllergebundenen Spiegeln; generische Mutation, öffentliche Bestandsmigration, Lease-Akquisition, Wiederverwendung und Löschung bleiben offen |
 | `PSR-004` | P1 | Retention-, Backup-on-Remove-, Package- und expliziten Löschvertrag entwerfen | `IMPLEMENTED_READ_ONLY`: verlustsicherer Cleanup-/Recovery-Plan; Executor und getrennte endgültige Storage-Löschaktion bleiben offen |
 | `PSR-005` | P1 | Docker-/Podman-Instanzstore auswählbar, fortsetzbar und klonbar machen | `IMPLEMENTED_CORE`: stabile ID-Auswahl, detached Continue/Clone, Digest/Resume und getrennte reale Docker-/Podman-Nachweise; Katalog-Commit, Sidecars und öffentliche Bedienung offen |
 | `PSR-006` | P1 | Podman-Machine- und Docker-Engine-/Context-Reichweite bewerten und gegebenenfalls dediziert verwalten | `IMPLEMENTED_READ_ONLY`: stabile sanitisierte Runtime-ID, Context-/Connection-/Machine-Bindung und REPORT_ONLY-Hostgrenze real belegt; dedizierter Ownership-/Lifecycle-Vertrag bleibt offen |
@@ -461,8 +463,12 @@ physische Kopie, das direkte Read/Write-Attach eines Bibliotheksobjekts ist
 verboten. Der Attach-Plan blockiert ältere SQL-Ziele, fehlende FILESTREAM- oder
 TDE-Evidence, vorhandene Zieldatenbanken und parallele Writer. Kopie, Attach,
 Online-Postcondition und Recovery werden journalisiert. Die deterministische
-Core-Suite ist grün; ein realer Windows-SQL-/FILESTREAM-Lauf in Hyper-V bleibt
-als eigener Provider-Nachweis offen und wird nicht vorweggenommen.
+Core-Suite ist grün. Erfolgreiche Publikation bindet das Paket atomar über eine
+getrennte `PersistentStorageId` an alle controllergebundenen Katalogspiegel;
+Katalogfehler setzen Bibliothek und Journal auf Quarantäne/Recovery. Das
+Residency-Inventar verwendet dieselbe stabile Objekt-ID ohne erneutes
+Inhalts-Hashing. Ein realer Windows-SQL-/FILESTREAM-Lauf in Hyper-V bleibt als
+eigener Provider-Nachweis offen und wird nicht vorweggenommen.
 - Serverobjekte, TDE-Keymaterial, Credentials und externe Services werden bei
   Backup oder Datenbankpaket nicht als implizit mitgenommen ausgegeben.
 
