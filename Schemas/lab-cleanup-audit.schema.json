@@ -3,7 +3,7 @@
   "$id": "https://sql-server-lab.local/schemas/lab-cleanup-audit.schema.json",
   "title": "SqlServerLab.CleanupAudit/1.0",
   "type": "object",
-  "required": ["ContractVersion", "AuditId", "CreatedAt", "Status", "DataRoots", "ActiveRuns", "Runtimes", "Containers", "ManagedVolumes", "ManagedNetworks", "HyperV", "StorageResidency", "PersistentStorage", "ExternalReferences", "RepositoryResidues", "LegacyStateRoots", "Summary"],
+  "required": ["ContractVersion", "AuditId", "CreatedAt", "Status", "DataRoots", "ActiveRuns", "Runtimes", "RuntimeScopes", "Containers", "ManagedVolumes", "ManagedNetworks", "HyperV", "StorageResidency", "PersistentStorage", "ExternalReferences", "RepositoryResidues", "LegacyStateRoots", "Summary"],
   "properties": {
     "ContractVersion": { "const": "SqlServerLab.CleanupAudit/1.0" },
     "AuditId": { "type": "string", "format": "uuid" },
@@ -11,6 +11,13 @@
     "DataRoots": { "type": "array" },
     "ActiveRuns": { "type": "array" },
     "Runtimes": { "type": "array" },
+    "RuntimeScopes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["ContractVersion", "Provider", "Status", "RuntimeId", "Ownership", "Summary"]
+      }
+    },
     "Containers": { "type": "array" },
     "ManagedVolumes": { "type": "array" },
     "ManagedNetworks": { "type": "array" },

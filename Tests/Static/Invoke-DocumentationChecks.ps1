@@ -856,7 +856,7 @@ Add-ValidationResult `
 
 Add-ValidationResult `
     -Name 'PSR-003 dokumentiert den implementierten read-only Katalogvertrag ohne Mutationsversprechen' `
-    -Success ($persistentStorageBacklog -match '(?m)^`ACTIVE / P1_PRODUCT_CONTRACT_WITH_PSR_001_PARTIAL_PSR_002_COMPLETE_PSR_003_AND_PSR_004_IMPLEMENTED_READ_ONLY_PSR_005_IMPLEMENTED_CORE`' -and
+    -Success ($persistentStorageBacklog -match '(?m)^`ACTIVE / P1_PRODUCT_CONTRACT_WITH_PSR_001_PARTIAL_PSR_002_COMPLETE_PSR_003_PSR_004_AND_PSR_006_IMPLEMENTED_READ_ONLY_PSR_005_IMPLEMENTED_CORE`' -and
         $persistentStorageBacklog -match '(?m)^\| `PSR-003` .*\| `IMPLEMENTED_READ_ONLY`:' -and
         $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.PersistentStorageCatalog/1.0') -and
         $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.PersistentStoragePlan/1.0') -and
@@ -887,6 +887,18 @@ Add-ValidationResult `
         $repoMap -match 'container_instance_store: Private/ContainerInstanceStore\.ps1' -and
         $repoMap -match 'validation_container_instance_store: Tests/Static/Invoke-ContainerInstanceStoreChecks\.ps1' -and
         $repoMap -match 'acceptance_container_instance_store: Tests/Integration/Invoke-ContainerInstanceStoreAcceptance\.ps1')
+
+Add-ValidationResult `
+    -Name 'PSR-006 dokumentiert sanitisierte Runtime-Reichweite und REPORT_ONLY-Hostgrenze mit realer Evidence' `
+    -Success ($persistentStorageBacklog -match '(?m)^\| `PSR-006` .*\| `IMPLEMENTED_READ_ONLY`:' -and
+        $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.ContainerRuntimeScope/1.0') -and
+        $persistentStorageBacklog -match 'Docker-\s*Desktop- sowie Podman-WSL-Runtime belegt' -and
+        $knownLimitations -match 'physisches Host-Backing ist weiterhin\s*`UNVERIFIABLE`' -and
+        $knownLimitations -match 'Dedizierte Lab-Runtimes sind\s*erst nach einem separaten Ownership-' -and
+        $repoMap -match 'container_runtime_scope: Private/ContainerRuntimeScope\.ps1' -and
+        $repoMap -match 'container_runtime_scope_schema: Schemas/container-runtime-scope\.schema\.json' -and
+        $repoMap -match 'validation_container_runtime_scope: Tests/Static/Invoke-ContainerRuntimeScopeChecks\.ps1' -and
+        $repoMap -match 'acceptance_container_runtime_scope: Tests/Integration/Invoke-ContainerRuntimeScopeAcceptance\.ps1')
 
 Add-ValidationResult `
     -Name 'Roadmap beschreibt den real belegten Container-Reconcile-Stand widerspruchsfrei' `
