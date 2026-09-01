@@ -52,6 +52,39 @@ Add-CheckResult -Name 'Container-Reconcile aktiviert Vertrag sowie Docker- und P
     'Invoke-ReadinessContractChecks.ps1' -in $containerReconcile.StaticChecks
 )
 
+$containerInstanceStore = & $selector -ChangedPath @('Private/ContainerInstanceStore.ps1')
+Add-CheckResult -Name 'Container-Instanzstore aktiviert Core-Verträge sowie getrennte Docker-/Podman-Nachweise' -Success (
+    $containerInstanceStore.Docker -and $containerInstanceStore.Podman -and
+    'Invoke-ContainerInstanceStoreChecks.ps1' -in $containerInstanceStore.StaticChecks -and
+    'Invoke-ContainerVolumeContractChecks.ps1' -in $containerInstanceStore.StaticChecks
+)
+
+$containerRuntimeScope = & $selector -ChangedPath @('Private/ContainerRuntimeScope.ps1')
+Add-CheckResult -Name 'Container-Runtime-Scope aktiviert read-only Vertrag sowie Docker-/Podman-Nachweise' -Success (
+    $containerRuntimeScope.Docker -and $containerRuntimeScope.Podman -and
+    'Invoke-ContainerRuntimeScopeChecks.ps1' -in $containerRuntimeScope.StaticChecks
+)
+
+$backupLibrary = & $selector -ChangedPath @('Private/BackupLibrary.ps1')
+Add-CheckResult -Name 'Backup-Bibliothek aktiviert statischen Vertrag und providerübergreifenden Runtime-Nachweis' -Success (
+    $backupLibrary.Mixed -and
+    'Invoke-BackupLibraryChecks.ps1' -in $backupLibrary.StaticChecks -and
+    'Invoke-SampleBaselineRuntimeChecks.ps1' -in $backupLibrary.StaticChecks
+)
+
+$databasePackage = & $selector -ChangedPath @('Private/DatabasePackage.ps1')
+Add-CheckResult -Name 'Datenbankpaket aktiviert Offline-Dateivertrag und Hyper-V-Runtime-Nachweis' -Success (
+    $databasePackage.HyperV -and -not $databasePackage.Docker -and -not $databasePackage.Podman -and
+    'Invoke-DatabasePackageChecks.ps1' -in $databasePackage.StaticChecks
+)
+
+$hyperVPersistentData = & $selector -ChangedPath @('Private/HyperVPersistentDataDrive.ps1')
+Add-CheckResult -Name 'Hyper-V-Persistent-Data aktiviert eigenen Vertrag und nur den Hyper-V-Runtime-Nachweis' -Success (
+    $hyperVPersistentData.HyperV -and -not $hyperVPersistentData.Docker -and -not $hyperVPersistentData.Podman -and
+    'Invoke-HyperVPersistentDataDriveChecks.ps1' -in $hyperVPersistentData.StaticChecks -and
+    'Invoke-HyperVProviderChecks.ps1' -in $hyperVPersistentData.StaticChecks
+)
+
 $ci = & $selector -ChangedPath @('.github/workflows/static-contracts.yml')
 Add-CheckResult -Name 'CI-Infrastruktur prueft einmalig alle Runtime-Gates' -Success (
     $ci.Docker -and $ci.Podman -and $ci.Mixed -and $ci.HyperV -and $ci.Adapter

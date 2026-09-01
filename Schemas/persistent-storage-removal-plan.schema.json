@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sql-server-lab.local/schemas/persistent-storage-removal-plan.schema.json",
+  "title": "SqlServerLab.PersistentStorageRemovalPlan/1.0",
+  "type": "object",
+  "required": ["ContractVersion", "IntentId", "RunId", "CatalogRevision", "Status", "Stores", "Issues", "Summary"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.PersistentStorageRemovalPlan/1.0" },
+    "IntentId": { "type": "string", "format": "uuid" },
+    "RunId": { "type": "string", "format": "uuid" },
+    "CatalogRevision": { "type": "integer", "minimum": 0 },
+    "Status": { "enum": ["READY", "BLOCKED"] },
+    "Stores": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["PersistentStorageId", "StorageClass", "Provider", "Policy", "Outcome", "Destructive", "RequiresSeparateStorageDelete", "DatabaseReferenceIds", "Preconditions", "Steps", "Blockers"],
+        "properties": {
+          "PersistentStorageId": { "type": "string", "format": "uuid" },
+          "StorageClass": { "enum": ["INSTANCE_STORE", "DATABASE_PACKAGE", "BACKUP_SET", "EXCHANGE_WORKSPACE"] },
+          "Provider": { "enum": ["docker", "podman", "hyperv", "external"] },
+          "Policy": { "type": ["string", "null"], "enum": ["DELETE_WITH_RUN", "RETAIN_INSTANCE_STORE", "BACKUP_ON_REMOVE", "PACKAGE_ON_REMOVE", "BACKUP_AND_PACKAGE", "EXTERNAL_UNMANAGED", null] },
+          "Outcome": { "enum": ["DELETE_RUN_RESOURCE", "RETAIN_CATALOGED", "BACKUP_AND_RETAIN", "PACKAGE_AND_RETAIN", "BACKUP_PACKAGE_AND_RETAIN", "RELEASE_BINDING_ONLY", "BLOCKED"] },
+          "Destructive": { "type": "boolean" },
+          "RequiresSeparateStorageDelete": { "type": "boolean" },
+          "DatabaseReferenceIds": { "type": "array", "items": { "type": "string", "format": "uuid" }, "uniqueItems": true },
+          "Preconditions": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+          "Steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["Order", "Action", "Mutation", "FailureState", "Evidence"],
+              "properties": {
+                "Order": { "type": "integer", "minimum": 1 },
+                "Action": { "enum": ["VERIFY_SCOPE", "VERIFY_REFERENCES", "VERIFY_LEASE", "BACKUP_DATABASES", "VERIFY_BACKUP_CHECKSUM", "VERIFY_RESTORE", "OFFLINE_DATABASES", "MATERIALIZE_PACKAGE", "HASH_PACKAGE", "VERIFY_PACKAGE", "RELEASE_LEASE", "RELEASE_RUN_REFERENCE", "DELETE_RUN_RESOURCE", "PRESERVE_STORE", "RELEASE_EXTERNAL_BINDING"] },
+                "Mutation": { "enum": ["NONE", "SQL", "STORAGE", "CATALOG"] },
+                "FailureState": { "enum": ["NONE", "RECOVERY_REQUIRED"] },
+                "Evidence": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+              },
+              "additionalProperties": false
+            }
+          },
+          "Blockers": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+        },
+        "additionalProperties": false
+      }
+    },
+    "Issues": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "Summary": {
+      "type": "object",
+      "required": ["StoreCount", "DestructiveStoreCount", "ProtectedStoreCount", "RecoveryGuardedSteps", "Blockers"],
+      "properties": {
+        "StoreCount": { "type": "integer", "minimum": 0 },
+        "DestructiveStoreCount": { "type": "integer", "minimum": 0 },
+        "ProtectedStoreCount": { "type": "integer", "minimum": 0 },
+        "RecoveryGuardedSteps": { "type": "integer", "minimum": 0 },
+        "Blockers": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

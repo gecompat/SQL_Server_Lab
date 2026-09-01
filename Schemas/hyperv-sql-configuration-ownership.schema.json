@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sql-server-lab.local/schemas/hyperv-sql-configuration-ownership.schema.json",
+  "title": "SqlServerLab.HyperVSqlConfigurationOwnership/1.0",
+  "type": "object",
+  "required": ["ContractVersion", "RunId", "ScopeId", "InstanceId", "Provider", "VMId", "TraceFlags", "UpdatedAt"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.HyperVSqlConfigurationOwnership/1.0" },
+    "RunId": { "type": "string", "format": "uuid" },
+    "ScopeId": { "type": "string", "format": "uuid" },
+    "InstanceId": { "type": "string", "minLength": 1 },
+    "Provider": { "const": "hyperv" },
+    "VMId": { "type": "string", "minLength": 1 },
+    "TraceFlags": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "integer", "minimum": 1 }
+    },
+    "UpdatedAt": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

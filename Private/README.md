@@ -15,10 +15,18 @@ Der Pfad `Private/` beschreibt primär die interne Architektur. Die tatsächlich
 | `VersionCatalog.ps1` | Versionen, CU-Builds, Images, Ressourcenprofile, sichere Windows-CU-Acquisition und Linux-Image-Prefetch |
 | `SoftwareCatalog.ps1` | Providerneutrale External-Runtime-Anforderungen, kataloggebundene Planauflösung und sanitisiertes Installation Receipt |
 | `StateMachine.ps1` | State-Root, Run-State, ProviderSubRuns, Übergänge, Historie und aktive Runs |
-| `DesiredState.ps1` | Geheimnisfreier Run-Sollzustand mit providerneutralen Drive-, Network- und Software-Intents |
+| `DesiredState.ps1` | Geheimnisfreier Run-Sollzustand mit providerneutralen Drive-, Network-, SQL-, Datenbank- und Software-Intents |
 | `StorageContract.ps1` | Controllergebundene Multi-Root-Registry, stabile Location-Metadaten, Topologie und Migrationseinstieg |
 | `StorageFilePlacement.ps1` | Read-only Bindung portabler SQL-Storage-Intents an lokale Locations, Topologie, Gastpfade und reviewbare SQL-Dateien |
+| `StorageResidencyInventory.ps1` | Read-only Klassifikation von `Lab_Data`, nativen Runtime-Volumes, externen Pfaden, Hyper-V-Ressourcen, Retention und unverifizierbarem physischen Backing |
+| `PersistentStorageCatalog.ps1` | Parser und read-only Planner für stabile Persistent-Storage-IDs, Klassen, Zustände, Referenzen, exklusive Leases und Registrierungskandidaten |
+| `PersistentStorageRemovalPlan.ps1` | Read-only Plan für Retention, Backup-/Package-on-Remove, externe Bindungsfreigabe, Recovery-Gates und getrennte endgültige Storage-Löschung |
+| `ContainerInstanceStore.ps1` | Storage-ID-basierter Continue-/Clone-Plan für Docker/Podman sowie detached-only, digestverifizierter Clone mit Recovery-Journal |
+| `ContainerRuntimeScope.ps1` | Read-only Bindung von Docker-Context beziehungsweise Podman-Connection/Machine an eine stabile sanitisierte Runtime-ID mit REPORT_ONLY-Hostgrenze |
+| `HyperVStorageReconcile.ps1` / `HyperVSqlStorageReconcile.ps1` | Journalisierter Hyper-V-VHDX-/Gast-Storage-Reconcile sowie receiptgebundener SQL-Default-/TempDB-Reconcile |
+| `HyperVTestDatabaseReconcile.ps1` | Kataloggebundener Hyper-V-Testdatenbank-Plan, VM-Ownership, verifiziert gesicherte Entfernung und Vorwärts-Recovery |
 | `ArtifactResolver.ps1` | HTTP(S)-Backup-Acquisition, lokaler Trust Store, inhaltsadressierter Cache, Quarantäne und sanitisiertes Run Lock |
+| `BackupLibrary.ps1` | Providerneutrale SQL-Backup-Erzeugung, inhaltsadressierte `Lab_Data`-Bibliothek, striktes Metadatenreceipt und getrennte Cross-Provider-Restore-Evidence |
 | `SampleArtifactHandlers.ps1` | Backup-, Archiv-, Einzel-Skript- und sichere Multi-Output-Script-Bundle-Installation |
 | `SampleBaselineRegistry.ps1` | Inhaltsadressiertes `LAB_GENERATED`-Register, deterministische Keys, exakte/kompatible Auswahl und Quarantäne |
 | `SampleBaselineRuntime.ps1` | Erzeugung und bevorzugte Wiederverwendung verifizierter Single- und Multi-Output-Container-Baselines |

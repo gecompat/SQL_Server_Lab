@@ -128,7 +128,16 @@ Der Auto-Modus wählt für den mutierenden Lifecycle genau eine Runtime: Docker 
 .\Tests\Integration\Invoke-HyperVStorageAcceptance.ps1 `
     -StorageIntentPath .\Schemas\hyperv-storage-n5-intent.sample.json `
     -MediaRoot D:\Lab_Base
+.\Tests\Integration\Invoke-HyperVTestDatabaseReconcileAcceptance.ps1 `
+    -ArtifactId 'hyperv-sql-prepared-sealed-<sha256>'
+.\Tests\Integration\Invoke-HyperVPersistentDataDriveAcceptance.ps1
 ```
+
+Der letzte Runner benötigt keinen Windows-Gast und belegt mit kleinen,
+test-eigenen Ressourcen den nativen Host-Lifecycle einer persistenten VHDX:
+unveränderte Quelle, eigenständiger Clone mit neuem DiskIdentifier, Reattach an
+eine ausgeschaltete Generation-2-VM, Release und vollständiger Cleanup. Er
+behauptet ausdrücklich keinen SQL-/Gast- oder Datenbank-Onlinenachweis.
 
 Fehlt auf dem Host ein dauerhaft veröffentlichtes SQL-2025-Prepared-Artifact,
 kann der vollständige Nachweis stattdessen dessen isolierten N4-Bootstrap
@@ -147,6 +156,21 @@ isolierte Prepared-Image über die produktive Image-Registry. Beide
 Abwesenheits-Postconditions werden geprüft. Bei einem Fehler bleiben State und
 Artifact mit `RECOVERY_REQUIRED` für eine sichere Diagnose erhalten. Der
 Standardlauf der N4-Abnahme behält weiterhin nichts zurück.
+
+Für den nativen Testdatenbank-Reconcile prüft ein eigener erhöhter Runner den
+öffentlichen Plan-/Action-Vertrag mit einer fremden Schutzdatenbank. Er verlangt
+ein verifiziertes SQL-2025-Prepared-Artifact und beweist `WhatIf`, Addition,
+No-op, eigentumsgebundene Entfernung, erneuten No-op, VM-Restart und
+scopegebundenen Cleanup. Ohne dauerhaftes Artifact erzeugt der Wrapper einen
+isolierten N4-Stand und entfernt ihn nur nach vollständig grünem Ergebnis:
+
+```powershell
+.\Tests\Integration\Invoke-HyperVTestDatabaseReconcileAcceptanceBootstrap.ps1 `
+    -MediaRoot D:\Lab_Base
+```
+
+Der Runner ist implementiert und statisch gebunden; ein positiver nativer Lauf
+bleibt bis zur tatsächlichen erhöhten Ausführung `NOT_EXECUTED`.
 
 Es werden bewusst nicht alle CUs getestet. Docker und Podman verwenden je
 einen repraesentativen katalogisierten CU; Windows prueft die frische
@@ -465,6 +489,33 @@ Ein Katalogeintrag oder vorhandener Testparameter beweist nicht, dass ein Image 
 
 Der allgemeine Smoke-Test prüft derzeit keinen Download und keinen Restore einer öffentlichen Sample-Datenbank, um Laufzeit, Netzwerkabhängigkeit und Datenmenge klein zu halten.
 
+`Invoke-BackupLibraryCrossProviderAcceptance.ps1` ist der isolierte PSR-008-
+Nachweis: Er erzeugt ein synthetisches Backup in Docker, veröffentlicht es nur
+nach `CHECKSUM`, `RESTORE VERIFYONLY`, Host-Hash und Metadatenreceipt, entfernt
+die Quelle und restauriert nach Podman. Quelle und Ziel müssen denselben
+sanitisierten Inhaltsdigest liefern. Da SQL Server in den verwendeten Linux-
+Containern keine FILESTREAM-Evidence liefert, zählt dieser Lauf ausdrücklich
+nicht als FILESTREAM-Abnahme.
+
+`Invoke-DatabasePackageChecks.ps1` prüft den PSR-009-Core deterministisch mit
+einer synthetischen MDF-/NDF-/LDF-Dateimenge und einem verschachtelten
+FILESTREAM-Container. Der Test beweist rekursive Hashes, Manipulationsschutz,
+unabhängige Clone-Dateien, `COPY_THEN_ATTACH`, Journal/Postcondition sowie die
+fail-closed Grenzen für ältere SQL-Ziele, FILESTREAM, TDE, Detach-State und
+parallele Writer. Er ist bewusst kein Ersatz für einen nativen Windows-SQL-
+FILESTREAM-Attach; dessen Acceptance muss separat in Hyper-V laufen.
+
+Der ausführbare native Windows-SQL-Nachweis ist:
+
+```powershell
+# benötigt ein echtes erhöhtes Windows-Token
+.\Tests\Integration\Invoke-DatabasePackageSqlAcceptance.ps1
+```
+
+Er setzt SQL Server 2025 mit effektivem FILESTREAM voraus und räumt ausschließlich
+seine zufällig benannten Datenbanken und `sql-lab-psr009-*`-Wurzeln auf. Ein
+nicht erhöhter Prozess endet vor neuer Mutation fail-closed.
+
 Für einen manuellen Restore-Nachweis sind mindestens zu dokumentieren:
 
 - verwendete synthetische oder öffentliche Quelle;
@@ -603,6 +654,8 @@ Ein nicht verfügbarer Provider darf nicht als `PASS` behandelt werden.
 
 ```powershell
 .\Tests\Static\Invoke-DocumentationChecks.ps1
+.\Tests\Static\Invoke-HyperVNetworkReconcileChecks.ps1
+.\Tests\Static\Invoke-HyperVResourceReconcileChecks.ps1
 .\Tests\Static\Invoke-ContainerReconcileChecks.ps1
 .\Tests\Integration\Invoke-ContainerCliAcceptance.ps1 -Provider docker
 .\Tests\Integration\Invoke-ContainerCliAcceptance.ps1 -Provider podman

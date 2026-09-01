@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sql-server-lab.local/schemas/persistent-storage-removal-intent.schema.json",
+  "title": "SqlServerLab.PersistentStorageRemovalIntent/1.0",
+  "type": "object",
+  "required": ["ContractVersion", "IntentId", "RunId", "CreatedAt", "Selections"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.PersistentStorageRemovalIntent/1.0" },
+    "IntentId": { "type": "string", "format": "uuid" },
+    "RunId": { "type": "string", "format": "uuid" },
+    "CreatedAt": { "type": "string", "format": "date-time" },
+    "Selections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["PersistentStorageId", "Policy", "DatabaseReferenceIds"],
+        "properties": {
+          "PersistentStorageId": { "type": "string", "format": "uuid" },
+          "Policy": { "enum": ["DELETE_WITH_RUN", "RETAIN_INSTANCE_STORE", "BACKUP_ON_REMOVE", "PACKAGE_ON_REMOVE", "BACKUP_AND_PACKAGE", "EXTERNAL_UNMANAGED"] },
+          "DatabaseReferenceIds": {
+            "type": "array",
+            "items": { "type": "string", "format": "uuid" },
+            "uniqueItems": true
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

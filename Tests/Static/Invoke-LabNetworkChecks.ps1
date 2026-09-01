@@ -31,6 +31,181 @@ try {
     )
     $overlap = & $module { [PSCustomObject]@{ Overlap = Test-LabIpv4SubnetOverlap -Left '172.26.0.0/16' -Right '172.26.12.0/24'; Separate = Test-LabIpv4SubnetOverlap -Left '172.26.0.0/16' -Right '172.27.0.0/16' } }
     Add-CheckResult -Name 'CIDR-Pruefung erkennt Ueberlappungen' -Success ($overlap.Overlap -and -not $overlap.Separate)
+    $intentPlans = & $module {
+        [PSCustomObject]@{
+            DockerDefault = Resolve-LabNetworkIntentPlan -Provider docker
+            HyperVDefault = Resolve-LabNetworkIntentPlan -Provider hyperv
+            HyperVIsolated = Resolve-LabNetworkIntentPlan -Provider hyperv -Network ([PSCustomObject]@{ intent='isolated'; exposure='none' })
+            HyperVNat = Resolve-LabNetworkIntentPlan -Provider hyperv -Network ([PSCustomObject]@{ intent='nat'; exposure='host' })
+            HyperVLan = Resolve-LabNetworkIntentPlan -Provider hyperv -Network ([PSCustomObject]@{ intent='lan'; exposure='lan' })
+            DockerLan = Resolve-LabNetworkIntentPlan -Provider docker -Network ([PSCustomObject]@{ intent='lan'; exposure='lan' })
+            DockerHostOnly = Resolve-LabNetworkIntentPlan -Provider docker -Network ([PSCustomObject]@{ intent='hostOnly'; exposure='host' })
+            LegacyConflict = Resolve-LabNetworkIntentPlan -Provider hyperv -Network ([PSCustomObject]@{ intent='isolated'; exposure='none' }) -HasLegacyHyperVSwitch
+            ExposureConflict = Resolve-LabNetworkIntentPlan -Provider hyperv -Network ([PSCustomObject]@{ intent='isolated'; exposure='host' })
+        }
+    }
+    Add-CheckResult -Name 'Providerdefaults loesen Container-NAT und Hyper-V-HostOnly portabel auf' -Success (
+        $intentPlans.DockerDefault.Intent -eq 'nat' -and $intentPlans.DockerDefault.Exposure -eq 'host' -and
+        $intentPlans.DockerDefault.RequiredCapability -eq 'nat-network' -and $intentPlans.DockerDefault.Binding -eq 'managed-bridge-nat' -and
+        $intentPlans.HyperVDefault.Intent -eq 'hostOnly' -and $intentPlans.HyperVDefault.Exposure -eq 'host' -and
+        $intentPlans.HyperVDefault.RequiredCapability -eq 'managed-lab-network' -and $intentPlans.HyperVDefault.Binding -eq 'internal-switch'
+    )
+    Add-CheckResult -Name 'Hyper-V-Isolated-Intent bindet einen privaten Switch ohne Exposure' -Success (
+        $intentPlans.HyperVIsolated.Status -eq 'RESOLVED' -and $intentPlans.HyperVIsolated.Binding -eq 'private-switch'
+    )
+    Add-CheckResult -Name 'Hyper-V-NAT ist gebunden; offene Container-Intents bleiben fail-closed' -Success (
+        $intentPlans.HyperVNat.Status -eq 'RESOLVED' -and $intentPlans.HyperVNat.Binding -eq 'shared-internal-nat' -and
+        $intentPlans.DockerHostOnly.ReasonCode -eq 'NETWORK_INTENT_PROVIDER_UNSUPPORTED'
+    )
+    Add-CheckResult -Name 'Hyper-V-LAN wird portabel gebunden; Container-LAN bleibt fail-closed' -Success (
+        $intentPlans.HyperVLan.Status -eq 'RESOLVED' -and
+        $intentPlans.HyperVLan.Binding -eq 'external-switch' -and
+        $intentPlans.HyperVLan.RequiredCapability -eq 'external-network-binding' -and
+        $intentPlans.DockerLan.ReasonCode -eq 'NETWORK_INTENT_PROVIDER_UNSUPPORTED'
+    )
+    Add-CheckResult -Name 'Exposure- und Legacy-Switch-Konflikte scheitern vor Provider-Mutation' -Success (
+        $intentPlans.LegacyConflict.ReasonCode -eq 'NETWORK_LEGACY_SWITCH_CONFLICT' -and
+        $intentPlans.ExposureConflict.ReasonCode -eq 'NETWORK_EXPOSURE_CONFLICT'
+    )
+    $hyperVNatPlans = & $module {
+        function Get-VMSwitch { $null }
+        function Get-NetIPAddress { @() }
+        function Get-LabHyperVDnsServers { @('192.0.2.53') }
+        function Get-LabKnownIpv4Subnets { param($Provider) @('0.0.0.0/0') }
+        function Get-NetNat { [PSCustomObject]@{ Name='FOREIGN_NAT'; InternalIPInterfaceAddressPrefix='172.30.0.0/24' } }
+        $blocked = Resolve-LabHyperVNetworkBoundPlan -Intent nat
+        function Get-NetNat { @() }
+        $ready = Resolve-LabHyperVNetworkBoundPlan -Intent nat
+        [PSCustomObject]@{ Blocked=$blocked; Ready=$ready }
+    }
+    Add-CheckResult -Name 'Hyper-V-NAT-Plan erkennt fremdes WinNAT mutationsfrei und ignoriert die Default-Route' -Success (
+        $hyperVNatPlans.Blocked.Status -eq 'BLOCKED' -and
+        $hyperVNatPlans.Blocked.Blockers -contains 'LAB_NETWORK_HYPERV_NAT_PREFIX_CONFLICT' -and
+        $hyperVNatPlans.Ready.Status -eq 'READY' -and
+        $hyperVNatPlans.Ready.Actions -contains 'create-shared-winnat'
+    )
+    $hyperVNatApply = & $module {
+        $script:natApplyCalls = [Collections.Generic.List[string]]::new()
+        $script:natSwitchExists = $false; $script:natAddressExists = $false; $script:natExists = $false
+        function Get-VMSwitch { param($Name) if ($script:natSwitchExists) { [PSCustomObject]@{ Name=$Name; SwitchType='Internal' } } }
+        function New-VMSwitch { param($Name,$SwitchType) $script:natApplyCalls.Add('switch'); $script:natSwitchExists=$true }
+        function Remove-VMSwitch { }
+        function Get-NetIPAddress {
+            if ($script:natAddressExists) { [PSCustomObject]@{ IPAddress='172.29.0.1'; PrefixLength=24; PrefixOrigin='Manual' } }
+        }
+        function New-NetIPAddress { $script:natApplyCalls.Add('address'); $script:natAddressExists=$true }
+        function Remove-NetIPAddress { }
+        function Get-NetNat { param($Name) if ($script:natExists) { [PSCustomObject]@{ Name='SQL_LAB_HYPERV_NAT'; InternalIPInterfaceAddressPrefix='172.29.0.0/24' } } }
+        function New-NetNat { $script:natApplyCalls.Add('nat'); $script:natExists=$true }
+        function Remove-NetNat { }
+        function Get-LabHyperVDnsServers { @('192.0.2.53') }
+        function Get-LabKnownIpv4Subnets { param($Provider) @() }
+        $plan = Resolve-LabHyperVNetworkBoundPlan -Intent nat
+        $result = Invoke-LabHyperVNetworkBoundPlan -Plan $plan
+        [PSCustomObject]@{ Status=$result.Status; Calls=@($script:natApplyCalls) }
+    }
+    Add-CheckResult -Name 'Revalidierter Hyper-V-NAT-Plan erstellt Switch, Hostadresse und WinNAT in sicherer Reihenfolge' -Success (
+        $hyperVNatApply.Status -eq 'READY' -and ($hyperVNatApply.Calls -join ',') -eq 'switch,address,nat'
+    )
+    $hyperVLanPlans = & $module {
+        function Get-VMSwitch { param($Name,$SwitchType) @() }
+        function Get-NetAdapter {
+            [PSCustomObject]@{ Name='Ethernet'; InterfaceGuid=[guid]'11111111-1111-1111-1111-111111111111'; InterfaceDescription='Approved Adapter'; Status='Up' }
+        }
+        $missing = Resolve-LabHyperVNetworkBoundPlan -Intent lan -LanSwitchName '' -LanAdapterId ''
+        $ready = Resolve-LabHyperVNetworkBoundPlan -Intent lan -LanSwitchName 'SQL_LAB_LAN' -LanAdapterId '11111111-1111-1111-1111-111111111111'
+        function Get-VMSwitch {
+            param($Name,$SwitchType)
+            [PSCustomObject]@{ Name='SQL_LAB_LAN'; SwitchType='External'; NetAdapterInterfaceDescription='Different Adapter' }
+        }
+        $mismatch = Resolve-LabHyperVNetworkBoundPlan -Intent lan -LanSwitchName 'SQL_LAB_LAN' -LanAdapterId '11111111-1111-1111-1111-111111111111'
+        [PSCustomObject]@{ Missing=$missing; Ready=$ready; Mismatch=$mismatch }
+    }
+    Add-CheckResult -Name 'Hyper-V-LAN verlangt eine exakte lokale Switch- und Adapterfreigabe' -Success (
+        $hyperVLanPlans.Missing.Status -eq 'BLOCKED' -and
+        $hyperVLanPlans.Missing.Blockers -contains 'LAB_NETWORK_HYPERV_LAN_BINDING_REQUIRED' -and
+        $hyperVLanPlans.Ready.Status -eq 'READY' -and
+        ($hyperVLanPlans.Ready.Actions -join ',') -eq 'create-external-switch' -and
+        $hyperVLanPlans.Ready.AddressMode -eq 'dhcp' -and
+        $hyperVLanPlans.Mismatch.Blockers -contains 'LAB_NETWORK_HYPERV_LAN_SWITCH_CONTRACT_MISMATCH'
+    )
+    $hyperVLanApply = & $module {
+        $script:lanSwitchExists = $false
+        $script:lanApply = $null
+        function Get-NetAdapter {
+            [PSCustomObject]@{ Name='Ethernet'; InterfaceGuid=[guid]'11111111-1111-1111-1111-111111111111'; InterfaceDescription='Approved Adapter'; Status='Up' }
+        }
+        function Get-VMSwitch {
+            param($Name,$SwitchType)
+            if ($script:lanSwitchExists) {
+                [PSCustomObject]@{ Name='SQL_LAB_LAN'; SwitchType='External'; NetAdapterInterfaceDescription='Approved Adapter' }
+            }
+        }
+        function New-VMSwitch {
+            param($Name,$NetAdapterName,$AllowManagementOS)
+            $script:lanApply = [PSCustomObject]@{ Name=$Name; Adapter=$NetAdapterName; ManagementOS=$AllowManagementOS }
+            $script:lanSwitchExists = $true
+        }
+        function Remove-VMSwitch { }
+        $plan = Resolve-LabHyperVNetworkBoundPlan -Intent lan -LanSwitchName 'SQL_LAB_LAN' -LanAdapterId '11111111-1111-1111-1111-111111111111'
+        $result = Invoke-LabHyperVNetworkBoundPlan -Plan $plan
+        [PSCustomObject]@{ Result=$result; Apply=$script:lanApply }
+    }
+    Add-CheckResult -Name 'Hyper-V-LAN erstellt nur den exakt freigegebenen External Switch mit Hostanbindung' -Success (
+        $hyperVLanApply.Result.Status -eq 'READY' -and
+        $hyperVLanApply.Apply.Name -eq 'SQL_LAB_LAN' -and
+        $hyperVLanApply.Apply.Adapter -eq 'Ethernet' -and
+        $hyperVLanApply.Apply.ManagementOS
+    )
+    $hyperVLanGuest = & $module {
+        function Invoke-HyperVPowerShellDirect {
+            [PSCustomObject]@{
+                contractVersion='1'; network='SQL_LAB_LAN'; addressMode='dhcp'; address='192.0.2.44'; prefixLength=24
+                addressState='Preferred'; gateway='192.0.2.1'; dnsServers=@('192.0.2.53'); observedAt='2026-09-01T12:00:00Z'
+            }
+        }
+        $mockSecret = [Security.SecureString]::new(); $mockSecret.AppendChar('x')
+        $credential = [PSCredential]::new('Administrator', $mockSecret)
+        Initialize-HyperVGuestLabNetwork -VMName lan-vm -ExpectedRunId run -ExpectedScopeId scope -Credential $credential `
+            -Network ([PSCustomObject]@{ Name='SQL_LAB_LAN'; Intent='lan'; AddressMode='dhcp' }) -Identity run
+    }
+    Add-CheckResult -Name 'Hyper-V-LAN akzeptiert eine bevorzugte dynamische Gastadresse als DHCP-Evidenz' -Success (
+        $hyperVLanGuest.AddressMode -eq 'dhcp' -and $hyperVLanGuest.Address -eq '192.0.2.44' -and
+        $hyperVLanGuest.Gateway -eq '192.0.2.1' -and $hyperVLanGuest.DnsServers -contains '192.0.2.53'
+    )
+    $ipamRoot = Join-Path ([IO.Path]::GetTempPath()) "sql-lab-hyperv-ipam-$([guid]::NewGuid().ToString('N'))"
+    try {
+        $ipam = & $module {
+            param($Root)
+            $network = Get-LabRuntimeNetwork -Provider hyperv -Intent nat
+            $first = Reserve-LabHyperVNetworkAddress -Network $network -RunId run-a -ScopeId scope-a -InstanceId primary -StateRoot $Root
+            $second = Reserve-LabHyperVNetworkAddress -Network $network -RunId run-b -ScopeId scope-b -InstanceId primary -StateRoot $Root
+            $again = Reserve-LabHyperVNetworkAddress -Network $network -RunId run-a -ScopeId scope-a -InstanceId primary -StateRoot $Root
+            $released = Release-LabHyperVNetworkAddress -Address $first.address -RunId run-a -ScopeId scope-a -StateRoot $Root
+            [PSCustomObject]@{ First=$first; Second=$second; Again=$again; Released=$released }
+        } $ipamRoot
+        Add-CheckResult -Name 'Hyper-V-IPAM reserviert eindeutig, idempotent und scope-gebunden freigebbar' -Success (
+            $ipam.First.address -ne $ipam.Second.address -and $ipam.First.address -eq $ipam.Again.address -and $ipam.Released
+        )
+        $cleanup = & $module {
+            param($Root)
+            $run = New-LabRunState -StateRoot $Root -Metadata @{ name='ipam-cleanup' } `
+                -ProviderSubRuns @([PSCustomObject]@{ id='provider-hyperv'; provider='hyperv'; instanceIds=@('cleanup') })
+            $null = New-CleanupPlan -RunDir $run.RunDir -RunId $run.RunId -ScopeId $run.ScopeId `
+                -ProviderSubRuns @([PSCustomObject]@{ id='provider-hyperv'; provider='hyperv'; instanceIds=@('cleanup') })
+            $network = Get-LabRuntimeNetwork -Provider hyperv -Intent nat
+            $lease = Reserve-LabHyperVNetworkAddress -Network $network -RunId $run.RunId -ScopeId $run.ScopeId -InstanceId cleanup -StateRoot $Root
+            $null = Add-CleanupStep -RunDir $run.RunDir -ResourceType 'ipam-lease' -ResourceId $lease.address `
+                -Action release -Provider hyperv -ProviderSubRunId provider-hyperv
+            $result = Invoke-CleanupPlan -RunDir $run.RunDir -ScopeId $run.ScopeId
+            $registry = Get-Content -LiteralPath (Get-LabHyperVIpamPath -StateRoot $Root) -Raw | ConvertFrom-Json -Depth 20
+            [PSCustomObject]@{ Status=$result.Status; LeaseState=[string]@($registry.leases | Where-Object address -eq $lease.address)[0].state }
+        } $ipamRoot
+        Add-CheckResult -Name 'Run-Cleanup gibt die Hyper-V-IPAM-Lease nach den Run-Ressourcen frei' -Success (
+            $cleanup.Status -eq 'CLEANUP_SUCCEEDED' -and $cleanup.LeaseState -eq 'RELEASED'
+        )
+    }
+    finally { Remove-Item -LiteralPath $ipamRoot -Recurse -Force -ErrorAction SilentlyContinue }
     $podmanCniRoot = Join-Path ([IO.Path]::GetTempPath()) "sql-lab-podman-cni-$([guid]::NewGuid().ToString('N'))"
     New-Item -Path $podmanCniRoot -ItemType Directory -Force | Out-Null
     try {
@@ -77,9 +252,25 @@ try {
     $elevationSource = Get-Content (Join-Path $repoRoot 'Private/Elevation.ps1') -Raw
     $preferencesSource = Get-Content (Join-Path $repoRoot 'Private/LabPreferences.ps1') -Raw
     $menuSource = Get-Content (Join-Path $repoRoot 'Public/Invoke-SqlServerLab.ps1') -Raw
-    Add-CheckResult -Name 'Docker verwendet das feste Labnetz mit Host-Portzugriff' -Success ($docker -match 'Ensure-LabDockerNetwork' -and $docker -match '--network.*\$labNetwork\.Name')
-    Add-CheckResult -Name 'Podman verwendet das feste Labnetz mit Host-Portzugriff' -Success ($podman -match 'Ensure-LabPodmanNetwork' -and $podman -match '--network.*\$labNetwork\.Name')
+    $newLabSource = Get-Content (Join-Path $repoRoot 'Public/New-SqlServerLab.ps1') -Raw
+    Add-CheckResult -Name 'Docker verwendet das feste Labnetz mit reinem Host-Portzugriff' -Success (
+        $docker -match 'Ensure-LabDockerNetwork' -and $docker -match '--network.*\$labNetwork\.Name' -and
+        $docker -match '127\.0\.0\.1:\$\{selectedPort\}:1433'
+    )
+    Add-CheckResult -Name 'Podman verwendet das feste Labnetz mit reinem Host-Portzugriff' -Success (
+        $podman -match 'Ensure-LabPodmanNetwork' -and $podman -match '--network.*\$labNetwork\.Name' -and
+        $podman -match '127\.0\.0\.1:\$\{selectedPort\}:1433'
+    )
+    $containerReconcileSource = Get-Content (Join-Path $repoRoot 'Public/Update-SqlServerLabContainer.ps1') -Raw
+    Add-CheckResult -Name 'Container-Recreate bewahrt die HostOnly-Exposure am Loopback-Binding' -Success (
+        $containerReconcileSource -match '127\.0\.0\.1:\$\(\[int\]\$plan\.Desired\.Port\):1433'
+    )
     Add-CheckResult -Name 'Hyper-V-SQL-Builder bindet SQL_LAB_HYPERV' -Success ($hyperv -match 'Ensure-LabHyperVNetwork' -and $hyperv -match '-SwitchName \$labNetwork.Name')
+    Add-CheckResult -Name 'Manifestlauf reicht den aufgeloesten Hyper-V-Network-Intent an die Runtime weiter' -Success (
+        $newLabSource -match '\$hyperVIsolated\s*=.+instance\.network\.Intent.+isolated' -and
+        $newLabSource -match '\$hyperVNetworkIntent' -and
+        $newLabSource -match 'New-HyperVLabEnvironment[\s\S]+-NetworkIntent \$hyperVNetworkIntent'
+    )
     Add-CheckResult -Name 'Hyper-V-Gast erhaelt nach OOBE eine Lab-IP und SQL-Firewallfreigabe' -Success ($acceptance -match 'Initialize-HyperVGuestLabNetwork' -and $networkSource -match 'New-NetFirewallRule[\s\S]+LocalPort 1433')
     Add-CheckResult -Name 'Hyper-V-Gastnetz quittiert nur die tatsaechlich bevorzugte statische Adresse' -Success (
         $networkSource -match 'Get-NetIPAddress[\s\S]+AddressState[\s\S]+Preferred' -and

@@ -446,6 +446,7 @@ $coreFiles = @(
     'README.md'
     'Documentation/README.md'
     'Documentation/Architecture/ARCHITECTURE.md'
+    'Documentation/Architecture/LAB_DATA_AND_NATIVE_RUNTIME_STORAGE_DECISION.md'
     'Documentation/Standards/POWERSHELL_COMMAND_AND_HELP_STANDARD.md'
     'Documentation/User/README.md'
     'Documentation/User/INSTALLATION_WINDOWS.md'
@@ -591,6 +592,8 @@ $copilotAdapter = Get-Content -LiteralPath (Join-Path $repoRoot '.github\copilot
 $sqlCuPolicy = Get-Content -LiteralPath (Join-Path $repoRoot 'ops\sql-cu-policy.md') -Raw -Encoding utf8
 $masterImplementationPlan = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\MASTER_IMPLEMENTATION_PLAN.md') -Raw -Encoding utf8
 $developmentExecutionPlan = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md') -Raw -Encoding utf8
+$persistentStorageBacklog = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\PERSISTENT_STORAGE_REUSE_AND_LAB_DATA_BACKLOG.md') -Raw -Encoding utf8
+$labDataResidencyDecision = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Architecture\LAB_DATA_AND_NATIVE_RUNTIME_STORAGE_DECISION.md') -Raw -Encoding utf8
 $batchWorkflowPlan = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\PROVIDER_NEUTRAL_BATCH_QUEUE_RESUME_WORKFLOW_2026-08-13.md') -Raw -Encoding utf8
 $futureUseCases = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Architecture\FUTURE_USE_CASES_AND_EXTENSION_GUARDRAILS.md') -Raw -Encoding utf8
 $knownLimitations = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Quality\KNOWN_LIMITATIONS.md') -Raw -Encoding utf8
@@ -840,10 +843,96 @@ Add-ValidationResult `
         $masterImplementationPlan -match '(?m)^\| N5 – Storage- und Reconcile-Vertical-Slice \| Wellen 1, 3, 4 und 5; Storage-Konsolidierungsplan \| `COMPLETE`')
 
 Add-ValidationResult `
+    -Name 'PSR-002 bindet Lab_Data-Versprechen und Runtime-Hostgrenzen widerspruchsfrei' `
+    -Success ($labDataResidencyDecision -match [regex]::Escape('SqlServerLab.LabDataResidencyDecision/1.0') -and
+        $labDataResidencyDecision -match [regex]::Escape('BINDING_ARCHITECTURE_DECISION') -and
+        $labDataResidencyDecision -match '(?s)`Lab_Data` bedeutet ausdrücklich \*\*nicht\*\*.*jedes\s+physische Byte' -and
+        $labDataResidencyDecision -match 'globale Docker-Desktop-Disk' -and
+        $labDataResidencyDecision -match 'Externe und unverifizierbare Objekte sind im normalen Audit `REPORT_ONLY`' -and
+        $labDataResidencyDecision -match 'Neue Hyper-V-Ressourcen.*registrierten,\s*controller-eigenen `Lab_Data`-Root' -and
+        $persistentStorageBacklog -match '(?m)^\| `PSR-002` .*\| `COMPLETE`:' -and
+        $developmentExecutionPlan -notmatch '`PSR-002` ist noch offen' -and
+        $repoMap -match 'lab_data_native_runtime_storage_decision: Documentation/Architecture/LAB_DATA_AND_NATIVE_RUNTIME_STORAGE_DECISION\.md')
+
+Add-ValidationResult `
+    -Name 'PSR-003 dokumentiert den implementierten read-only Katalogvertrag ohne Mutationsversprechen' `
+    -Success ($persistentStorageBacklog -match '(?m)^`ACTIVE / P1_PRODUCT_CONTRACT_WITH_PSR_001_PARTIAL_PSR_002_COMPLETE_PSR_003_PSR_004_AND_PSR_006_IMPLEMENTED_READ_ONLY_PSR_005_IMPLEMENTED_CORE`' -and
+        $persistentStorageBacklog -match '(?m)^\| `PSR-003` .*\| `IMPLEMENTED_READ_ONLY`:' -and
+        $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.PersistentStorageCatalog/1.0') -and
+        $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.PersistentStoragePlan/1.0') -and
+        $knownLimitations -match 'Noch nicht implementiert sind Katalogmutation,\s*Lease-Akquisition' -and
+        $repoMap -match 'persistent_storage_catalog: Private/PersistentStorageCatalog\.ps1' -and
+        $repoMap -match 'persistent_storage_catalog_schema: Schemas/persistent-storage-catalog\.schema\.json' -and
+        $repoMap -match 'persistent_storage_plan_schema: Schemas/persistent-storage-plan\.schema\.json' -and
+        $repoMap -match 'validation_persistent_storage_catalog: Tests/Static/Invoke-PersistentStorageCatalogChecks\.ps1')
+
+Add-ValidationResult `
+    -Name 'PSR-004 bindet Removal-Policies an verlustsicheren read-only Recovery-Plan' `
+    -Success ($persistentStorageBacklog -match '(?m)^\| `PSR-004` .*\| `IMPLEMENTED_READ_ONLY`:' -and
+        $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.PersistentStorageRemovalIntent/1.0') -and
+        $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.PersistentStorageRemovalPlan/1.0') -and
+        $persistentStorageBacklog -match '`CHECKSUM` und `RESTORE VERIFYONLY`' -and
+        $knownLimitations -match 'Noch nicht\s*implementiert sind dessen Executor' -and
+        $repoMap -match 'persistent_storage_removal_plan: Private/PersistentStorageRemovalPlan\.ps1' -and
+        $repoMap -match 'persistent_storage_removal_intent_schema: Schemas/persistent-storage-removal-intent\.schema\.json' -and
+        $repoMap -match 'persistent_storage_removal_plan_schema: Schemas/persistent-storage-removal-plan\.schema\.json' -and
+        $repoMap -match 'validation_persistent_storage_removal_plan: Tests/Static/Invoke-PersistentStorageRemovalPlanChecks\.ps1')
+
+Add-ValidationResult `
+    -Name 'PSR-005 dokumentiert stabilen Container-Store-Continue-/Clone-Core und reale Provider-Evidence' `
+    -Success ($persistentStorageBacklog -match '(?m)^\| `PSR-005` .*\| `IMPLEMENTED_CORE`:' -and
+        $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.ContainerInstanceStoreIntent/1.0') -and
+        $persistentStorageBacklog -match 'Docker und Podman getrennt\s*real belegt' -and
+        $knownLimitations -match 'transaktionale Commit des Clone-Ziels in die Katalogspiegel' -and
+        $repoMap -match 'container_instance_store: Private/ContainerInstanceStore\.ps1' -and
+        $repoMap -match 'validation_container_instance_store: Tests/Static/Invoke-ContainerInstanceStoreChecks\.ps1' -and
+        $repoMap -match 'acceptance_container_instance_store: Tests/Integration/Invoke-ContainerInstanceStoreAcceptance\.ps1')
+
+Add-ValidationResult `
+    -Name 'PSR-006 dokumentiert sanitisierte Runtime-Reichweite und REPORT_ONLY-Hostgrenze mit realer Evidence' `
+    -Success ($persistentStorageBacklog -match '(?m)^\| `PSR-006` .*\| `IMPLEMENTED_READ_ONLY`:' -and
+        $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.ContainerRuntimeScope/1.0') -and
+        $persistentStorageBacklog -match 'Docker-\s*Desktop- sowie Podman-WSL-Runtime belegt' -and
+        $knownLimitations -match 'physisches Host-Backing ist weiterhin\s*`UNVERIFIABLE`' -and
+        $knownLimitations -match 'Dedizierte Lab-Runtimes sind\s*erst nach einem separaten Ownership-' -and
+        $repoMap -match 'container_runtime_scope: Private/ContainerRuntimeScope\.ps1' -and
+        $repoMap -match 'container_runtime_scope_schema: Schemas/container-runtime-scope\.schema\.json' -and
+        $repoMap -match 'validation_container_runtime_scope: Tests/Static/Invoke-ContainerRuntimeScopeChecks\.ps1' -and
+        $repoMap -match 'acceptance_container_runtime_scope: Tests/Integration/Invoke-ContainerRuntimeScopeAcceptance\.ps1')
+
+Add-ValidationResult `
+    -Name 'PSR-007 dokumentiert den nativen Storage-ID-basierten Hyper-V-VHDX-Lifecycle ohne falsche Datenbankbereitschaft' `
+    -Success ($persistentStorageBacklog -match '(?m)^\| `PSR-007` .*\| `IMPLEMENTED_CORE`:' -and
+        $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.HyperVPersistentDataIntent/1.0') -and
+        $persistentStorageBacklog -match 'CLONE -> REATTACH -> RELEASE' -and
+        $persistentStorageBacklog -match 'DatabaseFilesOnline=false' -and
+        $knownLimitations -match 'reale Hostnachweis ist grün' -and
+        $knownLimitations -match 'explizite SQL-\s*Restore-/Attach-Schritt bleiben offen' -and
+        $repoMap -match 'hyperv_persistent_data_drive: Private/HyperVPersistentDataDrive\.ps1' -and
+        $repoMap -match 'hyperv_persistent_data_intent_schema: Schemas/hyperv-persistent-data-intent\.schema\.json' -and
+        $repoMap -match 'validation_hyperv_persistent_data_drive: Tests/Static/Invoke-HyperVPersistentDataDriveChecks\.ps1' -and
+        $repoMap -match 'acceptance_hyperv_persistent_data_drive: Tests/Integration/Invoke-HyperVPersistentDataDriveAcceptance\.ps1')
+
+Add-ValidationResult `
     -Name 'Roadmap beschreibt den real belegten Container-Reconcile-Stand widerspruchsfrei' `
     -Success ($developmentExecutionPlan -match [regex]::Escape('Container-`no-op`, `live`, `recreate`, Rollback und Persistenz sind für Docker und Podman real verifiziert') -and
         $developmentExecutionPlan -match [regex]::Escape('beliebige Mount-/Environment-Änderungen aus `CNT-214` bleiben offen') -and
         $developmentExecutionPlan -notmatch [regex]::Escape('reale `live`-/`recreate`-Änderungen offen'))
+
+Add-ValidationResult `
+    -Name 'Roadmap beschreibt den implementierten Hyper-V-Netzwerk-Reconcile-Slice widerspruchsfrei' `
+    -Success ($developmentExecutionPlan -match '(?m)^\| M6 Reconcile-Breite \| `implemented_partial` \|' -and
+        $developmentExecutionPlan -match '`NET-611` und der Planungsanteil von `NET-612` sind' -and
+        $developmentExecutionPlan -match 'Rebinding,\s*Adapter-Neuanlage, Gastadressreparatur und positive native Repair-' -and
+        $masterImplementationPlan -match 'journalisierter Network- und Resource-Reconcile' -and
+        $masterImplementationPlan -notmatch 'Post-Provisioning-/Network-Manifest-Binding')
+
+Add-ValidationResult `
+    -Name 'Roadmap und Grenzen beschreiben HV-602 evidenzgebunden' `
+    -Success ($developmentExecutionPlan -match '`HV-602` bindet\s*vCPU, statisches/dynamisches RAM und Min/Startup/Max' -and
+        $knownLimitations -match 'SqlServerLab\.HyperVResourceIntent/1\.0' -and
+        $knownLimitations -match 'ersetzt noch keinen positiven\s*nativen Hyper-V-Ressourcenlauf' -and
+        $repoMap -match 'hyperv_resource_reconcile_contract: Private/HyperVResourceReconcile\.ps1')
 
 Add-ValidationResult `
     -Name 'Reale SQL-Prepared-Image-Abnahme ist ausführbar und dokumentiert' `

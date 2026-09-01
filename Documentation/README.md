@@ -44,21 +44,22 @@ Diese Datei ist der verbindliche Dokumentationsindex. Die Root-[README](../READM
 ### Architektur und langfristige Planung verstehen
 
 1. [SQL-Server-zentrierte Scope-Entscheidung](Architecture/SQL_SERVER_CENTRIC_SCOPE_DECISION.md)
-2. [Erweiterbarer Umgebungs- und Ausführungsvertrag](Architecture/EXTENSIBLE_ENVIRONMENT_AND_EXECUTION_CONTRACT.md)
-3. [Manifest- und Schnittstellenarchitektur](Architecture/MANIFEST_AND_INTERFACE_ARCHITECTURE.md)
-4. [Testdatenbank-Provisionierung und menügeführte Manifest-Erstellung](Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md)
-5. [Gemischter Container-Provider-Lifecycle](Architecture/MIXED_PROVIDER_LIFECYCLE.md)
-6. [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md)
-7. [Vorlagenpool und automatisierte Manifeste](Architecture/TEMPLATE_POOL_AND_AUTOMATED_MANIFESTS.md)
-8. [Feste isolierte Labnetze](HowTo/LAB_NETWORKS.md)
-9. [Projektintegrationsvertrag](Architecture/PROJECT_INTEGRATION_CONTRACT.md)
-10. [Konsolidierter Entwicklungs- und Ausführungsplan](Project_Planning/DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md)
-11. [Konsolen-, Lifecycle- und Storage-Konsolidierungsplan aus der manuellen Abnahme](Project_Planning/CONSOLE_LIFECYCLE_AND_STORAGE_CONSOLIDATION_PLAN_2026-08-12.md)
-12. [Providerneutraler Batch-, Queue- und Resume-Workflow](Project_Planning/PROVIDER_NEUTRAL_BATCH_QUEUE_RESUME_WORKFLOW_2026-08-13.md)
-13. [Master-Umsetzungsplan](Project_Planning/MASTER_IMPLEMENTATION_PLAN.md)
-14. [Masterplan-Ergänzung](Project_Planning/MASTER_IMPLEMENTATION_PLAN_SCOPE_ADDENDUM.md)
-15. [Project-Adapter-Priorisierung](Project_Planning/PROJECT_ADAPTER_PRIORITIZATION.md)
-16. [Zukünftige Anwendungsfälle](Architecture/FUTURE_USE_CASES_AND_EXTENSION_GUARDRAILS.md)
+2. [`Lab_Data` und native Runtime-Speicher](Architecture/LAB_DATA_AND_NATIVE_RUNTIME_STORAGE_DECISION.md)
+3. [Erweiterbarer Umgebungs- und Ausführungsvertrag](Architecture/EXTENSIBLE_ENVIRONMENT_AND_EXECUTION_CONTRACT.md)
+4. [Manifest- und Schnittstellenarchitektur](Architecture/MANIFEST_AND_INTERFACE_ARCHITECTURE.md)
+5. [Testdatenbank-Provisionierung und menügeführte Manifest-Erstellung](Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md)
+6. [Gemischter Container-Provider-Lifecycle](Architecture/MIXED_PROVIDER_LIFECYCLE.md)
+7. [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md)
+8. [Vorlagenpool und automatisierte Manifeste](Architecture/TEMPLATE_POOL_AND_AUTOMATED_MANIFESTS.md)
+9. [Feste isolierte Labnetze](HowTo/LAB_NETWORKS.md)
+10. [Projektintegrationsvertrag](Architecture/PROJECT_INTEGRATION_CONTRACT.md)
+11. [Konsolidierter Entwicklungs- und Ausführungsplan](Project_Planning/DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md)
+12. [Konsolen-, Lifecycle- und Storage-Konsolidierungsplan aus der manuellen Abnahme](Project_Planning/CONSOLE_LIFECYCLE_AND_STORAGE_CONSOLIDATION_PLAN_2026-08-12.md)
+13. [Providerneutraler Batch-, Queue- und Resume-Workflow](Project_Planning/PROVIDER_NEUTRAL_BATCH_QUEUE_RESUME_WORKFLOW_2026-08-13.md)
+14. [Master-Umsetzungsplan](Project_Planning/MASTER_IMPLEMENTATION_PLAN.md)
+15. [Masterplan-Ergänzung](Project_Planning/MASTER_IMPLEMENTATION_PLAN_SCOPE_ADDENDUM.md)
+16. [Project-Adapter-Priorisierung](Project_Planning/PROJECT_ADAPTER_PRIORITIZATION.md)
+17. [Zukünftige Anwendungsfälle](Architecture/FUTURE_USE_CASES_AND_EXTENSION_GUARDRAILS.md)
 
 Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ein Feature bereits ausgeführt werden kann.
 
@@ -67,11 +68,11 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | Komponente | Status | Autoritative Dateien |
 |---|---|---|
 | PowerShell-Modul | implementiert | `SqlServerLab.psd1`, `SqlServerLab.psm1` |
-| Öffentliche API | 50 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
+| Öffentliche API | 51 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
 | Docker | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman | implementiert | `Providers/Podman/PodmanProvider.ps1` |
 | SQL Server External Languages | Container: Java für SQL 2019, Python/R/Java für SQL 2022/2025, jeweils Docker und Podman; Hyper-V/Windows: SQL-2022 Python/R/Java nativ akzeptiert, C# für SQL 2019–2025 sichtbar `PREVIEW` | `../Catalogs/software.json`, `../Tests/Integration/Invoke-ExternalRuntimeContainerAcceptance.ps1`, `../Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1` |
-| Hyper-V | Lifecycle, sealed Registry und enger Manifestpfad aus SQL-Prepared-Image; echter SQL-2025-Vertical-Slice aus frischem Windows-Slot einschließlich Storage, Ressourcenwechsel, Datenpersistenz und Cleanup akzeptiert | `Providers/HyperV/HyperVProvider.ps1`, `Private/HyperVImageRegistry.ps1`, `../Tests/Integration/Invoke-HyperVCliAcceptance.ps1` |
+| Hyper-V | Lifecycle, sealed Registry und enger Manifestpfad aus SQL-Prepared-Image; echter SQL-2025-Vertical-Slice aus frischem Windows-Slot einschließlich Storage, Ressourcenwechsel, Datenpersistenz und Cleanup akzeptiert; nativer Testdatenbank-Reconcile-Runner vorhanden, Ausführung noch `NOT_EXECUTED` | `Providers/HyperV/HyperVProvider.ps1`, `Private/HyperVImageRegistry.ps1`, `../Tests/Integration/Invoke-HyperVCliAcceptance.ps1`, `../Tests/Integration/Invoke-HyperVTestDatabaseReconcileAcceptance.ps1` |
 | Versions- und Buildauflösung | implementiert | `Catalogs/sql-server-versions.json`, `Private/VersionCatalog.ps1` |
 | Sample-Katalog | typisierter Artifact-Vertrag; direkte Backups, sichere ZIP-Backups und gepinnte Einzelskripte ausführbar | `Catalogs/sample-databases.json`, `Schemas/sample-databases.schema.json`, `Private/SampleArtifactHandlers.ps1` |
 | Manifestparser | implementiert | `Private/ManifestParser.ps1` |
@@ -81,7 +82,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | SQL Readiness | implementiert | `Private/SqlReadiness.ps1` |
 | Serverkonfiguration | teilweise implementiert | `Private/ServerConfig.ps1`, `Quality/KNOWN_LIMITATIONS.md` |
 | Datenbankerstellung | implementiert | `Public/New-SqlServerLabDatabase.ps1` |
-| Restore | direkte `.bak`-Dateien einschließlich Trust-, SHA-256-, Cache- und Lock-Pfad implementiert | `Public/Restore-SqlServerLabDatabase.ps1`, `Private/ArtifactResolver.ps1` |
+| Backup/Restore | providerneutrale, inhaltsadressierte `Lab_Data`-Backup-Bibliothek mit SQL-Checksum, `RESTORE VERIFYONLY`, Hash und sanitiertem Receipt; direkte `.bak`-Restores einschließlich Trust-, Cache- und Lock-Pfad | `Public/Backup-SqlServerLabDatabase.ps1`, `Private/BackupLibrary.ps1`, `Public/Restore-SqlServerLabDatabase.ps1` |
 | Skriptausführung | implementiert | `Public/Invoke-SqlServerLabScript.ps1` |
 | Integrationstest | implementiert | `Tests/Integration/Invoke-SmokeTest.ps1` |
 | Manifest-Builder und -Fachprüfung | implementiert, einschließlich `x-ui`-Pfadkontext und Hostvorschau | `Private/ManifestBuilder.ps1`, `Tests/Static/Invoke-ManifestBuilderChecks.ps1` |
@@ -109,15 +110,15 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `Get-SqlServerLabWorkflow` | Konsolidierte Workflow- und Imageübersicht ohne Geheimnisse |
 | `Get-SqlServerLabHyperVResourcePreview` | Registrierte Hyper-V-Location, Kapazität und physische Klassenroots read-only anzeigen |
 | `Get-SqlServerLabCatalog` | Konsolidierten Lab-Katalog als JSON-Artefakt erzeugen |
-| `Get-SqlServerLabCleanupAudit` | Lab-Daten, Runtime-Ressourcen sowie Hyper-V-Bindings/Migrations- und Preserve-Befunde read-only prüfen |
+| `Get-SqlServerLabCleanupAudit` | Lab-Daten, native Runtime-Volumes, sanitisierte Docker-/Podman-Runtime-Scopes, externe Pfade und Hyper-V-Befunde sowie Persistent-Storage-Katalog, Leases und Registrierungskandidaten read-only prüfen |
 | `Get-SqlServerLabConnectionCenter` | Passwortfreien SQL-Endpunktkatalog für SSMS und CMS ermitteln |
 | `Sync-SqlServerLabConnectionCenter` | Endpunktkatalog der Verbindungszentrale aktualisieren |
 | `Export-SqlServerLabSsmsRegistration` | Kennwortfreien SSMS-`.regsrvr`-Export erzeugen |
 | `Export-SqlServerLabCmsSyncScript` | Idempotentes CMS-Synchronisationsskript erzeugen |
 | `Initialize-SqlServerLabCms` | Kompakten persistenten Docker-/Podman-CMS nach expliziter Auswahl erstellen |
 | `Sync-SqlServerLabCms` | Verwalteten lokalen CMS mit dem Endpunktkatalog abgleichen |
-| `Get-SqlServerLabReconcilePlan` | Read-only Lifecycle-, Containerressourcen-/Autostart- oder External-Runtime-Reconcile-Plan |
-| `Invoke-SqlServerLabReconcileAction` | Start/Stop, journalisierter Containerressourcen-/Autostart-Reconcile oder validierter additiver SQL-2022-Container-Runtime-Refresh (mit `-WhatIf`) |
+| `Get-SqlServerLabReconcilePlan` | Read-only Lifecycle-, Hyper-V-Netzwerk-/Ressourcen-/Storage-/SQL-/Testdatenbank-, Containerressourcen-/Autostart- oder External-Runtime-Reconcile-Plan |
+| `Invoke-SqlServerLabReconcileAction` | Start/Stop, eigentumsgebundene Hyper-V-Netzwerk-/Ressourcen-/Storage-/SQL-/Testdatenbank-Aktionen, Containerressourcen-/Autostart-Reconcile oder validierter additiver Container-Runtime-Refresh (mit `-WhatIf`) |
 | `Invoke-SqlServerLabWorkflowAction` | Nicht interaktive UI-Aktion für einen Hyper-V-Workflow-Schritt |
 | `New-SqlServerLabManifest` | Manifest schema-gesteuert erstellen |
 | `Test-SqlServerLabManifest` | Manifest ohne Provisionierung prüfen |
@@ -130,6 +131,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `Clear-SqlServerLab` | Lab-Container und/oder State bereinigen |
 | `New-SqlServerLabDatabase` | Datenbank erzeugen |
 | `Restore-SqlServerLabDatabase` | `.bak` aus Datei oder URL wiederherstellen |
+| `Backup-SqlServerLabDatabase` | Datenbank verifiziert in die `Lab_Data`-Backup-Bibliothek sichern |
 | `Invoke-SqlServerLabScript` | T-SQL-Skript ausführen |
 | `Get-SqlServerLabGeneratedSqlAccess` | Laufzeit-generierte SQL-Access-Daten inkl. SA-Passwort und ConnectionString aus einem Hyper-V-Run beziehen |
 | `New-SqlServerLabAutomatedTestEnvironment` | Linux-Testumgebungen mit getrennten Zufallskennwörtern erstellen und nach Lab_Data exportieren |
@@ -171,6 +173,7 @@ Nur wenn alle Ebenen zusammenpassen, ist ein Feld als vollständig implementiert
 | Dokument | Inhalt |
 |---|---|
 | [SQL-Server-zentrierte Scope-Entscheidung](Architecture/SQL_SERVER_CENTRIC_SCOPE_DECISION.md) | SQL Server als Hauptzweck; Supporting Components nur mit SQL-Bezug |
+| [`Lab_Data` und native Runtime-Speicher](Architecture/LAB_DATA_AND_NATIVE_RUNTIME_STORAGE_DECISION.md) | Bindendes `Lab_Data`-Versprechen, native Container-Ausnahmen und Grenzen für globale Runtime-/Machine-Eingriffe |
 | [Erweiterbarer Umgebungs- und Ausführungsvertrag](Architecture/EXTENSIBLE_ENVIRONMENT_AND_EXECUTION_CONTRACT.md) | Packages, Kataloge, Komponenten, Ressourcen, Workflow, Provider, Recovery und Cleanup |
 | [Manifest- und Schnittstellenarchitektur](Architecture/MANIFEST_AND_INTERFACE_ARCHITECTURE.md) | langfristiger deklarativer Vertrag und Auflösungsreihenfolge |
 | [Testdatenbank-Provisionierung und menügeführte Manifest-Erstellung](Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md) | Zielvertrag für Artifact Handler, Trust/Hash, Mehrfachauswahl, Pfadführung und Baselines; direkte Backups, sichere ZIP-Backups, Einzelskripte, Trust-Pfad und Mehrfachauswahl sind implementiert |

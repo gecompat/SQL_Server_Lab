@@ -46,7 +46,7 @@ testet seinen Core je Provider nur mit SQL Server 2025.
 | Podman-Provider | implementiert | `Providers/Podman/PodmanProvider.ps1` |
 | SQL Server External Languages | Container: Java für SQL 2019, Python/R/Java für SQL 2022/2025, jeweils Docker und Podman; Hyper-V/Windows: SQL-2022 Python/R/Java nativ akzeptiert, C# für SQL 2019–2025 sichtbar `PREVIEW` | `Catalogs/software.json`, `Tests/Integration/Invoke-ExternalRuntimeContainerAcceptance.ps1`, `Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1` |
 | Gemischter Docker-/Podman-Lifecycle | implementiert | `Documentation/Architecture/MIXED_PROVIDER_LIFECYCLE.md` |
-| Hyper-V-Provider | Lifecycle einschließlich Gast-Drives, Windows-Specialization, SQL-Readiness, Image-Registry, Windows-Builder und resumierbarem SQL-`PrepareImage`-Builder implementiert; frischer Windows-Slot mit echter SQL-2025-Installation, Datenbank-/Storage-/Ressourcenänderungen, Lifecycle und Cleanup CLI-seitig akzeptiert | `Providers/HyperV/HyperVProvider.ps1`, `Private/HyperVImageBuilder.ps1`, `Private/HyperVSqlImageBuilder.ps1`, `Tests/Integration/Invoke-HyperVCliAcceptance.ps1` |
+| Hyper-V-Provider | Lifecycle einschließlich Gast-Drives, Windows-Specialization, SQL-Readiness, Image-Registry, Windows-Builder und resumierbarem SQL-`PrepareImage`-Builder implementiert; frischer Windows-Slot mit echter SQL-2025-Installation sowie katalogisierter Daten-VHDX-Clone/Reattach/Release nativ akzeptiert | `Providers/HyperV/HyperVProvider.ps1`, `Private/HyperVImageBuilder.ps1`, `Private/HyperVSqlImageBuilder.ps1`, `Private/HyperVPersistentDataDrive.ps1`, `Tests/Integration/Invoke-HyperVCliAcceptance.ps1`, `Tests/Integration/Invoke-HyperVPersistentDataDriveAcceptance.ps1` |
 | Ad-hoc-Provisionierung | implementiert | `New-SqlServerLab -Version ... -Provider ...` |
 | Providerneutrale Batch-, Queue- und Resume-Provisionierung | implementiert | `Private/BatchWorkflow.ps1`, `Public/BatchWorkflow.ps1`, `Schemas/lab-batch.schema.json` |
 | Manifest-Provisionierung | primärer unbeaufsichtigter Containerpfad; externe Secret-Referenzen, SHA-256-Restores und sichere Mount-Defaults | `Schemas/lab-manifest.schema.json`, `Documentation/Architecture/TEMPLATE_POOL_AND_AUTOMATED_MANIFESTS.md` |
@@ -540,15 +540,15 @@ Invoke-SqlServerLabScheduler -UntilIdle
 | `Get-SqlServerLabWorkflow` | Konsolidierte Workflow-, Image-, Vorlagenpool- und Kombinationsübersicht ohne Geheimnisse |
 | `Get-SqlServerLabHyperVResourcePreview` | Registrierte Hyper-V-Location, freien Speicher und physische Run-/Build-/Image-/Staging-Roots ohne Mutation anzeigen |
 | `Get-SqlServerLabCatalog` | Konsolidierten Lab-Katalog als JSON-Artefakt erzeugen |
-| `Get-SqlServerLabCleanupAudit` | Bekannte Lab-Daten, Runtime-Ressourcen sowie Hyper-V-Bindings/Migrations- und Preserve-Befunde read-only prüfen |
+| `Get-SqlServerLabCleanupAudit` | Lab-Daten, native Runtime-Volumes, sanitisierte Docker-/Podman-Runtime-Scopes, externe Pfade und Hyper-V-Befunde sowie Persistent-Storage-Katalog, Leases und Registrierungskandidaten read-only prüfen |
 | `Get-SqlServerLabConnectionCenter` | Passwortfreien, providerübergreifenden SQL-Endpunktkatalog ermitteln |
 | `Sync-SqlServerLabConnectionCenter` | Den Endpunktkatalog der SSMS-/CMS-Verbindungszentrale aktualisieren |
 | `Export-SqlServerLabSsmsRegistration` | Kennwortfreien `.regsrvr`-Import für SSMS erzeugen |
 | `Export-SqlServerLabCmsSyncScript` | Idempotentes Synchronisationsskript für einen vorhandenen CMS erzeugen |
 | `Initialize-SqlServerLabCms` | Kompakten persistenten Docker-/Podman-CMS nach expliziter Auswahl anlegen |
 | `Sync-SqlServerLabCms` | Verwalteten lokalen CMS mit dem aktuellen Endpunktkatalog abgleichen |
-| `Get-SqlServerLabReconcilePlan` | Read-only Plan für Lifecycle, Containerressourcen/Autostart oder resolvergebundenen External-Runtime-Reconcile |
-| `Invoke-SqlServerLabReconcileAction` | `START`/`STOP`, journalisierten Containerressourcen-/Autostart-Reconcile oder validierten External-Runtime-Reconcile ausführen |
+| `Get-SqlServerLabReconcilePlan` | Read-only Plan für Lifecycle, Hyper-V-Netzwerk-/Ressourcen-/Storage-/SQL-/Testdatenbank-Reconcile, Containerressourcen/Autostart oder resolvergebundenen External-Runtime-Reconcile |
+| `Invoke-SqlServerLabReconcileAction` | `START`/`STOP`, eigentumsgebundene Hyper-V-Netzwerk-/Ressourcen-/Storage-/SQL-/Testdatenbank-Aktionen, Containerressourcen-/Autostart-Reconcile oder validierten External-Runtime-Reconcile ausführen |
 | `Invoke-SqlServerLabWorkflowAction` | Nicht interaktive Hyper-V-Workflow-Aktion für die lokale Oberfläche |
 | `New-SqlServerLabManifest` | Schema-gesteuertes Manifest in der Konsole erstellen |
 | `Test-SqlServerLabManifest` | Manifest ohne Provisionierung strukturell und fachlich prüfen |
@@ -560,6 +560,7 @@ Invoke-SqlServerLabScheduler -UntilIdle
 | `Remove-SqlServerLab` | Einzelnen Run entfernen |
 | `Clear-SqlServerLab` | Lab-Container und/oder State bereinigen |
 | `New-SqlServerLabDatabase` | Datenbank erstellen |
+| `Backup-SqlServerLabDatabase` | Datenbank nach `CHECKSUM`, `RESTORE VERIFYONLY` und SHA-256 in der `Lab_Data`-Bibliothek veröffentlichen |
 | `Restore-SqlServerLabDatabase` | `.bak` aus Datei oder URL wiederherstellen |
 | `Invoke-SqlServerLabScript` | T-SQL-Skript ausführen |
 | `Get-SqlServerLabGeneratedSqlAccess` | Hyper-V SQL-Zugriffsdaten (ConnectionString + generiertes SA-Passwort) aus dem Run abrufen |
@@ -734,6 +735,7 @@ _QuellRepo/      unveränderte Quell-Snapshots anderer Repositories
 - [Dokumentationsübersicht](Documentation/README.md)
 - [Bekannte Grenzen](Documentation/Quality/KNOWN_LIMITATIONS.md)
 - [Manifest-Schemas und Beispiele](Schemas/README.md)
+- [`Lab_Data` und native Runtime-Speicher](Documentation/Architecture/LAB_DATA_AND_NATIVE_RUNTIME_STORAGE_DECISION.md)
 - [Testdatenbank-Provisionierung und menügeführte Manifest-Erstellung](Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md)
 - [Gemischter Container-Provider-Lifecycle](Documentation/Architecture/MIXED_PROVIDER_LIFECYCLE.md)
 - [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md)

@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sql-server-lab.local/schemas/hyperv-persistent-data-intent.schema.json",
+  "title": "SqlServerLab.HyperVPersistentDataIntent/1.0",
+  "type": "object",
+  "required": ["ContractVersion", "OperationId", "Action", "SourcePersistentStorageId", "TargetPersistentStorageId", "TargetLocationId", "TargetRelativePath", "TargetRunId", "TargetScopeId", "TargetVMName", "TargetSqlMajorVersion", "TargetGuestPath", "DetachEvidence", "TargetEvidence", "DatabaseDisposition"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.HyperVPersistentDataIntent/1.0" },
+    "OperationId": { "type": "string", "format": "uuid" },
+    "Action": { "enum": ["REATTACH", "RELEASE", "CLONE"] },
+    "SourcePersistentStorageId": { "type": "string", "format": "uuid" },
+    "TargetPersistentStorageId": { "type": ["string", "null"], "format": "uuid" },
+    "TargetLocationId": { "type": ["string", "null"], "format": "uuid" },
+    "TargetRelativePath": { "type": ["string", "null"], "pattern": "(?i)^(?![a-z]:|[\\/]|.*(?:^|[\\/])\\.\\.(?:[\\/]|$)).+\\.vhdx$" },
+    "TargetRunId": { "type": "string", "format": "uuid" },
+    "TargetScopeId": { "type": "string", "format": "uuid" },
+    "TargetVMName": { "type": "string", "minLength": 1, "maxLength": 100 },
+    "TargetSqlMajorVersion": { "type": "string", "pattern": "^20(19|22|25)$" },
+    "TargetGuestPath": { "type": "string", "pattern": "^[D-Zd-z]:\\\\" },
+    "DatabaseDisposition": { "const": "EXPLICIT_RESTORE_OR_ATTACH_REQUIRED" },
+    "DetachEvidence": {
+      "type": "object",
+      "required": ["Status", "DirtyState", "DiskIdentifier", "SqlMajorVersion", "GuestPath", "DatabasesState", "ObservedAt"],
+      "properties": {
+        "Status": { "const": "CLEAN_DETACHED" }, "DirtyState": { "const": "CLEAN" },
+        "DiskIdentifier": { "type": "string", "format": "uuid" },
+        "SqlMajorVersion": { "type": "string", "pattern": "^20(19|22|25)$" },
+        "GuestPath": { "type": "string", "pattern": "^[D-Zd-z]:\\\\" },
+        "DatabasesState": { "enum": ["OFFLINE_OR_DETACHED", "NO_DATABASE_FILES"] },
+        "ObservedAt": { "type": "string", "format": "date-time" }
+      }, "additionalProperties": false
+    },
+    "TargetEvidence": {
+      "type": "object",
+      "required": ["VMId", "SqlMajorVersion", "GuestPath", "GuestPathAvailable", "ObservedAt"],
+      "properties": {
+        "VMId": { "type": "string", "format": "uuid" },
+        "SqlMajorVersion": { "type": "string", "pattern": "^20(19|22|25)$" },
+        "GuestPath": { "type": "string", "pattern": "^[D-Zd-z]:\\\\" },
+        "GuestPathAvailable": { "const": true },
+        "ObservedAt": { "type": "string", "format": "date-time" }
+      }, "additionalProperties": false
+    }
+  },
+  "allOf": [
+    { "if": { "properties": { "Action": { "const": "CLONE" } } }, "then": { "properties": { "TargetPersistentStorageId": { "type": "string" }, "TargetLocationId": { "type": "string" }, "TargetRelativePath": { "type": "string" } } }, "else": { "properties": { "TargetPersistentStorageId": { "type": "null" }, "TargetLocationId": { "type": "null" }, "TargetRelativePath": { "type": "null" } } } }
+  ],
+  "additionalProperties": false
+}

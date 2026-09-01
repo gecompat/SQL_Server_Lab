@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SqlServerLab.DatabasePackageLibrary/1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ContractVersion", "Revision", "UpdatedAt", "Packages"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.DatabasePackageLibrary/1.0" },
+    "Revision": { "type": "integer", "minimum": 0 },
+    "UpdatedAt": { "type": "string", "format": "date-time" },
+    "Packages": { "type": "array", "items": { "$ref": "#/$defs/package" } }
+  },
+  "$defs": {
+    "safePath": { "type": "string", "pattern": "^(?![A-Za-z]:)(?![\\\\/])(?!.*(?:^|[\\\\/])\\.\\.(?:[\\\\/]|$)).+" },
+    "package": {
+      "type": "object", "additionalProperties": false,
+      "required": ["DatabasePackageId", "Status", "DatabaseName", "Source", "DatabaseMetadata", "DatabaseFiles", "Objects", "ManifestSha256", "CaptureEvidence", "CreatedAt", "UpdatedAt"],
+      "properties": {
+        "DatabasePackageId": { "type": "string", "format": "uuid" },
+        "Status": { "const": "REUSABLE" },
+        "DatabaseName": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]{0,127}$" },
+        "Source": {
+          "type": "object", "additionalProperties": false,
+          "required": ["Provider", "RunId", "InstanceId", "SqlMajorVersion"],
+          "properties": {
+            "Provider": { "enum": ["docker", "podman", "hyperv", "external"] },
+            "RunId": { "type": ["string", "null"] }, "InstanceId": { "type": ["string", "null"] },
+            "SqlMajorVersion": { "type": "string", "pattern": "^[0-9]{2,4}$" }
+          }
+        },
+        "DatabaseMetadata": {
+          "type": "object", "additionalProperties": false,
+          "required": ["StateAtCapture", "HasFileStream", "FileStreamInventoryComplete", "IsEncrypted", "TdeKeyEvidenceVerified", "ExternalDependencies"],
+          "properties": {
+            "StateAtCapture": { "enum": ["OFFLINE", "DETACHED"] },
+            "HasFileStream": { "type": "boolean" }, "FileStreamInventoryComplete": { "type": "boolean" },
+            "IsEncrypted": { "type": "boolean" }, "TdeKeyEvidenceVerified": { "type": "boolean" },
+            "ExternalDependencies": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 128 }, "uniqueItems": true }
+          }
+        },
+        "DatabaseFiles": {
+          "type": "array", "minItems": 2,
+          "items": { "type": "object", "additionalProperties": false, "required": ["LogicalName", "Type", "RelativeRoot", "IsDirectory"],
+            "properties": { "LogicalName": { "type": "string", "minLength": 1, "maxLength": 128 }, "Type": { "enum": ["DATA", "LOG", "FILESTREAM"] }, "RelativeRoot": { "$ref": "#/$defs/safePath" }, "IsDirectory": { "type": "boolean" } } }
+        },
+        "Objects": {
+          "type": "array", "minItems": 2,
+          "items": { "type": "object", "additionalProperties": false, "required": ["DatabaseFileLogicalName", "RelativePath", "Bytes", "Sha256"],
+            "properties": { "DatabaseFileLogicalName": { "type": "string", "minLength": 1 }, "RelativePath": { "$ref": "#/$defs/safePath" }, "Bytes": { "type": "integer", "minimum": 0 }, "Sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" } } }
+        },
+        "ManifestSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "CaptureEvidence": { "type": "object", "additionalProperties": false, "required": ["AccessMode", "WriterCount", "StateObservedAfterLock", "SourceReleased"],
+          "properties": { "AccessMode": { "const": "EXCLUSIVE" }, "WriterCount": { "const": 0 }, "StateObservedAfterLock": { "const": true }, "SourceReleased": { "type": "boolean" } } },
+        "CreatedAt": { "type": "string", "format": "date-time" }, "UpdatedAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}

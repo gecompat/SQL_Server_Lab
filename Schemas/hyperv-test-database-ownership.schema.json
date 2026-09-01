@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sql-server-lab.local/schemas/hyperv-test-database-ownership.schema.json",
+  "title": "SqlServerLab.HyperVTestDatabaseOwnership/1.0",
+  "type": "object",
+  "required": ["ContractVersion", "RunId", "ScopeId", "InstanceId", "Provider", "VMId", "Entries", "UpdatedAt"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.HyperVTestDatabaseOwnership/1.0" },
+    "RunId": { "type": "string", "format": "uuid" },
+    "ScopeId": { "type": "string", "format": "uuid" },
+    "InstanceId": { "type": "string", "minLength": 1 },
+    "Provider": { "const": "hyperv" },
+    "VMId": { "type": "string", "minLength": 1 },
+    "Entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["PlanKey", "SampleId", "SampleVariant", "DatabaseNames", "ArtifactSha256", "HandlerContractVersion", "InstalledAt"],
+        "properties": {
+          "PlanKey": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "SampleId": { "type": "string", "minLength": 1 },
+          "SampleVariant": { "type": "string", "minLength": 1 },
+          "DatabaseNames": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*$" } },
+          "ArtifactSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "HandlerContractVersion": { "type": "string", "minLength": 1 },
+          "InstalledAt": { "type": "string", "format": "date-time" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "UpdatedAt": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

@@ -68,12 +68,35 @@ try {
         New-HyperVSqlGuestNetworkBootstrapScript -Network $Network -Address '172.28.0.42'
     } $securePassword $labNetwork
     Add-CheckResult -Name 'SetupComplete bootstrappt eine feste Lab-IP und Host-beschraenktes WinRM' -Success (
-        $bootstrap -match "IPAddress '172\.28\.0\.42'" -and
+        $bootstrap -match "IPAddress='172\.28\.0\.42'" -and
         $bootstrap -match 'Enable-PSRemoting' -and
         $bootstrap -match "RemoteAddress '172\.28\.0\.1'" -and
         $bootstrap -match 'Set-Content[\s\S]+-Encoding UTF8' -and
         $bootstrap -notmatch 'utf8NoBOM' -and
         $bootstrap -notmatch [regex]::Escape($knownPassword)
+    )
+    $natBootstrap = & $module {
+        New-HyperVSqlGuestNetworkBootstrapScript -Network ([PSCustomObject]@{
+            Name='SQL_LAB_HYPERV_NAT'; PrefixLength=24; HostAddress='172.29.0.1'
+            gateway='172.29.0.1'; dnsServers=@('192.0.2.53', '192.0.2.54')
+        }) -Address '172.29.0.42'
+    }
+    Add-CheckResult -Name 'Hyper-V-NAT-Bootstrap bindet Gateway und den geprüften DNS-Snapshot' -Success (
+        $natBootstrap -match "DefaultGateway = '172\.29\.0\.1'" -and
+        $natBootstrap -match "Set-DnsClientServerAddress" -and
+        $natBootstrap -match "'192\.0\.2\.53','192\.0\.2\.54'"
+    )
+    $lanBootstrap = & $module {
+        New-HyperVSqlGuestNetworkBootstrapScript -Network ([PSCustomObject]@{
+            Name='SQL_LAB_LAN'; Intent='lan'; AddressMode='dhcp'
+        })
+    }
+    Add-CheckResult -Name 'Hyper-V-LAN-Bootstrap bezieht DHCP und begrenzt WinRM auf das lokale Subnetz' -Success (
+        $lanBootstrap -match 'Set-NetIPInterface[\s\S]+-Dhcp Enabled' -and
+        $lanBootstrap -match 'Set-DnsClientServerAddress[\s\S]+-ResetServerAddresses' -and
+        $lanBootstrap -match 'SQL_LAB_OOBE_DHCP_ADDRESS_NOT_READY' -and
+        $lanBootstrap -match 'RemoteAddress LocalSubnet' -and
+        $lanBootstrap -match "addressMode = 'dhcp'"
     )
 
     $buildId = [guid]::NewGuid().ToString(); $scopeId = [guid]::NewGuid().ToString()

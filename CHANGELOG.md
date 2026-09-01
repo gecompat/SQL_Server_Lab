@@ -4,6 +4,150 @@ Dieses Changelog dokumentiert Änderungen am öffentlichen Verhalten, an maschin
 
 Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher nach Datum geführt. Neue Einträge werden oben ergänzt.
 
+## 2026-09-01
+
+### Hinzugefügt
+
+- `SqlServerLab.HyperVPersistentDataIntent/1.0`, Plan und Recovery-Journal
+  wählen katalogisierte Hyper-V-Daten-VHDX per stabiler Storage-ID und prüfen
+  `Lab_Data`-Bindung, DiskIdentifier, Attachments, Checkpoints, Clean-Detach,
+  Ziel-VM, SQL-Major-Version und freien Gastpfad fail-closed. Der Clone bleibt
+  quellenunverändert und erhält einen neuen DiskIdentifier; ein realer
+  isolierter Hyper-V-Lauf bestätigt `CLONE`, `REATTACH`, `RELEASE` und Cleanup.
+  Vorhandene Dateien gelten weiterhin erst nach explizitem Restore oder Attach
+  als Datenbank.
+
+- `SqlServerLab.ContainerRuntimeScope/1.0` bindet den aktiven Docker-Context
+  beziehungsweise die aktive Podman-Connection/Machine an eine stabile,
+  endpunktgebundene und pfadsanitisierte Runtime-ID. Geteilte Runtimes bleiben
+  `SHARED_EXTERNAL`/`REPORT_ONLY`; Host-Relocation, Runtime-Removal, Default-
+  und Modusänderungen sowie Adoption labfremder Ressourcen sind blockiert.
+  Getrennte reale read-only Docker-/Podman-Prüfungen bestätigen unveränderte
+  Ressourcen und Runtime-Auswahl.
+
+- `SqlServerLab.ContainerInstanceStoreIntent/1.0`, Plan und Recovery-Journal
+  wählen katalogisierte Docker-/Podman-Instanzstores per stabiler ID aus,
+  binden detached Stores für Continue und klonen sie mit read-only Quelle,
+  Inhaltsdigest und wiederaufnehmbarem `RECOVERY_REQUIRED`-Pfad. Getrennte reale
+  Docker-/Podman-Abnahmen bestätigen Server- und Benutzerdaten nach Recreate
+  sowie im Clone.
+
+- `SqlServerLab.PersistentStorageCatalog/1.0` und
+  `SqlServerLab.PersistentStoragePlan/1.0` definieren stabile, vom Anzeigenamen
+  unabhängige Storage-IDs, Klassen, Zustände, Referenzen, exklusive Leases und
+  den read-only Abgleich mit Residency-Inventar und Registrierungskandidaten.
+- `SqlServerLab.PersistentStorageRemovalIntent/1.0` und
+  `SqlServerLab.PersistentStorageRemovalPlan/1.0` planen Retention,
+  Backup-/Package-on-Remove, externe Bindungsfreigabe, Recovery-Evidence und
+  die getrennte endgültige Storage-Löschgrenze ohne Mutation.
+- `Get-SqlServerLabCleanupAudit` liefert mit
+  `SqlServerLab.StorageResidencyInventory/1.0` eine stabile read-only Matrix
+  für `Lab_Data`, native Docker-/Podman-Volumes, externe Hostpfade,
+  Hyper-V-Ressourcen, Retention, Cleanup-Zuordnung und unverifizierbares
+  physisches Runtime-Backing.
+- Der bindende Architekturentscheid
+  `SqlServerLab.LabDataResidencyDecision/1.0` definiert `Lab_Data` als
+  hostseitigen Katalog-, Austausch- und Recovery-Einstieg, begrenzt native
+  Container-Instanzstores und schützt globale Runtime-/Machine-Ablagen vor
+  stillen Hosteingriffen.
+- `Get-SqlServerLabReconcilePlan -HyperVStorage` vergleicht zusätzliche
+  manifestgebundene VHDX und gebundene Storage-Lanes hostwertfrei. Die Action
+  `-RepairHyperVStorage` erstellt fehlende SCSI-VHDX, vergroessert vorhandene
+  VHDX grow-only und verifiziert bzw. erweitert GPT-/NTFS-Volumes im Gast.
+- Der Hyper-V-Storage-Reconcile registriert neue VHDX vor der Mutation im
+  Cleanup-Plan, bewahrt den urspruenglichen VM-Zustand und setzt einen
+  unterbrochenen Host-/Gastablauf ueber ein lokales Recovery-Journal fort.
+- `Get-SqlServerLabReconcilePlan -HyperVSqlStorage` vergleicht SQL-Default- und
+  TempDB-Dateipfade hostwertfrei mit dem gebundenen Storageplan. Die Action
+  `-RepairHyperVSqlStorage` verwendet das vor der Mutation geschriebene
+  Storage-Runtime-Receipt, startet SQL kontrolliert neu und unterstützt Resume.
+- `Get-SqlServerLabReconcilePlan -HyperVResources` vergleicht den
+  manifestgebundenen vCPU-/RAM-Sollzustand read-only und hostwertfrei.
+- `Invoke-SqlServerLabReconcileAction -RepairHyperVResources` repariert reine
+  Dynamic-Min-/Max-Drift live und führt vCPU-, Modus- oder Startup-Drift mit
+  journalisiertem Stop-Apply-Start, Postconditions und Recovery-Resume aus.
+- Hyper-V-Manifeste unterstützen statisches oder dynamisches RAM mit
+  `memoryMinimumMB`, `memoryStartupMB` und `memoryMaximumMB`.
+- `Get-SqlServerLabReconcilePlan -HyperVNetwork` liefert einen hostwertfreien
+  Reparaturplan für additive, lokal gebundene Hyper-V-Netzinfrastruktur und
+  genau einen vorhandenen getrennten Adapter. Die zugehörige Action
+  `-RepairHyperVNetwork` revalidiert Run, Scope und VM, journalisiert lokale
+  Identitäten, unterstützt Recovery-Retry und verlangt für eine tatsächliche
+  External-Switch-Erstellung zusätzlich `-AllowExternalSwitchCreation`.
+- Hyper-V-`lan` bindet den portablen Manifest-Intent an eine explizite lokale
+  Switch-/Adapter-Allowlist. Der read-only Plan prüft physische Adapter-GUID,
+  Linkstatus, External-Switch-Typ und Adapterbelegung; der Gast verwendet DHCP
+  und auf `LocalSubnet` begrenzte WinRM-/SQL-Regeln.
+
+- Das Manifest besitzt einen portablen `network`-Vertrag mit typisierten
+  `intent`- und `exposure`-Werten. Die mutationsfreie Planvorschau bindet
+  Docker/Podman an `nat`/`host`, Hyper-V an `hostOnly`/`host` oder explizit an
+  `isolated`/`none`.
+- Hyper-V-`nat` besitzt einen mutationsfreien Host-Bound-Plan, einen
+  fail-closed Schutz vor fremdem WinNAT, statische scopegebundene IPAM-Leases
+  sowie gebundene Gateway- und DNS-Werte für den Gast.
+- Der Lifecycle-Reconcile übernimmt den persistierten Hyper-V-Network-Intent
+  und liefert einen read-only, hostwertfreien Diff für Adapter, Switch-Typ,
+  Hostinfrastruktur und beobachtbare Gastadresse.
+
+### Geändert
+
+- Der kanonische Entwicklungs- und Masterplan führt Network-Manifestparität
+  nicht länger als vollständig offen: M6 ist jetzt `implemented_partial` und
+  trennt den synthetisch belegten Netzwerk-Slice von weiterhin offenen
+  Hardware-, Storage-, SQL- und nativen Reparaturnachweisen.
+- Hyper-V-Manifeste reichen den aufgelösten Isolation-Intent an den regulären
+  VM-Lifecycle weiter. `hyperv.switchName` bleibt ein lokales
+  Kompatibilitätsbinding für interne HostOnly-Switches; es wird nicht länger
+  fälschlich als portabler LAN-Intent persistiert.
+- Neue und durch Reconcile neu erzeugte Docker-/Podman-Container binden den
+  veröffentlichten SQL-Port an `127.0.0.1`, sodass die deklarierte
+  Host-Exposure nicht unbeabsichtigt zu einer LAN-Exposure wird.
+- Nicht gebundene Providerkombinationen, widersprüchliche Exposure-Werte und
+  Konflikte zwischen Isolation und Legacy-Switch werden mit stabilen
+  `NETWORK_*`-Reason-Codes vor der ersten Provider-Mutation abgelehnt.
+- Hyper-V-Netzwerkdrift und nicht lesbare Istzustände blockieren Lifecycle-
+  Teilaktionen fail-closed; der bestehende Executor führt keine implizite
+  Netzwerkreparatur aus. Rebinding, Adapter-Neuanlage, mehrere Adapter und
+  Gastadressreparatur bleiben auch im getrennten Netzwerk-Executor fail-closed.
+
+### Validiert
+
+- Die fokussierte Hyper-V-SQL-Storage-Reconcile-Suite bestätigt read-only Diff,
+  hostwertfreien Plan, `WhatIf`, Fault/Resume, No-op sowie fail-closed Hostdrift
+  und zusätzliche TempDB-Logfiles mit gemocktem Provider. Ein positiver nativer
+  Reparaturlauf wurde nicht ausgeführt.
+- Die fokussierte Hyper-V-Storage-Reconcile-Suite bestätigt Add, Grow-only,
+  Gastverifikation, `WhatIf`, Cleanup-Vorregistrierung, Fault/Resume, frische
+  Journale bei wiederkehrender Drift sowie fail-closed Shrink und Removal mit
+  gemocktem Provider. Ein positiver nativer Reparaturlauf wurde nicht ausgeführt.
+- Die fokussierte Hyper-V-Network-Reconcile-Suite bestätigt No-op, additive
+  Reparatur, `WhatIf`, External-Switch-Freigabe, Identity-Mismatch und
+  Journal-Recovery mit gemocktem Provider. Ein positiver nativer Reparaturlauf
+  wurde daraus ausdrücklich nicht abgeleitet.
+- Die LAN-Verträge sind synthetisch für fehlende Freigabe, exakte
+  Wiederverwendung/Erstellung, IPAM-freie DHCP-Persistenz und dynamischen
+  Reconcile-No-op geprüft. Der Referenzhost bestätigte Hyper-V und vorhandene
+  External Switches read-only; ohne lokale LAN-Allowlist erfolgte keine
+  Hostmutation.
+
+- Network-, Manifest-, Desired-State- und Hyper-V-Static-Contracts sowie der
+  Container-Smoke prüfen die
+  Providerdefaults, Bindings, Capability-Evidenz, fail-closed Grenzen und die
+  geheimnisfreie Persistenz; der Native-Smoke verifiziert zusätzlich das reale
+  Loopback-Portbinding und den scopegebundenen Cleanup.
+- Die getrennten nativen Docker- und Podman-Smokes bestanden jeweils 34/34
+  Prüfungen einschließlich SQL-Readiness, Loopback-Binding, Stop/Start und
+  Cleanup. Der Hyper-V-Lifecycle-Smoke bestätigte zusätzlich eine VM ohne
+  Netzwerkverbindung sowie vollständigen VM-/VHDX-Cleanup.
+- Der native read-only Hyper-V-Probe bestätigte einen laufenden Hypervisor und
+  unveränderten Hostzustand; das fremde WinNAT `172.30.0.0/24` wurde als
+  Präfixkonflikt erkannt und weder übernommen noch verändert.
+- Ein weiterer nativer read-only Probe erkannte bei einer vorhandenen
+  verwalteten VM sowohl die Internal-Switch-Bindung als auch die gebundene
+  Hostinfrastruktur als `MATCHED`; für den älteren Run wurde ohne persistierte
+  Gastadresse ausdrücklich keine Gastadress-Evidence behauptet.
+
 ## 2026-08-31
 
 ### Hinzugefügt

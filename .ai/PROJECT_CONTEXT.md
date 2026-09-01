@@ -57,10 +57,40 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 - read-only Desired/Actual/Diff-Reconcile, kontrollierte START-/STOP-Aktionen
   sowie journalisierter Container-Reconcile für CPU, RAM, SQL `max server
   memory`, Hostport, Autostart und External Runtimes einschließlich No-op,
-  Rollback, Persistenz und Recovery;
+  Rollback, Persistenz und Recovery; Hyper-V besitzt zusätzlich einen
+  hostwertfreien Netzwerkplan und einen eng begrenzten journalisierten Executor
+  für additive gebundene Hostinfrastruktur und genau einen vorhandenen
+  getrennten VM-Adapter sowie getrennte vCPU-/RAM-, Grow-only-Storage-,
+  SQL-Storage- und SQL-Konfigurations-Reconcile-Verträge mit Live- oder
+  SQL-Dienstrestart-Klassifizierung;
 - verwalteter Multi-Root-Storage-Vertrag mit stabilen `LocationId`-Werten,
   Backing-Device-Topologie, dateigenauem Storage-Plan, journalisierter
-  Parent-Migration und Cleanup-Audit;
+  Parent-Migration und Cleanup-Audit; dessen versioniertes read-only
+  Storage-Residency-Inventar trennt `Lab_Data`, native Docker-/Podman-Ablage,
+  externe Hostpfade, rungebundene sowie retained Objekte und unbekanntes
+  physisches Runtime-Backing; der bindende
+  `SqlServerLab.LabDataResidencyDecision/1.0`-Entscheid definiert `Lab_Data` als
+  hostseitigen Katalog-, Austausch- und Recovery-Root, erlaubt katalogisierte
+  native Container-Instanzstores und verbietet stille Eingriffe in globale
+  Runtime-/Machine-Ablagen; der read-only Vertrag
+  `SqlServerLab.PersistentStorageCatalog/1.0` ergänzt stabile, vom Anzeigenamen
+  und Runtime-Namen unabhängige IDs, Klassen, Zustände, Referenzen und exklusive
+  Leases, während `SqlServerLab.PersistentStoragePlan/1.0` Katalogbindungen,
+  Konflikte und ID-lose Registrierungskandidaten ohne Mutation ausweist; der
+  read-only Removal-Vertrag plant Retention, verifizierte Backup-/Package-
+  Evidence, externe Bindungsfreigabe und Recovery-Gates und lässt endgültige
+  Löschung persistenter Stores ausdrücklich außerhalb des Run-Cleanups; der
+  PSR-005-Core wählt detached Docker-/Podman-Instanzstores per stabiler ID und
+  Runtime-Label, liefert Continue-Bindings und klont die Quelle read-only mit
+  Digest-Postcondition und wiederaufnehmbarem Journal; Docker und Podman sind
+  getrennt live belegt, während Katalog-Commit und öffentliche Bedienung offen
+  bleiben; `SqlServerLab.ContainerRuntimeScope/1.0` bindet zusätzlich den
+  aktiven Docker-Context beziehungsweise die Podman-Connection/Machine an eine
+  stabile sanitisierte Runtime-ID, weist geteilte Runtimes als
+  `SHARED_EXTERNAL`/`REPORT_ONLY` aus und blockiert Relocation, Removal,
+  Default-Auswahl, Modusänderung und Adoption ohne eigenen Ownership-Vertrag;
+  die reale read-only Docker-/Podman-Prüfung hinterließ Ressourcen und Auswahl
+  unverändert;
 - versionierte `SqlServerLab.HyperVResourceBinding/1.0`-Grundlage mit kurzen,
   state-root-unabhängigen Create-Roots unter registriertem `Lab_Data`,
   Controller-/Location-/Volume-Revalidierung und getrennter read-only
@@ -176,8 +206,10 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   belegt;
 - vollständiger allgemeiner Hyper-V-Provider über den belegten
   Windows-2025-/SQL-2025-Referenzpfad hinaus, insbesondere breite
-  Datenbank-, Software-, Post-Provisioning- und Netzwerk-Manifestbindung sowie
-  eine reale Versions-/Editionsmatrix;
+  Datenbank-, Software- und Post-Provisioning-Manifestbindung, positive native
+  External-Switch-Erstellung, native Evidence des eng begrenzten Netzwerk-
+  Executors, weitergehende Adapter-/Gastnetzreparatur sowie eine reale
+  Versions-/Editionsmatrix;
 - Hyper-V-SubRuns und ein providerübergreifendes Containernetzwerk innerhalb
   eines Runs;
 - vollständige Ausführung aller im Schema vorbereiteten `serverConfig`-Felder;
@@ -187,9 +219,11 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 - weitere External-Runtime-OS-/Providerkombinationen außerhalb der belegten
   Linux-Containermatrix und des SQL-2022-Hyper-V-/Windows-Pfads; C# bleibt bis
   zu reproduzierbarem Build und nativer SQL-Evidence `PREVIEW`;
-- Reconcile-Aktionen über den implementierten Lifecycle- und
-  Container-Reconcile hinaus, insbesondere für Netzwerke, freie Mount-/Image-
-  Änderungen, Hyper-V-Software und weitere SQL-Konfigurationen;
+- Reconcile-Aktionen über die implementierten Lifecycle-, Container-,
+  Hyper-V-Netzwerk-, vCPU-/RAM-, Grow-only-Storage-, SQL-Storage- und
+  SQL-Konfigurations-, SQL-Port- und katalogisierten Testdatenbankpfade hinaus,
+  insbesondere Rebinding, Adapter-Neuanlage, Gastadressreparatur, vollständige
+  `sp_configure`-Entfernung, freie Mount-/Image-Änderungen und Hyper-V-Software;
 - versionierter Refresh-/Rebuild-Lifecycle für Medien, VHDX und Container-Images;
 - weitere konsumierende Lab-Packages über die drei abgeschlossenen
   Project-Adapter-Vertical-Slices hinaus;
@@ -232,7 +266,52 @@ SQL-2025-CLI-Vertical-Slice. Der Ad-hoc-Pfad bietet Hyper-V trotzdem noch nicht
 als allgemeinen SQL-Provider an. `New-SqlServerLab -Manifest` verwendet den
 eng begrenzten Klonpfad aus einer veröffentlichten
 `SQL_PREPARED_SEALED`-Vorlage; die breite Datenbank-, Software-,
-Post-Provisioning-, Netzwerk- und Versionsbindung bleibt offen.
+Post-Provisioning- und Versionsbindung bleibt offen. Der portable
+Network-Intent-Vertrag bindet Container-`nat` sowie Hyper-V-`hostOnly`,
+`isolated`, `nat` und `lan`. Hyper-V-NAT besitzt einen mutationsfreien Host-Bound-Plan,
+einen gemeinsamen WinNAT-Vertrag, statische scopegebundene IPAM-Leases und einen
+gebundenen Gateway-/DNS-Snapshot. Der Lifecycle-Reconcile liest die Hyper-V-
+Netzbindung semantisch und hostwertfrei und blockiert bei Drift fail-closed.
+LAN verwendet eine lokale Switch-/Adapter-Allowlist, External Switch und
+Gast-DHCP; die eng begrenzte schreibende Netzwerkreparatur ist synthetisch
+implementiert, positive native Switch-/Repair-Evidence bleibt offen.
+
+Der Hyper-V-Reconcile besitzt getrennte, hostwertfreie Pläne für vCPU/RAM,
+zusätzliche VHDX/Grow-only, SQL-Storage, SQL-Konfiguration, den
+statischen SQL-TCP-Port und katalogisierte Testdatenbanken. Der SQL-Storage-Slice wird erst nach
+einem Host-/Gast-Storage-No-op ausführbar, vergleicht Default- und TempDB-Pfade
+read-only und verwendet für Restart, Postconditions und Resume das lokale
+Storage-Runtime-Receipt. User-/Systemdatenbankbewegung und positive native
+Repair-Evidence bleiben offen. Der Konfigurationsslice vergleicht
+persistierte Memory-, MAXDOP-, Cost-Threshold-, `sp_configure`- und Trace-Flag-
+Ziele ueber PowerShell Direct. Dynamische Werte und additive Trace Flags werden
+live repariert; ein eng begrenztes Zielmanifest darf ausschließlich diesen
+Konfigurationsintent ändern. Runtime-Trace-Flags werden nur entfernt, wenn ein
+VM-gebundenes Receipt sie als run-eigen nachweist; SQL-Startup- und fremde Flags
+bleiben fail-closed. Nicht dynamische Werte werden konfiguriert, mit genau einem
+journalisierten `MSSQLSERVER`-Dienstrestart aktiviert und danach zusammen mit
+den Trace Flags erneut verifiziert. Ownership und Desired State werden erst
+nach den Runtime-Postconditions fortgeschrieben. Die Hyper-V-VM bleibt gestartet.
+Ein erhöhter nativer Runner samt isoliertem `SQL_PREPARED_SEALED`-Bootstrap
+bindet Plan, `WhatIf`, Live-Änderung, Ownership-Add/-Remove,
+Fremd-Trace-Flag-Schutz, ausschließlich `MSSQLSERVER`-Restart, Desired-State-
+Rückkehr, No-op und Cleanup ausführbar; seine positive Ausführung ist noch
+`NOT_EXECUTED`. Der
+Port-Slice bindet genau eine Standardinstanz, Gastfirewall, SQL-Dienstrestart,
+Readiness und Connection-State journalisiert. Ein erhöhter nativer Runner samt
+isoliertem `SQL_PREPARED_SEALED`-Bootstrap erzeugt eine eng gebundene Gastdrift
+und prüft Plan, `WhatIf`, ausschließlich `MSSQLSERVER`-Restart ohne VM-Neustart,
+Connection-State, No-op und Cleanup ausführbar; seine positive Ausführung ist
+noch `NOT_EXECUTED`. Der Testdatenbank-Slice vergleicht `sys.databases` mit
+stabilen Sample-PlanKeys und einem VM-gebundenen lokalen Ownership-Receipt.
+Er fuegt katalogisierte Samples ueber den gemeinsamen Handler hinzu und
+entfernt nur nachgewiesen run-eigene Outputs nach CHECKSUM-Backup und
+`RESTORE VERIFYONLY`; ungebundene Datenbanken bleiben unangetastet. Alte Runs
+ohne Ownership-Receipt und breiter Restore-/Create-Reconcile bleiben offen. Ein
+erhöhter nativer Runner samt isoliertem `SQL_PREPARED_SEALED`-Bootstrap bindet
+Plan, `WhatIf`, Add, No-op, eigentumsgebundene Entfernung, Fremddatenbankschutz,
+VM-Restart und Cleanup ausführbar; seine positive Ausführung ist noch
+`NOT_EXECUTED`.
 
 Der verbindliche Implementierungsvertrag steht in
 `Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md`.

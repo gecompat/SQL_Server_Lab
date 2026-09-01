@@ -430,6 +430,7 @@ function New-HyperVLabEnvironmentFromExistingVm {
         [ValidateSet('on', 'off')][string]$AutoStart = 'off',
         [string]$SwitchName,
         [switch]$Isolated,
+        [ValidateSet('hostOnly', 'nat', 'lan')][string]$NetworkIntent = 'hostOnly',
         [switch]$ConfirmSourceLicense,
         [string]$StateRoot
     )
@@ -441,17 +442,36 @@ function New-HyperVLabEnvironmentFromExistingVm {
     $source = @(Get-HyperVExistingVmLabSource | Where-Object { $_.VMName -eq $SourceVMName }) | Select-Object -First 1
     if (-not $source) { throw 'HYPERV_EXISTING_VM_SOURCE_NOT_ELIGIBLE' }
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
-    $labNetwork = Resolve-LabHyperVNetwork -SwitchName $SwitchName -Isolated:$Isolated
+    if ($Isolated -and $NetworkIntent -ne 'hostOnly') { throw 'HYPERV_NETWORK_ISOLATION_INTENT_CONFLICT' }
+    $networkPlan = if ($Isolated) { $null } else { Resolve-LabHyperVNetworkBoundPlan -Intent $NetworkIntent -SwitchName $SwitchName }
+    if ($networkPlan -and [string]$networkPlan.Status -ne 'READY') {
+        throw "HYPERV_NETWORK_BINDING_BLOCKED: $(@($networkPlan.Blockers) -join ', ')"
+    }
+    $labNetwork = $null
 
     Write-LabInfo 'Schritt 2/6: Workflow-Run und Cleanup-Plan werden angelegt.'
     $run = New-LabRunState -StateRoot $StateRoot -Metadata @{
         name = $LabName; workflowKind = 'hyperv-lab'; baseKind = 'existing-vm'; workload = 'windows'; autostart = $AutoStart
         sourceVMName = $source.VMName; sourceVhdxPath = $source.SourceVhdxPath
         sourceLicenseNotice = $source.LicenseNotice
-        network = if ($labNetwork) { $labNetwork.Name } else { $null }
+        network = if ($networkPlan) { $networkPlan.Name } else { $null }
+        networkIntent = if ($Isolated) { 'isolated' } else { $NetworkIntent }
     } -ProviderSubRuns @([PSCustomObject]@{ id = 'provider-hyperv'; provider = 'hyperv'; instanceIds = @($InstanceId) })
     try {
         $null = New-CleanupPlan -RunDir $run.RunDir -RunId $run.RunId -ScopeId $run.ScopeId -ProviderSubRuns @([PSCustomObject]@{ id = 'provider-hyperv'; provider = 'hyperv'; instanceIds = @($InstanceId) })
+        if ($networkPlan) {
+            $labNetwork = Invoke-LabHyperVNetworkBoundPlan -Plan $networkPlan
+            if ([string]$labNetwork.Intent -eq 'lan') {
+                $labNetwork | Add-Member -NotePropertyName address -NotePropertyValue $null -Force
+            }
+            else {
+                $lease = Reserve-LabHyperVNetworkAddress -Network $labNetwork -RunId $run.RunId -ScopeId $run.ScopeId -InstanceId $InstanceId -StateRoot $run.StateRoot
+                $labNetwork | Add-Member -NotePropertyName address -NotePropertyValue ([string]$lease.address) -Force
+                $null = Add-CleanupStep -RunDir $run.RunDir -ResourceType 'ipam-lease' -ResourceId ([string]$lease.address) `
+                    -Action 'release' -Provider 'hyperv' -ProviderSubRunId 'provider-hyperv' -Compensation "Release Hyper-V IPAM lease for $InstanceId"
+            }
+            Write-LabArtifactJsonAtomic -Path (Join-Path $run.RunDir 'network-bound-plan.json') -InputObject $labNetwork
+        }
         $null = Set-LabRunState -RunId $run.RunId -NewState PROVISIONING -Reason 'Hyper-V-Lab wird aus einer vorhandenen VM abgeleitet.' -StateRoot $run.StateRoot
         Set-LabProviderSubRunState -RunId $run.RunId -Provider hyperv -NewState PROVISIONING -Reason 'Quell-VM wird unveraendert als Basis kopiert.' -StateRoot $run.StateRoot
 
@@ -475,7 +495,11 @@ function New-HyperVLabEnvironmentFromExistingVm {
             schemaVersion = 1; instances = @([PSCustomObject]@{
                 id = $InstanceId; provider = 'hyperv'; vmName = $vm.VMName; vmId = $vm.VMId; autostart = $AutoStart
                 sqlVersion = $null; sqlEdition = $null; imageArtifactId = $null; host = $null; port = $null
-                labNetwork = if ($labNetwork) { [PSCustomObject]@{ name = $labNetwork.Name; subnet = $labNetwork.Subnet; prefixLength = $labNetwork.PrefixLength; hostAddress = $labNetwork.HostAddress } } else { $null }
+                labNetwork = if ($labNetwork) { [PSCustomObject]@{
+                    name = $labNetwork.Name; intent = $labNetwork.Intent; subnet = $labNetwork.Subnet; prefixLength = $labNetwork.PrefixLength
+                    hostAddress = $labNetwork.HostAddress; address = $labNetwork.address; gateway = $labNetwork.Gateway; dnsServers = @($labNetwork.DnsServers)
+                    addressMode = if ($labNetwork.AddressMode) { [string]$labNetwork.AddressMode } else { 'static' }
+                } } else { $null }
                 baseKind = 'existing-vm'; workload = 'windows'; sourceVMName = $source.VMName; sourceVhdxPath = $source.SourceVhdxPath
                 sourceParentCopyPath = $parentCopyPath; sourceParentSha256 = $parentHash
             })
@@ -515,10 +539,14 @@ function New-HyperVLabEnvironment {
         [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9][A-Za-z0-9 _-]{0,63}$')][string]$LabName,
         [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$')][string]$InstanceId,
         [ValidateRange(512, 1048576)][int]$MemoryStartupMB = 4096,
+        [bool]$DynamicMemoryEnabled = $true,
+        [ValidateRange(0, 1048576)][int]$MemoryMinimumMB = 0,
+        [ValidateRange(0, 1048576)][int]$MemoryMaximumMB = 0,
         [ValidateRange(1, 64)][int]$ProcessorCount = 4,
         [ValidateSet('on', 'off')][string]$AutoStart = 'off',
         [string]$SwitchName,
         [switch]$Isolated,
+        [ValidateSet('hostOnly', 'nat', 'lan')][string]$NetworkIntent = 'hostOnly',
         [object[]]$AdditionalDrives = @(),
         $StorageIntent,
         $DesiredState,
@@ -537,6 +565,11 @@ function New-HyperVLabEnvironment {
     }
     $workload = if ($artifactState -eq 'SQL_PREPARED_SEALED') { 'sql' } else { 'windows' }
     $baseKind = if ($workload -eq 'sql') { 'sql-prepared' } else { 'windows-baseline' }
+    $effectiveMemoryMinimumMB = if (-not $DynamicMemoryEnabled) { $MemoryStartupMB } elseif ($MemoryMinimumMB -gt 0) { $MemoryMinimumMB } else { [int][Math]::Max(512, [Math]::Floor([double]$MemoryStartupMB / 2)) }
+    $effectiveMemoryMaximumMB = if (-not $DynamicMemoryEnabled) { $MemoryStartupMB } elseif ($MemoryMaximumMB -gt 0) { $MemoryMaximumMB } else { [int][Math]::Min(1048576, [long]$MemoryStartupMB * 2) }
+    if ($effectiveMemoryMinimumMB -gt $MemoryStartupMB -or $MemoryStartupMB -gt $effectiveMemoryMaximumMB) {
+        throw 'HYPERV_DYNAMIC_MEMORY_RANGE_INVALID'
+    }
     if ($StorageIntent) {
         if ($workload -ne 'sql') { throw 'HYPERV_STORAGE_INTENT_SQL_PREPARED_IMAGE_REQUIRED' }
         if (@($AdditionalDrives).Count -gt 0) { throw 'HYPERV_STORAGE_INTENT_ADDITIONAL_DRIVE_CONFLICT' }
@@ -546,12 +579,18 @@ function New-HyperVLabEnvironment {
             throw "HYPERV_STORAGE_INTENT_BINDING_BLOCKED: $(@($storagePreflight.Blockers) -join ', ')"
         }
     }
-    $labNetwork = Resolve-LabHyperVNetwork -SwitchName $SwitchName -Isolated:$Isolated
+    if ($Isolated -and $NetworkIntent -ne 'hostOnly') { throw 'HYPERV_NETWORK_ISOLATION_INTENT_CONFLICT' }
+    $networkPlan = if ($Isolated) { $null } else { Resolve-LabHyperVNetworkBoundPlan -Intent $NetworkIntent -SwitchName $SwitchName }
+    if ($networkPlan -and [string]$networkPlan.Status -ne 'READY') {
+        throw "HYPERV_NETWORK_BINDING_BLOCKED: $(@($networkPlan.Blockers) -join ', ')"
+    }
+    $labNetwork = $null
 
     Write-LabInfo 'Schritt 2/5: Workflow-Run und rückgängig ausführbarer Cleanup-Plan werden angelegt.'
     $runMetadata = @{
         name = $LabName; workflowKind = 'hyperv-lab'; imageArtifactId = $ArtifactId; workload = $workload; baseKind = $baseKind; autostart = $AutoStart
-        network = if ($labNetwork) { $labNetwork.Name } else { $null }
+        network = if ($networkPlan) { $networkPlan.Name } else { $null }
+        networkIntent = if ($Isolated) { 'isolated' } else { $NetworkIntent }
         desiredState = $DesiredState
     }
     $workflowOperationId = Get-LabWorkflowOperationContext
@@ -562,6 +601,19 @@ function New-HyperVLabEnvironment {
         -ProviderSubRuns @([PSCustomObject]@{ id = 'provider-hyperv'; provider = 'hyperv'; instanceIds = @($InstanceId) })
     try {
         $null = New-CleanupPlan -RunDir $run.RunDir -RunId $run.RunId -ScopeId $run.ScopeId -ProviderSubRuns @([PSCustomObject]@{ id = 'provider-hyperv'; provider = 'hyperv'; instanceIds = @($InstanceId) })
+        if ($networkPlan) {
+            $labNetwork = Invoke-LabHyperVNetworkBoundPlan -Plan $networkPlan
+            if ([string]$labNetwork.Intent -eq 'lan') {
+                $labNetwork | Add-Member -NotePropertyName address -NotePropertyValue $null -Force
+            }
+            else {
+                $lease = Reserve-LabHyperVNetworkAddress -Network $labNetwork -RunId $run.RunId -ScopeId $run.ScopeId -InstanceId $InstanceId -StateRoot $run.StateRoot
+                $labNetwork | Add-Member -NotePropertyName address -NotePropertyValue ([string]$lease.address) -Force
+                $null = Add-CleanupStep -RunDir $run.RunDir -ResourceType 'ipam-lease' -ResourceId ([string]$lease.address) `
+                    -Action 'release' -Provider 'hyperv' -ProviderSubRunId 'provider-hyperv' -Compensation "Release Hyper-V IPAM lease for $InstanceId"
+            }
+            Write-LabArtifactJsonAtomic -Path (Join-Path $run.RunDir 'network-bound-plan.json') -InputObject $labNetwork
+        }
         $storageBoundPlan = $null
         if ($StorageIntent) {
             $storageBoundPlan = New-LabStorageBoundPlan -StorageIntent $StorageIntent -RunId $run.RunId `
@@ -577,14 +629,29 @@ function New-HyperVLabEnvironment {
         $null = Set-LabRunState -RunId $run.RunId -NewState PROVISIONING -Reason "Hyper-V-Lab wird aus $sourceDescription erstellt." -StateRoot $run.StateRoot
         Set-LabProviderSubRunState -RunId $run.RunId -Provider hyperv -NewState PROVISIONING -Reason "Hyper-V-Lab wird aus $sourceDescription erstellt." -StateRoot $run.StateRoot
         Write-LabInfo "Schritt 3/5: Differenzierende VM wird aus Image $ArtifactId erstellt."
-        $vm = New-HyperVInstance -ImageArtifactId $ArtifactId -RunDirectory $run.RunDir -RunId $run.RunId -ScopeId $run.ScopeId -InstanceId $InstanceId -LabName $LabName -MemoryStartupBytes ($MemoryStartupMB * 1MB) -ProcessorCount $ProcessorCount -AutoStart $AutoStart -SwitchName $(if ($labNetwork) { $labNetwork.Name } else { $null }) -AdditionalDrives $AdditionalDrives -StateRoot $run.StateRoot
+        $vm = New-HyperVInstance -ImageArtifactId $ArtifactId -RunDirectory $run.RunDir -RunId $run.RunId -ScopeId $run.ScopeId -InstanceId $InstanceId -LabName $LabName `
+            -MemoryStartupBytes ([long]$MemoryStartupMB * 1MB) -DynamicMemoryEnabled $DynamicMemoryEnabled `
+            -MemoryMinimumBytes ([long]$effectiveMemoryMinimumMB * 1MB) -MemoryMaximumBytes ([long]$effectiveMemoryMaximumMB * 1MB) `
+            -ProcessorCount $ProcessorCount -AutoStart $AutoStart -SwitchName $(if ($labNetwork) { $labNetwork.Name } else { $null }) `
+            -AdditionalDrives $AdditionalDrives -StateRoot $run.StateRoot
         $connection = [PSCustomObject]@{
             schemaVersion = 1; instances = @([PSCustomObject]@{
                 id = $InstanceId; provider = 'hyperv'; vmName = $vm.VMName; vmId = $vm.VMId; autostart = $AutoStart
                 sqlVersion = if ($workload -eq 'sql') { [string]$artifact.sql.version } else { $null }
                 sqlEdition = if ($workload -eq 'sql') { [string]$artifact.sql.edition } else { $null }
                 workload = $workload; baseKind = $baseKind; imageArtifactId = $ArtifactId; host = $null; port = $null
-                labNetwork = if ($labNetwork) { [PSCustomObject]@{ name = $labNetwork.Name; subnet = $labNetwork.Subnet; prefixLength = $labNetwork.PrefixLength; hostAddress = $labNetwork.HostAddress } } else { $null }
+                resourceSettings = [PSCustomObject]@{
+                    contractVersion='SqlServerLab.HyperVResourceIntent/1.0'; processorCount=$ProcessorCount
+                    dynamicMemoryEnabled=$DynamicMemoryEnabled
+                    memoryMinimumMB=$effectiveMemoryMinimumMB
+                    memoryStartupMB=$MemoryStartupMB
+                    memoryMaximumMB=$effectiveMemoryMaximumMB
+                }
+                labNetwork = if ($labNetwork) { [PSCustomObject]@{
+                    name = $labNetwork.Name; intent = $labNetwork.Intent; subnet = $labNetwork.Subnet; prefixLength = $labNetwork.PrefixLength
+                    hostAddress = $labNetwork.HostAddress; address = $labNetwork.address; gateway = $labNetwork.Gateway; dnsServers = @($labNetwork.DnsServers)
+                    addressMode = if ($labNetwork.AddressMode) { [string]$labNetwork.AddressMode } else { 'static' }
+                } } else { $null }
                 storageBoundPlan = if ($storageBoundPlan) { [PSCustomObject]@{ planId=[string]$storageBoundPlan.PlanId; status='READY_TO_APPLY'; artifact='storage-bound-plan.json' } } else { $null }
                 additionalDrives = @($vm.AdditionalDrives | ForEach-Object {
                     [PSCustomObject]@{
@@ -776,6 +843,7 @@ function Invoke-HyperVLabUnattendedProvision {
         [Parameter(Mandatory)][string]$RunId,
         [Parameter(Mandatory)][SecureString]$AdministratorPassword,
         [SecureString]$SqlSaPassword,
+        [ValidateRange(1,65535)][int]$SqlPort = 1433,
         [ValidateSet('user', 'generated')][string]$PasswordSource = 'user',
         [ValidateRange(60, 3600)][int]$TimeoutSeconds = 900,
         [ValidatePattern('^[A-Za-z]{2}(-[A-Za-z]{2})?$')][string]$Region = 'DE',
@@ -802,13 +870,22 @@ function Invoke-HyperVLabUnattendedProvision {
     Write-LabInfo 'Schritt 2/6: Gastpasswort wird nur für diesen Run DPAPI-geschützt abgelegt.'
     Save-LabSecret -Path $lab.RunDirectory -Name 'guest-administrator-password' -Secret $AdministratorPassword
     $credential = [PSCredential]::new('Administrator', $AdministratorPassword)
-    $unattend = $null; $bootstrap = $null; $fallbackAddress = $null
+    $unattend = $null; $bootstrap = $null; $fallbackAddress = $null; $networkBootstrapMode = 'none'
     $localeSettings = Get-HyperVUnattendedLocaleSettings -Region $Region -SystemLocale $SystemLocale -UiLanguage $UiLanguage -InputLocale $InputLocale -TimeZone $TimeZone
     $postLoginScript = Get-HyperVUnattendedPostLoginScript -GeoId $localeSettings.GeoId -SystemLocale $localeSettings.SystemLocale -UiLanguage $localeSettings.UiLanguage -InputLocale $localeSettings.InputLocale -TimeZone $localeSettings.TimeZone
     try {
         if ($lab.Instance.labNetwork) {
-            $fallbackAddress = Get-LabNetworkGuestAddress -Network $lab.Instance.labNetwork -Identity $lab.Run.runId
-            $bootstrap = New-HyperVSqlGuestNetworkBootstrapScript -Network $lab.Instance.labNetwork -Address $fallbackAddress
+            $usesDhcp = [string]$lab.Instance.labNetwork.addressMode -eq 'dhcp' -or [string]$lab.Instance.labNetwork.intent -eq 'lan'
+            if ($usesDhcp) {
+                $bootstrap = New-HyperVSqlGuestNetworkBootstrapScript -Network $lab.Instance.labNetwork
+                $networkBootstrapMode = 'lab-winrm-dhcp-v1'
+            }
+            else {
+                $fallbackAddress = if ($lab.Instance.labNetwork.address) { [string]$lab.Instance.labNetwork.address } `
+                    else { Get-LabNetworkGuestAddress -Network $lab.Instance.labNetwork -Identity $lab.Run.runId }
+                $bootstrap = New-HyperVSqlGuestNetworkBootstrapScript -Network $lab.Instance.labNetwork -Address $fallbackAddress
+                $networkBootstrapMode = 'lab-winrm-v1'
+            }
         }
         $unattend = New-HyperVSqlOobeUnattendXml -AdministratorPassword $AdministratorPassword `
             -Network $lab.Instance.labNetwork -Identity $lab.Run.runId `
@@ -823,12 +900,14 @@ function Invoke-HyperVLabUnattendedProvision {
     $lab.Instance | Add-Member -NotePropertyName oobeAutomation -NotePropertyValue ([PSCustomObject]@{
         status = 'RUNNING'; passwordSource = $PasswordSource; passwordStorage = 'host-dpapi'
         region = $Region; systemLocale = $SystemLocale; uiLanguage = $UiLanguage; inputLocale = $InputLocale; timeZone = $TimeZone
-        answerMedia = 'run-child-vhdx'; networkBootstrap = if ($fallbackAddress) { 'lab-winrm-v1' } else { 'none' }
+        answerMedia = 'run-child-vhdx'; networkBootstrap = $networkBootstrapMode
         labAddress = $fallbackAddress; startedAt = Get-LabTimestamp
     }) -Force
     Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
 
-    $readinessChannel = if ($fallbackAddress) { "PowerShell Direct oder Lab-WinRM ($fallbackAddress)" } else { 'PowerShell Direct (VM bleibt bewusst isoliert)' }
+    $readinessChannel = if ($fallbackAddress) { "PowerShell Direct oder Lab-WinRM ($fallbackAddress)" } `
+        elseif ($networkBootstrapMode -eq 'lab-winrm-dhcp-v1') { 'PowerShell Direct; LAN-DHCP wird im Gast aktiviert' } `
+        else { 'PowerShell Direct (VM bleibt bewusst isoliert)' }
     Write-LabInfo "Schritt 4/6: VM wird gestartet; OOBE, Sprache, Region und Tastatur laufen unbeaufsichtigt. Readiness: $readinessChannel."
     $null = Start-HyperVLabEnvironment -RunId $RunId -StateRoot $lab.StateRoot
     try {
@@ -883,10 +962,20 @@ function Invoke-HyperVLabUnattendedProvision {
             observedAt = [string]$receipt.observedAt
         })
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
+    if ($lab.Instance.labNetwork -and ([string]$lab.Instance.labNetwork.addressMode -eq 'dhcp' -or [string]$lab.Instance.labNetwork.intent -eq 'lan')) {
+        $networkReceipt = Initialize-HyperVGuestLabNetwork -VMName ([string]$lab.Instance.vmName) `
+            -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $credential `
+            -Network $lab.Instance.labNetwork -Identity $lab.Run.runId
+        $lab.Instance.labNetwork.address = [string]$networkReceipt.Address
+        $lab.Instance.labNetwork.prefixLength = [int]$networkReceipt.PrefixLength
+        $lab.Instance.labNetwork.gateway = [string]$networkReceipt.Gateway
+        $lab.Instance.labNetwork.dnsServers = @($networkReceipt.DnsServers)
+        $fallbackAddress = [string]$networkReceipt.Address
+    }
     $lab.Instance | Add-Member -NotePropertyName oobeAutomation -NotePropertyValue ([PSCustomObject]@{
         status = 'COMPLETED'; passwordSource = $PasswordSource; passwordStorage = 'host-dpapi'
         region = $Region; systemLocale = $SystemLocale; uiLanguage = $UiLanguage; inputLocale = $InputLocale; timeZone = $TimeZone
-        answerMedia = 'guest-scrubbed'; networkBootstrap = if ($fallbackAddress) { 'lab-winrm-v1' } else { 'none' }
+        answerMedia = 'guest-scrubbed'; networkBootstrap = $networkBootstrapMode
         labAddress = $fallbackAddress; completedAt = [string]$receipt.observedAt
     }) -Force
     Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
@@ -933,7 +1022,8 @@ function Invoke-HyperVLabUnattendedProvision {
         Save-LabSecret -Path $lab.RunDirectory -Name 'generated-sql-sa-password' -Secret $SqlSaPassword
     }
     Write-LabInfo 'Schritt 6/6b: SQL CompleteImage, WMI-Prüfung sowie TCP/IP-Hostzugriff werden in der laufenden Klon-VM automatisch ausgeführt.'
-    $sqlCompletion = Complete-HyperVLabSqlImage -RunId $RunId -Credential $credential -SqlSaPassword $SqlSaPassword -MediaRoot $MediaRoot -StateRoot $lab.StateRoot
+    $sqlCompletion = Complete-HyperVLabSqlImage -RunId $RunId -Credential $credential -SqlSaPassword $SqlSaPassword `
+        -SqlPort $SqlPort -MediaRoot $MediaRoot -StateRoot $lab.StateRoot
     $storageRuntime = $null
     $storagePlanPath = Join-Path $lab.RunDirectory 'storage-bound-plan.json'
     if (Test-Path -LiteralPath $storagePlanPath -PathType Leaf) {
@@ -996,13 +1086,22 @@ function Complete-HyperVLabManualWindowsSlot {
     Save-LabSecret -Path $lab.RunDirectory -Name 'guest-administrator-password' -Secret $Credential.Password
     $networkReceipt = $null
     if ($lab.Instance.labNetwork) {
-        Write-LabInfo "Windows-Slot: konfiguriere feste Gastadresse im Netz $($lab.Instance.labNetwork.name)."
+        Write-LabInfo "Windows-Slot: konfiguriere Gastnetz im Netz $($lab.Instance.labNetwork.name)."
         $networkReceipt = Initialize-HyperVGuestLabNetwork -VMName ([string]$lab.Instance.vmName) `
             -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId `
             -Credential $Credential -Network $lab.Instance.labNetwork -Identity $lab.Run.runId
     }
 
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
+    if ($networkReceipt) {
+        foreach ($field in @{
+            address=[string]$networkReceipt.Address; prefixLength=[int]$networkReceipt.PrefixLength
+            addressMode=[string]$networkReceipt.AddressMode; gateway=[string]$networkReceipt.Gateway
+            dnsServers=@($networkReceipt.DnsServers)
+        }.GetEnumerator()) {
+            $lab.Instance.labNetwork | Add-Member -NotePropertyName $field.Key -NotePropertyValue $field.Value -Force
+        }
+    }
     $lab.Instance | Add-Member -NotePropertyName windowsProvisioning -NotePropertyValue ([PSCustomObject]@{
         state = 'COMPLETE'; mode = 'manual-handoff'; computerName = [string]$ready.ComputerName
         imageState = [string]$ready.ImageState; network = $networkReceipt; completedAt = Get-LabTimestamp
@@ -1312,6 +1411,7 @@ function Invoke-HyperVLabSqlSlotInstall {
         Write-LabInfo 'Deklarierte SQL-Memory-, MAXDOP-, Cost-Threshold- und TempDB-Konfiguration wird angewendet.'
         $null = Set-LabServerConfig -Config $plan.serverConfig -HostName ([string]$hostAccess.Network.Address) `
             -Port $(if ($plan.sqlPort) { [int]$plan.sqlPort } else { 1433 }) -SaPassword $SqlSaPassword
+        $null = Initialize-LabHyperVSqlConfigurationOwnershipReceipt -Lab $lab -TraceFlags @($plan.serverConfig.traceFlags)
     }
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
     $plan = $lab.Instance.sqlDeploymentPlan
@@ -1729,9 +1829,10 @@ function Save-HyperVLabSqlInstanceReceipt {
 function Enable-HyperVLabHostSqlAccess {
     <#
     .SYNOPSIS Richtet Host-SSMS-Zugriff für einen regulären Hyper-V-Lab-Klon ein.
-    .DESCRIPTION Bindet die VM an den verbindlichen internen Lab-Switch, setzt
-    eine run-stabile Gast-IP, aktiviert SQL-TCP auf 1433, beschränkt die
-    Gastfirewall auf den Hyper-V-Host und setzt SQL-Authentifizierung. Das
+    .DESCRIPTION Bindet die VM an das verbindliche Labnetz, konfiguriert eine
+    statische oder per LAN-DHCP bezogene Gast-IP, aktiviert SQL-TCP auf 1433,
+    beschränkt die Gastfirewall auf den Host beziehungsweise das lokale
+    Subnetz und setzt SQL-Authentifizierung. Das
     SA-Passwort kann unabhängig vom Gast-Administratorpasswort übergeben
     werden; ohne Angabe bleibt der sichere Gleichheits-Standard erhalten.
     #>
@@ -1755,14 +1856,23 @@ function Enable-HyperVLabHostSqlAccess {
         $attached = @(Get-VMNetworkAdapter -VMName $lab.Instance.vmName -ErrorAction Stop | Where-Object { $_.SwitchName })
         if ($attached.Count -eq 1) { [string]$attached[0].SwitchName } else { $null }
     }
-    $network = Resolve-LabHyperVNetwork -SwitchName $preferredSwitch
+    $usesLan = $lab.Instance.labNetwork -and [string]$lab.Instance.labNetwork.intent -eq 'lan'
+    if ($usesLan) {
+        $boundPlanPath = Join-Path $lab.RunDirectory 'network-bound-plan.json'
+        if (-not (Test-Path -LiteralPath $boundPlanPath -PathType Leaf)) { throw 'HYPERV_LAN_BOUND_PLAN_MISSING' }
+        $persistedPlan = Get-Content -LiteralPath $boundPlanPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
+        $networkPlan = Resolve-LabHyperVNetworkBoundPlan -Intent lan -LanSwitchName ([string]$persistedPlan.Name) -LanAdapterId ([string]$persistedPlan.AdapterId)
+        if ([string]$networkPlan.Status -ne 'READY') { throw "HYPERV_NETWORK_BINDING_BLOCKED: $(@($networkPlan.Blockers) -join ', ')" }
+        $network = Invoke-LabHyperVNetworkBoundPlan -Plan $networkPlan
+    }
+    else { $network = Resolve-LabHyperVNetwork -SwitchName $preferredSwitch }
     $attached = @(Get-VMNetworkAdapter -VMName $lab.Instance.vmName -ErrorAction Stop | Where-Object { [string]$_.SwitchName -eq [string]$network.Name })
     if ($attached.Count -eq 0) {
         Write-LabInfo "Hostzugriff: binde $($lab.Instance.vmName) an $($network.Name)."
         Add-VMNetworkAdapter -VMName $lab.Instance.vmName -SwitchName $network.Name -Name 'SQL_LAB_HYPERV' -ErrorAction Stop | Out-Null
     }
 
-    Write-LabInfo "Hostzugriff: konfiguriere feste Gast-IP im Netz $($network.Name)."
+    Write-LabInfo "Hostzugriff: konfiguriere Gastnetz im Netz $($network.Name)."
     $networkReceipt = Initialize-HyperVGuestLabNetwork -VMName $lab.Instance.vmName -ExpectedRunId $lab.Run.runId `
         -ExpectedScopeId $lab.Run.scopeId -Credential $Credential -Network $network -Identity $lab.Run.runId
 
@@ -1771,8 +1881,8 @@ function Enable-HyperVLabHostSqlAccess {
         -FallbackAddress $networkReceipt.Address -StateRoot $lab.StateRoot
     Write-LabInfo 'Hostzugriff: aktiviere SQL-TCP, SQL-Authentifizierung und die Host-beschränkte Firewallregel.'
     $receipt = Invoke-HyperVPowerShellDirect -VMName $lab.Instance.vmName -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId `
-        -Credential $Credential -FallbackAddress $networkReceipt.Address -ArgumentList @([string]$lab.Run.runId, [string]$lab.Run.scopeId, $SqlSaPassword, [string]$network.HostAddress, $SqlPort) -ScriptBlock {
-            param($ExpectedRunId, $ExpectedScopeId, $SaPassword, $HostAddress, $RequestedSqlPort)
+        -Credential $Credential -FallbackAddress $networkReceipt.Address -ArgumentList @([string]$lab.Run.runId, [string]$lab.Run.scopeId, $SqlSaPassword, $(if ($usesLan) { 'LocalSubnet' } else { [string]$network.HostAddress }), $SqlPort) -ScriptBlock {
+            param($ExpectedRunId, $ExpectedScopeId, $SaPassword, $RemoteAddress, $RequestedSqlPort)
             $ErrorActionPreference = 'Stop'
             $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword)
             $plain = $null
@@ -1831,7 +1941,7 @@ EXEC sys.sp_executesql @statement;
                 $ports = ($configured.port -join ',')
                 $rule = Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue
                 if ($rule) { $rule | Remove-NetFirewallRule -ErrorAction SilentlyContinue }
-                New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -Action Allow -Protocol TCP -LocalPort $ports -RemoteAddress $HostAddress | Out-Null
+                New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -Action Allow -Protocol TCP -LocalPort $ports -RemoteAddress $RemoteAddress | Out-Null
                 [PSCustomObject]@{ runId = $ExpectedRunId; scopeId = $ExpectedScopeId; instances = @($configured); observedAt = [datetime]::UtcNow.ToString('o') }
             }
             finally {
@@ -1843,7 +1953,11 @@ EXEC sys.sp_executesql @statement;
     if (-not $receipt -or [string]$receipt.runId -ne [string]$lab.Run.runId -or [string]$receipt.scopeId -ne [string]$lab.Run.scopeId) {
         throw 'HYPERV_LAB_HOST_SQL_RECEIPT_INVALID'
     }
-    $lab.Instance | Add-Member -NotePropertyName labNetwork -NotePropertyValue ([PSCustomObject]@{ name = $networkReceipt.Network; address = $networkReceipt.Address; prefixLength = $networkReceipt.PrefixLength; hostAddress = $network.HostAddress }) -Force
+    $lab.Instance | Add-Member -NotePropertyName labNetwork -NotePropertyValue ([PSCustomObject]@{
+        name=$networkReceipt.Network; intent=if ($usesLan) { 'lan' } else { [string]$network.Intent }
+        addressMode=[string]$networkReceipt.AddressMode; address=$networkReceipt.Address; prefixLength=$networkReceipt.PrefixLength
+        hostAddress=$network.HostAddress; gateway=$networkReceipt.Gateway; dnsServers=@($networkReceipt.DnsServers)
+    }) -Force
     $lab.Instance | Add-Member -NotePropertyName host -NotePropertyValue ([string]$networkReceipt.Address) -Force
     $lab.Instance | Add-Member -NotePropertyName port -NotePropertyValue $SqlPort -Force
     $passwordHint = if ($usesSeparateSaPassword) { 'Separat festgelegtes SQL-SA-Passwort' } else { 'Gast-Administratorpasswort' }
@@ -1993,6 +2107,7 @@ function Complete-HyperVLabSqlImage {
         [Parameter(Mandatory)][string]$RunId,
         [Parameter(Mandatory)][PSCredential]$Credential,
         [SecureString]$SqlSaPassword,
+        [ValidateRange(1,65535)][int]$SqlPort = 1433,
         [string]$MediaRoot,
         [string]$StateRoot
     )
@@ -2095,13 +2210,24 @@ function Complete-HyperVLabSqlImage {
     if ($lab.Instance.labNetwork) {
         Write-LabInfo 'Schritt 4/5: Feste Lab-IP, SQL-TCP und die auf den Host beschränkte Firewallregel werden automatisch eingerichtet.'
         $hostAccess = Enable-HyperVLabHostSqlAccess -RunId $RunId -Credential $Credential `
-            -SqlSaPassword $SqlSaPassword -StateRoot $lab.StateRoot
+            -SqlSaPassword $SqlSaPassword -SqlPort $SqlPort -StateRoot $lab.StateRoot
         $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
         $lab.Instance.sqlCompletion | Add-Member -NotePropertyName hostSqlAccess -NotePropertyValue $hostAccess -Force
         Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
     }
     else {
-        Write-LabWarning 'Schritt 4/5 übersprungen: Die VM wurde ausdrücklich isoliert erstellt; ein Zugriff des Hosts oder anderer Anwendungen ist damit nicht möglich.'
+        Write-LabInfo 'Schritt 4/5: Die isolierte VM erhält den deklarativen statischen SQL-TCP-Port ohne Firewall- oder Hostfreigabe.'
+        $isolatedPortContext = [PSCustomObject]@{
+            RunId=[string]$lab.Run.runId;ScopeId=[string]$lab.Run.scopeId;StateRoot=[string]$lab.StateRoot
+            ConnectionInstance=$lab.Instance;Desired=[PSCustomObject]@{Port=[int]$SqlPort}
+            FirewallRequired=$false;FirewallRemoteAddress=$null
+        }
+        $null = Set-LabHyperVSqlPortBinding -Context $isolatedPortContext -Credential $Credential
+        $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
+        $lab.Instance | Add-Member -NotePropertyName port -NotePropertyValue ([int]$SqlPort) -Force
+        $isolatedReceipt = Get-HyperVLabSqlInstanceReceipt -Lab $lab -Credential $Credential
+        $null = Save-HyperVLabSqlInstanceReceipt -Lab $lab -Receipt $isolatedReceipt
+        Write-LabWarning 'Die VM bleibt ausdrücklich isoliert; ein Zugriff des Hosts oder anderer Anwendungen ist nicht möglich.'
     }
     Write-LabInfo 'Schritt 5/5: SQL-Dienst, Hauptversion und alle vier Systemdatenbanken werden im echten Gast geprüft.'
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
