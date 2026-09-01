@@ -608,6 +608,7 @@ function New-SqlServerLab {
             -SqlPort $hyperVSqlPort -PasswordSource $passwordSource -Region $Region -SystemLocale $SystemLocale -UiLanguage $UiLanguage `
             -InputLocale $InputLocale -TimeZone $TimeZone -StateRoot $hyperVLab.StateRoot
         $hyperVLab = Get-HyperVLabWorkflowRun -RunId $lab.RunId -StateRoot $hyperVLab.StateRoot
+        $testDatabaseOwnership = Initialize-LabHyperVTestDatabaseOwnershipReceipt -Lab $hyperVLab
         if ($hyperVExternalRuntimePlans.Count -gt 0) {
             $mediaRoot = Get-LabMediaRootDefault
             if (-not $mediaRoot) { throw 'HYPERV_EXTERNAL_RUNTIME_MEDIA_ROOT_REQUIRED' }
@@ -656,6 +657,9 @@ function New-SqlServerLab {
                     if (-not $sampleResult.Success) {
                         throw "HYPERV_STORAGE_SAMPLE_INSTALL_FAILED: $($database.restore.sampleId)/$($sampleResult.Status)"
                     }
+                    $ownershipEntry = New-LabHyperVTestDatabaseOwnershipEntry -RestoreDefinition $database.restore -SampleResult $sampleResult
+                    $testDatabaseOwnership = Add-LabHyperVTestDatabaseOwnershipEntry -Receipt $testDatabaseOwnership `
+                        -Entry $ownershipEntry -RunDirectory $hyperVLab.RunDirectory
                     $databaseNamesToRecord = @($sampleResult.DatabaseNames)
                 }
                 else {

@@ -41,7 +41,8 @@
     "hyperv-storage-reconcile",
     "hyperv-sql-storage-reconcile",
     "hyperv-sql-configuration-reconcile",
-    "hyperv-sql-port-reconcile"
+    "hyperv-sql-port-reconcile",
+    "hyperv-test-database-reconcile"
   ],
   "limitations": [
     "no-unattended-os-build",

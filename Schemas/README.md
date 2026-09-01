@@ -28,6 +28,8 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 | `hyperv-resource-reconcile-journal.schema.json` | Lokales Operationsjournal `SqlServerLab.HyperVResourceReconcileJournal/1.0` für vCPU, statisches/dynamisches RAM, Min/Startup/Max, Stop-Apply-Start und Recovery-Resume |
 | `hyperv-sql-configuration-reconcile-journal.schema.json` | Lokales Operationsjournal `SqlServerLab.HyperVSqlConfigurationReconcileJournal/1.0` für dynamische `sp_configure`-Werte, additive globale Trace Flags und Recovery-Resume |
 | `hyperv-sql-port-reconcile-journal.schema.json` | Lokales Operationsjournal `SqlServerLab.HyperVSqlPortReconcileJournal/1.0` für statisches SQL-TCP, die run-eigene Gastfirewall, kontrollierten SQL-Dienstrestart und Recovery-Resume |
+| `hyperv-test-database-ownership.schema.json` | VM-gebundener lokaler Eigentumsnachweis `SqlServerLab.HyperVTestDatabaseOwnership/1.0` für katalogisierte Testdatenbanken |
+| `hyperv-test-database-reconcile-journal.schema.json` | Lokales Operationsjournal `SqlServerLab.HyperVTestDatabaseReconcileJournal/1.0` für Additionen, verifiziert gesicherte Entfernungen und Recovery-Resume |
 
 ## Beispiele
 

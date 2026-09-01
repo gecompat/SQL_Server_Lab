@@ -141,6 +141,89 @@ function New-LabSqlEndpointIntentSnapshot {
     }
 }
 
+function Get-LabTestDatabasePlanKey {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$RestoreDefinition)
+
+    if (-not $RestoreDefinition.sampleId -or -not $RestoreDefinition.sampleVariant) {
+        throw 'TEST_DATABASE_INTENT_SAMPLE_IDENTITY_MISSING'
+    }
+    $canonicalSource = Get-LabCanonicalArtifactSource -Source ([string]$RestoreDefinition.source)
+    $canonical = [ordered]@{
+        Contract = 'SqlServerLab.TestDatabasePlanKey/1.0'
+        SampleId = [string]$RestoreDefinition.sampleId
+        SampleVariant = [string]$RestoreDefinition.sampleVariant
+        SourceSha256 = Get-LabSampleBaselineSha256Text -Text $canonicalSource
+        ArtifactType = [string]$RestoreDefinition.artifactType
+        HandlerContractVersion = [string]$RestoreDefinition.handlerContractVersion
+        ExpectedSha256 = if ($RestoreDefinition.expectedSha256) { ([string]$RestoreDefinition.expectedSha256).ToLowerInvariant() } else { $null }
+        ExpectedDatabaseNames = @($RestoreDefinition.expectedOutputs | Where-Object { [string]$_.kind -eq 'database' } | ForEach-Object { [string]$_.name } | Sort-Object -Unique)
+    }
+    if ($canonical.ExpectedDatabaseNames.Count -eq 0) { throw 'TEST_DATABASE_INTENT_OUTPUTS_MISSING' }
+    return Get-LabSampleBaselineSha256Text -Text ($canonical | ConvertTo-Json -Depth 20 -Compress)
+}
+
+function New-LabDatabaseIntentSnapshot {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Instance,
+        [Parameter(Mandatory)]$ProviderCapability
+    )
+
+    $requiredCapability = if ([string]$Instance.provider -eq 'hyperv') { 'hyperv-test-database-reconcile' } else { 'test-database-reconcile' }
+    $items = [Collections.Generic.List[object]]::new()
+    foreach ($database in @($Instance.databases | Where-Object { $_ })) {
+        if ($database.restore -and $database.restore.sampleId) {
+            $outputs = @($database.restore.expectedOutputs | Where-Object { [string]$_.kind -eq 'database' } | ForEach-Object { [string]$_.name } | Sort-Object -Unique)
+            $planKey = Get-LabTestDatabasePlanKey -RestoreDefinition $database.restore
+            $items.Add([PSCustomObject]@{
+                Type = 'catalog-sample'
+                Name = [string]$database.name
+                SampleId = [string]$database.restore.sampleId
+                SampleVariant = [string]$database.restore.sampleVariant
+                PlanKey = $planKey
+                DefinitionHash = $planKey
+                ExpectedDatabaseNames = $outputs
+                ReconcileSupported = [string]$Instance.provider -eq 'hyperv'
+            })
+        }
+        else {
+            $sourceHash = if ($database.restore -and $database.restore.source) {
+                Get-LabSampleBaselineSha256Text -Text ([string]$database.restore.source)
+            }
+            else { $null }
+            $definition = [ordered]@{
+                Contract='SqlServerLab.DatabaseDefinitionHash/1.0';Type=if($database.restore){'direct-restore'}else{'create'}
+                Name=[string]$database.name;Collation=[string]$database.collation;Files=$database.files;Options=$database.options
+                RestoreSourceSha256=$sourceHash;RestoreType=if($database.restore){[string]$database.restore.type}else{$null}
+                RestoreExpectedSha256=if($database.restore -and $database.restore.expectedSha256){[string]$database.restore.expectedSha256}else{$null}
+                RestoreReplace=if($database.restore){[bool]$database.restore.replace}else{$null}
+            }
+            $items.Add([PSCustomObject]@{
+                Type = if ($database.restore) { 'direct-restore' } else { 'create' }
+                Name = [string]$database.name
+                SampleId = $null
+                SampleVariant = $null
+                PlanKey = $null
+                DefinitionHash = Get-LabSampleBaselineSha256Text -Text ($definition | ConvertTo-Json -Depth 30 -Compress)
+                ExpectedDatabaseNames = @([string]$database.name)
+                ReconcileSupported = $false
+            })
+        }
+    }
+    return [PSCustomObject]@{
+        Contract = [PSCustomObject]@{ Name='SqlServerLab.DatabaseIntent'; Version='1.0' }
+        Items = @($items | Sort-Object Type, Name, PlanKey)
+        RequiredCapability = if (@($items | Where-Object Type -eq 'catalog-sample').Count -gt 0) { $requiredCapability } else { $null }
+        CapabilityStatus = if (@($items | Where-Object Type -eq 'catalog-sample').Count -eq 0) {
+            'NOT_REQUESTED'
+        }
+        else {
+            Get-LabDeclaredIntentCapabilityStatus -ProviderCapability $ProviderCapability -RequiredCapability $requiredCapability
+        }
+    }
+}
+
 function New-LabInstanceIntentSnapshot {
     [CmdletBinding()]
     param(
@@ -264,6 +347,7 @@ function New-LabInstanceIntentSnapshot {
         Resources = New-LabHyperVResourceIntentSnapshot -Instance $Instance
         SqlEndpoint = New-LabSqlEndpointIntentSnapshot -Instance $Instance -ProviderCapability $ProviderCapability
         SqlConfiguration = New-LabSqlConfigurationIntentSnapshot -Instance $Instance -ProviderCapability $ProviderCapability
+        Databases = New-LabDatabaseIntentSnapshot -Instance $Instance -ProviderCapability $ProviderCapability
         Software = $software
         Storage = $storage
     }

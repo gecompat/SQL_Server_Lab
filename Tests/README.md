@@ -76,6 +76,7 @@ Interpretation:
 .\Tests\Static\Invoke-HyperVSqlStorageReconcileChecks.ps1
 .\Tests\Static\Invoke-HyperVSqlConfigurationReconcileChecks.ps1
 .\Tests\Static\Invoke-HyperVSqlPortReconcileChecks.ps1
+.\Tests\Static\Invoke-HyperVTestDatabaseReconcileChecks.ps1
 .\Tests\Static\Invoke-ExternalRuntimeReconcileChecks.ps1
 .\Tests\Static\Invoke-StorageFilePlacementChecks.ps1
 .\Tests\Static\Invoke-HyperVResourceMigrationChecks.ps1

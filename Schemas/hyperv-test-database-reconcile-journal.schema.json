@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sql-server-lab.local/schemas/hyperv-test-database-reconcile-journal.schema.json",
+  "title": "SqlServerLab.HyperVTestDatabaseReconcileJournal/1.0",
+  "type": "object",
+  "required": ["ContractVersion", "OperationId", "RunId", "ScopeId", "InstanceId", "Provider", "ChangeClass", "Status", "TargetHash", "Runtime", "Additions", "Removals", "Recovery", "UpdatedAt"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.HyperVTestDatabaseReconcileJournal/1.0" },
+    "OperationId": { "type": "string", "format": "uuid" },
+    "RunId": { "type": "string", "format": "uuid" },
+    "ScopeId": { "type": "string", "format": "uuid" },
+    "InstanceId": { "type": "string", "minLength": 1 },
+    "Provider": { "const": "hyperv" },
+    "ChangeClass": { "const": "live" },
+    "Status": { "enum": ["PREPARED", "REMOVALS_APPLIED", "ADDITIONS_APPLIED", "VERIFIED", "OWNERSHIP_UPDATED", "DESIRED_STATE_UPDATED", "RECOVERY_CLEANED", "COMPLETED", "RECOVERY_REQUIRED"] },
+    "TargetHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "Runtime": {
+      "type": "object",
+      "required": ["VMId"],
+      "properties": { "VMId": { "type": "string", "minLength": 1 } },
+      "additionalProperties": false
+    },
+    "Additions": { "$ref": "#/$defs/operations" },
+    "Removals": { "$ref": "#/$defs/operations" },
+    "Recovery": {
+      "type": "object",
+      "required": ["Status", "Attempts", "ErrorCode", "Errors"],
+      "properties": {
+        "Status": { "enum": ["RETRY_TEST_DATABASE_RECONCILE", "NOT_REQUIRED"] },
+        "Attempts": { "type": "integer", "minimum": 0 },
+        "ErrorCode": { "type": ["string", "null"] },
+        "Errors": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "UpdatedAt": { "type": "string", "format": "date-time" }
+  },
+  "$defs": {
+    "operations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["PlanKey", "SampleId", "SampleVariant", "DatabaseNames", "Status"],
+        "properties": {
+          "PlanKey": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "SampleId": { "type": "string", "minLength": 1 },
+          "SampleVariant": { "type": "string", "minLength": 1 },
+          "DatabaseNames": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*$" } },
+          "ArtifactSha256": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" },
+          "HandlerContractVersion": { "type": ["string", "null"] },
+          "Status": { "enum": ["PENDING", "APPLYING", "APPLIED"] }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

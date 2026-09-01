@@ -737,6 +737,39 @@ oder den Menüschritt `Testdatenbanken` gewählt werden. Attach-Verfahren und
 Script-Bundles werden nicht automatisch verarbeitet; dies gilt auch für
 `.7z`-Archive, die keine katalogisierte `.bak`-Payload enthalten.
 
+Bei neuen Hyper-V-Manifest-Runs werden erfolgreich installierte Katalogsamples
+zusätzlich durch ein lokales, VM-gebundenes Ownership-Receipt geschützt. Ein
+später geändertes Manifest kann den Sample-Satz read-only planen und danach
+anwenden:
+
+```powershell
+Get-SqlServerLabReconcilePlan `
+    -RunId $lab.RunId `
+    -HyperVTestDatabases `
+    -ManifestPath '.\lab-with-updated-samples.json' `
+    -InstanceId primary
+
+Invoke-SqlServerLabReconcileAction `
+    -RunId $lab.RunId `
+    -RepairHyperVTestDatabases `
+    -ManifestPath '.\lab-with-updated-samples.json' `
+    -InstanceId primary `
+    -WhatIf
+
+Invoke-SqlServerLabReconcileAction `
+    -RunId $lab.RunId `
+    -RepairHyperVTestDatabases `
+    -ManifestPath '.\lab-with-updated-samples.json' `
+    -InstanceId primary `
+    -Confirm:$false
+```
+
+Ein explizit bereitgestelltes SQL-Passwort wird bei einer späteren Addition
+mit `-SqlSaPassword $pw` erneut übergeben. Entfernt werden ausschließlich
+receiptgebundene Sample-Outputs; fremde Datenbanken mit kollidierendem Namen
+blockieren den Plan. Vor einem Drop wird ein verifiziertes Recovery-Backup im
+Gast erzeugt. Alte Runs ohne Ownership-Receipt werden nicht still adoptiert.
+
 ## 13a. Project Adapter anwenden
 
 Konsumierende Projekte liefern einen Adapter gemäß

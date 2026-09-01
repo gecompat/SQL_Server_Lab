@@ -96,9 +96,10 @@ Manifest-Binding, Netzwerkzugriff und echtem Windows-/SQL-End-to-End-Test.
 - resumierbare OS- und SQL-Server-Installation;
 - echter End-to-End-Sysprep-Nachweis in einem Windows-Gast; der Native-Smoke
   verwendet weiterhin bewusst nur synthetische leere Testmedien;
-- SQL `PrepareImage`/`CompleteImage`, Software, External Runtimes und Testdatenbanken;
-- Reconcile für Testdatenbanken, Storage-Rebinding/-Removal,
-  Trace-Flag-Entfernung und weitere nicht dynamische SQL-Konfiguration.
+- breitere Software-, Post-Provisioning- und allgemeine Datenbankbindung;
+- Reconcile für direkte Create-/Restore-Datenbanken, Storage-Rebinding/-Removal,
+  Trace-Flag-Entfernung und weitere nicht dynamische SQL-Konfiguration;
+- positive native Evidence fuer den katalogisierten Testdatenbank-Reconcile.
 
 ## Verbindliche Aufsetzpunkte
 
@@ -130,7 +131,10 @@ scopegebundenen Cleanup; die drei Windows-Varianten sind `SUPPORTED`.
 
 Testdatenbanken bleiben vom OS- und SQL-Image getrennt und verwenden den
 gemeinsamen Sample-, Trust-, Verification- und `LAB_GENERATED`-Baseline-
-Vertrag.
+Vertrag. Neue Manifest-Runs persistieren fuer erfolgreich installierte Samples
+ein VM-gebundenes lokales Ownership-Receipt. Der getrennte Reconcile kann
+katalogisierte Samples addieren und nur diese nach CHECKSUM-Backup plus
+`RESTORE VERIFYONLY` entfernen; ungebundene Datenbanken bleiben fail-closed.
 
 ## Voraussetzungen für den ersten Vertical Slice
 

@@ -504,9 +504,15 @@ persistiert `hyperv.sqlPort`, vergleicht
 TCP-Registry und Gastfirewall hostwertfrei und repariert Drift für genau eine
 Standardinstanz mit journalisiertem SQL-Dienstrestart, Readiness-Postcondition
 und Connection-State-Synchronisierung. Mehrere oder benannte Instanzen bleiben
-fail-closed. Beide Repair-Pfade sind synthetisch, noch nicht nativ belegt;
-nicht dynamische Konfiguration, Trace-Flag-Entfernung und Testdatenbanken sind
-weiter offen.
+fail-closed. Der Testdatenbank-Folgeslice persistiert stabile Sample-PlanKeys
+und einen VM-gebundenen lokalen Ownership-Nachweis. Ein Zielmanifest kann
+katalogisierte Samples addieren und ausschließlich receiptgebundene Outputs
+entfernen; vor dem Drop werden `BACKUP ... WITH CHECKSUM` und
+`RESTORE VERIFYONLY` ausgeführt. Journal, Postconditions, Teilinstallations-
+Recovery, Fremddatenbankschutz und Desired-State-Synchronisierung sind
+synthetisch belegt. Die Repair-Pfade sind noch nicht nativ belegt; nicht
+dynamische Konfiguration, Trace-Flag-Entfernung, alte Runs ohne Ownership-
+Receipt und allgemeiner Create-/Restore-Reconcile bleiben offen.
 
 OS-, Edition- und inkompatible SQL-Versionswechsel werden zuerst als
 `reprovision` behandelt. In-place-Upgrades benötigen später einen separaten,

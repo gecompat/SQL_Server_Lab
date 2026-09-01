@@ -816,6 +816,20 @@ die Gastfirewall, startet ausschließlich `MSSQLSERVER` neu und bestätigt SQL
 über den Zielport. Erst danach werden die Connection-Receipts atomar erneuert.
 Mehrdeutige Instanzen, Dienste oder Firewallregeln bleiben fail-closed.
 
+Der getrennte `SqlServerLab.DatabaseIntent/1.0` bildet katalogisierte Samples
+auf stabile, quellhash- und outputgebundene PlanKeys ab. Eine erfolgreiche
+Hyper-V-Erstbereitstellung schreibt fuer diese Samples ein lokales
+`SqlServerLab.HyperVTestDatabaseOwnership/1.0`-Receipt mit Run-, Scope-,
+Instanz- und VM-Identitaet. Der read-only Reconcile liest `sys.databases` im
+Gast und klassifiziert Additionen, eigentumsgebundene Entfernungen sowie
+ungebundene Namenskonflikte. Vor jedem erlaubten Drop wird im Gast ein
+`COPY_ONLY`-/CHECKSUM-Backup erzeugt und per `RESTORE VERIFYONLY WITH CHECKSUM`
+geprueft. Erst nach ONLINE-/Absent-Postconditions werden Ownership,
+Connection-State und persistierter Desired State aktualisiert; ein lokales
+Journal setzt unvollstaendige Add-/Remove-Operationen vorwaerts fort. Direkte
+Create-/Restore-Datenbanken, Systemdatenbanken, ungebundene Userdatenbanken und
+alte Runs ohne Receipt werden nicht automatisch entfernt oder adoptiert.
+
 ### Welle 7 – Software, External Runtimes und Samples
 
 - Capability Resolver;

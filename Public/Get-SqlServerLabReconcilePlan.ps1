@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Erstellt einen read-only Lifecycle-, Hyper-V-Netzwerk-/Ressourcen-/Storage-/SQL-, Container- oder External-Runtime-Reconcile-Plan.
+    Erstellt einen read-only Lifecycle-, Hyper-V-Netzwerk-/Ressourcen-/Storage-/SQL-/Testdatenbank-, Container- oder External-Runtime-Reconcile-Plan.
 .DESCRIPTION
     Liest den bestehenden Run und dessen Runtime-Zustand und liefert einen
     versionierten Desired/Actual/Diff/Action-Vertrag. Der Befehl fuehrt keine
@@ -35,6 +35,9 @@
     Waehlt den read-only Hyper-V-SQL-Livekonfigurations-Reconcile-Plan.
 .PARAMETER HyperVSqlPort
     Waehlt den read-only Hyper-V-SQL-TCP-Port-Reconcile-Plan.
+.PARAMETER HyperVTestDatabases
+    Vergleicht die katalogisierten, eigentumsgebundenen Hyper-V-Testdatenbanken
+    mit dem angegebenen Zielmanifest. Fremde Datenbanken bleiben unberuehrt.
 .PARAMETER Container
     Wählt den Container-Ressourcen-Reconcile. Der Plan klassifiziert die
     Änderung als no-op, live oder recreate und mutiert die Runtime nicht.
@@ -88,6 +91,10 @@
     Get-SqlServerLabReconcilePlan -RunId $runId -HyperVSqlPort -InstanceId primary
 
     Vergleicht den manifestgebundenen statischen SQL-TCP-Port im Hyper-V-Gast.
+.EXAMPLE
+    Get-SqlServerLabReconcilePlan -RunId $runId -HyperVTestDatabases -ManifestPath .\lab.json -InstanceId primary
+
+    Plant Additionen und gesicherte Entfernungen katalogisierter Testdatenbanken.
 #>
 function Get-SqlServerLabReconcilePlan {
     [CmdletBinding(DefaultParameterSetName = 'Lifecycle')]
@@ -100,6 +107,7 @@ function Get-SqlServerLabReconcilePlan {
         [string]$TargetState,
 
         [Parameter(Mandatory, ParameterSetName = 'ExternalRuntime')]
+        [Parameter(Mandatory, ParameterSetName = 'HyperVTestDatabases')]
         [string]$ManifestPath,
 
         [Parameter(ParameterSetName = 'ExternalRuntime')]
@@ -110,6 +118,7 @@ function Get-SqlServerLabReconcilePlan {
         [Parameter(Mandatory, ParameterSetName = 'HyperVSqlStorage')]
         [Parameter(Mandatory, ParameterSetName = 'HyperVSqlConfiguration')]
         [Parameter(Mandatory, ParameterSetName = 'HyperVSqlPort')]
+        [Parameter(Mandatory, ParameterSetName = 'HyperVTestDatabases')]
         [string]$InstanceId,
 
         [Parameter(Mandatory, ParameterSetName = 'HyperVNetwork')]
@@ -129,6 +138,9 @@ function Get-SqlServerLabReconcilePlan {
 
         [Parameter(Mandatory, ParameterSetName = 'HyperVSqlPort')]
         [switch]$HyperVSqlPort,
+
+        [Parameter(Mandatory, ParameterSetName = 'HyperVTestDatabases')]
+        [switch]$HyperVTestDatabases,
 
         [Parameter(Mandatory, ParameterSetName = 'Container')]
         [switch]$Container,
@@ -159,6 +171,10 @@ function Get-SqlServerLabReconcilePlan {
         [string]$StateRoot
     )
 
+    if ($PSCmdlet.ParameterSetName -eq 'HyperVTestDatabases') {
+        return New-LabHyperVTestDatabaseReconcilePlan -RunId $RunId -ManifestPath $ManifestPath `
+            -InstanceId $InstanceId -StateRoot $StateRoot
+    }
     if ($PSCmdlet.ParameterSetName -eq 'ExternalRuntime') {
         return New-LabExternalRuntimeReconcilePlan -RunId $RunId -ManifestPath $ManifestPath `
             -InstanceId $InstanceId -StateRoot $StateRoot
