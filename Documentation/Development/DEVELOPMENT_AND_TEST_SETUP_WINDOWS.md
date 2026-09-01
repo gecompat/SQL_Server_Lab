@@ -108,7 +108,10 @@ $env:SQL_SERVER_LAB_PYTHON_PATH = 'D:\Tools\Python\python.exe'
 Die Auflösung beweist nur, dass eine Datei oder ein Sessionbefehl vorhanden
 ist. Runtime-Erreichbarkeit und Ausführungsrechte werden weiterhin getrennt
 geprüft; insbesondere kann ein Prozess-`PATH` keine Sandbox- oder
-Berechtigungsgrenze umgehen.
+Berechtigungsgrenze umgehen. Die Framework-Probes verwenden den zentral
+aufgelösten absoluten Aufrufspfad. Daher wird eine gefundene, aber im aktuellen
+Ausführungskontext gesperrte Datei als Ausführungsfehler und nicht als fehlende
+Installation gemeldet.
 
 Für den ergänzenden Pester-Unit-/Contract-Check empfiehlt sich:
 

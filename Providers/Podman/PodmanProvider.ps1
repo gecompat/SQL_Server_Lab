@@ -11,7 +11,18 @@ function Test-PodmanAvailable {
     param()
 
     try {
-        $versionOutput = podman version --format '{{.Client.Version}}' 2>&1
+        $podmanInvocation = Get-LabHostToolInvocation -Name podman
+    }
+    catch {
+        return [PSCustomObject]@{
+            Available = $false
+            Version   = $null
+            Message   = 'Podman ist nicht installiert oder konnte nicht aufgeloest werden.'
+        }
+    }
+
+    try {
+        $versionOutput = & $podmanInvocation version --format '{{.Client.Version}}' 2>&1
         if ($LASTEXITCODE -ne 0) {
             return [PSCustomObject]@{
                 Available = $false
@@ -20,7 +31,7 @@ function Test-PodmanAvailable {
             }
         }
 
-        podman info 1>$null 2>$null
+        & $podmanInvocation info 1>$null 2>$null
         if ($LASTEXITCODE -ne 0) {
             return [PSCustomObject]@{
                 Available = $false
