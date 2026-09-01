@@ -72,7 +72,11 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   `SqlServerLab.LabDataResidencyDecision/1.0`-Entscheid definiert `Lab_Data` als
   hostseitigen Katalog-, Austausch- und Recovery-Root, erlaubt katalogisierte
   native Container-Instanzstores und verbietet stille Eingriffe in globale
-  Runtime-/Machine-Ablagen;
+  Runtime-/Machine-Ablagen; der read-only Vertrag
+  `SqlServerLab.PersistentStorageCatalog/1.0` ergänzt stabile, vom Anzeigenamen
+  und Runtime-Namen unabhängige IDs, Klassen, Zustände, Referenzen und exklusive
+  Leases, während `SqlServerLab.PersistentStoragePlan/1.0` Katalogbindungen,
+  Konflikte und ID-lose Registrierungskandidaten ohne Mutation ausweist;
 - versionierte `SqlServerLab.HyperVResourceBinding/1.0`-Grundlage mit kurzen,
   state-root-unabhängigen Create-Roots unter registriertem `Lab_Data`,
   Controller-/Location-/Volume-Revalidierung und getrennter read-only

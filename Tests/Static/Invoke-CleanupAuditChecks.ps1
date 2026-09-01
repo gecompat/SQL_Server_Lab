@@ -211,6 +211,14 @@ try {
         $persistentVolume.Residency -eq 'NATIVE_RUNTIME' -and $persistentVolume.LabDataRelation -eq 'RUNTIME_INTERNAL' -and
         $persistentVolume.CleanupPolicy -eq 'PRESERVE_RETAINED' -and $persistentVolume.Details.ReferenceState -eq 'ACTIVE_REFERENCE' -and
         $result.StorageRunId -in @($persistentVolume.RunIds))
+    Add-CheckResult -Name 'Cleanup-Audit weist retained Objekte ohne erfundene PersistentStorageId zur Registrierung aus' -Success (
+        $result.Audit.PersistentStorage.CatalogStatus -eq 'EMPTY' -and
+        $result.Audit.PersistentStorage.Plan.Status -eq 'PARTIAL' -and
+        @($result.Audit.PersistentStorage.Plan.Actions | Where-Object {
+            $_.Action -eq 'REGISTER_REQUIRED' -and -not $_.PersistentStorageId -and
+            $_.InventoryObjectId -eq $persistentVolume.ObjectId
+        }).Count -eq 1 -and
+        (($result.Audit.PersistentStorage.Plan | ConvertTo-Json -Depth 50) | Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/persistent-storage-plan.schema.json') -ErrorAction SilentlyContinue))
     Add-CheckResult -Name 'Unreferenziertes rungebundenes Named Volume wird nur als Orphan-Kandidat gemeldet' -Success (
         $orphanVolume.Lifecycle -eq 'RUN_SCOPED' -and $orphanVolume.AuditStatus -eq 'RESIDUAL' -and
         $orphanVolume.CleanupPolicy -eq 'RUN_CLEANUP' -and $orphanVolume.Details.ReferenceState -eq 'ORPHAN_CANDIDATE')

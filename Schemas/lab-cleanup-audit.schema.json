@@ -3,7 +3,7 @@
   "$id": "https://sql-server-lab.local/schemas/lab-cleanup-audit.schema.json",
   "title": "SqlServerLab.CleanupAudit/1.0",
   "type": "object",
-  "required": ["ContractVersion", "AuditId", "CreatedAt", "Status", "DataRoots", "ActiveRuns", "Runtimes", "Containers", "ManagedVolumes", "ManagedNetworks", "HyperV", "StorageResidency", "ExternalReferences", "RepositoryResidues", "LegacyStateRoots", "Summary"],
+  "required": ["ContractVersion", "AuditId", "CreatedAt", "Status", "DataRoots", "ActiveRuns", "Runtimes", "Containers", "ManagedVolumes", "ManagedNetworks", "HyperV", "StorageResidency", "PersistentStorage", "ExternalReferences", "RepositoryResidues", "LegacyStateRoots", "Summary"],
   "properties": {
     "ContractVersion": { "const": "SqlServerLab.CleanupAudit/1.0" },
     "AuditId": { "type": "string", "format": "uuid" },
@@ -27,6 +27,7 @@
       "additionalProperties": true
     },
     "StorageResidency": { "type": "object" },
+    "PersistentStorage": { "type": "object" },
     "ExternalReferences": { "type": "array" },
     "RepositoryResidues": { "type": "array" },
     "LegacyStateRoots": { "type": "array" },

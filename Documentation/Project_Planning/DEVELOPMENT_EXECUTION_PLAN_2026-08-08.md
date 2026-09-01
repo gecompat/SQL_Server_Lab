@@ -1062,7 +1062,12 @@ abgeschlossen: `Lab_Data` ist der hostseitige Katalog-, Austausch- und
 Recovery-Einstieg, native katalogisierte Container-Instanzstores sind eine
 begrenzte Ausnahme, und globale Runtime-/Machine-Ablagen bleiben ohne eigenen
 Ownership-Vertrag außerhalb des Mutationsscopes. Der zugehörige
-P1-Produktpfad folgt dem P0-Hyper-V-Ressourcenroot-Bugfix und wird im
+read-only `PSR-003`-Slice ergänzt stabile Persistent-Storage-IDs, Klassen,
+Zustände, Referenzen, exklusive Leases, Spiegelprüfung und eine
+Residency-gebundene Planung. Nicht katalogisierte retained Objekte bleiben
+ID-lose Registrierungskandidaten; Schreiben, Lease-Akquisition,
+Wiederverwendung und Löschung folgen erst in getrennten Mutationsverträgen.
+Der weitere P1-Produktpfad folgt dem P0-Hyper-V-Ressourcenroot-Bugfix und wird im
 [Persistenz- und `Lab_Data`-Backlog](PERSISTENT_STORAGE_REUSE_AND_LAB_DATA_BACKLOG.md)
 evidenzgebunden geplant.
 

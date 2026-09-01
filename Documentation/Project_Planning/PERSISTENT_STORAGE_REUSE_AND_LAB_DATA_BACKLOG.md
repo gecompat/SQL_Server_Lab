@@ -2,7 +2,7 @@
 
 ## Status und Priorität
 
-`ACTIVE / P1_PRODUCT_CONTRACT_WITH_PSR_001_PARTIAL_AND_PSR_002_COMPLETE` – die vorhandenen
+`ACTIVE / P1_PRODUCT_CONTRACT_WITH_PSR_001_PARTIAL_PSR_002_COMPLETE_PSR_003_IMPLEMENTED_READ_ONLY` – die vorhandenen
 Persistenzmechanismen schützen bereits Teile des SQL-Zustands, bilden aber noch
 keinen vollständigen, providerübergreifenden Wiederverwendungs- und
 Löschvertrag. Planung ist kein Implementierungs- oder Runtime-Nachweis.
@@ -33,6 +33,17 @@ zulässig; globale Docker-/Podman-Ablagen, labfremde Ressourcen und externe
 Pfade bleiben ohne eigenen Ownership- und Migrationsvertrag außerhalb des
 Mutationsscopes. Neue Hyper-V-Hostdateien bleiben an registrierte `Lab_Data`-
 Bindings gebunden.
+
+Der read-only Slice `PSR-003` ist implementiert. Der strenge Vertrag
+`SqlServerLab.PersistentStorageCatalog/1.0` führt eine eigenständige
+`PersistentStorageId`, die Klassen `INSTANCE_STORE`, `DATABASE_PACKAGE`,
+`BACKUP_SET` und `EXCHANGE_WORKSPACE`, den vollständigen Zustandsraum,
+Referenzen und genau eine exklusive Lease. Der Parser führt identische,
+controllergebundene Katalogspiegel zusammen und blockiert ungültige oder
+divergierende Spiegel. `SqlServerLab.PersistentStoragePlan/1.0` bindet diese
+Einträge read-only an das Residency-Inventar und meldet retained Objekte ohne
+erfundene ID als Registrierungskandidaten. Katalogschreiben, Lease-Erwerb,
+Wiederverwendung und Löschung bleiben getrennte Folgearbeit.
 
 ## Ausgangslage
 
@@ -316,7 +327,7 @@ Volumename ersetzt diese Identität nicht.
 |---|---:|---|---|
 | `PSR-001` | P0-Analyse | Ist-Inventar aller persistenten, rungebundenen und verbleibenden Objekte für Docker, Podman und Hyper-V | `IMPLEMENTED_PARTIAL`: versionierte read-only Matrix mit stabilen Objekt-IDs, Residency, Lifecycle, Cleanup-Policy und Provider-Coverage; physisches Desktop-/Machine-Backing bleibt explizit unverifizierbar |
 | `PSR-002` | P0-Analyse | `Lab_Data`-Versprechen, native Runtime-Ausnahmen und Hosteingriffsgrenzen entscheiden | `COMPLETE`: bindender `SqlServerLab.LabDataResidencyDecision/1.0`-Entscheid |
-| `PSR-003` | P1 | Storage-Katalog mit stabiler ID, Klassen, Zuständen, Referenzen und Leases entwerfen | Schema, Parser, Planner und read-only Inventar |
+| `PSR-003` | P1 | Storage-Katalog mit stabiler ID, Klassen, Zuständen, Referenzen und Leases entwerfen | `IMPLEMENTED_READ_ONLY`: Schema, Parser, Planner und Inventarbindung; keine Katalogmutation, Lease-Akquisition, Wiederverwendung oder Löschung |
 | `PSR-004` | P1 | Retention-, Backup-on-Remove-, Package- und expliziten Löschvertrag entwerfen | verlustsicherer Cleanup-/Recovery-Plan |
 | `PSR-005` | P1 | Docker-/Podman-Instanzstore auswählbar, fortsetzbar und klonbar machen | getrennte reale Provider-Nachweise |
 | `PSR-006` | P1 | Podman-Machine- und Docker-Engine-/Context-Reichweite bewerten und gegebenenfalls dediziert verwalten | keine Mutation labfremder Runtime-Daten |

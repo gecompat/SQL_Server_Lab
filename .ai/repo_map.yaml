@@ -79,6 +79,10 @@ sources_of_truth:
   storage_runtime_receipt_schema: Schemas/lab-storage-runtime-receipt.schema.json
   storage_residency_inventory: Private/StorageResidencyInventory.ps1
   storage_residency_inventory_schema: Schemas/lab-storage-residency-inventory.schema.json
+  persistent_storage_catalog: Private/PersistentStorageCatalog.ps1
+  persistent_storage_catalog_schema: Schemas/persistent-storage-catalog.schema.json
+  persistent_storage_plan_schema: Schemas/persistent-storage-plan.schema.json
+  validation_persistent_storage_catalog: Tests/Static/Invoke-PersistentStorageCatalogChecks.ps1
   lab_data_native_runtime_storage_decision: Documentation/Architecture/LAB_DATA_AND_NATIVE_RUNTIME_STORAGE_DECISION.md
   cleanup_audit_schema: Schemas/lab-cleanup-audit.schema.json
   hyperv_resource_binding_contract: Private/HyperVResourceBinding.ps1
@@ -484,6 +488,7 @@ internal_components:
     source: Private/CleanupEngine.ps1
     audit: Public/Get-SqlServerLabCleanupAudit.ps1
     storage_residency: Private/StorageResidencyInventory.ps1
+    persistent_storage_catalog: Private/PersistentStorageCatalog.ps1
     responsibilities:
       - "Cleanup-Plan und providergebundene Cleanup-SubRuns vor Mutation erzeugen"
       - "Compensation-Schritte je Provider speichern und ausführen"
@@ -491,6 +496,7 @@ internal_components:
       - "Hyper-V-Cleanup vor der ersten Mutation gegen Run-Binding, registrierte Zusatzlaufwerksroots und terminales Migrationsjournal revalidieren"
       - "Hyper-V-Run-Schutzbereiche, Shared-Roots und ungetrackte Preserve-Dateien read-only auditieren"
       - "Lab_Data, native Runtime-Volumes, externe Pfade, Hyper-V-Ressourcen, Retention und unverifizierbares physisches Backing als versionierte read-only Storage-Residency klassifizieren"
+      - "stabile Persistent-Storage-IDs, Klassen, Zustände, Referenzen und exklusive Leases read-only validieren und mit dem Residency-Inventar abgleichen"
   - name: PortAllocation
     source: Private/PortAllocation.ps1
     responsibilities:
@@ -810,6 +816,17 @@ validation:
       - stable_storage_residency_object_identity
       - lab_data_runtime_external_residency_classification
       - retained_and_orphan_volume_classification
+      - persistent_storage_registration_candidates
+  static_persistent_storage_catalog:
+    command: '.\Tests\Static\Invoke-PersistentStorageCatalogChecks.ps1'
+    source: Tests/Static/Invoke-PersistentStorageCatalogChecks.ps1
+    covers:
+      - stable_persistent_storage_identity
+      - catalog_schema_and_semantics
+      - mirrored_catalog_consistency
+      - exclusive_lease_validation
+      - read_only_inventory_binding
+      - id_less_registration_candidates
   static_podman_bootstrap:
     command: '.\Tests\Static\Invoke-PodmanBootstrapChecks.ps1'
     source: Tests/Static/Invoke-PodmanBootstrapChecks.ps1
