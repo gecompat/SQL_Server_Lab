@@ -933,10 +933,12 @@ idempotent und lesen Registry sowie billige Vollständigkeitsevidence statt alle
 Artefaktinhalte erneut zu hashen. Reguläre Docker-/Podman-Labs mit
 `-PersistentData` vergeben die stabile ID vor der Volume-Erzeugung, erwerben
 eine exklusive Run-Lease und geben sie nach verifizierter Containerentfernung
-als `DETACHED` frei; Runtime-Abweichungen bleiben `RECOVERY_REQUIRED`. Noch
-nicht implementiert sind die generische Katalogmutation, ein öffentlicher
-Bestandsmigrationsbefehl, Lease-Akquisition im expliziten Continue-/Clone-
-Bedienpfad, providerübergreifende Wiederverwendung und explizites Löschen. Der zusätzliche
+als `DETACHED` frei; Runtime-Abweichungen bleiben `RECOVERY_REQUIRED`.
+`New-SqlServerLab` und die Browseroberfläche können einen solchen detached
+Docker-/Podman-Store inzwischen per stabiler ID für einen neuen kompatiblen Run
+fortsetzen oder unabhängig klonen. Noch nicht implementiert sind die generische
+Katalogmutation, ein öffentlicher Bestandsmigrationsbefehl,
+providerübergreifende Wiederverwendung und explizites Löschen. Der zusätzliche
 read-only Removal-Vertrag plant
 `DELETE_WITH_RUN`, `RETAIN_INSTANCE_STORE`, `BACKUP_ON_REMOVE`,
 `PACKAGE_ON_REMOVE`, `BACKUP_AND_PACKAGE` und `EXTERNAL_UNMANAGED` mit
@@ -951,14 +953,15 @@ Docker-/Podman-Instanzstore detached per stabiler ID für Continue binden oder
 in ein neues Volume klonen. Quelle und SQL-Major-Version werden unmittelbar vor
 der Mutation revalidiert; der Clone verwendet einen read-only Quellmount,
 Datei-/Byte-/SHA-256-Postconditions und ein fortsetzbares Recovery-Journal.
-Das verifizierte Clone-Ziel wird danach mit stabiler ID rollbackfähig und
-idempotent auf alle controllergebundenen Katalogspiegel committed; ein
-Commitfehler verhindert `COMPLETED` und bleibt journalisiert wiederaufnehmbar.
-Docker und Podman sind damit am 2026-09-01 getrennt real belegt. Noch offen sind
-Lease-Akquisition für den expliziten Continue-/Clone-Bedienpfad, die Mitnahme
-optionaler External-Runtime-Sidecar-Volumes und der öffentliche CLI-/GUI-
-Einstieg. Bis dahin ist dieser Kern keine vollständige
-Endbenutzerfunktion.
+Vor der ersten Clone-Kopie reserviert eine exklusive Operation-Lease die Quelle.
+Das verifizierte Clone-Ziel wird mit stabiler ID registriert und die Quelle in
+derselben Katalogrevision freigegeben; ein Commitfehler verhindert `COMPLETED`,
+behält die Lease und bleibt journalisiert wiederaufnehmbar. Docker und Podman
+sind mit dem Core am 2026-09-01 getrennt real belegt. Der öffentliche CLI-/GUI-
+Erstellungsflow nutzt denselben Core und erwirbt anschließend die echte
+Run-Lease des gewählten Continue- oder Clone-Ziels. Noch offen ist die Mitnahme
+optionaler External-Runtime-Sidecar-Volumes; ihre Auswahl endet deshalb
+fail-closed.
 Der read-only `SqlServerLab.ContainerRuntimeScope/1.0`-Vertrag klassifiziert
 den aktiven Docker-Context beziehungsweise die aktive Podman-Connection samt
 Machine über eine stabile endpunktgebundene Runtime-ID. Rohendpunkte, Identity-

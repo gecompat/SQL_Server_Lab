@@ -21,7 +21,8 @@ function Add-LabInstanceCleanupPlan {
     }
 
     foreach ($drive in @($Instance.drives | Where-Object {
-        $_ -and $_.containerPath -and -not $_.hostPath -and $_.persistence -ne 'data-root-runtime-volume'
+        $_ -and $_.containerPath -and -not $_.hostPath -and
+        $_.persistence -notin @('data-root-runtime-volume','cataloged-runtime-volume')
     })) {
         $volumeName = if ($drive.volumeName) { [string]$drive.volumeName } else { "sql-lab-${containerName}-$($drive.id)" }
         $null = Add-CleanupStep `
@@ -235,8 +236,15 @@ function New-SqlServerLab {
         Optionaler, zuvor initialisierter langlebiger Data Root. Er wird nur
         bei PersistentData verwendet und nie vom normalen Run-Cleanup gelöscht.
     .PARAMETER PersistentData
-        Bindet /var/opt/mssql der neu erstellten Docker- oder Podman-Instanz
-        als Host-Bind-Mount im Data Root ein.
+        Bindet /var/opt/mssql der Docker- oder Podman-Instanz an einen
+        katalogisierten langlebigen Runtime-Store; Backups bleiben im Data Root.
+    .PARAMETER PersistentStorageId
+        Optionale stabile ID eines detached Container-Instanzstores. Nur für
+        eine einzelne Ad-hoc-Docker-/Podman-Instanz mit PersistentData.
+    .PARAMETER PersistentStorageAction
+        CONTINUE bindet denselben kompatiblen Store an den neuen Run. CLONE
+        erstellt unter exklusiver Operations-Lease eine unabhängige Kopie und
+        bindet ausschließlich das verifizierte Clone-Ziel.
     .PARAMETER GuestPassword
         Optionales lokales Administratorpasswort für eine Hyper-V-Manifest-
         Bereitstellung. Der Wert wird nur run-lokal DPAPI-geschützt abgelegt.
@@ -337,6 +345,8 @@ function New-SqlServerLab {
         [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9 _-]{0,63}$')][string]$LabName,
         [string]$DataRoot,
         [switch]$PersistentData,
+        [ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$PersistentStorageId,
+        [ValidateSet('CONTINUE','CLONE')][string]$PersistentStorageAction = 'CONTINUE',
         [SecureString]$GuestPassword,
         [SecureString]$SqlSaPassword,
         [ValidatePattern('^[A-Za-z]{2}(-[A-Za-z]{2})?$')][string]$Region = 'DE',
@@ -467,6 +477,13 @@ function New-SqlServerLab {
         if (-not $DataRoot) { $DataRoot = Get-LabDataRootDefault }
         if (-not $DataRoot) { throw 'LAB_DATA_ROOT_REQUIRED: PersistentData benötigt einen konfigurierten Data Root.' }
         $DataRoot = Resolve-LabDataRootForUse -DataRoot $DataRoot
+    }
+    if ($PersistentStorageId -and -not $PersistentData) {
+        throw 'CONTAINER_INSTANCE_STORE_PERSISTENT_DATA_REQUIRED'
+    }
+    if ($PersistentStorageId -and ($PSCmdlet.ParameterSetName -ne 'AdHoc' -or @($resolved.instances).Count -ne 1 -or
+        [string]$resolved.instances[0].provider -notin @('docker','podman'))) {
+        throw 'CONTAINER_INSTANCE_STORE_ADHOC_SINGLE_CONTAINER_REQUIRED'
     }
 
     Write-LabInfo "Umgebung: $($resolved.name) ($($resolved.instances.Count) Instanz(en))"
@@ -791,8 +808,34 @@ function New-SqlServerLab {
                 $storage = Get-LabPersistentInstanceStorage -DataRoot $DataRoot -LabName $resolved.name -Provider $instance.provider -InstanceId $instance.id -SqlVersion $instance.version -Create
                 $hasExternalRuntime = $instance.provider -in @('docker', 'podman') -and
                     @($externalRuntimePlansByInstance[[string]$instance.id]).Count -gt 0
-                $null = Add-LabPersistentContainerDrive -Instance $instance -Storage $storage `
-                    -IncludeExternalRuntimeState:$hasExternalRuntime
+                if ($PersistentStorageId -and $hasExternalRuntime) {
+                    throw 'CONTAINER_INSTANCE_STORE_SIDECARS_UNSUPPORTED'
+                }
+                $instanceStorePlan = $null
+                if ($PersistentStorageId) {
+                    $storageConfiguration = Get-LabStorageConfiguration -DataRoot $DataRoot
+                    $instanceStorePlan = New-LabContainerInstanceStoreSelectionPlan `
+                        -SourcePersistentStorageId $PersistentStorageId `
+                        -Action $PersistentStorageAction `
+                        -Provider ([string]$instance.provider) `
+                        -TargetRunId $runState.RunId `
+                        -TargetScopeId $runState.ScopeId `
+                        -TargetSqlVersion ([string]$instance.version) `
+                        -Configuration $storageConfiguration
+                    if ([string]$instanceStorePlan.Status -ne 'READY') {
+                        throw "CONTAINER_INSTANCE_STORE_PLAN_BLOCKED: $(@($instanceStorePlan.Blockers) -join ',')"
+                    }
+                    if ($PersistentStorageAction -eq 'CLONE') {
+                        $operationDirectory = Join-Path $DataRoot (Join-Path 'Operations' (Join-Path 'ContainerInstanceStores' ([string]$instanceStorePlan.OperationId)))
+                        $null = Invoke-LabContainerInstanceStoreClone -Plan $instanceStorePlan `
+                            -OperationDirectory $operationDirectory -Configuration $storageConfiguration
+                    }
+                    $null = Add-LabSelectedPersistentContainerDrive -Instance $instance -Plan $instanceStorePlan -Storage $storage
+                }
+                else {
+                    $null = Add-LabPersistentContainerDrive -Instance $instance -Storage $storage `
+                        -IncludeExternalRuntimeState:$hasExternalRuntime
+                }
                 $persistentDrive = @($instance.drives | Where-Object { $_.id -eq 'persistent-mssql' })[0]
                 # Die Kompensation wird vor der Katalogmutation persistiert. Hat
                 # der Acquire-Schritt noch keine eigene Lease erzeugt, ist der
@@ -816,7 +859,8 @@ function New-SqlServerLab {
                 $persistentDrive | Add-Member -NotePropertyName persistentStorageId `
                     -NotePropertyValue ([string]$lease.Store.PersistentStorageId) -Force
                 $instance | Add-Member -NotePropertyName persistentStorage -NotePropertyValue ([PSCustomObject]@{
-                    mode = 'data-root-runtime-volume'; root = [string]$storage.SqlRoot
+                    mode = if ($PersistentStorageId) { 'cataloged-runtime-volume' } else { 'data-root-runtime-volume' }
+                    root = if ($PersistentStorageId) { $null } else { [string]$storage.SqlRoot }
                     persistentStorageId = [string]$lease.Store.PersistentStorageId
                     containerVolume = [string]$persistentDrive.volumeName
                     backupHostPath = [string]$storage.BackupRoot
