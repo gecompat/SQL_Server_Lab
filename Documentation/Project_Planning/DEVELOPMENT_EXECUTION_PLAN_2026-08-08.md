@@ -215,7 +215,7 @@ Container-Volumes gehören dagegen in den normalen Storage-Pfad.
 | M3 Adapterpiloten | `planned_external_scope` | je ein Pilot in den drei Konsumenten-Repositories |
 | M4 Hyper-V OS Cold Path | `validated_reference` | weitere freigegebene Windows-Varianten getrennt belegen |
 | M5 Hyper-V SQL und Resolver | `validated_reference_partial_manifest` | Datenbank-, Software- und Post-Provisioning-Manifestparität; Network-Intents sind gebunden |
-| M6 Reconcile-Breite | `implemented_partial` | Netzwerk sowie vCPU/statisches-dynamisches RAM besitzen No-op und journalisierte Reparatur; weitere Hardware-, Storage- und SQL-Klassen sowie native Repair-Evidence bleiben offen |
+| M6 Reconcile-Breite | `implemented_partial` | Netzwerk, vCPU/statisches-dynamisches RAM sowie Zusatz-VHDX/Grow-only besitzen No-op und journalisierte Reparatur; Removal/Rebinding, weitere Hardware-/SQL-Klassen und native Repair-Evidence bleiben offen |
 | M7 Artifacts und Baselines | `implemented_partial` | Hyper-V-Export/-Nutzung und automatische Sample-Manifestbindung sind synthetisch belegt; reale Evidence und weitere typisierte Handler bleiben offen |
 | M8 Scenarios und Migration | `planned` | Scenario-Vertrag nach den Adapterpiloten |
 | M9 Release-Härtung | `implemented_partial` | Failure-Injection und öffentliche Version erst nach Provider-/Adapterabnahme |
@@ -485,9 +485,14 @@ additive lokal gebundene Infrastruktur und genau einen vorhandenen getrennten
 Adapter repariert. `HV-601` ist damit für den Netzwerkanteil, nicht aber für
 den vollständigen Windows-/SQL-/Hardware-Istzustand umgesetzt. `HV-602` bindet
 vCPU, statisches/dynamisches RAM und Min/Startup/Max manifestseitig und besitzt
-einen synthetisch belegten Live-/Restart-/Recovery-Executor. Rebinding,
+einen synthetisch belegten Live-/Restart-/Recovery-Executor. `HV-603` besitzt
+fuer manifestgebundene Zusatz-VHDX und gebundene Storage-Lanes einen
+hostwertfreien Plan sowie einen journalisierten Add-/Grow-only-Executor mit
+Gast-NTFS-Verifikation und Wiederherstellung des VM-Zustands. Rebinding,
 Adapter-Neuanlage, Gastadressreparatur und positive native Repair-/External-
-Switch-Evidence bleiben offen; ein synthetischer Test ist kein Runtime-Nachweis.
+Switch-Evidence sowie Shrink, Removal, Rollen-/Pfadwechsel und
+SQL-Dateiverschiebung bleiben offen; ein synthetischer Test ist kein
+Runtime-Nachweis.
 
 OS-, Edition- und inkompatible SQL-Versionswechsel werden zuerst als
 `reprovision` behandelt. In-place-Upgrades benötigen später einen separaten,

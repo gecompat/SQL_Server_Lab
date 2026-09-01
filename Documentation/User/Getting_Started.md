@@ -908,6 +908,33 @@ Postcondition und Start ausgeführt. Unterbrechungen bleiben als
 persistierten `HyperVResourceIntent/1.0` werden nicht geraten und bleiben
 `unsupported`.
 
+### Hyper-V-Zusatz-VHDX abgleichen und vergroessern
+
+Manifestgebundene Zusatz-VHDX und die aus einem `storageIntent` lokal
+gebundenen Storage-Lanes besitzen einen getrennten, hostwertfreien Plan:
+
+```powershell
+$storagePlan = Get-SqlServerLabReconcilePlan `
+    -RunId $lab.RunId `
+    -HyperVStorage `
+    -InstanceId primary
+
+Invoke-SqlServerLabReconcileAction `
+    -RunId $lab.RunId `
+    -RepairHyperVStorage `
+    -InstanceId primary `
+    -WhatIf
+```
+
+Der Repair-Pfad erstellt ausschließlich fehlende run-/locationgebundene
+SCSI-VHDX oder vergroessert vorhandene VHDX. Danach initialisiert, verifiziert
+oder erweitert er das NTFS-Volume ueber PowerShell Direct. Eine zuvor
+ausgeschaltete VM wird nur fuer diese Gast-Postcondition gestartet und danach
+wieder ausgeschaltet. Cleanup wird vor einer neuen VHDX registriert; Abbrueche
+bleiben im lokalen Journal `RECOVERY_REQUIRED` und derselbe Aufruf setzt sie
+fort. Shrink, Removal, Rollen-/Pfadwechsel, belegte SCSI-Slots und fremde oder
+uneindeutige Attachments bleiben ohne Teilmutation `unsupported`.
+
 ### External Languages nachträglich installieren oder aktualisieren
 
 Für einen laufenden SQL-Server-2019-, -2022- oder -2025-Docker-/Podman-Run kann ein Zielmanifest

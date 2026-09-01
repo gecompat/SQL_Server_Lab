@@ -37,7 +37,8 @@
     "software-catalog-planning",
     "powershell-direct-software-installation",
     "sql-external-runtime",
-    "hyperv-resource-reconcile"
+    "hyperv-resource-reconcile",
+    "hyperv-storage-reconcile"
   ],
   "limitations": [
     "no-unattended-os-build",
@@ -69,6 +70,7 @@
       "New-VMSwitch",
       "Remove-VMNetworkAdapter",
       "Remove-VMSwitch",
+      "Resize-VHD",
       "Set-VMFirmware",
       "Set-VMMemory",
       "Set-VMProcessor",

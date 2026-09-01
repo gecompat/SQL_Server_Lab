@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Wendet einen Lifecycle-, Hyper-V-Netzwerk-/Ressourcen-, Container- oder External-Runtime-Reconcile-Plan auf einen Run an.
+    Wendet einen Lifecycle-, Hyper-V-Netzwerk-/Ressourcen-/Storage-, Container- oder External-Runtime-Reconcile-Plan auf einen Run an.
 .DESCRIPTION
     Liest zuerst den passenden Reconcile-Plan aus. Lifecycle-Aktionen verlangen
     genau eine eindeutige Operation START oder STOP. Der getrennte Hyper-V-
@@ -23,6 +23,9 @@
 .PARAMETER RepairHyperVResources
     Repariert den manifestgebundenen vCPU-/RAM-Sollzustand. CPU-, RAM-Modus-
     und Startup-Aenderungen einer laufenden VM verwenden Stop, Apply und Start.
+.PARAMETER RepairHyperVStorage
+    Repariert fehlende manifestgebundene Zusatz-VHDX, vergroessert bestehende
+    VHDX ausschliesslich grow-only und verifiziert die Volumes im Gast.
 .PARAMETER AllowExternalSwitchCreation
     Erlaubt im Hyper-V-Netzwerk-Reconcile die bereits lokal gebundene Erstellung
     eines External Switch. Ohne diesen Switch bleibt LAN-Erstellung fail-closed.
@@ -72,6 +75,7 @@ function Invoke-SqlServerLabReconcileAction {
         [Parameter(ParameterSetName = 'Container')]
         [Parameter(Mandatory, ParameterSetName = 'HyperVNetwork')]
         [Parameter(Mandatory, ParameterSetName = 'HyperVResources')]
+        [Parameter(Mandatory, ParameterSetName = 'HyperVStorage')]
         [string]$InstanceId,
 
         [Parameter(Mandatory, ParameterSetName = 'HyperVNetwork')]
@@ -79,6 +83,9 @@ function Invoke-SqlServerLabReconcileAction {
 
         [Parameter(Mandatory, ParameterSetName = 'HyperVResources')]
         [switch]$RepairHyperVResources,
+
+        [Parameter(Mandatory, ParameterSetName = 'HyperVStorage')]
+        [switch]$RepairHyperVStorage,
 
         [Parameter(ParameterSetName = 'HyperVNetwork')]
         [switch]$AllowExternalSwitchCreation,
@@ -116,6 +123,33 @@ function Invoke-SqlServerLabReconcileAction {
 
         [string]$StateRoot
     )
+
+    if ($PSCmdlet.ParameterSetName -eq 'HyperVStorage') {
+        $plan = Get-SqlServerLabReconcilePlan -RunId $RunId -HyperVStorage -InstanceId $InstanceId -StateRoot $StateRoot
+        $wouldExecute = if ($plan.IsNoOp -or [string]$plan.HighestChangeClass -notin @('live','restart')) { $false } else {
+            $PSCmdlet.ShouldProcess("Run '$RunId', Instanz '$InstanceId'", "Hyper-V-Storage '$($plan.HighestChangeClass)' eigentumsgeprueft reparieren")
+        }
+        $entry = [ordered]@{
+            Operation=if($plan.IsNoOp){'None'}else{'RepairHyperVStorage'};ChangeClass=[string]$plan.HighestChangeClass
+            Planned=(@($plan.Actions).Count -eq 1);Executed=$false
+            Status=if($plan.IsNoOp){'NO_OP'}elseif([string]$plan.HighestChangeClass -notin @('live','restart')){'UNSUPPORTED'}elseif($wouldExecute){'PLANNED'}else{'WOULD_EXECUTE'}
+            Reason=$null;Result=$null
+        }
+        $summary=[ordered]@{Status=$entry.Status;PlannedActions=@($plan.Actions).Count;ExecutedActions=0;FailedActions=0;MutationAllowed=$false;Errors=@()}
+        if($wouldExecute){
+            try{
+                $entry.Result=Invoke-LabHyperVStorageReconcileRepair -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
+                $entry.Executed=$true;$entry.Status=[string]$entry.Result.Status;$summary.Status=[string]$entry.Result.Status;$summary.ExecutedActions=1;$summary.MutationAllowed=$true
+            }
+            catch{
+                $entry.Executed=$true;$entry.Status='FAILED';$entry.Reason=$_.Exception.Message;$summary.Status='FAILED';$summary.ExecutedActions=1;$summary.FailedActions=1;$summary.Errors=@($_.Exception.Message)
+            }
+        }
+        return [PSCustomObject]@{
+            Contract=[PSCustomObject]@{Name='SqlServerLab.ReconcileAction';Version='1.5'};RunId=$RunId;TargetState=$null;Plan=$plan
+            ExecutionPlan=@([PSCustomObject]$entry);ExecutionSummary=[PSCustomObject]$summary;MutationAllowed=[bool]$summary.MutationAllowed;Warnings=@($plan.Warnings)
+        }
+    }
 
     if ($PSCmdlet.ParameterSetName -eq 'HyperVResources') {
         $plan = Get-SqlServerLabReconcilePlan -RunId $RunId -HyperVResources -InstanceId $InstanceId -StateRoot $StateRoot
