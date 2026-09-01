@@ -123,14 +123,14 @@ try {
     Write-Host "PSR-005-Instanzstore-Abnahme: $Provider" -ForegroundColor Cyan
     $mutexAcquired=$runtimeMutex.WaitOne([TimeSpan]::FromMinutes(10))
     if (-not $mutexAcquired) { throw 'CONTAINER_INSTANCE_STORE_RUNTIME_LOCK_TIMEOUT' }
+    Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
+    $module=Import-Module $modulePath -Force -PassThru
     if ($Provider -eq 'podman') { & (Join-Path $PSScriptRoot 'Initialize-PodmanRuntime.ps1') | Out-Host }
     foreach ($command in @($Provider,'sqlcmd')) {
         Assert-InstanceStoreAcceptance ([bool](Get-Command $command -ErrorAction SilentlyContinue)) "Befehl '$command' ist verfuegbar"
     }
     $null = Invoke-InstanceStoreRuntime -Arguments @('image','inspect',$Image)
     New-Item -ItemType Directory -Path $testRoot -Force | Out-Null
-    Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
-    $module=Import-Module $modulePath -Force -PassThru
     & $module {
         param($Runtime,$Volume,$ImageName,$Run,$Scope,$StorageId)
         if ($Runtime -eq 'docker') {
@@ -184,18 +184,28 @@ try {
                 -VersionId '2025' -InstanceId 'lease' -ContainerPath '/var/opt/mssql' `
                 -PersistentStorageId ([string]$lease.Store.PersistentStorageId) -Persistence 'data-root-runtime-volume'
         }
+        $databaseReferences=Sync-LabContainerInstanceStoreDatabaseReference `
+            -PersistentStorageId ([string]$lease.Store.PersistentStorageId) -RunId $Run -ScopeId $Scope `
+            -DatabaseName @('LeaseEvidenceOne','LeaseEvidenceTwo') -Configuration $Config
         $released=Unregister-LabContainerInstanceStoreLease -Provider $Runtime -VolumeName $Volume `
             -RunId $Run -ScopeId $Scope -DataRoot $Root -Configuration $Config
         $inspection=Get-LabContainerInstanceStoreRuntimeInspection -Provider $Runtime -VolumeName $Volume
-        [PSCustomObject]@{ Lease=$lease; Released=$released; Inspection=$inspection; Catalog=Get-LabPersistentStorageCatalog -Configuration $Config }
+        [PSCustomObject]@{
+            Lease=$lease; DatabaseReferences=$databaseReferences; Released=$released; Inspection=$inspection
+            Catalog=Get-LabPersistentStorageCatalog -Configuration $Config
+        }
     } $Provider $leaseVolume $Image $runId $scopeId $dataRoot $configuration
     $releasedLeaseStore=@($leaseEvidence.Catalog.Document.Stores | Where-Object {
         [string]$_.PersistentStorageId -eq [string]$leaseEvidence.Lease.Store.PersistentStorageId
     })
-    Assert-InstanceStoreAcceptance ($releasedLeaseStore.Count -eq 1 -and $releasedLeaseStore[0].State -eq 'DETACHED' -and
-        -not $releasedLeaseStore[0].Lease -and @($releasedLeaseStore[0].References | Where-Object State -eq 'RELEASED').Count -eq 1 -and
+    Assert-InstanceStoreAcceptance ($leaseEvidence.DatabaseReferences.Changed -and
+        @($leaseEvidence.DatabaseReferences.Store.References | Where-Object {
+            $_.Kind -eq 'DATABASE' -and $_.State -eq 'ACTIVE'
+        }).Count -eq 2 -and $releasedLeaseStore.Count -eq 1 -and $releasedLeaseStore[0].State -eq 'DETACHED' -and
+        -not $releasedLeaseStore[0].Lease -and @($releasedLeaseStore[0].References | Where-Object State -eq 'RELEASED').Count -eq 3 -and
+        @($releasedLeaseStore[0].References | Where-Object { $_.Kind -eq 'DATABASE' -and $_.State -eq 'ACTIVE' }).Count -eq 0 -and
         [string]$leaseEvidence.Inspection.Labels.'sql-server-lab.persistent-storage-id' -eq [string]$releasedLeaseStore[0].PersistentStorageId) `
-        'Regulärer PersistentData-Store wird stabil gelabelt, exklusiv geleast und ohne Volume-Löschung freigegeben'
+        'Regulärer PersistentData-Store wird mit Datenbankreferenzen geleast und atomar ohne Volume-Löschung freigegeben'
     $continueIntent=[PSCustomObject]@{ ContractVersion='SqlServerLab.ContainerInstanceStoreIntent/1.0'; OperationId=[guid]::NewGuid().ToString('D'); Action='CONTINUE'; SourcePersistentStorageId=$sourceId; TargetPersistentStorageId=$null; TargetVolumeName=$null; Provider=$Provider; TargetRunId=$runId; TargetScopeId=$scopeId; TargetSqlMajorVersion='2025'; HelperImage=$null }
     $continueEvidence=& $module { param($Intent,$Catalog,$Runtime,$Volume) $inspection=Get-LabContainerInstanceStoreRuntimeInspection -Provider $Runtime -VolumeName $Volume; $plan=Get-LabContainerInstanceStorePlan -Intent $Intent -Catalog $Catalog -RuntimeInspection $inspection; [PSCustomObject]@{ Plan=$plan; Drive=Get-LabContainerInstanceStoreDriveBinding -Plan $plan } } $continueIntent $catalog $Provider $sourceVolume
     Assert-InstanceStoreAcceptance ($continueEvidence.Plan.Status -eq 'READY' -and $continueEvidence.Drive.volumeName -eq $sourceVolume) 'Detached Store wurde ueber stabile Storage-ID fuer Continue ausgewaehlt'
