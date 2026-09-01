@@ -484,6 +484,16 @@ Add-CheckResult `
         $hyperVNatResult.Plan.Instances[0].Network.Binding -eq 'shared-internal-nat') `
     -Message ($hyperVNatResult.Errors -join '; ')
 
+$hyperVLanManifest = $hyperVManifest | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
+$hyperVLanManifest.instances[0] | Add-Member -NotePropertyName network -NotePropertyValue ([PSCustomObject]@{ intent='lan'; exposure='lan' }) -Force
+$hyperVLanResult = Test-SqlServerLabManifest -InputObject $hyperVLanManifest
+Add-CheckResult `
+    -Name 'Hyper-V-LAN bleibt portabel und verlangt erst zur Laufzeit die lokale External-Switch-Bindung' `
+    -Success ($hyperVLanResult.IsValid -and $hyperVLanResult.Plan.Instances[0].Network.Status -eq 'RESOLVED' -and `
+        $hyperVLanResult.Plan.Instances[0].Network.Binding -eq 'external-switch' -and `
+        $hyperVLanResult.Plan.Instances[0].Network.RequiredCapability -eq 'external-network-binding') `
+    -Message ($hyperVLanResult.Errors -join '; ')
+
 $hyperVLegacyConflictManifest = $hyperVIsolatedManifest | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
 $hyperVLegacyConflictManifest.instances[0].hyperv | Add-Member -NotePropertyName switchName -NotePropertyValue 'SQL_LAB_HYPERV' -Force
 $hyperVLegacyConflictResult = Test-SqlServerLabManifest -InputObject $hyperVLegacyConflictManifest

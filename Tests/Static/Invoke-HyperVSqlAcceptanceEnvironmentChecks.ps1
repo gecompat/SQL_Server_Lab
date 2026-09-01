@@ -86,6 +86,18 @@ try {
         $natBootstrap -match "Set-DnsClientServerAddress" -and
         $natBootstrap -match "'192\.0\.2\.53','192\.0\.2\.54'"
     )
+    $lanBootstrap = & $module {
+        New-HyperVSqlGuestNetworkBootstrapScript -Network ([PSCustomObject]@{
+            Name='SQL_LAB_LAN'; Intent='lan'; AddressMode='dhcp'
+        })
+    }
+    Add-CheckResult -Name 'Hyper-V-LAN-Bootstrap bezieht DHCP und begrenzt WinRM auf das lokale Subnetz' -Success (
+        $lanBootstrap -match 'Set-NetIPInterface[\s\S]+-Dhcp Enabled' -and
+        $lanBootstrap -match 'Set-DnsClientServerAddress[\s\S]+-ResetServerAddresses' -and
+        $lanBootstrap -match 'SQL_LAB_OOBE_DHCP_ADDRESS_NOT_READY' -and
+        $lanBootstrap -match 'RemoteAddress LocalSubnet' -and
+        $lanBootstrap -match "addressMode = 'dhcp'"
+    )
 
     $buildId = [guid]::NewGuid().ToString(); $scopeId = [guid]::NewGuid().ToString()
     $buildDirectory = Join-Path $temporaryRoot "image-builds/hyperv-sql/$buildId"

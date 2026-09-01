@@ -358,11 +358,15 @@ Hyper-V verwendet die nativen Switch-Typen External, Internal und Private.
 Implementierungsstand 2026-09-01: `network.intent` und `network.exposure` sind
 typisierte Manifestfelder. Docker und Podman lösen ohne Hostmutation auf
 `nat`/`host` mit verwaltetem Bridge-NAT und Loopback-Portbinding auf. Hyper-V löst auf `hostOnly`/`host`
-mit internem Switch oder explizit auf `isolated`/`none` mit privatem Switch auf.
+mit internem Switch, explizit auf `isolated`/`none` mit privatem Switch oder auf
+`lan`/`lan` mit External Switch und Gast-DHCP auf.
 Andere Kombinationen werden vor der Provider-Mutation mit einem stabilen
 `NETWORK_*`-Reason-Code abgelehnt. `hyperv.switchName` bleibt nur ein lokales
 Kompatibilitätsbinding für `hostOnly`; es bezeichnet keinen portablen LAN-
-Intent.
+Intent. Das LAN-Hostbinding besteht ausschließlich lokal aus Switchname und
+stabiler physischer Adapter-GUID. Es wird vor Erstellung und Wiederverwendung
+read-only revalidiert; fremde oder abweichende External Switches bleiben
+unangetastet.
 
 Der read-only Lifecycle-Reconcile übernimmt den persistierten Hyper-V-
 Network-Intent in Desired State und prüft Adapterbindung, Switch-Typ,
@@ -687,8 +691,10 @@ Die Planvorschau begründet insbesondere:
 Stand 2026-08-09: Der persistierte Run-Sollzustand enthält einen versionierten,
 geheimnisfreien `SqlServerLab.InstanceIntent` für Drives, Network und Software.
 Provider-Metadaten liefern die deklarative Evidenzgrenze; noch nicht gebundene
-Software- oder Hyper-V-LAN-Intents bleiben sichtbar `DECLARED_UNSUPPORTED`.
-Konkrete Hostpfade, Switch-Namen, URLs und Befehle werden nicht persistiert.
+Software-Intents bleiben sichtbar `DECLARED_UNSUPPORTED`. Der portable
+Desired-State enthält keine konkreten Hostpfade, Switch-Namen, Adapter-IDs,
+URLs oder Befehle. Das lokale LAN-Bound-Plan-Artefakt persistiert die explizit
+freigegebene Switch-/Adapterbindung ausschließlich als Runtime-Evidenz.
 
 ### Welle 2 – Artifact- und Medienverwaltung
 
@@ -766,14 +772,18 @@ Ein echter Windows-Gast-End-to-End-Nachweis sowie alle SQL-Setup-/
 - External Switch nur auf freigegebenem Runner.
 
 Stand 2026-09-01: Der portable Manifest- und Planvertrag sowie die Bindings für
-Container-`nat`, Hyper-V-`hostOnly`, Hyper-V-`isolated` und Hyper-V-`nat` sind
+Container-`nat`, Hyper-V-`hostOnly`, Hyper-V-`isolated`, Hyper-V-`nat` und
+Hyper-V-`lan` sind
 implementiert. NAT besitzt vor der Mutation einen Host-Bound-Plan, schützt ein
 bereits vorhandenes fremdes WinNAT, nutzt auf geeigneten Hosts genau ein
 gemeinsames internes WinNAT und reserviert statische Gastadressen scopegebunden.
 Gateway und ein zur Planzeit gebundener Host-DNS-Snapshot werden in den Gast
-übernommen. Der Hyper-V-Netzwerk-Istzustand wird im Lifecycle-Reconcile
-read-only, semantisch und hostwertfrei verglichen. LAN/External Switch und die
-schreibende Netzwerkreparatur bleiben offen.
+übernommen. LAN verlangt eine lokale Switch-/Adapter-Allowlist, erstellt nur
+den exakt gebundenen External Switch mit Hostanbindung und übernimmt
+Gastadresse, Gateway und DNS dynamisch aus DHCP. Der Hyper-V-Netzwerk-Istzustand wird im Lifecycle-Reconcile
+read-only, semantisch und hostwertfrei verglichen; ein DHCP-Adresswechsel ist
+dabei kein Drift. Eine positive native External-Switch-Erstellung auf einem
+freigegebenen Runner und die schreibende Netzwerkreparatur bleiben offen.
 
 ### Welle 7 – Software, External Runtimes und Samples
 

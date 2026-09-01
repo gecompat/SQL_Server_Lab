@@ -190,39 +190,60 @@ function Get-LabHyperVNetworkReconcileActual {
         }
 
         $infrastructureStatus = 'NOT_APPLICABLE'
-        if ([string]$DesiredInstance.Network.Intent -in @('hostOnly', 'nat')) {
+        if ([string]$DesiredInstance.Network.Intent -in @('hostOnly', 'nat', 'lan')) {
             if (-not $connectionInstance.labNetwork) {
                 $infrastructureStatus = 'DRIFT'
                 $reasonCodes.Add('HYPERV_NETWORK_BOUND_PLAN_MISSING')
             }
             else {
-                $boundPlan = Resolve-LabHyperVNetworkBoundPlan -Intent ([string]$DesiredInstance.Network.Intent) `
-                    -SwitchName ([string]$connectionInstance.labNetwork.name) -Subnet ([string]$connectionInstance.labNetwork.subnet)
-                if ([string]$boundPlan.Status -ne 'READY') {
-                    $infrastructureStatus = 'DRIFT'
-                    foreach ($blocker in @($boundPlan.Blockers)) { if ($blocker) { $reasonCodes.Add([string]$blocker) } }
+                if ([string]$DesiredInstance.Network.Intent -eq 'lan') {
+                    $boundPlanPath = Join-Path (Split-Path -Parent $connectionPath) 'network-bound-plan.json'
+                    if (-not (Test-Path -LiteralPath $boundPlanPath -PathType Leaf)) {
+                        $infrastructureStatus = 'DRIFT'
+                        $reasonCodes.Add('HYPERV_NETWORK_BOUND_PLAN_MISSING')
+                        $boundPlan = $null
+                    }
+                    else {
+                        $persistedBoundPlan = Get-Content -LiteralPath $boundPlanPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
+                        $boundPlan = Resolve-LabHyperVNetworkBoundPlan -Intent lan `
+                            -LanSwitchName ([string]$persistedBoundPlan.Name) -LanAdapterId ([string]$persistedBoundPlan.AdapterId)
+                    }
                 }
-                elseif (@($boundPlan.Actions).Count -gt 0) {
-                    $infrastructureStatus = 'DRIFT'
-                    $reasonCodes.Add('HYPERV_NETWORK_INFRASTRUCTURE_DRIFT')
+                else {
+                    $boundPlan = Resolve-LabHyperVNetworkBoundPlan -Intent ([string]$DesiredInstance.Network.Intent) `
+                        -SwitchName ([string]$connectionInstance.labNetwork.name) -Subnet ([string]$connectionInstance.labNetwork.subnet)
                 }
-                else { $infrastructureStatus = 'MATCHED' }
+                if ($boundPlan) {
+                    if ([string]$boundPlan.Status -ne 'READY') {
+                        $infrastructureStatus = 'DRIFT'
+                        foreach ($blocker in @($boundPlan.Blockers)) { if ($blocker) { $reasonCodes.Add([string]$blocker) } }
+                    }
+                    elseif (@($boundPlan.Actions).Count -gt 0) {
+                        $infrastructureStatus = 'DRIFT'
+                        $reasonCodes.Add('HYPERV_NETWORK_INFRASTRUCTURE_DRIFT')
+                    }
+                    else { $infrastructureStatus = 'MATCHED' }
+                }
             }
         }
 
         $guestAddressStatus = 'NOT_APPLICABLE'
-        if ($connectionInstance.labNetwork -and $connectionInstance.labNetwork.address) {
-            $expectedAddress = [string]$connectionInstance.labNetwork.address
+        if ($connectionInstance.labNetwork) {
             $observedAddresses = @($connectedAdapters | ForEach-Object { @($_.IPAddresses) } | ForEach-Object {
                 $parsedAddress = $null
                 if ($_ -and [System.Net.IPAddress]::TryParse([string]$_, [ref]$parsedAddress) -and
-                    $parsedAddress.AddressFamily -eq [System.Net.Sockets.AddressFamily]::InterNetwork) {
+                    $parsedAddress.AddressFamily -eq [System.Net.Sockets.AddressFamily]::InterNetwork -and
+                    [string]$parsedAddress -notlike '169.254.*' -and [string]$parsedAddress -ne '127.0.0.1') {
                     [string]$parsedAddress
                 }
             })
-            if ($observedAddresses -contains $expectedAddress) { $guestAddressStatus = 'MATCHED' }
+            $usesDhcp = [string]$connectionInstance.labNetwork.addressMode -eq 'dhcp' -or [string]$DesiredInstance.Network.Intent -eq 'lan'
+            $expectedAddress = [string]$connectionInstance.labNetwork.address
+            if ($usesDhcp -and $observedAddresses.Count -gt 0) { $guestAddressStatus = 'MATCHED' }
+            elseif ($usesDhcp) { $guestAddressStatus = 'UNOBSERVED' }
+            elseif ($expectedAddress -and $observedAddresses -contains $expectedAddress) { $guestAddressStatus = 'MATCHED' }
             elseif ($observedAddresses.Count -eq 0) { $guestAddressStatus = 'UNOBSERVED' }
-            else {
+            elseif ($expectedAddress) {
                 $guestAddressStatus = 'DRIFT'
                 $reasonCodes.Add('HYPERV_NETWORK_GUEST_ADDRESS_DRIFT')
             }

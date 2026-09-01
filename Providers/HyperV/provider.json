@@ -22,6 +22,7 @@
     "managed-lab-network",
     "isolated-network",
     "nat-network",
+    "external-network-binding",
     "scsi-drive-attachment",
     "stable-vhdx-disk-identity",
     "powershell-direct-guest-drive-initialization",
@@ -42,7 +43,6 @@
     "manual-os-installation",
     "no-real-windows-guest-sysprep-ci",
     "no-general-sql-manifest-provisioning",
-    "no-broad-network-binding",
     "no-real-windows-guest-specialization-ci"
   ],
   "detectionCommand": "Get-VMHost",
@@ -64,7 +64,9 @@
       "Get-VHD",
       "New-VM",
       "New-VHD",
+      "New-VMSwitch",
       "Remove-VMNetworkAdapter",
+      "Remove-VMSwitch",
       "Set-VMFirmware"
     ],
     "runnerLabels": [

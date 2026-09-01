@@ -226,9 +226,11 @@ try {
         function Get-VMNetworkAdapter {
             if ($script:networkReconcileMode -eq 'unavailable') { throw 'simulated provider read failure' }
             if ($script:networkReconcileMode -eq 'detached') { return @() }
+            if ($script:networkReconcileMode -eq 'lan') { return [PSCustomObject]@{ SwitchName='SQL_LAB_LAN'; IPAddresses=@('192.0.2.99') } }
             [PSCustomObject]@{ SwitchName='SQL_LAB_HYPERV'; IPAddresses=@('172.28.0.42') }
         }
         function Get-VMSwitch {
+            if ($script:networkReconcileMode -eq 'lan') { return [PSCustomObject]@{ Name='SQL_LAB_LAN'; SwitchType='External' } }
             [PSCustomObject]@{ Name='SQL_LAB_HYPERV'; SwitchType='Internal' }
         }
         function Resolve-LabHyperVNetworkBoundPlan {
@@ -269,9 +271,26 @@ try {
             State='RUNNING'; Instances=@([PSCustomObject]@{ Id='primary'; Provider='hyperv'; State='RUNNING'; Network=$matched })
         })
 
+        $lanSnapshot = $desiredSnapshot | ConvertTo-Json -Depth 20 | ConvertFrom-Json -Depth 20
+        $lanSnapshot.Instances[0].Intents.Network.Intent='lan'; $lanSnapshot.Instances[0].Intents.Network.Exposure='lan'; $lanSnapshot.Instances[0].Intents.Network.Binding='external-switch'
+        $lanRun = New-LabRunState -StateRoot $Root -Metadata @{ name='Hyper-V LAN reconcile'; workflowKind='hyperv-lab'; desiredState=$lanSnapshot } `
+            -ProviderSubRuns @([PSCustomObject]@{ provider='hyperv'; instanceIds=@('primary') })
+        Write-LabArtifactJsonAtomic -Path (Join-Path $lanRun.RunDir 'connection-info.json') -InputObject ([PSCustomObject]@{
+            instances=@([PSCustomObject]@{ id='primary'; provider='hyperv'; vmName='host-value-must-not-leak'; labNetwork=[PSCustomObject]@{
+                name='SQL_LAB_LAN'; intent='lan'; addressMode='dhcp'; address='192.0.2.44'; prefixLength=24
+            } })
+        })
+        Write-LabArtifactJsonAtomic -Path (Join-Path $lanRun.RunDir 'network-bound-plan.json') -InputObject ([PSCustomObject]@{
+            Name='SQL_LAB_LAN'; AdapterId='11111111-1111-1111-1111-111111111111'
+        })
+        $script:networkReconcileMode = 'lan'
+        $lanActual = Get-LabHyperVNetworkReconcileActual -Run $lanRun -DesiredInstance ([PSCustomObject]@{
+            Id='primary'; Provider='hyperv'; TargetState='RUNNING'; Network=[PSCustomObject]@{ Intent='lan'; Exposure='lan'; Binding='external-switch' }
+        }) -StateRoot $Root
+
         [PSCustomObject]@{
             Matched=$matched; MatchedPlan=$matchedPlan; Drift=$drift; Unavailable=$unavailable
-            MatchedComparison=$matchedComparison; DriftComparison=$driftComparison; UnsupportedComparison=$unsupportedComparison
+            MatchedComparison=$matchedComparison; DriftComparison=$driftComparison; UnsupportedComparison=$unsupportedComparison; Lan=$lanActual
         }
     } $tempRoot
 
@@ -300,6 +319,13 @@ try {
         -Success ($networkContract.UnsupportedComparison.ChangeClass -eq 'unsupported' -and
             $networkContract.UnsupportedComparison.NetworkDiff[0].ActualStatus -eq 'DECLARED_UNSUPPORTED' -and
             $networkContract.UnsupportedComparison.NetworkDiff[0].ReasonCodes -contains 'NETWORK_INTENT_PROVIDER_UNSUPPORTED')
+    Add-CheckResult `
+        -Name 'Hyper-V-LAN-Reconcile akzeptiert einen DHCP-Adresswechsel ohne Hostwerte offenzulegen' `
+        -Success ($networkContract.Lan.Status -eq 'MATCHED' -and
+            $networkContract.Lan.ObservedBinding -eq 'external-switch' -and
+            $networkContract.Lan.InfrastructureStatus -eq 'MATCHED' -and
+            $networkContract.Lan.GuestAddressStatus -eq 'MATCHED' -and
+            (($networkContract.Lan | ConvertTo-Json -Depth 10) -notmatch 'SQL_LAB_LAN|192\.0\.2|11111111'))
 }
 finally {
     if (Test-Path -LiteralPath $tempRoot) { Remove-Item -LiteralPath $tempRoot -Recurse -Force }

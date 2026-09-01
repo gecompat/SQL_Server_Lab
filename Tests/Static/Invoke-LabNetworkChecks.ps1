@@ -37,6 +37,8 @@ try {
             HyperVDefault = Resolve-LabNetworkIntentPlan -Provider hyperv
             HyperVIsolated = Resolve-LabNetworkIntentPlan -Provider hyperv -Network ([PSCustomObject]@{ intent='isolated'; exposure='none' })
             HyperVNat = Resolve-LabNetworkIntentPlan -Provider hyperv -Network ([PSCustomObject]@{ intent='nat'; exposure='host' })
+            HyperVLan = Resolve-LabNetworkIntentPlan -Provider hyperv -Network ([PSCustomObject]@{ intent='lan'; exposure='lan' })
+            DockerLan = Resolve-LabNetworkIntentPlan -Provider docker -Network ([PSCustomObject]@{ intent='lan'; exposure='lan' })
             DockerHostOnly = Resolve-LabNetworkIntentPlan -Provider docker -Network ([PSCustomObject]@{ intent='hostOnly'; exposure='host' })
             LegacyConflict = Resolve-LabNetworkIntentPlan -Provider hyperv -Network ([PSCustomObject]@{ intent='isolated'; exposure='none' }) -HasLegacyHyperVSwitch
             ExposureConflict = Resolve-LabNetworkIntentPlan -Provider hyperv -Network ([PSCustomObject]@{ intent='isolated'; exposure='host' })
@@ -54,6 +56,12 @@ try {
     Add-CheckResult -Name 'Hyper-V-NAT ist gebunden; offene Container-Intents bleiben fail-closed' -Success (
         $intentPlans.HyperVNat.Status -eq 'RESOLVED' -and $intentPlans.HyperVNat.Binding -eq 'shared-internal-nat' -and
         $intentPlans.DockerHostOnly.ReasonCode -eq 'NETWORK_INTENT_PROVIDER_UNSUPPORTED'
+    )
+    Add-CheckResult -Name 'Hyper-V-LAN wird portabel gebunden; Container-LAN bleibt fail-closed' -Success (
+        $intentPlans.HyperVLan.Status -eq 'RESOLVED' -and
+        $intentPlans.HyperVLan.Binding -eq 'external-switch' -and
+        $intentPlans.HyperVLan.RequiredCapability -eq 'external-network-binding' -and
+        $intentPlans.DockerLan.ReasonCode -eq 'NETWORK_INTENT_PROVIDER_UNSUPPORTED'
     )
     Add-CheckResult -Name 'Exposure- und Legacy-Switch-Konflikte scheitern vor Provider-Mutation' -Success (
         $intentPlans.LegacyConflict.ReasonCode -eq 'NETWORK_LEGACY_SWITCH_CONFLICT' -and
@@ -98,6 +106,72 @@ try {
     }
     Add-CheckResult -Name 'Revalidierter Hyper-V-NAT-Plan erstellt Switch, Hostadresse und WinNAT in sicherer Reihenfolge' -Success (
         $hyperVNatApply.Status -eq 'READY' -and ($hyperVNatApply.Calls -join ',') -eq 'switch,address,nat'
+    )
+    $hyperVLanPlans = & $module {
+        function Get-VMSwitch { param($Name,$SwitchType) @() }
+        function Get-NetAdapter {
+            [PSCustomObject]@{ Name='Ethernet'; InterfaceGuid=[guid]'11111111-1111-1111-1111-111111111111'; InterfaceDescription='Approved Adapter'; Status='Up' }
+        }
+        $missing = Resolve-LabHyperVNetworkBoundPlan -Intent lan -LanSwitchName '' -LanAdapterId ''
+        $ready = Resolve-LabHyperVNetworkBoundPlan -Intent lan -LanSwitchName 'SQL_LAB_LAN' -LanAdapterId '11111111-1111-1111-1111-111111111111'
+        function Get-VMSwitch {
+            param($Name,$SwitchType)
+            [PSCustomObject]@{ Name='SQL_LAB_LAN'; SwitchType='External'; NetAdapterInterfaceDescription='Different Adapter' }
+        }
+        $mismatch = Resolve-LabHyperVNetworkBoundPlan -Intent lan -LanSwitchName 'SQL_LAB_LAN' -LanAdapterId '11111111-1111-1111-1111-111111111111'
+        [PSCustomObject]@{ Missing=$missing; Ready=$ready; Mismatch=$mismatch }
+    }
+    Add-CheckResult -Name 'Hyper-V-LAN verlangt eine exakte lokale Switch- und Adapterfreigabe' -Success (
+        $hyperVLanPlans.Missing.Status -eq 'BLOCKED' -and
+        $hyperVLanPlans.Missing.Blockers -contains 'LAB_NETWORK_HYPERV_LAN_BINDING_REQUIRED' -and
+        $hyperVLanPlans.Ready.Status -eq 'READY' -and
+        ($hyperVLanPlans.Ready.Actions -join ',') -eq 'create-external-switch' -and
+        $hyperVLanPlans.Ready.AddressMode -eq 'dhcp' -and
+        $hyperVLanPlans.Mismatch.Blockers -contains 'LAB_NETWORK_HYPERV_LAN_SWITCH_CONTRACT_MISMATCH'
+    )
+    $hyperVLanApply = & $module {
+        $script:lanSwitchExists = $false
+        $script:lanApply = $null
+        function Get-NetAdapter {
+            [PSCustomObject]@{ Name='Ethernet'; InterfaceGuid=[guid]'11111111-1111-1111-1111-111111111111'; InterfaceDescription='Approved Adapter'; Status='Up' }
+        }
+        function Get-VMSwitch {
+            param($Name,$SwitchType)
+            if ($script:lanSwitchExists) {
+                [PSCustomObject]@{ Name='SQL_LAB_LAN'; SwitchType='External'; NetAdapterInterfaceDescription='Approved Adapter' }
+            }
+        }
+        function New-VMSwitch {
+            param($Name,$NetAdapterName,$AllowManagementOS)
+            $script:lanApply = [PSCustomObject]@{ Name=$Name; Adapter=$NetAdapterName; ManagementOS=$AllowManagementOS }
+            $script:lanSwitchExists = $true
+        }
+        function Remove-VMSwitch { }
+        $plan = Resolve-LabHyperVNetworkBoundPlan -Intent lan -LanSwitchName 'SQL_LAB_LAN' -LanAdapterId '11111111-1111-1111-1111-111111111111'
+        $result = Invoke-LabHyperVNetworkBoundPlan -Plan $plan
+        [PSCustomObject]@{ Result=$result; Apply=$script:lanApply }
+    }
+    Add-CheckResult -Name 'Hyper-V-LAN erstellt nur den exakt freigegebenen External Switch mit Hostanbindung' -Success (
+        $hyperVLanApply.Result.Status -eq 'READY' -and
+        $hyperVLanApply.Apply.Name -eq 'SQL_LAB_LAN' -and
+        $hyperVLanApply.Apply.Adapter -eq 'Ethernet' -and
+        $hyperVLanApply.Apply.ManagementOS
+    )
+    $hyperVLanGuest = & $module {
+        function Invoke-HyperVPowerShellDirect {
+            [PSCustomObject]@{
+                contractVersion='1'; network='SQL_LAB_LAN'; addressMode='dhcp'; address='192.0.2.44'; prefixLength=24
+                addressState='Preferred'; gateway='192.0.2.1'; dnsServers=@('192.0.2.53'); observedAt='2026-09-01T12:00:00Z'
+            }
+        }
+        $mockSecret = [Security.SecureString]::new(); $mockSecret.AppendChar('x')
+        $credential = [PSCredential]::new('Administrator', $mockSecret)
+        Initialize-HyperVGuestLabNetwork -VMName lan-vm -ExpectedRunId run -ExpectedScopeId scope -Credential $credential `
+            -Network ([PSCustomObject]@{ Name='SQL_LAB_LAN'; Intent='lan'; AddressMode='dhcp' }) -Identity run
+    }
+    Add-CheckResult -Name 'Hyper-V-LAN akzeptiert eine bevorzugte dynamische Gastadresse als DHCP-Evidenz' -Success (
+        $hyperVLanGuest.AddressMode -eq 'dhcp' -and $hyperVLanGuest.Address -eq '192.0.2.44' -and
+        $hyperVLanGuest.Gateway -eq '192.0.2.1' -and $hyperVLanGuest.DnsServers -contains '192.0.2.53'
     )
     $ipamRoot = Join-Path ([IO.Path]::GetTempPath()) "sql-lab-hyperv-ipam-$([guid]::NewGuid().ToString('N'))"
     try {
