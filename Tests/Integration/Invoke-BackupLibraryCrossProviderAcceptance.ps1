@@ -76,8 +76,8 @@ INSERT dbo.Evidence VALUES(1,N'alpha'),(2,N'beta'),(3,N'psr008-$token');
     Start-BackupSqlContainer podman $targetContainer $targetPort $targetRun
     Wait-BackupSql $targetPort
     $restore=Restore-SqlServerLabDatabase -Provider podman -ContainerName $targetContainer -Port $targetPort `
-        -SaPassword $password -BackupSource $backup.Path -ExpectedSha256 $backup.Sha256 -DatabaseName Psr008Target
-    Assert-BackupAcceptance ($restore.Success -and $restore.Provider -eq 'podman') 'Backup wurde durch den zweiten Provider nach VERIFYONLY restauriert'
+        -SaPassword $password -BackupSetId $backup.BackupSetId -DataRoot $dataRoot -DatabaseName Psr008Target
+    Assert-BackupAcceptance ($restore.Success -and $restore.Provider -eq 'podman' -and $restore.BackupSetId -eq $backup.BackupSetId -and $restore.BackupSourceKind -eq 'LIBRARY') 'BackupSetId wurde durch den zweiten Provider nach erneuter Bibliotheks- und VERIFYONLY-Prüfung restauriert'
     $targetContent=Invoke-BackupSql $targetPort "SELECT CONCAT(COUNT_BIG(*),N'|',MAX(CASE WHEN Id=2 THEN Payload END),N'|',MAX(CASE WHEN Id=3 THEN Payload END)) FROM dbo.Evidence;" 'Psr008Target'
     $targetDigest=Get-TextSha256 $targetContent
     Assert-BackupAcceptance ($targetDigest -eq $sourceDigest) 'Sanitisierter Inhaltsdigest stimmt providerübergreifend überein'

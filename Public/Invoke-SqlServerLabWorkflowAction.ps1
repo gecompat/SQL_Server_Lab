@@ -79,7 +79,10 @@ lokale Datei geprüft.
 .PARAMETER Port
     Lokaler SQL-Port für Datenbank- oder Skriptaktionen.
 .PARAMETER DatabaseName
-    Name einer neu anzulegenden Datenbank.
+    Name einer neu anzulegenden oder wiederherzustellenden Datenbank.
+.PARAMETER BackupSetId
+    Stabile ID eines verifizierten Backups aus der konfigurierten Lab_Data-
+    Bibliothek. Der Workflow übergibt keinen lokalen Backup-Pfad an die UI.
 .PARAMETER SampleId
     Katalog-ID einer ausgewählten Testdatenbank für einen Container-Run.
 .PARAMETER SampleVariant
@@ -156,7 +159,7 @@ function Invoke-SqlServerLabWorkflowAction {
             'Refresh',
             'SetMediaRoot', 'SetDataRoot', 'SetTestDataRoot',
             'NewContainerLab', 'CreateContainerManifest', 'NewContainerLabFromManifest', 'RenameLab', 'SetLabResources', 'StartContainerLab', 'StopContainerLab', 'StartLabReconcile', 'StopLabReconcile', 'RestartContainerLab', 'RemoveContainerLab', 'ClearAllLabs',
-            'CreateContainerDatabase', 'InstallContainerSampleDatabase', 'InstallContainerSampleDatabases', 'ExecuteContainerScript',
+            'CreateContainerDatabase', 'RestoreContainerLibraryBackup', 'InstallContainerSampleDatabase', 'InstallContainerSampleDatabases', 'ExecuteContainerScript',
             'NewHyperVLab', 'NewHyperVLabFromExistingVm', 'StartHyperVLab', 'StopHyperVLab', 'EnableHyperVLabPersistentData', 'InitializeHyperVLabPersistentData', 'CompleteHyperVLabSql', 'EnableHyperVLabHostSqlAccess', 'InspectHyperVLabSqlInstances', 'OpenHyperVConsole', 'RemoveHyperVLab',
             'NewWindowsBuild', 'SetWindowsMediaHash', 'OpenWindowsConsole', 'ConfirmWindowsInstall', 'GeneralizeWindowsBuild', 'PublishWindowsBuild',
             'NewSqlBuild', 'NewSqlBuildFromBaseline', 'SetSqlMediaHash', 'OpenSqlConsole', 'ConfirmSqlWindowsInstall', 'PrepareSqlImage', 'ResumeSqlImage', 'PublishSqlImage',
@@ -194,6 +197,7 @@ function Invoke-SqlServerLabWorkflowAction {
         [string]$HostName = '127.0.0.1',
         [int]$Port,
         [string]$DatabaseName,
+        [ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$BackupSetId,
         [string]$SampleId,
         [string]$SampleVariant,
         [string[]]$SampleSelections,
@@ -260,7 +264,7 @@ function Invoke-SqlServerLabWorkflowAction {
 
     $containerActions = @(
         'NewContainerLab', 'CreateContainerManifest', 'NewContainerLabFromManifest', 'RenameLab', 'SetLabResources', 'StartContainerLab', 'StopContainerLab', 'RestartContainerLab', 'RemoveContainerLab',
-        'ClearAllLabs', 'CreateContainerDatabase', 'InstallContainerSampleDatabase', 'InstallContainerSampleDatabases', 'ExecuteContainerScript',
+        'ClearAllLabs', 'CreateContainerDatabase', 'RestoreContainerLibraryBackup', 'InstallContainerSampleDatabase', 'InstallContainerSampleDatabases', 'ExecuteContainerScript',
         'StartLabReconcile', 'StopLabReconcile'
     )
     if ($Action -notin $containerActions) {
@@ -279,7 +283,7 @@ function Invoke-SqlServerLabWorkflowAction {
         if (-not $GuestPassword) { throw 'HYPERV_WORKFLOW_GUEST_PASSWORD_REQUIRED' }
         $credential = [PSCredential]::new($GuestUserName, $GuestPassword)
     }
-    if ($Action -in @('NewContainerLab', 'NewContainerLabFromManifest', 'CreateContainerDatabase', 'InstallContainerSampleDatabase', 'InstallContainerSampleDatabases', 'ExecuteContainerScript') -and -not $SaPassword) {
+    if ($Action -in @('NewContainerLab', 'NewContainerLabFromManifest', 'CreateContainerDatabase', 'RestoreContainerLibraryBackup', 'InstallContainerSampleDatabase', 'InstallContainerSampleDatabases', 'ExecuteContainerScript') -and -not $SaPassword) {
         throw 'CONTAINER_WORKFLOW_SA_PASSWORD_REQUIRED'
     }
     if ($Action -eq 'RemoveHyperVImageArtifact' -and [string]::IsNullOrWhiteSpace($ArtifactId)) {
@@ -411,6 +415,19 @@ function Invoke-SqlServerLabWorkflowAction {
         'CreateContainerDatabase' {
             if ($Port -lt 1 -or -not $DatabaseName) { throw 'CONTAINER_WORKFLOW_DATABASE_TARGET_REQUIRED' }
             New-SqlServerLabDatabase -HostName $HostName -Port $Port -SaPassword $SaPassword -DatabaseName $DatabaseName
+        }
+        'RestoreContainerLibraryBackup' {
+            if (-not $BuildId -or -not $BackupSetId -or -not $DatabaseName) { throw 'CONTAINER_WORKFLOW_BACKUP_LIBRARY_TARGET_REQUIRED' }
+            $restoreArguments = @{
+                RunId = $BuildId
+                InstanceId = $InstanceId
+                SaPassword = $SaPassword
+                BackupSetId = $BackupSetId
+                DatabaseName = $DatabaseName
+                NonInteractive = $true
+            }
+            if ($DataRoot) { $restoreArguments.DataRoot = $DataRoot }
+            Restore-SqlServerLabDatabase @restoreArguments
         }
         'InstallContainerSampleDatabase' {
             if (-not $BuildId -or -not $SampleId -or -not $SampleVariant) { throw 'CONTAINER_WORKFLOW_SAMPLE_TARGET_REQUIRED' }

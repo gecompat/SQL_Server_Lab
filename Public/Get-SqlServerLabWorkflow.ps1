@@ -22,6 +22,7 @@ function Get-SqlServerLabWorkflow {
 
     $stateRoot = Get-LabStateRoot
     if (-not $MediaRoot) { $MediaRoot = Get-LabMediaRootDefault }
+    $dataRoot = Get-LabDataRootDefault
     $isElevated = $false
     if ($IsWindows) {
         try {
@@ -56,6 +57,7 @@ function Get-SqlServerLabWorkflow {
     $sqlInstallationMedia = @()
     $windowsInstallationMedia = @()
     $sampleDatabases = @()
+    $backupLibrary = @()
     $mediaSources = @()
     $hyperVLabs = @()
     $hyperVSwitches = @()
@@ -147,6 +149,9 @@ function Get-SqlServerLabWorkflow {
         })
     }
     catch { }
+    if ($dataRoot) {
+        try { $backupLibrary = @(Get-LabDatabaseBackupSelection -DataRoot $dataRoot) } catch { }
+    }
     $testDataRoot = Get-LabTestDataRootDefault
     try { $mediaSources = @(Get-LabMediaSourceCatalog -MediaRoot $MediaRoot -TestDataRoot $testDataRoot) } catch { }
     if ($MediaRoot -and $IsWindows) {
@@ -254,13 +259,14 @@ function Get-SqlServerLabWorkflow {
             Providers = @(Get-AvailableLabProviders | Sort-Object)
             ProviderCapabilities = @(Get-LabProviderCapabilityContract)
         }
-        Defaults = [PSCustomObject]@{ MediaRoot = $MediaRoot; DataRoot = Get-LabDataRootDefault; TestDataRoot = $testDataRoot }
+        Defaults = [PSCustomObject]@{ MediaRoot = $MediaRoot; DataRoot = $dataRoot; TestDataRoot = $testDataRoot }
         Batches = $batches
         Operations = $operations
         Queue = $queue
         SqlInstallationMedia = $sqlInstallationMedia
         WindowsInstallationMedia = $windowsInstallationMedia
         SampleDatabases = $sampleDatabases
+        BackupLibrary = $backupLibrary
         MediaSources = $mediaSources
         TemplatePool = $templatePool
         HyperVLabs = $hyperVLabs
