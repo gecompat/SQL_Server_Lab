@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Erstellt einen read-only Lifecycle-, Hyper-V-Netzwerk-/Ressourcen-/Storage-, Container- oder External-Runtime-Reconcile-Plan.
+    Erstellt einen read-only Lifecycle-, Hyper-V-Netzwerk-/Ressourcen-/Storage-/SQL-, Container- oder External-Runtime-Reconcile-Plan.
 .DESCRIPTION
     Liest den bestehenden Run und dessen Runtime-Zustand und liefert einen
     versionierten Desired/Actual/Diff/Action-Vertrag. Der Befehl fuehrt keine
@@ -21,7 +21,7 @@
     späteren Reconcile. Ausserhalb des resolvergebundenen Softwarevertrags darf
     es nicht vom persistierten Sollzustand abweichen.
 .PARAMETER InstanceId
-    Zielinstanz für Hyper-V-Netzwerk-, Container- oder External-Runtime-Reconcile. Darf nur
+    Zielinstanz für Hyper-V-Netzwerk-, Ressourcen-, Storage-, SQL-, Container- oder External-Runtime-Reconcile. Darf nur
     entfallen, wenn genau eine geeignete Runtime-Instanz im Run existiert.
 .PARAMETER HyperVNetwork
     Waehlt den eng begrenzten read-only Hyper-V-Netzwerk-Reconcile-Plan.
@@ -31,6 +31,8 @@
     Waehlt den manifestgebundenen read-only Hyper-V-Zusatz-VHDX-Reconcile-Plan.
 .PARAMETER HyperVSqlStorage
     Waehlt den read-only Hyper-V-SQL-Dateiplatzierungs-Reconcile-Plan.
+.PARAMETER HyperVSqlConfiguration
+    Waehlt den read-only Hyper-V-SQL-Livekonfigurations-Reconcile-Plan.
 .PARAMETER Container
     Wählt den Container-Ressourcen-Reconcile. Der Plan klassifiziert die
     Änderung als no-op, live oder recreate und mutiert die Runtime nicht.
@@ -76,6 +78,10 @@
     Get-SqlServerLabReconcilePlan -RunId $runId -HyperVSqlStorage -InstanceId primary
 
     Vergleicht SQL-Default- und TempDB-Dateipfade mit dem gebundenen Storageplan.
+.EXAMPLE
+    Get-SqlServerLabReconcilePlan -RunId $runId -HyperVSqlConfiguration -InstanceId primary
+
+    Vergleicht dynamische sp_configure-Werte und angeforderte globale Trace Flags.
 #>
 function Get-SqlServerLabReconcilePlan {
     [CmdletBinding(DefaultParameterSetName = 'Lifecycle')]
@@ -96,6 +102,7 @@ function Get-SqlServerLabReconcilePlan {
         [Parameter(Mandatory, ParameterSetName = 'HyperVResources')]
         [Parameter(Mandatory, ParameterSetName = 'HyperVStorage')]
         [Parameter(Mandatory, ParameterSetName = 'HyperVSqlStorage')]
+        [Parameter(Mandatory, ParameterSetName = 'HyperVSqlConfiguration')]
         [string]$InstanceId,
 
         [Parameter(Mandatory, ParameterSetName = 'HyperVNetwork')]
@@ -109,6 +116,9 @@ function Get-SqlServerLabReconcilePlan {
 
         [Parameter(Mandatory, ParameterSetName = 'HyperVSqlStorage')]
         [switch]$HyperVSqlStorage,
+
+        [Parameter(Mandatory, ParameterSetName = 'HyperVSqlConfiguration')]
+        [switch]$HyperVSqlConfiguration,
 
         [Parameter(Mandatory, ParameterSetName = 'Container')]
         [switch]$Container,
@@ -163,6 +173,9 @@ function Get-SqlServerLabReconcilePlan {
     }
     if ($PSCmdlet.ParameterSetName -eq 'HyperVSqlStorage') {
         return New-LabHyperVSqlStorageReconcilePlan -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
+    }
+    if ($PSCmdlet.ParameterSetName -eq 'HyperVSqlConfiguration') {
+        return New-LabHyperVSqlConfigurationReconcilePlan -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
     }
     return New-LabReconcilePlan -RunId $RunId -TargetState $TargetState -StateRoot $StateRoot
 }

@@ -333,6 +333,17 @@ werden nicht automatisch verschoben. Beide Repair-Verträge sind synthetisch
 inklusive Abbruch/Resume belegt; ein positiver nativer Reparaturlauf bleibt
 `NOT_EXECUTED`.
 
+Der erste Hyper-V-SQL-Konfigurations-Reconcile-Slice persistiert die bereits
+ausfuehrbaren `serverConfig`-Werte fuer Memory, MAXDOP, Cost Threshold,
+explizites `spConfigure` und globale Trace Flags. Der read-only Plan vergleicht
+sie ueber PowerShell Direct mit `sys.configurations` und `DBCC TRACESTATUS`.
+Der Executor revalidiert Run, Scope, Instanz und VM, akzeptiert nur dynamische
+`sp_configure`-Abweichungen sowie additive angeforderte Trace Flags und
+journalisiert vor der ersten SQL-Mutation. No-op, Live, `WhatIf`, wiederkehrende
+Drift, Abbruch/Resume und nicht dynamische Fail-closed-Faelle sind synthetisch
+belegt. Ein positiver nativer Reparaturlauf bleibt `NOT_EXECUTED`; SQL-Port,
+Trace-Flag-Entfernung und Testdatenbanken sind nicht Teil dieses Live-Slices.
+
 Das Feld `sizeLimitGB` bei Drives ist fuer Docker- oder Podman-Volumes weiterhin
 nur Metadatum. Hyper-V verwendet es dagegen als VHDX-Sollgroesse bei Erstellung
 und Grow-only-Reconcile.
@@ -835,10 +846,11 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
 3. Die verbleibenden providerneutralen Software-Intents an die Software-Runtime
    binden; Container-`nat`, Hyper-V-`hostOnly`/`isolated`/`nat`/`lan` sowie
    Hyper-V-vCPU, statisches/dynamisches RAM und Zusatz-VHDX sind bereits
-   manifestgebunden. Netzwerk-, Ressourcen-, Grow-only-Storage- sowie Default-/
-   TempDB-SQL-Storage-Reconcile sind synthetisch implementiert; positive native
-   Reparaturnachweise, Storage-Removal/-Rebinding, User-/Systemdatenbankbewegung
-   und weitere Hardware-/SQL-Klassen bleiben offen.
+   manifestgebunden. Netzwerk-, Ressourcen-, Grow-only-Storage-, Default-/
+   TempDB-SQL-Storage- sowie dynamische SQL-Konfigurations-Reconcile sind
+   synthetisch implementiert; positive native Reparaturnachweise, SQL-Port,
+   Testdatenbank-Reconcile, Storage-Removal/-Rebinding,
+   User-/Systemdatenbankbewegung und weitere Hardware-/SQL-Klassen bleiben offen.
 4. Artifact Registry, Refresh/Rebuild und Evaluierungsablauf implementieren.
 5. Den belegten Windows-2025-/SQL-2025-Referenzpfad zur vollständigen
    allgemeinen Hyper-V-Manifestbindung und zu weiteren realen

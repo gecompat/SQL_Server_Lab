@@ -26,6 +26,7 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 | `container-reconcile-journal.schema.json` | Lokales Operationsjournal `SqlServerLab.ContainerReconcileJournal/1.0` für Live-/Recreate-Mutation, echte Runtime-IDs, Resume, Rollback und sichtbaren Recovery-Bedarf |
 | `hyperv-network-reconcile-journal.schema.json` | Lokales Operationsjournal `SqlServerLab.HyperVNetworkReconcileJournal/1.0` für run-/scope-/VM-gebundene additive Infrastrukturreparatur, genau einen vorhandenen getrennten Adapter und Recovery-Retry |
 | `hyperv-resource-reconcile-journal.schema.json` | Lokales Operationsjournal `SqlServerLab.HyperVResourceReconcileJournal/1.0` für vCPU, statisches/dynamisches RAM, Min/Startup/Max, Stop-Apply-Start und Recovery-Resume |
+| `hyperv-sql-configuration-reconcile-journal.schema.json` | Lokales Operationsjournal `SqlServerLab.HyperVSqlConfigurationReconcileJournal/1.0` für dynamische `sp_configure`-Werte, additive globale Trace Flags und Recovery-Resume |
 
 ## Beispiele
 

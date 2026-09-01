@@ -494,7 +494,14 @@ Switch-Evidence sowie Shrink, Removal und Rollen-/Pfadwechsel bleiben offen.
 `HV-603A` besitzt fuer gebundene Default- und TempDB-Dateipfade einen
 hostwertfreien SQL-Istvergleich und einen receiptgebundenen Restart-/Resume-
 Executor. Automatische User- oder Systemdatenbankverschiebungen bleiben
-fail-closed; ein synthetischer Test ist kein Runtime-Nachweis.
+fail-closed; ein synthetischer Test ist kein Runtime-Nachweis. Der erste
+`HV-604`-Slice persistiert Memory-, MAXDOP-, Cost-Threshold-, explizite
+`sp_configure`- und Trace-Flag-Werte als portablen SQL-Konfigurationsintent.
+Ein getrennter Plan liest `sys.configurations` und globale Trace Flags ueber
+PowerShell Direct; nur dynamische Werte und fehlende angeforderte Trace Flags
+werden live, journalisiert und fortsetzbar repariert. SQL-Port, nicht dynamische
+Konfiguration, Trace-Flag-Entfernung und Testdatenbanken bleiben in getrennten
+Folgeslices offen. Die Live-Reparatur ist synthetisch, noch nicht nativ belegt.
 
 OS-, Edition- und inkompatible SQL-Versionswechsel werden zuerst als
 `reprovision` behandelt. In-place-Upgrades benötigen später einen separaten,
