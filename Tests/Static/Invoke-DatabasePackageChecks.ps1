@@ -34,7 +34,9 @@ try {
         )
         $evidence=[PSCustomObject]@{DatabaseState='OFFLINE';DetachState='CLEAN_OFFLINE';AccessMode='EXCLUSIVE';WriterCount=0;StateObservedAfterLock=$true}
         $metadata=[PSCustomObject]@{HasFileStream=$true;FileStreamInventoryComplete=$true;IsEncrypted=$false;TdeKeyEvidenceVerified=$false}
-        $created=New-LabDatabasePackage -DatabaseName Evidence -Provider hyperv -SqlMajorVersion 17 -RunId 'sanitized-run' -InstanceId primary -SourceEvidence $evidence -DatabaseMetadata $metadata -FileInventory $inventory -DataRoot $Root -ExternalDependencies @('SERVER_LOGIN_MAPPING')
+        $dependencyObservation=[PSCustomObject]@{SqlMajorVersion='17';Containment='NONE';IsEncrypted=$false;EncryptionState=0;EncryptorType='NONE';ServerLoginMappingCount=1;SqlAgentJobCount=0;CredentialOrProxyCount=0;LinkedServerCount=0}
+        $dependencyInventory=New-LabDatabaseMigrationDependencyInventory -DatabaseName Evidence -Provider hyperv -RunId 'sanitized-run' -InstanceId primary -Observation $dependencyObservation
+        $created=New-LabDatabasePackage -DatabaseName Evidence -Provider hyperv -SqlMajorVersion 17 -RunId 'sanitized-run' -InstanceId primary -SourceEvidence $evidence -DatabaseMetadata $metadata -FileInventory $inventory -DataRoot $Root -MigrationDependencyInventory $dependencyInventory
         $package=Get-LabDatabasePackage -DatabasePackageId $created.DatabasePackageId -DataRoot $Root
         $cloneRoot=Join-Path $WorkRoot 'clone';$clone=Copy-LabDatabasePackageClone -Package $package -TargetDirectory $cloneRoot
         $ready=Get-LabDatabasePackageAttachPlan -Package $package -TargetDirectory (Join-Path $WorkRoot 'attach-ready') -TargetEvidence ([PSCustomObject]@{SqlMajorVersion=17;FileStreamEnabled=$true;TdeKeyAvailable=$false;DatabaseExists=$false;ExclusiveUseAvailable=$true;PackageWriterCount=0})
@@ -60,6 +62,7 @@ try {
     Add-CheckResult 'Paketmanifest und Objektmenge werden als REUSABLE veröffentlicht' ($result.Created.Status -eq 'REUSABLE' -and $result.Created.ManifestSha256 -match '^[a-f0-9]{64}$')
     Add-CheckResult 'Clone materialisiert eine unabhängige, vollständig gehashte Dateimenge' ($result.Clone.Status -eq 'CLONED' -and $result.CloneFiles.Count -eq 5 -and -not $result.Clone.DirectPackageAttachAllowed)
     Add-CheckResult 'Attach-Plan erzwingt COPY_THEN_ATTACH und verbietet direktes Paket-Attach' ($result.Ready.Status -eq 'READY' -and $result.Ready.Mode -eq 'COPY_THEN_ATTACH' -and -not $result.Ready.DirectPackageAttachAllowed)
+    Add-CheckResult 'Attach-Plan weist Datenbankdateien statt vollständiger Instanzmigration aus' ($result.Ready.MigrationBoundary.ArtifactScope -eq 'DATABASE_FILES_ONLY' -and -not $result.Ready.MigrationBoundary.FullInstanceMigration -and 'SERVER_LOGIN_MAPPING' -in $result.Ready.MigrationBoundary.DependencyCategories)
     Add-CheckResult 'Attach-Executor kopiert vor Attach und journalisiert die Online-Postcondition' ($result.Attached.Status -eq 'ATTACHED' -and $result.AttachCalls.Count -eq 1 -and $result.AttachCalls[0].Files.Count -eq 4 -and (Get-Content -LiteralPath $result.Attached.JournalPath -Raw|ConvertFrom-Json).Status -eq 'COMPLETED')
     Add-CheckResult 'Neuer-zu-älter-SQL-Attach endet fail-closed' ('TARGET_SQL_VERSION_OLDER_THAN_SOURCE' -in $result.Old.Blockers)
     Add-CheckResult 'Fehlende FILESTREAM-Capability endet fail-closed' ('TARGET_FILESTREAM_CAPABILITY_MISSING' -in $result.NoStream.Blockers)

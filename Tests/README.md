@@ -116,6 +116,7 @@ Interpretation:
 .\Tests\Static\Invoke-CleanupAuditChecks.ps1
 .\Tests\Static\Invoke-PersistentStorageCatalogChecks.ps1
 .\Tests\Static\Invoke-PersistentStorageRemovalPlanChecks.ps1
+.\Tests\Static\Invoke-DatabaseMigrationDependencyChecks.ps1
 .\Tests\Static\Invoke-ContainerInstanceStoreChecks.ps1
 .\Tests\Static\Invoke-ContainerRuntimeScopeChecks.ps1
 .\Tests\Static\Invoke-PodmanBootstrapChecks.ps1
@@ -246,7 +247,9 @@ für Docker beziehungsweise Podman unter demselben hostweiten Mutex aus.
 
 Der lokale PSR-008-Cross-Provider-Nachweis verwendet zusätzlich dieselbe
 test-eigene Quelle für Docker → Podman und registriert nur den sanitierten
-Inhaltsdigest:
+Inhaltsdigest. Die Backup-Erstellung führt dabei auch das read-only PSR-010-
+Inventar aus und speichert nur Serverobjekt-/TDE-Kategorien und Counts, keine
+Objekt-, Host-, Credential- oder Schlüsselnamen:
 
 ```powershell
 .\Tests\Integration\Invoke-BackupLibraryCrossProviderAcceptance.ps1

@@ -69,13 +69,23 @@ $backupLibrary = & $selector -ChangedPath @('Private/BackupLibrary.ps1')
 Add-CheckResult -Name 'Backup-Bibliothek aktiviert statischen Vertrag und providerübergreifenden Runtime-Nachweis' -Success (
     $backupLibrary.Mixed -and
     'Invoke-BackupLibraryChecks.ps1' -in $backupLibrary.StaticChecks -and
+    'Invoke-DatabaseMigrationDependencyChecks.ps1' -in $backupLibrary.StaticChecks -and
     'Invoke-SampleBaselineRuntimeChecks.ps1' -in $backupLibrary.StaticChecks
 )
 
 $databasePackage = & $selector -ChangedPath @('Private/DatabasePackage.ps1')
 Add-CheckResult -Name 'Datenbankpaket aktiviert Offline-Dateivertrag und Hyper-V-Runtime-Nachweis' -Success (
     $databasePackage.HyperV -and -not $databasePackage.Docker -and -not $databasePackage.Podman -and
-    'Invoke-DatabasePackageChecks.ps1' -in $databasePackage.StaticChecks
+    'Invoke-DatabasePackageChecks.ps1' -in $databasePackage.StaticChecks -and
+    'Invoke-DatabaseMigrationDependencyChecks.ps1' -in $databasePackage.StaticChecks
+)
+
+$migrationDependency = & $selector -ChangedPath @('Private/DatabaseMigrationDependency.ps1')
+Add-CheckResult -Name 'Migrationsabhaengigkeiten aktivieren Core-, Backup-/Package- und getrennte Runtime-Grenzen' -Success (
+    $migrationDependency.Mixed -and $migrationDependency.HyperV -and
+    'Invoke-DatabaseMigrationDependencyChecks.ps1' -in $migrationDependency.StaticChecks -and
+    'Invoke-BackupLibraryChecks.ps1' -in $migrationDependency.StaticChecks -and
+    'Invoke-DatabasePackageChecks.ps1' -in $migrationDependency.StaticChecks
 )
 
 $hyperVPersistentData = & $selector -ChangedPath @('Private/HyperVPersistentDataDrive.ps1')

@@ -138,6 +138,7 @@ function Register-LabDatabaseBackupArtifact {
         [Parameter(Mandatory)][string]$DatabaseName,
         [Parameter(Mandatory)][ValidateSet('docker','podman','hyperv')][string]$Provider,
         [Parameter(Mandatory)]$Metadata,
+        [AllowNull()]$MigrationDependencyInventory,
         [string]$RunId,
         [string]$InstanceId,
         [Parameter(Mandatory)][string]$DataRoot
@@ -151,6 +152,12 @@ function Register-LabDatabaseBackupArtifact {
     $relativePath = Join-Path 'Objects' "$sha256.bak"
     $objectPath = Join-Path $paths.LibraryRoot $relativePath
     $now = Get-LabTimestamp
+    if($MigrationDependencyInventory){
+        if([string]$MigrationDependencyInventory.DatabaseName -ne $DatabaseName){throw 'BACKUP_LIBRARY_DEPENDENCY_DATABASE_MISMATCH'}
+        if([string]$MigrationDependencyInventory.Source.SqlMajorVersion -ne [string]$Metadata.SqlMajorVersion){throw 'BACKUP_LIBRARY_DEPENDENCY_SQL_VERSION_MISMATCH'}
+        if([bool]$MigrationDependencyInventory.Database.IsEncrypted -ne [bool]$Metadata.IsEncrypted){throw 'BACKUP_LIBRARY_DEPENDENCY_ENCRYPTION_MISMATCH'}
+    }
+    $migrationBoundary=Get-LabDatabaseArtifactMigrationBoundary -DependencyInventory $MigrationDependencyInventory
 
     return Invoke-LabBackupLibraryLock -LibraryRoot $paths.LibraryRoot -ScriptBlock {
         foreach ($directory in @($paths.LibraryRoot,$paths.ObjectsRoot)) {
@@ -191,6 +198,7 @@ function Register-LabDatabaseBackupArtifact {
                 FileTableCount = [int]$Metadata.FileTableCount
                 HasFileStream = [bool]$Metadata.HasFileStream
                 IsEncrypted = [bool]$Metadata.IsEncrypted
+                MigrationBoundary = $migrationBoundary
             }
             Artifact = [PSCustomObject][ordered]@{
                 RelativePath = $relativePath
@@ -297,6 +305,7 @@ function New-LabDatabaseLibraryBackup {
     finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
     try {
         $metadata = Get-LabDatabaseBackupMetadata -HostName $HostName -Port $Port -SaPlain $saPlain -DatabaseName $DatabaseName
+        $dependencyInventory = New-LabDatabaseMigrationDependencyInventory -DatabaseName $DatabaseName -Provider $(if($Provider){$Provider}else{'external'}) -RunId $RunId -InstanceId $InstanceId -Observation (Get-LabDatabaseMigrationDependencySqlObservation -HostName $HostName -Port $Port -SaPlain $saPlain -DatabaseName $DatabaseName)
         if ([bool]$metadata.IsEncrypted) {
             throw 'BACKUP_LIBRARY_TDE_DEPENDENCY_UNSUPPORTED: Verschlüsselte Datenbanken werden ohne separaten Zertifikat- und Recovery-Vertrag nicht als wiederverwendbar veröffentlicht.'
         }
@@ -314,12 +323,13 @@ RESTORE VERIFYONLY FROM DISK = N'$escapedPath' WITH CHECKSUM;
 "@
         $export = Export-LabSampleBaselineBackup -Target $target -RuntimeBackupPath $runtimeBackupPath -DestinationPath $hostBackupPath -Port $Port
         $registered = Register-LabDatabaseBackupArtifact -BackupPath $hostBackupPath -DatabaseName $DatabaseName `
-            -Provider ([string]$export.Provider) -Metadata $metadata -RunId $RunId -InstanceId $InstanceId -DataRoot $DataRoot
+            -Provider ([string]$export.Provider) -Metadata $metadata -MigrationDependencyInventory $dependencyInventory -RunId $RunId -InstanceId $InstanceId -DataRoot $DataRoot
         [PSCustomObject]@{
             Status='BACKUP_REUSABLE'; BackupSetId=[string]$registered.Record.BackupSetId
             DatabaseName=$DatabaseName; Provider=[string]$export.Provider
             Path=[string]$registered.Path; Sha256=[string]$registered.Record.Artifact.Sha256
             Bytes=[long]$registered.Record.Artifact.Bytes; HasFileStream=[bool]$registered.Record.DatabaseMetadata.HasFileStream
+            MigrationBoundary=$registered.Record.DatabaseMetadata.MigrationBoundary
             RegistryPath=[string]$registered.RegistryPath
         }
     }
