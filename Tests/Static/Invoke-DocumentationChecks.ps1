@@ -446,6 +446,7 @@ $coreFiles = @(
     'README.md'
     'Documentation/README.md'
     'Documentation/Architecture/ARCHITECTURE.md'
+    'Documentation/Architecture/LAB_DATA_AND_NATIVE_RUNTIME_STORAGE_DECISION.md'
     'Documentation/Standards/POWERSHELL_COMMAND_AND_HELP_STANDARD.md'
     'Documentation/User/README.md'
     'Documentation/User/INSTALLATION_WINDOWS.md'
@@ -591,6 +592,8 @@ $copilotAdapter = Get-Content -LiteralPath (Join-Path $repoRoot '.github\copilot
 $sqlCuPolicy = Get-Content -LiteralPath (Join-Path $repoRoot 'ops\sql-cu-policy.md') -Raw -Encoding utf8
 $masterImplementationPlan = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\MASTER_IMPLEMENTATION_PLAN.md') -Raw -Encoding utf8
 $developmentExecutionPlan = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md') -Raw -Encoding utf8
+$persistentStorageBacklog = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\PERSISTENT_STORAGE_REUSE_AND_LAB_DATA_BACKLOG.md') -Raw -Encoding utf8
+$labDataResidencyDecision = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Architecture\LAB_DATA_AND_NATIVE_RUNTIME_STORAGE_DECISION.md') -Raw -Encoding utf8
 $batchWorkflowPlan = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\PROVIDER_NEUTRAL_BATCH_QUEUE_RESUME_WORKFLOW_2026-08-13.md') -Raw -Encoding utf8
 $futureUseCases = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Architecture\FUTURE_USE_CASES_AND_EXTENSION_GUARDRAILS.md') -Raw -Encoding utf8
 $knownLimitations = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Quality\KNOWN_LIMITATIONS.md') -Raw -Encoding utf8
@@ -838,6 +841,18 @@ Add-ValidationResult `
         $masterImplementationPlan -match '(?m)^\| N3 – Drei reale Project-Adapter-Piloten \| Wellen 6, 7 und 7a \| `COMPLETE`' -and
         $masterImplementationPlan -match '(?m)^\| N4 – Hyper-V Windows-/SQL-End-to-End \| Welle 4 \| `COMPLETE` \|' -and
         $masterImplementationPlan -match '(?m)^\| N5 – Storage- und Reconcile-Vertical-Slice \| Wellen 1, 3, 4 und 5; Storage-Konsolidierungsplan \| `COMPLETE`')
+
+Add-ValidationResult `
+    -Name 'PSR-002 bindet Lab_Data-Versprechen und Runtime-Hostgrenzen widerspruchsfrei' `
+    -Success ($labDataResidencyDecision -match [regex]::Escape('SqlServerLab.LabDataResidencyDecision/1.0') -and
+        $labDataResidencyDecision -match [regex]::Escape('BINDING_ARCHITECTURE_DECISION') -and
+        $labDataResidencyDecision -match '(?s)`Lab_Data` bedeutet ausdrücklich \*\*nicht\*\*.*jedes\s+physische Byte' -and
+        $labDataResidencyDecision -match 'globale Docker-Desktop-Disk' -and
+        $labDataResidencyDecision -match 'Externe und unverifizierbare Objekte sind im normalen Audit `REPORT_ONLY`' -and
+        $labDataResidencyDecision -match 'Neue Hyper-V-Ressourcen.*registrierten,\s*controller-eigenen `Lab_Data`-Root' -and
+        $persistentStorageBacklog -match '(?m)^\| `PSR-002` .*\| `COMPLETE`:' -and
+        $developmentExecutionPlan -notmatch '`PSR-002` ist noch offen' -and
+        $repoMap -match 'lab_data_native_runtime_storage_decision: Documentation/Architecture/LAB_DATA_AND_NATIVE_RUNTIME_STORAGE_DECISION\.md')
 
 Add-ValidationResult `
     -Name 'Roadmap beschreibt den real belegten Container-Reconcile-Stand widerspruchsfrei' `

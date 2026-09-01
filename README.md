@@ -734,6 +734,7 @@ _QuellRepo/      unveränderte Quell-Snapshots anderer Repositories
 - [Dokumentationsübersicht](Documentation/README.md)
 - [Bekannte Grenzen](Documentation/Quality/KNOWN_LIMITATIONS.md)
 - [Manifest-Schemas und Beispiele](Schemas/README.md)
+- [`Lab_Data` und native Runtime-Speicher](Documentation/Architecture/LAB_DATA_AND_NATIVE_RUNTIME_STORAGE_DECISION.md)
 - [Testdatenbank-Provisionierung und menügeführte Manifest-Erstellung](Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md)
 - [Gemischter Container-Provider-Lifecycle](Documentation/Architecture/MIXED_PROVIDER_LIFECYCLE.md)
 - [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md)

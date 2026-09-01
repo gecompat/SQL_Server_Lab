@@ -79,6 +79,7 @@ sources_of_truth:
   storage_runtime_receipt_schema: Schemas/lab-storage-runtime-receipt.schema.json
   storage_residency_inventory: Private/StorageResidencyInventory.ps1
   storage_residency_inventory_schema: Schemas/lab-storage-residency-inventory.schema.json
+  lab_data_native_runtime_storage_decision: Documentation/Architecture/LAB_DATA_AND_NATIVE_RUNTIME_STORAGE_DECISION.md
   cleanup_audit_schema: Schemas/lab-cleanup-audit.schema.json
   hyperv_resource_binding_contract: Private/HyperVResourceBinding.ps1
   hyperv_resource_preview_command: Public/Get-SqlServerLabHyperVResourcePreview.ps1

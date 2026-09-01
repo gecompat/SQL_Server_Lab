@@ -2,7 +2,7 @@
 
 ## Status und Priorität
 
-`ACTIVE / P1_PRODUCT_CONTRACT_WITH_PSR_001_IMPLEMENTED_PARTIAL` – die vorhandenen
+`ACTIVE / P1_PRODUCT_CONTRACT_WITH_PSR_001_PARTIAL_AND_PSR_002_COMPLETE` – die vorhandenen
 Persistenzmechanismen schützen bereits Teile des SQL-Zustands, bilden aber noch
 keinen vollständigen, providerübergreifenden Wiederverwendungs- und
 Löschvertrag. Planung ist kein Implementierungs- oder Runtime-Nachweis.
@@ -21,9 +21,18 @@ Pfadklassifikation, Lebensdauer, Retention, Cleanup-Policy und Auditstatus.
 Hyper-V-Run-/Shared-Ressourcen und Legacy-/Repository-Residuen werden nicht
 gleichgesetzt. Ein Providerpfad innerhalb einer Runtime-VM gilt ausdrücklich
 nicht als hostseitige `Lab_Data`-Ablage. Die vollständige Auflösung der
-physischen Docker-Desktop-/Podman-Machine-Backing-Disks und der Architekturentscheid
-aus `PSR-002` bleiben offen; `PARTIAL` ist deshalb ein gültiger Auditstatus und
-kein positiver Vollständigkeitsnachweis.
+physischen Docker-Desktop-/Podman-Machine-Backing-Disks bleibt offen; `PARTIAL`
+ist deshalb ein gültiger Auditstatus und kein positiver Vollständigkeitsnachweis.
+
+`PSR-002` ist durch den bindenden Entscheid
+[`SqlServerLab.LabDataResidencyDecision/1.0`](../Architecture/LAB_DATA_AND_NATIVE_RUNTIME_STORAGE_DECISION.md)
+abgeschlossen. `Lab_Data` ist der hostseitige Katalog-, Austausch-, Sicherungs-
+und Recovery-Einstieg, kein falsches Vollresidenzversprechen für gemeinsam
+genutzte Container-Runtimes. Katalogisierte native Instanzstores bleiben
+zulässig; globale Docker-/Podman-Ablagen, labfremde Ressourcen und externe
+Pfade bleiben ohne eigenen Ownership- und Migrationsvertrag außerhalb des
+Mutationsscopes. Neue Hyper-V-Hostdateien bleiben an registrierte `Lab_Data`-
+Bindings gebunden.
 
 ## Ausgangslage
 
@@ -306,7 +315,7 @@ Volumename ersetzt diese Identität nicht.
 | ID | Priorität | Arbeitspaket | Ergebnis |
 |---|---:|---|---|
 | `PSR-001` | P0-Analyse | Ist-Inventar aller persistenten, rungebundenen und verbleibenden Objekte für Docker, Podman und Hyper-V | `IMPLEMENTED_PARTIAL`: versionierte read-only Matrix mit stabilen Objekt-IDs, Residency, Lifecycle, Cleanup-Policy und Provider-Coverage; physisches Desktop-/Machine-Backing bleibt explizit unverifizierbar |
-| `PSR-002` | P0-Analyse | `Lab_Data`-Versprechen, native Runtime-Ausnahmen und Hosteingriffsgrenzen entscheiden | versionierter Architekturentscheid |
+| `PSR-002` | P0-Analyse | `Lab_Data`-Versprechen, native Runtime-Ausnahmen und Hosteingriffsgrenzen entscheiden | `COMPLETE`: bindender `SqlServerLab.LabDataResidencyDecision/1.0`-Entscheid |
 | `PSR-003` | P1 | Storage-Katalog mit stabiler ID, Klassen, Zuständen, Referenzen und Leases entwerfen | Schema, Parser, Planner und read-only Inventar |
 | `PSR-004` | P1 | Retention-, Backup-on-Remove-, Package- und expliziten Löschvertrag entwerfen | verlustsicherer Cleanup-/Recovery-Plan |
 | `PSR-005` | P1 | Docker-/Podman-Instanzstore auswählbar, fortsetzbar und klonbar machen | getrennte reale Provider-Nachweise |
