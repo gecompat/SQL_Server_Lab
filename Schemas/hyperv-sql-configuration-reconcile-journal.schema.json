@@ -12,7 +12,7 @@
     "InstanceId": { "type": "string", "minLength": 1 },
     "Provider": { "const": "hyperv" },
     "ChangeClass": { "enum": ["live", "restart"] },
-    "Status": { "enum": ["PREPARED", "CONFIGURATION_APPLIED", "SERVICE_RESTARTED", "VERIFIED", "COMPLETED", "RECOVERY_REQUIRED"] },
+    "Status": { "enum": ["PREPARED", "CONFIGURATION_APPLIED", "TRACE_FLAGS_REMOVED", "SERVICE_RESTARTED", "VERIFIED", "OWNERSHIP_UPDATED", "DESIRED_STATE_UPDATED", "COMPLETED", "RECOVERY_REQUIRED"] },
     "Target": {
       "type": "object",
       "required": ["Configurations", "TraceFlags"],
@@ -41,6 +41,16 @@
         "ServiceName": { "const": "MSSQLSERVER" }
       },
       "additionalProperties": false
+    },
+    "TraceFlagAdditions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "integer", "minimum": 1 }
+    },
+    "TraceFlagRemovals": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "integer", "minimum": 1 }
     },
     "Recovery": {
       "type": "object",

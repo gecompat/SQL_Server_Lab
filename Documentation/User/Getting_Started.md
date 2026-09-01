@@ -1000,6 +1000,34 @@ kontrolliert neu. Ein fehlgeschlagener Lauf bleibt `RECOVERY_REQUIRED` und wird
 mit demselben Aufruf fortgesetzt. User- und Systemdatenbankdateien sowie
 zusätzliche TempDB-Logfiles bleiben `unsupported`.
 
+### Hyper-V-SQL-Konfiguration und Runtime-Trace-Flags abgleichen
+
+Ohne Zielmanifest repariert der Plan Drift gegen den persistierten
+`serverConfig`-Intent. Mit Zielmanifest darf ausschließlich dieser Intent der
+Zielinstanz abweichen:
+
+```powershell
+$sqlConfigurationPlan = Get-SqlServerLabReconcilePlan `
+    -RunId $lab.RunId `
+    -HyperVSqlConfiguration `
+    -ManifestPath .\lab-with-updated-server-config.json `
+    -InstanceId primary
+
+Invoke-SqlServerLabReconcileAction `
+    -RunId $lab.RunId `
+    -RepairHyperVSqlConfiguration `
+    -ManifestPath .\lab-with-updated-server-config.json `
+    -InstanceId primary `
+    -WhatIf
+```
+
+Dynamische Werte und fehlende Trace-Flags werden live angewendet. Nicht
+dynamische `sp_configure`-Werte starten ausschließlich `MSSQLSERVER` neu.
+Entfernt werden nur Runtime-Trace-Flags, die das VM-gebundene lokale Receipt
+diesem Run zuordnet. Startup-Flags und fremde aktive Flags bleiben fail-closed.
+Nach erfolgreicher Postcondition werden Ownership und Desired State gemeinsam
+fortgeschrieben; derselbe Aufruf setzt einen `RECOVERY_REQUIRED`-Lauf fort.
+
 ### Hyper-V-SQL-Port abgleichen und fortsetzen
 
 Der statische SQL-TCP-Port besitzt einen eigenen Restart-Vertrag. Der

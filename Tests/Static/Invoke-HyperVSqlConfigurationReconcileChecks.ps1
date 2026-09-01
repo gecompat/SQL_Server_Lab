@@ -21,29 +21,40 @@ try {
         }) -ProviderCapability $providerCapability
 
         $script:configurationDesired=$intent
+        $script:configurationCurrentDesired=$intent
+        $script:configurationDesiredStateChanged=$false
+        $script:configurationDesiredSnapshot=[PSCustomObject]@{Contract=[PSCustomObject]@{Name='SqlServerLab.DesiredState';Version='1.0'};Instances=@()}
+        $script:configurationRun=[PSCustomObject]@{runId=$RunId;scopeId=$ScopeId;metadata=[PSCustomObject]@{desiredState=$script:configurationDesiredSnapshot};updatedAt=Get-LabTimestamp}
         $script:configurationContext=[PSCustomObject]@{
             RunId=$RunId;ScopeId=$ScopeId;InstanceId='primary';StateRoot=$Root
             RunDirectory=(Join-Path (Join-Path $Root 'runs') $RunId)
             ConnectionInstance=[PSCustomObject]@{vmName='private-vm-name'}
             VM=[PSCustomObject]@{Id='private-vm-id';State='Running'}
-            Desired=$script:configurationDesired;CredentialAvailable=$true
+            Run=$script:configurationRun;PersistedSnapshot=$script:configurationDesiredSnapshot;DesiredSnapshot=$script:configurationDesiredSnapshot
+            CurrentDesired=$script:configurationCurrentDesired;Desired=$script:configurationDesired;DesiredStateChanged=$false
+            OwnershipPath=(Join-Path (Join-Path (Join-Path $Root 'runs') $RunId) 'hyperv-sql-configuration-ownership.local.json')
+            Ownership=(ConvertTo-LabHyperVSqlConfigurationOwnershipReceipt -RunId $RunId -ScopeId $ScopeId -InstanceId primary -VMId private-vm-id -TraceFlags @(3226))
+            CredentialAvailable=$true
         }
         $script:configurationActual=[PSCustomObject]@{
             Status='AVAILABLE';ServiceName='MSSQLSERVER';ServiceStatus='Running'
             Configurations=@($intent.Configurations | ForEach-Object {[PSCustomObject]@{Name=$_.Name;ValueInUse=[long]$_.Value;ConfiguredValue=[long]$_.Value;IsDynamic=$true}})
-            TraceFlags=@(3226)
+            TraceFlags=@(3226);StartupTraceFlags=@()
         }
         $script:configurationApplyCount=0;$script:configurationTargetApplyCount=0
         $script:configurationTraceFlagApplyCount=0;$script:configurationRestartCount=0
+        $script:configurationTraceFlagRemovalCount=0;$script:configurationOwnershipFailOnce=$false
         $script:configurationFailOnce=$false;$script:configurationRestartFailOnce=$false
         function Get-LabHyperVSqlConfigurationReconcileContext {
             $script:configurationContext.Desired=$script:configurationDesired
+            $script:configurationContext.CurrentDesired=$script:configurationCurrentDesired
+            $script:configurationContext.DesiredStateChanged=$script:configurationDesiredStateChanged
             return $script:configurationContext
         }
         function Get-LabHyperVSqlConfigurationReconcileCredentials { [PSCustomObject]@{GuestCredential=$null;SqlSaPassword=$null} }
         function Get-LabHyperVSqlConfigurationActualState { return $script:configurationActual }
         function Set-LabHyperVSqlConfigurationValues {
-            param($Context,$Access,[bool]$ApplyConfigurations=$true,[bool]$ApplyTraceFlags=$true)
+            param($Context,$Access,[bool]$ApplyConfigurations=$true,[bool]$ApplyTraceFlags=$true,[int[]]$TraceFlags)
             $null=$Context;$null=$Access
             $script:configurationApplyCount++
             if($ApplyConfigurations){
@@ -56,7 +67,7 @@ try {
             }
             if($ApplyTraceFlags){
                 $script:configurationTraceFlagApplyCount++
-                $script:configurationActual.TraceFlags=@($script:configurationActual.TraceFlags)+@($script:configurationDesired.TraceFlags)|Sort-Object -Unique
+                $script:configurationActual.TraceFlags=@($script:configurationActual.TraceFlags)+@($TraceFlags)|Sort-Object -Unique
             }
             if($script:configurationFailOnce){$script:configurationFailOnce=$false;throw 'SYNTHETIC_CONFIG_FAILURE'}
         }
@@ -70,6 +81,19 @@ try {
             }
             $script:configurationActual.TraceFlags=@()
             [PSCustomObject]@{Status='RESTARTED';ServiceName='MSSQLSERVER';ServiceStatus='Running'}
+        }
+        function Invoke-LabHyperVSqlConfigurationTraceFlagRemoval {
+            param($Context,$Access,[int[]]$TraceFlags)
+            $null=$Context;$null=$Access
+            $script:configurationTraceFlagRemovalCount++
+            $script:configurationActual.TraceFlags=@($script:configurationActual.TraceFlags|Where-Object{[int]$_ -notin @($TraceFlags)})
+            [PSCustomObject]@{Status='REMOVED';TraceFlags=@($TraceFlags)}
+        }
+        $script:configurationOwnershipWriter=${function:Write-LabHyperVSqlConfigurationOwnershipReceipt}
+        function Write-LabHyperVSqlConfigurationOwnershipReceipt {
+            param($Receipt,$Path)
+            if($script:configurationOwnershipFailOnce){$script:configurationOwnershipFailOnce=$false;throw 'SYNTHETIC_OWNERSHIP_FAILURE'}
+            & $script:configurationOwnershipWriter -Receipt $Receipt -Path $Path
         }
 
         $noOp=Get-SqlServerLabReconcilePlan -RunId $RunId -HyperVSqlConfiguration -InstanceId primary -StateRoot $Root
@@ -123,8 +147,74 @@ try {
         $restartResumed=Invoke-SqlServerLabReconcileAction -RunId $RunId -RepairHyperVSqlConfiguration -InstanceId primary -StateRoot $Root -Confirm:$false
         $restartResumedJournal=Get-Content -LiteralPath $journalPath -Raw | ConvertFrom-Json
 
+        $script:configurationCurrentDesired=($script:configurationDesired|ConvertTo-Json -Depth 30|ConvertFrom-Json)
+        $script:configurationDesired=($script:configurationCurrentDesired|ConvertTo-Json -Depth 30|ConvertFrom-Json)
+        $script:configurationDesired.TraceFlags=@()
+        $script:configurationDesiredStateChanged=$true
+        $script:configurationContext.DesiredSnapshot=[PSCustomObject]@{Contract=[PSCustomObject]@{Name='SqlServerLab.DesiredState';Version='1.0'};Instances=@('trace-removal-target')}
+        $script:configurationActual.TraceFlags=@(3226,4199);$script:configurationActual.StartupTraceFlags=@()
+        $script:configurationContext.Ownership.TraceFlags=@(3226)
+        $removalPlan=Get-SqlServerLabReconcilePlan -RunId $RunId -HyperVSqlConfiguration -ManifestPath 'target-remove.json' -InstanceId primary -StateRoot $Root
+        $removalCountBeforeWhatIf=$script:configurationTraceFlagRemovalCount
+        $removalWhatIf=Invoke-SqlServerLabReconcileAction -RunId $RunId -RepairHyperVSqlConfiguration -ManifestPath 'target-remove.json' -InstanceId primary -StateRoot $Root -WhatIf
+        $removalWhatIfSafe=$script:configurationTraceFlagRemovalCount -eq $removalCountBeforeWhatIf -and $removalWhatIf.ExecutionSummary.Status -eq 'WOULD_EXECUTE'
+        $removalApply=Invoke-SqlServerLabReconcileAction -RunId $RunId -RepairHyperVSqlConfiguration -ManifestPath 'target-remove.json' -InstanceId primary -StateRoot $Root -Confirm:$false
+        $removalJournal=Get-Content -LiteralPath $journalPath -Raw|ConvertFrom-Json
+        $ownedRemoval=$removalPlan.HighestChangeClass -eq 'live' -and @($removalPlan.Diff.Kind) -contains 'trace-flag-remove' -and
+            $removalApply.ExecutionSummary.Status -eq 'SUCCEEDED' -and $script:configurationTraceFlagRemovalCount -eq ($removalCountBeforeWhatIf+1) -and
+            3226 -notin @($script:configurationActual.TraceFlags) -and 4199 -in @($script:configurationActual.TraceFlags) -and
+            @($script:configurationContext.Ownership.TraceFlags).Count -eq 0 -and @($removalJournal.TraceFlagRemovals) -contains 3226
+
+        $script:configurationActual.TraceFlags=@(3226,4199);$script:configurationActual.StartupTraceFlags=@(3226)
+        $script:configurationContext.Ownership.TraceFlags=@(3226)
+        $startupBlocked=Get-SqlServerLabReconcilePlan -RunId $RunId -HyperVSqlConfiguration -ManifestPath 'target-startup.json' -InstanceId primary -StateRoot $Root
+        $startupFailClosed=$startupBlocked.HighestChangeClass -eq 'unsupported' -and @($startupBlocked.Diff.Kind) -contains 'trace-flag-remove-startup'
+
+        $script:configurationActual.StartupTraceFlags=@();$script:configurationContext.Ownership.TraceFlags=@()
+        $foreignBlocked=Get-SqlServerLabReconcilePlan -RunId $RunId -HyperVSqlConfiguration -ManifestPath 'target-foreign.json' -InstanceId primary -StateRoot $Root
+        $foreignFailClosed=$foreignBlocked.HighestChangeClass -eq 'unsupported' -and @($foreignBlocked.Diff.Kind) -contains 'trace-flag-remove-unowned'
+
+        $script:configurationCurrentDesired=($script:configurationDesired|ConvertTo-Json -Depth 30|ConvertFrom-Json)
+        $script:configurationDesired=($script:configurationCurrentDesired|ConvertTo-Json -Depth 30|ConvertFrom-Json)
+        $script:configurationDesired.TraceFlags=@(1117);$script:configurationActual.TraceFlags=@(4199)
+        $script:configurationContext.Ownership.TraceFlags=@();$script:configurationActual.StartupTraceFlags=@()
+        $script:configurationContext.DesiredSnapshot=[PSCustomObject]@{Contract=[PSCustomObject]@{Name='SqlServerLab.DesiredState';Version='1.0'};Instances=@('trace-add-target')}
+        $additionApply=Invoke-SqlServerLabReconcileAction -RunId $RunId -RepairHyperVSqlConfiguration -ManifestPath 'target-add.json' -InstanceId primary -StateRoot $Root -Confirm:$false
+        $additionOwned=$additionApply.ExecutionSummary.Status -eq 'SUCCEEDED' -and 1117 -in @($script:configurationActual.TraceFlags) -and 1117 -in @($script:configurationContext.Ownership.TraceFlags)
+
+        $script:configurationCurrentDesired=($script:configurationDesired|ConvertTo-Json -Depth 30|ConvertFrom-Json)
+        $script:configurationDesired=($script:configurationCurrentDesired|ConvertTo-Json -Depth 30|ConvertFrom-Json);$script:configurationDesired.TraceFlags=@()
+        $script:configurationContext.DesiredSnapshot=[PSCustomObject]@{Contract=[PSCustomObject]@{Name='SqlServerLab.DesiredState';Version='1.0'};Instances=@('trace-recovery-target')}
+        $script:configurationActual.TraceFlags=@(1117,4199);$script:configurationContext.Ownership.TraceFlags=@(1117)
+        $removalCountBeforeRecovery=$script:configurationTraceFlagRemovalCount;$script:configurationOwnershipFailOnce=$true
+        $removalFailed=Invoke-SqlServerLabReconcileAction -RunId $RunId -RepairHyperVSqlConfiguration -ManifestPath 'target-recovery.json' -InstanceId primary -StateRoot $Root -Confirm:$false
+        $removalFailedJournal=Get-Content -LiteralPath $journalPath -Raw|ConvertFrom-Json
+        $removalResumePlan=Get-SqlServerLabReconcilePlan -RunId $RunId -HyperVSqlConfiguration -ManifestPath 'target-recovery.json' -InstanceId primary -StateRoot $Root
+        $removalResumed=Invoke-SqlServerLabReconcileAction -RunId $RunId -RepairHyperVSqlConfiguration -ManifestPath 'target-recovery.json' -InstanceId primary -StateRoot $Root -Confirm:$false
+        $removalRecovery=$removalFailed.ExecutionSummary.Status -eq 'FAILED' -and $removalFailedJournal.Status -eq 'RECOVERY_REQUIRED' -and
+            $removalResumePlan.Actions[0].Operation -eq 'ResumeHyperVSqlConfiguration' -and $removalResumed.ExecutionSummary.Status -eq 'SUCCEEDED' -and
+            $script:configurationTraceFlagRemovalCount -eq ($removalCountBeforeRecovery+1) -and 1117 -notin @($script:configurationActual.TraceFlags)
+
         $script:configurationActual.Configurations=@($script:configurationActual.Configurations|Where-Object Name -ne 'cost threshold for parallelism')
         $unsupported=Get-SqlServerLabReconcilePlan -RunId $RunId -HyperVSqlConfiguration -InstanceId primary -StateRoot $Root
+
+        $fingerprintInstance=[PSCustomObject]@{
+            Id='primary';Provider='hyperv';Version='2025';Profile='standard';AutoStart='off';DatabaseNames=@('db')
+            Intents=[PSCustomObject]@{Drives=@();Network=[PSCustomObject]@{Mode='hostOnly'};Resources=$null;SqlEndpoint=$null;Databases=$null;Software=$null;Storage=$null;SqlConfiguration=[PSCustomObject]@{TraceFlags=@(1117)}}
+        }
+        $configurationOnlyClone=$fingerprintInstance|ConvertTo-Json -Depth 20|ConvertFrom-Json
+        $configurationOnlyClone.Intents.SqlConfiguration.TraceFlags=@(3226)
+        $networkClone=$fingerprintInstance|ConvertTo-Json -Depth 20|ConvertFrom-Json
+        $networkClone.Intents.Network.Mode='nat'
+        $targetIsolation=(Get-LabHyperVSqlConfigurationInstanceFingerprint -Instance $fingerprintInstance|ConvertTo-Json -Depth 20 -Compress) -ceq
+            (Get-LabHyperVSqlConfigurationInstanceFingerprint -Instance $configurationOnlyClone|ConvertTo-Json -Depth 20 -Compress) -and
+            (Get-LabHyperVSqlConfigurationInstanceFingerprint -Instance $fingerprintInstance|ConvertTo-Json -Depth 20 -Compress) -cne
+            (Get-LabHyperVSqlConfigurationInstanceFingerprint -Instance $networkClone|ConvertTo-Json -Depth 20 -Compress)
+        $foreignReceipt=ConvertTo-LabHyperVSqlConfigurationOwnershipReceipt -RunId $RunId -ScopeId $ScopeId -InstanceId primary -VMId foreign-vm -TraceFlags @(3226)
+        $foreignReceiptPath=Join-Path $script:configurationContext.RunDirectory 'foreign-ownership.json'
+        $null=Write-LabHyperVSqlConfigurationOwnershipReceipt -Receipt $foreignReceipt -Path $foreignReceiptPath
+        $ownershipIdentityBlocked=$false
+        try{$null=Read-LabHyperVSqlConfigurationOwnershipReceipt -Path $foreignReceiptPath -Context $script:configurationContext}catch{$ownershipIdentityBlocked=$_.Exception.Message -match 'HYPERV_SQL_CONFIGURATION_OWNERSHIP_IDENTITY_MISMATCH'}
 
         [PSCustomObject]@{
             Intent=$intent.Contract.Name -eq 'SqlServerLab.SqlConfigurationIntent' -and $intent.CapabilityStatus -eq 'DECLARED_SUPPORTED' -and
@@ -142,6 +232,8 @@ try {
                 @($restartResumePlan.Actions[0].RepairKinds) -contains 'configuration-restart-pending' -and $configuredBeforeResume -and
                 $script:configurationTargetApplyCount -eq ($targetApplyCountBeforeFailure+1) -and
                 $restartResumed.ExecutionSummary.Status -eq 'SUCCEEDED' -and $restartResumedJournal.Status -eq 'COMPLETED' -and [long]$actualDop.ValueInUse -eq 16
+            RemovalWhatIf=$removalWhatIfSafe;OwnedRemoval=$ownedRemoval;StartupBlocked=$startupFailClosed;ForeignBlocked=$foreignFailClosed
+            AdditionOwnership=$additionOwned;RemovalRecovery=$removalRecovery;TargetIsolation=$targetIsolation;OwnershipIdentity=$ownershipIdentityBlocked
             Unsupported=$unsupported.HighestChangeClass -eq 'unsupported' -and @($unsupported.Actions).Count -eq 0 -and @($unsupported.Diff.Kind) -contains 'configuration-missing'
         }
     } $testRoot $runId $scopeId
@@ -159,8 +251,17 @@ try {
         'Nicht dynamische Konfiguration wird als SQL-Dienstrestart ohne VM-Restart geplant'=$result.RestartPlan
         'Restart-Reparatur stellt Trace Flags wieder her und erfuellt die Postcondition'=$result.RestartApply
         'Fehler vor dem SQL-Dienstrestart bleibt fortsetzbar und mutiert den Zielwert nicht doppelt'=$result.RestartRecovery
+        'Trace-Flag-Entfernung bleibt unter WhatIf mutationsfrei'=$result.RemovalWhatIf
+        'Nur run-eigene Runtime-Trace-Flags werden entfernt und fremde Flags bleiben aktiv'=$result.OwnedRemoval
+        'SQL-Startup-Trace-Flags bleiben bei Zielentfernung fail-closed'=$result.StartupBlocked
+        'Nicht run-eigene aktive Trace-Flags bleiben bei Zielentfernung fail-closed'=$result.ForeignBlocked
+        'Neu aktivierte Trace-Flags werden VM-gebunden als run-eigen erfasst'=$result.AdditionOwnership
+        'Recovery nach Trace-Flag-Entfernung wiederholt TRACEOFF nicht'=$result.RemovalRecovery
+        'Zielmanifest-Fingerprint erlaubt nur SQL-Konfiguration und blockiert Netzwerkdrift'=$result.TargetIsolation
+        'Ownership-Receipt ist fail-closed an die konkrete VM-Identitaet gebunden'=$result.OwnershipIdentity
         'Fehlende oder mehrdeutige Konfiguration bleibt fail-closed'=$result.Unsupported
-        'Gastmutation parametrisiert sp_configure und startet ausschliesslich MSSQLSERVER neu'=($source -match "Parameters\.Add\('@name'" -and $source -match "Parameters\.Add\('@value'" -and $source -match "Restart-Service -Name 'MSSQLSERVER'" -and $source -notmatch 'Restart-VM|Stop-VM|Start-VM')
+        'Gastmutation parametrisiert sp_configure, schuetzt Startup-Flags und startet ausschliesslich MSSQLSERVER neu'=($source -match "Parameters\.Add\('@name'" -and $source -match "Parameters\.Add\('@value'" -and $source -match 'DBCC TRACEOFF' -and $source -match 'SQLArg\*' -and $source -match "Restart-Service -Name 'MSSQLSERVER'" -and $source -notmatch 'Restart-VM|Stop-VM|Start-VM')
+        'Initiale SQL-Konfiguration initialisiert den Trace-Flag-Besitznachweis'=((Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVLabEnvironment.ps1') -Raw) -match 'Initialize-LabHyperVSqlConfigurationOwnershipReceipt')
     }
     $failedChecks=@($checks.GetEnumerator()|Where-Object{-not $_.Value})
     foreach($check in $checks.GetEnumerator()){$color=if($check.Value){'Green'}else{'Red'};Write-Host("  {0}  {1}" -f $(if($check.Value){'PASS'}else{'FAIL'}),$check.Key)-ForegroundColor $color}

@@ -502,7 +502,11 @@ PowerShell Direct. Dynamische Werte und fehlende angeforderte Trace Flags
 werden live repariert; nicht dynamische Werte verwenden einen journalisierten,
 fortsetzbaren Neustart ausschließlich von `MSSQLSERVER`, stellen danach die
 deklarierte Trace-Flag-Laufzeitbindung wieder her und lassen die Hyper-V-VM
-gestartet. Der SQL-Port-Folgeslice
+gestartet. Ein Zielmanifest darf ausschließlich diesen Intent ändern. Ein
+VM-gebundenes Ownership-Receipt schützt die Entfernung globaler Runtime-Trace-
+Flags; Startup- und fremde Flags bleiben fail-closed. Journalisierte
+Postconditions schreiben Ownership und Desired State erst nach erfolgreicher
+Runtime-Verifikation fort und Recovery wiederholt `TRACEOFF` nicht. Der SQL-Port-Folgeslice
 persistiert `hyperv.sqlPort`, vergleicht
 TCP-Registry und Gastfirewall hostwertfrei und repariert Drift für genau eine
 Standardinstanz mit journalisiertem SQL-Dienstrestart, Readiness-Postcondition
@@ -519,8 +523,9 @@ einen vollständigen portablen Storage-Intent; reine OS-Baselines bleiben
 fail-closed. Ein isolierter nativer Runner samt Prepared-Artifact-Bootstrap
 bindet Plan, `WhatIf`, Add, No-op, Remove, Fremddatenbankschutz, VM-Restart und
 Cleanup, ist aber noch `NOT_EXECUTED`. Die übrigen Repair-Pfade sind ebenfalls
-noch nicht nativ belegt; Trace-Flag-Entfernung, alte Runs ohne Ownership-
-Receipt und allgemeiner Create-/Restore-Reconcile bleiben offen.
+noch nicht nativ belegt; alte Runs ohne Ownership-Receipt können bereits aktive
+Trace Flags nicht entfernen. Allgemeiner Create-/Restore-Reconcile und die
+Entfernung vollständiger `sp_configure`-Einträge bleiben offen.
 
 OS-, Edition- und inkompatible SQL-Versionswechsel werden zuerst als
 `reprovision` behandelt. In-place-Upgrades benötigen später einen separaten,

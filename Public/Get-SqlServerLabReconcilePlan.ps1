@@ -18,8 +18,8 @@
     Gewuenschter Lifecycle-Zustand: RUNNING oder STOPPED.
 .PARAMETER ManifestPath
     Zielmanifest fuer eine erstmalige External-Runtime-Installation oder einen
-    späteren Reconcile. Ausserhalb des resolvergebundenen Softwarevertrags darf
-    es nicht vom persistierten Sollzustand abweichen.
+    späteren Reconcile. Beim Hyper-V-SQL-Konfigurations-Reconcile darf es nur
+    den SQL-Konfigurationsintent der Zielinstanz aendern.
 .PARAMETER InstanceId
     Zielinstanz für Hyper-V-Netzwerk-, Ressourcen-, Storage-, SQL-, Container- oder External-Runtime-Reconcile. Darf nur
     entfallen, wenn genau eine geeignete Runtime-Instanz im Run existiert.
@@ -33,7 +33,8 @@
     Waehlt den read-only Hyper-V-SQL-Dateiplatzierungs-Reconcile-Plan.
 .PARAMETER HyperVSqlConfiguration
     Waehlt den read-only Hyper-V-SQL-Konfigurations-Reconcile-Plan fuer live
-    aenderbare und SQL-dienstrestartpflichtige Werte.
+    aenderbare und SQL-dienstrestartpflichtige Werte sowie eigentumsgebundene
+    Runtime-Trace-Flag-Entfernungen.
 .PARAMETER HyperVSqlPort
     Waehlt den read-only Hyper-V-SQL-TCP-Port-Reconcile-Plan.
 .PARAMETER HyperVTestDatabases
@@ -90,6 +91,11 @@
     Vergleicht live aenderbare oder SQL-dienstrestartpflichtige sp_configure-
     Werte und angeforderte globale Trace Flags.
 .EXAMPLE
+    Get-SqlServerLabReconcilePlan -RunId $runId -HyperVSqlConfiguration -ManifestPath .\lab.json -InstanceId primary
+
+    Plant eine Zielaenderung und entfernt ausschliesslich run-eigene Runtime-
+    Trace-Flags; Startup- und fremde Flags bleiben fail-closed.
+.EXAMPLE
     Get-SqlServerLabReconcilePlan -RunId $runId -HyperVSqlPort -InstanceId primary
 
     Vergleicht den manifestgebundenen statischen SQL-TCP-Port im Hyper-V-Gast.
@@ -110,6 +116,7 @@ function Get-SqlServerLabReconcilePlan {
 
         [Parameter(Mandatory, ParameterSetName = 'ExternalRuntime')]
         [Parameter(Mandatory, ParameterSetName = 'HyperVTestDatabases')]
+        [Parameter(ParameterSetName = 'HyperVSqlConfiguration')]
         [string]$ManifestPath,
 
         [Parameter(ParameterSetName = 'ExternalRuntime')]
@@ -203,7 +210,9 @@ function Get-SqlServerLabReconcilePlan {
         return New-LabHyperVSqlStorageReconcilePlan -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
     }
     if ($PSCmdlet.ParameterSetName -eq 'HyperVSqlConfiguration') {
-        return New-LabHyperVSqlConfigurationReconcilePlan -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
+        $arguments=@{RunId=$RunId;InstanceId=$InstanceId;StateRoot=$StateRoot}
+        if($PSBoundParameters.ContainsKey('ManifestPath')){$arguments.ManifestPath=$ManifestPath}
+        return New-LabHyperVSqlConfigurationReconcilePlan @arguments
     }
     if ($PSCmdlet.ParameterSetName -eq 'HyperVSqlPort') {
         return New-LabHyperVSqlPortReconcilePlan -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot

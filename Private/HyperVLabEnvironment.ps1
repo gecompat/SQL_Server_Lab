@@ -1411,6 +1411,7 @@ function Invoke-HyperVLabSqlSlotInstall {
         Write-LabInfo 'Deklarierte SQL-Memory-, MAXDOP-, Cost-Threshold- und TempDB-Konfiguration wird angewendet.'
         $null = Set-LabServerConfig -Config $plan.serverConfig -HostName ([string]$hostAccess.Network.Address) `
             -Port $(if ($plan.sqlPort) { [int]$plan.sqlPort } else { 1433 }) -SaPassword $SqlSaPassword
+        $null = Initialize-LabHyperVSqlConfigurationOwnershipReceipt -Lab $lab -TraceFlags @($plan.serverConfig.traceFlags)
     }
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
     $plan = $lab.Instance.sqlDeploymentPlan
