@@ -12,6 +12,10 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   `SqlServerLab.PersistentStoragePlan/1.0` definieren stabile, vom Anzeigenamen
   unabhängige Storage-IDs, Klassen, Zustände, Referenzen, exklusive Leases und
   den read-only Abgleich mit Residency-Inventar und Registrierungskandidaten.
+- `SqlServerLab.PersistentStorageRemovalIntent/1.0` und
+  `SqlServerLab.PersistentStorageRemovalPlan/1.0` planen Retention,
+  Backup-/Package-on-Remove, externe Bindungsfreigabe, Recovery-Evidence und
+  die getrennte endgültige Storage-Löschgrenze ohne Mutation.
 - `Get-SqlServerLabCleanupAudit` liefert mit
   `SqlServerLab.StorageResidencyInventory/1.0` eine stabile read-only Matrix
   für `Lab_Data`, native Docker-/Podman-Volumes, externe Hostpfade,

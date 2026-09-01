@@ -856,7 +856,7 @@ Add-ValidationResult `
 
 Add-ValidationResult `
     -Name 'PSR-003 dokumentiert den implementierten read-only Katalogvertrag ohne Mutationsversprechen' `
-    -Success ($persistentStorageBacklog -match '(?m)^`ACTIVE / P1_PRODUCT_CONTRACT_WITH_PSR_001_PARTIAL_PSR_002_COMPLETE_PSR_003_IMPLEMENTED_READ_ONLY`' -and
+    -Success ($persistentStorageBacklog -match '(?m)^`ACTIVE / P1_PRODUCT_CONTRACT_WITH_PSR_001_PARTIAL_PSR_002_COMPLETE_PSR_003_AND_PSR_004_IMPLEMENTED_READ_ONLY`' -and
         $persistentStorageBacklog -match '(?m)^\| `PSR-003` .*\| `IMPLEMENTED_READ_ONLY`:' -and
         $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.PersistentStorageCatalog/1.0') -and
         $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.PersistentStoragePlan/1.0') -and
@@ -865,6 +865,18 @@ Add-ValidationResult `
         $repoMap -match 'persistent_storage_catalog_schema: Schemas/persistent-storage-catalog\.schema\.json' -and
         $repoMap -match 'persistent_storage_plan_schema: Schemas/persistent-storage-plan\.schema\.json' -and
         $repoMap -match 'validation_persistent_storage_catalog: Tests/Static/Invoke-PersistentStorageCatalogChecks\.ps1')
+
+Add-ValidationResult `
+    -Name 'PSR-004 bindet Removal-Policies an verlustsicheren read-only Recovery-Plan' `
+    -Success ($persistentStorageBacklog -match '(?m)^\| `PSR-004` .*\| `IMPLEMENTED_READ_ONLY`:' -and
+        $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.PersistentStorageRemovalIntent/1.0') -and
+        $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.PersistentStorageRemovalPlan/1.0') -and
+        $persistentStorageBacklog -match '`CHECKSUM` und `RESTORE VERIFYONLY`' -and
+        $knownLimitations -match 'Noch nicht\s*implementiert sind dessen Executor' -and
+        $repoMap -match 'persistent_storage_removal_plan: Private/PersistentStorageRemovalPlan\.ps1' -and
+        $repoMap -match 'persistent_storage_removal_intent_schema: Schemas/persistent-storage-removal-intent\.schema\.json' -and
+        $repoMap -match 'persistent_storage_removal_plan_schema: Schemas/persistent-storage-removal-plan\.schema\.json' -and
+        $repoMap -match 'validation_persistent_storage_removal_plan: Tests/Static/Invoke-PersistentStorageRemovalPlanChecks\.ps1')
 
 Add-ValidationResult `
     -Name 'Roadmap beschreibt den real belegten Container-Reconcile-Stand widerspruchsfrei' `

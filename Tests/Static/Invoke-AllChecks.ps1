@@ -43,6 +43,7 @@ $checks = @(
     'Invoke-CleanupRecoveryChecks.ps1',
     'Invoke-CleanupAuditChecks.ps1',
     'Invoke-PersistentStorageCatalogChecks.ps1',
+    'Invoke-PersistentStorageRemovalPlanChecks.ps1',
     'Invoke-PodmanBootstrapChecks.ps1',
     'Invoke-ContainerAutoStartChecks.ps1',
     'Invoke-ContainerVolumeContractChecks.ps1',

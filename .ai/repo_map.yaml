@@ -83,6 +83,10 @@ sources_of_truth:
   persistent_storage_catalog_schema: Schemas/persistent-storage-catalog.schema.json
   persistent_storage_plan_schema: Schemas/persistent-storage-plan.schema.json
   validation_persistent_storage_catalog: Tests/Static/Invoke-PersistentStorageCatalogChecks.ps1
+  persistent_storage_removal_plan: Private/PersistentStorageRemovalPlan.ps1
+  persistent_storage_removal_intent_schema: Schemas/persistent-storage-removal-intent.schema.json
+  persistent_storage_removal_plan_schema: Schemas/persistent-storage-removal-plan.schema.json
+  validation_persistent_storage_removal_plan: Tests/Static/Invoke-PersistentStorageRemovalPlanChecks.ps1
   lab_data_native_runtime_storage_decision: Documentation/Architecture/LAB_DATA_AND_NATIVE_RUNTIME_STORAGE_DECISION.md
   cleanup_audit_schema: Schemas/lab-cleanup-audit.schema.json
   hyperv_resource_binding_contract: Private/HyperVResourceBinding.ps1
@@ -489,6 +493,7 @@ internal_components:
     audit: Public/Get-SqlServerLabCleanupAudit.ps1
     storage_residency: Private/StorageResidencyInventory.ps1
     persistent_storage_catalog: Private/PersistentStorageCatalog.ps1
+    persistent_storage_removal_plan: Private/PersistentStorageRemovalPlan.ps1
     responsibilities:
       - "Cleanup-Plan und providergebundene Cleanup-SubRuns vor Mutation erzeugen"
       - "Compensation-Schritte je Provider speichern und ausführen"
@@ -497,6 +502,7 @@ internal_components:
       - "Hyper-V-Run-Schutzbereiche, Shared-Roots und ungetrackte Preserve-Dateien read-only auditieren"
       - "Lab_Data, native Runtime-Volumes, externe Pfade, Hyper-V-Ressourcen, Retention und unverifizierbares physisches Backing als versionierte read-only Storage-Residency klassifizieren"
       - "stabile Persistent-Storage-IDs, Klassen, Zustände, Referenzen und exklusive Leases read-only validieren und mit dem Residency-Inventar abgleichen"
+      - "Retention, Backup-/Package-on-Remove, externe Bindungsfreigabe und Recovery-Postconditions read-only planen; persistente Storage-Löschung getrennt halten"
   - name: PortAllocation
     source: Private/PortAllocation.ps1
     responsibilities:
@@ -827,6 +833,16 @@ validation:
       - exclusive_lease_validation
       - read_only_inventory_binding
       - id_less_registration_candidates
+  static_persistent_storage_removal_plan:
+    command: '.\Tests\Static\Invoke-PersistentStorageRemovalPlanChecks.ps1'
+    source: Tests/Static/Invoke-PersistentStorageRemovalPlanChecks.ps1
+    covers:
+      - explicit_retention_policy_selection
+      - backup_checksum_and_restore_verification
+      - offline_package_hash_and_postcondition
+      - foreign_reference_and_recovery_guards
+      - external_source_non_mutation
+      - separate_persistent_storage_delete_boundary
   static_podman_bootstrap:
     command: '.\Tests\Static\Invoke-PodmanBootstrapChecks.ps1'
     source: Tests/Static/Invoke-PodmanBootstrapChecks.ps1
