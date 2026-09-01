@@ -63,6 +63,13 @@ Ownership-Add/-Remove, Fremd-Trace-Flag-Schutz, ausschließlich
 scopegebundenen Cleanup. Der Runner ist ausführbar, wurde aber noch nicht nativ
 ausgeführt (`NOT_EXECUTED`).
 
+Der getrennte erhöhte SQL-Port-Akzeptanzrunner erzeugt in einem neuen
+Prepared-Image-Klon eine kontrollierte TCP-/Firewall-Drift und prüft den
+öffentlichen Plan, `WhatIf`, ausschließlich `MSSQLSERVER`-Restart ohne
+VM-Neustart, Connection-State, No-op sowie scopegebundenen Cleanup. Sein
+Prepared-Artifact-Bootstrap ist ebenfalls isoliert; der native Lauf ist noch
+`NOT_EXECUTED`.
+
 `Private/HyperVImageRegistry.ps1` ergänzt eine immutable, inhaltsadressierte
 Registry für operatorseitig bereitgestellte `OS_SEALED`- und
 `SQL_PREPARED_SEALED`-VHDX. Der Import prüft read-only, VHDX-Signatur,

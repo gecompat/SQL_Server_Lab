@@ -42,6 +42,9 @@ dokumentiert. Ihre ausfuehrbaren Einstiege sind:
 .\Tests\Integration\Invoke-HyperVSqlConfigurationReconcileAcceptance.ps1 `
     -ArtifactId 'hyperv-sql-prepared-sealed-<sha256>'
 .\Tests\Integration\Invoke-HyperVSqlConfigurationReconcileAcceptanceBootstrap.ps1
+.\Tests\Integration\Invoke-HyperVSqlPortReconcileAcceptance.ps1 `
+    -ArtifactId 'hyperv-sql-prepared-sealed-<sha256>'
+.\Tests\Integration\Invoke-HyperVSqlPortReconcileAcceptanceBootstrap.ps1
 .\Tests\Integration\Invoke-HyperVTestDatabaseReconcileAcceptance.ps1 `
     -ArtifactId 'hyperv-sql-prepared-sealed-<sha256>'
 .\Tests\Integration\Invoke-HyperVTestDatabaseReconcileAcceptanceBootstrap.ps1 `
@@ -58,6 +61,12 @@ nicht dynamischen Wert, Desired-State-Rückkehr, No-op und Cleanup. Der Bootstra
 erzeugt zuvor ein isoliertes SQL-2025-Prepared-Artifact und entfernt es nur nach
 erfolgreichem Runner-Cleanup. Beide Einstiege behalten bei Fehlern die exakten
 Recovery-IDs; eine positive native Ausführung ist noch `NOT_EXECUTED`.
+
+Der SQL-Port-Runner erzeugt ausschließlich im neuen Gast eine kontrollierte
+TCP-/Firewall-Drift und prüft anschließend Plan, `WhatIf`, den alleinigen SQL-
+Dienstrestart, Connection-State, No-op und vollständigen Cleanup. Der getrennte
+Bootstrap besitzt denselben isolierten Artifact-/Recovery-Vertrag; eine
+positive native Ausführung ist noch `NOT_EXECUTED`.
 
 Der letzte Runner ist der ausführbare Vertrag für Gate N5. Er startet nur,
 wenn vier TempDB-Datendateien auf mindestens zwei beziehungsweise der im Intent

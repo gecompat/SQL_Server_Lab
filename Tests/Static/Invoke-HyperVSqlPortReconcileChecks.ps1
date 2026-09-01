@@ -3,6 +3,8 @@ $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $source = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVSqlPortReconcile.ps1') -Raw -Encoding utf8
 $provisioningSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVLabEnvironment.ps1') -Raw -Encoding utf8
 $publicProvisioningSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/New-SqlServerLab.ps1') -Raw -Encoding utf8
+$acceptanceSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Tests/Integration/Invoke-HyperVSqlPortReconcileAcceptance.ps1') -Raw -Encoding utf8
+$bootstrapSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Tests/Integration/Invoke-HyperVSqlPortReconcileAcceptanceBootstrap.ps1') -Raw -Encoding utf8
 $manifestSchema = Get-Content -LiteralPath (Join-Path $repoRoot 'Schemas/lab-manifest.schema.json') -Raw -Encoding utf8 | ConvertFrom-Json -Depth 100
 $sqlPortSchema = $manifestSchema.definitions.instance.properties.hyperv.properties.sqlPort
 $testRoot = Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-hv-sql-port-reconcile-' + [Guid]::NewGuid().ToString('N'))
@@ -109,6 +111,9 @@ try {
         'Gastmutation setzt statischen TCP-Port, bindet die Lab-Firewall eng und startet nur SQL neu'=($source -match 'Set-ItemProperty.+TcpDynamicPorts' -and $source -match 'Set-NetFirewallPortFilter' -and $source -match 'Set-NetFirewallAddressFilter' -and $source -match 'Set-NetFirewallRule -Enabled True -Direction Inbound -Action Allow' -and $source -match "Restart-Service -Name 'MSSQLSERVER'" -and $source -notmatch 'Restart-VM|Stop-VM|Start-VM')
         'Plan und Postcondition pruefen SQL tatsaechlich ueber den statischen Port'=([regex]::Matches($source,"Server=localhost,\$").Count -ge 2 -and $source -match "CommandText='SELECT DB_NAME\(\);'")
         'Manifest-Erstbereitstellung reicht den deklarativen SQL-Port bis CompleteImage und Isolation durch'=($publicProvisioningSource -match '-SqlPort \$hyperVSqlPort' -and $provisioningSource -match '(?s)Complete-HyperVLabSqlImage.+?-SqlPort \$SqlPort' -and $provisioningSource -match '(?s)Enable-HyperVLabHostSqlAccess.+?-SqlPort \$SqlPort' -and $provisioningSource -match 'Set-LabHyperVSqlPortBinding -Context \$isolatedPortContext')
+        'Nativer Runner bindet isolierte Drift, Plan, WhatIf, SQL-Restart, Connection-State und No-op'=($acceptanceSource -match 'Set-AcceptanceGuestPortDrift' -and $acceptanceSource -match 'Get-SqlServerLabReconcilePlan' -and $acceptanceSource -match 'RepairHyperVSqlPort' -and $acceptanceSource -match 'RequiresServiceRestart' -and $acceptanceSource -match 'updated.Instance.port' -and $acceptanceSource -match 'noOp.IsNoOp')
+        'Nativer Runner beweist SQL-Restart ohne VM-Neustart und scopegebundenen Cleanup'=($acceptanceSource -match 'Get-AcceptanceGuestBootTime' -and $acceptanceSource -match 'sqlStartAfter -ne \$driftSqlStart' -and $acceptanceSource -notmatch 'Restart-VM|Stop-VM|Start-VM' -and $acceptanceSource -match 'Remove-SqlServerLab' -and $acceptanceSource -match 'Run-eigene VHDX wurde entfernt')
+        'Bootstrap bindet isoliertes Prepared-Artifact, Recovery-Marker und strikten Cleanup'=($bootstrapSource -match 'RetainPreparedArtifact' -and $bootstrapSource -match 'RETAINED_STATE_ROOT' -and $bootstrapSource -match 'RETAINED_ARTIFACT_ID' -and $bootstrapSource -match 'Remove-HyperVImageArtifact' -and $bootstrapSource -match 'RECOVERY_REQUIRED')
     }
     $failedChecks=@($checks.GetEnumerator()|Where-Object{-not $_.Value})
     foreach($check in $checks.GetEnumerator()){$color=if($check.Value){'Green'}else{'Red'};Write-Host("  {0}  {1}" -f $(if($check.Value){'PASS'}else{'FAIL'}),$check.Key)-ForegroundColor $color}

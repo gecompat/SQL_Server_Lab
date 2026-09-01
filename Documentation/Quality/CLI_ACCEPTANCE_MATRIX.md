@@ -146,3 +146,17 @@ Recovery-IDs aus.
 Beide Runner sind implementiert und statisch gebunden. Ein positiver nativer
 Lauf wurde noch nicht ausgeführt (`NOT_EXECUTED`); dieser Abschnitt ist daher
 keine Runtime-PASS-Evidence.
+
+## Ausführbarer Hyper-V-SQL-Port-Reconcile-Vertrag
+
+`Tests/Integration/Invoke-HyperVSqlPortReconcileAcceptance.ps1` erzeugt aus
+einem verifizierten `SQL_PREPARED_SEALED`-Artifact einen eigenen SQL-2025-Run
+und darin eine kontrollierte TCP-/Firewall-Drift. Der öffentliche Plan,
+`WhatIf`, ausschließlich `MSSQLSERVER`-Restart ohne VM-Neustart,
+Connection-State, No-op, Journal und scopegebundener Cleanup sind ausführbar.
+Der getrennte Bootstrap erzeugt und entfernt auch das Prepared-Artifact
+isoliert und gibt bei Fehlern exakte Recovery-IDs aus.
+
+Beide Runner sind implementiert und statisch gebunden. Ein positiver nativer
+Lauf wurde noch nicht ausgeführt (`NOT_EXECUTED`); dieser Abschnitt ist daher
+keine Runtime-PASS-Evidence.

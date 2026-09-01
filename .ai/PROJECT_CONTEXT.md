@@ -272,9 +272,12 @@ bindet Plan, `WhatIf`, Live-Änderung, Ownership-Add/-Remove,
 Fremd-Trace-Flag-Schutz, ausschließlich `MSSQLSERVER`-Restart, Desired-State-
 Rückkehr, No-op und Cleanup ausführbar; seine positive Ausführung ist noch
 `NOT_EXECUTED`. Der
-Port-Slice bindet genau eine
-Standardinstanz, Gastfirewall, SQL-Dienstrestart, Readiness und Connection-
-State journalisiert. Der Testdatenbank-Slice vergleicht `sys.databases` mit
+Port-Slice bindet genau eine Standardinstanz, Gastfirewall, SQL-Dienstrestart,
+Readiness und Connection-State journalisiert. Ein erhöhter nativer Runner samt
+isoliertem `SQL_PREPARED_SEALED`-Bootstrap erzeugt eine eng gebundene Gastdrift
+und prüft Plan, `WhatIf`, ausschließlich `MSSQLSERVER`-Restart ohne VM-Neustart,
+Connection-State, No-op und Cleanup ausführbar; seine positive Ausführung ist
+noch `NOT_EXECUTED`. Der Testdatenbank-Slice vergleicht `sys.databases` mit
 stabilen Sample-PlanKeys und einem VM-gebundenen lokalen Ownership-Receipt.
 Er fuegt katalogisierte Samples ueber den gemeinsamen Handler hinzu und
 entfernt nur nachgewiesen run-eigene Outputs nach CHECKSUM-Backup und

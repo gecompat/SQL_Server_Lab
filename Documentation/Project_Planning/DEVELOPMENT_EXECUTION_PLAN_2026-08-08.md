@@ -515,7 +515,10 @@ persistiert `hyperv.sqlPort`, vergleicht
 TCP-Registry und Gastfirewall hostwertfrei und repariert Drift für genau eine
 Standardinstanz mit journalisiertem SQL-Dienstrestart, Readiness-Postcondition
 und Connection-State-Synchronisierung. Mehrere oder benannte Instanzen bleiben
-fail-closed. Der Testdatenbank-Folgeslice persistiert stabile Sample-PlanKeys
+fail-closed. Ein isolierter nativer Runner samt Prepared-Artifact-Bootstrap
+bindet Gastdrift, Plan, `WhatIf`, SQL-Dienstrestart ohne VM-Neustart,
+Connection-State, No-op und Cleanup; seine positive Ausführung ist noch
+`NOT_EXECUTED`. Der Testdatenbank-Folgeslice persistiert stabile Sample-PlanKeys
 und einen VM-gebundenen lokalen Ownership-Nachweis. Ein Zielmanifest kann
 katalogisierte Samples addieren und ausschließlich receiptgebundene Outputs
 entfernen; vor dem Drop werden `BACKUP ... WITH CHECKSUM` und
