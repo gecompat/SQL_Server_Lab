@@ -125,6 +125,16 @@ freien Gastbuchstaben, bevorzugt als `S:\SQLData`; `D:` bleibt bewusst dem oft
 vorhandenen DVD-Laufwerk vorbehalten. Auch diese VHDX liegt außerhalb des Run-State und wird nicht vom
 normalen Cleanup entfernt.
 
+Der interne Wiederverwendungs-Core kann eine bereits katalogisierte Hyper-V-
+Daten-VHDX nach belegtem Clean-Detach per stabiler Storage-ID auswählen,
+quellenunverändert in eine eigenständige VHDX klonen, an eine ausgeschaltete
+scopegebundene VM reattachen und wieder freigeben. Dabei werden DiskIdentifier,
+Hostbindung, Attachments, Checkpoints, SQL-Major-Version und freier Gastpfad
+vor der Mutation geprüft. Das bloße Vorhandensein von MDF/NDF/LDF-Dateien
+schaltet keine Datenbank online; Restore beziehungsweise Attach bleibt eine
+eigene explizite Aktion. Der Flow ist noch nicht als öffentlicher CLI-/GUI-
+Befehl verfügbar.
+
 Bereits bestehende Container lassen sich technisch nicht um einen Mount
 erweitern. Eine Übernahme ihrer bestehenden Daten erfordert daher einen
 kontrollierten Neuaufbau per Backup/Restore; sie wird nicht stillschweigend

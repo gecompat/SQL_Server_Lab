@@ -407,10 +407,15 @@ weiterhin in das gewählte Hostverzeichnis schreiben.
 
 Für Evaluation-Refresh existiert ein externer, idempotent initialisierbarer
 Data Root mit versionsgetrennten Data-/Log-Bereichen und einer gemeinsamen
-Backup-Übergabeebene. Automatisches Backup, `RESTORE VERIFYONLY`, Restore,
-TDE-Schlüsseltransfer und persistente Hyper-V-Daten-VHDX sind noch kein
+Backup-Übergabeebene. Automatisches Backup, `RESTORE VERIFYONLY`, Restore und
+TDE-Schlüsseltransfer sind noch kein vollständiger providerneutraler
 Runtimepfad; bis dahin bleibt der dokumentierte Backup-/Restore-Ablauf
-operatorgeführt.
+operatorgeführt. Der interne Hyper-V-Persistent-Data-Core kann eine
+katalogisierte, sauber getrennte Daten-VHDX inzwischen per stabiler Storage-ID
+klonen, reattachen und freigeben; der reale Hostnachweis ist grün. Er erzeugt
+bewusst keine Aussage, dass vorhandene Datenbankdateien online sind:
+Katalog-Commit, öffentliche CLI-/GUI-Bedienung sowie der explizite SQL-
+Restore-/Attach-Schritt bleiben offen.
 
 ## Restore
 

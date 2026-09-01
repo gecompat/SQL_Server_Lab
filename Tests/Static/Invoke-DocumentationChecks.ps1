@@ -901,6 +901,19 @@ Add-ValidationResult `
         $repoMap -match 'acceptance_container_runtime_scope: Tests/Integration/Invoke-ContainerRuntimeScopeAcceptance\.ps1')
 
 Add-ValidationResult `
+    -Name 'PSR-007 dokumentiert den nativen Storage-ID-basierten Hyper-V-VHDX-Lifecycle ohne falsche Datenbankbereitschaft' `
+    -Success ($persistentStorageBacklog -match '(?m)^\| `PSR-007` .*\| `IMPLEMENTED_CORE`:' -and
+        $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.HyperVPersistentDataIntent/1.0') -and
+        $persistentStorageBacklog -match 'CLONE -> REATTACH -> RELEASE' -and
+        $persistentStorageBacklog -match 'DatabaseFilesOnline=false' -and
+        $knownLimitations -match 'reale Hostnachweis ist grün' -and
+        $knownLimitations -match 'explizite SQL-\s*Restore-/Attach-Schritt bleiben offen' -and
+        $repoMap -match 'hyperv_persistent_data_drive: Private/HyperVPersistentDataDrive\.ps1' -and
+        $repoMap -match 'hyperv_persistent_data_intent_schema: Schemas/hyperv-persistent-data-intent\.schema\.json' -and
+        $repoMap -match 'validation_hyperv_persistent_data_drive: Tests/Static/Invoke-HyperVPersistentDataDriveChecks\.ps1' -and
+        $repoMap -match 'acceptance_hyperv_persistent_data_drive: Tests/Integration/Invoke-HyperVPersistentDataDriveAcceptance\.ps1')
+
+Add-ValidationResult `
     -Name 'Roadmap beschreibt den real belegten Container-Reconcile-Stand widerspruchsfrei' `
     -Success ($developmentExecutionPlan -match [regex]::Escape('Container-`no-op`, `live`, `recreate`, Rollback und Persistenz sind für Docker und Podman real verifiziert') -and
         $developmentExecutionPlan -match [regex]::Escape('beliebige Mount-/Environment-Änderungen aus `CNT-214` bleiben offen') -and

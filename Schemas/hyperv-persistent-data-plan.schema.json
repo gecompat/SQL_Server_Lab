@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sql-server-lab.local/schemas/hyperv-persistent-data-plan.schema.json",
+  "title": "SqlServerLab.HyperVPersistentDataPlan/1.0",
+  "type": "object",
+  "required": ["ContractVersion", "OperationId", "Status", "Action", "Source", "Target", "Steps", "Blockers", "Preview"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.HyperVPersistentDataPlan/1.0" },
+    "OperationId": { "type": "string", "format": "uuid" },
+    "Status": { "enum": ["READY", "BLOCKED"] },
+    "Action": { "enum": ["REATTACH", "RELEASE", "CLONE"] },
+    "Source": { "type": "object", "required": ["PersistentStorageId", "Path", "DiskIdentifier", "SqlMajorVersion", "GuestPath"] },
+    "Target": { "type": "object", "required": ["PersistentStorageId", "Path", "VMName", "VMId", "RunId", "ScopeId", "SqlMajorVersion", "GuestPath", "ControllerNumber", "ControllerLocation"] },
+    "Steps": { "type": "array", "minItems": 1, "items": { "type": "object", "required": ["Order", "Action"] } },
+    "Blockers": { "type": "array", "items": { "type": "string" } },
+    "Preview": {
+      "type": "object",
+      "required": ["SourceMutation", "SourceDeletion", "RequiresCleanDetach", "RequiresTargetVMOff", "DatabaseFilesOnline", "DatabaseActionRequired", "CatalogCommitRequired"],
+      "properties": {
+        "SourceMutation": { "const": false }, "SourceDeletion": { "const": false },
+        "RequiresCleanDetach": { "const": true }, "RequiresTargetVMOff": { "const": true },
+        "DatabaseFilesOnline": { "const": false }, "DatabaseActionRequired": { "const": "EXPLICIT_RESTORE_OR_ATTACH" },
+        "CatalogCommitRequired": { "const": true }
+      }, "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

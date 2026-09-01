@@ -65,6 +65,13 @@ Add-CheckResult -Name 'Container-Runtime-Scope aktiviert read-only Vertrag sowie
     'Invoke-ContainerRuntimeScopeChecks.ps1' -in $containerRuntimeScope.StaticChecks
 )
 
+$hyperVPersistentData = & $selector -ChangedPath @('Private/HyperVPersistentDataDrive.ps1')
+Add-CheckResult -Name 'Hyper-V-Persistent-Data aktiviert eigenen Vertrag und nur den Hyper-V-Runtime-Nachweis' -Success (
+    $hyperVPersistentData.HyperV -and -not $hyperVPersistentData.Docker -and -not $hyperVPersistentData.Podman -and
+    'Invoke-HyperVPersistentDataDriveChecks.ps1' -in $hyperVPersistentData.StaticChecks -and
+    'Invoke-HyperVProviderChecks.ps1' -in $hyperVPersistentData.StaticChecks
+)
+
 $ci = & $selector -ChangedPath @('.github/workflows/static-contracts.yml')
 Add-CheckResult -Name 'CI-Infrastruktur prueft einmalig alle Runtime-Gates' -Success (
     $ci.Docker -and $ci.Podman -and $ci.Mixed -and $ci.HyperV -and $ci.Adapter
