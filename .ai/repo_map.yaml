@@ -350,7 +350,7 @@ public_commands:
     mutates_sql: true
   - name: Restore-SqlServerLabDatabase
     source: Public/Restore-SqlServerLabDatabase.ps1
-    purpose: "Direkte .bak-Datei aus lokalem Pfad oder URL wiederherstellen; URL-Acquisition mit Trust, SHA-256, Cache und Run Lock; Ziel bevorzugt per RunId aufloesen"
+    purpose: "Verifiziertes Lab_Data-Backup per stabiler BackupSetId oder direkte .bak-Datei aus lokalem Pfad/URL wiederherstellen; Bibliotheksauswahl löst Pfad und SHA-256 ausschließlich im gemeinsamen Core auf; Ziel bevorzugt per RunId aufloesen"
     mutates_sql: true
     external_dependencies:
       - sqlcmd
@@ -765,7 +765,7 @@ provisioning_flow:
   - "Set-LabServerConfig"
   - "New-SqlServerLabDatabase für Create-Datenbanken"
   - "Install-LabSampleDatabase für Sample-Datenbanken (Trust, Cache, Restore, Verification)"
-  - "Restore-SqlServerLabDatabase für direkte Restore-Datenbanken"
+  - "Restore-SqlServerLabDatabase für direkte Restore-Datenbanken oder stabile BackupSetId aus Lab_Data"
   - "Set-LabDatabaseOptions"
   - "Invoke-LabSqlScript für postProvision"
   - "connection-info.json schreiben"

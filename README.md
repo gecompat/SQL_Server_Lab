@@ -304,6 +304,22 @@ Restore-SqlServerLabDatabase `
     -DatabaseName 'AdventureWorks2022'
 ```
 
+Ein von `Backup-SqlServerLabDatabase` veröffentlichtes Backup wird ohne
+Weitergabe seines lokalen Pfads oder Hashes über die stabile ID ausgewählt:
+
+```powershell
+Restore-SqlServerLabDatabase `
+    -RunId $lab.RunId `
+    -InstanceId 'primary' `
+    -SaPassword $pw `
+    -BackupSetId $backup.BackupSetId `
+    -DatabaseName 'AdventureWorks2022'
+```
+
+Ohne `-DataRoot` verwendet der Aufruf den gespeicherten Lab_Data-Default. Der
+Bibliotheks-Core prüft Status, Verification-Evidence, Datei und SHA-256 vor dem
+Restore erneut. `-BackupSetId` und `-BackupSource` schließen einander aus.
+
 Eine HTTPS-URL kann ebenfalls als `BackupSource` verwendet werden. Sie wird
 zuerst in einen lokalen Staging-Bereich geladen, per SHA-256 geprüft und danach
 unter diesem Digest im inhaltsadressierten State-Cache gespeichert. Fehlt eine
