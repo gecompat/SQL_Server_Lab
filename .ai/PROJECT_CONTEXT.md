@@ -79,7 +79,12 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   Konflikte und ID-lose Registrierungskandidaten ohne Mutation ausweist; der
   read-only Removal-Vertrag plant Retention, verifizierte Backup-/Package-
   Evidence, externe Bindungsfreigabe und Recovery-Gates und lässt endgültige
-  Löschung persistenter Stores ausdrücklich außerhalb des Run-Cleanups;
+  Löschung persistenter Stores ausdrücklich außerhalb des Run-Cleanups; der
+  PSR-005-Core wählt detached Docker-/Podman-Instanzstores per stabiler ID und
+  Runtime-Label, liefert Continue-Bindings und klont die Quelle read-only mit
+  Digest-Postcondition und wiederaufnehmbarem Journal; Docker und Podman sind
+  getrennt live belegt, während Katalog-Commit und öffentliche Bedienung offen
+  bleiben;
 - versionierte `SqlServerLab.HyperVResourceBinding/1.0`-Grundlage mit kurzen,
   state-root-unabhängigen Create-Roots unter registriertem `Lab_Data`,
   Controller-/Location-/Volume-Revalidierung und getrennter read-only

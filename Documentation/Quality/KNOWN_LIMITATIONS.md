@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING_LIMITATIONS` |
-| Stand | 2026-08-31 |
+| Stand | 2026-09-01 |
 
 Dieses Dokument beschreibt bekannte Grenzen des aktuell implementierten Runtimepfads. Es ist Teil des öffentlichen Projektvertrags. Ein Feld im JSON-Schema oder ein Planungsdokument gilt nicht automatisch als Implementierungsnachweis.
 
@@ -878,6 +878,16 @@ Löschen. Der zusätzliche read-only Removal-Vertrag plant
 Referenz-, Lease-, Backup-, Package- und Recovery-Gates. Noch nicht
 implementiert sind dessen Executor, die tatsächliche Backup-/Package-Erzeugung
 in diesem Workflow und die getrennte endgültige Storage-Löschaktion.
+Der PSR-005-Core kann einen bereits katalogisierten und passend gelabelten
+Docker-/Podman-Instanzstore detached per stabiler ID für Continue binden oder
+in ein neues Volume klonen. Quelle und SQL-Major-Version werden unmittelbar vor
+der Mutation revalidiert; der Clone verwendet einen read-only Quellmount,
+Datei-/Byte-/SHA-256-Postconditions und ein fortsetzbares Recovery-Journal.
+Docker und Podman sind damit am 2026-09-01 getrennt real belegt. Noch offen sind
+der transaktionale Commit des Clone-Ziels in die Katalogspiegel, Lease-
+Akquisition, die Mitnahme optionaler External-Runtime-Sidecar-Volumes und der
+öffentliche CLI-/GUI-Einstieg. Bis dahin ist dieser Kern keine vollständige
+Endbenutzerfunktion und erzeugt nur einen verifizierten Registrierungskandidaten.
 Der zweite `HVR-006`-Slice koppelt Lifecycle-Reconcile, Start, Stop,
 Autostartänderung und SQL-WMI-Repair an einen gemeinsamen read-only
 Migrationsguard. Laufende, fehlgeschlagene oder inkonsistent abgeschlossene

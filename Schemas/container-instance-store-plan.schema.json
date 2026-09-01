@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sql-server-lab.local/schemas/container-instance-store-plan.schema.json",
+  "title": "SqlServerLab.ContainerInstanceStorePlan/1.0",
+  "type": "object",
+  "required": ["ContractVersion", "Status", "OperationId", "Action", "Provider", "Source", "Target", "Steps", "Blockers", "Preview"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.ContainerInstanceStorePlan/1.0" },
+    "Status": { "enum": ["READY", "BLOCKED"] },
+    "OperationId": { "type": "string", "format": "uuid" },
+    "Action": { "enum": ["CONTINUE", "CLONE"] },
+    "Provider": { "enum": ["docker", "podman"] },
+    "Source": {
+      "type": "object",
+      "required": ["PersistentStorageId", "VolumeName", "VolumeId", "State", "SqlMajorVersion", "AttachedContainers"],
+      "properties": {
+        "PersistentStorageId": { "type": "string", "format": "uuid" },
+        "VolumeName": { "type": ["string", "null"] },
+        "VolumeId": { "type": ["string", "null"] },
+        "State": { "type": ["string", "null"] },
+        "SqlMajorVersion": { "type": ["string", "null"], "pattern": "^\\d{4}$" },
+        "AttachedContainers": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+      },
+      "additionalProperties": false
+    },
+    "Target": {
+      "type": ["object", "null"],
+      "required": ["PersistentStorageId", "VolumeName", "RunId", "ScopeId", "SqlMajorVersion", "HelperImage"],
+      "properties": {
+        "PersistentStorageId": { "type": "string", "format": "uuid" },
+        "VolumeName": { "type": "string", "minLength": 1 },
+        "RunId": { "type": "string", "format": "uuid" },
+        "ScopeId": { "type": "string", "format": "uuid" },
+        "SqlMajorVersion": { "type": "string", "pattern": "^\\d{4}$" },
+        "HelperImage": { "type": "string", "pattern": "^[a-z0-9][a-z0-9./_-]+:[a-z0-9][a-z0-9._-]+$" }
+      },
+      "additionalProperties": false
+    },
+    "Steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["Order", "Action", "Mutation", "FailureState"],
+        "properties": {
+          "Order": { "type": "integer", "minimum": 1 },
+          "Action": { "enum": ["REVALIDATE_SOURCE", "BIND_EXISTING_VOLUME", "VERIFY_SQL_READINESS_AND_DATA", "CREATE_EMPTY_TARGET", "COPY_SOURCE_READ_ONLY", "VERIFY_CONTENT_DIGEST", "REGISTER_TARGET_CANDIDATE"] },
+          "Mutation": { "enum": ["NONE", "RUNTIME", "SQL", "CATALOG"] },
+          "FailureState": { "enum": ["BLOCKED", "RECOVERY_REQUIRED"] }
+        },
+        "additionalProperties": false
+      }
+    },
+    "Blockers": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "Preview": {
+      "type": "object",
+      "required": ["SourceMutation", "SourceDeletion", "TargetCreated", "RequiresDetachedSource", "CatalogCommitRequired"],
+      "properties": {
+        "SourceMutation": { "const": false },
+        "SourceDeletion": { "const": false },
+        "TargetCreated": { "type": "boolean" },
+        "RequiresDetachedSource": { "const": true },
+        "CatalogCommitRequired": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

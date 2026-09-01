@@ -1071,6 +1071,12 @@ Der read-only `PSR-004`-Vertrag plant bereits alle sechs Retention-/Removal-
 Policies, Backup-`CHECKSUM`/`RESTORE VERIFYONLY`, Offline-/Hash-/Package-
 Evidence, Fremdreferenzschutz und `RECOVERY_REQUIRED`, führt diese Mutationen
 aber noch nicht aus und hält endgültige Persistent-Storage-Löschung getrennt.
+Der `PSR-005`-Core wählt katalogisierte detached Docker-/Podman-Instanzstores
+über stabile ID plus Runtime-Label, liefert ein Continue-Binding und klont eine
+read-only Quelle journalisiert mit Datei-/Byte-/SHA-256-Postcondition. Getrennte
+reale Docker- und Podman-Läufe bestätigen Server- und Benutzerdaten nach
+Recreate sowie im Clone; Katalog-Commit, Sidecars und öffentliche CLI/GUI-
+Anbindung bleiben offen.
 Der weitere P1-Produktpfad folgt dem P0-Hyper-V-Ressourcenroot-Bugfix und wird im
 [Persistenz- und `Lab_Data`-Backlog](PERSISTENT_STORAGE_REUSE_AND_LAB_DATA_BACKLOG.md)
 evidenzgebunden geplant.

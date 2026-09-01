@@ -87,6 +87,12 @@ sources_of_truth:
   persistent_storage_removal_intent_schema: Schemas/persistent-storage-removal-intent.schema.json
   persistent_storage_removal_plan_schema: Schemas/persistent-storage-removal-plan.schema.json
   validation_persistent_storage_removal_plan: Tests/Static/Invoke-PersistentStorageRemovalPlanChecks.ps1
+  container_instance_store: Private/ContainerInstanceStore.ps1
+  container_instance_store_intent_schema: Schemas/container-instance-store-intent.schema.json
+  container_instance_store_plan_schema: Schemas/container-instance-store-plan.schema.json
+  container_instance_store_journal_schema: Schemas/container-instance-store-journal.schema.json
+  validation_container_instance_store: Tests/Static/Invoke-ContainerInstanceStoreChecks.ps1
+  acceptance_container_instance_store: Tests/Integration/Invoke-ContainerInstanceStoreAcceptance.ps1
   lab_data_native_runtime_storage_decision: Documentation/Architecture/LAB_DATA_AND_NATIVE_RUNTIME_STORAGE_DECISION.md
   cleanup_audit_schema: Schemas/lab-cleanup-audit.schema.json
   hyperv_resource_binding_contract: Private/HyperVResourceBinding.ps1
@@ -503,6 +509,7 @@ internal_components:
       - "Lab_Data, native Runtime-Volumes, externe Pfade, Hyper-V-Ressourcen, Retention und unverifizierbares physisches Backing als versionierte read-only Storage-Residency klassifizieren"
       - "stabile Persistent-Storage-IDs, Klassen, Zustände, Referenzen und exklusive Leases read-only validieren und mit dem Residency-Inventar abgleichen"
       - "Retention, Backup-/Package-on-Remove, externe Bindungsfreigabe und Recovery-Postconditions read-only planen; persistente Storage-Löschung getrennt halten"
+      - "katalogisierte Docker-/Podman-Instanzstores per stabiler ID und Runtime-Label detached revalidieren, fuer Continue binden und in ein neues operationsgebundenes Volume digestverifiziert klonen"
   - name: PortAllocation
     source: Private/PortAllocation.ps1
     responsibilities:
@@ -843,6 +850,16 @@ validation:
       - foreign_reference_and_recovery_guards
       - external_source_non_mutation
       - separate_persistent_storage_delete_boundary
+  static_container_instance_store:
+    command: '.\Tests\Static\Invoke-ContainerInstanceStoreChecks.ps1'
+    source: Tests/Static/Invoke-ContainerInstanceStoreChecks.ps1
+    covers:
+      - stable_storage_id_selection
+      - detached_only_continue_and_clone
+      - sql_major_version_compatibility
+      - read_only_source_mount
+      - content_digest_postcondition
+      - recovery_journal_resume
   static_podman_bootstrap:
     command: '.\Tests\Static\Invoke-PodmanBootstrapChecks.ps1'
     source: Tests/Static/Invoke-PodmanBootstrapChecks.ps1
@@ -978,6 +995,17 @@ validation:
       - journaled_port_recreate_rollback_and_exact_runtime_identity
       - lifecycle_and_reconcile_persistence
       - scope_bound_cleanup
+  container_instance_store_acceptance:
+    source: Tests/Integration/Invoke-ContainerInstanceStoreAcceptance.ps1
+    docker: '.\Tests\Integration\Invoke-ContainerInstanceStoreAcceptance.ps1 -Provider docker'
+    podman: '.\Tests\Integration\Invoke-ContainerInstanceStoreAcceptance.ps1 -Provider podman'
+    execution_status: "Docker und Podman am 2026-09-01 getrennt positiv ausgefuehrt; test-eigene Ressourcen vollstaendig bereinigt"
+    checks:
+      - stable_id_continue_selection
+      - server_state_after_recreate
+      - user_database_after_recreate
+      - detached_digest_verified_clone
+      - server_and_user_data_live_in_clone
   remote_workflows:
     foundation_integrity:
       source: .github/workflows/static-contracts.yml

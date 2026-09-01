@@ -23,6 +23,9 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 | `persistent-storage-plan.schema.json` | Read-only Planvertrag `SqlServerLab.PersistentStoragePlan/1.0` für Inventarbindung, Lease-Prüfung und Registrierungskandidaten |
 | `persistent-storage-removal-intent.schema.json` | Explizite run- und storage-ID-gebundene Policy-Auswahl `SqlServerLab.PersistentStorageRemovalIntent/1.0` ohne Secrets |
 | `persistent-storage-removal-plan.schema.json` | Verlustsicherer read-only Vertrag `SqlServerLab.PersistentStorageRemovalPlan/1.0` für Retention, Backup/Package, Recovery-Evidence und separate Löschung |
+| `container-instance-store-intent.schema.json` | Strikter `CONTINUE`-/`CLONE`-Intent für katalogisierte Docker-/Podman-Instanzstores |
+| `container-instance-store-plan.schema.json` | Fail-closed Auswahl-, Kompatibilitäts- und Mutationsplan für Container-Instanzstores |
+| `container-instance-store-journal.schema.json` | Wiederaufnehmbares Clone-Journal mit Quell-/Zielidentität und Inhaltsdigest-Evidence |
 | `lab-cleanup-audit.schema.json` | Lokaler Cleanup-Audit einschließlich der getrennt schema-validierten Storage-Residency-Matrix |
 | `hyperv-resource-binding.schema.json` | Lokaler Vertrag `SqlServerLab.HyperVResourceBinding/1.0` für kurze Hyper-V-Create-Roots mit Controller-, Location-, Volume- und `Lab_Data`-Identität |
 | `hyperv-resource-migration-plan.schema.json` | Lokaler read-only Vertrag `SqlServerLab.HyperVResourceMigrationPlan/1.0` für exaktes Legacy-Inventar, Zielbindung, Blocker und geplante Aktionen |

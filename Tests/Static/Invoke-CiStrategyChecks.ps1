@@ -52,6 +52,13 @@ Add-CheckResult -Name 'Container-Reconcile aktiviert Vertrag sowie Docker- und P
     'Invoke-ReadinessContractChecks.ps1' -in $containerReconcile.StaticChecks
 )
 
+$containerInstanceStore = & $selector -ChangedPath @('Private/ContainerInstanceStore.ps1')
+Add-CheckResult -Name 'Container-Instanzstore aktiviert Core-Verträge sowie getrennte Docker-/Podman-Nachweise' -Success (
+    $containerInstanceStore.Docker -and $containerInstanceStore.Podman -and
+    'Invoke-ContainerInstanceStoreChecks.ps1' -in $containerInstanceStore.StaticChecks -and
+    'Invoke-ContainerVolumeContractChecks.ps1' -in $containerInstanceStore.StaticChecks
+)
+
 $ci = & $selector -ChangedPath @('.github/workflows/static-contracts.yml')
 Add-CheckResult -Name 'CI-Infrastruktur prueft einmalig alle Runtime-Gates' -Success (
     $ci.Docker -and $ci.Podman -and $ci.Mixed -and $ci.HyperV -and $ci.Adapter

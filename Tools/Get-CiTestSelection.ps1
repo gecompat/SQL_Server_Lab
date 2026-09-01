@@ -70,6 +70,7 @@ end {
         @{ Pattern = '(?i)(ArtifactResolver|MediaSourceCatalog|SevenZip)'; Checks = @('Invoke-ArtifactResolverChecks.ps1','Invoke-MediaRootLayoutChecks.ps1') },
         @{ Pattern = '(?i)(ContainerAutoStart|Start-SqlServerLab|Stop-SqlServerLab|Restart-SqlServerLab)'; Checks = @('Invoke-ContainerAutoStartChecks.ps1') },
         @{ Pattern = '(?i)(DockerProvider|PodmanProvider|ContainerVolume)'; Checks = @('Invoke-ContainerVolumeContractChecks.ps1','Invoke-PortAllocationChecks.ps1') },
+        @{ Pattern = '(?i)(ContainerInstanceStore|container-instance-store)'; Checks = @('Invoke-ContainerInstanceStoreChecks.ps1','Invoke-ContainerVolumeContractChecks.ps1') },
         @{ Pattern = '(?i)(LabNetwork|PortAllocation)'; Checks = @('Invoke-LabNetworkChecks.ps1','Invoke-PortAllocationChecks.ps1') },
         @{ Pattern = '(?i)(LabPreferences|PersistentLabData|StorageContract|StorageFilePlacement|HyperVResourceBinding|HyperVResourceMigration|HyperVImageMigration|hyperv-(resource-(binding|migration)|image-migration)|lab-storage-(intent|bound-plan|runtime-receipt)|SecretProvider|TestEnvironment)'; Checks = @('Invoke-DataRootChecks.ps1','Invoke-HyperVResourceBindingChecks.ps1','Invoke-HyperVImageMigrationChecks.ps1','Invoke-HyperVResourceMigrationChecks.ps1','Invoke-StorageMigrationChecks.ps1','Invoke-StorageFilePlacementChecks.ps1','Invoke-TestEnvironmentChecks.ps1') },
         @{ Pattern = '(?i)(VersionCatalog|sql-server-versions|CuResource)'; Checks = @('Invoke-VersionCatalogChecks.ps1') },
@@ -127,6 +128,7 @@ end {
         if (Test-AnyPath '(?i)(^Providers/Podman/|runtime-smoke-podman\.yml|PodmanBootstrap|Initialize-PodmanRuntime)') { $runtime.Podman = $true }
         if (Test-AnyPath '(?i)(ExternalRuntimeReconcile|Invoke-ExternalRuntimeContainerAcceptance|Invoke-SqlServerLabReconcileAction)') { $runtime.Docker = $true; $runtime.Podman = $true }
         if (Test-AnyPath '(?i)(ContainerReconcile|Update-SqlServerLabContainer|Invoke-ContainerCliAcceptance)') { $runtime.Docker = $true; $runtime.Podman = $true }
+        if (Test-AnyPath '(?i)(ContainerInstanceStore|container-instance-store)') { $runtime.Docker = $true; $runtime.Podman = $true }
         if (Test-AnyPath '(?i)(runtime-smoke-mixed-providers\.yml|MixedProvider|ProviderCapability|DesiredState|ReconcileContract|ProviderSubRun)') { $runtime.Mixed = $true }
         if (Test-AnyPath '(?i)(^Providers/HyperV/|runtime-smoke-hyperv\.yml|/HyperV|^Private/HyperV|HyperVSmokeTest|^Private/ExternalRuntimeWindows|Images/ExternalLanguages/Windows|ExternalRuntimeHyperVAcceptance)') { $runtime.HyperV = $true }
         if (Test-AnyPath '(?i)(^Adapters/|ProjectAdapter|adapter-smoke|project-adapter)') { $runtime.Adapter = $true }

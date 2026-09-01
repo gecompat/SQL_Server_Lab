@@ -150,8 +150,10 @@ Mutation mit dem Residency-Inventar ab. Folgende Arbeit bleibt getrennt:
   auf Basis des vorhandenen read-only Vertrags;
 - `PSR-004`: Der read-only Retention-/Removal-Plan ist umgesetzt; Backup-/
   Package-Executor und explizite endgültige Storage-Löschung bleiben offen;
-- `PSR-005`/`PSR-006`: reale Docker-/Podman-Fortsetzung und Bewertung
-  dedizierter Engine-/Machine-Verträge;
+- `PSR-005`: Der stabile ID-, Continue- und detached Clone-Core ist samt
+  getrennten realen Docker-/Podman-Nachweisen umgesetzt; Katalog-Commit,
+  External-Runtime-Sidecars und öffentliche Bedienung bleiben offen;
+- `PSR-006`: dedizierte Docker-Engine-/Podman-Machine-Verträge bewerten;
 - `PSR-007`: revalidierter Hyper-V-Daten-VHDX-Lifecycle;
 - `PSR-008`/`PSR-009`: Backup-Bibliothek und kontrollierte Datenbankpakete.
 

@@ -8,6 +8,13 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- `SqlServerLab.ContainerInstanceStoreIntent/1.0`, Plan und Recovery-Journal
+  wählen katalogisierte Docker-/Podman-Instanzstores per stabiler ID aus,
+  binden detached Stores für Continue und klonen sie mit read-only Quelle,
+  Inhaltsdigest und wiederaufnehmbarem `RECOVERY_REQUIRED`-Pfad. Getrennte reale
+  Docker-/Podman-Abnahmen bestätigen Server- und Benutzerdaten nach Recreate
+  sowie im Clone.
+
 - `SqlServerLab.PersistentStorageCatalog/1.0` und
   `SqlServerLab.PersistentStoragePlan/1.0` definieren stabile, vom Anzeigenamen
   unabhängige Storage-IDs, Klassen, Zustände, Referenzen, exklusive Leases und
