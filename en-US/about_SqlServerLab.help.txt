@@ -96,6 +96,10 @@ COMMANDS
         Inventories known lab data and runtime resources read-only and reports
         residuals or unavailable providers without removing anything.
 
+    Get-SqlServerLabPersistentStorageRemovalPlan
+        Plans retention, backup/package, and binding consequences of removing a
+        run by stable storage ID without mutating the run, catalog, or storage.
+
     Get-SqlServerLabConnectionCenter
         Returns the password-free SQL endpoint catalog used by SSMS and CMS.
 

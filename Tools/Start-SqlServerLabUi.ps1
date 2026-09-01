@@ -369,6 +369,18 @@ try {
                 Write-UiResponse -Context $context -Body ($result | ConvertTo-Json -Depth 20) -ContentType 'application/json; charset=utf-8'
                 continue
             }
+            if ($path -eq '/api/persistent-storage/removal-plan' -and $context.Request.HttpMethod -eq 'POST') {
+                $body = [IO.StreamReader]::new($context.Request.InputStream, $context.Request.ContentEncoding).ReadToEnd()
+                $request = $body | ConvertFrom-Json -Depth 30
+                $runId = [string]$request.runId
+                $selections = @($request.selections)
+                if (-not $runId -or $selections.Count -eq 0) {
+                    throw 'PERSISTENT_STORAGE_REMOVAL_PREVIEW_INPUT_REQUIRED'
+                }
+                $plan = Get-SqlServerLabPersistentStorageRemovalPlan -RunId $runId -Selection $selections
+                Write-UiResponse -Context $context -Body ($plan | ConvertTo-Json -Depth 30) -ContentType 'application/json; charset=utf-8'
+                continue
+            }
             if ($path -eq '/api/actions' -and $context.Request.HttpMethod -eq 'POST') {
                 $body = [IO.StreamReader]::new($context.Request.InputStream, $context.Request.ContentEncoding).ReadToEnd()
                 $request = $body | ConvertFrom-Json -Depth 8

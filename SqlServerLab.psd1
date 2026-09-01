@@ -51,6 +51,7 @@
         'Remove-SqlServerLab'
         'Clear-SqlServerLab'
         'Get-SqlServerLabCleanupAudit'
+        'Get-SqlServerLabPersistentStorageRemovalPlan'
         'New-SqlServerLabDatabase'
         'Backup-SqlServerLabDatabase'
         'Invoke-SqlServerLabScript'
