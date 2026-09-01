@@ -466,6 +466,7 @@ function renderActiveLabs(items) {
       running ? '<button class="button secondary" data-container-action="RestartContainerLab" data-run="' + escapeHtml(item.RunId) + '">Neustarten</button>' : '',
       '<button class="button secondary" data-lab-resources="true" data-run="' + escapeHtml(item.RunId) + '" data-provider="container" data-memory="' + escapeHtml(primaryResource?.MemoryLimitMB || primaryResource?.memoryLimitMB || '') + '" data-cpu="' + escapeHtml(primaryResource?.ProcessorCount || primaryResource?.processorCount || '') + '" data-instances="' + escapeHtml(resources.length) + '">CPU / Speicher ändern</button>',
       '<button class="button secondary" data-lab-rename="true" data-run="' + escapeHtml(item.RunId) + '" data-name="' + escapeHtml(item.Name || item.RunId) + '">Name ändern</button>',
+      persistentStorageCandidatesForRun(item.RunId).length ? '<button class="button secondary" data-persistent-storage-removal-preview="true" data-run="' + escapeHtml(item.RunId) + '" data-name="' + escapeHtml(item.Name || item.RunId) + '">Retention prüfen</button>' : '',
       '<button class="button secondary" data-container-remove="true" data-run="' + escapeHtml(item.RunId) + '" data-name="' + escapeHtml(item.Name || item.RunId) + '">Entfernen</button>'
     ].join('');
     const instances = (item.Instances || []).map((instance) => {
@@ -535,6 +536,7 @@ function renderHyperVLabs(items) {
       (running && isSqlLab) ? '<button class="button secondary" data-container-operation="ExecuteHyperVLabScript" data-container-operation-kind="hyperv" data-run="' + escapeHtml(item.RunId) + '" data-container-operation-host="' + escapeHtml(sqlOperationHost) + '" data-instance="' + escapeHtml(sqlOperationInstanceId) + '" data-port="' + escapeHtml(String(sqlOperationPort)) + '">SQL-Skript ausführen</button>' : '',
       '<button class="button secondary" data-hyperv-action="OpenHyperVConsole" data-run="' + escapeHtml(item.RunId) + '">VMConnect öffnen</button>',
       '<button class="button secondary" data-lab-rename="true" data-run="' + escapeHtml(item.RunId) + '" data-name="' + escapeHtml(item.Name || item.RunId) + '">Name ändern</button>',
+      persistentStorageCandidatesForRun(item.RunId).length ? '<button class="button secondary" data-persistent-storage-removal-preview="true" data-run="' + escapeHtml(item.RunId) + '" data-name="' + escapeHtml(item.Name || item.RunId) + '">Retention prüfen</button>' : '',
       '<button class="button danger" data-hyperv-remove="true" data-run="' + escapeHtml(item.RunId) + '" data-name="' + escapeHtml(item.Name || item.RunId) + '">Entfernen</button>'
     ].join('');
     const sourceBased = item.BaseKind === 'existing-vm';
@@ -912,6 +914,55 @@ function openConfirmation(title, message, action, parameters, submitLabel = 'Ent
   $('#confirmation-dialog').showModal();
 }
 
+const persistentStoragePolicyLabels = {
+  DELETE_WITH_RUN: 'Mit dem Run löschen',
+  RETAIN_INSTANCE_STORE: 'Instanzstore katalogisiert behalten',
+  BACKUP_ON_REMOVE: 'Backups erzeugen und Store behalten',
+  PACKAGE_ON_REMOVE: 'Datenbankpakete erzeugen und Store behalten',
+  BACKUP_AND_PACKAGE: 'Backups und Pakete erzeugen, Store behalten',
+  EXTERNAL_UNMANAGED: 'Nur externe Bindung lösen'
+};
+
+function persistentStorageCandidatesForRun(runId) {
+  const candidates = Array.isArray(workflow?.PersistentStorageRemovalCandidates) ? workflow.PersistentStorageRemovalCandidates : [];
+  return candidates.filter((item) => item.RunId === runId && Array.isArray(item.AllowedPolicies) && item.AllowedPolicies.length > 0);
+}
+
+function openPersistentStorageRemovalPreview(runId, labName) {
+  const candidates = persistentStorageCandidatesForRun(runId);
+  if (!candidates.length) {
+    showError(new Error('Für diese Umgebung sind keine katalogisierten Retention-Auswahlen verfügbar.'));
+    return;
+  }
+  $('#persistent-storage-removal-run').value = runId;
+  $('#persistent-storage-removal-note').textContent = 'Umgebung „' + labName + '“ · Auswahl ausschließlich über stabile PersistentStorageIds.';
+  $('#persistent-storage-removal-result').hidden = true;
+  $('#persistent-storage-removal-result').innerHTML = '';
+  $('#persistent-storage-removal-selections').innerHTML = candidates.map((candidate) => {
+    const policies = candidate.AllowedPolicies.map((policy) => '<option value="' + escapeHtml(policy) + '">' + escapeHtml(persistentStoragePolicyLabels[policy] || policy) + '</option>').join('');
+    const references = Array.isArray(candidate.DatabaseReferences) ? candidate.DatabaseReferences : [];
+    const databaseSelection = references.length
+      ? '<label>Datenbankreferenzen (für Backup/Package)<select class="persistent-storage-database-references" multiple size="' + Math.min(6, Math.max(2, references.length)) + '">' + references.map((reference) => '<option value="' + escapeHtml(reference.ReferenceId) + '">' + escapeHtml(reference.DisplayName || shortId(reference.ReferenceId)) + '</option>').join('') + '</select></label>'
+      : '<p class="form-note">Keine aktiven Datenbankreferenzen katalogisiert; Export-Policies werden dadurch fail-closed blockiert.</p>';
+    return '<div class="list-item persistent-storage-removal-selection" data-storage-id="' + escapeHtml(candidate.PersistentStorageId) + '"><div><strong>' + escapeHtml(candidate.DisplayName || candidate.StorageClass) + '</strong><span>' + escapeHtml(candidate.Provider + ' · ' + candidate.StorageClass + ' · ' + candidate.State + ' · ' + shortId(candidate.PersistentStorageId)) + '</span></div><label>Policy<select class="persistent-storage-policy" required>' + policies + '</select></label>' + databaseSelection + '</div>';
+  }).join('');
+  $('#persistent-storage-removal-dialog').showModal();
+}
+
+function renderPersistentStorageRemovalPlan(plan) {
+  const summary = plan?.Summary || {};
+  const stores = Array.isArray(plan?.Stores) ? plan.Stores : [];
+  const issues = Array.isArray(plan?.Issues) ? plan.Issues : [];
+  const statusClassName = statusClass(plan?.Status || 'BLOCKED');
+  const storeHtml = stores.map((store) => {
+    const blockers = Array.isArray(store.Blockers) && store.Blockers.length ? '<div class="build-meta"><strong>Blocker:</strong> ' + escapeHtml(store.Blockers.join(', ')) + '</div>' : '';
+    const steps = Array.isArray(store.Steps) ? store.Steps.map((step) => escapeHtml(step.Order + '. ' + step.Action + (step.Mutation !== 'NONE' ? ' [' + step.Mutation + ']' : ''))).join('<br>') : '';
+    return '<div class="list-item"><div><strong>' + escapeHtml(store.Outcome) + '</strong><span>' + escapeHtml(shortId(store.PersistentStorageId) + ' · ' + (store.Policy || 'automatisch behalten')) + '</span><div class="build-meta">' + steps + '</div>' + blockers + '</div></div>';
+  }).join('');
+  $('#persistent-storage-removal-result').innerHTML = '<div class="build-card-top"><strong>Planstatus</strong><span class="status ' + statusClassName + '">' + escapeHtml(plan?.Status || 'BLOCKED') + '</span></div><div class="build-meta">' + escapeHtml((summary.StoreCount || 0) + ' Store(s) · ' + (summary.RecoveryGuardedSteps || 0) + ' recovery-geschützte Schritte · ' + (summary.Blockers || 0) + ' Blocker') + '</div>' + (issues.length ? '<div class="build-meta"><strong>Issues:</strong> ' + escapeHtml(issues.join(', ')) + '</div>' : '') + storeHtml;
+  $('#persistent-storage-removal-result').hidden = false;
+}
+
 document.addEventListener('click', async (event) => {
   const opener = event.target.closest('[data-open-build]');
   if (opener) { openBuild(opener.dataset.openBuild); return; }
@@ -961,6 +1012,11 @@ document.addEventListener('click', async (event) => {
   }
   const resourceButton = event.target.closest('[data-lab-resources]');
   if (resourceButton) { openResourceDialog(resourceButton); return; }
+  const retentionPreview = event.target.closest('[data-persistent-storage-removal-preview]');
+  if (retentionPreview) {
+    openPersistentStorageRemovalPreview(retentionPreview.dataset.run, retentionPreview.dataset.name || retentionPreview.dataset.run);
+    return;
+  }
   const remove = event.target.closest('[data-container-remove]');
   if (remove) {
     openConfirmation('Container-Lab entfernen', 'Container-Lab „' + remove.dataset.name + '“ wirklich entfernen? Der Container und sein Workflow-Run werden bereinigt.', 'RemoveContainerLab', { BuildId: remove.dataset.run });
@@ -1403,6 +1459,34 @@ $('#container-operation-form').addEventListener('submit', async (event) => {
 
 $('#container-sample').addEventListener('change', updateContainerSampleSelection);
 $('#container-library-backup').addEventListener('change', updateContainerLibraryBackupSelection);
+
+$('#persistent-storage-removal-form').addEventListener('submit', async (event) => {
+  if (event.submitter?.value === 'cancel') return;
+  event.preventDefault();
+  const selections = [...document.querySelectorAll('.persistent-storage-removal-selection')].map((row) => ({
+    PersistentStorageId: row.dataset.storageId,
+    Policy: row.querySelector('.persistent-storage-policy')?.value || '',
+    DatabaseReferenceIds: [...(row.querySelector('.persistent-storage-database-references')?.selectedOptions || [])].map((option) => option.value)
+  }));
+  if (!selections.length || selections.some((selection) => !selection.PersistentStorageId || !selection.Policy)) {
+    showError(new Error('Für jeden katalogisierten Store muss eine Retention-Policy gewählt werden.'));
+    return;
+  }
+
+  const submit = $('#persistent-storage-removal-submit');
+  submit.disabled = true;
+  try {
+    const response = await fetch('/api/persistent-storage/removal-plan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ runId: $('#persistent-storage-removal-run').value, selections })
+    });
+    if (!response.ok) throw new Error(await response.text());
+    renderPersistentStorageRemovalPlan(await response.json());
+  }
+  catch (error) { showError(error); }
+  finally { submit.disabled = false; }
+});
 
 function cancelDialog(dialog) {
   if (!dialog?.open) return;

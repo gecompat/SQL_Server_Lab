@@ -58,6 +58,7 @@ function Get-SqlServerLabWorkflow {
     $windowsInstallationMedia = @()
     $sampleDatabases = @()
     $backupLibrary = @()
+    $persistentStorageRemovalCandidates = @()
     $mediaSources = @()
     $hyperVLabs = @()
     $hyperVSwitches = @()
@@ -82,6 +83,57 @@ function Get-SqlServerLabWorkflow {
     }
     try { $activeRuns = @(Get-LabActiveRuns -StateRoot $stateRoot 2>$null) } catch { }
     $activeContainerRuns = @($activeRuns | Where-Object { [string]$_.metadata.workflowKind -ne 'hyperv-lab' })
+    try {
+        $storageConfiguration = Get-LabStorageConfiguration
+        $storageCatalog = Get-LabPersistentStorageCatalog -Configuration $storageConfiguration
+        if ([string]$storageCatalog.Status -in @('AVAILABLE', 'EMPTY')) {
+            $activeRunIds = @($activeRuns | ForEach-Object { [string]$_.runId })
+            $persistentStorageRemovalCandidates = @(
+                foreach ($store in @($storageCatalog.Document.Stores)) {
+                    $linkedRunIds = @(
+                        @($store.References | Where-Object { [string]$_.Kind -eq 'RUN' -and [string]$_.State -eq 'ACTIVE' } | ForEach-Object { [string]$_.TargetId })
+                        if ($store.Lease -and $store.Lease.RunId) { [string]$store.Lease.RunId }
+                    ) | Where-Object { $_ -in $activeRunIds } | Sort-Object -Unique
+                    if (@($linkedRunIds).Count -eq 0) { continue }
+
+                    $allowedPolicies = @()
+                    if ([string]$store.StorageClass -eq 'INSTANCE_STORE' -and [string]$store.Retention -eq 'RETAINED' -and [string]$store.CleanupDisposition -eq 'PRESERVE') {
+                        $allowedPolicies = @('RETAIN_INSTANCE_STORE', 'BACKUP_ON_REMOVE', 'PACKAGE_ON_REMOVE', 'BACKUP_AND_PACKAGE')
+                    }
+                    elseif ([string]$store.Retention -eq 'RUN_SCOPED' -and [string]$store.CleanupDisposition -eq 'RUN_CLEANUP') {
+                        $allowedPolicies = @('DELETE_WITH_RUN')
+                    }
+                    elseif ([string]$store.Provider -eq 'external' -and [string]$store.Retention -eq 'EXTERNAL_UNMANAGED' -and [string]$store.CleanupDisposition -eq 'REPORT_ONLY') {
+                        $allowedPolicies = @('EXTERNAL_UNMANAGED')
+                    }
+
+                    foreach ($linkedRunId in @($linkedRunIds)) {
+                        [PSCustomObject]@{
+                            RunId = $linkedRunId
+                            PersistentStorageId = [string]$store.PersistentStorageId
+                            DisplayName = [string]$store.DisplayName
+                            StorageClass = [string]$store.StorageClass
+                            Provider = [string]$store.Provider
+                            State = [string]$store.State
+                            Retention = [string]$store.Retention
+                            CleanupDisposition = [string]$store.CleanupDisposition
+                            PolicyRequired = [bool]([string]$store.StorageClass -notin @('BACKUP_SET', 'DATABASE_PACKAGE'))
+                            AllowedPolicies = $allowedPolicies
+                            DatabaseReferences = @($store.References | Where-Object {
+                                [string]$_.Kind -eq 'DATABASE' -and [string]$_.State -eq 'ACTIVE'
+                            } | ForEach-Object {
+                                [PSCustomObject]@{
+                                    ReferenceId = [string]$_.ReferenceId
+                                    DisplayName = [string]$_.TargetId
+                                }
+                            })
+                        }
+                    }
+                }
+            )
+        }
+    }
+    catch { $persistentStorageRemovalCandidates = @() }
     if ($hyperV.Supported) {
         $hyperVLabs = @($activeRuns | Where-Object { [string]$_.metadata.workflowKind -eq 'hyperv-lab' } | ForEach-Object {
             $run = $_
@@ -267,6 +319,7 @@ function Get-SqlServerLabWorkflow {
         WindowsInstallationMedia = $windowsInstallationMedia
         SampleDatabases = $sampleDatabases
         BackupLibrary = $backupLibrary
+        PersistentStorageRemovalCandidates = $persistentStorageRemovalCandidates
         MediaSources = $mediaSources
         TemplatePool = $templatePool
         HyperVLabs = $hyperVLabs
