@@ -148,7 +148,8 @@ Mutation mit dem Residency-Inventar ab. Folgende Arbeit bleibt getrennt:
 
 - `PSR-003`: Katalogschreiben, Lease-Akquisition und Wiederverwendungsaktionen
   auf Basis des vorhandenen read-only Vertrags;
-- `PSR-004`: Retention, Backup-/Package-on-Remove und explizites Löschen;
+- `PSR-004`: Der read-only Retention-/Removal-Plan ist umgesetzt; Backup-/
+  Package-Executor und explizite endgültige Storage-Löschung bleiben offen;
 - `PSR-005`/`PSR-006`: reale Docker-/Podman-Fortsetzung und Bewertung
   dedizierter Engine-/Machine-Verträge;
 - `PSR-007`: revalidierter Hyper-V-Daten-VHDX-Lifecycle;

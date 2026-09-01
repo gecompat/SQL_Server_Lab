@@ -872,7 +872,12 @@ Der read-only `SqlServerLab.PersistentStorageCatalog/1.0`-Vertrag mit stabilen
 Leases sowie der Residency-gebundene `SqlServerLab.PersistentStoragePlan/1.0`
 sind implementiert. Noch nicht implementiert sind Katalogmutation,
 Lease-Akquisition, providerübergreifende Wiederverwendung und explizites
-Löschen.
+Löschen. Der zusätzliche read-only Removal-Vertrag plant
+`DELETE_WITH_RUN`, `RETAIN_INSTANCE_STORE`, `BACKUP_ON_REMOVE`,
+`PACKAGE_ON_REMOVE`, `BACKUP_AND_PACKAGE` und `EXTERNAL_UNMANAGED` mit
+Referenz-, Lease-, Backup-, Package- und Recovery-Gates. Noch nicht
+implementiert sind dessen Executor, die tatsächliche Backup-/Package-Erzeugung
+in diesem Workflow und die getrennte endgültige Storage-Löschaktion.
 Der zweite `HVR-006`-Slice koppelt Lifecycle-Reconcile, Start, Stop,
 Autostartänderung und SQL-WMI-Repair an einen gemeinsamen read-only
 Migrationsguard. Laufende, fehlgeschlagene oder inkonsistent abgeschlossene

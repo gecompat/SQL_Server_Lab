@@ -1067,6 +1067,10 @@ Zustände, Referenzen, exklusive Leases, Spiegelprüfung und eine
 Residency-gebundene Planung. Nicht katalogisierte retained Objekte bleiben
 ID-lose Registrierungskandidaten; Schreiben, Lease-Akquisition,
 Wiederverwendung und Löschung folgen erst in getrennten Mutationsverträgen.
+Der read-only `PSR-004`-Vertrag plant bereits alle sechs Retention-/Removal-
+Policies, Backup-`CHECKSUM`/`RESTORE VERIFYONLY`, Offline-/Hash-/Package-
+Evidence, Fremdreferenzschutz und `RECOVERY_REQUIRED`, führt diese Mutationen
+aber noch nicht aus und hält endgültige Persistent-Storage-Löschung getrennt.
 Der weitere P1-Produktpfad folgt dem P0-Hyper-V-Ressourcenroot-Bugfix und wird im
 [Persistenz- und `Lab_Data`-Backlog](PERSISTENT_STORAGE_REUSE_AND_LAB_DATA_BACKLOG.md)
 evidenzgebunden geplant.

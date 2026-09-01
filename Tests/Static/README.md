@@ -14,6 +14,7 @@ Container, Datenbanken oder Run-States.
 | `Invoke-CleanupRecoveryChecks.ps1` | Simulierter Providerfehler, `RECOVERY_REQUIRED`, persistierte Fehlerursache und erfolgreicher Cleanup-Retry | `.\Tests\Static\Invoke-CleanupRecoveryChecks.ps1` |
 | `Invoke-CleanupAuditChecks.ps1` | Cleanup-Residuen, Hyper-V-Schutzbindungen und versionierte Storage-Residency für `Lab_Data`, native Runtime-Volumes, externe Pfade und Retention | `.\Tests\Static\Invoke-CleanupAuditChecks.ps1` |
 | `Invoke-PersistentStorageCatalogChecks.ps1` | Stabiler Persistent-Storage-Katalog, Zustände, exklusive Leases, Spiegelkonsistenz und read-only Inventarplanung | `.\Tests\Static\Invoke-PersistentStorageCatalogChecks.ps1` |
+| `Invoke-PersistentStorageRemovalPlanChecks.ps1` | Read-only Retention-, Backup-/Package-on-Remove-, External- und Recovery-Plan mit separater Storage-Löschgrenze | `.\Tests\Static\Invoke-PersistentStorageRemovalPlanChecks.ps1` |
 | `Invoke-PodmanBootstrapChecks.ps1` | Ready-, Start-, Fehler-, Timeout- und Parallelpfade des Podman-Bootstraps ohne echte Runtime | `.\Tests\Static\Invoke-PodmanBootstrapChecks.ps1` |
 | `Invoke-LabNetworkChecks.ps1` | Feste, konfigurierbare Docker-, Podman- und Hyper-V-Labnetze, CIDR-Kollisionsschutz sowie Hostzugriffsvertrag | `.\Tests\Static\Invoke-LabNetworkChecks.ps1` |
 | `Invoke-MediaRootLayoutChecks.ps1` | Externe Media-Root-Struktur, sichere Einsortierung, SHA-256-Sidecars, Idempotenz und Repository-Pfadgrenze | `.\Tests\Static\Invoke-MediaRootLayoutChecks.ps1` |
