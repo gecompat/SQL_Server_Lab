@@ -6,6 +6,9 @@
     Providers unpruefbare Ressourcen werden gemeldet, aber niemals entfernt. Der
     persistente Storage-Katalog und exklusive Leases werden gegen das Inventar
     geprüft; nicht katalogisierte retained Objekte bleiben ID-lose Kandidaten.
+    Bewusst retained Objekte, unerwartete Residuen, Recovery-Befunde und
+    unverifizierbare Evidence werden mit Reason-Code und Handlungshinweis
+    getrennt ausgegeben; daraus folgt niemals automatische Mutationsautorität.
     Aktive Docker-Contexts und Podman-Connections/Machines werden sanitisiert
     als read-only Runtime-Scope ausgegeben.
 .PARAMETER NoWrite
@@ -14,7 +17,7 @@
     PSCustomObject mit Path und Audit. Audit enthaelt Status, Zusammenfassung,
     Datenwurzeln, aktive Runs, gefundene oder unpruefbare Providerressourcen
     sowie Runtime-Scopes, Storage-Residency, Persistent-Storage-Katalog und
-    read-only Plan.
+    read-only Plan sowie getrennte Cleanup-Findings.
 #>
 function Get-SqlServerLabCleanupAudit {
     [CmdletBinding()]
@@ -270,6 +273,8 @@ function Get-SqlServerLabCleanupAudit {
         -RepositoryResidues $repositoryResidues -LegacyStateRoots $legacyStateRoots
     $persistentStorageCatalog = Get-LabPersistentStorageCatalog -Configuration $configuration
     $persistentStoragePlan = Get-LabPersistentStoragePlan -Catalog $persistentStorageCatalog -ResidencyInventory $storageResidency
+    $findings = Get-LabCleanupAuditFindings -ResidencyInventory $storageResidency `
+        -PersistentStorageCatalog $persistentStorageCatalog -HyperVRunScopes $hyperVRunScopes -Containers $containers
 
     $unverifiable = @($runtimeScopes | Where-Object Status -ne 'AVAILABLE').Count + $(if ($hyperVStatus -eq 'UNAVAILABLE') { 1 } else { 0 })
     $hyperVProtectionIssues = @($hyperVRunScopes | Where-Object {
@@ -295,6 +300,7 @@ function Get-SqlServerLabCleanupAudit {
             Issues=@($persistentStorageCatalog.Issues)
             Plan=$persistentStoragePlan
         }
+        Findings=$findings
         ExternalReferences=$externalReferences; RepositoryResidues=$repositoryResidues; LegacyStateRoots=$legacyStateRoots
         Summary=[PSCustomObject]@{
             ResidualCount=$residualCount; UnverifiableProviders=$unverifiable

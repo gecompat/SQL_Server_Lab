@@ -29,7 +29,7 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 | `container-instance-store-plan.schema.json` | Fail-closed Auswahl-, Kompatibilitäts- und Mutationsplan für Container-Instanzstores |
 | `container-instance-store-journal.schema.json` | Wiederaufnehmbares Clone-Journal mit Quell-/Zielidentität und Inhaltsdigest-Evidence |
 | `container-runtime-scope.schema.json` | Sanitisierter read-only Vertrag `SqlServerLab.ContainerRuntimeScope/1.0` für Engine-/Context-/Machine-Reichweite, Ownership und verbotene Hostmutationen |
-| `lab-cleanup-audit.schema.json` | Lokaler Cleanup-Audit einschließlich der getrennt schema-validierten Storage-Residency-Matrix |
+| `lab-cleanup-audit.schema.json` | Lokaler Cleanup-Audit einschließlich Storage-Residency-Matrix und strikt getrennter read-only Retention-, Residual-, Recovery- und Unverifiable-Findings |
 | `hyperv-resource-binding.schema.json` | Lokaler Vertrag `SqlServerLab.HyperVResourceBinding/1.0` für kurze Hyper-V-Create-Roots mit Controller-, Location-, Volume- und `Lab_Data`-Identität |
 | `hyperv-resource-migration-plan.schema.json` | Lokaler read-only Vertrag `SqlServerLab.HyperVResourceMigrationPlan/1.0` für exaktes Legacy-Inventar, Zielbindung, Blocker und geplante Aktionen |
 | `hyperv-resource-migration-journal.schema.json` | Lokales Operationsjournal `SqlServerLab.HyperVResourceMigrationJournal/1.0` für vorjournalisiertes Parent-Reparent, getrennte Child-Hashes, VHDX-/VM-Umbindung, Readiness, Image-Resume, späten Quell-Cleanup und sichtbaren Recovery-Bedarf |
