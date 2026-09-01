@@ -235,11 +235,50 @@ function Get-LabDatabaseBackup {
     $matches = @($document.Backups | Where-Object BackupSetId -eq $BackupSetId)
     if ($matches.Count -ne 1) { throw 'BACKUP_LIBRARY_SET_NOT_FOUND' }
     $record = $matches[0]
+    if ([string]$record.Status -ne 'REUSABLE') { throw 'BACKUP_LIBRARY_SET_NOT_REUSABLE' }
+    if (-not [bool]$record.Verification.BackupChecksum -or -not [bool]$record.Verification.RestoreVerifyOnly) {
+        throw 'BACKUP_LIBRARY_SET_NOT_VERIFIED'
+    }
     $path = Join-Path $paths.LibraryRoot ([string]$record.Artifact.RelativePath)
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw 'BACKUP_LIBRARY_OBJECT_MISSING' }
     $hash = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
     if ($hash -ne [string]$record.Artifact.Sha256) { throw 'BACKUP_LIBRARY_OBJECT_HASH_MISMATCH' }
     [PSCustomObject]@{ Record=$record; Path=$path; RegistryPath=$paths.RegistryPath }
+}
+
+function Get-LabDatabaseBackupSelection {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$DataRoot)
+
+    $paths = Get-LabBackupLibraryPaths -DataRoot $DataRoot
+    $document = Get-LabBackupLibraryDocument -Paths $paths
+    @($document.Backups | Sort-Object CreatedAt -Descending | ForEach-Object {
+        $record = $_
+        $objectPath = Join-Path $paths.LibraryRoot ([string]$record.Artifact.RelativePath)
+        $verified = [bool]$record.Verification.BackupChecksum -and [bool]$record.Verification.RestoreVerifyOnly
+        $availability = if ([string]$record.Status -ne 'REUSABLE' -or -not $verified) {
+            'BLOCKED'
+        }
+        elseif (-not (Test-Path -LiteralPath $objectPath -PathType Leaf)) {
+            'MISSING'
+        }
+        else {
+            'SELECTABLE'
+        }
+        [PSCustomObject][ordered]@{
+            BackupSetId = [string]$record.BackupSetId
+            Availability = $availability
+            DatabaseName = [string]$record.DatabaseName
+            SourceProvider = [string]$record.Source.Provider
+            SourceSqlMajorVersion = [string]$record.Source.SqlMajorVersion
+            Bytes = [long]$record.Artifact.Bytes
+            HasFileStream = [bool]$record.DatabaseMetadata.HasFileStream
+            IsEncrypted = [bool]$record.DatabaseMetadata.IsEncrypted
+            MigrationBoundary = [string]$record.DatabaseMetadata.MigrationBoundary.ArtifactScope
+            RestoreVerificationCount = @($record.Verification.RestoreVerifications).Count
+            CreatedAt = [string]$record.CreatedAt
+        }
+    })
 }
 
 function Add-LabDatabaseBackupRestoreVerification {

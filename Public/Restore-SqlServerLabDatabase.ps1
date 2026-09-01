@@ -157,9 +157,11 @@ function New-LabRestoreMoveStatements {
 function Restore-SqlServerLabDatabase {
     <#
     .SYNOPSIS
-        Stellt eine Datenbank aus einer direkten .bak-Datei wieder her.
+        Stellt eine Datenbank aus der Backup-Bibliothek oder einer direkten
+        .bak-Datei wieder her.
     .DESCRIPTION
-        Verarbeitet eine lokale Backup-Datei oder eine HTTP(S)-URL. Das Backup
+        Verarbeitet eine stabile BackupSetId aus der Lab_Data-Bibliothek, eine
+        lokale Backup-Datei oder eine HTTP(S)-URL. Das Backup
         wird in den eindeutig bestimmten Docker- oder Podman-Labcontainer kopiert
         und mit RESTORE FILELISTONLY sowie RESTORE DATABASE WITH MOVE
         wiederhergestellt.
@@ -173,6 +175,12 @@ function Restore-SqlServerLabDatabase {
     .PARAMETER BackupSource
         Pfad zu einer vorhandenen lokalen .bak-Datei oder direkte HTTP(S)-URL.
         URLs werden vor dem Restore in den State-Cache heruntergeladen.
+    .PARAMETER BackupSetId
+        Stabile ID eines wiederverwendbaren, verifizierten Backups aus der
+        Lab_Data-Bibliothek. BackupSource und BackupSetId schließen einander aus.
+    .PARAMETER DataRoot
+        Lab_Data-Root der Backup-Bibliothek. Ohne Angabe wird der gespeicherte
+        Framework-Default verwendet.
     .PARAMETER DatabaseName
         Name der Zieldatenbank. Erlaubt sind Buchstaben, Ziffern und Unterstriche;
         das erste Zeichen muss ein Buchstabe sein.
@@ -227,13 +235,20 @@ function Restore-SqlServerLabDatabase {
 
         Ladt ein Backup in den State-Cache und ermittelt den Container anhand des
         Host-Ports.
+    .EXAMPLE
+        Restore-SqlServerLabDatabase -RunId $lab.RunId -SaPassword $pw -BackupSetId $id -DatabaseName 'RestoreDemo'
+
+        Wählt ein verifiziertes Backup ausschließlich über seine stabile ID aus
+        der konfigurierten Lab_Data-Bibliothek aus.
     #>
     [CmdletBinding(DefaultParameterSetName = 'Direct')]
     param(
         [Parameter(ParameterSetName = 'Direct')][string]$HostName = '127.0.0.1',
         [Parameter(ParameterSetName = 'Direct', Mandatory)][int]$Port,
         [Parameter(Mandatory)][SecureString]$SaPassword,
-        [Parameter(Mandatory)][string]$BackupSource,
+        [string]$BackupSource,
+        [ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$BackupSetId,
+        [string]$DataRoot,
         [Parameter(Mandatory)][string]$DatabaseName,
         [ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$ExpectedSha256,
         [switch]$NonInteractive,
@@ -250,6 +265,15 @@ function Restore-SqlServerLabDatabase {
     )
 
     $ErrorActionPreference = 'Stop'
+
+    $hasBackupSource = -not [string]::IsNullOrWhiteSpace($BackupSource)
+    $hasBackupSetId = -not [string]::IsNullOrWhiteSpace($BackupSetId)
+    if ($hasBackupSource -eq $hasBackupSetId) {
+        throw 'RESTORE_BACKUP_SOURCE_EXACTLY_ONE_REQUIRED'
+    }
+    if ($hasBackupSetId -and $ExpectedSha256) {
+        throw 'RESTORE_BACKUP_LIBRARY_HASH_IS_MANAGED'
+    }
 
     if ($DatabaseName -notmatch '^[A-Za-z][A-Za-z0-9_]{0,127}$') {
         throw "DatabaseName '$DatabaseName' ist ungueltig."
@@ -275,7 +299,15 @@ function Restore-SqlServerLabDatabase {
     }
 
     $artifactResolution = $null
-    $backupPath = if ($BackupSource -match '^https?://') {
+    $librarySelection = $null
+    $backupSourceKind = if ($hasBackupSetId) { 'LIBRARY' } elseif ($BackupSource -match '^https?://') { 'URL' } else { 'FILE' }
+    $backupPath = if ($hasBackupSetId) {
+        if (-not $DataRoot) { $DataRoot = Get-LabDataRootDefault }
+        if (-not $DataRoot) { throw 'RESTORE_BACKUP_LIBRARY_DATA_ROOT_REQUIRED' }
+        $librarySelection = Get-LabDatabaseBackup -BackupSetId $BackupSetId -DataRoot $DataRoot
+        $librarySelection.Path
+    }
+    elseif ($BackupSource -match '^https?://') {
         $artifactResolution = Resolve-LabArtifact `
             -Source $BackupSource `
             -ArtifactType backup `
@@ -439,6 +471,8 @@ RESTORE DATABASE [$escapedDatabaseName]
                 DatabaseName = $DatabaseName
                 Provider     = $runtime
                 ContainerName = $ContainerName
+                BackupSetId  = if ($librarySelection) { [string]$librarySelection.Record.BackupSetId } else { $null }
+                BackupSourceKind = $backupSourceKind
                 Message      = "RESTORE fehlgeschlagen: $restoreText"
                 Duration     = $stopwatch.Elapsed
                 Files        = $moveStatements.Count
@@ -462,6 +496,8 @@ RESTORE DATABASE [$escapedDatabaseName]
             Duration      = $stopwatch.Elapsed
             Files         = $moveStatements.Count
             Artifact      = $artifactResolution
+            BackupSetId    = if ($librarySelection) { [string]$librarySelection.Record.BackupSetId } else { $null }
+            BackupSourceKind = $backupSourceKind
             StoragePlanId = if ($storageContext) { [string]$storageContext.Plan.PlanId } else { $null }
         }
     }

@@ -69,7 +69,13 @@ Container-Labs lassen sich ad hoc, aus einem gespeicherten Manifest oder über
 die konsistente Mehrfachauswahl von katalogisierten Testdatenbanken erstellen.
 Die Datenbankauswahl arbeitet eine ausgewählte Liste nacheinander ab und
 fordert für Quellen ohne hinterlegten SHA-256 eine explizite einmalige
-Vertrauensfreigabe. Der Menüpunkt **Alles aufräumen** zeigt vor dem Start eine
+Vertrauensfreigabe. Im selben Dialog kann ein kompatibles, verifiziertes Backup
+aus der konfigurierten `Lab_Data`-Bibliothek gewählt werden. Browser und Aktion
+übergeben dabei ausschließlich die stabile `BackupSetId`; der gemeinsame
+Restore-Core löst Pfad und Hash intern auf und prüft sie unmittelbar vor dem
+Restore erneut. Die Bibliotheksübersicht selbst liest nur kleine Metadaten und
+hasht nicht bei jedem UI-Refresh alle Backup-Dateien. Der Menüpunkt **Alles
+aufräumen** zeigt vor dem Start eine
 Bestätigung und führt ausschließlich die hinterlegten Cleanup-Pläne aus;
 persistente Data-Root-Inhalte und veröffentlichte Hyper-V-Images bleiben
 erhalten.

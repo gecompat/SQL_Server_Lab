@@ -191,6 +191,18 @@ Add-CheckResult -Name 'UI und Workflow unterstützen Mehrfachauswahl von Testdat
     $htmlText -match 'id="container-sample" multiple' -and
     $scriptText -match 'SampleSelections = samples'
 )
+Add-CheckResult -Name 'CLI und Workflow-UI restaurieren Lab_Data-Backups über dieselbe stabile BackupSetId' -Success (
+    $workflowText -match 'Get-LabDatabaseBackupSelection -DataRoot \$dataRoot' -and
+    $workflowText -match 'BackupLibrary = \$backupLibrary' -and
+    $actionText -match 'RestoreContainerLibraryBackup' -and
+    $actionText -match 'Restore-SqlServerLabDatabase @restoreArguments' -and
+    $actionText -match 'BackupSetId = \$BackupSetId' -and
+    $htmlText -match 'id="container-library-backup"' -and
+    $scriptText -match 'renderContainerLibraryBackups' -and
+    $scriptText -match "action = 'RestoreContainerLibraryBackup'" -and
+    $scriptText -match 'parameters\.BackupSetId = backupSetId' -and
+    $scriptText -notmatch 'parameters\.Backup(Source|Path)'
+)
 Add-CheckResult -Name 'UI bietet bestätigten globalen Cleanup und Manifest-Erstellung' -Success (
     $actionText -match 'ClearAllLabs' -and
     $actionText -match 'CreateContainerManifest' -and

@@ -411,8 +411,12 @@ Backup-Übergabeebene. `Backup-SqlServerLabDatabase` veröffentlicht vollständi
 Backups providerneutral erst nach SQL-Checksum, `RESTORE VERIFYONLY`, Host-Hash
 und sanitiertem Receipt in der inhaltsadressierten `Lab_Data`-Bibliothek; ein
 realer Docker→Podman-Restore mit Inhaltsdigest ist belegt. Noch offen sind die
-öffentliche Auswahl per BackupSetId, die GUI-Parität und ein realer
-FILESTREAM-Cross-Provider-Nachweis. TDE endet ohne separaten Zertifikat- und
+Retention-/Attach-/Clone-/Delete-Parität und ein realer FILESTREAM-Cross-
+Provider-Nachweis. Die öffentliche CLI und die lokale Workflow-UI wählen ein
+Restore-Backup inzwischen ausschließlich per stabiler `BackupSetId`; die
+sanitisierte UI-Inventur hasht große Objekte nicht bei jedem Refresh, während
+die konkrete Auswahl Status, Verification-Evidence, Datei und SHA-256 erneut
+fail-closed prüft. TDE endet ohne separaten Zertifikat- und
 Recovery-Vertrag fail-closed; ein TDE-Schlüsseltransfer findet nicht statt.
 Der interne Hyper-V-Persistent-Data-Core kann eine
 katalogisierte, sauber getrennte Daten-VHDX inzwischen per stabiler Storage-ID
@@ -449,11 +453,13 @@ Keymaterialtransfer, externe Serviceprüfung und öffentliche CLI-/GUI-Flows.
 
 ## Restore
 
-Unterstützt werden direkte `.bak`-Dateien aus lokalen Pfaden oder HTTP(S)-URLs.
+Unterstützt werden Bibliotheksbackups per stabiler `BackupSetId` sowie direkte
+`.bak`-Dateien aus lokalen Pfaden oder HTTP(S)-URLs.
 Vor `FILELISTONLY` und der eigentlichen Wiederherstellung wird immer
-`RESTORE VERIFYONLY ... WITH CHECKSUM` ausgeführt. Bibliotheksbackups werden
-derzeit über den vom Backup-Cmdlet ausgegebenen Pfad und SHA-256 restauriert;
-die öffentliche Auswahl ausschließlich per `BackupSetId` gehört zu PSR-011.
+`RESTORE VERIFYONLY ... WITH CHECKSUM` ausgeführt. Bei einer Bibliotheksauswahl
+werden weder Objektpfad noch Hash vom Aufrufer oder Browser angenommen; der
+gemeinsame Core löst beides aus dem schema-validierten Receipt auf und prüft
+den Inhalt erneut.
 Ein HTTP(S)-Restore ohne `restore.sha256` kann im interaktiven Trust-Pfad
 verwendet werden, beendet einen unbeaufsichtigten Manifestlauf jedoch mit
 `TRUST_REQUIRED`.
