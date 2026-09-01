@@ -3,7 +3,7 @@
   "title": "SqlServerLab.DatabasePackageAttachPlan/1.0",
   "type": "object",
   "additionalProperties": false,
-  "required": ["ContractVersion", "DatabasePackageId", "Status", "DatabaseName", "TargetDirectory", "Mode", "SourceFilesReadOnly", "DirectPackageAttachAllowed", "Steps", "Blockers", "Recovery"],
+  "required": ["ContractVersion", "DatabasePackageId", "Status", "DatabaseName", "TargetDirectory", "Mode", "SourceFilesReadOnly", "DirectPackageAttachAllowed", "MigrationBoundary", "Steps", "Blockers", "Recovery"],
   "properties": {
     "ContractVersion": { "const": "SqlServerLab.DatabasePackageAttachPlan/1.0" },
     "DatabasePackageId": { "type": "string", "format": "uuid" },
@@ -13,6 +13,21 @@
     "Mode": { "const": "COPY_THEN_ATTACH" },
     "SourceFilesReadOnly": { "const": true },
     "DirectPackageAttachAllowed": { "const": false },
+    "MigrationBoundary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["DependencyInventoryStatus", "ArtifactScope", "FullInstanceMigration", "ServerObjectsIncluded", "TdeKeyMaterialIncluded", "SecretValuesIncluded", "ExternalServicesIncluded", "DependencyCategories", "Warnings"],
+      "properties": {
+        "DependencyInventoryStatus": { "enum": ["NOT_EXECUTED", "SQL_ENGINE_COMPLETE_EXTERNAL_REVIEW_REQUIRED"] },
+        "ArtifactScope": { "const": "DATABASE_FILES_ONLY" },
+        "FullInstanceMigration": { "const": false },
+        "ServerObjectsIncluded": { "const": false },
+        "TdeKeyMaterialIncluded": { "const": false },
+        "SecretValuesIncluded": { "const": false },
+        "ExternalServicesIncluded": { "const": false },
+        "DependencyCategories": { "type": "array", "items": { "type": "string", "pattern": "^[A-Z0-9_]+$" }, "uniqueItems": true },
+        "Warnings": { "type": "array", "minItems": 4, "items": { "type": "string", "pattern": "^[A-Z0-9_]+$" }, "uniqueItems": true }
+      }
+    },
     "Steps": { "type": "array", "minItems": 5, "items": { "type": "string", "minLength": 1 } },
     "Blockers": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
     "Recovery": { "const": "DETACH_TARGET_COPY_IF_ATTACHED_AND_PRESERVE_IMMUTABLE_PACKAGE" }
