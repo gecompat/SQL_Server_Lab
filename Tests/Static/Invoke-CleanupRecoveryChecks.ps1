@@ -62,6 +62,9 @@ try {
             if ($script:syntheticCleanupFailure) {
                 throw 'SYNTHETIC_PROVIDER_REMOVE_FAILURE'
             }
+            if ($null -ne $script:persistentCleanupOrder) {
+                $script:persistentCleanupOrder.Add("container:$ContainerIdOrName")
+            }
 
             return [pscustomobject]@{
                 ContainerIdOrName = $ContainerIdOrName
@@ -160,6 +163,39 @@ try {
         $stateAfterRetry = Get-LabRunState -RunId $run.RunId -StateRoot $StateRoot
         $planAfterRetry = Get-CleanupPlan -RunDir $run.RunDir
 
+        $persistentRun = New-LabRunState `
+            -StateRoot $StateRoot `
+            -ScopeId (New-LabGuid) `
+            -Metadata @{ name='synthetic-persistent-cleanup'; persistentData=$true; dataRoot='synthetic-data-root' } `
+            -ProviderSubRuns @([pscustomobject]@{ id='provider-docker'; provider='docker'; instanceIds=@('primary') })
+        $null = New-CleanupPlan -RunDir $persistentRun.RunDir -RunId $persistentRun.RunId `
+            -ScopeId $persistentRun.ScopeId -ProviderSubRuns @([pscustomobject]@{ id='provider-docker'; provider='docker' })
+        $null = Add-CleanupStep -RunDir $persistentRun.RunDir -ResourceType 'persistent-storage-lease' `
+            -ResourceId 'sql-lab-persistent-cleanup-test' -Action release -Provider docker -ProviderSubRunId 'provider-docker'
+        $persistentInstance = [pscustomobject]@{
+            id='primary'; provider='docker'; drives=@([pscustomobject]@{
+                id='persistent-mssql'; containerPath='/var/opt/mssql'; volumeName='sql-lab-persistent-cleanup-test'
+                persistence='data-root-runtime-volume'
+            })
+        }
+        $null = Add-LabInstanceCleanupPlan -Instance $persistentInstance -RunState $persistentRun
+        $persistentPlanBefore = Get-CleanupPlan -RunDir $persistentRun.RunDir
+        $persistentContainerName = [string](@($persistentPlanBefore.steps | Where-Object resourceType -eq 'container')[0].resourceId)
+        $script:persistentCleanupOrder = [Collections.Generic.List[string]]::new()
+        $originalRelease = (Get-Command Unregister-LabContainerInstanceStoreLease -CommandType Function).ScriptBlock
+        $releaseReplacement = {
+            param($Provider,$VolumeName,$RunId,$ScopeId,$DataRoot,$Configuration)
+            $null=$Provider,$RunId,$ScopeId,$DataRoot,$Configuration
+            $script:persistentCleanupOrder.Add("release:$VolumeName")
+        }
+        Set-Item Function:script:Unregister-LabContainerInstanceStoreLease -Value $releaseReplacement
+        try {
+            $persistentCleanupResult = Invoke-CleanupPlan -RunDir $persistentRun.RunDir -ScopeId $persistentRun.ScopeId
+        }
+        finally {
+            Set-Item Function:script:Unregister-LabContainerInstanceStoreLease -Value $originalRelease
+        }
+
         [pscustomobject]@{
             FirstAttemptRecoveryRequired = $firstAttempt.Status -eq 'RECOVERY_REQUIRED'
             FirstAttemptBlocked          = $firstAttempt.Cleanup -eq 'CLEANUP_BLOCKED'
@@ -181,6 +217,12 @@ try {
                                                $_.state -eq 'RECOVERY_REQUIRED'
                                            }).Count -eq 1
             SecretsRemovedAfterSuccess   = -not (Test-Path -LiteralPath $secretDirectory)
+            PersistentVolumePreserved    = @($persistentPlanBefore.steps | Where-Object resourceType -eq 'volume').Count -eq 0
+            PersistentReleaseOrdered     = (@($script:persistentCleanupOrder) -join ',') -eq
+                                           "container:$persistentContainerName,release:sql-lab-persistent-cleanup-test"
+            PersistentCleanupOrder       = @($script:persistentCleanupOrder)
+            PersistentCleanupSucceeded   = $persistentCleanupResult.Status -eq 'CLEANUP_SUCCEEDED' -and
+                                           $persistentCleanupResult.Steps -eq 2
         }
     } $temporaryRoot
 
@@ -195,6 +237,10 @@ try {
     Add-CheckResult -Name 'Retry setzt FAILED zurueck und schliesst Schritt ab' -Success $result.RetryStepCompleted
     Add-CheckResult -Name 'Recovery-Historie bleibt nach Erfolg erhalten' -Success $result.RecoveryHistoryPreserved
     Add-CheckResult -Name 'Secrets werden erst nach erfolgreichem Cleanup entfernt' -Success $result.SecretsRemovedAfterSuccess
+    Add-CheckResult -Name 'Persistentes Runtime-Volume bleibt außerhalb destruktiver Cleanup-Schritte' -Success $result.PersistentVolumePreserved
+    Add-CheckResult -Name 'Cleanup entfernt den Container vor der Lease-Freigabe' -Success $result.PersistentReleaseOrdered `
+        -Message (@($result.PersistentCleanupOrder) -join ',')
+    Add-CheckResult -Name 'Persistente Lease-Freigabe ist ein wiederholbarer Cleanup-Schritt' -Success $result.PersistentCleanupSucceeded
 }
 catch {
     Add-CheckResult -Name 'Cleanup-/Recovery-Testausfuehrung' -Success $false -Message $_.Exception.Message

@@ -793,9 +793,32 @@ function New-SqlServerLab {
                     @($externalRuntimePlansByInstance[[string]$instance.id]).Count -gt 0
                 $null = Add-LabPersistentContainerDrive -Instance $instance -Storage $storage `
                     -IncludeExternalRuntimeState:$hasExternalRuntime
+                $persistentDrive = @($instance.drives | Where-Object { $_.id -eq 'persistent-mssql' })[0]
+                # Die Kompensation wird vor der Katalogmutation persistiert. Hat
+                # der Acquire-Schritt noch keine eigene Lease erzeugt, ist der
+                # Release-Schritt bewusst ein idempotentes No-op.
+                $null = Add-CleanupStep `
+                    -RunDir $runState.RunDir `
+                    -ResourceType 'persistent-storage-lease' `
+                    -ResourceId ([string]$persistentDrive.volumeName) `
+                    -Action 'release' `
+                    -Provider ([string]$instance.provider) `
+                    -ProviderSubRunId "provider-$($instance.provider)" `
+                    -Compensation "release persistent storage lease for $([string]$persistentDrive.volumeName)"
+                $lease = Register-LabContainerInstanceStoreLease `
+                    -Provider ([string]$instance.provider) `
+                    -VolumeName ([string]$persistentDrive.volumeName) `
+                    -RunId $runState.RunId `
+                    -ScopeId $runState.ScopeId `
+                    -SqlVersion ([string]$instance.version) `
+                    -DisplayName "$($resolved.name) / $($instance.id) / SQL $($instance.version)" `
+                    -DataRoot $DataRoot
+                $persistentDrive | Add-Member -NotePropertyName persistentStorageId `
+                    -NotePropertyValue ([string]$lease.Store.PersistentStorageId) -Force
                 $instance | Add-Member -NotePropertyName persistentStorage -NotePropertyValue ([PSCustomObject]@{
                     mode = 'data-root-runtime-volume'; root = [string]$storage.SqlRoot
-                    containerVolume = [string](($instance.drives | Where-Object { $_.id -eq 'persistent-mssql' } | Select-Object -First 1).volumeName)
+                    persistentStorageId = [string]$lease.Store.PersistentStorageId
+                    containerVolume = [string]$persistentDrive.volumeName
                     backupHostPath = [string]$storage.BackupRoot
                 }) -Force
             }
@@ -904,6 +927,7 @@ function New-SqlServerLab {
                 ContainerName    = $container.ContainerName
                 ConnectionString = New-SqlConnectionString -HostName $containerHost -Port $container.Port
                 Databases        = @()
+                PersistentStorage = $instance.persistentStorage
                 ExternalRuntime  = if ($containerImageArtifactsByInstance.ContainsKey([string]$instance.id)) {
                     $artifact = $containerImageArtifactsByInstance[[string]$instance.id]
                     $imagePlan = $externalRuntimeImagePlansByInstance[[string]$instance.id]
