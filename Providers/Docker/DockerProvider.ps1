@@ -10,8 +10,22 @@ function Test-DockerAvailable {
     [CmdletBinding()]
     param()
 
+    try {
+        $dockerInvocation = Get-LabHostToolInvocation -Name docker
+    }
+    catch {
+        return [PSCustomObject]@{
+            Available = $false
+            Version   = $null
+            Message   = 'Docker ist nicht installiert oder konnte nicht aufgeloest werden.'
+        }
+    }
+
     function Invoke-DockerClientProbe {
-        param([Parameter(Mandatory)][string[]]$Arguments)
+        param(
+            [Parameter(Mandatory)][string]$Invocation,
+            [Parameter(Mandatory)][string[]]$Arguments
+        )
 
         $originalConfig = if (Test-Path Env:DOCKER_CONFIG) { $env:DOCKER_CONFIG } else { $null }
         $fallbackConfig = Join-Path $env:TEMP ("sql-lab-docker-config-{0}" -f [System.Guid]::NewGuid().ToString('N'))
@@ -39,7 +53,7 @@ function Test-DockerAvailable {
                     $env:DOCKER_CONFIG = $attempt.Config
                 }
 
-                $output = & docker @Arguments 2>&1
+                $output = & $Invocation @Arguments 2>&1
                 $exitCode = $LASTEXITCODE
                 $text = ($output | Out-String).Trim()
                 $lastResult = [PSCustomObject]@{
@@ -74,7 +88,7 @@ function Test-DockerAvailable {
     }
 
     try {
-        $probe = Invoke-DockerClientProbe -Arguments @('info', '--format', '{{.ServerVersion}}')
+        $probe = Invoke-DockerClientProbe -Invocation $dockerInvocation -Arguments @('info', '--format', '{{.ServerVersion}}')
         if (-not $probe.Success) {
             return [PSCustomObject]@{
                 Available = $false

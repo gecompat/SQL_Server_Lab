@@ -92,6 +92,11 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Geändert
 
+- Docker-/Podman-Provider-Probes und die read-only Runtime-Scope-Evidence
+  verwenden den zentral aufgelösten absoluten Host-Tool-Aufruf. Eine gefundene,
+  aber im aktuellen Prozess nicht ausführbare CLI wird damit nicht länger als
+  fehlende Installation oder bloßer `PATH`-Fehler eingeordnet; Python bleibt
+  über denselben Resolver und sichere Pfad-Overrides verfügbar.
 - Der kanonische Entwicklungs- und Masterplan führt Network-Manifestparität
   nicht länger als vollständig offen: M6 ist jetzt `implemented_partial` und
   trennt den synthetisch belegten Netzwerk-Slice von weiterhin offenen
@@ -113,6 +118,11 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Validiert
 
+- Der Host-Tool-Vertrag bestand 12/12 fokussierte Prüfungen. Im echten
+  Hostkontext meldeten die Framework-Prerequisites Docker 29.7.2 und Podman
+  6.1.0 als `RESOURCE_OK`; die Runtime-Scope-Evidence klassifizierte beide als
+  `AVAILABLE`, und Python 3.13.15 wurde über seinen absoluten Installationspfad
+  aufgelöst. Das vollständige statische Abschluss-Gate blieb grün.
 - Die fokussierte Hyper-V-SQL-Storage-Reconcile-Suite bestätigt read-only Diff,
   hostwertfreien Plan, `WhatIf`, Fault/Resume, No-op sowie fail-closed Hostdrift
   und zusätzliche TempDB-Logfiles mit gemocktem Provider. Ein positiver nativer

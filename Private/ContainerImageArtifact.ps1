@@ -334,16 +334,18 @@ function Test-LabExternalRuntimeContainerHost {
         $ImagePlan.NamespaceIsolation -ne $true -or $ImagePlan.OutboundAccess -ne $false) {
         throw 'EXTERNAL_RUNTIME_CONTAINER_LAUNCH_CONTRACT_INVALID'
     }
-    if (-not (Get-Command $Provider -ErrorAction SilentlyContinue)) {
+    $resolution = Resolve-LabHostTool -Name $Provider
+    if (-not $resolution.Available) {
         return [PSCustomObject]@{ Status='RUNTIME_UNAVAILABLE'; Provider=$Provider; CgroupVersion=$null; Rootless=$null; Reason="Provider '$Provider' ist nicht installiert." }
     }
 
     try {
+        $providerInvocation = Get-LabHostToolInvocation -Name $Provider
         if ($Provider -eq 'docker') {
-            $raw = & docker info --format '{{json .}}' 2>&1
+            $raw = & $providerInvocation info --format '{{json .}}' 2>&1
         }
         else {
-            $raw = & podman info --format json 2>&1
+            $raw = & $providerInvocation info --format json 2>&1
         }
         if ($LASTEXITCODE -ne 0) { throw (@($raw) -join ' ') }
         $info = (@($raw) -join "`n") | ConvertFrom-Json -Depth 50

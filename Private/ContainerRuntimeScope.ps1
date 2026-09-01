@@ -46,7 +46,8 @@ function Invoke-LabContainerRuntimeJsonCommand {
         [Parameter(Mandatory)][string]$FailureCode
     )
 
-    $output = @(& $Provider @Arguments 2>$null)
+    $invocation = Get-LabHostToolInvocation -Name $Provider
+    $output = @(& $invocation @Arguments 2>$null)
     if ($LASTEXITCODE -ne 0 -or $output.Count -eq 0) { throw $FailureCode }
     try { return (($output -join "`n") | ConvertFrom-Json -Depth 30 -ErrorAction Stop) }
     catch { throw $FailureCode }
@@ -56,7 +57,8 @@ function Get-LabContainerRuntimeScopeEvidence {
     [CmdletBinding()]
     param([Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider)
 
-    if (-not (Get-Command $Provider -ErrorAction SilentlyContinue)) {
+    $resolution = Resolve-LabHostTool -Name $Provider
+    if (-not $resolution.Available) {
         return [PSCustomObject]@{ Provider=$Provider; Available=$false; Issue='RUNTIME_CLI_NOT_INSTALLED' }
     }
 

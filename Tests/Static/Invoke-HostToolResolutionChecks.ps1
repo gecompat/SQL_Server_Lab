@@ -32,11 +32,13 @@ try {
 
     $first = Resolve-LabHostTool -Name docker
     $second = Resolve-LabHostTool -Name docker
+    $invocation = Get-LabHostToolInvocation -Name docker
     $matchingPathEntries = @($env:PATH -split [IO.Path]::PathSeparator | Where-Object {
         [string]::Equals($_.TrimEnd('\','/'),$temporaryRoot.TrimEnd('\','/'),$(if($IsWindows){[StringComparison]::OrdinalIgnoreCase}else{[StringComparison]::Ordinal}))
     })
     Add-CheckResult -Name 'Explizites Tool-Override gewinnt und wird als absoluter Aufruf zurückgegeben' -Success (
-        $first.Available -and $first.Source -eq 'EXPLICIT_OVERRIDE' -and $first.Invocation -eq $dockerPath)
+        $first.Available -and $first.Source -eq 'EXPLICIT_OVERRIDE' -and $first.Invocation -eq $dockerPath -and
+        $invocation -eq $dockerPath)
     Add-CheckResult -Name 'Prozess-PATH wird idempotent nur einmal erweitert' -Success (
         $first.PathChanged -and -not $second.PathChanged -and $matchingPathEntries.Count -eq 1)
 
@@ -64,12 +66,27 @@ try {
         [Environment]::GetEnvironmentVariable('Path','Machine') -eq $originalMachinePath)
 
     $resolverText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private\HostToolResolution.ps1') -Raw -Encoding utf8
+    $dockerProviderText = Get-Content -LiteralPath (Join-Path $repoRoot 'Providers\Docker\DockerProvider.ps1') -Raw -Encoding utf8
+    $podmanProviderText = Get-Content -LiteralPath (Join-Path $repoRoot 'Providers\Podman\PodmanProvider.ps1') -Raw -Encoding utf8
+    $runtimeScopeText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private\ContainerRuntimeScope.ps1') -Raw -Encoding utf8
+    $imageArtifactText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private\ContainerImageArtifact.ps1') -Raw -Encoding utf8
     $bootstrapText = Get-Content -LiteralPath (Join-Path $repoRoot 'Tests\Integration\Initialize-PodmanRuntime.ps1') -Raw -Encoding utf8
     $backupText = Get-Content -LiteralPath (Join-Path $repoRoot 'Tests\Integration\Invoke-BackupLibraryCrossProviderAcceptance.ps1') -Raw -Encoding utf8
     Add-CheckResult -Name 'Windows-Fallbacks decken Docker, Podman und lokale Python-Installationen zentral ab' -Success (
         $resolverText -match 'Docker\\Docker\\resources\\bin\\docker\.exe' -and
         $resolverText -match 'Programs\\Podman\\podman\.exe' -and
         $resolverText -match 'Programs\\Python')
+    Add-CheckResult -Name 'Provider-Probes verwenden den zentral aufgeloesten absoluten Aufruf' -Success (
+        $dockerProviderText -match 'Get-LabHostToolInvocation -Name docker' -and
+        $dockerProviderText -match '& \$Invocation @Arguments' -and
+        $podmanProviderText -match 'Get-LabHostToolInvocation -Name podman' -and
+        $podmanProviderText -match '& \$podmanInvocation version')
+    Add-CheckResult -Name 'Runtime-Evidence verwechselt einen eingeschraenkten PATH nicht mit fehlender Installation' -Success (
+        $runtimeScopeText -match 'Resolve-LabHostTool -Name \$Provider' -and
+        $runtimeScopeText -match 'Get-LabHostToolInvocation -Name \$Provider' -and
+        $runtimeScopeText -notmatch 'Get-Command \$Provider' -and
+        $imageArtifactText -match 'Get-LabHostToolInvocation -Name \$Provider' -and
+        $imageArtifactText -notmatch 'Get-Command \$Provider')
     Add-CheckResult -Name 'Podman-Bootstrap ruft den zentral aufgelösten Pfad statt eines nackten Befehls auf' -Success (
         $bootstrapText -match 'Initialize-SqlServerLabHostTools\.ps1' -and
         $bootstrapText -match '& \$podmanInvocation info' -and
