@@ -862,8 +862,10 @@ Add-ValidationResult `
         $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.PersistentStoragePlan/1.0') -and
         $persistentStorageBacklog -match [regex]::Escape('rollbackfähige `BACKUP_SET`-/`DATABASE_PACKAGE`-/Clone-`INSTANCE_STORE`-Registrierung') -and
         $persistentStorageBacklog -match 'exklusive Lease/Freigabe regulärer `-PersistentData`-Containerstores' -and
+        $persistentStorageBacklog -match 'stabiler Datenbankreferenzen' -and
         $persistentStorageBacklog -match 'Paket-Katalogcommit quarantänisiert Library-Eintrag und Recovery-Journal' -and
         $knownLimitations -match 'Reguläre Docker-/Podman-Labs mit[\s\S]*?`-PersistentData`[\s\S]*?exklusive Run-Lease' -and
+        $knownLimitations -match 'stabile aktive `DATABASE`-Referenzen' -and
         $knownLimitations -match 'Noch\s*nicht implementiert sind die generische\s*Katalogmutation, ein öffentlicher\s*Bestandsmigrationsbefehl' -and
         $knownLimitations -match '`BACKUP_SET` beziehungsweise `DATABASE_PACKAGE`' -and
         $repoMap -match 'persistent_storage_catalog: Private/PersistentStorageCatalog\.ps1' -and
