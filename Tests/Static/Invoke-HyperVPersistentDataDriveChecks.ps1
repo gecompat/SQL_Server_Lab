@@ -91,6 +91,8 @@ try {
         $originalConvert=(Get-Command Convert-VHD -ErrorAction SilentlyContinue).ScriptBlock
         $originalSetVhd=(Get-Command Set-VHD -ErrorAction SilentlyContinue).ScriptBlock
         $originalGetVhd=(Get-Command Get-VHD -ErrorAction SilentlyContinue).ScriptBlock
+        $originalGetVm=(Get-Command Get-VM -ErrorAction SilentlyContinue).ScriptBlock
+        $originalGetVmDrive=(Get-Command Get-VMHardDiskDrive -ErrorAction SilentlyContinue).ScriptBlock
         try {
             $script:hvpInspection=$inspection; $script:hvpSourceHash=('a' * 64); $script:hvpConvertAttempts=0; $script:hvpTargetDiskId=[guid]::NewGuid().ToString('D').ToUpperInvariant()
             Set-Item Function:Get-LabHyperVPersistentDataRuntimeInspection -Value { param($Path,$TargetVMName) $script:hvpInspection }
@@ -103,6 +105,8 @@ try {
             }
             Set-Item Function:Set-VHD -Value { param($Path,[switch]$ResetDiskIdentifier,[switch]$Force) }
             Set-Item Function:Get-VHD -Value { param($Path) [PSCustomObject]@{ Size=1GB; DiskIdentifier=$script:hvpTargetDiskId } }
+            Set-Item Function:Get-VM -Value { @() }
+            Set-Item Function:Get-VMHardDiskDrive -Value { @() }
             $firstFailure=$null
             try { $null=Invoke-LabHyperVPersistentDataPlan -Plan $clonePlan -OperationDirectory $OperationRoot } catch { $firstFailure=$_.Exception.Message }
             $failedJournal=Get-Content -LiteralPath (Get-LabHyperVPersistentDataJournalPath -OperationDirectory $OperationRoot) -Raw | ConvertFrom-Json -Depth 30
@@ -114,6 +118,8 @@ try {
             if ($originalConvert) { Set-Item Function:Convert-VHD -Value $originalConvert } else { Remove-Item Function:Convert-VHD -ErrorAction SilentlyContinue }
             if ($originalSetVhd) { Set-Item Function:Set-VHD -Value $originalSetVhd } else { Remove-Item Function:Set-VHD -ErrorAction SilentlyContinue }
             if ($originalGetVhd) { Set-Item Function:Get-VHD -Value $originalGetVhd } else { Remove-Item Function:Get-VHD -ErrorAction SilentlyContinue }
+            if ($originalGetVm) { Set-Item Function:Get-VM -Value $originalGetVm } else { Remove-Item Function:Get-VM -ErrorAction SilentlyContinue }
+            if ($originalGetVmDrive) { Set-Item Function:Get-VMHardDiskDrive -Value $originalGetVmDrive } else { Remove-Item Function:Get-VMHardDiskDrive -ErrorAction SilentlyContinue }
             Remove-Variable hvpInspection,hvpSourceHash,hvpConvertAttempts,hvpTargetDiskId -Scope Script -ErrorAction SilentlyContinue
         }
         [PSCustomObject]@{
