@@ -153,6 +153,26 @@ function Resolve-LabHostTool {
     }
 }
 
+function Get-LabHostToolInvocation {
+    <#
+    .SYNOPSIS
+        Returns the resolved invocation for one supported host tool.
+    .DESCRIPTION
+        Keeps callers independent from the inherited process PATH. A missing
+        executable is reported separately from a later execution or runtime
+        failure, so access restrictions are not misreported as installation
+        defects.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][ValidateSet('docker','podman','python')][string]$Name)
+
+    $resolution = Resolve-LabHostTool -Name $Name
+    if (-not $resolution.Available -or [string]::IsNullOrWhiteSpace([string]$resolution.Invocation)) {
+        throw "HOST_TOOL_NOT_FOUND: $Name"
+    }
+    return [string]$resolution.Invocation
+}
+
 function Initialize-LabHostToolPath {
     [CmdletBinding()]
     param(
