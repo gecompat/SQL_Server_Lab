@@ -880,6 +880,34 @@ zusätzlich `-AllowExternalSwitchCreation` erforderlich. Der öffentliche Plan
 enthält keine Switch-, VM-, Adapter- oder Adresswerte; lokale Identitäten
 bleiben ausschließlich im Recovery-Journal.
 
+### Hyper-V-vCPU und RAM abgleichen
+
+Neue Hyper-V-Manifeste speichern `processorCount`, `dynamicMemoryEnabled`
+sowie `memoryMinimumMB`, `memoryStartupMB` und `memoryMaximumMB` als portablen
+Sollzustand. Der getrennte Plan vergleicht diese Werte read-only mit der
+run- und scopegebundenen VM:
+
+```powershell
+$resourcePlan = Get-SqlServerLabReconcilePlan `
+    -RunId $lab.RunId `
+    -HyperVResources `
+    -InstanceId primary
+
+Invoke-SqlServerLabReconcileAction `
+    -RunId $lab.RunId `
+    -RepairHyperVResources `
+    -InstanceId primary `
+    -WhatIf
+```
+
+Reine Min-/Max-Aenderungen bei bereits aktiviertem dynamischem RAM sind auf
+einer laufenden VM `live`. vCPU, RAM-Modus und Startspeicher werden bei einer
+laufenden VM als `restart` klassifiziert und journalisiert über Stop, Apply,
+Postcondition und Start ausgeführt. Unterbrechungen bleiben als
+`RECOVERY_REQUIRED` sichtbar und derselbe Aufruf setzt sie fort. Alte Runs ohne
+persistierten `HyperVResourceIntent/1.0` werden nicht geraten und bleiben
+`unsupported`.
+
 ### External Languages nachträglich installieren oder aktualisieren
 
 Für einen laufenden SQL-Server-2019-, -2022- oder -2025-Docker-/Podman-Run kann ein Zielmanifest

@@ -42,6 +42,9 @@ sources_of_truth:
   hyperv_network_reconcile_contract: Private/HyperVNetworkReconcile.ps1
   hyperv_network_reconcile_journal_schema: Schemas/hyperv-network-reconcile-journal.schema.json
   validation_hyperv_network_reconcile: Tests/Static/Invoke-HyperVNetworkReconcileChecks.ps1
+  hyperv_resource_reconcile_contract: Private/HyperVResourceReconcile.ps1
+  hyperv_resource_reconcile_journal_schema: Schemas/hyperv-resource-reconcile-journal.schema.json
+  validation_hyperv_resource_reconcile: Tests/Static/Invoke-HyperVResourceReconcileChecks.ps1
   port_allocation_contract: Private/PortAllocation.ps1
   storage_contract: Private/StorageContract.ps1
   storage_contract_schema: Schemas/lab-storage-contract.schema.json
@@ -221,11 +224,11 @@ public_commands:
     writes_files: true
   - name: Get-SqlServerLabReconcilePlan
     source: Public/Get-SqlServerLabReconcilePlan.ps1
-    purpose: "Read-only Lifecycle-, Containerressourcen-/Autostart- oder resolvergebundener External-Runtime-Reconcile-Plan"
+    purpose: "Read-only Lifecycle-, Hyper-V-Netzwerk-/vCPU-/RAM-, Containerressourcen-/Autostart- oder resolvergebundener External-Runtime-Reconcile-Plan"
     mutates_host: false
   - name: Invoke-SqlServerLabReconcileAction
     source: Public/Invoke-SqlServerLabReconcileAction.ps1
-    purpose: "START/STOP, Containerressourcen/Autostart oder additiven SQL-2022-Container-Runtime-Refresh journal- und validierungsgebunden ausfuehren"
+    purpose: "START/STOP, Hyper-V-Netzwerk-/vCPU-/RAM-Reparatur, Containerressourcen/Autostart oder additiven Container-Runtime-Refresh journal- und validierungsgebunden ausfuehren"
     mutates_host: true
   - name: Invoke-SqlServerLabWorkflowAction
     source: Public/Invoke-SqlServerLabWorkflowAction.ps1
@@ -511,6 +514,7 @@ providers:
     resource_binding: Private/HyperVResourceBinding.ps1
     resource_location_preview: "Public/Get-SqlServerLabHyperVResourcePreview.ps1 plus UI-User-Gate und explizit revalidierter UAC-Handoff"
     resource_migration: Private/HyperVResourceMigration.ps1
+    resource_reconcile: "Private/HyperVResourceReconcile.ps1; manifestgebundener vCPU-/RAM-Istvergleich, Live-Min-/Max sowie journalisiertes Stop-Apply-Start mit Recovery-Resume"
     migration_lifecycle_guard: "read-only Reconcile-Plan plus fail-closed Start, Stop, Autostart, SQL-WMI-Repair und Cleanup; Run- und allgemeine Location-Migrationen muessen terminal sein, COMPLETED erfordert revalidierte Bindings"
     storage_parent_migration_binding: "Plan inventarisiert lokale HyperVResourceBinding-Receipts sowie exakte VM-Konfigurations-/Snapshot-/Paging-Quell- und Zielpfade; Apply revalidiert VM-Identitaet und Aus-Zustand, journalisiert Move-VMStorage vor der Mutation, prueft Ziel-Postconditions und setzt ohne doppelten Move fort"
     storage_parent_migration_acceptance: "Tests/Integration/Invoke-HyperVStorageParentMigrationAcceptance.ps1; reale Vorwaerts- und Rueckmigration eines isolierten nicht-default Lab_Data mit VM-Konfiguration, Snapshot, Smart Paging, VHDX-Rebind, Wiederherstellung und Cleanup"
@@ -527,6 +531,7 @@ providers:
     builder_static_checks: Tests/Static/Invoke-HyperVImageBuilderChecks.ps1
     resource_binding_static_checks: Tests/Static/Invoke-HyperVResourceBindingChecks.ps1
     resource_migration_static_checks: Tests/Static/Invoke-HyperVResourceMigrationChecks.ps1
+    resource_reconcile_static_checks: Tests/Static/Invoke-HyperVResourceReconcileChecks.ps1
     resource_migration_acceptance: Tests/Integration/Invoke-HyperVResourceMigrationAcceptance.ps1
     image_migration_static_checks: Tests/Static/Invoke-HyperVImageMigrationChecks.ps1
     sql_prepared_build_acceptance: Tests/Integration/Invoke-HyperVSqlPreparedImageAcceptance.ps1

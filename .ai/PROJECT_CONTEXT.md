@@ -192,10 +192,10 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 - weitere External-Runtime-OS-/Providerkombinationen außerhalb der belegten
   Linux-Containermatrix und des SQL-2022-Hyper-V-/Windows-Pfads; C# bleibt bis
   zu reproduzierbarem Build und nativer SQL-Evidence `PREVIEW`;
-- Reconcile-Aktionen über Lifecycle, Container und den eng begrenzten
-  Hyper-V-Netzwerk-Reconcile hinaus, insbesondere Rebinding, Adapter-Neuanlage,
-  Gastadressreparatur, freie Mount-/Image-Änderungen, Hyper-V-Software und
-  weitere SQL-Konfigurationen;
+- Reconcile-Aktionen über Lifecycle, Container, den eng begrenzten
+  Hyper-V-Netzwerk-Reconcile und manifestgebundene vCPU-/RAM-Reparatur hinaus,
+  insbesondere Rebinding, Adapter-Neuanlage, Gastadressreparatur, Storage,
+  freie Mount-/Image-Änderungen, Hyper-V-Software und weitere SQL-Konfigurationen;
 - versionierter Refresh-/Rebuild-Lifecycle für Medien, VHDX und Container-Images;
 - weitere konsumierende Lab-Packages über die drei abgeschlossenen
   Project-Adapter-Vertical-Slices hinaus;

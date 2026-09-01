@@ -850,8 +850,15 @@ Add-ValidationResult `
     -Success ($developmentExecutionPlan -match '(?m)^\| M6 Reconcile-Breite \| `implemented_partial` \|' -and
         $developmentExecutionPlan -match '`NET-611` und der Planungsanteil von `NET-612` sind' -and
         $developmentExecutionPlan -match 'Rebinding,\s*Adapter-Neuanlage, Gastadressreparatur und positive native Repair-' -and
-        $masterImplementationPlan -match 'eng begrenzter journalisierter Network-Reconcile' -and
+        $masterImplementationPlan -match 'journalisierter Network- und Resource-Reconcile' -and
         $masterImplementationPlan -notmatch 'Post-Provisioning-/Network-Manifest-Binding')
+
+Add-ValidationResult `
+    -Name 'Roadmap und Grenzen beschreiben HV-602 evidenzgebunden' `
+    -Success ($developmentExecutionPlan -match '`HV-602` bindet\s*vCPU, statisches/dynamisches RAM und Min/Startup/Max' -and
+        $knownLimitations -match 'SqlServerLab\.HyperVResourceIntent/1\.0' -and
+        $knownLimitations -match 'ersetzt noch keinen positiven\s*nativen Hyper-V-Ressourcenlauf' -and
+        $repoMap -match 'hyperv_resource_reconcile_contract: Private/HyperVResourceReconcile\.ps1')
 
 Add-ValidationResult `
     -Name 'Reale SQL-Prepared-Image-Abnahme ist ausführbar und dokumentiert' `

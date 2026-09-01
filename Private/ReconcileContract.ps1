@@ -62,6 +62,7 @@ function New-LabDesiredState {
                     Provider = [string]$_.Provider
                     TargetState = $TargetState
                     Network = ConvertTo-LabReconcileNetworkIntent -Network $(if ($_.Intents) { $_.Intents.Network } else { $null })
+                    Resources = if ($_.Intents -and $_.Intents.Resources) { $_.Intents.Resources } else { $null }
                 }
             })
         }
@@ -91,6 +92,7 @@ function New-LabDesiredState {
                     Provider = [string]$_.provider
                     TargetState = $TargetState
                     Network = ConvertTo-LabReconcileNetworkIntent -Network $(if ($networkIntent) { [PSCustomObject]@{ Intent=$networkIntent } } else { $null })
+                    Resources = $null
                 }
             })
         }
@@ -101,7 +103,7 @@ function New-LabDesiredState {
         $instances = @($Run.providerSubRuns | ForEach-Object {
             $provider = [string]$_.provider
             @($_.instanceIds | ForEach-Object {
-                [PSCustomObject]@{ Id = [string]$_; Provider = $provider; TargetState = $TargetState; Network = $null }
+                [PSCustomObject]@{ Id = [string]$_; Provider = $provider; TargetState = $TargetState; Network = $null; Resources = $null }
             })
         })
     }

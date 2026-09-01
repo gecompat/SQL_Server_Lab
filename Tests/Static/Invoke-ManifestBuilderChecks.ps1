@@ -447,7 +447,7 @@ $hyperVManifest = [ordered]@{
     instances = @(
         [ordered]@{
             id = 'primary'; version = '2025'; provider = 'hyperv'; os = 'windows'
-            hyperv = [ordered]@{ preparedImageId = ('hyperv-sql-prepared-sealed-' + ('a' * 64)); memoryStartupMB = 4096; processorCount = 4; autostart = 'on'; guestPasswordMode = 'generated' }
+            hyperv = [ordered]@{ preparedImageId = ('hyperv-sql-prepared-sealed-' + ('a' * 64)); dynamicMemoryEnabled = $true; memoryMinimumMB = 1024; memoryStartupMB = 4096; memoryMaximumMB = 8192; processorCount = 4; autostart = 'on'; guestPasswordMode = 'generated' }
         }
     )
 }
@@ -461,6 +461,34 @@ Add-CheckResult `
     -Success ($hyperVManifestResult.Plan.Instances[0].Network.Status -eq 'RESOLVED' -and
         $hyperVManifestResult.Plan.Instances[0].Network.Intent -eq 'hostOnly' -and
         $hyperVManifestResult.Plan.Instances[0].Network.Binding -eq 'internal-switch')
+
+$resolvedHyperVResources = & $module {
+    param($Manifest)
+    $resolved = Resolve-ManifestDefaults -Manifest $Manifest -ManifestPath (Join-Path $PWD 'in-memory-hyperv-resources.json')
+    (New-LabDesiredStateSnapshot -ResolvedLab $resolved -ProvisioningMode manifest -PersistentData $false).Instances[0].Intents.Resources
+} $hyperVManifest
+Add-CheckResult `
+    -Name 'Hyper-V-Manifest bindet dynamisches Min-/Startup-/Max-RAM und vCPU portabel' `
+    -Success ($resolvedHyperVResources.Contract.Name -eq 'SqlServerLab.HyperVResourceIntent' -and
+        $resolvedHyperVResources.DynamicMemoryEnabled -and $resolvedHyperVResources.MemoryMinimumMB -eq 1024 -and
+        $resolvedHyperVResources.MemoryStartupMB -eq 4096 -and $resolvedHyperVResources.MemoryMaximumMB -eq 8192 -and
+        $resolvedHyperVResources.ProcessorCount -eq 4)
+
+$invalidHyperVRange = $hyperVManifest | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
+$invalidHyperVRange.instances[0].hyperv.memoryMinimumMB = 6144
+$invalidHyperVRangeResult = Test-SqlServerLabManifest -InputObject $invalidHyperVRange
+Add-CheckResult `
+    -Name 'Hyper-V-Manifest lehnt eine ungueltige dynamische RAM-Reihenfolge ab' `
+    -Success (-not $invalidHyperVRangeResult.IsValid -and $invalidHyperVRangeResult.Errors -match 'memoryMinimumMB <= memoryStartupMB <= memoryMaximumMB') `
+    -Message ($invalidHyperVRangeResult.Errors -join '; ')
+
+$invalidHyperVStatic = $hyperVManifest | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
+$invalidHyperVStatic.instances[0].hyperv.dynamicMemoryEnabled = $false
+$invalidHyperVStaticResult = Test-SqlServerLabManifest -InputObject $invalidHyperVStatic
+Add-CheckResult `
+    -Name 'Statisches Hyper-V-RAM verbietet abweichende Min-/Max-Werte' `
+    -Success (-not $invalidHyperVStaticResult.IsValid -and $invalidHyperVStaticResult.Errors -match 'Statisches RAM') `
+    -Message ($invalidHyperVStaticResult.Errors -join '; ')
 
 $hyperVIsolatedManifest = $hyperVManifest | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
 $hyperVIsolatedManifest.instances[0] | Add-Member -NotePropertyName network -NotePropertyValue ([PSCustomObject]@{ intent='isolated'; exposure='none' }) -Force

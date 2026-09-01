@@ -115,13 +115,13 @@ COMMANDS
         Synchronizes a managed local CMS with the current endpoint catalog.
 
     Get-SqlServerLabReconcilePlan
-        Returns a read-only lifecycle, narrowly scoped Hyper-V network,
-        container resource/autostart, or external-runtime refresh plan.
+        Returns a read-only lifecycle, Hyper-V network/vCPU/RAM, container
+        resource/autostart, or external-runtime refresh plan.
 
     Invoke-SqlServerLabReconcileAction
         Executes START/STOP, an ownership-bound Hyper-V network repair, a
-        journaled container resource/autostart reconcile, or a validated
-        external-runtime refresh.
+        journaled Hyper-V vCPU/RAM repair, a container resource/autostart
+        reconcile, or a validated external-runtime refresh.
 
     Invoke-SqlServerLabWorkflowAction
         Runs one explicit non-interactive Hyper-V workflow action for the

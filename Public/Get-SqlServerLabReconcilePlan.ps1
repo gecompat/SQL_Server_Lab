@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Erstellt einen read-only Lifecycle-, Hyper-V-Netzwerk-, Container- oder External-Runtime-Reconcile-Plan.
+    Erstellt einen read-only Lifecycle-, Hyper-V-Netzwerk-/Ressourcen-, Container- oder External-Runtime-Reconcile-Plan.
 .DESCRIPTION
     Liest den bestehenden Run und dessen Runtime-Zustand und liefert einen
     versionierten Desired/Actual/Diff/Action-Vertrag. Der Befehl fuehrt keine
@@ -25,6 +25,8 @@
     entfallen, wenn genau eine geeignete Runtime-Instanz im Run existiert.
 .PARAMETER HyperVNetwork
     Waehlt den eng begrenzten read-only Hyper-V-Netzwerk-Reconcile-Plan.
+.PARAMETER HyperVResources
+    Waehlt den manifestgebundenen read-only Hyper-V-vCPU-/RAM-Reconcile-Plan.
 .PARAMETER Container
     Wählt den Container-Ressourcen-Reconcile. Der Plan klassifiziert die
     Änderung als no-op, live oder recreate und mutiert die Runtime nicht.
@@ -58,6 +60,10 @@
     Get-SqlServerLabReconcilePlan -RunId $runId -HyperVNetwork -InstanceId primary
 
     Zeigt reparierbare und nicht automatisch reparierbare Hyper-V-Netzwerkdrift.
+.EXAMPLE
+    Get-SqlServerLabReconcilePlan -RunId $runId -HyperVResources -InstanceId primary
+
+    Klassifiziert vCPU- und RAM-Drift als no-op, live, restart oder unsupported.
 #>
 function Get-SqlServerLabReconcilePlan {
     [CmdletBinding(DefaultParameterSetName = 'Lifecycle')]
@@ -75,10 +81,14 @@ function Get-SqlServerLabReconcilePlan {
         [Parameter(ParameterSetName = 'ExternalRuntime')]
         [Parameter(ParameterSetName = 'Container')]
         [Parameter(Mandatory, ParameterSetName = 'HyperVNetwork')]
+        [Parameter(Mandatory, ParameterSetName = 'HyperVResources')]
         [string]$InstanceId,
 
         [Parameter(Mandatory, ParameterSetName = 'HyperVNetwork')]
         [switch]$HyperVNetwork,
+
+        [Parameter(Mandatory, ParameterSetName = 'HyperVResources')]
+        [switch]$HyperVResources,
 
         [Parameter(Mandatory, ParameterSetName = 'Container')]
         [switch]$Container,
@@ -124,6 +134,9 @@ function Get-SqlServerLabReconcilePlan {
     }
     if ($PSCmdlet.ParameterSetName -eq 'HyperVNetwork') {
         return New-LabHyperVNetworkReconcilePlan -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
+    }
+    if ($PSCmdlet.ParameterSetName -eq 'HyperVResources') {
+        return New-LabHyperVResourceReconcilePlan -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
     }
     return New-LabReconcilePlan -RunId $RunId -TargetState $TargetState -StateRoot $StateRoot
 }

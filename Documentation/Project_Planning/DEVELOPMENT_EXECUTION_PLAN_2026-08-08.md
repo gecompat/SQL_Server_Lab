@@ -215,7 +215,7 @@ Container-Volumes gehören dagegen in den normalen Storage-Pfad.
 | M3 Adapterpiloten | `planned_external_scope` | je ein Pilot in den drei Konsumenten-Repositories |
 | M4 Hyper-V OS Cold Path | `validated_reference` | weitere freigegebene Windows-Varianten getrennt belegen |
 | M5 Hyper-V SQL und Resolver | `validated_reference_partial_manifest` | Datenbank-, Software- und Post-Provisioning-Manifestparität; Network-Intents sind gebunden |
-| M6 Reconcile-Breite | `implemented_partial` | Netzwerk-No-op und eng begrenzte additive Reparatur sind implementiert; Hardware-, Storage- und SQL-Änderungsklassen sowie native Repair-Evidence bleiben offen |
+| M6 Reconcile-Breite | `implemented_partial` | Netzwerk sowie vCPU/statisches-dynamisches RAM besitzen No-op und journalisierte Reparatur; weitere Hardware-, Storage- und SQL-Klassen sowie native Repair-Evidence bleiben offen |
 | M7 Artifacts und Baselines | `implemented_partial` | Hyper-V-Export/-Nutzung und automatische Sample-Manifestbindung sind synthetisch belegt; reale Evidence und weitere typisierte Handler bleiben offen |
 | M8 Scenarios und Migration | `planned` | Scenario-Vertrag nach den Adapterpiloten |
 | M9 Release-Härtung | `implemented_partial` | Failure-Injection und öffentliche Version erst nach Provider-/Adapterabnahme |
@@ -483,7 +483,9 @@ implementiert. Hyper-V besitzt zusätzlich einen hostwertfreien Actual-State-
 Vergleich und einen getrennten journalisierten Executor, der ausschließlich
 additive lokal gebundene Infrastruktur und genau einen vorhandenen getrennten
 Adapter repariert. `HV-601` ist damit für den Netzwerkanteil, nicht aber für
-den vollständigen Windows-/SQL-/Hardware-Istzustand umgesetzt. Rebinding,
+den vollständigen Windows-/SQL-/Hardware-Istzustand umgesetzt. `HV-602` bindet
+vCPU, statisches/dynamisches RAM und Min/Startup/Max manifestseitig und besitzt
+einen synthetisch belegten Live-/Restart-/Recovery-Executor. Rebinding,
 Adapter-Neuanlage, Gastadressreparatur und positive native Repair-/External-
 Switch-Evidence bleiben offen; ein synthetischer Test ist kein Runtime-Nachweis.
 

@@ -43,7 +43,10 @@ try {
                     databases = @(); drives = @([PSCustomObject]@{
                         id = 'log'; containerPath = 'L:\Log'; hostPath = $null; readOnly = $false; sizeLimitGB = 40; type = 'ssd'
                     })
-                    software = @(); hyperv = [PSCustomObject]@{ switchName = 'private-physical-switch' }
+                    software = @(); hyperv = [PSCustomObject]@{
+                        switchName = 'private-physical-switch'; processorCount=6; dynamicMemoryEnabled=$true
+                        memoryMinimumMB=2048; memoryStartupMB=4096; memoryMaximumMB=12288
+                    }
                 },
                 [PSCustomObject]@{
                     id = 'vm-isolated'; provider = 'hyperv'; version = '2022'; profile = 'standard'; networkName = $null
@@ -78,6 +81,11 @@ try {
                 $vm.Intents.Network.Intent -eq 'hostOnly' -and
                 $vm.Intents.Network.Binding -eq 'internal-switch' -and
                 $vm.Intents.Network.CapabilityStatus -eq 'DECLARED_SUPPORTED'
+            HyperVResources = $vm.Intents.Resources.Contract.Name -eq 'SqlServerLab.HyperVResourceIntent' -and
+                $vm.Intents.Resources.ProcessorCount -eq 6 -and $vm.Intents.Resources.DynamicMemoryEnabled -and
+                $vm.Intents.Resources.MemoryMinimumMB -eq 2048 -and $vm.Intents.Resources.MemoryStartupMB -eq 4096 -and
+                $vm.Intents.Resources.MemoryMaximumMB -eq 12288 -and
+                $vm.Intents.Resources.RequiredCapability -eq 'hyperv-resource-reconcile'
             HyperVIsolated = $isolatedVm.Intents.Network.Intent -eq 'isolated' -and
                 $isolatedVm.Intents.Network.Exposure -eq 'none' -and
                 $isolatedVm.Intents.Network.Binding -eq 'private-switch' -and
@@ -92,6 +100,7 @@ try {
     Add-CheckResult -Name 'Network Intent normalisiert Hostzugriff und Provider-Evidenz' -Success $result.Network
     Add-CheckResult -Name 'Nicht implementierte Software-Bindung bleibt sichtbar unsupported' -Success $result.SoftwareBoundary
     Add-CheckResult -Name 'Hyper-V-HostOnly-Intent bindet internen Switch und implementierte Drives' -Success $result.HyperV
+    Add-CheckResult -Name 'Hyper-V-Ressourcenintent bindet vCPU und RAM-Modus mit Min-/Startup-/Max' -Success $result.HyperVResources
     Add-CheckResult -Name 'Hyper-V-Isolated-Intent bindet privaten Switch ohne Host-Exposure' -Success $result.HyperVIsolated
     Add-CheckResult -Name 'Intent Snapshot persistiert keine hostlokalen Pfade, Namen, URLs oder Befehle' -Success $result.Sanitized
 }

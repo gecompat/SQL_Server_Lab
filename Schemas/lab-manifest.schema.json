@@ -291,6 +291,23 @@
               "maximum": 1048576,
               "default": 4096
             },
+            "dynamicMemoryEnabled": {
+              "type": "boolean",
+              "default": true,
+              "description": "Aktiviert dynamisches Hyper-V-RAM. Bei false entsprechen Minimum und Maximum dem Startspeicher."
+            },
+            "memoryMinimumMB": {
+              "type": "integer",
+              "minimum": 512,
+              "maximum": 1048576,
+              "description": "Untergrenze für dynamisches RAM; muss kleiner oder gleich memoryStartupMB sein."
+            },
+            "memoryMaximumMB": {
+              "type": "integer",
+              "minimum": 512,
+              "maximum": 1048576,
+              "description": "Obergrenze für dynamisches RAM; muss größer oder gleich memoryStartupMB sein."
+            },
             "processorCount": {
               "type": "integer",
               "minimum": 1,

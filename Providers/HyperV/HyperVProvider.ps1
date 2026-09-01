@@ -465,6 +465,9 @@ function New-HyperVInstance {
         [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$')][string]$InstanceId,
         [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9 _-]{0,63}$')][string]$LabName,
         [ValidateRange(512MB, 1TB)][long]$MemoryStartupBytes = 2GB,
+        [bool]$DynamicMemoryEnabled = $true,
+        [long]$MemoryMinimumBytes = 0,
+        [long]$MemoryMaximumBytes = 0,
         [ValidateRange(1, 64)][int]$ProcessorCount = 2,
         [ValidateSet('on', 'off')][string]$AutoStart = 'off',
         [string]$SwitchName,
@@ -473,6 +476,27 @@ function New-HyperVInstance {
         [string]$DataRoot,
         [ValidateSet('Run', 'Build')][string]$ResourceClass = 'Run'
     )
+
+    foreach ($memoryBoundary in @($MemoryMinimumBytes, $MemoryMaximumBytes)) {
+        if ($memoryBoundary -ne 0 -and ($memoryBoundary -lt 512MB -or $memoryBoundary -gt 1TB)) {
+            throw 'HYPERV_MEMORY_BOUNDARY_INVALID'
+        }
+    }
+    if ($DynamicMemoryEnabled) {
+        if ($MemoryMinimumBytes -le 0) { $MemoryMinimumBytes = [long][Math]::Max([double]512MB, [double]$MemoryStartupBytes / 2) }
+        if ($MemoryMaximumBytes -le 0) { $MemoryMaximumBytes = [long][Math]::Min([double]1TB, [double]$MemoryStartupBytes * 2) }
+        if ($MemoryMinimumBytes -gt $MemoryStartupBytes -or $MemoryStartupBytes -gt $MemoryMaximumBytes) {
+            throw 'HYPERV_DYNAMIC_MEMORY_RANGE_INVALID'
+        }
+    }
+    else {
+        if (($MemoryMinimumBytes -gt 0 -and $MemoryMinimumBytes -ne $MemoryStartupBytes) -or
+            ($MemoryMaximumBytes -gt 0 -and $MemoryMaximumBytes -ne $MemoryStartupBytes)) {
+            throw 'HYPERV_STATIC_MEMORY_RANGE_INVALID'
+        }
+        $MemoryMinimumBytes = $MemoryStartupBytes
+        $MemoryMaximumBytes = $MemoryStartupBytes
+    }
 
     $availability = Test-HyperVAvailable
     if (-not $availability.Available) {
@@ -631,13 +655,13 @@ function New-HyperVInstance {
     $vm = New-VM @newVmParameters
     $null = Set-VM -VM $vm -SmartPagingFilePath $resourceRoot -SnapshotFileLocation $resourceRoot -ErrorAction Stop
     $null = Assert-HyperVVMResourceBinding -VMName $vmName -ResourceBinding $resourceBinding -DataRoot $DataRoot
-    # Hyper-V otherwise assigns a host-wide default maximum (commonly 1 TB).
-    # Keep an actual dynamic range: half the chosen startup value (at least
-    # 512 MB) through twice the startup value, capped at Hyper-V's 1-TB limit.
-    $memoryMinimumBytes = [long][Math]::Max([double]512MB, [double]$MemoryStartupBytes / 2)
-    $memoryMaximumBytes = [long][Math]::Min([double]1TB, [double]$MemoryStartupBytes * 2)
-    $null = Set-VMMemory -VM $vm -DynamicMemoryEnabled $true -MinimumBytes $memoryMinimumBytes `
-        -StartupBytes $MemoryStartupBytes -MaximumBytes $memoryMaximumBytes -ErrorAction Stop
+    if ($DynamicMemoryEnabled) {
+        $null = Set-VMMemory -VM $vm -DynamicMemoryEnabled $true -MinimumBytes $MemoryMinimumBytes `
+            -StartupBytes $MemoryStartupBytes -MaximumBytes $MemoryMaximumBytes -ErrorAction Stop
+    }
+    else {
+        $null = Set-VMMemory -VM $vm -DynamicMemoryEnabled $false -StartupBytes $MemoryStartupBytes -ErrorAction Stop
+    }
     $notes = ConvertTo-HyperVLabNotes `
         -RunId $RunId `
         -ScopeId $ScopeId `
@@ -683,6 +707,11 @@ function New-HyperVInstance {
         ChildVhdxPath = $childVhdxPath
         AdditionalDrives = @($additionalDrivePlan)
         AutoStart     = $AutoStart
+        DynamicMemoryEnabled = $DynamicMemoryEnabled
+        MemoryMinimumBytes = if ($DynamicMemoryEnabled) { $MemoryMinimumBytes } else { $MemoryStartupBytes }
+        MemoryStartupBytes = $MemoryStartupBytes
+        MemoryMaximumBytes = if ($DynamicMemoryEnabled) { $MemoryMaximumBytes } else { $MemoryStartupBytes }
+        ProcessorCount = $ProcessorCount
         State         = [string]$vm.State
         SqlReady      = $false
         ResourceBinding = $resourceBinding

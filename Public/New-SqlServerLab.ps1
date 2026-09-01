@@ -584,13 +584,18 @@ function New-SqlServerLab {
         })
         $hyperVDesiredState = New-LabDesiredStateSnapshot -ResolvedLab $resolved -ProvisioningMode manifest -PersistentData ([bool]$PersistentData)
         $hyperVMemoryStartupMB = if ($hyperVSettings -and $hyperVSettings.PSObject.Properties['memoryStartupMB']) { [int]$hyperVSettings.memoryStartupMB } else { 4096 }
+        $hyperVDynamicMemoryEnabled = if ($hyperVSettings -and $hyperVSettings.PSObject.Properties['dynamicMemoryEnabled']) { [bool]$hyperVSettings.dynamicMemoryEnabled } else { $true }
+        $hyperVMemoryMinimumMB = if ($hyperVSettings -and $hyperVSettings.PSObject.Properties['memoryMinimumMB']) { [int]$hyperVSettings.memoryMinimumMB } else { 0 }
+        $hyperVMemoryMaximumMB = if ($hyperVSettings -and $hyperVSettings.PSObject.Properties['memoryMaximumMB']) { [int]$hyperVSettings.memoryMaximumMB } else { 0 }
         $hyperVProcessorCount = if ($hyperVSettings -and $hyperVSettings.PSObject.Properties['processorCount']) { [int]$hyperVSettings.processorCount } else { 4 }
         $hyperVAutoStart = [string]$instance.autostart
         $hyperVSwitchName = if ($hyperVSettings -and $hyperVSettings.PSObject.Properties['switchName']) { [string]$hyperVSettings.switchName } else { $null }
         $hyperVIsolated = [string]$instance.network.Intent -eq 'isolated'
         $hyperVNetworkIntent = if ($hyperVIsolated) { 'hostOnly' } else { [string]$instance.network.Intent }
         $lab = New-HyperVLabEnvironment -ArtifactId ([string]$artifact.artifactId) -LabName ([string]$resolved.name) -InstanceId ([string]$instance.id) `
-            -MemoryStartupMB $hyperVMemoryStartupMB -ProcessorCount $hyperVProcessorCount -AutoStart $hyperVAutoStart `
+            -MemoryStartupMB $hyperVMemoryStartupMB -DynamicMemoryEnabled $hyperVDynamicMemoryEnabled `
+            -MemoryMinimumMB $hyperVMemoryMinimumMB -MemoryMaximumMB $hyperVMemoryMaximumMB `
+            -ProcessorCount $hyperVProcessorCount -AutoStart $hyperVAutoStart `
             -SwitchName $hyperVSwitchName -Isolated:$hyperVIsolated -NetworkIntent $hyperVNetworkIntent -AdditionalDrives $hyperVAdditionalDrives -StorageIntent $instance.storageIntent `
             -DesiredState $hyperVDesiredState -StateRoot $StateRoot
         $hyperVLab = Get-HyperVLabWorkflowRun -RunId $lab.RunId -StateRoot $StateRoot
