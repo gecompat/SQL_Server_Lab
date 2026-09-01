@@ -49,8 +49,45 @@ function New-HyperVSqlGuestNetworkBootstrapScript {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]$Network,
-        [Parameter(Mandatory)][string]$Address
+        [string]$Address
     )
+
+    $addressMode = if (($Network.PSObject.Properties['AddressMode'] -and [string]$Network.AddressMode -eq 'dhcp') -or
+        ($Network.PSObject.Properties['Intent'] -and [string]$Network.Intent -eq 'lan')) { 'dhcp' } else { 'static' }
+    if ($addressMode -eq 'dhcp') {
+        return @"
+`$ErrorActionPreference = 'Stop'
+`$adapter = @(Get-NetAdapter | Where-Object { `$_.Status -eq 'Up' } | Sort-Object ifIndex | Select-Object -First 1)[0]
+if (-not `$adapter) { throw 'SQL_LAB_OOBE_NETWORK_ADAPTER_NOT_FOUND' }
+Set-NetIPInterface -InterfaceIndex `$adapter.ifIndex -AddressFamily IPv4 -Dhcp Enabled -ErrorAction Stop
+Set-DnsClientServerAddress -InterfaceIndex `$adapter.ifIndex -ResetServerAddresses -ErrorAction Stop
+ipconfig.exe /renew `$adapter.InterfaceAlias | Out-Null
+`$deadline = [datetime]::UtcNow.AddSeconds(30)
+do {
+    `$observed = @(Get-NetIPAddress -InterfaceIndex `$adapter.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+        Where-Object { `$_.IPAddress -notlike '169.254.*' -and `$_.IPAddress -ne '127.0.0.1' -and [string]`$_.AddressState -eq 'Preferred' } |
+        Select-Object -First 1)
+    if (`$observed.Count -eq 1) { break }
+    Start-Sleep -Milliseconds 500
+} while ([datetime]::UtcNow -lt `$deadline)
+if (`$observed.Count -ne 1) { throw 'SQL_LAB_OOBE_DHCP_ADDRESS_NOT_READY' }
+`$gateway = [string]@(Get-NetRoute -InterfaceIndex `$adapter.ifIndex -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue |
+    Sort-Object RouteMetric | Select-Object -First 1).NextHop
+`$dnsServers = @(Get-DnsClientServerAddress -InterfaceIndex `$adapter.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue).ServerAddresses
+Set-NetConnectionProfile -InterfaceIndex `$adapter.ifIndex -NetworkCategory Private -ErrorAction SilentlyContinue
+Set-Service -Name WinRM -StartupType Automatic -ErrorAction Stop
+Enable-PSRemoting -Force -SkipNetworkProfileCheck -ErrorAction Stop
+`$ruleName = 'SQL_Server_Lab WinRM LAN'
+if (-not (Get-NetFirewallRule -DisplayName `$ruleName -ErrorAction SilentlyContinue)) {
+    New-NetFirewallRule -DisplayName `$ruleName -Direction Inbound -Action Allow -Protocol TCP -LocalPort 5985 -RemoteAddress LocalSubnet | Out-Null
+}
+`$receiptDirectory = Join-Path `$env:ProgramData 'SqlServerLab'
+New-Item -Path `$receiptDirectory -ItemType Directory -Force | Out-Null
+[PSCustomObject]@{ contractVersion = '1'; network = '$($Network.Name)'; addressMode = 'dhcp'; address = [string]`$observed[0].IPAddress; prefixLength = [int]`$observed[0].PrefixLength; hostAddress = `$null; gateway = `$gateway; dnsServers = `$dnsServers; observedAt = [datetime]::UtcNow.ToString('o') } |
+    ConvertTo-Json -Compress | Set-Content -LiteralPath (Join-Path `$receiptDirectory 'oobe-network.json') -Encoding UTF8
+"@
+    }
+    if ([string]::IsNullOrWhiteSpace($Address)) { throw 'LAB_NETWORK_STATIC_ADDRESS_REQUIRED' }
 
     $prefixLength = [int]$Network.PrefixLength
     $hostAddress = [string]$Network.HostAddress

@@ -8,6 +8,11 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- Hyper-V-`lan` bindet den portablen Manifest-Intent an eine explizite lokale
+  Switch-/Adapter-Allowlist. Der read-only Plan prüft physische Adapter-GUID,
+  Linkstatus, External-Switch-Typ und Adapterbelegung; der Gast verwendet DHCP
+  und auf `LocalSubnet` begrenzte WinRM-/SQL-Regeln.
+
 - Das Manifest besitzt einen portablen `network`-Vertrag mit typisierten
   `intent`- und `exposure`-Werten. Die mutationsfreie Planvorschau bindet
   Docker/Podman an `nat`/`host`, Hyper-V an `hostOnly`/`host` oder explizit an
@@ -36,6 +41,12 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   Netzwerkreparatur aus.
 
 ### Validiert
+
+- Die LAN-Verträge sind synthetisch für fehlende Freigabe, exakte
+  Wiederverwendung/Erstellung, IPAM-freie DHCP-Persistenz und dynamischen
+  Reconcile-No-op geprüft. Der Referenzhost bestätigte Hyper-V und vorhandene
+  External Switches read-only; ohne lokale LAN-Allowlist erfolgte keine
+  Hostmutation.
 
 - Network-, Manifest-, Desired-State- und Hyper-V-Static-Contracts sowie der
   Container-Smoke prüfen die

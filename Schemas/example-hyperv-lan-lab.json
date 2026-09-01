@@ -1,0 +1,23 @@
+{
+  "$schema": "./lab-manifest.schema.json",
+  "name": "hyperv-lan-lab",
+  "instances": [
+    {
+      "id": "primary",
+      "version": "2025",
+      "provider": "hyperv",
+      "os": "windows",
+      "profile": "standard",
+      "network": {
+        "intent": "lan",
+        "exposure": "lan"
+      },
+      "hyperv": {
+        "preparedImageId": "hyperv-sql-prepared-sealed-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "memoryStartupMB": 4096,
+        "processorCount": 4,
+        "guestPasswordMode": "prompt"
+      }
+    }
+  ]
+}

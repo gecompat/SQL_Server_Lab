@@ -9,6 +9,7 @@ Netzwerkgrundlage sicher teilen koennen.
 | Docker | `SQL_LAB_DOCKER` | `172.26.0.0/16` | veroeffentlichter Host-Port |
 | Podman | `SQL_LAB_PODMAN` | `172.27.0.0/16` | veroeffentlichter Host-Port |
 | Hyper-V | `SQL_LAB_HYPERV` | `172.28.0.0/24` | direkte Gast-IP, Host `172.28.0.1` |
+| Hyper-V LAN | lokal freizugebender External Switch | DHCP des physischen LAN | direkte Gast-IP im LAN |
 
 Docker- und Podman-Netze werden als eigene Bridge angelegt. Sie erlauben
 Kommunikation zwischen Containern derselben Runtime und den vorgesehenen
@@ -53,6 +54,37 @@ kollisionsfreies Netz gewählt werden.
 
 Runtime-übergreifende Kommunikation und kontrollierter Internet-Egress sind
 absichtlich nicht Bestandteil dieses ersten Netzwerkvertrags.
+
+## Hyper-V-LAN mit expliziter Adapterfreigabe
+
+Ein Manifest mit `network.intent = "lan"` und `network.exposure = "lan"`
+bleibt portabel: Switchname und physische Adapter-ID gehören nicht in das
+Manifest. Vor dem Lauf muss der Hostadministrator genau einen verbundenen
+physischen Adapter und einen Zielnamen lokal freigeben:
+
+```powershell
+Get-NetAdapter -Physical | Where-Object Status -eq Up |
+    Select-Object Name, InterfaceDescription, InterfaceGuid, Status
+
+$env:SQL_SERVER_LAB_HYPERV_LAN_SWITCH = 'SQL_LAB_LAN'
+$env:SQL_SERVER_LAB_HYPERV_LAN_ADAPTER_ID = '00000000-0000-0000-0000-000000000000'
+```
+
+Die GUID im Beispiel muss durch `InterfaceGuid` des ausdrücklich gewählten
+Adapters ersetzt werden. Der read-only Bound-Plan prüft GUID, Linkstatus,
+Switch-Typ und Adapterbeschreibung vor jeder Mutation. Ein exakt passender
+External Switch wird wiederverwendet. Fehlt er, wird ausschließlich der
+freigegebene Name auf dem freigegebenen Adapter mit Hostanbindung erstellt.
+Ist der Adapter bereits an einen anderen External Switch gebunden oder weicht
+ein gleichnamiger Switch ab, endet der Lauf fail-closed. Bestehende fremde
+Switches werden weder übernommen noch umgebaut.
+
+Der Gast bezieht im LAN seine Adresse und DNS-Werte per DHCP. WinRM und SQL-TCP
+werden auf `LocalSubnet` begrenzt; die beobachtete Adresse wird als dynamische
+Run-Evidenz gespeichert. Der gemeinsame Switch ist Hostinfrastruktur und wird
+nicht beim Cleanup eines einzelnen Labs gelöscht. External-Switch-Anlage kann
+die Hostkonnektivität beeinflussen und gehört deshalb nur auf einen
+freigegebenen Hyper-V-Runner.
 
 ## Hyper-V ohne manuelle Netzwerkbefehle
 

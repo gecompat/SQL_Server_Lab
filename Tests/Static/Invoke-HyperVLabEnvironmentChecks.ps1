@@ -114,6 +114,12 @@ try {
         $environmentText -match 'Deklarierte SQL-Memory-, MAXDOP-, Cost-Threshold- und TempDB-Konfiguration' -and
         $environmentText -match 'Set-LabServerConfig'
     )
+    Add-CheckResult -Name 'Hyper-V-LAN-Hostzugriff revalidiert den lokalen Bound-Plan und begrenzt SQL auf LocalSubnet' -Success (
+        $environmentText -match 'HYPERV_LAN_BOUND_PLAN_MISSING' -and
+        $environmentText -match 'Resolve-LabHyperVNetworkBoundPlan -Intent lan' -and
+        $environmentText -match 'if \(\$usesLan\) \{ ''LocalSubnet'' \}' -and
+        $environmentText -match 'New-NetFirewallRule[\s\S]+-RemoteAddress \$RemoteAddress'
+    )
     Add-CheckResult -Name 'Manifestpfad bleibt ohne fertige SQL-Vorlage fail-closed' -Success (
         $newLabText -match 'HYPERV_MANIFEST_FALLBACK_IMAGE_NOT_FOUND' -and
         $newLabText -match 'Keine lokale SQL_PREPARED_SEALED-Vorlage'
@@ -168,6 +174,33 @@ try {
         $connection.instances.Count -eq 1 -and $connection.instances[0].provider -eq 'hyperv' -and
         $connection.instances[0].imageArtifactId -eq 'sql-prepared-test' -and $connection.instances[0].workload -eq 'sql' -and
         $connection.instances[0].autostart -eq 'on' -and $state.metadata.autostart -eq 'on'
+    )
+    $lanRoot = Join-Path $temporaryRoot 'lan-runtime'
+    $lanCreated = & $module {
+        param($Root)
+        function Test-HyperVAvailable { [PSCustomObject]@{ Available=$true; Message='mock' } }
+        function Get-HyperVImageArtifact {
+            [PSCustomObject]@{ artifactId='sql-prepared-lan'; artifactState='SQL_PREPARED_SEALED'; sql=[PSCustomObject]@{ version='2025'; edition='Enterprise' } }
+        }
+        function Resolve-LabHyperVNetworkBoundPlan {
+            [PSCustomObject]@{
+                Contract=[PSCustomObject]@{Name='SqlServerLab.HyperVNetworkBoundPlan'}; Status='READY'; Intent='lan'; Exposure='lan'
+                Name='SQL_LAB_LAN'; Subnet=$null; PrefixLength=$null; HostAddress=$null; Gateway=$null; DnsServers=@()
+                AddressMode='dhcp'; AdapterId='11111111-1111-1111-1111-111111111111'; Actions=@(); Blockers=@()
+            }
+        }
+        function Invoke-LabHyperVNetworkBoundPlan { param($Plan) $Plan }
+        function Reserve-LabHyperVNetworkAddress { throw 'LAN_MUST_NOT_USE_IPAM' }
+        function Get-HyperVLabVMs { @() }
+        function New-HyperVInstance { [PSCustomObject]@{ VMName='sql-lab-lan-mock'; VMId='lan-vm-id'; AdditionalDrives=@() } }
+        New-HyperVLabEnvironment -ArtifactId sql-prepared-lan -LabName 'LAN Mock' -InstanceId primary -NetworkIntent lan -StateRoot $Root
+    } $lanRoot
+    $lanConnection = Get-Content -LiteralPath (Join-Path (Join-Path (Join-Path $lanRoot 'runs') $lanCreated.RunId) 'connection-info.json') -Raw | ConvertFrom-Json -Depth 10
+    Add-CheckResult -Name 'Hyper-V-LAN persistiert DHCP und belegt keine interne IPAM-Adresse' -Success (
+        $lanConnection.instances[0].labNetwork.intent -eq 'lan' -and
+        $lanConnection.instances[0].labNetwork.addressMode -eq 'dhcp' -and
+        $null -eq $lanConnection.instances[0].labNetwork.address -and
+        $lanConnection.instances[0].labNetwork.name -eq 'SQL_LAB_LAN'
     )
     $driveBound = & $module {
         param($Root)

@@ -124,7 +124,7 @@ function Resolve-LabNetworkIntentPlan {
         $reasonCode = 'NETWORK_LEGACY_SWITCH_CONFLICT'
         $reason = 'hyperv.switchName ist nur als Kompatibilitaetsbinding fuer hostOnly zulaessig.'
     }
-    elseif (($Provider -eq 'hyperv' -and $intent -notin @('isolated', 'hostOnly', 'nat')) -or
+    elseif (($Provider -eq 'hyperv' -and $intent -notin @('isolated', 'hostOnly', 'nat', 'lan')) -or
         ($Provider -in @('docker', 'podman') -and $intent -ne 'nat')) {
         $status = 'DECLARED_UNSUPPORTED'
         $reasonCode = 'NETWORK_INTENT_PROVIDER_UNSUPPORTED'
@@ -148,8 +148,17 @@ function Get-LabRuntimeNetwork {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][ValidateSet('docker', 'podman', 'hyperv')][string]$Provider,
-        [ValidateSet('hostOnly', 'nat')][string]$Intent = 'hostOnly'
+        [ValidateSet('hostOnly', 'nat', 'lan')][string]$Intent = 'hostOnly'
     )
+
+    if ($Provider -eq 'hyperv' -and $Intent -eq 'lan') {
+        $name = [string][Environment]::GetEnvironmentVariable('SQL_SERVER_LAB_HYPERV_LAN_SWITCH')
+        $adapterId = [string][Environment]::GetEnvironmentVariable('SQL_SERVER_LAB_HYPERV_LAN_ADAPTER_ID')
+        return [PSCustomObject]@{
+            Provider='hyperv'; Name=$name; Subnet=$null; PrefixLength=$null; HostAddress=$null
+            Intent='lan'; Exposure='lan'; NatName=$null; AdapterId=$adapterId; AddressMode='dhcp'
+        }
+    }
 
     $defaults = @{
         docker = @{ Name = 'SQL_LAB_DOCKER'; Subnet = '172.26.0.0/16'; EnvironmentPrefix = 'DOCKER' }
@@ -401,15 +410,74 @@ function Get-LabHyperVDnsServers {
 }
 
 function Resolve-LabHyperVNetworkBoundPlan {
-    <# .SYNOPSIS Bindet Hyper-V hostOnly/NAT ausschliesslich lesend an den Hostzustand. #>
+    <# .SYNOPSIS Bindet Hyper-V hostOnly/NAT/LAN ausschliesslich lesend an den Hostzustand. #>
     [CmdletBinding()]
     param(
-        [ValidateSet('hostOnly', 'nat')][string]$Intent = 'hostOnly',
+        [ValidateSet('hostOnly', 'nat', 'lan')][string]$Intent = 'hostOnly',
         [string]$SwitchName,
-        [string]$Subnet
+        [string]$Subnet,
+        [string]$LanSwitchName,
+        [string]$LanAdapterId
     )
 
     $network = Get-LabRuntimeNetwork -Provider hyperv -Intent $Intent
+    if ($Intent -eq 'lan') {
+        if ($PSBoundParameters.ContainsKey('LanSwitchName')) { $network.Name = $LanSwitchName }
+        if ($PSBoundParameters.ContainsKey('LanAdapterId')) { $network.AdapterId = $LanAdapterId }
+        $blockers = [Collections.Generic.List[string]]::new()
+        $actions = [Collections.Generic.List[string]]::new()
+        $adapter = $null
+        $adapterGuid = [guid]::Empty
+        if ([string]::IsNullOrWhiteSpace([string]$network.Name) -or [string]::IsNullOrWhiteSpace([string]$network.AdapterId)) {
+            $blockers.Add('LAB_NETWORK_HYPERV_LAN_BINDING_REQUIRED')
+        }
+        elseif ([string]$network.Name -notmatch '^[A-Za-z][A-Za-z0-9_.-]{0,62}$' -or
+            -not [guid]::TryParse([string]$network.AdapterId, [ref]$adapterGuid)) {
+            $blockers.Add('LAB_NETWORK_HYPERV_LAN_BINDING_INVALID')
+        }
+        elseif (-not (Get-Command Get-NetAdapter -ErrorAction SilentlyContinue)) {
+            $blockers.Add('LAB_NETWORK_HYPERV_LAN_ADAPTER_QUERY_UNAVAILABLE')
+        }
+        else {
+            $adapters = @(Get-NetAdapter -Physical -ErrorAction SilentlyContinue | Where-Object {
+                [string]$_.InterfaceGuid -eq [string]$adapterGuid
+            })
+            if ($adapters.Count -ne 1) { $blockers.Add('LAB_NETWORK_HYPERV_LAN_ADAPTER_NOT_FOUND') }
+            else {
+                $adapter = $adapters[0]
+                if ([string]$adapter.Status -ne 'Up') { $blockers.Add('LAB_NETWORK_HYPERV_LAN_ADAPTER_NOT_CONNECTED') }
+            }
+        }
+
+        $targetSwitch = $null
+        if ($blockers.Count -eq 0) {
+            $targetSwitches = @(Get-VMSwitch -Name ([string]$network.Name) -ErrorAction SilentlyContinue)
+            if ($targetSwitches.Count -gt 1) { $blockers.Add('LAB_NETWORK_HYPERV_LAN_SWITCH_CONTRACT_MISMATCH') }
+            elseif ($targetSwitches.Count -eq 1) {
+                $targetSwitch = $targetSwitches[0]
+                if ([string]$targetSwitch.SwitchType -ne 'External' -or
+                    [string]$targetSwitch.NetAdapterInterfaceDescription -ne [string]$adapter.InterfaceDescription) {
+                    $blockers.Add('LAB_NETWORK_HYPERV_LAN_SWITCH_CONTRACT_MISMATCH')
+                }
+            }
+            else {
+                $otherExternal = @(Get-VMSwitch -SwitchType External -ErrorAction SilentlyContinue | Where-Object {
+                    [string]$_.Name -ne [string]$network.Name -and
+                    [string]$_.NetAdapterInterfaceDescription -eq [string]$adapter.InterfaceDescription
+                })
+                if ($otherExternal.Count -gt 0) { $blockers.Add('LAB_NETWORK_HYPERV_LAN_ADAPTER_IN_USE') }
+                else { $actions.Add('create-external-switch') }
+            }
+        }
+        return [PSCustomObject]@{
+            Contract=[PSCustomObject]@{ Name='SqlServerLab.HyperVNetworkBoundPlan'; Version='1.0' }
+            Status=if ($blockers.Count -eq 0) { 'READY' } else { 'BLOCKED' }
+            Intent='lan'; Exposure='lan'; Name=[string]$network.Name; Subnet=$null; PrefixLength=$null
+            HostAddress=$null; Gateway=$null; DnsServers=@(); NatName=$null; AddressMode='dhcp'
+            AdapterId=[string]$network.AdapterId; AdapterName=if ($adapter) { [string]$adapter.Name } else { $null }
+            Actions=@($actions); Blockers=@($blockers | Sort-Object -Unique)
+        }
+    }
     if ($SwitchName) { $network.Name = $SwitchName }
     if ($Subnet) {
         $parsed = ConvertTo-LabIpv4Subnet -Subnet $Subnet
@@ -467,7 +535,8 @@ function Resolve-LabHyperVNetworkBoundPlan {
         Status=if ($blockers.Count -eq 0) { 'READY' } else { 'BLOCKED' }
         Intent=$Intent; Exposure='host'; Name=$network.Name; Subnet=$network.Subnet
         PrefixLength=$network.PrefixLength; HostAddress=$network.HostAddress; Gateway=if ($Intent -eq 'nat') { $network.HostAddress } else { $null }
-        DnsServers=$dns; NatName=if ($Intent -eq 'nat') { $network.NatName } else { $null }
+        DnsServers=$dns; NatName=if ($Intent -eq 'nat') { $network.NatName } else { $null }; AddressMode='static'
+        AdapterId=$null; AdapterName=$null
         Actions=@($actions); Blockers=@($blockers | Sort-Object -Unique)
     }
 }
@@ -479,17 +548,33 @@ function Invoke-LabHyperVNetworkBoundPlan {
     if ([string]$Plan.Contract.Name -ne 'SqlServerLab.HyperVNetworkBoundPlan' -or [string]$Plan.Status -ne 'READY') {
         throw 'LAB_NETWORK_HYPERV_BOUND_PLAN_NOT_READY'
     }
-    $revalidated = Resolve-LabHyperVNetworkBoundPlan -Intent ([string]$Plan.Intent) -SwitchName ([string]$Plan.Name) -Subnet ([string]$Plan.Subnet)
+    $revalidated = if ([string]$Plan.Intent -eq 'lan') {
+        Resolve-LabHyperVNetworkBoundPlan -Intent lan -LanSwitchName ([string]$Plan.Name) -LanAdapterId ([string]$Plan.AdapterId)
+    }
+    else {
+        Resolve-LabHyperVNetworkBoundPlan -Intent ([string]$Plan.Intent) -SwitchName ([string]$Plan.Name) -Subnet ([string]$Plan.Subnet)
+    }
     if ([string]$revalidated.Status -ne 'READY' -or
         [string]$revalidated.HostAddress -ne [string]$Plan.HostAddress -or
-        [string]$revalidated.NatName -ne [string]$Plan.NatName) {
+        [string]$revalidated.NatName -ne [string]$Plan.NatName -or
+        [string]$revalidated.AdapterId -ne [string]$Plan.AdapterId) {
         throw "LAB_NETWORK_HYPERV_BOUND_PLAN_STALE: $(@($revalidated.Blockers) -join ', ')"
     }
     $Plan = $revalidated
     $createdSwitch = $false; $createdAddress = $false; $createdNat = $false
     try {
         $switch = Get-VMSwitch -Name ([string]$Plan.Name) -ErrorAction SilentlyContinue
+        if (-not $switch -and [string]$Plan.Intent -eq 'lan') {
+            $null = New-VMSwitch -Name ([string]$Plan.Name) -NetAdapterName ([string]$Plan.AdapterName) -AllowManagementOS $true -ErrorAction Stop
+            $createdSwitch = $true
+            $postcondition = Resolve-LabHyperVNetworkBoundPlan -Intent lan -LanSwitchName ([string]$Plan.Name) -LanAdapterId ([string]$Plan.AdapterId)
+            if ([string]$postcondition.Status -ne 'READY' -or @($postcondition.Actions).Count -gt 0) {
+                throw 'LAB_NETWORK_HYPERV_LAN_SWITCH_POSTCONDITION_FAILED'
+            }
+            return $postcondition
+        }
         if (-not $switch) { $null = New-VMSwitch -Name ([string]$Plan.Name) -SwitchType Internal -ErrorAction Stop; $createdSwitch = $true }
+        if ([string]$Plan.Intent -eq 'lan') { return $Plan }
         $alias = "vEthernet ($([string]$Plan.Name))"
         $address = Get-NetIPAddress -InterfaceAlias $alias -AddressFamily IPv4 -ErrorAction SilentlyContinue |
             Where-Object { [string]$_.IPAddress -eq [string]$Plan.HostAddress -and [int]$_.PrefixLength -eq [int]$Plan.PrefixLength } |
@@ -677,66 +762,95 @@ function Initialize-HyperVGuestLabNetwork {
         [ValidatePattern('^(?:(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])(?:\.(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])){3})?$')][string]$FallbackAddress
     )
 
-    $address = if ($Network.PSObject.Properties['address'] -and $Network.address) { [string]$Network.address } else { Get-LabNetworkGuestAddress -Network $Network -Identity $Identity }
+    $addressMode = if (($Network.PSObject.Properties['addressMode'] -and [string]$Network.addressMode -eq 'dhcp') -or
+        ($Network.PSObject.Properties['Intent'] -and [string]$Network.Intent -eq 'lan')) { 'dhcp' } else { 'static' }
+    $address = if ($addressMode -eq 'dhcp') { $null } elseif ($Network.PSObject.Properties['address'] -and $Network.address) { [string]$Network.address } else { Get-LabNetworkGuestAddress -Network $Network -Identity $Identity }
     $gateway = if ($Network.PSObject.Properties['gateway']) { [string]$Network.gateway } else { $null }
     $dnsServers = if ($Network.PSObject.Properties['dnsServers']) { @($Network.dnsServers) } else { @() }
     $receipt = Invoke-HyperVPowerShellDirect -VMName $VMName -ExpectedRunId $ExpectedRunId `
         -ExpectedScopeId $ExpectedScopeId -Credential $Credential `
         -FallbackAddress $(if ($FallbackAddress) { $FallbackAddress } else { $address }) `
-        -ArgumentList @($address, [int]$Network.PrefixLength, [string]$Network.Name, [string]$Network.HostAddress, $gateway, $dnsServers) `
+        -ArgumentList @($addressMode, $address, [int]$Network.PrefixLength, [string]$Network.Name, [string]$Network.HostAddress, $gateway, $dnsServers) `
         -ScriptBlock {
-            param($Address, $PrefixLength, $NetworkName, $HostAddress, $Gateway, $DnsServers)
+            param($AddressMode, $Address, $PrefixLength, $NetworkName, $HostAddress, $Gateway, $DnsServers)
             $ErrorActionPreference = 'Stop'
             $adapter = @(Get-NetAdapter | Where-Object { $_.Status -eq 'Up' } | Sort-Object ifIndex | Select-Object -First 1)[0]
             if (-not $adapter) { throw 'LAB_NETWORK_GUEST_ADAPTER_NOT_FOUND' }
-            $existing = @(Get-NetIPAddress -InterfaceIndex $adapter.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue |
-                Where-Object { $_.IPAddress -notlike '169.254.*' -and $_.IPAddress -ne '127.0.0.1' })
-            if (-not @($existing | Where-Object { $_.IPAddress -eq $Address -and $_.PrefixLength -eq $PrefixLength })) {
-                $existing | Remove-NetIPAddress -Confirm:$false -ErrorAction SilentlyContinue
-                $newAddress = @{ InterfaceIndex=$adapter.ifIndex; IPAddress=$Address; PrefixLength=$PrefixLength; ErrorAction='Stop' }
-                if ($Gateway) { $newAddress.DefaultGateway = $Gateway }
-                New-NetIPAddress @newAddress | Out-Null
+            if ($AddressMode -eq 'dhcp') {
+                Set-NetIPInterface -InterfaceIndex $adapter.ifIndex -AddressFamily IPv4 -Dhcp Enabled -ErrorAction Stop
+                Set-DnsClientServerAddress -InterfaceIndex $adapter.ifIndex -ResetServerAddresses -ErrorAction Stop
+                ipconfig.exe /renew $adapter.InterfaceAlias | Out-Null
+                $deadline = [datetime]::UtcNow.AddSeconds(30)
+                do {
+                    $observed = @(Get-NetIPAddress -InterfaceIndex $adapter.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+                        Where-Object { $_.IPAddress -notlike '169.254.*' -and $_.IPAddress -ne '127.0.0.1' -and [string]$_.AddressState -eq 'Preferred' } |
+                        Select-Object -First 1)
+                    if ($observed.Count -eq 1) { break }
+                    Start-Sleep -Milliseconds 500
+                } while ([datetime]::UtcNow -lt $deadline)
+                if ($observed.Count -ne 1) { throw 'LAB_NETWORK_GUEST_DHCP_ADDRESS_NOT_READY' }
+                $route = Get-NetRoute -InterfaceIndex $adapter.ifIndex -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue |
+                    Sort-Object RouteMetric | Select-Object -First 1
+                $Gateway = if ($route) { [string]$route.NextHop } else { $null }
+                $DnsServers = @(Get-DnsClientServerAddress -InterfaceIndex $adapter.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue).ServerAddresses
             }
-            if ($Gateway) {
-                $defaultRoutes = @(Get-NetRoute -InterfaceIndex $adapter.ifIndex -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue)
-                if (-not @($defaultRoutes | Where-Object { [string]$_.NextHop -eq [string]$Gateway })) {
-                    $defaultRoutes | Remove-NetRoute -Confirm:$false -ErrorAction SilentlyContinue
-                    New-NetRoute -InterfaceIndex $adapter.ifIndex -DestinationPrefix '0.0.0.0/0' -NextHop $Gateway -ErrorAction Stop | Out-Null
+            else {
+                $existing = @(Get-NetIPAddress -InterfaceIndex $adapter.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+                    Where-Object { $_.IPAddress -notlike '169.254.*' -and $_.IPAddress -ne '127.0.0.1' })
+                if (-not @($existing | Where-Object { $_.IPAddress -eq $Address -and $_.PrefixLength -eq $PrefixLength })) {
+                    $existing | Remove-NetIPAddress -Confirm:$false -ErrorAction SilentlyContinue
+                    $newAddress = @{ InterfaceIndex=$adapter.ifIndex; IPAddress=$Address; PrefixLength=$PrefixLength; ErrorAction='Stop' }
+                    if ($Gateway) { $newAddress.DefaultGateway = $Gateway }
+                    New-NetIPAddress @newAddress | Out-Null
                 }
-            }
-            if (@($DnsServers).Count -gt 0) { Set-DnsClientServerAddress -InterfaceIndex $adapter.ifIndex -ServerAddresses @($DnsServers) -ErrorAction Stop }
-            $deadline = [datetime]::UtcNow.AddSeconds(15)
-            do {
-                $observed = @(Get-NetIPAddress -InterfaceIndex $adapter.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue |
-                    Where-Object { $_.IPAddress -eq $Address -and $_.PrefixLength -eq $PrefixLength })
-                if ($observed.Count -eq 1 -and [string]$observed[0].AddressState -eq 'Preferred') { break }
-                if (@($observed | Where-Object { [string]$_.AddressState -in @('Duplicate','Invalid') }).Count -gt 0) {
-                    throw "LAB_NETWORK_GUEST_ADDRESS_CONFLICT: $Address"
+                if ($Gateway) {
+                    $defaultRoutes = @(Get-NetRoute -InterfaceIndex $adapter.ifIndex -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue)
+                    if (-not @($defaultRoutes | Where-Object { [string]$_.NextHop -eq [string]$Gateway })) {
+                        $defaultRoutes | Remove-NetRoute -Confirm:$false -ErrorAction SilentlyContinue
+                        New-NetRoute -InterfaceIndex $adapter.ifIndex -DestinationPrefix '0.0.0.0/0' -NextHop $Gateway -ErrorAction Stop | Out-Null
+                    }
                 }
-                Start-Sleep -Milliseconds 250
-            } while ([datetime]::UtcNow -lt $deadline)
-            if ($observed.Count -ne 1 -or [string]$observed[0].AddressState -ne 'Preferred') {
-                throw "LAB_NETWORK_GUEST_ADDRESS_NOT_READY: $Address/$PrefixLength"
-            }
-            if ($Gateway -and -not (Get-NetRoute -InterfaceIndex $adapter.ifIndex -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue |
-                Where-Object { [string]$_.NextHop -eq [string]$Gateway } | Select-Object -First 1)) {
-                throw "LAB_NETWORK_GUEST_GATEWAY_NOT_READY: $Gateway"
+                if (@($DnsServers).Count -gt 0) { Set-DnsClientServerAddress -InterfaceIndex $adapter.ifIndex -ServerAddresses @($DnsServers) -ErrorAction Stop }
+                $deadline = [datetime]::UtcNow.AddSeconds(15)
+                do {
+                    $observed = @(Get-NetIPAddress -InterfaceIndex $adapter.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+                        Where-Object { $_.IPAddress -eq $Address -and $_.PrefixLength -eq $PrefixLength })
+                    if ($observed.Count -eq 1 -and [string]$observed[0].AddressState -eq 'Preferred') { break }
+                    if (@($observed | Where-Object { [string]$_.AddressState -in @('Duplicate','Invalid') }).Count -gt 0) {
+                        throw "LAB_NETWORK_GUEST_ADDRESS_CONFLICT: $Address"
+                    }
+                    Start-Sleep -Milliseconds 250
+                } while ([datetime]::UtcNow -lt $deadline)
+                if ($observed.Count -ne 1 -or [string]$observed[0].AddressState -ne 'Preferred') {
+                    throw "LAB_NETWORK_GUEST_ADDRESS_NOT_READY: $Address/$PrefixLength"
+                }
+                if ($Gateway -and -not (Get-NetRoute -InterfaceIndex $adapter.ifIndex -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue |
+                    Where-Object { [string]$_.NextHop -eq [string]$Gateway } | Select-Object -First 1)) {
+                    throw "LAB_NETWORK_GUEST_GATEWAY_NOT_READY: $Gateway"
+                }
             }
             $ruleName = 'SQL_Server_Lab SQL TCP Host'
             if (-not (Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue)) {
-                New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -Action Allow -Protocol TCP -LocalPort 1433 -RemoteAddress $HostAddress | Out-Null
+                $remoteAddress = if ($AddressMode -eq 'dhcp') { 'LocalSubnet' } else { $HostAddress }
+                New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -Action Allow -Protocol TCP -LocalPort 1433 -RemoteAddress $remoteAddress | Out-Null
             }
             [PSCustomObject]@{
-                contractVersion = '1'; network = $NetworkName
+                contractVersion = '1'; network = $NetworkName; addressMode = $AddressMode
                 address = [string]$observed[0].IPAddress; prefixLength = [int]$observed[0].PrefixLength
                 addressState = [string]$observed[0].AddressState; gateway = $Gateway; dnsServers = @($DnsServers); observedAt = [datetime]::UtcNow.ToString('o')
             }
         }
     $receipt = @($receipt)[-1]
-    if (-not $receipt -or [string]$receipt.contractVersion -ne '1' -or
-        [string]$receipt.address -ne $address -or [int]$receipt.prefixLength -ne [int]$Network.PrefixLength -or
-        [string]$receipt.addressState -ne 'Preferred') {
+    $parsedAddress = $null
+    if (-not $receipt -or [string]$receipt.contractVersion -ne '1' -or [string]$receipt.addressMode -ne $addressMode -or
+        [string]$receipt.addressState -ne 'Preferred' -or
+        -not [Net.IPAddress]::TryParse([string]$receipt.address, [ref]$parsedAddress) -or
+        $parsedAddress.AddressFamily -ne [Net.Sockets.AddressFamily]::InterNetwork -or
+        ($addressMode -eq 'static' -and ([string]$receipt.address -ne $address -or [int]$receipt.prefixLength -ne [int]$Network.PrefixLength))) {
         throw 'LAB_NETWORK_GUEST_RECEIPT_INVALID'
     }
-    return [PSCustomObject]@{ Network = [string]$Network.Name; Address = $address; PrefixLength = [int]$Network.PrefixLength; ObservedAt = [string]$receipt.observedAt }
+    return [PSCustomObject]@{
+        Network=[string]$Network.Name; Address=[string]$receipt.address; PrefixLength=[int]$receipt.prefixLength
+        AddressMode=$addressMode; Gateway=[string]$receipt.gateway; DnsServers=@($receipt.dnsServers); ObservedAt=[string]$receipt.observedAt
+    }
 }

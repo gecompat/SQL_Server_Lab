@@ -185,10 +185,12 @@ danach weiter unbeaufsichtigt.
 Freie run-lokale Manifest-Drives werden inzwischen deklarativ auf zusätzliche
 Hyper-V-VHDX und deren Disk-ID-gebundene Gastinitialisierung abgebildet. Der
 portable Netzwerkvertrag bindet Docker/Podman über Loopback an `nat`/`host`, Hyper-V an
-`hostOnly`/`host`, `isolated`/`none` und `nat`/`host`; andere Kombinationen
+`hostOnly`/`host`, `isolated`/`none`, `nat`/`host` und `lan`/`lan`; andere Kombinationen
 scheitern vor Mutation. Hyper-V-NAT verwendet einen gemeinsamen WinNAT-Vertrag,
 mutationsfreie CIDR-/WinNAT-Prüfung, scopegebundene statische IPAM-Leases sowie
-einen Gateway-/DNS-Snapshot. Auf dem Referenzhost blockiert das bereits aktive,
+einen Gateway-/DNS-Snapshot. Hyper-V-LAN bindet einen External Switch nur über
+lokal explizit freigegebenen Switchnamen und physische Adapter-GUID; der Gast
+verwendet DHCP und LAN-beschränkte Firewallregeln. Auf dem Referenzhost blockiert das bereits aktive,
 fremde WinNAT `172.30.0.0/24` die positive NAT-Erstellung erwartungsgemäß; dieser
 Host liefert deshalb native Kollisions-, aber keine positive Erstellungs-Evidence.
 Der Lifecycle-Reconcile liest Adapter, Switch-Typ, Hostinfrastruktur und eine
@@ -199,7 +201,8 @@ verwaltete VM die Internal-Switch-Bindung und die zugehörige Hostinfrastruktur
 als `MATCHED`; Gastadressierung war für diesen älteren Run nicht gebunden und
 wurde daher nicht als aktuell validiert behauptet.
 Noch nicht implementiert ist die vollständige Bindung an den Datenbank-, Software-
-und Post-Provisioning-Vertrag sowie Hyper-V-LAN. Der Prepared-Image-Klonpfad führt für
+und Post-Provisioning-Vertrag. Eine positive native External-Switch-Erstellung
+auf einem dafür freigegebenen Runner steht ebenfalls noch aus. Der Prepared-Image-Klonpfad führt für
 ein `SQL_PREPARED_SEALED`-Image `CompleteImage` aus und ist für den Windows-
 2025-/SQL-2025-Referenzfall bis `SQL_READY_RUN` real akzeptiert. Ein weiterer
 echter CLI-Vertical-Slice aus einem frischen `OS_SEALED`-Slot ist für SQL
@@ -784,9 +787,9 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
    Migration abschließen.
 2. Den synthetisch implementierten Hyper-V-`LAB_GENERATED`-Export und die
    automatische Sample-Manifestausführung real abnehmen (Sample-Welle 6).
-3. Die verbleibenden providerneutralen Network- und Software-Intents an
-   Hyper-V-LAN und Software-Runtime binden; Container-`nat` sowie Hyper-V-
-   `hostOnly`/`isolated`/`nat`, IPAM, Gateway und DNS sind bereits gebunden.
+3. Die verbleibenden providerneutralen Software-Intents an die Software-Runtime
+   binden; Container-`nat` sowie Hyper-V-`hostOnly`/`isolated`/`nat`/`lan`,
+   IPAM, Gateway, DNS und DHCP sind bereits gebunden.
    Den read-only Hyper-V-Netzwerk-Diff anschließend um kontrollierte,
    eigentumsgeprüfte Reconcile-Reparaturen erweitern.
 4. Artifact Registry, Refresh/Rebuild und Evaluierungsablauf implementieren.
