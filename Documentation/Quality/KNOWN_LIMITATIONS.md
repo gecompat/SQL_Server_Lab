@@ -436,10 +436,14 @@ fehlende TDE-Key-Evidence, bestehende Zieldatenbanken und nicht-exklusive
 Nutzung. Der Executor journalisiert Kopie, Attach und Online-Postcondition.
 Die Publikation registriert das Paket rollbackfähig mit eigener
 `PersistentStorageId` im controllergebundenen Katalog; ein fehlgeschlagener
-Katalogcommit quarantänisiert Library-Eintrag und Journal fail-closed. Noch
-offen sind die öffentliche CLI-/GUI-Bedienung und der reale SQL-Server-/
-FILESTREAM-Hyper-V-Nachweis; die statische Dateisystem-Abnahme wird nicht als
-nativer SQL-Attach ausgegeben.
+Katalogcommit quarantänisiert Library-Eintrag und Journal fail-closed. CLI und
+Browser inventarisieren Pakete inzwischen pfadfrei über dieselbe stabile
+`DatabasePackageId`; große Objekte werden nur mit explizitem
+`-VerifyIntegrity` oder vor Verwendung vollständig gehasht. Der sichtbare
+Browser-Attach bleibt gesperrt, solange Zielinstanz und providergebundene
+Zielpfadabbildung nicht sicher gebunden sind. Offen sind damit der ausführbare
+öffentliche Attach und der reale SQL-Server-/FILESTREAM-Hyper-V-Nachweis; die
+statische Dateisystem-Abnahme wird nicht als nativer SQL-Attach ausgegeben.
 
 Der read-only PSR-010-Core inventarisiert SQL-seitig beobachtbare Server-
 Login-Mappings, datenbankgebundene SQL-Agent-Jobs und deren Proxies,
