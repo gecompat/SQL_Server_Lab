@@ -119,6 +119,14 @@
       <div id="hyperv-labs" class="cards"></div>
     </section>
 
+    <section class="panel compact">
+      <div class="section-heading"><div><p class="eyebrow">LAB_DATA</p><h2>Datenbankpakete</h2></div><span id="database-package-count" class="count"></span></div>
+      <label>Unveränderliches Paket auswählen<select id="database-package-source"><option value="">Kein Paket katalogisiert</option></select></label>
+      <div id="database-package-details" class="selection-details" aria-live="polite">Die Auswahl erfolgt ausschließlich über die stabile DatabasePackageId; Hostpfade und Hashes werden nicht an den Browser übertragen.</div>
+      <div class="build-actions"><button id="database-package-attach" type="button" class="button secondary" disabled>Attach starten (Zielbindung fehlt)</button></div>
+      <p class="form-note">Die Inventur hasht große Objekte nicht bei jedem Refresh. Vor einer späteren Mutation müssen Paket, Zielinstanz, SQL-Version, FILESTREAM/TDE und die providergebundene Zielpfadabbildung frisch revalidiert werden.</p>
+    </section>
+
     <section class="panel log-panel">
       <div class="section-heading">
         <div><p class="eyebrow">HINTERGRUNDAKTIONEN</p><h2>Live-Log</h2></div>
