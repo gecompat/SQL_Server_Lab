@@ -40,9 +40,15 @@ if ($showHelpRequested) {
 
 
 $ErrorActionPreference = 'Stop'
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+$podmanResolution = @(& (Join-Path $repoRoot 'Tools\Initialize-SqlServerLabHostTools.ps1') -Name podman)[0]
+if (-not $podmanResolution.Available) {
+    throw 'Podman ist auf diesem Host nicht installiert oder konnte weder im Prozess-PATH noch an bekannten Installationsorten gefunden werden.'
+}
+$podmanInvocation = [string]$podmanResolution.Invocation
 
 function Test-PodmanRuntimeReady {
-    & podman info 1>$null 2>$null
+    & $podmanInvocation info 1>$null 2>$null
     return $LASTEXITCODE -eq 0
 }
 
@@ -57,10 +63,6 @@ function Get-PodmanMachineName {
     }
 
     return $null
-}
-
-if (-not (Get-Command podman -ErrorAction SilentlyContinue)) {
-    throw 'Podman ist auf diesem Host nicht installiert oder nicht im PATH verfuegbar.'
 }
 
 $mutexName = if ($IsWindows) {
@@ -87,7 +89,7 @@ try {
         }
     }
 
-    $machineOutput = @(& podman machine list --format json 2>&1)
+    $machineOutput = @(& $podmanInvocation machine list --format json 2>&1)
     $machineExitCode = $LASTEXITCODE
     $machineText = $machineOutput -join "`n"
     if ($machineExitCode -ne 0) {
@@ -120,7 +122,7 @@ try {
 
     $targetName = Get-PodmanMachineName -Machine $target
     Write-Host "Podman-Runtime ist nicht erreichbar. Starte Machine '$targetName' ..." -ForegroundColor Yellow
-    $startOutput = @(& podman machine start $targetName 2>&1)
+    $startOutput = @(& $podmanInvocation machine start $targetName 2>&1)
     $startExitCode = $LASTEXITCODE
     if ($startExitCode -ne 0) {
         throw "Podman-Machine '$targetName' konnte nicht gestartet werden: $($startOutput -join "`n")"

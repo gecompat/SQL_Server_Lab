@@ -119,6 +119,7 @@ Interpretation:
 .\Tests\Static\Invoke-DatabaseMigrationDependencyChecks.ps1
 .\Tests\Static\Invoke-ContainerInstanceStoreChecks.ps1
 .\Tests\Static\Invoke-ContainerRuntimeScopeChecks.ps1
+.\Tests\Static\Invoke-HostToolResolutionChecks.ps1
 .\Tests\Static\Invoke-PodmanBootstrapChecks.ps1
 .\Tests\Static\Invoke-PesterChecks.ps1
 .\Tests\Static\Invoke-ReleaseReadinessChecks.ps1

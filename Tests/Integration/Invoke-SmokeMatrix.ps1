@@ -288,6 +288,8 @@ Write-Host ' SQL_Server_Lab Smoke Matrix'
 Write-Host '===================================================================='
 
 $podmanBootstrapPath = Join-Path $PSScriptRoot 'Initialize-PodmanRuntime.ps1'
+$repoRoot = Split-Path -Parent $modulePath
+$null = & (Join-Path $repoRoot 'Tools\Initialize-SqlServerLabHostTools.ps1') -Name docker,podman
 if ($Provider -eq 'podman') {
     $null = & $podmanBootstrapPath
 }

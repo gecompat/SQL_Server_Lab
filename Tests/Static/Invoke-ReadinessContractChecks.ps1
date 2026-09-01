@@ -129,8 +129,8 @@ if ($failures.Count -eq 0) {
     Assert-Contains $podmanProvider '--health-cmd[^\r\n]+\s-C\s' 'Podman-Healthcheck vertraut dem gebundenen selbstsignierten Containerzertifikat nicht explizit.'
 
     Assert-Contains $podmanBootstrap 'function\s+Test-PodmanRuntimeReady' 'Podman-Bootstrap prueft die Runtime-Erreichbarkeit nicht.'
-    Assert-Contains $podmanBootstrap 'podman\s+machine\s+list\s+--format\s+json' 'Podman-Bootstrap ermittelt vorhandene Machines nicht strukturiert.'
-    Assert-Contains $podmanBootstrap 'podman\s+machine\s+start\s+\$targetName' 'Podman-Bootstrap startet eine gestoppte Machine nicht.'
+    Assert-Contains $podmanBootstrap '&\s+\$podmanInvocation\s+machine\s+list\s+--format\s+json' 'Podman-Bootstrap ermittelt vorhandene Machines nicht strukturiert ueber den zentral aufgeloesten Toolpfad.'
+    Assert-Contains $podmanBootstrap '&\s+\$podmanInvocation\s+machine\s+start\s+\$targetName' 'Podman-Bootstrap startet eine gestoppte Machine nicht ueber den zentral aufgeloesten Toolpfad.'
     Assert-Contains $podmanBootstrap 'SQL_Server_Lab_Podman_Bootstrap' 'Podman-Bootstrap besitzt keinen hostweiten Start-Lock.'
     Assert-Contains $podmanBootstrap 'Elapsed\.TotalSeconds\s+-lt\s+\$TimeoutSeconds' 'Podman-Bootstrap wartet nicht begrenzt auf Erreichbarkeit.'
 
