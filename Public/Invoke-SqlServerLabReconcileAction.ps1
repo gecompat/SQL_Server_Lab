@@ -30,8 +30,10 @@
     Repariert gebundene SQL-Default- und TempDB-Dateipfade und startet den
     SQL-Dienst kontrolliert neu. User- und Systemdatenbanken bleiben unberuehrt.
 .PARAMETER RepairHyperVSqlConfiguration
-    Repariert nur dynamische sp_configure-Werte und fuegt deklarierte globale
-    Trace Flags live hinzu. SQL-Port, Dateipfade und Datenbanken bleiben unberuehrt.
+    Repariert dynamische sp_configure-Werte und deklarierte globale Trace Flags
+    live. Nicht dynamische Werte verwenden einen journalisierten Neustart nur
+    von MSSQLSERVER; die Hyper-V-VM bleibt gestartet. SQL-Port, Dateipfade und
+    Datenbanken bleiben unberuehrt.
 .PARAMETER RepairHyperVSqlPort
     Repariert den manifestgebundenen statischen SQL-TCP-Port und die vorhandene
     Lab-Firewallbindung. Nur der SQL-Dienst, nicht die Hyper-V-VM, wird neu gestartet.
@@ -215,13 +217,13 @@ function Invoke-SqlServerLabReconcileAction {
 
     if ($PSCmdlet.ParameterSetName -eq 'HyperVSqlConfiguration') {
         $plan = Get-SqlServerLabReconcilePlan -RunId $RunId -HyperVSqlConfiguration -InstanceId $InstanceId -StateRoot $StateRoot
-        $wouldExecute = if ($plan.IsNoOp -or [string]$plan.HighestChangeClass -ne 'live') { $false } else {
-            $PSCmdlet.ShouldProcess("Run '$RunId', Instanz '$InstanceId'", 'Hyper-V-SQL-Livekonfiguration journalgebunden reparieren')
+        $wouldExecute = if ($plan.IsNoOp -or [string]$plan.HighestChangeClass -notin @('live','restart')) { $false } else {
+            $PSCmdlet.ShouldProcess("Run '$RunId', Instanz '$InstanceId'", 'Hyper-V-SQL-Konfiguration journalgebunden reparieren')
         }
         $entry = [ordered]@{
             Operation=if($plan.IsNoOp){'None'}else{'RepairHyperVSqlConfiguration'};ChangeClass=[string]$plan.HighestChangeClass
             Planned=(@($plan.Actions).Count -eq 1);Executed=$false
-            Status=if($plan.IsNoOp){'NO_OP'}elseif([string]$plan.HighestChangeClass -ne 'live'){'UNSUPPORTED'}elseif($wouldExecute){'PLANNED'}else{'WOULD_EXECUTE'}
+            Status=if($plan.IsNoOp){'NO_OP'}elseif([string]$plan.HighestChangeClass -notin @('live','restart')){'UNSUPPORTED'}elseif($wouldExecute){'PLANNED'}else{'WOULD_EXECUTE'}
             Reason=$null;Result=$null
         }
         $summary=[ordered]@{Status=$entry.Status;PlannedActions=@($plan.Actions).Count;ExecutedActions=0;FailedActions=0;MutationAllowed=$false;Errors=@()}

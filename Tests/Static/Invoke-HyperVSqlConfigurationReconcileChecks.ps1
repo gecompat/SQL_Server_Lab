@@ -29,11 +29,13 @@ try {
             Desired=$script:configurationDesired;CredentialAvailable=$true
         }
         $script:configurationActual=[PSCustomObject]@{
-            Status='AVAILABLE'
+            Status='AVAILABLE';ServiceName='MSSQLSERVER';ServiceStatus='Running'
             Configurations=@($intent.Configurations | ForEach-Object {[PSCustomObject]@{Name=$_.Name;ValueInUse=[long]$_.Value;ConfiguredValue=[long]$_.Value;IsDynamic=$true}})
             TraceFlags=@(3226)
         }
-        $script:configurationApplyCount=0;$script:configurationFailOnce=$false
+        $script:configurationApplyCount=0;$script:configurationTargetApplyCount=0
+        $script:configurationTraceFlagApplyCount=0;$script:configurationRestartCount=0
+        $script:configurationFailOnce=$false;$script:configurationRestartFailOnce=$false
         function Get-LabHyperVSqlConfigurationReconcileContext {
             $script:configurationContext.Desired=$script:configurationDesired
             return $script:configurationContext
@@ -41,10 +43,33 @@ try {
         function Get-LabHyperVSqlConfigurationReconcileCredentials { [PSCustomObject]@{GuestCredential=$null;SqlSaPassword=$null} }
         function Get-LabHyperVSqlConfigurationActualState { return $script:configurationActual }
         function Set-LabHyperVSqlConfigurationValues {
+            param($Context,$Access,[bool]$ApplyConfigurations=$true,[bool]$ApplyTraceFlags=$true)
+            $null=$Context;$null=$Access
             $script:configurationApplyCount++
-            $script:configurationActual.Configurations=@($script:configurationDesired.Configurations | ForEach-Object {[PSCustomObject]@{Name=$_.Name;ValueInUse=[long]$_.Value;ConfiguredValue=[long]$_.Value;IsDynamic=$true}})
-            $script:configurationActual.TraceFlags=@($script:configurationActual.TraceFlags)+@($script:configurationDesired.TraceFlags)|Sort-Object -Unique
+            if($ApplyConfigurations){
+                $script:configurationTargetApplyCount++
+                foreach($target in @($script:configurationDesired.Configurations)){
+                    $current=$script:configurationActual.Configurations|Where-Object Name -eq $target.Name
+                    $current.ConfiguredValue=[long]$target.Value
+                    if($current.IsDynamic){$current.ValueInUse=[long]$target.Value}
+                }
+            }
+            if($ApplyTraceFlags){
+                $script:configurationTraceFlagApplyCount++
+                $script:configurationActual.TraceFlags=@($script:configurationActual.TraceFlags)+@($script:configurationDesired.TraceFlags)|Sort-Object -Unique
+            }
             if($script:configurationFailOnce){$script:configurationFailOnce=$false;throw 'SYNTHETIC_CONFIG_FAILURE'}
+        }
+        function Invoke-LabHyperVSqlConfigurationServiceRestart {
+            param($Context,$Access)
+            $null=$Context;$null=$Access
+            $script:configurationRestartCount++
+            if($script:configurationRestartFailOnce){$script:configurationRestartFailOnce=$false;throw 'SYNTHETIC_RESTART_FAILURE'}
+            foreach($current in @($script:configurationActual.Configurations|Where-Object{-not $_.IsDynamic})){
+                $current.ValueInUse=[long]$current.ConfiguredValue
+            }
+            $script:configurationActual.TraceFlags=@()
+            [PSCustomObject]@{Status='RESTARTED';ServiceName='MSSQLSERVER';ServiceStatus='Running'}
         }
 
         $noOp=Get-SqlServerLabReconcilePlan -RunId $RunId -HyperVSqlConfiguration -InstanceId primary -StateRoot $Root
@@ -73,9 +98,32 @@ try {
         $resumed=Invoke-SqlServerLabReconcileAction -RunId $RunId -RepairHyperVSqlConfiguration -InstanceId primary -StateRoot $Root -Confirm:$false
         $resumedJournal=Get-Content -LiteralPath $journalPath -Raw | ConvertFrom-Json
 
-        ($script:configurationDesired.Configurations|Where-Object Name -eq 'max degree of parallelism').Value=12
+        $desiredDop=$script:configurationDesired.Configurations|Where-Object Name -eq 'max degree of parallelism'
+        $desiredDop.Value=12
         $actualDop=$script:configurationActual.Configurations|Where-Object Name -eq 'max degree of parallelism'
-        $actualDop.IsDynamic=$false
+        $actualDop.IsDynamic=$false;$actualDop.ConfiguredValue=8;$actualDop.ValueInUse=8
+        $targetApplyCountBeforeRestart=$script:configurationTargetApplyCount
+        $traceApplyCountBeforeRestart=$script:configurationTraceFlagApplyCount
+        $restartPlan=Get-SqlServerLabReconcilePlan -RunId $RunId -HyperVSqlConfiguration -InstanceId primary -StateRoot $Root
+        $restartApply=Invoke-SqlServerLabReconcileAction -RunId $RunId -RepairHyperVSqlConfiguration -InstanceId primary -StateRoot $Root -Confirm:$false
+        $restartJournal=Get-Content -LiteralPath $journalPath -Raw | ConvertFrom-Json
+        $restartNoOp=Get-SqlServerLabReconcilePlan -RunId $RunId -HyperVSqlConfiguration -InstanceId primary -StateRoot $Root
+        $restartAppliedExactlyOnce=$script:configurationRestartCount -eq 1 -and
+            $script:configurationTargetApplyCount -eq ($targetApplyCountBeforeRestart+1) -and
+            $script:configurationTraceFlagApplyCount -eq ($traceApplyCountBeforeRestart+1)
+        $traceFlagsRestored=@($script:configurationActual.TraceFlags) -contains 3226
+
+        $desiredDop.Value=16
+        $targetApplyCountBeforeFailure=$script:configurationTargetApplyCount
+        $script:configurationRestartFailOnce=$true
+        $restartFailed=Invoke-SqlServerLabReconcileAction -RunId $RunId -RepairHyperVSqlConfiguration -InstanceId primary -StateRoot $Root -Confirm:$false
+        $restartFailedJournal=Get-Content -LiteralPath $journalPath -Raw | ConvertFrom-Json
+        $restartResumePlan=Get-SqlServerLabReconcilePlan -RunId $RunId -HyperVSqlConfiguration -InstanceId primary -StateRoot $Root
+        $configuredBeforeResume=[long]$actualDop.ConfiguredValue -eq 16 -and [long]$actualDop.ValueInUse -eq 12
+        $restartResumed=Invoke-SqlServerLabReconcileAction -RunId $RunId -RepairHyperVSqlConfiguration -InstanceId primary -StateRoot $Root -Confirm:$false
+        $restartResumedJournal=Get-Content -LiteralPath $journalPath -Raw | ConvertFrom-Json
+
+        $script:configurationActual.Configurations=@($script:configurationActual.Configurations|Where-Object Name -ne 'cost threshold for parallelism')
         $unsupported=Get-SqlServerLabReconcilePlan -RunId $RunId -HyperVSqlConfiguration -InstanceId primary -StateRoot $Root
 
         [PSCustomObject]@{
@@ -86,7 +134,15 @@ try {
             WhatIf=$whatIfSafe -and $whatIf.ExecutionSummary.Status -eq 'WOULD_EXECUTE';Apply=$applied;RepeatJournal=$repeatJournal
             Recovery=$failed.ExecutionSummary.Status -eq 'FAILED' -and $failedJournal.Status -eq 'RECOVERY_REQUIRED' -and $resumePlan.Actions[0].Operation -eq 'ResumeHyperVSqlConfiguration' -and @($resumePlan.Actions[0].RepairKinds) -contains 'recovery-finalize'
             Resume=$resumed.ExecutionSummary.Status -eq 'SUCCEEDED' -and $resumedJournal.Status -eq 'COMPLETED'
-            Unsupported=$unsupported.HighestChangeClass -eq 'unsupported' -and @($unsupported.Actions).Count -eq 0
+            RestartPlan=$restartPlan.HighestChangeClass -eq 'restart' -and $restartPlan.Actions[0].RequiresServiceRestart -and -not $restartPlan.Actions[0].RequiresVmRestart
+            RestartApply=$restartApply.ExecutionSummary.Status -eq 'SUCCEEDED' -and $restartJournal.ChangeClass -eq 'restart' -and $restartJournal.Status -eq 'COMPLETED' -and
+                $restartAppliedExactlyOnce -and $traceFlagsRestored -and $restartNoOp.IsNoOp
+            RestartRecovery=$restartFailed.ExecutionSummary.Status -eq 'FAILED' -and $restartFailedJournal.Status -eq 'RECOVERY_REQUIRED' -and
+                $restartResumePlan.Actions[0].Operation -eq 'ResumeHyperVSqlConfiguration' -and $restartResumePlan.HighestChangeClass -eq 'restart' -and
+                @($restartResumePlan.Actions[0].RepairKinds) -contains 'configuration-restart-pending' -and $configuredBeforeResume -and
+                $script:configurationTargetApplyCount -eq ($targetApplyCountBeforeFailure+1) -and
+                $restartResumed.ExecutionSummary.Status -eq 'SUCCEEDED' -and $restartResumedJournal.Status -eq 'COMPLETED' -and [long]$actualDop.ValueInUse -eq 16
+            Unsupported=$unsupported.HighestChangeClass -eq 'unsupported' -and @($unsupported.Actions).Count -eq 0 -and @($unsupported.Diff.Kind) -contains 'configuration-missing'
         }
     } $testRoot $runId $scopeId
 
@@ -100,8 +156,11 @@ try {
         'Wiederkehrende Drift erhaelt ein neues Operationsjournal'=$result.RepeatJournal
         'Fehlgeschlagene Live-Reparatur bleibt als Recovery sichtbar'=$result.Recovery
         'Recovery setzt denselben Sollzustand idempotent fort'=$result.Resume
-        'Nicht dynamische oder fehlende Konfiguration bleibt fail-closed'=$result.Unsupported
-        'Gastmutation verwendet parametrisierte sp_configure-Werte und keinen Dienstrestart'=($source -match "Parameters\.Add\('@name'" -and $source -match "Parameters\.Add\('@value'" -and $source -notmatch 'Restart-Service|Stop-Service|Start-Service')
+        'Nicht dynamische Konfiguration wird als SQL-Dienstrestart ohne VM-Restart geplant'=$result.RestartPlan
+        'Restart-Reparatur stellt Trace Flags wieder her und erfuellt die Postcondition'=$result.RestartApply
+        'Fehler vor dem SQL-Dienstrestart bleibt fortsetzbar und mutiert den Zielwert nicht doppelt'=$result.RestartRecovery
+        'Fehlende oder mehrdeutige Konfiguration bleibt fail-closed'=$result.Unsupported
+        'Gastmutation parametrisiert sp_configure und startet ausschliesslich MSSQLSERVER neu'=($source -match "Parameters\.Add\('@name'" -and $source -match "Parameters\.Add\('@value'" -and $source -match "Restart-Service -Name 'MSSQLSERVER'" -and $source -notmatch 'Restart-VM|Stop-VM|Start-VM')
     }
     $failedChecks=@($checks.GetEnumerator()|Where-Object{-not $_.Value})
     foreach($check in $checks.GetEnumerator()){$color=if($check.Value){'Green'}else{'Red'};Write-Host("  {0}  {1}" -f $(if($check.Value){'PASS'}else{'FAIL'}),$check.Key)-ForegroundColor $color}

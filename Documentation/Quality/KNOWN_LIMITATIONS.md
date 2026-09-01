@@ -340,12 +340,16 @@ Der erste Hyper-V-SQL-Konfigurations-Reconcile-Slice persistiert die bereits
 ausfuehrbaren `serverConfig`-Werte fuer Memory, MAXDOP, Cost Threshold,
 explizites `spConfigure` und globale Trace Flags. Der read-only Plan vergleicht
 sie ueber PowerShell Direct mit `sys.configurations` und `DBCC TRACESTATUS`.
-Der Executor revalidiert Run, Scope, Instanz und VM, akzeptiert nur dynamische
-`sp_configure`-Abweichungen sowie additive angeforderte Trace Flags und
-journalisiert vor der ersten SQL-Mutation. No-op, Live, `WhatIf`, wiederkehrende
-Drift, Abbruch/Resume und nicht dynamische Fail-closed-Faelle sind synthetisch
-belegt. Ein positiver nativer Reparaturlauf bleibt `NOT_EXECUTED`;
-Trace-Flag-Entfernung ist nicht Teil dieses Live-Slices.
+Der Executor revalidiert Run, Scope, Instanz und VM und journalisiert vor der
+ersten SQL-Mutation. Dynamische `sp_configure`-Abweichungen und additive
+angeforderte Trace Flags bleiben live. Nicht dynamische Werte werden zuerst als
+konfigurierter Zielwert gebunden und anschließend durch genau einen Neustart
+von `MSSQLSERVER` aktiviert; die Hyper-V-VM bleibt gestartet. Nach dem Restart
+werden deklarierte Laufzeit-Trace-Flags wiederhergestellt und alle Werte erneut
+gelesen. No-op, Live, Restart, `WhatIf`, wiederkehrende Drift, Abbruch/Resume,
+Restart-Resume ohne doppelte Zielwertmutation sowie fehlende Konfiguration sind
+synthetisch belegt. Ein positiver nativer Reparaturlauf bleibt `NOT_EXECUTED`;
+Trace-Flag-Entfernung ist nicht Teil dieses Slices.
 
 Der getrennte Hyper-V-SQL-Port-Reconcile persistiert `hyperv.sqlPort`, prüft
 TCP-Registry und die bestehende run-eigene Gastfirewall read-only und repariert

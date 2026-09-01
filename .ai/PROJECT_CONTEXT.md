@@ -61,7 +61,8 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   hostwertfreien Netzwerkplan und einen eng begrenzten journalisierten Executor
   für additive gebundene Hostinfrastruktur und genau einen vorhandenen
   getrennten VM-Adapter sowie getrennte vCPU-/RAM-, Grow-only-Storage-,
-  SQL-Storage- und dynamische SQL-Konfigurations-Reconcile-Verträge;
+  SQL-Storage- und SQL-Konfigurations-Reconcile-Verträge mit Live- oder
+  SQL-Dienstrestart-Klassifizierung;
 - verwalteter Multi-Root-Storage-Vertrag mit stabilen `LocationId`-Werten,
   Backing-Device-Topologie, dateigenauem Storage-Plan, journalisierter
   Parent-Migration und Cleanup-Audit;
@@ -251,15 +252,18 @@ Gast-DHCP; die eng begrenzte schreibende Netzwerkreparatur ist synthetisch
 implementiert, positive native Switch-/Repair-Evidence bleibt offen.
 
 Der Hyper-V-Reconcile besitzt getrennte, hostwertfreie Pläne für vCPU/RAM,
-zusätzliche VHDX/Grow-only, SQL-Storage, dynamische SQL-Konfiguration, den
+zusätzliche VHDX/Grow-only, SQL-Storage, SQL-Konfiguration, den
 statischen SQL-TCP-Port und katalogisierte Testdatenbanken. Der SQL-Storage-Slice wird erst nach
 einem Host-/Gast-Storage-No-op ausführbar, vergleicht Default- und TempDB-Pfade
 read-only und verwendet für Restart, Postconditions und Resume das lokale
 Storage-Runtime-Receipt. User-/Systemdatenbankbewegung und positive native
-Repair-Evidence bleiben offen. Der Live-Konfigurationsslice vergleicht
+Repair-Evidence bleiben offen. Der Konfigurationsslice vergleicht
 persistierte Memory-, MAXDOP-, Cost-Threshold-, `sp_configure`- und Trace-Flag-
-Ziele ueber PowerShell Direct und setzt nur dynamische Werte beziehungsweise
-additive Trace Flags journalisiert fort. Der Port-Slice bindet genau eine
+Ziele ueber PowerShell Direct. Dynamische Werte und additive Trace Flags werden
+live repariert; nicht dynamische Werte werden konfiguriert, mit genau einem
+journalisierten `MSSQLSERVER`-Dienstrestart aktiviert und danach zusammen mit
+den Trace Flags erneut verifiziert. Die Hyper-V-VM bleibt gestartet. Der
+Port-Slice bindet genau eine
 Standardinstanz, Gastfirewall, SQL-Dienstrestart, Readiness und Connection-
 State journalisiert. Der Testdatenbank-Slice vergleicht `sys.databases` mit
 stabilen Sample-PlanKeys und einem VM-gebundenen lokalen Ownership-Receipt.

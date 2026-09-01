@@ -1,14 +1,15 @@
 <#
 .SYNOPSIS
-    Plant und repariert live aenderbare SQL-Instanzkonfiguration eines Hyper-V-Runs.
+    Plant und repariert SQL-Instanzkonfiguration eines Hyper-V-Runs.
 .DESCRIPTION
     Der read-only Plan vergleicht den persistierten serverConfig-Sollzustand
     ueber PowerShell Direct mit sys.configurations und global aktiven Trace
-    Flags. Der Executor akzeptiert ausschliesslich dynamische sp_configure-
-    Werte sowie additive Trace Flags, bindet jede Mutation an Run, Scope,
-    Instanz und VM und setzt unvollstaendige Operationen aus einem lokalen
-    Journal idempotent fort. SQL-Port, TempDB-Dateipfade und Datenbanken sind
-    absichtlich nicht Teil dieses Live-Vertrags.
+    Flags. Dynamische Werte und additive Trace Flags werden live angewendet;
+    nicht dynamische Werte verwenden einen eng begrenzten Neustart genau des
+    SQL-Standardinstanzdiensts. Der Executor bindet jede Mutation an Run,
+    Scope, Instanz und VM und setzt unvollstaendige Operationen aus einem
+    lokalen Journal idempotent fort. SQL-Port, TempDB-Dateipfade und
+    Datenbanken sind absichtlich nicht Teil dieses Vertrags.
 #>
 
 function Get-LabHyperVSqlConfigurationReconcileJournalPath {
@@ -41,7 +42,7 @@ function Set-LabHyperVSqlConfigurationReconcileJournalStatus {
     param(
         [Parameter(Mandatory)]$Journal,
         [Parameter(Mandatory)][string]$Path,
-        [Parameter(Mandatory)][ValidateSet('PREPARED','CONFIGURATION_APPLIED','VERIFIED','COMPLETED','RECOVERY_REQUIRED')][string]$Status,
+        [Parameter(Mandatory)][ValidateSet('PREPARED','CONFIGURATION_APPLIED','SERVICE_RESTARTED','VERIFIED','COMPLETED','RECOVERY_REQUIRED')][string]$Status,
         [string]$ErrorCode
     )
     $Journal.Status = $Status
@@ -131,16 +132,19 @@ function Get-LabHyperVSqlConfigurationReconcileContext {
 
 function Get-LabHyperVSqlConfigurationActualState {
     [CmdletBinding()]
-    param([Parameter(Mandatory)]$Context, [Parameter(Mandatory)]$Credentials)
+    param([Parameter(Mandatory)]$Context, [Parameter(Mandatory)]$Access)
 
     $names = @($Context.Desired.Configurations | ForEach-Object { [string]$_.Name })
     $result = Invoke-HyperVPowerShellDirect -VMName ([string]$Context.ConnectionInstance.vmName) `
         -ExpectedRunId ([string]$Context.RunId) -ExpectedScopeId ([string]$Context.ScopeId) `
-        -Credential $Credentials.GuestCredential -ArgumentList @($Credentials.SqlSaPassword, $names) -ScriptBlock {
-        param($SqlSaPassword, $ConfigurationNames)
+        -Credential $Access.GuestCredential -ArgumentList @($Access.SqlSaPassword, $names) -ScriptBlock {
+        param($SqlSecret, $ConfigurationNames)
         $ErrorActionPreference = 'Stop'
         Add-Type -AssemblyName System.Data
-        $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($SqlSaPassword)
+        $services = @(Get-Service -Name 'MSSQLSERVER' -ErrorAction SilentlyContinue)
+        if ($services.Count -ne 1) { throw 'HYPERV_SQL_CONFIGURATION_RECONCILE_DEFAULT_INSTANCE_NOT_UNIQUE' }
+        if ([string]$services[0].Status -ne 'Running') { throw 'HYPERV_SQL_CONFIGURATION_RECONCILE_SERVICE_RUNNING_REQUIRED' }
+        $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($SqlSecret)
         $plain = $null
         try {
             $plain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
@@ -151,6 +155,11 @@ function Get-LabHyperVSqlConfigurationActualState {
             try {
                 $connection.Open()
                 $command = $connection.CreateCommand(); $command.CommandTimeout=30
+                $command.CommandText="SELECT CONVERT(nvarchar(128),SERVERPROPERTY('InstanceName'));"
+                $instanceName=$command.ExecuteScalar()
+                if ($null -ne $instanceName -and $instanceName -isnot [DBNull] -and -not [string]::IsNullOrWhiteSpace([string]$instanceName)) {
+                    throw 'HYPERV_SQL_CONFIGURATION_RECONCILE_DEFAULT_INSTANCE_NOT_UNIQUE'
+                }
                 $command.CommandText='SELECT name,CAST(value_in_use AS bigint),CAST(value AS bigint),CAST(is_dynamic AS int) FROM sys.configurations;'
                 $reader=$command.ExecuteReader(); $all=@()
                 while($reader.Read()) {
@@ -168,7 +177,10 @@ function Get-LabHyperVSqlConfigurationActualState {
                 $command.CommandText='DBCC TRACESTATUS(-1) WITH NO_INFOMSGS;'
                 $table=[Data.DataTable]::new(); $reader=$command.ExecuteReader(); $table.Load($reader); $reader.Dispose()
                 $traceFlags=@($table.Rows | Where-Object { [int]$_.Global -eq 1 -and [int]$_.Status -eq 1 } | ForEach-Object { [int]$_.TraceFlag })
-                [PSCustomObject]@{Status='AVAILABLE';Configurations=$configurations;TraceFlags=$traceFlags;ObservedAt=[datetime]::UtcNow.ToString('o')}
+                [PSCustomObject]@{
+                    Status='AVAILABLE';ServiceName='MSSQLSERVER';ServiceStatus='Running'
+                    Configurations=$configurations;TraceFlags=$traceFlags;ObservedAt=[datetime]::UtcNow.ToString('o')
+                }
             }
             finally { $connection.Dispose() }
         }
@@ -185,22 +197,32 @@ function Get-LabHyperVSqlConfigurationReconcileDiff {
 
     $diff = [Collections.Generic.List[object]]::new()
     foreach ($target in @($Desired.Configurations)) {
-        $matches = @($Actual.Configurations | Where-Object { [string]$_.Name -ieq [string]$target.Name })
-        if ($matches.Count -ne 1) {
-            $diff.Add([PSCustomObject]@{Kind='configuration-missing';Name=[string]$target.Name;Desired=[long]$target.Value;Actual=$null;Supported=$false})
+        $configurationMatches = @($Actual.Configurations | Where-Object { [string]$_.Name -ieq [string]$target.Name })
+        if ($configurationMatches.Count -ne 1) {
+            $diff.Add([PSCustomObject]@{
+                Kind='configuration-missing';Name=[string]$target.Name;Desired=[long]$target.Value;Actual=$null
+                Supported=$false;ChangeClass='unsupported';RequiresApply=$false;RequiresServiceRestart=$false
+            })
             continue
         }
-        $current = $matches[0]
+        $current = $configurationMatches[0]
         if ([long]$current.ValueInUse -ne [long]$target.Value) {
+            $isDynamic = [bool]$current.IsDynamic
+            $configuredMatches = [long]$current.ConfiguredValue -eq [long]$target.Value
+            $kind = if ($isDynamic) { 'configuration' } elseif ($configuredMatches) { 'configuration-restart-pending' } else { 'configuration-restart' }
             $diff.Add([PSCustomObject]@{
-                Kind='configuration';Name=[string]$target.Name;Desired=[long]$target.Value;Actual=[long]$current.ValueInUse
-                Supported=[bool]$current.IsDynamic
+                Kind=$kind;Name=[string]$target.Name;Desired=[long]$target.Value;Actual=[long]$current.ValueInUse
+                Supported=$true;ChangeClass=if($isDynamic){'live'}else{'restart'}
+                RequiresApply=($isDynamic -or -not $configuredMatches);RequiresServiceRestart=(-not $isDynamic)
             })
         }
     }
     foreach ($traceFlag in @($Desired.TraceFlags | Sort-Object -Unique)) {
         if (@($Actual.TraceFlags) -notcontains [int]$traceFlag) {
-            $diff.Add([PSCustomObject]@{Kind='trace-flag-add';Name="trace-flag-$traceFlag";Desired=1;Actual=0;Supported=$true})
+            $diff.Add([PSCustomObject]@{
+                Kind='trace-flag-add';Name="trace-flag-$traceFlag";Desired=1;Actual=0
+                Supported=$true;ChangeClass='live';RequiresApply=$true;RequiresServiceRestart=$false
+            })
         }
     }
     return @($diff)
@@ -224,6 +246,9 @@ function Read-LabHyperVSqlConfigurationReconcileJournal {
         if ([string]$journal.Status -eq 'COMPLETED') { return $null }
         throw 'HYPERV_SQL_CONFIGURATION_RECONCILE_JOURNAL_TARGET_MISMATCH'
     }
+    if ($journal.Runtime.PSObject.Properties.Name -contains 'ServiceName' -and [string]$journal.Runtime.ServiceName -ne 'MSSQLSERVER') {
+        throw 'HYPERV_SQL_CONFIGURATION_RECONCILE_JOURNAL_SQL_IDENTITY_MISMATCH'
+    }
     return $journal
 }
 
@@ -234,7 +259,7 @@ function New-LabHyperVSqlConfigurationReconcilePlan {
         $context=Get-LabHyperVSqlConfigurationReconcileContext -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
         if(-not $context.CredentialAvailable){throw 'HYPERV_SQL_CONFIGURATION_RECONCILE_CREDENTIAL_REQUIRED'}
         $credentials=Get-LabHyperVSqlConfigurationReconcileCredentials -RunDirectory $context.RunDirectory
-        $actual=Get-LabHyperVSqlConfigurationActualState -Context $context -Credentials $credentials
+        $actual=Get-LabHyperVSqlConfigurationActualState -Context $context -Access $credentials
         $journalPath=Get-LabHyperVSqlConfigurationReconcileJournalPath -RunDirectory $context.RunDirectory
         $journal=Read-LabHyperVSqlConfigurationReconcileJournal -Path $journalPath -Context $context
     }
@@ -251,37 +276,63 @@ function New-LabHyperVSqlConfigurationReconcilePlan {
     $diff=@(Get-LabHyperVSqlConfigurationReconcileDiff -Desired $context.Desired -Actual $actual)
     $unsupported=@($diff | Where-Object {-not $_.Supported})
     $recoveryPending=$journal -and [string]$journal.Status -ne 'COMPLETED'
-    $changeClass=if($unsupported.Count){'unsupported'}elseif($diff.Count -or $recoveryPending){'live'}else{'no-op'}
+    $restartRequired=@($diff | Where-Object {$_.Supported -and [bool]$_.RequiresServiceRestart}).Count -gt 0
+    $changeClass=if($unsupported.Count){
+        'unsupported'
+    }elseif($restartRequired -or ($recoveryPending -and [string]$journal.ChangeClass -eq 'restart')){
+        'restart'
+    }elseif($diff.Count -or $recoveryPending){
+        'live'
+    }else{
+        'no-op'
+    }
     $repairKinds=@($diff | Where-Object Supported | ForEach-Object { [string]$_.Kind } | Sort-Object -Unique)
     if($recoveryPending -and $diff.Count -eq 0){$repairKinds=@('recovery-finalize')}
-    $actions=if($changeClass -eq 'live'){
-        @([PSCustomObject]@{Operation=if($recoveryPending){'ResumeHyperVSqlConfiguration'}else{'RepairHyperVSqlConfiguration'};ChangeClass='live';RepairKinds=$repairKinds;RequiresRestart=$false;RecoveryPending=[bool]$recoveryPending})
+    $actions=if($changeClass -in @('live','restart')){
+        @([PSCustomObject]@{
+            Operation=if($recoveryPending){'ResumeHyperVSqlConfiguration'}else{'RepairHyperVSqlConfiguration'}
+            ChangeClass=$changeClass;RepairKinds=$repairKinds;RequiresRestart=[bool]$restartRequired
+            RequiresServiceRestart=[bool]$restartRequired;RequiresVmRestart=$false;RecoveryPending=[bool]$recoveryPending
+        })
     }else{@()}
     [PSCustomObject]@{
         Contract=[PSCustomObject]@{Name='SqlServerLab.HyperVSqlConfigurationReconcilePlan';Version='1.0'}
         RunId=$RunId;InstanceId=$InstanceId;Provider='hyperv'
         Desired=[PSCustomObject]@{ConfigurationCount=@($context.Desired.Configurations).Count;TraceFlagCount=@($context.Desired.TraceFlags).Count}
         Actual=[PSCustomObject]@{Status='AVAILABLE';ConfigurationCount=@($actual.Configurations).Count;ActiveDesiredTraceFlagCount=@($context.Desired.TraceFlags | Where-Object {@($actual.TraceFlags) -contains [int]$_}).Count}
-        Diff=@($diff | ForEach-Object {[PSCustomObject]@{Kind=[string]$_.Kind;Name=[string]$_.Name;Desired=$_.Desired;Actual=$_.Actual;ChangeClass=if($_.Supported){'live'}else{'unsupported'}}})
+        Diff=@($diff | ForEach-Object {[PSCustomObject]@{
+            Kind=[string]$_.Kind;Name=[string]$_.Name;Desired=$_.Desired;Actual=$_.Actual;ChangeClass=[string]$_.ChangeClass
+        }})
         Actions=$actions;HighestChangeClass=$changeClass;IsNoOp=($changeClass -eq 'no-op');MutationAllowed=$false
-        Warnings=if($unsupported.Count){@('Fehlende oder nicht dynamische SQL-Konfiguration wird nicht teilweise mutiert.')}elseif($changeClass -eq 'live'){@('Die Reparatur ist online; SQL-Dienst und Hyper-V-VM bleiben gestartet.')}else{@()}
-        ReasonCodes=@($(if($recoveryPending){'HYPERV_SQL_CONFIGURATION_RECONCILE_RECOVERY_PENDING'});$(if($unsupported.Count){'HYPERV_SQL_CONFIGURATION_RECONCILE_NON_DYNAMIC_UNSUPPORTED'}))
+        Warnings=if($unsupported.Count){
+            @('Fehlende oder mehrdeutige SQL-Konfiguration wird nicht teilweise mutiert.')
+        }elseif($changeClass -eq 'restart'){
+            @('Die Reparatur startet ausschliesslich den SQL-Dienst neu; die Hyper-V-VM bleibt gestartet.')
+        }elseif($changeClass -eq 'live'){
+            @('Die Reparatur ist online; SQL-Dienst und Hyper-V-VM bleiben gestartet.')
+        }else{@()}
+        ReasonCodes=@($(if($recoveryPending){'HYPERV_SQL_CONFIGURATION_RECONCILE_RECOVERY_PENDING'});$(if($unsupported.Count){'HYPERV_SQL_CONFIGURATION_RECONCILE_UNSUPPORTED'}))
     }
 }
 
 function Set-LabHyperVSqlConfigurationValues {
     [CmdletBinding()]
-    param([Parameter(Mandatory)]$Context, [Parameter(Mandatory)]$Credentials)
+    param(
+        [Parameter(Mandatory)]$Context,
+        [Parameter(Mandatory)]$Access,
+        [bool]$ApplyConfigurations=$true,
+        [bool]$ApplyTraceFlags=$true
+    )
 
     $configurations=@($Context.Desired.Configurations | Sort-Object Name | ForEach-Object {[PSCustomObject]@{Name=[string]$_.Name;Value=[long]$_.Value}})
     $traceFlags=@($Context.Desired.TraceFlags | ForEach-Object {[int]$_} | Sort-Object -Unique)
     foreach($flag in $traceFlags){if($flag -le 0){throw 'HYPERV_SQL_CONFIGURATION_RECONCILE_TRACE_FLAG_INVALID'}}
     $null=Invoke-HyperVPowerShellDirect -VMName ([string]$Context.ConnectionInstance.vmName) `
         -ExpectedRunId ([string]$Context.RunId) -ExpectedScopeId ([string]$Context.ScopeId) `
-        -Credential $Credentials.GuestCredential -ArgumentList @($Credentials.SqlSaPassword,$configurations,$traceFlags) -ScriptBlock {
-        param($SqlSaPassword,$Configurations,$TraceFlags)
+        -Credential $Access.GuestCredential -ArgumentList @($Access.SqlSaPassword,$configurations,$traceFlags,$ApplyConfigurations,$ApplyTraceFlags) -ScriptBlock {
+        param($SqlSecret,$Configurations,$TraceFlags,$ApplyConfigurations,$ApplyTraceFlags)
         $ErrorActionPreference='Stop';Add-Type -AssemblyName System.Data
-        $bstr=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($SqlSaPassword);$plain=$null
+        $bstr=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($SqlSecret);$plain=$null
         try{
             $plain=[Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
             $builder=[Data.SqlClient.SqlConnectionStringBuilder]::new();$builder['Data Source']='localhost';$builder['Initial Catalog']='master';$builder['User ID']='sa'
@@ -289,16 +340,16 @@ function Set-LabHyperVSqlConfigurationValues {
             $connection=[Data.SqlClient.SqlConnection]::new($builder.ConnectionString)
             try{
                 $connection.Open()
-                if(@($Configurations).Count -gt 0){
+                if($ApplyConfigurations -and @($Configurations).Count -gt 0){
                     $command=$connection.CreateCommand();$command.CommandTimeout=30
                     $command.CommandText="EXEC sys.sp_configure N'show advanced options',1;RECONFIGURE;";$null=$command.ExecuteNonQuery()
                 }
-                foreach($item in @($Configurations)){
+                foreach($item in $(if($ApplyConfigurations){@($Configurations)}else{@()})){
                     $name=[string]$item.Name;$value=[long]$item.Value
                     if($name -notmatch '^[A-Za-z0-9 ()_-]+$'){throw 'HYPERV_SQL_CONFIGURATION_RECONCILE_TARGET_INVALID'}
-                    $probe=$connection.CreateCommand();$probe.CommandText='SELECT CAST(is_dynamic AS int) FROM sys.configurations WHERE name=@name;'
+                    $probe=$connection.CreateCommand();$probe.CommandText='SELECT COUNT_BIG(*) FROM sys.configurations WHERE name=@name;'
                     $null=$probe.Parameters.Add('@name',[Data.SqlDbType]::NVarChar,128);$probe.Parameters['@name'].Value=$name
-                    $dynamic=$probe.ExecuteScalar();if($null -eq $dynamic -or $dynamic -is [DBNull] -or [int]$dynamic -ne 1){throw 'HYPERV_SQL_CONFIGURATION_RECONCILE_NON_DYNAMIC_UNSUPPORTED'}
+                    $count=$probe.ExecuteScalar();if($null -eq $count -or $count -is [DBNull] -or [long]$count -ne 1){throw 'HYPERV_SQL_CONFIGURATION_RECONCILE_TARGET_NOT_UNIQUE'}
                     $command=$connection.CreateCommand();$command.CommandTimeout=30
                     $command.CommandText='EXEC sys.sp_configure @name,@value;RECONFIGURE;'
                     $null=$command.Parameters.Add('@name',[Data.SqlDbType]::NVarChar,128);$command.Parameters['@name'].Value=$name
@@ -306,7 +357,7 @@ function Set-LabHyperVSqlConfigurationValues {
                     $null=$command.ExecuteNonQuery()
                 }
                 $flags=@($TraceFlags | ForEach-Object {[int]$_} | Sort-Object -Unique)
-                if($flags.Count -gt 0){
+                if($ApplyTraceFlags -and $flags.Count -gt 0){
                     if(@($flags | Where-Object {$_ -le 0}).Count){throw 'HYPERV_SQL_CONFIGURATION_RECONCILE_TRACE_FLAG_INVALID'}
                     $command=$connection.CreateCommand();$command.CommandTimeout=30
                     $command.CommandText="DBCC TRACEON ($($flags -join ', '), -1) WITH NO_INFOMSGS;";$null=$command.ExecuteNonQuery()
@@ -314,6 +365,46 @@ function Set-LabHyperVSqlConfigurationValues {
             }finally{$connection.Dispose()}
         }finally{$plain=$null;[Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)}
     }
+}
+
+function Invoke-LabHyperVSqlConfigurationServiceRestart {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Context, [Parameter(Mandatory)]$Access)
+
+    $receipt=Invoke-HyperVPowerShellDirect -VMName ([string]$Context.ConnectionInstance.vmName) `
+        -ExpectedRunId ([string]$Context.RunId) -ExpectedScopeId ([string]$Context.ScopeId) `
+        -Credential $Access.GuestCredential -ArgumentList @($Access.SqlSaPassword) -ScriptBlock {
+        param($SqlSecret)
+        $ErrorActionPreference='Stop'
+        $services=@(Get-Service -Name 'MSSQLSERVER' -ErrorAction SilentlyContinue)
+        if($services.Count -ne 1){throw 'HYPERV_SQL_CONFIGURATION_RECONCILE_DEFAULT_INSTANCE_NOT_UNIQUE'}
+        if([string]$services[0].Status -ne 'Running'){throw 'HYPERV_SQL_CONFIGURATION_RECONCILE_SERVICE_RUNNING_REQUIRED'}
+        Restart-Service -Name 'MSSQLSERVER' -ErrorAction Stop
+        $service=Get-Service -Name 'MSSQLSERVER' -ErrorAction Stop
+        $service.WaitForStatus([ServiceProcess.ServiceControllerStatus]::Running,[TimeSpan]::FromSeconds(120))
+        Add-Type -AssemblyName System.Data
+        $bstr=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($SqlSecret);$plain=$null
+        try{
+            $plain=[Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+            $builder=[Data.SqlClient.SqlConnectionStringBuilder]::new();$builder['Data Source']='localhost';$builder['Initial Catalog']='master';$builder['User ID']='sa'
+            $builder['Password']=$plain;$builder['Encrypt']=$true;$builder['TrustServerCertificate']=$true;$builder['Connect Timeout']=30
+            $connection=[Data.SqlClient.SqlConnection]::new($builder.ConnectionString)
+            try{
+                $connection.Open();$command=$connection.CreateCommand();$command.CommandTimeout=30
+                $command.CommandText="SELECT DB_NAME(),CONVERT(nvarchar(128),SERVERPROPERTY('InstanceName'));"
+                $reader=$command.ExecuteReader()
+                if(-not $reader.Read() -or [string]$reader.GetString(0) -ne 'master'){throw 'HYPERV_SQL_CONFIGURATION_RECONCILE_SQL_POSTCONDITION_FAILED'}
+                if(-not $reader.IsDBNull(1) -and -not [string]::IsNullOrWhiteSpace([string]$reader.GetString(1))){throw 'HYPERV_SQL_CONFIGURATION_RECONCILE_DEFAULT_INSTANCE_NOT_UNIQUE'}
+                $reader.Dispose()
+            }finally{$connection.Dispose()}
+        }finally{$plain=$null;[Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)}
+        [PSCustomObject]@{Status='RESTARTED';ServiceName='MSSQLSERVER';ServiceStatus='Running';ObservedAt=[datetime]::UtcNow.ToString('o')}
+    }
+    $receipt=@($receipt)[-1]
+    if(-not $receipt -or [string]$receipt.Status -ne 'RESTARTED' -or [string]$receipt.ServiceName -ne 'MSSQLSERVER' -or [string]$receipt.ServiceStatus -ne 'Running'){
+        throw 'HYPERV_SQL_CONFIGURATION_RECONCILE_SERVICE_RESTART_FAILED'
+    }
+    return $receipt
 }
 
 function Invoke-LabHyperVSqlConfigurationReconcileRepair {
@@ -333,29 +424,41 @@ function Invoke-LabHyperVSqlConfigurationReconcileRepair {
         elseif($journal -and [string]$journal.Status -eq 'COMPLETED'){$journal=$null}
         if(-not $journal){
             if($plan.IsNoOp){return [PSCustomObject]@{Status='NO_OP';RunId=$RunId;InstanceId=$InstanceId;Changed=$false;RepairKinds=@()}}
-            if([string]$plan.HighestChangeClass -ne 'live' -or @($plan.Actions).Count -ne 1){throw 'HYPERV_SQL_CONFIGURATION_RECONCILE_UNSUPPORTED'}
+            if([string]$plan.HighestChangeClass -notin @('live','restart') -or @($plan.Actions).Count -ne 1){throw 'HYPERV_SQL_CONFIGURATION_RECONCILE_UNSUPPORTED'}
             $journal=[PSCustomObject]@{
                 ContractVersion='SqlServerLab.HyperVSqlConfigurationReconcileJournal/1.0';OperationId=[Guid]::NewGuid().ToString('D')
-                RunId=$RunId;ScopeId=[string]$context.ScopeId;InstanceId=$InstanceId;Provider='hyperv';ChangeClass='live';Status='PREPARED'
+                RunId=$RunId;ScopeId=[string]$context.ScopeId;InstanceId=$InstanceId;Provider='hyperv';ChangeClass=[string]$plan.HighestChangeClass;Status='PREPARED'
                 Target=[PSCustomObject]@{
                     Configurations=@($context.Desired.Configurations | Sort-Object Name | ForEach-Object {[PSCustomObject]@{Name=[string]$_.Name;Value=[long]$_.Value}})
                     TraceFlags=@($context.Desired.TraceFlags | ForEach-Object {[int]$_} | Sort-Object -Unique)
                 }
-                Runtime=[PSCustomObject]@{VMId=[string]$context.VM.Id}
+                Runtime=[PSCustomObject]@{VMId=[string]$context.VM.Id;ServiceName='MSSQLSERVER'}
                 Recovery=[PSCustomObject]@{Status='RETRY_SQL_CONFIGURATION_RECONCILE';Attempts=0;ErrorCode=$null;Errors=@()};UpdatedAt=Get-LabTimestamp
             }
             $null=Write-LabHyperVSqlConfigurationReconcileJournal -Journal $journal -Path $journalPath
         }
         $credentials=Get-LabHyperVSqlConfigurationReconcileCredentials -RunDirectory $context.RunDirectory
-        $actual=Get-LabHyperVSqlConfigurationActualState -Context $context -Credentials $credentials
+        $actual=Get-LabHyperVSqlConfigurationActualState -Context $context -Access $credentials
         $before=@(Get-LabHyperVSqlConfigurationReconcileDiff -Desired $context.Desired -Actual $actual)
         if(@($before | Where-Object {-not $_.Supported}).Count){throw 'HYPERV_SQL_CONFIGURATION_RECONCILE_UNSUPPORTED'}
-        if($before.Count){
-            Set-LabHyperVSqlConfigurationValues -Context $context -Credentials $credentials
+        $configurationApplyRequired=@($before | Where-Object {$_.Kind -like 'configuration*' -and [bool]$_.RequiresApply}).Count -gt 0
+        $traceFlagApplyRequired=@($before | Where-Object {$_.Kind -eq 'trace-flag-add'}).Count -gt 0
+        $serviceRestartRequired=@($before | Where-Object {[bool]$_.RequiresServiceRestart}).Count -gt 0
+        if($configurationApplyRequired -or ($traceFlagApplyRequired -and -not $serviceRestartRequired)){
+            Set-LabHyperVSqlConfigurationValues -Context $context -Access $credentials `
+                -ApplyConfigurations $configurationApplyRequired -ApplyTraceFlags ($traceFlagApplyRequired -and -not $serviceRestartRequired)
             $null=Set-LabHyperVSqlConfigurationReconcileJournalStatus -Journal $journal -Path $journalPath -Status CONFIGURATION_APPLIED
         }
+        if($serviceRestartRequired){
+            $restartReceipt=Invoke-LabHyperVSqlConfigurationServiceRestart -Context $context -Access $credentials
+            if([string]$restartReceipt.ServiceStatus -ne 'Running'){throw 'HYPERV_SQL_CONFIGURATION_RECONCILE_SERVICE_RESTART_FAILED'}
+            $null=Set-LabHyperVSqlConfigurationReconcileJournalStatus -Journal $journal -Path $journalPath -Status SERVICE_RESTARTED
+            if(@($context.Desired.TraceFlags).Count -gt 0){
+                Set-LabHyperVSqlConfigurationValues -Context $context -Access $credentials -ApplyConfigurations $false -ApplyTraceFlags $true
+            }
+        }
         $context=Get-LabHyperVSqlConfigurationReconcileContext -RunId $RunId -InstanceId $InstanceId -StateRoot $context.StateRoot
-        $actual=Get-LabHyperVSqlConfigurationActualState -Context $context -Credentials $credentials
+        $actual=Get-LabHyperVSqlConfigurationActualState -Context $context -Access $credentials
         $remaining=@(Get-LabHyperVSqlConfigurationReconcileDiff -Desired $context.Desired -Actual $actual)
         if($remaining.Count){throw "HYPERV_SQL_CONFIGURATION_RECONCILE_POSTCONDITION_FAILED: $(@($remaining.Name)-join ',')"}
         $null=Set-LabHyperVSqlConfigurationReconcileJournalStatus -Journal $journal -Path $journalPath -Status VERIFIED
