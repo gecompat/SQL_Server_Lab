@@ -37,6 +37,10 @@ try {
         $dependencyObservation=[PSCustomObject]@{SqlMajorVersion='17';Containment='NONE';IsEncrypted=$false;EncryptionState=0;EncryptorType='NONE';ServerLoginMappingCount=1;SqlAgentJobCount=0;CredentialOrProxyCount=0;LinkedServerCount=0}
         $dependencyInventory=New-LabDatabaseMigrationDependencyInventory -DatabaseName Evidence -Provider hyperv -RunId 'sanitized-run' -InstanceId primary -Observation $dependencyObservation
         $created=New-LabDatabasePackage -DatabaseName Evidence -Provider hyperv -SqlMajorVersion 17 -RunId 'sanitized-run' -InstanceId primary -SourceEvidence $evidence -DatabaseMetadata $metadata -FileInventory $inventory -DataRoot $Root -MigrationDependencyInventory $dependencyInventory
+        $storageConfiguration=Get-LabStorageConfiguration -DataRoot $Root
+        $persistentCatalog=Get-LabPersistentStorageCatalog -Configuration $storageConfiguration
+        $residencyInventory=Get-LabStorageResidencyInventory -Configuration $storageConfiguration -StateRoot (Join-Path $Root 'State')
+        $syncResult=@(Sync-LabDatabasePackagePersistentStorageCatalog -DataRoot $Root)
         $package=Get-LabDatabasePackage -DatabasePackageId $created.DatabasePackageId -DataRoot $Root
         $cloneRoot=Join-Path $WorkRoot 'clone';$clone=Copy-LabDatabasePackageClone -Package $package -TargetDirectory $cloneRoot
         $ready=Get-LabDatabasePackageAttachPlan -Package $package -TargetDirectory (Join-Path $WorkRoot 'attach-ready') -TargetEvidence ([PSCustomObject]@{SqlMajorVersion=17;FileStreamEnabled=$true;TdeKeyAvailable=$false;DatabaseExists=$false;ExclusiveUseAvailable=$true;PackageWriterCount=0})
@@ -51,15 +55,43 @@ try {
         try { $null=New-LabDatabasePackage -DatabaseName BadDetach -Provider hyperv -SqlMajorVersion 17 -SourceEvidence ([PSCustomObject]@{DatabaseState='ONLINE';DetachState='UNKNOWN';AccessMode='MULTI_USER';WriterCount=1;StateObservedAfterLock=$false}) -DatabaseMetadata $metadata -FileInventory $inventory -DataRoot $Root } catch { $badDetach=$_.Exception.Message -match 'SOURCE_NOT_OFFLINE|CLEAN_DETACH_UNVERIFIED|SOURCE_NOT_EXCLUSIVE' }
         $tde=$false
         try { $null=New-LabDatabasePackage -DatabaseName Encrypted -Provider hyperv -SqlMajorVersion 17 -SourceEvidence $evidence -DatabaseMetadata ([PSCustomObject]@{HasFileStream=$true;FileStreamInventoryComplete=$true;IsEncrypted=$true;TdeKeyEvidenceVerified=$false}) -FileInventory $inventory -DataRoot $Root } catch { $tde=$_.Exception.Message -match 'TDE_KEY_EVIDENCE_REQUIRED' }
+        $originalRegistration=(Get-Command Register-LabDatabasePackagePersistentStorage -CommandType Function).ScriptBlock
+        Set-Item Function:script:Register-LabDatabasePackagePersistentStorage -Value { throw 'SYNTHETIC_PACKAGE_CATALOG_FAILURE' }
+        $catalogFailure=$false
+        try {
+            $null=New-LabDatabasePackage -DatabaseName CatalogFailure -Provider hyperv -SqlMajorVersion 17 -SourceEvidence $evidence -DatabaseMetadata $metadata -FileInventory $inventory -DataRoot $Root
+        } catch { $catalogFailure=$_.Exception.Message -match 'DATABASE_PACKAGE_CATALOG_REGISTRATION_FAILED.*SYNTHETIC_PACKAGE_CATALOG_FAILURE' }
+        finally { Set-Item Function:script:Register-LabDatabasePackagePersistentStorage -Value $originalRegistration }
+        $afterCatalogFailure=Get-LabDatabasePackageDocument -Paths (Get-LabDatabasePackagePaths -DataRoot $Root)
+        $quarantined=@($afterCatalogFailure.Packages|Where-Object{$_.DatabaseName -eq 'CatalogFailure' -and $_.Status -eq 'QUARANTINED'})
+        $quarantineGuard=$false
+        if($quarantined.Count -eq 1){
+            try{$null=Get-LabDatabasePackage -DatabasePackageId ([string]$quarantined[0].DatabasePackageId) -DataRoot $Root}catch{$quarantineGuard=$_.Exception.Message -match 'DATABASE_PACKAGE_NOT_REUSABLE'}
+        }
+        $catalogFailureJournal=if($quarantined.Count -eq 1){
+            Get-Content -LiteralPath (Join-Path (Join-Path (Get-LabDatabasePackagePaths -DataRoot $Root).OperationsRoot ([string]$quarantined[0].DatabasePackageId)) 'database-package-journal.json') -Raw|ConvertFrom-Json
+        }else{$null}
         $objectPath=Join-Path $package.Path ([string]$package.Record.Objects[0].RelativePath)
         [IO.File]::AppendAllText($objectPath,'tamper')
         $tamper=$false
         try{$null=Get-LabDatabasePackage -DatabasePackageId $created.DatabasePackageId -DataRoot $Root}catch{$tamper=$_.Exception.Message -match 'OBJECT_HASH_MISMATCH'}
-        [PSCustomObject]@{Created=$created;Package=$package;Clone=$clone;Ready=$ready;Old=$old;NoStream=$noStream;Parallel=$parallel;Attached=$attached;AttachCalls=@($attachCalls);BadDetach=$badDetach;Tde=$tde;Tamper=$tamper;CloneFiles=@(Get-ChildItem -LiteralPath $cloneRoot -File -Recurse)}
+        [PSCustomObject]@{Created=$created;Package=$package;PersistentCatalog=$persistentCatalog;ResidencyInventory=$residencyInventory;SyncResult=$syncResult;Clone=$clone;Ready=$ready;Old=$old;NoStream=$noStream;Parallel=$parallel;Attached=$attached;AttachCalls=@($attachCalls);BadDetach=$badDetach;Tde=$tde;CatalogFailure=$catalogFailure;CatalogFailureQuarantined=$quarantined.Count -eq 1;QuarantineGuard=$quarantineGuard;CatalogFailureJournal=$catalogFailureJournal;Tamper=$tamper;CloneFiles=@(Get-ChildItem -LiteralPath $cloneRoot -File -Recurse)}
     } $dataRoot $testRoot
 
     Add-CheckResult 'Offline-Paket enthält MDF, NDF, LDF und vollständigen FILESTREAM-Baum' ($result.Package.Record.DatabaseFiles.Count -eq 4 -and $result.Package.Record.Objects.Count -eq 5 -and @($result.Package.Record.DatabaseFiles|Where-Object Type -eq 'FILESTREAM').Count -eq 1)
     Add-CheckResult 'Paketmanifest und Objektmenge werden als REUSABLE veröffentlicht' ($result.Created.Status -eq 'REUSABLE' -and $result.Created.ManifestSha256 -match '^[a-f0-9]{64}$')
+    $persistentStores=@($result.PersistentCatalog.Document.Stores|Where-Object StorageClass -eq 'DATABASE_PACKAGE')
+    Add-CheckResult 'Paketpublikation registriert eine getrennte stabile PersistentStorageId atomar im zentralen Katalog' (
+        $result.Created.PersistentStorageId -match '^[0-9a-f-]{36}$' -and $persistentStores.Count -eq 1 -and
+        [string]$persistentStores[0].PersistentStorageId -eq [string]$result.Created.PersistentStorageId -and
+        [string]$persistentStores[0].References[0].TargetId -eq [string]$result.Created.DatabasePackageId -and
+        @($result.SyncResult).Count -eq 1 -and -not [bool]$result.SyncResult[0].Changed)
+    $packageResidency=@($result.ResidencyInventory.Objects|Where-Object ObjectClass -eq 'DATABASE_PACKAGE')
+    $residencyText=Get-Content -LiteralPath (Join-Path $repoRoot 'Private/StorageResidencyInventory.ps1') -Raw
+    Add-CheckResult 'Residency-Inventar bindet das Paket ohne erneutes Inhalts-Hashing an dieselbe Objekt-ID' (
+        $packageResidency.Count -eq 1 -and $packageResidency[0].AuditStatus -eq 'VERIFIED' -and
+        [string]$packageResidency[0].ObjectId -eq [string]$persistentStores[0].LocationBinding.InventoryObjectId -and
+        $residencyText -notmatch '(?s)foreach \(\$package.+Get-FileHash')
     Add-CheckResult 'Clone materialisiert eine unabhängige, vollständig gehashte Dateimenge' ($result.Clone.Status -eq 'CLONED' -and $result.CloneFiles.Count -eq 5 -and -not $result.Clone.DirectPackageAttachAllowed)
     Add-CheckResult 'Attach-Plan erzwingt COPY_THEN_ATTACH und verbietet direktes Paket-Attach' ($result.Ready.Status -eq 'READY' -and $result.Ready.Mode -eq 'COPY_THEN_ATTACH' -and -not $result.Ready.DirectPackageAttachAllowed)
     Add-CheckResult 'Attach-Plan weist Datenbankdateien statt vollständiger Instanzmigration aus' ($result.Ready.MigrationBoundary.ArtifactScope -eq 'DATABASE_FILES_ONLY' -and -not $result.Ready.MigrationBoundary.FullInstanceMigration -and 'SERVER_LOGIN_MAPPING' -in $result.Ready.MigrationBoundary.DependencyCategories)
@@ -69,6 +101,10 @@ try {
     Add-CheckResult 'Parallele Read/Write-Nutzung endet fail-closed' ('TARGET_EXCLUSIVE_USE_UNVERIFIED' -in $result.Parallel.Blockers -and 'PACKAGE_PARALLEL_WRITER_OBSERVED' -in $result.Parallel.Blockers)
     Add-CheckResult 'Inkonsistenter Offline-/Detach-Zustand wird vor Kopie blockiert' $result.BadDetach
     Add-CheckResult 'TDE-Paket verlangt explizite Schlüsselnachweise' $result.Tde
+    Add-CheckResult 'Fehlgeschlagener Katalogcommit quarantänisiert Paket und Journal fail-closed' (
+        $result.CatalogFailure -and $result.CatalogFailureQuarantined -and $result.QuarantineGuard -and
+        $result.CatalogFailureJournal.Status -eq 'RECOVERY_REQUIRED' -and
+        $result.CatalogFailureJournal.Recovery -eq 'RETRY_PERSISTENT_STORAGE_CATALOG_REGISTRATION')
     Add-CheckResult 'Veränderte Paketobjekte werden bei erneuter Auswahl blockiert' $result.Tamper
     $registryJson=$result.Package.Record|ConvertTo-Json -Depth 60
     Add-CheckResult 'Package-Receipt enthält keine Quellpfade oder Credentials' ($registryJson -notmatch [regex]::Escape($testRoot) -and $registryJson -notmatch 'Password|Credential|SaPassword')

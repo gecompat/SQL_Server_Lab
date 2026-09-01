@@ -50,7 +50,7 @@ function New-LabStorageResidencyObject {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$Key,
-        [Parameter(Mandatory)][ValidateSet('CONTROL_STATE','LAB_DATA_ROOT','INSTANCE_STORE','BACKUP_SET','BACKUP_WORKSPACE','RUNTIME_BACKING_STORE','HYPERV_RUN_RESOURCE','HYPERV_SHARED_RESOURCE','EXTERNAL_REFERENCE','REPOSITORY_RESIDUE','LEGACY_STATE')][string]$ObjectClass,
+        [Parameter(Mandatory)][ValidateSet('CONTROL_STATE','LAB_DATA_ROOT','INSTANCE_STORE','DATABASE_PACKAGE','BACKUP_SET','BACKUP_WORKSPACE','RUNTIME_BACKING_STORE','HYPERV_RUN_RESOURCE','HYPERV_SHARED_RESOURCE','EXTERNAL_REFERENCE','REPOSITORY_RESIDUE','LEGACY_STATE')][string]$ObjectClass,
         [Parameter(Mandatory)][ValidateSet('core','docker','podman','hyperv','external')][string]$Provider,
         [Parameter(Mandatory)][ValidateSet('CONTROLLER','RUN_SCOPED','RETAINED','SHARED','UNMANAGED_OR_UNKNOWN')][string]$Lifecycle,
         [Parameter(Mandatory)][ValidateSet('LAB_DATA','NATIVE_RUNTIME','EXTERNAL_HOST','REPOSITORY','LEGACY_PROFILE','UNKNOWN')][string]$Residency,
@@ -189,7 +189,7 @@ function Get-LabStorageResidencyInventory {
         if (-not $root -or -not (Test-LabDataRootOwnership -DataRoot $root -ControllerId ([string]$Configuration.ControllerId))) { continue }
         $paths = Get-LabBackupLibraryPaths -DataRoot $root
         try { $library = Get-LabBackupLibraryDocument -Paths $paths }
-        catch { continue }
+        catch { $library = $null }
         foreach ($backup in @($library.Backups)) {
             $objectPath = Join-Path $paths.LibraryRoot ([string]$backup.Artifact.RelativePath)
             $exists = Test-Path -LiteralPath $objectPath -PathType Leaf
@@ -205,6 +205,28 @@ function Get-LabStorageResidencyInventory {
                 -AuditStatus $auditStatus -Details @{
                     LocationId=[string]$location.LocationId; DatabaseName=[string]$backup.DatabaseName
                     Bytes=[long]$backup.Artifact.Bytes; LibraryStatus=[string]$backup.Status
+                }))
+        }
+        $packagePaths = Get-LabDatabasePackagePaths -DataRoot $root
+        try { $packageLibrary = Get-LabDatabasePackageDocument -Paths $packagePaths }
+        catch { $packageLibrary = $null }
+        foreach ($package in @($packageLibrary.Packages)) {
+            $objectPath = Join-Path $packagePaths.ObjectsRoot ([string]$package.ManifestSha256)
+            $objectsPresent = (Test-Path -LiteralPath $objectPath -PathType Container) -and
+                @($package.Objects | Where-Object {
+                    -not (Test-Path -LiteralPath (Join-Path $objectPath ([string]$_.RelativePath)) -PathType Leaf)
+                }).Count -eq 0
+            $auditStatus = if ([string]$package.Status -eq 'REUSABLE' -and $objectsPresent) { 'VERIFIED' } else { 'UNVERIFIABLE' }
+            $provider = ([string]$package.Source.Provider).ToLowerInvariant()
+            if ($provider -notin @('docker','podman','hyperv')) { $provider = 'external' }
+            $objects.Add((New-LabStorageResidencyObject `
+                -Key "database-package|$([string]$Configuration.ControllerId)|$([string]$package.DatabasePackageId)" `
+                -ObjectClass DATABASE_PACKAGE -Provider $provider -Lifecycle RETAINED -Residency LAB_DATA `
+                -PathVisibility HOST_VISIBLE -LabDataRelation INSIDE -LogicalName ([string]$package.DatabasePackageId) `
+                -Path $objectPath -RunIds @([string]$package.Source.RunId) -CleanupPolicy PRESERVE_RETAINED `
+                -AuditStatus $auditStatus -Details @{
+                    LocationId=[string]$location.LocationId; DatabaseName=[string]$package.DatabaseName
+                    ObjectCount=@($package.Objects).Count; LibraryStatus=[string]$package.Status
                 }))
         }
     }

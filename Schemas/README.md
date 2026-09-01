@@ -20,8 +20,8 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 | `lab-storage-intent.schema.json` | Portabler Manifestvertrag `SqlServerLab.StorageIntent/1.0` ohne lokale Pfade oder Geräte-IDs |
 | `lab-storage-bound-plan.schema.json` | Lokaler read-only Vertrag `SqlServerLab.StorageBoundPlan/1.0` für Selector-, Location-, Topologie- und Dateibindung |
 | `lab-storage-runtime-receipt.schema.json` | Getrennter Evidence-Vertrag für Hyper-V-VHDX, Gastdisk, SQL-Dateipfad, CREATE-/Restore-Operationen, Dienstrestart, Postconditions und Recovery |
-| `lab-storage-residency-inventory.schema.json` | Read-only Vertrag `SqlServerLab.StorageResidencyInventory/1.0` für `Lab_Data`, native Runtime-Ablage, externe Pfade, Retention, Cleanup-Zuordnung und unverifizierbares physisches Backing |
-| `persistent-storage-catalog.schema.json` | Katalogvertrag `SqlServerLab.PersistentStorageCatalog/1.0` für stabile IDs, Storage-Klassen, Zustände, Referenzen und exklusive Leases |
+| `lab-storage-residency-inventory.schema.json` | Read-only Vertrag `SqlServerLab.StorageResidencyInventory/1.0` für `Lab_Data`, Backup-Sets, Datenbankpakete, native Runtime-Ablage, externe Pfade, Retention, Cleanup-Zuordnung und unverifizierbares physisches Backing |
+| `persistent-storage-catalog.schema.json` | Katalogvertrag `SqlServerLab.PersistentStorageCatalog/1.0` für stabile IDs, Storage-Klassen, Zustände, Referenzen, exklusive Leases und atomare Artefaktregistrierung |
 | `persistent-storage-plan.schema.json` | Read-only Planvertrag `SqlServerLab.PersistentStoragePlan/1.0` für Inventarbindung, Lease-Prüfung und Registrierungskandidaten |
 | `persistent-storage-removal-intent.schema.json` | Explizite run- und storage-ID-gebundene Policy-Auswahl `SqlServerLab.PersistentStorageRemovalIntent/1.0` ohne Secrets |
 | `persistent-storage-removal-plan.schema.json` | Verlustsicherer read-only Vertrag `SqlServerLab.PersistentStorageRemovalPlan/1.0` für Retention, Backup/Package, Recovery-Evidence und separate Löschung |
