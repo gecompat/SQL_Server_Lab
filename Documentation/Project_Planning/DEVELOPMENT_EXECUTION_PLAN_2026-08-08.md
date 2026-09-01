@@ -499,9 +499,14 @@ fail-closed; ein synthetischer Test ist kein Runtime-Nachweis. Der erste
 `sp_configure`- und Trace-Flag-Werte als portablen SQL-Konfigurationsintent.
 Ein getrennter Plan liest `sys.configurations` und globale Trace Flags ueber
 PowerShell Direct; nur dynamische Werte und fehlende angeforderte Trace Flags
-werden live, journalisiert und fortsetzbar repariert. SQL-Port, nicht dynamische
-Konfiguration, Trace-Flag-Entfernung und Testdatenbanken bleiben in getrennten
-Folgeslices offen. Die Live-Reparatur ist synthetisch, noch nicht nativ belegt.
+werden live, journalisiert und fortsetzbar repariert. Der SQL-Port-Folgeslice
+persistiert `hyperv.sqlPort`, vergleicht
+TCP-Registry und Gastfirewall hostwertfrei und repariert Drift für genau eine
+Standardinstanz mit journalisiertem SQL-Dienstrestart, Readiness-Postcondition
+und Connection-State-Synchronisierung. Mehrere oder benannte Instanzen bleiben
+fail-closed. Beide Repair-Pfade sind synthetisch, noch nicht nativ belegt;
+nicht dynamische Konfiguration, Trace-Flag-Entfernung und Testdatenbanken sind
+weiter offen.
 
 OS-, Edition- und inkompatible SQL-Versionswechsel werden zuerst als
 `reprovision` behandelt. In-place-Upgrades benötigen später einen separaten,

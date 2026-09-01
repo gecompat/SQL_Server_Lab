@@ -314,6 +314,13 @@
               "maximum": 64,
               "default": 4
             },
+            "sqlPort": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535,
+              "default": 1433,
+              "description": "Statischer TCP-Port der SQL-Standardinstanz im Hyper-V-Gast. Eine nachtraegliche Manifestaenderung wird ueber den getrennten SQL-Port-Reconcile mit kontrolliertem SQL-Dienstrestart angewendet."
+            },
             "autostart": {
               "type": "string",
               "enum": [

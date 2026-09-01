@@ -40,7 +40,8 @@
     "hyperv-resource-reconcile",
     "hyperv-storage-reconcile",
     "hyperv-sql-storage-reconcile",
-    "hyperv-sql-configuration-reconcile"
+    "hyperv-sql-configuration-reconcile",
+    "hyperv-sql-port-reconcile"
   ],
   "limitations": [
     "no-unattended-os-build",

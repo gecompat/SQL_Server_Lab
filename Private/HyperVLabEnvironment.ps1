@@ -843,6 +843,7 @@ function Invoke-HyperVLabUnattendedProvision {
         [Parameter(Mandatory)][string]$RunId,
         [Parameter(Mandatory)][SecureString]$AdministratorPassword,
         [SecureString]$SqlSaPassword,
+        [ValidateRange(1,65535)][int]$SqlPort = 1433,
         [ValidateSet('user', 'generated')][string]$PasswordSource = 'user',
         [ValidateRange(60, 3600)][int]$TimeoutSeconds = 900,
         [ValidatePattern('^[A-Za-z]{2}(-[A-Za-z]{2})?$')][string]$Region = 'DE',
@@ -1021,7 +1022,8 @@ function Invoke-HyperVLabUnattendedProvision {
         Save-LabSecret -Path $lab.RunDirectory -Name 'generated-sql-sa-password' -Secret $SqlSaPassword
     }
     Write-LabInfo 'Schritt 6/6b: SQL CompleteImage, WMI-Prüfung sowie TCP/IP-Hostzugriff werden in der laufenden Klon-VM automatisch ausgeführt.'
-    $sqlCompletion = Complete-HyperVLabSqlImage -RunId $RunId -Credential $credential -SqlSaPassword $SqlSaPassword -MediaRoot $MediaRoot -StateRoot $lab.StateRoot
+    $sqlCompletion = Complete-HyperVLabSqlImage -RunId $RunId -Credential $credential -SqlSaPassword $SqlSaPassword `
+        -SqlPort $SqlPort -MediaRoot $MediaRoot -StateRoot $lab.StateRoot
     $storageRuntime = $null
     $storagePlanPath = Join-Path $lab.RunDirectory 'storage-bound-plan.json'
     if (Test-Path -LiteralPath $storagePlanPath -PathType Leaf) {
@@ -2104,6 +2106,7 @@ function Complete-HyperVLabSqlImage {
         [Parameter(Mandatory)][string]$RunId,
         [Parameter(Mandatory)][PSCredential]$Credential,
         [SecureString]$SqlSaPassword,
+        [ValidateRange(1,65535)][int]$SqlPort = 1433,
         [string]$MediaRoot,
         [string]$StateRoot
     )
@@ -2206,13 +2209,24 @@ function Complete-HyperVLabSqlImage {
     if ($lab.Instance.labNetwork) {
         Write-LabInfo 'Schritt 4/5: Feste Lab-IP, SQL-TCP und die auf den Host beschränkte Firewallregel werden automatisch eingerichtet.'
         $hostAccess = Enable-HyperVLabHostSqlAccess -RunId $RunId -Credential $Credential `
-            -SqlSaPassword $SqlSaPassword -StateRoot $lab.StateRoot
+            -SqlSaPassword $SqlSaPassword -SqlPort $SqlPort -StateRoot $lab.StateRoot
         $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
         $lab.Instance.sqlCompletion | Add-Member -NotePropertyName hostSqlAccess -NotePropertyValue $hostAccess -Force
         Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
     }
     else {
-        Write-LabWarning 'Schritt 4/5 übersprungen: Die VM wurde ausdrücklich isoliert erstellt; ein Zugriff des Hosts oder anderer Anwendungen ist damit nicht möglich.'
+        Write-LabInfo 'Schritt 4/5: Die isolierte VM erhält den deklarativen statischen SQL-TCP-Port ohne Firewall- oder Hostfreigabe.'
+        $isolatedPortContext = [PSCustomObject]@{
+            RunId=[string]$lab.Run.runId;ScopeId=[string]$lab.Run.scopeId;StateRoot=[string]$lab.StateRoot
+            ConnectionInstance=$lab.Instance;Desired=[PSCustomObject]@{Port=[int]$SqlPort}
+            FirewallRequired=$false;FirewallRemoteAddress=$null
+        }
+        $null = Set-LabHyperVSqlPortBinding -Context $isolatedPortContext -Credential $Credential
+        $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
+        $lab.Instance | Add-Member -NotePropertyName port -NotePropertyValue ([int]$SqlPort) -Force
+        $isolatedReceipt = Get-HyperVLabSqlInstanceReceipt -Lab $lab -Credential $Credential
+        $null = Save-HyperVLabSqlInstanceReceipt -Lab $lab -Receipt $isolatedReceipt
+        Write-LabWarning 'Die VM bleibt ausdrücklich isoliert; ein Zugriff des Hosts oder anderer Anwendungen ist nicht möglich.'
     }
     Write-LabInfo 'Schritt 5/5: SQL-Dienst, Hauptversion und alle vier Systemdatenbanken werden im echten Gast geprüft.'
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot

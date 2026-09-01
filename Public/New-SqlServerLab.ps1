@@ -588,6 +588,7 @@ function New-SqlServerLab {
         $hyperVMemoryMinimumMB = if ($hyperVSettings -and $hyperVSettings.PSObject.Properties['memoryMinimumMB']) { [int]$hyperVSettings.memoryMinimumMB } else { 0 }
         $hyperVMemoryMaximumMB = if ($hyperVSettings -and $hyperVSettings.PSObject.Properties['memoryMaximumMB']) { [int]$hyperVSettings.memoryMaximumMB } else { 0 }
         $hyperVProcessorCount = if ($hyperVSettings -and $hyperVSettings.PSObject.Properties['processorCount']) { [int]$hyperVSettings.processorCount } else { 4 }
+        $hyperVSqlPort = if ($hyperVSettings -and $hyperVSettings.PSObject.Properties['sqlPort']) { [int]$hyperVSettings.sqlPort } else { 1433 }
         $hyperVAutoStart = [string]$instance.autostart
         $hyperVSwitchName = if ($hyperVSettings -and $hyperVSettings.PSObject.Properties['switchName']) { [string]$hyperVSettings.switchName } else { $null }
         $hyperVIsolated = [string]$instance.network.Intent -eq 'isolated'
@@ -603,7 +604,9 @@ function New-SqlServerLab {
             $null = Enable-HyperVLabPersistentData -RunId $lab.RunId -DataRoot $DataRoot -SizeGB ([int]$resolved.persistentData.dataDiskGB) -StateRoot $hyperVLab.StateRoot
         }
         $effectiveHyperVSqlSaPassword = if ($SqlSaPassword) { $SqlSaPassword } else { $GuestPassword }
-        $provisioning = Invoke-HyperVLabUnattendedProvision -RunId $lab.RunId -AdministratorPassword $GuestPassword -SqlSaPassword $SqlSaPassword -PasswordSource $passwordSource -Region $Region -SystemLocale $SystemLocale -UiLanguage $UiLanguage -InputLocale $InputLocale -TimeZone $TimeZone -StateRoot $hyperVLab.StateRoot
+        $provisioning = Invoke-HyperVLabUnattendedProvision -RunId $lab.RunId -AdministratorPassword $GuestPassword -SqlSaPassword $SqlSaPassword `
+            -SqlPort $hyperVSqlPort -PasswordSource $passwordSource -Region $Region -SystemLocale $SystemLocale -UiLanguage $UiLanguage `
+            -InputLocale $InputLocale -TimeZone $TimeZone -StateRoot $hyperVLab.StateRoot
         $hyperVLab = Get-HyperVLabWorkflowRun -RunId $lab.RunId -StateRoot $hyperVLab.StateRoot
         if ($hyperVExternalRuntimePlans.Count -gt 0) {
             $mediaRoot = Get-LabMediaRootDefault

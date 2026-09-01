@@ -33,6 +33,8 @@
     Waehlt den read-only Hyper-V-SQL-Dateiplatzierungs-Reconcile-Plan.
 .PARAMETER HyperVSqlConfiguration
     Waehlt den read-only Hyper-V-SQL-Livekonfigurations-Reconcile-Plan.
+.PARAMETER HyperVSqlPort
+    Waehlt den read-only Hyper-V-SQL-TCP-Port-Reconcile-Plan.
 .PARAMETER Container
     Wählt den Container-Ressourcen-Reconcile. Der Plan klassifiziert die
     Änderung als no-op, live oder recreate und mutiert die Runtime nicht.
@@ -82,6 +84,10 @@
     Get-SqlServerLabReconcilePlan -RunId $runId -HyperVSqlConfiguration -InstanceId primary
 
     Vergleicht dynamische sp_configure-Werte und angeforderte globale Trace Flags.
+.EXAMPLE
+    Get-SqlServerLabReconcilePlan -RunId $runId -HyperVSqlPort -InstanceId primary
+
+    Vergleicht den manifestgebundenen statischen SQL-TCP-Port im Hyper-V-Gast.
 #>
 function Get-SqlServerLabReconcilePlan {
     [CmdletBinding(DefaultParameterSetName = 'Lifecycle')]
@@ -103,6 +109,7 @@ function Get-SqlServerLabReconcilePlan {
         [Parameter(Mandatory, ParameterSetName = 'HyperVStorage')]
         [Parameter(Mandatory, ParameterSetName = 'HyperVSqlStorage')]
         [Parameter(Mandatory, ParameterSetName = 'HyperVSqlConfiguration')]
+        [Parameter(Mandatory, ParameterSetName = 'HyperVSqlPort')]
         [string]$InstanceId,
 
         [Parameter(Mandatory, ParameterSetName = 'HyperVNetwork')]
@@ -119,6 +126,9 @@ function Get-SqlServerLabReconcilePlan {
 
         [Parameter(Mandatory, ParameterSetName = 'HyperVSqlConfiguration')]
         [switch]$HyperVSqlConfiguration,
+
+        [Parameter(Mandatory, ParameterSetName = 'HyperVSqlPort')]
+        [switch]$HyperVSqlPort,
 
         [Parameter(Mandatory, ParameterSetName = 'Container')]
         [switch]$Container,
@@ -176,6 +186,9 @@ function Get-SqlServerLabReconcilePlan {
     }
     if ($PSCmdlet.ParameterSetName -eq 'HyperVSqlConfiguration') {
         return New-LabHyperVSqlConfigurationReconcilePlan -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
+    }
+    if ($PSCmdlet.ParameterSetName -eq 'HyperVSqlPort') {
+        return New-LabHyperVSqlPortReconcilePlan -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
     }
     return New-LabReconcilePlan -RunId $RunId -TargetState $TargetState -StateRoot $StateRoot
 }
