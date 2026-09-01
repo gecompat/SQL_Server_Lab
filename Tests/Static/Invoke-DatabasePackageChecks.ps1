@@ -90,6 +90,12 @@ try {
     Add-CheckResult 'Browser-Inventur enthält weder Hostpfade noch Hashes und autorisiert keinen Attach' (
         $selectionJson -notmatch [regex]::Escape($testRoot) -and $selectionJson -notmatch 'ManifestSha256|Sha256|Password|Credential' -and
         $result.Selection[0].AttachStatus -eq 'TARGET_BINDING_REQUIRED' -and $result.Selection[0].AttachReason -eq 'TARGET_PROVIDER_PATH_MAPPING_NOT_BOUND')
+    Add-CheckResult 'CLI- und Browser-Inventur zeigen sanitisierte Migrationsgrenzen ohne erneute SQL-Abfrage' (
+        $result.Selection[0].DependencyInventoryStatus -eq 'SQL_ENGINE_COMPLETE_EXTERNAL_REVIEW_REQUIRED' -and
+        'SERVER_LOGIN_MAPPING' -in $result.Selection[0].DependencyCategories -and
+        'SERVER_CONFIGURATION' -in $result.Selection[0].DependencyCategories -and
+        'SERVER_OBJECTS_NOT_INCLUDED' -in $result.Selection[0].MigrationWarnings -and
+        $selectionJson -notmatch 'RunId|InstanceId|HostName|ObjectName|KeyName')
     $persistentStores=@($result.PersistentCatalog.Document.Stores|Where-Object StorageClass -eq 'DATABASE_PACKAGE')
     Add-CheckResult 'Paketpublikation registriert eine getrennte stabile PersistentStorageId atomar im zentralen Katalog' (
         $result.Created.PersistentStorageId -match '^[0-9a-f-]{36}$' -and $persistentStores.Count -eq 1 -and

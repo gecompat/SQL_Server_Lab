@@ -497,6 +497,7 @@ internal_components:
       - "Serverkonfiguration, SSISDB und SSAS als nicht aus dem Datenbankartefakt beweisbare externe Review-Grenzen ausweisen"
       - "Datenbankdateien und Backups nie als vollstaendige Instanzmigration oder als TDE-Key-/Secret-Export darstellen"
       - "sanitisierte Migration-Boundaries in neue Backup- und Datenbankpaket-Receipts einbetten"
+      - "persistierte Migrationskategorien und Warnungen pfad- und geheimnisfrei ueber die Datenbankpaket-Auswahl an CLI und Browser projizieren"
   - name: SampleArtifactHandlers
     source: Private/SampleArtifactHandlers.ps1
     responsibilities:
@@ -982,6 +983,7 @@ validation:
       - catalog_failure_quarantine_and_recovery_journal
       - residency_binding_without_content_rehash
       - public_path_free_inventory_and_explicit_integrity_verification
+      - public_sanitized_migration_boundary_projection
   static_database_migration_dependency:
     command: '.\Tests\Static\Invoke-DatabaseMigrationDependencyChecks.ps1'
     source: Tests/Static/Invoke-DatabaseMigrationDependencyChecks.ps1
