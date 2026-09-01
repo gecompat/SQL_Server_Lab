@@ -342,7 +342,7 @@ Der Executor revalidiert Run, Scope, Instanz und VM, akzeptiert nur dynamische
 journalisiert vor der ersten SQL-Mutation. No-op, Live, `WhatIf`, wiederkehrende
 Drift, Abbruch/Resume und nicht dynamische Fail-closed-Faelle sind synthetisch
 belegt. Ein positiver nativer Reparaturlauf bleibt `NOT_EXECUTED`;
-Trace-Flag-Entfernung und Testdatenbanken sind nicht Teil dieses Live-Slices.
+Trace-Flag-Entfernung ist nicht Teil dieses Live-Slices.
 
 Der getrennte Hyper-V-SQL-Port-Reconcile persistiert `hyperv.sqlPort`, prüft
 TCP-Registry und die bestehende run-eigene Gastfirewall read-only und repariert
@@ -353,6 +353,19 @@ Recovery-Finalisierung und mehrdeutige Firewallidentität sind synthetisch
 belegt. Der Pfad unterstützt bewusst genau eine SQL-Standardinstanz; benannte
 oder mehrere SQL-Instanzen bleiben fail-closed. Ein positiver nativer
 Reparaturlauf bleibt `NOT_EXECUTED`.
+
+Der getrennte Hyper-V-Testdatenbank-Reconcile akzeptiert ein Zielmanifest,
+persistiert katalogisierte Sample-PlanKeys und liest den echten ONLINE-Zustand
+über PowerShell Direct. Additionen laufen nicht interaktiv über den gemeinsamen
+Trust-/Hash-/Sample-Handler. Entfernungen sind ausschließlich für Datenbanken
+zulässig, deren Sample und Outputnamen in einem VM-gebundenen lokalen
+Ownership-Receipt stehen; vorher werden ein CHECKSUM-Recovery-Backup und
+`RESTORE VERIFYONLY` erzwungen. Journal, `WhatIf`, Fremddatenbankkonflikt,
+partielle Installation und Vorwärts-Resume sind synthetisch belegt. Additionen
+benötigen derzeit Host-SQL-Zugriff und ein beim Lauf gespeichertes oder beim
+Action-Aufruf übergebenes SA-Passwort. Bestehende Runs ohne Ownership-Receipt,
+direkte Restore-/Create-Datenbanken und positive native Evidence bleiben
+`NOT_EXECUTED` beziehungsweise fail-closed.
 
 Das Feld `sizeLimitGB` bei Drives ist fuer Docker- oder Podman-Volumes weiterhin
 nur Metadatum. Hyper-V verwendet es dagegen als VHDX-Sollgroesse bei Erstellung
@@ -857,9 +870,10 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
    binden; Container-`nat`, Hyper-V-`hostOnly`/`isolated`/`nat`/`lan` sowie
    Hyper-V-vCPU, statisches/dynamisches RAM und Zusatz-VHDX sind bereits
    manifestgebunden. Netzwerk-, Ressourcen-, Grow-only-Storage-, Default-/
-   TempDB-SQL-Storage-, dynamische SQL-Konfigurations- sowie SQL-Port-Reconcile
-   sind synthetisch implementiert; positive native Reparaturnachweise,
-   Testdatenbank-Reconcile, Storage-Removal/-Rebinding,
+   TempDB-SQL-Storage-, dynamische SQL-Konfigurations-, SQL-Port- sowie
+   katalogisierte Testdatenbank-Add-/Remove-Reconcile sind synthetisch
+   implementiert; positive native Reparaturnachweise, alte Runs ohne
+   Testdatenbank-Ownership-Receipt, Storage-Removal/-Rebinding,
    User-/Systemdatenbankbewegung und weitere Hardware-/SQL-Klassen bleiben offen.
 4. Artifact Registry, Refresh/Rebuild und Evaluierungsablauf implementieren.
 5. Den belegten Windows-2025-/SQL-2025-Referenzpfad zur vollständigen

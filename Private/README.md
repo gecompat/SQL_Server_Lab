@@ -15,10 +15,11 @@ Der Pfad `Private/` beschreibt primär die interne Architektur. Die tatsächlich
 | `VersionCatalog.ps1` | Versionen, CU-Builds, Images, Ressourcenprofile, sichere Windows-CU-Acquisition und Linux-Image-Prefetch |
 | `SoftwareCatalog.ps1` | Providerneutrale External-Runtime-Anforderungen, kataloggebundene Planauflösung und sanitisiertes Installation Receipt |
 | `StateMachine.ps1` | State-Root, Run-State, ProviderSubRuns, Übergänge, Historie und aktive Runs |
-| `DesiredState.ps1` | Geheimnisfreier Run-Sollzustand mit providerneutralen Drive-, Network- und Software-Intents |
+| `DesiredState.ps1` | Geheimnisfreier Run-Sollzustand mit providerneutralen Drive-, Network-, SQL-, Datenbank- und Software-Intents |
 | `StorageContract.ps1` | Controllergebundene Multi-Root-Registry, stabile Location-Metadaten, Topologie und Migrationseinstieg |
 | `StorageFilePlacement.ps1` | Read-only Bindung portabler SQL-Storage-Intents an lokale Locations, Topologie, Gastpfade und reviewbare SQL-Dateien |
 | `HyperVStorageReconcile.ps1` / `HyperVSqlStorageReconcile.ps1` | Journalisierter Hyper-V-VHDX-/Gast-Storage-Reconcile sowie receiptgebundener SQL-Default-/TempDB-Reconcile |
+| `HyperVTestDatabaseReconcile.ps1` | Kataloggebundener Hyper-V-Testdatenbank-Plan, VM-Ownership, verifiziert gesicherte Entfernung und Vorwärts-Recovery |
 | `ArtifactResolver.ps1` | HTTP(S)-Backup-Acquisition, lokaler Trust Store, inhaltsadressierter Cache, Quarantäne und sanitisiertes Run Lock |
 | `SampleArtifactHandlers.ps1` | Backup-, Archiv-, Einzel-Skript- und sichere Multi-Output-Script-Bundle-Installation |
 | `SampleBaselineRegistry.ps1` | Inhaltsadressiertes `LAB_GENERATED`-Register, deterministische Keys, exakte/kompatible Auswahl und Quarantäne |

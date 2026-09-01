@@ -116,8 +116,8 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `Export-SqlServerLabCmsSyncScript` | Idempotentes CMS-Synchronisationsskript erzeugen |
 | `Initialize-SqlServerLabCms` | Kompakten persistenten Docker-/Podman-CMS nach expliziter Auswahl erstellen |
 | `Sync-SqlServerLabCms` | Verwalteten lokalen CMS mit dem Endpunktkatalog abgleichen |
-| `Get-SqlServerLabReconcilePlan` | Read-only Lifecycle-, Hyper-V-Netzwerk-/vCPU-/RAM-, Containerressourcen-/Autostart- oder External-Runtime-Reconcile-Plan |
-| `Invoke-SqlServerLabReconcileAction` | Start/Stop, eigentumsgebundene Hyper-V-Netzwerk- oder journalisierte vCPU-/RAM-Reparatur, Containerressourcen-/Autostart-Reconcile oder validierter additiver Container-Runtime-Refresh (mit `-WhatIf`) |
+| `Get-SqlServerLabReconcilePlan` | Read-only Lifecycle-, Hyper-V-Netzwerk-/Ressourcen-/Storage-/SQL-/Testdatenbank-, Containerressourcen-/Autostart- oder External-Runtime-Reconcile-Plan |
+| `Invoke-SqlServerLabReconcileAction` | Start/Stop, eigentumsgebundene Hyper-V-Netzwerk-/Ressourcen-/Storage-/SQL-/Testdatenbank-Aktionen, Containerressourcen-/Autostart-Reconcile oder validierter additiver Container-Runtime-Refresh (mit `-WhatIf`) |
 | `Invoke-SqlServerLabWorkflowAction` | Nicht interaktive UI-Aktion für einen Hyper-V-Workflow-Schritt |
 | `New-SqlServerLabManifest` | Manifest schema-gesteuert erstellen |
 | `Test-SqlServerLabManifest` | Manifest ohne Provisionierung prüfen |

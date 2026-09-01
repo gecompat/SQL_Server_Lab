@@ -293,6 +293,18 @@ aktuellen Run erzeugt wurden. Kann ein Teilzustand nicht sicher kompensiert
 werden, endet der Run mit `RECOVERY_REQUIRED`; fremde oder vorbestehende
 Datenbanken werden nicht gelöscht.
 
+Für neue Hyper-V-Manifest-Runs konkretisiert
+`SqlServerLab.HyperVTestDatabaseOwnership/1.0` den Modus `recreate-owned`:
+Erst nach erfolgreicher Handler-Verification werden Sample-PlanKey,
+Artifact-Hash und exakte Outputnamen an Run, Scope, Instanz und VM gebunden.
+Ein späteres Zielmanifest darf katalogisierte Samples ergänzen oder solche
+receiptgebundenen Outputs entfernen. Ungebundene Namenskollisionen sind
+`unsupported`. Vor jedem erlaubten Drop werden ein `COPY_ONLY`-/CHECKSUM-
+Backup und `RESTORE VERIFYONLY WITH CHECKSUM` erzwungen; ein lokales Journal
+setzt Teilzustände vorwärts fort und adoptiert keine alte oder fremde
+Datenbank. Direkte Create-/Restore-Datenbanken bleiben außerhalb dieses ersten
+Reconcile-Slices.
+
 Ein komplettes Script Bundle wird nicht pauschal in eine einzelne Transaktion
 gezwungen. Datenbankerstellung, `GO`, Wiederanmeldung und scriptspezifische
 Transaktionsgrenzen müssen erhalten bleiben.

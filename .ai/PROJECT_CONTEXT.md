@@ -251,8 +251,8 @@ Gast-DHCP; die eng begrenzte schreibende Netzwerkreparatur ist synthetisch
 implementiert, positive native Switch-/Repair-Evidence bleibt offen.
 
 Der Hyper-V-Reconcile besitzt getrennte, hostwertfreie Pläne für vCPU/RAM,
-zusätzliche VHDX/Grow-only, SQL-Storage, dynamische SQL-Konfiguration und den
-statischen SQL-TCP-Port. Der SQL-Storage-Slice wird erst nach
+zusätzliche VHDX/Grow-only, SQL-Storage, dynamische SQL-Konfiguration, den
+statischen SQL-TCP-Port und katalogisierte Testdatenbanken. Der SQL-Storage-Slice wird erst nach
 einem Host-/Gast-Storage-No-op ausführbar, vergleicht Default- und TempDB-Pfade
 read-only und verwendet für Restart, Postconditions und Resume das lokale
 Storage-Runtime-Receipt. User-/Systemdatenbankbewegung und positive native
@@ -261,7 +261,13 @@ persistierte Memory-, MAXDOP-, Cost-Threshold-, `sp_configure`- und Trace-Flag-
 Ziele ueber PowerShell Direct und setzt nur dynamische Werte beziehungsweise
 additive Trace Flags journalisiert fort. Der Port-Slice bindet genau eine
 Standardinstanz, Gastfirewall, SQL-Dienstrestart, Readiness und Connection-
-State journalisiert. Testdatenbanken und native Repair-Evidence bleiben offen.
+State journalisiert. Der Testdatenbank-Slice vergleicht `sys.databases` mit
+stabilen Sample-PlanKeys und einem VM-gebundenen lokalen Ownership-Receipt.
+Er fuegt katalogisierte Samples ueber den gemeinsamen Handler hinzu und
+entfernt nur nachgewiesen run-eigene Outputs nach CHECKSUM-Backup und
+`RESTORE VERIFYONLY`; ungebundene Datenbanken bleiben unangetastet. Alte Runs
+ohne Ownership-Receipt, positive native Repair-Evidence und breiter Restore-/
+Create-Reconcile bleiben offen.
 
 Der verbindliche Implementierungsvertrag steht in
 `Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md`.
