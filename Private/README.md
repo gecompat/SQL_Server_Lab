@@ -22,6 +22,7 @@ Der Pfad `Private/` beschreibt primär die interne Architektur. Die tatsächlich
 | `PersistentStorageCatalog.ps1` | Parser und read-only Planner für stabile Persistent-Storage-IDs, Klassen, Zustände, Referenzen, exklusive Leases und Registrierungskandidaten |
 | `PersistentStorageRemovalPlan.ps1` | Read-only Plan für Retention, Backup-/Package-on-Remove, externe Bindungsfreigabe, Recovery-Gates und getrennte endgültige Storage-Löschung |
 | `ContainerInstanceStore.ps1` | Storage-ID-basierter Continue-/Clone-Plan für Docker/Podman sowie detached-only, digestverifizierter Clone mit Recovery-Journal |
+| `ContainerRuntimeScope.ps1` | Read-only Bindung von Docker-Context beziehungsweise Podman-Connection/Machine an eine stabile sanitisierte Runtime-ID mit REPORT_ONLY-Hostgrenze |
 | `HyperVStorageReconcile.ps1` / `HyperVSqlStorageReconcile.ps1` | Journalisierter Hyper-V-VHDX-/Gast-Storage-Reconcile sowie receiptgebundener SQL-Default-/TempDB-Reconcile |
 | `HyperVTestDatabaseReconcile.ps1` | Kataloggebundener Hyper-V-Testdatenbank-Plan, VM-Ownership, verifiziert gesicherte Entfernung und Vorwärts-Recovery |
 | `ArtifactResolver.ps1` | HTTP(S)-Backup-Acquisition, lokaler Trust Store, inhaltsadressierter Cache, Quarantäne und sanitisiertes Run Lock |

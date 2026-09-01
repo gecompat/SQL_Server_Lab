@@ -6,12 +6,15 @@
     Providers unpruefbare Ressourcen werden gemeldet, aber niemals entfernt. Der
     persistente Storage-Katalog und exklusive Leases werden gegen das Inventar
     geprüft; nicht katalogisierte retained Objekte bleiben ID-lose Kandidaten.
+    Aktive Docker-Contexts und Podman-Connections/Machines werden sanitisiert
+    als read-only Runtime-Scope ausgegeben.
 .PARAMETER NoWrite
     Gibt den Audit nur zurueck und schreibt kein JSON-Artefakt.
 .OUTPUTS
     PSCustomObject mit Path und Audit. Audit enthaelt Status, Zusammenfassung,
     Datenwurzeln, aktive Runs, gefundene oder unpruefbare Providerressourcen
-    sowie Storage-Residency, Persistent-Storage-Katalog und read-only Plan.
+    sowie Runtime-Scopes, Storage-Residency, Persistent-Storage-Katalog und
+    read-only Plan.
 #>
 function Get-SqlServerLabCleanupAudit {
     [CmdletBinding()]
@@ -42,8 +45,9 @@ function Get-SqlServerLabCleanupAudit {
     $stateRoot = Get-LabStateRoot
     $activeRuns = @(Get-LabActiveRuns -StateRoot $stateRoot)
     $knownRunIds = @($activeRuns | ForEach-Object { [string]$_.runId })
-    $runtimeResults = @(); $containers = @(); $managedVolumes = @(); $managedNetworks = @()
+    $runtimeResults = @(); $runtimeScopes = @(); $containers = @(); $managedVolumes = @(); $managedNetworks = @()
     foreach ($runtime in @('docker', 'podman')) {
+        $runtimeScopes += Get-LabContainerRuntimeScope -Provider $runtime
         $command = Get-Command $runtime -ErrorAction SilentlyContinue
         if (-not $command) {
             $runtimeResults += [PSCustomObject]@{ Provider=$runtime; Status='NOT_INSTALLED'; Message=$null }
@@ -249,7 +253,7 @@ function Get-SqlServerLabCleanupAudit {
     $persistentStorageCatalog = Get-LabPersistentStorageCatalog -Configuration $configuration
     $persistentStoragePlan = Get-LabPersistentStoragePlan -Catalog $persistentStorageCatalog -ResidencyInventory $storageResidency
 
-    $unverifiable = @($runtimeResults | Where-Object Status -eq 'UNAVAILABLE').Count + $(if ($hyperVStatus -eq 'UNAVAILABLE') { 1 } else { 0 })
+    $unverifiable = @($runtimeScopes | Where-Object Status -ne 'AVAILABLE').Count + $(if ($hyperVStatus -eq 'UNAVAILABLE') { 1 } else { 0 })
     $hyperVProtectionIssues = @($hyperVRunScopes | Where-Object {
         $_.BindingStatus -in @('INVALID','IDENTITY_MISMATCH') -or
         $_.MigrationStatus -in @('RECOVERY_REQUIRED','INVALID') -or
@@ -260,7 +264,7 @@ function Get-SqlServerLabCleanupAudit {
     $audit = [PSCustomObject]@{
         ContractVersion='SqlServerLab.CleanupAudit/1.0'; AuditId=[Guid]::NewGuid().ToString('D'); CreatedAt=Get-LabTimestamp; Status=$status
         ControllerId=[string]$configuration.ControllerId; StateRoot=$stateRoot; DataRoots=$rootResults; ActiveRuns=$activeRuns
-        Runtimes=$runtimeResults; Containers=$containers; ManagedVolumes=$managedVolumes; ManagedNetworks=$managedNetworks
+        Runtimes=$runtimeResults; RuntimeScopes=$runtimeScopes; Containers=$containers; ManagedVolumes=$managedVolumes; ManagedNetworks=$managedNetworks
         HyperV=[PSCustomObject]@{
             Status=$hyperVStatus; Resources=$hyperVResources; RunScopes=$hyperVRunScopes
             SharedRoots=$hyperVSharedRoots; UntrackedFiles=$hyperVUntrackedFiles

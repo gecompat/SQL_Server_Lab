@@ -540,7 +540,7 @@ Invoke-SqlServerLabScheduler -UntilIdle
 | `Get-SqlServerLabWorkflow` | Konsolidierte Workflow-, Image-, Vorlagenpool- und Kombinationsübersicht ohne Geheimnisse |
 | `Get-SqlServerLabHyperVResourcePreview` | Registrierte Hyper-V-Location, freien Speicher und physische Run-/Build-/Image-/Staging-Roots ohne Mutation anzeigen |
 | `Get-SqlServerLabCatalog` | Konsolidierten Lab-Katalog als JSON-Artefakt erzeugen |
-| `Get-SqlServerLabCleanupAudit` | Lab-Daten, native Runtime-Volumes, externe Pfade und Hyper-V-Befunde als Storage-Residency sowie Persistent-Storage-Katalog, Leases und Registrierungskandidaten read-only prüfen |
+| `Get-SqlServerLabCleanupAudit` | Lab-Daten, native Runtime-Volumes, sanitisierte Docker-/Podman-Runtime-Scopes, externe Pfade und Hyper-V-Befunde sowie Persistent-Storage-Katalog, Leases und Registrierungskandidaten read-only prüfen |
 | `Get-SqlServerLabConnectionCenter` | Passwortfreien, providerübergreifenden SQL-Endpunktkatalog ermitteln |
 | `Sync-SqlServerLabConnectionCenter` | Den Endpunktkatalog der SSMS-/CMS-Verbindungszentrale aktualisieren |
 | `Export-SqlServerLabSsmsRegistration` | Kennwortfreien `.regsrvr`-Import für SSMS erzeugen |

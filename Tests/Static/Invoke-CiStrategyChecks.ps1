@@ -59,6 +59,12 @@ Add-CheckResult -Name 'Container-Instanzstore aktiviert Core-Verträge sowie get
     'Invoke-ContainerVolumeContractChecks.ps1' -in $containerInstanceStore.StaticChecks
 )
 
+$containerRuntimeScope = & $selector -ChangedPath @('Private/ContainerRuntimeScope.ps1')
+Add-CheckResult -Name 'Container-Runtime-Scope aktiviert read-only Vertrag sowie Docker-/Podman-Nachweise' -Success (
+    $containerRuntimeScope.Docker -and $containerRuntimeScope.Podman -and
+    'Invoke-ContainerRuntimeScopeChecks.ps1' -in $containerRuntimeScope.StaticChecks
+)
+
 $ci = & $selector -ChangedPath @('.github/workflows/static-contracts.yml')
 Add-CheckResult -Name 'CI-Infrastruktur prueft einmalig alle Runtime-Gates' -Success (
     $ci.Docker -and $ci.Podman -and $ci.Mixed -and $ci.HyperV -and $ci.Adapter

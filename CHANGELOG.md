@@ -8,6 +8,14 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- `SqlServerLab.ContainerRuntimeScope/1.0` bindet den aktiven Docker-Context
+  beziehungsweise die aktive Podman-Connection/Machine an eine stabile,
+  endpunktgebundene und pfadsanitisierte Runtime-ID. Geteilte Runtimes bleiben
+  `SHARED_EXTERNAL`/`REPORT_ONLY`; Host-Relocation, Runtime-Removal, Default-
+  und Modusänderungen sowie Adoption labfremder Ressourcen sind blockiert.
+  Getrennte reale read-only Docker-/Podman-Prüfungen bestätigen unveränderte
+  Ressourcen und Runtime-Auswahl.
+
 - `SqlServerLab.ContainerInstanceStoreIntent/1.0`, Plan und Recovery-Journal
   wählen katalogisierte Docker-/Podman-Instanzstores per stabiler ID aus,
   binden detached Stores für Continue und klonen sie mit read-only Quelle,

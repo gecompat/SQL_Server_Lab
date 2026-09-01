@@ -153,7 +153,11 @@ Mutation mit dem Residency-Inventar ab. Folgende Arbeit bleibt getrennt:
 - `PSR-005`: Der stabile ID-, Continue- und detached Clone-Core ist samt
   getrennten realen Docker-/Podman-Nachweisen umgesetzt; Katalog-Commit,
   External-Runtime-Sidecars und öffentliche Bedienung bleiben offen;
-- `PSR-006`: dedizierte Docker-Engine-/Podman-Machine-Verträge bewerten;
+- `PSR-006`: Der read-only `SqlServerLab.ContainerRuntimeScope/1.0`-Vertrag
+  bindet aktive Contexts, Connections und Machines an eine stabile sanitisierte
+  Runtime-ID und blockiert Host-/Runtime-Management ohne Ownership-Evidence;
+  ein dedizierter Ownership-, Location-, Capacity-, Recovery- und Cleanup-
+  Vertrag bleibt offen;
 - `PSR-007`: revalidierter Hyper-V-Daten-VHDX-Lifecycle;
 - `PSR-008`/`PSR-009`: Backup-Bibliothek und kontrollierte Datenbankpakete.
 

@@ -2,7 +2,7 @@
 
 ## Status und Priorität
 
-`ACTIVE / P1_PRODUCT_CONTRACT_WITH_PSR_001_PARTIAL_PSR_002_COMPLETE_PSR_003_AND_PSR_004_IMPLEMENTED_READ_ONLY_PSR_005_IMPLEMENTED_CORE` – die vorhandenen
+`ACTIVE / P1_PRODUCT_CONTRACT_WITH_PSR_001_PARTIAL_PSR_002_COMPLETE_PSR_003_PSR_004_AND_PSR_006_IMPLEMENTED_READ_ONLY_PSR_005_IMPLEMENTED_CORE` – die vorhandenen
 Persistenzmechanismen schützen bereits Teile des SQL-Zustands, bilden aber noch
 keinen vollständigen, providerübergreifenden Wiederverwendungs- und
 Löschvertrag. Planung ist kein Implementierungs- oder Runtime-Nachweis.
@@ -70,6 +70,17 @@ Dateizahl, Bytes und SHA-256-Inhaltsdigest und bleibt bei Fehlern über ein
 bestätigen nach Recreate und im Clone jeweils ein Serverobjekt sowie eine
 Benutzerdatenbank. Katalog-Commit/Lease-Akquisition, External-Runtime-Sidecars
 und öffentliche CLI-/GUI-Anbindung bleiben getrennte Folgearbeit.
+
+Der read-only Slice `PSR-006` ist implementiert und gegen die reale Docker-
+Desktop- sowie Podman-WSL-Runtime belegt. Der sanitisierte Vertrag
+`SqlServerLab.ContainerRuntimeScope/1.0` bindet den aktiven Docker-Context oder
+die aktive Podman-Connection samt Machine an eine stabile, endpunktgebundene
+Runtime-ID, ohne Rohendpunkt, Identity-Pfad oder Runtime-Storage-Pfad
+auszugeben. Bestehende Engines und Machines bleiben `SHARED_EXTERNAL`, ihre
+Hostdefaults und ihr physisches Backing `REPORT_ONLY`; Relocation, Removal,
+Default-Connection-/Modusänderung und Adoption labfremder Ressourcen sind
+explizit blockiert. Eine künftig dedizierte Runtime benötigt weiterhin einen
+eigenen Ownership-, Location-, Capacity-, Recovery- und Cleanup-Vertrag.
 
 ## Ausgangslage
 
@@ -356,7 +367,7 @@ Volumename ersetzt diese Identität nicht.
 | `PSR-003` | P1 | Storage-Katalog mit stabiler ID, Klassen, Zuständen, Referenzen und Leases entwerfen | `IMPLEMENTED_READ_ONLY`: Schema, Parser, Planner und Inventarbindung; keine Katalogmutation, Lease-Akquisition, Wiederverwendung oder Löschung |
 | `PSR-004` | P1 | Retention-, Backup-on-Remove-, Package- und expliziten Löschvertrag entwerfen | `IMPLEMENTED_READ_ONLY`: verlustsicherer Cleanup-/Recovery-Plan; Executor und getrennte endgültige Storage-Löschaktion bleiben offen |
 | `PSR-005` | P1 | Docker-/Podman-Instanzstore auswählbar, fortsetzbar und klonbar machen | `IMPLEMENTED_CORE`: stabile ID-Auswahl, detached Continue/Clone, Digest/Resume und getrennte reale Docker-/Podman-Nachweise; Katalog-Commit, Sidecars und öffentliche Bedienung offen |
-| `PSR-006` | P1 | Podman-Machine- und Docker-Engine-/Context-Reichweite bewerten und gegebenenfalls dediziert verwalten | keine Mutation labfremder Runtime-Daten |
+| `PSR-006` | P1 | Podman-Machine- und Docker-Engine-/Context-Reichweite bewerten und gegebenenfalls dediziert verwalten | `IMPLEMENTED_READ_ONLY`: stabile sanitisierte Runtime-ID, Context-/Connection-/Machine-Bindung und REPORT_ONLY-Hostgrenze real belegt; dedizierter Ownership-/Lifecycle-Vertrag bleibt offen |
 | `PSR-007` | P1 | Hyper-V-Daten-VHDX sicher auswählen, reattachen, freigeben und klonen | Disk-/VM-/SQL-validierter Lifecycle |
 | `PSR-008` | P1 | Providerneutrale Backup-Bibliothek mit automatischem Backup und Restore-Verifikation liefern | Cross-Provider-Restore mit sanitisierter Evidence |
 | `PSR-009` | P2 | Datenbankpakete inklusive FILESTREAM, Attach und Clone implementieren | vollständiger Offline-Dateivertrag mit exklusiver Nutzung |

@@ -38,6 +38,22 @@ try {
         function Get-DockerLabContainers {
             return @([PSCustomObject]@{ ContainerId='synthetic'; Name='sql-lab-synthetic'; Status='exited'; RunId='missing-run'; ScopeId='synthetic-scope' })
         }
+        function Get-LabContainerRuntimeScope {
+            param([Parameter(Mandatory)][string]$Provider)
+            if ($Provider -eq 'podman') {
+                return ConvertTo-LabContainerRuntimeScope -Evidence ([PSCustomObject]@{
+                    Provider='podman'; Available=$false; Issue='RUNTIME_CLI_NOT_INSTALLED'
+                })
+            }
+            return ConvertTo-LabContainerRuntimeScope -Evidence ([PSCustomObject]@{
+                Provider='docker'; Available=$true; HostPlatform='windows'
+                Contexts=@([PSCustomObject]@{
+                    Name='synthetic-context'; Metadata=[PSCustomObject]@{ Description='Docker Desktop' }
+                    Endpoints=[PSCustomObject]@{ docker=[PSCustomObject]@{ Host='npipe:////./pipe/synthetic' } }
+                })
+                Info=[PSCustomObject]@{ OperatingSystem='Docker Desktop'; ServerVersion='synthetic'; Driver='overlayfs'; DockerRootDir='/var/lib/docker' }
+            })
+        }
         function Get-VM { @() }
         function Get-VMHardDiskDrive { @() }
 
@@ -202,6 +218,12 @@ try {
     Add-CheckResult -Name 'Storage-Residency erfüllt den eigenen versionierten Vertrag' -Success (
         $result.Audit.StorageResidency.ContractVersion -eq 'SqlServerLab.StorageResidencyInventory/1.0' -and
         (($result.Audit.StorageResidency | ConvertTo-Json -Depth 50) | Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/lab-storage-residency-inventory.schema.json') -ErrorAction SilentlyContinue))
+    $dockerRuntimeScope = @($result.Audit.RuntimeScopes | Where-Object Provider -eq 'docker')[0]
+    Add-CheckResult -Name 'Cleanup-Audit veröffentlicht sanitisierten Runtime-Scope ohne Managementautorität' -Success (
+        $dockerRuntimeScope.ContractVersion -eq 'SqlServerLab.ContainerRuntimeScope/1.0' -and
+        $dockerRuntimeScope.Status -eq 'AVAILABLE' -and $dockerRuntimeScope.Ownership.Status -eq 'SHARED_EXTERNAL' -and
+        -not $dockerRuntimeScope.Summary.CanManageRuntime -and
+        (($dockerRuntimeScope | ConvertTo-Json -Depth 30) | Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/container-runtime-scope.schema.json') -ErrorAction SilentlyContinue))
     Add-CheckResult -Name 'Orphan-Container wird ohne Loeschung ausgewiesen' -Success (@($result.Audit.Containers | Where-Object { $_.Orphan -and $_.Id -eq 'synthetic' }).Count -eq 1)
     Add-CheckResult -Name 'Benannte Runtime-Ressourcen werden inventarisiert' -Success ($result.Audit.ManagedVolumes[0].Name -eq 'sql-lab-synthetic-volume' -and $result.Audit.ManagedNetworks[0].Name -eq 'sql-lab-synthetic-network')
     $persistentVolume = @($result.Audit.StorageResidency.Objects | Where-Object LogicalName -eq 'sql-lab-persistent-storage-audit-docker-primary-sql2025')[0]

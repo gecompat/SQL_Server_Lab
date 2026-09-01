@@ -1077,6 +1077,14 @@ read-only Quelle journalisiert mit Datei-/Byte-/SHA-256-Postcondition. Getrennte
 reale Docker- und Podman-Läufe bestätigen Server- und Benutzerdaten nach
 Recreate sowie im Clone; Katalog-Commit, Sidecars und öffentliche CLI/GUI-
 Anbindung bleiben offen.
+Der read-only `PSR-006`-Slice bindet aktive Docker-Contexts sowie Podman-
+Connections/Machines an eine stabile sanitisierte Runtime-ID und klassifiziert
+bestehende Runtimes ohne Ownership-Evidence als `SHARED_EXTERNAL` und
+`REPORT_ONLY`. Getrennte reale Docker-/Podman-Inspektionen bestätigten den
+Vertrag ohne Änderung von Ressourcen, Context-/Connection-Auswahl oder Machine-
+Zustand. Dedizierte Engine-/Machine-Erzeugung, Relocation, Update und Cleanup
+bleiben bis zu einem eigenen Ownership-, Location-, Capacity-, Recovery- und
+Löschvertrag offen.
 Der weitere P1-Produktpfad folgt dem P0-Hyper-V-Ressourcenroot-Bugfix und wird im
 [Persistenz- und `Lab_Data`-Backlog](PERSISTENT_STORAGE_REUSE_AND_LAB_DATA_BACKLOG.md)
 evidenzgebunden geplant.

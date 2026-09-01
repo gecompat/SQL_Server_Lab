@@ -86,6 +86,19 @@ lokale Journal werden im garantierten Cleanup entfernt.
 .\Tests\Integration\Invoke-ContainerInstanceStoreAcceptance.ps1 -Provider podman
 ```
 
+## Invoke-ContainerRuntimeScopeAcceptance.ps1
+
+Der PSR-006-Nachweis inspiziert den aktiven Docker-Context und die aktive
+Podman-Connection/Machine ausschließlich read-only. Er validiert den
+sanitisierten `SqlServerLab.ContainerRuntimeScope/1.0`-Vertrag und vergleicht
+Container, Volumes, Context-/Connection-Auswahl und Machines vor und nach der
+Inspektion. Engine, Machine, physisches Backing und Hostdefaults werden weder
+verändert noch als Lab-Eigentum ausgegeben.
+
+```powershell
+.\Tests\Integration\Invoke-ContainerRuntimeScopeAcceptance.ps1
+```
+
 ## Invoke-MixedProviderSmokeTest.ps1
 
 Der Mixed-Provider-Smoke-Test benötigt gleichzeitig erreichbares Docker und

@@ -26,6 +26,7 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 | `container-instance-store-intent.schema.json` | Strikter `CONTINUE`-/`CLONE`-Intent für katalogisierte Docker-/Podman-Instanzstores |
 | `container-instance-store-plan.schema.json` | Fail-closed Auswahl-, Kompatibilitäts- und Mutationsplan für Container-Instanzstores |
 | `container-instance-store-journal.schema.json` | Wiederaufnehmbares Clone-Journal mit Quell-/Zielidentität und Inhaltsdigest-Evidence |
+| `container-runtime-scope.schema.json` | Sanitisierter read-only Vertrag `SqlServerLab.ContainerRuntimeScope/1.0` für Engine-/Context-/Machine-Reichweite, Ownership und verbotene Hostmutationen |
 | `lab-cleanup-audit.schema.json` | Lokaler Cleanup-Audit einschließlich der getrennt schema-validierten Storage-Residency-Matrix |
 | `hyperv-resource-binding.schema.json` | Lokaler Vertrag `SqlServerLab.HyperVResourceBinding/1.0` für kurze Hyper-V-Create-Roots mit Controller-, Location-, Volume- und `Lab_Data`-Identität |
 | `hyperv-resource-migration-plan.schema.json` | Lokaler read-only Vertrag `SqlServerLab.HyperVResourceMigrationPlan/1.0` für exaktes Legacy-Inventar, Zielbindung, Blocker und geplante Aktionen |

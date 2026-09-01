@@ -84,7 +84,13 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   Runtime-Label, liefert Continue-Bindings und klont die Quelle read-only mit
   Digest-Postcondition und wiederaufnehmbarem Journal; Docker und Podman sind
   getrennt live belegt, während Katalog-Commit und öffentliche Bedienung offen
-  bleiben;
+  bleiben; `SqlServerLab.ContainerRuntimeScope/1.0` bindet zusätzlich den
+  aktiven Docker-Context beziehungsweise die Podman-Connection/Machine an eine
+  stabile sanitisierte Runtime-ID, weist geteilte Runtimes als
+  `SHARED_EXTERNAL`/`REPORT_ONLY` aus und blockiert Relocation, Removal,
+  Default-Auswahl, Modusänderung und Adoption ohne eigenen Ownership-Vertrag;
+  die reale read-only Docker-/Podman-Prüfung hinterließ Ressourcen und Auswahl
+  unverändert;
 - versionierte `SqlServerLab.HyperVResourceBinding/1.0`-Grundlage mit kurzen,
   state-root-unabhängigen Create-Roots unter registriertem `Lab_Data`,
   Controller-/Location-/Volume-Revalidierung und getrennter read-only

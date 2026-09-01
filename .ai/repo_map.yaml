@@ -93,6 +93,10 @@ sources_of_truth:
   container_instance_store_journal_schema: Schemas/container-instance-store-journal.schema.json
   validation_container_instance_store: Tests/Static/Invoke-ContainerInstanceStoreChecks.ps1
   acceptance_container_instance_store: Tests/Integration/Invoke-ContainerInstanceStoreAcceptance.ps1
+  container_runtime_scope: Private/ContainerRuntimeScope.ps1
+  container_runtime_scope_schema: Schemas/container-runtime-scope.schema.json
+  validation_container_runtime_scope: Tests/Static/Invoke-ContainerRuntimeScopeChecks.ps1
+  acceptance_container_runtime_scope: Tests/Integration/Invoke-ContainerRuntimeScopeAcceptance.ps1
   lab_data_native_runtime_storage_decision: Documentation/Architecture/LAB_DATA_AND_NATIVE_RUNTIME_STORAGE_DECISION.md
   cleanup_audit_schema: Schemas/lab-cleanup-audit.schema.json
   hyperv_resource_binding_contract: Private/HyperVResourceBinding.ps1
@@ -500,6 +504,7 @@ internal_components:
     storage_residency: Private/StorageResidencyInventory.ps1
     persistent_storage_catalog: Private/PersistentStorageCatalog.ps1
     persistent_storage_removal_plan: Private/PersistentStorageRemovalPlan.ps1
+    container_runtime_scope: Private/ContainerRuntimeScope.ps1
     responsibilities:
       - "Cleanup-Plan und providergebundene Cleanup-SubRuns vor Mutation erzeugen"
       - "Compensation-Schritte je Provider speichern und ausführen"
@@ -510,6 +515,8 @@ internal_components:
       - "stabile Persistent-Storage-IDs, Klassen, Zustände, Referenzen und exklusive Leases read-only validieren und mit dem Residency-Inventar abgleichen"
       - "Retention, Backup-/Package-on-Remove, externe Bindungsfreigabe und Recovery-Postconditions read-only planen; persistente Storage-Löschung getrennt halten"
       - "katalogisierte Docker-/Podman-Instanzstores per stabiler ID und Runtime-Label detached revalidieren, fuer Continue binden und in ein neues operationsgebundenes Volume digestverifiziert klonen"
+      - "aktiven Docker-Context beziehungsweise Podman-Connection/Machine read-only an eine stabile sanitisierte Runtime-ID binden und geteilte Engine-/Machine-/Hostdefaults als REPORT_ONLY vor Mutation schuetzen"
+      - "sanitisierte Docker-/Podman-Runtime-Scopes im oeffentlichen Cleanup-Audit ausgeben, ohne Rohendpunkte, Identity-Pfade oder Managementautoritaet zu persistieren"
   - name: PortAllocation
     source: Private/PortAllocation.ps1
     responsibilities:
@@ -860,6 +867,16 @@ validation:
       - read_only_source_mount
       - content_digest_postcondition
       - recovery_journal_resume
+  static_container_runtime_scope:
+    command: '.\Tests\Static\Invoke-ContainerRuntimeScopeChecks.ps1'
+    source: Tests/Static/Invoke-ContainerRuntimeScopeChecks.ps1
+    covers:
+      - stable_endpoint_bound_runtime_id
+      - docker_context_binding
+      - podman_connection_machine_binding
+      - remote_and_ambiguous_runtime_guards
+      - endpoint_and_host_path_sanitization
+      - shared_runtime_report_only_boundary
   static_podman_bootstrap:
     command: '.\Tests\Static\Invoke-PodmanBootstrapChecks.ps1'
     source: Tests/Static/Invoke-PodmanBootstrapChecks.ps1
@@ -1006,6 +1023,15 @@ validation:
       - user_database_after_recreate
       - detached_digest_verified_clone
       - server_and_user_data_live_in_clone
+  container_runtime_scope_acceptance:
+    source: Tests/Integration/Invoke-ContainerRuntimeScopeAcceptance.ps1
+    command: '.\Tests\Integration\Invoke-ContainerRuntimeScopeAcceptance.ps1'
+    execution_status: "Docker Desktop und Podman WSL-Machine am 2026-09-01 getrennt read-only positiv ausgefuehrt; Runtime-Ressourcen und Auswahl unveraendert"
+    checks:
+      - live_context_connection_and_machine_binding
+      - schema_and_sanitization
+      - shared_runtime_management_blocked
+      - before_after_resource_fingerprint_unchanged
   remote_workflows:
     foundation_integrity:
       source: .github/workflows/static-contracts.yml

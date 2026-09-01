@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sql-server-lab.local/schemas/container-runtime-scope.schema.json",
+  "title": "SqlServerLab.ContainerRuntimeScope/1.0",
+  "type": "object",
+  "required": ["ContractVersion", "Provider", "Status", "RuntimeId", "Binding", "Ownership", "PhysicalBacking", "AllowedActions", "BlockedActions", "Issues", "Summary"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.ContainerRuntimeScope/1.0" },
+    "Provider": { "enum": ["docker", "podman"] },
+    "Status": { "enum": ["AVAILABLE", "BLOCKED", "UNAVAILABLE"] },
+    "RuntimeId": { "type": ["string", "null"], "pattern": "^runtime-scope-[a-f0-9]{24}$" },
+    "Binding": {
+      "type": "object",
+      "required": ["DisplayName", "EndpointKind", "BackendKind", "HostMode", "EngineVersion", "StorageDriver", "Rootless", "SelectedBy", "MachineName", "MachineState", "MachineCount", "ConnectionCount"],
+      "properties": {
+        "DisplayName": { "type": ["string", "null"], "minLength": 1 },
+        "EndpointKind": { "enum": ["LOCAL_NPIPE", "LOCAL_UNIX", "LOCAL_MACHINE_SSH", "REMOTE_SSH", "REMOTE_TCP", "UNKNOWN"] },
+        "BackendKind": { "enum": ["DOCKER_DESKTOP", "DOCKER_ENGINE", "PODMAN_MACHINE", "PODMAN_SERVICE", "UNKNOWN"] },
+        "HostMode": { "enum": ["WINDOWS_WSL2", "WINDOWS_VM", "LINUX_NATIVE", "MACOS_VM", "REMOTE", "UNKNOWN"] },
+        "EngineVersion": { "type": ["string", "null"], "minLength": 1 },
+        "StorageDriver": { "type": ["string", "null"], "minLength": 1 },
+        "Rootless": { "type": ["boolean", "null"] },
+        "SelectedBy": { "enum": ["ACTIVE_CONTEXT", "DEFAULT_CONNECTION", "ONLY_CONNECTION", "UNKNOWN"] },
+        "MachineName": { "type": ["string", "null"], "minLength": 1 },
+        "MachineState": { "enum": ["RUNNING", "STOPPED", "NOT_APPLICABLE", "UNKNOWN"] },
+        "MachineCount": { "type": "integer", "minimum": 0 },
+        "ConnectionCount": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "Ownership": {
+      "type": "object",
+      "required": ["Status", "MutationPolicy", "CleanupPolicy"],
+      "properties": {
+        "Status": { "enum": ["SHARED_EXTERNAL", "UNPROVEN"] },
+        "MutationPolicy": { "const": "REPORT_ONLY" },
+        "CleanupPolicy": { "const": "PRESERVE_RUNTIME" }
+      },
+      "additionalProperties": false
+    },
+    "PhysicalBacking": {
+      "type": "object",
+      "required": ["RuntimeNamespaceStatus", "HostBackingStatus", "LabDataRelation"],
+      "properties": {
+        "RuntimeNamespaceStatus": { "enum": ["DECLARED", "UNAVAILABLE"] },
+        "HostBackingStatus": { "enum": ["UNVERIFIABLE", "REMOTE_EXTERNAL"] },
+        "LabDataRelation": { "const": "UNKNOWN" }
+      },
+      "additionalProperties": false
+    },
+    "AllowedActions": { "type": "array", "items": { "enum": ["INSPECT", "USE_LABELED_RESOURCES"] }, "uniqueItems": true },
+    "BlockedActions": { "type": "array", "items": { "enum": ["RELOCATE_RUNTIME_STORAGE", "REMOVE_RUNTIME", "CHANGE_DEFAULT_CONNECTION", "CHANGE_RUNTIME_MODE", "ADOPT_FOREIGN_RESOURCES"] }, "uniqueItems": true },
+    "Issues": { "type": "array", "items": { "type": "string", "pattern": "^[A-Z0-9_]+$" }, "uniqueItems": true },
+    "Summary": {
+      "type": "object",
+      "required": ["CanUseLabeledResources", "CanManageRuntime", "RequiresDedicatedOwnershipContract"],
+      "properties": {
+        "CanUseLabeledResources": { "type": "boolean" },
+        "CanManageRuntime": { "const": false },
+        "RequiresDedicatedOwnershipContract": { "const": true }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
