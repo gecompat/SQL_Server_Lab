@@ -24,6 +24,7 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 | `hyperv-image-migration-plan.schema.json` | Lokaler read-only Vertrag `SqlServerLab.HyperVImageMigrationPlan/1.0` für Legacy-Image-Inventar, Zielbelegung, Child-Graph und Kopierbedarf |
 | `hyperv-image-migration-journal.schema.json` | Lokales Operationsjournal `SqlServerLab.HyperVImageMigrationJournal/1.0` für hashidentische Veröffentlichung, Binding-Commit, `WAITING_FOR_CONSUMERS` und referenzsicheren Quell-Cleanup |
 | `container-reconcile-journal.schema.json` | Lokales Operationsjournal `SqlServerLab.ContainerReconcileJournal/1.0` für Live-/Recreate-Mutation, echte Runtime-IDs, Resume, Rollback und sichtbaren Recovery-Bedarf |
+| `hyperv-network-reconcile-journal.schema.json` | Lokales Operationsjournal `SqlServerLab.HyperVNetworkReconcileJournal/1.0` für run-/scope-/VM-gebundene additive Infrastrukturreparatur, genau einen vorhandenen getrennten Adapter und Recovery-Retry |
 
 ## Beispiele
 
@@ -87,10 +88,12 @@ Das Schema enthält teilweise vorbereitete Erweiterungsfelder. Die verbindlichen
 
 Der Network-Intent-Resolver plant ohne Hostmutation. Docker und Podman verwenden
 aktuell `nat`/`host`; Hyper-V verwendet standardmäßig `hostOnly`/`host` und
-unterstützt explizit `isolated`/`none`. Nicht gebundene Kombinationen wie
-Hyper-V-NAT oder LAN sowie widersprüchliche Exposure-Werte werden vor der ersten
-Provider-Mutation abgelehnt. `hyperv.switchName` ist nur ein lokales
-Kompatibilitätsbinding für einen internen `hostOnly`-Switch.
+unterstützt explizit `isolated`/`none`, `nat`/`host` und `lan`/`lan`. NAT bindet
+Shared-WinNAT und scopegebundene IPAM-Leases; LAN verlangt eine lokale
+External-Switch-/Adapter-Allowlist und verwendet Gast-DHCP. Widersprüchliche
+Exposure-Werte werden vor der ersten Provider-Mutation abgelehnt.
+`hyperv.switchName` ist nur ein lokales Kompatibilitätsbinding für einen
+internen `hostOnly`-Switch.
 
 Ein `storageIntent` wird im Hyper-V-Manifestpfad lokal an registrierte,
 controller-eigene `Lab_Data`-Locations gebunden. Pro Selector entsteht eine

@@ -8,6 +8,12 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- `Get-SqlServerLabReconcilePlan -HyperVNetwork` liefert einen hostwertfreien
+  Reparaturplan für additive, lokal gebundene Hyper-V-Netzinfrastruktur und
+  genau einen vorhandenen getrennten Adapter. Die zugehörige Action
+  `-RepairHyperVNetwork` revalidiert Run, Scope und VM, journalisiert lokale
+  Identitäten, unterstützt Recovery-Retry und verlangt für eine tatsächliche
+  External-Switch-Erstellung zusätzlich `-AllowExternalSwitchCreation`.
 - Hyper-V-`lan` bindet den portablen Manifest-Intent an eine explizite lokale
   Switch-/Adapter-Allowlist. Der read-only Plan prüft physische Adapter-GUID,
   Linkstatus, External-Switch-Typ und Adapterbelegung; der Gast verwendet DHCP
@@ -38,10 +44,15 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   `NETWORK_*`-Reason-Codes vor der ersten Provider-Mutation abgelehnt.
 - Hyper-V-Netzwerkdrift und nicht lesbare Istzustände blockieren Lifecycle-
   Teilaktionen fail-closed; der bestehende Executor führt keine implizite
-  Netzwerkreparatur aus.
+  Netzwerkreparatur aus. Rebinding, Adapter-Neuanlage, mehrere Adapter und
+  Gastadressreparatur bleiben auch im getrennten Netzwerk-Executor fail-closed.
 
 ### Validiert
 
+- Die fokussierte Hyper-V-Network-Reconcile-Suite bestätigt No-op, additive
+  Reparatur, `WhatIf`, External-Switch-Freigabe, Identity-Mismatch und
+  Journal-Recovery mit gemocktem Provider. Ein positiver nativer Reparaturlauf
+  wurde daraus ausdrücklich nicht abgeleitet.
 - Die LAN-Verträge sind synthetisch für fehlende Freigabe, exakte
   Wiederverwendung/Erstellung, IPAM-freie DHCP-Persistenz und dynamischen
   Reconcile-No-op geprüft. Der Referenzhost bestätigte Hyper-V und vorhandene

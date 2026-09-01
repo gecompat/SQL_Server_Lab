@@ -72,6 +72,7 @@ $checks = @(
     'Invoke-ReadinessContractChecks.ps1',
     'Invoke-ReconcileContractChecks.ps1',
     'Invoke-ReconcileActionContractChecks.ps1',
+    'Invoke-HyperVNetworkReconcileChecks.ps1',
     'Invoke-ContainerReconcileChecks.ps1',
     'Invoke-ProviderCapabilityChecks.ps1',
     'Invoke-InstanceIntentChecks.ps1',

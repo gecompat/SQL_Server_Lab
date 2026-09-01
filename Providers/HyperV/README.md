@@ -38,6 +38,11 @@ plattformgebundene SQL-Features benötigen.
 - deklarativer VM-Autostart (`instances[].autostart: on|off`) über Hyper-Vs
   `AutomaticStartAction`, standardmäßig ausgeschaltet;
 - VM-Identität über RunId, ScopeId und InstanceId;
+- portables `hostOnly`-/`isolated`-/`nat`-/`lan`-Binding mit lokaler
+  Switch-/Adapterbindung, NAT-IPAM beziehungsweise LAN-DHCP;
+- hostwertfreier Netzwerk-Reconcile-Plan und journalisierte Reparatur nur für
+  additive gebundene Infrastruktur und genau einen vorhandenen getrennten
+  Adapter; External-Switch-Erstellung benötigt eine zusätzliche Freigabe;
 - Cleanup-Plan vor der ersten Provider-Mutation;
 - eigener synthetischer Native-Smoke-Test ohne Betriebssystem, Netzwerk oder SQL.
 
@@ -79,12 +84,13 @@ Manifest-Binding, Netzwerkzugriff und echtem Windows-/SQL-End-to-End-Test.
 - Restart und Einbindung in die öffentlichen Run-Lifecycle-Cmdlets;
 - echter End-to-End-Nachweis der Initialisierung in einem Windows-Gast;
 - Bindung des bestehenden providerneutralen Manifest-Drive-Vertrags;
-- Management- und Lab-Netze;
+- weitergehende Management-/Lab-Netze, Adapter-Neuanlage, Rebinding und
+  Gastadressreparatur;
 - resumierbare OS- und SQL-Server-Installation;
 - echter End-to-End-Sysprep-Nachweis in einem Windows-Gast; der Native-Smoke
   verwendet weiterhin bewusst nur synthetische leere Testmedien;
 - SQL `PrepareImage`/`CompleteImage`, Software, External Runtimes und Testdatenbanken;
-- Diff-/Reconcile-Ablauf für nachträgliche Änderungen.
+- Reconcile über den eng begrenzten Netzwerkpfad hinaus.
 
 ## Verbindliche Aufsetzpunkte
 

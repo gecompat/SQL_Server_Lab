@@ -108,7 +108,7 @@ oder einen zuvor bekannten lokalen Trust-Eintrag.
 | Bereich | Standardpfad | Aktueller Umfang/Grenze |
 |---|---|---|
 | Credentials | Externe Prozess-Secret-Referenz oder `SecureString` | Keine Klartextwerte im Manifest, State oder Workflow-Überblick. Hyper-V braucht im unattended Lauf zusätzlich Guest- und ggf. SQL-SA-Secret. |
-| Netzwerk | Portabler Intent/Exposure-Plan: Docker/Podman `nat`/`host`, Hyper-V `hostOnly`/`host`, `isolated`/`none`, `nat`/`host` oder `lan`/`lan` | LAN benötigt eine lokale External-Switch-/Adapter-Allowlist und Gast-DHCP; positive native Switch-Erstellung und schreibende Netzwerkreparatur bleiben offen. Der read-only Reconcile meldet Drift hostwertfrei und ein fremdes WinNAT blockiert NAT fail-closed. |
+| Netzwerk | Portabler Intent/Exposure-Plan: Docker/Podman `nat`/`host`, Hyper-V `hostOnly`/`host`, `isolated`/`none`, `nat`/`host` oder `lan`/`lan` | LAN benötigt eine lokale External-Switch-/Adapter-Allowlist und Gast-DHCP. Der read-only Reconcile meldet Drift hostwertfrei; ein eigener journalisierter Executor repariert nur additive gebundene Hostinfrastruktur und genau einen vorhandenen getrennten Adapter. Rebinding, Adapter-Neuanlage, Gastadressreparatur und positive native Repair-Evidence bleiben offen; fremdes WinNAT blockiert NAT fail-closed. |
 | Data/Backup | Testdatenbibliothek nur verifiziert; pro Lab Data Root für Schreibdaten | Normales Entfernen berührt weder Testdatenbibliothek noch Data Root oder Vorlagenpool. |
 | Samples/Restores | SHA-256, Trust Store, Cache und Run Lock | Ungehashte Remote-Quellen stoppen unattended mit `TRUST_REQUIRED`. |
 | Ressourcen | Vorabprüfung und Profile bleiben aktiv | `skipAssessment` ist eine explizite Manifestoption. |

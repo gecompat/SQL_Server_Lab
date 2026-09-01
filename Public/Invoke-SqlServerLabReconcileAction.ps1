@@ -1,11 +1,13 @@
 <#
 .SYNOPSIS
-    Wendet einen Lifecycle-, Container- oder External-Runtime-Reconcile-Plan auf einen Run an.
+    Wendet einen Lifecycle-, Hyper-V-Netzwerk-, Container- oder External-Runtime-Reconcile-Plan auf einen Run an.
 .DESCRIPTION
-    Liest zuerst den Reconcile-Plan aus. Eine Ausfuehrung erfolgt nur fuer den
-    eindeutig-restartfaehigen Pfad mit genau einer Operation START oder STOP.
-    Alle anderen Planzustandskombinationen liefern einen nicht mutierenden
-    Abschluss mit `MutationAllowed = $false`.
+    Liest zuerst den passenden Reconcile-Plan aus. Lifecycle-Aktionen verlangen
+    genau eine eindeutige Operation START oder STOP. Der getrennte Hyper-V-
+    Netzwerkpfad repariert nur additive gebundene Hostinfrastruktur und genau
+    einen vorhandenen getrennten Adapter. Container- und External-Runtime-
+    Parametersaetze behalten ihre eigenen journalisierten Grenzen. Nicht
+    unterstuetzte Planzustaende bleiben mutationsfrei.
 .PARAMETER RunId
     Identifizierer des vorhandenen Runs.
 .PARAMETER TargetState
@@ -14,7 +16,13 @@
     Zielmanifest fuer eine erstmalige Installation oder einen späteren,
     resolvergebundenen External-Runtime-Reconcile.
 .PARAMETER InstanceId
-    Zielinstanz fuer den Container- oder External-Runtime-Reconcile.
+    Zielinstanz fuer den Hyper-V-Netzwerk-, Container- oder External-Runtime-Reconcile.
+.PARAMETER RepairHyperVNetwork
+    Repariert nur fehlende additive Hostinfrastruktur und verbindet genau einen
+    vorhandenen, getrennten run-eigenen VM-Adapter wieder.
+.PARAMETER AllowExternalSwitchCreation
+    Erlaubt im Hyper-V-Netzwerk-Reconcile die bereits lokal gebundene Erstellung
+    eines External Switch. Ohne diesen Switch bleibt LAN-Erstellung fail-closed.
 .PARAMETER Container
     Wählt den journalisierten Container-Ressourcen-Reconcile.
 .PARAMETER Cpu
@@ -38,6 +46,11 @@
     versionierte Zusammenfassung der ausgefuehrten Executor-Schritte.
 .EXAMPLE
     Invoke-SqlServerLabReconcileAction -RunId $lab.RunId -TargetState STOPPED
+
+.EXAMPLE
+    Invoke-SqlServerLabReconcileAction -RunId $lab.RunId -RepairHyperVNetwork -InstanceId primary -WhatIf
+
+    Zeigt, ob die eng begrenzte Hyper-V-Netzwerkreparatur ausgefuehrt wuerde.
 #>
 function Invoke-SqlServerLabReconcileAction {
     [CmdletBinding(SupportsShouldProcess, DefaultParameterSetName = 'Lifecycle')]
@@ -54,7 +67,14 @@ function Invoke-SqlServerLabReconcileAction {
 
         [Parameter(ParameterSetName = 'ExternalRuntime')]
         [Parameter(ParameterSetName = 'Container')]
+        [Parameter(Mandatory, ParameterSetName = 'HyperVNetwork')]
         [string]$InstanceId,
+
+        [Parameter(Mandatory, ParameterSetName = 'HyperVNetwork')]
+        [switch]$RepairHyperVNetwork,
+
+        [Parameter(ParameterSetName = 'HyperVNetwork')]
+        [switch]$AllowExternalSwitchCreation,
 
         [Parameter(ParameterSetName = 'ExternalRuntime')]
         [Parameter(ParameterSetName = 'Container')]
@@ -89,6 +109,42 @@ function Invoke-SqlServerLabReconcileAction {
 
         [string]$StateRoot
     )
+
+    if ($PSCmdlet.ParameterSetName -eq 'HyperVNetwork') {
+        $plan = Get-SqlServerLabReconcilePlan -RunId $RunId -HyperVNetwork -InstanceId $InstanceId -StateRoot $StateRoot
+        $wouldExecute = if ($plan.IsNoOp -or [string]$plan.HighestChangeClass -ne 'live') { $false } else {
+            $PSCmdlet.ShouldProcess("Run '$RunId', Instanz '$InstanceId'", 'Hyper-V-Netzwerkbindung eigentumsgeprüft reparieren')
+        }
+        $entry = [ordered]@{
+            Operation=if ($plan.IsNoOp) { 'None' } else { 'RepairNetwork' }
+            ChangeClass=[string]$plan.HighestChangeClass; Planned=(@($plan.Actions).Count -eq 1)
+            Executed=$false
+            Status=if ($plan.IsNoOp) { 'NO_OP' } elseif ([string]$plan.HighestChangeClass -ne 'live') { 'UNSUPPORTED' } elseif ($wouldExecute) { 'PLANNED' } else { 'WOULD_EXECUTE' }
+            Reason=$null; Result=$null
+        }
+        $summary = [ordered]@{
+            Status=$entry.Status; PlannedActions=@($plan.Actions).Count; ExecutedActions=0
+            FailedActions=0; MutationAllowed=$false; Errors=@()
+        }
+        if ($wouldExecute) {
+            try {
+                $entry.Result = Invoke-LabHyperVNetworkReconcileRepair -RunId $RunId -InstanceId $InstanceId `
+                    -AllowExternalSwitchCreation:$AllowExternalSwitchCreation -StateRoot $StateRoot
+                $entry.Executed=$true; $entry.Status=[string]$entry.Result.Status
+                $summary.Status=[string]$entry.Result.Status; $summary.ExecutedActions=1; $summary.MutationAllowed=$true
+            }
+            catch {
+                $entry.Executed=$true; $entry.Status='FAILED'; $entry.Reason=$_.Exception.Message
+                $summary.Status='FAILED'; $summary.ExecutedActions=1; $summary.FailedActions=1; $summary.Errors=@($_.Exception.Message)
+            }
+        }
+        return [PSCustomObject]@{
+            Contract=[PSCustomObject]@{ Name='SqlServerLab.ReconcileAction'; Version='1.3' }
+            RunId=$RunId; TargetState=$null; Plan=$plan; ExecutionPlan=@([PSCustomObject]$entry)
+            ExecutionSummary=[PSCustomObject]$summary; MutationAllowed=[bool]$summary.MutationAllowed
+            Warnings=@($plan.Warnings)
+        }
+    }
 
     if ($PSCmdlet.ParameterSetName -eq 'ExternalRuntime') {
         $plan = Get-SqlServerLabReconcilePlan -RunId $RunId -ManifestPath $ManifestPath -InstanceId $InstanceId -StateRoot $StateRoot
@@ -125,7 +181,8 @@ function Invoke-SqlServerLabReconcileAction {
     }
 
     if ($PSCmdlet.ParameterSetName -eq 'Container') {
-        $planArguments = @{ RunId=$RunId; Container=$true; InstanceId=$InstanceId; StateRoot=$StateRoot; RepairSqlRuntimeContract=$RepairSqlRuntimeContract }
+        $planArguments = @{ RunId=$RunId; Container=$true; StateRoot=$StateRoot; RepairSqlRuntimeContract=$RepairSqlRuntimeContract }
+        if (-not [string]::IsNullOrWhiteSpace($InstanceId)) { $planArguments.InstanceId=[string]$InstanceId }
         if ($PSBoundParameters.ContainsKey('Cpu')) { $planArguments.Cpu=[decimal]$Cpu }
         if ($PSBoundParameters.ContainsKey('MemoryMB')) { $planArguments.MemoryMB=[int]$MemoryMB }
         if ($PSBoundParameters.ContainsKey('Port')) { $planArguments.Port=[int]$Port }

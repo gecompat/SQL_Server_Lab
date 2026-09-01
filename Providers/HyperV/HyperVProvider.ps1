@@ -26,6 +26,7 @@ function Test-HyperVAvailable {
         'Add-VMNetworkAdapter',
         'Add-VMHardDiskDrive',
         'Add-VMDvdDrive',
+        'Connect-VMNetworkAdapter',
         'Convert-VHD',
         'Get-VM',
         'Get-VMHardDiskDrive',

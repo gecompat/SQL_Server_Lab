@@ -195,14 +195,20 @@ fremde WinNAT `172.30.0.0/24` die positive NAT-Erstellung erwartungsgemäß; die
 Host liefert deshalb native Kollisions-, aber keine positive Erstellungs-Evidence.
 Der Lifecycle-Reconcile liest Adapter, Switch-Typ, Hostinfrastruktur und eine
 von Hyper-V beobachtbare Gastadresse hostwertfrei und blockiert bei Drift oder
-nicht lesbarem Istzustand fail-closed. Er repariert die Netzbindung noch nicht.
+nicht lesbarem Istzustand fail-closed. Der getrennte Hyper-V-Network-Reconcile
+repariert ausschließlich fehlende additive, lokal gebundene Infrastruktur und
+verbindet genau einen vorhandenen getrennten Adapter der eigentumsgeprüften VM.
+External-Switch-Erstellung erfordert eine zusätzliche explizite Action-Freigabe.
+Falsches Switch-Rebinding, Adapter-Neuanlage, mehrere Adapter und
+Gastadressreparatur bleiben unverändert fail-closed.
 Ein nativer read-only Probe bestätigte auf dem Referenzhost für eine vorhandene
 verwaltete VM die Internal-Switch-Bindung und die zugehörige Hostinfrastruktur
 als `MATCHED`; Gastadressierung war für diesen älteren Run nicht gebunden und
 wurde daher nicht als aktuell validiert behauptet.
 Noch nicht implementiert ist die vollständige Bindung an den Datenbank-, Software-
 und Post-Provisioning-Vertrag. Eine positive native External-Switch-Erstellung
-auf einem dafür freigegebenen Runner steht ebenfalls noch aus. Der Prepared-Image-Klonpfad führt für
+und ein positiver nativer Lauf des neuen Reparatur-Executors auf einem dafür
+freigegebenen isolierten Run stehen ebenfalls noch aus. Der Prepared-Image-Klonpfad führt für
 ein `SQL_PREPARED_SEALED`-Image `CompleteImage` aus und ist für den Windows-
 2025-/SQL-2025-Referenzfall bis `SQL_READY_RUN` real akzeptiert. Ein weiterer
 echter CLI-Vertical-Slice aus einem frischen `OS_SEALED`-Slot ist für SQL
@@ -210,7 +216,7 @@ Server 2025 einschließlich Installation, Storage, TempDB, Ressourcenwechsel,
 Datenpersistenz und Cleanup akzeptiert. Offen bleiben der vollautomatische
 OS-Factory-Build,
 der allgemeine deklarative Hyper-V-SQL-Runtimepfad, LAN-/External-Bindings,
-erweitertes Reconcile und der automatische Artifact
+weitergehendes Reconcile und der automatische Artifact
 Refresh. Der verbindliche Zielvertrag steht in
 [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](../Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md).
 
@@ -614,6 +620,14 @@ Refresh und automatische Gastumschaltung. Das Hyper-V-Verwaltungsmenü weist
 darauf mit einem begründet deaktivierten Eintrag hin.
 
 ## Tests
+
+### Hyper-V-Netzwerk-Reconcile
+
+Plan und Action sind statisch und synthetisch für No-op, additive
+Infrastruktur, einen vorhandenen getrennten Adapter, `WhatIf`, Journal-Retry,
+Identity-Mismatch sowie die fail-closed Grenzen getestet. Diese Evidence
+verändert keine reale VM und ist kein positiver nativer Reparatur- oder
+External-Switch-Nachweis.
 
 ### Container-Reconcile
 

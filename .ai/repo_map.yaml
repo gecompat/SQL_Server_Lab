@@ -39,6 +39,9 @@ sources_of_truth:
   container_reconcile_contract: Private/ContainerReconcile.ps1
   container_reconcile_journal_schema: Schemas/container-reconcile-journal.schema.json
   validation_container_reconcile: Tests/Static/Invoke-ContainerReconcileChecks.ps1
+  hyperv_network_reconcile_contract: Private/HyperVNetworkReconcile.ps1
+  hyperv_network_reconcile_journal_schema: Schemas/hyperv-network-reconcile-journal.schema.json
+  validation_hyperv_network_reconcile: Tests/Static/Invoke-HyperVNetworkReconcileChecks.ps1
   port_allocation_contract: Private/PortAllocation.ps1
   storage_contract: Private/StorageContract.ps1
   storage_contract_schema: Schemas/lab-storage-contract.schema.json
@@ -719,6 +722,15 @@ validation:
       - sanitized_plan_and_whatif
       - build_journal_validation_state_commit_cleanup_order
       - rollback_and_resume_contract
+  static_hyperv_network_reconcile:
+    command: '.\Tests\Static\Invoke-HyperVNetworkReconcileChecks.ps1'
+    source: Tests/Static/Invoke-HyperVNetworkReconcileChecks.ps1
+    covers:
+      - host_value_free_network_repair_plan
+      - additive_infrastructure_and_single_disconnected_adapter_repair
+      - explicit_external_switch_creation_approval
+      - run_scope_vm_and_adapter_bound_journal
+      - recovery_finalize_and_fail_closed_drift_boundaries
   static_mixed_provider_contracts:
     command: '.\Tests\Static\Invoke-MixedProviderLifecycleChecks.ps1'
     source: Tests/Static/Invoke-MixedProviderLifecycleChecks.ps1
@@ -996,9 +1008,9 @@ change_coupling:
 known_limitations:
   binding_document: Documentation/Quality/KNOWN_LIMITATIONS.md
   highlights:
-    - "Hyper-V sealed VHDX Registry, Builder-/Resume-Grundlage, realer Windows-2025-/SQL-2025-Prepared-Manifest-Klon bis SQL_READY_RUN, freie Manifest-Drives, NAT-Bound-Plan mit IPAM, LAN-Bound-Plan mit lokaler External-Switch-/Adapter-Allowlist und DHCP, read-only Netzwerk-Reconcile und echter SQL-2025-CLI-Vertical-Slice implementiert; vollautomatische OS-Factory sowie allgemeines Datenbank-/Software-/Post-Provision-Binding, positive native External-Switch-Erstellung und schreibende Netzwerkreparatur bleiben offen"
+    - "Hyper-V sealed VHDX Registry, Builder-/Resume-Grundlage, realer Windows-2025-/SQL-2025-Prepared-Manifest-Klon bis SQL_READY_RUN, freie Manifest-Drives, NAT-Bound-Plan mit IPAM, LAN-Bound-Plan mit lokaler External-Switch-/Adapter-Allowlist und DHCP, read-only Netzwerk-Reconcile, eng begrenzte journalisierte Netzwerkreparatur und echter SQL-2025-CLI-Vertical-Slice implementiert; vollautomatische OS-Factory sowie allgemeines Datenbank-/Software-/Post-Provision-Binding und positive native External-Switch-/Netzwerkreparatur-Evidence bleiben offen"
     - "Container-Manifeste laufen standardmäßig unattended mit externen Secret-Referenzen, SHA-256-/Trust-Schutz und read-only Host-Mount-Default"
-    - "providerneutrale Network Intents und Exposure Policy binden Container-NAT sowie Hyper-V-HostOnly/-Isolation/-NAT/-LAN und lehnen offene Kombinationen vor Mutation ab; Hyper-V-NAT nutzt Shared-WinNAT, mutationsfreie Kollisionspruefung, statische scopegebundene IPAM-Leases und Gateway-/DNS-Binding; Hyper-V-LAN nutzt eine lokale External-Switch-/Adapter-Allowlist und DHCP; Hyper-V-Netzdrift wird im Lifecycle-Reconcile semantisch, hostwertfrei und fail-closed gelesen; positive native External-Switch-Erstellung und schreibende Netzwerkreparatur bleiben offen; Lifecycle-Reconcile sowie journalisierter Container-Reconcile fuer CPU, RAM, SQL max memory, Hostport, Autostart und External Runtimes sind implementiert"
+    - "providerneutrale Network Intents und Exposure Policy binden Container-NAT sowie Hyper-V-HostOnly/-Isolation/-NAT/-LAN und lehnen offene Kombinationen vor Mutation ab; Hyper-V-NAT nutzt Shared-WinNAT, mutationsfreie Kollisionspruefung, statische scopegebundene IPAM-Leases und Gateway-/DNS-Binding; Hyper-V-LAN nutzt eine lokale External-Switch-/Adapter-Allowlist und DHCP; Hyper-V-Netzdrift wird im Lifecycle-Reconcile semantisch, hostwertfrei und fail-closed gelesen; ein eigener journalisierter Executor repariert ausschließlich additive Infrastruktur und genau einen vorhandenen getrennten Adapter; Rebinding, Adapter-Neuanlage, Gastadressreparatur sowie positive native External-Switch-/Repair-Evidence bleiben offen; Lifecycle-Reconcile sowie journalisierter Container-Reconcile fuer CPU, RAM, SQL max memory, Hostport, Autostart und External Runtimes sind implementiert"
     - "Artifact Refresh und Rebuild für Medien, VHDX und Derived Images nicht implementiert"
     - "kein provideruebergreifendes Docker-/Podman-Netzwerk oder Hyper-V-SubRun"
     - "Sample-Handler mit Trust-Pfad, Mehrfachauswahl, ZIP-/7z-Backup-Payloads, gepinnten Einzelskripten und sicheren Multi-Output-ZIP-Script-Bundles sind implementiert; nicht freigegebene Archive und Attach-Handler bleiben offen"

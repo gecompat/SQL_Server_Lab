@@ -603,6 +603,7 @@ Ein nicht verfügbarer Provider darf nicht als `PASS` behandelt werden.
 
 ```powershell
 .\Tests\Static\Invoke-DocumentationChecks.ps1
+.\Tests\Static\Invoke-HyperVNetworkReconcileChecks.ps1
 .\Tests\Static\Invoke-ContainerReconcileChecks.ps1
 .\Tests\Integration\Invoke-ContainerCliAcceptance.ps1 -Provider docker
 .\Tests\Integration\Invoke-ContainerCliAcceptance.ps1 -Provider podman

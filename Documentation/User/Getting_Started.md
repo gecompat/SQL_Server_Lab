@@ -847,6 +847,39 @@ Invoke-SqlServerLabReconcileAction -RunId $lab.RunId -TargetState RUNNING
 Mit `-WhatIf` kann vorab geprüft werden, ob der Executor tatsächlich
 Ausführungsversuche durchführt.
 
+### Hyper-V-Netzwerkdrift gezielt reparieren
+
+Der Lifecycle-Plan bleibt bei jeder Hyper-V-Netzwerkdrift fail-closed. Für den
+eng begrenzten Reparaturpfad wird deshalb ein eigener Plan gelesen und erst
+danach dessen Action ausgeführt:
+
+```powershell
+$networkPlan = Get-SqlServerLabReconcilePlan `
+    -RunId $lab.RunId `
+    -HyperVNetwork `
+    -InstanceId primary
+
+Invoke-SqlServerLabReconcileAction `
+    -RunId $lab.RunId `
+    -RepairHyperVNetwork `
+    -InstanceId primary `
+    -WhatIf
+
+Invoke-SqlServerLabReconcileAction `
+    -RunId $lab.RunId `
+    -RepairHyperVNetwork `
+    -InstanceId primary
+```
+
+Die Action darf ausschließlich fehlende additive, bereits lokal gebundene
+Hostinfrastruktur herstellen und genau einen vorhandenen getrennten Adapter
+der run- und scopegebundenen VM wieder verbinden. Sie erstellt keinen Adapter,
+bindet keinen falsch verbundenen Adapter um und repariert keine Gastadresse.
+Soll ein lokal erlaubter LAN-External-Switch tatsächlich erstellt werden, ist
+zusätzlich `-AllowExternalSwitchCreation` erforderlich. Der öffentliche Plan
+enthält keine Switch-, VM-, Adapter- oder Adresswerte; lokale Identitäten
+bleiben ausschließlich im Recovery-Journal.
+
 ### External Languages nachträglich installieren oder aktualisieren
 
 Für einen laufenden SQL-Server-2019-, -2022- oder -2025-Docker-/Podman-Run kann ein Zielmanifest
