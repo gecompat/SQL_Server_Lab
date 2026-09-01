@@ -163,6 +163,9 @@ COMMANDS
     New-SqlServerLabDatabase
         Creates a database with optional file and database settings.
 
+    Backup-SqlServerLabDatabase
+        Publishes a checksummed, verified, content-addressed backup in Lab_Data.
+
     Restore-SqlServerLabDatabase
         Restores a database from a local or remote .bak file.
 

@@ -12,6 +12,7 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 | `sample-databases.schema.json` | Struktur von `Catalogs/sample-databases.json` |
 | `software-catalog.schema.json` | Versionierter Katalogvertrag für SQL-bezogene Python-, R- und Java-Runtimes |
 | `sample-baseline-registry.schema.json` | Portables Register verifizierter, inhaltsadressierter Single-Backup- und Multi-Database-ZIP-`LAB_GENERATED`-Objekte |
+| `backup-library.schema.json` | Strikter `SqlServerLab.BackupLibrary/1.0`-Vertrag für inhaltsadressierte, per SQL-Checksum, `RESTORE VERIFYONLY`, Host-Hash und Metadatenreceipt veröffentlichte Backups sowie getrennte Restore-Evidence |
 | `project-adapter.schema.json` | Adaptervertrag konsumierender Projekte (`Adapters/`), Version `0.1-draft` |
 | `test-environment.schema.json` | Vertrag `SqlServerLab.TestEnvironment/1.0` für den lokalen Export automatisierter Testumgebungen |
 | `lab-storage-contract.schema.json` | Lokale Multi-Root-Registry mit stabilen Location-IDs, Anzeigenamen, Selektoren und Topologiebeleg |

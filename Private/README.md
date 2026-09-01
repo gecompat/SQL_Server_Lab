@@ -26,6 +26,7 @@ Der Pfad `Private/` beschreibt primär die interne Architektur. Die tatsächlich
 | `HyperVStorageReconcile.ps1` / `HyperVSqlStorageReconcile.ps1` | Journalisierter Hyper-V-VHDX-/Gast-Storage-Reconcile sowie receiptgebundener SQL-Default-/TempDB-Reconcile |
 | `HyperVTestDatabaseReconcile.ps1` | Kataloggebundener Hyper-V-Testdatenbank-Plan, VM-Ownership, verifiziert gesicherte Entfernung und Vorwärts-Recovery |
 | `ArtifactResolver.ps1` | HTTP(S)-Backup-Acquisition, lokaler Trust Store, inhaltsadressierter Cache, Quarantäne und sanitisiertes Run Lock |
+| `BackupLibrary.ps1` | Providerneutrale SQL-Backup-Erzeugung, inhaltsadressierte `Lab_Data`-Bibliothek, striktes Metadatenreceipt und getrennte Cross-Provider-Restore-Evidence |
 | `SampleArtifactHandlers.ps1` | Backup-, Archiv-, Einzel-Skript- und sichere Multi-Output-Script-Bundle-Installation |
 | `SampleBaselineRegistry.ps1` | Inhaltsadressiertes `LAB_GENERATED`-Register, deterministische Keys, exakte/kompatible Auswahl und Quarantäne |
 | `SampleBaselineRuntime.ps1` | Erzeugung und bevorzugte Wiederverwendung verifizierter Single- und Multi-Output-Container-Baselines |

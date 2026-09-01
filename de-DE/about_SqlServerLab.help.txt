@@ -165,6 +165,9 @@ COMMANDS
     New-SqlServerLabDatabase
         Erstellt eine Datenbank mit optionalen Datei- und Datenbankoptionen.
 
+    Backup-SqlServerLabDatabase
+        Veröffentlicht ein geprüftes, inhaltsadressiertes Backup in Lab_Data.
+
     Restore-SqlServerLabDatabase
         Stellt eine Datenbank aus einer lokalen oder entfernten .bak-Datei her.
 

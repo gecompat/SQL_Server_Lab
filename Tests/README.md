@@ -244,6 +244,14 @@ SHA-256 und stellt es ueber die gespeicherte Run-/Providerbindung wieder her:
 Die Remote-Workflows fuehren den Test nach dem jeweiligen SQL-2025-Lifecycle
 für Docker beziehungsweise Podman unter demselben hostweiten Mutex aus.
 
+Der lokale PSR-008-Cross-Provider-Nachweis verwendet zusätzlich dieselbe
+test-eigene Quelle für Docker → Podman und registriert nur den sanitierten
+Inhaltsdigest:
+
+```powershell
+.\Tests\Integration\Invoke-BackupLibraryCrossProviderAcceptance.ps1
+```
+
 ## Provider-Referenztest
 
 Der bevorzugte übergreifende Test ist:

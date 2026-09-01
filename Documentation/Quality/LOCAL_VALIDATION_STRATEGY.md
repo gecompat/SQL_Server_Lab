@@ -489,6 +489,14 @@ Ein Katalogeintrag oder vorhandener Testparameter beweist nicht, dass ein Image 
 
 Der allgemeine Smoke-Test prüft derzeit keinen Download und keinen Restore einer öffentlichen Sample-Datenbank, um Laufzeit, Netzwerkabhängigkeit und Datenmenge klein zu halten.
 
+`Invoke-BackupLibraryCrossProviderAcceptance.ps1` ist der isolierte PSR-008-
+Nachweis: Er erzeugt ein synthetisches Backup in Docker, veröffentlicht es nur
+nach `CHECKSUM`, `RESTORE VERIFYONLY`, Host-Hash und Metadatenreceipt, entfernt
+die Quelle und restauriert nach Podman. Quelle und Ziel müssen denselben
+sanitisierten Inhaltsdigest liefern. Da SQL Server in den verwendeten Linux-
+Containern keine FILESTREAM-Evidence liefert, zählt dieser Lauf ausdrücklich
+nicht als FILESTREAM-Abnahme.
+
 Für einen manuellen Restore-Nachweis sind mindestens zu dokumentieren:
 
 - verwendete synthetische oder öffentliche Quelle;
