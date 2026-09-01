@@ -455,8 +455,10 @@ Neue Backup- und Datenbankpaket-Receipts weisen deshalb
 Serverobjekten, TDE-Keymaterial, Secrets und externen Services aus. Ohne
 verifizierte TDE-Recovery-Evidence endet portable Migration `BLOCKED`.
 Objekt-, Host-, Credential- und Schlüsselnamen werden im Receipt nicht
-persistiert. Noch offen sind Export-/Import-Executor für Serverobjekte,
-Keymaterialtransfer, externe Serviceprüfung und öffentliche CLI-/GUI-Flows.
+persistiert. Persistierte Migrationskategorien und Warnungen sind über die
+stabile `DatabasePackageId` in CLI und Browser sichtbar, ohne SQL erneut
+abzufragen. Noch offen sind eine öffentliche Live-Inventur, Export-/Import-
+Executor für Serverobjekte, Keymaterialtransfer und externe Serviceprüfung.
 
 ## Restore
 
