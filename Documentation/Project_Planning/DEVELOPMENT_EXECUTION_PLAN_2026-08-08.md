@@ -1056,7 +1056,12 @@ beginnt als Voraussetzung vor der breiten Implementierung. Der erste
 Storage-Residency-Inventar für `Lab_Data`, native Runtime-Volumes, externe
 Pfade, Hyper-V-Ressourcen und Retention. Physisches Docker-Desktop-/Podman-
 Machine-Backing bleibt bis zur weiteren Provideranalyse ausdrücklich
-unverifizierbar; `PSR-002` ist noch offen. Der zugehörige
+unverifizierbar. `PSR-002` ist mit dem bindenden
+[`SqlServerLab.LabDataResidencyDecision/1.0`](../Architecture/LAB_DATA_AND_NATIVE_RUNTIME_STORAGE_DECISION.md)
+abgeschlossen: `Lab_Data` ist der hostseitige Katalog-, Austausch- und
+Recovery-Einstieg, native katalogisierte Container-Instanzstores sind eine
+begrenzte Ausnahme, und globale Runtime-/Machine-Ablagen bleiben ohne eigenen
+Ownership-Vertrag außerhalb des Mutationsscopes. Der zugehörige
 P1-Produktpfad folgt dem P0-Hyper-V-Ressourcenroot-Bugfix und wird im
 [Persistenz- und `Lab_Data`-Backlog](PERSISTENT_STORAGE_REUSE_AND_LAB_DATA_BACKLOG.md)
 evidenzgebunden geplant.

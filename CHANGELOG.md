@@ -13,6 +13,11 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   für `Lab_Data`, native Docker-/Podman-Volumes, externe Hostpfade,
   Hyper-V-Ressourcen, Retention, Cleanup-Zuordnung und unverifizierbares
   physisches Runtime-Backing.
+- Der bindende Architekturentscheid
+  `SqlServerLab.LabDataResidencyDecision/1.0` definiert `Lab_Data` als
+  hostseitigen Katalog-, Austausch- und Recovery-Einstieg, begrenzt native
+  Container-Instanzstores und schützt globale Runtime-/Machine-Ablagen vor
+  stillen Hosteingriffen.
 - `Get-SqlServerLabReconcilePlan -HyperVStorage` vergleicht zusätzliche
   manifestgebundene VHDX und gebundene Storage-Lanes hostwertfrei. Die Action
   `-RepairHyperVStorage` erstellt fehlende SCSI-VHDX, vergroessert vorhandene

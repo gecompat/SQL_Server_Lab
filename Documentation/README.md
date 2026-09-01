@@ -44,21 +44,22 @@ Diese Datei ist der verbindliche Dokumentationsindex. Die Root-[README](../READM
 ### Architektur und langfristige Planung verstehen
 
 1. [SQL-Server-zentrierte Scope-Entscheidung](Architecture/SQL_SERVER_CENTRIC_SCOPE_DECISION.md)
-2. [Erweiterbarer Umgebungs- und Ausführungsvertrag](Architecture/EXTENSIBLE_ENVIRONMENT_AND_EXECUTION_CONTRACT.md)
-3. [Manifest- und Schnittstellenarchitektur](Architecture/MANIFEST_AND_INTERFACE_ARCHITECTURE.md)
-4. [Testdatenbank-Provisionierung und menügeführte Manifest-Erstellung](Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md)
-5. [Gemischter Container-Provider-Lifecycle](Architecture/MIXED_PROVIDER_LIFECYCLE.md)
-6. [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md)
-7. [Vorlagenpool und automatisierte Manifeste](Architecture/TEMPLATE_POOL_AND_AUTOMATED_MANIFESTS.md)
-8. [Feste isolierte Labnetze](HowTo/LAB_NETWORKS.md)
-9. [Projektintegrationsvertrag](Architecture/PROJECT_INTEGRATION_CONTRACT.md)
-10. [Konsolidierter Entwicklungs- und Ausführungsplan](Project_Planning/DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md)
-11. [Konsolen-, Lifecycle- und Storage-Konsolidierungsplan aus der manuellen Abnahme](Project_Planning/CONSOLE_LIFECYCLE_AND_STORAGE_CONSOLIDATION_PLAN_2026-08-12.md)
-12. [Providerneutraler Batch-, Queue- und Resume-Workflow](Project_Planning/PROVIDER_NEUTRAL_BATCH_QUEUE_RESUME_WORKFLOW_2026-08-13.md)
-13. [Master-Umsetzungsplan](Project_Planning/MASTER_IMPLEMENTATION_PLAN.md)
-14. [Masterplan-Ergänzung](Project_Planning/MASTER_IMPLEMENTATION_PLAN_SCOPE_ADDENDUM.md)
-15. [Project-Adapter-Priorisierung](Project_Planning/PROJECT_ADAPTER_PRIORITIZATION.md)
-16. [Zukünftige Anwendungsfälle](Architecture/FUTURE_USE_CASES_AND_EXTENSION_GUARDRAILS.md)
+2. [`Lab_Data` und native Runtime-Speicher](Architecture/LAB_DATA_AND_NATIVE_RUNTIME_STORAGE_DECISION.md)
+3. [Erweiterbarer Umgebungs- und Ausführungsvertrag](Architecture/EXTENSIBLE_ENVIRONMENT_AND_EXECUTION_CONTRACT.md)
+4. [Manifest- und Schnittstellenarchitektur](Architecture/MANIFEST_AND_INTERFACE_ARCHITECTURE.md)
+5. [Testdatenbank-Provisionierung und menügeführte Manifest-Erstellung](Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md)
+6. [Gemischter Container-Provider-Lifecycle](Architecture/MIXED_PROVIDER_LIFECYCLE.md)
+7. [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md)
+8. [Vorlagenpool und automatisierte Manifeste](Architecture/TEMPLATE_POOL_AND_AUTOMATED_MANIFESTS.md)
+9. [Feste isolierte Labnetze](HowTo/LAB_NETWORKS.md)
+10. [Projektintegrationsvertrag](Architecture/PROJECT_INTEGRATION_CONTRACT.md)
+11. [Konsolidierter Entwicklungs- und Ausführungsplan](Project_Planning/DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md)
+12. [Konsolen-, Lifecycle- und Storage-Konsolidierungsplan aus der manuellen Abnahme](Project_Planning/CONSOLE_LIFECYCLE_AND_STORAGE_CONSOLIDATION_PLAN_2026-08-12.md)
+13. [Providerneutraler Batch-, Queue- und Resume-Workflow](Project_Planning/PROVIDER_NEUTRAL_BATCH_QUEUE_RESUME_WORKFLOW_2026-08-13.md)
+14. [Master-Umsetzungsplan](Project_Planning/MASTER_IMPLEMENTATION_PLAN.md)
+15. [Masterplan-Ergänzung](Project_Planning/MASTER_IMPLEMENTATION_PLAN_SCOPE_ADDENDUM.md)
+16. [Project-Adapter-Priorisierung](Project_Planning/PROJECT_ADAPTER_PRIORITIZATION.md)
+17. [Zukünftige Anwendungsfälle](Architecture/FUTURE_USE_CASES_AND_EXTENSION_GUARDRAILS.md)
 
 Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ein Feature bereits ausgeführt werden kann.
 
@@ -171,6 +172,7 @@ Nur wenn alle Ebenen zusammenpassen, ist ein Feld als vollständig implementiert
 | Dokument | Inhalt |
 |---|---|
 | [SQL-Server-zentrierte Scope-Entscheidung](Architecture/SQL_SERVER_CENTRIC_SCOPE_DECISION.md) | SQL Server als Hauptzweck; Supporting Components nur mit SQL-Bezug |
+| [`Lab_Data` und native Runtime-Speicher](Architecture/LAB_DATA_AND_NATIVE_RUNTIME_STORAGE_DECISION.md) | Bindendes `Lab_Data`-Versprechen, native Container-Ausnahmen und Grenzen für globale Runtime-/Machine-Eingriffe |
 | [Erweiterbarer Umgebungs- und Ausführungsvertrag](Architecture/EXTENSIBLE_ENVIRONMENT_AND_EXECUTION_CONTRACT.md) | Packages, Kataloge, Komponenten, Ressourcen, Workflow, Provider, Recovery und Cleanup |
 | [Manifest- und Schnittstellenarchitektur](Architecture/MANIFEST_AND_INTERFACE_ARCHITECTURE.md) | langfristiger deklarativer Vertrag und Auflösungsreihenfolge |
 | [Testdatenbank-Provisionierung und menügeführte Manifest-Erstellung](Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md) | Zielvertrag für Artifact Handler, Trust/Hash, Mehrfachauswahl, Pfadführung und Baselines; direkte Backups, sichere ZIP-Backups, Einzelskripte, Trust-Pfad und Mehrfachauswahl sind implementiert |

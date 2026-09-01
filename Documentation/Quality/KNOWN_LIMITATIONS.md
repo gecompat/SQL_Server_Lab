@@ -861,7 +861,13 @@ Der Cleanup-Audit ergänzt dies um den versionierten read-only Vertrag
 rungebundene und retained Objekte sowie deren Cleanup-Policy. Ein von Docker
 oder Podman gemeldeter Pfad im Runtime-Namensraum belegt nicht die physische
 Hostdisk; ein nicht über die Provider-API auflösbares Desktop-/Machine-Backing
-bleibt `UNVERIFIABLE`. Stabile `PersistentStorageId`-Kataloge, Leases,
+bleibt `UNVERIFIABLE`. Der bindende
+[`SqlServerLab.LabDataResidencyDecision/1.0`](../Architecture/LAB_DATA_AND_NATIVE_RUNTIME_STORAGE_DECISION.md)
+definiert `Lab_Data` deshalb als hostseitigen Katalog-, Austausch- und
+Recovery-Einstieg statt als Vollresidenzversprechen. Native katalogisierte
+Container-Instanzstores bleiben zulässig; globale Runtime-/Machine-Ablagen und
+labfremde Ressourcen werden ohne getrennten Ownership-Vertrag nicht verändert.
+Stabile `PersistentStorageId`-Kataloge, Leases,
 providerübergreifende Wiederverwendung und explizites Löschen sind damit noch
 nicht implementiert.
 Der zweite `HVR-006`-Slice koppelt Lifecycle-Reconcile, Start, Stop,

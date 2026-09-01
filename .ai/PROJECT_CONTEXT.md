@@ -68,7 +68,11 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   Parent-Migration und Cleanup-Audit; dessen versioniertes read-only
   Storage-Residency-Inventar trennt `Lab_Data`, native Docker-/Podman-Ablage,
   externe Hostpfade, rungebundene sowie retained Objekte und unbekanntes
-  physisches Runtime-Backing;
+  physisches Runtime-Backing; der bindende
+  `SqlServerLab.LabDataResidencyDecision/1.0`-Entscheid definiert `Lab_Data` als
+  hostseitigen Katalog-, Austausch- und Recovery-Root, erlaubt katalogisierte
+  native Container-Instanzstores und verbietet stille Eingriffe in globale
+  Runtime-/Machine-Ablagen;
 - versionierte `SqlServerLab.HyperVResourceBinding/1.0`-Grundlage mit kurzen,
   state-root-unabhängigen Create-Roots unter registriertem `Lab_Data`,
   Controller-/Location-/Volume-Revalidierung und getrennter read-only

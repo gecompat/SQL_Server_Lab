@@ -6,6 +6,9 @@
 > Der verbindliche aktuelle Hyper-V-, Image-, Netzwerk-, Software-, Reconcile-
 > und Refresh-Zielvertrag steht in
 > [HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md](HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md).
+> Die bindende Grenze zwischen `Lab_Data`, nativen Runtime-Speichern und
+> Hosteingriffen steht in
+> [LAB_DATA_AND_NATIVE_RUNTIME_STORAGE_DECISION.md](LAB_DATA_AND_NATIVE_RUNTIME_STORAGE_DECISION.md).
 > Bei Abweichungen hat der neuere Zielvertrag Vorrang.
 
 ---
