@@ -48,6 +48,8 @@ plattformgebundene SQL-Features benötigen.
 - manifestgebundener Add-/Grow-only-Storage- und SQL-Dateiplatzierungs-Reconcile
   sowie dynamischer SQL-Konfigurations-Reconcile fuer Memory, MAXDOP, Cost
   Threshold, explizite `sp_configure`-Werte und additive Trace Flags;
+- manifestgebundener SQL-TCP-Port-Reconcile für genau eine Standardinstanz mit
+  gebundener Gastfirewall, kontrolliertem SQL-Dienstrestart und ohne VM-Neustart;
 - Cleanup-Plan vor der ersten Provider-Mutation;
 - eigener synthetischer Native-Smoke-Test ohne Betriebssystem, Netzwerk oder SQL.
 
@@ -95,7 +97,7 @@ Manifest-Binding, Netzwerkzugriff und echtem Windows-/SQL-End-to-End-Test.
 - echter End-to-End-Sysprep-Nachweis in einem Windows-Gast; der Native-Smoke
   verwendet weiterhin bewusst nur synthetische leere Testmedien;
 - SQL `PrepareImage`/`CompleteImage`, Software, External Runtimes und Testdatenbanken;
-- Reconcile für SQL-Port, Testdatenbanken, Storage-Rebinding/-Removal,
+- Reconcile für Testdatenbanken, Storage-Rebinding/-Removal,
   Trace-Flag-Entfernung und weitere nicht dynamische SQL-Konfiguration.
 
 ## Verbindliche Aufsetzpunkte

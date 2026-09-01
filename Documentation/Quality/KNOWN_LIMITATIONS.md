@@ -341,8 +341,18 @@ Der Executor revalidiert Run, Scope, Instanz und VM, akzeptiert nur dynamische
 `sp_configure`-Abweichungen sowie additive angeforderte Trace Flags und
 journalisiert vor der ersten SQL-Mutation. No-op, Live, `WhatIf`, wiederkehrende
 Drift, Abbruch/Resume und nicht dynamische Fail-closed-Faelle sind synthetisch
-belegt. Ein positiver nativer Reparaturlauf bleibt `NOT_EXECUTED`; SQL-Port,
+belegt. Ein positiver nativer Reparaturlauf bleibt `NOT_EXECUTED`;
 Trace-Flag-Entfernung und Testdatenbanken sind nicht Teil dieses Live-Slices.
+
+Der getrennte Hyper-V-SQL-Port-Reconcile persistiert `hyperv.sqlPort`, prüft
+TCP-Registry und die bestehende run-eigene Gastfirewall read-only und repariert
+Drift journalisiert mit ausschließlich einem `MSSQLSERVER`-Dienstrestart. SQL-
+Readiness am Zielport und der aktualisierte `connection-info.json`-Stand sind
+Postconditions. No-op, Restart, `WhatIf`, Abbruch nach Gastmutation,
+Recovery-Finalisierung und mehrdeutige Firewallidentität sind synthetisch
+belegt. Der Pfad unterstützt bewusst genau eine SQL-Standardinstanz; benannte
+oder mehrere SQL-Instanzen bleiben fail-closed. Ein positiver nativer
+Reparaturlauf bleibt `NOT_EXECUTED`.
 
 Das Feld `sizeLimitGB` bei Drives ist fuer Docker- oder Podman-Volumes weiterhin
 nur Metadatum. Hyper-V verwendet es dagegen als VHDX-Sollgroesse bei Erstellung
@@ -847,8 +857,8 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
    binden; Container-`nat`, Hyper-V-`hostOnly`/`isolated`/`nat`/`lan` sowie
    Hyper-V-vCPU, statisches/dynamisches RAM und Zusatz-VHDX sind bereits
    manifestgebunden. Netzwerk-, Ressourcen-, Grow-only-Storage-, Default-/
-   TempDB-SQL-Storage- sowie dynamische SQL-Konfigurations-Reconcile sind
-   synthetisch implementiert; positive native Reparaturnachweise, SQL-Port,
+   TempDB-SQL-Storage-, dynamische SQL-Konfigurations- sowie SQL-Port-Reconcile
+   sind synthetisch implementiert; positive native Reparaturnachweise,
    Testdatenbank-Reconcile, Storage-Removal/-Rebinding,
    User-/Systemdatenbankbewegung und weitere Hardware-/SQL-Klassen bleiben offen.
 4. Artifact Registry, Refresh/Rebuild und Evaluierungsablauf implementieren.

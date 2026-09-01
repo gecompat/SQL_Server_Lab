@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sql-server-lab.local/schemas/hyperv-sql-port-reconcile-journal.schema.json",
+  "title": "SqlServerLab.HyperVSqlPortReconcileJournal/1.0",
+  "type": "object",
+  "required": ["ContractVersion", "OperationId", "RunId", "ScopeId", "InstanceId", "Provider", "ChangeClass", "Status", "Target", "Runtime", "Recovery", "UpdatedAt"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.HyperVSqlPortReconcileJournal/1.0" },
+    "OperationId": { "type": "string", "format": "uuid" },
+    "RunId": { "type": "string", "format": "uuid" },
+    "ScopeId": { "type": "string", "format": "uuid" },
+    "InstanceId": { "type": "string", "minLength": 1 },
+    "Provider": { "const": "hyperv" },
+    "ChangeClass": { "const": "restart" },
+    "Status": { "enum": ["PREPARED", "TCP_APPLIED", "SERVICE_RESTARTED", "VERIFIED", "CONNECTION_STATE_UPDATED", "COMPLETED", "RECOVERY_REQUIRED"] },
+    "Target": {
+      "type": "object",
+      "required": ["Protocol", "Port", "TcpEnabled", "StaticPort", "FirewallRequired"],
+      "properties": {
+        "Protocol": { "const": "tcp" },
+        "Port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "TcpEnabled": { "const": true },
+        "StaticPort": { "const": true },
+        "FirewallRequired": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "Runtime": {
+      "type": "object",
+      "required": ["VMId", "SqlInstanceId", "ServiceName", "FirewallRuleName"],
+      "properties": {
+        "VMId": { "type": "string", "minLength": 1 },
+        "SqlInstanceId": { "type": "string", "minLength": 1 },
+        "ServiceName": { "const": "MSSQLSERVER" },
+        "FirewallRuleName": { "const": "SQL_Server_Lab SQL TCP Host" }
+      },
+      "additionalProperties": false
+    },
+    "Recovery": {
+      "type": "object",
+      "required": ["Status", "Attempts", "ErrorCode", "Errors"],
+      "properties": {
+        "Status": { "enum": ["RETRY_SQL_PORT_RECONCILE", "NOT_REQUIRED"] },
+        "Attempts": { "type": "integer", "minimum": 0 },
+        "ErrorCode": { "type": ["string", "null"] },
+        "Errors": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "UpdatedAt": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

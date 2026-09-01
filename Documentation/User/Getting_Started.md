@@ -610,6 +610,7 @@ SQL-spezifische Pfad vollständig automatisiert inklusive OOBE.
         "switchName": "SQL_LAB_HYPERV",
         "memoryStartupMB": 4096,
         "processorCount": 4,
+        "sqlPort": 1433,
         "guestPasswordMode": "generated"
       }
     }
@@ -643,6 +644,9 @@ Passwort an; `"prompt"` fragt es sicher ab. Ein Klartextpasswort gehört nie in
 die Manifestdatei. Die Antwortdatei wird nur in die neue Child-VHDX injiziert,
 anschließend aus dem Gast entfernt und das Passwort pro Run DPAPI-geschützt
 gespeichert.
+`hyperv.sqlPort` legt den statischen TCP-Port der SQL-Standardinstanz im Gast
+fest und gilt ohne Angabe als `1433`. Dieser Gastport ist kein Container-
+Hostport und darf deshalb auf unterschiedlichen Gast-IP-Adressen identisch sein.
 
 `persistentData` ist optional. Bei Hyper-V wird für genau diese Lab-VM eine
 eigene dynamische Daten-VHDX im Data Root erstellt; andere Klone verwenden sie
@@ -959,6 +963,30 @@ Die Action schreibt vor der SQL-Mutation das lokale Storage-Runtime-Receipt,
 kontrolliert neu. Ein fehlgeschlagener Lauf bleibt `RECOVERY_REQUIRED` und wird
 mit demselben Aufruf fortgesetzt. User- und Systemdatenbankdateien sowie
 zusätzliche TempDB-Logfiles bleiben `unsupported`.
+
+### Hyper-V-SQL-Port abgleichen und fortsetzen
+
+Der statische SQL-TCP-Port besitzt einen eigenen Restart-Vertrag. Der
+öffentliche Plan zeigt nur semantische Binding-Statuswerte, niemals den
+gewünschten oder beobachteten Port. Die Reparatur aktualisiert TCP/IP und die
+run-eigene Gastfirewall, startet ausschließlich `MSSQLSERVER` neu, prüft SQL
+über den Zielport und synchronisiert erst danach `connection-info.json`:
+
+```powershell
+$sqlPortPlan = Get-SqlServerLabReconcilePlan `
+    -RunId $lab.RunId `
+    -HyperVSqlPort `
+    -InstanceId primary
+
+Invoke-SqlServerLabReconcileAction `
+    -RunId $lab.RunId `
+    -RepairHyperVSqlPort `
+    -InstanceId primary `
+    -WhatIf
+```
+
+Mehrere oder benannte SQL-Instanzen sowie uneindeutige Firewallregeln bleiben
+fail-closed. Der SQL-Port liegt im Gast; die VM selbst wird nicht neu gestartet.
 
 ### External Languages nachträglich installieren oder aktualisieren
 

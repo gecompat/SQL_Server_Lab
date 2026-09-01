@@ -195,8 +195,8 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   zu reproduzierbarem Build und nativer SQL-Evidence `PREVIEW`;
 - Reconcile-Aktionen über die implementierten Lifecycle-, Container-,
   Hyper-V-Netzwerk-, vCPU-/RAM-, Grow-only-Storage-, SQL-Storage- und
-  dynamischen SQL-Konfigurationspfade hinaus, insbesondere Rebinding,
-  Adapter-Neuanlage, Gastadressreparatur, SQL-Port, Trace-Flag-Entfernung,
+  dynamischen SQL-Konfigurations- und SQL-Port-Pfade hinaus, insbesondere Rebinding,
+  Adapter-Neuanlage, Gastadressreparatur, Trace-Flag-Entfernung,
   Testdatenbanken, freie Mount-/Image-Änderungen und Hyper-V-Software;
 - versionierter Refresh-/Rebuild-Lifecycle für Medien, VHDX und Container-Images;
 - weitere konsumierende Lab-Packages über die drei abgeschlossenen
@@ -251,15 +251,17 @@ Gast-DHCP; die eng begrenzte schreibende Netzwerkreparatur ist synthetisch
 implementiert, positive native Switch-/Repair-Evidence bleibt offen.
 
 Der Hyper-V-Reconcile besitzt getrennte, hostwertfreie Pläne für vCPU/RAM,
-zusätzliche VHDX/Grow-only, SQL-Storage und dynamische SQL-Konfiguration. Der SQL-Storage-Slice wird erst nach
+zusätzliche VHDX/Grow-only, SQL-Storage, dynamische SQL-Konfiguration und den
+statischen SQL-TCP-Port. Der SQL-Storage-Slice wird erst nach
 einem Host-/Gast-Storage-No-op ausführbar, vergleicht Default- und TempDB-Pfade
 read-only und verwendet für Restart, Postconditions und Resume das lokale
 Storage-Runtime-Receipt. User-/Systemdatenbankbewegung und positive native
 Repair-Evidence bleiben offen. Der Live-Konfigurationsslice vergleicht
 persistierte Memory-, MAXDOP-, Cost-Threshold-, `sp_configure`- und Trace-Flag-
 Ziele ueber PowerShell Direct und setzt nur dynamische Werte beziehungsweise
-additive Trace Flags journalisiert fort. SQL-Port, Testdatenbanken und native
-Repair-Evidence bleiben offen.
+additive Trace Flags journalisiert fort. Der Port-Slice bindet genau eine
+Standardinstanz, Gastfirewall, SQL-Dienstrestart, Readiness und Connection-
+State journalisiert. Testdatenbanken und native Repair-Evidence bleiben offen.
 
 Der verbindliche Implementierungsvertrag steht in
 `Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md`.

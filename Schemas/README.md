@@ -27,6 +27,7 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 | `hyperv-network-reconcile-journal.schema.json` | Lokales Operationsjournal `SqlServerLab.HyperVNetworkReconcileJournal/1.0` für run-/scope-/VM-gebundene additive Infrastrukturreparatur, genau einen vorhandenen getrennten Adapter und Recovery-Retry |
 | `hyperv-resource-reconcile-journal.schema.json` | Lokales Operationsjournal `SqlServerLab.HyperVResourceReconcileJournal/1.0` für vCPU, statisches/dynamisches RAM, Min/Startup/Max, Stop-Apply-Start und Recovery-Resume |
 | `hyperv-sql-configuration-reconcile-journal.schema.json` | Lokales Operationsjournal `SqlServerLab.HyperVSqlConfigurationReconcileJournal/1.0` für dynamische `sp_configure`-Werte, additive globale Trace Flags und Recovery-Resume |
+| `hyperv-sql-port-reconcile-journal.schema.json` | Lokales Operationsjournal `SqlServerLab.HyperVSqlPortReconcileJournal/1.0` für statisches SQL-TCP, die run-eigene Gastfirewall, kontrollierten SQL-Dienstrestart und Recovery-Resume |
 
 ## Beispiele
 
@@ -62,6 +63,7 @@ Weitere `example-*.json`-Dateien können spezialisierte oder vorbereitete Szenar
 - `hyperv.processorCount`, `hyperv.dynamicMemoryEnabled` sowie
   `hyperv.memoryMinimumMB`, `hyperv.memoryStartupMB` und
   `hyperv.memoryMaximumMB` für den portablen VM-Ressourcenintent
+- `hyperv.sqlPort` für den statischen TCP-Port der SQL-Standardinstanz im Gast
 - `databases`
 - `postProvision`
 

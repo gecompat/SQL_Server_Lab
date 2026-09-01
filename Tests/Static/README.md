@@ -24,6 +24,7 @@ Container, Datenbanken oder Run-States.
 | `Invoke-DocumentationChecks.ps1` | PowerShell-Syntax, Exporte und Help, JSON-Schemas, Kataloge, Beispielmanifeste, Provider-Metadaten, Links und Statusaussagen | `.\Tests\Static\Invoke-DocumentationChecks.ps1` |
 | `Invoke-PSScriptAnalyzerChecks.ps1` | PowerShell-Linting via PSScriptAnalyzer mit projektweiter Baseline (`PSScriptAnalyzerSettings.psd1`) | `.\Tests\Static\Invoke-PSScriptAnalyzerChecks.ps1` |
 | `Invoke-ManifestBuilderChecks.ps1` | Schema-gesteuerter Builder, semantische Manifestpruefung und atomisches Schreiben | `.\Tests\Static\Invoke-ManifestBuilderChecks.ps1` |
+| `Invoke-HyperVSqlPortReconcileChecks.ps1` | Persistierter Hyper-V-SQL-Portintent, sanitierter Restart-Plan, journalisierte Gast-/Firewall-Reparatur und Recovery-Resume | `.\Tests\Static\Invoke-HyperVSqlPortReconcileChecks.ps1` |
 | `Invoke-SampleBaselineRegistryChecks.ps1` | Deterministische `LAB_GENERATED`-Keys, inhaltsadressierte Registrierung, exakte/kompatible Auswahl, Portabilitaet und Quarantaene | `.\Tests\Static\Invoke-SampleBaselineRegistryChecks.ps1` |
 | `Invoke-SampleBaselineRuntimeChecks.ps1` | SQL-Checksum-Erzeugung und bevorzugte Wiederverwendung verifizierter Single- und Multi-Output-Container-Baselines | `.\Tests\Static\Invoke-SampleBaselineRuntimeChecks.ps1` |
 | `Invoke-PrivacyScannerChecks.ps1` | Scan auf sensitive Dateitypen/Dateinamen, Reparse-Points sowie hart kodierte Geheimnis-/Pfad-/E-Mail-Muster im Repository | `.\Tests\Static\Invoke-PrivacyScannerChecks.ps1` |

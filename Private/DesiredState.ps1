@@ -120,6 +120,27 @@ function New-LabSqlConfigurationIntentSnapshot {
     }
 }
 
+function New-LabSqlEndpointIntentSnapshot {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Instance,
+        [Parameter(Mandatory)]$ProviderCapability
+    )
+
+    if ([string]$Instance.provider -ne 'hyperv') { return $null }
+    $settings = $Instance.hyperv
+    $port = if ($settings -and $settings.PSObject.Properties['sqlPort']) { [int]$settings.sqlPort } else { 1433 }
+    if ($port -lt 1 -or $port -gt 65535) { throw 'SQL_ENDPOINT_INTENT_PORT_INVALID' }
+    $requiredCapability = 'hyperv-sql-port-reconcile'
+    return [PSCustomObject]@{
+        Contract = [PSCustomObject]@{ Name='SqlServerLab.SqlEndpointIntent'; Version='1.0' }
+        Protocol = 'tcp'
+        Port = $port
+        RequiredCapability = $requiredCapability
+        CapabilityStatus = Get-LabDeclaredIntentCapabilityStatus -ProviderCapability $ProviderCapability -RequiredCapability $requiredCapability
+    }
+}
+
 function New-LabInstanceIntentSnapshot {
     [CmdletBinding()]
     param(
@@ -241,6 +262,7 @@ function New-LabInstanceIntentSnapshot {
         Drives = $drives
         Network = $network
         Resources = New-LabHyperVResourceIntentSnapshot -Instance $Instance
+        SqlEndpoint = New-LabSqlEndpointIntentSnapshot -Instance $Instance -ProviderCapability $ProviderCapability
         SqlConfiguration = New-LabSqlConfigurationIntentSnapshot -Instance $Instance -ProviderCapability $ProviderCapability
         Software = $software
         Storage = $storage

@@ -806,6 +806,16 @@ RAM-Modus und Startup verwenden journalisiert Stop, Apply, Postcondition und
 Start. Alte Runs ohne diesen Intent und nicht eindeutig steuerbare VM-Zustände
 bleiben fail-closed. Der Vertrag ist synthetisch, noch nicht nativ belegt.
 
+Der getrennte `SqlServerLab.SqlEndpointIntent/1.0` persistiert
+`hyperv.sqlPort` mit dem Default `1433`. Der read-only SQL-Port-Plan liest die
+TCP-Registry und die exakt benannte Lab-Firewallregel per PowerShell Direct,
+gibt öffentlich aber weder Port, VM-/SQL-Identität noch Hostadresse aus. Eine
+journalisierte Reparatur ist nur für genau eine SQL-Standardinstanz erlaubt,
+setzt dynamische Ports außer Kraft, aktualisiert bei bestehendem Hostzugriff
+die Gastfirewall, startet ausschließlich `MSSQLSERVER` neu und bestätigt SQL
+über den Zielport. Erst danach werden die Connection-Receipts atomar erneuert.
+Mehrdeutige Instanzen, Dienste oder Firewallregeln bleiben fail-closed.
+
 ### Welle 7 – Software, External Runtimes und Samples
 
 - Capability Resolver;
