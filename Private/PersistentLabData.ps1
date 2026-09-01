@@ -89,6 +89,37 @@ function Add-LabPersistentContainerDrive {
     return $Instance
 }
 
+function Add-LabSelectedPersistentContainerDrive {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Instance,
+        [Parameter(Mandatory)]$Plan,
+        [Parameter(Mandatory)]$Storage
+    )
+
+    if ([string]$Plan.Status -ne 'READY' -or [string]$Plan.Action -notin @('CONTINUE','CLONE')) {
+        throw 'CONTAINER_INSTANCE_STORE_READY_PLAN_REQUIRED'
+    }
+    if (@($Instance.drives | Where-Object { $_ -and $_.containerPath -eq '/var/opt/mssql' }).Count -gt 0) {
+        throw 'LAB_DATA_CONTAINER_MSSQL_MOUNT_ALREADY_CONFIGURED'
+    }
+    $binding = if ([string]$Plan.Action -eq 'CONTINUE') {
+        Get-LabContainerInstanceStoreDriveBinding -Plan $Plan
+    }
+    else {
+        [PSCustomObject]@{
+            id='persistent-mssql'; containerPath='/var/opt/mssql'; volumeName=[string]$Plan.Target.VolumeName
+            persistence='cataloged-runtime-volume'; persistentStorageId=[string]$Plan.Target.PersistentStorageId
+        }
+    }
+    $Instance.drives += $binding
+    $Instance.drives += [PSCustomObject]@{
+        id='persistent-backups'; containerPath='/var/opt/mssql/backup'; hostPath=[string]$Storage.BackupRoot
+        persistence='data-root-backup-bind'
+    }
+    return $Instance
+}
+
 function Add-LabRunScopedContainerSystemDrive {
     [CmdletBinding()]
     param([Parameter(Mandatory)]$Instance, [switch]$IncludeExternalRuntimeState)

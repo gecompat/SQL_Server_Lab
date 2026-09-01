@@ -199,8 +199,15 @@
         <label>Instanzname<input id="container-instance" value="primary" pattern="[A-Za-z0-9_-]{1,64}" required></label>
         <label>Labname<input id="container-lab-name" value="container-lab" pattern="[A-Za-z0-9][A-Za-z0-9 _-]{0,63}" required></label>
       </div>
-      <label class="form-check"><input id="container-persistent-data" type="checkbox"> Daten dauerhaft im konfigurierten Data Root speichern</label>
-      <p class="form-note">Bei Aktivierung wird <code>/var/opt/mssql</code> als Host-Bind-Mount unter dem Data Root geführt. „Umgebung entfernen“ entfernt diesen Datenbereich nicht.</p>
+      <label class="form-check"><input id="container-persistent-data" type="checkbox"> Persistenten Instanzstore und Backups im Data Root verwenden</label>
+      <p class="form-note">Bei Aktivierung bleibt <code>/var/opt/mssql</code> in einem katalogisierten Runtime-Volume erhalten; Backups liegen im Data Root. „Umgebung entfernen“ löscht diesen Instanzstore nicht automatisch.</p>
+      <div id="container-storage-selection" hidden>
+        <div class="form-grid">
+          <label>Instanzstore-Aktion<select id="container-storage-action"><option value="NEW">Neuen Store erstellen</option><option value="CONTINUE">Vorhandenen Store fortsetzen</option><option value="CLONE">Vorhandenen Store klonen</option></select></label>
+          <label id="container-storage-source-label" hidden>Vorhandener Instanzstore<select id="container-storage-source"></select></label>
+        </div>
+        <p id="container-storage-note" class="form-note">Auswahl und Kompatibilitätsprüfung verwenden ausschließlich die stabile PersistentStorageId.</p>
+      </div>
       <label class="form-check"><input id="container-autostart" type="checkbox"> Instanz nach einem Host-Neustart automatisch starten</label>
       <p class="form-note">Docker/Podman erhalten eine Restart-Policy. Unter Windows startet ein benutzergebundener Auftrag die Desktop-/Machine-Runtime nach der Anmeldung.</p>
       <label>SA-Passwort<input id="container-password" type="password" autocomplete="new-password" required></label>

@@ -127,6 +127,14 @@ Install-SqlServerLab7Zip              # 7-Zip optional via winget für sichere .
 Save-SqlServerLabCuResource           # Katalogisierten Windows-CU oder exakten Linux-MCR-Tag sicher bereitstellen
 ```
 
+Für Docker-/Podman-Ad-hoc-Labs kann `New-SqlServerLab -PersistentData` einen
+detached Instanzstore zusätzlich per `-PersistentStorageId` auswählen.
+`-PersistentStorageAction CONTINUE` bindet denselben kompatiblen Store exklusiv
+an den neuen Run; `CLONE` reserviert die Quelle operationsgebunden, kopiert sie
+nur read-only in einen eigenständigen Store und koppelt Zielregistrierung und
+Quellfreigabe atomar. Die Browseroberfläche verwendet denselben Erstellungsweg
+und erhält keine Runtime-Volumenamen.
+
 ### 2.4 Rueckgabe-Objekt
 
 ```powershell
