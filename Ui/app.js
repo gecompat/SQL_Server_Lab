@@ -283,7 +283,11 @@ function updateDatabasePackageDetails(items = workflow?.DatabasePackageLibrary |
     return;
   }
   const capabilities = [selected.HasFileStream ? 'FILESTREAM' : 'ohne FILESTREAM', selected.IsEncrypted ? 'TDE' : 'nicht verschlüsselt'];
-  target.innerHTML = '<strong>' + escapeHtml(selected.DatabaseName) + '</strong><span>' + escapeHtml(selected.SourceProvider + ' · SQL ' + selected.SourceSqlMajorVersion + ' · ' + capabilities.join(' · ')) + '</span><span>' + escapeHtml(selected.DatabaseFileCount + ' Datenbankdatei(en) · ' + selected.ObjectCount + ' gehashte(s) Objekt(e) · ' + selected.MigrationBoundary) + '</span><code>DatabasePackageId: ' + escapeHtml(selected.DatabasePackageId) + '</code><span>Attach gesperrt: ' + escapeHtml(selected.AttachReason) + '</span>';
+  const dependencyCategories = Array.isArray(selected.DependencyCategories) ? selected.DependencyCategories : [];
+  const migrationWarnings = Array.isArray(selected.MigrationWarnings) ? selected.MigrationWarnings : [];
+  const dependencySummary = dependencyCategories.length ? dependencyCategories.join(', ') : 'keine erkannten oder veröffentlichten Kategorien';
+  const warningSummary = migrationWarnings.length ? migrationWarnings.join(', ') : 'keine';
+  target.innerHTML = '<strong>' + escapeHtml(selected.DatabaseName) + '</strong><span>' + escapeHtml(selected.SourceProvider + ' · SQL ' + selected.SourceSqlMajorVersion + ' · ' + capabilities.join(' · ')) + '</span><span>' + escapeHtml(selected.DatabaseFileCount + ' Datenbankdatei(en) · ' + selected.ObjectCount + ' gehashte(s) Objekt(e) · ' + selected.MigrationBoundary) + '</span><span>Migrationsinventar: ' + escapeHtml(selected.DependencyInventoryStatus) + '</span><span>Getrennt zu behandeln: ' + escapeHtml(dependencySummary) + '</span><span>Hinweise: ' + escapeHtml(warningSummary) + '</span><code>DatabasePackageId: ' + escapeHtml(selected.DatabasePackageId) + '</code><span>Attach gesperrt: ' + escapeHtml(selected.AttachReason) + '</span>';
 }
 
 function renderSqlInstallationMedia(items) {

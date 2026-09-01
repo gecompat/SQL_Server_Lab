@@ -326,6 +326,8 @@ function Get-LabDatabasePackageSelection {
             IsEncrypted=[bool]$record.DatabaseMetadata.IsEncrypted
             MigrationBoundary=[string]$migrationBoundary.ArtifactScope
             DependencyInventoryStatus=[string]$migrationBoundary.DependencyInventoryStatus
+            DependencyCategories=@($migrationBoundary.DependencyCategories|Sort-Object -Unique)
+            MigrationWarnings=@($migrationBoundary.Warnings|Sort-Object -Unique)
             AttachStatus='TARGET_BINDING_REQUIRED'
             AttachReason='TARGET_PROVIDER_PATH_MAPPING_NOT_BOUND'
             CreatedAt=[string]$record.CreatedAt
