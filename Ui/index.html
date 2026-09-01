@@ -329,6 +329,18 @@
     </form>
   </dialog>
 
+  <dialog id="persistent-storage-removal-dialog">
+    <form id="persistent-storage-removal-form" method="dialog">
+      <div class="dialog-heading"><div><p class="eyebrow">RETENTION-VORSCHAU</p><h2>Persistente Daten beim Entfernen</h2></div><button type="button" class="icon-button" value="cancel" formnovalidate aria-label="Schließen">×</button></div>
+      <input id="persistent-storage-removal-run" type="hidden">
+      <p id="persistent-storage-removal-note" class="form-note"></p>
+      <div id="persistent-storage-removal-selections" class="source-list"></div>
+      <div id="persistent-storage-removal-result" class="source-list" hidden></div>
+      <p class="form-note">Die Vorschau inventarisiert Katalog, Referenzen, Leases und Residency neu. Sie entfernt weder die Umgebung noch Daten.</p>
+      <div class="dialog-actions"><button type="button" class="button secondary" value="cancel" formnovalidate>Schließen</button><button id="persistent-storage-removal-submit" class="button primary" value="default">Folgen prüfen</button></div>
+    </form>
+  </dialog>
+
   <dialog id="artifact-name-dialog">
     <form id="artifact-name-form" method="dialog">
       <div class="dialog-heading"><div><p class="eyebrow">IMAGE-NAME</p><h2>Anzeigenamen ändern</h2></div><button type="button" class="icon-button" value="cancel" formnovalidate aria-label="Schließen">×</button></div>

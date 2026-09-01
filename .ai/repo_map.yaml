@@ -102,6 +102,7 @@ sources_of_truth:
   persistent_storage_plan_schema: Schemas/persistent-storage-plan.schema.json
   validation_persistent_storage_catalog: Tests/Static/Invoke-PersistentStorageCatalogChecks.ps1
   persistent_storage_removal_plan: Private/PersistentStorageRemovalPlan.ps1
+  persistent_storage_removal_preview: Public/Get-SqlServerLabPersistentStorageRemovalPlan.ps1
   persistent_storage_removal_intent_schema: Schemas/persistent-storage-removal-intent.schema.json
   persistent_storage_removal_plan_schema: Schemas/persistent-storage-removal-plan.schema.json
   validation_persistent_storage_removal_plan: Tests/Static/Invoke-PersistentStorageRemovalPlanChecks.ps1
@@ -535,6 +536,7 @@ internal_components:
     storage_residency: Private/StorageResidencyInventory.ps1
     persistent_storage_catalog: Private/PersistentStorageCatalog.ps1
     persistent_storage_removal_plan: Private/PersistentStorageRemovalPlan.ps1
+    persistent_storage_removal_preview: Public/Get-SqlServerLabPersistentStorageRemovalPlan.ps1
     container_runtime_scope: Private/ContainerRuntimeScope.ps1
     hyperv_persistent_data_drive: Private/HyperVPersistentDataDrive.ps1
     responsibilities:
@@ -548,6 +550,7 @@ internal_components:
       - "stabile Persistent-Storage-IDs, Klassen, Zustände, Referenzen und exklusive Leases read-only validieren und mit dem Residency-Inventar abgleichen"
       - "verifizierte Backup-Sets und Datenbankpakete controllerweit rollbackfähig mit eigener PersistentStorageId registrieren und Katalogfehler fail-closed quarantänisieren"
       - "Retention, Backup-/Package-on-Remove, externe Bindungsfreigabe und Recovery-Postconditions read-only planen; persistente Storage-Löschung getrennt halten"
+      - "CLI und Browser-UI über denselben frisch inventarisierten Retention-Plan-Core ausschließlich per stabiler Storage-ID vorausschauen lassen"
       - "katalogisierte Docker-/Podman-Instanzstores per stabiler ID und Runtime-Label detached revalidieren, fuer Continue binden und in ein neues operationsgebundenes Volume digestverifiziert klonen"
       - "aktiven Docker-Context beziehungsweise Podman-Connection/Machine read-only an eine stabile sanitisierte Runtime-ID binden und geteilte Engine-/Machine-/Hostdefaults als REPORT_ONLY vor Mutation schuetzen"
       - "sanitisierte Docker-/Podman-Runtime-Scopes im oeffentlichen Cleanup-Audit ueber zentral aufgeloeste Host-Tool-Aufrufe ausgeben, ohne Rohendpunkte, Identity-Pfade oder Managementautoritaet zu persistieren"
@@ -896,6 +899,7 @@ validation:
     source: Tests/Static/Invoke-PersistentStorageRemovalPlanChecks.ps1
     covers:
       - explicit_retention_policy_selection
+      - public_cli_and_browser_retention_preview
       - backup_checksum_and_restore_verification
       - offline_package_hash_and_postcondition
       - foreign_reference_and_recovery_guards

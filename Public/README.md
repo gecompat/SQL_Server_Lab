@@ -23,6 +23,7 @@ Dieses Verzeichnis enthält die öffentlichen PowerShell-Funktionen des Moduls. 
 | `Get-SqlServerLabHyperVResourcePreview` | `Get-SqlServerLabHyperVResourcePreview.ps1` | Registrierte Hyper-V-Location, freien Speicher und physische Klassenroots ohne Mutation auflösen |
 | `Get-SqlServerLabCatalog` | `Get-SqlServerLabCatalog.ps1` | Workflow-Katalog als persistenter, maschinenlesbarer Katalog mit Laufzeit-Metadaten |
 | `Get-SqlServerLabCleanupAudit` | `Get-SqlServerLabCleanupAudit.ps1` | Storage-Residency und Runtime-Scopes read-only klassifizieren sowie retained Objekte, unerwartete Residuen, Recovery und unverifizierbare Evidence mit stabilen Reason-Codes getrennt ausweisen |
+| `Get-SqlServerLabPersistentStorageRemovalPlan` | `Get-SqlServerLabPersistentStorageRemovalPlan.ps1` | Retention-Folgen einer Run-Entfernung anhand stabiler Storage-IDs über den frisch inventarisierten, schema-validierten Removal-Plan read-only prüfen |
 | `Get-SqlServerLabConnectionCenter` | `Sync-SqlServerLabConnectionCenter.ps1` | Passwortfreie Endpunktübersicht für SSMS, CMS und Exporte |
 | `Sync-SqlServerLabConnectionCenter` | `Sync-SqlServerLabConnectionCenter.ps1` | Endpunktkatalog der Verbindungszentrale atomar aktualisieren |
 | `Export-SqlServerLabSsmsRegistration` | `Sync-SqlServerLabConnectionCenter.ps1` | Kennwortfreien SSMS-`.regsrvr`-Export erzeugen |
