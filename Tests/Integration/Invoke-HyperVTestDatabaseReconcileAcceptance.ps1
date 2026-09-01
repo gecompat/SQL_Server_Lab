@@ -6,7 +6,10 @@
     Erstellt aus einem verifizierten SQL_PREPARED_SEALED-Artifact einen neuen,
     scopegebundenen Manifest-Run. Der Lauf prueft den oeffentlichen read-only
     Plan, WhatIf, Addition, No-op, eigentumsgebundene Entfernung, erneuten No-op,
-    Fremddatenbankschutz, VM-Restart und vollstaendigen Cleanup.
+    Fremddatenbankschutz, VM-Restart und vollstaendigen Cleanup. In einem
+    isolierten Testdaten-Root erzeugt er außerdem eine verifizierte
+    LAB_GENERATED-Baseline und beweist deren bevorzugte Wiederverwendung ohne
+    erneuten Zugriff auf das Originalartefakt.
 .PARAMETER ArtifactId
     Optionales SQL_PREPARED_SEALED-Artifact. Ohne Angabe wird das neueste
     verifizierte SQL-2025-Artifact im State Root verwendet.
@@ -29,9 +32,11 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
 $testRoot = Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-hv-db-reconcile-' + [Guid]::NewGuid().ToString('N'))
+$testDataRoot = Join-Path $testRoot 'testdata-library'
 $baseManifestPath = Join-Path $testRoot 'base.json'
 $addManifestPath = Join-Path $testRoot 'add-chinook.json'
 $previousStateRoot = $env:SQL_SERVER_LAB_STATE
+$previousTestDataRoot = $env:SQL_SERVER_LAB_TEST_DATA_ROOT
 $module = $null
 $lab = $null
 $ownedPaths = @()
@@ -137,6 +142,7 @@ try {
     Get-Command Get-VM -ErrorAction Stop | Out-Null
 
     $null = New-Item -Path $testRoot -ItemType Directory -Force
+    $env:SQL_SERVER_LAB_TEST_DATA_ROOT = $testDataRoot
     $module = Import-Module $modulePath -Force -PassThru
     if (-not $StateRoot) { $StateRoot = Invoke-Private { Get-LabStateRoot } }
     $env:SQL_SERVER_LAB_STATE = $StateRoot
@@ -167,6 +173,12 @@ try {
     $addValidation = Test-SqlServerLabManifest -Path $addManifestPath
     Assert-HyperVTestDatabaseAcceptance ($baseValidation.IsValid -and $addValidation.IsValid) `
         'Basis- und Sample-Zielmanifest sind vor Mutation gueltig' (($baseValidation.Errors + $addValidation.Errors) -join '; ')
+    $chinookRestoreDefinition = Invoke-Private {
+        Resolve-LabSampleRestore `
+            -SampleDefinition ([PSCustomObject]@{ id='chinook'; variant='sql-server' }) `
+            -SqlVersion '2025' `
+            -TargetDatabaseName 'Chinook'
+    }
 
     $guestPassword = Invoke-Private { New-HyperVSqlUnattendedPassword }
     $script:saPassword = Invoke-Private { New-HyperVSqlUnattendedPassword }
@@ -230,6 +242,25 @@ try {
     Assert-HyperVTestDatabaseAcceptance (
         @($ownership.Entries).Count -eq 1 -and [string]$ownership.Entries[0].SampleId -eq 'chinook' -and $addNoOp.IsNoOp
     ) 'VM-gebundenes Ownership-Receipt und zweiter Add-Lauf sind konvergiert'
+    $baselineRequest = Invoke-Private {
+        param($RestoreDefinition,$Root,$LibraryRoot)
+        Get-LabSampleBaselineRequest -RestoreDefinition $RestoreDefinition -SqlVersion '2025' `
+            -StateRoot $Root -TestDataRoot $LibraryRoot
+    } @($chinookRestoreDefinition,$StateRoot,$testDataRoot)
+    Assert-HyperVTestDatabaseAcceptance (
+        $baselineRequest -and [string]$baselineRequest.Selection.MatchType -eq 'exact' -and
+        [string]$baselineRequest.Selection.Record.origin -eq 'LAB_GENERATED' -and
+        (Test-Path -LiteralPath ([string]$baselineRequest.Selection.Path) -PathType Leaf) -and
+        (Get-FileHash -LiteralPath ([string]$baselineRequest.Selection.Path) -Algorithm SHA256).Hash.ToLowerInvariant() -eq
+            [string]$baselineRequest.Selection.Sha256
+    ) 'Erste Sample-Installation exportiert eine hashverifizierte LAB_GENERATED-Baseline'
+    $manifestLockPath = Join-Path $context.RunDirectory 'manifest.lock.json'
+    $firstManifestLock = Get-Content -LiteralPath $manifestLockPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 30
+    Assert-HyperVTestDatabaseAcceptance (
+        @($firstManifestLock.artifacts | Where-Object {
+            [string]$_.sampleId -eq 'chinook' -and $_.PSObject.Properties['resolvedArtifact']
+        }).Count -eq 0
+    ) 'Erste Installation ist als Originalartefakt und noch nicht als Baseline-Hit gebunden'
 
     $removePlan = Get-SqlServerLabReconcilePlan -RunId $runId -HyperVTestDatabases `
         -ManifestPath $baseManifestPath -InstanceId primary -StateRoot $StateRoot
@@ -256,6 +287,35 @@ try {
     Assert-HyperVTestDatabaseAcceptance (
         @($finalOwnership.Entries).Count -eq 0 -and [string]$journal.Status -eq 'COMPLETED' -and $removeNoOp.IsNoOp
     ) 'Ownership, Journal und zweiter Remove-Lauf sind konvergiert'
+
+    $baselineAddResult = Invoke-SqlServerLabReconcileAction -RunId $runId -RepairHyperVTestDatabases `
+        -ManifestPath $addManifestPath -InstanceId primary -SqlSaPassword $script:saPassword `
+        -StateRoot $StateRoot -Confirm:$false
+    Assert-HyperVTestDatabaseAcceptance ([string]$baselineAddResult.ExecutionSummary.Status -eq 'SUCCEEDED') `
+        'Zweite Sample-Installation wurde aus der registrierten Baseline ausgefuehrt' `
+        ($baselineAddResult.ExecutionSummary.Errors -join '; ')
+    $baselineManifestLock = Get-Content -LiteralPath $manifestLockPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 30
+    $baselineLockEntries = @($baselineManifestLock.artifacts | Where-Object {
+        [string]$_.sampleId -eq 'chinook' -and [string]$_.resolvedArtifact.origin -eq 'LAB_GENERATED'
+    })
+    $artistCountFromBaseline = @(Invoke-AcceptanceQuery -Database Chinook -Query 'SET NOCOUNT ON; SELECT COUNT_BIG(*) FROM dbo.Artist;')[0]
+    Assert-HyperVTestDatabaseAcceptance (
+        $baselineLockEntries.Count -eq 1 -and
+        [string]$baselineLockEntries[0].resolvedArtifact.keyId -eq [string]$baselineRequest.Selection.KeyId -and
+        [string]$baselineLockEntries[0].resolvedArtifact.sha256 -eq [string]$baselineRequest.Selection.Sha256 -and
+        [long]$artistCountFromBaseline -gt 0
+    ) 'Manifest-Lock und echter Sample-Inhalt belegen den LAB_GENERATED-Baseline-Hit'
+
+    $baselineRemoveResult = Invoke-SqlServerLabReconcileAction -RunId $runId -RepairHyperVTestDatabases `
+        -ManifestPath $baseManifestPath -InstanceId primary -StateRoot $StateRoot -Confirm:$false
+    $postBaselineOwnership = Get-Content -LiteralPath $ownershipPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 30
+    $postBaselineRemoveNoOp = Get-SqlServerLabReconcilePlan -RunId $runId -HyperVTestDatabases `
+        -ManifestPath $baseManifestPath -InstanceId primary -StateRoot $StateRoot
+    Assert-HyperVTestDatabaseAcceptance (
+        [string]$baselineRemoveResult.ExecutionSummary.Status -eq 'SUCCEEDED' -and
+        @($postBaselineOwnership.Entries).Count -eq 0 -and $postBaselineRemoveNoOp.IsNoOp -and
+        @(Invoke-AcceptanceQuery -Query "SET NOCOUNT ON; SELECT name FROM sys.databases WHERE name=N'Chinook';").Count -eq 0
+    ) 'Auch der Baseline-Wiederverwendungslauf endet eigentumsgebunden und konvergiert'
 
     Restart-SqlServerLab -RunId $runId -TimeoutSeconds $OobeTimeoutSeconds -Force -Confirm:$false | Out-Null
     $foreignMarkerAfterRestart = @(Invoke-AcceptanceQuery -Database NativeForeignEvidence -Query "SET NOCOUNT ON; SELECT Value FROM dbo.Marker WHERE Id=1;")[0]
@@ -290,8 +350,10 @@ finally {
     }
     if ($previousStateRoot) { $env:SQL_SERVER_LAB_STATE = $previousStateRoot }
     else { Remove-Item Env:SQL_SERVER_LAB_STATE -ErrorAction SilentlyContinue }
+    if ($previousTestDataRoot) { $env:SQL_SERVER_LAB_TEST_DATA_ROOT = $previousTestDataRoot }
+    else { Remove-Item Env:SQL_SERVER_LAB_TEST_DATA_ROOT -ErrorAction SilentlyContinue }
     if ($mutexAcquired) { $mutex.ReleaseMutex() }
     $mutex.Dispose()
 }
 
-Write-Host 'Native Hyper-V-Testdatenbank-Reconcile-Akzeptanz erfolgreich.' -ForegroundColor Green
+Write-Host 'Native Hyper-V-Testdatenbank-Reconcile- und LAB_GENERATED-Baseline-Akzeptanz erfolgreich.' -ForegroundColor Green
