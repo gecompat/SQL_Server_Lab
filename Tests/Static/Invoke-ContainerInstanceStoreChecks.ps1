@@ -25,13 +25,26 @@ try {
         param($Root)
         $sourceId=[guid]::NewGuid().ToString('D'); $targetId=[guid]::NewGuid().ToString('D')
         $runId=[guid]::NewGuid().ToString('D'); $scopeId=[guid]::NewGuid().ToString('D'); $operationId=[guid]::NewGuid().ToString('D')
+        $controllerId=[guid]::NewGuid().ToString('D')
+        $catalogRoot1=Join-Path $Root 'one/Lab_Data'; $catalogRoot2=Join-Path $Root 'two/Lab_Data'
+        $null=Initialize-LabManagedDataRoot -DataRoot $catalogRoot1 -ControllerId $controllerId -Confirm:$false
+        $null=Initialize-LabManagedDataRoot -DataRoot $catalogRoot2 -ControllerId $controllerId -Confirm:$false
+        $configuration=[PSCustomObject]@{
+            ControllerId=$controllerId
+            LabDataLocations=@(
+                [PSCustomObject]@{ LocationId=[guid]::NewGuid().ToString('D'); LabDataRoot=$catalogRoot1 },
+                [PSCustomObject]@{ LocationId=[guid]::NewGuid().ToString('D'); LabDataRoot=$catalogRoot2 }
+            )
+        }
         $volumeName='sql-lab-persistent-selected-source'
         $store=[PSCustomObject]@{
             PersistentStorageId=$sourceId; DisplayName='Selected SQL 2025'; StorageClass='INSTANCE_STORE'; State='DETACHED'; Provider='docker'
             LocationBinding=[PSCustomObject]@{ Residency='NATIVE_RUNTIME'; LocationId=$null; ProviderResourceId=$volumeName; InventoryObjectId='storage-object-111111111111111111111111'; RelativePath=$null }
             References=@(); Lease=$null; Retention='RETAINED'; CleanupDisposition='PRESERVE'; CreatedAt='2026-09-01T00:00:00Z'; UpdatedAt='2026-09-01T00:00:00Z'
         }
-        $catalog=[PSCustomObject]@{ Status='AVAILABLE'; Document=[PSCustomObject]@{ ContractVersion='SqlServerLab.PersistentStorageCatalog/1.0'; ControllerId=[guid]::NewGuid().ToString('D'); Revision=1; Stores=@($store) } }
+        $document=[PSCustomObject]@{ ContractVersion='SqlServerLab.PersistentStorageCatalog/1.0'; ControllerId=$controllerId; Revision=1; Stores=@($store) }
+        $null=Write-LabPersistentStorageCatalogDocument -Document $document -Configuration $configuration
+        $catalog=Get-LabPersistentStorageCatalog -Configuration $configuration
         $inspection=[PSCustomObject]@{
             Status='AVAILABLE'; Provider='docker'; VolumeName=$volumeName; VolumeId=$volumeName; AttachedContainers=@()
             Labels=[PSCustomObject]@{ 'sql-server-lab.persistent-storage-id'=$sourceId; 'sql-server-lab.sql-major-version'='2025' }
@@ -64,9 +77,12 @@ try {
         $originalInspection=(Get-Command Get-LabContainerInstanceStoreRuntimeInspection).ScriptBlock
         $originalEvidence=(Get-Command Get-LabContainerVolumeContentEvidence).ScriptBlock
         $originalCommand=(Get-Command Invoke-LabContainerInstanceStoreRuntimeCommand).ScriptBlock
+        $originalRegistration=(Get-Command Register-LabContainerInstanceStoreClone).ScriptBlock
         try {
             $script:instanceStoreSourceId=$sourceId; $script:instanceStoreTargetId=$targetId; $script:instanceStoreOperationId=$operationId
-            $script:instanceStoreTargetCreated=$false; $script:instanceStoreFailCopy=$true; $script:instanceStoreCommands=[Collections.Generic.List[string]]::new()
+            $script:instanceStoreTargetCreated=$false; $script:instanceStoreFailCopy=$true; $script:instanceStoreFailCatalog=$false
+            $script:instanceStoreOriginalRegistration=$originalRegistration
+            $script:instanceStoreCommands=[Collections.Generic.List[string]]::new()
             Set-Item Function:Get-LabContainerInstanceStoreRuntimeInspection -Value {
                 param($Provider,$VolumeName)
                 if ($VolumeName -eq 'sql-lab-persistent-selected-source') {
@@ -83,23 +99,38 @@ try {
                 if ($script:instanceStoreFailCopy -and $Arguments[0] -eq 'run') { throw 'CONTAINER_INSTANCE_STORE_COPY_FAILED' }
                 return @('ok')
             }
+            Set-Item Function:Register-LabContainerInstanceStoreClone -Value {
+                param($Plan,$Journal,$Configuration)
+                if ($script:instanceStoreFailCatalog) { throw 'SYNTHETIC_INSTANCE_STORE_CATALOG_FAILURE' }
+                & $script:instanceStoreOriginalRegistration -Plan $Plan -Journal $Journal -Configuration $Configuration
+            }
             $firstFailure=$null
-            try { $null=Invoke-LabContainerInstanceStoreClone -Plan $clonePlan -OperationDirectory $Root }
+            try { $null=Invoke-LabContainerInstanceStoreClone -Plan $clonePlan -OperationDirectory $Root -Configuration $configuration }
             catch { $firstFailure=$_.Exception.Message }
             $failedJournal=Get-Content -LiteralPath (Get-LabContainerInstanceStoreJournalPath -OperationDirectory $Root) -Raw -Encoding utf8 | ConvertFrom-Json -Depth 40
             $script:instanceStoreFailCopy=$false
-            $completedJournal=Invoke-LabContainerInstanceStoreClone -Plan $clonePlan -OperationDirectory $Root
+            $script:instanceStoreFailCatalog=$true
+            $catalogFailure=$null
+            try { $null=Invoke-LabContainerInstanceStoreClone -Plan $clonePlan -OperationDirectory $Root -Configuration $configuration }
+            catch { $catalogFailure=$_.Exception.Message }
+            $failedCatalogJournal=Get-Content -LiteralPath (Get-LabContainerInstanceStoreJournalPath -OperationDirectory $Root) -Raw -Encoding utf8 | ConvertFrom-Json -Depth 40
+            $script:instanceStoreFailCatalog=$false
+            $completedJournal=Invoke-LabContainerInstanceStoreClone -Plan $clonePlan -OperationDirectory $Root -Configuration $configuration
+            $completedAgain=Invoke-LabContainerInstanceStoreClone -Plan $clonePlan -OperationDirectory $Root -Configuration $configuration
+            $catalogAfter=Get-LabPersistentStorageCatalog -Configuration $configuration
             $commands=@($script:instanceStoreCommands)
         }
         finally {
             Set-Item Function:Get-LabContainerInstanceStoreRuntimeInspection -Value $originalInspection
             Set-Item Function:Get-LabContainerVolumeContentEvidence -Value $originalEvidence
             Set-Item Function:Invoke-LabContainerInstanceStoreRuntimeCommand -Value $originalCommand
-            Remove-Variable instanceStoreSourceId,instanceStoreTargetId,instanceStoreOperationId,instanceStoreTargetCreated,instanceStoreFailCopy,instanceStoreCommands -Scope Script -ErrorAction SilentlyContinue
+            Set-Item Function:Register-LabContainerInstanceStoreClone -Value $originalRegistration
+            Remove-Variable instanceStoreSourceId,instanceStoreTargetId,instanceStoreOperationId,instanceStoreTargetCreated,instanceStoreFailCopy,instanceStoreFailCatalog,instanceStoreOriginalRegistration,instanceStoreCommands -Scope Script -ErrorAction SilentlyContinue
         }
         [PSCustomObject]@{
             ContinuePlan=$continuePlan; ClonePlan=$clonePlan; Drive=$drive; AttachedPlan=$attachedPlan; VersionPlan=$versionPlan; LeasedPlan=$leasedPlan
-            FirstFailure=$firstFailure; FailedJournal=$failedJournal; CompletedJournal=$completedJournal; Commands=$commands
+            FirstFailure=$firstFailure; FailedJournal=$failedJournal; CatalogFailure=$catalogFailure; FailedCatalogJournal=$failedCatalogJournal
+            CompletedJournal=$completedJournal; CompletedAgain=$completedAgain; CatalogAfter=$catalogAfter; Commands=$commands
             IntentValid=(Test-LabContainerInstanceStoreIntent -Intent $cloneIntent)
         }
     } $temporaryRoot
@@ -123,8 +154,20 @@ try {
         $evidence.FirstFailure -match '^CONTAINER_INSTANCE_STORE_RECOVERY_REQUIRED' -and $evidence.FailedJournal.Status -eq 'RECOVERY_REQUIRED' -and
         $evidence.FailedJournal.Recovery.Status -eq 'RETRY_CLONE')
     Add-CheckResult -Name 'Wiederaufnahme revalidiert und beendet denselben journalisierten Clone' -Success (
-        $evidence.CompletedJournal.Status -eq 'COMPLETED' -and $evidence.CompletedJournal.Recovery.Attempts -eq 2 -and
+        $evidence.CompletedJournal.Status -eq 'COMPLETED' -and $evidence.CompletedJournal.Recovery.Attempts -eq 3 -and
         $evidence.CompletedJournal.Source.Evidence.Sha256 -eq $evidence.CompletedJournal.Target.Evidence.Sha256)
+    $targetStores=@($evidence.CatalogAfter.Document.Stores | Where-Object PersistentStorageId -eq $evidence.ClonePlan.Target.PersistentStorageId)
+    Add-CheckResult -Name 'Katalogfehler verhindert COMPLETED und bleibt als wiederaufnehmbarer Recovery-Zustand sichtbar' -Success (
+        $evidence.CatalogFailure -match '^CONTAINER_INSTANCE_STORE_RECOVERY_REQUIRED: SYNTHETIC_INSTANCE_STORE_CATALOG_FAILURE' -and
+        $evidence.FailedCatalogJournal.Status -eq 'RECOVERY_REQUIRED' -and $evidence.FailedCatalogJournal.Recovery.Status -eq 'RETRY_CLONE')
+    Add-CheckResult -Name 'Verifiziertes Clone-Ziel wird atomar und idempotent auf alle Katalogspiegel committed' -Success (
+        $evidence.CatalogAfter.Status -eq 'AVAILABLE' -and @($evidence.CatalogAfter.Sources).Count -eq 2 -and
+        $evidence.CatalogAfter.Document.Revision -eq 2 -and $targetStores.Count -eq 1 -and
+        $targetStores[0].State -eq 'DETACHED' -and -not $targetStores[0].Lease -and
+        $targetStores[0].LocationBinding.ProviderResourceId -eq $evidence.ClonePlan.Target.VolumeName -and
+        $targetStores[0].LocationBinding.InventoryObjectId -match '^storage-object-[a-f0-9]{24}$' -and
+        @($targetStores[0].References | Where-Object { $_.State -eq 'RELEASED' -and $_.TargetId -eq $evidence.ClonePlan.Target.RunId }).Count -eq 1 -and
+        $evidence.CompletedAgain.Status -eq 'COMPLETED')
     Add-CheckResult -Name 'Runtime-Befehle mounten die Quelle read-only und entfernen kein Volume' -Success (
         (@($evidence.Commands | Where-Object { $_ -match ':/source:ro' }).Count -ge 1) -and
         (@($evidence.Commands | Where-Object { $_ -match '(^| )volume rm( |$)' }).Count -eq 0))

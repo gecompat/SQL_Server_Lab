@@ -367,6 +367,105 @@ function Register-LabDatabasePackagePersistentStorage {
     }
 }
 
+function Register-LabContainerInstanceStoreClone {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Plan,
+        [Parameter(Mandatory)]$Journal,
+        [Parameter(Mandatory)]$Configuration
+    )
+
+    if ([string]$Plan.ContractVersion -ne 'SqlServerLab.ContainerInstanceStorePlan/1.0' -or
+        [string]$Plan.Status -ne 'READY' -or [string]$Plan.Action -ne 'CLONE') {
+        throw 'CONTAINER_INSTANCE_STORE_CATALOG_PLAN_INVALID'
+    }
+    if ([string]$Journal.ContractVersion -ne 'SqlServerLab.ContainerInstanceStoreJournal/1.0' -or
+        [string]$Journal.Status -notin @('VERIFIED','COMPLETED') -or
+        [string]$Journal.OperationId -ne [string]$Plan.OperationId -or
+        [string]$Journal.Provider -ne [string]$Plan.Provider -or
+        [string]$Journal.Source.PersistentStorageId -ne [string]$Plan.Source.PersistentStorageId -or
+        [string]$Journal.Target.PersistentStorageId -ne [string]$Plan.Target.PersistentStorageId -or
+        [string]$Journal.Target.VolumeName -ne [string]$Plan.Target.VolumeName -or
+        [string]$Journal.Target.VolumeId -ne [string]$Plan.Target.VolumeName -or
+        -not $Journal.Source.Evidence -or -not $Journal.Target.Evidence -or
+        [string]$Journal.Source.Evidence.Sha256 -ne [string]$Journal.Target.Evidence.Sha256 -or
+        [long]$Journal.Source.Evidence.FileCount -ne [long]$Journal.Target.Evidence.FileCount -or
+        [long]$Journal.Source.Evidence.TotalBytes -ne [long]$Journal.Target.Evidence.TotalBytes) {
+        throw 'CONTAINER_INSTANCE_STORE_CATALOG_EVIDENCE_INVALID'
+    }
+    if ([string]::IsNullOrWhiteSpace([string]$Configuration.ControllerId)) {
+        throw 'CONTAINER_INSTANCE_STORE_CATALOG_CONFIGURATION_INVALID'
+    }
+
+    $targetStorageId = [string]$Plan.Target.PersistentStorageId
+    $targetVolumeName = [string]$Plan.Target.VolumeName
+    $targetInventoryObjectId = Get-LabStorageResidencyObjectId -Key "runtime-volume|$([string]$Plan.Provider)|$targetVolumeName"
+
+    return Invoke-LabPersistentStorageCatalogLock -ControllerId ([string]$Configuration.ControllerId) -ScriptBlock {
+        $catalog = Get-LabPersistentStorageCatalog -Configuration $Configuration
+        if ([string]$catalog.Status -ne 'AVAILABLE') {
+            throw "PERSISTENT_STORAGE_CATALOG_MUTATION_BLOCKED: $([string]$catalog.Status)"
+        }
+        $sourceStores = @($catalog.Document.Stores | Where-Object {
+            [string]$_.PersistentStorageId -eq [string]$Plan.Source.PersistentStorageId
+        })
+        if ($sourceStores.Count -ne 1 -or [string]$sourceStores[0].StorageClass -ne 'INSTANCE_STORE' -or
+            [string]$sourceStores[0].Provider -ne [string]$Plan.Provider -or
+            [string]$sourceStores[0].State -notin @('AVAILABLE','DETACHED') -or $sourceStores[0].Lease -or
+            @($sourceStores[0].References | Where-Object State -eq 'ACTIVE').Count -gt 0 -or
+            [string]$sourceStores[0].LocationBinding.ProviderResourceId -ne [string]$Plan.Source.VolumeName) {
+            throw 'CONTAINER_INSTANCE_STORE_CATALOG_SOURCE_CONFLICT'
+        }
+
+        $targetStores = @($catalog.Document.Stores | Where-Object {
+            [string]$_.PersistentStorageId -eq $targetStorageId -or
+            ([string]$_.Provider -eq [string]$Plan.Provider -and
+                ([string]$_.LocationBinding.ProviderResourceId -eq $targetVolumeName -or
+                 [string]$_.LocationBinding.InventoryObjectId -eq $targetInventoryObjectId))
+        })
+        if ($targetStores.Count -gt 1) { throw 'CONTAINER_INSTANCE_STORE_CATALOG_TARGET_DUPLICATE' }
+        if ($targetStores.Count -eq 1) {
+            $existing = $targetStores[0]
+            if ([string]$existing.PersistentStorageId -ne $targetStorageId -or
+                [string]$existing.StorageClass -ne 'INSTANCE_STORE' -or [string]$existing.Provider -ne [string]$Plan.Provider -or
+                [string]$existing.State -ne 'DETACHED' -or $existing.Lease -or
+                [string]$existing.LocationBinding.Residency -ne 'NATIVE_RUNTIME' -or $existing.LocationBinding.LocationId -or
+                [string]$existing.LocationBinding.ProviderResourceId -ne $targetVolumeName -or
+                [string]$existing.LocationBinding.InventoryObjectId -ne $targetInventoryObjectId -or $existing.LocationBinding.RelativePath -or
+                [string]$existing.Retention -ne 'RETAINED' -or [string]$existing.CleanupDisposition -ne 'PRESERVE' -or
+                @($existing.References | Where-Object {
+                    [string]$_.ReferenceId -eq [string]$Plan.OperationId -and [string]$_.Kind -eq 'RUN' -and
+                    [string]$_.State -eq 'RELEASED' -and [string]$_.TargetId -eq [string]$Plan.Target.RunId
+                }).Count -ne 1 -or @($existing.References | Where-Object State -eq 'ACTIVE').Count -gt 0) {
+                throw 'CONTAINER_INSTANCE_STORE_CATALOG_TARGET_CONFLICT'
+            }
+            return [PSCustomObject]@{ Changed=$false; Store=$existing; CatalogRevision=[int]$catalog.Document.Revision }
+        }
+
+        $now = Get-LabTimestamp
+        $displayName = "Clone of $([string]$sourceStores[0].DisplayName)"
+        if ($displayName.Length -gt 128) { $displayName = $displayName.Substring(0,128) }
+        $store = [PSCustomObject][ordered]@{
+            PersistentStorageId=$targetStorageId; DisplayName=$displayName; StorageClass='INSTANCE_STORE'
+            State='DETACHED'; Provider=[string]$Plan.Provider
+            LocationBinding=[PSCustomObject][ordered]@{
+                Residency='NATIVE_RUNTIME'; LocationId=$null; ProviderResourceId=$targetVolumeName
+                InventoryObjectId=$targetInventoryObjectId; RelativePath=$null
+            }
+            References=@([PSCustomObject][ordered]@{
+                ReferenceId=[string]$Plan.OperationId; Kind='RUN'; State='RELEASED'; TargetId=[string]$Plan.Target.RunId
+            })
+            Lease=$null; Retention='RETAINED'; CleanupDisposition='PRESERVE'; CreatedAt=$now; UpdatedAt=$now
+        }
+        $next = $catalog.Document | ConvertTo-Json -Depth 40 | ConvertFrom-Json -Depth 40
+        $next.Revision = [int]$next.Revision + 1
+        $next.Stores = @($next.Stores) + @($store)
+        $null = Test-LabPersistentStorageCatalogDocument -Document $next -Configuration $Configuration
+        $null = Write-LabPersistentStorageCatalogDocument -Document $next -Configuration $Configuration
+        return [PSCustomObject]@{ Changed=$true; Store=$store; CatalogRevision=[int]$next.Revision }
+    }
+}
+
 function Sync-LabBackupSetPersistentStorageCatalog {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$DataRoot)
