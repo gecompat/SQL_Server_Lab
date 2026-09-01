@@ -930,9 +930,13 @@ werden als `BACKUP_SET` beziehungsweise `DATABASE_PACKAGE` unter
 controllerweitem Lock rollbackfähig auf alle erreichbaren, eigenen `Lab_Data`-
 Spiegel geschrieben; Wiederholung und interner Bestandsabgleich sind
 idempotent und lesen Registry sowie billige Vollständigkeitsevidence statt alle
-Artefaktinhalte erneut zu hashen. Noch nicht implementiert sind die generische
-Katalogmutation, ein öffentlicher Bestandsmigrationsbefehl, Lease-Akquisition,
-providerübergreifende Wiederverwendung und explizites Löschen. Der zusätzliche
+Artefaktinhalte erneut zu hashen. Reguläre Docker-/Podman-Labs mit
+`-PersistentData` vergeben die stabile ID vor der Volume-Erzeugung, erwerben
+eine exklusive Run-Lease und geben sie nach verifizierter Containerentfernung
+als `DETACHED` frei; Runtime-Abweichungen bleiben `RECOVERY_REQUIRED`. Noch
+nicht implementiert sind die generische Katalogmutation, ein öffentlicher
+Bestandsmigrationsbefehl, Lease-Akquisition im expliziten Continue-/Clone-
+Bedienpfad, providerübergreifende Wiederverwendung und explizites Löschen. Der zusätzliche
 read-only Removal-Vertrag plant
 `DELETE_WITH_RUN`, `RETAIN_INSTANCE_STORE`, `BACKUP_ON_REMOVE`,
 `PACKAGE_ON_REMOVE`, `BACKUP_AND_PACKAGE` und `EXTERNAL_UNMANAGED` mit
@@ -948,8 +952,9 @@ Das verifizierte Clone-Ziel wird danach mit stabiler ID rollbackfähig und
 idempotent auf alle controllergebundenen Katalogspiegel committed; ein
 Commitfehler verhindert `COMPLETED` und bleibt journalisiert wiederaufnehmbar.
 Docker und Podman sind damit am 2026-09-01 getrennt real belegt. Noch offen sind
-Lease-Akquisition, die Mitnahme optionaler External-Runtime-Sidecar-Volumes und
-der öffentliche CLI-/GUI-Einstieg. Bis dahin ist dieser Kern keine vollständige
+Lease-Akquisition für den expliziten Continue-/Clone-Bedienpfad, die Mitnahme
+optionaler External-Runtime-Sidecar-Volumes und der öffentliche CLI-/GUI-
+Einstieg. Bis dahin ist dieser Kern keine vollständige
 Endbenutzerfunktion.
 Der read-only `SqlServerLab.ContainerRuntimeScope/1.0`-Vertrag klassifiziert
 den aktiven Docker-Context beziehungsweise die aktive Podman-Connection samt
