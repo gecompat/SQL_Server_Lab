@@ -4,6 +4,8 @@ $source=Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVTestDatabas
 $publicPlanSource=Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Get-SqlServerLabReconcilePlan.ps1') -Raw -Encoding utf8
 $publicActionSource=Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Invoke-SqlServerLabReconcileAction.ps1') -Raw -Encoding utf8
 $provisionSource=Get-Content -LiteralPath (Join-Path $repoRoot 'Public/New-SqlServerLab.ps1') -Raw -Encoding utf8
+$acceptanceSource=Get-Content -LiteralPath (Join-Path $repoRoot 'Tests/Integration/Invoke-HyperVTestDatabaseReconcileAcceptance.ps1') -Raw -Encoding utf8
+$bootstrapSource=Get-Content -LiteralPath (Join-Path $repoRoot 'Tests/Integration/Invoke-HyperVTestDatabaseReconcileAcceptanceBootstrap.ps1') -Raw -Encoding utf8
 $testRoot=Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-hv-test-database-'+[Guid]::NewGuid().ToString('N'))
 $runId=[Guid]::NewGuid().ToString('D');$scopeId=[Guid]::NewGuid().ToString('D');$runDirectory=Join-Path (Join-Path $testRoot 'runs') $runId
 New-Item -Path $runDirectory -ItemType Directory -Force|Out-Null
@@ -88,6 +90,9 @@ try{
         'Actual State und Postcondition lesen sys.databases ueber PowerShell Direct'=($source -match 'Invoke-HyperVPowerShellDirect' -and ([regex]::Matches($source,'sys\.databases')).Count -ge 2 -and $source -match 'POSTCONDITION_MISSING')
         'Erstbereitstellung persistiert Ownership erst nach erfolgreicher Sample-Verifikation'=($provisionSource -match 'New-LabHyperVTestDatabaseOwnershipEntry' -and $provisionSource -match 'Add-LabHyperVTestDatabaseOwnershipEntry')
         'Oeffentliche CLI bindet Zielmanifest, Plan, WhatIf und optionales SecureString-Passwort'=($publicPlanSource -match 'HyperVTestDatabases' -and $publicActionSource -match 'RepairHyperVTestDatabases' -and $publicActionSource -match '\[SecureString\]\$SqlSaPassword' -and $publicActionSource -match 'ShouldProcess')
+        'Nativer Runner bindet Plan, WhatIf, Add, No-op, Remove und VM-Restart an die oeffentliche CLI'=($acceptanceSource -match 'Get-SqlServerLabReconcilePlan' -and $acceptanceSource -match 'Invoke-SqlServerLabReconcileAction' -and $acceptanceSource -match 'add-sample' -and $acceptanceSource -match 'remove-owned-sample' -and $acceptanceSource -match 'Restart-SqlServerLab')
+        'Nativer Runner schuetzt Fremddatenbank und erzwingt scopegebundenen Run-/VHDX-Cleanup'=($acceptanceSource -match 'NativeForeignEvidence' -and $acceptanceSource -match 'foreign-preserved' -and $acceptanceSource -match 'Remove-SqlServerLab' -and $acceptanceSource -match 'Run-eigene VHDX')
+        'Bootstrap bindet isoliertes Prepared-Artifact, Recovery-Marker und strikten Artifact-/State-Cleanup'=($bootstrapSource -match 'RetainPreparedArtifact' -and $bootstrapSource -match 'RETAINED_STATE_ROOT' -and $bootstrapSource -match 'RETAINED_ARTIFACT_ID' -and $bootstrapSource -match 'Remove-HyperVImageArtifact' -and $bootstrapSource -match 'RECOVERY_REQUIRED')
         'Executor mutiert weder VM-Zustand noch fremde Datenbanken'=($source -notmatch 'Stop-VM|Start-VM|Restart-VM' -and $source -match 'OWNERSHIP_IDENTITY_MISMATCH' -and $source -match 'unowned-output-conflict')
     }
     $failedChecks=@($checks.GetEnumerator()|Where-Object{-not$_.Value});foreach($check in $checks.GetEnumerator()){$color=if($check.Value){'Green'}else{'Red'};Write-Host("  {0}  {1}" -f $(if($check.Value){'PASS'}else{'FAIL'}),$check.Key)-ForegroundColor $color};if($failedChecks.Count){throw "Hyper-V test database reconcile checks failed: $($failedChecks.Key -join ', ')"};Write-Host "Hyper-V Test Database Reconcile Checks: $($checks.Count) PASS, 0 FAIL" -ForegroundColor Green

@@ -510,7 +510,13 @@ katalogisierte Samples addieren und ausschließlich receiptgebundene Outputs
 entfernen; vor dem Drop werden `BACKUP ... WITH CHECKSUM` und
 `RESTORE VERIFYONLY` ausgeführt. Journal, Postconditions, Teilinstallations-
 Recovery, Fremddatenbankschutz und Desired-State-Synchronisierung sind
-synthetisch belegt. Die Repair-Pfade sind noch nicht nativ belegt; nicht
+synthetisch belegt. Die frühere pauschale Manifest-Sperre ist entfernt:
+Hyper-V-Datenbanken benötigen nun vor der Mutation `SQL_PREPARED_SEALED` und
+einen vollständigen portablen Storage-Intent; reine OS-Baselines bleiben
+fail-closed. Ein isolierter nativer Runner samt Prepared-Artifact-Bootstrap
+bindet Plan, `WhatIf`, Add, No-op, Remove, Fremddatenbankschutz, VM-Restart und
+Cleanup, ist aber noch `NOT_EXECUTED`. Die übrigen Repair-Pfade sind ebenfalls
+noch nicht nativ belegt; nicht
 dynamische Konfiguration, Trace-Flag-Entfernung, alte Runs ohne Ownership-
 Receipt und allgemeiner Create-/Restore-Reconcile bleiben offen.
 

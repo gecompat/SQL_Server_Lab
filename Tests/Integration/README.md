@@ -173,6 +173,35 @@ fuer synthetische Medien in der Runtime explizit gesperrt.
 .\Tests\Integration\Invoke-HyperVSmokeTest.ps1
 ```
 
+## Invoke-HyperVTestDatabaseReconcileAcceptance.ps1
+
+Der erhöhte native Runner verwendet ausschließlich ein hashverifiziertes
+`SQL_PREPARED_SEALED`-Artifact und erzeugt daraus einen neuen isolierten
+Manifest-Run. Er legt eine nicht vom Sample-Receipt beanspruchte Schutzdatenbank
+an und führt anschließend über die öffentlichen Cmdlets den Zyklus read-only
+Plan, `WhatIf`, Chinook-Addition, No-op, eigentumsgebundene Entfernung und
+erneuten No-op aus. Nach einem vollständigen VM-Restart muss die Schutzdatenbank
+unverändert vorhanden sein. Der Erfolgs-Cleanup entfernt Run, VM und alle
+run-eigenen VHDX; `-KeepOnFailure` lässt Journal und Run für den expliziten
+Recovery-Pfad stehen.
+
+```powershell
+.\Tests\Integration\Invoke-HyperVTestDatabaseReconcileAcceptance.ps1 `
+    -ArtifactId 'hyperv-sql-prepared-sealed-<sha256>'
+```
+
+Fehlt ein dauerhaftes Prepared-Artifact, kann der isolierte Bootstrap zunächst
+`Invoke-HyperVSqlPreparedImageAcceptance.ps1 -RetainPreparedArtifact` verwenden.
+Artifact-ID und testlokaler State Root werden danach explizit an diesen Runner
+übergeben und nach erfolgreicher Abnahme über die Image Registry entfernt.
+Der reproduzierbare Wrapper führt genau diese Übergabe samt strengem Cleanup in
+einer erhöhten Sitzung automatisch aus:
+
+```powershell
+.\Tests\Integration\Invoke-HyperVTestDatabaseReconcileAcceptanceBootstrap.ps1 `
+    -MediaRoot D:\Lab_Base
+```
+
 ## Invoke-HyperVWindowsGeneralizeAcceptance.ps1
 
 Dieser reale positive Image-Factory-Nachweis verwendet die Betriebssystem- und

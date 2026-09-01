@@ -303,7 +303,10 @@ Plan-/Receipt-Bindings, Restore erzeugt aus `FILELISTONLY` für jede Data-, Log-
 und unterstützte Spezialdatei genau ein typgerechtes `MOVE`-Ziel, und beide
 Operationen quittieren erst nach exaktem `sys.master_files`-Abgleich. Fehler
 hinterlassen ein sanitisiertes `RECOVERY_REQUIRED`-Receipt. Katalogisierte
-Sample-Restores im neuen Hyper-V-Storagepfad sind weiterhin unsupported;
+Samples verwenden bei `SQL_PREPARED_SEALED`-Manifesten ausschließlich die
+verifizierten Default-Data-, Default-Log- und Backup-Rollen; fehlende Rollen
+oder widersprüchliche explizite Sample-Platzierung werden vor der Mutation
+abgelehnt. Die positive native Sample-Manifest-Evidence bleibt offen;
 physische Containertrennung bleibt ebenfalls unsupported. Der physische
 N5-Storage-Nachweis ist damit abgeschlossen. Ein erneuter realer Lauf am
 2026-08-31 bestätigte den Vertrag nach der Ressourcenroot-Umstellung mit drei
@@ -365,7 +368,11 @@ partielle Installation und Vorwärts-Resume sind synthetisch belegt. Additionen
 benötigen derzeit Host-SQL-Zugriff und ein beim Lauf gespeichertes oder beim
 Action-Aufruf übergebenes SA-Passwort. Bestehende Runs ohne Ownership-Receipt,
 direkte Restore-/Create-Datenbanken und positive native Evidence bleiben
-`NOT_EXECUTED` beziehungsweise fail-closed.
+`NOT_EXECUTED` beziehungsweise fail-closed. Der ausführbare Runner
+`Tests/Integration/Invoke-HyperVTestDatabaseReconcileAcceptance.ps1` und sein
+isolierter Prepared-Artifact-Bootstrap decken Plan, `WhatIf`, Add, No-op,
+Removal, Fremddatenbankschutz, VM-Restart und Cleanup ab; eine grüne statische
+Prüfung dieses Runners ist noch kein nativer Laufnachweis.
 
 Das Feld `sizeLimitGB` bei Drives ist fuer Docker- oder Podman-Volumes weiterhin
 nur Metadatum. Hyper-V verwendet es dagegen als VHDX-Sollgroesse bei Erstellung

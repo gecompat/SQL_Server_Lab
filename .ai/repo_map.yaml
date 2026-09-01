@@ -60,6 +60,8 @@ sources_of_truth:
   hyperv_test_database_ownership_schema: Schemas/hyperv-test-database-ownership.schema.json
   hyperv_test_database_reconcile_journal_schema: Schemas/hyperv-test-database-reconcile-journal.schema.json
   validation_hyperv_test_database_reconcile: Tests/Static/Invoke-HyperVTestDatabaseReconcileChecks.ps1
+  validation_hyperv_test_database_reconcile_acceptance: Tests/Integration/Invoke-HyperVTestDatabaseReconcileAcceptance.ps1
+  validation_hyperv_test_database_reconcile_bootstrap: Tests/Integration/Invoke-HyperVTestDatabaseReconcileAcceptanceBootstrap.ps1
   port_allocation_contract: Private/PortAllocation.ps1
   storage_contract: Private/StorageContract.ps1
   storage_contract_schema: Schemas/lab-storage-contract.schema.json
@@ -533,6 +535,7 @@ providers:
     storage_reconcile: "Private/HyperVStorageReconcile.ps1 plus Private/HyperVSqlStorageReconcile.ps1; manifestgebundene zusaetzliche SCSI-VHDX, Grow-only-Resize, Gast-NTFS-Erweiterung sowie receiptgebundener SQL-Default-/TempDB-Reconcile mit Recovery-Resume"
     sql_configuration_reconcile: "Private/HyperVSqlConfigurationReconcile.ps1; persistierter serverConfig-Intent, read-only sys.configurations-/Trace-Flag-Istvergleich und journalisierte dynamische Live-Reparatur mit Recovery-Resume"
     sql_port_reconcile: "Private/HyperVSqlPortReconcile.ps1; persistierter hyperv.sqlPort-Intent, hostwertfreier Registry-/Firewall-Istvergleich und journalisierte Reparatur mit ausschliesslichem SQL-Dienstrestart sowie Recovery-Resume"
+    test_database_reconcile: "Private/HyperVTestDatabaseReconcile.ps1; katalogisierte Add-/Remove-Aktionen mit VM-gebundenem Ownership, verifiziertem Removal-Backup, Fremddatenbankschutz und Vorwaerts-Recovery"
     migration_lifecycle_guard: "read-only Reconcile-Plan plus fail-closed Start, Stop, Autostart, SQL-WMI-Repair und Cleanup; Run- und allgemeine Location-Migrationen muessen terminal sein, COMPLETED erfordert revalidierte Bindings"
     storage_parent_migration_binding: "Plan inventarisiert lokale HyperVResourceBinding-Receipts sowie exakte VM-Konfigurations-/Snapshot-/Paging-Quell- und Zielpfade; Apply revalidiert VM-Identitaet und Aus-Zustand, journalisiert Move-VMStorage vor der Mutation, prueft Ziel-Postconditions und setzt ohne doppelten Move fort"
     storage_parent_migration_acceptance: "Tests/Integration/Invoke-HyperVStorageParentMigrationAcceptance.ps1; reale Vorwaerts- und Rueckmigration eines isolierten nicht-default Lab_Data mit VM-Konfiguration, Snapshot, Smart Paging, VHDX-Rebind, Wiederherstellung und Cleanup"
@@ -557,6 +560,7 @@ providers:
     resource_migration_acceptance: Tests/Integration/Invoke-HyperVResourceMigrationAcceptance.ps1
     image_migration_static_checks: Tests/Static/Invoke-HyperVImageMigrationChecks.ps1
     sql_prepared_build_acceptance: Tests/Integration/Invoke-HyperVSqlPreparedImageAcceptance.ps1
+    test_database_reconcile_acceptance: "Tests/Integration/Invoke-HyperVTestDatabaseReconcileAcceptance.ps1 plus isolierter Prepared-Artifact-Bootstrap; ausfuehrbarer Plan/WhatIf/Add/No-op/Remove-/Restart-/Cleanup-Vertrag, native Ausfuehrung noch NOT_EXECUTED"
     storage_acceptance_bootstrap: "Tests/Integration/Invoke-HyperVStorageAcceptanceBootstrap.ps1; real three-device N4/N5 rerun validates bound builder/image placement and registry-safe isolated artifact cleanup"
     legacy_sql_migration_acceptance: "Tests/Integration/Invoke-HyperVLegacySqlMigrationBootstrap.ps1; isolated SQL 2022 clone validates committed Lab_Data binding, two guest/SQL restarts, running-state restoration, protected-group recovery, and complete candidate cleanup"
     template_pool: "Maximal 20 immutable OS_SEALED-/SQL_PREPARED_SEALED-Images; aktive Builder und Lab-Klone blockieren Parent-Löschung"
@@ -1035,7 +1039,7 @@ change_coupling:
 known_limitations:
   binding_document: Documentation/Quality/KNOWN_LIMITATIONS.md
   highlights:
-    - "Hyper-V-Reconcile deckt Netzwerk, vCPU/RAM, zusaetzliche VHDX grow-only, Gast-NTFS, SQL-Default-/TempDB-Dateiplatzierung und katalogisierte Testdatenbank-Add-/Remove-Aktionen mit lokalen Journals beziehungsweise VM-gebundenem Ownership-Receipt synthetisch ab; native Reparaturevidence, alte Runs ohne Testdatenbank-Receipt, Storage-Rebinding/-Removal sowie User-/Systemdatenbankverschiebung bleiben offen"
+    - "Hyper-V-Reconcile deckt Netzwerk, vCPU/RAM, zusaetzliche VHDX grow-only, Gast-NTFS, SQL-Default-/TempDB-Dateiplatzierung und katalogisierte Testdatenbank-Add-/Remove-Aktionen mit lokalen Journals beziehungsweise VM-gebundenem Ownership-Receipt synthetisch ab; fuer Testdatenbanken existieren ein isolierter nativer Runner und Prepared-Artifact-Bootstrap, deren Ausfuehrung noch NOT_EXECUTED ist; weitere native Reparaturevidence, alte Runs ohne Testdatenbank-Receipt, Storage-Rebinding/-Removal sowie User-/Systemdatenbankverschiebung bleiben offen"
     - "Hyper-V sealed VHDX Registry, Builder-/Resume-Grundlage, realer Windows-2025-/SQL-2025-Prepared-Manifest-Klon bis SQL_READY_RUN, freie Manifest-Drives, NAT-Bound-Plan mit IPAM, LAN-Bound-Plan mit lokaler External-Switch-/Adapter-Allowlist und DHCP, read-only Netzwerk-Reconcile, eng begrenzte journalisierte Netzwerkreparatur und echter SQL-2025-CLI-Vertical-Slice implementiert; vollautomatische OS-Factory sowie allgemeines Datenbank-/Software-/Post-Provision-Binding und positive native External-Switch-/Netzwerkreparatur-Evidence bleiben offen"
     - "Container-Manifeste laufen standardmäßig unattended mit externen Secret-Referenzen, SHA-256-/Trust-Schutz und read-only Host-Mount-Default"
     - "providerneutrale Network Intents und Exposure Policy binden Container-NAT sowie Hyper-V-HostOnly/-Isolation/-NAT/-LAN und lehnen offene Kombinationen vor Mutation ab; Hyper-V-NAT nutzt Shared-WinNAT, mutationsfreie Kollisionspruefung, statische scopegebundene IPAM-Leases und Gateway-/DNS-Binding; Hyper-V-LAN nutzt eine lokale External-Switch-/Adapter-Allowlist und DHCP; Hyper-V-Netzdrift wird im Lifecycle-Reconcile semantisch, hostwertfrei und fail-closed gelesen; ein eigener journalisierter Executor repariert ausschließlich additive Infrastruktur und genau einen vorhandenen getrennten Adapter; Rebinding, Adapter-Neuanlage, Gastadressreparatur sowie positive native External-Switch-/Repair-Evidence bleiben offen; Lifecycle-Reconcile sowie journalisierter Container-Reconcile fuer CPU, RAM, SQL max memory, Hostport, Autostart und External Runtimes sind implementiert"
