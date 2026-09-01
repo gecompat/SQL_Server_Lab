@@ -72,6 +72,12 @@ Add-CheckResult -Name 'Backup-Bibliothek aktiviert statischen Vertrag und provid
     'Invoke-SampleBaselineRuntimeChecks.ps1' -in $backupLibrary.StaticChecks
 )
 
+$databasePackage = & $selector -ChangedPath @('Private/DatabasePackage.ps1')
+Add-CheckResult -Name 'Datenbankpaket aktiviert Offline-Dateivertrag und Hyper-V-Runtime-Nachweis' -Success (
+    $databasePackage.HyperV -and -not $databasePackage.Docker -and -not $databasePackage.Podman -and
+    'Invoke-DatabasePackageChecks.ps1' -in $databasePackage.StaticChecks
+)
+
 $hyperVPersistentData = & $selector -ChangedPath @('Private/HyperVPersistentDataDrive.ps1')
 Add-CheckResult -Name 'Hyper-V-Persistent-Data aktiviert eigenen Vertrag und nur den Hyper-V-Runtime-Nachweis' -Success (
     $hyperVPersistentData.HyperV -and -not $hyperVPersistentData.Docker -and -not $hyperVPersistentData.Podman -and

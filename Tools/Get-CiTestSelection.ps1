@@ -73,6 +73,7 @@ end {
         @{ Pattern = '(?i)(ContainerInstanceStore|container-instance-store)'; Checks = @('Invoke-ContainerInstanceStoreChecks.ps1','Invoke-ContainerVolumeContractChecks.ps1') },
         @{ Pattern = '(?i)(ContainerRuntimeScope|container-runtime-scope)'; Checks = @('Invoke-ContainerRuntimeScopeChecks.ps1') },
         @{ Pattern = '(?i)(BackupLibrary|backup-library|Backup-SqlServerLabDatabase|Restore-SqlServerLabDatabase)'; Checks = @('Invoke-BackupLibraryChecks.ps1','Invoke-SampleBaselineRuntimeChecks.ps1') },
+        @{ Pattern = '(?i)(DatabasePackage|database-package)'; Checks = @('Invoke-DatabasePackageChecks.ps1') },
         @{ Pattern = '(?i)(HyperVPersistentDataDrive|hyperv-persistent-data)'; Checks = @('Invoke-HyperVPersistentDataDriveChecks.ps1','Invoke-HyperVProviderChecks.ps1') },
         @{ Pattern = '(?i)(LabNetwork|PortAllocation)'; Checks = @('Invoke-LabNetworkChecks.ps1','Invoke-PortAllocationChecks.ps1') },
         @{ Pattern = '(?i)(LabPreferences|PersistentLabData|StorageContract|StorageFilePlacement|HyperVResourceBinding|HyperVResourceMigration|HyperVImageMigration|hyperv-(resource-(binding|migration)|image-migration)|lab-storage-(intent|bound-plan|runtime-receipt)|SecretProvider|TestEnvironment)'; Checks = @('Invoke-DataRootChecks.ps1','Invoke-HyperVResourceBindingChecks.ps1','Invoke-HyperVImageMigrationChecks.ps1','Invoke-HyperVResourceMigrationChecks.ps1','Invoke-StorageMigrationChecks.ps1','Invoke-StorageFilePlacementChecks.ps1','Invoke-TestEnvironmentChecks.ps1') },
@@ -134,6 +135,7 @@ end {
         if (Test-AnyPath '(?i)(ContainerInstanceStore|container-instance-store)') { $runtime.Docker = $true; $runtime.Podman = $true }
         if (Test-AnyPath '(?i)(ContainerRuntimeScope|container-runtime-scope)') { $runtime.Docker = $true; $runtime.Podman = $true }
         if (Test-AnyPath '(?i)(BackupLibrary|backup-library|Backup-SqlServerLabDatabase)') { $runtime.Mixed = $true }
+        if (Test-AnyPath '(?i)(DatabasePackage|database-package)') { $runtime.HyperV = $true }
         if (Test-AnyPath '(?i)(runtime-smoke-mixed-providers\.yml|MixedProvider|ProviderCapability|DesiredState|ReconcileContract|ProviderSubRun)') { $runtime.Mixed = $true }
         if (Test-AnyPath '(?i)(^Providers/HyperV/|runtime-smoke-hyperv\.yml|/HyperV|^Private/HyperV|HyperVSmokeTest|^Private/ExternalRuntimeWindows|Images/ExternalLanguages/Windows|ExternalRuntimeHyperVAcceptance)') { $runtime.HyperV = $true }
         if (Test-AnyPath '(?i)(^Adapters/|ProjectAdapter|adapter-smoke|project-adapter)') { $runtime.Adapter = $true }

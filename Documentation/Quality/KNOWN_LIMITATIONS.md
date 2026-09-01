@@ -421,6 +421,19 @@ bewusst keine Aussage, dass vorhandene Datenbankdateien online sind:
 Katalog-Commit, öffentliche CLI-/GUI-Bedienung sowie der explizite SQL-
 Restore-/Attach-Schritt bleiben offen.
 
+Der interne `DATABASE_PACKAGE`-Core publiziert seit PSR-009 nur eine exklusiv
+gesperrte, nach dem Lock erneut als sauber `OFFLINE` oder `DETACHED` beobachtete
+Dateimenge. MDF, NDF, LDF und jeder FILESTREAM-Container werden rekursiv
+inventarisiert, kopiert und per SHA-256 sowie kanonischem Manifest geschützt.
+Clone und Attach verwenden immer eine neue physische Kopie; ein direktes
+Read/Write-Attach der unveränderlichen Bibliotheksobjekte ist verboten. Der
+Attach-Plan blockiert ältere SQL-Ziele, fehlende FILESTREAM-Capability,
+fehlende TDE-Key-Evidence, bestehende Zieldatenbanken und nicht-exklusive
+Nutzung. Der Executor journalisiert Kopie, Attach und Online-Postcondition.
+Noch offen sind die öffentliche CLI-/GUI-Bedienung, der Katalog-Commit und der
+reale SQL-Server-/FILESTREAM-Hyper-V-Nachweis; die statische Dateisystem-
+Abnahme wird nicht als nativer SQL-Attach ausgegeben.
+
 ## Restore
 
 Unterstützt werden direkte `.bak`-Dateien aus lokalen Pfaden oder HTTP(S)-URLs.

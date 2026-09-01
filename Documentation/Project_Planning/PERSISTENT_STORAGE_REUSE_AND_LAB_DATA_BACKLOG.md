@@ -370,7 +370,7 @@ Volumename ersetzt diese Identität nicht.
 | `PSR-006` | P1 | Podman-Machine- und Docker-Engine-/Context-Reichweite bewerten und gegebenenfalls dediziert verwalten | `IMPLEMENTED_READ_ONLY`: stabile sanitisierte Runtime-ID, Context-/Connection-/Machine-Bindung und REPORT_ONLY-Hostgrenze real belegt; dedizierter Ownership-/Lifecycle-Vertrag bleibt offen |
 | `PSR-007` | P1 | Hyper-V-Daten-VHDX sicher auswählen, reattachen, freigeben und klonen | `IMPLEMENTED_CORE`: Storage-ID-, Disk-/VM-/Checkpoint-/Clean-Detach-/SQL-Versions-validierter Host-Lifecycle, unabhängiger Clone und realer Hyper-V-Nachweis; Katalog-Commit, öffentliche Bedienung und explizite Datenbankaktion bleiben getrennt |
 | `PSR-008` | P1 | Providerneutrale Backup-Bibliothek mit automatischem Backup und Restore-Verifikation liefern | `IMPLEMENTED_CORE`: inhaltsadressierte `Lab_Data`-Bibliothek, `CHECKSUM`, `RESTORE VERIFYONLY`, Hash, Metadatenreceipt und realer Docker→Podman-Inhaltsnachweis; reale FILESTREAM-Cross-Provider-Evidence und öffentliche Bibliotheksauswahl bleiben offen |
-| `PSR-009` | P2 | Datenbankpakete inklusive FILESTREAM, Attach und Clone implementieren | vollständiger Offline-Dateivertrag mit exklusiver Nutzung |
+| `PSR-009` | P2 | Datenbankpakete inklusive FILESTREAM, Attach und Clone implementieren | `IMPLEMENTED_CORE`: vollständiger Offline-Dateivertrag, rekursive Hashes, unabhängiger Clone und journalisiertes Copy-then-Attach; native Hyper-V-/FILESTREAM-Abnahme sowie öffentliche Bedienung offen |
 | `PSR-010` | P2 | Serverobjekt- und TDE-Abhängigkeiten inventarisieren und Migrationsgrenzen anzeigen | kein falsches Vollständigkeitsversprechen |
 | `PSR-011` | P1 | identische CLI- und GUI-Flows für Auswahl, Retention, Restore, Attach, Clone und Delete liefern | ein gemeinsamer Core ohne Bedienungsparitätslücke |
 | `PSR-012` | P1 | Cleanup-Audit um persistente Stores, Runtime-Backing, Orphans und Referenzschutz erweitern | verständliche Residuen- und Recovery-Ausgabe |
@@ -424,6 +424,18 @@ Abnahmekriterium offen und wird nicht als bestanden behauptet.
 - Neuer-zu-älter-SQL-Attach, fehlende FILESTREAM-Capability, fehlendes TDE-
   Zertifikat und inkonsistenter Detach-Zustand enden fail-closed mit
   verständlicher Recovery-Angabe.
+
+Stand 2026-09-01: `SqlServerLab.DatabasePackageLibrary/1.0` veröffentlicht nur
+eine nach dem exklusiven Lock erneut als sauber offline oder detached
+beobachtete Dateimenge. MDF, NDF, LDF und verschachtelte FILESTREAM-Inhalte
+werden vollständig kopiert und einzeln gehasht; ein kanonischer Manifesthash
+bindet die Gesamtmenge. Clone und Attach materialisieren eine unabhängige
+physische Kopie, das direkte Read/Write-Attach eines Bibliotheksobjekts ist
+verboten. Der Attach-Plan blockiert ältere SQL-Ziele, fehlende FILESTREAM- oder
+TDE-Evidence, vorhandene Zieldatenbanken und parallele Writer. Kopie, Attach,
+Online-Postcondition und Recovery werden journalisiert. Die deterministische
+Core-Suite ist grün; ein realer Windows-SQL-/FILESTREAM-Lauf in Hyper-V bleibt
+als eigener Provider-Nachweis offen und wird nicht vorweggenommen.
 - `BACKUP_ON_REMOVE` entfernt die Umgebung erst nach erfolgreicher
   Sicherungs- und Verifikationsevidence oder endet ohne Datenlöschung in
   `RECOVERY_REQUIRED`.

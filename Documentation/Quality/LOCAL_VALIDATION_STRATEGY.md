@@ -497,6 +497,25 @@ sanitisierten Inhaltsdigest liefern. Da SQL Server in den verwendeten Linux-
 Containern keine FILESTREAM-Evidence liefert, zählt dieser Lauf ausdrücklich
 nicht als FILESTREAM-Abnahme.
 
+`Invoke-DatabasePackageChecks.ps1` prüft den PSR-009-Core deterministisch mit
+einer synthetischen MDF-/NDF-/LDF-Dateimenge und einem verschachtelten
+FILESTREAM-Container. Der Test beweist rekursive Hashes, Manipulationsschutz,
+unabhängige Clone-Dateien, `COPY_THEN_ATTACH`, Journal/Postcondition sowie die
+fail-closed Grenzen für ältere SQL-Ziele, FILESTREAM, TDE, Detach-State und
+parallele Writer. Er ist bewusst kein Ersatz für einen nativen Windows-SQL-
+FILESTREAM-Attach; dessen Acceptance muss separat in Hyper-V laufen.
+
+Der ausführbare native Windows-SQL-Nachweis ist:
+
+```powershell
+# benötigt ein echtes erhöhtes Windows-Token
+.\Tests\Integration\Invoke-DatabasePackageSqlAcceptance.ps1
+```
+
+Er setzt SQL Server 2025 mit effektivem FILESTREAM voraus und räumt ausschließlich
+seine zufällig benannten Datenbanken und `sql-lab-psr009-*`-Wurzeln auf. Ein
+nicht erhöhter Prozess endet vor neuer Mutation fail-closed.
+
 Für einen manuellen Restore-Nachweis sind mindestens zu dokumentieren:
 
 - verwendete synthetische oder öffentliche Quelle;
