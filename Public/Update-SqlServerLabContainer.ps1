@@ -304,7 +304,8 @@ function Update-LabContainerEnvironmentInteractive {
 
     if ($provider -and $containerIdentity) {
         try {
-            $inspect = @(& $provider inspect $containerIdentity[0] 2>$null | ConvertFrom-Json -Depth 50)[0]
+            $runtimeInvocation = Get-LabHostToolInvocation -Name $provider
+            $inspect = @(& $runtimeInvocation inspect $containerIdentity[0] 2>$null | ConvertFrom-Json -Depth 50)[0]
             if ($inspect -and $inspect.HostConfig) {
                 if ($inspect.HostConfig.NanoCpus -gt 0) {
                     $currentCpu = [decimal]([long]$inspect.HostConfig.NanoCpus / 1000000000)

@@ -551,9 +551,11 @@ function Export-SqlServerLabCmsSyncScript {
     $providerAvailability = [ordered]@{}
     foreach ($provider in @('docker', 'podman')) {
         $available = $false
-        if (Get-Command $provider -ErrorAction SilentlyContinue) {
+        $runtimeResolution = Resolve-LabHostTool -Name $provider
+        if ($runtimeResolution.Available) {
             try {
-                & $provider info 1>$null 2>$null
+                $runtimeInvocation = [string]$runtimeResolution.Invocation
+                & $runtimeInvocation info 1>$null 2>$null
                 $available = ($LASTEXITCODE -eq 0)
             }
             catch { $available = $false }

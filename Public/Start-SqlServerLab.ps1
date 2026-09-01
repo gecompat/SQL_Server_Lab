@@ -106,10 +106,11 @@ function Start-SqlServerLab {
                 $errors++
                 continue
             }
+            $runtimeInvocation = Get-LabHostToolInvocation -Name $runtime
 
             Write-LabInfo "  ProviderSubRun '$provider' mit $runtime starten..."
             $containerIds = @(
-                & $runtime ps -a -q --filter "label=sql-server-lab.run-id=$RunId" 2>$null |
+                & $runtimeInvocation ps -a -q --filter "label=sql-server-lab.run-id=$RunId" 2>$null |
                     Where-Object { $_ }
             )
             if ($containerIds.Count -lt $providerGroup.Count) {
@@ -123,16 +124,16 @@ function Start-SqlServerLab {
                     continue
                 }
 
-                $containerName = ([string](& $runtime inspect $containerId --format '{{.Name}}' 2>$null)).Trim().TrimStart('/')
+                $containerName = ([string](& $runtimeInvocation inspect $containerId --format '{{.Name}}' 2>$null)).Trim().TrimStart('/')
                 try {
-                    $runningText = [string](& $runtime inspect $containerId --format '{{.State.Running}}' 2>$null)
+                    $runningText = [string](& $runtimeInvocation inspect $containerId --format '{{.State.Running}}' 2>$null)
                     if ($LASTEXITCODE -ne 0) {
                         throw "Container-Status konnte nicht gelesen werden: $containerId"
                     }
 
                     $isRunning = $runningText.Trim().ToLowerInvariant() -eq 'true'
                     if (-not $isRunning) {
-                        & $runtime start $containerId | Out-Null
+                        & $runtimeInvocation start $containerId | Out-Null
                         if ($LASTEXITCODE -ne 0) {
                             throw "Container start fehlgeschlagen: $containerId"
                         }
@@ -190,9 +191,10 @@ function Start-SqlServerLab {
                     $rollbackErrors++
                     continue
                 }
+                $runtimeInvocation = Get-LabHostToolInvocation -Name $runtime
 
                 $containerIds = @(
-                    & $runtime ps -q --filter "label=sql-server-lab.run-id=$RunId" 2>$null |
+                    & $runtimeInvocation ps -q --filter "label=sql-server-lab.run-id=$RunId" 2>$null |
                         Where-Object { $_ }
                 )
                 foreach ($containerIdValue in $containerIds) {
@@ -200,7 +202,7 @@ function Start-SqlServerLab {
                     if (-not $containerId) {
                         continue
                     }
-                    & $runtime stop $containerId 1>$null 2>$null
+                    & $runtimeInvocation stop $containerId 1>$null 2>$null
                     if ($LASTEXITCODE -ne 0) {
                         $providerRollbackErrors++
                         $rollbackErrors++

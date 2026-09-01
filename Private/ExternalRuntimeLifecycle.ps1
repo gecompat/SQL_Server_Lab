@@ -21,7 +21,8 @@ function Restart-LabExternalRuntimeContainer {
             return
         }
 
-        $output = @(& $Provider restart $ContainerIdOrName 2>&1)
+        $runtimeInvocation = Get-LabHostToolInvocation -Name $Provider
+        $output = @(& $runtimeInvocation restart $ContainerIdOrName 2>&1)
         if ($LASTEXITCODE -ne 0) {
             throw "$(@($output) -join ' ')"
         }
@@ -38,7 +39,8 @@ function Test-LabExternalRuntimeLaunchpadProcess {
         [Parameter(Mandatory)][string]$ContainerIdOrName
     )
 
-    $output = & $Provider exec $ContainerIdOrName bash -lc "ps -eo comm= | grep -Fx launchpadd" 2>&1
+    $runtimeInvocation = Get-LabHostToolInvocation -Name $Provider
+    $output = & $runtimeInvocation exec $ContainerIdOrName bash -lc "ps -eo comm= | grep -Fx launchpadd" 2>&1
     if ($LASTEXITCODE -ne 0 -or (@($output | ForEach-Object { ([string]$_).Trim() }) -notcontains 'launchpadd')) {
         throw "EXTERNAL_RUNTIME_LAUNCHPAD_NOT_READY: $(@($output) -join ' ')"
     }

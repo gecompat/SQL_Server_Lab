@@ -4290,13 +4290,23 @@ function Get-AvailableLabProviders {
 
     $available = @()
 
-    if (Get-Command 'docker' -ErrorAction SilentlyContinue) {
-        $null = docker version --format '{{.Server.Version}}' 2>&1
-        if ($LASTEXITCODE -eq 0) { $available += 'docker' }
+    $dockerResolution = Resolve-LabHostTool -Name docker
+    if ($dockerResolution.Available) {
+        $dockerInvocation = [string]$dockerResolution.Invocation
+        try {
+            & $dockerInvocation version --format '{{.Server.Version}}' 1>$null 2>$null
+            if ($LASTEXITCODE -eq 0) { $available += 'docker' }
+        }
+        catch { }
     }
-    if (Get-Command 'podman' -ErrorAction SilentlyContinue) {
-        $null = podman info 2>&1
-        if ($LASTEXITCODE -eq 0) { $available += 'podman' }
+    $podmanResolution = Resolve-LabHostTool -Name podman
+    if ($podmanResolution.Available) {
+        $podmanInvocation = [string]$podmanResolution.Invocation
+        try {
+            & $podmanInvocation info 1>$null 2>$null
+            if ($LASTEXITCODE -eq 0) { $available += 'podman' }
+        }
+        catch { }
     }
 
     # Hyper-V steht nur dann als Provider bereit, wenn es in dieser Sitzung

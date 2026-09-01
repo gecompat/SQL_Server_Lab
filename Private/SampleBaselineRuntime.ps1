@@ -112,7 +112,8 @@ function Initialize-LabSampleBaselineContainerBackup {
 
     $target = Resolve-LabRestoreContainer -ContainerName $ContainerName -Port $Port
     $runtime = [string]$target.Provider
-    & $runtime exec $target.ContainerName mkdir -p /var/opt/mssql/backup 1>$null 2>$null
+    $runtimeInvocation = Get-LabHostToolInvocation -Name $runtime
+    & $runtimeInvocation exec $target.ContainerName mkdir -p /var/opt/mssql/backup 1>$null 2>$null
     if ($LASTEXITCODE -ne 0) {
         throw "SAMPLE_BASELINE_BACKUP_DIRECTORY_FAILED: Backupverzeichnis konnte in $runtime/$($target.ContainerName) nicht erstellt werden."
     }
@@ -134,8 +135,9 @@ function Export-LabSampleBaselineContainerBackup {
 
     $target = Resolve-LabRestoreContainer -ContainerName $ContainerName -Port $Port
     $runtime = [string]$target.Provider
+    $runtimeInvocation = Get-LabHostToolInvocation -Name $runtime
     try {
-        & $runtime cp "$($target.ContainerName):$ContainerBackupPath" $DestinationPath 1>$null 2>$null
+        & $runtimeInvocation cp "$($target.ContainerName):$ContainerBackupPath" $DestinationPath 1>$null 2>$null
         if ($LASTEXITCODE -ne 0 -or
             -not (Test-Path -LiteralPath $DestinationPath -PathType Leaf) -or
             (Get-Item -LiteralPath $DestinationPath).Length -le 0) {
@@ -148,7 +150,7 @@ function Export-LabSampleBaselineContainerBackup {
         }
     }
     finally {
-        & $runtime exec $target.ContainerName rm -f $ContainerBackupPath 1>$null 2>$null
+        & $runtimeInvocation exec $target.ContainerName rm -f $ContainerBackupPath 1>$null 2>$null
     }
 }
 

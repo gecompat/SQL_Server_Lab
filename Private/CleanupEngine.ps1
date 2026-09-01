@@ -168,13 +168,14 @@ function Remove-LabRuntimeResourceForCleanup {
         [Parameter(Mandatory)][string]$ResourceId
     )
 
-    & $Provider $ResourceType inspect $ResourceId 1>$null 2>$null
+    $runtimeInvocation = Get-LabHostToolInvocation -Name $Provider
+    & $runtimeInvocation $ResourceType inspect $ResourceId 1>$null 2>$null
     if ($LASTEXITCODE -ne 0) {
         Write-LabInfo "  Bereits entfernt oder nicht vorhanden: $ResourceType $ResourceId"
         return
     }
 
-    & $Provider $ResourceType rm $ResourceId 1>$null 2>$null
+    & $runtimeInvocation $ResourceType rm $ResourceId 1>$null 2>$null
     if ($LASTEXITCODE -ne 0) {
         throw "$Provider konnte $ResourceType '$ResourceId' nicht entfernen."
     }

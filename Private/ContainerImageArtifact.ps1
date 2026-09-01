@@ -438,7 +438,8 @@ function Get-LabExternalRuntimeLocalImageEvidence {
         [Parameter(Mandatory)][ValidatePattern('^[a-z0-9][a-z0-9./_-]+:[a-z0-9][a-z0-9._-]+$')][string]$Image
     )
 
-    $raw = & $Provider image inspect $Image 2>$null
+    $runtimeInvocation = Get-LabHostToolInvocation -Name $Provider
+    $raw = & $runtimeInvocation image inspect $Image 2>$null
     if ($LASTEXITCODE -ne 0 -or -not $raw) { return $null }
     $inspect = @((@($raw) -join "`n") | ConvertFrom-Json -Depth 50)[0]
     return [PSCustomObject]@{
@@ -466,7 +467,8 @@ function Test-LabExternalRuntimeJavaImagePostcondition {
         '--entrypoint', '/bin/bash', $Image, '-lc',
         'set -e; test ! -e /opt/sql-server-lab/java/jre/bin/javac; test ! -d /opt/sql-server-lab/java/jre/jmods; test -x /opt/sql-server-lab/java/jre/lib/jspawnhelper; /opt/sql-server-lab/java/jre/bin/java -version'
     )
-    $output = @(& $Provider @command 2>&1)
+    $runtimeInvocation = Get-LabHostToolInvocation -Name $Provider
+    $output = @(& $runtimeInvocation @command 2>&1)
     if ($LASTEXITCODE -ne 0) {
         throw "EXTERNAL_RUNTIME_JAVA_IMAGE_POSTCONDITION_FAILED: $(@($output) -join ' ')"
     }
@@ -537,8 +539,9 @@ function Invoke-LabExternalRuntimeContainerImageBuildCore {
         [string]$ImagePlan.RecipeRoot
     )
     $built = $false
+    $runtimeInvocation = Get-LabHostToolInvocation -Name $provider
     try {
-        $output = & $provider @buildArguments 2>&1
+        $output = & $runtimeInvocation @buildArguments 2>&1
         if ($LASTEXITCODE -ne 0) {
             $tail = @($output | Select-Object -Last 30) -join ' '
             throw "EXTERNAL_RUNTIME_CONTAINER_IMAGE_BUILD_FAILED: $tail"
@@ -568,7 +571,7 @@ function Invoke-LabExternalRuntimeContainerImageBuildCore {
         if (@($ImagePlan.Languages) -contains 'Java') {
             $imagePostconditions = @(Test-LabExternalRuntimeJavaImagePostcondition -Provider $provider -Image $temporaryTag)
         }
-        & $provider tag $temporaryTag ([string]$ImagePlan.Image) 2>&1 | Out-Null
+        & $runtimeInvocation tag $temporaryTag ([string]$ImagePlan.Image) 2>&1 | Out-Null
         if ($LASTEXITCODE -ne 0) { throw 'EXTERNAL_RUNTIME_CONTAINER_IMAGE_TAG_FAILED' }
 
         $receipt = [PSCustomObject]@{
@@ -607,7 +610,7 @@ function Invoke-LabExternalRuntimeContainerImageBuildCore {
     }
     finally {
         if ($built -or (Get-LabExternalRuntimeLocalImageEvidence -Provider $provider -Image $temporaryTag)) {
-            & $provider image rm $temporaryTag 1>$null 2>$null
+            & $runtimeInvocation image rm $temporaryTag 1>$null 2>$null
         }
     }
 }

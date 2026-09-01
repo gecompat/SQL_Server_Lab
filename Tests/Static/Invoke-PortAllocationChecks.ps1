@@ -36,10 +36,10 @@ $podmanSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Providers\Podman\
 $menuSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public\Invoke-SqlServerLab.ps1') -Raw -Encoding utf8
 
 Add-CheckResult -Name 'Docker prueft explizite Ports innerhalb des Allokations-Locks direkt vor der Runtime-Bindung' -Success (
-    $dockerSource -match 'Invoke-LabPortAllocationLock[\s\S]+Test-LabEndpointBinding\s+-Port\s+\$selectedPort[\s\S]+docker\s+@dockerArguments'
+    $dockerSource -match 'Invoke-LabPortAllocationLock[\s\S]+Test-LabEndpointBinding\s+-Port\s+\$selectedPort[\s\S]+&\s+\$dockerInvocation\s+@dockerArguments'
 )
 Add-CheckResult -Name 'Podman prueft explizite Ports innerhalb des Allokations-Locks direkt vor der Runtime-Bindung' -Success (
-    $podmanSource -match 'Invoke-LabPortAllocationLock[\s\S]+Test-LabEndpointBinding\s+-Port\s+\$selectedPort[\s\S]+podman\s+@podmanArguments'
+    $podmanSource -match 'Invoke-LabPortAllocationLock[\s\S]+Test-LabEndpointBinding\s+-Port\s+\$selectedPort[\s\S]+&\s+\$podmanInvocation\s+@podmanArguments'
 )
 Add-CheckResult -Name 'Intent-Review meldet bei expliziter Portkollision Besitzer und Grund' -Success (
     $menuSource -match "hostPort[\s\S]+Test-LabEndpointBinding[\s\S]+Besitzer:[\s\S]+Grund:"

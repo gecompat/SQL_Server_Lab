@@ -73,6 +73,32 @@ try {
     $storageResidencyText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private\StorageResidencyInventory.ps1') -Raw -Encoding utf8
     $containerInstanceStoreText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private\ContainerInstanceStore.ps1') -Raw -Encoding utf8
     $cleanupAuditText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public\Get-SqlServerLabCleanupAudit.ps1') -Raw -Encoding utf8
+    $moduleLoaderText = Get-Content -LiteralPath (Join-Path $repoRoot 'SqlServerLab.psm1') -Raw -Encoding utf8
+    $runtimeLifecyclePaths = @(
+        Get-ChildItem -LiteralPath (Join-Path $repoRoot 'Private'),(Join-Path $repoRoot 'Public'),(Join-Path $repoRoot 'Providers') `
+            -Recurse -File -Include '*.ps1','*.psm1'
+    )
+    $nakedRuntimeCommands = [Collections.Generic.List[string]]::new()
+    $directRuntimeProbes = [Collections.Generic.List[string]]::new()
+    foreach ($sourceFile in $runtimeLifecyclePaths) {
+        $absolutePath = $sourceFile.FullName
+        $relativePath = [IO.Path]::GetRelativePath($repoRoot,$absolutePath)
+        $tokens = $null
+        $parseErrors = $null
+        $ast = [Management.Automation.Language.Parser]::ParseFile($absolutePath,[ref]$tokens,[ref]$parseErrors)
+        foreach ($parseError in @($parseErrors)) { $nakedRuntimeCommands.Add("${relativePath}:parse:$($parseError.Message)") }
+        foreach ($command in @($ast.FindAll({
+            param($node)
+            $node -is [Management.Automation.Language.CommandAst] -and
+                $node.GetCommandName() -in @('docker','podman')
+        },$true))) {
+            $nakedRuntimeCommands.Add("${relativePath}:$($command.Extent.StartLineNumber)")
+        }
+        $sourceText = Get-Content -LiteralPath $absolutePath -Raw -Encoding utf8
+        if ($sourceText -match 'Get-Command\s+([''"]?(docker|podman)[''"]?|\$(Provider|provider|runtime))\b') {
+            $directRuntimeProbes.Add($relativePath)
+        }
+    }
     $bootstrapText = Get-Content -LiteralPath (Join-Path $repoRoot 'Tests\Integration\Initialize-PodmanRuntime.ps1') -Raw -Encoding utf8
     $backupText = Get-Content -LiteralPath (Join-Path $repoRoot 'Tests\Integration\Invoke-BackupLibraryCrossProviderAcceptance.ps1') -Raw -Encoding utf8
     Add-CheckResult -Name 'Windows-Fallbacks decken Docker, Podman und lokale Python-Installationen zentral ab' -Success (
@@ -84,6 +110,11 @@ try {
         $dockerProviderText -match '& \$Invocation @Arguments' -and
         $podmanProviderText -match 'Get-LabHostToolInvocation -Name podman' -and
         $podmanProviderText -match '& \$podmanInvocation version')
+    Add-CheckResult -Name 'Modulimport repariert Docker-, Podman- und Python-Auflösung prozesslokal' -Success (
+        $moduleLoaderText -match 'Initialize-LabHostToolPath -Name docker,podman,python')
+    Add-CheckResult -Name 'Produktive Aufrufpfade verwenden keine nackten Runtime-Befehle oder direkten PATH-Probes' -Success (
+        $nakedRuntimeCommands.Count -eq 0 -and $directRuntimeProbes.Count -eq 0) `
+        -Message ((@($nakedRuntimeCommands) + @($directRuntimeProbes)) -join ', ')
     Add-CheckResult -Name 'Runtime-Evidence verwechselt einen eingeschraenkten PATH nicht mit fehlender Installation' -Success (
         $runtimeScopeText -match 'Resolve-LabHostTool -Name \$Provider' -and
         $runtimeScopeText -match 'Get-LabHostToolInvocation -Name \$Provider' -and

@@ -668,9 +668,12 @@ Ein nicht verfügbarer Provider darf nicht als `PASS` behandelt werden.
 
 Der statische Resolver-Vertrag prüft sichere exakte Overrides, idempotente
 nur-prozesslokale `PATH`-Erweiterung, unveränderte persistierte Benutzer-/
-Maschinenwerte sowie die gemeinsame Einbindung in den Podman-Bootstrap. Die
-Runtime-Smokes bleiben erforderlich, weil Dateiauflösung weder Engine-
-Erreichbarkeit noch Ausführungsberechtigung beweist.
+Maschinenwerte sowie die gemeinsame Einbindung in Modulimport und Podman-
+Bootstrap. Eine AST-gestützte Vollprüfung über `Private`, `Public` und
+`Providers` stellt sicher, dass produktive Docker-/Podman-Aufrufpfade den
+zentral aufgelösten absoluten Aufruf verwenden und nicht von einem geerbten
+Shell-`PATH` abhängen. Die Runtime-Smokes bleiben erforderlich, weil
+Dateiauflösung weder Engine-Erreichbarkeit noch Ausführungsberechtigung beweist.
 
 ### Podman-Runtime betroffen
 
