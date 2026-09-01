@@ -48,12 +48,30 @@ function Get-SqlServerLabCleanupAudit {
     $runtimeResults = @(); $runtimeScopes = @(); $containers = @(); $managedVolumes = @(); $managedNetworks = @()
     foreach ($runtime in @('docker', 'podman')) {
         $runtimeScopes += Get-LabContainerRuntimeScope -Provider $runtime
-        $command = Get-Command $runtime -ErrorAction SilentlyContinue
-        if (-not $command) {
+        try {
+            $runtimeResolution = Resolve-LabHostTool -Name $runtime
+        }
+        catch {
+            $runtimeResults += [PSCustomObject]@{ Provider=$runtime; Status='UNAVAILABLE'; Message='Runtime-Aufloesung ist konfiguriert, aber ungueltig.' }
+            continue
+        }
+        if (-not $runtimeResolution.Available) {
             $runtimeResults += [PSCustomObject]@{ Provider=$runtime; Status='NOT_INSTALLED'; Message=$null }
             continue
         }
-        & $runtime info 1>$null 2>$null
+        try {
+            $runtimeInvocation = Get-LabHostToolInvocation -Name $runtime
+        }
+        catch {
+            throw "HOST_TOOL_RESOLUTION_INCONSISTENT: $runtime"
+        }
+        try {
+            & $runtimeInvocation info 1>$null 2>$null
+        }
+        catch {
+            $runtimeResults += [PSCustomObject]@{ Provider=$runtime; Status='UNAVAILABLE'; Message='Runtime ist installiert, aber im aktuellen Prozess nicht ausfuehrbar.' }
+            continue
+        }
         if ($LASTEXITCODE -ne 0) {
             $runtimeResults += [PSCustomObject]@{ Provider=$runtime; Status='UNAVAILABLE'; Message='Runtime ist installiert, aber nicht pruefbar.' }
             continue
@@ -66,10 +84,10 @@ function Get-SqlServerLabCleanupAudit {
                 RunId=[string]$container.RunId; ScopeId=[string]$container.ScopeId; Orphan=[bool](-not $container.RunId -or [string]$container.RunId -notin $knownRunIds)
             }
         }
-        foreach ($name in @(& $runtime volume ls --format '{{.Name}}' 2>$null | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ -match '^sql-lab-' })) {
+        foreach ($name in @(& $runtimeInvocation volume ls --format '{{.Name}}' 2>$null | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ -match '^sql-lab-' })) {
             $managedVolumes += [PSCustomObject]@{ Provider=$runtime; Name=$name }
         }
-        foreach ($name in @(& $runtime network ls --format '{{.Name}}' 2>$null | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ -match '^sql-lab-' })) {
+        foreach ($name in @(& $runtimeInvocation network ls --format '{{.Name}}' 2>$null | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ -match '^sql-lab-' })) {
             $managedNetworks += [PSCustomObject]@{ Provider=$runtime; Name=$name }
         }
     }

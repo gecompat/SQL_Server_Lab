@@ -99,8 +99,9 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Geändert
 
-- Docker-/Podman-Provider-Probes und die read-only Runtime-Scope-Evidence
-  verwenden den zentral aufgelösten absoluten Host-Tool-Aufruf. Eine gefundene,
+- Docker-/Podman-Provider-Probes, der öffentliche Cleanup-Audit und die
+  read-only Runtime-Scope-Evidence verwenden den zentral aufgelösten absoluten
+  Host-Tool-Aufruf. Eine gefundene,
   aber im aktuellen Prozess nicht ausführbare CLI wird damit nicht länger als
   fehlende Installation oder bloßer `PATH`-Fehler eingeordnet; Python bleibt
   über denselben Resolver und sichere Pfad-Overrides verfügbar.

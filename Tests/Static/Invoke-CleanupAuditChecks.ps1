@@ -35,6 +35,9 @@ try {
             }
             if ($Arguments[0] -eq 'network') { return 'sql-lab-synthetic-network' }
         }
+        function podman {
+            throw 'SYNTHETIC_EXECUTION_CONTEXT_RESTRICTION'
+        }
         function Get-DockerLabContainers {
             return @([PSCustomObject]@{ ContainerId='synthetic'; Name='sql-lab-synthetic'; Status='exited'; RunId='missing-run'; ScopeId='synthetic-scope' })
         }
@@ -224,6 +227,11 @@ try {
         $dockerRuntimeScope.Status -eq 'AVAILABLE' -and $dockerRuntimeScope.Ownership.Status -eq 'SHARED_EXTERNAL' -and
         -not $dockerRuntimeScope.Summary.CanManageRuntime -and
         (($dockerRuntimeScope | ConvertTo-Json -Depth 30) | Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/container-runtime-scope.schema.json') -ErrorAction SilentlyContinue))
+    $podmanRuntime = @($result.Audit.Runtimes | Where-Object Provider -eq 'podman')[0]
+    Add-CheckResult -Name 'Gefundene aber nicht ausführbare Runtime bleibt UNAVAILABLE statt NOT_INSTALLED' -Success (
+        $podmanRuntime.Status -eq 'UNAVAILABLE' -and
+        $podmanRuntime.Message -match 'installiert' -and
+        $podmanRuntime.Message -match 'nicht ausfuehrbar')
     Add-CheckResult -Name 'Orphan-Container wird ohne Loeschung ausgewiesen' -Success (@($result.Audit.Containers | Where-Object { $_.Orphan -and $_.Id -eq 'synthetic' }).Count -eq 1)
     Add-CheckResult -Name 'Benannte Runtime-Ressourcen werden inventarisiert' -Success ($result.Audit.ManagedVolumes[0].Name -eq 'sql-lab-synthetic-volume' -and $result.Audit.ManagedNetworks[0].Name -eq 'sql-lab-synthetic-network')
     $persistentVolume = @($result.Audit.StorageResidency.Objects | Where-Object LogicalName -eq 'sql-lab-persistent-storage-audit-docker-primary-sql2025')[0]
