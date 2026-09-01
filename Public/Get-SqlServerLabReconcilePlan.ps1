@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Erstellt einen read-only Lifecycle-, Hyper-V-Netzwerk-/Ressourcen-, Container- oder External-Runtime-Reconcile-Plan.
+    Erstellt einen read-only Lifecycle-, Hyper-V-Netzwerk-/Ressourcen-/Storage-, Container- oder External-Runtime-Reconcile-Plan.
 .DESCRIPTION
     Liest den bestehenden Run und dessen Runtime-Zustand und liefert einen
     versionierten Desired/Actual/Diff/Action-Vertrag. Der Befehl fuehrt keine
@@ -27,6 +27,8 @@
     Waehlt den eng begrenzten read-only Hyper-V-Netzwerk-Reconcile-Plan.
 .PARAMETER HyperVResources
     Waehlt den manifestgebundenen read-only Hyper-V-vCPU-/RAM-Reconcile-Plan.
+.PARAMETER HyperVStorage
+    Waehlt den manifestgebundenen read-only Hyper-V-Zusatz-VHDX-Reconcile-Plan.
 .PARAMETER Container
     Wählt den Container-Ressourcen-Reconcile. Der Plan klassifiziert die
     Änderung als no-op, live oder recreate und mutiert die Runtime nicht.
@@ -64,6 +66,10 @@
     Get-SqlServerLabReconcilePlan -RunId $runId -HyperVResources -InstanceId primary
 
     Klassifiziert vCPU- und RAM-Drift als no-op, live, restart oder unsupported.
+.EXAMPLE
+    Get-SqlServerLabReconcilePlan -RunId $runId -HyperVStorage -InstanceId primary
+
+    Plant fehlende Zusatz-VHDX, Grow-only-Aenderungen und Gastverifikation.
 #>
 function Get-SqlServerLabReconcilePlan {
     [CmdletBinding(DefaultParameterSetName = 'Lifecycle')]
@@ -82,6 +88,7 @@ function Get-SqlServerLabReconcilePlan {
         [Parameter(ParameterSetName = 'Container')]
         [Parameter(Mandatory, ParameterSetName = 'HyperVNetwork')]
         [Parameter(Mandatory, ParameterSetName = 'HyperVResources')]
+        [Parameter(Mandatory, ParameterSetName = 'HyperVStorage')]
         [string]$InstanceId,
 
         [Parameter(Mandatory, ParameterSetName = 'HyperVNetwork')]
@@ -89,6 +96,9 @@ function Get-SqlServerLabReconcilePlan {
 
         [Parameter(Mandatory, ParameterSetName = 'HyperVResources')]
         [switch]$HyperVResources,
+
+        [Parameter(Mandatory, ParameterSetName = 'HyperVStorage')]
+        [switch]$HyperVStorage,
 
         [Parameter(Mandatory, ParameterSetName = 'Container')]
         [switch]$Container,
@@ -137,6 +147,9 @@ function Get-SqlServerLabReconcilePlan {
     }
     if ($PSCmdlet.ParameterSetName -eq 'HyperVResources') {
         return New-LabHyperVResourceReconcilePlan -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
+    }
+    if ($PSCmdlet.ParameterSetName -eq 'HyperVStorage') {
+        return New-LabHyperVStorageReconcilePlan -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
     }
     return New-LabReconcilePlan -RunId $RunId -TargetState $TargetState -StateRoot $StateRoot
 }

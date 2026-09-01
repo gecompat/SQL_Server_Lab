@@ -1519,6 +1519,17 @@ function Initialize-HyperVWindowsGuestDrives {
                         throw "GUEST_DRIVE_PARTITION_NOT_IDEMPOTENT_$($specification.id)"
                     }
                     $volume = Get-Volume -Partition $partitions[0] -ErrorAction Stop
+                    $supported = Get-PartitionSupportedSize -DiskNumber $disk.Number `
+                        -PartitionNumber $partitions[0].PartitionNumber -ErrorAction Stop
+                    if ([long]$partitions[0].Size -lt [long]$supported.SizeMax) {
+                        $null = Resize-Partition -DiskNumber $disk.Number `
+                            -PartitionNumber $partitions[0].PartitionNumber `
+                            -Size ([long]$supported.SizeMax) -ErrorAction Stop
+                        $partitions = @(Get-Partition -DiskNumber $disk.Number -ErrorAction Stop | Where-Object DriveLetter -EQ $driveLetter)
+                        if ($partitions.Count -ne 1) { throw "GUEST_DRIVE_PARTITION_RESIZE_POSTCONDITION_$($specification.id)" }
+                        $volume = Get-Volume -Partition $partitions[0] -ErrorAction Stop
+                        $status = 'EXTENDED'
+                    }
                 }
 
                 $expectedAllocationUnitSize = [int64]$specification.allocationUnitKB * 1KB
@@ -1546,6 +1557,8 @@ function Initialize-HyperVWindowsGuestDrives {
                     allocationUnitSize = [int64]$volume.AllocationUnitSize
                     volumeLabel = [string]$volume.FileSystemLabel
                     status = $status
+                    diskSizeBytes = [long](Get-Disk -Number $disk.Number -ErrorAction Stop).Size
+                    partitionSizeBytes = [long](@(Get-Partition -DiskNumber $disk.Number -ErrorAction Stop | Where-Object DriveLetter -EQ $driveLetter)[0].Size)
                     matchingMethod = $matchingMethod
                     observedDiskUniqueId = [string]$disk.UniqueId
                     observedAt = [datetime]::UtcNow.ToString('o')
@@ -1563,7 +1576,9 @@ function Initialize-HyperVWindowsGuestDrives {
             [string]$actual[0].guestPath -notmatch '^[D-Z]:\\' -or
             ([string]$actual[0].guestPath).Substring(1) -ne ([string]$expected.guestPath).Substring(1) -or
             [string]$actual[0].fileSystem -ne 'NTFS' -or
-            [string]$actual[0].status -notin @('INITIALIZED', 'VERIFIED')) {
+            [string]$actual[0].status -notin @('INITIALIZED', 'VERIFIED', 'EXTENDED') -or
+            [long]$actual[0].diskSizeBytes -lt [long]$expected.sizeBytes -or
+            [long]$actual[0].partitionSizeBytes -le 0) {
             throw "HYPERV_GUEST_DRIVE_RECEIPT_INVALID: $($expected.id)"
         }
     }

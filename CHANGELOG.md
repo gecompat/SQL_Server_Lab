@@ -8,6 +8,13 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- `Get-SqlServerLabReconcilePlan -HyperVStorage` vergleicht zusätzliche
+  manifestgebundene VHDX und gebundene Storage-Lanes hostwertfrei. Die Action
+  `-RepairHyperVStorage` erstellt fehlende SCSI-VHDX, vergroessert vorhandene
+  VHDX grow-only und verifiziert bzw. erweitert GPT-/NTFS-Volumes im Gast.
+- Der Hyper-V-Storage-Reconcile registriert neue VHDX vor der Mutation im
+  Cleanup-Plan, bewahrt den urspruenglichen VM-Zustand und setzt einen
+  unterbrochenen Host-/Gastablauf ueber ein lokales Recovery-Journal fort.
 - `Get-SqlServerLabReconcilePlan -HyperVResources` vergleicht den
   manifestgebundenen vCPU-/RAM-Sollzustand read-only und hostwertfrei.
 - `Invoke-SqlServerLabReconcileAction -RepairHyperVResources` repariert reine
@@ -60,6 +67,10 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Validiert
 
+- Die fokussierte Hyper-V-Storage-Reconcile-Suite bestätigt Add, Grow-only,
+  Gastverifikation, `WhatIf`, Cleanup-Vorregistrierung, Fault/Resume, frische
+  Journale bei wiederkehrender Drift sowie fail-closed Shrink und Removal mit
+  gemocktem Provider. Ein positiver nativer Reparaturlauf wurde nicht ausgeführt.
 - Die fokussierte Hyper-V-Network-Reconcile-Suite bestätigt No-op, additive
   Reparatur, `WhatIf`, External-Switch-Freigabe, Identity-Mismatch und
   Journal-Recovery mit gemocktem Provider. Ein positiver nativer Reparaturlauf

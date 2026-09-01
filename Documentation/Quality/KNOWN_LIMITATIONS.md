@@ -319,7 +319,18 @@ mindestens 32 GB für offen wachsende Data-/Log-/Backup-Rollen, mindestens 4 GB
 für reine TempDB-Lanes und jeweils mindestens die expliziten Dateigrößen plus
 1 GB Reserve. Die VHDX bleibt dynamisch und belegt diese Größe nicht sofort.
 
-Das Feld `sizeLimitGB` bei Drives ist derzeit Metadatum; Docker- oder Podman-Volumes werden dadurch nicht physisch auf diese Größe begrenzt.
+Der Hyper-V-Storage-Reconcile kann fehlende manifestgebundene SCSI-VHDX
+erstellen und bestehende VHD/VHDX ausschließlich vergroessern. Die
+Gast-Postcondition initialisiert neue GPT-/NTFS-Volumes oder erweitert eine
+eindeutig ueber Disk-Identifier gebundene Partition auf die vom Gast gemeldete
+maximale Groesse. Shrink, Removal, Rollen-/Pfadwechsel und automatische
+SQL-Dateiverschiebungen sind nicht Teil dieses Pfads. Der Host-/Gast-
+Repair-Vertrag ist synthetisch inklusive Abbruch/Resume belegt; ein positiver
+nativer Reparaturlauf bleibt `NOT_EXECUTED`.
+
+Das Feld `sizeLimitGB` bei Drives ist fuer Docker- oder Podman-Volumes weiterhin
+nur Metadatum. Hyper-V verwendet es dagegen als VHDX-Sollgroesse bei Erstellung
+und Grow-only-Reconcile.
 
 Beliebige `drives[].hostPath`-Mounts aus einem Manifest sind standardmäßig
 read-only. Ein schreibender Host-Mount ist kein Standard- oder Persistenzpfad:
@@ -818,9 +829,10 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
    automatische Sample-Manifestausführung real abnehmen (Sample-Welle 6).
 3. Die verbleibenden providerneutralen Software-Intents an die Software-Runtime
    binden; Container-`nat`, Hyper-V-`hostOnly`/`isolated`/`nat`/`lan` sowie
-   Hyper-V-vCPU und statisches/dynamisches RAM sind bereits manifestgebunden.
-   Netzwerk- und Ressourcen-Reconcile sind synthetisch implementiert; positive
-   native Reparaturnachweise und weitere Hardware-/Storage-Klassen bleiben offen.
+   Hyper-V-vCPU, statisches/dynamisches RAM und Zusatz-VHDX sind bereits
+   manifestgebunden. Netzwerk-, Ressourcen- und Grow-only-Storage-Reconcile
+   sind synthetisch implementiert; positive native Reparaturnachweise,
+   Storage-Removal/-Rebinding und weitere Hardware-/SQL-Klassen bleiben offen.
 4. Artifact Registry, Refresh/Rebuild und Evaluierungsablauf implementieren.
 5. Den belegten Windows-2025-/SQL-2025-Referenzpfad zur vollständigen
    allgemeinen Hyper-V-Manifestbindung und zu weiteren realen
