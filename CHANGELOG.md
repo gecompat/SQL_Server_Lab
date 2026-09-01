@@ -32,6 +32,10 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Geändert
 
+- Der kanonische Entwicklungs- und Masterplan führt Network-Manifestparität
+  nicht länger als vollständig offen: M6 ist jetzt `implemented_partial` und
+  trennt den synthetisch belegten Netzwerk-Slice von weiterhin offenen
+  Hardware-, Storage-, SQL- und nativen Reparaturnachweisen.
 - Hyper-V-Manifeste reichen den aufgelösten Isolation-Intent an den regulären
   VM-Lifecycle weiter. `hyperv.switchName` bleibt ein lokales
   Kompatibilitätsbinding für interne HostOnly-Switches; es wird nicht länger
