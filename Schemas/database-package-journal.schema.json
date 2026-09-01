@@ -11,7 +11,7 @@
     "SourceState": { "enum": ["OFFLINE", "DETACHED"] },
     "SourceReleased": { "type": "boolean" },
     "PublishedPath": { "type": ["string", "null"] },
-    "Recovery": { "enum": ["RETRY_EXPORT_FROM_CLEAN_OFFLINE_SOURCE", "NOT_REQUIRED", "PRESERVE_SOURCE_OFFLINE_AND_RETRY_OR_REMOVE_INCOMPLETE_STAGING"] },
+    "Recovery": { "enum": ["RETRY_EXPORT_FROM_CLEAN_OFFLINE_SOURCE", "NOT_REQUIRED", "PRESERVE_SOURCE_OFFLINE_AND_RETRY_OR_REMOVE_INCOMPLETE_STAGING", "RETRY_PERSISTENT_STORAGE_CATALOG_REGISTRATION"] },
     "UpdatedAt": { "type": "string", "format": "date-time" }
   }
 }

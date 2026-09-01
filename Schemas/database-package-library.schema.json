@@ -17,7 +17,7 @@
       "required": ["DatabasePackageId", "Status", "DatabaseName", "Source", "DatabaseMetadata", "DatabaseFiles", "Objects", "ManifestSha256", "CaptureEvidence", "CreatedAt", "UpdatedAt"],
       "properties": {
         "DatabasePackageId": { "type": "string", "format": "uuid" },
-        "Status": { "const": "REUSABLE" },
+        "Status": { "enum": ["REUSABLE", "QUARANTINED"] },
         "DatabaseName": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]{0,127}$" },
         "Source": {
           "type": "object", "additionalProperties": false,

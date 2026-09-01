@@ -18,8 +18,8 @@ Der Pfad `Private/` beschreibt primär die interne Architektur. Die tatsächlich
 | `DesiredState.ps1` | Geheimnisfreier Run-Sollzustand mit providerneutralen Drive-, Network-, SQL-, Datenbank- und Software-Intents |
 | `StorageContract.ps1` | Controllergebundene Multi-Root-Registry, stabile Location-Metadaten, Topologie und Migrationseinstieg |
 | `StorageFilePlacement.ps1` | Read-only Bindung portabler SQL-Storage-Intents an lokale Locations, Topologie, Gastpfade und reviewbare SQL-Dateien |
-| `StorageResidencyInventory.ps1` | Read-only Klassifikation von `Lab_Data`, nativen Runtime-Volumes, externen Pfaden, Hyper-V-Ressourcen, Retention und unverifizierbarem physischen Backing |
-| `PersistentStorageCatalog.ps1` | Parser und read-only Planner für stabile Persistent-Storage-IDs, Klassen, Zustände, Referenzen, exklusive Leases und Registrierungskandidaten |
+| `StorageResidencyInventory.ps1` | Read-only Klassifikation von `Lab_Data`, Backup-Sets, Datenbankpaketen, nativen Runtime-Volumes, externen Pfaden, Hyper-V-Ressourcen, Retention und unverifizierbarem physischen Backing |
+| `PersistentStorageCatalog.ps1` | Parser und read-only Planner für stabile Persistent-Storage-IDs, Klassen, Zustände, Referenzen, exklusive Leases und Registrierungskandidaten sowie atomare Backup-Set-/Datenbankpaket-Registrierung |
 | `PersistentStorageRemovalPlan.ps1` | Read-only Plan für Retention, Backup-/Package-on-Remove, externe Bindungsfreigabe, Recovery-Gates und getrennte endgültige Storage-Löschung |
 | `ContainerInstanceStore.ps1` | Storage-ID-basierter Continue-/Clone-Plan für Docker/Podman sowie detached-only, digestverifizierter Clone mit Recovery-Journal |
 | `ContainerRuntimeScope.ps1` | Read-only Bindung von Docker-Context beziehungsweise Podman-Connection/Machine an eine stabile sanitisierte Runtime-ID mit REPORT_ONLY-Hostgrenze |

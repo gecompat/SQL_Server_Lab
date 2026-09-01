@@ -292,6 +292,81 @@ function Register-LabBackupSetPersistentStorage {
     }
 }
 
+function Register-LabDatabasePackagePersistentStorage {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$PackageRecord,
+        [Parameter(Mandatory)][string]$DataRoot,
+        [AllowNull()]$Configuration
+    )
+
+    $configuration = if ($Configuration) { $Configuration } else { Get-LabStorageConfiguration -DataRoot $DataRoot }
+    $resolvedRoot = if ($Configuration) {
+        [IO.Path]::GetFullPath($DataRoot).TrimEnd('\','/')
+    }
+    else { (Resolve-LabDataRootForUse -DataRoot $DataRoot).TrimEnd('\','/') }
+    $locations = @($configuration.LabDataLocations | Where-Object {
+        [string]::Equals(([IO.Path]::GetFullPath([string]$_.LabDataRoot).TrimEnd('\','/')),$resolvedRoot,[StringComparison]::OrdinalIgnoreCase)
+    })
+    if ($locations.Count -ne 1) { throw 'DATABASE_PACKAGE_STORAGE_LOCATION_UNRESOLVED' }
+    if ([string]$PackageRecord.Source.Provider -notin @('docker','podman','hyperv','external')) { throw 'DATABASE_PACKAGE_STORAGE_PROVIDER_INVALID' }
+    $packageId = [string]$PackageRecord.DatabasePackageId
+    $inventoryObjectId = Get-LabStorageResidencyObjectId -Key "database-package|$([string]$configuration.ControllerId)|$packageId"
+
+    return Invoke-LabPersistentStorageCatalogLock -ControllerId ([string]$configuration.ControllerId) -ScriptBlock {
+        $catalog = Get-LabPersistentStorageCatalog -Configuration $configuration
+        if ([string]$catalog.Status -in @('INVALID','DIVERGED','UNAVAILABLE')) {
+            throw "PERSISTENT_STORAGE_CATALOG_MUTATION_BLOCKED: $([string]$catalog.Status)"
+        }
+        $catalogMatches = @($catalog.Document.Stores | Where-Object {
+            @($_.References | Where-Object { [string]$_.Kind -eq 'ARTIFACT' -and [string]$_.TargetId -eq $packageId }).Count -gt 0
+        })
+        if ($catalogMatches.Count -gt 1) { throw 'DATABASE_PACKAGE_STORAGE_REFERENCE_DUPLICATE' }
+        $relativePath = (Join-Path 'DatabasePackages' (Join-Path 'Objects' ([string]$PackageRecord.ManifestSha256))).Replace('\','/')
+        $expectedState = if ([string]$PackageRecord.Status -eq 'REUSABLE') { 'AVAILABLE' } else { 'RECOVERY_REQUIRED' }
+        if ($catalogMatches.Count -eq 1) {
+            $existing = $catalogMatches[0]
+            if ([string]$existing.StorageClass -ne 'DATABASE_PACKAGE' -or [string]$existing.Provider -ne [string]$PackageRecord.Source.Provider -or
+                [string]$existing.LocationBinding.LocationId -ne [string]$locations[0].LocationId -or
+                [string]$existing.LocationBinding.InventoryObjectId -ne $inventoryObjectId -or
+                [string]$existing.LocationBinding.RelativePath -ne $relativePath -or $null -ne $existing.Lease -or
+                [string]$existing.Retention -ne 'RETAINED' -or [string]$existing.CleanupDisposition -ne 'PRESERVE' -or
+                @($existing.References | Where-Object { [string]$_.Kind -eq 'ARTIFACT' -and [string]$_.State -eq 'ACTIVE' -and [string]$_.TargetId -eq $packageId }).Count -ne 1) {
+                throw 'DATABASE_PACKAGE_STORAGE_BINDING_CONFLICT'
+            }
+            if ([string]$existing.State -ne $expectedState) {
+                $next = $catalog.Document | ConvertTo-Json -Depth 40 | ConvertFrom-Json -Depth 40
+                $nextStore = @($next.Stores | Where-Object PersistentStorageId -eq ([string]$existing.PersistentStorageId))[0]
+                $nextStore.State = $expectedState; $nextStore.UpdatedAt = Get-LabTimestamp
+                $next.Revision = [int]$next.Revision + 1
+                $null = Write-LabPersistentStorageCatalogDocument -Document $next -Configuration $configuration
+                return [PSCustomObject]@{ Changed=$true; Store=$nextStore; CatalogRevision=[int]$next.Revision }
+            }
+            return [PSCustomObject]@{ Changed=$false; Store=$existing; CatalogRevision=[int]$catalog.Document.Revision }
+        }
+
+        $now = Get-LabTimestamp
+        $displayName = "$([string]$PackageRecord.DatabaseName) package $([string]$PackageRecord.CreatedAt)"
+        if ($displayName.Length -gt 128) { $displayName = $displayName.Substring(0,128) }
+        $store = [PSCustomObject][ordered]@{
+            PersistentStorageId=(New-LabPersistentStorageId); DisplayName=$displayName; StorageClass='DATABASE_PACKAGE'
+            State=$expectedState; Provider=[string]$PackageRecord.Source.Provider
+            LocationBinding=[PSCustomObject][ordered]@{
+                Residency='LAB_DATA'; LocationId=[string]$locations[0].LocationId; ProviderResourceId=$null
+                InventoryObjectId=$inventoryObjectId; RelativePath=$relativePath
+            }
+            References=@([PSCustomObject][ordered]@{ ReferenceId=$packageId; Kind='ARTIFACT'; State='ACTIVE'; TargetId=$packageId })
+            Lease=$null; Retention='RETAINED'; CleanupDisposition='PRESERVE'; CreatedAt=$now; UpdatedAt=$now
+        }
+        $next = $catalog.Document | ConvertTo-Json -Depth 40 | ConvertFrom-Json -Depth 40
+        $next.Revision = [int]$next.Revision + 1
+        $next.Stores = @($next.Stores) + @($store)
+        $null = Test-LabPersistentStorageCatalogDocument -Document $next -Configuration $configuration
+        $null = Write-LabPersistentStorageCatalogDocument -Document $next -Configuration $configuration
+        return [PSCustomObject]@{ Changed=$true; Store=$store; CatalogRevision=[int]$next.Revision }
+    }
+}
+
 function Sync-LabBackupSetPersistentStorageCatalog {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$DataRoot)
@@ -300,6 +375,18 @@ function Sync-LabBackupSetPersistentStorageCatalog {
     $library = Get-LabBackupLibraryDocument -Paths $paths
     $results = foreach ($record in @($library.Backups | Sort-Object BackupSetId)) {
         Register-LabBackupSetPersistentStorage -BackupRecord $record -DataRoot $paths.DataRoot
+    }
+    return @($results)
+}
+
+function Sync-LabDatabasePackagePersistentStorageCatalog {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$DataRoot)
+
+    $paths = Get-LabDatabasePackagePaths -DataRoot $DataRoot
+    $library = Get-LabDatabasePackageDocument -Paths $paths
+    $results = foreach ($record in @($library.Packages | Sort-Object DatabasePackageId)) {
+        Register-LabDatabasePackagePersistentStorage -PackageRecord $record -DataRoot $paths.DataRoot
     }
     return @($results)
 }
