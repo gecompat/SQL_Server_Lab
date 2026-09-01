@@ -8,6 +8,13 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- Verifizierte Backup-Library-Einträge erhalten bei der Veröffentlichung eine
+  getrennte stabile `PersistentStorageId` im zentralen
+  `SqlServerLab.PersistentStorageCatalog/1.0`. Der controllerweite Lock schreibt
+  dieselbe Revision rollbackfähig auf alle registrierten eigenen
+  `Lab_Data`-Spiegel; Wiederholungen und der interne Bestandsabgleich sind
+  idempotent. Das Residency-Inventar bindet `BACKUP_SET` über dieselbe stabile
+  Objekt-ID, ohne die Backupinhalte bei jeder Inventur erneut zu hashen.
 - `SqlServerLab.HyperVPersistentDataIntent/1.0`, Plan und Recovery-Journal
   wählen katalogisierte Hyper-V-Daten-VHDX per stabiler Storage-ID und prüfen
   `Lab_Data`-Bindung, DiskIdentifier, Attachments, Checkpoints, Clean-Detach,

@@ -159,7 +159,7 @@ function Register-LabDatabaseBackupArtifact {
     }
     $migrationBoundary=Get-LabDatabaseArtifactMigrationBoundary -DependencyInventory $MigrationDependencyInventory
 
-    return Invoke-LabBackupLibraryLock -LibraryRoot $paths.LibraryRoot -ScriptBlock {
+    $published = Invoke-LabBackupLibraryLock -LibraryRoot $paths.LibraryRoot -ScriptBlock {
         foreach ($directory in @($paths.LibraryRoot,$paths.ObjectsRoot)) {
             if (-not (Test-Path -LiteralPath $directory -PathType Container)) {
                 New-Item -ItemType Directory -Path $directory -Force | Out-Null
@@ -220,6 +220,28 @@ function Register-LabDatabaseBackupArtifact {
         $null = Test-LabBackupLibraryDocument -Document $document
         Write-LabArtifactJsonAtomic -Path $paths.RegistryPath -InputObject $document
         [PSCustomObject]@{ Record=$record; Path=$objectPath; RegistryPath=$paths.RegistryPath }
+    }
+
+    try {
+        $registration = Register-LabBackupSetPersistentStorage -BackupRecord $published.Record -DataRoot $paths.DataRoot
+    }
+    catch {
+        $catalogFailure = $_.Exception.Message
+        Invoke-LabBackupLibraryLock -LibraryRoot $paths.LibraryRoot -ScriptBlock {
+            $document = Get-LabBackupLibraryDocument -Paths $paths
+            $record = @($document.Backups | Where-Object BackupSetId -eq $backupSetId)
+            if ($record.Count -eq 1) {
+                $record[0].Status = 'QUARANTINED'; $record[0].UpdatedAt = Get-LabTimestamp
+                $document.Revision = [int]$document.Revision + 1; $document.UpdatedAt = Get-LabTimestamp
+                $null = Test-LabBackupLibraryDocument -Document $document
+                Write-LabArtifactJsonAtomic -Path $paths.RegistryPath -InputObject $document
+            }
+        } | Out-Null
+        throw "BACKUP_LIBRARY_CATALOG_REGISTRATION_FAILED: $catalogFailure"
+    }
+    return [PSCustomObject]@{
+        Record=$published.Record; Path=$published.Path; RegistryPath=$published.RegistryPath
+        PersistentStorageId=[string]$registration.Store.PersistentStorageId
     }
 }
 
@@ -369,7 +391,7 @@ RESTORE VERIFYONLY FROM DISK = N'$escapedPath' WITH CHECKSUM;
             Path=[string]$registered.Path; Sha256=[string]$registered.Record.Artifact.Sha256
             Bytes=[long]$registered.Record.Artifact.Bytes; HasFileStream=[bool]$registered.Record.DatabaseMetadata.HasFileStream
             MigrationBoundary=$registered.Record.DatabaseMetadata.MigrationBoundary
-            RegistryPath=[string]$registered.RegistryPath
+            RegistryPath=[string]$registered.RegistryPath; PersistentStorageId=[string]$registered.PersistentStorageId
         }
     }
     finally {

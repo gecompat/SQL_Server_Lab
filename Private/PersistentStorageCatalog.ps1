@@ -14,6 +14,28 @@ function New-LabPersistentStorageId {
     return [Guid]::NewGuid().ToString('D')
 }
 
+function Invoke-LabPersistentStorageCatalogLock {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$ControllerId,
+        [Parameter(Mandatory)][scriptblock]$ScriptBlock
+    )
+
+    $material = [Text.Encoding]::UTF8.GetBytes($ControllerId.ToLowerInvariant())
+    $token = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($material)).Substring(0,16)
+    $name = if ($IsWindows) { "Global\SQL_Server_Lab_Persistent_Storage_$token" } else { "SQL_Server_Lab_Persistent_Storage_$token" }
+    $mutex = [Threading.Mutex]::new($false,$name); $acquired = $false
+    try {
+        $acquired = $mutex.WaitOne([TimeSpan]::FromSeconds(30))
+        if (-not $acquired) { throw 'PERSISTENT_STORAGE_CATALOG_LOCK_TIMEOUT' }
+        return & $ScriptBlock
+    }
+    finally {
+        if ($acquired) { $mutex.ReleaseMutex() }
+        $mutex.Dispose()
+    }
+}
+
 function Test-LabPersistentStorageCatalogDocument {
     [CmdletBinding()]
     param(
@@ -141,6 +163,145 @@ function Get-LabPersistentStorageCatalog {
         return [PSCustomObject]@{ Status='DIVERGED'; Document=$emptyDocument; Sources=@($sources); Issues=@('PERSISTENT_STORAGE_CATALOG_DIVERGED') }
     }
     return [PSCustomObject]@{ Status='AVAILABLE'; Document=$documents[0].Document; Sources=@($sources); Issues=@() }
+}
+
+function Write-LabPersistentStorageCatalogDocument {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Document,
+        [Parameter(Mandatory)]$Configuration
+    )
+
+    $null = Test-LabPersistentStorageCatalogDocument -Document $Document -Configuration $Configuration
+    $targets = [Collections.Generic.List[object]]::new()
+    foreach ($location in @($Configuration.LabDataLocations | Sort-Object LocationId)) {
+        $root = [string]$location.LabDataRoot
+        if (-not $root -or -not (Test-Path -LiteralPath $root -PathType Container) -or
+            -not (Test-LabDataRootOwnership -DataRoot $root -ControllerId ([string]$Configuration.ControllerId))) {
+            throw "PERSISTENT_STORAGE_CATALOG_LOCATION_UNAVAILABLE: $([string]$location.LocationId)"
+        }
+        $path = Join-Path (Join-Path $root 'Catalog') 'persistent-stores.json'
+        $previous = $null
+        if (Test-Path -LiteralPath $path -PathType Leaf) {
+            try { $previous = Get-Content -LiteralPath $path -Raw -Encoding utf8 | ConvertFrom-Json -Depth 40 -ErrorAction Stop }
+            catch { throw "PERSISTENT_STORAGE_CATALOG_PREVIOUS_INVALID: $([string]$location.LocationId)" }
+        }
+        $targets.Add([PSCustomObject]@{ Path=$path; Previous=$previous; Written=$false })
+    }
+    if ($targets.Count -eq 0) { throw 'PERSISTENT_STORAGE_CATALOG_LOCATION_REQUIRED' }
+
+    try {
+        foreach ($target in $targets) {
+            Write-LabArtifactJsonAtomic -Path ([string]$target.Path) -InputObject $Document
+            $target.Written = $true
+        }
+        $verification = Get-LabPersistentStorageCatalog -Configuration $Configuration
+        if ([string]$verification.Status -ne 'AVAILABLE' -or @($verification.Sources).Count -ne $targets.Count -or
+            [int]$verification.Document.Revision -ne [int]$Document.Revision) {
+            throw 'PERSISTENT_STORAGE_CATALOG_POSTCONDITION_FAILED'
+        }
+    }
+    catch {
+        $writeFailure = $_.Exception.Message; $rollbackFailures = [Collections.Generic.List[string]]::new()
+        foreach ($target in @($targets | Where-Object Written)) {
+            try {
+                if ($null -eq $target.Previous) { Remove-Item -LiteralPath ([string]$target.Path) -Force }
+                else { Write-LabArtifactJsonAtomic -Path ([string]$target.Path) -InputObject $target.Previous }
+            }
+            catch { $rollbackFailures.Add([string]$target.Path) }
+        }
+        if ($rollbackFailures.Count -gt 0) { throw "PERSISTENT_STORAGE_CATALOG_ROLLBACK_FAILED: $($rollbackFailures -join ', ')" }
+        throw "PERSISTENT_STORAGE_CATALOG_WRITE_FAILED: $writeFailure"
+    }
+    return $Document
+}
+
+function Register-LabBackupSetPersistentStorage {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$BackupRecord,
+        [Parameter(Mandatory)][string]$DataRoot,
+        [AllowNull()]$Configuration
+    )
+
+    $configuration = if ($Configuration) { $Configuration } else { Get-LabStorageConfiguration -DataRoot $DataRoot }
+    $resolvedRoot = if ($Configuration) {
+        [IO.Path]::GetFullPath($DataRoot).TrimEnd('\','/')
+    }
+    else { (Resolve-LabDataRootForUse -DataRoot $DataRoot).TrimEnd('\','/') }
+    $locations = @($configuration.LabDataLocations | Where-Object {
+        [string]::Equals(([IO.Path]::GetFullPath([string]$_.LabDataRoot).TrimEnd('\','/')),$resolvedRoot,[StringComparison]::OrdinalIgnoreCase)
+    })
+    if ($locations.Count -ne 1) { throw 'BACKUP_SET_STORAGE_LOCATION_UNRESOLVED' }
+    if ([string]$BackupRecord.Source.Provider -notin @('docker','podman','hyperv')) { throw 'BACKUP_SET_STORAGE_PROVIDER_INVALID' }
+    $backupSetId = [string]$BackupRecord.BackupSetId
+    $inventoryObjectId = Get-LabStorageResidencyObjectId -Key "backup-set|$([string]$configuration.ControllerId)|$backupSetId"
+
+    return Invoke-LabPersistentStorageCatalogLock -ControllerId ([string]$configuration.ControllerId) -ScriptBlock {
+        $catalog = Get-LabPersistentStorageCatalog -Configuration $configuration
+        if ([string]$catalog.Status -in @('INVALID','DIVERGED','UNAVAILABLE')) {
+            throw "PERSISTENT_STORAGE_CATALOG_MUTATION_BLOCKED: $([string]$catalog.Status)"
+        }
+        $matches = @($catalog.Document.Stores | Where-Object {
+            @($_.References | Where-Object { [string]$_.Kind -eq 'ARTIFACT' -and [string]$_.TargetId -eq $backupSetId }).Count -gt 0
+        })
+        if ($matches.Count -gt 1) { throw 'BACKUP_SET_STORAGE_REFERENCE_DUPLICATE' }
+        $relativePath = (Join-Path 'Backups' ([string]$BackupRecord.Artifact.RelativePath)).Replace('\','/')
+        $expectedState = if ([string]$BackupRecord.Status -eq 'REUSABLE') { 'AVAILABLE' } else { 'RECOVERY_REQUIRED' }
+        if ($matches.Count -eq 1) {
+            $existing = $matches[0]
+            if ([string]$existing.StorageClass -ne 'BACKUP_SET' -or [string]$existing.Provider -ne [string]$BackupRecord.Source.Provider -or
+                [string]$existing.LocationBinding.LocationId -ne [string]$locations[0].LocationId -or
+                [string]$existing.LocationBinding.InventoryObjectId -ne $inventoryObjectId -or
+                [string]$existing.LocationBinding.RelativePath -ne $relativePath -or $null -ne $existing.Lease -or
+                [string]$existing.Retention -ne 'RETAINED' -or [string]$existing.CleanupDisposition -ne 'PRESERVE' -or
+                @($existing.References | Where-Object { [string]$_.Kind -eq 'ARTIFACT' -and [string]$_.State -eq 'ACTIVE' -and [string]$_.TargetId -eq $backupSetId }).Count -ne 1) {
+                throw 'BACKUP_SET_STORAGE_BINDING_CONFLICT'
+            }
+            if ([string]$existing.State -ne $expectedState) {
+                $next = $catalog.Document | ConvertTo-Json -Depth 40 | ConvertFrom-Json -Depth 40
+                $nextStore = @($next.Stores | Where-Object PersistentStorageId -eq ([string]$existing.PersistentStorageId))[0]
+                $nextStore.State = $expectedState; $nextStore.UpdatedAt = Get-LabTimestamp
+                $next.Revision = [int]$next.Revision + 1
+                $null = Write-LabPersistentStorageCatalogDocument -Document $next -Configuration $configuration
+                return [PSCustomObject]@{ Changed=$true; Store=$nextStore; CatalogRevision=[int]$next.Revision }
+            }
+            return [PSCustomObject]@{ Changed=$false; Store=$existing; CatalogRevision=[int]$catalog.Document.Revision }
+        }
+
+        $now = Get-LabTimestamp
+        $displayName = "$([string]$BackupRecord.DatabaseName) backup $([string]$BackupRecord.CreatedAt)"
+        if ($displayName.Length -gt 128) { $displayName = $displayName.Substring(0,128) }
+        $store = [PSCustomObject][ordered]@{
+            PersistentStorageId=(New-LabPersistentStorageId); DisplayName=$displayName; StorageClass='BACKUP_SET'
+            State=$expectedState
+            Provider=[string]$BackupRecord.Source.Provider
+            LocationBinding=[PSCustomObject][ordered]@{
+                Residency='LAB_DATA'; LocationId=[string]$locations[0].LocationId; ProviderResourceId=$null
+                InventoryObjectId=$inventoryObjectId; RelativePath=$relativePath
+            }
+            References=@([PSCustomObject][ordered]@{ ReferenceId=$backupSetId; Kind='ARTIFACT'; State='ACTIVE'; TargetId=$backupSetId })
+            Lease=$null; Retention='RETAINED'; CleanupDisposition='PRESERVE'; CreatedAt=$now; UpdatedAt=$now
+        }
+        $next = $catalog.Document | ConvertTo-Json -Depth 40 | ConvertFrom-Json -Depth 40
+        $next.Revision = [int]$next.Revision + 1
+        $next.Stores = @($next.Stores) + @($store)
+        $null = Test-LabPersistentStorageCatalogDocument -Document $next -Configuration $configuration
+        $null = Write-LabPersistentStorageCatalogDocument -Document $next -Configuration $configuration
+        return [PSCustomObject]@{ Changed=$true; Store=$store; CatalogRevision=[int]$next.Revision }
+    }
+}
+
+function Sync-LabBackupSetPersistentStorageCatalog {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$DataRoot)
+
+    $paths = Get-LabBackupLibraryPaths -DataRoot $DataRoot
+    $library = Get-LabBackupLibraryDocument -Paths $paths
+    $results = foreach ($record in @($library.Backups | Sort-Object BackupSetId)) {
+        Register-LabBackupSetPersistentStorage -BackupRecord $record -DataRoot $paths.DataRoot
+    }
+    return @($results)
 }
 
 function Get-LabPersistentStoragePlan {

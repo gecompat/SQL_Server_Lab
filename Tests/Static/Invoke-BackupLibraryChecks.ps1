@@ -43,6 +43,10 @@ try {
 
         $created=New-LabDatabaseLibraryBackup -Port 14333 -SaPassword $Password -Provider docker `
             -ContainerName 'runtime-only' -DatabaseName 'BackupEvidence' -DataRoot $Root
+        $storageConfiguration=Get-LabStorageConfiguration -DataRoot $Root
+        $persistentCatalog=Get-LabPersistentStorageCatalog -Configuration $storageConfiguration
+        $residencyInventory=Get-LabStorageResidencyInventory -Configuration $storageConfiguration -StateRoot (Join-Path $Root 'State')
+        $syncResult=@(Sync-LabBackupSetPersistentStorageCatalog -DataRoot $Root)
         $selected=Get-LabDatabaseBackup -BackupSetId $created.BackupSetId -DataRoot $Root
         $catalog=@(Get-LabDatabaseBackupSelection -DataRoot $Root)
         $contentHash=([Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes('3|beta')))).ToLowerInvariant()
@@ -72,8 +76,22 @@ try {
             $null=New-LabDatabaseLibraryBackup -Port 14333 -SaPassword $Password -Provider docker `
                 -ContainerName 'runtime-only' -DatabaseName 'EncryptedEvidence' -DataRoot $Root
         } catch { $tdeGuard=$_.Exception.Message -match 'TDE_DEPENDENCY_UNSUPPORTED' }
+        $originalRegistration=(Get-Command Register-LabBackupSetPersistentStorage -CommandType Function).ScriptBlock
+        Set-Item Function:script:Register-LabBackupSetPersistentStorage -Value { throw 'SYNTHETIC_CATALOG_FAILURE' }
+        $catalogFailure=$false
+        try {
+            $null=Register-LabDatabaseBackupArtifact -BackupPath $Fixture -DatabaseName 'CatalogFailure' -Provider docker `
+                -Metadata ([PSCustomObject]@{SqlMajorVersion='17';FileCount=1;FileStreamFileCount=0;FileTableCount=0;HasFileStream=$false;IsEncrypted=$false}) -DataRoot $Root
+        } catch { $catalogFailure=$_.Exception.Message -match 'BACKUP_LIBRARY_CATALOG_REGISTRATION_FAILED.*SYNTHETIC_CATALOG_FAILURE' }
+        finally { Set-Item Function:script:Register-LabBackupSetPersistentStorage -Value $originalRegistration }
+        $afterCatalogFailure=Get-LabBackupLibraryDocument -Paths (Get-LabBackupLibraryPaths -DataRoot $Root)
+        $catalogFailureQuarantined=@($afterCatalogFailure.Backups | Where-Object { $_.DatabaseName -eq 'CatalogFailure' -and $_.Status -eq 'QUARANTINED' }).Count -eq 1
         [PSCustomObject]@{
             Created=$created.Status -eq 'BACKUP_REUSABLE' -and (Test-Path -LiteralPath $created.Path -PathType Leaf)
+            PersistentStorageId=[string]$created.PersistentStorageId
+            PersistentCatalog=$persistentCatalog
+            ResidencyInventory=$residencyInventory
+            SyncResult=$syncResult
             Selected=$selected.Record.BackupSetId -eq $created.BackupSetId -and $selected.Record.Artifact.Sha256 -eq $created.Sha256
             Catalog=$catalog
             Sql=($script:backupSql -join "`n")
@@ -82,11 +100,24 @@ try {
             FileStreamGuard=$filestreamGuard
             QuarantineGuard=$quarantineGuard
             TdeGuard=$tdeGuard
+            CatalogFailure=$catalogFailure
+            CatalogFailureQuarantined=$catalogFailureQuarantined
         }
     } $dataRoot $fixture $password
 
     Add-CheckResult 'Backup wird erst nach CHECKSUM und RESTORE VERIFYONLY veröffentlicht' ($result.Sql -match 'BACKUP DATABASE.+CHECKSUM' -and $result.Sql -match 'RESTORE VERIFYONLY.+WITH CHECKSUM')
     Add-CheckResult 'Inhaltsadressiertes Backup ist als REUSABLE selektierbar' ($result.Created -and $result.Selected)
+    $persistentStores=@($result.PersistentCatalog.Document.Stores | Where-Object StorageClass -eq 'BACKUP_SET')
+    Add-CheckResult 'Backup-Publikation registriert eine getrennte stabile PersistentStorageId atomar im zentralen Katalog' (
+        $result.PersistentStorageId -match '^[0-9a-f-]{36}$' -and $persistentStores.Count -eq 1 -and
+        [string]$persistentStores[0].PersistentStorageId -eq $result.PersistentStorageId -and
+        [string]$persistentStores[0].References[0].TargetId -eq [string]$result.Catalog[0].BackupSetId -and
+        @($result.SyncResult).Count -eq 1 -and -not [bool]$result.SyncResult[0].Changed)
+    $backupResidency=@($result.ResidencyInventory.Objects | Where-Object ObjectClass -eq 'BACKUP_SET')
+    Add-CheckResult 'Residency-Inventar bindet den Backupbestand ohne erneutes Inhalts-Hashing an dieselbe Objekt-ID' (
+        $backupResidency.Count -eq 1 -and $backupResidency[0].AuditStatus -eq 'VERIFIED' -and
+        [string]$backupResidency[0].ObjectId -eq [string]$persistentStores[0].LocationBinding.InventoryObjectId -and
+        (Get-Content -LiteralPath (Join-Path $repoRoot 'Private/StorageResidencyInventory.ps1') -Raw) -notmatch '(?s)foreach \(\$backup.+Get-FileHash')
     $catalogJson=$result.Catalog | ConvertTo-Json -Depth 10
     Add-CheckResult 'Backup-Auswahl ist billig, stabil und ohne lokale Pfade oder Hashes sanitisiert' ($result.Catalog.Count -eq 1 -and $result.Catalog[0].BackupSetId -match '^[0-9a-f-]{36}$' -and $result.Catalog[0].Availability -eq 'SELECTABLE' -and $catalogJson -notmatch 'RelativePath|Sha256|RegistryPath|\\Objects\\|/Objects/')
     Add-CheckResult 'Quarantänestatus sperrt die exakte BackupSetId-Auswahl fail-closed' $result.QuarantineGuard
@@ -95,6 +126,7 @@ try {
     Add-CheckResult 'Cross-Provider-Inhaltsdigest wird getrennt als Restore-Evidence erfasst' ($result.Verification.TargetProvider -eq 'podman' -and $result.Verification.ContentSha256 -match '^[a-f0-9]{64}$')
     Add-CheckResult 'FILESTREAM-Backup verlangt echte FILESTREAM-Inhaltsevidence' $result.FileStreamGuard
     Add-CheckResult 'TDE-Backup wird ohne Zertifikat- und Recovery-Vertrag nicht veröffentlicht' $result.TdeGuard
+    Add-CheckResult 'Fehlgeschlagener Katalogcommit quarantänisiert die Bibliothek statt Wiederverwendbarkeit zu behaupten' ($result.CatalogFailure -and $result.CatalogFailureQuarantined)
     Add-CheckResult 'Öffentliches Backup-Cmdlet ist exportiert' ([bool](Get-Command Backup-SqlServerLabDatabase -ErrorAction SilentlyContinue))
     $restoreText=Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Restore-SqlServerLabDatabase.ps1') -Raw
     Add-CheckResult 'Jeder öffentliche Restore führt VERIFYONLY WITH CHECKSUM vor FILELISTONLY aus' ($restoreText -match '(?s)Pruefe Backup.+RESTORE VERIFYONLY.+WITH CHECKSUM.+Lese Backup-Metadaten.+RESTORE FILELISTONLY')
