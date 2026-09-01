@@ -63,6 +63,7 @@ end {
 
     $staticGroups = @(
         @{ Pattern = '(?i)(Cleanup|Remove-SqlServerLab|Clear-SqlServerLab)'; Checks = @('Invoke-CleanupRecoveryChecks.ps1','Invoke-CleanupAuditChecks.ps1') },
+        @{ Pattern = '(?i)(PersistentStorageRemoval|persistent-storage-removal)'; Checks = @('Invoke-PersistentStorageRemovalPlanChecks.ps1','Invoke-PersistentStorageRemovalExecutorChecks.ps1','Invoke-WorkflowUiChecks.ps1') },
         @{ Pattern = '(?i)(BatchWorkflow|BatchConsole|lab-batch)'; Checks = @('Invoke-BatchWorkflowChecks.ps1') },
         @{ Pattern = '(?i)(ConsoleUi|Invoke-SqlServerLab\.ps1|Workflow)'; Checks = @('Invoke-ConsoleUiChecks.ps1','Invoke-WorkflowUiChecks.ps1') },
         @{ Pattern = '(?i)(ActionResult|Invoke-SqlServerLab\.ps1)'; Checks = @('Invoke-ActionResultChecks.ps1') },
@@ -137,6 +138,7 @@ end {
         if (Test-AnyPath '(?i)(ContainerReconcile|Update-SqlServerLabContainer|Invoke-ContainerCliAcceptance)') { $runtime.Docker = $true; $runtime.Podman = $true }
         if (Test-AnyPath '(?i)(ContainerInstanceStore|container-instance-store)') { $runtime.Docker = $true; $runtime.Podman = $true }
         if (Test-AnyPath '(?i)(ContainerRuntimeScope|container-runtime-scope)') { $runtime.Docker = $true; $runtime.Podman = $true }
+        if (Test-AnyPath '(?i)(PersistentStorageRemoval|persistent-storage-removal)') { $runtime.Docker = $true; $runtime.Podman = $true }
         if (Test-AnyPath '(?i)(BackupLibrary|backup-library|Backup-SqlServerLabDatabase)') { $runtime.Mixed = $true }
         if (Test-AnyPath '(?i)(DatabasePackage|database-package)') { $runtime.HyperV = $true }
         if (Test-AnyPath '(?i)(DatabaseMigrationDependency|database-migration-dependency)') { $runtime.Mixed = $true; $runtime.HyperV = $true }

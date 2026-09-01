@@ -2,7 +2,7 @@
 
 ## Status und Priorität
 
-`ACTIVE / PSR_001_PARTIAL_PSR_002_COMPLETE_PSR_003_PARTIAL_PSR_004_006_READ_ONLY_PSR_005_007_008_009_010_012_IMPLEMENTED_CORE` – die vorhandenen
+`ACTIVE / PSR_001_PARTIAL_PSR_002_COMPLETE_PSR_003_004_PARTIAL_PSR_006_READ_ONLY_PSR_005_007_008_009_010_012_IMPLEMENTED_CORE` – die vorhandenen
 Persistenzmechanismen schützen bereits Teile des SQL-Zustands, bilden aber noch
 keinen vollständigen, providerübergreifenden Wiederverwendungs- und
 Löschvertrag. Planung ist kein Implementierungs- oder Runtime-Nachweis.
@@ -62,7 +62,7 @@ Katalogmutation, öffentliche
 Bestandsmigration, providerübergreifende Wiederverwendung und Löschung bleiben
 getrennte Folgearbeit.
 
-Der read-only Slice `PSR-004` ist ebenfalls implementiert. Ein strikter
+Der Plan- und erste Executor-Slice `PSR-004` ist implementiert. Ein strikter
 `SqlServerLab.PersistentStorageRemovalIntent/1.0` bindet die sechs
 Retention-/Removal-Policies an Run- und Storage-ID sowie aktive
 Datenbankreferenzen. `SqlServerLab.PersistentStorageRemovalPlan/1.0` ordnet
@@ -70,9 +70,15 @@ Scope-, Referenz- und Lease-Prüfung vor jede Folge, verlangt für Backups
 `CHECKSUM` und `RESTORE VERIFYONLY`, für Pakete Offline-/Detach-Evidence,
 vollständiges Dateiinventar, SHA-256 und Postcondition und setzt Fehler ab der
 ersten Mutation auf `RECOVERY_REQUIRED`. Fremde Referenzen, Recovery-Zustände
-und nicht katalogisierte retained Objekte blockieren. Der Plan selbst führt
-nichts aus; endgültige Löschung eines persistenten Stores bleibt eine eigene,
-noch nicht implementierte Expertenaktion.
+und nicht katalogisierte retained Objekte blockieren. Der öffentliche Executor
+führt für Docker-/Podman-Instanzstores `RETAIN_INSTANCE_STORE` und
+`BACKUP_ON_REMOVE` aus. Er schreibt vor dem ersten Backup ein geheimnisfreies
+Journal, veröffentlicht ausschließlich per `CHECKSUM` und
+`RESTORE VERIFYONLY` bestätigte Backup-Sets, revalidiert den Plan vor Cleanup
+und setzt einen begonnenen Cleanup idempotent fort. Der Run wird entfernt, der
+Store bleibt detached katalogisiert. Package, externe Freigabe,
+`DELETE_WITH_RUN` und endgültige Löschung bleiben vor jeder Mutation
+blockierte, getrennte Folgearbeit.
 
 Der Core-Slice `PSR-005` ist implementiert und für Docker und Podman getrennt
 real belegt. `SqlServerLab.ContainerInstanceStoreIntent/1.0` wählt eine bereits
@@ -413,14 +419,14 @@ Volumename ersetzt diese Identität nicht.
 | `PSR-001` | P0-Analyse | Ist-Inventar aller persistenten, rungebundenen und verbleibenden Objekte für Docker, Podman und Hyper-V | `IMPLEMENTED_PARTIAL`: versionierte read-only Matrix mit stabilen Objekt-IDs, Residency, Lifecycle, Cleanup-Policy und Provider-Coverage; physisches Desktop-/Machine-Backing bleibt explizit unverifizierbar |
 | `PSR-002` | P0-Analyse | `Lab_Data`-Versprechen, native Runtime-Ausnahmen und Hosteingriffsgrenzen entscheiden | `COMPLETE`: bindender `SqlServerLab.LabDataResidencyDecision/1.0`-Entscheid |
 | `PSR-003` | P1 | Storage-Katalog mit stabiler ID, Klassen, Zuständen, Referenzen und Leases entwerfen | `IMPLEMENTED_PARTIAL`: Schema, Parser, Planner, Inventarbindung, rollbackfähige `BACKUP_SET`-/`DATABASE_PACKAGE`-/Clone-`INSTANCE_STORE`-Registrierung sowie exklusive Lease/Freigabe regulärer `-PersistentData`-Containerstores einschließlich stabiler Datenbankreferenzen auf allen controllergebundenen Spiegeln; generische Mutation, öffentliche Bestandsmigration, providerübergreifende Wiederverwendung und Löschung bleiben offen |
-| `PSR-004` | P1 | Retention-, Backup-on-Remove-, Package- und expliziten Löschvertrag entwerfen | `IMPLEMENTED_READ_ONLY`: verlustsicherer Cleanup-/Recovery-Plan; Executor und getrennte endgültige Storage-Löschaktion bleiben offen |
+| `PSR-004` | P1 | Retention-, Backup-on-Remove-, Package- und expliziten Löschvertrag entwerfen | `IMPLEMENTED_PARTIAL`: verlustsicherer Plan plus journalisierter Docker-/Podman-Executor für Retain und verifiziertes Backup-on-Remove; Package, externe Freigabe und getrennte endgültige Storage-Löschung bleiben offen |
 | `PSR-005` | P1 | Docker-/Podman-Instanzstore auswählbar, fortsetzbar und klonbar machen | `IMPLEMENTED_CORE`: öffentliche CLI-/Browser-Auswahl per stabiler ID, detached Continue/Clone, operationsgebundene Quell-Lease, Digest/Resume, atomarer Zielcommit plus Quellfreigabe und getrennte reale Docker-/Podman-Nachweise; External-Runtime-Sidecars bleiben offen |
 | `PSR-006` | P1 | Podman-Machine- und Docker-Engine-/Context-Reichweite bewerten und gegebenenfalls dediziert verwalten | `IMPLEMENTED_READ_ONLY`: stabile sanitisierte Runtime-ID, Context-/Connection-/Machine-Bindung und REPORT_ONLY-Hostgrenze real belegt; dedizierter Ownership-/Lifecycle-Vertrag bleibt offen |
 | `PSR-007` | P1 | Hyper-V-Daten-VHDX sicher auswählen, reattachen, freigeben und klonen | `IMPLEMENTED_CORE`: Storage-ID-, Disk-/VM-/Checkpoint-/Clean-Detach-/SQL-Versions-validierter Host-Lifecycle, unabhängiger Clone und realer Hyper-V-Nachweis; Katalog-Commit, öffentliche Bedienung und explizite Datenbankaktion bleiben getrennt |
 | `PSR-008` | P1 | Providerneutrale Backup-Bibliothek mit automatischem Backup und Restore-Verifikation liefern | `IMPLEMENTED_CORE`: inhaltsadressierte `Lab_Data`-Bibliothek, `CHECKSUM`, `RESTORE VERIFYONLY`, Hash, Metadatenreceipt, öffentliche BackupSetId-Auswahl und realer Docker→Podman-Inhaltsnachweis; reale FILESTREAM-Cross-Provider-Evidence bleibt offen |
 | `PSR-009` | P2 | Datenbankpakete inklusive FILESTREAM, Attach und Clone implementieren | `IMPLEMENTED_CORE`: vollständiger Offline-Dateivertrag, rekursive Hashes, unabhängiger Clone und journalisiertes Copy-then-Attach; native Hyper-V-/FILESTREAM-Abnahme sowie öffentliche Bedienung offen |
 | `PSR-010` | P2 | Serverobjekt- und TDE-Abhängigkeiten inventarisieren und Migrationsgrenzen anzeigen | `IMPLEMENTED_CORE`: read-only SQL-Counts, TDE-Recovery-Gate, externe Review-Grenzen und sanitisierte `DATABASE_FILES_ONLY`-Receipts; Export/Import und öffentliche Bedienung offen |
-| `PSR-011` | P1 | identische CLI- und GUI-Flows für Auswahl, Retention, Restore, Attach, Clone und Delete liefern | `IMPLEMENTED_PARTIAL`: Backup-Inventur/Restore, Container-Continue/Clone bei der Lab-Erstellung und read-only Retention-Vorschau verwenden in CLI und Browser dieselben stabilen IDs und Fachkerne; Retention-Executor, Datenbankpaket-Attach und endgültiges Delete bleiben offen |
+| `PSR-011` | P1 | identische CLI- und GUI-Flows für Auswahl, Retention, Restore, Attach, Clone und Delete liefern | `IMPLEMENTED_PARTIAL`: Backup-Inventur/Restore, Container-Continue/Clone, Retention-Vorschau sowie Retain/Backup-on-Remove verwenden in CLI und Browser dieselben stabilen IDs und Fachkerne; Datenbankpaket-Attach und endgültiges Delete bleiben offen |
 | `PSR-012` | P1 | Cleanup-Audit um persistente Stores, Runtime-Backing, Orphans und Referenzschutz erweitern | `IMPLEMENTED_CORE`: strikte getrennte Findings für Retention, unerwartete Residuen, Recovery und unverifizierbare Evidence; automatische Mutation bleibt ausgeschlossen |
 | `PSR-013` | P2 | journalisierte Migration vorhandener Volumes/VHDX und Metadaten bereitstellen | Resume, Rollback, Hash- und Kapazitätsnachweis |
 

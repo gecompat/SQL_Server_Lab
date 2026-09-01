@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sql-server-lab.local/schemas/persistent-storage-removal-journal.schema.json",
+  "title": "SqlServerLab.PersistentStorageRemovalJournal/1.0",
+  "type": "object",
+  "required": ["ContractVersion", "OperationId", "IntentId", "RunId", "ScopeId", "SelectionFingerprint", "CatalogRevision", "Status", "Selections", "Backups", "Removal", "Recovery", "CreatedAt", "UpdatedAt"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.PersistentStorageRemovalJournal/1.0" },
+    "OperationId": { "type": "string", "format": "uuid" },
+    "IntentId": { "type": "string", "format": "uuid" },
+    "RunId": { "type": "string", "format": "uuid" },
+    "ScopeId": { "type": "string", "format": "uuid" },
+    "SelectionFingerprint": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "CatalogRevision": { "type": "integer", "minimum": 0 },
+    "Status": { "enum": ["PREPARED", "BACKUPS_COMPLETED", "REMOVAL_STARTED", "COMPLETED", "RECOVERY_REQUIRED"] },
+    "Selections": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["PersistentStorageId", "Policy", "DatabaseReferenceIds"],
+        "properties": {
+          "PersistentStorageId": { "type": "string", "format": "uuid" },
+          "Policy": { "enum": ["RETAIN_INSTANCE_STORE", "BACKUP_ON_REMOVE"] },
+          "DatabaseReferenceIds": { "type": "array", "items": { "type": "string", "format": "uuid" }, "uniqueItems": true }
+        },
+        "additionalProperties": false
+      }
+    },
+    "Backups": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["PersistentStorageId", "DatabaseReferenceId", "InstanceId", "DatabaseName", "Status", "BackupSetId", "ArtifactPersistentStorageId", "Sha256", "Bytes"],
+        "properties": {
+          "PersistentStorageId": { "type": "string", "format": "uuid" },
+          "DatabaseReferenceId": { "type": "string", "format": "uuid" },
+          "InstanceId": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "DatabaseName": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]{0,127}$" },
+          "Status": { "enum": ["PENDING", "COMPLETED"] },
+          "BackupSetId": { "type": ["string", "null"], "format": "uuid" },
+          "ArtifactPersistentStorageId": { "type": ["string", "null"], "format": "uuid" },
+          "Sha256": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" },
+          "Bytes": { "type": ["integer", "null"], "minimum": 1 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "Removal": {
+      "type": "object",
+      "required": ["Status", "Cleanup"],
+      "properties": {
+        "Status": { "enum": ["PENDING", "STARTED", "COMPLETED"] },
+        "Cleanup": { "type": ["string", "null"], "maxLength": 128 }
+      },
+      "additionalProperties": false
+    },
+    "Recovery": {
+      "type": "object",
+      "required": ["Status", "Attempts", "ErrorCode", "Errors"],
+      "properties": {
+        "Status": { "enum": ["NOT_REQUIRED", "RETRY_EXECUTION"] },
+        "Attempts": { "type": "integer", "minimum": 0 },
+        "ErrorCode": { "type": ["string", "null"], "pattern": "^[A-Z][A-Z0-9_]{5,127}$" },
+        "Errors": { "type": "array", "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{5,127}$" } }
+      },
+      "additionalProperties": false
+    },
+    "CreatedAt": { "type": "string", "format": "date-time" },
+    "UpdatedAt": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

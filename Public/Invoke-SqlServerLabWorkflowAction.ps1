@@ -107,6 +107,9 @@ Ist er angegeben, wird der Download strikt dagegen verifiziert.
 .PARAMETER PersistentStorageAction
     CONTINUE bindet denselben Store; CLONE erstellt über den gemeinsamen
     journalisierten Fachkern eine unabhängige Kopie.
+.PARAMETER PersistentStorageSelection
+    Explizite Retention-Auswahl je stabiler PersistentStorageId. Der Workflow
+    führt ausschließlich RETAIN_INSTANCE_STORE und BACKUP_ON_REMOVE aus.
 .PARAMETER GuestUserName
     Lokaler Administratorname im Gast für PowerShell Direct.
 .PARAMETER GuestPassword
@@ -165,6 +168,7 @@ function Invoke-SqlServerLabWorkflowAction {
             'Refresh',
             'SetMediaRoot', 'SetDataRoot', 'SetTestDataRoot',
             'NewContainerLab', 'CreateContainerManifest', 'NewContainerLabFromManifest', 'RenameLab', 'SetLabResources', 'StartContainerLab', 'StopContainerLab', 'StartLabReconcile', 'StopLabReconcile', 'RestartContainerLab', 'RemoveContainerLab', 'ClearAllLabs',
+            'ExecutePersistentStorageRemoval',
             'CreateContainerDatabase', 'RestoreContainerLibraryBackup', 'InstallContainerSampleDatabase', 'InstallContainerSampleDatabases', 'ExecuteContainerScript',
             'NewHyperVLab', 'NewHyperVLabFromExistingVm', 'StartHyperVLab', 'StopHyperVLab', 'EnableHyperVLabPersistentData', 'InitializeHyperVLabPersistentData', 'CompleteHyperVLabSql', 'EnableHyperVLabHostSqlAccess', 'InspectHyperVLabSqlInstances', 'OpenHyperVConsole', 'RemoveHyperVLab',
             'NewWindowsBuild', 'SetWindowsMediaHash', 'OpenWindowsConsole', 'ConfirmWindowsInstall', 'GeneralizeWindowsBuild', 'PublishWindowsBuild',
@@ -186,6 +190,7 @@ function Invoke-SqlServerLabWorkflowAction {
         [switch]$PersistentData,
         [ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$PersistentStorageId,
         [ValidateSet('CONTINUE','CLONE')][string]$PersistentStorageAction = 'CONTINUE',
+        [object[]]$PersistentStorageSelection,
         [ValidateRange(32, 4096)][int]$PersistentDataDiskGB = 128,
         [ValidatePattern('^windows-(server-)?[0-9]+$')][string]$OperatingSystemId = 'windows-server-2025',
         [string]$WindowsMediaPath,
@@ -273,6 +278,7 @@ function Invoke-SqlServerLabWorkflowAction {
     $containerActions = @(
         'NewContainerLab', 'CreateContainerManifest', 'NewContainerLabFromManifest', 'RenameLab', 'SetLabResources', 'StartContainerLab', 'StopContainerLab', 'RestartContainerLab', 'RemoveContainerLab',
         'ClearAllLabs', 'CreateContainerDatabase', 'RestoreContainerLibraryBackup', 'InstallContainerSampleDatabase', 'InstallContainerSampleDatabases', 'ExecuteContainerScript',
+        'ExecutePersistentStorageRemoval',
         'StartLabReconcile', 'StopLabReconcile'
     )
     if ($Action -notin $containerActions) {
@@ -314,6 +320,9 @@ function Invoke-SqlServerLabWorkflowAction {
     }
     if ($Action -eq 'NewHyperVLabFromExistingVm' -and ([string]::IsNullOrWhiteSpace($SourceVMName) -or [string]::IsNullOrWhiteSpace($LabName))) {
         throw 'HYPERV_EXISTING_VM_SOURCE_AND_NAME_REQUIRED'
+    }
+    if ($Action -eq 'ExecutePersistentStorageRemoval' -and ([string]::IsNullOrWhiteSpace($BuildId) -or @($PersistentStorageSelection).Count -eq 0)) {
+        throw 'PERSISTENT_STORAGE_REMOVAL_WORKFLOW_SELECTION_REQUIRED'
     }
 
     if (($PersistentData -and $Action -in @('NewHyperVLab', 'NewHyperVLabFromExistingVm')) -or $Action -eq 'EnableHyperVLabPersistentData') {
@@ -420,6 +429,9 @@ function Invoke-SqlServerLabWorkflowAction {
         'StopLabReconcile' { Invoke-SqlServerLabReconcileAction -RunId $BuildId -TargetState STOPPED }
         'RestartContainerLab' { Restart-SqlServerLab -RunId $BuildId -Force -Confirm:$false }
         'RemoveContainerLab' { Remove-SqlServerLab -RunId $BuildId -Force -Confirm:$false }
+        'ExecutePersistentStorageRemoval' {
+            Invoke-SqlServerLabPersistentStorageRemoval -RunId $BuildId -Selection $PersistentStorageSelection -DataRoot $DataRoot -Force -Confirm:$false
+        }
         'ClearAllLabs' { Clear-SqlServerLab -Force }
         'CreateContainerDatabase' {
             if ($Port -lt 1 -or -not $DatabaseName) { throw 'CONTAINER_WORKFLOW_DATABASE_TARGET_REQUIRED' }

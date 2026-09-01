@@ -25,6 +25,21 @@ function Test-LabPersistentStorageRemovalIntent {
     return $true
 }
 
+function ConvertTo-LabPersistentStorageRemovalSelection {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][object[]]$Selection)
+    @(
+        foreach ($item in @($Selection)) {
+            if (-not $item) { throw 'PERSISTENT_STORAGE_REMOVAL_SELECTION_REQUIRED' }
+            [PSCustomObject][ordered]@{
+                PersistentStorageId = [string]$item.PersistentStorageId
+                Policy = [string]$item.Policy
+                DatabaseReferenceIds = @($item.DatabaseReferenceIds | ForEach-Object { [string]$_ })
+            }
+        }
+    )
+}
+
 function New-LabPersistentStorageRemovalStep {
     [CmdletBinding()]
     param(
