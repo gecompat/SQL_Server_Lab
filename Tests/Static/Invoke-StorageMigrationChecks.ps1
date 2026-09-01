@@ -11,11 +11,27 @@ $targetRoot = Join-Path $targetParent 'Lab_Data'
 $externalStateRoot = Join-Path $temporaryParent 'external-state'
 $previousDataRoot = $env:SQL_SERVER_LAB_DATA_ROOT
 $previousStateRoot = $env:SQL_SERVER_LAB_STATE
+$previousDockerPath = $env:SQL_SERVER_LAB_DOCKER_PATH
+$previousPodmanPath = $env:SQL_SERVER_LAB_PODMAN_PATH
 $failures = [System.Collections.Generic.List[string]]::new(); $passed = 0
 . (Join-Path $PSScriptRoot '..' 'Common' 'CheckResult.ps1')
 Write-Host ''; Write-Host 'SQL_Server_Lab - Storage Migration Checks' -ForegroundColor Cyan
 
 try {
+    $runtimeStubRoot = Join-Path $temporaryParent 'host-tool-stubs'
+    New-Item -Path $runtimeStubRoot -ItemType Directory -Force | Out-Null
+    foreach ($provider in @('docker','podman')) {
+        $stubPath = Join-Path $runtimeStubRoot $(if ($IsWindows) { "$provider.cmd" } else { $provider })
+        if ($IsWindows) {
+            Set-Content -LiteralPath $stubPath -Value '@exit /b 1' -Encoding ascii
+        }
+        else {
+            Set-Content -LiteralPath $stubPath -Value "#!/bin/sh`nexit 1" -Encoding utf8NoBOM
+            [IO.File]::SetUnixFileMode($stubPath,(
+                [IO.UnixFileMode]::UserRead -bor [IO.UnixFileMode]::UserWrite -bor [IO.UnixFileMode]::UserExecute))
+        }
+        [Environment]::SetEnvironmentVariable("SQL_SERVER_LAB_$($provider.ToUpperInvariant())_PATH",$stubPath,'Process')
+    }
     $module = Import-Module $modulePath -Force -PassThru -ErrorAction Stop
     & $module {
         Set-Item -Path Function:script:Get-LabHyperVHardDiskDriveInventory -Value { return @() }
@@ -296,6 +312,10 @@ catch { Add-CheckResult -Name 'Storage-Migration-Testausfuehrung' -Success $fals
 finally {
     $env:SQL_SERVER_LAB_DATA_ROOT = $previousDataRoot
     $env:SQL_SERVER_LAB_STATE = $previousStateRoot
+    if ($null -eq $previousDockerPath) { Remove-Item Env:SQL_SERVER_LAB_DOCKER_PATH -ErrorAction SilentlyContinue }
+    else { $env:SQL_SERVER_LAB_DOCKER_PATH = $previousDockerPath }
+    if ($null -eq $previousPodmanPath) { Remove-Item Env:SQL_SERVER_LAB_PODMAN_PATH -ErrorAction SilentlyContinue }
+    else { $env:SQL_SERVER_LAB_PODMAN_PATH = $previousPodmanPath }
     if (Test-Path -LiteralPath $temporaryParent) { Remove-Item -LiteralPath $temporaryParent -Recurse -Force }
 }
 Write-Host ''; Write-Host "Ergebnis: $passed PASS, $($failures.Count) FAIL" -ForegroundColor Cyan

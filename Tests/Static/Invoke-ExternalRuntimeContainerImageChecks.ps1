@@ -401,7 +401,7 @@ Add-CheckResult -Name 'Jeder finale Target übernimmt den versionsgebundenen Lau
     $requiredLaunchCapabilities = @('CHOWN','DAC_OVERRIDE','KILL','SETGID','SETUID','SYS_ADMIN','MKNOD','SETPCAP','NET_ADMIN','NET_RAW','SYS_PTRACE')
     Add-CheckResult -Name 'Build akzeptiert nur bekannte Provider und arraygebundene Argumente' -Success (
         $artifactSource -match "ValidateSet\('docker', 'podman'\)" -and
-        $artifactSource -match '& \$provider @buildArguments' -and
+        $artifactSource -match '& \$runtimeInvocation @buildArguments' -and
         $artifactSource -notmatch '(?i)Invoke-Expression|ScriptBlock\.Create'
     )
     Add-CheckResult -Name 'Paketlocks binden sichere Dateinamen an den exakten URL-Pfad' -Success (

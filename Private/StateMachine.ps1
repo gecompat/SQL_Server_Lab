@@ -531,7 +531,8 @@ function Rename-ContainerLabEnvironment {
             $oldName = [string]$instance.containerName
             $newName = Get-LabContainerRuntimeName -LabName $DisplayName -InstanceId ([string]$instance.id) -RunId $RunId
             if ($oldName -eq $newName) { continue }
-            $output = & $provider rename ([string]$instance.containerId) $newName 2>&1
+            $runtimeInvocation = Get-LabHostToolInvocation -Name $provider
+            $output = & $runtimeInvocation rename ([string]$instance.containerId) $newName 2>&1
             if ($LASTEXITCODE -ne 0) { throw "${provider}_CONTAINER_RENAME_FAILED: $(($output | Out-String).Trim())" }
             $instance | Add-Member -NotePropertyName containerName -NotePropertyValue $newName -Force
             $renames += [PSCustomObject]@{ Provider = $provider; OldName = $oldName; NewName = $newName; ContainerId = [string]$instance.containerId }

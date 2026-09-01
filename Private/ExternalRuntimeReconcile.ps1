@@ -208,7 +208,8 @@ function Set-LabExternalRuntimeRefreshJournalStatus {
 function Test-LabRuntimeContainerExists {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$Provider, [Parameter(Mandatory)][string]$Identity)
-    $null = & $Provider inspect $Identity 2>$null
+    $runtimeInvocation = Get-LabHostToolInvocation -Name $Provider
+    $null = & $runtimeInvocation inspect $Identity 2>$null
     return $LASTEXITCODE -eq 0
 }
 
@@ -451,6 +452,7 @@ function Repair-LabExternalRuntimeRefreshJournal {
     }
     if ([string]$journal.status -in @('COMPLETED','ROLLED_BACK')) { return }
     $provider = [string]$journal.provider
+    $runtimeInvocation = Get-LabHostToolInvocation -Name $provider
     $canonical = [string]$journal.containerName
     $backup = [string]$journal.backupName
     if ([string]$journal.status -eq 'STATE_COMMITTED') {
@@ -462,7 +464,7 @@ function Repair-LabExternalRuntimeRefreshJournal {
     }
     if ([string]$journal.status -eq 'PREPARED') {
         if (Test-LabRuntimeContainerExists -Provider $provider -Identity $canonical) {
-            $null = & $provider start $canonical 2>&1
+            $null = & $runtimeInvocation start $canonical 2>&1
             if ($LASTEXITCODE -ne 0) { throw 'EXTERNAL_RUNTIME_REFRESH_RECOVERY_START_FAILED' }
         }
     }
@@ -470,9 +472,9 @@ function Repair-LabExternalRuntimeRefreshJournal {
         Remove-LabContainerForCleanup -Provider $provider -ContainerIdOrName $canonical -ExpectedScopeId ([string]$journal.scopeId)
     }
     if (Test-LabRuntimeContainerExists -Provider $provider -Identity $backup) {
-        $output = @(& $provider rename $backup $canonical 2>&1)
+        $output = @(& $runtimeInvocation rename $backup $canonical 2>&1)
         if ($LASTEXITCODE -ne 0) { throw "EXTERNAL_RUNTIME_REFRESH_RECOVERY_RENAME_FAILED: $($output -join ' ')" }
-        $null = & $provider start $canonical 2>&1
+        $null = & $runtimeInvocation start $canonical 2>&1
         if ($LASTEXITCODE -ne 0) { throw 'EXTERNAL_RUNTIME_REFRESH_RECOVERY_START_FAILED' }
     }
     if ($journal.javaCleanup -and @($journal.javaCleanup.records).Count -gt 0) {
@@ -510,8 +512,9 @@ function Invoke-LabExternalRuntimeReconcileRefresh {
     if ($context.IsNoOp) { return [PSCustomObject]@{ Status='NO_OP'; RunId=$RunId; InstanceId=[string]$context.ConnectionInstance.id; Changed=$false } }
 
     $provider = [string]$context.ConnectionInstance.provider
+    $runtimeInvocation = Get-LabHostToolInvocation -Name $provider
     $identity = @([string]$context.ConnectionInstance.containerId,[string]$context.ConnectionInstance.containerName,[string]$context.ConnectionInstance.id) | Where-Object { $_ } | Select-Object -First 1
-    $inspect = @(& $provider inspect $identity 2>$null | ConvertFrom-Json -Depth 50)[0]
+    $inspect = @(& $runtimeInvocation inspect $identity 2>$null | ConvertFrom-Json -Depth 50)[0]
     if (-not $inspect -or -not [bool]$inspect.State.Running) { throw 'EXTERNAL_RUNTIME_REFRESH_CONTAINER_NOT_RUNNING' }
     if ([string]$inspect.Config.Labels.'sql-server-lab.scope-id' -ne [string]$context.Run.scopeId -or
         [string]$inspect.Config.Labels.'sql-server-lab.run-id' -ne $RunId -or
@@ -559,8 +562,8 @@ function Invoke-LabExternalRuntimeReconcileRefresh {
     $javaCompensations = @()
     $stateCommitted = $false
     try {
-        $null = & $provider stop $name 2>&1
-        $renameOutput = @(& $provider rename $name $backupName 2>&1)
+        $null = & $runtimeInvocation stop $name 2>&1
+        $renameOutput = @(& $runtimeInvocation rename $name $backupName 2>&1)
         if ($LASTEXITCODE -ne 0) { throw "EXTERNAL_RUNTIME_REFRESH_RENAME_FAILED: $($renameOutput -join ' ')" }
         Set-LabExternalRuntimeRefreshJournalStatus -Journal $journal -Path $journalPath -Status 'ORIGINAL_RENAMED'
 

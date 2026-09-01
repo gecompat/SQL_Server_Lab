@@ -80,7 +80,8 @@ function Initialize-PodmanSqlNamedVolume {
         [switch]$SyncImageContent
     )
 
-    $inspectionOutput = @(podman volume inspect $VolumeName 2>$null)
+    $podmanInvocation = Get-LabHostToolInvocation -Name podman
+    $inspectionOutput = @(& $podmanInvocation volume inspect $VolumeName 2>$null)
     $volumeExists = $LASTEXITCODE -eq 0
 
     if ($volumeExists -and $PersistentStorageId) {
@@ -101,7 +102,7 @@ function Initialize-PodmanSqlNamedVolume {
         )
         if ($Persistence) { $labelArguments += @('--label', "sql-server-lab.persistence=$Persistence") }
         if ($PersistentStorageId) { $labelArguments += @('--label', "sql-server-lab.persistent-storage-id=$PersistentStorageId") }
-        $created = podman volume create @labelArguments $VolumeName 2>&1
+        $created = & $podmanInvocation volume create @labelArguments $VolumeName 2>&1
         if ($LASTEXITCODE -ne 0) {
             throw "PODMAN_SQL_VOLUME_CREATE_FAILED: $VolumeName - $(@($created) -join ' ')"
         }
@@ -114,7 +115,7 @@ function Initialize-PodmanSqlNamedVolume {
     else {
         'chown -R 10001:0 /sql-lab-volume-init && chmod 0770 /sql-lab-volume-init'
     }
-    $initialized = podman run --rm --user 0:0 --entrypoint /bin/sh `
+    $initialized = & $podmanInvocation run --rm --user 0:0 --entrypoint /bin/sh `
         -v "${VolumeName}:/sql-lab-volume-init" $Image `
         -c $initializationCommand 2>&1
     if ($LASTEXITCODE -ne 0) {
@@ -156,6 +157,7 @@ function New-PodmanInstance {
     if ($ResolvedImage -and $ExternalRuntimeLaunchMode -eq 'none') {
         throw 'PODMAN_RESOLVED_IMAGE_LAUNCH_MODE_REQUIRED'
     }
+    $podmanInvocation = Get-LabHostToolInvocation -Name podman
     $image = if ($ResolvedImage) { $ResolvedImage } else { Get-SqlServerDockerImage -VersionId $VersionId }
     $profileDefinition = Get-LabResourceProfile -Name $Profile
     $effectiveMemoryMB = if ($MemoryMB -gt 0) { $MemoryMB } else { [int]$profileDefinition.maxMemoryMB }
@@ -293,7 +295,7 @@ function New-PodmanInstance {
                 )
 
                 Write-LabInfo "Container erstellen: $containerName (Port $selectedPort, Image $image) [Podman]"
-                $output = podman @podmanArguments 2>&1
+                $output = & $podmanInvocation @podmanArguments 2>&1
                 $exitCode = $LASTEXITCODE
                 if ($exitCode -eq 0) {
                     break
@@ -305,7 +307,7 @@ function New-PodmanInstance {
                     throw "Podman-Container konnte nicht erstellt werden: $outputText"
                 }
 
-                podman rm -f $containerName 1>$null 2>$null
+                & $podmanInvocation rm -f $containerName 1>$null 2>$null
                 $nextPort = $selectedPort + 1
                 Write-LabWarning "Port $selectedPort wurde beim Runtime-Bindungsschritt belegt. Podman versucht Port $nextPort."
             }
@@ -344,7 +346,8 @@ function Get-PodmanInstanceStatus {
     )
 
     try {
-        $inspect = podman inspect $ContainerIdOrName 2>$null | ConvertFrom-Json -Depth 30
+        $podmanInvocation = Get-LabHostToolInvocation -Name podman
+        $inspect = & $podmanInvocation inspect $ContainerIdOrName 2>$null | ConvertFrom-Json -Depth 30
         if ($LASTEXITCODE -ne 0 -or -not $inspect) {
             return [PSCustomObject]@{
                 Exists  = $false
@@ -388,8 +391,9 @@ function Start-PodmanInstance {
 
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
     $lastOutput = @()
+    $podmanInvocation = Get-LabHostToolInvocation -Name podman
     do {
-        $lastOutput = @(& podman start $ContainerIdOrName 2>&1)
+        $lastOutput = @(& $podmanInvocation start $ContainerIdOrName 2>&1)
         $exitCode = $LASTEXITCODE
         if ($exitCode -eq 0) {
             return
@@ -426,7 +430,8 @@ function Stop-PodmanInstance {
         [int]$TimeoutSeconds = 30
     )
 
-    $output = @(podman stop -t $TimeoutSeconds $ContainerIdOrName 2>&1)
+    $podmanInvocation = Get-LabHostToolInvocation -Name podman
+    $output = @(& $podmanInvocation stop -t $TimeoutSeconds $ContainerIdOrName 2>&1)
     if ($LASTEXITCODE -ne 0) {
         throw "PODMAN_CONTAINER_STOP_FAILED: $ContainerIdOrName - $(@($output) -join ' ')"
     }
@@ -439,7 +444,8 @@ function Remove-PodmanInstance {
         [Parameter(Mandatory)][string]$ExpectedScopeId
     )
 
-    $inspect = podman inspect $ContainerIdOrName 2>$null | ConvertFrom-Json -Depth 30
+    $podmanInvocation = Get-LabHostToolInvocation -Name podman
+    $inspect = & $podmanInvocation inspect $ContainerIdOrName 2>$null | ConvertFrom-Json -Depth 30
     if ($LASTEXITCODE -ne 0 -or -not $inspect) {
         Write-LabWarning "Container nicht gefunden: $ContainerIdOrName (bereits entfernt?)"
         return
@@ -451,7 +457,7 @@ function Remove-PodmanInstance {
         throw "SCOPE_MISMATCH: Container gehoert zu Scope '$scopeId', erwartet '$ExpectedScopeId'. Entfernung verweigert."
     }
 
-    podman rm -f $ContainerIdOrName | Out-Null
+    & $podmanInvocation rm -f $ContainerIdOrName | Out-Null
     if ($LASTEXITCODE -ne 0) {
         throw "Podman-Container konnte nicht entfernt werden: $ContainerIdOrName"
     }
@@ -477,7 +483,8 @@ function Get-PodmanLabContainers {
         $filters = @('--filter', "label=sql-server-lab.scope-id=$ScopeId")
     }
 
-    $containerIds = podman ps -a -q @filters 2>$null
+    $podmanInvocation = Get-LabHostToolInvocation -Name podman
+    $containerIds = & $podmanInvocation ps -a -q @filters 2>$null
     if ($LASTEXITCODE -ne 0 -or -not $containerIds) {
         return @()
     }
@@ -489,7 +496,7 @@ function Get-PodmanLabContainers {
             continue
         }
 
-        $inspect = podman inspect $containerId 2>$null | ConvertFrom-Json -Depth 30
+        $inspect = & $podmanInvocation inspect $containerId 2>$null | ConvertFrom-Json -Depth 30
         if ($LASTEXITCODE -ne 0 -or -not $inspect) {
             continue
         }

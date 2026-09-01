@@ -25,12 +25,12 @@ function Get-LabReservedSqlPorts {
     }
 
     foreach ($runtime in @('docker', 'podman')) {
-        if (-not (Get-Command $runtime -ErrorAction SilentlyContinue)) {
-            continue
-        }
+        $runtimeResolution = Resolve-LabHostTool -Name $runtime
+        if (-not $runtimeResolution.Available) { continue }
+        $runtimeInvocation = [string]$runtimeResolution.Invocation
 
         try {
-            $portLines = & $runtime ps -a --format '{{.Ports}}' 2>$null
+            $portLines = & $runtimeInvocation ps -a --format '{{.Ports}}' 2>$null
             if ($LASTEXITCODE -ne 0) {
                 continue
             }
@@ -70,12 +70,12 @@ function Test-LabEndpointBinding {
     )
 
     foreach ($runtime in @('docker', 'podman')) {
-        if (-not (Get-Command $runtime -ErrorAction SilentlyContinue)) {
-            continue
-        }
+        $runtimeResolution = Resolve-LabHostTool -Name $runtime
+        if (-not $runtimeResolution.Available) { continue }
+        $runtimeInvocation = [string]$runtimeResolution.Invocation
 
         try {
-            $containerLines = & $runtime ps -a --format '{{.ID}}|{{.Names}}|{{.Ports}}' 2>$null
+            $containerLines = & $runtimeInvocation ps -a --format '{{.ID}}|{{.Names}}|{{.Ports}}' 2>$null
             if ($LASTEXITCODE -ne 0) {
                 continue
             }

@@ -80,13 +80,14 @@ function Get-LabContainerReconcileContext {
     if ($instances.Count -ne 1) { throw "CONTAINER_RECONCILE_INSTANCE_NOT_UNIQUE: $($instances.Count)" }
     $instance = $instances[0]
     $runtime = [string]$instance.provider
-    if (-not (Get-Command $runtime -ErrorAction SilentlyContinue)) { throw "CONTAINER_RECONCILE_RUNTIME_NOT_AVAILABLE: $runtime" }
+    try { $runtimeInvocation = Get-LabHostToolInvocation -Name $runtime }
+    catch { throw "CONTAINER_RECONCILE_RUNTIME_NOT_AVAILABLE: $runtime" }
     $identity = @(
         [string]$instance.containerId, [string]$instance.runtimeId,
         [string]$instance.containerName, [string]$instance.name, [string]$instance.id
     ) | Where-Object { $_ } | Select-Object -First 1
     if (-not $identity) { throw 'CONTAINER_RECONCILE_IDENTITY_MISSING' }
-    $inspect = @(& $runtime inspect $identity 2>$null | ConvertFrom-Json -Depth 50)[0]
+    $inspect = @(& $runtimeInvocation inspect $identity 2>$null | ConvertFrom-Json -Depth 50)[0]
     if (-not $inspect) { throw "CONTAINER_RECONCILE_CONTAINER_NOT_FOUND: $identity" }
     if ([string]$inspect.Config.Labels.'sql-server-lab.run-id' -ne $RunId -or
         [string]$inspect.Config.Labels.'sql-server-lab.scope-id' -ne [string]$run.scopeId -or
@@ -252,7 +253,8 @@ function Invoke-LabContainerReconcileCommand {
         [Parameter(Mandatory)][string[]]$Arguments,
         [Parameter(Mandatory)][string]$ErrorCode
     )
-    $output = @(& $Provider @Arguments 2>&1)
+    $runtimeInvocation = Get-LabHostToolInvocation -Name $Provider
+    $output = @(& $runtimeInvocation @Arguments 2>&1)
     if ($LASTEXITCODE -ne 0) { throw "${ErrorCode}: $($output -join ' ')" }
     return @($output)
 }
@@ -261,7 +263,8 @@ function Test-LabContainerReconcileRuntimeExists {
     [CmdletBinding()]
     param([Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider, [string]$Identity)
     if (-not $Identity) { return $false }
-    $null = & $Provider inspect $Identity 2>$null
+    $runtimeInvocation = Get-LabHostToolInvocation -Name $Provider
+    $null = & $runtimeInvocation inspect $Identity 2>$null
     return $LASTEXITCODE -eq 0
 }
 
@@ -273,7 +276,8 @@ function Assert-LabContainerReconcileRuntimeIdentity {
         [Parameter(Mandatory)][string]$RunId,
         [Parameter(Mandatory)][string]$ScopeId
     )
-    $inspect = @(& $Provider inspect $Identity 2>$null | ConvertFrom-Json -Depth 50)[0]
+    $runtimeInvocation = Get-LabHostToolInvocation -Name $Provider
+    $inspect = @(& $runtimeInvocation inspect $Identity 2>$null | ConvertFrom-Json -Depth 50)[0]
     if (-not $inspect -or [string]$inspect.Config.Labels.'sql-server-lab.run-id' -ne $RunId -or
         [string]$inspect.Config.Labels.'sql-server-lab.scope-id' -ne $ScopeId) {
         throw 'CONTAINER_RECONCILE_RECOVERY_SCOPE_MISMATCH'

@@ -380,8 +380,8 @@ function Enable-LabWindowsContainerAutoStartCoordinator {
     [CmdletBinding()]
     param([Parameter(Mandatory)][ValidateSet('docker', 'podman')][string]$Provider)
 
-    $runtimeCommand = Get-Command $Provider -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
-    if (-not $runtimeCommand) { throw "LAB_CONTAINER_AUTOSTART_RUNTIME_NOT_FOUND: $Provider" }
+    try { $runtimePath = Get-LabHostToolInvocation -Name $Provider }
+    catch { throw "LAB_CONTAINER_AUTOSTART_RUNTIME_NOT_FOUND: $Provider" }
 
     $requiredCommands = @('Get-ScheduledTask', 'New-ScheduledTaskAction', 'New-ScheduledTaskTrigger', 'New-ScheduledTaskPrincipal', 'New-ScheduledTaskSettingsSet', 'Register-ScheduledTask')
     foreach ($commandName in $requiredCommands) {
@@ -395,11 +395,11 @@ function Enable-LabWindowsContainerAutoStartCoordinator {
     $managedPodmanDesktopPath = $null
     $podmanDesktopMutation = $null
     if ($Provider -eq 'podman') {
-        $dockerCommand = Get-Command docker -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+        $dockerResolution = Resolve-LabHostTool -Name docker
         $dockerDesktopPath = Get-LabWindowsContainerDesktopPath -Provider docker
         $podmanDesktopPath = Get-LabWindowsContainerDesktopPath -Provider podman
-        if ($dockerCommand -and $dockerDesktopPath) {
-            $parallelDockerRuntimePath = [string]$dockerCommand.Source
+        if ($dockerResolution.Available -and $dockerDesktopPath) {
+            $parallelDockerRuntimePath = [string]$dockerResolution.Invocation
             $parallelDockerDesktopPath = [string]$dockerDesktopPath
             if ($podmanDesktopPath) {
                 $podmanDesktopMutation = Disable-LabWindowsPodmanDesktopAutoStartForParallelRuntimes -PodmanDesktopPath $podmanDesktopPath
@@ -417,7 +417,7 @@ function Enable-LabWindowsContainerAutoStartCoordinator {
     $taskName = Get-LabContainerAutoStartTaskName -Provider $Provider
 
     try {
-        New-LabWindowsContainerAutoStartScript -Provider $Provider -RuntimePath $runtimeCommand.Source -Path $scriptPath `
+        New-LabWindowsContainerAutoStartScript -Provider $Provider -RuntimePath $runtimePath -Path $scriptPath `
             -ParallelDockerRuntimePath $parallelDockerRuntimePath -ParallelDockerDesktopPath $parallelDockerDesktopPath `
             -ManagedPodmanDesktopPath $managedPodmanDesktopPath
     }
@@ -465,8 +465,8 @@ function Enable-LabContainerHostAutoStart {
         $result = Enable-LabWindowsContainerAutoStartCoordinator -Provider $Provider
         if ($Provider -eq 'docker') {
             $podmanTaskName = Get-LabContainerAutoStartTaskName -Provider podman
-            $podmanCommand = Get-Command podman -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
-            if ($podmanCommand -and (Get-ScheduledTask -TaskName $podmanTaskName -ErrorAction SilentlyContinue)) {
+            $podmanResolution = Resolve-LabHostTool -Name podman
+            if ($podmanResolution.Available -and (Get-ScheduledTask -TaskName $podmanTaskName -ErrorAction SilentlyContinue)) {
                 $null = Enable-LabWindowsContainerAutoStartCoordinator -Provider podman
             }
         }
@@ -501,7 +501,8 @@ function Remove-LabContainerAutoStartCoordinatorIfUnused {
     param([Parameter(Mandatory)][ValidateSet('docker', 'podman')][string]$Provider)
 
     if (-not $IsWindows) { return }
-    $ids = @(& $Provider ps -a -q --filter 'label=sql-server-lab.autostart=on' 2>$null | Where-Object { $_ })
+    $runtimeInvocation = Get-LabHostToolInvocation -Name $Provider
+    $ids = @(& $runtimeInvocation ps -a -q --filter 'label=sql-server-lab.autostart=on' 2>$null | Where-Object { $_ })
     if ($LASTEXITCODE -ne 0 -or $ids.Count -gt 0) { return }
 
     $taskName = Get-LabContainerAutoStartTaskName -Provider $Provider

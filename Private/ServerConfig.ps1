@@ -62,11 +62,11 @@ function Resolve-LabContainerProvider {
     $matches = @()
 
     foreach ($provider in $providers) {
-        if (-not (Get-Command $provider -ErrorAction SilentlyContinue)) {
-            continue
-        }
+        $runtimeResolution = Resolve-LabHostTool -Name $provider
+        if (-not $runtimeResolution.Available) { continue }
+        $runtimeInvocation = [string]$runtimeResolution.Invocation
 
-        & $provider inspect $ContainerName 1>$null 2>$null
+        & $runtimeInvocation inspect $ContainerName 1>$null 2>$null
         if ($LASTEXITCODE -eq 0) {
             $matches += $provider
         }

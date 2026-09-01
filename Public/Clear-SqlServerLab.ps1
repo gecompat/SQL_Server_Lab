@@ -54,13 +54,14 @@ function Clear-SqlServerLab {
     $allContainers = @()
 
     foreach ($runtime in @('docker', 'podman')) {
-        $command = Get-Command $runtime -ErrorAction SilentlyContinue
-        if (-not $command) {
+        $runtimeResolution = Resolve-LabHostTool -Name $runtime
+        if (-not $runtimeResolution.Available) {
             $runtimeStatus[$runtime] = 'NOT_INSTALLED'
             continue
         }
+        $runtimeInvocation = [string]$runtimeResolution.Invocation
 
-        & $runtime info 1>$null 2>$null
+        & $runtimeInvocation info 1>$null 2>$null
         if ($LASTEXITCODE -ne 0) {
             $runtimeStatus[$runtime] = 'UNAVAILABLE'
             continue

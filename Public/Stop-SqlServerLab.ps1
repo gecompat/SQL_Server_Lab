@@ -136,10 +136,11 @@ function Stop-SqlServerLab {
                 $errors++
                 continue
             }
+            $runtimeInvocation = Get-LabHostToolInvocation -Name $runtime
 
             Write-LabInfo "  ProviderSubRun '$provider' mit $runtime stoppen..."
             $containerIds = @(
-                & $runtime ps -q --filter "label=sql-server-lab.run-id=$RunId" 2>$null |
+                & $runtimeInvocation ps -q --filter "label=sql-server-lab.run-id=$RunId" 2>$null |
                     Where-Object { $_ }
             )
             if ($containerIds.Count -eq 0) {
@@ -152,9 +153,9 @@ function Stop-SqlServerLab {
                     continue
                 }
 
-                $containerName = ([string](& $runtime inspect $containerId --format '{{.Name}}' 2>$null)).Trim().TrimStart('/')
+                $containerName = ([string](& $runtimeInvocation inspect $containerId --format '{{.Name}}' 2>$null)).Trim().TrimStart('/')
                 try {
-                    & $runtime stop -t $TimeoutSeconds $containerId | Out-Null
+                    & $runtimeInvocation stop -t $TimeoutSeconds $containerId | Out-Null
                     if ($LASTEXITCODE -ne 0) {
                         throw "Container stop fehlgeschlagen: $containerId"
                     }
