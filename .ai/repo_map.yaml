@@ -881,8 +881,11 @@ validation:
       - stable_persistent_storage_identity
       - catalog_schema_and_semantics
       - mirrored_catalog_consistency
+      - rollback_safe_backup_set_registration
+      - idempotent_existing_backup_reconciliation
       - exclusive_lease_validation
       - read_only_inventory_binding
+      - backup_set_residency_binding_without_content_rehash
       - id_less_registration_candidates
   static_persistent_storage_removal_plan:
     command: '.\Tests\Static\Invoke-PersistentStorageRemovalPlanChecks.ps1'
