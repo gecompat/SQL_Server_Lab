@@ -98,6 +98,10 @@ COMMANDS
         Inventarisiert read-only bekannte Lab-Daten und Runtime-Ressourcen und
         meldet Reste sowie nicht pruefbare Provider ohne etwas zu entfernen.
 
+    Get-SqlServerLabPersistentStorageRemovalPlan
+        Plant Retention-, Backup-/Package- und Bindungsfolgen einer
+        Run-Entfernung per stabiler Storage-ID read-only und fail-closed.
+
     Get-SqlServerLabConnectionCenter
         Liefert den passwortfreien SQL-Endpunktkatalog für SSMS und CMS.
 

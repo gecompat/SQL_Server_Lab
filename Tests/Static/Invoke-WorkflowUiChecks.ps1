@@ -21,6 +21,7 @@ $serverPath = Join-Path $repoRoot 'Tools/Start-SqlServerLabUi.ps1'
 $moduleLoaderPath = Join-Path $repoRoot 'SqlServerLab.psm1'
 $commonPath = Join-Path $repoRoot 'Private/Common.ps1'
 $workflowPath = Join-Path $repoRoot 'Public/Get-SqlServerLabWorkflow.ps1'
+$removalPreviewPath = Join-Path $repoRoot 'Public/Get-SqlServerLabPersistentStorageRemovalPlan.ps1'
 $actionPath = Join-Path $repoRoot 'Public/Invoke-SqlServerLabWorkflowAction.ps1'
 $consolePath = Join-Path $repoRoot 'Public/Invoke-SqlServerLab.ps1'
 $vmConnectPath = Join-Path $repoRoot 'Private/HyperVVmConnect.ps1'
@@ -39,6 +40,7 @@ $serverText = Get-Content -LiteralPath $serverPath -Raw -Encoding utf8
 $moduleLoaderText = Get-Content -LiteralPath $moduleLoaderPath -Raw -Encoding utf8
 $commonText = Get-Content -LiteralPath $commonPath -Raw -Encoding utf8
 $workflowText = Get-Content -LiteralPath $workflowPath -Raw -Encoding utf8
+$removalPreviewText = Get-Content -LiteralPath $removalPreviewPath -Raw -Encoding utf8
 $actionText = Get-Content -LiteralPath $actionPath -Raw -Encoding utf8
 $consoleText = Get-Content -LiteralPath $consolePath -Raw -Encoding utf8
 $vmConnectText = Get-Content -LiteralPath $vmConnectPath -Raw -Encoding utf8
@@ -202,6 +204,19 @@ Add-CheckResult -Name 'CLI und Workflow-UI restaurieren Lab_Data-Backups über d
     $scriptText -match "action = 'RestoreContainerLibraryBackup'" -and
     $scriptText -match 'parameters\.BackupSetId = backupSetId' -and
     $scriptText -notmatch 'parameters\.Backup(Source|Path)'
+)
+Add-CheckResult -Name 'CLI und Browser verwenden denselben read-only Retention-Plan-Core' -Success (
+    $removalPreviewText -match 'function Get-SqlServerLabPersistentStorageRemovalPlan' -and
+    $removalPreviewText -match 'Get-SqlServerLabCleanupAudit -NoWrite' -and
+    $removalPreviewText -match 'Get-LabPersistentStorageRemovalPlan' -and
+    $workflowText -match 'PersistentStorageRemovalCandidates = \$persistentStorageRemovalCandidates' -and
+    $workflowText -notmatch 'ProviderResourceId = \[string\]\$store\.LocationBinding' -and
+    $serverText -match '/api/persistent-storage/removal-plan' -and
+    $serverText -match 'Get-SqlServerLabPersistentStorageRemovalPlan -RunId \$runId -Selection \$selections' -and
+    $htmlText -match 'id="persistent-storage-removal-dialog"' -and
+    $scriptText -match 'data-persistent-storage-removal-preview' -and
+    $scriptText -match "fetch\('/api/persistent-storage/removal-plan'" -and
+    $htmlText -match 'Sie entfernt weder die Umgebung noch Daten'
 )
 Add-CheckResult -Name 'UI bietet bestätigten globalen Cleanup und Manifest-Erstellung' -Success (
     $actionText -match 'ClearAllLabs' -and

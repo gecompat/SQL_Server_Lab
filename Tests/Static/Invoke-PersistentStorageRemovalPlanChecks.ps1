@@ -63,6 +63,35 @@ try {
         $catalogBefore -eq ($document | ConvertTo-Json -Depth 40 -Compress) -and
         (($retainPlan | ConvertTo-Json -Depth 40) | Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/persistent-storage-removal-plan.schema.json')))
 
+    $auditFixture=[PSCustomObject]@{
+        PersistentStorage=[PSCustomObject]@{
+            CatalogStatus='AVAILABLE'; Catalog=$document; Sources=@(); Issues=@()
+        }
+        StorageResidency=$inventory
+    }
+    $publicPlan=& $module {
+        param($fixture,$targetRunId,$selections)
+        $originalAuditCommand=${function:Get-SqlServerLabCleanupAudit}
+        $script:PersistentStorageRemovalAuditFixture=$fixture
+        try {
+            Set-Item -LiteralPath Function:\Get-SqlServerLabCleanupAudit -Value {
+                [PSCustomObject]@{ Path=$null; Audit=$script:PersistentStorageRemovalAuditFixture }
+            }
+            Get-SqlServerLabPersistentStorageRemovalPlan -RunId $targetRunId -Selection @($selections)
+        }
+        finally {
+            Set-Item -LiteralPath Function:\Get-SqlServerLabCleanupAudit -Value $originalAuditCommand
+            Remove-Variable -Name PersistentStorageRemovalAuditFixture -Scope Script -ErrorAction SilentlyContinue
+        }
+    } $auditFixture $runId $intent.Selections
+    Add-CheckResult -Name 'Öffentliche CLI erzeugt denselben schema-validierten read-only Retention-Plan' -Success (
+        (Get-Command Get-SqlServerLabPersistentStorageRemovalPlan -Module SqlServerLab -ErrorAction SilentlyContinue) -and
+        $publicPlan.Status -eq 'READY' -and $publicPlan.Stores[0].PersistentStorageId -eq $storageId -and
+        $publicPlan.Stores[0].Policy -eq 'RETAIN_INSTANCE_STORE' -and
+        $catalogBefore -eq ($document | ConvertTo-Json -Depth 40 -Compress) -and
+        (($publicPlan | ConvertTo-Json -Depth 40) | Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/persistent-storage-removal-plan.schema.json'))) `
+        -Message (($publicPlan | ConvertTo-Json -Depth 20 -Compress))
+
     $backupIntent=Copy-TestObject $intent; $backupIntent.Selections[0].Policy='BACKUP_ON_REMOVE'; $backupIntent.Selections[0].DatabaseReferenceIds=@($databaseReferenceId)
     $backupPlan=& $module { param($cat,$value,$inv) Get-LabPersistentStorageRemovalPlan -Catalog $cat -Intent $value -ResidencyInventory $inv } $catalog $backupIntent $inventory
     Add-CheckResult -Name 'Backup-on-Remove verlangt CHECKSUM und RESTORE VERIFYONLY vor Freigabe' -Success (
