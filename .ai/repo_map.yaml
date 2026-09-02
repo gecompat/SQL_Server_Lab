@@ -196,12 +196,12 @@ sources_of_truth:
   latest_validation_result: Documentation/Quality/VALIDATION_RESULT_2026-09-02.md
   test_environment_group_lifecycle_validation: Documentation/Quality/VALIDATION_RESULT_2026-08-29_TEST_ENVIRONMENT_GROUP_LIFECYCLE.md
   repository_continuity_runbook: Documentation/Quality/REPOSITORY_CONTINUITY_RUNBOOK.md
-  foundation_upgrade_assessment: .ai/foundation-upgrade-assessments/1.4.0-to-1.7.0.json
+  foundation_upgrade_assessment: .ai/foundation-upgrade-assessments/1.7.0-to-1.8.0.json
 
 foundation_integration:
   source_repository: gecompat/AI_Repository_Foundation
-  source_commit: d49f978f33001fcc098998ff7c04ffb209b28033
-  ruleset_version: "1.7.0"
+  source_commit: 7ddc29988b23570f462e46ebf527f8dfdd05fd75
+  ruleset_version: "1.8.0"
   foundation_integrity_index: .ai/foundation/repo_map.yaml
   feature_catalog: .ai/foundation/feature_catalog.json
   selected_adapters:
@@ -236,11 +236,13 @@ foundation_integration:
     final_human_reference_scope: not_currently_allocated_authority_required_before_use
   selected_capabilities: []
   upgrade_assessment:
-    current_record: .ai/foundation-upgrade-assessments/1.4.0-to-1.7.0.json
+    current_record: .ai/foundation-upgrade-assessments/1.7.0-to-1.8.0.json
     records:
       - .ai/foundation-upgrade-assessments/1.4.0-to-1.7.0.json
-    assessed_on: "2026-08-27"
-    open_recommendations: []
+      - .ai/foundation-upgrade-assessments/1.7.0-to-1.8.0.json
+    assessed_on: "2026-09-02"
+    open_recommendations:
+      - rule-context-cache
     resolved_recommendations:
       repository-continuity-break-glass:
         decision: IMPLEMENTED

@@ -5,7 +5,7 @@ Stand: 2026-08-27
 
 ## Purpose
 
-This document maps the Foundation 1.7 identity and registration baseline to
+This document maps the Foundation 1.8 identity and registration baseline to
 SQL_Server_Lab. It preserves established project identities and local runtime
 registries; it does not introduce a global sequential identifier scheme.
 

@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/ai-repository-foundation/rule-context-cache.schema.json",
+  "title": "AI Repository Foundation Rule Context Cache Record v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "contract", "generator", "normalization_policy", "repository", "scope", "sources", "record_digest"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "contract": {"const": "foundation-rule-context-cache/v1"},
+    "generator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": {"const": "foundation-rule-context-cache"},
+        "version": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"}
+      }
+    },
+    "normalization_policy": {"const": "foundation-utf8-crlf-lf/v1"},
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository_id", "identity_method", "canonical_root_digest", "worktree_id", "git_common_dir_digest"],
+      "properties": {
+        "repository_id": {"$ref": "#/$defs/sha256"},
+        "identity_method": {"enum": ["origin_and_root_commits_sha256", "unborn_root_digest_sha256"]},
+        "canonical_root_digest": {"$ref": "#/$defs/sha256"},
+        "worktree_id": {"$ref": "#/$defs/sha256"},
+        "git_common_dir_digest": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scope_id", "cwd", "instruction_chain", "discovery"],
+      "properties": {
+        "scope_id": {"$ref": "#/$defs/sha256"},
+        "cwd": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?:\\.|[^/\\\\][^\\\\]*)$",
+          "not": {"pattern": "^(?:@global/|[A-Za-z]:[\\\\/]|/)|(?:^|/)(?:\\.\\.)(?:/|$)|//|/\\.(?:/|$)"}
+        },
+        "instruction_chain": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/canonicalPath"}
+        },
+        "discovery": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["global_scope_included", "fallback_filenames", "project_doc_max_bytes", "discovery_config_tag_sha256"],
+          "properties": {
+            "global_scope_included": {"type": "boolean"},
+            "fallback_filenames": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {"type": "string", "minLength": 1, "pattern": "^[^/\\\\]+$"}
+            },
+            "project_doc_max_bytes": {"type": "integer", "minimum": 1},
+            "discovery_config_tag_sha256": {"oneOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]}
+          }
+        }
+      }
+    },
+    "sources": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {"$ref": "#/$defs/canonicalPath"},
+      "additionalProperties": {"$ref": "#/$defs/source"}
+    },
+    "record_digest": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "gitBlob": {"oneOf": [{"type": "string", "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"}, {"type": "null"}]},
+    "canonicalPath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?:@global/(?:AGENTS\\.override\\.md|AGENTS\\.md)|(?!@global/)[^/\\\\][^\\\\]*)$",
+      "not": {"pattern": "^(?:[A-Za-z]:[\\\\/]|/)|(?:^|/)(?:\\.|\\.\\.)(?:/|$)|//"}
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_kind", "raw_sha256", "semantic_sha256", "size_bytes", "normalization", "git", "dependencies", "analysis_key"],
+      "properties": {
+        "source_kind": {"enum": ["instruction", "rule", "rule_index", "schema", "context"]},
+        "raw_sha256": {"$ref": "#/$defs/sha256"},
+        "semantic_sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 0},
+        "normalization": {"enum": ["UTF8_CRLF_LF_NORMALIZED", "BYTE_EXACT"]},
+        "git": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["head_blob_id", "index_blob_id", "working_tree_state"],
+          "properties": {
+            "head_blob_id": {"$ref": "#/$defs/gitBlob"},
+            "index_blob_id": {"$ref": "#/$defs/gitBlob"},
+            "working_tree_state": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {"enum": ["TRACKED_CLEAN", "STAGED", "UNSTAGED", "UNTRACKED", "EXTERNAL_GLOBAL"]}
+            }
+          }
+        },
+        "dependencies": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/canonicalPath"}
+        },
+        "analysis_key": {"$ref": "#/$defs/sha256"},
+        "instruction_scope": {"enum": ["global", "repository"]},
+        "precedence": {"type": "integer", "minimum": 0}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"source_kind": {"const": "instruction"}}},
+          "then": {"required": ["instruction_scope", "precedence"]},
+          "else": {"not": {"anyOf": [{"required": ["instruction_scope"]}, {"required": ["precedence"]}]}}
+        }
+      ]
+    }
+  }
+}

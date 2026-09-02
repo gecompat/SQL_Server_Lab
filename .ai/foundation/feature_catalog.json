@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "ruleset_version": "1.7.0",
+  "ruleset_version": "1.8.0",
   "assessment_classifications": ["NOT_APPLICABLE", "ALREADY_EQUIVALENT", "PROJECT_STRONGER", "APPLY_DEFAULT", "RECOMMENDED", "DECISION_REQUIRED", "CONFLICT"],
   "features": {
     "foundation-baseline": {
@@ -110,6 +110,15 @@
       "dependencies": ["layered-validation"],
       "applicability": {"mode": "REPOSITORY_EVIDENCE", "signals": ["required_ci_checks", "external_ci_dependency", "repository_is_agent_coordination_channel", "protected_default_branch", "github_rulesets_or_equivalent"], "questions": ["Would an outage of the required CI provider completely block durable repository coordination?", "Can core branch safety remain enforced while only unavailable CI gates are bypassed?", "Who is authorized to classify INFRASTRUCTURE_UNAVAILABLE and use break-glass?", "How will deferred validation be rerun and recorded after recovery?"]},
       "recommendation": {"when_applicable": "RECOMMENDED", "summary": "If required CI is an availability single point of failure, define a narrow audited break-glass path that preserves PR/core branch safety and bypasses only infrastructure-unavailable validation gates; never bypass a known substantive validation failure.", "decision_required_when": ["enabling a repository break-glass path", "selecting bypass actors or authorization thresholds"]}
+    },
+    "rule-context-cache": {
+      "title": "Deterministic rule-context analysis cache with fail-closed invalidation",
+      "introduced_in": "1.8.0",
+      "change_history": [],
+      "transfer_sources": ["foundation/AGENTS.template.md", "foundation/FOUNDATION_RULESET.template.md", ".ai/WORKING_RULES.md", ".ai/MODEL_ROUTING_POLICY.md", "Documentation/Standards/RULE_CONTEXT_CACHE_POLICY.md", "foundation/schemas/rule-context-cache.schema.json", "foundation/feature_catalog.json", "foundation/repo_map.template.yaml", "foundation/capabilities/rule-context-cache/rule_context_cache.py"],
+      "dependencies": ["semantic-integration", "layered-validation"],
+      "applicability": {"mode": "REPOSITORY_EVIDENCE", "signals": ["multi_wave_ai_work", "repeated_rule_analysis", "large_transitive_governance", "dirty_worktrees", "scoped_agents_instructions", "local_cache_allowed"], "questions": ["Does the agent repeatedly ingest and analyze unchanged additional repository rules between change waves?", "Can native per-run instruction discovery and exact effective discovery settings be preserved?", "Which local non-versioned cache location is authorized for the target environment?", "Will session analysis remain available under content/dependency-addressed keys without persisting rule text or summaries?"]},
+      "recommendation": {"when_applicable": "RECOMMENDED", "summary": "Use session-local analysis plus the fail-closed fingerprint/dependency contract; select the optional reference planner only when useful and keep persistent records local, content-free, non-versioned, and non-authoritative.", "decision_required_when": ["persisting semantic analysis content instead of fingerprint metadata", "changing the project's permitted local cache handling boundary"]}
     }
   }
 }

@@ -67,7 +67,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: gecompat/AI_Repository_Foundation
-          ref: d49f978f33001fcc098998ff7c04ffb209b28033
+          ref: 7ddc29988b23570f462e46ebf527f8dfdd05fd75
           path: .foundation-source
 
       - name: Validate installed Foundation rules

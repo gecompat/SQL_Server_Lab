@@ -549,6 +549,7 @@ $coreFiles = @(
     '.ai/repo_map.yaml'
     '.ai/IDENTITY_AND_ARTIFACT_REGISTRATION.md'
     '.ai/foundation-upgrade-assessments/1.4.0-to-1.7.0.json'
+    '.ai/foundation-upgrade-assessments/1.7.0-to-1.8.0.json'
     '.ai/foundation/FOUNDATION_RULESET.md'
     '.ai/foundation/AI_REPOSITORY_FOUNDATION_NOTICE.md'
     '.ai/foundation/PROJECT_RULES.md'
@@ -558,6 +559,7 @@ $coreFiles = @(
     '.ai/foundation/CENTRAL_ARTIFACT_REGISTRY_POLICY.md'
     '.ai/foundation/UPGRADE_APPLICABILITY_POLICY.md'
     '.ai/foundation/REPOSITORY_CONTINUITY_POLICY.md'
+    '.ai/foundation/RULE_CONTEXT_CACHE_POLICY.md'
     '.ai/foundation/feature_catalog.json'
     '.ai/foundation/schemas/artifact-record.schema.json'
     '.ai/foundation/schemas/artifact-registry.schema.json'
@@ -565,6 +567,7 @@ $coreFiles = @(
     '.ai/foundation/schemas/artifact-registration-request.schema.json'
     '.ai/foundation/schemas/feature-catalog.schema.json'
     '.ai/foundation/schemas/upgrade-assessment.schema.json'
+    '.ai/foundation/schemas/rule-context-cache.schema.json'
     '.ai/foundation/WORKING_RULES.md'
     '.ai/foundation/MODEL_ROUTING_POLICY.md'
     '.ai/foundation/VALIDATION_POLICY.md'
@@ -660,6 +663,9 @@ $foundationUpgradeAssessmentPath = Join-Path $repoRoot '.ai\foundation-upgrade-a
 $foundationUpgradeAssessmentSchemaPath = Join-Path $repoRoot '.ai\foundation\schemas\upgrade-assessment.schema.json'
 $foundationUpgradeAssessmentJson = Get-Content -LiteralPath $foundationUpgradeAssessmentPath -Raw -Encoding utf8
 $foundationUpgradeAssessment = $foundationUpgradeAssessmentJson | ConvertFrom-Json -Depth 100
+$currentFoundationUpgradeAssessmentPath = Join-Path $repoRoot '.ai\foundation-upgrade-assessments\1.7.0-to-1.8.0.json'
+$currentFoundationUpgradeAssessmentJson = Get-Content -LiteralPath $currentFoundationUpgradeAssessmentPath -Raw -Encoding utf8
+$currentFoundationUpgradeAssessment = $currentFoundationUpgradeAssessmentJson | ConvertFrom-Json -Depth 100
 $foundationRuleset = Get-Content -LiteralPath (Join-Path $repoRoot '.ai\foundation\FOUNDATION_RULESET.md') -Raw -Encoding utf8
 $foundationRepoMap = Get-Content -LiteralPath (Join-Path $repoRoot '.ai\foundation\repo_map.yaml') -Raw -Encoding utf8
 $foundationNotice = Get-Content -LiteralPath (Join-Path $repoRoot '.ai\foundation\AI_REPOSITORY_FOUNDATION_NOTICE.md') -Raw -Encoding utf8
@@ -754,12 +760,13 @@ Add-ValidationResult `
     -Message "BEGIN=$foundationBridgeBeginCount; END=$foundationBridgeEndCount"
 
 Add-ValidationResult `
-    -Name 'Foundation-Ruleset, Index und Feature-Katalog sind auf Version 1.7.0 gebunden' `
-    -Success ($foundationRuleset -match 'Ruleset version: 1\.7\.0' -and
-        $foundationRepoMap -match 'foundation_ruleset_version: 1\.7\.0' -and
-        $foundationFeatureCatalog -match '"ruleset_version"\s*:\s*"1\.7\.0"' -and
+    -Name 'Foundation-Ruleset, Index und Feature-Katalog sind auf Version 1.8.0 gebunden' `
+    -Success ($foundationRuleset -match 'Ruleset version: 1\.8\.0' -and
+        $foundationRepoMap -match 'foundation_ruleset_version: 1\.8\.0' -and
+        $foundationFeatureCatalog -match '"ruleset_version"\s*:\s*"1\.8\.0"' -and
         $foundationRuleset -match [regex]::Escape('UPGRADE_APPLICABILITY_POLICY.md') -and
-        $foundationRuleset -match [regex]::Escape('REPOSITORY_CONTINUITY_POLICY.md'))
+        $foundationRuleset -match [regex]::Escape('REPOSITORY_CONTINUITY_POLICY.md') -and
+        $foundationRuleset -match [regex]::Escape('RULE_CONTEXT_CACHE_POLICY.md'))
 
 Add-ValidationResult `
     -Name 'Foundation-Provenienz enthaelt den vollstaendigen MIT-Hinweis' `
@@ -769,11 +776,12 @@ Add-ValidationResult `
 
 Add-ValidationResult `
     -Name 'Repo-Map dokumentiert Foundation-Quelle, Adapter und semantische Zuordnung' `
-    -Success ($repoMap -match 'source_commit: d49f978f33001fcc098998ff7c04ffb209b28033' -and
-        $repoMap -match 'ruleset_version: "1\.7\.0"' -and
+    -Success ($repoMap -match 'source_commit: 7ddc29988b23570f462e46ebf527f8dfdd05fd75' -and
+        $repoMap -match 'ruleset_version: "1\.8\.0"' -and
         $repoMap -match 'github-copilot' -and
         $repoMap -match 'sql_cu_watch_policy: ops/sql-cu-policy\.md' -and
-        $repoMap -match 'current_record: \.ai/foundation-upgrade-assessments/1\.4\.0-to-1\.7\.0\.json' -and
+        $repoMap -match 'current_record: \.ai/foundation-upgrade-assessments/1\.7\.0-to-1\.8\.0\.json' -and
+        $repoMap -match 'rule-context-cache' -and
         $repoMap -match 'unresolved_conflicts: \[\]')
 
 $foundationUpgradeAssessmentSchemaValid = $false
@@ -789,6 +797,20 @@ Add-ValidationResult `
     -Name 'Foundation-Upgrade-Assessment entspricht dem installierten Schema' `
     -Success $foundationUpgradeAssessmentSchemaValid `
     -Message $foundationUpgradeAssessmentSchemaMessage
+
+$currentFoundationUpgradeAssessmentSchemaValid = $false
+$currentFoundationUpgradeAssessmentSchemaMessage = $null
+try {
+    $currentFoundationUpgradeAssessmentSchemaValid = $currentFoundationUpgradeAssessmentJson |
+        Test-Json -SchemaFile $foundationUpgradeAssessmentSchemaPath -ErrorAction Stop
+}
+catch {
+    $currentFoundationUpgradeAssessmentSchemaMessage = $_.Exception.Message
+}
+Add-ValidationResult `
+    -Name 'Aktuelles Foundation-Upgrade-Assessment entspricht dem installierten Schema' `
+    -Success $currentFoundationUpgradeAssessmentSchemaValid `
+    -Message $currentFoundationUpgradeAssessmentSchemaMessage
 
 $expectedFoundationUpgradeCandidates = [ordered]@{
     'artifact-registration' = @{
@@ -851,6 +873,23 @@ Add-ValidationResult `
     -Name 'Foundation-Upgrade-Vertrag verwirft still ausgelassene Delta-Kandidaten' `
     -Success (-not $missingCandidateResult.Success)
 
+$expectedCurrentFoundationUpgradeCandidates = [ordered]@{
+    'rule-context-cache' = @{
+        Reasons = @('introduced_in:1.8.0')
+        Classification = 'RECOMMENDED'
+    }
+}
+$currentFoundationUpgradeContract = Test-FoundationUpgradeAssessmentContract `
+    -Assessment $currentFoundationUpgradeAssessment `
+    -ExpectedCandidates $expectedCurrentFoundationUpgradeCandidates `
+    -InstalledVersion '1.7.0' `
+    -SourceVersion '1.8.0' `
+    -SourceRef '7ddc29988b23570f462e46ebf527f8dfdd05fd75'
+Add-ValidationResult `
+    -Name 'Aktuelles Foundation-Upgrade bewertet rule-context-cache mit Evidence und ohne voreilige Capability-Auswahl' `
+    -Success $currentFoundationUpgradeContract.Success `
+    -Message $currentFoundationUpgradeContract.Message
+
 Add-ValidationResult `
     -Name 'Repository-Continuity ist mit unveraenderlichem Kernschutz und PR-only Break-Glass umgesetzt' `
     -Success ($repoMap -match 'repository-continuity-break-glass:\s*\r?\n\s+decision: IMPLEMENTED' -and
@@ -867,7 +906,7 @@ Add-ValidationResult `
 
 Add-ValidationResult `
     -Name 'Projektmapping migriert keine Runtime-Authority auf die zentrale Foundation-Registry' `
-    -Success ($identityRegistrationMapping -match 'Foundation 1\.7 identity and registration baseline' -and
+    -Success ($identityRegistrationMapping -match 'Foundation 1\.8 identity and registration baseline' -and
         $identityRegistrationMapping -match 'no repository-native JSON Registration Authority' -and
         $identityRegistrationMapping -match '`artifact-registry-github` capability is not selected')
 

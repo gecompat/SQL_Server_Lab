@@ -8,6 +8,11 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- Die AI Repository Foundation 1.8 ist semantisch integriert. Der neue
+  Rule-Context-Cache-Vertrag und sein Schema sind als geschützte Core-Regeln
+  vorhanden; die optionale Referenz-Capability bleibt bis zur separaten
+  Aktivierungswave bewusst unselektiert. Das schema-validierte 1.7.0-zu-1.8.0-
+  Assessment dokumentiert diese Empfehlung und den exakten Quellcommit.
 - Die semantische Katalogvalidierung erzwingt die Eindeutigkeit von
   `EXCHANGE_WORKSPACE`-Artefakt-IDs und portablen `Lab_Data`-Bindungen jetzt
   unabhängig vom aufrufenden Writer. Die zuvor wirkungslos im generischen

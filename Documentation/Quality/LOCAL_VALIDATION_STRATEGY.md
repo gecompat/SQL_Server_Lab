@@ -33,7 +33,8 @@ Nachweise werden getrennt ausgewiesen:
 | `PROJECT_SEMANTIC` | vorhandene statische Projektverträge, insbesondere `Invoke-DocumentationChecks.ps1`, `Invoke-PrivacyScannerChecks.ps1` und die betroffene Auswahl über `Invoke-ImpactedChecks.ps1` |
 | `RUNTIME_EMPIRICAL` | Builds, Provider-Smokes, Integrationsprüfungen und manuelle Abnahmen, wenn der Änderungsscope Runtimeverhalten berührt |
 
-Die Foundation-1.7-Identity-, Registration-, Upgrade- und Continuity-Policies
+Die Foundation-1.8-Identity-, Registration-, Upgrade-, Continuity- und
+Rule-Context-Cache-Policies
 werden unter `FOUNDATION_INTEGRITY` auf Datei-, Schema-, Katalog- und
 Indexebene geprüft. Die projektspezifische Scope- und Authority-Zuordnung steht
 in `.ai/IDENTITY_AND_ARTIFACT_REGISTRATION.md` und wird unter
