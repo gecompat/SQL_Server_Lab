@@ -68,6 +68,11 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Geändert
 
+- Der historische Foundation-Upgrade-Nachweis von 1.4.0 auf 1.7.0 ist jetzt
+  ein schema-valides, an den exakten Quellcommit gebundenes Assessment. Die
+  statische Prüfung erzwingt alle sechs Delta-Kandidaten samt Gründen,
+  Klassifikation, Repository-Evidence, Begründung und Capability-Auswahl;
+  Assessment-Änderungen aktivieren zusätzlich den Foundation-Integrity-Job.
 - Reservierung, Abschluss und Recovery-Markierung regulärer persistenter
   Hyper-V-Instanzstores verwenden jetzt den gemeinsamen Katalog-Mutationskern.
   Alle drei Writer unterstützen Preview und erwartete Revisionen; der
