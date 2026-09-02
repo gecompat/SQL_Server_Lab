@@ -576,7 +576,7 @@ internal_components:
       - "reguläre Hyper-V-Daten-VHDX vor ihrer Erzeugung controllerweit als INCOMPLETE mit stabiler Storage-ID und exklusiver Run-Lease reservieren, nach DiskIdentifier- und VM-Attachment-Postcondition auf IN_USE committen und Abbrüche als RECOVERY_REQUIRED fortsetzbar halten"
       - "aktiven Docker-Context beziehungsweise Podman-Connection/Machine read-only an eine stabile sanitisierte Runtime-ID binden und geteilte Engine-/Machine-/Hostdefaults als REPORT_ONLY vor Mutation schuetzen"
       - "sanitisierte Docker-/Podman-Runtime-Scopes im oeffentlichen Cleanup-Audit ueber zentral aufgeloeste Host-Tool-Aufrufe ausgeben, ohne Rohendpunkte, Identity-Pfade oder Managementautoritaet zu persistieren"
-      - "katalogisierte Hyper-V-Daten-VHDX per stabiler Storage-ID, Clean-Detach-, DiskIdentifier-, VM-, Checkpoint-, SQL-Versions- und Gastpfad-Evidenz revalidieren, quellenunveraendert klonen, reattachen und freigeben"
+      - "katalogisierte Hyper-V-Daten-VHDX per stabiler Storage-ID, Clean-Detach-, DiskIdentifier-, VM-, Checkpoint-, SQL-Versions- und Gastpfad-Evidenz revalidieren, Clone und Reattach vor Hostmutation operationsgebunden leasen sowie Clone-Zielregistrierung mit Quellfreigabe, Reattach und Release nach physischer Postcondition atomar, idempotent und recoveryfaehig committen"
   - name: PortAllocation
     source: Private/PortAllocation.ps1
     responsibilities:
@@ -995,7 +995,9 @@ validation:
       - clean_detach_disk_identifier_and_sql_version_guards
       - target_vm_checkpoint_and_guest_path_guards
       - source_immutable_independent_vhdx_clone
-      - reattach_release_and_recovery_journal
+      - operation_bound_source_lease_and_recovery_journal
+      - atomic_clone_target_and_source_release_catalog_commit
+      - atomic_reattach_and_release_catalog_commit
       - explicit_database_restore_or_attach_boundary
   static_database_package:
     command: '.\Tests\Static\Invoke-DatabasePackageChecks.ps1'
@@ -1199,12 +1201,14 @@ validation:
   hyperv_persistent_data_drive_acceptance:
     source: Tests/Integration/Invoke-HyperVPersistentDataDriveAcceptance.ps1
     command: '.\Tests\Integration\Invoke-HyperVPersistentDataDriveAcceptance.ps1'
-    execution_status: "am 2026-09-01 nativ positiv ausgefuehrt; test-eigene VM und VHDX vollstaendig bereinigt"
+    execution_status: "am 2026-09-02 nativ positiv gegen den controllergebundenen Katalog ausgefuehrt; test-eigene VM, VHDX und Katalogdaten vollstaendig bereinigt"
     checks:
       - source_vhdx_hash_unchanged
       - independent_clone_disk_identifier
       - managed_vm_reattach_and_identity
       - clean_host_release
+      - operation_bound_source_lease
+      - atomic_clone_reattach_and_release_catalog_commits
       - explicit_sql_guest_evidence_boundary
   remote_workflows:
     foundation_integrity:
