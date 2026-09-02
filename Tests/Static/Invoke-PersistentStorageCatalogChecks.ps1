@@ -555,6 +555,27 @@ try {
         $exchangeEvidence.Plan.Status -eq 'READY' -and $exchangeEvidence.Plan.Stores[0].ObservationStatus -eq 'MATCHED' -and
         ($exchangeEvidence.Inventory | ConvertTo-Json -Depth 30 | Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/lab-storage-residency-inventory.schema.json')))
 
+    $duplicateWorkspaceReference = $exchangeEvidence.Catalog.Document | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
+    $duplicateReferenceStore = $duplicateWorkspaceReference.Stores[0] | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
+    $duplicateReferenceStore.PersistentStorageId = [Guid]::NewGuid().ToString('D')
+    $duplicateReferenceStore.LocationBinding.InventoryObjectId = 'storage-object-aaaaaaaaaaaaaaaaaaaaaaaa'
+    $duplicateReferenceStore.LocationBinding.RelativePath = 'Exchange/second'
+    $duplicateWorkspaceReference.Stores = @($duplicateWorkspaceReference.Stores) + @($duplicateReferenceStore)
+    $duplicateWorkspaceBinding = $exchangeEvidence.Catalog.Document | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
+    $duplicateBindingStore = $duplicateWorkspaceBinding.Stores[0] | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
+    $duplicateBindingStore.PersistentStorageId = [Guid]::NewGuid().ToString('D')
+    $duplicateBindingStore.LocationBinding.InventoryObjectId = 'storage-object-bbbbbbbbbbbbbbbbbbbbbbbb'
+    $duplicateBindingStore.References[0].ReferenceId = [Guid]::NewGuid().ToString('D')
+    $duplicateBindingStore.References[0].TargetId = [Guid]::NewGuid().ToString('D')
+    $duplicateWorkspaceBinding.Stores = @($duplicateWorkspaceBinding.Stores) + @($duplicateBindingStore)
+    Add-CheckResult -Name 'Katalogvalidierung blockiert doppelte Workspace-IDs und portable Bindungen unabhängig vom Writer' -Success ((
+        Test-ExpectedFailure -Pattern 'EXCHANGE_WORKSPACE_REFERENCE_INVALID' -Action {
+            & $module { param($doc,$config) Test-LabPersistentStorageCatalogDocument -Document $doc -Configuration $config } $duplicateWorkspaceReference $exchangeConfiguration
+        }) -and (
+        Test-ExpectedFailure -Pattern 'EXCHANGE_WORKSPACE_BINDING_DUPLICATE' -Action {
+            & $module { param($doc,$config) Test-LabPersistentStorageCatalogDocument -Document $doc -Configuration $config } $duplicateWorkspaceBinding $exchangeConfiguration
+        }))
+
     $renamed = $document | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
     $renamed.Stores[0].DisplayName = 'Umbenannter Anzeigename'
     Add-CheckResult -Name 'Anzeigenamenänderung verändert die stabile Storage-ID nicht' -Success (
