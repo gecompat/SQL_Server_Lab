@@ -1,7 +1,7 @@
 # AI Repository Foundation Ruleset
 
 Status: AUTHORITATIVE BASELINE
-Ruleset version: 1.7.0
+Ruleset version: 1.8.0
 
 This directory contains reusable governance rules, machine-readable schemas, the semantic feature catalog, and the source-license notice required for transferred Foundation material. Optional capability files are installed only when explicitly selected. The ruleset does not describe the Foundation source project and does not define the target project's README, root license, architecture, backlog, status, or release state.
 
@@ -22,9 +22,11 @@ Existing project rules do not need to be rewritten into these labels. Use semant
 - central JSON registry v2, derived sequence allocation, object-level merge, Git-merge verification, cross-PR preflight, and generated planning views: `CENTRAL_ARTIFACT_REGISTRY_POLICY.md`
 - semantic upgrade delta/applicability and mandatory recommendation surfacing: `UPGRADE_APPLICABILITY_POLICY.md`
 - repository/CI availability, break-glass safety boundaries, and deferred validation: `REPOSITORY_CONTINUITY_POLICY.md`
+- rule-context discovery, cache keys, dirty-worktree invalidation, partial reanalysis, and local-record safety: `RULE_CONTEXT_CACHE_POLICY.md`
 - semantic feature catalog: `feature_catalog.json`
 - registration schemas: `schemas/artifact-record.schema.json`, `schemas/artifact-registry.schema.json`, `schemas/artifact-registry-v2.schema.json`, `schemas/artifact-registration-request.schema.json`
 - upgrade schemas: `schemas/feature-catalog.schema.json`, `schemas/upgrade-assessment.schema.json`
+- rule-context cache record schema: `schemas/rule-context-cache.schema.json`
 - authorization and working behavior: `WORKING_RULES.md`
 - model/resource selection and target-policy mapping: `MODEL_ROUTING_POLICY.md`
 - validation, status vocabulary, portable LF/CRLF drift semantics, infrastructure availability, and manual test plans: `VALIDATION_POLICY.md`
@@ -41,6 +43,14 @@ Existing project rules do not need to be rewritten into these labels. Use semant
 Foundation rules are discoverable through root `AGENTS.md`. Active target-project governance must also remain transitively discoverable from the root repository instruction tree. Keep project discovery links outside the managed Foundation block and point to canonical project sources rather than copying their rule text.
 
 An active authoritative target rule that is not discoverable is `ORPHANED_AUTHORITY` and is an integration defect even if the Foundation files themselves are present.
+
+## Rule-context cache boundary
+
+Native client discovery of the applicable global/project `AGENTS.override.md`/`AGENTS.md` chain runs again at the start of every new run or TUI session. A repository cache may accelerate only additional rule/context analysis after that chain and the complete applicable scope have been established.
+
+`CACHE_HIT` requires exact validated repository/worktree/scope identity, instruction order, discovery configuration, source set, logical content, Git state, and dependency topology. `PARTIAL_INVALIDATION` rereads changed non-instruction rules plus every transitive semantic dependent. Instruction/scope/topology/source-set/schema/generator/corruption/uncertainty changes are `CACHE_MISS` and require a full context rebuild. UTF-8 LF/CRLF-only representation follows the portable text rule; all other content/encoding/final-newline differences remain significant.
+
+Semantic analyses stay session-local under deterministic analysis keys. Optional persistent records contain fingerprints and dependency metadata only, remain local/non-versioned/non-authoritative, and are atomically replaced under a per-record lock. A hit cannot reuse an analysis that is not actually available under its validated key.
 
 ## Semantic integration boundary
 

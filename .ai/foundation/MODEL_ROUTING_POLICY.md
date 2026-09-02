@@ -27,4 +27,4 @@ When Foundation tiers overlap an existing project taxonomy, maintain an explicit
 
 The Foundation tiers provide a portable semantic abstraction. The target project's detailed routing remains authoritative for concrete runtime selection when compatible with these semantics.
 
-Minimize context: use relevant diffs, deduplicated error signatures, compact confirmed facts, and repository maps where available. Do not load entire repositories, chats, logs, or research collections by default. Do not repeat an identical failed attempt without new evidence.
+Minimize context: use relevant diffs, deduplicated error signatures, compact confirmed facts, and repository maps where available. After one complete rule analysis for a scope, use the deterministic `RULE_CONTEXT_CACHE_POLICY.md` contract between later change waves so unchanged additional rules are not repeatedly ingested or semantically analyzed. Cache fingerprinting never replaces native instruction discovery and uncertainty remains a full-read miss. Do not load entire repositories, chats, logs, or research collections by default. Do not repeat an identical failed attempt without new evidence.
