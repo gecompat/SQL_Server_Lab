@@ -980,7 +980,12 @@ werden als `BACKUP_SET` beziehungsweise `DATABASE_PACKAGE` unter
 controllerweitem Lock rollbackfähig auf alle erreichbaren, eigenen `Lab_Data`-
 Spiegel geschrieben; Wiederholung und interner Bestandsabgleich sind
 idempotent und lesen Registry sowie billige Vollständigkeitsevidence statt alle
-Artefaktinhalte erneut zu hashen. Reguläre Docker-/Podman-Labs mit
+Artefaktinhalte erneut zu hashen. Vorhandene `BackupSetId`- und
+`DatabasePackageId`-Einträge können außerdem mit
+`Sync-SqlServerLabPersistentStorageArtifact` einzeln öffentlich übernommen
+werden: Das Cmdlet revalidiert das gewählte Artefakt vollständig, führt vor der
+Mutation denselben Bindungscheck als Preview aus und unterstützt `-WhatIf`.
+Reguläre Docker-/Podman-Labs mit
 `-PersistentData` vergeben die stabile ID vor der Volume-Erzeugung, erwerben
 eine exklusive Run-Lease und geben sie nach verifizierter Containerentfernung
 als `DETACHED` frei. Erfolgreich provisionierte Benutzerdatenbanken erhalten
@@ -990,7 +995,7 @@ Datenbankreferenzen. Runtime-Abweichungen bleiben `RECOVERY_REQUIRED`.
 `New-SqlServerLab` und die Browseroberfläche können einen solchen detached
 Docker-/Podman-Store inzwischen per stabiler ID für einen neuen kompatiblen Run
 fortsetzen oder unabhängig klonen. Noch nicht implementiert sind die generische
-Katalogmutation, ein öffentlicher Bestandsmigrationsbefehl,
+Katalogmutation, die öffentliche Bestandsmigration weiterer Storage-Klassen,
 providerübergreifende Wiederverwendung und explizites Löschen. Der zusätzliche
 read-only Removal-Vertrag plant
 `DELETE_WITH_RUN`, `RETAIN_INSTANCE_STORE`, `BACKUP_ON_REMOVE`,

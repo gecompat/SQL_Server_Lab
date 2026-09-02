@@ -539,7 +539,11 @@ Die Suite prüft zusätzlich die pfadfreie CLI-/Browser-Inventur per stabiler
 `DatabasePackageId`, aufgeschobenes Voll-Hashing beim Refresh, explizite
 Integritätsverifikation, die sanitisierte Projektion persistierter
 Migrationskategorien und Warnungen sowie die weiterhin fail-closed gesperrte
-Zielbindung. Die Projektion führt keine neue SQL-Abfrage aus.
+Zielbindung. Die Projektion führt keine neue SQL-Abfrage aus. Gemeinsam mit
+`Invoke-BackupLibraryChecks.ps1` prüft sie außerdem den öffentlichen,
+einzelobjektgebundenen Bestands-Sync: `-WhatIf` schreibt keine Katalogrevision,
+der Apply-Pfad registriert nach vollständiger Artefaktverifikation genau eine
+stabile ID und die Wiederholung bleibt ein `NO_CHANGE`.
 
 `Invoke-DatabaseMigrationDependencyChecks.ps1` prüft den PSR-010-Core ohne
 Runtime-Mutation: Parser und Schema für read-only SQL-Counts, Server-Login-,

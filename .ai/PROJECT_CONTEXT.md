@@ -84,7 +84,11 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   `SqlServerLab.PersistentStorageCatalog/1.0` ergänzt stabile, vom Anzeigenamen
   und Runtime-Namen unabhängige IDs, Klassen, Zustände, Referenzen und exklusive
   Leases, während `SqlServerLab.PersistentStoragePlan/1.0` Katalogbindungen,
-  Konflikte und ID-lose Registrierungskandidaten ohne Mutation ausweist; der
+  Konflikte und ID-lose Registrierungskandidaten ohne Mutation ausweist;
+  `Sync-SqlServerLabPersistentStorageArtifact` revalidiert vorhandene Backup-
+  Sets oder Datenbankpakete einzeln vollständig und synchronisiert sie nach
+  mutationsfreiem Preview per stabiler Artefakt-ID idempotent in denselben
+  controllergebundenen Katalog; der
   read-only Removal-Vertrag plant Retention, verifizierte Backup-/Package-
   Evidence, externe Bindungsfreigabe und Recovery-Gates und lässt endgültige
   Löschung persistenter Stores ausdrücklich außerhalb des Run-Cleanups; der

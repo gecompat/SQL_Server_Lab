@@ -23,6 +23,7 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 | `lab-storage-residency-inventory.schema.json` | Read-only Vertrag `SqlServerLab.StorageResidencyInventory/1.0` für `Lab_Data`, Backup-Sets, Datenbankpakete, native Runtime-Ablage, externe Pfade, Retention, Cleanup-Zuordnung und unverifizierbares physisches Backing |
 | `persistent-storage-catalog.schema.json` | Katalogvertrag `SqlServerLab.PersistentStorageCatalog/1.0` für stabile IDs, Storage-Klassen, Zustände, Referenzen, exklusive Leases und atomare Artefaktregistrierung |
 | `persistent-storage-plan.schema.json` | Read-only Planvertrag `SqlServerLab.PersistentStoragePlan/1.0` für Inventarbindung, Lease-Prüfung und Registrierungskandidaten |
+| `persistent-storage-artifact-sync-result.schema.json` | Sanitisiertes Ergebnis `SqlServerLab.PersistentStorageArtifactSyncResult/1.0` für Preview, Apply und idempotenten No-op des öffentlichen Einzelartefakt-Syncs |
 | `persistent-storage-removal-intent.schema.json` | Explizite run- und storage-ID-gebundene Policy-Auswahl `SqlServerLab.PersistentStorageRemovalIntent/1.0` ohne Secrets |
 | `persistent-storage-removal-plan.schema.json` | Verlustsicherer read-only Vertrag `SqlServerLab.PersistentStorageRemovalPlan/1.0` für Retention, Backup/Package, Recovery-Evidence und separate Löschung |
 | `persistent-storage-removal-journal.schema.json` | Geheimnisfreies, fortsetzbares Journal `SqlServerLab.PersistentStorageRemovalJournal/1.0` für verifizierte Backups und Run-Entfernung |

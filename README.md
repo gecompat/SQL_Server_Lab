@@ -567,6 +567,7 @@ Invoke-SqlServerLabScheduler -UntilIdle
 | `Get-SqlServerLabCleanupAudit` | Lab-Daten, Runtime-Scopes und Persistent Storage read-only prüfen sowie retained Objekte, unerwartete Residuen, Recovery und unverifizierbare Evidence getrennt ausgeben |
 | `Get-SqlServerLabPersistentStorageRemovalPlan` | Retention-, Backup-/Package- und Bindungsfolgen einer Run-Entfernung anhand stabiler Storage-IDs read-only und fail-closed planen |
 | `Invoke-SqlServerLabPersistentStorageRemoval` | Retained Docker-/Podman-Instanzstores optional verifiziert sichern, den Run journalisiert entfernen und den Store detached erhalten |
+| `Sync-SqlServerLabPersistentStorageArtifact` | Ein vorhandenes Backup-Set oder Datenbankpaket vollständig revalidieren und per stabiler Artefakt-ID idempotent mit dem Persistent-Storage-Katalog synchronisieren |
 | `Get-SqlServerLabDatabasePackage` | Datenbankpakete pfadfrei anhand ihrer stabilen `DatabasePackageId` auswählen und optional vollständig verifizieren; die Inventur autorisiert keinen Attach |
 | `Get-SqlServerLabConnectionCenter` | Passwortfreien, providerübergreifenden SQL-Endpunktkatalog ermitteln |
 | `Sync-SqlServerLabConnectionCenter` | Den Endpunktkatalog der SSMS-/CMS-Verbindungszentrale aktualisieren |

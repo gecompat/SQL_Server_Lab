@@ -8,6 +8,11 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- `Sync-SqlServerLabPersistentStorageArtifact` übernimmt vorhandene verifizierte
+  Backup-Sets oder Datenbankpakete einzeln per stabiler Artefakt-ID in den
+  controllergebundenen Persistent-Storage-Katalog. Derselbe Konfliktcheck läuft
+  vorab mutationsfrei, `-WhatIf` liefert einen sanitisierten Planstatus und die
+  Wiederholung bleibt idempotent; Runtime-Ressourcen werden nicht verändert.
 - `Get-SqlServerLabDatabaseMigrationDependency` macht die vorhandene
   schema-validierte PSR-010-Live-Inventur öffentlich. Direkte Ziele oder stabile
   Run-/Instanzbindungen liefern ausschließlich sanitisierte Kategorien, Counts
