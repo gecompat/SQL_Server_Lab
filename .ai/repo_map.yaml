@@ -950,6 +950,7 @@ validation:
       - id_less_registration_candidates
       - public_exchange_workspace_registration_and_residency_binding
       - exchange_workspace_reference_and_binding_uniqueness
+      - revision_guarded_hyperv_instance_store_reservation_completion_and_recovery
   static_persistent_storage_removal_plan:
     command: '.\Tests\Static\Invoke-PersistentStorageRemovalPlanChecks.ps1'
     source: Tests/Static/Invoke-PersistentStorageRemovalPlanChecks.ps1
@@ -1303,7 +1304,7 @@ validation:
     source: Documentation/Quality/VALIDATION_RESULT_2026-09-02.md
     docker: "PASS – PSR-005-Mehr-Volume-Continue/Clone sowie zentral aufgeloester Host-Tool-/SQL-2025-Smoke mit vollstaendigem Cleanup; External-Runtime-Befunde vom 2026-08-28/29 bleiben gültig"
     podman: "PASS – PSR-005-Mehr-Volume-Continue/Clone sowie zentral aufgeloester Host-Tool-/SQL-2025-Smoke mit vollstaendigem Cleanup; External-Runtime-Befunde vom 2026-08-28/29 bleiben gültig"
-    hyperv: "PASS (übernommen vom 2026-08-27-Befund) – frischer Windows-Slot, SQL Server 2025, Lifecycle, Persistenz und Cleanup"
+    hyperv: "PASS – nativer Host-Lifecycle sowie revisionsgeschützte Daten-VHDX-Reservierung, Clone, Reattach, Release und Cleanup; Windows-/SQL-2025-Gastbefund vom 2026-08-27 bleibt gültig"
 
 change_coupling:
   container_autostart_change:

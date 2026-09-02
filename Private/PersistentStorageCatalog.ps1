@@ -554,7 +554,7 @@ function Register-LabDatabasePackagePersistentStorage {
 }
 
 function Register-LabHyperVInstanceStoreReservation {
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '', Justification='Die Parameter werden in der serialisierten Katalog-Lock-Closure verwendet.')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '', Justification='Die Parameter werden in der Katalog-Mutation-Closure verwendet.')]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$RunId,
@@ -562,7 +562,9 @@ function Register-LabHyperVInstanceStoreReservation {
         [Parameter(Mandatory)][string]$DisplayName,
         [Parameter(Mandatory)][string]$DataRoot,
         [Parameter(Mandatory)][string]$RelativePath,
-        [AllowNull()]$Configuration
+        [AllowNull()]$Configuration,
+        [ValidateRange(-1,2147483647)][int]$ExpectedRevision = -1,
+        [switch]$Preview
     )
 
     $configuration = if ($Configuration) { $Configuration } else { Get-LabStorageConfiguration -DataRoot $DataRoot }
@@ -588,13 +590,12 @@ function Register-LabHyperVInstanceStoreReservation {
     if (-not $boundary.Valid) { throw 'HYPERV_INSTANCE_STORE_RESERVATION_PATH_OUTSIDE_LAB_DATA' }
     $locationId = [string]$locations[0].LocationId
     $inventoryObjectId = Get-LabStorageResidencyObjectId -Key "hyperv-instance-store|$([string]$configuration.ControllerId)|$locationId|$relativePathValue"
-
-    return Invoke-LabPersistentStorageCatalogLock -ControllerId ([string]$configuration.ControllerId) -ScriptBlock {
-        $catalog = Get-LabPersistentStorageCatalog -Configuration $configuration
-        if ([string]$catalog.Status -notin @('EMPTY','AVAILABLE')) {
-            throw "PERSISTENT_STORAGE_CATALOG_MUTATION_BLOCKED: $([string]$catalog.Status)"
-        }
-        $matches = @($catalog.Document.Stores | Where-Object {
+    $newStorageId = New-LabPersistentStorageId
+    $newLeaseId = New-LabPersistentStorageId
+    $now = Get-LabTimestamp
+    $mutation = {
+        param($Document)
+        $matches = @($Document.Stores | Where-Object {
             [string]$_.Provider -eq 'hyperv' -and
             ([string]$_.LocationBinding.InventoryObjectId -eq $inventoryObjectId -or
              ([string]$_.LocationBinding.LocationId -eq $locationId -and
@@ -620,19 +621,15 @@ function Register-LabHyperVInstanceStoreReservation {
                 $activeRunReferences.Count -ne 1 -or [string]$activeRunReferences[0].TargetId -ne $RunId) {
                 throw 'HYPERV_INSTANCE_STORE_RESERVATION_CONFLICT'
             }
-            return [PSCustomObject]@{
-                Changed=$false; Store=$existing; CatalogRevision=[int]$catalog.Document.Revision; Reused=$true
-                LocationId=$locationId; RelativePath=$relativePathValue; Path=$absolutePath
-            }
+            return [PSCustomObject]@{ PersistentStorageId=[string]$existing.PersistentStorageId; Reused=$true }
         }
         if (Test-Path -LiteralPath $absolutePath) { throw 'HYPERV_INSTANCE_STORE_RESERVATION_UNCATALOGED_VHDX' }
 
         $safeDisplayName = $DisplayName.Trim()
         if (-not $safeDisplayName) { throw 'HYPERV_INSTANCE_STORE_RESERVATION_DISPLAY_NAME_INVALID' }
         if ($safeDisplayName.Length -gt 128) { $safeDisplayName = $safeDisplayName.Substring(0,128) }
-        $now = Get-LabTimestamp
         $store = [PSCustomObject][ordered]@{
-            PersistentStorageId=(New-LabPersistentStorageId); DisplayName=$safeDisplayName
+            PersistentStorageId=$newStorageId; DisplayName=$safeDisplayName
             StorageClass='INSTANCE_STORE'; State='INCOMPLETE'; Provider='hyperv'
             LocationBinding=[PSCustomObject][ordered]@{
                 Residency='LAB_DATA'; LocationId=$locationId; ProviderResourceId=$null
@@ -640,40 +637,46 @@ function Register-LabHyperVInstanceStoreReservation {
             }
             References=@([PSCustomObject][ordered]@{ ReferenceId=$RunId; Kind='RUN'; State='ACTIVE'; TargetId=$RunId })
             Lease=[PSCustomObject][ordered]@{
-                LeaseId=(New-LabPersistentStorageId); RunId=$RunId; ScopeId=$ScopeId; Mode='EXCLUSIVE'
+                LeaseId=$newLeaseId; RunId=$RunId; ScopeId=$ScopeId; Mode='EXCLUSIVE'
                 AcquiredAt=$now; ExpiresAt=$null
             }
             Retention='RETAINED'; CleanupDisposition='PRESERVE'; CreatedAt=$now; UpdatedAt=$now
         }
-        $next = $catalog.Document | ConvertTo-Json -Depth 40 | ConvertFrom-Json -Depth 40
-        $next.Revision = [int]$next.Revision + 1
-        $next.Stores = @($next.Stores) + @($store)
-        $null = Write-LabPersistentStorageCatalogDocument -Document $next -Configuration $configuration
-        return [PSCustomObject]@{
-            Changed=$true; Store=$store; CatalogRevision=[int]$next.Revision; Reused=$false
-            LocationId=$locationId; RelativePath=$relativePathValue; Path=$absolutePath
-        }
+        $Document.Stores = @($Document.Stores) + @($store)
+        return [PSCustomObject]@{ PersistentStorageId=$newStorageId; Reused=$false }
+    }.GetNewClosure()
+
+    $transaction = Invoke-LabPersistentStorageCatalogMutation -Configuration $configuration `
+        -MutationName REGISTER_HYPERV_INSTANCE_STORE_RESERVATION -Mutation $mutation `
+        -ExpectedRevision $ExpectedRevision -Preview:$Preview
+    $store = @($transaction.Document.Stores | Where-Object {
+        [string]$_.PersistentStorageId -eq [string]$transaction.Value.PersistentStorageId
+    })[0]
+    return [PSCustomObject]@{
+        Changed=[bool]$transaction.Changed; Store=$store; CatalogRevision=[int]$transaction.CatalogRevision
+        ProposedRevision=[int]$transaction.ProposedRevision; Preview=[bool]$transaction.Preview
+        Reused=[bool]$transaction.Value.Reused; LocationId=$locationId; RelativePath=$relativePathValue; Path=$absolutePath
     }
 }
 
 function Complete-LabHyperVInstanceStoreReservation {
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '', Justification='Die Parameter werden in der serialisierten Katalog-Lock-Closure verwendet.')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '', Justification='Die Parameter werden in der Katalog-Mutation-Closure verwendet.')]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$PersistentStorageId,
         [Parameter(Mandatory)][ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$RunId,
         [Parameter(Mandatory)][ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$ScopeId,
         [Parameter(Mandatory)][ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$DiskIdentifier,
-        [Parameter(Mandatory)]$Configuration
+        [Parameter(Mandatory)]$Configuration,
+        [ValidateRange(-1,2147483647)][int]$ExpectedRevision = -1,
+        [switch]$Preview
     )
 
     $normalizedDiskIdentifier = $DiskIdentifier.ToUpperInvariant()
-    return Invoke-LabPersistentStorageCatalogLock -ControllerId ([string]$Configuration.ControllerId) -ScriptBlock {
-        $catalog = Get-LabPersistentStorageCatalog -Configuration $Configuration
-        if ([string]$catalog.Status -ne 'AVAILABLE') {
-            throw "PERSISTENT_STORAGE_CATALOG_MUTATION_BLOCKED: $([string]$catalog.Status)"
-        }
-        $matches = @($catalog.Document.Stores | Where-Object { [string]$_.PersistentStorageId -eq $PersistentStorageId })
+    $now = Get-LabTimestamp
+    $mutation = {
+        param($Document)
+        $matches = @($Document.Stores | Where-Object { [string]$_.PersistentStorageId -eq $PersistentStorageId })
         if ($matches.Count -ne 1) { throw 'HYPERV_INSTANCE_STORE_COMPLETION_RESERVATION_NOT_FOUND' }
         $store = $matches[0]
         $activeRunReferences = @($store.References | Where-Object {
@@ -687,41 +690,48 @@ function Complete-LabHyperVInstanceStoreReservation {
             [string]$store.Lease.ScopeId -ne $ScopeId -or $activeRunReferences.Count -ne 1) {
             throw 'HYPERV_INSTANCE_STORE_COMPLETION_RESERVATION_CONFLICT'
         }
-        $diskConflicts = @($catalog.Document.Stores | Where-Object {
+        $diskConflicts = @($Document.Stores | Where-Object {
             [string]$_.PersistentStorageId -ne $PersistentStorageId -and [string]$_.Provider -eq 'hyperv' -and
             [string]$_.LocationBinding.ProviderResourceId -eq $normalizedDiskIdentifier
         })
         if ($diskConflicts.Count -gt 0) { throw 'HYPERV_INSTANCE_STORE_COMPLETION_DISK_ID_CONFLICT' }
         if ([string]$store.State -eq 'IN_USE' -and
             [string]$store.LocationBinding.ProviderResourceId -eq $normalizedDiskIdentifier) {
-            return [PSCustomObject]@{ Changed=$false; Store=$store; CatalogRevision=[int]$catalog.Document.Revision }
+            return [string]$store.PersistentStorageId
         }
 
-        $next = $catalog.Document | ConvertTo-Json -Depth 40 | ConvertFrom-Json -Depth 40
-        $nextStore = @($next.Stores | Where-Object { [string]$_.PersistentStorageId -eq $PersistentStorageId })[0]
-        $nextStore.State = 'IN_USE'
-        $nextStore.LocationBinding.ProviderResourceId = $normalizedDiskIdentifier
-        $nextStore.UpdatedAt = Get-LabTimestamp
-        $next.Revision = [int]$next.Revision + 1
-        $null = Write-LabPersistentStorageCatalogDocument -Document $next -Configuration $Configuration
-        return [PSCustomObject]@{ Changed=$true; Store=$nextStore; CatalogRevision=[int]$next.Revision }
+        $store.State = 'IN_USE'
+        $store.LocationBinding.ProviderResourceId = $normalizedDiskIdentifier
+        $store.UpdatedAt = $now
+        return [string]$store.PersistentStorageId
+    }.GetNewClosure()
+
+    $transaction = Invoke-LabPersistentStorageCatalogMutation -Configuration $Configuration `
+        -MutationName COMPLETE_HYPERV_INSTANCE_STORE_RESERVATION -Mutation $mutation `
+        -ExpectedRevision $ExpectedRevision -Preview:$Preview
+    $store = @($transaction.Document.Stores | Where-Object PersistentStorageId -eq ([string]$transaction.Value))[0]
+    return [PSCustomObject]@{
+        Changed=[bool]$transaction.Changed; Store=$store; CatalogRevision=[int]$transaction.CatalogRevision
+        ProposedRevision=[int]$transaction.ProposedRevision; Preview=[bool]$transaction.Preview
     }
 }
 
 function Set-LabHyperVInstanceStoreRecoveryRequired {
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '', Justification='Die Parameter werden in der serialisierten Katalog-Lock-Closure verwendet.')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '', Justification='Die Parameter werden in der Katalog-Mutation-Closure verwendet.')]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$PersistentStorageId,
         [Parameter(Mandatory)][ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$RunId,
         [Parameter(Mandatory)][ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$ScopeId,
-        [Parameter(Mandatory)]$Configuration
+        [Parameter(Mandatory)]$Configuration,
+        [ValidateRange(-1,2147483647)][int]$ExpectedRevision = -1,
+        [switch]$Preview
     )
 
-    return Invoke-LabPersistentStorageCatalogLock -ControllerId ([string]$Configuration.ControllerId) -ScriptBlock {
-        $catalog = Get-LabPersistentStorageCatalog -Configuration $Configuration
-        if ([string]$catalog.Status -ne 'AVAILABLE') { throw "PERSISTENT_STORAGE_CATALOG_MUTATION_BLOCKED: $([string]$catalog.Status)" }
-        $matches = @($catalog.Document.Stores | Where-Object { [string]$_.PersistentStorageId -eq $PersistentStorageId })
+    $now = Get-LabTimestamp
+    $mutation = {
+        param($Document)
+        $matches = @($Document.Stores | Where-Object { [string]$_.PersistentStorageId -eq $PersistentStorageId })
         if ($matches.Count -ne 1) { throw 'HYPERV_INSTANCE_STORE_RECOVERY_RESERVATION_NOT_FOUND' }
         $store = $matches[0]
         if ([string]$store.Provider -ne 'hyperv' -or [string]$store.StorageClass -ne 'INSTANCE_STORE' -or
@@ -729,14 +739,19 @@ function Set-LabHyperVInstanceStoreRecoveryRequired {
             throw 'HYPERV_INSTANCE_STORE_RECOVERY_RESERVATION_CONFLICT'
         }
         if ([string]$store.State -eq 'RECOVERY_REQUIRED') {
-            return [PSCustomObject]@{ Changed=$false; Store=$store; CatalogRevision=[int]$catalog.Document.Revision }
+            return [string]$store.PersistentStorageId
         }
-        $next = $catalog.Document | ConvertTo-Json -Depth 40 | ConvertFrom-Json -Depth 40
-        $nextStore = @($next.Stores | Where-Object { [string]$_.PersistentStorageId -eq $PersistentStorageId })[0]
-        $nextStore.State = 'RECOVERY_REQUIRED'; $nextStore.UpdatedAt = Get-LabTimestamp
-        $next.Revision = [int]$next.Revision + 1
-        $null = Write-LabPersistentStorageCatalogDocument -Document $next -Configuration $Configuration
-        return [PSCustomObject]@{ Changed=$true; Store=$nextStore; CatalogRevision=[int]$next.Revision }
+        $store.State = 'RECOVERY_REQUIRED'; $store.UpdatedAt = $now
+        return [string]$store.PersistentStorageId
+    }.GetNewClosure()
+
+    $transaction = Invoke-LabPersistentStorageCatalogMutation -Configuration $Configuration `
+        -MutationName SET_HYPERV_INSTANCE_STORE_RECOVERY_REQUIRED -Mutation $mutation `
+        -ExpectedRevision $ExpectedRevision -Preview:$Preview
+    $store = @($transaction.Document.Stores | Where-Object PersistentStorageId -eq ([string]$transaction.Value))[0]
+    return [PSCustomObject]@{
+        Changed=[bool]$transaction.Changed; Store=$store; CatalogRevision=[int]$transaction.CatalogRevision
+        ProposedRevision=[int]$transaction.ProposedRevision; Preview=[bool]$transaction.Preview
     }
 }
 

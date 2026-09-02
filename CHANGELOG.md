@@ -68,6 +68,11 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Geändert
 
+- Reservierung, Abschluss und Recovery-Markierung regulärer persistenter
+  Hyper-V-Instanzstores verwenden jetzt den gemeinsamen Katalog-Mutationskern.
+  Alle drei Writer unterstützen Preview und erwartete Revisionen; der
+  Postcondition-Commit nach VHDX-Erzeugung und Attachment ist an exakt die
+  zuvor persistierte Reservierungsrevision gebunden.
 - Backup-Set- und Datenbankpaket-Registrierung verwenden jetzt denselben
   Artifact-Writer über dem generischen Katalog-Mutationskern. Der öffentliche
   Preview-/Apply-Flow bindet alle drei unterstützten Artefakttypen per
