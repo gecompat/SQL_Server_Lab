@@ -782,8 +782,10 @@ Der read-only Plan weist bei einer ausführbaren Addition den kontrollierten
 SQL-/Launchpad-Neustart aus; ein No-op bleibt warnungsfrei und eine blockierte
 Removal- oder Variantenänderung enthält den stabilen fail-closed Reason-Code.
 Die zugrunde liegende direkte SQL-2022-Hyper-V-Installation für Python, R und
-Java besitzt native Runtime-Evidence; der neue öffentliche Reconcile-Ablauf
-selbst ist derzeit `NOT_EXECUTED`.
+Java besitzt native Runtime-Evidence. Ein eigener isolierter Runner ist für den
+öffentlichen Plan-/`WhatIf`-/Apply-/No-op-/Removal-Blockade-Pfad einschließlich
+VM-Neustartgrenze, echter SQL-Postconditions, Cold Start und Cleanup ausführbar;
+dieser Runner ist derzeit noch `NOT_EXECUTED`.
 
 Noch nicht unterstützt sind Hyper-V-Removal, freie Varianten-/Packagewechsel,
 der allgemeine Hyper-V-
