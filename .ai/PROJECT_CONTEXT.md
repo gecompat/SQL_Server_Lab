@@ -106,6 +106,15 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   Default-Auswahl, Modusänderung und Adoption ohne eigenen Ownership-Vertrag;
   die reale read-only Docker-/Podman-Prüfung hinterließ Ressourcen und Auswahl
   unverändert;
+- der Hyper-V-Persistent-Data-Core revalidiert eine Daten-VHDX per stabiler
+  Storage-ID, `Lab_Data`-Bindung, DiskIdentifier, Attachment-, Checkpoint-,
+  Clean-Detach-, SQL-Versions- und Gastpfad-Evidenz. Clone und Reattach erwerben
+  vor der Hostmutation eine operationsgebundene Lease; Clone-Zielregistrierung
+  und Quellfreigabe, Reattach sowie Release committen nach der physischen
+  Postcondition atomar und idempotent in den controllergebundenen Katalog.
+  Teilfehler bleiben `RECOVERY_REQUIRED`; der native Ablauf
+  `RELEASE -> CLONE -> REATTACH -> RELEASE` ist samt Cleanup belegt. Öffentliche
+  Bedienung und explizites SQL-Restore/Attach bleiben Folgearbeit;
 - read-only Serverobjekt- und TDE-Abhängigkeitsinventar
   `SqlServerLab.DatabaseMigrationDependencyInventory/1.0` mit sanitisierter
   Count-Evidence für Login-Mappings, SQL-Agent-Jobs, Proxies, Linked-Server-

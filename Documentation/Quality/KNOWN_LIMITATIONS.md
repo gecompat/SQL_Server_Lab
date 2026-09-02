@@ -431,10 +431,10 @@ fail-closed prüft. TDE endet ohne separaten Zertifikat- und
 Recovery-Vertrag fail-closed; ein TDE-Schlüsseltransfer findet nicht statt.
 Der interne Hyper-V-Persistent-Data-Core kann eine
 katalogisierte, sauber getrennte Daten-VHDX inzwischen per stabiler Storage-ID
-klonen, reattachen und freigeben; der reale Hostnachweis ist grün. Er erzeugt
-bewusst keine Aussage, dass vorhandene Datenbankdateien online sind:
-Katalog-Commit, öffentliche CLI-/GUI-Bedienung sowie der explizite SQL-
-Restore-/Attach-Schritt bleiben offen.
+klonen, reattachen und freigeben; operationsgebundene Lease, atomarer
+Katalogcommit, Recovery und der reale Hostnachweis sind grün. Er erzeugt bewusst
+keine Aussage, dass vorhandene Datenbankdateien online sind: öffentliche
+CLI-/GUI-Bedienung sowie der explizite SQL-Restore-/Attach-Schritt bleiben offen.
 
 Der interne `DATABASE_PACKAGE`-Core publiziert seit PSR-009 nur eine exklusiv
 gesperrte, nach dem Lock erneut als sauber `OFFLINE` oder `DETACHED` beobachtete
@@ -999,8 +999,10 @@ exklusiver Lease. Nach verifizierter DiskIdentifier- und VM-Attachment-
 Postcondition wird derselbe Store auf `IN_USE` committed; Teilfehler bleiben
 `RECOVERY_REQUIRED` und sind unter derselben ID fortsetzbar. VM-Notes,
 Connection-State und Residency-Audit korrelieren diese Katalogbindung ohne
-einen Hostpfad als öffentliche Identität zu verwenden. Die Katalogcommits der
-getrennten Hyper-V-Reattach-/Release-/Clone-Aktionen bleiben offen.
+einen Hostpfad als öffentliche Identität zu verwenden. Die getrennten Hyper-V-
+Reattach-/Release-/Clone-Aktionen leasen ihre Quelle operationsgebunden,
+committen erst nach physischer Postcondition atomar in denselben gespiegelten
+Katalog und bleiben bei Teilfehlern idempotent `RECOVERY_REQUIRED`.
 `New-SqlServerLab` und die Browseroberfläche können einen solchen detached
 Docker-/Podman-Store inzwischen per stabiler ID für einen neuen kompatiblen Run
 fortsetzen oder unabhängig klonen. Noch nicht implementiert sind die generische

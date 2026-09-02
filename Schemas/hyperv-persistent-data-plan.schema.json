@@ -9,8 +9,8 @@
     "OperationId": { "type": "string", "format": "uuid" },
     "Status": { "enum": ["READY", "BLOCKED"] },
     "Action": { "enum": ["REATTACH", "RELEASE", "CLONE"] },
-    "Source": { "type": "object", "required": ["PersistentStorageId", "Path", "DiskIdentifier", "SqlMajorVersion", "GuestPath"] },
-    "Target": { "type": "object", "required": ["PersistentStorageId", "Path", "VMName", "VMId", "RunId", "ScopeId", "SqlMajorVersion", "GuestPath", "ControllerNumber", "ControllerLocation"] },
+    "Source": { "type": "object", "required": ["PersistentStorageId", "Path", "LocationId", "RelativePath", "InventoryObjectId", "DiskIdentifier", "SqlMajorVersion", "GuestPath"] },
+    "Target": { "type": "object", "required": ["PersistentStorageId", "Path", "LocationId", "RelativePath", "VMName", "VMId", "RunId", "ScopeId", "SqlMajorVersion", "GuestPath", "ControllerNumber", "ControllerLocation"] },
     "Steps": { "type": "array", "minItems": 1, "items": { "type": "object", "required": ["Order", "Action"] } },
     "Blockers": { "type": "array", "items": { "type": "string" } },
     "Preview": {

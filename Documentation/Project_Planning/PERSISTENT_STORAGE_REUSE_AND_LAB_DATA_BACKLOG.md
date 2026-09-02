@@ -60,7 +60,12 @@ jede deklarierte und verifizierte Benutzerdatenbank über eine stabile
 `DATABASE`-Referenz an denselben Store. Cleanup löst Run- und
 Datenbankreferenzen atomar mit der Lease; eine erneute Lease ist bei verbliebenen
 aktiven Datenbankreferenzen fail-closed. Fehlende oder abweichend gelabelte
-Volumes bleiben mit Lease als `RECOVERY_REQUIRED` sichtbar. Generische
+Volumes bleiben mit Lease als `RECOVERY_REQUIRED` sichtbar. Hyper-V-Clone und
+Reattach erwerben vor der Hostmutation eine operationsgebundene Quell-Lease;
+Clone registriert das unabhängige Ziel und gibt die Quelle atomar frei,
+Reattach committed `IN_USE`, und Release löst Run-/Datenbankreferenzen mit der
+Lease. Teilfehler bleiben katalogisiert `RECOVERY_REQUIRED`, alle drei Commits
+sind journalisiert und idempotent. Generische
 Katalogmutation, Bestandsmigration weiterer Storage-Klassen,
 providerübergreifende Wiederverwendung und Löschung bleiben getrennte
 Folgearbeit.
@@ -442,7 +447,7 @@ Volumename ersetzt diese Identität nicht.
 | `PSR-004` | P1 | Retention-, Backup-on-Remove-, Package- und expliziten Löschvertrag entwerfen | `IMPLEMENTED_PARTIAL`: verlustsicherer Plan plus journalisierter Docker-/Podman-Executor für Retain und verifiziertes Backup-on-Remove; Package, externe Freigabe und getrennte endgültige Storage-Löschung bleiben offen |
 | `PSR-005` | P1 | Docker-/Podman-Instanzstore auswählbar, fortsetzbar und klonbar machen | `IMPLEMENTED`: öffentliche CLI-/Browser-Auswahl per stabiler ID, detached Continue/Clone, operationsgebundene Quell-Lease, Digest/Resume, atomarer Zielcommit plus Quellfreigabe und rollenfester External-Runtime-Mehr-Volume-Vertrag; Docker und Podman getrennt real belegt, unvollständige Legacy-Sidecargruppen fail-closed |
 | `PSR-006` | P1 | Podman-Machine- und Docker-Engine-/Context-Reichweite bewerten und gegebenenfalls dediziert verwalten | `IMPLEMENTED_READ_ONLY`: stabile sanitisierte Runtime-ID, Context-/Connection-/Machine-Bindung und REPORT_ONLY-Hostgrenze real belegt; dedizierter Ownership-/Lifecycle-Vertrag bleibt offen |
-| `PSR-007` | P1 | Hyper-V-Daten-VHDX sicher auswählen, reattachen, freigeben und klonen | `IMPLEMENTED_CORE`: reguläre VHDX-Erzeugung mit vorab persistierter Storage-ID/Run-Lease, Disk-/VM-Attachment-Commit und Recovery-State sowie Storage-ID-, Disk-/VM-/Checkpoint-/Clean-Detach-/SQL-Versions-validierter Host-Lifecycle, unabhängiger Clone und realer Hyper-V-Nachweis; Katalog-Commit der Reattach/Release/Clone-Aktionen, öffentliche Bedienung und explizite Datenbankaktion bleiben getrennt |
+| `PSR-007` | P1 | Hyper-V-Daten-VHDX sicher auswählen, reattachen, freigeben und klonen | `IMPLEMENTED_CORE`: reguläre VHDX-Erzeugung mit vorab persistierter Storage-ID/Run-Lease, Disk-/VM-Attachment-Commit und Recovery-State sowie Storage-ID-, Disk-/VM-/Checkpoint-/Clean-Detach-/SQL-Versions-validierter Host-Lifecycle; Reattach/Release/Clone sind operationsgeleast, journalisiert, atomar katalogisiert, idempotent und nativ belegt; öffentliche Bedienung und explizite Datenbankaktion bleiben getrennt |
 | `PSR-008` | P1 | Providerneutrale Backup-Bibliothek mit automatischem Backup und Restore-Verifikation liefern | `IMPLEMENTED_CORE`: inhaltsadressierte `Lab_Data`-Bibliothek, `CHECKSUM`, `RESTORE VERIFYONLY`, Hash, Metadatenreceipt, öffentliche BackupSetId-Auswahl und realer Docker→Podman-Inhaltsnachweis; reale FILESTREAM-Cross-Provider-Evidence bleibt offen |
 | `PSR-009` | P2 | Datenbankpakete inklusive FILESTREAM, Attach und Clone implementieren | `IMPLEMENTED_CORE`: vollständiger Offline-Dateivertrag, rekursive Hashes, unabhängiger Clone und journalisiertes Copy-then-Attach; native Hyper-V-/FILESTREAM-Abnahme sowie öffentliche Bedienung offen |
 | `PSR-010` | P2 | Serverobjekt- und TDE-Abhängigkeiten inventarisieren und Migrationsgrenzen anzeigen | `IMPLEMENTED_CORE`: öffentliche read-only Live-Inventur per direktem Ziel oder stabiler Run-/Instanzbindung, TDE-Recovery-Gate, externe Review-Grenzen und sanitisierte `DATABASE_FILES_ONLY`-Receipts; persistierte Kategorien und Warnungen sind paketgebunden in CLI/Browser sichtbar, Export/Import bleibt offen |
@@ -466,18 +471,23 @@ priorisierten P0-Hyper-V-Ressourcenroot-Bugfix.
   gebunden werden; Datenbanken werden anschließend ausdrücklich restored oder
   attached und nicht nur wegen vorhandener Dateien als online gemeldet.
 
-Stand 2026-09-01: `SqlServerLab.HyperVPersistentDataIntent/1.0`, Plan und
+Stand 2026-09-02: `SqlServerLab.HyperVPersistentDataIntent/1.0`, Plan und
 Recovery-Journal wählen die Quelle ausschließlich per stabiler Storage-ID aus
 dem Katalog. Vor jeder Mutation werden registriertes `Lab_Data`, VHDX-Pfad und
 DiskIdentifier, exklusiver Attachmentzustand, Checkpoints, ausgeschaltete und
 scopegebundene Ziel-VM, Clean-Detach-Evidenz, SQL-Major-Version, freier
 Gastpfad sowie Lease und Referenzen fail-closed geprüft. Der Clone verwendet
 eine unveränderte Quelle, erzeugt eine eigenständige VHDX und setzt deren
-DiskIdentifier explizit neu. Ein realer isolierter Hyper-V-Lauf hat
-`CLONE -> REATTACH -> RELEASE` samt Cleanup bestätigt. Das Ergebnis bleibt
+DiskIdentifier explizit neu. Clone und Reattach leasen die Quelle vor der
+Hostmutation operationsgebunden; Clone-Zielregistrierung und Quellfreigabe,
+Reattach-Commit sowie Release werden erst nach ihrer jeweiligen physischen
+Postcondition atomar katalogisiert. Katalogfehler verhindern `COMPLETED` und
+bleiben mit demselben Journal fortsetzbar. Ein realer isolierter Hyper-V-Lauf
+hat `RELEASE -> CLONE -> REATTACH -> RELEASE` gegen den tatsächlichen
+controllergebundenen Katalog samt Cleanup bestätigt. Das Ergebnis bleibt
 `DatabaseFilesOnline=false` und verlangt anschließend ausdrücklich Restore
-oder Attach; diese Datenbankaktion, Katalogmutation und CLI-/GUI-Flows gehören
-weiterhin zu `PSR-009`, `PSR-003` beziehungsweise `PSR-011`.
+oder Attach; diese Datenbankaktion und CLI-/GUI-Flows gehören weiterhin zu
+`PSR-009` beziehungsweise `PSR-011`.
 
 Stand 2026-09-02: Der reguläre `-PersistentData`-Erstellungsflow reserviert die
 Hyper-V-Daten-VHDX vor `New-VHD` controllerweit als `INCOMPLETE` mit stabiler
@@ -485,8 +495,9 @@ Hyper-V-Daten-VHDX vor `New-VHD` controllerweit als `INCOMPLETE` mit stabiler
 exklusiver Lease. Erst die verifizierte DiskIdentifier- und VM-Attachment-
 Postcondition committed `IN_USE`; ein Teilfehler bleibt `RECOVERY_REQUIRED`
 und verwendet beim Resume dieselbe Identität. VM-Notes, Connection-State,
-Katalog und Residency-Audit tragen dieselbe Bindung. Die noch offenen
-Katalogcommits betreffen die getrennten Reattach-, Release- und Clone-Aktionen.
+Katalog und Residency-Audit tragen dieselbe Bindung. Die getrennten Reattach-,
+Release- und Clone-Aktionen verwenden inzwischen denselben gespiegelten
+Katalog-, Lease- und Recovery-Vertrag.
 - Ein vollständiges Backup einer Datenbank mit FILESTREAM wird aus einem
   Provider exportiert, in einem zweiten unterstützten Provider restauriert und
   inhaltlich verifiziert.

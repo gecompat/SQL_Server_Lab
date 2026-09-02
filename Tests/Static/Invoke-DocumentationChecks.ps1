@@ -948,7 +948,8 @@ Add-ValidationResult `
         $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.HyperVPersistentDataIntent/1.0') -and
         $persistentStorageBacklog -match 'CLONE -> REATTACH -> RELEASE' -and
         $persistentStorageBacklog -match 'DatabaseFilesOnline=false' -and
-        $knownLimitations -match 'reale Hostnachweis ist grün' -and
+        $knownLimitations -match 'reale\s*Hostnachweis (?:ist|sind) grün' -and
+        $knownLimitations -match 'atomarer\s*Katalogcommit' -and
         $knownLimitations -match 'explizite SQL-\s*Restore-/Attach-Schritt bleiben offen' -and
         $repoMap -match 'hyperv_persistent_data_drive: Private/HyperVPersistentDataDrive\.ps1' -and
         $repoMap -match 'hyperv_persistent_data_intent_schema: Schemas/hyperv-persistent-data-intent\.schema\.json' -and

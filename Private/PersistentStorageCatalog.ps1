@@ -570,6 +570,374 @@ function Set-LabHyperVInstanceStoreRecoveryRequired {
     }
 }
 
+function Set-LabHyperVPersistentDataOperationLease {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '', Justification='Die Parameter werden in der serialisierten Katalog-Lock-Closure verwendet.')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification='Interner, ausschliesslich vom bestaetigten Hyper-V-Persistent-Data-Lifecycle verwendeter Katalogschritt.')]
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Plan,
+        [Parameter(Mandatory)]$Configuration
+    )
+
+    if ([string]$Plan.ContractVersion -ne 'SqlServerLab.HyperVPersistentDataPlan/1.0' -or
+        [string]$Plan.Status -ne 'READY' -or [string]$Plan.Action -notin @('CLONE','REATTACH')) {
+        throw 'HYPERV_PERSISTENT_DATA_LEASE_PLAN_INVALID'
+    }
+    if ([string]::IsNullOrWhiteSpace([string]$Configuration.ControllerId)) {
+        throw 'HYPERV_PERSISTENT_DATA_LEASE_CONFIGURATION_INVALID'
+    }
+
+    return Invoke-LabPersistentStorageCatalogLock -ControllerId ([string]$Configuration.ControllerId) -ScriptBlock {
+        $catalog = Get-LabPersistentStorageCatalog -Configuration $Configuration
+        if ([string]$catalog.Status -ne 'AVAILABLE') {
+            throw "PERSISTENT_STORAGE_CATALOG_MUTATION_BLOCKED: $([string]$catalog.Status)"
+        }
+        $sourceMatches = @($catalog.Document.Stores | Where-Object {
+            [string]$_.PersistentStorageId -eq [string]$Plan.Source.PersistentStorageId
+        })
+        if ($sourceMatches.Count -ne 1) { throw 'HYPERV_PERSISTENT_DATA_LEASE_SOURCE_UNRESOLVED' }
+        $source = $sourceMatches[0]
+        if ([string]$source.StorageClass -ne 'INSTANCE_STORE' -or [string]$source.Provider -ne 'hyperv' -or
+            [string]$source.LocationBinding.Residency -ne 'LAB_DATA' -or
+            [string]$source.LocationBinding.LocationId -ne [string]$Plan.Source.LocationId -or
+            [string]$source.LocationBinding.RelativePath -ne [string]$Plan.Source.RelativePath -or
+            [string]$source.LocationBinding.ProviderResourceId -ne [string]$Plan.Source.DiskIdentifier -or
+            [string]$source.Retention -ne 'RETAINED' -or [string]$source.CleanupDisposition -ne 'PRESERVE') {
+            throw 'HYPERV_PERSISTENT_DATA_LEASE_SOURCE_CONFLICT'
+        }
+
+        $activeOperationReferences = @($source.References | Where-Object {
+            [string]$_.ReferenceId -eq [string]$Plan.OperationId -and [string]$_.Kind -eq 'RUN' -and
+            [string]$_.State -eq 'ACTIVE' -and [string]$_.TargetId -eq [string]$Plan.Target.RunId
+        })
+        $releasedOperationReferences = @($source.References | Where-Object {
+            [string]$_.ReferenceId -eq [string]$Plan.OperationId -and [string]$_.Kind -eq 'RUN' -and
+            [string]$_.State -eq 'RELEASED' -and [string]$_.TargetId -eq [string]$Plan.Target.RunId
+        })
+        $leaseStateAllowed = [string]$source.State -in @('INCOMPLETE','RECOVERY_REQUIRED') -or
+            ([string]$Plan.Action -eq 'REATTACH' -and [string]$source.State -eq 'IN_USE')
+        $sameLease = $leaseStateAllowed -and $source.Lease -and
+            [string]$source.Lease.LeaseId -eq [string]$Plan.OperationId -and
+            [string]$source.Lease.RunId -eq [string]$Plan.Target.RunId -and
+            [string]$source.Lease.ScopeId -eq [string]$Plan.Target.ScopeId -and
+            [string]$source.Lease.Mode -eq 'EXCLUSIVE' -and $activeOperationReferences.Count -eq 1
+        if ($sameLease) {
+            return [PSCustomObject]@{
+                Changed=$false; Store=$source; CatalogRevision=[int]$catalog.Document.Revision
+                CatalogCommitted=([string]$Plan.Action -eq 'REATTACH' -and [string]$source.State -eq 'IN_USE')
+            }
+        }
+
+        if ([string]$Plan.Action -eq 'CLONE' -and [string]$source.State -eq 'DETACHED' -and -not $source.Lease -and
+            $releasedOperationReferences.Count -eq 1 -and @($source.References | Where-Object State -eq 'ACTIVE').Count -eq 0) {
+            $targetMatches = @($catalog.Document.Stores | Where-Object {
+                [string]$_.PersistentStorageId -eq [string]$Plan.Target.PersistentStorageId
+            })
+            if ($targetMatches.Count -eq 1 -and [string]$targetMatches[0].Provider -eq 'hyperv' -and
+                [string]$targetMatches[0].State -eq 'DETACHED' -and -not $targetMatches[0].Lease -and
+                [string]$targetMatches[0].LocationBinding.LocationId -eq [string]$Plan.Target.LocationId -and
+                [string]$targetMatches[0].LocationBinding.RelativePath -eq [string]$Plan.Target.RelativePath) {
+                return [PSCustomObject]@{
+                    Changed=$false; Store=$source; TargetStore=$targetMatches[0]
+                    CatalogRevision=[int]$catalog.Document.Revision; CatalogCommitted=$true
+                }
+            }
+            throw 'HYPERV_PERSISTENT_DATA_LEASE_COMPLETED_STATE_CONFLICT'
+        }
+
+        if ([string]$source.State -notin @('AVAILABLE','DETACHED') -or $source.Lease -or
+            @($source.References | Where-Object State -eq 'ACTIVE').Count -gt 0 -or
+            @($source.References | Where-Object ReferenceId -eq ([string]$Plan.OperationId)).Count -gt 0) {
+            throw 'HYPERV_PERSISTENT_DATA_LEASE_SOURCE_CONFLICT'
+        }
+        if ([string]$Plan.Action -eq 'CLONE') {
+            $targetInventoryObjectId = Get-LabStorageResidencyObjectId -Key "hyperv-instance-store|$([string]$Configuration.ControllerId)|$([string]$Plan.Target.LocationId)|$([string]$Plan.Target.RelativePath)"
+            $targetMatches = @($catalog.Document.Stores | Where-Object {
+                [string]$_.PersistentStorageId -eq [string]$Plan.Target.PersistentStorageId -or
+                ([string]$_.Provider -eq 'hyperv' -and
+                    ([string]$_.LocationBinding.InventoryObjectId -eq $targetInventoryObjectId -or
+                     ([string]$_.LocationBinding.LocationId -eq [string]$Plan.Target.LocationId -and
+                      [string]$_.LocationBinding.RelativePath -eq [string]$Plan.Target.RelativePath)))
+            })
+            if ($targetMatches.Count -gt 0) { throw 'HYPERV_PERSISTENT_DATA_LEASE_TARGET_CONFLICT' }
+        }
+
+        $next = $catalog.Document | ConvertTo-Json -Depth 40 | ConvertFrom-Json -Depth 40
+        $nextSource = @($next.Stores | Where-Object {
+            [string]$_.PersistentStorageId -eq [string]$Plan.Source.PersistentStorageId
+        })[0]
+        $now = Get-LabTimestamp
+        $nextSource.State = 'INCOMPLETE'
+        $nextSource.Lease = [PSCustomObject][ordered]@{
+            LeaseId=[string]$Plan.OperationId; RunId=[string]$Plan.Target.RunId
+            ScopeId=[string]$Plan.Target.ScopeId; Mode='EXCLUSIVE'; AcquiredAt=$now; ExpiresAt=$null
+        }
+        $nextSource.References = @($nextSource.References) + @([PSCustomObject][ordered]@{
+            ReferenceId=[string]$Plan.OperationId; Kind='RUN'; State='ACTIVE'; TargetId=[string]$Plan.Target.RunId
+        })
+        $nextSource.UpdatedAt = $now
+        $next.Revision = [int]$next.Revision + 1
+        $null = Test-LabPersistentStorageCatalogDocument -Document $next -Configuration $Configuration
+        $null = Write-LabPersistentStorageCatalogDocument -Document $next -Configuration $Configuration
+        return [PSCustomObject]@{
+            Changed=$true; Store=$nextSource; CatalogRevision=[int]$next.Revision; CatalogCommitted=$false
+        }
+    }
+}
+
+function Complete-LabHyperVPersistentDataCatalogOperation {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '', Justification='Die Parameter werden in der serialisierten Katalog-Lock-Closure verwendet.')]
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Plan,
+        [Parameter(Mandatory)]$Journal,
+        [Parameter(Mandatory)]$Configuration
+    )
+
+    if ([string]$Plan.ContractVersion -ne 'SqlServerLab.HyperVPersistentDataPlan/1.0' -or
+        [string]$Plan.Status -ne 'READY' -or [string]$Plan.Action -notin @('CLONE','REATTACH','RELEASE')) {
+        throw 'HYPERV_PERSISTENT_DATA_CATALOG_PLAN_INVALID'
+    }
+    $expectedJournalStatus = switch ([string]$Plan.Action) {
+        'CLONE' { 'TARGET_VERIFIED' }
+        'REATTACH' { 'ATTACHED_FILES_OFFLINE' }
+        'RELEASE' { 'CLEAN_DETACHED' }
+    }
+    if ([string]$Journal.ContractVersion -ne 'SqlServerLab.HyperVPersistentDataJournal/1.0' -or
+        [string]$Journal.OperationId -ne [string]$Plan.OperationId -or
+        [string]$Journal.Action -ne [string]$Plan.Action -or
+        [string]$Journal.Source.PersistentStorageId -ne [string]$Plan.Source.PersistentStorageId -or
+        [string]$Journal.Status -notin @($expectedJournalStatus,'CATALOG_COMMITTED','COMPLETED')) {
+        throw 'HYPERV_PERSISTENT_DATA_CATALOG_EVIDENCE_INVALID'
+    }
+    if ([string]::IsNullOrWhiteSpace([string]$Configuration.ControllerId)) {
+        throw 'HYPERV_PERSISTENT_DATA_CATALOG_CONFIGURATION_INVALID'
+    }
+
+    return Invoke-LabPersistentStorageCatalogLock -ControllerId ([string]$Configuration.ControllerId) -ScriptBlock {
+        $catalog = Get-LabPersistentStorageCatalog -Configuration $Configuration
+        if ([string]$catalog.Status -ne 'AVAILABLE') {
+            throw "PERSISTENT_STORAGE_CATALOG_MUTATION_BLOCKED: $([string]$catalog.Status)"
+        }
+        $sourceMatches = @($catalog.Document.Stores | Where-Object {
+            [string]$_.PersistentStorageId -eq [string]$Plan.Source.PersistentStorageId
+        })
+        if ($sourceMatches.Count -ne 1) { throw 'HYPERV_PERSISTENT_DATA_CATALOG_SOURCE_UNRESOLVED' }
+        $source = $sourceMatches[0]
+        if ([string]$source.StorageClass -ne 'INSTANCE_STORE' -or [string]$source.Provider -ne 'hyperv' -or
+            [string]$source.LocationBinding.Residency -ne 'LAB_DATA' -or
+            [string]$source.LocationBinding.LocationId -ne [string]$Plan.Source.LocationId -or
+            [string]$source.LocationBinding.RelativePath -ne [string]$Plan.Source.RelativePath -or
+            [string]$source.LocationBinding.ProviderResourceId -ne [string]$Plan.Source.DiskIdentifier -or
+            [string]$source.Retention -ne 'RETAINED' -or [string]$source.CleanupDisposition -ne 'PRESERVE') {
+            throw 'HYPERV_PERSISTENT_DATA_CATALOG_SOURCE_CONFLICT'
+        }
+
+        $activeOperationReferences = @($source.References | Where-Object {
+            [string]$_.ReferenceId -eq [string]$Plan.OperationId -and [string]$_.Kind -eq 'RUN' -and
+            [string]$_.State -eq 'ACTIVE' -and [string]$_.TargetId -eq [string]$Plan.Target.RunId
+        })
+        $releasedOperationReferences = @($source.References | Where-Object {
+            [string]$_.ReferenceId -eq [string]$Plan.OperationId -and [string]$_.Kind -eq 'RUN' -and
+            [string]$_.State -eq 'RELEASED' -and [string]$_.TargetId -eq [string]$Plan.Target.RunId
+        })
+
+        switch ([string]$Plan.Action) {
+            'REATTACH' {
+                $operationLease = $source.Lease -and
+                    [string]$source.Lease.LeaseId -eq [string]$Plan.OperationId -and
+                    [string]$source.Lease.RunId -eq [string]$Plan.Target.RunId -and
+                    [string]$source.Lease.ScopeId -eq [string]$Plan.Target.ScopeId -and
+                    [string]$source.Lease.Mode -eq 'EXCLUSIVE' -and $activeOperationReferences.Count -eq 1
+                if (-not $operationLease -or [string]$source.State -notin @('INCOMPLETE','RECOVERY_REQUIRED','IN_USE')) {
+                    throw 'HYPERV_PERSISTENT_DATA_CATALOG_REATTACH_LEASE_REQUIRED'
+                }
+                if ([string]$source.State -eq 'IN_USE') {
+                    return [PSCustomObject]@{ Changed=$false; Store=$source; CatalogRevision=[int]$catalog.Document.Revision }
+                }
+                $next = $catalog.Document | ConvertTo-Json -Depth 40 | ConvertFrom-Json -Depth 40
+                $nextSource = @($next.Stores | Where-Object PersistentStorageId -eq ([string]$Plan.Source.PersistentStorageId))[0]
+                $nextSource.State = 'IN_USE'; $nextSource.UpdatedAt = Get-LabTimestamp
+                $next.Revision = [int]$next.Revision + 1
+                $null = Write-LabPersistentStorageCatalogDocument -Document $next -Configuration $Configuration
+                return [PSCustomObject]@{ Changed=$true; Store=$nextSource; CatalogRevision=[int]$next.Revision }
+            }
+            'RELEASE' {
+                $releasedRunReferences = @($source.References | Where-Object {
+                    [string]$_.Kind -eq 'RUN' -and [string]$_.State -eq 'RELEASED' -and
+                    [string]$_.TargetId -eq [string]$Plan.Target.RunId
+                })
+                if ([string]$source.State -eq 'DETACHED' -and -not $source.Lease -and $releasedRunReferences.Count -ge 1 -and
+                    @($source.References | Where-Object State -eq 'ACTIVE').Count -eq 0) {
+                    return [PSCustomObject]@{ Changed=$false; Store=$source; CatalogRevision=[int]$catalog.Document.Revision }
+                }
+                $activeRunReferences = @($source.References | Where-Object {
+                    [string]$_.Kind -eq 'RUN' -and [string]$_.State -eq 'ACTIVE' -and
+                    [string]$_.TargetId -eq [string]$Plan.Target.RunId
+                })
+                if ([string]$source.State -notin @('IN_USE','RECOVERY_REQUIRED') -or -not $source.Lease -or
+                    [string]$source.Lease.RunId -ne [string]$Plan.Target.RunId -or
+                    [string]$source.Lease.ScopeId -ne [string]$Plan.Target.ScopeId -or $activeRunReferences.Count -ne 1) {
+                    throw 'HYPERV_PERSISTENT_DATA_CATALOG_RELEASE_LEASE_CONFLICT'
+                }
+                $next = $catalog.Document | ConvertTo-Json -Depth 40 | ConvertFrom-Json -Depth 40
+                $nextSource = @($next.Stores | Where-Object PersistentStorageId -eq ([string]$Plan.Source.PersistentStorageId))[0]
+                @($nextSource.References | Where-Object {
+                    ([string]$_.Kind -eq 'RUN' -and [string]$_.TargetId -eq [string]$Plan.Target.RunId) -or
+                    [string]$_.Kind -eq 'DATABASE'
+                }) | ForEach-Object { if ([string]$_.State -eq 'ACTIVE') { $_.State = 'RELEASED' } }
+                $nextSource.Lease = $null; $nextSource.State = 'DETACHED'; $nextSource.UpdatedAt = Get-LabTimestamp
+                $next.Revision = [int]$next.Revision + 1
+                $null = Write-LabPersistentStorageCatalogDocument -Document $next -Configuration $Configuration
+                return [PSCustomObject]@{ Changed=$true; Store=$nextSource; CatalogRevision=[int]$next.Revision }
+            }
+            'CLONE' {
+                if ([string]$Journal.TargetDiskIdentifier -notmatch '^[A-Fa-f0-9]{8}(?:-[A-Fa-f0-9]{4}){3}-[A-Fa-f0-9]{12}$' -or
+                    [string]$Journal.TargetDiskIdentifier -eq [string]$Plan.Source.DiskIdentifier -or
+                    -not [bool]$Journal.TargetOwnedByOperation -or -not [string]$Journal.SourceSha256) {
+                    throw 'HYPERV_PERSISTENT_DATA_CATALOG_CLONE_EVIDENCE_INVALID'
+                }
+                $targetLocation = @($Configuration.LabDataLocations | Where-Object {
+                    [string]$_.LocationId -eq [string]$Plan.Target.LocationId
+                })
+                if ($targetLocation.Count -ne 1) { throw 'HYPERV_PERSISTENT_DATA_CATALOG_TARGET_LOCATION_UNRESOLVED' }
+                $targetRelativePath = ([string]$Plan.Target.RelativePath) -replace '\\','/'
+                if ([IO.Path]::IsPathFullyQualified($targetRelativePath) -or $targetRelativePath -match '^[A-Za-z]:' -or
+                    $targetRelativePath -match '^[\\/]' -or $targetRelativePath -match '(^|[\\/])\.\.([\\/]|$)') {
+                    throw 'HYPERV_PERSISTENT_DATA_CATALOG_TARGET_PATH_INVALID'
+                }
+                $targetRoot = [IO.Path]::GetFullPath([string]$targetLocation[0].LabDataRoot).TrimEnd('\','/')
+                $targetPath = [IO.Path]::GetFullPath((Join-Path $targetRoot $targetRelativePath))
+                $boundary = Test-LabPathWithinRoot -Root $targetRoot -Path $targetPath
+                if (-not $boundary.Valid -or
+                    -not [string]::Equals($targetPath,[IO.Path]::GetFullPath([string]$Plan.Target.Path),[StringComparison]::OrdinalIgnoreCase)) {
+                    throw 'HYPERV_PERSISTENT_DATA_CATALOG_TARGET_PATH_CONFLICT'
+                }
+                $targetInventoryObjectId = Get-LabStorageResidencyObjectId -Key "hyperv-instance-store|$([string]$Configuration.ControllerId)|$([string]$Plan.Target.LocationId)|$targetRelativePath"
+                $targetMatches = @($catalog.Document.Stores | Where-Object {
+                    [string]$_.PersistentStorageId -eq [string]$Plan.Target.PersistentStorageId -or
+                    ([string]$_.Provider -eq 'hyperv' -and
+                        ([string]$_.LocationBinding.InventoryObjectId -eq $targetInventoryObjectId -or
+                         ([string]$_.LocationBinding.LocationId -eq [string]$Plan.Target.LocationId -and
+                          [string]$_.LocationBinding.RelativePath -eq $targetRelativePath) -or
+                         [string]$_.LocationBinding.ProviderResourceId -eq [string]$Journal.TargetDiskIdentifier))
+                })
+                $operationLease = [string]$source.State -in @('INCOMPLETE','RECOVERY_REQUIRED') -and $source.Lease -and
+                    [string]$source.Lease.LeaseId -eq [string]$Plan.OperationId -and
+                    [string]$source.Lease.RunId -eq [string]$Plan.Target.RunId -and
+                    [string]$source.Lease.ScopeId -eq [string]$Plan.Target.ScopeId -and
+                    [string]$source.Lease.Mode -eq 'EXCLUSIVE' -and $activeOperationReferences.Count -eq 1
+                $operationReleased = [string]$source.State -eq 'DETACHED' -and -not $source.Lease -and
+                    $releasedOperationReferences.Count -eq 1 -and @($source.References | Where-Object State -eq 'ACTIVE').Count -eq 0
+                if ($targetMatches.Count -gt 1) { throw 'HYPERV_PERSISTENT_DATA_CATALOG_TARGET_DUPLICATE' }
+                if ($targetMatches.Count -eq 1) {
+                    $target = $targetMatches[0]
+                    if (-not $operationReleased -or [string]$target.PersistentStorageId -ne [string]$Plan.Target.PersistentStorageId -or
+                        [string]$target.StorageClass -ne 'INSTANCE_STORE' -or [string]$target.Provider -ne 'hyperv' -or
+                        [string]$target.State -ne 'DETACHED' -or $target.Lease -or
+                        [string]$target.LocationBinding.Residency -ne 'LAB_DATA' -or
+                        [string]$target.LocationBinding.LocationId -ne [string]$Plan.Target.LocationId -or
+                        [string]$target.LocationBinding.RelativePath -ne $targetRelativePath -or
+                        [string]$target.LocationBinding.InventoryObjectId -ne $targetInventoryObjectId -or
+                        [string]$target.LocationBinding.ProviderResourceId -ne [string]$Journal.TargetDiskIdentifier -or
+                        @($target.References | Where-Object {
+                            [string]$_.ReferenceId -eq [string]$Plan.OperationId -and [string]$_.Kind -eq 'RUN' -and
+                            [string]$_.State -eq 'RELEASED' -and [string]$_.TargetId -eq [string]$Plan.Target.RunId
+                        }).Count -ne 1 -or @($target.References | Where-Object State -eq 'ACTIVE').Count -gt 0) {
+                        throw 'HYPERV_PERSISTENT_DATA_CATALOG_TARGET_CONFLICT'
+                    }
+                    return [PSCustomObject]@{ Changed=$false; Store=$target; SourceStore=$source; CatalogRevision=[int]$catalog.Document.Revision }
+                }
+                if (-not $operationLease) { throw 'HYPERV_PERSISTENT_DATA_CATALOG_CLONE_LEASE_REQUIRED' }
+
+                $now = Get-LabTimestamp
+                $displayName = "Clone of $([string]$source.DisplayName)"
+                if ($displayName.Length -gt 128) { $displayName = $displayName.Substring(0,128) }
+                $targetStore = [PSCustomObject][ordered]@{
+                    PersistentStorageId=[string]$Plan.Target.PersistentStorageId; DisplayName=$displayName
+                    StorageClass='INSTANCE_STORE'; State='DETACHED'; Provider='hyperv'
+                    LocationBinding=[PSCustomObject][ordered]@{
+                        Residency='LAB_DATA'; LocationId=[string]$Plan.Target.LocationId
+                        ProviderResourceId=([string]$Journal.TargetDiskIdentifier).ToUpperInvariant()
+                        InventoryObjectId=$targetInventoryObjectId; RelativePath=$targetRelativePath
+                    }
+                    References=@([PSCustomObject][ordered]@{
+                        ReferenceId=[string]$Plan.OperationId; Kind='RUN'; State='RELEASED'; TargetId=[string]$Plan.Target.RunId
+                    })
+                    Lease=$null; Retention='RETAINED'; CleanupDisposition='PRESERVE'; CreatedAt=$now; UpdatedAt=$now
+                }
+                $next = $catalog.Document | ConvertTo-Json -Depth 40 | ConvertFrom-Json -Depth 40
+                $nextSource = @($next.Stores | Where-Object PersistentStorageId -eq ([string]$Plan.Source.PersistentStorageId))[0]
+                @($nextSource.References | Where-Object {
+                    [string]$_.ReferenceId -eq [string]$Plan.OperationId -and [string]$_.State -eq 'ACTIVE'
+                }) | ForEach-Object { $_.State = 'RELEASED' }
+                $nextSource.Lease = $null; $nextSource.State = 'DETACHED'; $nextSource.UpdatedAt = $now
+                $next.Revision = [int]$next.Revision + 1
+                $next.Stores = @($next.Stores) + @($targetStore)
+                $null = Test-LabPersistentStorageCatalogDocument -Document $next -Configuration $Configuration
+                $null = Write-LabPersistentStorageCatalogDocument -Document $next -Configuration $Configuration
+                return [PSCustomObject]@{ Changed=$true; Store=$targetStore; SourceStore=$nextSource; CatalogRevision=[int]$next.Revision }
+            }
+        }
+    }
+}
+
+function Set-LabHyperVPersistentDataOperationRecoveryRequired {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '', Justification='Die Parameter werden in der serialisierten Katalog-Lock-Closure verwendet.')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification='Interner Recovery-Commit nach fehlgeschlagener Hyper-V-Persistent-Data-Operation.')]
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Plan,
+        [Parameter(Mandatory)]$Configuration
+    )
+
+    if ([string]$Plan.ContractVersion -ne 'SqlServerLab.HyperVPersistentDataPlan/1.0' -or
+        [string]$Plan.Action -notin @('CLONE','REATTACH','RELEASE')) {
+        throw 'HYPERV_PERSISTENT_DATA_RECOVERY_PLAN_INVALID'
+    }
+    return Invoke-LabPersistentStorageCatalogLock -ControllerId ([string]$Configuration.ControllerId) -ScriptBlock {
+        $catalog = Get-LabPersistentStorageCatalog -Configuration $Configuration
+        if ([string]$catalog.Status -ne 'AVAILABLE') {
+            throw "PERSISTENT_STORAGE_CATALOG_MUTATION_BLOCKED: $([string]$catalog.Status)"
+        }
+        $matches = @($catalog.Document.Stores | Where-Object {
+            [string]$_.PersistentStorageId -eq [string]$Plan.Source.PersistentStorageId
+        })
+        if ($matches.Count -ne 1) { throw 'HYPERV_PERSISTENT_DATA_RECOVERY_SOURCE_UNRESOLVED' }
+        $source = $matches[0]
+        $leaseMatches = $source.Lease -and
+            [string]$source.Lease.RunId -eq [string]$Plan.Target.RunId -and
+            [string]$source.Lease.ScopeId -eq [string]$Plan.Target.ScopeId
+        if ([string]$Plan.Action -in @('CLONE','REATTACH')) {
+            $leaseMatches = $leaseMatches -and [string]$source.Lease.LeaseId -eq [string]$Plan.OperationId -and
+                @($source.References | Where-Object {
+                    [string]$_.ReferenceId -eq [string]$Plan.OperationId -and [string]$_.Kind -eq 'RUN' -and
+                    [string]$_.State -eq 'ACTIVE' -and [string]$_.TargetId -eq [string]$Plan.Target.RunId
+                }).Count -eq 1
+        }
+        else {
+            $leaseMatches = $leaseMatches -and @($source.References | Where-Object {
+                [string]$_.Kind -eq 'RUN' -and [string]$_.State -eq 'ACTIVE' -and
+                [string]$_.TargetId -eq [string]$Plan.Target.RunId
+            }).Count -eq 1
+        }
+        if (-not $leaseMatches) {
+            return [PSCustomObject]@{
+                Changed=$false; Store=$source; CatalogRevision=[int]$catalog.Document.Revision; LeaseNotAcquired=$true
+            }
+        }
+        if ([string]$source.State -eq 'RECOVERY_REQUIRED') {
+            return [PSCustomObject]@{ Changed=$false; Store=$source; CatalogRevision=[int]$catalog.Document.Revision; LeaseNotAcquired=$false }
+        }
+        $next = $catalog.Document | ConvertTo-Json -Depth 40 | ConvertFrom-Json -Depth 40
+        $nextSource = @($next.Stores | Where-Object PersistentStorageId -eq ([string]$Plan.Source.PersistentStorageId))[0]
+        $nextSource.State = 'RECOVERY_REQUIRED'; $nextSource.UpdatedAt = Get-LabTimestamp
+        $next.Revision = [int]$next.Revision + 1
+        $null = Write-LabPersistentStorageCatalogDocument -Document $next -Configuration $Configuration
+        return [PSCustomObject]@{ Changed=$true; Store=$nextSource; CatalogRevision=[int]$next.Revision; LeaseNotAcquired=$false }
+    }
+}
+
 function Register-LabContainerInstanceStoreLease {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '', Justification='Die Parameter werden in der serialisierten Katalog-Lock-Closure verwendet.')]
     [CmdletBinding()]
