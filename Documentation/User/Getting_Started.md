@@ -96,6 +96,25 @@ erneuter Aufruf ist bei vollständiger Konfiguration ein No-op; vorhandene
 Dateien werden nicht überschrieben. Ein nichtleerer, noch nicht vom Lab
 verwalteter Datenroot wird fail-closed abgelehnt.
 
+### 3b. Betriebssystem-ISO beschaffen (nur für Hyper-V)
+
+Die Betriebssystemmedien werden nicht automatisch bezogen, weil die
+Herstellerseiten Lizenz-, Registrierungs-, Sprach- und Editionsentscheidungen
+verlangen. Die Links sind in der Konsole unabhängig davon sichtbar, ob Hyper-V
+bereits installiert ist:
+
+```text
+[5] Medien, Testdaten und Speicher
+  [o] Betriebssystem-Downloadquellen anzeigen
+```
+
+Die Ansicht nennt für Windows Server, Windows 11 und Ubuntu jeweils die
+offizielle Quelle, den erwarteten Ablagepfad unter dem konfigurierten
+`Lab_Base` und den nächsten Schritt. Sie lädt nichts herunter und bleibt bis
+Enter oder Escape sichtbar. Für den ersten Windows-Builder wird Windows Server
+2025 Evaluation als ISO, x64 und English (United States) empfohlen. Details
+zur Struktur stehen unter [Externer Media Root](../HowTo/MEDIA_ROOT_LAYOUT.md).
+
 ## 4. Ressourcen prüfen
 
 Docker:
