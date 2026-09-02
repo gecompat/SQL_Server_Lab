@@ -777,6 +777,7 @@ function Invoke-LabCmsInteractive {
             New-LabConsoleItem -Id '1' -Label 'CMS jetzt synchronisieren' -Shortcut '1'
             New-LabConsoleItem -Id '2' -Label 'CMS-Synchronisationsskript exportieren' -Shortcut '2'
             New-LabConsoleItem -Id '3' -Label 'CMS-Ordnerstruktur konfigurieren' -Shortcut '3'
+            New-LabConsoleItem -Id '4' -Label 'CMS-Zugang anzeigen' -Value 'Connection String und automatisch erzeugtes SA-Passwort' -Shortcut '4'
             New-LabConsoleItem -Id '0' -Label 'Zurück' -Shortcut '0'
         )
     if ($menu.Status -ne 'Selected') { return }
@@ -791,6 +792,13 @@ function Invoke-LabCmsInteractive {
         $saved = Set-LabConnectionCenterConfiguration -RootGroupName ([string]$layout.RootGroupName) -CmsUseRootGroup $useRoot -CmsGroupByProvider $groupByProvider -StateRoot $StateRoot
         Write-LabSuccess ("CMS-Ordnerstruktur gespeichert: Root-Ordner={0}, Provider-Ordner={1}" -f $(if ($saved.CmsUseRootGroup) { 'Ein' } else { 'Aus' }), $(if ($saved.CmsGroupByProvider) { 'Ein' } else { 'Aus' }))
         if (Read-LabConfirm -Prompt '  CMS jetzt mit der neuen Ordnerstruktur synchronisieren?' -Default $true) { $null = Sync-SqlServerLabCms -StateRoot $StateRoot }
+    }
+    elseif ($choice -eq '4') {
+        Write-Host ''
+        Write-Host '  CMS-Zugang' -ForegroundColor Cyan
+        Write-Host '  ---------------------------------------------------------------------' -ForegroundColor DarkCyan
+        Show-LabEnvironmentStatusInteractive -RunId ([string]$configuration.RunId) -StateRoot $StateRoot
+        $null = Wait-LabConsoleAcknowledgement -Prompt '  Enter oder Escape: Zurück zur CMS-Verwaltung'
     }
 }
 
