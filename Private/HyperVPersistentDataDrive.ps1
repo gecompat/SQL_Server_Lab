@@ -100,6 +100,212 @@ function Get-LabHyperVPersistentDataRuntimeInspection {
     }
 }
 
+function Get-LabHyperVPersistentDataDetachEvidencePath {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Path)
+
+    $resolvedPath = [IO.Path]::GetFullPath($Path)
+    return [IO.Path]::ChangeExtension($resolvedPath, '.detach-evidence.json')
+}
+
+function Write-LabHyperVPersistentDataDetachEvidence {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$PersistentStorageId,
+        [Parameter(Mandatory)][string]$ControllerId,
+        [Parameter(Mandatory)]$DetachEvidence,
+        [string]$SourceRunId,
+        [string]$SourceScopeId,
+        [string]$SourceVMId
+    )
+
+    $resolvedPath = [IO.Path]::GetFullPath($Path)
+    $file = Get-Item -LiteralPath $resolvedPath -ErrorAction Stop
+    $document = [PSCustomObject][ordered]@{
+        ContractVersion = 'SqlServerLab.HyperVPersistentDataDetachEvidence/1.0'
+        PersistentStorageId = $PersistentStorageId
+        ControllerId = $ControllerId
+        SourceRunId = if ($SourceRunId) { $SourceRunId } else { $null }
+        SourceScopeId = if ($SourceScopeId) { $SourceScopeId } else { $null }
+        SourceVMId = if ($SourceVMId) { $SourceVMId } else { $null }
+        SourceFileLength = [long]$file.Length
+        SourceLastWriteTimeUtc = $file.LastWriteTimeUtc.ToString('o')
+        DetachEvidence = $DetachEvidence
+        RecordedAt = Get-LabTimestamp
+    }
+    $schemaPath = Join-Path $script:SchemasPath 'hyperv-persistent-data-detach-evidence.schema.json'
+    if (-not (($document | ConvertTo-Json -Depth 20) | Test-Json -SchemaFile $schemaPath -ErrorAction SilentlyContinue)) {
+        throw 'HYPERV_PERSISTENT_DATA_DETACH_EVIDENCE_SCHEMA_INVALID'
+    }
+    Write-LabArtifactJsonAtomic -Path (Get-LabHyperVPersistentDataDetachEvidencePath -Path $resolvedPath) -InputObject $document
+    return $document
+}
+
+function Get-LabHyperVPersistentDataDetachEvidence {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$PersistentStorageId,
+        [Parameter(Mandatory)][string]$ControllerId,
+        [Parameter(Mandatory)][string]$DiskIdentifier
+    )
+
+    $resolvedPath = [IO.Path]::GetFullPath($Path)
+    $evidencePath = Get-LabHyperVPersistentDataDetachEvidencePath -Path $resolvedPath
+    if (-not (Test-Path -LiteralPath $evidencePath -PathType Leaf)) { return $null }
+    try {
+        $document = Get-Content -LiteralPath $evidencePath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
+        $schemaPath = Join-Path $script:SchemasPath 'hyperv-persistent-data-detach-evidence.schema.json'
+        if (-not (($document | ConvertTo-Json -Depth 20) | Test-Json -SchemaFile $schemaPath -ErrorAction Stop)) { return $null }
+        $file = Get-Item -LiteralPath $resolvedPath -ErrorAction Stop
+        if ([string]$document.PersistentStorageId -ne $PersistentStorageId -or
+            [string]$document.ControllerId -ne $ControllerId -or
+            [string]$document.DetachEvidence.DiskIdentifier -ne $DiskIdentifier -or
+            [long]$document.SourceFileLength -ne [long]$file.Length -or
+            [datetime]$document.SourceLastWriteTimeUtc -ne $file.LastWriteTimeUtc) {
+            return $null
+        }
+        return $document
+    }
+    catch { return $null }
+}
+
+function Get-LabHyperVPersistentDataGuestDetachObservation {
+    <#
+    .SYNOPSIS
+        Prüft SQL-Dateibindungen im laufenden Gast und startet danach einen sauberen Shutdown.
+    .DESCRIPTION
+        Die Abfrage verbindet sich innerhalb der verwalteten VM per SQL-Login mit
+        jeder registrierten SQL-Instanz. Eine VHDX wird nur freigabefähig, wenn
+        unter ihrem Gastpfad keine aktive Datenbankdatei gebunden ist. Der
+        Shutdown wird erst nach der erfolgreichen, vollständigen Abfrage geplant.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Lab,
+        [Parameter(Mandatory)][PSCredential]$Credential,
+        [Parameter(Mandatory)][SecureString]$SqlSaPassword,
+        [Parameter(Mandatory)][string]$GuestPath,
+        [Parameter(Mandatory)][string]$ExpectedSqlMajorVersion,
+        [ValidateRange(30, 600)][int]$ShutdownTimeoutSeconds = 180
+    )
+
+    $managed = Get-HyperVManagedVM -VMName ([string]$Lab.Instance.vmName) `
+        -ExpectedRunId ([string]$Lab.Run.runId) -ExpectedScopeId ([string]$Lab.Run.scopeId)
+    if (-not $managed -or [string]$managed.VM.State -ne 'Running') {
+        throw 'HYPERV_PERSISTENT_DATA_EVIDENCE_VM_MUST_BE_RUNNING'
+    }
+    $ready = Wait-HyperVPowerShellDirect -VMName ([string]$Lab.Instance.vmName) `
+        -ExpectedRunId ([string]$Lab.Run.runId) -ExpectedScopeId ([string]$Lab.Run.scopeId) `
+        -Credential $Credential -TimeoutSeconds ([Math]::Min($ShutdownTimeoutSeconds, 300))
+    if (-not $ready.Ready) { throw "HYPERV_PERSISTENT_DATA_EVIDENCE_GUEST_TIMEOUT: $($ready.Message)" }
+
+    $result = Invoke-HyperVPowerShellDirect -VMName ([string]$Lab.Instance.vmName) `
+        -ExpectedRunId ([string]$Lab.Run.runId) -ExpectedScopeId ([string]$Lab.Run.scopeId) `
+        -Credential $Credential -ArgumentList @($GuestPath, $ExpectedSqlMajorVersion, $SqlSaPassword) -ScriptBlock {
+            param($ExpectedGuestPath, $ExpectedSqlVersion, [SecureString]$SaPassword)
+            $ErrorActionPreference = 'Stop'
+            $root = [IO.Path]::GetFullPath([string]$ExpectedGuestPath).TrimEnd('\','/')
+            if (-not (Test-Path -LiteralPath $root -PathType Container)) {
+                throw 'HYPERV_PERSISTENT_DATA_GUEST_PATH_NOT_FOUND'
+            }
+            $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword)
+            $plain = $null
+            try {
+                $plain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+                $instancePath = 'HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\Instance Names\SQL'
+                if (-not (Test-Path -LiteralPath $instancePath)) { throw 'HYPERV_PERSISTENT_DATA_SQL_INSTANCE_REGISTRY_NOT_FOUND' }
+                $instanceMap = Get-ItemProperty -LiteralPath $instancePath -ErrorAction Stop
+                $instances = @($instanceMap.PSObject.Properties | Where-Object { $_.Name -notmatch '^PS' })
+                if ($instances.Count -eq 0) { throw 'HYPERV_PERSISTENT_DATA_SQL_INSTANCE_NOT_FOUND' }
+                $rows = [Collections.Generic.List[object]]::new()
+                $observedVersions = [Collections.Generic.List[string]]::new()
+                foreach ($instance in $instances) {
+                    $dataSource = if ([string]$instance.Name -eq 'MSSQLSERVER') { 'localhost' } else { "localhost\$([string]$instance.Name)" }
+                    $builder = [Data.SqlClient.SqlConnectionStringBuilder]::new()
+                    $builder.DataSource = $dataSource
+                    $builder.InitialCatalog = 'master'
+                    $builder.UserID = 'sa'
+                    $builder.Password = $plain
+                    $builder.Encrypt = $true
+                    $builder.TrustServerCertificate = $true
+                    $builder.ConnectTimeout = 15
+                    $connection = [Data.SqlClient.SqlConnection]::new($builder.ConnectionString)
+                    try {
+                        $connection.Open()
+                        $versionCommand = $connection.CreateCommand()
+                        $versionCommand.CommandText = "SELECT CONVERT(nvarchar(10),SERVERPROPERTY('ProductMajorVersion'));"
+                        $productMajor = [int]$versionCommand.ExecuteScalar()
+                        $sqlVersion = switch ($productMajor) { 15 { '2019' } 16 { '2022' } 17 { '2025' } default { $null } }
+                        if (-not $sqlVersion) { throw "HYPERV_PERSISTENT_DATA_SQL_VERSION_UNSUPPORTED: $productMajor" }
+                        $observedVersions.Add($sqlVersion)
+                        $command = $connection.CreateCommand()
+                        $command.CommandText = 'SELECT DB_NAME(mf.database_id),COALESCE(d.state_desc,N''UNKNOWN''),mf.physical_name FROM sys.master_files mf LEFT JOIN sys.databases d ON d.database_id=mf.database_id;'
+                        $reader = $command.ExecuteReader()
+                        try {
+                            while ($reader.Read()) {
+                                $physicalPath = [string]$reader.GetString(2)
+                                if (-not $physicalPath) { continue }
+                                try { $fullPath = [IO.Path]::GetFullPath($physicalPath) } catch { continue }
+                                if ($fullPath.StartsWith($root + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
+                                    $rows.Add([PSCustomObject]@{ Database=[string]$reader.GetString(0); State=[string]$reader.GetString(1); Path=$fullPath })
+                                }
+                            }
+                        }
+                        finally { $reader.Dispose() }
+                    }
+                    finally { $connection.Dispose() }
+                }
+                $versions = @($observedVersions | Sort-Object -Unique)
+                if ($versions.Count -ne 1 -or [string]$versions[0] -ne [string]$ExpectedSqlVersion) {
+                    throw "HYPERV_PERSISTENT_DATA_SQL_VERSION_MISMATCH: $($versions -join ',')"
+                }
+                $active = @($rows | Where-Object { [string]$_.State -ne 'OFFLINE' })
+                if ($active.Count -gt 0) {
+                    throw "HYPERV_PERSISTENT_DATA_DATABASE_FILES_ONLINE: $(@($active.Database | Sort-Object -Unique) -join ',')"
+                }
+                $databaseFiles = @(Get-ChildItem -LiteralPath $root -File -Recurse -ErrorAction Stop | Where-Object {
+                    [string]$_.Extension -in @('.mdf','.ndf','.ldf')
+                })
+                $databaseState = if ($databaseFiles.Count -eq 0 -and $rows.Count -eq 0) { 'NO_DATABASE_FILES' } else { 'OFFLINE_OR_DETACHED' }
+                $shutdownPath = Join-Path $env:SystemRoot 'System32\shutdown.exe'
+                $null = Start-Process -FilePath $shutdownPath -ArgumentList @('/s','/t','3','/d','p:4:1') -WindowStyle Hidden -PassThru
+                [PSCustomObject]@{
+                    SqlMajorVersion = [string]$versions[0]
+                    GuestPath = $root
+                    DatabasesState = $databaseState
+                    ObservedDatabaseFileCount = [int]$databaseFiles.Count
+                    ObservedSqlFileBindingCount = [int]$rows.Count
+                    ObservedAt = [datetime]::UtcNow.ToString('o')
+                    ShutdownRequested = $true
+                }
+            }
+            finally {
+                $plain = $null
+                [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+            }
+        }
+    $observation = @($result)[-1]
+    if (-not $observation -or -not [bool]$observation.ShutdownRequested -or
+        [string]$observation.SqlMajorVersion -ne $ExpectedSqlMajorVersion -or
+        [string]$observation.DatabasesState -notin @('NO_DATABASE_FILES','OFFLINE_OR_DETACHED')) {
+        throw 'HYPERV_PERSISTENT_DATA_GUEST_EVIDENCE_INVALID'
+    }
+
+    $deadline = [datetime]::UtcNow.AddSeconds($ShutdownTimeoutSeconds)
+    do {
+        $managed = Get-HyperVManagedVM -VMName ([string]$Lab.Instance.vmName) `
+            -ExpectedRunId ([string]$Lab.Run.runId) -ExpectedScopeId ([string]$Lab.Run.scopeId)
+        if ($managed -and [string]$managed.VM.State -eq 'Off') { break }
+        Start-Sleep -Seconds 2
+    } while ([datetime]::UtcNow -lt $deadline)
+    if (-not $managed -or [string]$managed.VM.State -ne 'Off') {
+        throw 'HYPERV_PERSISTENT_DATA_CLEAN_SHUTDOWN_TIMEOUT'
+    }
+    return $observation
+}
+
 function Get-LabHyperVPersistentDataSelection {
     <#
     .SYNOPSIS
@@ -107,9 +313,9 @@ function Get-LabHyperVPersistentDataSelection {
     .DESCRIPTION
         Die Auswahl bindet ausschliesslich die stabile PersistentStorageId an
         den Katalog und eine frische read-only Runtime-Pruefung. Hostpfade und
-        DiskIdentifier bleiben intern. Lifecycle-Aktionen werden erst als
-        verfuegbar gemeldet, wenn ein spaeterer oeffentlicher Flow belastbare
-        Clean-Detach- und Ziel-Evidenz erzeugen kann.
+        DiskIdentifier bleiben intern. Eine angehaengte, konsistente Quelle kann
+        ueber RELEASE selbst neue Clean-Detach-Evidenz erzeugen. Abgehaengte
+        Quellen werden nur mit weiterhin dateigebundener Evidenz freigegeben.
     #>
     [CmdletBinding()]
     param(
@@ -137,6 +343,8 @@ function Get-LabHyperVPersistentDataSelection {
             $path = $null
             $attachmentState = 'UNKNOWN'
             $attachedVmName = $null
+            $detachEvidenceStatus = 'MISSING'
+            $sourceSqlMajorVersion = $null
 
             if ([string]$store.Retention -ne 'RETAINED' -or [string]$store.CleanupDisposition -ne 'PRESERVE') {
                 $issues.Add('SOURCE_RETENTION_NOT_PERSISTENT')
@@ -184,16 +392,29 @@ function Get-LabHyperVPersistentDataSelection {
             }
 
             $activeReferences = @($store.References | Where-Object { [string]$_.State -eq 'ACTIVE' })
+            $availableActions = @()
             if ([string]$store.State -eq 'IN_USE') {
                 if (-not $store.Lease -or $activeReferences.Count -eq 0) { $issues.Add('SOURCE_ACTIVE_BINDING_INCOMPLETE') }
                 $lifecycleActions = @('RELEASE')
-                $issues.Add('CLEAN_DETACH_EVIDENCE_REQUIRED')
+                if (@($issues).Count -eq 0) { $availableActions = @('RELEASE') }
+                else { $issues.Add('CLEAN_DETACH_EVIDENCE_GENERATION_BLOCKED') }
             }
             elseif ([string]$store.State -in @('AVAILABLE','DETACHED')) {
                 if ($store.Lease -or $activeReferences.Count -gt 0) { $issues.Add('SOURCE_REFERENCE_ACTIVE') }
                 $lifecycleActions = @('REATTACH','CLONE')
-                $issues.Add('CLEAN_DETACH_EVIDENCE_REQUIRED')
-                $issues.Add('TARGET_BINDING_EVIDENCE_REQUIRED')
+                if ($path -and $inspection -and [string]$inspection.DiskIdentifier) {
+                    $detachEvidence = Get-LabHyperVPersistentDataDetachEvidence `
+                        -Path $path -PersistentStorageId ([string]$store.PersistentStorageId) `
+                        -ControllerId ([string]$Configuration.ControllerId) `
+                        -DiskIdentifier ([string]$inspection.DiskIdentifier)
+                    if ($detachEvidence) {
+                        $detachEvidenceStatus = 'VERIFIED'
+                        $sourceSqlMajorVersion = [string]$detachEvidence.DetachEvidence.SqlMajorVersion
+                    }
+                    else { $issues.Add('CLEAN_DETACH_EVIDENCE_REQUIRED') }
+                }
+                else { $issues.Add('CLEAN_DETACH_EVIDENCE_REQUIRED') }
+                if (@($issues).Count -eq 0) { $availableActions = @('REATTACH','CLONE') }
             }
             else {
                 $lifecycleActions = @()
@@ -208,8 +429,10 @@ function Get-LabHyperVPersistentDataSelection {
                 AttachedVMName = $attachedVmName
                 BoundRunId = if ($store.Lease) { [string]$store.Lease.RunId } else { $null }
                 LifecycleActions = @($lifecycleActions)
-                AvailableActions = @()
+                AvailableActions = @($availableActions)
                 Issues = @($issues | Sort-Object -Unique)
+                DetachEvidenceStatus = $detachEvidenceStatus
+                SqlMajorVersion = $sourceSqlMajorVersion
                 DatabaseFilesOnline = $false
                 DatabaseActionRequired = 'EXPLICIT_RESTORE_OR_ATTACH'
             }
@@ -358,6 +581,7 @@ function Get-LabHyperVPersistentDataPlan {
             InventoryObjectId=if ($store) { [string]$store.LocationBinding.InventoryObjectId } else { $null }
             DiskIdentifier=[string]$RuntimeInspection.DiskIdentifier; VhdType=[string]$RuntimeInspection.VhdType
             SizeBytes=[long]$RuntimeInspection.SizeBytes; SqlMajorVersion=[string]$detach.SqlMajorVersion; GuestPath=[string]$detach.GuestPath
+            DatabasesState=[string]$detach.DatabasesState
             Retention=if ($store) { [string]$store.Retention } else { $null }; CleanupDisposition=if ($store) { [string]$store.CleanupDisposition } else { $null }
         }
         Target=[PSCustomObject]@{
@@ -449,7 +673,12 @@ function Invoke-LabHyperVPersistentDataPlan {
         }
     }
     if ([string]$journal.OperationId -ne [string]$Plan.OperationId -or [string]$journal.Action -ne [string]$Plan.Action -or
-        [string]$journal.Source.PersistentStorageId -ne [string]$Plan.Source.PersistentStorageId) { throw 'HYPERV_PERSISTENT_DATA_JOURNAL_IDENTITY_MISMATCH' }
+        [string]$journal.Source.PersistentStorageId -ne [string]$Plan.Source.PersistentStorageId -or
+        [string]$journal.Source.Path -ne [string]$Plan.Source.Path -or
+        [string]$journal.Target.RunId -ne [string]$Plan.Target.RunId -or
+        [string]$journal.Target.VMId -ne [string]$Plan.Target.VMId -or
+        [string]$journal.Target.PersistentStorageId -ne [string]$Plan.Target.PersistentStorageId -or
+        [string]$journal.Target.Path -ne [string]$Plan.Target.Path) { throw 'HYPERV_PERSISTENT_DATA_JOURNAL_IDENTITY_MISMATCH' }
     foreach ($field in @(
         @{ Name='CatalogLeaseAcquired'; Value=$false }, @{ Name='CatalogCommitted'; Value=$false },
         @{ Name='CatalogRevision'; Value=$null }, @{ Name='CatalogRecoveryErrorCode'; Value=$null }
@@ -516,6 +745,16 @@ function Invoke-LabHyperVPersistentDataPlan {
                         [string]$targetVhd.DiskIdentifier -eq [string]$Plan.Source.DiskIdentifier) { throw 'HYPERV_PERSISTENT_DATA_CLONE_POSTCONDITION_FAILED' }
                     $journal.TargetDiskIdentifier = ([string]$targetVhd.DiskIdentifier).ToUpperInvariant()
                 }
+                $cloneDetachEvidence = [PSCustomObject][ordered]@{
+                    Status='CLEAN_DETACHED'; DirtyState='CLEAN'; DiskIdentifier=[string]$journal.TargetDiskIdentifier
+                    SqlMajorVersion=[string]$Plan.Source.SqlMajorVersion; GuestPath=[string]$Plan.Source.GuestPath
+                    DatabasesState=[string]$Plan.Source.DatabasesState; ObservedAt=Get-LabTimestamp
+                }
+                $null = Write-LabHyperVPersistentDataDetachEvidence `
+                    -Path ([string]$Plan.Target.Path) -PersistentStorageId ([string]$Plan.Target.PersistentStorageId) `
+                    -ControllerId ([string]$Configuration.ControllerId) -DetachEvidence $cloneDetachEvidence `
+                    -SourceRunId ([string]$Plan.Target.RunId) -SourceScopeId ([string]$Plan.Target.ScopeId) `
+                    -SourceVMId ([string]$Plan.Target.VMId)
                 $journal.Status = 'TARGET_VERIFIED'
             }
             'REATTACH' {
@@ -565,5 +804,207 @@ function Invoke-LabHyperVPersistentDataPlan {
         $journal.Status='RECOVERY_REQUIRED'; $journal.Recovery.Status='RETRY'; $journal.Recovery.ErrorCode=$code
         $null = Write-LabHyperVPersistentDataJournal -Journal $journal -Path $journalPath
         throw "HYPERV_PERSISTENT_DATA_RECOVERY_REQUIRED: $code"
+    }
+}
+
+function Set-LabHyperVPersistentDataConnectionState {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification='Interner Postcondition-Commit des bestaetigten Lifecycle-Flows.')]
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Lab,
+        [Parameter(Mandatory)][ValidateSet('REATTACH','RELEASE')][string]$Action,
+        [Parameter(Mandatory)]$Plan,
+        [Parameter(Mandatory)]$Journal
+    )
+
+    if ($Action -eq 'RELEASE') {
+        if (-not $Lab.Instance.persistentStorage -or
+            [string]$Lab.Instance.persistentStorage.persistentStorageId -ne [string]$Plan.Source.PersistentStorageId) {
+            throw 'HYPERV_PERSISTENT_DATA_CONNECTION_SOURCE_MISMATCH'
+        }
+        $Lab.Instance.persistentStorage.state = 'DETACHED'
+        $Lab.Instance.persistentStorage | Add-Member -NotePropertyName detachedAt -NotePropertyValue (Get-LabTimestamp) -Force
+    }
+    else {
+        if ($Lab.Instance.persistentStorage -and
+            [string]$Lab.Instance.persistentStorage.persistentStorageId -ne [string]$Plan.Source.PersistentStorageId -and
+            [string]$Lab.Instance.persistentStorage.state -notin @('DETACHED','RELEASED')) {
+            throw 'HYPERV_PERSISTENT_DATA_CONNECTION_TARGET_OCCUPIED'
+        }
+        $Lab.Instance | Add-Member -NotePropertyName persistentStorage -NotePropertyValue ([PSCustomObject][ordered]@{
+            mode = 'cataloged-data-root-vhdx'
+            root = [string]$Plan.Target.GuestPath
+            hostPath = [string]$Plan.Source.Path
+            persistentStorageId = [string]$Plan.Source.PersistentStorageId
+            locationId = [string]$Plan.Source.LocationId
+            relativePath = [string]$Plan.Source.RelativePath
+            diskIdentifier = [string]$Plan.Source.DiskIdentifier
+            guestPath = [string]$Plan.Target.GuestPath
+            backupGuestPath = Join-Path ([string]$Plan.Target.GuestPath) 'Backups'
+            backupMode = 'guest-data-vhdx'
+            state = 'ATTACHED_REQUIRES_DATABASE_ACTION'
+            databaseFilesOnline = $false
+            databaseActionRequired = 'EXPLICIT_RESTORE_OR_ATTACH'
+            attachedAt = Get-LabTimestamp
+            catalogRevision = [int]$Journal.CatalogRevision
+        }) -Force
+    }
+    Write-LabArtifactJsonAtomic -Path (Join-Path ([string]$Lab.RunDirectory) 'connection-info.json') -InputObject $Lab.Connection
+    return $Lab.Instance.persistentStorage
+}
+
+function Invoke-LabHyperVPersistentDataLifecycle {
+    <#
+    .SYNOPSIS
+        Bindet den pfadfreien Workflow-Aufruf an Evidence, Planner und Executor.
+    .DESCRIPTION
+        Quelle und Ziel werden ausschliesslich ueber stabile IDs aufgeloest.
+        RELEASE erzeugt die Clean-Detach-Evidenz im laufenden Gast und wartet
+        den sauberen Shutdown ab. REATTACH und CLONE akzeptieren nur eine noch
+        zur unveraenderten VHDX passende persistierte Evidenz.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][ValidateSet('REATTACH','RELEASE','CLONE')][string]$Action,
+        [Parameter(Mandatory)][ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$PersistentStorageId,
+        [Parameter(Mandatory)][ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$TargetRunId,
+        [ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$TargetLocationId,
+        [PSCredential]$GuestCredential,
+        [SecureString]$SqlSaPassword,
+        [string]$DataRoot,
+        [string]$StateRoot,
+        [ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$OperationId
+    )
+
+    if (-not $DataRoot) { $DataRoot = Get-LabDataRootDefault }
+    if (-not $DataRoot) { throw 'LAB_DATA_ROOT_REQUIRED' }
+    $DataRoot = Resolve-LabDataRootForUse -DataRoot $DataRoot
+    $configuration = Get-LabStorageConfiguration -DataRoot $DataRoot
+    $catalog = Get-LabPersistentStorageCatalog -Configuration $configuration
+    if ([string]$catalog.Status -ne 'AVAILABLE') {
+        throw "HYPERV_PERSISTENT_DATA_CATALOG_UNAVAILABLE: $([string]$catalog.Status)"
+    }
+    $targetLab = Get-HyperVLabWorkflowRun -RunId $TargetRunId -StateRoot $StateRoot
+    $sqlVersion = [string]$targetLab.Instance.sqlVersion
+    if ($sqlVersion -notin @('2019','2022','2025')) { throw 'HYPERV_PERSISTENT_DATA_TARGET_SQL_VERSION_REQUIRED' }
+
+    $bindingIssues = [Collections.Generic.List[string]]::new()
+    $lookupIntent = [PSCustomObject]@{ SourcePersistentStorageId=$PersistentStorageId }
+    $binding = Resolve-LabHyperVPersistentDataCatalogBinding -Intent $lookupIntent -Catalog $catalog `
+        -Configuration $configuration -Issues $bindingIssues
+    if (-not $binding -or @($bindingIssues).Count -gt 0) {
+        throw "HYPERV_PERSISTENT_DATA_SOURCE_UNAVAILABLE: $(@($bindingIssues) -join ',')"
+    }
+    $inspection = Get-LabHyperVPersistentDataRuntimeInspection -Path ([string]$binding.Path) `
+        -TargetVMName ([string]$targetLab.Instance.vmName)
+    if ([string]$inspection.Status -ne 'AVAILABLE' -or -not [string]$inspection.DiskIdentifier) {
+        throw 'HYPERV_PERSISTENT_DATA_SOURCE_VHDX_UNAVAILABLE'
+    }
+
+    $evidenceDocument = Get-LabHyperVPersistentDataDetachEvidence `
+        -Path ([string]$binding.Path) -PersistentStorageId $PersistentStorageId `
+        -ControllerId ([string]$configuration.ControllerId) -DiskIdentifier ([string]$inspection.DiskIdentifier)
+    if ($Action -eq 'RELEASE') {
+        if ([string]$binding.Store.State -ne 'IN_USE' -or -not $binding.Store.Lease -or
+            [string]$binding.Store.Lease.RunId -ne [string]$targetLab.Run.runId -or
+            [string]$binding.Store.Lease.ScopeId -ne [string]$targetLab.Run.scopeId) {
+            throw 'HYPERV_PERSISTENT_DATA_RELEASE_SOURCE_RUN_MISMATCH'
+        }
+        $guestPath = [string]$targetLab.Instance.persistentStorage.guestPath
+        if (-not $guestPath -or [string]$targetLab.Instance.persistentStorage.persistentStorageId -ne $PersistentStorageId) {
+            throw 'HYPERV_PERSISTENT_DATA_RELEASE_CONNECTION_BINDING_INVALID'
+        }
+        if ([string]$inspection.Target.State -eq 'Running') {
+            if (-not $GuestCredential) {
+                $guestPassword = Get-LabSecret -Path ([string]$targetLab.RunDirectory) -Name 'guest-administrator-password'
+                if ($guestPassword) { $GuestCredential = [PSCredential]::new('Administrator', $guestPassword) }
+            }
+            if (-not $GuestCredential) { throw 'HYPERV_PERSISTENT_DATA_GUEST_CREDENTIAL_REQUIRED' }
+            if (-not $SqlSaPassword) {
+                $SqlSaPassword = Get-LabSecret -Path ([string]$targetLab.RunDirectory) -Name 'generated-sql-sa-password'
+                if (-not $SqlSaPassword) { $SqlSaPassword = Get-LabSecret -Path ([string]$targetLab.RunDirectory) -Name 'sa-password' }
+                if (-not $SqlSaPassword) { $SqlSaPassword = $GuestCredential.Password }
+            }
+            $guestObservation = Get-LabHyperVPersistentDataGuestDetachObservation `
+                -Lab $targetLab -Credential $GuestCredential -SqlSaPassword $SqlSaPassword `
+                -GuestPath $guestPath -ExpectedSqlMajorVersion $sqlVersion
+            $inspection = Get-LabHyperVPersistentDataRuntimeInspection -Path ([string]$binding.Path) `
+                -TargetVMName ([string]$targetLab.Instance.vmName)
+            if ([string]$inspection.Target.State -ne 'Off') { throw 'HYPERV_PERSISTENT_DATA_TARGET_VM_MUST_BE_OFF' }
+            $detachEvidence = [PSCustomObject][ordered]@{
+                Status='CLEAN_DETACHED'; DirtyState='CLEAN'; DiskIdentifier=[string]$inspection.DiskIdentifier
+                SqlMajorVersion=$sqlVersion; GuestPath=$guestPath
+                DatabasesState=[string]$guestObservation.DatabasesState; ObservedAt=[string]$guestObservation.ObservedAt
+            }
+            $evidenceDocument = Write-LabHyperVPersistentDataDetachEvidence `
+                -Path ([string]$binding.Path) -PersistentStorageId $PersistentStorageId `
+                -ControllerId ([string]$configuration.ControllerId) -DetachEvidence $detachEvidence `
+                -SourceRunId ([string]$targetLab.Run.runId) -SourceScopeId ([string]$targetLab.Run.scopeId) `
+                -SourceVMId ([string]$inspection.Target.VMId)
+        }
+        elseif ([string]$inspection.Target.State -ne 'Off') {
+            throw 'HYPERV_PERSISTENT_DATA_TARGET_VM_MUST_BE_RUNNING_OR_OFF'
+        }
+        elseif (-not $evidenceDocument -or [string]$evidenceDocument.SourceRunId -ne [string]$targetLab.Run.runId -or
+            [string]$evidenceDocument.SourceScopeId -ne [string]$targetLab.Run.scopeId -or
+            [string]$evidenceDocument.SourceVMId -ne [string]$inspection.Target.VMId) {
+            throw 'HYPERV_PERSISTENT_DATA_CLEAN_DETACH_EVIDENCE_REQUIRED: VM starten und Release erneut ausführen.'
+        }
+    }
+    elseif (-not $evidenceDocument) {
+        throw 'HYPERV_PERSISTENT_DATA_CLEAN_DETACH_EVIDENCE_REQUIRED'
+    }
+
+    $detach = $evidenceDocument.DetachEvidence
+    if ([string]$detach.SqlMajorVersion -ne $sqlVersion) { throw 'HYPERV_PERSISTENT_DATA_SOURCE_SQL_VERSION_INCOMPATIBLE' }
+    $guestPath = [string]$detach.GuestPath
+    $guestPathAvailable = $Action -eq 'RELEASE' -or $guestPath -notin @($inspection.Target.GuestPaths | ForEach-Object { [string]$_ })
+    $targetEvidence = [PSCustomObject][ordered]@{
+        VMId=[string]$inspection.Target.VMId; SqlMajorVersion=$sqlVersion; GuestPath=$guestPath
+        GuestPathAvailable=[bool]$guestPathAvailable; ObservedAt=Get-LabTimestamp
+    }
+    if (-not $OperationId) { $OperationId = [Guid]::NewGuid().ToString('D') }
+    $targetStorageId = if ($Action -eq 'CLONE') { $OperationId } else { $null }
+    if ($Action -eq 'CLONE') {
+        if (-not $TargetLocationId) { $TargetLocationId = [string]$configuration.DefaultLocationId }
+        if (-not $TargetLocationId) { throw 'HYPERV_PERSISTENT_DATA_TARGET_LOCATION_REQUIRED' }
+    }
+    $relativePath = if ($Action -eq 'CLONE') { "HyperV/Staging/PersistentData/$targetStorageId.vhdx" } else { $null }
+    $intent = [PSCustomObject][ordered]@{
+        ContractVersion='SqlServerLab.HyperVPersistentDataIntent/1.0'; OperationId=$OperationId; Action=$Action
+        SourcePersistentStorageId=$PersistentStorageId; TargetPersistentStorageId=$targetStorageId
+        TargetLocationId=if ($Action -eq 'CLONE') { $TargetLocationId } else { $null }
+        TargetRelativePath=$relativePath; TargetRunId=[string]$targetLab.Run.runId; TargetScopeId=[string]$targetLab.Run.scopeId
+        TargetVMName=[string]$targetLab.Instance.vmName; TargetSqlMajorVersion=$sqlVersion; TargetGuestPath=$guestPath
+        DetachEvidence=$detach; TargetEvidence=$targetEvidence; DatabaseDisposition='EXPLICIT_RESTORE_OR_ATTACH_REQUIRED'
+    }
+    $plan = Get-LabHyperVPersistentDataPlan -Intent $intent -Catalog $catalog `
+        -Configuration $configuration -RuntimeInspection $inspection
+    if ([string]$plan.Status -ne 'READY') {
+        throw "HYPERV_PERSISTENT_DATA_PLAN_BLOCKED: $(@($plan.Blockers) -join ',')"
+    }
+    $operationDirectory = Join-Path (Join-Path (Join-Path $DataRoot 'HyperV\Recovery') 'PersistentData') $OperationId
+    $journal = Invoke-LabHyperVPersistentDataPlan -Plan $plan -OperationDirectory $operationDirectory -Configuration $configuration
+
+    $connectionStateStatus = 'NOT_APPLICABLE'
+    if ($Action -in @('REATTACH','RELEASE')) {
+        try {
+            $null = Set-LabHyperVPersistentDataConnectionState -Lab $targetLab -Action $Action -Plan $plan -Journal $journal
+            $connectionStateStatus = 'COMMITTED'
+        }
+        catch {
+            $connectionStateStatus = 'UPDATE_REQUIRED'
+            Write-Warning "HYPERV_PERSISTENT_DATA_CONNECTION_STATE_UPDATE_REQUIRED: $($_.Exception.Message)"
+        }
+    }
+
+    return [PSCustomObject]@{
+        Action=$Action; Status=[string]$journal.Status; OperationId=$OperationId
+        SourcePersistentStorageId=$PersistentStorageId
+        TargetPersistentStorageId=if ($Action -eq 'CLONE') { [string]$plan.Target.PersistentStorageId } else { $null }
+        TargetRunId=[string]$targetLab.Run.runId; CatalogRevision=[int]$journal.CatalogRevision
+        DetachEvidenceStatus='VERIFIED'; DatabasesState=[string]$detach.DatabasesState
+        ConnectionStateStatus=$connectionStateStatus
+        DatabaseFilesOnline=$false; DatabaseActionRequired='EXPLICIT_RESTORE_OR_ATTACH'
     }
 }

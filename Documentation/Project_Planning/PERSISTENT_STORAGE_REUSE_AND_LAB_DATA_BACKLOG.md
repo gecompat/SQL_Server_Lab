@@ -2,13 +2,13 @@
 
 ## Status und Priorität
 
-`ACTIVE / 10_TOP_LEVEL_PACKAGES_REMAIN / PSR_002_005_008_014_COMPLETE / PSR_001_003_004_011_PARTIAL / PSR_006_READ_ONLY / PSR_007_009_010_012_IMPLEMENTED_CORE / PSR_013_PLANNED` – die vorhandenen
+`ACTIVE / 9_TOP_LEVEL_PACKAGES_REMAIN / PSR_002_005_007_008_014_COMPLETE / PSR_001_003_004_011_PARTIAL / PSR_006_READ_ONLY / PSR_009_010_012_IMPLEMENTED_CORE / PSR_013_PLANNED` – die vorhandenen
 Persistenzmechanismen schützen bereits Teile des SQL-Zustands, bilden aber noch
 keinen vollständigen, providerübergreifenden Wiederverwendungs- und
 Löschvertrag. Planung ist kein Implementierungs- oder Runtime-Nachweis.
 
-Von den 14 kanonischen PSR-Arbeitspaketen sind `PSR-002`, `PSR-005`, `PSR-008`
-und `PSR-014` abgeschlossen. Damit verbleiben zehn Top-Level-Pakete; ein Paket
+Von den 14 kanonischen PSR-Arbeitspaketen sind `PSR-002`, `PSR-005`, `PSR-007`,
+`PSR-008` und `PSR-014` abgeschlossen. Damit verbleiben neun Top-Level-Pakete; ein Paket
 mit implementiertem Core oder read-only Slice zählt bis zum vollständigen
 eigenen Abnahmekriterium weiterhin als offen.
 
@@ -470,11 +470,11 @@ Volumename ersetzt diese Identität nicht.
 | `PSR-004` | P1 | Retention-, Backup-on-Remove-, Package- und expliziten Löschvertrag entwerfen | `IMPLEMENTED_PARTIAL`: verlustsicherer Plan plus journalisierter Docker-/Podman-Executor für Retain und verifiziertes Backup-on-Remove; Package, externe Freigabe und getrennte endgültige Storage-Löschung bleiben offen |
 | `PSR-005` | P1 | Docker-/Podman-Instanzstore auswählbar, fortsetzbar und klonbar machen | `IMPLEMENTED`: öffentliche CLI-/Browser-Auswahl per stabiler ID, detached Continue/Clone, operationsgebundene Quell-Lease, Digest/Resume, atomarer Zielcommit plus Quellfreigabe und rollenfester External-Runtime-Mehr-Volume-Vertrag; Docker und Podman getrennt real belegt, unvollständige Legacy-Sidecargruppen fail-closed |
 | `PSR-006` | P1 | Podman-Machine- und Docker-Engine-/Context-Reichweite bewerten und gegebenenfalls dediziert verwalten | `IMPLEMENTED_READ_ONLY`: stabile sanitisierte Runtime-ID, Context-/Connection-/Machine-Bindung und REPORT_ONLY-Hostgrenze real belegt; dedizierter Ownership-/Lifecycle-Vertrag bleibt offen |
-| `PSR-007` | P1 | Hyper-V-Daten-VHDX sicher auswählen, reattachen, freigeben und klonen | `IMPLEMENTED_CORE`: reguläre VHDX-Erzeugung mit vorab persistierter Storage-ID/Run-Lease, Disk-/VM-Attachment-Commit und Recovery-State sowie Storage-ID-, Disk-/VM-/Checkpoint-/Clean-Detach-/SQL-Versions-validierter Host-Lifecycle; Reattach/Release/Clone sind operationsgeleast, journalisiert, atomar katalogisiert, idempotent und nativ belegt; die öffentliche pfadfreie Auswahl samt Runtime-Konsistenzstatus ist umgesetzt, Mutationen und explizite Datenbankaktion bleiben bis zur belastbaren Evidence-Erzeugung gesperrt |
+| `PSR-007` | P1 | Hyper-V-Daten-VHDX sicher auswählen, reattachen, freigeben und klonen | `COMPLETE`: reguläre Erzeugung reserviert Storage-ID und Run-Lease vor der VHDX-Mutation; der öffentliche pfadfreie CLI-/Browser-Flow prüft alle SQL-Dateibindungen im Gast, blockiert aktive Datenbankdateien, fährt sauber herunter und persistiert einen an Storage-ID, DiskIdentifier, Dateigröße und Änderungszeit gebundenen Detach-Receipt; Reattach/Release/Clone revalidieren VM, Checkpoints, Gastpfad und SQL-Version, sind operationsgeleast, journalisiert, atomar katalogisiert, idempotent und nativ belegt; vorhandene Datenbankdateien bleiben bis zur expliziten Restore-/Attach-Aktion offline |
 | `PSR-008` | P1 | Providerneutrale Backup-Bibliothek mit automatischem Backup und Restore-Verifikation liefern | `COMPLETE`: inhaltsadressierte `Lab_Data`-Bibliothek, `CHECKSUM`, `RESTORE VERIFYONLY`, Hash, Metadatenreceipt, öffentliche BackupSetId-Auswahl und realer Docker→Podman-Inhaltsnachweis; Cross-Provider-FILESTREAM ist in der aktuellen Matrix mangels zweitem FILESTREAM-fähigem Provider `NOT_APPLICABLE`, bleibt bei künftiger Capability-Erweiterung aber zwingendes Freigabegate |
 | `PSR-009` | P2 | Datenbankpakete inklusive FILESTREAM, Attach und Clone implementieren | `IMPLEMENTED_CORE`: vollständiger Offline-Dateivertrag, rekursive Hashes, unabhängiger Clone und journalisiertes Copy-then-Attach; öffentlicher pfadfreier Hyper-V-Attach per stabiler Paket-/Run-ID und live gebundenem SQL-Default-Data-Ziel ist implementiert und nativ belegt, öffentliche Paketpublikation und weitere Providerbindungen bleiben offen |
 | `PSR-010` | P2 | Serverobjekt- und TDE-Abhängigkeiten inventarisieren und Migrationsgrenzen anzeigen | `IMPLEMENTED_CORE`: öffentliche read-only Live-Inventur per direktem Ziel oder stabiler Run-/Instanzbindung, TDE-Recovery-Gate, externe Review-Grenzen und sanitisierte `DATABASE_FILES_ONLY`-Receipts; persistierte Kategorien und Warnungen sind paketgebunden in CLI/Browser sichtbar, Export/Import bleibt offen |
-| `PSR-011` | P1 | identische CLI- und GUI-Flows für Auswahl, Retention, Restore, Attach, Clone und Delete liefern | `IMPLEMENTED_PARTIAL`: Backup-Inventur/Restore, Container-Continue/Clone, Retention-Vorschau, Retain/Backup-on-Remove sowie die pfadfreien Datenbankpaket- und Hyper-V-Daten-VHDX-Inventuren verwenden in CLI und Browser dieselben stabilen IDs und Fachkerne; der Hyper-V-Datenbankpaket-Attach verwendet ebenfalls denselben öffentlichen ID-/Run-gebundenen Core; Hyper-V-VHDX-Mutationen, weitere Paketprovider und endgültiges Delete bleiben offen |
+| `PSR-011` | P1 | identische CLI- und GUI-Flows für Auswahl, Retention, Restore, Attach, Clone und Delete liefern | `IMPLEMENTED_PARTIAL`: Backup-Inventur/Restore, Container-Continue/Clone, Retention-Vorschau, Retain/Backup-on-Remove sowie pfadfreie Datenbankpaket- und Hyper-V-Daten-VHDX-Auswahl verwenden in CLI und Browser dieselben stabilen IDs und Fachkerne; Hyper-V-Release/Reattach/Clone und Datenbankpaket-Attach laufen über dieselben öffentlichen ID-/Run-gebundenen Actions; weitere Paketprovider und endgültiges Delete bleiben offen |
 | `PSR-012` | P1 | Cleanup-Audit um persistente Stores, Runtime-Backing, Orphans und Referenzschutz erweitern | `IMPLEMENTED_CORE`: strikte getrennte Findings für Retention, unerwartete Residuen, Recovery und unverifizierbare Evidence; automatische Mutation bleibt ausgeschlossen |
 | `PSR-013` | P2 | journalisierte Migration vorhandener Volumes/VHDX und Metadaten bereitstellen | Resume, Rollback, Hash- und Kapazitätsnachweis |
 | `PSR-014` | P1 (hoch) | Interaktiven Ersteinrichtungsassistenten für `Lab_Base` und mehrere `Lab_Data`-Locations bereitstellen | `COMPLETE`: `Invoke-SqlServerLab -Action Setup` und das Storage-Menü verwenden denselben read-only Plan und Apply-Core, fragen nur fehlende oder ungültige Werte über den gemeinsamen abbrechbaren Eingabeadapter ab, leiten `Lab_Base` und je Parent `Lab_Data` ab, registrieren mehrere unterschiedliche Volumes und verlangen die ausdrückliche globale Default-Auswahl; gültige Konfigurationen sind No-op, vorhandene Dateien bleiben unverändert und fremde nichtleere Datenroots werden vor jeder Mutation fail-closed abgelehnt |
@@ -513,14 +513,21 @@ controllergebundenen Katalog samt Cleanup bestätigt. Das Ergebnis bleibt
 oder Attach; diese Datenbankaktion und CLI-/GUI-Flows gehören weiterhin zu
 `PSR-009` beziehungsweise `PSR-011`.
 
-Stand 2026-09-02: `Get-SqlServerLabWorkflow` und die Browser-Oberfläche
+Stand 2026-09-02: `Get-SqlServerLabWorkflow`,
+`Invoke-SqlServerLabWorkflowAction` und die Browser-Oberfläche
 inventarisieren dieselben katalogisierten Hyper-V-Daten-VHDX pfadfrei anhand
 der stabilen `PersistentStorageId`. Katalogzustand, physisches Attachment,
 VHDX-Identität und Checkpointreferenzen werden bei verfügbarem erhöhtem
-Hyper-V-Host read-only frisch abgeglichen. Reattach, Release und Clone bleiben
-sichtbar gesperrt, solange der öffentliche Flow keine belastbare Clean-Detach-
-und Ziel-Evidenz erzeugt; die Inventur erteilt keine Mutationsautorität und
-meldet Datenbankdateien nie als online.
+Hyper-V-Host read-only frisch abgeglichen. Release fragt Gast- und bei Bedarf
+abweichendes SA-Passwort nur flüchtig ab, prüft jede registrierte SQL-Instanz
+gegen `sys.master_files`, blockiert aktive Dateien unter der Daten-VHDX und
+fordert unmittelbar danach den sauberen Gast-Shutdown an. Der versionierte
+Detach-Receipt bleibt nur gültig, solange Storage-ID, DiskIdentifier,
+Dateigröße und Änderungszeit der VHDX unverändert sind. Reattach und Clone
+erzeugen ihre Ziel-Evidenz aus der frisch scopegebundenen ausgeschalteten VM;
+der eigenständige Clone schreibt seinen Receipt vor dem Katalogcommit. CLI und
+Browser rufen denselben Planner/Executor auf und melden Datenbankdateien nie
+allein wegen ihrer Existenz als online.
 
 Stand 2026-09-02: Der reguläre `-PersistentData`-Erstellungsflow reserviert die
 Hyper-V-Daten-VHDX vor `New-VHD` controllerweit als `INCOMPLETE` mit stabiler

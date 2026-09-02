@@ -137,6 +137,7 @@ sources_of_truth:
   hyperv_persistent_data_drive: Private/HyperVPersistentDataDrive.ps1
   hyperv_persistent_data_intent_schema: Schemas/hyperv-persistent-data-intent.schema.json
   hyperv_persistent_data_plan_schema: Schemas/hyperv-persistent-data-plan.schema.json
+  hyperv_persistent_data_detach_evidence_schema: Schemas/hyperv-persistent-data-detach-evidence.schema.json
   validation_hyperv_persistent_data_drive: Tests/Static/Invoke-HyperVPersistentDataDriveChecks.ps1
   acceptance_hyperv_persistent_data_drive: Tests/Integration/Invoke-HyperVPersistentDataDriveAcceptance.ps1
   lab_data_native_runtime_storage_decision: Documentation/Architecture/LAB_DATA_AND_NATIVE_RUNTIME_STORAGE_DECISION.md
@@ -584,6 +585,7 @@ internal_components:
       - "aktiven Docker-Context beziehungsweise Podman-Connection/Machine read-only an eine stabile sanitisierte Runtime-ID binden und geteilte Engine-/Machine-/Hostdefaults als REPORT_ONLY vor Mutation schuetzen"
       - "sanitisierte Docker-/Podman-Runtime-Scopes im oeffentlichen Cleanup-Audit ueber zentral aufgeloeste Host-Tool-Aufrufe ausgeben, ohne Rohendpunkte, Identity-Pfade oder Managementautoritaet zu persistieren"
       - "katalogisierte Hyper-V-Daten-VHDX per stabiler Storage-ID, Clean-Detach-, DiskIdentifier-, VM-, Checkpoint-, SQL-Versions- und Gastpfad-Evidenz revalidieren, Clone und Reattach vor Hostmutation operationsgebunden leasen sowie Clone-Zielregistrierung mit Quellfreigabe, Reattach und Release nach physischer Postcondition atomar, idempotent und recoveryfaehig committen"
+      - "Hyper-V-Daten-VHDX in CLI und Browser pfadfrei freigeben, reattachen und klonen; Release prueft alle SQL-Dateibindungen im Gast vor sauberem Shutdown, Detach-Receipts bleiben an Storage-ID, DiskIdentifier und guenstige Dateimetadaten gebunden, Clone-Evidence wird vor dem Katalogcommit persistiert"
   - name: PortAllocation
     source: Private/PortAllocation.ps1
     responsibilities:
@@ -1006,6 +1008,9 @@ validation:
       - atomic_clone_target_and_source_release_catalog_commit
       - atomic_reattach_and_release_catalog_commit
       - explicit_database_restore_or_attach_boundary
+      - public_path_free_release_reattach_and_clone
+      - guest_sql_file_binding_and_clean_shutdown_evidence
+      - vhdx_metadata_bound_detach_receipt
   static_database_package:
     command: '.\Tests\Static\Invoke-DatabasePackageChecks.ps1'
     source: Tests/Static/Invoke-DatabasePackageChecks.ps1
@@ -1224,7 +1229,7 @@ validation:
   hyperv_persistent_data_drive_acceptance:
     source: Tests/Integration/Invoke-HyperVPersistentDataDriveAcceptance.ps1
     command: '.\Tests\Integration\Invoke-HyperVPersistentDataDriveAcceptance.ps1'
-    execution_status: "am 2026-09-02 nativ positiv gegen den controllergebundenen Katalog ausgefuehrt; test-eigene VM, VHDX und Katalogdaten vollstaendig bereinigt"
+    execution_status: "am 2026-09-02 nach Einbindung des oeffentlichen Evidence-Flows erneut nativ positiv gegen den controllergebundenen Katalog ausgefuehrt; test-eigene VM, VHDX, Detach-Receipt und Katalogdaten vollstaendig bereinigt"
     checks:
       - source_vhdx_hash_unchanged
       - independent_clone_disk_identifier
@@ -1233,6 +1238,7 @@ validation:
       - operation_bound_source_lease
       - atomic_clone_reattach_and_release_catalog_commits
       - explicit_sql_guest_evidence_boundary
+      - metadata_bound_clone_detach_evidence_before_catalog_commit
   remote_workflows:
     foundation_integrity:
       source: .github/workflows/static-contracts.yml

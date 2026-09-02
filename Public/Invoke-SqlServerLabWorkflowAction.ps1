@@ -107,6 +107,12 @@ Ist er angegeben, wird der Download strikt dagegen verifiziert.
 .PARAMETER PersistentStorageId
     Stabile ID eines detached Docker-/Podman-Instanzstores für die Erstellung
     eines neuen persistenten Container-Labs.
+.PARAMETER PersistentStorageOperationId
+    Optionale stabile Operations-ID zum sicheren Fortsetzen einer bereits
+    begonnenen Hyper-V-Daten-VHDX-Aktion.
+.PARAMETER TargetLocationId
+    Optionale stabile Lab_Data-Location-ID für das Ziel eines Hyper-V-Daten-
+    VHDX-Clones. Ohne Angabe wird die konfigurierte Standard-Location verwendet.
 .PARAMETER PersistentStorageAction
     CONTINUE bindet denselben Store; CLONE erstellt über den gemeinsamen
     journalisierten Fachkern eine unabhängige Kopie.
@@ -173,7 +179,7 @@ function Invoke-SqlServerLabWorkflowAction {
             'NewContainerLab', 'CreateContainerManifest', 'NewContainerLabFromManifest', 'RenameLab', 'SetLabResources', 'StartContainerLab', 'StopContainerLab', 'StartLabReconcile', 'StopLabReconcile', 'RestartContainerLab', 'RemoveContainerLab', 'ClearAllLabs',
             'ExecutePersistentStorageRemoval',
             'CreateContainerDatabase', 'RestoreContainerLibraryBackup', 'InstallContainerSampleDatabase', 'InstallContainerSampleDatabases', 'ExecuteContainerScript',
-            'NewHyperVLab', 'NewHyperVLabFromExistingVm', 'StartHyperVLab', 'StopHyperVLab', 'EnableHyperVLabPersistentData', 'InitializeHyperVLabPersistentData', 'CompleteHyperVLabSql', 'EnableHyperVLabHostSqlAccess', 'InspectHyperVLabSqlInstances', 'AttachHyperVDatabasePackage', 'OpenHyperVConsole', 'RemoveHyperVLab',
+            'NewHyperVLab', 'NewHyperVLabFromExistingVm', 'StartHyperVLab', 'StopHyperVLab', 'EnableHyperVLabPersistentData', 'InitializeHyperVLabPersistentData', 'ReleaseHyperVPersistentData', 'ReattachHyperVPersistentData', 'CloneHyperVPersistentData', 'CompleteHyperVLabSql', 'EnableHyperVLabHostSqlAccess', 'InspectHyperVLabSqlInstances', 'AttachHyperVDatabasePackage', 'OpenHyperVConsole', 'RemoveHyperVLab',
             'NewWindowsBuild', 'SetWindowsMediaHash', 'OpenWindowsConsole', 'ConfirmWindowsInstall', 'GeneralizeWindowsBuild', 'PublishWindowsBuild',
             'NewSqlBuild', 'NewSqlBuildFromBaseline', 'SetSqlMediaHash', 'OpenSqlConsole', 'ConfirmSqlWindowsInstall', 'PrepareSqlImage', 'ResumeSqlImage', 'PublishSqlImage',
             'RunSqlAcceptanceSetup', 'RunSqlAcceptanceTests',
@@ -192,6 +198,8 @@ function Invoke-SqlServerLabWorkflowAction {
         [string]$TestDataRoot,
         [switch]$PersistentData,
         [ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$PersistentStorageId,
+        [ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$PersistentStorageOperationId,
+        [ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$TargetLocationId,
         [ValidateSet('CONTINUE','CLONE')][string]$PersistentStorageAction = 'CONTINUE',
         [object[]]$PersistentStorageSelection,
         [ValidateRange(32, 4096)][int]$PersistentDataDiskGB = 128,
@@ -301,6 +309,9 @@ function Invoke-SqlServerLabWorkflowAction {
         if (-not $GuestPassword) { throw 'HYPERV_WORKFLOW_GUEST_PASSWORD_REQUIRED' }
         $credential = [PSCredential]::new($GuestUserName, $GuestPassword)
     }
+    elseif ($GuestPassword) {
+        $credential = [PSCredential]::new($GuestUserName, $GuestPassword)
+    }
     if ($Action -in @('NewContainerLab', 'NewContainerLabFromManifest', 'CreateContainerDatabase', 'RestoreContainerLibraryBackup', 'InstallContainerSampleDatabase', 'InstallContainerSampleDatabases', 'ExecuteContainerScript') -and -not $SaPassword) {
         throw 'CONTAINER_WORKFLOW_SA_PASSWORD_REQUIRED'
     }
@@ -332,8 +343,13 @@ function Invoke-SqlServerLabWorkflowAction {
         ([string]::IsNullOrWhiteSpace($BuildId) -or [string]::IsNullOrWhiteSpace($DatabasePackageId))) {
         throw 'DATABASE_PACKAGE_HYPERV_WORKFLOW_TARGET_REQUIRED'
     }
+    if ($Action -in @('ReleaseHyperVPersistentData','ReattachHyperVPersistentData','CloneHyperVPersistentData') -and
+        ([string]::IsNullOrWhiteSpace($BuildId) -or [string]::IsNullOrWhiteSpace($PersistentStorageId))) {
+        throw 'HYPERV_PERSISTENT_DATA_WORKFLOW_SOURCE_AND_TARGET_REQUIRED'
+    }
 
-    if (($PersistentData -and $Action -in @('NewHyperVLab', 'NewHyperVLabFromExistingVm')) -or $Action -eq 'EnableHyperVLabPersistentData') {
+    if (($PersistentData -and $Action -in @('NewHyperVLab', 'NewHyperVLabFromExistingVm')) -or
+        $Action -in @('EnableHyperVLabPersistentData','ReleaseHyperVPersistentData','ReattachHyperVPersistentData','CloneHyperVPersistentData')) {
         if (-not $DataRoot) { $DataRoot = Get-LabDataRootDefault }
         if (-not $DataRoot) { throw 'LAB_DATA_ROOT_REQUIRED: Persistente Hyper-V-Daten benötigen einen konfigurierten Data Root.' }
         $DataRoot = Resolve-LabDataRootForUse -DataRoot $DataRoot
@@ -357,6 +373,9 @@ function Invoke-SqlServerLabWorkflowAction {
         'EnableHyperVLabHostSqlAccess' { 'Hyper-V-Netz, SQL-TCP und die Host-SSMS-Verbindung werden eingerichtet und geprüft.' }
         'EnableHyperVLabPersistentData' { 'Eine langlebige Daten-VHDX wird für die ausgeschaltete Lab-VM vorbereitet.' }
         'InitializeHyperVLabPersistentData' { 'Der langlebige Daten-VHDX wird einmalig im laufenden Gast initialisiert.' }
+        'ReleaseHyperVPersistentData' { 'SQL-Dateibindungen werden im Gast geprüft; danach folgen sauberer Shutdown, VHDX-Detach und Katalogfreigabe.' }
+        'ReattachHyperVPersistentData' { 'Persistierte Clean-Detach-Evidenz, VHDX, Ziel-VM und Katalog werden geprüft; danach wird die VHDX gebunden.' }
+        'CloneHyperVPersistentData' { 'Die unveränderte, sauber freigegebene VHDX wird in einen eigenständigen katalogisierten Klon kopiert.' }
         'InspectHyperVLabSqlInstances' { 'SQL-Instanzen, Dienste und TCP-Ports werden ausschließlich lesend in der laufenden Lab-VM geprüft.' }
         'AttachHyperVDatabasePackage' { 'Paket und gebundenes SQL-Ziel werden vollständig geprüft; danach folgen Gastkopie, Hashprüfung, Attach und Online-Postcondition.' }
         'SetLabResources' { 'CPU- und Speicherwerte werden am echten Runtime-Objekt geprüft und anschließend aktualisiert.' }
@@ -428,6 +447,20 @@ function Invoke-SqlServerLabWorkflowAction {
         'StartLabReconcile' { Invoke-SqlServerLabReconcileAction -RunId $BuildId -TargetState RUNNING }
         'EnableHyperVLabPersistentData' { Enable-HyperVLabPersistentData -RunId $BuildId -DataRoot $DataRoot -SizeGB $PersistentDataDiskGB }
         'InitializeHyperVLabPersistentData' { Initialize-HyperVLabPersistentData -RunId $BuildId -Credential $credential }
+        'ReleaseHyperVPersistentData' {
+            Invoke-LabHyperVPersistentDataLifecycle -Action RELEASE -PersistentStorageId $PersistentStorageId `
+                -TargetRunId $BuildId -GuestCredential $credential -SqlSaPassword $SaPassword -DataRoot $DataRoot `
+                -OperationId $PersistentStorageOperationId
+        }
+        'ReattachHyperVPersistentData' {
+            Invoke-LabHyperVPersistentDataLifecycle -Action REATTACH -PersistentStorageId $PersistentStorageId `
+                -TargetRunId $BuildId -DataRoot $DataRoot -OperationId $PersistentStorageOperationId
+        }
+        'CloneHyperVPersistentData' {
+            Invoke-LabHyperVPersistentDataLifecycle -Action CLONE -PersistentStorageId $PersistentStorageId `
+                -TargetRunId $BuildId -TargetLocationId $TargetLocationId -DataRoot $DataRoot `
+                -OperationId $PersistentStorageOperationId
+        }
         'CompleteHyperVLabSql' { Complete-HyperVLabSqlImage -RunId $BuildId -Credential $credential -SqlSaPassword $(if ($SaPassword) { $SaPassword } else { $GuestPassword }) }
         'EnableHyperVLabHostSqlAccess' { Enable-HyperVLabHostSqlAccess -RunId $BuildId -Credential $credential -SqlSaPassword $(if ($SaPassword) { $SaPassword } else { $GuestPassword }) -SwitchName $SwitchName }
         'InspectHyperVLabSqlInstances' { Inspect-HyperVLabSqlInstances -RunId $BuildId -Credential $credential }

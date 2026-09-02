@@ -8,6 +8,14 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- Der öffentliche Hyper-V-Daten-VHDX-Lifecycle wählt Quelle und Ziel nur per
+  stabiler Storage-/Run-ID. Release prüft alle SQL-Dateibindungen im Gast,
+  blockiert aktive Datenbanken, fordert einen sauberen Shutdown an und schreibt
+  einen an DiskIdentifier, Dateigröße und Änderungszeit gebundenen Receipt.
+  Reattach und Clone verwenden denselben Planner/Executor in CLI und Browser;
+  Clone-Evidence wird vor dem atomaren Katalogcommit persistiert. Der isolierte
+  native Lauf bestätigt erneut Release, Clone, Reattach und vollständiges
+  Cleanup, ohne Datenbankdateien voreilig als online zu melden.
 - `Invoke-SqlServerLab -Action Setup` führt durch eine gemeinsame, idempotente
   Ersteinrichtung von `Lab_Base` und mehreren `Lab_Data`-Locations. Der
   read-only Plan leitet Rootnamen aus vollqualifizierten Parents ab, erzwingt

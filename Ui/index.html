@@ -122,13 +122,14 @@
     <section class="panel compact">
       <div class="section-heading"><div><p class="eyebrow">HYPER-V · LAB_DATA</p><h2>Persistente Daten-VHDX</h2></div><span id="hyperv-persistent-data-count" class="count"></span></div>
       <label>Katalogisierte VHDX auswählen<select id="hyperv-persistent-data-source"><option value="">Keine Daten-VHDX katalogisiert</option></select></label>
+      <label>Kompatible ausgeschaltete Ziel-VM<select id="hyperv-persistent-data-target"><option value="">Ziel für Reattach oder Clone auswählen …</option></select></label>
       <div id="hyperv-persistent-data-details" class="selection-details" aria-live="polite">Die Auswahl erfolgt ausschließlich über die stabile PersistentStorageId; Hostpfad und DiskIdentifier werden nicht an den Browser übertragen.</div>
       <div class="build-actions">
-        <button id="hyperv-persistent-data-reattach" type="button" class="button secondary" disabled>Reattach (Evidenz fehlt)</button>
-        <button id="hyperv-persistent-data-release" type="button" class="button secondary" disabled>Freigeben (Evidenz fehlt)</button>
-        <button id="hyperv-persistent-data-clone" type="button" class="button secondary" disabled>Klonen (Evidenz fehlt)</button>
+        <button id="hyperv-persistent-data-reattach" type="button" class="button secondary" disabled>Reattach</button>
+        <button id="hyperv-persistent-data-release" type="button" class="button secondary" disabled>Sauber freigeben</button>
+        <button id="hyperv-persistent-data-clone" type="button" class="button secondary" disabled>Klonen</button>
       </div>
-      <p class="form-note">Die Runtime-Bindung wird bei jedem Refresh read-only geprüft. Mutationen bleiben gesperrt, bis der öffentliche Flow einen sauberen Datenbank-Detach und eine kompatible ausgeschaltete Ziel-VM nachweisen kann. Nach Reattach werden Datenbanken weiterhin explizit restored oder attached.</p>
+      <p class="form-note">Release prüft im laufenden Gast alle SQL-Dateibindungen, blockiert aktive Datenbanken und fährt die VM anschließend sauber herunter. Reattach und Clone benötigen den dateigebundenen Detach-Receipt sowie eine kompatible ausgeschaltete Ziel-VM. Nach Reattach werden Datenbanken weiterhin explizit restored oder attached.</p>
     </section>
 
     <section class="panel compact">
