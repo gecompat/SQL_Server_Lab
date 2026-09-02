@@ -66,10 +66,13 @@ try {
         $env:SQL_SERVER_LAB_PODMAN_NETWORK = $acceptanceNetworkName
         $env:SQL_SERVER_LAB_PODMAN_SUBNET = '10.254.27.0/24'
     }
-    foreach ($command in @($Provider, 'sqlcmd')) {
+    $runtimeResolution = @(& (Join-Path $repoRoot 'Tools\Initialize-SqlServerLabHostTools.ps1') -Name $Provider)[0]
+    Assert-ExternalRuntimeAcceptance ([bool]$runtimeResolution.Available) "Runtime-CLI '$Provider' ist zentral aufloesbar"
+    $runtimeInvocation = [string]$runtimeResolution.Invocation
+    foreach ($command in @('sqlcmd')) {
         Assert-ExternalRuntimeAcceptance ([bool](Get-Command $command -ErrorAction SilentlyContinue)) "Befehl '$command' ist verfuegbar"
     }
-    & $Provider info 1>$null 2>$null
+    & $runtimeInvocation info 1>$null 2>$null
     Assert-ExternalRuntimeAcceptance ($LASTEXITCODE -eq 0) "Runtime '$Provider' ist erreichbar"
 
     New-Item -Path $testRoot -ItemType Directory -Force | Out-Null
@@ -182,12 +185,12 @@ try {
         $cleanup = Remove-SqlServerLab -RunId $lab.RunId -StateRoot $stateRoot -Force -Confirm:$false
         Assert-ExternalRuntimeAcceptance ([string]$cleanup.Status -eq 'REMOVED') 'Run-Ressourcen wurden über den registrierten Cleanup entfernt'
         $lab = $null
-        $imageExistsAfterRunCleanup = @(& $Provider image inspect $imageName 2>$null).Count -gt 0 -and $LASTEXITCODE -eq 0
+        $imageExistsAfterRunCleanup = @(& $runtimeInvocation image inspect $imageName 2>$null).Count -gt 0 -and $LASTEXITCODE -eq 0
         Assert-ExternalRuntimeAcceptance $imageExistsAfterRunCleanup 'Wiederverwendbares Java-Image bleibt vom Run-Cleanup getrennt'
-        & $Provider image rm --force $imageName 1>$null
+        & $runtimeInvocation image rm --force $imageName 1>$null
         Assert-ExternalRuntimeAcceptance ($LASTEXITCODE -eq 0) "Test-eigenes Derived Image wurde explizit entfernt: $imageName"
         if ($acceptanceNetworkName) {
-            & $Provider network rm $acceptanceNetworkName 1>$null
+            & $runtimeInvocation network rm $acceptanceNetworkName 1>$null
             Assert-ExternalRuntimeAcceptance ($LASTEXITCODE -eq 0) 'Test-eigenes konfliktfreies Podman-Netz wurde explizit entfernt'
         }
         $evidence = [ordered]@{
@@ -362,16 +365,16 @@ SELECT CONCAT(N'SQLLAB_JAVA_OBJECTS|',
     Assert-ExternalRuntimeAcceptance ([string]$cleanup.Status -eq 'REMOVED') 'Run-Ressourcen wurden ueber den registrierten Cleanup entfernt'
     $lab = $null
 
-    $imageExistsAfterRunCleanup = @(& $Provider image inspect $imageName 2>$null).Count -gt 0 -and $LASTEXITCODE -eq 0
-    $initialImageExistsAfterRunCleanup = @(& $Provider image inspect $initialImageName 2>$null).Count -gt 0 -and $LASTEXITCODE -eq 0
-    $allRuntimeImageExistsAfterRunCleanup = @(& $Provider image inspect $allRuntimeImageName 2>$null).Count -gt 0 -and $LASTEXITCODE -eq 0
+    $imageExistsAfterRunCleanup = @(& $runtimeInvocation image inspect $imageName 2>$null).Count -gt 0 -and $LASTEXITCODE -eq 0
+    $initialImageExistsAfterRunCleanup = @(& $runtimeInvocation image inspect $initialImageName 2>$null).Count -gt 0 -and $LASTEXITCODE -eq 0
+    $allRuntimeImageExistsAfterRunCleanup = @(& $runtimeInvocation image inspect $allRuntimeImageName 2>$null).Count -gt 0 -and $LASTEXITCODE -eq 0
     Assert-ExternalRuntimeAcceptance ($imageExistsAfterRunCleanup -and $initialImageExistsAfterRunCleanup -and $allRuntimeImageExistsAfterRunCleanup) 'Alle drei wiederverwendbaren Images bleiben vom normalen Run-Cleanup getrennt'
     foreach ($testImage in @(@($imageName,$initialImageName,$allRuntimeImageName) | Sort-Object -Unique)) {
-        & $Provider image rm --force $testImage 1>$null
+        & $runtimeInvocation image rm --force $testImage 1>$null
         Assert-ExternalRuntimeAcceptance ($LASTEXITCODE -eq 0) "Test-eigenes Derived Image wurde explizit entfernt: $testImage"
     }
     if ($acceptanceNetworkName) {
-        & $Provider network rm $acceptanceNetworkName 1>$null
+        & $runtimeInvocation network rm $acceptanceNetworkName 1>$null
         Assert-ExternalRuntimeAcceptance ($LASTEXITCODE -eq 0) 'Test-eigenes konfliktfreies Podman-Netz wurde explizit entfernt'
     }
 
@@ -449,16 +452,16 @@ finally {
         catch { Write-Warning "Fehler-Cleanup des Runs schlug fehl: $($_.Exception.Message)" }
     }
     if ($imageName -and -not $completed -and -not $KeepOnFailure) {
-        try { & $Provider image rm --force $imageName 1>$null 2>$null } catch { }
+        try { & $runtimeInvocation image rm --force $imageName 1>$null 2>$null } catch { }
     }
     if ($initialImageName -and -not $completed -and -not $KeepOnFailure) {
-        try { & $Provider image rm --force $initialImageName 1>$null 2>$null } catch { }
+        try { & $runtimeInvocation image rm --force $initialImageName 1>$null 2>$null } catch { }
     }
     if ($allRuntimeImageName -and -not $completed -and -not $KeepOnFailure) {
-        try { & $Provider image rm --force $allRuntimeImageName 1>$null 2>$null } catch { }
+        try { & $runtimeInvocation image rm --force $allRuntimeImageName 1>$null 2>$null } catch { }
     }
     if ($acceptanceNetworkName -and -not $completed -and -not $KeepOnFailure) {
-        try { & $Provider network rm $acceptanceNetworkName 1>$null 2>$null } catch { }
+        try { & $runtimeInvocation network rm $acceptanceNetworkName 1>$null 2>$null } catch { }
     }
     if (($completed -or -not $KeepOnFailure) -and (Test-Path -LiteralPath $testRoot)) {
         Remove-Item -LiteralPath $testRoot -Recurse -Force -ErrorAction SilentlyContinue

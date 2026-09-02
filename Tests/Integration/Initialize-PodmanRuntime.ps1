@@ -43,7 +43,7 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $podmanResolution = @(& (Join-Path $repoRoot 'Tools\Initialize-SqlServerLabHostTools.ps1') -Name podman)[0]
 if (-not $podmanResolution.Available) {
-    throw 'Podman ist auf diesem Host nicht installiert oder konnte weder im Prozess-PATH noch an bekannten Installationsorten gefunden werden.'
+    throw 'HOST_TOOL_NOT_FOUND: Podman konnte weder ueber Override, Prozess-/persistierten PATH noch an bekannten Installationsorten aufgeloest werden.'
 }
 $podmanInvocation = [string]$podmanResolution.Invocation
 

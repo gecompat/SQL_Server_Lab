@@ -85,16 +85,19 @@ function Invoke-SyntheticSqlcmd {
 
 try {
     Write-Host "Restore-Smoke-Test: $Provider / SQL Server $Version" -ForegroundColor Cyan
+    $runtimeResolution = @(& (Join-Path $repoRoot 'Tools\Initialize-SqlServerLabHostTools.ps1') -Name $Provider)[0]
+    Assert-True -Condition ([bool]$runtimeResolution.Available) -Description "Runtime-CLI '$Provider' ist zentral aufloesbar"
+    $runtimeInvocation = [string]$runtimeResolution.Invocation
     if ($Provider -eq 'podman') {
         $null = & (Join-Path $PSScriptRoot 'Initialize-PodmanRuntime.ps1')
     }
 
-    foreach ($command in @($Provider, 'sqlcmd')) {
+    foreach ($command in @('sqlcmd')) {
         Assert-True `
             -Condition ([bool](Get-Command $command -ErrorAction SilentlyContinue)) `
             -Description "Befehl '$command' ist verfuegbar"
     }
-    & $Provider info 1>$null 2>$null
+    & $runtimeInvocation info 1>$null 2>$null
     Assert-True -Condition ($LASTEXITCODE -eq 0) -Description "Runtime '$Provider' ist erreichbar"
 
     New-Item -Path $testRoot -ItemType Directory -Force | Out-Null
@@ -119,7 +122,7 @@ try {
         -SkipAssessment
     $instance = $lab.Instances[0]
 
-    & $Provider exec $instance.ContainerName mkdir -p /var/opt/mssql/backup 1>$null 2>$null
+    & $runtimeInvocation exec $instance.ContainerName mkdir -p /var/opt/mssql/backup 1>$null 2>$null
     if ($LASTEXITCODE -ne 0) {
         throw 'Temporaeres Backup-Verzeichnis konnte nicht angelegt werden.'
     }
@@ -143,7 +146,7 @@ BACKUP DATABASE [RestoreSmokeSource]
     WITH INIT, CHECKSUM;
 "@
 
-    $copyOutput = @(& $Provider cp "$($instance.ContainerName):$containerBackupPath" $hostBackupPath 2>&1)
+    $copyOutput = @(& $runtimeInvocation cp "$($instance.ContainerName):$containerBackupPath" $hostBackupPath 2>&1)
     $copyExitCode = $LASTEXITCODE
     if ($copyExitCode -ne 0 -or -not (Test-Path -LiteralPath $hostBackupPath -PathType Leaf)) {
         throw "Synthetisches Backup konnte nicht auf den Host kopiert werden: $($copyOutput -join "`n")"

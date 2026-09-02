@@ -786,7 +786,7 @@ Add-ValidationResult `
 Add-ValidationResult `
     -Name 'Projektkontext bildet den aktuellen Runtime- und Validierungsstand ab' `
     -Success ($projectContext -match [regex]::Escape('CONTAINER_CORE_IMPLEMENTED_HYPERV_SQL_CLI_ACCEPTED') -and
-        $projectContext -match [regex]::Escape('| Stand | 2026-08-31 |') -and
+        $projectContext -match [regex]::Escape('| Stand | 2026-09-02 |') -and
         $projectContext -match 'realer Hyper-V-N5-Mehrgerätepfad' -and
         $projectContext -match 'drei reale Project-Adapter-Piloten' -and
         $projectContext -match 'SQL_PerformanceSchulung[\s\S]{0,160}SQL_Server_Analyze[\s\S]{0,160}SQL_Server_Toolbelt[\s\S]{0,240}Docker und Podman[\s\S]{0,100}end-to-end' -and

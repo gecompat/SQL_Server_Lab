@@ -336,7 +336,7 @@ function Test-LabExternalRuntimeContainerHost {
     }
     $resolution = Resolve-LabHostTool -Name $Provider
     if (-not $resolution.Available) {
-        return [PSCustomObject]@{ Status='RUNTIME_UNAVAILABLE'; Provider=$Provider; CgroupVersion=$null; Rootless=$null; Reason="Provider '$Provider' ist nicht installiert." }
+        return [PSCustomObject]@{ Status='RUNTIME_UNAVAILABLE'; Provider=$Provider; CgroupVersion=$null; Rootless=$null; Reason="Provider '$Provider' konnte nicht aufgeloest werden (HOST_TOOL_NOT_FOUND)." }
     }
 
     try {
