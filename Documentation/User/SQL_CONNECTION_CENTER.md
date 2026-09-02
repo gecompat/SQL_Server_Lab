@@ -41,6 +41,10 @@ Anmeldung des einrichtenden Benutzers verfügbar. So bleibt die zentrale Instanz
 nicht versehentlich wegen einer ausgeschalteten Podman Machine oder eines nicht
 gestarteten Docker Desktop stehen.
 
+Die Ausgabeaktionen der Verbindungszentrale – Status, SSMS-Importhinweis,
+Export, Gruppenkonfiguration, Synchronisation und Vorschau – bleiben sichtbar,
+bis sie mit **Enter** oder **Escape** geschlossen werden.
+
 Sobald ein CMS eingerichtet ist, führt jede erfolgreiche Konsolen-Lifecycle-Aktion die
 CMS-Synchronisation automatisch aus, einschließlich des Hyper-V-Unterworkflows. `[6]`
 dient nur zum manuellen Nachholen oder zur Diagnose. Schlägt die automatische
