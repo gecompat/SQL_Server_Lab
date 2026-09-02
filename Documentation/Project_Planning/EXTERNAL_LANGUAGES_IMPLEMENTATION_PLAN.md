@@ -413,8 +413,10 @@ Installation Receipts und aktualisiertem Connection-State in den Desired State
 übernommen. Plan, `WhatIf`, No-op, Fehler/Resume und Removal-Blockade sind
 statisch und synthetisch belegt. Removal, Varianten-/Packagewechsel sowie
 Artifact-Refresh bleiben Folgearbeit. Die direkte Gastinstallation besitzt
-native SQL-2022-Evidence; der neue öffentliche Reconcile-Ablauf ist noch
-`NOT_EXECUTED`.
+native SQL-2022-Evidence. Ein isolierter Runner deckt den öffentlichen Plan-/
+`WhatIf`-/Apply-/No-op-/Removal-Blockade-Pfad samt VM-Neustartgrenze, echten
+SQL-Postconditions, Cold Start und Cleanup ausführbar ab; seine Ausführung ist
+noch `NOT_EXECUTED`.
 
 Implementierungsstand Welle 8E, 2026-09-02: Docker und Podman unterstützen
 nun auch die Entfernung der letzten External Runtime. Der Resolverplan besitzt

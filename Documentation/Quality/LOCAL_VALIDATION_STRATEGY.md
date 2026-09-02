@@ -122,10 +122,18 @@ fokussiert ohne Hostmutation geprüft:
 
 Die Suite deckt providergebundenes Routing, Plan/`WhatIf`, Journal vor der
 Mutation, No-op, Failure/Resume, PlanKey-Postconditions und die fail-closed
-Removal-Grenze ab. Der bestehende native Hyper-V-Acceptance-Runner belegt den
-zugrunde liegenden Offline-Gastinstaller mit echten SQL-Datenroundtrips; er ist
-kein Nachweis für die neue öffentliche Reconcile-Sequenz. Diese bleibt bis zu
-einem tatsächlich erfolgreichen Lauf `NOT_EXECUTED`.
+Removal-Grenze ab. Der bestehende native Hyper-V-Acceptance-Aufbau kann den
+öffentlichen Reconcile-Pfad in einer erhöhten Sitzung isoliert ausführen:
+
+```powershell
+.\Tests\Integration\Invoke-HyperVExternalRuntimeReconcileAcceptance.ps1 -CleanupOnSuccess
+```
+
+Der Runner persistiert zuerst einen softwarefreien Desired State und prüft dann
+Plan, `WhatIf`, Apply, No-op, Removal-Blockade, ausbleibenden VM-Neustart,
+echte SQL-Datenroundtrips und Cold Start. Der Runnervertrag ist statisch geprüft;
+die öffentliche Reconcile-Sequenz bleibt bis zu einem tatsächlich erfolgreichen
+Lauf `NOT_EXECUTED`.
 
 ### Auto-Modus
 
