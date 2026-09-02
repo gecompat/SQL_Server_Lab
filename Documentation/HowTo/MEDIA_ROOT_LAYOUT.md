@@ -30,9 +30,10 @@ Import-Module .\SqlServerLab.psd1 -Force
 Invoke-SqlServerLab -Action Setup
 ```
 
-Hier wird nur das Basisverzeichnis (zum Beispiel `D:\`) eingegeben; der Assistent
-leitet daraus `D:\Lab_Base` ab und richtet im selben Ablauf die gewünschten
-`Lab_Data`-Parents und den ausdrücklichen globalen Standard ein.
+Hier werden der vollständige gemeinsame Media-Root und die vollständigen
+Lab-Datenroots eingegeben, zum Beispiel `D:\Lab1_Base` und `D:\Lab1_Data`.
+Die Namen werden nicht abgeleitet. Der Assistent richtet im selben Ablauf den
+ausdrücklichen globalen Datenstandard ein.
 
 Ein Laufwerksroot wie `D:\` und jeder Pfad innerhalb des Repository werden
 abgelehnt.
