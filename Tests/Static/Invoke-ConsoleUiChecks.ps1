@@ -7,6 +7,7 @@ $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $repoRoot 'Private/Common.ps1')
 . (Join-Path $repoRoot 'Private/ConsoleUi.ps1')
 . (Join-Path $repoRoot 'Public/BatchConsole.ps1')
+. (Join-Path $repoRoot 'Public/Sync-SqlServerLabConnectionCenter.ps1')
 
 $passed = 0
 $failed = 0
@@ -224,6 +225,46 @@ Add-ConsoleUiCheck 'Secrets bleiben in Formular-, Review- und Frame-Snapshots ma
 $sensitiveFieldRejected = $false
 try { $null = New-LabConsoleField -Id 'secret' -Label 'Secret' -Value 'plaintext' -Sensitive } catch { $sensitiveFieldRejected = $_.Exception.Message -eq 'CONSOLE_UI_SENSITIVE_INITIAL_VALUE_NOT_ALLOWED' }
 Add-ConsoleUiCheck 'Sensitive Klartextwerte gelangen nicht in den UI-State' $sensitiveFieldRejected
+
+# Steuerflusstest: Ausgabeaktionen dürfen nicht direkt in die Menüschleife
+# zurückfallen. Die Stubs bilden Auswahl -> Aktion -> Rückkehr ab und zählen
+# ausschließlich die zentrale Bestätigung.
+$script:connectionCenterMenuResults = [System.Collections.Generic.Queue[object]]::new()
+$script:connectionCenterAcknowledgements = 0
+function Get-LabStateRoot { 'test-state-root' }
+function Get-SqlServerLabConnectionCenter {
+    [PSCustomObject]@{
+        Grouping = [PSCustomObject]@{ RootGroupName='SQL Server Lab' }
+        Entries = @([PSCustomObject]@{ RuntimeState='RUNNING'; DisplayName='Test'; Server='127.0.0.1,14330'; Group='DOCKER' })
+    }
+}
+function Invoke-LabConsoleMenu {
+    [PSCustomObject]$ignored = $null
+    return $script:connectionCenterMenuResults.Dequeue()
+}
+function Sync-SqlServerLabConnectionCenter {
+    [PSCustomObject]@{ ConnectionCenter=(Get-SqlServerLabConnectionCenter) }
+}
+function Export-SqlServerLabSsmsRegistration {
+    [PSCustomObject]@{ Path='test-state-root/exports/sql-server-lab.regsrvr' }
+}
+function Wait-LabConsoleAcknowledgement {
+    $script:connectionCenterAcknowledgements++
+}
+
+$connectionCenterFlowResults = @()
+foreach ($action in @('1', '2', '3', '6', '7')) {
+    $script:connectionCenterAcknowledgements = 0
+    $script:connectionCenterMenuResults.Clear()
+    $script:connectionCenterMenuResults.Enqueue([PSCustomObject]@{ Status='Selected'; SelectedItem=[PSCustomObject]@{ Id=$action } })
+    $script:connectionCenterMenuResults.Enqueue([PSCustomObject]@{ Status='Selected'; SelectedItem=[PSCustomObject]@{ Id='0' } })
+    Invoke-LabConnectionCenterInteractive
+    $connectionCenterFlowResults += [PSCustomObject]@{ Action=$action; Acknowledgements=$script:connectionCenterAcknowledgements; RemainingSelections=$script:connectionCenterMenuResults.Count }
+}
+Add-ConsoleUiCheck 'Verbindungszentrale durchläuft jede Ausgabeaktion mit einer Rückkehrbestätigung' (
+    @($connectionCenterFlowResults).Count -eq 5 -and
+    @($connectionCenterFlowResults | Where-Object { $_.Acknowledgements -ne 1 -or $_.RemainingSelections -ne 0 }).Count -eq 0
+)
 
 $consoleSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/ConsoleUi.ps1') -Raw
 $containerSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Update-SqlServerLabContainer.ps1') -Raw
