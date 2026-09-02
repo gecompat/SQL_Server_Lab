@@ -88,13 +88,13 @@ Beispiel `SqlServerLab\New-SqlServerLabDatabase`.
 Invoke-SqlServerLab -Action Setup
 ```
 
-Der Assistent fragt nur fehlende oder ungültige Angaben ab. Für `Lab_Base` wird
-ein Basisverzeichnis gewählt, für jede gewünschte `Lab_Data`-Location ein
-Parent auf einem eigenen Volume. Die tatsächlichen Rootnamen werden vom
-Framework abgeleitet. Danach wird der globale `Lab_Data`-Standard ausdrücklich
-ausgewählt. Ein erneuter Aufruf ist bei vollständiger Konfiguration ein No-op;
-vorhandene Dateien werden nicht überschrieben. Ein nichtleerer, noch nicht vom
-Lab verwalteter `Lab_Data`-Ordner wird fail-closed abgelehnt.
+Der Assistent fragt nur fehlende oder ungültige Angaben ab. Für den gemeinsamen
+Media-Root und jede gemeinsame Daten-Location werden vollständige Zielpfade
+eingegeben, zum Beispiel `D:\Lab1_Base` und `D:\Lab1_Data`; die Namen sind frei
+wählbar. Danach wird der globale Datenstandard ausdrücklich ausgewählt. Ein
+erneuter Aufruf ist bei vollständiger Konfiguration ein No-op; vorhandene
+Dateien werden nicht überschrieben. Ein nichtleerer, noch nicht vom Lab
+verwalteter Datenroot wird fail-closed abgelehnt.
 
 ## 4. Ressourcen prüfen
 
