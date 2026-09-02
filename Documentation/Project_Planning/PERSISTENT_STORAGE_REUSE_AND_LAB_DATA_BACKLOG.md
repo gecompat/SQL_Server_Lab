@@ -2,10 +2,15 @@
 
 ## Status und Priorität
 
-`ACTIVE / PSR_001_PARTIAL_PSR_002_COMPLETE_PSR_003_004_011_PARTIAL_PSR_006_READ_ONLY_PSR_005_007_008_009_010_012_IMPLEMENTED_CORE` – die vorhandenen
+`ACTIVE / 10_TOP_LEVEL_PACKAGES_REMAIN / PSR_002_005_008_COMPLETE / PSR_001_003_004_011_PARTIAL / PSR_006_READ_ONLY / PSR_007_009_010_012_IMPLEMENTED_CORE / PSR_013_PLANNED` – die vorhandenen
 Persistenzmechanismen schützen bereits Teile des SQL-Zustands, bilden aber noch
 keinen vollständigen, providerübergreifenden Wiederverwendungs- und
 Löschvertrag. Planung ist kein Implementierungs- oder Runtime-Nachweis.
+
+Von den 13 kanonischen PSR-Arbeitspaketen sind `PSR-002`, `PSR-005` und
+`PSR-008` abgeschlossen. Damit verbleiben zehn Top-Level-Pakete; ein Paket mit
+implementiertem Core oder read-only Slice zählt bis zum vollständigen eigenen
+Abnahmekriterium weiterhin als offen.
 
 Der P0-Bugfix zur verbindlichen Ablage aller neuen Hyper-V-Ressourcen unter
 registrierten `Lab_Data`-Roots ist seit 2026-08-31 abgeschlossen. Die
@@ -127,6 +132,21 @@ Hostdefaults und ihr physisches Backing `REPORT_ONLY`; Relocation, Removal,
 Default-Connection-/Modusänderung und Adoption labfremder Ressourcen sind
 explizit blockiert. Eine künftig dedizierte Runtime benötigt weiterhin einen
 eigenen Ownership-, Location-, Capacity-, Recovery- und Cleanup-Vertrag.
+
+`PSR-008` ist für die aktuelle Provider-Matrix abgeschlossen.
+`SqlServerLab.BackupLibrary/1.0` veröffentlicht Backups erst nach SQL-
+`CHECKSUM`, `RESTORE VERIFYONLY WITH CHECKSUM`, Host-SHA-256 und sanitiertem
+Receipt. Der reale Docker-zu-Podman-Lauf bestätigt Auswahl per stabiler
+`BackupSetId`, erneute Verifikation, Restore, identischen Inhaltsdigest und
+vollständigen Cleanup. Microsoft führt FileTable und FILESTREAM bei SQL Server
+2025 auf Linux ausdrücklich als nicht unterstützt; Docker und Podman bilden
+daher kein FILESTREAM-fähiges Quell-/Zielpaar. Der Cross-Provider-
+FILESTREAM-Nachweis ist in der aktuellen Capability-Matrix `NOT_APPLICABLE`
+statt offen. Der Core verlangt für jedes Backup, das FILESTREAM-Metadaten
+trägt, weiterhin echte FILESTREAM-Inhaltsevidence. Kommt ein zweiter
+FILESTREAM-fähiger Provider hinzu, wird der native Cross-Provider-Nachweis vor
+dessen Freigabe verpflichtend. Quelle:
+[Microsoft – Editions and supported features of SQL Server 2025 on Linux](https://learn.microsoft.com/en-us/sql/linux/sql-server-linux-editions-and-components-2025?view=sql-server-ver17#unsupported-features-and-services).
 
 Der read-only Core-Slice `PSR-012` ist implementiert. Der öffentliche
 Cleanup-Audit projiziert die Residency-Matrix zusätzlich als strikten Vertrag
@@ -448,7 +468,7 @@ Volumename ersetzt diese Identität nicht.
 | `PSR-005` | P1 | Docker-/Podman-Instanzstore auswählbar, fortsetzbar und klonbar machen | `IMPLEMENTED`: öffentliche CLI-/Browser-Auswahl per stabiler ID, detached Continue/Clone, operationsgebundene Quell-Lease, Digest/Resume, atomarer Zielcommit plus Quellfreigabe und rollenfester External-Runtime-Mehr-Volume-Vertrag; Docker und Podman getrennt real belegt, unvollständige Legacy-Sidecargruppen fail-closed |
 | `PSR-006` | P1 | Podman-Machine- und Docker-Engine-/Context-Reichweite bewerten und gegebenenfalls dediziert verwalten | `IMPLEMENTED_READ_ONLY`: stabile sanitisierte Runtime-ID, Context-/Connection-/Machine-Bindung und REPORT_ONLY-Hostgrenze real belegt; dedizierter Ownership-/Lifecycle-Vertrag bleibt offen |
 | `PSR-007` | P1 | Hyper-V-Daten-VHDX sicher auswählen, reattachen, freigeben und klonen | `IMPLEMENTED_CORE`: reguläre VHDX-Erzeugung mit vorab persistierter Storage-ID/Run-Lease, Disk-/VM-Attachment-Commit und Recovery-State sowie Storage-ID-, Disk-/VM-/Checkpoint-/Clean-Detach-/SQL-Versions-validierter Host-Lifecycle; Reattach/Release/Clone sind operationsgeleast, journalisiert, atomar katalogisiert, idempotent und nativ belegt; die öffentliche pfadfreie Auswahl samt Runtime-Konsistenzstatus ist umgesetzt, Mutationen und explizite Datenbankaktion bleiben bis zur belastbaren Evidence-Erzeugung gesperrt |
-| `PSR-008` | P1 | Providerneutrale Backup-Bibliothek mit automatischem Backup und Restore-Verifikation liefern | `IMPLEMENTED_CORE`: inhaltsadressierte `Lab_Data`-Bibliothek, `CHECKSUM`, `RESTORE VERIFYONLY`, Hash, Metadatenreceipt, öffentliche BackupSetId-Auswahl und realer Docker→Podman-Inhaltsnachweis; reale FILESTREAM-Cross-Provider-Evidence bleibt offen |
+| `PSR-008` | P1 | Providerneutrale Backup-Bibliothek mit automatischem Backup und Restore-Verifikation liefern | `COMPLETE`: inhaltsadressierte `Lab_Data`-Bibliothek, `CHECKSUM`, `RESTORE VERIFYONLY`, Hash, Metadatenreceipt, öffentliche BackupSetId-Auswahl und realer Docker→Podman-Inhaltsnachweis; Cross-Provider-FILESTREAM ist in der aktuellen Matrix mangels zweitem FILESTREAM-fähigem Provider `NOT_APPLICABLE`, bleibt bei künftiger Capability-Erweiterung aber zwingendes Freigabegate |
 | `PSR-009` | P2 | Datenbankpakete inklusive FILESTREAM, Attach und Clone implementieren | `IMPLEMENTED_CORE`: vollständiger Offline-Dateivertrag, rekursive Hashes, unabhängiger Clone und journalisiertes Copy-then-Attach; native Hyper-V-/FILESTREAM-Abnahme sowie öffentliche Bedienung offen |
 | `PSR-010` | P2 | Serverobjekt- und TDE-Abhängigkeiten inventarisieren und Migrationsgrenzen anzeigen | `IMPLEMENTED_CORE`: öffentliche read-only Live-Inventur per direktem Ziel oder stabiler Run-/Instanzbindung, TDE-Recovery-Gate, externe Review-Grenzen und sanitisierte `DATABASE_FILES_ONLY`-Receipts; persistierte Kategorien und Warnungen sind paketgebunden in CLI/Browser sichtbar, Export/Import bleibt offen |
 | `PSR-011` | P1 | identische CLI- und GUI-Flows für Auswahl, Retention, Restore, Attach, Clone und Delete liefern | `IMPLEMENTED_PARTIAL`: Backup-Inventur/Restore, Container-Continue/Clone, Retention-Vorschau, Retain/Backup-on-Remove sowie die pfadfreien Datenbankpaket- und Hyper-V-Daten-VHDX-Inventuren verwenden in CLI und Browser dieselben stabilen IDs und Fachkerne; Paket-Vollhashing erfolgt explizit oder vor Verwendung, Datenbankpaket-Attach und Hyper-V-VHDX-Mutationen bleiben bis zur sicheren Evidence-/Zielbindung gesperrt und endgültiges Delete bleibt offen |
@@ -507,9 +527,12 @@ und verwendet beim Resume dieselbe Identität. VM-Notes, Connection-State,
 Katalog und Residency-Audit tragen dieselbe Bindung. Die getrennten Reattach-,
 Release- und Clone-Aktionen verwenden inzwischen denselben gespiegelten
 Katalog-, Lease- und Recovery-Vertrag.
-- Ein vollständiges Backup einer Datenbank mit FILESTREAM wird aus einem
-  Provider exportiert, in einem zweiten unterstützten Provider restauriert und
-  inhaltlich verifiziert.
+- Sobald Quelle und Ziel FILESTREAM als Capability unterstützen, wird ein
+  vollständiges Backup einer FILESTREAM-Datenbank aus einem Provider
+  exportiert, in dem zweiten Provider restauriert und inhaltlich verifiziert.
+  In der aktuellen Matrix ist dieses Kriterium `NOT_APPLICABLE`, weil SQL
+  Server auf Linux und damit die Docker-/Podman-Provider FILESTREAM nicht
+  unterstützen; Hyper-V/Windows ist der einzige fähige Provider.
 
 Stand 2026-09-01: `SqlServerLab.BackupLibrary/1.0` veröffentlicht ein Backup
 erst nach `BACKUP ... CHECKSUM`, `RESTORE VERIFYONLY ... WITH CHECKSUM`,
@@ -518,9 +541,10 @@ isolierter Lauf hat Docker → Podman einschließlich Quell-Cleanup, erneutem
 `VERIFYONLY`, Restore und identischem Inhaltsdigest bestätigt. TDE endet ohne
 eigenen Zertifikat-/Recovery-Vertrag fail-closed. FILESTREAM wird im Receipt
 erkannt und eine Restore-Evidence ohne ausdrücklich bestätigten FILESTREAM-
-Inhaltsnachweis abgelehnt; weil die Linux-Container diesen Nachweis nicht
-liefern können, bleibt das vollständige reale FILESTREAM-Cross-Provider-
-Abnahmekriterium offen und wird nicht als bestanden behauptet.
+Inhaltsnachweis abgelehnt. Da Microsoft FILESTREAM unter SQL Server auf Linux
+nicht unterstützt, existiert für Docker/Podman kein zulässiger positiver
+FILESTREAM-Testfall. Der Cross-Provider-Pfad ist deshalb capability-basiert
+`NOT_APPLICABLE`; er wird weder als ausgeführt noch als bestanden behauptet.
 - Ein Datenbankpaket enthält nachweislich alle MDF/NDF/LDF- und FILESTREAM-
   Bestandteile; fehlende oder veränderte Inhalte sowie paralleles Read/Write-
   Attach werden blockiert.

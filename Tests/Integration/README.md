@@ -184,7 +184,9 @@ Backup in einer temporären registrierten `Lab_Data`-Bibliothek, entfernt die
 Docker-Quelle und restauriert das Backup nach `RESTORE VERIFYONLY` in Podman.
 Ein sanitisiertes Inhaltsdigest wird vor und nach dem Providerwechsel verglichen
 und als Restore-Evidence registriert. Linux-Container werden dabei ausdrücklich
-nicht als FILESTREAM-fähig ausgewiesen.
+nicht als FILESTREAM-fähig ausgewiesen. Da die aktuelle Provider-Matrix außer
+Hyper-V/Windows keinen FILESTREAM-fähigen Provider enthält, ist ein
+Cross-Provider-FILESTREAM-Lauf `NOT_APPLICABLE` und kein offener Ersatztest.
 
 ```powershell
 .\Tests\Integration\Invoke-BackupLibraryCrossProviderAcceptance.ps1
