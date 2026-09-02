@@ -62,7 +62,10 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   für additive gebundene Hostinfrastruktur und genau einen vorhandenen
   getrennten VM-Adapter sowie getrennte vCPU-/RAM-, Grow-only-Storage-,
   SQL-Storage- und SQL-Konfigurations-Reconcile-Verträge mit Live- oder
-  SQL-Dienstrestart-Klassifizierung;
+  SQL-Dienstrestart-Klassifizierung; SQL-2022-Windows-Runs unterstützen darüber
+  hinaus additive, kataloggebundene Python-/R-/Java-Installation mit VM-/
+  Zielhash-Journal, echten SQL-Postconditions, Desired-State-Commit und
+  Vorwärts-Recovery, während Removal und Variantenwechsel fail-closed bleiben;
 - verwalteter Multi-Root-Storage-Vertrag mit stabilen `LocationId`-Werten,
   Backing-Device-Topologie, dateigenauem Storage-Plan, journalisierter
   Parent-Migration und Cleanup-Audit; dessen versioniertes read-only

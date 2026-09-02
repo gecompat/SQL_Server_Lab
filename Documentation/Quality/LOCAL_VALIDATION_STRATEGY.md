@@ -111,6 +111,22 @@ additiven Refresh, eigentumsgebundenes Java-Removal, SQL-/Artefaktpersistenz,
 Python-/R-Probes nach providergebundenem Neustart sowie den registrierten und
 expliziten Cleanup. Docker-Evidence gilt nicht für Podman und umgekehrt.
 
+### Hyper-V External-Runtime-Reconcile
+
+Der additive öffentliche SQL-2022-Windows-/Hyper-V-Reconcile-Vertrag wird
+fokussiert ohne Hostmutation geprüft:
+
+```powershell
+.\Tests\Static\Invoke-HyperVExternalRuntimeReconcileChecks.ps1
+```
+
+Die Suite deckt providergebundenes Routing, Plan/`WhatIf`, Journal vor der
+Mutation, No-op, Failure/Resume, PlanKey-Postconditions und die fail-closed
+Removal-Grenze ab. Der bestehende native Hyper-V-Acceptance-Runner belegt den
+zugrunde liegenden Offline-Gastinstaller mit echten SQL-Datenroundtrips; er ist
+kein Nachweis für die neue öffentliche Reconcile-Sequenz. Diese bleibt bis zu
+einem tatsächlich erfolgreichen Lauf `NOT_EXECUTED`.
+
 ### Auto-Modus
 
 ```powershell

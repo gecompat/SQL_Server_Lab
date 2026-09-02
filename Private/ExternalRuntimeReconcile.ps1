@@ -9,6 +9,37 @@
     erhalten; der alte Container wird erst nach persistiertem State entfernt.
 #>
 
+function Resolve-LabExternalRuntimeReconcileTarget {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RunId,
+        [string]$InstanceId,
+        [string]$StateRoot
+    )
+
+    if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
+    $runDirectory = Join-Path (Join-Path $StateRoot 'runs') $RunId
+    $connectionPath = Join-Path $runDirectory 'connection-info.json'
+    if (-not (Test-Path -LiteralPath $connectionPath -PathType Leaf)) {
+        throw 'EXTERNAL_RUNTIME_RECONCILE_CONNECTION_INFO_MISSING'
+    }
+    $connection = Get-Content -LiteralPath $connectionPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 50
+    $instances = @($connection.instances | Where-Object {
+        -not $InstanceId -or [string]$_.id -eq $InstanceId
+    })
+    if ($instances.Count -ne 1) {
+        throw "EXTERNAL_RUNTIME_RECONCILE_INSTANCE_NOT_UNIQUE: $($instances.Count)"
+    }
+    $provider = [string]$instances[0].provider
+    if ($provider -notin @('docker','podman','hyperv')) {
+        throw "EXTERNAL_RUNTIME_RECONCILE_PROVIDER_UNSUPPORTED: $provider"
+    }
+    return [PSCustomObject]@{
+        Provider = $provider
+        InstanceId = [string]$instances[0].id
+    }
+}
+
 function Get-LabExternalRuntimeReconcileContext {
     [CmdletBinding()]
     param(

@@ -4,7 +4,7 @@
 |---|---|
 | Projekt | `gecompat/SQL_Server_Lab` |
 | Status | `ACTIVE_EXECUTION_BACKLOG` |
-| Stand | 2026-08-30 |
+| Stand | 2026-09-02 |
 | Ausgangsstand | Planungsabgleich gegen `origin/main`, Known Limitations, offene Regressionen und den lokalen sowie CI-gestützten Validierungsbericht vom 2026-08-20; Commit-IDs sind kein Planungsvertrag |
 | Ziel | eine einzige ausführbare Lieferreihenfolge für Core, UI, Adapter, Hyper-V, Datenartefakte, Qualität und spätere Erweiterungen |
 | Runtime-Nachweis | ausschließlich Code, passende Tests, [KNOWN_LIMITATIONS.md](../Quality/KNOWN_LIMITATIONS.md) und datierte Validierungsnachweise |
@@ -123,11 +123,11 @@ normalen Manifest-Klon bis `SQL_READY_RUN` positiv ausgeführt.
 
 | Lücke | Wirkung |
 |---|---|
-| der Desired-/Actual-/Diff-/Plan-Vertrag deckt bisher nur read-only Planung und START/STOP ab | weitere Reconcile-Klassen benötigen persistente Verträge und Executor |
+| der Desired-/Actual-/Diff-/Plan-Vertrag deckt mehrere Lifecycle-, Hyper-V-, Container- und External-Runtime-Klassen ab, aber noch nicht den gesamten Zielkatalog | weitere Hardware-, Software-, Removal-/Rebinding- und Artifact-Refresh-Klassen benötigen persistente Verträge und Executor |
 | bestehende Hyper-V-Standardwege enthalten noch Factory-/manuelle Übergänge | ein normaler Lablauf ist noch nicht durchgehend Zero-Touch nachgewiesen |
 | der positive reale Hyper-V-Cold-Path ist nur für Windows Server 2025 und SQL Server 2025 belegt | weitere freigegebene Windows-/SQL-Kombinationen benötigen getrennte Runtime-Evidence |
-| Hyper-V-Manifestbindung für Datenbanken, Software, Post-Provisioning und Network Intents ist unvollständig | UI-/Manifestparität fehlt trotz gebundener freier Drives weiterhin |
-| Reconcile-Executor und Actual-State-Collector sind auf Lifecycle START/STOP begrenzt | Ressourcen- und Konfigurationsänderungen fehlen |
+| Hyper-V-Manifestbindung für allgemeine Software und Post-Provisioning ist unvollständig; Testdatenbanken und additive SQL-2022-External-Runtimes besitzen getrennte Reconcile-Verträge | vollständige UI-/Manifestparität fehlt weiterhin |
+| Reconcile-Executor und Actual-State-Collector decken Lifecycle, mehrere Hyper-V-Ressourcen-/SQL-Klassen, Testdatenbanken und additive External Runtimes ab | Removal/Rebinding, weitere Hardware-/SQL-Klassen und native Repair-Evidence fehlen |
 | drei reale Adapterpiloten fehlen | der Vertrag ist noch nicht an den drei Konsumenten und ihren unterschiedlichen Rollen bewiesen |
 | `LAB_GENERATED`-Erzeugung und -Präferenz sind für Single- und Multi-Output-Container-Samples sowie run-gebundene Hyper-V-Samples einschließlich automatischer Manifestbindung implementiert; Script Bundles mit mehreren festen Datenbankoutputs sind implementiert | reale Hyper-V-Sample-/Baseline-Evidence bleibt offen |
 | Fault-/Scenario-Engine und breite Abbruch-/Recovery-Injektion fehlen | Release-Härtung und komplexe SQL-Szenarien bleiben unvollständig |
@@ -214,7 +214,7 @@ Container-Volumes gehören dagegen in den normalen Storage-Pfad.
 | M2 UI und Container-Reconcile | `implemented_partial` | Batch/Queue sowie Container-`no-op`, `live`, `recreate`, Rollback und Persistenz sind für Docker und Podman real verifiziert; beliebige Mount-/Environment-Änderungen aus `CNT-214` bleiben offen |
 | M3 Adapterpiloten | `planned_external_scope` | je ein Pilot in den drei Konsumenten-Repositories |
 | M4 Hyper-V OS Cold Path | `validated_reference` | weitere freigegebene Windows-Varianten getrennt belegen |
-| M5 Hyper-V SQL und Resolver | `validated_reference_partial_manifest` | Datenbank-, Software- und Post-Provisioning-Manifestparität; Network-Intents sind gebunden |
+| M5 Hyper-V SQL und Resolver | `validated_reference_partial_manifest` | Testdatenbank- und additive SQL-2022-External-Runtime-Bindung sind implementiert; allgemeine Software-, Post-Provisioning- und weitere native Evidence bleiben offen; Network-Intents sind gebunden |
 | M6 Reconcile-Breite | `implemented_partial` | Netzwerk, vCPU/statisches-dynamisches RAM, Zusatz-VHDX/Grow-only sowie SQL-Default-/TempDB-Dateiplatzierung besitzen No-op und journalisierte beziehungsweise receiptgebundene Reparatur; Removal/Rebinding, User-/Systemdatenbankbewegung, weitere Hardware-/SQL-Klassen und native Repair-Evidence bleiben offen |
 | M7 Artifacts und Baselines | `implemented_partial` | Hyper-V-Export/-Nutzung und automatische Sample-Manifestbindung sind synthetisch belegt; reale Evidence und weitere typisierte Handler bleiben offen |
 | M8 Scenarios und Migration | `planned` | Scenario-Vertrag nach den Adapterpiloten |
@@ -445,6 +445,13 @@ ohne SQL-Vorlage; vorhandene Prepared-Images beschleunigen nur.
 | `HV-506` | vorhandenes `SQL_PREPARED_SEALED` und `CompleteImage` als optionalen Accelerator integrieren | schnellerer, nicht zwingender Pfad |
 | `HV-507` | Resolver-Reihenfolge, Begründung und Cold-Path-Fallback umsetzen | Cache Miss blockiert nicht |
 | `HV-508` | SQL Server 2025 als Hyper-V-Core-Referenz mit eigener Capability-/Medienabnahme testen | belastbarer Referenznachweis; weitere Versionen werden partnerseitig abgenommen |
+
+Teilstand 2026-09-02: Katalogisierte Testdatenbanken sowie additive SQL-2022-
+Python-/R-/Java-Intents besitzen öffentliche, journalisierte Hyper-V-Reconcile-
+Verträge. Die External-Runtime-Sequenz ist statisch/synthetisch belegt; ihre
+direkte Gastinstallation ist nativ akzeptiert, der neue öffentliche Reconcile-
+Ablauf selbst jedoch noch `NOT_EXECUTED`. Allgemeine Software,
+Post-Provisioning, Removal/Variantenwechsel und Artifact-Refresh bleiben offen.
 
 **Gate M5:**
 

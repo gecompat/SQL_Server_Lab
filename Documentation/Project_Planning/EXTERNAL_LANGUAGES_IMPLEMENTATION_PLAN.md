@@ -404,6 +404,18 @@ Docker-/Podman-Abnahme bewies Python-only-Provisionierung, additiven
 Python/R/Java-Refresh, Java-Removal, Python/R-Restart-Probes, SQL-Datenpersistenz
 und vollständigen Cleanup aller vier run-eigenen Ressourcen.
 
+Implementierungsstand Welle 8D, 2026-09-02: Für laufende SQL-2022-Windows-/
+Hyper-V-Runs routet derselbe öffentliche Manifest-Reconcile zu einem getrennten
+additiven Gastpfad. Neue Python-, R- und Java-PlanKeys werden VM- und
+Zielhash-gebunden journalisiert, mit dem katalogisierten idempotenten Offline-
+Installer angewandt und erst nach echten SQL-Postconditions, vollständigen
+Installation Receipts und aktualisiertem Connection-State in den Desired State
+übernommen. Plan, `WhatIf`, No-op, Fehler/Resume und Removal-Blockade sind
+statisch und synthetisch belegt. Removal, Varianten-/Packagewechsel sowie
+Artifact-Refresh bleiben Folgearbeit. Die direkte Gastinstallation besitzt
+native SQL-2022-Evidence; der neue öffentliche Reconcile-Ablauf ist noch
+`NOT_EXECUTED`.
+
 ## 6. Betroffene Repositoryverträge
 
 Mindestens gemeinsam zu prüfen und je Welle kohärent zu ändern sind:
