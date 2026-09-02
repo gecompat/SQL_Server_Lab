@@ -19,11 +19,25 @@ Additional authorization is required only when an operation materially exceeds t
 
 ## Preflight
 
-1. Read the smallest authoritative scope needed.
+1. Determine the current scoped instruction chain and read the smallest additional authoritative scope needed.
 2. Classify relevant information and destination.
 3. Establish the authorization envelope and action class.
 4. Identify affected contracts, dependencies, recovery needs, and validation.
 5. Identify local overrides and real conflicts.
+
+## Rule-context reuse between waves
+
+At the start of every new run or TUI session, let the active client rebuild its native `AGENTS.override.md`/`AGENTS.md` chain. Repository caching does not replace that discovery or any system, developer, current user, permission, or runtime instruction.
+
+After the applicable additional repository rules have been fully read and analyzed once for a scope, later change waves may reuse that session analysis only under `RULE_CONTEXT_CACHE_POLICY.md`:
+
+- before each wave, re-run deterministic instruction/source discovery and fingerprint the actual working tree, index/HEAD state, dependencies, scope, schema, generator, and discovery configuration;
+- on `CACHE_HIT`, reuse only analysis present under the exact validated analysis key;
+- on `PARTIAL_INVALIDATION`, fully reread changed rules and reanalyze every transitive dependent while retaining independent unchanged analyses;
+- on `CACHE_MISS`, incomplete discovery, corruption, or uncertainty, fully rediscover, reread, and analyze the applicable context;
+- keep cache records local, non-versioned, content-free, non-authoritative, and separate from validation evidence.
+
+Fingerprint checks still read source bytes locally. They save repeated model-context ingestion and semantic analysis; they never justify using `HEAD` alone or overlooking staged, unstaged, untracked, moved, deleted, or newly scoped rules.
 
 ## Implementation
 

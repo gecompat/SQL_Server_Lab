@@ -1,5 +1,5 @@
 schema_version: 1
-foundation_ruleset_version: 1.7.0
+foundation_ruleset_version: 1.8.0
 canonical_entrypoint: AGENTS.md
 authority:
   required_or_baseline:
@@ -11,6 +11,7 @@ authority:
     - .ai/foundation/CENTRAL_ARTIFACT_REGISTRY_POLICY.md
     - .ai/foundation/UPGRADE_APPLICABILITY_POLICY.md
     - .ai/foundation/REPOSITORY_CONTINUITY_POLICY.md
+    - .ai/foundation/RULE_CONTEXT_CACHE_POLICY.md
     - .ai/foundation/feature_catalog.json
     - .ai/foundation/WORKING_RULES.md
     - .ai/foundation/MODEL_ROUTING_POLICY.md
@@ -28,6 +29,7 @@ authority:
     - .ai/foundation/schemas/artifact-registration-request.schema.json
     - .ai/foundation/schemas/feature-catalog.schema.json
     - .ai/foundation/schemas/upgrade-assessment.schema.json
+    - .ai/foundation/schemas/rule-context-cache.schema.json
 provenance:
   foundation_notice: .ai/foundation/AI_REPOSITORY_FOUNDATION_NOTICE.md
   target_root_license_behavior: independent_and_untouched
@@ -109,6 +111,22 @@ continuity_contract:
   direct_push_break_glass: prohibited
   deferred_validation_after_recovery: required
   target_repository_administration: recommend_never_silently_configure
+rule_context_cache_contract:
+  policy: .ai/foundation/RULE_CONTEXT_CACHE_POLICY.md
+  schema: .ai/foundation/schemas/rule-context-cache.schema.json
+  native_instruction_discovery_per_run: required
+  source_of_truth: repository_files
+  statuses: CACHE_HIT_PARTIAL_INVALIDATION_CACHE_MISS
+  head_only_hit: prohibited
+  dirty_worktree_inputs: staged_unstaged_untracked
+  partial_invalidation: changed_sources_plus_transitive_dependents
+  uncertainty_behavior: CACHE_MISS
+  semantic_analysis_storage: session_local_by_analysis_key
+  persistent_record_content: fingerprints_and_dependency_metadata_only
+  persistent_record_authority: none
+  persistent_record_version_control: prohibited
+  atomic_write_and_lock: required
+  optional_reference_capability: rule-context-cache
 validation_contract:
   foundation_integrity:
     label: FOUNDATION_INTEGRITY

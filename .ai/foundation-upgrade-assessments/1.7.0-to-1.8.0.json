@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "installed_version": "1.7.0",
+  "source_version": "1.8.0",
+  "source_ref": "7ddc29988b23570f462e46ebf527f8dfdd05fd75",
+  "assessments": [
+    {
+      "feature_id": "rule-context-cache",
+      "candidate_reasons": [
+        "introduced_in:1.8.0"
+      ],
+      "classification": "RECOMMENDED",
+      "evidence": [
+        "AGENTS.md#AI Repository Foundation baseline",
+        ".ai/foundation/RULE_CONTEXT_CACHE_POLICY.md",
+        "Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md"
+      ],
+      "rationale": "SQL_Server_Lab wird in getrennten, wiederholten Governance- und Entwicklungswellen bearbeitet und besitzt umfangreiche, transitiv relevante Regelquellen. Der verpflichtende Cache-Vertrag beschleunigt nur die lokale Analyse nach nativer Instruktionsdiscovery; die optionale Referenzimplementation soll getrennt aktiviert und mit einem nicht versionierten, inhaltsfreien Cache-Ort geprüft werden.",
+      "recommendation": "Die optionale rule-context-cache Capability in einer eigenen nachfolgenden Wave aktivieren, einen nicht versionierten Cache unter C:\\rep\\cache\\SQL_Server_Lab festlegen und Cache-Hit, Invalidierung, Privacy und Git-Ausschluss nachweisen.",
+      "decision_required": "Die optionale Capability-Auswahl und der lokale Cache-Ort werden erst in der folgenden Wave entschieden.",
+      "selected_capabilities": []
+    }
+  ]
+}
