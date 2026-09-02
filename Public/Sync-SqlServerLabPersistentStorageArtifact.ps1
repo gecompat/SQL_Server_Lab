@@ -7,10 +7,10 @@
     eines registrierten Lab_Data-Roots. Die stabile Artefaktbindung wird
     idempotent im controllergebundenen Persistent-Storage-Katalog registriert.
     Vor der Mutation läuft derselbe Bindungs- und Konfliktcheck im Preview-
-    Modus. Exchange-Workspaces verwenden zusätzlich einen erwarteten
-    Katalogstand, damit eine Änderung zwischen Preview und Commit fail-closed
-    abgelehnt wird. Abweichende, mehrdeutige oder unzulässige Bindungen werden
-    fail-closed abgelehnt.
+    Modus. Alle unterstützten Artefakttypen verwenden beim Apply den erwarteten
+    Katalogstand aus dem Preview, damit eine Änderung zwischen Preview und
+    Commit fail-closed abgelehnt wird. Abweichende, mehrdeutige oder unzulässige
+    Bindungen werden fail-closed abgelehnt.
 
     Das Cmdlet verändert weder SQL Server noch Docker-, Podman- oder Hyper-V-
     Ressourcen. Die Ausgabe enthält keine lokalen Pfade, Endpunkte oder Secrets.
@@ -106,11 +106,13 @@ function Sync-SqlServerLabPersistentStorageArtifact {
     else {
         $synchronized = if ($artifactType -eq 'BACKUP_SET') {
             $artifact = Get-LabDatabaseBackup -BackupSetId $BackupSetId -DataRoot $DataRoot
-            Register-LabBackupSetPersistentStorage -BackupRecord $artifact.Record -DataRoot $DataRoot
+            Register-LabBackupSetPersistentStorage -BackupRecord $artifact.Record -DataRoot $DataRoot `
+                -ExpectedRevision ([int]$preview.CatalogRevision)
         }
         elseif ($artifactType -eq 'DATABASE_PACKAGE') {
             $artifact = Get-LabDatabasePackage -DatabasePackageId $DatabasePackageId -DataRoot $DataRoot
-            Register-LabDatabasePackagePersistentStorage -PackageRecord $artifact.Record -DataRoot $DataRoot
+            Register-LabDatabasePackagePersistentStorage -PackageRecord $artifact.Record -DataRoot $DataRoot `
+                -ExpectedRevision ([int]$preview.CatalogRevision)
         }
         else {
             Register-LabExchangeWorkspacePersistentStorage -WorkspaceId $ExchangeWorkspaceId `

@@ -574,7 +574,7 @@ internal_components:
       - "bewusst retained Objekte, unerwartete Residuen, Recovery-Befunde und unverifizierbare Evidence mit stabilen Identitaeten, Reason-Codes und nicht mutierenden Handlungshinweisen getrennt ausgeben"
       - "stabile Persistent-Storage-IDs, Klassen, Zustände, Referenzen und exklusive Leases read-only validieren und mit dem Residency-Inventar abgleichen"
       - "Katalogmutationen mit read-only Preview, erwarteter Revision, unveraenderlicher Controller-/Vertragsgrenze, genau einem Revisionsschritt und rollbackfaehigem Spiegelcommit ausfuehren"
-      - "verifizierte Backup-Sets und Datenbankpakete controllerweit rollbackfähig mit eigener PersistentStorageId registrieren und Katalogfehler fail-closed quarantänisieren"
+      - "verifizierte Backup-Sets und Datenbankpakete ueber denselben CAS-geschuetzten Artifact-Writer controllerweit rollbackfaehig mit eigener PersistentStorageId registrieren und Katalogfehler fail-closed quarantaenisieren"
       - "vorhandene Backup-Sets, Datenbankpakete und sichere Exchange-Workspaces oeffentlich einzeln revalidieren, previewfaehig und idempotent mit dem controllergebundenen Katalog synchronisieren"
       - "Datenbankpakete fuer CLI und Browser pfadfrei per stabiler DatabasePackageId inventarisieren; Voll-Hashing nur bei expliziter Integritaetspruefung oder unmittelbar vor Verwendung ausfuehren"
       - "Datenbankpakete per stabiler Run-/Instanzbindung an das live ermittelte SQL-Default-Data-Verzeichnis eines scopegebundenen Hyper-V-Gasts kopieren, dort vollstaendig hashen und erst nach vorab persistiertem Recovery-Journal attachen"
@@ -941,6 +941,7 @@ validation:
       - compare_and_swap_preview_and_single_revision_commit
       - mutation_scope_and_portable_path_guards
       - rollback_safe_backup_set_registration
+      - shared_revision_guarded_backup_and_package_artifact_writer
       - idempotent_existing_backup_reconciliation
       - exclusive_lease_validation
       - stable_database_reference_sync_and_atomic_release

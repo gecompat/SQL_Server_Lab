@@ -1007,7 +1007,10 @@ Artefaktinhalte erneut zu hashen. Vorhandene `BackupSetId`- und
 `DatabasePackageId`-Einträge können außerdem mit
 `Sync-SqlServerLabPersistentStorageArtifact` einzeln öffentlich übernommen
 werden: Das Cmdlet revalidiert das gewählte Artefakt vollständig, führt vor der
-Mutation denselben Bindungscheck als Preview aus und unterstützt `-WhatIf`.
+Mutation denselben Bindungscheck als Preview aus, unterstützt `-WhatIf` und
+bindet den Apply-Schritt für Backup, Paket und Workspace per erwarteter Revision
+an genau diesen Katalogstand. Backup-Set und Datenbankpaket verwenden dafür
+denselben Artifact-Writer über dem gemeinsamen Mutationskern.
 Vorhandene Exchange-Workspace-Verzeichnisse können zusätzlich per stabiler
 `ExchangeWorkspaceId` und portablem relativem Pfad innerhalb eines
 registrierten `Lab_Data`-Roots übernommen werden. Ihr Writer verwendet den
@@ -1036,7 +1039,7 @@ Katalog und bleiben bei Teilfehlern idempotent `RECOVERY_REQUIRED`.
 `New-SqlServerLab` und die Browseroberfläche können einen solchen detached
 Docker-/Podman-Store inzwischen per stabiler ID für einen neuen kompatiblen Run
 fortsetzen oder unabhängig klonen. Noch nicht implementiert sind die Umstellung
-der übrigen klassenbezogenen Writer auf den gemeinsamen Mutationskern, eine
+der übrigen Instanzstore-Writer auf den gemeinsamen Mutationskern, eine
 breite öffentliche Bestandsmigration, providerübergreifende Wiederverwendung
 und explizites Löschen. Der zusätzliche
 read-only Removal-Vertrag plant
