@@ -86,6 +86,7 @@ Get-SqlServerLabPersistentStorageRemovalPlan # Retention-Folgen per stabiler Sto
 Invoke-SqlServerLabPersistentStorageRemoval  # Retain/Backup-on-Remove journalisiert ausführen
 Sync-SqlServerLabPersistentStorageArtifact   # Vorhandenes Backup/Paket per stabiler ID katalogisieren
 Get-SqlServerLabDatabasePackage              # Datenbankpakete per stabiler ID pfadfrei inventarisieren
+Invoke-SqlServerLabDatabasePackageAttach     # Paket pfadfrei an einen stabil gebundenen Hyper-V-SQL-Run attachen
 Get-SqlServerLabDatabaseMigrationDependency  # SQL-Migrationsabhaengigkeiten read-only inventarisieren
 Get-SqlServerLabConnectionCenter       # Passwortfreier SQL-Endpunktkatalog für SSMS und CMS
 Sync-SqlServerLabConnectionCenter      # Endpunktkatalog atomar aktualisieren

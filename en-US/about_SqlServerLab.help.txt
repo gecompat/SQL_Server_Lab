@@ -112,6 +112,11 @@ COMMANDS
         Lists path-free database-package selections by stable DatabasePackageId
         and optionally verifies all immutable package objects.
 
+    Invoke-SqlServerLabDatabasePackageAttach
+        Copies a fully verified database package by stable package and run IDs
+        into a Hyper-V guest's live-bound SQL default-data target and attaches
+        it only after guest-side hash verification.
+
     Get-SqlServerLabDatabaseMigrationDependency
         Inventories SQL-observable migration dependencies directly or through
         a run and instance binding as sanitized read-only counts.

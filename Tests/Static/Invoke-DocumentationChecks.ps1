@@ -892,9 +892,11 @@ Add-ValidationResult `
     -Success ($persistentStorageBacklog -match '(?m)^\| `PSR-011` .*\| `IMPLEMENTED_PARTIAL`:' -and
         $persistentStorageBacklog -match '`DatabasePackageId`' -and
         $persistentStorageBacklog -match '`-VerifyIntegrity`' -and
-        $knownLimitations -match 'CLI und\s*Browser inventarisieren Pakete inzwischen pfadfrei' -and
-        $knownLimitations -match 'Browser-Attach bleibt gesperrt' -and
-        $repoMap -match 'database_package_inventory: Public/Get-SqlServerLabDatabasePackage\.ps1')
+        $knownLimitations -match 'CLI-/Browser-Attach unterstützt Hyper-V-Ziele per stabiler Run-/Instanz-ID' -and
+        $knownLimitations -match 'Ein freier Zielpfad ist nicht Teil des Vertrags' -and
+        $repoMap -match 'database_package_inventory: Public/Get-SqlServerLabDatabasePackage\.ps1' -and
+        $repoMap -match 'database_package_attach: Public/Invoke-SqlServerLabDatabasePackageAttach\.ps1' -and
+        $repoMap -match 'database_package_hyperv_attach: Providers/HyperV/HyperVDatabasePackage\.ps1')
 
 Add-ValidationResult `
     -Name 'PSR-004 führt Retain und Backup-on-Remove journalisiert aus und blockiert übrige Policies' `

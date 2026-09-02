@@ -5,6 +5,7 @@ const jobLineCache = {};
 let uiConfig = { jobLogBurstLimit: 300 };
 let workflowRefreshTimer = null;
 let pendingPersistentStorageRemoval = null;
+let pendingDatabasePackageAttach = null;
 
 const $ = (selector) => document.querySelector(selector);
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
@@ -275,6 +276,23 @@ function renderDatabasePackageOptions(items) {
   updateDatabasePackageDetails(packages);
 }
 
+function databasePackageAttachTargets(items = workflow?.HyperVLabs || []) {
+  return (Array.isArray(items) ? items : []).filter((item) =>
+    item.State === 'RUNNING' && item.VMState === 'Running' && item.Workload !== 'windows');
+}
+
+function renderDatabasePackageTargetOptions(items) {
+  const select = $('#database-package-target');
+  const previous = select.value;
+  const targets = databasePackageAttachTargets(items);
+  select.innerHTML = '<option value="">Hyper-V-SQL-Ziel auswählen …</option>' + targets.map((item) =>
+    '<option value="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(item.InstanceId || 'primary') + '">' +
+    escapeHtml((item.Name || shortId(item.RunId)) + ' · SQL ' + (item.SqlVersion || '–')) + '</option>'
+  ).join('');
+  if (targets.some((item) => item.RunId === previous)) select.value = previous;
+  updateDatabasePackageDetails();
+}
+
 function renderHyperVPersistentDataOptions(items) {
   const select = $('#hyperv-persistent-data-source');
   const previous = select.value;
@@ -308,7 +326,10 @@ function updateHyperVPersistentDataDetails(items = workflow?.HyperVPersistentDat
 
 function updateDatabasePackageDetails(items = workflow?.DatabasePackageLibrary || []) {
   const selected = (items || []).find((item) => item.DatabasePackageId === $('#database-package-source').value);
+  const targetRun = databasePackageAttachTargets().find((item) => item.RunId === $('#database-package-target').value);
   const target = $('#database-package-details');
+  const attach = $('#database-package-attach');
+  attach.disabled = true;
   if (!selected) {
     target.textContent = 'Die Auswahl erfolgt ausschließlich über die stabile DatabasePackageId; Hostpfade und Hashes werden nicht an den Browser übertragen.';
     return;
@@ -318,7 +339,13 @@ function updateDatabasePackageDetails(items = workflow?.DatabasePackageLibrary |
   const migrationWarnings = Array.isArray(selected.MigrationWarnings) ? selected.MigrationWarnings : [];
   const dependencySummary = dependencyCategories.length ? dependencyCategories.join(', ') : 'keine erkannten oder veröffentlichten Kategorien';
   const warningSummary = migrationWarnings.length ? migrationWarnings.join(', ') : 'keine';
-  target.innerHTML = '<strong>' + escapeHtml(selected.DatabaseName) + '</strong><span>' + escapeHtml(selected.SourceProvider + ' · SQL ' + selected.SourceSqlMajorVersion + ' · ' + capabilities.join(' · ')) + '</span><span>' + escapeHtml(selected.DatabaseFileCount + ' Datenbankdatei(en) · ' + selected.ObjectCount + ' gehashte(s) Objekt(e) · ' + selected.MigrationBoundary) + '</span><span>Migrationsinventar: ' + escapeHtml(selected.DependencyInventoryStatus) + '</span><span>Getrennt zu behandeln: ' + escapeHtml(dependencySummary) + '</span><span>Hinweise: ' + escapeHtml(warningSummary) + '</span><code>DatabasePackageId: ' + escapeHtml(selected.DatabasePackageId) + '</code><span>Attach gesperrt: ' + escapeHtml(selected.AttachReason) + '</span>';
+  const targetSummary = targetRun
+    ? 'Ziel: ' + (targetRun.Name || shortId(targetRun.RunId)) + ' · SQL ' + (targetRun.SqlVersion || '–') + ' · Zielpfad wird live aus SQL Default Data gebunden'
+    : 'Attach gesperrt: laufenden Hyper-V-SQL-Run auswählen';
+  const packageReady = selected.Availability === 'SELECTABLE' && !selected.IsEncrypted;
+  attach.disabled = !(packageReady && targetRun);
+  const packageBlocker = selected.IsEncrypted ? '<span>Attach gesperrt: TDE-Ziel-Key-Vertrag fehlt</span>' : '';
+  target.innerHTML = '<strong>' + escapeHtml(selected.DatabaseName) + '</strong><span>' + escapeHtml(selected.SourceProvider + ' · SQL ' + selected.SourceSqlMajorVersion + ' · ' + capabilities.join(' · ')) + '</span><span>' + escapeHtml(selected.DatabaseFileCount + ' Datenbankdatei(en) · ' + selected.ObjectCount + ' gehashte(s) Objekt(e) · ' + selected.MigrationBoundary) + '</span><span>Migrationsinventar: ' + escapeHtml(selected.DependencyInventoryStatus) + '</span><span>Getrennt zu behandeln: ' + escapeHtml(dependencySummary) + '</span><span>Hinweise: ' + escapeHtml(warningSummary) + '</span><code>DatabasePackageId: ' + escapeHtml(selected.DatabasePackageId) + '</code><span>' + escapeHtml(targetSummary) + '</span>' + packageBlocker;
 }
 
 function renderSqlInstallationMedia(items) {
@@ -456,6 +483,7 @@ function renderWorkflow(data) {
   renderAcceptance(data.AcceptanceEnvironments);
   renderActiveLabs(data.ActiveLabs);
   renderHyperVLabs(data.HyperVLabs || []);
+  renderDatabasePackageTargetOptions(data.HyperVLabs || []);
   renderHyperVArtifactOptions(data.SqlPreparedImages || [], data.WindowsBaselines || []);
   renderSqlParentOptions(data.WindowsBaselines || []);
   renderHyperVSwitchOptions(data.HyperVSwitches || []);
@@ -1089,6 +1117,27 @@ document.addEventListener('click', async (event) => {
     try { await startAction(hypervAction.dataset.hypervAction, { BuildId: hypervAction.dataset.run }); } catch (error) { showError(error); }
     return;
   }
+  const databasePackageAttach = event.target.closest('#database-package-attach');
+  if (databasePackageAttach) {
+    const packageId = $('#database-package-source').value;
+    const targetSelect = $('#database-package-target');
+    const targetRunId = targetSelect.value;
+    const targetOption = targetSelect.selectedOptions[0];
+    if (!packageId || !targetRunId) { showError(new Error('Bitte Paket und laufendes Hyper-V-SQL-Ziel auswählen.')); return; }
+    pendingDatabasePackageAttach = {
+      DatabasePackageId: packageId,
+      InstanceId: targetOption?.dataset.instance || 'primary',
+      DataRoot: workflow?.Defaults?.DataRoot || ''
+    };
+    $('#credential-action').value = 'AttachHyperVDatabasePackage';
+    $('#credential-build').value = targetRunId;
+    $('#credential-sa-password-label').hidden = true;
+    $('#credential-sa-password').value = '';
+    $('#credential-title').textContent = 'Datenbankpaket sicher attachen';
+    $('#credential-note').textContent = 'Das Gast-Administratorpasswort wird einmalig für PowerShell Direct benötigt. Das Paket wird vollständig verifiziert, in das live gebundene SQL-Default-Data-Ziel kopiert, dort erneut gehasht und erst danach attached. Kein freier Pfad und kein Passwort werden gespeichert.';
+    $('#credential-dialog').showModal();
+    return;
+  }
   const operation = event.target.closest('[data-container-operation]');
   if (operation) {
     openContainerOperation(operation.dataset.containerOperation, operation.dataset.run, operation.dataset.port, operation.dataset.instance, operation.dataset.sqlVersion, operation.dataset.containerOperationKind, operation.dataset.containerOperationHost);
@@ -1266,10 +1315,16 @@ $('#credential-form').addEventListener('submit', async (event) => {
     return;
   }
   const parameters = { BuildId: $('#credential-build').value, GuestUserName: $('#guest-user').value, GuestPassword: password };
+  if ($('#credential-action').value === 'AttachHyperVDatabasePackage' && pendingDatabasePackageAttach) {
+    parameters.DatabasePackageId = pendingDatabasePackageAttach.DatabasePackageId;
+    parameters.InstanceId = pendingDatabasePackageAttach.InstanceId;
+    if (pendingDatabasePackageAttach.DataRoot) parameters.DataRoot = pendingDatabasePackageAttach.DataRoot;
+  }
   if (saPassword) parameters.SaPassword = saPassword;
   queueBackgroundAction($('#credential-action').value, parameters, $('#credential-dialog'), () => {
     $('#guest-password').value = '';
     $('#credential-sa-password').value = '';
+    pendingDatabasePackageAttach = null;
   });
 });
 
@@ -1562,6 +1617,7 @@ $('#container-operation-form').addEventListener('submit', async (event) => {
 $('#container-sample').addEventListener('change', updateContainerSampleSelection);
 $('#container-library-backup').addEventListener('change', updateContainerLibraryBackupSelection);
 $('#database-package-source').addEventListener('change', () => updateDatabasePackageDetails());
+$('#database-package-target').addEventListener('change', () => updateDatabasePackageDetails());
 $('#hyperv-persistent-data-source').addEventListener('change', () => updateHyperVPersistentDataDetails());
 
 $('#persistent-storage-removal-form').addEventListener('submit', async (event) => {

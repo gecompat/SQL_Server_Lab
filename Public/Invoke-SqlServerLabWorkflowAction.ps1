@@ -83,6 +83,9 @@ lokale Datei geprüft.
 .PARAMETER BackupSetId
     Stabile ID eines verifizierten Backups aus der konfigurierten Lab_Data-
     Bibliothek. Der Workflow übergibt keinen lokalen Backup-Pfad an die UI.
+.PARAMETER DatabasePackageId
+    Stabile ID eines vollständig zu verifizierenden Datenbankpakets. Ein
+    Hyper-V-Attach leitet das Gastziel ausschließlich aus dem Ziel-Run ab.
 .PARAMETER SampleId
     Katalog-ID einer ausgewählten Testdatenbank für einen Container-Run.
 .PARAMETER SampleVariant
@@ -170,7 +173,7 @@ function Invoke-SqlServerLabWorkflowAction {
             'NewContainerLab', 'CreateContainerManifest', 'NewContainerLabFromManifest', 'RenameLab', 'SetLabResources', 'StartContainerLab', 'StopContainerLab', 'StartLabReconcile', 'StopLabReconcile', 'RestartContainerLab', 'RemoveContainerLab', 'ClearAllLabs',
             'ExecutePersistentStorageRemoval',
             'CreateContainerDatabase', 'RestoreContainerLibraryBackup', 'InstallContainerSampleDatabase', 'InstallContainerSampleDatabases', 'ExecuteContainerScript',
-            'NewHyperVLab', 'NewHyperVLabFromExistingVm', 'StartHyperVLab', 'StopHyperVLab', 'EnableHyperVLabPersistentData', 'InitializeHyperVLabPersistentData', 'CompleteHyperVLabSql', 'EnableHyperVLabHostSqlAccess', 'InspectHyperVLabSqlInstances', 'OpenHyperVConsole', 'RemoveHyperVLab',
+            'NewHyperVLab', 'NewHyperVLabFromExistingVm', 'StartHyperVLab', 'StopHyperVLab', 'EnableHyperVLabPersistentData', 'InitializeHyperVLabPersistentData', 'CompleteHyperVLabSql', 'EnableHyperVLabHostSqlAccess', 'InspectHyperVLabSqlInstances', 'AttachHyperVDatabasePackage', 'OpenHyperVConsole', 'RemoveHyperVLab',
             'NewWindowsBuild', 'SetWindowsMediaHash', 'OpenWindowsConsole', 'ConfirmWindowsInstall', 'GeneralizeWindowsBuild', 'PublishWindowsBuild',
             'NewSqlBuild', 'NewSqlBuildFromBaseline', 'SetSqlMediaHash', 'OpenSqlConsole', 'ConfirmSqlWindowsInstall', 'PrepareSqlImage', 'ResumeSqlImage', 'PublishSqlImage',
             'RunSqlAcceptanceSetup', 'RunSqlAcceptanceTests',
@@ -211,6 +214,7 @@ function Invoke-SqlServerLabWorkflowAction {
         [int]$Port,
         [string]$DatabaseName,
         [ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$BackupSetId,
+        [ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$DatabasePackageId,
         [string]$SampleId,
         [string]$SampleVariant,
         [string[]]$SampleSelections,
@@ -288,7 +292,7 @@ function Invoke-SqlServerLabWorkflowAction {
     }
 
     $credential = $null
-    $credentialRequired = $Action -in @('ConfirmWindowsInstall', 'ConfirmSqlWindowsInstall', 'PrepareSqlImage', 'CompleteHyperVLabSql', 'EnableHyperVLabHostSqlAccess', 'InspectHyperVLabSqlInstances', 'InitializeHyperVLabPersistentData')
+    $credentialRequired = $Action -in @('ConfirmWindowsInstall', 'ConfirmSqlWindowsInstall', 'PrepareSqlImage', 'CompleteHyperVLabSql', 'EnableHyperVLabHostSqlAccess', 'InspectHyperVLabSqlInstances', 'InitializeHyperVLabPersistentData', 'AttachHyperVDatabasePackage')
     if ($Action -eq 'GeneralizeWindowsBuild') {
         $existingWindowsBuild = Get-HyperVImageBuildPlan -BuildId $BuildId
         $credentialRequired = $existingWindowsBuild -and [string]$existingWindowsBuild.state -eq 'MANUAL_ACTION_REQUIRED'
@@ -324,6 +328,10 @@ function Invoke-SqlServerLabWorkflowAction {
     if ($Action -eq 'ExecutePersistentStorageRemoval' -and ([string]::IsNullOrWhiteSpace($BuildId) -or @($PersistentStorageSelection).Count -eq 0)) {
         throw 'PERSISTENT_STORAGE_REMOVAL_WORKFLOW_SELECTION_REQUIRED'
     }
+    if ($Action -eq 'AttachHyperVDatabasePackage' -and
+        ([string]::IsNullOrWhiteSpace($BuildId) -or [string]::IsNullOrWhiteSpace($DatabasePackageId))) {
+        throw 'DATABASE_PACKAGE_HYPERV_WORKFLOW_TARGET_REQUIRED'
+    }
 
     if (($PersistentData -and $Action -in @('NewHyperVLab', 'NewHyperVLabFromExistingVm')) -or $Action -eq 'EnableHyperVLabPersistentData') {
         if (-not $DataRoot) { $DataRoot = Get-LabDataRootDefault }
@@ -350,6 +358,7 @@ function Invoke-SqlServerLabWorkflowAction {
         'EnableHyperVLabPersistentData' { 'Eine langlebige Daten-VHDX wird für die ausgeschaltete Lab-VM vorbereitet.' }
         'InitializeHyperVLabPersistentData' { 'Der langlebige Daten-VHDX wird einmalig im laufenden Gast initialisiert.' }
         'InspectHyperVLabSqlInstances' { 'SQL-Instanzen, Dienste und TCP-Ports werden ausschließlich lesend in der laufenden Lab-VM geprüft.' }
+        'AttachHyperVDatabasePackage' { 'Paket und gebundenes SQL-Ziel werden vollständig geprüft; danach folgen Gastkopie, Hashprüfung, Attach und Online-Postcondition.' }
         'SetLabResources' { 'CPU- und Speicherwerte werden am echten Runtime-Objekt geprüft und anschließend aktualisiert.' }
         'ConfirmSqlWindowsInstall' { 'Die manuell installierte Windows-Edition wird geprüft; anschließend laufen SQL PrepareImage, Neustarts, Sysprep und Veröffentlichung automatisch.' }
         'PrepareSqlImage' { 'Der automatische Abschluss mit SQL PrepareImage, Neustarts, Sysprep und Veröffentlichung wird fortgesetzt.' }
@@ -422,6 +431,17 @@ function Invoke-SqlServerLabWorkflowAction {
         'CompleteHyperVLabSql' { Complete-HyperVLabSqlImage -RunId $BuildId -Credential $credential -SqlSaPassword $(if ($SaPassword) { $SaPassword } else { $GuestPassword }) }
         'EnableHyperVLabHostSqlAccess' { Enable-HyperVLabHostSqlAccess -RunId $BuildId -Credential $credential -SqlSaPassword $(if ($SaPassword) { $SaPassword } else { $GuestPassword }) -SwitchName $SwitchName }
         'InspectHyperVLabSqlInstances' { Inspect-HyperVLabSqlInstances -RunId $BuildId -Credential $credential }
+        'AttachHyperVDatabasePackage' {
+            $attachArguments = @{
+                DatabasePackageId = $DatabasePackageId
+                RunId = $BuildId
+                InstanceId = $InstanceId
+                GuestCredential = $credential
+                Confirm = $false
+            }
+            if ($DataRoot) { $attachArguments.DataRoot = $DataRoot }
+            Invoke-SqlServerLabDatabasePackageAttach @attachArguments
+        }
         'OpenHyperVConsole' { Open-HyperVLabEnvironmentConsole -RunId $BuildId }
         'RemoveHyperVLab' { Remove-SqlServerLab -RunId $BuildId -Force -Confirm:$false }
         'StartContainerLab' { Start-SqlServerLab -RunId $BuildId }

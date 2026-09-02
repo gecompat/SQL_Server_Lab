@@ -88,7 +88,11 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   `Sync-SqlServerLabPersistentStorageArtifact` revalidiert vorhandene Backup-
   Sets oder Datenbankpakete einzeln vollständig und synchronisiert sie nach
   mutationsfreiem Preview per stabiler Artefakt-ID idempotent in denselben
-  controllergebundenen Katalog; der
+  controllergebundenen Katalog; `Invoke-SqlServerLabDatabasePackageAttach`
+  bindet ein vollständig revalidiertes Paket pfadfrei per stabiler Paket-,
+  Run- und Instanz-ID an das live ermittelte SQL-Default-Data-Verzeichnis eines
+  scopegebundenen Hyper-V-Gasts, verifiziert die unabhängige Kopie dort und
+  persistiert Recovery vor der SQL-Mutation; der
   read-only Removal-Vertrag plant Retention, verifizierte Backup-/Package-
   Evidence, externe Bindungsfreigabe und Recovery-Gates und lässt endgültige
   Löschung persistenter Stores ausdrücklich außerhalb des Run-Cleanups; der
