@@ -54,6 +54,7 @@
         'Get-SqlServerLabPersistentStorageRemovalPlan'
         'Invoke-SqlServerLabPersistentStorageRemoval'
         'Get-SqlServerLabDatabasePackage'
+        'Get-SqlServerLabDatabaseMigrationDependency'
         'New-SqlServerLabDatabase'
         'Backup-SqlServerLabDatabase'
         'Invoke-SqlServerLabScript'

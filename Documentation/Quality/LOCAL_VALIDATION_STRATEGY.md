@@ -545,7 +545,8 @@ Zielbindung. Die Projektion führt keine neue SQL-Abfrage aus.
 Runtime-Mutation: Parser und Schema für read-only SQL-Counts, Server-Login-,
 Agent-Job-, Proxy-, Linked-Server- und TDE-Kategorien, die
 `NOT_OBSERVABLE`-Grenze für Serverkonfiguration/SSISDB/SSAS, das TDE-Recovery-
-Gate sowie sanitisierte `DATABASE_FILES_ONLY`-Receipts. Der bestehende
+Gate, den öffentlichen direkten und Run-/Instanz-gebundenen Aufruf sowie
+sanitisierte `DATABASE_FILES_ONLY`-Receipts. Der bestehende
 `Invoke-BackupLibraryCrossProviderAcceptance.ps1` führt die echte SQL-Abfrage
 bei der Docker-Backup-Erstellung aus; dies ist kein Windows-TDE-,
 Serverobjekt-Export- oder Hyper-V-FILESTREAM-Nachweis.

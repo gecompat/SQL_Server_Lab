@@ -958,7 +958,9 @@ Add-ValidationResult `
         $knownLimitations -match '(?s)Serverkonfiguration, SSISDB und SSAS.*?`NOT_OBSERVABLE`' -and
         $knownLimitations -match '(?s)Objekt-, Host-, Credential- und Schlüsselnamen.*?nicht\s*persistiert' -and
         $knownLimitations -match '(?s)Persistierte Migrationskategorien und Warnungen.*?`DatabasePackageId`.*?CLI und Browser.*?ohne SQL erneut' -and
+        $knownLimitations -match '`Get-SqlServerLabDatabaseMigrationDependency`' -and
         $repoMap -match 'database_migration_dependency_inventory: Private/DatabaseMigrationDependency\.ps1' -and
+        $repoMap -match 'database_migration_dependency_public_inventory: Public/Get-SqlServerLabDatabaseMigrationDependency\.ps1' -and
         $repoMap -match 'database_migration_dependency_inventory_schema: Schemas/database-migration-dependency-inventory\.schema\.json' -and
         $repoMap -match 'validation_database_migration_dependency: Tests/Static/Invoke-DatabaseMigrationDependencyChecks\.ps1' -and
         $repoMap -match 'public_sanitized_migration_boundary_projection')

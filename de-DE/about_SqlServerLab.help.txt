@@ -110,6 +110,10 @@ COMMANDS
         Listet Datenbankpakete pfadfrei per stabiler DatabasePackageId und
         verifiziert optional alle unveraenderlichen Paketobjekte.
 
+    Get-SqlServerLabDatabaseMigrationDependency
+        Inventarisiert SQL-seitig beobachtbare Migrationsabhaengigkeiten direkt
+        oder per Run-/Instanzbindung read-only als sanitisierte Counts.
+
     Get-SqlServerLabConnectionCenter
         Liefert den passwortfreien SQL-Endpunktkatalog für SSMS und CMS.
 
