@@ -48,7 +48,7 @@ jobs:
           "changed_paths=$encoded" | Out-File -LiteralPath $env:GITHUB_OUTPUT -Encoding utf8 -Append
           $foundationRequired = @(
             $paths | Where-Object {
-              $_ -match '^(?:AGENTS\.md|\.ai/foundation/|\.github/copilot-instructions\.md|\.github/workflows/static-contracts\.yml)$'
+              $_ -match '^(?:AGENTS\.md|\.ai/foundation/|\.ai/foundation-upgrade-assessments/|\.github/copilot-instructions\.md|\.github/workflows/static-contracts\.yml)$'
             }
           ).Count -gt 0
           "foundation=$($foundationRequired.ToString().ToLowerInvariant())" | Out-File -LiteralPath $env:GITHUB_OUTPUT -Encoding utf8 -Append

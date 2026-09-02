@@ -41,6 +41,14 @@ in `.ai/IDENTITY_AND_ARTIFACT_REGISTRATION.md` und wird unter
 nicht versionierte Betriebsdaten; ohne Runtime-Änderung ist kein Provider-Smoke
 durch diese Governance-Integration betroffen.
 
+Historische Foundation-Upgrades werden unter
+`.ai/foundation-upgrade-assessments/` als getrennte, schema-validierte
+Assessment-Datensätze nachgewiesen. Der Projektcheck bindet jeden Datensatz an
+installierte Version, Zielversion und exakten Foundation-Quellref und vergleicht
+die vollständige Kandidatenmenge samt Delta-Gründen, Klassifikation,
+Repository-Evidence, Begründung und ausgewählten Capabilities. Eine bloße
+Statusliste in der Repo-Map genügt nicht als Upgrade-Nachweis.
+
 Der Foundation-Validator behandelt bei verwaltetem UTF-8-Text ausschließlich
 LF-/CRLF-Unterschiede als äquivalent. Andere Inhalts-, Final-Newline-, Lone-CR-
 oder Binärunterschiede bleiben echte Drift. Die Projektkonfiguration für
@@ -810,7 +818,8 @@ Lokale Produktfunktion und Native-Tests dürfen nicht von GitHub-hosted Runnern 
 Der Workflow `PR Gate` klassifiziert geänderte Pfade, führt auf Windows und
 Ubuntu nur betroffene statische Suites aus und schaltet ausschließlich passende
 Runtime-Smokes zu. Änderungen am Foundation-Core, Root-Agentenvertrag,
-Copilot-Adapter oder PR-Gate starten zusätzlich den Job `Foundation integrity`.
+Upgrade-Assessment, Copilot-Adapter oder PR-Gate starten zusätzlich den Job
+`Foundation integrity`.
 Dieser checkt den in `.ai/repo_map.yaml` gebundenen Foundation-Quellcommit aus
 und führt den Foundation-Validator mit den projektspezifisch ausgewählten
 Adaptern und Capabilities aus. Sein Ergebnis fließt in den geschützten
