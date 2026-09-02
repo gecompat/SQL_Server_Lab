@@ -275,6 +275,37 @@ function renderDatabasePackageOptions(items) {
   updateDatabasePackageDetails(packages);
 }
 
+function renderHyperVPersistentDataOptions(items) {
+  const select = $('#hyperv-persistent-data-source');
+  const previous = select.value;
+  const candidates = Array.isArray(items) ? items : [];
+  select.innerHTML = '<option value="">Keine Daten-VHDX katalogisiert</option>' + candidates.map((item) =>
+    '<option value="' + escapeHtml(item.PersistentStorageId) + '">' + escapeHtml(item.DisplayName || shortId(item.PersistentStorageId)) + ' · ' + escapeHtml(item.State || 'UNKNOWN') + '</option>'
+  ).join('');
+  if (candidates.some((item) => item.PersistentStorageId === previous)) select.value = previous;
+  $('#hyperv-persistent-data-count').textContent = candidates.length + ' VHDX';
+  updateHyperVPersistentDataDetails(candidates);
+}
+
+function updateHyperVPersistentDataDetails(items = workflow?.HyperVPersistentDataCandidates || []) {
+  const selected = (items || []).find((item) => item.PersistentStorageId === $('#hyperv-persistent-data-source').value);
+  const target = $('#hyperv-persistent-data-details');
+  if (!selected) {
+    target.textContent = 'Die Auswahl erfolgt ausschließlich über die stabile PersistentStorageId; Hostpfad und DiskIdentifier werden nicht an den Browser übertragen.';
+    return;
+  }
+  const lifecycle = Array.isArray(selected.LifecycleActions) && selected.LifecycleActions.length ? selected.LifecycleActions.join(', ') : 'keine';
+  const blockers = Array.isArray(selected.Issues) && selected.Issues.length ? selected.Issues.join(', ') : 'keine';
+  const attachment = selected.AttachmentState === 'ATTACHED' && selected.AttachedVMName
+    ? selected.AttachmentState + ' · VM ' + selected.AttachedVMName
+    : (selected.AttachmentState || 'UNKNOWN');
+  target.innerHTML = '<strong>' + escapeHtml(selected.DisplayName || shortId(selected.PersistentStorageId)) + '</strong>' +
+    '<span>Katalog: ' + escapeHtml(selected.State || 'UNKNOWN') + ' · Runtime: ' + escapeHtml(attachment) + '</span>' +
+    '<span>Lifecycle: ' + escapeHtml(lifecycle) + ' · derzeit gesperrt: ' + escapeHtml(blockers) + '</span>' +
+    '<span>Datenbanken online: nein · Folgeaktion: explizites Restore oder Attach</span>' +
+    '<code>PersistentStorageId: ' + escapeHtml(selected.PersistentStorageId) + '</code>';
+}
+
 function updateDatabasePackageDetails(items = workflow?.DatabasePackageLibrary || []) {
   const selected = (items || []).find((item) => item.DatabasePackageId === $('#database-package-source').value);
   const target = $('#database-package-details');
@@ -431,6 +462,7 @@ function renderWorkflow(data) {
   renderHyperVExistingVmSourceOptions(data.HyperVExistingVmSources || []);
   renderMediaSources(data.MediaSources || []);
   renderDatabasePackageOptions(data.DatabasePackageLibrary || []);
+  renderHyperVPersistentDataOptions(data.HyperVPersistentDataCandidates || []);
   renderSqlInstallationMedia(data.SqlInstallationMedia);
   const sqlFreshBuildDialogOpen = $('#build-dialog')?.open && $('#build-type')?.value === 'sql-fresh';
   renderWindowsInstallationMedia(data.WindowsInstallationMedia, sqlFreshBuildDialogOpen);
@@ -1529,6 +1561,7 @@ $('#container-operation-form').addEventListener('submit', async (event) => {
 $('#container-sample').addEventListener('change', updateContainerSampleSelection);
 $('#container-library-backup').addEventListener('change', updateContainerLibraryBackupSelection);
 $('#database-package-source').addEventListener('change', () => updateDatabasePackageDetails());
+$('#hyperv-persistent-data-source').addEventListener('change', () => updateHyperVPersistentDataDetails());
 
 $('#persistent-storage-removal-form').addEventListener('submit', async (event) => {
   if (event.submitter?.value === 'cancel') return;

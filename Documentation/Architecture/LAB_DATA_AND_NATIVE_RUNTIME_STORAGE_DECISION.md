@@ -167,8 +167,11 @@ Mutation mit dem Residency-Inventar ab. Folgende Arbeit bleibt getrennt:
   Attachments, Checkpoints, Clean-Detach-, SQL-Versions- und Gastpfad-Evidenz.
   Ein isolierter nativer Lauf bestätigt quellenunveränderten eigenständigen
   Clone, Reattach und Release gegen operationsgebundene Leases und atomare,
-  idempotente Katalogcommits. Öffentliche Bedienung und die ausdrücklich
-  nachgelagerte Datenbank-Restore-/Attach-Aktion bleiben offen;
+  idempotente Katalogcommits. CLI und Browser inventarisieren die VHDX inzwischen
+  pfadfrei über dieselbe stabile Storage-ID samt frischem Runtime-Status;
+  Mutationen bleiben bis zur belastbaren öffentlichen Clean-Detach-/Ziel-
+  Evidence gesperrt, ebenso die ausdrücklich nachgelagerte Datenbank-Restore-/
+  Attach-Aktion;
 - `PSR-008`/`PSR-009`: Backup-Bibliothek und kontrollierte Datenbankpakete.
 
 `SqlServerLab.StorageResidencyInventory/1.0` darf deshalb weiterhin `PARTIAL`
