@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "installed_version": "1.4.0",
+  "source_version": "1.7.0",
+  "source_ref": "d49f978f33001fcc098998ff7c04ffb209b28033",
+  "assessments": [
+    {
+      "feature_id": "artifact-registration",
+      "candidate_reasons": [
+        "material_change:1.6.0"
+      ],
+      "classification": "ALREADY_EQUIVALENT",
+      "evidence": [
+        ".ai/IDENTITY_AND_ARTIFACT_REGISTRATION.md",
+        ".ai/repo_map.yaml#foundation_integration.registration_authorities"
+      ],
+      "rationale": "Die bestehenden projekt- und runtime-spezifischen Registration Authorities vergeben und persistieren ihre Identitaeten bereits ueber dieselben produktiven Pfade fuer Menschen und KI. Die Integration bewahrt diese Authorities und fuehrt keine konkurrierende Foundation-Authority ein.",
+      "recommendation": "Die vorhandenen Registration Authorities und den PRESERVE-Modus beibehalten.",
+      "decision_required": null,
+      "selected_capabilities": []
+    },
+    {
+      "feature_id": "central-artifact-registry",
+      "candidate_reasons": [
+        "introduced_in:1.6.0"
+      ],
+      "classification": "NOT_APPLICABLE",
+      "evidence": [
+        ".ai/IDENTITY_AND_ARTIFACT_REGISTRATION.md#Central registry applicability",
+        ".ai/repo_map.yaml#foundation_integration.identity_adoption_mode"
+      ],
+      "rationale": "SQL_Server_Lab besitzt keine repository-native JSON Registration Authority fuer finale menschliche Referenzen. Die lokalen Runtime-Registries bleiben nicht versionierte Betriebsdaten ausserhalb des Repositorys und duerfen nicht durch eine zentrale Foundation-Registry ersetzt werden.",
+      "recommendation": "Die optionale artifact-registry-github Capability nicht auswaehlen, solange keine getrennte Projektentscheidung Scope, Migration, Nebenlaeufigkeit und Recovery festlegt.",
+      "decision_required": null,
+      "selected_capabilities": []
+    },
+    {
+      "feature_id": "layered-validation",
+      "candidate_reasons": [
+        "material_change:1.7.0"
+      ],
+      "classification": "APPLY_DEFAULT",
+      "evidence": [
+        "Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md#Validierungsscope der AI Repository Foundation",
+        "Tests/Static/Invoke-DocumentationChecks.ps1"
+      ],
+      "rationale": "Das Projekt trennt FOUNDATION_INTEGRITY, PROJECT_SEMANTIC und RUNTIME_EMPIRICAL und weist nur tatsaechlich ausgefuehrte Nachweise als bestanden aus. Die Foundation-Vorgabe ergaenzt damit die vorhandene impact-basierte Projektvalidierung ohne Runtime-Evidence zu erfinden.",
+      "recommendation": "Die dreistufige Validierungszuordnung als Projektstandard anwenden.",
+      "decision_required": null,
+      "selected_capabilities": []
+    },
+    {
+      "feature_id": "repository-continuity-break-glass",
+      "candidate_reasons": [
+        "introduced_in:1.7.0"
+      ],
+      "classification": "RECOMMENDED",
+      "evidence": [
+        "Documentation/Quality/REPOSITORY_CONTINUITY_RUNBOOK.md",
+        ".ai/repo_map.yaml#foundation_integration.repository_continuity"
+      ],
+      "rationale": "Das Projekt benoetigt einen eng begrenzten Continuity-Pfad fuer nachgewiesene Infrastrukturunverfuegbarkeit. Core-Schutz, Pull-Request-Pflicht und fail-closed Behandlung von VALIDATION_FAILURE oder UNKNOWN bleiben dabei unveraendert.",
+      "recommendation": "Den dokumentierten PR-only Break-Glass-Pfad mit unveraenderlichem Core-Schutz und verpflichtender Nachholvalidierung verwenden.",
+      "decision_required": "Am 2026-08-27 als IMPLEMENTED entschieden; Authority ist Documentation/Quality/REPOSITORY_CONTINUITY_RUNBOOK.md.",
+      "selected_capabilities": []
+    },
+    {
+      "feature_id": "semantic-integration",
+      "candidate_reasons": [
+        "material_change:1.5.0"
+      ],
+      "classification": "APPLY_DEFAULT",
+      "evidence": [
+        "AGENTS.md#AI Repository Foundation",
+        ".ai/repo_map.yaml#foundation_integration.semantic_classification"
+      ],
+      "rationale": "Der Root-Agentenvertrag dient als duenne Discovery-Bruecke; die Projekt-Repo-Map klassifiziert aequivalente, staerkere, auswaehlbare und komplementaere Regeln explizit. Projektspezifische SQL-Server- und Providervertraege bleiben erhalten.",
+      "recommendation": "Die Foundation semantisch integrieren und projektspezifisch staerkere Regeln bewahren.",
+      "decision_required": null,
+      "selected_capabilities": []
+    },
+    {
+      "feature_id": "semantic-upgrade-applicability",
+      "candidate_reasons": [
+        "introduced_in:1.5.0"
+      ],
+      "classification": "APPLY_DEFAULT",
+      "evidence": [
+        "Foundation source d49f978f33001fcc098998ff7c04ffb209b28033: tools/upgrade_applicability.py --installed 1.4.0 returned exactly these six candidates.",
+        ".ai/foundation-upgrade-assessments/1.4.0-to-1.7.0.json"
+      ],
+      "rationale": "Die Upgrade-Bewertung wird als schema-valides, versions- und quellrefgebundenes Artefakt gespeichert. Statische Projektchecks gleichen die vollstaendige Kandidatenmenge samt Gruenden und Klassifikationen ab, sodass kein Kandidat still ausgelassen werden kann.",
+      "recommendation": "Fuer jedes kuenftige Foundation-Upgrade einen eigenen unveraenderlichen Assessment-Datensatz erzeugen und gegen den exakten Quelldelta pruefen.",
+      "decision_required": null,
+      "selected_capabilities": []
+    }
+  ]
+}

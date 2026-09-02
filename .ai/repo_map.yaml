@@ -196,6 +196,7 @@ sources_of_truth:
   latest_validation_result: Documentation/Quality/VALIDATION_RESULT_2026-09-02.md
   test_environment_group_lifecycle_validation: Documentation/Quality/VALIDATION_RESULT_2026-08-29_TEST_ENVIRONMENT_GROUP_LIFECYCLE.md
   repository_continuity_runbook: Documentation/Quality/REPOSITORY_CONTINUITY_RUNBOOK.md
+  foundation_upgrade_assessment: .ai/foundation-upgrade-assessments/1.4.0-to-1.7.0.json
 
 foundation_integration:
   source_repository: gecompat/AI_Repository_Foundation
@@ -235,16 +236,10 @@ foundation_integration:
     final_human_reference_scope: not_currently_allocated_authority_required_before_use
   selected_capabilities: []
   upgrade_assessment:
-    installed_version: "1.4.0"
-    source_version: "1.7.0"
+    current_record: .ai/foundation-upgrade-assessments/1.4.0-to-1.7.0.json
+    records:
+      - .ai/foundation-upgrade-assessments/1.4.0-to-1.7.0.json
     assessed_on: "2026-08-27"
-    candidates:
-      artifact-registration: ALREADY_EQUIVALENT
-      central-artifact-registry: NOT_APPLICABLE
-      layered-validation: APPLY_DEFAULT
-      repository-continuity-break-glass: RECOMMENDED
-      semantic-integration: APPLY_DEFAULT
-      semantic-upgrade-applicability: APPLY_DEFAULT
     open_recommendations: []
     resolved_recommendations:
       repository-continuity-break-glass:
