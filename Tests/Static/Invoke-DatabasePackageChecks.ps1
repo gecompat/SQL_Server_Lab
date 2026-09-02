@@ -67,6 +67,45 @@ try {
         $attached=Invoke-LabDatabasePackageAttachPlan -Plan $attachPlan -Package $package -OperationDirectory (Join-Path $WorkRoot 'attach-operation') -Confirm:$false -AttachAction {
             param($DatabaseName,$Files)$attachCalls.Add([PSCustomObject]@{DatabaseName=$DatabaseName;Files=@($Files)})
         } -VerifyAction { param($DatabaseName,$Files)[PSCustomObject]@{DatabaseState='ONLINE';AttachmentCount=1;PathsMatch=@($Files|Where-Object{-not(Test-Path -LiteralPath $_.Path)}).Count -eq 0} }
+        $publicTargetRoot=Join-Path $WorkRoot 'public-hyperv-target'
+        $publicOperationRoot=Join-Path $WorkRoot 'public-hyperv-operation'
+        $fakeContext=[PSCustomObject]@{
+            Lab=[PSCustomObject]@{Run=[PSCustomObject]@{runId='synthetic-target-run';scopeId='synthetic-target-scope'};Instance=[PSCustomObject]@{id='primary';vmName='synthetic-target-vm'}}
+            TargetDirectory=$publicTargetRoot
+            OperationDirectory=$publicOperationRoot
+            TargetEvidence=[PSCustomObject]@{SqlMajorVersion=17;FileStreamEnabled=$true;TdeKeyAvailable=$false;DatabaseExists=$false;ExclusiveUseAvailable=$true;PackageWriterCount=0;TargetDirectoryEmpty=$true}
+        }
+        $testSecret=[Security.SecureString]::new()
+        foreach($character in 'synthetic-only'.ToCharArray()){$testSecret.AppendChar($character)}
+        $testSecret.MakeReadOnly()
+        $credential=[PSCredential]::new('Administrator',$testSecret)
+        $originalContext=(Get-Command Get-LabHyperVDatabasePackageAttachContext -CommandType Function).ScriptBlock
+        $originalCopy=(Get-Command Copy-LabDatabasePackageToHyperVGuest -CommandType Function).ScriptBlock
+        $originalSqlAttach=(Get-Command Invoke-LabHyperVDatabasePackageSqlAttach -CommandType Function).ScriptBlock
+        $script:publicAttachCopyCalls=0;$script:publicAttachSqlCalls=0;$script:publicAttachJournalProtected=$false
+        try {
+            Set-Item Function:script:Get-LabHyperVDatabasePackageAttachContext -Value { return $fakeContext }.GetNewClosure()
+            Set-Item Function:script:Copy-LabDatabasePackageToHyperVGuest -Value {
+                param($Context,$Package,$Credential)
+                $script:publicAttachCopyCalls++
+                [PSCustomObject]@{Status='VERIFIED';TargetCopyVerified=$true}
+            }
+            Set-Item Function:script:Invoke-LabHyperVDatabasePackageSqlAttach -Value {
+                param($Context,$Package,$Credential)
+                $script:publicAttachSqlCalls++
+                $journal=Get-Content -LiteralPath (Join-Path $Context.OperationDirectory 'database-package-attach-journal.json') -Raw|ConvertFrom-Json
+                $script:publicAttachJournalProtected=[string]$journal.Status -eq 'ATTACHING' -and [bool]$journal.AttachInvoked -and [bool]$journal.TargetCopyVerified -and $journal.Recovery -eq 'DETACH_TARGET_COPY_AND_PRESERVE_PACKAGE'
+                [PSCustomObject]@{DatabaseState='ONLINE';AttachmentCount=1;PathsMatch=$true}
+            }
+            $publicPreview=Invoke-SqlServerLabDatabasePackageAttach -DatabasePackageId $created.DatabasePackageId -RunId 'synthetic-target-run' -InstanceId primary -GuestCredential $credential -DataRoot $Root -WhatIf
+            $previewDidNotExecute=$script:publicAttachCopyCalls -eq 0 -and $script:publicAttachSqlCalls -eq 0 -and -not(Test-Path -LiteralPath $publicOperationRoot)
+            $publicAttach=Invoke-SqlServerLabDatabasePackageAttach -DatabasePackageId $created.DatabasePackageId -RunId 'synthetic-target-run' -InstanceId primary -GuestCredential $credential -DataRoot $Root -Confirm:$false
+        }
+        finally {
+            Set-Item Function:script:Get-LabHyperVDatabasePackageAttachContext -Value $originalContext
+            Set-Item Function:script:Copy-LabDatabasePackageToHyperVGuest -Value $originalCopy
+            Set-Item Function:script:Invoke-LabHyperVDatabasePackageSqlAttach -Value $originalSqlAttach
+        }
         $badDetach=$false
         try { $null=New-LabDatabasePackage -DatabaseName BadDetach -Provider hyperv -SqlMajorVersion 17 -SourceEvidence ([PSCustomObject]@{DatabaseState='ONLINE';DetachState='UNKNOWN';AccessMode='MULTI_USER';WriterCount=1;StateObservedAfterLock=$false}) -DatabaseMetadata $metadata -FileInventory $inventory -DataRoot $Root } catch { $badDetach=$_.Exception.Message -match 'SOURCE_NOT_OFFLINE|CLEAN_DETACH_UNVERIFIED|SOURCE_NOT_EXCLUSIVE' }
         $tde=$false
@@ -91,7 +130,7 @@ try {
         [IO.File]::AppendAllText($objectPath,'tamper')
         $tamper=$false
         try{$null=Get-LabDatabasePackage -DatabasePackageId $created.DatabasePackageId -DataRoot $Root}catch{$tamper=$_.Exception.Message -match 'OBJECT_HASH_MISMATCH'}
-        [PSCustomObject]@{Created=$created;Package=$package;Selection=$selection;PublicSelection=$publicSelection;PublicSyncPreview=$publicSyncPreview;PublicSync=$publicSync;PublicSyncAgain=$publicSyncAgain;PreviewDidNotMutate=$previewHashBefore -eq $previewHashAfter;InitialPersistentCatalog=$initialPersistentCatalog;PersistentCatalog=$persistentCatalog;ResidencyInventory=$residencyInventory;SyncResult=$syncResult;Clone=$clone;Ready=$ready;Old=$old;NoStream=$noStream;Parallel=$parallel;Attached=$attached;AttachCalls=@($attachCalls);BadDetach=$badDetach;Tde=$tde;CatalogFailure=$catalogFailure;CatalogFailureQuarantined=$quarantined.Count -eq 1;QuarantineGuard=$quarantineGuard;CatalogFailureJournal=$catalogFailureJournal;Tamper=$tamper;CloneFiles=@(Get-ChildItem -LiteralPath $cloneRoot -File -Recurse)}
+        [PSCustomObject]@{Created=$created;Package=$package;Selection=$selection;PublicSelection=$publicSelection;PublicSyncPreview=$publicSyncPreview;PublicSync=$publicSync;PublicSyncAgain=$publicSyncAgain;PreviewDidNotMutate=$previewHashBefore -eq $previewHashAfter;InitialPersistentCatalog=$initialPersistentCatalog;PersistentCatalog=$persistentCatalog;ResidencyInventory=$residencyInventory;SyncResult=$syncResult;Clone=$clone;Ready=$ready;Old=$old;NoStream=$noStream;Parallel=$parallel;Attached=$attached;AttachCalls=@($attachCalls);PublicAttachPreview=$publicPreview;PublicAttachPreviewDidNotExecute=$previewDidNotExecute;PublicAttach=$publicAttach;PublicAttachCopyCalls=$script:publicAttachCopyCalls;PublicAttachSqlCalls=$script:publicAttachSqlCalls;PublicAttachJournalProtected=$script:publicAttachJournalProtected;BadDetach=$badDetach;Tde=$tde;CatalogFailure=$catalogFailure;CatalogFailureQuarantined=$quarantined.Count -eq 1;QuarantineGuard=$quarantineGuard;CatalogFailureJournal=$catalogFailureJournal;Tamper=$tamper;CloneFiles=@(Get-ChildItem -LiteralPath $cloneRoot -File -Recurse)}
     } $dataRoot $testRoot
 
     Add-CheckResult 'Offline-Paket enthält MDF, NDF, LDF und vollständigen FILESTREAM-Baum' ($result.Package.Record.DatabaseFiles.Count -eq 4 -and $result.Package.Record.Objects.Count -eq 5 -and @($result.Package.Record.DatabaseFiles|Where-Object Type -eq 'FILESTREAM').Count -eq 1)
@@ -136,6 +175,19 @@ try {
     Add-CheckResult 'Attach-Plan erzwingt COPY_THEN_ATTACH und verbietet direktes Paket-Attach' ($result.Ready.Status -eq 'READY' -and $result.Ready.Mode -eq 'COPY_THEN_ATTACH' -and -not $result.Ready.DirectPackageAttachAllowed)
     Add-CheckResult 'Attach-Plan weist Datenbankdateien statt vollständiger Instanzmigration aus' ($result.Ready.MigrationBoundary.ArtifactScope -eq 'DATABASE_FILES_ONLY' -and -not $result.Ready.MigrationBoundary.FullInstanceMigration -and 'SERVER_LOGIN_MAPPING' -in $result.Ready.MigrationBoundary.DependencyCategories)
     Add-CheckResult 'Attach-Executor kopiert vor Attach und journalisiert die Online-Postcondition' ($result.Attached.Status -eq 'ATTACHED' -and $result.AttachCalls.Count -eq 1 -and $result.AttachCalls[0].Files.Count -eq 4 -and (Get-Content -LiteralPath $result.Attached.JournalPath -Raw|ConvertFrom-Json).Status -eq 'COMPLETED')
+    Add-CheckResult 'Öffentlicher Hyper-V-Attach plant per stabiler ID und Ziel-Run ohne Mutation' (
+        $result.PublicAttachPreview.ContractVersion -eq 'SqlServerLab.DatabasePackageAttachResult/1.0' -and
+        $result.PublicAttachPreview.Status -eq 'PLANNED' -and $result.PublicAttachPreview.TargetBinding -eq 'RUN_SQL_DEFAULT_DATA' -and
+        $result.PublicAttachPreview.IntegrityValidation -eq 'VERIFIED' -and $result.PublicAttachPreviewDidNotExecute)
+    $publicAttachJson=$result.PublicAttach|ConvertTo-Json -Depth 30
+    Add-CheckResult 'Öffentlicher Hyper-V-Attach schützt die SQL-Mutation vorab und liefert nur sanitisierte Postconditions' (
+        $result.PublicAttach.Status -eq 'ATTACHED' -and $result.PublicAttach.TargetCopyVerified -and
+        $result.PublicAttach.AttachInvoked -and $result.PublicAttach.PostconditionVerified -and
+        $result.PublicAttachCopyCalls -eq 1 -and $result.PublicAttachSqlCalls -eq 1 -and $result.PublicAttachJournalProtected -and
+        $publicAttachJson -notmatch [regex]::Escape($testRoot) -and
+        $publicAttachJson -notmatch 'TargetDirectory|JournalPath|Sha256|Password|Credential')
+    Add-CheckResult 'Öffentlicher Hyper-V-Paket-Attach ist tatsächlich aus dem Modul exportiert' (
+        $null -ne (Get-Command Invoke-SqlServerLabDatabasePackageAttach -Module SqlServerLab -ErrorAction SilentlyContinue))
     Add-CheckResult 'Neuer-zu-älter-SQL-Attach endet fail-closed' ('TARGET_SQL_VERSION_OLDER_THAN_SOURCE' -in $result.Old.Blockers)
     Add-CheckResult 'Fehlende FILESTREAM-Capability endet fail-closed' ('TARGET_FILESTREAM_CAPABILITY_MISSING' -in $result.NoStream.Blockers)
     Add-CheckResult 'Parallele Read/Write-Nutzung endet fail-closed' ('TARGET_EXCLUSIVE_USE_UNVERIFIED' -in $result.Parallel.Blockers -and 'PACKAGE_PARALLEL_WRITER_OBSERVED' -in $result.Parallel.Blockers)

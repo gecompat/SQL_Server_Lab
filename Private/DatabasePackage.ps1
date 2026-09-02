@@ -345,7 +345,12 @@ function Get-LabDatabasePackageAttachPlan {
     if([bool]$TargetEvidence.DatabaseExists){$blockers.Add('TARGET_DATABASE_ALREADY_EXISTS')}
     if(-not [bool]$TargetEvidence.ExclusiveUseAvailable){$blockers.Add('TARGET_EXCLUSIVE_USE_UNVERIFIED')}
     if([int]$TargetEvidence.PackageWriterCount -ne 0){$blockers.Add('PACKAGE_PARALLEL_WRITER_OBSERVED')}
-    if(Test-Path -LiteralPath $TargetDirectory){if(@(Get-ChildItem -LiteralPath $TargetDirectory -Force).Count -gt 0){$blockers.Add('TARGET_DIRECTORY_NOT_EMPTY')}}
+    if($TargetEvidence.PSObject.Properties['TargetDirectoryEmpty']){
+        if(-not [bool]$TargetEvidence.TargetDirectoryEmpty){$blockers.Add('TARGET_DIRECTORY_NOT_EMPTY')}
+    }
+    elseif(Test-Path -LiteralPath $TargetDirectory){
+        if(@(Get-ChildItem -LiteralPath $TargetDirectory -Force).Count -gt 0){$blockers.Add('TARGET_DIRECTORY_NOT_EMPTY')}
+    }
     $migrationBoundary=if($record.DatabaseMetadata.PSObject.Properties['MigrationBoundary']){
         $record.DatabaseMetadata.MigrationBoundary
     }else{
@@ -424,8 +429,10 @@ function Invoke-LabDatabasePackageAttachPlan {
             $relative=if([bool]$file.IsDirectory){[string]$file.RelativeRoot}else{[string]$object.RelativePath}
             [PSCustomObject]@{LogicalName=[string]$file.LogicalName;Type=[string]$file.Type;Path=[IO.Path]::GetFullPath((Join-Path ([string]$Plan.TargetDirectory) $relative))}
         })
+        $journal.AttachInvoked=$true;$journal.Status='ATTACHING';$journal.Recovery='DETACH_TARGET_COPY_AND_PRESERVE_PACKAGE'
+        Write-LabDatabasePackageAttachJournal -Journal $journal -Path $journalPath
         $null=& $AttachAction ([string]$Plan.DatabaseName) $databaseFiles
-        $journal.AttachInvoked=$true;$journal.Status='VERIFYING';$journal.Recovery='DETACH_TARGET_COPY_AND_PRESERVE_PACKAGE'
+        $journal.Status='VERIFYING'
         Write-LabDatabasePackageAttachJournal -Journal $journal -Path $journalPath
         $post=& $VerifyAction ([string]$Plan.DatabaseName) $databaseFiles
         if([string]$post.DatabaseState -ne 'ONLINE' -or [int]$post.AttachmentCount -ne 1 -or -not [bool]$post.PathsMatch){throw 'DATABASE_PACKAGE_ATTACH_POSTCONDITION_FAILED'}

@@ -318,6 +318,29 @@ Run-State gelesen. Alternativ bleibt der direkte Modus mit `Port` und optional
 `Provider` sowie `ContainerName` verfügbar. Einen Parameter `BackupUrl` gibt es
 nicht; URLs werden über `BackupSource` angegeben.
 
+### Datenbankpaket an Hyper-V attachen
+
+Ein bereits katalogisiertes Datenbankpaket wird ausschließlich per stabiler ID
+an einen laufenden verwalteten Hyper-V-SQL-Run gebunden:
+
+```powershell
+$guestCredential = Get-Credential -UserName Administrator
+
+Invoke-SqlServerLabDatabasePackageAttach `
+    -DatabasePackageId '<database-package-id>' `
+    -RunId '<hyper-v-run-id>' `
+    -InstanceId 'primary' `
+    -GuestCredential $guestCredential `
+    -DataRoot 'D:\Lab_Data' `
+    -WhatIf
+```
+
+Nach Prüfung des Plans wird derselbe Aufruf ohne `-WhatIf` und bei Bedarf mit
+`-Confirm:$false` ausgeführt. Es gibt absichtlich keinen Zielpfadparameter:
+SQL-Version, FILESTREAM-Capability, Datenbankname und Default-Data-Ziel werden
+live im scopegebundenen Gast geprüft. TDE-Pakete bleiben ohne eigenen
+Ziel-Key-Vertrag blockiert.
+
 ## 11. Manifest-Modus
 
 ### Manifest interaktiv erstellen

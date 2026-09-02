@@ -134,9 +134,10 @@
     <section class="panel compact">
       <div class="section-heading"><div><p class="eyebrow">LAB_DATA</p><h2>Datenbankpakete</h2></div><span id="database-package-count" class="count"></span></div>
       <label>Unveränderliches Paket auswählen<select id="database-package-source"><option value="">Kein Paket katalogisiert</option></select></label>
+      <label>Gebundenes Hyper-V-SQL-Ziel<select id="database-package-target"><option value="">Kein laufendes SQL-Ziel verfügbar</option></select></label>
       <div id="database-package-details" class="selection-details" aria-live="polite">Die Auswahl erfolgt ausschließlich über die stabile DatabasePackageId; Hostpfade und Hashes werden nicht an den Browser übertragen.</div>
-      <div class="build-actions"><button id="database-package-attach" type="button" class="button secondary" disabled>Attach starten (Zielbindung fehlt)</button></div>
-      <p class="form-note">Die Inventur hasht große Objekte nicht bei jedem Refresh und zeigt nur sanitisierte Migrationskategorien und Warnungen. Vor einer späteren Mutation müssen Paket, Zielinstanz, SQL-Version, FILESTREAM/TDE und die providergebundene Zielpfadabbildung frisch revalidiert werden.</p>
+      <div class="build-actions"><button id="database-package-attach" type="button" class="button primary" disabled>Paketkopie prüfen und attachen</button></div>
+      <p class="form-note">Die Inventur hasht große Objekte nicht bei jedem Refresh und zeigt nur sanitisierte Migrationskategorien und Warnungen. Beim Attach werden Paket, scopegebundener Ziel-Run, SQL-Version, FILESTREAM/TDE und das live von SQL Server gemeldete Default-Data-Ziel frisch revalidiert; ein freier Pfad kann nicht eingegeben werden.</p>
     </section>
 
     <section class="panel log-panel">

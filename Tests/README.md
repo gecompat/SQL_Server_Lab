@@ -52,6 +52,8 @@ dokumentiert. Ihre ausfuehrbaren Einstiege sind:
 .\Tests\Integration\Invoke-HyperVSqlPortReconcileAcceptanceBootstrap.ps1
 .\Tests\Integration\Invoke-HyperVTestDatabaseReconcileAcceptance.ps1 `
     -ArtifactId 'hyperv-sql-prepared-sealed-<sha256>'
+.\Tests\Integration\Invoke-HyperVDatabasePackageAttachAcceptance.ps1 `
+    -RunId '<laufender-verwalteter-sql-2025-run>'
 .\Tests\Integration\Invoke-HyperVTestDatabaseReconcileAcceptanceBootstrap.ps1 `
     -MediaRoot D:\Lab_Base
 .\Tests\Integration\Invoke-HyperVStorageAcceptance.ps1 `
@@ -64,6 +66,14 @@ prozesslokalen temporären Root. Er belegt im selben isolierten Hyper-V-Lauf die
 Erzeugung, Hashprüfung, bevorzugte Wiederverwendung und abschließende
 eigentumsgebundene Entfernung einer `LAB_GENERATED`-Chinook-Baseline; globale
 Testdaten-Bibliotheken bleiben unverändert.
+
+Der Datenbankpaket-Attach-Runner verwendet ressourcenschonend einen expliziten
+laufenden, verwalteten SQL-2025-Run oder erzeugt ohne `-RunId` genau einen
+isolierten Prepared-Run. Er publiziert eine sauber detached MDF/NDF/LDF-
+Dateimenge in einem temporären `Lab_Data`-Root und prüft den öffentlichen
+pfadfreien WhatIf-/Attach-Pfad, PowerShell-Direct-Kopie, Gast-Hashes, Inhalt,
+Journal und scopegebundenen Cleanup. Der separate lokale Windows-SQL-Runner
+deckt den FILESTREAM-Dateibaum ab.
 
 Der SQL-Konfigurationsrunner erzeugt einen eigenen Prepared-Image-Klon und
 prüft Plan, `WhatIf`, Live-Reconcile, Trace-Flag-Ownership, den Fortbestand

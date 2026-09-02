@@ -177,9 +177,12 @@ Der nächste öffentliche Slice `PSR-011` inventarisiert Datenbankpakete in CLI
 und Browser über dieselbe stabile `DatabasePackageId`. Die Auswahlansicht ist
 geheimnis- und pfadfrei, meldet fehlende Objekte ohne Voll-Hashing und hasht
 große Paketobjekte nur auf ausdrückliches `-VerifyIntegrity` oder unmittelbar
-vor einer späteren Verwendung. Ein Browser-Attach bleibt sichtbar gesperrt,
-solange Zielinstanz und providergebundene Zielpfadabbildung nicht sicher
-gebunden sind; die Inventur erteilt keine Mutationsautorität.
+vor einer Verwendung. Der Hyper-V-Attach wählt zusätzlich einen laufenden
+SQL-Run per stabiler Run-/Instanz-ID; das Framework leitet das Ziel live aus
+SQLs Default-Data-Verzeichnis ab, sodass kein freier Host- oder Gastpfad
+eingegeben werden kann. Nicht kompatible Ziele und TDE ohne Ziel-Key-Vertrag
+bleiben sichtbar fail-closed. Weitere Providerbindungen bleiben gesperrt,
+solange ihre jeweilige Zielpfadabbildung nicht sicher gebunden ist.
 
 ## Ausgangslage
 
@@ -469,9 +472,9 @@ Volumename ersetzt diese Identität nicht.
 | `PSR-006` | P1 | Podman-Machine- und Docker-Engine-/Context-Reichweite bewerten und gegebenenfalls dediziert verwalten | `IMPLEMENTED_READ_ONLY`: stabile sanitisierte Runtime-ID, Context-/Connection-/Machine-Bindung und REPORT_ONLY-Hostgrenze real belegt; dedizierter Ownership-/Lifecycle-Vertrag bleibt offen |
 | `PSR-007` | P1 | Hyper-V-Daten-VHDX sicher auswählen, reattachen, freigeben und klonen | `IMPLEMENTED_CORE`: reguläre VHDX-Erzeugung mit vorab persistierter Storage-ID/Run-Lease, Disk-/VM-Attachment-Commit und Recovery-State sowie Storage-ID-, Disk-/VM-/Checkpoint-/Clean-Detach-/SQL-Versions-validierter Host-Lifecycle; Reattach/Release/Clone sind operationsgeleast, journalisiert, atomar katalogisiert, idempotent und nativ belegt; die öffentliche pfadfreie Auswahl samt Runtime-Konsistenzstatus ist umgesetzt, Mutationen und explizite Datenbankaktion bleiben bis zur belastbaren Evidence-Erzeugung gesperrt |
 | `PSR-008` | P1 | Providerneutrale Backup-Bibliothek mit automatischem Backup und Restore-Verifikation liefern | `COMPLETE`: inhaltsadressierte `Lab_Data`-Bibliothek, `CHECKSUM`, `RESTORE VERIFYONLY`, Hash, Metadatenreceipt, öffentliche BackupSetId-Auswahl und realer Docker→Podman-Inhaltsnachweis; Cross-Provider-FILESTREAM ist in der aktuellen Matrix mangels zweitem FILESTREAM-fähigem Provider `NOT_APPLICABLE`, bleibt bei künftiger Capability-Erweiterung aber zwingendes Freigabegate |
-| `PSR-009` | P2 | Datenbankpakete inklusive FILESTREAM, Attach und Clone implementieren | `IMPLEMENTED_CORE`: vollständiger Offline-Dateivertrag, rekursive Hashes, unabhängiger Clone und journalisiertes Copy-then-Attach; native Hyper-V-/FILESTREAM-Abnahme sowie öffentliche Bedienung offen |
+| `PSR-009` | P2 | Datenbankpakete inklusive FILESTREAM, Attach und Clone implementieren | `IMPLEMENTED_CORE`: vollständiger Offline-Dateivertrag, rekursive Hashes, unabhängiger Clone und journalisiertes Copy-then-Attach; öffentlicher pfadfreier Hyper-V-Attach per stabiler Paket-/Run-ID und live gebundenem SQL-Default-Data-Ziel ist implementiert und nativ belegt, öffentliche Paketpublikation und weitere Providerbindungen bleiben offen |
 | `PSR-010` | P2 | Serverobjekt- und TDE-Abhängigkeiten inventarisieren und Migrationsgrenzen anzeigen | `IMPLEMENTED_CORE`: öffentliche read-only Live-Inventur per direktem Ziel oder stabiler Run-/Instanzbindung, TDE-Recovery-Gate, externe Review-Grenzen und sanitisierte `DATABASE_FILES_ONLY`-Receipts; persistierte Kategorien und Warnungen sind paketgebunden in CLI/Browser sichtbar, Export/Import bleibt offen |
-| `PSR-011` | P1 | identische CLI- und GUI-Flows für Auswahl, Retention, Restore, Attach, Clone und Delete liefern | `IMPLEMENTED_PARTIAL`: Backup-Inventur/Restore, Container-Continue/Clone, Retention-Vorschau, Retain/Backup-on-Remove sowie die pfadfreien Datenbankpaket- und Hyper-V-Daten-VHDX-Inventuren verwenden in CLI und Browser dieselben stabilen IDs und Fachkerne; Paket-Vollhashing erfolgt explizit oder vor Verwendung, Datenbankpaket-Attach und Hyper-V-VHDX-Mutationen bleiben bis zur sicheren Evidence-/Zielbindung gesperrt und endgültiges Delete bleibt offen |
+| `PSR-011` | P1 | identische CLI- und GUI-Flows für Auswahl, Retention, Restore, Attach, Clone und Delete liefern | `IMPLEMENTED_PARTIAL`: Backup-Inventur/Restore, Container-Continue/Clone, Retention-Vorschau, Retain/Backup-on-Remove sowie die pfadfreien Datenbankpaket- und Hyper-V-Daten-VHDX-Inventuren verwenden in CLI und Browser dieselben stabilen IDs und Fachkerne; der Hyper-V-Datenbankpaket-Attach verwendet ebenfalls denselben öffentlichen ID-/Run-gebundenen Core; Hyper-V-VHDX-Mutationen, weitere Paketprovider und endgültiges Delete bleiben offen |
 | `PSR-012` | P1 | Cleanup-Audit um persistente Stores, Runtime-Backing, Orphans und Referenzschutz erweitern | `IMPLEMENTED_CORE`: strikte getrennte Findings für Retention, unerwartete Residuen, Recovery und unverifizierbare Evidence; automatische Mutation bleibt ausgeschlossen |
 | `PSR-013` | P2 | journalisierte Migration vorhandener Volumes/VHDX und Metadaten bereitstellen | Resume, Rollback, Hash- und Kapazitätsnachweis |
 
@@ -565,8 +568,14 @@ Core-Suite ist grün. Erfolgreiche Publikation bindet das Paket atomar über ein
 getrennte `PersistentStorageId` an alle controllergebundenen Katalogspiegel;
 Katalogfehler setzen Bibliothek und Journal auf Quarantäne/Recovery. Das
 Residency-Inventar verwendet dieselbe stabile Objekt-ID ohne erneutes
-Inhalts-Hashing. Ein realer Windows-SQL-/FILESTREAM-Lauf in Hyper-V bleibt als
-eigener Provider-Nachweis offen und wird nicht vorweggenommen.
+Inhalts-Hashing. Der öffentliche Hyper-V-Attach nimmt keinen freien Zielpfad
+an, sondern bindet eine stabile Run-/Instanz-ID live an SQLs Default-Data-
+Verzeichnis. Er revalidiert das vollständige Paket, kopiert es unabhängig über
+PowerShell Direct, prüft jeden Hash im Gast und persistiert den Recovery-Zustand
+vor der SQL-Mutation. `Invoke-HyperVDatabasePackageAttachAcceptance.ps1` hat
+den echten Transport, Gast-Hashes, Attach, Inhalt, Journal und Cleanup am
+2026-09-02 gegen einen laufenden scopegebundenen SQL-2025-Run grün belegt; der
+native Windows-SQL-/FILESTREAM-Inhaltsnachweis bleibt davon getrennt.
 - Serverobjekte, TDE-Keymaterial, Credentials und externe Services werden bei
   Backup oder Datenbankpaket nicht als implizit mitgenommen ausgegeben.
 
