@@ -13,6 +13,9 @@
     Produktive Artifact Registry und Medien bleiben unveraendert. VM,
     Builder-Disk, Antwort-ISO, Credential und temporaerer State werden auch
     bei Fehlern soweit sicher moeglich entfernt.
+.PARAMETER MediaRoot
+    Medienwurzel mit den hashverifizierten Windows- und SQL-Installationsmedien.
+    Ohne Angabe wird die konfigurierte Standard-Medienwurzel verwendet.
 .PARAMETER TimeoutSeconds
     Maximale Wartezeit fuer OOBE, einen Setup-Neustart und den Sysprep-Shutdown.
 .PARAMETER SetupTimeoutSeconds
@@ -26,6 +29,8 @@
 #>
 [CmdletBinding()]
 param(
+    [string]$MediaRoot,
+
     [ValidateRange(300, 3600)]
     [int]$TimeoutSeconds = 1200,
 
@@ -194,16 +199,24 @@ try {
     $module = Get-Module SqlServerLab
 
     $productionStateRoot = & $module { Get-LabStateRoot }
-    $mediaRoot = & $module { Get-LabMediaRootDefault }
+    $resolvedMediaRoot = if ([string]::IsNullOrWhiteSpace($MediaRoot)) {
+        & $module { Get-LabMediaRootDefault }
+    }
+    else {
+        (Resolve-Path -LiteralPath $MediaRoot -ErrorAction Stop).Path
+    }
+    if (-not (Test-Path -LiteralPath $resolvedMediaRoot -PathType Container)) {
+        throw "SQL_PREPARED_ACCEPTANCE_MEDIA_ROOT_NOT_FOUND: $resolvedMediaRoot"
+    }
     $windowsMedia = & $module {
         param($Root)
         Resolve-HyperVWindowsInstallationMedia -MediaRoot $Root -OperatingSystemId windows-server-2025 `
             -WindowsEdition standard-evaluation -InstallationType desktop-experience
-    } $mediaRoot
+    } $resolvedMediaRoot
     $sqlMedia = & $module {
         param($Root)
         Resolve-HyperVSqlInstallationMedia -MediaRoot $Root -SqlVersion 2025 -MediaEdition Enterprise
-    } $mediaRoot
+    } $resolvedMediaRoot
     $detectedMedia = & $module {
         param($Root, $WindowsPath, $SqlPath)
         [pscustomobject]@{
@@ -220,7 +233,7 @@ try {
                     [IO.Path]::GetFullPath($SqlPath), [StringComparison]::OrdinalIgnoreCase)
             })
         }
-    } $mediaRoot ([string]$windowsMedia.IsoPath) ([string]$sqlMedia.IsoPath)
+    } $resolvedMediaRoot ([string]$windowsMedia.IsoPath) ([string]$sqlMedia.IsoPath)
     Assert-SqlPreparedAcceptance -Condition (
         $windowsMedia.HashStatus -eq 'SIDECAR_READY' -and $windowsMedia.ExpectedSha256 -and
         @($detectedMedia.Windows).Count -eq 1 -and [int]$detectedMedia.Windows[0].ImageIndex -eq 2
@@ -251,7 +264,7 @@ try {
             -InstallationType desktop-experience -SqlVersion 2025 -MediaEdition Enterprise `
             -SqlFeatures SQLENGINE,FULLTEXT,REPLICATION -ImageName 'N4 SQL 2025 Prepared Acceptance' `
             -MemoryStartupBytes 4GB -ProcessorCount 2 -StateRoot $Root
-    } $stateRoot $mediaRoot
+    } $stateRoot $resolvedMediaRoot
     $buildId = [string]$build.buildId
     $builderVmName = [string]$build.builder.vmName
     $builderDiskPath = & $module {

@@ -6,6 +6,7 @@ $publicActionSource=Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Invoke
 $provisionSource=Get-Content -LiteralPath (Join-Path $repoRoot 'Public/New-SqlServerLab.ps1') -Raw -Encoding utf8
 $acceptanceSource=Get-Content -LiteralPath (Join-Path $repoRoot 'Tests/Integration/Invoke-HyperVTestDatabaseReconcileAcceptance.ps1') -Raw -Encoding utf8
 $bootstrapSource=Get-Content -LiteralPath (Join-Path $repoRoot 'Tests/Integration/Invoke-HyperVTestDatabaseReconcileAcceptanceBootstrap.ps1') -Raw -Encoding utf8
+$preparedAcceptanceSource=Get-Content -LiteralPath (Join-Path $repoRoot 'Tests/Integration/Invoke-HyperVSqlPreparedImageAcceptance.ps1') -Raw -Encoding utf8
 $testRoot=Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-hv-test-database-'+[Guid]::NewGuid().ToString('N'))
 $runId=[Guid]::NewGuid().ToString('D');$scopeId=[Guid]::NewGuid().ToString('D');$runDirectory=Join-Path (Join-Path $testRoot 'runs') $runId
 New-Item -Path $runDirectory -ItemType Directory -Force|Out-Null
@@ -93,6 +94,7 @@ try{
         'Nativer Runner bindet Plan, WhatIf, Add, No-op, Remove und VM-Restart an die oeffentliche CLI'=($acceptanceSource -match 'Get-SqlServerLabReconcilePlan' -and $acceptanceSource -match 'Invoke-SqlServerLabReconcileAction' -and $acceptanceSource -match 'add-sample' -and $acceptanceSource -match 'remove-owned-sample' -and $acceptanceSource -match 'Restart-SqlServerLab')
         'Nativer Runner schuetzt Fremddatenbank und erzwingt scopegebundenen Run-/VHDX-Cleanup'=($acceptanceSource -match 'NativeForeignEvidence' -and $acceptanceSource -match 'foreign-preserved' -and $acceptanceSource -match 'Remove-SqlServerLab' -and $acceptanceSource -match 'Run-eigene VHDX')
         'Nativer Runner isoliert, erzeugt, verifiziert und verwendet LAB_GENERATED erneut'=($acceptanceSource -match 'SQL_SERVER_LAB_TEST_DATA_ROOT' -and $acceptanceSource -match 'Get-LabSampleBaselineRequest' -and $acceptanceSource -match 'Get-FileHash' -and $acceptanceSource -match "resolvedArtifact\.origin -eq 'LAB_GENERATED'" -and $acceptanceSource -match 'baselineAddResult' -and $acceptanceSource -match 'baselineRemoveResult')
+        'Bootstrap und Prepared-Runner binden dieselbe explizite Medienwurzel'=($bootstrapSource.Contains("'-MediaRoot',`$resolvedMediaRoot") -and $preparedAcceptanceSource -match '\[string\]\$MediaRoot' -and $preparedAcceptanceSource -match 'Resolve-Path -LiteralPath \$MediaRoot' -and $preparedAcceptanceSource -match '\$resolvedMediaRoot')
         'Bootstrap bindet isoliertes Prepared-Artifact, Recovery-Marker und strikten Artifact-/State-Cleanup'=($bootstrapSource -match 'RetainPreparedArtifact' -and $bootstrapSource -match 'RETAINED_STATE_ROOT' -and $bootstrapSource -match 'RETAINED_ARTIFACT_ID' -and $bootstrapSource -match 'Remove-HyperVImageArtifact' -and $bootstrapSource -match 'RECOVERY_REQUIRED')
         'Executor mutiert weder VM-Zustand noch fremde Datenbanken'=($source -notmatch 'Stop-VM|Start-VM|Restart-VM' -and $source -match 'OWNERSHIP_IDENTITY_MISMATCH' -and $source -match 'unowned-output-conflict')
     }
