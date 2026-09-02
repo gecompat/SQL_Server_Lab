@@ -2,10 +2,10 @@
 
 | Merkmal | Wert |
 |---|---|
-| Status | `NATIVE_MULTI_VOLUME_AND_HOST_TOOL_ENTRYPOINT_PASS` |
-| Provider | Docker Desktop und Podman-WSL, getrennte Läufe |
-| Verträge | `SqlServerLab.ContainerInstanceStoreIntent/1.0`; zentraler Host-Tool-Vertrag |
-| Scope | Persistente External-Runtime-Sidecars; Docker-/Podman-/Python-Auflösung in neuen Prozessen |
+| Status | `NATIVE_MULTI_VOLUME_HOST_TOOL_AND_LAST_RUNTIME_REMOVAL_PASS` |
+| Provider | Docker Desktop, Podman-WSL und isolierter Hyper-V-Linux-Gast, jeweils getrennte Läufe |
+| Verträge | `SqlServerLab.ContainerInstanceStoreIntent/1.0`; zentraler Host-Tool-Vertrag; `SqlServerLab.ExternalRuntimeContainerAcceptance/1.4` |
+| Scope | Persistente External-Runtime-Sidecars; Docker-/Podman-/Python-Auflösung in neuen Prozessen; letzter Container-Runtime-Removal |
 
 Die unveränderten breiteren External-Runtime-Befunde vom 2026-08-28/29 und der
 Hyper-V-Befund vom 2026-08-27 werden nicht neu ausgeführt und bleiben als
@@ -81,3 +81,36 @@ Der Resolver kann installierte Werkzeuge auffinden und absolute Aufrufe
 bereitstellen; er startet nicht automatisch Docker Desktop und errät keine
 Podman-Machine oder Connection. Runtime-Start und Zugriff bleiben getrennte,
 explizit diagnostizierte Operationen.
+
+## Entfernung der letzten Container-Runtime
+
+Der journalgebundene External-Runtime-Reconcile-Pfad bestand getrennte native
+SQL-2022-Abnahmen für Docker und Podman im isolierten Ubuntu-22.04-/cgroup-v1-
+Gast. Ausgehend von Python/R nach zuvor belegtem Python/R/Java-Refresh und
+eigentumsgebundenem Java-Removal wurde jeweils die letzte Runtime entfernt.
+Beide Provider bestätigten:
+
+- Planoperation `RemoveExternalRuntime` mit leerem Ziel-Image-Key;
+- Ersatzcontainer auf `mcr.microsoft.com/mssql/server:2022-latest` ohne Build
+  eines leeren Derived Images;
+- Übernahme des bestehenden SQL-Systemvolumes und eines SQL-Datenmarkers;
+- konfigurierte und wirksame Deaktivierung `external scripts enabled = 0/0`;
+- Connection-State ohne `externalRuntime` und leeren Installation-Receipt-Satz;
+- ausgehängte, aber bis zum normalen Run-Cleanup erhaltene External-Language-
+  und External-Library-Sidecars;
+- erneute SQL-Readiness und Datenmarker nach providergebundenem Restart;
+- Journalstatus `COMPLETED`, vollständigen Run-Cleanup und explizite Entfernung
+  aller drei test-eigenen Derived Images.
+
+Die sanitisierten Evidence-Dateien liegen außerhalb des Repositorys unter
+`D:\Lab_Base\Linux\ExternalRuntimeAcceptance\evidence\external-runtime-2022-docker-6c75245779954d64b3b348a467237582.json`
+und
+`D:\Lab_Base\Linux\ExternalRuntimeAcceptance\evidence\external-runtime-2022-podman-6c75245779954d64b3b348a467237582.json`.
+Der zugehörige temporäre Gast und sein Run-Verzeichnis wurden nach dem
+erfolgreichen Lauf entfernt.
+
+```powershell
+pwsh -NoLogo -NoProfile -File Tests/Static/Invoke-ExternalRuntimeReconcileChecks.ps1
+pwsh -NoLogo -NoProfile -File Tests/Static/Invoke-ExternalRuntimeContainerImageChecks.ps1
+pwsh -NoLogo -NoProfile -File Tests/Integration/Invoke-ExternalRuntimeContainerHyperVHost.ps1 -SqlVersion 2022 -BootstrapTimeoutSeconds 900
+```

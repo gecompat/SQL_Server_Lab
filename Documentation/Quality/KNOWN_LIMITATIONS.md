@@ -730,7 +730,11 @@ ausdrücklich erhalten bleiben.
 Ein ausführbarer Installations- und Refresh-Slice ist für laufende SQL-2022-
 Docker-/Podman-Runs implementiert. Er kann die erste External Runtime
 nachinstallieren sowie vorhandene, erneut vom Resolver freigegebene Runtime-
-Anforderungen ergänzen oder bis auf die letzte Runtime entfernen. Provider,
+Anforderungen ergänzen, einzeln entfernen oder vollständig deaktivieren. Bei
+der letzten Entfernung wechselt ein journalgebundener Ersatzcontainer auf das
+katalogisierte SQL-Basisimage zurück, deaktiviert `external scripts enabled`
+konfiguriert und wirksam und entfernt den External-Runtime-State erst nach
+SQL-Readiness und Postcondition. Provider,
 SQL-Version, Profil, Storage, Netzwerk, Datenbanken und andere Instanzen müssen
 unverändert bleiben. Das neue Derived Image wird vor der Container-Mutation
 gebaut; Journal, Scope-Prüfung, SQL-Readiness und echte Sprachpostconditions
@@ -743,13 +747,22 @@ entfernt und Python/R nach einem Provider-Restart erneut ausgeführt. Die
 Journale erreichten `COMPLETED`; der eigentumsgebundene Java-DDL-Cleanup
 entfernte nur die vom Lab erzeugte Sprache, SDK-Library und Probe-Library.
 Ein SQL-Datenmarker blieb über beide Containerwechsel und den Restart erhalten.
+Am 2026-09-02 bestand zusätzlich der vollständige letzte Removal-Pfad getrennt
+für Docker und Podman: Basisimage, leerer Ziel-Image-Key, leerer Receipt-Satz,
+`external scripts enabled = 0/0`, Datenmarker und erneute SQL-Readiness nach
+Restart wurden positiv geprüft. Die beiden Runtime-Sidecars waren am
+Basisimage ausgehängt, blieben aber bis zum normalen Run-Cleanup erhalten; alle
+run-lokalen Volumes, Container und test-eigenen Derived Images wurden danach
+vollständig entfernt.
 
 Container speichern `/var/opt/mssql` sowie die beiden langlebigen
 External-Runtime-Artefaktpfade `externallanguages` und `externallibraries` in
 drei getrennten, scopegebundenen Volumes. LaunchPad-Arbeitsdaten und Sandboxes
 bleiben containerlokal. Bei einer Nachinstallation werden die beiden neuen
 Volumes vor dem Container-Cleanup eingeordnet und in Rollback/Recovery
-einbezogen. Der Startadapter synchronisiert die katalogisierte
+einbezogen. Beim letzten Removal werden sie nicht vorzeitig gelöscht, sondern
+nur vom Basisimage-Ersatzcontainer getrennt und anschließend durch ihren
+bestehenden Retention-/Cleanup-Vertrag behandelt. Der Startadapter synchronisiert die katalogisierte
 ML-EULA und die Runtime-Artefakte providerneutral, sodass Docker und Podman
 denselben Persistenzvertrag erfüllen. Für die transienten SQL-Fehler `39011`
 und `39012` ist genau ein Container-Restart mit anschließendem Probe-Retry
@@ -769,8 +782,8 @@ Die zugrunde liegende direkte SQL-2022-Hyper-V-Installation für Python, R und
 Java besitzt native Runtime-Evidence; der neue öffentliche Reconcile-Ablauf
 selbst ist derzeit `NOT_EXECUTED`.
 
-Noch nicht unterstützt sind die Entfernung der letzten Container-Runtime,
-Hyper-V-Removal, freie Varianten-/Packagewechsel, der allgemeine Hyper-V-
+Noch nicht unterstützt sind Hyper-V-Removal, freie Varianten-/Packagewechsel,
+der allgemeine Hyper-V-
 Softwarepfad außerhalb der drei SQL-External-Runtimes, Hyper-V-Artifact-Refresh
 und automatische Gastumschaltung.
 
