@@ -20,7 +20,7 @@
 function Invoke-SqlServerLab {
     [CmdletBinding()]
     param(
-        [ValidateSet('New', 'BatchPlan', 'Queue', 'AutomatedTestEnvironment', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'Script', 'Database', 'Image', 'MediaRoot', 'CuResource', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip', 'Catalog', 'ConnectionCenter')]
+        [ValidateSet('New', 'BatchPlan', 'Queue', 'AutomatedTestEnvironment', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'Script', 'Database', 'Image', 'Setup', 'MediaRoot', 'CuResource', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip', 'Catalog', 'ConnectionCenter')]
         [string]$Action,
 
         [ValidateSet('Auto', 'Fallback')]
@@ -225,6 +225,7 @@ function Show-LabHyperVMenu {
 
 function Show-LabStorageMenu {
     $items = @(
+        New-LabConsoleItem -Id 'Setup' -Label 'Ersteinrichtung für Lab_Base und Lab_Data' -Value 'fragt nur fehlende oder ungültige Angaben ab' -Shortcut 'e'
         New-LabConsoleItem -Id 'MediaRoot' -Label 'Lab_Base / Media-Root konfigurieren' -Value 'ISO-, Win-/SQL-Medien, Sidecar-Hashes' -Shortcut 'p'
         New-LabConsoleItem -Id 'CuResource' -Label 'SQL Server CU herunterladen oder prüfen' -Value 'Windows-Paket oder Linux-MCR-Image · alle katalogisierten CUs' -Shortcut 'c'
         New-LabConsoleItem -Id 'DataRoot' -Label 'Lab_Data verwalten' -Value 'Lab_Data je Volume' -Shortcut 'd'
@@ -586,6 +587,9 @@ function Invoke-LabAction {
     Write-Host ""
 
     switch ($ActionName) {
+        'Setup' {
+            Invoke-LabInitialSetupInteractive
+        }
         'MediaRoot' {
             $currentMediaRoot = Get-LabMediaRootDefault
             $prompt = if ($currentMediaRoot) { "  Vollstaendiger Media-Root-Ordner, z. B. C:\Lab_Base [$currentMediaRoot]" } else { '  Vollstaendiger Media-Root-Ordner, z. B. C:\Lab_Base' }

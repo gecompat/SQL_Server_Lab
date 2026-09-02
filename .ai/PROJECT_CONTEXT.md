@@ -73,7 +73,11 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   Vorwärts-Recovery, während Removal und Variantenwechsel fail-closed bleiben;
 - verwalteter Multi-Root-Storage-Vertrag mit stabilen `LocationId`-Werten,
   Backing-Device-Topologie, dateigenauem Storage-Plan, journalisierter
-  Parent-Migration und Cleanup-Audit; dessen versioniertes read-only
+  Parent-Migration und Cleanup-Audit; ein gemeinsamer idempotenter
+  Ersteinrichtungsassistent leitet `Lab_Base` und mehrere `Lab_Data`-Roots aus
+  ihren Parents ab, fragt nur fehlende Werte ab, verlangt eine ausdrückliche
+  globale Default-Auswahl und übernimmt keine fremden nichtleeren Datenroots;
+  dessen versioniertes read-only
   Storage-Residency-Inventar trennt `Lab_Data`, native Docker-/Podman-Ablage,
   externe Hostpfade, rungebundene sowie retained Objekte und unbekanntes
   physisches Runtime-Backing; der bindende

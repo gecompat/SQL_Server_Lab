@@ -57,6 +57,7 @@ $checks = @(
     'Invoke-ContainerVolumeContractChecks.ps1',
     'Invoke-LabNetworkChecks.ps1',
     'Invoke-MediaRootLayoutChecks.ps1',
+    'Invoke-InitialSetupChecks.ps1',
     'Invoke-HyperVProviderChecks.ps1',
     'Invoke-HyperVLabEnvironmentChecks.ps1',
     'Invoke-HyperVImageRegistryChecks.ps1',
