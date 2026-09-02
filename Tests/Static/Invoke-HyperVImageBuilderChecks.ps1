@@ -44,6 +44,19 @@ try {
         @($mediaCatalog | Where-Object { $_.Category -like 'Windows*' -and $_.BootInteraction.InitialMediaKey -ne 'space' }).Count -eq 0 -and
         @($mediaCatalog | Where-Object { $_.Id -eq 'ubuntu-server' -and $_.BootInteraction.InitialMediaKey -eq 'none' }).Count -eq 1
     )
+    Add-CheckResult -Name 'Medienkatalog verweist für Windows Server auf konkrete aktuelle Evaluation-Downloads' -Success (
+        @($mediaCatalog | Where-Object {
+            $_.Id -eq 'windows-server-evaluation' -and
+            $_.Url -eq 'https://www.microsoft.com/en-us/evalcenter/download-windows-server-2025' -and
+            $_.TargetRelativePath -eq 'WindowsServer/2025/Eval/ISO'
+        }).Count -eq 1 -and
+        @($mediaCatalog | Where-Object {
+            $_.Id -eq 'windows-server-2022-evaluation' -and
+            $_.Url -eq 'https://www.microsoft.com/en-us/evalcenter/download-windows-server-2022' -and
+            $_.TargetRelativePath -eq 'WindowsServer/2022/Eval/ISO'
+        }).Count -eq 1 -and
+        @($mediaCatalog | Where-Object { $_.Url -match '/evalcenter/evaluate-windows-server$' }).Count -eq 0
+    )
     Add-CheckResult -Name 'Cleanup-Plan existiert vor Provider-Mutation' -Success (Test-Path (Join-Path $plan.BuildDirectory 'cleanup-plan.json'))
     $rawState = Get-Content (Join-Path $plan.BuildDirectory 'build-state.json') -Raw
     Add-CheckResult -Name 'Portabler Build-State enthaelt keinen ISO-Hostpfad' -Success ($rawState -notmatch [regex]::Escape($isoPath))
