@@ -436,12 +436,12 @@ function renderWorkflow(data) {
     hostChip.className = 'chip warn';
     $('#notice').hidden = false;
     $('#notice').textContent = 'Diese Oberfläche funktioniert unter Linux für Docker und Podman. Hyper-V-Aktionen benötigen einen lokalen Windows-Host.';
-  } else if (host.HyperV.Available && host.IsElevated) {
-    hostChip.textContent = 'Hyper-V bereit · Administrator';
+  } else if (host.HyperV.Available) {
+    hostChip.textContent = host.IsElevated ? 'Hyper-V bereit · Administrator' : 'Hyper-V bereit · Capability geprüft';
     hostChip.className = 'chip ok';
     $('#notice').hidden = true;
   } else {
-    hostChip.textContent = host.HyperV.Available ? 'Hyper-V · UAC erforderlich' : 'Hyper-V nicht verfügbar';
+    hostChip.textContent = 'Hyper-V nicht verfügbar';
     hostChip.className = 'chip warn';
     $('#notice').hidden = false;
     $('#notice').textContent = host.HyperV.Message || 'Hyper-V ist auf diesem Host nicht verfügbar.';
@@ -466,9 +466,10 @@ function renderWorkflow(data) {
   renderSqlInstallationMedia(data.SqlInstallationMedia);
   const sqlFreshBuildDialogOpen = $('#build-dialog')?.open && $('#build-type')?.value === 'sql-fresh';
   renderWindowsInstallationMedia(data.WindowsInstallationMedia, sqlFreshBuildDialogOpen);
-  const hyperVDisabled = !host.HyperV.Supported || !host.HyperV.Available || !host.IsElevated;
-  // Container-Aktionen bleiben unabhängig von Hyper-V nutzbar. Bislang konnte
-  // ein fehlendes Hyper-V-Feature auch Docker-/Podman-Schaltflächen sperren.
+  const hyperVDisabled = !host.HyperV.Supported || !host.HyperV.Available;
+  // Der Provider-Capability-Probe ist die Autoritaet. Mitglieder der lokalen
+  // Hyper-V-Administratoren duerfen VMs auch ohne Administrator-Rollenbit
+  // verwalten; speziellere Volume-Rechte prueft erst die jeweilige Aktion.
   document.querySelectorAll('[data-open-build], [data-action], [data-build-cleanup], [data-artifact-rename], [data-artifact-remove], [data-hyperv-action], #new-hyperv-lab, #new-hyperv-existing-vm-lab').forEach((button) => { button.disabled = hyperVDisabled; });
   document.querySelectorAll('[data-lab-resources][data-provider="hyperv"]').forEach((button) => { button.disabled = hyperVDisabled; });
 }
