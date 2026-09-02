@@ -87,6 +87,18 @@ try {
         [string]$backupStore[0].References[0].TargetId -eq $backupSetId -and
         [string]$backupStore[0].LocationBinding.LocationId -eq $locationId1 -and
         [string]$backupStore[0].LocationBinding.RelativePath -match '^Backups/Objects/[a-f0-9]{64}\.bak$')
+    $beforeArtifactCasHash1=(Get-FileHash -LiteralPath $catalogPath1 -Algorithm SHA256).Hash
+    $beforeArtifactCasHash2=(Get-FileHash -LiteralPath $catalogPath2 -Algorithm SHA256).Hash
+    $artifactCasBlocked=Test-ExpectedFailure -Pattern 'PERSISTENT_STORAGE_CATALOG_REVISION_CONFLICT' -Action {
+        & $module {
+            param($record,$root,$config)
+            Register-LabBackupSetPersistentStorage -BackupRecord $record -DataRoot $root -Configuration $config -ExpectedRevision 4
+        } $backupRecord $root1 $configuration
+    }
+    Add-CheckResult -Name 'Gemeinsamer Artifact-Writer blockiert auch einen veralteten No-op per Revision-CAS' -Success (
+        $artifactCasBlocked -and
+        (Get-FileHash -LiteralPath $catalogPath1 -Algorithm SHA256).Hash -eq $beforeArtifactCasHash1 -and
+        (Get-FileHash -LiteralPath $catalogPath2 -Algorithm SHA256).Hash -eq $beforeArtifactCasHash2)
 
     $quarantinedRecord = $backupRecord | ConvertTo-Json -Depth 20 | ConvertFrom-Json -Depth 20
     $quarantinedRecord.Status = 'QUARANTINED'
