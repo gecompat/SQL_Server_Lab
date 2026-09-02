@@ -255,6 +255,21 @@ Add-CheckResult -Name 'CLI und Browser erstellen Labs per stabiler Continue-/Clo
     $scriptText -match 'parameters\.PersistentStorageId = persistentStorageId' -and
     $scriptText -match 'parameters\.PersistentStorageAction = storageAction'
 )
+Add-CheckResult -Name 'CLI und Browser inventarisieren Hyper-V-Daten-VHDX pfadfrei und fail-closed' -Success (
+    $workflowText -match 'Get-LabHyperVPersistentDataSelection' -and
+    $workflowText -match 'HyperVPersistentDataCandidates = \$hyperVPersistentDataCandidates' -and
+    $workflowText -notmatch 'HyperVPersistentDataCandidates[\s\S]{0,800}(ProviderResourceId|RelativePath|hostPath)' -and
+    $htmlText -match 'id="hyperv-persistent-data-source"' -and
+    $htmlText -match 'id="hyperv-persistent-data-reattach"[^>]+disabled' -and
+    $htmlText -match 'id="hyperv-persistent-data-release"[^>]+disabled' -and
+    $htmlText -match 'id="hyperv-persistent-data-clone"[^>]+disabled' -and
+    $scriptText -match 'function renderHyperVPersistentDataOptions' -and
+    $scriptText -match 'item\.PersistentStorageId' -and
+    $scriptText -match 'selected\.Issues' -and
+    $scriptText -notmatch 'selected\.(Path|RelativePath|DiskIdentifier|ProviderResourceId|hostPath)' -and
+    $htmlText -match 'sauberen Datenbank-Detach' -and
+    $htmlText -match 'explizit.*restored oder attached'
+)
 Add-CheckResult -Name 'UI bietet bestätigten globalen Cleanup und Manifest-Erstellung' -Success (
     $actionText -match 'ClearAllLabs' -and
     $actionText -match 'CreateContainerManifest' -and
