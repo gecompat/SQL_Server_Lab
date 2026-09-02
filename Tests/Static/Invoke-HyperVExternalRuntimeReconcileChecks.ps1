@@ -4,6 +4,12 @@ $source = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVExternalR
 $windowsSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/ExternalRuntimeWindows.ps1') -Raw -Encoding utf8
 $publicPlanSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Get-SqlServerLabReconcilePlan.ps1') -Raw -Encoding utf8
 $publicActionSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Invoke-SqlServerLabReconcileAction.ps1') -Raw -Encoding utf8
+$nativeRunnerPath = Join-Path $repoRoot 'Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1'
+$nativeWrapperPath = Join-Path $repoRoot 'Tests/Integration/Invoke-HyperVExternalRuntimeReconcileAcceptance.ps1'
+$nativeRunnerSource = Get-Content -LiteralPath $nativeRunnerPath -Raw -Encoding utf8
+$nativeWrapperSource = Get-Content -LiteralPath $nativeWrapperPath -Raw -Encoding utf8
+$nativeManifestHelperPath = Join-Path $repoRoot 'Tests/Common/HyperVExternalRuntimeReconcileAcceptanceManifest.ps1'
+. $nativeManifestHelperPath
 $testRoot = Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-hv-external-runtime-' + [guid]::NewGuid().ToString('N'))
 $runId = [guid]::NewGuid().ToString('D')
 $scopeId = [guid]::NewGuid().ToString('D')
@@ -117,6 +123,27 @@ try {
     } $testRoot $runId $scopeId
 
     $schema = Get-Content -LiteralPath (Join-Path $repoRoot 'Schemas/hyperv-external-runtime-reconcile-journal.schema.json') -Raw -Encoding utf8 | ConvertFrom-Json -Depth 40
+    $manifestValidity = & $module {
+        param($Root,$BaseManifest,$TargetManifest)
+        $manifestRoot = Join-Path $Root 'native-manifests'
+        New-Item -Path $manifestRoot -ItemType Directory -Force | Out-Null
+        $basePath = Join-Path $manifestRoot 'base.json'
+        $targetPath = Join-Path $manifestRoot 'target.json'
+        Write-LabArtifactJsonAtomic -Path $basePath -InputObject $BaseManifest
+        Write-LabArtifactJsonAtomic -Path $targetPath -InputObject $TargetManifest
+        $base = Test-SqlServerLabManifest -Path $basePath
+        $target = Test-SqlServerLabManifest -Path $targetPath
+        [PSCustomObject]@{
+            Valid=$base.IsValid -and $target.IsValid
+            BaseSoftwareCount=@((Read-LabManifest -Path $basePath).instances[0].software).Count
+            TargetSoftwareIds=@((Read-LabManifest -Path $targetPath).instances[0].software.id | Sort-Object)
+        }
+    } $testRoot (Get-HyperVExternalRuntimeReconcileAcceptanceManifest) `
+        (Get-HyperVExternalRuntimeReconcileAcceptanceManifest -IncludeSoftware)
+    $runnerTokens=$null;$runnerErrors=$null
+    [Management.Automation.Language.Parser]::ParseFile($nativeRunnerPath,[ref]$runnerTokens,[ref]$runnerErrors) | Out-Null
+    $wrapperTokens=$null;$wrapperErrors=$null
+    [Management.Automation.Language.Parser]::ParseFile($nativeWrapperPath,[ref]$wrapperTokens,[ref]$wrapperErrors) | Out-Null
     $checks = [ordered]@{
         'SQL-2022-Hyper-V-Python und -R loesen ueber denselben Softwarekatalog auf'=$result.PlansResolved
         'Read-only Plan klassifiziert die erste Hyper-V-Gastinstallation als reprovision'=$result.Plan
@@ -135,6 +162,11 @@ try {
         'Public Action bindet ShouldProcess, SecureString, MediaRoot und Hyper-V-Executor'=($publicActionSource -match 'ShouldProcess' -and $publicActionSource -match '\[SecureString\]\$SqlSaPassword' -and $publicActionSource -match '\[string\]\$MediaRoot' -and $publicActionSource -match 'Invoke-LabHyperVExternalRuntimeReconcileRepair')
         'Executor bindet Migration-Guard, VM-Identitaet, Journal vor Mutation und SQL-Postconditions'=($source -match 'Get-LabHyperVResourceMigrationLifecycleGuard' -and $source -match 'Get-HyperVManagedVM' -and $source.IndexOf('Write-LabHyperVExternalRuntimeReconcileJournal') -lt $source.IndexOf('Install-LabHyperVExternalRuntimes') -and $source -match 'CONNECTION_POSTCONDITION_FAILED')
         'Erstinstallation schreibt den PlanKey auch in den Hyper-V-Connection-State'=($windowsSource -match 'SoftwareId=\$_.SoftwareId; PlanKey=\$_.PlanKey')
+        'Nativer Reconcile-Runner und eigener Einstieg sind syntaktisch gueltig'=($runnerErrors.Count -eq 0 -and $wrapperErrors.Count -eq 0)
+        'Native Basis- und Zielmanifeste sind schema- und resolvergueltig'=($manifestValidity.Valid -and $manifestValidity.BaseSoftwareCount -eq 0 -and ($manifestValidity.TargetSoftwareIds -join ',') -eq 'sql-java,sql-python,sql-r')
+        'Nativer Runner prueft den oeffentlichen Plan-, WhatIf-, Apply- und No-op-Pfad'=($nativeRunnerSource -match '\$ReconcileAcceptance' -and $nativeRunnerSource -match 'Get-SqlServerLabReconcilePlan' -and $nativeRunnerSource -match 'Invoke-SqlServerLabReconcileAction' -and $nativeRunnerSource -match '-WhatIf' -and $nativeRunnerSource -match 'noOpPlan')
+        'Nativer Runner belegt Removal-Blockade, Abschlussjournal und ausbleibenden VM-Restart'=($nativeRunnerSource -match 'HYPERV_EXTERNAL_RUNTIME_REMOVAL_UNSUPPORTED' -and $nativeRunnerSource -match "journal.Status -ne 'COMPLETED'" -and $nativeRunnerSource -match 'LastBootUpTime' -and $nativeRunnerSource -match 'vmRestartedDuringApply = \$false')
+        'Eigener nativer Einstieg fordert Elevation und aktiviert ausschliesslich den Reconcile-Modus'=($nativeWrapperSource -match '#Requires -RunAsAdministrator' -and $nativeWrapperSource -match 'Invoke-ExternalRuntimeHyperVAcceptance.ps1' -and $nativeWrapperSource -match '-ReconcileAcceptance' -and $nativeWrapperSource -match '-CleanupOnSuccess')
     }
     $failedChecks = @($checks.GetEnumerator() | Where-Object { -not $_.Value })
     foreach ($check in $checks.GetEnumerator()) {
