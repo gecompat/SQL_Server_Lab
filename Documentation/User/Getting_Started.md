@@ -108,7 +108,7 @@ bereits installiert ist:
   [o] Betriebssystem-Downloadquellen anzeigen
 ```
 
-Die Ansicht nennt für Windows Server, Windows 11 und Ubuntu jeweils die
+Die Ansicht nennt für Windows Server 2025 und 2022, Windows 11 und Ubuntu jeweils die
 offizielle Quelle, den erwarteten Ablagepfad unter dem konfigurierten
 `Lab_Base` und den nächsten Schritt. Sie lädt nichts herunter und bleibt bis
 Enter oder Escape sichtbar. Für den ersten Windows-Builder wird Windows Server
