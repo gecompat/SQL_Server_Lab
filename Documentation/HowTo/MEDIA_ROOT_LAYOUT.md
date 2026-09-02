@@ -151,6 +151,17 @@ enthalten keine Zugangsdaten und laden nichts selbstständig herunter. Downloads
 bleiben wegen Registrierung, Lizenzwahl, Sprache und Evaluation-Bedingungen
 eine ausdrückliche Handlung der Anwenderin oder des Anwenders.
 
+Die gleichen Quellen sind ohne Suchen in der Konsole erreichbar:
+
+```text
+[5] Medien, Testdaten und Speicher -> [o] Betriebssystem-Downloadquellen anzeigen
+```
+
+Die Ergebnisansicht zeigt die offizielle Hersteller-URL, die Zielablage für
+den konfigurierten Media Root sowie den nächsten Schritt und bleibt bis Enter
+oder Escape sichtbar. Sie funktioniert auch dann, wenn Hyper-V noch nicht
+installiert ist, und startet keinen Download.
+
 ## 4. Vorhandene Medien sicher einsortieren
 
 Zuerst immer die geplanten Moves ansehen:
