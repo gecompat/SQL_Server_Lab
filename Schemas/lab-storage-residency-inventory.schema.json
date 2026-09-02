@@ -26,7 +26,7 @@
         "required": ["ObjectId", "ObjectClass", "Provider", "Lifecycle", "Residency", "PathVisibility", "LabDataRelation", "LogicalName", "Path", "RunIds", "CleanupPolicy", "AuditStatus", "Details"],
         "properties": {
           "ObjectId": { "type": "string", "pattern": "^storage-object-[a-f0-9]{24}$" },
-          "ObjectClass": { "enum": ["CONTROL_STATE", "LAB_DATA_ROOT", "INSTANCE_STORE", "DATABASE_PACKAGE", "BACKUP_SET", "BACKUP_WORKSPACE", "RUNTIME_BACKING_STORE", "HYPERV_RUN_RESOURCE", "HYPERV_SHARED_RESOURCE", "EXTERNAL_REFERENCE", "REPOSITORY_RESIDUE", "LEGACY_STATE"] },
+          "ObjectClass": { "enum": ["CONTROL_STATE", "LAB_DATA_ROOT", "INSTANCE_STORE", "DATABASE_PACKAGE", "BACKUP_SET", "BACKUP_WORKSPACE", "RUNTIME_BACKING_STORE", "RUNTIME_CONFIGURATION", "RUNTIME_IMAGE", "RUNTIME_IMAGE_STORE", "RUNTIME_CONTAINER_STORE", "RUNTIME_VOLUME_STORE", "RUNTIME_BUILD_CACHE", "HYPERV_RUN_RESOURCE", "HYPERV_SHARED_RESOURCE", "EXTERNAL_REFERENCE", "REPOSITORY_RESIDUE", "LEGACY_STATE"] },
           "Provider": { "enum": ["core", "docker", "podman", "hyperv", "external"] },
           "Lifecycle": { "enum": ["CONTROLLER", "RUN_SCOPED", "RETAINED", "SHARED", "UNMANAGED_OR_UNKNOWN"] },
           "Residency": { "enum": ["LAB_DATA", "NATIVE_RUNTIME", "EXTERNAL_HOST", "REPOSITORY", "LEGACY_PROFILE", "UNKNOWN"] },

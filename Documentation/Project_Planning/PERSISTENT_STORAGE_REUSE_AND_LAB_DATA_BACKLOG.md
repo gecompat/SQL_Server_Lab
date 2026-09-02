@@ -2,13 +2,13 @@
 
 ## Status und Priorität
 
-`ACTIVE / 9_TOP_LEVEL_PACKAGES_REMAIN / PSR_002_005_007_008_014_COMPLETE / PSR_001_003_004_011_PARTIAL / PSR_006_READ_ONLY / PSR_009_010_012_IMPLEMENTED_CORE / PSR_013_PLANNED` – die vorhandenen
+`ACTIVE / 8_TOP_LEVEL_PACKAGES_REMAIN / PSR_001_002_005_007_008_014_COMPLETE / PSR_003_004_011_PARTIAL / PSR_006_READ_ONLY / PSR_009_010_012_IMPLEMENTED_CORE / PSR_013_PLANNED` – die vorhandenen
 Persistenzmechanismen schützen bereits Teile des SQL-Zustands, bilden aber noch
 keinen vollständigen, providerübergreifenden Wiederverwendungs- und
 Löschvertrag. Planung ist kein Implementierungs- oder Runtime-Nachweis.
 
-Von den 14 kanonischen PSR-Arbeitspaketen sind `PSR-002`, `PSR-005`, `PSR-007`,
-`PSR-008` und `PSR-014` abgeschlossen. Damit verbleiben neun Top-Level-Pakete; ein Paket
+Von den 14 kanonischen PSR-Arbeitspaketen sind `PSR-001`, `PSR-002`, `PSR-005`,
+`PSR-007`, `PSR-008` und `PSR-014` abgeschlossen. Damit verbleiben acht Top-Level-Pakete; ein Paket
 mit implementiertem Core oder read-only Slice zählt bis zum vollständigen
 eigenen Abnahmekriterium weiterhin als offen.
 
@@ -18,16 +18,24 @@ verbleibenden PSR-Arbeitspakete konsumieren dessen geklärte Root-, Ownership-,
 Recovery- und Cleanup-Grenzen; sie erhalten dadurch keine zusätzliche
 Mutationsautorität.
 
-Der erste read-only `PSR-001`-Slice ist implementiert. Der Cleanup-Audit liefert
+`PSR-001` ist als read-only Inventur abgeschlossen. Der Cleanup-Audit liefert
 den getrennten Vertrag `SqlServerLab.StorageResidencyInventory/1.0` mit stabilen
 Objektidentitäten, Provider-Coverage, logischem Eigentum, physischer
 Pfadklassifikation, Lebensdauer, Retention, Cleanup-Policy und Auditstatus.
 `Lab_Data`, native Docker-/Podman-Runtime-Namensräume, externe Hostpfade,
 Hyper-V-Run-/Shared-Ressourcen und Legacy-/Repository-Residuen werden nicht
 gleichgesetzt. Ein Providerpfad innerhalb einer Runtime-VM gilt ausdrücklich
-nicht als hostseitige `Lab_Data`-Ablage. Die vollständige Auflösung der
-physischen Docker-Desktop-/Podman-Machine-Backing-Disks bleibt offen; `PARTIAL`
-ist deshalb ein gültiger Auditstatus und kein positiver Vollständigkeitsnachweis.
+nicht als hostseitige `Lab_Data`-Ablage. Unterstützte lokale Docker-Desktop- und
+Podman-WSL-Installationen werden zusätzlich über ihre tatsächlichen VHDX- und
+Konfigurationsdateien hostseitig aufgelöst. Images, Container, Volumes und Build-
+Cache werden als normalisierte Runtime-Klassen erfasst; verwaltete Images
+erhalten stabile Objektidentitäten. Nur der Cleanup-Audit enthält die ermittelten
+Hostpfade, während der Runtime-Scope ausschließlich den sanitisierten Status und
+die Anzahl der Backing-Stores ausgibt. Die reale read-only Abnahme am 2026-09-02
+bestätigte Docker und Podman samt unveränderten Runtime-Ressourcen. Sämtliche
+globalen Runtime-/Machine-Backings bleiben `SHARED_EXTERNAL`/`REPORT_ONLY`; bei
+fehlendem Provider, Remote-Endpunkt oder unbekanntem Layout darf ein einzelner
+Audit weiterhin korrekt `PARTIAL` beziehungsweise `UNVERIFIABLE` sein.
 
 `PSR-002` ist durch den bindenden Entscheid
 [`SqlServerLab.LabDataResidencyDecision/1.0`](../Architecture/LAB_DATA_AND_NATIVE_RUNTIME_STORAGE_DECISION.md)
@@ -464,7 +472,7 @@ Volumename ersetzt diese Identität nicht.
 
 | ID | Priorität | Arbeitspaket | Ergebnis |
 |---|---:|---|---|
-| `PSR-001` | P0-Analyse | Ist-Inventar aller persistenten, rungebundenen und verbleibenden Objekte für Docker, Podman und Hyper-V | `IMPLEMENTED_PARTIAL`: versionierte read-only Matrix mit stabilen Objekt-IDs, Residency, Lifecycle, Cleanup-Policy und Provider-Coverage; physisches Desktop-/Machine-Backing bleibt explizit unverifizierbar |
+| `PSR-001` | P0-Analyse | Ist-Inventar aller persistenten, rungebundenen und verbleibenden Objekte für Docker, Podman und Hyper-V | `COMPLETE`: versionierte read-only Matrix mit stabilen Objekt-IDs, Residency, Lifecycle, Cleanup-Policy und Provider-Coverage; lokales Docker-Desktop-/Podman-WSL-Backing samt Konfiguration sowie normalisierte Image-, Container-, Volume- und Build-Cache-Nutzung real belegt |
 | `PSR-002` | P0-Analyse | `Lab_Data`-Versprechen, native Runtime-Ausnahmen und Hosteingriffsgrenzen entscheiden | `COMPLETE`: bindender `SqlServerLab.LabDataResidencyDecision/1.0`-Entscheid |
 | `PSR-003` | P1 | Storage-Katalog mit stabiler ID, Klassen, Zuständen, Referenzen und Leases entwerfen | `IMPLEMENTED_PARTIAL`: Schema, Parser, Planner, Inventarbindung, rollbackfähige `BACKUP_SET`-/`DATABASE_PACKAGE`-/Clone-`INSTANCE_STORE`-Registrierung, exklusive Lease/Freigabe regulärer `-PersistentData`-Containerstores einschließlich stabiler Datenbankreferenzen sowie vorab reservierte reguläre Hyper-V-Instanzstores auf allen controllergebundenen Spiegeln; vorhandene Backup-Sets und Datenbankpakete lassen sich öffentlich einzeln, previewfähig und idempotent synchronisieren; generische Mutation, Bestandsmigration weiterer Klassen, providerübergreifende Wiederverwendung und Löschung bleiben offen |
 | `PSR-004` | P1 | Retention-, Backup-on-Remove-, Package- und expliziten Löschvertrag entwerfen | `IMPLEMENTED_PARTIAL`: verlustsicherer Plan plus journalisierter Docker-/Podman-Executor für Retain und verifiziertes Backup-on-Remove; Package, externe Freigabe und getrennte endgültige Storage-Löschung bleiben offen |
