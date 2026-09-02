@@ -10,17 +10,20 @@ function Resolve-LabRestoreContainer {
     $containerCandidates = @()
 
     foreach ($candidateProvider in $candidateProviders) {
-        if (-not (Get-Command $candidateProvider -ErrorAction SilentlyContinue)) {
+        $runtimeResolution = Resolve-LabHostTool -Name $candidateProvider
+        if (-not $runtimeResolution.Available -or
+            [string]::IsNullOrWhiteSpace([string]$runtimeResolution.Invocation)) {
             continue
         }
+        $runtimeInvocation = [string]$runtimeResolution.Invocation
 
-        & $candidateProvider info 1>$null 2>$null
+        & $runtimeInvocation info 1>$null 2>$null
         if ($LASTEXITCODE -ne 0) {
             continue
         }
 
         if ($ContainerName) {
-            $inspect = & $candidateProvider inspect $ContainerName 2>$null |
+            $inspect = & $runtimeInvocation inspect $ContainerName 2>$null |
                 ConvertFrom-Json -Depth 30
             if ($LASTEXITCODE -eq 0 -and $inspect) {
                 $item = @($inspect)[0]
@@ -38,7 +41,7 @@ function Resolve-LabRestoreContainer {
             continue
         }
 
-        $output = & $candidateProvider ps -a `
+        $output = & $runtimeInvocation ps -a `
             --filter 'label=sql-server-lab.run-id' `
             --format '{{.Names}}|{{.Ports}}' 2>$null
         if ($LASTEXITCODE -ne 0) {
@@ -52,7 +55,7 @@ function Resolve-LabRestoreContainer {
             }
 
             $name = $parts[0].Trim()
-            $inspect = & $candidateProvider inspect $name 2>$null |
+            $inspect = & $runtimeInvocation inspect $name 2>$null |
                 ConvertFrom-Json -Depth 30
             if ($LASTEXITCODE -ne 0 -or -not $inspect) {
                 continue

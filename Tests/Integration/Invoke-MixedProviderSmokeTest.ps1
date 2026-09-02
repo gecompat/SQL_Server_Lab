@@ -33,6 +33,7 @@ if ($showHelpRequested) {
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
+$hostToolInitializer = Join-Path $repoRoot 'Tools\Initialize-SqlServerLabHostTools.ps1'
 $sourceManifestPath = Join-Path $repoRoot 'Schemas\example-mixed-provider-lab.json'
 $stateRoot = Join-Path ([System.IO.Path]::GetTempPath()) "sql-server-lab-mixed-$([guid]::NewGuid().ToString('N'))"
 $previousStateRoot = $env:SQL_SERVER_LAB_STATE
@@ -55,11 +56,13 @@ function Assert-True {
 function Test-RuntimeCommand {
     param([Parameter(Mandatory)][string]$Name)
 
-    if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
+    $resolution = @(& $hostToolInitializer -Name $Name)[0]
+    if (-not $resolution.Available -or
+        [string]::IsNullOrWhiteSpace([string]$resolution.Invocation)) {
         return $false
     }
 
-    & $Name info 1>$null 2>$null
+    & ([string]$resolution.Invocation) info 1>$null 2>$null
     return $LASTEXITCODE -eq 0
 }
 
