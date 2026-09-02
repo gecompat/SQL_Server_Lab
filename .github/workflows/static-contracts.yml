@@ -76,7 +76,7 @@ jobs:
           python3 .foundation-source/tools/foundation_validator.py
           --target "$GITHUB_WORKSPACE"
           --adapters github-copilot
-          --capabilities none
+          --capabilities rule-context-cache
 
   static-contracts:
     name: Static contracts (${{ matrix.os }})
