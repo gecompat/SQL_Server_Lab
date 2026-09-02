@@ -364,7 +364,11 @@ function Write-LabStorageConfiguration {
 
 function Register-LabDataRoot {
     [CmdletBinding()]
-    param([Parameter(Mandatory)][string]$DataRoot, [switch]$SetDefault)
+    param(
+        [Parameter(Mandatory)][string]$DataRoot,
+        [switch]$SetDefault,
+        [switch]$ProcessEnvironmentOnly
+    )
 
     $root = (Resolve-Path -LiteralPath $DataRoot -ErrorAction Stop).Path.TrimEnd('\', '/')
     $currentDefault = Get-LabDataRootDefault
@@ -394,18 +398,24 @@ function Register-LabDataRoot {
     })
     if ($SetDefault -or -not $currentDefault) {
         $env:SQL_SERVER_LAB_DATA_ROOT = $root
-        [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_DATA_ROOT', $root, 'User')
         $env:SQL_SERVER_LAB_CONTROLLER_ID = $controllerId
-        [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_CONTROLLER_ID', $controllerId, 'User')
-        Set-LabProjectPreferenceValue -Name dataRoot -Value $root
-        $null = Set-LabTestEnvironmentDiscoveryEnvironment -DataRoot $root
+        if (-not $ProcessEnvironmentOnly) {
+            [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_DATA_ROOT', $root, 'User')
+            [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_CONTROLLER_ID', $controllerId, 'User')
+            Set-LabProjectPreferenceValue -Name dataRoot -Value $root
+        }
+        $null = Set-LabTestEnvironmentDiscoveryEnvironment -DataRoot $root -ProcessEnvironmentOnly:$ProcessEnvironmentOnly
     }
     return $root
 }
 
 function Set-LabDataLocation {
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact='Medium')]
-    param([Parameter(Mandatory)][string]$LabDataParent, [switch]$SetDefault)
+    param(
+        [Parameter(Mandatory)][string]$LabDataParent,
+        [switch]$SetDefault,
+        [switch]$ProcessEnvironmentOnly
+    )
 
     $resolvedParent = Resolve-LabStorageParentPath -Path $LabDataParent
     $parent = [string]$resolvedParent.LabDataParent
@@ -413,7 +423,7 @@ function Set-LabDataLocation {
     if (-not $PSCmdlet.ShouldProcess($dataRoot, 'Normalisierte Lab_Data-Location initialisieren und registrieren')) { return $null }
     $configuration = Get-LabStorageConfiguration
     $marker = Initialize-LabManagedDataRoot -DataRoot $dataRoot -ControllerId ([string]$configuration.ControllerId)
-    $null = Register-LabDataRoot -DataRoot $dataRoot -SetDefault:$SetDefault
+    $null = Register-LabDataRoot -DataRoot $dataRoot -SetDefault:$SetDefault -ProcessEnvironmentOnly:$ProcessEnvironmentOnly
     $updated = Get-LabStorageConfiguration -DataRoot $(if ($configuration.DefaultDataRoot) { [string]$configuration.DefaultDataRoot } else { $dataRoot })
     $location = @($updated.LabDataLocations | Where-Object { [string]::Equals([string]$_.LabDataRoot, $dataRoot, [StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 1)
     return [PSCustomObject]@{

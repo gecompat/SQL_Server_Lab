@@ -289,6 +289,12 @@ Die Multi-Root-Verwaltung erfasst seit 2026-08-29 stabile `LocationId`,
 Volume- und Backing-Device-Topologie, übernimmt Legacy-Defaults mit Receipt und
 schützt Default- sowie referenzierte Locations. Laufwerksrelative Eingaben wie
 `D:` werden blockiert; das normalisierte Ziel wird vor der Bestätigung gezeigt.
+Der gemeinsame Ersteinrichtungsassistent fragt nur fehlende oder ungültige
+`Lab_Base`-/`Lab_Data`-Angaben ab, unterstützt mehrere unterschiedliche Volumes
+und verlangt eine ausdrückliche Default-Auswahl. Einen nichtleeren, noch nicht
+controllergebundenen `Lab_Data`-Ordner übernimmt er bewusst nicht automatisch;
+dessen Daten müssen vor einer Registrierung manuell geprüft beziehungsweise
+über einen dafür vorgesehenen Migrationspfad übernommen werden.
 
 Registrierte `Lab_Data`-Roots können über portable Selektoren jetzt read-only an
 Default-Data, Default-Log, Backup, einzelne TempDB-Datenfiles, TempDB-Log,
