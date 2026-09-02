@@ -6,8 +6,10 @@
     genau eine eindeutige Operation START oder STOP. Der getrennte Hyper-V-
     Netzwerkpfad repariert nur additive gebundene Hostinfrastruktur und genau
     einen vorhandenen getrennten Adapter. Container- und External-Runtime-
-    Parametersaetze behalten ihre eigenen journalisierten Grenzen. Nicht
-    unterstuetzte Planzustaende bleiben mutationsfrei.
+    Parametersaetze behalten ihre eigenen journalisierten Grenzen. Hyper-V
+    installiert nur neue, kataloggebundene External Runtimes im vorhandenen
+    Gast; Removal, Variantenwechsel und Artifact-Refresh bleiben gesperrt.
+    Nicht unterstuetzte Planzustaende bleiben mutationsfrei.
 .PARAMETER RunId
     Identifizierer des vorhandenen Runs.
 .PARAMETER TargetState
@@ -43,8 +45,12 @@
     Fuegt katalogisierte Testdatenbanken aus dem Zielmanifest hinzu oder entfernt
     ausschliesslich durch ein lokales Receipt als run-eigen nachgewiesene Samples.
 .PARAMETER SqlSaPassword
-    Optionales SQL-SA-Passwort fuer Sample-Additionen. Automatisch generierte,
-    run-lokal gespeicherte Zugangsdaten werden ohne diesen Parameter verwendet.
+    Optionales SQL-SA-Passwort fuer Sample-Additionen oder den Hyper-V-
+    External-Runtime-Reconcile. Automatisch generierte, run-lokal gespeicherte
+    Zugangsdaten werden ohne diesen Parameter verwendet.
+.PARAMETER MediaRoot
+    Optionaler Medien-Root fuer die katalogisierten Hyper-V-Offlinemedien.
+    Ohne Angabe wird der konfigurierte Standard-Medien-Root verwendet.
 .PARAMETER AllowExternalSwitchCreation
     Erlaubt im Hyper-V-Netzwerk-Reconcile die bereits lokal gebundene Erstellung
     eines External Switch. Ohne diesen Switch bleibt LAN-Erstellung fail-closed.
@@ -63,7 +69,8 @@
 .PARAMETER RepairSqlRuntimeContract
     Repariert SQL-Memory-/Healthcheck-Drift über recreate.
 .PARAMETER ReadinessTimeoutSeconds
-    Maximale Wartezeit fuer die SQL-Readiness des Ersatzcontainers.
+    Maximale Wartezeit fuer die SQL-Readiness des Ersatzcontainers. Der
+    Hyper-V-Gastinstaller verwendet seinen eigenen vertraglichen Timeout.
 .PARAMETER StateRoot
     Optionaler lokaler State-Root fuer einen reproduzierbaren Aufruf.
 .OUTPUTS
@@ -76,6 +83,11 @@
     Invoke-SqlServerLabReconcileAction -RunId $lab.RunId -RepairHyperVNetwork -InstanceId primary -WhatIf
 
     Zeigt, ob die eng begrenzte Hyper-V-Netzwerkreparatur ausgefuehrt wuerde.
+.EXAMPLE
+    Invoke-SqlServerLabReconcileAction -RunId $lab.RunId -ManifestPath .\lab-with-python.json -InstanceId primary -WhatIf
+
+    Zeigt die additive External-Runtime-Installation im gebundenen Hyper-V-
+    Gast oder den Container-Replacement-Pfad ohne Mutation.
 #>
 function Invoke-SqlServerLabReconcileAction {
     [CmdletBinding(SupportsShouldProcess, DefaultParameterSetName = 'Lifecycle')]
@@ -125,7 +137,11 @@ function Invoke-SqlServerLabReconcileAction {
         [switch]$RepairHyperVTestDatabases,
 
         [Parameter(ParameterSetName = 'HyperVTestDatabases')]
+        [Parameter(ParameterSetName = 'ExternalRuntime')]
         [SecureString]$SqlSaPassword,
+
+        [Parameter(ParameterSetName = 'ExternalRuntime')]
+        [string]$MediaRoot,
 
         [Parameter(ParameterSetName = 'HyperVNetwork')]
         [switch]$AllowExternalSwitchCreation,
@@ -368,22 +384,33 @@ function Invoke-SqlServerLabReconcileAction {
 
     if ($PSCmdlet.ParameterSetName -eq 'ExternalRuntime') {
         $plan = Get-SqlServerLabReconcilePlan -RunId $RunId -ManifestPath $ManifestPath -InstanceId $InstanceId -StateRoot $StateRoot
-        $wouldExecute = if ($plan.IsNoOp) { $false } else {
-            $PSCmdlet.ShouldProcess("Run '$RunId', Instanz '$($plan.InstanceId)'", 'External Runtime durch validierten Ersatzcontainer aktualisieren')
+        $hasExecutableAction = @($plan.Actions).Count -gt 0
+        $wouldExecute = if (-not $hasExecutableAction) { $false } else {
+            $operationDescription = if ([string]$plan.Desired.Provider -eq 'hyperv') {
+                'External Runtime im gebundenen Hyper-V-Gast additiv installieren und verifizieren'
+            }
+            else { 'External Runtime durch validierten Ersatzcontainer aktualisieren' }
+            $PSCmdlet.ShouldProcess("Run '$RunId', Instanz '$($plan.InstanceId)'", $operationDescription)
         }
         $entry = [ordered]@{
-            Operation=if ($plan.IsNoOp) { 'None' } else { [string]$plan.Actions[0].Operation }; Planned=(-not $plan.IsNoOp); Executed=$false
-            Status=if ($plan.IsNoOp) { 'NO_OP' } elseif ($wouldExecute) { 'PLANNED' } else { 'WOULD_EXECUTE' }
+            Operation=if ($hasExecutableAction) { [string]$plan.Actions[0].Operation } else { 'None' }; Planned=$hasExecutableAction; Executed=$false
+            Status=if ($plan.IsNoOp) { 'NO_OP' } elseif (-not $hasExecutableAction) { 'UNSUPPORTED' } elseif ($wouldExecute) { 'PLANNED' } else { 'WOULD_EXECUTE' }
             Reason=$null; Result=$null
         }
         $summary = [ordered]@{
             Status=$entry.Status; PlannedActions=@($plan.Actions).Count; ExecutedActions=0
             FailedActions=0; MutationAllowed=$false; Errors=@()
         }
-        if (-not $plan.IsNoOp -and $wouldExecute) {
+        if ($hasExecutableAction -and $wouldExecute) {
             try {
-                $entry.Result = Invoke-LabExternalRuntimeReconcileRefresh -RunId $RunId -ManifestPath $ManifestPath `
-                    -InstanceId $InstanceId -ReadinessTimeoutSeconds $ReadinessTimeoutSeconds -StateRoot $StateRoot
+                if ([string]$plan.Desired.Provider -eq 'hyperv') {
+                    $entry.Result = Invoke-LabHyperVExternalRuntimeReconcileRepair -RunId $RunId -ManifestPath $ManifestPath `
+                        -InstanceId ([string]$plan.InstanceId) -SqlSaPassword $SqlSaPassword -MediaRoot $MediaRoot -StateRoot $StateRoot
+                }
+                else {
+                    $entry.Result = Invoke-LabExternalRuntimeReconcileRefresh -RunId $RunId -ManifestPath $ManifestPath `
+                        -InstanceId ([string]$plan.InstanceId) -ReadinessTimeoutSeconds $ReadinessTimeoutSeconds -StateRoot $StateRoot
+                }
                 $entry.Executed = $true; $entry.Status = [string]$entry.Result.Status
                 $summary.Status = [string]$entry.Result.Status; $summary.ExecutedActions = 1; $summary.MutationAllowed = $true
             }

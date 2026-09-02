@@ -1104,16 +1104,27 @@ Invoke-SqlServerLabReconcileAction `
     -InstanceId external-runtime
 ```
 
-Der ausführbare Umfang umfasst SQL Server 2019, 2022 und 2025 auf
+Der ausführbare Container-Umfang umfasst SQL Server 2019, 2022 und 2025 auf
 Docker/Podman, aber keine gleichzeitigen Änderungen an Provider, Profil,
 Storage, Netzwerk oder Datenbanken. Docker und Podman besitzen dabei dieselbe
 Sprachfreigabe; Podman
 muss für den sicheren `launchpadd`-Namespace-Modus jedoch rootful auf einem
 Linux-Containerhost mit cgroup v1 laufen. Eine einzelne Sprache kann entfernt werden, solange mindestens
-eine External Runtime erhalten bleibt. Die Entfernung der letzten Runtime und
-Hyper-V-Nachinstallation/-Artifact-Refresh bleiben fail-closed. Im Hyper-V-
-Verwaltungsmenü wird dieser derzeit nicht atomare Pfad deshalb sichtbar, aber
-deaktiviert angezeigt.
+eine External Runtime erhalten bleibt. Die Entfernung der letzten Runtime
+bleibt fail-closed.
+
+Für einen laufenden SQL-2022-Windows-/Hyper-V-Run verwendet derselbe öffentliche
+Manifest-Aufruf einen getrennten additiven Gastpfad. Neue resolvergebundene
+`sql-python`-, `sql-r`- oder `sql-java`-PlanKeys werden vor der Mutation in
+einem VM- und Zielhash-gebundenen Journal erfasst, aus katalogisierten
+Offlinemedien installiert und durch echte SQL-Postconditions verifiziert. Erst
+danach wird der Desired State aktualisiert. SQL Server und Launchpad werden
+kontrolliert neu gestartet; die VM bleibt gestartet. `-MediaRoot` überschreibt
+optional den konfigurierten Medien-Root, `-SqlSaPassword` ist nur erforderlich,
+wenn kein run-lokales Secret verfügbar ist. Removal, Varianten-/Packagewechsel
+und Hyper-V-Artifact-Refresh bleiben fail-closed. Die zugrunde liegende
+SQL-2022-Gastinstallation ist nativ akzeptiert; der neue öffentliche
+Reconcile-Ablauf selbst ist derzeit `NOT_EXECUTED`.
 
 C# ist als SQL-External-Language-Intent `sql-csharp` für SQL Server 2019 bis
 2025 auf Windows/Hyper-V erfasst. Microsoft bezeichnet die registrierte

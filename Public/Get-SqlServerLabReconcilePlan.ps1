@@ -18,8 +18,10 @@
     Gewuenschter Lifecycle-Zustand: RUNNING oder STOPPED.
 .PARAMETER ManifestPath
     Zielmanifest fuer eine erstmalige External-Runtime-Installation oder einen
-    späteren Reconcile. Beim Hyper-V-SQL-Konfigurations-Reconcile darf es nur
-    den SQL-Konfigurationsintent der Zielinstanz aendern.
+    späteren Reconcile. Container verwenden einen Replacement-Pfad; Hyper-V
+    erlaubt ausschliesslich additive, kataloggebundene Gastinstallationen.
+    Beim Hyper-V-SQL-Konfigurations-Reconcile darf es nur den
+    SQL-Konfigurationsintent der Zielinstanz aendern.
 .PARAMETER InstanceId
     Zielinstanz für Hyper-V-Netzwerk-, Ressourcen-, Storage-, SQL-, Container- oder External-Runtime-Reconcile. Darf nur
     entfallen, wenn genau eine geeignete Runtime-Instanz im Run existiert.
@@ -103,6 +105,11 @@
     Get-SqlServerLabReconcilePlan -RunId $runId -HyperVTestDatabases -ManifestPath .\lab.json -InstanceId primary
 
     Plant Additionen und gesicherte Entfernungen katalogisierter Testdatenbanken.
+.EXAMPLE
+    Get-SqlServerLabReconcilePlan -RunId $runId -ManifestPath .\lab-with-python.json -InstanceId primary
+
+    Plant eine additive, resolvergebundene External-Runtime-Installation im
+    vorhandenen Hyper-V-Gast oder einen Container-Replacement-Pfad.
 #>
 function Get-SqlServerLabReconcilePlan {
     [CmdletBinding(DefaultParameterSetName = 'Lifecycle')]
@@ -185,8 +192,13 @@ function Get-SqlServerLabReconcilePlan {
             -InstanceId $InstanceId -StateRoot $StateRoot
     }
     if ($PSCmdlet.ParameterSetName -eq 'ExternalRuntime') {
+        $target = Resolve-LabExternalRuntimeReconcileTarget -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
+        if ([string]$target.Provider -eq 'hyperv') {
+            return New-LabHyperVExternalRuntimeReconcilePlan -RunId $RunId -ManifestPath $ManifestPath `
+                -InstanceId ([string]$target.InstanceId) -StateRoot $StateRoot
+        }
         return New-LabExternalRuntimeReconcilePlan -RunId $RunId -ManifestPath $ManifestPath `
-            -InstanceId $InstanceId -StateRoot $StateRoot
+            -InstanceId ([string]$target.InstanceId) -StateRoot $StateRoot
     }
     if ($PSCmdlet.ParameterSetName -eq 'Container') {
         $arguments = @{ RunId=$RunId; InstanceId=$InstanceId; StateRoot=$StateRoot; RepairSqlRuntimeContract=$RepairSqlRuntimeContract }
