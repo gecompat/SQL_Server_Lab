@@ -166,12 +166,14 @@ function Invoke-FullLifecycle {
     $lab = $null
     $sqlPath = Join-Path $env:TEMP "SqlServerLab-Smoke-$ProviderName-$VersionName-$PID.sql"
     try {
+        $module = Get-Module SqlServerLab -ErrorAction Stop
+        $runtimeInvocation = & $module { param($Name) Get-LabHostToolInvocation -Name $Name } $ProviderName
         $autoStart = if ($TestAutoStart) { 'on' } else { 'off' }
         $lab = New-SqlServerLab -Version $VersionName -Provider $ProviderName -Profile compact -AutoStart $autoStart -SaPassword $SaPassword -SkipAssessment
         $instance = $lab.Instances | Select-Object -First 1
         if ([string]$instance.AutoStart -ne $autoStart) { throw "Autostart-Vertrag meldet '$($instance.AutoStart)' statt '$autoStart'." }
         if ($TestAutoStart) {
-            $inspect = & $ProviderName inspect $instance.ContainerId 2>$null | ConvertFrom-Json -Depth 30
+            $inspect = & $runtimeInvocation inspect $instance.ContainerId 2>$null | ConvertFrom-Json -Depth 30
             if ($LASTEXITCODE -ne 0 -or -not $inspect) { throw 'Autostart-Inspect fehlgeschlagen.' }
             $runtimeInstance = @($inspect)[0]
             if ([string]$runtimeInstance.HostConfig.RestartPolicy.Name -notin @('always', 'unless-stopped')) { throw 'Autostart-Restart-Policy fehlt.' }
