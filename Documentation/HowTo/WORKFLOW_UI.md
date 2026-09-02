@@ -98,6 +98,24 @@ die VM ausgeschaltet sein und erhält einen begrenzten dynamischen Bereich
 Hyper-V-Verwaltung ergänzt nur die Windows-/SQL-spezifischen Aktionen wie
 VMConnect, Daten-VHDX oder WMI-Reparatur.
 
+Katalogisierte Hyper-V-Daten-VHDX werden ausschließlich per stabiler
+`PersistentStorageId` ausgewählt. **Sauber freigeben** prüft im laufenden Gast
+alle SQL-Dateibindungen unter dem Datenpfad und fährt die VM nur bei fehlenden
+aktiven Datenbankdateien herunter. **Reattach** und **Klonen** verlangen einen
+weiterhin zur unveränderten VHDX passenden Detach-Receipt sowie eine kompatible
+ausgeschaltete SQL-VM. Dieselben Aktionen sind ohne Hostpfade über die CLI
+aufrufbar, zum Beispiel:
+
+```powershell
+Invoke-SqlServerLabWorkflowAction `
+    -Action ReattachHyperVPersistentData `
+    -PersistentStorageId '<storage-guid>' `
+    -BuildId '<target-run-guid>'
+```
+
+Ein Reattach bindet nur den Datenträger. Vorhandene Datenbankdateien werden
+erst über eine ausdrückliche Restore- oder Attach-Aktion online gebracht.
+
 ## Namen in Runtime und Oberfläche
 
 Der frei wählbare Projektname ist zugleich der führende Teil der Runtime-Namen.

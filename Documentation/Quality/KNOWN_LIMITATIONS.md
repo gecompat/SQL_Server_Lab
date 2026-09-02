@@ -441,12 +441,16 @@ sanitisierte UI-Inventur hasht große Objekte nicht bei jedem Refresh, während
 die konkrete Auswahl Status, Verification-Evidence, Datei und SHA-256 erneut
 fail-closed prüft. TDE endet ohne separaten Zertifikat- und
 Recovery-Vertrag fail-closed; ein TDE-Schlüsseltransfer findet nicht statt.
-Der interne Hyper-V-Persistent-Data-Core kann eine
-katalogisierte, sauber getrennte Daten-VHDX inzwischen per stabiler Storage-ID
-klonen, reattachen und freigeben; operationsgebundene Lease, atomarer
-Katalogcommit, Recovery und der reale Hostnachweis sind grün. Er erzeugt bewusst
-keine Aussage, dass vorhandene Datenbankdateien online sind: öffentliche
-CLI-/GUI-Bedienung sowie der explizite SQL-Restore-/Attach-Schritt bleiben offen.
+Der Hyper-V-Persistent-Data-Lifecycle kann eine katalogisierte Daten-VHDX per
+stabiler Storage-ID in CLI und Browser klonen, reattachen und freigeben. Release
+prüft im laufenden Gast alle registrierten SQL-Instanzen und ihre
+`sys.master_files`-Bindungen, blockiert aktive Datenbankdateien und fordert erst
+danach den sauberen Shutdown an. Der Detach-Receipt ist zusätzlich an
+DiskIdentifier, Dateigröße und Änderungszeit gebunden; Clone schreibt den
+entsprechenden Ziel-Receipt vor dem atomaren Katalogcommit. Operationsgebundene
+Lease, Recovery und der reale Hostnachweis sind grün. Vorhandene Dateien gelten
+bewusst nicht als online; der explizite SQL-Restore-/Attach-Schritt bleibt ein
+getrennter Datenbankpaket-/Bedienungs-Scope.
 
 Der interne `DATABASE_PACKAGE`-Core publiziert seit PSR-009 nur eine exklusiv
 gesperrte, nach dem Lock erneut als sauber `OFFLINE` oder `DETACHED` beobachtete

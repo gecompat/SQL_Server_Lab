@@ -6,6 +6,7 @@ let uiConfig = { jobLogBurstLimit: 300 };
 let workflowRefreshTimer = null;
 let pendingPersistentStorageRemoval = null;
 let pendingDatabasePackageAttach = null;
+let pendingHyperVPersistentData = null;
 
 const $ = (selector) => document.querySelector(selector);
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
@@ -302,24 +303,57 @@ function renderHyperVPersistentDataOptions(items) {
   ).join('');
   if (candidates.some((item) => item.PersistentStorageId === previous)) select.value = previous;
   $('#hyperv-persistent-data-count').textContent = candidates.length + ' VHDX';
+  renderHyperVPersistentDataTargetOptions(workflow?.HyperVLabs || []);
   updateHyperVPersistentDataDetails(candidates);
+}
+
+function hyperVPersistentDataTargets(items = workflow?.HyperVLabs || []) {
+  const selected = (workflow?.HyperVPersistentDataCandidates || []).find((item) =>
+    item.PersistentStorageId === $('#hyperv-persistent-data-source').value);
+  return (Array.isArray(items) ? items : []).filter((item) =>
+    item.State === 'STOPPED' && item.VMState === 'Off' && item.Workload !== 'windows' &&
+    (!selected?.SqlMajorVersion || String(item.SqlVersion) === String(selected.SqlMajorVersion)));
+}
+
+function renderHyperVPersistentDataTargetOptions(items) {
+  const select = $('#hyperv-persistent-data-target');
+  const previous = select.value;
+  const targets = hyperVPersistentDataTargets(items);
+  select.innerHTML = '<option value="">Ziel für Reattach oder Clone auswählen …</option>' + targets.map((item) =>
+    '<option value="' + escapeHtml(item.RunId) + '">' +
+    escapeHtml((item.Name || shortId(item.RunId)) + ' · SQL ' + (item.SqlVersion || '–')) + '</option>'
+  ).join('');
+  if (targets.some((item) => item.RunId === previous)) select.value = previous;
 }
 
 function updateHyperVPersistentDataDetails(items = workflow?.HyperVPersistentDataCandidates || []) {
   const selected = (items || []).find((item) => item.PersistentStorageId === $('#hyperv-persistent-data-source').value);
+  const selectedTarget = hyperVPersistentDataTargets().find((item) => item.RunId === $('#hyperv-persistent-data-target').value);
   const target = $('#hyperv-persistent-data-details');
+  const reattach = $('#hyperv-persistent-data-reattach');
+  const release = $('#hyperv-persistent-data-release');
+  const clone = $('#hyperv-persistent-data-clone');
+  reattach.disabled = true;
+  release.disabled = true;
+  clone.disabled = true;
   if (!selected) {
     target.textContent = 'Die Auswahl erfolgt ausschließlich über die stabile PersistentStorageId; Hostpfad und DiskIdentifier werden nicht an den Browser übertragen.';
     return;
   }
   const lifecycle = Array.isArray(selected.LifecycleActions) && selected.LifecycleActions.length ? selected.LifecycleActions.join(', ') : 'keine';
   const blockers = Array.isArray(selected.Issues) && selected.Issues.length ? selected.Issues.join(', ') : 'keine';
+  const available = Array.isArray(selected.AvailableActions) ? selected.AvailableActions : [];
+  release.disabled = !available.includes('RELEASE') || !selected.BoundRunId;
+  reattach.disabled = !available.includes('REATTACH') || !selectedTarget;
+  clone.disabled = !available.includes('CLONE') || !selectedTarget;
   const attachment = selected.AttachmentState === 'ATTACHED' && selected.AttachedVMName
     ? selected.AttachmentState + ' · VM ' + selected.AttachedVMName
     : (selected.AttachmentState || 'UNKNOWN');
   target.innerHTML = '<strong>' + escapeHtml(selected.DisplayName || shortId(selected.PersistentStorageId)) + '</strong>' +
     '<span>Katalog: ' + escapeHtml(selected.State || 'UNKNOWN') + ' · Runtime: ' + escapeHtml(attachment) + '</span>' +
-    '<span>Lifecycle: ' + escapeHtml(lifecycle) + ' · derzeit gesperrt: ' + escapeHtml(blockers) + '</span>' +
+    '<span>Lifecycle: ' + escapeHtml(lifecycle) + ' · Blocker: ' + escapeHtml(blockers) + '</span>' +
+    '<span>Detach-Evidenz: ' + escapeHtml(selected.DetachEvidenceStatus || 'MISSING') +
+    (selectedTarget ? ' · Ziel: ' + escapeHtml(selectedTarget.Name || shortId(selectedTarget.RunId)) : '') + '</span>' +
     '<span>Datenbanken online: nein · Folgeaktion: explizites Restore oder Attach</span>' +
     '<code>PersistentStorageId: ' + escapeHtml(selected.PersistentStorageId) + '</code>';
 }
@@ -1138,6 +1172,35 @@ document.addEventListener('click', async (event) => {
     $('#credential-dialog').showModal();
     return;
   }
+  const persistentDataRelease = event.target.closest('#hyperv-persistent-data-release');
+  if (persistentDataRelease) {
+    const selected = (workflow?.HyperVPersistentDataCandidates || []).find((item) =>
+      item.PersistentStorageId === $('#hyperv-persistent-data-source').value);
+    if (!selected?.PersistentStorageId || !selected?.BoundRunId) { showError(new Error('Bitte eine freigabefähige Daten-VHDX auswählen.')); return; }
+    pendingHyperVPersistentData = { PersistentStorageId: selected.PersistentStorageId, DataRoot: workflow?.Defaults?.DataRoot || '' };
+    $('#credential-action').value = 'ReleaseHyperVPersistentData';
+    $('#credential-build').value = selected.BoundRunId;
+    $('#credential-sa-password-label').hidden = false;
+    $('#credential-sa-password').value = '';
+    $('#credential-title').textContent = 'Daten-VHDX sauber freigeben';
+    $('#credential-note').textContent = 'Gast- und optional abweichendes SA-Passwort werden nur für die Live-Prüfung verwendet. Aktive SQL-Dateien blockieren die Freigabe. Bei Erfolg wird der Gast sauber heruntergefahren, die VHDX detached und der Katalog atomar freigegeben.';
+    $('#credential-dialog').showModal();
+    return;
+  }
+  const persistentDataReattach = event.target.closest('#hyperv-persistent-data-reattach');
+  const persistentDataClone = event.target.closest('#hyperv-persistent-data-clone');
+  if (persistentDataReattach || persistentDataClone) {
+    const storageId = $('#hyperv-persistent-data-source').value;
+    const targetRunId = $('#hyperv-persistent-data-target').value;
+    if (!storageId || !targetRunId) { showError(new Error('Bitte Daten-VHDX und kompatible ausgeschaltete Ziel-VM auswählen.')); return; }
+    const action = persistentDataReattach ? 'ReattachHyperVPersistentData' : 'CloneHyperVPersistentData';
+    const label = persistentDataReattach ? 'Daten-VHDX reattachen' : 'Daten-VHDX klonen';
+    const message = persistentDataReattach
+      ? 'Die freigegebene Daten-VHDX an die gewählte VM binden? Datenbankdateien bleiben offline und benötigen danach ein explizites Restore oder Attach.'
+      : 'Eine eigenständige, katalogisierte Kopie der freigegebenen Daten-VHDX für die gewählte VM erzeugen? Die Quelle bleibt unverändert.';
+    openConfirmation(label, message, action, { BuildId: targetRunId, PersistentStorageId: storageId, DataRoot: workflow?.Defaults?.DataRoot || '' }, persistentDataReattach ? 'Reattach' : 'Klonen');
+    return;
+  }
   const operation = event.target.closest('[data-container-operation]');
   if (operation) {
     openContainerOperation(operation.dataset.containerOperation, operation.dataset.run, operation.dataset.port, operation.dataset.instance, operation.dataset.sqlVersion, operation.dataset.containerOperationKind, operation.dataset.containerOperationHost);
@@ -1320,11 +1383,16 @@ $('#credential-form').addEventListener('submit', async (event) => {
     parameters.InstanceId = pendingDatabasePackageAttach.InstanceId;
     if (pendingDatabasePackageAttach.DataRoot) parameters.DataRoot = pendingDatabasePackageAttach.DataRoot;
   }
+  if ($('#credential-action').value === 'ReleaseHyperVPersistentData' && pendingHyperVPersistentData) {
+    parameters.PersistentStorageId = pendingHyperVPersistentData.PersistentStorageId;
+    if (pendingHyperVPersistentData.DataRoot) parameters.DataRoot = pendingHyperVPersistentData.DataRoot;
+  }
   if (saPassword) parameters.SaPassword = saPassword;
   queueBackgroundAction($('#credential-action').value, parameters, $('#credential-dialog'), () => {
     $('#guest-password').value = '';
     $('#credential-sa-password').value = '';
     pendingDatabasePackageAttach = null;
+    pendingHyperVPersistentData = null;
   });
 });
 
@@ -1618,7 +1686,11 @@ $('#container-sample').addEventListener('change', updateContainerSampleSelection
 $('#container-library-backup').addEventListener('change', updateContainerLibraryBackupSelection);
 $('#database-package-source').addEventListener('change', () => updateDatabasePackageDetails());
 $('#database-package-target').addEventListener('change', () => updateDatabasePackageDetails());
-$('#hyperv-persistent-data-source').addEventListener('change', () => updateHyperVPersistentDataDetails());
+$('#hyperv-persistent-data-source').addEventListener('change', () => {
+  renderHyperVPersistentDataTargetOptions(workflow?.HyperVLabs || []);
+  updateHyperVPersistentDataDetails();
+});
+$('#hyperv-persistent-data-target').addEventListener('change', () => updateHyperVPersistentDataDetails());
 
 $('#persistent-storage-removal-form').addEventListener('submit', async (event) => {
   if (event.submitter?.value === 'cancel') return;

@@ -18,11 +18,13 @@ Write-Host 'SQL_Server_Lab - Hyper-V Persistent Data Drive Checks' -ForegroundCo
 Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
 Import-Module $modulePath -Force -ErrorAction Stop
 $module = Get-Module SqlServerLab
+$implementationText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private\HyperVPersistentDataDrive.ps1') -Raw
 $temporaryRoot = Join-Path ([IO.Path]::GetTempPath()) "sql-lab-hyperv-persistent-$([guid]::NewGuid().ToString('N'))"
 $dataRoot = Join-Path $temporaryRoot 'Lab_Data'
 $sourceRelativePath = Join-Path (Join-Path 'HyperV' 'Persistent') 'source-data.vhdx'
 $sourcePath = Join-Path $dataRoot $sourceRelativePath
 New-Item -ItemType Directory -Path (Split-Path -Parent $sourcePath) -Force | Out-Null
+[IO.File]::WriteAllBytes($sourcePath, [byte[]](1..32))
 try {
     $evidence = & $module {
         param($Root,$SourceRelativePath,$OperationRoot)
@@ -86,6 +88,17 @@ try {
         $releaseInspection.Target.Attachments += [PSCustomObject]@{ Path=$sourcePath; ControllerType='SCSI'; ControllerNumber=0; ControllerLocation=1 }
         $releasePlan=Get-LabHyperVPersistentDataPlan -Intent $releaseIntent -Catalog $releaseCatalog -Configuration $configuration -RuntimeInspection $releaseInspection
 
+        $detachReceipt=Write-LabHyperVPersistentDataDetachEvidence -Path $sourcePath -PersistentStorageId $sourceId `
+            -ControllerId $controllerId -DetachEvidence $detach -SourceRunId $runId -SourceScopeId $scopeId -SourceVMId $vmId
+        $validDetachReceipt=Get-LabHyperVPersistentDataDetachEvidence -Path $sourcePath -PersistentStorageId $sourceId `
+            -ControllerId $controllerId -DiskIdentifier $diskId
+        $sourceFile=Get-Item -LiteralPath $sourcePath
+        $sourceFile.LastWriteTimeUtc=$sourceFile.LastWriteTimeUtc.AddSeconds(2)
+        $staleDetachReceipt=Get-LabHyperVPersistentDataDetachEvidence -Path $sourcePath -PersistentStorageId $sourceId `
+            -ControllerId $controllerId -DiskIdentifier $diskId
+        $detachReceipt=Write-LabHyperVPersistentDataDetachEvidence -Path $sourcePath -PersistentStorageId $sourceId `
+            -ControllerId $controllerId -DetachEvidence $detach -SourceRunId $runId -SourceScopeId $scopeId -SourceVMId $vmId
+
         $script:hvpSelectionInspection=$inspection
         $detachedSelection=@(Get-LabHyperVPersistentDataSelection -Configuration $configuration -Catalog $catalog -InspectRuntime -RuntimeInspector { param($Path) $script:hvpSelectionInspection })
         $script:hvpSelectionInspection=$releaseInspection
@@ -110,7 +123,7 @@ try {
             Set-Item Function:Convert-VHD -Value {
                 param($Path,$DestinationPath,$VHDType)
                 $script:hvpConvertAttempts++
-                $null=New-Item -ItemType File -Path $DestinationPath -Force
+                [IO.File]::WriteAllBytes($DestinationPath,[byte[]](1..16))
                 if ($script:hvpConvertAttempts -eq 1) { throw 'HYPERV_PERSISTENT_DATA_SYNTHETIC_COPY_FAILURE' }
             }
             Set-Item Function:Set-VHD -Value { param($Path,[switch]$ResetDiskIdentifier,[switch]$Force) }
@@ -158,6 +171,31 @@ try {
             Set-Item Function:Test-LabDataRootOwnership -Value $originalOwnership
             Remove-Variable hvpInspection,hvpSourceHash,hvpConvertAttempts,hvpTargetDiskId -Scope Script -ErrorAction SilentlyContinue
         }
+
+        $workflowFunctionNames=@(
+            'Resolve-LabDataRootForUse','Get-LabStorageConfiguration','Get-LabPersistentStorageCatalog',
+            'Get-HyperVLabWorkflowRun','Resolve-LabHyperVPersistentDataCatalogBinding',
+            'Get-LabHyperVPersistentDataRuntimeInspection','Get-LabHyperVPersistentDataDetachEvidence',
+            'Get-LabHyperVPersistentDataPlan','Invoke-LabHyperVPersistentDataPlan','Set-LabHyperVPersistentDataConnectionState'
+        )
+        $workflowOriginals=@{}
+        foreach($name in $workflowFunctionNames){$workflowOriginals[$name]=(Get-Command $name).ScriptBlock}
+        try {
+            Set-Item Function:Resolve-LabDataRootForUse -Value {param($DataRoot)$DataRoot}
+            Set-Item Function:Get-LabStorageConfiguration -Value ({param($DataRoot)[PSCustomObject]@{ControllerId=$controllerId;DefaultLocationId=$locationId;LabDataLocations=@()}}.GetNewClosure())
+            Set-Item Function:Get-LabPersistentStorageCatalog -Value ({param($Configuration)$catalog}.GetNewClosure())
+            Set-Item Function:Get-HyperVLabWorkflowRun -Value ({param($RunId,$StateRoot)[PSCustomObject]@{Run=[PSCustomObject]@{runId=$runId;scopeId=$scopeId};Instance=[PSCustomObject]@{vmName='sql-lab-target';sqlVersion='2025'};RunDirectory=$OperationRoot;Connection=[PSCustomObject]@{}}}.GetNewClosure())
+            Set-Item Function:Resolve-LabHyperVPersistentDataCatalogBinding -Value ({param($Intent,$Catalog,$Configuration,$Issues)[PSCustomObject]@{Store=$store;Path=$sourcePath;Root=$Root;Document=$catalog.Document}}.GetNewClosure())
+            Set-Item Function:Get-LabHyperVPersistentDataRuntimeInspection -Value ({param($Path,$TargetVMName)$inspection}.GetNewClosure())
+            Set-Item Function:Get-LabHyperVPersistentDataDetachEvidence -Value ({param($Path,$PersistentStorageId,$ControllerId,$DiskIdentifier)[PSCustomObject]@{DetachEvidence=$detach}}.GetNewClosure())
+            Set-Item Function:Get-LabHyperVPersistentDataPlan -Value ({param($Intent,$Catalog,$Configuration,$RuntimeInspection)$reattachPlan}.GetNewClosure())
+            Set-Item Function:Invoke-LabHyperVPersistentDataPlan -Value {param($Plan,$OperationDirectory,$Configuration)[PSCustomObject]@{Status='COMPLETED';CatalogRevision=7}}
+            Set-Item Function:Set-LabHyperVPersistentDataConnectionState -Value {param($Lab,$Action,$Plan,$Journal)[PSCustomObject]@{state='ATTACHED_REQUIRES_DATABASE_ACTION'}}
+            $workflowResult=Invoke-LabHyperVPersistentDataLifecycle -Action REATTACH -PersistentStorageId $sourceId -TargetRunId $runId -DataRoot $Root
+        }
+        finally {
+            foreach($name in $workflowFunctionNames){Set-Item "Function:$name" -Value $workflowOriginals[$name]}
+        }
         [PSCustomObject]@{
             ReattachPlan=$reattachPlan; ClonePlan=$clonePlan; ReleasePlan=$releasePlan; AttachedPlan=$attachedPlan
             CheckpointPlan=$checkpointPlan; VersionPlan=$versionPlan; IntentValid=(Test-LabHyperVPersistentDataIntent -Intent $cloneIntent)
@@ -165,7 +203,8 @@ try {
             FailedCatalog=$failedCatalog; CompletedCatalog=$completedCatalog; SourceId=$sourceId; TargetId=$targetId
             ReattachLease=$reattachLease; ReattachCommit=$reattachCommit; ReleaseCommit=$releaseCommit; LifecycleCatalog=$lifecycleCatalog
             DetachedSelection=$detachedSelection; AttachedSelection=$attachedSelection; UninspectedSelection=$uninspectedSelection
-            SourcePath=$sourcePath; DiskId=$diskId
+            SourcePath=$sourcePath; DiskId=$diskId; ValidDetachReceipt=$validDetachReceipt; StaleDetachReceipt=$staleDetachReceipt
+            WorkflowResult=$workflowResult
         }
     } $dataRoot $sourceRelativePath $temporaryRoot
 
@@ -217,18 +256,34 @@ try {
         [string]$evidence.DetachedSelection[0].PersistentStorageId -eq [string]$evidence.SourceId -and
         $selectionJson -notmatch [regex]::Escape([string]$evidence.SourcePath) -and
         $selectionJson -notmatch [regex]::Escape([string]$evidence.DiskId))
-    Add-CheckResult -Name 'Detached VHDX zeigt Reattach und Clone fail-closed bis zur Evidence' -Success (
+    Add-CheckResult -Name 'Detach-Receipt ist an Storage-ID, Disk-ID und unveraenderte VHDX gebunden' -Success (
+        $evidence.ValidDetachReceipt.ContractVersion -eq 'SqlServerLab.HyperVPersistentDataDetachEvidence/1.0' -and
+        -not $evidence.StaleDetachReceipt)
+    Add-CheckResult -Name 'Detached VHDX gibt Reattach und Clone nur mit gueltiger Evidence frei' -Success (
         $evidence.DetachedSelection[0].AttachmentState -eq 'DETACHED' -and
         @($evidence.DetachedSelection[0].LifecycleActions).Count -eq 2 -and
-        @($evidence.DetachedSelection[0].AvailableActions).Count -eq 0 -and
-        'CLEAN_DETACH_EVIDENCE_REQUIRED' -in @($evidence.DetachedSelection[0].Issues) -and
-        'TARGET_BINDING_EVIDENCE_REQUIRED' -in @($evidence.DetachedSelection[0].Issues) -and
+        @($evidence.DetachedSelection[0].AvailableActions).Count -eq 2 -and
+        $evidence.DetachedSelection[0].DetachEvidenceStatus -eq 'VERIFIED' -and
+        @($evidence.DetachedSelection[0].Issues).Count -eq 0 -and
         -not $evidence.DetachedSelection[0].DatabaseFilesOnline)
-    Add-CheckResult -Name 'Attached VHDX zeigt Release und fehlende Runtime bleibt explizit' -Success (
+    Add-CheckResult -Name 'Attached VHDX gibt Evidence-erzeugendes Release frei und fehlende Runtime bleibt explizit' -Success (
         $evidence.AttachedSelection[0].AttachmentState -eq 'ATTACHED' -and
-        @($evidence.AttachedSelection[0].LifecycleActions) -contains 'RELEASE' -and
-        'CLEAN_DETACH_EVIDENCE_REQUIRED' -in @($evidence.AttachedSelection[0].Issues) -and
+        @($evidence.AttachedSelection[0].AvailableActions) -contains 'RELEASE' -and
+        @($evidence.AttachedSelection[0].Issues).Count -eq 0 -and
         'HYPERV_RUNTIME_NOT_INSPECTED' -in @($evidence.UninspectedSelection[0].Issues))
+    $workflowJson=$evidence.WorkflowResult | ConvertTo-Json -Depth 10
+    Add-CheckResult -Name 'Oeffentlicher Lifecycle bindet stabile IDs an denselben Core und sanitisiert das Ergebnis' -Success (
+        $evidence.WorkflowResult.Action -eq 'REATTACH' -and $evidence.WorkflowResult.Status -eq 'COMPLETED' -and
+        $evidence.WorkflowResult.SourcePersistentStorageId -eq $evidence.SourceId -and
+        -not $evidence.WorkflowResult.DatabaseFilesOnline -and
+        $workflowJson -notmatch '(?i)(hostPath|relativePath|diskIdentifier|credential|password)') `
+        -Message "result=$workflowJson"
+    Add-CheckResult -Name 'Gast-Detach prueft alle SQL-Dateien und faehrt die VM verdeckt sauber herunter' -Success (
+        $implementationText -match 'sys\.master_files' -and
+        $implementationText -match 'DATABASE_FILES_ONLINE' -and
+        $implementationText -match 'shutdown\.exe' -and
+        $implementationText -match "WindowStyle\s+(?:'Hidden'|Hidden)" -and
+        $implementationText -match '\[SecureString\]')
 }
 catch {
     Add-CheckResult -Name 'Hyper-V Persistent Data Drive Testausfuehrung' -Success $false -Message $_.Exception.Message
