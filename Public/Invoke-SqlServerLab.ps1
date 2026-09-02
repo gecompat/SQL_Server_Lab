@@ -588,7 +588,7 @@ function Invoke-LabAction {
     switch ($ActionName) {
         'MediaRoot' {
             $currentMediaRoot = Get-LabMediaRootDefault
-            $prompt = if ($currentMediaRoot) { "  Neuer Media Root [$currentMediaRoot]" } else { '  Neuer Media Root' }
+            $prompt = if ($currentMediaRoot) { "  Vollstaendiger Media-Root-Ordner, z. B. C:\Lab_Base [$currentMediaRoot]" } else { '  Vollstaendiger Media-Root-Ordner, z. B. C:\Lab_Base' }
             $candidate = Read-Host $prompt
             if ([string]::IsNullOrWhiteSpace($candidate)) {
                 Write-LabInfo 'Media Root unverändert.'
