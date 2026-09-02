@@ -20,7 +20,7 @@
 function Invoke-SqlServerLab {
     [CmdletBinding()]
     param(
-        [ValidateSet('New', 'BatchPlan', 'Queue', 'AutomatedTestEnvironment', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'Script', 'Database', 'Image', 'Setup', 'MediaRoot', 'CuResource', 'CuStatus', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip', 'Catalog', 'ConnectionCenter')]
+        [ValidateSet('New', 'BatchPlan', 'Queue', 'AutomatedTestEnvironment', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'Script', 'Database', 'Image', 'Setup', 'MediaRoot', 'OperatingSystemSources', 'CuResource', 'CuStatus', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip', 'Catalog', 'ConnectionCenter')]
         [string]$Action,
 
         [ValidateSet('Auto', 'Fallback')]
@@ -227,6 +227,7 @@ function Show-LabStorageMenu {
     $items = @(
         New-LabConsoleItem -Id 'Setup' -Label 'Ersteinrichtung für Lab_Base und Lab_Data' -Value 'fragt nur fehlende oder ungültige Angaben ab' -Shortcut 'e'
         New-LabConsoleItem -Id 'MediaRoot' -Label 'Lab_Base / Media-Root konfigurieren' -Value 'ISO-, Win-/SQL-Medien, Sidecar-Hashes' -Shortcut 'p'
+        New-LabConsoleItem -Id 'OperatingSystemSources' -Label 'Betriebssystem-Downloadquellen anzeigen' -Value 'Windows Server, Windows 11 und Ubuntu · offizielle Herstellerseiten' -Shortcut 'o'
         New-LabConsoleItem -Id 'CuResource' -Label 'SQL Server CU herunterladen oder prüfen' -Value 'Windows-Paket oder Linux-MCR-Image · alle katalogisierten CUs' -Shortcut 'c'
         New-LabConsoleItem -Id 'CuStatus' -Label 'Aktuelle CUs bei Microsoft prüfen' -Value 'read-only Änderungsvorschau; kein ungeprüfter Download' -Shortcut 'w'
         New-LabConsoleItem -Id 'DataRoot' -Label 'Lab_Data verwalten' -Value 'Lab_Data je Volume' -Shortcut 'd'
@@ -606,6 +607,9 @@ function Invoke-LabAction {
             catch {
                 Write-LabError "Media Root konnte nicht gespeichert werden: $($_.Exception.Message)"
             }
+        }
+        'OperatingSystemSources' {
+            Show-LabOperatingSystemSourcesInteractive
         }
         'CuResource' {
             Invoke-LabCuResourceInteractive
@@ -1143,6 +1147,65 @@ function Show-LabCuStatusInteractive {
     }
     finally {
         Wait-LabConsoleAcknowledgement -Prompt ' Enter oder Escape: Zurück zu Storage & Medien'
+    }
+}
+
+function Show-LabOperatingSystemSourcesInteractive {
+    <#
+    .SYNOPSIS
+        Zeigt die offiziellen Betriebssystem-Portale und die erwarteten Media-Root-Ziele.
+    .DESCRIPTION
+        Der Abruf bleibt eine ausdrückliche Handlung im Browser: Herstellerseiten
+        können Anmeldung, Lizenz- oder Sprachauswahl verlangen. Die Ansicht lädt
+        keine Medien und verändert weder Lab_Base noch Lab_Data.
+    #>
+    [CmdletBinding()]
+    param()
+
+    try {
+        $mediaRoot = Get-LabMediaRootDefault
+        $operatingSystemSources = @(
+            Get-LabMediaSourceCatalog -MediaRoot $mediaRoot |
+                Where-Object { [string]$_.Category -in @('Windows Server', 'Windows 11', 'Linux') }
+        )
+        if ($operatingSystemSources.Count -eq 0) {
+            throw 'Der Medienkatalog enthält keine Betriebssystem-Downloadquellen.'
+        }
+
+        Write-Host ''
+        Write-Host '  Betriebssystem-Downloadquellen' -ForegroundColor Cyan
+        Write-Host '  ---------------------------------------------------------------------' -ForegroundColor DarkCyan
+        Write-LabInfo 'Nur offizielle Herstellerseiten. Kein Medium wird aus dieser Ansicht heruntergeladen.'
+        if ($mediaRoot) {
+            Write-LabStatus -Label 'Lab_Base' -Value $mediaRoot -Color White
+        }
+        else {
+            Write-LabWarning 'Lab_Base ist noch nicht konfiguriert. Nach dem Download zuerst unter [p] den Media-Root festlegen.'
+        }
+
+        foreach ($source in $operatingSystemSources) {
+            Write-Host ''
+            Write-Host ("  {0}" -f $source.DisplayName) -ForegroundColor White
+            Write-Host ("    Link:    {0}" -f $source.Url) -ForegroundColor DarkCyan
+            $target = if ($mediaRoot) {
+                Join-Path $mediaRoot ([string]$source.TargetRelativePath -replace '/', '\')
+            }
+            else {
+                '<Lab_Base>\' + ([string]$source.TargetRelativePath -replace '/', '\')
+            }
+            Write-Host ("    Ablage:  {0}" -f $target) -ForegroundColor Gray
+            Write-Host ("    Hinweis: {0}" -f $source.Note) -ForegroundColor Gray
+        }
+
+        Write-Host ''
+        Write-LabInfo 'Nächster Schritt: Link im Browser öffnen, ISO (bei Windows x64) auswählen und die heruntergeladene Datei in die angezeigte Ablage legen.'
+        Write-LabInfo 'Danach im Hyper-V-Workflow „Windows-OS-Vorlage aus DVD erstellen oder fortsetzen“ wählen.'
+    }
+    catch {
+        Write-LabError ("Betriebssystem-Quellen konnten nicht angezeigt werden: {0}" -f $_.Exception.Message)
+    }
+    finally {
+        Wait-LabConsoleAcknowledgement -Prompt '  Enter oder Escape: Zurück zu Storage & Medien'
     }
 }
 
