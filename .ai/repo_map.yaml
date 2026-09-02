@@ -85,6 +85,9 @@ sources_of_truth:
   validation_hyperv_test_database_reconcile: Tests/Static/Invoke-HyperVTestDatabaseReconcileChecks.ps1
   validation_hyperv_test_database_reconcile_acceptance: Tests/Integration/Invoke-HyperVTestDatabaseReconcileAcceptance.ps1
   validation_hyperv_test_database_reconcile_bootstrap: Tests/Integration/Invoke-HyperVTestDatabaseReconcileAcceptanceBootstrap.ps1
+  hyperv_external_runtime_reconcile_contract: Private/HyperVExternalRuntimeReconcile.ps1
+  hyperv_external_runtime_reconcile_journal_schema: Schemas/hyperv-external-runtime-reconcile-journal.schema.json
+  validation_hyperv_external_runtime_reconcile: Tests/Static/Invoke-HyperVExternalRuntimeReconcileChecks.ps1
   port_allocation_contract: Private/PortAllocation.ps1
   storage_contract: Private/StorageContract.ps1
   storage_contract_schema: Schemas/lab-storage-contract.schema.json
@@ -629,6 +632,7 @@ providers:
     sql_configuration_reconcile: "Private/HyperVSqlConfigurationReconcile.ps1; persistierter oder eng begrenzt manifestaktualisierter serverConfig-Intent, read-only sys.configurations-/Trace-Flag-/Startup-Istvergleich sowie journalisierte Live- oder MSSQLSERVER-Dienstrestart-Reparatur mit VM-gebundenem Trace-Flag-Ownership, eigentumsgeschuetzter Runtime-Entfernung, Desired-State-Commit und Recovery-Resume"
     sql_port_reconcile: "Private/HyperVSqlPortReconcile.ps1; persistierter hyperv.sqlPort-Intent, hostwertfreier Registry-/Firewall-Istvergleich und journalisierte Reparatur mit ausschliesslichem SQL-Dienstrestart sowie Recovery-Resume"
     test_database_reconcile: "Private/HyperVTestDatabaseReconcile.ps1; katalogisierte Add-/Remove-Aktionen mit VM-gebundenem Ownership, verifiziertem Removal-Backup, Fremddatenbankschutz und Vorwaerts-Recovery"
+    external_runtime_reconcile: "Private/HyperVExternalRuntimeReconcile.ps1; additive katalogisierte Python-/R-/Java-PlanKeys mit VM-/Zielhash-Journal, idempotenter Offline-Gastinstallation, echten SQL-Postconditions, Desired-State-Commit und Vorwaerts-Recovery; Removal, Variantenwechsel und Artifact-Refresh bleiben fail-closed"
     migration_lifecycle_guard: "read-only Reconcile-Plan plus fail-closed Start, Stop, Autostart, SQL-WMI-Repair und Cleanup; Run- und allgemeine Location-Migrationen muessen terminal sein, COMPLETED erfordert revalidierte Bindings"
     storage_parent_migration_binding: "Plan inventarisiert lokale HyperVResourceBinding-Receipts sowie exakte VM-Konfigurations-/Snapshot-/Paging-Quell- und Zielpfade; Apply revalidiert VM-Identitaet und Aus-Zustand, journalisiert Move-VMStorage vor der Mutation, prueft Ziel-Postconditions und setzt ohne doppelten Move fort"
     storage_parent_migration_acceptance: "Tests/Integration/Invoke-HyperVStorageParentMigrationAcceptance.ps1; reale Vorwaerts- und Rueckmigration eines isolierten nicht-default Lab_Data mit VM-Konfiguration, Snapshot, Smart Paging, VHDX-Rebind, Wiederherstellung und Cleanup"
@@ -656,6 +660,7 @@ providers:
     image_migration_static_checks: Tests/Static/Invoke-HyperVImageMigrationChecks.ps1
     sql_prepared_build_acceptance: Tests/Integration/Invoke-HyperVSqlPreparedImageAcceptance.ps1
     test_database_reconcile_acceptance: "Tests/Integration/Invoke-HyperVTestDatabaseReconcileAcceptance.ps1 plus isolierter Prepared-Artifact-Bootstrap; ausfuehrbarer Plan/WhatIf/Add/No-op/Remove-/Restart-/Cleanup-Vertrag mit prozesslokal isolierter LAB_GENERATED-Erzeugung, Hashprüfung, bevorzugter Wiederverwendung und zweitem eigentumsgebundenem Cleanup; erweiterte native Ausfuehrung noch NOT_EXECUTED"
+    external_runtime_reconcile_static_checks: "Tests/Static/Invoke-HyperVExternalRuntimeReconcileChecks.ps1; Plan/WhatIf/Add/No-op/Recovery/Resume/Removal-Blockade und PlanKey-gebundener Connection-State"
     storage_acceptance_bootstrap: "Tests/Integration/Invoke-HyperVStorageAcceptanceBootstrap.ps1; real three-device N4/N5 rerun validates bound builder/image placement and registry-safe isolated artifact cleanup"
     legacy_sql_migration_acceptance: "Tests/Integration/Invoke-HyperVLegacySqlMigrationBootstrap.ps1; isolated SQL 2022 clone validates committed Lab_Data binding, two guest/SQL restarts, running-state restoration, protected-group recovery, and complete candidate cleanup"
     template_pool: "Maximal 20 immutable OS_SEALED-/SQL_PREPARED_SEALED-Images; aktive Builder und Lab-Klone blockieren Parent-Löschung"
@@ -848,6 +853,16 @@ validation:
       - sanitized_plan_and_whatif
       - build_journal_validation_state_commit_cleanup_order
       - rollback_and_resume_contract
+  static_hyperv_external_runtime_reconcile:
+    command: '.\Tests\Static\Invoke-HyperVExternalRuntimeReconcileChecks.ps1'
+    source: Tests/Static/Invoke-HyperVExternalRuntimeReconcileChecks.ps1
+    covers:
+      - provider_bound_hyperv_external_runtime_plan
+      - additive_guest_offline_media_reprovision
+      - whatif_and_noop
+      - vm_and_target_hash_bound_forward_recovery
+      - software_plan_key_receipt_and_desired_state_commit
+      - removal_and_variant_change_fail_closed
   static_hyperv_network_reconcile:
     command: '.\Tests\Static\Invoke-HyperVNetworkReconcileChecks.ps1'
     source: Tests/Static/Invoke-HyperVNetworkReconcileChecks.ps1

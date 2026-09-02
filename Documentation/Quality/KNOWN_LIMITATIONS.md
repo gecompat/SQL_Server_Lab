@@ -205,8 +205,10 @@ Ein nativer read-only Probe bestätigte auf dem Referenzhost für eine vorhanden
 verwaltete VM die Internal-Switch-Bindung und die zugehörige Hostinfrastruktur
 als `MATCHED`; Gastadressierung war für diesen älteren Run nicht gebunden und
 wurde daher nicht als aktuell validiert behauptet.
-Noch nicht implementiert ist die vollständige Bindung an den Datenbank-, Software-
-und Post-Provisioning-Vertrag. Eine positive native External-Switch-Erstellung
+Noch nicht implementiert ist die vollständige Bindung an den allgemeinen
+Software- und Post-Provisioning-Vertrag. Katalogisierte Testdatenbanken und
+additive SQL-2022-External-Runtimes besitzen inzwischen getrennte
+Hyper-V-Reconcile-Verträge. Eine positive native External-Switch-Erstellung
 und ein positiver nativer Lauf des neuen Reparatur-Executors auf einem dafür
 freigegebenen isolierten Run stehen ebenfalls noch aus. Der Prepared-Image-Klonpfad führt für
 ein `SQL_PREPARED_SEALED`-Image `CompleteImage` aus und ist für den Windows-
@@ -745,10 +747,23 @@ und `39012` ist genau ein Container-Restart mit anschließendem Probe-Retry
 zulässig; Java-Registrierungseigentum wird dabei versuchsübergreifend erhalten,
 damit Compensation und spätere Removal-Aktionen vollständig bleiben.
 
-Noch nicht unterstützt sind die Entfernung der letzten External Runtime, freie
-Packagewechsel, der allgemeine Hyper-V-Softwarepfad sowie Hyper-V-Artifact-
-Refresh und automatische Gastumschaltung. Das Hyper-V-Verwaltungsmenü weist
-darauf mit einem begründet deaktivierten Eintrag hin.
+Für laufende SQL-2022-Windows-/Hyper-V-Runs ist zusätzlich ein strikt additiver
+External-Runtime-Reconcile implementiert. Er akzeptiert ausschließlich neue,
+vom gemeinsamen Softwarekatalog aufgelöste Python-, R- oder Java-PlanKeys und
+lehnt jede andere Manifestdrift ab. Vor der Gastmutation persistiert er ein
+VM- und Zielhash-gebundenes Journal, verwendet den idempotenten Offline-
+Gastinstaller, prüft dessen echte SQL-Postconditions und schreibt den Desired
+State erst nach verifizierten Installation Receipts und Connection-State fort.
+Fehler bleiben mit demselben Zielhash vorwärts fortsetzbar. Plan, `WhatIf`,
+No-op, Fehler/Resume und Removal-Blockade sind statisch und synthetisch geprüft.
+Die zugrunde liegende direkte SQL-2022-Hyper-V-Installation für Python, R und
+Java besitzt native Runtime-Evidence; der neue öffentliche Reconcile-Ablauf
+selbst ist derzeit `NOT_EXECUTED`.
+
+Noch nicht unterstützt sind die Entfernung der letzten Container-Runtime,
+Hyper-V-Removal, freie Varianten-/Packagewechsel, der allgemeine Hyper-V-
+Softwarepfad außerhalb der drei SQL-External-Runtimes, Hyper-V-Artifact-Refresh
+und automatische Gastumschaltung.
 
 ## Tests
 
@@ -1021,7 +1036,10 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
 1. Den synthetisch implementierten Hyper-V-`LAB_GENERATED`-Export und die
    automatische Sample-Manifestausführung real abnehmen (Sample-Welle 6).
 2. Die verbleibenden providerneutralen Software-Intents an die Software-Runtime
-   binden; Container-`nat`, Hyper-V-`hostOnly`/`isolated`/`nat`/`lan` sowie
+   binden; additive SQL-2022-Hyper-V-External-Runtimes sind journalisiert und
+   synthetisch belegt, Removal, Varianten-/Packagewechsel, allgemeine
+   Zusatzsoftware und native Reconcile-Evidence bleiben offen. Container-`nat`,
+   Hyper-V-`hostOnly`/`isolated`/`nat`/`lan` sowie
    Hyper-V-vCPU, statisches/dynamisches RAM und Zusatz-VHDX sind bereits
    manifestgebunden. Netzwerk-, Ressourcen-, Grow-only-Storage-, Default-/
    TempDB-SQL-Storage-, dynamische SQL-Konfigurations-, SQL-Port- sowie

@@ -44,7 +44,7 @@ testet seinen Core je Provider nur mit SQL Server 2025.
 | PowerShell-Modul | implementiert | `SqlServerLab.psd1`, `SqlServerLab.psm1` |
 | Docker-Provider | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman-Provider | implementiert | `Providers/Podman/PodmanProvider.ps1` |
-| SQL Server External Languages | Container: Java für SQL 2019, Python/R/Java für SQL 2022/2025, jeweils Docker und Podman; Hyper-V/Windows: SQL-2022 Python/R/Java nativ akzeptiert, C# für SQL 2019–2025 sichtbar `PREVIEW` | `Catalogs/software.json`, `Tests/Integration/Invoke-ExternalRuntimeContainerAcceptance.ps1`, `Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1` |
+| SQL Server External Languages | Container: Java für SQL 2019, Python/R/Java für SQL 2022/2025, jeweils Docker und Podman; Hyper-V/Windows: SQL-2022 Python/R/Java nativ akzeptiert und additiv per Reconcile planbar, C# für SQL 2019–2025 sichtbar `PREVIEW` | `Catalogs/software.json`, `Tests/Integration/Invoke-ExternalRuntimeContainerAcceptance.ps1`, `Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1` |
 | Gemischter Docker-/Podman-Lifecycle | implementiert | `Documentation/Architecture/MIXED_PROVIDER_LIFECYCLE.md` |
 | Hyper-V-Provider | Lifecycle einschließlich Gast-Drives, Windows-Specialization, SQL-Readiness, Image-Registry, Windows-Builder und resumierbarem SQL-`PrepareImage`-Builder implementiert; frischer Windows-Slot mit echter SQL-2025-Installation sowie katalogisierter Daten-VHDX-Clone/Reattach/Release nativ akzeptiert | `Providers/HyperV/HyperVProvider.ps1`, `Private/HyperVImageBuilder.ps1`, `Private/HyperVSqlImageBuilder.ps1`, `Private/HyperVPersistentDataDrive.ps1`, `Tests/Integration/Invoke-HyperVCliAcceptance.ps1`, `Tests/Integration/Invoke-HyperVPersistentDataDriveAcceptance.ps1` |
 | Ad-hoc-Provisionierung | implementiert | `New-SqlServerLab -Version ... -Provider ...` |
@@ -571,8 +571,8 @@ Invoke-SqlServerLabScheduler -UntilIdle
 | `Export-SqlServerLabCmsSyncScript` | Idempotentes Synchronisationsskript für einen vorhandenen CMS erzeugen |
 | `Initialize-SqlServerLabCms` | Kompakten persistenten Docker-/Podman-CMS nach expliziter Auswahl anlegen |
 | `Sync-SqlServerLabCms` | Verwalteten lokalen CMS mit dem aktuellen Endpunktkatalog abgleichen |
-| `Get-SqlServerLabReconcilePlan` | Read-only Plan für Lifecycle, Hyper-V-Netzwerk-/Ressourcen-/Storage-/SQL-/Testdatenbank-Reconcile, Containerressourcen/Autostart oder resolvergebundenen External-Runtime-Reconcile |
-| `Invoke-SqlServerLabReconcileAction` | `START`/`STOP`, eigentumsgebundene Hyper-V-Netzwerk-/Ressourcen-/Storage-/SQL-/Testdatenbank-Aktionen, Containerressourcen-/Autostart-Reconcile oder validierten External-Runtime-Reconcile ausführen |
+| `Get-SqlServerLabReconcilePlan` | Read-only Plan für Lifecycle, Hyper-V-Netzwerk-/Ressourcen-/Storage-/SQL-/Testdatenbank-Reconcile, Containerressourcen/Autostart oder resolvergebundenen External-Runtime-Reconcile einschließlich additiver Hyper-V-Gastinstallation |
+| `Invoke-SqlServerLabReconcileAction` | `START`/`STOP`, eigentumsgebundene Hyper-V-Netzwerk-/Ressourcen-/Storage-/SQL-/Testdatenbank-Aktionen, Container-Replacement oder additive Hyper-V-External-Runtime-Installation ausführen |
 | `Invoke-SqlServerLabWorkflowAction` | Nicht interaktive Hyper-V-Workflow-Aktion für die lokale Oberfläche |
 | `New-SqlServerLabManifest` | Schema-gesteuertes Manifest in der Konsole erstellen |
 | `Test-SqlServerLabManifest` | Manifest ohne Provisionierung strukturell und fachlich prüfen |

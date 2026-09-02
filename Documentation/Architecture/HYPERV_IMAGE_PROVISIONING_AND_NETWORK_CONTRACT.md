@@ -32,9 +32,11 @@ Child-VHDX, Status, Start, Stop, PowerShell Direct, scopegebundener Cleanup,
 immutable sealed VHDX, deterministische Auswahl, Manifest Lock, zusätzliche
 Gast-Drives samt Manifest-Binding, Windows-Specialization mit Reboot/Reconnect
 und eine interne SQL-Readiness-Orchestrierung. Das Manifest bindet inzwischen
-Container-`nat`, Hyper-V-`hostOnly` und Hyper-V-`isolated` samt Exposure Policy.
-Weiterführende Hyper-V-NAT-/LAN-/IPAM-/DNS-, Datenbank-, Software- und
-Post-Provision-Bindings bleiben unvollständig.
+Container-`nat` sowie Hyper-V-`hostOnly`, `isolated`, `nat` und `lan` samt
+Exposure Policy. Weiterführende Hyper-V-IPAM-/DNS-, allgemeine Software- und
+Post-Provision-Bindings bleiben unvollständig. Katalogisierte Testdatenbanken
+und additive SQL-2022-Python-/R-/Java-Runtimes besitzen inzwischen getrennte,
+journalisierte Hyper-V-Reconcile-Verträge.
 Die bestehenden Containerpfade bleiben für SQL-fertige Labs unverändert
 maßgeblich.
 
@@ -509,6 +511,16 @@ Seit SQL Server 2022 werden R-, Python- und Java-Runtimes nicht mehr automatisch
 durch SQL Setup bereitgestellt. Der Capability Resolver muss Custom Runtimes und
 die jeweilige Supportmatrix berücksichtigen.
 
+Der implementierte Hyper-V-Reconcile-Slice bindet neue SQL-2022-Python-/R-/
+Java-PlanKeys additiv an einen laufenden Windows-Gast. Er akzeptiert nur
+unveränderte Run-Topologie und Nicht-Software-Intents, journalisiert VM-ID und
+Zielhash vor der Mutation, verwendet katalogisierte Offlinemedien und übernimmt
+den neuen Desired State erst nach Installation Receipt, Connection-State und
+echten SQL-Postconditions. Ein nichtterminales Journal wird mit demselben Ziel
+vorwärts fortgesetzt. Removal, Varianten-/Packagewechsel und Artifact-Refresh
+bleiben `unsupported`. Die direkte Gastinstallation besitzt native Evidence;
+der öffentliche Reconcile-Ablauf ist noch `NOT_EXECUTED`.
+
 Azure Data Studio ist seit 28. Februar 2026 nicht mehr unterstützt. Ein späterer
 Softwarekatalog markiert es als `retired`; VS Code mit MSSQL Extension ist die
 bevorzugte Alternative. Diese Katalogänderung erfolgt erst zusammen mit Schema,
@@ -845,6 +857,13 @@ alte Runs ohne Receipt werden nicht automatisch entfernt oder adoptiert.
 - `Bestehende Umgebung ändern`;
 - Diff, Downtime und Änderungsweg;
 - bestmögliche Baseline mit Begründung.
+
+Implementierungsstand 2026-09-02: Der öffentliche Manifest-Reconcile routet
+providergebunden zwischen Container-Replacement und additiver Hyper-V-
+Gastinstallation. Der Hyper-V-Pfad besitzt Plan/`WhatIf`, VM-/Zielhash-Journal,
+No-op, verifizierten Desired-State-Commit und Vorwärts-Recovery; Removal,
+Variantenwechsel und Artifact-Refresh bleiben fail-closed. Die neue öffentliche
+Sequenz ist statisch/synthetisch belegt und nativ noch `NOT_EXECUTED`.
 
 ### Welle 9 – Robustheit und Tests
 
