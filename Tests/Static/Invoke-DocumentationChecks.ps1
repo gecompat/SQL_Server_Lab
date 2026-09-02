@@ -912,13 +912,15 @@ Add-ValidationResult `
 
 Add-ValidationResult `
     -Name 'PSR-005 dokumentiert stabilen Container-Store-Continue-/Clone-Core und reale Provider-Evidence' `
-    -Success ($persistentStorageBacklog -match '(?m)^\| `PSR-005` .*\| `IMPLEMENTED_CORE`:' -and
+    -Success ($persistentStorageBacklog -match '(?m)^\| `PSR-005` .*\| `IMPLEMENTED`:' -and
         $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.ContainerInstanceStoreIntent/1.0') -and
         $persistentStorageBacklog -match 'Docker und Podman getrennt\s*real belegt' -and
         $persistentStorageBacklog -match 'operationsgebundene Quell-Lease' -and
         $persistentStorageBacklog -match 'atomarer Zielcommit plus Quellfreigabe' -and
+        $persistentStorageBacklog -match 'rollenfester External-Runtime-Mehr-Volume-Vertrag' -and
         $knownLimitations -match 'Commitfehler verhindert `COMPLETED`' -and
         $knownLimitations -match 'öffentliche CLI-/GUI-\s*Erstellungsflow nutzt denselben Core' -and
+        $knownLimitations -match 'Unvollständige oder ungelabelte\s*Legacy-Sidecargruppen bleiben fail-closed' -and
         $repoMap -match 'container_instance_store: Private/ContainerInstanceStore\.ps1' -and
         $repoMap -match 'validation_container_instance_store: Tests/Static/Invoke-ContainerInstanceStoreChecks\.ps1' -and
         $repoMap -match 'acceptance_container_instance_store: Tests/Integration/Invoke-ContainerInstanceStoreAcceptance\.ps1')

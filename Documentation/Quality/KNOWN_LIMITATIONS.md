@@ -987,9 +987,13 @@ derselben Katalogrevision freigegeben; ein Commitfehler verhindert `COMPLETED`,
 behält die Lease und bleibt journalisiert wiederaufnehmbar. Docker und Podman
 sind mit dem Core am 2026-09-01 getrennt real belegt. Der öffentliche CLI-/GUI-
 Erstellungsflow nutzt denselben Core und erwirbt anschließend die echte
-Run-Lease des gewählten Continue- oder Clone-Ziels. Noch offen ist die Mitnahme
-optionaler External-Runtime-Sidecar-Volumes; ihre Auswahl endet deshalb
-fail-closed.
+Run-Lease des gewählten Continue- oder Clone-Ziels. Seit 2026-09-02 nimmt ein
+rollenfester Mehr-Volume-Vertrag optional die External-Language- und External-
+Library-Sidecars mit: gemeinsame stabile Storage-ID, eigene Rollenlabels,
+frische Revalidierung sowie getrennte Digest-Postconditions im selben
+Recovery-Journal. Docker und Podman bestätigten Continue, Clone, beide
+Sidecar-Marker und den Live-SQL-Zustand real. Unvollständige oder ungelabelte
+Legacy-Sidecargruppen bleiben fail-closed und werden nicht still adoptiert.
 Der read-only `SqlServerLab.ContainerRuntimeScope/1.0`-Vertrag klassifiziert
 den aktiven Docker-Context beziehungsweise die aktive Podman-Connection samt
 Machine über eine stabile endpunktgebundene Runtime-ID. Rohendpunkte, Identity-

@@ -808,9 +808,6 @@ function New-SqlServerLab {
                 $storage = Get-LabPersistentInstanceStorage -DataRoot $DataRoot -LabName $resolved.name -Provider $instance.provider -InstanceId $instance.id -SqlVersion $instance.version -Create
                 $hasExternalRuntime = $instance.provider -in @('docker', 'podman') -and
                     @($externalRuntimePlansByInstance[[string]$instance.id]).Count -gt 0
-                if ($PersistentStorageId -and $hasExternalRuntime) {
-                    throw 'CONTAINER_INSTANCE_STORE_SIDECARS_UNSUPPORTED'
-                }
                 $instanceStorePlan = $null
                 if ($PersistentStorageId) {
                     $storageConfiguration = Get-LabStorageConfiguration -DataRoot $DataRoot
@@ -821,7 +818,8 @@ function New-SqlServerLab {
                         -TargetRunId $runState.RunId `
                         -TargetScopeId $runState.ScopeId `
                         -TargetSqlVersion ([string]$instance.version) `
-                        -Configuration $storageConfiguration
+                        -Configuration $storageConfiguration `
+                        -IncludeExternalRuntimeSidecars:$hasExternalRuntime
                     if ([string]$instanceStorePlan.Status -ne 'READY') {
                         throw "CONTAINER_INSTANCE_STORE_PLAN_BLOCKED: $(@($instanceStorePlan.Blockers) -join ',')"
                     }
@@ -830,7 +828,8 @@ function New-SqlServerLab {
                         $null = Invoke-LabContainerInstanceStoreClone -Plan $instanceStorePlan `
                             -OperationDirectory $operationDirectory -Configuration $storageConfiguration
                     }
-                    $null = Add-LabSelectedPersistentContainerDrive -Instance $instance -Plan $instanceStorePlan -Storage $storage
+                    $null = Add-LabSelectedPersistentContainerDrive -Instance $instance -Plan $instanceStorePlan -Storage $storage `
+                        -IncludeExternalRuntimeState:$hasExternalRuntime
                 }
                 else {
                     $null = Add-LabPersistentContainerDrive -Instance $instance -Storage $storage `
@@ -858,6 +857,12 @@ function New-SqlServerLab {
                     -DataRoot $DataRoot
                 $persistentDrive | Add-Member -NotePropertyName persistentStorageId `
                     -NotePropertyValue ([string]$lease.Store.PersistentStorageId) -Force
+                foreach ($sidecarDrive in @($instance.drives | Where-Object {
+                    $_.persistentStorageRole -in @('EXTERNAL_LANGUAGES','EXTERNAL_LIBRARIES')
+                })) {
+                    $sidecarDrive | Add-Member -NotePropertyName persistentStorageId `
+                        -NotePropertyValue ([string]$lease.Store.PersistentStorageId) -Force
+                }
                 $instance | Add-Member -NotePropertyName persistentStorage -NotePropertyValue ([PSCustomObject]@{
                     mode = if ($PersistentStorageId) { 'cataloged-runtime-volume' } else { 'data-root-runtime-volume' }
                     root = if ($PersistentStorageId) { $null } else { [string]$storage.SqlRoot }
