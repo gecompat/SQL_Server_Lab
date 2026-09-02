@@ -234,16 +234,20 @@ foundation_integration:
     sample_baselines: Register-LabSampleBaseline
     runs_and_scopes: New-LabRunState
     final_human_reference_scope: not_currently_allocated_authority_required_before_use
-  selected_capabilities: []
+  selected_capabilities:
+    - rule-context-cache
   upgrade_assessment:
     current_record: .ai/foundation-upgrade-assessments/1.7.0-to-1.8.0.json
     records:
       - .ai/foundation-upgrade-assessments/1.4.0-to-1.7.0.json
       - .ai/foundation-upgrade-assessments/1.7.0-to-1.8.0.json
     assessed_on: "2026-09-02"
-    open_recommendations:
-      - rule-context-cache
+    open_recommendations: []
     resolved_recommendations:
+      rule-context-cache:
+        decision: IMPLEMENTED
+        decided_on: "2026-09-02"
+        authority: .ai/foundation-upgrade-assessments/1.7.0-to-1.8.0.json
       repository-continuity-break-glass:
         decision: IMPLEMENTED
         decided_on: "2026-08-27"

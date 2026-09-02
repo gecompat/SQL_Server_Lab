@@ -118,7 +118,10 @@ function Test-FoundationUpgradeAssessmentContract {
         if ([string]::IsNullOrWhiteSpace([string]$record.rationale)) {
             $issues.Add("$featureId rationale")
         }
-        if (-not $record.PSObject.Properties['selected_capabilities'] -or @($record.selected_capabilities).Count -ne 0) {
+        $expectedCapabilities = if ($SourceVersion -eq '1.8.0' -and $featureId -eq 'rule-context-cache') { @('rule-context-cache') } else { @() }
+        $actualCapabilities = @($record.selected_capabilities)
+        $capabilitiesMatch = if ($expectedCapabilities.Count -eq 0) { $actualCapabilities.Count -eq 0 } else { @(Compare-Object -ReferenceObject $expectedCapabilities -DifferenceObject $actualCapabilities).Count -eq 0 }
+        if (-not $record.PSObject.Properties['selected_capabilities'] -or -not $capabilitiesMatch) {
             $issues.Add("$featureId selected_capabilities")
         }
         if ([string]$expected.Classification -eq 'RECOMMENDED' -and [string]::IsNullOrWhiteSpace([string]$record.recommendation)) {
