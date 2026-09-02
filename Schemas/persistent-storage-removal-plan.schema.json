@@ -18,7 +18,7 @@
         "properties": {
           "PersistentStorageId": { "type": "string", "format": "uuid" },
           "StorageClass": { "enum": ["INSTANCE_STORE", "DATABASE_PACKAGE", "BACKUP_SET", "EXCHANGE_WORKSPACE"] },
-          "Provider": { "enum": ["docker", "podman", "hyperv", "external"] },
+          "Provider": { "enum": ["core", "docker", "podman", "hyperv", "external"] },
           "Policy": { "type": ["string", "null"], "enum": ["DELETE_WITH_RUN", "RETAIN_INSTANCE_STORE", "BACKUP_ON_REMOVE", "PACKAGE_ON_REMOVE", "BACKUP_AND_PACKAGE", "EXTERNAL_UNMANAGED", null] },
           "Outcome": { "enum": ["DELETE_RUN_RESOURCE", "RETAIN_CATALOGED", "BACKUP_AND_RETAIN", "PACKAGE_AND_RETAIN", "BACKUP_PACKAGE_AND_RETAIN", "RELEASE_BINDING_ONLY", "BLOCKED"] },
           "Destructive": { "type": "boolean" },

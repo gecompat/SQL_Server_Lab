@@ -433,6 +433,116 @@ try {
         [string]$enableEvidence.Connection.instances[0].persistentStorage.persistentStorageId -eq [string]$enabledStore.PersistentStorageId -and
         [int]$enableEvidence.Connection.instances[0].persistentStorage.catalogRevision -eq [int]$enableEvidence.Catalog.Document.Revision)
 
+    $exchangeRoot1=Join-Path $temporaryRoot 'exchange-one/Lab_Data'
+    $exchangeRoot2=Join-Path $temporaryRoot 'exchange-two/Lab_Data'
+    $exchangeRelativePath='Exchange/import-one'
+    $exchangePath=Join-Path $exchangeRoot1 $exchangeRelativePath
+    $exchangeStateRoot=Join-Path $temporaryRoot 'exchange-state'
+    New-Item -Path (Join-Path $exchangeRoot1 'Catalog'),(Join-Path $exchangeRoot2 'Catalog'),$exchangePath,$exchangeStateRoot -ItemType Directory -Force | Out-Null
+    Set-Content -LiteralPath (Join-Path $exchangePath 'payload.bin') -Value 'exchange-payload' -Encoding utf8NoBOM
+    $exchangeConfiguration=[PSCustomObject]@{
+        ControllerId=[Guid]::NewGuid().ToString('D')
+        LabDataLocations=@(
+            [PSCustomObject]@{ LocationId=[Guid]::NewGuid().ToString('D'); LabDataRoot=$exchangeRoot1 },
+            [PSCustomObject]@{ LocationId=[Guid]::NewGuid().ToString('D'); LabDataRoot=$exchangeRoot2 }
+        )
+    }
+    $exchangeWorkspaceId=[Guid]::NewGuid().ToString('D')
+    $exchangeEvidence=& $module {
+        param($config,$root,$relativePath,$stateRoot,$workspaceId)
+        $originalConfiguration=(Get-Command Get-LabStorageConfiguration -CommandType Function).ScriptBlock
+        $originalResolver=(Get-Command Resolve-LabDataRootForUse -CommandType Function).ScriptBlock
+        $originalOwnership=(Get-Command Test-LabDataRootOwnership -CommandType Function).ScriptBlock
+        $script:exchangeTestConfiguration=$config; $script:exchangeTestRoot=$root
+        Set-Item Function:script:Get-LabStorageConfiguration -Value { param($DataRoot) $null=$DataRoot; return $script:exchangeTestConfiguration }
+        Set-Item Function:script:Resolve-LabDataRootForUse -Value { param($DataRoot) $null=$DataRoot; return $script:exchangeTestRoot }
+        Set-Item Function:script:Test-LabDataRootOwnership -Value { param($DataRoot,$ControllerId) $null=$DataRoot,$ControllerId; return $true }
+        try {
+            $internalPreview=Register-LabExchangeWorkspacePersistentStorage -WorkspaceId $workspaceId -DisplayName 'Import one' `
+                -DataRoot $root -RelativePath $relativePath -Configuration $config -ExpectedRevision 0 -Preview
+            $planned=Sync-SqlServerLabPersistentStorageArtifact -ExchangeWorkspaceId $workspaceId `
+                -RelativePath $relativePath -DisplayName 'Import one' -DataRoot $root -WhatIf
+            $catalogPaths=@($config.LabDataLocations | ForEach-Object { Join-Path ([string]$_.LabDataRoot) 'Catalog/persistent-stores.json' })
+            $previewWasReadOnly=@($catalogPaths | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf }).Count -eq 0
+            $applied=Sync-SqlServerLabPersistentStorageArtifact -ExchangeWorkspaceId $workspaceId `
+                -RelativePath $relativePath -DisplayName 'Import one' -DataRoot $root -Confirm:$false
+            $again=Sync-SqlServerLabPersistentStorageArtifact -ExchangeWorkspaceId $workspaceId `
+                -RelativePath $relativePath -DisplayName 'Import one' -DataRoot $root -Confirm:$false
+            $catalog=Get-LabPersistentStorageCatalog -Configuration $config
+            $store=@($catalog.Document.Stores | Where-Object StorageClass -eq 'EXCHANGE_WORKSPACE')[0]
+            $hashesBefore=@($catalogPaths | ForEach-Object { (Get-FileHash -LiteralPath $_ -Algorithm SHA256).Hash })
+            $staleBlocked=$false
+            try {
+                Register-LabExchangeWorkspacePersistentStorage -WorkspaceId ([Guid]::NewGuid().ToString('D')) -DisplayName 'Stale' `
+                    -DataRoot $root -RelativePath $relativePath -Configuration $config -ExpectedRevision 0 | Out-Null
+            }
+            catch { $staleBlocked=$_.Exception.Message -match 'PERSISTENT_STORAGE_CATALOG_REVISION_CONFLICT' }
+            $scopeBlocked=$false
+            try {
+                Invoke-LabPersistentStorageCatalogMutation -Configuration $config -MutationName INVALID_SCOPE -ExpectedRevision 1 -Mutation {
+                    param($document) $document.ControllerId=[Guid]::NewGuid().ToString('D')
+                } | Out-Null
+            }
+            catch { $scopeBlocked=$_.Exception.Message -match 'PERSISTENT_STORAGE_CATALOG_MUTATION_SCOPE_VIOLATION' }
+            $unsafeBlocked=$false
+            try {
+                Register-LabExchangeWorkspacePersistentStorage -WorkspaceId ([Guid]::NewGuid().ToString('D')) -DisplayName 'Unsafe' `
+                    -DataRoot $root -RelativePath '../outside' -Configuration $config -ExpectedRevision 1 | Out-Null
+            }
+            catch { $unsafeBlocked=$_.Exception.Message -match 'EXCHANGE_WORKSPACE_RELATIVE_PATH_INVALID' }
+            try {
+                Register-LabExchangeWorkspacePersistentStorage -WorkspaceId ([Guid]::NewGuid().ToString('D')) -DisplayName 'Root alias' `
+                    -DataRoot $root -RelativePath '.' -Configuration $config -ExpectedRevision 1 | Out-Null
+                $unsafeBlocked=$false
+            }
+            catch { $unsafeBlocked=$unsafeBlocked -and $_.Exception.Message -match 'EXCHANGE_WORKSPACE_RELATIVE_PATH_INVALID' }
+            $duplicateBindingBlocked=$false
+            try {
+                Register-LabExchangeWorkspacePersistentStorage -WorkspaceId ([Guid]::NewGuid().ToString('D')) -DisplayName 'Duplicate binding' `
+                    -DataRoot $root -RelativePath $relativePath -Configuration $config -ExpectedRevision 1 | Out-Null
+            }
+            catch { $duplicateBindingBlocked=$_.Exception.Message -match 'EXCHANGE_WORKSPACE_BINDING_CONFLICT' }
+            $hashesAfter=@($catalogPaths | ForEach-Object { (Get-FileHash -LiteralPath $_ -Algorithm SHA256).Hash })
+            $inventory=Get-LabStorageResidencyInventory -Configuration $config -StateRoot $stateRoot `
+                -PersistentStorageStores @($catalog.Document.Stores)
+            $plan=Get-LabPersistentStoragePlan -Catalog $catalog -ResidencyInventory $inventory
+            [PSCustomObject]@{
+                InternalPreview=$internalPreview; Planned=$planned; PreviewWasReadOnly=$previewWasReadOnly
+                Applied=$applied; Again=$again; Catalog=$catalog; Store=$store
+                StaleBlocked=$staleBlocked; ScopeBlocked=$scopeBlocked; UnsafeBlocked=$unsafeBlocked
+                DuplicateBindingBlocked=$duplicateBindingBlocked
+                HashesUnchanged=(@(Compare-Object $hashesBefore $hashesAfter).Count -eq 0)
+                Inventory=$inventory; Plan=$plan
+            }
+        }
+        finally {
+            Set-Item Function:script:Get-LabStorageConfiguration -Value $originalConfiguration
+            Set-Item Function:script:Resolve-LabDataRootForUse -Value $originalResolver
+            Set-Item Function:script:Test-LabDataRootOwnership -Value $originalOwnership
+            Remove-Variable -Scope Script -Name exchangeTestConfiguration,exchangeTestRoot -ErrorAction SilentlyContinue
+        }
+    } $exchangeConfiguration $exchangeRoot1 $exchangeRelativePath $exchangeStateRoot $exchangeWorkspaceId
+    $exchangeObject=@($exchangeEvidence.Inventory.Objects | Where-Object ObjectClass -eq 'EXCHANGE_WORKSPACE')[0]
+    Add-CheckResult -Name 'Generischer Katalogkern plant read-only und committed genau einen gespiegelten Revisionsschritt' -Success (
+        $exchangeEvidence.InternalPreview.Changed -and $exchangeEvidence.InternalPreview.Preview -and
+        $exchangeEvidence.InternalPreview.CatalogRevision -eq 0 -and $exchangeEvidence.InternalPreview.ProposedRevision -eq 1 -and
+        $exchangeEvidence.PreviewWasReadOnly -and $exchangeEvidence.Catalog.Document.Revision -eq 1 -and
+        @($exchangeEvidence.Catalog.Sources).Count -eq 2)
+    Add-CheckResult -Name 'Öffentlicher Exchange-Workspace-Sync ist schemafest und idempotent' -Success (
+        $exchangeEvidence.Planned.Status -eq 'PLANNED' -and $exchangeEvidence.Planned.ArtifactType -eq 'EXCHANGE_WORKSPACE' -and
+        $exchangeEvidence.Applied.Status -eq 'SYNCED' -and $exchangeEvidence.Applied.Changed -and
+        $exchangeEvidence.Again.Status -eq 'NO_CHANGE' -and -not $exchangeEvidence.Again.Changed -and
+        [string]$exchangeEvidence.Store.References[0].TargetId -eq $exchangeWorkspaceId -and
+        ($exchangeEvidence.Applied | ConvertTo-Json -Depth 20 | Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/persistent-storage-artifact-sync-result.schema.json')))
+    Add-CheckResult -Name 'CAS, Mutationsgrenze und portable Pfadgrenze blockieren ohne Spiegeländerung' -Success (
+        $exchangeEvidence.StaleBlocked -and $exchangeEvidence.ScopeBlocked -and $exchangeEvidence.UnsafeBlocked -and
+        $exchangeEvidence.DuplicateBindingBlocked -and $exchangeEvidence.HashesUnchanged)
+    Add-CheckResult -Name 'Exchange-Workspace wird über dieselbe stabile Objekt-ID im Residency-Plan korreliert' -Success (
+        $exchangeObject.AuditStatus -eq 'VERIFIED' -and $exchangeObject.ObjectId -eq [string]$exchangeEvidence.Store.LocationBinding.InventoryObjectId -and
+        $exchangeObject.Details.WorkspaceId -eq $exchangeWorkspaceId -and $exchangeObject.Details.FileCount -eq 1 -and
+        $exchangeEvidence.Plan.Status -eq 'READY' -and $exchangeEvidence.Plan.Stores[0].ObservationStatus -eq 'MATCHED' -and
+        ($exchangeEvidence.Inventory | ConvertTo-Json -Depth 30 | Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/lab-storage-residency-inventory.schema.json')))
+
     $renamed = $document | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
     $renamed.Stores[0].DisplayName = 'Umbenannter Anzeigename'
     Add-CheckResult -Name 'Anzeigenamenänderung verändert die stabile Storage-ID nicht' -Success (

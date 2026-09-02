@@ -55,6 +55,8 @@ function Test-LabPersistentStorageCatalogDocument {
 
     $locationIds = @($Configuration.LabDataLocations | ForEach-Object { [string]$_.LocationId })
     $storageIds = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    $exchangeWorkspaceIds = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    $exchangeBindings = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
     foreach ($store in @($Document.Stores)) {
         $storageId = [string]$store.PersistentStorageId
         if (-not $storageIds.Add($storageId)) { throw "PERSISTENT_STORAGE_ID_DUPLICATE: $storageId" }
@@ -68,6 +70,14 @@ function Test-LabPersistentStorageCatalogDocument {
 
         $binding = $store.LocationBinding
         $residency = [string]$binding.Residency
+        if ([string]$store.Provider -eq 'core') {
+            if ([string]$store.StorageClass -ne 'EXCHANGE_WORKSPACE' -or $residency -ne 'LAB_DATA' -or
+                -not $binding.LocationId -or $binding.ProviderResourceId -or -not $binding.InventoryObjectId -or
+                -not $binding.RelativePath -or $store.Lease -or [string]$store.State -ne 'AVAILABLE' -or
+                [string]$store.Retention -ne 'RETAINED' -or [string]$store.CleanupDisposition -ne 'PRESERVE') {
+                throw "PERSISTENT_STORAGE_CORE_BINDING_INVALID: $storageId"
+            }
+        }
         if (-not $binding.InventoryObjectId -and -not $binding.ProviderResourceId -and -not $binding.RelativePath) {
             throw "PERSISTENT_STORAGE_BINDING_IDENTITY_REQUIRED: $storageId"
         }
@@ -214,6 +224,174 @@ function Write-LabPersistentStorageCatalogDocument {
         throw "PERSISTENT_STORAGE_CATALOG_WRITE_FAILED: $writeFailure"
     }
     return $Document
+}
+
+function Invoke-LabPersistentStorageCatalogMutation {
+    <#
+    .SYNOPSIS
+        Fuehrt eine generische Katalogmutation unter Lock und Revisionsschutz aus.
+    .DESCRIPTION
+        Die Mutation arbeitet ausschließlich auf einer In-Memory-Kopie. Der
+        gemeinsame Core erzwingt Controller- und Vertragsgrenze, genau einen
+        Revisionsschritt, schema-/semantische Revalidierung sowie den bereits
+        rollbackfähigen Commit auf alle Katalogspiegel. Preview schreibt nicht.
+    #>
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '', Justification='Die Parameter werden in der serialisierten Katalog-Lock-Closure verwendet.')]
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Configuration,
+        [Parameter(Mandatory)][ValidatePattern('^[A-Z][A-Z0-9_]{2,127}$')][string]$MutationName,
+        [Parameter(Mandatory)][scriptblock]$Mutation,
+        [ValidateRange(-1,2147483647)][int]$ExpectedRevision = -1,
+        [switch]$Preview
+    )
+
+    if ([string]::IsNullOrWhiteSpace([string]$Configuration.ControllerId)) {
+        throw 'PERSISTENT_STORAGE_CATALOG_MUTATION_CONFIGURATION_INVALID'
+    }
+
+    return Invoke-LabPersistentStorageCatalogLock -ControllerId ([string]$Configuration.ControllerId) -ScriptBlock {
+        $catalog = Get-LabPersistentStorageCatalog -Configuration $Configuration
+        if ([string]$catalog.Status -in @('INVALID','DIVERGED','UNAVAILABLE')) {
+            throw "PERSISTENT_STORAGE_CATALOG_MUTATION_BLOCKED: $([string]$catalog.Status)"
+        }
+        $previousRevision = [int]$catalog.Document.Revision
+        if ($ExpectedRevision -ge 0 -and $ExpectedRevision -ne $previousRevision) {
+            throw "PERSISTENT_STORAGE_CATALOG_REVISION_CONFLICT: expected=$ExpectedRevision; actual=$previousRevision"
+        }
+
+        $working = $catalog.Document | ConvertTo-Json -Depth 40 | ConvertFrom-Json -Depth 40
+        $before = $working.Stores | ConvertTo-Json -Depth 40 -Compress
+        $value = & $Mutation $working
+        if ([string]$working.ContractVersion -ne 'SqlServerLab.PersistentStorageCatalog/1.0' -or
+            [string]$working.ControllerId -ne [string]$Configuration.ControllerId -or
+            [int]$working.Revision -ne $previousRevision) {
+            throw 'PERSISTENT_STORAGE_CATALOG_MUTATION_SCOPE_VIOLATION'
+        }
+        $after = $working.Stores | ConvertTo-Json -Depth 40 -Compress
+        $changed = $before -cne $after
+        $proposedRevision = if ($changed) { $previousRevision + 1 } else { $previousRevision }
+        if ($changed) {
+            $working.Revision = $proposedRevision
+            $null = Test-LabPersistentStorageCatalogDocument -Document $working -Configuration $Configuration
+            if (-not $Preview) {
+                $null = Write-LabPersistentStorageCatalogDocument -Document $working -Configuration $Configuration
+            }
+        }
+        if ([string]$store.StorageClass -eq 'EXCHANGE_WORKSPACE') {
+            $activeWorkspaceReferences = @($store.References | Where-Object {
+                [string]$_.Kind -eq 'ARTIFACT' -and [string]$_.State -eq 'ACTIVE'
+            })
+            if ($activeWorkspaceReferences.Count -ne 1 -or
+                -not $exchangeWorkspaceIds.Add([string]$activeWorkspaceReferences[0].TargetId)) {
+                throw "EXCHANGE_WORKSPACE_REFERENCE_INVALID: $storageId"
+            }
+            $exchangeBindingKey = "$([string]$binding.LocationId)|$([string]$binding.RelativePath)"
+            if (-not $exchangeBindings.Add($exchangeBindingKey)) {
+                throw "EXCHANGE_WORKSPACE_BINDING_DUPLICATE: $storageId"
+            }
+        }
+
+        return [PSCustomObject][ordered]@{
+            MutationName=$MutationName; Changed=$changed; Preview=[bool]$Preview
+            PreviousRevision=$previousRevision
+            CatalogRevision=if ($changed -and -not $Preview) { $proposedRevision } else { $previousRevision }
+            ProposedRevision=$proposedRevision; Document=$working; Value=$value
+        }
+    }
+}
+
+function Register-LabExchangeWorkspacePersistentStorage {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '', Justification='Die Parameter werden in der Katalog-Mutation-Closure verwendet.')]
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$WorkspaceId,
+        [Parameter(Mandatory)][ValidateLength(1,128)][string]$DisplayName,
+        [Parameter(Mandatory)][string]$DataRoot,
+        [Parameter(Mandatory)][string]$RelativePath,
+        [AllowNull()]$Configuration,
+        [ValidateRange(-1,2147483647)][int]$ExpectedRevision = -1,
+        [switch]$Preview
+    )
+
+    if ([string]::IsNullOrWhiteSpace($DisplayName)) { throw 'EXCHANGE_WORKSPACE_DISPLAY_NAME_INVALID' }
+    $configuration = if ($Configuration) { $Configuration } else { Get-LabStorageConfiguration -DataRoot $DataRoot }
+    $resolvedRoot = if ($Configuration) {
+        [IO.Path]::GetFullPath($DataRoot).TrimEnd('\','/')
+    }
+    else { (Resolve-LabDataRootForUse -DataRoot $DataRoot).TrimEnd('\','/') }
+    $locations = @($configuration.LabDataLocations | Where-Object {
+        [string]::Equals(([IO.Path]::GetFullPath([string]$_.LabDataRoot).TrimEnd('\','/')),$resolvedRoot,$(if ($IsWindows) { [StringComparison]::OrdinalIgnoreCase } else { [StringComparison]::Ordinal }))
+    })
+    if ($locations.Count -ne 1) { throw 'EXCHANGE_WORKSPACE_STORAGE_LOCATION_UNRESOLVED' }
+    if ([IO.Path]::IsPathFullyQualified($RelativePath) -or $RelativePath -match '^[A-Za-z]:' -or
+        $RelativePath -match '^[\\/]' -or $RelativePath -match '(^|[\\/])\.\.([\\/]|$)') {
+        throw 'EXCHANGE_WORKSPACE_RELATIVE_PATH_INVALID'
+    }
+    $normalizedRelativePath = $RelativePath.Replace('\','/').Trim('/')
+    $relativeSegments = @($normalizedRelativePath.Split('/'))
+    if (-not $normalizedRelativePath -or @($relativeSegments | Where-Object {
+        [string]::IsNullOrWhiteSpace($_) -or $_ -eq '.'
+    }).Count -gt 0) { throw 'EXCHANGE_WORKSPACE_RELATIVE_PATH_INVALID' }
+    $workspacePath = Join-Path $resolvedRoot ($normalizedRelativePath.Replace('/',[IO.Path]::DirectorySeparatorChar))
+    $pathCheck = Test-LabPathWithinRoot -Root $resolvedRoot -Path $workspacePath
+    if (-not $pathCheck.Valid -or -not (Test-Path -LiteralPath $workspacePath -PathType Container)) {
+        throw 'EXCHANGE_WORKSPACE_NOT_VERIFIED'
+    }
+
+    $inventoryObjectId = Get-LabStorageResidencyObjectId -Key "exchange-workspace|$([string]$configuration.ControllerId)|$WorkspaceId"
+    $now = Get-LabTimestamp
+    $newStorageId = New-LabPersistentStorageId
+    $mutation = {
+        param($Document)
+        $matches = @($Document.Stores | Where-Object {
+            @($_.References | Where-Object { [string]$_.Kind -eq 'ARTIFACT' -and [string]$_.TargetId -eq $WorkspaceId }).Count -gt 0
+        })
+        if ($matches.Count -gt 1) { throw 'EXCHANGE_WORKSPACE_REFERENCE_DUPLICATE' }
+        $bindingMatches = @($Document.Stores | Where-Object {
+            [string]$_.StorageClass -eq 'EXCHANGE_WORKSPACE' -and
+            [string]$_.LocationBinding.LocationId -eq [string]$locations[0].LocationId -and
+            [string]$_.LocationBinding.RelativePath -eq $normalizedRelativePath
+        })
+        if ($bindingMatches.Count -gt 1 -or ($matches.Count -eq 0 -and $bindingMatches.Count -gt 0)) {
+            throw 'EXCHANGE_WORKSPACE_BINDING_CONFLICT'
+        }
+        if ($matches.Count -eq 1) {
+            $existing = $matches[0]
+            if ([string]$existing.StorageClass -ne 'EXCHANGE_WORKSPACE' -or [string]$existing.Provider -ne 'core' -or
+                [string]$existing.LocationBinding.Residency -ne 'LAB_DATA' -or
+                [string]$existing.LocationBinding.LocationId -ne [string]$locations[0].LocationId -or
+                [string]$existing.LocationBinding.InventoryObjectId -ne $inventoryObjectId -or
+                [string]$existing.LocationBinding.RelativePath -ne $normalizedRelativePath -or
+                $null -ne $existing.Lease -or [string]$existing.State -ne 'AVAILABLE' -or
+                [string]$existing.Retention -ne 'RETAINED' -or [string]$existing.CleanupDisposition -ne 'PRESERVE' -or
+                @($existing.References | Where-Object { [string]$_.Kind -eq 'ARTIFACT' -and [string]$_.State -eq 'ACTIVE' -and [string]$_.TargetId -eq $WorkspaceId }).Count -ne 1) {
+                throw 'EXCHANGE_WORKSPACE_BINDING_CONFLICT'
+            }
+            return [string]$existing.PersistentStorageId
+        }
+
+        $store = [PSCustomObject][ordered]@{
+            PersistentStorageId=$newStorageId; DisplayName=$DisplayName
+            StorageClass='EXCHANGE_WORKSPACE'; State='AVAILABLE'; Provider='core'
+            LocationBinding=[PSCustomObject][ordered]@{
+                Residency='LAB_DATA'; LocationId=[string]$locations[0].LocationId; ProviderResourceId=$null
+                InventoryObjectId=$inventoryObjectId; RelativePath=$normalizedRelativePath
+            }
+            References=@([PSCustomObject][ordered]@{ ReferenceId=$WorkspaceId; Kind='ARTIFACT'; State='ACTIVE'; TargetId=$WorkspaceId })
+            Lease=$null; Retention='RETAINED'; CleanupDisposition='PRESERVE'; CreatedAt=$now; UpdatedAt=$now
+        }
+        $Document.Stores = @($Document.Stores) + @($store)
+        return [string]$store.PersistentStorageId
+    }.GetNewClosure()
+
+    $transaction = Invoke-LabPersistentStorageCatalogMutation -Configuration $configuration `
+        -MutationName REGISTER_EXCHANGE_WORKSPACE -Mutation $mutation -ExpectedRevision $ExpectedRevision -Preview:$Preview
+    $store = @($transaction.Document.Stores | Where-Object PersistentStorageId -eq ([string]$transaction.Value))[0]
+    return [PSCustomObject]@{
+        Changed=[bool]$transaction.Changed; Store=$store; CatalogRevision=[int]$transaction.CatalogRevision
+        ProposedRevision=[int]$transaction.ProposedRevision; Preview=[bool]$transaction.Preview
+    }
 }
 
 function Register-LabBackupSetPersistentStorage {

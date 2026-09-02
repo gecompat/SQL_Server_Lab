@@ -573,8 +573,9 @@ internal_components:
       - "Lab_Data, native Runtime-Volumes und -Images, normalisierte Runtime-Speichernutzung, providerseitiges Host-Backing, externe Pfade, Hyper-V-Ressourcen und Retention als versionierte read-only Storage-Residency klassifizieren"
       - "bewusst retained Objekte, unerwartete Residuen, Recovery-Befunde und unverifizierbare Evidence mit stabilen Identitaeten, Reason-Codes und nicht mutierenden Handlungshinweisen getrennt ausgeben"
       - "stabile Persistent-Storage-IDs, Klassen, Zustände, Referenzen und exklusive Leases read-only validieren und mit dem Residency-Inventar abgleichen"
+      - "Katalogmutationen mit read-only Preview, erwarteter Revision, unveraenderlicher Controller-/Vertragsgrenze, genau einem Revisionsschritt und rollbackfaehigem Spiegelcommit ausfuehren"
       - "verifizierte Backup-Sets und Datenbankpakete controllerweit rollbackfähig mit eigener PersistentStorageId registrieren und Katalogfehler fail-closed quarantänisieren"
-      - "vorhandene Backup-Sets und Datenbankpakete öffentlich einzeln vollständig revalidieren, previewfähig und idempotent mit dem controllergebundenen Katalog synchronisieren"
+      - "vorhandene Backup-Sets, Datenbankpakete und sichere Exchange-Workspaces oeffentlich einzeln revalidieren, previewfaehig und idempotent mit dem controllergebundenen Katalog synchronisieren"
       - "Datenbankpakete fuer CLI und Browser pfadfrei per stabiler DatabasePackageId inventarisieren; Voll-Hashing nur bei expliziter Integritaetspruefung oder unmittelbar vor Verwendung ausfuehren"
       - "Datenbankpakete per stabiler Run-/Instanzbindung an das live ermittelte SQL-Default-Data-Verzeichnis eines scopegebundenen Hyper-V-Gasts kopieren, dort vollstaendig hashen und erst nach vorab persistiertem Recovery-Journal attachen"
       - "Retention, Backup-/Package-on-Remove, externe Bindungsfreigabe und Recovery-Postconditions read-only planen; persistente Storage-Löschung getrennt halten"
@@ -937,6 +938,8 @@ validation:
       - stable_persistent_storage_identity
       - catalog_schema_and_semantics
       - mirrored_catalog_consistency
+      - compare_and_swap_preview_and_single_revision_commit
+      - mutation_scope_and_portable_path_guards
       - rollback_safe_backup_set_registration
       - idempotent_existing_backup_reconciliation
       - exclusive_lease_validation
@@ -944,6 +947,7 @@ validation:
       - read_only_inventory_binding
       - backup_set_residency_binding_without_content_rehash
       - id_less_registration_candidates
+      - public_exchange_workspace_registration_and_residency_binding
   static_persistent_storage_removal_plan:
     command: '.\Tests\Static\Invoke-PersistentStorageRemovalPlanChecks.ps1'
     source: Tests/Static/Invoke-PersistentStorageRemovalPlanChecks.ps1
