@@ -25,7 +25,7 @@ foreach ($name in @('DOCKER','PODMAN','PYTHON')) {
 
 try {
     New-Item -Path $temporaryRoot -ItemType Directory -Force | Out-Null
-    $dockerLeaf = if ($IsWindows) { 'docker.exe' } else { 'docker' }
+    $dockerLeaf = if ($IsWindows) { 'docker.cmd' } else { 'docker' }
     $dockerPath = Join-Path $temporaryRoot $dockerLeaf
     Set-Content -LiteralPath $dockerPath -Value 'synthetic' -Encoding ascii
     $env:SQL_SERVER_LAB_DOCKER_PATH = $dockerPath
@@ -65,6 +65,45 @@ try {
         [Environment]::GetEnvironmentVariable('Path','User') -eq $originalUserPath -and
         [Environment]::GetEnvironmentVariable('Path','Machine') -eq $originalMachinePath)
 
+    if ($IsWindows) {
+        @'
+@echo off
+if /I "%~1"=="info" exit /b 0
+if /I "%~1"=="ps" (
+  echo synthetic-container^|127.0.0.1:15433-^>1433/tcp
+  exit /b 0
+)
+if /I "%~1"=="inspect" (
+  echo {"Name":"/synthetic-container","Config":{"Labels":{"sql-server-lab.run-id":"11111111-1111-1111-1111-111111111111","sql-server-lab.scope-id":"22222222-2222-2222-2222-222222222222"}}}
+  exit /b 0
+)
+exit /b 1
+'@ | Set-Content -LiteralPath $dockerPath -Encoding ascii
+    }
+    else {
+        @'
+#!/bin/sh
+if [ "$1" = "info" ]; then exit 0; fi
+if [ "$1" = "ps" ]; then printf '%s\n' 'synthetic-container|127.0.0.1:15433->1433/tcp'; exit 0; fi
+if [ "$1" = "inspect" ]; then printf '%s\n' '{"Name":"/synthetic-container","Config":{"Labels":{"sql-server-lab.run-id":"11111111-1111-1111-1111-111111111111","sql-server-lab.scope-id":"22222222-2222-2222-2222-222222222222"}}}'; exit 0; fi
+exit 1
+'@ | Set-Content -LiteralPath $dockerPath -Encoding utf8NoBOM
+        & /bin/chmod +x $dockerPath
+    }
+    . (Join-Path $repoRoot 'Public\Restore-SqlServerLabDatabase.ps1')
+    $pathBeforeRestoreProbe = $env:PATH
+    try {
+        $env:PATH = ''
+        $restoreCandidate = Resolve-LabRestoreContainer -Provider docker -ContainerName synthetic-container -Port 15433
+    }
+    finally {
+        $env:PATH = $pathBeforeRestoreProbe
+    }
+    Add-CheckResult -Name 'Restore-Zielsuche funktioniert mit Override auch bei leerem Prozess-PATH' -Success (
+        $restoreCandidate.Provider -eq 'docker' -and
+        $restoreCandidate.ContainerName -eq 'synthetic-container' -and
+        $restoreCandidate.RunId -eq '11111111-1111-1111-1111-111111111111')
+
     $resolverText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private\HostToolResolution.ps1') -Raw -Encoding utf8
     $dockerProviderText = Get-Content -LiteralPath (Join-Path $repoRoot 'Providers\Docker\DockerProvider.ps1') -Raw -Encoding utf8
     $podmanProviderText = Get-Content -LiteralPath (Join-Path $repoRoot 'Providers\Podman\PodmanProvider.ps1') -Raw -Encoding utf8
@@ -73,7 +112,11 @@ try {
     $storageResidencyText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private\StorageResidencyInventory.ps1') -Raw -Encoding utf8
     $containerInstanceStoreText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private\ContainerInstanceStore.ps1') -Raw -Encoding utf8
     $cleanupAuditText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public\Get-SqlServerLabCleanupAudit.ps1') -Raw -Encoding utf8
+    $restoreText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public\Restore-SqlServerLabDatabase.ps1') -Raw -Encoding utf8
     $moduleLoaderText = Get-Content -LiteralPath (Join-Path $repoRoot 'SqlServerLab.psm1') -Raw -Encoding utf8
+    $mixedSmokeText = Get-Content -LiteralPath (Join-Path $repoRoot 'Tests\Integration\Invoke-MixedProviderSmokeTest.ps1') -Raw -Encoding utf8
+    $batchSmokeText = Get-Content -LiteralPath (Join-Path $repoRoot 'Tests\Integration\Invoke-BatchWorkflowSmokeTest.ps1') -Raw -Encoding utf8
+    $smokeMatrixText = Get-Content -LiteralPath (Join-Path $repoRoot 'Tests\Integration\Invoke-SmokeMatrix.ps1') -Raw -Encoding utf8
     $runtimeLifecyclePaths = @(
         Get-ChildItem -LiteralPath (Join-Path $repoRoot 'Private'),(Join-Path $repoRoot 'Public'),(Join-Path $repoRoot 'Providers') `
             -Recurse -File -Include '*.ps1','*.psm1'
@@ -99,7 +142,7 @@ try {
             $nakedRuntimeCommands.Add("${relativePath}:$($command.Extent.StartLineNumber)")
         }
         $sourceText = Get-Content -LiteralPath $absolutePath -Raw -Encoding utf8
-        if ($sourceText -match 'Get-Command\s+([''"]?(docker|podman)[''"]?|\$(Provider|provider|runtime))\b') {
+        if ($sourceText -match 'Get-Command\s+([''"]?(docker|podman)[''"]?|\$(candidateProvider|ProviderName|Provider|provider|runtime))\b') {
             $directRuntimeProbes.Add($relativePath)
         }
     }
@@ -118,8 +161,8 @@ try {
             $directAcceptanceRuntimeCalls.Add("${relativePath}:$($command.Extent.StartLineNumber)")
         }
         $sourceText = Get-Content -LiteralPath $absolutePath -Raw -Encoding utf8
-        if ($sourceText -match '&\s+\$(Provider|provider)\b' -or
-            $sourceText -match 'Get-Command\s+([''"]?(docker|podman)[''"]?|\$(Provider|provider|runtime))\b') {
+        if ($sourceText -match '&\s+\$(candidateProvider|ProviderName|Provider|provider)\b' -or
+            $sourceText -match 'Get-Command\s+([''"]?(docker|podman)[''"]?|\$(candidateProvider|ProviderName|Provider|provider|runtime))\b') {
             $directAcceptanceRuntimeCalls.Add($relativePath)
         }
     }
@@ -154,6 +197,12 @@ try {
         $cleanupAuditText -match '& \$runtimeInvocation info' -and
         $cleanupAuditText -notmatch 'Get-Command \$runtime' -and
         $cleanupAuditText -notmatch '& \$runtime (info|volume|network)')
+    Add-CheckResult -Name 'Restore-Zielsuche verwendet je Provider den zentral aufgeloesten absoluten Aufruf' -Success (
+        $restoreText -match 'Resolve-LabHostTool -Name \$candidateProvider' -and
+        $restoreText -match '& \$runtimeInvocation info' -and
+        $restoreText -match '& \$runtimeInvocation inspect' -and
+        $restoreText -notmatch 'Get-Command \$candidateProvider' -and
+        $restoreText -notmatch '& \$candidateProvider')
     Add-CheckResult -Name 'Storage-Residency verwendet für Root und Volume den zentralen Runtime-Aufruf' -Success (
         @([regex]::Matches($storageResidencyText, 'Get-LabHostToolInvocation -Name \$Provider')).Count -eq 2 -and
         $storageResidencyText -notmatch '& \$Provider (info|volume)')
@@ -167,6 +216,13 @@ try {
     Add-CheckResult -Name 'Cross-Provider-Acceptance enthält keinen eigenen Podman-Installationspfad mehr' -Success (
         $backupText -match 'Initialize-SqlServerLabHostTools\.ps1' -and
         $backupText -notmatch 'Programs\\Podman\\podman\.exe')
+    Add-CheckResult -Name 'Eigenständige Mixed-, Batch- und Matrix-Smokes umgehen den Host-Tool-Resolver nicht' -Success (
+        $mixedSmokeText -match 'Initialize-SqlServerLabHostTools\.ps1' -and
+        $mixedSmokeText -notmatch 'Get-Command \$Name' -and $mixedSmokeText -notmatch '& \$Name info' -and
+        $batchSmokeText -match 'Initialize-SqlServerLabHostTools\.ps1' -and
+        $batchSmokeText -notmatch 'Get-Command \$Name' -and $batchSmokeText -notmatch '& \$Name info' -and
+        $smokeMatrixText -match 'Get-LabHostToolInvocation -Name \$Name' -and
+        $smokeMatrixText -notmatch '& \$ProviderName inspect')
     $agentRulesText = Get-Content -LiteralPath (Join-Path $repoRoot 'AGENTS.md') -Raw -Encoding utf8
     Add-CheckResult -Name 'Repository-Regeln verbieten ungeprüfte Nicht-vorhanden-Aussagen in neuen Agentprozessen' -Success (
         $agentRulesText -match 'Initialize-SqlServerLabHostTools\.ps1' -and

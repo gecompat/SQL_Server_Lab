@@ -47,6 +47,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
+$hostToolInitializer = Join-Path $repoRoot 'Tools\Initialize-SqlServerLabHostTools.ps1'
 $stateRoot = Join-Path ([IO.Path]::GetTempPath()) ('sql-server-lab-batch-smoke-' + [Guid]::NewGuid().ToString('N'))
 $secretVariable = 'SQL_SERVER_LAB_SECRET_BATCH_SMOKE_SA_PASSWORD'
 $previousSecret = [Environment]::GetEnvironmentVariable($secretVariable)
@@ -75,10 +76,12 @@ function Assert-BatchSmoke {
 function Test-BatchRuntime {
     param([Parameter(Mandatory)][string]$Name)
 
-    if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
+    $resolution = @(& $hostToolInitializer -Name $Name)[0]
+    if (-not $resolution.Available -or
+        [string]::IsNullOrWhiteSpace([string]$resolution.Invocation)) {
         return $false
     }
-    & $Name info 1>$null 2>$null
+    & ([string]$resolution.Invocation) info 1>$null 2>$null
     return $LASTEXITCODE -eq 0
 }
 
