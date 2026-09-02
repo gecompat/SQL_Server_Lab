@@ -104,8 +104,10 @@ sources_of_truth:
   storage_residency_inventory_schema: Schemas/lab-storage-residency-inventory.schema.json
   cleanup_audit_findings: Private/CleanupAuditFindings.ps1
   persistent_storage_catalog: Private/PersistentStorageCatalog.ps1
+  persistent_storage_artifact_sync: Public/Sync-SqlServerLabPersistentStorageArtifact.ps1
   persistent_storage_catalog_schema: Schemas/persistent-storage-catalog.schema.json
   persistent_storage_plan_schema: Schemas/persistent-storage-plan.schema.json
+  persistent_storage_artifact_sync_result_schema: Schemas/persistent-storage-artifact-sync-result.schema.json
   validation_persistent_storage_catalog: Tests/Static/Invoke-PersistentStorageCatalogChecks.ps1
   persistent_storage_removal_plan: Private/PersistentStorageRemovalPlan.ps1
   persistent_storage_removal_preview: Public/Get-SqlServerLabPersistentStorageRemovalPlan.ps1
@@ -548,6 +550,7 @@ internal_components:
     audit_findings: Private/CleanupAuditFindings.ps1
     storage_residency: Private/StorageResidencyInventory.ps1
     persistent_storage_catalog: Private/PersistentStorageCatalog.ps1
+    persistent_storage_artifact_sync: Public/Sync-SqlServerLabPersistentStorageArtifact.ps1
     persistent_storage_removal_plan: Private/PersistentStorageRemovalPlan.ps1
     persistent_storage_removal_preview: Public/Get-SqlServerLabPersistentStorageRemovalPlan.ps1
     persistent_storage_removal_executor: Private/PersistentStorageRemovalExecutor.ps1
@@ -564,6 +567,7 @@ internal_components:
       - "bewusst retained Objekte, unerwartete Residuen, Recovery-Befunde und unverifizierbare Evidence mit stabilen Identitaeten, Reason-Codes und nicht mutierenden Handlungshinweisen getrennt ausgeben"
       - "stabile Persistent-Storage-IDs, Klassen, Zustände, Referenzen und exklusive Leases read-only validieren und mit dem Residency-Inventar abgleichen"
       - "verifizierte Backup-Sets und Datenbankpakete controllerweit rollbackfähig mit eigener PersistentStorageId registrieren und Katalogfehler fail-closed quarantänisieren"
+      - "vorhandene Backup-Sets und Datenbankpakete öffentlich einzeln vollständig revalidieren, previewfähig und idempotent mit dem controllergebundenen Katalog synchronisieren"
       - "Datenbankpakete fuer CLI und Browser pfadfrei per stabiler DatabasePackageId inventarisieren; Voll-Hashing nur bei expliziter Integritaetspruefung und Attach bis zur Zielbindung blockieren"
       - "Retention, Backup-/Package-on-Remove, externe Bindungsfreigabe und Recovery-Postconditions read-only planen; persistente Storage-Löschung getrennt halten"
       - "RETAIN_INSTANCE_STORE und BACKUP_ON_REMOVE für Docker-/Podman-Instanzstores frisch revalidiert, backupverifiziert und journalisiert ausführen; Package, Delete und externe Freigabe vor Mutation blockieren"
@@ -1004,6 +1008,7 @@ validation:
       - sql_version_filestream_tde_and_parallel_writer_guards
       - attach_journal_and_online_postcondition
       - atomic_persistent_storage_catalog_registration
+      - public_previewable_idempotent_persistent_storage_artifact_sync
       - catalog_failure_quarantine_and_recovery_journal
       - residency_binding_without_content_rehash
       - public_path_free_inventory_and_explicit_integrity_verification

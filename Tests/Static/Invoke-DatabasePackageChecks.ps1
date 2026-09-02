@@ -38,6 +38,20 @@ try {
         $dependencyInventory=New-LabDatabaseMigrationDependencyInventory -DatabaseName Evidence -Provider hyperv -RunId 'sanitized-run' -InstanceId primary -Observation $dependencyObservation
         $created=New-LabDatabasePackage -DatabaseName Evidence -Provider hyperv -SqlMajorVersion 17 -RunId 'sanitized-run' -InstanceId primary -SourceEvidence $evidence -DatabaseMetadata $metadata -FileInventory $inventory -DataRoot $Root -MigrationDependencyInventory $dependencyInventory
         $storageConfiguration=Get-LabStorageConfiguration -DataRoot $Root
+        $legacyCatalog=Get-LabPersistentStorageCatalog -Configuration $storageConfiguration
+        $initialPersistentCatalog=$legacyCatalog
+        $legacyDocument=$legacyCatalog.Document|ConvertTo-Json -Depth 40|ConvertFrom-Json -Depth 40
+        $legacyDocument.Stores=@($legacyDocument.Stores|Where-Object{
+            @($_.References|Where-Object{[string]$_.TargetId -eq [string]$created.DatabasePackageId}).Count -eq 0
+        })
+        $legacyDocument.Revision=[int]$legacyDocument.Revision+1
+        $null=Write-LabPersistentStorageCatalogDocument -Document $legacyDocument -Configuration $storageConfiguration
+        $catalogPath=(Get-LabPersistentStorageCatalog -Configuration $storageConfiguration).Sources[0].Path
+        $previewHashBefore=(Get-FileHash -LiteralPath $catalogPath -Algorithm SHA256).Hash
+        $publicSyncPreview=Sync-SqlServerLabPersistentStorageArtifact -DatabasePackageId $created.DatabasePackageId -DataRoot $Root -WhatIf
+        $previewHashAfter=(Get-FileHash -LiteralPath $catalogPath -Algorithm SHA256).Hash
+        $publicSync=Sync-SqlServerLabPersistentStorageArtifact -DatabasePackageId $created.DatabasePackageId -DataRoot $Root -Confirm:$false
+        $publicSyncAgain=Sync-SqlServerLabPersistentStorageArtifact -DatabasePackageId $created.DatabasePackageId -DataRoot $Root -Confirm:$false
         $persistentCatalog=Get-LabPersistentStorageCatalog -Configuration $storageConfiguration
         $residencyInventory=Get-LabStorageResidencyInventory -Configuration $storageConfiguration -StateRoot (Join-Path $Root 'State')
         $syncResult=@(Sync-LabDatabasePackagePersistentStorageCatalog -DataRoot $Root)
@@ -77,7 +91,7 @@ try {
         [IO.File]::AppendAllText($objectPath,'tamper')
         $tamper=$false
         try{$null=Get-LabDatabasePackage -DatabasePackageId $created.DatabasePackageId -DataRoot $Root}catch{$tamper=$_.Exception.Message -match 'OBJECT_HASH_MISMATCH'}
-        [PSCustomObject]@{Created=$created;Package=$package;Selection=$selection;PublicSelection=$publicSelection;PersistentCatalog=$persistentCatalog;ResidencyInventory=$residencyInventory;SyncResult=$syncResult;Clone=$clone;Ready=$ready;Old=$old;NoStream=$noStream;Parallel=$parallel;Attached=$attached;AttachCalls=@($attachCalls);BadDetach=$badDetach;Tde=$tde;CatalogFailure=$catalogFailure;CatalogFailureQuarantined=$quarantined.Count -eq 1;QuarantineGuard=$quarantineGuard;CatalogFailureJournal=$catalogFailureJournal;Tamper=$tamper;CloneFiles=@(Get-ChildItem -LiteralPath $cloneRoot -File -Recurse)}
+        [PSCustomObject]@{Created=$created;Package=$package;Selection=$selection;PublicSelection=$publicSelection;PublicSyncPreview=$publicSyncPreview;PublicSync=$publicSync;PublicSyncAgain=$publicSyncAgain;PreviewDidNotMutate=$previewHashBefore -eq $previewHashAfter;InitialPersistentCatalog=$initialPersistentCatalog;PersistentCatalog=$persistentCatalog;ResidencyInventory=$residencyInventory;SyncResult=$syncResult;Clone=$clone;Ready=$ready;Old=$old;NoStream=$noStream;Parallel=$parallel;Attached=$attached;AttachCalls=@($attachCalls);BadDetach=$badDetach;Tde=$tde;CatalogFailure=$catalogFailure;CatalogFailureQuarantined=$quarantined.Count -eq 1;QuarantineGuard=$quarantineGuard;CatalogFailureJournal=$catalogFailureJournal;Tamper=$tamper;CloneFiles=@(Get-ChildItem -LiteralPath $cloneRoot -File -Recurse)}
     } $dataRoot $testRoot
 
     Add-CheckResult 'Offline-Paket enthält MDF, NDF, LDF und vollständigen FILESTREAM-Baum' ($result.Package.Record.DatabaseFiles.Count -eq 4 -and $result.Package.Record.Objects.Count -eq 5 -and @($result.Package.Record.DatabaseFiles|Where-Object Type -eq 'FILESTREAM').Count -eq 1)
@@ -86,6 +100,14 @@ try {
         $result.Selection.Count -eq 1 -and $result.Selection[0].DatabasePackageId -eq $result.Created.DatabasePackageId -and
         $result.Selection[0].Availability -eq 'SELECTABLE' -and $result.Selection[0].IntegrityValidation -eq 'DEFERRED_UNTIL_USE' -and
         $result.PublicSelection.Count -eq 1 -and $result.PublicSelection[0].IntegrityValidation -eq 'VERIFIED')
+    Add-CheckResult 'Öffentlicher Bestands-Sync plant ohne Mutation und registriert genau eine DatabasePackageId idempotent' (
+        $result.PublicSyncPreview.ContractVersion -eq 'SqlServerLab.PersistentStorageArtifactSyncResult/1.0' -and
+        $result.PublicSyncPreview.Status -eq 'PLANNED' -and $result.PublicSyncPreview.WouldChange -and
+        -not $result.PublicSyncPreview.PersistentStorageId -and $result.PreviewDidNotMutate -and
+        $result.PublicSync.Status -eq 'SYNCED' -and $result.PublicSync.Changed -and
+        $result.PublicSyncAgain.Status -eq 'NO_CHANGE' -and -not $result.PublicSyncAgain.Changed -and
+        [string]$result.PublicSync.PersistentStorageId -eq [string]$result.PublicSyncAgain.PersistentStorageId -and
+        ($result.PublicSync|ConvertTo-Json -Depth 10) -notmatch [regex]::Escape($testRoot))
     $selectionJson=$result.Selection|ConvertTo-Json -Depth 20
     Add-CheckResult 'Browser-Inventur enthält weder Hostpfade noch Hashes und autorisiert keinen Attach' (
         $selectionJson -notmatch [regex]::Escape($testRoot) -and $selectionJson -notmatch 'ManifestSha256|Sha256|Password|Credential' -and
@@ -96,12 +118,14 @@ try {
         'SERVER_CONFIGURATION' -in $result.Selection[0].DependencyCategories -and
         'SERVER_OBJECTS_NOT_INCLUDED' -in $result.Selection[0].MigrationWarnings -and
         $selectionJson -notmatch 'RunId|InstanceId|HostName|ObjectName|KeyName')
+    $initialPersistentStores=@($result.InitialPersistentCatalog.Document.Stores|Where-Object StorageClass -eq 'DATABASE_PACKAGE')
     $persistentStores=@($result.PersistentCatalog.Document.Stores|Where-Object StorageClass -eq 'DATABASE_PACKAGE')
     Add-CheckResult 'Paketpublikation registriert eine getrennte stabile PersistentStorageId atomar im zentralen Katalog' (
-        $result.Created.PersistentStorageId -match '^[0-9a-f-]{36}$' -and $persistentStores.Count -eq 1 -and
-        [string]$persistentStores[0].PersistentStorageId -eq [string]$result.Created.PersistentStorageId -and
-        [string]$persistentStores[0].References[0].TargetId -eq [string]$result.Created.DatabasePackageId -and
-        @($result.SyncResult).Count -eq 1 -and -not [bool]$result.SyncResult[0].Changed)
+        $result.Created.PersistentStorageId -match '^[0-9a-f-]{36}$' -and $initialPersistentStores.Count -eq 1 -and
+        [string]$initialPersistentStores[0].PersistentStorageId -eq [string]$result.Created.PersistentStorageId -and
+        [string]$initialPersistentStores[0].References[0].TargetId -eq [string]$result.Created.DatabasePackageId -and
+        @($result.SyncResult).Count -eq 1 -and -not [bool]$result.SyncResult[0].Changed -and
+        [string]$persistentStores[0].PersistentStorageId -eq [string]$result.PublicSync.PersistentStorageId)
     $packageResidency=@($result.ResidencyInventory.Objects|Where-Object ObjectClass -eq 'DATABASE_PACKAGE')
     $residencyText=Get-Content -LiteralPath (Join-Path $repoRoot 'Private/StorageResidencyInventory.ps1') -Raw
     Add-CheckResult 'Residency-Inventar bindet das Paket ohne erneutes Inhalts-Hashing an dieselbe Objekt-ID' (

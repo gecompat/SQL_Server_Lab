@@ -44,6 +44,20 @@ try {
         $created=New-LabDatabaseLibraryBackup -Port 14333 -SaPassword $Password -Provider docker `
             -ContainerName 'runtime-only' -DatabaseName 'BackupEvidence' -DataRoot $Root
         $storageConfiguration=Get-LabStorageConfiguration -DataRoot $Root
+        $legacyCatalog=Get-LabPersistentStorageCatalog -Configuration $storageConfiguration
+        $initialPersistentCatalog=$legacyCatalog
+        $legacyDocument=$legacyCatalog.Document|ConvertTo-Json -Depth 40|ConvertFrom-Json -Depth 40
+        $legacyDocument.Stores=@($legacyDocument.Stores|Where-Object{
+            @($_.References|Where-Object{[string]$_.TargetId -eq [string]$created.BackupSetId}).Count -eq 0
+        })
+        $legacyDocument.Revision=[int]$legacyDocument.Revision+1
+        $null=Write-LabPersistentStorageCatalogDocument -Document $legacyDocument -Configuration $storageConfiguration
+        $catalogPath=(Get-LabPersistentStorageCatalog -Configuration $storageConfiguration).Sources[0].Path
+        $previewHashBefore=(Get-FileHash -LiteralPath $catalogPath -Algorithm SHA256).Hash
+        $publicSyncPreview=Sync-SqlServerLabPersistentStorageArtifact -BackupSetId $created.BackupSetId -DataRoot $Root -WhatIf
+        $previewHashAfter=(Get-FileHash -LiteralPath $catalogPath -Algorithm SHA256).Hash
+        $publicSync=Sync-SqlServerLabPersistentStorageArtifact -BackupSetId $created.BackupSetId -DataRoot $Root -Confirm:$false
+        $publicSyncAgain=Sync-SqlServerLabPersistentStorageArtifact -BackupSetId $created.BackupSetId -DataRoot $Root -Confirm:$false
         $persistentCatalog=Get-LabPersistentStorageCatalog -Configuration $storageConfiguration
         $residencyInventory=Get-LabStorageResidencyInventory -Configuration $storageConfiguration -StateRoot (Join-Path $Root 'State')
         $syncResult=@(Sync-LabBackupSetPersistentStorageCatalog -DataRoot $Root)
@@ -89,7 +103,9 @@ try {
         [PSCustomObject]@{
             Created=$created.Status -eq 'BACKUP_REUSABLE' -and (Test-Path -LiteralPath $created.Path -PathType Leaf)
             PersistentStorageId=[string]$created.PersistentStorageId
-            PersistentCatalog=$persistentCatalog
+            PublicSyncPreview=$publicSyncPreview;PublicSync=$publicSync;PublicSyncAgain=$publicSyncAgain
+            PreviewDidNotMutate=$previewHashBefore -eq $previewHashAfter
+            InitialPersistentCatalog=$initialPersistentCatalog;PersistentCatalog=$persistentCatalog
             ResidencyInventory=$residencyInventory
             SyncResult=$syncResult
             Selected=$selected.Record.BackupSetId -eq $created.BackupSetId -and $selected.Record.Artifact.Sha256 -eq $created.Sha256
@@ -107,12 +123,22 @@ try {
 
     Add-CheckResult 'Backup wird erst nach CHECKSUM und RESTORE VERIFYONLY veröffentlicht' ($result.Sql -match 'BACKUP DATABASE.+CHECKSUM' -and $result.Sql -match 'RESTORE VERIFYONLY.+WITH CHECKSUM')
     Add-CheckResult 'Inhaltsadressiertes Backup ist als REUSABLE selektierbar' ($result.Created -and $result.Selected)
+    Add-CheckResult 'Öffentlicher Bestands-Sync plant ohne Mutation und registriert genau ein BackupSetId idempotent' (
+        $result.PublicSyncPreview.ContractVersion -eq 'SqlServerLab.PersistentStorageArtifactSyncResult/1.0' -and
+        $result.PublicSyncPreview.Status -eq 'PLANNED' -and $result.PublicSyncPreview.WouldChange -and
+        -not $result.PublicSyncPreview.PersistentStorageId -and $result.PreviewDidNotMutate -and
+        $result.PublicSync.Status -eq 'SYNCED' -and $result.PublicSync.Changed -and
+        $result.PublicSyncAgain.Status -eq 'NO_CHANGE' -and -not $result.PublicSyncAgain.Changed -and
+        [string]$result.PublicSync.PersistentStorageId -eq [string]$result.PublicSyncAgain.PersistentStorageId -and
+        ($result.PublicSync|ConvertTo-Json -Depth 10) -notmatch [regex]::Escape($testRoot))
+    $initialPersistentStores=@($result.InitialPersistentCatalog.Document.Stores | Where-Object StorageClass -eq 'BACKUP_SET')
     $persistentStores=@($result.PersistentCatalog.Document.Stores | Where-Object StorageClass -eq 'BACKUP_SET')
     Add-CheckResult 'Backup-Publikation registriert eine getrennte stabile PersistentStorageId atomar im zentralen Katalog' (
-        $result.PersistentStorageId -match '^[0-9a-f-]{36}$' -and $persistentStores.Count -eq 1 -and
-        [string]$persistentStores[0].PersistentStorageId -eq $result.PersistentStorageId -and
-        [string]$persistentStores[0].References[0].TargetId -eq [string]$result.Catalog[0].BackupSetId -and
-        @($result.SyncResult).Count -eq 1 -and -not [bool]$result.SyncResult[0].Changed)
+        $result.PersistentStorageId -match '^[0-9a-f-]{36}$' -and $initialPersistentStores.Count -eq 1 -and
+        [string]$initialPersistentStores[0].PersistentStorageId -eq $result.PersistentStorageId -and
+        [string]$initialPersistentStores[0].References[0].TargetId -eq [string]$result.Catalog[0].BackupSetId -and
+        @($result.SyncResult).Count -eq 1 -and -not [bool]$result.SyncResult[0].Changed -and
+        [string]$persistentStores[0].PersistentStorageId -eq [string]$result.PublicSync.PersistentStorageId)
     $backupResidency=@($result.ResidencyInventory.Objects | Where-Object ObjectClass -eq 'BACKUP_SET')
     Add-CheckResult 'Residency-Inventar bindet den Backupbestand ohne erneutes Inhalts-Hashing an dieselbe Objekt-ID' (
         $backupResidency.Count -eq 1 -and $backupResidency[0].AuditStatus -eq 'VERIFIED' -and
@@ -128,6 +154,7 @@ try {
     Add-CheckResult 'TDE-Backup wird ohne Zertifikat- und Recovery-Vertrag nicht veröffentlicht' $result.TdeGuard
     Add-CheckResult 'Fehlgeschlagener Katalogcommit quarantänisiert die Bibliothek statt Wiederverwendbarkeit zu behaupten' ($result.CatalogFailure -and $result.CatalogFailureQuarantined)
     Add-CheckResult 'Öffentliches Backup-Cmdlet ist exportiert' ([bool](Get-Command Backup-SqlServerLabDatabase -ErrorAction SilentlyContinue))
+    Add-CheckResult 'Öffentlicher Artefakt-Bestandssync ist exportiert' ([bool](Get-Command Sync-SqlServerLabPersistentStorageArtifact -ErrorAction SilentlyContinue))
     $restoreText=Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Restore-SqlServerLabDatabase.ps1') -Raw
     Add-CheckResult 'Jeder öffentliche Restore führt VERIFYONLY WITH CHECKSUM vor FILELISTONLY aus' ($restoreText -match '(?s)Pruefe Backup.+RESTORE VERIFYONLY.+WITH CHECKSUM.+Lese Backup-Metadaten.+RESTORE FILELISTONLY')
     Add-CheckResult 'Öffentlicher Restore wählt Bibliotheksbackups ausschließlich über BackupSetId im gemeinsamen Core' ($restoreText -match '\[string\]\$BackupSetId' -and $restoreText -match '\[string\]\$DataRoot' -and $restoreText -match 'RESTORE_BACKUP_SOURCE_EXACTLY_ONE_REQUIRED' -and $restoreText -match 'Get-LabDatabaseBackup -BackupSetId \$BackupSetId -DataRoot \$DataRoot')
