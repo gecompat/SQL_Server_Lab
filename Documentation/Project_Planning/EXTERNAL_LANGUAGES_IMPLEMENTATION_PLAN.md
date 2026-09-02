@@ -416,6 +416,19 @@ Artifact-Refresh bleiben Folgearbeit. Die direkte Gastinstallation besitzt
 native SQL-2022-Evidence; der neue öffentliche Reconcile-Ablauf ist noch
 `NOT_EXECUTED`.
 
+Implementierungsstand Welle 8E, 2026-09-02: Docker und Podman unterstützen
+nun auch die Entfernung der letzten External Runtime. Der Resolverplan besitzt
+dafür die explizite Operation `RemoveExternalRuntime` mit leerem Ziel-Image-
+Key. Der Executor baut kein leeres Derived Image, sondern erstellt neben dem
+Rollback-Container einen Ersatz auf dem katalogisierten SQL-Basisimage,
+übernimmt exakt das bestehende SQL-Datenvolume und sonstige Nicht-Runtime-
+Mounts, deaktiviert `external scripts enabled` und entfernt Runtime-State sowie
+Receipts erst nach SQL-Postcondition. Runtime-Sidecars werden lediglich
+ausgehängt und bleiben bis zu ihrem normalen Retention-/Cleanup-Pfad erhalten.
+Getrennte native Docker-/Podman-Abnahmen bestätigten Datenpersistenz,
+Basisimage, `0/0`-Konfiguration, Restart, Journalabschluss und vollständigen
+Cleanup. Hyper-V-Removal und freie Varianten-/Packagewechsel bleiben offen.
+
 ## 6. Betroffene Repositoryverträge
 
 Mindestens gemeinsam zu prüfen und je Welle kohärent zu ändern sind:

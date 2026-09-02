@@ -205,6 +205,11 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   idempotente DDL-, Drift- und Fehlerkompensationsverträge; der journalgebundene
   Container-Refresh unterstützt additive Runtimes und eigentumsgebundene
   Java-Removal-Aktionen bei persistierten SQL-/Runtime-Artefaktvolumes;
+  die letzte Container-Runtime wird journalgebunden durch Rückkehr zum
+  katalogisierten SQL-Basisimage entfernt, `external scripts enabled` wird
+  wirksam deaktiviert und Runtime-Sidecars bleiben bis zum normalen
+  Retention-/Cleanup-Pfad erhalten; Docker und Podman besitzen dafür getrennte
+  native SQL-/Daten-/Restart-Evidence;
 - Hyper-V-/Windows-External-Runtime-Pfad für Python, R und Java mit
   SHA-256-gebundenen Offlinemedien, geschlossenem PowerShell-Direct-
   Gastinstaller, SQL-Feature-/State-/Recovery-Vertrag sowie echtem

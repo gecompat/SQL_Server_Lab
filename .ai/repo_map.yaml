@@ -471,7 +471,7 @@ internal_components:
   - name: ExternalRuntimeLifecycle
     source: Private/ExternalRuntimeLifecycle.ps1
     responsibilities:
-      - "external scripts enabled aktivieren und den gebundenen Container kontrolliert neu starten"
+      - "external scripts enabled aktivieren oder beim letzten Runtime-Removal verifiziert deaktivieren und den gebundenen Container kontrolliert neu starten"
       - "launchpadd-Readiness und echte Python-/R-/Java-sp_execute_external_script-Postconditions prüfen"
       - "Java-Sprache und -Libraries pro Zieldatenbank idempotent registrieren, Drift ablehnen und fehlgeschlagene Neuanlagen kompensieren"
       - "sanitisierte Runtime-Installation-Receipts im Run persistieren"
@@ -850,7 +850,8 @@ validation:
     source: Tests/Static/Invoke-ExternalRuntimeReconcileChecks.ps1
     covers:
       - additive_resolver_bound_external_runtime_recreate_plan
-      - non_software_drift_and_runtime_removal_fail_closed
+      - non_software_drift_and_explicit_runtime_removal
+      - last_runtime_base_image_return_without_sidecar_early_delete
       - sanitized_plan_and_whatif
       - build_journal_validation_state_commit_cleanup_order
       - rollback_and_resume_contract
