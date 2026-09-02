@@ -226,6 +226,213 @@ try {
         $leaseEvidence.RecoveryBlocked -and $leaseStore.State -eq 'RECOVERY_REQUIRED' -and
         [string]$leaseStore.Lease.RunId -eq $leaseRunId -and @($leaseEvidence.Catalog.Sources).Count -eq 2)
 
+    $hyperVRoot1 = Join-Path $temporaryRoot 'hyperv-one/Lab_Data'
+    $hyperVRoot2 = Join-Path $temporaryRoot 'hyperv-two/Lab_Data'
+    New-Item -Path (Join-Path $hyperVRoot1 'Catalog'),(Join-Path $hyperVRoot2 'Catalog') -ItemType Directory -Force | Out-Null
+    $hyperVConfiguration = [PSCustomObject]@{
+        ControllerId=[Guid]::NewGuid().ToString('D')
+        LabDataLocations=@(
+            [PSCustomObject]@{ LocationId=[Guid]::NewGuid().ToString('D'); LabDataRoot=$hyperVRoot1 },
+            [PSCustomObject]@{ LocationId=[Guid]::NewGuid().ToString('D'); LabDataRoot=$hyperVRoot2 }
+        )
+    }
+    $hyperVRunId=[Guid]::NewGuid().ToString('D'); $hyperVScopeId=[Guid]::NewGuid().ToString('D')
+    $hyperVRelativePath='Labs/catalog-test/Instances/hyperv/primary/SqlServer/2025/sql-data.vhdx'
+    $hyperVDiskId=[Guid]::NewGuid().ToString('D').ToUpperInvariant()
+    $hyperVEvidence = & $module {
+        param($config,$root,$relativePath,$runId,$scopeId,$diskId)
+        $originalOwnership=(Get-Command Test-LabDataRootOwnership -CommandType Function).ScriptBlock
+        Set-Item Function:script:Test-LabDataRootOwnership -Value { param($DataRoot,$ControllerId) $null=$DataRoot,$ControllerId; return $true }
+        try {
+            $reserved=Register-LabHyperVInstanceStoreReservation -RunId $runId -ScopeId $scopeId `
+                -DisplayName 'Hyper-V catalog test' -DataRoot $root -RelativePath $relativePath -Configuration $config
+            $absolutePath=Join-Path $root $relativePath
+            New-Item -ItemType Directory -Path (Split-Path -Parent $absolutePath) -Force | Out-Null
+            New-Item -ItemType File -Path $absolutePath -Force | Out-Null
+            $recovery=Set-LabHyperVInstanceStoreRecoveryRequired -PersistentStorageId ([string]$reserved.Store.PersistentStorageId) `
+                -RunId $runId -ScopeId $scopeId -Configuration $config
+            $resumed=Register-LabHyperVInstanceStoreReservation -RunId $runId -ScopeId $scopeId `
+                -DisplayName 'Hyper-V catalog test' -DataRoot $root -RelativePath $relativePath -Configuration $config
+            $completed=Complete-LabHyperVInstanceStoreReservation -PersistentStorageId ([string]$reserved.Store.PersistentStorageId) `
+                -RunId $runId -ScopeId $scopeId -DiskIdentifier $diskId -Configuration $config
+            $completedAgain=Complete-LabHyperVInstanceStoreReservation -PersistentStorageId ([string]$reserved.Store.PersistentStorageId) `
+                -RunId $runId -ScopeId $scopeId -DiskIdentifier $diskId -Configuration $config
+            $foreignBlocked=$false
+            try {
+                Register-LabHyperVInstanceStoreReservation -RunId ([Guid]::NewGuid().ToString('D')) `
+                    -ScopeId ([Guid]::NewGuid().ToString('D')) -DisplayName 'Foreign Hyper-V store' `
+                    -DataRoot $root -RelativePath $relativePath -Configuration $config | Out-Null
+            }
+            catch { $foreignBlocked=$_.Exception.Message -match 'HYPERV_INSTANCE_STORE_RESERVATION_CONFLICT' }
+            $catalog=Get-LabPersistentStorageCatalog -Configuration $config
+            $activeRun=[PSCustomObject]@{
+                runId=$runId
+                instances=@([PSCustomObject]@{
+                    provider='hyperv'; drives=@()
+                    persistentStorage=[PSCustomObject]@{
+                        hostPath=$absolutePath; persistentStorageId=[string]$reserved.Store.PersistentStorageId
+                        locationId=[string]$reserved.LocationId; relativePath=[string]$reserved.RelativePath
+                    }
+                })
+            }
+            $originalBackupPaths=(Get-Command Get-LabBackupLibraryPaths -CommandType Function).ScriptBlock
+            $originalBackupDocument=(Get-Command Get-LabBackupLibraryDocument -CommandType Function).ScriptBlock
+            $originalPackagePaths=(Get-Command Get-LabDatabasePackagePaths -CommandType Function).ScriptBlock
+            $originalPackageDocument=(Get-Command Get-LabDatabasePackageDocument -CommandType Function).ScriptBlock
+            try {
+                Set-Item Function:script:Get-LabBackupLibraryPaths -Value { param($DataRoot) [PSCustomObject]@{ DataRoot=$DataRoot; LibraryRoot=(Join-Path $DataRoot 'Backups') } }
+                Set-Item Function:script:Get-LabBackupLibraryDocument -Value { param($Paths) $null=$Paths; [PSCustomObject]@{ Backups=@() } }
+                Set-Item Function:script:Get-LabDatabasePackagePaths -Value { param($DataRoot) [PSCustomObject]@{ DataRoot=$DataRoot; ObjectsRoot=(Join-Path $DataRoot 'Packages') } }
+                Set-Item Function:script:Get-LabDatabasePackageDocument -Value { param($Paths) $null=$Paths; [PSCustomObject]@{ Packages=@() } }
+                $inventory=Get-LabStorageResidencyInventory -Configuration $config -StateRoot (Join-Path $root 'State') -ActiveRuns @($activeRun)
+                $plan=Get-LabPersistentStoragePlan -Catalog $catalog -ResidencyInventory $inventory
+            }
+            finally {
+                Set-Item Function:script:Get-LabBackupLibraryPaths -Value $originalBackupPaths
+                Set-Item Function:script:Get-LabBackupLibraryDocument -Value $originalBackupDocument
+                Set-Item Function:script:Get-LabDatabasePackagePaths -Value $originalPackagePaths
+                Set-Item Function:script:Get-LabDatabasePackageDocument -Value $originalPackageDocument
+            }
+            [PSCustomObject]@{
+                Reserved=$reserved; Recovery=$recovery; Resumed=$resumed; Completed=$completed
+                CompletedAgain=$completedAgain; ForeignBlocked=$foreignBlocked; Catalog=$catalog; Inventory=$inventory; Plan=$plan
+            }
+        }
+        finally { Set-Item Function:script:Test-LabDataRootOwnership -Value $originalOwnership }
+    } $hyperVConfiguration $hyperVRoot1 $hyperVRelativePath $hyperVRunId $hyperVScopeId $hyperVDiskId
+    $hyperVStore=@($hyperVEvidence.Catalog.Document.Stores)[0]
+    Add-CheckResult -Name 'Reguläre Hyper-V-VHDX erhält vor der Mutation eine stabile INCOMPLETE-Reservierung und Run-Lease' -Success (
+        $hyperVEvidence.Reserved.Changed -and -not $hyperVEvidence.Reserved.Reused -and
+        $hyperVEvidence.Reserved.Store.State -eq 'INCOMPLETE' -and
+        [string]$hyperVEvidence.Reserved.Store.Lease.RunId -eq $hyperVRunId -and
+        [string]$hyperVEvidence.Reserved.Store.LocationBinding.RelativePath -eq $hyperVRelativePath)
+    Add-CheckResult -Name 'Hyper-V-Abbruch bleibt sichtbar und verwendet beim Resume dieselbe Storage-ID' -Success (
+        $hyperVEvidence.Recovery.Changed -and $hyperVEvidence.Recovery.Store.State -eq 'RECOVERY_REQUIRED' -and
+        -not $hyperVEvidence.Resumed.Changed -and $hyperVEvidence.Resumed.Reused -and
+        [string]$hyperVEvidence.Resumed.Store.PersistentStorageId -eq [string]$hyperVEvidence.Reserved.Store.PersistentStorageId)
+    Add-CheckResult -Name 'Verifizierte Hyper-V-Disk-ID committed idempotent auf IN_USE und blockiert fremde Runs' -Success (
+        $hyperVEvidence.Completed.Changed -and -not $hyperVEvidence.CompletedAgain.Changed -and $hyperVEvidence.ForeignBlocked -and
+        $hyperVStore.State -eq 'IN_USE' -and [string]$hyperVStore.LocationBinding.ProviderResourceId -eq $hyperVDiskId -and
+        @($hyperVEvidence.Catalog.Sources).Count -eq 2)
+    Add-CheckResult -Name 'Residency-Audit korreliert die katalogisierte Hyper-V-VHDX über dieselbe stabile Objektidentität' -Success (
+        @($hyperVEvidence.Inventory.Objects | Where-Object {
+            [string]$_.ObjectId -eq [string]$hyperVStore.LocationBinding.InventoryObjectId -and
+            [string]$_.Provider -eq 'hyperv' -and [string]$_.ObjectClass -eq 'INSTANCE_STORE' -and $hyperVRunId -in @($_.RunIds)
+        }).Count -eq 1 -and $hyperVEvidence.Plan.Status -eq 'READY' -and
+        $hyperVEvidence.Plan.Stores[0].ObservationStatus -eq 'MATCHED' -and $hyperVEvidence.Plan.Stores[0].LeaseStatus -eq 'CONSISTENT')
+    $hyperVEnvironmentText=Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVLabEnvironment.ps1') -Raw -Encoding utf8
+    $hyperVProviderText=Get-Content -LiteralPath (Join-Path $repoRoot 'Providers/HyperV/HyperVProvider.ps1') -Raw -Encoding utf8
+    Add-CheckResult -Name 'Regulärer Hyper-V-Erstellungsflow reserviert vor New-VHD und committed erst nach Attachment' -Success (
+        $hyperVEnvironmentText.IndexOf('Register-LabHyperVInstanceStoreReservation') -lt $hyperVEnvironmentText.IndexOf('New-VHD -Path $storage.HyperVVhdxPath') -and
+        $hyperVEnvironmentText.IndexOf('Complete-LabHyperVInstanceStoreReservation') -gt $hyperVEnvironmentText.IndexOf('Add-VMHardDiskDrive -VMName $lab.Instance.vmName') -and
+        $hyperVEnvironmentText -match 'Set-LabHyperVInstanceStoreRecoveryRequired')
+    Add-CheckResult -Name 'Hyper-V-VM-Identität trägt stabile Storage-ID, Retention und Cleanup-Disposition' -Success (
+        $hyperVProviderText -match 'persistentStorageId = if \(\$_\.PersistentStorageId\)' -and
+        $hyperVProviderText -match 'cleanupDisposition = if \(\$_\.CleanupDisposition\)')
+
+    $enableDataRoot=Join-Path $temporaryRoot 'hyperv-enable/Lab_Data'
+    $enableStateRoot=Join-Path $temporaryRoot 'hyperv-enable/State'
+    $enableEvidence = & $module {
+        param($dataRoot,$stateRoot)
+        $previousDataRoot=$env:SQL_SERVER_LAB_DATA_ROOT
+        $originals=@{}
+        foreach($name in @('Get-HyperVLabVMs','Get-HyperVManagedVM','New-VHD','Get-VHD','Get-LabHyperVPersistentDataRuntimeInspection','Add-VMHardDiskDrive','Get-VMHardDiskDrive','Set-VMHardDiskDrive','Set-VM','Write-LabSuccess')) {
+            $command=Get-Command $name -ErrorAction SilentlyContinue
+            $originals[$name]=if($command -and $command.CommandType -eq 'Function'){$command.ScriptBlock}else{$null}
+        }
+        try {
+            $null=Initialize-LabManagedDataRoot -DataRoot $dataRoot -Confirm:$false
+            $env:SQL_SERVER_LAB_DATA_ROOT=$dataRoot
+            $run=New-LabRunState -StateRoot $stateRoot -Metadata @{ name='Hyper-V persistent catalog'; workflowKind='hyperv-lab' } `
+                -ProviderSubRuns @([PSCustomObject]@{ id='provider-hyperv'; provider='hyperv'; instanceIds=@('primary') })
+            $vmId=[Guid]::NewGuid().ToString('D'); $vmName='sql-lab-hyperv-persistent-catalog'
+            Write-LabArtifactJsonAtomic -Path (Join-Path $run.RunDir 'connection-info.json') -InputObject ([PSCustomObject]@{
+                instances=@([PSCustomObject]@{ id='primary'; provider='hyperv'; vmName=$vmName; vmId=$vmId; sqlVersion='2025' })
+            })
+            $script:enableAttached=$false; $script:enableNewVhdCalls=0; $script:enableReservedBeforeMutation=$false
+            $script:enableDiskId=[Guid]::NewGuid().ToString('D').ToUpperInvariant()
+            $script:enableRunId=[string]$run.RunId; $script:enableScopeId=[string]$run.ScopeId
+            $script:enableVmId=$vmId; $script:enableVmName=$vmName
+            Set-Item Function:script:Get-HyperVLabVMs -Value {
+                param($RunId,$ScopeId) $null=$RunId,$ScopeId
+                [PSCustomObject]@{ VMName=$script:enableVmName; VMId=$script:enableVmId; State='Off' }
+            }
+            Set-Item Function:script:Get-HyperVManagedVM -Value {
+                param($VMName,$ExpectedRunId,$ExpectedScopeId) $null=$VMName,$ExpectedRunId,$ExpectedScopeId
+                [PSCustomObject]@{
+                    VM=[PSCustomObject]@{ Id=$script:enableVmId; State='Off'; Name=$script:enableVmName }
+                    Identity=[PSCustomObject]@{
+                        provider='hyperv'; runId=$script:enableRunId; scopeId=$script:enableScopeId; instanceId='primary'
+                        childVhdxPath=(Join-Path ([IO.Path]::GetTempPath()) 'synthetic-os-child.vhdx'); additionalDrives=@()
+                    }
+                }
+            }
+            Set-Item Function:script:New-VHD -Value {
+                [CmdletBinding()]param($Path,[switch]$Dynamic,$SizeBytes)
+                $null=$Dynamic,$SizeBytes; $script:enableNewVhdCalls++
+                $configuration=Get-LabStorageConfiguration
+                $catalog=Get-LabPersistentStorageCatalog -Configuration $configuration
+                $script:enableReservedBeforeMutation=@($catalog.Document.Stores | Where-Object {
+                    $_.Provider -eq 'hyperv' -and $_.State -eq 'INCOMPLETE' -and $_.Lease.RunId -eq $script:enableRunId
+                }).Count -eq 1
+                New-Item -ItemType File -Path $Path -Force | Out-Null
+            }
+            Set-Item Function:script:Get-VHD -Value {
+                [CmdletBinding()]param($Path) $null=$Path
+                [PSCustomObject]@{ Size=32GB; FileSize=1MB; VhdType='Dynamic'; DiskIdentifier=$script:enableDiskId; ParentPath=$null }
+            }
+            Set-Item Function:script:Get-LabHyperVPersistentDataRuntimeInspection -Value {
+                param($Path,$TargetVMName) $null=$Path,$TargetVMName
+                $attachments=if($script:enableAttached){@([PSCustomObject]@{ VMName=$script:enableVmName; VMId=$script:enableVmId; VMState='Off'; ControllerType='SCSI'; ControllerNumber=0; ControllerLocation=1 })}else{@()}
+                [PSCustomObject]@{
+                    Status='AVAILABLE'; DiskIdentifier=$script:enableDiskId; Attachments=$attachments; CheckpointReferences=@()
+                    Target=[PSCustomObject]@{ Status='AVAILABLE'; VMId=$script:enableVmId; State='Off'; CheckpointCount=0 }
+                }
+            }
+            Set-Item Function:script:Add-VMHardDiskDrive -Value {
+                [CmdletBinding()]param($VMName,$ControllerType,$ControllerNumber,$Path,[switch]$Passthru)
+                $null=$VMName,$ControllerType,$ControllerNumber,$Passthru; $script:enableAttached=$true
+                [PSCustomObject]@{ Path=$Path; ControllerType='SCSI'; ControllerNumber=0; ControllerLocation=1 }
+            }
+            Set-Item Function:script:Get-VMHardDiskDrive -Value {
+                [CmdletBinding()]param($VMName,$ControllerType,$ControllerNumber,$ControllerLocation)
+                $null=$VMName,$ControllerType,$ControllerNumber,$ControllerLocation
+                $configuration=Get-LabStorageConfiguration; $catalog=Get-LabPersistentStorageCatalog -Configuration $configuration
+                $store=@($catalog.Document.Stores | Where-Object Provider -eq 'hyperv')[0]
+                $root=@($configuration.LabDataLocations | Where-Object LocationId -eq $store.LocationBinding.LocationId)[0].LabDataRoot
+                [PSCustomObject]@{ Path=(Join-Path $root $store.LocationBinding.RelativePath); ControllerType='SCSI'; ControllerNumber=0; ControllerLocation=1 }
+            }
+            Set-Item Function:script:Set-VMHardDiskDrive -Value { [CmdletBinding()]param($VMHardDiskDrive,$MaximumIOPS) $null=$VMHardDiskDrive,$MaximumIOPS }
+            Set-Item Function:script:Set-VM -Value { [CmdletBinding()]param($VMName,$Notes,$AutomaticCheckpointsEnabled) $null=$VMName,$Notes,$AutomaticCheckpointsEnabled }
+            Set-Item Function:script:Write-LabSuccess -Value { param($Message) $null=$Message }
+
+            $first=Enable-HyperVLabPersistentData -RunId $run.RunId -DataRoot $dataRoot -SizeGB 32 -StateRoot $stateRoot
+            $second=Enable-HyperVLabPersistentData -RunId $run.RunId -DataRoot $dataRoot -SizeGB 32 -StateRoot $stateRoot
+            $configuration=Get-LabStorageConfiguration -DataRoot $dataRoot
+            $catalog=Get-LabPersistentStorageCatalog -Configuration $configuration
+            $connection=Get-Content -LiteralPath (Join-Path $run.RunDir 'connection-info.json') -Raw | ConvertFrom-Json -Depth 20
+            [PSCustomObject]@{
+                First=$first; Second=$second; Catalog=$catalog; Connection=$connection
+                NewVhdCalls=$script:enableNewVhdCalls; ReservedBeforeMutation=$script:enableReservedBeforeMutation
+            }
+        }
+        finally {
+            foreach($name in $originals.Keys) {
+                if($originals[$name]){Set-Item "Function:script:$name" -Value $originals[$name]}
+                else{Remove-Item "Function:script:$name" -ErrorAction SilentlyContinue}
+            }
+            $env:SQL_SERVER_LAB_DATA_ROOT=$previousDataRoot
+            Remove-Variable -Scope Script -Name enableAttached,enableNewVhdCalls,enableReservedBeforeMutation,enableDiskId,enableRunId,enableScopeId,enableVmId,enableVmName -ErrorAction SilentlyContinue
+        }
+    } $enableDataRoot $enableStateRoot
+    $enabledStore=@($enableEvidence.Catalog.Document.Stores | Where-Object Provider -eq 'hyperv')[0]
+    Add-CheckResult -Name 'Regulärer Hyper-V-Enable-Pfad ist nach reservierter Erstellung und Attachment vollständig idempotent' -Success (
+        $enableEvidence.ReservedBeforeMutation -and $enableEvidence.NewVhdCalls -eq 1 -and
+        $enabledStore.State -eq 'IN_USE' -and [string]$enabledStore.PersistentStorageId -eq [string]$enableEvidence.First.persistentStorageId -and
+        [string]$enableEvidence.Second.persistentStorageId -eq [string]$enableEvidence.First.persistentStorageId -and
+        [string]$enableEvidence.Connection.instances[0].persistentStorage.persistentStorageId -eq [string]$enabledStore.PersistentStorageId -and
+        [int]$enableEvidence.Connection.instances[0].persistentStorage.catalogRevision -eq [int]$enableEvidence.Catalog.Document.Revision)
+
     $renamed = $document | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
     $renamed.Stores[0].DisplayName = 'Umbenannter Anzeigename'
     Add-CheckResult -Name 'Anzeigenamenänderung verändert die stabile Storage-ID nicht' -Success (
