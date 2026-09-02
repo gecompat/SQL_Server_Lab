@@ -7,10 +7,10 @@ Persistenzmechanismen schützen bereits Teile des SQL-Zustands, bilden aber noch
 keinen vollständigen, providerübergreifenden Wiederverwendungs- und
 Löschvertrag. Planung ist kein Implementierungs- oder Runtime-Nachweis.
 
-Von den 14 kanonischen PSR-Arbeitspaketen sind `PSR-002`, `PSR-005` und
-`PSR-008` abgeschlossen. Damit verbleiben elf Top-Level-Pakete; ein Paket mit
-implementiertem Core oder read-only Slice zählt bis zum vollständigen eigenen
-Abnahmekriterium weiterhin als offen.
+Von den 14 kanonischen PSR-Arbeitspaketen sind `PSR-002`, `PSR-005`, `PSR-008`
+und `PSR-014` abgeschlossen. Damit verbleiben zehn Top-Level-Pakete; ein Paket
+mit implementiertem Core oder read-only Slice zählt bis zum vollständigen
+eigenen Abnahmekriterium weiterhin als offen.
 
 Der P0-Bugfix zur verbindlichen Ablage aller neuen Hyper-V-Ressourcen unter
 registrierten `Lab_Data`-Roots ist seit 2026-08-31 abgeschlossen. Die
