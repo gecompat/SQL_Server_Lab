@@ -78,8 +78,12 @@ try {
         Get-ChildItem -LiteralPath (Join-Path $repoRoot 'Private'),(Join-Path $repoRoot 'Public'),(Join-Path $repoRoot 'Providers') `
             -Recurse -File -Include '*.ps1','*.psm1'
     )
+    $standaloneAcceptancePaths = @(
+        Get-ChildItem -LiteralPath (Join-Path $repoRoot 'Tests\Integration') -Recurse -File -Include '*.ps1','*.psm1'
+    )
     $nakedRuntimeCommands = [Collections.Generic.List[string]]::new()
     $directRuntimeProbes = [Collections.Generic.List[string]]::new()
+    $directAcceptanceRuntimeCalls = [Collections.Generic.List[string]]::new()
     foreach ($sourceFile in $runtimeLifecyclePaths) {
         $absolutePath = $sourceFile.FullName
         $relativePath = [IO.Path]::GetRelativePath($repoRoot,$absolutePath)
@@ -99,6 +103,26 @@ try {
             $directRuntimeProbes.Add($relativePath)
         }
     }
+    foreach ($sourceFile in $standaloneAcceptancePaths) {
+        $absolutePath = $sourceFile.FullName
+        $relativePath = [IO.Path]::GetRelativePath($repoRoot,$absolutePath)
+        $tokens = $null
+        $parseErrors = $null
+        $ast = [Management.Automation.Language.Parser]::ParseFile($absolutePath,[ref]$tokens,[ref]$parseErrors)
+        foreach ($parseError in @($parseErrors)) { $directAcceptanceRuntimeCalls.Add("${relativePath}:parse:$($parseError.Message)") }
+        foreach ($command in @($ast.FindAll({
+            param($node)
+            $node -is [Management.Automation.Language.CommandAst] -and
+                $node.GetCommandName() -in @('docker','podman')
+        },$true))) {
+            $directAcceptanceRuntimeCalls.Add("${relativePath}:$($command.Extent.StartLineNumber)")
+        }
+        $sourceText = Get-Content -LiteralPath $absolutePath -Raw -Encoding utf8
+        if ($sourceText -match '&\s+\$(Provider|provider)\b' -or
+            $sourceText -match 'Get-Command\s+([''"]?(docker|podman)[''"]?|\$(Provider|provider|runtime))\b') {
+            $directAcceptanceRuntimeCalls.Add($relativePath)
+        }
+    }
     $bootstrapText = Get-Content -LiteralPath (Join-Path $repoRoot 'Tests\Integration\Initialize-PodmanRuntime.ps1') -Raw -Encoding utf8
     $backupText = Get-Content -LiteralPath (Join-Path $repoRoot 'Tests\Integration\Invoke-BackupLibraryCrossProviderAcceptance.ps1') -Raw -Encoding utf8
     Add-CheckResult -Name 'Windows-Fallbacks decken Docker, Podman und lokale Python-Installationen zentral ab' -Success (
@@ -115,6 +139,9 @@ try {
     Add-CheckResult -Name 'Produktive Aufrufpfade verwenden keine nackten Runtime-Befehle oder direkten PATH-Probes' -Success (
         $nakedRuntimeCommands.Count -eq 0 -and $directRuntimeProbes.Count -eq 0) `
         -Message ((@($nakedRuntimeCommands) + @($directRuntimeProbes)) -join ', ')
+    Add-CheckResult -Name 'Eigenständige Runtime-Acceptances verwenden keine nackten oder providerindirekten PATH-Aufrufe' -Success (
+        $directAcceptanceRuntimeCalls.Count -eq 0) `
+        -Message (@($directAcceptanceRuntimeCalls) -join ', ')
     Add-CheckResult -Name 'Runtime-Evidence verwechselt einen eingeschraenkten PATH nicht mit fehlender Installation' -Success (
         $runtimeScopeText -match 'Resolve-LabHostTool -Name \$Provider' -and
         $runtimeScopeText -match 'Get-LabHostToolInvocation -Name \$Provider' -and
@@ -140,6 +167,11 @@ try {
     Add-CheckResult -Name 'Cross-Provider-Acceptance enthält keinen eigenen Podman-Installationspfad mehr' -Success (
         $backupText -match 'Initialize-SqlServerLabHostTools\.ps1' -and
         $backupText -notmatch 'Programs\\Podman\\podman\.exe')
+    $agentRulesText = Get-Content -LiteralPath (Join-Path $repoRoot 'AGENTS.md') -Raw -Encoding utf8
+    Add-CheckResult -Name 'Repository-Regeln verbieten ungeprüfte Nicht-vorhanden-Aussagen in neuen Agentprozessen' -Success (
+        $agentRulesText -match 'Initialize-SqlServerLabHostTools\.ps1' -and
+        $agentRulesText -match 'fehlende Auflösung, eine nicht erreichbare Runtime' -and
+        $agentRulesText -match 'Benutzer- oder Maschinen-`PATH`')
 }
 catch {
     Add-CheckResult -Name 'Host-Tool-Resolver-Testausführung' -Success $false -Message $_.Exception.Message

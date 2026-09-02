@@ -4,7 +4,7 @@
 |---|---|
 | Status | `BINDING` |
 | Runtime-Status | `CONTAINER_CORE_IMPLEMENTED_HYPERV_SQL_CLI_ACCEPTED` |
-| Stand | 2026-08-31 |
+| Stand | 2026-09-02 |
 | Repository | `gecompat/SQL_Server_Lab` |
 | Maschinenlesbare Landkarte | [`repo_map.yaml`](repo_map.yaml) |
 
@@ -30,6 +30,11 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 - PowerShell-Modul und öffentliche Cmdlets;
 - Docker-Provider;
 - Podman-Provider;
+- zentraler Host-Tool-Resolver für Docker, Podman und Python mit sicheren
+  Overrides, Prozess-/persistierter-PATH- und bekannten Windows-
+  Installationspfaden; Modulimport und eigenständige Runtime-Acceptances
+  initialisieren jeden neuen Prozess und verwenden danach den absoluten
+  Aufrufpfad, ohne Benutzer- oder Maschinen-`PATH` zu verändern;
 - Ad-hoc- und Manifest-Provisionierung;
 - SQL-Version- und CU-Buildauflösung aus dem Katalog;
 - Resource Assessment;

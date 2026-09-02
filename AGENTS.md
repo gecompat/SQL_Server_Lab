@@ -62,6 +62,18 @@ Die verbindlichen anbieterneutralen Einzelheiten stehen in
 `.ai/MODEL_ROUTING_POLICY.md` und
 `Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md`.
 
+## Host-Werkzeuge in neuen Prozessen
+
+- Vor der Aussage, Docker, Podman oder Python sei nicht vorhanden, muss im
+  aktuellen PowerShell-Prozess
+  `Tools/Initialize-SqlServerLabHostTools.ps1` für das betroffene Werkzeug
+  ausgeführt und dessen strukturiertes Ergebnis geprüft werden.
+- Nach erfolgreicher Auflösung ist der zurückgegebene absolute `Invocation`-
+  Pfad zu verwenden. Eine fehlende Auflösung, eine nicht erreichbare Runtime
+  und fehlende Ausführungsberechtigung sind getrennte Fehlerklassen.
+- Jeder neue No-Profile-, Agent- oder Testprozess initialisiert erneut. Der
+  Benutzer- oder Maschinen-`PATH` wird dafür niemals persistierend verändert.
+
 ## Tests und Nachweise
 
 Tests werden lokal in steigender Breite ausgeführt:

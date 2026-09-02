@@ -25,6 +25,10 @@ Ziel: reproduzierbare, schnelle Einschätzung, ob ein Push bzw. Merge auf `main`
 ## 3) Runtime-Checks (wenn Laufzeit-Änderungen betroffen sind)
 
 - PowerShell **mit Admin-Rechten** starten (für Hyper‑V-Pfade Pflicht).
+- Docker, Podman und Python im aktuellen Prozess zentral auflösen:
+  - `.\Tools\Initialize-SqlServerLabHostTools.ps1`
+  - `Available = False` bedeutet Auflösungsfehler; erst dann darf das Werkzeug
+    als nicht gefunden behandelt werden.
 - Docker/Podman/Hyper‑V Verfügbarkeit prüfen:
   - `Test-SqlServerLabPrerequisite -Provider docker`
   - `Test-SqlServerLabPrerequisite -Provider podman`
@@ -47,10 +51,13 @@ Ziel: reproduzierbare, schnelle Einschätzung, ob ein Push bzw. Merge auf `main`
 ## 4) Bekannte lokale Fehlerbilder / Ursachen
 
 - `permission denied while trying to connect to the docker API at npipe:////./pipe/docker_engine`
-  - Docker-Daemon ist nicht erreichbar oder User ist nicht berechtigt.
+  - Die Docker-CLI wurde gefunden; Runtimezugriff oder Berechtigung fehlt.
   - Lösung: Docker Desktop starten, Terminal erneut öffnen, ggf. Benutzer in Docker-Gruppen prüfen.
 - `Podman nicht erkannt`
-  - `podman` nicht im PATH oder nicht installiert.
+  - Zuerst `.\Tools\Initialize-SqlServerLabHostTools.ps1 -Name podman`
+    ausführen. Nur `Available = False` ist ein CLI-Auflösungsfehler;
+    `podman info`-Fehler bedeuten eine getrennte Machine-, Connection- oder
+    Berechtigungsstörung.
 - `Hyper-V-...echt erhöhte PowerShell-Sitzung (Administrator)`
   - Test war nicht mit echter Elevated Session gestartet.
 

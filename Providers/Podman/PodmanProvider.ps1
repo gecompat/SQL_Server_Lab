@@ -17,7 +17,7 @@ function Test-PodmanAvailable {
         return [PSCustomObject]@{
             Available = $false
             Version   = $null
-            Message   = 'Podman ist nicht installiert oder konnte nicht aufgeloest werden.'
+            Message   = "Podman-CLI konnte nicht aufgeloest werden: $($_.Exception.Message)"
         }
     }
 
