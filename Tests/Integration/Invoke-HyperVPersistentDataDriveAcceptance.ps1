@@ -101,15 +101,20 @@ try {
     if ([string]$clonePlan.Status -ne 'READY') { throw "HYPERV_PERSISTENT_DATA_ACCEPTANCE_CLONE_BLOCKED: $($clonePlan.Blockers -join ',')" }
     $cloneJournal = & $module { param($Plan,$Root,$Configuration) Invoke-LabHyperVPersistentDataPlan -Plan $Plan -OperationDirectory $Root -Configuration $Configuration } $clonePlan (Join-Path $operationRoot 'clone') $configuration
     $cloneVhd = Get-VHD -Path $targetPath -ErrorAction Stop
+    $cloneDetachReceipt = & $module {
+        param($Path,$PersistentStorageId,$ControllerId,$DiskIdentifier)
+        Get-LabHyperVPersistentDataDetachEvidence -Path $Path -PersistentStorageId $PersistentStorageId `
+            -ControllerId $ControllerId -DiskIdentifier $DiskIdentifier
+    } $targetPath $cloneId $controllerId ([string]$cloneVhd.DiskIdentifier)
     if ([string]$cloneJournal.Status -ne 'COMPLETED' -or -not [bool]$cloneJournal.CatalogCommitted -or [string]$cloneVhd.DiskIdentifier -eq [string]$sourceVhd.DiskIdentifier -or
-        [long]$cloneVhd.Size -ne [long]$sourceVhd.Size -or (Get-FileHash -LiteralPath $sourcePath -Algorithm SHA256).Hash.ToLowerInvariant() -ne $sourceHash) {
+        [long]$cloneVhd.Size -ne [long]$sourceVhd.Size -or (Get-FileHash -LiteralPath $sourcePath -Algorithm SHA256).Hash.ToLowerInvariant() -ne $sourceHash -or
+        -not $cloneDetachReceipt -or [string]$cloneDetachReceipt.ContractVersion -ne 'SqlServerLab.HyperVPersistentDataDetachEvidence/1.0') {
         throw 'HYPERV_PERSISTENT_DATA_ACCEPTANCE_CLONE_POSTCONDITION_FAILED'
     }
 
     $phase = 'reattach'
     $cloneCatalog = & $module { param($Configuration) Get-LabPersistentStorageCatalog -Configuration $Configuration } $configuration
-    $cloneDetach=$sourceDetach | ConvertTo-Json -Depth 20 | ConvertFrom-Json -Depth 20
-    $cloneDetach.DiskIdentifier=([string]$cloneVhd.DiskIdentifier).ToUpperInvariant()
+    $cloneDetach=$cloneDetachReceipt.DetachEvidence
     $reattachIntent=$cloneIntent | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
     $reattachIntent.OperationId=[guid]::NewGuid().ToString('D'); $reattachIntent.Action='REATTACH'; $reattachIntent.SourcePersistentStorageId=$cloneId
     $reattachIntent.TargetPersistentStorageId=$null; $reattachIntent.TargetLocationId=$null; $reattachIntent.TargetRelativePath=$null; $reattachIntent.DetachEvidence=$cloneDetach
