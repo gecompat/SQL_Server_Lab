@@ -50,7 +50,7 @@ function New-LabStorageResidencyObject {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$Key,
-        [Parameter(Mandatory)][ValidateSet('CONTROL_STATE','LAB_DATA_ROOT','INSTANCE_STORE','DATABASE_PACKAGE','BACKUP_SET','BACKUP_WORKSPACE','RUNTIME_BACKING_STORE','HYPERV_RUN_RESOURCE','HYPERV_SHARED_RESOURCE','EXTERNAL_REFERENCE','REPOSITORY_RESIDUE','LEGACY_STATE')][string]$ObjectClass,
+        [Parameter(Mandatory)][ValidateSet('CONTROL_STATE','LAB_DATA_ROOT','INSTANCE_STORE','DATABASE_PACKAGE','BACKUP_SET','BACKUP_WORKSPACE','RUNTIME_BACKING_STORE','RUNTIME_CONFIGURATION','RUNTIME_IMAGE','RUNTIME_IMAGE_STORE','RUNTIME_CONTAINER_STORE','RUNTIME_VOLUME_STORE','RUNTIME_BUILD_CACHE','HYPERV_RUN_RESOURCE','HYPERV_SHARED_RESOURCE','EXTERNAL_REFERENCE','REPOSITORY_RESIDUE','LEGACY_STATE')][string]$ObjectClass,
         [Parameter(Mandatory)][ValidateSet('core','docker','podman','hyperv','external')][string]$Provider,
         [Parameter(Mandatory)][ValidateSet('CONTROLLER','RUN_SCOPED','RETAINED','SHARED','UNMANAGED_OR_UNKNOWN')][string]$Lifecycle,
         [Parameter(Mandatory)][ValidateSet('LAB_DATA','NATIVE_RUNTIME','EXTERNAL_HOST','REPOSITORY','LEGACY_PROFILE','UNKNOWN')][string]$Residency,
@@ -115,6 +115,71 @@ function Get-LabRuntimeVolumeInspection {
     catch { return $null }
 }
 
+function Get-LabRuntimeStorageUsage {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider)
+
+    $invocation = Get-LabHostToolInvocation -Name $Provider
+    try {
+        $raw = if ($Provider -eq 'docker') {
+            @(& $invocation system df --format '{{json .}}' 2>$null)
+        }
+        else { @(& $invocation system df --format json 2>$null) }
+        if ($LASTEXITCODE -ne 0 -or $raw.Count -eq 0) { throw 'RUNTIME_STORAGE_USAGE_UNAVAILABLE' }
+        $rows = if ($Provider -eq 'docker') {
+            @($raw | ForEach-Object { $_ | ConvertFrom-Json -Depth 10 -ErrorAction Stop })
+        }
+        else { @((($raw -join "`n") | ConvertFrom-Json -Depth 10 -ErrorAction Stop)) }
+    }
+    catch { $rows = @() }
+
+    $categories = [ordered]@{
+        'Images'='IMAGES'; 'Containers'='CONTAINERS'; 'Local Volumes'='LOCAL_VOLUMES'; 'Build Cache'='BUILD_CACHE'
+    }
+    foreach ($entry in $categories.GetEnumerator()) {
+        $row = @($rows | Where-Object { [string]$_.Type -eq [string]$entry.Key })[0]
+        $notApplicable = $Provider -eq 'podman' -and [string]$entry.Value -eq 'BUILD_CACHE' -and -not $row
+        [PSCustomObject]@{
+            Provider=$Provider; Category=[string]$entry.Value
+            Status=if ($row) { 'AVAILABLE' } elseif ($notApplicable) { 'NOT_APPLICABLE' } else { 'UNVERIFIABLE' }
+            TotalCount=if ($row) { [int]$(if ($null -ne $row.TotalCount) { $row.TotalCount } else { $row.Total }) } else { 0 }
+            ActiveCount=if ($row) { [int]$row.Active } else { 0 }
+            ReportedSize=if ($row) { [string]$row.Size } else { $null }
+            ReportedReclaimable=if ($row) { [string]$row.Reclaimable } else { $null }
+            RawSizeBytes=if ($row -and $null -ne $row.RawSize) { [long]$row.RawSize } else { $null }
+            RawReclaimableBytes=if ($row -and $null -ne $row.RawReclaimable) { [long]$row.RawReclaimable } else { $null }
+        }
+    }
+}
+
+function Get-LabManagedRuntimeImageInventory {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider)
+
+    $invocation = Get-LabHostToolInvocation -Name $Provider
+    $raw = @(& $invocation image ls --filter 'label=sql-server-lab.external-runtime.image-key' --format '{{json .}}' 2>$null)
+    if ($LASTEXITCODE -ne 0) { return @() }
+    $seen = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    foreach ($line in $raw) {
+        try { $row = $line | ConvertFrom-Json -Depth 10 -ErrorAction Stop } catch { continue }
+        $reference = if ([string]$row.Repository -and [string]$row.Tag -and [string]$row.Tag -ne '<none>') {
+            "$([string]$row.Repository):$([string]$row.Tag)"
+        }
+        else { [string]$row.ID }
+        $inspectRaw = @(& $invocation image inspect $reference 2>$null)
+        if ($LASTEXITCODE -ne 0 -or $inspectRaw.Count -eq 0) { continue }
+        try { $inspect = @((($inspectRaw -join "`n") | ConvertFrom-Json -Depth 30 -ErrorAction Stop))[0] } catch { continue }
+        $imageId = [string]$inspect.Id
+        if (-not $imageId -or -not $seen.Add($imageId)) { continue }
+        $imageKey = [string]$inspect.Config.Labels.'sql-server-lab.external-runtime.image-key'
+        if ($imageKey -notmatch '^[a-f0-9]{64}$') { continue }
+        [PSCustomObject]@{
+            Provider=$Provider; RuntimeImageId=$imageId; ImageKey=$imageKey; Reference=$reference
+            ReportedSize=[string]$row.Size; CreatedAt=[string]$row.CreatedAt
+        }
+    }
+}
+
 function Get-LabStorageResidencyInventory {
     [CmdletBinding()]
     param(
@@ -123,6 +188,9 @@ function Get-LabStorageResidencyInventory {
         [AllowEmptyCollection()][object[]]$DataRoots = @(),
         [AllowEmptyCollection()][object[]]$ActiveRuns = @(),
         [AllowEmptyCollection()][object[]]$RuntimeResults = @(),
+        [AllowEmptyCollection()][object[]]$RuntimeHostBackings = @(),
+        [AllowEmptyCollection()][object[]]$RuntimeStorageUsage = @(),
+        [AllowEmptyCollection()][object[]]$ManagedImages = @(),
         [AllowEmptyCollection()][object[]]$ManagedVolumes = @(),
         [string]$HyperVStatus = 'NOT_INSTALLED',
         [AllowEmptyCollection()][object[]]$HyperVResources = @(),
@@ -262,6 +330,52 @@ function Get-LabStorageResidencyInventory {
             -LogicalName "$provider runtime storage" -Path $rootPath -CleanupPolicy REPORT_ONLY `
             -AuditStatus $(if ($rootPath) { 'DECLARED' } else { 'UNVERIFIABLE' }) `
             -Details @{ RuntimeStatus=[string]$runtime.Status; PhysicalHostBacking=if ($rootPath) { 'RUNTIME_NAMESPACE_ONLY' } else { 'NOT_EXPOSED_BY_RUNTIME_API' } }))
+    }
+
+    foreach ($backing in @($RuntimeHostBackings)) {
+        foreach ($item in @($backing.Items)) {
+            $objectClass = if ([string]$item.Kind -eq 'CONFIGURATION') { 'RUNTIME_CONFIGURATION' } else { 'RUNTIME_BACKING_STORE' }
+            $relation = [string]$item.LabDataRelation
+            $objects.Add((New-LabStorageResidencyObject `
+                -Key "runtime-host-backing|$([string]$backing.Provider)|$([string]$backing.RuntimeId)|$([string]$item.Path)" `
+                -ObjectClass $objectClass -Provider ([string]$backing.Provider) -Lifecycle SHARED `
+                -Residency $(if ($relation -eq 'INSIDE') { 'LAB_DATA' } elseif ($relation -eq 'OUTSIDE') { 'EXTERNAL_HOST' } else { 'UNKNOWN' }) `
+                -PathVisibility HOST_VISIBLE -LabDataRelation $relation -LogicalName ([IO.Path]::GetFileName([string]$item.Path)) `
+                -Path ([string]$item.Path) -CleanupPolicy REPORT_ONLY -AuditStatus VERIFIED `
+                -Details @{ RuntimeId=[string]$backing.RuntimeId; Role=[string]$item.Role; Bytes=$item.Bytes; LastWriteTimeUtc=([datetime]$item.LastWriteTimeUtc).ToString('o'); Ownership='SHARED_EXTERNAL' }))
+        }
+        if (@($backing.Items | Where-Object Kind -eq 'BACKING_STORE').Count -eq 0) {
+            $remote = [string]$backing.Status -eq 'REMOTE_EXTERNAL'
+            $objects.Add((New-LabStorageResidencyObject `
+                -Key "runtime-host-backing|$([string]$backing.Provider)|$([string]$backing.RuntimeId)|unresolved" `
+                -ObjectClass RUNTIME_BACKING_STORE -Provider ([string]$backing.Provider) -Lifecycle SHARED `
+                -Residency $(if ($remote) { 'EXTERNAL_HOST' } else { 'UNKNOWN' }) `
+                -PathVisibility $(if ($remote) { 'NOT_APPLICABLE' } else { 'UNKNOWN' }) -LabDataRelation UNKNOWN `
+                -LogicalName "$([string]$backing.Provider) physical runtime backing" -Path $null `
+                -CleanupPolicy REPORT_ONLY -AuditStatus $(if ($remote) { 'DECLARED' } else { 'UNVERIFIABLE' }) `
+                -Details @{ RuntimeId=[string]$backing.RuntimeId; BackingStatus=[string]$backing.Status; Ownership='SHARED_EXTERNAL' }))
+        }
+    }
+
+    $usageClasses = @{ IMAGES='RUNTIME_IMAGE_STORE'; CONTAINERS='RUNTIME_CONTAINER_STORE'; LOCAL_VOLUMES='RUNTIME_VOLUME_STORE'; BUILD_CACHE='RUNTIME_BUILD_CACHE' }
+    foreach ($usage in @($RuntimeStorageUsage)) {
+        if (-not $usageClasses.ContainsKey([string]$usage.Category)) { continue }
+        $objects.Add((New-LabStorageResidencyObject `
+            -Key "runtime-usage|$([string]$usage.Provider)|$([string]$usage.Category)" `
+            -ObjectClass ([string]$usageClasses[[string]$usage.Category]) -Provider ([string]$usage.Provider) -Lifecycle SHARED `
+            -Residency NATIVE_RUNTIME -PathVisibility RUNTIME_NAMESPACE -LabDataRelation RUNTIME_INTERNAL `
+            -LogicalName "$([string]$usage.Provider) $([string]$usage.Category.ToLowerInvariant())" -Path $null `
+            -CleanupPolicy REPORT_ONLY -AuditStatus $(if ([string]$usage.Status -eq 'UNVERIFIABLE') { 'UNVERIFIABLE' } else { 'DECLARED' }) `
+            -Details @{ Status=[string]$usage.Status; TotalCount=[int]$usage.TotalCount; ActiveCount=[int]$usage.ActiveCount; ReportedSize=[string]$usage.ReportedSize; ReportedReclaimable=[string]$usage.ReportedReclaimable; RawSizeBytes=$usage.RawSizeBytes; RawReclaimableBytes=$usage.RawReclaimableBytes }))
+    }
+
+    foreach ($image in @($ManagedImages)) {
+        $objects.Add((New-LabStorageResidencyObject `
+            -Key "runtime-image|$([string]$image.Provider)|$([string]$image.RuntimeImageId)" `
+            -ObjectClass RUNTIME_IMAGE -Provider ([string]$image.Provider) -Lifecycle SHARED `
+            -Residency NATIVE_RUNTIME -PathVisibility RUNTIME_NAMESPACE -LabDataRelation RUNTIME_INTERNAL `
+            -LogicalName ([string]$image.Reference) -Path $null -CleanupPolicy PRESERVE_SHARED -AuditStatus VERIFIED `
+            -Details @{ RuntimeImageId=[string]$image.RuntimeImageId; ImageKey=[string]$image.ImageKey; ReportedSize=[string]$image.ReportedSize; CreatedAt=[string]$image.CreatedAt }))
     }
 
     foreach ($volume in @($ManagedVolumes)) {

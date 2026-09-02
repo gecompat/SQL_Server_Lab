@@ -852,6 +852,17 @@ Add-ValidationResult `
         $masterImplementationPlan -match '(?m)^\| N5 – Storage- und Reconcile-Vertical-Slice \| Wellen 1, 3, 4 und 5; Storage-Konsolidierungsplan \| `COMPLETE`')
 
 Add-ValidationResult `
+    -Name 'PSR-001 inventarisiert lokales Runtime-Backing und Speichernutzung read-only vollständig' `
+    -Success ($persistentStorageBacklog -match '(?m)^\| `PSR-001` .*\| `COMPLETE`:' -and
+        $persistentStorageBacklog -match 'über ihre tatsächlichen VHDX- und\s*Konfigurationsdateien hostseitig aufgelöst' -and
+        $persistentStorageBacklog -match 'Images, Container, Volumes und Build-\s*Cache werden als normalisierte Runtime-Klassen erfasst' -and
+        $knownLimitations -match 'physische Host-Backing unterstützter lokaler Installationen ist\s*im Storage-Residency-Audit `VERIFIED`' -and
+        $knownLimitations -match '`SHARED_EXTERNAL`/`REPORT_ONLY`' -and
+        $repoMap -match 'physical_runtime_backing_and_configuration_inventory' -and
+        $repoMap -match 'runtime_image_container_volume_build_cache_inventory' -and
+        $repoMap -match 'physical_host_backing_vhdx_and_configuration')
+
+Add-ValidationResult `
     -Name 'PSR-002 bindet Lab_Data-Versprechen und Runtime-Hostgrenzen widerspruchsfrei' `
     -Success ($labDataResidencyDecision -match [regex]::Escape('SqlServerLab.LabDataResidencyDecision/1.0') -and
         $labDataResidencyDecision -match [regex]::Escape('BINDING_ARCHITECTURE_DECISION') -and
@@ -865,7 +876,7 @@ Add-ValidationResult `
 
 Add-ValidationResult `
     -Name 'PSR-003 dokumentiert partielle klassenbezogene Katalogcommits ohne breites Mutationsversprechen' `
-    -Success ($persistentStorageBacklog -match '(?m)^`ACTIVE / 9_TOP_LEVEL_PACKAGES_REMAIN / PSR_002_005_007_008_014_COMPLETE / PSR_001_003_004_011_PARTIAL / PSR_006_READ_ONLY / PSR_009_010_012_IMPLEMENTED_CORE / PSR_013_PLANNED`' -and
+    -Success ($persistentStorageBacklog -match '(?m)^`ACTIVE / 8_TOP_LEVEL_PACKAGES_REMAIN / PSR_001_002_005_007_008_014_COMPLETE / PSR_003_004_011_PARTIAL / PSR_006_READ_ONLY / PSR_009_010_012_IMPLEMENTED_CORE / PSR_013_PLANNED`' -and
         $persistentStorageBacklog -match '(?m)^\| `PSR-003` .*\| `IMPLEMENTED_PARTIAL`:' -and
         $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.PersistentStorageCatalog/1.0') -and
         $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.PersistentStoragePlan/1.0') -and
@@ -937,8 +948,8 @@ Add-ValidationResult `
     -Success ($persistentStorageBacklog -match '(?m)^\| `PSR-006` .*\| `IMPLEMENTED_READ_ONLY`:' -and
         $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.ContainerRuntimeScope/1.0') -and
         $persistentStorageBacklog -match 'Docker-\s*Desktop- sowie Podman-WSL-Runtime belegt' -and
-        $knownLimitations -match 'physisches Host-Backing ist weiterhin\s*`UNVERIFIABLE`' -and
-        $knownLimitations -match 'Dedizierte Lab-Runtimes sind\s*erst nach einem separaten Ownership-' -and
+        $knownLimitations -match 'Runtime-Scope veröffentlicht davon\s*nur Status und Anzahl' -and
+        $knownLimitations -match 'Dedizierte Lab-Runtimes sind erst nach einem separaten\s*Ownership-' -and
         $repoMap -match 'container_runtime_scope: Private/ContainerRuntimeScope\.ps1' -and
         $repoMap -match 'container_runtime_scope_schema: Schemas/container-runtime-scope\.schema\.json' -and
         $repoMap -match 'validation_container_runtime_scope: Tests/Static/Invoke-ContainerRuntimeScopeChecks\.ps1' -and
@@ -962,7 +973,7 @@ Add-ValidationResult `
 Add-ValidationResult `
     -Name 'PSR-008 ist nur für tatsächlich unterstützte Provider-Capabilities abgeschlossen' `
     -Success ($persistentStorageBacklog -match '(?m)^\| `PSR-008` .*\| `COMPLETE`:' -and
-        $persistentStorageBacklog -match '9_TOP_LEVEL_PACKAGES_REMAIN' -and
+        $persistentStorageBacklog -match '8_TOP_LEVEL_PACKAGES_REMAIN' -and
         $persistentStorageBacklog -match 'Cross-Provider-FILESTREAM.*`NOT_APPLICABLE`' -and
         $persistentStorageBacklog -match 'SQL Server\s*2025 auf Linux' -and
         $knownLimitations -match 'FILESTREAM-Cross-Provider-Lauf\s*ist in der aktuellen Matrix nicht möglich' -and
@@ -973,7 +984,7 @@ Add-ValidationResult `
 Add-ValidationResult `
     -Name 'PSR-014 bindet die idempotente Ersteinrichtung an Core, Konsole und Dokumentation' `
     -Success ($persistentStorageBacklog -match '(?m)^\| `PSR-014` .*\| `COMPLETE`:' -and
-        $persistentStorageBacklog -match 'Von den 14 kanonischen PSR-Arbeitspaketen sind `PSR-002`, `PSR-005`, `PSR-007`,\s*`PSR-008` und `PSR-014` abgeschlossen\. Damit verbleiben neun Top-Level-Pakete' -and
+        $persistentStorageBacklog -match 'Von den 14 kanonischen PSR-Arbeitspaketen sind `PSR-001`, `PSR-002`, `PSR-005`,\s*`PSR-007`, `PSR-008` und `PSR-014` abgeschlossen\. Damit verbleiben acht Top-Level-Pakete' -and
         $persistentStorageBacklog -match 'vor jeder Mutation fail-closed abgelehnt' -and
         $projectContext -match 'gemeinsamer idempotenter\s*Ersteinrichtungsassistent' -and
         $knownLimitations -match 'nichtleeren, noch nicht\s*controllergebundenen `Lab_Data`-Ordner' -and
