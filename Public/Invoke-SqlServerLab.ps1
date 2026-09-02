@@ -242,7 +242,7 @@ function Show-LabDatabaseMenu {
         New-LabConsoleItem -Id 'Database' -Label 'Datenbank anlegen' -Shortcut '8'
         New-LabConsoleItem -Id 'Script' -Label 'SQL-Skript ausfuehren' -Shortcut '9'
         New-LabConsoleItem -Id 'ConnectionCenter' -Label 'Verbindungszentrale und SSMS-Endpunkte' -Shortcut 'c'
-        New-LabConsoleItem -Id 'Catalog' -Label 'CMS- und Katalogstatus' -Shortcut 'k'
+        New-LabConsoleItem -Id 'Catalog' -Label 'Lab-Katalog prüfen' -Value 'Katalogdatei validieren; kein CMS-Zugang' -Shortcut 'k'
         New-LabConsoleItem -Id 'back' -Label 'Zurueck' -Shortcut '0'
     )
 
