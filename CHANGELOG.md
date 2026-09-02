@@ -4,6 +4,19 @@ Dieses Changelog dokumentiert Änderungen am öffentlichen Verhalten, an maschin
 
 Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher nach Datum geführt. Neue Einträge werden oben ergänzt.
 
+## 2026-09-02
+
+### Hinzugefügt
+
+- `PSR-005` behandelt persistente SQL-Containerstores mit External Runtimes als
+  explizite Mehr-Volume-Gruppe. External-Language- und External-Library-
+  Sidecars tragen dieselbe stabile Storage-ID sowie eindeutige Rollenlabels;
+  Continue revalidiert und bindet alle drei Volumes, Clone kopiert und prüft
+  jedes Volume getrennt im wiederaufnehmbaren Journal. Unvollständige Legacy-
+  Gruppen bleiben vor jeder Mutation fail-closed. Docker und Podman bestanden
+  den nativen Continue-/Clone-Pfad einschließlich Live-SQL- und Sidecar-Marker-
+  Nachweis.
+
 ## 2026-09-01
 
 ### Hinzugefügt

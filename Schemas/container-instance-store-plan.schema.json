@@ -12,27 +12,29 @@
     "Provider": { "enum": ["docker", "podman"] },
     "Source": {
       "type": "object",
-      "required": ["PersistentStorageId", "VolumeName", "VolumeId", "State", "SqlMajorVersion", "AttachedContainers"],
+      "required": ["PersistentStorageId", "VolumeName", "VolumeId", "State", "SqlMajorVersion", "AttachedContainers", "Sidecars"],
       "properties": {
         "PersistentStorageId": { "type": "string", "format": "uuid" },
         "VolumeName": { "type": ["string", "null"] },
         "VolumeId": { "type": ["string", "null"] },
         "State": { "type": ["string", "null"] },
         "SqlMajorVersion": { "type": ["string", "null"], "pattern": "^\\d{4}$" },
-        "AttachedContainers": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+        "AttachedContainers": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "Sidecars": { "type": "array", "items": { "$ref": "#/$defs/sidecar" }, "maxItems": 2 }
       },
       "additionalProperties": false
     },
     "Target": {
       "type": ["object", "null"],
-      "required": ["PersistentStorageId", "VolumeName", "RunId", "ScopeId", "SqlMajorVersion", "HelperImage"],
+      "required": ["PersistentStorageId", "VolumeName", "RunId", "ScopeId", "SqlMajorVersion", "HelperImage", "Sidecars"],
       "properties": {
         "PersistentStorageId": { "type": "string", "format": "uuid" },
         "VolumeName": { "type": "string", "minLength": 1 },
         "RunId": { "type": "string", "format": "uuid" },
         "ScopeId": { "type": "string", "format": "uuid" },
         "SqlMajorVersion": { "type": "string", "pattern": "^\\d{4}$" },
-        "HelperImage": { "type": "string", "pattern": "^[a-z0-9][a-z0-9./_-]+:[a-z0-9][a-z0-9._-]+$" }
+        "HelperImage": { "type": "string", "pattern": "^[a-z0-9][a-z0-9./_-]+:[a-z0-9][a-z0-9._-]+$" },
+        "Sidecars": { "type": "array", "items": { "$ref": "#/$defs/sidecar" }, "maxItems": 2 }
       },
       "additionalProperties": false
     },
@@ -60,6 +62,20 @@
         "TargetCreated": { "type": "boolean" },
         "RequiresDetachedSource": { "const": true },
         "CatalogCommitRequired": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "sidecar": {
+      "type": "object",
+      "required": ["Role", "ContainerPath", "VolumeName", "VolumeId", "AttachedContainers"],
+      "properties": {
+        "Role": { "enum": ["EXTERNAL_LANGUAGES", "EXTERNAL_LIBRARIES"] },
+        "ContainerPath": { "enum": ["/var/opt/mssql-extensibility/externallanguages", "/var/opt/mssql-extensibility/externallibraries"] },
+        "VolumeName": { "type": "string", "minLength": 1 },
+        "VolumeId": { "type": ["string", "null"] },
+        "AttachedContainers": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
       },
       "additionalProperties": false
     }

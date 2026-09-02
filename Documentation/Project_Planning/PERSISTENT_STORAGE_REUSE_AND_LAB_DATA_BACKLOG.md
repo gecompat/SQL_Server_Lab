@@ -101,7 +101,13 @@ Lease und bleibt über dasselbe Journal fortsetzbar; der Commit ist idempotent.
 `New-SqlServerLab` und die Browseroberfläche wählen einen detached Store für
 `CONTINUE` oder `CLONE` ausschließlich per stabiler ID, prüfen Provider und
 SQL-Major-Version frisch und leasen das gewählte Ziel für den echten neuen Run.
-External-Runtime-Sidecars bleiben bis zu einem Mehr-Store-Vertrag fail-closed.
+Der Mehr-Volume-Vertrag nimmt optional die beiden External-Runtime-Sidecars
+`EXTERNAL_LANGUAGES` und `EXTERNAL_LIBRARIES` mit. Beide tragen dieselbe stabile
+Storage-ID, eine eindeutige Rollenmarkierung und die SQL-Major-Version;
+Continue revalidiert und bindet alle drei Volumes, Clone kopiert und verifiziert
+sie getrennt im selben Recovery-Journal. Die nativen Docker- und Podman-Läufe
+vom 2026-09-02 bestätigten beide Sidecar-Marker und den Live-SQL-Zustand.
+Unvollständige oder ungelabelte Legacy-Sidecargruppen bleiben fail-closed.
 
 Der read-only Slice `PSR-006` ist implementiert und gegen die reale Docker-
 Desktop- sowie Podman-WSL-Runtime belegt. Der sanitisierte Vertrag
@@ -430,7 +436,7 @@ Volumename ersetzt diese Identität nicht.
 | `PSR-002` | P0-Analyse | `Lab_Data`-Versprechen, native Runtime-Ausnahmen und Hosteingriffsgrenzen entscheiden | `COMPLETE`: bindender `SqlServerLab.LabDataResidencyDecision/1.0`-Entscheid |
 | `PSR-003` | P1 | Storage-Katalog mit stabiler ID, Klassen, Zuständen, Referenzen und Leases entwerfen | `IMPLEMENTED_PARTIAL`: Schema, Parser, Planner, Inventarbindung, rollbackfähige `BACKUP_SET`-/`DATABASE_PACKAGE`-/Clone-`INSTANCE_STORE`-Registrierung sowie exklusive Lease/Freigabe regulärer `-PersistentData`-Containerstores einschließlich stabiler Datenbankreferenzen auf allen controllergebundenen Spiegeln; generische Mutation, öffentliche Bestandsmigration, providerübergreifende Wiederverwendung und Löschung bleiben offen |
 | `PSR-004` | P1 | Retention-, Backup-on-Remove-, Package- und expliziten Löschvertrag entwerfen | `IMPLEMENTED_PARTIAL`: verlustsicherer Plan plus journalisierter Docker-/Podman-Executor für Retain und verifiziertes Backup-on-Remove; Package, externe Freigabe und getrennte endgültige Storage-Löschung bleiben offen |
-| `PSR-005` | P1 | Docker-/Podman-Instanzstore auswählbar, fortsetzbar und klonbar machen | `IMPLEMENTED_CORE`: öffentliche CLI-/Browser-Auswahl per stabiler ID, detached Continue/Clone, operationsgebundene Quell-Lease, Digest/Resume, atomarer Zielcommit plus Quellfreigabe und getrennte reale Docker-/Podman-Nachweise; External-Runtime-Sidecars bleiben offen |
+| `PSR-005` | P1 | Docker-/Podman-Instanzstore auswählbar, fortsetzbar und klonbar machen | `IMPLEMENTED`: öffentliche CLI-/Browser-Auswahl per stabiler ID, detached Continue/Clone, operationsgebundene Quell-Lease, Digest/Resume, atomarer Zielcommit plus Quellfreigabe und rollenfester External-Runtime-Mehr-Volume-Vertrag; Docker und Podman getrennt real belegt, unvollständige Legacy-Sidecargruppen fail-closed |
 | `PSR-006` | P1 | Podman-Machine- und Docker-Engine-/Context-Reichweite bewerten und gegebenenfalls dediziert verwalten | `IMPLEMENTED_READ_ONLY`: stabile sanitisierte Runtime-ID, Context-/Connection-/Machine-Bindung und REPORT_ONLY-Hostgrenze real belegt; dedizierter Ownership-/Lifecycle-Vertrag bleibt offen |
 | `PSR-007` | P1 | Hyper-V-Daten-VHDX sicher auswählen, reattachen, freigeben und klonen | `IMPLEMENTED_CORE`: Storage-ID-, Disk-/VM-/Checkpoint-/Clean-Detach-/SQL-Versions-validierter Host-Lifecycle, unabhängiger Clone und realer Hyper-V-Nachweis; Katalog-Commit, öffentliche Bedienung und explizite Datenbankaktion bleiben getrennt |
 | `PSR-008` | P1 | Providerneutrale Backup-Bibliothek mit automatischem Backup und Restore-Verifikation liefern | `IMPLEMENTED_CORE`: inhaltsadressierte `Lab_Data`-Bibliothek, `CHECKSUM`, `RESTORE VERIFYONLY`, Hash, Metadatenreceipt, öffentliche BackupSetId-Auswahl und realer Docker→Podman-Inhaltsnachweis; reale FILESTREAM-Cross-Provider-Evidence bleibt offen |

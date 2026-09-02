@@ -75,11 +75,11 @@ function Add-LabPersistentContainerDrive {
     if ($IncludeExternalRuntimeState) {
         $Instance.drives += [PSCustomObject]@{
             id = 'persistent-mssql-external-languages'; containerPath = '/var/opt/mssql-extensibility/externallanguages'; volumeName = "${volumeName}-external-languages"
-            persistence = 'data-root-runtime-volume'
+            persistence = 'data-root-runtime-volume'; persistentStorageRole = 'EXTERNAL_LANGUAGES'
         }
         $Instance.drives += [PSCustomObject]@{
             id = 'persistent-mssql-external-libraries'; containerPath = '/var/opt/mssql-extensibility/externallibraries'; volumeName = "${volumeName}-external-libraries"
-            persistence = 'data-root-runtime-volume'
+            persistence = 'data-root-runtime-volume'; persistentStorageRole = 'EXTERNAL_LIBRARIES'
         }
     }
     $Instance.drives += [PSCustomObject]@{
@@ -94,7 +94,8 @@ function Add-LabSelectedPersistentContainerDrive {
     param(
         [Parameter(Mandatory)]$Instance,
         [Parameter(Mandatory)]$Plan,
-        [Parameter(Mandatory)]$Storage
+        [Parameter(Mandatory)]$Storage,
+        [switch]$IncludeExternalRuntimeState
     )
 
     if ([string]$Plan.Status -ne 'READY' -or [string]$Plan.Action -notin @('CONTINUE','CLONE')) {
@@ -113,6 +114,24 @@ function Add-LabSelectedPersistentContainerDrive {
         }
     }
     $Instance.drives += $binding
+    if ($IncludeExternalRuntimeState) {
+        $sidecars = if ([string]$Plan.Action -eq 'CONTINUE') { @($Plan.Source.Sidecars) } else { @($Plan.Target.Sidecars) }
+        if ($sidecars.Count -ne 2) { throw 'CONTAINER_INSTANCE_STORE_SIDECAR_PLAN_REQUIRED' }
+        foreach ($sidecar in $sidecars) {
+            $driveId = if ([string]$sidecar.Role -eq 'EXTERNAL_LANGUAGES') {
+                'persistent-mssql-external-languages'
+            }
+            elseif ([string]$sidecar.Role -eq 'EXTERNAL_LIBRARIES') {
+                'persistent-mssql-external-libraries'
+            }
+            else { throw 'CONTAINER_INSTANCE_STORE_SIDECAR_ROLE_INVALID' }
+            $Instance.drives += [PSCustomObject]@{
+                id=$driveId; containerPath=[string]$sidecar.ContainerPath; volumeName=[string]$sidecar.VolumeName
+                persistence='cataloged-runtime-volume'; persistentStorageId=[string]$binding.persistentStorageId
+                persistentStorageRole=[string]$sidecar.Role
+            }
+        }
+    }
     $Instance.drives += [PSCustomObject]@{
         id='persistent-backups'; containerPath='/var/opt/mssql/backup'; hostPath=[string]$Storage.BackupRoot
         persistence='data-root-backup-bind'
