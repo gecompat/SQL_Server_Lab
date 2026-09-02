@@ -68,7 +68,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | Komponente | Status | Autoritative Dateien |
 |---|---|---|
 | PowerShell-Modul | implementiert | `SqlServerLab.psd1`, `SqlServerLab.psm1` |
-| Öffentliche API | 57 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
+| Öffentliche API | 58 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
 | Docker | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman | implementiert | `Providers/Podman/PodmanProvider.ps1` |
 | SQL Server External Languages | Container: Java für SQL 2019, Python/R/Java für SQL 2022/2025, jeweils Docker und Podman; Hyper-V/Windows: SQL-2022 Python/R/Java nativ akzeptiert, C# für SQL 2019–2025 sichtbar `PREVIEW` | `../Catalogs/software.json`, `../Tests/Integration/Invoke-ExternalRuntimeContainerAcceptance.ps1`, `../Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1` |
@@ -150,6 +150,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `Test-SqlServerLabAdapter` | Project Adapter gegen Schema, Pfadgrenzen und optional einen Run prüfen |
 | `Install-SqlServerLabAdapter` | Validierten Adapter-Entrypoint ohne Lifecycle-Seiteneffekt anwenden |
 | `Install-SqlServerLab7Zip` | 7-Zip für katalogisierte `.7z`-Backup-Payloads ausdrücklich und optional über `winget` installieren |
+| `Get-SqlServerLabCuStatus` | Offizielle Microsoft-Buildtabellen read-only gegen den lokalen CU-Katalog vergleichen |
 | `Save-SqlServerLabCuResource` | Katalogisierten Windows-CU mit SHA-256 und Microsoft-Authenticode in den Media Root oder exakten Linux-MCR-Tag in Docker/Podman laden |
 
 Die Liste in `SqlServerLab.psd1` ist autoritativ.
@@ -160,8 +161,10 @@ Die Liste in `SqlServerLab.psd1` ist autoritativ.
 |---|---|
 | `Schemas/lab-manifest.schema.json` | Struktur deklarativer Labs |
 | `Schemas/version-catalog.schema.json` | Struktur des SQL-Version-Katalogs |
+| `Schemas/cu-status-sources.schema.json` | Struktur der wartbaren Microsoft-Quellen für den CU-Abgleich |
 | `Schemas/sample-databases.schema.json` | Struktur des Sample-Katalogs |
 | `Catalogs/sql-server-versions.json` | Versionen, Images, Builds und Profile |
+| `Catalogs/sql-server-cu-status-sources.json` | Offizielle Microsoft-Quellen und dokumentierte CU-Rückzüge |
 | `Catalogs/sample-databases.json` | Öffentliche Testdatenbank-Metadaten |
 | `Schemas/example-*.json` | ausführbare oder ausdrücklich begrenzte Beispiele |
 

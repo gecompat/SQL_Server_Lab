@@ -129,6 +129,7 @@ Test-SqlServerLabPrerequisite         # Ressourcenpruefung (read-only)
 Test-SqlServerLabAdapter              # Adapter gegen Schema und Pfadgrenzen pruefen (read-only)
 Install-SqlServerLabAdapter           # Adapter-Entrypoint ohne Lifecycle-Seiteneffekt anwenden
 Install-SqlServerLab7Zip              # 7-Zip optional via winget für sichere .7z-Backup-Payloads installieren
+Get-SqlServerLabCuStatus              # Microsoft-Learn-CU-Stand read-only gegen den lokalen Katalog prüfen
 Save-SqlServerLabCuResource           # Katalogisierten Windows-CU oder exakten Linux-MCR-Tag sicher bereitstellen
 ```
 
