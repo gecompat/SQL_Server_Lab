@@ -189,6 +189,17 @@ Save-SqlServerLabCuResource -SqlVersion 2022 -Cu CU18 -Platform Linux -Provider 
 
 Der gleiche Ablauf ist ohne Kommandozeilenkenntnisse unter **Medien,
 Testdaten und Speicher → SQL Server CU herunterladen oder prüfen** verfügbar.
+
+Vor dem Download kann der aktuelle Microsoft-Stand read-only geprüft werden:
+
+```powershell
+Get-SqlServerLabCuStatus
+```
+
+Im Menü lautet der Weg **Medien, Testdaten und Speicher → Aktuelle CUs bei
+Microsoft prüfen**. Neue Funde sind bewusst noch nicht downloadbar: Erst ein
+geprüfter Katalogeintrag mit MCR-Tag, Microsoft-Downloadziel, SHA-256 und
+Authenticode-Vertrag gibt sie für `Lab_Base` frei.
 Der Katalog enthält alle 65 bei Microsoft weiterhin verfügbaren CUs für SQL
 Server 2019, 2022 und 2025; SQL Server 2019 CU7 bleibt wegen des Rückzugs durch
 Microsoft bewusst ausgeschlossen.
@@ -615,6 +626,7 @@ Invoke-SqlServerLabScheduler -UntilIdle
 | `Test-SqlServerLabAdapter` | Project Adapter gegen Schema, Pfadgrenzen und optional einen Run prüfen |
 | `Install-SqlServerLabAdapter` | Validierten Adapter-Entrypoint ohne Lifecycle-Seiteneffekt anwenden |
 | `Install-SqlServerLab7Zip` | 7-Zip für katalogisierte `.7z`-Backup-Payloads ausdrücklich und optional über `winget` installieren |
+| `Get-SqlServerLabCuStatus` | Offizielle Microsoft-Buildtabellen read-only gegen den lokalen CU-Katalog vergleichen |
 | `Save-SqlServerLabCuResource` | Beliebigen katalogisierten Windows-CU hash- und Authenticode-geprüft in den Media Root oder den exakten Linux-MCR-Tag in Docker/Podman laden |
 
 `SqlServerLab.psd1` ist die autoritative Liste der exportierten Funktionen.

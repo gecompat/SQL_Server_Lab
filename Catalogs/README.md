@@ -7,6 +7,7 @@ Die Kataloge sind maschinenlesbare Runtimeeingaben. Änderungen müssen mit Sche
 | Datei | Zweck | Schema |
 |---|---|---|
 | `sql-server-versions.json` | SQL-Server-Versionen, Major Version, Compatibility Level, Status, Images, CU-Builds und Ressourcenprofile | `../Schemas/version-catalog.schema.json` |
+| `sql-server-cu-status-sources.json` | Wartbare offizielle Microsoft-Quellen für den read-only CU-Abgleich einschließlich dokumentierter Rückzüge | `../Schemas/cu-status-sources.schema.json` |
 | `sample-databases.json` | Metadaten öffentlicher Testdatenbanken, Varianten, Lizenzen, URLs und Mindestversionen | `sample-databases.schema.json` → `../Schemas/sample-databases.schema.json` |
 | `software.json` | Providerneutrale SQL-bezogene Software- und External-Runtime-Varianten mit Support-, Integrity- und Verification-Metadaten | `../Schemas/software-catalog.schema.json` |
 
@@ -74,7 +75,19 @@ Docker- oder Podman-Cache gezogen; sie werden nicht als Windows-Medium in
 5. mindestens einen nicht mutierenden Auflösungstest ergänzen.
 6. README, Known Limitations und Changelog prüfen.
 
-Der Katalog wird nicht automatisch aktuell gehalten. Build- und CU-Angaben müssen fachlich verifiziert werden. Für die CU-Historie sind die Microsoft-Buildtabellen, der Microsoft Update Catalog und die veröffentlichte MCR-Tagliste die autoritativen Quellen.
+`Get-SqlServerLabCuStatus` und `Tools/Get-SqlServerCuStatus.ps1` lesen die
+Quellen aus `sql-server-cu-status-sources.json` dynamisch und melden neue
+Build-/CU-/KB-Metadaten. Ein Quellenwechsel ist daher als kleine,
+schema-geprüfte Katalogänderung wartbar und nicht im Cmdlet hart codiert.
+Der Abgleich verändert weder diesen Katalog noch `Lab_Base`.
+
+Der Katalog wird nicht automatisch aktualisiert. Eine neu erkannte CU ist erst
+nach fachlicher Verifikation und der Bindung eines exakten MCR-Tags,
+Microsoft-Downloadziels, SHA-256 und der erwarteten Microsoft-Signatur als
+Download verfügbar. Damit kann ein wechselnder Herstellerlink keinen
+ungeprüften Binärcode in den Media Root bringen. Für die CU-Historie sind die
+Microsoft-Buildtabellen, der Microsoft Update Catalog und die veröffentlichte
+MCR-Tagliste die autoritativen Quellen.
 
 ## Softwarekatalog
 

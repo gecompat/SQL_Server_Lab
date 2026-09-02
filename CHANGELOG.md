@@ -8,6 +8,13 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- `Get-SqlServerLabCuStatus` gleicht die unterstützten SQL-Versionen read-only
+  mit den wartbar katalogisierten offiziellen Microsoft-Learn-Buildtabellen ab.
+  Die Konsolenaktion **Storage & Medien → Aktuelle CUs bei Microsoft prüfen**
+  zeigt denselben Stand lesbar bis zur Rückkehrbestätigung. Neue CUs bleiben
+  bis zur expliziten Bindung von MCR-Tag, Microsoft-Downloadziel, SHA-256 und
+  Microsoft-Authenticode nicht downloadbar; der zurückgezogene SQL Server 2019
+  CU7 ist als Quellenregel dokumentiert ausgeschlossen.
 - Die AI Repository Foundation 1.8 ist semantisch integriert. Der neue
   Rule-Context-Cache-Vertrag und sein Schema sind als geschützte Core-Regeln
   vorhanden; die optionale Referenz-Capability bleibt bis zur separaten

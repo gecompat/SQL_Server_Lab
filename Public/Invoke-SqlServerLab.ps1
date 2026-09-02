@@ -20,7 +20,7 @@
 function Invoke-SqlServerLab {
     [CmdletBinding()]
     param(
-        [ValidateSet('New', 'BatchPlan', 'Queue', 'AutomatedTestEnvironment', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'Script', 'Database', 'Image', 'Setup', 'MediaRoot', 'CuResource', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip', 'Catalog', 'ConnectionCenter')]
+        [ValidateSet('New', 'BatchPlan', 'Queue', 'AutomatedTestEnvironment', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'Script', 'Database', 'Image', 'Setup', 'MediaRoot', 'CuResource', 'CuStatus', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip', 'Catalog', 'ConnectionCenter')]
         [string]$Action,
 
         [ValidateSet('Auto', 'Fallback')]
@@ -228,6 +228,7 @@ function Show-LabStorageMenu {
         New-LabConsoleItem -Id 'Setup' -Label 'Ersteinrichtung für Lab_Base und Lab_Data' -Value 'fragt nur fehlende oder ungültige Angaben ab' -Shortcut 'e'
         New-LabConsoleItem -Id 'MediaRoot' -Label 'Lab_Base / Media-Root konfigurieren' -Value 'ISO-, Win-/SQL-Medien, Sidecar-Hashes' -Shortcut 'p'
         New-LabConsoleItem -Id 'CuResource' -Label 'SQL Server CU herunterladen oder prüfen' -Value 'Windows-Paket oder Linux-MCR-Image · alle katalogisierten CUs' -Shortcut 'c'
+        New-LabConsoleItem -Id 'CuStatus' -Label 'Aktuelle CUs bei Microsoft prüfen' -Value 'read-only Änderungsvorschau; kein ungeprüfter Download' -Shortcut 'w'
         New-LabConsoleItem -Id 'DataRoot' -Label 'Lab_Data verwalten' -Value 'Lab_Data je Volume' -Shortcut 'd'
         New-LabConsoleItem -Id 'TestDataRoot' -Label 'Testdaten-Bibliothek konfigurieren' -Shortcut 't'
         New-LabConsoleItem -Id 'back' -Label 'Zurueck' -Shortcut '0'
@@ -608,6 +609,9 @@ function Invoke-LabAction {
         }
         'CuResource' {
             Invoke-LabCuResourceInteractive
+        }
+        'CuStatus' {
+            Show-LabCuStatusInteractive
         }
         'DataRoot' {
             Invoke-LabStorageInteractive
@@ -1115,6 +1119,31 @@ function Select-LabSqlPatchIntent {
         Write-LabWarning 'latest ist ein gleitender Microsoft-Tag. Eine spätere Erstellung kann einen neueren CU-Stand verwenden.'
     }
     return $selected
+}
+
+function Show-LabCuStatusInteractive {
+    [CmdletBinding()]
+    param()
+
+    try {
+        $status = Get-SqlServerLabCuStatus
+        Write-LabStatus -Label 'CU-Status' -Value $status.Status -Color $(if ($status.Status -eq 'NO CHANGE') { 'Green' } elseif ($status.Status -eq 'NEW') { 'Cyan' } else { 'Yellow' })
+        foreach ($entry in @($status.Versions)) {
+            $microsoft = if ($entry.LatestMicrosoft) { "$($entry.LatestMicrosoft.Update) · $($entry.LatestMicrosoft.Build) · $($entry.LatestMicrosoft.Kb)" } else { 'keine Daten' }
+            Write-Host ("  SQL {0}: {1}" -f $entry.Version, $microsoft) -ForegroundColor DarkGray
+            foreach ($missing in @($entry.Missing)) {
+                Write-LabWarning ("Neu erkannt: SQL {0} {1} · {2} · {3}. Noch nicht herunterladbar: Katalogbindung mit MCR-Tag, SHA-256 und Signaturprüfung erforderlich." -f $entry.Version, $missing.Update, $missing.Build, $missing.Kb)
+            }
+        }
+        if ($status.Reason) { Write-LabWarning $status.Reason }
+        Write-LabInfo $status.Guidance
+    }
+    catch {
+        Write-LabError ("Microsoft-CU-Abgleich fehlgeschlagen: {0}" -f $_.Exception.Message)
+    }
+    finally {
+        Wait-LabConsoleAcknowledgement -Prompt ' Enter oder Escape: Zurück zu Storage & Medien'
+    }
 }
 
 function Invoke-LabCuResourceInteractive {

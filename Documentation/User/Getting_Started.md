@@ -144,6 +144,24 @@ CU und Container-Provider. Ein fehlender oder nicht katalogisierter CU wird
 fail-closed abgelehnt; SQL Server 2019 CU7 ist wegen des Microsoft-Rückzugs
 nicht auswählbar.
 
+### Aktuellen CU-Stand bei Microsoft prüfen
+
+Vor der Medienbeschaffung kann der Katalog gegen die offizielle Microsoft-
+Buildtabelle geprüft werden:
+
+```powershell
+Get-SqlServerLabCuStatus -Version 2019,2022,2025
+```
+
+Der gleiche read-only Check steht unter **Medien, Testdaten und Speicher →
+Aktuelle CUs bei Microsoft prüfen** bereit und bleibt sichtbar, bis Enter oder
+Escape gedrückt wird. Die Quelle liegt wartbar in
+`Catalogs/sql-server-cu-status-sources.json`. Meldet der Check eine neue CU,
+bleibt sie absichtlich nicht downloadbar, bis sie mit exaktem MCR-Tag,
+Microsoft-Downloadziel, SHA-256 und Microsoft-Authenticode in den
+Versionskatalog gebunden ist. Der Check verändert weder `Lab_Base` noch den
+Katalog.
+
 ## 5. Erste Instanz erstellen
 
 Docker:

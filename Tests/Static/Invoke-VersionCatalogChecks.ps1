@@ -89,11 +89,66 @@ Add-CheckResult -Name 'Jeder verfügbare CU-Kurzbezeichner löst auf einen expli
 )
 
 $cuWatchText = Get-Content -LiteralPath (Join-Path $repoRoot 'Tools/Get-SqlServerCuStatus.ps1') -Raw -Encoding utf8
-Add-CheckResult -Name 'CU-Watch begrenzt den Standardlauf auf unterstützte Katalogversionen' -Success (
-    $cuWatchText -match 'Status\s*=\s*\[string\]\$entry\.status' -and
-    $cuWatchText -match 'Where-Object\s*\{\s*\$_\.Status\s+-eq\s+''SUPPORTED''\s*\}' -and
-    $cuWatchText -match 'Ohne Angabe werden ausschließlich Katalogeinträge mit Status SUPPORTED geprüft'
+Add-CheckResult -Name 'CU-Watch verwendet den öffentlichen read-only CU-Abgleich und den wartbaren Quellenkatalog' -Success (
+    $cuWatchText -match 'Get-SqlServerLabCuStatus' -and
+    $cuWatchText -match 'sql-server-cu-status-sources\.json' -and
+    $cuWatchText -match 'niemals automatisch'
 )
+
+$cuStatusSourceCatalog = Get-Content -LiteralPath (Join-Path $repoRoot 'Catalogs\sql-server-cu-status-sources.json') -Raw -Encoding utf8 | ConvertFrom-Json -Depth 8
+Add-CheckResult -Name 'CU-Status-Quellen sind wartbar katalogisiert und schließen den zurückgezogenen SQL-2019-CU7 explizit aus' -Success (
+    [string]$cuStatusSourceCatalog.contract -eq 'SqlServerLab.CuStatusSources/1.0' -and
+    @($cuStatusSourceCatalog.sources).Count -eq 1 -and
+    [string]$cuStatusSourceCatalog.sources[0].url -eq 'https://learn.microsoft.com/en-us/troubleshoot/sql/releases/download-and-install-latest-updates' -and
+    @($cuStatusSourceCatalog.sources[0].excludedUpdates | Where-Object { $_.version -eq '2019' -and $_.update -eq 'CU7' -and $_.kb -eq 'KB4570012' }).Count -eq 1
+)
+
+$fixtureSource = [PSCustomObject]@{
+    id = 'fixture'; url = 'https://learn.microsoft.com/fixture'; allowedHosts = @('learn.microsoft.com')
+    excludedUpdates = @()
+}
+$fixtureRequest = {
+    param($Uri)
+    [PSCustomObject]@{ Content = @'
+### SQL Server 2022
+
+| Build number or version | Service pack | Update | Knowledge Base number | Release date |
+| --- | --- | --- | --- | --- |
+| 16.0.4270.1 | None | CU27 | KB9999999 | September 1, 2026 |
+'@ }
+}
+$fixtureCuStatus = & $module {
+    param($CatalogPath, $Source, $Request)
+    Invoke-LabCuStatusCheck -CatalogPath $CatalogPath -Sources @($Source) -Version @('2022') -WebRequestAction $Request
+} (Join-Path $repoRoot 'Catalogs\sql-server-versions.json') $fixtureSource $fixtureRequest
+Add-CheckResult -Name 'Dynamischer CU-Abgleich erkennt eine neue Microsoft-CU, ohne den Katalog zu mutieren' -Success (
+    $fixtureCuStatus.Contract -eq 'SqlServerLab.CuStatus/1.0' -and
+    $fixtureCuStatus.Status -eq 'NEW' -and
+    $fixtureCuStatus.Versions.Count -eq 1 -and
+    $fixtureCuStatus.Versions[0].MissingCount -eq 1 -and
+    $fixtureCuStatus.Versions[0].Missing[0].Kb -eq 'KB9999999' -and
+    $fixtureCuStatus.Guidance -match 'Download'
+)
+
+$withdrawnFixtureSource = [PSCustomObject]@{
+    id = 'fixture'; url = 'https://learn.microsoft.com/fixture'; allowedHosts = @('learn.microsoft.com')
+    excludedUpdates = @([PSCustomObject]@{ version='2019'; update='CU7'; kb='KB4570012'; reason='withdrawn fixture' })
+}
+$withdrawnFixtureRequest = {
+    param($Uri)
+    [PSCustomObject]@{ Content = @'
+### SQL Server 2019
+
+| Build number or version | Service pack | Update | Knowledge Base number | Release date |
+| --- | --- | --- | --- | --- |
+| 15.0.4063.15 | None | CU7 | KB4570012 | September 02, 2020 |
+'@ }
+}
+$withdrawnRows = & $module {
+    param($Source, $Request)
+    @(Get-LabCuStatusRows -Sources @($Source) -WebRequestAction $Request)
+} $withdrawnFixtureSource $withdrawnFixtureRequest
+Add-CheckResult -Name 'Dynamischer CU-Abgleich meldet einen dokumentiert zurückgezogenen CU nicht als neue Medienquelle' -Success ($withdrawnRows.Count -eq 0)
 Add-CheckResult -Name 'Windows-CU-Metadaten sind vollständig und Downloads nur mit SHA-256 erlaubt' -Success (
     $supportedCus.Count -eq 65 -and
     @($supportedCus | Where-Object {
