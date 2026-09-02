@@ -103,14 +103,15 @@ try {
         [PSCustomObject]@{
             PlansResolved=@($pythonPlan,$rPlan | Where-Object Status -eq 'RESOLVED').Count -eq 2
             Plan=$plan.PlanKind -eq 'ExternalRuntime' -and $plan.Desired.Provider -eq 'hyperv' -and $plan.HighestChangeClass -eq 'reprovision' -and $plan.Actions[0].Operation -eq 'InstallHyperVExternalRuntime'
+            PlanWarning=@($plan.Warnings).Count -eq 1 -and [string]$plan.Warnings[0] -match 'SQL Server und Launchpad' -and [string]$plan.Warnings[0] -match 'VM bleibt gestartet'
             ImplicitInstance=$planWithoutInstance.InstanceId -eq 'primary'
             WhatIf=$whatIfSafe -and $whatIf.ExecutionSummary.Status -eq 'WOULD_EXECUTE'
             Apply=$applied.ExecutionSummary.Status -eq 'SUCCEEDED' -and $journal.Status -eq 'COMPLETED' -and $script:hvRuntimeInstallCount -ge 1
             StateCommit=[string]$persistedRun.metadata.desiredState.Revision -eq [string]$pythonPlan.PlanKey
-            NoOp=$noOp.IsNoOp -and $noOp.HighestChangeClass -eq 'no-op'
+            NoOp=$noOp.IsNoOp -and $noOp.HighestChangeClass -eq 'no-op' -and @($noOp.Warnings).Count -eq 0
             Failure=$failed.ExecutionSummary.Status -eq 'FAILED' -and $failedJournal.Status -eq 'RECOVERY_REQUIRED' -and $failedJournal.Recovery.ErrorCode -eq 'SYNTHETIC_HYPERV_RUNTIME_INSTALL_FAILURE'
             Resume=$resumePlan.Actions[0].Operation -eq 'ResumeHyperVExternalRuntime' -and $resumed.ExecutionSummary.Status -eq 'SUCCEEDED' -and $resumedJournal.Status -eq 'COMPLETED' -and $resumedJournal.Recovery.Attempts -eq 1
-            Unsupported=$unsupported.HighestChangeClass -eq 'unsupported' -and @($unsupported.Actions).Count -eq 0 -and $unsupportedAction.ExecutionSummary.Status -eq 'UNSUPPORTED'
+            Unsupported=$unsupported.HighestChangeClass -eq 'unsupported' -and @($unsupported.Actions).Count -eq 0 -and $unsupportedAction.ExecutionSummary.Status -eq 'UNSUPPORTED' -and @($unsupported.Warnings).Count -eq 1 -and [string]$unsupported.Warnings[0] -eq 'HYPERV_EXTERNAL_RUNTIME_REMOVAL_UNSUPPORTED'
             CurrentPlanKeys=@($script:hvRuntimeConnectionInstance.externalRuntime.receipts | Where-Object { [string]$_.PlanKey -match '^[a-f0-9]{64}$' }).Count -eq 2
         }
     } $testRoot $runId $scopeId
@@ -119,14 +120,15 @@ try {
     $checks = [ordered]@{
         'SQL-2022-Hyper-V-Python und -R loesen ueber denselben Softwarekatalog auf'=$result.PlansResolved
         'Read-only Plan klassifiziert die erste Hyper-V-Gastinstallation als reprovision'=$result.Plan
+        'Mutierender Plan weist den SQL-/Launchpad-Neustart ohne VM-Neustart aus'=$result.PlanWarning
         'Eindeutige Hyper-V-Zielinstanz kann ohne InstanceId aufgeloest werden'=$result.ImplicitInstance
         'WhatIf schreibt weder Journal noch Gastmutation'=$result.WhatIf
         'Apply installiert, verifiziert und schliesst das VM-gebundene Journal ab'=$result.Apply
         'Desired State wird erst nach persistierten Runtime-Postconditions fortgeschrieben'=$result.StateCommit
-        'Konvergierte Software-PlanKeys bleiben No-op'=$result.NoOp
+        'Konvergierte Software-PlanKeys bleiben No-op ohne falsche Downtime-Warnung'=$result.NoOp
         'Installationsfehler bleibt mit sanitisiertem Recovery-Code sichtbar'=$result.Failure
         'Resume setzt denselben Zielhash idempotent vorwaerts fort'=$result.Resume
-        'Removal bleibt ohne Action fail-closed und wird nicht mutiert'=$result.Unsupported
+        'Removal bleibt mit stabilem Reason-Code ohne Action fail-closed und wird nicht mutiert'=$result.Unsupported
         'Hyper-V-Connection-Receipt persistiert portable PlanKeys'=$result.CurrentPlanKeys
         'Journalvertrag ist streng, versioniert und enthaelt keine Hostpfade'=($schema.title -eq 'SqlServerLab.HyperVExternalRuntimeReconcileJournal/1.0' -and $schema.additionalProperties -eq $false -and -not (($schema | ConvertTo-Json -Depth 40) -match '(?i)MediaRoot|GuestPath|HostPath'))
         'Public Plan routet External Runtime providergebunden zu Hyper-V'=($publicPlanSource -match 'Resolve-LabExternalRuntimeReconcileTarget' -and $publicPlanSource -match 'New-LabHyperVExternalRuntimeReconcilePlan')
