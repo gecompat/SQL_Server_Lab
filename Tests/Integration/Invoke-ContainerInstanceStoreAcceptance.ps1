@@ -23,6 +23,8 @@ $testRoot = Join-Path ([IO.Path]::GetTempPath()) "sql-lab-psr005-$Provider-$([gu
 $token = [guid]::NewGuid().ToString('N').Substring(0,12)
 $sourceVolume = "sql-lab-psr005-$Provider-$token-source"
 $targetVolume = "sql-lab-psr005-$Provider-$token-clone"
+$sourceSidecarVolumes = @("${sourceVolume}-external-languages","${sourceVolume}-external-libraries")
+$targetSidecarVolumes = @("${targetVolume}-external-languages","${targetVolume}-external-libraries")
 $leaseVolume = "sql-lab-persistent-lease-$Provider-$token"
 $sourceContainer = "sql-lab-psr005-$Provider-$token-source"
 $continueContainer = "sql-lab-psr005-$Provider-$token-continue"
@@ -39,6 +41,8 @@ $completed = $false
 $mutexName = if ($IsWindows) { 'Global\SQL_Server_Lab_Runtime_Smoke' } else { 'SQL_Server_Lab_Runtime_Smoke' }
 $runtimeMutex = [Threading.Mutex]::new($false,$mutexName)
 $mutexAcquired = $false
+$runtimeInvocation = $null
+$sqlcmdInvocation = $null
 
 function Assert-InstanceStoreAcceptance {
     param([Parameter(Mandatory)][bool]$Condition, [Parameter(Mandatory)][string]$Description)
@@ -54,7 +58,8 @@ function Get-InstanceStoreFreePort {
 
 function Invoke-InstanceStoreRuntime {
     param([Parameter(Mandatory)][string[]]$Arguments, [switch]$AllowFailure)
-    $output = @(& $Provider @Arguments 2>&1)
+    if (-not $script:runtimeInvocation) { throw 'CONTAINER_INSTANCE_STORE_RUNTIME_NOT_RESOLVED' }
+    $output = @(& $script:runtimeInvocation @Arguments 2>&1)
     if (-not $AllowFailure -and $LASTEXITCODE -ne 0) { throw "CONTAINER_INSTANCE_STORE_RUNTIME_FAILED: $($output -join ' ')" }
     return @($output)
 }
@@ -73,7 +78,7 @@ function Wait-InstanceStoreSql {
     param([Parameter(Mandatory)][int]$Port)
     $deadline=[DateTime]::UtcNow.AddSeconds(180)
     do {
-        $output=@(& sqlcmd -S "127.0.0.1,$Port" -U sa -P $saPlain -C -b -Q 'SET NOCOUNT ON; SELECT 1;' -h -1 -W 2>$null)
+        $output=@(& $script:sqlcmdInvocation -S "127.0.0.1,$Port" -U sa -P $saPlain -C -b -Q 'SET NOCOUNT ON; SELECT 1;' -h -1 -W 2>$null)
         if ($LASTEXITCODE -eq 0 -and (($output | ForEach-Object { ([string]$_).Trim() }) -contains '1')) { return }
         Start-Sleep -Seconds 2
     } while ([DateTime]::UtcNow -lt $deadline)
@@ -85,7 +90,7 @@ function Wait-InstanceStoreDatabase {
     $escapedDatabase=$Database.Replace("'","''")
     $deadline=[DateTime]::UtcNow.AddSeconds(120)
     do {
-        $output=@(& sqlcmd -S "127.0.0.1,$Port" -U sa -P $saPlain -C -b -d master `
+        $output=@(& $script:sqlcmdInvocation -S "127.0.0.1,$Port" -U sa -P $saPlain -C -b -d master `
             -Q "SET NOCOUNT ON; SELECT state_desc FROM sys.databases WHERE name=N'$escapedDatabase';" -h -1 -W 2>$null)
         if ($LASTEXITCODE -eq 0 -and (($output | ForEach-Object { ([string]$_).Trim() }) -contains 'ONLINE')) { return }
         Start-Sleep -Seconds 2
@@ -98,7 +103,7 @@ function Invoke-InstanceStoreSqlScalar {
     $effectiveQuery = "SET NOCOUNT ON; $Query"
     $deadline=[DateTime]::UtcNow.AddSeconds(120)
     do {
-        $output=@(& sqlcmd -S "127.0.0.1,$Port" -U sa -P $saPlain -C -b -d $Database -Q $effectiveQuery -h -1 -W 2>&1)
+        $output=@(& $script:sqlcmdInvocation -S "127.0.0.1,$Port" -U sa -P $saPlain -C -b -d $Database -Q $effectiveQuery -h -1 -W 2>&1)
         if ($LASTEXITCODE -eq 0) {
             return (($output | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ -and $_ -notmatch '^Changed database context' }) -join '')
         }
@@ -126,9 +131,11 @@ try {
     Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
     $module=Import-Module $modulePath -Force -PassThru
     if ($Provider -eq 'podman') { & (Join-Path $PSScriptRoot 'Initialize-PodmanRuntime.ps1') | Out-Host }
-    foreach ($command in @($Provider,'sqlcmd')) {
-        Assert-InstanceStoreAcceptance ([bool](Get-Command $command -ErrorAction SilentlyContinue)) "Befehl '$command' ist verfuegbar"
-    }
+    $runtimeInvocation=& $module { param($Name) Get-LabHostToolInvocation -Name $Name } $Provider
+    $sqlcmdCommand=Get-Command sqlcmd -CommandType Application -ErrorAction Stop | Select-Object -First 1
+    $sqlcmdInvocation=[string]$sqlcmdCommand.Source
+    Assert-InstanceStoreAcceptance ([bool]$runtimeInvocation) "Befehl '$Provider' wurde zentral aufgeloest"
+    Assert-InstanceStoreAcceptance ([bool]$sqlcmdInvocation) "Befehl 'sqlcmd' wurde zentral aufgeloest"
     $null = Invoke-InstanceStoreRuntime -Arguments @('image','inspect',$Image)
     New-Item -ItemType Directory -Path $testRoot -Force | Out-Null
     & $module {
@@ -140,6 +147,19 @@ try {
             $null=Initialize-PodmanSqlNamedVolume -VolumeName $Volume -Image $ImageName -RunId $Run -ScopeId $Scope -VersionId '2025' -InstanceId 'primary' -ContainerPath '/var/opt/mssql' -PersistentStorageId $StorageId -Persistence 'cataloged-runtime-volume'
         }
     } $Provider $sourceVolume $Image $runId $scopeId $sourceId
+    $sidecarRoles=@('EXTERNAL_LANGUAGES','EXTERNAL_LIBRARIES')
+    for ($sidecarIndex=0; $sidecarIndex -lt $sourceSidecarVolumes.Count; $sidecarIndex++) {
+        $sidecarVolume=$sourceSidecarVolumes[$sidecarIndex]
+        $sidecarRole=$sidecarRoles[$sidecarIndex]
+        $null=Invoke-InstanceStoreRuntime -Arguments @(
+            'volume','create','--label',"sql-server-lab.persistent-storage-id=$sourceId",
+            '--label','sql-server-lab.sql-major-version=2025','--label',"sql-server-lab.storage-role=$sidecarRole",$sidecarVolume
+        )
+        $null=Invoke-InstanceStoreRuntime -Arguments @(
+            'run','--rm','--user','0:0','--entrypoint','/bin/sh','-v',"${sidecarVolume}:/store",$Image,
+            '-c',"printf '%s' '$sidecarRole-$token' > /store/psr005-sidecar-marker"
+        )
+    }
 
     $initialPort=Get-InstanceStoreFreePort
     Start-InstanceStoreSqlContainer -Name $sourceContainer -Volume $sourceVolume -Port $initialPort
@@ -206,9 +226,19 @@ try {
         @($releasedLeaseStore[0].References | Where-Object { $_.Kind -eq 'DATABASE' -and $_.State -eq 'ACTIVE' }).Count -eq 0 -and
         [string]$leaseEvidence.Inspection.Labels.'sql-server-lab.persistent-storage-id' -eq [string]$releasedLeaseStore[0].PersistentStorageId) `
         'Regulärer PersistentData-Store wird mit Datenbankreferenzen geleast und atomar ohne Volume-Löschung freigegeben'
-    $continueIntent=[PSCustomObject]@{ ContractVersion='SqlServerLab.ContainerInstanceStoreIntent/1.0'; OperationId=[guid]::NewGuid().ToString('D'); Action='CONTINUE'; SourcePersistentStorageId=$sourceId; TargetPersistentStorageId=$null; TargetVolumeName=$null; Provider=$Provider; TargetRunId=$runId; TargetScopeId=$scopeId; TargetSqlMajorVersion='2025'; HelperImage=$null }
-    $continueEvidence=& $module { param($Intent,$Catalog,$Runtime,$Volume) $inspection=Get-LabContainerInstanceStoreRuntimeInspection -Provider $Runtime -VolumeName $Volume; $plan=Get-LabContainerInstanceStorePlan -Intent $Intent -Catalog $Catalog -RuntimeInspection $inspection; [PSCustomObject]@{ Plan=$plan; Drive=Get-LabContainerInstanceStoreDriveBinding -Plan $plan } } $continueIntent $catalog $Provider $sourceVolume
-    Assert-InstanceStoreAcceptance ($continueEvidence.Plan.Status -eq 'READY' -and $continueEvidence.Drive.volumeName -eq $sourceVolume) 'Detached Store wurde ueber stabile Storage-ID fuer Continue ausgewaehlt'
+    $continueIntent=[PSCustomObject]@{ ContractVersion='SqlServerLab.ContainerInstanceStoreIntent/1.0'; OperationId=[guid]::NewGuid().ToString('D'); Action='CONTINUE'; SourcePersistentStorageId=$sourceId; TargetPersistentStorageId=$null; TargetVolumeName=$null; Provider=$Provider; TargetRunId=$runId; TargetScopeId=$scopeId; TargetSqlMajorVersion='2025'; HelperImage=$null; IncludeExternalRuntimeSidecars=$true }
+    $continueEvidence=& $module {
+        param($Intent,$Catalog,$Runtime,$Volume,$Sidecars,$Root)
+        $inspection=Get-LabContainerInstanceStoreRuntimeInspection -Provider $Runtime -VolumeName $Volume
+        $sidecarInspection=@($Sidecars | ForEach-Object { Get-LabContainerInstanceStoreRuntimeInspection -Provider $Runtime -VolumeName $_ })
+        $plan=Get-LabContainerInstanceStorePlan -Intent $Intent -Catalog $Catalog -RuntimeInspection $inspection -SidecarRuntimeInspection $sidecarInspection
+        $instance=[PSCustomObject]@{ drives=@() }
+        $null=Add-LabSelectedPersistentContainerDrive -Instance $instance -Plan $plan -Storage ([PSCustomObject]@{ BackupRoot=(Join-Path $Root 'backups') }) -IncludeExternalRuntimeState
+        [PSCustomObject]@{ Plan=$plan; Drive=Get-LabContainerInstanceStoreDriveBinding -Plan $plan; Instance=$instance }
+    } $continueIntent $catalog $Provider $sourceVolume $sourceSidecarVolumes $testRoot
+    Assert-InstanceStoreAcceptance ($continueEvidence.Plan.Status -eq 'READY' -and $continueEvidence.Drive.volumeName -eq $sourceVolume -and
+        @($continueEvidence.Instance.drives | Where-Object { $_.persistentStorageRole -in @('EXTERNAL_LANGUAGES','EXTERNAL_LIBRARIES') }).Count -eq 2) `
+        'Detached Mehr-Volume-Store wurde ueber stabile Storage-ID fuer Continue ausgewaehlt'
     $alreadyInitialized=& $module {
         param($Runtime,$Drive,$ImageName,$Run,$Scope)
         if ($Runtime -eq 'docker') {
@@ -226,16 +256,27 @@ try {
     Assert-InstanceStoreAcceptance ((Invoke-InstanceStoreSqlScalar -Port $continuePort -Database 'Psr005Evidence' -Query 'SELECT COUNT_BIG(*) FROM dbo.Evidence WHERE Id=1;') -eq '1') 'Continue erhaelt die Benutzerdatenbank live'
     Stop-Remove-InstanceStoreContainer -Name $continueContainer
 
-    $cloneIntent=[PSCustomObject]@{ ContractVersion='SqlServerLab.ContainerInstanceStoreIntent/1.0'; OperationId=[guid]::NewGuid().ToString('D'); Action='CLONE'; SourcePersistentStorageId=$sourceId; TargetPersistentStorageId=$targetId; TargetVolumeName=$targetVolume; Provider=$Provider; TargetRunId=[guid]::NewGuid().ToString('D'); TargetScopeId=[guid]::NewGuid().ToString('D'); TargetSqlMajorVersion='2025'; HelperImage=$Image }
+    $cloneIntent=[PSCustomObject]@{ ContractVersion='SqlServerLab.ContainerInstanceStoreIntent/1.0'; OperationId=[guid]::NewGuid().ToString('D'); Action='CLONE'; SourcePersistentStorageId=$sourceId; TargetPersistentStorageId=$targetId; TargetVolumeName=$targetVolume; Provider=$Provider; TargetRunId=[guid]::NewGuid().ToString('D'); TargetScopeId=[guid]::NewGuid().ToString('D'); TargetSqlMajorVersion='2025'; HelperImage=$Image; IncludeExternalRuntimeSidecars=$true }
     $cloneResult=& $module {
-        param($Intent,$Catalog,$Runtime,$Volume,$Root,$Config)
+        param($Intent,$Catalog,$Runtime,$Volume,$Sidecars,$Root,$Config)
         $inspection=Get-LabContainerInstanceStoreRuntimeInspection -Provider $Runtime -VolumeName $Volume
-        $plan=Get-LabContainerInstanceStorePlan -Intent $Intent -Catalog $Catalog -RuntimeInspection $inspection
+        $sidecarInspection=@($Sidecars | ForEach-Object { Get-LabContainerInstanceStoreRuntimeInspection -Provider $Runtime -VolumeName $_ })
+        $plan=Get-LabContainerInstanceStorePlan -Intent $Intent -Catalog $Catalog -RuntimeInspection $inspection -SidecarRuntimeInspection $sidecarInspection
         $journal=Invoke-LabContainerInstanceStoreClone -Plan $plan -OperationDirectory $Root -Configuration $Config
         [PSCustomObject]@{ Journal=$journal; Catalog=Get-LabPersistentStorageCatalog -Configuration $Config }
-    } $cloneIntent $catalog $Provider $sourceVolume $testRoot $configuration
+    } $cloneIntent $catalog $Provider $sourceVolume $sourceSidecarVolumes $testRoot $configuration
     $cloneJournal=$cloneResult.Journal
-    Assert-InstanceStoreAcceptance ($cloneJournal.Status -eq 'COMPLETED' -and $cloneJournal.Source.Evidence.Sha256 -eq $cloneJournal.Target.Evidence.Sha256) 'Clone wurde journalisiert und inhaltlich verifiziert'
+    Assert-InstanceStoreAcceptance ($cloneJournal.Status -eq 'COMPLETED' -and $cloneJournal.Source.Evidence.Sha256 -eq $cloneJournal.Target.Evidence.Sha256 -and
+        @($cloneJournal.Sidecars | Where-Object { $_.Source.Evidence.Sha256 -eq $_.Target.Evidence.Sha256 }).Count -eq 2) `
+        'Mehr-Volume-Clone wurde journalisiert und fuer Hauptvolume plus Sidecars inhaltlich verifiziert'
+    for ($sidecarIndex=0; $sidecarIndex -lt $targetSidecarVolumes.Count; $sidecarIndex++) {
+        $marker=@(Invoke-InstanceStoreRuntime -Arguments @(
+            'run','--rm','--entrypoint','/bin/sh','-v',"$($targetSidecarVolumes[$sidecarIndex]):/store:ro",$Image,
+            '-c','cat /store/psr005-sidecar-marker'
+        ) | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ })
+        Assert-InstanceStoreAcceptance (($marker -join '') -eq "$($sidecarRoles[$sidecarIndex])-$token") `
+            "Clone enthaelt den Marker des Sidecars $($sidecarRoles[$sidecarIndex])"
+    }
     $catalogedTargets=@($cloneResult.Catalog.Document.Stores | Where-Object PersistentStorageId -eq $targetId)
     Assert-InstanceStoreAcceptance ($cloneResult.Catalog.Status -eq 'AVAILABLE' -and $catalogedTargets.Count -eq 1 -and
         $catalogedTargets[0].State -eq 'DETACHED' -and $catalogedTargets[0].LocationBinding.ProviderResourceId -eq $targetVolume) 'Clone-Ziel wurde controllergebunden in den persistenten Katalog committed'
@@ -253,7 +294,7 @@ finally {
         foreach ($container in @($sourceContainer,$continueContainer,$cloneContainer)) {
             $null=Invoke-InstanceStoreRuntime -Arguments @('rm','-f',$container) -AllowFailure
         }
-        foreach ($volume in @($sourceVolume,$targetVolume,$leaseVolume)) {
+        foreach ($volume in @($sourceVolume,$targetVolume,$leaseVolume) + $sourceSidecarVolumes + $targetSidecarVolumes) {
             $null=Invoke-InstanceStoreRuntime -Arguments @('volume','rm','-f',$volume) -AllowFailure
         }
         Remove-Item -LiteralPath $testRoot -Recurse -Force -ErrorAction SilentlyContinue

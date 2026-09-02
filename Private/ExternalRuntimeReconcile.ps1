@@ -277,9 +277,15 @@ function New-LabExternalRuntimeReplacementInstance {
                 if (-not $systemDrive -or [string]::IsNullOrWhiteSpace([string]$systemDrive.volumeName)) {
                     throw 'EXTERNAL_RUNTIME_REFRESH_PERSISTENT_SYSTEM_VOLUME_MISSING'
                 }
+                if ([string]::IsNullOrWhiteSpace([string]$systemDrive.persistentStorageId)) {
+                    throw 'EXTERNAL_RUNTIME_REFRESH_PERSISTENT_STORAGE_ID_MISSING'
+                }
                 $suffix = if ([string]$drive.containerPath -like '*/externallanguages') { 'external-languages' } else { 'external-libraries' }
+                $role = if ($suffix -eq 'external-languages') { 'EXTERNAL_LANGUAGES' } else { 'EXTERNAL_LIBRARIES' }
                 $drive | Add-Member -NotePropertyName volumeName -NotePropertyValue "$($systemDrive.volumeName)-$suffix" -Force
                 $drive | Add-Member -NotePropertyName persistence -NotePropertyValue 'data-root-runtime-volume' -Force
+                $drive | Add-Member -NotePropertyName persistentStorageId -NotePropertyValue ([string]$systemDrive.persistentStorageId) -Force
+                $drive | Add-Member -NotePropertyName persistentStorageRole -NotePropertyValue $role -Force
             }
             continue
         }

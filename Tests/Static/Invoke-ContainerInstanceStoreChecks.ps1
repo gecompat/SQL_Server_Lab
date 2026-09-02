@@ -10,6 +10,8 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
 $newLabText = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/New-SqlServerLab.ps1') -Raw -Encoding utf8
+$dockerText = Get-Content -LiteralPath (Join-Path $repoRoot 'Providers/Docker/DockerProvider.ps1') -Raw -Encoding utf8
+$podmanText = Get-Content -LiteralPath (Join-Path $repoRoot 'Providers/Podman/PodmanProvider.ps1') -Raw -Encoding utf8
 $failures = [Collections.Generic.List[string]]::new()
 $passed = 0
 . (Join-Path $PSScriptRoot '..' 'Common' 'CheckResult.ps1')
@@ -53,12 +55,12 @@ try {
         $continueIntent=[PSCustomObject]@{
             ContractVersion='SqlServerLab.ContainerInstanceStoreIntent/1.0'; OperationId=[guid]::NewGuid().ToString('D'); Action='CONTINUE'
             SourcePersistentStorageId=$sourceId; TargetPersistentStorageId=$null; TargetVolumeName=$null; Provider='docker'
-            TargetRunId=$runId; TargetScopeId=$scopeId; TargetSqlMajorVersion='2025'; HelperImage=$null
+            TargetRunId=$runId; TargetScopeId=$scopeId; TargetSqlMajorVersion='2025'; HelperImage=$null; IncludeExternalRuntimeSidecars=$false
         }
         $cloneIntent=[PSCustomObject]@{
             ContractVersion='SqlServerLab.ContainerInstanceStoreIntent/1.0'; OperationId=$operationId; Action='CLONE'
             SourcePersistentStorageId=$sourceId; TargetPersistentStorageId=$targetId; TargetVolumeName='sql-lab-persistent-clone-target'; Provider='docker'
-            TargetRunId=$runId; TargetScopeId=$scopeId; TargetSqlMajorVersion='2025'; HelperImage='mcr.microsoft.com/mssql/server:2025-latest'
+            TargetRunId=$runId; TargetScopeId=$scopeId; TargetSqlMajorVersion='2025'; HelperImage='mcr.microsoft.com/mssql/server:2025-latest'; IncludeExternalRuntimeSidecars=$false
         }
         $continuePlan=Get-LabContainerInstanceStorePlan -Intent $continueIntent -Catalog $catalog -RuntimeInspection $inspection
         $clonePlan=Get-LabContainerInstanceStorePlan -Intent $cloneIntent -Catalog $catalog -RuntimeInspection $inspection
@@ -68,6 +70,33 @@ try {
         $cloneInstance=[PSCustomObject]@{ drives=@() }
         $null=Add-LabSelectedPersistentContainerDrive -Instance $continueInstance -Plan $continuePlan -Storage $storage
         $null=Add-LabSelectedPersistentContainerDrive -Instance $cloneInstance -Plan $clonePlan -Storage $storage
+
+        $sidecarInspections=@(
+            [PSCustomObject]@{
+                Status='AVAILABLE'; Provider='docker'; VolumeName="${volumeName}-external-languages"; VolumeId="${volumeName}-external-languages"; AttachedContainers=@()
+                Labels=[PSCustomObject]@{ 'sql-server-lab.persistent-storage-id'=$sourceId; 'sql-server-lab.sql-major-version'='2025'; 'sql-server-lab.storage-role'='EXTERNAL_LANGUAGES' }
+            },
+            [PSCustomObject]@{
+                Status='AVAILABLE'; Provider='docker'; VolumeName="${volumeName}-external-libraries"; VolumeId="${volumeName}-external-libraries"; AttachedContainers=@()
+                Labels=[PSCustomObject]@{ 'sql-server-lab.persistent-storage-id'=$sourceId; 'sql-server-lab.sql-major-version'='2025'; 'sql-server-lab.storage-role'='EXTERNAL_LIBRARIES' }
+            }
+        )
+        $sidecarContinueIntent=$continueIntent | ConvertTo-Json -Depth 20 | ConvertFrom-Json -Depth 20
+        $sidecarContinueIntent.IncludeExternalRuntimeSidecars=$true
+        $sidecarCloneIntent=$cloneIntent | ConvertTo-Json -Depth 20 | ConvertFrom-Json -Depth 20
+        $sidecarCloneIntent.IncludeExternalRuntimeSidecars=$true
+        $sidecarContinuePlan=Get-LabContainerInstanceStorePlan -Intent $sidecarContinueIntent -Catalog $catalog `
+            -RuntimeInspection $inspection -SidecarRuntimeInspection $sidecarInspections
+        $sidecarClonePlan=Get-LabContainerInstanceStorePlan -Intent $sidecarCloneIntent -Catalog $catalog `
+            -RuntimeInspection $inspection -SidecarRuntimeInspection $sidecarInspections
+        $legacySidecarPlan=Get-LabContainerInstanceStorePlan -Intent $sidecarContinueIntent -Catalog $catalog `
+            -RuntimeInspection $inspection -SidecarRuntimeInspection @($sidecarInspections[0])
+        $sidecarContinueInstance=[PSCustomObject]@{ drives=@() }
+        $sidecarCloneInstance=[PSCustomObject]@{ drives=@() }
+        $null=Add-LabSelectedPersistentContainerDrive -Instance $sidecarContinueInstance -Plan $sidecarContinuePlan `
+            -Storage $storage -IncludeExternalRuntimeState
+        $null=Add-LabSelectedPersistentContainerDrive -Instance $sidecarCloneInstance -Plan $sidecarClonePlan `
+            -Storage $storage -IncludeExternalRuntimeState
 
         $attachedInspection=$inspection | ConvertTo-Json -Depth 20 | ConvertFrom-Json -Depth 20
         $attachedInspection.AttachedContainers=@('foreign-container')
@@ -120,6 +149,9 @@ try {
             try { $null=Invoke-LabContainerInstanceStoreClone -Plan $clonePlan -OperationDirectory $Root -Configuration $configuration }
             catch { $firstFailure=$_.Exception.Message }
             $failedJournal=Get-Content -LiteralPath (Get-LabContainerInstanceStoreJournalPath -OperationDirectory $Root) -Raw -Encoding utf8 | ConvertFrom-Json -Depth 40
+            $legacyJournal=$failedJournal | ConvertTo-Json -Depth 40 | ConvertFrom-Json -Depth 40
+            $legacyJournal.PSObject.Properties.Remove('Sidecars')
+            $null=Write-LabArtifactJsonAtomic -Path (Get-LabContainerInstanceStoreJournalPath -OperationDirectory $Root) -InputObject $legacyJournal
             $catalogAfterCopyFailure=Get-LabPersistentStorageCatalog -Configuration $configuration
             $resumePlan=Get-LabContainerInstanceStorePlan -Intent $cloneIntent -Catalog $catalogAfterCopyFailure -RuntimeInspection $inspection
             $competingIntent=$cloneIntent | ConvertTo-Json -Depth 20 | ConvertFrom-Json -Depth 20
@@ -149,6 +181,8 @@ try {
         }
         [PSCustomObject]@{
             ContinuePlan=$continuePlan; ClonePlan=$clonePlan; Drive=$drive; ContinueInstance=$continueInstance; CloneInstance=$cloneInstance
+            SidecarContinuePlan=$sidecarContinuePlan; SidecarClonePlan=$sidecarClonePlan; LegacySidecarPlan=$legacySidecarPlan
+            SidecarContinueInstance=$sidecarContinueInstance; SidecarCloneInstance=$sidecarCloneInstance
             AttachedPlan=$attachedPlan; VersionPlan=$versionPlan; LeasedPlan=$leasedPlan
             FirstFailure=$firstFailure; FailedJournal=$failedJournal; CatalogFailure=$catalogFailure; FailedCatalogJournal=$failedCatalogJournal
             CatalogAfterCopyFailure=$catalogAfterCopyFailure; CatalogAfterCatalogFailure=$catalogAfterCatalogFailure
@@ -174,6 +208,22 @@ try {
             $_.id -eq 'persistent-mssql' -and $_.persistentStorageId -eq $evidence.ClonePlan.Target.PersistentStorageId -and
             $_.persistence -eq 'cataloged-runtime-volume'
         }).Count -eq 1)
+    Add-CheckResult -Name 'External-Runtime-Mehr-Volume-Plan bindet Continue und Clone rollenfest' -Success (
+        $evidence.SidecarContinuePlan.Status -eq 'READY' -and $evidence.SidecarClonePlan.Status -eq 'READY' -and
+        @($evidence.SidecarContinuePlan.Source.Sidecars).Count -eq 2 -and @($evidence.SidecarClonePlan.Target.Sidecars).Count -eq 2 -and
+        @($evidence.SidecarContinueInstance.drives | Where-Object {
+            $_.persistentStorageRole -in @('EXTERNAL_LANGUAGES','EXTERNAL_LIBRARIES') -and
+            $_.persistentStorageId -eq $evidence.SidecarContinuePlan.Source.PersistentStorageId -and
+            $_.persistence -eq 'cataloged-runtime-volume'
+        }).Count -eq 2 -and
+        @($evidence.SidecarCloneInstance.drives | Where-Object {
+            $_.persistentStorageRole -in @('EXTERNAL_LANGUAGES','EXTERNAL_LIBRARIES') -and
+            $_.persistentStorageId -eq $evidence.SidecarClonePlan.Target.PersistentStorageId -and
+            $_.persistence -eq 'cataloged-runtime-volume'
+        }).Count -eq 2)
+    Add-CheckResult -Name 'Unvollstaendige oder ungelabelte Sidecar-Gruppe bleibt fail-closed' -Success (
+        $evidence.LegacySidecarPlan.Status -eq 'BLOCKED' -and
+        'SOURCE_SIDECAR_EXTERNAL_LIBRARIES_NOT_OBSERVED' -in @($evidence.LegacySidecarPlan.Blockers))
     Add-CheckResult -Name 'Oeffentlicher Erstellungsflow leitet Runtimebindung und Clone-Ziel aus stabilen IDs ab' -Success (
         $evidence.SelectionContinuePlan.Status -eq 'READY' -and
         $evidence.SelectionContinuePlan.Source.PersistentStorageId -eq $evidence.ClonePlan.Source.PersistentStorageId -and
@@ -202,7 +252,8 @@ try {
         'SOURCE_LEASE_ACTIVE' -in @($evidence.CompetingPlan.Blockers))
     Add-CheckResult -Name 'Wiederaufnahme revalidiert und beendet denselben journalisierten Clone' -Success (
         $evidence.CompletedJournal.Status -eq 'COMPLETED' -and $evidence.CompletedJournal.Recovery.Attempts -eq 3 -and
-        $evidence.CompletedJournal.Source.Evidence.Sha256 -eq $evidence.CompletedJournal.Target.Evidence.Sha256)
+        $evidence.CompletedJournal.Source.Evidence.Sha256 -eq $evidence.CompletedJournal.Target.Evidence.Sha256 -and
+        @($evidence.CompletedJournal.Sidecars).Count -eq 0)
     $targetStores=@($evidence.CatalogAfter.Document.Stores | Where-Object PersistentStorageId -eq $evidence.ClonePlan.Target.PersistentStorageId)
     Add-CheckResult -Name 'Katalogfehler verhindert COMPLETED und bleibt als wiederaufnehmbarer Recovery-Zustand sichtbar' -Success (
         $evidence.CatalogFailure -match '^CONTAINER_INSTANCE_STORE_RECOVERY_REQUIRED: SYNTHETIC_INSTANCE_STORE_CATALOG_FAILURE' -and
@@ -229,14 +280,16 @@ try {
         (@($evidence.Commands | Where-Object { $_ -match '(^| )volume rm( |$)' }).Count -eq 0))
     Add-CheckResult -Name 'Strikter Intent bleibt schema-valide und geheimnisfrei' -Success (
         $evidence.IntentValid -and (($evidence.ClonePlan | ConvertTo-Json -Depth 30) -notmatch '(?i)password|secret|credential'))
-    Add-CheckResult -Name 'Oeffentliche Lab-Erstellung bindet stabile Continue-/Clone-Auswahl und schuetzt Sidecars' -Success (
+    Add-CheckResult -Name 'Oeffentliche Lab-Erstellung und Provider binden stabile Sidecar-Rollen' -Success (
         $newLabText -match '\[string\]\$PersistentStorageId' -and
         $newLabText -match '\[string\]\$PersistentStorageAction' -and
         $newLabText -match 'New-LabContainerInstanceStoreSelectionPlan' -and
         $newLabText -match 'Invoke-LabContainerInstanceStoreClone' -and
         $newLabText -match 'Sync-LabContainerInstanceStoreDatabaseReference' -and
-        $newLabText -match 'CONTAINER_INSTANCE_STORE_SIDECARS_UNSUPPORTED' -and
-        $newLabText -match "persistence -notin @\('data-root-runtime-volume','cataloged-runtime-volume'\)")
+        $newLabText -match 'IncludeExternalRuntimeSidecars:\$hasExternalRuntime' -and
+        $newLabText -match 'persistentStorageRole' -and
+        $newLabText -match "persistence -notin @\('data-root-runtime-volume','cataloged-runtime-volume'\)" -and
+        $dockerText -match 'sql-server-lab\.storage-role' -and $podmanText -match 'sql-server-lab\.storage-role')
 }
 finally {
     Remove-Item -LiteralPath $temporaryRoot -Recurse -Force -ErrorAction SilentlyContinue

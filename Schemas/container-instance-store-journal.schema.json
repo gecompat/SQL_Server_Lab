@@ -3,7 +3,7 @@
   "$id": "https://sql-server-lab.local/schemas/container-instance-store-journal.schema.json",
   "title": "SqlServerLab.ContainerInstanceStoreJournal/1.0",
   "type": "object",
-  "required": ["ContractVersion", "OperationId", "Provider", "Status", "Source", "Target", "TargetRunId", "TargetScopeId", "SqlMajorVersion", "HelperImage", "Recovery", "UpdatedAt"],
+  "required": ["ContractVersion", "OperationId", "Provider", "Status", "Source", "Target", "Sidecars", "TargetRunId", "TargetScopeId", "SqlMajorVersion", "HelperImage", "Recovery", "UpdatedAt"],
   "properties": {
     "ContractVersion": { "const": "SqlServerLab.ContainerInstanceStoreJournal/1.0" },
     "OperationId": { "type": "string", "format": "uuid" },
@@ -11,6 +11,21 @@
     "Status": { "enum": ["PREPARED", "TARGET_CREATED", "CONTENT_COPIED", "VERIFIED", "COMPLETED", "RECOVERY_REQUIRED"] },
     "Source": { "$ref": "#/$defs/volumeEvidence" },
     "Target": { "$ref": "#/$defs/volumeEvidence" },
+    "Sidecars": {
+      "type": "array",
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "required": ["Role", "ContainerPath", "Source", "Target"],
+        "properties": {
+          "Role": { "enum": ["EXTERNAL_LANGUAGES", "EXTERNAL_LIBRARIES"] },
+          "ContainerPath": { "enum": ["/var/opt/mssql-extensibility/externallanguages", "/var/opt/mssql-extensibility/externallibraries"] },
+          "Source": { "$ref": "#/$defs/volumeEvidence" },
+          "Target": { "$ref": "#/$defs/volumeEvidence" }
+        },
+        "additionalProperties": false
+      }
+    },
     "TargetRunId": { "type": "string", "format": "uuid" },
     "TargetScopeId": { "type": "string", "format": "uuid" },
     "SqlMajorVersion": { "type": "string", "pattern": "^\\d{4}$" },
