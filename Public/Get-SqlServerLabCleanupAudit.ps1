@@ -287,14 +287,14 @@ function Get-SqlServerLabCleanupAudit {
         Get-LabContainerRuntimeHostBackingEvidence -Scope $_ -KnownRoots $knownRoots
     })
 
+    $persistentStorageCatalog = Get-LabPersistentStorageCatalog -Configuration $configuration
     $storageResidency = Get-LabStorageResidencyInventory -Configuration $configuration -StateRoot $stateRoot `
         -DataRoots $rootResults -ActiveRuns $activeRuns -RuntimeResults $runtimeResults `
         -RuntimeHostBackings $runtimeHostBackings -RuntimeStorageUsage $runtimeStorageUsage `
-        -ManagedImages $managedImages -ManagedVolumes $managedVolumes `
+        -ManagedImages $managedImages -ManagedVolumes $managedVolumes -PersistentStorageStores @($persistentStorageCatalog.Document.Stores) `
         -HyperVStatus $hyperVStatus -HyperVResources $hyperVResources -HyperVRunScopes $hyperVRunScopes -HyperVSharedRoots $hyperVSharedRoots `
         -HyperVUntrackedFiles $hyperVUntrackedFiles -ExternalReferences $externalReferences `
         -RepositoryResidues $repositoryResidues -LegacyStateRoots $legacyStateRoots
-    $persistentStorageCatalog = Get-LabPersistentStorageCatalog -Configuration $configuration
     $persistentStoragePlan = Get-LabPersistentStoragePlan -Catalog $persistentStorageCatalog -ResidencyInventory $storageResidency
     $findings = Get-LabCleanupAuditFindings -ResidencyInventory $storageResidency `
         -PersistentStorageCatalog $persistentStorageCatalog -HyperVRunScopes $hyperVRunScopes -Containers $containers

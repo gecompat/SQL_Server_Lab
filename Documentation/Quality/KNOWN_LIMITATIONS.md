@@ -1008,6 +1008,13 @@ Artefaktinhalte erneut zu hashen. Vorhandene `BackupSetId`- und
 `Sync-SqlServerLabPersistentStorageArtifact` einzeln öffentlich übernommen
 werden: Das Cmdlet revalidiert das gewählte Artefakt vollständig, führt vor der
 Mutation denselben Bindungscheck als Preview aus und unterstützt `-WhatIf`.
+Vorhandene Exchange-Workspace-Verzeichnisse können zusätzlich per stabiler
+`ExchangeWorkspaceId` und portablem relativem Pfad innerhalb eines
+registrierten `Lab_Data`-Roots übernommen werden. Ihr Writer verwendet den
+gemeinsamen Katalog-Mutationskern mit read-only Preview, erwarteter Revision,
+unveränderlicher Controller-/Vertragsgrenze, genau einem Revisionsschritt und
+rollbackfähigem Spiegelcommit. Der Cleanup-Audit korreliert diese Bindung über
+dieselbe stabile Residency-Objekt-ID und verändert den Workspace nicht.
 Reguläre Docker-/Podman-Labs mit
 `-PersistentData` vergeben die stabile ID vor der Volume-Erzeugung, erwerben
 eine exklusive Run-Lease und geben sie nach verifizierter Containerentfernung
@@ -1028,9 +1035,10 @@ committen erst nach physischer Postcondition atomar in denselben gespiegelten
 Katalog und bleiben bei Teilfehlern idempotent `RECOVERY_REQUIRED`.
 `New-SqlServerLab` und die Browseroberfläche können einen solchen detached
 Docker-/Podman-Store inzwischen per stabiler ID für einen neuen kompatiblen Run
-fortsetzen oder unabhängig klonen. Noch nicht implementiert sind die generische
-Katalogmutation, die öffentliche Bestandsmigration weiterer Storage-Klassen,
-providerübergreifende Wiederverwendung und explizites Löschen. Der zusätzliche
+fortsetzen oder unabhängig klonen. Noch nicht implementiert sind die Umstellung
+der übrigen klassenbezogenen Writer auf den gemeinsamen Mutationskern, eine
+breite öffentliche Bestandsmigration, providerübergreifende Wiederverwendung
+und explizites Löschen. Der zusätzliche
 read-only Removal-Vertrag plant
 `DELETE_WITH_RUN`, `RETAIN_INSTANCE_STORE`, `BACKUP_ON_REMOVE`,
 `PACKAGE_ON_REMOVE`, `BACKUP_AND_PACKAGE` und `EXTERNAL_UNMANAGED` mit
