@@ -45,8 +45,11 @@ Einträge read-only an das Residency-Inventar und meldet retained Objekte ohne
 erfundene ID als Registrierungskandidaten. Neue verifizierte Backup-Sets und
 Datenbankpakete werden unter einem controllerweiten Lock mit eigenständiger
 `PersistentStorageId`, aktiver `ARTIFACT`-Referenz und rollbackfähigen
-identischen Spiegeln registriert. Der Reconcile-Core übernimmt vorhandene
-Library-Einträge idempotent und ohne erneutes Voll-Hashing; das
+identischen Spiegeln registriert. Der öffentliche Einzelobjekt-Sync übernimmt
+vorhandene `BackupSetId`- oder `DatabasePackageId`-Einträge erst nach
+vollständiger Artefaktverifikation, plant mit `-WhatIf` ohne Katalogmutation und
+bleibt bei Wiederholung idempotent. Der interne Reconcile-Core gleicht bereits
+katalogisierte Library-Einträge ohne erneutes Voll-Hashing ab; das
 Residency-Inventar bindet sie an dieselbe Objekt-ID. Ein fehlgeschlagener
 Paket-Katalogcommit quarantänisiert Library-Eintrag und Recovery-Journal.
 Regulär mit `New-SqlServerLab -PersistentData` erzeugte Docker-/Podman-
@@ -58,9 +61,9 @@ jede deklarierte und verifizierte Benutzerdatenbank über eine stabile
 Datenbankreferenzen atomar mit der Lease; eine erneute Lease ist bei verbliebenen
 aktiven Datenbankreferenzen fail-closed. Fehlende oder abweichend gelabelte
 Volumes bleiben mit Lease als `RECOVERY_REQUIRED` sichtbar. Generische
-Katalogmutation, öffentliche
-Bestandsmigration, providerübergreifende Wiederverwendung und Löschung bleiben
-getrennte Folgearbeit.
+Katalogmutation, Bestandsmigration weiterer Storage-Klassen,
+providerübergreifende Wiederverwendung und Löschung bleiben getrennte
+Folgearbeit.
 
 Der Plan- und erste Executor-Slice `PSR-004` ist implementiert. Ein strikter
 `SqlServerLab.PersistentStorageRemovalIntent/1.0` bindet die sechs
@@ -435,7 +438,7 @@ Volumename ersetzt diese Identität nicht.
 |---|---:|---|---|
 | `PSR-001` | P0-Analyse | Ist-Inventar aller persistenten, rungebundenen und verbleibenden Objekte für Docker, Podman und Hyper-V | `IMPLEMENTED_PARTIAL`: versionierte read-only Matrix mit stabilen Objekt-IDs, Residency, Lifecycle, Cleanup-Policy und Provider-Coverage; physisches Desktop-/Machine-Backing bleibt explizit unverifizierbar |
 | `PSR-002` | P0-Analyse | `Lab_Data`-Versprechen, native Runtime-Ausnahmen und Hosteingriffsgrenzen entscheiden | `COMPLETE`: bindender `SqlServerLab.LabDataResidencyDecision/1.0`-Entscheid |
-| `PSR-003` | P1 | Storage-Katalog mit stabiler ID, Klassen, Zuständen, Referenzen und Leases entwerfen | `IMPLEMENTED_PARTIAL`: Schema, Parser, Planner, Inventarbindung, rollbackfähige `BACKUP_SET`-/`DATABASE_PACKAGE`-/Clone-`INSTANCE_STORE`-Registrierung sowie exklusive Lease/Freigabe regulärer `-PersistentData`-Containerstores einschließlich stabiler Datenbankreferenzen auf allen controllergebundenen Spiegeln; generische Mutation, öffentliche Bestandsmigration, providerübergreifende Wiederverwendung und Löschung bleiben offen |
+| `PSR-003` | P1 | Storage-Katalog mit stabiler ID, Klassen, Zuständen, Referenzen und Leases entwerfen | `IMPLEMENTED_PARTIAL`: Schema, Parser, Planner, Inventarbindung, rollbackfähige `BACKUP_SET`-/`DATABASE_PACKAGE`-/Clone-`INSTANCE_STORE`-Registrierung sowie exklusive Lease/Freigabe regulärer `-PersistentData`-Containerstores einschließlich stabiler Datenbankreferenzen auf allen controllergebundenen Spiegeln; vorhandene Backup-Sets und Datenbankpakete lassen sich öffentlich einzeln, previewfähig und idempotent synchronisieren; generische Mutation, Bestandsmigration weiterer Klassen, providerübergreifende Wiederverwendung und Löschung bleiben offen |
 | `PSR-004` | P1 | Retention-, Backup-on-Remove-, Package- und expliziten Löschvertrag entwerfen | `IMPLEMENTED_PARTIAL`: verlustsicherer Plan plus journalisierter Docker-/Podman-Executor für Retain und verifiziertes Backup-on-Remove; Package, externe Freigabe und getrennte endgültige Storage-Löschung bleiben offen |
 | `PSR-005` | P1 | Docker-/Podman-Instanzstore auswählbar, fortsetzbar und klonbar machen | `IMPLEMENTED`: öffentliche CLI-/Browser-Auswahl per stabiler ID, detached Continue/Clone, operationsgebundene Quell-Lease, Digest/Resume, atomarer Zielcommit plus Quellfreigabe und rollenfester External-Runtime-Mehr-Volume-Vertrag; Docker und Podman getrennt real belegt, unvollständige Legacy-Sidecargruppen fail-closed |
 | `PSR-006` | P1 | Podman-Machine- und Docker-Engine-/Context-Reichweite bewerten und gegebenenfalls dediziert verwalten | `IMPLEMENTED_READ_ONLY`: stabile sanitisierte Runtime-ID, Context-/Connection-/Machine-Bindung und REPORT_ONLY-Hostgrenze real belegt; dedizierter Ownership-/Lifecycle-Vertrag bleibt offen |

@@ -73,6 +73,7 @@ end {
         @{ Pattern = '(?i)(DockerProvider|PodmanProvider|ContainerVolume)'; Checks = @('Invoke-ContainerVolumeContractChecks.ps1','Invoke-PortAllocationChecks.ps1') },
         @{ Pattern = '(?i)(ContainerInstanceStore|container-instance-store)'; Checks = @('Invoke-ContainerInstanceStoreChecks.ps1','Invoke-ContainerVolumeContractChecks.ps1') },
         @{ Pattern = '(?i)(ContainerRuntimeScope|container-runtime-scope)'; Checks = @('Invoke-ContainerRuntimeScopeChecks.ps1') },
+        @{ Pattern = '(?i)(PersistentStorageCatalog|PersistentStorageArtifact|persistent-storage-(catalog|artifact))'; Checks = @('Invoke-PersistentStorageCatalogChecks.ps1','Invoke-BackupLibraryChecks.ps1','Invoke-DatabasePackageChecks.ps1') },
         @{ Pattern = '(?i)(BackupLibrary|backup-library|Backup-SqlServerLabDatabase|Restore-SqlServerLabDatabase)'; Checks = @('Invoke-BackupLibraryChecks.ps1','Invoke-DatabaseMigrationDependencyChecks.ps1','Invoke-SampleBaselineRuntimeChecks.ps1') },
         @{ Pattern = '(?i)(DatabasePackage|database-package)'; Checks = @('Invoke-DatabasePackageChecks.ps1','Invoke-DatabaseMigrationDependencyChecks.ps1') },
         @{ Pattern = '(?i)(DatabaseMigrationDependency|database-migration-dependency)'; Checks = @('Invoke-DatabaseMigrationDependencyChecks.ps1','Invoke-BackupLibraryChecks.ps1','Invoke-DatabasePackageChecks.ps1') },
@@ -148,7 +149,8 @@ end {
         if (Test-AnyPath '(?i)(^Adapters/|ProjectAdapter|adapter-smoke|project-adapter)') { $runtime.Adapter = $true }
 
         $knownDomainChange = $runtime.Docker -or $runtime.Podman -or $runtime.Mixed -or $runtime.HyperV -or $runtime.Adapter
-        if ($hasProductCode -and -not $knownDomainChange) {
+        $staticOnlyProductChange = Test-AnyPath '(?i)(PersistentStorageCatalog|PersistentStorageArtifact|persistent-storage-(catalog|artifact))'
+        if ($hasProductCode -and -not $knownDomainChange -and -not $staticOnlyProductChange) {
             $runtime.Docker = $true
         }
     }

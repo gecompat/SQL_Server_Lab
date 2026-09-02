@@ -873,13 +873,18 @@ Add-ValidationResult `
         $persistentStorageBacklog -match 'exklusive Lease/Freigabe regulärer `-PersistentData`-Containerstores' -and
         $persistentStorageBacklog -match 'stabiler Datenbankreferenzen' -and
         $persistentStorageBacklog -match 'Paket-Katalogcommit quarantänisiert Library-Eintrag und Recovery-Journal' -and
+        $persistentStorageBacklog -match 'vorhandene `BackupSetId`- oder `DatabasePackageId`-Einträge' -and
+        $persistentStorageBacklog -match '`-WhatIf` ohne Katalogmutation' -and
         $knownLimitations -match 'Reguläre Docker-/Podman-Labs mit[\s\S]*?`-PersistentData`[\s\S]*?exklusive Run-Lease' -and
         $knownLimitations -match 'stabile aktive `DATABASE`-Referenzen' -and
-        $knownLimitations -match 'Noch\s*nicht implementiert sind die generische\s*Katalogmutation, ein öffentlicher\s*Bestandsmigrationsbefehl' -and
+        $knownLimitations -match 'Sync-SqlServerLabPersistentStorageArtifact' -and
+        $knownLimitations -match 'Noch\s*nicht implementiert sind die generische\s*Katalogmutation, die öffentliche Bestandsmigration weiterer Storage-Klassen' -and
         $knownLimitations -match '`BACKUP_SET` beziehungsweise `DATABASE_PACKAGE`' -and
         $repoMap -match 'persistent_storage_catalog: Private/PersistentStorageCatalog\.ps1' -and
+        $repoMap -match 'persistent_storage_artifact_sync: Public/Sync-SqlServerLabPersistentStorageArtifact\.ps1' -and
         $repoMap -match 'persistent_storage_catalog_schema: Schemas/persistent-storage-catalog\.schema\.json' -and
         $repoMap -match 'persistent_storage_plan_schema: Schemas/persistent-storage-plan\.schema\.json' -and
+        $repoMap -match 'persistent_storage_artifact_sync_result_schema: Schemas/persistent-storage-artifact-sync-result\.schema\.json' -and
         $repoMap -match 'validation_persistent_storage_catalog: Tests/Static/Invoke-PersistentStorageCatalogChecks\.ps1')
 
 Add-ValidationResult `
