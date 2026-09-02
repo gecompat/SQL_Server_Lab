@@ -1,12 +1,16 @@
 <#
 .SYNOPSIS
-    Synchronisiert ein vorhandenes Backup oder Datenbankpaket mit dem persistenten Storage-Katalog.
+    Synchronisiert ein vorhandenes Backup, Datenbankpaket oder Exchange-Workspace mit dem persistenten Storage-Katalog.
 .DESCRIPTION
     Revalidiert genau ein katalogisiertes BackupSetId oder DatabasePackageId
-    vollständig und registriert dessen stabile Artefaktbindung idempotent im
-    controllergebundenen Persistent-Storage-Katalog. Vor der Mutation läuft
-    derselbe Bindungs- und Konfliktcheck im Preview-Modus. Abweichende,
-    mehrdeutige oder unzulässige Bindungen werden fail-closed abgelehnt.
+    vollständig oder ein bereits vorhandenes Exchange-Workspace innerhalb
+    eines registrierten Lab_Data-Roots. Die stabile Artefaktbindung wird
+    idempotent im controllergebundenen Persistent-Storage-Katalog registriert.
+    Vor der Mutation läuft derselbe Bindungs- und Konfliktcheck im Preview-
+    Modus. Exchange-Workspaces verwenden zusätzlich einen erwarteten
+    Katalogstand, damit eine Änderung zwischen Preview und Commit fail-closed
+    abgelehnt wird. Abweichende, mehrdeutige oder unzulässige Bindungen werden
+    fail-closed abgelehnt.
 
     Das Cmdlet verändert weder SQL Server noch Docker-, Podman- oder Hyper-V-
     Ressourcen. Die Ausgabe enthält keine lokalen Pfade, Endpunkte oder Secrets.
@@ -14,6 +18,12 @@
     Stabile ID eines vorhandenen Eintrags der Backup-Bibliothek.
 .PARAMETER DatabasePackageId
     Stabile ID eines vorhandenen Eintrags der Datenbankpaket-Bibliothek.
+.PARAMETER ExchangeWorkspaceId
+    Stabile UUID des bereits vorhandenen Exchange-Workspaces.
+.PARAMETER RelativePath
+    Portabler relativer Pfad des vorhandenen Workspace-Verzeichnisses innerhalb von DataRoot.
+.PARAMETER DisplayName
+    Benutzerlesbarer Anzeigename des Exchange-Workspaces.
 .PARAMETER DataRoot
     Optionaler registrierter Lab_Data-Root. Ohne Angabe gilt der konfigurierte Standard.
 .OUTPUTS
@@ -23,6 +33,8 @@
     Sync-SqlServerLabPersistentStorageArtifact -BackupSetId $backupSetId -WhatIf
 .EXAMPLE
     Sync-SqlServerLabPersistentStorageArtifact -DatabasePackageId $databasePackageId -Confirm:$false
+.EXAMPLE
+    Sync-SqlServerLabPersistentStorageArtifact -ExchangeWorkspaceId $workspaceId -RelativePath 'Exchange/import-01' -DisplayName 'Import 01' -WhatIf
 #>
 function Sync-SqlServerLabPersistentStorageArtifact {
     [CmdletBinding(DefaultParameterSetName='BackupSet', SupportsShouldProcess, ConfirmImpact='Medium')]
@@ -34,6 +46,17 @@ function Sync-SqlServerLabPersistentStorageArtifact {
         [Parameter(Mandatory, ParameterSetName='DatabasePackage')]
         [ValidatePattern('^[0-9a-fA-F-]{36}$')]
         [string]$DatabasePackageId,
+
+        [Parameter(Mandatory, ParameterSetName='ExchangeWorkspace')]
+        [ValidatePattern('^[0-9a-fA-F-]{36}$')]
+        [string]$ExchangeWorkspaceId,
+
+        [Parameter(Mandatory, ParameterSetName='ExchangeWorkspace')]
+        [string]$RelativePath,
+
+        [Parameter(Mandatory, ParameterSetName='ExchangeWorkspace')]
+        [ValidateLength(1,128)]
+        [string]$DisplayName,
 
         [string]$DataRoot
     )
@@ -48,11 +71,17 @@ function Sync-SqlServerLabPersistentStorageArtifact {
         $artifact = Get-LabDatabaseBackup -BackupSetId $BackupSetId -DataRoot $DataRoot
         $preview = Register-LabBackupSetPersistentStorage -BackupRecord $artifact.Record -DataRoot $DataRoot -Preview
     }
-    else {
+    elseif ($PSCmdlet.ParameterSetName -eq 'DatabasePackage') {
         $artifactType = 'DATABASE_PACKAGE'
         $artifactId = $DatabasePackageId
         $artifact = Get-LabDatabasePackage -DatabasePackageId $DatabasePackageId -DataRoot $DataRoot
         $preview = Register-LabDatabasePackagePersistentStorage -PackageRecord $artifact.Record -DataRoot $DataRoot -Preview
+    }
+    else {
+        $artifactType = 'EXCHANGE_WORKSPACE'
+        $artifactId = $ExchangeWorkspaceId
+        $preview = Register-LabExchangeWorkspacePersistentStorage -WorkspaceId $ExchangeWorkspaceId `
+            -DisplayName $DisplayName -DataRoot $DataRoot -RelativePath $RelativePath -Preview
     }
 
     if (-not [bool]$preview.Changed) {
@@ -79,9 +108,14 @@ function Sync-SqlServerLabPersistentStorageArtifact {
             $artifact = Get-LabDatabaseBackup -BackupSetId $BackupSetId -DataRoot $DataRoot
             Register-LabBackupSetPersistentStorage -BackupRecord $artifact.Record -DataRoot $DataRoot
         }
-        else {
+        elseif ($artifactType -eq 'DATABASE_PACKAGE') {
             $artifact = Get-LabDatabasePackage -DatabasePackageId $DatabasePackageId -DataRoot $DataRoot
             Register-LabDatabasePackagePersistentStorage -PackageRecord $artifact.Record -DataRoot $DataRoot
+        }
+        else {
+            Register-LabExchangeWorkspacePersistentStorage -WorkspaceId $ExchangeWorkspaceId `
+                -DisplayName $DisplayName -DataRoot $DataRoot -RelativePath $RelativePath `
+                -ExpectedRevision ([int]$preview.CatalogRevision)
         }
         $result = [PSCustomObject][ordered]@{
             ContractVersion='SqlServerLab.PersistentStorageArtifactSyncResult/1.0'

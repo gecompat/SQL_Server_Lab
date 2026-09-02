@@ -50,7 +50,7 @@ function New-LabStorageResidencyObject {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$Key,
-        [Parameter(Mandatory)][ValidateSet('CONTROL_STATE','LAB_DATA_ROOT','INSTANCE_STORE','DATABASE_PACKAGE','BACKUP_SET','BACKUP_WORKSPACE','RUNTIME_BACKING_STORE','RUNTIME_CONFIGURATION','RUNTIME_IMAGE','RUNTIME_IMAGE_STORE','RUNTIME_CONTAINER_STORE','RUNTIME_VOLUME_STORE','RUNTIME_BUILD_CACHE','HYPERV_RUN_RESOURCE','HYPERV_SHARED_RESOURCE','EXTERNAL_REFERENCE','REPOSITORY_RESIDUE','LEGACY_STATE')][string]$ObjectClass,
+        [Parameter(Mandatory)][ValidateSet('CONTROL_STATE','LAB_DATA_ROOT','INSTANCE_STORE','DATABASE_PACKAGE','BACKUP_SET','BACKUP_WORKSPACE','EXCHANGE_WORKSPACE','RUNTIME_BACKING_STORE','RUNTIME_CONFIGURATION','RUNTIME_IMAGE','RUNTIME_IMAGE_STORE','RUNTIME_CONTAINER_STORE','RUNTIME_VOLUME_STORE','RUNTIME_BUILD_CACHE','HYPERV_RUN_RESOURCE','HYPERV_SHARED_RESOURCE','EXTERNAL_REFERENCE','REPOSITORY_RESIDUE','LEGACY_STATE')][string]$ObjectClass,
         [Parameter(Mandatory)][ValidateSet('core','docker','podman','hyperv','external')][string]$Provider,
         [Parameter(Mandatory)][ValidateSet('CONTROLLER','RUN_SCOPED','RETAINED','SHARED','UNMANAGED_OR_UNKNOWN')][string]$Lifecycle,
         [Parameter(Mandatory)][ValidateSet('LAB_DATA','NATIVE_RUNTIME','EXTERNAL_HOST','REPOSITORY','LEGACY_PROFILE','UNKNOWN')][string]$Residency,
@@ -192,6 +192,7 @@ function Get-LabStorageResidencyInventory {
         [AllowEmptyCollection()][object[]]$RuntimeStorageUsage = @(),
         [AllowEmptyCollection()][object[]]$ManagedImages = @(),
         [AllowEmptyCollection()][object[]]$ManagedVolumes = @(),
+        [AllowEmptyCollection()][object[]]$PersistentStorageStores = @(),
         [string]$HyperVStatus = 'NOT_INSTALLED',
         [AllowEmptyCollection()][object[]]$HyperVResources = @(),
         [AllowEmptyCollection()][object[]]$HyperVRunScopes = @(),
@@ -301,6 +302,41 @@ function Get-LabStorageResidencyInventory {
                     ObjectCount=@($package.Objects).Count; LibraryStatus=[string]$package.Status
                 }))
         }
+    }
+
+    foreach ($store in @($PersistentStorageStores | Where-Object StorageClass -eq 'EXCHANGE_WORKSPACE')) {
+        $activeArtifactReferences = @($store.References | Where-Object {
+            [string]$_.Kind -eq 'ARTIFACT' -and [string]$_.State -eq 'ACTIVE'
+        })
+        $workspaceId = if ($activeArtifactReferences.Count -eq 1) {
+            [string]$activeArtifactReferences[0].TargetId
+        }
+        else { [string]$store.PersistentStorageId }
+        $locations = @($Configuration.LabDataLocations | Where-Object {
+            [string]$_.LocationId -eq [string]$store.LocationBinding.LocationId
+        })
+        $path = $null; $pathValid = $false; $fileCount = 0; $totalBytes = [long]0
+        if ($locations.Count -eq 1 -and $store.LocationBinding.RelativePath) {
+            $path = Join-Path ([string]$locations[0].LabDataRoot) (([string]$store.LocationBinding.RelativePath).Replace('/',[IO.Path]::DirectorySeparatorChar))
+            $containment = Test-LabPathWithinRoot -Root ([string]$locations[0].LabDataRoot) -Path $path
+            $pathValid = $containment.Valid -and (Test-Path -LiteralPath $path -PathType Container)
+            if ($pathValid) {
+                $files = @(Get-ChildItem -LiteralPath $path -File -Recurse -Force -ErrorAction SilentlyContinue)
+                $fileCount = $files.Count
+                $totalBytes = [long](($files | Measure-Object Length -Sum).Sum)
+            }
+        }
+        $expectedObjectId = Get-LabStorageResidencyObjectId -Key "exchange-workspace|$([string]$Configuration.ControllerId)|$workspaceId"
+        $identityValid = [string]$store.Provider -eq 'core' -and
+            [string]$store.LocationBinding.Residency -eq 'LAB_DATA' -and
+            [string]$store.LocationBinding.InventoryObjectId -eq $expectedObjectId
+        $objects.Add((New-LabStorageResidencyObject `
+            -Key "exchange-workspace|$([string]$Configuration.ControllerId)|$workspaceId" `
+            -ObjectClass EXCHANGE_WORKSPACE -Provider core -Lifecycle RETAINED -Residency LAB_DATA `
+            -PathVisibility HOST_VISIBLE -LabDataRelation $(if ($pathValid) { 'INSIDE' } else { 'UNKNOWN' }) `
+            -LogicalName ([string]$store.DisplayName) -Path $path -CleanupPolicy PRESERVE_RETAINED `
+            -AuditStatus $(if ($pathValid -and $identityValid) { 'VERIFIED' } else { 'UNVERIFIABLE' }) `
+            -Details @{ PersistentStorageId=[string]$store.PersistentStorageId; WorkspaceId=$workspaceId; FileCount=$fileCount; TotalBytes=$totalBytes }))
     }
 
     $seenHostBindings = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)

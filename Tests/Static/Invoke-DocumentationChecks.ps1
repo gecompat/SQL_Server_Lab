@@ -875,21 +875,23 @@ Add-ValidationResult `
         $repoMap -match 'lab_data_native_runtime_storage_decision: Documentation/Architecture/LAB_DATA_AND_NATIVE_RUNTIME_STORAGE_DECISION\.md')
 
 Add-ValidationResult `
-    -Name 'PSR-003 dokumentiert partielle klassenbezogene Katalogcommits ohne breites Mutationsversprechen' `
+    -Name 'PSR-003 dokumentiert generischen Katalogkern und sicheren Exchange-Workspace-Slice' `
     -Success ($persistentStorageBacklog -match '(?m)^`ACTIVE / 8_TOP_LEVEL_PACKAGES_REMAIN / PSR_001_002_005_007_008_014_COMPLETE / PSR_003_004_011_PARTIAL / PSR_006_READ_ONLY / PSR_009_010_012_IMPLEMENTED_CORE / PSR_013_PLANNED`' -and
         $persistentStorageBacklog -match '(?m)^\| `PSR-003` .*\| `IMPLEMENTED_PARTIAL`:' -and
         $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.PersistentStorageCatalog/1.0') -and
         $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.PersistentStoragePlan/1.0') -and
-        $persistentStorageBacklog -match [regex]::Escape('rollbackfähige `BACKUP_SET`-/`DATABASE_PACKAGE`-/Clone-`INSTANCE_STORE`-Registrierung') -and
+        $persistentStorageBacklog -match 'generischer CAS-/Preview-Mutationskern mit genau einem rollbackfähigen Revisionscommit' -and
         $persistentStorageBacklog -match 'exklusive Lease/Freigabe regulärer `-PersistentData`-Containerstores' -and
         $persistentStorageBacklog -match 'stabiler Datenbankreferenzen' -and
         $persistentStorageBacklog -match 'Paket-Katalogcommit quarantänisiert Library-Eintrag und Recovery-Journal' -and
-        $persistentStorageBacklog -match 'vorhandene `BackupSetId`- oder `DatabasePackageId`-Einträge' -and
+        $persistentStorageBacklog -match 'Compare-and-Swap über die erwartete Revision' -and
+        $persistentStorageBacklog -match 'vorhandene `BackupSetId`-, `DatabasePackageId`- oder\s*`ExchangeWorkspaceId`-Einträge' -and
         $persistentStorageBacklog -match '`-WhatIf` ohne Katalogmutation' -and
         $knownLimitations -match 'Reguläre Docker-/Podman-Labs mit[\s\S]*?`-PersistentData`[\s\S]*?exklusive Run-Lease' -and
         $knownLimitations -match 'stabile aktive `DATABASE`-Referenzen' -and
         $knownLimitations -match 'Sync-SqlServerLabPersistentStorageArtifact' -and
-        $knownLimitations -match 'Noch\s*nicht implementiert sind die generische\s*Katalogmutation, die öffentliche Bestandsmigration weiterer Storage-Klassen' -and
+        $knownLimitations -match 'gemeinsamen Katalog-Mutationskern mit read-only Preview, erwarteter Revision' -and
+        $knownLimitations -match 'Noch nicht implementiert sind die Umstellung\s*der übrigen klassenbezogenen Writer' -and
         $knownLimitations -match '`BACKUP_SET` beziehungsweise `DATABASE_PACKAGE`' -and
         $repoMap -match 'persistent_storage_catalog: Private/PersistentStorageCatalog\.ps1' -and
         $repoMap -match 'persistent_storage_artifact_sync: Public/Sync-SqlServerLabPersistentStorageArtifact\.ps1' -and

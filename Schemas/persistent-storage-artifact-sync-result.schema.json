@@ -16,7 +16,7 @@
   "properties": {
     "ContractVersion": { "const": "SqlServerLab.PersistentStorageArtifactSyncResult/1.0" },
     "Status": { "enum": ["PLANNED", "CANCELLED", "SYNCED", "NO_CHANGE"] },
-    "ArtifactType": { "enum": ["BACKUP_SET", "DATABASE_PACKAGE"] },
+    "ArtifactType": { "enum": ["BACKUP_SET", "DATABASE_PACKAGE", "EXCHANGE_WORKSPACE"] },
     "ArtifactId": { "type": "string", "format": "uuid" },
     "Changed": { "type": "boolean" },
     "WouldChange": { "type": "boolean" },
