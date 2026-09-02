@@ -100,6 +100,123 @@ function Get-LabHyperVPersistentDataRuntimeInspection {
     }
 }
 
+function Get-LabHyperVPersistentDataSelection {
+    <#
+    .SYNOPSIS
+        Liefert eine sanitisierte Auswahl katalogisierter Hyper-V-Daten-VHDX.
+    .DESCRIPTION
+        Die Auswahl bindet ausschliesslich die stabile PersistentStorageId an
+        den Katalog und eine frische read-only Runtime-Pruefung. Hostpfade und
+        DiskIdentifier bleiben intern. Lifecycle-Aktionen werden erst als
+        verfuegbar gemeldet, wenn ein spaeterer oeffentlicher Flow belastbare
+        Clean-Detach- und Ziel-Evidenz erzeugen kann.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Configuration,
+        $Catalog,
+        [switch]$InspectRuntime,
+        [scriptblock]$RuntimeInspector
+    )
+
+    if (-not $Catalog) { $Catalog = Get-LabPersistentStorageCatalog -Configuration $Configuration }
+    if ([string]$Catalog.Status -notin @('AVAILABLE','EMPTY')) { return @() }
+    if (-not $RuntimeInspector) {
+        $RuntimeInspector = {
+            param($Path)
+            Get-LabHyperVPersistentDataRuntimeInspection -Path $Path -TargetVMName '__sql_server_lab_inventory__'
+        }
+    }
+
+    return @(
+        foreach ($store in @($Catalog.Document.Stores | Where-Object {
+            [string]$_.StorageClass -eq 'INSTANCE_STORE' -and [string]$_.Provider -eq 'hyperv'
+        })) {
+            $issues = [Collections.Generic.List[string]]::new()
+            $inspection = $null
+            $path = $null
+            $attachmentState = 'UNKNOWN'
+            $attachedVmName = $null
+
+            if ([string]$store.Retention -ne 'RETAINED' -or [string]$store.CleanupDisposition -ne 'PRESERVE') {
+                $issues.Add('SOURCE_RETENTION_NOT_PERSISTENT')
+            }
+            if ([string]$store.LocationBinding.Residency -ne 'LAB_DATA' -or
+                -not $store.LocationBinding.LocationId -or -not $store.LocationBinding.RelativePath) {
+                $issues.Add('SOURCE_LAB_DATA_BINDING_INVALID')
+            }
+            else {
+                $locations = @($Configuration.LabDataLocations | Where-Object {
+                    [string]$_.LocationId -eq [string]$store.LocationBinding.LocationId
+                })
+                if ($locations.Count -ne 1) { $issues.Add('SOURCE_LOCATION_NOT_REGISTERED') }
+                else {
+                    try {
+                        $root = [IO.Path]::GetFullPath([string]$locations[0].LabDataRoot)
+                        $path = [IO.Path]::GetFullPath((Join-Path $root ([string]$store.LocationBinding.RelativePath)))
+                        if (-not (Test-LabHyperVPathWithinRoot -Path $path -Root $root)) {
+                            $issues.Add('SOURCE_PATH_OUTSIDE_LAB_DATA'); $path = $null
+                        }
+                    }
+                    catch { $issues.Add('SOURCE_PATH_INVALID'); $path = $null }
+                }
+            }
+
+            if (-not $InspectRuntime) { $issues.Add('HYPERV_RUNTIME_NOT_INSPECTED') }
+            elseif ($path) {
+                try {
+                    $inspection = & $RuntimeInspector $path
+                    if ([string]$inspection.Status -ne 'AVAILABLE') { $issues.Add('SOURCE_VHDX_NOT_OBSERVED') }
+                    if ([string]$inspection.DiskIdentifier -ne [string]$store.LocationBinding.ProviderResourceId) {
+                        $issues.Add('SOURCE_DISK_IDENTIFIER_MISMATCH')
+                    }
+                    if ([string]$inspection.ParentPath) { $issues.Add('SOURCE_DIFFERENCING_VHDX_UNSUPPORTED') }
+                    if (@($inspection.CheckpointReferences).Count -gt 0) { $issues.Add('SOURCE_CHECKPOINT_REFERENCE_ACTIVE') }
+
+                    $attachments = @($inspection.Attachments)
+                    $attachmentState = if ($attachments.Count -eq 0) { 'DETACHED' } elseif ($attachments.Count -eq 1) { 'ATTACHED' } else { 'AMBIGUOUS' }
+                    if ($attachments.Count -eq 1) { $attachedVmName = [string]$attachments[0].VMName }
+                    if ($attachments.Count -gt 1) { $issues.Add('SOURCE_MULTIPLE_ATTACHMENTS') }
+                    if ([string]$store.State -eq 'IN_USE' -and $attachments.Count -ne 1) { $issues.Add('CATALOG_RUNTIME_STATE_MISMATCH') }
+                    if ([string]$store.State -in @('AVAILABLE','DETACHED') -and $attachments.Count -ne 0) { $issues.Add('CATALOG_RUNTIME_STATE_MISMATCH') }
+                }
+                catch { $issues.Add('HYPERV_RUNTIME_UNAVAILABLE') }
+            }
+
+            $activeReferences = @($store.References | Where-Object { [string]$_.State -eq 'ACTIVE' })
+            if ([string]$store.State -eq 'IN_USE') {
+                if (-not $store.Lease -or $activeReferences.Count -eq 0) { $issues.Add('SOURCE_ACTIVE_BINDING_INCOMPLETE') }
+                $lifecycleActions = @('RELEASE')
+                $issues.Add('CLEAN_DETACH_EVIDENCE_REQUIRED')
+            }
+            elseif ([string]$store.State -in @('AVAILABLE','DETACHED')) {
+                if ($store.Lease -or $activeReferences.Count -gt 0) { $issues.Add('SOURCE_REFERENCE_ACTIVE') }
+                $lifecycleActions = @('REATTACH','CLONE')
+                $issues.Add('CLEAN_DETACH_EVIDENCE_REQUIRED')
+                $issues.Add('TARGET_BINDING_EVIDENCE_REQUIRED')
+            }
+            else {
+                $lifecycleActions = @()
+                $issues.Add('SOURCE_STATE_NOT_SELECTABLE')
+            }
+
+            [PSCustomObject]@{
+                PersistentStorageId = [string]$store.PersistentStorageId
+                DisplayName = [string]$store.DisplayName
+                State = [string]$store.State
+                AttachmentState = $attachmentState
+                AttachedVMName = $attachedVmName
+                BoundRunId = if ($store.Lease) { [string]$store.Lease.RunId } else { $null }
+                LifecycleActions = @($lifecycleActions)
+                AvailableActions = @()
+                Issues = @($issues | Sort-Object -Unique)
+                DatabaseFilesOnline = $false
+                DatabaseActionRequired = 'EXPLICIT_RESTORE_OR_ATTACH'
+            }
+        }
+    )
+}
+
 function Resolve-LabHyperVPersistentDataCatalogBinding {
     [CmdletBinding()]
     param(
