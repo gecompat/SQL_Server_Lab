@@ -19,6 +19,11 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Geändert
 
+- Der Hyper-V-External-Runtime-Reconcile-Plan erzeugt seine Warnungen jetzt im
+  Planer selbst. Additive Gastmutationen weisen den kontrollierten SQL-/
+  Launchpad-Neustart aus, No-op-Pläne bleiben warnungsfrei und blockierte
+  Removal- oder Variantenwechsel liefern ihren stabilen Reason-Code statt
+  einer leeren Warnungsliste.
 - Docker und Podman können über den öffentlichen External-Runtime-Reconcile-
   Pfad nun auch die letzte Runtime entfernen. Der journalgebundene
   Ersatzcontainer kehrt auf das katalogisierte SQL-Basisimage zurück,

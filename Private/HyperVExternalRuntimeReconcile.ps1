@@ -119,10 +119,6 @@ function Get-LabHyperVExternalRuntimeReconcileCredentials {
     if (-not $guestPassword -or -not $SqlSaPassword) {
         throw 'HYPERV_EXTERNAL_RUNTIME_RECONCILE_CREDENTIAL_REQUIRED'
     }
-    $warnings = @($unsupportedReasons)
-    if (-not $isNoOp -and $unsupportedReasons.Count -eq 0) {
-        $warnings += 'SQL Server und Launchpad werden im Gast kontrolliert neu gestartet; die VM bleibt gestartet.'
-    }
     return [PSCustomObject]@{
         GuestCredential = [PSCredential]::new('Administrator', $guestPassword)
         SqlSaPassword = $SqlSaPassword
@@ -254,6 +250,10 @@ function New-LabHyperVExternalRuntimeReconcilePlan {
     $desiredKeys = @($context.DesiredPlans.PlanKey | Sort-Object -Unique)
     $isNoOp = $unsupportedReasons.Count -eq 0 -and -not $resumeRequired -and
         (($currentKeys -join ',') -ceq ($desiredKeys -join ','))
+    $warnings = @($unsupportedReasons)
+    if (-not $isNoOp -and $unsupportedReasons.Count -eq 0) {
+        $warnings += 'SQL Server und Launchpad werden im Gast kontrolliert neu gestartet; die VM bleibt gestartet.'
+    }
     $preview = Get-LabExternalRuntimePlanPreview -DesiredPlans $context.DesiredPlans -CurrentPlans $context.CurrentReceipts
     $action = if ($unsupportedReasons.Count -gt 0 -or $isNoOp) { @() } else {
         @([PSCustomObject]@{
