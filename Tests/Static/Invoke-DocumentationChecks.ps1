@@ -972,6 +972,7 @@ Add-ValidationResult `
 Add-ValidationResult `
     -Name 'PSR-014 bindet die idempotente Ersteinrichtung an Core, Konsole und Dokumentation' `
     -Success ($persistentStorageBacklog -match '(?m)^\| `PSR-014` .*\| `COMPLETE`:' -and
+        $persistentStorageBacklog -match 'Von den 14 kanonischen PSR-Arbeitspaketen sind `PSR-002`, `PSR-005`, `PSR-008`\s*und `PSR-014` abgeschlossen\. Damit verbleiben zehn Top-Level-Pakete' -and
         $persistentStorageBacklog -match 'vor jeder Mutation fail-closed abgelehnt' -and
         $projectContext -match 'gemeinsamer idempotenter\s*Ersteinrichtungsassistent' -and
         $knownLimitations -match 'nichtleeren, noch nicht\s*controllergebundenen `Lab_Data`-Ordner' -and
