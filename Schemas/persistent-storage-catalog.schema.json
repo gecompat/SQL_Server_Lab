@@ -18,7 +18,7 @@
           "DisplayName": { "type": "string", "minLength": 1, "maxLength": 128 },
           "StorageClass": { "enum": ["INSTANCE_STORE", "DATABASE_PACKAGE", "BACKUP_SET", "EXCHANGE_WORKSPACE"] },
           "State": { "enum": ["AVAILABLE", "IN_USE", "DETACHED", "INCOMPLETE", "RECOVERY_REQUIRED", "DELETE_PENDING"] },
-          "Provider": { "enum": ["docker", "podman", "hyperv", "external"] },
+          "Provider": { "enum": ["core", "docker", "podman", "hyperv", "external"] },
           "LocationBinding": {
             "type": "object",
             "required": ["Residency", "LocationId", "ProviderResourceId", "InventoryObjectId", "RelativePath"],

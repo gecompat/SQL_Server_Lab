@@ -140,14 +140,17 @@ Adoption außerhalb des Eigentumsscopes.
 
 ## 7. Konsequenzen und offene Folgearbeit
 
-Die Entscheidung schließt `PSR-002` ab. Der read-only Anteil von `PSR-003` ist
-inzwischen durch `SqlServerLab.PersistentStorageCatalog/1.0` und
-`SqlServerLab.PersistentStoragePlan/1.0` umgesetzt; er validiert stabile IDs,
-Klassen, Zustände, Referenzen und exklusive Leases und gleicht sie ohne
-Mutation mit dem Residency-Inventar ab. Folgende Arbeit bleibt getrennt:
+Die Entscheidung schließt `PSR-002` ab. `PSR-003` besitzt inzwischen
+`SqlServerLab.PersistentStorageCatalog/1.0` und
+`SqlServerLab.PersistentStoragePlan/1.0`; stabile IDs, Klassen, Zustände,
+Referenzen und exklusive Leases werden validiert und ohne Mutation mit dem
+Residency-Inventar abgeglichen. Der gemeinsame CAS-/Preview-Mutationskern wird
+bereits für sichere relative Exchange-Workspaces eingesetzt. Folgende Arbeit
+bleibt getrennt:
 
-- `PSR-003`: Katalogschreiben, Lease-Akquisition und Wiederverwendungsaktionen
-  auf Basis des vorhandenen read-only Vertrags;
+- `PSR-003`: übrige klassenbezogene Writer auf den gemeinsamen Mutationskern
+  umstellen sowie breite Bestandsmigration und Wiederverwendungsaktionen
+  ergänzen;
 - `PSR-004`: Der read-only Retention-/Removal-Plan sowie der journalisierte
   Docker-/Podman-Executor für `RETAIN_INSTANCE_STORE` und `BACKUP_ON_REMOVE`
   sind umgesetzt; Package, externe Freigabe und explizite endgültige

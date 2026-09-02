@@ -8,6 +8,13 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- Der Persistent-Storage-Katalog besitzt einen gemeinsamen Mutationskern mit
+  read-only Preview, Compare-and-Swap über die erwartete Revision,
+  unveränderlicher Controller-/Vertragsgrenze, genau einem Revisionsschritt und
+  rollbackfähigem Spiegelcommit. Der öffentliche Artefakt-Sync registriert
+  damit vorhandene sichere `EXCHANGE_WORKSPACE`-Verzeichnisse per stabiler UUID
+  und relativem `Lab_Data`-Pfad; Cleanup-Audit und Planner korrelieren sie über
+  dieselbe stabile Objekt-ID.
 - Der Cleanup-Audit löst unterstützte lokale Docker-Desktop- und Podman-WSL-
   Ablagen read-only bis zu VHDX- und Konfigurationsdateien auf. Er klassifiziert
   Images, Container, Volumes und Build-Cache normalisiert, bindet verwaltete
