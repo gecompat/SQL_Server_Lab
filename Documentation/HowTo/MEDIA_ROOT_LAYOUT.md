@@ -22,6 +22,18 @@ den Root ausdrücklich angeben:
 .\Tools\Initialize-SqlServerLabMediaRoot.ps1 -RootPath 'D:\Lab_Base'
 ```
 
+Für die erstmalige Gesamteinrichtung ist stattdessen der gemeinsame Assistent
+empfohlen:
+
+```powershell
+Import-Module .\SqlServerLab.psd1 -Force
+Invoke-SqlServerLab -Action Setup
+```
+
+Hier wird nur das Basisverzeichnis (zum Beispiel `D:\`) eingegeben; der Assistent
+leitet daraus `D:\Lab_Base` ab und richtet im selben Ablauf die gewünschten
+`Lab_Data`-Parents und den ausdrücklichen globalen Standard ein.
+
 Ein Laufwerksroot wie `D:\` und jeder Pfad innerhalb des Repository werden
 abgelehnt.
 

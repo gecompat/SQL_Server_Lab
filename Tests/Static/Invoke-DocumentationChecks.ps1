@@ -865,7 +865,7 @@ Add-ValidationResult `
 
 Add-ValidationResult `
     -Name 'PSR-003 dokumentiert partielle klassenbezogene Katalogcommits ohne breites Mutationsversprechen' `
-    -Success ($persistentStorageBacklog -match '(?m)^`ACTIVE / 11_TOP_LEVEL_PACKAGES_REMAIN / PSR_002_005_008_COMPLETE / PSR_001_003_004_011_PARTIAL / PSR_006_READ_ONLY / PSR_007_009_010_012_IMPLEMENTED_CORE / PSR_013_014_PLANNED`' -and
+    -Success ($persistentStorageBacklog -match '(?m)^`ACTIVE / 10_TOP_LEVEL_PACKAGES_REMAIN / PSR_002_005_008_014_COMPLETE / PSR_001_003_004_011_PARTIAL / PSR_006_READ_ONLY / PSR_007_009_010_012_IMPLEMENTED_CORE / PSR_013_PLANNED`' -and
         $persistentStorageBacklog -match '(?m)^\| `PSR-003` .*\| `IMPLEMENTED_PARTIAL`:' -and
         $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.PersistentStorageCatalog/1.0') -and
         $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.PersistentStoragePlan/1.0') -and
@@ -961,13 +961,22 @@ Add-ValidationResult `
 Add-ValidationResult `
     -Name 'PSR-008 ist nur für tatsächlich unterstützte Provider-Capabilities abgeschlossen' `
     -Success ($persistentStorageBacklog -match '(?m)^\| `PSR-008` .*\| `COMPLETE`:' -and
-        $persistentStorageBacklog -match '11_TOP_LEVEL_PACKAGES_REMAIN' -and
+        $persistentStorageBacklog -match '10_TOP_LEVEL_PACKAGES_REMAIN' -and
         $persistentStorageBacklog -match 'Cross-Provider-FILESTREAM.*`NOT_APPLICABLE`' -and
         $persistentStorageBacklog -match 'SQL Server\s*2025 auf Linux' -and
         $knownLimitations -match 'FILESTREAM-Cross-Provider-Lauf\s*ist in der aktuellen Matrix nicht möglich' -and
         $knownLimitations -match 'echte\s*FILESTREAM-Inhaltsevidence' -and
         $localValidationStrategy -match 'Kriterium ist `NOT_APPLICABLE`' -and
         $repoMap -match 'acceptance_backup_library_cross_provider: Tests/Integration/Invoke-BackupLibraryCrossProviderAcceptance\.ps1')
+
+Add-ValidationResult `
+    -Name 'PSR-014 bindet die idempotente Ersteinrichtung an Core, Konsole und Dokumentation' `
+    -Success ($persistentStorageBacklog -match '(?m)^\| `PSR-014` .*\| `COMPLETE`:' -and
+        $persistentStorageBacklog -match 'vor jeder Mutation fail-closed abgelehnt' -and
+        $projectContext -match 'gemeinsamer idempotenter\s*Ersteinrichtungsassistent' -and
+        $knownLimitations -match 'nichtleeren, noch nicht\s*controllergebundenen `Lab_Data`-Ordner' -and
+        $repoMap -match 'initial_setup_contract: Private/InitialSetup\.ps1' -and
+        $repoMap -match 'validation_initial_setup: Tests/Static/Invoke-InitialSetupChecks\.ps1')
 
 Add-ValidationResult `
     -Name 'PSR-010 trennt Datenbankartefakte von Serverobjekten, TDE-Keymaterial und externen Services' `
