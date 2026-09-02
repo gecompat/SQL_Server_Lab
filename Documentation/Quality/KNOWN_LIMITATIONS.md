@@ -778,6 +778,9 @@ Gastinstaller, prüft dessen echte SQL-Postconditions und schreibt den Desired
 State erst nach verifizierten Installation Receipts und Connection-State fort.
 Fehler bleiben mit demselben Zielhash vorwärts fortsetzbar. Plan, `WhatIf`,
 No-op, Fehler/Resume und Removal-Blockade sind statisch und synthetisch geprüft.
+Der read-only Plan weist bei einer ausführbaren Addition den kontrollierten
+SQL-/Launchpad-Neustart aus; ein No-op bleibt warnungsfrei und eine blockierte
+Removal- oder Variantenänderung enthält den stabilen fail-closed Reason-Code.
 Die zugrunde liegende direkte SQL-2022-Hyper-V-Installation für Python, R und
 Java besitzt native Runtime-Evidence; der neue öffentliche Reconcile-Ablauf
 selbst ist derzeit `NOT_EXECUTED`.
