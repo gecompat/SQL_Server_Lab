@@ -59,10 +59,14 @@ Der CMS selbst wird nicht als verwaltetes Ziel in seinen eigenen Unterbaum
 eingetragen. Bei sechs fertigen Testumgebungen meldet der CMS-Abgleich daher sechs
 Endpunkte, auch wenn die lokale Verbindungszentrale zusätzlich den CMS-Run anzeigt.
 
-Der CMS wird immer mit einem automatisch erzeugten SA-Passwort erstellt. Daher zeigt die
-Konsolenübersicht dessen Connection String einschließlich Passwort erneut im Klartext an,
-solange der lokale DPAPI-Schlüssel den Run entschlüsseln kann. Manuell eingegebene oder
-manifestbasierte Kennwörter bleiben immer maskiert.
+Der CMS wird immer mit einem automatisch erzeugten SA-Passwort erstellt. Er ist bewusst
+nicht in **Umgebungen verwalten -> Status** gelistet, weil er als geschützter Systemdienst
+behandelt wird. Den Zugang zeigt die CLI unter **Datenbanken und Verbindungen ->
+SQL-Verbindungszentrale -> CMS verwalten und synchronisieren -> CMS-Zugang anzeigen**.
+Dort erscheinen Connection String und Passwort nur in dieser ausdrücklich geöffneten
+Ansicht und bleiben bis **Enter** oder **Escape** lesbar. Voraussetzung ist, dass der lokale
+DPAPI-Schlüssel den Run entschlüsseln kann. Manuell eingegebene oder manifestbasierte
+Kennwörter bleiben immer maskiert.
 
 Alternativ schreibt `[4]` unter `Lab_Data/Exports` ein idempotentes
 `sql-server-lab-cms-sync.sql`. Das Skript nutzt die dokumentierten
