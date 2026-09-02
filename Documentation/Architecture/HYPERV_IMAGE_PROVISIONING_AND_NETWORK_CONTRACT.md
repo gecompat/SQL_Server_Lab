@@ -518,8 +518,10 @@ Zielhash vor der Mutation, verwendet katalogisierte Offlinemedien und übernimmt
 den neuen Desired State erst nach Installation Receipt, Connection-State und
 echten SQL-Postconditions. Ein nichtterminales Journal wird mit demselben Ziel
 vorwärts fortgesetzt. Removal, Varianten-/Packagewechsel und Artifact-Refresh
-bleiben `unsupported`. Die direkte Gastinstallation besitzt native Evidence;
-der öffentliche Reconcile-Ablauf ist noch `NOT_EXECUTED`.
+bleiben `unsupported`. Die direkte Gastinstallation besitzt native Evidence.
+Ein isolierter nativer Runner deckt den öffentlichen Plan-/`WhatIf`-/Apply-/
+No-op-/Removal-Blockade-Pfad samt VM-Neustartgrenze, SQL-Postconditions, Cold
+Start und Cleanup ausführbar ab; seine Ausführung ist noch `NOT_EXECUTED`.
 
 Azure Data Studio ist seit 28. Februar 2026 nicht mehr unterstützt. Ein späterer
 Softwarekatalog markiert es als `retired`; VS Code mit MSSQL Extension ist die
@@ -863,7 +865,10 @@ providergebunden zwischen Container-Replacement und additiver Hyper-V-
 Gastinstallation. Der Hyper-V-Pfad besitzt Plan/`WhatIf`, VM-/Zielhash-Journal,
 No-op, verifizierten Desired-State-Commit und Vorwärts-Recovery; Removal,
 Variantenwechsel und Artifact-Refresh bleiben fail-closed. Die neue öffentliche
-Sequenz ist statisch/synthetisch belegt und nativ noch `NOT_EXECUTED`.
+Sequenz ist statisch/synthetisch belegt und besitzt einen isolierten nativen
+Runner für Plan/`WhatIf`/Apply/No-op/Removal-Blockade, VM-Neustartgrenze,
+SQL-Postconditions, Cold Start und Cleanup; seine Ausführung ist noch
+`NOT_EXECUTED`.
 
 ### Welle 9 – Robustheit und Tests
 

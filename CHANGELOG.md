@@ -19,6 +19,11 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Geändert
 
+- Der native SQL-2022-Hyper-V-External-Runtime-Aufbau besitzt jetzt einen
+  getrennten Reconcile-Einstieg. Er persistiert einen softwarefreien Desired
+  State und prüft den öffentlichen Plan-/`WhatIf`-/Apply-/No-op-/Removal-
+  Blockade-Pfad, die VM-Neustartgrenze, echte Python-/R-/Java-Postconditions,
+  Cold Start und optionalen scopegebundenen Cleanup.
 - Der Hyper-V-External-Runtime-Reconcile-Plan erzeugt seine Warnungen jetzt im
   Planer selbst. Additive Gastmutationen weisen den kontrollierten SQL-/
   Launchpad-Neustart aus, No-op-Pläne bleiben warnungsfrei und blockierte
