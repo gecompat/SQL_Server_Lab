@@ -693,7 +693,10 @@ Maschinenwerte sowie die gemeinsame Einbindung in Modulimport und Podman-
 Bootstrap. Eine AST-gestützte Vollprüfung über `Private`, `Public` und
 `Providers` stellt sicher, dass produktive Docker-/Podman-Aufrufpfade den
 zentral aufgelösten absoluten Aufruf verwenden und nicht von einem geerbten
-Shell-`PATH` abhängen. Die Runtime-Smokes bleiben erforderlich, weil
+Shell-`PATH` abhängen. Eigenständig gestartete Runtime-Acceptances werden
+zusätzlich vor ihrem ersten Provider-Probe zentral initialisiert und verwenden
+danach ausschließlich den absoluten `Invocation`-Pfad. Die Runtime-Smokes
+bleiben erforderlich, weil
 Dateiauflösung weder Engine-Erreichbarkeit noch Ausführungsberechtigung beweist.
 
 ### Podman-Runtime betroffen

@@ -9,7 +9,7 @@
 | [LOCAL_READINESS_CHECKLIST.md](LOCAL_READINESS_CHECKLIST.md) | präzise Vor-Push- und Vor-Release-Validierungsreihenfolge |
 | [REPOSITORY_CONTINUITY_RUNBOOK.md](REPOSITORY_CONTINUITY_RUNBOOK.md) | verbindlicher GitHub-Actions-Ausfall-, Break-Glass- und Nachholvalidierungsablauf |
 | [PRIVACY_AND_ARTIFACT_SECURITY.md](PRIVACY_AND_ARTIFACT_SECURITY.md) | Privacy-, Daten- und Artefaktsicherheitsvertrag |
-| [VALIDATION_RESULT_2026-09-02.md](VALIDATION_RESULT_2026-09-02.md) | native Docker-/Podman-Abnahme des PSR-005-Mehr-Volume-Continue-/Clone-Pfads |
+| [VALIDATION_RESULT_2026-09-02.md](VALIDATION_RESULT_2026-09-02.md) | native Docker-/Podman-Abnahme des PSR-005-Mehr-Volume-Pfads und der zentralen Host-Tool-Auflösung in eigenständigen Prozessen |
 | [VALIDATION_RESULT_2026-08-28.md](VALIDATION_RESULT_2026-08-28.md) | native Docker-/Podman-Abnahme von External-Runtime-Refresh, Java-Removal, Persistenz und Cleanup |
 | [VALIDATION_RESULT_2026-08-27.md](VALIDATION_RESULT_2026-08-27.md) | aktueller lokaler und CI-gestützter vollständiger CLI- und Provider-Validierungsbefund |
 | [VALIDATION_RESULT_2026-08-20.md](VALIDATION_RESULT_2026-08-20.md) | historischer Validierungsbefund der providerneutralen Batch-Abnahme |

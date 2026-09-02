@@ -581,6 +581,7 @@ internal_components:
       - "Docker, Podman und Python ueber sichere explizite Overrides, Sessionbefehle, persistierte PATH-Eintraege und bekannte Windows-Installationsorte deterministisch aufloesen"
       - "ausschliesslich den aktuellen Prozess-PATH idempotent erweitern und Benutzer-/Maschinen-PATH niemals persistierend veraendern"
       - "alle produktiven Docker-/Podman-Aufrufpfade ueber den zentral aufgeloesten absoluten Runtime-Aufruf vom geerbten Shell-PATH entkoppeln"
+      - "eigenstaendig gestartete Docker-/Podman-Acceptances vor dem ersten Runtime-Probe zentral initialisieren und ueber den absoluten Invocation-Pfad ausfuehren"
       - "installierte Executables von nicht auffindbaren Tools trennen, ohne Runtime-Erreichbarkeit oder Ausfuehrungsberechtigung vorwegzunehmen"
   - name: ContainerAutoStart
     source: Private/ContainerAutoStart.ps1
@@ -1032,6 +1033,8 @@ validation:
       - persisted_path_immutability
       - docker_podman_python_windows_fallbacks
       - centralized_podman_bootstrap_integration
+      - standalone_acceptance_absolute_invocation
+      - agent_process_bootstrap_rule
   static_container_autostart:
     command: '.\Tests\Static\Invoke-ContainerAutoStartChecks.ps1'
     source: Tests/Static/Invoke-ContainerAutoStartChecks.ps1
@@ -1060,6 +1063,7 @@ validation:
     source: Tests/Integration/Invoke-SmokeTest.ps1
     docker: '.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider docker'
     podman: '.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider podman'
+    execution_status: "Docker und Podman am 2026-09-02 getrennt mit je 34/34 PASS ausgefuehrt; zentral aufgeloeste CLI, SQL-2025-Lifecycle und vollstaendiger Cleanup bestaetigt"
   runtime_matrix:
     source: Tests/Integration/Invoke-SmokeMatrix.ps1
     command: '.\Tests\Integration\Invoke-SmokeMatrix.ps1 -Provider all -ReferenceVersion 2025'
@@ -1175,7 +1179,7 @@ validation:
   container_runtime_scope_acceptance:
     source: Tests/Integration/Invoke-ContainerRuntimeScopeAcceptance.ps1
     command: '.\Tests\Integration\Invoke-ContainerRuntimeScopeAcceptance.ps1'
-    execution_status: "Docker Desktop und Podman WSL-Machine am 2026-09-01 getrennt read-only positiv ausgefuehrt; Runtime-Ressourcen und Auswahl unveraendert"
+    execution_status: "Docker Desktop und Podman WSL-Machine am 2026-09-02 ueber zentral aufgeloeste absolute Aufrufe getrennt read-only positiv ausgefuehrt; Runtime-Ressourcen und Auswahl unveraendert"
     checks:
       - live_context_connection_and_machine_binding
       - schema_and_sanitization
@@ -1241,8 +1245,8 @@ validation:
   last_confirmed_result:
     date: "2026-09-02"
     source: Documentation/Quality/VALIDATION_RESULT_2026-09-02.md
-    docker: "PASS – PSR-005-Mehr-Volume-Continue/Clone einschließlich Sidecar-Digests und Live-SQL; External-Runtime-Befunde vom 2026-08-28/29 bleiben gültig"
-    podman: "PASS – PSR-005-Mehr-Volume-Continue/Clone einschließlich Sidecar-Digests und Live-SQL; External-Runtime-Befunde vom 2026-08-28/29 bleiben gültig"
+    docker: "PASS – PSR-005-Mehr-Volume-Continue/Clone sowie zentral aufgeloester Host-Tool-/SQL-2025-Smoke mit vollstaendigem Cleanup; External-Runtime-Befunde vom 2026-08-28/29 bleiben gültig"
+    podman: "PASS – PSR-005-Mehr-Volume-Continue/Clone sowie zentral aufgeloester Host-Tool-/SQL-2025-Smoke mit vollstaendigem Cleanup; External-Runtime-Befunde vom 2026-08-28/29 bleiben gültig"
     hyperv: "PASS (übernommen vom 2026-08-27-Befund) – frischer Windows-Slot, SQL Server 2025, Lifecycle, Persistenz und Cleanup"
 
 change_coupling:
