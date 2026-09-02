@@ -171,7 +171,7 @@ function Get-SqlServerLabWorkflow {
             )
             $hyperVPersistentDataCandidates = @(Get-LabHyperVPersistentDataSelection `
                 -Configuration $storageConfiguration -Catalog $storageCatalog `
-                -InspectRuntime:([bool]($hyperV.Available -and $isElevated)))
+                -InspectRuntime:([bool]$hyperV.Available))
         }
     }
     catch { $persistentStorageRemovalCandidates = @(); $containerInstanceStoreCandidates = @(); $hyperVPersistentDataCandidates = @() }

@@ -478,6 +478,14 @@ Add-CheckResult -Name 'Hyper-V-Switches und sofortige Browser-Rückmeldung sind 
     $scriptText -match '\[HEARTBEAT\]' -and
     $serverText -notmatch 'Eine Hintergrundaktion läuft bereits'
 )
+Add-CheckResult -Name 'Browser aktiviert Hyper-V capability-basiert statt per Administrator-Rollenbit' -Success (
+    $scriptText -match 'else if \(host\.HyperV\.Available\)' -and
+    $scriptText -match 'Hyper-V bereit · Capability geprüft' -and
+    $scriptText -match 'const hyperVDisabled = !host\.HyperV\.Supported \|\| !host\.HyperV\.Available;' -and
+    $scriptText -notmatch 'hyperVDisabled\s*=.*IsElevated' -and
+    $workflowText -match '-InspectRuntime:\(\[bool\]\$hyperV\.Available\)' -and
+    $workflowText -notmatch '-InspectRuntime:.*isElevated'
+)
 Add-CheckResult -Name 'Windows-Generalisierung fordert sichtbar das Gastpasswort an' -Success (
     $scriptText -match 'Windows generalisieren · Gastpasswort erforderlich' -and
     $scriptText -match "action === 'GeneralizeWindowsBuild'" -and

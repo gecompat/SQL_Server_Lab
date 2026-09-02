@@ -246,6 +246,13 @@ Das ausführende Konto muss Mitglied der lokalen Administratoren oder der Gruppe
 `Hyper-V Administrators` sein und Schreibrechte auf die verwendeten VM-/VHDX-
 Arbeitsverzeichnisse besitzen.
 
+Workflow und Browser aktivieren Hyper-V deshalb anhand des erfolgreichen
+`Get-VMHost`-Capability-Probes und nicht anhand des Administrator-Rollenbits.
+Einzelne Operationen mit zusätzlichen Volume-Rechten, insbesondere
+`Mount-VHD`, prüfen ihre engere Berechtigung weiterhin erst am jeweiligen
+Ausführungspunkt und melden dort gegebenenfalls den erforderlichen UAC-
+Übergang.
+
 Native Lifecycle-Prüfung:
 
 ```powershell
