@@ -241,7 +241,7 @@ function Get-LabContainerRuntimeHostBackingEvidence {
     $backingStores = @($items | Where-Object Kind -eq 'BACKING_STORE')
     $relations = @($backingStores.LabDataRelation | Sort-Object -Unique)
     $relation = if ($relations.Count -eq 1) { [string]$relations[0] } else { 'UNKNOWN' }
-    if ($provider -eq 'docker' -and $IsWindows -and @($backingStores | Where-Object Path -match '(?i)\\Docker\\wsl\\').Count -gt 0) {
+    if ($provider -eq 'docker' -and @($backingStores | Where-Object Path -match '(?i)[\\/]Docker[\\/]wsl[\\/]').Count -gt 0) {
         $hostMode = 'WINDOWS_WSL2'
     }
     $status = if ($backingStores.Count -gt 0) { 'VERIFIED' } else { 'UNVERIFIABLE' }
