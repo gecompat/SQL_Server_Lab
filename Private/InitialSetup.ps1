@@ -15,7 +15,7 @@ function Test-LabInitialSetupPathWithinRepository {
         $candidate.StartsWith($repository + [IO.Path]::DirectorySeparatorChar, $comparison)
 }
 
-function Resolve-LabInitialSetupMediaParent {
+function Resolve-LabInitialSetupMediaRoot {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$Path)
 
@@ -23,21 +23,17 @@ function Resolve-LabInitialSetupMediaParent {
     if ([string]::IsNullOrWhiteSpace($candidate) -or
         $candidate -match '^[A-Za-z]:$' -or
         -not [IO.Path]::IsPathFullyQualified($candidate)) {
-        throw 'INITIAL_SETUP_MEDIA_PARENT_NOT_FULLY_QUALIFIED'
+        throw 'INITIAL_SETUP_MEDIA_ROOT_NOT_FULLY_QUALIFIED'
     }
     try { $fullPath = [IO.Path]::GetFullPath($candidate) }
-    catch { throw "INITIAL_SETUP_MEDIA_PARENT_INVALID: $($_.Exception.Message)" }
+    catch { throw "INITIAL_SETUP_MEDIA_ROOT_INVALID: $($_.Exception.Message)" }
     $volumeRoot = [IO.Path]::GetPathRoot($fullPath)
-    $parent = if ($fullPath.TrimEnd('\', '/') -eq $volumeRoot.TrimEnd('\', '/')) {
-        $volumeRoot
-    }
-    else { $fullPath.TrimEnd('\', '/') }
-    if ([string]::IsNullOrWhiteSpace($parent)) { throw 'INITIAL_SETUP_MEDIA_PARENT_INVALID' }
-    $mediaRoot = Join-Path $parent 'Lab_Base'
+    $mediaRoot = $fullPath.TrimEnd('\', '/')
+    if ($mediaRoot -eq $volumeRoot.TrimEnd('\', '/')) { throw 'INITIAL_SETUP_MEDIA_ROOT_TOO_BROAD' }
     if (Test-LabInitialSetupPathWithinRepository -Path $mediaRoot) {
         throw 'MEDIA_ROOT_INSIDE_REPOSITORY: Medien muessen ausserhalb des Git-Checkouts liegen.'
     }
-    return [PSCustomObject]@{ BaseParent = $parent; MediaRoot = $mediaRoot }
+    return [PSCustomObject]@{ MediaRoot = $mediaRoot }
 }
 
 function Get-LabInitialSetupState {
@@ -72,19 +68,18 @@ function Get-LabInitialSetupState {
 function New-LabInitialSetupPlan {
     [CmdletBinding()]
     param(
-        [string]$MediaBaseParent,
-        [string[]]$LabDataParent = @(),
+        [string]$MediaRoot,
+        [string[]]$LabDataRoot = @(),
         [string]$DefaultDataRoot
     )
 
     $state = Get-LabInitialSetupState
     $mediaAction = $null
     if (-not $state.MediaRootValid) {
-        if ([string]::IsNullOrWhiteSpace($MediaBaseParent)) { throw 'INITIAL_SETUP_MEDIA_PARENT_REQUIRED' }
-        $resolvedMedia = Resolve-LabInitialSetupMediaParent -Path $MediaBaseParent
+        if ([string]::IsNullOrWhiteSpace($MediaRoot)) { throw 'INITIAL_SETUP_MEDIA_ROOT_REQUIRED' }
+        $resolvedMedia = Resolve-LabInitialSetupMediaRoot -Path $MediaRoot
         $mediaAction = [PSCustomObject]@{
             Action = 'Initialize'
-            BaseParent = [string]$resolvedMedia.BaseParent
             MediaRoot = [string]$resolvedMedia.MediaRoot
         }
     }
@@ -99,8 +94,8 @@ function New-LabInitialSetupPlan {
         if ($volumeId) { $knownVolumes[$volumeId] = $root }
     }
 
-    foreach ($parentInput in @($LabDataParent | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })) {
-        $resolved = Resolve-LabStorageParentPath -Path ([string]$parentInput)
+    foreach ($rootInput in @($LabDataRoot | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })) {
+        $resolved = Resolve-LabStorageRootPath -Path ([string]$rootInput)
         $root = [IO.Path]::GetFullPath([string]$resolved.LabDataRoot).TrimEnd('\', '/')
         if (Test-LabInitialSetupPathWithinRepository -Path $root) { throw 'LAB_DATA_ROOT_INSIDE_REPOSITORY' }
         if (@($knownRoots | Where-Object { $_.Equals($root, [StringComparison]::OrdinalIgnoreCase) }).Count -gt 0) { continue }
@@ -124,7 +119,6 @@ function New-LabInitialSetupPlan {
         $knownVolumes[$volumeId] = $root
         $plannedLocations.Add([PSCustomObject]@{
             Action = 'InitializeAndRegister'
-            LabDataParent = [string]$resolved.LabDataParent
             LabDataRoot = $root
             VolumeId = $volumeId
         })
@@ -165,11 +159,11 @@ function Invoke-LabInitialSetupPlan {
         throw 'INITIAL_SETUP_PLAN_CONTRACT_UNSUPPORTED'
     }
     $Plan = New-LabInitialSetupPlan `
-        -MediaBaseParent $(if ($Plan.MediaAction) { [string]$Plan.MediaAction.BaseParent } else { $null }) `
-        -LabDataParent @($Plan.LocationActions | ForEach-Object { [string]$_.LabDataParent }) `
+        -MediaRoot $(if ($Plan.MediaAction) { [string]$Plan.MediaAction.MediaRoot } else { $null }) `
+        -LabDataRoot @($Plan.LocationActions | ForEach-Object { [string]$_.LabDataRoot }) `
         -DefaultDataRoot ([string]$Plan.DefaultDataRoot)
     if ($Plan.IsNoOp) { return $Plan.CurrentState }
-    if (-not $PSCmdlet.ShouldProcess('Lab_Base und Lab_Data', 'Geprueften Ersteinrichtungsplan anwenden')) { return $Plan }
+    if (-not $PSCmdlet.ShouldProcess('gemeinsame Host-Wurzeln', 'Geprueften Ersteinrichtungsplan anwenden')) { return $Plan }
 
     if ($Plan.MediaAction) {
         $initializer = Join-Path $script:ModuleRoot 'Tools/Initialize-SqlServerLabMediaRoot.ps1'
@@ -179,7 +173,7 @@ function Invoke-LabInitialSetupPlan {
     }
 
     foreach ($location in @($Plan.LocationActions)) {
-        $null = Set-LabDataLocation -LabDataParent ([string]$location.LabDataParent) `
+        $null = Set-LabDataLocation -LabDataRoot ([string]$location.LabDataRoot) `
             -ProcessEnvironmentOnly:$ProcessEnvironmentOnly -Confirm:$false
     }
     $configuration = Get-LabStorageConfiguration
@@ -199,14 +193,14 @@ function Invoke-LabInitialSetupPlan {
 function Invoke-LabInitialSetup {
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact='Medium')]
     param(
-        [string]$MediaBaseParent,
-        [string[]]$LabDataParent = @(),
+        [string]$MediaRoot,
+        [string[]]$LabDataRoot = @(),
         [string]$DefaultDataRoot,
         [switch]$ProcessEnvironmentOnly
     )
 
-    $plan = New-LabInitialSetupPlan -MediaBaseParent $MediaBaseParent `
-        -LabDataParent $LabDataParent -DefaultDataRoot $DefaultDataRoot
+    $plan = New-LabInitialSetupPlan -MediaRoot $MediaRoot `
+        -LabDataRoot $LabDataRoot -DefaultDataRoot $DefaultDataRoot
     if ($plan.IsNoOp) { return $plan.CurrentState }
     return Invoke-LabInitialSetupPlan -Plan $plan -ProcessEnvironmentOnly:$ProcessEnvironmentOnly `
         -Confirm:$false -WhatIf:$WhatIfPreference
@@ -218,13 +212,13 @@ function Invoke-LabInitialSetupInteractive {
 
     $state = Get-LabInitialSetupState
     if ($state.Complete) {
-        Write-LabSuccess "Ersteinrichtung ist bereits vollständig: Lab_Base=$($state.MediaRoot), Lab_Data=$(@($state.Locations).Count) Location(s)."
+        Write-LabSuccess "Host-Infrastruktur ist bereits vollständig: Media-Root=$($state.MediaRoot), Datenroots=$(@($state.Locations).Count)."
         return $state
     }
 
     $mediaParent = $null
     if (-not $state.MediaRootValid) {
-        $inputResult = Read-LabConsoleTextInput -Prompt '  Basisverzeichnis für Lab_Base (z. B. D:\)'
+        $inputResult = Read-LabConsoleTextInput -Prompt '  Vollständiger gemeinsamer Media-Root (z. B. D:\Lab1_Base)'
         if ($inputResult.Status -ne 'Confirmed' -or [string]::IsNullOrWhiteSpace([string]$inputResult.Value)) { return $null }
         $mediaParent = [string]$inputResult.Value
     }
@@ -234,11 +228,11 @@ function Invoke-LabInitialSetupInteractive {
     foreach ($location in @($state.Locations)) { $prospectiveRoots.Add([string]$location.LabDataRoot) }
     if ($state.Locations.Count -eq 0) {
         do {
-            $inputResult = Read-LabConsoleTextInput -Prompt '  Parent für Lab_Data (z. B. D:\; daraus wird D:\Lab_Data)'
+            $inputResult = Read-LabConsoleTextInput -Prompt '  Vollständiger gemeinsamer Lab-Datenroot (z. B. D:\Lab1_Data)'
             if ($inputResult.Status -ne 'Confirmed' -or [string]::IsNullOrWhiteSpace([string]$inputResult.Value)) { return $null }
-            $resolved = Resolve-LabStorageParentPath -Path ([string]$inputResult.Value)
+            $resolved = Resolve-LabStorageRootPath -Path ([string]$inputResult.Value)
             Write-LabInfo "Normalisiertes Ziel: $($resolved.LabDataRoot)"
-            $parents.Add([string]$resolved.LabDataParent)
+            $parents.Add([string]$resolved.LabDataRoot)
             $prospectiveRoots.Add([string]$resolved.LabDataRoot)
             $addMore = Read-LabConfirm -Prompt '  Weitere Lab_Data-Location auf einem anderen Volume hinzufügen?' -Default $false
         } while ($addMore)
@@ -257,12 +251,12 @@ function Invoke-LabInitialSetupInteractive {
         $defaultRoot = [string]$selection.SelectedItem.Data
     }
 
-    $plan = New-LabInitialSetupPlan -MediaBaseParent $mediaParent -LabDataParent @($parents) -DefaultDataRoot $defaultRoot
-    if ($plan.MediaAction) { Write-LabInfo "Lab_Base: $($plan.MediaAction.MediaRoot)" }
-    foreach ($location in @($plan.LocationActions)) { Write-LabInfo "Lab_Data: $($location.LabDataRoot)" }
+    $plan = New-LabInitialSetupPlan -MediaRoot $mediaParent -LabDataRoot @($parents) -DefaultDataRoot $defaultRoot
+    if ($plan.MediaAction) { Write-LabInfo "Gemeinsamer Media-Root: $($plan.MediaAction.MediaRoot)" }
+    foreach ($location in @($plan.LocationActions)) { Write-LabInfo "Gemeinsamer Lab-Datenroot: $($location.LabDataRoot)" }
     Write-LabInfo "Globaler Lab_Data-Standard: $($plan.DefaultDataRoot)"
     if (-not (Read-LabConfirm -Prompt '  Diese Ersteinrichtung jetzt anwenden?' -Default $false)) { return $null }
     $result = Invoke-LabInitialSetupPlan -Plan $plan -Confirm:$false
-    Write-LabSuccess 'Lab_Base und Lab_Data sind vollständig eingerichtet.'
+    Write-LabSuccess 'Gemeinsame Host-Infrastruktur ist vollständig eingerichtet.'
     return $result
 }

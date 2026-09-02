@@ -14,12 +14,9 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
 $temporaryRoot = Join-Path ([IO.Path]::GetTempPath()) "sql-lab-initial-setup-$([guid]::NewGuid().ToString('N'))"
-$mediaParent = Join-Path $temporaryRoot 'media-parent'
-$dataParentOne = Join-Path $temporaryRoot 'data-one'
-$dataParentTwo = Join-Path $temporaryRoot 'data-two'
-$mediaRoot = Join-Path $mediaParent 'Lab_Base'
-$dataRootOne = Join-Path $dataParentOne 'Lab_Data'
-$dataRootTwo = Join-Path $dataParentTwo 'Lab_Data'
+$mediaRoot = Join-Path $temporaryRoot 'Lab1_Base'
+$dataRootOne = Join-Path $temporaryRoot 'Lab1_Data'
+$dataRootTwo = Join-Path $temporaryRoot 'Lab2_Data'
 $previousMediaRoot = $env:SQL_SERVER_LAB_MEDIA_ROOT
 $previousDataRoot = $env:SQL_SERVER_LAB_DATA_ROOT
 $previousControllerId = $env:SQL_SERVER_LAB_CONTROLLER_ID
@@ -51,30 +48,22 @@ try {
         Set-Item -Path Function:script:Get-LabVolumeIdentity -Value {
             param([string]$Path)
             $full = [IO.Path]::GetFullPath($Path)
-            $id = if ($full -match 'data-two') { 'test-volume-two' } else { 'test-volume-one' }
+            $id = if ($full -match 'Lab2_Data') { 'test-volume-two' } else { 'test-volume-one' }
             [PSCustomObject]@{ VolumeId=$id; DriveLetter=$id; VolumeRoot=[IO.Path]::GetPathRoot($full) }
         }
     }
 
     $relativeRejected = try {
-        & $module { New-LabInitialSetupPlan -MediaBaseParent 'D:' -LabDataParent @('D:\') -DefaultDataRoot 'D:\Lab_Data' }
+        & $module { New-LabInitialSetupPlan -MediaRoot 'D:' -LabDataRoot @('D:\') -DefaultDataRoot 'D:\Lab1_Data' }
         $false
-    } catch { $_.Exception.Message -match 'INITIAL_SETUP_MEDIA_PARENT_NOT_FULLY_QUALIFIED' }
-    Add-CheckResult -Name 'Ersteinrichtung lehnt laufwerksrelative Basisangaben vor jeder Mutation ab' -Success $relativeRejected
-    $volumeRootResolution = & $module {
-        param($root)
-        Resolve-LabInitialSetupMediaParent -Path $root
-    } ([IO.Path]::GetPathRoot($temporaryRoot))
-    Add-CheckResult -Name 'Dateisystemroot bleibt als vollqualifizierter Parent erhalten' -Success (
-        [IO.Path]::IsPathFullyQualified([string]$volumeRootResolution.MediaRoot) -and
-        (Split-Path -Leaf ([string]$volumeRootResolution.MediaRoot)) -eq 'Lab_Base'
-    )
+    } catch { $_.Exception.Message -match 'INITIAL_SETUP_MEDIA_ROOT_NOT_FULLY_QUALIFIED' }
+    Add-CheckResult -Name 'Ersteinrichtung lehnt laufwerksrelative Root-Angaben vor jeder Mutation ab' -Success $relativeRejected
 
     $plan = & $module {
-        param($mediaParent, $parentOne, $parentTwo, $defaultRoot)
-        New-LabInitialSetupPlan -MediaBaseParent $mediaParent -LabDataParent @($parentOne, $parentTwo) -DefaultDataRoot $defaultRoot
-    } $mediaParent $dataParentOne $dataParentTwo $dataRootTwo
-    Add-CheckResult -Name 'Plan leitet Lab_Base und mehrere Lab_Data-Roots ausschließlich aus Parents ab' -Success (
+        param($mediaRoot, $rootOne, $rootTwo, $defaultRoot)
+        New-LabInitialSetupPlan -MediaRoot $mediaRoot -LabDataRoot @($rootOne, $rootTwo) -DefaultDataRoot $defaultRoot
+    } $mediaRoot $dataRootOne $dataRootTwo $dataRootTwo
+    Add-CheckResult -Name 'Plan akzeptiert frei wählbare gemeinsame Media- und Datenroots' -Success (
         $plan.ContractVersion -eq 'SqlServerLab.InitialSetupPlan/1.0' -and
         $plan.MediaAction.MediaRoot -eq $mediaRoot -and
         @($plan.LocationActions).Count -eq 2 -and
@@ -82,22 +71,22 @@ try {
         $plan.LocationActions[1].LabDataRoot -eq $dataRootTwo
     )
     Add-CheckResult -Name 'Globaler Lab_Data-Standard ist im Plan ausdrücklich gebunden' -Success ($plan.DefaultDataRoot -eq $dataRootTwo)
-    Add-CheckResult -Name 'Read-only Planung erzeugt weder Lab_Base noch Lab_Data' -Success (
+    Add-CheckResult -Name 'Read-only Planung erzeugt keine gemeinsamen Host-Wurzeln' -Success (
         -not (Test-Path -LiteralPath $mediaRoot) -and -not (Test-Path -LiteralPath $dataRootOne) -and -not (Test-Path -LiteralPath $dataRootTwo)
     )
     $missingDefaultRejected = try {
         & $module {
-            param($mediaParent, $parentOne)
-            New-LabInitialSetupPlan -MediaBaseParent $mediaParent -LabDataParent $parentOne
-        } $mediaParent $dataParentOne
+            param($mediaRoot, $dataRoot)
+            New-LabInitialSetupPlan -MediaRoot $mediaRoot -LabDataRoot $dataRoot
+        } $mediaRoot $dataRootOne
         $false
     } catch { $_.Exception.Message -match 'INITIAL_SETUP_DEFAULT_DATA_ROOT_REQUIRED' }
     Add-CheckResult -Name 'Erster Setup-Plan verlangt eine ausdrückliche globale Default-Auswahl' -Success $missingDefaultRejected
     $whatIfPlan = & $module {
-        param($mediaParent, $parentOne, $parentTwo, $defaultRoot)
-        Invoke-LabInitialSetup -MediaBaseParent $mediaParent -LabDataParent @($parentOne, $parentTwo) `
+        param($mediaRoot, $rootOne, $rootTwo, $defaultRoot)
+        Invoke-LabInitialSetup -MediaRoot $mediaRoot -LabDataRoot @($rootOne, $rootTwo) `
             -DefaultDataRoot $defaultRoot -ProcessEnvironmentOnly -WhatIf
-    } $mediaParent $dataParentOne $dataParentTwo $dataRootTwo
+    } $mediaRoot $dataRootOne $dataRootTwo $dataRootTwo
     Add-CheckResult -Name 'WhatIf liefert den revalidierten Plan ohne Dateisystemmutation' -Success (
         $whatIfPlan.ContractVersion -eq 'SqlServerLab.InitialSetupPlan/1.0' -and
         -not (Test-Path -LiteralPath $mediaRoot) -and -not (Test-Path -LiteralPath $dataRootOne)
@@ -108,7 +97,7 @@ try {
         Invoke-LabInitialSetupPlan -Plan $plan -ProcessEnvironmentOnly -Confirm:$false
     } $plan
     $configuration = & $module { Get-LabStorageConfiguration }
-    Add-CheckResult -Name 'Gemeinsamer Core initialisiert Lab_Base und zwei controllergebundene Locations' -Success (
+    Add-CheckResult -Name 'Gemeinsamer Core initialisiert frei benannte, controllergebundene Host-Roots' -Success (
         $result.Complete -and (Test-Path -LiteralPath (Join-Path $mediaRoot 'SQL') -PathType Container) -and
         @($configuration.LabDataLocations).Count -eq 2 -and
         (Test-Path -LiteralPath (Join-Path $dataRootOne '.sql-server-lab-root.json') -PathType Leaf) -and
@@ -135,21 +124,20 @@ try {
 
     $env:SQL_SERVER_LAB_MEDIA_ROOT = $null
     $env:SQL_SERVER_LAB_DATA_ROOT = $null
-    $foreignParent = Join-Path $temporaryRoot 'foreign-parent'
-    $foreignRoot = Join-Path $foreignParent 'Lab_Data'
-    $alternateMediaParent = Join-Path $temporaryRoot 'alternate-media'
+    $foreignRoot = Join-Path $temporaryRoot 'foreign-data'
+    $alternateMediaRoot = Join-Path $temporaryRoot 'alternate-media'
     $null = New-Item -Path $foreignRoot -ItemType Directory -Force
     Set-Content -LiteralPath (Join-Path $foreignRoot 'do-not-touch.txt') -Value 'foreign' -Encoding utf8NoBOM
     $foreignRejected = try {
         & $module {
-            param($mediaParent, $dataParent, $defaultRoot)
-            Invoke-LabInitialSetup -MediaBaseParent $mediaParent -LabDataParent $dataParent `
+            param($mediaRoot, $dataRoot, $defaultRoot)
+            Invoke-LabInitialSetup -MediaRoot $mediaRoot -LabDataRoot $dataRoot `
                 -DefaultDataRoot $defaultRoot -ProcessEnvironmentOnly -Confirm:$false
-        } $alternateMediaParent $foreignParent $foreignRoot
+        } $alternateMediaRoot $foreignRoot $foreignRoot
         $false
     } catch { $_.Exception.Message -match 'INITIAL_SETUP_DATA_ROOT_NOT_EMPTY' }
-    Add-CheckResult -Name 'Fremder nichtleerer Lab_Data-Root wird vor Lab_Base-Mutation fail-closed abgelehnt' -Success (
-        $foreignRejected -and -not (Test-Path -LiteralPath (Join-Path $alternateMediaParent 'Lab_Base')) -and
+    Add-CheckResult -Name 'Fremder nichtleerer frei benannter Datenroot wird vor Media-Root-Mutation fail-closed abgelehnt' -Success (
+        $foreignRejected -and -not (Test-Path -LiteralPath $alternateMediaRoot) -and
         (Get-Content -LiteralPath (Join-Path $foreignRoot 'do-not-touch.txt') -Raw -Encoding utf8).Trim() -eq 'foreign'
     )
 

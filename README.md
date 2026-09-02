@@ -164,10 +164,10 @@ und eine oder mehrere `Lab_Data`-Locations ein:
 Invoke-SqlServerLab -Action Setup
 ```
 
-Anzugeben sind jeweils die Parent-Verzeichnisse; das Framework leitet daraus
-`Lab_Base` beziehungsweise `Lab_Data` ab. Bei mehreren Daten-Volumes wird der
-globale Standard ausdrücklich gewählt. Bereits gültige Einstellungen werden
-nicht erneut abgefragt, vorhandene Roots und Dateien nicht überschrieben.
+Anzugeben sind die vollständigen, frei wählbaren gemeinsamen Root-Pfade, etwa
+`D:\Lab1_Base` und `D:\Lab1_Data`. Bei mehreren Daten-Volumes wird der globale
+Standard ausdrücklich gewählt. Bereits gültige Einstellungen werden nicht
+erneut abgefragt, vorhandene Roots und Dateien nicht überschrieben.
 
 Ressourcen prüfen, ohne etwas zu verändern:
 
