@@ -108,6 +108,10 @@ COMMANDS
         Lists path-free database-package selections by stable DatabasePackageId
         and optionally verifies all immutable package objects.
 
+    Get-SqlServerLabDatabaseMigrationDependency
+        Inventories SQL-observable migration dependencies directly or through
+        a run and instance binding as sanitized read-only counts.
+
     Get-SqlServerLabConnectionCenter
         Returns the password-free SQL endpoint catalog used by SSMS and CMS.
 
