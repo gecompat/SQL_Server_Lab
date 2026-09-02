@@ -127,7 +127,7 @@ normalen Manifest-Klon bis `SQL_READY_RUN` positiv ausgeführt.
 | bestehende Hyper-V-Standardwege enthalten noch Factory-/manuelle Übergänge | ein normaler Lablauf ist noch nicht durchgehend Zero-Touch nachgewiesen |
 | der positive reale Hyper-V-Cold-Path ist nur für Windows Server 2025 und SQL Server 2025 belegt | weitere freigegebene Windows-/SQL-Kombinationen benötigen getrennte Runtime-Evidence |
 | Hyper-V-Manifestbindung für allgemeine Software und Post-Provisioning ist unvollständig; Testdatenbanken und additive SQL-2022-External-Runtimes besitzen getrennte Reconcile-Verträge | vollständige UI-/Manifestparität fehlt weiterhin |
-| Reconcile-Executor und Actual-State-Collector decken Lifecycle, mehrere Hyper-V-Ressourcen-/SQL-Klassen, Testdatenbanken und additive External Runtimes ab | Removal/Rebinding, weitere Hardware-/SQL-Klassen und native Repair-Evidence fehlen |
+| Reconcile-Executor und Actual-State-Collector decken Lifecycle, mehrere Hyper-V-Ressourcen-/SQL-Klassen, Testdatenbanken sowie additive und vollständige Container-External-Runtime-Entfernung ab | Hyper-V-Removal/Rebinding, weitere Hardware-/SQL-Klassen und native Repair-Evidence fehlen |
 | drei reale Adapterpiloten fehlen | der Vertrag ist noch nicht an den drei Konsumenten und ihren unterschiedlichen Rollen bewiesen |
 | `LAB_GENERATED`-Erzeugung und -Präferenz sind für Single- und Multi-Output-Container-Samples sowie run-gebundene Hyper-V-Samples einschließlich automatischer Manifestbindung implementiert; Script Bundles mit mehreren festen Datenbankoutputs sind implementiert | reale Hyper-V-Sample-/Baseline-Evidence bleibt offen |
 | Fault-/Scenario-Engine und breite Abbruch-/Recovery-Injektion fehlen | Release-Härtung und komplexe SQL-Szenarien bleiben unvollständig |
@@ -450,8 +450,11 @@ Teilstand 2026-09-02: Katalogisierte Testdatenbanken sowie additive SQL-2022-
 Python-/R-/Java-Intents besitzen öffentliche, journalisierte Hyper-V-Reconcile-
 Verträge. Die External-Runtime-Sequenz ist statisch/synthetisch belegt; ihre
 direkte Gastinstallation ist nativ akzeptiert, der neue öffentliche Reconcile-
-Ablauf selbst jedoch noch `NOT_EXECUTED`. Allgemeine Software,
-Post-Provisioning, Removal/Variantenwechsel und Artifact-Refresh bleiben offen.
+Ablauf selbst jedoch noch `NOT_EXECUTED`. Container-External-Runtimes besitzen
+zusätzlich einen nativ für Docker und Podman belegten letzten Removal-Pfad über
+das katalogisierte SQL-Basisimage. Allgemeine Hyper-V-Software,
+Post-Provisioning, Hyper-V-Removal/Variantenwechsel und Artifact-Refresh bleiben
+offen.
 
 **Gate M5:**
 

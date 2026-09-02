@@ -1109,9 +1109,13 @@ Docker/Podman, aber keine gleichzeitigen Änderungen an Provider, Profil,
 Storage, Netzwerk oder Datenbanken. Docker und Podman besitzen dabei dieselbe
 Sprachfreigabe; Podman
 muss für den sicheren `launchpadd`-Namespace-Modus jedoch rootful auf einem
-Linux-Containerhost mit cgroup v1 laufen. Eine einzelne Sprache kann entfernt werden, solange mindestens
-eine External Runtime erhalten bleibt. Die Entfernung der letzten Runtime
-bleibt fail-closed.
+Linux-Containerhost mit cgroup v1 laufen. Eine einzelne Sprache kann entfernt
+werden. Wird die letzte Runtime entfernt und
+`serverConfig.externalScripts.enabled` auf `false` gesetzt, plant Reconcile
+einen journalgebundenen Rückweg auf das katalogisierte SQL-Basisimage. SQL-
+Daten und sonstige Mounts bleiben erhalten; die beiden Runtime-Sidecars werden
+ausgehängt und erst gemäß ihrem bestehenden Retention-/Cleanup-Vertrag
+behandelt. Alte Derived Images bleiben wiederverwendbare Artefakte.
 
 Für einen laufenden SQL-2022-Windows-/Hyper-V-Run verwendet derselbe öffentliche
 Manifest-Aufruf einen getrennten additiven Gastpfad. Neue resolvergebundene

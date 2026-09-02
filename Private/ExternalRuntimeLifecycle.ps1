@@ -632,3 +632,47 @@ RECONFIGURE WITH OVERRIDE;
         throw $initialFailure
     }
 }
+
+function Disable-LabExternalRuntimes {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$LabInstance,
+        [Parameter(Mandatory)][SecureString]$SaPassword,
+        [ValidateRange(30,900)][int]$ReadinessTimeoutSeconds = 300
+    )
+
+    $deactivationQuery = @"
+EXEC sp_configure N'show advanced options', 1;
+RECONFIGURE;
+EXEC sp_configure N'external scripts enabled', 0;
+RECONFIGURE WITH OVERRIDE;
+"@
+    Invoke-LabConfigurationQuery -HostName ([string]$LabInstance.Host) -Port ([int]$LabInstance.Port) `
+        -SaPassword $SaPassword -Query $deactivationQuery
+    Restart-LabExternalRuntimeContainer -Provider ([string]$LabInstance.Provider) `
+        -ContainerIdOrName ([string]$LabInstance.ContainerId)
+
+    $versionDefinition = Get-SqlServerVersion -VersionId ([string]$LabInstance.Version)
+    $readiness = Wait-SqlReady -HostName ([string]$LabInstance.Host) -Port ([int]$LabInstance.Port) `
+        -SaPassword $SaPassword -TimeoutSeconds $ReadinessTimeoutSeconds `
+        -ExpectedMajorVersion ([int]$versionDefinition.major) -Provider ([string]$LabInstance.Provider) `
+        -ContainerIdOrName ([string]$LabInstance.ContainerId)
+    if (-not $readiness.Ready) {
+        throw "EXTERNAL_RUNTIME_DISABLE_SQL_NOT_READY_AFTER_RESTART: $($readiness.Message)"
+    }
+
+    $plainPassword = ConvertFrom-LabSecureString -SecureString $SaPassword
+    try {
+        $configuration = @(Invoke-SqlQuery -HostName ([string]$LabInstance.Host) -Port ([int]$LabInstance.Port) `
+            -SaPlain $plainPassword -Database master -TimeoutSeconds 60 -Query @"
+SET NOCOUNT ON;
+SELECT CONCAT(N'SQLLAB_EXTERNAL_SCRIPTS|', CONVERT(nvarchar(10), value), N'|', CONVERT(nvarchar(10), value_in_use))
+FROM sys.configurations WHERE name = N'external scripts enabled';
+"@) | ForEach-Object { ([string]$_).Trim() }
+    }
+    finally { $plainPassword = $null }
+    if (@($configuration | Where-Object { $_ -eq 'SQLLAB_EXTERNAL_SCRIPTS|0|0' }).Count -ne 1) {
+        throw 'EXTERNAL_RUNTIME_DISABLE_POSTCONDITION_FAILED'
+    }
+    return [PSCustomObject]@{ Id='external-scripts-disabled'; Status='PASS'; Value=0; ValueInUse=0 }
+}

@@ -9,8 +9,9 @@
     launchpadd-Namespace-Modus und prueft zuerst Python. Der Reconcile-Pfad
     wechselt danach journalgebunden auf ein neues Python-/R-/Java-Image und
     prueft alle Sprachen ueber sp_execute_external_script. Nach einem Restart werden die fachlichen
-    Postconditions erneut ausgefuehrt. Run-Ressourcen und das explizit
-    test-eigene, wiederverwendbare Image werden getrennt bereinigt.
+    Postconditions erneut ausgefuehrt. Abschliessend entfernt Reconcile die
+    letzten Runtimes durch den Rueckweg auf das SQL-Basisimage, ohne SQL-Daten
+    oder aufbewahrte Sidecars vor dem normalen Run-Cleanup zu verlieren.
 .PARAMETER Provider
     Der nativ zu pruefende Linux-Containerprovider.
 .PARAMETER EvidencePath
@@ -361,6 +362,101 @@ SELECT CONCAT(N'SQLLAB_JAVA_OBJECTS|',
     } $instance $saPlain
     Assert-ExternalRuntimeAcceptance ($markerAfterRestart -match [regex]::Escape($dataMarker)) 'SQL-Datenmarker blieb auch ueber den Provider-Restart erhalten'
 
+    $runtimeRemovalDesiredImageKey = [string]$instance.ExternalRuntime.ImageKey
+    $runtimeSidecarsBeforeRemoval = @(& $runtimeInvocation inspect ([string]$instance.ContainerId) 2>$null |
+        ConvertFrom-Json -Depth 50)[0].Mounts | Where-Object {
+            [string]$_.Destination -in @(
+                '/var/opt/mssql-extensibility/externallanguages',
+                '/var/opt/mssql-extensibility/externallibraries'
+            )
+        }
+    $runtimeSidecarVolumeNames = @($runtimeSidecarsBeforeRemoval | Where-Object Type -eq 'volume' |
+        ForEach-Object { [string]$_.Name } | Sort-Object -Unique)
+    Assert-ExternalRuntimeAcceptance ($runtimeSidecarVolumeNames.Count -eq 2) 'Beide Runtime-Sidecar-Volumes sind vor dem Basisimage-Rueckweg eindeutig gebunden'
+
+    $manifest.instances[0].software = @()
+    $manifest.instances[0].serverConfig.externalScripts.enabled = $false
+    $manifest | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $manifestPath -Encoding utf8
+    $lastRemovalPlan = Get-SqlServerLabReconcilePlan -RunId $lab.RunId -ManifestPath $manifestPath `
+        -InstanceId external-runtime -StateRoot $stateRoot
+    Assert-ExternalRuntimeAcceptance (@($lastRemovalPlan.Actions).Count -eq 1 -and
+        [string]$lastRemovalPlan.Actions[0].Operation -eq 'RemoveExternalRuntime' -and
+        $null -eq $lastRemovalPlan.Desired.ImageKey -and @($lastRemovalPlan.Desired.Software).Count -eq 0) `
+        'Reconcile plant die letzte Entfernung als Rueckweg auf das katalogisierte Basisimage'
+    $lastRemoval = Invoke-SqlServerLabReconcileAction -RunId $lab.RunId -ManifestPath $manifestPath `
+        -InstanceId external-runtime -ReadinessTimeoutSeconds 300 -StateRoot $stateRoot -Confirm:$false
+    $lastRemovalErrors = @($lastRemoval.ExecutionSummary.Errors) -join ' | '
+    Assert-ExternalRuntimeAcceptance ([string]$lastRemoval.ExecutionSummary.Status -eq 'SUCCEEDED') `
+        "Letzte Runtimes wurden journalgebunden entfernt (Status=$($lastRemoval.ExecutionSummary.Status); Errors=$lastRemovalErrors)"
+
+    $connection = Get-Content -LiteralPath $connectionPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 50
+    $instance = @($connection.instances | Where-Object id -eq 'external-runtime')[0]
+    Assert-ExternalRuntimeAcceptance (@($instance.PSObject.Properties.Name) -notcontains 'externalRuntime') `
+        'Connection-State enthaelt nach der letzten Entfernung keinen External-Runtime-State mehr'
+    $lastRemovalJournal = Get-Content -LiteralPath $journalPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 50
+    Assert-ExternalRuntimeAcceptance ([string]$lastRemovalJournal.status -eq 'COMPLETED' -and
+        [string]$lastRemovalJournal.previousImageKey -eq $runtimeRemovalDesiredImageKey -and
+        $null -eq $lastRemovalJournal.desiredImageKey) `
+        'Basisimage-Rueckweg ist mit leerem Ziel-Image journalisiert und abgeschlossen'
+    $receiptDocument = Get-Content -LiteralPath $receiptPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 100
+    $lastRemovalReceipts = @($receiptDocument.instances | Where-Object instanceId -eq 'external-runtime' |
+        ForEach-Object { @($_.receipts) })
+    Assert-ExternalRuntimeAcceptance ($lastRemovalReceipts.Count -eq 0) 'Installation-Receipts sind nach der letzten Entfernung leer'
+
+    $lastRemovalPostconditions = & $module {
+        param($ProviderName,$LabInstance,$Password,$TargetSqlVersion)
+        $plain = ConvertFrom-LabSecureString -SecureString $Password
+        try {
+            $configuration = @(Invoke-SqlQuery -HostName ([string]$LabInstance.Host) -Port ([int]$LabInstance.Port) `
+                -SaPlain $plain -Database master -TimeoutSeconds 90 -Query @'
+SET NOCOUNT ON;
+SELECT CONCAT(N'SQLLAB_EXTERNAL_SCRIPTS|', CONVERT(nvarchar(10), value), N'|', CONVERT(nvarchar(10), value_in_use))
+FROM sys.configurations WHERE name=N'external scripts enabled';
+'@) -join "`n"
+            $marker = @(Invoke-SqlQuery -HostName ([string]$LabInstance.Host) -Port ([int]$LabInstance.Port) `
+                -SaPlain $plain -Database ExternalRuntimePersistence -TimeoutSeconds 90 `
+                -Query 'SET NOCOUNT ON; SELECT marker FROM dbo.RefreshMarker;') -join "`n"
+        }
+        finally { $plain = $null }
+        $runtime = Get-LabHostToolInvocation -Name $ProviderName
+        $containerInspect = @(& $runtime inspect ([string]$LabInstance.ContainerId) 2>$null | ConvertFrom-Json -Depth 50)[0]
+        [PSCustomObject]@{
+            Configuration=$configuration
+            Marker=$marker
+            ExpectedBaseImage=Get-SqlServerDockerImage -VersionId $TargetSqlVersion
+            ContainerImage=[string]$containerInspect.Config.Image
+            ExternalMounts=@($containerInspect.Mounts | Where-Object {
+                [string]$_.Destination -in @(
+                    '/var/opt/mssql-extensibility/externallanguages',
+                    '/var/opt/mssql-extensibility/externallibraries'
+                )
+            })
+        }
+    } $Provider $instance $saPassword $SqlVersion
+    Assert-ExternalRuntimeAcceptance ($lastRemovalPostconditions.Configuration -match 'SQLLAB_EXTERNAL_SCRIPTS\|0\|0') `
+        'external scripts enabled ist konfiguriert und wirksam deaktiviert'
+    Assert-ExternalRuntimeAcceptance ($lastRemovalPostconditions.Marker -match [regex]::Escape($dataMarker)) `
+        'SQL-Datenmarker blieb ueber den Basisimage-Rueckweg erhalten'
+    Assert-ExternalRuntimeAcceptance ($lastRemovalPostconditions.ContainerImage -eq $lastRemovalPostconditions.ExpectedBaseImage) `
+        'Ersatzcontainer verwendet das katalogisierte SQL-Basisimage'
+    Assert-ExternalRuntimeAcceptance (@($lastRemovalPostconditions.ExternalMounts).Count -eq 0) `
+        'External-Runtime-Sidecars sind am Basisimage nicht mehr eingehängt'
+    foreach ($sidecarVolume in $runtimeSidecarVolumeNames) {
+        $null = & $runtimeInvocation volume inspect $sidecarVolume 2>$null
+        Assert-ExternalRuntimeAcceptance ($LASTEXITCODE -eq 0) "Sidecar bleibt bis zum normalen Run-Cleanup erhalten: $sidecarVolume"
+    }
+
+    $baseRestart = Restart-SqlServerLab -RunId $lab.RunId -TimeoutSeconds 300 -Force
+    Assert-ExternalRuntimeAcceptance ([string]$baseRestart.Status -eq 'RUNNING' -and [int]$baseRestart.Errors -eq 0) `
+        'Basisimage-Container erreicht nach providergebundenem Restart erneut SQL-Readiness'
+    $markerAfterBaseRestart = & $module {
+        param($LabInstance,$Password)
+        @(Invoke-SqlQuery -HostName ([string]$LabInstance.Host) -Port ([int]$LabInstance.Port) -SaPlain $Password `
+            -Database ExternalRuntimePersistence -Query 'SET NOCOUNT ON; SELECT marker FROM dbo.RefreshMarker;' -TimeoutSeconds 90) -join "`n"
+    } $instance $saPlain
+    Assert-ExternalRuntimeAcceptance ($markerAfterBaseRestart -match [regex]::Escape($dataMarker)) `
+        'SQL-Datenmarker blieb auch ueber den Basisimage-Restart erhalten'
+
     $cleanup = Remove-SqlServerLab -RunId $lab.RunId -StateRoot $stateRoot -Force -Confirm:$false
     Assert-ExternalRuntimeAcceptance ([string]$cleanup.Status -eq 'REMOVED') 'Run-Ressourcen wurden ueber den registrierten Cleanup entfernt'
     $lab = $null
@@ -369,6 +465,10 @@ SELECT CONCAT(N'SQLLAB_JAVA_OBJECTS|',
     $initialImageExistsAfterRunCleanup = @(& $runtimeInvocation image inspect $initialImageName 2>$null).Count -gt 0 -and $LASTEXITCODE -eq 0
     $allRuntimeImageExistsAfterRunCleanup = @(& $runtimeInvocation image inspect $allRuntimeImageName 2>$null).Count -gt 0 -and $LASTEXITCODE -eq 0
     Assert-ExternalRuntimeAcceptance ($imageExistsAfterRunCleanup -and $initialImageExistsAfterRunCleanup -and $allRuntimeImageExistsAfterRunCleanup) 'Alle drei wiederverwendbaren Images bleiben vom normalen Run-Cleanup getrennt'
+    foreach ($sidecarVolume in $runtimeSidecarVolumeNames) {
+        $null = & $runtimeInvocation volume inspect $sidecarVolume 2>$null
+        Assert-ExternalRuntimeAcceptance ($LASTEXITCODE -ne 0) "Run-scoped Sidecar wurde erst durch den normalen Run-Cleanup entfernt: $sidecarVolume"
+    }
     foreach ($testImage in @(@($imageName,$initialImageName,$allRuntimeImageName) | Sort-Object -Unique)) {
         & $runtimeInvocation image rm --force $testImage 1>$null
         Assert-ExternalRuntimeAcceptance ($LASTEXITCODE -eq 0) "Test-eigenes Derived Image wurde explizit entfernt: $testImage"
@@ -379,7 +479,7 @@ SELECT CONCAT(N'SQLLAB_JAVA_OBJECTS|',
     }
 
     $evidence = [ordered]@{
-        contract = [ordered]@{ name='SqlServerLab.ExternalRuntimeContainerAcceptance'; version='1.3' }
+        contract = [ordered]@{ name='SqlServerLab.ExternalRuntimeContainerAcceptance'; version='1.4' }
         status = 'PASS'
         provider = $Provider
         platform = 'linux'
@@ -402,11 +502,11 @@ SELECT CONCAT(N'SQLLAB_JAVA_OBJECTS|',
             journalStatus = [string]$removalJournal.status
             javaCleanupRecords = @($removalJournal.javaCleanup.records).Count
             intermediateImageKey = $allRuntimeImageKey
-            desiredImageKey = [string]$instance.ExternalRuntime.ImageKey
+            desiredImageKey = $runtimeRemovalDesiredImageKey
             intermediateImageRetainedAfterSwitch = $allRuntimeImageExistsAfterRunCleanup
         }
         image = [ordered]@{
-            imageKey = [string]$instance.ExternalRuntime.ImageKey
+            imageKey = $runtimeRemovalDesiredImageKey
             baseImageDigest = [string]$hostAndImage.ImageReceipt.baseImageDigest
             variantIds = @($hostAndImage.ImageReceipt.variantIds)
             launchMode = [string]$hostAndImage.ImageReceipt.launchMode
@@ -431,6 +531,18 @@ SELECT CONCAT(N'SQLLAB_JAVA_OBJECTS|',
             probes = @($postRestart.Probes | ForEach-Object {
                 [ordered]@{ id=[string]$_.Id; language=[string]$_.Language; runtimeVersion=[string]$_.RuntimeVersion; workerIdentity=[string]$_.WorkerIdentity; status=[string]$_.Status }
             })
+        }
+        lastRemoval = [ordered]@{
+            status = [string]$lastRemoval.ExecutionSummary.Status
+            operation = [string]$lastRemovalPlan.Actions[0].Operation
+            journalStatus = [string]$lastRemovalJournal.status
+            previousImageKey = $runtimeRemovalDesiredImageKey
+            desiredImageKey = $null
+            baseImage = [string]$lastRemovalPostconditions.ExpectedBaseImage
+            externalScriptsValueInUse = 0
+            sidecarsUnmounted = @($lastRemovalPostconditions.ExternalMounts).Count -eq 0
+            sidecarsRetainedUntilRunCleanup = $true
+            dataMarkerRetainedAfterRestart = $markerAfterBaseRestart -match [regex]::Escape($dataMarker)
         }
         cleanup = [ordered]@{
             runStatus=[string]$cleanup.Status
