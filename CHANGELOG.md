@@ -8,6 +8,11 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- Die semantische Katalogvalidierung erzwingt die Eindeutigkeit von
+  `EXCHANGE_WORKSPACE`-Artefakt-IDs und portablen `Lab_Data`-Bindungen jetzt
+  unabhängig vom aufrufenden Writer. Die zuvor wirkungslos im generischen
+  Mutations-Executor stehenden Prüfungen wurden an die gemeinsame
+  Dokumentgrenze verschoben und durch direkte Regressionen abgesichert.
 - Der Persistent-Storage-Katalog besitzt einen gemeinsamen Mutationskern mit
   read-only Preview, Compare-and-Swap über die erwartete Revision,
   unveränderlicher Controller-/Vertragsgrenze, genau einem Revisionsschritt und

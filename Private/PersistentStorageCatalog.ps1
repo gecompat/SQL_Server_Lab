@@ -123,6 +123,19 @@ function Test-LabPersistentStorageCatalogDocument {
                 throw "PERSISTENT_STORAGE_LEASE_REFERENCE_REQUIRED: $storageId"
             }
         }
+        if ([string]$store.StorageClass -eq 'EXCHANGE_WORKSPACE') {
+            $activeWorkspaceReferences = @($store.References | Where-Object {
+                [string]$_.Kind -eq 'ARTIFACT' -and [string]$_.State -eq 'ACTIVE'
+            })
+            if ($activeWorkspaceReferences.Count -ne 1 -or
+                -not $exchangeWorkspaceIds.Add([string]$activeWorkspaceReferences[0].TargetId)) {
+                throw "EXCHANGE_WORKSPACE_REFERENCE_INVALID: $storageId"
+            }
+            $exchangeBindingKey = "$([string]$binding.LocationId)|$([string]$binding.RelativePath)"
+            if (-not $exchangeBindings.Add($exchangeBindingKey)) {
+                throw "EXCHANGE_WORKSPACE_BINDING_DUPLICATE: $storageId"
+            }
+        }
     }
     return $true
 }
@@ -278,20 +291,6 @@ function Invoke-LabPersistentStorageCatalogMutation {
                 $null = Write-LabPersistentStorageCatalogDocument -Document $working -Configuration $Configuration
             }
         }
-        if ([string]$store.StorageClass -eq 'EXCHANGE_WORKSPACE') {
-            $activeWorkspaceReferences = @($store.References | Where-Object {
-                [string]$_.Kind -eq 'ARTIFACT' -and [string]$_.State -eq 'ACTIVE'
-            })
-            if ($activeWorkspaceReferences.Count -ne 1 -or
-                -not $exchangeWorkspaceIds.Add([string]$activeWorkspaceReferences[0].TargetId)) {
-                throw "EXCHANGE_WORKSPACE_REFERENCE_INVALID: $storageId"
-            }
-            $exchangeBindingKey = "$([string]$binding.LocationId)|$([string]$binding.RelativePath)"
-            if (-not $exchangeBindings.Add($exchangeBindingKey)) {
-                throw "EXCHANGE_WORKSPACE_BINDING_DUPLICATE: $storageId"
-            }
-        }
-
         return [PSCustomObject][ordered]@{
             MutationName=$MutationName; Changed=$changed; Preview=[bool]$Preview
             PreviousRevision=$previousRevision

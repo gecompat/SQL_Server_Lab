@@ -949,6 +949,7 @@ validation:
       - backup_set_residency_binding_without_content_rehash
       - id_less_registration_candidates
       - public_exchange_workspace_registration_and_residency_binding
+      - exchange_workspace_reference_and_binding_uniqueness
   static_persistent_storage_removal_plan:
     command: '.\Tests\Static\Invoke-PersistentStorageRemovalPlanChecks.ps1'
     source: Tests/Static/Invoke-PersistentStorageRemovalPlanChecks.ps1
