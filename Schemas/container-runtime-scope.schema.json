@@ -40,11 +40,12 @@
     },
     "PhysicalBacking": {
       "type": "object",
-      "required": ["RuntimeNamespaceStatus", "HostBackingStatus", "LabDataRelation"],
+      "required": ["RuntimeNamespaceStatus", "HostBackingStatus", "LabDataRelation", "BackingStoreCount"],
       "properties": {
         "RuntimeNamespaceStatus": { "enum": ["DECLARED", "UNAVAILABLE"] },
-        "HostBackingStatus": { "enum": ["UNVERIFIABLE", "REMOTE_EXTERNAL"] },
-        "LabDataRelation": { "const": "UNKNOWN" }
+        "HostBackingStatus": { "enum": ["VERIFIED", "UNVERIFIABLE", "REMOTE_EXTERNAL"] },
+        "LabDataRelation": { "enum": ["INSIDE", "OUTSIDE", "UNKNOWN"] },
+        "BackingStoreCount": { "type": "integer", "minimum": 0 }
       },
       "additionalProperties": false
     },

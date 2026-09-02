@@ -33,6 +33,23 @@ try {
                     }
                 }) | ConvertTo-Json -Depth 5 -Compress
             }
+            if ($Arguments[0] -eq 'system' -and $Arguments[1] -eq 'df') {
+                return @(
+                    '{"Type":"Images","TotalCount":"1","Active":"1","Size":"1GB","Reclaimable":"0B"}',
+                    '{"Type":"Containers","TotalCount":"1","Active":"1","Size":"1MB","Reclaimable":"0B"}',
+                    '{"Type":"Local Volumes","TotalCount":"2","Active":"1","Size":"2GB","Reclaimable":"1GB"}',
+                    '{"Type":"Build Cache","TotalCount":"3","Active":"0","Size":"3MB","Reclaimable":"3MB"}'
+                )
+            }
+            if ($Arguments[0] -eq 'image' -and $Arguments[1] -eq 'ls') {
+                return '{"ID":"sha256:synthetic","Repository":"sql-server-lab/external-runtime","Tag":"synthetic","Size":"1GB","CreatedAt":"2026-09-02T00:00:00Z"}'
+            }
+            if ($Arguments[0] -eq 'image' -and $Arguments[1] -eq 'inspect') {
+                return @([PSCustomObject]@{
+                    Id='sha256:synthetic-image-id'
+                    Config=[PSCustomObject]@{ Labels=[PSCustomObject]@{ 'sql-server-lab.external-runtime.image-key'=('a' * 64) } }
+                }) | ConvertTo-Json -Depth 5 -Compress
+            }
             if ($Arguments[0] -eq 'network') { return 'sql-lab-synthetic-network' }
         }
         function podman {
@@ -48,7 +65,7 @@ try {
                     Provider='podman'; Available=$false; Issue='RUNTIME_CLI_NOT_INSTALLED'
                 })
             }
-            return ConvertTo-LabContainerRuntimeScope -Evidence ([PSCustomObject]@{
+            $scope = ConvertTo-LabContainerRuntimeScope -Evidence ([PSCustomObject]@{
                 Provider='docker'; Available=$true; HostPlatform='windows'
                 Contexts=@([PSCustomObject]@{
                     Name='synthetic-context'; Metadata=[PSCustomObject]@{ Description='Docker Desktop' }
@@ -56,12 +73,30 @@ try {
                 })
                 Info=[PSCustomObject]@{ OperatingSystem='Docker Desktop'; ServerVersion='synthetic'; Driver='overlayfs'; DockerRootDir='/var/lib/docker' }
             })
+            $backing = Get-LabContainerRuntimeHostBackingEvidence -Scope $scope
+            return Set-LabContainerRuntimeScopePhysicalBacking -Scope $scope -Evidence $backing
+        }
+        function Get-LabContainerRuntimeHostBackingEvidence {
+            param([Parameter(Mandatory)]$Scope,[string[]]$KnownRoots=@())
+            if ([string]$Scope.Provider -eq 'docker') {
+                $path = [string]$script:StorageAuditRuntimeBacking
+                return [PSCustomObject]@{
+                    Provider='docker'; RuntimeId=[string]$Scope.RuntimeId; Status='VERIFIED'; LabDataRelation='OUTSIDE'; DetectedHostMode='WINDOWS_WSL2'
+                    Items=@([PSCustomObject]@{
+                        Kind='BACKING_STORE'; Role='DATA'; Path=$path; IsDirectory=$false; Bytes=[long](Get-Item -LiteralPath $path).Length
+                        LastWriteTimeUtc=(Get-Item -LiteralPath $path).LastWriteTimeUtc; LabDataRelation='OUTSIDE'
+                    })
+                }
+            }
+            return [PSCustomObject]@{ Provider='podman'; RuntimeId=$null; Status='UNVERIFIABLE'; LabDataRelation='UNKNOWN'; DetectedHostMode='UNKNOWN'; Items=@() }
         }
         function Get-VM { @() }
         function Get-VMHardDiskDrive { @() }
 
         $stateRoot = Get-LabStateRoot
         $root = [string](Get-LabStorageConfiguration).DefaultDataRoot
+        $script:StorageAuditRuntimeBacking = Join-Path ([IO.Path]::GetTempPath()) "sql-lab-synthetic-docker-data-$([guid]::NewGuid().ToString('N')).vhdx"
+        [IO.File]::WriteAllBytes($script:StorageAuditRuntimeBacking,[byte[]](1..16))
         $storageRun = New-LabRunState -StateRoot $stateRoot -Metadata @{ name='storage-residency-audit' } `
             -ProviderSubRuns @([PSCustomObject]@{ id='provider-docker'; provider='docker'; instanceIds=@('primary') })
         $script:StorageAuditRunId = [string]$storageRun.RunId
@@ -220,6 +255,7 @@ try {
             BuildCleanup=$buildCleanup
             BuildVhdxRemoved=(-not (Test-Path -LiteralPath $buildVhdx -PathType Leaf))
             RecoveryStorageId=$recoveryStorageId; CatalogRecoveryFindings=$catalogRecoveryFindings
+            RuntimeBackingPath=$script:StorageAuditRuntimeBacking
         }
     }
     Add-CheckResult -Name 'Cleanup-Audit meldet bekannte Runtime-Reste' -Success ($result.Audit.Status -eq 'RESIDUALS' -and $result.Audit.Summary.ResidualCount -ge 3)
@@ -249,6 +285,16 @@ try {
         $podmanRuntime.Message -match 'nicht ausfuehrbar')
     Add-CheckResult -Name 'Orphan-Container wird ohne Loeschung ausgewiesen' -Success (@($result.Audit.Containers | Where-Object { $_.Orphan -and $_.Id -eq 'synthetic' }).Count -eq 1)
     Add-CheckResult -Name 'Benannte Runtime-Ressourcen werden inventarisiert' -Success ($result.Audit.ManagedVolumes[0].Name -eq 'sql-lab-synthetic-volume' -and $result.Audit.ManagedNetworks[0].Name -eq 'sql-lab-synthetic-network')
+    Add-CheckResult -Name 'Runtime-Images und normalisierte Speicherklassen werden read-only inventarisiert' -Success (
+        @($result.Audit.ManagedImages).Count -eq 1 -and @($result.Audit.RuntimeStorageUsage).Count -eq 4 -and
+        @($result.Audit.StorageResidency.Objects | Where-Object ObjectClass -eq 'RUNTIME_IMAGE').Count -eq 1 -and
+        @($result.Audit.StorageResidency.Objects | Where-Object ObjectClass -eq 'RUNTIME_BUILD_CACHE').Count -eq 1)
+    Add-CheckResult -Name 'Physisches Runtime-Backing bleibt hostseitig sichtbar und strikt REPORT_ONLY' -Success (
+        @($result.Audit.StorageResidency.Objects | Where-Object {
+            $_.ObjectClass -eq 'RUNTIME_BACKING_STORE' -and $_.Provider -eq 'docker' -and
+            $_.Path -eq $result.RuntimeBackingPath -and $_.AuditStatus -eq 'VERIFIED' -and
+            $_.CleanupPolicy -eq 'REPORT_ONLY' -and $_.Details.Ownership -eq 'SHARED_EXTERNAL'
+        }).Count -eq 1)
     $persistentVolume = @($result.Audit.StorageResidency.Objects | Where-Object LogicalName -eq 'sql-lab-persistent-storage-audit-docker-primary-sql2025')[0]
     $orphanVolume = @($result.Audit.StorageResidency.Objects | Where-Object LogicalName -eq 'sql-lab-synthetic-volume')[0]
     $allFindings = @($result.Audit.Findings.Retained) + @($result.Audit.Findings.UnexpectedResiduals) +
@@ -351,9 +397,10 @@ try {
     Add-CheckResult -Name 'Image-Builder-Cleanup validiert Build-State und Build-Binding gemeinsam' -Success (
         $result.BuildCleanup.Status -eq 'CLEANUP_SUCCEEDED' -and $result.BuildVhdxRemoved)
 }
-catch { Add-CheckResult -Name 'Cleanup-Audit-Testausfuehrung' -Success $false -Message $_.Exception.Message }
+catch { Add-CheckResult -Name 'Cleanup-Audit-Testausfuehrung' -Success $false -Message "$($_.Exception.Message) [$($_.ScriptStackTrace)]" }
 finally {
     $env:SQL_SERVER_LAB_DATA_ROOT = $previousDataRoot
+    if ($result -and $result.RuntimeBackingPath -and (Test-Path -LiteralPath $result.RuntimeBackingPath)) { Remove-Item -LiteralPath $result.RuntimeBackingPath -Force }
     if (Test-Path -LiteralPath $temporaryParent) { Remove-Item -LiteralPath $temporaryParent -Recurse -Force }
 }
 Write-Host ''; Write-Host "Ergebnis: $passed PASS, $($failures.Count) FAIL" -ForegroundColor Cyan

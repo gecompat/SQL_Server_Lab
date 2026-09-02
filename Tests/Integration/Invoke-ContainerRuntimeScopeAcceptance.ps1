@@ -51,6 +51,9 @@ try{
         if(-not $resolution.Available){Add-CheckResult -Name "$provider CLI zentral aufloesbar" -Success $false;continue}
         $before=Get-RuntimeResourceFingerprint -Provider $provider
         $scope=& $module {param($p)Get-LabContainerRuntimeScope -Provider $p} $provider
+        $backing=& $module {param($s)Get-LabContainerRuntimeHostBackingEvidence -Scope $s} $scope
+        $usage=@(& $module {param($p)Get-LabRuntimeStorageUsage -Provider $p} $provider)
+        $managedImages=@(& $module {param($p)Get-LabManagedRuntimeImageInventory -Provider $p} $provider)
         $after=Get-RuntimeResourceFingerprint -Provider $provider
         $json=$scope|ConvertTo-Json -Depth 20
         Add-CheckResult -Name "$provider Runtime-Scope ist real eindeutig und schemawahr" -Success (
@@ -62,6 +65,21 @@ try{
             -not $scope.Summary.CanManageRuntime -and 'REMOVE_RUNTIME' -in @($scope.BlockedActions))
         Add-CheckResult -Name "$provider Evidence ist pfad- und endpunktsanitisiert" -Success (
             $json -notmatch '(?i)(npipe:|ssh://|tcp://|identitypath|dockerrootdir|graphroot|[a-z]:\\\\|/var/lib/)')
+        $localBackingValid = if ($scope.Binding.HostMode -in @('WINDOWS_WSL2','WINDOWS_VM','MACOS_VM')) {
+            $backing.Status -eq 'VERIFIED' -and @($backing.Items | Where-Object Kind -eq 'BACKING_STORE').Count -gt 0 -and
+            @($backing.Items | Where-Object { $_.Kind -eq 'BACKING_STORE' -and (-not (Test-Path -LiteralPath $_.Path) -or [long]$_.Bytes -le 0) }).Count -eq 0
+        }
+        elseif ($scope.Binding.HostMode -eq 'LINUX_NATIVE') {
+            $backing.Status -eq 'VERIFIED' -and @($backing.Items | Where-Object { $_.Kind -eq 'BACKING_STORE' -and (Test-Path -LiteralPath $_.Path) }).Count -gt 0
+        }
+        else { $backing.Status -eq 'REMOTE_EXTERNAL' }
+        Add-CheckResult -Name "$provider physisches Host-Backing ist real und read-only aufgeloest" -Success (
+            $localBackingValid -and $scope.PhysicalBacking.HostBackingStatus -eq $backing.Status -and
+            $scope.PhysicalBacking.BackingStoreCount -eq @($backing.Items | Where-Object Kind -eq 'BACKING_STORE').Count)
+        Add-CheckResult -Name "$provider Images, Container, Volumes und Build-Cache sind normalisiert inventarisiert" -Success (
+            @($usage).Count -eq 4 -and @($usage.Category | Sort-Object -Unique).Count -eq 4 -and
+            @($usage | Where-Object Status -eq 'UNVERIFIABLE').Count -eq 0 -and
+            @($managedImages | Where-Object { $_.ImageKey -notmatch '^[a-f0-9]{64}$' }).Count -eq 0)
         Add-CheckResult -Name "$provider Inspektion veraendert keine Runtime-Ressource oder Auswahl" -Success ($before -ceq $after)
     }
 }finally{

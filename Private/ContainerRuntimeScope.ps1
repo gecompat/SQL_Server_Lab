@@ -103,6 +103,171 @@ function Get-LabContainerRuntimeHostMode {
     return 'UNKNOWN'
 }
 
+function Get-LabContainerRuntimeHostBackingEvidence {
+    <#
+    .SYNOPSIS
+        Loest das physische Host-Backing einer lokalen Container-Runtime read-only auf.
+    .DESCRIPTION
+        Windows-WSL-/VM-Datentraeger und zugehoerige Konfigurationsdateien
+        werden nur innerhalb provider-eigener Standardverzeichnisse oder der
+        WSL-Registrierung gelesen. Das Ergebnis erteilt keinerlei Mutationsrecht.
+        Rohpfade werden nur vom Storage-Residency-Audit konsumiert und nie in
+        den sanitisierten Runtime-Scope uebernommen.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Scope,
+        [AllowEmptyCollection()][string[]]$KnownRoots = @(),
+        [AllowEmptyCollection()][string[]]$CandidateRoots = @(),
+        [AllowEmptyCollection()][string[]]$ConfigurationPaths = @(),
+        [switch]$UseProvidedPaths
+    )
+
+    $provider = ([string]$Scope.Provider).ToLowerInvariant()
+    if ($provider -notin @('docker','podman')) { throw 'RUNTIME_PROVIDER_UNSUPPORTED' }
+    $items = [Collections.Generic.List[object]]::new()
+    $seenPaths = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    $hostMode = [string]$Scope.Binding.HostMode
+
+    if ([string]$Scope.Status -eq 'UNAVAILABLE' -or -not $Scope.RuntimeId) {
+        return [PSCustomObject]@{ Provider=$provider; RuntimeId=$null; Status='UNVERIFIABLE'; LabDataRelation='UNKNOWN'; DetectedHostMode=$hostMode; Items=@() }
+    }
+    if ($hostMode -eq 'REMOTE') {
+        return [PSCustomObject]@{ Provider=$provider; RuntimeId=[string]$Scope.RuntimeId; Status='REMOTE_EXTERNAL'; LabDataRelation='UNKNOWN'; DetectedHostMode='REMOTE'; Items=@() }
+    }
+
+    if (-not $UseProvidedPaths) {
+        if ($IsWindows) {
+            if ($provider -eq 'docker') {
+                $localAppData = [Environment]::GetFolderPath('LocalApplicationData')
+                $applicationData = [Environment]::GetFolderPath('ApplicationData')
+                if ($localAppData) {
+                    $CandidateRoots = @(
+                        (Join-Path $localAppData 'Docker\wsl'),
+                        (Join-Path $localAppData 'DockerDesktop\vm-data'),
+                        (Join-Path $localAppData 'Docker\vm-data')
+                    )
+                }
+                if ($applicationData) {
+                    $ConfigurationPaths = @(
+                        (Join-Path $applicationData 'Docker\settings-store.json'),
+                        (Join-Path $applicationData 'Docker\settings.json')
+                    )
+                }
+            }
+            elseif ($Scope.Binding.MachineName) {
+                $machineName = [string]$Scope.Binding.MachineName
+                $wslKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Lxss'
+                foreach ($key in @(Get-ChildItem -LiteralPath $wslKey -ErrorAction SilentlyContinue)) {
+                    try {
+                        $distribution = Get-ItemProperty -LiteralPath $key.PSPath -ErrorAction Stop
+                        if ([string]$distribution.DistributionName -eq $machineName -and $distribution.BasePath) {
+                            $CandidateRoots += [Environment]::ExpandEnvironmentVariables([string]$distribution.BasePath)
+                        }
+                    }
+                    catch { continue }
+                }
+                $userProfile = [Environment]::GetFolderPath('UserProfile')
+                if ($userProfile) {
+                    $CandidateRoots += Join-Path $userProfile ".local\share\containers\podman\machine\wsl\wsldist\$machineName"
+                }
+                try {
+                    $invocation = Get-LabHostToolInvocation -Name podman
+                    $raw = @(& $invocation machine inspect $machineName 2>$null)
+                    if ($LASTEXITCODE -eq 0 -and $raw.Count -gt 0) {
+                        $machine = @((($raw -join "`n") | ConvertFrom-Json -Depth 30 -ErrorAction Stop))[0]
+                        $configDirectory = [string]$machine.ConfigDir.Path
+                        if ($configDirectory -and (Test-Path -LiteralPath $configDirectory -PathType Container)) {
+                            $ConfigurationPaths += @(Get-ChildItem -LiteralPath $configDirectory -File -Force -ErrorAction SilentlyContinue |
+                                Where-Object { $_.Extension -in @('.json','.ign') } | ForEach-Object FullName)
+                        }
+                    }
+                }
+                catch { }
+            }
+        }
+        elseif ($hostMode -eq 'LINUX_NATIVE') {
+            try {
+                $runtimeRoot = Get-LabRuntimeStorageRoot -Provider $provider
+                if ($runtimeRoot) { $CandidateRoots = @($runtimeRoot) }
+            }
+            catch { }
+        }
+        elseif ($IsMacOS -and $provider -eq 'docker') {
+            $userProfile = [Environment]::GetFolderPath('UserProfile')
+            if ($userProfile) {
+                $ConfigurationPaths = @(Join-Path $userProfile 'Library/Group Containers/group.com.docker/settings-store.json')
+                $CandidateRoots = @(Join-Path $userProfile 'Library/Containers/com.docker.docker/Data/vms')
+            }
+        }
+    }
+
+    foreach ($root in @($CandidateRoots | Where-Object { $_ } | Select-Object -Unique)) {
+        $candidates = if (Test-Path -LiteralPath $root -PathType Leaf) {
+            @(Get-Item -LiteralPath $root -Force -ErrorAction SilentlyContinue)
+        }
+        elseif (Test-Path -LiteralPath $root -PathType Container) {
+            if ($hostMode -eq 'LINUX_NATIVE') { @(Get-Item -LiteralPath $root -Force -ErrorAction SilentlyContinue) }
+            else { @(Get-ChildItem -LiteralPath $root -File -Recurse -Force -ErrorAction SilentlyContinue | Where-Object { $_.Extension -in @('.vhdx','.raw') }) }
+        }
+        else { @() }
+        foreach ($file in $candidates) {
+            $path = [IO.Path]::GetFullPath([string]$file.FullName)
+            if (-not $seenPaths.Add($path)) { continue }
+            $relation = Get-LabStoragePathRelation -Path $path -KnownRoots $KnownRoots
+            $role = if ($hostMode -eq 'LINUX_NATIVE') { 'DATA' }
+                elseif ($file.Name -match '^(?i)(docker_data|ext4)\.vhdx$' -and $path -match '(?i)(disk|wsldist)') { 'DATA' }
+                else { 'SYSTEM' }
+            $items.Add([PSCustomObject]@{
+                Kind='BACKING_STORE'; Role=$role; Path=$path; IsDirectory=[bool]$file.PSIsContainer
+                Bytes=if ($file.PSIsContainer) { $null } else { [long]$file.Length }
+                LastWriteTimeUtc=[datetime]$file.LastWriteTimeUtc; LabDataRelation=$relation
+            })
+        }
+    }
+    foreach ($candidate in @($ConfigurationPaths | Where-Object { $_ } | Select-Object -Unique)) {
+        if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) { continue }
+        $file = Get-Item -LiteralPath $candidate -Force -ErrorAction SilentlyContinue
+        if (-not $file) { continue }
+        $path = [IO.Path]::GetFullPath([string]$file.FullName)
+        if (-not $seenPaths.Add($path)) { continue }
+        $items.Add([PSCustomObject]@{
+            Kind='CONFIGURATION'; Role='RUNTIME_CONFIGURATION'; Path=$path; IsDirectory=$false
+            Bytes=[long]$file.Length; LastWriteTimeUtc=[datetime]$file.LastWriteTimeUtc
+            LabDataRelation=Get-LabStoragePathRelation -Path $path -KnownRoots $KnownRoots
+        })
+    }
+
+    $backingStores = @($items | Where-Object Kind -eq 'BACKING_STORE')
+    $relations = @($backingStores.LabDataRelation | Sort-Object -Unique)
+    $relation = if ($relations.Count -eq 1) { [string]$relations[0] } else { 'UNKNOWN' }
+    if ($provider -eq 'docker' -and @($backingStores | Where-Object Path -match '(?i)[\\/]Docker[\\/]wsl[\\/]').Count -gt 0) {
+        $hostMode = 'WINDOWS_WSL2'
+    }
+    $status = if ($backingStores.Count -gt 0) { 'VERIFIED' } else { 'UNVERIFIABLE' }
+    return [PSCustomObject]@{
+        Provider=$provider; RuntimeId=[string]$Scope.RuntimeId; Status=$status
+        LabDataRelation=$relation; DetectedHostMode=$hostMode; Items=@($items)
+    }
+}
+
+function Set-LabContainerRuntimeScopePhysicalBacking {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Scope, [Parameter(Mandatory)]$Evidence)
+
+    $Scope.PhysicalBacking.HostBackingStatus = [string]$Evidence.Status
+    $Scope.PhysicalBacking.LabDataRelation = [string]$Evidence.LabDataRelation
+    $Scope.PhysicalBacking | Add-Member -NotePropertyName BackingStoreCount `
+        -NotePropertyValue @($Evidence.Items | Where-Object Kind -eq 'BACKING_STORE').Count -Force
+    if ([string]$Evidence.DetectedHostMode -in @('WINDOWS_WSL2','WINDOWS_VM','LINUX_NATIVE','MACOS_VM','REMOTE')) {
+        $Scope.Binding.HostMode = [string]$Evidence.DetectedHostMode
+    }
+    if ([string]$Evidence.Status -in @('VERIFIED','REMOTE_EXTERNAL')) {
+        $Scope.Issues = @($Scope.Issues | Where-Object { [string]$_ -ne 'RUNTIME_HOST_BACKING_UNVERIFIABLE' })
+    }
+    return $Scope
+}
+
 function ConvertTo-LabContainerRuntimeScope {
     [CmdletBinding()]
     param([Parameter(Mandatory)]$Evidence)
@@ -115,7 +280,7 @@ function ConvertTo-LabContainerRuntimeScope {
             ContractVersion='SqlServerLab.ContainerRuntimeScope/1.0'; Provider=$provider; Status='UNAVAILABLE'; RuntimeId=$null
             Binding=[PSCustomObject][ordered]@{ DisplayName=$null; EndpointKind='UNKNOWN'; BackendKind='UNKNOWN'; HostMode='UNKNOWN'; EngineVersion=$null; StorageDriver=$null; Rootless=$null; SelectedBy='UNKNOWN'; MachineName=$null; MachineState='UNKNOWN'; MachineCount=0; ConnectionCount=0 }
             Ownership=[PSCustomObject][ordered]@{ Status='UNPROVEN'; MutationPolicy='REPORT_ONLY'; CleanupPolicy='PRESERVE_RUNTIME' }
-            PhysicalBacking=[PSCustomObject][ordered]@{ RuntimeNamespaceStatus='UNAVAILABLE'; HostBackingStatus='UNVERIFIABLE'; LabDataRelation='UNKNOWN' }
+            PhysicalBacking=[PSCustomObject][ordered]@{ RuntimeNamespaceStatus='UNAVAILABLE'; HostBackingStatus='UNVERIFIABLE'; LabDataRelation='UNKNOWN'; BackingStoreCount=0 }
             AllowedActions=@('INSPECT'); BlockedActions=$blockedActions; Issues=@($(if ($Evidence.Issue) { [string]$Evidence.Issue } else { 'RUNTIME_NOT_AVAILABLE' }))
             Summary=[PSCustomObject][ordered]@{ CanUseLabeledResources=$false; CanManageRuntime=$false; RequiresDedicatedOwnershipContract=$true }
         }
@@ -189,7 +354,7 @@ function ConvertTo-LabContainerRuntimeScope {
             MachineCount=$machineCount; ConnectionCount=$connectionCount
         }
         Ownership=[PSCustomObject][ordered]@{ Status='SHARED_EXTERNAL'; MutationPolicy='REPORT_ONLY'; CleanupPolicy='PRESERVE_RUNTIME' }
-        PhysicalBacking=[PSCustomObject][ordered]@{ RuntimeNamespaceStatus=$runtimeNamespaceStatus; HostBackingStatus=$hostBackingStatus; LabDataRelation='UNKNOWN' }
+        PhysicalBacking=[PSCustomObject][ordered]@{ RuntimeNamespaceStatus=$runtimeNamespaceStatus; HostBackingStatus=$hostBackingStatus; LabDataRelation='UNKNOWN'; BackingStoreCount=0 }
         AllowedActions=@('INSPECT','USE_LABELED_RESOURCES'); BlockedActions=$blockedActions; Issues=@($issues | Sort-Object -Unique)
         Summary=[PSCustomObject][ordered]@{ CanUseLabeledResources=($status -eq 'AVAILABLE'); CanManageRuntime=$false; RequiresDedicatedOwnershipContract=$true }
     }
@@ -200,5 +365,7 @@ function Get-LabContainerRuntimeScope {
     param([Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider)
 
     $evidence = Get-LabContainerRuntimeScopeEvidence -Provider $Provider
-    return ConvertTo-LabContainerRuntimeScope -Evidence $evidence
+    $scope = ConvertTo-LabContainerRuntimeScope -Evidence $evidence
+    $backing = Get-LabContainerRuntimeHostBackingEvidence -Scope $scope
+    return (Set-LabContainerRuntimeScopePhysicalBacking -Scope $scope -Evidence $backing)
 }

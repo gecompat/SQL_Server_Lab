@@ -8,6 +8,12 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- Der Cleanup-Audit löst unterstützte lokale Docker-Desktop- und Podman-WSL-
+  Ablagen read-only bis zu VHDX- und Konfigurationsdateien auf. Er klassifiziert
+  Images, Container, Volumes und Build-Cache normalisiert, bindet verwaltete
+  Images an stabile Inventar-IDs und hält alle globalen Runtime-Backings strikt
+  `SHARED_EXTERNAL`/`REPORT_ONLY`. Eine getrennte reale Docker-/Podman-Abnahme
+  bestätigte die Hostdateien und unveränderte Runtime-Ressourcen.
 - Der öffentliche Hyper-V-Daten-VHDX-Lifecycle wählt Quelle und Ziel nur per
   stabiler Storage-/Run-ID. Release prüft alle SQL-Dateibindungen im Gast,
   blockiert aktive Datenbanken, fordert einen sauberen Shutdown an und schreibt
@@ -123,7 +129,7 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 - `Get-SqlServerLabCleanupAudit` liefert mit
   `SqlServerLab.StorageResidencyInventory/1.0` eine stabile read-only Matrix
   für `Lab_Data`, native Docker-/Podman-Volumes, externe Hostpfade,
-  Hyper-V-Ressourcen, Retention, Cleanup-Zuordnung und unverifizierbares
+  Hyper-V-Ressourcen, Retention, Cleanup-Zuordnung und providerseitiges
   physisches Runtime-Backing.
 - `SqlServerLab.CleanupFindings/1.0` trennt im öffentlichen Cleanup-Audit
   bewusst retained und geteilte Ressourcen, unerwartete Residuen,

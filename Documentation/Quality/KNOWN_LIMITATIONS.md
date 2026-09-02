@@ -1066,13 +1066,18 @@ Der read-only `SqlServerLab.ContainerRuntimeScope/1.0`-Vertrag klassifiziert
 den aktiven Docker-Context beziehungsweise die aktive Podman-Connection samt
 Machine über eine stabile endpunktgebundene Runtime-ID. Rohendpunkte, Identity-
 und Runtime-Storage-Pfade werden nicht ausgegeben. Die reale Docker-Desktop-
-und Podman-WSL-Prüfung vom 2026-09-01 bestätigte Context-/Connection-/Machine-
-Bindung und unveränderte Runtime-Ressourcen. Vorhandene Engines und Machines
-bleiben jedoch `SHARED_EXTERNAL`: Ihr physisches Host-Backing ist weiterhin
-`UNVERIFIABLE`, und Runtime-Relocation, Removal, Modus-/Defaultänderung oder
-Adoption fremder Ressourcen bleiben blockiert. Dedizierte Lab-Runtimes sind
-erst nach einem separaten Ownership-, Location-, Capacity-, Recovery-, Update-
-und Cleanup-Vertrag implementierbar.
+und Podman-WSL-Prüfung vom 2026-09-02 bestätigte Context-/Connection-/Machine-
+Bindung, die hostseitigen VHDX- und Konfigurationsdateien, normalisierte Image-,
+Container-, Volume- und Build-Cache-Klassen sowie unveränderte Runtime-
+Ressourcen. Das physische Host-Backing unterstützter lokaler Installationen ist
+im Storage-Residency-Audit `VERIFIED`; der Runtime-Scope veröffentlicht davon
+nur Status und Anzahl. Vorhandene Engines und Machines bleiben dennoch
+`SHARED_EXTERNAL`/`REPORT_ONLY`: Runtime-Relocation, Removal, Modus-/
+Defaultänderung oder Adoption fremder Ressourcen bleiben blockiert. Remote-
+Endpunkte und unbekannte Layouts dürfen weiterhin `REMOTE_EXTERNAL` oder
+`UNVERIFIABLE` melden. Dedizierte Lab-Runtimes sind erst nach einem separaten
+Ownership-, Location-, Capacity-, Recovery-, Update- und Cleanup-Vertrag
+implementierbar.
 Der zweite `HVR-006`-Slice koppelt Lifecycle-Reconcile, Start, Stop,
 Autostartänderung und SQL-WMI-Repair an einen gemeinsamen read-only
 Migrationsguard. Laufende, fehlgeschlagene oder inkonsistent abgeschlossene

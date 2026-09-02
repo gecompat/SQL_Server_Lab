@@ -10,7 +10,9 @@
     unverifizierbare Evidence werden mit Reason-Code und Handlungshinweis
     getrennt ausgegeben; daraus folgt niemals automatische Mutationsautorität.
     Aktive Docker-Contexts und Podman-Connections/Machines werden sanitisiert
-    als read-only Runtime-Scope ausgegeben.
+    als read-only Runtime-Scope ausgegeben. Das Residency-Inventar ergänzt
+    providerseitige Host-Backings, Konfigurationen, verwaltete Images und
+    normalisierte Runtime-Speichernutzung ohne Mutationsautorität.
 .PARAMETER NoWrite
     Gibt den Audit nur zurueck und schreibt kein JSON-Artefakt.
 .PARAMETER StateRoot
@@ -21,8 +23,9 @@
 .OUTPUTS
     PSCustomObject mit Path und Audit. Audit enthaelt Status, Zusammenfassung,
     Datenwurzeln, aktive Runs, gefundene oder unpruefbare Providerressourcen
-    sowie Runtime-Scopes, Storage-Residency, Persistent-Storage-Katalog und
-    read-only Plan sowie getrennte Cleanup-Findings.
+    sowie Runtime-Scopes, Runtime-Speichernutzung, verwaltete Images,
+    Storage-Residency, Persistent-Storage-Katalog und read-only Plan sowie
+    getrennte Cleanup-Findings.
 #>
 function Get-SqlServerLabCleanupAudit {
     [CmdletBinding()]
@@ -58,9 +61,11 @@ function Get-SqlServerLabCleanupAudit {
     $stateRoot = [IO.Path]::GetFullPath($StateRoot)
     $activeRuns = @(Get-LabActiveRuns -StateRoot $stateRoot)
     $knownRunIds = @($activeRuns | ForEach-Object { [string]$_.runId })
-    $runtimeResults = @(); $runtimeScopes = @(); $containers = @(); $managedVolumes = @(); $managedNetworks = @()
+    $runtimeResults = @(); $runtimeScopes = @(); $runtimeStorageUsage = @(); $managedImages = @()
+    $containers = @(); $managedVolumes = @(); $managedNetworks = @()
     foreach ($runtime in @('docker', 'podman')) {
-        $runtimeScopes += Get-LabContainerRuntimeScope -Provider $runtime
+        $runtimeScope = Get-LabContainerRuntimeScope -Provider $runtime
+        $runtimeScopes += $runtimeScope
         try {
             $runtimeResolution = Resolve-LabHostTool -Name $runtime
         }
@@ -90,6 +95,8 @@ function Get-SqlServerLabCleanupAudit {
             continue
         }
         $runtimeResults += [PSCustomObject]@{ Provider=$runtime; Status='AVAILABLE'; Message=$null }
+        $runtimeStorageUsage += @(Get-LabRuntimeStorageUsage -Provider $runtime)
+        $managedImages += @(Get-LabManagedRuntimeImageInventory -Provider $runtime)
         $providerContainers = if ($runtime -eq 'docker') { @(Get-DockerLabContainers) } else { @(Get-PodmanLabContainers) }
         foreach ($container in $providerContainers) {
             $containers += [PSCustomObject]@{
@@ -276,8 +283,14 @@ function Get-SqlServerLabCleanupAudit {
         $legacyStateRoots += [PSCustomObject]@{ Path=$legacyState; RunCount=$legacyRunCount }
     }
 
+    $runtimeHostBackings = @($runtimeScopes | ForEach-Object {
+        Get-LabContainerRuntimeHostBackingEvidence -Scope $_ -KnownRoots $knownRoots
+    })
+
     $storageResidency = Get-LabStorageResidencyInventory -Configuration $configuration -StateRoot $stateRoot `
-        -DataRoots $rootResults -ActiveRuns $activeRuns -RuntimeResults $runtimeResults -ManagedVolumes $managedVolumes `
+        -DataRoots $rootResults -ActiveRuns $activeRuns -RuntimeResults $runtimeResults `
+        -RuntimeHostBackings $runtimeHostBackings -RuntimeStorageUsage $runtimeStorageUsage `
+        -ManagedImages $managedImages -ManagedVolumes $managedVolumes `
         -HyperVStatus $hyperVStatus -HyperVResources $hyperVResources -HyperVRunScopes $hyperVRunScopes -HyperVSharedRoots $hyperVSharedRoots `
         -HyperVUntrackedFiles $hyperVUntrackedFiles -ExternalReferences $externalReferences `
         -RepositoryResidues $repositoryResidues -LegacyStateRoots $legacyStateRoots
@@ -286,7 +299,9 @@ function Get-SqlServerLabCleanupAudit {
     $findings = Get-LabCleanupAuditFindings -ResidencyInventory $storageResidency `
         -PersistentStorageCatalog $persistentStorageCatalog -HyperVRunScopes $hyperVRunScopes -Containers $containers
 
-    $unverifiable = @($runtimeScopes | Where-Object Status -ne 'AVAILABLE').Count + $(if ($hyperVStatus -eq 'UNAVAILABLE') { 1 } else { 0 })
+    $unverifiable = @($runtimeScopes | Where-Object Status -ne 'AVAILABLE').Count +
+        @($runtimeHostBackings | Where-Object Status -eq 'UNVERIFIABLE').Count +
+        $(if ($hyperVStatus -eq 'UNAVAILABLE') { 1 } else { 0 })
     $hyperVProtectionIssues = @($hyperVRunScopes | Where-Object {
         $_.BindingStatus -in @('INVALID','IDENTITY_MISMATCH') -or
         $_.MigrationStatus -in @('RECOVERY_REQUIRED','INVALID') -or
@@ -297,7 +312,8 @@ function Get-SqlServerLabCleanupAudit {
     $audit = [PSCustomObject]@{
         ContractVersion='SqlServerLab.CleanupAudit/1.0'; AuditId=[Guid]::NewGuid().ToString('D'); CreatedAt=Get-LabTimestamp; Status=$status
         ControllerId=[string]$configuration.ControllerId; StateRoot=$stateRoot; DataRoots=$rootResults; ActiveRuns=$activeRuns
-        Runtimes=$runtimeResults; RuntimeScopes=$runtimeScopes; Containers=$containers; ManagedVolumes=$managedVolumes; ManagedNetworks=$managedNetworks
+        Runtimes=$runtimeResults; RuntimeScopes=$runtimeScopes; RuntimeStorageUsage=$runtimeStorageUsage
+        Containers=$containers; ManagedImages=$managedImages; ManagedVolumes=$managedVolumes; ManagedNetworks=$managedNetworks
         HyperV=[PSCustomObject]@{
             Status=$hyperVStatus; Resources=$hyperVResources; RunScopes=$hyperVRunScopes
             SharedRoots=$hyperVSharedRoots; UntrackedFiles=$hyperVUntrackedFiles
@@ -314,6 +330,7 @@ function Get-SqlServerLabCleanupAudit {
         ExternalReferences=$externalReferences; RepositoryResidues=$repositoryResidues; LegacyStateRoots=$legacyStateRoots
         Summary=[PSCustomObject]@{
             ResidualCount=$residualCount; UnverifiableProviders=$unverifiable
+            ManagedImages=@($managedImages).Count; RuntimeBackingStores=@($runtimeHostBackings.Items | Where-Object Kind -eq 'BACKING_STORE').Count
             HyperVProtectionIssues=$hyperVProtectionIssues; HyperVUntrackedFiles=@($hyperVUntrackedFiles).Count
         }
     }
